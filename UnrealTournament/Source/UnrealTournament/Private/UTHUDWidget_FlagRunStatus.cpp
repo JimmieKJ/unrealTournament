@@ -13,7 +13,7 @@ void UUTHUDWidget_FlagRunStatus::DrawStatusMessage(float DeltaTime)
 {
 }
 
-void UUTHUDWidget_FlagRunStatus::DrawIndicators(AUTCTFGameState* GameState, FVector PlayerViewPoint, FRotator PlayerViewRotation)
+void UUTHUDWidget_FlagRunStatus::DrawIndicators(AUTCTFGameState* GameState, FVector PlayerViewPoint, FRotator PlayerViewRotation, float DeltaTime)
 {
 	if (GameState)
 	{

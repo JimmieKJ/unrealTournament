@@ -24,6 +24,13 @@ UUTHUDWidget_CTFFlagStatus::UUTHUDWidget_CTFFlagStatus(const FObjectInitializer&
 	MaxIconScale = 1.f;
 	MinIconScale = 0.75f;
 	bSuppressMessage = false;
+
+	OldFlagState[0] = CarriedObjectState::Home;
+	OldFlagState[1] = CarriedObjectState::Home;
+	StatusChangedScale = 10.f;
+	CurrentStatusScale[0] = 1.f;
+	CurrentStatusScale[1] = 1.f;
+	ScaleDownTime = 0.5f;
 }
 
 void UUTHUDWidget_CTFFlagStatus::InitializeWidget(AUTHUD* Hud)
@@ -46,16 +53,20 @@ void UUTHUDWidget_CTFFlagStatus::Draw_Implementation(float DeltaTime)
 		StatusScale = FMath::Max(StatusScale - 2.f*DeltaTime, 1.f);
 		bStatusDir = (StatusScale < 1.2f);
 	}
+	for (int32 i = 0; i < 2; i++)
+	{
+		CurrentStatusScale[i] = FMath::Max(1.f, CurrentStatusScale[i] - DeltaTime*(StatusChangedScale - 1.f) / ScaleDownTime);
+	}
 
 	FVector ViewPoint;
 	FRotator ViewRotation;
 
 	UTPlayerOwner->GetPlayerViewPoint(ViewPoint, ViewRotation);
-	DrawIndicators(GameState, ViewPoint, ViewRotation);
+	DrawIndicators(GameState, ViewPoint, ViewRotation, DeltaTime);
 	DrawStatusMessage(DeltaTime);
 }
 
-void UUTHUDWidget_CTFFlagStatus::DrawIndicators(AUTCTFGameState* GameState, FVector PlayerViewPoint, FRotator PlayerViewRotation)
+void UUTHUDWidget_CTFFlagStatus::DrawIndicators(AUTCTFGameState* GameState, FVector PlayerViewPoint, FRotator PlayerViewRotation, float DeltaTime)
 {
 	for (int32 Team=0;Team<2;Team++)
 	{
@@ -85,11 +96,23 @@ void UUTHUDWidget_CTFFlagStatus::DrawFlagStatus(AUTCTFGameState* GameState, FVec
 	// Draw the upper indicator
 	if (Flag)
 	{
+		float FlagStatusScale = StatusScale;
+		float AppliedStatusScale = 1.f;
+		if (TeamNum < 2)
+		{
+			if (OldFlagState[TeamNum] != Flag->ObjectState)
+			{
+				CurrentStatusScale[TeamNum] = StatusChangedScale;
+				OldFlagState[TeamNum] = Flag->ObjectState;
+			}
+			AppliedStatusScale = CurrentStatusScale[TeamNum];
+			FlagStatusScale *= AppliedStatusScale;
+		}
 		if (Flag->ObjectState == CarriedObjectState::Held)
 		{
-			YPos += 0.5f * FlagIconTemplate.GetHeight();
+			YPos += 0.5f * AppliedStatusScale * FlagIconTemplate.GetHeight();
 			TakenIconTemplate.RenderColor = 0.8f * FLinearColor::Yellow;
-			RenderObj_TextureAt(TakenIconTemplate, XPos + 0.1f * FlagIconTemplate.GetWidth(), YPos + 0.1f * FlagIconTemplate.GetHeight(), 1.1f * StatusScale * TakenIconTemplate.GetWidth(), 1.1f * StatusScale * TakenIconTemplate.GetHeight());
+			RenderObj_TextureAt(TakenIconTemplate, XPos + 0.1f * FlagIconTemplate.GetWidth(), YPos + 0.1f * FlagIconTemplate.GetHeight(), 1.1f * FlagStatusScale * TakenIconTemplate.GetWidth(), 1.1f * FlagStatusScale * TakenIconTemplate.GetHeight());
 		
 			if (FlagHolder)
 			{
@@ -97,19 +120,20 @@ void UUTHUDWidget_CTFFlagStatus::DrawFlagStatus(AUTCTFGameState* GameState, FVec
 				RenderObj_Text(FlagHolderNameTemplate, IndicatorPosition);
 			}
 
-			float CarriedX = XPos - 0.25f * FlagIconTemplate.GetWidth() * StatusScale;
-			float CarriedY = YPos - 0.25f * FlagIconTemplate.GetHeight() * StatusScale;
+			float CarriedX = XPos - 0.25f * FlagIconTemplate.GetWidth() * FlagStatusScale;
+			float CarriedY = YPos - 0.25f * FlagIconTemplate.GetHeight() * FlagStatusScale;
 
-			RenderObj_TextureAt(FlagIconTemplate, CarriedX, CarriedY, StatusScale * FlagIconTemplate.GetWidth(), StatusScale * FlagIconTemplate.GetHeight());
+			RenderObj_TextureAt(FlagIconTemplate, CarriedX, CarriedY, FlagStatusScale * FlagIconTemplate.GetWidth(), FlagStatusScale * FlagIconTemplate.GetHeight());
 		}
 		else
 		{
-			RenderObj_TextureAt(FlagIconTemplate, XPos, YPos, 1.5f*FlagIconTemplate.GetWidth(), 1.5f*FlagIconTemplate.GetHeight());
+			YPos += 0.5f * AppliedStatusScale * DroppedIconTemplate.GetHeight();
+			RenderObj_TextureAt(FlagIconTemplate, XPos, YPos, 1.5f*AppliedStatusScale*FlagIconTemplate.GetWidth(), 1.5f*AppliedStatusScale*FlagIconTemplate.GetHeight());
 			if (Flag->ObjectState == CarriedObjectState::Dropped)
 			{
-				RenderObj_TextureAt(DroppedIconTemplate, XPos, YPos, 1.5f*DroppedIconTemplate.GetWidth(), 1.5f*DroppedIconTemplate.GetHeight());
+				RenderObj_TextureAt(DroppedIconTemplate, XPos, YPos, 1.5f*AppliedStatusScale*DroppedIconTemplate.GetWidth(), 1.5f*AppliedStatusScale *DroppedIconTemplate.GetHeight());
 				UFont* TinyFont = AUTHUD::StaticClass()->GetDefaultObject<AUTHUD>()->TinyFont;
-				DrawText(GetFlagReturnTime(Flag), XPos, YPos, TinyFont, true, FVector2D(1.f, 1.f), FLinearColor::Black, false, FLinearColor::Black, 2.f, 1.f, FLinearColor::White, FLinearColor(0.f, 0.f, 0.f, 0.f), ETextHorzPos::Center, ETextVertPos::Center);
+				DrawText(GetFlagReturnTime(Flag), XPos, YPos, TinyFont, true, FVector2D(1.f, 1.f), FLinearColor::Black, false, FLinearColor::Black, 2.f*AppliedStatusScale, 1.f, FLinearColor::White, FLinearColor(0.f, 0.f, 0.f, 0.f), ETextHorzPos::Center, ETextVertPos::Center);
 			}
 		}
 	}

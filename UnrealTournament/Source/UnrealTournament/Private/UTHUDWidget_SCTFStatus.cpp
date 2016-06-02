@@ -56,7 +56,7 @@ void UUTHUDWidget_SCTFStatus::DrawStatusMessage(float DeltaTime)
 	RenderObj_Text(SecondaryMessage);
 }
 
-void UUTHUDWidget_SCTFStatus::DrawIndicators(AUTCTFGameState* GameState, FVector PlayerViewPoint, FRotator PlayerViewRotation)
+void UUTHUDWidget_SCTFStatus::DrawIndicators(AUTCTFGameState* GameState, FVector PlayerViewPoint, FRotator PlayerViewRotation, float DeltaTime)
 {
 	if (GameState)
 	{
