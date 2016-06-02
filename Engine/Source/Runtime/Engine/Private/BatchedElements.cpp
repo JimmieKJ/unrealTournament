@@ -63,6 +63,39 @@ void FBatchedElements::AddLine(const FVector& Start, const FVector& End, const F
 	}
 }
 
+void FBatchedElements::AddTranslucentLine(const FVector& Start, const FVector& End, const FLinearColor& Color, FHitProxyId HitProxyId, float Thickness, float DepthBias, bool bScreenSpace)
+{
+	if (Thickness == 0.0f)
+	{
+		if (DepthBias == 0.0f)
+		{
+			new(LineVertices) FSimpleElementVertex(Start, FVector2D::ZeroVector, Color, HitProxyId);
+			new(LineVertices) FSimpleElementVertex(End, FVector2D::ZeroVector, Color, HitProxyId);
+		}
+		else
+		{
+			// Draw degenerate triangles in wireframe mode to support depth bias (d3d11 and opengl3 don't support depth bias on line primitives, but do on wireframes)
+			FBatchedWireTris* WireTri = new(WireTris) FBatchedWireTris();
+			WireTri->DepthBias = DepthBias;
+			new(WireTriVerts) FSimpleElementVertex(Start, FVector2D::ZeroVector, Color, HitProxyId);
+			new(WireTriVerts) FSimpleElementVertex(End, FVector2D::ZeroVector, Color, HitProxyId);
+			new(WireTriVerts) FSimpleElementVertex(End, FVector2D::ZeroVector, Color, HitProxyId);
+		}
+	}
+	else
+	{
+		FBatchedThickLines* ThickLine = new(ThickLines) FBatchedThickLines;
+		ThickLine->Start = Start;
+		ThickLine->End = End;
+		ThickLine->Thickness = Thickness;
+		ThickLine->Color = Color;
+		ThickLine->HitProxyId = HitProxyId;
+		ThickLine->DepthBias = DepthBias;
+		ThickLine->bScreenSpace = bScreenSpace;
+		
+	}
+}
+
 void FBatchedElements::AddPoint(const FVector& Position,float Size,const FLinearColor& Color,FHitProxyId HitProxyId)
 {
 	// Ensure the point isn't masked out.  Some legacy code relies on Color.A being ignored.
@@ -778,8 +811,52 @@ bool FBatchedElements::Draw(FRHICommandList& RHICmdList, ERHIFeatureLevel::Type 
 			// Draw points
 			DrawPointElements(RHICmdList, Transform, ViewportSizeX, ViewportSizeY, CameraX, CameraY);
 
+			// Draw the wireframe triangles.
+			if (WireTris.Num() > 0)
+			{
+				check(WireTriVerts.Num() == WireTris.Num() * 3);
+
+				const bool bEnableMSAA = true;
+				const bool bEnableLineAA = false;
+				FRasterizerStateInitializerRHI Initializer = { FM_Wireframe, CM_None, 0, 0, bEnableMSAA, bEnableLineAA };
+
+				int32 MaxVerticesAllowed = ((GDrawUPVertexCheckCount / sizeof(FSimpleElementVertex)) / 3) * 3;
+				/*
+				hack to avoid a crash when trying to render large numbers of line segments.
+				*/
+				MaxVerticesAllowed = FMath::Min(MaxVerticesAllowed, 64 * 1024);
+
+				const int32 MaxTrisAllowed = MaxVerticesAllowed / 3;
+
+				int32 MinTri = 0;
+				int32 TotalTris = WireTris.Num();
+				while (MinTri < TotalTris)
+				{
+					int32 MaxTri = FMath::Min(MinTri + MaxTrisAllowed, TotalTris);
+					float DepthBias = WireTris[MinTri].DepthBias;
+					for (int32 i = MinTri + 1; i < MaxTri; ++i)
+					{
+						if (DepthBias != WireTris[i].DepthBias)
+						{
+							MaxTri = i;
+							break;
+						}
+					}
+
+					Initializer.DepthBias = DepthBias;
+					RHICmdList.SetRasterizerState(RHICreateRasterizerState(Initializer).GetReference());
+
+					int32 NumTris = MaxTri - MinTri;
+					DrawPrimitiveUP(RHICmdList, PT_TriangleList, NumTris, &WireTriVerts[MinTri * 3], sizeof(FSimpleElementVertex));
+					MinTri = MaxTri;
+				}
+
+				RHICmdList.SetRasterizerState(TStaticRasterizerState<FM_Solid, CM_None>::GetRHI());
+			}
+
 			if ( ThickLines.Num() > 0 )
 			{
+				PrepareShaders(RHICmdList, FeatureLevel, SE_BLEND_Translucent, Transform, bNeedToSwitchVerticalAxis, BatchedElementParameters, GWhiteTexture, bHitTesting, Gamma, NULL, View, DepthTexture);
 				float OrthoZoomFactor = 1.0f;
 
 				if( View )
@@ -885,48 +962,6 @@ bool FBatchedElements::Draw(FRHICommandList& RHICmdList, ERHIFeatureLevel::Type 
 						ThickVertices += 24;
 					}
 					RHICmdList.EndDrawPrimitiveUP();
-				}
-
-				RHICmdList.SetRasterizerState(TStaticRasterizerState<FM_Solid, CM_None>::GetRHI());
-			}
-			// Draw the wireframe triangles.
-			if (WireTris.Num() > 0)
-			{
-				check(WireTriVerts.Num() == WireTris.Num() * 3);
-
-				const bool bEnableMSAA = true;
-				const bool bEnableLineAA = false;
-				FRasterizerStateInitializerRHI Initializer = { FM_Wireframe, CM_None, 0, 0, bEnableMSAA, bEnableLineAA };
-
-				int32 MaxVerticesAllowed = ((GDrawUPVertexCheckCount / sizeof(FSimpleElementVertex)) / 3) * 3;
-				/*
-				hack to avoid a crash when trying to render large numbers of line segments.
-				*/
-				MaxVerticesAllowed = FMath::Min(MaxVerticesAllowed, 64 * 1024);
-
-				const int32 MaxTrisAllowed = MaxVerticesAllowed / 3;
-
-				int32 MinTri=0;
-				int32 TotalTris = WireTris.Num();
-				while( MinTri < TotalTris )
-				{
-					int32 MaxTri = FMath::Min(MinTri + MaxTrisAllowed, TotalTris);
-					float DepthBias = WireTris[MinTri].DepthBias;
-					for (int32 i = MinTri + 1; i < MaxTri; ++i)
-					{
-						if (DepthBias != WireTris[i].DepthBias)
-						{
-							MaxTri = i;
-							break;
-						}
-					}
-
-					Initializer.DepthBias = DepthBias;
-					RHICmdList.SetRasterizerState(RHICreateRasterizerState(Initializer).GetReference());
-
-					int32 NumTris = MaxTri - MinTri;
-					DrawPrimitiveUP(RHICmdList, PT_TriangleList, NumTris, &WireTriVerts[MinTri * 3], sizeof(FSimpleElementVertex));
-					MinTri = MaxTri;
 				}
 
 				RHICmdList.SetRasterizerState(TStaticRasterizerState<FM_Solid, CM_None>::GetRHI());
