@@ -2015,6 +2015,11 @@ bool AUTGameMode::UTIsHandlingReplays()
 	{
 		return false;
 	}
+	
+#if !(UE_BUILD_SHIPPING)
+	//Ignore bRecordReplays for non-shipping builds and always record replays on servers.
+	return GetNetMode() == ENetMode::NM_DedicatedServer;
+#endif
 
 	return bRecordReplays && GetNetMode() == ENetMode::NM_DedicatedServer;
 }
