@@ -507,6 +507,12 @@ void AUTLobbyGameState::LaunchGameInstance(AUTLobbyMatchInfo* MatchOwner, FStrin
 			Options += TEXT(" -SLevel=") + SLevel;
 		}
 
+		FString BuildIdOverride;
+		if (FParse::Value(FCommandLine::Get(), TEXT("BuildIdOverride="), BuildIdOverride))
+		{
+			Options += TEXT(" -BuildIdOverride=") + BuildIdOverride;
+		}
+
 		UE_LOG(UT,Verbose,TEXT("Launching %s with Params %s"), *ExecPath, *Options);
 
 		MatchOwner->GameInstanceProcessHandle = FPlatformProcess::CreateProc(*ExecPath, *Options, true, false, false, NULL, 0, NULL, NULL);
