@@ -85,6 +85,15 @@ protected:
 	 * @param InGameSessionOwner owner of this world cloud save
 	 */
 	void SetUserConfiguration(const FEmptyServerReservation& InReservationData, const TSharedPtr<const FUniqueNetId>& InGameSessionOwner);
+	
+	/**
+	 * Determine the team number for the given party reservation request.
+	 * Uses the list of current reservations to determine what teams have open slots.
+	 *
+	 * @param PartyRequest the party reservation request received from the client beacon
+	 * @return index of the team to assign to all members of this party
+	 */
+	virtual int32 GetTeamAssignment(const FPartyReservation& Party) override;
 
 	friend class AUTPartyBeaconHost;
 };
