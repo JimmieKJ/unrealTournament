@@ -136,8 +136,8 @@ void SUTPartyWidget::SetupPartyMemberBox()
 					+ SOverlay::Slot()
 					[
 						SNew(SBox)
-						.WidthOverride(96)
-						.HeightOverride(96)
+						.WidthOverride(128)
+						.HeightOverride(128)
 						[
 							SNew(SImage)
 							.Image(SUTStyle::Get().GetBrush("UT.Icon.PartyLeader"))
@@ -146,11 +146,11 @@ void SUTPartyWidget::SetupPartyMemberBox()
 					+ SOverlay::Slot()
 					[
 						SNew(SBox)
-						.WidthOverride(96)
-						.HeightOverride(96)
+						.WidthOverride(128)
+						.HeightOverride(128)
 						[
-							SNew(SHorizontalBox)
-							+SHorizontalBox::Slot()
+							SNew(SVerticalBox)
+							+SVerticalBox::Slot()
 							.HAlign(HAlign_Center)
 							.VAlign(VAlign_Center)
 							[
@@ -158,6 +158,25 @@ void SUTPartyWidget::SetupPartyMemberBox()
 								.Text(NSLOCTEXT("SUTPartyWidget", "PartyTitle", "Party"))
 								.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Medium.Bold")
 								.Visibility(bPartyMenuCollapsed ? EVisibility::Visible : EVisibility::Collapsed)
+							]
+							+SVerticalBox::Slot()
+							.HAlign(HAlign_Center)
+							.VAlign(VAlign_Bottom)
+							.Padding(0, 10)
+							[
+								SNew(SOverlay)
+								+ SOverlay::Slot()
+								[
+									SNew(SImage)
+									.Image(SUTStyle::Get().GetBrush("UT.HeaderBackground.Dark"))
+								]
+								+ SOverlay::Slot()
+								[
+									SNew(STextBlock)
+									.Text(PartyMembers[i])
+									.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Tiny.Bold")
+									.Visibility(bPartyMenuCollapsed ? EVisibility::Collapsed : EVisibility::Visible)
+								]
 							]
 						]
 					]
@@ -258,11 +277,39 @@ void SUTPartyWidget::SetupPartyMemberBox()
 					+ SOverlay::Slot()
 					[
 						SNew(SBox)
-						.WidthOverride(96)
-						.HeightOverride(96)
+						.WidthOverride(128)
+						.HeightOverride(128)
 						[
 							SNew(SImage)
 							.Image(SUTStyle::Get().GetBrush("UT.Icon.PartyMember"))
+						]
+					]
+					+ SOverlay::Slot()
+					[
+						SNew(SBox)
+						.WidthOverride(128)
+						.HeightOverride(128)
+						[
+							SNew(SVerticalBox)
+							+SVerticalBox::Slot()
+							.HAlign(HAlign_Center)
+							.VAlign(VAlign_Bottom)
+							.Padding(0, 10)
+							[
+								SNew(SOverlay)
+								+ SOverlay::Slot()
+								[
+									SNew(SImage)
+									.Image(SUTStyle::Get().GetBrush("UT.HeaderBackground.Dark"))
+								]
+								+ SOverlay::Slot()
+								[
+									SNew(STextBlock)
+									.Text(PartyMembers[i])
+									.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Tiny.Bold")
+									.Visibility(bPartyMenuCollapsed ? EVisibility::Collapsed : EVisibility::Visible)
+								]
+							]
 						]
 					]
 				]
@@ -314,8 +361,8 @@ void SUTPartyWidget::SetupPartyMemberBox()
 				+ SOverlay::Slot()
 				[
 					SNew(SBox)
-					.WidthOverride(96)
-					.HeightOverride(96)
+					.WidthOverride(128)
+					.HeightOverride(128)
 					[
 						SNew(SImage)
 						.Image(SUTStyle::Get().GetBrush("UT.Icon.PartyMember.Empty"))
