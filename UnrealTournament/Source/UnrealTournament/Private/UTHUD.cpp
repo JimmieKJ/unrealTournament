@@ -1382,9 +1382,9 @@ void AUTHUD::NotifyKill(APlayerState* POVPS, APlayerState* KillerPS, APlayerStat
 
 void AUTHUD::PlayKillNotification()
 {
-	if (GetPlayKillSoundMsg())
+	if (GetPlayKillSoundMsg() && UTPlayerOwner)
 	{
-		PlayerOwner->ClientPlaySound(KillSound);
+		UTPlayerOwner->UTClientPlaySound(KillSound);
 	}
 }
 

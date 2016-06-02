@@ -141,6 +141,9 @@ public:
 	UPROPERTY()
 		USoundClass* PriorityFXSoundClass;
 
+	UFUNCTION(unreliable, client)
+		void UTClientPlaySound(class USoundBase* Sound);
+
 	virtual void BeginPlay() override;
 	virtual void Destroyed() override;
 	virtual void InitInputSystem() override;

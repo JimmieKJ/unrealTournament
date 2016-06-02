@@ -100,12 +100,12 @@ void AUTHUD_Showdown::NotifyKill(APlayerState* POVPS, APlayerState* KillerPS, AP
 
 void AUTHUD_Showdown::PlayTeamKillNotification()
 {
-	PlayerOwner->ClientPlaySound(TeamKillSound);
+	UTPlayerOwner->UTClientPlaySound(TeamKillSound);
 }
 
 void AUTHUD_Showdown::PlayTeamVictimNotification()
 {
-	PlayerOwner->ClientPlaySound(TeamVictimSound);
+	UTPlayerOwner->UTClientPlaySound(TeamVictimSound);
 }
 
 UUTHUDWidget* AUTHUD_Showdown::AddHudWidget(TSubclassOf<UUTHUDWidget> NewWidgetClass)
@@ -200,7 +200,7 @@ void AUTHUD_Showdown::DrawHUD()
 			if (GS->bStartingSpawnSelection)
 			{
 				GS->bStartingSpawnSelection = false;
-				UTPlayerOwner->ClientPlaySound(MapOpenSound);
+				UTPlayerOwner->UTClientPlaySound(MapOpenSound);
 			}
 			bDrewSpawnMap = true;
 			if (!bLockedLookInput)

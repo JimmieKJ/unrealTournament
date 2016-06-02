@@ -953,7 +953,7 @@ void SUTMatchSummaryPanel::Tick(const FGeometry& AllottedGeometry, const double 
 			{
 				if (UTPC->MyUTHUD->GetScoreboard())
 				{
-					UTPC->ClientPlaySound(UTPC->MyUTHUD->GetScoreboard()->ScoreUpdateSound, 3.f);
+					UTPC->UTClientPlaySound(UTPC->MyUTHUD->GetScoreboard()->ScoreUpdateSound);
 				}
 			}
 		}
@@ -1038,7 +1038,7 @@ void SUTMatchSummaryPanel::SetupIntroCam()
 	USoundBase* Music = LoadObject<USoundBase>(NULL, TEXT("/Game/RestrictedAssets/Audio/Music/Music_FragCenterIntro.Music_FragCenterIntro"), NULL, LOAD_NoWarn | LOAD_Quiet);
 	if (UTPC != nullptr && Music != nullptr)
 	{
-		UTPC->ClientPlaySound(Music);
+		UTPC->UTClientPlaySound(Music);
 	}
 }
 

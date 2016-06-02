@@ -38,7 +38,7 @@ void UUTCountDownMessage::ClientReceive(const FClientReceiveData& ClientData) co
 		}
 		if (TimeWarningSound && (TimeValue < 6))
 		{
-			PC->ClientPlaySound(TimeWarningSound);
+			PC->UTClientPlaySound(TimeWarningSound);
 		}
 	}
 }

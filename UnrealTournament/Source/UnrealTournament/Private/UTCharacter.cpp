@@ -649,7 +649,7 @@ void AUTCharacter::HeadShotBlocked()
 	AUTPlayerController* MyPC = Cast<AUTPlayerController>(GetController());
 	if (MyPC)
 	{
-		MyPC->ClientPlaySound(HeadShotBlockedSound, 10.f);
+		MyPC->UTClientPlaySound(HeadShotBlockedSound);
 	}
 }
 

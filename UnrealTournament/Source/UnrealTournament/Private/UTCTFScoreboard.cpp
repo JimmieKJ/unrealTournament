@@ -134,7 +134,7 @@ void UUTCTFScoreboard::DrawScoringPlays(float DeltaTime, float& YPos, float XOff
 	float TimeFloor = FMath::FloorToInt(TimeLineOffset);
 	if (UTPlayerOwner && (TimeFloor + 1 <= TotalPlays) && (TimeFloor != FMath::FloorToInt(OldTimeLineOffset)))
 	{
-		UTPlayerOwner->ClientPlaySound(ScoreUpdateSound);
+		UTPlayerOwner->UTClientPlaySound(ScoreUpdateSound);
 	}
 	int32 NumPlays = FMath::Min(TotalPlays, int32(TimeFloor) + 1);
 	int32 SmallPlays = FMath::Clamp(2 * (NumPlays - 7), 0, NumPlays - 1);

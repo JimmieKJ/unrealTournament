@@ -788,7 +788,7 @@ void AUTPlayerController::ServerActivatePowerUpPress_Implementation()
 		AUTGameMode* UTGM = GetWorld()->GetAuthGameMode<AUTGameMode>();
 		if (UTGM && UTGM->CanBoost(this))
 		{
-			ClientPlaySound(BoostActivateSound);
+			UTClientPlaySound(BoostActivateSound);
 			GetWorldTimerManager().SetTimer(TriggerBoostTimerHandle, this, &AUTPlayerController::TriggerBoost, TimeToHoldPowerUpButtonToActivate, false);
 			// spawn effect
 			TSubclassOf<AUTInventory> ActivatedPowerupPlaceholderClass = UTGM ? UTGM->GetActivatedPowerupPlaceholderClass() : nullptr;
@@ -3603,9 +3603,14 @@ void AUTPlayerController::ClientSay_Implementation(AUTPlayerState* Speaker, cons
 	UUTGameUserSettings* GS = Cast<UUTGameUserSettings>(GEngine->GetGameUserSettings());
 	if (Speaker == NULL || !Speaker->bIsABot || GS == NULL || GS->GetBotSpeech() > BSO_None)
 	{
-		ClientPlaySound(ChatMsgSound);
+		UTClientPlaySound(ChatMsgSound);
 		Super::ClientSay_Implementation(Speaker, Message, Destination);
 	}
+}
+
+void AUTPlayerController::UTClientPlaySound_Implementation(USoundBase* Sound)
+{
+	UUTGameplayStatics::UTPlaySound(GetWorld(), Sound, this, SRT_None, true, FVector::ZeroVector, nullptr, nullptr, false, SAT_None);
 }
 
 void AUTPlayerController::RconMap(FString NewMap)

@@ -737,9 +737,9 @@ void AUTRemoteRedeemer::PostRender(AUTHUD* HUD, UCanvas* C)
 			}
 		}
 	}
-	if ((NewLockCount > LockCount) && HUD && HUD->PlayerOwner)
+	if ((NewLockCount > LockCount) && HUD && HUD->UTPlayerOwner)
 	{
-		HUD->PlayerOwner->ClientPlaySound(LockAcquiredSound, 1.f);
+		HUD->UTPlayerOwner->UTClientPlaySound(LockAcquiredSound);
 	}
 
 	LockCount = NewLockCount;

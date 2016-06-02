@@ -30,7 +30,7 @@ void UUTCTFMajorMessage::ClientReceive(const FClientReceiveData& ClientData) con
 	AUTPlayerController* PC = Cast<AUTPlayerController>(ClientData.LocalPC);
 	if (PC && (ClientData.MessageIndex == 21))
 	{
-		PC->ClientPlaySound(FlagWarningSound);
+		PC->UTClientPlaySound(FlagWarningSound);
 	}
 }
 

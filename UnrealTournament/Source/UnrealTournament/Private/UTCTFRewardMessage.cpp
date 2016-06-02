@@ -47,7 +47,7 @@ void UUTCTFRewardMessage::ClientReceive(const FClientReceiveData& ClientData) co
 		AUTPlayerController* PC = Cast<AUTPlayerController>(ClientData.LocalPC);
 		if (PC != NULL)
 		{
-			PC->ClientPlaySound(EarnedBoostSound);
+			PC->UTClientPlaySound(EarnedBoostSound);
 		}
 	}
 }

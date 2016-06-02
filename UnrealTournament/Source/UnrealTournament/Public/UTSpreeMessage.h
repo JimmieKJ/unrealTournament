@@ -102,7 +102,7 @@ class UNREALTOURNAMENT_API UUTSpreeMessage : public UUTLocalMessage
 			USoundBase* SoundToPlay = (ClientData.MessageIndex > 0) ? OtherSpreeSound : OtherSpreeEndedSound;
 			if (SoundToPlay != NULL)
 			{
-				PC->ClientPlaySound(SoundToPlay);
+				PC->UTClientPlaySound(SoundToPlay);
 			}
 		}
 	}

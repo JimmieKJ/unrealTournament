@@ -141,7 +141,7 @@ void AUTCTFFlagBase::ObjectWasPickedUp(AUTCharacter* NewHolder, bool bWasHome)
 			AUTPlayerController* PC = Cast<AUTPlayerController>(*Iterator);
 			if (PC && ((PC->PlayerState && PC->PlayerState->bOnlySpectator) || (PC->GetTeamNum() == GetTeamNum())))
 			{
-				PC->ClientPlaySound(FlagTakenSound, 1.f);
+				PC->UTClientPlaySound(FlagTakenSound);
 			}
 			else if (PC)
 			{

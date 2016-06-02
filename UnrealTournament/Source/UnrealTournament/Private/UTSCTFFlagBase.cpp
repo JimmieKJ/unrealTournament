@@ -88,7 +88,7 @@ void AUTSCTFFlagBase::OnOverlapBegin(AActor* OtherActor, UPrimitiveComponent* Ot
 						{
 							if (GetTeamNum() == PC->GetTeamNum() && FlagScoreRewardSound)
 							{
-								PC->ClientPlaySound(FlagScoreRewardSound, 2.f);
+								PC->UTClientPlaySound(FlagScoreRewardSound);
 							}
 						}
 					}

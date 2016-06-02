@@ -41,7 +41,7 @@ void UUTShowdownRewardMessage::ClientReceive(const FClientReceiveData& ClientDat
 		{
 			if (TerminationSound != NULL)
 			{
-				PC->ClientPlaySound(TerminationSound);
+				PC->UTClientPlaySound(TerminationSound);
 			}
 		}
 	}

@@ -52,7 +52,6 @@ public:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Message)
 		FText EnemyTeamSpecialEarned;
 
-
 	/** sound played when enemy team boost is earned */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Message)
 		USoundBase* EnemyEarnedBoostSound;
@@ -65,7 +64,7 @@ public:
 			AUTPlayerController* PC = Cast<AUTPlayerController>(ClientData.LocalPC);
 			if (PC != NULL)
 			{
-				PC->ClientPlaySound(EnemyEarnedBoostSound);
+				PC->UTClientPlaySound(EnemyEarnedBoostSound);
 			}
 		}
 	}

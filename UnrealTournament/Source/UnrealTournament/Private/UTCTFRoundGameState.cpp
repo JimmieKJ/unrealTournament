@@ -210,7 +210,7 @@ void AUTCTFRoundGameState::OnBonusLevelChanged()
 				AUTPlayerController* PC = Cast<AUTPlayerController>(It->PlayerController);
 				if (PC && PC->IsLocalPlayerController())
 				{
-					PC->ClientPlaySound(SoundToPlay);
+					PC->UTClientPlaySound(SoundToPlay);
 				}
 			}
 		}
