@@ -254,6 +254,8 @@ void AUTBaseGameMode::PostLogin(APlayerController* NewPlayer)
 
 void AUTBaseGameMode::GenericPlayerInitialization(AController* C)
 {
+	Super::GenericPlayerInitialization(C);
+
 	AUTBasePlayerController* PC = Cast<AUTBasePlayerController>(C);
 	if (PC)
 	{
