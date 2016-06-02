@@ -72,7 +72,7 @@ bool IsSilence(T* Buffer, int32 BuffSize)
 
 	double AverageMeanSquare = SumMeanSquare / IterSize;
 
-	static double Threshold = 75.0 * 75.0;
+	static double Threshold = 40000.0; //75.0 * 75.0;
 	return AverageMeanSquare < Threshold;
 }
 
