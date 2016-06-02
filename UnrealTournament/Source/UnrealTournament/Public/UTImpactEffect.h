@@ -56,6 +56,9 @@ class UNREALTOURNAMENT_API AUTImpactEffect : public AActor
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Effects)
 	USoundBase* Audio;
 
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Effects)
+		TEnumAsByte<ESoundAmplificationType> AudioSAT;
+
 	/** if given a value, materials in created components will have this parameter set to the world time they were created */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Effects)
 	FName WorldTimeParam;
