@@ -66,6 +66,6 @@ float AUTFlagRunGame::OverrideRespawnTime(TSubclassOf<AUTInventory> InventoryTyp
 		return 0.f;
 	}
 	AUTWeapon* WeaponDefault = Cast<AUTWeapon>(InventoryType.GetDefaultObject());
-	return (WeaponDefault && !WeaponDefault->bMustBeHolstered) ? 0.5f*WeaponDefault->RespawnTime : InventoryType.GetDefaultObject()->RespawnTime;
+	return (WeaponDefault && !WeaponDefault->bMustBeHolstered) ? 20.f : InventoryType.GetDefaultObject()->RespawnTime;
 }
 
