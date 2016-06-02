@@ -216,16 +216,13 @@ void UUTHUDWidget_FlagRunStatus::DrawFlagWorld(AUTCTFGameState* GameState, FVect
 		CircleBorderTemplate.RenderOpacity = 1.f;
 
 		// draw line from hud to this loc - can't used Canvas line drawing code because it doesn't support translucency
-		FVector2D LineEndPoint(ScreenPosition.X+RenderPosition.X, ScreenPosition.Y+RenderPosition.Y);
-		FCanvasLineItem LineItem(LineEndPoint, FVector2D(0.5f*Canvas->ClipX, 0.12f*Canvas->ClipY));
-		LineItem.LineThickness = 8.f;
-		LineItem.BlendMode = ESimpleElementBlendMode::SE_BLEND_Translucent;
+		FVector LineEndPoint(ScreenPosition.X+RenderPosition.X, ScreenPosition.Y+RenderPosition.Y, 0.f);
+		FVector LineStartPoint(0.5f*Canvas->ClipX, 0.12f*Canvas->ClipY, 0.f);
 		FLinearColor LineColor = FlagIconTemplate.RenderColor;
 		LineColor.A = 0.05f;
-		LineItem.SetColor(LineColor);
 		FBatchedElements* BatchedElements = Canvas->Canvas->GetBatchedElements(FCanvas::ET_Line);
 		FHitProxyId HitProxyId = Canvas->Canvas->GetHitProxyId();
-		BatchedElements->AddTranslucentLine(LineItem.Origin, LineItem.EndPos, LineColor, HitProxyId, LineItem.LineThickness);
+		BatchedElements->AddTranslucentLine(LineEndPoint, LineStartPoint, LineColor, HitProxyId, 8.f);
 	}
 	else if (bIsEnemyFlag)
 	{
