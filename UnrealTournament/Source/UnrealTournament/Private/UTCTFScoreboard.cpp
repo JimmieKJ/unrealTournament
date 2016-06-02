@@ -228,12 +228,18 @@ void UUTCTFScoreboard::DrawScoringPlays(float DeltaTime, float& YPos, float XOff
 			int32 RoundBonus = FMath::Max(Play.RedBonus, Play.BlueBonus);
 			if ((RoundBonus > 0) && !Play.bDefenseWon)
 			{
-				Canvas->SetLinearDrawColor(FLinearColor::Yellow);
+				FLinearColor BonusColor = FLinearColor::White;
 				FString BonusString = (RoundBonus >= 60) ? TEXT("\u2605 \u2605") : TEXT("\u2605");
 				if (RoundBonus >= 120)
 				{
 					BonusString = TEXT("\u2605 \u2605 \u2605");
+					BonusColor = FLinearColor(1.f, 0.9f, 0.3f);
 				}
+				else if (RoundBonus < 60)
+				{
+					BonusColor = FLinearColor(0.48f, 0.25f, 0.18f);;
+				}
+				Canvas->SetLinearDrawColor(BonusColor);
 				float BonusOffsetX, BonusOffsetY;
 				Canvas->TextSize(UTHUDOwner->SmallFont, BonusString, BonusOffsetX, BonusOffsetY, RenderScale, RenderScale);
 				Canvas->DrawText(UTHUDOwner->SmallFont, BonusString, XOffset + 0.35f*ScoreWidth, YPos - 0.1f*BonusOffsetY, RenderScale, RenderScale, TextRenderInfo);
