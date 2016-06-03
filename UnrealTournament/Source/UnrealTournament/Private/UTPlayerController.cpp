@@ -1854,7 +1854,7 @@ void AUTPlayerController::ClientHearSound_Implementation(USoundBase* TheSound, A
 					PitchMultiplier = CustomAmp.TeammatePitchMultiplier;
 				}
 			}
-			if (bSkipIfOccluded || (bSkipIfTeammateOccluded && bSameTeam) || ((CustomAmp.OccludedAttenuation != nullptr) && !bAmplifyVolume && !bInstigatedSound))
+			if (!bAmplifyVolume && !bInstigatedSound && (bSkipIfOccluded || (bSkipIfTeammateOccluded && bSameTeam) || (CustomAmp.OccludedAttenuation != nullptr)))
 			{
 				// if further than half audible radius, skip if occluded
 				float MaxAudibleDistance = TheSound->GetAttenuationSettingsToApply() ? TheSound->GetAttenuationSettingsToApply()->GetMaxDimension() : 4000.f;
