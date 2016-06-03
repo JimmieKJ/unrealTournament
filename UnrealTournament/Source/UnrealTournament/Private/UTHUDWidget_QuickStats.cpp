@@ -27,12 +27,9 @@ void UUTHUDWidget_QuickStats::InitializeWidget(AUTHUD* Hud)
 
 	DrawAngle = 0.0f;
 	CurrentLayoutIndex = 0;
-
 	HealthInfo.TextColor = FLinearColor(0.4f, 0.95f, 0.48f, 1.0f);
 	HealthInfo.IconColor = HealthInfo.TextColor;
-
 	FlagInfo.bNoText = false;
-
 }
 
 bool UUTHUDWidget_QuickStats::ShouldDraw_Implementation(bool bShowScores)
@@ -41,7 +38,6 @@ bool UUTHUDWidget_QuickStats::ShouldDraw_Implementation(bool bShowScores)
 	{
 		return false;
 	}
-
 	if (UTHUDOwner->bShowComsMenu || UTHUDOwner->bShowWeaponWheel)
 	{
 		return false;
@@ -99,12 +95,12 @@ void UUTHUDWidget_QuickStats::PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCa
 	AUTPlayerState* UTPlayerState = CharOwner != nullptr ? Cast<AUTPlayerState>(CharOwner->PlayerState) : nullptr;
 	if (CharOwner && UTPlayerState)
 	{
-		if (UTHUDOwner->UTPlayerOwner && UTHUDOwner->UTPlayerOwner->WeaponBobGlobalScaling > 0 && (InUTHUDOwner->GetQuickStatsBob()))
+/*		if (UTHUDOwner->UTPlayerOwner && UTHUDOwner->UTPlayerOwner->WeaponBobGlobalScaling > 0 && InUTHUDOwner->GetQuickStatsBob())
 		{
 			RenderPosition.X += 4.0f * CharOwner->CurrentWeaponBob.Y;
 			RenderPosition.Y -= 4.0f * CharOwner->CurrentWeaponBob.Z;
 		}
-	
+*/	
 		AUTWeapon* Weap = CharOwner->GetWeapon();
 
 		WeaponColor = Weap ? Weap->IconColor : FLinearColor::White;
@@ -147,13 +143,10 @@ void UUTHUDWidget_QuickStats::PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCa
 		// ----------------- Armor / Inventory
 
 		bool bHasShieldBelt = false;
-
 		bool bArmorVisible = false;
 		bool bBootsVisible = false;
-
 		BootsInfo.Value = 0;
 		ArmorInfo.Value = 0;
-
 		AUTTimedPowerup* CurrentPowerup = nullptr;
 
 		for (TInventoryIterator<> It(CharOwner); It; ++It)
@@ -510,14 +503,7 @@ void UUTHUDWidget_QuickStats::DrawStat(FVector2D StatOffset, FStatInfo& Info, FH
 
 void UUTHUDWidget_QuickStats::GetHighlightStrength(FStatInfo& Stat, float Perc, float WarnPerc)
 {
-	if (Perc <= WarnPerc)
-	{
-		Stat.HighlightStrength = FMath::Max(0.1875f, 1.0f - (Perc / WarnPerc));
-	}
-	else
-	{
-		Stat.HighlightStrength = 0.0f;
-	}
+	Stat.HighlightStrength = (Perc <= WarnPerc) ? FMath::Max(0.1875f, 1.0f - (Perc / WarnPerc)) : 0.0f;
 }
 
 FLinearColor UUTHUDWidget_QuickStats::InterpColor(FLinearColor DestinationColor, float Delta)
