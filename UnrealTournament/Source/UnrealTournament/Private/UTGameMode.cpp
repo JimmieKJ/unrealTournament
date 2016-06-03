@@ -3800,7 +3800,21 @@ void AUTGameMode::UpdatePlayersPresence()
 
 	if (GameSession)
 	{
-		GameSession->UpdateSessionJoinability(GameSessionName, true, bAllowInvites, bAllowJoinInProgress, false);
+		const auto OnlineSub = IOnlineSubsystem::Get();
+		if (OnlineSub)
+		{
+			const auto SessionInterface = OnlineSub->GetSessionInterface();
+			if (SessionInterface.IsValid())
+			{
+				EOnlineSessionState::Type State = SessionInterface->GetSessionState(GameSessionName);
+				if (State == EOnlineSessionState::Pending ||
+					State == EOnlineSessionState::Starting ||
+					State == EOnlineSessionState::InProgress)
+				{
+					GameSession->UpdateSessionJoinability(GameSessionName, true, bAllowInvites, bAllowJoinInProgress, false);
+				}
+			}
+		}
 	}
 
 
