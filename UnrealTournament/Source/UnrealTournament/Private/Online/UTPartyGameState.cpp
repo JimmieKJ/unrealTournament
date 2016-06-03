@@ -277,3 +277,15 @@ void UUTPartyGameState::SetPartyCancelQuickMatch()
 	OnLeaderPartyStateChanged().Broadcast(PartyState.PartyProgression);
 	UpdatePartyData(OwningUserId);
 }
+
+bool UUTPartyGameState::IsInJoinableGameState() const
+{
+	if (PartyState.PartyProgression == EUTPartyState::Matchmaking ||
+		PartyState.PartyProgression == EUTPartyState::PostMatchmaking ||
+		PartyState.PartyProgression == EUTPartyState::TravelToServer)
+	{
+		return false;
+	}
+
+	return Super::IsInJoinableGameState();
+}

@@ -143,6 +143,7 @@ private:
 	void OnConnectToLobby(const FOnlineSessionSearchResult& SearchResult);
 
 	virtual void ComparePartyData(const FPartyState& OldPartyData, const FPartyState& NewPartyData) override;
+	virtual bool IsInJoinableGameState() const override;
 
 	friend UUTParty;
 	friend UUTPartyMemberState;

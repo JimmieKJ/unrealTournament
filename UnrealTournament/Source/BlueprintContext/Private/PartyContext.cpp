@@ -305,10 +305,11 @@ void UPartyContext::OnJoinPartyCompleteInternal(const FUniqueNetId& LocalUserId,
 
 void UPartyContext::HandleJoinPartyFailure(EJoinPartyCompletionResult Result, int32 DeniedResultCode)
 {
-	UUTGameInstance* GameInstance = GetGameInstance<UUTGameInstance>();
-	check(GameInstance);
-
-	// Let something know we failed
+	UUTLocalPlayer* LocalPlayer = GetOwningPlayer<UUTLocalPlayer>();
+	if (LocalPlayer)
+	{
+		LocalPlayer->ShowToast(NSLOCTEXT("UPartyContext", "FailPartyJoin", "Could not join party, it may be in matchmaking"));
+	}
 }
 
 int32 UPartyContext::GetPartySize() const
