@@ -113,6 +113,7 @@ FCanvasIcon AUTPickup::GetMinimapIcon() const
 
 void AUTPickup::Reset_Implementation()
 {
+	GetWorld()->GetTimerManager().ClearTimer(WakeUpTimerHandle);
 	if (bDelayedSpawn)
 	{
 		State.bRepTakenEffects = false;
