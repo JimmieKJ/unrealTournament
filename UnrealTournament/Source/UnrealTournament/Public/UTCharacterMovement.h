@@ -382,6 +382,14 @@ public:
 	UPROPERTY(Category = "FloorSlide", EditAnywhere, BlueprintReadWrite)
 	float FloorSlideBonusTapInterval;
 
+	/** JumpZ velocity for pre-slide jump when press slide button without first being in the air. */
+	UPROPERTY(Category = "FloorSlide", EditAnywhere, BlueprintReadWrite)
+		float FloorSlideJumpZ;
+
+	/** true when press slide button without first being in the air. */
+	UPROPERTY(Category = "FloorSlide", EditAnywhere, BlueprintReadWrite)
+		bool bSlideFromGround;
+
 	virtual void ClearFloorSlideTap();
 
 	FTimerHandle FloorSlideTapHandle;

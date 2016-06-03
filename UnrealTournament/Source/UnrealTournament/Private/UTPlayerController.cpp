@@ -1672,7 +1672,6 @@ void AUTPlayerController::StopSlide()
 	UUTCharacterMovement* MyCharMovement = UTCharacter ? UTCharacter->UTCharacterMovement : NULL;
 	if (MyCharMovement)
 	{
-		MyCharMovement->bWantsToCrouch = false;
 		MyCharMovement->UpdateFloorSlide(false);
 	}
 }

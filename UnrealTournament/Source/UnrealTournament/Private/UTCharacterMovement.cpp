@@ -70,6 +70,7 @@ UUTCharacterMovement::UUTCharacterMovement(const class FObjectInitializer& Objec
 	NavAgentProps.AgentStepHeight = MaxStepHeight; // warning: must be manually mirrored, won't be set automatically
 	CrouchedHalfHeight = 69.0f;
 	SlopeDodgeScaling = 0.93f;
+	bSlideFromGround = false;
 
 	FloorSlideAcceleration = 1300.f;
 	MaxFloorSlideSpeed = MaxWalkSpeed;
@@ -99,6 +100,7 @@ UUTCharacterMovement::UUTCharacterMovement(const class FObjectInitializer& Objec
 	SlideGravityScaling = 0.15f;
 	MinWallSlideSpeed = 500.f;
 	MaxSlideWallDist = 20.f;
+	FloorSlideJumpZ = 350.f;
 
 	NavAgentProps.bCanCrouch = true;
 
@@ -893,12 +895,14 @@ bool UUTCharacterMovement::PerformDodge(FVector &DodgeDir, FVector &DodgeCross)
 
 void UUTCharacterMovement::HandleSlideRequest()
 {
-	UpdateFloorSlide(true);
 	AUTCharacter* UTCharacterOwner = Cast<AUTCharacter>(CharacterOwner);
 	if (!Acceleration.IsNearlyZero() && (Velocity.Size() > 0.7f * MaxWalkSpeed) && UTCharacterOwner->CanDodge())
 	{
-		bWantsToCrouch = true;
 		bPressedSlide = true;
+		if (IsMovingOnGround() && CharacterOwner)
+		{
+			CharacterOwner->bPressedJump = true;
+		}
 	}
 }
 
@@ -906,15 +910,21 @@ void UUTCharacterMovement::HandleCrouchRequest()
 {
 	// if moving fast enough and pressing on move key, slide, else crouch
 	AUTCharacter* UTCharacterOwner = Cast<AUTCharacter>(CharacterOwner);
-	AUTPlayerController* PC = CharacterOwner ? Cast<AUTPlayerController>(CharacterOwner->GetController()) : nullptr;
-	if (!PC || PC->bCrouchTriggersSlide)
-	{
-		UpdateFloorSlide(true);
-	}
-	bWantsToCrouch = true;
 	if (!Acceleration.IsNearlyZero() && (Velocity.Size() > 0.7f * MaxWalkSpeed) && UTCharacterOwner && UTCharacterOwner->CanDodge())
 	{
-		bPressedSlide = (PC && PC->bCrouchTriggersSlide);
+		AUTPlayerController* PC = CharacterOwner ? Cast<AUTPlayerController>(CharacterOwner->GetController()) : nullptr;
+		if (PC && PC->bCrouchTriggersSlide)
+		{
+			bPressedSlide = true;
+			if (IsMovingOnGround() && CharacterOwner)
+			{
+				CharacterOwner->bPressedJump = true;
+			}
+		}
+	}
+	if (!bPressedSlide)
+	{
+		bWantsToCrouch = true;
 	}
 }
 
@@ -930,17 +940,6 @@ void UUTCharacterMovement::HandleUnCrouchRequest()
 
 void UUTCharacterMovement::Crouch(bool bClientSimulation)
 {
-	if (bPressedSlide)
-	{
-		if (IsMovingOnGround())
-		{
-			PerformFloorSlide(Velocity.GetSafeNormal(), CurrentFloor.HitResult.ImpactNormal);
-			NeedsClientAdjustment();
-		}
-		bPressedSlide = false;
-		bWantsToCrouch = false;
-		return;
-	}
 	Super::Crouch(bClientSimulation);
 	if (!bIsFloorSliding && CharacterOwner && CharacterOwner->bIsCrouched && (Velocity.Size2D() > MaxWalkSpeedCrouched))
 	{
@@ -1345,13 +1344,14 @@ void UUTCharacterMovement::UpdateFloorSlide(bool bNewWantsFloorSlide)
 {
 	if (bNewWantsFloorSlide && !bWantsFloorSlide)
 	{
+		bSlideFromGround = IsMovingOnGround();
 		FloorSlideTapTime = GetCurrentMovementTime();
 		GetWorld()->GetTimerManager().ClearTimer(FloorSlideTapHandle);
 	}
 	else if (!bNewWantsFloorSlide && bWantsFloorSlide && (GetCurrentMovementTime() - FloorSlideTapTime < 0.25f))
 	{
 		// delay clearing bWantsFloorSlide after quick taps, to allow slightly early taps for landing slides
-		GetWorld()->GetTimerManager().SetTimer(FloorSlideTapHandle, this, &UUTCharacterMovement::ClearFloorSlideTap, FloorSlideBonusTapInterval, false);
+		GetWorld()->GetTimerManager().SetTimer(FloorSlideTapHandle, this, &UUTCharacterMovement::ClearFloorSlideTap, (bSlideFromGround ? 0.8f : FloorSlideBonusTapInterval), false);
 		return;
 	}
 	bWantsFloorSlide = bNewWantsFloorSlide;
@@ -1374,6 +1374,9 @@ bool UUTCharacterMovement::WantsWallSlide()
 
 bool UUTCharacterMovement::DoJump(bool bReplayingMoves)
 {
+	float RealJumpZVelocity = JumpZVelocity;
+	JumpZVelocity = bPressedSlide ? FloorSlideJumpZ : RealJumpZVelocity;
+	bool bResult = false;
 	if (CharacterOwner && CharacterOwner->CanJump() && (IsFalling() ? DoMultiJump() : Super::DoJump(bReplayingMoves)))
 	{
 		if (Cast<AUTCharacter>(CharacterOwner) != NULL)
@@ -1394,9 +1397,10 @@ bool UUTCharacterMovement::DoJump(bool bReplayingMoves)
 				PS->ModifyStatsValue(NAME_NumLiftJumps, 1);
 			}
 		}
-		return true;
+		bResult = true;
 	}
-	return false;
+	JumpZVelocity = RealJumpZVelocity;
+	return bResult;
 }
 
 bool UUTCharacterMovement::DoMultiJump()
@@ -1447,6 +1451,10 @@ void UUTCharacterMovement::GetDodgeDirection(FVector& OutDodgeDir, FVector & Out
 
 void UUTCharacterMovement::CheckJumpInput(float DeltaTime)
 {
+	if (bPressedSlide)
+	{
+		UpdateFloorSlide(true);
+	}
 	if (CharacterOwner && CharacterOwner->bPressedJump)
 	{
 		if ((MovementMode == MOVE_Walking) || (MovementMode == MOVE_Falling))
