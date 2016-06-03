@@ -50,7 +50,7 @@ void AUTCosmetic::PreInitializeComponents()
 			{
 				if (bRootNotPrimitiveComponent)
 				{
-					PrimComponent->DetachFromParent(false);
+					PrimComponent->DetachFromParent(true);
 					SetRootComponent(PrimComponent);
 					bRootNotPrimitiveComponent = false;
 				}
