@@ -306,6 +306,11 @@ void UUTHUDWidget_QuickStats::PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCa
 				{
 					BoostProvidedPowerupInfo.Value = UTPlayerState->GetRemainingBoosts();
 					BoostProvidedPowerupInfo.HighlightStrength = 0.5f;
+					if (!BoostProvidedPowerupInfo.IsAnimationTypeAlreadyPlaying(StatAnimTypes::ScaleOverlay))
+					{
+						BoostProvidedPowerupInfo.Animate(StatAnimTypes::ScaleOverlay, 2.f, 1.5f, 1.0f, true);
+						BoostProvidedPowerupInfo.Animate(StatAnimTypes::Scale, 2.f, 1.5f, 1.0f, true);
+					}
 
 					UInputSettings* InputSettings = UInputSettings::StaticClass()->GetDefaultObject<UInputSettings>();
 					if (InputSettings)
