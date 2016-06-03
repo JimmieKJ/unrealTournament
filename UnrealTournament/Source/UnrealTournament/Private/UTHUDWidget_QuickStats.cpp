@@ -369,7 +369,7 @@ void UUTHUDWidget_QuickStats::PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCa
 						FInputActionKeyMapping& Action = InputSettings->ActionMappings[inputIndex];
 						if (Action.ActionName == "DropCarriedObject")
 						{
-							FlagInfo.Label = Action.Key.GetDisplayName();
+							FlagInfo.Label = Action.Key.IsValid() ? Action.Key.GetDisplayName() : FText::FromString(" ");
 							break;
 						}
 					}
