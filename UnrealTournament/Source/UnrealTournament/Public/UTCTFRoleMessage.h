@@ -25,6 +25,7 @@ public:
 		KeepLivesMessage = NSLOCTEXT("CTFGameMessage", "KeepLivesMessage", "Keep other team's flag out and don't run out of lives.");
 		CapAndKillMessage = NSLOCTEXT("CTFGameMessage", "RCTFRules", "Capture or kill to win.");
 		EnemyTeamSpecialEarned = NSLOCTEXT("CTFGameMessage", "EnemyEarnedSpecialMove", "Enemy team has earned their power up!");
+		BoostAvailable = NSLOCTEXT("CTFGameMessage", "BoostAvailable", "Your power up is available!");
 		FontSizeIndex = 1;
 
 		static ConstructorHelpers::FObjectFinder<USoundBase> EarnedSoundFinder(TEXT("SoundWave'/Game/RestrictedAssets/Audio/Stingers/EnemyBoostAvailable.EnemyBoostAvailable'"));
@@ -51,6 +52,9 @@ public:
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Message)
 		FText EnemyTeamSpecialEarned;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Message)
+		FText BoostAvailable;
 
 	/** sound played when enemy team boost is earned */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Message)
@@ -81,10 +85,22 @@ public:
 			case 7: return EnemyTeamSpecialEarned; break;
 			case 11: return ExhaustLivesMessage; break;
 			case 12: return CapFlagMessage; break;
+			case 20: return BoostAvailable; break;
 			default:
 				return FText();
 		}
 	}
+
+	virtual float GetLifeTime(int32 Switch) const override
+	{
+		if ((Switch == 7) || (Switch == 20))
+		{
+			return 1.f;
+		}
+		return Blueprint_GetLifeTime(Switch);
+
+	}
+
 
 	virtual FLinearColor GetMessageColor_Implementation(int32 MessageIndex) const override
 	{

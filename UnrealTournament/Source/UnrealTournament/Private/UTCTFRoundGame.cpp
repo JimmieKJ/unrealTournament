@@ -978,11 +978,11 @@ void AUTCTFRoundGame::RestartPlayer(AController* aPlayer)
 		return;
 	}
 	AUTPlayerState* PS = Cast<AUTPlayerState>(aPlayer->PlayerState);
+	AUTPlayerController* PC = Cast<AUTPlayerController>(aPlayer);
 	if (bPerPlayerLives && PS && PS->Team)
 	{
 		if (PS->bOutOfLives)
 		{
-			AUTPlayerController* PC = Cast<AUTPlayerController>(aPlayer);
 			if (PC != NULL)
 			{
 				PC->ChangeState(NAME_Spectating);
@@ -1049,6 +1049,10 @@ void AUTCTFRoundGame::RestartPlayer(AController* aPlayer)
 	if (PS->Team && IsTeamOnOffense(PS->Team->TeamIndex))
 	{
 		LastAttackerSpawnTime = GetWorld()->GetTimeSeconds();
+	}
+	if (PC && (PS->GetRemainingBoosts() > 0))
+	{
+		PC->ClientReceiveLocalizedMessage(UUTCTFRoleMessage::StaticClass(), 20);
 	}
 	Super::RestartPlayer(aPlayer);
 
