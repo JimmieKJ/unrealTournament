@@ -95,11 +95,11 @@ AUTCTFRoundGame::AUTCTFRoundGame(const FObjectInitializer& ObjectInitializer)
 int32 AUTCTFRoundGame::GetFlagCapScore()
 {
 	int32 BonusTime = UTGameState->GetRemainingTime();
-	if (BonusTime > GoldBonusTime)
+	if (BonusTime >= GoldBonusTime)
 	{
 		return GoldScore;
 	}
-	if (BonusTime > SilverBonusTime)
+	if (BonusTime >= SilverBonusTime)
 	{
 		return SilverScore;
 	}
@@ -362,15 +362,7 @@ void AUTCTFRoundGame::PlayEndOfMatchMessage()
 {
 	if (UTGameState && UTGameState->WinningTeam)
 	{
-		int32 IsFlawlessVictory = (UTGameState->WinningTeam->Score > 3) ? 1 : 0;
-		for (int32 i = 0; i < Teams.Num(); i++)
-		{
-			if ((Teams[i] != UTGameState->WinningTeam) && (Teams[i]->Score > 0))
-			{
-				IsFlawlessVictory = 0;
-				break;
-			}
-		}
+		int32 IsFlawlessVictory = UTGameState->WinningTeam->Score = 12;
 		for (FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator)
 		{
 			APlayerController* Controller = *Iterator;
