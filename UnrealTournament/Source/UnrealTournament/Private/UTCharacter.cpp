@@ -5100,13 +5100,9 @@ void AUTCharacter::SetHatClass(TSubclassOf<AUTHat> HatClass)
 		Hat = GetWorld()->SpawnActor<AUTHat>(HatClass, GetActorLocation(), GetActorRotation(), Params);
 		if (Hat != nullptr)
 		{
-			FVector HatRelativeLocation = Hat->GetRootComponent()->RelativeLocation;
-			FRotator HatRelativeRotation = Hat->GetRootComponent()->RelativeRotation;
 			Hat->AttachRootComponentTo(GetMesh(), NAME_HatSocket, EAttachLocation::SnapToTarget, true);
 			// SnapToTarget doesn't actually snap scale, so do that manually
 			Hat->GetRootComponent()->SetWorldScale3D(Cast<USceneComponent>(Hat->GetRootComponent()->GetArchetype())->RelativeScale3D * GetMesh()->GetSocketTransform(NAME_HatSocket).GetScale3D());
-			Hat->SetActorRelativeRotation(HatRelativeRotation);
-			Hat->SetActorRelativeLocation(HatRelativeLocation);
 			Hat->OnVariantSelected(HatVariant);
 
 			// We may already be invisible
@@ -5823,13 +5819,9 @@ void AUTCharacter::LeaderHatStatusChanged_Implementation()
 			LeaderHat = GetWorld()->SpawnActor<AUTHatLeader>(LeaderHatClass, GetActorLocation(), GetActorRotation(), Params);
 			if (LeaderHat != nullptr)
 			{
-				FVector HatRelativeLocation = LeaderHat->GetRootComponent()->RelativeLocation;
-				FRotator HatRelativeRotation = LeaderHat->GetRootComponent()->RelativeRotation;
 				LeaderHat->AttachRootComponentTo(GetMesh(), NAME_HatSocket, EAttachLocation::SnapToTarget, true);
 				// SnapToTarget doesn't actually snap scale, so do that manually
 				LeaderHat->GetRootComponent()->SetWorldScale3D(Cast<USceneComponent>(LeaderHat->GetRootComponent()->GetArchetype())->RelativeScale3D * GetMesh()->GetSocketTransform(NAME_HatSocket).GetScale3D());
-				LeaderHat->SetActorRelativeRotation(HatRelativeRotation);
-				LeaderHat->SetActorRelativeLocation(HatRelativeLocation);
 				LeaderHat->OnVariantSelected(HatVariant);
 
 				// We may already be invisible
