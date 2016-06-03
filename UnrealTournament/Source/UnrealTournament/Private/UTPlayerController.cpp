@@ -1881,7 +1881,7 @@ void AUTPlayerController::ClientHearSound_Implementation(USoundBase* TheSound, A
 						{
 							return;
 						}
-						VolumeMultiplier *= 0.5f;
+						VolumeMultiplier *= 0.75f;
 					}
 				}
 			}
