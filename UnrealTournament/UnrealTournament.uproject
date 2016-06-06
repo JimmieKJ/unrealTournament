@@ -81,6 +81,10 @@
 		{
 			"Name": "SteamVR",
 			"Enabled": false
+		},
+		{
+			"Name": "LevelSequenceEditor",
+			"Enabled": true
 		}
 	],
 	"EpicSampleNameHash": "0"
