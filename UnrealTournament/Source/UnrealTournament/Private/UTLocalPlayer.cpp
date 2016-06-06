@@ -172,6 +172,7 @@ void UUTLocalPlayer::InitializeOnlineSubsystem()
 	if (OnlineTitleFileInterface.IsValid())
 	{
 		OnReadTitleFileCompleteDelegate = OnlineTitleFileInterface->AddOnReadFileCompleteDelegate_Handle(FOnReadFileCompleteDelegate::CreateUObject(this, &UUTLocalPlayer::OnReadTitleFileComplete));
+		OnEnumerateTitleFilesCompleteDelegate = OnlineTitleFileInterface->AddOnEnumerateFilesCompleteDelegate_Handle(FOnEnumerateFilesCompleteDelegate::CreateUObject(this, &UUTLocalPlayer::OnEnumerateTitleFilesComplete));
 	}
 }
 
@@ -198,6 +199,11 @@ void UUTLocalPlayer::CleanUpOnlineSubSystyem()
 			OnlineSessionInterface->ClearOnEndSessionCompleteDelegate_Handle(OnEndSessionCompleteDelegate);
 			OnlineSessionInterface->ClearOnDestroySessionCompleteDelegate_Handle(OnDestroySessionCompleteDelegate);
 			OnlineSessionInterface->ClearOnFindFriendSessionCompleteDelegate_Handle(0, OnFindFriendSessionCompleteDelegate);
+		}
+		if (OnlineTitleFileInterface.IsValid())
+		{
+			OnlineTitleFileInterface->ClearOnEnumerateFilesCompleteDelegate_Handle(OnEnumerateTitleFilesCompleteDelegate);
+			OnlineTitleFileInterface->ClearOnReadFileCompleteDelegate_Handle(OnReadTitleFileCompleteDelegate);
 		}
 	}
 }
@@ -1089,10 +1095,7 @@ void UUTLocalPlayer::OnLoginStatusChanged(int32 LocalUserNum, ELoginStatus::Type
 	}
 	else if (LoginStatus == ELoginStatus::LoggedIn)
 	{
-		if (OnlineTitleFileInterface.IsValid())
-		{
-			OnlineTitleFileInterface->ReadFile(GetMCPStorageFilename());
-		}
+		EnumerateTitleFiles();
 
 		ReadMMRFromBackend();
 		UpdatePresence(LastPresenceUpdate, bLastAllowInvites,bLastAllowInvites,bLastAllowInvites,false);
@@ -4419,6 +4422,26 @@ void UUTLocalPlayer::RestartQuickMatch()
 #endif
 }
 
+void UUTLocalPlayer::EnumerateTitleFiles()
+{
+	if (OnlineTitleFileInterface.IsValid())
+	{
+		OnlineTitleFileInterface->EnumerateFiles();
+	}
+}
+
+void UUTLocalPlayer::OnEnumerateTitleFilesComplete(bool bWasSuccessful)
+{
+	if (bWasSuccessful)
+	{
+		if (OnlineTitleFileInterface.IsValid())
+		{
+			OnlineTitleFileInterface->ReadFile(GetMCPStorageFilename());
+			OnlineTitleFileInterface->ReadFile(GetRankedPlayFilename());
+		}
+	}
+}
+
 void UUTLocalPlayer::OnReadTitleFileComplete(bool bWasSuccessful, const FString& Filename)
 {
 	if (Filename == GetMCPStorageFilename())
@@ -4465,8 +4488,34 @@ void UUTLocalPlayer::OnReadTitleFileComplete(bool bWasSuccessful, const FString&
 			}
 		}
 	}
+	else if (Filename == GetRankedPlayFilename())
+	{
+		ActiveRankedPlaylists.Empty();
+
+		FString JsonString = TEXT("");
+		if (bWasSuccessful)
+		{
+			TArray<uint8> FileContents;
+			OnlineTitleFileInterface->GetFileContents(GetRankedPlayFilename(), FileContents);
+			FileContents.Add(0);
+			JsonString = ANSI_TO_TCHAR((char*)FileContents.GetData());
+
+			if (JsonString != TEXT(""))
+			{
+				FActiveRankedPlaylists ActivePlaylists;
+				if (FJsonObjectConverter::JsonObjectStringToUStruct(JsonString, &ActivePlaylists, 0, 0))
+				{
+					ActiveRankedPlaylists = ActivePlaylists.ActiveRankedPlaylists;
+				}
+			}
+		}
+	}
 }
 
+bool UUTLocalPlayer::IsRankedMatchmakingEnabled(int32 PlaylistId)
+{
+	return ActiveRankedPlaylists.Contains(PlaylistId);
+}
 
 void UUTLocalPlayer::ShowAdminDialog(AUTRconAdminInfo* AdminInfo)
 {

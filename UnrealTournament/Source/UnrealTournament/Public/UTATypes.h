@@ -1261,6 +1261,18 @@ struct FMCPPulledData
 	}
 };
 
+USTRUCT()
+struct FActiveRankedPlaylists
+{
+	GENERATED_USTRUCT_BODY()
+
+	UPROPERTY()
+	TArray<int32> ActiveRankedPlaylists;
+
+	FActiveRankedPlaylists()
+	{}
+};
+
 USTRUCT(BlueprintType)
 struct FBloodDecalInfo
 {

@@ -444,6 +444,7 @@ private:
 	FDelegateHandle OnFindFriendSessionCompleteDelegate;
 
 	FDelegateHandle OnReadTitleFileCompleteDelegate;
+	FDelegateHandle OnEnumerateTitleFilesCompleteDelegate;
 
 public:
 	virtual void LoadProfileSettings();
@@ -481,7 +482,9 @@ protected:
 	virtual void OnDeleteUserFileComplete(bool bWasSuccessful, const FUniqueNetId& InUserId, const FString& FileName);
 	virtual void OnEnumerateUserFilesComplete(bool bWasSuccessful, const FUniqueNetId& InUserId);
 
+	void EnumerateTitleFiles();
 	virtual void OnReadTitleFileComplete(bool bWasSuccessful, const FString& Filename);
+	virtual void OnEnumerateTitleFilesComplete(bool bWasSuccessful);
 
 #if !UE_SERVER
 	TSharedPtr<class SUTDialogBase> HUDSettings;
@@ -866,7 +869,15 @@ public:
 		const static FString MCPStorageFilename = "UnrealTournmentMCPStorage.json";
 		return MCPStorageFilename;
 	}
-	
+
+	static const FString& GetRankedPlayFilename()
+	{
+		const static FString RankedPlayFilename = "UnrealTournmentRankedPlay.json";
+		return RankedPlayFilename;
+	}
+	bool IsRankedMatchmakingEnabled(int32 PlaylistId);
+	TArray<int32> ActiveRankedPlaylists;
+
 	/** Get the MCP account ID for this player */
 	FUniqueNetIdRepl GetGameAccountId() const;
 
