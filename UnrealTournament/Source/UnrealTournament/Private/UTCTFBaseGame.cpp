@@ -510,7 +510,7 @@ void AUTCTFBaseGame::PlacePlayersAroundFlagBase(int32 TeamNum, int32 FlagTeamNum
 				}
 				FRotator AdjustmentAngle(0, StartAngle + AngleSlices * PlacementCounter, 0);
 				FVector PlacementLoc = FlagLoc + AdjustmentAngle.RotateVector(PlacementOffset);
-				PlacementLoc.Z += UTChar->GetSimpleCollisionHalfHeight() * 1.1f;
+				PlacementLoc.Z += UTChar->GetCapsuleComponent()->GetUnscaledCapsuleHalfHeight() * 1.1f;
 				PlacementCounter++;
 				if ((PlacementCounter == 8) && !bSecondLevel)
 				{
