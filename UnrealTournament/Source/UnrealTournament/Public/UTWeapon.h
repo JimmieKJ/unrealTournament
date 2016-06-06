@@ -626,9 +626,11 @@ class UNREALTOURNAMENT_API AUTWeapon : public AUTInventory
 	UFUNCTION(BlueprintCallable, Category = "Weapon")
 	virtual void GetImpactSpawnPosition(const FVector& TargetLoc, FVector& SpawnLocation, FRotator& SpawnRotation);
 
-	/** If true, don't spawn impact effect.  Used for hitscan hits, skips by default for pawn and projectile hits. */
+	/** If true, don't spawn impact effect.  Used for hitscan hits, skips by default for pawn and projectile hits.
+	 * note: this is called on the default object for weapon attachments (so they can share the code)
+	 */
 	UFUNCTION(BlueprintCallable, Category = "Weapon")
-	virtual bool CancelImpactEffect(const FHitResult& ImpactHit);
+	virtual bool CancelImpactEffect(const FHitResult& ImpactHit) const;
 
 	/** play effects associated with the shot's impact given the impact point
 	 * called only if FlashLocation has been set (instant hit weapon)

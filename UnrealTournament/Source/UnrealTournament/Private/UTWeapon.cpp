@@ -893,9 +893,9 @@ void AUTWeapon::GetImpactSpawnPosition(const FVector& TargetLoc, FVector& SpawnL
 	SpawnRotation = (MuzzleFlash.IsValidIndex(CurrentFireMode) && MuzzleFlash[CurrentFireMode] != NULL) ? MuzzleFlash[CurrentFireMode]->GetComponentRotation() : (TargetLoc - SpawnLocation).Rotation();
 }
 
-bool AUTWeapon::CancelImpactEffect(const FHitResult& ImpactHit)
+bool AUTWeapon::CancelImpactEffect(const FHitResult& ImpactHit) const
 {
-	return (!ImpactHit.Actor.IsValid() && !ImpactHit.Component.IsValid()) || Cast<AUTCharacter>(ImpactHit.Actor.Get()) || Cast<AUTProjectile>(ImpactHit.Actor.Get());
+	return (!ImpactHit.Actor.IsValid() && !ImpactHit.Component.IsValid()) || Cast<AUTCharacter>(ImpactHit.Actor.Get());
 }
 
 void AUTWeapon::PlayImpactEffects_Implementation(const FVector& TargetLoc, uint8 FireMode, const FVector& SpawnLocation, const FRotator& SpawnRotation)
