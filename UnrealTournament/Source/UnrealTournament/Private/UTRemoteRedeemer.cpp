@@ -127,7 +127,10 @@ bool AUTRemoteRedeemer::DriverEnter(APawn* NewDriver)
 
 bool AUTRemoteRedeemer::DriverLeave(bool bForceLeave)
 {
-	BlowUp();
+	if (!bShotDown)
+	{
+		BlowUp();
+	}
 
 	AController* C = Controller;
 	if (Driver && C)
@@ -178,7 +181,7 @@ void AUTRemoteRedeemer::OnOverlapBegin(AActor* OtherActor, UPrimitiveComponent* 
 		{
 			if (Cast<AUTProjectile>(OtherActor))
 			{
-				Detonate();
+				OnShotDown();
 				RedeemerDenied(OtherActor->GetInstigatorController());
 			}
 			else
@@ -230,69 +233,43 @@ void AUTRemoteRedeemer::BlowUp()
 	}
 }
 
-void AUTRemoteRedeemer::Detonate()
+void AUTRemoteRedeemer::ExplodeTimed()
 {
-	BlowUp();
-/*
+	if (!bExploded && Role == ROLE_Authority)
+	{
+		BlowUp();
+	}
+}
+
+void AUTRemoteRedeemer::OnShotDown()
+{
 	if (!bExploded)
 	{
 		bShotDown = true;
-		bExploded = true;
-		bTearOff = true;
 
 		if (Role == ROLE_Authority)
 		{
+			bTearOff = true;
 			DriverLeave(true);
 		}
 
-		ProjectileMovement->SetActive(false);
-		CapsuleComp->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-		CollisionComp->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+		// fall to ground, explode after a delay
+		ProjectileMovement->ProjectileGravityScale = 1.0f;
+		ProjectileMovement->MaxSpeed += 2000.0f; // make room for gravity
+		ProjectileMovement->bShouldBounce = true;
+		ProjectileMovement->Bounciness = 0.25f;
+		SetTimerUFunc(this, FName(TEXT("ExplodeTimed")), 2.0f, false);
 
-		TArray<USceneComponent*> Components;
-		GetComponents<USceneComponent>(Components);
-		for (int32 i = 0; i < Components.Num(); i++)
+		if (GetNetMode() != NM_DedicatedServer)
 		{
-			Components[i]->SetHiddenInGame(true);
+			PlayShotDownEffects();
 		}
-
-		PlayDetonateEffects();
-
-		AUTProj_Redeemer *DefaultRedeemer = RedeemerProjectileClass->GetDefaultObject<AUTProj_Redeemer>();
-		if (DefaultRedeemer)
-		{
-			FRadialDamageParams DetonateDamageParams = DefaultRedeemer->DetonateDamageParams;
-			if (DetonateDamageParams.OuterRadius > 0.0f)
-			{
-				TArray<AActor*> IgnoreActors;
-				FVector ExplosionCenter = GetActorLocation();
-
-				StatsHitCredit = 0.f;
-				UUTGameplayStatics::UTHurtRadius(this, DetonateDamageParams.BaseDamage, DetonateDamageParams.MinimumDamage, DefaultRedeemer->DetonateMomentum, ExplosionCenter, DetonateDamageParams.InnerRadius, DetonateDamageParams.OuterRadius, DetonateDamageParams.DamageFalloff,
-					DefaultRedeemer->DetonateDamageType, IgnoreActors, this, DamageInstigator, nullptr, nullptr, 0.f);
-				if ((Role == ROLE_Authority) && (HitsStatsName != NAME_None))
-				{
-					AUTPlayerState* PS = DamageInstigator ? Cast<AUTPlayerState>(DamageInstigator->PlayerState) : NULL;
-					if (PS)
-					{
-						PS->ModifyStatsValue(HitsStatsName, StatsHitCredit / DetonateDamageParams.BaseDamage);
-					}
-				}
-			}
-		}
-		else
-		{
-			UE_LOG(UT, Warning, TEXT("UTRemoteRedeemer does not have a proper reference to UTProj_Redeemer"));
-		}
-
-		ShutDown();
 	}
-	*/
 }
 
-void AUTRemoteRedeemer::PlayDetonateEffects()
+void AUTRemoteRedeemer::PlayShotDownEffects()
 {
-	// stop any looping audio
+	// stop any looping audio and particles
 	TArray<USceneComponent*> Components;
 	GetComponents<USceneComponent>(Components);
 	for (int32 i = 0; i < Components.Num(); i++)
@@ -306,11 +283,14 @@ void AUTRemoteRedeemer::PlayDetonateEffects()
 				Audio->Stop();
 			}
 		}
-	}
-
-	if (DetonateEffects != NULL)
-	{
-		DetonateEffects.GetDefaultObject()->SpawnEffect(GetWorld(), FTransform(GetActorRotation(), GetActorLocation()), nullptr, this, DamageInstigator);
+		else
+		{
+			UParticleSystemComponent* PSC = Cast<UParticleSystemComponent>(Components[i]);
+			if (PSC != NULL && IsLoopingParticleSystem(PSC->Template))
+			{
+				PSC->DeactivateSystem();
+			}
+		}
 	}
 }
 
@@ -535,7 +515,7 @@ void AUTRemoteRedeemer::TornOff()
 {
 	if (bShotDown)
 	{
-		Detonate();
+		OnShotDown();
 	}
 	else
 	{
@@ -665,7 +645,7 @@ float AUTRemoteRedeemer::TakeDamage(float Damage, const FDamageEvent& DamageEven
 				if (ProjHealth <= 0)
 				{
 					// small explosion when damaged
-					Detonate();
+					OnShotDown();
 					RedeemerDenied(EventInstigator);
 				}
 			}
