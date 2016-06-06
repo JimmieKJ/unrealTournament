@@ -374,9 +374,8 @@ void SUTPartyWidget::SetupPartyMemberBox()
 
 		DropDownButton->AddSubMenuItem(NSLOCTEXT("SUTPartyWidget", "EmptySlot", "Available Slot"), FOnClicked());
 
-		int FriendIterator = 0;
 		int InviteTextAdded = 0;
-		while (InviteTextAdded < 5 && FriendIterator < OnlineFriendsList.Num())
+		for (int FriendIterator = 0; FriendIterator < OnlineFriendsList.Num(); FriendIterator++)
 		{
 			if (OnlineFriendsList[FriendIterator].bIsOnline && OnlineFriendsList[FriendIterator].bIsPlayingThisGame)
 			{
@@ -388,8 +387,6 @@ void SUTPartyWidget::SetupPartyMemberBox()
 				DropDownButton->AddSubMenuItem(FriendText, FOnClicked::CreateSP(this, &SUTPartyWidget::InviteToParty, OnlineFriendsList[FriendIterator].UserId));
 				InviteTextAdded++;
 			}
-
-			FriendIterator++;
 		}
 		DropDownButton->RebuildMenuContent();
 	}

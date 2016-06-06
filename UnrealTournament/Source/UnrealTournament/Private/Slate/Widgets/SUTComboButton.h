@@ -151,7 +151,7 @@ protected:
 	TSharedPtr<SImage> DownArrowImage;
 	TSharedPtr<SUTButton> MyButton;
 
-	TSharedPtr<SVerticalBox> MenuBox;
+	TSharedPtr<SScrollBox> MenuBox;
 
 	const FButtonStyle* MenuButtonStyle;
 	const FTextBlockStyle* MenuButtonTextStyle;
