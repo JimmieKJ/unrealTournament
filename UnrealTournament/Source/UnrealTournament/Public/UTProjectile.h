@@ -77,7 +77,8 @@ class UNREALTOURNAMENT_API AUTProjectile : public AActor, public IUTResetInterfa
 	UPROPERTY(ReplicatedUsing = OnRep_UTProjReplicatedMovement)
 	struct FRepUTProjMovement UTProjReplicatedMovement;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Damage)
+	/** enables UT optimized movement replication; USE THIS INSTEAD OF bReplicateMovement */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Replication)
 	bool bReplicateUTMovement;
 
 	/** UTProjReplicatedMovement struct replication event */
