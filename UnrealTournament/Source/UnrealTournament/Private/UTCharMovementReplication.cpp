@@ -103,6 +103,7 @@ void UUTCharacterMovement::UpdateFromCompressedFlags(uint8 Flags)
 
 void UUTCharacterMovement::ClientAdjustPosition_Implementation(float TimeStamp, FVector NewLocation, FVector NewVelocity, UPrimitiveComponent* NewBase, FName NewBaseBoneName, bool bHasBase, bool bBaseRelativePosition, uint8 ServerMovementMode)
 {
+	TGuardValue<bool> FlagGuard(bProcessingClientAdjustment, true);
 	//UE_LOG(UTNet, Warning, TEXT("Received client adjust position for %f"), TimeStamp);
 	// use normal replication when simulating physics
 	AUTCharacter* UTOwner = Cast<AUTCharacter>(CharacterOwner);

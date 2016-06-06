@@ -345,7 +345,14 @@ protected:
 	/** true if wall slide stat should be updated.  Needed so we don't double count wallslides. */
 	bool bCountWallSlides;
 
+	/** set during ClientAdjustPosition() */
+	bool bProcessingClientAdjustment;
 public:
+	inline bool IsProcessingClientAdjustment() const
+	{
+		return bProcessingClientAdjustment;
+	}
+
 	/** accessor to commonly used elements of CurrentFloor to avoid cumbersome/expensive "break" nodes */
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Character Movement: Walking")
 	void GetSimpleFloorInfo(FVector& ImpactPoint, FVector& Normal) const;
