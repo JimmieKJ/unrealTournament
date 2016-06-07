@@ -362,7 +362,7 @@ void AUTCTFRoundGame::PlayEndOfMatchMessage()
 {
 	if (UTGameState && UTGameState->WinningTeam)
 	{
-		int32 IsFlawlessVictory = UTGameState->WinningTeam->Score = 12;
+		int32 IsFlawlessVictory = (UTGameState->WinningTeam->Score == 12);
 		for (FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator)
 		{
 			APlayerController* Controller = *Iterator;
