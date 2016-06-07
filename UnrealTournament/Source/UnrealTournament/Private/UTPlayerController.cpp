@@ -17,6 +17,7 @@
 #include "Online.h"
 #include "UTOnlineGameSearchBase.h"
 #include "OnlineSubsystemTypes.h"
+#include "OnlineSubsystemUtils.h"
 #include "UTDroppedPickup.h"
 #include "UTGameEngine.h"
 #include "UnrealNetwork.h"
@@ -3961,7 +3962,13 @@ void AUTPlayerController::ClientPumpkinPickedUp_Implementation(float GainedAmoun
 
 void AUTPlayerController::DebugTest(FString TestCommand)
 {
-	ClientPlayMovie(TEXT("initialloadingmovie"));
+	UE_LOG(UT,Log,TEXT("MuteList: %s"), *DumpMutelistState(GetWorld()));
+	IOnlineVoicePtr VoiceInt = Online::GetVoiceInterface(GetWorld());
+	if (VoiceInt.IsValid())
+	{
+		UE_LOG(UT,Log,TEXT("VoiceList: %s"), *VoiceInt->GetVoiceDebugState());
+	}
+	
 }
 
 void AUTPlayerController::ClientRequireContentItemListComplete_Implementation()

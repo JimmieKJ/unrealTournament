@@ -271,14 +271,26 @@ bool AUTTeamGameMode::MovePlayerToTeam(AController* Player, AUTPlayerState* PS, 
 
 		if (PlayerController && UTGameState)
 		{
-			// Clear the current game play mute list
-			PlayerController->MuteList.GameplayVoiceMuteList.Empty();
 			for (FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator)
 			{
 				AUTPlayerController* NextPlayer = Cast<AUTPlayerController>(*Iterator);
-				if (NextPlayer && !UTGameState->OnSameTeam(PlayerController, NextPlayer))
+				if (NextPlayer)
 				{
-					PlayerController->GameplayMutePlayer(NextPlayer->PlayerState->UniqueId);
+					TSharedPtr<const FUniqueNetId> Id = NextPlayer->PlayerState->UniqueId.GetUniqueNetId();
+					bool bIsMuted = PlayerController->IsPlayerMuted(Id.ToSharedRef().Get());
+
+					bool bOnSameTeam = UTGameState->OnSameTeam(PlayerController, NextPlayer);
+					if (bIsMuted && bOnSameTeam) 
+					{
+						PlayerController->GameplayUnmutePlayer(NextPlayer->PlayerState->UniqueId);
+						NextPlayer->GameplayUnmutePlayer(PlayerController->PlayerState->UniqueId);
+					}
+					if (!bIsMuted && !bOnSameTeam) 
+					{
+						PlayerController->GameplayMutePlayer(NextPlayer->PlayerState->UniqueId);
+						NextPlayer->GameplayMutePlayer(PlayerController->PlayerState->UniqueId);
+					}
+					
 				}
 			}
 		}
