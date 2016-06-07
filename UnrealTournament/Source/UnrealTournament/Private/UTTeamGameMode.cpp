@@ -263,6 +263,26 @@ bool AUTTeamGameMode::MovePlayerToTeam(AController* Player, AUTPlayerState* PS, 
 		Teams[NewTeam]->AddToTeam(Player);
 		PS->bPendingTeamSwitch = false;
 		PS->ForceNetUpdate();
+
+		// Clear the player's gameplay mute list.
+
+		APlayerController* PlayerController = Cast<APlayerController>(Player);
+		AUTGameState* UTGameState = GetWorld()->GetGameState<AUTGameState>();
+
+		if (PlayerController && UTGameState)
+		{
+			// Clear the current game play mute list
+			PlayerController->MuteList.GameplayVoiceMuteList.Empty();
+			for (FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator)
+			{
+				AUTPlayerController* NextPlayer = Cast<AUTPlayerController>(*Iterator);
+				if (NextPlayer && !UTGameState->OnSameTeam(PlayerController, NextPlayer))
+				{
+					PlayerController->GameplayMutePlayer(NextPlayer->PlayerState->UniqueId);
+				}
+			}
+		}
+
 		return true;
 	}
 	return false;
