@@ -4687,7 +4687,7 @@ void AUTGameMode::UnlockSession()
 
 bool AUTGameMode::CanBoost(AUTPlayerController* Who)
 {
-	if (Who && Who->UTPlayerState)
+	if (Who && Who->UTPlayerState && IsMatchInProgress() && (GetMatchState() != MatchState::MatchIntermission))
 	{
 		if (Who->UTPlayerState->GetRemainingBoosts())
 		{

@@ -835,11 +835,7 @@ void AUTPlayerController::TriggerBoost()
 			}
 			else
 			{
-				AUTGameMode* UTGM = GetWorld()->GetAuthGameMode<AUTGameMode>();
-				if (UTGM)
-				{
-					UTGM->ToggleSpecialFor(UTCharacter);
-				}
+				GameMode->ToggleSpecialFor(UTCharacter);
 			}
 		}
 	}
