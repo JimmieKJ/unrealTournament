@@ -341,7 +341,7 @@ void SUTPartyWidget::SetupPartyMemberBox()
 
 	TArray<FUTFriend> OnlineFriendsList;
 	UTLP->GetFriendsList(OnlineFriendsList);
-	LastFriendCount = OnlineFriendsList.Num();
+	LastFriendCount = 0;
 
 	for (int i = PartyMembers.Num(); i < 5; i++)
 	{
@@ -379,6 +379,7 @@ void SUTPartyWidget::SetupPartyMemberBox()
 		{
 			if (OnlineFriendsList[FriendIterator].bIsOnline && OnlineFriendsList[FriendIterator].bIsPlayingThisGame)
 			{
+				LastFriendCount++;
 				if (InviteTextAdded == 0)
 				{
 					DropDownButton->AddSpacer();
@@ -544,7 +545,17 @@ void SUTPartyWidget::Tick(const FGeometry& AllottedGeometry, const double InCurr
 		if (UTLP)
 		{
 			UTLP->GetFriendsList(OnlineFriendsList);
-			if (OnlineFriendsList.Num() != LastFriendCount)
+
+			int32 OnlineFriendCount = 0;
+			for (int FriendIterator = 0; FriendIterator < OnlineFriendsList.Num(); FriendIterator++)
+			{
+				if (OnlineFriendsList[FriendIterator].bIsOnline && OnlineFriendsList[FriendIterator].bIsPlayingThisGame)
+				{
+					OnlineFriendCount++;
+				}
+			}
+
+			if (OnlineFriendCount != LastFriendCount)
 			{
 				SetupPartyMemberBox();
 			}
