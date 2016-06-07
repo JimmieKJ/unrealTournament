@@ -313,7 +313,7 @@ void UUTHUDWidget_QuickStats::PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCa
 							FInputActionKeyMapping& Action = InputSettings->ActionMappings[inputIndex];
 							if (Action.ActionName == "StartActivatePowerup")
 							{
-								BoostProvidedPowerupInfo.Label = Action.Key.GetDisplayName();
+								BoostProvidedPowerupInfo.Label = (Action.Key.GetDisplayName().ToString().Len() < 4) ? Action.Key.GetDisplayName() : FText::FromString(" ");
 								break;
 							}
 						}
@@ -369,7 +369,7 @@ void UUTHUDWidget_QuickStats::PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCa
 						FInputActionKeyMapping& Action = InputSettings->ActionMappings[inputIndex];
 						if (Action.ActionName == "DropCarriedObject")
 						{
-							FlagInfo.Label = Action.Key.IsValid() ? Action.Key.GetDisplayName() : FText::FromString(" ");
+							FlagInfo.Label = (Action.Key.IsValid() && (Action.Key.GetDisplayName().ToString().Len() < 4)) ? Action.Key.GetDisplayName() : FText::FromString(" ");
 							break;
 						}
 					}
