@@ -513,6 +513,9 @@ void SUTSystemSettingsDialog::UpdateAdvancedWidgets()
 TSharedRef<SWidget> SUTSystemSettingsDialog::BuildGeneralTab()
 {
 	UUTGameUserSettings* UserSettings = Cast<UUTGameUserSettings>(GEngine->GetGameUserSettings());
+	UUTProfileSettings* ProfileSettings = PlayerOwner->GetProfileSettings();
+
+	bool bPushToTalk = ProfileSettings == nullptr ? true : ProfileSettings->bPushToTalk;
 
 	// Get Viewport size
 	FVector2D ViewportSize;
@@ -781,6 +784,34 @@ TSharedRef<SWidget> SUTSystemSettingsDialog::BuildGeneralTab()
 			SAssignNew(KeyboardLightingCheckbox, SCheckBox)
 			.Style(SUWindowsStyle::Get(), "UT.Common.CheckBox")
 			.IsChecked(UserSettings->IsKeyboardLightingEnabled() ? ESlateCheckBoxState::Checked : ESlateCheckBoxState::Unchecked)
+		]
+	]	
+
+	+ SVerticalBox::Slot()
+	.AutoHeight()
+	.Padding(FMargin(10.0f, 5.0f, 10.0f, 5.0f))
+	[
+		SNew(SHorizontalBox)
+		+ SHorizontalBox::Slot()
+		.AutoWidth()
+		.VAlign(VAlign_Center)
+		[
+			SNew(SBox)
+			.WidthOverride(650)
+			[
+				SNew(STextBlock)
+				.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
+				.Text(NSLOCTEXT("SUTSystemSettingsDialog", "PushToTalk", "Enable Push to Talk Voice Comns"))
+				.ToolTip(SUTUtils::CreateTooltip(NSLOCTEXT("SUTSystemSettingsDialog", "PushToTalk_Tooltip", "If enabled, you'll need to use PushToTalk in order to use voice communication.")))
+			]
+		]
+		+ SHorizontalBox::Slot()
+		.AutoWidth()
+		.VAlign(VAlign_Center)
+		[
+			SAssignNew(PushToTalkCheckbox, SCheckBox)
+			.Style(SUWindowsStyle::Get(), "UT.Common.CheckBox")
+			.IsChecked(bPushToTalk ? ESlateCheckBoxState::Checked : ESlateCheckBoxState::Unchecked)
 		]
 	];
 }
@@ -1243,16 +1274,26 @@ FReply SUTSystemSettingsDialog::OKClick()
 			WS->MaxImpactEffectInvisibleLifetime = DefaultWS->MaxImpactEffectInvisibleLifetime;
 		}
 	}
-	
-	TSharedPtr<FString> MatchmakingRegionSelection = MatchmakingRegion->GetSelectedItem();
-	if (MatchmakingRegionSelection.IsValid() && bChangedMatchmakingRegion)
+
+	UUTProfileSettings* ProfileSettings = GetPlayerOwner()->GetProfileSettings();
+	if (ProfileSettings)
 	{
-		UUTProfileSettings* ProfileSettings = GetPlayerOwner()->GetProfileSettings();
-		if (ProfileSettings)
+		bool bProfileNeedsUpdate = false;
+		TSharedPtr<FString> MatchmakingRegionSelection = MatchmakingRegion->GetSelectedItem();
+		if (MatchmakingRegionSelection.IsValid() && bChangedMatchmakingRegion)
 		{
-			GetPlayerOwner()->GetProfileSettings()->MatchmakingRegion = *MatchmakingRegionSelection.Get();
-			GetPlayerOwner()->SaveProfileSettings();
+			ProfileSettings->MatchmakingRegion = *MatchmakingRegionSelection.Get();
+			bProfileNeedsUpdate = true;
 		}
+
+		if (ProfileSettings->bPushToTalk != PushToTalkCheckbox->IsChecked())
+		{
+			ProfileSettings->bPushToTalk = PushToTalkCheckbox->IsChecked();
+			GetPlayerOwner()->PlayerController->ToggleSpeaking(!ProfileSettings->bPushToTalk);
+			bProfileNeedsUpdate = true;
+		}
+
+		if (bProfileNeedsUpdate) GetPlayerOwner()->SaveProfileSettings();
 	}
 
 	GetPlayerOwner()->CloseDialog(SharedThis(this));

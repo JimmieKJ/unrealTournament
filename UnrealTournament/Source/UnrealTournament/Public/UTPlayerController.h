@@ -1150,6 +1150,13 @@ public:
 	UFUNCTION(exec)
 	virtual void HideWeaponWheel();
 
+	UFUNCTION(exec)
+	void StartVOIPTalking();
+
+	UFUNCTION(exec)
+	void StopVOIPTalking();
+
+	virtual void ClientEnableNetworkVoice_Implementation(bool bEnable);
 
 };
 

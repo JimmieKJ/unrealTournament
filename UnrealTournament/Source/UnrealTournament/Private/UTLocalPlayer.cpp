@@ -174,6 +174,12 @@ void UUTLocalPlayer::InitializeOnlineSubsystem()
 		OnReadTitleFileCompleteDelegate = OnlineTitleFileInterface->AddOnReadFileCompleteDelegate_Handle(FOnReadFileCompleteDelegate::CreateUObject(this, &UUTLocalPlayer::OnReadTitleFileComplete));
 		OnEnumerateTitleFilesCompleteDelegate = OnlineTitleFileInterface->AddOnEnumerateFilesCompleteDelegate_Handle(FOnEnumerateFilesCompleteDelegate::CreateUObject(this, &UUTLocalPlayer::OnEnumerateTitleFilesComplete));
 	}
+
+	IOnlineVoicePtr VoiceInt = OnlineSubsystem->GetVoiceInterface();
+	if (VoiceInt.IsValid())
+	{
+		SpeakerDelegate = VoiceInt->AddOnPlayerTalkingStateChangedDelegate_Handle(FOnPlayerTalkingStateChangedDelegate::CreateUObject(this, &UUTLocalPlayer::OnPlayerTalkingStateChanged));
+	}
 }
 
 void UUTLocalPlayer::CleanUpOnlineSubSystyem()
@@ -205,7 +211,14 @@ void UUTLocalPlayer::CleanUpOnlineSubSystyem()
 			OnlineTitleFileInterface->ClearOnEnumerateFilesCompleteDelegate_Handle(OnEnumerateTitleFilesCompleteDelegate);
 			OnlineTitleFileInterface->ClearOnReadFileCompleteDelegate_Handle(OnReadTitleFileCompleteDelegate);
 		}
+
+		IOnlineVoicePtr VoiceInt = OnlineSubsystem->GetVoiceInterface();
+		if (VoiceInt.IsValid())
+		{
+			VoiceInt->ClearOnPlayerTalkingStateChangedDelegate_Handle(SpeakerDelegate);
+		}
 	}
+
 }
 
 bool UUTLocalPlayer::Exec(UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Ar)
@@ -5258,6 +5271,22 @@ void UUTLocalPlayer::CloseQuickChat()
 		QuickChatWindow.Reset();
 	}
 #endif
+}
+
+void UUTLocalPlayer::OnPlayerTalkingStateChanged(TSharedRef<const FUniqueNetId> TalkerId, bool bIsTalking)
+{
+	AUTGameState* UTGameState = GetWorld()->GetGameState<AUTGameState>();
+	if (UTGameState)
+	{
+		for (int32 i=0; i < UTGameState->PlayerArray.Num(); i++)
+		{
+			if (UTGameState->PlayerArray[i] && UTGameState->PlayerArray[i]->UniqueId.ToString() == TalkerId->ToString())
+			{
+				AUTPlayerState* PS = Cast<AUTPlayerState>(UTGameState->PlayerArray[i]);
+				if (PS) PS->bIsTalking = bIsTalking;
+			}
+		}
+	}
 }
 
 

@@ -953,10 +953,13 @@ public:
 	UPROPERTY(Replicated, replicatedUsing = OnUnlockList)
 	TArray<FName> UnlockList;
 
+	UPROPERTY(BlueprintReadOnly, Category = "Game")
+	bool bIsTalking;
 
 protected:
 	UFUNCTION()
 	virtual void OnUnlockList();
+
 
 };
 

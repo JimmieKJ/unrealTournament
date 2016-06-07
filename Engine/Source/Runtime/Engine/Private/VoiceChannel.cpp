@@ -67,13 +67,14 @@ void UVoiceChannel::Tick()
 		int32 Index;
 		for (Index = 0; Index < VoicePackets.Num(); Index++)
 		{
+/*
 			if (Connection->IsNetReady(0) == false)
 			{
 				// If the network is saturated bail early
 				UE_LOG(LogNet, Warning, TEXT("Network saturated"));
 				break;
 			}
-
+*/
 			FOutBunch Bunch(this, 0);
 
 			TSharedPtr<FVoicePacket> Packet = VoicePackets[Index];
@@ -117,6 +118,7 @@ void UVoiceChannel::Tick()
 
 	// make sure we keep any reliable messages to try again next time
 	// but ditch any unreliable messages we've not managed to send
+
 	int PacketLoss = 0;
 	for(int i=VoicePackets.Num() - 1; i >= 0; i--)
 	{
@@ -130,6 +132,7 @@ void UVoiceChannel::Tick()
 	{
 		UE_LOG(LogNet, Warning, TEXT("Dropped %d packets due to congestion in the voicechannel"), PacketLoss);
 	}
+
 }
 
 /**

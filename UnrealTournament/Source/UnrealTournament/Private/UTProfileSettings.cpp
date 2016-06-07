@@ -111,6 +111,14 @@ void UUTProfileSettings::VersionFixup()
 		WeaponWheelQuickSlots.Add(TEXT("Enforcer_C"));
 	}
 
+	if (SettingsRevisionNum < PUSH_TO_TALK_FIXUP_PROFILESETTINGS_VERSION)
+	{
+		FInputActionKeyMapping PushToTalk;
+		PushToTalk.ActionName = FName(TEXT("PushToTalk"));
+		PushToTalk.Key = EKeys::B;
+		ActionMappings.AddUnique(PushToTalk);
+	}
+
 	// The format has changed during Dev versions.  So in case some people have written out unlocks, clear them here.
 	if (SettingsRevisionNum <= CHALLENGE_FIXUP_VERSION)
 	{
@@ -144,6 +152,7 @@ void UUTProfileSettings::ResetHUD()
 	bDrawHUDKillIconMsg = true;
 	bPlayKillSoundMsg = true;
 	HUDMinimapScale = 1.0f;
+	bPushToTalk = true;
 }
 
 void UUTProfileSettings::SetWeaponPriority(FString WeaponClassName, float NewPriority)

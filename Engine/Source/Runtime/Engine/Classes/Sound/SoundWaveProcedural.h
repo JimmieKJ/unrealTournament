@@ -23,7 +23,23 @@ class ENGINE_API USoundWaveProcedural : public USoundWave
 	GENERATED_UCLASS_BODY()
 
 private:
-	TArray<uint8> QueuedAudio;
+	// A thread safe queue for queuing audio to be consumed on audio thread
+	TQueue<TArray<uint8>> QueuedAudio;
+
+	// The amount of bytes queued and not yet consumed
+	FThreadSafeCounter AvailableByteCount;
+
+	// The actual audio buffer that can be consumed. QueuedAudio is fed to this buffer. Accessed only audio thread.
+	TArray<uint8> AudioBuffer;
+
+	// Flag to reset the audio buffer
+	FThreadSafeBool bReset;
+
+	// Whether or not we've started generating audio
+	FThreadSafeBool bStarted;
+
+	// Number of samples to pad with 0 if there isn't enough audio available
+	int32 NumBufferUnderrunSamples;
 
 public:
 

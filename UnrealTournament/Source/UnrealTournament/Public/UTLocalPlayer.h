@@ -1014,5 +1014,7 @@ protected:
 	TArray<FText> UIChatTextBackBuffer;
 
 	bool bJoinSessionInProgress;	
+	FDelegateHandle SpeakerDelegate;
+	void OnPlayerTalkingStateChanged(TSharedRef<const FUniqueNetId> TalkerId, bool bIsTalking);
 
 };
