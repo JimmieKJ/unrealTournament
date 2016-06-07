@@ -183,6 +183,10 @@ class UNREALTOURNAMENT_API AUTWeap_RocketLauncher : public AUTWeapon
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Lock)
 	float		LockRange;
 
+	/** How wide a miss should we be considering actors for a lock */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Lock)
+		float		LockOffset;
+
 	/** How long does the player need to target an actor to lock on to it*/
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Lock)
 	float		LockAcquireTime;

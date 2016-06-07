@@ -1252,21 +1252,16 @@ void AUTWeapon::GuessPlayerTarget(const FVector& StartFireLoc, const FVector& Fi
 			}
 			float BestAim = 0.f;
 			float BestDist = 0.f;
-			PC->LastShotTargetGuess = UUTGameplayStatics::PickBestAimTarget(PC, StartFireLoc, FireDir, 0.9f, MaxRange, APawn::StaticClass(), &BestAim, &BestDist);
+			float BestOffset = 0.f;
+			PC->LastShotTargetGuess = UUTGameplayStatics::ChooseBestAimTarget(PC, StartFireLoc, FireDir, 0.85f, MaxRange, 500.f, APawn::StaticClass(), &BestAim, &BestDist, &BestOffset);
 			AUTCharacter* FlagCarrierTarget = Cast<AUTCharacter>(PC->LastShotTargetGuess);
 			if (FlagCarrierTarget && FlagCarrierTarget->GetCarriedObject())
 			{
-				FVector ShotLoc = StartFireLoc + FireDir * BestDist;
-				AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
-				if (GS && !GS->OnSameTeam(UTOwner, FlagCarrierTarget) && ((FlagCarrierTarget->GetActorLocation() - ShotLoc).Size() < 250.f))
-				{
-					FlagCarrierTarget->GetCarriedObject()->LastPingedTime = GetWorld()->GetTimeSeconds();
-				}
+				FlagCarrierTarget->GetCarriedObject()->LastPingedTime = GetWorld()->GetTimeSeconds();
 			}
 		}
 	}
 }
-
 
 void AUTWeapon::NetSynchRandomSeed()
 {
@@ -1386,7 +1381,7 @@ void AUTWeapon::FireInstantHit(bool bDealDamage, FHitResult* OutHit)
 	{
 		// in some cases the head sphere is partially outside the capsule
 		// so do a second search just for that
-		AUTCharacter* AltTarget = Cast<AUTCharacter>(UUTGameplayStatics::PickBestAimTarget(UTPC, SpawnLocation, FireDir, 0.9f, (Hit.Location - SpawnLocation).Size(), AUTCharacter::StaticClass()));
+		AUTCharacter* AltTarget = Cast<AUTCharacter>(UUTGameplayStatics::ChooseBestAimTarget(UTPC, SpawnLocation, FireDir, 0.8f, (Hit.Location - SpawnLocation).Size(), 100.f, AUTCharacter::StaticClass()));
 		if (AltTarget != NULL && (AltTarget->GetVelocity().IsNearlyZero() || bCheckMovingHeadSphere) && AltTarget->IsHeadShot(SpawnLocation, FireDir, 1.f, UTOwner, PredictionTime))
 		{
 			Hit = FHitResult(AltTarget, AltTarget->GetCapsuleComponent(), SpawnLocation + FireDir * ((AltTarget->GetHeadLocation() - SpawnLocation).Size() - AltTarget->GetCapsuleComponent()->GetUnscaledCapsuleRadius()), -FireDir);

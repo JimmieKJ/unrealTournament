@@ -290,14 +290,15 @@ bool UUTGameplayStatics::UTHurtRadius( UObject* WorldContextObject, float BaseDa
 
 APawn* UUTGameplayStatics::PickBestAimTarget(AController* AskingC, FVector StartLoc, FVector FireDir, float MinAim, float MaxRange, TSubclassOf<APawn> TargetClass, float* BestAim, float* BestDist)
 {
-	if (AskingC == NULL)
+	return ChooseBestAimTarget(AskingC, StartLoc, FireDir, MinAim, MaxRange, 10000.f, TargetClass, BestAim, BestDist);
+}
+
+APawn* UUTGameplayStatics::ChooseBestAimTarget(AController* AskingC, FVector StartLoc, FVector FireDir, float MinAim, float MaxRange, float MaxOffsetDist, TSubclassOf<APawn> TargetClass, float* BestAim, float* BestDist, float* BestOffset)
+{
+	if ((AskingC == NULL) || (AskingC->GetNetMode() == NM_Client))
 	{
-		UE_LOG(UT, Warning, TEXT("PickBestAimTarget(): AskingC == NULL"));
-		return NULL;
-	}
-	else if (AskingC->GetNetMode() == NM_Client)
-	{
-		UE_LOG(UT, Warning, TEXT("PickBestAimTarget(): Only callable on server"));
+		FString ErrorText = (AskingC == NULL) ? "ChooseBestAimTarget(): AskingC == NULL" : "ChooseBestAimTarget(): Only callable on server";
+		UE_LOG(UT, Warning, TEXT("%s"), *ErrorText);
 		return NULL;
 	}
 	else
@@ -307,9 +308,7 @@ APawn* UUTGameplayStatics::PickBestAimTarget(AController* AskingC, FVector Start
 			TargetClass = APawn::StaticClass();
 		}
 		const float MaxRangeSquared = FMath::Square(MaxRange);
-		const float VerticalMinAim = MinAim * 3.f - 2.f;
-		float LocalBestAim;
-		float LocalBestDist;
+		float LocalBestAim, LocalBestDist, LocalBestOffset;
 		if (BestAim == NULL)
 		{
 			BestAim = &LocalBestAim;
@@ -318,67 +317,52 @@ APawn* UUTGameplayStatics::PickBestAimTarget(AController* AskingC, FVector Start
 		{
 			BestDist = &LocalBestDist;
 		}
+		if (BestOffset == NULL)
+		{
+			BestOffset = &LocalBestOffset;
+		}
+
 		(*BestDist) = FLT_MAX;
+		(*BestOffset) = MaxOffsetDist;
 		(*BestAim) = MinAim;
 		APawn* BestTarget = NULL;
-		FCollisionQueryParams TraceParams(FName(TEXT("PickBestAimTarget")), false);
+		FCollisionQueryParams TraceParams(FName(TEXT("ChooseBestAimTarget")), false);
 		UWorld* TheWorld = AskingC->GetWorld();
 		for (FConstControllerIterator It = TheWorld->GetControllerIterator(); It; ++It)
 		{
 			APawn* P = It->Get()->GetPawn();
-			if (P != NULL && !P->bTearOff && It->Get() != AskingC)
+			if (P != NULL && !P->bTearOff && (It->Get() != AskingC) && P->GetClass()->IsChildOf(TargetClass))
 			{
-				/* TODO:
-				if (!P->IsRootComponentCollisionRegistered())
+				AUTGameState* GS = TheWorld->GetGameState<AUTGameState>();
+				if (GS == NULL || !GS->OnSameTeam(AskingC, P))
 				{
-					// perhaps target vehicle this pawn is based on instead
-					NewTarget = NewTarget->GetVehicleBase();
-					if (!NewTarget || NewTarget->Controller)
+					// check passed in constraints
+					const FVector AimDir = P->GetActorLocation() - StartLoc;
+					float TestAim = FireDir | AimDir;
+					if (TestAim > 0.0f)
 					{
-						continue;
-					}
-				}
-				*/
-
-				if (P->GetClass()->IsChildOf(TargetClass))
-				{
-					AUTGameState* GS = TheWorld->GetGameState<AUTGameState>();
-					if (GS == NULL || !GS->OnSameTeam(AskingC, P))
-					{
-						// check passed in constraints
-						const FVector AimDir = P->GetActorLocation() - StartLoc;
-						float TestAim = FireDir | AimDir;
-						if (TestAim > 0.0f)
+						float FireDist = AimDir.SizeSquared();
+						if (FireDist < MaxRangeSquared)
 						{
-							float FireDist = AimDir.SizeSquared();
-							if (FireDist < MaxRangeSquared)
+							FireDist = FMath::Sqrt(FireDist);
+							TestAim /= FireDist;
+							if (TestAim > MinAim)
 							{
-								FireDist = FMath::Sqrt(FireDist);
-								TestAim /= FireDist;
-								bool bPassedAimCheck = (TestAim > *BestAim);
-								// if no target yet, be more liberal about up/down error (more vertical autoaim help)
-								if (!bPassedAimCheck && BestTarget == NULL && TestAim > VerticalMinAim)
-								{
-									FVector FireDir2D = FireDir;
-									FireDir2D.Z = 0;
-									FireDir2D.Normalize();
-									float TestAim2D = FireDir2D | AimDir;
-									TestAim2D = TestAim2D / FireDist;
-									bPassedAimCheck = (TestAim2D > *BestAim);
-								}
-								if (bPassedAimCheck)
+								float OffsetDist = FMath::PointDistToLine(P->GetActorLocation(), FireDir, StartLoc);
+								if (OffsetDist < (*BestOffset))
 								{
 									// trace to head and center
-									bool bHit = TheWorld->LineTraceTestByChannel(StartLoc, P->GetActorLocation() + FVector(0.0f, 0.0f, P->BaseEyeHeight), ECC_Visibility, TraceParams);
+									bool bHit = TheWorld->LineTraceTestByChannel(StartLoc, P->GetActorLocation() + FVector(0.0f, 0.0f, P->BaseEyeHeight), COLLISION_TRACE_WEAPONNOCHARACTER, TraceParams);
 									if (bHit)
 									{
-										bHit = TheWorld->LineTraceTestByChannel(StartLoc, P->GetActorLocation(), ECC_Visibility, TraceParams);
+										bHit = TheWorld->LineTraceTestByChannel(StartLoc, P->GetActorLocation(), COLLISION_TRACE_WEAPONNOCHARACTER, TraceParams);
 									}
 									if (!bHit)
 									{
 										BestTarget = P;
 										(*BestAim) = TestAim;
 										(*BestDist) = FireDist;
+										(*BestOffset) = OffsetDist;
 									}
 								}
 							}
