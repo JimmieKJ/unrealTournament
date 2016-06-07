@@ -100,10 +100,7 @@ public:
 
 	UFUNCTION(BlueprintCallable, Category = PlayerController)
 	virtual AUTCharacter* GetUTCharacter();
-
-	UFUNCTION(BlueprintCallable, Category = PlayerController)
-	virtual UUTLocalPlayer* GetUTLocalPlayer();
-
+	
 	UPROPERTY(ReplicatedUsing = OnRep_HUDClass)
 	TSubclassOf<class AHUD> HUDClass;
 

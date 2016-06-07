@@ -9,7 +9,7 @@
 #include "QosEvaluator.h"
 #include "UTMatchmaking.generated.h"
 
-class AUTPlayerController;
+class AUTBasePlayerController;
 enum class EUTPartyState : uint8;
 enum class EQosCompletionResult : uint8;
 class FQosEvaluator;
@@ -381,7 +381,7 @@ private:
 	UUTGameInstance* GetUTGameInstance() const;
 
 	/** @return the owning controller */
-	AUTPlayerController* GetOwningController() const;
+	AUTBasePlayerController* GetOwningController() const;
 	
 	/** Timer handle for waiting before attempting to reconnect to the reservation beacon */
 	FTimerHandle ConnectToReservationBeaconTimerHandle;

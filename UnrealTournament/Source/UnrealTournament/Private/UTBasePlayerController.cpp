@@ -654,7 +654,10 @@ void AUTBasePlayerController::ServerRconNormal_Implementation()
 	}
 }
 
-
+UUTLocalPlayer* AUTBasePlayerController::GetUTLocalPlayer()
+{
+	return Cast<UUTLocalPlayer>(Player);
+}
 
 void AUTBasePlayerController::RconExec(FString Command)
 {

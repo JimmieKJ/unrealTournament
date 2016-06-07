@@ -124,7 +124,7 @@ UUTGameInstance* UUTMatchmaking::GetUTGameInstance() const
 	return Cast<UUTGameInstance>(GetOuter());
 }
 
-AUTPlayerController* UUTMatchmaking::GetOwningController() const
+AUTBasePlayerController* UUTMatchmaking::GetOwningController() const
 {
 	if (ControllerId < INVALID_CONTROLLERID)
 	{
@@ -133,7 +133,7 @@ AUTPlayerController* UUTMatchmaking::GetOwningController() const
 
 		ULocalPlayer* LP = GEngine->GetLocalPlayerFromControllerId(World, ControllerId);
 		APlayerController* PC = LP ? LP->PlayerController : nullptr;
-		return Cast<AUTPlayerController>(PC);
+		return Cast<AUTBasePlayerController>(PC);
 	}
 
 	return nullptr;
@@ -253,7 +253,7 @@ void UUTMatchmaking::OnClientPartyStateChanged(EUTPartyState NewPartyState)
 
 	if (NewPartyState == EUTPartyState::Menus)
 	{
-		AUTPlayerController* PC = GetOwningController();
+		AUTBasePlayerController* PC = GetOwningController();
 		if (PC)
 		{
 			UUTLocalPlayer* LP = PC->GetUTLocalPlayer();
@@ -662,7 +662,7 @@ void UUTMatchmaking::OnGatherMatchmakingComplete(EMatchmakingCompleteResult Resu
 {
 	if (Result == EMatchmakingCompleteResult::Success && SearchResult.IsValid())
 	{
-		AUTPlayerController* UTPC = GetOwningController();
+		AUTBasePlayerController* UTPC = GetOwningController();
 		FTimerDelegate TimerDelegate = FTimerDelegate::CreateUObject(this, &ThisClass::ConnectToReservationBeacon, SearchResult);
 		UTPC->GetWorldTimerManager().SetTimer(ConnectToReservationBeaconTimerHandle, TimerDelegate, CONNECT_TO_RESERVATION_BEACON_DELAY, false);
 
@@ -685,7 +685,7 @@ void UUTMatchmaking::OnSingleSessionMatchmakingComplete(EMatchmakingCompleteResu
 	{
 		if ((CachedMatchmakingSearchParams.GetMatchmakingParams().Flags & EMatchmakingFlags::NoReservation) == EMatchmakingFlags::None)
 		{
-			AUTPlayerController* UTPC = GetOwningController();
+			AUTBasePlayerController* UTPC = GetOwningController();
 			FTimerDelegate TimerDelegate = FTimerDelegate::CreateUObject(this, &ThisClass::ConnectToReservationBeacon, SearchResult);
 			UTPC->GetWorldTimerManager().SetTimer(ConnectToReservationBeaconTimerHandle, TimerDelegate, CONNECT_TO_RESERVATION_BEACON_DELAY, false);
 		}
@@ -714,7 +714,7 @@ void UUTMatchmaking::ConnectToReservationBeacon(FOnlineSessionSearchResult Searc
 {
 	UWorld* World = GetWorld();
 
-	AUTPlayerController* PC = GetOwningController();
+	AUTBasePlayerController* PC = GetOwningController();
 	if (PC && PC->PlayerState && PC->PlayerState->UniqueId.IsValid())
 	{
 		if (PC->IsPartyLeader())

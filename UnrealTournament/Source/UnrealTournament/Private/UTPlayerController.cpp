@@ -2246,11 +2246,6 @@ AUTCharacter* AUTPlayerController::GetUTCharacter()
 	return UTCharacter;
 }
 
-UUTLocalPlayer* AUTPlayerController::GetUTLocalPlayer()
-{
-	return Cast<UUTLocalPlayer>(Player);
-}
-
 void AUTPlayerController::ServerRestartPlayer_Implementation()
 {
 
