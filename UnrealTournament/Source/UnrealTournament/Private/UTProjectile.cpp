@@ -730,7 +730,7 @@ void AUTProjectile::ProcessHit_Implementation(AActor* OtherActor, UPrimitiveComp
 		 && !ShouldIgnoreHit(OtherActor, OtherComp) )
 	{
 		AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
-		if (!bCanHitTeammates && GS && Cast<AUTCharacter>(OtherActor) && Instigator && GS->OnSameTeam(OtherActor, Instigator))
+		if (!bCanHitTeammates && GS && Cast<AUTCharacter>(OtherActor) && Instigator && (Instigator != OtherActor) && GS->OnSameTeam(OtherActor, Instigator))
 		{
 			// ignore team hits
 			return;
