@@ -113,7 +113,8 @@ void AUTGhostFlag::OnSetCarriedObject()
 		}
 		FActorSpawnParameters Params;
 		Params.Owner = this;
-		Trail = GetWorld()->SpawnActor<AUTFlagReturnTrail>(AUTFlagReturnTrail::StaticClass(), MyCarriedObject->GetActorLocation(), MyCarriedObject->GetActorRotation(), Params);
+		FVector TrailDir = !MidPoints[0].IsZero() ? (MidPoints[0] - MyCarriedObject->GetActorLocation()).GetSafeNormal() : (GetActorLocation() - MyCarriedObject->GetActorLocation()).GetSafeNormal();
+		Trail = GetWorld()->SpawnActor<AUTFlagReturnTrail>(AUTFlagReturnTrail::StaticClass(), MyCarriedObject->GetActorLocation(), TrailDir.Rotation(), Params);
 		Trail->StartActor = MyCarriedObject;
 		Trail->StartPoint = MyCarriedObject->GetActorLocation();
 		Trail->EndPoint = GetActorLocation();
