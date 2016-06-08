@@ -92,6 +92,13 @@ void UPartyContext::HandlePartyJoined(UPartyGameState* PartyState)
 
 		OnPartyTransitionCompleted.Broadcast(CurrentTransition);
 		CurrentTransition = EUTPartyTransition::Idle;
+
+		// If we're playing an offline game, quit back to main menu
+		UUTLocalPlayer* LocalPlayer = GetOwningPlayer<UUTLocalPlayer>();
+		if (LocalPlayer && !LocalPlayer->IsMenuGame() && LocalPlayer->GetWorld()->GetNetMode() == NM_Standalone)
+		{
+			LocalPlayer->ReturnToMainMenu();
+		}
 	}
 }
 
