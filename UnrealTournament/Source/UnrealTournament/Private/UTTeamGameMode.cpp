@@ -277,7 +277,7 @@ bool AUTTeamGameMode::MovePlayerToTeam(AController* Player, AUTPlayerState* PS, 
 				if (NextPlayer)
 				{
 					TSharedPtr<const FUniqueNetId> Id = NextPlayer->PlayerState->UniqueId.GetUniqueNetId();
-					bool bIsMuted = PlayerController->IsPlayerMuted(Id.ToSharedRef().Get());
+					bool bIsMuted = Id.IsValid() && PlayerController->IsPlayerMuted(Id.ToSharedRef().Get());
 
 					bool bOnSameTeam = UTGameState->OnSameTeam(PlayerController, NextPlayer);
 					if (bIsMuted && bOnSameTeam) 

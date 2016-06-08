@@ -197,6 +197,17 @@ void SUTInGameHomePanel::ShowContextMenu(UUTScoreboard* Scoreboard, FVector2D Co
 		// If we are in a netgame, show online options.
 		if ( PlayerOwner->GetWorld()->GetNetMode() == ENetMode::NM_Client)
 		{
+			// Add the show player card
+			MenuBox->AddSlot()
+			.AutoHeight()
+			[
+				SNew(SUTButton)
+				.OnClicked(this, &SUTInGameHomePanel::ContextCommand, 255, SelectedPlayer)
+				.ButtonStyle(SUTStyle::Get(),"UT.ContextMenu.Item")
+				.Text(this, &SUTInGameHomePanel::GetMuteLabelText)
+				.TextStyle(SUTStyle::Get(),"UT.Font.NormalText.Small")
+			];
+
 			MenuBox->AddSlot()
 			.AutoHeight()
 			[
@@ -311,6 +322,20 @@ FReply SUTInGameHomePanel::ContextCommand(int32 CommandId, TWeakObjectPtr<AUTPla
 						break;
 				case 3: PC->RconKick(TargetPlayerState->UniqueId.ToString(), false); break;
 				case 4: PC->RconKick(TargetPlayerState->UniqueId.ToString(), true);	break;
+				case 255:
+				{
+					TSharedPtr<const FUniqueNetId> Id = TargetPlayerState->UniqueId.GetUniqueNetId();
+					if ( PlayerOwner->PlayerController->IsPlayerMuted(Id.ToSharedRef().Get()) )
+					{
+						PC->ServerUnmutePlayer(TargetPlayerState->UniqueId);
+					}				
+					else
+					{
+						PC->ServerMutePlayer(TargetPlayerState->UniqueId);
+					}
+					HideContextMenu();
+					break;
+				}
 			}
 		}
 	}
@@ -495,5 +520,22 @@ TSharedPtr<SWidget> SUTInGameHomePanel::GetInitialFocus()
 	
 	return PlayerOwner->GetChatWidget();
 }
+
+FText SUTInGameHomePanel::GetMuteLabelText() const
+{
+	AUTPlayerController* PC = Cast<AUTPlayerController>(PlayerOwner->PlayerController);
+	if (!PC) return FText::GetEmpty();
+	UUTScoreboard* Scoreboard = PC->MyUTHUD->GetScoreboard();
+	if (Scoreboard == nullptr) return FText::GetEmpty();
+	
+	TWeakObjectPtr<AUTPlayerState> SelectedPlayer = Scoreboard->GetSelectedPlayer();
+	
+	if (!SelectedPlayer.IsValid()) return FText::GetEmpty();
+
+	TSharedPtr<const FUniqueNetId> Id = SelectedPlayer->UniqueId.GetUniqueNetId();
+	bool bIsMuted = Id.IsValid() && PlayerOwner->PlayerController->IsPlayerMuted(Id.ToSharedRef().Get());
+	return bIsMuted ? NSLOCTEXT("SUTInGameHomePanel","Unmute","Unmute Player") : NSLOCTEXT("SUTInGameHomePanel","Mute","Mute Player");
+}
+
 
 #endif
