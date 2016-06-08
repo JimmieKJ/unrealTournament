@@ -177,6 +177,12 @@ public:
 		return (bIsInAnyMatch && !bIsInMatch && TrackedMatchId >= 0) ? EVisibility::Visible : EVisibility::Collapsed;
 	}
 
+	EVisibility GetChatVis() const
+	{
+		return (PlayerState.IsValid() && PlayerState->bIsTalking) ? EVisibility::Visible : EVisibility::Collapsed;
+	}
+
+
 	const FSlateBrush* GetAvatar() const
 	{
 		if (Avatar == NAME_None) 

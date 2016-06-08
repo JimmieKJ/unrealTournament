@@ -188,66 +188,84 @@ TSharedRef<ITableRow> SUTPlayerListPanel::OnGenerateWidgetForPlayerList( TShared
 				SNew(SVerticalBox)
 				+SVerticalBox::Slot().AutoHeight()
 				[
-					SNew(SHorizontalBox)
-					+SHorizontalBox::Slot().AutoWidth().Padding(FMargin(5.0f ,0.0f ,0.0f ,0.0f))
+					SNew(SOverlay)
+					+SOverlay::Slot()
 					[
-						SNew(SBox).WidthOverride(64).HeightOverride(64)
+						SNew(SHorizontalBox)
+						+SHorizontalBox::Slot().AutoWidth().Padding(FMargin(5.0f ,0.0f ,0.0f ,0.0f))
 						[
-							SNew(SImage)
-							.Image(InItem.Get(), &FTrackedPlayer::GetAvatar)
-						]
-					]
-					+SHorizontalBox::Slot().Padding(FMargin(5.0f ,5.0f ,0.0f ,0.0f)).VAlign(VAlign_Top).FillWidth(1.0)
-					[
-						SNew(SVerticalBox)
-						+SVerticalBox::Slot().Padding(FMargin(0.0f,5.0f,0.0f,0.0f))
-						[
-							SNew(STextBlock)
-							.Text(TAttribute<FText>::Create(TAttribute<FText>::FGetter::CreateSP(InItem.Get(), &FTrackedPlayer::GetPlayerName)))
-							.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Small")
-							.ColorAndOpacity(TAttribute<FSlateColor>::Create(TAttribute<FSlateColor>::FGetter::CreateSP(InItem.Get(), &FTrackedPlayer::GetNameColor)))
-						]
-						+SVerticalBox::Slot().Padding(FMargin(0.0f,5.0f,0.0f,0.0f)).AutoHeight()
-						[
-							SNew(SHorizontalBox)
-							+SHorizontalBox::Slot().VAlign(VAlign_Top).AutoWidth()
+							SNew(SBox).WidthOverride(64).HeightOverride(64)
 							[
-								SNew(SBox).WidthOverride(32).HeightOverride(32)
-								[
-									SNew(SOverlay)
-									+SOverlay::Slot()
-									[
-										SNew(SImage)
-										.Image(InItem.Get(), &FTrackedPlayer::GetBadge)
-									]
-									+SOverlay::Slot()
-									.VAlign(VAlign_Center)
-									.Padding(FMargin(0.0,0.0,0.0,0.0))
-									.HAlign(HAlign_Center)
-									[
-										SNew(STextBlock)
-										.Text(TAttribute<FText>::Create(TAttribute<FText>::FGetter::CreateSP(InItem.Get(), &FTrackedPlayer::GetRank)))
-										.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Tiny.Bold")
-										.ShadowOffset(FVector2D(0.0f,1.0f))
-										.ShadowColorAndOpacity(FLinearColor(0.0f,0.0f,0.0f,1.0f))
-									]
-									+SOverlay::Slot()
-									[
-										SNew(SImage)
-										.Image(InItem.Get(), &FTrackedPlayer::GetXPStarImage)
-									]
-								]
+								SNew(SImage)
+								.Image(InItem.Get(), &FTrackedPlayer::GetAvatar)
 							]
-							+SHorizontalBox::Slot().VAlign(VAlign_Top).AutoWidth().Padding(FMargin(5.0,0.0,0.0,0.0))
-							[
-								GetPlayerMatchId(InItem)
-							]
-							+SHorizontalBox::Slot().VAlign(VAlign_Top).AutoWidth()
-							.Padding(FMargin(5.0,0.0,0.0,0.0))
+						]
+						+SHorizontalBox::Slot().Padding(FMargin(5.0f ,5.0f ,0.0f ,0.0f)).VAlign(VAlign_Top).FillWidth(1.0)
+						[
+							SNew(SVerticalBox)
+							+SVerticalBox::Slot().Padding(FMargin(0.0f,5.0f,0.0f,0.0f))
 							[
 								SNew(STextBlock)
-								.Text(TAttribute<FText>::Create(TAttribute<FText>::FGetter::CreateSP(InItem.Get(), &FTrackedPlayer::GetLobbyStatusText)))
-								.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Tiny.Bold")
+								.Text(TAttribute<FText>::Create(TAttribute<FText>::FGetter::CreateSP(InItem.Get(), &FTrackedPlayer::GetPlayerName)))
+								.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Small")
+								.ColorAndOpacity(TAttribute<FSlateColor>::Create(TAttribute<FSlateColor>::FGetter::CreateSP(InItem.Get(), &FTrackedPlayer::GetNameColor)))
+							]
+							+SVerticalBox::Slot().Padding(FMargin(0.0f,5.0f,0.0f,0.0f)).AutoHeight()
+							[
+								SNew(SHorizontalBox)
+								+SHorizontalBox::Slot().VAlign(VAlign_Top).AutoWidth()
+								[
+									SNew(SBox).WidthOverride(32).HeightOverride(32)
+									[
+										SNew(SOverlay)
+										+SOverlay::Slot()
+										[
+											SNew(SImage)
+											.Image(InItem.Get(), &FTrackedPlayer::GetBadge)
+										]
+										+SOverlay::Slot()
+										.VAlign(VAlign_Center)
+										.Padding(FMargin(0.0,0.0,0.0,0.0))
+										.HAlign(HAlign_Center)
+										[
+											SNew(STextBlock)
+											.Text(TAttribute<FText>::Create(TAttribute<FText>::FGetter::CreateSP(InItem.Get(), &FTrackedPlayer::GetRank)))
+											.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Tiny.Bold")
+											.ShadowOffset(FVector2D(0.0f,1.0f))
+											.ShadowColorAndOpacity(FLinearColor(0.0f,0.0f,0.0f,1.0f))
+										]
+										+SOverlay::Slot()
+										[
+											SNew(SImage)
+											.Image(InItem.Get(), &FTrackedPlayer::GetXPStarImage)
+										]
+									]
+								]
+								+SHorizontalBox::Slot().VAlign(VAlign_Top).AutoWidth().Padding(FMargin(5.0,0.0,0.0,0.0))
+								[
+									GetPlayerMatchId(InItem)
+								]
+								+SHorizontalBox::Slot().VAlign(VAlign_Top).AutoWidth()
+								.Padding(FMargin(5.0,0.0,0.0,0.0))
+								[
+									SNew(STextBlock)
+									.Text(TAttribute<FText>::Create(TAttribute<FText>::FGetter::CreateSP(InItem.Get(), &FTrackedPlayer::GetLobbyStatusText)))
+									.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Tiny.Bold")
+								]
+							]
+						]
+					]
+					+SOverlay::Slot()
+					[
+						SNew(SHorizontalBox)
+						+SHorizontalBox::Slot().AutoWidth().Padding(FMargin(0.0f ,0.0f ,0.0f ,0.0f))
+						[
+							SNew(SBox).WidthOverride(48).HeightOverride(48)
+							[
+								SNew(SImage)
+								.Image(SUTStyle::Get().GetBrush("UT.Icon.Chat.Inverted"))
+								.RenderTransform(FVector2D(-16.0f, -20.0f))
+								.Visibility(InItem.Get(), &FTrackedPlayer::GetChatVis)							
 							]
 						]
 					]

@@ -202,6 +202,8 @@ void SUTStyle::SetIcons(TSharedRef<FSlateStyleSet> StyleRef)
 	Style.Set("UT.Icon.Exit", new IMAGE_BRUSH("UTStyle/Icons/UT.Icon.Exit", FVector2D(48, 48)));
 	Style.Set("UT.Icon.Stats", new IMAGE_BRUSH("UTStyle/Icons/UT.Icon.Stats", FVector2D(48, 48)));
 	Style.Set("UT.Icon.Chat36", new IMAGE_BRUSH("UTStyle/Icons/UT.Icon.Chat36", FVector2D(36, 36)));
+	Style.Set("UT.Icon.Chat.Inverted", new IMAGE_BRUSH("UTStyle/Icons/UT.Icon.Chat.Inverted", FVector2D(36, 36)));
+	
 	Style.Set("UT.Icon.Browser", new IMAGE_BRUSH("UTStyle/Icons/UT.Icon.Browser", FVector2D(48, 48)));
 	Style.Set("UT.Icon.SocialBang", new IMAGE_BRUSH("UTStyle/Icons/UT.Icon.SocialBang", FVector2D(12, 12)));
 
