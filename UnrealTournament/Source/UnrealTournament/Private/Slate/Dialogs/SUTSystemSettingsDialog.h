@@ -183,6 +183,7 @@ protected:
 	void OnSoundVolumeChangedMusic(float NewValue);
 	void OnSoundVolumeChangedSFX(float NewValue);
 	void OnSoundVolumeChangedVoice(float NewValue);
+	void OnSoundVolumeChangedVOIP(float NewValue);
 
 	/** list of display values for general scalability setting that are all set the same way (e.g. low/medium/high) */
 	TArray< TSharedPtr<FString> > GeneralScalabilityList;
