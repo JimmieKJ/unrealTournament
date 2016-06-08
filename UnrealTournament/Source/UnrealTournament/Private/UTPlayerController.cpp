@@ -2220,7 +2220,7 @@ void AUTPlayerController::UpdateHiddenComponents(const FVector& ViewLocation, TS
 			if (Base != NULL)
 			{
 				AUTCTFFlag* Flag = Cast<AUTCTFFlag>(Base->GetCarriedObject());
-				if (Flag != NULL && (Flag->GetTeamNum() != GetTeamNum() || Flag->Holder == NULL) && Flag->AuraSphere != NULL)
+				if (Flag != NULL && (Flag->GetTeamNum() != GetTeamNum() || Flag->ObjectState == CarriedObjectState::Home) && Flag->AuraSphere != NULL)
 				{
 					HiddenComponents.Add(Flag->AuraSphere->ComponentId);
 				}
