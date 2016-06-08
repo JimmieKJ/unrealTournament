@@ -264,6 +264,8 @@ public:
 	UFUNCTION(BlueprintCallable, Client, Reliable, Category = "Movies")
 	virtual void ClientWaitForMovieToFinish();
 
+	virtual void ClientEnableNetworkVoice_Implementation(bool bEnable);
+
 protected:
 	// Sends a message directly to a user.  
 	virtual void DirectSay(const FString& User, const FString& Message);

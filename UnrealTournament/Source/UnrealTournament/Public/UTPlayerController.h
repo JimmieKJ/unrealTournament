@@ -1153,8 +1153,6 @@ public:
 	UFUNCTION(exec)
 	void StopVOIPTalking();
 
-	virtual void ClientEnableNetworkVoice_Implementation(bool bEnable);
-
 };
 
 

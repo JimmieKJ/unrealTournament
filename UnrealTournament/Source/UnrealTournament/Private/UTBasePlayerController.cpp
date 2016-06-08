@@ -1022,3 +1022,15 @@ void AUTBasePlayerController::ClientWaitForMovieToFinish_Implementation()
 	}
 #endif
 }
+
+void AUTBasePlayerController::ClientEnableNetworkVoice_Implementation(bool bEnable)
+{
+	UUTProfileSettings* ProfileSettings = NULL;
+
+	if (Cast<UUTLocalPlayer>(Player))
+	{
+		ProfileSettings = Cast<UUTLocalPlayer>(Player)->GetProfileSettings();
+	}
+
+	ToggleSpeaking(ProfileSettings ? !ProfileSettings->bPushToTalk : bEnable);
+}

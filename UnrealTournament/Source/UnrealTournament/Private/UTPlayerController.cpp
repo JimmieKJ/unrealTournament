@@ -4587,21 +4587,3 @@ void AUTPlayerController::StopVOIPTalking()
 	ToggleSpeaking(false);
 }
 
-void AUTPlayerController::ClientEnableNetworkVoice_Implementation(bool bEnable)
-{
-	UUTProfileSettings* ProfileSettings = NULL;
-
-	if (Cast<UUTLocalPlayer>(Player))
-	{
-		ProfileSettings = Cast<UUTLocalPlayer>(Player)->GetProfileSettings();
-	}
-
-	UE_LOG(UT,Log,TEXT("####### CENV: %i"),(ProfileSettings ? ProfileSettings->bPushToTalk : bEnable));
-	UE_LOG(UT,Log,TEXT("####### CENV: %i"),(ProfileSettings ? ProfileSettings->bPushToTalk : bEnable));
-	UE_LOG(UT,Log,TEXT("####### CENV: %i"),(ProfileSettings ? ProfileSettings->bPushToTalk : bEnable));
-	UE_LOG(UT,Log,TEXT("####### CENV: %i"),(ProfileSettings ? ProfileSettings->bPushToTalk : bEnable));
-	UE_LOG(UT,Log,TEXT("####### CENV: %i"),(ProfileSettings ? ProfileSettings->bPushToTalk : bEnable));
-	UE_LOG(UT,Log,TEXT("####### CENV: %i"),(ProfileSettings ? ProfileSettings->bPushToTalk : bEnable));
-
-	ToggleSpeaking(ProfileSettings ? !ProfileSettings->bPushToTalk : bEnable);
-}
