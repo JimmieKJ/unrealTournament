@@ -856,8 +856,9 @@ namespace UnrealTournamentGame.Automation
 				UnusedPluginFilter.Exclude("/Engine/Plugins/.../UdpMessaging/...");
 				UnusedPluginFilter.Exclude("/Engine/Plugins/.../Developer/...");
 				UnusedPluginFilter.Exclude("/Engine/Plugins/.../Blendables/...");
+                UnusedPluginFilter.Exclude("/Engine/Plugins/.../LevelSequenceEditor/...");
 
-				RequiredFiles.RemoveWhere(FileName => UnusedPluginFilter.Matches(FileName));
+                RequiredFiles.RemoveWhere(FileName => UnusedPluginFilter.Matches(FileName));
 			}
 
 			static void RemoveConfidentialFiles(UnrealTargetPlatform Platform, SortedSet<string> RequiredFiles)
