@@ -196,6 +196,9 @@ class UNREALTOURNAMENT_API AUTCTFRoundGame : public AUTCTFBaseGame
 	UPROPERTY()
 		bool bAllowPrototypePowerups;
 
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite)
+	bool bGiveSpawnInventoryBonus;
+
 protected:
 	virtual bool IsTeamOnOffense(int32 TeamNumber) const;
 	virtual bool IsTeamOnDefense(int32 TeamNumber) const;
@@ -210,9 +213,6 @@ protected:
 
 	UPROPERTY()
 	int32 InitialBoostCount;
-
-	UPROPERTY()
-	bool bGiveSpawnInventoryBonus;
 
 	// If true, players who join during the round, or switch teams during the round will be forced to
 	// sit out and wait for the next round/

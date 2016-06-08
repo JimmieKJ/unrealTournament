@@ -2210,6 +2210,23 @@ void AUTPlayerController::UpdateHiddenComponents(const FVector& ViewLocation, TS
 			}
 		}
 	}
+
+	// hide aura for enemy flag
+	AUTCTFGameState* CTFGS = GetWorld()->GetGameState<AUTCTFGameState>();
+	if (CTFGS != NULL)
+	{
+		for (AUTCTFFlagBase* Base : CTFGS->FlagBases)
+		{
+			if (Base != NULL)
+			{
+				AUTCTFFlag* Flag = Cast<AUTCTFFlag>(Base->GetCarriedObject());
+				if (Flag != NULL && (Flag->GetTeamNum() != GetTeamNum() || Flag->Holder == NULL) && Flag->AuraSphere != NULL)
+				{
+					HiddenComponents.Add(Flag->AuraSphere->ComponentId);
+				}
+			}
+		}
+	}
 }
 
 void AUTPlayerController::ToggleScoreboard(bool bShow)

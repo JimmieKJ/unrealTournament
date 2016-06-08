@@ -438,7 +438,7 @@ public:
 	UFUNCTION(Server, Reliable, WithValidation)
 	virtual void ServerRequestChangeTeam(uint8 NewTeamIndex);
 
-	UFUNCTION()
+	UFUNCTION(BlueprintCallable, Category = Pawn)
 	AUTCharacter* GetUTCharacter();
 
 	UPROPERTY(replicated)

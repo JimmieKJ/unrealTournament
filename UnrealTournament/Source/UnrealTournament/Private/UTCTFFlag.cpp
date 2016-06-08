@@ -42,6 +42,10 @@ AUTCTFFlag::AUTCTFFlag(const FObjectInitializer& ObjectInitializer)
 	bEnemyCanPickup = true;
 	PingedDuration = 2.f;
 	bShouldPingFlag = false;
+
+	AuraSphere = ObjectInitializer.CreateOptionalDefaultSubobject<UStaticMeshComponent>(this, TEXT("AuraSphere"));
+	AuraSphere->AttachParent = RootComponent;
+	AuraSphere->SetCollisionProfileName(TEXT("NoCollision"));
 }
 
 void AUTCTFFlag::PostInitializeComponents()

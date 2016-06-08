@@ -31,6 +31,10 @@ class UNREALTOURNAMENT_API AUTCTFFlag : public AUTCarriedObject
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Flag)
 	UMaterialInstanceDynamic* MeshMID;
 
+	/** TODO: test for flag aura effects */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Experimental)
+	UStaticMeshComponent* AuraSphere;
+
 	/** played on friendly flag when a capture is scored */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Flag)
 	UParticleSystem* CaptureEffect;
