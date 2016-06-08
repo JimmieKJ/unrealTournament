@@ -23,6 +23,6 @@ class UNREALTOURNAMENT_API AUTMutator_WeaponArena : public AUTMutator
 	virtual void BeginPlay() override;
 	void ModifyPlayer_Implementation(APawn* Other, bool bIsNewSpawn) override;
 	bool CheckRelevance_Implementation(AActor* Other) override;
-	void GetGameURLOptions_Implementation(TArray<FString>& OptionsList) override;
+	void GetGameURLOptions_Implementation(TArray<FString>& OptionsList) const override;
 	void Init_Implementation(const FString& Options) override;
 };

@@ -148,7 +148,7 @@ class UNREALTOURNAMENT_API AUTMutator : public AInfo
 	}
 
 	UFUNCTION(BlueprintNativeEvent)
-	void GetGameURLOptions(UPARAM(ref) TArray<FString>& OptionsList);
+	void GetGameURLOptions(UPARAM(ref) TArray<FString>& OptionsList) const;
 
 protected:
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category=Parse)

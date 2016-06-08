@@ -117,7 +117,8 @@ public:
 	/**
 	 * Converts a string to a bool.  If the string is empty, it will return the default.
 	 **/
-	static inline bool EvalBoolOptions(const FString& InOpt, bool Default)
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Game Options")
+	static bool EvalBoolOptions(const FString& InOpt, bool Default)
 	{
 		if (!InOpt.IsEmpty())
 		{

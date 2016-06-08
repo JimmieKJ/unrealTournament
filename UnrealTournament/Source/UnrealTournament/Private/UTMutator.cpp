@@ -151,6 +151,6 @@ void AUTMutator::AddDefaultInventory(TSubclassOf<AUTInventory> InventoryClass)
 }
 
 // By default we do nothing.
-void AUTMutator::GetGameURLOptions_Implementation(TArray<FString>& OptionsList)
+void AUTMutator::GetGameURLOptions_Implementation(TArray<FString>& OptionsList) const
 {
 }

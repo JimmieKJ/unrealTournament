@@ -157,7 +157,7 @@ void AUTMutator_WeaponReplacement::Init_Implementation(const FString& Options)
 	}
 }
 
-void AUTMutator_WeaponReplacement::GetGameURLOptions_Implementation(TArray<FString>& OptionsList)
+void AUTMutator_WeaponReplacement::GetGameURLOptions_Implementation(TArray<FString>& OptionsList) const
 {
 	FString Replacements;
 
