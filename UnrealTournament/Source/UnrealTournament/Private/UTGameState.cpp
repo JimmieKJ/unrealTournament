@@ -34,6 +34,7 @@ AUTGameState::AUTGameState(const class FObjectInitializer& ObjectInitializer)
 	TauntSelectionIndex = 0;
 	bPersistentKillIconMessages = false;
 	bOverrideToggle = false;
+	bTeamProjHits = false;
 
 	// We want to be ticked.
 	PrimaryActorTick.bCanEverTick = true;
@@ -319,6 +320,7 @@ void AUTGameState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty> & OutLif
 	DOREPLIFETIME_CONDITION(AUTGameState, BoostRechargeRateDead, COND_InitialOnly);
 
 	DOREPLIFETIME(AUTGameState, bRestrictPartyJoin);
+	DOREPLIFETIME(AUTGameState, bTeamProjHits);
 }
 
 void AUTGameState::PreReplication(IRepChangedPropertyTracker& ChangedPropertyTracker)

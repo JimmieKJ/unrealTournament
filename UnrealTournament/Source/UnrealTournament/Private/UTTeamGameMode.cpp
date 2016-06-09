@@ -514,6 +514,7 @@ void AUTTeamGameMode::CheckBotCount()
 void AUTTeamGameMode::DefaultTimer()
 {
 	Super::DefaultTimer();
+	UTGameState->bTeamProjHits = UTGameState->bTeamProjHits || (TeamDamagePct > 0.f); // @TODO FIXMESTEVE make TeamDamagePct protected so don't need to set here
 
 	// check if bots should switch teams for balancing
 	if (bBalanceTeams && NumBots > 0)
