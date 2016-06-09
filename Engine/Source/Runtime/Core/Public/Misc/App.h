@@ -510,6 +510,26 @@ public:
 	}
 
 	/**
+	 * Gets idle time in seconds.
+	 *
+	 * @return Idle time in seconds.
+	 */
+	FORCEINLINE static double GetIdleTime()
+	{
+		return IdleTime;
+	}
+
+	/**
+	 * Sets idle time in seconds.
+	 *
+	 * @param seconds - Idle time in seconds.
+	 */
+	static void SetIdleTime(double Seconds)
+	{
+		IdleTime = Seconds;
+	}
+
+	/**
 	 * Get Volume Multiplier
 	 * 
 	 * @return Current volume multiplier
@@ -609,6 +629,9 @@ private:
 
 	/** Holds current delta time in seconds. */
 	static double DeltaTime;
+
+	/** Holds time we spent sleeping in UpdateTimeAndHandleMaxTickRate() if our frame time was smaller than one allowed by target FPS. */
+	static double IdleTime;
 
 	/** Use to affect the app volume when it loses focus */
 	static float VolumeMultiplier;

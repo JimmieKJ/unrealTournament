@@ -1254,11 +1254,12 @@ void UEngine::UpdateTimeAndHandleMaxTickRate()
 		}
 
 		// Enforce maximum framerate and smooth framerate by waiting.
-		STAT( double ActualWaitTime = 0.f ); 
+		double ActualWaitTime = 0.f;
 		if( WaitTime > 0 )
 		{
+			FSimpleScopeSecondsCounter ActualWaitTimeCounter(ActualWaitTime);
 			double WaitEndTime = FApp::GetCurrentTime() + WaitTime;
-			SCOPE_SECONDS_COUNTER(ActualWaitTime);
+
 			SCOPE_CYCLE_COUNTER(STAT_GameTickWaitTime);
 			SCOPE_CYCLE_COUNTER(STAT_GameIdleTime);
 
@@ -1290,6 +1291,7 @@ void UEngine::UpdateTimeAndHandleMaxTickRate()
 		SET_FLOAT_STAT(STAT_GameTickAdditionalWaitTime,FMath::Max<float>((ActualWaitTime-WaitTime)*1000.f,0.f));
 
 		FApp::SetDeltaTime(FApp::GetCurrentTime() - LastTime);
+		FApp::SetIdleTime(ActualWaitTime);
 
 		// Negative delta time means something is wrong with the system. Error out so user can address issue.
 		if( FApp::GetDeltaTime() < 0 )
