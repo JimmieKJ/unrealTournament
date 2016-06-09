@@ -5275,15 +5275,18 @@ void UUTLocalPlayer::CloseQuickChat()
 
 void UUTLocalPlayer::OnPlayerTalkingStateChanged(TSharedRef<const FUniqueNetId> TalkerId, bool bIsTalking)
 {
-	AUTGameState* UTGameState = GetWorld()->GetGameState<AUTGameState>();
-	if (UTGameState)
+	if (GetWorld())
 	{
-		for (int32 i=0; i < UTGameState->PlayerArray.Num(); i++)
+		AUTGameState* UTGameState = GetWorld()->GetGameState<AUTGameState>();
+		if (UTGameState)
 		{
-			if (UTGameState->PlayerArray[i] && UTGameState->PlayerArray[i]->UniqueId.ToString() == TalkerId->ToString())
+			for (int32 i = 0; i < UTGameState->PlayerArray.Num(); i++)
 			{
-				AUTPlayerState* PS = Cast<AUTPlayerState>(UTGameState->PlayerArray[i]);
-				if (PS) PS->bIsTalking = bIsTalking;
+				if (UTGameState->PlayerArray[i] && UTGameState->PlayerArray[i]->UniqueId.ToString() == TalkerId->ToString())
+				{
+					AUTPlayerState* PS = Cast<AUTPlayerState>(UTGameState->PlayerArray[i]);
+					if (PS) PS->bIsTalking = bIsTalking;
+				}
 			}
 		}
 	}
