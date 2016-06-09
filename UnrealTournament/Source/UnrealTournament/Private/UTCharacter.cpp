@@ -4769,9 +4769,13 @@ int32 AUTCharacter::ReduceArmorStack(int32 Amount)
 	AUTArmor* WorstArmor = NULL;
 	for (TInventoryIterator<AUTArmor> It(this); It; ++It)
 	{
-		if ((WorstArmor == NULL || (It->AbsorptionPct < WorstArmor->AbsorptionPct)))
+		// 0 amount indestructible armor can exist in rechargeable form, just ignore it here
+		if (It->ArmorAmount > 0)
 		{
-			WorstArmor = *It;
+			if ((WorstArmor == NULL || (It->AbsorptionPct < WorstArmor->AbsorptionPct)))
+			{
+				WorstArmor = *It;
+			}
 		}
 	}
 	checkSlow(WorstArmor);
