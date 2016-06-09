@@ -266,6 +266,12 @@ public:
 
 	virtual void ClientEnableNetworkVoice_Implementation(bool bEnable);
 
+	UFUNCTION(exec)
+	void StartVOIPTalking();
+
+	UFUNCTION(exec)
+	void StopVOIPTalking();
+
 protected:
 	// Sends a message directly to a user.  
 	virtual void DirectSay(const FString& User, const FString& Message);

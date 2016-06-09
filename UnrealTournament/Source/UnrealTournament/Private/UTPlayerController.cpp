@@ -3992,12 +3992,29 @@ void AUTPlayerController::DebugTest(FString TestCommand)
 		}
 
 		UE_LOG(UT,Log,TEXT("[Mute List]========================================================================="));
-		UE_LOG(UT,Log,TEXT("%s"), *DumpMutelistState(GetWorld()));
+
+		FString Text = DumpMutelistState(GetWorld());
+		TArray<FString> Lines;
+		Text.ParseIntoArray(Lines,TEXT("\n"), false);
+
+		for (int32 i=0; i < Lines.Num(); i++)
+		{
+			UE_LOG(UT,Log,TEXT("%s"), *Lines[i]);
+		}
+		
 		IOnlineVoicePtr VoiceInt = Online::GetVoiceInterface(GetWorld());
 		if (VoiceInt.IsValid())
 		{
 			UE_LOG(UT,Log,TEXT("[Voice List]========================================================================="));
-			UE_LOG(UT,Log,TEXT("VoiceList: %s"), *VoiceInt->GetVoiceDebugState());
+
+			Text = VoiceInt->GetVoiceDebugState();
+			Lines.Empty();
+			Text.ParseIntoArray(Lines,TEXT("\n"), false);
+
+			for (int32 i=0; i < Lines.Num(); i++)
+			{
+				UE_LOG(UT,Log,TEXT("%s"), *Lines[i]);
+			}
 		}
 		UE_LOG(UT,Log,TEXT("====================================================================================="));
 	}
@@ -4019,12 +4036,29 @@ void AUTPlayerController::ServerDebugTest_Implementation(const FString& TestComm
 		}
 
 		UE_LOG(UT,Log,TEXT("[Mute List]========================================================================="));
-		UE_LOG(UT,Log,TEXT("%s"), *DumpMutelistState(GetWorld()));
+
+		FString Text = DumpMutelistState(GetWorld());
+		TArray<FString> Lines;
+		Text.ParseIntoArray(Lines,TEXT("\n"), false);
+
+		for (int32 i=0; i < Lines.Num(); i++)
+		{
+			UE_LOG(UT,Log,TEXT("%s"), *Lines[i]);
+		}
+		
 		IOnlineVoicePtr VoiceInt = Online::GetVoiceInterface(GetWorld());
 		if (VoiceInt.IsValid())
 		{
 			UE_LOG(UT,Log,TEXT("[Voice List]========================================================================="));
-			UE_LOG(UT,Log,TEXT("VoiceList: %s"), *VoiceInt->GetVoiceDebugState());
+
+			Text = VoiceInt->GetVoiceDebugState();
+			Lines.Empty();
+			Text.ParseIntoArray(Lines,TEXT("\n"), false);
+
+			for (int32 i=0; i < Lines.Num(); i++)
+			{
+				UE_LOG(UT,Log,TEXT("%s"), *Lines[i]);
+			}
 		}
 		UE_LOG(UT,Log,TEXT("====================================================================================="));
 	}
@@ -4634,15 +4668,5 @@ void AUTPlayerController::ShowWeaponWheel()
 void AUTPlayerController::HideWeaponWheel()
 {
 	if (MyUTHUD) MyUTHUD->ToggleWeaponWheel(false);
-}
-
-void AUTPlayerController::StartVOIPTalking()
-{
-	ToggleSpeaking(true);
-}
-
-void AUTPlayerController::StopVOIPTalking()
-{
-	ToggleSpeaking(false);
 }
 

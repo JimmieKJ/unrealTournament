@@ -515,8 +515,6 @@ TSharedRef<SWidget> SUTSystemSettingsDialog::BuildGeneralTab()
 	UUTGameUserSettings* UserSettings = Cast<UUTGameUserSettings>(GEngine->GetGameUserSettings());
 	UUTProfileSettings* ProfileSettings = PlayerOwner->GetProfileSettings();
 
-	bool bPushToTalk = ProfileSettings == nullptr ? true : ProfileSettings->bPushToTalk;
-
 	// Get Viewport size
 	FVector2D ViewportSize;
 	GetPlayerOwner()->ViewportClient->GetViewportSize(ViewportSize);
@@ -785,34 +783,6 @@ TSharedRef<SWidget> SUTSystemSettingsDialog::BuildGeneralTab()
 			.Style(SUWindowsStyle::Get(), "UT.Common.CheckBox")
 			.IsChecked(UserSettings->IsKeyboardLightingEnabled() ? ESlateCheckBoxState::Checked : ESlateCheckBoxState::Unchecked)
 		]
-	]	
-
-	+ SVerticalBox::Slot()
-	.AutoHeight()
-	.Padding(FMargin(10.0f, 5.0f, 10.0f, 5.0f))
-	[
-		SNew(SHorizontalBox)
-		+ SHorizontalBox::Slot()
-		.AutoWidth()
-		.VAlign(VAlign_Center)
-		[
-			SNew(SBox)
-			.WidthOverride(650)
-			[
-				SNew(STextBlock)
-				.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
-				.Text(NSLOCTEXT("SUTSystemSettingsDialog", "PushToTalk", "Enable Push to Talk Voice Comns"))
-				.ToolTip(SUTUtils::CreateTooltip(NSLOCTEXT("SUTSystemSettingsDialog", "PushToTalk_Tooltip", "If enabled, you'll need to use PushToTalk in order to use voice communication.")))
-			]
-		]
-		+ SHorizontalBox::Slot()
-		.AutoWidth()
-		.VAlign(VAlign_Center)
-		[
-			SAssignNew(PushToTalkCheckbox, SCheckBox)
-			.Style(SUWindowsStyle::Get(), "UT.Common.CheckBox")
-			.IsChecked(bPushToTalk ? ESlateCheckBoxState::Checked : ESlateCheckBoxState::Unchecked)
-		]
 	];
 }
 
@@ -972,6 +942,9 @@ EVisibility SUTSystemSettingsDialog::AutoDetectSettingsVisibility() const
 TSharedRef<SWidget> SUTSystemSettingsDialog::BuildAudioTab()
 {
 	UUTGameUserSettings* UserSettings = Cast<UUTGameUserSettings>(GEngine->GetGameUserSettings());
+	UUTProfileSettings* ProfileSettings = PlayerOwner->GetProfileSettings();
+
+	bool bPushToTalk = ProfileSettings == nullptr ? true : ProfileSettings->bPushToTalk;
 
 	BotSpeechList.Add(MakeShareable(new FString(NSLOCTEXT("SUTSystemSettingsDialog", "BotSpeechNone", "None").ToString())));
 	BotSpeechList.Add(MakeShareable(new FString(NSLOCTEXT("SUTSystemSettingsDialog", "BotSpeechStatusText", "Status Text").ToString())));
@@ -985,7 +958,7 @@ TSharedRef<SWidget> SUTSystemSettingsDialog::BuildAudioTab()
 	+ AddGeneralSliderWithLabelWidget(SoundVolumes[EUTSoundClass::Music], SoundVolumesLabels[EUTSoundClass::Music], &SUTSystemSettingsDialog::OnSoundVolumeChangedMusic, NSLOCTEXT("SUTSystemSettingsDialog", "MusicVolume", "Music Volume").ToString(), UserSettings->GetSoundClassVolume(EUTSoundClass::Music))
 	+ AddGeneralSliderWithLabelWidget(SoundVolumes[EUTSoundClass::SFX], SoundVolumesLabels[EUTSoundClass::SFX], &SUTSystemSettingsDialog::OnSoundVolumeChangedSFX, NSLOCTEXT("SUTSystemSettingsDialog", "SFXVolume", "Effects Volume").ToString(), UserSettings->GetSoundClassVolume(EUTSoundClass::SFX))
 	+ AddGeneralSliderWithLabelWidget(SoundVolumes[EUTSoundClass::Voice], SoundVolumesLabels[EUTSoundClass::Voice], &SUTSystemSettingsDialog::OnSoundVolumeChangedVoice, NSLOCTEXT("SUTSystemSettingsDialog", "VoiceVolume", "Announcer Volume").ToString(), UserSettings->GetSoundClassVolume(EUTSoundClass::Voice))
-	+ AddGeneralSliderWithLabelWidget(SoundVolumes[EUTSoundClass::VOIP], SoundVolumesLabels[EUTSoundClass::VOIP], &SUTSystemSettingsDialog::OnSoundVolumeChangedVOIP, NSLOCTEXT("SUTSystemSettingsDialog", "VOIPVolume", "Voice over IP Volume").ToString(), UserSettings->GetSoundClassVolume(EUTSoundClass::VOIP))
+	+ AddGeneralSliderWithLabelWidget(SoundVolumes[EUTSoundClass::VOIP], SoundVolumesLabels[EUTSoundClass::VOIP], &SUTSystemSettingsDialog::OnSoundVolumeChangedVOIP, NSLOCTEXT("SUTSystemSettingsDialog", "VOIPVolume", "Voice over IP Volume").ToString(), UserSettings->GetSoundClassVolume(EUTSoundClass::VOIP) * 0.5f)
 
 	+ SVerticalBox::Slot()
 	.AutoHeight()
@@ -1027,6 +1000,34 @@ TSharedRef<SWidget> SUTSystemSettingsDialog::BuildAudioTab()
 			]
 		]
 	]
+	+ SVerticalBox::Slot()
+	.AutoHeight()
+	.Padding(FMargin(10.0f, 5.0f, 10.0f, 5.0f))
+	[
+		SNew(SHorizontalBox)
+		+ SHorizontalBox::Slot()
+		.AutoWidth()
+		.VAlign(VAlign_Center)
+		[
+			SNew(SBox)
+			.WidthOverride(650)
+			[
+				SNew(STextBlock)
+				.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
+				.Text(NSLOCTEXT("SUTSystemSettingsDialog", "PushToTalk", "Enable Push to Talk Voice Comns"))
+				.ToolTip(SUTUtils::CreateTooltip(NSLOCTEXT("SUTSystemSettingsDialog", "PushToTalk_Tooltip", "If enabled, you'll need to use PushToTalk in order to use voice communication.")))
+			]
+		]
+		+ SHorizontalBox::Slot()
+		.AutoWidth()
+		.VAlign(VAlign_Center)
+		[
+			SAssignNew(PushToTalkCheckbox, SCheckBox)
+			.Style(SUWindowsStyle::Get(), "UT.Common.CheckBox")
+			.IsChecked(bPushToTalk ? ESlateCheckBoxState::Checked : ESlateCheckBoxState::Unchecked)
+		]
+	]
+
 	+ SVerticalBox::Slot()
 	.AutoHeight()
 	.Padding(FMargin(10.0f, 10.0f, 10.0f, 0.0f))
@@ -1108,7 +1109,7 @@ void SUTSystemSettingsDialog::OnSoundVolumeChangedVOIP(float NewValue)
 	UUTAudioSettings* AudioSettings = UUTAudioSettings::StaticClass()->GetDefaultObject<UUTAudioSettings>();
 	if (AudioSettings)
 	{
-		AudioSettings->SetSoundClassVolume(EUTSoundClass::VOIP, NewValue);
+		AudioSettings->SetSoundClassVolume(EUTSoundClass::VOIP, NewValue * 2.0f);
 	}
 }
 

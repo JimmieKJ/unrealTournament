@@ -1034,3 +1034,22 @@ void AUTBasePlayerController::ClientEnableNetworkVoice_Implementation(bool bEnab
 
 	ToggleSpeaking(ProfileSettings ? !ProfileSettings->bPushToTalk : bEnable);
 }
+
+void AUTBasePlayerController::StartVOIPTalking()
+{
+	UUTProfileSettings* ProfileSettings = GetProfileSettings();
+	if (ProfileSettings && ProfileSettings->bPushToTalk)
+	{
+		ToggleSpeaking(true);
+	}
+}
+
+void AUTBasePlayerController::StopVOIPTalking()
+{
+	UUTProfileSettings* ProfileSettings = GetProfileSettings();
+	if (ProfileSettings && ProfileSettings->bPushToTalk)
+	{
+		ToggleSpeaking(false);
+	}
+}
+

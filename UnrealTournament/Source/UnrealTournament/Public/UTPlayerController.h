@@ -1147,12 +1147,6 @@ public:
 	UFUNCTION(exec)
 	virtual void HideWeaponWheel();
 
-	UFUNCTION(exec)
-	void StartVOIPTalking();
-
-	UFUNCTION(exec)
-	void StopVOIPTalking();
-
 	void ServerDebugTest_Implementation(const FString& TestCommand) override;
 
 };
