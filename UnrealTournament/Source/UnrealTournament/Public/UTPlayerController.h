@@ -1153,6 +1153,8 @@ public:
 	UFUNCTION(exec)
 	void StopVOIPTalking();
 
+	void ServerDebugTest_Implementation(const FString& TestCommand) override;
+
 };
 
 

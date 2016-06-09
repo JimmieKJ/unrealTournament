@@ -3979,13 +3979,55 @@ void AUTPlayerController::ClientPumpkinPickedUp_Implementation(float GainedAmoun
 
 void AUTPlayerController::DebugTest(FString TestCommand)
 {
-	UE_LOG(UT,Log,TEXT("MuteList: %s"), *DumpMutelistState(GetWorld()));
-	IOnlineVoicePtr VoiceInt = Online::GetVoiceInterface(GetWorld());
-	if (VoiceInt.IsValid())
+	AUTGameState* GameState = GetWorld()->GetGameState<AUTGameState>();
+	if (GameState)
 	{
-		UE_LOG(UT,Log,TEXT("VoiceList: %s"), *VoiceInt->GetVoiceDebugState());
+		UE_LOG(UT,Log,TEXT("[PlayerList]========================================================================="));
+		for (int32 i=0; i < GameState->PlayerArray.Num(); i++)
+		{
+			if (GameState->PlayerArray[i])
+			{
+				UE_LOG(UT,Log,TEXT("Player %i %s = %s"),i, *GameState->PlayerArray[i]->PlayerName, *GameState->PlayerArray[i]->UniqueId.ToString());
+			}
+		}
+
+		UE_LOG(UT,Log,TEXT("[Mute List]========================================================================="));
+		UE_LOG(UT,Log,TEXT("%s"), *DumpMutelistState(GetWorld()));
+		IOnlineVoicePtr VoiceInt = Online::GetVoiceInterface(GetWorld());
+		if (VoiceInt.IsValid())
+		{
+			UE_LOG(UT,Log,TEXT("[Voice List]========================================================================="));
+			UE_LOG(UT,Log,TEXT("VoiceList: %s"), *VoiceInt->GetVoiceDebugState());
+		}
+		UE_LOG(UT,Log,TEXT("====================================================================================="));
 	}
-	
+	ServerDebugTest(TestCommand);
+}
+
+void AUTPlayerController::ServerDebugTest_Implementation(const FString& TestCommand)
+{
+	AUTGameState* GameState = GetWorld()->GetGameState<AUTGameState>();
+	if (GameState)
+	{
+		UE_LOG(UT,Log,TEXT("[PlayerList]========================================================================="));
+		for (int32 i=0; i < GameState->PlayerArray.Num(); i++)
+		{
+			if (GameState->PlayerArray[i])
+			{
+				UE_LOG(UT,Log,TEXT("Player %i %s = %s"),i, *GameState->PlayerArray[i]->PlayerName, *GameState->PlayerArray[i]->UniqueId.ToString());
+			}
+		}
+
+		UE_LOG(UT,Log,TEXT("[Mute List]========================================================================="));
+		UE_LOG(UT,Log,TEXT("%s"), *DumpMutelistState(GetWorld()));
+		IOnlineVoicePtr VoiceInt = Online::GetVoiceInterface(GetWorld());
+		if (VoiceInt.IsValid())
+		{
+			UE_LOG(UT,Log,TEXT("[Voice List]========================================================================="));
+			UE_LOG(UT,Log,TEXT("VoiceList: %s"), *VoiceInt->GetVoiceDebugState());
+		}
+		UE_LOG(UT,Log,TEXT("====================================================================================="));
+	}
 }
 
 void AUTPlayerController::ClientRequireContentItemListComplete_Implementation()
