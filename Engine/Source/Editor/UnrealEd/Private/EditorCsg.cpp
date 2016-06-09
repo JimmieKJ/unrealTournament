@@ -340,7 +340,7 @@ void UEditorEngine::polySetAndClearPolyFlags(UModel *Model, uint32 SetBits, uint
 bool UEditorEngine::polyFindMaster(UModel* InModel, int32 iSurf, FPoly &Poly)
 {
 	FBspSurf &Surf = InModel->Surfs[iSurf];
-	if( !Surf.Actor || Surf.Actor->Brush->Polys->Element.Num() == 0 )
+	if (!Surf.Actor || !Surf.Actor->Brush->Polys->Element.IsValidIndex(Surf.iBrushPoly))
 	{
 		return false;
 	}
