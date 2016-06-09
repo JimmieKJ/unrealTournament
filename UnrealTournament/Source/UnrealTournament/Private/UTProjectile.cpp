@@ -76,6 +76,7 @@ AUTProjectile::AUTProjectile(const class FObjectInitializer& ObjectInitializer)
 	bReplicateMovement = false;
 	bMoveFakeToReplicatedPos = true;
 	bCanHitTeammates = false;
+	SlomoTime = 5.f;
 
 	bInitiallyWarnTarget = true;
 
@@ -479,6 +480,8 @@ void AUTProjectile::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& 
 	//DOREPLIFETIME_CONDITION(AActor, ReplicatedMovement, COND_SimulatedOrPhysics);
 
 	DOREPLIFETIME_CONDITION(AUTProjectile, UTProjReplicatedMovement, COND_SimulatedOrPhysics);
+
+	DOREPLIFETIME(AUTProjectile, Slomo);
 }
 
 void AUTProjectile::PreReplication(IRepChangedPropertyTracker & ChangedPropertyTracker)
@@ -602,6 +605,22 @@ void AUTProjectile::PostNetReceiveVelocity(const FVector& NewVelocity)
 	{
 		MyFakeProjectile->ProjectileMovement->Velocity = NewVelocity;
 	}
+}
+
+void AUTProjectile::OnRep_Slomo()
+{
+	CustomTimeDilation = Slomo;
+	bForceNextRepMovement = true;
+	if (Slomo != 1.f)
+	{
+		GetWorldTimerManager().SetTimer(SlomoTimerHandle, this, &AUTProjectile::EndSlomo, SlomoTime);
+	}
+}
+
+void AUTProjectile::EndSlomo()
+{
+	Slomo = 1.f;
+	OnRep_Slomo();
 }
 
 void AUTProjectile::OnOverlapBegin(AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)

@@ -77,9 +77,25 @@ class UNREALTOURNAMENT_API AUTProjectile : public AActor, public IUTResetInterfa
 	UPROPERTY(ReplicatedUsing = OnRep_UTProjReplicatedMovement)
 	struct FRepUTProjMovement UTProjReplicatedMovement;
 
+	/** Used for replication of temporary CustomTimeDilation changes */
+	UPROPERTY(ReplicatedUsing = OnRep_Slomo)
+		float Slomo;
+
 	/** enables UT optimized movement replication; USE THIS INSTEAD OF bReplicateMovement */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Replication)
 	bool bReplicateUTMovement;
+
+	/** How long projectile stays slowed down. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Projectile)
+		float SlomoTime;
+
+		FTimerHandle SlomoTimerHandle;
+
+		UFUNCTION()
+			virtual void EndSlomo();
+
+		UFUNCTION()
+			virtual void OnRep_Slomo();
 
 	/** UTProjReplicatedMovement struct replication event */
 	UFUNCTION()
