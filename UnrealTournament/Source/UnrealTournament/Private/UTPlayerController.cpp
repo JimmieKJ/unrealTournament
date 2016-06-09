@@ -3980,6 +3980,46 @@ void AUTPlayerController::ClientPumpkinPickedUp_Implementation(float GainedAmoun
 void AUTPlayerController::DebugTest(FString TestCommand)
 {
 	AUTGameState* GameState = GetWorld()->GetGameState<AUTGameState>();
+	IOnlineVoicePtr VoiceInt = Online::GetVoiceInterface(GetWorld());
+
+	if ( TestCommand.Equals(TEXT("clienton"), ESearchCase::IgnoreCase) )
+	{
+		ToggleSpeaking(true);
+		return;
+	}
+
+	if ( TestCommand.Equals(TEXT("clientoff"), ESearchCase::IgnoreCase) )
+	{
+		ToggleSpeaking(false);
+		return;
+	}
+
+	if ( TestCommand.Equals(TEXT("serveroff"), ESearchCase::IgnoreCase) || TestCommand.Equals(TEXT("serveroff"), ESearchCase::IgnoreCase) )
+	{
+		ServerDebugTest(TestCommand);
+		return;
+	}
+
+	if ( TestCommand.Equals(TEXT("clearvoice"), ESearchCase::IgnoreCase) )
+	{
+		if (VoiceInt.IsValid())
+		{
+			VoiceInt->ClearVoicePackets();
+			ServerDebugTest(TestCommand);
+			return;
+		}
+	}
+
+	if ( TestCommand.Equals(TEXT("showflags"), ESearchCase::IgnoreCase))
+	{
+		if (VoiceInt.IsValid())
+		{
+			UE_LOG(UT,Log,TEXT("Flags %i %i"), VoiceInt->IsHeadsetPresent(0), VoiceInt->IsLocalPlayerTalking(0));
+			ServerDebugTest(TestCommand);
+			return;
+		}
+	}
+
 	if (GameState)
 	{
 		UE_LOG(UT,Log,TEXT("[PlayerList]========================================================================="));
@@ -4002,7 +4042,6 @@ void AUTPlayerController::DebugTest(FString TestCommand)
 			UE_LOG(UT,Log,TEXT("%s"), *Lines[i]);
 		}
 		
-		IOnlineVoicePtr VoiceInt = Online::GetVoiceInterface(GetWorld());
 		if (VoiceInt.IsValid())
 		{
 			UE_LOG(UT,Log,TEXT("[Voice List]========================================================================="));
@@ -4023,6 +4062,29 @@ void AUTPlayerController::DebugTest(FString TestCommand)
 
 void AUTPlayerController::ServerDebugTest_Implementation(const FString& TestCommand)
 {
+	IOnlineVoicePtr VoiceInt = Online::GetVoiceInterface(GetWorld());
+
+	if ( TestCommand.Equals(TEXT("clearvoice"),ESearchCase::IgnoreCase))
+	{
+		if (VoiceInt.IsValid())
+		{
+			VoiceInt->ClearVoicePackets();
+			return;
+		}
+	}
+
+	if ( TestCommand.Equals(TEXT("serveron"), ESearchCase::IgnoreCase) )
+	{
+		ToggleSpeaking(true);
+		return;
+	}
+
+	if ( TestCommand.Equals(TEXT("serveroff"), ESearchCase::IgnoreCase) )
+	{
+		ToggleSpeaking(false);
+		return;
+	}
+
 	AUTGameState* GameState = GetWorld()->GetGameState<AUTGameState>();
 	if (GameState)
 	{
@@ -4046,7 +4108,6 @@ void AUTPlayerController::ServerDebugTest_Implementation(const FString& TestComm
 			UE_LOG(UT,Log,TEXT("%s"), *Lines[i]);
 		}
 		
-		IOnlineVoicePtr VoiceInt = Online::GetVoiceInterface(GetWorld());
 		if (VoiceInt.IsValid())
 		{
 			UE_LOG(UT,Log,TEXT("[Voice List]========================================================================="));
