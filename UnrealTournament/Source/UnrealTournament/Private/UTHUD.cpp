@@ -632,6 +632,12 @@ void AUTHUD::DrawHUD()
 					}
 				}
 			}
+
+			if (UTC == nullptr || UTC->IsDead())
+			{
+				DrawLocalDamage();
+			}
+
 		}
 	}
 
@@ -729,8 +735,39 @@ void AUTHUD::DrawNumber(int32 Number, float X, float Y, FLinearColor Color, floa
 	DrawString(FText::AsNumber(Number, &Opts), X, Y, bRightAlign ? ETextHorzPos::Right : ETextHorzPos::Left, ETextVertPos::Top, NumberFont, Color, Scale, true);
 }
 
-void AUTHUD::PawnDamaged(uint8 ShotDirYaw, int32 DamageAmount, bool bFriendlyFire)
+void AUTHUD::ClientRestart()
 {
+	DamageIveTaken.Empty();
+}
+
+void AUTHUD::PawnDamaged(uint8 ShotDirYaw, int32 DamageAmount, bool bFriendlyFire, TSubclassOf<class UDamageType> DamageTypeClass)
+{
+	if (DamageTypeClass != nullptr)
+	{
+		UE_LOG(UT,Log,TEXT("PawnDamaged %i %s"), DamageAmount, DamageTypeClass != nullptr ? *DamageTypeClass->GetName() : TEXT("<null>"));
+		bool bNew = true;
+		// Time out any old damage types.
+		for (int32 i=DamageIveTaken.Num() - 1; i >= 0 ; i--)
+		{
+			if (DamageIveTaken[i].DamageTypeClass == DamageTypeClass)
+			{
+				DamageIveTaken[i].DamageAmount += DamageAmount;
+				DamageIveTaken[i].DamageTime = GetWorld()->GetTimeSeconds();
+				bNew = false;
+			}
+			else if (GetWorld()->GetTimeSeconds() - DamageIveTaken[i].DamageTime > 5.0f)
+			{
+				DamageIveTaken.RemoveAt(i,1);
+			}
+		}
+
+		if (bNew)
+		{
+			DamageIveTaken.Add(FLocalDamageNumber(DamageAmount, GetWorld()->GetTimeSeconds(), DamageTypeClass));		
+		}
+
+		UE_LOG(UT,Log,TEXT("# of Tracks: %i"), DamageIveTaken.Num());
+	}
 	// Calculate the rotation 	
 	AUTCharacter* UTC = Cast<AUTCharacter>(UTPlayerOwner->GetViewTarget());
 	if (UTC != NULL && !UTC->IsDead() && DamageAmount > 0)	// If have a pawn and it's alive...
@@ -1566,3 +1603,24 @@ void AUTHUD::ToggleWeaponWheel(bool bShow)
 	}
 }
 
+void AUTHUD::DrawLocalDamage()
+{
+
+	float RenderScale = Canvas->ClipX / 1920.0f;
+
+	Canvas->SetDrawColor(255,255,255,255);
+	FVector2D Pos = FVector2D(10 * RenderScale,Canvas->ClipY*0.78f);
+	for (int32 i=0; i < DamageIveTaken.Num(); i++)
+	{
+		if (DamageIveTaken[i].DamageTypeClass != nullptr)
+		{
+			const UUTDamageType* DmgType = Cast<UUTDamageType>(DamageIveTaken[i].DamageTypeClass->GetDefaultObject());
+			if (DmgType && DmgType->HUDIcon.Texture)
+			{
+				Canvas->DrawIcon(DmgType->HUDIcon, Pos.X, Pos.Y, RenderScale);
+				Canvas->DrawText(MediumFont, FText::AsNumber(DamageIveTaken[i].DamageAmount), Pos.X, Pos.Y-48 * RenderScale, RenderScale, RenderScale);
+				Pos.X += FMath::Abs<float>(DmgType->HUDIcon.UL) * 1.2f * RenderScale;
+			}
+		}
+	}
+}

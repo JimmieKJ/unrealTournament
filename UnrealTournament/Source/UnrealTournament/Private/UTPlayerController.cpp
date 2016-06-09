@@ -3215,14 +3215,14 @@ void AUTPlayerController::NotifyTakeHit(AController* InstigatedBy, int32 Damage,
 	AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
 	bool bFriendlyFire = InstigatedByState != PlayerState && GS != NULL && GS->OnSameTeam(InstigatedByState, this);
 	uint8 RepDamage = FMath::Clamp(Damage, 0, 255);
-	ClientNotifyTakeHit(bFriendlyFire, RepDamage, FRotator::CompressAxisToByte(ShotDir.Rotation().Yaw));
+	ClientNotifyTakeHit(bFriendlyFire, RepDamage, FRotator::CompressAxisToByte(ShotDir.Rotation().Yaw), DamageEvent.DamageTypeClass);
 }
 
-void AUTPlayerController::ClientNotifyTakeHit_Implementation(bool bFriendlyFire, uint8 Damage, uint8 ShotDirYaw)
+void AUTPlayerController::ClientNotifyTakeHit_Implementation(bool bFriendlyFire, uint8 Damage, uint8 ShotDirYaw, TSubclassOf<class UDamageType> DamageTypeClass)
 {
 	if (MyUTHUD != NULL)
 	{
-		MyUTHUD->PawnDamaged(ShotDirYaw, Damage, bFriendlyFire);
+		MyUTHUD->PawnDamaged(ShotDirYaw, Damage, bFriendlyFire, DamageTypeClass);
 	}
 }
 

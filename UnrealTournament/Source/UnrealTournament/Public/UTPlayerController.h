@@ -404,7 +404,7 @@ public:
 	virtual void NotifyTakeHit(AController* InstigatedBy, int32 Damage, FVector Momentum, const FDamageEvent& DamageEvent);
 
 	UFUNCTION(Client, Unreliable)
-	void ClientNotifyTakeHit(bool bFriendlyFire, uint8 Damage, uint8 ShotDirYaw);
+	void ClientNotifyTakeHit(bool bFriendlyFire, uint8 Damage, uint8 ShotDirYaw, TSubclassOf<class UDamageType> DamageTypeClass = nullptr);
 
 	/** notification that we successfully hit HitPawn
 	 * note that HitPawn may be NULL if it is not currently relevant to the client

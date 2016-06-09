@@ -63,6 +63,31 @@ struct FEnemyDamageNumber
 	FEnemyDamageNumber(APawn* InPawn, float InTime, uint8 InDamage, FVector InLoc, float InScale) : DamagedPawn(InPawn), DamageTime(InTime), DamageAmount(InDamage), WorldPosition(InLoc), Scale(InScale) {};
 };
 
+USTRUCT()
+struct FLocalDamageNumber
+{
+	GENERATED_USTRUCT_BODY()
+
+	UPROPERTY()
+	uint8 DamageAmount;
+
+	UPROPERTY()
+	float DamageTime;
+
+	UPROPERTY()
+	TSubclassOf<UDamageType> DamageTypeClass;
+
+	FLocalDamageNumber()
+		: DamageAmount(0), DamageTime(0.0f), DamageTypeClass(nullptr)
+	{
+	}
+
+	FLocalDamageNumber(uint8 inDamageAmount, float inDamageTime, TSubclassOf<UDamageType> inDamageTypeClass)
+		: DamageAmount(inDamageAmount), DamageTime(inDamageTime), DamageTypeClass(inDamageTypeClass)
+	{
+	}
+};
+
 class UUTRadialMenu;
 class UUTRadialMenu_Coms;
 class UUTRadialMenu_WeaponWheel;
@@ -143,6 +168,11 @@ public:
 
 	UPROPERTY()
 		bool bDrawDamageNumbers;
+
+
+	// Holds a list of damage taken by this pawn.
+	UPROPERTY()
+	TArray<FLocalDamageNumber> DamageIveTaken;
 
 	/** Draw in screen space damage recently applied by this player to other characters. */
 	virtual void DrawDamageNumbers();
@@ -271,7 +301,7 @@ public:
 	UPROPERTY(BlueprintReadWrite, Category ="HUD")
 	uint32 bForceScores:1;
 
-	virtual void PawnDamaged(uint8 ShotDirYaw, int32 DamageAmount, bool bFriendlyFire);
+	virtual void PawnDamaged(uint8 ShotDirYaw, int32 DamageAmount, bool bFriendlyFire, TSubclassOf<class UDamageType> DamageTypeClass = nullptr);
 	virtual void DrawDamageIndicators();
 
 	/** called when PlayerOwner caused damage to HitPawn */
@@ -596,9 +626,7 @@ protected:
 
 public:
 	UFUNCTION()
-	virtual void ClientRestart()
-	{
-	}
+	virtual void ClientRestart();
 
 	bool VerifyProfileSettings();
 	virtual void Destroyed();
@@ -618,5 +646,8 @@ protected:
 	TArray<UUTRadialMenu*> RadialMenus;
 	UUTRadialMenu_Coms* ComsMenu;
 	UUTRadialMenu_WeaponWheel* WeaponWheel;
+
+	virtual void DrawLocalDamage();
+
 };
 
