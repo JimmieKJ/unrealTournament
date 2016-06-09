@@ -1222,6 +1222,9 @@ FReply SUTSystemSettingsDialog::OKClick()
 	{
 		UserSettings->SetSoundClassVolume(EUTSoundClass::Type(i), SoundVolumes[i]->GetValue());
 	}
+
+	UserSettings->SetSoundClassVolume(EUTSoundClass::VOIP, SoundVolumes[EUTSoundClass::VOIP]->GetValue() * 2.0f);
+
 	// engine scalability
 	UserSettings->ScalabilityQuality = Scalability::GetQualityLevels(); // sets in UserSettings what was already applied
 	Scalability::SaveState(GGameUserSettingsIni); // note: settings were applied previously on change of individual items
