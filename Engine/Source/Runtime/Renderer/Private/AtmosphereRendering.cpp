@@ -310,6 +310,7 @@ TGlobalResource<FAtmopshereVertexDeclaration> GAtmophereVertexDeclaration;
 
 void InitAtmosphereConstantsInView(FViewInfo& View)
 {
+	check(IsInRenderingThread());
 	bool bInitTextures = false;
 	if(ShouldRenderAtmosphere(*View.Family))
 	{
