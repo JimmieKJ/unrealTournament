@@ -38,8 +38,8 @@ namespace UnrealTournamentGame.Automation
 			this.S3BucketName = InS3BucketName;
 			this.BuildString = InBuildString;
 			this.Debug = InDebug;
-			this.CpuBudget = 200;
-			this.RamBudget = 200;
+			this.CpuBudget = 33;
+			this.RamBudget = 100;
 
 			FEngineVersionSupport ParsedVersion = FEngineVersionSupport.FromString(InBuildString, bAllowNoVersion: true);
 			this.Changelist = ParsedVersion.Changelist;
@@ -239,7 +239,7 @@ namespace UnrealTournamentGame.Automation
 										  string HubServerName = "")
 		{
 			string AwsCredentialsFile = "AwsDedicatedServerCredentialsDecoded.txt";
-
+			int LocalCpuBudget = CpuBudget;
 			if (InstanceSize == 0)
 			{
 				InstanceSizeMin = 0;
@@ -272,6 +272,7 @@ namespace UnrealTournamentGame.Automation
 			if (HubServerName != "")
 			{
 				CliArgBytes = System.Text.Encoding.UTF8.GetBytes("UnrealTournament ut-entry?game=lobby?ServerName="+HubServerName+" -nocore -epicapp=" + AppName.ToString() + " " + ExtraCliArgs);
+				LocalCpuBudget=32000;
 			}
 			else
 			{
@@ -283,6 +284,8 @@ namespace UnrealTournamentGame.Automation
 				"epic_game_tag=" + GetTag(AppName, Region, tag) + "&" +
 				"epic_game_version=" + Changelist.ToString() + "&" +
 				"epic_game_buildstr_base64=" + System.Convert.ToBase64String(BuildStringBytes) + "&" +
+				"epic_game_cpu_budget=" +RamBudget +"&" +
+				"epic_game_ram_budget=" + LocalCpuBudget + "&" +
 				"epic_instance_size=" + InstanceSize.ToString() + "&" +
 				"epic_instance_min=" + InstanceSizeMin.ToString() + "&" +
 				"epic_instance_max=" + InstanceSizeMax.ToString() + "&" +
@@ -308,6 +311,7 @@ namespace UnrealTournamentGame.Automation
 										  string AppNameStringOverride = "",
 										  string HubServerName = "")
 		{
+			int LocalCpuBudget = CpuBudget;
 			UnrealTournamentBuild.UnrealTournamentAppName LocalAppName = AppName;
 			if( ! String.IsNullOrEmpty(AppNameStringOverride))
 			{
@@ -355,6 +359,7 @@ namespace UnrealTournamentGame.Automation
 			if (HubServerName != "")
 			{
 				CliArgBytes = System.Text.Encoding.UTF8.GetBytes("UnrealTournament ut-entry?game=lobby?ServerName="+HubServerName+" -nocore -epicapp=" + LocalAppName.ToString() + " " + ExtraCliArgs);
+				LocalCpuBudget=32000;
 			}
 			else
 			{
@@ -365,8 +370,8 @@ namespace UnrealTournamentGame.Automation
 				"epic_game_tag=" + GetTag(LocalAppName, Region, tag) + "&" +
 				"epic_game_version=" + Changelist.ToString() + "&" +
 				"epic_game_region=" + Region + "&" +
-				"epic_game_cpu_budget=" +RamBudget +"&" +
-				"epic_game_ram_budget=" + CpuBudget + "&" +
+				"epic_game_cpu_budget=" + RamBudget +"&" +
+				"epic_game_ram_budget=" + LocalCpuBudget + "&" +
 				"epic_game_buildstr_base64=" + System.Convert.ToBase64String(BuildStringBytes) + "&" +
 				"epic_instance_size=" + InstanceSize.ToString() + "&" +
 				"epic_instance_min=" + InstanceSizeMin.ToString() + "&" +
