@@ -880,9 +880,16 @@ void AUTBasePlayerController::ServerReceiveStatsID_Implementation(const FString&
 {
 	if (UTPlayerState != NULL && !GetWorld()->IsPlayInEditor()) // && GetWorld()->GetNetMode() != NM_Standalone)
 	{
-		UTPlayerState->StatsID = NewStatsID;
-		UTPlayerState->ReadStatsFromCloud();
-		UTPlayerState->ReadMMRFromBackend();
+		if (NewStatsID != UTPlayerState->StatsID)
+		{
+			UTPlayerState->StatsID = NewStatsID;
+			UTPlayerState->ReadStatsFromCloud();
+			UTPlayerState->ReadMMRFromBackend();
+		}
+		else
+		{
+			UE_LOG(UT, Warning, TEXT("ServerReceiveStatsID called twice on the same PlayerController"));
+		}
 	}
 }
 

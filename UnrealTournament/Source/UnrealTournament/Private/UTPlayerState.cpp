@@ -1531,6 +1531,12 @@ FString AUTPlayerState::GetStatsFilename()
 
 void AUTPlayerState::WriteStatsToCloud()
 {
+	if (bWroteStatsToCloud)
+	{
+		UE_LOG(LogGameStats, Warning, TEXT("Attempted to write stats twice for %s, skipping"), *PlayerName);
+		return;
+	}
+
 	if (!StatsID.IsEmpty() && StatManager != nullptr)
 	{
 		// Write the stats stored in the cloud file
