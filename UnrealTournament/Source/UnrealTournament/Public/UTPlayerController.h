@@ -769,6 +769,9 @@ public:
 	/** Last time PrevWeapon or NextWeapon was called. */
 	UPROPERTY(BluePrintReadWrite, Category = Input)
 		float LastWeaponPrevNextTime;
+	
+	UFUNCTION(BlueprintCallable, Category=PlayerController)
+	void ThrowWeapon();
 
 protected:
 	UPROPERTY(BluePrintReadOnly, Category = Dodging)
@@ -813,9 +816,7 @@ protected:
 
 	UFUNCTION(exec)
 	void SelectTranslocator();
-
-	void ThrowWeapon();
-	
+		
 	UFUNCTION(Reliable, Server, WithValidation)
 	virtual void ServerThrowWeapon();
 
