@@ -98,22 +98,29 @@ namespace UnrealTournamentGame.Automation
 
 		public void DeployNewFleets(int MaxRetries)
 		{
+
+			string GceMachineType = "n1-standard-4";
+			if (AppName == UnrealTournamentBuild.UnrealTournamentAppName.UnrealTournamentDev)
+			{
+				GceMachineType = "n1-standard=32";
+			}
+
 			/* Hubs */
-			string GceNaHub1 = Deployment2GceArgs(tag: "hub1", MachineType: "n1-standard-16", Zone: "us-central1-c", Region: "NA", HubServerName: "USA (Central) Hub 1");
-			string GceNaHub2 = Deployment2GceArgs(tag: "hub2", MachineType: "n1-standard-16", Zone: "us-central1-b", Region: "NA", HubServerName: "USA (Central) Hub 2");
-			string GceNaHub3 = Deployment2GceArgs(tag: "hub3", MachineType: "n1-standard-16", Zone: "us-central1-c", Region: "NA", HubServerName: "USA (Central) Hub 3");
-			string GceEuHub1 = Deployment2GceArgs(tag: "hub1", MachineType: "n1-standard-16", Zone: "europe-west1-b", Region: "EU", HubServerName: "BEL (St. Ghislain) Hub 1");
-			string GceEuHub2 = Deployment2GceArgs(tag: "hub2", MachineType: "n1-standard-16", Zone: "europe-west1-c", Region: "EU", HubServerName: "BEL (St. Ghislain) Hub 2");
-			string GceEuHub3 = Deployment2GceArgs(tag: "hub3", MachineType: "n1-standard-16", Zone: "europe-west1-b", Region: "EU", HubServerName: "BEL (St. Ghislain) Hub 3");
+			string GceNaHub1 = Deployment2GceArgs(tag: "hub1", MachineType: GceMachineType, Zone: "us-central1-c", Region: "NA", HubServerName: "USA (Central) Hub 1");
+			string GceNaHub2 = Deployment2GceArgs(tag: "hub2", MachineType: GceMachineType, Zone: "us-central1-b", Region: "NA", HubServerName: "USA (Central) Hub 2");
+			string GceNaHub3 = Deployment2GceArgs(tag: "hub3", MachineType: GceMachineType, Zone: "us-central1-c", Region: "NA", HubServerName: "USA (Central) Hub 3");
+			string GceEuHub1 = Deployment2GceArgs(tag: "hub1", MachineType: GceMachineType, Zone: "europe-west1-b", Region: "EU", HubServerName: "BEL (St. Ghislain) Hub 1");
+			string GceEuHub2 = Deployment2GceArgs(tag: "hub2", MachineType: GceMachineType, Zone: "europe-west1-c", Region: "EU", HubServerName: "BEL (St. Ghislain) Hub 2");
+			string GceEuHub3 = Deployment2GceArgs(tag: "hub3", MachineType: GceMachineType, Zone: "europe-west1-b", Region: "EU", HubServerName: "BEL (St. Ghislain) Hub 3");
 			string AwsNaHub1 = Deployment2AwsArgs(AwsRegion: "us-west-1", tag: "Aws1", Region: "NA", InstanceType: "c4.4xlarge", HubServerName: "USA(West) Hub 1");
 			string AwsNaHub2 = Deployment2AwsArgs(AwsRegion: "us-east-1", tag: "Aws2", Region: "NA", InstanceType: "c4.4xlarge", HubServerName: "USA(EpicHQ) Hub");
 			string AwsAuHub1 = Deployment2AwsArgs(AwsRegion: "ap-southeast-2", tag: "Aws1", Region: "AU", InstanceType: "c4.4xlarge", HubServerName: "AUS (Sydney) Hub 1");
 
 			/* Match Making */
-			string GceArgsNa1 = Deployment2GceArgs(tag: "Gce1", MachineType: "n1-standard-8", Zone: "us-central1-c", Region: "NA");
-			string GceArgsNa2 = Deployment2GceArgs(tag: "Gce2", MachineType: "n1-standard-8", Zone: "us-central1-b", Region: "NA");
-			string GceArgsEu1 = Deployment2GceArgs(tag: "Gce1", MachineType: "n1-standard-8", Zone: "europe-west1-c", Region: "EU");
-			string GceArgsEu2 = Deployment2GceArgs(tag: "Gce2", MachineType: "n1-standard-8", Zone: "europe-west1-b", Region: "EU");
+			string GceArgsNa1 = Deployment2GceArgs(tag: "Gce1", MachineType: GceMachineType, Zone: "us-central1-c", Region: "NA");
+			string GceArgsNa2 = Deployment2GceArgs(tag: "Gce2", MachineType: GceMachineType, Zone: "us-central1-b", Region: "NA");
+			string GceArgsEu1 = Deployment2GceArgs(tag: "Gce1", MachineType: GceMachineType, Zone: "europe-west1-c", Region: "EU");
+			string GceArgsEu2 = Deployment2GceArgs(tag: "Gce2", MachineType: GceMachineType, Zone: "europe-west1-b", Region: "EU");
 
 			CommandUtils.Log("Deploying new fleets for change list {0}", Changelist);
 
