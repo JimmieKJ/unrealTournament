@@ -7,9 +7,10 @@
 #include "Json.h"
 #include "UTHUD.generated.h"
 
-const uint32 MAX_DAMAGE_INDICATORS = 3;		// # of damage indicators on the screen at any one time
-const float DAMAGE_FADE_DURATION = 1.0f;	// How fast a damage indicator fades out
-
+const uint32 MAX_DAMAGE_INDICATORS = 3;				// # of damage indicators on the screen at any one time
+const float DAMAGE_FADE_DURATION = 1.0f;			// How fast a damage indicator fades out
+const float MAX_MY_DAMAGE_BOUNCE_TIME = 1.25f;		// How fast will the numbers bounce in to the screen.
+const float MAX_TALLY_FADE_TIME = 0.6f;				// How fast should the talley numbers fade in
 class UUTProfileSettings;
 
 USTRUCT()
@@ -77,13 +78,19 @@ struct FLocalDamageNumber
 	UPROPERTY()
 	TSubclassOf<UDamageType> DamageTypeClass;
 
+	UPROPERTY()
+	float BounceTime;
+
+	UPROPERTY()
+	float TallyFadeTime;
+
 	FLocalDamageNumber()
-		: DamageAmount(0), DamageTime(0.0f), DamageTypeClass(nullptr)
+		: DamageAmount(0), DamageTime(0.0f), DamageTypeClass(nullptr), BounceTime(MAX_MY_DAMAGE_BOUNCE_TIME), TallyFadeTime(MAX_TALLY_FADE_TIME)
 	{
 	}
 
 	FLocalDamageNumber(uint8 inDamageAmount, float inDamageTime, TSubclassOf<UDamageType> inDamageTypeClass)
-		: DamageAmount(inDamageAmount), DamageTime(inDamageTime), DamageTypeClass(inDamageTypeClass)
+		: DamageAmount(inDamageAmount), DamageTime(inDamageTime), DamageTypeClass(inDamageTypeClass), BounceTime(MAX_MY_DAMAGE_BOUNCE_TIME), TallyFadeTime(MAX_TALLY_FADE_TIME)
 	{
 	}
 };
@@ -648,6 +655,16 @@ protected:
 	UUTRadialMenu_WeaponWheel* WeaponWheel;
 
 	virtual void DrawLocalDamage();
+
+	UPROPERTY()
+	int32 TotalDamageDeltThisLife;
+
+	UPROPERTY()
+	int32 TotalDamageTakenThisLife;
+
+	UPROPERTY()
+	float LastEngagementStarted;
+	float LastEngagementEnded;
 
 };
 

@@ -381,6 +381,10 @@ public:
 	static float BounceEaseOut(float Start, float End, float Position, float Power)
 	{
 		Position = FMath::Clamp<float>(Position, 0.0f, 1.0f);
+		
+		if (Position == 0.0f) return Start;
+		if (Position == 1.0f) return End;
+
 		return Start + ( (End - Start) * ( 1.0f - FMath::Pow(Power, (Power * -0.5f) * Position ) * FMath::Abs<float>(FMath::Cos( Position * 3.1415926535897932f * Power) ) ) );
 	}
 
