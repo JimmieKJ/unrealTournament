@@ -18,7 +18,7 @@ void AUTGameVolume::ActorEnteredVolume(class AActor* Other)
 	{
 		AUTCharacter* P = Cast<AUTCharacter>(Other);
 		AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
-		if (P && GS)
+		if (P != nullptr && GS != nullptr && P->PlayerState != nullptr)
 		{
 			if (!GS->OnSameTeam(this, P))
 			{
