@@ -7,7 +7,7 @@
 class FUniqueNetId;
 
 /** Enable to pipe local voice data back to this client as remote data */
-#define VOICE_LOOPBACK 0
+#define VOICE_LOOPBACK 1
 
 /**
  * Delegate called when a player is talking either remotely or locally
@@ -400,6 +400,12 @@ public:
      * Get information about the voice state for display
      */
 	virtual FString GetVoiceDebugState() const = 0;
+
+	/**
+	 *	Toggle loopback on or off for testing
+	 **/
+	virtual void ToggleLoopback(bool bEnabled) = 0;
+
 };
 
 typedef TSharedPtr<IOnlineVoice, ESPMode::ThreadSafe> IOnlineVoicePtr;
