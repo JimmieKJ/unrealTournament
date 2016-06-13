@@ -58,9 +58,12 @@ AUTProj_FlakShard::AUTProj_FlakShard(const class FObjectInitializer& ObjectIniti
 	bNetTemporary = true;
 	NumSatelliteShards = 1;
 	StatsHitCredit = 0.111f;
-	OverlapRadius = 40.f;
+	OverlapRadius = 20.f;
+	MaxOverlapRadius = 40.f;
 	FinalOverlapRadius = 8.f;
 	RadiusShrinkRate = 150.f;
+	RadiusGrowthRate = 1200.f;
+	bGrowOverlap = true;
 }
 
 void AUTProj_FlakShard::BeginPlay()
@@ -139,6 +142,7 @@ void AUTProj_FlakShard::OnBounce(const struct FHitResult& ImpactResult, const FV
 		ProcessHit(ImpactResult.Actor.Get(), ImpactResult.Component.Get(), ImpactResult.ImpactPoint, ImpactResult.ImpactNormal);
 		return;
 	}
+	bGrowOverlap = false;
 	RemoveSatelliteShards();
 	if (GetWorld()->GetTimeSeconds() - CreationTime > 2.f * FullGravityDelay)
 	{
@@ -210,7 +214,12 @@ void AUTProj_FlakShard::Tick(float DeltaTime)
 	if (PawnOverlapSphere != NULL)
 	{
 		float CurrentRadius = PawnOverlapSphere->GetUnscaledSphereRadius();
-		if (CurrentRadius > FinalOverlapRadius)
+		bGrowOverlap = bGrowOverlap && (CurrentRadius < MaxOverlapRadius);
+		if (bGrowOverlap)
+		{
+			PawnOverlapSphere->SetSphereRadius(FMath::Min(MaxOverlapRadius, CurrentRadius + RadiusGrowthRate*DeltaTime), false);
+		}
+		else if (CurrentRadius > FinalOverlapRadius)
 		{
 			PawnOverlapSphere->SetSphereRadius(FMath::Max(FinalOverlapRadius, CurrentRadius - RadiusShrinkRate*DeltaTime), false);
 		}

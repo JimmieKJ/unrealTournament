@@ -43,6 +43,17 @@ class UNREALTOURNAMENT_API AUTProj_FlakShard : public AUTProjectile
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Flak Cannon")
 		float BounceDamagePct;
 
+	UPROPERTY()
+		bool bGrowOverlap;
+
+	/** Time to final overlap radius (units/sec) */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Flak Cannon")
+		float RadiusGrowthRate;
+
+	/** Final overlap radius (shrinks to this value). */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Flak Cannon")
+		float MaxOverlapRadius;
+
 	/** Final overlap radius (shrinks to this value). */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Flak Cannon")
 		float FinalOverlapRadius;
