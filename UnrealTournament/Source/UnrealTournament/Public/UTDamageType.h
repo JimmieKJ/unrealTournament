@@ -167,7 +167,7 @@ class UNREALTOURNAMENT_API UUTDamageType : public UDamageType
 	void PlayGibEffects(class AUTGib* Gib) const;
 
 	/** Default implementation returns the opposite of bCausesPainSound (if a damage type doesn't cause a pain scream, it shouldn't cause a death scream. */
-	UFUNCTION(BlueprintNativeEvent, BlueprintCosmetic)
+	UFUNCTION(BlueprintNativeEvent, BlueprintCosmetic, Category=DamageType)
 		bool OverrideDeathSound(AUTCharacter* Victim) const;
 
 	/** This is the console death message that will be sent to everyone not involved when someone dies of this damage type.  Supports all of the {xxx} varaiable commands of the messaging system*/

@@ -110,8 +110,8 @@ AUTPlayerController::AUTPlayerController(const class FObjectInitializer& ObjectI
 
 	FootStepAmp.OwnVolumeMultiplier = 0.35f;
 	FootStepAmp.TeammateVolumeMultiplier = 0.5f;
-	PainSoundAmp.InstigatorVolumeMultiplier = 2.f;
-	PainSoundAmp.TargetVolumeMultiplier = 2.f;
+	PainSoundAmp.InstigatorVolumeMultiplier = 2.5f;
+	PainSoundAmp.TargetVolumeMultiplier = 2.5f;
 	WeaponFireAmp.InstigatorVolumeMultiplier = 1.3f;
 	WeaponFireAmp.TargetVolumeMultiplier = 1.3f;
 	WeaponFireAmp.TargetPitchMultiplier = 1.1f;
