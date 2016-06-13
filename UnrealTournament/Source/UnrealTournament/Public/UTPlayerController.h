@@ -1150,6 +1150,22 @@ public:
 
 	void ServerDebugTest_Implementation(const FString& TestCommand) override;
 
+	UFUNCTION(exec)
+	virtual void FlushVOIP();
+
+	UFUNCTION(exec)
+	virtual void VoiceDebug(const FString& Command);
+
+	UFUNCTION(server, reliable, withvalidation)
+	virtual void ServerVoiceDebug(const FString& Command);
+
+	virtual void ProcessVoiceDebug(const FString& Command);
+
+
+protected:
+	UFUNCTION()
+	virtual void RestartVOIP();
+
 };
 
 

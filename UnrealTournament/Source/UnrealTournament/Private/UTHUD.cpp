@@ -25,6 +25,8 @@
 #include "UTRadialMenu.h"
 #include "UTRadialMenu_Coms.h"
 #include "UTRadialMenu_WeaponWheel.h"
+#include "OnlineSubsystemTypes.h"
+#include "OnlineSubsystemUtils.h"
 
 AUTHUD::AUTHUD(const class FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
 {
@@ -107,6 +109,9 @@ AUTHUD::AUTHUD(const class FObjectInitializer& ObjectInitializer) : Super(Object
 	TotalDamageTakenThisLife = 0.0f;
 	LastEngagementStarted = 0.0f;
 	LastEngagementEnded = 0.0f;
+
+	bShowVoiceDebug = false;
+
 }
 
 void AUTHUD::Destroyed()
@@ -645,6 +650,28 @@ void AUTHUD::DrawHUD()
 
 		}
 	}
+
+	if (bShowVoiceDebug)
+	{
+		float TextScale = Canvas->ClipY / 1080.0f;
+		IOnlineVoicePtr VoiceInt = Online::GetVoiceInterface(GetWorld());
+		if (VoiceInt.IsValid())
+		{
+			FString VoiceDebugString = 	VoiceInt->GetVoiceDebugState();
+			if (!VoiceDebugString.IsEmpty())
+			{
+				TArray<FString> VDLines;
+				VoiceDebugString.ParseIntoArray(VDLines,TEXT("\n"), false);
+				FVector2D Pos = FVector2D(10, Canvas->ClipY * 0.2f);
+				for (int32 i=0 ; i < VDLines.Num(); i++)
+				{
+					DrawString(FText::FromString(VDLines[i]), Pos.X, Pos.Y, ETextHorzPos::Left, ETextVertPos::Top, TinyFont, FLinearColor::White, TextScale, true);
+					Pos.Y += TinyFont->GetMaxCharHeight() * TextScale;
+				}
+			}
+		}
+	}
+
 
 	CachedProfileSettings = nullptr;
 

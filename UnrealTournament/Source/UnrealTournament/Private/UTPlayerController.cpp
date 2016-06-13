@@ -3979,150 +3979,11 @@ void AUTPlayerController::ClientPumpkinPickedUp_Implementation(float GainedAmoun
 
 void AUTPlayerController::DebugTest(FString TestCommand)
 {
-	AUTGameState* GameState = GetWorld()->GetGameState<AUTGameState>();
-	IOnlineVoicePtr VoiceInt = Online::GetVoiceInterface(GetWorld());
-
-	if ( TestCommand.Equals(TEXT("clienton"), ESearchCase::IgnoreCase) )
-	{
-		ToggleSpeaking(true);
-		return;
-	}
-
-	if ( TestCommand.Equals(TEXT("clientoff"), ESearchCase::IgnoreCase) )
-	{
-		ToggleSpeaking(false);
-		return;
-	}
-
-	if ( TestCommand.Equals(TEXT("serveroff"), ESearchCase::IgnoreCase) || TestCommand.Equals(TEXT("serveroff"), ESearchCase::IgnoreCase) )
-	{
-		ServerDebugTest(TestCommand);
-		return;
-	}
-
-	if ( TestCommand.Equals(TEXT("clearvoice"), ESearchCase::IgnoreCase) )
-	{
-		if (VoiceInt.IsValid())
-		{
-			VoiceInt->ClearVoicePackets();
-			ServerDebugTest(TestCommand);
-			return;
-		}
-	}
-
-	if ( TestCommand.Equals(TEXT("showflags"), ESearchCase::IgnoreCase))
-	{
-		if (VoiceInt.IsValid())
-		{
-			UE_LOG(UT,Log,TEXT("Flags %i %i"), VoiceInt->IsHeadsetPresent(0), VoiceInt->IsLocalPlayerTalking(0));
-			ServerDebugTest(TestCommand);
-			return;
-		}
-	}
-
-	if (GameState)
-	{
-		UE_LOG(UT,Log,TEXT("[PlayerList]========================================================================="));
-		for (int32 i=0; i < GameState->PlayerArray.Num(); i++)
-		{
-			if (GameState->PlayerArray[i])
-			{
-				UE_LOG(UT,Log,TEXT("Player %i %s = %s"),i, *GameState->PlayerArray[i]->PlayerName, *GameState->PlayerArray[i]->UniqueId.ToString());
-			}
-		}
-
-		UE_LOG(UT,Log,TEXT("[Mute List]========================================================================="));
-
-		FString Text = DumpMutelistState(GetWorld());
-		TArray<FString> Lines;
-		Text.ParseIntoArray(Lines,TEXT("\n"), false);
-
-		for (int32 i=0; i < Lines.Num(); i++)
-		{
-			UE_LOG(UT,Log,TEXT("%s"), *Lines[i]);
-		}
-		
-		if (VoiceInt.IsValid())
-		{
-			UE_LOG(UT,Log,TEXT("[Voice List]========================================================================="));
-
-			Text = VoiceInt->GetVoiceDebugState();
-			Lines.Empty();
-			Text.ParseIntoArray(Lines,TEXT("\n"), false);
-
-			for (int32 i=0; i < Lines.Num(); i++)
-			{
-				UE_LOG(UT,Log,TEXT("%s"), *Lines[i]);
-			}
-		}
-		UE_LOG(UT,Log,TEXT("====================================================================================="));
-	}
-	ServerDebugTest(TestCommand);
+	Super::DebugTest(TestCommand);
 }
 
 void AUTPlayerController::ServerDebugTest_Implementation(const FString& TestCommand)
 {
-	IOnlineVoicePtr VoiceInt = Online::GetVoiceInterface(GetWorld());
-
-	if ( TestCommand.Equals(TEXT("clearvoice"),ESearchCase::IgnoreCase))
-	{
-		if (VoiceInt.IsValid())
-		{
-			VoiceInt->ClearVoicePackets();
-			return;
-		}
-	}
-
-	if ( TestCommand.Equals(TEXT("serveron"), ESearchCase::IgnoreCase) )
-	{
-		ToggleSpeaking(true);
-		return;
-	}
-
-	if ( TestCommand.Equals(TEXT("serveroff"), ESearchCase::IgnoreCase) )
-	{
-		ToggleSpeaking(false);
-		return;
-	}
-
-	AUTGameState* GameState = GetWorld()->GetGameState<AUTGameState>();
-	if (GameState)
-	{
-		UE_LOG(UT,Log,TEXT("[PlayerList]========================================================================="));
-		for (int32 i=0; i < GameState->PlayerArray.Num(); i++)
-		{
-			if (GameState->PlayerArray[i])
-			{
-				UE_LOG(UT,Log,TEXT("Player %i %s = %s"),i, *GameState->PlayerArray[i]->PlayerName, *GameState->PlayerArray[i]->UniqueId.ToString());
-			}
-		}
-
-		UE_LOG(UT,Log,TEXT("[Mute List]========================================================================="));
-
-		FString Text = DumpMutelistState(GetWorld());
-		TArray<FString> Lines;
-		Text.ParseIntoArray(Lines,TEXT("\n"), false);
-
-		for (int32 i=0; i < Lines.Num(); i++)
-		{
-			UE_LOG(UT,Log,TEXT("%s"), *Lines[i]);
-		}
-		
-		if (VoiceInt.IsValid())
-		{
-			UE_LOG(UT,Log,TEXT("[Voice List]========================================================================="));
-
-			Text = VoiceInt->GetVoiceDebugState();
-			Lines.Empty();
-			Text.ParseIntoArray(Lines,TEXT("\n"), false);
-
-			for (int32 i=0; i < Lines.Num(); i++)
-			{
-				UE_LOG(UT,Log,TEXT("%s"), *Lines[i]);
-			}
-		}
-		UE_LOG(UT,Log,TEXT("====================================================================================="));
-	}
 }
 
 void AUTPlayerController::ClientRequireContentItemListComplete_Implementation()
@@ -4731,3 +4592,112 @@ void AUTPlayerController::HideWeaponWheel()
 	if (MyUTHUD) MyUTHUD->ToggleWeaponWheel(false);
 }
 
+void AUTPlayerController::FlushVOIP()
+{
+	UUTProfileSettings* ProfileSettings = GetProfileSettings();
+	if (ProfileSettings && ProfileSettings->bPushToTalk)
+	{
+		IOnlineVoicePtr VoiceInt = Online::GetVoiceInterface(GetWorld());
+		if (VoiceInt.IsValid())
+		{
+			VoiceInt->ClearVoicePackets();
+			ToggleSpeaking(false);
+			FTimerHandle TimerHandle;
+			GetWorldTimerManager().SetTimer(TimerHandle, this, &AUTPlayerController::RestartVOIP, 0.5f, false);
+		}
+	}
+}
+
+void AUTPlayerController::RestartVOIP()
+{
+	ToggleSpeaking(true);
+}
+
+void AUTPlayerController::VoiceDebug(const FString& Command)
+{
+	ProcessVoiceDebug(Command);
+	ServerVoiceDebug(Command);
+}
+
+bool AUTPlayerController::ServerVoiceDebug_Validate(const FString& Command) { return true; }
+void AUTPlayerController::ServerVoiceDebug_Implementation(const FString& Command)
+{
+	ProcessVoiceDebug(Command);
+}
+
+void AUTPlayerController::ProcessVoiceDebug(const FString& Command)
+{
+	AUTGameState* GameState = GetWorld()->GetGameState<AUTGameState>();
+	IOnlineVoicePtr VoiceInt = Online::GetVoiceInterface(GetWorld());
+
+	if ( MyUTHUD && Command.Equals(TEXT("show"), ESearchCase::IgnoreCase) )
+	{
+		MyUTHUD->bShowVoiceDebug = true;
+		return;
+	}
+
+	if ( MyUTHUD && Command.Equals(TEXT("hide"), ESearchCase::IgnoreCase) )
+	{
+		MyUTHUD->bShowVoiceDebug = false;
+		return;
+	}
+
+	if ( Command.Equals(TEXT("toggleon"), ESearchCase::IgnoreCase) && GetNetMode() == NM_Client)
+	{
+		ToggleSpeaking(true);
+		return;
+	}
+
+	if ( Command.Equals(TEXT("toggleoff"), ESearchCase::IgnoreCase) && GetNetMode() == NM_Client )
+	{
+		ToggleSpeaking(false);
+		return;
+	}
+
+	if ( Command.Equals(TEXT("clearvoice"), ESearchCase::IgnoreCase) )
+	{
+		if (VoiceInt.IsValid())
+		{
+			VoiceInt->ClearVoicePackets();
+			return;
+		}
+	}
+
+	if ( GameState && Command.Equals(TEXT("dump"), ESearchCase::IgnoreCase) )
+	{
+		UE_LOG(UT,Log,TEXT("[PlayerList]========================================================================="));
+		for (int32 i=0; i < GameState->PlayerArray.Num(); i++)
+		{
+			if (GameState->PlayerArray[i])
+			{
+				UE_LOG(UT,Log,TEXT("Player %i %s = %s"),i, *GameState->PlayerArray[i]->PlayerName, *GameState->PlayerArray[i]->UniqueId.ToString());
+			}
+		}
+
+		UE_LOG(UT,Log,TEXT("[Mute List]========================================================================="));
+
+		FString Text = DumpMutelistState(GetWorld());
+		TArray<FString> Lines;
+		Text.ParseIntoArray(Lines,TEXT("\n"), false);
+
+		for (int32 i=0; i < Lines.Num(); i++)
+		{
+			UE_LOG(UT,Log,TEXT("%s"), *Lines[i]);
+		}
+		
+		if (VoiceInt.IsValid())
+		{
+			UE_LOG(UT,Log,TEXT("[Voice List]========================================================================="));
+
+			Text = VoiceInt->GetVoiceDebugState();
+			Lines.Empty();
+			Text.ParseIntoArray(Lines,TEXT("\n"), false);
+
+			for (int32 i=0; i < Lines.Num(); i++)
+			{
+				UE_LOG(UT,Log,TEXT("%s"), *Lines[i]);
+			}
+		}
+		UE_LOG(UT,Log,TEXT("====================================================================================="));
+	}
+}

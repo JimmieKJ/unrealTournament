@@ -648,6 +648,8 @@ public:
 	virtual void ToggleWeaponWheel(bool bShow);
 
 
+	bool bShowVoiceDebug;
+
 protected:
 
 	TArray<UUTRadialMenu*> RadialMenus;

@@ -824,3 +824,7 @@ FString FOnlineVoiceSteam::GetVoiceDebugState() const
 	return Output;
 }
 
+void FOnlineVoiceSteam::ToggleLoopback(bool bEnabled)
+{
+	LoopbackEnabled = bEnabled;
+}

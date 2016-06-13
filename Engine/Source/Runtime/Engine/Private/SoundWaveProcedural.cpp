@@ -76,7 +76,8 @@ int32 USoundWaveProcedural::GeneratePCMData( uint8* PCMData, const int32 Samples
 	// There wasn't enough data ready, write out zeros
 	const int32 BytesCopied = NumBufferUnderrunSamples * sizeof(int16);
 	FMemory::Memzero(PCMData, BytesCopied);
-	return BytesCopied;}
+	return BytesCopied;
+}
 
 void USoundWaveProcedural::ResetAudio()
 {
