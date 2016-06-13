@@ -180,6 +180,10 @@ void AUTProj_Redeemer::Explode_Implementation(const FVector& HitLocation, const 
 {
 	if (!bExploded)
 	{
+		if (GetNetMode() != NM_DedicatedServer)
+		{
+			PlayShotDownEffects();
+		}
 		bExploded = true;
 		//Guarantee detonation on projectile collision
 		AUTProjectile* Projectile = Cast<AUTProjectile>(ImpactedActor);
