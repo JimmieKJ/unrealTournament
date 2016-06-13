@@ -3143,6 +3143,11 @@ void AUTCharacter::SetInitialHealth_Implementation()
 	}
 }
 
+bool AUTCharacter::CanSlide() const
+{
+	return !bIsCrouched && UTCharacterMovement && !UTCharacterMovement->bIsFloorSliding && UTCharacterMovement->CanEverJump() && (UTCharacterMovement->Velocity.Z > -1.f * MaxSafeFallSpeed) && !IsThirdPersonTaunting() && !IsRagdoll() && !bInRagdollRecovery;
+}
+
 bool AUTCharacter::CanDodge() const
 {
 	return CanDodgeInternal();
