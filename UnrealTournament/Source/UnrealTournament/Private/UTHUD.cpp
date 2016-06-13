@@ -866,11 +866,10 @@ void AUTHUD::DrawDamageIndicators()
 
 void AUTHUD::CausedDamage(APawn* HitPawn, int32 Damage)
 {
-
 	TotalDamageDeltThisLife += Damage;
 
 	AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
-	if (GS == NULL || !GS->OnSameTeam(HitPawn, PlayerOwner))
+	if ((HitPawn != UTPlayerOwner->GetViewTarget()) && (GS == NULL || !GS->OnSameTeam(HitPawn, PlayerOwner)))
 	{
 		LastConfirmedHitTime = GetWorld()->TimeSeconds;
 		LastConfirmedHitDamage = Damage;
