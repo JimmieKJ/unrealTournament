@@ -519,7 +519,7 @@ bool AUTWeap_LinkGun::PutDown()
 
 void AUTWeap_LinkGun::OnMultiPress_Implementation(uint8 OtherFireMode)
 {
-	if (CurrentFireMode == 1 && OtherFireMode == 0 && !IsLinkPulsing())
+	if (CurrentFireMode == 1 && OtherFireMode == 0 && IsFiring() && !IsLinkPulsing())
 	{
 		bPendingBeamPulse = true;
 	}
