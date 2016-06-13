@@ -992,6 +992,10 @@ public:
 	UPROPERTY()
 	bool bStartingRagdoll;
 
+	FTimerHandle DeathSoundHandle;
+
+	virtual void PlayDeathSound();
+
 protected:
 	UPROPERTY(BlueprintReadOnly, Category = Ragdoll)
 	float RagdollGravityScale;

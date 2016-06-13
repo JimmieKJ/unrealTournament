@@ -1585,6 +1585,11 @@ bool AUTCharacter::IsRecentlyDead()
 	return IsDead() && (GetWorld()->GetTimeSeconds() - TimeOfDeath < 1.f);
 }
 
+void AUTCharacter::PlayDeathSound()
+{
+	UUTGameplayStatics::UTPlaySound(GetWorld(), CharacterData.GetDefaultObject()->DeathSound, this, SRT_None, false, FVector::ZeroVector, NULL, NULL, false, SAT_PainSound);
+}
+
 void AUTCharacter::PlayDying()
 {
 	TimeOfDeath = GetWorld()->TimeSeconds;
@@ -1624,10 +1629,6 @@ void AUTCharacter::PlayDying()
 		}
 		else
 		{
-			if (!UTDmg || !UTDmg.GetDefaultObject()->OverrideDeathSound(this))
-			{
-				UUTGameplayStatics::UTPlaySound(GetWorld(), CharacterData.GetDefaultObject()->DeathSound, this, SRT_None, false, FVector::ZeroVector, NULL, NULL, false, SAT_PainSound);
-			}
 			if (!bFeigningDeath)
 			{
 				bool bPlayedDeathAnim = false;
@@ -1662,6 +1663,10 @@ void AUTCharacter::PlayDying()
 			// SetTimer() has a dumb assert if the target of the function is already destroyed, so we need to check it ourselves
 			if (!IsPendingKillPending())
 			{
+				if (!UTDmg || !UTDmg.GetDefaultObject()->OverrideDeathSound(this))
+				{
+					GetWorldTimerManager().SetTimer(DeathSoundHandle, this, &AUTCharacter::PlayDeathSound, 0.25f, false);
+				}
 				FTimerHandle TempHandle;
 				GetWorldTimerManager().SetTimer(TempHandle, this, &AUTCharacter::DeathCleanupTimer, 15.0f, false);
 			}
