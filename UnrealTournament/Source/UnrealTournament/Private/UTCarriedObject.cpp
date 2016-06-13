@@ -727,27 +727,30 @@ void AUTCarriedObject::SendHome()
 			MovementComponent->Velocity = FVector(0.0f, 0.0f, 0.0f);
 			Collision->SetRelativeRotation(FRotator(0, 0, 0));
 			SetActorLocationAndRotation(PastPositions[PastPositions.Num() - 1].Location, GetActorRotation());
-			PastPositions.RemoveAt(PastPositions.Num() - 1);
-			if (PastPositions.Num() > 0)
+			if (ObjectState != CarriedObjectState::Held)
 			{
-				if ((GetActorLocation() - PastPositions[PastPositions.Num() - 1].Location).Size() < MinGradualReturnDist)
-				{
-					PastPositions.RemoveAt(PastPositions.Num() - 1);
-				}
+				PastPositions.RemoveAt(PastPositions.Num() - 1);
 				if (PastPositions.Num() > 0)
 				{
-					PutGhostFlagAt(PastPositions[PastPositions.Num() - 1]);
-					bWantsGhostFlag = true;
+					if ((GetActorLocation() - PastPositions[PastPositions.Num() - 1].Location).Size() < MinGradualReturnDist)
+					{
+						PastPositions.RemoveAt(PastPositions.Num() - 1);
+					}
+					if (PastPositions.Num() > 0)
+					{
+						PutGhostFlagAt(PastPositions[PastPositions.Num() - 1]);
+						bWantsGhostFlag = true;
+					}
 				}
+				AUTGameState* GameState = GetWorld()->GetGameState<AUTGameState>();
+				if ((GetWorld()->GetTimeSeconds() - LastDroppedMessageTime > AutoReturnTime - 2.f) && GameState && !GameState->IsMatchIntermission() && !GameState->HasMatchEnded())
+				{
+					LastDroppedMessageTime = GetWorld()->GetTimeSeconds();
+					SendGameMessage(3, NULL, NULL);
+				}
+				OnObjectStateChanged();
+				ForceNetUpdate();
 			}
-			AUTGameState* GameState = GetWorld()->GetGameState<AUTGameState>();
-			if ((GetWorld()->GetTimeSeconds() - LastDroppedMessageTime > AutoReturnTime - 2.f) && GameState && !GameState->IsMatchIntermission() && !GameState->HasMatchEnded())
-			{
-				LastDroppedMessageTime = GetWorld()->GetTimeSeconds();
-				SendGameMessage(3, NULL, NULL);
-			}
-			OnObjectStateChanged();
-			ForceNetUpdate();
 			if (!bWantsGhostFlag)
 			{
 				ClearGhostFlag();
