@@ -1415,7 +1415,7 @@ void AUTCharacter::StartRagdoll()
 		// turn off any taccom when dead
 		if (bTearOff || !bFeigningDeath)
 		{
-			SetOutline(false);
+			SetOutlineLocal(false);
 		}
 
 		SetActorEnableCollision(true);
@@ -1594,7 +1594,7 @@ void AUTCharacter::PlayDying()
 {
 	TimeOfDeath = GetWorld()->TimeSeconds;
 
-	SetOutline(false);
+	SetOutlineLocal(false);
 	SetAmbientSound(NULL);
 	SetLocalAmbientSound(NULL);
 	SpawnBloodDecal(GetActorLocation() - FVector(0.0f, 0.0f, GetCapsuleComponent()->GetUnscaledCapsuleHalfHeight()), FVector(0.0f, 0.0f, -1.0f));
@@ -3001,6 +3001,7 @@ void AUTCharacter::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& O
 	DOREPLIFETIME_CONDITION(AUTCharacter, MaxSpeedPctModifier, COND_None);
 	DOREPLIFETIME(AUTCharacter, bServerOutline);
 	DOREPLIFETIME(AUTCharacter, bOutlineWhenUnoccluded);
+	DOREPLIFETIME(AUTCharacter, ServerOutlineTeamMask);
 }
 
 static AUTWeapon* SavedWeapon = NULL;
@@ -3882,29 +3883,64 @@ void AUTCharacter::UpdateCharOverlays()
 	}
 }
 
-void AUTCharacter::SetOutline(bool bNowOutlined, bool bWhenUnoccluded)
+void AUTCharacter::SetOutlineServer(bool bNowOutlined, bool bWhenUnoccluded, uint8 TeamMask)
 {
-	// outline not allowed on corpses
-	if (IsDead())
-	{
-		bServerOutline = false;
-		bLocalOutline = false;
-		bNowOutlined = false;
-	}
-
 	if (Role == ROLE_Authority)
 	{
-		bServerOutline = bNowOutlined;
+		// outline not allowed on corpses
+		if (IsDead())
+		{
+			bServerOutline = false;
+			bLocalOutline = false;
+		}
+		else
+		{
+			if (TeamMask != 0)
+			{
+				if (bNowOutlined)
+				{
+					ServerOutlineTeamMask |= TeamMask;
+				}
+				else
+				{
+					ServerOutlineTeamMask &= ~TeamMask;
+				}
+				bServerOutline = (ServerOutlineTeamMask != 0);
+			}
+			else
+			{
+				bServerOutline = bNowOutlined;
+				if (!bNowOutlined)
+				{
+					ServerOutlineTeamMask = 0;
+				}
+			}
+		}
 		bOutlineWhenUnoccluded = bWhenUnoccluded;
+
+		if (GetNetMode() != NM_DedicatedServer)
+		{
+			UpdateOutline();
+		}
 	}
-	else
-	{
-		bLocalOutline = bNowOutlined;
-		// TODO: this should be server only, need to refactor flag carrier outlining
-		bOutlineWhenUnoccluded = bWhenUnoccluded;
-	}
+}
+void AUTCharacter::SetOutlineLocal(bool bNowOutlined, bool bWhenUnoccluded)
+{
 	if (GetNetMode() != NM_DedicatedServer)
 	{
+		// outline not allowed on corpses
+		if (IsDead())
+		{
+			bServerOutline = false;
+			bLocalOutline = false;
+		}
+		else
+		{
+			bLocalOutline = bNowOutlined;
+		}
+		// TODO: this should be server only, need to refactor flag carrier outlining
+		bOutlineWhenUnoccluded = bWhenUnoccluded;
+
 		UpdateOutline();
 	}
 }

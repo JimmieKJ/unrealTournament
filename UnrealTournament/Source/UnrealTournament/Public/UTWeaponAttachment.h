@@ -25,6 +25,10 @@ protected:
 	UPROPERTY()
 	USkeletalMeshComponent* CustomDepthMesh;
 public:
+	inline const USkeletalMeshComponent* GetCustomDepthMesh() const
+	{
+		return CustomDepthMesh;
+	}
 
 	/** Tells the aniamtion system what movement blends to use */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon")

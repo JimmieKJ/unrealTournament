@@ -2918,7 +2918,7 @@ void AUTPlayerState::OnRepSpecialTeamPlayer()
 
 void AUTPlayerState::UpdateSpecialTacComFor(AUTCharacter* Character, AUTPlayerController* UTPC)
 {
-	Character->SetOutline(bSpecialPlayer || (bSpecialTeamPlayer && UTPC && UTPC->GetTeamNum() == GetTeamNum()), true);
+	Character->SetOutlineLocal(bSpecialPlayer || (bSpecialTeamPlayer && UTPC && UTPC->GetTeamNum() == GetTeamNum()), true);
 }
 
 float AUTPlayerState::GetStatsValue(FName StatsName) const

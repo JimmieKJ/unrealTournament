@@ -1473,18 +1473,18 @@ void SUTMatchSummaryPanel::UpdatePlayerRender(UCanvas* C, int32 Width, int32 Hei
 			AUTCharacter* HitChar = Cast<AUTCharacter>(Hit.GetActor());
 			if (HitChar != HighlightedChar && HighlightedChar != nullptr)
 			{
-				HighlightedChar->SetOutline(false);
+				HighlightedChar->SetOutlineLocal(false);
 			}
 
 			if (HitChar != nullptr)
 			{
-				HitChar->SetOutline(true, true);
+				HitChar->SetOutlineLocal(true, true);
 				HighlightedChar = HitChar;
 			}
 		}
 		else if (HighlightedChar != nullptr)
 		{
-			HighlightedChar->SetOutline(false);
+			HighlightedChar->SetOutlineLocal(false);
 			HighlightedChar = nullptr;
 		}
 	}
@@ -1743,7 +1743,7 @@ void SUTMatchSummaryPanel::ViewCharacter(AUTCharacter* NewChar)
 {
 	if (NewChar != nullptr)
 	{
-		NewChar->SetOutline(false);
+		NewChar->SetOutlineLocal(false);
 		TSharedPtr<FCharacterCamera> PlayerCam = MakeShareable(new FCharacterCamera(NewChar));
 		PlayerCam->CamFlags |= CF_CanInteract;
 		CameraShots.Empty();

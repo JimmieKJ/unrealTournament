@@ -5,6 +5,26 @@
 
 #include "UTShowdownGame.generated.h"
 
+USTRUCT()
+struct FTimedPlayerPing
+{
+	GENERATED_USTRUCT_BODY()
+
+		UPROPERTY()
+		AUTCharacter* Char;
+	UPROPERTY()
+		uint8 VisibleTeamNum;
+	UPROPERTY()
+		float TimeRemaining;
+
+	FTimedPlayerPing()
+		: Char(nullptr), VisibleTeamNum(255), TimeRemaining(0.0f)
+	{}
+	FTimedPlayerPing(AUTCharacter* InChar, uint8 InTeam, float InTimeRemaining)
+		: Char(InChar), VisibleTeamNum(InTeam), TimeRemaining(InTimeRemaining)
+	{}
+};
+
 UCLASS()
 class UNREALTOURNAMENT_API AUTShowdownGame : public AUTDuelGame
 {
@@ -99,4 +119,13 @@ public:
 #if !UE_SERVER
 	virtual void CreateConfigWidgets(TSharedPtr<class SVerticalBox> MenuSpace, bool bCreateReadOnly, TArray< TSharedPtr<TAttributePropertyBase> >& ConfigProps, int32 MinimumPlayers) override;
 #endif
+
+	virtual void Tick(float DeltaTime) override;
+
+	UFUNCTION(BlueprintCallable, Category = Game)
+	void AddDamagePing(AUTCharacter* Char, uint8 VisibleToTeam, float Lifetime = 2.0f);
+
+	/** used to show outlines of players for a short time */
+	UPROPERTY()
+	TArray<FTimedPlayerPing> DamagePings;
 };

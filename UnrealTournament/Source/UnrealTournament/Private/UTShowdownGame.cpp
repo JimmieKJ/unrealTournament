@@ -787,6 +787,46 @@ void AUTShowdownGame::DefaultTimer()
 	}
 }
 
+void AUTShowdownGame::AddDamagePing(AUTCharacter* Char, uint8 VisibleToTeam, float Lifetime)
+{
+	if (VisibleToTeam < 8)
+	{
+		bool bFoundExisting = false;
+		for (FTimedPlayerPing& Existing : DamagePings)
+		{
+			if (Existing.Char == Char && Existing.VisibleTeamNum == VisibleToTeam)
+			{
+				Existing.TimeRemaining = FMath::Max<float>(Existing.TimeRemaining, Lifetime);
+				bFoundExisting = true;
+				break;
+			}
+		}
+		if (!bFoundExisting)
+		{
+			new(DamagePings) FTimedPlayerPing(Char, VisibleToTeam, Lifetime);
+			Char->SetOutlineServer(true, false, 1 << VisibleToTeam);
+		}
+	}
+}
+
+void AUTShowdownGame::Tick(float DeltaTime)
+{
+	Super::Tick(DeltaTime);
+
+	for (int32 i = DamagePings.Num() - 1; i >= 0; i--)
+	{
+		DamagePings[i].TimeRemaining -= DeltaTime;
+		if (DamagePings[i].Char == nullptr || DamagePings[i].Char->IsDead() || DamagePings[i].Char->IsActorBeingDestroyed() || DamagePings[i].TimeRemaining <= 0.0f)
+		{
+			if (DamagePings[i].Char != nullptr)
+			{
+				DamagePings[i].Char->SetOutlineServer(false, false, 1 << DamagePings[i].VisibleTeamNum);
+			}
+			DamagePings.RemoveAt(i);
+		}
+	}
+}
+
 void AUTShowdownGame::CreateGameURLOptions(TArray<TSharedPtr<TAttributePropertyBase>>& MenuProps)
 {
 	MenuProps.Add(MakeShareable(new TAttributeProperty<int32>(this, &TimeLimit, TEXT("TimeLimit"))));

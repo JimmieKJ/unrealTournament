@@ -38,6 +38,8 @@ public:
 		return Super::CanSpectate_Implementation(Viewer, ViewTarget) && (PS == NULL || PS->GetUTCharacter() != NULL);
 	}
 
+	virtual bool ModifyDamage_Implementation(int32& Damage, FVector& Momentum, APawn* Injured, AController* InstigatedBy, const FHitResult& HitInfo, AActor* DamageCauser, TSubclassOf<UDamageType> DamageType) override;
+
 	// TODO: move this up a level if we're going to have it in multiple gametypes
 	TAssetSubclassOf<class AUTInventory> ActivatedPowerupPlaceholderObject;
 	UPROPERTY()

@@ -27,6 +27,8 @@ AUTTeamShowdownGame::AUTTeamShowdownGame(const FObjectInitializer& OI)
 	bAnnounceTeam = true;
 	QuickPlayersToStart = 6;
 	ActivatedPowerupPlaceholderObject = FStringAssetReference(TEXT("/Game/RestrictedAssets/Pickups/Powerups/BP_ActivatedPowerup_UDamage.BP_ActivatedPowerup_UDamage_C"));
+	PrimaryActorTick.bCanEverTick = true;
+	PrimaryActorTick.bStartWithTickEnabled = true;
 }
 
 void AUTTeamShowdownGame::InitGame(const FString& MapName, const FString& Options, FString& ErrorMessage)
@@ -418,6 +420,20 @@ void AUTTeamShowdownGame::ScoreExpiredRoundTime()
 		LastRoundWinner->ForceNetUpdate();
 		BroadcastLocalized(NULL, UUTTeamShowdownGameMessage::StaticClass(), (WinReason == FName(TEXT("Count"))) ? 0 : 1, NULL, NULL, LastRoundWinner);
 	}
+}
+
+bool AUTTeamShowdownGame::ModifyDamage_Implementation(int32& Damage, FVector& Momentum, APawn* Injured, AController* InstigatedBy, const FHitResult& HitInfo, AActor* DamageCauser, TSubclassOf<UDamageType> DamageType)
+{
+	Super::ModifyDamage_Implementation(Damage, Momentum, Injured, InstigatedBy, HitInfo, DamageCauser, DamageType);
+
+	AUTCharacter* InjuredChar = Cast<AUTCharacter>(Injured);
+	IUTTeamInterface* InstigatorTeamInt = Cast<IUTTeamInterface>(InstigatedBy);
+	if (Damage > 0 && InstigatorTeamInt != nullptr && InjuredChar != nullptr && !UTGameState->OnSameTeam(Injured, InstigatedBy))
+	{
+		AddDamagePing(InjuredChar, InstigatorTeamInt->GetTeamNum());
+	}
+
+	return true;
 }
 
 void AUTTeamShowdownGame::GetGameURLOptions(const TArray<TSharedPtr<TAttributePropertyBase>>& MenuProps, TArray<FString>& OptionsList, int32& DesiredPlayerCount)

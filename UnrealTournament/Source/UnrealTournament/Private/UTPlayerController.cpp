@@ -39,6 +39,7 @@
 #include "UTVictimMessage.h"
 #include "SUTSpawnWindow.h"
 #include "UTPlaceablePowerup.h"
+#include "UTWeaponAttachment.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogUTPlayerController, Log, All);
 
@@ -2192,6 +2193,7 @@ void AUTPlayerController::UpdateHiddenComponents(const FVector& ViewLocation, TS
 	}
 
 	// hide other pawns' first person hands/weapons
+	// hide outline if visible but not to my team
 	for (FConstPawnIterator It = GetWorld()->GetPawnIterator(); It; ++It)
 	{
 		if (It->IsValid() && It->Get() != GetViewTarget() && It->Get() != GetPawn())
@@ -2200,11 +2202,19 @@ void AUTPlayerController::UpdateHiddenComponents(const FVector& ViewLocation, TS
 			if (OtherP != NULL)
 			{
 				HideComponentTree(OtherP->FirstPersonMesh, HiddenComponents);
-				if (PlayerState != nullptr && !PlayerState->bOnlySpectator)
+				if (PlayerState != NULL && !PlayerState->bOnlySpectator)
 				{
 					if (OtherP->VisibilityMask > 0 && (OtherP->VisibilityMask & MyVisibilityMask) == 0)
 					{
 						HideComponentTree(OtherP->GetMesh(), HiddenComponents);
+					}
+				}
+				if (OtherP->GetCustomDepthMesh() != NULL && !OtherP->IsOutlined(GetTeamNum()))
+				{
+					HideComponentTree(OtherP->GetCustomDepthMesh(), HiddenComponents);
+					if (OtherP->GetWeaponAttachment() != NULL)
+					{
+						HideComponentTree(OtherP->GetWeaponAttachment()->GetCustomDepthMesh(), HiddenComponents);
 					}
 				}
 			}
@@ -2554,7 +2564,7 @@ void AUTPlayerController::UpdateTacComOverlays()
 			AUTCharacter *UTChar = Cast<AUTCharacter>(*It);
 			if (UTChar != NULL)
 			{
-				UTChar->SetOutline(bTacComView);
+				UTChar->SetOutlineLocal(bTacComView);
 			}
 		}
 	}

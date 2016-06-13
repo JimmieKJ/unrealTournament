@@ -1785,6 +1785,11 @@ protected:
 		TSubclassOf<AUTWeaponAttachment> HolsteredWeaponAttachmentClass;
 
 public:
+	inline const AUTWeaponAttachment* GetWeaponAttachment() const
+	{
+		return WeaponAttachment;
+	}
+
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Pawn")
 	TArray< TSubclassOf<AUTInventory> > DefaultCharacterInventory;
 protected:
@@ -1867,13 +1872,18 @@ public:
 	UFUNCTION()
 	void StatusAmbientSoundUpdated();
 
-	UFUNCTION(BlueprintCallable, Category = Effects)
-	virtual void SetOutline(bool bNowOutlined, bool bWhenUnoccluded = false);
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = Effects)
+	virtual void SetOutlineServer(bool bNowOutlined, bool bWhenUnoccluded = false, uint8 TeamMask = 0);
+	UFUNCTION(BlueprintCallable, BlueprintCosmetic, Category = Effects)
+	virtual void SetOutlineLocal(bool bNowOutlined, bool bWhenUnoccluded = false);
 
 protected:
 	/** whether the server has enabled the outline (because of gameplay effects like player pings) */
 	UPROPERTY(VisibleInstanceOnly, ReplicatedUsing = UpdateOutline)
 	bool bServerOutline;
+	/** mask of teams that see the outline (0 and 255 == all teams) */
+	UPROPERTY(VisibleInstanceOnly, Replicated)
+	uint8 ServerOutlineTeamMask;
 	/** whether to draw the outline when unoccluded */
 	UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, ReplicatedUsing = UpdateOutline)
 	bool bOutlineWhenUnoccluded;
@@ -1886,13 +1896,32 @@ protected:
 
 public:
 	UFUNCTION(BlueprintCallable, Category = UTCharacter, BlueprintPure)
-	bool IsOutlined() const
+	bool IsOutlined(uint8 TestTeam = 255) const
 	{
-		return (bServerOutline || bLocalOutline) && !IsDead();
+		if (IsDead())
+		{
+			return false;
+		}
+		else if (bLocalOutline)
+		{
+			return true;
+		}
+		else if (bServerOutline)
+		{
+			return (TestTeam > 7 || ServerOutlineTeamMask == 0 || (ServerOutlineTeamMask & (1 << TestTeam)));
+		}
+		else
+		{
+			return false;
+		}
 	}
 	inline bool GetOutlineWhenUnoccluded() const
 	{
 		return bOutlineWhenUnoccluded;
+	}
+	inline const USkeletalMeshComponent* GetCustomDepthMesh() const
+	{
+		return CustomDepthMesh;
 	}
 protected:
 	/** copy of our mesh rendered to CustomDepth for the outline (which is done in postprocess using the resulting data) */
