@@ -922,10 +922,7 @@ void UUTCharacterMovement::HandleCrouchRequest()
 			}
 		}
 	}
-	if (!bPressedSlide)
-	{
-		bWantsToCrouch = true;
-	}
+	bWantsToCrouch = true;
 }
 
 void UUTCharacterMovement::HandleUnCrouchRequest()
