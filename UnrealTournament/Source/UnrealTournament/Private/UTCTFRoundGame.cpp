@@ -728,6 +728,7 @@ void AUTCTFRoundGame::InitFlags()
 			Flag->bGradualAutoReturn = true;
 			Flag->bDisplayHolderTrail = true;
 			Flag->bShouldPingFlag = true;
+			Flag->bSlowsMovement = true;
 			Flag->ClearGhostFlag();
 			Flag->bSendHomeOnScore = false;
 			if (bAsymmetricVictoryConditions)

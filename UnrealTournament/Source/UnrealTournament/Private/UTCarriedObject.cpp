@@ -42,6 +42,7 @@ AUTCarriedObject::AUTCarriedObject(const FObjectInitializer& ObjectInitializer)
 	bDisplayHolderTrail = false;
 	MinGradualReturnDist = 1400.f;
 	bSendHomeOnScore = true;
+	bSlowsMovement = false;
 }
 
 void AUTCarriedObject::Destroyed()
@@ -139,6 +140,7 @@ void AUTCarriedObject::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & 
 	DOREPLIFETIME(AUTCarriedObject, bCurrentlyPinged);
 	DOREPLIFETIME(AUTCarriedObject, bDisplayHolderTrail);
 	DOREPLIFETIME(AUTCarriedObject, bGradualAutoReturn);
+	DOREPLIFETIME(AUTCarriedObject, bSlowsMovement);
 	DOREPLIFETIME(AUTCarriedObject, AutoReturnTime);
 }
 

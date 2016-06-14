@@ -111,6 +111,9 @@ class UNREALTOURNAMENT_API AUTCarriedObject : public AActor, public IUTTeamInter
 	UPROPERTY(Replicated, BlueprintReadOnly, Category = GameObject)
 	bool bCurrentlyPinged;
 
+	UPROPERTY(Replicated, BlueprintReadWrite, Category = GameObject)
+		bool bSlowsMovement;
+
 	UPROPERTY(EditDefaultsOnly, Category = GameObject)
 		TSubclassOf<class AUTGhostFlag> GhostFlagClass;
 
