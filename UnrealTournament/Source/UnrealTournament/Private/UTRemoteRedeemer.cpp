@@ -332,7 +332,12 @@ uint8 AUTRemoteRedeemer::GetTeamNum() const
 void AUTRemoteRedeemer::FaceRotation(FRotator NewControlRotation, float DeltaTime)
 {
 	AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
-	if (Controller && Controller->IsLocalPlayerController() && GS && !GS->IsMatchIntermission() && !GS->HasMatchEnded())
+	if (GS && (GS->IsMatchIntermission() || GS->HasMatchEnded()))
+	{
+		ProjectileMovement->Acceleration = FVector::ZeroVector;
+		ProjectileMovement->Velocity = FVector::ZeroVector;
+	}
+	else if (Controller && Controller->IsLocalPlayerController())
 	{
 		APlayerController *PC = Cast<APlayerController>(Controller);
 
@@ -529,25 +534,34 @@ void AUTRemoteRedeemer::Tick(float DeltaSeconds)
 
 	if (Role != ROLE_SimulatedProxy)
 	{
-		FRotator Rotation = GetActorRotation();
-		FVector X, Y, Z;
-		FRotationMatrix R(Rotation);
-		R.GetScaledAxes(X, Y, Z);
-		// Roll the camera when there's yaw acceleration
-		FRotator RolledRotation = ProjectileMovement->Velocity.Rotation();
-		float YawMag = ProjectileMovement->Acceleration | Y;
-		if (YawMag > 0)
+		AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
+		if (GS && (GS->IsMatchIntermission() || GS->HasMatchEnded()))
 		{
-			RolledRotation.Roll = FMath::Min(MaximumRoll, RollMultiplier * YawMag);
+			ProjectileMovement->Acceleration = FVector::ZeroVector;
+			ProjectileMovement->Velocity = FVector::ZeroVector;
 		}
 		else
 		{
-			RolledRotation.Roll = FMath::Max(-MaximumRoll, RollMultiplier * YawMag);
-		}
+			FRotator Rotation = GetActorRotation();
+			FVector X, Y, Z;
+			FRotationMatrix R(Rotation);
+			R.GetScaledAxes(X, Y, Z);
+			// Roll the camera when there's yaw acceleration
+			FRotator RolledRotation = ProjectileMovement->Velocity.Rotation();
+			float YawMag = ProjectileMovement->Acceleration | Y;
+			if (YawMag > 0)
+			{
+				RolledRotation.Roll = FMath::Min(MaximumRoll, RollMultiplier * YawMag);
+			}
+			else
+			{
+				RolledRotation.Roll = FMath::Max(-MaximumRoll, RollMultiplier * YawMag);
+			}
 
-		float SmoothRoll = FMath::Min(1.0f, RollSmoothingMultiplier * DeltaSeconds);
-		RolledRotation.Roll = RolledRotation.Roll * SmoothRoll + Rotation.Roll * (1.0f - SmoothRoll);
-		SetActorRotation(RolledRotation);
+			float SmoothRoll = FMath::Min(1.0f, RollSmoothingMultiplier * DeltaSeconds);
+			RolledRotation.Roll = RolledRotation.Roll * SmoothRoll + Rotation.Roll * (1.0f - SmoothRoll);
+			SetActorRotation(RolledRotation);
+		}
 	}
 
 	// check outline
