@@ -176,7 +176,6 @@ public:
 	UPROPERTY()
 		bool bDrawDamageNumbers;
 
-
 	// Holds a list of damage taken by this pawn.
 	UPROPERTY()
 	TArray<FLocalDamageNumber> DamageIveTaken;
@@ -659,7 +658,7 @@ protected:
 	virtual void DrawLocalDamage();
 
 	UPROPERTY()
-	int32 TotalDamageDeltThisLife;
+	int32 TotalDamageDealtThisLife;
 
 	UPROPERTY()
 	int32 TotalDamageTakenThisLife;

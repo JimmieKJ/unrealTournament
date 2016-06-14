@@ -537,7 +537,6 @@ void UUTScoreboard::DrawPlayer(int32 Index, AUTPlayerState* PlayerState, float R
 	}
 
 	// Draw the talking indicator
-
 	if ( PlayerState->bIsTalking )
 	{
 		bool bLeft = (XOffset < Canvas->ClipX * 0.5f);
@@ -545,7 +544,6 @@ void UUTScoreboard::DrawPlayer(int32 Index, AUTPlayerState* PlayerState, float R
 		FTextureUVs ChatIconUVs =  bLeft ? FTextureUVs(497.0f, 965.0f, 35.0f, 31.0f) : FTextureUVs(532.0f, 965.0f, -35.0f, 31.0f);
 		DrawTexture(UTHUDOwner->HUDAtlas, XOffset + TalkingXOffset, YOffset + ( (CellHeight * 0.5f - 24.0f) * RenderScale), (26 * RenderScale),(23 * RenderScale), ChatIconUVs.U, ChatIconUVs.V, ChatIconUVs.UL, ChatIconUVs.VL, 1.0f);
 	}
-
 }
 
 void UUTScoreboard::DrawReadyText(AUTPlayerState* PlayerState, float XOffset, float YOffset, float Width)

@@ -105,7 +105,7 @@ AUTHUD::AUTHUD(const class FObjectInitializer& ObjectInitializer) : Super(Object
 	CachedProfileSettings = nullptr;
 	BuildText = NSLOCTEXT("UTHUD", "info", "PRE-ALPHA Build 0.1.3");
 
-	TotalDamageDeltThisLife = 0.0f;
+	TotalDamageDealtThisLife = 0.0f;
 	TotalDamageTakenThisLife = 0.0f;
 	LastEngagementStarted = 0.0f;
 	LastEngagementEnded = 0.0f;
@@ -647,7 +647,6 @@ void AUTHUD::DrawHUD()
 			{
 				DrawLocalDamage();
 			}
-
 		}
 	}
 
@@ -770,7 +769,7 @@ void AUTHUD::DrawNumber(int32 Number, float X, float Y, FLinearColor Color, floa
 void AUTHUD::ClientRestart()
 {
 	DamageIveTaken.Empty();
-	TotalDamageDeltThisLife = 0.0f;
+	TotalDamageDealtThisLife = 0.0f;
 	TotalDamageTakenThisLife = 0.0f;
 	LastEngagementStarted = 0.0f;
 	LastEngagementEnded = 0.0f;
@@ -778,7 +777,6 @@ void AUTHUD::ClientRestart()
 
 void AUTHUD::PawnDamaged(uint8 ShotDirYaw, int32 DamageAmount, bool bFriendlyFire, TSubclassOf<class UDamageType> DamageTypeClass)
 {
-
 	if (LastEngagementStarted == 0.0f)
 	{
 		LastEngagementStarted = GetWorld()->GetTimeSeconds();
@@ -866,7 +864,7 @@ void AUTHUD::DrawDamageIndicators()
 
 void AUTHUD::CausedDamage(APawn* HitPawn, int32 Damage)
 {
-	TotalDamageDeltThisLife += Damage;
+	TotalDamageDealtThisLife += Damage;
 
 	AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
 	if ((HitPawn != UTPlayerOwner->GetViewTarget()) && (GS == NULL || !GS->OnSameTeam(HitPawn, PlayerOwner)))
@@ -1654,7 +1652,6 @@ void AUTHUD::DrawLocalDamage()
 
 	// Calculate the Size of this widget so we can center it.  At the same time, cache the damage type default objects
 	// so we don't have to do it again in a bit.
-
 	float Width = 0.0f;
 	TArray<const UUTDamageType*> DefaultDamageTypes;
 
@@ -1671,8 +1668,7 @@ void AUTHUD::DrawLocalDamage()
 		}
 	}
 
-	FLinearColor ForgoundColor = FLinearColor::White;
-
+	FLinearColor ForegroundColor = FLinearColor::White;
 	FVector2D Pos = FVector2D((Canvas->ClipX * 0.5f) - (Width * 0.5f * RenderScale),Canvas->ClipY * 0.75f);
 	FVector2D IconSize = FVector2D(0.0f, 0.0f);
 	for (int32 i=0; i < DamageIveTaken.Num(); i++)
@@ -1697,8 +1693,8 @@ void AUTHUD::DrawLocalDamage()
 			DamageIveTaken[i].TallyFadeTime -= RenderDelta;
 			Alpha = FMath::Clamp<float>(1.0f - (DamageIveTaken[i].TallyFadeTime / MAX_TALLY_FADE_TIME), 0.0f, 1.0f);
 
-			ForgoundColor.A = Alpha;
-			DrawString(FText::AsNumber(DamageIveTaken[i].DamageAmount), Pos.X + (IconSize.X * 0.5f * RenderScale), Pos.Y, ETextHorzPos::Center, ETextVertPos::Bottom, MediumFont, ForgoundColor, RenderScale, true);
+			ForegroundColor.A = Alpha;
+			DrawString(FText::AsNumber(DamageIveTaken[i].DamageAmount), Pos.X + (IconSize.X * 0.5f * RenderScale), Pos.Y, ETextHorzPos::Center, ETextVertPos::Bottom, MediumFont, ForegroundColor, RenderScale, true);
 			
 			if (Alpha < 1.0) bOkToAnimateFinalLabel = false;
 			Pos.X += (IconSize.X + 10.0f) * RenderScale;
@@ -1709,7 +1705,7 @@ void AUTHUD::DrawLocalDamage()
 	if (bOkToAnimateFinalLabel)
 	{
 		FText FinalMessage = FText::Format(NSLOCTEXT("UTHUD", "KillBlast", "Damage (Taken/Caused): {0} / {1} - Engagement Time: {2} seconds"),
-					FText::AsNumber(TotalDamageTakenThisLife), FText::AsNumber(TotalDamageDeltThisLife), FText::AsNumber(int32(LastEngagementEnded - LastEngagementStarted)));
+					FText::AsNumber(TotalDamageTakenThisLife), FText::AsNumber(TotalDamageDealtThisLife), FText::AsNumber(int32(LastEngagementEnded - LastEngagementStarted)));
 
 		DrawString(FinalMessage, Canvas->ClipX * 0.5f, Pos.Y, ETextHorzPos::Center, ETextVertPos::Top, MediumFont, FLinearColor::White, RenderScale, true);
 	}
