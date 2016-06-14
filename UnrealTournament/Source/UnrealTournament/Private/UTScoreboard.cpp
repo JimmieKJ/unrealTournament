@@ -21,38 +21,17 @@ UUTScoreboard::UUTScoreboard(const class FObjectInitializer& ObjectInitializer) 
 	bScaleByDesignedResolution = false;
 
 	NumPages = 2;
-	ColumnHeaderPlayerX = 0.18f;
-	ColumnHeaderScoreX = 0.57f;
-	ColumnHeaderDeathsX = 0.73f;
-	ColumnHeaderPingX = 0.94f;
+	ColumnHeaderPlayerX = 0.1f;
+	ColumnHeaderScoreX = 0.52f;
+	ColumnHeaderDeathsX = 0.68f;
+	ColumnHeaderPingX = 0.93f;
 	ColumnHeaderY = 6.f;
 	ColumnY = 12.f;
 	ColumnMedalX = 0.55f;
 	CellHeight = 32.f;
 	CenterBuffer = 420.f;
-	FlagX = 0.075f;
+	FlagX = 0.01f;
 	MinimapCenter = FVector2D(0.75f, 0.5f);
-
-	BadgeNumberUVs.Add(FVector2D(248,183));
-	BadgeNumberUVs.Add(FVector2D(283,183));
-	BadgeNumberUVs.Add(FVector2D(318,183));
-	BadgeNumberUVs.Add(FVector2D(353,183));
-	BadgeNumberUVs.Add(FVector2D(388,183));
-	BadgeNumberUVs.Add(FVector2D(423,183));
-	BadgeNumberUVs.Add(FVector2D(458,183));
-	BadgeNumberUVs.Add(FVector2D(248,219));
-	BadgeNumberUVs.Add(FVector2D(283,219));
-
-	BadgeUVs.Add(FVector2D(423,219));
-	BadgeUVs.Add(FVector2D(388,219));
-	BadgeUVs.Add(FVector2D(353,219));
-	BadgeUVs.Add(FVector2D(318,219));
-
-	StarUVs.Add(FVector2D(280,136));
-	StarUVs.Add(FVector2D(314,136));
-	StarUVs.Add(FVector2D(348,136));
-	StarUVs.Add(FVector2D(382,136));
-	StarUVs.Add(FVector2D(416,136));
 
 	KillsColumn = 0.4f;
 	DeathsColumn = 0.52f;
@@ -452,51 +431,20 @@ void UUTScoreboard::DrawPlayer(int32 Index, AUTPlayerState* PlayerState, float R
 
 	DrawTexture(UTHUDOwner->ScoreboardAtlas, XOffset, YOffset, ScaledCellWidth, 0.9f*CellHeight*RenderScale, 149, 138, 32, 32, FinalBarOpacity, BarColor);	// NOTE: Once I make these interactable.. have a selection color too
 
-	float MedalPosition = 0.5f * FlagX;
 	if (PlayerState->KickPercent > 0)
 	{
 		float XL, SmallYL;
 		Canvas->TextSize(UTHUDOwner->SmallFont, "Kick", XL, SmallYL, RenderScale, RenderScale);
-		DrawText(NSLOCTEXT("UTScoreboard", "Kick", "Kick"), XOffset + (ScaledCellWidth * MedalPosition), YOffset + ColumnY - 0.27f*SmallYL, UTHUDOwner->TinyFont, RenderScale, 1.0f, DrawColor, ETextHorzPos::Center, ETextVertPos::Center);
+		DrawText(NSLOCTEXT("UTScoreboard", "Kick", "Kick"), XOffset + (ScaledCellWidth * FlagX), YOffset + ColumnY - 0.27f*SmallYL, UTHUDOwner->TinyFont, RenderScale, 1.0f, DrawColor, ETextHorzPos::Left, ETextVertPos::Center);
 		FText Kick = FText::Format(NSLOCTEXT("Common", "PercFormat", "{0}%"), FText::AsNumber(PlayerState->KickPercent));
-		DrawText(Kick, XOffset + (ScaledCellWidth * MedalPosition), YOffset + ColumnY + 0.33f*SmallYL, UTHUDOwner->TinyFont, RenderScale, 1.0f, DrawColor, ETextHorzPos::Center, ETextVertPos::Center);
+		DrawText(Kick, XOffset + (ScaledCellWidth * FlagX), YOffset + ColumnY + 0.33f*SmallYL, UTHUDOwner->TinyFont, RenderScale, 1.0f, DrawColor, ETextHorzPos::Left, ETextVertPos::Center);
 	}
 	else
 	{
-		UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(UTHUDOwner->UTPlayerOwner->Player);
-		if (LP)
-		{
-			AUTGameMode* DefaultGame = UTGameState && UTGameState->GameModeClass ? UTGameState->GameModeClass->GetDefaultObject<AUTGameMode>() : NULL;
-			bool bRankedSession = UTGameState ? UTGameState->bRankedSession : false;
-			if (DefaultGame)
-			{
-				int32 Badge = 0;
-				int32 Level = 0;
-				int32 Stars = 0;
-				PlayerState->GetBadgeFromELO(DefaultGame, bRankedSession, Badge, Level);
-				UUTLocalPlayer::GetStarsFromXP(GetLevelForXP(PlayerState->GetPrevXP()), Stars);
-				Badge = FMath::Clamp<int32>(Badge, 0, 3);
-				Level = FMath::Clamp<int32>(Level, 0, 8);
-
-				FLinearColor BadgeColor = FLinearColor(0.36f, 0.8f, 0.34f, 1.0f);
-				if (Badge == 1) BadgeColor = FLinearColor(0.4f, 0.235f, 0.07f, 1.0f);
-				else if (Badge == 2) BadgeColor = FLinearColor(0.96f, 0.96f, 0.96f, 1.0f);
-				else if (Badge == 3) BadgeColor = FLinearColor(1.0f, 0.95f, 0.42f, 1.0f);
-
-				DrawTexture(UTHUDOwner->ScoreboardAtlas, XOffset + (ScaledCellWidth * MedalPosition), YOffset + 12.f*RenderScale, 32.f*RenderScale, 32.f*RenderScale, BadgeUVs[Badge].X, BadgeUVs[Badge].Y, 32, 32, 1.0, BadgeColor, FVector2D(0.5f, 0.5f));
-				DrawTexture(UTHUDOwner->ScoreboardAtlas, XOffset + (ScaledCellWidth * MedalPosition), YOffset + 12.f*RenderScale, 32.f*RenderScale, 32.f*RenderScale, BadgeNumberUVs[Level].X, BadgeNumberUVs[Level].Y, 32, 32, 1.0, FLinearColor::White, FVector2D(0.5f, 0.5f));
-
-				if (Stars > 0 && Stars <= 5)
-				{
-					DrawTexture(UTHUDOwner->ScoreboardAtlas, XOffset + (ScaledCellWidth * MedalPosition), YOffset + 16.f*RenderScale, 32.f*RenderScale, 32.f*RenderScale, StarUVs[Stars-1].X, StarUVs[Stars-1].Y, 32, 32, 1.0, FLinearColor(1.0f, 0.95f, 0.42f, 1.0f), FVector2D(0.5f, 0.5f));
-				}
-			}
-		}
+		FTextureUVs FlagUV;
+		UTexture2D* NewFlagAtlas = UTHUDOwner->ResolveFlag(PlayerState, FlagUV);
+		DrawTexture(NewFlagAtlas, XOffset + (ScaledCellWidth * FlagX), YOffset + 14.f*RenderScale, FlagUV.UL*RenderScale, FlagUV.VL*RenderScale, FlagUV.U, FlagUV.V, 36, 26, 1.0, FLinearColor::White, FVector2D(0.0f, 0.5f));
 	}
-
-	FTextureUVs FlagUV;
-	UTexture2D* NewFlagAtlas = UTHUDOwner->ResolveFlag(PlayerState, FlagUV);
-	DrawTexture(NewFlagAtlas, XOffset + (ScaledCellWidth * FlagX), YOffset + 14.f*RenderScale, FlagUV.UL*RenderScale, FlagUV.VL*RenderScale, FlagUV.U, FlagUV.V, 36, 26, 1.0, FLinearColor::White, FVector2D(0.0f, 0.5f));
 
 	// Draw the Text
 	FVector2D NameSize = DrawText(PlayerName, XOffset + (ScaledCellWidth * ColumnHeaderPlayerX), YOffset + ColumnY, NameFont, RenderScale, 1.0f, DrawColor, ETextHorzPos::Left, ETextVertPos::Center);
