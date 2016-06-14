@@ -25,8 +25,8 @@ AUTCTFCapturePoint::AUTCTFCapturePoint(const FObjectInitializer& ObjectInitializ
 	TimeToFullCapture = 15.f;
 
 	bIsActive = false;
-	bIsAdvancing = false;
-	bIsPausedByEnemy = false;
+	bIsCapturing = false;
+	bIsPaused = false;
 
 	PrimaryActorTick.bCanEverTick = true;
 }
@@ -50,7 +50,13 @@ void AUTCTFCapturePoint::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& O
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
+	DOREPLIFETIME(AUTCTFCapturePoint, bIsActive);
 	DOREPLIFETIME(AUTCTFCapturePoint, CapturePercent);
+	DOREPLIFETIME(AUTCTFCapturePoint, bIsPaused);
+	DOREPLIFETIME(AUTCTFCapturePoint, bIsCapturing);
+	DOREPLIFETIME(AUTCTFCapturePoint, bIsDraining);
+	DOREPLIFETIME(AUTCTFCapturePoint, DefendersInCapsule);
+	DOREPLIFETIME(AUTCTFCapturePoint, AttackersInCapsule);
 }
 
 void AUTCTFCapturePoint::OnOverlapBegin(AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
@@ -73,44 +79,46 @@ void AUTCTFCapturePoint::OnOverlapEnd(AActor* OtherActor, UPrimitiveComponent* O
 
 void AUTCTFCapturePoint::Tick(float DeltaTime)
 {
-	bIsAdvancing = false;
+	bIsCapturing = false;
 	bIsDraining = false;
-	bIsPausedByEnemy = false;
+	bIsPaused = false;
 
-	TeamMatesInCapsule = 0;
-	EnemiesInCapsule = 0;
+	DefendersInCapsule = 0;
+	AttackersInCapsule = 0;
 
 	if (bIsActive)
 	{
+		HandleDefendingTeamSwitch();
+				
 		for (AUTCharacter* UTChar : CharactersInCapturePoint)
 		{
 			if (UTChar)
 			{
 				if (UTChar->GetTeamNum() == TeamNum)
 				{
-					++TeamMatesInCapsule;
+					++DefendersInCapsule;
 				}
 				else
 				{
-					++EnemiesInCapsule;
+					++AttackersInCapsule;
 				}
 			}
 		}
 
-		if (TeamMatesInCapsule > 0 || ((CaptureBoostPerCharacter.Num() > 0) && (CaptureBoostPerCharacter[0] > 0.f)))
+		if (AttackersInCapsule > 0 || ((CaptureBoostPerCharacter.Num() > 0) && (CaptureBoostPerCharacter[0] > 0.f)))
 		{
-			if ((EnemiesInCapsule == 0) || ((CaptureBoostPerCharacter.Num() > 0) && (CaptureBoostPerCharacter[0] > 0.f)))
+			if ((DefendersInCapsule == 0) || ((CaptureBoostPerCharacter.Num() > 0) && (CaptureBoostPerCharacter[0] > 0.f)))
 			{
 				AdvanceCapturePercent(DeltaTime);
 			}
 			else
 			{
-				bIsPausedByEnemy = true;
+				bIsPaused = true;
 			}
 		}
 		else
 		{
-			AUTCTFCapturePoint::DecreaseCapturePercent(DeltaTime);
+			DecreaseCapturePercent(DeltaTime);
 		}
 	}
 }
@@ -119,10 +127,10 @@ void AUTCTFCapturePoint::AdvanceCapturePercent(float DeltaTime)
 {
 	if (bIsActive)
 	{
-		bIsAdvancing = true;
+		bIsCapturing = true;
 
 		float CaptureBoostRate = 1.f;
-		if (TeamMatesInCapsule > CaptureBoostPerCharacter.Num())
+		if (AttackersInCapsule > CaptureBoostPerCharacter.Num())
 		{
 			if (CaptureBoostPerCharacter.Num() > 0)
 			{
@@ -131,13 +139,15 @@ void AUTCTFCapturePoint::AdvanceCapturePercent(float DeltaTime)
 		}
 		else
 		{
-			CaptureBoostRate = CaptureBoostPerCharacter[TeamMatesInCapsule];
+			CaptureBoostRate = CaptureBoostPerCharacter[AttackersInCapsule];
 		}
 
 		CapturePercent += ((DeltaTime / TimeToFullCapture) * CaptureBoostRate);
 
 		if (CapturePercent >= 1.0f)
 		{
+			CapturePercent = 1.0f; // clamp to 1.0f
+
 			OnCaptureComplete();
 
 			if (OnCaptureCompletedDelegate.IsBound())
@@ -154,6 +164,7 @@ void AUTCTFCapturePoint::DecreaseCapturePercent(float DeltaTime)
 	{
 		bIsDraining = true;
 
+		//Since the highest reached drain lock is at least 0.f because of this initialization, we are always clamping to a float > 0.
 		float HighestReachedDrainLock = 0.f;
 		for (float DrainLock : DrainLockSegments)
 		{
@@ -173,6 +184,34 @@ void AUTCTFCapturePoint::DecreaseCapturePercent(float DeltaTime)
 	}
 }
 
+void AUTCTFCapturePoint::HandleDefendingTeamSwitch()
+{
+	//Only switch defending teams if there is no current progress (IE: We are fully drained)
+	if (!bIsOneSidedCapturePoint && (CapturePercent <= 0.f))
+	{
+		//Switch Red to Blue
+		if (TeamNum == 0)
+		{
+			TeamNum = 1;
+		}
+		//Switch Blue to Red
+		else if (TeamNum == 1)
+		{
+			TeamNum = 0;
+		}
+		//We had a bad (or 255) starting TeamNum, grab the first team in
+		else if ((CharactersInCapturePoint.Num() > 0) && (CharactersInCapturePoint[0] != nullptr))
+		{
+			//use the TeamNum of the first character on the point.
+			TeamNum = CharactersInCapturePoint[0]->GetTeamNum();
+		}
+		//No one is on the point... set TeamNum as the no team value
+		else
+		{
+			TeamNum = 255;
+		}
+	}
+}
 
 void AUTCTFCapturePoint::OnCaptureComplete_Implementation()
 {
@@ -182,4 +221,16 @@ void AUTCTFCapturePoint::OnCaptureComplete_Implementation()
 const TArray<AUTCharacter*>& AUTCTFCapturePoint::GetCharactersInCapturePoint()
 {
 	return CharactersInCapturePoint;
+}
+
+void AUTCTFCapturePoint::Reset_Implementation()
+{
+	CapturePercent = 0.f;
+
+	bIsActive = false;
+	bIsCapturing = false;
+	bIsPaused = false;
+
+	DefendersInCapsule = 0;
+	AttackersInCapsule = 0;
 }

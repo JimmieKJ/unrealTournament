@@ -7,35 +7,40 @@
 DECLARE_DYNAMIC_DELEGATE(FOnCaptureCompletedDelegate);
 
 UCLASS(HideCategories = GameObject)
-class UNREALTOURNAMENT_API AUTCTFCapturePoint : public AUTGameObjective
+class UNREALTOURNAMENT_API AUTCTFCapturePoint : public AUTGameObjective, public IUTResetInterface
 {
 	GENERATED_UCLASS_BODY()
 
 	UPROPERTY(VisibleDefaultsOnly, BlueprintReadOnly, Category = Objective)
 	UCapsuleComponent* Capsule;
 
-	UPROPERTY(BlueprintReadOnly, Category = Objective)
-	int TeamMatesInCapsule;
+	UPROPERTY(BlueprintReadOnly, replicated, Category = Objective)
+	int DefendersInCapsule;
 
-	UPROPERTY(BlueprintReadOnly, Category = Objective)
-	int EnemiesInCapsule;
+	UPROPERTY(BlueprintReadOnly, replicated, Category = Objective)
+	int AttackersInCapsule;
 
 	UPROPERTY(BlueprintReadWrite, replicated, Category = Objective)
 	float CapturePercent;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Objective)
+	/** If the control point can currently be capped. */
+	UPROPERTY(EditAnywhere, replicated, BlueprintReadWrite, Category = Objective)
 	bool bIsActive;
 	
+	/** If this is true the control point never switches sides. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Objective)
+	bool bIsOneSidedCapturePoint;
+
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Objective)
 	float TimeToFullCapture;
 
-	UPROPERTY(BlueprintReadOnly, Category = Objective)
-	bool bIsPausedByEnemy;
+	UPROPERTY(BlueprintReadOnly, replicated, Category = Objective)
+	bool bIsPaused;
 
-	UPROPERTY(BlueprintReadOnly, Category = Objective)
-	bool bIsAdvancing;
+	UPROPERTY(BlueprintReadOnly, replicated, Category = Objective)
+	bool bIsCapturing;
 
-	UPROPERTY(BlueprintReadOnly, Category = Objective)
+	UPROPERTY(BlueprintReadOnly, replicated, Category = Objective)
 	bool bIsDraining;
 
 	/** What % should drain each second no one is on the point */
@@ -66,6 +71,10 @@ class UNREALTOURNAMENT_API AUTCTFCapturePoint : public AUTGameObjective
 	UFUNCTION()
 	virtual void DecreaseCapturePercent(float DeltaTime);
 
+	/** Determines if the Defending team should switch, and if so handles the logic to set a new TeamNum to the correct defending team. */
+	UFUNCTION()
+	virtual void HandleDefendingTeamSwitch();
+
 	UFUNCTION(BlueprintNativeEvent, Category = CapturePoint)
 	void OnCaptureComplete();
 
@@ -76,6 +85,8 @@ class UNREALTOURNAMENT_API AUTCTFCapturePoint : public AUTGameObjective
 	FOnCaptureCompletedDelegate OnCaptureCompletedDelegate;
 
 	virtual void BeginPlay() override;
+
+	virtual void Reset_Implementation() override;
 
 protected:
 	UPROPERTY()

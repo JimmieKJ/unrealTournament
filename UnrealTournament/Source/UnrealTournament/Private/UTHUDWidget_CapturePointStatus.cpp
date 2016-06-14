@@ -1,5 +1,6 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #include "UnrealTournament.h"
+#include "Color.h"
 #include "UTHUDWidget_CapturePointStatus.h"
 
 UUTHUDWidget_CapturePointStatus::UUTHUDWidget_CapturePointStatus(const FObjectInitializer& ObjectInitializer)
@@ -53,31 +54,42 @@ void UUTHUDWidget_CapturePointStatus::Draw_Implementation(float DeltaTime)
 void UUTHUDWidget_CapturePointStatus::DrawUnlockedCapturePoint(AUTCTFCapturePoint* CapturePoint)
 {
 	FVector ScreenPosition = UnlockedPointStartingScreenPosition + (AdditionalUnlockedPointScreenPositionOffset * NumLockedPoints);
-	ScreenPosition.X = ScreenPosition.X * Canvas->ClipX;
-	ScreenPosition.Y = ScreenPosition.Y * Canvas->ClipY;
+	FVector DrawBarPosition = FVector::ZeroVector;
+	DrawBarPosition.X = ScreenPosition.X * Canvas->ClipX;
+	DrawBarPosition.Y = ScreenPosition.Y * Canvas->ClipY;
 	
-	RenderObj_TextureAt(UnlockedPointBackground, ScreenPosition.X, ScreenPosition.Y, BarWidth, BarHeight);
-	RenderObj_TextureAt(UnlockedPointFillTexture, ScreenPosition.X, ScreenPosition.Y, BarWidth * CapturePoint->CapturePercent, BarHeight);
+	RenderObj_TextureAt(UnlockedPointBackground, DrawBarPosition.X, DrawBarPosition.Y, BarWidth, BarHeight);
+
+	//Render fill texture as control point controller team color
+	if (CapturePoint->TeamNum == 0)
+	{
+		UnlockedPointFillTexture.RenderColor = FColor::Red;
+	}
+	else
+	{
+		UnlockedPointFillTexture.RenderColor = FColor::Blue;
+	}
+	RenderObj_TextureAt(UnlockedPointFillTexture, DrawBarPosition.X, DrawBarPosition.Y, BarWidth * CapturePoint->CapturePercent, BarHeight);
 
 	for (float LockPercent : CapturePoint->DrainLockSegments)
 	{
-		const float LockX = BarWidth * LockPercent;
+		const float LockX = BarWidth * (1.0f - LockPercent);
 		
 		FVector DrawPipPosition = FVector::ZeroVector;
-		DrawPipPosition.X = ScreenPosition.X + LockX;
-		DrawPipPosition.Y = ScreenPosition.Y + UnlockPipOffset;
+		DrawPipPosition.X = (ScreenPosition.X * Canvas->ClipX) + LockX - (UnlockedPointLockedPip.GetWidth() / 2);
+		DrawPipPosition.Y = (ScreenPosition.Y * Canvas->ClipY) + UnlockPipOffset - (UnlockedPointLockedPip.GetHeight() / 2);
 
-		RenderObj_TextureAt(LockedPointTexture, DrawPipPosition.X, DrawPipPosition.Y, LockedPointTexture.UVs.UL, LockedPointTexture.UVs.VL);
+		RenderObj_TextureAt(UnlockedPointLockedPip, DrawPipPosition.X, DrawPipPosition.Y, UnlockedPointLockedPip.GetWidth(), UnlockedPointLockedPip.GetHeight());
 	}
 }
 
 void UUTHUDWidget_CapturePointStatus::DrawLockedCapturePoint(AUTCTFCapturePoint* CapturePoint)
 {
-	FVector ScreenPosition = LockedPointStartingScreenPosition + (AdditionalLockedPointScreenPositionOffset * NumLockedPoints);
-	ScreenPosition.X = ScreenPosition.X * Canvas->ClipX;
-	ScreenPosition.Y = ScreenPosition.Y * Canvas->ClipY;
+	FVector ScreenPosition = FVector::ZeroVector;
+	ScreenPosition.X = (LockedPointStartingScreenPosition.X * Canvas->ClipX) + (AdditionalLockedPointScreenPositionOffset * (NumLockedPoints - 1)).X;
+	ScreenPosition.Y = (LockedPointStartingScreenPosition.Y * Canvas->ClipY) + (AdditionalLockedPointScreenPositionOffset * (NumLockedPoints - 1)).Y;
 
-	RenderObj_TextureAt(LockedPointTexture, ScreenPosition.X, ScreenPosition.Y, LockedPointTexture.UVs.UL, LockedPointTexture.UVs.VL);
+	RenderObj_TextureAt(LockedPointTexture, ScreenPosition.X, ScreenPosition.Y, LockedPointTexture.GetWidth(), LockedPointTexture.GetHeight());
 }
 
 void UUTHUDWidget_CapturePointStatus::PostDraw(float RenderedTime)
