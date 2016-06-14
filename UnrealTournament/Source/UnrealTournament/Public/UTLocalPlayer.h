@@ -859,6 +859,9 @@ public:
 
 	// Marks a challenge as completed.
 	void ChallengeCompleted(FName ChallengeTag, int32 Stars);
+	
+	UFUNCTION(Exec)
+	void DebugAchievement(FString AchievementName);
 
 	void AwardAchievement(FName AchievementName);
 	bool QuickMatchCheckFull();

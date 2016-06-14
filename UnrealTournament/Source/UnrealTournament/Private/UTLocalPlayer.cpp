@@ -4265,6 +4265,13 @@ FString UUTLocalPlayer::GetChallengeDate(FName ChallengeTag)
 	return TEXT("Never");
 }
 
+void UUTLocalPlayer::DebugAchievement(FString AchievementName)
+{
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+	AwardAchievement(FName(*AchievementName));
+#endif
+}
+
 void UUTLocalPlayer::AwardAchievement(FName AchievementName)
 {
 	static FName NAME_RequiredAchievement(TEXT("RequiredAchievement"));
