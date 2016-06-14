@@ -16,7 +16,23 @@ class UNREALTOURNAMENT_API UUTHUDWidget_FlagRunStatus : public UUTHUDWidget_CTFF
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
 		FHUDRenderObject_Texture BlueTeamIconTemplate;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
+		float LineGlow;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
+		float NormalLineBrightness;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
+		float PulseLength;
+
+	UPROPERTY()
+		float LastFlagStatusChange;
+
+	UPROPERTY()
+		FName LastFlagStatus;
+
 	virtual void DrawStatusMessage(float DeltaTime) override;
+	virtual bool ShouldDraw_Implementation(bool bShowScores) override;
 
 protected:
 	virtual void DrawIndicators(AUTCTFGameState* GameState, FVector PlayerViewPoint, FRotator PlayerViewRotation, float DeltaTime) override;

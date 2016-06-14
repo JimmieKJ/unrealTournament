@@ -7,6 +7,19 @@
 UUTHUDWidget_FlagRunStatus::UUTHUDWidget_FlagRunStatus(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
+	NormalLineBrightness = 0.03f;
+	LineGlow = 0.5f;
+	PulseLength = 3.f;
+}
+
+bool UUTHUDWidget_FlagRunStatus::ShouldDraw_Implementation(bool bShowScores)
+{
+	bool bResult = Super::ShouldDraw_Implementation(bShowScores);
+	if (!bResult)
+	{
+		LastFlagStatusChange = GetWorld()->GetTimeSeconds();
+	}
+	return bResult;
 }
 
 void UUTHUDWidget_FlagRunStatus::DrawStatusMessage(float DeltaTime)
@@ -215,11 +228,27 @@ void UUTHUDWidget_FlagRunStatus::DrawFlagWorld(AUTCTFGameState* GameState, FVect
 		CircleTemplate.RenderOpacity = 1.f;
 		CircleBorderTemplate.RenderOpacity = 1.f;
 
+		if (LastFlagStatus != Flag->ObjectState)
+		{
+			LastFlagStatus = Flag->ObjectState;
+			LastFlagStatusChange = GetWorld()->GetTimeSeconds();
+		}
+		float TimeSinceChange = GetWorld()->GetTimeSeconds() - LastFlagStatusChange;
+		float LineBrightness = NormalLineBrightness;
+		if (TimeSinceChange < 0.1f)
+		{
+			LineBrightness += LineGlow * TimeSinceChange * 10.f;
+		}
+		else if (TimeSinceChange < 0.1f + PulseLength)
+		{
+			LineBrightness = NormalLineBrightness + LineGlow * FMath::Max(0.f, 1.f - (TimeSinceChange - 0.1f) / PulseLength);
+		}
+
 		// draw line from hud to this loc - can't used Canvas line drawing code because it doesn't support translucency
 		FVector LineEndPoint(ScreenPosition.X+RenderPosition.X, ScreenPosition.Y+RenderPosition.Y, 0.f);
 		FVector LineStartPoint(0.5f*Canvas->ClipX, 0.12f*Canvas->ClipY, 0.f);
 		FLinearColor LineColor = FlagIconTemplate.RenderColor;
-		LineColor.A = 0.05f;
+		LineColor.A = LineBrightness;
 		FBatchedElements* BatchedElements = Canvas->Canvas->GetBatchedElements(FCanvas::ET_Line);
 		FHitProxyId HitProxyId = Canvas->Canvas->GetHitProxyId();
 		BatchedElements->AddTranslucentLine(LineEndPoint, LineStartPoint, LineColor, HitProxyId, 8.f);
@@ -229,3 +258,4 @@ void UUTHUDWidget_FlagRunStatus::DrawFlagWorld(AUTCTFGameState* GameState, FVect
 		bEnemyFlagWasDrawn = false;
 	}
 }
+
