@@ -905,12 +905,19 @@ bool UUTCharacterMovement::PerformDodge(FVector &DodgeDir, FVector &DodgeCross)
 void UUTCharacterMovement::HandleSlideRequest()
 {
 	AUTCharacter* UTCharacterOwner = Cast<AUTCharacter>(CharacterOwner);
-	if (!Acceleration.IsNearlyZero() && (Velocity.Size() > 0.5f * MaxWalkSpeed) && UTCharacterOwner->CanSlide())
+	if (!Acceleration.IsNearlyZero() && (Velocity.Size() > 0.5f * MaxWalkSpeed) && UTCharacterOwner && UTCharacterOwner->CanSlide())
 	{
 		bPressedSlide = true;
-		if (IsMovingOnGround() && CharacterOwner)
+		if (IsMovingOnGround())
 		{
-			CharacterOwner->bPressedJump = true;
+			if (GetCurrentMovementTime() > DodgeResetTime)
+			{
+				CharacterOwner->bPressedJump = true;
+			}
+			else
+			{
+				bPressedSlide = false;
+			}
 		}
 	}
 }
@@ -921,13 +928,20 @@ void UUTCharacterMovement::HandleCrouchRequest()
 	AUTCharacter* UTCharacterOwner = Cast<AUTCharacter>(CharacterOwner);
 	if (!Acceleration.IsNearlyZero() && (Velocity.Size() > 0.5f * MaxWalkSpeed) && UTCharacterOwner && UTCharacterOwner->CanSlide())
 	{
-		AUTPlayerController* PC = CharacterOwner ? Cast<AUTPlayerController>(CharacterOwner->GetController()) : nullptr;
+		AUTPlayerController* PC = Cast<AUTPlayerController>(UTCharacterOwner->GetController());
 		if (PC && PC->bCrouchTriggersSlide)
 		{
 			bPressedSlide = true;
-			if (IsMovingOnGround() && CharacterOwner)
+			if (IsMovingOnGround())
 			{
-				CharacterOwner->bPressedJump = true;
+				if (GetCurrentMovementTime() > DodgeResetTime)
+				{
+					CharacterOwner->bPressedJump = true;
+				}
+				else
+				{
+					bPressedSlide = false;
+				}
 			}
 		}
 	}
