@@ -90,6 +90,7 @@ AUTCTFRoundGame::AUTCTFRoundGame(const FObjectInitializer& ObjectInitializer)
 	EndScoreboardDelay = 6.f;
 
 	bSitOutDuringRound = false;
+	bSlowFlagCarrier = false;
 }
 
 int32 AUTCTFRoundGame::GetFlagCapScore()
@@ -164,6 +165,9 @@ void AUTCTFRoundGame::InitGame(const FString& MapName, const FString& Options, F
 
 	InOpt = UGameplayStatics::ParseOption(Options, TEXT("AllowPrototypePowerups"));
 	bAllowPrototypePowerups = EvalBoolOptions(InOpt, bAllowPrototypePowerups);
+
+	InOpt = UGameplayStatics::ParseOption(Options, TEXT("SlowFC"));
+	bSlowFlagCarrier = EvalBoolOptions(InOpt, bSlowFlagCarrier);
 }
 
 void AUTCTFRoundGame::SetPlayerDefaults(APawn* PlayerPawn)
@@ -728,7 +732,7 @@ void AUTCTFRoundGame::InitFlags()
 			Flag->bGradualAutoReturn = true;
 			Flag->bDisplayHolderTrail = true;
 			Flag->bShouldPingFlag = true;
-			Flag->bSlowsMovement = true;
+			Flag->bSlowsMovement = bSlowFlagCarrier;
 			Flag->ClearGhostFlag();
 			Flag->bSendHomeOnScore = false;
 			if (bAsymmetricVictoryConditions)

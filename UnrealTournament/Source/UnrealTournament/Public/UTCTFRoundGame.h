@@ -31,6 +31,10 @@ class UNREALTOURNAMENT_API AUTCTFRoundGame : public AUTCTFBaseGame
 	UPROPERTY(BlueprintReadOnly, Category = CTF)
 		bool bNoFlagReturn;
 
+	/*  If true, slow flag carrier */
+	UPROPERTY(BlueprintReadOnly, Category = CTF)
+		bool bSlowFlagCarrier;
+
 	/** If true, red team is trying to cap with asymmetric conditions. */
 	UPROPERTY(BlueprintReadOnly, Category = CTF)
 		bool bRedToCap;
