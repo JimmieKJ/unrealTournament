@@ -92,7 +92,7 @@ void AUTCTFCapturePoint::Tick(float DeltaTime)
 				
 		for (AUTCharacter* UTChar : CharactersInCapturePoint)
 		{
-			if (UTChar)
+			if (UTChar && !UTChar->IsDead())
 			{
 				if (UTChar->GetTeamNum() == TeamNum)
 				{
