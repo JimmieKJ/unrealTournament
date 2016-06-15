@@ -72,6 +72,9 @@ UUTCharacterMovement::UUTCharacterMovement(const class FObjectInitializer& Objec
 	SlopeDodgeScaling = 0.93f;
 	bSlideFromGround = false;
 
+	FastInitialAcceleration = 12000.f;
+	MaxFastAccelSpeed = 250.f;
+
 	FloorSlideAcceleration = 400.f;
 	MaxFloorSlideSpeed = 900.f;
 	MaxInitialFloorSlideSpeed = 1350.f;
@@ -1115,7 +1118,6 @@ float UUTCharacterMovement::GetMaxAcceleration() const
 	else
 	{
 		Result = Super::GetMaxAcceleration();
-		float FastAccelVelThreshold = 200.f; // fixmesteve make property
 		if (bIsSprinting && Velocity.SizeSquared() > FMath::Square<float>(MaxWalkSpeed))
 		{
 			// smooth transition to sprinting accel to avoid client/server synch issues
@@ -1123,13 +1125,12 @@ float UUTCharacterMovement::GetMaxAcceleration() const
 			const float Transition = FMath::Min(1.f, 0.1f*(CurrentSpeed - MaxWalkSpeed));
 			Result = SprintAccel*Transition + Result*(1.f - Transition);
 		}
-		else if (Velocity.SizeSquared() < FastAccelVelThreshold*FastAccelVelThreshold)
+		else if (Velocity.SizeSquared() < MaxFastAccelSpeed*MaxFastAccelSpeed)
 		{
 			//extra accel to start, smooth to avoid synch issues
-			float FastAccel = 12000.f;
 			const float CurrentSpeed = Velocity.Size();
-			const float Transition = FMath::Min(1.f, CurrentSpeed/FastAccelVelThreshold);
-			Result = Result*Transition + FastAccel*(1.f - Transition);
+			const float Transition = FMath::Min(1.f, CurrentSpeed/ MaxFastAccelSpeed);
+			Result = Result*Transition + FastInitialAcceleration*(1.f - Transition);
 		}
 	}
 	if (MovementMode == MOVE_Walking && Cast<AUTCharacter>(CharacterOwner) != NULL)

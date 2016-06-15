@@ -129,6 +129,14 @@ public:
 	UPROPERTY(Category = "Character Movement", EditAnywhere, BlueprintReadWrite, meta = (ClampMin = "0", UIMin = "0"))
 	float MaxSwimmingAcceleration;
 
+	/** Fast initial acceleration when walking. */
+	UPROPERTY(Category = "Character Movement", EditAnywhere, BlueprintReadWrite, meta = (ClampMin = "0", UIMin = "0"))
+		float FastInitialAcceleration;
+
+	/** Max speed to get fast initial acceleration when walking. */
+	UPROPERTY(Category = "Character Movement", EditAnywhere, BlueprintReadWrite, meta = (ClampMin = "0", UIMin = "0"))
+		float MaxFastAccelSpeed;
+
 	/** Additional Acceleration when swimming, divided by Velocity magnitude.  Swimming acceleration is MaxSwimmingAcceleration + MaxRelativeSwimmingAccelNumerator/(Speed + MaxRelativeSwimmingAccelDenominator). */
 	UPROPERTY(Category = "Character Movement", EditAnywhere, BlueprintReadWrite, meta = (ClampMin = "0", UIMin = "0"))
 	float MaxRelativeSwimmingAccelNumerator;
