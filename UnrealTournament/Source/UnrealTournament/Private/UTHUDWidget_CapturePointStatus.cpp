@@ -60,26 +60,44 @@ void UUTHUDWidget_CapturePointStatus::DrawUnlockedCapturePoint(AUTCTFCapturePoin
 	
 	RenderObj_TextureAt(UnlockedPointBackground, DrawBarPosition.X, DrawBarPosition.Y, BarWidth, BarHeight);
 
-	//Render fill texture as control point controller team color
-	if (CapturePoint->TeamNum == 0)
-	{
-		UnlockedPointFillTexture.RenderColor = FColor::Red;
-	}
-	else
-	{
-		UnlockedPointFillTexture.RenderColor = FColor::Blue;
-	}
+	UnlockedPointFillTexture.RenderColor = GetAttackingTeamColor(CapturePoint->TeamNum);
 	RenderObj_TextureAt(UnlockedPointFillTexture, DrawBarPosition.X, DrawBarPosition.Y, BarWidth * CapturePoint->CapturePercent, BarHeight);
 
 	for (float LockPercent : CapturePoint->DrainLockSegments)
 	{
-		const float LockX = BarWidth * (1.0f - LockPercent);
+		const float LockX = BarWidth * LockPercent;
 		
 		FVector DrawPipPosition = FVector::ZeroVector;
 		DrawPipPosition.X = (ScreenPosition.X * Canvas->ClipX) + LockX - (UnlockedPointLockedPip.GetWidth() / 2);
 		DrawPipPosition.Y = (ScreenPosition.Y * Canvas->ClipY) + UnlockPipOffset - (UnlockedPointLockedPip.GetHeight() / 2);
 
+		//Colorize already passed lock points, but not previous points
+		if (CapturePoint->CapturePercent >= LockPercent)
+		{
+			UnlockedPointLockedPip.RenderColor = GetAttackingTeamColor(CapturePoint->TeamNum);
+		}
+		else
+		{
+			UnlockedPointLockedPip.RenderColor = FColor::White;
+		}
 		RenderObj_TextureAt(UnlockedPointLockedPip, DrawPipPosition.X, DrawPipPosition.Y, UnlockedPointLockedPip.GetWidth(), UnlockedPointLockedPip.GetHeight());
+	}
+}
+
+FColor UUTHUDWidget_CapturePointStatus::GetAttackingTeamColor(int ControllingTeamNum)
+{
+	//attacking team's color. This means the opposite of what the capture point controlling team is
+	if (ControllingTeamNum == 0)
+	{
+		return FColor::Blue;
+	}
+	else if (ControllingTeamNum == 1)
+	{
+		return FColor::Red;
+	}
+	else
+	{
+		return FColor::Yellow;
 	}
 }
 

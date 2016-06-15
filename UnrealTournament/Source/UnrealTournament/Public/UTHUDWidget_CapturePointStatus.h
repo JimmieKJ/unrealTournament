@@ -60,7 +60,8 @@ protected:
 
 	void DrawUnlockedCapturePoint(AUTCTFCapturePoint* CapturePoint);
 	void DrawLockedCapturePoint(AUTCTFCapturePoint* CapturePoint);
-	
+	FColor GetAttackingTeamColor(int ControllingTeamNum);
+
 	UPROPERTY()
 	TArray<AUTCTFCapturePoint*> CapturePoints;
 };

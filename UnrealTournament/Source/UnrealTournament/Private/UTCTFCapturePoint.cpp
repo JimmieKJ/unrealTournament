@@ -121,6 +121,8 @@ void AUTCTFCapturePoint::Tick(float DeltaTime)
 			DecreaseCapturePercent(DeltaTime);
 		}
 	}
+
+	Super::Tick(DeltaTime);
 }
 
 void AUTCTFCapturePoint::AdvanceCapturePercent(float DeltaTime)
