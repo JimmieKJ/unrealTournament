@@ -782,28 +782,30 @@ void AUTHUD::PawnDamaged(uint8 ShotDirYaw, int32 DamageAmount, bool bFriendlyFir
 		LastEngagementStarted = GetWorld()->GetTimeSeconds();
 	}
 
-	TotalDamageTakenThisLife += DamageAmount;
 	AUTCharacter* UTC = Cast<AUTCharacter>(UTPlayerOwner->GetViewTarget());
-
 	if (DamageTypeClass != nullptr)
 	{
-		bool bNew = true;
-		// Time out any old damage types.
-		for (int32 i=DamageIveTaken.Num() - 1; i >= 0 ; i--)
+		UUTDamageType* DmgType = Cast<UUTDamageType>(DamageTypeClass->GetDefaultObject());
+		if (DmgType != nullptr)
 		{
-			if (DamageIveTaken[i].DamageTypeClass == DamageTypeClass)
+			TotalDamageTakenThisLife += DamageAmount;
+			bool bNew = true;
+			// Time out any old damage types.
+			for (int32 i=DamageIveTaken.Num() - 1; i >= 0 ; i--)
 			{
-				DamageIveTaken[i].DamageAmount += DamageAmount;
-				DamageIveTaken[i].DamageTime = GetWorld()->GetTimeSeconds();
-				bNew = false;
+				if ( DamageIveTaken[i].DamageTypeDefaultObject == DmgType || DamageIveTaken[i].DamageTypeDefaultObject->AssociatedWeaponName.EqualTo(DmgType->AssociatedWeaponName) )
+				{
+					DamageIveTaken[i].DamageAmount += DamageAmount;
+					DamageIveTaken[i].DamageTime = GetWorld()->GetTimeSeconds();
+					bNew = false;
+				}
+			}
+
+			if (bNew)
+			{
+				DamageIveTaken.Add(FLocalDamageNumber(DamageAmount, GetWorld()->GetTimeSeconds(), DmgType));		
 			}
 		}
-
-		if (bNew)
-		{
-			DamageIveTaken.Add(FLocalDamageNumber(DamageAmount, GetWorld()->GetTimeSeconds(), DamageTypeClass));		
-		}
-
 	}
 	// Calculate the rotation 	
 	if (UTC != NULL && !UTC->IsDead() && DamageAmount > 0)	// If have a pawn and it's alive...
@@ -1653,18 +1655,11 @@ void AUTHUD::DrawLocalDamage()
 	// Calculate the Size of this widget so we can center it.  At the same time, cache the damage type default objects
 	// so we don't have to do it again in a bit.
 	float Width = 0.0f;
-	TArray<const UUTDamageType*> DefaultDamageTypes;
-
 	for (int32 i = 0; i < DamageIveTaken.Num(); i++)
 	{
-		if (DamageIveTaken[i].DamageTypeClass != nullptr)
+		if (DamageIveTaken[i].DamageTypeDefaultObject != nullptr && DamageIveTaken[i].DamageTypeDefaultObject->HUDIcon.Texture != nullptr)
 		{
-			const UUTDamageType* DmgType = Cast<UUTDamageType>(DamageIveTaken[i].DamageTypeClass->GetDefaultObject());
-			DefaultDamageTypes.Add(DmgType);
-			if (DmgType && DmgType->HUDIcon.Texture)
-			{
-				Width += (i > 0 ? 10.0f : 0.0f) + FMath::Abs<float>(DmgType->HUDIcon.UL);
-			}
+			Width += (i > 0 ? 10.0f : 0.0f) + FMath::Abs<float>(DamageIveTaken[i].DamageTypeDefaultObject->HUDIcon.UL);
 		}
 	}
 
@@ -1673,16 +1668,18 @@ void AUTHUD::DrawLocalDamage()
 	FVector2D IconSize = FVector2D(0.0f, 0.0f);
 	for (int32 i=0; i < DamageIveTaken.Num(); i++)
 	{
-		if (DefaultDamageTypes.IsValidIndex(i) && DefaultDamageTypes[i] != nullptr)
+		if (DamageIveTaken[i].DamageTypeDefaultObject != nullptr)
 		{
-			IconSize = FVector2D(FMath::Abs<float>(DefaultDamageTypes[i]->HUDIcon.UL), FMath::Abs<float>(DefaultDamageTypes[i]->HUDIcon.VL));
+			UUTDamageType* DmgType = DamageIveTaken[i].DamageTypeDefaultObject;
+
+			IconSize = FVector2D(FMath::Abs<float>(DmgType->HUDIcon.UL), FMath::Abs<float>(DmgType->HUDIcon.VL));
 			DamageIveTaken[i].BounceTime -= RenderDelta;
 			float Alpha = FMath::Clamp<float>(1.0f - (DamageIveTaken[i].BounceTime / MAX_MY_DAMAGE_BOUNCE_TIME), 0.0f, 1.0f);
 			float YPos = UUTHUDWidget::BounceEaseOut(Canvas->ClipY, Pos.Y, Alpha, 6.0f);
 			Canvas->SetDrawColor(0, 0, 0, 180);
 			Canvas->DrawTile(Canvas->DefaultTexture, Pos.X, YPos, IconSize.X * RenderScale, IconSize.Y * RenderScale, 0.0f, 0.0f, 1.0f, 1.0f);
 			Canvas->SetDrawColor(255, 255, 255, 255);
-			Canvas->DrawIcon(DefaultDamageTypes[i]->HUDIcon, Pos.X, YPos, RenderScale);
+			Canvas->DrawIcon(DmgType->HUDIcon, Pos.X, YPos, RenderScale);
 
 			// If this icon isn't in position, then just exit
 			if (Alpha < 1.0f)

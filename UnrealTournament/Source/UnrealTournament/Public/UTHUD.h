@@ -2,6 +2,7 @@
 #pragma once 
 
 #include "UTScoreboard.h"
+#include "UTDamageType.h"
 #include "UTHUDWidget.h"
 #include "UTHUDWidget_ReplayTimeSlider.h"
 #include "Json.h"
@@ -76,7 +77,7 @@ struct FLocalDamageNumber
 	float DamageTime;
 
 	UPROPERTY()
-	TSubclassOf<UDamageType> DamageTypeClass;
+	UUTDamageType* DamageTypeDefaultObject;
 
 	UPROPERTY()
 	float BounceTime;
@@ -85,12 +86,12 @@ struct FLocalDamageNumber
 	float TallyFadeTime;
 
 	FLocalDamageNumber()
-		: DamageAmount(0), DamageTime(0.0f), DamageTypeClass(nullptr), BounceTime(MAX_MY_DAMAGE_BOUNCE_TIME), TallyFadeTime(MAX_TALLY_FADE_TIME)
+		: DamageAmount(0), DamageTime(0.0f), DamageTypeDefaultObject(nullptr), BounceTime(MAX_MY_DAMAGE_BOUNCE_TIME), TallyFadeTime(MAX_TALLY_FADE_TIME)
 	{
 	}
 
-	FLocalDamageNumber(uint8 inDamageAmount, float inDamageTime, TSubclassOf<UDamageType> inDamageTypeClass)
-		: DamageAmount(inDamageAmount), DamageTime(inDamageTime), DamageTypeClass(inDamageTypeClass), BounceTime(MAX_MY_DAMAGE_BOUNCE_TIME), TallyFadeTime(MAX_TALLY_FADE_TIME)
+	FLocalDamageNumber(uint8 inDamageAmount, float inDamageTime, UUTDamageType* inDamageTypeDefaultObject)
+		: DamageAmount(inDamageAmount), DamageTime(inDamageTime), DamageTypeDefaultObject(inDamageTypeDefaultObject), BounceTime(MAX_MY_DAMAGE_BOUNCE_TIME), TallyFadeTime(MAX_TALLY_FADE_TIME)
 	{
 	}
 };

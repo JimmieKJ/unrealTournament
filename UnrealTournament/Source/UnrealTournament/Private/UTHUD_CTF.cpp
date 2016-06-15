@@ -120,6 +120,7 @@ bool AUTHUD_CTF::ShouldInvertMinimap()
 void AUTHUD_CTF::ClientRestart()
 {
 	PingBoostIndicator();
+	Super::ClientRestart();
 }
 
 void AUTHUD_CTF::PingBoostIndicator()
