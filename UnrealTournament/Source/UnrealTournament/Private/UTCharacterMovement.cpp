@@ -72,10 +72,10 @@ UUTCharacterMovement::UUTCharacterMovement(const class FObjectInitializer& Objec
 	SlopeDodgeScaling = 0.93f;
 	bSlideFromGround = false;
 
-	FloorSlideAcceleration = 1300.f;
-	MaxFloorSlideSpeed = MaxWalkSpeed;
+	FloorSlideAcceleration = 400.f;
+	MaxFloorSlideSpeed = 900.f;
 	MaxInitialFloorSlideSpeed = 1350.f;
-	FloorSlideDuration = 0.55f;
+	FloorSlideDuration = 0.7f;
 	FloorSlideBonusTapInterval = 0.17f;
 	FloorSlideEndingSpeedFactor = 0.4f;
 	FloorSlideSlopeBraking = 2.7f;
@@ -92,7 +92,7 @@ UUTCharacterMovement::UUTCharacterMovement(const class FObjectInitializer& Objec
 	DodgeMaxHorizontalVelocity = 1700.f; 
 	WallDodgeSecondImpulseVertical = 320.f;
 	DodgeImpulseVertical = 500.f;
-	WallDodgeImpulseHorizontal = 1350.f; 
+	WallDodgeImpulseHorizontal = 1300.f; 
 	WallDodgeImpulseVertical = 470.f; 
 
 	MaxSlideRiseZ = 650.f; 
