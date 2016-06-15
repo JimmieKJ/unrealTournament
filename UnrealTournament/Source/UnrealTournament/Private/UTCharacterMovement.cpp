@@ -53,9 +53,9 @@ UUTCharacterMovement::UUTCharacterMovement(const class FObjectInitializer& Objec
 	DodgeAirControl = 0.41f;
 	bAllowSlopeDodgeBoost = true;
 	SetWalkableFloorZ(0.695f); 
-	MaxAcceleration = 5500.f; 
-	MaxFallingAcceleration = 4300.f;
-	MaxSwimmingAcceleration = 5500.f;
+	MaxAcceleration = 4200.f; 
+	MaxFallingAcceleration = 4200.f;
+	MaxSwimmingAcceleration = 4200.f;
 	MaxRelativeSwimmingAccelNumerator = 0.f;
 	MaxRelativeSwimmingAccelDenominator = 1000.f;
 	BrakingDecelerationWalking = 520.f;
@@ -63,7 +63,7 @@ UUTCharacterMovement::UUTCharacterMovement(const class FObjectInitializer& Objec
 	BrakingDecelerationFalling = 0.f;
 	BrakingDecelerationSwimming = 300.f;
 	BrakingDecelerationSliding = 300.f;
-	GroundFriction = 10.5f;
+	GroundFriction = 11.f;
 	BrakingFriction = 5.f;
 	GravityScale = 1.f;
 	MaxStepHeight = 51.0f;
@@ -999,6 +999,7 @@ void UUTCharacterMovement::PerformMovement(float DeltaSeconds)
 	bSlidingAlongWall = false;
 	if (!UTOwner || !UTOwner->IsRagdoll())
 	{
+		FVector OldVelocity = Velocity;
 		float RealGroundFriction = GroundFriction;
 		if (Acceleration.IsZero())
 		{
@@ -1035,6 +1036,11 @@ void UUTCharacterMovement::PerformMovement(float DeltaSeconds)
 		bWantsToCrouch = bSavedWantsToCrouch;
 		GroundFriction = RealGroundFriction;
 		BrakingDecelerationWalking = DefaultBrakingDecelerationWalking;
+		
+		if (Velocity.Size() > 0.f)
+		{
+//			UE_LOG(UT, Warning, TEXT("Delta %f Velocity %s Speed %f AccelRate %f"), DeltaSeconds, *Velocity.ToString(), Velocity.Size(), (Velocity - OldVelocity).Size() / DeltaSeconds);
+		}
 	}
 
 	if (UTOwner != NULL)
@@ -1102,7 +1108,14 @@ float UUTCharacterMovement::GetMaxAcceleration() const
 			const float Transition = FMath::Min(1.f, 0.1f*(CurrentSpeed - MaxWalkSpeed));
 			Result = SprintAccel*Transition + Result*(1.f - Transition);
 		}
-		Result = (bIsSprinting && Velocity.SizeSquared() > FMath::Square<float>(MaxWalkSpeed)) ? SprintAccel : Super::GetMaxAcceleration();
+		else if (Velocity.SizeSquared() < 40000.f)// fixmesteve make property -also affects the 0.005 below
+		{
+			//extra accel to start, smooth to avoid synch issues
+			float FastAccel = 12000.f;
+			const float CurrentSpeed = Velocity.Size();
+			const float Transition = FMath::Min(1.f, 0.005f*CurrentSpeed);
+			Result = Result*Transition + FastAccel*(1.f - Transition);
+		}
 	}
 	if (MovementMode == MOVE_Walking && Cast<AUTCharacter>(CharacterOwner) != NULL)
 	{
