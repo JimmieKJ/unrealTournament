@@ -838,8 +838,8 @@ bool UUTCharacterMovement::PerformDodge(FVector &DodgeDir, FVector &DodgeCross)
 	bool bSlowMovement = (UTPlayerState && UTPlayerState->CarriedObject && UTPlayerState->CarriedObject->bSlowsMovement);
 	if (bSlowMovement)
 	{
-		HorizontalImpulse = MaxWalkSpeed;
-		MaxHorizontalVelocity = 1100.f;
+		HorizontalImpulse *= 0.8f;
+		MaxHorizontalVelocity *= 0.8f;
 	}
 	Velocity = HorizontalImpulse*DodgeDir + (Velocity | DodgeCross)*DodgeCross;
 	Velocity.Z = 0.f;
@@ -1196,13 +1196,6 @@ float UUTCharacterMovement::GetMaxSpeed() const
 	else
 	{
 		FinalMaxSpeed = bIsSprinting ? SprintSpeed : Super::GetMaxSpeed();
-
-		AUTPlayerState* UTPlayerState = CharacterOwner ? Cast<AUTPlayerState>(CharacterOwner->PlayerState) : nullptr;
-		bool bSlowMovement = (UTPlayerState && UTPlayerState->CarriedObject && UTPlayerState->CarriedObject->bSlowsMovement);
-		if (bSlowMovement)
-		{
-			FinalMaxSpeed = FMath::Min(FinalMaxSpeed, 890.f);
-		} 
 	}
 
 	AUTCharacter* UTCharOwner = Cast<AUTCharacter>(CharacterOwner);
