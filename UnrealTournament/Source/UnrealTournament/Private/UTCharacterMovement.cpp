@@ -1101,6 +1101,7 @@ float UUTCharacterMovement::GetMaxAcceleration() const
 	else
 	{
 		Result = Super::GetMaxAcceleration();
+		float FastAccelVelThreshold = 200.f; // fixmesteve make property
 		if (bIsSprinting && Velocity.SizeSquared() > FMath::Square<float>(MaxWalkSpeed))
 		{
 			// smooth transition to sprinting accel to avoid client/server synch issues
@@ -1108,12 +1109,12 @@ float UUTCharacterMovement::GetMaxAcceleration() const
 			const float Transition = FMath::Min(1.f, 0.1f*(CurrentSpeed - MaxWalkSpeed));
 			Result = SprintAccel*Transition + Result*(1.f - Transition);
 		}
-		else if (Velocity.SizeSquared() < 40000.f)// fixmesteve make property -also affects the 0.005 below
+		else if (Velocity.SizeSquared() < FastAccelVelThreshold*FastAccelVelThreshold)
 		{
 			//extra accel to start, smooth to avoid synch issues
 			float FastAccel = 12000.f;
 			const float CurrentSpeed = Velocity.Size();
-			const float Transition = FMath::Min(1.f, 0.005f*CurrentSpeed);
+			const float Transition = FMath::Min(1.f, CurrentSpeed/FastAccelVelThreshold);
 			Result = Result*Transition + FastAccel*(1.f - Transition);
 		}
 	}
