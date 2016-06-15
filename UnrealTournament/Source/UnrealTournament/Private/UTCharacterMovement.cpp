@@ -1182,6 +1182,13 @@ float UUTCharacterMovement::GetMaxSpeed() const
 	else
 	{
 		FinalMaxSpeed = bIsSprinting ? SprintSpeed : Super::GetMaxSpeed();
+
+		AUTPlayerState* UTPlayerState = CharacterOwner ? Cast<AUTPlayerState>(CharacterOwner->PlayerState) : nullptr;
+		bool bSlowMovement = (UTPlayerState && UTPlayerState->CarriedObject && UTPlayerState->CarriedObject->bSlowsMovement);
+		if (bSlowMovement)
+		{
+			FinalMaxSpeed = FMath::Min(FinalMaxSpeed, 890.f);
+		} 
 	}
 
 	AUTCharacter* UTCharOwner = Cast<AUTCharacter>(CharacterOwner);
