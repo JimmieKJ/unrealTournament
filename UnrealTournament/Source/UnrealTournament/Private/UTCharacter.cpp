@@ -887,6 +887,12 @@ float AUTCharacter::TakeDamage(float Damage, const FDamageEvent& DamageEvent, AC
 						ResultMomentum *= UTDamageTypeCDO->SelfMomentumBoost;
 					}
 				}
+				else if (bApplyWallSlide && UTCharacterMovement && !UTCharacterMovement->WallSlideNormal.IsZero())
+				{
+					float MomentumMag = ResultMomentum.Size();
+					ResultMomentum = MomentumMag * UTCharacterMovement->WallSlideNormal;
+					bApplyWallSlide = false;
+				}
 			}
 
 			if (IsRagdoll())
