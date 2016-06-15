@@ -114,7 +114,7 @@ AUTPlayerController::AUTPlayerController(const class FObjectInitializer& ObjectI
 	PainSoundAmp.InstigatorVolumeMultiplier = 2.5f;
 	PainSoundAmp.TargetVolumeMultiplier = 2.5f;
 	WeaponFireAmp.InstigatorVolumeMultiplier = 1.3f;
-	WeaponFireAmp.TargetVolumeMultiplier = 1.3f;
+	WeaponFireAmp.TargetVolumeMultiplier = 1.2f;
 	WeaponFireAmp.TargetPitchMultiplier = 1.1f;
 
 	static ConstructorHelpers::FObjectFinder<USoundAttenuation> InstigatedPainAttenFinder(TEXT("SoundAttenuation'/Game/RestrictedAssets/Audio/SoundClassesAndMixes/Attenuations/Attenuation_InstigatedPain.Attenuation_InstigatedPain'"));
