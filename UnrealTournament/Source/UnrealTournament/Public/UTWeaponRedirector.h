@@ -73,11 +73,9 @@ public:
 	: Super(OI)
 	{
 		RootComponent = OI.CreateDefaultSubobject<USceneComponent>(this, FName(TEXT("Root")));
-		bWeaponPortal = false;
 		bRedirectDamage = true;
 		InitialLifeSpan = 0.15f;
 		bReplicates = true;
-		OnActorBeginOverlap.AddDynamic(this, &AUTWeaponRedirector::OnBeginOverlap);
 	}
 
 protected:
@@ -91,12 +89,7 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Replicated)
 	FTransform PortalDest;
 
-	/** if set, teleport weapons fire that hits the portal to the exit point */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Replicated)
-	bool bWeaponPortal;
-	/** if set, redirect damage that we take to the instigator of the effect
-	 * note that this can be set at the same time as bWeaponPortal, to catch area damage from projectiles that exploded near the portal without going through
-	 */
+	/** if set, redirect damage that we take to the instigator of the effect	 */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Replicated)
 	bool bRedirectDamage;
 
@@ -116,6 +109,4 @@ public:
 	virtual void UpdateCollisionShape();
 
 	virtual float TakeDamage(float DamageAmount, const FDamageEvent& DamageEvent, AController* EventInstigator, AActor* DamageCauser) override;
-	UFUNCTION()
-	virtual void OnBeginOverlap(AActor* OtherActor);
 };
