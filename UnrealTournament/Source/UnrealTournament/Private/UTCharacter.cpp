@@ -3156,13 +3156,6 @@ bool AUTCharacter::CanDodge() const
 
 bool AUTCharacter::CanDodgeInternal_Implementation() const
 {
-	AUTPlayerState* UTPlayerState = Cast<AUTPlayerState>(PlayerState);
-
-	if (UTPlayerState && UTPlayerState->CarriedObject && UTPlayerState->CarriedObject->bSlowsMovement)
-	{
-		return false;
-	}
-
 	return !bIsCrouched && UTCharacterMovement && UTCharacterMovement->CanDodge() && (UTCharacterMovement->Velocity.Z > -1.f * MaxSafeFallSpeed) && !IsThirdPersonTaunting() && !IsRagdoll() && !bInRagdollRecovery;
 }
 

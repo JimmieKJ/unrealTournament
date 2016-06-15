@@ -831,18 +831,27 @@ bool UUTCharacterMovement::PerformDodge(FVector &DodgeDir, FVector &DodgeCross)
 		DodgeResetTime = GetCurrentMovementTime() + WallDodgeResetInterval;
 		bIsALiftJump = true;
 	}
-
-	// perform the dodge
-	//UE_LOG(UTNet, Warning, TEXT("Imparted velocity"));
 	float VelocityZ = Velocity.Z;
+	float MaxHorizontalVelocity = DodgeMaxHorizontalVelocity;
+	// perform the dodge
+	AUTPlayerState* UTPlayerState = UTCharOwner ? Cast<AUTPlayerState>(UTCharOwner->PlayerState) : nullptr;
+	bool bSlowMovement = (UTPlayerState && UTPlayerState->CarriedObject && UTPlayerState->CarriedObject->bSlowsMovement);
+	if (bSlowMovement)
+	{
+		HorizontalImpulse = MaxWalkSpeed;
+		MaxHorizontalVelocity = 1100.f;
+	}
 	Velocity = HorizontalImpulse*DodgeDir + (Velocity | DodgeCross)*DodgeCross;
 	Velocity.Z = 0.f;
-	float SpeedXY = FMath::Min(Velocity.Size(), DodgeMaxHorizontalVelocity);
-
+	float SpeedXY = FMath::Min(Velocity.Size(), MaxHorizontalVelocity);
 	SpeedXY *= UTCharOwner ? UTCharOwner->MaxSpeedPctModifier : 1.0f;
-
 	Velocity = SpeedXY*Velocity.GetSafeNormal();
-	if (IsMovingOnGround())
+
+	if (bSlowMovement)
+	{
+		Velocity.Z = IsMovingOnGround() ? 400.f : 200.f;
+	}
+	else if (IsMovingOnGround())
 	{
 		Velocity.Z = DodgeImpulseVertical;
 	}
@@ -1106,6 +1115,11 @@ bool UUTCharacterMovement::CanSprint() const
 {
 	if (CharacterOwner && IsMovingOnGround() && !IsCrouching() && (GetCurrentMovementTime() > SprintStartTime)) 
 	{
+		AUTPlayerState* UTPlayerState = CharacterOwner ? Cast<AUTPlayerState>(CharacterOwner->PlayerState) : nullptr;
+		if (UTPlayerState && UTPlayerState->CarriedObject && UTPlayerState->CarriedObject->bSlowsMovement)
+		{
+			return false;
+		}
 		// must be moving mostly forward
 		FRotator TurnRot(0.f, CharacterOwner->GetActorRotation().Yaw, 0.f);
 		FVector X = FRotationMatrix(TurnRot).GetScaledAxis(EAxis::X);
