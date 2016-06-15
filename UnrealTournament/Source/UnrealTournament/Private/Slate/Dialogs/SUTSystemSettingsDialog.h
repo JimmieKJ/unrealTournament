@@ -189,6 +189,8 @@ protected:
 	TArray< TSharedPtr<FString> > GeneralScalabilityList;
 	TSharedPtr< SComboBox< TSharedPtr<FString> > > TextureRes;
 	TSharedPtr<STextBlock> SelectedTextureRes;
+	TSharedPtr< SComboBox< TSharedPtr<FString> > > ViewDistance;
+	TSharedPtr<STextBlock> SelectedViewDistance;
 	TSharedPtr< SComboBox< TSharedPtr<FString> > > ShadowQuality;
 	TSharedPtr<STextBlock> SelectedShadowQuality;
 	TSharedPtr< SComboBox< TSharedPtr<FString> > > PPQuality;
@@ -239,6 +241,7 @@ protected:
 	void OnResolutionSelected(TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo);
 	void OnDisplayModeSelected(TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo);
 	void OnTextureResolutionSelected(TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo);
+	void OnViewDistanceSelected(TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo);
 	void OnShadowQualitySelected(TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo);
 	void OnPPQualitySelected(TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo);
 	void OnEffectQualitySelected(TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo);

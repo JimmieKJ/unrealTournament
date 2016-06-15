@@ -873,6 +873,10 @@ TSharedRef<SWidget> SUTSystemSettingsDialog::BuildGraphicsTab()
 		+ AddGeneralScalabilityWidget(NSLOCTEXT("SUTSystemSettingsDialog", "TextureDetail", "Texture Detail").ToString(), TextureRes, SelectedTextureRes,
 		&SUTSystemSettingsDialog::OnTextureResolutionSelected, QualitySettings.TextureQuality,
 		NSLOCTEXT("SUTSystemSettingsDialog", "TextureDetail_Tooltip", "Controls the quality of textures, lower setting can improve performance when GPU preformance is an issue."))
+		
+		+ AddGeneralScalabilityWidget(NSLOCTEXT("SUTSystemSettingsDialog", "ViewDistance", "View Distance Quality").ToString(), ViewDistance, SelectedViewDistance,
+		&SUTSystemSettingsDialog::OnViewDistanceSelected, QualitySettings.ViewDistanceQuality,
+		NSLOCTEXT("SUTSystemSettingsDialog", "ViewDistance_Tooltip", "Controls how fast models change level of detail in the distance."))
 
 		+ AddGeneralScalabilityWidget(NSLOCTEXT("SUTSystemSettingsDialog", "ShadowQuality", "Shadow Quality").ToString(), ShadowQuality, SelectedShadowQuality,
 		&SUTSystemSettingsDialog::OnShadowQualitySelected, QualitySettings.ShadowQuality,
@@ -1354,6 +1358,13 @@ void SUTSystemSettingsDialog::OnTextureResolutionSelected(TSharedPtr<FString> Ne
 	ScalabilityQuality.TextureQuality = GeneralScalabilityList.Find(TextureRes->GetSelectedItem());
 	Scalability::SetQualityLevels(ScalabilityQuality);
 	SelectedTextureRes->SetText(*NewSelection.Get());
+}
+void SUTSystemSettingsDialog::OnViewDistanceSelected(TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo)
+{
+	Scalability::FQualityLevels ScalabilityQuality = Scalability::GetQualityLevels();
+	ScalabilityQuality.ViewDistanceQuality = GeneralScalabilityList.Find(ViewDistance->GetSelectedItem());
+	Scalability::SetQualityLevels(ScalabilityQuality);
+	SelectedViewDistance->SetText(*NewSelection.Get());
 }
 void SUTSystemSettingsDialog::OnShadowQualitySelected(TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo)
 {
