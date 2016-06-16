@@ -96,15 +96,14 @@ void UUTRadialMenu_Coms::BecomeInteractive()
 		if (UTCharacter)
 		{
 			ContextActor = UTCharacter->GetCurrentAimContext();
-
-			GetComData(CommandTags::Intent, ContextActor, UTHUDOwner->UTPlayerOwner);
-			GetComData(CommandTags::Attack, ContextActor, UTHUDOwner->UTPlayerOwner);
-			GetComData(CommandTags::Defend, ContextActor, UTHUDOwner->UTPlayerOwner);
-			GetComData(CommandTags::Distress, ContextActor, UTHUDOwner->UTPlayerOwner);
-			GetComData(CommandTags::Yes, ContextActor, UTHUDOwner->UTPlayerOwner);
-			GetComData(CommandTags::No, ContextActor, UTHUDOwner->UTPlayerOwner);
 		}
 	}
+	GetComData(CommandTags::Intent, ContextActor, UTHUDOwner->UTPlayerOwner);
+	GetComData(CommandTags::Attack, ContextActor, UTHUDOwner->UTPlayerOwner);
+	GetComData(CommandTags::Defend, ContextActor, UTHUDOwner->UTPlayerOwner);
+	GetComData(CommandTags::Distress, ContextActor, UTHUDOwner->UTPlayerOwner);
+	GetComData(CommandTags::Yes, ContextActor, UTHUDOwner->UTPlayerOwner);
+	GetComData(CommandTags::No, ContextActor, UTHUDOwner->UTPlayerOwner);
 }
 
 void UUTRadialMenu_Coms::DrawMenu(FVector2D ScreenCenter, float RenderDelta)
