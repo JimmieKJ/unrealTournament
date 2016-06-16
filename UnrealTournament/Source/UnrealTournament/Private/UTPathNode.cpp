@@ -3,6 +3,7 @@
 #include "UTPathNode.h"
 #include "UTReachSpec.h"
 #include "UTRecastNavMesh.h"
+#include "UTPainVolume.h"
 
 int32 FUTPathLink::CostFor(APawn* Asker, const FNavAgentProperties& AgentProps, NavNodeRef StartPoly, const AUTRecastNavMesh* NavMesh) const
 {
@@ -30,6 +31,14 @@ int32 FUTPathLink::CostFor(APawn* Asker, const FNavAgentProperties& AgentProps, 
 		{
 			Result = FMath::TruncToInt((Center2 - Center1).Size());
 		}
+	}
+	AUTPainVolume* PV = Cast<AUTPainVolume>(Start->PhysicsVolume);
+	bool bStartInPain = (PV != nullptr && PV->bPainCausing);
+	PV = Cast<AUTPainVolume>(End->PhysicsVolume);
+	bool bEndInPain = (PV != nullptr && PV->bPainCausing);
+	if (!bStartInPain && bEndInPain)
+	{
+		Result += 100000;
 	}
 	return (Spec.IsValid() ? Spec->CostFor(Result, *this, Asker, AgentProps, StartPoly, NavMesh) : Result);
 }
