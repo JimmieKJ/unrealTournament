@@ -52,6 +52,45 @@ static const int32 MAX_DEMO_READ_WRITE_BUFFER = 1024 * 2;
 
 #define DEMO_CHECKSUMS 0		// When setting this to 1, this will invalidate all demos, you will need to re-record and playback
 
+// RAII object to swap the Role and RemoteRole of an actor within a scope. Used for recording replays on a client.
+class FScopedActorRoleSwap
+{
+public:
+	FScopedActorRoleSwap(AActor* InActor)
+		: Actor(InActor)
+	{
+		// We need to swap roles if:
+		//  1. the actor's remote role is authority - which is the case when recording a replay on a client that's connected to a live server, and
+		//  2. the actor isn't bTearOff.
+		// This is to ensure the roles appear correct when playing back this demo.
+		const bool bShouldSwapRoles =
+			Actor != nullptr &&
+			Actor->GetRemoteRole() == ROLE_Authority &&
+			!Actor->bTearOff;
+
+		if (bShouldSwapRoles)
+		{
+			check(Actor->GetWorld() && Actor->GetWorld()->IsRecordingClientReplay())
+			Actor->SwapRolesForReplay();
+		}
+		else
+		{
+			Actor = nullptr;
+		}
+	}
+
+	~FScopedActorRoleSwap()
+	{
+		if (Actor != nullptr)
+		{
+			Actor->SwapRolesForReplay();
+		}
+	}
+
+private:
+	AActor* Actor;
+};
+
 class FJumpToLiveReplayTask : public FQueuedReplayTask
 {
 public:
@@ -624,73 +663,15 @@ bool UDemoNetDriver::InitConnectInternal( FString& Error )
 
 		GetWorld()->DemoNetDriver = NULL;
 		SetWorld( NULL );
-
+		
 		auto NewPendingNetGame = NewObject<UDemoPendingNetGame>();
 
+		// Set up the pending net game so that the engine can call LoadMap on the next tick.
 		NewPendingNetGame->DemoNetDriver = this;
+		NewPendingNetGame->URL = DemoURL;
+		NewPendingNetGame->bSuccessfullyConnected = true;
 
 		WorldContext->PendingNetGame = NewPendingNetGame;
-
-		bool bSuccess = GEngine->LoadMap( *WorldContext, DemoURL, NewPendingNetGame, LoadMapError );
-
-#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
-		if ( CVarDemoForceFailure.GetValueOnGameThread() == 2 )
-		{
-			bSuccess = false;
-		}
-#endif
-
-		if ( !bSuccess )
-		{
-			StopDemo();
-
-			// If we don't have a world that means we failed loading the new world.
-			// Since there is no world, we must free the net driver ourselves
-			// Technically the pending net game should handle it, but things aren't quite setup properly to handle that either
-			if ( WorldContext->World() == NULL )
-			{
-				GEngine->DestroyNamedNetDriver( WorldContext->PendingNetGame, NetDriverName );
-			}
-
-			WorldContext->PendingNetGame = NULL;
-
-			GEngine->BrowseToDefaultMap( *WorldContext );
-
-			Error = LoadMapError;
-			UE_LOG( LogDemo, Error, TEXT( "UDemoNetDriver::InitConnect: LoadMap failed: failed: %s" ), *Error );
-			GameInstance->HandleDemoPlaybackFailure( EDemoPlayFailure::Generic, FString( TEXT( "LoadMap failed" ) ) );
-			return false;
-		}
-
-		SetWorld( WorldContext->World() );
-		WorldContext->World()->DemoNetDriver = this;
-		WorldContext->PendingNetGame = NULL;
-
-		// Read meta data, if it exists
-		for ( int32 i = 0; i < MetadataHeader.NumStreamingLevels; ++i )
-		{
-			ULevelStreamingKismet* StreamingLevel = NewObject<ULevelStreamingKismet>( GetWorld(), NAME_None, RF_NoFlags, NULL );
-
-			StreamingLevel->bShouldBeLoaded		= true;
-			StreamingLevel->bShouldBeVisible	= true;
-			StreamingLevel->bShouldBlockOnLoad	= false;
-			StreamingLevel->bInitiallyLoaded	= true;
-			StreamingLevel->bInitiallyVisible	= true;
-
-			FString PackageName;
-			FString PackageNameToLoad;
-
-			( *MetadataAr ) << PackageName;
-			( *MetadataAr ) << PackageNameToLoad;
-			( *MetadataAr ) << StreamingLevel->LevelTransform;
-
-			StreamingLevel->PackageNameToLoad = FName( *PackageNameToLoad );
-			StreamingLevel->SetWorldAssetByPackageName( FName( *PackageName ) );
-
-			GetWorld()->StreamingLevels.Add( StreamingLevel );
-
-			UE_LOG( LogDemo, Log, TEXT( "  Loading streamingLevel: %s, %s" ), *PackageName, *PackageNameToLoad );
-		}
 	}
 
 	return true;
@@ -972,6 +953,9 @@ void UDemoNetDriver::ProcessRemoteFunction( class AActor* Actor, class UFunction
 	{
 		if ((Function->FunctionFlags & FUNC_NetMulticast))
 		{
+			// Handle role swapping if this is a client-recorded replay.
+			FScopedActorRoleSwap RoleSwap(Actor);
+
 			InternalProcessRemoteFunction(Actor, SubObject, ClientConnections[0], Function, Parameters, OutParms, Stack, IsServer());
 		}
 	}
@@ -1095,30 +1079,10 @@ Demo Recording tick.
 
 static bool DemoReplicateActor( AActor* Actor, UNetConnection* Connection, APlayerController* SpectatorController, bool bMustReplicate )
 {
-	// RAII object to swap the Role and RemoteRole of an actor within a scope. Used for recording replays on a client.
-	class FScopedActorRoleSwap
+	if (Actor->NetDormancy == DORM_Initial && Actor->IsNetStartupActor())
 	{
-	public:
-		FScopedActorRoleSwap(AActor* InActor)
-			: Actor(InActor)
-		{
-			if (Actor != nullptr)
-			{
-				Actor->SwapRolesForReplay();
-			}
-		}
-
-		~FScopedActorRoleSwap()
-		{
-			if (Actor != nullptr)
-			{
-				Actor->SwapRolesForReplay();
-			}
-		}
-
-	private:
-		AActor* Actor;
-	};
+		return false;
+	}
 
 	const int32 OriginalOutBunches = Connection->Driver->OutBunches;
 	
@@ -1126,20 +1090,8 @@ static bool DemoReplicateActor( AActor* Actor, UNetConnection* Connection, APlay
 
 	if ( Actor != NULL )
 	{
-		// We need to swap roles if:
-		//  1. We're recording a replay on a client that's connected to a live server, and
-		//  2. the actor isn't bTearOff, and
-		//  3. the actor isn't the replay spectator controller.
-		//  3. the actor isn't the replay spectator controller or its PlayerState.
-		// This is to ensure the roles appear correct when playing back this demo.
-		UWorld* ActorWorld = Actor->GetWorld();
-		bool bShouldSwapRoles =
-			ActorWorld != nullptr && ActorWorld->IsRecordingClientReplay() &&
-			!Actor->bTearOff &&
-			Actor != SpectatorController &&
-			Actor != SpectatorController->PlayerState;
-
-		FScopedActorRoleSwap RoleSwap(bShouldSwapRoles ? Actor : nullptr);
+		// Handle role swapping if this is a client-recorded replay.
+		FScopedActorRoleSwap RoleSwap(Actor);
 
 		if ( (Actor->GetRemoteRole() != ROLE_None || Actor->bTearOff) && ( Actor == Connection->PlayerController || Cast< APlayerController >( Actor ) == NULL ) )
 		{
@@ -2384,6 +2336,9 @@ void UDemoNetDriver::LoadCheckpoint( FArchive* GotoCheckpointArchive, int64 Goto
 		*GotoCheckpointArchive << CacheObject.NetworkChecksum;
 		*GotoCheckpointArchive << CacheObject.PackageChecksum;
 
+		// Remap the pathname to handle client-recorded replays
+		GEngine->NetworkRemapPath(GetWorld(), PathName, true);
+
 		CacheObject.PathName = FName( *PathName );
 
 		uint8 Flags = 0;
@@ -2688,10 +2643,63 @@ void UDemoNetDriver::NotifyGotoTimeFinished(bool bWasSuccessful)
 	}
 }
 
+void UDemoNetDriver::PendingNetGameLoadMapCompleted()
+{
+}
+
 /*-----------------------------------------------------------------------------
 	UDemoPendingNetGame.
 -----------------------------------------------------------------------------*/
 
 UDemoPendingNetGame::UDemoPendingNetGame( const FObjectInitializer& ObjectInitializer ) : Super( ObjectInitializer )
 {
+}
+
+void UDemoPendingNetGame::Tick(float DeltaTime)
+{
+	// Replays don't need to do anything here
+}
+
+void UDemoPendingNetGame::SendJoin()
+{
+	// Don't send a join request to a replay
+}
+
+void UDemoPendingNetGame::LoadMapCompleted(UEngine* Engine, FWorldContext& Context, bool bLoadedMapSuccessfully, const FString& LoadMapError)
+{
+#if !( UE_BUILD_SHIPPING || UE_BUILD_TEST )
+	if (CVarDemoForceFailure.GetValueOnGameThread() == 2)
+	{
+		bLoadedMapSuccessfully = false;
+	}
+#endif
+
+	// If we have a demo pending net game we should have a demo net driver
+	check(DemoNetDriver);
+
+	if (!bLoadedMapSuccessfully)
+	{
+		DemoNetDriver->StopDemo();
+
+		// If we don't have a world that means we failed loading the new world.
+		// Since there is no world, we must free the net driver ourselves
+		// Technically the pending net game should handle it, but things aren't quite setup properly to handle that either
+		if (Context.World() == NULL)
+		{
+			GEngine->DestroyNamedNetDriver(Context.PendingNetGame, DemoNetDriver->NetDriverName);
+		}
+
+		Context.PendingNetGame = NULL;
+
+		GEngine->BrowseToDefaultMap(Context);
+
+		UE_LOG(LogDemo, Error, TEXT("UDemoPendingNetGame::HandlePostLoadMap: LoadMap failed: %s"), *LoadMapError);
+		if (Context.OwningGameInstance)
+		{
+			Context.OwningGameInstance->HandleDemoPlaybackFailure(EDemoPlayFailure::Generic, FString(TEXT("LoadMap failed")));
+		}
+		return;
+	}
+
+	DemoNetDriver->PendingNetGameLoadMapCompleted();
 }

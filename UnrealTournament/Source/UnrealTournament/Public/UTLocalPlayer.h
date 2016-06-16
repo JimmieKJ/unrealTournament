@@ -34,6 +34,7 @@ class SUTSpectatorWindow;
 class SUTMatchSummaryPanel;
 class SUTChatEditBox;
 class SUTQuickChatWindow;
+class UUTKillcamPlayback;
 
 enum class EMatchmakingCompleteResult : uint8;
 
@@ -844,6 +845,11 @@ public:
 	/** Set at end of match if earned new stars. */
 	UPROPERTY()
 		int32 EarnedStars;
+	
+	/**
+	 * Returns the killcam manager object for this player.
+	 */
+	UUTKillcamPlayback* GetKillcamPlaybackManager() const { return KillcamPlayback; }
 
 	// Returns the Total # of stars collected by this player.
 	int32 GetTotalChallengeStars();
@@ -1009,6 +1015,10 @@ public:
 	bool bAutoRankLockWarningShown;
 
 protected:
+	
+	UPROPERTY()
+	UUTKillcamPlayback* KillcamPlayback;
+
 #if !UE_SERVER
 	TSharedPtr<SUTQuickChatWindow> QuickChatWindow;
 #endif

@@ -1072,3 +1072,45 @@ ULocalPlayer* UUTGameViewportClient::SetupInitialLocalPlayer(FString& OutError)
 
 	return Super::SetupInitialLocalPlayer(OutError);
 }
+
+void UUTGameViewportClient::SetActiveWorldOverride(UWorld* WorldOverride)
+{
+	ActiveWorldOverride = WorldOverride;
+	SetActiveLocalPlayerControllers();
+}
+
+void UUTGameViewportClient::ClearActiveWorldOverride()
+{
+	ActiveWorldOverride = nullptr;
+	SetActiveLocalPlayerControllers();
+}
+
+void UUTGameViewportClient::SetActiveLocalPlayerControllers()
+{
+	// Switch the local player's controller to the controller in the active world.
+	// Not calling UPlayer::SwitchController because we don't want to null out the APlayerController::Player pointer here.
+	if (GetWorld() != nullptr && GetGameInstance() != nullptr)
+	{
+		for (ULocalPlayer* LocalPlayer : GetGameInstance()->GetLocalPlayers())
+		{
+			for (FConstPlayerControllerIterator It = GetWorld()->GetPlayerControllerIterator(); It; ++It)
+			{
+				APlayerController* Controller = *It;
+				if (Controller->Player == LocalPlayer)
+				{
+					LocalPlayer->PlayerController = Controller;
+				}
+			}
+		}
+	}
+}
+
+UWorld* UUTGameViewportClient::GetWorld() const
+{
+	if (ActiveWorldOverride != nullptr)
+	{
+		return ActiveWorldOverride;
+	}
+
+	return Super::GetWorld();
+}

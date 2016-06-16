@@ -76,6 +76,7 @@
 #include "WidgetBlueprintLibrary.h"
 #include "BlueprintContextLibrary.h"
 #include "MatchmakingContext.h"
+#include "UTKillcamPlayback.h"
 
 #if WITH_SOCIAL
 #include "Social.h"
@@ -121,6 +122,8 @@ UUTLocalPlayer::UUTLocalPlayer(const class FObjectInitializer& ObjectInitializer
 
 	bAutoRankLockWarningShown = false;
 	bJoinSessionInProgress = false;
+
+	KillcamPlayback = ObjectInitializer.CreateDefaultSubobject<UUTKillcamPlayback>(this, TEXT("KillcamPlayback"));
 }
 
 UUTLocalPlayer::~UUTLocalPlayer()

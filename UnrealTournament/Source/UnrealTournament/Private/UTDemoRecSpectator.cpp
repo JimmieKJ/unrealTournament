@@ -1,10 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #include "UnrealTournament.h"
 #include "UTDemoRecSpectator.h"
+#include "UTGameViewportClient.h"
 #include "UTDemoNetDriver.h"
 
 AUTDemoRecSpectator::AUTDemoRecSpectator(const FObjectInitializer& OI)
-: Super(OI)
+	: Super(OI)
 {
 	bShouldPerformFullTickWhenPaused = true;
 }
@@ -198,10 +199,17 @@ void AUTDemoRecSpectator::ClientGameEnded_Implementation(AActor* EndGameFocus, b
 void AUTDemoRecSpectator::BeginPlay()
 {
 	Super::BeginPlay();
-	UUTLocalPlayer* LocalPlayer = Cast<UUTLocalPlayer>(Player);
-	if (LocalPlayer)
+	UUTDemoNetDriver* NetDriver = Cast<UUTDemoNetDriver>(GetWorld()->DemoNetDriver);
+	if (NetDriver)
 	{
-		LocalPlayer->OpenReplayWindow();
+		if (!NetDriver->bIsLocalReplay)
+		{
+			UUTLocalPlayer* LocalPlayer = Cast<UUTLocalPlayer>(Player);
+			if (LocalPlayer)
+			{
+				LocalPlayer->OpenReplayWindow();
+			}
+		}
 	}
 }
 
@@ -288,8 +296,16 @@ void AUTDemoRecSpectator::SmoothTargetViewRotation(APawn* TargetPawn, float Delt
 void AUTDemoRecSpectator::InitPlayerState()
 {
 	Super::InitPlayerState();
-	PlayerState->bOnlySpectator = true;
-	PlayerState->PlayerName = TEXT("Replay Spectator");
+	
+	UUTDemoNetDriver* NetDriver = Cast<UUTDemoNetDriver>(GetWorld()->DemoNetDriver);
+	if (NetDriver)
+	{
+		if (!NetDriver->bIsLocalReplay)
+		{
+			PlayerState->bOnlySpectator = true;
+			PlayerState->PlayerName = TEXT("Replay Spectator");
+		}
+	}
 
 	AUTPlayerState* UTPS = Cast<AUTPlayerState>(PlayerState);
 	if (UTPS != nullptr)

@@ -18,6 +18,8 @@
 #include "UTBaseGameMode.h"
 #include "UTGameInstance.h"
 #include "UTWorldSettings.h"
+#include "Engine/DemoNetDriver.h"
+#include "UTKillcamPlayback.h"
 
 AUTGameState::AUTGameState(const class FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -820,6 +822,46 @@ void AUTGameState::ReceivedGameModeClass()
 			if (UTPC != NULL && UTPC->Announcer != NULL)
 			{
 				UTGameClass.GetDefaultObject()->PrecacheAnnouncements(UTPC->Announcer);
+			}
+		}
+	}
+
+	UWorld* const World = GetWorld();
+	UGameInstance* const GameInstance = GetGameInstance();
+
+	// Don't record for killcam if this world is already playing back a replay.
+	const UDemoNetDriver* const DemoDriver = World ? World->DemoNetDriver : nullptr;
+	const bool bIsPlayingReplay = DemoDriver ? DemoDriver->IsPlaying() : false;
+	if (!bIsPlayingReplay && GameInstance != nullptr && World->GetNetMode() == NM_Client && CVarUTEnableKillcam->GetInt() == 1)
+	{
+		// Since the killcam world will also have ReceivedGameModeClass() called in it, detect that and
+		// don't try to start recording again. Killcam world contexts will have a valid PIEInstance for now.
+		// Revisit when killcam is supported in PIE.
+		FWorldContext* const Context = GEngine->GetWorldContextFromWorld(World);
+		if (Context == nullptr || Context->PIEInstance != INDEX_NONE || Context->WorldType == EWorldType::PIE)
+		{
+			return;
+		}
+
+		const TCHAR* KillcamReplayName = TEXT("_DeathCam");
+
+		// Start recording the replay for killcam, always using the in memory streamer.
+		TArray<FString> AdditionalOptions;
+		AdditionalOptions.Add(TEXT("ReplayStreamerOverride=InMemoryNetworkReplayStreaming"));
+		GameInstance->StartRecordingReplay(KillcamReplayName, KillcamReplayName, AdditionalOptions);
+
+		// Start playback for each local player. Since we're using the in-memory streamer, the replay will
+		// be available immediately.
+		for (auto It = GameInstance->GetLocalPlayerIterator(); It; ++It)
+		{
+			UUTLocalPlayer* LocalPlayer = Cast<UUTLocalPlayer>(*It);
+			if (LocalPlayer != nullptr && LocalPlayer->GetKillcamPlaybackManager() != nullptr)
+			{
+				if (LocalPlayer->GetKillcamPlaybackManager()->GetKillcamWorld() != World)
+				{
+					LocalPlayer->GetKillcamPlaybackManager()->CreateKillcamWorld(World->URL, *Context);
+					LocalPlayer->GetKillcamPlaybackManager()->PlayKillcamReplay(KillcamReplayName);
+				}
 			}
 		}
 	}

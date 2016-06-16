@@ -9104,25 +9104,8 @@ void UEngine::TickWorldTravel(FWorldContext& Context, float DeltaSeconds)
 
 				const bool bLoadedMapSuccessfully = LoadMap(Context, Context.PendingNetGame->URL, Context.PendingNetGame, Error);
 
-				if (!bLoadedMapSuccessfully || Error != TEXT(""))
-				{
-					// we can't guarantee the current World is in a valid state, so travel to the default map
-					BrowseToDefaultMap(Context);
-					BroadcastTravelFailure(Context.World(), ETravelFailure::LoadMapFailure, Error);
-					check(Context.World() != NULL);
-				}
-				else
-				{
-					// Show connecting message, cause precaching to occur.
-					TransitionType = TT_Connecting;
-
-					RedrawViewports();
-
-					// Send join.
-					Context.PendingNetGame->SendJoin();
-					Context.PendingNetGame->NetDriver = NULL;
-				}
-
+				Context.PendingNetGame->LoadMapCompleted(this, Context, bLoadedMapSuccessfully, Error);
+				
 				// Kill the pending level.
 				Context.PendingNetGame = NULL;
 			}

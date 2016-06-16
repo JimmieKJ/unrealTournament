@@ -1381,6 +1381,13 @@ bool AUTCharacter::Died(AController* EventInstigator, const FDamageEvent& Damage
 				GhostComponent->GhostStopPlaying();
 			}
 
+			// Tell the client to play the killcam
+			AUTPlayerController* DyingGameController = Cast<AUTPlayerController>(ControllerKilled);
+			if (DyingGameController && EventInstigator)
+			{
+				DyingGameController->ClientPlayKillcam(EventInstigator, this);
+			}
+
 			return true;
 		}
 	}

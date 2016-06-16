@@ -100,6 +100,29 @@ void UPendingNetGame::AddReferencedObjects(UObject* InThis, FReferenceCollector&
 	Super::AddReferencedObjects( This, Collector );
 }
 
+
+void UPendingNetGame::LoadMapCompleted(UEngine* Engine, FWorldContext& Context, bool bLoadedMapSuccessfully, const FString& LoadMapError)
+{
+	if (!bLoadedMapSuccessfully || LoadMapError != TEXT(""))
+	{
+		// we can't guarantee the current World is in a valid state, so travel to the default map
+		Engine->BrowseToDefaultMap(Context);
+		Engine->BroadcastTravelFailure(Context.World(), ETravelFailure::LoadMapFailure, LoadMapError);
+		check(Context.World() != NULL);
+	}
+	else
+	{
+		// Show connecting message, cause precaching to occur.
+		Engine->TransitionType = TT_Connecting;
+
+		Engine->RedrawViewports();
+
+		// Send join.
+		Context.PendingNetGame->SendJoin();
+		Context.PendingNetGame->NetDriver = NULL;
+	}
+}
+
 EAcceptConnection::Type UPendingNetGame::NotifyAcceptingConnection()
 {
 	return EAcceptConnection::Reject; 

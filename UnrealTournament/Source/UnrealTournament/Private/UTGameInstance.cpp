@@ -277,6 +277,18 @@ void UUTGameInstance::StartRecordingReplay(const FString& Name, const FString& F
 		return;
 	}
 
+	if (CurrentWorld->WorldType == EWorldType::PIE)
+	{
+		UE_LOG(UT, Warning, TEXT("UGameInstance::StartRecordingReplay: Function called while running a PIE instance, this is disabled."));
+		return;
+	}
+
+	if (CurrentWorld->DemoNetDriver && CurrentWorld->DemoNetDriver->IsPlaying())
+	{
+		UE_LOG(UT, Warning, TEXT("UGameInstance::StartRecordingReplay: A replay is already playing, cannot begin recording another one."));
+		return;
+	}
+
 	FURL DemoURL;
 	FString DemoName = Name;
 
@@ -286,6 +298,11 @@ void UUTGameInstance::StartRecordingReplay(const FString& Name, const FString& F
 	DemoURL.Map = DemoName;
 	DemoURL.AddOption(*FString::Printf(TEXT("DemoFriendlyName=%s"), *FriendlyName));
 	DemoURL.AddOption(*FString::Printf(TEXT("Remote")));
+
+	for (const FString& Option : AdditionalOptions)
+	{
+		DemoURL.AddOption(*Option);
+	}
 
 	CurrentWorld->DestroyDemoNetDriver();
 
@@ -302,7 +319,16 @@ void UUTGameInstance::StartRecordingReplay(const FString& Name, const FString& F
 	check(CurrentWorld->DemoNetDriver != NULL);
 
 	CurrentWorld->DemoNetDriver->SetWorld(CurrentWorld);
-
+	/*
+	if (DemoURL.Map == TEXT("_DeathCam"))
+	{
+		UUTDemoNetDriver* UTDemoNetDriver = Cast<UUTDemoNetDriver>(CurrentWorld->DemoNetDriver);
+		if (UTDemoNetDriver)
+		{
+			UTDemoNetDriver->bIsLocalReplay = true;
+		}
+	}
+	*/
 	FString Error;
 
 	if (!CurrentWorld->DemoNetDriver->InitListen(CurrentWorld, DemoURL, false, Error))
@@ -312,16 +338,22 @@ void UUTGameInstance::StartRecordingReplay(const FString& Name, const FString& F
 	}
 	else
 	{
-		//UE_LOG(UT, VeryVerbose, TEXT("Num Network Actors: %i"), CurrentWorld->NetworkActors.Num());
+		//UE_LOG(UT, VeryVerbose, TEXT("Num Network Actors: %i"), CurrentWorld->DemoNetDriver->GetNetworkObjectList().GetObjects().Num());
 	}
 }
 void UUTGameInstance::PlayReplay(const FString& Name, UWorld* WorldOverride, const TArray<FString>& AdditionalOptions)
 {
-	UWorld* CurrentWorld = GetWorld();
+	UWorld* CurrentWorld = WorldOverride != nullptr ? WorldOverride : GetWorld();
 
 	if (CurrentWorld == nullptr)
 	{
 		UE_LOG(UT, Warning, TEXT("UGameInstance::PlayReplay: GetWorld() is null"));
+		return;
+	}
+
+	if (CurrentWorld->WorldType == EWorldType::PIE)
+	{
+		UE_LOG(UT, Warning, TEXT("UUTGameInstance::PlayReplay: Function called while running a PIE instance, this is disabled."));
 		return;
 	}
 
@@ -332,6 +364,11 @@ void UUTGameInstance::PlayReplay(const FString& Name, UWorld* WorldOverride, con
 
 	DemoURL.Map = Name;
 	DemoURL.AddOption(*FString::Printf(TEXT("Remote")));
+
+	for (const FString& Option : AdditionalOptions)
+	{
+		DemoURL.AddOption(*Option);
+	}
 
 	const FName NAME_DemoNetDriver(TEXT("DemoNetDriver"));
 
@@ -347,6 +384,14 @@ void UUTGameInstance::PlayReplay(const FString& Name, UWorld* WorldOverride, con
 
 	CurrentWorld->DemoNetDriver->SetWorld(CurrentWorld);
 
+	if (DemoURL.Map == TEXT("_DeathCam"))
+	{
+		UUTDemoNetDriver* UTDemoNetDriver = Cast<UUTDemoNetDriver>(CurrentWorld->DemoNetDriver);
+		if (UTDemoNetDriver)
+		{
+			UTDemoNetDriver->bIsLocalReplay = true;
+		}
+	}
 	FString Error;
 
 	if (!CurrentWorld->DemoNetDriver->InitConnect(CurrentWorld, DemoURL, Error))

@@ -93,23 +93,19 @@ DEFINE_LOG_CATEGORY(LogSpawn);
 #define LOCTEXT_NAMESPACE "World"
 
 template<class Function>
-static void ForEachNetDriver(UWorld* const World, const Function InFunction)
+static void ForEachNetDriver(UEngine* Engine, UWorld* const World, const Function InFunction)
 {
-	if (World == nullptr)
+	if (Engine == nullptr || World == nullptr)
 	{
 		return;
 	}
 
-	const UGameInstance* const GameInstance = World->GetGameInstance();
-	if(GameInstance != nullptr)
+	FWorldContext* const Context = Engine->GetWorldContextFromWorld(World);
+	if (Context != nullptr)
 	{
-		FWorldContext* const Context = GameInstance->GetWorldContext();
-		if (Context != nullptr)
+		for (FNamedNetDriver& Driver : Context->ActiveNetDrivers)
 		{
-			for (FNamedNetDriver& Driver : Context->ActiveNetDrivers)
-			{
-				InFunction(Driver.NetDriver);
-			}
+			InFunction(Driver.NetDriver);
 		}
 	}
 }
@@ -1142,7 +1138,7 @@ void UWorld::DestroyWorld( bool bInformEngineOfWorld, UWorld* NewWorld )
 	FlushLevelStreaming();
 	CleanupWorld(true, true, NewWorld);
 
-	ForEachNetDriver(this, [](UNetDriver* const Driver)
+	ForEachNetDriver(GEngine, this, [](UNetDriver* const Driver)
 	{
 		if (Driver != nullptr)
 		{
@@ -3247,7 +3243,7 @@ void UWorld::CleanupWorld(bool bSessionEnded, bool bCleanupResources, UWorld* Ne
 		SetNavigationSystem(nullptr);
 	}
 
-	ForEachNetDriver(this, [](UNetDriver* const Driver)
+	ForEachNetDriver(GEngine, this, [](UNetDriver* const Driver)
 	{
 		if (Driver != nullptr)
 		{
@@ -3448,7 +3444,7 @@ void UWorld::AddNetworkActor( AActor* Actor )
 		return;
 	}
 
-	ForEachNetDriver(this, [Actor](UNetDriver* const Driver)
+	ForEachNetDriver(GEngine, this, [Actor](UNetDriver* const Driver)
 	{
 		if (Driver != nullptr)
 		{
@@ -3465,7 +3461,7 @@ void UWorld::RemoveNetworkActor( AActor* Actor )
 		return;
 	}
 
-	ForEachNetDriver(this, [Actor](UNetDriver* const Driver)
+	ForEachNetDriver(GEngine, this, [Actor](UNetDriver* const Driver)
 	{
 		if (Driver != nullptr)
 		{

@@ -88,7 +88,7 @@ AUTGameMode::AUTGameMode(const class FObjectInitializer& ObjectInitializer)
 	CountDown = 3;
 	bPauseable = false;
 	RespawnWaitTime = 1.5f;
-	ForceRespawnTime = 2.f;
+	ForceRespawnTime = 5.f;
 	MaxReadyWaitTime = 60;
 	bHasRespawnChoices = false;
 	MinPlayersToStart = 2;
@@ -2345,6 +2345,8 @@ void AUTGameMode::RestartPlayer(AController* aPlayer)
 		{
 			((AUTPlayerController*)aPlayer)->ClientSwitchToBestWeapon();
 		}
+
+		((AUTPlayerController*)aPlayer)->ClientStopKillcam();
 	}
 
 	// clear spawn choices

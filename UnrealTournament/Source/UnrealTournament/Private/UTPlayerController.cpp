@@ -39,7 +39,15 @@
 #include "UTVictimMessage.h"
 #include "SUTSpawnWindow.h"
 #include "UTPlaceablePowerup.h"
+#include "UTKillcamPlayback.h"
 #include "UTWeaponAttachment.h"
+#include "UTGameViewportClient.h"
+
+static TAutoConsoleVariable<float> CVarUTKillcamStartDelay(
+	TEXT("UT.KillcamStartDelay"),
+	0.5f,
+	TEXT("Number of seconds to wait after dying to play the killcam.")
+	);
 
 DEFINE_LOG_CATEGORY_STATIC(LogUTPlayerController, Log, All);
 
@@ -482,6 +490,21 @@ void AUTPlayerController::OnRep_PlayerState()
 	if (UTPlayerState != NULL && bCastingGuide)
 	{
 		OnRep_CastingGuide();
+	}
+}
+
+void AUTPlayerController::SetPlayer(UPlayer* InPlayer)
+{
+	Super::SetPlayer(InPlayer);
+
+	ULocalPlayer* LP = Cast<ULocalPlayer>(Player);
+	if (LP)
+	{
+		UUTGameViewportClient* VC = Cast<UUTGameViewportClient>(LP->ViewportClient);
+		if (VC)
+		{
+			VC->SetActiveLocalPlayerControllers();
+		}
 	}
 }
 
@@ -4709,5 +4732,49 @@ void AUTPlayerController::ProcessVoiceDebug(const FString& Command)
 			}
 		}
 		UE_LOG(UT,Log,TEXT("====================================================================================="));
+	}
+}
+
+void AUTPlayerController::ClientPlayKillcam_Implementation(AController* KillingController, APawn* PawnToFocus)
+{
+	if (GetWorld()->DemoNetDriver && IsLocalController())
+	{
+		FNetworkGUID FocusPawnGuid = GetWorld()->DemoNetDriver->GetGUIDForActor(PawnToFocus);
+		GetWorld()->GetTimerManager().SetTimer(
+			KillcamStartHandle,
+			FTimerDelegate::CreateUObject(this, &AUTPlayerController::OnKillcamStart, FocusPawnGuid),
+			CVarUTKillcamStartDelay.GetValueOnGameThread(),
+			false);
+		GetWorld()->GetTimerManager().SetTimer(
+			KillcamStopHandle,
+			FTimerDelegate::CreateUObject(this, &AUTPlayerController::ClientStopKillcam),
+			CVarUTKillcamRewindTime.GetValueOnGameThread() + CVarUTKillcamStartDelay.GetValueOnGameThread(),
+			false);
+	}
+}
+
+void AUTPlayerController::ClientStopKillcam_Implementation()
+{
+	UUTLocalPlayer* LocalPlayer = Cast<UUTLocalPlayer>(GetLocalPlayer());
+	if (LocalPlayer != nullptr && LocalPlayer->GetKillcamPlaybackManager() != nullptr)
+	{
+		LocalPlayer->GetKillcamPlaybackManager()->KillcamStop();
+	}
+}
+
+void AUTPlayerController::OnKillcamStart(const FNetworkGUID InFocusActorGUID)
+{
+	// Show killcam
+	if (IsLocalController())
+	{
+		//if (IsInState(NAME_Spectating) || IsInState(NAME_Inactive))
+		UUTLocalPlayer* LocalPlayer = Cast<UUTLocalPlayer>(GetLocalPlayer());
+		if (LocalPlayer != nullptr && LocalPlayer->GetKillcamPlaybackManager() != nullptr)
+		{
+			if (LocalPlayer->GetKillcamPlaybackManager()->GetKillcamWorld() != GetWorld())
+			{
+				LocalPlayer->GetKillcamPlaybackManager()->KillcamStart(InFocusActorGUID);
+			}
+		}
 	}
 }

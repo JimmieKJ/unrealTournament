@@ -23,6 +23,9 @@ public:
 		}
 	}
 
+	UPROPERTY()
+	bool bIsLocalReplay;
+
 protected:
 	virtual void WriteGameSpecificDemoHeader(TArray<FString>& GameSpecificData) override;
 	virtual bool ProcessGameSpecificDemoHeader(const TArray<FString>& GameSpecificData, FString& Error) override;

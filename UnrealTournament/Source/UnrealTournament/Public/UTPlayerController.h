@@ -154,6 +154,7 @@ public:
 	virtual void ClientSetLocation_Implementation(FVector NewLocation, FRotator NewRotation) override;
 	virtual void BeginInactiveState() override;
 	virtual FRotator GetControlRotation() const override;
+	virtual void SetPlayer(UPlayer* InPlayer) override;
 
 	UFUNCTION(Reliable, Client)
 		void ClientReceivePersonalMessage(TSubclassOf<ULocalMessage> Message, int32 Switch = 0, class APlayerState* RelatedPlayerState_1 = NULL, class APlayerState* RelatedPlayerState_2 = NULL, class UObject* OptionalObject = NULL);
@@ -1161,6 +1162,19 @@ public:
 
 	virtual void ProcessVoiceDebug(const FString& Command);
 
+	/** Sent by the server when the possessed pawn is killed */
+	UFUNCTION(Client, Reliable)
+	void ClientPlayKillcam(AController* KillingController, APawn* PawnToFocus);
+
+	/** Sent by the server when the player is about to respawn */
+	UFUNCTION(Client, Reliable)
+	void ClientStopKillcam();
+
+	/** Our own timer callback, to start the killcam a moment after the character's death. */
+	void OnKillcamStart(const FNetworkGUID InFocusActorGUID);
+
+	FTimerHandle KillcamStartHandle;
+	FTimerHandle KillcamStopHandle;
 
 protected:
 	UFUNCTION()
