@@ -4,6 +4,7 @@
 #include "PendingNetGame.generated.h"
 
 struct FWorldContext;
+class UEngine;
 
 /**
  * Accepting connection response codes
