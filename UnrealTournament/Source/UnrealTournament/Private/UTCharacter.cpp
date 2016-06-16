@@ -1383,9 +1383,14 @@ bool AUTCharacter::Died(AController* EventInstigator, const FDamageEvent& Damage
 
 			// Tell the client to play the killcam
 			AUTPlayerController* DyingGameController = Cast<AUTPlayerController>(ControllerKilled);
-			if (DyingGameController && EventInstigator)
+			if (DyingGameController)
 			{
-				DyingGameController->ClientPlayKillcam(EventInstigator, this);
+				APawn* KillcamFocus = this;
+				if (EventInstigator && EventInstigator->GetPawn())
+				{
+					KillcamFocus = EventInstigator->GetPawn();
+				}
+				DyingGameController->ClientPlayKillcam(EventInstigator, KillcamFocus);
 			}
 
 			return true;

@@ -319,6 +319,7 @@ void UUTKillcamPlayback::OnKillcamReady(bool bWasSuccessful, FNetworkGUID InKill
 	UUTLocalPlayer* LocalPlayer = Cast<UUTLocalPlayer>(GetOuter());
 	if (!InKillcamViewTargetGuid.IsValid() || LocalPlayer == nullptr)
 	{
+		UE_LOG(LogTemp, Warning, TEXT("Not given killcam target"));
 		return;
 	}
 
@@ -342,6 +343,9 @@ void UUTKillcamPlayback::OnKillcamReady(bool bWasSuccessful, FNetworkGUID InKill
 
 //	SpecController->SetSpectatorCameraType(ESpectatorCameraType::Chase);
 	SpecController->ViewPawn(Cast<APawn>(KillcamActor));
+	// Weapon isn't replicated so first person view doesn't have a class to spawn for first person visuals
+	//SpecController->bSpectateBehindView = false;
+	//SpecController->BehindView(SpecController->bSpectateBehindView);
 	/*
 	UUTSpectatorCamComp_Chase* const SpectatorCameraComponent = KillcamActor->FindComponentByClass<UUTSpectatorCamComp_Chase>();
 	if (SpectatorCameraComponent != nullptr)
