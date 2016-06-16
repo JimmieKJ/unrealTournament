@@ -767,16 +767,6 @@ bool AUTWeapon::ShouldPlay1PVisuals() const
 	}
 	else
 	{
-		UE_LOG(UT, Log, TEXT("ShouldPlay1PVisuals %s"), *GetName());
-		if (UTOwner)
-		{
-			UE_LOG(UT, Log, TEXT("UTOwner %s"), *UTOwner->GetName());
-
-			if (UTOwner->GetLocalViewer())
-			{
-				UE_LOG(UT, Log, TEXT("UTOwner->GetLocalViewer() %s %i"), *UTOwner->GetLocalViewer()->GetName(), UTOwner->GetLocalViewer()->IsBehindView() ? 1 : 0);
-			}
-		}
 		// note we can't check Mesh->LastRenderTime here because of the hidden weapon setting!
 		return UTOwner && UTOwner->GetLocalViewer() && !UTOwner->GetLocalViewer()->IsBehindView();
 	}
