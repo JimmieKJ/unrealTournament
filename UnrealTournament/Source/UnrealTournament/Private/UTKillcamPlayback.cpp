@@ -17,7 +17,7 @@ TAutoConsoleVariable<int32> CVarUTEnableKillcam(
 
 TAutoConsoleVariable<float> CVarUTKillcamRewindTime(
 	TEXT("UT.KillcamRewindTime"),
-	4.0f,
+	3.5f,
 	TEXT("Number of seconds to rewind the killcam for playback."));
 
 int32 UUTKillcamPlayback::NumWorldsCreated = 0;
@@ -29,6 +29,8 @@ UUTKillcamPlayback::UUTKillcamPlayback()
 	, OnWorldCleanupHandle(FWorldDelegates::OnWorldCleanup.AddUObject(this, &UUTKillcamPlayback::CleanUpKillcam))
 {
 }
+
+DEFINE_LOG_CATEGORY_STATIC(LogUTKillcam, Log, All);
 
 void UUTKillcamPlayback::BeginDestroy()
 {
@@ -67,7 +69,7 @@ void UUTKillcamPlayback::CreateKillcamWorld(const FURL& InURL, const FWorldConte
 
 	if (SourceWorldContext.WorldType == EWorldType::PIE)
 	{
-		UE_LOG(UT, Log, TEXT("UUTKillcamPlayback::CreateKillcamWorld: Killcam recording is not supported for PIE."));
+		UE_LOG(LogUTKillcam, Log, TEXT("UUTKillcamPlayback::CreateKillcamWorld: Killcam recording is not supported for PIE."));
 		return;
 	}
 
@@ -101,7 +103,7 @@ void UUTKillcamPlayback::PlayKillcamReplay(const FString& ReplayUniqueName)
 
 	if (KillcamWorld == nullptr)
 	{
-		UE_LOG(UT, Log, TEXT("UUTKillcamPlayback::PlayKillcamReplay: KillcamWorld is null."));
+		UE_LOG(LogUTKillcam, Log, TEXT("UUTKillcamPlayback::PlayKillcamReplay: KillcamWorld is null."));
 		return;
 	}
 	
@@ -115,7 +117,7 @@ void UUTKillcamPlayback::PlayKillcamReplay(const FString& ReplayUniqueName)
 
 	if (GameInstance->GetWorldContext() != nullptr && GameInstance->GetWorldContext()->WorldType == EWorldType::PIE)
 	{
-		UE_LOG(UT, Log, TEXT("UUTKillcamPlayback::PlayKillcamReplay: Killcam playback is not supported for PIE."));
+		UE_LOG(LogUTKillcam, Log, TEXT("UUTKillcamPlayback::PlayKillcamReplay: Killcam playback is not supported for PIE."));
 		return;
 	}
 
@@ -319,7 +321,7 @@ void UUTKillcamPlayback::OnKillcamReady(bool bWasSuccessful, FNetworkGUID InKill
 	UUTLocalPlayer* LocalPlayer = Cast<UUTLocalPlayer>(GetOuter());
 	if (!InKillcamViewTargetGuid.IsValid() || LocalPlayer == nullptr)
 	{
-		UE_LOG(LogTemp, Warning, TEXT("Not given killcam target"));
+		UE_LOG(LogUTKillcam, Warning, TEXT("Not given killcam target"));
 		return;
 	}
 
@@ -334,7 +336,7 @@ void UUTKillcamPlayback::OnKillcamReady(bool bWasSuccessful, FNetworkGUID InKill
 	AUTDemoRecSpectator* SpecController = Cast<AUTDemoRecSpectator>(GetKillcamSpectatorController());
 	if (KillcamActor == nullptr || SpecController == nullptr )
 	{
-		UE_LOG(LogTemp, Warning, TEXT("Couldn't find killcam actor for NetGUID %d"), InKillcamViewTargetGuid.Value);
+		UE_LOG(LogUTKillcam, Warning, TEXT("Couldn't find killcam actor for NetGUID %d"), InKillcamViewTargetGuid.Value);
 		KillcamStop();
 		return;
 	}
@@ -342,10 +344,16 @@ void UUTKillcamPlayback::OnKillcamReady(bool bWasSuccessful, FNetworkGUID InKill
 	// Killcam started and we found the actor we want to follow!
 
 //	SpecController->SetSpectatorCameraType(ESpectatorCameraType::Chase);
-	SpecController->ViewPawn(Cast<APawn>(KillcamActor));
+	APawn* KillcamPawn = Cast<APawn>(KillcamActor);
+	if (KillcamPawn && KillcamPawn->PlayerState)
+	{
+		UE_LOG(LogUTKillcam, Log, TEXT("Killcam viewing %s"), *KillcamPawn->PlayerState->PlayerName);
+	}
+	SpecController->bAutoCam = false;
+	SpecController->ViewPawn(KillcamPawn);
 	// Weapon isn't replicated so first person view doesn't have a class to spawn for first person visuals
-	//SpecController->bSpectateBehindView = false;
-	//SpecController->BehindView(SpecController->bSpectateBehindView);
+	SpecController->bSpectateBehindView = true;
+	SpecController->BehindView(SpecController->bSpectateBehindView);
 	/*
 	UUTSpectatorCamComp_Chase* const SpectatorCameraComponent = KillcamActor->FindComponentByClass<UUTSpectatorCamComp_Chase>();
 	if (SpectatorCameraComponent != nullptr)
@@ -410,7 +418,7 @@ static void HandleKillcamPlayCommand(const TArray<FString>& Args, UWorld* InWorl
 
 	if ( ErrorString != nullptr )
 	{
-		UE_LOG(UT, Log, TEXT("%s"), *ErrorString );
+		UE_LOG(LogUTKillcam, Log, TEXT("%s"), *ErrorString );
 
 		if ( InWorld->GetGameInstance() != nullptr )
 		{

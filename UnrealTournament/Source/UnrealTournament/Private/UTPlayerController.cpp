@@ -4748,7 +4748,7 @@ void AUTPlayerController::ClientPlayKillcam_Implementation(AController* KillingC
 		GetWorld()->GetTimerManager().SetTimer(
 			KillcamStopHandle,
 			FTimerDelegate::CreateUObject(this, &AUTPlayerController::ClientStopKillcam),
-			CVarUTKillcamRewindTime.GetValueOnGameThread() + CVarUTKillcamStartDelay.GetValueOnGameThread(),
+			CVarUTKillcamRewindTime.GetValueOnGameThread() + CVarUTKillcamStartDelay.GetValueOnGameThread() + 0.5f,
 			false);
 	}
 }
