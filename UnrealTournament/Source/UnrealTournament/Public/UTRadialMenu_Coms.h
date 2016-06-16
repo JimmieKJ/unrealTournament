@@ -5,6 +5,28 @@
 #include "UTRadialMenu.h"
 #include "UTRadialMenu_Coms.generated.h"
 
+USTRUCT()
+struct FComData
+{
+	GENERATED_USTRUCT_BODY()
+
+	UPROPERTY()
+	FText ToolTip;
+
+	UPROPERTY()
+	uint32 Switch;
+
+	FComData()
+	{
+	}
+
+	FComData(FText inToolTip, int32 inSwitch)
+		: ToolTip(inToolTip)
+		, Switch(inSwitch)
+	{
+	}
+};
+
 UCLASS()
 class UNREALTOURNAMENT_API UUTRadialMenu_Coms : public UUTRadialMenu
 {
@@ -34,8 +56,13 @@ public:
 	FHUDRenderObject_Text YesNoTextTemplate;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
+	FHUDRenderObject_Text ToolTipTemplate;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
 	float ForcedCancelDist;
 protected:
+
+	TMap<FName, FComData> ComData;
 
 	AActor* ContextActor;
 	float CancelCircleOpacity;
@@ -59,6 +86,6 @@ protected:
 	virtual void ChangeSegment(int32 NewSegmentIndex);
 
 	virtual void UpdateSegment();
-
+	virtual void GetComData(FName CommandTag, AActor* ContextActor, AUTPlayerController* Instigator);
 };
 

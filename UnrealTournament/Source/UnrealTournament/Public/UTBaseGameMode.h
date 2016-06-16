@@ -114,6 +114,9 @@ public:
 	UPROPERTY(Config)
 	bool bTrainingGround;
 
+	UPROPERTY(GlobalConfig)
+	FString TestString;
+
 	/**
 	 * Converts a string to a bool.  If the string is empty, it will return the default.
 	 **/

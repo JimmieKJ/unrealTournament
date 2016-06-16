@@ -4710,65 +4710,32 @@ bool AUTGameMode::AttemptBoost(AUTPlayerController* Who)
 	return bCanBoost;
 }
 
-AActor* AUTGameMode::InitializeComMenu(FComMenuCommandList& CommandList, UWorld* World, AUTGameState* InUTGameState, AUTPlayerController* TargetPlayer)
+void AUTGameMode::SendComsMessage( AUTPlayerController* Sender, AUTPlayerState* Target, int32 Switch)
 {
-	CommandList.Intent		= FComMenuCommand(NSLOCTEXT("Testxxxxxxxxxxx","Test1","Intent"), CommandTags::Intent);
-	CommandList.Attack		= FComMenuCommand(NSLOCTEXT("Testxxxxxxxxxxx","Test2","Attack"), CommandTags::Attack);
-	CommandList.Defend		= FComMenuCommand(NSLOCTEXT("Testxxxxxxxxxxx","Test3","Defend"), CommandTags::Defend);
-	CommandList.Distress	= FComMenuCommand(NSLOCTEXT("Testxxxxxxxxxxx","Test4","Distress"), CommandTags::Distress);
+	AUTPlayerState* UTPlayerState = Cast<AUTPlayerState>(Instigator->PlayerState);
 
-	return nullptr;
+	if (Target != nullptr)
+	{
+		// This is a targeting com message.  Send it only to the sender and the target
+		AUTPlayerController* TargetPC = Cast<AUTPlayerController>(Target->GetOwner());
+		if (TargetPC != nullptr) TargetPC->ClientReceiveLocalizedMessage(UTPlayerState->GetCharacterVoiceClass(), Switch, UTPlayerState, nullptr, UTPlayerState->LastKnownLocation);
+		Sender->ClientReceiveLocalizedMessage(UTPlayerState->GetCharacterVoiceClass(), Switch, UTPlayerState, nullptr, UTPlayerState->LastKnownLocation);
+	}
 }
 
-void AUTGameMode::ExecuteComMenu(FName CommandTag, UWorld* World, AUTGameState* InUTGameState, AUTPlayerController* TargetPlayer, AActor* ContextActor)
+
+int32 AUTGameMode::GetComSwitch(FName CommandTag, AActor* ContextActor, AUTPlayerController* Instigator, UWorld* World)
 {
-	AUTCTFRoundGameState* RoundGameState = Cast<AUTCTFRoundGameState>(InUTGameState);
-	bool bOnDefense = RoundGameState ? RoundGameState->IsTeamOnDefense(TargetPlayer->GetTeamNum()) : false;
-
-	FString LocationTag = TEXT("Somewhere");
-
-	AUTGameVolume* GV = nullptr;
-	if (TargetPlayer->GetUTCharacter())
+	if (CommandTag == CommandTags::Yes)
 	{
-		GV = Cast<AUTGameVolume>(TargetPlayer->GetUTCharacter()->GetPawnPhysicsVolume());
-		if (GV && !GV->VolumeName.IsEmpty())
-		{
-			LocationTag = GV->VolumeName.ToString();
-		}
+		return ACKNOWLEDGE_SWITCH_INDEX;
 	}
 
-	FString SayText;
-
-	if (TargetPlayer->UTPlayerState->CarriedObject != nullptr)
+	if (CommandTag == CommandTags::No)
 	{
-		// Flag Carried..
-		if (CommandTag == CommandTags::Intent) SayText = TEXT("I have the flag... form up on me");
-		else if (CommandTag == CommandTags::Defend) SayText = TEXT("Defed your flag carrier");
-		else if (CommandTag == CommandTags::Attack) SayText = TEXT("Attack their base now!");
-		else if (CommandTag == CommandTags::Distress) SayText = TEXT("Flag Carried under attack!");
-		else if (CommandTag == CommandTags::Yes) SayText = TEXT("!!! AFFIRMATIVE!!!");
-		else if (CommandTag == CommandTags::No) SayText = TEXT("!!! NEGATIVE !!!");
-	}
-	else if (bOnDefense)
-	{
-		if (CommandTag == CommandTags::Intent) SayText = TEXT("I'm");
-		else if (CommandTag == CommandTags::Defend) SayText = TEXT("Defend our base");
-		else if (CommandTag == CommandTags::Attack) SayText = TEXT("Attack their flag carrier");
-		else if (CommandTag == CommandTags::Distress) SayText = TEXT("I'm under attack");
-		else if (CommandTag == CommandTags::Yes) SayText = TEXT("!!! AFFIRMATIVE!!!");
-		else if (CommandTag == CommandTags::No) SayText = TEXT("!!! NEGATIVE !!!");
-	}
-	else
-	{
-		if (CommandTag == CommandTags::Intent) SayText = TEXT("I'm");
-		else if (CommandTag == CommandTags::Defend) SayText = TEXT("Defend the flag carrier");
-		else if (CommandTag == CommandTags::Attack) SayText = TEXT("Attack the base now");
-		else if (CommandTag == CommandTags::Distress) SayText = TEXT("I'm under attack");
-		else if (CommandTag == CommandTags::Yes) SayText = TEXT("!!! AFFIRMATIVE!!!");
-		else if (CommandTag == CommandTags::No) SayText = TEXT("!!! NEGATIVE !!!");
+		return NEGATIVE_SWITCH_INDEX;
 	}
 
-	SayText = TEXT("at ") + LocationTag + TEXT(" - ") + SayText;
-	TargetPlayer->TeamSay(SayText);
+	return INDEX_NONE;
 }
 

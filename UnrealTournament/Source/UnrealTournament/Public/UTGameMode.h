@@ -901,19 +901,24 @@ public:
 	virtual bool AttemptBoost(AUTPlayerController* Who);
 
 	/**
-	 *	Create a list of FComMenuCommands that will be displayed in the com menu.  This will be called on the default object of the current game type
-	 *  since in a network game the actual GameMode isn't available.  
+	 *	Calculates the Com menu switch for a command command tag.
 	 *
-	 *  @Returns the actor that is the current context
+	 *  CommandTag - The tag we are looking for
+	 *  ContextActor - The actor that is the current focus of the crosshair
+	 *  Instigator - The Player Controller that owns the menu
 	 **/
-	virtual AActor* InitializeComMenu(FComMenuCommandList& CommandList, UWorld* World, AUTGameState* UTGameState, AUTPlayerController* TargetPlayer);
-								   
-	/**
-	 *	Create a list of FComMenuCommands that will be displayed in the com menu.  This will be called on the default object of the current game type
-	 *  since in a network game the actual GameMode isn't available.  
-	 **/
-	virtual void ExecuteComMenu(FName CommandTag, UWorld* World, AUTGameState* UTGameState, AUTPlayerController* TargetPlayer, AActor* ContextActor);
+	virtual int32 GetComSwitch(FName CommandTag, AActor* ContextActor, AUTPlayerController* Instigator, UWorld* World);
 
+	/**
+	 *	Sends a voice communication message.  If Target is not null, then it will only be sent to the target and the sender, otherwise all of the players (or just
+	 *  their teammates in a team game) will get the message.
+	 * 
+	 *  Sender is the controller sending this message.
+	 *  Target is the player state of player who was the context target of this message.
+	 *  Switch is the UTCharacterVoice switch to play
+	 *  ContextObject is the object that 
+	 **/
+	virtual void SendComsMessage( AUTPlayerController* Sender, AUTPlayerState* Target, int32 Switch = 0);
 
 };
 

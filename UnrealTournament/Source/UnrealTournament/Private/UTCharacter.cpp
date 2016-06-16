@@ -6154,3 +6154,39 @@ void AUTCharacter::BoostSpeedForTime(float SpeedBoostPct, float TimeToBoost)
 	MaxSpeedPctModifier = SpeedBoostPct;
 	GetWorldTimerManager().SetTimer(SpeedBoostTimerHandle, this, &AUTCharacter::ResetMaxSpeedPctModifier, TimeToBoost, false);
 }
+
+AActor* AUTCharacter::GetCurrentAimContext()
+{
+	float MaxRange = 100000.0f; 
+	float PawnAim = 0.f;
+	float PawnDist = 0.f;
+	APawn* BestPawn = Cast<APawn>(UUTGameplayStatics::GetCurrentAimContext(this, 0.9f, MaxRange, APawn::StaticClass(), &PawnAim, &PawnDist));
+
+	float PickupAim = 0.f;
+	float PickupDist = 0.f;
+	AUTPickup* BestPickup = Cast<AUTPickup>(UUTGameplayStatics::GetCurrentAimContext(this, 0.9f, MaxRange, AUTPickup::StaticClass(), &PickupAim, &PickupAim));
+
+	UE_LOG(UT,Log,TEXT("BestPawn: %s [%s] %f %f"), (BestPawn != nullptr ? *BestPawn->PlayerState->PlayerName : TEXT("null")), (BestPawn != nullptr ? *BestPawn->GetFullName() : TEXT("null")), PawnAim, PawnDist);
+	UE_LOG(UT,Log,TEXT("BestPickup: %s %f %f"), (BestPickup != nullptr ? *BestPickup->GetFullName() : TEXT("null")), PickupAim, PickupDist);
+/*
+	AUTCharacter* FlagCarrierTarget = Cast<AUTCharacter>(PC->LastShotTargetGuess);
+	if (FlagCarrierTarget && FlagCarrierTarget->GetCarriedObject())
+	{
+		FVector ShotLoc = AimLocation + AirDir * PawnDist;
+		AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
+		if (GS && !GS->OnSameTeam(UTOwner, FlagCarrierTarget) && ((FlagCarrierTarget->GetActorLocation() - ShotLoc).Size() < 250.f))
+		{
+			FlagCarrierTarget->GetCarriedObject()->LastPingedTime = GetWorld()->GetTimeSeconds();
+		}
+	}
+*/
+	
+	if (BestPickup == nullptr || PawnAim > PickupAim || PawnDist < PickupDist) 
+	{
+		return BestPawn;
+	}
+	
+	return BestPickup;
+}
+
+

@@ -1176,6 +1176,9 @@ public:
 	FTimerHandle KillcamStartHandle;
 	FTimerHandle KillcamStopHandle;
 
+	UFUNCTION(Server, Reliable, WithValidation)
+	void ServerSendComsMessage(AUTPlayerState* Target, int32 Switch);
+
 protected:
 	UFUNCTION()
 	virtual void RestartVOIP();

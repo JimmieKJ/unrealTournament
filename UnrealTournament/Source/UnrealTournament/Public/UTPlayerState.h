@@ -18,6 +18,7 @@
 #include "UTWeaponSkin.h"
 #include "OnlineNotification.h"
 #include "JsonObjectConverter.h"
+#include "UTGameVolume.h"
 #if WITH_PROFILE
 #include "UTMcpProfile.h"
 #endif
@@ -960,7 +961,12 @@ protected:
 	UFUNCTION()
 	virtual void OnUnlockList();
 
+public:
+	/** Holds the last known location of the pawn associated with this pri */
+	UPROPERTY(BlueprintReadOnly, Category = PlayerState)
+	AUTGameVolume* LastKnownLocation;
 
+	TSubclassOf<UUTCharacterVoice> GetCharacterVoiceClass();
 };
 
 USTRUCT()

@@ -30,6 +30,20 @@ void AUTGameVolume::ActorEnteredVolume(class AActor* Other)
 			}
 		}
 	}
+
+	if (!VolumeName.IsEmpty())
+	{
+		AUTCharacter* P = Cast<AUTCharacter>(Other);
+		if (P != nullptr)
+		{
+			//P->LastKnownLocation = this;
+			AUTPlayerState* PS = Cast<AUTPlayerState>(P->PlayerState);
+			if (PS != nullptr)
+			{
+				PS->LastKnownLocation = this;
+			}
+		}
+	}
 }
 
 void AUTGameVolume::ActorLeavingVolume(class AActor* Other)

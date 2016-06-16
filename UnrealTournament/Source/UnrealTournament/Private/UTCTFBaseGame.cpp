@@ -660,3 +660,13 @@ void AUTCTFBaseGame::SetEloFor(AUTPlayerState* PS, bool bRankedSession, int32 Ne
 		}
 	}
 }
+
+int32 AUTCTFBaseGame::GetComSwitch(FName CommandTag, AActor* ContextActor, AUTPlayerController* Instigator, UWorld* World)
+{
+	if (CommandTag == CommandTags::Distress)
+	{
+		return UNDER_HEAVY_ATTACK_SWITCH_INDEX;
+	}
+
+	return Super::GetComSwitch(CommandTag, ContextActor, Instigator, World);
+}

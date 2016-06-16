@@ -87,6 +87,7 @@ namespace InventoryEventName
 
 namespace StatusMessage
 {
+	const FName Taunt = FName(TEXT("Taunt"));
 	const FName NeedBackup = FName(TEXT("NeedBackup"));
 	const FName EnemyFCHere = FName(TEXT("EnemyFCHere"));
 	const FName AreaSecure = FName(TEXT("AreaSecure"));
@@ -99,6 +100,8 @@ namespace StatusMessage
 	const FName ImOnOffense = FName(TEXT("ImOnOffense"));
 	const FName SpreadOut = FName(TEXT("SpreadOut"));
 	const FName BaseUnderAttack = FName(TEXT("BaseUnderAttack"));
+	const FName Affirmative = FName(TEXT("Affirmative"));
+	const FName Negative = FName(TEXT("Negative"));
 }
 
 namespace HighlightNames

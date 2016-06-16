@@ -202,4 +202,23 @@ class UNREALTOURNAMENT_API UUTGameplayStatics : public UBlueprintFunctionLibrary
 	 */
 	UFUNCTION(BlueprintPure, Category = "Game Options")
 	static float GetFloatOption(const FString& Options, const FString& Key, float DefaultValue);
+
+	/** 
+	 * Tries to pick the best possible context given a Targetclass for a given pawn.  Avoids using traces by just using the LastRenderTime
+	 * but uses the TActorIterator so it could potentially be slow.
+	 *
+	 * @param PawnTarget - The pawn who's context we are looking for.  Can not be NULL
+	 * @param MinAim - minimum dot product of directions that can be returned (maximum 0)
+	 * @param MaxRange - maximum range to search
+	 * @param TargetClass - optional subclass of Pawn to look for; default is all pawns
+	 * @param BestAim - if specified, filled with actual dot product of returned target
+	 * @param BestDist - if specified, filled with actual distance to returned target
+	 */
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Game|Targeting")
+	static AActor* GetCurrentAimContext(AUTCharacter* PawnTarget, float MinAim, float MaxRange, TSubclassOf<AActor> TargetClass = NULL
+#if CPP // hack: UHT doesn't support this (or any 'optional out' type construct)
+	, float* BestAim = NULL, float* BestDist = NULL
+#endif
+	);
+
 };

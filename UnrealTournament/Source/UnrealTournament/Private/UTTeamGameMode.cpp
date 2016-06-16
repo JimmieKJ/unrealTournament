@@ -926,3 +926,32 @@ void AUTTeamGameMode::GetGood()
 	}
 #endif
 }
+
+void AUTTeamGameMode::SendComsMessage( AUTPlayerController* Sender, AUTPlayerState* Target, int32 Switch)
+{
+	AUTPlayerState* UTPlayerState = Cast<AUTPlayerState>(Sender->PlayerState);
+	if (UTPlayerState)
+	{
+		if (Target != nullptr)
+		{
+			AUTPlayerController* UTPlayerController = Cast<AUTPlayerController>(Target->GetOwner());
+			if (UTPlayerController)
+			{
+				UTPlayerController->ClientReceiveLocalizedMessage(UTPlayerState->GetCharacterVoiceClass(), Switch, UTPlayerState, nullptr, UTPlayerState->LastKnownLocation);
+			}
+			Sender->ClientReceiveLocalizedMessage(UTPlayerState->GetCharacterVoiceClass(), Switch, UTPlayerState, nullptr, UTPlayerState->LastKnownLocation);
+		}
+		else
+		{
+			for (FConstPlayerControllerIterator It = GetWorld()->GetPlayerControllerIterator(); It; ++It)
+			{
+				AUTPlayerController* UTPlayerController = Cast<AUTPlayerController>(It->Get());
+				if ( UTPlayerController != NULL && UTPlayerController->GetTeamNum() == Sender->GetTeamNum())
+				{
+					UTPlayerController->ClientReceiveLocalizedMessage(UTPlayerState->GetCharacterVoiceClass(), Switch, UTPlayerState, nullptr, UTPlayerState->LastKnownLocation);
+				}
+			}
+		}
+	}
+}
+

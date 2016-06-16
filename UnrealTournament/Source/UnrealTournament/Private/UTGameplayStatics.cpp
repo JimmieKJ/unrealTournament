@@ -376,6 +376,86 @@ APawn* UUTGameplayStatics::ChooseBestAimTarget(AController* AskingC, FVector Sta
 	}
 }
 
+
+AActor* UUTGameplayStatics::GetCurrentAimContext(AUTCharacter* PawnTarget, float MinAim, float MaxRange, TSubclassOf<AActor> TargetClass, float* BestAim, float* BestDist)
+{
+	if (PawnTarget == nullptr)
+	{
+		UE_LOG(UT, Warning, TEXT("PickBestAimTarget(): PawnTarget == NULL"));
+		return nullptr;
+	}
+
+	FVector StartLoc = PawnTarget->GetPawnViewLocation();
+	FVector FireDir = PawnTarget->GetViewRotation().Vector(); 
+
+	if (TargetClass == NULL)
+	{
+		TargetClass = APawn::StaticClass();
+	}
+	const float MaxRangeSquared = FMath::Square(MaxRange);
+	const float VerticalMinAim = MinAim * 3.f - 2.f;
+	float LocalBestAim;
+	float LocalBestDist;
+	if (BestAim == NULL)
+	{
+		BestAim = &LocalBestAim;
+	}
+	if (BestDist == NULL)
+	{
+		BestDist = &LocalBestDist;
+	}
+	(*BestDist) = FLT_MAX;
+	(*BestAim) = MinAim;
+
+	AActor* BestTarget = NULL;
+	FCollisionQueryParams TraceParams(FName(TEXT("PickBestAimTarget")), false);
+	UWorld* TheWorld = PawnTarget->GetWorld();
+
+	for(TActorIterator<AActor> It(TheWorld, TargetClass); It; ++It)
+	{
+		AActor* Actor = *It;
+		if(!Actor->IsPendingKill())
+		{
+			if (TheWorld->GetTimeSeconds() - Actor->GetLastRenderTime() < 0.15f)
+			{
+				// check passed in constraints
+				const FVector AimDir = Actor->GetActorLocation() - StartLoc;
+				float TestAim = FireDir | AimDir;
+				if (TestAim > 0.0f)
+				{
+					float FireDist = AimDir.SizeSquared();
+					if (FireDist < MaxRangeSquared)
+					{
+						FireDist = FMath::Sqrt(FireDist);
+						TestAim /= FireDist;
+						bool bPassedAimCheck = (TestAim > *BestAim);
+						// if no target yet, be more liberal about up/down error (more vertical autoaim help)
+						if (!bPassedAimCheck && BestTarget == NULL && TestAim > VerticalMinAim)
+						{
+							FVector FireDir2D = FireDir;
+							FireDir2D.Z = 0;
+							FireDir2D.Normalize();
+							float TestAim2D = FireDir2D | AimDir;
+							TestAim2D = TestAim2D / FireDist;
+							bPassedAimCheck = (TestAim2D > *BestAim);
+						}
+
+						if (bPassedAimCheck)
+						{
+							BestTarget = Actor;
+							(*BestAim) = TestAim;
+							(*BestDist) = FireDist;
+						}
+					}
+				}
+			}
+		} 
+	}
+
+	return BestTarget;
+}
+
+
 bool UUTGameplayStatics::UTSuggestProjectileVelocity(UObject* WorldContextObject, FVector& TossVelocity, const FVector& StartLoc, const FVector& EndLoc, AActor* TargetActor, float ZOvershootTolerance, float TossSpeed, float CollisionRadius, float OverrideGravityZ, int32 MaxSubdivisions, ESuggestProjVelocityTraceOption::Type TraceOption)
 {
 	// if we're not tracing, then our special code isn't going to do anything of value

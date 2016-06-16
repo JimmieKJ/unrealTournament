@@ -3332,3 +3332,19 @@ void AUTPlayerState::ServerSetBoostItem_Implementation(int PowerupIndex)
 	}
 }
 
+TSubclassOf<UUTCharacterVoice> AUTPlayerState::GetCharacterVoiceClass()
+{
+	if (CharacterVoice != nullptr) return CharacterVoice;
+
+	if (SelectedCharacter != nullptr)
+	{
+		AUTCharacterContent* CharacterDefaultObject = Cast<AUTCharacterContent>(SelectedCharacter.GetDefaultObject());
+		if (CharacterDefaultObject != nullptr && CharacterDefaultObject->CharacterVoice != nullptr)
+		{
+			return CharacterDefaultObject->CharacterVoice;
+		}
+	}
+
+	return UUTCharacterVoice::StaticClass();
+
+}

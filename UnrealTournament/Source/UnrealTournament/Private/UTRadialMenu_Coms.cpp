@@ -31,6 +31,19 @@ UUTRadialMenu_Coms::UUTRadialMenu_Coms(const class FObjectInitializer& ObjectIni
 	YesNoTextTemplate.HorzPosition = ETextHorzPos::Center;
 	YesNoTextTemplate.VertPosition = ETextVertPos::Center;
 
+	static ConstructorHelpers::FObjectFinder<UFont> ToolTipFont(TEXT("Font'/Game/RestrictedAssets/UI/Fonts/fntScoreboard_Medium.fntScoreboard_Medium'"));
+	ToolTipTemplate.Font = ToolTipFont.Object;
+	ToolTipTemplate.RenderColor = FLinearColor::Yellow;
+	ToolTipTemplate.bDrawOutline = true;
+	ToolTipTemplate.OutlineColor = FLinearColor::Black;
+	ToolTipTemplate.HorzPosition = ETextHorzPos::Center;
+	ToolTipTemplate.Position.Y = 300;
+
+	CommandList.Intent		= FComMenuCommand(NSLOCTEXT("ComCommands","Intent","Intent"), CommandTags::Intent);
+	CommandList.Attack		= FComMenuCommand(NSLOCTEXT("ComCommands","Attack","Attack"), CommandTags::Attack);
+	CommandList.Defend		= FComMenuCommand(NSLOCTEXT("ComCommands","Defend","Defend"), CommandTags::Defend);
+	CommandList.Distress	= FComMenuCommand(NSLOCTEXT("ComCommands","Distress","Distress"), CommandTags::Distress);
+
 	CancelCircleOpacity = 1.0f;
 }
 
@@ -43,20 +56,53 @@ void UUTRadialMenu_Coms::InitializeWidget(AUTHUD* Hud)
 	NoZone = FRadialSegment(45,135);
 }
 
+void UUTRadialMenu_Coms::GetComData(FName CommandTag, AActor* ContextActor, AUTPlayerController* Instigator)
+{
+	if (GetWorld() && GetWorld()->GetGameState())
+	{
+		AUTGameMode* DefaultGameMode = Cast<AUTGameMode>(GetWorld()->GetGameState()->GameModeClass.GetDefaultObject());
+		if (DefaultGameMode)
+		{
+			AUTPlayerState* UTPlayerState = UTHUDOwner->UTPlayerOwner->UTPlayerState;
+			if (UTPlayerState)
+			{
+				int32 Switch = DefaultGameMode->GetComSwitch(CommandTag, ContextActor, Instigator, GetWorld());
+				if (Switch != INDEX_NONE)
+				{
+					UUTCharacterVoice* DefaultCharacterVoice = Cast<UUTCharacterVoice>(UTPlayerState->GetCharacterVoiceClass().GetDefaultObject());
+					if (DefaultCharacterVoice)
+					{					
+						ComData.Add(CommandTag, FComData(DefaultCharacterVoice->GetText(Switch, true, UTPlayerState, nullptr, UTPlayerState->LastKnownLocation),Switch));
+						return;
+					}
+				}
+			}
+		}
+	}
+	ComData.Add(CommandTag, FComData(FText::GetEmpty(),INDEX_NONE));
+}
+
+
 void UUTRadialMenu_Coms::BecomeInteractive()
 {
 	Super::BecomeInteractive();
-	UWorld* CurrentWorld = UTHUDOwner->GetWorld();
-	if (CurrentWorld && UTHUDOwner->UTPlayerOwner)
+
+	ComData.Empty();
+
+	ContextActor = nullptr;
+	if (UTHUDOwner && UTHUDOwner->UTPlayerOwner)
 	{
-		UTGameState = CurrentWorld->GetGameState<AUTGameState>();
-		if (UTGameState != nullptr && UTGameState->GameModeClass != nullptr)
+		AUTCharacter* UTCharacter = Cast<AUTCharacter>(UTHUDOwner->UTPlayerOwner->GetUTCharacter());
+		if (UTCharacter)
 		{
-			AUTGameMode* DefaultGameMode = UTGameState->GameModeClass->GetDefaultObject<AUTGameMode>();
-			if (DefaultGameMode != nullptr)
-			{
-				ContextActor = DefaultGameMode->InitializeComMenu(CommandList, CurrentWorld, UTGameState, UTHUDOwner->UTPlayerOwner);
-			}
+			ContextActor = UTCharacter->GetCurrentAimContext();
+
+			GetComData(CommandTags::Intent, ContextActor, UTHUDOwner->UTPlayerOwner);
+			GetComData(CommandTags::Attack, ContextActor, UTHUDOwner->UTPlayerOwner);
+			GetComData(CommandTags::Defend, ContextActor, UTHUDOwner->UTPlayerOwner);
+			GetComData(CommandTags::Distress, ContextActor, UTHUDOwner->UTPlayerOwner);
+			GetComData(CommandTags::Yes, ContextActor, UTHUDOwner->UTPlayerOwner);
+			GetComData(CommandTags::No, ContextActor, UTHUDOwner->UTPlayerOwner);
 		}
 	}
 }
@@ -146,28 +192,53 @@ void UUTRadialMenu_Coms::DrawMenu(FVector2D ScreenCenter, float RenderDelta)
 
 			// Display the text of the current zone
 			FText TextToDisplay = FText::GetEmpty();
-
+			FText ToolTipText = FText::GetEmpty();
 			if (IsYesSelected())
 			{
 				TextToDisplay = NSLOCTEXT("Generic","Yes","YES");
+				ToolTipText = ComData[CommandTags::Yes].ToolTip;
+
 			}
 			else if (IsNoSelected())
 			{
 				TextToDisplay = NSLOCTEXT("Generic","No","NO");;
+				ToolTipText = ComData[CommandTags::No].ToolTip;
 			}
 			else 
 			{
 				switch (CurrentSegment)
 				{
-					case 0 : TextToDisplay = CommandList.Intent.MenuText; break;
-					case 4 : TextToDisplay = CommandList.Attack.MenuText; break;
-					case 1 : TextToDisplay = CommandList.Defend.MenuText; break;
-					case 2 : TextToDisplay = CommandList.Distress.MenuText; break;
-					case 3 : TextToDisplay = FText::FromString(TEXT("Taunts")); break;
+					case 0 : 
+						TextToDisplay = CommandList.Intent.MenuText; 
+						ToolTipText = ComData[CommandTags::Intent].ToolTip;
+						break;
+
+					case 4 : 
+						TextToDisplay = CommandList.Attack.MenuText; 
+						ToolTipText = ComData[CommandTags::Attack].ToolTip;
+						break;
+					case 1 : 
+						TextToDisplay = CommandList.Defend.MenuText; 
+						ToolTipText = ComData[CommandTags::Defend].ToolTip;
+						break;
+					case 2 : 
+						TextToDisplay = CommandList.Distress.MenuText; 
+						ToolTipText = ComData[CommandTags::Distress].ToolTip;
+						break;
+					case 3 : 
+						TextToDisplay = FText::FromString(TEXT("Taunts")); 
+						break;
 				}
+
 			}
 			CaptionTemplate.Text = TextToDisplay;
 			RenderObj_Text(CaptionTemplate);
+		
+			ToolTipTemplate.Text = ToolTipText;
+			if (!ToolTipText.IsEmpty())
+			{
+				RenderObj_Text(ToolTipTemplate);
+			}
 		}
 	}
 }
@@ -205,37 +276,28 @@ void UUTRadialMenu_Coms::UpdateSegment()
 void UUTRadialMenu_Coms::Execute()
 {
 
-	FString ConsoleCommand = TEXT("");
+	if (UTHUDOwner == nullptr || UTHUDOwner->UTPlayerOwner == nullptr) return;
 
-	UWorld* CurrentWorld = UTHUDOwner->GetWorld();
-	if (CurrentWorld && UTHUDOwner->UTPlayerOwner)
+	int32 ComSwitch = INDEX_NONE;
+
+	if (IsYesSelected()) ComSwitch = ComData[CommandTags::Yes].Switch;
+	else if (IsNoSelected()) ComSwitch = ComData[CommandTags::No].Switch;
+	else
 	{
-		UTGameState = CurrentWorld->GetGameState<AUTGameState>();
-		if (UTGameState != nullptr && UTGameState->GameModeClass != nullptr)
+		switch (CurrentSegment)
 		{
-			AUTGameMode* DefaultGameMode = UTGameState->GameModeClass->GetDefaultObject<AUTGameMode>();
-			if (DefaultGameMode != nullptr)
-			{
-				if (IsYesSelected())
-				{
-					DefaultGameMode->ExecuteComMenu(CommandTags::Yes, CurrentWorld, UTGameState, UTHUDOwner->UTPlayerOwner, ContextActor);
-				}
-				else if (IsNoSelected()) 
-				{
-					DefaultGameMode->ExecuteComMenu(CommandTags::No, CurrentWorld, UTGameState, UTHUDOwner->UTPlayerOwner, ContextActor);
-				}
-				else
-				{
-					switch (CurrentSegment)
-					{
-						case 0 : DefaultGameMode->ExecuteComMenu(CommandTags::Intent, CurrentWorld, UTGameState, UTHUDOwner->UTPlayerOwner, ContextActor); break;
-						case 4 : DefaultGameMode->ExecuteComMenu(CommandTags::Attack, CurrentWorld, UTGameState, UTHUDOwner->UTPlayerOwner, ContextActor); break;
-						case 1 : DefaultGameMode->ExecuteComMenu(CommandTags::Defend, CurrentWorld, UTGameState, UTHUDOwner->UTPlayerOwner, ContextActor); break;
-						case 2 : DefaultGameMode->ExecuteComMenu(CommandTags::Distress, CurrentWorld, UTGameState, UTHUDOwner->UTPlayerOwner, ContextActor); break;
-					}
-				}
-			}
+			case 0 : ComSwitch = ComData[CommandTags::Intent].Switch; break;
+			case 4 : ComSwitch = ComData[CommandTags::Attack].Switch; break;
+			case 1 : ComSwitch = ComData[CommandTags::Defend].Switch; break;
+			case 2 : ComSwitch = ComData[CommandTags::Distress].Switch; break;
 		}
+	}
+
+	if (ComSwitch != INDEX_NONE)
+	{
+		AUTCharacter* ContextCharacter = ContextActor != nullptr ? Cast<AUTCharacter>(ContextActor) : nullptr;
+		AUTPlayerState* ContextPlayerState = ContextCharacter != nullptr ? Cast<AUTPlayerState>(ContextCharacter->PlayerState) : nullptr;
+		UTHUDOwner->UTPlayerOwner->ServerSendComsMessage(ContextPlayerState, ComSwitch);
 	}
 }
 

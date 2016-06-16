@@ -13,5 +13,9 @@ class UNREALTOURNAMENT_API AUTFlagRunGame : public AUTCTFRoundGame
 
 	virtual void BroadcastVictoryConditions();
 	virtual float OverrideRespawnTime(TSubclassOf<AUTInventory> InventoryType) override;
+
+public:
+	virtual int32 GetComSwitch(FName CommandTag, AActor* ContextActor, AUTPlayerController* Instigator, UWorld* World);
+
 };
 

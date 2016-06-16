@@ -4778,3 +4778,13 @@ void AUTPlayerController::OnKillcamStart(const FNetworkGUID InFocusActorGUID)
 		}
 	}
 }
+
+bool AUTPlayerController::ServerSendComsMessage_Validate(AUTPlayerState* Target, int32 Switch) { return true; }
+void AUTPlayerController::ServerSendComsMessage_Implementation(AUTPlayerState* Target, int32 Switch)
+{
+	AUTGameMode* UTGameMode = GetWorld()->GetAuthGameMode<AUTGameMode>();
+	if (UTGameMode != nullptr)
+	{
+		UTGameMode->SendComsMessage(this, Target, Switch);
+	}
+}

@@ -2025,6 +2025,10 @@ public:
 public:
 	UFUNCTION(BlueprintCallable, Category = Movement)
 	virtual void BoostSpeedForTime(float SpeedBoostPct, float TimeToBoost);
+	
+	UFUNCTION(BlueprintCallable, Category = Aim)
+	AActor* GetCurrentAimContext();
+
 
 private:
 	FTimerHandle SpeedBoostTimerHandle;

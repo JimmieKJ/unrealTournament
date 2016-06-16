@@ -3,7 +3,7 @@
 // defined as an Actor for the friendly editor tools but is never spawned directly (similar to UTImpactEffect)
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
-
+#include "UTCharacterVoice.h"
 #include "UTCharacterContent.generated.h"
 
 USTRUCT(BlueprintType)
@@ -150,4 +150,10 @@ protected:
 
 	UPROPERTY(BlueprintReadOnly, EditDefaultsOnly)
 	TArray<UMaterialInterface*> TeamMaterials;
+
+public:
+	UPROPERTY(BlueprintReadOnly, EditDefaultsOnly)
+	TSubclassOf<UUTCharacterVoice> CharacterVoice;
+
+
 };
