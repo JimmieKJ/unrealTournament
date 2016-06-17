@@ -28,6 +28,7 @@ AUTCTFCapturePoint::AUTCTFCapturePoint(const FObjectInitializer& ObjectInitializ
 	bIsCapturing = false;
 	bIsPaused = false;
 
+	bAlwaysRelevant = true;
 	PrimaryActorTick.bCanEverTick = true;
 }
 
