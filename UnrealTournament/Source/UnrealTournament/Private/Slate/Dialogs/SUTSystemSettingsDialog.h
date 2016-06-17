@@ -154,6 +154,9 @@ protected:
 
 	virtual TSharedRef<class SWidget> BuildCustomButtonBar() override;
 
+	TArray< TSharedPtr<FString> > VOIPOptions;
+	TSharedPtr<STextBlock> VOIPOptionsText;
+
 	TArray< TSharedPtr<FString> > ResList;
 	TSharedPtr<STextBlock> SelectedRes;
 	TArray< TSharedPtr<FString> > DisplayModeList;
@@ -168,9 +171,6 @@ protected:
 	bool bChangedMatchmakingRegion;
 	TSharedPtr<SCheckBox> KeyboardLightingCheckbox;
 
-	TSharedPtr<SCheckBox> PushToTalkCheckbox;
-
-
 	TArray<TSharedPtr<FString>> BotSpeechList;
 	TSharedPtr<SComboBox<TSharedPtr<FString>>> BotSpeechCombo;
 	TSharedPtr<STextBlock> SelectedBotSpeech;
@@ -179,6 +179,9 @@ protected:
 	TSharedPtr<SCheckBox> HRTFCheckBox;
 	TSharedPtr<SSlider> SoundVolumes[EUTSoundClass::MAX];
 	TSharedPtr<STextBlock> SoundVolumesLabels[EUTSoundClass::MAX];
+
+	TSharedPtr<SComboBox< TSharedPtr<FString> > >PushToTalkCombo;
+
 	void OnSoundVolumeChangedMaster(float NewValue);
 	void OnSoundVolumeChangedMusic(float NewValue);
 	void OnSoundVolumeChangedSFX(float NewValue);
@@ -246,7 +249,7 @@ protected:
 	void OnPPQualitySelected(TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo);
 	void OnEffectQualitySelected(TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo);
 	void OnMatchmakingRegionSelected(TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo);
-
+	void OnVOIPChanged(TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo);
 	void OnAdvancedCheckChanged(ECheckBoxState NewState);
 	void UpdateAdvancedWidgets();
 

@@ -73,7 +73,14 @@ void UUTHUDWidget_Paperdoll::ProcessArmor()
 bool UUTHUDWidget_Paperdoll::ShouldDraw_Implementation(bool bShowScores)
 {
 	AUTGameState* GS = UTHUDOwner->GetWorld()->GetGameState<AUTGameState>();
-	return ((GS == NULL || !GS->HasMatchEnded()) && Super::ShouldDraw_Implementation(bShowScores));
+	bool bHidden = false;
+	if (UTHUDOwner && UTHUDOwner->UTPlayerOwner)
+	{
+		UUTProfileSettings* ProfileSettings=  UTHUDOwner->UTPlayerOwner->GetProfileSettings();
+		bHidden = ProfileSettings ? ProfileSettings->bHidePaperdoll : false;
+	}
+
+	return ( !bHidden && (GS == NULL || !GS->HasMatchEnded()) && Super::ShouldDraw_Implementation(bShowScores) );
 }
 
 void UUTHUDWidget_Paperdoll::Draw_Implementation(float DeltaTime)

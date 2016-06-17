@@ -201,6 +201,11 @@ class UNREALTOURNAMENT_API UUTProfileSettings : public UObject
 	UPROPERTY()
 	float QuickStatsScaleOverride;	
 
+	UPROPERTY()
+	bool bHideDamageIndicators;
+
+	UPROPERTY()
+	bool bHidePaperdoll;
 
 	// the below have been moved to UTProgressionStorage and are only here for backwards compatibility
 private:

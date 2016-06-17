@@ -1633,7 +1633,8 @@ void AUTHUD::ToggleWeaponWheel(bool bShow)
 {
 	bShowWeaponWheel = bShow;
 
-	if (bShow)
+	AUTCharacter* UTCharacter = UTPlayerOwner ? UTPlayerOwner->GetUTCharacter() : nullptr;
+	if (bShow && UTCharacter && !UTCharacter->IsDead())
 	{
 		WeaponWheel->BecomeInteractive();
 	}

@@ -324,6 +324,9 @@ void SUTSystemSettingsDialog::Construct(const FArguments& InArgs)
 							.OnDialogResult(InArgs._OnDialogResult)
 						);
 
+	VOIPOptions.Add(MakeShareable(new FString(NSLOCTEXT("SUTSystemSettingsDialog", "VOIPA", "Open Mic - You always send voice chat to other players").ToString())));
+	VOIPOptions.Add(MakeShareable(new FString(NSLOCTEXT("SUTSystemSettingsDialog", "VOIPB", "Push to Talk - You need to use your Push to Talk key to send voice chat").ToString())));
+
 	if (DialogContent.IsValid())
 	{
 		DialogContent->ClearChildren();
@@ -1004,33 +1007,6 @@ TSharedRef<SWidget> SUTSystemSettingsDialog::BuildAudioTab()
 			]
 		]
 	]
-	+ SVerticalBox::Slot()
-	.AutoHeight()
-	.Padding(FMargin(10.0f, 5.0f, 10.0f, 5.0f))
-	[
-		SNew(SHorizontalBox)
-		+ SHorizontalBox::Slot()
-		.AutoWidth()
-		.VAlign(VAlign_Center)
-		[
-			SNew(SBox)
-			.WidthOverride(650)
-			[
-				SNew(STextBlock)
-				.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
-				.Text(NSLOCTEXT("SUTSystemSettingsDialog", "PushToTalk", "Enable Push to Talk Voice Comns"))
-				.ToolTip(SUTUtils::CreateTooltip(NSLOCTEXT("SUTSystemSettingsDialog", "PushToTalk_Tooltip", "If enabled, you'll need to use PushToTalk in order to use voice communication.")))
-			]
-		]
-		+ SHorizontalBox::Slot()
-		.AutoWidth()
-		.VAlign(VAlign_Center)
-		[
-			SAssignNew(PushToTalkCheckbox, SCheckBox)
-			.Style(SUWindowsStyle::Get(), "UT.Common.CheckBox")
-			.IsChecked(bPushToTalk ? ESlateCheckBoxState::Checked : ESlateCheckBoxState::Unchecked)
-		]
-	]
 
 	+ SVerticalBox::Slot()
 	.AutoHeight()
@@ -1055,6 +1031,39 @@ TSharedRef<SWidget> SUTSystemSettingsDialog::BuildAudioTab()
 			SAssignNew(HRTFCheckBox, SCheckBox)
 			.Style(SUWindowsStyle::Get(), "UT.Common.CheckBox")
 			.IsChecked(UserSettings->IsHRTFEnabled() ? ESlateCheckBoxState::Checked : ESlateCheckBoxState::Unchecked)
+		]
+	]
+	+ SVerticalBox::Slot()
+	.AutoHeight()
+	.Padding(FMargin(10.0f, 50.0f, 10.0f, 5.0f))
+	[
+		SNew(STextBlock)
+		.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
+		.Text(NSLOCTEXT("SUTSystemSettingsDialog", "VOIPTitle", "Voice over IP Settings"))
+	]
+	+ SVerticalBox::Slot()
+	.AutoHeight()
+	.Padding(FMargin(10.0f, 5.0f, 10.0f, 5.0f))
+	[
+
+		SNew(SHorizontalBox)
+		+ SHorizontalBox::Slot()
+		.FillWidth(1.0f)
+		.VAlign(VAlign_Center)
+		[
+			SAssignNew(PushToTalkCombo, SComboBox< TSharedPtr<FString> >)
+			.InitiallySelectedItem(VOIPOptions[bPushToTalk ? 1 : 0])
+			.ComboBoxStyle(SUWindowsStyle::Get(), "UT.ComboBox")
+			.ButtonStyle(SUWindowsStyle::Get(), "UT.Button.White")
+			.OptionsSource(&VOIPOptions)
+			.OnGenerateWidget(this, &SUTDialogBase::GenerateStringListWidget)
+			.OnSelectionChanged(this, &SUTSystemSettingsDialog::OnVOIPChanged)
+			.Content()
+			[
+				SAssignNew(VOIPOptionsText, STextBlock)
+				.Text(FText::FromString(*VOIPOptions[bPushToTalk ? 1 : 0].Get()))
+				.TextStyle(SUWindowsStyle::Get(),"UT.Common.ButtonText.Black")
+			]
 		]
 	];
 }
@@ -1307,9 +1316,11 @@ FReply SUTSystemSettingsDialog::OKClick()
 			bProfileNeedsUpdate = true;
 		}
 
-		if (ProfileSettings->bPushToTalk != PushToTalkCheckbox->IsChecked())
+		bool bWantsPushToTalk = PushToTalkCombo->GetSelectedItem()->Equals(*VOIPOptions[1].Get(),ESearchCase::IgnoreCase);
+
+		if (ProfileSettings->bPushToTalk != bWantsPushToTalk)
 		{
-			ProfileSettings->bPushToTalk = PushToTalkCheckbox->IsChecked();
+			ProfileSettings->bPushToTalk = bWantsPushToTalk;
 			GetPlayerOwner()->PlayerController->ToggleSpeaking(!ProfileSettings->bPushToTalk);
 			bProfileNeedsUpdate = true;
 		}
@@ -1446,5 +1457,11 @@ FText SUTSystemSettingsDialog::GetVSyncText() const
 
 	return NSLOCTEXT("SUTSystemSettingsDialog", "VSync", "VSync");
 }
+
+void SUTSystemSettingsDialog::OnVOIPChanged(TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo)
+{
+	VOIPOptionsText->SetText(*NewSelection.Get());
+}
+
 
 #endif

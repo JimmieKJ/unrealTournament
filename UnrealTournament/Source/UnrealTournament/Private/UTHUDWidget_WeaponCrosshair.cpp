@@ -87,7 +87,7 @@ void UUTHUDWidget_WeaponCrosshair::Draw_Implementation(float DeltaTime)
 		}
 	}
 
-	if (UTHUDOwner)
+	if (UTHUDOwner && UTHUDOwner->UTPlayerOwner && (UTHUDOwner->UTPlayerOwner->GetProfileSettings() == nullptr || !UTHUDOwner->UTPlayerOwner->GetProfileSettings()->bHideDamageIndicators) )
 	{
 		// Display hit/kill indicators...		
 		if (UTHUDOwner->LastConfirmedHitTime != LastHitTime)
