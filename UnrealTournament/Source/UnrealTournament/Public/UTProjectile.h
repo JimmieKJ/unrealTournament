@@ -43,7 +43,7 @@ struct FRepUTProjMovement
 		return true;
 	}
 
-	bool operator==(const FRepUTMovement& Other) const
+	bool operator==(const FRepUTProjMovement& Other) const
 	{
 		if (LinearVelocity != Other.LinearVelocity)
 		{
@@ -62,7 +62,7 @@ struct FRepUTProjMovement
 		return true;
 	}
 
-	bool operator!=(const FRepUTMovement& Other) const
+	bool operator!=(const FRepUTProjMovement& Other) const
 	{
 		return !(*this == Other);
 	}
