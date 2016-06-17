@@ -393,16 +393,21 @@ int32 FGeomObject::GetObjectIndex()
 
 void FGeomObject::SendToSource()
 {
-	for( int32 v = 0 ; v < VertexPool.Num() ; ++v )
+	for (int32 v = 0; v < VertexPool.Num(); ++v)
 	{
 		FGeomVertex* gv = &VertexPool[v];
 
-		for( int32 x = 0 ; x < gv->ActualVertexIndices.Num() ; ++x )
+		for (int32 x = 0; x < gv->ActualVertexIndices.Num(); ++x)
 		{
-			FVector* vtx = gv->GetActualVertex( gv->ActualVertexIndices[x] );
-			vtx->X = gv->X;
-			vtx->Y = gv->Y;
-			vtx->Z = gv->Z;
+			const TArray<FPoly>& Element = gv->GetParentObject()->GetActualBrush()->Brush->Polys->Element;
+			FPolyVertexIndex& PVI = gv->ActualVertexIndices[x];
+			if (ensure(PVI.PolyIndex < Element.Num() && PVI.VertexIndex < Element[PVI.PolyIndex].Vertices.Num()))
+			{
+				FVector* vtx = gv->GetActualVertex(PVI);
+				vtx->X = gv->X;
+				vtx->Y = gv->Y;
+				vtx->Z = gv->Z;
+			}
 		}
 	}
 }
