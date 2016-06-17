@@ -95,7 +95,7 @@ void UPartyContext::HandlePartyJoined(UPartyGameState* PartyState)
 
 		// If we're playing an offline game, quit back to main menu
 		UUTLocalPlayer* LocalPlayer = GetOwningPlayer<UUTLocalPlayer>();
-		if (LocalPlayer && !LocalPlayer->IsMenuGame() && LocalPlayer->GetWorld()->GetNetMode() == NM_Standalone)
+		if (LocalPlayer && !LocalPlayer->IsPartyLeader() && !LocalPlayer->IsMenuGame() && LocalPlayer->GetWorld()->GetNetMode() == NM_Standalone)
 		{
 			LocalPlayer->ReturnToMainMenu();
 		}
