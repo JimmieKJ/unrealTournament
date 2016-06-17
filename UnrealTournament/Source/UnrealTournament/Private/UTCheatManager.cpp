@@ -550,6 +550,7 @@ void UUTCheatManager::DebugAchievement(FString AchievementName)
 	if (LP)
 	{
 		LP->AwardAchievement(FName(*AchievementName));
+		LP->SaveProgression();
 	}
 #endif
 }
