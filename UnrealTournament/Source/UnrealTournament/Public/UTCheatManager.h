@@ -95,4 +95,7 @@ class UNREALTOURNAMENT_API UUTCheatManager : public UCheatManager
 
 	UFUNCTION(exec)
 	void TestPaths(bool bHighJumps, bool bWallDodges, bool bLifts, bool bLiftJumps);
+
+	UFUNCTION(Exec)
+	void DebugAchievement(FString AchievementName);
 };

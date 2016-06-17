@@ -542,3 +542,14 @@ void UUTCheatManager::CheatShowRankedReconnectDialog()
 	}
 #endif
 }
+
+void UUTCheatManager::DebugAchievement(FString AchievementName)
+{
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+	UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(GetOuterAPlayerController()->Player);
+	if (LP)
+	{
+		LP->AwardAchievement(FName(*AchievementName));
+	}
+#endif
+}
