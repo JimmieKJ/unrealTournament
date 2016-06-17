@@ -65,7 +65,7 @@ void AUTCTFFlagBaseCapturePoint::OnCapturePointFinished()
 			}
 		}
 
-		if (UTCaptureChar)
+		if (UTCaptureChar && DeliveredFlag)
 		{
 			DeliveredFlag->Score(FName(TEXT("FlagCapture")), UTCaptureChar, Cast<AUTPlayerState>(UTCaptureChar->PlayerState));
 			DeliveredFlag->SendHome();
@@ -79,6 +79,11 @@ void AUTCTFFlagBaseCapturePoint::Reset_Implementation()
 {
 	bIsCapturePointActive = false;
 	DeliveredFlag = nullptr;
+
+	if (CapturePoint)
+	{
+		CapturePoint->bIsActive = false;
+	}
 }
 
 void AUTCTFFlagBaseCapturePoint::OnCapturePointActivated_Implementation()
