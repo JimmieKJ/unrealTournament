@@ -98,4 +98,20 @@ class UNREALTOURNAMENT_API UUTCheatManager : public UCheatManager
 
 	UFUNCTION(Exec)
 	void DebugAchievement(FString AchievementName);
+
+	/** On any CTF mode, have the red team cap a flag */
+	UFUNCTION(exec)
+	void RedFlagCap();
+
+	/** On any CTF mode, have the blue team cap a flag */
+	UFUNCTION(exec)
+	void BlueFlagCap();
+
+	UFUNCTION(exec)
+	void UnlimitedPowerupUses();
+
+protected:
+
+	/** Used to cap the flag for the specified team number*/
+	void TeamFlagCap(int32 TeamNumber);
 };

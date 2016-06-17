@@ -553,3 +553,38 @@ void UUTCheatManager::DebugAchievement(FString AchievementName)
 	}
 #endif
 }
+
+void UUTCheatManager::RedFlagCap()
+{
+	const int32 RedTeamNumber = 0;
+	TeamFlagCap(RedTeamNumber);
+}
+
+void UUTCheatManager::BlueFlagCap()
+{
+	const int32 BlueTeamNumber = 1;
+	TeamFlagCap(BlueTeamNumber);
+}
+
+void UUTCheatManager::TeamFlagCap(int32 TeamNumber)
+{
+	AUTPlayerController* UTPlayerController = Cast<AUTPlayerController>(GetOuterAPlayerController());
+	AUTCTFBaseGame* CTFGameMode = GetWorld()->GetAuthGameMode<AUTCTFBaseGame>();
+	if (CTFGameMode && UTPlayerController)
+	{
+		AUTCTFGameState* CTFGameState = Cast<AUTCTFGameState>(CTFGameMode->GameState);
+		if (CTFGameState && CTFGameState->GetFlagBase(TeamNumber))
+		{
+			CTFGameMode->ScoreObject(CTFGameState->GetFlagBase(TeamNumber)->MyFlag, UTPlayerController->GetUTCharacter(), UTPlayerController->UTPlayerState, FName("FlagCapture"));
+		}
+	}
+}
+
+void UUTCheatManager::UnlimitedPowerupUses()
+{
+	AUTPlayerController* UTPlayerController = Cast<AUTPlayerController>(GetOuterAPlayerController());
+	if (UTPlayerController && UTPlayerController->UTPlayerState)
+	{
+		UTPlayerController->UTPlayerState->SetRemainingBoosts(255);
+	}
+}
