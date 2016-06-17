@@ -23,7 +23,7 @@ class UNREALTOURNAMENT_API AUTGameObjective : public AActor, public IUTPathBuild
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = GameObject)
 	float BestViewYaw;
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Team)
+	UPROPERTY(EditAnywhere, replicated, BlueprintReadOnly, Category = Team)
 	uint8 TeamNum;
 
 	/** defense points for the AI to consider when defending this objective */

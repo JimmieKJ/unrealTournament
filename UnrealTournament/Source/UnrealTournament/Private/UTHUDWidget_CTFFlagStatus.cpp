@@ -76,7 +76,7 @@ void UUTHUDWidget_CTFFlagStatus::DrawIndicators(AUTCTFGameState* GameState, FVec
 			AUTPlayerState* FlagHolder = GameState->GetFlagHolder(Team);
 			AUTCTFFlagBase* FlagBase = GameState->GetFlagBase(Team);
 			AUTCTFFlag* Flag = FlagBase ? Cast<AUTCTFFlag>(FlagBase->GetCarriedObject()) : nullptr;
-			if (TeamInfo && FlagBase && Flag)
+			if (TeamInfo && FlagBase && Flag && (Flag->ObjectState != CarriedObjectState::Delivered))
 			{
 				DrawFlagStatus(GameState, PlayerViewPoint, PlayerViewRotation, TeamInfo->GetTeamNum(), TeamPositions[Team], FlagBase, Flag, FlagHolder);
 				DrawFlagWorld(GameState, PlayerViewPoint, PlayerViewRotation, TeamInfo->GetTeamNum(), FlagBase, Flag, FlagHolder);

@@ -25,6 +25,9 @@ class UNREALTOURNAMENT_API AUTCTFFlagBaseCapturePoint : public AUTCTFFlagBase, p
 	UFUNCTION(BlueprintCallable, BlueprintNativeEvent, Category = Game)
 	void Reset() override;
 
+	UFUNCTION(BlueprintNativeEvent, Category = CapturePoint)
+	void OnCapturePointActivated();
+
 protected:
 	UPROPERTY()
 	AUTCTFFlag* DeliveredFlag;

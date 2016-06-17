@@ -33,12 +33,15 @@ void AUTCTFFlagBaseCapturePoint::OnOverlapBegin(AActor* OtherActor, UPrimitiveCo
 					CharFlag->bAnyoneCanPickup = false;
 					CharFlag->bGradualAutoReturn = false;
 					Character->DropCarriedObject();
-					CharFlag->ObjectState = CarriedObjectState::Delivered;
+					CharFlag->ChangeState(CarriedObjectState::Delivered);
+
+					ClearDefenseEffect();
 
 					if (CapturePoint)
 					{
 						CapturePoint->bIsActive = true;
 						CapturePoint->OnCaptureCompletedDelegate.BindDynamic(this, &AUTCTFFlagBaseCapturePoint::OnCapturePointFinished);
+						OnCapturePointActivated();
 					}
 				}
 			}
@@ -67,6 +70,8 @@ void AUTCTFFlagBaseCapturePoint::OnCapturePointFinished()
 			DeliveredFlag->Score(FName(TEXT("FlagCapture")), UTCaptureChar, Cast<AUTPlayerState>(UTCaptureChar->PlayerState));
 			DeliveredFlag->SendHome();
 		}
+
+		CapturePoint->bIsActive = false;
 	}
 }
 
@@ -74,4 +79,9 @@ void AUTCTFFlagBaseCapturePoint::Reset_Implementation()
 {
 	bIsCapturePointActive = false;
 	DeliveredFlag = nullptr;
+}
+
+void AUTCTFFlagBaseCapturePoint::OnCapturePointActivated_Implementation()
+{
+
 }

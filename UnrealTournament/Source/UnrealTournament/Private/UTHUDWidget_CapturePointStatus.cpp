@@ -53,23 +53,23 @@ void UUTHUDWidget_CapturePointStatus::Draw_Implementation(float DeltaTime)
 
 void UUTHUDWidget_CapturePointStatus::DrawUnlockedCapturePoint(AUTCTFCapturePoint* CapturePoint)
 {
-	FVector ScreenPosition = UnlockedPointStartingScreenPosition + (AdditionalUnlockedPointScreenPositionOffset * NumLockedPoints);
-	FVector DrawBarPosition = FVector::ZeroVector;
-	DrawBarPosition.X = ScreenPosition.X * Canvas->ClipX;
-	DrawBarPosition.Y = ScreenPosition.Y * Canvas->ClipY;
-	
-	RenderObj_TextureAt(UnlockedPointBackground, DrawBarPosition.X, DrawBarPosition.Y, BarWidth, BarHeight);
+	ScreenPosition = FVector2D(0.5f, 0.10f);
+	ScreenPosition += AdditionalUnlockedPointScreenPositionOffset * (NumUnlockedPoints - 1);
+	float FrontOfBackgroundOffset = -(UnlockedPointBackground.GetWidth() / 2);
+	float TopOfBackgroundOffset = -(UnlockedPointBackground.GetHeight() / 2);
+
+	RenderObj_TextureAt(UnlockedPointBackground, 0.f, 0.f, UnlockedPointBackground.GetWidth(), UnlockedPointBackground.GetHeight());
 
 	UnlockedPointFillTexture.RenderColor = GetAttackingTeamColor(CapturePoint->TeamNum);
-	RenderObj_TextureAt(UnlockedPointFillTexture, DrawBarPosition.X, DrawBarPosition.Y, BarWidth * CapturePoint->CapturePercent, BarHeight);
+	RenderObj_TextureAt(UnlockedPointFillTexture, FrontOfBackgroundOffset, TopOfBackgroundOffset, UnlockedPointBackground.GetWidth() * CapturePoint->CapturePercent, UnlockedPointBackground.GetHeight());
 
 	for (float LockPercent : CapturePoint->DrainLockSegments)
 	{
-		const float LockX = BarWidth * LockPercent;
+		const float LockX = UnlockedPointBackground.GetWidth() * LockPercent;
 		
 		FVector DrawPipPosition = FVector::ZeroVector;
-		DrawPipPosition.X = (ScreenPosition.X * Canvas->ClipX) + LockX - (UnlockedPointLockedPip.GetWidth() / 2);
-		DrawPipPosition.Y = (ScreenPosition.Y * Canvas->ClipY) + UnlockPipOffset - (UnlockedPointLockedPip.GetHeight() / 2);
+		DrawPipPosition.X = FrontOfBackgroundOffset + LockX - (UnlockedPointLockedPip.GetWidth() / 2);
+		DrawPipPosition.Y = TopOfBackgroundOffset + UnlockPipOffset - (UnlockedPointLockedPip.GetHeight() / 2);
 
 		//Colorize already passed lock points, but not previous points
 		if (CapturePoint->CapturePercent >= LockPercent)

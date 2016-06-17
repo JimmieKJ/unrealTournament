@@ -22,20 +22,17 @@ class UNREALTOURNAMENT_API UUTHUDWidget_CapturePointStatus : public UUTHUDWidget
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
 	FHUDRenderObject_Texture LockedPointTexture;
 	
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
-	float BarWidth;
+	//UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
+	//float BarWidth;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
-	float BarHeight;
+	//UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
+	//float BarHeight;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
 	float UnlockPipOffset;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
-	FVector UnlockedPointStartingScreenPosition;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
-	FVector AdditionalUnlockedPointScreenPositionOffset;
+	FVector2D AdditionalUnlockedPointScreenPositionOffset;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
 	FVector LockedPointStartingScreenPosition;
