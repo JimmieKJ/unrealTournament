@@ -1874,7 +1874,7 @@ void FTickFunction::QueueTickFunctionParallel(const struct FTickContext& TickCon
 			QUICK_SCOPE_CYCLE_COUNTER(STAT_FTickFunction_QueueTickFunctionParallel_Spin);
 			while (*TickQueuedGFrameCounterPtr != GFrameCounter)
 			{
-				FPlatformProcess::SleepNoStats(0.001f);
+				FPlatformProcess::SleepNoStats(0);
 			}
 		}
 	}
