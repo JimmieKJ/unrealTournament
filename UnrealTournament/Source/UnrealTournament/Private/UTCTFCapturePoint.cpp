@@ -30,6 +30,7 @@ AUTCTFCapturePoint::AUTCTFCapturePoint(const FObjectInitializer& ObjectInitializ
 
 	bAlwaysRelevant = true;
 	PrimaryActorTick.bCanEverTick = true;
+	bHasRunOnCaptureComplete = false;
 }
 
 void AUTCTFCapturePoint::BeginPlay()
@@ -45,6 +46,8 @@ void AUTCTFCapturePoint::BeginPlay()
 		}
 		return true;
 	});
+
+	bHasRunOnCaptureComplete = false;
 }
 
 void AUTCTFCapturePoint::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
@@ -111,6 +114,18 @@ void AUTCTFCapturePoint::Tick(float DeltaTime)
 			}
 		}
 	}
+	
+	if (!bHasRunOnCaptureComplete && (CapturePercent >= 1.0f))
+	{
+		bHasRunOnCaptureComplete = true;
+		OnCaptureComplete();
+
+		if (OnCaptureCompletedDelegate.IsBound())
+		{
+			OnCaptureCompletedDelegate.Execute();
+		}
+	}
+
 	Super::Tick(DeltaTime);
 }
 
@@ -138,15 +153,12 @@ void AUTCTFCapturePoint::AdvanceCapturePercent(float DeltaTime)
 		if (CapturePercent >= 1.0f)
 		{
 			CapturePercent = 1.0f; // clamp to 1.0f
-
-			OnCaptureComplete();
-
-			if (OnCaptureCompletedDelegate.IsBound())
-			{
-				OnCaptureCompletedDelegate.Execute();
-			}
 		}
 	}
+}
+
+void AUTCTFCapturePoint::OnCaptureComplete_Implementation()
+{
 }
 
 void AUTCTFCapturePoint::DecreaseCapturePercent(float DeltaTime)
@@ -228,10 +240,6 @@ void AUTCTFCapturePoint::CalculateOccupyingCharacterCounts()
 	}
 }
 
-void AUTCTFCapturePoint::OnCaptureComplete_Implementation()
-{
-}
-
 const TArray<AUTCharacter*>& AUTCTFCapturePoint::GetCharactersInCapturePoint()
 {
 	return CharactersInCapturePoint;
@@ -243,7 +251,10 @@ void AUTCTFCapturePoint::Reset_Implementation()
 
 	bIsCapturing = false;
 	bIsPaused = false;
+	bIsDraining = false;
 
 	DefendersInCapsule = 0;
 	AttackersInCapsule = 0;
+
+	bHasRunOnCaptureComplete = false;
 }

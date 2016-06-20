@@ -95,4 +95,6 @@ protected:
 	UPROPERTY()
 	TArray<AUTCharacter*> CharactersInCapturePoint;
 
+	UPROPERTY()
+	bool bHasRunOnCaptureComplete;
 };
