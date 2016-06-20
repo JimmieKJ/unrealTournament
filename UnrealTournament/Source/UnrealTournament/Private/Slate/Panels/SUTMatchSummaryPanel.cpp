@@ -346,7 +346,7 @@ void SUTMatchSummaryPanel::Construct(const FArguments& InArgs, TWeakObjectPtr<UU
 					[
 						SNew(SUTButton)
 						.ButtonStyle(SUTStyle::Get(),"UT.SimpleButton.Medium")
-						.ToolTip(SUTUtils::CreateTooltip(NSLOCTEXT("SUTMatchSummaryPanel","TeamViewRed","View Blue Team")))
+						.ToolTip(SUTUtils::CreateTooltip(NSLOCTEXT("SUTMatchSummaryPanel","TeamViewBlue","View Blue Team")))
 						.OnClicked(this, &SUTMatchSummaryPanel::ViewBlueTeam)
 						.Visibility(this, &SUTMatchSummaryPanel::GetTeamViewVis)
 						.Content()
