@@ -102,7 +102,7 @@ namespace UnrealTournamentGame.Automation
 			string GceMachineType = "n1-standard-4";
 			if (AppName == UnrealTournamentBuild.UnrealTournamentAppName.UnrealTournamentDev)
 			{
-				GceMachineType = "n1-standard=32";
+				GceMachineType = "n1-standard-32";
 			}
 
 			/* Hubs */
