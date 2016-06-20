@@ -511,14 +511,7 @@ void AUTProjectile::GatherCurrentMovement()
 		// If we are attached, don't replicate absolute position
 		if (RootComponent->AttachParent != NULL)
 		{
-			// Networking for attachments assumes the RootComponent of the AttachParent actor. 
-			// If that's not the case, we can't update this, as the client wouldn't be able to resolve the Component and would detach as a result.
-			if (GetAttachmentReplication().AttachParent != NULL)
-			{
-				AttachmentReplication.LocationOffset = RootComponent->RelativeLocation;
-				AttachmentReplication.RotationOffset = RootComponent->RelativeRotation;
-				AttachmentReplication.RelativeScale3D = RootComponent->RelativeScale3D;
-			}
+			Super::GatherCurrentMovement();
 		}
 		else
 		{

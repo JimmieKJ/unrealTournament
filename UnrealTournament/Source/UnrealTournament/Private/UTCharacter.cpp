@@ -5509,6 +5509,7 @@ void AUTCharacter::PreReplication(IRepChangedPropertyTracker & ChangedPropertyTr
 		}
 		else
 		{
+			GatherCurrentMovement();
 			DOREPLIFETIME_ACTIVE_OVERRIDE(AUTCharacter, UTReplicatedMovement, false);
 			DOREPLIFETIME_ACTIVE_OVERRIDE(AActor, ReplicatedMovement, bReplicateMovement);
 		}
@@ -5598,13 +5599,7 @@ bool AUTCharacter::GatherUTMovement()
 		// If we are attached, don't replicate absolute position
 		if (RootComponent->AttachParent != NULL)
 		{
-			// Networking for attachments assumes the RootComponent of the AttachParent actor. 
-			// If that's not the case, we can't update this, as the client wouldn't be able to resolve the Component and would detach as a result.
-			if (GetAttachmentReplication().AttachParent != NULL)
-			{
-				AttachmentReplication.LocationOffset = RootComponent->RelativeLocation;
-				AttachmentReplication.RotationOffset = RootComponent->RelativeRotation;
-			}
+			return false;
 		}
 		else
 		{
