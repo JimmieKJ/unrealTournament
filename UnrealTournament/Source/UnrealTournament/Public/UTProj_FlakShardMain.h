@@ -27,6 +27,10 @@ class UNREALTOURNAMENT_API AUTProj_FlakShardMain : public AUTProj_FlakShard
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Damage)
 	float MaxBonusTime;
 
+	/** Timeout for ShreddedReward */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Damage)
+		float MaxShreddedTime;
+
 	/** camera shake played on direct short range (bonus applies) hit that kills the target */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Effects)
 	TSubclassOf<class UCameraShake> ShortRangeKillShake;
