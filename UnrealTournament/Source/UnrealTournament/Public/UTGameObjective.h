@@ -23,7 +23,7 @@ class UNREALTOURNAMENT_API AUTGameObjective : public AActor, public IUTPathBuild
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = GameObject)
 	float BestViewYaw;
 
-	UPROPERTY(EditAnywhere, replicated, BlueprintReadOnly, Category = Team)
+	UPROPERTY(EditAnywhere, Replicated, BlueprintReadOnly, Category = Team)
 	uint8 TeamNum;
 
 	/** defense points for the AI to consider when defending this objective */
@@ -75,9 +75,10 @@ class UNREALTOURNAMENT_API AUTGameObjective : public AActor, public IUTPathBuild
 
 	virtual void SetTeamForSideSwap_Implementation(uint8 NewTeamNum) override
 	{
-		TeamNum = NewTeamNum;
 		if (Role == ROLE_Authority)
 		{
+			TeamNum = NewTeamNum;
+
 			if (CarriedObject != NULL)
 			{
 				CarriedObject->Destroy();

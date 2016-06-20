@@ -20,6 +20,9 @@ public:
 
 	virtual void SetTeamForSideSwap_Implementation(uint8 NewTeamNum)
 	{
-		TeamNum = NewTeamNum;
+		if (Role == ROLE_Authority)
+		{
+			TeamNum = NewTeamNum;
+		}
 	}
 };
