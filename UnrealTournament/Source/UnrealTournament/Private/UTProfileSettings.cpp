@@ -119,6 +119,30 @@ void UUTProfileSettings::VersionFixup()
 		ActionMappings.AddUnique(PushToTalk);
 	}
 
+	if (SettingsRevisionNum < COMS_MENU_FIXUP_PROFILESETTINGS_VERSION)
+	{
+		// Look to see if we already have a coms menu setup
+
+		bool bFound = false;
+		for (int32 i=0; i < ActionMappings.Num();i++)
+		{
+			if (ActionMappings[i].ActionName == FName(TEXT("ToggleComMenu")))
+			{
+				bFound = true;
+				ActionMappings[i].Key = EKeys::V;
+				break;
+			}
+		}
+
+		if (!bFound)
+		{
+			FInputActionKeyMapping ComsMenuKey;
+			ComsMenuKey.ActionName = FName(TEXT("ToggleComMenu"));
+			ComsMenuKey.Key = EKeys::V;
+			ActionMappings.AddUnique(ComsMenuKey);
+		}
+	}
+
 	// The format has changed during Dev versions.  So in case some people have written out unlocks, clear them here.
 	if (SettingsRevisionNum <= CHALLENGE_FIXUP_VERSION)
 	{
