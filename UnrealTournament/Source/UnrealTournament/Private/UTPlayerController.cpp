@@ -2284,12 +2284,25 @@ void AUTPlayerController::OnRep_HUDClass()
 
 void AUTPlayerController::OnShowScores()
 {
-	ToggleScoreboard(true);
+	AUTGameState* GS = Cast<AUTGameState>(GetWorld()->GameState);
+	if (!GS || (GS->IsMatchInProgress() && !GS->IsMatchIntermission()))
+	{
+		ToggleScoreboard(true);
+	}
+	else
+	{
+		// toggles on and off during intermissions
+		ToggleScoreboard(!MyUTHUD->bShowScores);
+	}
 }
 
 void AUTPlayerController::OnHideScores()
 {
-	ToggleScoreboard(false);
+	AUTGameState* GS = Cast<AUTGameState>(GetWorld()->GameState);
+	if (!GS || (GS->IsMatchInProgress() && !GS->IsMatchIntermission()))
+	{
+		ToggleScoreboard(false);
+	}
 }
 
 AUTCharacter* AUTPlayerController::GetUTCharacter()
