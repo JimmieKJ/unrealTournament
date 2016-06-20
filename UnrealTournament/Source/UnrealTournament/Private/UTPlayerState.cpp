@@ -1054,6 +1054,7 @@ void AUTPlayerState::CopyProperties(APlayerState* PlayerState)
 		PS->Taunt2Class = Taunt2Class;
 		PS->bSkipELO = bSkipELO;
 		PS->RemainingBoosts = RemainingBoosts;
+		PS->RemainingLives = RemainingLives;
 		PS->BoostRechargeTimeRemaining = BoostRechargeTimeRemaining;
 		if (PS->StatManager)
 		{
