@@ -31,6 +31,7 @@ AUTCTFFlag::AUTCTFFlag(const FObjectInitializer& ObjectInitializer)
 	GetMesh()->SetWorldScale3D(FVector(FlagWorldScale));
 	GetMesh()->bEnablePhysicsOnDedicatedServer = false;
 	MovementComponent->ProjectileGravityScale=1.3f;
+	MovementComponent->bKeepPhysicsVolumeWhenStopped = true;
 	MessageClass = UUTCTFGameMessage::StaticClass();
 	bAlwaysRelevant = true;
 	bTeamPickupSendsHome = true;

@@ -25,7 +25,6 @@ AUTCarriedObject::AUTCarriedObject(const FObjectInitializer& ObjectInitializer)
 	MovementComponent->HitZStopSimulatingThreshold = 0.7f;
 	MovementComponent->MaxSpeed = 5000.0f; // needed for gravity
 	MovementComponent->InitialSpeed = 360.0f;
-	MovementComponent->SetIsReplicated(true);
 	MovementComponent->OnProjectileStop.AddDynamic(this, &AUTCarriedObject::OnStop);
 
 	SetReplicates(true);
@@ -164,6 +163,7 @@ void AUTCarriedObject::DetachFrom(USkeletalMeshComponent* AttachToMesh)
 		Collision->SetRelativeScale3D(FVector(1.0f,1.0f,1.0f));
 		DetachRootComponentFromParent(true);
 		ClientUpdateAttachment(false);
+		Collision->bShouldUpdatePhysicsVolume = true;
 	}
 }
 
@@ -204,6 +204,7 @@ void AUTCarriedObject::ClientUpdateAttachment(bool bNowAttached)
 			HolderTrail->DeactivateSystem();
 			HolderTrail = nullptr;
 		}
+		Collision->bShouldUpdatePhysicsVolume = true;
 	}
 }
 
@@ -270,6 +271,7 @@ void AUTCarriedObject::OnRep_Moving()
 	{
 		MovementComponent->StopMovementImmediately();
 		MovementComponent->SetUpdatedComponent(NULL);
+		Collision->bShouldUpdatePhysicsVolume = true;
 	}
 }
 
@@ -278,11 +280,12 @@ void AUTCarriedObject::OnHolderChanged()
 	if (Holder != NULL)
 	{
 		Collision->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-	
+		Collision->bShouldUpdatePhysicsVolume = false;
 	}
 	else
 	{
 		Collision->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
+		Collision->bShouldUpdatePhysicsVolume = true;
 	}
 
 	OnCarriedObjectHolderChangedDelegate.Broadcast(this);
@@ -573,6 +576,7 @@ void AUTCarriedObject::TossObject(AUTCharacter* ObjectHolder)
 			MovementComponent->StopMovementImmediately();
 			MovementComponent->SetUpdatedComponent(NULL);
 		}
+		Collision->bShouldUpdatePhysicsVolume = true;
 	}
 	if (ObjectState == CarriedObjectState::Dropped)
 	{
@@ -618,6 +622,7 @@ bool AUTCarriedObject::TeleportTo(const FVector& DestLocation, const FRotator& D
 	Collision->SetCollisionObjectType(COLLISION_TELEPORTING_OBJECT);
 	bool bResult = Super::TeleportTo(DestLocation, DestRotation, bIsATest, bNoCheck);
 	Collision->SetCollisionObjectType(SavedObjectType);
+	Collision->bShouldUpdatePhysicsVolume = true;
 	Collision->UpdateOverlaps(); // make sure collision object type changes didn't mess with our overlaps
 	return bResult;
 }
@@ -731,27 +736,27 @@ void AUTCarriedObject::SendHome()
 			SetActorLocationAndRotation(PastPositions[PastPositions.Num() - 1].Location, GetActorRotation());
 			if (ObjectState != CarriedObjectState::Held)
 			{
-				PastPositions.RemoveAt(PastPositions.Num() - 1);
+			PastPositions.RemoveAt(PastPositions.Num() - 1);
+			if (PastPositions.Num() > 0)
+			{
+				if ((GetActorLocation() - PastPositions[PastPositions.Num() - 1].Location).Size() < MinGradualReturnDist)
+				{
+					PastPositions.RemoveAt(PastPositions.Num() - 1);
+				}
 				if (PastPositions.Num() > 0)
 				{
-					if ((GetActorLocation() - PastPositions[PastPositions.Num() - 1].Location).Size() < MinGradualReturnDist)
-					{
-						PastPositions.RemoveAt(PastPositions.Num() - 1);
-					}
-					if (PastPositions.Num() > 0)
-					{
-						PutGhostFlagAt(PastPositions[PastPositions.Num() - 1]);
-						bWantsGhostFlag = true;
-					}
+					PutGhostFlagAt(PastPositions[PastPositions.Num() - 1]);
+					bWantsGhostFlag = true;
 				}
-				AUTGameState* GameState = GetWorld()->GetGameState<AUTGameState>();
-				if ((GetWorld()->GetTimeSeconds() - LastDroppedMessageTime > AutoReturnTime - 2.f) && GameState && !GameState->IsMatchIntermission() && !GameState->HasMatchEnded())
-				{
-					LastDroppedMessageTime = GetWorld()->GetTimeSeconds();
-					SendGameMessage(3, NULL, NULL);
-				}
-				OnObjectStateChanged();
-				ForceNetUpdate();
+			}
+			AUTGameState* GameState = GetWorld()->GetGameState<AUTGameState>();
+			if ((GetWorld()->GetTimeSeconds() - LastDroppedMessageTime > AutoReturnTime - 2.f) && GameState && !GameState->IsMatchIntermission() && !GameState->HasMatchEnded())
+			{
+				LastDroppedMessageTime = GetWorld()->GetTimeSeconds();
+				SendGameMessage(3, NULL, NULL);
+			}
+			OnObjectStateChanged();
+			ForceNetUpdate();
 			}
 			if (!bWantsGhostFlag)
 			{
@@ -954,7 +959,7 @@ FText AUTCarriedObject::GetHUDStatusMessage(AUTHUD* HUD)
 	}
 	if (GV == nullptr)
 	{
-		GV = HoldingPawn ? Cast<AUTGameVolume>(HoldingPawn->GetPawnPhysicsVolume()) : Cast<AUTGameVolume>(MovementComponent->GetPhysicsVolume());
+		GV = HoldingPawn ? Cast<AUTGameVolume>(HoldingPawn->GetPawnPhysicsVolume()) : Cast<AUTGameVolume>(Collision->GetPhysicsVolume());
 	}
 	LastLocationName = (GV && !GV->VolumeName.IsEmpty()) ? GV->VolumeName : LastLocationName;
 	return LastLocationName;
