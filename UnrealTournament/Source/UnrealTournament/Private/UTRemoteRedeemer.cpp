@@ -8,6 +8,7 @@
 #include "UTHUD.h"
 #include "StatNames.h"
 #include "UTWorldSettings.h"
+#include "UTProj_WeaponScreen.h"
 
 AUTRemoteRedeemer::AUTRemoteRedeemer(const class FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -181,8 +182,16 @@ void AUTRemoteRedeemer::OnOverlapBegin(AActor* OtherActor, UPrimitiveComponent* 
 		{
 			if (Cast<AUTProjectile>(OtherActor))
 			{
-				OnShotDown();
-				RedeemerDenied(OtherActor->GetInstigatorController());
+				if (Cast<AUTProj_WeaponScreen>(OtherActor))
+				{
+					// rather than customtimedilation, just cutting velocity for now
+					ProjectileMovement->Velocity = FVector::ZeroVector;
+				}
+				else
+				{
+					OnShotDown();
+					RedeemerDenied(OtherActor->GetInstigatorController());
+				}
 			}
 			else
 			{
