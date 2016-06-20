@@ -54,9 +54,9 @@ void UUTDeathMessage::ClientReceive(const FClientReceiveData& ClientData) const
 				if (LocalPlayerState != nullptr && (LocalPlayerState == ClientData.RelatedPlayerState_1 || LocalPlayerState == ClientData.RelatedPlayerState_2))
 				{
 					//Spectator kill message
-					if ((ClientData.RelatedPlayerState_1 != ClientData.RelatedPlayerState_2) && (ClientData.RelatedPlayerState_1 != NULL))
+					if ((ClientData.RelatedPlayerState_1 != ClientData.RelatedPlayerState_2) && ((ClientData.RelatedPlayerState_1 != NULL) || (ClientData.RelatedPlayerState_2 != LocalPlayerState)))
 					{
-						if (LocalPlayerState && ClientData.RelatedPlayerState_1 == LocalPlayerState)
+						if (ClientData.RelatedPlayerState_1 == LocalPlayerState)
 						{
 							UTHUD->ReceiveLocalMessage(
 								UUTKillerMessage::StaticClass(),
@@ -66,7 +66,7 @@ void UUTDeathMessage::ClientReceive(const FClientReceiveData& ClientData) const
 								GetDefault<UUTKillerMessage>()->ResolveMessage(-99, ClientData.RelatedPlayerState_1 == LocalPlayerState, ClientData.RelatedPlayerState_1, ClientData.RelatedPlayerState_2, ClientData.OptionalObject),
 								ClientData.OptionalObject);
 						}
-						else if (LocalPlayerState && ClientData.RelatedPlayerState_2 == LocalPlayerState)
+						else if (ClientData.RelatedPlayerState_2 == LocalPlayerState)
 						{
 							UTHUD->ReceiveLocalMessage(
 								UUTVictimMessage::StaticClass(),
