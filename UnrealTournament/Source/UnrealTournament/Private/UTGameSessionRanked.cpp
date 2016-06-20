@@ -39,6 +39,99 @@ void AUTGameSessionRanked::RegisterServer()
 
 void AUTGameSessionRanked::StartServer()
 {
+	// Download any playlist updates before we start server
+
+	const auto OnlineSub = IOnlineSubsystem::Get();
+	if (OnlineSub)
+	{
+		IOnlineTitleFilePtr OnlineTitleFileInterface = OnlineSub->GetTitleFileInterface();
+		if (OnlineTitleFileInterface.IsValid())
+		{
+			OnEnumerateTitleFilesCompleteDelegate = OnlineTitleFileInterface->AddOnEnumerateFilesCompleteDelegate_Handle(FOnEnumerateFilesCompleteDelegate::CreateUObject(this, &AUTGameSessionRanked::OnEnumerateTitleFilesComplete));
+			OnlineTitleFileInterface->EnumerateFiles();
+		}
+	}
+}
+
+void AUTGameSessionRanked::OnReadTitleFileComplete(bool bWasSuccessful, const FString& Filename)
+{
+	if (Filename == GetMCPRankedPlaylistFilename())
+	{
+		const auto OnlineSub = IOnlineSubsystem::Get();
+		IOnlineTitleFilePtr OnlineTitleFileInterface;
+		if (OnlineSub)
+		{
+			OnlineTitleFileInterface = OnlineSub->GetTitleFileInterface();
+			if (OnlineTitleFileInterface.IsValid())
+			{
+				OnlineTitleFileInterface->ClearOnReadFileCompleteDelegate_Handle(OnReadTitleFileCompleteDelegate);
+			}
+		}
+
+		if (bWasSuccessful && OnlineTitleFileInterface.IsValid())
+		{
+			FString JsonString = TEXT("");
+			TArray<uint8> FileContents;
+			OnlineTitleFileInterface->GetFileContents(GetMCPRankedPlaylistFilename(), FileContents);
+			FileContents.Add(0);
+			JsonString = ANSI_TO_TCHAR((char*)FileContents.GetData());
+
+			if (JsonString != TEXT(""))
+			{
+				FUpdatedPlaylists DownloadedPlaylists;
+				if (FJsonObjectConverter::JsonObjectStringToUStruct(JsonString, &DownloadedPlaylists, 0, 0))
+				{
+					UUTGameInstance* UTGameInstance = Cast<UUTGameInstance>(GetGameInstance());
+					if (UTGameInstance && UTGameInstance->GetPlaylistManager())
+					{
+						for (int32 i = 0; i < DownloadedPlaylists.PlaylistOverrides.Num(); i++)
+						{
+							UTGameInstance->GetPlaylistManager()->UpdatePlaylistFromMCP(DownloadedPlaylists.PlaylistOverrides[i].Id,
+								DownloadedPlaylists.PlaylistOverrides[i].ExtraCommandline,
+								DownloadedPlaylists.PlaylistOverrides[i].MapNames);
+
+						}
+					}
+				}
+			}
+
+		}
+
+		// Wait for any other processes to finish/cleanup before we start advertising
+		GetWorldTimerManager().SetTimer(StartServerTimerHandle, this, &ThisClass::StartServerInternal, 0.1f);
+	}
+}
+
+void AUTGameSessionRanked::OnEnumerateTitleFilesComplete(bool bWasSuccessful)
+{
+	const auto OnlineSub = IOnlineSubsystem::Get();
+	IOnlineTitleFilePtr OnlineTitleFileInterface;
+	if (OnlineSub)
+	{
+		OnlineTitleFileInterface = OnlineSub->GetTitleFileInterface();
+		if (OnlineTitleFileInterface.IsValid())
+		{
+			OnlineTitleFileInterface->ClearOnEnumerateFilesCompleteDelegate_Handle(OnEnumerateTitleFilesCompleteDelegate);
+		}
+	}
+
+	if (bWasSuccessful)
+	{
+		if (OnlineTitleFileInterface.IsValid())
+		{
+			OnReadTitleFileCompleteDelegate = OnlineTitleFileInterface->AddOnReadFileCompleteDelegate_Handle(FOnReadFileCompleteDelegate::CreateUObject(this, &AUTGameSessionRanked::OnReadTitleFileComplete));
+			OnlineTitleFileInterface->ReadFile(GetMCPRankedPlaylistFilename());
+		}
+	}
+	else
+	{
+		// Wait for any other processes to finish/cleanup before we start advertising
+		GetWorldTimerManager().SetTimer(StartServerTimerHandle, this, &ThisClass::StartServerInternal, 0.1f);
+	}
+}
+
+void AUTGameSessionRanked::StartServerInternal()
+{
 	// Do one last check to see if we have been requested to shutdown, which could have happened during a restart
 	if (bGracefulShutdown)
 	{

@@ -49,4 +49,6 @@ public:
 	bool GetURLForPlaylist(int32 PlaylistId, FString& URL);
 
 	bool GetTeamEloRatingForPlaylist(int32 PlaylistId, FString& TeamEloRating);
+
+	void UpdatePlaylistFromMCP(int32 PlaylistId, FString InExtraCommandline, TArray<FString>& InMapNames);
 };
