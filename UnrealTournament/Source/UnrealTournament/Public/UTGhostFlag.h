@@ -17,22 +17,25 @@ class UNREALTOURNAMENT_API AUTGhostFlag : public AActor
 	AUTCarriedObject* MyCarriedObject;
 
 	UPROPERTY(ReplicatedUsing=OnSetMidPoint)
-		FVector MidPoints[3];
+	FVector MidPoints[3];
 
 	UPROPERTY()
-		class AUTFlagReturnTrail* Trail;
+	class AUTFlagReturnTrail* Trail;
+
+	UPROPERTY(EditDefaultsOnly)
+	TSubclassOf<AUTFlagReturnTrail> TrailClass;
 
 	UPROPERTY()
-		int32 TeamIndex;
+	int32 TeamIndex;
 
 	UPROPERTY()
-		float TrailSpawnTime;
+	float TrailSpawnTime;
 
 	UFUNCTION()
-		virtual void OnSetCarriedObject();
+	virtual void OnSetCarriedObject();
 
 	UFUNCTION()
-		virtual void OnSetMidPoint();
+	virtual void OnSetMidPoint();
 
 	virtual void MoveTo(const FFlagTrailPos NewPosition);
 	virtual void SetCarriedObject(AUTCarriedObject* NewCarriedObject, const FFlagTrailPos NewPosition);

@@ -33,6 +33,9 @@ AUTGhostFlag::AUTGhostFlag(const FObjectInitializer& ObjectInitializer)
 	MidPoints[0] = FVector(0.f);
 	MidPoints[1] = FVector(0.f);
 	MidPoints[2] = FVector(0.f);
+
+	static ConstructorHelpers::FClassFinder<AUTFlagReturnTrail> TrailFinder(TEXT("/Game/RestrictedAssets/Effects/CTF/Blueprints/BP_FlagSplineCreator.BP_FlagSplineCreator_C"));
+	TrailClass = TrailFinder.Class;
 }
 
 void AUTGhostFlag::Destroyed()
@@ -88,41 +91,37 @@ void AUTGhostFlag::Tick(float DeltaTime)
 
 void AUTGhostFlag::OnSetMidPoint()
 {
-	if (Trail)
+	if (Trail != nullptr)
 	{
-		for (int32 i = 0; i < 3; i++)
+		TArray<FVector> Points;
+		Points.Reserve(5);
+		Points.Add(MyCarriedObject->GetActorLocation());
+		for (int32 i = 2; i >= 0; i--)
 		{
 			if (!MidPoints[i].IsZero())
 			{
-				Trail->MidPoints.Insert(MidPoints[i], 0);
+				Points.Add(MidPoints[i]);
 			}
 		}
+		Points.Add(GetActorLocation());
+		Trail->SetPoints(Points);
 	}
 }
 
 void AUTGhostFlag::OnSetCarriedObject()
 {
-	if (MyCarriedObject && (GetNetMode() != NM_DedicatedServer))
+	if (MyCarriedObject != nullptr && GetNetMode() != NM_DedicatedServer)
 	{
-		if (Trail && Trail->PSC)
+		if (Trail != nullptr)
 		{
-			Trail->PSC->SetFloatParameter(FName(TEXT("LifeSpan")), 0.1f);
-			Trail->StartActor = nullptr;
-			FTimerHandle TempHandle;
-			GetWorldTimerManager().SetTimer(TempHandle, Trail, &AUTFlagReturnTrail::EndTrail, 0.6f, false);
+			Trail->EndTrail();
 		}
 		FActorSpawnParameters Params;
 		Params.Owner = this;
-		FVector TrailDir = !MidPoints[0].IsZero() ? (MidPoints[0] - MyCarriedObject->GetActorLocation()).GetSafeNormal() : (GetActorLocation() - MyCarriedObject->GetActorLocation()).GetSafeNormal();
-		Trail = GetWorld()->SpawnActor<AUTFlagReturnTrail>(AUTFlagReturnTrail::StaticClass(), MyCarriedObject->GetActorLocation(), TrailDir.Rotation(), Params);
-		Trail->StartActor = MyCarriedObject;
-		Trail->StartPoint = MyCarriedObject->GetActorLocation();
-		Trail->EndPoint = GetActorLocation();
+		Trail = GetWorld()->SpawnActor<AUTFlagReturnTrail>(TrailClass, MyCarriedObject->GetActorLocation(), FRotator::ZeroRotator, Params);
+		Trail->Flag = MyCarriedObject;
+		Trail->SetTeam(MyCarriedObject->Team);
 		OnSetMidPoint();
-		Trail->EndActor = this;
-		TeamIndex = (MyCarriedObject && MyCarriedObject->Team) ? MyCarriedObject->Team->TeamIndex : 0;
-		Trail->SetTeamIndex(TeamIndex);
-		Trail->CustomTimeDilation = 0.3f;
 		TrailSpawnTime = GetWorld()->GetTimeSeconds();
 	}
 }
