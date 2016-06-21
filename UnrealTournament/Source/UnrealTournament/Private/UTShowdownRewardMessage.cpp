@@ -22,7 +22,7 @@ UUTShowdownRewardMessage::UUTShowdownRewardMessage(const class FObjectInitialize
 	OverCharge = FName(TEXT("Overload"));
 	Termination = FName(TEXT("RW_Termination"));
 	Annihilation = FName(TEXT("RW_Annihilation"));
-	FinalLife = FName(TEXT("RW_EndIt"));
+	FinalLife = FName(TEXT("RZE_FinalLife"));
 	LivesRemainingPrefix = NSLOCTEXT("CTFGameMessage", "LivesRemainingPrefix", "");
 	LivesRemainingPostfix = NSLOCTEXT("CTFGameMessage", "LivesRemainingPostfix", " lives remaining.");
 	AnnouncementDelay = 0.5f;

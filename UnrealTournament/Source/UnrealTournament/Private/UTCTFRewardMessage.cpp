@@ -67,7 +67,7 @@ FLinearColor UUTCTFRewardMessage::GetMessageColor_Implementation(int32 MessageIn
 
 void UUTCTFRewardMessage::PrecacheAnnouncements_Implementation(UUTAnnouncer* Announcer) const
 {
-	for (int32 i = 0; i < 6; i++)
+	for (int32 i = 0; i < 8; i++)
 	{
 		Announcer->PrecacheAnnouncement(GetAnnouncementName(i, NULL, NULL, NULL));
 	}
@@ -91,7 +91,7 @@ FName UUTCTFRewardMessage::GetAnnouncementName_Implementation(int32 Switch, cons
 	case 2: return TEXT("Assist"); break;
 	case 5: return TEXT("HatTrick"); break;
 	case 6: return TEXT("Denied"); break;
-	case 7: return TEXT("RW_Loaded"); break;
+	case 7: return TEXT("RZE_PowerupUnlocked"); break;
 	}
 	return NAME_None;
 }

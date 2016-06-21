@@ -6,6 +6,7 @@
 #include "UTWeaponStateEquipping.h"
 #include "UTWeaponStateUnequipping.h"
 #include "StatNames.h"
+#include "UTRedeemerLaunchAnnounce.h"
 
 AUTWeap_Redeemer::AUTWeap_Redeemer(const class FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -41,26 +42,26 @@ AUTProjectile* AUTWeap_Redeemer::FireProjectile()
 	}
 	else if (Role == ROLE_Authority)
 	{
+		AUTPlayerState* PS = UTOwner->Controller ? Cast<AUTPlayerState>(UTOwner->Controller->PlayerState) : NULL;
+		LaunchTeam = PS && PS->Team ? PS->Team->TeamIndex : 255;
 		if (CurrentFireMode == 0)
 		{
-			return Super::FireProjectile();
+			LaunchedMissile = Super::FireProjectile();
+			if (LaunchedMissile != nullptr)
+			{
+				FTimerHandle TempHandle;
+				GetWorldTimerManager().SetTimer(TempHandle, this, &AUTWeap_Redeemer::AnnounceLaunch, 0.1f, false);
+			}
+			return Cast<AUTProjectile>(LaunchedMissile);
 		}
 		else
 		{
-			// try and fire a projectile
 			const FVector SpawnLocation = GetFireStartLoc();
 			const FRotator SpawnRotation = GetAdjustedAim(SpawnLocation);
-
-			//DrawDebugSphere(GetWorld(), SpawnLocation, 10, 10, FColor::Green, true);
-
 			UTOwner->IncrementFlashCount(CurrentFireMode);
-			if (Role == ROLE_Authority)
+			if (PS && (ShotsStatsName != NAME_None))
 			{
-				AUTPlayerState* PS = UTOwner->Controller ? Cast<AUTPlayerState>(UTOwner->Controller->PlayerState) : NULL;
-				if (PS && (ShotsStatsName != NAME_None))
-				{
-					PS->ModifyStatsValue(ShotsStatsName, 1);
-				}
+				PS->ModifyStatsValue(ShotsStatsName, 1);
 			}
 
 			// spawn the projectile at the muzzle
@@ -82,18 +83,35 @@ AUTProjectile* AUTWeap_Redeemer::FireProjectile()
 				}
 
 				RemoteRedeemer->CollisionComp->bGenerateOverlapEvents = true;
+				LaunchedMissile = RemoteRedeemer;
+				if (LaunchedMissile != nullptr)
+				{
+					FTimerHandle TempHandle;
+					GetWorldTimerManager().SetTimer(TempHandle, this, &AUTWeap_Redeemer::AnnounceLaunch, 0.1f, false);
+				}
 			}
 			else
 			{
 				UE_LOG(UT, Warning, TEXT("Could not spawn remote redeemer"));
 			}
-
-			return NULL;
 		}
 	}
-	else
+	return NULL;
+}
+
+void AUTWeap_Redeemer::AnnounceLaunch()
+{
+	if (LaunchedMissile && !LaunchedMissile->IsPendingKillPending() && !LaunchedMissile->bTearOff && (!Cast<AUTProjectile>(LaunchedMissile) || !Cast<AUTProjectile>(LaunchedMissile)->bExploded))
 	{
-		return NULL;
+		for (FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator)
+		{
+			AUTPlayerController* PC = Cast<AUTPlayerController>(*Iterator);
+			if (PC)
+			{
+				int32 MessageIndex = (PC->GetTeamNum() == LaunchTeam) ? 1 : 0;
+				PC->ClientReceiveLocalizedMessage(UUTRedeemerLaunchAnnounce::StaticClass(), MessageIndex);
+			}
+		}
 	}
 }
 

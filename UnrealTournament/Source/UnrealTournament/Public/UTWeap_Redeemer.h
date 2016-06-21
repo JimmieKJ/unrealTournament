@@ -24,6 +24,12 @@ class UNREALTOURNAMENT_API AUTWeap_Redeemer : public AUTWeapon
 	UPROPERTY()
 		AUTRemoteRedeemer* RemoteRedeemer;
 
+	UPROPERTY()
+		AActor* LaunchedMissile;
+
+	UPROPERTY()
+		uint8 LaunchTeam;
+
 	virtual AUTProjectile* FireProjectile() override;
 
 	virtual void BringUp(float OverflowTime) override;
@@ -37,4 +43,5 @@ class UNREALTOURNAMENT_API AUTWeap_Redeemer : public AUTWeapon
 	virtual bool CanAttack_Implementation(AActor* Target, const FVector& TargetLoc, bool bDirectOnly, bool bPreferCurrentMode, uint8& BestFireMode, FVector& OptimalTargetLoc) override;
 	virtual void DetachFromOwner_Implementation() override;
 	virtual void RemoveRedeemer();
+	virtual void AnnounceLaunch();
 };
