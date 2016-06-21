@@ -1014,6 +1014,9 @@ FReply SUTWeaponConfigDialog::OKClick()
 				HUD->bCustomWeaponCrosshairs = DefaultHud->bCustomWeaponCrosshairs;
 			}
 		}
+
+
+		UTPlayerController->RefreshWeaponGroups();
 	}
 
 	if (ProfileSettings != nullptr)

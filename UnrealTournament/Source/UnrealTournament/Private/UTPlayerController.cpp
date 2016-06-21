@@ -1020,6 +1020,24 @@ void AUTPlayerController::CheckAutoWeaponSwitch(AUTWeapon* TestWeapon)
 	}
 }
 
+void AUTPlayerController::RefreshWeaponGroups()
+{
+	if (UTCharacter == nullptr)  return;
+
+	TArray<int32> GroupSlotIndexes;
+	GroupSlotIndexes.AddZeroed(10);
+
+	for (TInventoryIterator<AUTWeapon> It(UTCharacter); It; ++It)
+	{
+		AUTWeapon* Weap = *It;
+		if (Weap != nullptr && GroupSlotIndexes.IsValidIndex(Weap->Group))
+		{
+			Weap->GroupSlot = GroupSlotIndexes[Weap->Group];
+			GroupSlotIndexes[Weap->Group]++;
+		}
+	}
+}
+
 void AUTPlayerController::SwitchWeaponGroup(int32 Group)
 {
 	if (UTCharacter != NULL && IsLocalPlayerController() && UTCharacter->TauntCount == 0 && !UTCharacter->IsRagdoll())

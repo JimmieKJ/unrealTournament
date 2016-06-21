@@ -1179,6 +1179,10 @@ public:
 	UFUNCTION(Server, Reliable, WithValidation)
 	void ServerSendComsMessage(AUTPlayerState* Target, int32 Switch);
 
+	/** Look at all of the weapons the player currently has and fix their group slots */
+	UFUNCTION(blueprintcallable, Category=Inventory)
+	void RefreshWeaponGroups();
+
 protected:
 	UFUNCTION()
 	virtual void RestartVOIP();
