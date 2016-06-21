@@ -637,6 +637,7 @@ void AUTCTFRoundGame::HandleMatchHasStarted()
 		CTFGameState->CTFRound = 1;
 		CTFGameState->NumRounds = NumRounds;
 		CTFGameState->bOneFlagGameMode = bOneFlagGameMode;
+		CTFGameState->bAllowRallies = true;
 		CTFGameState->bDefenderLivesLimited = bDefenderLivesLimited;
 		CTFGameState->bAttackerLivesLimited = bAttackerLivesLimited;
 		CTFGameState->bOverrideToggle = true;

@@ -91,12 +91,9 @@ AUTPlayerController::AUTPlayerController(const class FObjectInitializer& ObjectI
 	PredictionFudgeFactor = 20.f;
 	MaxPredictionPing = 0.f; 
 	DesiredPredictionPing = 120.f;
-
 	bIsDebuggingProjectiles = false;
-
 	CastingGuideViewIndex = INDEX_NONE;
 	bRequestingSlideOut = true;
-	
 	DilationIndex = 2;
 
 	TimeToHoldPowerUpButtonToActivate = 0.75f;
@@ -280,6 +277,33 @@ void AUTPlayerController::ServerMutate_Implementation(const FString& MutateStrin
 	if (GameMode != NULL && GameMode->BaseMutator != NULL)
 	{
 		GameMode->BaseMutator->Mutate(MutateString, this);
+	}
+}
+
+void AUTPlayerController::RequestRally()
+{
+	UE_LOG(UT, Warning, TEXT("RALLY %d"), UTPlayerState->bCanRally);
+	if (UTPlayerState && UTPlayerState->bCanRally)
+	{
+		ServerRequestRally();
+	}
+}
+
+bool AUTPlayerController::ServerRequestRally_Validate()
+{
+	return true;
+}
+
+void AUTPlayerController::ServerRequestRally_Implementation()
+{
+	UE_LOG(UT, Warning, TEXT("SERVERREQUESTRALLY %d"), UTPlayerState->bCanRally);
+	// if can rally, teleport with transloc effect, set last rally time
+	AUTCTFGameState* GS = GetWorld()->GetGameState<AUTCTFGameState>();
+	AUTTeamInfo* Team = UTPlayerState ? UTPlayerState->Team : nullptr;
+	if (UTPlayerState->bCanRally && UTCharacter && Team && GS && ((Team->TeamIndex == 0) ? GS->bRedCanRally : GS->bBlueCanRally) && GS->FlagBases.IsValidIndex(Team->TeamIndex) && GS->FlagBases[Team->TeamIndex] != nullptr)
+	{
+		UE_LOG(UT, Warning, TEXT("TELEPORT"));
+		UTCharacter->TeleportTo(GS->FlagBases[Team->TeamIndex]->GetActorLocation(), GS->FlagBases[Team->TeamIndex]->GetActorRotation());
 	}
 }
 

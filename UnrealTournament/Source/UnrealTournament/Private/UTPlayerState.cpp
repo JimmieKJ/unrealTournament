@@ -54,6 +54,7 @@ AUTPlayerState::AUTPlayerState(const class FObjectInitializer& ObjectInitializer
 	Deaths = 0;
 	bShouldAutoTaunt = false;
 	bSentLogoutAnalytics = false;
+	LastRallyTime = 0.f;
 
 	// We want to be ticked.
 	PrimaryActorTick.bCanEverTick = true;
@@ -639,6 +640,10 @@ void AUTPlayerState::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
+	if (Role == ROLE_Authority)
+	{
+		bCanRally = (GetWorld()->GetTimeSeconds() - LastRallyTime > 5.f);
+	}
 	// If we are waiting to respawn then count down
 	if (RespawnTime > 0.0f)
 	{

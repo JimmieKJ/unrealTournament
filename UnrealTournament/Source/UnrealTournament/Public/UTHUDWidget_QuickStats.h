@@ -35,17 +35,21 @@ struct FQStatLayoutInfo
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Layout")
 	FVector2D FlagOffset;
 
-	// Where should the flag widget go.  In Pixels based on 1080p
+	// Where should the powerup widget go.  In Pixels based on 1080p
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Layout")
 	FVector2D PowerupOffset;
 
-	// Where should the flag widget go.  In Pixels based on 1080p
+	// Where should the boots widget go.  In Pixels based on 1080p
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Layout")
 	FVector2D BootsOffset;
 
 	// Where should the boost widget go.  In Pixels based on 1080p
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Layout")
 	FVector2D BoostProvidedPowerupOffset;
+
+	// Where should the rally widget go.  In Pixels based on 1080p
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Layout")
+		FVector2D RallyOffset;
 
 	// If true, this layout will pivot based on the rotation of the widget on the hud
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Layout")
@@ -287,7 +291,10 @@ protected:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Icons")
 	FHUDRenderObject_Texture DetectedIcon;
-	
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Icons")
+		FHUDRenderObject_Texture RallyIcon;
+
 	// NOTE: This icon will be generated from the data in the actual powerup
 	UPROPERTY()
 	FHUDRenderObject_Texture PowerupIcon;
@@ -307,6 +314,7 @@ private:
 	FStatInfo BootsInfo;
 	FStatInfo PowerupInfo;
 	FStatInfo BoostProvidedPowerupInfo;
+	FStatInfo RallyInfo;
 
 	AUTWeapon* LastWeapon;
 

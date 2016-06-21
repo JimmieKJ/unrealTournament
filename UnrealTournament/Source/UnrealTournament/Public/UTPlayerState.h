@@ -258,6 +258,12 @@ public:
 	UPROPERTY(BlueprintReadOnly, replicated, Category = PlayerState)
 	AUTPlayerState* LastKillerPlayerState;
 
+	UPROPERTY(BlueprintReadOnly, Replicated, Category = PlayerController)
+		bool bCanRally;
+
+	UPROPERTY(BlueprintReadOnly, Category = PlayerController)
+		float LastRallyTime;
+
 	UPROPERTY(BlueprintReadOnly, Category = PlayerState, replicated)
 	bool bIsRconAdmin;
 

@@ -337,7 +337,6 @@ void UUTHUDWidget_QuickStats::PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCa
 			}
 		}
 
-
 		if (UTPlayerState->CarriedObject != nullptr)
 		{
 			FlagInfo.Value = 1;
@@ -380,12 +379,25 @@ void UUTHUDWidget_QuickStats::PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCa
 		{
 			FlagInfo.Value = 0;
 		}
+
+		AUTCTFGameState* GameState = GetWorld()->GetGameState<AUTCTFGameState>();
+		if (GameState && UTPlayerState && UTPlayerState->Team && UTPlayerState->bCanRally && ((UTPlayerState->Team->TeamIndex == 0) ? GameState->bRedCanRally : GameState->bBlueCanRally))
+		{
+			UE_LOG(UT, Warning, TEXT("SHOW RALLY"));
+			RallyInfo.Value = 1;
+			RallyInfo.IconColor = FLinearColor::Yellow;
+			RallyInfo.bUseLabel = true;
+			RallyInfo.Label = FText::FromString(TEXT("RALLY \n [ENTER]"));
+			RallyInfo.HighlightStrength = 1.f;
+			RallyInfo.bUseOverlayTexture = false;
+		}
 	}
 
 	HealthInfo.UpdateAnimation(DeltaTime);
 	AmmoInfo.UpdateAnimation(DeltaTime);
 	ArmorInfo.UpdateAnimation(DeltaTime);
 
+	RallyInfo.UpdateAnimation(DeltaTime);
 	FlagInfo.UpdateAnimation(DeltaTime);
 	BootsInfo.UpdateAnimation(DeltaTime);
 	PowerupInfo.UpdateAnimation(DeltaTime);

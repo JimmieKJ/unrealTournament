@@ -112,6 +112,35 @@ void AUTCTFGameState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & O
 	DOREPLIFETIME(AUTCTFGameState, bAttackerLivesLimited);
 	DOREPLIFETIME(AUTCTFGameState, bDefenderLivesLimited);
 	DOREPLIFETIME(AUTCTFGameState, NumRounds);
+	DOREPLIFETIME(AUTCTFGameState, bRedCanRally);
+	DOREPLIFETIME(AUTCTFGameState, bBlueCanRally);
+}
+
+void AUTCTFGameState::Tick(float DeltaTime)
+{
+	Super::Tick(DeltaTime);
+	if (bAllowRallies)
+	{
+		uint8 OffensiveTeam = bRedToCap ? 0 : 1;
+		bRedCanRally = !bRedToCap;
+		bBlueCanRally = bRedToCap;
+		if (FlagBases.IsValidIndex(OffensiveTeam) && FlagBases[OffensiveTeam] != nullptr)
+		{
+			AUTCTFFlag* Flag = Cast<AUTCTFFlag>(FlagBases[OffensiveTeam]->GetCarriedObject());
+			bool bOffenseCanRally = (Flag && Flag->Holder && (GetWorld()->GetTimeSeconds() - Flag->LastPingedTime > 5.f));
+			if (!bOffenseCanRally)
+			{
+				if (bRedToCap)
+				{
+					bRedCanRally = false;
+				}
+				else
+				{
+					bBlueCanRally = false;
+				}
+			}
+		}
+	}
 }
 
 bool AUTCTFGameState::AllowMinimapFor(AUTPlayerState* PS)

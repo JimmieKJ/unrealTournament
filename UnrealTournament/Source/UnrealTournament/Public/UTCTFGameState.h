@@ -173,6 +173,15 @@ class UNREALTOURNAMENT_API AUTCTFGameState: public AUTGameState
 	UPROPERTY(Replicated)
 		bool bDefenderLivesLimited;
 
+	UPROPERTY()
+		bool bAllowRallies;
+
+	UPROPERTY(Replicated)
+		bool bRedCanRally;
+
+	UPROPERTY(Replicated)
+		bool bBlueCanRally;
+
 
 	/** Delay before bringing up scoreboard at halftime. */
 	UPROPERTY(BlueprintReadOnly, Replicated, Category = CTF)
@@ -251,6 +260,7 @@ class UNREALTOURNAMENT_API AUTCTFGameState: public AUTGameState
 	virtual bool IsMatchInOvertime() const override;
 	virtual bool IsMatchIntermission() const override;
 	virtual void OnRep_MatchState() override;
+	virtual void Tick(float DeltaTime) override;
 
 	virtual FName OverrideCameraStyle(APlayerController* PCOwner, FName CurrentCameraStyle);
 	

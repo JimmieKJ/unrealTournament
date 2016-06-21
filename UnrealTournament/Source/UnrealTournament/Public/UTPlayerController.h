@@ -230,6 +230,12 @@ public:
 	virtual void UpdateHiddenComponents(const FVector& ViewLocation, TSet<FPrimitiveComponentId>& HiddenComponents);
 
 	UFUNCTION(exec)
+		virtual void RequestRally();
+
+	UFUNCTION(server, reliable, withvalidation)
+		virtual void ServerRequestRally();
+
+	UFUNCTION(exec)
 	virtual void ToggleScoreboard(bool bShow);
 
 	UFUNCTION(client, reliable)
