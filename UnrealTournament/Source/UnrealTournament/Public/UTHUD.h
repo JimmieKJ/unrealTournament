@@ -65,37 +65,6 @@ struct FEnemyDamageNumber
 	FEnemyDamageNumber(APawn* InPawn, float InTime, uint8 InDamage, FVector InLoc, float InScale) : DamagedPawn(InPawn), DamageTime(InTime), DamageAmount(InDamage), WorldPosition(InLoc), Scale(InScale) {};
 };
 
-USTRUCT()
-struct FLocalDamageNumber
-{
-	GENERATED_USTRUCT_BODY()
-
-	UPROPERTY()
-	uint8 DamageAmount;
-
-	UPROPERTY()
-	float DamageTime;
-
-	UPROPERTY()
-	UUTDamageType* DamageTypeDefaultObject;
-
-	UPROPERTY()
-	float BounceTime;
-
-	UPROPERTY()
-	float TallyFadeTime;
-
-	FLocalDamageNumber()
-		: DamageAmount(0), DamageTime(0.0f), DamageTypeDefaultObject(nullptr), BounceTime(MAX_MY_DAMAGE_BOUNCE_TIME), TallyFadeTime(MAX_TALLY_FADE_TIME)
-	{
-	}
-
-	FLocalDamageNumber(uint8 inDamageAmount, float inDamageTime, UUTDamageType* inDamageTypeDefaultObject)
-		: DamageAmount(inDamageAmount), DamageTime(inDamageTime), DamageTypeDefaultObject(inDamageTypeDefaultObject), BounceTime(MAX_MY_DAMAGE_BOUNCE_TIME), TallyFadeTime(MAX_TALLY_FADE_TIME)
-	{
-	}
-};
-
 class UUTRadialMenu;
 class UUTRadialMenu_Coms;
 class UUTRadialMenu_WeaponWheel;
@@ -176,10 +145,6 @@ public:
 
 	UPROPERTY()
 		bool bDrawDamageNumbers;
-
-	// Holds a list of damage taken by this pawn.
-	UPROPERTY()
-	TArray<FLocalDamageNumber> DamageIveTaken;
 
 	/** Draw in screen space damage recently applied by this player to other characters. */
 	virtual void DrawDamageNumbers();
@@ -656,17 +621,6 @@ protected:
 	UUTRadialMenu_Coms* ComsMenu;
 	UUTRadialMenu_WeaponWheel* WeaponWheel;
 
-	virtual void DrawLocalDamage();
-
-	UPROPERTY()
-	int32 TotalDamageDealtThisLife;
-
-	UPROPERTY()
-	int32 TotalDamageTakenThisLife;
-
-	UPROPERTY()
-	float LastEngagementStarted;
-	float LastEngagementEnded;
 
 };
 
