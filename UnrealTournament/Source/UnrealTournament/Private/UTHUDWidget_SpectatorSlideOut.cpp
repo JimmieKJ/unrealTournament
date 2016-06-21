@@ -294,7 +294,7 @@ void UUTHUDWidget_SpectatorSlideOut::Draw_Implementation(float DeltaTime)
 				for (FActorIterator It(GetWorld()); It; ++It)
 				{
 					AUTSpectatorCamera* Cam = Cast<AUTSpectatorCamera>(*It);
-					if (Cam)
+					if (Cam && !Cam->CamLocationName.IsEmpty())
 					{
 						CameraString[NumCameras] = Cam->CamLocationName;
 						NumCameras++;

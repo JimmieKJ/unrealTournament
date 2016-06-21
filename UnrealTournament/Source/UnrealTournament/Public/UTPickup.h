@@ -91,7 +91,8 @@ class UNREALTOURNAMENT_API AUTPickup : public AActor, public IUTResetInterface, 
 	AUTPlayerState* LastPickedUpBy;
 
 	/** Spectator camera associated with this pickup. */
-	class AUTSpectatorCamera* Camera;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Pickup)
+		class AUTSpectatorCamera* Camera;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = HUD)
 	FLinearColor IconColor;
