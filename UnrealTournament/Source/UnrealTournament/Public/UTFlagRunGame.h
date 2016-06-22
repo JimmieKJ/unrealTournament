@@ -17,6 +17,9 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 		TSubclassOf<class AUTWeaponRedirector> AfterImageType;
 
+	UPROPERTY()
+		float RallyRequestTime;
+
 	virtual void BroadcastVictoryConditions();
 
 	virtual float OverrideRespawnTime(TSubclassOf<AUTInventory> InventoryType) override;

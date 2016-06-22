@@ -230,6 +230,7 @@ void AUTFlagRunGame::HandleRallyRequest(AUTPlayerController* RequestingPC)
 			UTPlayerState->GetCharacterVoiceClass();
 			UTPlayerState->AnnounceStatus(StatusMessage::NeedBackup);
 			UTPlayerState->NextRallyTime = GetWorld()->GetTimeSeconds() + 10.f;
+			RallyRequestTime = GetWorld()->GetTimeSeconds();
 			return;
 		}
 		FVector WarpLocation = FVector::ZeroVector;
@@ -262,6 +263,17 @@ void AUTFlagRunGame::HandleRallyRequest(AUTPlayerController* RequestingPC)
 			FRotator DesiredRotation = (FlagCarrier->GetActorLocation() - WarpLocation).Rotation();
 			WarpRotation.Yaw = DesiredRotation.Yaw;
 			RallyDelay = 30.f;
+			if (GetWorld()->GetTimeSeconds() - RallyRequestTime < 6.f)
+			{
+				for (FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator)
+				{
+					AUTPlayerController* PC = Cast<AUTPlayerController>(*Iterator);
+					if (PC && GS->OnSameTeam(RequestingPC, PC))
+					{
+						PC->ClientReceiveLocalizedMessage(UTPlayerState->GetCharacterVoiceClass(), ACKNOWLEDGE_SWITCH_INDEX, UTPlayerState, PC->PlayerState, NULL);
+					}
+				}
+			}
 		}
 		else
 		{
@@ -281,6 +293,7 @@ void AUTFlagRunGame::HandleRallyRequest(AUTPlayerController* RequestingPC)
 			}
 			WarpRotation = GS->FlagBases[Team->TeamIndex]->GetActorRotation();
 			RallyDelay = 500.f;
+			UTPlayerState->AnnounceStatus(StatusMessage::ImOnDefense);  
 		}
 		// teleport
 		UPrimitiveComponent* SavedPlayerBase = UTCharacter->GetMovementBase();
