@@ -262,7 +262,7 @@ public:
 		bool bCanRally;
 
 	UPROPERTY(BlueprintReadOnly, Category = PlayerController)
-		float LastRallyTime;
+		float NextRallyTime;
 
 	UPROPERTY(BlueprintReadOnly, Category = PlayerState, replicated)
 	bool bIsRconAdmin;

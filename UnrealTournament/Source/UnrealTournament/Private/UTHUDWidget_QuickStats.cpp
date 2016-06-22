@@ -93,6 +93,7 @@ void UUTHUDWidget_QuickStats::PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCa
 
 	AUTCharacter* CharOwner = Cast<AUTCharacter>(UTHUDOwner->UTPlayerOwner->GetViewTarget());
 	AUTPlayerState* UTPlayerState = CharOwner != nullptr ? Cast<AUTPlayerState>(CharOwner->PlayerState) : nullptr;
+	RallyInfo.Value = 0;
 	if (CharOwner && UTPlayerState)
 	{
 /*		if (UTHUDOwner->UTPlayerOwner && UTHUDOwner->UTPlayerOwner->WeaponBobGlobalScaling > 0 && InUTHUDOwner->GetQuickStatsBob())
@@ -383,11 +384,10 @@ void UUTHUDWidget_QuickStats::PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCa
 		AUTCTFGameState* GameState = GetWorld()->GetGameState<AUTCTFGameState>();
 		if (GameState && UTPlayerState && UTPlayerState->Team && UTPlayerState->bCanRally && ((UTPlayerState->Team->TeamIndex == 0) ? GameState->bRedCanRally : GameState->bBlueCanRally))
 		{
-			UE_LOG(UT, Warning, TEXT("SHOW RALLY"));
 			RallyInfo.Value = 1;
 			RallyInfo.IconColor = FLinearColor::Yellow;
 			RallyInfo.bUseLabel = true;
-			RallyInfo.Label = FText::FromString(TEXT("RALLY \n [ENTER]"));
+			RallyInfo.Label = FText::FromString(TEXT("[ENTER]"));
 			RallyInfo.HighlightStrength = 1.f;
 			RallyInfo.bUseOverlayTexture = false;
 		}
@@ -441,6 +441,10 @@ void UUTHUDWidget_QuickStats::Draw_Implementation(float DeltaTime)
 	if (BoostProvidedPowerupInfo.Value > 0)
 	{
 		DrawStat(bFollowRotation ? CalcRotOffset(Layouts[CurrentLayoutIndex].BoostProvidedPowerupOffset, DrawAngle) : Layouts[CurrentLayoutIndex].BoostProvidedPowerupOffset, BoostProvidedPowerupInfo, BoostIcon );
+	}
+	if (RallyInfo.Value > 0)
+	{
+		DrawStat(bFollowRotation ? CalcRotOffset(Layouts[CurrentLayoutIndex].RallyOffset, DrawAngle) : Layouts[CurrentLayoutIndex].RallyOffset, RallyInfo, RallyIcon);
 	}
 }
 

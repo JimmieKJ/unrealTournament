@@ -122,8 +122,8 @@ void AUTCTFGameState::Tick(float DeltaTime)
 	if (bAllowRallies)
 	{
 		uint8 OffensiveTeam = bRedToCap ? 0 : 1;
-		bRedCanRally = !bRedToCap;
-		bBlueCanRally = bRedToCap;
+		bRedCanRally = true;
+		bBlueCanRally = true;
 		if (FlagBases.IsValidIndex(OffensiveTeam) && FlagBases[OffensiveTeam] != nullptr)
 		{
 			AUTCTFFlag* Flag = Cast<AUTCTFFlag>(FlagBases[OffensiveTeam]->GetCarriedObject());

@@ -299,14 +299,82 @@ bool AUTPlayerController::ServerRequestRally_Validate()
 
 void AUTPlayerController::ServerRequestRally_Implementation()
 {
-	UE_LOG(UT, Warning, TEXT("SERVERREQUESTRALLY %d"), UTPlayerState->bCanRally);
 	// if can rally, teleport with transloc effect, set last rally time
 	AUTCTFGameState* GS = GetWorld()->GetGameState<AUTCTFGameState>();
 	AUTTeamInfo* Team = UTPlayerState ? UTPlayerState->Team : nullptr;
 	if (UTPlayerState->bCanRally && UTCharacter && Team && GS && ((Team->TeamIndex == 0) ? GS->bRedCanRally : GS->bBlueCanRally) && GS->FlagBases.IsValidIndex(Team->TeamIndex) && GS->FlagBases[Team->TeamIndex] != nullptr)
 	{
-		UE_LOG(UT, Warning, TEXT("TELEPORT"));
-		UTCharacter->TeleportTo(GS->FlagBases[Team->TeamIndex]->GetActorLocation(), GS->FlagBases[Team->TeamIndex]->GetActorRotation());
+		if (UTCharacter->GetCarriedObject())
+		{
+			// requesting rally
+			UTPlayerState->NextRallyTime = GetWorld()->GetTimeSeconds() + 10.f;
+			return;
+		}
+		FVector WarpLocation = FVector::ZeroVector;
+		FRotator WarpRotation(0.0f, UTCharacter->GetActorRotation().Yaw, 0.0f);
+		ECollisionChannel SavedObjectType = UTCharacter->GetCapsuleComponent()->GetCollisionObjectType();
+		FCollisionShape PlayerCapsule = FCollisionShape::MakeCapsule(UTCharacter->GetCapsuleComponent()->GetUnscaledCapsuleRadius(), UTCharacter->GetCapsuleComponent()->GetUnscaledCapsuleHalfHeight());
+		FHitResult Hit;
+		float SweepRadius = UTCharacter->GetCapsuleComponent()->GetUnscaledCapsuleRadius();
+		float RallyDelay = 10.f;
+		if ((Team->TeamIndex == 0) == GS->bRedToCap)
+		{
+			// rally to flag carrier
+			AUTCTFFlag* Flag = Cast<AUTCTFFlag>(GS->FlagBases[GS->bRedToCap ? 0 : 1]->GetCarriedObject());
+			AUTCharacter* FlagCarrier = Flag ? Flag->HoldingPawn : nullptr;
+			if (FlagCarrier == nullptr)
+			{
+				return;
+			}
+			FVector CarrierLocation = FlagCarrier->GetActorLocation() + FVector(0.f, 0.f, UTCharacter->GetCapsuleComponent()->GetUnscaledCapsuleHalfHeight());
+			UTCharacter->GetCapsuleComponent()->SetCollisionObjectType(COLLISION_TELEPORTING_OBJECT);
+			float Offset = 4.f * UTCharacter->GetCapsuleComponent()->GetUnscaledCapsuleRadius();
+			for (int32 i = 0; i < 4; i++)
+			{
+				WarpLocation = CarrierLocation + FVector(Offset * ((i % 2 == 0) ? 1.f :-1.f), Offset * ((i > 1) ? 1.f : -1.f), 0.f);
+				if (GetWorld()->FindTeleportSpot(UTCharacter, WarpLocation, WarpRotation) && !GetWorld()->LineTraceTestByChannel(CarrierLocation, WarpLocation, COLLISION_TELEPORTING_OBJECT, FCollisionQueryParams(FName(TEXT("Translocator")), false), WorldResponseParams))
+				{
+					break;
+				}
+			}
+			WarpRotation = (FlagCarrier->GetActorLocation() - WarpLocation).Rotation();
+			WarpRotation.Pitch = 0.f;
+			WarpRotation.Roll = 0.f;
+			RallyDelay = 30.f;
+		}
+		else
+		{
+			// defenders rally back to flag, once
+			WarpLocation = GS->FlagBases[Team->TeamIndex]->GetActorLocation() + FVector(0.f, 0.f, UTCharacter->GetCapsuleComponent()->GetUnscaledCapsuleHalfHeight());
+			FVector EndTrace = WarpLocation - FVector(0.0f, 0.0f, PlayerCapsule.GetCapsuleHalfHeight());
+			bool bHitFloor = GetWorld()->SweepSingleByChannel(Hit, WarpLocation, EndTrace, FQuat::Identity, UTCharacter->GetCapsuleComponent()->GetCollisionObjectType(), FCollisionShape::MakeSphere(SweepRadius), FCollisionQueryParams(FName(TEXT("Translocation")), false, UTCharacter), UTCharacter->GetCapsuleComponent()->GetCollisionResponseToChannels());
+			if (bHitFloor)
+			{
+				// need to move teleport destination up, unless close to ceiling
+				FVector NewLocation = Hit.Location + FVector(0.0f, 0.0f, PlayerCapsule.GetCapsuleHalfHeight());
+				bool bHitCeiling = GetWorld()->SweepSingleByChannel(Hit, WarpLocation, NewLocation, FQuat::Identity, UTCharacter->GetCapsuleComponent()->GetCollisionObjectType(), FCollisionShape::MakeSphere(SweepRadius), FCollisionQueryParams(FName(TEXT("Translocation")), false, UTCharacter), UTCharacter->GetCapsuleComponent()->GetCollisionResponseToChannels());
+				if (!bHitCeiling)
+				{
+					WarpLocation = NewLocation;
+				}
+			}
+			WarpRotation = GS->FlagBases[Team->TeamIndex]->GetActorRotation();
+			RallyDelay = 500.f;
+		}
+		// teleport
+		UTCharacter->GetCapsuleComponent()->SetCollisionObjectType(SavedObjectType);
+		if (UTCharacter->TeleportTo(WarpLocation, WarpRotation))
+		{
+			UTCharacter->FaceRotation(WarpRotation, 0.0f);
+			SetControlRotation(WarpRotation);
+			if (UTCharacter && UTCharacter->UTCharacterMovement && UTCharacter->UTCharacterMovement->bIsFloorSliding)
+			{
+				float VelZ = UTCharacter->UTCharacterMovement->Velocity.Z;
+				UTCharacter->UTCharacterMovement->Velocity *= 0.9f;
+				UTCharacter->UTCharacterMovement->Velocity.Z = VelZ;
+			}
+			UTPlayerState->NextRallyTime = GetWorld()->GetTimeSeconds() + RallyDelay;
+		}
 	}
 }
 
