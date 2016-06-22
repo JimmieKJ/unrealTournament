@@ -1827,22 +1827,12 @@ void UObject::SaveConfig( uint64 Flags, const TCHAR* InFilename, FConfigCacheIni
 					FString CompleteKey = FString::Printf(TEXT("%s%s"), bIsADefaultIniWrite ? TEXT("+") : TEXT(""), *Key);
 
 					FScriptArrayHelper_InContainer ArrayHelper(Array, this);
-						for( int32 i=0; i<ArrayHelper.Num(); i++ )
-						{
-							FString	Buffer;
-							Array->Inner->ExportTextItem( Buffer, ArrayHelper.GetRawPtr(i), ArrayHelper.GetRawPtr(i), this, PortFlags );
-							Sec->Add(*CompleteKey, *Buffer);
-						}
-					}
-				else if( Property->Identical_InContainer(this, SuperClassDefaultObject) )
-				{
-					// If we are not writing it to config above, we should make sure that this property isn't stagnant in the cache.
-					FConfigSection* Sec = Config->GetSectionPrivate( *Section, 1, 0, *PropFileName );
-					if( Sec )
+					for( int32 i=0; i<ArrayHelper.Num(); i++ )
 					{
-						Sec->Remove( *Key );
+						FString	Buffer;
+						Array->Inner->ExportTextItem( Buffer, ArrayHelper.GetRawPtr(i), ArrayHelper.GetRawPtr(i), this, PortFlags );
+						Sec->Add(*CompleteKey, *Buffer);
 					}
-
 				}
 			}
 			else
@@ -1862,15 +1852,6 @@ void UObject::SaveConfig( uint64 Flags, const TCHAR* InFilename, FConfigCacheIni
 							Property->ExportText_InContainer( Index, Value, this, this, this, PortFlags );
 							Config->SetString( *Section, *Key, *Value, *PropFileName );
 						}
-					else if( Property->Identical_InContainer(this, SuperClassDefaultObject, Index) )
-					{
-						// If we are not writing it to config above, we should make sure that this property isn't stagnant in the cache.
-						FConfigSection* Sec = Config->GetSectionPrivate( *Section, 1, 0, *PropFileName );
-						if( Sec )
-						{
-							Sec->Remove( *Key );
-						}
-					}
 				}
 			}
 
