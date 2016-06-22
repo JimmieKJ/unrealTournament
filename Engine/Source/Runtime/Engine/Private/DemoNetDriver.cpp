@@ -1519,7 +1519,8 @@ void UDemoNetDriver::TickDemoRecord( float DeltaSeconds )
 	// Save a checkpoint if it's time
 	if ( CVarEnableCheckpoints.GetValueOnGameThread() == 1 )
 	{
-		const double CHECKPOINT_DELAY = 30.0;
+		// PLK - This is cvar'd in later builds, just hack it for right now
+		const double CHECKPOINT_DELAY = 120.0;
 
 		if ( DemoCurrentTime - LastCheckpointTime > CHECKPOINT_DELAY )
 		{
