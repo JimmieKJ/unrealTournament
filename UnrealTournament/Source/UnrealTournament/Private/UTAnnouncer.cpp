@@ -85,7 +85,7 @@ void UUTAnnouncer::PlayAnnouncement(TSubclassOf<UUTLocalMessage> MessageClass, i
 					}
 
 					// play now if nothing in progress
-					if (!GetWorld()->GetTimerManager().IsTimerActive(PlayNextAnnouncementHandle))
+					if (!GetWorld()->GetTimerManager().IsTimerActive(PlayNextAnnouncementHandle) && !AnnouncementComp->IsPlaying())
 					{
 						if (CurrentAnnouncement.MessageClass == NULL)
 						{
