@@ -77,6 +77,7 @@
 #include "BlueprintContextLibrary.h"
 #include "MatchmakingContext.h"
 #include "UTKillcamPlayback.h"
+#include "UTDemoNetDriver.h"
 
 #if WITH_SOCIAL
 #include "Social.h"
@@ -3700,7 +3701,18 @@ void UUTLocalPlayer::ToggleReplayWindow()
 
 bool UUTLocalPlayer::IsReplay()
 {
-	return (GetWorld()->DemoNetDriver != nullptr);
+	if (GetWorld()->DemoNetDriver == nullptr)
+	{
+		return false;
+	}
+
+	UUTDemoNetDriver* UTDemoNetDriver = Cast<UUTDemoNetDriver>(GetWorld()->DemoNetDriver);
+	if (UTDemoNetDriver && UTDemoNetDriver->bIsLocalReplay)
+	{
+		return false;
+	}
+
+	return true;
 }
 
 #if !UE_SERVER
