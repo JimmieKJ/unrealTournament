@@ -605,7 +605,15 @@ void UUTGameInstance::BeginLevelLoading(const FString& LevelName)
 	FString CleanLevelName = FPaths::GetCleanFilename(LevelName);
 	FString MovieList = TEXT("");
 
-	if (CleanLevelName.ToLower() == TEXT("ut-entry"))
+	// This is mostly for the benefit of local replay recording
+	// The preload delegate really needs the loading world context piped through now
+	bool bTransitioningToSameMap = false;
+	if (GetWorldContext() && GetWorldContext()->World())
+	{
+		bTransitioningToSameMap = GetWorldContext()->World()->GetName() == CleanLevelName;
+	}
+
+	if (CleanLevelName.ToLower() == TEXT("ut-entry") || bTransitioningToSameMap)
 	{
 		MovieList = TEXT("load_generic_nosound");
 		PlayLoadingMovie(MovieList, true);	
