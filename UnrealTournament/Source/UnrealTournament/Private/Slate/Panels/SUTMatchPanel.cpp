@@ -116,6 +116,7 @@ void SUTMatchPanel::Construct(const FArguments& InArgs)
 								.ButtonStyle(SUTStyle::Get(),"UT.SimpleButton")
 								.OnClicked(this, &SUTMatchPanel::StartNewMatch)
 								.ContentPadding(FMargin(32.0,5.0,32.0,5.0))
+								.Visibility(this, &SUTMatchPanel::GetMatchButtonVis)
 								[
 									SNew(STextBlock)
 									.Text(this, &SUTMatchPanel::GetMatchButtonText)
@@ -1168,5 +1169,10 @@ FReply SUTMatchPanel::DownloadAllButtonClicked()
 	return FReply::Handled();
 }
 
+EVisibility SUTMatchPanel::GetMatchButtonVis() const
+{
+	AUTLobbyGameState* GameState = PlayerOwner->GetWorld()->GetGameState<AUTLobbyGameState>();	
+	return (GameState && GameState->IsClientFullyInformed() ? EVisibility::Visible : EVisibility::Collapsed);
+}
 
 #endif

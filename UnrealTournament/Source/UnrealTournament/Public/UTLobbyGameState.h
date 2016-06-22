@@ -221,6 +221,11 @@ public:
 	UPROPERTY(Replicated)
 	TArray<AUTReplicatedMapInfo*> AllMapsOnServer;
 
+	// Holds how many maps are on this server.
+	UPROPERTY(Replicated)
+	int32 AllMapsOnServerCount;
+
+
 protected:
 	virtual bool AddDedicatedInstance(FGuid InstanceGUID, const FString& AccessKey, const FString& ServerName, const FString& ServerGameMode, const FString& ServerDescription, int32 MaxPlayers, bool bTeamGame);
 	void FillOutRconPlayerList(TArray<FRconPlayerData>& PlayerList);
@@ -259,6 +264,11 @@ public:
 	virtual void MakeJsonReport(TSharedPtr<FJsonObject> JsonObject);
 
 	virtual void GetMatchBans(int32 GameInstanceId, TArray<FUniqueNetIdRepl> &BanList);
+
+	/**
+	 *	Returns true on the client if the replication of the map list and ruleset is completed.
+	 **/
+	bool IsClientFullyInformed();
 
 };
 

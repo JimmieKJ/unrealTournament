@@ -433,6 +433,9 @@ protected:
 	TSharedPtr<SUTButton> DownloadContentButton;
 	TSharedPtr<SUTPopOverAnchor> CurrentAnchor;
 	bool bSuspendPopups;
+
+	EVisibility GetMatchButtonVis() const;
+
 };
 
 #endif

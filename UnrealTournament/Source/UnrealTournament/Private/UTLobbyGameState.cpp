@@ -13,6 +13,8 @@
 AUTLobbyGameState::AUTLobbyGameState(const class FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
 {
+	AllMapsOnServerCount = -1;
+	AvailabelGameRulesetCount = -1;
 }
 
 void AUTLobbyGameState::BeginPlay()
@@ -28,6 +30,7 @@ void AUTLobbyGameState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > &
 	DOREPLIFETIME(AUTLobbyGameState, AvailableGameRulesets);
 	DOREPLIFETIME(AUTLobbyGameState, AvailabelGameRulesetCount);
 	DOREPLIFETIME(AUTLobbyGameState, AllMapsOnServer);
+	DOREPLIFETIME(AUTLobbyGameState, AllMapsOnServerCount);
 	DOREPLIFETIME(AUTLobbyGameState, NumGameInstances);
 	DOREPLIFETIME(AUTLobbyGameState, bCustomContentAvailable);
 	DOREPLIFETIME_CONDITION(AUTLobbyGameState, bAllowInstancesToStartWithBots, COND_InitialOnly);
@@ -111,6 +114,7 @@ void AUTLobbyGameState::PostInitializeComponents()
 		}
 	
 		AvailabelGameRulesetCount = AvailableGameRulesets.Num();
+		AllMapsOnServerCount = AllMapsOnServer.Num();
 	}
 
 }
@@ -1277,4 +1281,9 @@ void AUTLobbyGameState::GetMatchBans(int32 GameInstanceId, TArray<FUniqueNetIdRe
 			return;
 		}
 	}
+}
+
+bool AUTLobbyGameState::IsClientFullyInformed()
+{
+	return (GetNetMode() == NM_Client && AllMapsOnServerCount == AllMapsOnServer.Num() && AvailabelGameRulesetCount == AvailableGameRulesets.Num());
 }
