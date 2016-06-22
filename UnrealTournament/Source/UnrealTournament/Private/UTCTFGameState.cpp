@@ -127,7 +127,7 @@ void AUTCTFGameState::Tick(float DeltaTime)
 		if (FlagBases.IsValidIndex(OffensiveTeam) && FlagBases[OffensiveTeam] != nullptr)
 		{
 			AUTCTFFlag* Flag = Cast<AUTCTFFlag>(FlagBases[OffensiveTeam]->GetCarriedObject());
-			bool bOffenseCanRally = (Flag && Flag->Holder && (GetWorld()->GetTimeSeconds() - Flag->LastPingedTime > 5.f));
+			bool bOffenseCanRally = (Flag && Flag->Holder && (GetWorld()->GetTimeSeconds() - FMath::Max(Flag->LastPingedTime, Flag->PickedUpTime) > 5.f));
 			if (!bOffenseCanRally)
 			{
 				if (bRedToCap)

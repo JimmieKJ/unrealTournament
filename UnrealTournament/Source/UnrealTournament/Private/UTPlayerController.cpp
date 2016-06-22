@@ -42,6 +42,7 @@
 #include "UTKillcamPlayback.h"
 #include "UTWeaponAttachment.h"
 #include "UTGameViewportClient.h"
+#include "UTCTFMajorMessage.h"
 
 static TAutoConsoleVariable<float> CVarUTKillcamStartDelay(
 	TEXT("UT.KillcamStartDelay"),
@@ -285,7 +286,6 @@ void AUTPlayerController::ServerMutate_Implementation(const FString& MutateStrin
 
 void AUTPlayerController::RequestRally()
 {
-	UE_LOG(UT, Warning, TEXT("RALLY %d"), UTPlayerState->bCanRally);
 	if (UTPlayerState && UTPlayerState->bCanRally)
 	{
 		ServerRequestRally();
@@ -299,6 +299,7 @@ bool AUTPlayerController::ServerRequestRally_Validate()
 
 void AUTPlayerController::ServerRequestRally_Implementation()
 {
+	// @TODO FIXMESTEVE - this should call a UTGame function, implement there
 	// if can rally, teleport with transloc effect, set last rally time
 	AUTCTFGameState* GS = GetWorld()->GetGameState<AUTCTFGameState>();
 	AUTTeamInfo* Team = UTPlayerState ? UTPlayerState->Team : nullptr;
@@ -307,6 +308,16 @@ void AUTPlayerController::ServerRequestRally_Implementation()
 		if (UTCharacter->GetCarriedObject())
 		{
 			// requesting rally
+			for (FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator)
+			{
+				AUTPlayerController* PC = Cast<AUTPlayerController>(*Iterator);
+				if (PC && GS->OnSameTeam(this, PC) && PC->UTPlayerState && PC->UTPlayerState->bCanRally)
+				{
+					PC->ClientReceiveLocalizedMessage(UUTCTFMajorMessage::StaticClass(), 22, UTPlayerState);
+				}
+			}
+			UTPlayerState->GetCharacterVoiceClass();
+			UTPlayerState->AnnounceStatus(StatusMessage::NeedBackup);
 			UTPlayerState->NextRallyTime = GetWorld()->GetTimeSeconds() + 10.f;
 			return;
 		}
@@ -337,9 +348,8 @@ void AUTPlayerController::ServerRequestRally_Implementation()
 					break;
 				}
 			}
-			WarpRotation = (FlagCarrier->GetActorLocation() - WarpLocation).Rotation();
-			WarpRotation.Pitch = 0.f;
-			WarpRotation.Roll = 0.f;
+			FRotator DesiredRotation = (FlagCarrier->GetActorLocation() - WarpLocation).Rotation();
+			WarpRotation.Yaw = DesiredRotation.Yaw;
 			RallyDelay = 30.f;
 		}
 		else
