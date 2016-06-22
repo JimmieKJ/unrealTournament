@@ -26,7 +26,7 @@ class UNREALTOURNAMENT_API AUTCTFGameMode : public AUTCTFBaseGame
 
 	virtual float GetTravelDelay() override;
 
-	virtual void HandleFlagCapture(AUTPlayerState* Holder) override;
+	virtual void HandleFlagCapture(AUTCharacter* HolderPawn, AUTPlayerState* Holder) override;
 	virtual void HandleMatchIntermission() override;
 	virtual void HandleEnteringOvertime();
 	virtual void HandleMatchInOvertime() override;

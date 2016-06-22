@@ -85,7 +85,7 @@ void AUTCTFGameMode::ScoreObject_Implementation(AUTCarriedObject* GameObject, AU
 	}
 }
 
-void AUTCTFGameMode::HandleFlagCapture(AUTPlayerState* Holder)
+void AUTCTFGameMode::HandleFlagCapture(AUTCharacter* HolderPawn, AUTPlayerState* Holder)
 {
 	if (CTFGameState->IsMatchInOvertime())
 	{

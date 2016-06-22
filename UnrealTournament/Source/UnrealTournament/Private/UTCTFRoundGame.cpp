@@ -598,12 +598,21 @@ void AUTCTFRoundGame::ScoreObject_Implementation(AUTCarriedObject* GameObject, A
 	Super::ScoreObject_Implementation(GameObject, HolderPawn, Holder, Reason);
 }
 
-void AUTCTFRoundGame::HandleFlagCapture(AUTPlayerState* Holder)
+void AUTCTFRoundGame::HandleFlagCapture(AUTCharacter* HolderPawn, AUTPlayerState* Holder)
 {
 	FlagScorer = Holder;
 	CheckScore(Holder);
 	if (UTGameState && UTGameState->IsMatchInProgress())
 	{
+		for (FConstPlayerControllerIterator It = GetWorld()->GetPlayerControllerIterator(); It; ++It)
+		{
+			AUTPlayerController* PC = Cast<AUTPlayerController>(It->Get());
+			if (PC != NULL)
+			{
+				PC->ClientPlayInstantReplay(HolderPawn, 10.0f);
+			}
+		}
+
 		SetMatchState(MatchState::MatchIntermission);
 	}
 }

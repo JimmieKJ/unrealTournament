@@ -140,7 +140,7 @@ class UNREALTOURNAMENT_API AUTCTFRoundGame : public AUTCTFBaseGame
 	virtual bool CheckScore_Implementation(AUTPlayerState* Scorer);
 	virtual bool CheckForWinner(AUTTeamInfo* ScoringTeam);
 	void BuildServerResponseRules(FString& OutRules);
-	virtual void HandleFlagCapture(AUTPlayerState* Holder) override;
+	virtual void HandleFlagCapture(AUTCharacter* HolderPawn, AUTPlayerState* Holder) override;
 	virtual void HandleExitingIntermission() override;
 	virtual int32 IntermissionTeamToView(AUTPlayerController* PC) override;
 	virtual void CreateGameURLOptions(TArray<TSharedPtr<TAttributePropertyBase>>& MenuProps);

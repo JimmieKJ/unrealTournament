@@ -4793,6 +4793,24 @@ void AUTPlayerController::ProcessVoiceDebug(const FString& Command)
 	}
 }
 
+void AUTPlayerController::ClientPlayInstantReplay_Implementation(APawn* PawnToFocus, float TimeToRewind)
+{
+	if (GetWorld()->DemoNetDriver && IsLocalController())
+	{
+		FNetworkGUID FocusPawnGuid = GetWorld()->DemoNetDriver->GetGUIDForActor(PawnToFocus);
+		GetWorld()->GetTimerManager().SetTimer(
+			KillcamStartHandle,
+			FTimerDelegate::CreateUObject(this, &AUTPlayerController::OnKillcamStart, FocusPawnGuid, TimeToRewind),
+			CVarUTKillcamStartDelay.GetValueOnGameThread(),
+			false);
+		GetWorld()->GetTimerManager().SetTimer(
+			KillcamStopHandle,
+			FTimerDelegate::CreateUObject(this, &AUTPlayerController::ClientStopKillcam),
+			TimeToRewind + CVarUTKillcamStartDelay.GetValueOnGameThread() + 0.5f,
+			false);
+	}
+}
+
 void AUTPlayerController::ClientPlayKillcam_Implementation(AController* KillingController, APawn* PawnToFocus)
 {
 	if (GetWorld()->DemoNetDriver && IsLocalController())
@@ -4800,7 +4818,7 @@ void AUTPlayerController::ClientPlayKillcam_Implementation(AController* KillingC
 		FNetworkGUID FocusPawnGuid = GetWorld()->DemoNetDriver->GetGUIDForActor(PawnToFocus);
 		GetWorld()->GetTimerManager().SetTimer(
 			KillcamStartHandle,
-			FTimerDelegate::CreateUObject(this, &AUTPlayerController::OnKillcamStart, FocusPawnGuid),
+			FTimerDelegate::CreateUObject(this, &AUTPlayerController::OnKillcamStart, FocusPawnGuid, CVarUTKillcamRewindTime.GetValueOnGameThread()),
 			CVarUTKillcamStartDelay.GetValueOnGameThread(),
 			false);
 		GetWorld()->GetTimerManager().SetTimer(
@@ -4820,7 +4838,7 @@ void AUTPlayerController::ClientStopKillcam_Implementation()
 	}
 }
 
-void AUTPlayerController::OnKillcamStart(const FNetworkGUID InFocusActorGUID)
+void AUTPlayerController::OnKillcamStart(const FNetworkGUID InFocusActorGUID, float TimeToRewind)
 {
 	// Show killcam
 	if (IsLocalController())
@@ -4831,7 +4849,7 @@ void AUTPlayerController::OnKillcamStart(const FNetworkGUID InFocusActorGUID)
 		{
 			if (LocalPlayer->GetKillcamPlaybackManager()->GetKillcamWorld() != GetWorld())
 			{
-				LocalPlayer->GetKillcamPlaybackManager()->KillcamStart(InFocusActorGUID);
+				LocalPlayer->GetKillcamPlaybackManager()->KillcamStart(TimeToRewind, InFocusActorGUID);
 			}
 		}
 	}

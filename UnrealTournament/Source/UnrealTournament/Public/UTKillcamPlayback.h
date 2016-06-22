@@ -47,13 +47,13 @@ public:
 
 	/** Returns a pointer to the UWorld being used for playback. */
 	UWorld* GetKillcamWorld() const { return KillcamWorld; }
-
+		
 	/**
 	 * Starts the process of playing and switching to the killcam world.
 	 *
 	 * @param FocusActorGUID The network GUID of the actor the camera will focus on in the killcam world. Bunches for this actor will not be queued during playback so that it is available immediately.
 	 */
-	void KillcamStart(const FNetworkGUID FocusActorGUID);
+	void KillcamStart(const float RewindDemoSeconds, const FNetworkGUID FocusActorGUID);
 
 	/** Stops playback of the killcam world and switches the view to the live world. */
 	void KillcamStop();

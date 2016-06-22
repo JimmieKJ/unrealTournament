@@ -139,12 +139,15 @@ void UUTKillcamPlayback::PlayKillcamReplay(const FString& ReplayUniqueName)
 	}
 }
 
-void UUTKillcamPlayback::KillcamStart(const FNetworkGUID FocusActorGUID)
+void UUTKillcamPlayback::KillcamStart(const float RewindDemoSeconds, const FNetworkGUID FocusActorGUID)
 {
+	UE_LOG(LogUTKillcam, Log, TEXT("UUTKillcamPlayback::KillcamStart: %f"), RewindDemoSeconds);
+
 	UWorld* CachedSourceWorld = SourceWorld.Get();
 	if (CachedSourceWorld)
 	{
-		const float AbsoluteTimeSeconds = CachedSourceWorld->DemoNetDriver->DemoCurrentTime - CVarUTKillcamRewindTime.GetValueOnGameThread();
+		const float AbsoluteTimeSeconds = CachedSourceWorld->DemoNetDriver->DemoCurrentTime - RewindDemoSeconds;
+
 		KillcamGoToTime(
 			AbsoluteTimeSeconds,
 			FocusActorGUID,
@@ -154,6 +157,7 @@ void UUTKillcamPlayback::KillcamStart(const FNetworkGUID FocusActorGUID)
 
 void UUTKillcamPlayback::KillcamGoToTime(const float TimeInSeconds, const FNetworkGUID FocusActor, const FOnGotoTimeDelegate& InOnGotoTimeDelegate)
 {
+	UE_LOG(LogUTKillcam, Log, TEXT("UUTKillcamPlayback::KillcamGoToTime: %f"), TimeInSeconds);
 	if (KillcamWorld != nullptr && KillcamWorld->DemoNetDriver != nullptr && SourceWorld != nullptr && SourceWorld->DemoNetDriver != nullptr)
 	{
 		CachedGoToTimeSeconds = TimeInSeconds;
@@ -203,6 +207,10 @@ void UUTKillcamPlayback::OnKillcamGoToTimeComplete(bool bWasSuccessful, FOnGotoT
 	{
 		ShowKillcamToUser();
 	}
+	else
+	{
+		UE_LOG(LogUTKillcam, Warning, TEXT("UUTKillcamPlayback::OnKillcamGoToTimeComplete failed"));
+	}
 
 	UserDelegate.ExecuteIfBound(bWasSuccessful);
 }
@@ -236,6 +244,8 @@ bool UUTKillcamPlayback::IsEnabled() const
 
 void UUTKillcamPlayback::KillcamStop()
 {
+	UE_LOG(LogUTKillcam, Log, TEXT("UUTKillcamPlayback::KillcamStop"));
+
 	if (KillcamWorld != nullptr && KillcamWorld->DemoNetDriver != nullptr)
 	{
 		if (KillcamWorld->GetWorldSettings() != nullptr && KillcamWorld->DemoNetDriver->SpectatorController != nullptr)

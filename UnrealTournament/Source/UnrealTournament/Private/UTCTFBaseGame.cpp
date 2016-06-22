@@ -261,12 +261,12 @@ void AUTCTFBaseGame::ScoreObject_Implementation(AUTCarriedObject* GameObject, AU
 					}
 				}
 			}
-			HandleFlagCapture(Holder);
+			HandleFlagCapture(HolderPawn, Holder);
 		}
 	}
 }
 
-void AUTCTFBaseGame::HandleFlagCapture(AUTPlayerState* Holder)
+void AUTCTFBaseGame::HandleFlagCapture(AUTCharacter* HolderPawn, AUTPlayerState* Holder)
 {
 	CheckScore(Holder);
 }

@@ -1168,6 +1168,9 @@ public:
 
 	virtual void ProcessVoiceDebug(const FString& Command);
 
+	UFUNCTION(Client, Reliable)
+	void ClientPlayInstantReplay(APawn* PawnToFocus, float TimeToRewind);
+
 	/** Sent by the server when the possessed pawn is killed */
 	UFUNCTION(Client, Reliable)
 	void ClientPlayKillcam(AController* KillingController, APawn* PawnToFocus);
@@ -1177,7 +1180,7 @@ public:
 	void ClientStopKillcam();
 
 	/** Our own timer callback, to start the killcam a moment after the character's death. */
-	void OnKillcamStart(const FNetworkGUID InFocusActorGUID);
+	void OnKillcamStart(const FNetworkGUID InFocusActorGUID, float TimeToRewind);
 
 	FTimerHandle KillcamStartHandle;
 	FTimerHandle KillcamStopHandle;
