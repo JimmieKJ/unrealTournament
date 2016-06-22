@@ -1182,16 +1182,26 @@ public:
 	FTimerHandle KillcamStartHandle;
 	FTimerHandle KillcamStopHandle;
 
-	UFUNCTION(Server, Reliable, WithValidation)
-	void ServerSendComsMessage(AUTPlayerState* Target, int32 Switch);
+	// Sends a coms message to the server.  Performs client-side spam protection
+	UFUNCTION(blueprintcallable, Category = Message)
+	void SendComsMessage(AUTPlayerState* Target, int32 Switch);
 
 	/** Look at all of the weapons the player currently has and fix their group slots */
 	UFUNCTION(blueprintcallable, Category=Inventory)
 	void RefreshWeaponGroups();
 
 protected:
+	UFUNCTION(Server, Reliable, WithValidation)
+	void ServerSendComsMessage(AUTPlayerState* Target, int32 Switch);
+
 	UFUNCTION()
 	virtual void RestartVOIP();
+
+	UPROPERTY()
+	int32 LastComMessageSwitch;
+
+	UPROPERTY()
+	float LastComMessageTime;
 
 };
 

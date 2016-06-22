@@ -139,6 +139,9 @@ AUTPlayerController::AUTPlayerController(const class FObjectInitializer& ObjectI
 
 	static ConstructorHelpers::FObjectFinder<USoundClass> SoundClassFinder(TEXT("SoundClass'/Game/RestrictedAssets/Audio/SoundClassesAndMixes/SFX_Priority.SFX_Priority'"));
 	PriorityFXSoundClass = SoundClassFinder.Object;
+
+	LastComMessageSwitch = -1;
+	LastComMessageTime = 0.0f;
 }
 
 void AUTPlayerController::BeginPlay()
@@ -4834,9 +4837,35 @@ void AUTPlayerController::OnKillcamStart(const FNetworkGUID InFocusActorGUID)
 	}
 }
 
+void AUTPlayerController::SendComsMessage(AUTPlayerState* Target, int32 Switch)
+{
+	if (GetNetMode() == NM_Client)
+	{
+		// Spam protection
+		if (GetWorld()->GetRealTimeSeconds() - LastComMessageTime < (Switch == LastComMessageSwitch ? 5.0f : 1.5f))
+		{
+			return;
+		}
+		LastComMessageSwitch = Switch;
+		LastComMessageTime = GetWorld()->GetRealTimeSeconds();
+	}
+
+	ServerSendComsMessage(Target, Switch);
+}
+
+
 bool AUTPlayerController::ServerSendComsMessage_Validate(AUTPlayerState* Target, int32 Switch) { return true; }
 void AUTPlayerController::ServerSendComsMessage_Implementation(AUTPlayerState* Target, int32 Switch)
 {
+	// Spam protection
+	if (GetWorld()->GetRealTimeSeconds() - LastComMessageTime < (Switch == LastComMessageSwitch ? 5.0f : 1.5f))
+	{
+		return;
+	}
+
+	LastComMessageSwitch = Switch;
+	LastComMessageTime = GetWorld()->GetRealTimeSeconds();
+
 	AUTGameMode* UTGameMode = GetWorld()->GetAuthGameMode<AUTGameMode>();
 	if (UTGameMode != nullptr)
 	{

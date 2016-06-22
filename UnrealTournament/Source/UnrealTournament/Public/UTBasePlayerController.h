@@ -236,9 +236,10 @@ public:
 	virtual void Tick(float DeltaTime) override;
 	virtual void UpdateInputMode();
 
+#endif
+
 	UPROPERTY()
 	TEnumAsByte<EInputMode::Type> InputMode;
-#endif
 
 	virtual void ShowAdminDialog(AUTRconAdminInfo* AdminInfo);
 	virtual void ShowAdminMessage(const FString& Message);
