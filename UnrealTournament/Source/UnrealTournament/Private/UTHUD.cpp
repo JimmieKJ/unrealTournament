@@ -450,6 +450,7 @@ void AUTHUD::NotifyMatchStateChange()
 		}
 		else
 		{
+			ToggleScoreboard(false);
 			UTLP->HideMenu();
 		}
 	}
