@@ -504,7 +504,6 @@ void UUTScoreboard::DrawReadyText(AUTPlayerState* PlayerState, float XOffset, fl
 	}
 	ReadyColor = FLinearColor::White;
 	ReadyScale = 1.f;
-	PlayerState->ReadyMode = 3;
 	if (PlayerState && (PlayerState->ReadyMode > 0) && PlayerState->bReadyToPlay)
 	{
 		int32 ReadyColorState = 2.f * GetWorld()->GetTimeSeconds() + PlayerState->PlayerId;
