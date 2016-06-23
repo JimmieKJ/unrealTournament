@@ -103,7 +103,8 @@ class ENGINE_API UDemoNetDriver : public UNetDriver
 
 	bool		bSavingCheckpoint;
 	double		LastCheckpointTime;
-
+	
+	virtual bool ShouldSaveCheckpoint();
 	void		SaveCheckpoint();
 	void		LoadCheckpoint( FArchive* GotoCheckpointArchive, int64 GotoCheckpointSkipExtraTimeInMS );
 
@@ -176,7 +177,6 @@ public:
 
 	bool IsRecording() const;
 	bool IsPlaying() const;
-
 public:
 
 	// FExec interface

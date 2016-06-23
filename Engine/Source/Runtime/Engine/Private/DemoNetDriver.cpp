@@ -1516,18 +1516,27 @@ void UDemoNetDriver::TickDemoRecord( float DeltaSeconds )
 
 	WriteDemoFrameFromQueuedDemoPackets( *FileAr, CastChecked< UDemoNetConnection >( ClientConnections[0] ) );
 
-	// Save a checkpoint if it's time
-	if ( CVarEnableCheckpoints.GetValueOnGameThread() == 1 )
+	if (ShouldSaveCheckpoint())
+	{
+		SaveCheckpoint();
+		LastCheckpointTime = DemoCurrentTime;
+	}
+}
+
+bool UDemoNetDriver::ShouldSaveCheckpoint()
+{
+	if (CVarEnableCheckpoints.GetValueOnGameThread() == 1)
 	{
 		// PLK - This is cvar'd in later builds, just hack it for right now
 		const double CHECKPOINT_DELAY = 120.0;
 
-		if ( DemoCurrentTime - LastCheckpointTime > CHECKPOINT_DELAY )
+		if (DemoCurrentTime - LastCheckpointTime > CHECKPOINT_DELAY)
 		{
-			SaveCheckpoint();
-			LastCheckpointTime = DemoCurrentTime;
+			return true;
 		}
 	}
+
+	return false;
 }
 
 void UDemoNetDriver::PauseChannels( const bool bPause )
