@@ -316,6 +316,9 @@ private:
 	FStatInfo BoostProvidedPowerupInfo;
 	FStatInfo RallyInfo;
 
+	FInputActionKeyMapping ActivatePowerupBinding;
+	FInputActionKeyMapping RallyBinding;
+
 	AUTWeapon* LastWeapon;
 
 	// Checks the Stat for updates.

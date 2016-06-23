@@ -441,6 +441,8 @@ void AUTPlayerController::SetupInputComponent()
 	InputComponent->BindAction("PushToTalk", IE_Pressed, this, &AUTPlayerController::StartVOIPTalking);
 	InputComponent->BindAction("PushToTalk", IE_Released, this, &AUTPlayerController::StopVOIPTalking);
 
+	InputComponent->BindAction("RequestRally", IE_Pressed, this, &AUTPlayerController::RequestRally);
+
 	UpdateWeaponGroupKeys();
 	UpdateInventoryKeys();
 }

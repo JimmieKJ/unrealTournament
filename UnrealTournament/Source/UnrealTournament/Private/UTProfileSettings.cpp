@@ -118,6 +118,13 @@ void UUTProfileSettings::VersionFixup()
 		PushToTalk.Key = EKeys::B;
 		ActionMappings.AddUnique(PushToTalk);
 	}
+	if (SettingsRevisionNum < RALLY_FIXUP_PROFILESETTINGS_VERSION)
+	{
+		FInputActionKeyMapping RequestRally;
+		RequestRally.ActionName = FName(TEXT("RequestRally"));
+		RequestRally.Key = EKeys::Enter;
+		ActionMappings.AddUnique(RequestRally);
+	}
 
 	if (SettingsRevisionNum < COMS_MENU_FIXUP_PROFILESETTINGS_VERSION)
 	{

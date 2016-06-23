@@ -394,6 +394,9 @@ void SUTControlSettingsDialog::CreateBinds()
 	->AddActionMapping("PushToTalk")
 	->AddDefaults(EKeys::CapsLock)));
 
+	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "RequestRally", "Request Rally")))
+		->AddActionMapping("RequestRally")
+		->AddDefaults(EKeys::Enter)));
 
 	// TODO: mod binding registration
 }

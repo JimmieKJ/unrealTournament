@@ -305,20 +305,23 @@ void UUTHUDWidget_QuickStats::PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCa
 						BoostProvidedPowerupInfo.Animate(StatAnimTypes::ScaleOverlay, 2.f, 1.5f, 1.0f, true);
 						BoostProvidedPowerupInfo.Animate(StatAnimTypes::Scale, 2.f, 1.5f, 1.0f, true);
 					}
-
-					UInputSettings* InputSettings = UInputSettings::StaticClass()->GetDefaultObject<UInputSettings>();
-					if (InputSettings)
+					if (ActivatePowerupBinding.ActionName != "StartActivatePowerup")
 					{
-						for (int32 inputIndex = 0; inputIndex < InputSettings->ActionMappings.Num(); ++inputIndex)
+						UInputSettings* InputSettings = UInputSettings::StaticClass()->GetDefaultObject<UInputSettings>();
+						if (InputSettings)
 						{
-							FInputActionKeyMapping& Action = InputSettings->ActionMappings[inputIndex];
-							if (Action.ActionName == "StartActivatePowerup")
+							for (int32 inputIndex = 0; inputIndex < InputSettings->ActionMappings.Num(); ++inputIndex)
 							{
-								BoostProvidedPowerupInfo.Label = (Action.Key.GetDisplayName().ToString().Len() < 4) ? Action.Key.GetDisplayName() : FText::FromString(" ");
-								break;
+								FInputActionKeyMapping& Action = InputSettings->ActionMappings[inputIndex];
+								if (Action.ActionName == "StartActivatePowerup")
+								{
+									ActivatePowerupBinding = Action;
+									break;
+								}
 							}
 						}
 					}
+					BoostProvidedPowerupInfo.Label = (ActivatePowerupBinding.Key.GetDisplayName().ToString().Len() < 6) ? ActivatePowerupBinding.Key.GetDisplayName() : FText::FromString(" ");
 				}
 				else
 				{
@@ -369,7 +372,7 @@ void UUTHUDWidget_QuickStats::PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCa
 						FInputActionKeyMapping& Action = InputSettings->ActionMappings[inputIndex];
 						if (Action.ActionName == "DropCarriedObject")
 						{
-							FlagInfo.Label = (Action.Key.IsValid() && (Action.Key.GetDisplayName().ToString().Len() < 4)) ? Action.Key.GetDisplayName() : FText::FromString(" ");
+							FlagInfo.Label = (Action.Key.IsValid() && (Action.Key.GetDisplayName().ToString().Len() < 6)) ? Action.Key.GetDisplayName() : FText::FromString(" ");
 							break;
 						}
 					}
@@ -387,9 +390,25 @@ void UUTHUDWidget_QuickStats::PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCa
 			RallyInfo.Value = 1;
 			RallyInfo.IconColor = FLinearColor::Yellow;
 			RallyInfo.bUseLabel = true;
-			RallyInfo.Label = FText::FromString(TEXT("[ENTER]"));
 			RallyInfo.HighlightStrength = 1.f;
 			RallyInfo.bUseOverlayTexture = false;
+			if (RallyBinding.ActionName != "RequestRally")
+			{
+				UInputSettings* InputSettings = UInputSettings::StaticClass()->GetDefaultObject<UInputSettings>();
+				if (InputSettings)
+				{
+					for (int32 inputIndex = 0; inputIndex < InputSettings->ActionMappings.Num(); ++inputIndex)
+					{
+						FInputActionKeyMapping& Action = InputSettings->ActionMappings[inputIndex];
+						if (Action.ActionName == "RequestRally")
+						{
+							RallyBinding = Action;
+							break;
+						}
+					}
+				}
+			}
+			RallyInfo.Label = (RallyBinding.Key.GetDisplayName().ToString().Len() < 6) ? RallyBinding.Key.GetDisplayName() : FText::FromString(" ");
 		}
 	}
 
