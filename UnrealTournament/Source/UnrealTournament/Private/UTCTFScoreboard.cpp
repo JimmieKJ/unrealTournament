@@ -18,7 +18,7 @@ UUTCTFScoreboard::UUTCTFScoreboard(const FObjectInitializer& ObjectInitializer)
 	PeriodText[2] = NSLOCTEXT("UTScoreboard", "Overtime", "Overtime");
 	ScoringPlayScore = NSLOCTEXT("CTF", "ScoringPlayScore", "{RedScore} - {BlueScore}");
 
-	ColumnHeaderScoreX = 0.65;
+	ColumnHeaderScoreX = 0.63f;
 	ColumnHeaderCapsX = 0.735;
 	ColumnHeaderAssistsX = 0.7925;
 	ColumnHeaderReturnsX = 0.85;
