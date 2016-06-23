@@ -197,54 +197,56 @@ void SUTInGameHomePanel::ShowContextMenu(UUTScoreboard* Scoreboard, FVector2D Co
 		// If we are in a netgame, show online options.
 		if ( PlayerOwner->GetWorld()->GetNetMode() == ENetMode::NM_Client)
 		{
-			// Add the show player card
-			MenuBox->AddSlot()
-			.AutoHeight()
-			[
-				SNew(SUTButton)
-				.OnClicked(this, &SUTInGameHomePanel::ContextCommand, 255, SelectedPlayer)
-				.ButtonStyle(SUTStyle::Get(),"UT.ContextMenu.Item")
-				.Text(this, &SUTInGameHomePanel::GetMuteLabelText)
-				.TextStyle(SUTStyle::Get(),"UT.Font.NormalText.Small")
-			];
-
-			MenuBox->AddSlot()
-			.AutoHeight()
-			[
-				SNew(SHorizontalBox)
-				+SHorizontalBox::Slot().Padding(FMargin(10.0,0.0,10.0,0.0))
-				[
-					SNew(SBox).HeightOverride(3)
-					[
-						SNew(SImage)
-						.Image(SUTStyle::Get().GetBrush("UT.HeaderBackground.SuperDark"))
-					]
-				]
-			];
-
-			if (!PlayerOwner->IsAFriend(SelectedPlayer->UniqueId))
+			if (PlayerOwner->PlayerController == nullptr || SelectedPlayer.Get() != PlayerOwner->PlayerController->PlayerState)
 			{
+				// Add the show player card
 				MenuBox->AddSlot()
 				.AutoHeight()
 				[
 					SNew(SUTButton)
-					.OnClicked(this, &SUTInGameHomePanel::ContextCommand, 1, SelectedPlayer)
+					.OnClicked(this, &SUTInGameHomePanel::ContextCommand, 255, SelectedPlayer)
 					.ButtonStyle(SUTStyle::Get(),"UT.ContextMenu.Item")
-					.Text(NSLOCTEXT("SUTInGameHomePanel","SendFriendRequest","Send Friend Request"))
+					.Text(this, &SUTInGameHomePanel::GetMuteLabelText)
+					.TextStyle(SUTStyle::Get(),"UT.Font.NormalText.Small")
+				];
+
+				MenuBox->AddSlot()
+				.AutoHeight()
+				[
+					SNew(SHorizontalBox)
+					+SHorizontalBox::Slot().Padding(FMargin(10.0,0.0,10.0,0.0))
+					[
+						SNew(SBox).HeightOverride(3)
+						[
+							SNew(SImage)
+							.Image(SUTStyle::Get().GetBrush("UT.HeaderBackground.SuperDark"))
+						]
+					]
+				];
+
+				if (!PlayerOwner->IsAFriend(SelectedPlayer->UniqueId))
+				{
+					MenuBox->AddSlot()
+					.AutoHeight()
+					[
+						SNew(SUTButton)
+						.OnClicked(this, &SUTInGameHomePanel::ContextCommand, 1, SelectedPlayer)
+						.ButtonStyle(SUTStyle::Get(),"UT.ContextMenu.Item")
+						.Text(NSLOCTEXT("SUTInGameHomePanel","SendFriendRequest","Send Friend Request"))
+						.TextStyle(SUTStyle::Get(),"UT.Font.NormalText.Small")
+					];
+				}
+
+				MenuBox->AddSlot()
+				.AutoHeight()
+				[
+					SNew(SUTButton)
+					.OnClicked(this, &SUTInGameHomePanel::ContextCommand, 2, SelectedPlayer)
+					.ButtonStyle(SUTStyle::Get(),"UT.ContextMenu.Item")
+					.Text(NSLOCTEXT("SUTInGameHomePanel","VoteToKick","Vote to Kick"))
 					.TextStyle(SUTStyle::Get(),"UT.Font.NormalText.Small")
 				];
 			}
-
-
-			MenuBox->AddSlot()
-			.AutoHeight()
-			[
-				SNew(SUTButton)
-				.OnClicked(this, &SUTInGameHomePanel::ContextCommand, 2, SelectedPlayer)
-				.ButtonStyle(SUTStyle::Get(),"UT.ContextMenu.Item")
-				.Text(NSLOCTEXT("SUTInGameHomePanel","VoteToKick","Vote to Kick"))
-				.TextStyle(SUTStyle::Get(),"UT.Font.NormalText.Small")
-			];
 
 			if (PlayerOwner->PlayerController)
 			{
