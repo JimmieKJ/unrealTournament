@@ -295,10 +295,9 @@ APawn* UUTGameplayStatics::PickBestAimTarget(AController* AskingC, FVector Start
 
 APawn* UUTGameplayStatics::ChooseBestAimTarget(AController* AskingC, FVector StartLoc, FVector FireDir, float MinAim, float MaxRange, float MaxOffsetDist, TSubclassOf<APawn> TargetClass, float* BestAim, float* BestDist, float* BestOffset)
 {
-	if ((AskingC == NULL) || (AskingC->GetNetMode() == NM_Client))
+	if (AskingC == NULL)
 	{
-		FString ErrorText = (AskingC == NULL) ? "ChooseBestAimTarget(): AskingC == NULL" : "ChooseBestAimTarget(): Only callable on server";
-		UE_LOG(UT, Warning, TEXT("%s"), *ErrorText);
+		UE_LOG(UT, Warning, TEXT("ChooseBestAimTarget(): AskingC == NULL"));
 		return NULL;
 	}
 	else
@@ -328,16 +327,16 @@ APawn* UUTGameplayStatics::ChooseBestAimTarget(AController* AskingC, FVector Sta
 		APawn* BestTarget = NULL;
 		FCollisionQueryParams TraceParams(FName(TEXT("ChooseBestAimTarget")), false);
 		UWorld* TheWorld = AskingC->GetWorld();
-		for (FConstControllerIterator It = TheWorld->GetControllerIterator(); It; ++It)
+		for (FConstPawnIterator It = TheWorld->GetPawnIterator(); It; ++It)
 		{
-			APawn* P = It->Get()->GetPawn();
-			if (P != NULL && !P->bTearOff && (It->Get() != AskingC) && P->GetClass()->IsChildOf(TargetClass))
+			AUTCharacter* P = Cast<AUTCharacter>(It->Get());
+			if (P != NULL && !P->IsDead() && (It->Get() != AskingC->GetPawn()) && P->GetClass()->IsChildOf(TargetClass))
 			{
 				AUTGameState* GS = TheWorld->GetGameState<AUTGameState>();
 				if (GS == NULL || !GS->OnSameTeam(AskingC, P))
 				{
 					// check passed in constraints
-					const FVector AimDir = P->GetActorLocation() - StartLoc;
+					FVector AimDir = P->GetActorLocation() - StartLoc;
 					float TestAim = FireDir | AimDir;
 					if (TestAim > 0.0f)
 					{
@@ -346,7 +345,13 @@ APawn* UUTGameplayStatics::ChooseBestAimTarget(AController* AskingC, FVector Sta
 						{
 							FireDist = FMath::Sqrt(FireDist);
 							TestAim /= FireDist;
-							if (TestAim > MinAim)
+							if ((TestAim < MinAim) && (FireDist < 2.f*MaxOffsetDist))
+							{
+								AimDir.Z += P->BaseEyeHeight;
+								AimDir = AimDir.SafeNormal();
+								TestAim = (FireDir | AimDir);
+							}
+							if (TestAim >= MinAim)
 							{
 								float OffsetDist = FMath::PointDistToLine(P->GetActorLocation(), FireDir, StartLoc);
 								if (OffsetDist < (*BestOffset))

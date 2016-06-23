@@ -572,12 +572,6 @@ FVector AUTCharacter::GetHeadLocation(float PredictionTime)
 
 bool AUTCharacter::IsHeadShot(FVector HitLocation, FVector ShotDirection, float WeaponHeadScaling, AUTCharacter* ShotInstigator, float PredictionTime)
 {
-	if (UTCharacterMovement && UTCharacterMovement->bIsFloorSliding)
-	{
-		// no headshots while dodge rolling
-		return false;
-	}
-
 	AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
 	if (ShotInstigator && GS && GS->OnSameTeam(this, ShotInstigator))
 	{

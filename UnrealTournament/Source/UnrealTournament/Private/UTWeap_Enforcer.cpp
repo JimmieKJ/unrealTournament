@@ -58,6 +58,7 @@ AUTWeap_Enforcer::AUTWeap_Enforcer(const FObjectInitializer& ObjectInitializer)
 
 	DisplayName = NSLOCTEXT("UTWeap_Enforcer", "DisplayName", "Enforcer");
 	bCheckHeadSphere = true;
+	bCheckMovingHeadSphere = true;
 }
 
 void AUTWeap_Enforcer::AttachLeftMesh()
