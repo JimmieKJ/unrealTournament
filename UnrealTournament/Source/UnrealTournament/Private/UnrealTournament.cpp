@@ -404,6 +404,7 @@ void GetAllAssetData(UClass* BaseClass, TArray<FAssetData>& AssetList, bool bReq
 				const FString* ReqAchievement = AssetList[i].TagsAndValues.Find(FName(TEXT("RequiredAchievement")));
 				if (ReqAchievement != NULL && !LocallyHasAchievement(**ReqAchievement))
 				{
+					UE_LOG(UT, Verbose, TEXT("Don't have achievement for %s"), *AssetList[i].AssetName.ToString());
 					AssetList.RemoveAt(i);
 				}
 				else
@@ -557,6 +558,7 @@ void GetAllBlueprintAssetData(UClass* BaseClass, TArray<FAssetData>& AssetList, 
 				const FString* ReqAchievement = AssetList[i].TagsAndValues.Find(FName(TEXT("RequiredAchievement")));
 				if (ReqAchievement != NULL && !LocallyHasAchievement(**ReqAchievement))
 				{
+					UE_LOG(UT, Verbose, TEXT("Don't have achievement for %s"), *AssetList[i].AssetName.ToString());
 					AssetList.RemoveAt(i);
 				}
 				else

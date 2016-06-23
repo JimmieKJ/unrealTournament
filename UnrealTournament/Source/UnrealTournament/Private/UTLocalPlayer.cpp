@@ -1489,6 +1489,8 @@ void UUTLocalPlayer::ClearProfileWarnResults(TSharedPtr<SCompoundWidget> Widget,
 
 void UUTLocalPlayer::LoadProgression()
 {
+	UE_LOG(UT, Verbose, TEXT("LoadProgression() %d"), IsLoggedIn() ? 1 : 0);
+
 	if (IsLoggedIn())
 	{
 		TSharedPtr<const FUniqueNetId> UserID = OnlineIdentityInterface->GetUniquePlayerId(GetControllerId());
@@ -1643,6 +1645,8 @@ void UUTLocalPlayer::OnReadUserFileComplete(bool bWasSuccessful, const FUniqueNe
 	{
 		bIsPendingProgressionLoadFromMCP = false;
 
+		UE_LOG(UT, Verbose, TEXT("Progression loaded from MCP %d"), bWasSuccessful ? 1 : 0);
+
 		if (bWasSuccessful)
 		{
 			// Create the current profile.
@@ -1688,6 +1692,8 @@ void UUTLocalPlayer::OnReadUserFileComplete(bool bWasSuccessful, const FUniqueNe
 
 			CurrentProgression->Serialize(Ar);
 			CurrentProgression->VersionFixup();
+
+			UE_LOG(UT, Verbose, TEXT("Progression: Achievements %d, Stars %d"), CurrentProgression->Achievements.Num(), CurrentProgression->TotalChallengeStars);
 
 			// set PlayerState progressionv variables if in main menu/single player
 			if (PlayerController != NULL)
