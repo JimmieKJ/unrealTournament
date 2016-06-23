@@ -17,7 +17,11 @@ class UNREALTOURNAMENT_API UUTWeaponStateFiring : public UUTWeaponState
 	{
 		PendingFireSequence = -1;
 		bDelayShot = false;
+		FireEventIndex = 0;
 	}
+
+	UPROPERTY(BlueprintReadOnly)
+		uint8 FireEventIndex;
 
 	FTimerHandle RefireCheckHandle;
 
