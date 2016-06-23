@@ -222,7 +222,6 @@ void AUTFlagRunGame::HandleRallyRequest(AUTPlayerController* RequestingPC)
 	AUTCharacter* UTCharacter = RequestingPC->GetUTCharacter();
 	AUTPlayerState* UTPlayerState = RequestingPC->UTPlayerState;
 
-	// @TODO FIXMESTEVE - this should call a UTGame function, implement there
 	// if can rally, teleport with transloc effect, set last rally time
 	AUTCTFGameState* GS = GetWorld()->GetGameState<AUTCTFGameState>();
 	AUTTeamInfo* Team = UTPlayerState ? UTPlayerState->Team : nullptr;
@@ -247,7 +246,6 @@ void AUTFlagRunGame::HandleRallyRequest(AUTPlayerController* RequestingPC)
 		}
 		FVector WarpLocation = FVector::ZeroVector;
 		FRotator WarpRotation(0.0f, UTCharacter->GetActorRotation().Yaw, 0.0f);
-		ECollisionChannel SavedObjectType = UTCharacter->GetCapsuleComponent()->GetCollisionObjectType();
 		FCollisionShape PlayerCapsule = FCollisionShape::MakeCapsule(UTCharacter->GetCapsuleComponent()->GetUnscaledCapsuleRadius(), UTCharacter->GetCapsuleComponent()->GetUnscaledCapsuleHalfHeight());
 		FHitResult Hit;
 		float SweepRadius = UTCharacter->GetCapsuleComponent()->GetUnscaledCapsuleRadius();
@@ -262,6 +260,7 @@ void AUTFlagRunGame::HandleRallyRequest(AUTPlayerController* RequestingPC)
 				return;
 			}
 			FVector CarrierLocation = FlagCarrier->GetActorLocation() + FVector(0.f, 0.f, UTCharacter->GetCapsuleComponent()->GetUnscaledCapsuleHalfHeight());
+			ECollisionChannel SavedObjectType = UTCharacter->GetCapsuleComponent()->GetCollisionObjectType();
 			UTCharacter->GetCapsuleComponent()->SetCollisionObjectType(COLLISION_TELEPORTING_OBJECT);
 			float Offset = 4.f * UTCharacter->GetCapsuleComponent()->GetUnscaledCapsuleRadius();
 			for (int32 i = 0; i < 4; i++)
@@ -272,6 +271,7 @@ void AUTFlagRunGame::HandleRallyRequest(AUTPlayerController* RequestingPC)
 					break;
 				}
 			}
+			UTCharacter->GetCapsuleComponent()->SetCollisionObjectType(SavedObjectType);
 			FRotator DesiredRotation = (FlagCarrier->GetActorLocation() - WarpLocation).Rotation();
 			WarpRotation.Yaw = DesiredRotation.Yaw;
 			RallyDelay = 30.f;
@@ -310,7 +310,6 @@ void AUTFlagRunGame::HandleRallyRequest(AUTPlayerController* RequestingPC)
 		// teleport
 		UPrimitiveComponent* SavedPlayerBase = UTCharacter->GetMovementBase();
 		FTransform SavedPlayerTransform = UTCharacter->GetTransform();
-		UTCharacter->GetCapsuleComponent()->SetCollisionObjectType(SavedObjectType);
 		if (UTCharacter->TeleportTo(WarpLocation, WarpRotation))
 		{
 			UTCharacter->FaceRotation(WarpRotation, 0.0f);
