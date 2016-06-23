@@ -78,7 +78,7 @@ void AUTCTFFlagBase::OnOverlapBegin(AActor* OtherActor, UPrimitiveComponent* Oth
 			!GetWorld()->LineTraceTestByChannel(OtherActor->GetActorLocation(), Capsule->GetComponentLocation(), ECC_Pawn, FCollisionQueryParams(), WorldResponseParams) )
 		{
 			AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
-			if (GS == NULL || (GS->IsMatchInProgress() && !GS->IsMatchIntermission()))
+			if (GS == NULL || (GS->IsMatchInProgress() && !GS->IsMatchIntermission() && !GS->HasMatchEnded()))
 			{
 				CharFlag->Score(FName(TEXT("FlagCapture")), CharFlag->HoldingPawn, CharFlag->Holder);
 				CharFlag->PlayCaptureEffect();
