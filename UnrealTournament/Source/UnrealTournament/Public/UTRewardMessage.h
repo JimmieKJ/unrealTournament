@@ -70,7 +70,7 @@ class UNREALTOURNAMENT_API UUTRewardMessage : public UUTLocalMessage
 
 	virtual FText GetText(int32 Switch, bool bTargetsPlayerState1, class APlayerState* RelatedPlayerState_1, class APlayerState* RelatedPlayerState_2, class UObject* OptionalObject) const override
 	{
-		return MessageText;
+		return FText::GetEmpty(); // MessageText;
 	}
 
 	virtual void PrecacheAnnouncements_Implementation(UUTAnnouncer* Announcer) const override
