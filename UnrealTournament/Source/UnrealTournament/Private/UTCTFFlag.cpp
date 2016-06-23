@@ -274,6 +274,7 @@ void AUTCTFFlag::PlayReturnedEffects()
 
 void AUTCTFFlag::UpdateOutline()
 {
+//	UE_LOG(UT, Warning, TEXT("Update Outline Holdingpawn %d is outlined %d"), (HoldingPawn != nullptr), (HoldingPawn && HoldingPawn->IsOutlined()) ? 1 : 0);
 	const bool bOutlined = (GetNetMode() != NM_DedicatedServer) && ((HoldingPawn != nullptr) ? HoldingPawn->IsOutlined() : bGradualAutoReturn);
 	// 0 is a null value for the stencil so use team + 1
 	// last bit in stencil is a bitflag so empty team uses 127

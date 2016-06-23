@@ -86,7 +86,7 @@ class UNREALTOURNAMENT_API AUTCarriedObject : public AActor, public IUTTeamInter
 	TArray<AController*> HolderRescuers;
 
 	// Server Side - Holds a reference to the pawn that is holding this object
-	UPROPERTY(BlueprintReadOnly, Category = GameObject)
+	UPROPERTY(BlueprintReadOnly, ReplicatedUsing=UpdateOutline, Category = GameObject)
 	AUTCharacter* HoldingPawn;
 
 	// Holds the home base for this object.
@@ -353,6 +353,7 @@ public:
 	UPROPERTY()
 		UParticleSystemComponent* HolderTrail;
 
+	UFUNCTION()
 	virtual void UpdateOutline()
 	{}
 

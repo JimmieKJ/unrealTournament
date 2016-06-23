@@ -348,7 +348,7 @@ APawn* UUTGameplayStatics::ChooseBestAimTarget(AController* AskingC, FVector Sta
 							if ((TestAim < MinAim) && (FireDist < 2.f*MaxOffsetDist))
 							{
 								AimDir.Z += P->BaseEyeHeight;
-								AimDir = AimDir.SafeNormal();
+								AimDir = AimDir.GetSafeNormal();
 								TestAim = (FireDir | AimDir);
 							}
 							if (TestAim >= MinAim)

@@ -130,6 +130,7 @@ void AUTCarriedObject::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & 
 
 	DOREPLIFETIME(AUTCarriedObject, ObjectState);
 	DOREPLIFETIME(AUTCarriedObject, Holder);
+	DOREPLIFETIME(AUTCarriedObject, HoldingPawn);
 	DOREPLIFETIME(AUTCarriedObject, Team);
 	DOREPLIFETIME(AUTCarriedObject, bMovementEnabled);
 	DOREPLIFETIME_CONDITION(AUTCarriedObject, HomeBase, COND_InitialOnly);
@@ -484,6 +485,7 @@ void AUTCarriedObject::SetHolder(AUTCharacter* NewHolder)
 			}
 		}
 	}
+	UpdateOutline();
 }
 
 void AUTCarriedObject::NoLongerHeld(AController* InstigatedBy)
@@ -531,6 +533,7 @@ void AUTCarriedObject::NoLongerHeld(AController* InstigatedBy)
 			}
 		}
 	}
+	UpdateOutline();
 }
 
 void AUTCarriedObject::TossObject(AUTCharacter* ObjectHolder)
