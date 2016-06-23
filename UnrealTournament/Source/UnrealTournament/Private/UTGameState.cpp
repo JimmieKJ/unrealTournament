@@ -1285,6 +1285,7 @@ AUTReplicatedMapInfo* AUTGameState::CreateMapInfo(const FAssetData& MapAsset)
 			AUTBaseGameMode* BaseGameMode = Cast<AUTBaseGameMode>(GetWorld()->GetAuthGameMode());
 			if (BaseGameMode)
 			{
+				BaseGameMode->CheckMapStatus(MapInfo->MapPackageName, MapInfo->bIsEpicMap, MapInfo->bIsMeshedMap);
 				BaseGameMode->FindRedirect(MapInfo->MapPackageName, MapInfo->Redirect);
 			}
 		}
@@ -1301,11 +1302,21 @@ void AUTGameState::CreateMapVoteInfo(const FString& MapPackage,const FString& Ma
 	AUTReplicatedMapInfo* MapVoteInfo = GetWorld()->SpawnActor<AUTReplicatedMapInfo>(Params);
 	if (MapVoteInfo)
 	{
-		UE_LOG(UT,Verbose,TEXT("Creating Map Vote for map %s [%s]"), *MapPackage, *MapTitle);
-
 		MapVoteInfo->MapPackageName= MapPackage;
 		MapVoteInfo->Title = MapTitle;
 		MapVoteInfo->MapScreenshotReference = MapScreenshotReference;
+
+		if (Role == ROLE_Authority)
+		{
+			// Look up it's redirect information if it has any.
+
+			AUTBaseGameMode* BaseGameMode = Cast<AUTBaseGameMode>(GetWorld()->GetAuthGameMode());
+			if (BaseGameMode)
+			{
+				BaseGameMode->CheckMapStatus(MapVoteInfo->MapPackageName, MapVoteInfo->bIsEpicMap, MapVoteInfo->bIsMeshedMap);
+			}
+		}
+
 		MapVoteList.Add(MapVoteInfo);
 	}
 }

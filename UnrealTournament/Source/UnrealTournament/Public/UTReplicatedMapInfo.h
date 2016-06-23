@@ -13,7 +13,7 @@ class UNREALTOURNAMENT_API AUTReplicatedMapInfo : public AInfo
 	virtual void PreInitializeComponents() override;
 
 	// The weapon
-	UPROPERTY(Replicated, BlueprintReadOnly, Category = Ruleset)
+	UPROPERTY(Replicated, BlueprintReadOnly, Category = Ruleset, ReplicatedUsing = OnRep_MapPackageName)
 	FString MapPackageName;
 
 	UPROPERTY(Replicated, BlueprintReadOnly, Category = Ruleset)
@@ -39,6 +39,15 @@ class UNREALTOURNAMENT_API AUTReplicatedMapInfo : public AInfo
 
 	UPROPERTY(Replicated, BlueprintReadOnly, Category = Ruleset)
 	FPackageRedirectReference Redirect;
+
+	// Will be true if this map is a fully meshed map
+	UPROPERTY()
+	bool bIsMeshedMap;
+
+	// Wil lbe true if this is an Epic official map
+	UPROPERTY()
+	bool bIsEpicMap;
+
 
 	// What rounds are this weapon available in
 	UPROPERTY(Replicated, ReplicatedUsing = OnRep_VoteCount)
@@ -67,6 +76,9 @@ protected:
 
 	UFUNCTION()
 	virtual void OnRep_MapScreenshotReference();
+
+	UFUNCTION()
+	virtual void OnRep_MapPackageName();
 
 	virtual void PreLoadScreenshot();
 	void MapTextureLoadComplete(const FName& InPackageName, UPackage* LoadedPackage, EAsyncLoadingResult::Type Result);

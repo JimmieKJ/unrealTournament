@@ -1,8 +1,9 @@
-// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+	// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "UnrealTournament.h"
 #include "UTReplicatedMapInfo.h"
 #include "Net/UnrealNetwork.h"
+#include "UTBaseGameMode.h"
 
 AUTReplicatedMapInfo::AUTReplicatedMapInfo(const class FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -124,5 +125,14 @@ void AUTReplicatedMapInfo::MapTextureLoadComplete(const FName& InPackageName, UP
 			MapBrush = new FSlateDynamicImageBrush(MapScreenshot, FVector2D(256.0, 128.0), NAME_None);
 #endif
 		}
+	}
+}
+
+void AUTReplicatedMapInfo::OnRep_MapPackageName()
+{
+	AUTBaseGameMode* BaseGameModeDO = AUTBaseGameMode::StaticClass()->GetDefaultObject<AUTBaseGameMode>();
+	if (BaseGameModeDO)
+	{
+		BaseGameModeDO->CheckMapStatus(MapPackageName, bIsEpicMap, bIsMeshedMap);
 	}
 }

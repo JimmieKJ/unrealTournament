@@ -586,3 +586,20 @@ void AUTBaseGameMode::MakeJsonReport(TSharedPtr<FJsonObject> JsonObject)
 		GameState->MakeJsonReport(JsonObject);
 	}
 }
+
+void AUTBaseGameMode::CheckMapStatus(FString MapPackageName, bool& bIsEpicMap, bool& bIsMeshedMap)
+{
+	bIsEpicMap = false;
+	bIsMeshedMap = false;
+	
+	for (int32 i=0; i < EpicMapList.Num(); i++)
+	{
+		if (EpicMapList[i].MapPackageName.Equals(MapPackageName,ESearchCase::IgnoreCase) )
+		{
+			bIsEpicMap = EpicMapList[i].bIsEpicMap;
+			bIsMeshedMap = EpicMapList[i].bIsMeshedMap;
+			break;
+		}
+	}
+}
+
