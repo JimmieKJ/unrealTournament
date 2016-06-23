@@ -120,6 +120,7 @@ void AUTPlayerState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & Ou
 	DOREPLIFETIME(AUTPlayerState, EyewearVariant);
 	DOREPLIFETIME(AUTPlayerState, bSpecialPlayer);
 	DOREPLIFETIME(AUTPlayerState, bSpecialTeamPlayer);
+	DOREPLIFETIME(AUTPlayerState, bCanRally);
 	DOREPLIFETIME(AUTPlayerState, OverrideHatClass);
 	DOREPLIFETIME(AUTPlayerState, Loadout);
 	DOREPLIFETIME(AUTPlayerState, KickPercent);
