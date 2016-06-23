@@ -100,6 +100,10 @@ void AUTCTFFlag::ClientUpdateAttachment(bool bNowAttachedToPawn)
 			GetMesh()->SetWorldScale3D(FVector(FlagWorldScale));
 			GetMesh()->SetRelativeLocation(MeshOffset);
 		}
+		if (CustomDepthMesh)
+		{
+			CustomDepthMesh->SetWorldScale3D(FVector(bNowAttachedToPawn ? FlagHeldScale : FlagWorldScale));
+		}
 	}
 	Super::ClientUpdateAttachment(bNowAttachedToPawn);
 }
@@ -270,7 +274,7 @@ void AUTCTFFlag::PlayReturnedEffects()
 
 void AUTCTFFlag::UpdateOutline()
 {
-	const bool bOutlined = HoldingPawn != nullptr && HoldingPawn->IsOutlined() && GetNetMode() != NM_DedicatedServer;
+	const bool bOutlined = (GetNetMode() != NM_DedicatedServer) && ((HoldingPawn != nullptr) ? HoldingPawn->IsOutlined() : bGradualAutoReturn);
 	// 0 is a null value for the stencil so use team + 1
 	// last bit in stencil is a bitflag so empty team uses 127
 	uint8 NewStencilValue = (GetTeamNum() == 255) ? 127 : (GetTeamNum() + 1);
@@ -284,6 +288,7 @@ void AUTCTFFlag::UpdateOutline()
 		if (CustomDepthMesh == NULL)
 		{
 			CustomDepthMesh = Cast<USkeletalMeshComponent>(CreateCustomDepthOutlineMesh(GetMesh(), this));
+			CustomDepthMesh->SetWorldScale3D(FVector(HoldingPawn ? FlagHeldScale : FlagWorldScale));
 		}
 		if (CustomDepthMesh->CustomDepthStencilValue != NewStencilValue)
 		{
