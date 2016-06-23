@@ -26,5 +26,6 @@ public:
 	virtual void HandleRallyRequest(AUTPlayerController* PC) override;
 
 	virtual int32 GetComSwitch(FName CommandTag, AActor* ContextActor, AUTPlayerController* Instigator, UWorld* World);
+	virtual void InitFlags() override;
 };
 

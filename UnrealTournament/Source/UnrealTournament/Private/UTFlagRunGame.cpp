@@ -63,6 +63,18 @@ void AUTFlagRunGame::BroadcastVictoryConditions()
 	}
 }
 
+void AUTFlagRunGame::InitFlags()
+{
+	Super::InitFlags();
+	for (AUTCTFFlagBase* Base : CTFGameState->FlagBases)
+	{
+		if (Base)
+		{
+			Base->Capsule->SetCapsuleSize(160.f, 134.0f);
+		}
+	}
+}
+
 float AUTFlagRunGame::OverrideRespawnTime(TSubclassOf<AUTInventory> InventoryType)
 {
 	if (InventoryType == nullptr)
