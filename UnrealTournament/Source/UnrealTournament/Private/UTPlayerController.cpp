@@ -95,6 +95,8 @@ AUTPlayerController::AUTPlayerController(const class FObjectInitializer& ObjectI
 	CastingGuideViewIndex = INDEX_NONE;
 	bRequestingSlideOut = true;
 	DilationIndex = 2;
+	bNeedsRallyNotify = true;
+	bNeedsBoostNotify = true;
 
 	TimeToHoldPowerUpButtonToActivate = 0.75f;
 	ScoreboardDelayOnDeath = 2.f;
@@ -552,6 +554,8 @@ void AUTPlayerController::SetPawn(APawn* InPawn)
 		if (UTCharacter && UTCharacter->UTCharacterMovement)
 		{
 			UTCharacter->UTCharacterMovement->UpdateFloorSlide(bIsHoldingFloorSlide);
+			bNeedsRallyNotify = true;
+			bNeedsBoostNotify = true;
 		}
 	}
 }

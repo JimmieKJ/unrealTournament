@@ -7,6 +7,7 @@
 #include "UTWeapon.h"
 #include "UTTimedPowerup.h"
 #include "UTCTFRoundGameState.h"
+#include "UTCTFMajorMessage.h"
 
 const float BOUNCE_SCALE = 1.6f;			
 const float BOUNCE_TIME = 1.2f;		// SHould be (BOUNCE_SCALE - 1.0) * # of seconds
@@ -300,10 +301,14 @@ void UUTHUDWidget_QuickStats::PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCa
 				{
 					BoostProvidedPowerupInfo.Value = UTPlayerState->GetRemainingBoosts();
 					BoostProvidedPowerupInfo.HighlightStrength = 0.5f;
-					if (!BoostProvidedPowerupInfo.IsAnimationTypeAlreadyPlaying(StatAnimTypes::ScaleOverlay))
+					if (UTHUDOwner->UTPlayerOwner->bNeedsBoostNotify)
 					{
-						BoostProvidedPowerupInfo.Animate(StatAnimTypes::ScaleOverlay, 2.f, 1.5f, 1.0f, true);
-						BoostProvidedPowerupInfo.Animate(StatAnimTypes::Scale, 2.f, 1.5f, 1.0f, true);
+						UTHUDOwner->UTPlayerOwner->bNeedsBoostNotify = false;
+						BoostProvidedPowerupInfo.Animate(StatAnimTypes::Scale, 2.0f, 10.f, 1.0f, true);
+					}
+					else if (!BoostProvidedPowerupInfo.IsAnimationTypeAlreadyPlaying(StatAnimTypes::Scale))
+					{
+						BoostProvidedPowerupInfo.Animate(StatAnimTypes::Scale, 2.f, 3.25f, 1.0f, true);
 					}
 					if (ActivatePowerupBinding.ActionName != "StartActivatePowerup")
 					{
@@ -392,6 +397,20 @@ void UUTHUDWidget_QuickStats::PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCa
 			RallyInfo.bUseLabel = true;
 			RallyInfo.HighlightStrength = 1.f;
 			RallyInfo.bUseOverlayTexture = false;
+			bool bWantsPulse = ((UTPlayerState->Team->TeamIndex == 0) == GameState->bRedToCap);// && !UTPlayerState->CarriedObject;
+			if (UTHUDOwner->UTPlayerOwner->bNeedsRallyNotify)
+			{
+				UTHUDOwner->UTPlayerOwner->bNeedsRallyNotify = false;
+				if (bWantsPulse)
+				{
+					RallyInfo.Animate(StatAnimTypes::Scale, 2.0f, 10.f, 1.0f, true);
+					UTHUDOwner->UTPlayerOwner->ClientReceiveLocalizedMessage(UUTCTFMajorMessage::StaticClass(), 23);
+				}
+			}
+			else if (bWantsPulse && !RallyInfo.IsAnimationTypeAlreadyPlaying(StatAnimTypes::Scale))
+			{
+				RallyInfo.Animate(StatAnimTypes::Scale, 2.0f, 3.25f, 1.0f, true);
+			}
 			if (RallyBinding.ActionName != "RequestRally")
 			{
 				UInputSettings* InputSettings = UInputSettings::StaticClass()->GetDefaultObject<UInputSettings>();

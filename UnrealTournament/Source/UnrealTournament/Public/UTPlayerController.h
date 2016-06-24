@@ -167,6 +167,12 @@ public:
 	UPROPERTY()
 	float LastSameTeamTime;
 
+	UPROPERTY()
+	bool bNeedsRallyNotify;
+
+	UPROPERTY()
+	bool bNeedsBoostNotify;
+
 	UFUNCTION(reliable, client, BlueprintCallable, Category = PlayerController)
 	void UTClientSetRotation(FRotator NewRotation);
 
