@@ -274,7 +274,7 @@ void AUTFlagRunGame::HandleRallyRequest(AUTPlayerController* RequestingPC)
 			UTCharacter->GetCapsuleComponent()->SetCollisionObjectType(SavedObjectType);
 			FRotator DesiredRotation = (FlagCarrier->GetActorLocation() - WarpLocation).Rotation();
 			WarpRotation.Yaw = DesiredRotation.Yaw;
-			RallyDelay = 30.f;
+			RallyDelay = 20.f;
 			if (GetWorld()->GetTimeSeconds() - RallyRequestTime < 6.f)
 			{
 				for (FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator)
