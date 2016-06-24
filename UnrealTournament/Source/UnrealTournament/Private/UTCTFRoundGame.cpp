@@ -738,7 +738,7 @@ void AUTCTFRoundGame::InitFlags()
 		if (Base != NULL && Base->MyFlag)
 		{
 			AUTCarriedObject* Flag = Base->MyFlag;
-			Flag->AutoReturnTime = 9.f; // fixmesteve make config
+			Flag->AutoReturnTime = 7.f; // fixmesteve make config
 			Flag->bGradualAutoReturn = true;
 			Flag->bDisplayHolderTrail = true;
 			Flag->bShouldPingFlag = true;
