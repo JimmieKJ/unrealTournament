@@ -35,7 +35,8 @@ class UNREALTOURNAMENT_API AUTWeap_Redeemer : public AUTWeapon
 	virtual void BringUp(float OverflowTime) override;
 	virtual bool PutDown() override;
 	virtual void AddAmmo(int32 Amount) override;
-
+	virtual void GivenTo(AUTCharacter* NewOwner, bool bAutoActivate) override;
+	virtual void DropFrom(const FVector& StartLocation, const FVector& TossVelocity) override;
 
 	virtual float SuggestAttackStyle_Implementation() override;
 	virtual float SuggestDefenseStyle_Implementation() override;

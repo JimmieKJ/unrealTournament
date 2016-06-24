@@ -42,6 +42,7 @@ AUTProjectile* AUTWeap_Redeemer::FireProjectile()
 	}
 	else if (Role == ROLE_Authority)
 	{
+		UTOwner->bCanRally = true;
 		AUTPlayerState* PS = UTOwner->Controller ? Cast<AUTPlayerState>(UTOwner->Controller->PlayerState) : NULL;
 		LaunchTeam = PS && PS->Team ? PS->Team->TeamIndex : 255;
 		if (CurrentFireMode == 0)
@@ -97,6 +98,24 @@ AUTProjectile* AUTWeap_Redeemer::FireProjectile()
 		}
 	}
 	return NULL;
+}
+
+void AUTWeap_Redeemer::GivenTo(AUTCharacter* NewOwner, bool bAutoActivate)
+{
+	Super::GivenTo(NewOwner, bAutoActivate);
+	if (NewOwner)
+	{
+		NewOwner->bCanRally = false;
+	}
+}
+
+void AUTWeap_Redeemer::DropFrom(const FVector& StartLocation, const FVector& TossVelocity)
+{
+	if (UTOwner)
+	{
+		UTOwner->bCanRally = true;
+	}
+	Super::DropFrom(StartLocation, TossVelocity);
 }
 
 void AUTWeap_Redeemer::AnnounceLaunch()

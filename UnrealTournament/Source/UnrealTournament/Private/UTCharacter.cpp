@@ -171,6 +171,7 @@ AUTCharacter::AUTCharacter(const class FObjectInitializer& ObjectInitializer)
 	LastTakeHitTime = -10000.0f;
 	LastTakeHitReplicatedTime = -10000.0f;
 	SlideTargetHeight = 55.f;
+	bCanRally = true;
 
 	GhostComponent = ObjectInitializer.CreateDefaultSubobject<UUTGhostComponent>(this, TEXT("GhostComp"));
 	FFAColor = 0;
@@ -919,6 +920,11 @@ float AUTCharacter::TakeDamage(float Damage, const FDamageEvent& DamageEvent, AC
 			}
 			else if (UTCharacterMovement != NULL)
 			{
+				if (UTCharacterMovement->bIsFloorSliding)
+				{
+					UTCharacterMovement->Velocity.X *= 0.5f;
+					UTCharacterMovement->Velocity.Y *= 0.5f;
+				}
 				UTCharacterMovement->AddDampedImpulse(ResultMomentum, bIsSelfDamage);
 				if (UTDamageTypeCDO != NULL && UTDamageTypeCDO->WalkMovementReductionDuration > 0.0f)
 				{
