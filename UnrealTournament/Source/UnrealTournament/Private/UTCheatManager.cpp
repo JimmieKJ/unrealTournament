@@ -35,6 +35,8 @@
 #include "UTPathTestBot.h"
 #include "BlueprintContextLibrary.h"
 #include "MatchmakingContext.h"
+#include "UTProj_Rocket.h"
+#include "UTRewardMessage.h"
 
 #if WITH_PROFILE
 #include "OnlineSubsystemMcp.h"
@@ -90,6 +92,38 @@ void UUTCheatManager::Ann(int32 Switch)
 	GetOuterAPlayerController()->ClientReceiveLocalizedMessage(UUTCTFMajorMessage::StaticClass(), Switch, GetOuterAPlayerController()->PlayerState, GetOuterAPlayerController()->PlayerState, NULL);
 	GetOuterAPlayerController()->ClientReceiveLocalizedMessage(UUTCTFRewardMessage::StaticClass(), Switch, GetOuterAPlayerController()->PlayerState, GetOuterAPlayerController()->PlayerState, NULL);
 */
+}
+
+void UUTCheatManager::AnnM()
+{
+	AnnCount = 0;
+	NextAnn();
+}
+
+void UUTCheatManager::NextAnn()
+{
+	FTimerHandle TempHandle;
+	if (AnnCount == 0)
+	{
+		GetOuterAPlayerController()->ClientReceiveLocalizedMessage(UUTMultiKillMessage::StaticClass(), 3, GetOuterAPlayerController()->PlayerState, GetOuterAPlayerController()->PlayerState, NULL);
+		GetOuterAPlayerController()->GetWorld()->GetTimerManager().SetTimer(TempHandle, this, &UUTCheatManager::NextAnn, 0.25f, false);
+	}
+	else if (AnnCount == 1)
+	{
+		GetOuterAPlayerController()->ClientReceiveLocalizedMessage(UUTSpreeMessage::StaticClass(), 1, GetOuterAPlayerController()->PlayerState, GetOuterAPlayerController()->PlayerState, NULL);
+		GetOuterAPlayerController()->GetWorld()->GetTimerManager().SetTimer(TempHandle, this, &UUTCheatManager::NextAnn, 0.25f, false);
+	}
+	else if (AnnCount == 2)
+	{
+		GetOuterAPlayerController()->ClientReceiveLocalizedMessage(UUTCTFRewardMessage::StaticClass(), 0, GetOuterAPlayerController()->PlayerState, GetOuterAPlayerController()->PlayerState, NULL);
+		GetOuterAPlayerController()->GetWorld()->GetTimerManager().SetTimer(TempHandle, this, &UUTCheatManager::NextAnn, 0.25f, false);
+	}
+	else if (AnnCount == 3)
+	{
+		GetOuterAUTPlayerController()->UTPlayerState->AnnounceStatus(StatusMessage::ImOnDefense);
+//		GetOuterAPlayerController()->ClientReceiveLocalizedMessage(AUTProj_Rocket::StaticClass()->GetDefaultObject<AUTProj_Rocket>()->AirRocketRewardClass, 0, GetOuterAPlayerController()->PlayerState, GetOuterAPlayerController()->PlayerState, NULL);
+	}
+	AnnCount++;
 }
 
 void UUTCheatManager::Spread(float Scaling)
