@@ -774,7 +774,17 @@ public:
 
 	static bool CheckRank(int32 PlayerRank, int32 TargetRank)
 	{
-		return PlayerRank <= TargetRank;
+		int32 Ceiling = PlayerRank + (PlayerRank > STARTER_RANK_LEVEL ? 4 : 2);
+
+		// If this player is > Bronze 9 then remove the ceiling.
+		if (PlayerRank > NUMBER_RANK_LEVELS * 2) Ceiling = NUMBER_RANK_LEVELS * 4;
+
+		int32 Floor = PlayerRank - (PlayerRank > STARTER_RANK_LEVEL ? 4 : 2);
+
+		// If this player is > the Starter rank level, then clamp is floor at the starter rank level.
+		if (PlayerRank > STARTER_RANK_LEVEL && Floor <= STARTER_RANK_LEVEL) Floor = STARTER_RANK_LEVEL + 1;
+
+		return (TargetRank >= Floor && TargetRank <= Ceiling);
 	}
 
 

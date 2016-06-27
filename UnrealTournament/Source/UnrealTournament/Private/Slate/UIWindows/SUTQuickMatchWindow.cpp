@@ -497,10 +497,17 @@ void SUTQuickMatchWindow::CollectInstances()
 						// Cull any instances that do not match this quickmatch type or is not joinable as a player.
 						if (Instance->RulesTag.Equals(QuickMatchType, ESearchCase::IgnoreCase) && Instance->bJoinableAsPlayer)
 						{
-							// If the player owner is a beginner, reject any non-beginner matchers.
+							// Get the Target Rank based on the quickmatch type
 
-							if (!bIsBeginner || FinalList[i]->Beacon->Instances[j]->RankCheck < NUMBER_RANK_LEVELS)
+							int32 PlayerRank = 0;
+							if (DefaultGameModeObject != nullptr)
 							{
+								PlayerRank = PlayerState->GetRankCheck(DefaultGameModeObject.Get());
+							}
+
+							if ( AUTPlayerState::CheckRank(PlayerRank, FinalList[i]->Beacon->Instances[j]->RankCheck) )
+							{
+								// Look to see if I could 
 								Instances.Add(FInstanceTracker(FinalList[i], FinalList[i]->Beacon->Instances[j]));					
 							}
 						}
