@@ -492,7 +492,7 @@ void AUTProj_BioShot::DamageImpactedActor_Implementation(AActor* OtherActor, UPr
 	bool bPossibleAirSnot = bPendingSpecialReward && HitCharacter->GetCharacterMovement() != NULL && (HitCharacter->GetCharacterMovement()->MovementMode == MOVE_Falling) && (GetWorld()->GetTimeSeconds() - HitCharacter->FallingStartTime > 0.3f);
 	int32 PreHitStack = HitCharacter ? HitCharacter->Health + HitCharacter->ArmorAmount : 0.f;
 	Super::DamageImpactedActor_Implementation(OtherActor, OtherComp, HitLocation, HitNormal);
-	if (bPendingSpecialReward && HitCharacter && (HitCharacter->Health <= 0) && (GlobStrength > 3.f))
+	if (bPendingSpecialReward && bPossibleAirSnot && HitCharacter && (HitCharacter->Health <= 0))
 	{
 		// Air Snot reward
 		AUTPlayerController* PC = Cast<AUTPlayerController>(InstigatorController);
@@ -505,10 +505,7 @@ void AUTProj_BioShot::DamageImpactedActor_Implementation(AActor* OtherActor, UPr
 			}
 			int32 SnotRanking = 0;
 			float SnotSkill = (GetWorld()->GetTimeSeconds() - CreationTime) * 4.f;
-			if (bPossibleAirSnot)
-			{
-				SnotSkill += 2.f;
-			}
+			SnotSkill += 2.f;
 			if (PreHitStack > 100)
 			{
 				SnotSkill += 2.f;
