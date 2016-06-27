@@ -251,7 +251,7 @@ bool AUTCTFSquadAI::SetFlagCarrierAction(AUTBot* B)
 	return TryPathTowardObjective(B, FriendlyBase, bAllowDetours, "Return to base with enemy flag");
 }
 
-void AUTCTFSquadAI::GetPossibleEnemyGoals(AUTBot* B, const FBotEnemyInfo* EnemyInfo, TArray<FVector>& Goals)
+void AUTCTFSquadAI::GetPossibleEnemyGoals(AUTBot* B, const FBotEnemyInfo* EnemyInfo, TArray<FPredictedGoal>& Goals)
 {
 	if (FriendlyBase != NULL && FriendlyBase->GetCarriedObject() != NULL && FriendlyBase->GetCarriedObject()->HoldingPawn == EnemyInfo->GetPawn())
 	{
@@ -259,14 +259,14 @@ void AUTCTFSquadAI::GetPossibleEnemyGoals(AUTBot* B, const FBotEnemyInfo* EnemyI
 		if (EnemyBase != NULL && EnemyBase->GetCarriedObjectState() == CarriedObjectState::Home)
 		{
 			// enemy flag is home so clearly he's going there
-			Goals.Add(EnemyBase->GetActorLocation() + FVector(0.0f, 0.0f, 45.0f));
+			Goals.Add(FPredictedGoal(EnemyBase->GetActorLocation() + FVector(0.0f, 0.0f, 45.0f), true));
 		}
 		else
 		{
 			if (EnemyBase != NULL)
 			{
 				// still might camp on the stand
-				Goals.Add(EnemyBase->GetActorLocation());
+				Goals.Add(FPredictedGoal(EnemyBase->GetActorLocation(), false));
 				// predict a hiding spot
 				FHideLocEval NodeEval(FMath::FRand() < (0.07f * B->Skill + 0.5f * B->Personality.MapAwareness), FSphere(EnemyBase->GetActorLocation(), (FriendlyBase->GetActorLocation() - EnemyBase->GetActorLocation()).Size()));
 				float Weight = 0.0f;
@@ -274,7 +274,7 @@ void AUTCTFSquadAI::GetPossibleEnemyGoals(AUTBot* B, const FBotEnemyInfo* EnemyI
 				// TODO: Would be better to pass enemy pawn; need to fix bot controller assumptions in places
 				if (NavData->FindBestPath(B->GetPawn(), B->GetPawn()->GetNavAgentPropertiesRef(), NodeEval, EnemyInfo->LastKnownLoc, Weight, false, EnemyHidingRoute))
 				{
-					Goals.Add(EnemyHidingRoute.Last().GetLocation(NULL));
+					Goals.Add(FPredictedGoal(EnemyHidingRoute.Last().GetLocation(NULL), false));
 				}
 			}
 			Super::GetPossibleEnemyGoals(B, EnemyInfo, Goals);
@@ -287,20 +287,20 @@ void AUTCTFSquadAI::GetPossibleEnemyGoals(AUTBot* B, const FBotEnemyInfo* EnemyI
 		{
 			if (FriendlyBase->GetCarriedObjectState() == CarriedObjectState::Home)
 			{
-				Goals.Add(FriendlyBase->GetActorLocation());
+				Goals.Add(FPredictedGoal(FriendlyBase->GetActorLocation(), true));
 			}
 			else if (FriendlyBase->GetCarriedObject()->HoldingPawn != NULL)
 			{
 				const FBotEnemyInfo* FCInfo = B->GetEnemyInfo(FriendlyBase->GetCarriedObject()->HoldingPawn, true);
 				if (FCInfo != NULL)
 				{
-					Goals.Add(FCInfo->LastKnownLoc);
+					Goals.Add(FPredictedGoal(FCInfo->LastKnownLoc, false));
 				}
 			}
 			else
 			{
 				// TODO: model of where flag might be, search around for it
-				Goals.Add(FriendlyBase->GetCarriedObject()->GetActorLocation());
+				Goals.Add(FPredictedGoal(FriendlyBase->GetCarriedObject()->GetActorLocation(), true));
 			}
 		}
 		// possibly headed to my team's flag carrier
@@ -308,11 +308,11 @@ void AUTCTFSquadAI::GetPossibleEnemyGoals(AUTBot* B, const FBotEnemyInfo* EnemyI
 		{
 			if (EnemyBase->GetCarriedObject()->HoldingPawn != NULL)
 			{
-				Goals.Add(EnemyBase->GetCarriedObject()->HoldingPawn->GetNavAgentLocation());
+				Goals.Add(FPredictedGoal(EnemyBase->GetCarriedObject()->HoldingPawn->GetNavAgentLocation(), true));
 			}
 			else
 			{
-				Goals.Add(EnemyBase->GetCarriedObject()->GetActorLocation());
+				Goals.Add(FPredictedGoal(EnemyBase->GetCarriedObject()->GetActorLocation(), true));
 			}
 		}
 
