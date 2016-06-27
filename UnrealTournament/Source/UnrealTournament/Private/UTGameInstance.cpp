@@ -660,6 +660,7 @@ void UUTGameInstance::BeginLevelLoading(const FString& LevelName)
 void UUTGameInstance::EndLevelLoading()
 {
 	bLevelIsLoading	 = false;
+	StopMovie();
 }
 
 #if !UE_SERVER
