@@ -120,11 +120,14 @@ void SUTPartyInviteWidget::HandleFriendsActionNotification(TSharedRef<FFriendsAn
 	UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(Ctx.GetLocalPlayer());
 	if (FriendsAndChatMessage->GetMessageType() == EMessageType::GameInvite && LP->IsMenuGame())
 	{
-		LastInviteContent = FriendsAndChatMessage->GetMessage();
-		LastInviteUniqueID = FriendsAndChatMessage->GetUniqueID()->ToString();
-		LastInviteTime = FDateTime::Now();
+		if (FriendsAndChatMessage->HasValidUniqueID())
+		{
+			LastInviteContent = FriendsAndChatMessage->GetMessage();
+			LastInviteUniqueID = FriendsAndChatMessage->GetUniqueID()->ToString();
+			LastInviteTime = FDateTime::Now();
 
-		InviteMessage->SetText(FText::Format(NSLOCTEXT("SUTPartyInviteWidget", "InviteMessage", "{0}"), FText::FromString(LastInviteContent)));
+			InviteMessage->SetText(FText::Format(NSLOCTEXT("SUTPartyInviteWidget", "InviteMessage", "{0}"), FText::FromString(LastInviteContent)));
+		}
 	}
 #endif
 }
@@ -155,6 +158,21 @@ FReply SUTPartyInviteWidget::AcceptInvite()
 
 FReply SUTPartyInviteWidget::RejectInvite()
 {
+#if WITH_SOCIAL
+	if (!LastInviteUniqueID.IsEmpty())
+	{
+		TSharedPtr<IGameAndPartyService> GameAndPartyService = ISocialModule::Get().GetFriendsAndChatManager()->GetGameAndPartyService();
+		TSharedPtr<IFriendsService> FriendsService = ISocialModule::Get().GetFriendsAndChatManager()->GetFriendsService();
+		if (GameAndPartyService.IsValid() && FriendsService.IsValid())
+		{
+			TSharedPtr< IFriendItem > User = FriendsService->FindUser(FUniqueNetIdString(LastInviteUniqueID));
+			if (User.IsValid())
+			{
+				GameAndPartyService->RejectGameInvite(User);
+			}
+		}
+	}
+#endif
 	LastInviteTime = 0;
 	LastInviteContent.Empty();
 	LastInviteUniqueID.Empty();

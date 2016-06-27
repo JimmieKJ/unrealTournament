@@ -27,7 +27,7 @@ public:
 #endif
 	}
 
-	virtual void GetGameURLOptions_Implementation(TArray<FString>& OptionsList) override
+	virtual void GetGameURLOptions_Implementation(TArray<FString>& OptionsList) const override
 	{
 		OptionsList.Add(FString::Printf(TEXT("GameSpeed=%f"), GameSpeed));
 	}

@@ -59,6 +59,8 @@ private:
 
 	virtual void ConstructPanel(FVector2D ViewportSize);
 
+	bool CanWatchReplays();
+
 protected:
 
 	TSharedPtr<INetworkReplayStreamer> ReplayStreamer;

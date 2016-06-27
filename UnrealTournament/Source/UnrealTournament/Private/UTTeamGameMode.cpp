@@ -263,6 +263,38 @@ bool AUTTeamGameMode::MovePlayerToTeam(AController* Player, AUTPlayerState* PS, 
 		Teams[NewTeam]->AddToTeam(Player);
 		PS->bPendingTeamSwitch = false;
 		PS->ForceNetUpdate();
+
+		// Clear the player's gameplay mute list.
+
+		APlayerController* PlayerController = Cast<APlayerController>(Player);
+		AUTGameState* UTGameState = GetWorld()->GetGameState<AUTGameState>();
+
+		if (PlayerController && UTGameState)
+		{
+			for (FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator)
+			{
+				AUTPlayerController* NextPlayer = Cast<AUTPlayerController>(*Iterator);
+				if (NextPlayer)
+				{
+					TSharedPtr<const FUniqueNetId> Id = NextPlayer->PlayerState->UniqueId.GetUniqueNetId();
+					bool bIsMuted = Id.IsValid() && PlayerController->IsPlayerMuted(Id.ToSharedRef().Get());
+
+					bool bOnSameTeam = UTGameState->OnSameTeam(PlayerController, NextPlayer);
+					if (bIsMuted && bOnSameTeam) 
+					{
+						PlayerController->GameplayUnmutePlayer(NextPlayer->PlayerState->UniqueId);
+						NextPlayer->GameplayUnmutePlayer(PlayerController->PlayerState->UniqueId);
+					}
+					if (!bIsMuted && !bOnSameTeam) 
+					{
+						PlayerController->GameplayMutePlayer(NextPlayer->PlayerState->UniqueId);
+						NextPlayer->GameplayMutePlayer(PlayerController->PlayerState->UniqueId);
+					}
+					
+				}
+			}
+		}
+
 		return true;
 	}
 	return false;
@@ -482,6 +514,7 @@ void AUTTeamGameMode::CheckBotCount()
 void AUTTeamGameMode::DefaultTimer()
 {
 	Super::DefaultTimer();
+	UTGameState->bTeamProjHits = UTGameState->bTeamProjHits || (TeamDamagePct > 0.f); // @TODO FIXMESTEVE make TeamDamagePct protected so don't need to set here
 
 	// check if bots should switch teams for balancing
 	if (bBalanceTeams && NumBots > 0)
@@ -616,9 +649,9 @@ void AUTTeamGameMode::CreateGameURLOptions(TArray<TSharedPtr<TAttributePropertyB
 }
 
 #if !UE_SERVER
-void AUTTeamGameMode::CreateConfigWidgets(TSharedPtr<class SVerticalBox> MenuSpace, bool bCreateReadOnly, TArray< TSharedPtr<TAttributePropertyBase> >& ConfigProps)
+void AUTTeamGameMode::CreateConfigWidgets(TSharedPtr<class SVerticalBox> MenuSpace, bool bCreateReadOnly, TArray< TSharedPtr<TAttributePropertyBase> >& ConfigProps, int32 MinimumPlayers)
 {
-	Super::CreateConfigWidgets(MenuSpace, bCreateReadOnly, ConfigProps);
+	Super::CreateConfigWidgets(MenuSpace, bCreateReadOnly, ConfigProps, MinimumPlayers);
 
 	TSharedPtr< TAttributePropertyBool > BalanceTeamsAttr = StaticCastSharedPtr<TAttributePropertyBool>(FindGameURLOption(ConfigProps, TEXT("BalanceTeams")));
 
@@ -893,3 +926,32 @@ void AUTTeamGameMode::GetGood()
 	}
 #endif
 }
+
+void AUTTeamGameMode::SendComsMessage( AUTPlayerController* Sender, AUTPlayerState* Target, int32 Switch)
+{
+	AUTPlayerState* UTPlayerState = Cast<AUTPlayerState>(Sender->PlayerState);
+	if (UTPlayerState)
+	{
+		if (Target != nullptr)
+		{
+			AUTPlayerController* UTPlayerController = Cast<AUTPlayerController>(Target->GetOwner());
+			if (UTPlayerController)
+			{
+				UTPlayerController->ClientReceiveLocalizedMessage(UTPlayerState->GetCharacterVoiceClass(), Switch, UTPlayerState, nullptr, UTPlayerState->LastKnownLocation);
+			}
+			Sender->ClientReceiveLocalizedMessage(UTPlayerState->GetCharacterVoiceClass(), Switch, UTPlayerState, nullptr, UTPlayerState->LastKnownLocation);
+		}
+		else
+		{
+			for (FConstPlayerControllerIterator It = GetWorld()->GetPlayerControllerIterator(); It; ++It)
+			{
+				AUTPlayerController* UTPlayerController = Cast<AUTPlayerController>(It->Get());
+				if ( UTPlayerController != NULL && UTPlayerController->GetTeamNum() == Sender->GetTeamNum())
+				{
+					UTPlayerController->ClientReceiveLocalizedMessage(UTPlayerState->GetCharacterVoiceClass(), Switch, UTPlayerState, nullptr, UTPlayerState->LastKnownLocation);
+				}
+			}
+		}
+	}
+}
+

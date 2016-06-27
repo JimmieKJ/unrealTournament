@@ -38,6 +38,11 @@ void UUTHUDWidget_NetInfo::AddPing(float NewPing)
 
 float UUTHUDWidget_NetInfo::CalcAvgPing()
 {
+	if (UTHUDOwner && (UTHUDOwner->GetNetMode() == NM_Standalone))
+	{
+		return 0.f;
+	}
+
 	float TotalPing = 0.f;
 	if (BucketIndex < 100)
 	{
@@ -58,22 +63,25 @@ float UUTHUDWidget_NetInfo::CalcPingStandardDeviation(float AvgPing)
 {
 	float Variance = 0.f;
 	MaxDeviation = 0.f;
-	int32 NumPings = FMath::Min(100, NumPingsRcvd);
-	if (BucketIndex < 100)
+	if (UTHUDOwner && (UTHUDOwner->GetNetMode() != NM_Standalone))
 	{
-		// wrap around
-		for (int32 i = 200 + BucketIndex; i < 200+NumPings; i++)
+		int32 NumPings = FMath::Min(100, NumPingsRcvd);
+		if (BucketIndex < 100)
+		{
+			// wrap around
+			for (int32 i = 200 + BucketIndex; i < 200 + NumPings; i++)
+			{
+				Variance += FMath::Square(PingHistory[i] - AvgPing);
+				MaxDeviation = FMath::Max(MaxDeviation, FMath::Abs(PingHistory[i] - AvgPing));
+			}
+		}
+		for (int32 i = FMath::Max(0, BucketIndex - NumPings); i < BucketIndex; i++)
 		{
 			Variance += FMath::Square(PingHistory[i] - AvgPing);
 			MaxDeviation = FMath::Max(MaxDeviation, FMath::Abs(PingHistory[i] - AvgPing));
 		}
+		Variance = Variance / float(NumPings);
 	}
-	for (int32 i = FMath::Max(0, BucketIndex - NumPings); i < BucketIndex; i++)
-	{
-		Variance += FMath::Square(PingHistory[i] - AvgPing);
-		MaxDeviation = FMath::Max(MaxDeviation, FMath::Abs(PingHistory[i] - AvgPing));
-	}
-	Variance = Variance / float(NumPings);
 	return FMath::Sqrt(Variance);
 }
 

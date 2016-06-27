@@ -8,9 +8,10 @@ AUTArmor::AUTArmor(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
 {
 	ArmorAmount = 50;
-	AbsorptionPct = 0.6f;
+	AbsorptionPct = 0.5f;
 	bCallDamageEvents = true;
 	BasePickupDesireability = 1.5f;
+	bDestroyWhenConsumed = true;
 }
 
 void AUTArmor::GivenTo(AUTCharacter* NewOwner, bool bAutoActivate)
@@ -76,7 +77,7 @@ int32 AUTArmor::GetEffectiveHealthModifier_Implementation(bool bOnlyVisible) con
 void AUTArmor::ReduceArmor(int32 Amount)
 {
 	ArmorAmount -= Amount;
-	if (ArmorAmount <= 0)
+	if (ArmorAmount <= 0 && bDestroyWhenConsumed)
 	{
 		Destroy();
 	}

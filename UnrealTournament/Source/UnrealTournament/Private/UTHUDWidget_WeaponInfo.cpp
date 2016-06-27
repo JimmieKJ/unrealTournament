@@ -27,6 +27,10 @@ void UUTHUDWidget_WeaponInfo::InitializeWidget(AUTHUD* Hud)
 
 bool UUTHUDWidget_WeaponInfo::ShouldDraw_Implementation(bool bShowScores)
 {
+	if (!UTHUDOwner->GetQuickStatsHidden())
+	{
+		return false;
+	}
 	AUTCharacter* UTC = Cast<AUTCharacter>(UTHUDOwner->UTPlayerOwner->GetViewTarget());
 	return Super::ShouldDraw_Implementation(bShowScores) && (UTC && UTC->GetWeapon() && UTC->GetWeapon()->NeedsAmmoDisplay());
 }

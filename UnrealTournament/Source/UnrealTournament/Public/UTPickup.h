@@ -55,6 +55,9 @@ class UNREALTOURNAMENT_API AUTPickup : public AActor, public IUTResetInterface, 
 	/** if set, pickup begins play with its respawn time active */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Pickup)
 	uint32 bDelayedSpawn : 1;
+	/** if set, pickup respawns every RespawnTime seconds regardless of when it was picked up last */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Replicated, Category = Pickup)
+	uint32 bFixedRespawnInterval : 1;
 	/** one-shot particle effect played when the pickup is taken */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Effects)
 	UParticleSystem* TakenParticles;
@@ -88,7 +91,8 @@ class UNREALTOURNAMENT_API AUTPickup : public AActor, public IUTResetInterface, 
 	AUTPlayerState* LastPickedUpBy;
 
 	/** Spectator camera associated with this pickup. */
-	class AUTSpectatorCamera* Camera;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Pickup)
+		class AUTSpectatorCamera* Camera;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = HUD)
 	FLinearColor IconColor;
@@ -146,6 +150,24 @@ class UNREALTOURNAMENT_API AUTPickup : public AActor, public IUTResetInterface, 
 	/** sets the hidden state of the pickup - note that this doesn't necessarily mean the whole object (e.g. item mesh but not holder) */
 	UFUNCTION(BlueprintCallable, Category = Pickup)
 	virtual void SetPickupHidden(bool bNowHidden);
+
+	UFUNCTION(BlueprintCallable, Category = Pickup)
+	virtual bool IsTaken(APawn* TestPawn)
+	{
+		return !State.bActive;
+	}
+
+	// add components that should be hidden for passed-in taken state
+	virtual void AddHiddenComponents(bool bTaken, TSet<FPrimitiveComponentId>& HiddenComponents)
+	{
+		if (!bTaken)
+		{
+			if (TimerEffect != NULL)
+			{
+				HiddenComponents.Add(TimerEffect->ComponentId);
+			}
+		}
+	}
 
 	/** Pickup message to display on player HUD. */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Pickup)

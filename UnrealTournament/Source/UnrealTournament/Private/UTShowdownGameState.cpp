@@ -77,7 +77,7 @@ void AUTShowdownGameState::OnRep_XRayVision()
 			AUTCharacter* UTC = Cast<AUTCharacter>(It->Get());
 			if (UTC != NULL && !UTC->bTearOff && (!UTC->IsLocallyControlled() || Cast<APlayerController>(UTC->Controller) == NULL))
 			{
-				UTC->UpdateTacComMesh(true);
+				UTC->SetOutlineLocal(true);
 			}
 		}
 	}

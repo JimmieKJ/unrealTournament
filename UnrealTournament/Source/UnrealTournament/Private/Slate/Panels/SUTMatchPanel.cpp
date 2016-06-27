@@ -15,6 +15,9 @@
 #include "UTLobbyMatchInfo.h"
 #include "UTLobbyPC.h"
 #include "UTLobbyPlayerState.h"
+#include "PartyContext.h"
+#include "BlueprintContextLibrary.h"
+
 #if !UE_SERVER
 
 struct FMatchComparePlayersByScore {FORCEINLINE bool operator()( const FMatchPlayerListStruct A, const FMatchPlayerListStruct B ) const { return ( A.PlayerScore > B.PlayerScore);}};
@@ -113,6 +116,7 @@ void SUTMatchPanel::Construct(const FArguments& InArgs)
 								.ButtonStyle(SUTStyle::Get(),"UT.SimpleButton")
 								.OnClicked(this, &SUTMatchPanel::StartNewMatch)
 								.ContentPadding(FMargin(32.0,5.0,32.0,5.0))
+								.Visibility(this, &SUTMatchPanel::GetMatchButtonVis)
 								[
 									SNew(STextBlock)
 									.Text(this, &SUTMatchPanel::GetMatchButtonText)
@@ -586,7 +590,14 @@ FReply SUTMatchPanel::StartNewMatch()
 		AUTLobbyPlayerState* LobbyPlayerState = Cast<AUTLobbyPlayerState>(PlayerOwner->PlayerController->PlayerState);
 		if (LobbyPlayerState)
 		{
-			LobbyPlayerState->ServerCreateMatch();
+			bool bIsInParty = false;
+			UPartyContext* PartyContext = Cast<UPartyContext>(UBlueprintContextLibrary::GetContext(PlayerOwner->GetWorld(), UPartyContext::StaticClass()));
+			if (PartyContext)
+			{
+				bIsInParty = PartyContext->GetPartySize() > 1;
+			}
+
+			LobbyPlayerState->ServerCreateMatch(bIsInParty);
 		}
 	}
 	return FReply::Handled();
@@ -1158,5 +1169,10 @@ FReply SUTMatchPanel::DownloadAllButtonClicked()
 	return FReply::Handled();
 }
 
+EVisibility SUTMatchPanel::GetMatchButtonVis() const
+{
+	AUTLobbyGameState* GameState = PlayerOwner->GetWorld()->GetGameState<AUTLobbyGameState>();	
+	return (GameState && GameState->IsClientFullyInformed() ? EVisibility::Visible : EVisibility::Collapsed);
+}
 
 #endif

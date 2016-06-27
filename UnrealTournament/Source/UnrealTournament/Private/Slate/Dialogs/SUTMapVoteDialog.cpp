@@ -413,7 +413,26 @@ void SUTMapVoteDialog::BuildAllVotes()
 				bool bAdd = true;
 				for (int32 j=0; j < AlphaSortedList.Num(); j++)
 				{
-					if (AlphaSortedList[j]->Title > VoteInfo->Title)
+					bool bNeedsInsert = false;
+					
+					if (VoteInfo->bIsEpicMap)
+					{
+						// if we have hit the non-Epic maps, then insert this epic map
+						if (!AlphaSortedList[j]->bIsEpicMap)
+						{
+							bNeedsInsert = true;
+						}
+						else
+						{
+							if (VoteInfo->bIsMeshedMap && !AlphaSortedList[j]->bIsMeshedMap)
+							{
+								bNeedsInsert = true;
+							}
+						}
+					}
+
+
+					if (bNeedsInsert || AlphaSortedList[j]->Title > VoteInfo->Title)
 					{
 						AlphaSortedList.Insert(VoteInfo, j);
 						bAdd = false;

@@ -30,6 +30,12 @@ AUTGhostFlag::AUTGhostFlag(const FObjectInitializer& ObjectInitializer)
 		TimerEffect->Mobility = EComponentMobility::Movable;
 		TimerEffect->SetCastShadow(false);
 	}
+	MidPoints[0] = FVector(0.f);
+	MidPoints[1] = FVector(0.f);
+	MidPoints[2] = FVector(0.f);
+
+	static ConstructorHelpers::FClassFinder<AUTFlagReturnTrail> TrailFinder(TEXT("/Game/RestrictedAssets/Effects/CTF/Blueprints/BP_FlagSplineCreator.BP_FlagSplineCreator_C"));
+	TrailClass = TrailFinder.Class;
 }
 
 void AUTGhostFlag::Destroyed()
@@ -45,6 +51,7 @@ void AUTGhostFlag::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & OutL
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 	DOREPLIFETIME(AUTGhostFlag, MyCarriedObject);
+	DOREPLIFETIME(AUTGhostFlag, MidPoints);
 }
 
 void AUTGhostFlag::Tick(float DeltaTime)
@@ -71,7 +78,7 @@ void AUTGhostFlag::Tick(float DeltaTime)
 		TimerEffect->SetHiddenInGame(false);
 		TimerEffect->SetFloatParameter(NAME_Progress, TimerPosition);			
 		TimerEffect->SetFloatParameter(NAME_RespawnTime, 60);
-		if (GetWorld()->GetTimeSeconds() - TrailSpawnTime > 14.f)
+		if (GetWorld()->GetTimeSeconds() - TrailSpawnTime > 10.f)
 		{
 			OnSetCarriedObject();
 		}
@@ -82,37 +89,61 @@ void AUTGhostFlag::Tick(float DeltaTime)
 	}
 }
 
+void AUTGhostFlag::OnSetMidPoint()
+{
+	if (Trail != nullptr)
+	{
+		TArray<FVector> Points;
+		Points.Reserve(5);
+		Points.Add(MyCarriedObject->GetActorLocation());
+		for (int32 i = 2; i >= 0; i--)
+		{
+			if (!MidPoints[i].IsZero())
+			{
+				Points.Add(MidPoints[i]);
+			}
+		}
+		Points.Add(GetActorLocation());
+		Trail->SetPoints(Points);
+	}
+}
+
 void AUTGhostFlag::OnSetCarriedObject()
 {
-	if (MyCarriedObject && (GetNetMode() != NM_DedicatedServer))
+	if (MyCarriedObject != nullptr && GetNetMode() != NM_DedicatedServer)
 	{
-		if (Trail)
+		if (Trail != nullptr)
 		{
-			Trail->Destroy();
+			Trail->EndTrail();
 		}
 		FActorSpawnParameters Params;
 		Params.Owner = this;
-		Trail = GetWorld()->SpawnActor<AUTFlagReturnTrail>(AUTFlagReturnTrail::StaticClass(), MyCarriedObject->GetActorLocation(), MyCarriedObject->GetActorRotation(), Params);
-		Trail->StartActor = MyCarriedObject;
-		Trail->StartPoint = MyCarriedObject->GetActorLocation();
-		Trail->EndPoint = GetActorLocation();
-		TeamIndex = (MyCarriedObject && MyCarriedObject->Team) ? MyCarriedObject->Team->TeamIndex : 0;
-		Trail->SetTeamIndex(TeamIndex);
-		Trail->CustomTimeDilation = 0.1f;
+		Trail = GetWorld()->SpawnActor<AUTFlagReturnTrail>(TrailClass, MyCarriedObject->GetActorLocation(), FRotator::ZeroRotator, Params);
+		Trail->Flag = MyCarriedObject;
+		Trail->SetTeam(MyCarriedObject->Team);
+		OnSetMidPoint();
 		TrailSpawnTime = GetWorld()->GetTimeSeconds();
 	}
 }
 
-void AUTGhostFlag::SetCarriedObject(AUTCarriedObject* NewCarriedObject)
+void AUTGhostFlag::SetCarriedObject(AUTCarriedObject* NewCarriedObject, const FFlagTrailPos NewPosition)
 {
 	MyCarriedObject = NewCarriedObject;
+	for (int32 i = 0; i < 3; i++)
+	{
+		MidPoints[i] = NewPosition.MidPoints[i];
+	}
 	OnSetCarriedObject();
 }
 
-void AUTGhostFlag::MoveTo(const FVector& NewLocation)
+void AUTGhostFlag::MoveTo(const FFlagTrailPos NewPosition)
 {
-	SetActorLocation(NewLocation);
-	OnSetCarriedObject(); 
+	SetActorLocation(NewPosition.Location);
+	for (int32 i = 0; i < 3; i++)
+	{
+		MidPoints[i] = NewPosition.MidPoints[i];
+	}
+	OnSetCarriedObject();
 }
 
 void AUTGhostFlag::OnRep_ReplicatedMovement()

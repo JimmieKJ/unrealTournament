@@ -2,14 +2,16 @@
 #pragma once 
 
 #include "UTScoreboard.h"
+#include "UTDamageType.h"
 #include "UTHUDWidget.h"
 #include "UTHUDWidget_ReplayTimeSlider.h"
 #include "Json.h"
 #include "UTHUD.generated.h"
 
-const uint32 MAX_DAMAGE_INDICATORS = 3;		// # of damage indicators on the screen at any one time
-const float DAMAGE_FADE_DURATION = 1.0f;	// How fast a damage indicator fades out
-
+const uint32 MAX_DAMAGE_INDICATORS = 3;				// # of damage indicators on the screen at any one time
+const float DAMAGE_FADE_DURATION = 1.0f;			// How fast a damage indicator fades out
+const float MAX_MY_DAMAGE_BOUNCE_TIME = 1.25f;		// How fast will the numbers bounce in to the screen.
+const float MAX_TALLY_FADE_TIME = 0.6f;				// How fast should the talley numbers fade in
 class UUTProfileSettings;
 
 USTRUCT()
@@ -62,6 +64,10 @@ struct FEnemyDamageNumber
 
 	FEnemyDamageNumber(APawn* InPawn, float InTime, uint8 InDamage, FVector InLoc, float InScale) : DamagedPawn(InPawn), DamageTime(InTime), DamageAmount(InDamage), WorldPosition(InLoc), Scale(InScale) {};
 };
+
+class UUTRadialMenu;
+class UUTRadialMenu_Coms;
+class UUTRadialMenu_WeaponWheel;
 
 UCLASS(Config=Game)
 class UNREALTOURNAMENT_API AUTHUD : public AHUD
@@ -143,12 +149,18 @@ public:
 	/** Draw in screen space damage recently applied by this player to other characters. */
 	virtual void DrawDamageNumbers();
 
+	/** Used when changing viewed player. */
+	virtual void ClearIndicators();
+
 	UPROPERTY(BlueprintReadWrite, Category = HUD)
 	float LastPickupTime;
 
 	/** Last time player owning this HUD killed someone. */
 	UPROPERTY(BlueprintReadWrite, Category = HUD)
 	float LastKillTime;
+
+	UPROPERTY(BlueprintReadWrite, Category = HUD)
+		int32 LastMultiKillCount;
 
 	/** Last time player owning this HUD picked up a flag. */
 	UPROPERTY(BlueprintReadWrite, Category = HUD)
@@ -209,9 +221,6 @@ public:
 	UPROPERTY(Config = Game)
 		TArray<FString> SpectatorHudWidgetClasses;
 
-	UPROPERTY()
-		bool bHaveAddedSpectatorWidgets;
-
 	virtual void AddSpectatorWidgets();
 
 	// Add any of the blueprint based hud widgets
@@ -264,7 +273,7 @@ public:
 	UPROPERTY(BlueprintReadWrite, Category ="HUD")
 	uint32 bForceScores:1;
 
-	virtual void PawnDamaged(uint8 ShotDirYaw, int32 DamageAmount, bool bFriendlyFire);
+	virtual void PawnDamaged(uint8 ShotDirYaw, int32 DamageAmount, bool bFriendlyFire, TSubclassOf<class UDamageType> DamageTypeClass = nullptr);
 	virtual void DrawDamageIndicators();
 
 	/** called when PlayerOwner caused damage to HitPawn */
@@ -400,13 +409,16 @@ public:
 	UPROPERTY()
 	TArray<AUTPlayerState*> Leaderboard;
 
-	// Used to determine which page of the scoreboard we should show
-	UPROPERTY()
-	int32 ScoreboardPage;
 
 	virtual bool ShouldDrawMinimap();
 
+	virtual int32 GetScoreboardPage() { return ScoreboardPage; };
+	virtual void SetScoreboardPage(int32 NewPage) { ScoreboardPage = NewPage; };
+
 protected:
+	// Used to determine which page of the scoreboard we should show
+	UPROPERTY()
+		int32 ScoreboardPage;
 
 	// We cache the team color so we only have to look it up once at the start of the render pass
 	FLinearColor CachedTeamColor;
@@ -585,7 +597,30 @@ protected:
 	void DrawWatermark();
 
 public:
+	UFUNCTION()
+	virtual void ClientRestart();
+
 	bool VerifyProfileSettings();
 	virtual void Destroyed();
+
+	virtual bool ProcessInputAxis(FKey Key, float Delta);
+	virtual bool ProcessInputKey(FKey Key, EInputEvent EventType);
+
+	bool bShowComsMenu;
+	virtual void ToggleComsMenu(bool bShow);
+
+	bool bShowWeaponWheel;
+	virtual void ToggleWeaponWheel(bool bShow);
+
+
+	bool bShowVoiceDebug;
+
+protected:
+
+	TArray<UUTRadialMenu*> RadialMenus;
+	UUTRadialMenu_Coms* ComsMenu;
+	UUTRadialMenu_WeaponWheel* WeaponWheel;
+
+
 };
 

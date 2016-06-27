@@ -43,6 +43,25 @@ class UNREALTOURNAMENT_API AUTProj_FlakShard : public AUTProjectile
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Flak Cannon")
 		float BounceDamagePct;
 
+	UPROPERTY()
+		bool bGrowOverlap;
+
+	/** Time to final overlap radius (units/sec) */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Flak Cannon")
+		float RadiusGrowthRate;
+
+	/** Final overlap radius (shrinks to this value). */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Flak Cannon")
+		float MaxOverlapRadius;
+
+	/** Final overlap radius (shrinks to this value). */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Flak Cannon")
+		float FinalOverlapRadius;
+
+	/** Time to final overlap radius (units/sec) */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Flak Cannon")
+		float RadiusShrinkRate;
+
 	/** Max angle to randomize bounce, in radians. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Flak Cannon")
 		float RandomBounceCone;
@@ -90,6 +109,10 @@ class UNREALTOURNAMENT_API AUTProj_FlakShard : public AUTProjectile
 	UPROPERTY(BlueprintReadOnly, Category = Effects)
 		TArray<UStaticMeshComponent*> SatelliteShards;
 
+	/** Sound played when shard hits player */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Projectile)
+		USoundBase* FleshImpactSound;
+
 	virtual void RemoveSatelliteShards();
 
 	virtual void PostInitializeComponents() override;
@@ -97,6 +120,7 @@ class UNREALTOURNAMENT_API AUTProj_FlakShard : public AUTProjectile
 	virtual void ProcessHit_Implementation(AActor* OtherActor, UPrimitiveComponent* OtherComp, const FVector& HitLocation, const FVector& HitNormal) override;
 	virtual FRadialDamageParams GetDamageParams_Implementation(AActor* OtherActor, const FVector& HitLocation, float& OutMomentum) const override;
 	virtual void OnBounce(const struct FHitResult& ImpactResult, const FVector& ImpactVelocity) override;
+	virtual void DamageImpactedActor_Implementation(AActor* OtherActor, UPrimitiveComponent* OtherComp, const FVector& HitLocation, const FVector& HitNormal) override;
 
 	virtual void Tick(float DeltaTime) override;
 	virtual void CatchupTick(float CatchupTickDelta) override;

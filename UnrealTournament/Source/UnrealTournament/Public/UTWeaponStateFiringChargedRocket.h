@@ -76,7 +76,10 @@ class UNREALTOURNAMENT_API UUTWeaponStateFiringChargedRocket : public UUTWeaponS
 			{
 				RocketLauncher->ClientAbortLoad();
 			}
-			GetOuterAUTWeapon()->GetWorldTimerManager().SetTimer(GraceTimerHandle, this, &UUTWeaponStateFiringChargedRocket::GraceTimer, RocketLauncher->GracePeriod, false);
+			if (!GetOuterAUTWeapon()->GetWorldTimerManager().IsTimerActive(GraceTimerHandle))
+			{
+				GetOuterAUTWeapon()->GetWorldTimerManager().SetTimer(GraceTimerHandle, this, &UUTWeaponStateFiringChargedRocket::GraceTimer, RocketLauncher->GracePeriod, false);
+			}
 		}
 		else
 		{

@@ -38,6 +38,20 @@ class UNREALTOURNAMENT_API UUTMultiKillMessage : public UUTLocalMessage
 		ScaleInSize = 3.f;
 	}
 
+	virtual void ClientReceive(const FClientReceiveData& ClientData) const
+	{
+		Super::ClientReceive(ClientData);
+		if (ShouldPlayAnnouncement(ClientData))
+		{
+			AUTPlayerController* PC = Cast<AUTPlayerController>(ClientData.LocalPC);
+			if (PC && PC->MyUTHUD)
+			{
+				PC->MyUTHUD->LastMultiKillCount = ClientData.MessageIndex +2;
+				PC->MyUTHUD->LastKillTime = PC->GetWorld()->GetTimeSeconds();
+			}
+		}
+	}
+
 	virtual FLinearColor GetMessageColor_Implementation(int32 MessageIndex) const override
 	{
 		return FLinearColor::Red;
@@ -47,19 +61,20 @@ class UNREALTOURNAMENT_API UUTMultiKillMessage : public UUTLocalMessage
 	{
 		return IsLocalForAnnouncement(ClientData, true, true);
 	}
+
 	virtual FName GetAnnouncementName_Implementation(int32 Switch, const UObject* OptionalObject, const class APlayerState* RelatedPlayerState_1, const class APlayerState* RelatedPlayerState_2) const override
 	{
 		// Switch is MultiKillLevel - 1 (e.g. 0 is double kill)
 		return AnnouncementNames.Num() > 0 ? AnnouncementNames[FMath::Clamp<int32>(Switch, 0, AnnouncementNames.Num() - 1)] : NAME_None;
 	}
+
 	virtual FText GetText(int32 Switch = 0, bool bTargetsPlayerState1 = false, class APlayerState* RelatedPlayerState_1 = NULL, class APlayerState* RelatedPlayerState_2 = NULL, class UObject* OptionalObject = NULL) const override
 	{
-		return AnnouncementText.Num() > 0 ? AnnouncementText[FMath::Clamp<int32>(Switch, 0, AnnouncementText.Num() - 1)] : FText();
+		return ((AnnouncementText.Num() > 0) && (Switch == AnnouncementText.Num() - 1)) ? AnnouncementText[AnnouncementText.Num() - 1] : FText();
 	}
 
 	virtual bool ShouldCountInstances_Implementation(int32 MessageIndex, UObject* OptionalObject) const override
 	{
 		return MessageIndex == AnnouncementText.Num() - 1;
 	}
-
 };

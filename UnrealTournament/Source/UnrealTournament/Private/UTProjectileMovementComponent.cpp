@@ -37,6 +37,19 @@ void UUTProjectileMovementComponent::InitializeComponent()
 	}
 }
 
+void UUTProjectileMovementComponent::SetUpdatedComponent(USceneComponent* NewUpdatedComponent)
+{
+	USceneComponent* OldUpdatedComponent = UpdatedComponent;
+	APhysicsVolume* OldPhysicsVolume = UpdatedComponent ? UpdatedComponent->GetPhysicsVolume() : nullptr;
+	Super::SetUpdatedComponent(NewUpdatedComponent);
+	if (bKeepPhysicsVolumeWhenStopped && OldUpdatedComponent && OldPhysicsVolume && !OldUpdatedComponent->IsPendingKill())
+	{
+		OldUpdatedComponent->SetPhysicsVolume(OldPhysicsVolume, true);
+		OldUpdatedComponent->bShouldUpdatePhysicsVolume = true;
+	}
+}
+
+
 bool UUTProjectileMovementComponent::MoveUpdatedComponentImpl(const FVector& Delta, const FQuat& NewRotation, bool bSweep, FHitResult* OutHit, ETeleportType Teleport)
 {
 	// if we have no extra components or we don't need to sweep, use the default behavior

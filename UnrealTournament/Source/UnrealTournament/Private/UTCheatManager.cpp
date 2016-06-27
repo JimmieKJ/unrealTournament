@@ -79,7 +79,8 @@ void UUTCheatManager::Ann(int32 Switch)
 	Flag->SendGameMessage(4, Holder, NULL);
 	Flag->SendGameMessage(3, Holder, NULL);
 	Flag->SendGameMessage(1, NULL, NULL);*/
-
+	GetOuterAPlayerController()->ClientReceiveLocalizedMessage(UUTMultiKillMessage::StaticClass(), Switch, GetOuterAPlayerController()->PlayerState, GetOuterAPlayerController()->PlayerState, NULL);
+/*
 	GetOuterAPlayerController()->ClientReceiveLocalizedMessage(UUTSpreeMessage::StaticClass(), Switch, GetOuterAPlayerController()->PlayerState, GetOuterAPlayerController()->PlayerState, NULL);
 	GetOuterAPlayerController()->ClientReceiveLocalizedMessage(UUTCountDownMessage::StaticClass(), Switch, GetOuterAPlayerController()->PlayerState, GetOuterAPlayerController()->PlayerState, NULL);
 	GetOuterAPlayerController()->ClientReceiveLocalizedMessage(UUTDeathMessage::StaticClass(), Switch, GetOuterAPlayerController()->PlayerState, GetOuterAPlayerController()->PlayerState, NULL);
@@ -88,6 +89,7 @@ void UUTCheatManager::Ann(int32 Switch)
 	GetOuterAPlayerController()->ClientReceiveLocalizedMessage(UUTVictimMessage::StaticClass(), Switch, GetOuterAPlayerController()->PlayerState, GetOuterAPlayerController()->PlayerState, NULL);
 	GetOuterAPlayerController()->ClientReceiveLocalizedMessage(UUTCTFMajorMessage::StaticClass(), Switch, GetOuterAPlayerController()->PlayerState, GetOuterAPlayerController()->PlayerState, NULL);
 	GetOuterAPlayerController()->ClientReceiveLocalizedMessage(UUTCTFRewardMessage::StaticClass(), Switch, GetOuterAPlayerController()->PlayerState, GetOuterAPlayerController()->PlayerState, NULL);
+*/
 }
 
 void UUTCheatManager::Spread(float Scaling)
@@ -539,4 +541,51 @@ void UUTCheatManager::CheatShowRankedReconnectDialog()
 		LP->ShowRankedReconnectDialog(LP->LastRankedMatchUniqueId);
 	}
 #endif
+}
+
+void UUTCheatManager::DebugAchievement(FString AchievementName)
+{
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+	UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(GetOuterAPlayerController()->Player);
+	if (LP)
+	{
+		LP->AwardAchievement(FName(*AchievementName));
+		LP->SaveProgression();
+	}
+#endif
+}
+
+void UUTCheatManager::RedFlagCap()
+{
+	const int32 RedTeamNumber = 0;
+	TeamFlagCap(RedTeamNumber);
+}
+
+void UUTCheatManager::BlueFlagCap()
+{
+	const int32 BlueTeamNumber = 1;
+	TeamFlagCap(BlueTeamNumber);
+}
+
+void UUTCheatManager::TeamFlagCap(int32 TeamNumber)
+{
+	AUTPlayerController* UTPlayerController = Cast<AUTPlayerController>(GetOuterAPlayerController());
+	AUTCTFBaseGame* CTFGameMode = GetWorld()->GetAuthGameMode<AUTCTFBaseGame>();
+	if (CTFGameMode && UTPlayerController)
+	{
+		AUTCTFGameState* CTFGameState = Cast<AUTCTFGameState>(CTFGameMode->GameState);
+		if (CTFGameState && CTFGameState->GetFlagBase(TeamNumber))
+		{
+			CTFGameMode->ScoreObject(CTFGameState->GetFlagBase(TeamNumber)->MyFlag, UTPlayerController->GetUTCharacter(), UTPlayerController->UTPlayerState, FName("FlagCapture"));
+		}
+	}
+}
+
+void UUTCheatManager::UnlimitedPowerupUses()
+{
+	AUTPlayerController* UTPlayerController = Cast<AUTPlayerController>(GetOuterAPlayerController());
+	if (UTPlayerController && UTPlayerController->UTPlayerState)
+	{
+		UTPlayerController->UTPlayerState->SetRemainingBoosts(255);
+	}
 }

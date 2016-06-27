@@ -185,6 +185,28 @@ void SUTWeaponConfigDialog::Construct(const FArguments& InArgs)
 		}
 	}
 
+	QuickSlotTexts.Add(MakeShareable(new FText(NSLOCTEXT("UT","NotInList","Not in List"))));
+	QuickSlotTexts.Add(MakeShareable(new FText(NSLOCTEXT("UT","SlotOne","Slot One"))));
+	QuickSlotTexts.Add(MakeShareable(new FText(NSLOCTEXT("UT","SlotTwo","Slot Two"))));
+	QuickSlotTexts.Add(MakeShareable(new FText(NSLOCTEXT("UT","SlotThree","Slot Three"))));
+	QuickSlotTexts.Add(MakeShareable(new FText(NSLOCTEXT("UT","SlotFour","Slot Four"))));
+	QuickSlotTexts.Add(MakeShareable(new FText(NSLOCTEXT("UT","SlotFive","Slot Five"))));
+	QuickSlotTexts.Add(MakeShareable(new FText(NSLOCTEXT("UT","SlotSix","Slot Six"))));
+	QuickSlotTexts.Add(MakeShareable(new FText(NSLOCTEXT("UT","SlotSeven","Slot Seven"))));
+	QuickSlotTexts.Add(MakeShareable(new FText(NSLOCTEXT("UT","SlotEight","Slot Eight"))));
+
+	if (ProfileSettings)
+	{
+		for (int32 i = 0 ; i < ProfileSettings->WeaponWheelQuickSlots.Num(); i++)
+		{
+			WeaponWheelClassnames.Add(ProfileSettings->WeaponWheelQuickSlots[i]);
+		}
+	}
+	else
+	{
+		WeaponWheelClassnames.AddZeroed(8);
+	}
+
 	if (DialogContent.IsValid())
 	{
 		const float MessageTextPaddingX = 10.0f;
@@ -520,7 +542,7 @@ void SUTWeaponConfigDialog::Construct(const FArguments& InArgs)
 					.VAlign(VAlign_Top)
 					.HAlign(HAlign_Left)
 					[
-						SNew(SBox).WidthOverride(200)
+						SNew(SBox).WidthOverride(300)
 						[
 							SNew(STextBlock)
 							.Text(NSLOCTEXT("SUTWeaponConfigDialog", "Group", "Weapon Group"))
@@ -532,7 +554,7 @@ void SUTWeaponConfigDialog::Construct(const FArguments& InArgs)
 					.VAlign(VAlign_Top)
 					.HAlign(HAlign_Left)
 					[
-						SNew(SBox).WidthOverride(100)
+						SNew(SBox).WidthOverride(300)
 						[
 							SAssignNew(GroupEdit, SNumericEntryBox<int32>)
 							.EditableTextBoxStyle(SUWindowsStyle::Get(), "UT.Common.Editbox.White")
@@ -550,6 +572,7 @@ void SUTWeaponConfigDialog::Construct(const FArguments& InArgs)
 					.FillWidth(1.0)
 					.Padding(FMargin(10.0f,0.0f,10.0f,0.0f))
 					.VAlign(VAlign_Top)
+					.HAlign(HAlign_Right)
 					[
 						SNew(SVerticalBox)
 						+ SVerticalBox::Slot().AutoHeight()
@@ -574,16 +597,58 @@ void SUTWeaponConfigDialog::Construct(const FArguments& InArgs)
 				.HAlign(HAlign_Fill)
 				[
 					SNew(SHorizontalBox)
-					+SHorizontalBox::Slot().AutoWidth()
+					+SHorizontalBox::Slot().FillWidth(1.0)
 					[
-						SNew(SBox).WidthOverride(200)
+						SNew(SButton)
+						.ButtonStyle(SUWindowsStyle::Get(), "UWindows.Standard.Button")
+						.ContentPadding(FMargin(5.0f, 5.0f, 5.0f, 5.0f))
+						.Text(NSLOCTEXT("SUTWeaponConfigDialog", "DefaultGroups", "Reset Groups"))
+						.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText.Black")
+						.OnClicked(this, &SUTWeaponConfigDialog::DefaultGroupsClicked)
+					]
+				]
+
+				+ SVerticalBox::Slot()
+				.Padding(0.0f, 10.0f, 0.0f, 5.0f)
+				.AutoHeight()
+				.VAlign(VAlign_Fill)
+				.HAlign(HAlign_Fill)
+				[
+					SNew(SHorizontalBox)
+					+ SHorizontalBox::Slot()
+					.AutoWidth()
+					.Padding(10.0f, 0.0f, 0.0f, 0.0f)
+					.VAlign(VAlign_Top)
+					.HAlign(HAlign_Left)
+					[
+						SNew(SBox).WidthOverride(300)
 						[
-							SNew(SButton)
-							.ButtonStyle(SUWindowsStyle::Get(), "UWindows.Standard.Button")
-							.ContentPadding(FMargin(5.0f, 5.0f, 5.0f, 5.0f))
-							.Text(NSLOCTEXT("SUTWeaponConfigDialog", "DefaultGroups", "Reset Groups"))
-							.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText.Black")
-							.OnClicked(this, &SUTWeaponConfigDialog::DefaultGroupsClicked)
+							SNew(STextBlock)
+							.Text(NSLOCTEXT("SUTWeaponConfigDialog", "QuickSlot", "Quick Weapon Slot"))
+							.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.White")
+						]
+					]
+					+ SHorizontalBox::Slot().AutoWidth()
+					.Padding(10.0f, 0.0f, 0.0f, 0.0f)
+					.VAlign(VAlign_Top)
+					.HAlign(HAlign_Left)
+					[
+						SNew(SBox).WidthOverride(300)
+						[
+							SAssignNew(QuickSlotComboBox, SComboBox< TSharedPtr<FText> >)
+							.InitiallySelectedItem(QuickSlotTexts[0])
+							.ComboBoxStyle(SUWindowsStyle::Get(), "UT.ComboBox")
+							.ButtonStyle(SUWindowsStyle::Get(), "UT.Button.White")
+							.OptionsSource(&QuickSlotTexts)
+							.OnGenerateWidget(this, &SUTWeaponConfigDialog::GenerateQuickslotListWidget)
+							.OnSelectionChanged(this, &SUTWeaponConfigDialog::OnQuickslotSelected)
+							.ContentPadding(FMargin(10.0f, 0.0f, 10.0f, 0.0f))
+							.Content()
+							[
+								SAssignNew(SelectedWeaponQuickslot, STextBlock)
+								.Text(*QuickSlotTexts[0].Get())
+								.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.Black")
+							]
 						]
 					]
 				]
@@ -666,6 +731,16 @@ void SUTWeaponConfigDialog::OnWeaponChanged(TWeakObjectPtr<UClass> NewSelectedWe
 				}
 			}
 		}
+	}
+
+	int32 WeaponIndex = WeakWeaponClassList.Find(SelectedWeapon);
+	if ( WeaponIndex != INDEX_NONE )
+	{
+		// Look to see if this weapon is already in the list.
+		FString ClassName = WeakWeaponClassList[WeaponIndex]->GetName();
+		UE_LOG(UT,Log,TEXT("ClassName=%s %i"),*ClassName, WeaponIndex);
+		int32 WheelIndex = WeaponWheelClassnames.Find(ClassName);
+		QuickSlotComboBox->SetSelectedItem(QuickSlotTexts[WheelIndex+1]);
 	}
 
 	UpdateWeaponsInGroup();
@@ -895,6 +970,11 @@ FReply SUTWeaponConfigDialog::OKClick()
 			WeaponClassList[i]->GetDefaultObject<AUTWeapon>()->Group = NewGroup;
 			WeaponClassList[i]->GetDefaultObject<AUTWeapon>()->SaveConfig();
 		}
+
+		for (int32 i = 0 ; i < ProfileSettings->WeaponWheelQuickSlots.Num(); i++)
+		{
+			ProfileSettings->WeaponWheelQuickSlots[i] = WeaponWheelClassnames[i];
+		}
 	}
 
 	AUTHUD* DefaultHud = AUTHUD::StaticClass()->GetDefaultObject<AUTHUD>();
@@ -934,6 +1014,9 @@ FReply SUTWeaponConfigDialog::OKClick()
 				HUD->bCustomWeaponCrosshairs = DefaultHud->bCustomWeaponCrosshairs;
 			}
 		}
+
+
+		UTPlayerController->RefreshWeaponGroups();
 	}
 
 	if (ProfileSettings != nullptr)
@@ -1180,5 +1263,39 @@ void SUTWeaponConfigDialog::UpdateAvailableWeaponSkins()
 
 	WeaponSkinComboBox->SetSelectedItem(WeaponSkinList[0]);
 }
+
+TSharedRef<SWidget> SUTWeaponConfigDialog::GenerateQuickslotListWidget(TSharedPtr<FText> InItem)
+{
+	return SNew(SBox)
+		.Padding(5)
+		[
+			SNew(STextBlock)
+			.Text(*InItem.Get())
+			.TextStyle(SUTStyle::Get(), "UT.Font.ContextMenuItem")
+		];
+}
+
+void SUTWeaponConfigDialog::OnQuickslotSelected(TSharedPtr<FText> NewSelection, ESelectInfo::Type SelectInfo)
+{
+	int32 WeaponIndex = WeakWeaponClassList.Find(SelectedWeapon);
+	int32 SlotIndex = QuickSlotTexts.Find(NewSelection);
+	if ( WeaponIndex != INDEX_NONE && SlotIndex > 0 )
+	{
+		// Look to see if this weapon is already in the list.
+		int32 WheelIndex = WeaponWheelClassnames.Find(WeakWeaponClassList[WeaponIndex]->GetName());
+		if (WheelIndex != INDEX_NONE && WheelIndex != SlotIndex - 1)
+		{
+			WeaponWheelClassnames[WheelIndex] = TEXT("");
+		}
+		
+		WeaponWheelClassnames[SlotIndex-1] = WeakWeaponClassList[WeaponIndex]->GetName();
+		SelectedWeaponQuickslot->SetText(*QuickSlotTexts[SlotIndex]);
+	}
+	else
+	{
+		SelectedWeaponQuickslot->SetText(*QuickSlotTexts[0]);
+	}
+}
+
 
 #endif

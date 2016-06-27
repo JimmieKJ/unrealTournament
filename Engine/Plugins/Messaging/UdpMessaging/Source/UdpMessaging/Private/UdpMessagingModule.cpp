@@ -365,23 +365,30 @@ protected:
 	/**
 	 * Checks whether networked message transport is supported.
 	 *
-	 * @todo udpmessaging: gmp: this should be moved into an Engine module, so it can be shared with other transports
 	 * @return true if networked transport is supported, false otherwise.
 	 */
 	bool SupportsNetworkedTransport() const
 	{
-		const bool IsMessagingExplicitlyDesired = FParse::Param(FCommandLine::Get(), TEXT("Messaging"));
-
-		if (FApp::IsGame() && (IsMessagingExplicitlyDesired || IsRunningCommandlet()))
+		// disallow unsupported platforms
+		if (!FPlatformMisc::SupportsMessaging())
 		{
-			// disallow unsupported platforms
-			if (!FPlatformMisc::SupportsMessaging() || !FPlatformProcess::SupportsMultithreading())
-			{
-				return false;
-			}
+			return false;
 		}
 
-		return true;
+		// single thread support not implemented yet
+		if (!FPlatformProcess::SupportsMultithreading())
+		{
+			return false;
+		}
+
+		// always allow in standalone Slate applications
+		if (!FApp::IsGame() && !IsRunningCommandlet())
+		{
+			return true;
+		}
+
+		// otherwise only allow if explicitly desired
+		return FParse::Param(FCommandLine::Get(), TEXT("Messaging"));
 	}
 
 	/** Shuts down the message bridge. */

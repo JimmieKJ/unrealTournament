@@ -20,6 +20,10 @@ class UNREALTOURNAMENT_API AUTArmor : public AUTInventory
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Armor)
 	bool bAbsorbMomentum;
 
+	/** whether to destroy armor when its remaining amount hits zero (would want to set false if it can be regenerated) */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Armor)
+	bool bDestroyWhenConsumed;
+
 	/** character overlay applied while this armor is equipped */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Effects)
 	FOverlayEffect OverlayEffect;

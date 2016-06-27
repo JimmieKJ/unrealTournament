@@ -90,13 +90,16 @@ void AUTPickupInventory::SetInventoryType(TSubclassOf<AUTInventory> NewType)
 	InventoryType = NewType;
 	if (InventoryType != NULL)
 	{
-		RespawnTime = InventoryType.GetDefaultObject()->RespawnTime;
+		AUTGameMode* Game = GetWorld()->GetAuthGameMode<AUTGameMode>();
+		RespawnTime = Game ? Game->OverrideRespawnTime(InventoryType) : InventoryType.GetDefaultObject()->RespawnTime;
 		bDelayedSpawn = InventoryType.GetDefaultObject()->bDelayedSpawn;
 		BaseDesireability = InventoryType.GetDefaultObject()->BasePickupDesireability;
+		bFixedRespawnInterval = InventoryType.GetDefaultObject()->bFixedRespawnInterval;
 	}
 	else
 	{
 		RespawnTime = 0.0f;
+		bFixedRespawnInterval = false;
 	}
 	InventoryTypeUpdated();
 	if (Role == ROLE_Authority && GetWorld()->GetAuthGameMode<AUTGameMode>() != NULL && GetWorld()->GetAuthGameMode<AUTGameMode>()->HasMatchStarted())
@@ -400,8 +403,8 @@ void AUTPickupInventory::GiveTo_Implementation(APawn* Target)
 		AnnouncePickup(P);
 
 		//Add to the stats pickup count
-		const AUTInventory* Inventory = Cast<UClass>(InventoryType) ? Cast<AUTInventory>(Cast<UClass>(InventoryType)->GetDefaultObject()) : nullptr;
-		if (Inventory != nullptr && Inventory->StatsNameCount != NAME_None)
+		const AUTInventory* Inventory = InventoryType.GetDefaultObject();
+		if (Inventory->StatsNameCount != NAME_None)
 		{
 			AUTPlayerState* PS = Cast<AUTPlayerState>(P->PlayerState);
 			if (PS)

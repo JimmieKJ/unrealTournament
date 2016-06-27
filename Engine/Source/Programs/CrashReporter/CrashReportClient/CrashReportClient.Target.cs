@@ -14,6 +14,15 @@ public class CrashReportClientTarget : TargetRules
 	//
 	// TargetRules interface.
 	//
+	public override bool ConfigureToolchain(TargetInfo Target)
+    {
+        if (Target.Platform == UnrealTargetPlatform.Win32 || Target.Platform == UnrealTargetPlatform.Win64)
+        {
+            WindowsPlatform.Compiler = WindowsCompiler.VisualStudio2013;
+        }
+        return true;
+    }
+	
 	public override bool GetSupportedPlatforms(ref List<UnrealTargetPlatform> OutPlatforms)
 	{
 		OutPlatforms.Add(UnrealTargetPlatform.Win32);

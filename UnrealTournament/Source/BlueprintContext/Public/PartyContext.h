@@ -73,6 +73,7 @@ protected:
 	void HandlePartyMemberPromoted(UPartyGameState* PartyState, const FUniqueNetIdRepl& InMemberId);
 
 	void HandlePlayerLoggedOut();
+	
 public:
 
 	DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnPartyTransitionStartedDelegate, EUTPartyTransition, PartyTransition);
@@ -119,6 +120,7 @@ public:
 
 	void KickPartyMember(const FUniqueNetIdRepl& PartyMemberId);
 	void PromotePartyMemberToLeader(const FUniqueNetIdRepl& PartyMemberId);
+	bool IsPartyLeader(const FUniqueNetIdRepl& PartyMemberId);
 	void LeaveParty();
 
 	UFUNCTION(BlueprintCallable, Category = PartyContext)

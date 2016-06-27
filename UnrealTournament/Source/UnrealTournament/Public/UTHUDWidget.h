@@ -98,7 +98,11 @@ public:
 	// Whether to colorize this widget using base HUD color (like team color)
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Widgets")
 	uint32 bIgnoreHUDBaseColor:1;
-	
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Widgets")
+	uint32 bIgnoreHUDOpacity:1;
+
+
 	// Will be called as soon as the widget is created and tracked by the hud.
 	virtual void InitializeWidget(AUTHUD* Hud);
 
@@ -350,6 +354,11 @@ protected:
 	UFUNCTION(BlueprintCallable, Category="Render Objects")
 	virtual void RenderObj_TextureAt(FHUDRenderObject_Texture& TextureObject, float X, float Y, float Width, float Height);
 
+	// Render a Texture object at a given position on the screen.
+	UFUNCTION(BlueprintCallable, Category="Render Objects")
+	virtual void RenderObj_TextureAtWithRotation(FHUDRenderObject_Texture& TextureObject, FVector2D Postion, float Rotation);
+
+
 	UFUNCTION(BlueprintCallable, Category="Render Objects")
 	virtual FVector2D RenderObj_Text(FHUDRenderObject_Text& TextObject, FVector2D DrawOffset = FVector2D(0,0));
 
@@ -372,6 +381,10 @@ public:
 	static float BounceEaseOut(float Start, float End, float Position, float Power)
 	{
 		Position = FMath::Clamp<float>(Position, 0.0f, 1.0f);
+		
+		if (Position == 0.0f) return Start;
+		if (Position == 1.0f) return End;
+
 		return Start + ( (End - Start) * ( 1.0f - FMath::Pow(Power, (Power * -0.5f) * Position ) * FMath::Abs<float>(FMath::Cos( Position * 3.1415926535897932f * Power) ) ) );
 	}
 

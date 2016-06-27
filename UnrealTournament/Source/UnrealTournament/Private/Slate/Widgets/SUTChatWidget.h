@@ -2,7 +2,6 @@
 #pragma once
 
 #include "SlateBasics.h"
-#include "FriendsAndChat.h"
 #if !UE_SERVER
 class IChatViewModel;
 
@@ -11,8 +10,6 @@ class UNREALTOURNAMENT_API SUTChatWidget : public SCompoundWidget
 public:
 	SLATE_BEGIN_ARGS(SUTChatWidget)
 	{}
-	SLATE_ARGUMENT(const FFriendsAndChatStyle*, FriendStyle)
-
 	SLATE_END_ARGS()
 
 	/** Needed for every widget */

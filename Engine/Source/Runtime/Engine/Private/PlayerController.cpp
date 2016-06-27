@@ -4698,3 +4698,13 @@ bool APlayerController::ShouldPerformFullTickWhenPaused() const
 }
 
 #undef LOCTEXT_NAMESPACE
+
+void APlayerController::ToggleVoiceLoopback(bool bEnabled)
+{
+	UWorld* World = GetWorld();
+	IOnlineVoicePtr VoiceInt = Online::GetVoiceInterface(World);
+	if (VoiceInt.IsValid())
+	{
+		VoiceInt->ToggleLoopback(bEnabled);
+	}
+}

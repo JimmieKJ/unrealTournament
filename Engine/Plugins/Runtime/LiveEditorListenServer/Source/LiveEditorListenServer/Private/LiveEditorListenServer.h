@@ -22,7 +22,7 @@ public:
 
 	bool HandleListenerConnectionAccepted( class FSocket* ClientSocket, const FIPv4Endpoint& ClientEndpoint );
 
-	void OnPreLoadMap();
+	void OnPreLoadMap(const FString& MapName);
 	void OnPostLoadMap();
 
 private:

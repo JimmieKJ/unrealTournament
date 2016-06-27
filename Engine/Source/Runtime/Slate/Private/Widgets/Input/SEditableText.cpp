@@ -152,16 +152,7 @@ bool SEditableText::SupportsKeyboardFocus() const
 
 FReply SEditableText::OnFocusReceived( const FGeometry& MyGeometry, const FFocusEvent& InFocusEvent )
 {
-	if (EditableTextLayout->HandleFocusReceived(InFocusEvent))
-	{
-		if (InFocusEvent.GetCause() != EFocusCause::Mouse && InFocusEvent.GetCause() != EFocusCause::OtherWidgetLostFocus && bIsCaretMovedWhenGainFocus.Get())
-		{
-			EditableTextLayout->GoTo(ETextLocation::EndOfDocument);
-		}
-
-		return SWidget::OnFocusReceived(MyGeometry, InFocusEvent);
-	}
-
+	EditableTextLayout->HandleFocusReceived(InFocusEvent);
 	return FReply::Handled();
 }
 
@@ -388,6 +379,11 @@ bool SEditableText::IsTextPassword() const
 bool SEditableText::IsMultiLineTextEdit() const
 {
 	return false;
+}
+
+bool SEditableText::ShouldJumpCursorToEndWhenFocused() const
+{
+	return bIsCaretMovedWhenGainFocus.Get(false);
 }
 
 bool SEditableText::ShouldSelectAllTextWhenFocused() const

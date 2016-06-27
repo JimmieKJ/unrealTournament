@@ -92,6 +92,13 @@ void UPartyContext::HandlePartyJoined(UPartyGameState* PartyState)
 
 		OnPartyTransitionCompleted.Broadcast(CurrentTransition);
 		CurrentTransition = EUTPartyTransition::Idle;
+
+		// If we're playing an offline game, quit back to main menu
+		UUTLocalPlayer* LocalPlayer = GetOwningPlayer<UUTLocalPlayer>();
+		if (LocalPlayer && !LocalPlayer->IsPartyLeader() && !LocalPlayer->IsMenuGame() && LocalPlayer->GetWorld()->GetNetMode() == NM_Standalone)
+		{
+			LocalPlayer->ReturnToMainMenu();
+		}
 	}
 }
 
@@ -131,8 +138,16 @@ void UPartyContext::HandlePartyMemberJoined(UPartyGameState* PartyState, const F
 			TSharedPtr<const FUniqueNetId> LocalUserId = LocalPlayer->GetPreferredUniqueNetId();
 			if (LocalUserId.IsValid() && UniqueId.ToString() != LocalUserId->ToString())
 			{
-				FText PartyMessage = FText::Format(NSLOCTEXT("UPartyContext", "JoinMessage", "{0} has joined your party"), NewUTPartyMember->DisplayName);
-				LocalPlayer->ShowToast(PartyMessage);
+				if (IsPartyLeader(UniqueId))
+				{
+					FText PartyMessage = FText::Format(NSLOCTEXT("UPartyContext", "JoinedPartyMessage", "You have joined {0}'s party"), NewUTPartyMember->DisplayName);
+					LocalPlayer->ShowToast(PartyMessage);
+				}
+				else
+				{
+					FText PartyMessage = FText::Format(NSLOCTEXT("UPartyContext", "JoinMessage", "{0} has joined your party"), NewUTPartyMember->DisplayName);
+					LocalPlayer->ShowToast(PartyMessage);
+				}
 			}
 		}
 	}
@@ -297,10 +312,11 @@ void UPartyContext::OnJoinPartyCompleteInternal(const FUniqueNetId& LocalUserId,
 
 void UPartyContext::HandleJoinPartyFailure(EJoinPartyCompletionResult Result, int32 DeniedResultCode)
 {
-	UUTGameInstance* GameInstance = GetGameInstance<UUTGameInstance>();
-	check(GameInstance);
-
-	// Let something know we failed
+	UUTLocalPlayer* LocalPlayer = GetOwningPlayer<UUTLocalPlayer>();
+	if (LocalPlayer)
+	{
+		LocalPlayer->ShowToast(NSLOCTEXT("UPartyContext", "FailPartyJoin", "Could not join party, it may be in matchmaking"));
+	}
 }
 
 int32 UPartyContext::GetPartySize() const
@@ -361,6 +377,31 @@ void UPartyContext::GetLocalPartyMemberNames(TArray<FText>& PartyMemberNames) co
 	}
 }
 
+bool UPartyContext::IsPartyLeader(const FUniqueNetIdRepl& PartyMemberId)
+{
+	if (!PartyMemberId.IsValid())
+	{
+		UE_LOG(LogParty, Warning, TEXT("IsPartyLeader invalid: Invalid net ID for player to check for leader."));
+		return false;
+	}
+
+	UUTGameInstance* GameInstance = GetGameInstance<UUTGameInstance>();
+	check(GameInstance);
+	UUTParty* UTParty = GameInstance->GetParties();
+	check(UTParty);
+
+	UPartyGameState* PersistentParty = UTParty->GetPersistentParty();
+	if (ensure(PersistentParty))
+	{
+		TSharedPtr<const FUniqueNetId> PartyLeaderId = PersistentParty->GetPartyLeader();
+		if (ensure(PartyLeaderId.IsValid()) && *PartyMemberId == *PartyLeaderId)
+		{
+			return true;
+		}
+	}
+
+	return false;
+}
 
 void UPartyContext::PromotePartyMemberToLeader(const FUniqueNetIdRepl& PartyMemberId)
 {

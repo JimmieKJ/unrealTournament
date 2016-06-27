@@ -118,7 +118,7 @@ void AUTDuelGame::CreateGameURLOptions(TArray<TSharedPtr<TAttributePropertyBase>
 }
 
 #if !UE_SERVER
-void AUTDuelGame::CreateConfigWidgets(TSharedPtr<class SVerticalBox> MenuSpace, bool bCreateReadOnly, TArray< TSharedPtr<TAttributePropertyBase> >& ConfigProps)
+void AUTDuelGame::CreateConfigWidgets(TSharedPtr<class SVerticalBox> MenuSpace, bool bCreateReadOnly, TArray< TSharedPtr<TAttributePropertyBase> >& ConfigProps, int32 MinimumPlayers)
 {
 	CreateGameURLOptions(ConfigProps);
 

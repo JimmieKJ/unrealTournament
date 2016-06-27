@@ -306,6 +306,7 @@ UUTHUDWidget::UUTHUDWidget(const class FObjectInitializer& ObjectInitializer) : 
 	bMaintainAspectRatio = true;
 	DesignedResolution=720;
 	UTHUDOwner = nullptr;
+	bIgnoreHUDOpacity = false;
 }
 
 void UUTHUDWidget::InitializeWidget(AUTHUD* Hud)
@@ -557,7 +558,7 @@ FVector2D UUTHUDWidget::DrawText(FText Text, float X, float Y, UFont* Font, bool
 			Canvas->DrawTile(Canvas->DefaultTexture, RenderPos.X, RenderPos.Y, TextSize.X * TextScale * 1.025, TextSize.Y * TextScale, 0,0,1,1,EBlendMode::BLEND_Translucent);
 		}
 
-		DrawColor.A = Opacity * DrawOpacity * UTHUDOwner->WidgetOpacity;
+		DrawColor.A = Opacity * DrawOpacity * (bIgnoreHUDOpacity ? 1.0f : UTHUDOwner->WidgetOpacity);
 		Canvas->DrawColor = DrawColor.ToFColor(false);
 
 		if (!WordWrapper.IsValid())
@@ -571,12 +572,12 @@ FVector2D UUTHUDWidget::DrawText(FText Text, float X, float Y, UFont* Font, bool
 		{
 			TextItem.bOutlined = true;
 			TextItem.OutlineColor = OutlineColor;
-			TextItem.OutlineColor.A *= DrawOpacity * UTHUDOwner->WidgetOpacity;
+			TextItem.OutlineColor.A *= DrawOpacity * (bIgnoreHUDOpacity ? 1.0f : UTHUDOwner->WidgetOpacity);
 		}
 
 		if (bDrawShadow)
 		{
-			ShadowColor.A *= DrawOpacity * UTHUDOwner->WidgetOpacity;
+			ShadowColor.A *= DrawOpacity * (bIgnoreHUDOpacity ? 1.0f : UTHUDOwner->WidgetOpacity);
 			TextItem.EnableShadow(ShadowColor, ShadowDirection);
 		}
 
@@ -609,7 +610,7 @@ void UUTHUDWidget::DrawTexture(UTexture* Texture, float X, float Y, float Width,
 		UL = U + (UL / Texture->Resource->GetSizeX());
 		VL = V + (VL / Texture->Resource->GetSizeY());
 
-		DrawColor.A = Opacity * DrawOpacity * UTHUDOwner->WidgetOpacity;
+		DrawColor.A = Opacity * DrawOpacity * (bIgnoreHUDOpacity ? 1.0f : UTHUDOwner->WidgetOpacity);
 
 		FCanvasTileItem ImageItem(RenderPos, Texture->Resource, FVector2D(Width, Height), FVector2D(U,V), FVector2D(UL,VL), DrawColor);
 		ImageItem.Rotation = FRotator(0,Rotation,0);
@@ -635,11 +636,11 @@ void UUTHUDWidget::DrawMaterial( UMaterialInterface* Material, float X, float Y,
 		FVector2D RenderPos = FVector2D(RenderPosition.X + X - (Width * RenderOffset.X), RenderPosition.Y + Y - (Height * RenderOffset.Y));
 		FCanvasTileItem MaterialItem( RenderPos, Material->GetRenderProxy(0), FVector2D( Width, Height) , FVector2D( MaterialU, MaterialV ), FVector2D( MaterialU+MaterialUWidth, MaterialV +MaterialVHeight));
 
-		DrawColor.A = Opacity * DrawOpacity * UTHUDOwner->WidgetOpacity;
+		DrawColor.A = Opacity * DrawOpacity * (bIgnoreHUDOpacity ? 1.0f : UTHUDOwner->WidgetOpacity);
 		MaterialItem.SetColor(DrawColor);
 		MaterialItem.Rotation = FRotator(0, Rotation, 0);
 		MaterialItem.PivotPoint = RotPivot;
-		Canvas->DrawColor.A *= DrawOpacity * UTHUDOwner->WidgetOpacity;
+		Canvas->DrawColor.A *= DrawOpacity * (bIgnoreHUDOpacity ? 1.0f : UTHUDOwner->WidgetOpacity);
 		Canvas->DrawItem( MaterialItem );
 	}
 }
@@ -658,6 +659,15 @@ void UUTHUDWidget::RenderObj_Texture(FHUDRenderObject_Texture& TextureObject, FV
 	FVector2D NewRenderSize = FVector2D(TextureObject.GetWidth(), TextureObject.GetHeight());
 	RenderObj_TextureAt(TextureObject, (TextureObject.Position.X + DrawOffset.X), (TextureObject.Position.Y + DrawOffset.Y), NewRenderSize.X, NewRenderSize.Y);
 }
+
+void UUTHUDWidget::RenderObj_TextureAtWithRotation(FHUDRenderObject_Texture& TextureObject, FVector2D Pos, float Rotation)
+{
+	float OldRotation = TextureObject.Rotation;
+	TextureObject.Rotation += Rotation;
+	RenderObj_Texture(TextureObject, Pos);
+	TextureObject.Rotation  = OldRotation;
+}
+
 
 void UUTHUDWidget::RenderObj_TextureAt(FHUDRenderObject_Texture& TextureObject, float X, float Y, float Width, float Height)
 {
@@ -691,7 +701,7 @@ void UUTHUDWidget::RenderObj_TextureAt(FHUDRenderObject_Texture& TextureObject, 
 		}
 	}
 
-	float NewOpacity = UTHUDOwner->GetHUDWidgetOpacity() * (TextureObject.bIsBorderElement ? UTHUDOwner->GetHUDWidgetBorderOpacity() : 1.0f) * (TextureObject.bIsSlateElement ? UTHUDOwner->GetHUDWidgetSlateOpacity() : 1.0f); 
+	float NewOpacity = bIgnoreHUDOpacity ? 1.0f : (UTHUDOwner->GetHUDWidgetOpacity() * (TextureObject.bIsBorderElement ? UTHUDOwner->GetHUDWidgetBorderOpacity() : 1.0f) * (TextureObject.bIsSlateElement ? UTHUDOwner->GetHUDWidgetSlateOpacity() : 1.0f)); 
 
 	DrawTexture(TextureObject.Atlas, 
 						X, 
@@ -730,7 +740,7 @@ FVector2D UUTHUDWidget::RenderObj_TextAt(FHUDRenderObject_Text& TextObject, floa
 				TextObject.bDrawOutline, 
 				TextObject.OutlineColor, 
 				TextObject.TextScale, 
-				TextObject.RenderOpacity * UTHUDOwner->GetHUDWidgetOpacity(), 
+				TextObject.RenderOpacity * (bIgnoreHUDOpacity ? 1.0f : UTHUDOwner->GetHUDWidgetOpacity()), 
 				TextObject.RenderColor, 
 				TextObject.BackgroundColor,
 				TextObject.HorzPosition, 

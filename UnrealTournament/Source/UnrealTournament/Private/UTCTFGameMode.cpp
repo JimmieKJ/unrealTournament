@@ -19,6 +19,7 @@
 #include "Engine/DemoNetDriver.h"
 #include "UTCTFScoreboard.h"
 #include "SNumericEntryBox.h"
+#include "UTCharacterVoice.h"
 
 AUTCTFGameMode::AUTCTFGameMode(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -84,7 +85,7 @@ void AUTCTFGameMode::ScoreObject_Implementation(AUTCarriedObject* GameObject, AU
 	}
 }
 
-void AUTCTFGameMode::HandleFlagCapture(AUTPlayerState* Holder)
+void AUTCTFGameMode::HandleFlagCapture(AUTCharacter* HolderPawn, AUTPlayerState* Holder)
 {
 	if (CTFGameState->IsMatchInOvertime())
 	{
@@ -486,9 +487,9 @@ void AUTCTFGameMode::CreateGameURLOptions(TArray<TSharedPtr<TAttributePropertyBa
 }
 
 #if !UE_SERVER
-void AUTCTFGameMode::CreateConfigWidgets(TSharedPtr<class SVerticalBox> MenuSpace, bool bCreateReadOnly, TArray< TSharedPtr<TAttributePropertyBase> >& ConfigProps)
+void AUTCTFGameMode::CreateConfigWidgets(TSharedPtr<class SVerticalBox> MenuSpace, bool bCreateReadOnly, TArray< TSharedPtr<TAttributePropertyBase> >& ConfigProps, int32 MinimumPlayers)
 {
-	Super::CreateConfigWidgets(MenuSpace,bCreateReadOnly,ConfigProps);
+	Super::CreateConfigWidgets(MenuSpace,bCreateReadOnly,ConfigProps,MinimumPlayers);
 	TSharedPtr< TAttributeProperty<int32> > MercyScoreAttr = StaticCastSharedPtr<TAttributeProperty<int32>>(FindGameURLOption(ConfigProps,TEXT("MercyScore")));
 
 	// FIXME: temp 'ReadOnly' handling by creating new widgets; ideally there would just be a 'disabled' or 'read only' state in Slate...
@@ -545,3 +546,120 @@ void AUTCTFGameMode::CreateConfigWidgets(TSharedPtr<class SVerticalBox> MenuSpac
 }
 
 #endif
+int32 AUTCTFGameMode::GetComSwitch(FName CommandTag, AActor* ContextActor, AUTPlayerController* Instigator, UWorld* World)
+{
+	if (World == nullptr) return INDEX_NONE;
+
+	AUTCTFGameState* UTCTFGameState = World->GetGameState<AUTCTFGameState>();
+
+	if (Instigator == nullptr || UTCTFGameState == nullptr) 
+	{
+		return Super::GetComSwitch(CommandTag, ContextActor, Instigator, World);
+	}
+
+	AUTPlayerState* UTPlayerState = Cast<AUTPlayerState>(Instigator->PlayerState);
+	AUTCharacter* ContextCharacter = ContextActor != nullptr ? Cast<AUTCharacter>(ContextActor) : nullptr;
+	AUTPlayerState* ContextPlayerState = ContextCharacter != nullptr ? Cast<AUTPlayerState>(ContextCharacter->PlayerState) : nullptr;
+
+	if (ContextCharacter)
+	{
+		bool bContextOnSameTeam = ContextCharacter != nullptr ? World->GetGameState<AUTGameState>()->OnSameTeam(Instigator, ContextCharacter) : false;
+		bool bContextIsFlagCarrier = ContextPlayerState != nullptr && ContextPlayerState->CarriedObject != nullptr;
+
+		if (bContextIsFlagCarrier)
+		{
+			if ( bContextOnSameTeam )
+			{
+				if ( CommandTag == CommandTags::Intent )
+				{
+					return GOT_YOUR_BACK_SWITCH_INDEX;
+				}
+
+				else if (CommandTag == CommandTags::Attack)
+				{
+					return GET_FLAG_BACK_SWITCH_INDEX;
+				}
+
+				else if (CommandTag == CommandTags::Defend)
+				{
+					return DEFEND_FLAG_CARRIER_SWITCH_INDEX;
+				}
+			}
+			else
+			{
+				if (CommandTag == CommandTags::Intent)
+				{
+					return ENEMY_FC_HERE_SWITCH_INDEX;
+				}
+				else if (CommandTag == CommandTags::Attack)
+				{
+					return GET_FLAG_BACK_SWITCH_INDEX;
+				}
+				else if (CommandTag == CommandTags::Defend)
+				{
+					return BASE_UNDER_ATTACK_SWITCH_INDEX;
+				}
+			}
+		}
+	}
+
+	AUTCharacter* InstCharacter = Cast<AUTCharacter>(Instigator->GetCharacter());
+	if (InstCharacter != nullptr && !InstCharacter->IsDead())
+	{
+		// We aren't dead, look to see if we have the flag...
+			
+		if (UTPlayerState->CarriedObject != nullptr)
+		{
+			if (CommandTag == CommandTags::Intent)			
+			{
+				return GOT_FLAG_SWITCH_INDEX;
+			}
+			if (CommandTag == CommandTags::Attack)			
+			{
+				return ATTACK_THEIR_BASE_SWITCH_INDEX;
+			}
+			if (CommandTag == CommandTags::Defend)			
+			{
+				return DEFEND_FLAG_CARRIER_SWITCH_INDEX;
+			}
+		}
+	}
+
+	uint8 EnemyTeamNum = 1 - Instigator->GetTeamNum();
+
+	if (CommandTag == CommandTags::Intent)
+	{
+		// If my flag is out
+
+		if (UTCTFGameState->GetFlagState(Instigator->GetTeamNum()) != CarriedObjectState::Home)
+		{
+			return GET_FLAG_BACK_SWITCH_INDEX;
+		}
+		else if (UTCTFGameState->GetFlagState(EnemyTeamNum) != CarriedObjectState::Home) 
+		{
+			return DEFEND_FLAG_CARRIER_SWITCH_INDEX;
+		}
+		else
+		{
+			return AREA_SECURE_SWITCH_INDEX;
+		}
+	}
+
+	if (CommandTag == CommandTags::Attack)
+	{
+		return ON_OFFENSE_SWITCH_INDEX;
+	}
+
+	if (CommandTag == CommandTags::Defend)
+	{
+		return ON_DEFENSE_SWITCH_INDEX;
+	}
+
+
+	if (CommandTag == CommandTags::Distress)
+	{
+		return UNDER_HEAVY_ATTACK_SWITCH_INDEX;  
+	}
+
+	return Super::GetComSwitch(CommandTag, ContextActor, Instigator, World);
+}

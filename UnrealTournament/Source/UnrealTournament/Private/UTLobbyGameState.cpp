@@ -13,6 +13,8 @@
 AUTLobbyGameState::AUTLobbyGameState(const class FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
 {
+	AllMapsOnServerCount = -1;
+	AvailabelGameRulesetCount = -1;
 }
 
 void AUTLobbyGameState::BeginPlay()
@@ -28,6 +30,7 @@ void AUTLobbyGameState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > &
 	DOREPLIFETIME(AUTLobbyGameState, AvailableGameRulesets);
 	DOREPLIFETIME(AUTLobbyGameState, AvailabelGameRulesetCount);
 	DOREPLIFETIME(AUTLobbyGameState, AllMapsOnServer);
+	DOREPLIFETIME(AUTLobbyGameState, AllMapsOnServerCount);
 	DOREPLIFETIME(AUTLobbyGameState, NumGameInstances);
 	DOREPLIFETIME(AUTLobbyGameState, bCustomContentAvailable);
 	DOREPLIFETIME_CONDITION(AUTLobbyGameState, bAllowInstancesToStartWithBots, COND_InitialOnly);
@@ -111,6 +114,7 @@ void AUTLobbyGameState::PostInitializeComponents()
 		}
 	
 		AvailabelGameRulesetCount = AvailableGameRulesets.Num();
+		AllMapsOnServerCount = AllMapsOnServer.Num();
 	}
 
 }
@@ -257,7 +261,7 @@ TWeakObjectPtr<AUTReplicatedGameRuleset> AUTLobbyGameState::FindRuleset(FString 
 	return NULL;
 }
 
-AUTLobbyMatchInfo* AUTLobbyGameState::AddNewMatch(AUTLobbyPlayerState* MatchOwner, AUTLobbyMatchInfo* MatchToCopy)
+AUTLobbyMatchInfo* AUTLobbyGameState::AddNewMatch(AUTLobbyPlayerState* MatchOwner, AUTLobbyMatchInfo* MatchToCopy, bool bIsInParty)
 {
 	// Create a match and replicate all of the relevant information
 
@@ -265,18 +269,19 @@ AUTLobbyMatchInfo* AUTLobbyGameState::AddNewMatch(AUTLobbyPlayerState* MatchOwne
 	if (NewMatchInfo)
 	{	
 		AvailableMatches.Add(NewMatchInfo);
-		HostMatch(NewMatchInfo, MatchOwner, MatchToCopy);
+		HostMatch(NewMatchInfo, MatchOwner, MatchToCopy, bIsInParty);
+
 		return NewMatchInfo;
 	}
 		
 	return NULL;
 }
 
-void AUTLobbyGameState::HostMatch(AUTLobbyMatchInfo* MatchInfo, AUTLobbyPlayerState* MatchOwner, AUTLobbyMatchInfo* MatchToCopy)
+void AUTLobbyGameState::HostMatch(AUTLobbyMatchInfo* MatchInfo, AUTLobbyPlayerState* MatchOwner, AUTLobbyMatchInfo* MatchToCopy, bool bIsInParty)
 {
 	MatchInfo->SetOwner(MatchOwner->GetOwner());
 	MatchInfo->AddPlayer(MatchOwner, true);
-	MatchInfo->SetSettings(this, MatchOwner, MatchToCopy);
+	MatchInfo->SetSettings(this, MatchOwner, MatchToCopy, bIsInParty);
 }
 
 void AUTLobbyGameState::JoinMatch(AUTLobbyMatchInfo* MatchInfo, AUTLobbyPlayerState* NewPlayer, bool bAsSpectator)
@@ -504,6 +509,12 @@ void AUTLobbyGameState::LaunchGameInstance(AUTLobbyMatchInfo* MatchOwner, FStrin
 		if (FParse::Value(FCommandLine::Get(), TEXT("SLevel="), SLevel))
 		{
 			Options += TEXT(" -SLevel=") + SLevel;
+		}
+
+		FString BuildIdOverride;
+		if (FParse::Value(FCommandLine::Get(), TEXT("BuildIdOverride="), BuildIdOverride))
+		{
+			Options += TEXT(" -BuildIdOverride=") + BuildIdOverride;
 		}
 
 		UE_LOG(UT,Verbose,TEXT("Launching %s with Params %s"), *ExecPath, *Options);
@@ -1270,4 +1281,9 @@ void AUTLobbyGameState::GetMatchBans(int32 GameInstanceId, TArray<FUniqueNetIdRe
 			return;
 		}
 	}
+}
+
+bool AUTLobbyGameState::IsClientFullyInformed()
+{
+	return (GetNetMode() == NM_Client && AllMapsOnServerCount == AllMapsOnServer.Num() && AvailabelGameRulesetCount == AvailableGameRulesets.Num());
 }

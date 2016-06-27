@@ -251,7 +251,14 @@ void AUTWeap_LinkGun::Tick(float DeltaTime)
 	{
 		if ((Role == ROLE_Authority) && FireLoopingSound.IsValidIndex(CurrentFireMode) && FireLoopingSound[CurrentFireMode] != NULL)
 		{
-			UTOwner->ChangeAmbientSoundPitch(FireLoopingSound[CurrentFireMode], bLinkCausingDamage ? 2.f : 1.f);
+			if (!bLinkBeamImpacting)
+			{
+				UTOwner->ChangeAmbientSoundPitch(FireLoopingSound[CurrentFireMode], 0.7f);
+			}
+			else
+			{
+				UTOwner->ChangeAmbientSoundPitch(FireLoopingSound[CurrentFireMode], bLinkCausingDamage ? 2.f : 1.f);
+			}
 		}
 		if (IsLinkPulsing())
 		{
@@ -395,7 +402,7 @@ void AUTWeap_LinkGun::SetLinkTo(AActor* Other)
 
 		if (GetNetMode() != NM_DedicatedServer)
 		{
-			UUTGameplayStatics::UTPlaySound(GetWorld(), LinkEstablishedOtherSound, LinkTarget, SRT_None);
+			UUTGameplayStatics::UTPlaySound(GetWorld(), LinkEstablishedOtherSound, LinkTarget, SRT_None, false, FVector::ZeroVector, NULL, NULL, true, SAT_WeaponFoley);
 		}
 	}
 }
@@ -512,7 +519,7 @@ bool AUTWeap_LinkGun::PutDown()
 
 void AUTWeap_LinkGun::OnMultiPress_Implementation(uint8 OtherFireMode)
 {
-	if (CurrentFireMode == 1 && OtherFireMode == 0 && !IsLinkPulsing())
+	if (CurrentFireMode == 1 && OtherFireMode == 0 && IsFiring() && !IsLinkPulsing())
 	{
 		bPendingBeamPulse = true;
 	}

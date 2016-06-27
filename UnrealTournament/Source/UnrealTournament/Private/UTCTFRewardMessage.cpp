@@ -16,6 +16,7 @@ UUTCTFRewardMessage::UUTCTFRewardMessage(const class FObjectInitializer& ObjectI
 	bIsConsoleMessage = false;
 	AssistMessage = NSLOCTEXT("CTFRewardMessage", "Assist", "Assist!");
 	DeniedMessage = NSLOCTEXT("CTFRewardMessage", "Denied", "Denied!");
+	RejectedMessage = NSLOCTEXT("CTFRewardMessage", "Rejected", "Redeemer Rejected!");
 	BlueTeamName = NSLOCTEXT("CTFRewardMessage", "BlueTeamName", "BLUE TEAM");
 	RedTeamName = NSLOCTEXT("CTFRewardMessage", "RedTeamName", "RED TEAM");
 	TeamScorePrefix = NSLOCTEXT("CTFRewardMessage", "TeamScorePrefix", "");
@@ -23,16 +24,32 @@ UUTCTFRewardMessage::UUTCTFRewardMessage(const class FObjectInitializer& ObjectI
 	HatTrickMessage = NSLOCTEXT("CTFRewardMessage", "HatTrick", "Hat Trick!");
 	OtherHatTrickMessage = NSLOCTEXT("CTFRewardMessage", "OtherHatTrick", "{Player1Name} got a Hat Trick!");
 	GoldScoreBonusPrefix = NSLOCTEXT("CTFRewardMessage", "GoldScoreBonusPrefix", "");
-	GoldScoreBonusPostfix = NSLOCTEXT("CTFRewardMessage", "GoldScoreBonusPostfix", " Scores!  Gold Bonus +{BonusAmount}");
+	GoldScoreBonusPostfix = NSLOCTEXT("CTFRewardMessage", "GoldScoreBonusPostfix", " Scores!  \u2605 \u2605 \u2605");
 	SilverScoreBonusPrefix = NSLOCTEXT("CTFRewardMessage", "SilverScoreBonusPrefix", "");
-	SilverScoreBonusPostfix = NSLOCTEXT("CTFRewardMessage", "SilverScoreBonusPostfix", " Scores!  Silver Bonus +{BonusAmount}");
+	SilverScoreBonusPostfix = NSLOCTEXT("CTFRewardMessage", "SilverScoreBonusPostfix", " Scores!  \u2605 \u2605");
 	BronzeScoreBonusPrefix = NSLOCTEXT("CTFRewardMessage", "BronzeScoreBonusPrefix", "");
-	BronzeScoreBonusPostfix = NSLOCTEXT("CTFRewardMessage", "BronzeScoreBonusPostfix", " Scores!  Bronze Bonus +{BonusAmount}");
+	BronzeScoreBonusPostfix = NSLOCTEXT("CTFRewardMessage", "BronzeScoreBonusPostfix", " Scores!  \u2605");
 	EarnedSpecialPrefix = NSLOCTEXT("CTFGameMessage", "EarnedSpecialPrefix", "");
 	EarnedSpecialPostfix = NSLOCTEXT("CTFGameMessage", "EarnedSpecialPostfix", " earned a power up for your team!");
 	bIsStatusAnnouncement = false;
 	bWantsBotReaction = true;
 	ScaleInSize = 3.f;
+
+	static ConstructorHelpers::FObjectFinder<USoundBase> EarnedSoundFinder(TEXT("SoundWave'/Game/RestrictedAssets/Audio/Stingers/BoostAvailable.BoostAvailable'"));
+	EarnedBoostSound = EarnedSoundFinder.Object;
+}
+
+void UUTCTFRewardMessage::ClientReceive(const FClientReceiveData& ClientData) const 
+{
+	Super::ClientReceive(ClientData);
+	if (EarnedBoostSound && (ClientData.MessageIndex == 7))
+	{
+		AUTPlayerController* PC = Cast<AUTPlayerController>(ClientData.LocalPC);
+		if (PC != NULL)
+		{
+			PC->UTClientPlaySound(EarnedBoostSound);
+		}
+	}
 }
 
 FLinearColor UUTCTFRewardMessage::GetMessageColor_Implementation(int32 MessageIndex) const
@@ -50,7 +67,7 @@ FLinearColor UUTCTFRewardMessage::GetMessageColor_Implementation(int32 MessageIn
 
 void UUTCTFRewardMessage::PrecacheAnnouncements_Implementation(UUTAnnouncer* Announcer) const
 {
-	for (int32 i = 0; i < 6; i++)
+	for (int32 i = 0; i < 8; i++)
 	{
 		Announcer->PrecacheAnnouncement(GetAnnouncementName(i, NULL, NULL, NULL));
 	}
@@ -58,6 +75,10 @@ void UUTCTFRewardMessage::PrecacheAnnouncements_Implementation(UUTAnnouncer* Ann
 
 float UUTCTFRewardMessage::GetAnnouncementDelay(int32 Switch)
 {
+	if (Switch == 7)
+	{
+		return 1.f;
+	}
 	return ((Switch == 2) || (Switch == 5)) ? 1.5f : 0.f;
 }
 
@@ -65,21 +86,20 @@ FName UUTCTFRewardMessage::GetAnnouncementName_Implementation(int32 Switch, cons
 {
 	switch (Switch)
 	{
-	case 0: return TEXT("Denied"); break;
+	case 0: return TEXT("RW_Rejected"); break;
 	case 1: return TEXT("LastSecondSave"); break;
 	case 2: return TEXT("Assist"); break;
 	case 5: return TEXT("HatTrick"); break;
 	case 6: return TEXT("Denied"); break;
-	case 7: return TEXT("RW_Loaded"); break;
+	case 7: return TEXT("RZE_PowerupUnlocked"); break;
 	}
 	return NAME_None;
 }
 
 bool UUTCTFRewardMessage::ShouldPlayAnnouncement(const FClientReceiveData& ClientData) const
 {
-	return (ClientData.MessageIndex == 6)  || (ClientData.MessageIndex == 7) || IsLocalForAnnouncement(ClientData, true, true) || (ClientData.MessageIndex > 100);
+	return (ClientData.MessageIndex == 0) || (ClientData.MessageIndex == 6)  || (ClientData.MessageIndex == 7) || IsLocalForAnnouncement(ClientData, true, true) || (ClientData.MessageIndex > 100);
 }
-
 
 void UUTCTFRewardMessage::GetEmphasisText(FText& PrefixText, FText& EmphasisText, FText& PostfixText, FLinearColor& EmphasisColor, int32 Switch, class APlayerState* RelatedPlayerState_1, class APlayerState* RelatedPlayerState_2, class UObject* OptionalObject) const
 {
@@ -134,7 +154,7 @@ FText UUTCTFRewardMessage::GetText(int32 Switch, bool bTargetsPlayerState1, APla
 {
 	switch (Switch)
 	{
-	case 0: return DeniedMessage; break;
+	case 0: return RejectedMessage; break;
 	case 2: return AssistMessage; break;
 	case 3: return BuildEmphasisText(Switch, RelatedPlayerState_1, RelatedPlayerState_2, OptionalObject); break;
 	case 4: return BuildEmphasisText(Switch, RelatedPlayerState_1, RelatedPlayerState_2, OptionalObject); break;

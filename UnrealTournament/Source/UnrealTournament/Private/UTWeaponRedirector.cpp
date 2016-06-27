@@ -78,33 +78,6 @@ float AUTWeaponRedirector::TakeDamage(float DamageAmount, const FDamageEvent& Da
 	return 0.f;
 }
 
-void AUTWeaponRedirector::OnBeginOverlap(AActor* OtherActor)
-{
-	if (bWeaponPortal && (Cast<AUTProjectile>(OtherActor) != NULL) && (Cast<AUTProj_TransDisk>(OtherActor) == NULL))
-	{
-		FTransform OtherTransform = OtherActor->GetTransform();
-		OtherTransform.RemoveScaling();
-		FTransform StartTransform = OtherTransform;
-		FTransform MyTransform = GetTransform();
-		MyTransform.RemoveScaling();
-		// convert to destination transform
-		OtherTransform = OtherTransform.GetRelativeTransform(MyTransform) * PortalDest;
-		if (OtherActor->TeleportTo(OtherTransform.GetTranslation(), OtherTransform.GetRotation().Rotator()))
-		{
-			if (GetWorld()->GetNetMode() != NM_DedicatedServer && WarpEffect != NULL)
-			{
-				AUTWorldSettings* WS = Cast<AUTWorldSettings>(GetWorld()->GetWorldSettings());
-				if (WS == NULL || WS->EffectIsRelevant(OtherActor, StartTransform.GetTranslation(), true, false, 10000.0f, 500.0f, false))
-				{
-					UGameplayStatics::SpawnEmitterAtLocation(this, WarpEffect, StartTransform.GetLocation(), StartTransform.GetRotation().Rotator(), true);
-				}
-			}
-		}
-		// replicate movement for the projectile now, in case there are teleport discrepancies (timing differences are likely)
-		OtherActor->bReplicateMovement = true;
-	}
-}
-
 void AUTWeaponRedirector::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);

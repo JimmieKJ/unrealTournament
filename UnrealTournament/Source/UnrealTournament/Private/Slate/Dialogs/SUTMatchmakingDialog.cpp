@@ -12,6 +12,10 @@
 
 void SUTMatchmakingDialog::Construct(const FArguments& InArgs)
 {
+	LastMatchmakingPlayersNeeded = 0;
+	RetryTime = 120.0f;
+	RetryCountdown = RetryTime;
+
 	SUTDialogBase::Construct(SUTDialogBase::FArguments()
 		.PlayerOwner(InArgs._PlayerOwner)
 		.DialogTitle(InArgs._DialogTitle)
@@ -51,6 +55,17 @@ void SUTMatchmakingDialog::Construct(const FArguments& InArgs)
 				.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.White")
 				.ColorAndOpacity(FLinearColor::Gray)
 			]
+			+ SVerticalBox::Slot()
+			.Padding(0.0f, 5.0f, 0.0f, 5.0f)
+			.AutoHeight()
+			.VAlign(VAlign_Center)
+			.HAlign(HAlign_Center)
+			[
+				SNew(STextBlock)
+				.Text(this, &SUTMatchmakingDialog::GetMatchmakingText2)
+				.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.White")
+				.ColorAndOpacity(FLinearColor::Gray)
+			]
 		];
 	}
 }
@@ -66,8 +81,15 @@ FText SUTMatchmakingDialog::GetRegionText() const
 			UUTPartyGameState* PartyState = Party->GetUTPersistentParty();
 			if (PartyState)
 			{
-				FString MatchMakingRegion = PartyState->GetMatchmakingRegion();
-				return FText::Format(NSLOCTEXT("Generic", "Region", "Region: {0}"), FText::FromString(MatchMakingRegion));
+				if (PartyState->GetPartyProgression() == EUTPartyState::QuickMatching)
+				{
+					return NSLOCTEXT("Generic", "QuickMatching", "Quick Matching");
+				}
+				else
+				{
+					FString MatchMakingRegion = PartyState->GetMatchmakingRegion();
+					return FText::Format(NSLOCTEXT("Generic", "Region", "Region: {0}"), FText::FromString(MatchMakingRegion));
+				}
 			}
 		}
 	}
@@ -97,15 +119,54 @@ FText SUTMatchmakingDialog::GetMatchmakingText() const
 		UUTMatchmaking* Matchmaking = GameInstance->GetMatchmaking();
 		if (Matchmaking)
 		{
-			int32 MatchmakingEloRange = Matchmaking->GetMatchmakingEloRange();
-			if (MatchmakingEloRange > 0)
+			int32 MatchmakingTeamElo = Matchmaking->GetMatchmakingTeamElo();
+			if (MatchmakingTeamElo > 0)
 			{
-				return FText::Format(NSLOCTEXT("Generic", "SearchingForServerWithEloRange", "Searching For Server Within ELO Range of {0}..."), FText::AsNumber(MatchmakingEloRange));
+				return FText::Format(NSLOCTEXT("Generic", "SearchingTeamElo", "Your Team ELO is {0}."), FText::AsNumber(MatchmakingTeamElo));
 			}
 		}
 	}
 
 	return NSLOCTEXT("Generic", "SearchingForServer", "Searching For Server...");
+}
+
+FText SUTMatchmakingDialog::GetMatchmakingText2() const
+{
+	UUTGameInstance* GameInstance = Cast<UUTGameInstance>(GetPlayerOwner()->GetGameInstance());
+	if (GameInstance)
+	{
+		UUTParty* Party = GameInstance->GetParties();
+		if (Party)
+		{
+			UUTPartyGameState* PartyState = Party->GetUTPersistentParty();
+			if (PartyState && PartyState->GetPartyProgression() == EUTPartyState::PostMatchmaking)
+			{
+				if (PlayerOwner->IsPartyLeader())
+				{
+					FNumberFormattingOptions NumberFormattingOptions;
+					NumberFormattingOptions.MaximumFractionalDigits = 0;
+					return FText::Format(NSLOCTEXT("Generic", "ResearchingTime", "Will Restart Search In {0} Seconds"), FText::AsNumber(RetryCountdown, &NumberFormattingOptions));
+				}
+				else
+				{
+					return FText::GetEmpty();
+				}
+			}
+		}
+
+		UUTMatchmaking* Matchmaking = GameInstance->GetMatchmaking();
+		if (Matchmaking)
+		{
+			int32 MatchmakingTeamElo = Matchmaking->GetMatchmakingTeamElo();
+			int32 MatchmakingEloRange = Matchmaking->GetMatchmakingEloRange();
+			if (MatchmakingEloRange > 0 && MatchmakingTeamElo > 0)
+			{
+				return FText::Format(NSLOCTEXT("Generic", "SearchingForServerWithEloRange", "Searching For Server Within ELO Between {0} and {1}..."), FText::AsNumber(MatchmakingTeamElo - MatchmakingEloRange), FText::AsNumber(MatchmakingTeamElo + MatchmakingEloRange));
+			}
+		}
+	}
+
+	return FText::GetEmpty();
 }
 
 FReply SUTMatchmakingDialog::OnButtonClick(uint16 ButtonID)
@@ -125,6 +186,48 @@ void SUTMatchmakingDialog::Tick(const FGeometry & AllottedGeometry, const double
 	{
 		GetPlayerOwner()->CloseDialog(SharedThis(this));
 	}
+
+	if (PlayerOwner.IsValid() && PlayerOwner->IsMenuGame() && PlayerOwner->IsPartyLeader())
+	{
+		UUTGameInstance* GameInstance = Cast<UUTGameInstance>(GetPlayerOwner()->GetGameInstance());
+		if (GameInstance)
+		{
+			UUTParty* Party = GameInstance->GetParties();
+			if (Party)
+			{
+				UUTPartyGameState* PartyState = Party->GetUTPersistentParty();
+				if (PartyState && PartyState->GetPartyProgression() == EUTPartyState::PostMatchmaking)
+				{
+					const int32 MatchmakingPlayersNeeded = PartyState->GetMatchmakingPlayersNeeded();
+					if (MatchmakingPlayersNeeded > 0)
+					{
+						if (MatchmakingPlayersNeeded == LastMatchmakingPlayersNeeded)
+						{
+							RetryCountdown -= InDeltaTime;
+							if (RetryCountdown < 0)
+							{
+								UUTMatchmaking* Matchmaking = GameInstance->GetMatchmaking();
+								if (Matchmaking)
+								{
+									// Disconnect from current server
+									// Start matchmaking with a higher elo gate for starting own server and skip joining current server
+									Matchmaking->RetryFindGatheringSession();
+									LastMatchmakingPlayersNeeded = 0;
+									RetryCountdown = RetryTime;
+								}
+							}
+						}
+						else
+						{
+							LastMatchmakingPlayersNeeded = MatchmakingPlayersNeeded;
+							RetryCountdown = RetryTime;
+						}
+					}
+				}
+			}
+		}
+	}
 }
+
 
 #endif

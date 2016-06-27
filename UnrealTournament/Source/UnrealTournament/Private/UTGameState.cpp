@@ -17,6 +17,9 @@
 #include "UTGameEngine.h"
 #include "UTBaseGameMode.h"
 #include "UTGameInstance.h"
+#include "UTWorldSettings.h"
+#include "Engine/DemoNetDriver.h"
+#include "UTKillcamPlayback.h"
 
 AUTGameState::AUTGameState(const class FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -33,6 +36,10 @@ AUTGameState::AUTGameState(const class FObjectInitializer& ObjectInitializer)
 	TauntSelectionIndex = 0;
 	bPersistentKillIconMessages = false;
 	bOverrideToggle = false;
+	bTeamProjHits = false;
+
+	// We want to be ticked.
+	PrimaryActorTick.bCanEverTick = true;
 
 	ServerName = TEXT("My First Server");
 	ServerMOTD = TEXT("Welcome!");
@@ -261,6 +268,7 @@ AUTGameState::AUTGameState(const class FObjectInitializer& ObjectInitializer)
 	BoostRechargeRateAlive = 1.0f;
 	BoostRechargeRateDead = 2.0f;
 	BoostRechargeTime = 0.0f; // off by default
+	MusicVolume = 1.f;
 }
 
 void AUTGameState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty> & OutLifetimeProps) const
@@ -314,6 +322,7 @@ void AUTGameState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty> & OutLif
 	DOREPLIFETIME_CONDITION(AUTGameState, BoostRechargeRateDead, COND_InitialOnly);
 
 	DOREPLIFETIME(AUTGameState, bRestrictPartyJoin);
+	DOREPLIFETIME(AUTGameState, bTeamProjHits);
 }
 
 void AUTGameState::PreReplication(IRepChangedPropertyTracker& ChangedPropertyTracker)
@@ -366,6 +375,17 @@ void AUTGameState::OnRep_OverlayEffects()
 	}
 }
 
+void AUTGameState::Tick(float DeltaTime)
+{
+	AUTWorldSettings* Settings = Cast<AUTWorldSettings>(GetWorldSettings());
+	if (Settings && Settings->MusicComp)
+	{
+		float DesiredVolume = IsMatchInProgress() && !IsMatchIntermission() ? 0.f : 1.f;
+		MusicVolume = MusicVolume * (1.f - 0.5f*DeltaTime) + 0.5f*DeltaTime*DesiredVolume;
+		Settings->MusicComp->SetVolumeMultiplier(MusicVolume);
+	}
+}
+
 void AUTGameState::BeginPlay()
 {
 	Super::BeginPlay();
@@ -392,18 +412,6 @@ void AUTGameState::BeginPlay()
 	}
 	else
 	{
-		TArray<UObject*> AllCharacters;
-		GetObjectsOfClass(AUTCharacter::StaticClass(), AllCharacters, true, RF_NoFlags);
-		for (int32 i = 0; i < AllCharacters.Num(); i++)
-		{
-			if (AllCharacters[i]->HasAnyFlags(RF_ClassDefaultObject))
-			{
-				checkSlow(AllCharacters[i]->IsA(AUTCharacter::StaticClass()));
-				AddOverlayMaterial(((AUTCharacter*)AllCharacters[i])->TacComOverlayMaterial);
-				AddOverlayMaterial(((AUTCharacter*)AllCharacters[i])->SelectionOverlayMaterial);
-			}
-		}
-
 		TArray<UObject*> AllInventory;
 		GetObjectsOfClass(AUTInventory::StaticClass(), AllInventory, true, RF_NoFlags);
 		for (int32 i = 0; i < AllInventory.Num(); i++)
@@ -422,6 +430,16 @@ void AUTGameState::BeginPlay()
 			checkSlow(AllEffectVolumes[i]->IsA(AUTPainVolume::StaticClass()));
 			((AUTPainVolume*)AllEffectVolumes[i])->AddOverlayMaterials(this);
 		}
+
+		//Register any overlays on the ActivatedPlaceholderClass
+		AUTGameMode* GameMode = GetWorld()->GetAuthGameMode<AUTGameMode>();
+		if (GameMode)
+		{
+			if (GameMode->GetActivatedPowerupPlaceholderClass())
+			{
+				GameMode->GetActivatedPowerupPlaceholderClass().GetDefaultObject()->AddOverlayMaterials(this);
+			}
+		}
 	}
 }
 
@@ -433,6 +451,12 @@ float AUTGameState::GetRespawnWaitTimeFor(AUTPlayerState* PS)
 void AUTGameState::SetRespawnWaitTime(float NewWaitTime)
 {
 	RespawnWaitTime = NewWaitTime;
+}
+
+//By default return nullptr, this should be overriden in other game modes.
+TSubclassOf<class AUTInventory> AUTGameState::GetSelectableBoostByIndex(AUTPlayerState* PlayerState, int Index) const
+{
+	return nullptr;
 }
 
 float AUTGameState::GetClockTime()
@@ -798,6 +822,46 @@ void AUTGameState::ReceivedGameModeClass()
 			if (UTPC != NULL && UTPC->Announcer != NULL)
 			{
 				UTGameClass.GetDefaultObject()->PrecacheAnnouncements(UTPC->Announcer);
+			}
+		}
+	}
+
+	UWorld* const World = GetWorld();
+	UGameInstance* const GameInstance = GetGameInstance();
+
+	// Don't record for killcam if this world is already playing back a replay.
+	const UDemoNetDriver* const DemoDriver = World ? World->DemoNetDriver : nullptr;
+	const bool bIsPlayingReplay = DemoDriver ? DemoDriver->IsPlaying() : false;
+	if (!bIsPlayingReplay && GameInstance != nullptr && World->GetNetMode() == NM_Client && CVarUTEnableKillcam->GetInt() == 1)
+	{
+		// Since the killcam world will also have ReceivedGameModeClass() called in it, detect that and
+		// don't try to start recording again. Killcam world contexts will have a valid PIEInstance for now.
+		// Revisit when killcam is supported in PIE.
+		FWorldContext* const Context = GEngine->GetWorldContextFromWorld(World);
+		if (Context == nullptr || Context->PIEInstance != INDEX_NONE || Context->WorldType == EWorldType::PIE)
+		{
+			return;
+		}
+
+		const TCHAR* KillcamReplayName = TEXT("_DeathCam");
+
+		// Start recording the replay for killcam, always using the in memory streamer.
+		TArray<FString> AdditionalOptions;
+		AdditionalOptions.Add(TEXT("ReplayStreamerOverride=InMemoryNetworkReplayStreaming"));
+		GameInstance->StartRecordingReplay(KillcamReplayName, KillcamReplayName, AdditionalOptions);
+
+		// Start playback for each local player. Since we're using the in-memory streamer, the replay will
+		// be available immediately.
+		for (auto It = GameInstance->GetLocalPlayerIterator(); It; ++It)
+		{
+			UUTLocalPlayer* LocalPlayer = Cast<UUTLocalPlayer>(*It);
+			if (LocalPlayer != nullptr && LocalPlayer->GetKillcamPlaybackManager() != nullptr)
+			{
+				if (LocalPlayer->GetKillcamPlaybackManager()->GetKillcamWorld() != World)
+				{
+					LocalPlayer->GetKillcamPlaybackManager()->CreateKillcamWorld(World->URL, *Context);
+					LocalPlayer->GetKillcamPlaybackManager()->PlayKillcamReplay(KillcamReplayName);
+				}
 			}
 		}
 	}
@@ -1221,6 +1285,7 @@ AUTReplicatedMapInfo* AUTGameState::CreateMapInfo(const FAssetData& MapAsset)
 			AUTBaseGameMode* BaseGameMode = Cast<AUTBaseGameMode>(GetWorld()->GetAuthGameMode());
 			if (BaseGameMode)
 			{
+				BaseGameMode->CheckMapStatus(MapInfo->MapPackageName, MapInfo->bIsEpicMap, MapInfo->bIsMeshedMap);
 				BaseGameMode->FindRedirect(MapInfo->MapPackageName, MapInfo->Redirect);
 			}
 		}
@@ -1237,11 +1302,21 @@ void AUTGameState::CreateMapVoteInfo(const FString& MapPackage,const FString& Ma
 	AUTReplicatedMapInfo* MapVoteInfo = GetWorld()->SpawnActor<AUTReplicatedMapInfo>(Params);
 	if (MapVoteInfo)
 	{
-		UE_LOG(UT,Verbose,TEXT("Creating Map Vote for map %s [%s]"), *MapPackage, *MapTitle);
-
 		MapVoteInfo->MapPackageName= MapPackage;
 		MapVoteInfo->Title = MapTitle;
 		MapVoteInfo->MapScreenshotReference = MapScreenshotReference;
+
+		if (Role == ROLE_Authority)
+		{
+			// Look up it's redirect information if it has any.
+
+			AUTBaseGameMode* BaseGameMode = Cast<AUTBaseGameMode>(GetWorld()->GetAuthGameMode());
+			if (BaseGameMode)
+			{
+				BaseGameMode->CheckMapStatus(MapVoteInfo->MapPackageName, MapVoteInfo->bIsEpicMap, MapVoteInfo->bIsMeshedMap);
+			}
+		}
+
 		MapVoteList.Add(MapVoteInfo);
 	}
 }

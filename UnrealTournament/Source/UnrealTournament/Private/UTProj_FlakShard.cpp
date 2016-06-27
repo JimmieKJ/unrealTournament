@@ -27,8 +27,8 @@ AUTProj_FlakShard::AUTProj_FlakShard(const class FObjectInitializer& ObjectIniti
 	HotTrailColor = FLinearColor(2.0f, 1.65f, 0.65f, 1.0f);
 	ColdTrailColor = FLinearColor(0.165f, 0.135f, 0.097f, 0.0f);
 
-	ProjectileMovement->InitialSpeed = 4400.0f;
-	ProjectileMovement->MaxSpeed = 5000.0f;
+	ProjectileMovement->InitialSpeed = 5500.0f;
+	ProjectileMovement->MaxSpeed = 7000.0f;
 	ProjectileMovement->ProjectileGravityScale = 0.f;
 	ProjectileMovement->bShouldBounce = true;
 	ProjectileMovement->BounceVelocityStopSimulatingThreshold = 0.0f;
@@ -58,6 +58,12 @@ AUTProj_FlakShard::AUTProj_FlakShard(const class FObjectInitializer& ObjectIniti
 	bNetTemporary = true;
 	NumSatelliteShards = 1;
 	StatsHitCredit = 0.111f;
+	OverlapRadius = 20.f;
+	MaxOverlapRadius = 40.f;
+	FinalOverlapRadius = 8.f;
+	RadiusShrinkRate = 150.f;
+	RadiusGrowthRate = 1200.f;
+	bGrowOverlap = true;
 }
 
 void AUTProj_FlakShard::BeginPlay()
@@ -84,6 +90,16 @@ void AUTProj_FlakShard::BeginPlay()
 			}
 		}
 	}
+}
+
+void AUTProj_FlakShard::DamageImpactedActor_Implementation(AActor* OtherActor, UPrimitiveComponent* OtherComp, const FVector& HitLocation, const FVector& HitNormal)
+{
+	AUTCharacter* UTC = Cast<AUTCharacter>(OtherActor);
+	if (UTC && FleshImpactSound)
+	{
+		UUTGameplayStatics::UTPlaySound(GetWorld(), FleshImpactSound, this, SRT_IfSourceNotReplicated, false, FVector::ZeroVector, NULL, NULL, true, SAT_PainSound);
+	}
+	Super::DamageImpactedActor_Implementation(OtherActor, OtherComp, HitLocation, HitNormal);
 }
 
 void AUTProj_FlakShard::CatchupTick(float CatchupTickDelta)
@@ -126,6 +142,7 @@ void AUTProj_FlakShard::OnBounce(const struct FHitResult& ImpactResult, const FV
 		ProcessHit(ImpactResult.Actor.Get(), ImpactResult.Component.Get(), ImpactResult.ImpactPoint, ImpactResult.ImpactNormal);
 		return;
 	}
+	bGrowOverlap = false;
 	RemoveSatelliteShards();
 	if (GetWorld()->GetTimeSeconds() - CreationTime > 2.f * FullGravityDelay)
 	{
@@ -134,6 +151,11 @@ void AUTProj_FlakShard::OnBounce(const struct FHitResult& ImpactResult, const FV
 	}
 	float CurrentBounceDamping = (ProjectileMovement->ProjectileGravityScale == 0.f) ? FirstBounceDamping : BounceDamping;
 	Super::OnBounce(ImpactResult, ImpactVelocity);
+
+	if (PawnOverlapSphere != NULL)
+	{
+		PawnOverlapSphere->SetSphereRadius(FinalOverlapRadius, false);
+	}
 
 	// manually handle bounce velocity to match UT3 for now
 	ProjectileMovement->Velocity = CurrentBounceDamping * (ImpactVelocity - 2.0f * ImpactResult.Normal * (ImpactVelocity | ImpactResult.Normal));
@@ -188,6 +210,20 @@ FRadialDamageParams AUTProj_FlakShard::GetDamageParams_Implementation(AActor* Ot
 void AUTProj_FlakShard::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
+
+	if (PawnOverlapSphere != NULL)
+	{
+		float CurrentRadius = PawnOverlapSphere->GetUnscaledSphereRadius();
+		bGrowOverlap = bGrowOverlap && (CurrentRadius < MaxOverlapRadius);
+		if (bGrowOverlap)
+		{
+			PawnOverlapSphere->SetSphereRadius(FMath::Min(MaxOverlapRadius, CurrentRadius + RadiusGrowthRate*DeltaTime), false);
+		}
+		else if (CurrentRadius > FinalOverlapRadius)
+		{
+			PawnOverlapSphere->SetSphereRadius(FMath::Max(FinalOverlapRadius, CurrentRadius - RadiusShrinkRate*DeltaTime), false);
+		}
+	}
 
 	if (InitialLifeSpan - GetLifeSpan() > FullGravityDelay)
 	{

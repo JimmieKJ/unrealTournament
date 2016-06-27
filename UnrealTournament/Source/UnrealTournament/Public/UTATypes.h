@@ -72,6 +72,7 @@ namespace CarriedObjectState
 	const FName Home = FName(TEXT("Home"));
 	const FName Held = FName(TEXT("Held"));
 	const FName Dropped = FName(TEXT("Dropped"));
+	const FName Delivered = FName(TEXT("Delivered"));
 }
 
 namespace InventoryEventName
@@ -86,6 +87,7 @@ namespace InventoryEventName
 
 namespace StatusMessage
 {
+	const FName Taunt = FName(TEXT("Taunt"));
 	const FName NeedBackup = FName(TEXT("NeedBackup"));
 	const FName EnemyFCHere = FName(TEXT("EnemyFCHere"));
 	const FName AreaSecure = FName(TEXT("AreaSecure"));
@@ -98,6 +100,8 @@ namespace StatusMessage
 	const FName ImOnOffense = FName(TEXT("ImOnOffense"));
 	const FName SpreadOut = FName(TEXT("SpreadOut"));
 	const FName BaseUnderAttack = FName(TEXT("BaseUnderAttack"));
+	const FName Affirmative = FName(TEXT("Affirmative"));
+	const FName Negative = FName(TEXT("Negative"));
 }
 
 namespace HighlightNames
@@ -296,6 +300,16 @@ public:
 	virtual float GetHeight()
 	{
 		return ((Size.Y <= 0) ? UVs.VL : Size.Y) * RenderScale;
+	}
+
+	virtual void QuickSet(UTexture* inAtlas, FTextureUVs inTextureUVs, FVector2D inRenderOffset = FVector2D(0.5f, 0.5f), FVector2D inRotation = FVector2D(0.0f, 0.0f), float inRenderOpacity = 1.0f, FLinearColor inRenderColor = FLinearColor::White)
+	{
+		Atlas = inAtlas;
+		UVs = inTextureUVs;
+		RenderOffset = inRenderOffset;
+		RenderOpacity = inRenderOpacity;
+		RenderColor = inRenderColor;
+		RotPivot = FVector2D(0.5f, 0.5f);
 	}
 
 };
@@ -1251,6 +1265,18 @@ struct FMCPPulledData
 	}
 };
 
+USTRUCT()
+struct FActiveRankedPlaylists
+{
+	GENERATED_USTRUCT_BODY()
+
+	UPROPERTY()
+	TArray<int32> ActiveRankedPlaylists;
+
+	FActiveRankedPlaylists()
+	{}
+};
+
 USTRUCT(BlueprintType)
 struct FBloodDecalInfo
 {
@@ -1401,4 +1427,48 @@ enum class EWeaponHand : uint8
 	HAND_Left,
 	HAND_Center,
 	HAND_Hidden,
+};
+
+namespace CommandTags
+{
+	const FName Intent = FName(TEXT("Intent"));
+	const FName Defend = FName(TEXT("Defend"));
+	const FName Distress = FName(TEXT("Distress"));
+	const FName Attack = FName(TEXT("Attack"));
+	const FName Yes = FName(TEXT("Yes"));
+	const FName No = FName(TEXT("No"));
+}
+
+USTRUCT()
+struct FComMenuCommand
+{
+	GENERATED_USTRUCT_BODY()
+
+public:
+	FText MenuText;
+	FName CommandTag;
+
+	FComMenuCommand()
+		: MenuText(FText::GetEmpty())
+		, CommandTag(NAME_None)
+	{
+	}
+
+	FComMenuCommand(FText inMenuText, FName inCommandTag)
+		: MenuText(inMenuText)
+		, CommandTag(inCommandTag)
+	{
+	}
+};
+
+USTRUCT()
+struct FComMenuCommandList
+{
+	GENERATED_USTRUCT_BODY()
+
+public:
+	FComMenuCommand Intent;
+	FComMenuCommand Attack;
+	FComMenuCommand Defend;
+	FComMenuCommand Distress;
 };

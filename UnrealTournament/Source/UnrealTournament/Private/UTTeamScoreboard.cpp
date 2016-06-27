@@ -13,6 +13,7 @@ UUTTeamScoreboard::UUTTeamScoreboard(const class FObjectInitializer& ObjectIniti
 	BlueTeamText = NSLOCTEXT("UTTeamScoreboard", "BlueTeam", "BLUE");
 	CenterBuffer = 520.f;
 	MinimapCenter = FVector2D(0.5f, 0.5f);
+	bUseRoundKills = false;
 }
 
 void UUTTeamScoreboard::DrawTeamPanel(float RenderDelta, float& YOffset)
@@ -58,11 +59,12 @@ void UUTTeamScoreboard::DrawPlayerScores(float RenderDelta, float& YOffset)
 
 	int32 NumSpectators = 0;
 	int32 XOffset = ScaledEdgeSize;
-
+	float MaxYOffset = 0.f;
 	for (int8 Team = 0; Team < 2; Team++)
 	{
 		int32 Place = 1;
 		float DrawOffset = YOffset;
+		int32 NumPlayersToShow = (UTHUDOwner->GetScoreboardPage() == 0) ? UTGameState->PlayerArray.Num() : 5;
 		for (int32 i = 0; i < UTGameState->PlayerArray.Num(); i++)
 		{
 			AUTPlayerState* PlayerState = Cast<AUTPlayerState>(UTGameState->PlayerArray[i]);
@@ -75,6 +77,10 @@ void UUTTeamScoreboard::DrawPlayerScores(float RenderDelta, float& YOffset)
 						DrawPlayer(Place, PlayerState, RenderDelta, XOffset, DrawOffset);
 						Place++;
 						DrawOffset += CellHeight*RenderScale;
+						if (Place > NumPlayersToShow)
+						{
+							break;
+						}
 					}
 				} 
 				else if (Team == 0 && (Cast<AUTDemoRecSpectator>(UTPlayerOwner) == nullptr && !PlayerState->bIsDemoRecording))
@@ -83,10 +89,12 @@ void UUTTeamScoreboard::DrawPlayerScores(float RenderDelta, float& YOffset)
 				}
 			}
 		}
+		MaxYOffset = FMath::Max(DrawOffset, MaxYOffset);
 		XOffset = Canvas->ClipX - ScaledCellWidth - ScaledEdgeSize;
 	}
+	YOffset = MaxYOffset;
 
-	if (UTGameState->PlayerArray.Num() <= 28 && NumSpectators > 0)
+	if ((UTGameState->PlayerArray.Num() <= 28) && (NumSpectators > 0) && (UTHUDOwner->GetScoreboardPage() == 0))
 	{
 		FText SpectatorCount = (NumSpectators == 1)
 			? OneSpectatorWatchingText
@@ -130,7 +138,6 @@ void UUTTeamScoreboard::SelectNext(int32 Offset, bool bDoNoWrap)
 	{
 		DefaultSelection(GS);
 	}
-
 }
 
 void UUTTeamScoreboard::SelectionLeft()
@@ -190,10 +197,20 @@ AUTPlayerState* UUTTeamScoreboard::FindTopTeamKillerFor(uint8 TeamNum)
 		}
 	}
 
-	MemberPS.Sort([](const AUTPlayerState& A, const AUTPlayerState& B) -> bool
+	if (bUseRoundKills)
 	{
-		return A.Kills > B.Kills;
-	});
+		MemberPS.Sort([](const AUTPlayerState& A, const AUTPlayerState& B) -> bool
+		{
+			return A.RoundKills > B.RoundKills;
+		});
+	}
+	else
+	{
+		MemberPS.Sort([](const AUTPlayerState& A, const AUTPlayerState& B) -> bool
+		{
+			return A.Kills > B.Kills;
+		});
+	}
 	return ((MemberPS.Num() > 0) && (MemberPS[0]->Kills > 0)) ? MemberPS[0] : NULL;
 }
 
@@ -278,30 +295,6 @@ AUTPlayerState* UUTTeamScoreboard::FindTopTeamSPMFor(uint8 TeamNum)
 	return ((MemberPS.Num() > 0) && (MemberPS[0]->Score > 0.f)) ? MemberPS[0] : NULL;
 }
 
-void UUTTeamScoreboard::SetScoringPlaysTimer(bool bEnableTimer)
-{
-	if (UTHUDOwner)
-	{
-		if (bEnableTimer)
-		{
-			AUTGameMode* DefaultGame = (UTGameState && UTGameState->GameModeClass) ? UTGameState->GameModeClass->GetDefaultObject<AUTGameMode>() : nullptr;
-			if (DefaultGame)
-			{
-				UTHUDOwner->GetWorld()->GetTimerManager().SetTimer(OpenScoringPlaysHandle, this, &UUTTeamScoreboard::SwitchToScoringPlaysPage, DefaultGame->MainScoreboardDisplayTime, false);
-			}
-		}
-		else
-		{
-			UTHUDOwner->GetWorld()->GetTimerManager().ClearTimer(OpenScoringPlaysHandle);
-		}
-	}
-}
-
-void UUTTeamScoreboard::SwitchToScoringPlaysPage()
-{
-	OpenScoringPlaysPage();
-}
-
 void UUTTeamScoreboard::OpenScoringPlaysPage()
 {
 		SetPage(1);
@@ -318,15 +311,15 @@ void UUTTeamScoreboard::DrawTeamScoreBreakdown(float DeltaTime, float& YPos, flo
 	FStatsFontInfo StatsFontInfo;
 	StatsFontInfo.TextRenderInfo.bEnableShadow = true;
 	StatsFontInfo.TextRenderInfo.bClipText = true;
-	StatsFontInfo.TextFont = UTHUDOwner->SmallFont;
+	StatsFontInfo.TextFont = UTHUDOwner->TinyFont;
 	bHighlightStatsLineTopValue = true;
 
 	float XL, SmallYL ;
-	Canvas->TextSize(UTHUDOwner->SmallFont, "TEST", XL, SmallYL, RenderScale, RenderScale);
+	Canvas->TextSize(UTHUDOwner->TinyFont, "TEST", XL, SmallYL, RenderScale, RenderScale);
 	StatsFontInfo.TextHeight = SmallYL;
 	float MedYL;
-	Canvas->TextSize(UTHUDOwner->MediumFont, TeamScoringHeader.ToString(), XL, MedYL, RenderScale, RenderScale);
-	Canvas->DrawText(UTHUDOwner->MediumFont, TeamScoringHeader, XOffset + 0.5f*(ScoreWidth - XL), YPos, RenderScale, RenderScale, StatsFontInfo.TextRenderInfo);
+	Canvas->TextSize(UTHUDOwner->SmallFont, TeamScoringHeader.ToString(), XL, MedYL, RenderScale, RenderScale);
+	Canvas->DrawText(UTHUDOwner->SmallFont, TeamScoringHeader, XOffset + 0.5f*(ScoreWidth - XL), YPos, RenderScale, RenderScale, StatsFontInfo.TextRenderInfo);
 	YPos += 1.1f * MedYL;
 
 	if (UTGameState == NULL || UTGameState->Teams.Num() < 2 || UTGameState->Teams[0] == NULL || UTGameState->Teams[1] == NULL)
@@ -338,8 +331,8 @@ void UUTTeamScoreboard::DrawTeamScoreBreakdown(float DeltaTime, float& YPos, flo
 	float IconHeight = MedYL;
 	DrawTexture(UTHUDOwner->HUDAtlas, XOffset + ValueColumn*ScoreWidth - IconHeight, YPos, IconHeight, IconHeight, UTHUDOwner->TeamIconUV[0].X, UTHUDOwner->TeamIconUV[0].Y, 72, 72, 1.f, UTGameState->Teams[0]->TeamColor);
 	DrawTexture(UTHUDOwner->HUDAtlas, XOffset + ScoreColumn*ScoreWidth - IconHeight, YPos, IconHeight, IconHeight, UTHUDOwner->TeamIconUV[1].X, UTHUDOwner->TeamIconUV[1].Y, 72, 72, 1.f, UTGameState->Teams[1]->TeamColor);
-	Canvas->DrawText(UTHUDOwner->LargeFont, FText::AsNumber(UTGameState->Teams[0]->Score), XOffset + ValueColumn*ScoreWidth, YPos - 0.5f * MedYL, RenderScale, RenderScale, StatsFontInfo.TextRenderInfo);
-	Canvas->DrawText(UTHUDOwner->LargeFont, FText::AsNumber(UTGameState->Teams[1]->Score), XOffset + ScoreColumn*ScoreWidth, YPos - 0.5f * MedYL, RenderScale, RenderScale, StatsFontInfo.TextRenderInfo);
+	Canvas->DrawText(UTHUDOwner->MediumFont, FText::AsNumber(UTGameState->Teams[0]->Score), XOffset + ValueColumn*ScoreWidth, YPos - 0.5f * MedYL, RenderScale, RenderScale, StatsFontInfo.TextRenderInfo);
+	Canvas->DrawText(UTHUDOwner->MediumFont, FText::AsNumber(UTGameState->Teams[1]->Score), XOffset + ScoreColumn*ScoreWidth, YPos - 0.5f * MedYL, RenderScale, RenderScale, StatsFontInfo.TextRenderInfo);
 	YPos += 1.5f * MedYL;
 	DrawTeamStats(DeltaTime, YPos, XOffset, ScoreWidth, PageBottom, StatsFontInfo);
 }

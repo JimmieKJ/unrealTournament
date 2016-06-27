@@ -102,7 +102,6 @@ void AUTCTFRoundGameTommy::GiveDefaultInventory(APawn* PlayerPawn)
 				else
 				{
 					UTCharacter->AddInventory(GetWorld()->SpawnActor<AUTInventory>(ThighPadClass, FVector(0.0f), FRotator(0.f, 0.f, 0.f)), true);
-					UTCharacter->AddInventory(GetWorld()->SpawnActor<AUTInventory>(ActivatedPowerupPlaceholderClass, FVector(0.0f), FRotator(0.0f, 0.0f, 0.0f)), true);
 				}
 			}
 		}

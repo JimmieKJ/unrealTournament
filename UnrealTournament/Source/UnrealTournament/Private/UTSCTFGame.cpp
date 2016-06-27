@@ -62,7 +62,7 @@ void AUTSCTFGame::InitGame(const FString& MapName, const FString& Options, FStri
 	Super::InitGame(MapName, Options, ErrorMessage);
 
 	bForceRespawn = false;
-
+	
 	FlagSwapTime = FMath::Max(0, UGameplayStatics::GetIntOption(Options, TEXT("FlagSwapTime"), FlagSwapTime));
 	FlagSpawnDelay = float(FMath::Max<int32>(0.0f, UGameplayStatics::GetIntOption(Options, TEXT("FlagSpawnDelay"), FlagSpawnDelay)));
 
@@ -163,41 +163,6 @@ void AUTSCTFGame::FlagTeamChanged(uint8 NewTeamIndex)
 		}
 	}
 
-}
-
-void AUTSCTFGame::ScoreKill_Implementation(AController* Killer, AController* Other, APawn* KilledPawn, TSubclassOf<UDamageType> DamageType)
-{
-	Super::ScoreKill_Implementation(Killer, Other, KilledPawn, DamageType);
-
-	AUTPlayerState* PS = Other ? Cast<AUTPlayerState>(Other->PlayerState) : nullptr;
-
-	// If the victim's team isn't alive.  Let the other team to know to just finish the round
-	if ( PS && !IsTeamStillAlive(PS->GetTeamNum()) )
-	{
-		uint8 OtherTeamNum = 1 - PS->GetTeamNum();
-		if (IsTeamStillAlive(OtherTeamNum))
-		{
-			// Tell the other team to finish it...
-			for (FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator)
-			{
-				AUTPlayerController* PC = Cast<AUTPlayerController>(*Iterator);
-				if (PC->GetTeamNum() == OtherTeamNum)
-				{
-					PC->ClientReceiveLocalizedMessage(UUTShowdownRewardMessage::StaticClass(), 0);
-				}
-			}
-
-			// If the flag isn't associated with the current team, then swap it..
-			if (SCTFGameState->FlagDispenser->MyFlag && SCTFGameState->FlagDispenser->MyFlag->GetTeamNum() != OtherTeamNum)
-			{
-				AUTSCTFFlag* SCTFFlag = Cast<AUTSCTFFlag>(SCTFGameState->FlagDispenser->MyFlag);
-				if (SCTFFlag)
-				{
-					SCTFFlag->TeamReset();
-				}
-			}
-		}
-	}
 }
 
 // Looks to see if a given team has a chance to keep playing

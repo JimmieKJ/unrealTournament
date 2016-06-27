@@ -29,7 +29,7 @@ FAndroidMediaPlayerStreamer::~FAndroidMediaPlayerStreamer()
 {
 }
 
-bool FAndroidMediaPlayerStreamer::Init(const TArray<FString>& MoviePaths)
+bool FAndroidMediaPlayerStreamer::Init(const TArray<FString>& MoviePaths, TEnumAsByte<EMoviePlaybackType> inPlaybackType)
 {
 	{
 		FScopeLock Lock(&MovieQueueCriticalSection);
@@ -215,3 +215,14 @@ void FAndroidMediaPlayerStreamer::CloseMovie()
 		Texture.Reset();
 	}
 }
+
+FString FAndroidMediaPlayerStreamer::GetMovieName()
+{
+	return MovieQueue.Num() > 0 ? MovieQueue[0] : TEXT("");
+}
+
+bool FAndroidMediaPlayerStreamer::IsLastMovieInPlaylist()
+{
+	return MovieQueue.Num() <= 1;
+}
+

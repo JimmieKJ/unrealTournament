@@ -250,7 +250,7 @@ UUTChallengeManager::UUTChallengeManager(const FObjectInitializer& ObjectInitial
 
 	RewardInfo.Add(NAME_REWARD_HalloweenStars, FUTRewardInfo(FLinearColor(0.98f,0.76f,0.23f,1.f), NAME_REWARDSTYLE_SCARY, NAME_REWARDSTYLE_SCARY_COMPLETED));
 	RewardInfo.Add(NAME_REWARD_GoldStars, FUTRewardInfo(FLinearColor(0.9f,0.9f,0.f,1.f), NAME_REWARDSTYLE_STAR, NAME_REWARDSTYLE_STAR_COMPLETED));
-	RewardInfo.Add(NAME_REWARD_BlueStars, FUTRewardInfo(FLinearColor(0.f, 0.9f, 1.f, 1.f), NAME_REWARDSTYLE_STAR, NAME_REWARDSTYLE_STAR_COMPLETED));
+	RewardInfo.Add(NAME_REWARD_BlueStars, FUTRewardInfo(FLinearColor(0.f, 0.3f, 1.f, 1.f), NAME_REWARDSTYLE_STAR, NAME_REWARDSTYLE_STAR_COMPLETED));
 	RewardInfo.Add(NAME_REWARD_DailyStars, FUTRewardInfo(FLinearColor(0.9f, 0.9f, 0.f, 1.f), NAME_REWARDSTYLE_STAR, NAME_REWARDSTYLE_STAR_COMPLETED));
 
 	bNewDailyUnlocked = false;

@@ -6,6 +6,7 @@
 #include "UTWeaponStateEquipping.h"
 #include "UTWeaponStateUnequipping.h"
 #include "StatNames.h"
+#include "UTRedeemerLaunchAnnounce.h"
 
 AUTWeap_Redeemer::AUTWeap_Redeemer(const class FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -29,6 +30,7 @@ AUTWeap_Redeemer::AUTWeap_Redeemer(const class FObjectInitializer& ObjectInitial
 
 	AmmoWarningAmount = 0;
 	AmmoDangerAmount = 0;
+	FireSoundAmp = SAT_None;
 }
 
 AUTProjectile* AUTWeap_Redeemer::FireProjectile()
@@ -40,26 +42,27 @@ AUTProjectile* AUTWeap_Redeemer::FireProjectile()
 	}
 	else if (Role == ROLE_Authority)
 	{
+		UTOwner->bCanRally = true;
+		AUTPlayerState* PS = UTOwner->Controller ? Cast<AUTPlayerState>(UTOwner->Controller->PlayerState) : NULL;
+		LaunchTeam = PS && PS->Team ? PS->Team->TeamIndex : 255;
 		if (CurrentFireMode == 0)
 		{
-			return Super::FireProjectile();
+			LaunchedMissile = Super::FireProjectile();
+			if (LaunchedMissile != nullptr)
+			{
+				FTimerHandle TempHandle;
+				GetWorldTimerManager().SetTimer(TempHandle, this, &AUTWeap_Redeemer::AnnounceLaunch, 0.1f, false);
+			}
+			return Cast<AUTProjectile>(LaunchedMissile);
 		}
 		else
 		{
-			// try and fire a projectile
 			const FVector SpawnLocation = GetFireStartLoc();
 			const FRotator SpawnRotation = GetAdjustedAim(SpawnLocation);
-
-			//DrawDebugSphere(GetWorld(), SpawnLocation, 10, 10, FColor::Green, true);
-
 			UTOwner->IncrementFlashCount(CurrentFireMode);
-			if (Role == ROLE_Authority)
+			if (PS && (ShotsStatsName != NAME_None))
 			{
-				AUTPlayerState* PS = UTOwner->Controller ? Cast<AUTPlayerState>(UTOwner->Controller->PlayerState) : NULL;
-				if (PS && (ShotsStatsName != NAME_None))
-				{
-					PS->ModifyStatsValue(ShotsStatsName, 1);
-				}
+				PS->ModifyStatsValue(ShotsStatsName, 1);
 			}
 
 			// spawn the projectile at the muzzle
@@ -81,18 +84,53 @@ AUTProjectile* AUTWeap_Redeemer::FireProjectile()
 				}
 
 				RemoteRedeemer->CollisionComp->bGenerateOverlapEvents = true;
+				LaunchedMissile = RemoteRedeemer;
+				if (LaunchedMissile != nullptr)
+				{
+					FTimerHandle TempHandle;
+					GetWorldTimerManager().SetTimer(TempHandle, this, &AUTWeap_Redeemer::AnnounceLaunch, 0.1f, false);
+				}
 			}
 			else
 			{
 				UE_LOG(UT, Warning, TEXT("Could not spawn remote redeemer"));
 			}
-
-			return NULL;
 		}
 	}
-	else
+	return NULL;
+}
+
+void AUTWeap_Redeemer::GivenTo(AUTCharacter* NewOwner, bool bAutoActivate)
+{
+	Super::GivenTo(NewOwner, bAutoActivate);
+	if (NewOwner)
 	{
-		return NULL;
+		NewOwner->bCanRally = false;
+	}
+}
+
+void AUTWeap_Redeemer::DropFrom(const FVector& StartLocation, const FVector& TossVelocity)
+{
+	if (UTOwner)
+	{
+		UTOwner->bCanRally = true;
+	}
+	Super::DropFrom(StartLocation, TossVelocity);
+}
+
+void AUTWeap_Redeemer::AnnounceLaunch()
+{
+	if (LaunchedMissile && !LaunchedMissile->IsPendingKillPending() && !LaunchedMissile->bTearOff && (!Cast<AUTProjectile>(LaunchedMissile) || !Cast<AUTProjectile>(LaunchedMissile)->bExploded))
+	{
+		for (FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator)
+		{
+			AUTPlayerController* PC = Cast<AUTPlayerController>(*Iterator);
+			if (PC)
+			{
+				int32 MessageIndex = (PC->GetTeamNum() == LaunchTeam) ? 1 : 0;
+				PC->ClientReceiveLocalizedMessage(UUTRedeemerLaunchAnnounce::StaticClass(), MessageIndex);
+			}
+		}
 	}
 }
 
@@ -117,17 +155,42 @@ float AUTWeap_Redeemer::SuggestDefenseStyle_Implementation()
 void AUTWeap_Redeemer::BringUp(float OverflowTime)
 {
 	Super::BringUp(OverflowTime);
-	UUTGameplayStatics::UTPlaySound(GetWorld(), BringupSound, UTOwner, SRT_AllButOwner);
+	UUTGameplayStatics::UTPlaySound(GetWorld(), GlobalBringupSound, UTOwner, SRT_AllButOwner);
 }
 
 bool AUTWeap_Redeemer::PutDown()
 {
 	if (Super::PutDown())
 	{
-		UUTGameplayStatics::UTPlaySound(GetWorld(), PutDownSound, UTOwner, SRT_AllButOwner);
+		UUTGameplayStatics::UTPlaySound(GetWorld(), GlobalPutDownSound, UTOwner, SRT_AllButOwner);
 		return true;
 	}
 	return false;
+}
+
+void AUTWeap_Redeemer::DetachFromOwner_Implementation()
+{
+	Super::DetachFromOwner_Implementation();
+
+	//If we have used up all our redeemer ammo and are putting it down, go ahead and destroy the redeemer 
+	// as you should not be able to give it more ammo
+	if (Ammo <= 0)
+	{
+		// wait till put down complete
+		FTimerHandle TempHandle;
+		GetWorldTimerManager().SetTimer(TempHandle, this, &AUTWeap_Redeemer::RemoveRedeemer, 0.02f, false);
+	}
+}
+
+void AUTWeap_Redeemer::RemoveRedeemer()
+{
+	//If we have used up all our redeemer ammo and are putting it down, go ahead and destroy the redeemer 
+	// as you should not be able to give it more ammo
+	if (UTOwner)
+	{
+		UTOwner->RemoveInventory(this);
+	}
+	Destroy();
 }
 
 float AUTWeap_Redeemer::GetAISelectRating_Implementation()
@@ -191,3 +254,4 @@ bool AUTWeap_Redeemer::CanAttack_Implementation(AActor* Target, const FVector& T
 	BestFireMode = 0;
 	return bResult;
 }
+

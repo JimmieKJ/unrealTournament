@@ -49,3 +49,15 @@ bool UUTPlaylistManager::GetURLForPlaylist(int32 PlaylistId, FString& URL)
 
 	return false;
 }
+
+void UUTPlaylistManager::UpdatePlaylistFromMCP(int32 PlaylistId, FString InExtraCommandline, TArray<FString>& InMapNames)
+{
+	for (FPlaylistItem& PlaylistEntry : Playlist)
+	{
+		if (PlaylistEntry.PlaylistId == PlaylistId)
+		{
+			PlaylistEntry.ExtraCommandline = InExtraCommandline;
+			PlaylistEntry.MapNames = InMapNames;
+		}
+	}
+}

@@ -129,6 +129,14 @@ public:
 	UPROPERTY(Category = "Character Movement", EditAnywhere, BlueprintReadWrite, meta = (ClampMin = "0", UIMin = "0"))
 	float MaxSwimmingAcceleration;
 
+	/** Fast initial acceleration when walking. */
+	UPROPERTY(Category = "Character Movement", EditAnywhere, BlueprintReadWrite, meta = (ClampMin = "0", UIMin = "0"))
+		float FastInitialAcceleration;
+
+	/** Max speed to get fast initial acceleration when walking. */
+	UPROPERTY(Category = "Character Movement", EditAnywhere, BlueprintReadWrite, meta = (ClampMin = "0", UIMin = "0"))
+		float MaxFastAccelSpeed;
+
 	/** Additional Acceleration when swimming, divided by Velocity magnitude.  Swimming acceleration is MaxSwimmingAcceleration + MaxRelativeSwimmingAccelNumerator/(Speed + MaxRelativeSwimmingAccelDenominator). */
 	UPROPERTY(Category = "Character Movement", EditAnywhere, BlueprintReadWrite, meta = (ClampMin = "0", UIMin = "0"))
 	float MaxRelativeSwimmingAccelNumerator;
@@ -345,7 +353,14 @@ protected:
 	/** true if wall slide stat should be updated.  Needed so we don't double count wallslides. */
 	bool bCountWallSlides;
 
+	/** set during ClientAdjustPosition() */
+	bool bProcessingClientAdjustment;
 public:
+	inline bool IsProcessingClientAdjustment() const
+	{
+		return bProcessingClientAdjustment;
+	}
+
 	/** accessor to commonly used elements of CurrentFloor to avoid cumbersome/expensive "break" nodes */
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Character Movement: Walking")
 	void GetSimpleFloorInfo(FVector& ImpactPoint, FVector& Normal) const;
@@ -381,6 +396,14 @@ public:
 	/** Maximum interval floor slide tap can be performed before landing dodge to get bonus. */
 	UPROPERTY(Category = "FloorSlide", EditAnywhere, BlueprintReadWrite)
 	float FloorSlideBonusTapInterval;
+
+	/** JumpZ velocity for pre-slide jump when press slide button without first being in the air. */
+	UPROPERTY(Category = "FloorSlide", EditAnywhere, BlueprintReadWrite)
+		float FloorSlideJumpZ;
+
+	/** true when press slide button without first being in the air. */
+	UPROPERTY(Category = "FloorSlide", EditAnywhere, BlueprintReadWrite)
+		bool bSlideFromGround;
 
 	virtual void ClearFloorSlideTap();
 

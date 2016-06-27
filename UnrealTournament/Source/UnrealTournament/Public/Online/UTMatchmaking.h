@@ -9,7 +9,7 @@
 #include "QosEvaluator.h"
 #include "UTMatchmaking.generated.h"
 
-class AUTPlayerController;
+class AUTBasePlayerController;
 enum class EUTPartyState : uint8;
 enum class EQosCompletionResult : uint8;
 class FQosEvaluator;
@@ -115,6 +115,8 @@ public:
 	 */
 	bool FindSessionAsClient(const FMatchmakingParams& InParams);
 
+	void RetryFindGatheringSession();
+
 	/** Generic delegate for lobby flow */
 	DECLARE_MULTICAST_DELEGATE(FOnMatchmakingStarted);
 	DECLARE_MULTICAST_DELEGATE_OneParam(FOnMatchmakingComplete, EMatchmakingCompleteResult /* Result */);
@@ -140,6 +142,7 @@ public:
 	bool IsMatchmaking();
 
 	int32 GetMatchmakingEloRange();
+	int32 GetMatchmakingTeamElo();
 
 private:
 
@@ -378,7 +381,7 @@ private:
 	UUTGameInstance* GetUTGameInstance() const;
 
 	/** @return the owning controller */
-	AUTPlayerController* GetOwningController() const;
+	AUTBasePlayerController* GetOwningController() const;
 	
 	/** Timer handle for waiting before attempting to reconnect to the reservation beacon */
 	FTimerHandle ConnectToReservationBeaconTimerHandle;

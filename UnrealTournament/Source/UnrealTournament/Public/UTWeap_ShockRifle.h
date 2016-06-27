@@ -92,4 +92,9 @@ class UNREALTOURNAMENT_API AUTWeap_ShockRifle : public AUTWeapon
 
 	virtual void FireInstantHit(bool bDealDamage, FHitResult* OutHit) override;
 	virtual void FiringExtraUpdated_Implementation(uint8 NewFlashExtra, uint8 InFireMode) override;
+
+	virtual bool CancelImpactEffect(const FHitResult& ImpactHit) const
+	{
+		return Super::CancelImpactEffect(ImpactHit) || Cast<AUTProjectile>(ImpactHit.GetActor()) != nullptr;
+	}
 };

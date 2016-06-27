@@ -10,8 +10,9 @@ AUTProj_FlakShardMain::AUTProj_FlakShardMain(const class FObjectInitializer& Obj
 	: Super(ObjectInitializer)
 {
 	CenteredMomentumBonus = 0.f;
-	CenteredDamageBonus = 15.0f;
-	MaxBonusTime = 0.15f;
+	CenteredDamageBonus = 0.0f;
+	MaxBonusTime = 0.0f;
+	MaxShreddedTime = 0.15f;
 	NumSatelliteShards = 3;
 }
 
@@ -19,7 +20,7 @@ void AUTProj_FlakShardMain::DamageImpactedActor_Implementation(AActor* OtherActo
 {
 	AUTCharacter* UTC = Cast<AUTCharacter>(OtherActor);
 	int32 OldHealth = UTC ? UTC->Health : 0;
-	bPendingSpecialReward = (UTC && (UTC != Instigator) && Role == ROLE_Authority && Instigator != NULL && (InitialLifeSpan - GetLifeSpan() < 0.5f*MaxBonusTime));
+	bPendingSpecialReward = (UTC && (UTC != Instigator) && Role == ROLE_Authority && Instigator != NULL && (InitialLifeSpan - GetLifeSpan() < 0.5f*MaxShreddedTime)); 
 	Super::DamageImpactedActor_Implementation(OtherActor, OtherComp, HitLocation, HitNormal);
 
 	// check for camera shake
@@ -52,10 +53,6 @@ void AUTProj_FlakShardMain::OnBounce(const struct FHitResult& ImpactResult, cons
 
 	// no damage/momentum bonus after bounce
 	MaxBonusTime = 0.f;
-	if (PawnOverlapSphere != NULL)
-	{
-		PawnOverlapSphere->SetSphereRadius(0.5f*OverlapRadius, false);
-	}
 }
 
 /**

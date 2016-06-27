@@ -15,6 +15,17 @@ enum ESoundReplicationType
 	SRT_MAX
 };
 
+UENUM()
+enum ESoundAmplificationType
+{
+	SAT_None, 
+	SAT_Footstep, 
+	SAT_WeaponFire, 
+	SAT_WeaponFoley,
+	SAT_PainSound,
+	SAT_MAX
+};
+
 UCLASS(CustomConstructor)
 class UNREALTOURNAMENT_API UUTGameplayStatics : public UBlueprintFunctionLibrary
 {
@@ -27,12 +38,12 @@ class UNREALTOURNAMENT_API UUTGameplayStatics : public UBlueprintFunctionLibrary
 	/** plays a sound with optional replication parameters
 	* additionally will check that clients will actually be able to hear the sound (don't replicate if out of sound's audible range)
 	* if called on client, always local only
-	* @param AmpedListener - amplify volume of the sound for this player; used for e.g. making hit sounds louder for player that caused the hit
+	* @param AmpedListener - amplify volume for this listener using the Target amplification settings of the SoundAmplificationType
 	* @param Instigator - Pawn that caused the sound to be played (if any) - if SourceActor is a Pawn it defaults to that
 	* @param bNotifyAI - whether AI can hear this sound (subject to sound radius and bot skill)
 	*/
 	UFUNCTION(BlueprintCallable, Category = Sound, meta = (HidePin = "TheWorld", DefaultToSelf = "SourceActor", AutoCreateRefTerm = "SoundLoc"))
-	static void UTPlaySound(UWorld* TheWorld, USoundBase* TheSound, AActor* SourceActor = NULL, ESoundReplicationType RepType = SRT_All, bool bStopWhenOwnerDestroyed = false, const FVector& SoundLoc = FVector::ZeroVector, class AUTPlayerController* AmpedListener = NULL, APawn* Instigator = NULL, bool bNotifyAI = true);
+	static void UTPlaySound(UWorld* TheWorld, USoundBase* TheSound, AActor* SourceActor = NULL, ESoundReplicationType RepType = SRT_All, bool bStopWhenOwnerDestroyed = false, const FVector& SoundLoc = FVector::ZeroVector, class AUTPlayerController* AmpedListener = NULL, APawn* Instigator = NULL, bool bNotifyAI = true, ESoundAmplificationType AmpType = SAT_None);
 
 	/** retrieves gravity; if no location is specified, level default gravity is returned */
 	UFUNCTION(BlueprintCallable, Category = World, meta = (HidePin = "WorldContextObject", DefaultToSelf = "WorldContextObject", AutoCreateRefTerm = "TestLoc"))
@@ -66,24 +77,32 @@ class UNREALTOURNAMENT_API UUTGameplayStatics : public UBlueprintFunctionLibrary
 #endif
 								);
 
-	/** select visible controlled enemy Pawn for which direction from StartLoc is closest to FireDir and within aiming cone/distance constraints
-	 * commonly used for autoaim, homing locks, etc
-	 * @param AskingC - Controller that is looking for a target; may not be NULL
-	 * @param StartLoc - start location of fire (instant hit trace start, projectile spawn loc, etc)
-	 * @param FireDir - fire direction
-	 * @param MinAim - minimum dot product of directions that can be returned (maximum 0)
-	 * @param MaxRange - maximum range to search
-	 * @param TargetClass - optional subclass of Pawn to look for; default is all pawns
-	 * @param BestAim - if specified, filled with actual dot product of returned target
-	 * @param BestDist - if specified, filled with actual distance to returned target
-	 */
-	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Game|Targeting")
+// DEPRECATED - use ChooseBestAimTarget()
+	UFUNCTION(meta=(DeprecatedFunction, DeprecationMessage = "Use ChooseBestAimTarget"),BlueprintCallable, BlueprintAuthorityOnly, Category = "Game|Targeting")
 	static APawn* PickBestAimTarget(AController* AskingC, FVector StartLoc, FVector FireDir, float MinAim, float MaxRange, TSubclassOf<APawn> TargetClass = NULL
 #if CPP // hack: UHT doesn't support this (or any 'optional out' type construct)
 	, float* BestAim = NULL, float* BestDist = NULL
 #endif
 	);
 
+	/** select visible controlled enemy Pawn for which direction from StartLoc is closest to FireDir and within aiming cone/distance constraints
+	* commonly used for autoaim, homing locks, etc
+	* @param AskingC - Controller that is looking for a target; may not be NULL
+	* @param StartLoc - start location of fire (instant hit trace start, projectile spawn loc, etc)
+	* @param FireDir - fire direction
+	* @param MinAim - minimum dot product of directions that can be returned (maximum 0)
+	* @param MaxRange - maximum range to search
+	* @param TargetClass - optional subclass of Pawn to look for; default is all pawns
+	* @param BestAim - if specified, filled with actual dot product of returned target
+	* @param BestDist - if specified, filled with actual distance to returned target
+	* @param BestOffset - if specified, filled with actual distance offset from aim vector to returned target
+	*/
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Game|Targeting")
+		static APawn* ChooseBestAimTarget(AController* AskingC, FVector StartLoc, FVector FireDir, float MinAim, float MaxRange, float MaxOffsetDist, TSubclassOf<APawn> TargetClass = NULL
+#if CPP // hack: UHT doesn't support this (or any 'optional out' type construct)
+			, float* BestAim = NULL, float* BestDist = NULL, float* BestOffset = NULL
+#endif
+		);
 	/** alternative, more robust version of SuggestProjectileVelocity()
 	 * in particular, this handles that targets generally have collision size and hitting the exact target is not required
 	 * so the simplistic quadratic equation solution will often result in poor or no valid toss vectors (depending on collision geometry)
@@ -183,4 +202,23 @@ class UNREALTOURNAMENT_API UUTGameplayStatics : public UBlueprintFunctionLibrary
 	 */
 	UFUNCTION(BlueprintPure, Category = "Game Options")
 	static float GetFloatOption(const FString& Options, const FString& Key, float DefaultValue);
+
+	/** 
+	 * Tries to pick the best possible context given a Targetclass for a given pawn.  Avoids using traces by just using the LastRenderTime
+	 * but uses the TActorIterator so it could potentially be slow.
+	 *
+	 * @param PawnTarget - The pawn who's context we are looking for.  Can not be NULL
+	 * @param MinAim - minimum dot product of directions that can be returned (maximum 0)
+	 * @param MaxRange - maximum range to search
+	 * @param TargetClass - optional subclass of Pawn to look for; default is all pawns
+	 * @param BestAim - if specified, filled with actual dot product of returned target
+	 * @param BestDist - if specified, filled with actual distance to returned target
+	 */
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Game|Targeting")
+	static AActor* GetCurrentAimContext(AUTCharacter* PawnTarget, float MinAim, float MaxRange, TSubclassOf<AActor> TargetClass = NULL
+#if CPP // hack: UHT doesn't support this (or any 'optional out' type construct)
+	, float* BestAim = NULL, float* BestDist = NULL
+#endif
+	);
+
 };

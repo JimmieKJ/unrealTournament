@@ -29,26 +29,21 @@ class UNREALTOURNAMENT_API AUTProj_Redeemer : public AUTProjectile
 	UPROPERTY(VisibleDefaultsOnly, BlueprintReadOnly, Category = Projectile)
 	UCapsuleComponent* CapsuleComp;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Detonate)
-	TSubclassOf<class AUTImpactEffect> DetonateEffects;
+	UFUNCTION()
+	virtual void ExplodeTimed();
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Detonate)
-	FRadialDamageParams DetonateDamageParams;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Detonate)
-	TSubclassOf<UDamageType> DetonateDamageType;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Detonate)
-	float DetonateMomentum;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Detonate)
-		int32 ProjHealth;
+	int32 ProjHealth;
 
 	/** Replicate to client to play detonate effects client-side. */
 	UPROPERTY(Replicated)
 	bool bDetonated;
 
-	virtual void Detonate(class AController* InstigatedBy);
+	/** Play/stop effects for shot down Redeemer that explodes after falling out of the sky */
+	virtual void PlayShotDownEffects();
+
+	virtual void TornOff() override;
+	virtual void OnShotDown();
 
 	UFUNCTION()
 	void ExplodeStage1();
@@ -62,4 +57,11 @@ class UNREALTOURNAMENT_API AUTProj_Redeemer : public AUTProjectile
 	void ExplodeStage5();
 	UFUNCTION()
 	void ExplodeStage6();
+
+	virtual void Tick(float DeltaTime) override;
+
+protected:
+	/** for outline rendering */
+	UPROPERTY()
+	UMeshComponent* CustomDepthMesh;
 };

@@ -28,10 +28,16 @@ class UNREALTOURNAMENT_API AUTRemoteRedeemer : public APawn, public IUTTeamInter
 
 	/** Sound played when player targeting information first appears on HUD. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Lock)
-		USoundBase*  			LockAcquiredSound;
+	USoundBase*  			LockAcquiredSound;
 
 	UPROPERTY()
-		int32 LockCount;
+	int32 LockCount;
+
+protected:
+	/** for outline rendering */
+	UPROPERTY()
+	UMeshComponent* CustomDepthMesh;
+public:
 
 	UFUNCTION()
 	virtual void OnStop(const FHitResult& Hit);
@@ -39,6 +45,9 @@ class UNREALTOURNAMENT_API AUTRemoteRedeemer : public APawn, public IUTTeamInter
 	UFUNCTION()
 	virtual void OnOverlapBegin(AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult);
 	
+	UFUNCTION()
+	virtual void ExplodeTimed();
+
 	virtual void PostNetReceiveVelocity(const FVector& NewVelocity) override;
 	virtual void Destroyed() override;
 	virtual void Tick(float DeltaSeconds) override;
@@ -54,10 +63,6 @@ class UNREALTOURNAMENT_API AUTRemoteRedeemer : public APawn, public IUTTeamInter
 	/** Effects for full nuclear blast. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Effects)
 	TSubclassOf<class AUTImpactEffect> ExplosionEffects;
-
-	/** Effect when detonated by enemy fire. */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Effects)
-	TSubclassOf<class AUTImpactEffect> DetonateEffects;
 
 	UFUNCTION()
 	virtual bool TryToDrive(APawn* NewDriver);
@@ -178,10 +183,10 @@ class UNREALTOURNAMENT_API AUTRemoteRedeemer : public APawn, public IUTTeamInter
 	/** Create effects for full nuclear blast. */
 	virtual void PlayExplosionEffects();
 
-	/** Create effects for small explosion when destroyed by enemy fire. */
-	virtual void PlayDetonateEffects();
+	/** Play/stop effects for shot down Redeemer that explodes after falling out of the sky */
+	virtual void PlayShotDownEffects();
 
-	virtual void Detonate();
+	virtual void OnShotDown();
 
 	UFUNCTION()
 	void ExplodeStage1();

@@ -38,14 +38,14 @@ namespace UnrealTournamentGame.Automation
 			this.S3BucketName = InS3BucketName;
 			this.BuildString = InBuildString;
 			this.Debug = InDebug;
-			this.CpuBudget = 200;
-			this.RamBudget = 200;
+			this.CpuBudget = 33;
+			this.RamBudget = 100;
 
 			FEngineVersionSupport ParsedVersion = FEngineVersionSupport.FromString(InBuildString, bAllowNoVersion: true);
 			this.Changelist = ParsedVersion.Changelist;
 
 			// using stage only while testing this for the first time.
-			this.D2BaseUri = "https://fleet-manager-ci.ol.epicgames.net:8080/v1/";
+			this.D2BaseUri = "https://fleet-manager-stage.ol.epicgames.net:8080/v1/";
 
 			//if (AppName == UnrealTournamentBuild.UnrealTournamentAppName.UnrealTournamentDevPlaytest || AppName == UnrealTournamentBuild.UnrealTournamentAppName.UnrealTournamentDevStage)
 			//{
@@ -61,8 +61,9 @@ namespace UnrealTournamentGame.Automation
 
 		public void DistributeImagesAsync()
 		{
-
+			string AwsArgs = Deployment2AwsArgs(Region: "NONE");
 			string GceArgs = Deployment2GceArgs(Zone: "us-central1-c", Region: "NONE");
+			string GceLiveArgs = Deployment2GceArgs(Zone: "us-central1-c", Region: "NONE", AppNameStringOverride: "UnrealTournamentDev");
 
 			CommandUtils.Log("Uploading build {0} to s3", BuildString);
 			if (Debug == false)
@@ -70,39 +71,145 @@ namespace UnrealTournamentGame.Automation
 				DeployLinuxServerS3(BuildString);
 			}
 
-			// TODO once UnrealTournament Live lable exists, we'll need to
-			// create GCE images in the Live and Dev projects
 			CommandUtils.Log("Creating VM image in {0} for build {1}", AppName.ToString(), BuildString);
+			if (AppName != UnrealTournamentBuild.UnrealTournamentAppName.UnrealTournamentDev)
+			{
+				Deployment2Command("image_create", GceLiveArgs, "true", 1);
+			}
 			Deployment2Command("image_create", GceArgs, "true", 1);
+			Deployment2Command("image_create", AwsArgs, "true", 1);
+			
 		}
 
 		public void DistributeImagesWait(int MaxRetries)
 		{
+			string AwsArgs = Deployment2AwsArgs(Region: "NONE");
 			string GceArgs = Deployment2GceArgs(Zone: "us-central-1c", Region: "NONE");
-			CommandUtils.Log("Waiting for VM image creation in {0} to complete", AppName.ToString());
+			string GceLiveArgs = Deployment2GceArgs(Zone: "us-central1-c", Region: "NONE", AppNameStringOverride: "UnrealTournamentDev");
 
-			// TODO once UnrealTournament Live lable exists, we'll need to
-			// create GCE images in the Live and Dev projects
+			CommandUtils.Log("Waiting for VM image creation in {0} to complete", AppName.ToString());
+			if (AppName != UnrealTournamentBuild.UnrealTournamentAppName.UnrealTournamentDev)
+			{
+				Deployment2Command("image_create", GceLiveArgs, "get_pending", MaxRetries);
+			}
 			Deployment2Command("image_create", GceArgs, "get_pending", MaxRetries);
+			Deployment2Command("image_create", AwsArgs, "get_pending", MaxRetries);
 		}
 
 		public void DeployNewFleets(int MaxRetries)
 		{
-			string GceArgsNa1 = Deployment2GceArgs(tag: "Gce1", MachineType: "n1-standard-8", Zone: "us-central1-c", Region: "NA");
+
+			string GceMachineType = "n1-standard-4";
+			if (AppName == UnrealTournamentBuild.UnrealTournamentAppName.UnrealTournamentDev)
+			{
+				GceMachineType = "n1-standard-32";
+			}
+
+			/* Hubs */
+			string GceNaHub1 = Deployment2GceArgs(tag: "hub1", MachineType: GceMachineType, Zone: "us-central1-c", Region: "NA", HubServerName: "USA (Central) Hub 1");
+			string GceNaHub2 = Deployment2GceArgs(tag: "hub2", MachineType: GceMachineType, Zone: "us-central1-b", Region: "NA", HubServerName: "USA (Central) Hub 2");
+			string GceNaHub3 = Deployment2GceArgs(tag: "hub3", MachineType: GceMachineType, Zone: "us-central1-c", Region: "NA", HubServerName: "USA (Central) Hub 3");
+			string GceEuHub1 = Deployment2GceArgs(tag: "hub1", MachineType: GceMachineType, Zone: "europe-west1-b", Region: "EU", HubServerName: "BEL (St. Ghislain) Hub 1");
+			string GceEuHub2 = Deployment2GceArgs(tag: "hub2", MachineType: GceMachineType, Zone: "europe-west1-c", Region: "EU", HubServerName: "BEL (St. Ghislain) Hub 2");
+			string GceEuHub3 = Deployment2GceArgs(tag: "hub3", MachineType: GceMachineType, Zone: "europe-west1-b", Region: "EU", HubServerName: "BEL (St. Ghislain) Hub 3");
+			string AwsNaHub1 = Deployment2AwsArgs(AwsRegion: "us-west-1", tag: "Aws1", Region: "NA", InstanceType: "c4.4xlarge", HubServerName: "USA(West) Hub 1");
+			string AwsNaHub2 = Deployment2AwsArgs(AwsRegion: "us-east-1", tag: "Aws2", Region: "NA", InstanceType: "c4.4xlarge", HubServerName: "USA(EpicHQ) Hub");
+			string AwsAuHub1 = Deployment2AwsArgs(AwsRegion: "ap-southeast-2", tag: "Aws1", Region: "AU", InstanceType: "c4.4xlarge", HubServerName: "AUS (Sydney) Hub 1");
+
+			/* Match Making */
+			string GceArgsNa1 = Deployment2GceArgs(tag: "Gce1", MachineType: GceMachineType, Zone: "us-central1-c", Region: "NA");
+			string GceArgsNa2 = Deployment2GceArgs(tag: "Gce2", MachineType: GceMachineType, Zone: "us-central1-b", Region: "NA");
+			string GceArgsEu1 = Deployment2GceArgs(tag: "Gce1", MachineType: GceMachineType, Zone: "europe-west1-c", Region: "EU");
+			string GceArgsEu2 = Deployment2GceArgs(tag: "Gce2", MachineType: GceMachineType, Zone: "europe-west1-b", Region: "EU");
+
 			CommandUtils.Log("Deploying new fleets for change list {0}", Changelist);
 
 			Deployment2Command("deployment_create", GceArgsNa1, "true", 1);
+			Deployment2Command("deployment_create", GceNaHub1, "true", 1);
+			/* This is very confusing. UnrealTournamentDev is the live lable. We deploy more fleets in live than our other environments */
+			if (AppName == UnrealTournamentBuild.UnrealTournamentAppName.UnrealTournamentDev)
+			{
+				Deployment2Command("deployment_create", GceArgsNa2, "true", 1);
+				Deployment2Command("deployment_create", GceArgsEu1, "true", 1);
+				Deployment2Command("deployment_create", GceArgsEu2, "true", 1);
+
+				Deployment2Command("deployment_create", GceNaHub2, "true", 1);
+				Deployment2Command("deployment_create", GceNaHub3, "true", 1);
+				Deployment2Command("deployment_create", GceEuHub1, "true", 1);
+				Deployment2Command("deployment_create", GceEuHub2, "true", 1);
+				Deployment2Command("deployment_create", GceEuHub3, "true", 1);
+				Deployment2Command("deployment_create", AwsNaHub1, "true", 1);
+				Deployment2Command("deployment_create", AwsNaHub2, "true", 1);
+				Deployment2Command("deployment_create", AwsAuHub1, "true", 1);
+			}
 
 			Deployment2Command("deployment_create", GceArgsNa1, "get_pending", MaxRetries);
+			Deployment2Command("deployment_create", GceNaHub1, "get_pending", MaxRetries);
+			if (AppName == UnrealTournamentBuild.UnrealTournamentAppName.UnrealTournamentDev)
+			{
+				Deployment2Command("deployment_create", GceArgsNa2, "get_pending", MaxRetries);
+				Deployment2Command("deployment_create", GceArgsEu1, "get_pending", MaxRetries);
+				Deployment2Command("deployment_create", GceArgsEu2, "get_pending", MaxRetries);
+
+				Deployment2Command("deployment_create", GceNaHub2, "get_pending", MaxRetries);
+				Deployment2Command("deployment_create", GceNaHub3, "get_pending", MaxRetries);
+				Deployment2Command("deployment_create", GceEuHub1, "get_pending", MaxRetries);
+				Deployment2Command("deployment_create", GceEuHub2, "get_pending", MaxRetries);
+				Deployment2Command("deployment_create", GceEuHub3, "get_pending", MaxRetries);
+				Deployment2Command("deployment_create", AwsNaHub1, "get_pending", MaxRetries);
+				Deployment2Command("deployment_create", AwsNaHub2, "get_pending", MaxRetries);
+				Deployment2Command("deployment_create", AwsAuHub1, "get_pending", MaxRetries);
+			}
 		}
 
 		public void DegradeOldFleets(int MaxRetries)
 		{
-			string GceArgsNa1 = Deployment2GceArgs(tag: "Gce1", MachineType: "n1-standard-8", Zone: "us-central1-c", Region: "NA");
+			/* Hubs */
+			string GceNaHub1 = Deployment2GceArgs(tag: "hub1", Region: "NA", HubServerName: "USA (Central) Hub 1");
+			string GceNaHub2 = Deployment2GceArgs(tag: "hub2", Region: "NA", HubServerName: "USA (Central) Hub 2");
+			string GceNaHub3 = Deployment2GceArgs(tag: "hub3", Region: "NA", HubServerName: "USA (Central) Hub 3");
+			string GceEuHub1 = Deployment2GceArgs(tag: "hub1", Region: "EU", HubServerName: "BEL (St. Ghislain) Hub 1");
+			string GceEuHub2 = Deployment2GceArgs(tag: "hub2", Region: "EU", HubServerName: "BEL (St. Ghislain) Hub 2");
+			string GceEuHub3 = Deployment2GceArgs(tag: "hub3", Region: "EU", HubServerName: "BEL (St. Ghislain) Hub 3");
+			string AwsNaHub1 = Deployment2AwsArgs(AwsRegion: "us-west-1", tag: "Aws1", Region: "NA", HubServerName: "USA(West) Hub 1");
+			string AwsNaHub2 = Deployment2AwsArgs(AwsRegion: "us-east-1", tag: "Aws2", Region: "NA", HubServerName: "USA(EpicHQ) Hub");
+			string AwsAuHub1 = Deployment2AwsArgs(AwsRegion: "ap-southeast-2", tag: "Aws1", Region: "AU", HubServerName: "AUS (Sydney) Hub 1");
+
+			/* Match Making */
+			string GceArgsNa1 = Deployment2GceArgs(tag: "Gce1", Region: "NA");
+			string GceArgsNa2 = Deployment2GceArgs(tag: "Gce2", Region: "NA");
+			string GceArgsEu1 = Deployment2GceArgs(tag: "Gce1", Region: "EU");
+			string GceArgsEu2 = Deployment2GceArgs(tag: "Gce2", Region: "EU");
+
 			CommandUtils.Log("Degrading old fleets");
 
 			Deployment2Command("deployment_degrade_old", GceArgsNa1, "true", 1);
+			Deployment2Command("deployment_degrade_old", GceArgsNa2, "true", 1);
+			Deployment2Command("deployment_degrade_old", GceArgsEu1, "true", 1);
+			Deployment2Command("deployment_degrade_old", GceArgsEu2, "true", 1);
+			Deployment2Command("deployment_degrade_old", GceNaHub1, "true", 1);
+			Deployment2Command("deployment_degrade_old", GceNaHub2, "true", 1);
+			Deployment2Command("deployment_degrade_old", GceNaHub3, "true", 1);
+			Deployment2Command("deployment_degrade_old", GceEuHub1, "true", 1);
+			Deployment2Command("deployment_degrade_old", GceEuHub2, "true", 1);
+			Deployment2Command("deployment_degrade_old", GceEuHub3, "true", 1);
+			Deployment2Command("deployment_degrade_old", AwsNaHub1, "true", 1);
+			Deployment2Command("deployment_degrade_old", AwsNaHub2, "true", 1);
+			Deployment2Command("deployment_degrade_old", AwsAuHub1, "true", 1);
+
 			Deployment2Command("deployment_degrade_old", GceArgsNa1, "get_pending", MaxRetries);
+			Deployment2Command("deployment_degrade_old", GceArgsNa2, "get_pending", MaxRetries);
+			Deployment2Command("deployment_degrade_old", GceArgsEu1, "get_pending", MaxRetries);
+			Deployment2Command("deployment_degrade_old", GceArgsEu2, "get_pending", MaxRetries);
+			Deployment2Command("deployment_degrade_old", GceNaHub1, "get_pending", MaxRetries);
+			Deployment2Command("deployment_degrade_old", GceNaHub2, "get_pending", MaxRetries);
+			Deployment2Command("deployment_degrade_old", GceNaHub3, "get_pending", MaxRetries);
+			Deployment2Command("deployment_degrade_old", GceEuHub1, "get_pending", MaxRetries);
+			Deployment2Command("deployment_degrade_old", GceEuHub2, "get_pending", MaxRetries);
+			Deployment2Command("deployment_degrade_old", GceEuHub3, "get_pending", MaxRetries);
+			Deployment2Command("deployment_degrade_old", AwsNaHub1, "get_pending", MaxRetries);
+			Deployment2Command("deployment_degrade_old", AwsNaHub2, "get_pending", MaxRetries);
+			Deployment2Command("deployment_degrade_old", AwsAuHub1, "get_pending", MaxRetries);
 		}
 
 		private string GetUtilitiesFilePath(string Filename)
@@ -127,15 +234,91 @@ namespace UnrealTournamentGame.Automation
 			}
 		}
 
-		// Eventually there will be functions to create args for other cloud providers... Like AWS and Tencent.
+		private string Deployment2AwsArgs(string tag = "",
+										  string InstanceType = "c4.4xlarge",
+										  string AwsRegion = "us-east-1", /* AU ap-southeast-2. KR ap-northeast-2 */
+										  string Region = "NA", /* KR South Korea. AU Australia */
+										  int InstanceSize = 1,
+										  int InstanceSizeMin = 1,
+										  int InstanceSizeMax = 6,
+										  string AutoscalerId = "default",
+										  string ExtraCliArgs = "",
+										  string HubServerName = "")
+		{
+			string AwsCredentialsFile = "AwsDedicatedServerCredentialsDecoded.txt";
+			int LocalCpuBudget = CpuBudget;
+			if (InstanceSize == 0)
+			{
+				InstanceSizeMin = 0;
+				InstanceSizeMax = 0;
+			}
+			else if (InstanceSizeMin > InstanceSize)
+			{
+				InstanceSize = InstanceSizeMin;
+			}
+
+			string CredentialsFilePath = GetUtilitiesFilePath(AwsCredentialsFile);
+			string AwsCredentials = ReadFileContents(CredentialsFilePath);
+			string[] AwsCredentialsList = AwsCredentials.Split(':');
+
+			if (AwsCredentialsList.Length != 2)
+			{
+				throw new AutomationException("Unable to parse credentials from file {0} {1}",
+					AwsCredentialsFile, AwsCredentials);
+			}
+
+			if (Debug)
+			{
+				tag = tag + "debug";
+			}
+
+			string AwsAccessKey = AwsCredentialsList[0];
+			Byte[] AwsAccessSecretKeyBytes = System.Text.Encoding.UTF8.GetBytes(AwsCredentialsList[1]);
+
+			Byte[] CliArgBytes;
+			if (HubServerName != "")
+			{
+				CliArgBytes = System.Text.Encoding.UTF8.GetBytes("UnrealTournament ut-entry?game=lobby?ServerName="+HubServerName+" -nocore -epicapp=" + AppName.ToString() + " " + ExtraCliArgs);
+				LocalCpuBudget=32000;
+			}
+			else
+			{
+				CliArgBytes = System.Text.Encoding.UTF8.GetBytes("UnrealTournament ut-entry?game=empty?region="+Region+" -epicapp=" + AppName.ToString() + " " + ExtraCliArgs);
+			}
+			Byte[] BuildStringBytes = System.Text.Encoding.UTF8.GetBytes(BuildString);
+
+			string CloudArgs = "epic_game_name=" + GameNameShort + "&" +
+				"epic_game_tag=" + GetTag(AppName, Region, tag) + "&" +
+				"epic_game_version=" + Changelist.ToString() + "&" +
+				"epic_game_buildstr_base64=" + System.Convert.ToBase64String(BuildStringBytes) + "&" +
+				"epic_game_cpu_budget=" + LocalCpuBudget +"&" +
+				"epic_game_ram_budget=" + RamBudget + "&" +
+				"epic_instance_size=" + InstanceSize.ToString() + "&" +
+				"epic_instance_min=" + InstanceSizeMin.ToString() + "&" +
+				"epic_instance_max=" + InstanceSizeMax.ToString() + "&" +
+				"epic_autoscaler_id=" + AutoscalerId + "&" +
+				"epic_aws_access_key=" + AwsAccessKey + "&" +
+				"epic_aws_base64_secret_key=" + System.Convert.ToBase64String(AwsAccessSecretKeyBytes) + "&" +
+				"epic_aws_instance_type=" + InstanceType + "&" +
+				"epic_aws_region=" + AwsRegion + "&" +
+				"epic_game_base64_cli_args=" + System.Convert.ToBase64String(CliArgBytes);
+
+			return CloudArgs;
+		}
+
 		private string Deployment2GceArgs(string tag = "",
 										  string MachineType = "n1-standard-16",
 										  string Zone = "us-central1-a",
 										  string Region = "NA",
 										  int InstanceSize = 1,
+										  int InstanceSizeMin = 1,
+										  int InstanceSizeMax = 6,
+										  string AutoscalerId = "default",
 										  string ExtraCliArgs = "",
-										  string AppNameStringOverride = "")
+										  string AppNameStringOverride = "",
+										  string HubServerName = "")
 		{
+			int LocalCpuBudget = CpuBudget;
 			UnrealTournamentBuild.UnrealTournamentAppName LocalAppName = AppName;
 			if( ! String.IsNullOrEmpty(AppNameStringOverride))
 			{
@@ -150,12 +333,22 @@ namespace UnrealTournamentGame.Automation
 			string NetworkId = "default";
 			string CredentialsFile = "GceUtDevCredentials.txt";
 
-			// once live labels exist, enable deployment into live GCE project.
-			//if (LocalAppName == UnrealTournamentBuild.UnrealTournamentAppName.UnrealTournamentLive || LocalAppName == UnrealTournamentBuild.UnrealTournamentAppName.UnrealTournamentLive)
-			//{
-			//	NetworkId = "unreal-tournament";
-			//	CredentialsFile = "GceUtLiveCredentials.txt";
-			//}
+			/* This is very confusing. UnrealTournament's live lable is UnrealTournamentDev. */
+			if (LocalAppName == UnrealTournamentBuild.UnrealTournamentAppName.UnrealTournamentDev)
+			{
+				NetworkId = "unreal-tournament";
+				CredentialsFile = "GceUtLiveCredentials.txt";
+			}
+
+			if (InstanceSize == 0)
+			{
+				InstanceSizeMin = 0;
+				InstanceSizeMax = 0;
+			}
+			else if (InstanceSizeMin > InstanceSize)
+			{
+				InstanceSize = InstanceSizeMin;
+			}
 
 			string CredentialsFilePath = GetUtilitiesFilePath(CredentialsFile);
 			string CredentialsFileContentsBase64 = ReadFileContents(CredentialsFilePath);
@@ -169,16 +362,28 @@ namespace UnrealTournamentGame.Automation
 				HTTPAuthBase64 = HTTPCredentialsFileContentsBase64;
 			}
 
-			Byte[] CliArgBytes = System.Text.Encoding.UTF8.GetBytes("UnrealTournament ut-entry?game=empty?region="+Region+" -epicapp=" + LocalAppName.ToString() + " " + ExtraCliArgs);
+			Byte[] CliArgBytes;
+			if (HubServerName != "")
+			{
+				CliArgBytes = System.Text.Encoding.UTF8.GetBytes("UnrealTournament ut-entry?game=lobby?ServerName="+HubServerName+" -nocore -epicapp=" + LocalAppName.ToString() + " " + ExtraCliArgs);
+				LocalCpuBudget=32000;
+			}
+			else
+			{
+				CliArgBytes = System.Text.Encoding.UTF8.GetBytes("UnrealTournament ut-entry?game=empty?region="+Region+" -epicapp=" + LocalAppName.ToString() + " " + ExtraCliArgs);
+			}
 			Byte[] BuildStringBytes = System.Text.Encoding.UTF8.GetBytes(BuildString);
 			string CloudArgs = "epic_game_name=" + GameNameShort + "&" +
 				"epic_game_tag=" + GetTag(LocalAppName, Region, tag) + "&" +
 				"epic_game_version=" + Changelist.ToString() + "&" +
 				"epic_game_region=" + Region + "&" +
-				"epic_game_cpu_budget=" +RamBudget +"&" +
-				"epic_game_ram_budget=" + CpuBudget + "&" +
+				"epic_game_cpu_budget=" + LocalCpuBudget +"&" +
+				"epic_game_ram_budget=" + RamBudget + "&" +
 				"epic_game_buildstr_base64=" + System.Convert.ToBase64String(BuildStringBytes) + "&" +
 				"epic_instance_size=" + InstanceSize.ToString() + "&" +
+				"epic_instance_min=" + InstanceSizeMin.ToString() + "&" +
+				"epic_instance_max=" + InstanceSizeMax.ToString() + "&" +
+				"epic_autoscaler_id=" + AutoscalerId + "&" +
 				"epic_gce_project_id=" + gceCredentials.project_id + "&" +
 				"epic_gce_base64_credentials=" + CredentialsFileContentsBase64 + "&" +
 				"epic_gce_machine_type=" + MachineType + "&" +

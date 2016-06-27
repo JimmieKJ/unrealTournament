@@ -150,8 +150,7 @@ void UUTHUDWidget_WeaponBar::Draw_Implementation(float DeltaTime)
 	if (WeaponGroups.Num() > 0)
 	{
 		// Draw the Weapon Groups
-		float YPosition = 0.0;
-
+		float YPosition = 0.f;
 		for (int32 GroupIdx = 0; GroupIdx < WeaponGroups.Num(); GroupIdx++)
 		{
 			// We have now allied all of the animation and we know the biggest anim scale, so we can figure out how wide this group should be.

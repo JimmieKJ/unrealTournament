@@ -98,6 +98,9 @@ public:
 	/** if set, item starts off not being available when placed in the level (must wait RespawnTime from start of match) */
 	UPROPERTY(EditDefaultsOnly, Category = Pickup)
 	bool bDelayedSpawn;
+	/** if set, pickup respawns every RespawnTime seconds regardless of when it was picked up last */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Pickup)
+	bool bFixedRespawnInterval;
 	/** if set, item is always dropped when its holder dies if uses/charges/etc remain */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Inventory)
 	bool bAlwaysDropOnDeath;
@@ -209,6 +212,10 @@ public:
 	UPROPERTY(Replicated, EditDefaultsOnly, BlueprintReadOnly, Category = HUD)
 	bool bBoostPowerupSuppliedItem;
 
+	//If the game mode allows it, when the powerup is earned this number of remaining boosts will be given instead of the game mode default.
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Powerup)
+	int RemainingBoostsGivenOverride;
+	
 	/** How important is this inventory item when rendering a group of them */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = HUD)
 	float HUDRenderPriority;

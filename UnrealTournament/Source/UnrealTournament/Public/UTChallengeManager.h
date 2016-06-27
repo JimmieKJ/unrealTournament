@@ -39,6 +39,7 @@ static const FName NAME_ChallengeUnderlandSD(TEXT("ChallengeUnderlandSD"));
 static const FName NAME_ChallengeUnderlandFFA(TEXT("ChallengeUnderlandFFA"));
 static const FName NAME_ChallengeUnderlandTDM(TEXT("ChallengeUnderlandTDM"));
 static const FName NAME_ChallengeUnderlandBounce(TEXT("ChallengeUnderlandBounce"));
+
 static const FName NAME_ChallengeChillSD(TEXT("ChallengeChillSD"));
 static const FName NAME_ChallengeChillFFA(TEXT("ChallengeChillFFA"));
 static const FName NAME_ChallengeChillTDM(TEXT("ChallengeChillTDM"));

@@ -24,6 +24,21 @@ class UNREALTOURNAMENT_API UUTCTFMajorMessage : public UUTCarriedObjectMessage
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Message)
 		FText FlagReadyMessage;
 
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Message)
+		FText FlagRallyMessage;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Message)
+		FText RallyReadyMessage;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Message)
+		USoundBase* FlagWarningSound;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Message)
+		USoundBase* FlagRallySound;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Message)
+		USoundBase* RallyReadySound;
+
 	virtual bool InterruptAnnouncement_Implementation(int32 Switch, const UObject* OptionalObject, TSubclassOf<UUTLocalMessage> OtherMessageClass, int32 OtherSwitch, const UObject* OtherOptionalObject) const override;
 	virtual bool CancelByAnnouncement_Implementation(int32 Switch, const UObject* OptionalObject, TSubclassOf<UUTLocalMessage> OtherMessageClass, int32 OtherSwitch, const UObject* OtherOptionalObject) const override;
 
@@ -36,6 +51,7 @@ class UNREALTOURNAMENT_API UUTCTFMajorMessage : public UUTCarriedObjectMessage
 	virtual void PrecacheAnnouncements_Implementation(UUTAnnouncer* Announcer) const override;
 	virtual float GetAnnouncementPriority(int32 Switch) const override;
 	virtual void GetEmphasisText(FText& PrefixText, FText& EmphasisText, FText& PostfixText, FLinearColor& EmphasisColor, int32 Switch, class APlayerState* RelatedPlayerState_1, class APlayerState* RelatedPlayerState_2, class UObject* OptionalObject) const override;
+	virtual void ClientReceive(const FClientReceiveData& ClientData) const override;
 };
 
 

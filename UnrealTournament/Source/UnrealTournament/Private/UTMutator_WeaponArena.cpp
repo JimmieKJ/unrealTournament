@@ -116,7 +116,7 @@ bool AUTMutator_WeaponArena::CheckRelevance_Implementation(AActor* Other)
 	}
 }
 
-void AUTMutator_WeaponArena::GetGameURLOptions_Implementation(TArray<FString>& OptionsList)
+void AUTMutator_WeaponArena::GetGameURLOptions_Implementation(TArray<FString>& OptionsList) const
 {
 	OptionsList.Add(FString::Printf(TEXT("ArenaWeaponPath=%s"), *ArenaWeaponPath));
 }

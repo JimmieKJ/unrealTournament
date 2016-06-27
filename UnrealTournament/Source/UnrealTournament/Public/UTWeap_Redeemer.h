@@ -13,26 +13,36 @@ class UNREALTOURNAMENT_API AUTWeap_Redeemer : public AUTWeapon
 	UPROPERTY(BlueprintReadOnly, EditDefaultsOnly, Category=Weapon)
 	TSubclassOf<AUTRemoteRedeemer> RemoteRedeemerClass;
 
-	/** Sound to play on bring up - temp here because we don't have really Redeemer bringup anim */
+	/** Sound to play on bring up for all */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon")
-		USoundBase* BringupSound;
+		USoundBase* GlobalBringupSound;
 
-	/** Sound to play on bring up - temp here because we don't have really Redeemer bringup anim */
+	/** Sound to play on bring up for all */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon")
-		USoundBase* PutDownSound;
+		USoundBase* GlobalPutDownSound;
 
 	UPROPERTY()
 		AUTRemoteRedeemer* RemoteRedeemer;
+
+	UPROPERTY()
+		AActor* LaunchedMissile;
+
+	UPROPERTY()
+		uint8 LaunchTeam;
 
 	virtual AUTProjectile* FireProjectile() override;
 
 	virtual void BringUp(float OverflowTime) override;
 	virtual bool PutDown() override;
 	virtual void AddAmmo(int32 Amount) override;
-
+	virtual void GivenTo(AUTCharacter* NewOwner, bool bAutoActivate) override;
+	virtual void DropFrom(const FVector& StartLocation, const FVector& TossVelocity) override;
 
 	virtual float SuggestAttackStyle_Implementation() override;
 	virtual float SuggestDefenseStyle_Implementation() override;
 	virtual float GetAISelectRating_Implementation() override;
 	virtual bool CanAttack_Implementation(AActor* Target, const FVector& TargetLoc, bool bDirectOnly, bool bPreferCurrentMode, uint8& BestFireMode, FVector& OptimalTargetLoc) override;
+	virtual void DetachFromOwner_Implementation() override;
+	virtual void RemoveRedeemer();
+	virtual void AnnounceLaunch();
 };

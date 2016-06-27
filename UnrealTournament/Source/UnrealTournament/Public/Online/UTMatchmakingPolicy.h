@@ -70,7 +70,8 @@ struct FMatchmakingParams
 		ChanceToHostOverride(0.f),
 		TeamElo(1500),
 		EloRange(10),
-		EloRangeRetries(0)
+		EloRangeRetries(0),
+		MinimumEloRangeBeforeHosting(100)
 	{}
 
 	~FMatchmakingParams() {}
@@ -105,6 +106,10 @@ struct FMatchmakingParams
 	int32 EloRange;
 	UPROPERTY()
 	int32 EloRangeRetries;
+	UPROPERTY()
+	int32 MinimumEloRangeBeforeHosting;
+	UPROPERTY()
+	FString SessionIdToSkip;
 };
 
 /**

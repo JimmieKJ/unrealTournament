@@ -13,6 +13,10 @@ class UNREALTOURNAMENT_API AUTGauntletGameState: public AUTSCTFGameState
 	GENERATED_UCLASS_BODY()
 
 	virtual bool CanShowBoostMenu(AUTPlayerController* Target);
+	// Short Circuit this message
+	virtual void UpdateTimeMessage(){}
+	virtual FText GetGameStatusText(bool bForScoreboard) override;
 
-
+protected:
+	virtual void UpdateSelectablePowerups() override;
 };

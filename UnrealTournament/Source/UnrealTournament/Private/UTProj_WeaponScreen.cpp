@@ -69,7 +69,8 @@ void AUTProj_WeaponScreen::ProcessHit_Implementation(AActor* OtherActor, UPrimit
 		}
 		else
 		{
-			OtherProj->Explode(OtherProj->GetActorLocation(), -HitNormal);
+			OtherProj->Slomo = 0.2f; 
+			OtherProj->OnRep_Slomo();
 		}
 	}
 	else if (bCauseMomentumToPawns && Cast<APawn>(OtherActor) != NULL && OtherActor != Instigator && !HitPawns.Contains((APawn*)OtherActor))

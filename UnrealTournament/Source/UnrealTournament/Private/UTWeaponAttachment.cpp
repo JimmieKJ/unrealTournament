@@ -68,7 +68,8 @@ void AUTWeaponAttachment::RegisterAllComponents()
 			MuzzleFlash[i]->bAutoActivate = false;
 			MuzzleFlash[i]->SecondsBeforeInactive = 0.0f;
 			MuzzleFlash[i]->SetOwnerNoSee(false);
-			MuzzleFlash[i]->bUseAttachParentBound = true;
+			// can't force this because the muzzle flash component might also contain the fire effect (beam)
+			//MuzzleFlash[i]->bUseAttachParentBound = true;
 		}
 	}
 	Super::RegisterAllComponents();
@@ -117,6 +118,44 @@ void AUTWeaponAttachment::UpdateOverlays()
 	}
 }
 
+void AUTWeaponAttachment::UpdateOutline(bool bOn, uint8 StencilValue)
+{
+	if (bOn)
+	{
+		if (CustomDepthMesh == NULL)
+		{
+			CustomDepthMesh = DuplicateObject<USkeletalMeshComponent>(Mesh, this);
+			CustomDepthMesh->AttachParent = NULL; // this gets copied but we don't want it to be
+			{
+				// TODO: scary that these get copied, need an engine solution and/or safe way to duplicate objects during gameplay
+				CustomDepthMesh->PrimaryComponentTick = CustomDepthMesh->GetClass()->GetDefaultObject<USkeletalMeshComponent>()->PrimaryComponentTick;
+				CustomDepthMesh->PostPhysicsComponentTick = CustomDepthMesh->GetClass()->GetDefaultObject<USkeletalMeshComponent>()->PostPhysicsComponentTick;
+			}
+			CustomDepthMesh->SetMasterPoseComponent(Mesh);
+			CustomDepthMesh->BoundsScale = 15000.f;
+			CustomDepthMesh->InvalidateCachedBounds();
+			CustomDepthMesh->UpdateBounds();
+			CustomDepthMesh->bRenderInMainPass = false;
+			CustomDepthMesh->bRenderCustomDepth = true;
+		}
+		if (StencilValue != CustomDepthMesh->CustomDepthStencilValue)
+		{
+			CustomDepthMesh->CustomDepthStencilValue = StencilValue;
+			CustomDepthMesh->MarkRenderStateDirty();
+		}
+		if (!CustomDepthMesh->IsRegistered())
+		{
+			CustomDepthMesh->RegisterComponent();
+			CustomDepthMesh->AttachTo(Mesh, NAME_None, EAttachLocation::SnapToTarget);
+			CustomDepthMesh->SetWorldScale3D(Mesh->GetComponentScale());
+		}
+	}
+	else if (CustomDepthMesh != NULL)
+	{
+		CustomDepthMesh->UnregisterComponent();
+	}
+}
+
 void AUTWeaponAttachment::SetSkin(UMaterialInterface* NewSkin)
 {
 	if (NewSkin != NULL)
@@ -135,9 +174,9 @@ void AUTWeaponAttachment::SetSkin(UMaterialInterface* NewSkin)
 	}
 }
 
-bool AUTWeaponAttachment::CancelImpactEffect(const FHitResult& ImpactHit)
+bool AUTWeaponAttachment::CancelImpactEffect(const FHitResult& ImpactHit) const
 {
-	return (!ImpactHit.Actor.IsValid() && !ImpactHit.Component.IsValid()) || Cast<AUTCharacter>(ImpactHit.Actor.Get()) || Cast<AUTProjectile>(ImpactHit.Actor.Get());
+	return (WeaponType != nullptr) ? WeaponType.GetDefaultObject()->CancelImpactEffect(ImpactHit) : GetDefault<AUTWeapon>()->CancelImpactEffect(ImpactHit);
 }
 
 void AUTWeaponAttachment::PlayFiringEffects()
@@ -251,10 +290,11 @@ void AUTWeaponAttachment::PlayBulletWhip()
 	{
 		const FVector BulletSrc = UTOwner->GetActorLocation();
 		const FVector Dir = (UTOwner->FlashLocation - BulletSrc).GetSafeNormal();
+		AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
 		for (FLocalPlayerIterator It(GEngine, GetWorld()); It; ++It)
 		{
 			AUTPlayerController* PC = Cast<AUTPlayerController>(It->PlayerController);
-			if (PC != NULL && PC->GetViewTarget() != UTOwner)
+			if (PC != NULL && PC->GetViewTarget() != UTOwner && (!GS || !GS->OnSameTeam(UTOwner, PC)) )
 			{
 				FVector ViewLoc;
 				FRotator ViewRot;
@@ -267,7 +307,7 @@ void AUTWeaponAttachment::PlayBulletWhip()
 					Params.AddIgnoredActor(PC->GetPawn());
 					if (!GetWorld()->LineTraceTestByChannel(ClosestPt, ViewLoc, COLLISION_TRACE_WEAPON, Params))
 					{
-						PC->ClientHearSound(BulletWhip, this, ClosestPt, false, false);
+						PC->ClientHearSound(BulletWhip, this, ClosestPt, false, false, SAT_None);
 					}
 				}
 			}

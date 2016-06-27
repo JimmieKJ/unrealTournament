@@ -100,18 +100,31 @@ class UNREALTOURNAMENT_API UUTHUDWidget_CTFFlagStatus : public UUTHUDWidget
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
 	TArray<FVector2D> TeamPositions;
 
+	UPROPERTY()
+		FName OldFlagState[2];
+
+	UPROPERTY()
+		float StatusChangedScale;
+
+	UPROPERTY()
+		float CurrentStatusScale[2];
+
+	UPROPERTY()
+		float ScaleDownTime;
+
 	virtual void Draw_Implementation(float DeltaTime);
 	virtual void InitializeWidget(AUTHUD* Hud);
+
 	virtual bool ShouldDraw_Implementation(bool bShowScores)
 	{
-		return !bShowScores;
+		return !bShowScores && UTGameState && UTGameState->HasMatchStarted() && !UTGameState->HasMatchEnded() && (UTGameState->GetMatchState() != MatchState::MatchIntermission);
 	}
 
 	bool bSuppressMessage;
 
 protected:
 	virtual void DrawStatusMessage(float DeltaTime);
-	virtual void DrawIndicators(AUTCTFGameState* GameState, FVector PlayerViewPoint, FRotator PlayerViewRotation);
+	virtual void DrawIndicators(AUTCTFGameState* GameState, FVector PlayerViewPoint, FRotator PlayerViewRotation, float DeltaTime);
 	virtual void DrawFlagStatus(AUTCTFGameState* GameState, FVector PlayerViewPoint, FRotator PlayerViewRotation, uint8 TeamNum, FVector2D IndicatorPosition, AUTCTFFlagBase* FlagBase, AUTCTFFlag* Flag, AUTPlayerState* FlagHolder);
 	virtual void DrawFlagWorld(AUTCTFGameState* GameState, FVector PlayerViewPoint, FRotator PlayerViewRotation, uint8 TeamNum, AUTCTFFlagBase* FlagBase, AUTCTFFlag* Flag, AUTPlayerState* FlagHolder);
 	virtual void DrawFlagBaseWorld(AUTCTFGameState* GameState, FVector PlayerViewPoint, FRotator PlayerViewRotation, uint8 TeamNum, AUTCTFFlagBase* FlagBase, AUTCTFFlag* Flag, AUTPlayerState* FlagHolder);

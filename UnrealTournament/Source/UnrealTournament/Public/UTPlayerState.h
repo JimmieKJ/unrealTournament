@@ -18,6 +18,7 @@
 #include "UTWeaponSkin.h"
 #include "OnlineNotification.h"
 #include "JsonObjectConverter.h"
+#include "UTGameVolume.h"
 #if WITH_PROFILE
 #include "UTMcpProfile.h"
 #endif
@@ -257,6 +258,12 @@ public:
 	UPROPERTY(BlueprintReadOnly, replicated, Category = PlayerState)
 	AUTPlayerState* LastKillerPlayerState;
 
+	UPROPERTY(BlueprintReadOnly, Replicated, Category = PlayerController)
+		bool bCanRally;
+
+	UPROPERTY(BlueprintReadOnly, Category = PlayerController)
+		float NextRallyTime;
+
 	UPROPERTY(BlueprintReadOnly, Category = PlayerState, replicated)
 	bool bIsRconAdmin;
 
@@ -438,7 +445,7 @@ public:
 	UFUNCTION(Server, Reliable, WithValidation)
 	virtual void ServerRequestChangeTeam(uint8 NewTeamIndex);
 
-	UFUNCTION()
+	UFUNCTION(BlueprintCallable, Category = Pawn)
 	AUTCharacter* GetUTCharacter();
 
 	UPROPERTY(replicated)
@@ -555,6 +562,9 @@ public:
 	UPROPERTY(Replicated, BlueprintReadWrite, Category = PlayerState)
 	float BoostRechargeTimeRemaining;
 
+	UPROPERTY()
+	TArray<class AUTInventory*> PreservedKeepOnDeathInventoryList;
+	
 	/** Inventory item that is created on boost. */
 	UPROPERTY(Replicated, BlueprintReadWrite, Category = PlayerState)
 		TSubclassOf<class AUTInventory> BoostClass;
@@ -923,7 +933,7 @@ public:
 	virtual void ServerSetLoadoutPack(const FName& NewLoadoutPackTag);
 
 	UFUNCTION(Server, Reliable, WithValidation)
-	virtual void ServerSetBoostItem(TSubclassOf<class AUTInventory> PowerupClass);
+	virtual void ServerSetBoostItem(int PowerupIndex);
 
 	// DO NOT USE: This is WIP temp code and may go away.
 	UPROPERTY(Replicated)
@@ -950,11 +960,19 @@ public:
 	UPROPERTY(Replicated, replicatedUsing = OnUnlockList)
 	TArray<FName> UnlockList;
 
+	UPROPERTY(BlueprintReadOnly, Category = "Game")
+	bool bIsTalking;
 
 protected:
 	UFUNCTION()
 	virtual void OnUnlockList();
 
+public:
+	/** Holds the last known location of the pawn associated with this pri */
+	UPROPERTY(BlueprintReadOnly, Category = PlayerState)
+	AUTGameVolume* LastKnownLocation;
+
+	TSubclassOf<UUTCharacterVoice> GetCharacterVoiceClass();
 };
 
 USTRUCT()

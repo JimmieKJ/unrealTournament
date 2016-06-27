@@ -5,18 +5,7 @@ using UnrealBuildTool;
 public class BlueprintContext : ModuleRules
 {
     public BlueprintContext(TargetInfo Target)
-    {
-		PublicIncludePaths.AddRange(
-			new string[] {
-				"../Plugins/Social/Source/Public",
-				"../Plugins/Social/Source/Public/Interfaces",
-				"../Plugins/Social/Source/Public/Models",
-				"../Plugins/Social/Source/Public/Layers/DataAccess",
-				"../Plugins/Social/Source/Public/Layers/Domain",
-				"../Plugins/Social/Source/Public/Layers/Presentation",
-			}
-		);
-        
+    {        
         PublicDependencyModuleNames.AddRange( new string[] {
 			"Core",
 			"CoreUObject",
@@ -26,13 +15,14 @@ public class BlueprintContext : ModuleRules
             "UMG",
             "UnrealTournament",
             "OnlineSubsystem",
-            "FriendsAndChat",
 			"GameplayTags",
             "Party"
 		});
-
+        
         if (UEBuildConfiguration.bCompileMcpOSS == true)
         {
+            PublicIncludePathModuleNames.Add("Social");
+
             PublicDependencyModuleNames.AddRange(
                 new string[]
                 {

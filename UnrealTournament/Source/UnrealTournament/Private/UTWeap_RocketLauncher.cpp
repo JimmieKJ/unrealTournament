@@ -34,10 +34,11 @@ AUTWeap_RocketLauncher::AUTWeap_RocketLauncher(const class FObjectInitializer& O
 	PendingLockedTargetTime = 0.0f;
 	LastValidTargetTime = 0.0f;
 	LockAim = 0.997f;
+	LockOffset = 800.f;
 	bTargetLockingActive = true;
 	LastTargetLockCheckTime = 0.0f;
 
-	UnderReticlePadding = 50.0f;
+	UnderReticlePadding = 20.0f;
 	CrosshairScale = 0.5f;
 
 	CrosshairRotationTime = 0.3f;
@@ -83,7 +84,7 @@ void AUTWeap_RocketLauncher::BeginLoadRocket()
 	AUTPlayerController* PC = Cast<AUTPlayerController>(UTOwner->Controller);
 	if (PC != NULL && !PC->IsLocalPlayerController())
 	{
-		UUTGameplayStatics::UTPlaySound(GetWorld(), LoadingSounds[NumLoadedRockets], UTOwner, SRT_AllButOwner, false, FVector::ZeroVector, NULL);
+		UUTGameplayStatics::UTPlaySound(GetWorld(), LoadingSounds[NumLoadedRockets], UTOwner, SRT_AllButOwner, false, FVector::ZeroVector, NULL, NULL, true, SAT_WeaponFoley);
 	}
 }
 
@@ -94,7 +95,7 @@ void AUTWeap_RocketLauncher::EndLoadRocket()
 	SetRocketFlashExtra(CurrentFireMode, NumLoadedRockets + 1, CurrentRocketFireMode, bDrawRocketModeString);
 	LastLoadTime = GetWorld()->TimeSeconds;
 
-	UUTGameplayStatics::UTPlaySound(GetWorld(), RocketLoadedSound, UTOwner, SRT_AllButOwner);
+	UUTGameplayStatics::UTPlaySound(GetWorld(), RocketLoadedSound, UTOwner, SRT_AllButOwner, false, FVector::ZeroVector, NULL, NULL, true, SAT_WeaponFoley);
 
 	// bot maybe shoots rockets from here
 	AUTBot* B = Cast<AUTBot>(UTOwner->Controller);
@@ -189,7 +190,7 @@ void AUTWeap_RocketLauncher::OnMultiPress_Implementation(uint8 OtherFireMode)
 			{
 				CurrentRocketFireMode = 0;
 			}
-			UUTGameplayStatics::UTPlaySound(GetWorld(), AltFireModeChangeSound, UTOwner, SRT_AllButOwner);
+			UUTGameplayStatics::UTPlaySound(GetWorld(), AltFireModeChangeSound, UTOwner, SRT_AllButOwner, false, FVector::ZeroVector, NULL, NULL, true, SAT_WeaponFoley);
 
 			//Update Extraflash so spectators can see the hud text
 			if (Role == ROLE_Authority)
@@ -345,7 +346,14 @@ void AUTWeap_RocketLauncher::PlayFiringEffects()
 		// try and play the sound if specified
 		if (RocketFireModes.IsValidIndex(CurrentRocketFireMode) && RocketFireModes[CurrentRocketFireMode].FireSound != NULL)
 		{
-			UUTGameplayStatics::UTPlaySound(GetWorld(), RocketFireModes[CurrentRocketFireMode].FireSound, UTOwner, SRT_AllButOwner);
+			if (RocketFireModes[CurrentRocketFireMode].FPFireSound != NULL && Cast<APlayerController>(UTOwner->Controller) != NULL && UTOwner->IsLocallyControlled())
+			{
+				UUTGameplayStatics::UTPlaySound(GetWorld(), RocketFireModes[CurrentRocketFireMode].FPFireSound, UTOwner, SRT_AllButOwner, false, FVector::ZeroVector, GetCurrentTargetPC(), NULL, true, SAT_WeaponFire);
+			}
+			else
+			{
+				UUTGameplayStatics::UTPlaySound(GetWorld(), RocketFireModes[CurrentRocketFireMode].FireSound, UTOwner, SRT_AllButOwner, false, FVector::ZeroVector, GetCurrentTargetPC(), NULL, true, SAT_WeaponFire);
+			}
 		}
 
 		if (ShouldPlay1PVisuals())
@@ -509,10 +517,10 @@ bool AUTWeap_RocketLauncher::WithinLockAim(AActor *Target)
 	if (CanLockTarget(Target))
 	{
 		const FVector FireLoc = GetFireStartLoc();
-		const FVector Dir = GetAdjustedAim(FireLoc).Vector();
+		const FVector Dir = GetBaseFireRotation().Vector();
 		const FVector TargetDir = (Target->GetActorLocation() - UTOwner->GetActorLocation()).GetSafeNormal();
 		// note that we're not tracing to retain existing target; allows locking through walls to a limited extent
-		return (FVector::DotProduct(Dir, TargetDir) > LockAim || UUTGameplayStatics::PickBestAimTarget(UTOwner->Controller, FireLoc, Dir, LockAim, LockRange, AUTCharacter::StaticClass()) == Target);
+		return (FVector::DotProduct(Dir, TargetDir) > LockAim || UUTGameplayStatics::ChooseBestAimTarget(UTOwner->Controller, FireLoc, Dir, LockAim, LockRange, LockOffset, AUTCharacter::StaticClass()) == Target);
 	}
 	else
 	{
@@ -534,9 +542,9 @@ void AUTWeap_RocketLauncher::SetLockTarget(AActor* NewTarget)
 		{
 			bLockedOnTarget = true;
 			LastLockedOnTime = GetWorld()->TimeSeconds;
-			if (GetNetMode() != NM_DedicatedServer && UTOwner != NULL && UTOwner->IsLocallyControlled() && Cast<APlayerController>(UTOwner->GetController()))
+			if (GetNetMode() != NM_DedicatedServer && UTOwner != NULL && UTOwner->IsLocallyControlled() && Cast<AUTPlayerController>(UTOwner->GetController()))
 			{
-				Cast<APlayerController>(UTOwner->GetController())->ClientPlaySound(LockAcquiredSound);
+				Cast<AUTPlayerController>(UTOwner->GetController())->UTClientPlaySound(LockAcquiredSound);
 			}
 		}
 	}
@@ -545,9 +553,9 @@ void AUTWeap_RocketLauncher::SetLockTarget(AActor* NewTarget)
 		if (bLockedOnTarget)
 		{
 			bLockedOnTarget = false;
-			if (GetNetMode() != NM_DedicatedServer && UTOwner != NULL && UTOwner->IsLocallyControlled() && Cast<APlayerController>(UTOwner->GetController()))
+			if (GetNetMode() != NM_DedicatedServer && UTOwner != NULL && UTOwner->IsLocallyControlled() && Cast<AUTPlayerController>(UTOwner->GetController()))
 			{
-				Cast<APlayerController>(UTOwner->GetController())->ClientPlaySound(LockLostSound);
+				Cast<AUTPlayerController>(UTOwner->GetController())->UTClientPlaySound(LockLostSound);
 			}
 		}
 	}
@@ -562,7 +570,7 @@ void AUTWeap_RocketLauncher::UpdateLock()
 	}
 
 	const FVector FireLoc = GetFireStartLoc();
-	AActor* NewTarget = UUTGameplayStatics::PickBestAimTarget(UTOwner->Controller, FireLoc, GetAdjustedAim(FireLoc).Vector(), LockAim, LockRange, AUTCharacter::StaticClass());
+	AActor* NewTarget = UUTGameplayStatics::ChooseBestAimTarget(UTOwner->Controller, FireLoc, GetBaseFireRotation().Vector(), LockAim, LockRange, LockOffset,AUTCharacter::StaticClass());
 
 	//Have a target. Update the target lock
 	if (LockedTarget != NULL)
@@ -598,12 +606,12 @@ void AUTWeap_RocketLauncher::UpdateLock()
 
 void AUTWeap_RocketLauncher::DrawWeaponCrosshair_Implementation(UUTHUDWidget* WeaponHudWidget, float RenderDelta)
 {
+	float ScaledPadding = 80.f * WeaponHudWidget->GetRenderScale();
 	//Draw the Rocket Firemode Text
 	if (bDrawRocketModeString && RocketModeFont != NULL)
 	{
 		FText RocketModeText = RocketFireModes[CurrentRocketFireMode].DisplayString;
-		float PosY = WeaponHudWidget->GetRenderScale() * UnderReticlePadding;
-
+		float PosY = 0.3f * ScaledPadding;
 		WeaponHudWidget->DrawText(RocketModeText, 0.0f, PosY, RocketModeFont, FLinearColor::Black, 1.0f, 1.0f, FLinearColor::White, ETextHorzPos::Center, ETextVertPos::Top);
 	}
 	
@@ -611,17 +619,17 @@ void AUTWeap_RocketLauncher::DrawWeaponCrosshair_Implementation(UUTHUDWidget* We
 	Super::DrawWeaponCrosshair_Implementation(WeaponHudWidget, RenderDelta);
 
 	// draw loaded rocket indicator
-	float Scale = WeaponHudWidget->GetRenderScale() * GetCrosshairScale(WeaponHudWidget->UTHUDOwner);
+	float Scale = GetCrosshairScale(WeaponHudWidget->UTHUDOwner);
 	if ((CurrentFireMode == 1) && (NumLoadedRockets > 0))
 	{
 		float DotSize = 16.f * Scale;
-		WeaponHudWidget->DrawTexture(WeaponHudWidget->UTHUDOwner->HUDAtlas, 0.f, 0.5f * WeaponHudWidget->GetRenderScale() * UnderReticlePadding, DotSize, DotSize, 894.f, 38.f, 26.f, 26.f, 1.f, FLinearColor::White, FVector2D(0.5f, 0.5f));
+		WeaponHudWidget->DrawTexture(WeaponHudWidget->UTHUDOwner->HUDAtlas, 0.f, ScaledPadding, DotSize, DotSize, 894.f, 38.f, 26.f, 26.f, 1.f, FLinearColor::White, FVector2D(0.5f, 0.5f));
 		if (NumLoadedRockets > 1)
 		{
-			WeaponHudWidget->DrawTexture(WeaponHudWidget->UTHUDOwner->HUDAtlas, 90.f*Scale, 0.5f * WeaponHudWidget->GetRenderScale() * UnderReticlePadding, DotSize, DotSize, 894.f, 38.f, 26.f, 26.f, 1.f, FLinearColor::White, FVector2D(0.5f, 0.5f));
+			WeaponHudWidget->DrawTexture(WeaponHudWidget->UTHUDOwner->HUDAtlas, 90.f*Scale, ScaledPadding, DotSize, DotSize, 894.f, 38.f, 26.f, 26.f, 1.f, FLinearColor::White, FVector2D(0.5f, 0.5f));
 			if (NumLoadedRockets > 2)
 			{
-				WeaponHudWidget->DrawTexture(WeaponHudWidget->UTHUDOwner->HUDAtlas, -90.f*Scale, 0.5f * WeaponHudWidget->GetRenderScale() * UnderReticlePadding, DotSize, DotSize, 894.f, 38.f, 26.f, 26.f, 1.f, FLinearColor::White, FVector2D(0.5f, 0.5f));
+				WeaponHudWidget->DrawTexture(WeaponHudWidget->UTHUDOwner->HUDAtlas, -90.f*Scale, ScaledPadding, DotSize, DotSize, 894.f, 38.f, 26.f, 26.f, 1.f, FLinearColor::White, FVector2D(0.5f, 0.5f));
 			}
 		}
 	}

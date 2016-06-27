@@ -12,6 +12,8 @@ AUTPainVolume::AUTPainVolume(const FObjectInitializer& ObjectInitializer)
 	BrakingDecelerationSwimming = 2000.f;
 	TerminalVelocity = 3000.f;
 	bEntryPain = false;
+	ImmuneTeamIndex = -1;
+	VolumeName = NSLOCTEXT("Volume", "PainVolume", "Pain");
 }
 
 void AUTPainVolume::AddOverlayMaterials_Implementation(AUTGameState* GS) const
@@ -150,4 +152,19 @@ void AUTPainVolume::PostRegisterAllComponents()
 	// Route update to super first.
 	Super::PostRegisterAllComponents();
 	InsertVolume(this, GetWorld()->PostProcessVolumes);
+}
+
+void AUTPainVolume::CausePainTo(AActor* Other)
+{
+	bool bIsImmune = false;
+	if (ImmuneTeamIndex >= 0)
+	{
+		AUTCharacter* UTChar = Cast<AUTCharacter>(Other);
+		bIsImmune = UTChar && (UTChar->GetTeamNum() == ImmuneTeamIndex);
+	}
+
+	if (!bIsImmune)
+	{
+		Super::CausePainTo(Other);
+	}
 }

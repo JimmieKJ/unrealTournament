@@ -193,6 +193,11 @@ bool SMultiLineEditableText::IsMultiLineTextEdit() const
 	return true;
 }
 
+bool SMultiLineEditableText::ShouldJumpCursorToEndWhenFocused() const
+{
+	return false;
+}
+
 bool SMultiLineEditableText::ShouldSelectAllTextWhenFocused() const
 {
 	return bSelectAllTextWhenFocused.Get(false);
@@ -314,14 +319,9 @@ float SMultiLineEditableText::UpdateAndClampVerticalScrollBar(const float InView
 	return EditableTextLayout->GetScrollOffset().Y;
 }
 
-FReply SMultiLineEditableText::OnFocusReceived( const FGeometry& MyGeometry, const FFocusEvent& InFocusEvent )
+FReply SMultiLineEditableText::OnFocusReceived(const FGeometry& MyGeometry, const FFocusEvent& InFocusEvent)
 {
-	// Skip the focus received code if it's due to the context menu closing
-	if (EditableTextLayout->HandleFocusReceived(InFocusEvent))
-	{
-		return SWidget::OnFocusReceived(MyGeometry, InFocusEvent);
-	}
-
+	EditableTextLayout->HandleFocusReceived(InFocusEvent);
 	return FReply::Handled();
 }
 

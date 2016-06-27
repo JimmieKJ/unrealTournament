@@ -124,7 +124,7 @@ public partial class Project : CommandUtils
         {
             CmdLine += " -generatepatch=" + CommandUtils.MakePathSafeToUseWithCommandLine(PatchSourceContentPath);
         }
-		CmdLine += " -multiprocess"; // Prevents warnings about being unable to write to config files
+		CmdLine += " -multiprocess -patchpaddingalign=2048"; // Prevents warnings about being unable to write to config files
 		CmdLine += PlatformOptions;
 		RunAndLog(CmdEnv, UnrealPakExe, CmdLine, Options: ERunOptions.Default | ERunOptions.UTF8Output);
 		Log("UnrealPak Done *******");

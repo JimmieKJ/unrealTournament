@@ -467,7 +467,7 @@ void FRHICommandListExecutor::ExecuteList(FRHICommandListBase& CmdList)
 
 	if (IsInRenderingThread() && !GetImmediateCommandList().IsExecuting()) // don't flush if this is a recursive call and we are already executing the immediate command list
 	{
-		GetImmediateCommandList().Flush();
+		GetImmediateCommandList().ImmediateFlush(EImmediateFlushType::DispatchToRHIThread);
 	}
 
 	INC_MEMORY_STAT_BY(STAT_NonImmedCmdListMemory, CmdList.GetUsedMemory());

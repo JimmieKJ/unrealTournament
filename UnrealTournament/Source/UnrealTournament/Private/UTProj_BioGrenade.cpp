@@ -58,7 +58,6 @@ void AUTProj_BioGrenade::StartFuse()
 	}
 	SetTimerUFunc(this, FName(TEXT("FuseExpired")), FuseTime, false);
 	PlayFuseBeep();
-	SetTimerUFunc(this, FName(TEXT("PlayFuseBeep")), 0.5f, true);
 
 	ClearTimerUFunc(this, FName(TEXT("StartFuseTimed")));
 }
@@ -74,7 +73,17 @@ void AUTProj_BioGrenade::PlayFuseBeep()
 {
 	if (!bExploded)
 	{
-		UUTGameplayStatics::UTPlaySound(GetWorld(), FuseBeepSound, this, SRT_IfSourceNotReplicated);
+		UUTGameplayStatics::UTPlaySound(GetWorld(), FuseBeepSound, this, SRT_IfSourceNotReplicated, false, FVector::ZeroVector, NULL, NULL, true, SAT_WeaponFoley);
+		if (FuseEffect != NULL && GetWorld()->GetNetMode() != NM_DedicatedServer)
+		{
+			UGameplayStatics::SpawnEmitterAttached(FuseEffect, RootComponent);
+		}
+		// if there's enough fuse time left queue another beep
+		float TotalTime, ElapsedTime;
+		if (IsTimerActiveUFunc(this, FName(TEXT("FuseExpired")), &TotalTime, &ElapsedTime) && TotalTime - ElapsedTime > 0.5f)
+		{
+			SetTimerUFunc(this, FName(TEXT("PlayFuseBeep")), 0.5f, false);
+		}
 	}
 }
 

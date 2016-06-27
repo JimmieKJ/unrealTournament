@@ -30,6 +30,7 @@ FMediaFoundationMovieStreamer::FMediaFoundationMovieStreamer()
 	, SampleGrabberCallback(NULL)
 {
 	MovieViewport = MakeShareable(new FMovieViewport());
+	PlaybackType = MT_Normal;
 }
 
 FMediaFoundationMovieStreamer::~FMediaFoundationMovieStreamer()
@@ -40,13 +41,15 @@ FMediaFoundationMovieStreamer::~FMediaFoundationMovieStreamer()
 	TextureFreeList.Empty();
 }
 
-bool FMediaFoundationMovieStreamer::Init(const TArray<FString>& MoviePaths)
+bool FMediaFoundationMovieStreamer::Init(const TArray<FString>& MoviePaths, TEnumAsByte<EMoviePlaybackType> inPlaybackType)
 {
 	if (MoviePaths.Num() == 0)
 	{
 		return false;
 	}
 
+	MovieIndex = -1;
+	PlaybackType = inPlaybackType;
 	StoredMoviePaths = MoviePaths;
 
 	OpenNextMovie();
@@ -83,8 +86,13 @@ bool FMediaFoundationMovieStreamer::Tick(float DeltaTime)
 	if (!VideoPlayer->MovieIsRunning())
 	{
 		CloseMovie();
-		if (StoredMoviePaths.Num() > 0)
+		if (MovieIndex < StoredMoviePaths.Num() - 1)
 		{
+			OpenNextMovie();
+		}
+		else if (PlaybackType != MT_Normal)
+		{
+			MovieIndex = PlaybackType == MT_LoadingLoop ? StoredMoviePaths.Num() - 2 : -1;
 			OpenNextMovie();
 		}
 		else
@@ -96,6 +104,17 @@ bool FMediaFoundationMovieStreamer::Tick(float DeltaTime)
 	return false;
 }
 
+FString FMediaFoundationMovieStreamer::GetMovieName() 
+{
+	return StoredMoviePaths.IsValidIndex(MovieIndex) ? StoredMoviePaths[MovieIndex] : TEXT("");
+}
+
+bool FMediaFoundationMovieStreamer::IsLastMovieInPlaylist()
+{
+	return MovieIndex == StoredMoviePaths.Num() -1;
+}
+
+
 void FMediaFoundationMovieStreamer::Cleanup()
 {
 	CleanupRenderingResources();
@@ -103,11 +122,11 @@ void FMediaFoundationMovieStreamer::Cleanup()
 
 void FMediaFoundationMovieStreamer::OpenNextMovie()
 {
-	check(StoredMoviePaths.Num() > 0);
-	FString MoviePath = FPaths::GameContentDir() + TEXT("Movies/") + StoredMoviePaths[0];
-	StoredMoviePaths.RemoveAt(0);
+	MovieIndex++;
+	check(StoredMoviePaths.Num() > 0 && MovieIndex < StoredMoviePaths.Num());
+	FString MoviePath = FPaths::GameContentDir() + TEXT("Movies/") + StoredMoviePaths[MovieIndex];
 
-    SampleGrabberCallback = new FSampleGrabberCallback(TextureData);
+	SampleGrabberCallback = new FSampleGrabberCallback(TextureData);
 	
 	VideoPlayer = new FVideoPlayer();
 	FIntPoint VideoDimensions = VideoPlayer->OpenFile(MoviePath, SampleGrabberCallback);
@@ -537,6 +556,7 @@ void FSampleGrabberCallback::SetNeedNewSample()
 {
 	VideoSampleReady.Set(0);
 }
+
 
 #include "HideWindowsPlatformTypes.h"
 

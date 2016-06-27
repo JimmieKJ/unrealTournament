@@ -249,6 +249,10 @@ public class MacPlatform : Platform
 				if (!Directory.Exists(SourceBundlePath))
 				{
 					SourceBundlePath = CombinePaths(SC.ArchiveDirectory, "Engine", "Binaries", "Mac", ExeName + ".app");
+					if (!Directory.Exists(SourceBundlePath))
+					{
+						SourceBundlePath = CombinePaths(SC.ArchiveDirectory, "Engine", "Binaries", "Mac", "UE4.app");
+					}
 				}
 				Directory.Move(SourceBundlePath, BundlePath);
 

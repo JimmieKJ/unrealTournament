@@ -12,6 +12,11 @@ class UNREALTOURNAMENT_API UUTProjectileMovementComponent : public UProjectileMo
 	/** linear acceleration in the direction of current velocity */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Projectile)
 	float AccelRate;
+
+	/** Don't clear physics volume when stopped */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Projectile)
+		bool bKeepPhysicsVolumeWhenStopped;
+
 	/** explicit acceleration vector (additive with AccelRate) */
 	UPROPERTY(EditInstanceOnly, BlueprintReadWrite, Category = Projectile)
 	FVector Acceleration;
@@ -54,6 +59,8 @@ class UNREALTOURNAMENT_API UUTProjectileMovementComponent : public UProjectileMo
 	bool bPreventZHoming;
 
 	virtual FVector ComputeHomingAcceleration(const FVector& InVelocity, float DeltaTime) const override;
+
+	virtual void SetUpdatedComponent(USceneComponent* NewUpdatedComponent) override;
 
 protected:
 	virtual void HandleImpact(const FHitResult& Hit, float TimeSlice, const FVector& MoveDelta) override;

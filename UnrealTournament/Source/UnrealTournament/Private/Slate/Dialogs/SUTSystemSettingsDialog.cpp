@@ -324,6 +324,9 @@ void SUTSystemSettingsDialog::Construct(const FArguments& InArgs)
 							.OnDialogResult(InArgs._OnDialogResult)
 						);
 
+	VOIPOptions.Add(MakeShareable(new FString(NSLOCTEXT("SUTSystemSettingsDialog", "VOIPA", "Open Mic - You always send voice chat to other players").ToString())));
+	VOIPOptions.Add(MakeShareable(new FString(NSLOCTEXT("SUTSystemSettingsDialog", "VOIPB", "Push to Talk - You need to use your Push to Talk key to send voice chat").ToString())));
+
 	if (DialogContent.IsValid())
 	{
 		DialogContent->ClearChildren();
@@ -513,6 +516,7 @@ void SUTSystemSettingsDialog::UpdateAdvancedWidgets()
 TSharedRef<SWidget> SUTSystemSettingsDialog::BuildGeneralTab()
 {
 	UUTGameUserSettings* UserSettings = Cast<UUTGameUserSettings>(GEngine->GetGameUserSettings());
+	UUTProfileSettings* ProfileSettings = PlayerOwner->GetProfileSettings();
 
 	// Get Viewport size
 	FVector2D ViewportSize;
@@ -872,6 +876,10 @@ TSharedRef<SWidget> SUTSystemSettingsDialog::BuildGraphicsTab()
 		+ AddGeneralScalabilityWidget(NSLOCTEXT("SUTSystemSettingsDialog", "TextureDetail", "Texture Detail").ToString(), TextureRes, SelectedTextureRes,
 		&SUTSystemSettingsDialog::OnTextureResolutionSelected, QualitySettings.TextureQuality,
 		NSLOCTEXT("SUTSystemSettingsDialog", "TextureDetail_Tooltip", "Controls the quality of textures, lower setting can improve performance when GPU preformance is an issue."))
+		
+		+ AddGeneralScalabilityWidget(NSLOCTEXT("SUTSystemSettingsDialog", "ViewDistance", "View Distance Quality").ToString(), ViewDistance, SelectedViewDistance,
+		&SUTSystemSettingsDialog::OnViewDistanceSelected, QualitySettings.ViewDistanceQuality,
+		NSLOCTEXT("SUTSystemSettingsDialog", "ViewDistance_Tooltip", "Controls how fast models change level of detail in the distance."))
 
 		+ AddGeneralScalabilityWidget(NSLOCTEXT("SUTSystemSettingsDialog", "ShadowQuality", "Shadow Quality").ToString(), ShadowQuality, SelectedShadowQuality,
 		&SUTSystemSettingsDialog::OnShadowQualitySelected, QualitySettings.ShadowQuality,
@@ -941,6 +949,9 @@ EVisibility SUTSystemSettingsDialog::AutoDetectSettingsVisibility() const
 TSharedRef<SWidget> SUTSystemSettingsDialog::BuildAudioTab()
 {
 	UUTGameUserSettings* UserSettings = Cast<UUTGameUserSettings>(GEngine->GetGameUserSettings());
+	UUTProfileSettings* ProfileSettings = PlayerOwner->GetProfileSettings();
+
+	bool bPushToTalk = ProfileSettings == nullptr ? true : ProfileSettings->bPushToTalk;
 
 	BotSpeechList.Add(MakeShareable(new FString(NSLOCTEXT("SUTSystemSettingsDialog", "BotSpeechNone", "None").ToString())));
 	BotSpeechList.Add(MakeShareable(new FString(NSLOCTEXT("SUTSystemSettingsDialog", "BotSpeechStatusText", "Status Text").ToString())));
@@ -954,6 +965,7 @@ TSharedRef<SWidget> SUTSystemSettingsDialog::BuildAudioTab()
 	+ AddGeneralSliderWithLabelWidget(SoundVolumes[EUTSoundClass::Music], SoundVolumesLabels[EUTSoundClass::Music], &SUTSystemSettingsDialog::OnSoundVolumeChangedMusic, NSLOCTEXT("SUTSystemSettingsDialog", "MusicVolume", "Music Volume").ToString(), UserSettings->GetSoundClassVolume(EUTSoundClass::Music))
 	+ AddGeneralSliderWithLabelWidget(SoundVolumes[EUTSoundClass::SFX], SoundVolumesLabels[EUTSoundClass::SFX], &SUTSystemSettingsDialog::OnSoundVolumeChangedSFX, NSLOCTEXT("SUTSystemSettingsDialog", "SFXVolume", "Effects Volume").ToString(), UserSettings->GetSoundClassVolume(EUTSoundClass::SFX))
 	+ AddGeneralSliderWithLabelWidget(SoundVolumes[EUTSoundClass::Voice], SoundVolumesLabels[EUTSoundClass::Voice], &SUTSystemSettingsDialog::OnSoundVolumeChangedVoice, NSLOCTEXT("SUTSystemSettingsDialog", "VoiceVolume", "Announcer Volume").ToString(), UserSettings->GetSoundClassVolume(EUTSoundClass::Voice))
+	+ AddGeneralSliderWithLabelWidget(SoundVolumes[EUTSoundClass::VOIP], SoundVolumesLabels[EUTSoundClass::VOIP], &SUTSystemSettingsDialog::OnSoundVolumeChangedVOIP, NSLOCTEXT("SUTSystemSettingsDialog", "VOIPVolume", "Voice over IP Volume").ToString(), UserSettings->GetSoundClassVolume(EUTSoundClass::VOIP) * 0.5f)
 
 	+ SVerticalBox::Slot()
 	.AutoHeight()
@@ -995,6 +1007,7 @@ TSharedRef<SWidget> SUTSystemSettingsDialog::BuildAudioTab()
 			]
 		]
 	]
+
 	+ SVerticalBox::Slot()
 	.AutoHeight()
 	.Padding(FMargin(10.0f, 10.0f, 10.0f, 0.0f))
@@ -1018,6 +1031,39 @@ TSharedRef<SWidget> SUTSystemSettingsDialog::BuildAudioTab()
 			SAssignNew(HRTFCheckBox, SCheckBox)
 			.Style(SUWindowsStyle::Get(), "UT.Common.CheckBox")
 			.IsChecked(UserSettings->IsHRTFEnabled() ? ESlateCheckBoxState::Checked : ESlateCheckBoxState::Unchecked)
+		]
+	]
+	+ SVerticalBox::Slot()
+	.AutoHeight()
+	.Padding(FMargin(10.0f, 50.0f, 10.0f, 5.0f))
+	[
+		SNew(STextBlock)
+		.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
+		.Text(NSLOCTEXT("SUTSystemSettingsDialog", "VOIPTitle", "Voice over IP Settings"))
+	]
+	+ SVerticalBox::Slot()
+	.AutoHeight()
+	.Padding(FMargin(10.0f, 5.0f, 10.0f, 5.0f))
+	[
+
+		SNew(SHorizontalBox)
+		+ SHorizontalBox::Slot()
+		.FillWidth(1.0f)
+		.VAlign(VAlign_Center)
+		[
+			SAssignNew(PushToTalkCombo, SComboBox< TSharedPtr<FString> >)
+			.InitiallySelectedItem(VOIPOptions[bPushToTalk ? 1 : 0])
+			.ComboBoxStyle(SUWindowsStyle::Get(), "UT.ComboBox")
+			.ButtonStyle(SUWindowsStyle::Get(), "UT.Button.White")
+			.OptionsSource(&VOIPOptions)
+			.OnGenerateWidget(this, &SUTDialogBase::GenerateStringListWidget)
+			.OnSelectionChanged(this, &SUTSystemSettingsDialog::OnVOIPChanged)
+			.Content()
+			[
+				SAssignNew(VOIPOptionsText, STextBlock)
+				.Text(FText::FromString(*VOIPOptions[bPushToTalk ? 1 : 0].Get()))
+				.TextStyle(SUWindowsStyle::Get(),"UT.Common.ButtonText.Black")
+			]
 		]
 	];
 }
@@ -1068,6 +1114,18 @@ void SUTSystemSettingsDialog::OnSoundVolumeChangedVoice(float NewValue)
 		AudioSettings->SetSoundClassVolume(EUTSoundClass::Voice, NewValue);
 	}
 }
+
+void SUTSystemSettingsDialog::OnSoundVolumeChangedVOIP(float NewValue)
+{
+	// Temporarily change audio level
+	// This should play a sample Voice sound
+	UUTAudioSettings* AudioSettings = UUTAudioSettings::StaticClass()->GetDefaultObject<UUTAudioSettings>();
+	if (AudioSettings)
+	{
+		AudioSettings->SetSoundClassVolume(EUTSoundClass::VOIP, NewValue * 2.0f);
+	}
+}
+
 
 FReply SUTSystemSettingsDialog::OnTabClickGeneral()
 {
@@ -1177,6 +1235,9 @@ FReply SUTSystemSettingsDialog::OKClick()
 	{
 		UserSettings->SetSoundClassVolume(EUTSoundClass::Type(i), SoundVolumes[i]->GetValue());
 	}
+
+	UserSettings->SetSoundClassVolume(EUTSoundClass::VOIP, SoundVolumes[EUTSoundClass::VOIP]->GetValue() * 2.0f);
+
 	// engine scalability
 	UserSettings->ScalabilityQuality = Scalability::GetQualityLevels(); // sets in UserSettings what was already applied
 	Scalability::SaveState(GGameUserSettingsIni); // note: settings were applied previously on change of individual items
@@ -1243,16 +1304,28 @@ FReply SUTSystemSettingsDialog::OKClick()
 			WS->MaxImpactEffectInvisibleLifetime = DefaultWS->MaxImpactEffectInvisibleLifetime;
 		}
 	}
-	
-	TSharedPtr<FString> MatchmakingRegionSelection = MatchmakingRegion->GetSelectedItem();
-	if (MatchmakingRegionSelection.IsValid() && bChangedMatchmakingRegion)
+
+	UUTProfileSettings* ProfileSettings = GetPlayerOwner()->GetProfileSettings();
+	if (ProfileSettings)
 	{
-		UUTProfileSettings* ProfileSettings = GetPlayerOwner()->GetProfileSettings();
-		if (ProfileSettings)
+		bool bProfileNeedsUpdate = false;
+		TSharedPtr<FString> MatchmakingRegionSelection = MatchmakingRegion->GetSelectedItem();
+		if (MatchmakingRegionSelection.IsValid() && bChangedMatchmakingRegion)
 		{
-			GetPlayerOwner()->GetProfileSettings()->MatchmakingRegion = *MatchmakingRegionSelection.Get();
-			GetPlayerOwner()->SaveProfileSettings();
+			ProfileSettings->MatchmakingRegion = *MatchmakingRegionSelection.Get();
+			bProfileNeedsUpdate = true;
 		}
+
+		bool bWantsPushToTalk = PushToTalkCombo->GetSelectedItem()->Equals(*VOIPOptions[1].Get(),ESearchCase::IgnoreCase);
+
+		if (ProfileSettings->bPushToTalk != bWantsPushToTalk)
+		{
+			ProfileSettings->bPushToTalk = bWantsPushToTalk;
+			GetPlayerOwner()->PlayerController->ToggleSpeaking(!ProfileSettings->bPushToTalk);
+			bProfileNeedsUpdate = true;
+		}
+
+		if (bProfileNeedsUpdate) GetPlayerOwner()->SaveProfileSettings();
 	}
 
 	GetPlayerOwner()->CloseDialog(SharedThis(this));
@@ -1296,6 +1369,13 @@ void SUTSystemSettingsDialog::OnTextureResolutionSelected(TSharedPtr<FString> Ne
 	ScalabilityQuality.TextureQuality = GeneralScalabilityList.Find(TextureRes->GetSelectedItem());
 	Scalability::SetQualityLevels(ScalabilityQuality);
 	SelectedTextureRes->SetText(*NewSelection.Get());
+}
+void SUTSystemSettingsDialog::OnViewDistanceSelected(TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo)
+{
+	Scalability::FQualityLevels ScalabilityQuality = Scalability::GetQualityLevels();
+	ScalabilityQuality.ViewDistanceQuality = GeneralScalabilityList.Find(ViewDistance->GetSelectedItem());
+	Scalability::SetQualityLevels(ScalabilityQuality);
+	SelectedViewDistance->SetText(*NewSelection.Get());
 }
 void SUTSystemSettingsDialog::OnShadowQualitySelected(TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo)
 {
@@ -1377,5 +1457,11 @@ FText SUTSystemSettingsDialog::GetVSyncText() const
 
 	return NSLOCTEXT("SUTSystemSettingsDialog", "VSync", "VSync");
 }
+
+void SUTSystemSettingsDialog::OnVOIPChanged(TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo)
+{
+	VOIPOptionsText->SetText(*NewSelection.Get());
+}
+
 
 #endif

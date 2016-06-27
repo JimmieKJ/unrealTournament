@@ -3,6 +3,7 @@
 
 #include "UTBasePlayerController.h"
 #include "UTPickupWeapon.h"
+#include "UTGameplayStatics.h"
 
 #if WITH_PROFILE
 #include "UTMcpProfile.h"
@@ -29,6 +30,62 @@ struct FDeferredFireInput
 	{}
 };
 
+USTRUCT()
+struct FCustomSoundAmplification
+{
+	GENERATED_USTRUCT_BODY()
+
+	UPROPERTY(BlueprintReadWrite, Category = SoundAmplification)
+		float  OwnVolumeMultiplier;
+
+	UPROPERTY(BlueprintReadWrite, Category = SoundAmplification)
+		float  OwnPitchMultiplier;
+
+	UPROPERTY(BlueprintReadWrite, Category = SoundAmplification)
+	USoundAttenuation*  InstigatorAttenuation;
+
+	UPROPERTY(BlueprintReadWrite, Category = SoundAmplification)
+		float  InstigatorVolumeMultiplier;
+
+	UPROPERTY(BlueprintReadWrite, Category = SoundAmplification)
+		float  InstigatorPitchMultiplier;
+
+	UPROPERTY(BlueprintReadWrite, Category = SoundAmplification)
+		USoundAttenuation*  TargetAttenuation;
+
+	UPROPERTY(BlueprintReadWrite, Category = SoundAmplification)
+		float  TargetVolumeMultiplier;
+
+	UPROPERTY(BlueprintReadWrite, Category = SoundAmplification)
+		float  TargetPitchMultiplier;
+
+	UPROPERTY(BlueprintReadWrite, Category = SoundAmplification)
+		USoundAttenuation*  TeammateAttenuation;
+
+	UPROPERTY(BlueprintReadWrite, Category = SoundAmplification)
+		float  TeammateVolumeMultiplier;
+
+	UPROPERTY(BlueprintReadWrite, Category = SoundAmplification)
+		float  TeammatePitchMultiplier;
+
+	UPROPERTY(BlueprintReadWrite, Category = SoundAmplification)
+		USoundAttenuation*  OccludedAttenuation;
+
+	FCustomSoundAmplification()
+		: OwnVolumeMultiplier(1.f),
+		OwnPitchMultiplier(1.f), 
+		InstigatorAttenuation(nullptr),
+		InstigatorVolumeMultiplier(1.f),
+		InstigatorPitchMultiplier(1.f),
+		TargetAttenuation(nullptr),
+		TargetVolumeMultiplier(1.f),
+		TargetPitchMultiplier(1.f),
+		TeammateAttenuation(nullptr),
+		TeammateVolumeMultiplier(1.f),
+		TeammatePitchMultiplier(1.f),
+		OccludedAttenuation(nullptr)
+	{}
+};
 
 UCLASS(config=Game)
 class UNREALTOURNAMENT_API AUTPlayerController : public AUTBasePlayerController
@@ -43,10 +100,7 @@ public:
 
 	UFUNCTION(BlueprintCallable, Category = PlayerController)
 	virtual AUTCharacter* GetUTCharacter();
-
-	UFUNCTION(BlueprintCallable, Category = PlayerController)
-	virtual UUTLocalPlayer* GetUTLocalPlayer();
-
+	
 	UPROPERTY(ReplicatedUsing = OnRep_HUDClass)
 	TSubclassOf<class AHUD> HUDClass;
 
@@ -66,6 +120,27 @@ public:
 	UPROPERTY(BlueprintReadWrite, Category = Sounds)
 	USoundBase* ChatMsgSound;
 
+	UPROPERTY(BlueprintReadWrite, Category = Sounds)
+		USoundBase* BoostActivateSound;
+
+	UPROPERTY(BlueprintReadWrite, Category = Sounds)
+		FCustomSoundAmplification FootStepAmp;
+
+	UPROPERTY(BlueprintReadWrite, Category = Sounds)
+		FCustomSoundAmplification PainSoundAmp;
+
+	UPROPERTY(BlueprintReadWrite, Category = Sounds)
+		FCustomSoundAmplification WeaponFireAmp;
+
+	UPROPERTY(BlueprintReadWrite, Category = Sounds)
+		FCustomSoundAmplification WeaponFoleyAmp;
+
+	UPROPERTY()
+		USoundClass* PriorityFXSoundClass;
+
+	UFUNCTION(unreliable, client)
+		void UTClientPlaySound(class USoundBase* Sound);
+
 	virtual void BeginPlay() override;
 	virtual void Destroyed() override;
 	virtual void InitInputSystem() override;
@@ -79,6 +154,7 @@ public:
 	virtual void ClientSetLocation_Implementation(FVector NewLocation, FRotator NewRotation) override;
 	virtual void BeginInactiveState() override;
 	virtual FRotator GetControlRotation() const override;
+	virtual void SetPlayer(UPlayer* InPlayer) override;
 
 	UFUNCTION(Reliable, Client)
 		void ClientReceivePersonalMessage(TSubclassOf<ULocalMessage> Message, int32 Switch = 0, class APlayerState* RelatedPlayerState_1 = NULL, class APlayerState* RelatedPlayerState_2 = NULL, class UObject* OptionalObject = NULL);
@@ -91,20 +167,26 @@ public:
 	UPROPERTY()
 	float LastSameTeamTime;
 
+	UPROPERTY()
+	bool bNeedsRallyNotify;
+
+	UPROPERTY()
+	bool bNeedsBoostNotify;
+
 	UFUNCTION(reliable, client, BlueprintCallable, Category = PlayerController)
 	void UTClientSetRotation(FRotator NewRotation);
 
 	/** check if sound is audible to this player and call ClientHearSound() if so to actually play it
 	 * SoundPlayer may be NULL
 	 */
-	virtual void HearSound(USoundBase* InSoundCue, AActor* SoundPlayer, const FVector& SoundLocation, bool bStopWhenOwnerDestroyed, bool bAmplifyVolume);
+	virtual void HearSound(USoundBase* InSoundCue, AActor* SoundPlayer, const FVector& SoundLocation, bool bStopWhenOwnerDestroyed, bool bAmplifyVolume, ESoundAmplificationType AmpType);
 
 	/** plays a heard sound locally
 	 * SoundPlayer may be NULL for an unattached sound
 	 * if SoundLocation is zero then the sound should be attached to SoundPlayer
 	 */
 	UFUNCTION(client, unreliable)
-	void ClientHearSound(USoundBase* TheSound, AActor* SoundPlayer, FVector_NetQuantize SoundLocation, bool bStopWhenOwnerDestroyed, bool bAmplifyVolume);
+	void ClientHearSound(USoundBase* TheSound, AActor* SoundPlayer, FVector_NetQuantize SoundLocation, bool bStopWhenOwnerDestroyed, bool bAmplifyVolume, ESoundAmplificationType AmpType);
 
 	virtual void ClientSay_Implementation(AUTPlayerState* Speaker, const FString& Message, FName Destination) override;
 
@@ -137,10 +219,10 @@ public:
 	UFUNCTION(server, reliable, withvalidation)
 	virtual void ServerNotifyProjectileHit(AUTProjectile* HitProj, FVector_NetQuantize HitLocation, AActor* DamageCauser, float TimeStamp, int32 Damage=0);
 
-	void AddWeaponPickup(class AUTPickupWeapon* NewPickup)
+	void AddPerPlayerPickup(class AUTPickup* NewPickup)
 	{
 		// clear out any dead entries for destroyed pickups
-		for (TSet< TWeakObjectPtr<AUTPickupWeapon> >::TIterator It(RecentWeaponPickups); It; ++It)
+		for (TSet< TWeakObjectPtr<AUTPickup> >::TIterator It(RecentPerPlayerPickups); It; ++It)
 		{
 			if (!It->IsValid())
 			{
@@ -148,10 +230,16 @@ public:
 			}
 		}
 
-		RecentWeaponPickups.Add(NewPickup);
+		RecentPerPlayerPickups.Add(NewPickup);
 	}
 
 	virtual void UpdateHiddenComponents(const FVector& ViewLocation, TSet<FPrimitiveComponentId>& HiddenComponents);
+
+	UFUNCTION(exec)
+		virtual void RequestRally();
+
+	UFUNCTION(server, reliable, withvalidation)
+		virtual void ServerRequestRally();
 
 	UFUNCTION(exec)
 	virtual void ToggleScoreboard(bool bShow);
@@ -192,6 +280,7 @@ public:
 	virtual bool CanRestartPlayer();
 
 	virtual bool InputKey(FKey Key, EInputEvent EventType, float AmountDepressed, bool bGamepad) override;
+	virtual bool InputAxis(FKey Key, float Delta, float DeltaTime, int32 NumSamples, bool bGamepad) override;
 
 	UPROPERTY(Replicated, BlueprintReadWrite, Category = Camera)
 	bool bAllowPlayingBehindView;
@@ -328,7 +417,7 @@ public:
 	virtual void NotifyTakeHit(AController* InstigatedBy, int32 Damage, FVector Momentum, const FDamageEvent& DamageEvent);
 
 	UFUNCTION(Client, Unreliable)
-	void ClientNotifyTakeHit(bool bFriendlyFire, uint8 Damage, uint8 ShotDirYaw);
+	void ClientNotifyTakeHit(bool bFriendlyFire, uint8 Damage, uint8 ShotDirYaw, TSubclassOf<class UDamageType> DamageTypeClass = nullptr);
 
 	/** notification that we successfully hit HitPawn
 	 * note that HitPawn may be NULL if it is not currently relevant to the client
@@ -451,6 +540,8 @@ public:
 
 	virtual void SpawnPlayerCameraManager() override;
 	virtual void FOV(float NewFOV) override;
+
+	virtual void ResetFoliageDitheredLOD();
 
 	/** desired "team" color for players in FFA games */
 	UPROPERTY(BlueprintReadOnly, GlobalConfig, Category = Display)
@@ -633,8 +724,8 @@ protected:
 	UPROPERTY()
 	AActor* FinalViewTarget;
 
-	/** list of weapon pickups that my Pawn has recently picked up, so we can hide the weapon mesh per player */
-	TSet< TWeakObjectPtr<AUTPickupWeapon> > RecentWeaponPickups;
+	/** list of pickups with per-player state that my Pawn has recently picked up, so we can hide them per player */
+	TSet< TWeakObjectPtr<AUTPickup> > RecentPerPlayerPickups;
 
 	/** Base turn rate, in deg/sec. Other scaling may affect final turn rate. */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Camera)
@@ -688,6 +779,13 @@ public:
 	UFUNCTION(Reliable, Server, WithValidation)
 	void ServerSetWeaponHand(EWeaponHand NewHand);
 
+	/** Last time PrevWeapon or NextWeapon was called. */
+	UPROPERTY(BluePrintReadWrite, Category = Input)
+		float LastWeaponPrevNextTime;
+	
+	UFUNCTION(BlueprintCallable, Category=PlayerController)
+	void ThrowWeapon();
+
 protected:
 	UPROPERTY(BluePrintReadOnly, Category = Dodging)
 	float LastTapLeftTime;
@@ -731,9 +829,7 @@ protected:
 
 	UFUNCTION(exec)
 	void SelectTranslocator();
-
-	void ThrowWeapon();
-	
+		
 	UFUNCTION(Reliable, Server, WithValidation)
 	virtual void ServerThrowWeapon();
 
@@ -878,6 +974,11 @@ protected:
 	
 	//virtual void OnLoginStatusChanged(int32 LocalUserNum, ELoginStatus::Type PreviousLoginStatus, ELoginStatus::Type LoginStatus, const FUniqueNetId& UniqueID);
 	//FDelegateHandle OnLoginStatusChangedDelegate;
+
+	float LastBuyMenuOpenTime;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite)
+	float BuyMenuToggleDelay;
 
 public:
 	FUniqueNetIdRepl GetGameAccountId() const;
@@ -1048,6 +1149,68 @@ public:
 	UPROPERTY()
 	bool bUseAltSpawnPoint;
 
+	UFUNCTION(exec)
+	virtual void ShowComsMenu();
+	
+	UFUNCTION(exec)
+	virtual void HideComsMenu();
+
+	UFUNCTION(exec)
+	virtual void ShowWeaponWheel();
+
+	UFUNCTION(exec)
+	virtual void HideWeaponWheel();
+
+	void ServerDebugTest_Implementation(const FString& TestCommand) override;
+
+	UFUNCTION(exec)
+	virtual void FlushVOIP();
+
+	UFUNCTION(exec)
+	virtual void VoiceDebug(const FString& Command);
+
+	UFUNCTION(server, reliable, withvalidation)
+	virtual void ServerVoiceDebug(const FString& Command);
+
+	virtual void ProcessVoiceDebug(const FString& Command);
+
+	UFUNCTION(Client, Reliable)
+	void ClientPlayInstantReplay(APawn* PawnToFocus, float TimeToRewind);
+
+	/** Sent by the server when the possessed pawn is killed */
+	UFUNCTION(Client, Reliable)
+	void ClientPlayKillcam(AController* KillingController, APawn* PawnToFocus);
+
+	/** Sent by the server when the player is about to respawn */
+	UFUNCTION(Client, Reliable)
+	void ClientStopKillcam();
+
+	/** Our own timer callback, to start the killcam a moment after the character's death. */
+	void OnKillcamStart(const FNetworkGUID InFocusActorGUID, float TimeToRewind);
+
+	FTimerHandle KillcamStartHandle;
+	FTimerHandle KillcamStopHandle;
+
+	// Sends a coms message to the server.  Performs client-side spam protection
+	UFUNCTION(blueprintcallable, Category = Message)
+	void SendComsMessage(AUTPlayerState* Target, int32 Switch);
+
+	/** Look at all of the weapons the player currently has and fix their group slots */
+	UFUNCTION(blueprintcallable, Category=Inventory)
+	void RefreshWeaponGroups();
+
+protected:
+	UFUNCTION(Server, Reliable, WithValidation)
+	void ServerSendComsMessage(AUTPlayerState* Target, int32 Switch);
+
+	UFUNCTION()
+	virtual void RestartVOIP();
+
+	UPROPERTY()
+	int32 LastComMessageSwitch;
+
+	UPROPERTY()
+	float LastComMessageTime;
 
 };
 

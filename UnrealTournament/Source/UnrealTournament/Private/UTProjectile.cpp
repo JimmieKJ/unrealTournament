@@ -75,6 +75,8 @@ AUTProjectile::AUTProjectile(const class FObjectInitializer& ObjectInitializer)
 	bReplicateUTMovement = false;
 	bReplicateMovement = false;
 	bMoveFakeToReplicatedPos = true;
+	bCanHitTeammates = false;
+	SlomoTime = 5.f;
 
 	bInitiallyWarnTarget = true;
 
@@ -478,6 +480,8 @@ void AUTProjectile::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& 
 	//DOREPLIFETIME_CONDITION(AActor, ReplicatedMovement, COND_SimulatedOrPhysics);
 
 	DOREPLIFETIME_CONDITION(AUTProjectile, UTProjReplicatedMovement, COND_SimulatedOrPhysics);
+
+	DOREPLIFETIME(AUTProjectile, Slomo);
 }
 
 void AUTProjectile::PreReplication(IRepChangedPropertyTracker & ChangedPropertyTracker)
@@ -507,14 +511,7 @@ void AUTProjectile::GatherCurrentMovement()
 		// If we are attached, don't replicate absolute position
 		if (RootComponent->AttachParent != NULL)
 		{
-			// Networking for attachments assumes the RootComponent of the AttachParent actor. 
-			// If that's not the case, we can't update this, as the client wouldn't be able to resolve the Component and would detach as a result.
-			if (GetAttachmentReplication().AttachParent != NULL)
-			{
-				AttachmentReplication.LocationOffset = RootComponent->RelativeLocation;
-				AttachmentReplication.RotationOffset = RootComponent->RelativeRotation;
-				AttachmentReplication.RelativeScale3D = RootComponent->RelativeScale3D;
-			}
+			Super::GatherCurrentMovement();
 		}
 		else
 		{
@@ -603,6 +600,22 @@ void AUTProjectile::PostNetReceiveVelocity(const FVector& NewVelocity)
 	}
 }
 
+void AUTProjectile::OnRep_Slomo()
+{
+	CustomTimeDilation = Slomo;
+	bForceNextRepMovement = true;
+	if (Slomo != 1.f)
+	{
+		GetWorldTimerManager().SetTimer(SlomoTimerHandle, this, &AUTProjectile::EndSlomo, SlomoTime);
+	}
+}
+
+void AUTProjectile::EndSlomo()
+{
+	Slomo = 1.f;
+	OnRep_Slomo();
+}
+
 void AUTProjectile::OnOverlapBegin(AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
 {
 	if (!bInOverlap)
@@ -679,7 +692,7 @@ void AUTProjectile::OnBounce(const struct FHitResult& ImpactResult, const FVecto
 		// Play bounce sound
 		if (BounceSound != NULL)
 		{
-			UUTGameplayStatics::UTPlaySound(GetWorld(), BounceSound, this, SRT_IfSourceNotReplicated, false);
+			UUTGameplayStatics::UTPlaySound(GetWorld(), BounceSound, this, SRT_IfSourceNotReplicated, false, FVector::ZeroVector, NULL, NULL, true, SAT_WeaponFoley);
 		}
 	}
 
@@ -728,6 +741,12 @@ void AUTProjectile::ProcessHit_Implementation(AActor* OtherActor, UPrimitiveComp
 	if ( OtherActor != this && (OtherActor != Instigator || Instigator == NULL || bCanHitInstigator) && OtherComp != NULL && !bExploded  && (Role == ROLE_Authority || bHasSpawnedFully)
 		 && !ShouldIgnoreHit(OtherActor, OtherComp) )
 	{
+		AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
+		if (!bCanHitTeammates && GS && !GS->bTeamProjHits && Cast<AUTCharacter>(OtherActor) && Instigator && (Instigator != OtherActor) && GS->OnSameTeam(OtherActor, Instigator))
+		{
+			// ignore team hits
+			return;
+		}
 		if (MyFakeProjectile && !MyFakeProjectile->IsPendingKillPending())
 		{
 			MyFakeProjectile->ProcessHit_Implementation(OtherActor, OtherComp, HitLocation, HitNormal);
@@ -809,6 +828,7 @@ void AUTProjectile::DamageImpactedActor_Implementation(AActor* OtherActor, UPrim
 		new(Event.ComponentHits) FHitResult(OtherActor, OtherComp, HitLocation, HitNormal);
 		Event.ComponentHits[0].TraceStart = HitLocation - GetVelocity();
 		Event.ComponentHits[0].TraceEnd = HitLocation + GetVelocity();
+		Event.ShotDirection = GetVelocity().GetSafeNormal();
 		OtherActor->TakeDamage(Event.Params.BaseDamage, Event, ResolvedInstigator, this);
 	}
 	else

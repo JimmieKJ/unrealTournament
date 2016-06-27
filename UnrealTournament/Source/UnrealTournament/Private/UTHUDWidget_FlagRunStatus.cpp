@@ -7,13 +7,26 @@
 UUTHUDWidget_FlagRunStatus::UUTHUDWidget_FlagRunStatus(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
+	NormalLineBrightness = 0.03f;
+	LineGlow = 0.5f;
+	PulseLength = 3.f;
+}
+
+bool UUTHUDWidget_FlagRunStatus::ShouldDraw_Implementation(bool bShowScores)
+{
+	bool bResult = Super::ShouldDraw_Implementation(bShowScores);
+	if (!bResult)
+	{
+		LastFlagStatusChange = GetWorld()->GetTimeSeconds();
+	}
+	return bResult;
 }
 
 void UUTHUDWidget_FlagRunStatus::DrawStatusMessage(float DeltaTime)
 {
 }
 
-void UUTHUDWidget_FlagRunStatus::DrawIndicators(AUTCTFGameState* GameState, FVector PlayerViewPoint, FRotator PlayerViewRotation)
+void UUTHUDWidget_FlagRunStatus::DrawIndicators(AUTCTFGameState* GameState, FVector PlayerViewPoint, FRotator PlayerViewRotation, float DeltaTime)
 {
 	if (GameState)
 	{
@@ -21,18 +34,18 @@ void UUTHUDWidget_FlagRunStatus::DrawIndicators(AUTCTFGameState* GameState, FVec
 		uint8 OffensiveTeam = GameState->bRedToCap ? 0 : 1;
 		uint8 DefensiveTeam = GameState->bRedToCap ? 1 : 0;
 
-		if (GameState->FlagBases.IsValidIndex(OffensiveTeam))
+		if (GameState->FlagBases.IsValidIndex(OffensiveTeam) && GameState->FlagBases[OffensiveTeam] != nullptr)
 		{
 			AUTCTFFlag* Flag = Cast<AUTCTFFlag>(GameState->FlagBases[OffensiveTeam]->GetCarriedObject());
-			if (Flag)
+			if (Flag && (Flag->ObjectState != CarriedObjectState::Delivered))
 			{
 				DrawFlagStatus(GameState, PlayerViewPoint, PlayerViewRotation, OffensiveTeam, FVector2D(0.0f, 0.0f), GameState->FlagBases[OffensiveTeam], Flag, Flag->Holder);
 				DrawFlagWorld(GameState, PlayerViewPoint, PlayerViewRotation, OffensiveTeam, GameState->FlagBases[OffensiveTeam], Flag, Flag->Holder);
 			}
 		}
-		if (GameState->FlagBases.IsValidIndex(DefensiveTeam))
+		if (GameState->FlagBases.IsValidIndex(DefensiveTeam) && GameState->FlagBases[DefensiveTeam] != nullptr)
 		{
-	DrawFlagBaseWorld(GameState, PlayerViewPoint, PlayerViewRotation, DefensiveTeam, GameState->FlagBases[DefensiveTeam], nullptr, nullptr);
+			DrawFlagBaseWorld(GameState, PlayerViewPoint, PlayerViewRotation, DefensiveTeam, GameState->FlagBases[DefensiveTeam], nullptr, nullptr);
 		}
 	}
 }
@@ -41,7 +54,6 @@ bool UUTHUDWidget_FlagRunStatus::ShouldDrawFlag(AUTCTFFlag* Flag, bool bIsEnemyF
 {
 	return (Flag->ObjectState == CarriedObjectState::Dropped) || (Flag->ObjectState == CarriedObjectState::Home) || Flag->bCurrentlyPinged || !bIsEnemyFlag;
 }
-
 
 void UUTHUDWidget_FlagRunStatus::DrawFlagBaseWorld(AUTCTFGameState* GameState, FVector PlayerViewPoint, FRotator PlayerViewRotation, uint8 TeamNum, AUTCTFFlagBase* FlagBase, AUTCTFFlag* Flag, AUTPlayerState* FlagHolder)
 {
@@ -109,7 +121,7 @@ void UUTHUDWidget_FlagRunStatus::DrawFlagWorld(AUTCTFGameState* GameState, FVect
 	bool bSpectating = UTPlayerOwner->PlayerState && UTPlayerOwner->PlayerState->bOnlySpectator;
 	bool bIsEnemyFlag = Flag && !GameState->OnSameTeam(Flag, UTPlayerOwner);
 	bool bShouldDrawFlagIcon = ShouldDrawFlag(Flag, bIsEnemyFlag);
-	if (Flag && (bSpectating || bShouldDrawFlagIcon) && (Flag->Holder != UTPlayerOwner->PlayerState))
+	if (Flag && (bSpectating || bShouldDrawFlagIcon) && (Flag->Holder != UTHUDOwner->GetScorerPlayerState()))
 	{
 		bScaleByDesignedResolution = false;
 		FlagIconTemplate.RenderColor = GameState->Teams.IsValidIndex(TeamNum) ? GameState->Teams[TeamNum]->TeamColor : FLinearColor::Green;
@@ -180,13 +192,10 @@ void UUTHUDWidget_FlagRunStatus::DrawFlagWorld(AUTCTFGameState* GameState, FVect
 		{
 			DrawEdgeArrow(ScreenPosition, CurrentWorldAlpha, WorldRenderScale, TeamNum);
 		}
-		else
+		FText FlagStatusMessage = Flag->GetHUDStatusMessage(UTHUDOwner);
+		if (!FlagStatusMessage.IsEmpty())
 		{
-			FText FlagStatusMessage = Flag->GetHUDStatusMessage(UTHUDOwner);
-			if (!FlagStatusMessage.IsEmpty())
-			{
-				DrawText(FlagStatusMessage, ScreenPosition.X, ScreenPosition.Y - ((CircleTemplate.GetHeight() + 40) * WorldRenderScale), AUTHUD::StaticClass()->GetDefaultObject<AUTHUD>()->TinyFont, true, FVector2D(1.f, 1.f), FLinearColor::Black, false, FLinearColor::Black, 1.5f*WorldRenderScale, 0.5f + 0.5f*CurrentWorldAlpha, FLinearColor::White, FLinearColor(0.f, 0.f, 0.f, 0.f), ETextHorzPos::Center, ETextVertPos::Center);
-			}
+			DrawText(FlagStatusMessage, ScreenPosition.X, ScreenPosition.Y - ((CircleTemplate.GetHeight() + 40) * WorldRenderScale), AUTHUD::StaticClass()->GetDefaultObject<AUTHUD>()->TinyFont, true, FVector2D(1.f, 1.f), FLinearColor::Black, false, FLinearColor::Black, 1.5f*WorldRenderScale, 0.5f + 0.5f*CurrentWorldAlpha, FLinearColor::White, FLinearColor(0.f, 0.f, 0.f, 0.f), ETextHorzPos::Center, ETextVertPos::Center);
 		}
 		if (Flag && Flag->ObjectState == CarriedObjectState::Held)
 		{
@@ -218,10 +227,35 @@ void UUTHUDWidget_FlagRunStatus::DrawFlagWorld(AUTCTFGameState* GameState, FVect
 		FlagIconTemplate.RenderOpacity = OldFlagAlpha;
 		CircleTemplate.RenderOpacity = 1.f;
 		CircleBorderTemplate.RenderOpacity = 1.f;
-		bScaleByDesignedResolution = true;
+
+		if (LastFlagStatus != Flag->ObjectState)
+		{
+			LastFlagStatus = Flag->ObjectState;
+			LastFlagStatusChange = GetWorld()->GetTimeSeconds();
+		}
+		float TimeSinceChange = GetWorld()->GetTimeSeconds() - LastFlagStatusChange;
+		float LineBrightness = NormalLineBrightness;
+		if (TimeSinceChange < 0.1f)
+		{
+			LineBrightness += LineGlow * TimeSinceChange * 10.f;
+		}
+		else if (TimeSinceChange < 0.1f + PulseLength)
+		{
+			LineBrightness = NormalLineBrightness + LineGlow * FMath::Max(0.f, 1.f - (TimeSinceChange - 0.1f) / PulseLength);
+		}
+
+		// draw line from hud to this loc - can't used Canvas line drawing code because it doesn't support translucency
+		FVector LineEndPoint(ScreenPosition.X+RenderPosition.X, ScreenPosition.Y+RenderPosition.Y, 0.f);
+		FVector LineStartPoint(0.5f*Canvas->ClipX, 0.12f*Canvas->ClipY, 0.f);
+		FLinearColor LineColor = FlagIconTemplate.RenderColor;
+		LineColor.A = LineBrightness;
+		FBatchedElements* BatchedElements = Canvas->Canvas->GetBatchedElements(FCanvas::ET_Line);
+		FHitProxyId HitProxyId = Canvas->Canvas->GetHitProxyId();
+		BatchedElements->AddTranslucentLine(LineEndPoint, LineStartPoint, LineColor, HitProxyId, 8.f);
 	}
 	else if (bIsEnemyFlag)
 	{
 		bEnemyFlagWasDrawn = false;
 	}
 }
+

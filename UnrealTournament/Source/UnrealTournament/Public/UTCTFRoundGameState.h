@@ -10,8 +10,8 @@ class UNREALTOURNAMENT_API AUTCTFRoundGameState : public AUTCTFGameState
 {
 	GENERATED_UCLASS_BODY()
 
-		UPROPERTY(Replicated)
-		uint32 IntermissionTime;
+	UPROPERTY(Replicated)
+	int32 IntermissionTime;
 
 	UPROPERTY(Replicated)
 		int32 OffenseKills;
@@ -30,6 +30,9 @@ class UNREALTOURNAMENT_API AUTCTFRoundGameState : public AUTCTFGameState
 
 	UPROPERTY(Replicated)
 		bool bIsOffenseAbleToGainPowerup;
+
+	UPROPERTY(Replicated)
+		bool bUsePrototypePowerupSelect;
 
 	UPROPERTY(Replicated)
 		int32 GoldBonusThreshold;
@@ -79,4 +82,27 @@ class UNREALTOURNAMENT_API AUTCTFRoundGameState : public AUTCTFGameState
 
 	UFUNCTION(BlueprintCallable, Category = Team)
 	virtual bool IsTeamOnDefenseNextRound(int32 TeamNumber) const;
+
+	UFUNCTION(BlueprintCallable, Category = GameState)
+	virtual TSubclassOf<class AUTInventory> GetSelectableBoostByIndex(AUTPlayerState* PlayerState, int Index) const override;
+
+	virtual void BeginPlay() override;
+
+	UFUNCTION(BlueprintCallable, Category = GameState)
+	FString GetPowerupSelectWidgetPath(int32 TeamNumber);
+
+	virtual bool InOrder(class AUTPlayerState* P1, class AUTPlayerState* P2) override;
+
+protected:
+	virtual void UpdateTimeMessage();
+
+	virtual void UpdateSelectablePowerups();
+	virtual void AddModeSpecificOverlays();
+
+	UPROPERTY()
+	TArray<TSubclassOf<class AUTInventory>> DefenseSelectablePowerups;
+
+	UPROPERTY()
+	TArray<TSubclassOf<class AUTInventory>> OffenseSelectablePowerups;
+
 };

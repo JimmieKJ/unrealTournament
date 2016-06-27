@@ -117,6 +117,7 @@ public:
 	TSharedPtr<SComboBox< TSharedPtr<FString>  > > WeaponSkinComboBox;
 	TSharedPtr<STextBlock> WeaponSkinText;
 	TArray<TSharedPtr<FString>> WeaponSkinList;
+
 	TMap< FString, TArray<UUTWeaponSkin*> > WeaponToSkinListMap;
 	TMap< FString, FString > WeaponSkinSelection;
 	void OnWeaponSkinSelected(TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo);
@@ -140,6 +141,15 @@ public:
 	void UpdateWeaponsInGroup();
 
 	FReply DefaultGroupsClicked();
+
+	TArray<TSharedPtr<FText>> QuickSlotTexts;
+	TSharedPtr< SComboBox< TSharedPtr<FText> > > QuickSlotComboBox;
+	
+	TSharedRef<SWidget> GenerateQuickslotListWidget(TSharedPtr<FText> InItem);
+	void OnQuickslotSelected(TSharedPtr<FText> NewSelection, ESelectInfo::Type SelectInfo);
+	TSharedPtr<STextBlock> SelectedWeaponQuickslot;
+
+	TArray<FString> WeaponWheelClassnames;
 
 };
 #endif

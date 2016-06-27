@@ -27,6 +27,13 @@ static TAutoConsoleVariable<int32> GRoundChartingFPSBeforeBinning(
 	TEXT("Should we round raw FPS values before thresholding them into bins when doing a FPS chart?\n")
 	TEXT(" default: 0"));
 
+// Should we exclude FPS values before thresholding them into bins?
+static TAutoConsoleVariable<int32> GFPSChartExcludeIdleTime(
+	TEXT("t.FPSChart.ExcludeIdleTime"),
+	0,
+	TEXT("Should we exclude idle time (i.e. one which we spent sleeping) when doing a FPS chart?\n")
+	TEXT(" default: 0"));
+
 float GMaximumFrameTimeToConsiderForHitchesAndBinning = 1.0f;
 
 static FAutoConsoleVariableRef GMaximumFrameTimeToConsiderForHitchesAndBinningCVar(
@@ -211,6 +218,7 @@ protected:
 		PrintToEndpoint(FString::Printf(TEXT("BoundGameThreadPct: %4.2f"), BoundGameThreadPct));
 		PrintToEndpoint(FString::Printf(TEXT("BoundRenderThreadPct: %4.2f"), BoundRenderThreadPct));
 		PrintToEndpoint(FString::Printf(TEXT("BoundGPUPct: %4.2f"), BoundGPUPct));
+		PrintToEndpoint(FString::Printf(TEXT("ExcludeIdleTime: %d"), GFPSChartExcludeIdleTime.GetValueOnGameThread()));		
 	}
 };
 
@@ -438,6 +446,8 @@ protected:
 		ParamArray.Add(FAnalyticsEventAttribute(TEXT("PercentGameThreadBound"), FString::Printf(TEXT("%4.2f"), BoundGameThreadPct)));
 		ParamArray.Add(FAnalyticsEventAttribute(TEXT("PercentRenderThreadBound"), FString::Printf(TEXT("%4.2f"), BoundRenderThreadPct)));
 		ParamArray.Add(FAnalyticsEventAttribute(TEXT("PercentGPUBound"), FString::Printf(TEXT("%4.2f"), BoundGPUPct)));
+
+		ParamArray.Add(FAnalyticsEventAttribute(TEXT("ExcludeIdleTime"), FString::Printf(TEXT("%d"), GFPSChartExcludeIdleTime.GetValueOnGameThread())));
 	}
 };
 
@@ -647,6 +657,20 @@ void UEngine::TickFPSChart( float DeltaSeconds )
 		DeltaSeconds = CurrentTime - GLastTimeChartCreationTicked;
 	}
 	GLastTimeChartCreationTicked = CurrentTime;
+
+	// subtract idle time (FPS chart is ticked after UpdateTimeAndHandleMaxTickRate(), so we know time we spent sleeping this frame)
+	if (GFPSChartExcludeIdleTime.GetValueOnGameThread() != 0)
+	{
+		double ThisFrameIdleTime = FApp::GetIdleTime();
+		if (LIKELY(ThisFrameIdleTime < DeltaSeconds))
+		{
+			DeltaSeconds -= ThisFrameIdleTime;
+		}
+		else
+		{
+			UE_LOG(LogChartCreation, Warning, TEXT("Idle time for this frame (%f) is larger than delta between FPSChart ticks (%f)"), ThisFrameIdleTime, DeltaSeconds);
+		}
+	}
 
 	// now gather some stats on what this frame was bound by (game, render, gpu)
 

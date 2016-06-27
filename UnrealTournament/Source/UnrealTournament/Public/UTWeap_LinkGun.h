@@ -127,6 +127,11 @@ class UNREALTOURNAMENT_API AUTWeap_LinkGun : public AUTWeapon
 	UPROPERTY(BlueprintReadOnly, Category = LinkGun)
 		bool bLinkCausingDamage;
 
+	/** True if link beam is currently hitting something. */
+	UPROPERTY(BlueprintReadOnly, Category = LinkGun)
+		bool bLinkBeamImpacting;
+
+
 protected:
 	UPROPERTY(BlueprintReadOnly, Replicated, Category = LinkGun)
 	AActor* LinkTarget;

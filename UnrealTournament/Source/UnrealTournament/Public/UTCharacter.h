@@ -426,6 +426,9 @@ class UNREALTOURNAMENT_API AUTCharacter : public ACharacter, public IUTTeamInter
 	 */
 	void GetSimplifiedSavedPositions(TArray<FSavedPosition>& OutPositions, bool bStopAtTeleport) const;
 
+	UPROPERTY(BlueprintReadWrite, Category = "Pawn")
+		bool bCanRally;
+
 	/** Limit to armor stacking */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Pawn")
 	int32 MaxStackedArmor;
@@ -532,7 +535,7 @@ class UNREALTOURNAMENT_API AUTCharacter : public ACharacter, public IUTTeamInter
 	/** discards (generally destroys) all inventory items */
 	UFUNCTION(BlueprintCallable, Category = "Pawn")
 	virtual void DiscardAllInventory();
-
+	
 	/** call to propagate a named character event (jumping, firing, etc) to all inventory items with bCallOwnerEvent = true */
 	UFUNCTION(BlueprintCallable, Category = "Pawn")
 	virtual void InventoryEvent(FName EventName);
@@ -906,7 +909,7 @@ public:
 
 	UFUNCTION(BlueprintCallable, Category = Pawn)
 	void SetHeadScale(float NewHeadScale);
-	
+
 	/** sends notification to any other server-side Actors (controller, etc) that need to know about being hit 
 	AppliedDamage is the damage inflicted, Damage is the net damage taken after armor, etc. reductions. */
 	virtual void NotifyTakeHit(AController* InstigatedBy, int32 AppliedDamage, int32 Damage, FVector Momentum, AUTInventory* HitArmor, const FDamageEvent& DamageEvent);
@@ -992,6 +995,10 @@ public:
 	UPROPERTY()
 	bool bStartingRagdoll;
 
+	FTimerHandle DeathSoundHandle;
+
+	virtual void PlayDeathSound();
+
 protected:
 	UPROPERTY(BlueprintReadOnly, Category = Ragdoll)
 	float RagdollGravityScale;
@@ -1050,7 +1057,7 @@ public:
 	virtual void AddDefaultInventory(TArray<TSubclassOf<AUTInventory>> DefaultInventoryToAdd);
 
 	UFUNCTION(BlueprintCallable, Category = Pawn)
-	bool IsDead();
+	bool IsDead() const;
 
 	/** weapon firing */
 	UFUNCTION(BlueprintCallable, Category = "Pawn")
@@ -1071,6 +1078,10 @@ public:
 	/** Return true if character is currently able to dodge. */
 	UFUNCTION(BlueprintCallable, Category = "Pawn|Character")
 	bool CanDodge() const;
+
+	/** Return true if character is currently able to slide. */
+	UFUNCTION(BlueprintCallable, Category = "Pawn|Character")
+		bool CanSlide() const;
 
 	/** Dodge requested by controller, return whether dodge occurred. */
 	virtual bool Dodge(FVector DodgeDir, FVector DodgeCross);
@@ -1215,13 +1226,9 @@ public:
 	UPROPERTY()
 	TMap<TEnumAsByte<EPhysicalSurface>, USoundBase*> OwnFootstepSoundsMap;
 
-	/** Footstep sound played for characters you don't control. */
+	/** Footstep sound when none is specified by the surface you are standing on. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Sounds)
 	USoundBase* FootstepSound;
-
-	/** Footstep sound played for the character you control. */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Sounds)
-	USoundBase* OwnFootstepSound;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Sounds)
 	USoundBase* WaterFootstepSound;
@@ -1741,9 +1748,12 @@ protected:
 
 	/** switches weapon locally, must execute independently on both server and client */
 	virtual void LocalSwitchWeapon(AUTWeapon* NewWeapon);
+
 	/** RPC to do weapon switch */
 	UFUNCTION(Server, Reliable, WithValidation)
 	virtual void ServerSwitchWeapon(AUTWeapon* NewWeapon);
+
+protected:
 	UFUNCTION(Client, Reliable)
 	virtual void ClientSwitchWeapon(AUTWeapon* NewWeapon);
 	/** utility to redirect to SwitchToBestWeapon() to the character's Controller (human or AI) */
@@ -1778,6 +1788,11 @@ protected:
 		TSubclassOf<AUTWeaponAttachment> HolsteredWeaponAttachmentClass;
 
 public:
+	inline const AUTWeaponAttachment* GetWeaponAttachment() const
+	{
+		return WeaponAttachment;
+	}
+
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Pawn")
 	TArray< TSubclassOf<AUTInventory> > DefaultCharacterInventory;
 protected:
@@ -1860,22 +1875,61 @@ public:
 	UFUNCTION()
 	void StatusAmbientSoundUpdated();
 
-	/** TacCom overlay material */
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Effects)
-	UMaterialInterface* TacComOverlayMaterial;
-
-	virtual void UpdateTacComMesh(bool bNewTacComEnabled);
-
-	/** Selection overlay material */
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Effects)
-	UMaterialInterface* SelectionOverlayMaterial;
-
-	virtual void UpdateSelectionMesh(bool bNewSelectionEnabled);
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = Effects)
+	virtual void SetOutlineServer(bool bNowOutlined, bool bWhenUnoccluded = false, uint8 TeamMask = 0);
+	UFUNCTION(BlueprintCallable, BlueprintCosmetic, Category = Effects)
+	virtual void SetOutlineLocal(bool bNowOutlined, bool bWhenUnoccluded = false);
 
 protected:
-	bool bTacComEnabled;
-	bool bSelectionEnabled;
-	int32 CustomDepthCount;
+	/** whether the server has enabled the outline (because of gameplay effects like player pings) */
+	UPROPERTY(VisibleInstanceOnly, ReplicatedUsing = UpdateOutline)
+	bool bServerOutline;
+	/** mask of teams that see the outline (0 and 255 == all teams) */
+	UPROPERTY(VisibleInstanceOnly, Replicated)
+	uint8 ServerOutlineTeamMask;
+	/** whether to draw the outline when unoccluded */
+	UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, ReplicatedUsing = UpdateOutline)
+	bool bOutlineWhenUnoccluded;
+	/** whether the local client has enabled the outline (because of e.g. vision modes) */
+	UPROPERTY(VisibleInstanceOnly)
+	bool bLocalOutline;
+
+	UFUNCTION()
+	virtual void UpdateOutline();
+
+public:
+	UFUNCTION(BlueprintCallable, Category = UTCharacter, BlueprintPure)
+	bool IsOutlined(uint8 TestTeam = 255) const
+	{
+		if (IsDead())
+		{
+			return false;
+		}
+		else if (bLocalOutline)
+		{
+			return true;
+		}
+		else if (bServerOutline)
+		{
+			return (TestTeam > 7 || ServerOutlineTeamMask == 0 || (ServerOutlineTeamMask & (1 << TestTeam)));
+		}
+		else
+		{
+			return false;
+		}
+	}
+	inline bool GetOutlineWhenUnoccluded() const
+	{
+		return bOutlineWhenUnoccluded;
+	}
+	inline const USkeletalMeshComponent* GetCustomDepthMesh() const
+	{
+		return CustomDepthMesh;
+	}
+protected:
+	/** copy of our mesh rendered to CustomDepth for the outline (which is done in postprocess using the resulting data) */
+	UPROPERTY()
+	USkeletalMeshComponent* CustomDepthMesh;
 
 	/** last time PlayFootstep() was called, for timing footsteps when animations are disabled */
 	float LastFootstepTime;
@@ -1971,9 +2025,19 @@ public:
 	UFUNCTION(BlueprintNativeEvent, Category = Pawn)
 	void SetInitialHealth();
 
+public:
+	UFUNCTION(BlueprintCallable, Category = Movement)
+	virtual void BoostSpeedForTime(float SpeedBoostPct, float TimeToBoost);
+	
+	UFUNCTION(BlueprintCallable, Category = Aim)
+	AActor* GetCurrentAimContext();
+
+
+private:
+	FTimerHandle SpeedBoostTimerHandle;
 };
 
-inline bool AUTCharacter::IsDead()
+inline bool AUTCharacter::IsDead() const
 {
 	return bTearOff || IsPendingKillPending();
 }

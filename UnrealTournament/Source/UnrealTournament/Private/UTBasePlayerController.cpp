@@ -13,6 +13,7 @@
 #include "UTProfileSettings.h"
 #include "UTGameInstance.h"
 #include "UTParty.h"
+#include "UnrealTournamentFullScreenMovie.h"
 
 AUTBasePlayerController::AUTBasePlayerController(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -551,6 +552,8 @@ void AUTBasePlayerController::ClientGenericInitialization_Implementation()
 	{
 		ServerReceiveStars(LP->GetTotalChallengeStars());
 	}
+
+	ClientWaitForMovieToFinish();
 }
 
 // FIXMESTEVE shouldn't receive this from client
@@ -651,7 +654,10 @@ void AUTBasePlayerController::ServerRconNormal_Implementation()
 	}
 }
 
-
+UUTLocalPlayer* AUTBasePlayerController::GetUTLocalPlayer()
+{
+	return Cast<UUTLocalPlayer>(Player);
+}
 
 void AUTBasePlayerController::RconExec(FString Command)
 {
@@ -797,7 +803,6 @@ void AUTBasePlayerController::UpdateInputMode()
 		}
 
 		bShowMouseCursor = (InputMode == EInputMode::EIM_GameAndUI || InputMode == EInputMode::EIM_UIOnly);
-	
 	}
 }
 #endif
@@ -855,9 +860,15 @@ void AUTBasePlayerController::ReceivedPlayer()
 	if (UTLocalPlayer)
 	{
 		ServerSetAvatar(UTLocalPlayer->GetAvatar());
+		UUTGameInstance* UTGameInstance = Cast<UUTGameInstance>(UTLocalPlayer->GetGameInstance());
+		if (UTGameInstance)
+		{
+			UTGameInstance->bLevelIsLoading = false;
+		}
 	}
 
 	SendStatsIDToServer();
+
 }
 
 bool AUTBasePlayerController::ServerReceiveStatsID_Validate(const FString& NewStatsID)
@@ -869,9 +880,16 @@ void AUTBasePlayerController::ServerReceiveStatsID_Implementation(const FString&
 {
 	if (UTPlayerState != NULL && !GetWorld()->IsPlayInEditor()) // && GetWorld()->GetNetMode() != NM_Standalone)
 	{
-		UTPlayerState->StatsID = NewStatsID;
-		UTPlayerState->ReadStatsFromCloud();
-		UTPlayerState->ReadMMRFromBackend();
+		if (NewStatsID != UTPlayerState->StatsID)
+		{
+			UTPlayerState->StatsID = NewStatsID;
+			UTPlayerState->ReadStatsFromCloud();
+			UTPlayerState->ReadMMRFromBackend();
+		}
+		else
+		{
+			UE_LOG(UT, Warning, TEXT("ServerReceiveStatsID called twice on the same PlayerController"));
+		}
 	}
 }
 
@@ -977,3 +995,68 @@ UUTProfileSettings* AUTBasePlayerController::GetProfileSettings()
 	if (Cast<UUTLocalPlayer>(Player) != nullptr) return Cast<UUTLocalPlayer>(Player)->GetProfileSettings();
 	return nullptr;
 }
+
+void AUTBasePlayerController::ClientPlayMovie_Implementation(const FString& MovieName)
+{
+#if !UE_SERVER
+	UUTGameInstance* UTGameInstance = Cast<UUTGameInstance>(GetGameInstance());
+	if (UTGameInstance)
+	{
+		UTGameInstance->PlayLoadingMovie(MovieName);
+	}
+#endif
+}
+
+
+void AUTBasePlayerController::ClientStopMovie_Implementation()
+{
+#if !UE_SERVER
+	UUTGameInstance* UTGameInstance = Cast<UUTGameInstance>(GetGameInstance());
+	if (UTGameInstance)
+	{
+		UTGameInstance->StopMovie();
+	}
+#endif
+}
+
+void AUTBasePlayerController::ClientWaitForMovieToFinish_Implementation()
+{
+#if !UE_SERVER
+	UUTGameInstance* UTGameInstance = Cast<UUTGameInstance>(GetGameInstance());
+	if (UTGameInstance)
+	{
+		UTGameInstance->WaitForMovieToFinish(true);
+	}
+#endif
+}
+
+void AUTBasePlayerController::ClientEnableNetworkVoice_Implementation(bool bEnable)
+{
+	UUTProfileSettings* ProfileSettings = NULL;
+
+	if (Cast<UUTLocalPlayer>(Player))
+	{
+		ProfileSettings = Cast<UUTLocalPlayer>(Player)->GetProfileSettings();
+	}
+
+	ToggleSpeaking(ProfileSettings ? !ProfileSettings->bPushToTalk : bEnable);
+}
+
+void AUTBasePlayerController::StartVOIPTalking()
+{
+	UUTProfileSettings* ProfileSettings = GetProfileSettings();
+	if (ProfileSettings && ProfileSettings->bPushToTalk)
+	{
+		ToggleSpeaking(true);
+	}
+}
+
+void AUTBasePlayerController::StopVOIPTalking()
+{
+	UUTProfileSettings* ProfileSettings = GetProfileSettings();
+	if (ProfileSettings && ProfileSettings->bPushToTalk)
+	{
+		ToggleSpeaking(false);
+	}
+}
+

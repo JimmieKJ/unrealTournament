@@ -76,6 +76,8 @@
 #include "WidgetBlueprintLibrary.h"
 #include "BlueprintContextLibrary.h"
 #include "MatchmakingContext.h"
+#include "UTKillcamPlayback.h"
+#include "UTDemoNetDriver.h"
 
 #if WITH_SOCIAL
 #include "Social.h"
@@ -121,6 +123,8 @@ UUTLocalPlayer::UUTLocalPlayer(const class FObjectInitializer& ObjectInitializer
 
 	bAutoRankLockWarningShown = false;
 	bJoinSessionInProgress = false;
+
+	KillcamPlayback = ObjectInitializer.CreateDefaultSubobject<UUTKillcamPlayback>(this, TEXT("KillcamPlayback"));
 }
 
 UUTLocalPlayer::~UUTLocalPlayer()
@@ -172,6 +176,13 @@ void UUTLocalPlayer::InitializeOnlineSubsystem()
 	if (OnlineTitleFileInterface.IsValid())
 	{
 		OnReadTitleFileCompleteDelegate = OnlineTitleFileInterface->AddOnReadFileCompleteDelegate_Handle(FOnReadFileCompleteDelegate::CreateUObject(this, &UUTLocalPlayer::OnReadTitleFileComplete));
+		OnEnumerateTitleFilesCompleteDelegate = OnlineTitleFileInterface->AddOnEnumerateFilesCompleteDelegate_Handle(FOnEnumerateFilesCompleteDelegate::CreateUObject(this, &UUTLocalPlayer::OnEnumerateTitleFilesComplete));
+	}
+
+	IOnlineVoicePtr VoiceInt = OnlineSubsystem->GetVoiceInterface();
+	if (VoiceInt.IsValid())
+	{
+		SpeakerDelegate = VoiceInt->AddOnPlayerTalkingStateChangedDelegate_Handle(FOnPlayerTalkingStateChangedDelegate::CreateUObject(this, &UUTLocalPlayer::OnPlayerTalkingStateChanged));
 	}
 }
 
@@ -199,7 +210,19 @@ void UUTLocalPlayer::CleanUpOnlineSubSystyem()
 			OnlineSessionInterface->ClearOnDestroySessionCompleteDelegate_Handle(OnDestroySessionCompleteDelegate);
 			OnlineSessionInterface->ClearOnFindFriendSessionCompleteDelegate_Handle(0, OnFindFriendSessionCompleteDelegate);
 		}
+		if (OnlineTitleFileInterface.IsValid())
+		{
+			OnlineTitleFileInterface->ClearOnEnumerateFilesCompleteDelegate_Handle(OnEnumerateTitleFilesCompleteDelegate);
+			OnlineTitleFileInterface->ClearOnReadFileCompleteDelegate_Handle(OnReadTitleFileCompleteDelegate);
+		}
+
+		IOnlineVoicePtr VoiceInt = OnlineSubsystem->GetVoiceInterface();
+		if (VoiceInt.IsValid())
+		{
+			VoiceInt->ClearOnPlayerTalkingStateChangedDelegate_Handle(SpeakerDelegate);
+		}
 	}
+
 }
 
 bool UUTLocalPlayer::Exec(UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Ar)
@@ -855,6 +878,10 @@ void UUTLocalPlayer::Logout()
 #endif
 		}
 	}
+
+#if WITH_SOCIAL
+	ISocialModule::Get().GetFriendsAndChatManager()->Logout();
+#endif
 }
 
 
@@ -1085,10 +1112,7 @@ void UUTLocalPlayer::OnLoginStatusChanged(int32 LocalUserNum, ELoginStatus::Type
 	}
 	else if (LoginStatus == ELoginStatus::LoggedIn)
 	{
-		if (OnlineTitleFileInterface.IsValid())
-		{
-			OnlineTitleFileInterface->ReadFile(GetMCPStorageFilename());
-		}
+		EnumerateTitleFiles();
 
 		ReadMMRFromBackend();
 		UpdatePresence(LastPresenceUpdate, bLastAllowInvites,bLastAllowInvites,bLastAllowInvites,false);
@@ -1465,6 +1489,8 @@ void UUTLocalPlayer::ClearProfileWarnResults(TSharedPtr<SCompoundWidget> Widget,
 
 void UUTLocalPlayer::LoadProgression()
 {
+	UE_LOG(UT, Verbose, TEXT("LoadProgression() %d"), IsLoggedIn() ? 1 : 0);
+
 	if (IsLoggedIn())
 	{
 		TSharedPtr<const FUniqueNetId> UserID = OnlineIdentityInterface->GetUniquePlayerId(GetControllerId());
@@ -1619,6 +1645,8 @@ void UUTLocalPlayer::OnReadUserFileComplete(bool bWasSuccessful, const FUniqueNe
 	{
 		bIsPendingProgressionLoadFromMCP = false;
 
+		UE_LOG(UT, Verbose, TEXT("Progression loaded from MCP %d"), bWasSuccessful ? 1 : 0);
+
 		if (bWasSuccessful)
 		{
 			// Create the current profile.
@@ -1664,6 +1692,8 @@ void UUTLocalPlayer::OnReadUserFileComplete(bool bWasSuccessful, const FUniqueNe
 
 			CurrentProgression->Serialize(Ar);
 			CurrentProgression->VersionFixup();
+
+			UE_LOG(UT, Verbose, TEXT("Progression: Achievements %d, Stars %d"), CurrentProgression->Achievements.Num(), CurrentProgression->TotalChallengeStars);
 
 			// set PlayerState progressionv variables if in main menu/single player
 			if (PlayerController != NULL)
@@ -3677,7 +3707,18 @@ void UUTLocalPlayer::ToggleReplayWindow()
 
 bool UUTLocalPlayer::IsReplay()
 {
-	return (GetWorld()->DemoNetDriver != nullptr);
+	if (GetWorld()->DemoNetDriver == nullptr)
+	{
+		return false;
+	}
+
+	UUTDemoNetDriver* UTDemoNetDriver = Cast<UUTDemoNetDriver>(GetWorld()->DemoNetDriver);
+	if (UTDemoNetDriver && UTDemoNetDriver->bIsLocalReplay)
+	{
+		return false;
+	}
+
+	return true;
 }
 
 #if !UE_SERVER
@@ -4415,6 +4456,26 @@ void UUTLocalPlayer::RestartQuickMatch()
 #endif
 }
 
+void UUTLocalPlayer::EnumerateTitleFiles()
+{
+	if (OnlineTitleFileInterface.IsValid())
+	{
+		OnlineTitleFileInterface->EnumerateFiles();
+	}
+}
+
+void UUTLocalPlayer::OnEnumerateTitleFilesComplete(bool bWasSuccessful)
+{
+	if (bWasSuccessful)
+	{
+		if (OnlineTitleFileInterface.IsValid())
+		{
+			OnlineTitleFileInterface->ReadFile(GetMCPStorageFilename());
+			OnlineTitleFileInterface->ReadFile(GetRankedPlayFilename());
+		}
+	}
+}
+
 void UUTLocalPlayer::OnReadTitleFileComplete(bool bWasSuccessful, const FString& Filename)
 {
 	if (Filename == GetMCPStorageFilename())
@@ -4461,8 +4522,34 @@ void UUTLocalPlayer::OnReadTitleFileComplete(bool bWasSuccessful, const FString&
 			}
 		}
 	}
+	else if (Filename == GetRankedPlayFilename())
+	{
+		ActiveRankedPlaylists.Empty();
+
+		FString JsonString = TEXT("");
+		if (bWasSuccessful)
+		{
+			TArray<uint8> FileContents;
+			OnlineTitleFileInterface->GetFileContents(GetRankedPlayFilename(), FileContents);
+			FileContents.Add(0);
+			JsonString = ANSI_TO_TCHAR((char*)FileContents.GetData());
+
+			if (JsonString != TEXT(""))
+			{
+				FActiveRankedPlaylists ActivePlaylists;
+				if (FJsonObjectConverter::JsonObjectStringToUStruct(JsonString, &ActivePlaylists, 0, 0))
+				{
+					ActiveRankedPlaylists = ActivePlaylists.ActiveRankedPlaylists;
+				}
+			}
+		}
+	}
 }
 
+bool UUTLocalPlayer::IsRankedMatchmakingEnabled(int32 PlaylistId)
+{
+	return ActiveRankedPlaylists.Contains(PlaylistId);
+}
 
 void UUTLocalPlayer::ShowAdminDialog(AUTRconAdminInfo* AdminInfo)
 {
@@ -4901,6 +4988,7 @@ void UUTLocalPlayer::StartMatchmaking(int32 PlaylistId)
 		MatchmakingParams.ControllerId = GetControllerId();
 		MatchmakingParams.StartWith = EMatchmakingStartLocation::Game;
 		MatchmakingParams.PlaylistId = PlaylistId;
+		MatchmakingParams.MinimumEloRangeBeforeHosting = 100;
 		if (GetProfileSettings() && !GetProfileSettings()->MatchmakingRegion.IsEmpty())
 		{
 			MatchmakingParams.DatacenterId = GetProfileSettings()->MatchmakingRegion;
@@ -5042,6 +5130,11 @@ void UUTLocalPlayer::ShowMatchmakingDialog()
 {
 #if !UE_SERVER
 	if (MatchmakingDialog.IsValid())
+	{
+		return;
+	}
+
+	if (QuickMatchDialog.IsValid())
 	{
 		return;
 	}
@@ -5199,6 +5292,25 @@ void UUTLocalPlayer::CloseQuickChat()
 		QuickChatWindow.Reset();
 	}
 #endif
+}
+
+void UUTLocalPlayer::OnPlayerTalkingStateChanged(TSharedRef<const FUniqueNetId> TalkerId, bool bIsTalking)
+{
+	if (GetWorld())
+	{
+		AUTGameState* UTGameState = GetWorld()->GetGameState<AUTGameState>();
+		if (UTGameState)
+		{
+			for (int32 i = 0; i < UTGameState->PlayerArray.Num(); i++)
+			{
+				if (UTGameState->PlayerArray[i] && UTGameState->PlayerArray[i]->UniqueId.ToString() == TalkerId->ToString())
+				{
+					AUTPlayerState* PS = Cast<AUTPlayerState>(UTGameState->PlayerArray[i]);
+					if (PS) PS->bIsTalking = bIsTalking;
+				}
+			}
+		}
+	}
 }
 
 

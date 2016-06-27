@@ -62,6 +62,11 @@ extern APhysicsVolume* FindPhysicsVolume(UWorld* World, const FVector& TestLoc, 
 /** get GravityZ at the given location of the given world */
 extern float GetLocationGravityZ(UWorld* World, const FVector& TestLoc, const FCollisionShape& Shape);
 
+/** utility to create a copy of a mesh for outline effect purposes
+ * the mesh is initialized but not registered
+ */
+extern UMeshComponent* CreateCustomDepthOutlineMesh(UMeshComponent* Archetype, AActor* Owner);
+
 /** workaround for FCanvasIcon not having a constructor you can pass in the values to */
 FORCEINLINE FCanvasIcon MakeCanvasIcon(UTexture* Tex, float InU, float InV, float InUL, float InVL)
 {

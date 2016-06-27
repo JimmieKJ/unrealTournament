@@ -44,7 +44,14 @@ void AUTLobbyPlayerState::MatchButtonPressed()
 	{
 		// TODO Check to make sure the rulesets are replicated
 
-		ServerCreateMatch();
+		bool bIsInParty = false;
+		UPartyContext* PartyContext = Cast<UPartyContext>(UBlueprintContextLibrary::GetContext(GetWorld(), UPartyContext::StaticClass()));
+		if (PartyContext)
+		{
+			bIsInParty = PartyContext->GetPartySize() > 1;
+		}
+
+		ServerCreateMatch(bIsInParty);
 	}
 	else
 	{
@@ -52,8 +59,8 @@ void AUTLobbyPlayerState::MatchButtonPressed()
 	}
 }
 
-bool AUTLobbyPlayerState::ServerCreateMatch_Validate() { return true; }
-void AUTLobbyPlayerState::ServerCreateMatch_Implementation()
+bool AUTLobbyPlayerState::ServerCreateMatch_Validate(bool bIsInParty) { return true; }
+void AUTLobbyPlayerState::ServerCreateMatch_Implementation(bool bIsInParty)
 {
 	if (CurrentMatch == NULL)
 	{
@@ -62,7 +69,7 @@ void AUTLobbyPlayerState::ServerCreateMatch_Implementation()
 		{
 			if (GameState->AvailableGameRulesets.Num() >0)
 			{
-				GameState->AddNewMatch(this);
+				GameState->AddNewMatch(this, nullptr, bIsInParty);
 			}
 			else
 			{
@@ -276,7 +283,7 @@ void AUTLobbyPlayerState::Tick(float DeltaTime)
 			if (Party)
 			{
 				UUTPartyGameState* PartyGameState = Cast<UUTPartyGameState>(Party->GetUTPersistentParty());
-				if (!PartyGameState->IsLocalPartyLeader())
+				if (PartyGameState && !PartyGameState->IsLocalPartyLeader())
 				{
 					TSharedPtr<const FUniqueNetId> PartyLeaderId = PartyGameState->GetPartyLeader();
 					for (int32 i = 0; i < GameState->AvailableMatches.Num(); i++)

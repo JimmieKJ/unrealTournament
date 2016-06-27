@@ -33,8 +33,13 @@ public:
 	virtual FReply OnButtonClick(uint16 ButtonID);
 
 	FText GetMatchmakingText() const;
+	FText GetMatchmakingText2() const;
 	FText GetRegionText() const;
 
+	float RetryTime;
+	float RetryCountdown;
+	int32 LastMatchmakingPlayersNeeded;
+	
 public:
 	virtual void Tick(const FGeometry & AllottedGeometry, const double InCurrentTime, const float InDeltaTime) override;
 };

@@ -50,6 +50,7 @@ class UNREALTOURNAMENT_API AUTCTFBaseGame : public AUTTeamGameMode
 	virtual void EndGame(AUTPlayerState* Winner, FName Reason);
 	virtual void SetEndGameFocus(AUTPlayerState* Winner);
 	virtual void PlacePlayersAroundFlagBase(int32 TeamNum, int32 FlagTeamNum);
+	virtual bool SkipPlacement(AUTCharacter* UTChar);
 
 	UFUNCTION(exec)
 		void CheatScore();
@@ -71,7 +72,7 @@ class UNREALTOURNAMENT_API AUTCTFBaseGame : public AUTTeamGameMode
 	virtual void HandleMatchIntermission();
 	virtual void HandleExitingIntermission();
 	virtual void CheckGameTime() override;
-	virtual void HandleFlagCapture(AUTPlayerState* Holder);
+	virtual void HandleFlagCapture(AUTCharacter* HolderPawn, AUTPlayerState* Holder);
 
 	virtual uint8 GetNumMatchesFor(AUTPlayerState* PS, bool bRankedSession) const override;
 	virtual int32 GetEloFor(AUTPlayerState* PS, bool bRankedSession) const override;
@@ -88,4 +89,8 @@ protected:
 public:
 	virtual void BuildScoreInfo(AUTPlayerState* PlayerState, TSharedPtr<class SUTTabWidget> TabWidget, TArray<TSharedPtr<TAttributeStat> >& StatList);
 #endif
+
+public:
+	virtual int32 GetComSwitch(FName CommandTag, AActor* ContextActor, AUTPlayerController* Instigator, UWorld* World) override;
+
 };

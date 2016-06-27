@@ -98,6 +98,10 @@ class UNREALTOURNAMENT_API AUTBasePlayerController : public APlayerController , 
 
 
 public:
+
+	UFUNCTION(BlueprintCallable, Category = PlayerController)
+	virtual UUTLocalPlayer* GetUTLocalPlayer();
+
 	/**
 	 *	User a GUID to find a server via the MCP and connect to it.  NOTE.. DesiredTeam = 0, 1, 255 or -1 for don't set the team
 	 **/
@@ -232,9 +236,10 @@ public:
 	virtual void Tick(float DeltaTime) override;
 	virtual void UpdateInputMode();
 
+#endif
+
 	UPROPERTY()
 	TEnumAsByte<EInputMode::Type> InputMode;
-#endif
 
 	virtual void ShowAdminDialog(AUTRconAdminInfo* AdminInfo);
 	virtual void ShowAdminMessage(const FString& Message);
@@ -250,6 +255,23 @@ public:
 	bool IsPartyLeader() { return true; }
 
 	UUTProfileSettings* GetProfileSettings();
+
+	UFUNCTION(BlueprintCallable, Client, Reliable, Category = "Movies")
+	virtual void ClientPlayMovie(const FString& MovieName);
+
+	UFUNCTION(BlueprintCallable, Client, Reliable, Category = "Movies")
+	virtual void ClientStopMovie();
+
+	UFUNCTION(BlueprintCallable, Client, Reliable, Category = "Movies")
+	virtual void ClientWaitForMovieToFinish();
+
+	virtual void ClientEnableNetworkVoice_Implementation(bool bEnable);
+
+	UFUNCTION(exec)
+	void StartVOIPTalking();
+
+	UFUNCTION(exec)
+	void StopVOIPTalking();
 
 protected:
 	// Sends a message directly to a user.  

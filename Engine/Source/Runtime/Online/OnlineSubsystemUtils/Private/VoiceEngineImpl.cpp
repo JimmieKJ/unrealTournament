@@ -386,13 +386,15 @@ uint32 FVoiceEngineImpl::SubmitRemoteVoiceData(const FUniqueNetId& RemoteTalkerI
 
 		USoundWaveProcedural* SoundStreaming = CastChecked<USoundWaveProcedural>(QueuedData.AudioComponent->Sound);
 
-		if (0)
+		if (1)
 		{
 			if (!bAudioComponentCreated && SoundStreaming->GetAvailableAudioByteCount() == 0)
 			{
 				UE_LOG(LogVoiceDecode, Log, TEXT("VOIP audio component was starved!"));
 			}
 		}
+
+		UE_LOG(LogVoiceDecode, VeryVerbose, TEXT("QueueAudio Size: %d written!"), BytesWritten);
 
 		SoundStreaming->QueueAudio(DecompressedVoiceBuffer.GetData(), BytesWritten);
 	}
@@ -410,11 +412,13 @@ void FVoiceEngineImpl::TickTalkers(float DeltaTime)
 		double TimeSince = CurTime - RemoteData.LastSeen;
 		if (TimeSince >= 1.0)
 		{
+/*
 			// Dump the whole talker
 			if (RemoteData.AudioComponent)
 			{
 				RemoteData.AudioComponent->Stop();
 			}
+*/
 		}
 	}
 }

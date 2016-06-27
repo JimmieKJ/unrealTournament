@@ -290,6 +290,7 @@ public:
 
 protected:
 	//~ Begin ISlateEditableTextWidget Interface
+	virtual bool ShouldJumpCursorToEndWhenFocused() const override;
 	virtual bool ShouldSelectAllTextWhenFocused() const override;
 	virtual bool ShouldClearTextSelectionOnFocusLoss() const override;
 	virtual bool ShouldRevertTextOnEscape() const override;

@@ -97,6 +97,59 @@ void UUTProfileSettings::VersionFixup()
 		Slide.Key = EKeys::LeftShift;
 		ActionMappings.AddUnique(Slide);
 	}
+
+	if (SettingsRevisionNum < WEAPON_WHEEL_FIXUP_PROFILESETTINGS_VERSION)
+	{
+		// Add 8 weapon wheel slots for the weapon wheel menu
+		WeaponWheelQuickSlots.Add(TEXT("BP_RocketLauncher_C"));
+		WeaponWheelQuickSlots.Add(TEXT("BP_BioRifle_C"));
+		WeaponWheelQuickSlots.Add(TEXT("BP_Sniper_C"));
+		WeaponWheelQuickSlots.Add(TEXT("BP_Minigun_C"));
+		WeaponWheelQuickSlots.Add(TEXT("BP_FlakCannon_C"));
+		WeaponWheelQuickSlots.Add(TEXT("BP_LinkGun_C"));
+		WeaponWheelQuickSlots.Add(TEXT("ShockRifle_C"));
+		WeaponWheelQuickSlots.Add(TEXT("Enforcer_C"));
+	}
+
+	if (SettingsRevisionNum < PUSH_TO_TALK_FIXUP_PROFILESETTINGS_VERSION)
+	{
+		FInputActionKeyMapping PushToTalk;
+		PushToTalk.ActionName = FName(TEXT("PushToTalk"));
+		PushToTalk.Key = EKeys::B;
+		ActionMappings.AddUnique(PushToTalk);
+	}
+	if (SettingsRevisionNum < RALLY_FIXUP_PROFILESETTINGS_VERSION)
+	{
+		FInputActionKeyMapping RequestRally;
+		RequestRally.ActionName = FName(TEXT("RequestRally"));
+		RequestRally.Key = EKeys::Enter;
+		ActionMappings.AddUnique(RequestRally);
+	}
+
+	if (SettingsRevisionNum < COMS_MENU_FIXUP_PROFILESETTINGS_VERSION)
+	{
+		// Look to see if we already have a coms menu setup
+
+		bool bFound = false;
+		for (int32 i=0; i < ActionMappings.Num();i++)
+		{
+			if (ActionMappings[i].ActionName == FName(TEXT("ToggleComMenu")))
+			{
+				bFound = true;
+				ActionMappings[i].Key = EKeys::V;
+				break;
+			}
+		}
+
+		if (!bFound)
+		{
+			FInputActionKeyMapping ComsMenuKey;
+			ComsMenuKey.ActionName = FName(TEXT("ToggleComMenu"));
+			ComsMenuKey.Key = EKeys::V;
+			ActionMappings.AddUnique(ComsMenuKey);
+		}
+	}
+
 	// The format has changed during Dev versions.  So in case some people have written out unlocks, clear them here.
 	if (SettingsRevisionNum <= CHALLENGE_FIXUP_VERSION)
 	{
@@ -130,6 +183,7 @@ void UUTProfileSettings::ResetHUD()
 	bDrawHUDKillIconMsg = true;
 	bPlayKillSoundMsg = true;
 	HUDMinimapScale = 1.0f;
+	bPushToTalk = true;
 }
 
 void UUTProfileSettings::SetWeaponPriority(FString WeaponClassName, float NewPriority)

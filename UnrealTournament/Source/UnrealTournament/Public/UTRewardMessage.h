@@ -17,10 +17,11 @@ class UNREALTOURNAMENT_API UUTRewardMessage : public UUTLocalMessage
 		bIsSpecial = true;
 		bIsUnique = true;
 		bIsConsoleMessage = false;
-		Lifetime = 3.0f;
+		Lifetime = 2.0f;
 		AnnouncementHS = FName(TEXT("RW_HolyShit"));
 		bWantsBotReaction = true;
 		ScaleInSize = 3.f;
+		AnnouncementDelay = 0.3f;
 	}
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Message)
@@ -69,7 +70,7 @@ class UNREALTOURNAMENT_API UUTRewardMessage : public UUTLocalMessage
 
 	virtual FText GetText(int32 Switch, bool bTargetsPlayerState1, class APlayerState* RelatedPlayerState_1, class APlayerState* RelatedPlayerState_2, class UObject* OptionalObject) const override
 	{
-		return MessageText;
+		return FText::GetEmpty(); // MessageText;
 	}
 
 	virtual void PrecacheAnnouncements_Implementation(UUTAnnouncer* Announcer) const override

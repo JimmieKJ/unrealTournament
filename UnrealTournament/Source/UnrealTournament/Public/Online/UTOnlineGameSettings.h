@@ -93,13 +93,15 @@ public:
 class UNREALTOURNAMENT_API FUTOnlineSessionSearchGather : public FUTOnlineSessionSearchBase
 {
 public:
-	FUTOnlineSessionSearchGather(int32 InPlaylistId = INDEX_NONE, int32 InTeamElo = 0, bool bSearchingLAN = false, bool bSearchingPresence = false);
+	FUTOnlineSessionSearchGather(int32 InPlaylistId = INDEX_NONE, int32 InTeamElo = 0, bool bSearchingLAN = false, bool bSearchingPresence = false, FString InServerToSkip = FString());
 	virtual ~FUTOnlineSessionSearchGather() {}
 
 	// FOnlineSessionSearch Interface begin
 	virtual TSharedPtr<FOnlineSessionSettings> GetDefaultSessionSettings() const override { return MakeShareable(new FUTOnlineSessionSettings()); }
 	virtual void SortSearchResults() override;
 	// FOnlineSessionSearch Interface end
+
+	FString ServerToSkip;
 };
 
 /**

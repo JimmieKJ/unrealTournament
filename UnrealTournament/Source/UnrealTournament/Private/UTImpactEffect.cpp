@@ -29,6 +29,7 @@ AUTImpactEffect::AUTImpactEffect(const FObjectInitializer& ObjectInitializer)
 	CullDistance = 20000.0f;
 	DecalLifeScaling = 1.f;
 	bCanBeDamaged = false;
+	AudioSAT = SAT_WeaponFire;
 }
 
 bool AUTImpactEffect::SpawnEffect_Implementation(UWorld* World, const FTransform& InTransform, UPrimitiveComponent* HitComp, AActor* SpawnedBy, AController* InstigatedBy, ESoundReplicationType SoundReplication, const FImpactEffectNamedParameters& EffectParams) const
@@ -39,7 +40,7 @@ bool AUTImpactEffect::SpawnEffect_Implementation(UWorld* World, const FTransform
 	}
 	else
 	{
-		UUTGameplayStatics::UTPlaySound(World, Audio, SpawnedBy, SoundReplication, false, InTransform.GetLocation(), Cast<AUTPlayerController>(InstigatedBy), NULL, false);
+		UUTGameplayStatics::UTPlaySound(World, Audio, SpawnedBy, SoundReplication, false, InTransform.GetLocation(), NULL, NULL, false, AudioSAT);
 
 		if (World->GetNetMode() == NM_DedicatedServer)
 		{

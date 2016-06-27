@@ -64,6 +64,7 @@ protected:
 	TSharedPtr<SOverlay> SubMenuOverlay;
 	bool bShowingContextMenu;
 
+	FText GetMuteLabelText() const;
 
 };
 

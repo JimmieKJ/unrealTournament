@@ -30,7 +30,7 @@ void SUTChatWidget::Construct(const FArguments& InArgs, const FLocalPlayerContex
 	Display->SetMinimizeEnabled(false);
 	Settings = Manager->GetChatSettingsService();
 
-	Chat = Manager->GenerateChromeWidget(InArgs._FriendStyle, Display.ToSharedRef(), Settings.ToSharedRef());
+	Chat = Manager->GenerateChromeWidget(Display.ToSharedRef(), Settings.ToSharedRef());
 
 	// Initialize Menu
 	ChildSlot

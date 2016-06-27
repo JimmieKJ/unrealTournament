@@ -15,6 +15,7 @@ FOnlineVoiceImpl::FOnlineVoiceImpl(IOnlineSubsystem* InOnlineSubsystem) :
 	OnlineSubsystem(InOnlineSubsystem),
 	VoiceEngine(NULL)
 {
+	bLoopbackEnabled = false;
 }
 
 FOnlineVoiceImpl::~FOnlineVoiceImpl()
@@ -734,8 +735,7 @@ void FOnlineVoiceImpl::ProcessLocalVoicePackets()
 								VoiceData.LocalPackets[Index].Length += SpaceAvail;
 
 #if VOICE_LOOPBACK
-								static bool bUseLoopback = false;
-								if (bUseLoopback && SpaceAvail > 0)
+								if (bLoopbackEnabled && SpaceAvail > 0)
 								{
 									VoiceData.RemotePackets.Add(MakeShareable(new FVoicePacketImpl(VoiceData.LocalPackets[Index])));
 								}
@@ -825,7 +825,7 @@ FString FOnlineVoiceImpl::GetVoiceDebugState() const
 		UniqueId = IdentityInt->GetUniquePlayerId(idx);
 		
 		const FLocalTalker& Talker = LocalTalkers[idx];
-		Output += FString::Printf(TEXT("[%d]: %s\n Registered: %d\n Networked: %d\n Talking: %d\n WasTalking: %d\n Last:%0.2f\n"),
+		Output += FString::Printf(TEXT("[%d]: %s\n Registered: %d   Networked: %d   Talking: %d   WasTalking: %d   Last:%0.2f\n"),
 			idx,
 			UniqueId.IsValid() ? *UniqueId->ToDebugString() : TEXT("NULL"), 
 			Talker.bIsRegistered,
@@ -839,7 +839,7 @@ FString FOnlineVoiceImpl::GetVoiceDebugState() const
 	for (int32 idx=0; idx < RemoteTalkers.Num(); idx++)
 	{
 		const FRemoteTalker& Talker = RemoteTalkers[idx];
-		Output += FString::Printf(TEXT("[%d]: %s\n Talking: %d\n WasTalking: %d\n Muted: %s\n Last:%0.2f\n"),
+		Output += FString::Printf(TEXT("[%d]: %s\n Talking: %d   WasTalking: %d   Muted: %s   Last:%0.2f\n"),
 			idx,
 			*Talker.TalkerId->ToDebugString(), 
 			Talker.bIsTalking,
@@ -868,3 +868,7 @@ FString FOnlineVoiceImpl::GetVoiceDebugState() const
 	return Output;
 }
 
+void FOnlineVoiceImpl::ToggleLoopback(bool bEnabled)
+{
+	bLoopbackEnabled = bEnabled;
+}

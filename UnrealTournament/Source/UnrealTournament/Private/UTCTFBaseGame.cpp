@@ -250,7 +250,7 @@ void AUTCTFBaseGame::ScoreObject_Implementation(AUTCarriedObject* GameObject, AU
 				{
 					if (CTFGameState->FlagBases[Holder->Team->TeamIndex] != nullptr)
 					{
-						PC->ClientPlaySound(CTFGameState->FlagBases[Holder->Team->TeamIndex]->FlagScoreRewardSound, 2.f);
+						PC->UTClientPlaySound(CTFGameState->FlagBases[Holder->Team->TeamIndex]->FlagScoreRewardSound);
 					}
 
 					AUTPlayerState* PS = Cast<AUTPlayerState>((*Iterator)->PlayerState);
@@ -261,12 +261,12 @@ void AUTCTFBaseGame::ScoreObject_Implementation(AUTCarriedObject* GameObject, AU
 					}
 				}
 			}
-			HandleFlagCapture(Holder);
+			HandleFlagCapture(HolderPawn, Holder);
 		}
 	}
 }
 
-void AUTCTFBaseGame::HandleFlagCapture(AUTPlayerState* Holder)
+void AUTCTFBaseGame::HandleFlagCapture(AUTCharacter* HolderPawn, AUTPlayerState* Holder)
 {
 	CheckScore(Holder);
 }
@@ -457,6 +457,11 @@ void AUTCTFBaseGame::UpdateSkillRating()
 	ReportRankedMatchResults(NAME_CTFSkillRating.ToString());
 }
 
+bool AUTCTFBaseGame::SkipPlacement(AUTCharacter* UTChar)
+{
+	return false;
+}
+
 void AUTCTFBaseGame::PlacePlayersAroundFlagBase(int32 TeamNum, int32 FlagTeamNum)
 {
 	if ((CTFGameState == NULL) || (FlagTeamNum >= CTFGameState->FlagBases.Num()) || (CTFGameState->FlagBases[FlagTeamNum] == NULL))
@@ -494,13 +499,18 @@ void AUTCTFBaseGame::PlacePlayersAroundFlagBase(int32 TeamNum, int32 FlagTeamNum
 	for (AController* C : Members)
 	{
 		AUTCharacter* UTChar = C ? Cast<AUTCharacter>(C->GetPawn()) : NULL;
-		if (UTChar && !UTChar->IsDead())
+		if (UTChar && !UTChar->IsDead() && !SkipPlacement(UTChar))
 		{
 			while (PlacementCounter < MaxPlayers)
 			{
+				AUTPlayerState* PS = Cast<AUTPlayerState>(UTChar->PlayerState);
+				if (PS && PS->CarriedObject && PS->CarriedObject->HolderTrail)
+				{
+					PS->CarriedObject->HolderTrail->DetachFromParent();
+				}
 				FRotator AdjustmentAngle(0, StartAngle + AngleSlices * PlacementCounter, 0);
 				FVector PlacementLoc = FlagLoc + AdjustmentAngle.RotateVector(PlacementOffset);
-				PlacementLoc.Z += UTChar->GetSimpleCollisionHalfHeight() * 1.1f;
+				PlacementLoc.Z += UTChar->GetCapsuleComponent()->GetUnscaledCapsuleHalfHeight() * 1.1f;
 				PlacementCounter++;
 				if ((PlacementCounter == 8) && !bSecondLevel)
 				{
@@ -649,4 +659,14 @@ void AUTCTFBaseGame::SetEloFor(AUTPlayerState* PS, bool bRankedSession, int32 Ne
 			PS->CTFMatchesPlayed++;
 		}
 	}
+}
+
+int32 AUTCTFBaseGame::GetComSwitch(FName CommandTag, AActor* ContextActor, AUTPlayerController* Instigator, UWorld* World)
+{
+	if (CommandTag == CommandTags::Distress)
+	{
+		return UNDER_HEAVY_ATTACK_SWITCH_INDEX;
+	}
+
+	return Super::GetComSwitch(CommandTag, ContextActor, Instigator, World);
 }

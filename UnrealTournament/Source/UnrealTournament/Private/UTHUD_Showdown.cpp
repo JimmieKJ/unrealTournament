@@ -68,7 +68,6 @@ void AUTHUD_Showdown::BeginPlay()
 	SpawnPreviewCapture->TextureTarget->InitCustomFormat(1280, 720, PF_B8G8R8A8, false);
 	SpawnPreviewCapture->TextureTarget->ClearColor = FLinearColor::Black;
 	SpawnPreviewCapture->RegisterComponent();
-	AddSpectatorWidgets();
 }
 
 void AUTHUD_Showdown::NotifyKill(APlayerState* POVPS, APlayerState* KillerPS, APlayerState* VictimPS)
@@ -101,12 +100,12 @@ void AUTHUD_Showdown::NotifyKill(APlayerState* POVPS, APlayerState* KillerPS, AP
 
 void AUTHUD_Showdown::PlayTeamKillNotification()
 {
-	PlayerOwner->ClientPlaySound(TeamKillSound);
+	UTPlayerOwner->UTClientPlaySound(TeamKillSound);
 }
 
 void AUTHUD_Showdown::PlayTeamVictimNotification()
 {
-	PlayerOwner->ClientPlaySound(TeamVictimSound);
+	UTPlayerOwner->UTClientPlaySound(TeamVictimSound);
 }
 
 UUTHUDWidget* AUTHUD_Showdown::AddHudWidget(TSubclassOf<UUTHUDWidget> NewWidgetClass)
@@ -201,7 +200,7 @@ void AUTHUD_Showdown::DrawHUD()
 			if (GS->bStartingSpawnSelection)
 			{
 				GS->bStartingSpawnSelection = false;
-				UTPlayerOwner->ClientPlaySound(MapOpenSound);
+				UTPlayerOwner->UTClientPlaySound(MapOpenSound);
 			}
 			bDrewSpawnMap = true;
 			if (!bLockedLookInput)

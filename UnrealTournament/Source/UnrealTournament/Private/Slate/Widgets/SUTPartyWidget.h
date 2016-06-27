@@ -44,12 +44,17 @@ private:
 
 	void SetupPartyMemberBox();
 
+	virtual void Tick(const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime) override;
+
 	TSharedPtr<SHorizontalBox> PartyMemberBox;
 
 	/** Player context */
 	FLocalPlayerContext Ctx;
 	
 	bool bPartyMenuCollapsed;
+
+	float RefreshTimer;
+	int32 LastFriendCount;
 };
 
 #endif

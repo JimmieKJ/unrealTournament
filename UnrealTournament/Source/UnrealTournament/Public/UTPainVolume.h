@@ -51,6 +51,13 @@ class UNREALTOURNAMENT_API AUTPainVolume : public APainCausingVolume, public IIn
 	UPROPERTY(interp, Category = PostProcessVolume, BlueprintReadWrite, meta = (UIMin = "0.0", UIMax = "1.0"))
 		float BlendWeight;
 
+	/** Immune team index */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = CharacterMovement)
+		int32 ImmuneTeamIndex;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Gameplay")
+		FText VolumeName;
+
 	//~ Begin IInterface_PostProcessVolume Interface
 	virtual bool EncompassesPoint(FVector Point, float SphereRadius/*=0.f*/, float* OutDistanceToPoint) override;
 	virtual FPostProcessVolumeProperties GetProperties() const override
@@ -68,6 +75,7 @@ class UNREALTOURNAMENT_API AUTPainVolume : public APainCausingVolume, public IIn
 
 	//~ Begin AActor Interface
 	virtual void PostUnregisterAllComponents(void) override;
+	virtual void CausePainTo(class AActor* Other) override;
 
 protected:
 	virtual void PostRegisterAllComponents() override;

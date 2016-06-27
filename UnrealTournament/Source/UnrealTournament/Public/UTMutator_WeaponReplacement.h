@@ -43,5 +43,5 @@ class UNREALTOURNAMENT_API AUTMutator_WeaponReplacement : public AUTMutator
 	bool CheckRelevance_Implementation(AActor* Other) override;
 
 	void Init_Implementation(const FString& Options) override;
-	void GetGameURLOptions_Implementation(TArray<FString>& OptionsList) override;
+	void GetGameURLOptions_Implementation(TArray<FString>& OptionsList) const override;
 };

@@ -253,7 +253,7 @@ bool FDefaultGameMoviePlayer::PlayMovie()
 		bool bIsInitialized = true;
 		if (MovieStreamingIsPrepared())
 		{
-			bIsInitialized = MovieStreamer->Init(LoadingScreenAttributes.MoviePaths);
+			bIsInitialized = MovieStreamer->Init(LoadingScreenAttributes.MoviePaths, LoadingScreenAttributes.PlaybackType);
 		}
 
 		if (bIsInitialized)
@@ -316,6 +316,12 @@ void FDefaultGameMoviePlayer::WaitForMovieToFinish()
 		// Continue to wait until the user calls finish (if enabled) or when loading completes or the minimum enforced time (if any) has been reached.
 		while ( (bWaitForManualStop && !bUserCalledFinish) || (!bUserCalledFinish && ((!bEnforceMinimumTime && !IsMovieStreamingFinished() && !bAutoCompleteWhenLoadingCompletes) || (bEnforceMinimumTime && (FPlatformTime::Seconds() - LastPlayTime) < LoadingScreenAttributes.MinimumLoadingScreenDisplayTime))))
 		{
+			// If we are in a loading loop, and this is the last movie in the playlist.. assume you can break out.
+			if (MovieStreamer.IsValid() && LoadingScreenAttributes.PlaybackType == MT_LoadingLoop && MovieStreamer->IsLastMovieInPlaylist())
+			{
+				break;
+			}
+
 			if (FSlateApplication::IsInitialized())
 			{
 				// Break out of the loop if the main window is closed during the movie.
@@ -338,8 +344,8 @@ void FDefaultGameMoviePlayer::WaitForMovieToFinish()
 					FDefaultGameMoviePlayer*, MoviePlayer, this,
 					float, DeltaTime, DeltaTime,
 					{
-					MoviePlayer->TickStreamer(DeltaTime);
-				}
+						MoviePlayer->TickStreamer(DeltaTime);
+					}
 				);
 				
 				SlateApp.Tick();
@@ -563,7 +569,7 @@ FReply FDefaultGameMoviePlayer::OnAnyDown()
 	return FReply::Handled();
 }
 
-void FDefaultGameMoviePlayer::OnPreLoadMap()
+void FDefaultGameMoviePlayer::OnPreLoadMap(const FString& LevelName)
 {
 	FCoreUObjectDelegates::PostLoadMap.RemoveAll(this);
 
@@ -576,4 +582,29 @@ void FDefaultGameMoviePlayer::OnPreLoadMap()
 void FDefaultGameMoviePlayer::OnPostLoadMap()
 {
 	WaitForMovieToFinish();
+}
+
+void FDefaultGameMoviePlayer::SetSlateOverlayWidget(TSharedPtr<SWidget> NewOverlayWidget)
+{
+	if (MovieStreamer.IsValid() && LoadingScreenWidgetHolder.IsValid())
+	{
+		LoadingScreenWidgetHolder->SetContent(NewOverlayWidget.ToSharedRef());
+	}
+
+}
+
+bool FDefaultGameMoviePlayer::WillAutoCompleteWhenLoadFinishes()
+{
+	return LoadingScreenAttributes.bAutoCompleteWhenLoadingCompletes || (LoadingScreenAttributes.PlaybackType == MT_LoadingLoop && (MovieStreamer.IsValid() && MovieStreamer->IsLastMovieInPlaylist()));
+}
+
+
+FString FDefaultGameMoviePlayer::GetMovieName()
+{
+	return MovieStreamer.IsValid() ? MovieStreamer->GetMovieName() : TEXT("");
+}
+
+bool FDefaultGameMoviePlayer::IsLastMovieInPlaylist()
+{
+	return MovieStreamer.IsValid() ? MovieStreamer->IsLastMovieInPlaylist() : false;
 }

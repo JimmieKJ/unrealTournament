@@ -15,6 +15,8 @@
 #include "UTLobbyGameState.h"
 #include "Runtime/Analytics/Analytics/Public/Analytics.h"
 #include "Runtime/Analytics/Analytics/Public/Interfaces/IAnalyticsProvider.h"
+#include "PartyContext.h"
+#include "BlueprintContextLibrary.h"
 
 #if !UE_SERVER
 
@@ -505,8 +507,15 @@ void SUTCreateGamePanel::OnGameSelected(UClass* NewSelection, ESelectInfo::Type 
 			GameConfigProps.Empty();
 		}
 
+		int32 MinimumPlayers = 1;
+		UPartyContext* PartyContext = Cast<UPartyContext>(UBlueprintContextLibrary::GetContext(PlayerOwner->GetWorld(), UPartyContext::StaticClass()));
+		if (PartyContext)
+		{
+			MinimumPlayers = PartyContext->GetPartySize();
+		}
+
 		SelectedGameClass = NewSelection;
-		SelectedGameClass.GetDefaultObject()->CreateConfigWidgets(GameConfigPanel, false, GameConfigProps);
+		SelectedGameClass.GetDefaultObject()->CreateConfigWidgets(GameConfigPanel, false, GameConfigProps, MinimumPlayers);
 		SelectedGameName->SetText(SelectedGameClass.GetDefaultObject()->DisplayName.ToString());
 
 		// generate map list

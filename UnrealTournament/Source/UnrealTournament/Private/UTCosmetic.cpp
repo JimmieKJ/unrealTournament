@@ -24,21 +24,18 @@ void AUTCosmetic::PreInitializeComponents()
 	Super::PreInitializeComponents();
 
 	CosmeticWearer = Cast<AUTCharacter>(GetOwner());
-
+	
 	if (GetRootComponent())
 	{
-		bool bRootNotPrimitiveComponent = true;
-
 		UPrimitiveComponent* PrimComponent = Cast<UPrimitiveComponent>(GetRootComponent());
 		if (PrimComponent)
 		{
 			PrimComponent->bReceivesDecals = false;
 			PrimComponent->SetCollisionProfileName(UCollisionProfile::NoCollision_ProfileName);
-			bRootNotPrimitiveComponent = false;
 			PrimComponent->bLightAttachmentsAsGroup = true;
 			PrimComponent->bUseAsOccluder = false;
 			PrimComponent->MarkRenderStateDirty();
-			PrimComponent->bUseAttachParentBound = true;
+			PrimComponent->bUseAttachParentBound = false;
 		}
 
 		TArray<USceneComponent*> Children;
@@ -48,17 +45,12 @@ void AUTCosmetic::PreInitializeComponents()
 			PrimComponent = Cast<UPrimitiveComponent>(Child);
 			if (PrimComponent)
 			{
-				if (bRootNotPrimitiveComponent)
-				{
-					SetRootComponent(PrimComponent);
-					bRootNotPrimitiveComponent = false;
-				}
 				PrimComponent->bReceivesDecals = false;
 				PrimComponent->bUseAsOccluder = false;
 				PrimComponent->SetCollisionProfileName(UCollisionProfile::NoCollision_ProfileName);
 				PrimComponent->bLightAttachmentsAsGroup = true;
 				PrimComponent->MarkRenderStateDirty();
-				PrimComponent->bUseAttachParentBound = true;
+				PrimComponent->bUseAttachParentBound = false;
 			}
 		}
 	}
@@ -69,7 +61,21 @@ void AUTCosmetic::PostInitializeComponents()
 	Super::PostInitializeComponents();
 
 	UPrimitiveComponent* PrimComponent = Cast<UPrimitiveComponent>(GetRootComponent());
-	
+
+	if (!PrimComponent)
+	{
+		TArray<USceneComponent*> Children;
+		GetRootComponent()->GetChildrenComponents(true, Children);
+		for (auto Child : Children)
+		{
+			PrimComponent = Cast<UPrimitiveComponent>(Child);
+			if (PrimComponent != nullptr)
+			{
+				break;
+			}
+		}
+	}
+
 	if (PrimComponent)
 	{
 		for (int32 i = 0; i < PrimComponent->GetNumMaterials(); i++)
@@ -95,9 +101,11 @@ void AUTCosmetic::OnWearerDeath_Implementation(TSubclassOf<UDamageType> DamageTy
 
 void AUTCosmetic::SetBodiesToSimulatePhysics()
 {
-	if (GetRootComponent())
+	TArray<USceneComponent*> Children;
+	GetRootComponent()->GetChildrenComponents(true, Children);
+	for (auto Child : Children)
 	{
-		UPrimitiveComponent* PrimComponent = Cast<UPrimitiveComponent>(GetRootComponent());
+		UPrimitiveComponent* PrimComponent = Cast<UPrimitiveComponent>(Child);
 		if (PrimComponent)
 		{
 			PrimComponent->BodyInstance.bSimulatePhysics = true;
@@ -107,6 +115,8 @@ void AUTCosmetic::SetBodiesToSimulatePhysics()
 			PrimComponent->SetCollisionResponseToChannel(ECC_Pawn, ECR_Ignore);
 			PrimComponent->SetPhysicsLinearVelocity(FVector(0, 0, 1));
 			PrimComponent->SetNotifyRigidBodyCollision(true);
+
+			return;
 		}
 	}
 }

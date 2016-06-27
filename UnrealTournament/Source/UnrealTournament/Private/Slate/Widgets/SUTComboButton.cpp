@@ -82,7 +82,7 @@ void SUTComboButton::Construct(const FArguments& InArgs)
 
 
 	// Build the menu box that will hold the content.
-	SAssignNew(MenuBox, SVerticalBox);
+	SAssignNew(MenuBox, SScrollBox);
 
 	// Handle the default menu items
 
@@ -149,7 +149,6 @@ void SUTComboButton::RebuildMenuContent()
 				MenuBox->AddSlot()
 				.VAlign(VAlign_Center)
 				.HAlign(HAlign_Fill)
-				.AutoHeight()
 				.Padding(FMargin(10.0f, 6.0f, 10.0f, 6.0f))
 				[
 					SNew(SBox)
@@ -163,7 +162,6 @@ void SUTComboButton::RebuildMenuContent()
 			else
 			{
 				MenuBox->AddSlot()
-				.AutoHeight()
 				.HAlign(ContentHAlign)
 				[
 					SNew(SUTButton)
@@ -171,7 +169,7 @@ void SUTComboButton::RebuildMenuContent()
 					.ContentPadding(FMargin(10.0f, 5.0f))
 					.Text(SubMenuItems[i].MenuCaption)
 					.TextStyle(SUTStyle::Get(), "UT.Font.ContextMenuItem")
-					.OnClicked(this, &SUTComboButton::InteralSubMenuButtonClickedHandler, i)
+					.OnClicked(this, &SUTComboButton::InternalSubMenuButtonClickedHandler, i)
 				];
 			}
 		}
@@ -181,7 +179,7 @@ void SUTComboButton::RebuildMenuContent()
 	}
 }
 
-FReply SUTComboButton::InteralSubMenuButtonClickedHandler(int32 MenuItemIndex)
+FReply SUTComboButton::InternalSubMenuButtonClickedHandler(int32 MenuItemIndex)
 {
 	// First, close the submenu
 	SetIsOpen(false);
@@ -302,7 +300,12 @@ void SUTComboButton::SetMenus( const TSharedRef< SWidget >& InContent )
 		.BorderImage(MenuBorderBrush)
 		.Padding(MenuBorderPadding)
 		[
-			InContent
+			SNew(SVerticalBox)
+			+SVerticalBox::Slot()
+			.MaxHeight(700)
+			[
+				InContent
+			]
 		];
 }
 

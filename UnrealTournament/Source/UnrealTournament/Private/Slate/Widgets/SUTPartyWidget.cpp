@@ -19,6 +19,9 @@ void SUTPartyWidget::Construct(const FArguments& InArgs, const FLocalPlayerConte
 {
 	Ctx = InCtx;
 
+	RefreshTimer = 30.0f;
+	LastFriendCount = 0;
+
 	bPartyMenuCollapsed = true;
 	
 	ChildSlot
@@ -133,8 +136,8 @@ void SUTPartyWidget::SetupPartyMemberBox()
 					+ SOverlay::Slot()
 					[
 						SNew(SBox)
-						.WidthOverride(96)
-						.HeightOverride(96)
+						.WidthOverride(128)
+						.HeightOverride(128)
 						[
 							SNew(SImage)
 							.Image(SUTStyle::Get().GetBrush("UT.Icon.PartyLeader"))
@@ -143,11 +146,11 @@ void SUTPartyWidget::SetupPartyMemberBox()
 					+ SOverlay::Slot()
 					[
 						SNew(SBox)
-						.WidthOverride(96)
-						.HeightOverride(96)
+						.WidthOverride(128)
+						.HeightOverride(128)
 						[
-							SNew(SHorizontalBox)
-							+SHorizontalBox::Slot()
+							SNew(SVerticalBox)
+							+SVerticalBox::Slot()
 							.HAlign(HAlign_Center)
 							.VAlign(VAlign_Center)
 							[
@@ -155,6 +158,25 @@ void SUTPartyWidget::SetupPartyMemberBox()
 								.Text(NSLOCTEXT("SUTPartyWidget", "PartyTitle", "Party"))
 								.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Medium.Bold")
 								.Visibility(bPartyMenuCollapsed ? EVisibility::Visible : EVisibility::Collapsed)
+							]
+							+SVerticalBox::Slot()
+							.HAlign(HAlign_Center)
+							.VAlign(VAlign_Bottom)
+							.Padding(0, 10)
+							[
+								SNew(SOverlay)
+								+ SOverlay::Slot()
+								[
+									SNew(SImage)
+									.Image(SUTStyle::Get().GetBrush("UT.HeaderBackground.Dark"))
+								]
+								+ SOverlay::Slot()
+								[
+									SNew(STextBlock)
+									.Text(PartyMembers[i])
+									.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Tiny.Bold")
+									.Visibility(bPartyMenuCollapsed ? EVisibility::Collapsed : EVisibility::Visible)
+								]
 							]
 						]
 					]
@@ -255,11 +277,39 @@ void SUTPartyWidget::SetupPartyMemberBox()
 					+ SOverlay::Slot()
 					[
 						SNew(SBox)
-						.WidthOverride(96)
-						.HeightOverride(96)
+						.WidthOverride(128)
+						.HeightOverride(128)
 						[
 							SNew(SImage)
 							.Image(SUTStyle::Get().GetBrush("UT.Icon.PartyMember"))
+						]
+					]
+					+ SOverlay::Slot()
+					[
+						SNew(SBox)
+						.WidthOverride(128)
+						.HeightOverride(128)
+						[
+							SNew(SVerticalBox)
+							+SVerticalBox::Slot()
+							.HAlign(HAlign_Center)
+							.VAlign(VAlign_Bottom)
+							.Padding(0, 10)
+							[
+								SNew(SOverlay)
+								+ SOverlay::Slot()
+								[
+									SNew(SImage)
+									.Image(SUTStyle::Get().GetBrush("UT.HeaderBackground.Dark"))
+								]
+								+ SOverlay::Slot()
+								[
+									SNew(STextBlock)
+									.Text(PartyMembers[i])
+									.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Tiny.Bold")
+									.Visibility(bPartyMenuCollapsed ? EVisibility::Collapsed : EVisibility::Visible)
+								]
+							]
 						]
 					]
 				]
@@ -291,6 +341,7 @@ void SUTPartyWidget::SetupPartyMemberBox()
 
 	TArray<FUTFriend> OnlineFriendsList;
 	UTLP->GetFriendsList(OnlineFriendsList);
+	LastFriendCount = 0;
 
 	for (int i = PartyMembers.Num(); i < 5; i++)
 	{
@@ -303,15 +354,15 @@ void SUTPartyWidget::SetupPartyMemberBox()
 			.HasDownArrow(false)
 			.ButtonStyle(SUTStyle::Get(), "UT.Button.MenuBar")
 			.ContentPadding(FMargin(0.0f, 0.0f))
-			.ToolTipText(NSLOCTEXT("SUTPartyWidget", "EmptySlotTip", "Empty Slot"))
+			.ToolTipText(NSLOCTEXT("SUTPartyWidget", "EmptySlotTip", "Available Slot"))
 			.ButtonContent()
 			[
 				SNew(SOverlay)
 				+ SOverlay::Slot()
 				[
 					SNew(SBox)
-					.WidthOverride(96)
-					.HeightOverride(96)
+					.WidthOverride(128)
+					.HeightOverride(128)
 					[
 						SNew(SImage)
 						.Image(SUTStyle::Get().GetBrush("UT.Icon.PartyMember.Empty"))
@@ -321,14 +372,14 @@ void SUTPartyWidget::SetupPartyMemberBox()
 			]
 		];
 
-		DropDownButton->AddSubMenuItem(NSLOCTEXT("SUTPartyWidget", "EmptySlot", "Empty Slot"), FOnClicked());
+		DropDownButton->AddSubMenuItem(NSLOCTEXT("SUTPartyWidget", "EmptySlot", "Available Slot"), FOnClicked());
 
-		int FriendIterator = 0;
 		int InviteTextAdded = 0;
-		while (InviteTextAdded < 5 && FriendIterator < OnlineFriendsList.Num())
+		for (int FriendIterator = 0; FriendIterator < OnlineFriendsList.Num(); FriendIterator++)
 		{
 			if (OnlineFriendsList[FriendIterator].bIsOnline && OnlineFriendsList[FriendIterator].bIsPlayingThisGame)
 			{
+				LastFriendCount++;
 				if (InviteTextAdded == 0)
 				{
 					DropDownButton->AddSpacer();
@@ -337,8 +388,6 @@ void SUTPartyWidget::SetupPartyMemberBox()
 				DropDownButton->AddSubMenuItem(FriendText, FOnClicked::CreateSP(this, &SUTPartyWidget::InviteToParty, OnlineFriendsList[FriendIterator].UserId));
 				InviteTextAdded++;
 			}
-
-			FriendIterator++;
 		}
 		DropDownButton->RebuildMenuContent();
 	}
@@ -482,6 +531,36 @@ FReply SUTPartyWidget::AllowMemberInvites(bool bAllow)
 
 SUTPartyWidget::~SUTPartyWidget()
 {
+}
+
+void SUTPartyWidget::Tick(const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime)
+{
+	RefreshTimer -= InDeltaTime;
+	if (RefreshTimer < 0)
+	{
+		RefreshTimer = 30.0f;
+
+		TArray<FUTFriend> OnlineFriendsList;
+		UUTLocalPlayer* UTLP = Cast<UUTLocalPlayer>(Ctx.GetLocalPlayer());
+		if (UTLP)
+		{
+			UTLP->GetFriendsList(OnlineFriendsList);
+
+			int32 OnlineFriendCount = 0;
+			for (int FriendIterator = 0; FriendIterator < OnlineFriendsList.Num(); FriendIterator++)
+			{
+				if (OnlineFriendsList[FriendIterator].bIsOnline && OnlineFriendsList[FriendIterator].bIsPlayingThisGame)
+				{
+					OnlineFriendCount++;
+				}
+			}
+
+			if (OnlineFriendCount != LastFriendCount)
+			{
+				SetupPartyMemberBox();
+			}
+		}
+	}
 }
 
 #endif

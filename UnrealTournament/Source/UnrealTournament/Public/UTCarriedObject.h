@@ -30,6 +30,27 @@ public:
 	float TotalHeldTime;
 };
 
+USTRUCT()
+struct FFlagTrailPos
+{
+	GENERATED_USTRUCT_BODY()
+
+		UPROPERTY()
+		FVector Location;
+
+	UPROPERTY()
+		FVector MidPoints[3];
+
+
+	FFlagTrailPos()
+		: Location(ForceInit)
+	{
+		for (int32 i = 0; i < 3; i++)
+		{
+			MidPoints[i] = FVector(0.f);
+		}
+	}
+};
 
 UCLASS()
 class UNREALTOURNAMENT_API AUTCarriedObject : public AActor, public IUTTeamInterface
@@ -65,7 +86,7 @@ class UNREALTOURNAMENT_API AUTCarriedObject : public AActor, public IUTTeamInter
 	TArray<AController*> HolderRescuers;
 
 	// Server Side - Holds a reference to the pawn that is holding this object
-	UPROPERTY(BlueprintReadOnly, Category = GameObject)
+	UPROPERTY(BlueprintReadOnly, ReplicatedUsing=UpdateOutline, Category = GameObject)
 	AUTCharacter* HoldingPawn;
 
 	// Holds the home base for this object.
@@ -80,7 +101,7 @@ class UNREALTOURNAMENT_API AUTCarriedObject : public AActor, public IUTTeamInter
 	UPROPERTY(BlueprintReadWrite, Category = GameObject)
 	float LastPingedTime;
 
-	// How long a ping is valid
+	// How long a enemy ping is valid
 	UPROPERTY(EditDefaultsOnly, Category = GameObject)
 		float PingedDuration;
 
@@ -89,6 +110,9 @@ class UNREALTOURNAMENT_API AUTCarriedObject : public AActor, public IUTTeamInter
 	
 	UPROPERTY(Replicated, BlueprintReadOnly, Category = GameObject)
 	bool bCurrentlyPinged;
+
+	UPROPERTY(Replicated, BlueprintReadWrite, Category = GameObject)
+		bool bSlowsMovement;
 
 	UPROPERTY(EditDefaultsOnly, Category = GameObject)
 		TSubclassOf<class AUTGhostFlag> GhostFlagClass;
@@ -105,7 +129,7 @@ private:
 	class AUTGhostFlag* MyGhostFlag;
 
 public:
-	virtual void PutGhostFlagAt(const FVector NewGhostLocation);
+	virtual void PutGhostFlagAt(FFlagTrailPos NewPosition);
 
 	virtual void ClearGhostFlag();
 
@@ -192,6 +216,9 @@ public:
 
 	UPROPERTY()
 		float LastTeleportedTime;
+
+	UPROPERTY()
+		FText LastLocationName;
 
 	virtual void Init(AUTGameObjective* NewBase);
 
@@ -298,10 +325,16 @@ public:
 	virtual void CheckTouching();
 
 	UPROPERTY()
-		TArray<FVector> PastPositions;
+		TArray<FFlagTrailPos> PastPositions;
 
 	UPROPERTY()
 		float LastPositionUpdateTime;
+
+	UPROPERTY()
+		FVector MidPoints[3];
+
+	UPROPERTY()
+		int32 MidPointPos;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Replicated, Category = GameObject)
 		bool bGradualAutoReturn;
@@ -320,6 +353,10 @@ public:
 	UPROPERTY()
 		UParticleSystemComponent* HolderTrail;
 
+	UFUNCTION()
+	virtual void UpdateOutline()
+	{}
+
 protected:
 	// Server Side - Holds a reference to the pawn that is holding this object
 	UPROPERTY(BlueprintReadOnly, Category = GameObject)
@@ -335,6 +372,10 @@ protected:
 	// The timestamp of when this object was last taken.
 	UPROPERTY(BlueprintReadOnly, Category = GameObject)
 	float TakenTime;
+
+	// keep from playing flag dropped messages too often
+	UPROPERTY(BlueprintReadOnly, Category = GameObject)
+		float LastDroppedMessageTime;
 
 	UFUNCTION()
 	virtual void OnObjectStateChanged();

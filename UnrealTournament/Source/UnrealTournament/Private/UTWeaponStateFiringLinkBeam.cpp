@@ -137,6 +137,7 @@ void UUTWeaponStateFiringLinkBeam::Tick(float DeltaTime)
 		AccumulatedFiringTime += DeltaTime;
 		float RefireTime = LinkGun->GetRefireTime(LinkGun->GetCurrentFireMode());
 		AUTPlayerState* PS = (LinkGun->Role == ROLE_Authority) && LinkGun->GetUTOwner() && LinkGun->GetUTOwner()->Controller ? Cast<AUTPlayerState>(LinkGun->GetUTOwner()->Controller->PlayerState) : NULL;
+		LinkGun->bLinkBeamImpacting = (Hit.Time < 1.f);
 		if (Hit.Actor != NULL && Hit.Actor->bCanBeDamaged && Hit.Actor != LinkGun->GetUTOwner())
         {   
 			if (LinkGun->Role == ROLE_Authority)

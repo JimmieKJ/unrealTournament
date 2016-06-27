@@ -249,3 +249,43 @@ void UUTPartyGameState::SetMatchmakingRegion(const FString& InMatchmakingRegion)
 	PartyState.MatchmakingRegion = InMatchmakingRegion;
 	UpdatePartyData(OwningUserId);
 }
+
+void UUTPartyGameState::ReturnToMainMenu()
+{
+	PartyState.PartyProgression = EUTPartyState::Menus;
+	OnLeaderPartyStateChanged().Broadcast(PartyState.PartyProgression);
+	UpdatePartyData(OwningUserId);
+}
+
+void UUTPartyGameState::SetPartyQuickMatching()
+{
+	PartyState.PartyProgression = EUTPartyState::QuickMatching;
+	OnLeaderPartyStateChanged().Broadcast(PartyState.PartyProgression);
+	UpdatePartyData(OwningUserId);
+}
+
+void UUTPartyGameState::SetPartyJoiningQuickMatch()
+{
+	PartyState.PartyProgression = EUTPartyState::CustomMatch;
+	OnLeaderPartyStateChanged().Broadcast(PartyState.PartyProgression);
+	UpdatePartyData(OwningUserId);
+}
+
+void UUTPartyGameState::SetPartyCancelQuickMatch()
+{
+	PartyState.PartyProgression = EUTPartyState::Menus;
+	OnLeaderPartyStateChanged().Broadcast(PartyState.PartyProgression);
+	UpdatePartyData(OwningUserId);
+}
+
+bool UUTPartyGameState::IsInJoinableGameState() const
+{
+	if (PartyState.PartyProgression == EUTPartyState::Matchmaking ||
+		PartyState.PartyProgression == EUTPartyState::PostMatchmaking ||
+		PartyState.PartyProgression == EUTPartyState::TravelToServer)
+	{
+		return false;
+	}
+
+	return Super::IsInJoinableGameState();
+}

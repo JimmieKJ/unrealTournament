@@ -15,6 +15,38 @@ class AUTPartyBeaconClient;
 class AQosBeaconHost;
 struct FEmptyServerReservation;
 
+USTRUCT()
+struct FUpdatedPlaylistEntry
+{
+	GENERATED_USTRUCT_BODY()
+
+	UPROPERTY()
+	int32 Id;
+
+	UPROPERTY()
+	FString ExtraCommandline;
+
+	UPROPERTY()
+	TArray<FString> MapNames;
+
+	FUpdatedPlaylistEntry()
+	{
+		Id = 0;
+	}
+};
+
+USTRUCT()
+struct FUpdatedPlaylists
+{
+	GENERATED_USTRUCT_BODY()
+
+	UPROPERTY()
+	TArray<FUpdatedPlaylistEntry> PlaylistOverrides;
+
+	FUpdatedPlaylists()
+	{}
+};
+
 UCLASS(Config = Game)
 class UNREALTOURNAMENT_API AUTGameSessionRanked : public AUTGameSession
 {
@@ -87,6 +119,8 @@ public:
 	virtual void UnregisterPlayer(FName InSessionName, const FUniqueNetIdRepl& UniqueId) override;
 	virtual void UnregisterPlayer(const APlayerController* ExitingPlayer) override;
 
+	virtual void StartServerInternal();
+
 	virtual void ShutdownDedicatedServer();
 	virtual void Restart();
 	virtual void PauseBeaconRequests(bool bPause);
@@ -118,6 +152,16 @@ public:
 	uint8 GetTeamForPlayer(const FUniqueNetIdRepl& PlayerId) const;
 
 	void LockPlayersToSession(bool bNewLockState);
+
+	FDelegateHandle OnReadTitleFileCompleteDelegate;
+	FDelegateHandle OnEnumerateTitleFilesCompleteDelegate;
+	virtual void OnReadTitleFileComplete(bool bWasSuccessful, const FString& Filename);
+	virtual void OnEnumerateTitleFilesComplete(bool bWasSuccessful);
+	static const FString& GetMCPRankedPlaylistFilename()
+	{
+		const static FString MCPStorageFilename = "UnrealTournamentPlaylists.json";
+		return MCPStorageFilename;
+	}
 
 	/**
 	 * Cleanup host beacon

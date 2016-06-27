@@ -1,10 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #include "UnrealTournament.h"
 #include "UTDemoRecSpectator.h"
+#include "UTGameViewportClient.h"
 #include "UTDemoNetDriver.h"
 
 AUTDemoRecSpectator::AUTDemoRecSpectator(const FObjectInitializer& OI)
-: Super(OI)
+	: Super(OI)
 {
 	bShouldPerformFullTickWhenPaused = true;
 }
@@ -18,6 +19,38 @@ void AUTDemoRecSpectator::ViewPlayerState(APlayerState* PS)
 		{
 			SetViewTarget(It->Get());
 		}
+	}
+}
+
+void AUTDemoRecSpectator::DemoNotifyCausedHit_Implementation(APawn* InstigatorPawn, AUTCharacter* HitPawn, uint8 AppliedDamage, FVector Momentum, const FDamageEvent& DamageEvent)
+{
+	if (GetViewTarget() == InstigatorPawn)
+	{
+		ClientNotifyCausedHit(HitPawn, AppliedDamage);
+	}
+	if (GetViewTarget() == HitPawn)
+	{
+		APlayerState* InstigatedByState = (InstigatorPawn != NULL) ? InstigatorPawn->PlayerState : NULL;
+		FVector RelHitLocation(FVector::ZeroVector);
+		FVector ShotDir(FVector::ZeroVector);
+		if (DamageEvent.IsOfType(FPointDamageEvent::ClassID))
+		{
+			ShotDir = ((FPointDamageEvent*)&DamageEvent)->ShotDirection;
+		}
+		else if (DamageEvent.IsOfType(FRadialDamageEvent::ClassID) && ((FRadialDamageEvent*)&DamageEvent)->ComponentHits.Num() > 0)
+		{
+			if (DamageEvent.IsOfType(FUTRadialDamageEvent::ClassID) && (((FUTRadialDamageEvent*)&DamageEvent)->Params.MinimumDamage == ((FUTRadialDamageEvent*)&DamageEvent)->Params.BaseDamage))
+			{
+				ShotDir = ((FUTRadialDamageEvent*)&DamageEvent)->ShotDirection;
+			}
+			else
+			{
+				ShotDir = (((FRadialDamageEvent*)&DamageEvent)->ComponentHits[0].ImpactPoint - ((FRadialDamageEvent*)&DamageEvent)->Origin).GetSafeNormal();
+			}
+		}
+		AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
+		bool bFriendlyFire = InstigatedByState != PlayerState && GS != NULL && GS->OnSameTeam(InstigatedByState, this);
+		ClientNotifyTakeHit(bFriendlyFire, AppliedDamage, FRotator::CompressAxisToByte(ShotDir.Rotation().Yaw));
 	}
 }
 
@@ -166,10 +199,17 @@ void AUTDemoRecSpectator::ClientGameEnded_Implementation(AActor* EndGameFocus, b
 void AUTDemoRecSpectator::BeginPlay()
 {
 	Super::BeginPlay();
-	UUTLocalPlayer* LocalPlayer = Cast<UUTLocalPlayer>(Player);
-	if (LocalPlayer)
+	UUTDemoNetDriver* NetDriver = Cast<UUTDemoNetDriver>(GetWorld()->DemoNetDriver);
+	if (NetDriver)
 	{
-		LocalPlayer->OpenReplayWindow();
+		if (!NetDriver->bIsLocalReplay)
+		{
+			UUTLocalPlayer* LocalPlayer = Cast<UUTLocalPlayer>(Player);
+			if (LocalPlayer)
+			{
+				LocalPlayer->OpenReplayWindow();
+			}
+		}
 	}
 }
 
@@ -256,8 +296,16 @@ void AUTDemoRecSpectator::SmoothTargetViewRotation(APawn* TargetPawn, float Delt
 void AUTDemoRecSpectator::InitPlayerState()
 {
 	Super::InitPlayerState();
-	PlayerState->bOnlySpectator = true;
-	PlayerState->PlayerName = TEXT("Replay Spectator");
+	
+	UUTDemoNetDriver* NetDriver = Cast<UUTDemoNetDriver>(GetWorld()->DemoNetDriver);
+	if (NetDriver)
+	{
+		if (!NetDriver->bIsLocalReplay)
+		{
+			PlayerState->bOnlySpectator = true;
+			PlayerState->PlayerName = TEXT("Replay Spectator");
+		}
+	}
 
 	AUTPlayerState* UTPS = Cast<AUTPlayerState>(PlayerState);
 	if (UTPS != nullptr)

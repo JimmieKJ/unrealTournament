@@ -103,7 +103,7 @@ class UNREALTOURNAMENT_API AUTTeamGameMode : public AUTGameMode
 	virtual void CreateGameURLOptions(TArray<TSharedPtr<TAttributePropertyBase>>& MenuProps);
 
 #if !UE_SERVER
-	virtual void CreateConfigWidgets(TSharedPtr<class SVerticalBox> MenuSpace, bool bCreateReadOnly, TArray< TSharedPtr<TAttributePropertyBase> >& ConfigProps) override;
+	virtual void CreateConfigWidgets(TSharedPtr<class SVerticalBox> MenuSpace, bool bCreateReadOnly, TArray< TSharedPtr<TAttributePropertyBase> >& ConfigProps, int32 MinimumPlayers) override;
 #endif
 
 	/**  Find the best player on a given team */
@@ -117,6 +117,8 @@ class UNREALTOURNAMENT_API AUTTeamGameMode : public AUTGameMode
 	virtual void BroadcastScoreUpdate(APlayerState* ScoringPlayer, AUTTeamInfo* ScoringTeam, int32 OldScore = 0);
 
 	virtual void GetGood() override;
+
+	virtual void SendComsMessage( AUTPlayerController* Sender, AUTPlayerState* Target, int32 Switch) override;
 
 protected:
 	virtual void SendEndOfGameStats(FName Reason);

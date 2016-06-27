@@ -1651,4 +1651,7 @@ public:
 	UPROPERTY()
 	uint16		LastCompletedSeamlessTravelCount;
 
+	UFUNCTION(exec)
+	virtual void ToggleVoiceLoopback(bool bEnabled);	
+
 };

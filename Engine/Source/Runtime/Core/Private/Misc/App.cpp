@@ -21,6 +21,7 @@ double FApp::FixedDeltaTime = 1 / 30.0;
 double FApp::CurrentTime = 0.0;
 double FApp::LastTime = 0.0;
 double FApp::DeltaTime = 1 / 30.0;
+double FApp::IdleTime = 0.0;
 float FApp::VolumeMultiplier = 1.0f;
 float FApp::UnfocusedVolumeMultiplier = 0.0f;
 bool FApp::bUseVRFocus = false;

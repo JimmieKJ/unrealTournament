@@ -5,8 +5,12 @@
 #include "SlateBasics.h"
 #include "Slate/SlateGameResources.h"
 #include "Slate/SlateBrushAsset.h"
-#include "FriendsAndChatStyle.h"
 #include "SUTStyle.h"
+
+#if WITH_SOCIAL
+#include "../../UTSocialStyle.h"
+#include "Social.h"
+#endif
 
 #if !UE_SERVER
 TSharedPtr<FSlateStyleSet> SUTStyle::UWindowsStyleInstance = NULL;
@@ -103,6 +107,13 @@ TSharedRef<FSlateStyleSet> SUTStyle::Create()
 	SetChallengeBadges(StyleRef);
 	SetContextMenus(StyleRef);
 	SetServerBrowser(StyleRef);
+
+	#if WITH_SOCIAL
+	USocialStyleAsset* SocialAsset = LoadObject<USocialStyleAsset>(NULL, TEXT("/Game/RestrictedAssets/UI/UTSocialStyle.UTSocialStyle"), NULL, LOAD_None, NULL);
+	SocialAsset->AddToRoot();
+	ISocialModule::Get().GetFriendsAndChatManager()->InitializeSocialStyle(&SocialAsset->Style);
+	#endif
+
 	return StyleRef;
 }
 
@@ -191,6 +202,8 @@ void SUTStyle::SetIcons(TSharedRef<FSlateStyleSet> StyleRef)
 	Style.Set("UT.Icon.Exit", new IMAGE_BRUSH("UTStyle/Icons/UT.Icon.Exit", FVector2D(48, 48)));
 	Style.Set("UT.Icon.Stats", new IMAGE_BRUSH("UTStyle/Icons/UT.Icon.Stats", FVector2D(48, 48)));
 	Style.Set("UT.Icon.Chat36", new IMAGE_BRUSH("UTStyle/Icons/UT.Icon.Chat36", FVector2D(36, 36)));
+	Style.Set("UT.Icon.Chat.Inverted", new IMAGE_BRUSH("UTStyle/Icons/UT.Icon.Chat.Inverted", FVector2D(36, 36)));
+	
 	Style.Set("UT.Icon.Browser", new IMAGE_BRUSH("UTStyle/Icons/UT.Icon.Browser", FVector2D(48, 48)));
 	Style.Set("UT.Icon.SocialBang", new IMAGE_BRUSH("UTStyle/Icons/UT.Icon.SocialBang", FVector2D(12, 12)));
 

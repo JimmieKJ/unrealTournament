@@ -17,6 +17,7 @@
 #include "Online.h"
 #include "UTOnlineGameSearchBase.h"
 #include "OnlineSubsystemTypes.h"
+#include "OnlineSubsystemUtils.h"
 #include "UTDroppedPickup.h"
 #include "UTGameEngine.h"
 #include "UnrealNetwork.h"
@@ -37,6 +38,16 @@
 #include "UTMutator.h"
 #include "UTVictimMessage.h"
 #include "SUTSpawnWindow.h"
+#include "UTPlaceablePowerup.h"
+#include "UTKillcamPlayback.h"
+#include "UTWeaponAttachment.h"
+#include "UTGameViewportClient.h"
+
+static TAutoConsoleVariable<float> CVarUTKillcamStartDelay(
+	TEXT("UT.KillcamStartDelay"),
+	0.5f,
+	TEXT("Number of seconds to wait after dying to play the killcam.")
+	);
 
 DEFINE_LOG_CATEGORY_STATIC(LogUTPlayerController, Log, All);
 
@@ -80,13 +91,12 @@ AUTPlayerController::AUTPlayerController(const class FObjectInitializer& ObjectI
 	PredictionFudgeFactor = 20.f;
 	MaxPredictionPing = 0.f; 
 	DesiredPredictionPing = 120.f;
-
 	bIsDebuggingProjectiles = false;
-
 	CastingGuideViewIndex = INDEX_NONE;
 	bRequestingSlideOut = true;
-	
 	DilationIndex = 2;
+	bNeedsRallyNotify = true;
+	bNeedsBoostNotify = true;
 
 	TimeToHoldPowerUpButtonToActivate = 0.75f;
 	ScoreboardDelayOnDeath = 2.f;
@@ -99,6 +109,41 @@ AUTPlayerController::AUTPlayerController(const class FObjectInitializer& ObjectI
 
 	static ConstructorHelpers::FObjectFinder<USoundBase> BadSelect(TEXT("SoundCue'/Game/RestrictedAssets/UI/BadSelect_Cue.BadSelect_Cue'"));
 	BadSelectSound = BadSelect.Object;
+
+	static ConstructorHelpers::FObjectFinder<USoundBase> BoostActivateSoundFinder(TEXT("SoundWave'/Game/RestrictedAssets/Audio/Stingers/BoostActivated.BoostActivated'"));
+	BoostActivateSound = BoostActivateSoundFinder.Object;
+
+	LastBuyMenuOpenTime = 0.0f;
+	BuyMenuToggleDelay = 0.25f;
+
+	FootStepAmp.OwnVolumeMultiplier = 0.35f;
+	FootStepAmp.TeammateVolumeMultiplier = 0.5f;
+	PainSoundAmp.InstigatorVolumeMultiplier = 2.5f;
+	PainSoundAmp.TargetVolumeMultiplier = 2.5f;
+	WeaponFireAmp.InstigatorVolumeMultiplier = 1.3f;
+	WeaponFireAmp.TargetVolumeMultiplier = 1.2f;
+	WeaponFireAmp.TargetPitchMultiplier = 1.1f;
+
+	static ConstructorHelpers::FObjectFinder<USoundAttenuation> InstigatedPainAttenFinder(TEXT("SoundAttenuation'/Game/RestrictedAssets/Audio/SoundClassesAndMixes/Attenuations/Attenuation_InstigatedPain.Attenuation_InstigatedPain'"));
+	PainSoundAmp.TargetAttenuation = InstigatedPainAttenFinder.Object;
+
+	static ConstructorHelpers::FObjectFinder<USoundAttenuation> InstigatedWeaponAttenFinder(TEXT("SoundAttenuation'/Game/RestrictedAssets/Audio/SoundClassesAndMixes/Attenuations/Attenuation_WeaponInstigator.Attenuation_WeaponInstigator'"));
+	WeaponFireAmp.InstigatorAttenuation = InstigatedWeaponAttenFinder.Object;
+
+	static ConstructorHelpers::FObjectFinder<USoundAttenuation> TargetWeaponAttenFinder(TEXT("SoundAttenuation'/Game/RestrictedAssets/Audio/SoundClassesAndMixes/Attenuations/Attenuation_WeaponTarget.Attenuation_WeaponTarget'"));
+	WeaponFireAmp.TargetAttenuation = TargetWeaponAttenFinder.Object;
+
+	static ConstructorHelpers::FObjectFinder<USoundAttenuation> OccludedWeaponAttenFinder(TEXT("SoundAttenuation'/Game/RestrictedAssets/Audio/SoundClassesAndMixes/Attenuations/Attenuation_WeaponFireOccluded.Attenuation_WeaponFireOccluded'"));
+	WeaponFireAmp.OccludedAttenuation = OccludedWeaponAttenFinder.Object;
+
+	static ConstructorHelpers::FObjectFinder<USoundAttenuation> InstigatedFoleyAttenFinder(TEXT("SoundAttenuation'/Game/RestrictedAssets/Audio/SoundClassesAndMixes/Attenuations/Attenuation_ProjectileFoleyInstigator.Attenuation_ProjectileFoleyInstigator'"));
+	WeaponFoleyAmp.InstigatorAttenuation = InstigatedFoleyAttenFinder.Object;
+
+	static ConstructorHelpers::FObjectFinder<USoundClass> SoundClassFinder(TEXT("SoundClass'/Game/RestrictedAssets/Audio/SoundClassesAndMixes/SFX_Priority.SFX_Priority'"));
+	PriorityFXSoundClass = SoundClassFinder.Object;
+
+	LastComMessageSwitch = -1;
+	LastComMessageTime = 0.0f;
 }
 
 void AUTPlayerController::BeginPlay()
@@ -240,6 +285,28 @@ void AUTPlayerController::ServerMutate_Implementation(const FString& MutateStrin
 	}
 }
 
+void AUTPlayerController::RequestRally()
+{
+	if (UTPlayerState && UTPlayerState->bCanRally)
+	{
+		ServerRequestRally();
+	}
+}
+
+bool AUTPlayerController::ServerRequestRally_Validate()
+{
+	return true;
+}
+
+void AUTPlayerController::ServerRequestRally_Implementation()
+{
+	if (UTCharacter && !UTCharacter->IsRagdoll())
+	{
+		AUTGameMode* Game = GetWorld()->GetAuthGameMode<AUTGameMode>();
+		Game->HandleRallyRequest(this);
+	}
+}
+
 void AUTPlayerController::NP()
 {
 	ServerNP();
@@ -370,6 +437,17 @@ void AUTPlayerController::SetupInputComponent()
 
 	InputComponent->BindAction("DropCarriedObject", IE_Pressed, this, &AUTPlayerController::DropCarriedObject);
 
+	InputComponent->BindAction("ToggleComMenu", IE_Pressed, this, &AUTPlayerController::ShowComsMenu);
+	InputComponent->BindAction("ToggleComMenu", IE_Released, this, &AUTPlayerController::HideComsMenu);
+
+	InputComponent->BindAction("ToggleWeaponWheel", IE_Pressed, this, &AUTPlayerController::ShowWeaponWheel);
+	InputComponent->BindAction("ToggleWeaponWheel", IE_Released, this, &AUTPlayerController::HideWeaponWheel);
+
+	InputComponent->BindAction("PushToTalk", IE_Pressed, this, &AUTPlayerController::StartVOIPTalking);
+	InputComponent->BindAction("PushToTalk", IE_Released, this, &AUTPlayerController::StopVOIPTalking);
+
+	InputComponent->BindAction("RequestRally", IE_Pressed, this, &AUTPlayerController::RequestRally);
+
 	UpdateWeaponGroupKeys();
 	UpdateInventoryKeys();
 }
@@ -441,6 +519,21 @@ void AUTPlayerController::OnRep_PlayerState()
 	}
 }
 
+void AUTPlayerController::SetPlayer(UPlayer* InPlayer)
+{
+	Super::SetPlayer(InPlayer);
+
+	ULocalPlayer* LP = Cast<ULocalPlayer>(Player);
+	if (LP)
+	{
+		UUTGameViewportClient* VC = Cast<UUTGameViewportClient>(LP->ViewportClient);
+		if (VC)
+		{
+			VC->SetActiveLocalPlayerControllers();
+		}
+	}
+}
+
 void AUTPlayerController::SetPawn(APawn* InPawn)
 {
 	if (InPawn == NULL)
@@ -464,6 +557,8 @@ void AUTPlayerController::SetPawn(APawn* InPawn)
 		if (UTCharacter && UTCharacter->UTCharacterMovement)
 		{
 			UTCharacter->UTCharacterMovement->UpdateFloorSlide(bIsHoldingFloorSlide);
+			bNeedsRallyNotify = true;
+			bNeedsBoostNotify = true;
 		}
 	}
 }
@@ -514,6 +609,18 @@ void AUTPlayerController::ClientRestart_Implementation(APawn* NewPawn)
 	{
 		GetPawn()->PlayerState = PlayerState;
 	}
+
+	// JackP recommended course of action
+	static auto DitheredLODCVar = IConsoleManager::Get().FindConsoleVariable(TEXT("foliage.DitheredLOD"));
+	DitheredLODCVar->Set(false, ECVF_SetByGameSetting);
+	FTimerHandle TimerHandle;
+	GetWorldTimerManager().SetTimer(TimerHandle, this, &AUTPlayerController::ResetFoliageDitheredLOD, 0.5f, false);
+
+	if (MyUTHUD != nullptr) 
+	{
+		MyUTHUD->ClientRestart();
+	}
+
 }
 
 void AUTPlayerController::PawnPendingDestroy(APawn* InPawn)
@@ -594,10 +701,30 @@ void AUTPlayerController::SetSpectatorMouseChangesView(bool bNewValue)
 	}
 }
 
+bool AUTPlayerController::InputAxis(FKey Key, float Delta, float DeltaTime, int32 NumSamples, bool bGamepad)
+{
+	if (MyUTHUD != nullptr) 
+	{
+		if ( MyUTHUD->ProcessInputAxis(Key, Delta) )
+		{
+			return true;
+		}
+	}
+
+	Super::InputAxis(Key, Delta, DeltaTime, NumSamples, bGamepad);
+
+	return false;
+}
+
 bool AUTPlayerController::InputKey(FKey Key, EInputEvent EventType, float AmountDepressed, bool bGamepad)
 {
 	// HACK: Ignore all input that occurred during loading to avoid Slate focus issues and other weird behaviour
 	if (GetWorld()->RealTimeSeconds < 0.5f)
+	{
+		return true;
+	}
+
+	if ( MyUTHUD != nullptr && MyUTHUD->ProcessInputKey(Key, EventType) )
 	{
 		return true;
 	}
@@ -711,33 +838,18 @@ bool AUTPlayerController::ServerActivatePowerUpPress_Validate()
 
 void AUTPlayerController::ServerActivatePowerUpPress_Implementation()
 {
-	if (UTCharacter != NULL && UTPlayerState != NULL)
+	if (UTCharacter != NULL && UTPlayerState != NULL && !GetWorldTimerManager().IsTimerActive(TriggerBoostTimerHandle))
 	{
 		AUTGameMode* UTGM = GetWorld()->GetAuthGameMode<AUTGameMode>();
 		if (UTGM && UTGM->CanBoost(this))
 		{
+			UTClientPlaySound(BoostActivateSound);
+			GetWorldTimerManager().SetTimer(TriggerBoostTimerHandle, this, &AUTPlayerController::TriggerBoost, TimeToHoldPowerUpButtonToActivate, false);
+			// spawn effect
 			TSubclassOf<AUTInventory> ActivatedPowerupPlaceholderClass = UTGM ? UTGM->GetActivatedPowerupPlaceholderClass() : nullptr;
-			if (GetWorldTimerManager().IsTimerActive(TriggerBoostTimerHandle))
+			if (ActivatedPowerupPlaceholderClass)
 			{
-				GetWorldTimerManager().ClearTimer(TriggerBoostTimerHandle);
-				// kill effect
-				if (ActivatedPowerupPlaceholderClass)
-				{
-					AUTInventory* FoundEffect = UTCharacter->FindInventoryType<AUTInventory>(ActivatedPowerupPlaceholderClass, true);
-					if (FoundEffect)
-					{
-						FoundEffect->Destroy();
-					}
-				}
-			}
-			else
-			{
-				GetWorldTimerManager().SetTimer(TriggerBoostTimerHandle, this, &AUTPlayerController::TriggerBoost, TimeToHoldPowerUpButtonToActivate, false);
-				// spawn effect
-				if (ActivatedPowerupPlaceholderClass)
-				{
-					UTCharacter->AddInventory(GetWorld()->SpawnActor<AUTInventory>(ActivatedPowerupPlaceholderClass, FVector(0.0f), FRotator(0.0f, 0.0f, 0.0f)), true);
-				}
+				UTCharacter->AddInventory(GetWorld()->SpawnActor<AUTInventory>(ActivatedPowerupPlaceholderClass, FVector(0.0f), FRotator(0.0f, 0.0f, 0.0f)), true);
 			}
 		}
 	}
@@ -746,32 +858,39 @@ void AUTPlayerController::ServerActivatePowerUpPress_Implementation()
 void AUTPlayerController::TriggerBoost()
 {
 	AUTGameMode* GameMode = GetWorld()->GetAuthGameMode<AUTGameMode>();
-	if (GameMode && UTCharacter && UTPlayerState && GameMode->AttemptBoost(this))
+	if (GameMode && UTCharacter && UTPlayerState)
 	{
-		if (UTPlayerState->BoostClass)
+		if (GameMode->AttemptBoost(this))
 		{
-			AUTInventory* TriggeredBoost = GetWorld()->SpawnActor<AUTInventory>(UTPlayerState->BoostClass, FVector(0.0f), FRotator(0.f, 0.f, 0.f));
-			TriggeredBoost->InitAsTriggeredBoost(UTCharacter);
+			if (UTPlayerState->BoostClass)
+			{
+				AUTPlaceablePowerup* FoundPlaceablePowerup = UTCharacter->FindInventoryType<AUTPlaceablePowerup>(AUTPlaceablePowerup::StaticClass(), false);
+				if (FoundPlaceablePowerup)
+				{
+					FoundPlaceablePowerup->SpawnPowerup();
+				}
+				else
+				{
+					AUTInventory* TriggeredBoost = GetWorld()->SpawnActor<AUTInventory>(UTPlayerState->BoostClass, FVector(0.0f), FRotator(0.f, 0.f, 0.f));
+					TriggeredBoost->InitAsTriggeredBoost(UTCharacter);
 
-			AUTInventory* DuplicatePowerup = UTCharacter->FindInventoryType<AUTInventory>(UTPlayerState->BoostClass, true);
-			if (!DuplicatePowerup || !DuplicatePowerup->StackPickup(nullptr))
-			{
-				UTCharacter->AddInventory(TriggeredBoost, true);
+					AUTInventory* DuplicatePowerup = UTCharacter->FindInventoryType<AUTInventory>(UTPlayerState->BoostClass, true);
+					if (!DuplicatePowerup || !DuplicatePowerup->StackPickup(nullptr))
+					{
+						UTCharacter->AddInventory(TriggeredBoost, true);
+					}
+
+					//if we gave you a weapon lets immediately switch on triggering the boost
+					AUTWeapon* BoostAsWeapon = Cast<AUTWeapon>(TriggeredBoost);
+					if (BoostAsWeapon)
+					{
+						UTCharacter->SwitchWeapon(BoostAsWeapon);
+					}
+				}
 			}
-			
-			//if we gave you a weapon lets immediately switch on triggering the boost
-			AUTWeapon* BoostAsWeapon = Cast<AUTWeapon>(TriggeredBoost);
-			if (BoostAsWeapon)
+			else
 			{
-				UTCharacter->SwitchWeapon(BoostAsWeapon);
-			}
-		}
-		else
-		{
-			AUTGameMode* UTGM = GetWorld()->GetAuthGameMode<AUTGameMode>();
-			if (UTGM)
-			{
-				UTGM->ToggleSpecialFor(UTCharacter);
+				GameMode->ToggleSpecialFor(UTCharacter);
 			}
 		}
 	}
@@ -846,6 +965,7 @@ void AUTPlayerController::SwitchWeaponInSequence(bool bPrev)
 {
 	if (UTCharacter != NULL && IsLocalPlayerController() && UTCharacter->TauntCount == 0 && !UTCharacter->IsRagdoll())
 	{
+		LastWeaponPrevNextTime = GetWorld()->GetTimeSeconds();
 		if (UTCharacter->GetWeapon() == NULL)
 		{
 			SwitchToBestWeapon();
@@ -924,6 +1044,24 @@ void AUTPlayerController::CheckAutoWeaponSwitch(AUTWeapon* TestWeapon)
 		if (CurWeapon == NULL || (bAutoWeaponSwitch && !UTCharacter->IsPendingFire(CurWeapon->GetCurrentFireMode()) && TestWeapon->AutoSwitchPriority > CurWeapon->AutoSwitchPriority))
 		{
 			UTCharacter->SwitchWeapon(TestWeapon);
+		}
+	}
+}
+
+void AUTPlayerController::RefreshWeaponGroups()
+{
+	if (UTCharacter == nullptr)  return;
+
+	TArray<int32> GroupSlotIndexes;
+	GroupSlotIndexes.AddZeroed(10);
+
+	for (TInventoryIterator<AUTWeapon> It(UTCharacter); It; ++It)
+	{
+		AUTWeapon* Weap = *It;
+		if (Weap != nullptr && GroupSlotIndexes.IsValidIndex(Weap->Group))
+		{
+			Weap->GroupSlot = GroupSlotIndexes[Weap->Group];
+			GroupSlotIndexes[Weap->Group]++;
 		}
 	}
 }
@@ -1603,7 +1741,6 @@ void AUTPlayerController::StopSlide()
 	UUTCharacterMovement* MyCharMovement = UTCharacter ? UTCharacter->UTCharacterMovement : NULL;
 	if (MyCharMovement)
 	{
-		MyCharMovement->bWantsToCrouch = false;
 		MyCharMovement->UpdateFloorSlide(false);
 	}
 }
@@ -1655,24 +1792,77 @@ void AUTPlayerController::TouchStarted(const ETouchIndex::Type FingerIndex, cons
 	}
 }
 
-void AUTPlayerController::HearSound(USoundBase* InSoundCue, AActor* SoundPlayer, const FVector& SoundLocation, bool bStopWhenOwnerDestroyed, bool bAmplifyVolume)
+void AUTPlayerController::HearSound(USoundBase* InSoundCue, AActor* SoundPlayer, const FVector& SoundLocation, bool bStopWhenOwnerDestroyed, bool bAmplifyVolume, ESoundAmplificationType AmpType)
 {
 	bool bIsOccluded = false; 
 	float MaxAudibleDistance = InSoundCue->GetAttenuationSettingsToApply() ? InSoundCue->GetAttenuationSettingsToApply()->GetMaxDimension() : 15000.f;
-	if (SoundPlayer == this || (GetViewTarget() != NULL && (bAmplifyVolume || MaxAudibleDistance >= (SoundLocation - GetViewTarget()->GetActorLocation()).Size())))
+/*	if (true)//(GetNetMode() == NM_DedicatedServer)
+	{
+		if (!InSoundCue->GetAttenuationSettingsToApply())
+		{
+			UE_LOG(UT, Warning, TEXT("NO ATTENUATION SETTINGS FOR %s"), *InSoundCue->GetName());
+		}
+		else
+		{
+			if (!InSoundCue->AttenuationSettings)
+			{
+			UE_LOG(UT, Warning, TEXT("NO ATTENUATION SETTINGS OBJECT FOR %s"), *InSoundCue->GetName());
+			}
+			
+			if (InSoundCue->GetAttenuationSettingsToApply()->bAttenuateWithLPF)
+			{
+				UE_LOG(UT, Warning, TEXT("AttenuateWithLPF FOR %s"), *InSoundCue->GetName());
+			}
+			if (InSoundCue->GetAttenuationSettingsToApply()->bEnableListenerFocus)
+			{
+				UE_LOG(UT, Warning, TEXT("bEnableListenerFocus FOR %s"), *InSoundCue->GetName());
+			}
+			if (InSoundCue->GetAttenuationSettingsToApply()->bEnableOcclusion)
+			{
+				UE_LOG(UT, Warning, TEXT("bEnableOcclusion FOR %s"), *InSoundCue->GetName());
+			}
+			if (InSoundCue->GetAttenuationSettingsToApply()->bUseComplexCollisionForOcclusion)
+			{
+				UE_LOG(UT, Warning, TEXT("bUseComplexCollisionForOcclusion FOR %s"), *InSoundCue->GetName());
+			}
+		}
+	}*/
+	if (SoundPlayer == this || (GetViewTarget() != NULL && (bAmplifyVolume || (SoundPlayer == this) || (SoundPlayer == GetViewTarget()) || MaxAudibleDistance >= (SoundLocation - GetViewTarget()->GetActorLocation()).Size())))
 	{
 		// we don't want to replicate the location if it's the same as Actor location (so the sound gets played attached to the Actor), but we must if the source Actor isn't relevant
 		UNetConnection* Conn = Cast<UNetConnection>(Player);
 		FVector RepLoc = (SoundPlayer != NULL && SoundPlayer->GetActorLocation() == SoundLocation && (Conn == NULL || Conn->ActorChannels.Contains(SoundPlayer))) ? FVector::ZeroVector : SoundLocation;
-		ClientHearSound(InSoundCue, SoundPlayer, RepLoc, bStopWhenOwnerDestroyed, bAmplifyVolume);
+		ClientHearSound(InSoundCue, SoundPlayer, RepLoc, bStopWhenOwnerDestroyed, bAmplifyVolume, AmpType);
 	}
 }
 
-void AUTPlayerController::ClientHearSound_Implementation(USoundBase* TheSound, AActor* SoundPlayer, FVector_NetQuantize SoundLocation, bool bStopWhenOwnerDestroyed, bool bAmplifyVolume)
+void AUTPlayerController::ClientHearSound_Implementation(USoundBase* TheSound, AActor* SoundPlayer, FVector_NetQuantize SoundLocation, bool bStopWhenOwnerDestroyed, bool bAmplifyVolume, ESoundAmplificationType AmpType)
 {
 	if (TheSound != NULL && (SoundPlayer != NULL || !SoundLocation.IsZero()))
 	{
 		bool bHRTFEnabled = (GetWorld()->GetAudioDevice() != NULL && GetWorld()->GetAudioDevice()->IsHRTFEnabledForAll());
+		FCustomSoundAmplification CustomAmp = FCustomSoundAmplification();
+		switch (AmpType)
+		{
+			case SAT_Footstep: CustomAmp = FootStepAmp; break;
+			case SAT_WeaponFire: CustomAmp = WeaponFireAmp; break;
+			case SAT_PainSound: CustomAmp = PainSoundAmp; break;
+			case SAT_WeaponFoley: CustomAmp = WeaponFoleyAmp; break;
+		}
+/*
+		FString AmpTypName = "NO AMP";
+		switch (AmpType)
+		{
+		case SAT_Footstep: AmpTypName = "FootStepAmp"; break;
+		case SAT_WeaponFire: AmpTypName = "WeaponFireAmp"; break;
+		case SAT_PainSound: AmpTypName = "PainSoundAmp"; break;
+		case SAT_WeaponFoley: AmpTypName = "WeaponFoleyAmp"; break;
+		}
+		if (AmpType != SAT_Footstep)
+		{
+			UE_LOG(UT, Warning, TEXT("%s  attenuation %s amp type %s"), *TheSound->GetName(), TheSound->AttenuationSettings ? *TheSound->AttenuationSettings->GetName() : TEXT("NONE"), *AmpTypName);
+		}
+*/
 		if (!bHRTFEnabled && (SoundPlayer == this || SoundPlayer == GetViewTarget()))
 		{
 			// no attenuation/spatialization, full volume
@@ -1680,8 +1870,8 @@ void AUTPlayerController::ClientHearSound_Implementation(USoundBase* TheSound, A
 			NewActiveSound.World = GetWorld();
 			NewActiveSound.Sound = TheSound;
 
-			NewActiveSound.VolumeMultiplier = 1.0f;
-			NewActiveSound.PitchMultiplier = 1.0f;
+			NewActiveSound.VolumeMultiplier = CustomAmp.OwnVolumeMultiplier;
+			NewActiveSound.PitchMultiplier = CustomAmp.OwnPitchMultiplier;
 
 			NewActiveSound.RequestedStartTime = 0.0f;
 
@@ -1697,44 +1887,86 @@ void AUTPlayerController::ClientHearSound_Implementation(USoundBase* TheSound, A
 		}
 		else
 		{
+			bool bSkipIfOccluded = (AmpType == SAT_WeaponFoley) || (AmpType == SAT_Footstep);
+			bool bSkipIfTeammateOccluded = (AmpType == SAT_Footstep);
+			bool bSameTeam = false;
+			bool bInstigatedSound = false;
 			USoundAttenuation* AttenuationOverride = NULL;
-			float VolumeMultiplier = 1.0f;
+			float VolumeMultiplier = 1.f;
+			float PitchMultiplier = 1.f;
+			bool bOverrideSoundClass = false;
 			if (bAmplifyVolume)
 			{
-				// the UGameplayStatics functions copy the FAttenuationSettings by value so no need to create more than one, just reuse
-				static USoundAttenuation* OverrideObj = [](){ USoundAttenuation* Result = NewObject<USoundAttenuation>(); Result->AddToRoot(); return Result; }();
-
-				AttenuationOverride = OverrideObj;
-				const FAttenuationSettings* DefaultAttenuation = TheSound->GetAttenuationSettingsToApply();
-				if (DefaultAttenuation != NULL)
+				// target
+				AttenuationOverride = CustomAmp.TargetAttenuation;
+				VolumeMultiplier = CustomAmp.TargetVolumeMultiplier;
+				PitchMultiplier = CustomAmp.TargetPitchMultiplier;
+				bOverrideSoundClass = (AmpType == SAT_PainSound);
+			}
+			else if (SoundPlayer && (SoundPlayer->GetInstigator() == GetViewTarget()))
+			{
+				// instigator
+				AttenuationOverride = CustomAmp.InstigatorAttenuation;
+				VolumeMultiplier = CustomAmp.InstigatorVolumeMultiplier;
+				PitchMultiplier = CustomAmp.InstigatorPitchMultiplier;
+				bInstigatedSound = true;
+			}
+			else
+			{
+				// check if same team
+				AUTGameState* GS = Cast<AUTGameState>(GetWorld()->GameState);
+				bSameTeam = (GS && GS->OnSameTeam(this, SoundPlayer));
+				if (bSameTeam)
 				{
-					AttenuationOverride->Attenuation = *DefaultAttenuation;
+					AttenuationOverride = CustomAmp.TeammateAttenuation;
+					VolumeMultiplier = CustomAmp.TeammateVolumeMultiplier;
+					PitchMultiplier = CustomAmp.TeammatePitchMultiplier;
 				}
-
-				// FIXMESTEVE - less hacky than this - pass in amplification
-				// set minimum volume
-				// we're assuming that the radius was already checked via HearSound() and thus this won't cause hearing the audio level-wide
-				if (Cast<APawn>(SoundPlayer))
+			}
+			if (!bAmplifyVolume && !bInstigatedSound && (bSkipIfOccluded || (bSkipIfTeammateOccluded && bSameTeam) || (CustomAmp.OccludedAttenuation != nullptr)))
+			{
+				// if further than half audible radius, skip if occluded
+				float MaxAudibleDistance = TheSound->GetAttenuationSettingsToApply() ? TheSound->GetAttenuationSettingsToApply()->GetMaxDimension() : 4000.f;
+				if (bSameTeam)
 				{
-					// extra amplify pain sounds
-					AttenuationOverride->Attenuation.dBAttenuationAtMax = -20.0f;
-					AttenuationOverride->Attenuation.FalloffDistance *= 4.f;
-					VolumeMultiplier *= 2.f;
+					MaxAudibleDistance *= CustomAmp.OccludedAttenuation ? 1.f : 0.5f;
 				}
-				else
+				FVector ViewPoint;
+				FRotator ViewRotation;
+				GetActorEyesViewPoint(ViewPoint, ViewRotation);
+				static FName NAME_LineOfSight = FName(TEXT("LineOfSight"));
+				FCollisionQueryParams CollisionParms(NAME_LineOfSight, true, SoundPlayer);
+				CollisionParms.AddIgnoredActor(GetViewTarget());
+				bool bHit = GetWorld()->LineTraceTestByChannel(ViewPoint, SoundLocation, COLLISION_TRACE_WEAPONNOCHARACTER, CollisionParms);
+				if (bHit)
 				{
-					//AttenuationOverride->Attenuation.dBAttenuationAtMax = -20.0f;
-					AttenuationOverride->Attenuation.FalloffDistance *= 1.7f;
+					if (CustomAmp.OccludedAttenuation != nullptr)
+					{
+						AttenuationOverride = CustomAmp.OccludedAttenuation;
+					}
+					else
+					{
+						if (0.5f * MaxAudibleDistance > (SoundLocation - GetViewTarget()->GetActorLocation()).Size())
+						{
+							return;
+						}
+						VolumeMultiplier *= 0.75f;
+					}
 				}
 			}
 
+			UAudioComponent* AC = nullptr;
 			if (!SoundLocation.IsZero() && (SoundPlayer == NULL || SoundLocation != SoundPlayer->GetActorLocation()))
 			{
-				UGameplayStatics::PlaySoundAtLocation(GetWorld(), TheSound, SoundLocation, VolumeMultiplier, 1.0f, 0.0f, AttenuationOverride);
+				UGameplayStatics::PlaySoundAtLocation(GetWorld(), TheSound, SoundLocation, VolumeMultiplier, PitchMultiplier, 0.0f, AttenuationOverride);
 			}
 			else if (SoundPlayer != NULL)
 			{
-				UGameplayStatics::SpawnSoundAttached(TheSound, SoundPlayer->GetRootComponent(), NAME_None, FVector::ZeroVector, EAttachLocation::KeepRelativeOffset, bStopWhenOwnerDestroyed, VolumeMultiplier, 1.0f, 0.0f, AttenuationOverride);
+				AC = UGameplayStatics::SpawnSoundAttached(TheSound, SoundPlayer->GetRootComponent(), NAME_None, FVector::ZeroVector, EAttachLocation::KeepRelativeOffset, bStopWhenOwnerDestroyed, VolumeMultiplier, PitchMultiplier, 0.0f, AttenuationOverride);
+			}
+			if (bOverrideSoundClass && AC)
+			{
+				AC->SoundClassOverride = PriorityFXSoundClass;
 			}
 		}
 	}
@@ -1936,11 +2168,11 @@ void AUTPlayerController::UpdateHiddenComponents(const FVector& ViewLocation, TS
 	AUTWorldSettings* WS = Cast<AUTWorldSettings>(GetWorld()->GetWorldSettings());
 	if (WS != NULL)
 	{
-		for (AUTPickupWeapon* Pickup : WS->WeaponPickups)
+		for (AUTPickup* Pickup : WS->PerPlayerPickups)
 		{
 			bool bTaken = !Pickup->State.bActive;
 
-			if (RecentWeaponPickups.Contains(Pickup))
+			if (RecentPerPlayerPickups.Contains(Pickup))
 			{
 				if (Pickup->IsTaken(GetPawn()))
 				{
@@ -1950,31 +2182,10 @@ void AUTPlayerController::UpdateHiddenComponents(const FVector& ViewLocation, TS
 				else
 				{
 					Pickup->PlayRespawnEffects();
-					RecentWeaponPickups.Remove(Pickup);
+					RecentPerPlayerPickups.Remove(Pickup);
 				}
 			}
-			if (bTaken)
-			{
-				if (Pickup->GetMesh() != NULL)
-				{
-					HiddenComponents.Add(Pickup->GetMesh()->ComponentId);
-				}
-			}
-			else
-			{
-				if (Pickup->GetGhostMesh() != NULL)
-				{
-					HiddenComponents.Add(Pickup->GetGhostMesh()->ComponentId);
-				}
-				if (Pickup->GetGhostDepthMesh() != NULL)
-				{
-					HiddenComponents.Add(Pickup->GetGhostDepthMesh()->ComponentId);
-				}
-				if (Pickup->TimerEffect != NULL)
-				{
-					HiddenComponents.Add(Pickup->TimerEffect->ComponentId);
-				}
-			}
+			Pickup->AddHiddenComponents(bTaken, HiddenComponents);
 		}
 	}
 
@@ -2051,6 +2262,7 @@ void AUTPlayerController::UpdateHiddenComponents(const FVector& ViewLocation, TS
 	}
 
 	// hide other pawns' first person hands/weapons
+	// hide outline if visible but not to my team
 	for (FConstPawnIterator It = GetWorld()->GetPawnIterator(); It; ++It)
 	{
 		if (It->IsValid() && It->Get() != GetViewTarget() && It->Get() != GetPawn())
@@ -2059,12 +2271,37 @@ void AUTPlayerController::UpdateHiddenComponents(const FVector& ViewLocation, TS
 			if (OtherP != NULL)
 			{
 				HideComponentTree(OtherP->FirstPersonMesh, HiddenComponents);
-				if (PlayerState != nullptr && !PlayerState->bOnlySpectator)
+				if (PlayerState != NULL && !PlayerState->bOnlySpectator)
 				{
 					if (OtherP->VisibilityMask > 0 && (OtherP->VisibilityMask & MyVisibilityMask) == 0)
 					{
 						HideComponentTree(OtherP->GetMesh(), HiddenComponents);
 					}
+				}
+				if (OtherP->GetCustomDepthMesh() != NULL && !OtherP->IsOutlined(GetTeamNum()))
+				{
+					HideComponentTree(OtherP->GetCustomDepthMesh(), HiddenComponents);
+					if (OtherP->GetWeaponAttachment() != NULL)
+					{
+						HideComponentTree(OtherP->GetWeaponAttachment()->GetCustomDepthMesh(), HiddenComponents);
+					}
+				}
+			}
+		}
+	}
+
+	// hide aura for enemy flag
+	AUTCTFGameState* CTFGS = GetWorld()->GetGameState<AUTCTFGameState>();
+	if (CTFGS != NULL)
+	{
+		for (AUTCTFFlagBase* Base : CTFGS->FlagBases)
+		{
+			if (Base != NULL)
+			{
+				AUTCTFFlag* Flag = Cast<AUTCTFFlag>(Base->GetCarriedObject());
+				if (Flag != NULL && (Flag->GetTeamNum() != GetTeamNum() || Flag->ObjectState == CarriedObjectState::Home) && Flag->AuraSphere != NULL)
+				{
+					HiddenComponents.Add(Flag->AuraSphere->ComponentId);
 				}
 			}
 		}
@@ -2093,22 +2330,30 @@ void AUTPlayerController::OnRep_HUDClass()
 
 void AUTPlayerController::OnShowScores()
 {
-	ToggleScoreboard(true);
+	AUTGameState* GS = Cast<AUTGameState>(GetWorld()->GameState);
+	if (!GS || (GS->IsMatchInProgress() && !GS->IsMatchIntermission()))
+	{
+		ToggleScoreboard(true);
+	}
+	else
+	{
+		// toggles on and off during intermissions
+		ToggleScoreboard(!MyUTHUD->bShowScores);
+	}
 }
 
 void AUTPlayerController::OnHideScores()
 {
-	ToggleScoreboard(false);
+	AUTGameState* GS = Cast<AUTGameState>(GetWorld()->GameState);
+	if (!GS || (GS->IsMatchInProgress() && !GS->IsMatchIntermission()))
+	{
+		ToggleScoreboard(false);
+	}
 }
 
 AUTCharacter* AUTPlayerController::GetUTCharacter()
 {
 	return UTCharacter;
-}
-
-UUTLocalPlayer* AUTPlayerController::GetUTLocalPlayer()
-{
-	return Cast<UUTLocalPlayer>(Player);
 }
 
 void AUTPlayerController::ServerRestartPlayer_Implementation()
@@ -2399,9 +2644,9 @@ void AUTPlayerController::UpdateTacComOverlays()
 		for (FConstPawnIterator It = GetWorld()->GetPawnIterator(); It; ++It)
 		{
 			AUTCharacter *UTChar = Cast<AUTCharacter>(*It);
-			if (UTChar && !UTChar->IsRagdoll())
+			if (UTChar != NULL)
 			{
-				UTChar->UpdateTacComMesh(bTacComView);
+				UTChar->SetOutlineLocal(bTacComView);
 			}
 		}
 	}
@@ -2495,7 +2740,7 @@ void AUTPlayerController::SetViewTarget(class AActor* NewViewTarget, FViewTarget
 	{
 		NewViewTarget = FinalViewTarget;
 	}
-
+	AActor* OldViewTarget = GetViewTarget();
 	AUTViewPlaceholder *UTPlaceholder = Cast<AUTViewPlaceholder>(GetViewTarget());
 	Super::SetViewTarget(NewViewTarget, TransitionParams);
 
@@ -2531,6 +2776,10 @@ void AUTPlayerController::SetViewTarget(class AActor* NewViewTarget, FViewTarget
 			// pick good starting rotation
 			FindGoodView(NewViewTarget->GetActorLocation(), false);
 		}
+	}
+	if (MyUTHUD && (UpdatedViewTarget != OldViewTarget))
+	{
+		MyUTHUD->ClearIndicators();
 	}
 }
 
@@ -2771,7 +3020,6 @@ void AUTPlayerController::Possess(APawn* PawnToPossess)
 			UTChar->SetEyewearClass(UTPlayerState->EyewearClass);
 		}
 	}
-
 	// clear any victim message being displayed
 	ClientReceiveLocalizedMessage(UUTVictimMessage::StaticClass(), 2, NULL, NULL, NULL);
 }
@@ -2854,7 +3102,7 @@ void AUTPlayerController::PlayerTick( float DeltaTime )
 	{
 		ViewTargetPawn = PlayerCameraManager->GetViewTargetPawn();
 		ViewTargetCharacter = Cast<AUTCharacter>(ViewTargetPawn);
-		if (!ViewTargetPawn || (ViewTargetCharacter && ViewTargetCharacter->IsDead() && !ViewTargetCharacter->IsRecentlyDead()))
+		if (!ViewTargetPawn || ViewTargetPawn->IsPendingKillPending() || (ViewTargetCharacter && ViewTargetCharacter->IsDead() && !ViewTargetCharacter->IsRecentlyDead()))
 		{
 			for (FConstPawnIterator Iterator = GetWorld()->GetPawnIterator(); Iterator; ++Iterator)
 			{
@@ -3047,19 +3295,26 @@ void AUTPlayerController::NotifyTakeHit(AController* InstigatedBy, int32 Damage,
 	}
 	else if (DamageEvent.IsOfType(FRadialDamageEvent::ClassID) && ((FRadialDamageEvent*)&DamageEvent)->ComponentHits.Num() > 0)
 	{
-		ShotDir = (((FRadialDamageEvent*)&DamageEvent)->ComponentHits[0].ImpactPoint - ((FRadialDamageEvent*)&DamageEvent)->Origin).GetSafeNormal();
+		if (DamageEvent.IsOfType(FUTRadialDamageEvent::ClassID) && (((FUTRadialDamageEvent*)&DamageEvent)->Params.MinimumDamage == ((FUTRadialDamageEvent*)&DamageEvent)->Params.BaseDamage))
+		{
+			ShotDir = ((FUTRadialDamageEvent*)&DamageEvent)->ShotDirection;
+		}
+		else
+		{
+			ShotDir = (((FRadialDamageEvent*)&DamageEvent)->ComponentHits[0].ImpactPoint - ((FRadialDamageEvent*)&DamageEvent)->Origin).GetSafeNormal();
+		}
 	}
 	AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
 	bool bFriendlyFire = InstigatedByState != PlayerState && GS != NULL && GS->OnSameTeam(InstigatedByState, this);
 	uint8 RepDamage = FMath::Clamp(Damage, 0, 255);
-	ClientNotifyTakeHit(bFriendlyFire, RepDamage, FRotator::CompressAxisToByte(ShotDir.Rotation().Yaw));
+	ClientNotifyTakeHit(bFriendlyFire, RepDamage, FRotator::CompressAxisToByte(ShotDir.Rotation().Yaw), DamageEvent.DamageTypeClass);
 }
 
-void AUTPlayerController::ClientNotifyTakeHit_Implementation(bool bFriendlyFire, uint8 Damage, uint8 ShotDirYaw)
+void AUTPlayerController::ClientNotifyTakeHit_Implementation(bool bFriendlyFire, uint8 Damage, uint8 ShotDirYaw, TSubclassOf<class UDamageType> DamageTypeClass)
 {
 	if (MyUTHUD != NULL)
 	{
-		MyUTHUD->PawnDamaged(ShotDirYaw, Damage, bFriendlyFire);
+		MyUTHUD->PawnDamaged(ShotDirYaw, Damage, bFriendlyFire, DamageTypeClass);
 	}
 }
 
@@ -3450,9 +3705,14 @@ void AUTPlayerController::ClientSay_Implementation(AUTPlayerState* Speaker, cons
 	UUTGameUserSettings* GS = Cast<UUTGameUserSettings>(GEngine->GetGameUserSettings());
 	if (Speaker == NULL || !Speaker->bIsABot || GS == NULL || GS->GetBotSpeech() > BSO_None)
 	{
-		ClientPlaySound(ChatMsgSound);
+		UTClientPlaySound(ChatMsgSound);
 		Super::ClientSay_Implementation(Speaker, Message, Destination);
 	}
+}
+
+void AUTPlayerController::UTClientPlaySound_Implementation(USoundBase* Sound)
+{
+	UUTGameplayStatics::UTPlaySound(GetWorld(), Sound, this, SRT_None, true, FVector::ZeroVector, nullptr, nullptr, false, SAT_None);
 }
 
 void AUTPlayerController::RconMap(FString NewMap)
@@ -3544,7 +3804,7 @@ void AUTPlayerController::ShowScoreboardOnDeath()
 	if (!GetPawn() && GameState && MyUTHUD && GameState->IsMatchInProgress() && !GameState->IsMatchIntermission() && !IsInState(NAME_Spectating))
 	{
 		MyUTHUD->bShowScoresWhileDead = true;
-		MyUTHUD->ScoreboardPage = 0;
+		MyUTHUD->SetScoreboardPage(0);
 	}
 }
 
@@ -3811,8 +4071,11 @@ void AUTPlayerController::ClientPumpkinPickedUp_Implementation(float GainedAmoun
 
 void AUTPlayerController::DebugTest(FString TestCommand)
 {
-	float Value = FCString::Atof(*TestCommand);
-	UTPlayerState->AdjustCurrency(Value);
+	Super::DebugTest(TestCommand);
+}
+
+void AUTPlayerController::ServerDebugTest_Implementation(const FString& TestCommand)
+{
 }
 
 void AUTPlayerController::ClientRequireContentItemListComplete_Implementation()
@@ -4007,21 +4270,27 @@ void AUTPlayerController::ClientOpenLoadout_Implementation(bool bBuyMenu)
 
 void AUTPlayerController::ShowBuyMenu()
 {
-	// It's silly to send this to the server before handling it here.  I probably should just for safe keepeing but for now
-	// just locally.
+	//Prevents the menu from opening/closing by rapid inputs
+	if (((GetWorld()->GetTimeSeconds() - LastBuyMenuOpenTime) >= BuyMenuToggleDelay) || (LastBuyMenuOpenTime <= SMALL_NUMBER))
+	{
+		LastBuyMenuOpenTime = GetWorld()->GetTimeSeconds();
 
-	AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
-	if (GS && GS->AvailableLoadout.Num() > 0)
-	{
-		if (GetPawn() == nullptr || !GS->HasMatchStarted() || GS->IsMatchIntermission())
+		// It's silly to send this to the server before handling it here.  I probably should just for safe keepeing but for now
+		// just locally.
+
+		AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
+		if (GS && GS->AvailableLoadout.Num() > 0)
 		{
-			ClientOpenLoadout_Implementation(true);
+			if (GetPawn() == nullptr || !GS->HasMatchStarted() || GS->IsMatchIntermission())
+			{
+				ClientOpenLoadout_Implementation(true);
+			}
 		}
-	}
-	// in RCTF we want to tie the BuyMenu button to the power select menu
-	else if (UTPlayerState)
-	{
-		UTPlayerState->bIsPowerupSelectWindowOpen = !UTPlayerState->bIsPowerupSelectWindowOpen;
+		// in RCTF we want to tie the BuyMenu button to the power select menu
+		else if (UTPlayerState)
+		{
+			UTPlayerState->bIsPowerupSelectWindowOpen = !UTPlayerState->bIsPowerupSelectWindowOpen;
+		}
 	}
 }
 
@@ -4389,3 +4658,236 @@ void AUTPlayerController::QSSave()
 	}
 }
 
+void AUTPlayerController::ResetFoliageDitheredLOD()
+{
+	static auto DitheredLODCVar = IConsoleManager::Get().FindConsoleVariable(TEXT("foliage.DitheredLOD"));
+	DitheredLODCVar->Set(true, ECVF_SetByGameSetting);
+}
+
+void AUTPlayerController::ShowComsMenu()
+{
+	if (MyUTHUD) MyUTHUD->ToggleComsMenu(true);
+}
+
+void AUTPlayerController::HideComsMenu()
+{
+	if (MyUTHUD) MyUTHUD->ToggleComsMenu(false);
+}
+
+void AUTPlayerController::ShowWeaponWheel()
+{
+	if (MyUTHUD) MyUTHUD->ToggleWeaponWheel(true);
+}
+
+void AUTPlayerController::HideWeaponWheel()
+{
+	if (MyUTHUD) MyUTHUD->ToggleWeaponWheel(false);
+}
+
+void AUTPlayerController::FlushVOIP()
+{
+	UUTProfileSettings* ProfileSettings = GetProfileSettings();
+	if (ProfileSettings && ProfileSettings->bPushToTalk)
+	{
+		IOnlineVoicePtr VoiceInt = Online::GetVoiceInterface(GetWorld());
+		if (VoiceInt.IsValid())
+		{
+			VoiceInt->ClearVoicePackets();
+			ToggleSpeaking(false);
+			FTimerHandle TimerHandle;
+			GetWorldTimerManager().SetTimer(TimerHandle, this, &AUTPlayerController::RestartVOIP, 0.5f, false);
+		}
+	}
+}
+
+void AUTPlayerController::RestartVOIP()
+{
+	ToggleSpeaking(true);
+}
+
+void AUTPlayerController::VoiceDebug(const FString& Command)
+{
+	ProcessVoiceDebug(Command);
+	ServerVoiceDebug(Command);
+}
+
+bool AUTPlayerController::ServerVoiceDebug_Validate(const FString& Command) { return true; }
+void AUTPlayerController::ServerVoiceDebug_Implementation(const FString& Command)
+{
+	ProcessVoiceDebug(Command);
+}
+
+void AUTPlayerController::ProcessVoiceDebug(const FString& Command)
+{
+	AUTGameState* GameState = GetWorld()->GetGameState<AUTGameState>();
+	IOnlineVoicePtr VoiceInt = Online::GetVoiceInterface(GetWorld());
+
+	if ( MyUTHUD && Command.Equals(TEXT("show"), ESearchCase::IgnoreCase) )
+	{
+		MyUTHUD->bShowVoiceDebug = true;
+		return;
+	}
+
+	if ( MyUTHUD && Command.Equals(TEXT("hide"), ESearchCase::IgnoreCase) )
+	{
+		MyUTHUD->bShowVoiceDebug = false;
+		return;
+	}
+
+	if ( Command.Equals(TEXT("toggleon"), ESearchCase::IgnoreCase) && GetNetMode() == NM_Client)
+	{
+		ToggleSpeaking(true);
+		return;
+	}
+
+	if ( Command.Equals(TEXT("toggleoff"), ESearchCase::IgnoreCase) && GetNetMode() == NM_Client )
+	{
+		ToggleSpeaking(false);
+		return;
+	}
+
+	if ( Command.Equals(TEXT("clearvoice"), ESearchCase::IgnoreCase) )
+	{
+		if (VoiceInt.IsValid())
+		{
+			VoiceInt->ClearVoicePackets();
+			return;
+		}
+	}
+
+	if ( GameState && Command.Equals(TEXT("dump"), ESearchCase::IgnoreCase) )
+	{
+		UE_LOG(UT,Log,TEXT("[PlayerList]========================================================================="));
+		for (int32 i=0; i < GameState->PlayerArray.Num(); i++)
+		{
+			if (GameState->PlayerArray[i])
+			{
+				UE_LOG(UT,Log,TEXT("Player %i %s = %s"),i, *GameState->PlayerArray[i]->PlayerName, *GameState->PlayerArray[i]->UniqueId.ToString());
+			}
+		}
+
+		UE_LOG(UT,Log,TEXT("[Mute List]========================================================================="));
+
+		FString Text = DumpMutelistState(GetWorld());
+		TArray<FString> Lines;
+		Text.ParseIntoArray(Lines,TEXT("\n"), false);
+
+		for (int32 i=0; i < Lines.Num(); i++)
+		{
+			UE_LOG(UT,Log,TEXT("%s"), *Lines[i]);
+		}
+		
+		if (VoiceInt.IsValid())
+		{
+			UE_LOG(UT,Log,TEXT("[Voice List]========================================================================="));
+
+			Text = VoiceInt->GetVoiceDebugState();
+			Lines.Empty();
+			Text.ParseIntoArray(Lines,TEXT("\n"), false);
+
+			for (int32 i=0; i < Lines.Num(); i++)
+			{
+				UE_LOG(UT,Log,TEXT("%s"), *Lines[i]);
+			}
+		}
+		UE_LOG(UT,Log,TEXT("====================================================================================="));
+	}
+}
+
+void AUTPlayerController::ClientPlayInstantReplay_Implementation(APawn* PawnToFocus, float TimeToRewind)
+{
+	if (GetWorld()->DemoNetDriver && IsLocalController())
+	{
+		FNetworkGUID FocusPawnGuid = GetWorld()->DemoNetDriver->GetGUIDForActor(PawnToFocus);
+		GetWorld()->GetTimerManager().SetTimer(
+			KillcamStartHandle,
+			FTimerDelegate::CreateUObject(this, &AUTPlayerController::OnKillcamStart, FocusPawnGuid, TimeToRewind),
+			CVarUTKillcamStartDelay.GetValueOnGameThread(),
+			false);
+		GetWorld()->GetTimerManager().SetTimer(
+			KillcamStopHandle,
+			FTimerDelegate::CreateUObject(this, &AUTPlayerController::ClientStopKillcam),
+			TimeToRewind + CVarUTKillcamStartDelay.GetValueOnGameThread() + 0.5f,
+			false);
+	}
+}
+
+void AUTPlayerController::ClientPlayKillcam_Implementation(AController* KillingController, APawn* PawnToFocus)
+{
+	if (GetWorld()->DemoNetDriver && IsLocalController())
+	{
+		FNetworkGUID FocusPawnGuid = GetWorld()->DemoNetDriver->GetGUIDForActor(PawnToFocus);
+		GetWorld()->GetTimerManager().SetTimer(
+			KillcamStartHandle,
+			FTimerDelegate::CreateUObject(this, &AUTPlayerController::OnKillcamStart, FocusPawnGuid, CVarUTKillcamRewindTime.GetValueOnGameThread()),
+			CVarUTKillcamStartDelay.GetValueOnGameThread(),
+			false);
+		GetWorld()->GetTimerManager().SetTimer(
+			KillcamStopHandle,
+			FTimerDelegate::CreateUObject(this, &AUTPlayerController::ClientStopKillcam),
+			CVarUTKillcamRewindTime.GetValueOnGameThread() + CVarUTKillcamStartDelay.GetValueOnGameThread() + 0.5f,
+			false);
+	}
+}
+
+void AUTPlayerController::ClientStopKillcam_Implementation()
+{
+	UUTLocalPlayer* LocalPlayer = Cast<UUTLocalPlayer>(GetLocalPlayer());
+	if (LocalPlayer != nullptr && LocalPlayer->GetKillcamPlaybackManager() != nullptr)
+	{
+		LocalPlayer->GetKillcamPlaybackManager()->KillcamStop();
+	}
+}
+
+void AUTPlayerController::OnKillcamStart(const FNetworkGUID InFocusActorGUID, float TimeToRewind)
+{
+	// Show killcam
+	if (IsLocalController())
+	{
+		//if (IsInState(NAME_Spectating) || IsInState(NAME_Inactive))
+		UUTLocalPlayer* LocalPlayer = Cast<UUTLocalPlayer>(GetLocalPlayer());
+		if (LocalPlayer != nullptr && LocalPlayer->GetKillcamPlaybackManager() != nullptr)
+		{
+			if (LocalPlayer->GetKillcamPlaybackManager()->GetKillcamWorld() != GetWorld())
+			{
+				LocalPlayer->GetKillcamPlaybackManager()->KillcamStart(TimeToRewind, InFocusActorGUID);
+			}
+		}
+	}
+}
+
+void AUTPlayerController::SendComsMessage(AUTPlayerState* Target, int32 Switch)
+{
+	if (GetNetMode() == NM_Client)
+	{
+		// Spam protection
+		if (GetWorld()->GetRealTimeSeconds() - LastComMessageTime < (Switch == LastComMessageSwitch ? 5.0f : 1.5f))
+		{
+			return;
+		}
+		LastComMessageSwitch = Switch;
+		LastComMessageTime = GetWorld()->GetRealTimeSeconds();
+	}
+
+	ServerSendComsMessage(Target, Switch);
+}
+
+
+bool AUTPlayerController::ServerSendComsMessage_Validate(AUTPlayerState* Target, int32 Switch) { return true; }
+void AUTPlayerController::ServerSendComsMessage_Implementation(AUTPlayerState* Target, int32 Switch)
+{
+	// Spam protection
+	if (GetWorld()->GetRealTimeSeconds() - LastComMessageTime < (Switch == LastComMessageSwitch ? 5.0f : 1.5f))
+	{
+		return;
+	}
+
+	LastComMessageSwitch = Switch;
+	LastComMessageTime = GetWorld()->GetRealTimeSeconds();
+
+	AUTGameMode* UTGameMode = GetWorld()->GetAuthGameMode<AUTGameMode>();
+	if (UTGameMode != nullptr)
+	{
+		UTGameMode->SendComsMessage(this, Target, Switch);
+	}
+}

@@ -28,14 +28,7 @@ public class UnrealTournament : ModuleRules
 				"UTReplayStreamer",
 			}
 		);
-
-		PublicIncludePaths.Add("../Plugins/Social/Source/Public");
-		PublicIncludePaths.Add("../Plugins/Social/Source/Public/Interfaces");
-		PublicIncludePaths.Add("../Plugins/Social/Source/Public/Models");
-		PublicIncludePaths.Add("../Plugins/Social/Source/Public/Layers/DataAccess");
-		PublicIncludePaths.Add("../Plugins/Social/Source/Public/Layers/Domain");
-		PublicIncludePaths.Add("../Plugins/Social/Source/Public/Layers/Presentation");
-
+        
         PublicDependencyModuleNames.AddRange(new string[] { 
                                                     "Core", 
                                                     "CoreUObject", 
@@ -47,7 +40,8 @@ public class UnrealTournament : ModuleRules
                                                     "RenderCore", 
                                                     "Navmesh", 
                                                     "WebBrowser", 
-                                                    "NetworkReplayStreaming", 
+                                                    "NetworkReplayStreaming",
+                                                    "InMemoryNetworkReplayStreaming",
                                                     "Json", 
 													"JsonUtilities",
                                                     "HTTP", 
@@ -61,10 +55,10 @@ public class UnrealTournament : ModuleRules
                                                     "Foliage",
 													"PerfCounters",
                                                     "PakFile",
-													"FriendsAndChat",
+													"UnrealTournamentFullScreenMovie"
                                                     });
 
-        PrivateDependencyModuleNames.AddRange(new string[] { "Slate", "SlateCore", "FriendsAndChat", "Sockets" });
+        PrivateDependencyModuleNames.AddRange(new string[] { "Slate", "SlateCore", "Sockets" });
         if (Target.Type != TargetRules.TargetType.Server)
         {
             PublicDependencyModuleNames.AddRange(new string[] { "AppFramework", "RHI", "SlateRHIRenderer", "MoviePlayer" });
@@ -87,6 +81,8 @@ public class UnrealTournament : ModuleRules
 
             Definitions.Add("WITH_PROFILE=1");
             Definitions.Add("WITH_SOCIAL=1");
+
+            PublicIncludePathModuleNames.Add("Social");
 
             PublicDependencyModuleNames.AddRange(
                 new string[]

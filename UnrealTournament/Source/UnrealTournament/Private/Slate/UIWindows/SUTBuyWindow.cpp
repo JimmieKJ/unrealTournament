@@ -2,6 +2,7 @@
 
 #include "UnrealTournament.h"
 #include "UTLocalPlayer.h"
+#include "UTGauntletGameState.h"
 #include "SlateBasics.h"
 #include "Slate/SlateGameResources.h"
 #include "SUTBuyWindow.h"
@@ -9,6 +10,7 @@
 #include "../Widgets/SUTButton.h"
 #include "../SUTUtils.h"
 #include "UTPlayerState.h"
+
 
 #if !UE_SERVER
 
@@ -424,15 +426,27 @@ FReply SUTBuyWindow::OnAvailableClick(int32 Index)
 	{
 		if (PlayerOwner.IsValid() && PlayerOwner->PlayerController)
 		{
+			AUTGauntletGameState* GameState = PlayerOwner->GetWorld()->GetGameState<AUTGauntletGameState>();
 			AUTPlayerController* PC = Cast<AUTPlayerController>(PlayerOwner->PlayerController);
-			if (PC && PC->UTPlayerState)
+			if (PC && PC->UTPlayerState && GameState)
 			{
-				PC->UTPlayerState->ServerSetBoostItem(AvailableItems[Index]->LoadoutInfo->ItemClass);
-				PlayerOwner->CloseLoadout();
+				if (GameState)
+				{
+					for (int LoadoutInfoIndex = 0; LoadoutInfoIndex < GameState->AvailableLoadout.Num(); ++LoadoutInfoIndex)
+					{
+						if (GameState->AvailableLoadout[LoadoutInfoIndex]->ItemClass == AvailableItems[Index]->LoadoutInfo->ItemClass)
+						{
+							PC->UTPlayerState->ServerSetBoostItem(LoadoutInfoIndex);
+							PlayerOwner->CloseLoadout();
+
+							break;
+						}
+					}
+				}
 			}
 		}
-	}
-
+	}			
+	
 
 	return FReply::Handled();
 }

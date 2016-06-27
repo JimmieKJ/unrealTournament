@@ -4,6 +4,8 @@
 #include "UTCTFGameState.h"
 #include "UTCTFGameMode.h"
 #include "UTCTFScoreboard.h"
+#include "UTCTFRewardMessage.h"
+#include "UTHUDWidget_QuickStats.h"
 
 AUTHUD_CTF::AUTHUD_CTF(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -28,16 +30,17 @@ FLinearColor AUTHUD_CTF::GetBaseHUDColor()
 
 void AUTHUD_CTF::NotifyMatchStateChange()
 {
-	if (MyUTScoreboard != NULL)
-	{
-		MyUTScoreboard->SetScoringPlaysTimer(GetWorld()->GetGameState()->GetMatchState() == MatchState::MatchIntermission || GetWorld()->GetGameState()->GetMatchState() == MatchState::WaitingPostMatch);
-	}
-
 	if (GetWorld()->GetGameState()->GetMatchState() != MatchState::MatchIntermission)
 	{
 		Super::NotifyMatchStateChange();
 	}
 }
+
+int32 AUTHUD_CTF::GetScoreboardPage() 
+{ 
+	return ((GetWorld()->GetGameState()->GetMatchState() == MatchState::MatchIntermission) || GetWorld()->GetGameState()->HasMatchEnded()) ? 1 : ScoreboardPage;
+};
+
 
 void AUTHUD_CTF::DrawMinimapSpectatorIcons()
 {
@@ -52,16 +55,30 @@ void AUTHUD_CTF::DrawMinimapSpectatorIcons()
 	for (int32 TeamIndex = 0; TeamIndex < 2; TeamIndex++)
 	{
 		AUTCTFFlagBase* Base = GS->GetFlagBase(TeamIndex);
-		if (Base && Base->MyFlag)
+		AUTCarriedObject* Flag = Base ? Base->MyFlag : nullptr;
+		if (Flag)
 		{
-			bool bCanPickupFlag = (!GS->OnSameTeam(Base, UTPlayerOwner) ? Base->MyFlag->bEnemyCanPickup : Base->MyFlag->bFriendlyCanPickup);
+			bool bCanPickupFlag = (!GS->OnSameTeam(Base, UTPlayerOwner) ? Flag->bEnemyCanPickup : Flag->bFriendlyCanPickup);
 			FVector2D Pos = WorldToMapToScreen(Base->GetActorLocation());
-			Canvas->DrawColor = (TeamIndex == 0) ? FColor(255, 0, 0, 255) : FColor(0, 0, 255, 255);
-			Canvas->DrawTile(SelectedPlayerTexture, Pos.X - 12.0f * RenderScale, Pos.Y - 12.0f * RenderScale, 24.0f * RenderScale, 24.0f * RenderScale, 0.0f, 0.0f, SelectedPlayerTexture->GetSurfaceWidth(), SelectedPlayerTexture->GetSurfaceHeight());
-			if (Base->MyFlag->Team && (bShowAllFlags || bCanPickupFlag || Base->MyFlag->IsHome()))
+			if (!Flag->IsHome() || Flag->bEnemyCanPickup || Flag->bFriendlyCanPickup)
+			{
+				Canvas->DrawColor = (TeamIndex == 0) ? FColor(255, 0, 0, 255) : FColor(0, 0, 255, 255);
+				Canvas->DrawTile(SelectedPlayerTexture, Pos.X - 12.0f * RenderScale, Pos.Y - 12.0f * RenderScale, 24.0f * RenderScale, 24.0f * RenderScale, 0.0f, 0.0f, SelectedPlayerTexture->GetSurfaceWidth(), SelectedPlayerTexture->GetSurfaceHeight());
+			}
+			if (Flag->Team && (bShowAllFlags || bCanPickupFlag || Flag->IsHome() || Flag->bCurrentlyPinged))
 			{
 				Pos = WorldToMapToScreen(Base->MyFlag->GetActorLocation());
-				DrawMinimapIcon(HUDAtlas, Pos, FVector2D(24.f, 24.f), FVector2D(843.f, 87.f), FVector2D(43.f, 41.f), Base->MyFlag->Team->TeamColor, true);
+				if (Flag->IsHome() && !Flag->bEnemyCanPickup && !Flag->bFriendlyCanPickup)
+				{
+					DrawMinimapIcon(HUDAtlas, Pos, FVector2D(36.f, 36.f), TeamIconUV[(Flag->Team->TeamIndex==0) ? 0 : 1], FVector2D(72.f, 72.f), Base->MyFlag->Team->TeamColor, true);
+				}
+				else
+				{
+					float TimeD = 2.f*GetWorld()->GetTimeSeconds();
+					int32 TimeI = int32(TimeD);
+					float Scale = Base->MyFlag->IsHome() ? 24.f : ((TimeI % 2 == 0) ? 24.f + 12.f*(TimeD - TimeI) : 36.f - 12.f*(TimeD - TimeI));
+					DrawMinimapIcon(HUDAtlas, Pos, FVector2D(Scale, Scale), FVector2D(843.f, 87.f), FVector2D(43.f, 41.f), Base->MyFlag->Team->TeamColor, true);
+				}
 			}
 		}
 	}
@@ -100,3 +117,30 @@ bool AUTHUD_CTF::ShouldInvertMinimap()
 	return false;
 }
 
+void AUTHUD_CTF::ClientRestart()
+{
+	PingBoostIndicator();
+	Super::ClientRestart();
+}
+
+void AUTHUD_CTF::PingBoostIndicator()
+{
+	if (UTPlayerOwner->UTPlayerState && UTPlayerOwner->UTPlayerState->GetRemainingBoosts() > 0)
+	{
+		UUTHUDWidget_QuickStats* QuickStatWidget = Cast<UUTHUDWidget_QuickStats>(FindHudWidgetByClass(UUTHUDWidget_QuickStats::StaticClass(), false));
+		if (QuickStatWidget)
+		{
+			QuickStatWidget->PingBoostWidget();
+		}
+	}
+}
+
+void AUTHUD_CTF::ReceiveLocalMessage(TSubclassOf<class UUTLocalMessage> MessageClass, APlayerState* RelatedPlayerState_1, APlayerState* RelatedPlayerState_2, uint32 MessageIndex, FText LocalMessageText, UObject* OptionalObject)
+{
+	Super::ReceiveLocalMessage(MessageClass, RelatedPlayerState_1, RelatedPlayerState_2, MessageIndex, LocalMessageText, OptionalObject);
+
+	if ( MessageClass == UUTCTFRewardMessage::StaticClass() && MessageIndex == 7 )
+	{
+		PingBoostIndicator();
+	}
+}

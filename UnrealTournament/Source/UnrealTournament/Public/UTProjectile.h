@@ -43,7 +43,7 @@ struct FRepUTProjMovement
 		return true;
 	}
 
-	bool operator==(const FRepUTMovement& Other) const
+	bool operator==(const FRepUTProjMovement& Other) const
 	{
 		if (LinearVelocity != Other.LinearVelocity)
 		{
@@ -62,7 +62,7 @@ struct FRepUTProjMovement
 		return true;
 	}
 
-	bool operator!=(const FRepUTMovement& Other) const
+	bool operator!=(const FRepUTProjMovement& Other) const
 	{
 		return !(*this == Other);
 	}
@@ -77,8 +77,25 @@ class UNREALTOURNAMENT_API AUTProjectile : public AActor, public IUTResetInterfa
 	UPROPERTY(ReplicatedUsing = OnRep_UTProjReplicatedMovement)
 	struct FRepUTProjMovement UTProjReplicatedMovement;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Damage)
+	/** Used for replication of temporary CustomTimeDilation changes */
+	UPROPERTY(ReplicatedUsing = OnRep_Slomo)
+		float Slomo;
+
+	/** enables UT optimized movement replication; USE THIS INSTEAD OF bReplicateMovement */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Replication)
 	bool bReplicateUTMovement;
+
+	/** How long projectile stays slowed down. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Projectile)
+		float SlomoTime;
+
+		FTimerHandle SlomoTimerHandle;
+
+		UFUNCTION()
+			virtual void EndSlomo();
+
+		UFUNCTION()
+			virtual void OnRep_Slomo();
 
 	/** UTProjReplicatedMovement struct replication event */
 	UFUNCTION()
@@ -124,6 +141,10 @@ class UNREALTOURNAMENT_API AUTProjectile : public AActor, public IUTResetInterfa
 	/** whether the projectile can impact its Instigator (player who fired it) */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Damage)
 	bool bCanHitInstigator;
+
+	/** whether the projectile can impact teammates of the Instigator (player who fired it) */
+	UPROPERTY(EditDefaultsOnly, Category = Damage)
+		bool bCanHitTeammates;
 
 	/** whether this projectile should notify our best guess of its target that it is coming (for bots' evasion reaction check, etc)
 	 * generally should be true unless projectile has complex logic that prevents its target from being known initially (e.g. planted mine)

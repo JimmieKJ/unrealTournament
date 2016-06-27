@@ -38,7 +38,7 @@ FText UUTCTFGameMessage::GetText(int32 Switch, bool bTargetsPlayerState1, APlaye
 		case 0 : return ReturnMessage; break;
 		case 1 : return ReturnedMessage; break;
 		case 2 : return CaptureMessage; break;
-		case 3 : return DroppedMessage; break;
+		case 3 : return RelatedPlayerState_1 ? DroppedMessage : FText::GetEmpty(); break;
 		case 4 : return HasMessage; break;
 		case 5 : return KilledMessage; break;
 		case 6 : return HasAdvantageMessage; break;

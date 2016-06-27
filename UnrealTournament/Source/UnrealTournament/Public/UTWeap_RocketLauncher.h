@@ -16,6 +16,10 @@ struct FRocketFireMode
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Rocket)
 	TSubclassOf<AUTProjectile> ProjClass;
 
+	/** First Person Sound to play each time we fire */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Rocket)
+		USoundBase* FPFireSound;
+
 	/** Sound to play each time we fire */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Rocket)
 	USoundBase* FireSound;
@@ -178,6 +182,10 @@ class UNREALTOURNAMENT_API AUTWeap_RocketLauncher : public AUTWeapon
 	/** How far out should we be considering actors for a lock */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Lock)
 	float		LockRange;
+
+	/** How wide a miss should we be considering actors for a lock */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Lock)
+		float		LockOffset;
 
 	/** How long does the player need to target an actor to lock on to it*/
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Lock)

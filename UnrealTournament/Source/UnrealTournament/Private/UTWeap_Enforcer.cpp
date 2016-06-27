@@ -58,6 +58,7 @@ AUTWeap_Enforcer::AUTWeap_Enforcer(const FObjectInitializer& ObjectInitializer)
 
 	DisplayName = NSLOCTEXT("UTWeap_Enforcer", "DisplayName", "Enforcer");
 	bCheckHeadSphere = true;
+	bCheckMovingHeadSphere = true;
 }
 
 void AUTWeap_Enforcer::AttachLeftMesh()
@@ -212,7 +213,14 @@ void AUTWeap_Enforcer::PlayFiringEffects()
 			// try and play the sound if specified
 			if ((!BurstFireMode || BurstFireMode->CurrentShot == 0) && FireSound.IsValidIndex(CurrentFireMode) && FireSound[CurrentFireMode] != NULL)
 			{
-				UUTGameplayStatics::UTPlaySound(GetWorld(), FireSound[CurrentFireMode], UTOwner, SRT_AllButOwner);
+				if (FPFireSound.IsValidIndex(CurrentFireMode) && FPFireSound[CurrentFireMode] != NULL && Cast<APlayerController>(UTOwner->Controller) != NULL && UTOwner->IsLocallyControlled())
+				{
+					UUTGameplayStatics::UTPlaySound(GetWorld(), FPFireSound[CurrentFireMode], UTOwner, SRT_AllButOwner, false, FVector::ZeroVector, GetCurrentTargetPC(), NULL, true, SAT_WeaponFire);
+				}
+				else
+				{
+					UUTGameplayStatics::UTPlaySound(GetWorld(), FireSound[CurrentFireMode], UTOwner, SRT_AllButOwner, false, FVector::ZeroVector, GetCurrentTargetPC(), NULL, true, SAT_WeaponFire);
+				}
 			}
 			
 			if (ShouldPlay1PVisuals())

@@ -3,7 +3,7 @@
 #pragma once
 
 #include "SlateBasics.h"
-#include "FriendsAndChat.h"
+
 #if !UE_SERVER
 
 //class declare
@@ -13,8 +13,6 @@ public:
 	SLATE_BEGIN_ARGS(SUTFriendsWidget)
 		: _OnClose()
 	{}
-
-		SLATE_ARGUMENT(const FFriendsAndChatStyle*, FriendStyle)
 
 		/** Called when the button is clicked */
 		SLATE_EVENT(FOnClicked, OnClose)

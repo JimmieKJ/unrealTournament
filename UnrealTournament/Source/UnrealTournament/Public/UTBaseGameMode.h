@@ -15,6 +15,28 @@
 
 class UUTLocalPlayer;
 
+USTRUCT()
+struct FEpicMapData
+{
+	GENERATED_USTRUCT_BODY()
+
+	UPROPERTY()
+	FString MapPackageName;
+
+	UPROPERTY()
+	bool bIsEpicMap;
+
+	UPROPERTY()
+	bool bIsMeshedMap;
+
+	FEpicMapData()
+	{
+		MapPackageName = TEXT("");
+		bIsEpicMap = false;
+		bIsMeshedMap = false;
+	}
+};
+
 UCLASS()
 class UNREALTOURNAMENT_API AUTBaseGameMode : public AGameMode
 {
@@ -114,10 +136,14 @@ public:
 	UPROPERTY(Config)
 	bool bTrainingGround;
 
+	UPROPERTY(GlobalConfig)
+	FString TestString;
+
 	/**
 	 * Converts a string to a bool.  If the string is empty, it will return the default.
 	 **/
-	static inline bool EvalBoolOptions(const FString& InOpt, bool Default)
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Game Options")
+	static bool EvalBoolOptions(const FString& InOpt, bool Default)
 	{
 		if (!InOpt.IsEmpty())
 		{
@@ -211,6 +237,13 @@ public:
 
 	/** Build a JSON object that contains information about this game mode. */
 	virtual void MakeJsonReport(TSharedPtr<FJsonObject> JsonObject);
+
+	virtual void CheckMapStatus(FString MapPackageName, bool& bIsEpicMap, bool& bIsMeshedMap);
+
+private:
+	/** Holds a list of all Epic maps and their meshed stats */
+	UPROPERTY(GlobalConfig)
+	TArray<FEpicMapData> EpicMapList;
 
 protected:
 	FString ServerNameOverride;

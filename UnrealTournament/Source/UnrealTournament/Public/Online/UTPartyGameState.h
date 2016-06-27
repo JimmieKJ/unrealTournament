@@ -23,6 +23,7 @@ enum class EUTPartyState : uint8
 	TravelToServer,
 	/** Hub, custom dedicated server */
 	CustomMatch,
+	QuickMatching,
 };
 
 /**
@@ -142,6 +143,7 @@ private:
 	void OnConnectToLobby(const FOnlineSessionSearchResult& SearchResult);
 
 	virtual void ComparePartyData(const FPartyState& OldPartyData, const FPartyState& NewPartyData) override;
+	virtual bool IsInJoinableGameState() const override;
 
 	friend UUTParty;
 	friend UUTPartyMemberState;
@@ -159,7 +161,13 @@ public:
 	void SetPlayersNeeded(int32 PlayersNeeded);
 	void SetMatchmakingRegion(const FString& InMatchmakingRegion);
 
+	void SetPartyQuickMatching();
+	void SetPartyJoiningQuickMatch();
+	void SetPartyCancelQuickMatch();
+
 	void NotifyTravelToServer();
+
+	void ReturnToMainMenu();
 
 	/** @return delegate fired when the location of the player has changed */
 	FOnPartyMemberPropertyChanged& OnLocationChanged() { return LocationChanged; }

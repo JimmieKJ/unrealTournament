@@ -1254,11 +1254,12 @@ void UEngine::UpdateTimeAndHandleMaxTickRate()
 		}
 
 		// Enforce maximum framerate and smooth framerate by waiting.
-		STAT( double ActualWaitTime = 0.f ); 
+		double ActualWaitTime = 0.f;
 		if( WaitTime > 0 )
 		{
+			FSimpleScopeSecondsCounter ActualWaitTimeCounter(ActualWaitTime);
 			double WaitEndTime = FApp::GetCurrentTime() + WaitTime;
-			SCOPE_SECONDS_COUNTER(ActualWaitTime);
+
 			SCOPE_CYCLE_COUNTER(STAT_GameTickWaitTime);
 			SCOPE_CYCLE_COUNTER(STAT_GameIdleTime);
 
@@ -1290,6 +1291,7 @@ void UEngine::UpdateTimeAndHandleMaxTickRate()
 		SET_FLOAT_STAT(STAT_GameTickAdditionalWaitTime,FMath::Max<float>((ActualWaitTime-WaitTime)*1000.f,0.f));
 
 		FApp::SetDeltaTime(FApp::GetCurrentTime() - LastTime);
+		FApp::SetIdleTime(ActualWaitTime);
 
 		// Negative delta time means something is wrong with the system. Error out so user can address issue.
 		if( FApp::GetDeltaTime() < 0 )
@@ -9102,25 +9104,8 @@ void UEngine::TickWorldTravel(FWorldContext& Context, float DeltaSeconds)
 
 				const bool bLoadedMapSuccessfully = LoadMap(Context, Context.PendingNetGame->URL, Context.PendingNetGame, Error);
 
-				if (!bLoadedMapSuccessfully || Error != TEXT(""))
-				{
-					// we can't guarantee the current World is in a valid state, so travel to the default map
-					BrowseToDefaultMap(Context);
-					BroadcastTravelFailure(Context.World(), ETravelFailure::LoadMapFailure, Error);
-					check(Context.World() != NULL);
-				}
-				else
-				{
-					// Show connecting message, cause precaching to occur.
-					TransitionType = TT_Connecting;
-
-					RedrawViewports();
-
-					// Send join.
-					Context.PendingNetGame->SendJoin();
-					Context.PendingNetGame->NetDriver = NULL;
-				}
-
+				Context.PendingNetGame->LoadMapCompleted(this, Context, bLoadedMapSuccessfully, Error);
+				
 				// Kill the pending level.
 				Context.PendingNetGame = NULL;
 			}
@@ -9329,7 +9314,7 @@ bool UEngine::LoadMap( FWorldContext& WorldContext, FURL URL, class UPendingNetG
 	}
 
 	// send a callback message
-	FCoreUObjectDelegates::PreLoadMap.Broadcast();
+	FCoreUObjectDelegates::PreLoadMap.Broadcast(URL.Map);
 	// make sure there is a matching PostLoadMap() no matter how we exit
 	struct FPostLoadMapCaller
 	{

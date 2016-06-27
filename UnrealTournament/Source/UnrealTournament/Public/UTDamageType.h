@@ -42,6 +42,9 @@ struct FUTRadialDamageEvent : public FRadialDamageEvent
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Damage)
 	bool bScaleMomentum;
 
+	UPROPERTY()
+		FVector_NetQuantizeNormal ShotDirection;
+
 	/** ID for this class. NOTE this must be unique for all damage events. */
 	static const int32 ClassID = 102;
 	virtual int32 GetTypeID() const { return FUTRadialDamageEvent::ClassID; };
@@ -164,7 +167,7 @@ class UNREALTOURNAMENT_API UUTDamageType : public UDamageType
 	void PlayGibEffects(class AUTGib* Gib) const;
 
 	/** Default implementation returns the opposite of bCausesPainSound (if a damage type doesn't cause a pain scream, it shouldn't cause a death scream. */
-	UFUNCTION(BlueprintNativeEvent, BlueprintCosmetic)
+	UFUNCTION(BlueprintNativeEvent, BlueprintCosmetic, Category=DamageType)
 		bool OverrideDeathSound(AUTCharacter* Victim) const;
 
 	/** This is the console death message that will be sent to everyone not involved when someone dies of this damage type.  Supports all of the {xxx} varaiable commands of the messaging system*/

@@ -31,6 +31,10 @@ class UNREALTOURNAMENT_API AUTCTFRoundGame : public AUTCTFBaseGame
 	UPROPERTY(BlueprintReadOnly, Category = CTF)
 		bool bNoFlagReturn;
 
+	/*  If true, slow flag carrier */
+	UPROPERTY(BlueprintReadOnly, Category = CTF)
+		bool bSlowFlagCarrier;
+
 	/** If true, red team is trying to cap with asymmetric conditions. */
 	UPROPERTY(BlueprintReadOnly, Category = CTF)
 		bool bRedToCap;
@@ -120,6 +124,9 @@ class UNREALTOURNAMENT_API AUTCTFRoundGame : public AUTCTFBaseGame
 	UPROPERTY()
 		int32 DefenseScore;
 
+	UPROPERTY()
+		AUTPlayerState* FlagScorer;
+
 	virtual int32 GetFlagCapScore() override;
 
 	virtual void InitFlags();
@@ -133,7 +140,7 @@ class UNREALTOURNAMENT_API AUTCTFRoundGame : public AUTCTFBaseGame
 	virtual bool CheckScore_Implementation(AUTPlayerState* Scorer);
 	virtual bool CheckForWinner(AUTTeamInfo* ScoringTeam);
 	void BuildServerResponseRules(FString& OutRules);
-	virtual void HandleFlagCapture(AUTPlayerState* Holder) override;
+	virtual void HandleFlagCapture(AUTCharacter* HolderPawn, AUTPlayerState* Holder) override;
 	virtual void HandleExitingIntermission() override;
 	virtual int32 IntermissionTeamToView(AUTPlayerController* PC) override;
 	virtual void CreateGameURLOptions(TArray<TSharedPtr<TAttributePropertyBase>>& MenuProps);
@@ -148,6 +155,7 @@ class UNREALTOURNAMENT_API AUTCTFRoundGame : public AUTCTFBaseGame
 	virtual float AdjustNearbyPlayerStartScore(const AController* Player, const AController* OtherController, const ACharacter* OtherCharacter, const FVector& StartLoc, const APlayerStart* P) override;
 	virtual int32 PickCheatWinTeam() override;
 	virtual void AdjustLeaderHatFor(AUTCharacter* UTChar) override;
+	virtual bool SkipPlacement(AUTCharacter* UTChar) override;
 
 	virtual void TossSkull(TSubclassOf<AUTSkullPickup> SkullPickupClass, const FVector& StartLocation, const FVector& TossVelocity, AUTCharacter* FormerInstigator);
 
@@ -189,6 +197,12 @@ class UNREALTOURNAMENT_API AUTCTFRoundGame : public AUTCTFBaseGame
 
 	virtual void GiveDefaultInventory(APawn* PlayerPawn) override;
 
+	UPROPERTY()
+		bool bAllowPrototypePowerups;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite)
+	bool bGiveSpawnInventoryBonus;
+
 protected:
 	virtual bool IsTeamOnOffense(int32 TeamNumber) const;
 	virtual bool IsTeamOnDefense(int32 TeamNumber) const;
@@ -204,7 +218,9 @@ protected:
 	UPROPERTY()
 	int32 InitialBoostCount;
 
+	// If true, players who join during the round, or switch teams during the round will be forced to
+	// sit out and wait for the next round/
 	UPROPERTY()
-	bool bGiveSpawnInventoryBonus;
+	bool bSitOutDuringRound;
 
 };

@@ -31,6 +31,10 @@ class UNREALTOURNAMENT_API AUTCTFFlag : public AUTCarriedObject
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Flag)
 	UMaterialInstanceDynamic* MeshMID;
 
+	/** TODO: test for flag aura effects */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Experimental)
+	UStaticMeshComponent* AuraSphere;
+
 	/** played on friendly flag when a capture is scored */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Flag)
 	UParticleSystem* CaptureEffect;
@@ -65,6 +69,14 @@ class UNREALTOURNAMENT_API AUTCTFFlag : public AUTCarriedObject
 
 	UFUNCTION(BlueprintCallable, Category = Flag)
 	virtual void PlayCaptureEffect();
+
+protected:
+	/** copy of our mesh rendered to CustomDepth for the outline (which is done in postprocess using the resulting data) */
+	UPROPERTY()
+	USkeletalMeshComponent* CustomDepthMesh;
+
+public:
+	virtual void UpdateOutline() override;
 
 	virtual void PreNetReceive() override;
 	virtual void PostNetReceiveLocationAndRotation() override;

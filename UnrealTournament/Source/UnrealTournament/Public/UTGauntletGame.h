@@ -14,5 +14,5 @@ class UNREALTOURNAMENT_API AUTGauntletGame : public AUTSCTFGame
 
 	virtual bool CanBoost(AUTPlayerController* Who);
 	virtual bool AttemptBoost(AUTPlayerController* Who);
-
+	virtual void GiveDefaultInventory(APawn* PlayerPawn);
 };

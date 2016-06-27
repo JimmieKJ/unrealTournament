@@ -341,6 +341,10 @@ void SUTControlSettingsDialog::CreateBinds()
 	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Select WeaponGroup10", "Select Group 10")))
 		->AddCustomBinding("SwitchWeapon 10")
 		->AddDefaults(EKeys::Zero)));
+
+	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "WeaponSelect", "Weapon Wheel")))
+		->AddActionMapping("ToggleWeaponWheel")));
+
 	//Taunts
 	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Taunts", "Taunts")))->MakeHeader()));
 	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Taunt", "Taunt 1")))
@@ -349,14 +353,6 @@ void SUTControlSettingsDialog::CreateBinds()
 	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Taunt2", "Taunt 2")))
 		->AddActionMapping("PlayTaunt2")
 		->AddDefaults(EKeys::K)));
-	//Misc
-	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Misc", "Misc")))->MakeHeader()));
-	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Feign Death", "Feign Death")))
-		->AddCustomBinding("FeignDeath")
-		->AddDefaults(EKeys::H)));
-	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Drop Carried Object", "Drop Carried Object")))
-		->AddActionMapping("DropCarriedObject")
-		->AddDefaults(EKeys::G)));
 	//Hud
 	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Hud", "Hud")))->MakeHeader()));
 	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Show Scores", "Show Scores")))
@@ -365,18 +361,42 @@ void SUTControlSettingsDialog::CreateBinds()
 	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Show Menu", "Show Menu")))
 		->AddActionMapping("ShowMenu")
 		->AddDefaults(EKeys::Escape)));
+	//Misc
+	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Misc", "Misc")))->MakeHeader()));
 	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Console", "Console")))
 		->AddSpecialBinding("Console")
 		->AddDefaults(EKeys::Tilde)));
+
+	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Feign Death", "Feign Death")))
+		->AddCustomBinding("FeignDeath")
+		->AddDefaults(EKeys::H)));
+
+	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Drop Carried Object", "Drop Carried Object")))
+		->AddActionMapping("DropCarriedObject")
+		->AddDefaults(EKeys::G)));
+
 	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Talk", "Talk")))
 		->AddActionMapping("Talk")
 		->AddDefaults(EKeys::T)));
 	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Team Talk", "Team Talk")))
 		->AddActionMapping("TeamTalk")
 		->AddDefaults(EKeys::Y)));
+
 	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Buy Menu", "Buy Menu")))
 		->AddActionMapping("ShowBuyMenu")
 		->AddDefaults(EKeys::B)));
+
+	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "ComMenu", "Com Menu")))
+		->AddActionMapping("ToggleComMenu")
+		->AddDefaults(EKeys::F)));
+
+	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "PushToTalk", "Push To Talk")))
+	->AddActionMapping("PushToTalk")
+	->AddDefaults(EKeys::CapsLock)));
+
+	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "RequestRally", "Request Rally")))
+		->AddActionMapping("RequestRally")
+		->AddDefaults(EKeys::Enter)));
 
 	// TODO: mod binding registration
 }

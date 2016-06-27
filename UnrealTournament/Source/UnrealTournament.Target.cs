@@ -27,7 +27,7 @@ public class UnrealTournamentTarget : TargetRules
         }
         return true;
     }
-
+	
     public override void SetupBinaries(
 		TargetInfo Target,
 		ref List<UEBuildBinaryConfiguration> OutBuildBinaryConfigurations,
@@ -35,7 +35,8 @@ public class UnrealTournamentTarget : TargetRules
 		)
 	{
 		OutExtraModuleNames.Add("UnrealTournament");
-        if (UEBuildConfiguration.bBuildEditor)
+		OutExtraModuleNames.Add("UnrealTournamentFullScreenMovie");
+		if (UEBuildConfiguration.bBuildEditor)
         {
             OutExtraModuleNames.Add("UnrealTournamentEditor");
         }

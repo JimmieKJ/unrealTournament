@@ -109,6 +109,27 @@ private:
 		}
 
 	};
+
+	struct FCompareMapByName	
+	{
+		FORCEINLINE bool operator()( const FMapPlayListInfo& A, const FMapPlayListInfo& B ) const 
+		{
+			if ( !A.MapInfo.IsValid() || !B.MapInfo.IsValid()) return false;
+			if (A.MapInfo->bIsEpicMap != B.MapInfo->bIsEpicMap)
+			{
+				return A.MapInfo->bIsEpicMap;
+			}
+
+			if (A.MapInfo->bIsMeshedMap != B.MapInfo->bIsMeshedMap)
+			{
+				return A.MapInfo->bIsMeshedMap;
+			}
+
+			return ( A.MapInfo->Title < B.MapInfo->Title);
+		}
+	};
+
+
 public:
 	SLATE_BEGIN_ARGS(SUTGameSetupDialog)
 	: _DialogTitle(NSLOCTEXT("SUTGameSetupDialog", "Title", "GAME SETTINGS"))

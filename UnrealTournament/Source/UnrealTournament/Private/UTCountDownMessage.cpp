@@ -15,8 +15,8 @@ UUTCountDownMessage::UUTCountDownMessage(const class FObjectInitializer& ObjectI
 	MessageSlot = FName(TEXT("CountDownMessages"));
 	bIsStatusAnnouncement = true;
 	CountDownText = NSLOCTEXT("UTTimerMessage","MatBeginCountdown","{Count}");
-	GoldBonusMessage = NSLOCTEXT("CTFGameMessage", "GoldBonusMessage", "Gold Bonus ends in ");
-	SilverBonusMessage = NSLOCTEXT("CTFGameMessage", "SilverBonusMessage", "Silver Bonus ends in ");
+	GoldBonusMessage = NSLOCTEXT("CTFGameMessage", "GoldBonusMessage", "\u2605 \u2605 \u2605 ends in ");
+	SilverBonusMessage = NSLOCTEXT("CTFGameMessage", "SilverBonusMessage", "\u2605 \u2605 ends in ");
 
 	static ConstructorHelpers::FObjectFinder<USoundBase> TimeWarningSoundFinder(TEXT("SoundWave'/Game/RestrictedAssets/Audio/Gameplay/A_Powerup_Invulnerability_Warning.A_Powerup_Invulnerability_Warning'"));
 	TimeWarningSound = TimeWarningSoundFinder.Object;
@@ -38,7 +38,7 @@ void UUTCountDownMessage::ClientReceive(const FClientReceiveData& ClientData) co
 		}
 		if (TimeWarningSound && (TimeValue < 6))
 		{
-			PC->ClientPlaySound(TimeWarningSound);
+			PC->UTClientPlaySound(TimeWarningSound);
 		}
 	}
 }

@@ -16,6 +16,9 @@ class UNREALTOURNAMENT_API AUTPlayerCameraManager : public APlayerCameraManager
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = PostProcess)
 	TArray<FPostProcessSettings> StylizedPPSettings;
 
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = PostProcess)
+	UMaterialInterface* OutlineMat;
+
 	FVector LastThirdPersonCameraLoc;
 
 	FVector LastGoodCamLocation;

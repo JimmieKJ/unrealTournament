@@ -36,13 +36,14 @@ void UUTHUDWidget_RespawnChoice::Draw_Implementation(float DeltaTime)
 	AUTPlayerState* UTPS = Cast<AUTPlayerState>(UTPlayerOwner->PlayerState);
 	if (UTPS != nullptr && UTPS->RespawnChoiceA && UTPS->RespawnChoiceB)
 	{
-
 		if (!bHasValidRespawnCapture)
 		{
 			RespawnChoiceACaptureComponent->SetWorldLocationAndRotation(UTPS->RespawnChoiceA->GetActorLocation(), UTPS->RespawnChoiceA->GetActorRotation());
 			RespawnChoiceBCaptureComponent->SetWorldLocationAndRotation(UTPS->RespawnChoiceB->GetActorLocation(), UTPS->RespawnChoiceB->GetActorRotation());
 			RespawnChoiceACaptureComponent->SetVisibility(true);
+			RespawnChoiceACaptureComponent->UpdateContent();
 			RespawnChoiceBCaptureComponent->SetVisibility(true);
+			RespawnChoiceBCaptureComponent->UpdateContent();
 
 			bHasValidRespawnCapture = true;
 			LastRespawnCaptureTime = UTHUDOwner->GetWorld()->RealTimeSeconds;

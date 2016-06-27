@@ -1698,7 +1698,16 @@ bool FParticleRibbonEmitterInstance::Spawn_Source(float DeltaTime)
 						// LastSourcePosition will be that position of the first particle that will be spawned this frame
 						FVector PositionDelta = (CurrentSourcePosition[TrailIdx] - PositionOffsetThisTick - NextNextSpawnedParticle->Location);
 						float TimeDelta = ElapsedTime - NextNextSpawnedTrailData->SpawnTime;
-						NewTangent = PositionDelta / TimeDelta;
+						
+						if (TimeDelta > SMALL_NUMBER)
+						{
+							NewTangent = PositionDelta / TimeDelta;
+						}
+						else
+						{
+							NewTangent = FVector::ZeroVector;
+						}
+
 						// Calculate new tangents for all the interpolated particles between NextNext and Next
 						if (NextSpawnedTrailData->SpawnedTessellationPoints > 0)
 						{

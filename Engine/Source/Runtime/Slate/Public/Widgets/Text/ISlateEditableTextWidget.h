@@ -182,6 +182,9 @@ public:
 	/** Is the text edit multi-line aware? */
 	virtual bool IsMultiLineTextEdit() const = 0;
 
+	/** Should the cursor be jumped to the end of the document when the widget gains focus? */
+	virtual bool ShouldJumpCursorToEndWhenFocused() const = 0;
+
 	/** Should the text be selected when the widget gains focus? */
 	virtual bool ShouldSelectAllTextWhenFocused() const = 0;
 

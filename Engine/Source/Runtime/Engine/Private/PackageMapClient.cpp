@@ -1867,17 +1867,17 @@ UObject* FNetGUIDCache::GetObjectFromNetGUID( const FNetworkGUID& NetGUID, const
 		return NULL;
 	}
 
-	if ( IsNetGUIDAuthority() )
-	{
-		// Warn when the server needs to re-load an object, it's probably due to a GC after initially loading as default guid
-		UE_LOG( LogNetPackageMap, Warning, TEXT( "GetObjectFromNetGUID: Server re-loading object (might have been GC'd). FullNetGUIDPath: %s" ), *FullNetGUIDPath( NetGUID ) );
-	}
-
 	if ( CacheObjectPtr->PathName == NAME_None )
 	{
 		// If we don't have a path, assume this is a non stably named guid
 		check( NetGUID.IsDynamic() );
 		return NULL;
+	}
+
+	if (IsNetGUIDAuthority())
+	{
+		// Warn when the server needs to re-load an object, it's probably due to a GC after initially loading as default guid
+		UE_LOG(LogNetPackageMap, Warning, TEXT("GetObjectFromNetGUID: Server re-loading object (might have been GC'd). FullNetGUIDPath: %s"), *FullNetGUIDPath(NetGUID));
 	}
 
 	// First, resolve the outer

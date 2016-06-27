@@ -3,9 +3,11 @@
 #include "UTHUDWidget_QuickStats.h"
 #include "UTArmor.h"
 #include "UTJumpBoots.h"
+#include "UTPlaceablePowerup.h"
 #include "UTWeapon.h"
 #include "UTTimedPowerup.h"
 #include "UTCTFRoundGameState.h"
+#include "UTCTFMajorMessage.h"
 
 const float BOUNCE_SCALE = 1.6f;			
 const float BOUNCE_TIME = 1.2f;		// SHould be (BOUNCE_SCALE - 1.0) * # of seconds
@@ -26,12 +28,9 @@ void UUTHUDWidget_QuickStats::InitializeWidget(AUTHUD* Hud)
 
 	DrawAngle = 0.0f;
 	CurrentLayoutIndex = 0;
-
 	HealthInfo.TextColor = FLinearColor(0.4f, 0.95f, 0.48f, 1.0f);
 	HealthInfo.IconColor = HealthInfo.TextColor;
-
 	FlagInfo.bNoText = false;
-
 }
 
 bool UUTHUDWidget_QuickStats::ShouldDraw_Implementation(bool bShowScores)
@@ -40,6 +39,11 @@ bool UUTHUDWidget_QuickStats::ShouldDraw_Implementation(bool bShowScores)
 	{
 		return false;
 	}
+	if (UTHUDOwner->bShowComsMenu || UTHUDOwner->bShowWeaponWheel)
+	{
+		return false;
+	}
+
 	AUTCharacter* UTC = Cast<AUTCharacter>(UTHUDOwner->UTPlayerOwner->GetViewTarget());
 	return (!bShowScores && UTC && !UTC->IsDead() && !UTHUDOwner->GetQuickStatsHidden());
 }
@@ -90,14 +94,15 @@ void UUTHUDWidget_QuickStats::PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCa
 
 	AUTCharacter* CharOwner = Cast<AUTCharacter>(UTHUDOwner->UTPlayerOwner->GetViewTarget());
 	AUTPlayerState* UTPlayerState = CharOwner != nullptr ? Cast<AUTPlayerState>(CharOwner->PlayerState) : nullptr;
+	RallyInfo.Value = 0;
 	if (CharOwner && UTPlayerState)
 	{
-		if (UTHUDOwner->UTPlayerOwner && UTHUDOwner->UTPlayerOwner->WeaponBobGlobalScaling > 0 && (InUTHUDOwner->GetQuickStatsBob()))
+/*		if (UTHUDOwner->UTPlayerOwner && UTHUDOwner->UTPlayerOwner->WeaponBobGlobalScaling > 0 && InUTHUDOwner->GetQuickStatsBob())
 		{
 			RenderPosition.X += 4.0f * CharOwner->CurrentWeaponBob.Y;
 			RenderPosition.Y -= 4.0f * CharOwner->CurrentWeaponBob.Z;
 		}
-	
+*/	
 		AUTWeapon* Weap = CharOwner->GetWeapon();
 
 		WeaponColor = Weap ? Weap->IconColor : FLinearColor::White;
@@ -135,18 +140,15 @@ void UUTHUDWidget_QuickStats::PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCa
 		}
 
 		float HealthPerc = float(HealthInfo.Value) / 100.0f;
-		GetHighlightStrength(HealthInfo, HealthPerc, 0.5f);
+		GetHighlightStrength(HealthInfo, HealthPerc, 0.65f);
 
 		// ----------------- Armor / Inventory
 
 		bool bHasShieldBelt = false;
-
 		bool bArmorVisible = false;
 		bool bBootsVisible = false;
-
 		BootsInfo.Value = 0;
 		ArmorInfo.Value = 0;
-
 		AUTTimedPowerup* CurrentPowerup = nullptr;
 
 		for (TInventoryIterator<> It(CharOwner); It; ++It)
@@ -285,6 +287,12 @@ void UUTHUDWidget_QuickStats::PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCa
 				{
 					BoostProvidedPowerupInfo.Value = WeaponPowerup->Ammo;
 				}
+
+				AUTPlaceablePowerup* PlaceablePowerup = Cast<AUTPlaceablePowerup>(ActiveBoost);
+				if (PlaceablePowerup)
+				{
+					BoostProvidedPowerupInfo.Value = UTPlayerState->GetRemainingBoosts();
+				}
 			}
 			else
 			{
@@ -293,20 +301,32 @@ void UUTHUDWidget_QuickStats::PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCa
 				{
 					BoostProvidedPowerupInfo.Value = UTPlayerState->GetRemainingBoosts();
 					BoostProvidedPowerupInfo.HighlightStrength = 0.5f;
-
-					UInputSettings* InputSettings = UInputSettings::StaticClass()->GetDefaultObject<UInputSettings>();
-					if (InputSettings)
+					if (UTHUDOwner->UTPlayerOwner->bNeedsBoostNotify)
 					{
-						for (int32 inputIndex = 0; inputIndex < InputSettings->ActionMappings.Num(); ++inputIndex)
+						UTHUDOwner->UTPlayerOwner->bNeedsBoostNotify = false;
+						BoostProvidedPowerupInfo.Animate(StatAnimTypes::Scale, 2.0f, 10.f, 1.0f, true);
+					}
+					else if (!BoostProvidedPowerupInfo.IsAnimationTypeAlreadyPlaying(StatAnimTypes::Scale))
+					{
+						BoostProvidedPowerupInfo.Animate(StatAnimTypes::Scale, 2.f, 3.25f, 1.0f, true);
+					}
+					if (ActivatePowerupBinding.ActionName != "StartActivatePowerup")
+					{
+						UInputSettings* InputSettings = UInputSettings::StaticClass()->GetDefaultObject<UInputSettings>();
+						if (InputSettings)
 						{
-							FInputActionKeyMapping& Action = InputSettings->ActionMappings[inputIndex];
-							if (Action.ActionName == "StartActivatePowerup")
+							for (int32 inputIndex = 0; inputIndex < InputSettings->ActionMappings.Num(); ++inputIndex)
 							{
-								BoostProvidedPowerupInfo.Label = Action.Key.GetDisplayName();
-								break;
+								FInputActionKeyMapping& Action = InputSettings->ActionMappings[inputIndex];
+								if (Action.ActionName == "StartActivatePowerup")
+								{
+									ActivatePowerupBinding = Action;
+									break;
+								}
 							}
 						}
 					}
+					BoostProvidedPowerupInfo.Label = (ActivatePowerupBinding.Key.GetDisplayName().ToString().Len() < 6) ? ActivatePowerupBinding.Key.GetDisplayName() : FText::FromString(" ");
 				}
 				else
 				{
@@ -326,7 +346,6 @@ void UUTHUDWidget_QuickStats::PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCa
 			}
 		}
 
-
 		if (UTPlayerState->CarriedObject != nullptr)
 		{
 			FlagInfo.Value = 1;
@@ -334,6 +353,19 @@ void UUTHUDWidget_QuickStats::PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCa
 			FlagInfo.bUseLabel = true;
 			FlagInfo.Label = FText::GetEmpty();
 			FlagInfo.HighlightStrength = 1.f;
+			FlagInfo.bUseOverlayTexture = false;
+
+			AUTCTFFlag* CTFFlag = Cast<AUTCTFFlag>(UTPlayerState->CarriedObject);
+			if (CTFFlag && CTFFlag->bCurrentlyPinged)
+			{
+				FlagInfo.bUseOverlayTexture = true;
+				FlagInfo.OverlayTexture = DetectedIcon;
+
+				if (!FlagInfo.IsAnimationTypeAlreadyPlaying(StatAnimTypes::ScaleOverlay))
+				{
+					FlagInfo.Animate(StatAnimTypes::ScaleOverlay, 2.0f, 3.25f, 1.0f, true);
+				}
+			}
 
 			if (FlagInfo.Label.IsEmpty())
 			{
@@ -345,7 +377,7 @@ void UUTHUDWidget_QuickStats::PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCa
 						FInputActionKeyMapping& Action = InputSettings->ActionMappings[inputIndex];
 						if (Action.ActionName == "DropCarriedObject")
 						{
-							FlagInfo.Label = Action.Key.GetDisplayName();
+							FlagInfo.Label = (Action.Key.IsValid() && (Action.Key.GetDisplayName().ToString().Len() < 6)) ? Action.Key.GetDisplayName() : FText::FromString(" ");
 							break;
 						}
 					}
@@ -356,12 +388,54 @@ void UUTHUDWidget_QuickStats::PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCa
 		{
 			FlagInfo.Value = 0;
 		}
+
+		AUTCTFGameState* GameState = GetWorld()->GetGameState<AUTCTFGameState>();
+		if (GameState && UTPlayerState && UTPlayerState->Team && UTPlayerState->bCanRally && ((UTPlayerState->Team->TeamIndex == 0) ? GameState->bRedCanRally : GameState->bBlueCanRally))
+		{
+			RallyInfo.Value = 1;
+			RallyInfo.IconColor = FLinearColor::Yellow;
+			RallyInfo.bUseLabel = true;
+			RallyInfo.HighlightStrength = 1.f;
+			RallyInfo.bUseOverlayTexture = false;
+			bool bWantsPulse = ((UTPlayerState->Team->TeamIndex == 0) == GameState->bRedToCap);// && !UTPlayerState->CarriedObject;
+			if (UTHUDOwner->UTPlayerOwner->bNeedsRallyNotify)
+			{
+				UTHUDOwner->UTPlayerOwner->bNeedsRallyNotify = false;
+				if (bWantsPulse)
+				{
+					RallyInfo.Animate(StatAnimTypes::Scale, 2.0f, 10.f, 1.0f, true);
+					UTHUDOwner->UTPlayerOwner->ClientReceiveLocalizedMessage(UUTCTFMajorMessage::StaticClass(), 23);
+				}
+			}
+			else if (bWantsPulse && !RallyInfo.IsAnimationTypeAlreadyPlaying(StatAnimTypes::Scale))
+			{
+				RallyInfo.Animate(StatAnimTypes::Scale, 2.0f, 3.25f, 1.0f, true);
+			}
+			if (RallyBinding.ActionName != "RequestRally")
+			{
+				UInputSettings* InputSettings = UInputSettings::StaticClass()->GetDefaultObject<UInputSettings>();
+				if (InputSettings)
+				{
+					for (int32 inputIndex = 0; inputIndex < InputSettings->ActionMappings.Num(); ++inputIndex)
+					{
+						FInputActionKeyMapping& Action = InputSettings->ActionMappings[inputIndex];
+						if (Action.ActionName == "RequestRally")
+						{
+							RallyBinding = Action;
+							break;
+						}
+					}
+				}
+			}
+			RallyInfo.Label = (RallyBinding.Key.GetDisplayName().ToString().Len() < 6) ? RallyBinding.Key.GetDisplayName() : FText::FromString(" ");
+		}
 	}
 
 	HealthInfo.UpdateAnimation(DeltaTime);
 	AmmoInfo.UpdateAnimation(DeltaTime);
 	ArmorInfo.UpdateAnimation(DeltaTime);
 
+	RallyInfo.UpdateAnimation(DeltaTime);
 	FlagInfo.UpdateAnimation(DeltaTime);
 	BootsInfo.UpdateAnimation(DeltaTime);
 	PowerupInfo.UpdateAnimation(DeltaTime);
@@ -405,6 +479,10 @@ void UUTHUDWidget_QuickStats::Draw_Implementation(float DeltaTime)
 	if (BoostProvidedPowerupInfo.Value > 0)
 	{
 		DrawStat(bFollowRotation ? CalcRotOffset(Layouts[CurrentLayoutIndex].BoostProvidedPowerupOffset, DrawAngle) : Layouts[CurrentLayoutIndex].BoostProvidedPowerupOffset, BoostProvidedPowerupInfo, BoostIcon );
+	}
+	if (RallyInfo.Value > 0)
+	{
+		DrawStat(bFollowRotation ? CalcRotOffset(Layouts[CurrentLayoutIndex].RallyOffset, DrawAngle) : Layouts[CurrentLayoutIndex].RallyOffset, RallyInfo, RallyIcon);
 	}
 }
 
@@ -464,18 +542,22 @@ void UUTHUDWidget_QuickStats::DrawStat(FVector2D StatOffset, FStatInfo& Info, FH
 			RenderObj_Text(TextTemplate, StatOffset);
 		}
 	}
+
+	if (Info.bUseOverlayTexture)
+	{
+		Info.OverlayTexture.RenderScale = Info.OverlayScale;
+
+		//center Overlay 
+		StatOffset.X -= Info.OverlayTexture.GetWidth() *.75f; 
+		StatOffset.Y -= Info.OverlayTexture.GetHeight() / 2;
+		
+		RenderObj_Texture(Info.OverlayTexture, StatOffset);
+	}
 }
 
 void UUTHUDWidget_QuickStats::GetHighlightStrength(FStatInfo& Stat, float Perc, float WarnPerc)
 {
-	if (Perc <= WarnPerc)
-	{
-		Stat.HighlightStrength = 1.0f - (Perc / WarnPerc);
-	}
-	else
-	{
-		Stat.HighlightStrength = 0.0f;
-	}
+	Stat.HighlightStrength = (Perc <= WarnPerc) ? FMath::Max(0.1875f, 1.0f - (Perc / WarnPerc)) : 0.0f;
 }
 
 FLinearColor UUTHUDWidget_QuickStats::InterpColor(FLinearColor DestinationColor, float Delta)
@@ -493,4 +575,8 @@ float UUTHUDWidget_QuickStats::GetDrawScaleOverride()
 	return Super::GetDrawScaleOverride() * DrawScale;
 }
 
+void UUTHUDWidget_QuickStats::PingBoostWidget()
+{
+	BoostProvidedPowerupInfo.Animate(StatAnimTypes::Scale, 1.5f, 3.25f, 1.0f, true);		
+}
 

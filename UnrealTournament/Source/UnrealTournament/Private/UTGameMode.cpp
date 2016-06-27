@@ -45,8 +45,11 @@
 #include "UTGameSessionRanked.h"
 #include "UTGameSessionNonRanked.h"
 #include "UTPlayerStart.h"
-
+#include "UTPlaceablePowerup.h"
 #include "SUTSpawnWindow.h"
+#include "UTWeaponLocker.h"
+#include "UTCTFRoundGameState.h"
+#include "UTGameVolume.h"
 
 UUTResetInterface::UUTResetInterface(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -85,7 +88,7 @@ AUTGameMode::AUTGameMode(const class FObjectInitializer& ObjectInitializer)
 	CountDown = 3;
 	bPauseable = false;
 	RespawnWaitTime = 1.5f;
-	ForceRespawnTime = 2.f;
+	ForceRespawnTime = 5.f;
 	MaxReadyWaitTime = 60;
 	bHasRespawnChoices = false;
 	MinPlayersToStart = 2;
@@ -140,6 +143,11 @@ AUTGameMode::AUTGameMode(const class FObjectInitializer& ObjectInitializer)
 
 	bDisableMapVote = false;
 	AntiCheatEngine = nullptr;
+}
+
+float AUTGameMode::OverrideRespawnTime(TSubclassOf<AUTInventory> InventoryType)
+{
+	return InventoryType ? InventoryType.GetDefaultObject()->RespawnTime : 0.f;
 }
 
 void AUTGameMode::NotifySpeedHack(ACharacter* Character)
@@ -498,7 +506,7 @@ void AUTGameMode::InitGameState()
 				AvailableLoadout[i].ItemClass = Cast<UClass>(StaticLoadObject(UClass::StaticClass(), NULL, *AvailableLoadout[i].ItemClassStringRef, NULL, LOAD_NoWarn));
 			}
 
-			if (AvailableLoadout[i].ItemClass)
+			if (AvailableLoadout[i].ItemClass != nullptr)
 			{
 				UTGameState->AddLoadoutItem(AvailableLoadout[i]);
 			}
@@ -2007,6 +2015,11 @@ bool AUTGameMode::UTIsHandlingReplays()
 	{
 		return false;
 	}
+	
+#if !(UE_BUILD_SHIPPING)
+	//Ignore bRecordReplays for non-shipping builds and always record replays on servers.
+	return GetNetMode() == ENetMode::NM_DedicatedServer;
+#endif
 
 	return bRecordReplays && GetNetMode() == ENetMode::NM_DedicatedServer;
 }
@@ -2332,6 +2345,8 @@ void AUTGameMode::RestartPlayer(AController* aPlayer)
 		{
 			((AUTPlayerController*)aPlayer)->ClientSwitchToBestWeapon();
 		}
+
+		((AUTPlayerController*)aPlayer)->ClientStopKillcam();
 	}
 
 	// clear spawn choices
@@ -2371,6 +2386,15 @@ void AUTGameMode::SetPlayerDefaults(APawn* PlayerPawn)
 	if (bSetPlayerDefaultsNewSpawn)
 	{
 		GiveDefaultInventory(PlayerPawn);
+		AUTPlayerStart* UTStart = Cast<AUTPlayerStart>(LastStartSpot);
+		if (UTStart != NULL)
+		{
+			AUTWeaponLocker* Locker = Cast<AUTWeaponLocker>(UTStart->AssociatedPickup);
+			if (Locker != NULL)
+			{
+				Locker->ProcessTouch(PlayerPawn);
+			}
+		}
 	}
 }
 
@@ -2805,7 +2829,7 @@ bool AUTGameMode::ReadyToStartMatch_Implementation()
 			}
 		}
 		// if not competitive match, fill with bots if have waited long enough
-		if (!bRequireReady)
+		if (!bRequireReady && (GetNetMode() != NM_Standalone))
 		{
 			if ((MaxWaitForPlayers > 0) && (GetWorld()->GetTimeSeconds() - StartPlayTime > MaxWaitForPlayers))
 			{
@@ -3357,7 +3381,7 @@ TSharedPtr<TAttributePropertyBase> AUTGameMode::FindGameURLOption(TArray<TShared
 
 
 #if !UE_SERVER
-void AUTGameMode::CreateConfigWidgets(TSharedPtr<class SVerticalBox> MenuSpace, bool bCreateReadOnly, TArray< TSharedPtr<TAttributePropertyBase> >& ConfigProps)
+void AUTGameMode::CreateConfigWidgets(TSharedPtr<class SVerticalBox> MenuSpace, bool bCreateReadOnly, TArray< TSharedPtr<TAttributePropertyBase> >& ConfigProps, int32 MinimumPlayers)
 {
 	CreateGameURLOptions(ConfigProps);
 
@@ -3406,9 +3430,9 @@ void AUTGameMode::CreateConfigWidgets(TSharedPtr<class SVerticalBox> MenuSpace, 
 						.OnValueChanged(CombatantsAttr.ToSharedRef(), &TAttributeProperty<int32>::Set)
 						.AllowSpin(true)
 						.Delta(1)
-						.MinValue(1)
+						.MinValue(MinimumPlayers)
 						.MaxValue(32)
-						.MinSliderValue(1)
+						.MinSliderValue(MinimumPlayers)
 						.MaxSliderValue(32)
 						.EditableTextBoxStyle(SUWindowsStyle::Get(), "UT.Common.NumEditbox.White")
 
@@ -3778,7 +3802,21 @@ void AUTGameMode::UpdatePlayersPresence()
 
 	if (GameSession)
 	{
-		GameSession->UpdateSessionJoinability(GameSessionName, true, bAllowInvites, bAllowJoinInProgress, false);
+		const auto OnlineSub = IOnlineSubsystem::Get();
+		if (OnlineSub)
+		{
+			const auto SessionInterface = OnlineSub->GetSessionInterface();
+			if (SessionInterface.IsValid())
+			{
+				EOnlineSessionState::Type State = SessionInterface->GetSessionState(GameSessionName);
+				if (State == EOnlineSessionState::Pending ||
+					State == EOnlineSessionState::Starting ||
+					State == EOnlineSessionState::InProgress)
+				{
+					GameSession->UpdateSessionJoinability(GameSessionName, true, bAllowInvites, bAllowJoinInProgress, false);
+				}
+			}
+		}
 	}
 
 
@@ -4651,7 +4689,7 @@ void AUTGameMode::UnlockSession()
 
 bool AUTGameMode::CanBoost(AUTPlayerController* Who)
 {
-	if (Who && Who->UTPlayerState)
+	if (Who && Who->UTPlayerState && IsMatchInProgress() && (GetMatchState() != MatchState::MatchIntermission))
 	{
 		if (Who->UTPlayerState->GetRemainingBoosts())
 		{
@@ -4671,3 +4709,33 @@ bool AUTGameMode::AttemptBoost(AUTPlayerController* Who)
 	}
 	return bCanBoost;
 }
+
+void AUTGameMode::SendComsMessage( AUTPlayerController* Sender, AUTPlayerState* Target, int32 Switch)
+{
+	AUTPlayerState* UTPlayerState = Cast<AUTPlayerState>(Instigator->PlayerState);
+
+	if (Target != nullptr)
+	{
+		// This is a targeting com message.  Send it only to the sender and the target
+		AUTPlayerController* TargetPC = Cast<AUTPlayerController>(Target->GetOwner());
+		if (TargetPC != nullptr) TargetPC->ClientReceiveLocalizedMessage(UTPlayerState->GetCharacterVoiceClass(), Switch, UTPlayerState, nullptr, UTPlayerState->LastKnownLocation);
+		Sender->ClientReceiveLocalizedMessage(UTPlayerState->GetCharacterVoiceClass(), Switch, UTPlayerState, nullptr, UTPlayerState->LastKnownLocation);
+	}
+}
+
+
+int32 AUTGameMode::GetComSwitch(FName CommandTag, AActor* ContextActor, AUTPlayerController* Instigator, UWorld* World)
+{
+	if (CommandTag == CommandTags::Yes)
+	{
+		return ACKNOWLEDGE_SWITCH_INDEX;
+	}
+
+	if (CommandTag == CommandTags::No)
+	{
+		return NEGATIVE_SWITCH_INDEX;
+	}
+
+	return INDEX_NONE;
+}
+

@@ -27,6 +27,8 @@ AUTTeamShowdownGame::AUTTeamShowdownGame(const FObjectInitializer& OI)
 	bAnnounceTeam = true;
 	QuickPlayersToStart = 6;
 	ActivatedPowerupPlaceholderObject = FStringAssetReference(TEXT("/Game/RestrictedAssets/Pickups/Powerups/BP_ActivatedPowerup_UDamage.BP_ActivatedPowerup_UDamage_C"));
+	PrimaryActorTick.bCanEverTick = true;
+	PrimaryActorTick.bStartWithTickEnabled = true;
 }
 
 void AUTTeamShowdownGame::InitGame(const FString& MapName, const FString& Options, FString& ErrorMessage)
@@ -420,6 +422,20 @@ void AUTTeamShowdownGame::ScoreExpiredRoundTime()
 	}
 }
 
+bool AUTTeamShowdownGame::ModifyDamage_Implementation(int32& Damage, FVector& Momentum, APawn* Injured, AController* InstigatedBy, const FHitResult& HitInfo, AActor* DamageCauser, TSubclassOf<UDamageType> DamageType)
+{
+	Super::ModifyDamage_Implementation(Damage, Momentum, Injured, InstigatedBy, HitInfo, DamageCauser, DamageType);
+
+	AUTCharacter* InjuredChar = Cast<AUTCharacter>(Injured);
+	IUTTeamInterface* InstigatorTeamInt = Cast<IUTTeamInterface>(InstigatedBy);
+	if (Damage > 0 && InstigatorTeamInt != nullptr && InjuredChar != nullptr && !UTGameState->OnSameTeam(Injured, InstigatedBy))
+	{
+		AddDamagePing(InjuredChar, InstigatorTeamInt->GetTeamNum());
+	}
+
+	return true;
+}
+
 void AUTTeamShowdownGame::GetGameURLOptions(const TArray<TSharedPtr<TAttributePropertyBase>>& MenuProps, TArray<FString>& OptionsList, int32& DesiredPlayerCount)
 {
 	Super::GetGameURLOptions(MenuProps, OptionsList, DesiredPlayerCount);
@@ -431,7 +447,7 @@ void AUTTeamShowdownGame::CreateGameURLOptions(TArray<TSharedPtr<TAttributePrope
 	MenuProps.Add(MakeShareable(new TAttributeProperty<int32>(this, &BotFillCount, TEXT("BotFill"))));
 }
 #if !UE_SERVER
-void AUTTeamShowdownGame::CreateConfigWidgets(TSharedPtr<class SVerticalBox> MenuSpace, bool bCreateReadOnly, TArray< TSharedPtr<TAttributePropertyBase> >& ConfigProps)
+void AUTTeamShowdownGame::CreateConfigWidgets(TSharedPtr<class SVerticalBox> MenuSpace, bool bCreateReadOnly, TArray< TSharedPtr<TAttributePropertyBase> >& ConfigProps, int32 MinimumPlayers)
 {
 	CreateGameURLOptions(ConfigProps);
 
@@ -476,9 +492,9 @@ void AUTTeamShowdownGame::CreateConfigWidgets(TSharedPtr<class SVerticalBox> Men
 						.OnValueChanged(CombatantsAttr.ToSharedRef(), &TAttributeProperty<int32>::Set)
 						.AllowSpin(true)
 						.Delta(1)
-						.MinValue(1)
+						.MinValue(MinimumPlayers)
 						.MaxValue(32)
-						.MinSliderValue(1)
+						.MinSliderValue(MinimumPlayers)
 						.MaxSliderValue(32)
 						.EditableTextBoxStyle(SUWindowsStyle::Get(), "UT.Common.NumEditbox.White")
 
@@ -488,6 +504,6 @@ void AUTTeamShowdownGame::CreateConfigWidgets(TSharedPtr<class SVerticalBox> Men
 		];
 	}
 
-	Super::CreateConfigWidgets(MenuSpace, bCreateReadOnly, ConfigProps);
+	Super::CreateConfigWidgets(MenuSpace, bCreateReadOnly, ConfigProps, MinimumPlayers);
 }
 #endif

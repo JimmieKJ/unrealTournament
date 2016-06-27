@@ -14,12 +14,16 @@ public:
 	FAndroidMediaPlayerStreamer();
 	virtual ~FAndroidMediaPlayerStreamer();
 
-	virtual bool Init(const TArray<FString>& MoviePaths) override;
+	virtual bool Init(const TArray<FString>& MoviePaths, TEnumAsByte<EMoviePlaybackType> inPlaybackType) override;
 	virtual void ForceCompletion() override;
 	virtual bool Tick(float DeltaTime) override;
 	virtual TSharedPtr<class ISlateViewport> GetViewportInterface() override;
 	virtual float GetAspectRatio() const override;
 	virtual void Cleanup() override;
+
+	virtual FString GetMovieName() override;
+	virtual bool IsLastMovieInPlaylist() override;
+
 
 private:
 	/**

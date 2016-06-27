@@ -209,7 +209,7 @@ void AUTWeap_ImpactHammer::FireInstantHit(bool bDealDamage, FHitResult* OutHit)
 					Hit.Location = UTOwner->GetActorLocation();
 
 					UTOwner->UTCharacterMovement->ApplyImpactVelocity(JumpDir, bIsFullImpactImpulse);
-					UUTGameplayStatics::UTPlaySound(GetWorld(), ImpactJumpSound, UTOwner, SRT_AllButOwner);
+					UUTGameplayStatics::UTPlaySound(GetWorld(), ImpactJumpSound, UTOwner, SRT_AllButOwner, false, FVector::ZeroVector, NULL, NULL, true, SAT_WeaponFoley);
 					UTOwner->TakeDamage(FinalDamage, FUTPointDamageEvent(FinalDamage, Hit, FireDir, InstantHitInfo[CurrentFireMode].DamageType, FVector(0.f)), UTOwner->Controller, this);
 				}
 			}
@@ -256,14 +256,14 @@ void AUTWeap_ImpactHammer::Tick(float DeltaTime)
 			{
 				if (OldChargeTime < FullChargeTime * FullImpactChargePct)
 				{
-					UUTGameplayStatics::UTPlaySound(GetWorld(), ChargeClickSound, UTOwner, SRT_AllButOwner);
+					UUTGameplayStatics::UTPlaySound(GetWorld(), ChargeClickSound, UTOwner, SRT_AllButOwner, false, FVector::ZeroVector, NULL, NULL, true, SAT_WeaponFoley);
 				}
 			}
 			if (ChargedMode->ChargeTime >= FullChargeTime * MinAutoChargePct)
 			{
 				if (OldChargeTime < FullChargeTime * MinAutoChargePct)
 				{
-					UUTGameplayStatics::UTPlaySound(GetWorld(), ChargeClickSound, UTOwner, SRT_AllButOwner);
+					UUTGameplayStatics::UTPlaySound(GetWorld(), ChargeClickSound, UTOwner, SRT_AllButOwner, false, FVector::ZeroVector, NULL, NULL, true, SAT_WeaponFoley);
 				}
 
 				FHitResult Hit;

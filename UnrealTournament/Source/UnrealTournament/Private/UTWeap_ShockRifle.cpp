@@ -24,6 +24,7 @@ AUTWeap_ShockRifle::AUTWeap_ShockRifle(const FObjectInitializer& ObjectInitializ
 	HitsStatsName = NAME_ShockRifleHits;
 	ShotsStatsName = NAME_ShockRifleShots;
 	bCheckHeadSphere = true;
+	bCheckMovingHeadSphere = true;
 }
 
 void AUTWeap_ShockRifle::AttachToOwner_Implementation()

@@ -16,20 +16,29 @@ class UNREALTOURNAMENT_API AUTGhostFlag : public AActor
 	UPROPERTY(ReplicatedUsing=OnSetCarriedObject, BlueprintReadOnly, Category = Flag)
 	AUTCarriedObject* MyCarriedObject;
 
-	UPROPERTY()
-		class AUTFlagReturnTrail* Trail;
+	UPROPERTY(ReplicatedUsing=OnSetMidPoint)
+	FVector MidPoints[3];
 
 	UPROPERTY()
-		int32 TeamIndex;
+	class AUTFlagReturnTrail* Trail;
+
+	UPROPERTY(EditDefaultsOnly)
+	TSubclassOf<AUTFlagReturnTrail> TrailClass;
 
 	UPROPERTY()
-		float TrailSpawnTime;
+	int32 TeamIndex;
+
+	UPROPERTY()
+	float TrailSpawnTime;
 
 	UFUNCTION()
-		virtual void OnSetCarriedObject();
+	virtual void OnSetCarriedObject();
 
-	virtual void MoveTo(const FVector& NewLocation);
-	virtual void SetCarriedObject(AUTCarriedObject* NewCarriedObject);
+	UFUNCTION()
+	virtual void OnSetMidPoint();
+
+	virtual void MoveTo(const FFlagTrailPos NewPosition);
+	virtual void SetCarriedObject(AUTCarriedObject* NewCarriedObject, const FFlagTrailPos NewPosition);
 	virtual void Tick(float DeltaTime) override;
 	virtual void Destroyed() override;
 	virtual void OnRep_ReplicatedMovement() override;

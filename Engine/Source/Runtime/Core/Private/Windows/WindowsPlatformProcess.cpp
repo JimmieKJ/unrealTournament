@@ -1000,7 +1000,12 @@ void FWindowsPlatformProcess::Sleep( float Seconds )
 
 void FWindowsPlatformProcess::SleepNoStats(float Seconds)
 {
-	::Sleep((uint32)(Seconds * 1000.0));
+	uint32 Milliseconds = (uint32)(Seconds * 1000.0);
+	if (Milliseconds == 0)
+	{
+		::SwitchToThread();
+	}
+	::Sleep(Milliseconds);
 }
 
 void FWindowsPlatformProcess::SleepInfinite()

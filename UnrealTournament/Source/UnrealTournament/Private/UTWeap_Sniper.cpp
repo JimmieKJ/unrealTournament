@@ -26,6 +26,7 @@ AUTWeap_Sniper::AUTWeap_Sniper(const FObjectInitializer& ObjectInitializer)
 	BaseAISelectRating = 0.7f;
 	BasePickupDesireability = 0.63f;
 	FiringViewKickback = -50.f;
+	BlockedHeadshotDamage = 45;
 
 	KillStatsName = NAME_SniperKills;
 	AltKillStatsName = NAME_SniperHeadshotKills;
@@ -83,7 +84,7 @@ void AUTWeap_Sniper::FireInstantHit(bool bDealDamage, FHitResult* OutHit)
 	{
 		// in some cases the head sphere is partially outside the capsule
 		// so do a second search just for that
-		AUTCharacter* AltTarget = Cast<AUTCharacter>(UUTGameplayStatics::PickBestAimTarget(GetUTOwner()->Controller, SpawnLocation, FireDir, 0.9f, (Hit.Location - SpawnLocation).Size(), AUTCharacter::StaticClass()));
+		AUTCharacter* AltTarget = Cast<AUTCharacter>(UUTGameplayStatics::ChooseBestAimTarget(GetUTOwner()->Controller, SpawnLocation, FireDir, 0.7f, (Hit.Location - SpawnLocation).Size(), 150.0f, AUTCharacter::StaticClass()));
 		if (AltTarget != NULL && AltTarget->IsHeadShot(SpawnLocation, FireDir, GetHeadshotScale(), UTOwner, PredictionTime))
 		{
 			Hit = FHitResult(AltTarget, AltTarget->GetCapsuleComponent(), SpawnLocation + FireDir * ((AltTarget->GetHeadLocation() - SpawnLocation).Size() - AltTarget->GetCapsuleComponent()->GetUnscaledCapsuleRadius()), -FireDir);
@@ -147,9 +148,13 @@ void AUTWeap_Sniper::FireInstantHit(bool bDealDamage, FHitResult* OutHit)
 		TSubclassOf<UDamageType> DamageType = InstantHitInfo[CurrentFireMode].DamageType;
 
 		AUTCharacter* C = Cast<AUTCharacter>(Hit.Actor.Get());
-		if (C != NULL && C->IsHeadShot(Hit.Location, FireDir, GetHeadshotScale(), UTOwner, PredictionTime))
+		if (C != NULL && (!C->UTCharacterMovement || !C->UTCharacterMovement->bIsFloorSliding) && C->IsHeadShot(Hit.Location, FireDir, GetHeadshotScale(), UTOwner, PredictionTime))
 		{
-			if (!C->BlockedHeadShot(Hit.Location, FireDir, GetHeadshotScale(), true, UTOwner))
+			if (C->BlockedHeadShot(Hit.Location, FireDir, GetHeadshotScale(), true, UTOwner))
+			{
+				Damage = BlockedHeadshotDamage;
+			}
+			else
 			{
 				AUTBot* B = Cast<AUTBot>(UTOwner->Controller);
 				if (!B || (B->Skill + B->Personality.Accuracy > 3.5f))

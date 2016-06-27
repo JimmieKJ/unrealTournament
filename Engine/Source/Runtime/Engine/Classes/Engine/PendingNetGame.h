@@ -3,6 +3,9 @@
 #pragma once
 #include "PendingNetGame.generated.h"
 
+struct FWorldContext;
+class UEngine;
+
 /**
  * Accepting connection response codes
  */
@@ -135,4 +138,7 @@ public:
 
 	/** Create the peer net driver and a socket to listen for new client peer connections. */
 	void InitPeerListen();
+
+	/** Called by the engine after it calls LoadMap for this PendingNetGame. */
+	virtual void LoadMapCompleted(UEngine* Engine, FWorldContext& Context, bool bLoadedMapSuccessfully, const FString& LoadMapError);
 };

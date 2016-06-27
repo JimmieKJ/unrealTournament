@@ -44,19 +44,19 @@ AUTProj_Redeemer::AUTProj_Redeemer(const class FObjectInitializer& ObjectInitial
 	InitialLifeSpan = 20.0f;
 	bAlwaysShootable = true;
 	ProjHealth = 35;
+
+	PrimaryActorTick.bCanEverTick = true;
+	PrimaryActorTick.bStartWithTickEnabled = true;
 }
 
 void AUTProj_Redeemer::RedeemerDenied(AController* InstigatedBy)
 {
-	APlayerState* InstigatorPS = InstigatorController ? InstigatorController->PlayerState : NULL;
-	APlayerState* InstigatedbyPS = InstigatedBy ? InstigatedBy->PlayerState : NULL;
-	if (Cast<AUTPlayerController>(InstigatedBy))
+	AUTGameMode* GM = GetWorld()->GetAuthGameMode<AUTGameMode>();
+	if (GM)
 	{
-		Cast<AUTPlayerController>(InstigatedBy)->SendPersonalMessage(UUTCTFRewardMessage::StaticClass(), 0, InstigatedbyPS, InstigatorPS, NULL);
-	}
-	if (Cast<AUTPlayerController>(InstigatorController))
-	{
-		Cast<AUTPlayerController>(InstigatorController)->SendPersonalMessage(UUTCTFRewardMessage::StaticClass(), 0, InstigatedbyPS, InstigatorPS, NULL);
+		APlayerState* InstigatorPS = InstigatorController ? InstigatorController->PlayerState : NULL;
+		APlayerState* InstigatedbyPS = InstigatedBy ? InstigatedBy->PlayerState : NULL;
+		GM->BroadcastLocalized(this, UUTCTFRewardMessage::StaticClass(), 0, InstigatedbyPS, InstigatorPS, NULL);
 	}
 }
 
@@ -75,7 +75,7 @@ float AUTProj_Redeemer::TakeDamage(float Damage, const FDamageEvent& DamageEvent
 		ProjHealth -= Damage;
 		if (ProjHealth <= 0)
 		{
-			Detonate(EventInstigator);
+			OnShotDown();
 			RedeemerDenied(EventInstigator);
 		}
 	}
@@ -99,65 +99,92 @@ void AUTProj_Redeemer::NotifyClientSideHit(AUTPlayerController* InstigatedBy, FV
 	ProjHealth -= Damage;
 	if (ProjHealth <= 0)
 	{
-		Detonate(InstigatedBy);
+		OnShotDown();
 		RedeemerDenied(InstigatedBy);
 	}
 }
 
-void AUTProj_Redeemer::Detonate(class AController* InstigatedBy)
+void AUTProj_Redeemer::ExplodeTimed()
 {
-	Explode(GetActorLocation(), FVector(0.f, 0.f, 1.f), CapsuleComp);
-/*	bDetonated = true;
+	if (!bExploded && Role == ROLE_Authority)
+	{
+		Explode(GetActorLocation(), FVector(0.0f, 0.0f, 1.0f));
+	}
+}
+
+void AUTProj_Redeemer::TornOff()
+{
+	if (bDetonated)
+	{
+		OnShotDown();
+	}
+	else
+	{
+		Explode(GetActorLocation(), FVector(0.0f, 0.0f, 1.0f));
+	}
+}
+
+void AUTProj_Redeemer::OnShotDown()
+{
+	bDetonated = true;
 	if (!bExploded)
 	{
-		bExploded = true;
 		if (Role == ROLE_Authority)
 		{
 			bTearOff = true;
 			bReplicateUTMovement = true; // so position of explosion is accurate even if flight path was a little off
 		}
 
-		if (DetonateEffects != NULL)
-		{
-			DetonateEffects.GetDefaultObject()->SpawnEffect(GetWorld(), FTransform(GetActorRotation(), GetActorLocation()), CollisionComp, this, InstigatorController);
-		}
-		CapsuleComp->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-		CollisionComp->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-		ProjectileMovement->SetActive(false);
+		// fall to ground, explode after a delay
+		ProjectileMovement->ProjectileGravityScale = 1.0f;
+		ProjectileMovement->MaxSpeed += 2000.0f; // make room for gravity
+		ProjectileMovement->bShouldBounce = true;
+		ProjectileMovement->Bounciness = 0.25f;
+		SetTimerUFunc(this, FName(TEXT("ExplodeTimed")), 2.0f, false);
 
-		if (Role == ROLE_Authority)
+		if (GetNetMode() != NM_DedicatedServer)
 		{
-			if (DetonateDamageParams.OuterRadius > 0.0f)
+			PlayShotDownEffects();
+		}
+	}
+}
+
+void AUTProj_Redeemer::PlayShotDownEffects()
+{
+	// stop any looping audio and particles
+	TArray<USceneComponent*> Components;
+	GetComponents<USceneComponent>(Components);
+	for (int32 i = 0; i < Components.Num(); i++)
+	{
+		UAudioComponent* Audio = Cast<UAudioComponent>(Components[i]);
+		if (Audio != NULL)
+		{
+			// only stop looping (ambient) sounds - note that the just played explosion sound may be encountered here
+			if (Audio->Sound != NULL && Audio->Sound->GetDuration() >= INDEFINITELY_LOOPING_DURATION)
 			{
-				TArray<AActor*> IgnoreActors;
-				StatsHitCredit = 0.f;
-				UUTGameplayStatics::UTHurtRadius(this, DetonateDamageParams.BaseDamage, DetonateDamageParams.MinimumDamage, DetonateMomentum, GetActorLocation(), DetonateDamageParams.InnerRadius, DetonateDamageParams.OuterRadius, DetonateDamageParams.DamageFalloff,
-					DetonateDamageType, IgnoreActors, this, InstigatedBy, nullptr, nullptr, 0.f);
-				if (HitsStatsName != NAME_None)
-				{
-					AUTPlayerState* PS = InstigatorController ? Cast<AUTPlayerState>(InstigatorController->PlayerState) : NULL;
-					if (PS)
-					{
-						PS->ModifyStatsValue(HitsStatsName, StatsHitCredit / DetonateDamageParams.BaseDamage);
-					}
-				}
+				Audio->Stop();
 			}
 		}
-		ShutDown();
+		else
+		{
+			UParticleSystemComponent* PSC = Cast<UParticleSystemComponent>(Components[i]);
+			if (PSC != NULL && IsLoopingParticleSystem(PSC->Template))
+			{
+				PSC->DeactivateSystem();
+			}
+		}
 	}
-*/
 }
 
 void AUTProj_Redeemer::Explode_Implementation(const FVector& HitLocation, const FVector& HitNormal, UPrimitiveComponent* HitComp)
 {
 	if (!bExploded)
 	{
-		bExploded = true;
-		if (bDetonated)
+		if (GetNetMode() != NM_DedicatedServer)
 		{
-			Detonate(NULL);
-			return;
+			PlayShotDownEffects();
 		}
+		bExploded = true;
 		//Guarantee detonation on projectile collision
 		AUTProjectile* Projectile = Cast<AUTProjectile>(ImpactedActor);
 		if (Projectile != nullptr)
@@ -266,3 +293,46 @@ void AUTProj_Redeemer::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty
 	DOREPLIFETIME_CONDITION(AUTProj_Redeemer, bDetonated, COND_None);
 }
 
+void AUTProj_Redeemer::Tick(float DeltaTime)
+{
+	Super::Tick(DeltaTime);
+
+	// check outline
+	// this is done in Tick() so that it handles edge cases like viewer changing teams
+	if (GetNetMode() != NM_DedicatedServer)
+	{
+		AUTGameState* GS = Cast<AUTGameState>(GetWorld()->GetGameState());
+		IUTTeamInterface* TeamOwner = Cast<IUTTeamInterface>(Instigator);
+		bool bShowOutline = false;
+		if (GS != nullptr && TeamOwner != nullptr && !bExploded)
+		{
+			for (FLocalPlayerIterator It(GEngine, GetWorld()); It; ++It)
+			{
+				if (It->PlayerController != nullptr && GS->OnSameTeam(It->PlayerController, Instigator))
+				{
+					// note: does not handle splitscreen
+					bShowOutline = true;
+					break;
+				}
+			}
+		}
+		if (bShowOutline)
+		{
+			if (CustomDepthMesh == nullptr)
+			{
+				TInlineComponentArray<UMeshComponent*> Meshes(this);
+				if (Meshes.Num() > 0)
+				{
+					CustomDepthMesh = CreateCustomDepthOutlineMesh(Meshes[0], this);
+					CustomDepthMesh->CustomDepthStencilValue = TeamOwner->GetTeamNum() + 1;
+					CustomDepthMesh->RegisterComponent();
+				}
+			}
+		}
+		else if (CustomDepthMesh != nullptr)
+		{
+			CustomDepthMesh->DestroyComponent();
+			CustomDepthMesh = nullptr;
+		}
+	}
+}

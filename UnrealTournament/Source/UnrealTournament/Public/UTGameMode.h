@@ -482,6 +482,8 @@ public:
 
 	virtual void GiveDefaultInventory(APawn* PlayerPawn);
 
+	virtual float OverrideRespawnTime(TSubclassOf<AUTInventory> InventoryType);
+
 	virtual void ChangeName(AController* Other, const FString& S, bool bNameChange);
 
 	/** Return true if playerstart P should be avoided for this game mode. */
@@ -633,7 +635,7 @@ public:
 	 * you can use TAttributeProperty<> to easily implement get/set delegates that map directly to the config property address
 	 * add any such to the ConfigProps array so the menu maintains the shared pointer
 	 */
-	virtual void CreateConfigWidgets(TSharedPtr<class SVerticalBox> MenuSpace, bool bCreateReadOnly, TArray< TSharedPtr<TAttributePropertyBase> >& ConfigProps);
+	virtual void CreateConfigWidgets(TSharedPtr<class SVerticalBox> MenuSpace, bool bCreateReadOnly, TArray< TSharedPtr<TAttributePropertyBase> >& ConfigProps, int32 MinimumPlayers);
 	virtual FString GetHUBPregameFormatString();
 #endif
 
@@ -819,6 +821,8 @@ public:
 	UFUNCTION(BlueprintNativeEvent, Category="Game")
 	bool PlayerCanAltRestart( APlayerController* Player );
 
+	virtual void HandleRallyRequest(AUTPlayerController* PC) {};
+
 	virtual void GetGameURLOptions(const TArray<TSharedPtr<TAttributePropertyBase>>& MenuProps, TArray<FString>& OptionsList, int32& DesiredPlayerCount);
 
 	// Called from the Beacon, it makes this server become a dedicated instance
@@ -897,5 +901,26 @@ public:
 
 	// Look to see if we can attempt a boost.  It will use up the charge if we can and return true, otherwise it returns false.
 	virtual bool AttemptBoost(AUTPlayerController* Who);
+
+	/**
+	 *	Calculates the Com menu switch for a command command tag.
+	 *
+	 *  CommandTag - The tag we are looking for
+	 *  ContextActor - The actor that is the current focus of the crosshair
+	 *  Instigator - The Player Controller that owns the menu
+	 **/
+	virtual int32 GetComSwitch(FName CommandTag, AActor* ContextActor, AUTPlayerController* Instigator, UWorld* World);
+
+	/**
+	 *	Sends a voice communication message.  If Target is not null, then it will only be sent to the target and the sender, otherwise all of the players (or just
+	 *  their teammates in a team game) will get the message.
+	 * 
+	 *  Sender is the controller sending this message.
+	 *  Target is the player state of player who was the context target of this message.
+	 *  Switch is the UTCharacterVoice switch to play
+	 *  ContextObject is the object that 
+	 **/
+	virtual void SendComsMessage( AUTPlayerController* Sender, AUTPlayerState* Target, int32 Switch = 0);
+
 };
 

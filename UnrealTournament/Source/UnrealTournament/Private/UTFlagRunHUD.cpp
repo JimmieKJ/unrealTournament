@@ -91,7 +91,7 @@ void AUTFlagRunHUD::DrawHUD()
 					if (!bLastLife)
 					{
 						Canvas->SetLinearDrawColor(FLinearColor::White, 1.f);
-						Canvas->DrawText(TinyFont, FText::AsNumber(UTPS->RemainingLives), XOffsetText + 0.4f*PipSize, YOffset + 0.2f*PipSize, 0.75f, 0.75f, TextRenderInfo);
+						Canvas->DrawText(TinyFont, FText::AsNumber(UTPS->RemainingLives+1), XOffsetText + 0.4f*PipSize, YOffset + 0.2f*PipSize, 0.75f, 0.75f, TextRenderInfo);
 					}
 				}
 			}
@@ -161,10 +161,16 @@ void AUTFlagRunHUD::HandlePowerups()
 		if (GS && ((GS->GetMatchState() == MatchState::WaitingToStart) || (GS->GetMatchState() == MatchState::MatchIntermission)))
 		{
 			const bool bIsOnDefense = GS->IsTeamOnDefenseNextRound(UTPS->Team->TeamIndex);
-			const FString WidgetPath = bIsOnDefense ? TEXT("/Game/RestrictedAssets/Blueprints/BP_PowerupSelector_Defense.BP_PowerupSelector_Defense_C") : TEXT("/Game/RestrictedAssets/Blueprints/BP_PowerupSelector_Offense.BP_PowerupSelector_Offense_C");
+			const FString WidgetPath = GS->GetPowerupSelectWidgetPath(UTPS->Team->TeamIndex);
+
+			//Allows the mouse to rotate the spectator view.
+			UTPlayerOwner->SetSpectatorMouseChangesView(true);
 
 			if (!PowerupSelectWindow.IsValid() && UTPlayerOwner)
 			{
+				//ensure the spectator window is not open under/over the powerup select window.
+				UTPlayerOwner->GetUTLocalPlayer()->CloseSpectatorWindow();
+
 				SAssignNew(PowerupSelectWindow, SUTPowerupSelectWindow, UTPlayerOwner->GetUTLocalPlayer(), WidgetPath);
 				UTPlayerOwner->GetUTLocalPlayer()->OpenWindow(PowerupSelectWindow);
 
@@ -173,6 +179,9 @@ void AUTFlagRunHUD::HandlePowerups()
 			//if we switch teams nuke the old window and make a new one
 			else if (bIsOnDefense != bConstructedPowerupWindowForDefense)
 			{
+				//ensure the spectator window is not open under/over the powerup select window.
+				UTPlayerOwner->GetUTLocalPlayer()->CloseSpectatorWindow();
+
 				UTPlayerOwner->GetUTLocalPlayer()->CloseWindow(PowerupSelectWindow);
 
 				SAssignNew(PowerupSelectWindow, SUTPowerupSelectWindow, UTPlayerOwner->GetUTLocalPlayer(), WidgetPath);
@@ -238,8 +247,12 @@ EInputMode::Type AUTFlagRunHUD::GetInputMode_Implementation() const
 	{
 		return EInputMode::EIM_GameAndUI;
 	}
+	else if (GS && ((GS->GetMatchState() == MatchState::WaitingToStart) || (GS->GetMatchState() == MatchState::MatchIntermission)))
+	{
+		return EInputMode::EIM_GameOnly;
+	}
 
 #endif
 
-	return EInputMode::EIM_GameOnly;
+	return Super::GetInputMode_Implementation();
 }

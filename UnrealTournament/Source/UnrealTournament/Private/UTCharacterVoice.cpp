@@ -31,10 +31,13 @@ UUTCharacterVoice::UUTCharacterVoice(const FObjectInitializer& ObjectInitializer
 	StatusOffsets.Add(StatusMessage::BaseUnderAttack, 1100);
 
 	TauntText = NSLOCTEXT("UTCharacterVoice", "Taunt", "{PlayerName}: {TauntMessage}");
+	StatusTextFormat = NSLOCTEXT("UTCharacterVoice", "StatusFormat", "{PlayerName} @ {LastKnownLocation}: {TauntMessage}");
 }
 
 FText UUTCharacterVoice::GetText(int32 Switch, bool bTargetsPlayerState1, class APlayerState* RelatedPlayerState_1, class APlayerState* RelatedPlayerState_2, class UObject* OptionalObject) const
 {
+	bool bStatusMessage = false;
+
 	FFormatNamedArguments Args;
 	if (!RelatedPlayerState_1)
 	{
@@ -65,8 +68,34 @@ FText UUTCharacterVoice::GetText(int32 Switch, bool bTargetsPlayerState1, class 
 	{
 		Args.Add("TauntMessage", EnemyReactions[Switch - EnemyReactionBaseIndex].SpeechText);
 	}
+	else if (Switch == ACKNOWLEDGE_SWITCH_INDEX )
+	{
+		bStatusMessage = true;
+		Args.Add("TauntMessage", AcknowledgeMessages[FMath::RandRange(0, AcknowledgeMessages.Num() - 1)].SpeechText);
+	}
+	else if (Switch == NEGATIVE_SWITCH_INDEX )
+	{
+		bStatusMessage = true;
+		Args.Add("TauntMessage", NegativeMessages[FMath::RandRange(0, NegativeMessages.Num() - 1)].SpeechText);
+	}
+	else if (Switch == GOT_YOUR_BACK_SWITCH_INDEX)
+	{
+		bStatusMessage = true;
+		Args.Add("TauntMessage", GotYourBackMessages[FMath::RandRange(0, GotYourBackMessages.Num() - 1)].SpeechText);
+	}
+	else if (Switch == UNDER_HEAVY_ATTACK_SWITCH_INDEX)
+	{
+		bStatusMessage = true;
+		Args.Add("TauntMessage", UnderHeavyAttackMessages[FMath::RandRange(0, UnderHeavyAttackMessages.Num() - 1)].SpeechText);
+	}
+	else if (Switch == ATTACK_THEIR_BASE_SWITCH_INDEX)
+	{
+		bStatusMessage = true;
+		Args.Add("TauntMessage", AttackTheirBaseMessages[FMath::RandRange(0, AttackTheirBaseMessages.Num() - 1)].SpeechText);
+	}
 	else if (Switch >= StatusBaseIndex)
 	{
+		bStatusMessage = true;
 		if (Switch == GetStatusIndex(StatusMessage::NeedBackup))
 		{
 			if (NeedBackupMessages.Num() == 0)
@@ -168,7 +197,25 @@ FText UUTCharacterVoice::GetText(int32 Switch, bool bTargetsPlayerState1, class 
 	{
 		return FText::GetEmpty();
 	}
-	return FText::Format(TauntText, Args);
+
+	if (OptionalObject != nullptr)
+	{
+		AUTGameVolume* GameVolume = Cast<AUTGameVolume>(OptionalObject);
+		if (bStatusMessage && GameVolume != nullptr)
+		{
+			Args.Add("LastKnownLocation", GameVolume->VolumeName);
+		}
+		else
+		{
+			bStatusMessage = false;
+		}
+	}
+	else
+	{
+		bStatusMessage = false;
+	}
+
+	return bStatusMessage ? FText::Format(StatusTextFormat, Args) : FText::Format(TauntText, Args);
 }
 
 FName UUTCharacterVoice::GetAnnouncementName_Implementation(int32 Switch, const UObject* OptionalObject, const class APlayerState* RelatedPlayerState_1, const class APlayerState* RelatedPlayerState_2) const
@@ -178,6 +225,8 @@ FName UUTCharacterVoice::GetAnnouncementName_Implementation(int32 Switch, const 
 
 USoundBase* UUTCharacterVoice::GetAnnouncementSound_Implementation(int32 Switch, const UObject* OptionalObject) const
 {
+	UE_LOG(UT,Log,TEXT("Announcement: %i"),Switch);
+
 	if (TauntMessages.Num() > Switch)
 	{
 		return TauntMessages[Switch].SpeechSound;
@@ -193,6 +242,26 @@ USoundBase* UUTCharacterVoice::GetAnnouncementSound_Implementation(int32 Switch,
 	else if (EnemyReactions.Num() > Switch - EnemyReactionBaseIndex)
 	{
 		return EnemyReactions[Switch - EnemyReactionBaseIndex].SpeechSound;
+	}
+	else if (Switch == ACKNOWLEDGE_SWITCH_INDEX )
+	{
+		return AcknowledgeMessages[FMath::RandRange(0, AcknowledgeMessages.Num() - 1)].SpeechSound;
+	}
+	else if (Switch == NEGATIVE_SWITCH_INDEX )
+	{
+		return NegativeMessages[FMath::RandRange(0, NegativeMessages.Num() - 1)].SpeechSound;
+	}
+	else if (Switch == GOT_YOUR_BACK_SWITCH_INDEX)
+	{
+		return GotYourBackMessages[FMath::RandRange(0, GotYourBackMessages.Num() - 1)].SpeechSound;
+	}
+	else if (Switch == UNDER_HEAVY_ATTACK_SWITCH_INDEX)
+	{
+		return UnderHeavyAttackMessages[FMath::RandRange(0, UnderHeavyAttackMessages.Num() - 1)].SpeechSound;
+	}
+	else if (Switch == ATTACK_THEIR_BASE_SWITCH_INDEX)
+	{
+		return AttackTheirBaseMessages[FMath::RandRange(0, AttackTheirBaseMessages.Num() - 1)].SpeechSound;
 	}
 	else if (Switch >= StatusBaseIndex)
 	{
@@ -302,12 +371,19 @@ void UUTCharacterVoice::PrecacheAnnouncements_Implementation(UUTAnnouncer* Annou
 
 bool UUTCharacterVoice::ShouldPlayAnnouncement(const FClientReceiveData& ClientData) const
 {
-	UUTGameUserSettings* GS = Cast<UUTGameUserSettings>(GEngine->GetGameUserSettings());
-	if (GS != NULL && GS->GetBotSpeech() < BSO_All)
+	if (ClientData.RelatedPlayerState_1 && ClientData.RelatedPlayerState_1->bIsABot)
 	{
-		return false;
+		UUTGameUserSettings* GS = Cast<UUTGameUserSettings>(GEngine->GetGameUserSettings());
+		if (GS != NULL && GS->GetBotSpeech() < BSO_All)
+		{
+			return false;
+		}
+		return !Cast<AUTPlayerController>(ClientData.LocalPC) || ((AUTPlayerController*)(ClientData.LocalPC))->bHearsTaunts;
 	}
-	return !Cast<AUTPlayerController>(ClientData.LocalPC) || ((AUTPlayerController*)(ClientData.LocalPC))->bHearsTaunts;
+	else
+	{
+		return true;
+	}
 }
 
 bool UUTCharacterVoice::InterruptAnnouncement_Implementation(int32 Switch, const UObject* OptionalObject, TSubclassOf<UUTLocalMessage> OtherMessageClass, int32 OtherSwitch, const UObject* OtherOptionalObject) const

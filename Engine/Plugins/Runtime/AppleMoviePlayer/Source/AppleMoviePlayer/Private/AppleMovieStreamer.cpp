@@ -68,7 +68,7 @@ void FAVPlayerMovieStreamer::ForceCompletion()
     TeardownPlayback();
 }
 
-bool FAVPlayerMovieStreamer::Init(const TArray<FString>& MoviePaths)
+bool FAVPlayerMovieStreamer::Init(const TArray<FString>& MoviePaths, TEnumAsByte<EMoviePlaybackType> inPlaybackType)
 {
 	// 
 	// Initializes the streamer for audio and video playback of the given path(s).
@@ -517,3 +517,14 @@ void FAVPlayerMovieStreamer::TeardownPlayback()
 
     // NOTE: The any textures allocated are still allocated at this point. They will get released in Cleanup()
 }
+
+FString FAVPlayerMovieStreamer::GetMovieName()
+{
+	return MovieQueue.Num() > 0 ? MovieQueue[0] : TEXT("");
+}
+
+bool FAVPlayerMovieStreamer::IsLastMovieInPlaylist()
+{
+	return MovieQueue.Num() <= 1;
+}
+

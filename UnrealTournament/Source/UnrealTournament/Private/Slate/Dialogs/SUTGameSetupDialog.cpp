@@ -13,7 +13,6 @@
 
 #if !UE_SERVER
 
-
 void SUTGameSetupDialog::Construct(const FArguments& InArgs)
 {
 	SUTDialogBase::Construct(SUTDialogBase::FArguments()
@@ -405,6 +404,8 @@ void SUTGameSetupDialog::BuildMapList()
 
 	}
 
+	MapPlayList.StableSort(FCompareMapByName());
+
 	// Build the first panel
 	BuildMapPanel();
 }
@@ -493,6 +494,15 @@ void SUTGameSetupDialog::BuildMapPanel()
 
 				FString Title = MapPlayList[i].MapInfo->Title;
 				FString ToolTip = MapPlayList[i].MapInfo->Description;;
+
+				int32 Pos = INDEX_NONE;
+				if (Title.FindChar(TCHAR('-'), Pos))
+				{
+					if (Pos >=0 && Pos <= 4)
+					{
+						Title = Title.Right(Title.Len() - (Pos + 1));
+					}
+				}
 
 				TSharedPtr<SUTComboButton> Button;
 				TSharedPtr<SImage> CheckMark;

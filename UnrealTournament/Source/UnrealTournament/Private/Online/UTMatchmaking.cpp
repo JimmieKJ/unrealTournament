@@ -124,7 +124,7 @@ UUTGameInstance* UUTMatchmaking::GetUTGameInstance() const
 	return Cast<UUTGameInstance>(GetOuter());
 }
 
-AUTPlayerController* UUTMatchmaking::GetOwningController() const
+AUTBasePlayerController* UUTMatchmaking::GetOwningController() const
 {
 	if (ControllerId < INVALID_CONTROLLERID)
 	{
@@ -133,7 +133,7 @@ AUTPlayerController* UUTMatchmaking::GetOwningController() const
 
 		ULocalPlayer* LP = GEngine->GetLocalPlayerFromControllerId(World, ControllerId);
 		APlayerController* PC = LP ? LP->PlayerController : nullptr;
-		return Cast<AUTPlayerController>(PC);
+		return Cast<AUTBasePlayerController>(PC);
 	}
 
 	return nullptr;
@@ -248,6 +248,19 @@ void UUTMatchmaking::OnClientPartyStateChanged(EUTPartyState NewPartyState)
 		{
 			UE_LOG(LogOnlineGame, Display, TEXT("Follower matchmaking not ready to travel to server, queuing travel request"));
 			bQueuedTravelToServer = true;
+		}
+	}
+
+	if (NewPartyState == EUTPartyState::Menus)
+	{
+		AUTBasePlayerController* PC = GetOwningController();
+		if (PC)
+		{
+			UUTLocalPlayer* LP = PC->GetUTLocalPlayer();
+			if (LP && !LP->IsPartyLeader() && !LP->IsMenuGame())
+			{
+				LP->ReturnToMainMenu();
+			}
 		}
 	}
 }
@@ -432,6 +445,22 @@ void UUTMatchmaking::ReattemptMatchmakingFromCachedParameters()
 void UUTMatchmaking::OnClientMatchmakingComplete(EMatchmakingCompleteResult Result)
 {
 	UE_LOG(LogOnline, Log, TEXT("OnClientMatchmakingComplete %d"), (int32)Result);
+}
+
+void UUTMatchmaking::RetryFindGatheringSession()
+{
+	FMatchmakingParams NewParams;
+	NewParams = CachedMatchmakingSearchParams.GetMatchmakingParams();
+	NewParams.MinimumEloRangeBeforeHosting = FMath::Min(1000, NewParams.MinimumEloRangeBeforeHosting * 2);
+
+	if (CachedSearchResult.Session.SessionInfo.IsValid())
+	{
+		NewParams.SessionIdToSkip = CachedSearchResult.Session.SessionInfo->GetSessionId().ToString();
+	}
+
+	DisconnectFromLobby();
+
+	FindGatheringSession(NewParams);
 }
 
 bool UUTMatchmaking::FindGatheringSession(const FMatchmakingParams& InParams)
@@ -633,7 +662,7 @@ void UUTMatchmaking::OnGatherMatchmakingComplete(EMatchmakingCompleteResult Resu
 {
 	if (Result == EMatchmakingCompleteResult::Success && SearchResult.IsValid())
 	{
-		AUTPlayerController* UTPC = GetOwningController();
+		AUTBasePlayerController* UTPC = GetOwningController();
 		FTimerDelegate TimerDelegate = FTimerDelegate::CreateUObject(this, &ThisClass::ConnectToReservationBeacon, SearchResult);
 		UTPC->GetWorldTimerManager().SetTimer(ConnectToReservationBeaconTimerHandle, TimerDelegate, CONNECT_TO_RESERVATION_BEACON_DELAY, false);
 
@@ -656,7 +685,7 @@ void UUTMatchmaking::OnSingleSessionMatchmakingComplete(EMatchmakingCompleteResu
 	{
 		if ((CachedMatchmakingSearchParams.GetMatchmakingParams().Flags & EMatchmakingFlags::NoReservation) == EMatchmakingFlags::None)
 		{
-			AUTPlayerController* UTPC = GetOwningController();
+			AUTBasePlayerController* UTPC = GetOwningController();
 			FTimerDelegate TimerDelegate = FTimerDelegate::CreateUObject(this, &ThisClass::ConnectToReservationBeacon, SearchResult);
 			UTPC->GetWorldTimerManager().SetTimer(ConnectToReservationBeaconTimerHandle, TimerDelegate, CONNECT_TO_RESERVATION_BEACON_DELAY, false);
 		}
@@ -685,7 +714,7 @@ void UUTMatchmaking::ConnectToReservationBeacon(FOnlineSessionSearchResult Searc
 {
 	UWorld* World = GetWorld();
 
-	AUTPlayerController* PC = GetOwningController();
+	AUTBasePlayerController* PC = GetOwningController();
 	if (PC && PC->PlayerState && PC->PlayerState->UniqueId.IsValid())
 	{
 		if (PC->IsPartyLeader())
@@ -820,6 +849,16 @@ int32 UUTMatchmaking::GetMatchmakingEloRange()
 	if (Matchmaking)
 	{
 		return Matchmaking->GetMatchmakingParams().EloRange;
+	}
+
+	return 0;
+}
+
+int32 UUTMatchmaking::GetMatchmakingTeamElo()
+{
+	if (Matchmaking)
+	{
+		return Matchmaking->GetMatchmakingParams().TeamElo;
 	}
 
 	return 0;

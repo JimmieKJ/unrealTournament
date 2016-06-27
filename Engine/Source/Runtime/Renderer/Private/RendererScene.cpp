@@ -689,7 +689,7 @@ void FScene::UpdatePrimitiveTransform(UPrimitiveComponent* Primitive)
 
 			// Help track down primitive with bad bounds way before the it gets to the Renderer
 			ensureMsgf(!Primitive->Bounds.BoxExtent.ContainsNaN() && !Primitive->Bounds.Origin.ContainsNaN() && !FMath::IsNaN(Primitive->Bounds.SphereRadius) && FMath::IsFinite(Primitive->Bounds.SphereRadius),
-				TEXT("Nans found on Bounds for Primitive %s: Origin %s, BoxExtent %s, SphereRadius %f"), *Primitive->GetName(), *Primitive->Bounds.Origin.ToString(), *Primitive->Bounds.BoxExtent.ToString(), Primitive->Bounds.SphereRadius);
+				TEXT("Nans found on Bounds for Primitive %s: Owner: %s, Origin %s, BoxExtent %s, SphereRadius %f"), *Primitive->GetName(), *GetNameSafe(Primitive->GetOwner()), *Primitive->Bounds.Origin.ToString(), *Primitive->Bounds.BoxExtent.ToString(), Primitive->Bounds.SphereRadius);
 
 			ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(
 				UpdateTransformCommand,

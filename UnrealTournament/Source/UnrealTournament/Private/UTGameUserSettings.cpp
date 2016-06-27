@@ -20,6 +20,7 @@ UUTGameUserSettings::UUTGameUserSettings(const class FObjectInitializer& ObjectI
 	SoundClassVolumes[EUTSoundClass::Music] = 0.5f;
 	SoundClassVolumes[EUTSoundClass::SFX] = 1.0f;
 	SoundClassVolumes[EUTSoundClass::Voice] = 1.0f;
+	SoundClassVolumes[EUTSoundClass::VOIP] = 1.0f;
 	InitialBenchmarkState = -1;
 	bBenchmarkInProgress=false;
 	BotSpeech = BSO_All;
@@ -44,6 +45,7 @@ void UUTGameUserSettings::SetToDefaults()
 	SoundClassVolumes[EUTSoundClass::Music] = 0.5f;
 	SoundClassVolumes[EUTSoundClass::SFX] = 1.0f;
 	SoundClassVolumes[EUTSoundClass::Voice] = 1.0f; 
+	SoundClassVolumes[EUTSoundClass::VOIP] = 1.0f; 
 	FullscreenMode = EWindowMode::Fullscreen;
 	ScreenPercentage = 100;
 	InitialBenchmarkState = -1;

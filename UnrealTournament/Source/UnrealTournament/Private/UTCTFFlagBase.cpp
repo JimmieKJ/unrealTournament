@@ -21,7 +21,6 @@ AUTCTFFlagBase::AUTCTFFlagBase(const FObjectInitializer& ObjectInitializer)
 	Capsule->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
 	Capsule->InitCapsuleSize(92.f, 134.0f);
 	Capsule->OnComponentBeginOverlap.AddDynamic(this, &AUTCTFFlagBase::OnOverlapBegin);
-	Capsule->RelativeLocation = FVector(0.0f, 0.0f, 134.0f);
 	Capsule->AttachParent = RootComponent;
 
 	RoundLivesAdjustment = 0;
@@ -79,7 +78,7 @@ void AUTCTFFlagBase::OnOverlapBegin(AActor* OtherActor, UPrimitiveComponent* Oth
 			!GetWorld()->LineTraceTestByChannel(OtherActor->GetActorLocation(), Capsule->GetComponentLocation(), ECC_Pawn, FCollisionQueryParams(), WorldResponseParams) )
 		{
 			AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
-			if (GS == NULL || (GS->IsMatchInProgress() && !GS->IsMatchIntermission()))
+			if (GS == NULL || (GS->IsMatchInProgress() && !GS->IsMatchIntermission() && !GS->HasMatchEnded()))
 			{
 				CharFlag->Score(FName(TEXT("FlagCapture")), CharFlag->HoldingPawn, CharFlag->Holder);
 				CharFlag->PlayCaptureEffect();
@@ -142,11 +141,11 @@ void AUTCTFFlagBase::ObjectWasPickedUp(AUTCharacter* NewHolder, bool bWasHome)
 			AUTPlayerController* PC = Cast<AUTPlayerController>(*Iterator);
 			if (PC && ((PC->PlayerState && PC->PlayerState->bOnlySpectator) || (PC->GetTeamNum() == GetTeamNum())))
 			{
-				PC->ClientPlaySound(FlagTakenSound, 1.f);
+				PC->UTClientPlaySound(FlagTakenSound);
 			}
 			else if (PC)
 			{
-				PC->HearSound(EnemyFlagTakenSound, this, GetActorLocation(), true, false);
+				PC->HearSound(EnemyFlagTakenSound, this, GetActorLocation(), true, false, SAT_None);
 			}
 		}
 	}

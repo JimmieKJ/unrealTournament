@@ -26,6 +26,7 @@ void AUTGameObjective::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & 
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
+	DOREPLIFETIME(AUTGameObjective, TeamNum);
 	DOREPLIFETIME(AUTGameObjective, CarriedObject);
 	DOREPLIFETIME(AUTGameObjective, CarriedObjectState);
 	DOREPLIFETIME(AUTGameObjective, CarriedObjectHolder);

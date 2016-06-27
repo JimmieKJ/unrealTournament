@@ -3,7 +3,7 @@
 #include "UTGameplayStatics.h"
 #include "Runtime/Engine/Classes/Engine/DemoNetDriver.h"
 
-void UUTGameplayStatics::UTPlaySound(UWorld* TheWorld, USoundBase* TheSound, AActor* SourceActor, ESoundReplicationType RepType, bool bStopWhenOwnerDestroyed, const FVector& SoundLoc, AUTPlayerController* AmpedListener, APawn* Instigator, bool bNotifyAI)
+void UUTGameplayStatics::UTPlaySound(UWorld* TheWorld, USoundBase* TheSound, AActor* SourceActor, ESoundReplicationType RepType, bool bStopWhenOwnerDestroyed, const FVector& SoundLoc, AUTPlayerController* AmpedListener, APawn* Instigator, bool bNotifyAI, ESoundAmplificationType AmpType)
 {
 	if (TheSound != NULL && !GExitPurge)
 	{
@@ -70,7 +70,7 @@ void UUTGameplayStatics::UTPlaySound(UWorld* TheWorld, USoundBase* TheSound, AAc
 
 						if (bShouldReplicate)
 						{
-							PC->HearSound(TheSound, SourceActor, SourceLoc, bStopWhenOwnerDestroyed, AmpedListener == PC);
+							PC->HearSound(TheSound, SourceActor, SourceLoc, bStopWhenOwnerDestroyed, AmpedListener == PC, AmpType);
 						}
 					}
 				}
@@ -83,7 +83,7 @@ void UUTGameplayStatics::UTPlaySound(UWorld* TheWorld, USoundBase* TheSound, AAc
 				AUTPlayerController* PC = (TheWorld->DemoNetDriver->ClientConnections.Num() > 0) ? Cast<AUTPlayerController>(TheWorld->DemoNetDriver->ClientConnections[0]->PlayerController) : NULL;
 				if (PC != NULL)
 				{
-					PC->ClientHearSound(TheSound, SourceActor, (SourceActor != NULL && SourceActor->GetActorLocation() == SourceLoc) ? FVector::ZeroVector : SourceLoc, bStopWhenOwnerDestroyed, false);
+					PC->ClientHearSound(TheSound, SourceActor, (SourceActor != NULL && SourceActor->GetActorLocation() == SourceLoc) ? FVector::ZeroVector : SourceLoc, bStopWhenOwnerDestroyed, false, AmpType);
 				}
 			}
 
@@ -92,7 +92,7 @@ void UUTGameplayStatics::UTPlaySound(UWorld* TheWorld, USoundBase* TheSound, AAc
 				AUTPlayerController* PC = Cast<AUTPlayerController>(It->PlayerController);
 				if (PC != NULL && PC->IsLocalPlayerController())
 				{
-					PC->HearSound(TheSound, SourceActor, SourceLoc, bStopWhenOwnerDestroyed, AmpedListener == PC);
+					PC->HearSound(TheSound, SourceActor, SourceLoc, bStopWhenOwnerDestroyed, AmpedListener == PC, AmpType);
 				}
 			}
 
@@ -290,14 +290,14 @@ bool UUTGameplayStatics::UTHurtRadius( UObject* WorldContextObject, float BaseDa
 
 APawn* UUTGameplayStatics::PickBestAimTarget(AController* AskingC, FVector StartLoc, FVector FireDir, float MinAim, float MaxRange, TSubclassOf<APawn> TargetClass, float* BestAim, float* BestDist)
 {
+	return ChooseBestAimTarget(AskingC, StartLoc, FireDir, MinAim, MaxRange, 10000.f, TargetClass, BestAim, BestDist);
+}
+
+APawn* UUTGameplayStatics::ChooseBestAimTarget(AController* AskingC, FVector StartLoc, FVector FireDir, float MinAim, float MaxRange, float MaxOffsetDist, TSubclassOf<APawn> TargetClass, float* BestAim, float* BestDist, float* BestOffset)
+{
 	if (AskingC == NULL)
 	{
-		UE_LOG(UT, Warning, TEXT("PickBestAimTarget(): AskingC == NULL"));
-		return NULL;
-	}
-	else if (AskingC->GetNetMode() == NM_Client)
-	{
-		UE_LOG(UT, Warning, TEXT("PickBestAimTarget(): Only callable on server"));
+		UE_LOG(UT, Warning, TEXT("ChooseBestAimTarget(): AskingC == NULL"));
 		return NULL;
 	}
 	else
@@ -307,9 +307,7 @@ APawn* UUTGameplayStatics::PickBestAimTarget(AController* AskingC, FVector Start
 			TargetClass = APawn::StaticClass();
 		}
 		const float MaxRangeSquared = FMath::Square(MaxRange);
-		const float VerticalMinAim = MinAim * 3.f - 2.f;
-		float LocalBestAim;
-		float LocalBestDist;
+		float LocalBestAim, LocalBestDist, LocalBestOffset;
 		if (BestAim == NULL)
 		{
 			BestAim = &LocalBestAim;
@@ -318,67 +316,58 @@ APawn* UUTGameplayStatics::PickBestAimTarget(AController* AskingC, FVector Start
 		{
 			BestDist = &LocalBestDist;
 		}
+		if (BestOffset == NULL)
+		{
+			BestOffset = &LocalBestOffset;
+		}
+
 		(*BestDist) = FLT_MAX;
+		(*BestOffset) = MaxOffsetDist;
 		(*BestAim) = MinAim;
 		APawn* BestTarget = NULL;
-		FCollisionQueryParams TraceParams(FName(TEXT("PickBestAimTarget")), false);
+		FCollisionQueryParams TraceParams(FName(TEXT("ChooseBestAimTarget")), false);
 		UWorld* TheWorld = AskingC->GetWorld();
-		for (FConstControllerIterator It = TheWorld->GetControllerIterator(); It; ++It)
+		for (FConstPawnIterator It = TheWorld->GetPawnIterator(); It; ++It)
 		{
-			APawn* P = It->Get()->GetPawn();
-			if (P != NULL && !P->bTearOff && It->Get() != AskingC)
+			AUTCharacter* P = Cast<AUTCharacter>(It->Get());
+			if (P != NULL && !P->IsDead() && (It->Get() != AskingC->GetPawn()) && P->GetClass()->IsChildOf(TargetClass))
 			{
-				/* TODO:
-				if (!P->IsRootComponentCollisionRegistered())
+				AUTGameState* GS = TheWorld->GetGameState<AUTGameState>();
+				if (GS == NULL || !GS->OnSameTeam(AskingC, P))
 				{
-					// perhaps target vehicle this pawn is based on instead
-					NewTarget = NewTarget->GetVehicleBase();
-					if (!NewTarget || NewTarget->Controller)
+					// check passed in constraints
+					FVector AimDir = P->GetActorLocation() - StartLoc;
+					float TestAim = FireDir | AimDir;
+					if (TestAim > 0.0f)
 					{
-						continue;
-					}
-				}
-				*/
-
-				if (P->GetClass()->IsChildOf(TargetClass))
-				{
-					AUTGameState* GS = TheWorld->GetGameState<AUTGameState>();
-					if (GS == NULL || !GS->OnSameTeam(AskingC, P))
-					{
-						// check passed in constraints
-						const FVector AimDir = P->GetActorLocation() - StartLoc;
-						float TestAim = FireDir | AimDir;
-						if (TestAim > 0.0f)
+						float FireDist = AimDir.SizeSquared();
+						if (FireDist < MaxRangeSquared)
 						{
-							float FireDist = AimDir.SizeSquared();
-							if (FireDist < MaxRangeSquared)
+							FireDist = FMath::Sqrt(FireDist);
+							TestAim /= FireDist;
+							if ((TestAim < MinAim) && (FireDist < 2.f*MaxOffsetDist))
 							{
-								FireDist = FMath::Sqrt(FireDist);
-								TestAim /= FireDist;
-								bool bPassedAimCheck = (TestAim > *BestAim);
-								// if no target yet, be more liberal about up/down error (more vertical autoaim help)
-								if (!bPassedAimCheck && BestTarget == NULL && TestAim > VerticalMinAim)
-								{
-									FVector FireDir2D = FireDir;
-									FireDir2D.Z = 0;
-									FireDir2D.Normalize();
-									float TestAim2D = FireDir2D | AimDir;
-									TestAim2D = TestAim2D / FireDist;
-									bPassedAimCheck = (TestAim2D > *BestAim);
-								}
-								if (bPassedAimCheck)
+								AimDir.Z += P->BaseEyeHeight;
+								AimDir = AimDir.GetSafeNormal();
+								TestAim = (FireDir | AimDir);
+							}
+							if (TestAim >= MinAim)
+							{
+								float OffsetDist = FMath::PointDistToLine(P->GetActorLocation(), FireDir, StartLoc);
+								if (OffsetDist < (*BestOffset))
 								{
 									// trace to head and center
-									bool bHit = TheWorld->LineTraceTestByChannel(StartLoc, P->GetActorLocation() + FVector(0.0f, 0.0f, P->BaseEyeHeight), ECC_Visibility, TraceParams);
+									bool bHit = TheWorld->LineTraceTestByChannel(StartLoc, P->GetActorLocation() + FVector(0.0f, 0.0f, P->BaseEyeHeight), COLLISION_TRACE_WEAPONNOCHARACTER, TraceParams);
 									if (bHit)
 									{
-										bHit = TheWorld->LineTraceTestByChannel(StartLoc, P->GetActorLocation(), ECC_Visibility, TraceParams);
+										bHit = TheWorld->LineTraceTestByChannel(StartLoc, P->GetActorLocation(), COLLISION_TRACE_WEAPONNOCHARACTER, TraceParams);
 									}
 									if (!bHit)
 									{
 										BestTarget = P;
 										(*BestAim) = TestAim;
 										(*BestDist) = FireDist;
+										(*BestOffset) = OffsetDist;
 									}
 								}
 							}
@@ -391,6 +380,86 @@ APawn* UUTGameplayStatics::PickBestAimTarget(AController* AskingC, FVector Start
 		return BestTarget;
 	}
 }
+
+
+AActor* UUTGameplayStatics::GetCurrentAimContext(AUTCharacter* PawnTarget, float MinAim, float MaxRange, TSubclassOf<AActor> TargetClass, float* BestAim, float* BestDist)
+{
+	if (PawnTarget == nullptr)
+	{
+		UE_LOG(UT, Warning, TEXT("PickBestAimTarget(): PawnTarget == NULL"));
+		return nullptr;
+	}
+
+	FVector StartLoc = PawnTarget->GetPawnViewLocation();
+	FVector FireDir = PawnTarget->GetViewRotation().Vector(); 
+
+	if (TargetClass == NULL)
+	{
+		TargetClass = APawn::StaticClass();
+	}
+	const float MaxRangeSquared = FMath::Square(MaxRange);
+	const float VerticalMinAim = MinAim * 3.f - 2.f;
+	float LocalBestAim;
+	float LocalBestDist;
+	if (BestAim == NULL)
+	{
+		BestAim = &LocalBestAim;
+	}
+	if (BestDist == NULL)
+	{
+		BestDist = &LocalBestDist;
+	}
+	(*BestDist) = FLT_MAX;
+	(*BestAim) = MinAim;
+
+	AActor* BestTarget = NULL;
+	FCollisionQueryParams TraceParams(FName(TEXT("PickBestAimTarget")), false);
+	UWorld* TheWorld = PawnTarget->GetWorld();
+
+	for(TActorIterator<AActor> It(TheWorld, TargetClass); It; ++It)
+	{
+		AActor* Actor = *It;
+		if(!Actor->IsPendingKill())
+		{
+			if (TheWorld->GetTimeSeconds() - Actor->GetLastRenderTime() < 0.15f)
+			{
+				// check passed in constraints
+				const FVector AimDir = Actor->GetActorLocation() - StartLoc;
+				float TestAim = FireDir | AimDir;
+				if (TestAim > 0.0f)
+				{
+					float FireDist = AimDir.SizeSquared();
+					if (FireDist < MaxRangeSquared)
+					{
+						FireDist = FMath::Sqrt(FireDist);
+						TestAim /= FireDist;
+						bool bPassedAimCheck = (TestAim > *BestAim);
+						// if no target yet, be more liberal about up/down error (more vertical autoaim help)
+						if (!bPassedAimCheck && BestTarget == NULL && TestAim > VerticalMinAim)
+						{
+							FVector FireDir2D = FireDir;
+							FireDir2D.Z = 0;
+							FireDir2D.Normalize();
+							float TestAim2D = FireDir2D | AimDir;
+							TestAim2D = TestAim2D / FireDist;
+							bPassedAimCheck = (TestAim2D > *BestAim);
+						}
+
+						if (bPassedAimCheck)
+						{
+							BestTarget = Actor;
+							(*BestAim) = TestAim;
+							(*BestDist) = FireDist;
+						}
+					}
+				}
+			}
+		} 
+	}
+
+	return BestTarget;
+}
+
 
 bool UUTGameplayStatics::UTSuggestProjectileVelocity(UObject* WorldContextObject, FVector& TossVelocity, const FVector& StartLoc, const FVector& EndLoc, AActor* TargetActor, float ZOvershootTolerance, float TossSpeed, float CollisionRadius, float OverrideGravityZ, int32 MaxSubdivisions, ESuggestProjVelocityTraceOption::Type TraceOption)
 {

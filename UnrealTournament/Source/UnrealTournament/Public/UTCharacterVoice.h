@@ -16,6 +16,24 @@ struct FCharacterSpeech
 	USoundBase* SpeechSound;
 };
 
+const int32 ACKNOWLEDGE_SWITCH_INDEX = 3000;
+const int32 NEGATIVE_SWITCH_INDEX = 3500;
+const int32 GOT_YOUR_BACK_SWITCH_INDEX = 4000;
+const int32 UNDER_HEAVY_ATTACK_SWITCH_INDEX = 4500;
+const int32 NEED_BACKUP_SWITCH_INDEX = 10000;
+const int32 ATTACK_THEIR_BASE_SWITCH_INDEX = 5000;
+const int32 ENEMY_FC_HERE_SWITCH_INDEX = 10100;
+const int32 AREA_SECURE_SWITCH_INDEX = 10200;
+const int32 GOT_FLAG_SWITCH_INDEX = 10300;
+const int32 DEFEND_FLAG_SWITCH_INDEX = 10400;
+const int32 DEFEND_FLAG_CARRIER_SWITCH_INDEX = 10500;
+const int32 GET_FLAG_BACK_SWITCH_INDEX = 10600;
+const int32 ON_DEFENSE_SWITCH_INDEX = 10700;
+const int32 GOING_IN_SWITCH_INDEX = 10800;
+const int32 ON_OFFENSE_SWITCH_INDEX = 10900;
+const int32 SPREAD_OUT_SWITCH_INDEX = 11000;
+const int32 BASE_UNDER_ATTACK_SWITCH_INDEX = 11100;
+
 UCLASS()
 class UNREALTOURNAMENT_API UUTCharacterVoice : public UUTLocalMessage
 {
@@ -69,6 +87,21 @@ class UNREALTOURNAMENT_API UUTCharacterVoice : public UUTLocalMessage
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Voice)
 		TArray<FCharacterSpeech> SpreadOutMessages;
 
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Voice)
+		TArray<FCharacterSpeech> AcknowledgeMessages;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Voice)
+		TArray<FCharacterSpeech> NegativeMessages;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Voice)
+	TArray<FCharacterSpeech> GotYourBackMessages;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Voice)
+	TArray<FCharacterSpeech> UnderHeavyAttackMessages;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Voice)
+	TArray<FCharacterSpeech> AttackTheirBaseMessages;
+
 	/** Index offset for sending Same Team messages. */
 	UPROPERTY(BlueprintReadOnly, Category = Voice)
 		int32 SameTeamBaseIndex;
@@ -84,6 +117,10 @@ class UNREALTOURNAMENT_API UUTCharacterVoice : public UUTLocalMessage
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Voice)
 		FText TauntText;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Voice)
+		FText StatusTextFormat;
+
 
 	/** map of status index offsets. */
 	TMap< FName, float > StatusOffsets;

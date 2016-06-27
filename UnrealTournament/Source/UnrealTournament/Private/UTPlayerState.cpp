@@ -54,6 +54,7 @@ AUTPlayerState::AUTPlayerState(const class FObjectInitializer& ObjectInitializer
 	Deaths = 0;
 	bShouldAutoTaunt = false;
 	bSentLogoutAnalytics = false;
+	NextRallyTime = 0.f;
 
 	// We want to be ticked.
 	PrimaryActorTick.bCanEverTick = true;
@@ -119,6 +120,7 @@ void AUTPlayerState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & Ou
 	DOREPLIFETIME(AUTPlayerState, EyewearVariant);
 	DOREPLIFETIME(AUTPlayerState, bSpecialPlayer);
 	DOREPLIFETIME(AUTPlayerState, bSpecialTeamPlayer);
+	DOREPLIFETIME(AUTPlayerState, bCanRally);
 	DOREPLIFETIME(AUTPlayerState, OverrideHatClass);
 	DOREPLIFETIME(AUTPlayerState, Loadout);
 	DOREPLIFETIME(AUTPlayerState, KickPercent);
@@ -346,6 +348,20 @@ void AUTPlayerState::NotifyTeamChanged_Implementation()
 			if (LP != NULL)
 			{
 				LP->SetDefaultURLOption(TEXT("Team"), FString::FromInt(Team->TeamIndex));
+
+				// make sure proper outlines are shown for new team
+				AGameState* GS = GetWorld()->GetGameState();
+				if (GS != NULL)
+				{
+					for (int32 i = 0; i < GS->PlayerArray.Num(); i++)
+					{
+						AUTPlayerState* PS = Cast<AUTPlayerState>(GS->PlayerArray[i]);
+						if (PS != NULL && PS->bSpecialTeamPlayer && PS->GetUTCharacter() != NULL)
+						{
+							PS->UpdateSpecialTacComFor(PS->GetUTCharacter(), PC);
+						}
+					}
+				}
 			}
 		}
 	}
@@ -625,6 +641,10 @@ void AUTPlayerState::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
+	if (Role == ROLE_Authority)
+	{
+		bCanRally = (GetWorld()->GetTimeSeconds() > NextRallyTime) && (!GetUTCharacter() || GetUTCharacter()->bCanRally);
+	}
 	// If we are waiting to respawn then count down
 	if (RespawnTime > 0.0f)
 	{
@@ -1040,6 +1060,7 @@ void AUTPlayerState::CopyProperties(APlayerState* PlayerState)
 		PS->Taunt2Class = Taunt2Class;
 		PS->bSkipELO = bSkipELO;
 		PS->RemainingBoosts = RemainingBoosts;
+		PS->RemainingLives = RemainingLives;
 		PS->BoostRechargeTimeRemaining = BoostRechargeTimeRemaining;
 		if (PS->StatManager)
 		{
@@ -1517,6 +1538,12 @@ FString AUTPlayerState::GetStatsFilename()
 
 void AUTPlayerState::WriteStatsToCloud()
 {
+	if (bWroteStatsToCloud)
+	{
+		UE_LOG(LogGameStats, Warning, TEXT("Attempted to write stats twice for %s, skipping"), *PlayerName);
+		return;
+	}
+
 	if (!StatsID.IsEmpty() && StatManager != nullptr)
 	{
 		// Write the stats stored in the cloud file
@@ -2898,7 +2925,7 @@ void AUTPlayerState::OnRepSpecialTeamPlayer()
 
 void AUTPlayerState::UpdateSpecialTacComFor(AUTCharacter* Character, AUTPlayerController* UTPC)
 {
-	Character->UpdateTacComMesh(bSpecialPlayer || (bSpecialTeamPlayer && UTPC && UTPC->GetTeamNum() == GetTeamNum()));
+	Character->SetOutlineLocal(bSpecialPlayer || (bSpecialTeamPlayer && UTPC && UTPC->GetTeamNum() == GetTeamNum()), true);
 }
 
 float AUTPlayerState::GetStatsValue(FName StatsName) const
@@ -3298,9 +3325,33 @@ void AUTPlayerState::OnUnlockList()
 	}
 }
 
-bool AUTPlayerState::ServerSetBoostItem_Validate(TSubclassOf<class AUTInventory> PowerupClass) { return true; }
-void AUTPlayerState::ServerSetBoostItem_Implementation(TSubclassOf<class AUTInventory> PowerupClass)
+bool AUTPlayerState::ServerSetBoostItem_Validate(int PowerupIndex) { return true; }
+void AUTPlayerState::ServerSetBoostItem_Implementation(int PowerupIndex)
 {
-	BoostClass = PowerupClass;
+	AUTGameState* UTGameState = GetWorld()->GetGameState<AUTGameState>();
+	if (UTGameState)
+	{
+		TSubclassOf<class AUTInventory> SelectedBoost = UTGameState->GetSelectableBoostByIndex(this, PowerupIndex);
+		if (SelectedBoost != nullptr)
+		{
+			BoostClass = SelectedBoost;
+		}
+	}
 }
 
+TSubclassOf<UUTCharacterVoice> AUTPlayerState::GetCharacterVoiceClass()
+{
+	if (CharacterVoice == nullptr)
+	{
+		if (SelectedCharacter != nullptr)
+		{
+			AUTCharacterContent* CharacterDefaultObject = Cast<AUTCharacterContent>(SelectedCharacter.GetDefaultObject());
+			if (CharacterDefaultObject != nullptr && CharacterDefaultObject->CharacterVoice != nullptr)
+			{
+				CharacterVoice = CharacterDefaultObject->CharacterVoice;
+			}
+		}
+	}
+
+	return CharacterVoice;
+}

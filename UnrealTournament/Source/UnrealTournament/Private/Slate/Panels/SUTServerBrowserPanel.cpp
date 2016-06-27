@@ -20,6 +20,8 @@
 #include "../Widgets/SUTBorder.h"
 #include "Engine/UserInterfaceSettings.h"
 #include "UnrealNetwork.h"
+#include "BlueprintContextLibrary.h"
+#include "PartyContext.h"
 
 #if !UE_SERVER
 /** List Sort helpers */
@@ -1740,6 +1742,20 @@ void SUTServerBrowserPanel::ConnectTo(FServerData ServerData,bool bSpectate)
 	{
 		PlayerOwner->ShowToast(NSLOCTEXT("SUTServerBrowserPanel", "ConnectToNotLeader", "Only the party leader may do this"));
 		return;
+	}
+
+	if (bSpectate)
+	{
+		UPartyContext* PartyContext = Cast<UPartyContext>(UBlueprintContextLibrary::GetContext(PlayerOwner->GetWorld(), UPartyContext::StaticClass()));
+		if (PartyContext)
+		{
+			const int32 PartySize = PartyContext->GetPartySize();
+			if (PartySize > 1)
+			{
+				PlayerOwner->ShowToast(NSLOCTEXT("SUTReplayBrowserPanel", "NoReplaysInParty", "You may not do this while in a party."));
+				return;
+			}
+		}
 	}
 
 	ConnectToServerName = FText::Format(NSLOCTEXT("SUTServerBrowserPanel","ConnectToFormat","Connecting to {0}... "), ServerData.GetBrowserName());

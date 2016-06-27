@@ -4,25 +4,22 @@
 #include "UTReplicatedEmitter.h"
 #include "UTFlagReturnTrail.generated.h"
 
-UCLASS()
-class UNREALTOURNAMENT_API AUTFlagReturnTrail : public AUTReplicatedEmitter
+UCLASS(Abstract, Blueprintable, Meta = (ChildCanTick))
+class UNREALTOURNAMENT_API AUTFlagReturnTrail : public AActor
 {
-	GENERATED_UCLASS_BODY()
+	GENERATED_BODY()
 
-	UPROPERTY()
-	FVector EndPoint;
+public:
+	UPROPERTY(BlueprintReadOnly)
+	class AUTCarriedObject* Flag;
 
-	UPROPERTY()
-		FVector StartPoint;
+	/** set points for trail to follow, including start point */
+	UFUNCTION(BlueprintImplementableEvent)
+	void SetPoints(const TArray<FVector>& Points);
 
-	UPROPERTY()
-		uint8 TeamIndex;
+	UFUNCTION(BlueprintImplementableEvent)
+	void SetTeam(AUTTeamInfo* Team);
 
-	UPROPERTY()
-		AActor* StartActor;
-
-	virtual void Tick(float DeltaTime) override;
-	virtual void Destroyed() override;
-
-	virtual	void SetTeamIndex(uint8 NewValue);
+	UFUNCTION(BlueprintImplementableEvent)
+	void EndTrail();
 };

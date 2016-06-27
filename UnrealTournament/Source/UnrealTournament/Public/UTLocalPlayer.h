@@ -34,6 +34,7 @@ class SUTSpectatorWindow;
 class SUTMatchSummaryPanel;
 class SUTChatEditBox;
 class SUTQuickChatWindow;
+class UUTKillcamPlayback;
 
 enum class EMatchmakingCompleteResult : uint8;
 
@@ -444,6 +445,7 @@ private:
 	FDelegateHandle OnFindFriendSessionCompleteDelegate;
 
 	FDelegateHandle OnReadTitleFileCompleteDelegate;
+	FDelegateHandle OnEnumerateTitleFilesCompleteDelegate;
 
 public:
 	virtual void LoadProfileSettings();
@@ -481,7 +483,9 @@ protected:
 	virtual void OnDeleteUserFileComplete(bool bWasSuccessful, const FUniqueNetId& InUserId, const FString& FileName);
 	virtual void OnEnumerateUserFilesComplete(bool bWasSuccessful, const FUniqueNetId& InUserId);
 
+	void EnumerateTitleFiles();
 	virtual void OnReadTitleFileComplete(bool bWasSuccessful, const FString& Filename);
+	virtual void OnEnumerateTitleFilesComplete(bool bWasSuccessful);
 
 #if !UE_SERVER
 	TSharedPtr<class SUTDialogBase> HUDSettings;
@@ -841,6 +845,11 @@ public:
 	/** Set at end of match if earned new stars. */
 	UPROPERTY()
 		int32 EarnedStars;
+	
+	/**
+	 * Returns the killcam manager object for this player.
+	 */
+	UUTKillcamPlayback* GetKillcamPlaybackManager() const { return KillcamPlayback; }
 
 	// Returns the Total # of stars collected by this player.
 	int32 GetTotalChallengeStars();
@@ -856,7 +865,7 @@ public:
 
 	// Marks a challenge as completed.
 	void ChallengeCompleted(FName ChallengeTag, int32 Stars);
-
+	
 	void AwardAchievement(FName AchievementName);
 	bool QuickMatchCheckFull();
 	void RestartQuickMatch();
@@ -866,7 +875,15 @@ public:
 		const static FString MCPStorageFilename = "UnrealTournmentMCPStorage.json";
 		return MCPStorageFilename;
 	}
-	
+
+	static const FString& GetRankedPlayFilename()
+	{
+		const static FString RankedPlayFilename = "UnrealTournmentRankedPlay.json";
+		return RankedPlayFilename;
+	}
+	bool IsRankedMatchmakingEnabled(int32 PlaylistId);
+	TArray<int32> ActiveRankedPlaylists;
+
 	/** Get the MCP account ID for this player */
 	FUniqueNetIdRepl GetGameAccountId() const;
 
@@ -995,6 +1012,10 @@ public:
 	bool bAutoRankLockWarningShown;
 
 protected:
+	
+	UPROPERTY()
+	UUTKillcamPlayback* KillcamPlayback;
+
 #if !UE_SERVER
 	TSharedPtr<SUTQuickChatWindow> QuickChatWindow;
 #endif
@@ -1003,5 +1024,7 @@ protected:
 	TArray<FText> UIChatTextBackBuffer;
 
 	bool bJoinSessionInProgress;	
+	FDelegateHandle SpeakerDelegate;
+	void OnPlayerTalkingStateChanged(TSharedRef<const FUniqueNetId> TalkerId, bool bIsTalking);
 
 };

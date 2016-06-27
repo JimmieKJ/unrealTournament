@@ -25,7 +25,6 @@ private:
 	static void SetMidGameMenuBlueStyle(TSharedRef<FSlateStyleSet> StyleRef);
 	static void SetMOTDServerChatStyle(TSharedRef<FSlateStyleSet> StyleRef);
 	static void SetTextChatStyle(TSharedRef<FSlateStyleSet> StyleRef);
-	static void SetFriendsChatStyle(TSharedRef<FSlateStyleSet> StyleRef);
 	static void SetMatchBadgeStyle(TSharedRef<FSlateStyleSet> StyleRef);
 	static void SetMOTDStyle(TSharedRef<FSlateStyleSet> StyleRef);
 	static void SetMatchSummaryStyle(TSharedRef<FSlateStyleSet> StyleRef);

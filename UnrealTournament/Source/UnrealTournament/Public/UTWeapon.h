@@ -5,7 +5,7 @@
 #include "UTInventory.h"
 #include "UTProjectile.h"
 #include "UTATypes.h"
-
+#include "UTGameplayStatics.h"
 #include "UTWeapon.generated.h"
 
 USTRUCT(BlueprintType)
@@ -189,6 +189,11 @@ class UNREALTOURNAMENT_API AUTWeapon : public AUTInventory
 	/** firing spread (random angle added to shots) */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon")
 	TArray<float> Spread;
+
+	/** First person, non attenuated sound to play each time we fire */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon")
+		TArray<USoundBase*> FPFireSound;
+
 	/** Sound to play each time we fire */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon")
 	TArray<USoundBase*> FireSound;
@@ -400,6 +405,16 @@ class UNREALTOURNAMENT_API AUTWeapon : public AUTInventory
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon")
 	UAnimMontage* PutDownAnimHands;
 
+
+	/** sound played when raising the weapon */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon")
+	USoundBase* BringUpSound;
+
+	/** Sound played when lowering the weapon */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon")
+	USoundBase* LowerSound;
+
+
 	/** weapon group - NextWeapon() picks the next highest group, PrevWeapon() the next lowest, etc
 	 * generally, the corresponding number key is bound to access the weapons in that group
 	 */
@@ -487,12 +502,12 @@ class UNREALTOURNAMENT_API AUTWeapon : public AUTInventory
 	virtual void StopFire(uint8 FireModeNum);
 
 	/** Tell server fire button was pressed.  bClientFired is true if client actually fired weapon. */
-	UFUNCTION(Server, Reliable, WithValidation)
-		virtual void ServerStartFire(uint8 FireModeNum, bool bClientFired);
+	UFUNCTION(Server, unreliable, WithValidation)
+		virtual void ServerStartFire(uint8 FireModeNum, uint8 FireEventIndex, bool bClientFired);
 
 	/** ServerStartFire, also pass Z offset since it is interpolating. */
-	UFUNCTION(Server, Reliable, WithValidation)
-	virtual void ServerStartFireOffset(uint8 FireModeNum, uint8 ZOffset, bool bClientFired);
+	UFUNCTION(Server, unreliable, WithValidation)
+	virtual void ServerStartFireOffset(uint8 FireModeNum, uint8 FireEventIndex, uint8 ZOffset, bool bClientFired);
 
 	/** Just replicated ZOffset for shot fire location. */
 	UPROPERTY()
@@ -503,7 +518,7 @@ class UNREALTOURNAMENT_API AUTWeapon : public AUTInventory
 		float FireZOffsetTime;
 
 	UFUNCTION(Server, Reliable, WithValidation)
-	virtual void ServerStopFire(uint8 FireModeNum);
+	virtual void ServerStopFire(uint8 FireModeNum, uint8 FireEventIndex);
 
 	virtual bool BeginFiringSequence(uint8 FireModeNum, bool bClientFired);
 	virtual void EndFiringSequence(uint8 FireModeNum);
@@ -593,6 +608,11 @@ class UNREALTOURNAMENT_API AUTWeapon : public AUTInventory
 	/** returns montage to play on the weapon for the specified firing mode */
 	UFUNCTION(BlueprintCallable, Category = "Weapon")
 	virtual UAnimMontage* GetFiringAnim(uint8 FireMode, bool bOnHands = false) const;
+
+
+	UPROPERTY()
+		TEnumAsByte<ESoundAmplificationType> FireSoundAmp;
+
 	/** play firing effects not associated with the shot's results (e.g. muzzle flash but generally NOT emitter to target) */
 	UFUNCTION(BlueprintCallable, Category = "Weapon")
 	virtual void PlayFiringEffects();
@@ -606,9 +626,11 @@ class UNREALTOURNAMENT_API AUTWeapon : public AUTInventory
 	UFUNCTION(BlueprintCallable, Category = "Weapon")
 	virtual void GetImpactSpawnPosition(const FVector& TargetLoc, FVector& SpawnLocation, FRotator& SpawnRotation);
 
-	/** If true, don't spawn impact effect.  Used for hitscan hits, skips by default for pawn and projectile hits. */
+	/** If true, don't spawn impact effect.  Used for hitscan hits, skips by default for pawn and projectile hits.
+	 * note: this is called on the default object for weapon attachments (so they can share the code)
+	 */
 	UFUNCTION(BlueprintCallable, Category = "Weapon")
-	virtual bool CancelImpactEffect(const FHitResult& ImpactHit);
+	virtual bool CancelImpactEffect(const FHitResult& ImpactHit) const;
 
 	/** play effects associated with the shot's impact given the impact point
 	 * called only if FlashLocation has been set (instant hit weapon)
@@ -630,6 +652,9 @@ class UNREALTOURNAMENT_API AUTWeapon : public AUTInventory
 	/** return adjusted fire rotation after accounting for spread, aim help, and any other secondary factors affecting aim direction (may include randomized components) */
 	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, BlueprintPure, Category = "Weapon")
 	FRotator GetAdjustedAim(FVector StartFireLoc);
+
+	/** Returns UTPC controlling current target of this weapon. */
+	virtual AUTPlayerController* GetCurrentTargetPC();
 
 	/** if owned by a human, set AUTPlayerController::LastShotTargetGuess to closest target to player's aim */
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = AI)

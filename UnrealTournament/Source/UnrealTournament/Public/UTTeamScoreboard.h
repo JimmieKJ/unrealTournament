@@ -21,6 +21,9 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Scoreboard")
 		FText BlueTeamText;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Scoreboard")
+		bool bUseRoundKills;
+
 protected:
 	virtual void DrawTeamPanel(float RenderDelta, float& YOffset);
 	virtual void DrawPlayerScores(float RenderDelta, float& DrawY);
@@ -48,8 +51,6 @@ protected:
 	/** Return player with best score for Team. */
 	virtual AUTPlayerState* FindTopTeamScoreFor(uint8 TeamNum);
 
-	virtual void SetScoringPlaysTimer(bool bEnableTimer) override;
-	void SwitchToScoringPlaysPage();
 	virtual void OpenScoringPlaysPage() override;
 	virtual void DrawStatsLeft(float DeltaTime, float& YPos, float XOffset, float ScoreWidth, float PageBottom) override;
 };

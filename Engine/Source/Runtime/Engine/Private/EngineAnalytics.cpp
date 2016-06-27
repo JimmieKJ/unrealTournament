@@ -81,7 +81,14 @@ void FEngineAnalytics::Initialize()
 						FString UE4TypeOverride;
 						bool bHasOverride = GConfig->GetString(TEXT("Analytics"), TEXT("UE4TypeOverride"), UE4TypeOverride, GEngineIni);
 						const TCHAR* UE4TypeStr = bHasOverride ? *UE4TypeOverride : FEngineBuildSettings::IsPerforceBuild() ? TEXT("Perforce") : TEXT("UnrealEngine");
-						if (bIsEditorRun)
+
+						if (GIsEditor)
+						{
+							const TCHAR* DevelopmentAccountAPIKeyET = TEXT("UTEditor.Source.Dev");
+							const TCHAR* ReleaseAccountAPIKeyET = TEXT("UTEditor.Source.Release");
+							ConfigMap.Add(TEXT("APIKeyET"), bUseReleaseAccount ? ReleaseAccountAPIKeyET : DevelopmentAccountAPIKeyET);
+						}
+						else if (bIsEditorRun)
 						{
 							ConfigMap.Add(TEXT("APIKeyET"), FString::Printf(TEXT("UEEditor.%s.%s"), UE4TypeStr, BuildTypeStr));
 						}

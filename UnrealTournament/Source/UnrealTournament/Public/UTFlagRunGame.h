@@ -11,6 +11,21 @@ class UNREALTOURNAMENT_API AUTFlagRunGame : public AUTCTFRoundGame
 {
 	GENERATED_UCLASS_BODY()
 
+public:
+
+	/** optional class spawned at source location after translocating that continues to receive damage for a short duration */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+		TSubclassOf<class AUTWeaponRedirector> AfterImageType;
+
+	UPROPERTY()
+		float RallyRequestTime;
+
 	virtual void BroadcastVictoryConditions();
+
+	virtual float OverrideRespawnTime(TSubclassOf<AUTInventory> InventoryType) override;
+	virtual void HandleRallyRequest(AUTPlayerController* PC) override;
+
+	virtual int32 GetComSwitch(FName CommandTag, AActor* ContextActor, AUTPlayerController* Instigator, UWorld* World);
+	virtual void InitFlags() override;
 };
 

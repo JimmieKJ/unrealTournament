@@ -6,6 +6,11 @@
 #include "../../Engine/Source/Runtime/PerfCounters/Private/PerfCounters.h"
 #include "OnlineSessionInterface.h"
 #include "UTPlaylistManager.h"
+
+#if !UE_SERVER
+#include "MoviePlayer.h"
+#endif
+
 #include "UTGameInstance.generated.h"
 
 class UUTMatchmaking;
@@ -157,5 +162,41 @@ public:
 	 * @return true if able or attempting to travel, false otherwise
 	 */
 	bool ClientTravelToSession(int32 ControllerId, FName InSessionName);
+
+	UFUNCTION()
+	virtual void BeginLevelLoading(const FString& LevelName);
+	UFUNCTION()
+	virtual void EndLevelLoading();
+
+	bool bLevelIsLoading;
+
+#if !UE_SERVER
+
+public:
+	// Play a loading movie.  This version will auto-create the "Press FIRE to continue" message and manage if it should be displayed
+	virtual void PlayLoadingMovie(const FString& MovieName, bool bStopWhenLoadingIsComnpleted = false, bool bForce = false);
+
+	// Stops a movie from playing
+	virtual void StopMovie();
+
+	// returns true if a movie is currently being played
+	virtual bool IsMoviePlaying();
+
+	// Plays a full screen movie  
+	virtual void PlayMovie(const FString& MovieName, TSharedPtr<SWidget> SlateOverlayWidget, bool bSkippable, bool bAutoComplete, TEnumAsByte<EMoviePlaybackType> PlaybackType, bool bForce);
+	virtual void WaitForMovieToFinish(bool bEnsureDefaultSlateOverlay);
+	virtual void WaitForMovieToFinish(TSharedPtr<SWidget> SlateOverlayWidget);
+
+protected:
+
+	TSharedPtr<SWidget> MovieOverlay;
+	// Verify that the load movie overlay exists or create one if it doesnt.
+	virtual void VerifyMovieOverlay();
+
+
+	virtual EVisibility GetLevelLoadThrobberVisibility() const;
+	virtual EVisibility GetLevelLoadAnyKeyVisibility() const;
+#endif
+
 };
 

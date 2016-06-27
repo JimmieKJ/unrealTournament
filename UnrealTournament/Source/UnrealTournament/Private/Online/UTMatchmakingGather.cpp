@@ -64,7 +64,7 @@ void UUTMatchmakingGather::FindGatheringSession()
 		MMPass->OnNoSearchResultsFound().BindUObject(this, &ThisClass::OnNoGatheringSessionsFound);
 		MMPass->OnCancelledSearchComplete().BindUObject(this, &ThisClass::OnGatheringSearchCancelled);
 
-		TSharedPtr<FUTOnlineSessionSearchBase> NewSearchSettings = MakeShareable(new FUTOnlineSessionSearchGather(CurrentParams.PlaylistId, CurrentParams.TeamElo, false, false));
+		TSharedPtr<FUTOnlineSessionSearchBase> NewSearchSettings = MakeShareable(new FUTOnlineSessionSearchGather(CurrentParams.PlaylistId, CurrentParams.TeamElo, false, false, CurrentParams.SessionIdToSkip));
 		
 		// Order here is important (prefer level match over "closer to full" match for now)
 		NewSearchSettings->QuerySettings.Set(SETTING_NEEDS, CurrentParams.PartySize, EOnlineComparisonOp::GreaterThanEquals);
@@ -246,7 +246,7 @@ float UUTMatchmakingGather::GetChanceToHost() const
 	{
 		ChanceToHost = CurrentParams.ChanceToHostOverride;
 	}
-	else if (CurrentParams.EloRange < 100)
+	else if (CurrentParams.EloRange < CurrentParams.MinimumEloRangeBeforeHosting)
 	{
 		// Don't host until we've looked at matches that are at least 100 Elo away
 		ChanceToHost = 0;

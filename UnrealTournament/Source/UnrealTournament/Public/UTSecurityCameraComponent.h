@@ -16,10 +16,10 @@ public:
 	virtual void BeginPlay() override;
 	virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
 
-	UPROPERTY(BlueprintReadWrite, EditDefaultsOnly, Category = "SecurityCam")
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "SecurityCam")
 		float DetectionRadius;
 
-	UPROPERTY(BlueprintReadWrite, EditDefaultsOnly, Category = "SecurityCam")
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "SecurityCam")
 		bool bCameraEnabled;
 
 	UPROPERTY(BlueprintReadOnly, Category = "SecurityCam")
@@ -27,6 +27,11 @@ public:
 
 	UPROPERTY(BlueprintReadOnly, Category = "SecurityCam")
 		class AUTCarriedObject* DetectedFlag;
+
+
+	// How long a enemy ping is valid
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SecurityCam")
+		float CameraPingedDuration;
 
 	/** Event called when a flag carrier is detected that wasn't previously tracked. */
 	UFUNCTION(BlueprintImplementableEvent, Category = "SecurityCam")

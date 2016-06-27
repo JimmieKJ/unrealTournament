@@ -44,14 +44,25 @@ void UUTHUDWidget_WeaponCrosshair::Draw_Implementation(float DeltaTime)
 				}
 			}
 		}
-		const float TimeSinceKill = GetWorld()->GetTimeSeconds() - UTHUDOwner->LastKillTime;
-		const float SkullDisplayTime = 0.8f;
+		float TimeSinceKill = GetWorld()->GetTimeSeconds() - UTHUDOwner->LastKillTime;
+		float SkullDisplayTime = (UTHUDOwner->LastMultiKillCount > 1) ? 1.1f : 0.8f;
 		if ((TimeSinceKill < SkullDisplayTime) && (UTHUDOwner->GetDrawHUDKillIconMsg()))
 		{
-			float Size = 32.f * (1.f + FMath::Min(1.5f*(TimeSinceKill - 0.2f) / SkullDisplayTime, 1.f));
+			float SkullSmallTime = (UTHUDOwner->LastMultiKillCount > 1) ? 0.5f : 0.2f;
+			float Size = 32.f * (1.f + FMath::Clamp(1.5f*(TimeSinceKill - SkullSmallTime) / SkullDisplayTime, 0.f, 1.f));
 			FLinearColor SkullColor = FLinearColor::White;
-			float Opacity = 0.7f - 0.6f*TimeSinceKill/SkullDisplayTime;
-			DrawTexture(UTHUDOwner->HUDAtlas, 0, -2.f*Size, Size, Size, 725, 0, 28, 36, Opacity, SkullColor, FVector2D(0.5f, 0.5f));
+			float Opacity = 0.7f - 0.6f*(TimeSinceKill - SkullSmallTime)/(SkullDisplayTime - SkullSmallTime);
+			int32 NumSkulls = (UTHUDOwner->LastMultiKillCount > 1) ? UTHUDOwner->LastMultiKillCount : 1;
+			float StartPos = -0.5f * Size * NumSkulls + 0.5f*Size;
+			for (int32 i = 0; i < NumSkulls; i++)
+			{
+				DrawTexture(UTHUDOwner->HUDAtlas, StartPos, -2.f*Size, Size, Size, 725, 0, 28, 36, Opacity, SkullColor, FVector2D(0.5f, 0.5f));
+				StartPos += 1.1f * Size;
+			}
+		}
+		else
+		{
+			UTHUDOwner->LastMultiKillCount = 0;
 		}
 
 		const float TimeSinceGrab = GetWorld()->GetTimeSeconds() - UTHUDOwner->LastFlagGrabTime;
@@ -76,7 +87,7 @@ void UUTHUDWidget_WeaponCrosshair::Draw_Implementation(float DeltaTime)
 		}
 	}
 
-	if (UTHUDOwner)
+	if (UTHUDOwner && UTHUDOwner->UTPlayerOwner && (UTHUDOwner->UTPlayerOwner->GetProfileSettings() == nullptr || !UTHUDOwner->UTPlayerOwner->GetProfileSettings()->bHideDamageIndicators) )
 	{
 		// Display hit/kill indicators...		
 		if (UTHUDOwner->LastConfirmedHitTime != LastHitTime)

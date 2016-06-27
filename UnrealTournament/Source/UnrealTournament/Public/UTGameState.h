@@ -34,6 +34,9 @@ class UNREALTOURNAMENT_API AUTGameState : public AGameState
 	UPROPERTY(Replicated, GlobalConfig, EditAnywhere, BlueprintReadWrite, Category = ServerInfo)
 	FString ServerDescription;
 
+	UPROPERTY()
+		float MusicVolume;
+
 	/** teams, if the game type has them */
 	UPROPERTY(BlueprintReadOnly, Category = GameState)
 	TArray<AUTTeamInfo*> Teams;
@@ -55,6 +58,10 @@ class UNREALTOURNAMENT_API AUTGameState : public AGameState
 	/** If true, we will stop the game clock */
 	UPROPERTY(Replicated, BlueprintReadWrite, Category = GameState)
 	uint32 bStopGameClock : 1;
+
+	/** True if TeamDamagePct>0p, so projectiles impact teammates. */
+	UPROPERTY(Replicated, BlueprintReadOnly, Category = GameState)
+		uint32 bTeamProjHits : 1;
 
 	/**If enabled, the server grants special control for casters*/
 	UPROPERTY(Replicated, BlueprintReadOnly, Category = GameState)
@@ -233,6 +240,7 @@ class UNREALTOURNAMENT_API AUTGameState : public AGameState
 	/** add an overlay to the OverlayMaterials list */
 	UFUNCTION(Meta = (DeprecatedFunction, DeprecationMessage = "Use AddOverlayEffect"), BlueprintCallable, BlueprintAuthorityOnly, Category = Effects)
 	virtual void AddOverlayMaterial(UMaterialInterface* NewOverlay, UMaterialInterface* NewOverlay1P = NULL);
+
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = Effects)
 	virtual void AddOverlayEffect(const FOverlayEffect& NewOverlay, const FOverlayEffect& NewOverlay1P
 #if CPP // UHT is dumb
@@ -319,6 +327,8 @@ class UNREALTOURNAMENT_API AUTGameState : public AGameState
 
 	virtual void AddPlayerState(class APlayerState* PlayerState) override;
 
+	virtual void Tick(float DeltaTime) override;
+
 	/** rearrange any players' SpectatingID so that the list of values is continuous starting from 1
 	 * generally should not be called during gameplay as reshuffling this list unnecessarily defeats the point
 	 */
@@ -333,6 +343,9 @@ class UNREALTOURNAMENT_API AUTGameState : public AGameState
 
 	UFUNCTION(BlueprintCallable, Category = GameState)
 		virtual void SetRespawnWaitTime(float NewWaitTime);
+
+	UFUNCTION(BlueprintCallable, Category = GameState)
+		virtual TSubclassOf<class AUTInventory> GetSelectableBoostByIndex(AUTPlayerState* PlayerState, int Index) const;
 
 protected:
 

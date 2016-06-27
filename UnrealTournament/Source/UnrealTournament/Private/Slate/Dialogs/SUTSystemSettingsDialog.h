@@ -154,6 +154,9 @@ protected:
 
 	virtual TSharedRef<class SWidget> BuildCustomButtonBar() override;
 
+	TArray< TSharedPtr<FString> > VOIPOptions;
+	TSharedPtr<STextBlock> VOIPOptionsText;
+
 	TArray< TSharedPtr<FString> > ResList;
 	TSharedPtr<STextBlock> SelectedRes;
 	TArray< TSharedPtr<FString> > DisplayModeList;
@@ -176,15 +179,21 @@ protected:
 	TSharedPtr<SCheckBox> HRTFCheckBox;
 	TSharedPtr<SSlider> SoundVolumes[EUTSoundClass::MAX];
 	TSharedPtr<STextBlock> SoundVolumesLabels[EUTSoundClass::MAX];
+
+	TSharedPtr<SComboBox< TSharedPtr<FString> > >PushToTalkCombo;
+
 	void OnSoundVolumeChangedMaster(float NewValue);
 	void OnSoundVolumeChangedMusic(float NewValue);
 	void OnSoundVolumeChangedSFX(float NewValue);
 	void OnSoundVolumeChangedVoice(float NewValue);
+	void OnSoundVolumeChangedVOIP(float NewValue);
 
 	/** list of display values for general scalability setting that are all set the same way (e.g. low/medium/high) */
 	TArray< TSharedPtr<FString> > GeneralScalabilityList;
 	TSharedPtr< SComboBox< TSharedPtr<FString> > > TextureRes;
 	TSharedPtr<STextBlock> SelectedTextureRes;
+	TSharedPtr< SComboBox< TSharedPtr<FString> > > ViewDistance;
+	TSharedPtr<STextBlock> SelectedViewDistance;
 	TSharedPtr< SComboBox< TSharedPtr<FString> > > ShadowQuality;
 	TSharedPtr<STextBlock> SelectedShadowQuality;
 	TSharedPtr< SComboBox< TSharedPtr<FString> > > PPQuality;
@@ -235,11 +244,12 @@ protected:
 	void OnResolutionSelected(TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo);
 	void OnDisplayModeSelected(TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo);
 	void OnTextureResolutionSelected(TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo);
+	void OnViewDistanceSelected(TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo);
 	void OnShadowQualitySelected(TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo);
 	void OnPPQualitySelected(TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo);
 	void OnEffectQualitySelected(TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo);
 	void OnMatchmakingRegionSelected(TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo);
-
+	void OnVOIPChanged(TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo);
 	void OnAdvancedCheckChanged(ECheckBoxState NewState);
 	void UpdateAdvancedWidgets();
 

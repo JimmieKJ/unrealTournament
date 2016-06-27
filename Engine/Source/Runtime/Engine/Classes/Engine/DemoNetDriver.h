@@ -103,7 +103,8 @@ class ENGINE_API UDemoNetDriver : public UNetDriver
 
 	bool		bSavingCheckpoint;
 	double		LastCheckpointTime;
-
+	
+	virtual bool ShouldSaveCheckpoint();
 	void		SaveCheckpoint();
 	void		LoadCheckpoint( FArchive* GotoCheckpointArchive, int64 GotoCheckpointSkipExtraTimeInMS );
 
@@ -176,7 +177,6 @@ public:
 
 	bool IsRecording() const;
 	bool IsPlaying() const;
-
 public:
 
 	// FExec interface
@@ -245,6 +245,9 @@ public:
 
 	/** Called when a "go to time" operation is completed. */
 	void NotifyGotoTimeFinished(bool bWasSuccessful);
+
+	/** Read the streaming level information from the metadata after the level is loaded */
+	void PendingNetGameLoadMapCompleted();
 
 protected:
 	/** allows subclasses to write game specific data to demo header which is then handled by ProcessGameSpecificDemoHeader */

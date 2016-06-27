@@ -57,7 +57,6 @@ AUTWeapon::AUTWeapon(const FObjectInitializer& ObjectInitializer)
 	FireEffectCount = 0;
 	FireZOffset = 0.f;
 	FireZOffsetTime = 0.f;
-	MaxTracerDist = 5000.f;
 
 	InactiveState = ObjectInitializer.CreateDefaultSubobject<UUTWeaponStateInactive>(this, TEXT("StateInactive"));
 	ActiveState = ObjectInitializer.CreateDefaultSubobject<UUTWeaponStateActive>(this, TEXT("StateActive"));
@@ -110,6 +109,7 @@ AUTWeapon::AUTWeapon(const FObjectInitializer& ObjectInitializer)
 
 	LowAmmoSoundDelay = 0.2f;
 	LowAmmoThreshold = 3;
+	FireSoundAmp = SAT_WeaponFire;
 }
 
 void AUTWeapon::PostInitProperties()
@@ -411,26 +411,36 @@ bool AUTWeapon::FollowsInList(AUTWeapon* OtherWeapon)
 
 void AUTWeapon::StartFire(uint8 FireModeNum)
 {
-	if (!UTOwner->IsFiringDisabled())
+	if (!UTOwner || !UTOwner->IsFiringDisabled())
 	{
 		bool bClientFired = BeginFiringSequence(FireModeNum, false);
 		if (Role < ROLE_Authority)
 		{
+			UUTWeaponStateFiring* CurrentFiringState = FiringState.IsValidIndex(FireModeNum) ? FiringState[FireModeNum] : nullptr;
+			uint8 FireEventIndex = CurrentFiringState ? CurrentFiringState->FireEventIndex : 0;
 			if (UTOwner)
 			{
 				float ZOffset = uint8(FMath::Clamp(UTOwner->GetPawnViewLocation().Z - UTOwner->GetActorLocation().Z + 127.5f, 0.f, 255.f));
 				if (ZOffset != uint8(FMath::Clamp(UTOwner->BaseEyeHeight + 127.5f, 0.f, 255.f)))
 				{
-					ServerStartFireOffset(FireModeNum, ZOffset, bClientFired);
+					ServerStartFireOffset(FireModeNum, FireEventIndex, ZOffset, bClientFired);
+					if (CurrentFiringState)
+					{
+						CurrentFiringState->FireEventIndex++;
+					}
 					return;
 				}
 			}
-			ServerStartFire(FireModeNum, bClientFired); 
+			ServerStartFire(FireModeNum, FireEventIndex, bClientFired);
+			if (CurrentFiringState)
+			{
+				CurrentFiringState->FireEventIndex++;
+			}
 		}
 	}
 }
 
-void AUTWeapon::ServerStartFire_Implementation(uint8 FireModeNum, bool bClientFired)
+void AUTWeapon::ServerStartFire_Implementation(uint8 FireModeNum, uint8 FireEventIndex, bool bClientFired)
 {
 	if (UTOwner && !UTOwner->IsFiringDisabled())
 	{
@@ -439,12 +449,12 @@ void AUTWeapon::ServerStartFire_Implementation(uint8 FireModeNum, bool bClientFi
 	}
 }
 
-bool AUTWeapon::ServerStartFire_Validate(uint8 FireModeNum, bool bClientFired)
+bool AUTWeapon::ServerStartFire_Validate(uint8 FireModeNum, uint8 FireEventIndex, bool bClientFired)
 {
 	return true;
 }
 
-void AUTWeapon::ServerStartFireOffset_Implementation(uint8 FireModeNum, uint8 ZOffset, bool bClientFired)
+void AUTWeapon::ServerStartFireOffset_Implementation(uint8 FireModeNum, uint8 FireEventIndex, uint8 ZOffset, bool bClientFired)
 {
 	if (UTOwner && !UTOwner->IsFiringDisabled())
 	{
@@ -454,7 +464,7 @@ void AUTWeapon::ServerStartFireOffset_Implementation(uint8 FireModeNum, uint8 ZO
 	}
 }
 
-bool AUTWeapon::ServerStartFireOffset_Validate(uint8 FireModeNum, uint8 ZOffset, bool bClientFired)
+bool AUTWeapon::ServerStartFireOffset_Validate(uint8 FireModeNum, uint8 FireEventIndex, uint8 ZOffset, bool bClientFired)
 {
 	return true;
 }
@@ -488,16 +498,22 @@ void AUTWeapon::StopFire(uint8 FireModeNum)
 	EndFiringSequence(FireModeNum);
 	if (Role < ROLE_Authority)
 	{
-		ServerStopFire(FireModeNum);
+		UUTWeaponStateFiring* CurrentFiringState = FiringState.IsValidIndex(FireModeNum) ? FiringState[FireModeNum] : nullptr;
+		uint8 FireEventIndex = CurrentFiringState ? CurrentFiringState->FireEventIndex : 0;
+		ServerStopFire(FireModeNum, FireEventIndex);
+		if (CurrentFiringState)
+		{
+			CurrentFiringState->FireEventIndex++;
+		}
 	}
 }
 
-void AUTWeapon::ServerStopFire_Implementation(uint8 FireModeNum)
+void AUTWeapon::ServerStopFire_Implementation(uint8 FireModeNum, uint8 FireEventIndex)
 {
 	EndFiringSequence(FireModeNum);
 }
 
-bool AUTWeapon::ServerStopFire_Validate(uint8 FireModeNum)
+bool AUTWeapon::ServerStopFire_Validate(uint8 FireModeNum, uint8 FireEventIndex)
 {
 	return true;
 }
@@ -814,7 +830,14 @@ void AUTWeapon::PlayFiringEffects()
 		// try and play the sound if specified
 		if (FireSound.IsValidIndex(EffectFiringMode) && FireSound[EffectFiringMode] != NULL)
 		{
-			UUTGameplayStatics::UTPlaySound(GetWorld(), FireSound[EffectFiringMode], UTOwner, SRT_AllButOwner);
+			if (FPFireSound.IsValidIndex(CurrentFireMode) && FPFireSound[CurrentFireMode] != NULL && Cast<APlayerController>(UTOwner->Controller) != NULL && UTOwner->IsLocallyControlled())
+			{
+				UUTGameplayStatics::UTPlaySound(GetWorld(), FPFireSound[CurrentFireMode], UTOwner, SRT_AllButOwner, false, FVector::ZeroVector, GetCurrentTargetPC(), NULL, true, FireSoundAmp);
+			}
+			else
+			{
+				UUTGameplayStatics::UTPlaySound(GetWorld(), FireSound[EffectFiringMode], UTOwner, SRT_AllButOwner, false, FVector::ZeroVector, GetCurrentTargetPC(), NULL, true, FireSoundAmp);
+			}
 		}
 
 		// reload sound on local shooter
@@ -886,9 +909,9 @@ void AUTWeapon::GetImpactSpawnPosition(const FVector& TargetLoc, FVector& SpawnL
 	SpawnRotation = (MuzzleFlash.IsValidIndex(CurrentFireMode) && MuzzleFlash[CurrentFireMode] != NULL) ? MuzzleFlash[CurrentFireMode]->GetComponentRotation() : (TargetLoc - SpawnLocation).Rotation();
 }
 
-bool AUTWeapon::CancelImpactEffect(const FHitResult& ImpactHit)
+bool AUTWeapon::CancelImpactEffect(const FHitResult& ImpactHit) const
 {
-	return (!ImpactHit.Actor.IsValid() && !ImpactHit.Component.IsValid()) || Cast<AUTCharacter>(ImpactHit.Actor.Get()) || Cast<AUTProjectile>(ImpactHit.Actor.Get());
+	return (!ImpactHit.Actor.IsValid() && !ImpactHit.Component.IsValid()) || Cast<AUTCharacter>(ImpactHit.Actor.Get());
 }
 
 void AUTWeapon::PlayImpactEffects_Implementation(const FVector& TargetLoc, uint8 FireMode, const FVector& SpawnLocation, const FRotator& SpawnRotation)
@@ -922,7 +945,7 @@ void AUTWeapon::PlayImpactEffects_Implementation(const FVector& TargetLoc, uint8
 			UParticleSystemComponent* PSC = UGameplayStatics::SpawnEmitterAtLocation(GetWorld(), FireEffect[FireMode], AdjustedSpawnLocation, SpawnRotation, true);
 
 			// limit dist to target
-			FVector AdjustedTargetLoc = ((TargetLoc - AdjustedSpawnLocation).SizeSquared() > 4000000.f)
+			FVector AdjustedTargetLoc = (MaxTracerDist > 0.0f && ((TargetLoc - AdjustedSpawnLocation).SizeSquared() > FMath::Square<float>(MaxTracerDist)))
 				? AdjustedSpawnLocation + MaxTracerDist * (TargetLoc - AdjustedSpawnLocation).GetSafeNormal()
 				: TargetLoc;
 			PSC->SetVectorParameter(NAME_HitLocation, AdjustedTargetLoc);
@@ -1213,6 +1236,24 @@ FRotator AUTWeapon::GetAdjustedAim_Implementation(FVector StartFireLoc)
 	}
 }
 
+AUTPlayerController* AUTWeapon::GetCurrentTargetPC()
+{
+	AUTPlayerController* PC = Cast<AUTPlayerController>(UTOwner->Controller);
+	if (PC && PC->LastShotTargetGuess)
+	{
+		return Cast<AUTPlayerController>(PC->LastShotTargetGuess->GetController());
+	}
+	else
+	{
+		AUTBot* Bot = Cast<AUTBot>(UTOwner->Controller);
+		if (Bot && Bot->GetEnemy())
+		{
+			return Cast<AUTPlayerController>(Bot->GetEnemy()->GetController());;
+		}
+	}
+	return nullptr;
+}
+
 void AUTWeapon::GuessPlayerTarget(const FVector& StartFireLoc, const FVector& FireDir)
 {
 	if (Role == ROLE_Authority && UTOwner != NULL)
@@ -1225,7 +1266,15 @@ void AUTWeapon::GuessPlayerTarget(const FVector& StartFireLoc, const FVector& Fi
 			{
 				MaxRange = InstantHitInfo[CurrentFireMode].TraceRange * 1.2f; // extra since player may miss intended target due to being out of range
 			}
-			PC->LastShotTargetGuess = UUTGameplayStatics::PickBestAimTarget(PC, StartFireLoc, FireDir, 0.9f, MaxRange);
+			float BestAim = 0.f;
+			float BestDist = 0.f;
+			float BestOffset = 0.f;
+			PC->LastShotTargetGuess = UUTGameplayStatics::ChooseBestAimTarget(PC, StartFireLoc, FireDir, 0.85f, MaxRange, 500.f, APawn::StaticClass(), &BestAim, &BestDist, &BestOffset);
+			AUTCharacter* FlagCarrierTarget = Cast<AUTCharacter>(PC->LastShotTargetGuess);
+			if (FlagCarrierTarget && FlagCarrierTarget->GetCarriedObject())
+			{
+				FlagCarrierTarget->GetCarriedObject()->LastPingedTime = GetWorld()->GetTimeSeconds();
+			}
 		}
 	}
 }
@@ -1344,12 +1393,12 @@ void AUTWeapon::FireInstantHit(bool bDealDamage, FHitResult* OutHit)
 	float PredictionTime = UTPC ? UTPC->GetPredictionTime() : 0.f;
 	HitScanTrace(SpawnLocation, EndTrace, InstantHitInfo[CurrentFireMode].TraceHalfSize, Hit, PredictionTime);
 
-	if (Role == ROLE_Authority && UTPC && bCheckHeadSphere && (Cast<AUTCharacter>(Hit.Actor.Get()) == NULL) && ((Spread.Num() <= GetCurrentFireMode()) || (Spread[GetCurrentFireMode()] == 0.f)) && (UTOwner->GetVelocity().IsNearlyZero() || bCheckMovingHeadSphere))
+	if (UTPC && bCheckHeadSphere && (Cast<AUTCharacter>(Hit.Actor.Get()) == NULL) && ((Spread.Num() <= GetCurrentFireMode()) || (Spread[GetCurrentFireMode()] == 0.f)) && (UTOwner->GetVelocity().IsNearlyZero() || bCheckMovingHeadSphere))
 	{
 		// in some cases the head sphere is partially outside the capsule
 		// so do a second search just for that
-		AUTCharacter* AltTarget = Cast<AUTCharacter>(UUTGameplayStatics::PickBestAimTarget(UTPC, SpawnLocation, FireDir, 0.9f, (Hit.Location - SpawnLocation).Size(), AUTCharacter::StaticClass()));
-		if (AltTarget != NULL && (AltTarget->GetVelocity().IsNearlyZero() || bCheckMovingHeadSphere) && AltTarget->IsHeadShot(SpawnLocation, FireDir, 1.f, UTOwner, PredictionTime))
+		AUTCharacter* AltTarget = Cast<AUTCharacter>(UUTGameplayStatics::ChooseBestAimTarget(UTPC, SpawnLocation, FireDir, 0.7f, (Hit.Location - SpawnLocation).Size(), 150.f, AUTCharacter::StaticClass()));
+		if (AltTarget != NULL && (AltTarget->GetVelocity().IsNearlyZero() || bCheckMovingHeadSphere) && AltTarget->IsHeadShot(SpawnLocation, FireDir, 1.1f, UTOwner, PredictionTime))
 		{
 			Hit = FHitResult(AltTarget, AltTarget->GetCapsuleComponent(), SpawnLocation + FireDir * ((AltTarget->GetHeadLocation() - SpawnLocation).Size() - AltTarget->GetCapsuleComponent()->GetUnscaledCapsuleRadius()), -FireDir);
 		}

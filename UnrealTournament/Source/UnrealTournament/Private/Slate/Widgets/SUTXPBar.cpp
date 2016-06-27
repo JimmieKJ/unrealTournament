@@ -319,7 +319,7 @@ void SUTXPBar::OnLevelUp(int32 NewLevel)
 			USoundBase* LevelUpSound = LoadObject<USoundBase>(NULL, TEXT("/Game/RestrictedAssets/Audio/Gameplay/A_Gameplay_CTF_CaptureSound02.A_Gameplay_CTF_CaptureSound02"), NULL, LOAD_NoWarn | LOAD_Quiet);
 			if (LevelUpSound != nullptr)
 			{
-				UTPC->ClientPlaySound(LevelUpSound, 0.5f);
+				UTPC->UTClientPlaySound(LevelUpSound);
 			}
 			 
 			if (!bItemUnlockToastsProcessed)
