@@ -313,7 +313,7 @@ void AUTFlagRunGame::HandleRallyRequest(AUTPlayerController* RequestingPC)
 		{
 			static FName NAME_LineOfSight = FName(TEXT("LineOfSight"));
 			FCollisionQueryParams CollisionParms(NAME_LineOfSight, true, UTCharacter);
-			if (!It->IsTaken(UTCharacter) && ((It->GetActorLocation() - UTCharacter->GetActorLocation()).Size() < 1000.f) && !GetWorld()->LineTraceTestByChannel(UTCharacter->GetActorLocation(), It->GetActorLocation(), COLLISION_TRACE_WEAPONNOCHARACTER, CollisionParms))
+			if (!It->IsTaken(UTCharacter) && ((It->GetActorLocation() - UTCharacter->GetActorLocation()).Size() < 2000.f) && !GetWorld()->LineTraceTestByChannel(UTCharacter->GetActorLocation(), It->GetActorLocation(), COLLISION_TRACE_WEAPONNOCHARACTER, CollisionParms))
 			{
 				It->ProcessTouch(UTCharacter);
 				break;
