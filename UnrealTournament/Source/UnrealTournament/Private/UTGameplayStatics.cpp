@@ -109,7 +109,15 @@ void UUTGameplayStatics::UTPlaySound(UWorld* TheWorld, USoundBase* TheSound, AAc
 					const FAttenuationSettings* Settings = TheSound->GetAttenuationSettingsToApply();
 					if (Settings != NULL)
 					{
-						Radius = FMath::Max<float>(Radius, Settings->GetMaxDimension());
+						if (Radius <= 0.0f || Radius >= WORLD_MAX)
+						{
+							// sound cue doesn't define a distance at all, so just use attenuation settings
+							Radius = Settings->GetMaxDimension();
+						}
+						else
+						{
+							Radius = FMath::Max<float>(Radius, Settings->GetMaxDimension());
+						}
 					}
 					for (FConstControllerIterator It = TheWorld->GetControllerIterator(); It; ++It)
 					{
