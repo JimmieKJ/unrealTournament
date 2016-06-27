@@ -126,6 +126,10 @@ void AUTCTFScoring::ScoreObject(AUTCarriedObject* GameObject, AUTCharacter* Scor
 		{
 			NewScoringPlay.Period = 1;
 		}
+		else if (CTFGameState->CTFRound > 0)
+		{
+			NewScoringPlay.Period = CTFGameState->CTFRound;
+		}
 
 		ScorerPS->FlagCaptures++;
 		ScorerPS->ModifyStatsValue(NAME_FlagCaptures, 1);

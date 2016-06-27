@@ -1199,6 +1199,7 @@ void AUTCTFRoundGame::ScoreAlternateWin(int32 WinningTeamIndex, uint8 Reason)
 			FCTFScoringPlay NewScoringPlay;
 			NewScoringPlay.Team = WinningTeam;
 			NewScoringPlay.bDefenseWon = !IsTeamOnOffense(WinningTeamIndex);
+			NewScoringPlay.Period = CTFGameState->CTFRound;
 			NewScoringPlay.bAnnihilation = (Reason == 0);
 			NewScoringPlay.TeamScores[0] = CTFGameState->Teams[0] ? CTFGameState->Teams[0]->Score : 0;
 			NewScoringPlay.TeamScores[1] = CTFGameState->Teams[1] ? CTFGameState->Teams[1]->Score : 0;
