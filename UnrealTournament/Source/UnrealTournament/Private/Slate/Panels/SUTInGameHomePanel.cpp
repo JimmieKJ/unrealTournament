@@ -80,7 +80,7 @@ EVisibility SUTInGameHomePanel::GetSummaryVisibility() const
 	if (PlayerOwner.IsValid() && SummaryPanel.IsValid())
 	{
 		AUTGameState* GameState = PlayerOwner->GetWorld()->GetGameState<AUTGameState>();
-		if (GameState && (GameState->GetMatchState() == MatchState::PlayerIntro || GameState->GetMatchState() == MatchState::WaitingPostMatch))
+		if (GameState && (GameState->GetMatchState() == MatchState::PlayerIntro || GameState->GetMatchState() == MatchState::WaitingPostMatch) || GameState->GetMatchState() == MatchState::MapVoteHappening)
 		{
 			return bFocusSummaryInv ? EVisibility::Hidden : EVisibility::Visible;
 		}

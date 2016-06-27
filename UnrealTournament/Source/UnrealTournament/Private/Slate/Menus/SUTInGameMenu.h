@@ -39,6 +39,7 @@ protected:
 	void BackResult(TSharedPtr<SCompoundWidget> Dialog, uint16 ButtonPressed);
 
 	EVisibility GetChangeTeamVisibility() const;
+	EVisibility GetMapVoteVisibility() const;
 	EVisibility GetMatchSummaryVisibility() const;
 	EVisibility GetMatchSummaryButtonVisibility() const;
 

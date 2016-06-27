@@ -448,7 +448,7 @@ void AUTHUD::NotifyMatchStateChange()
 		{
 			GetWorldTimerManager().SetTimer(MatchSummaryHandle, this, &AUTHUD::OpenMatchSummary, 0.2f, false);
 		}
-		else
+		else if (GS->GetMatchState() != MatchState::MapVoteHappening)
 		{
 			ToggleScoreboard(false);
 			UTLP->HideMenu();
