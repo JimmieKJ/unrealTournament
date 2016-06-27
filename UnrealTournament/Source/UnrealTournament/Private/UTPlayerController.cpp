@@ -300,8 +300,11 @@ bool AUTPlayerController::ServerRequestRally_Validate()
 
 void AUTPlayerController::ServerRequestRally_Implementation()
 {
-	AUTGameMode* Game = GetWorld()->GetAuthGameMode<AUTGameMode>();
-	Game->HandleRallyRequest(this);
+	if (UTCharacter && !UTCharacter->IsRagdoll())
+	{
+		AUTGameMode* Game = GetWorld()->GetAuthGameMode<AUTGameMode>();
+		Game->HandleRallyRequest(this);
+	}
 }
 
 void AUTPlayerController::NP()

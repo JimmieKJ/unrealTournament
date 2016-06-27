@@ -31,6 +31,7 @@
 #include "UTCTFRoundGameState.h"
 #include "UTAsymCTFSquadAI.h"
 #include "UTWeaponRedirector.h"
+#include "UTWeaponLocker.h"
 
 AUTFlagRunGame::AUTFlagRunGame(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -306,6 +307,17 @@ void AUTFlagRunGame::HandleRallyRequest(AUTPlayerController* RequestingPC)
 			WarpRotation = GS->FlagBases[Team->TeamIndex]->GetActorRotation();
 			RallyDelay = 500.f;
 			UTPlayerState->AnnounceStatus(StatusMessage::ImOnDefense);  
+		}
+		// grab weapons from nearby locker if needed
+		for (TActorIterator<AUTWeaponLocker> It(GetWorld()); It; ++It)
+		{
+			static FName NAME_LineOfSight = FName(TEXT("LineOfSight"));
+			FCollisionQueryParams CollisionParms(NAME_LineOfSight, true, UTCharacter);
+			if (!It->IsTaken(UTCharacter) && ((It->GetActorLocation() - UTCharacter->GetActorLocation()).Size() < 1000.f) && !GetWorld()->LineTraceTestByChannel(UTCharacter->GetActorLocation(), It->GetActorLocation(), COLLISION_TRACE_WEAPONNOCHARACTER, CollisionParms))
+			{
+				It->ProcessTouch(UTCharacter);
+				break;
+			}
 		}
 		// teleport
 		UPrimitiveComponent* SavedPlayerBase = UTCharacter->GetMovementBase();
