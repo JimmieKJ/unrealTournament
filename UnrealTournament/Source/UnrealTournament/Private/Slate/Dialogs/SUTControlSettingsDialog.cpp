@@ -390,10 +390,11 @@ void SUTControlSettingsDialog::CreateBinds()
 		->AddActionMapping("ToggleComMenu")
 		->AddDefaults(EKeys::F)));
 
+/*
 	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "PushToTalk", "Push To Talk")))
 	->AddActionMapping("PushToTalk")
 	->AddDefaults(EKeys::CapsLock)));
-
+*/
 	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "RequestRally", "Request Rally")))
 		->AddActionMapping("RequestRally")
 		->AddDefaults(EKeys::Enter)));

@@ -1032,7 +1032,8 @@ TSharedRef<SWidget> SUTSystemSettingsDialog::BuildAudioTab()
 			.Style(SUWindowsStyle::Get(), "UT.Common.CheckBox")
 			.IsChecked(UserSettings->IsHRTFEnabled() ? ESlateCheckBoxState::Checked : ESlateCheckBoxState::Unchecked)
 		]
-	]
+	];
+/*
 	+ SVerticalBox::Slot()
 	.AutoHeight()
 	.Padding(FMargin(10.0f, 50.0f, 10.0f, 5.0f))
@@ -1041,6 +1042,7 @@ TSharedRef<SWidget> SUTSystemSettingsDialog::BuildAudioTab()
 		.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
 		.Text(NSLOCTEXT("SUTSystemSettingsDialog", "VOIPTitle", "Voice over IP Settings"))
 	]
+
 	+ SVerticalBox::Slot()
 	.AutoHeight()
 	.Padding(FMargin(10.0f, 5.0f, 10.0f, 5.0f))
@@ -1066,6 +1068,7 @@ TSharedRef<SWidget> SUTSystemSettingsDialog::BuildAudioTab()
 			]
 		]
 	];
+*/
 }
 
 void SUTSystemSettingsDialog::OnBotSpeechSelected(TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo)
@@ -1316,14 +1319,15 @@ FReply SUTSystemSettingsDialog::OKClick()
 			bProfileNeedsUpdate = true;
 		}
 
+/*
 		bool bWantsPushToTalk = PushToTalkCombo->GetSelectedItem()->Equals(*VOIPOptions[1].Get(),ESearchCase::IgnoreCase);
-
 		if (ProfileSettings->bPushToTalk != bWantsPushToTalk)
 		{
 			ProfileSettings->bPushToTalk = bWantsPushToTalk;
 			GetPlayerOwner()->PlayerController->ToggleSpeaking(!ProfileSettings->bPushToTalk);
 			bProfileNeedsUpdate = true;
 		}
+*/
 
 		if (bProfileNeedsUpdate) GetPlayerOwner()->SaveProfileSettings();
 	}
