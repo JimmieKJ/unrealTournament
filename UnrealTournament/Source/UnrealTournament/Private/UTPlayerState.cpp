@@ -643,7 +643,8 @@ void AUTPlayerState::Tick(float DeltaTime)
 
 	if (Role == ROLE_Authority)
 	{
-		bCanRally = (GetWorld()->GetTimeSeconds() > NextRallyTime) && (!GetUTCharacter() || GetUTCharacter()->bCanRally);
+		AUTCharacter* UTChar = GetUTCharacter();
+		bCanRally = (GetWorld()->GetTimeSeconds() > NextRallyTime) && UTChar && UTChar->bCanRally && (GetWorld()->GetTimeSeconds() - UTChar->LastTargetedTime > 3.f);
 	}
 	// If we are waiting to respawn then count down
 	if (RespawnTime > 0.0f)

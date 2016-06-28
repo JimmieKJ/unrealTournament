@@ -1208,6 +1208,7 @@ void AUTCharacter::NotifyTakeHit(AController* InstigatedBy, int32 AppliedDamage,
 		{
 			Flag->LastPingedTime = GetWorld()->GetTimeSeconds();
 		}
+		LastTargetedTime = GetWorld()->GetTimeSeconds();
 		AUTPlayerController* InstigatedByPC = Cast<AUTPlayerController>(InstigatedBy);
 		APawn* InstigatorPawn = nullptr;
 		uint8 CompressedDamage = FMath::Clamp(AppliedDamage, 0, 255);

@@ -1270,19 +1270,23 @@ void AUTWeapon::GuessPlayerTarget(const FVector& StartFireLoc, const FVector& Fi
 			float BestDist = 0.f;
 			float BestOffset = 0.f;
 			PC->LastShotTargetGuess = UUTGameplayStatics::ChooseBestAimTarget(PC, StartFireLoc, FireDir, 0.85f, MaxRange, 500.f, APawn::StaticClass(), &BestAim, &BestDist, &BestOffset);
-			AUTCharacter* FlagCarrierTarget = Cast<AUTCharacter>(PC->LastShotTargetGuess);
-			AUTCarriedObject* Flag = FlagCarrierTarget ? FlagCarrierTarget->GetCarriedObject() : nullptr;
-			if (Flag && Flag->bShouldPingFlag)
+			AUTCharacter* TargetedCharacter = Cast<AUTCharacter>(PC->LastShotTargetGuess);
+			if (TargetedCharacter)
 			{
-				if ((GetWorld()->GetTimeSeconds() - Flag->LastPingVerbalTime > 12.f) && (GetWorld()->GetTimeSeconds() - Flag->LastPingedTime > Flag->PingedDuration))
+				TargetedCharacter->LastTargetedTime = GetWorld()->GetTimeSeconds();
+				AUTCarriedObject* Flag = TargetedCharacter->GetCarriedObject();
+				if (Flag && Flag->bShouldPingFlag)
 				{
-					Flag->LastPingVerbalTime = GetWorld()->GetTimeSeconds();
-					if (PC->UTPlayerState)
+					if ((GetWorld()->GetTimeSeconds() - Flag->LastPingVerbalTime > 12.f) && (GetWorld()->GetTimeSeconds() - Flag->LastPingedTime > Flag->PingedDuration))
 					{
-						PC->UTPlayerState->AnnounceStatus(StatusMessage::EnemyFCHere);
+						Flag->LastPingVerbalTime = GetWorld()->GetTimeSeconds();
+						if (PC->UTPlayerState)
+						{
+							PC->UTPlayerState->AnnounceStatus(StatusMessage::EnemyFCHere);
+						}
 					}
+					Flag->LastPingedTime = GetWorld()->GetTimeSeconds();
 				}
-				Flag->LastPingedTime = GetWorld()->GetTimeSeconds();
 			}
 		}
 	}
