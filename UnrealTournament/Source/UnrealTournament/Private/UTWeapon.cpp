@@ -1271,9 +1271,18 @@ void AUTWeapon::GuessPlayerTarget(const FVector& StartFireLoc, const FVector& Fi
 			float BestOffset = 0.f;
 			PC->LastShotTargetGuess = UUTGameplayStatics::ChooseBestAimTarget(PC, StartFireLoc, FireDir, 0.85f, MaxRange, 500.f, APawn::StaticClass(), &BestAim, &BestDist, &BestOffset);
 			AUTCharacter* FlagCarrierTarget = Cast<AUTCharacter>(PC->LastShotTargetGuess);
-			if (FlagCarrierTarget && FlagCarrierTarget->GetCarriedObject())
+			AUTCarriedObject* Flag = FlagCarrierTarget ? FlagCarrierTarget->GetCarriedObject() : nullptr;
+			if (Flag && Flag->bShouldPingFlag)
 			{
-				FlagCarrierTarget->GetCarriedObject()->LastPingedTime = GetWorld()->GetTimeSeconds();
+				if ((GetWorld()->GetTimeSeconds() - Flag->LastPingVerbalTime > 12.f) && (GetWorld()->GetTimeSeconds() - Flag->LastPingedTime > Flag->PingedDuration))
+				{
+					Flag->LastPingVerbalTime = GetWorld()->GetTimeSeconds();
+					if (PC->UTPlayerState)
+					{
+						PC->UTPlayerState->AnnounceStatus(StatusMessage::EnemyFCHere);
+					}
+				}
+				Flag->LastPingedTime = GetWorld()->GetTimeSeconds();
 			}
 		}
 	}
