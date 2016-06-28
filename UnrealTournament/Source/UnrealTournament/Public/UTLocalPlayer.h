@@ -42,6 +42,8 @@ DECLARE_MULTICAST_DELEGATE_ThreeParams(FPlayerOnlineStatusChanged, class UUTLoca
 
 DECLARE_DELEGATE_TwoParams(FUTProfilesLoaded, bool, const FText&);
 
+DECLARE_MULTICAST_DELEGATE(FOnRankedPlaylistsChangedDelegate);
+
 // This delegate will be triggered whenever a chat message is updated.
 
 class FStoredChatMessage : public TSharedFromThis<FStoredChatMessage>
@@ -138,6 +140,44 @@ struct FLevelUpRewardNotifyPayload
 	int32 Level;
 	UPROPERTY()
 	FString RewardID;
+};
+
+USTRUCT()
+struct FRankedLeagueProgress
+{
+	GENERATED_USTRUCT_BODY()
+
+	FRankedLeagueProgress() :
+		LeaguePlacementMatches(0), 
+		LeaguePoints(0), 
+		LeagueTier(0), 
+		LeagueDivision(0), 
+		LeaguePromotionMatchesAttempted(0), 
+		LeaguePromotionMatchesWon(0), 
+		bLeaguePromotionSeries(false)
+	{
+	}
+
+	UPROPERTY()
+	int32 LeaguePlacementMatches;
+
+	UPROPERTY()
+	int32 LeaguePoints;
+
+	UPROPERTY()
+	int32 LeagueTier;
+
+	UPROPERTY()
+	int32 LeagueDivision;
+
+	UPROPERTY()
+	int32 LeaguePromotionMatchesAttempted;
+
+	UPROPERTY()
+	int32 LeaguePromotionMatchesWon;
+
+	UPROPERTY()
+	bool bLeaguePromotionSeries;
 };
 
 UCLASS(config=Engine)
@@ -506,24 +546,24 @@ private:
 	int32 FFA_ELO;	// The Player's current FFA ELO rank
 	int32 CTF_ELO;	// The Player's current CTF ELO rank
 	int32 Showdown_ELO;
+	int32 RankedDuel_ELO;
+	int32 RankedCTF_ELO;
 	int32 RankedShowdown_ELO;
 	int32 DuelMatchesPlayed;	// The # of matches this player has played.
 	int32 TDMMatchesPlayed;	// The # of matches this player has played.
 	int32 FFAMatchesPlayed;	// The # of matches this player has played.
 	int32 CTFMatchesPlayed;	// The # of matches this player has played.
 	int32 ShowdownMatchesPlayed;	// The # of matches this player has played.
+	int32 RankedDuelMatchesPlayed;	// The # of matches this player has played.
+	int32 RankedCTFMatchesPlayed;	// The # of matches this player has played.
 	int32 RankedShowdownMatchesPlayed;	// The # of matches this player has played.
 
-	int32 ShowdownLeaguePlacementMatches;
-	int32 ShowdownLeaguePoints;
-	int32 ShowdownLeagueTier;
-	int32 ShowdownLeagueDivision;
-	int32 ShowdownLeaguePromotionMatchesAttempted;
-	int32 ShowdownLeaguePromotionMatchesWon;
-	bool bShowdownLeaguePromotionSeries;
-	
+	TMap<FString, FRankedLeagueProgress> LeagueRecords;
+	virtual void UpdateLeagueProgress(const FString& LeagueName, const FRankedLeagueProgress& InLeagueProgress);
+		
 	bool bProgressionReadFromCloud;
 	void ReadMMRFromBackend();
+	void ReadLeagueFromBackend(const FString& MatchRatingType);
 
 	void ReportStarsToServer();
 
@@ -552,13 +592,7 @@ public:
 	virtual int32 ShowdownEloMatches() { return ShowdownMatchesPlayed; }
 	virtual int32 RankedShowdownEloMatches() { return RankedShowdownMatchesPlayed; }
 
-	inline virtual int32 GetShowdownPlacementMatches() { return ShowdownLeaguePlacementMatches; }
-	inline virtual int32 GetShowdownLeagueTier() { return ShowdownLeagueTier; }
-	inline virtual int32 GetShowdownLeagueDivision() { return ShowdownLeagueDivision; }
-	inline virtual int32 GetShowdownLeaguePoints() { return ShowdownLeaguePoints; }
-	inline virtual bool GetShowdownLeagueIsInPromotionSeries() { return bShowdownLeaguePromotionSeries; }
-	inline virtual int32 GetShowdownLeaguePromotionSeriesWins() { return ShowdownLeaguePromotionMatchesWon; }
-	inline virtual int32 GetShowdownLeaguePromotionSeriesMatches() { return ShowdownLeaguePromotionMatchesAttempted; }
+	virtual bool GetLeagueProgress(const FString& LeagueName, FRankedLeagueProgress& LeagueProgress);
 
 	// Returns the # of stars to show based on XP value. 
 	UFUNCTION(BlueprintCallable, Category = Badge)
@@ -883,6 +917,7 @@ public:
 	}
 	bool IsRankedMatchmakingEnabled(int32 PlaylistId);
 	TArray<int32> ActiveRankedPlaylists;
+	FOnRankedPlaylistsChangedDelegate OnRankedPlaylistsChanged;
 
 	/** Get the MCP account ID for this player */
 	FUniqueNetIdRepl GetGameAccountId() const;

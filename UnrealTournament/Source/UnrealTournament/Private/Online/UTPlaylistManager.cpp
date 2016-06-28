@@ -19,6 +19,21 @@ bool UUTPlaylistManager::GetMaxTeamInfoForPlaylist(int32 PlaylistId, int32& MaxT
 	return false;
 }
 
+bool UUTPlaylistManager::GetPlaylistName(int32 PlaylistId, FString& OutPlaylistName)
+{
+	for (const FPlaylistItem& PlaylistEntry : Playlist)
+	{
+		if (PlaylistEntry.PlaylistId == PlaylistId)
+		{
+			OutPlaylistName = PlaylistEntry.FriendlyName;
+			return true;
+		}
+	}
+
+	return false;
+
+}
+
 bool UUTPlaylistManager::GetTeamEloRatingForPlaylist(int32 PlaylistId, FString& TeamEloRating)
 {
 	for (const FPlaylistItem& PlaylistEntry : Playlist)

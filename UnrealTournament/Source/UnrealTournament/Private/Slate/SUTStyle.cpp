@@ -306,7 +306,8 @@ void SUTStyle::SetCommonStyle(TSharedRef<FSlateStyleSet> StyleRef)
 
 
 	Style.Set("UT.Box", new FSlateColorBrush(FColor(13,13,13,153)));
-	Style.Set("UT.Divider", new FSlateColorBrush(FColor(25,25,25,255)));
+	Style.Set("UT.Divider", new FSlateColorBrush(FColor(25, 25, 25, 255)));
+	Style.Set("UT.Divider.Black", new FSlateColorBrush(FColor(0, 0, 0, 255)));
 
 	Style.Set("UT.Star", new IMAGE_BRUSH( "Star24x24", FVector2D(24,24) ));
 	Style.Set("UT.Star.Outline", new IMAGE_BRUSH( "StarOutline24x24", FVector2D(24,24) ));

@@ -84,9 +84,7 @@ public:
 	virtual FReply ClearCloud();
 
 	virtual FReply OnShowServerBrowserPanel();
-
-	virtual FReply OnRankedMatchmaking(int32 PlaylistId);
-
+	
 	virtual TSharedPtr<SUTPanelBase> GetActivePanel();
 
 protected:

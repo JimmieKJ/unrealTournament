@@ -43,6 +43,9 @@ private:
 	void PartyMemberPromoted();
 
 	void SetupPartyMemberBox();
+	void AddRankedPlaylistButtons();
+	FReply OnStartRankedPlaylist(int32 PlaylistId);
+	void RankedPlaylistsChanged();
 
 	virtual void Tick(const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime) override;
 

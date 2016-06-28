@@ -240,6 +240,8 @@ public:
 
 	virtual void CheckMapStatus(FString MapPackageName, bool& bIsEpicMap, bool& bIsMeshedMap);
 
+	virtual FString GetRankedLeagueName() { return TEXT(""); }
+
 private:
 	/** Holds a list of all Epic maps and their meshed stats */
 	UPROPERTY(GlobalConfig)

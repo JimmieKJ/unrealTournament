@@ -109,13 +109,6 @@ UUTLocalPlayer::UUTLocalPlayer(const class FObjectInitializer& ObjectInitializer
 
 	bProgressionReadFromCloud = false;
 
-	ShowdownLeaguePlacementMatches = 0;
-	ShowdownLeaguePoints = 0;
-	ShowdownLeagueTier = 0;
-	ShowdownLeagueDivision = 0;
-	ShowdownLeaguePromotionMatchesAttempted = 0;
-	ShowdownLeaguePromotionMatchesWon = 0;
-	bShowdownLeaguePromotionSeries = false;
 	UIChatTextBackBufferPosition = 0;
 
 	bIsPendingProgressionLoadFromMCP = false;
@@ -1956,6 +1949,22 @@ void UUTLocalPlayer::ReadSpecificELOFromBackend(const FString& MatchRatingType)
 				NewRating = Showdown_ELO;
 				ShowdownMatchesPlayed = Response.NumGamesPlayed;
 			}
+			else if (MatchRatingType == NAME_RankedDuelSkillRating.ToString())
+			{
+				OldRating = RankedDuel_ELO;
+				RankedDuel_ELO = Response.Rating;
+				NewRating = RankedDuel_ELO;
+				RankedDuelMatchesPlayed = Response.NumGamesPlayed;
+				bRankedSession = true;
+			}
+			else if (MatchRatingType == NAME_RankedCTFSkillRating.ToString())
+			{
+				OldRating = RankedCTF_ELO;
+				RankedCTF_ELO = Response.Rating;
+				NewRating = RankedCTF_ELO;
+				RankedCTFMatchesPlayed = Response.NumGamesPlayed;
+				bRankedSession = true;
+			}
 			else if (MatchRatingType == NAME_RankedShowdownSkillRating.ToString())
 			{
 				OldRating = RankedShowdown_ELO;
@@ -1991,28 +2000,32 @@ void UUTLocalPlayer::ReadSpecificELOFromBackend(const FString& MatchRatingType)
 
 	});
 	
-	// Refresh showdown league if we played showdown
-	if (MatchRatingType == NAME_RankedShowdownSkillRating.ToString())
+	// Refresh ranked league if we played ranked
+	if (MatchRatingType == NAME_RankedDuelSkillRating.ToString() ||
+		MatchRatingType == NAME_RankedCTFSkillRating.ToString() ||
+		MatchRatingType == NAME_RankedShowdownSkillRating.ToString())
 	{
-		McpUtils->GetAccountLeague(NAME_RankedShowdownSkillRating.ToString(), [this](const FOnlineError& Result, const FAccountLeague& Response)
+		McpUtils->GetAccountLeague(MatchRatingType, [this, MatchRatingType](const FOnlineError& Result, const FAccountLeague& Response)
 		{
 			if (!Result.bSucceeded)
 			{
 				// best we can do is log an error
-				UE_LOG(UT, Warning, TEXT("Failed to read Showdown League info from the server. (%d) %s %s"), Result.HttpResult, *Result.ErrorCode, *Result.ErrorMessage.ToString());
+				UE_LOG(UT, Warning, TEXT("Failed to read League info from the server. (%d) %s %s"), Result.HttpResult, *Result.ErrorCode, *Result.ErrorMessage.ToString());
 			}
 			else
 			{
 				if (Response.PlacementMatchesAttempted < 10)
 				{
-					UE_LOG(UT, Display, TEXT("Showdown league read placement matches: %d"), Response.PlacementMatchesAttempted);
+					UE_LOG(UT, Display, TEXT("%s league read placement matches: %d"), *MatchRatingType, Response.PlacementMatchesAttempted);
 				}
 				else
 				{
-					UE_LOG(UT, Display, TEXT("Showdown league read tier:%d, division:%d, points:%d"), Response.Tier, Response.Division + 1, Response.Points);
+					UE_LOG(UT, Display, TEXT("%s league read tier:%d, division:%d, points:%d"), *MatchRatingType, Response.Tier, Response.Division + 1, Response.Points);
 				}
 #if !UE_SERVER
-				if (ShowdownLeaguePlacementMatches < 10 && Response.PlacementMatchesAttempted == 10)
+				FRankedLeagueProgress LeagueProgress;
+				GetLeagueProgress(MatchRatingType, LeagueProgress);
+				if (LeagueProgress.LeaguePlacementMatches < 10 && Response.PlacementMatchesAttempted == 10)
 				{ 
 					// Report your placement!
 
@@ -2070,7 +2083,7 @@ void UUTLocalPlayer::ReadSpecificELOFromBackend(const FString& MatchRatingType)
 						PlacementText,
 						UTDIALOG_BUTTON_OK, FDialogResultDelegate(), FVector2D(0.4, 0.25));
 				}
-				else if (!bShowdownLeaguePromotionSeries && Response.IsInPromotionSeries)
+				else if (!LeagueProgress.bLeaguePromotionSeries && Response.IsInPromotionSeries)
 				{
 					FText PromoSeriesText;
 					if (Response.Division == 4)
@@ -2088,10 +2101,10 @@ void UUTLocalPlayer::ReadSpecificELOFromBackend(const FString& MatchRatingType)
 						PromoSeriesText,
 						UTDIALOG_BUTTON_OK, FDialogResultDelegate(), FVector2D(0.5, 0.4));
 				}
-				else if (bShowdownLeaguePromotionSeries && !Response.IsInPromotionSeries)
+				else if (LeagueProgress.bLeaguePromotionSeries && !Response.IsInPromotionSeries)
 				{
 					// Report if we got promoted or failed the series
-					if (Response.Division == ShowdownLeagueDivision && Response.Tier == ShowdownLeagueTier)
+					if (Response.Division == LeagueProgress.LeagueDivision && Response.Tier == LeagueProgress.LeagueTier)
 					{
 						LeagueMatchResultsDialog = ShowLeagueMatchResultDialog(Response.Tier, Response.Division,
 							NSLOCTEXT("UTLocalPlayer", "ShowdownPromoSeriesFailedTitle", "Better Luck Next Time!"),
@@ -2134,7 +2147,7 @@ void UUTLocalPlayer::ReadSpecificELOFromBackend(const FString& MatchRatingType)
 						PromoSeriesText,
 						UTDIALOG_BUTTON_OK, FDialogResultDelegate(), FVector2D(0.5, 0.4));
 				}
-				else if (Response.Tier < ShowdownLeagueTier || (ShowdownLeagueTier == Response.Tier && Response.Division < ShowdownLeagueDivision))
+				else if (Response.Tier < LeagueProgress.LeagueTier || (LeagueProgress.LeagueTier == Response.Tier && Response.Division < LeagueProgress.LeagueDivision))
 				{
 					// Report a demotion
 					LeagueMatchResultsDialog = ShowLeagueMatchResultDialog(Response.Tier, Response.Division,
@@ -2142,9 +2155,9 @@ void UUTLocalPlayer::ReadSpecificELOFromBackend(const FString& MatchRatingType)
 						NSLOCTEXT("UTLocalPlayer", "ShowdownDemotion", "We're sorry about the demotion, hopefully players in this lower bracket are more your speed!"),
 						UTDIALOG_BUTTON_OK, FDialogResultDelegate(), FVector2D(0.5, 0.4));
 				}
-				else if (Response.Points > ShowdownLeaguePoints)
+				else if (Response.Points > LeagueProgress.LeaguePoints)
 				{
-					FText WinText = FText::Format(NSLOCTEXT("UTLocalPlayer", "ShowdownWin", "Great Win! You earned {0} league points! You now have {1} league points!"), FText::AsNumber(Response.Points - ShowdownLeaguePoints), FText::AsNumber(Response.Points));
+					FText WinText = FText::Format(NSLOCTEXT("UTLocalPlayer", "ShowdownWin", "Great Win! You earned {0} league points! You now have {1} league points!"), FText::AsNumber(Response.Points - LeagueProgress.LeaguePoints), FText::AsNumber(Response.Points));
 
 					// Report a regular win
 					LeagueMatchResultsDialog = ShowLeagueMatchResultDialog(Response.Tier, Response.Division,
@@ -2155,7 +2168,7 @@ void UUTLocalPlayer::ReadSpecificELOFromBackend(const FString& MatchRatingType)
 				else
 				{
 					// Report a regular loss
-					FText LossText = FText::Format(NSLOCTEXT("UTLocalPlayer", "ShowdownLoss", "That was a rough loss, you lost {0} league points. At least you still have {1} league points!"), FText::AsNumber(ShowdownLeaguePoints - Response.Points), FText::AsNumber(Response.Points));
+					FText LossText = FText::Format(NSLOCTEXT("UTLocalPlayer", "ShowdownLoss", "That was a rough loss, you lost {0} league points. At least you still have {1} league points!"), FText::AsNumber(LeagueProgress.LeaguePoints - Response.Points), FText::AsNumber(Response.Points));
 
 					LeagueMatchResultsDialog = ShowLeagueMatchResultDialog(Response.Tier, Response.Division,
 						NSLOCTEXT("UTLocalPlayer", "ShowdowLossTitle", "Tough Luck!"),
@@ -2163,13 +2176,15 @@ void UUTLocalPlayer::ReadSpecificELOFromBackend(const FString& MatchRatingType)
 						UTDIALOG_BUTTON_OK, FDialogResultDelegate(), FVector2D(0.5, 0.4));
 				}
 #endif
-				ShowdownLeaguePlacementMatches = Response.PlacementMatchesAttempted;
-				ShowdownLeaguePoints = Response.Points;
-				ShowdownLeagueTier = Response.Tier;
-				ShowdownLeagueDivision = Response.Division;
-				ShowdownLeaguePromotionMatchesAttempted = Response.PromotionMatchesAttempted;
-				ShowdownLeaguePromotionMatchesWon = Response.PromotionMatchesWon;
-				bShowdownLeaguePromotionSeries = Response.IsInPromotionSeries;
+				FRankedLeagueProgress NewLeagueProgress;
+				NewLeagueProgress.LeaguePlacementMatches = Response.PlacementMatchesAttempted;
+				NewLeagueProgress.LeaguePoints = Response.Points;
+				NewLeagueProgress.LeagueTier = Response.Tier;
+				NewLeagueProgress.LeagueDivision = Response.Division;
+				NewLeagueProgress.LeaguePromotionMatchesAttempted = Response.PromotionMatchesAttempted;
+				NewLeagueProgress.LeaguePromotionMatchesWon = Response.PromotionMatchesWon;
+				NewLeagueProgress.bLeaguePromotionSeries = Response.IsInPromotionSeries;
+				UpdateLeagueProgress(MatchRatingType, NewLeagueProgress);
 			}
 		});
 	}
@@ -2217,14 +2232,16 @@ void UUTLocalPlayer::ReadMMRFromBackend()
 	{
 		UE_LOG(UT, Warning, TEXT("Unable to load McpUtils. Will not be able to read MMR from MCP"));
 		return;
-	}	
-	
+	}
+
 	TArray<FString> MatchRatingTypes;
 	MatchRatingTypes.Add(TEXT("SkillRating"));
 	MatchRatingTypes.Add(TEXT("TDMSkillRating"));
 	MatchRatingTypes.Add(TEXT("DMSkillRating"));
 	MatchRatingTypes.Add(TEXT("CTFSkillRating"));
 	MatchRatingTypes.Add(TEXT("ShowdownSkillRating"));
+	MatchRatingTypes.Add(TEXT("RankedDuelSkillRating"));
+	MatchRatingTypes.Add(TEXT("RankedCTFSkillRating"));
 	MatchRatingTypes.Add(TEXT("RankedShowdownSkillRating"));
 	// This should be a weak ptr here, but UTLocalPlayer is unlikely to go away
 	TWeakObjectPtr<UUTLocalPlayer> WeakLocalPlayer(this);
@@ -2272,13 +2289,23 @@ void UUTLocalPlayer::ReadMMRFromBackend()
 					WeakLocalPlayer->Showdown_ELO = Response.Ratings[i];
 					WeakLocalPlayer->ShowdownMatchesPlayed = Response.NumGamesPlayed[i];
 				}
+				else if (Response.RatingTypes[i] == NAME_RankedDuelSkillRating.ToString())
+				{
+					WeakLocalPlayer->RankedDuel_ELO = Response.Ratings[i];
+					WeakLocalPlayer->RankedDuelMatchesPlayed = Response.NumGamesPlayed[i];
+				}
+				else if (Response.RatingTypes[i] == NAME_RankedCTFSkillRating.ToString())
+				{
+					WeakLocalPlayer->RankedCTF_ELO = Response.Ratings[i];
+					WeakLocalPlayer->RankedCTFMatchesPlayed = Response.NumGamesPlayed[i];
+				}
 				else if (Response.RatingTypes[i] == NAME_RankedShowdownSkillRating.ToString())
 				{
 					WeakLocalPlayer->RankedShowdown_ELO = Response.Ratings[i];
 					WeakLocalPlayer->RankedShowdownMatchesPlayed = Response.NumGamesPlayed[i];
 				}
 			}
-			
+
 			// We're in the menus, just fill out the player state for the player card right now
 			if (WeakLocalPlayer->IsMenuGame() && WeakLocalPlayer->PlayerController)
 			{
@@ -2303,31 +2330,48 @@ void UUTLocalPlayer::ReadMMRFromBackend()
 		}
 	});
 
-	McpUtils->GetAccountLeague(NAME_RankedShowdownSkillRating.ToString(), [this](const FOnlineError& Result, const FAccountLeague& Response)
+	ReadLeagueFromBackend(NAME_RankedShowdownSkillRating.ToString());
+	ReadLeagueFromBackend(NAME_RankedCTFSkillRating.ToString());
+	ReadLeagueFromBackend(NAME_RankedDuelSkillRating.ToString());
+}
+
+void UUTLocalPlayer::ReadLeagueFromBackend(const FString& MatchRatingType)
+{
+	// get MCP Utils
+	UUTMcpUtils* McpUtils = UUTMcpUtils::Get(GetWorld(), OnlineIdentityInterface->GetUniquePlayerId(GetControllerId()));
+	if (McpUtils == nullptr)
+	{
+		UE_LOG(UT, Warning, TEXT("Unable to load McpUtils. Will not be able to read league data from MCP"));
+		return;
+	}
+
+	McpUtils->GetAccountLeague(MatchRatingType, [this, MatchRatingType](const FOnlineError& Result, const FAccountLeague& Response)
 	{
 		if (!Result.bSucceeded)
 		{
 			// best we can do is log an error
-			UE_LOG(UT, Warning, TEXT("Failed to read Showdown League info from the server. (%d) %s %s"), Result.HttpResult, *Result.ErrorCode, *Result.ErrorMessage.ToString());
+			UE_LOG(UT, Warning, TEXT("Failed to read %s League info from the server. (%d) %s %s"), *MatchRatingType, Result.HttpResult, *Result.ErrorCode, *Result.ErrorMessage.ToString());
 		}
 		else
 		{
 			if (Response.PlacementMatchesAttempted < 10)
 			{
-				UE_LOG(UT, Display, TEXT("Showdown league read placement matches: %d"), Response.PlacementMatchesAttempted);
+				UE_LOG(UT, Display, TEXT("%s league read placement matches: %d"), *MatchRatingType, Response.PlacementMatchesAttempted);
 			}
 			else
 			{
-				UE_LOG(UT, Display, TEXT("Showdown league read tier:%d, division:%d, points:%d"), Response.Tier, Response.Division, Response.Points);
+				UE_LOG(UT, Display, TEXT("%s league read tier:%d, division:%d, points:%d"), *MatchRatingType, Response.Tier, Response.Division, Response.Points);
 			}
 
-			ShowdownLeagueTier = Response.Tier;
-			ShowdownLeagueDivision = Response.Division;
-			ShowdownLeaguePlacementMatches = Response.PlacementMatchesAttempted;
-			ShowdownLeaguePoints = Response.Points;
-			bShowdownLeaguePromotionSeries = Response.IsInPromotionSeries;
-			ShowdownLeaguePromotionMatchesAttempted = Response.PromotionMatchesAttempted;
-			ShowdownLeaguePromotionMatchesWon = Response.PromotionMatchesWon;
+			FRankedLeagueProgress NewLeagueProgress;
+			NewLeagueProgress.LeagueTier = Response.Tier;
+			NewLeagueProgress.LeagueDivision = Response.Division;
+			NewLeagueProgress.LeaguePlacementMatches = Response.PlacementMatchesAttempted;
+			NewLeagueProgress.LeaguePoints = Response.Points;
+			NewLeagueProgress.bLeaguePromotionSeries = Response.IsInPromotionSeries;
+			NewLeagueProgress.LeaguePromotionMatchesAttempted = Response.PromotionMatchesAttempted;
+			NewLeagueProgress.LeaguePromotionMatchesWon = Response.PromotionMatchesWon;
+			UpdateLeagueProgress(MatchRatingType, NewLeagueProgress);
 		}
 	});
 }
@@ -4543,6 +4587,8 @@ void UUTLocalPlayer::OnReadTitleFileComplete(bool bWasSuccessful, const FString&
 				}
 			}
 		}
+
+		OnRankedPlaylistsChanged.Broadcast();
 	}
 }
 
@@ -5313,4 +5359,25 @@ void UUTLocalPlayer::OnPlayerTalkingStateChanged(TSharedRef<const FUniqueNetId> 
 	}
 }
 
+bool UUTLocalPlayer::GetLeagueProgress(const FString& LeagueName, FRankedLeagueProgress& OutLeagueProgress)
+{
+	if (LeagueRecords.Contains(LeagueName))
+	{
+		OutLeagueProgress = LeagueRecords[LeagueName];
+		return true;
+	}
 
+	return false;
+}
+
+void UUTLocalPlayer::UpdateLeagueProgress(const FString& LeagueName, const FRankedLeagueProgress& InLeagueProgress)
+{
+	if (LeagueRecords.Contains(LeagueName))
+	{
+		LeagueRecords[LeagueName] = InLeagueProgress;
+	}
+	else
+	{
+		LeagueRecords.Add(LeagueName, InLeagueProgress);
+	}
+}

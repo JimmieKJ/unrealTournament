@@ -3,6 +3,7 @@
 #include "UnrealTournament.h"
 #include "SUTPartyWidget.h"
 #include "BlueprintContextLibrary.h"
+#include "MatchmakingContext.h"
 #include "PartyContext.h"
 #include "SUTComboButton.h"
 #include "UTParty.h"
@@ -18,6 +19,12 @@
 void SUTPartyWidget::Construct(const FArguments& InArgs, const FLocalPlayerContext& InCtx)
 {
 	Ctx = InCtx;
+
+	UUTLocalPlayer* UTLP = Cast<UUTLocalPlayer>(Ctx.GetLocalPlayer());
+	if (UTLP)
+	{
+		UTLP->OnRankedPlaylistsChanged.AddSP(this, &SUTPartyWidget::RankedPlaylistsChanged);
+	}
 
 	RefreshTimer = 30.0f;
 	LastFriendCount = 0;
@@ -46,6 +53,20 @@ void SUTPartyWidget::Construct(const FArguments& InArgs, const FLocalPlayerConte
 	}
 }
 
+SUTPartyWidget::~SUTPartyWidget()
+{
+	UUTLocalPlayer* UTLP = Cast<UUTLocalPlayer>(Ctx.GetLocalPlayer());
+	if (UTLP)
+	{
+		UTLP->OnRankedPlaylistsChanged.RemoveAll(this);
+	}
+}
+
+void SUTPartyWidget::RankedPlaylistsChanged()
+{
+	SetupPartyMemberBox();
+}
+
 void SUTPartyWidget::PartyMemberPromoted()
 {
 	SetupPartyMemberBox();
@@ -61,10 +82,114 @@ void SUTPartyWidget::PartyStateChanged()
 	SetupPartyMemberBox();
 }
 
+FReply SUTPartyWidget::OnStartRankedPlaylist(int32 PlaylistId)
+{
+	UUTLocalPlayer* UTLP = Cast<UUTLocalPlayer>(Ctx.GetLocalPlayer());
+	if (UTLP)
+	{
+		if (!UTLP->IsRankedMatchmakingEnabled(PlaylistId))
+		{
+			UTLP->ShowToast(NSLOCTEXT("SUTPartyWidget", "RankedPlayDisabled", "This playlist is not currently active"));
+			return FReply::Handled();
+		}
+
+		UMatchmakingContext* MatchmakingContext = Cast<UMatchmakingContext>(UBlueprintContextLibrary::GetContext(UTLP->GetWorld(), UMatchmakingContext::StaticClass()));
+		if (MatchmakingContext)
+		{
+			MatchmakingContext->StartMatchmaking(PlaylistId);
+		}
+	}
+
+	return FReply::Handled();
+}
+
+void SUTPartyWidget::AddRankedPlaylistButtons()
+{
+	UUTLocalPlayer* UTLP = Cast<UUTLocalPlayer>(Ctx.GetLocalPlayer());
+	if (UTLP)
+	{
+		UUTGameInstance* UTGameInstance = CastChecked<UUTGameInstance>(Ctx.GetPlayerController()->GetGameInstance());
+		if (UTGameInstance && UTGameInstance->GetPlaylistManager())
+		{
+			int32 NumPlaylists = UTGameInstance->GetPlaylistManager()->GetNumPlaylists();
+			for (int32 i = 0; i < NumPlaylists; i++)
+			{
+				if (UTLP->IsRankedMatchmakingEnabled(i))
+				{
+					FString PlaylistName;
+					int32 MaxTeamCount, MaxTeamSize, MaxPartySize;
+
+					if (UTGameInstance->GetPlaylistManager()->GetPlaylistName(i, PlaylistName) &&
+						UTGameInstance->GetPlaylistManager()->GetMaxTeamInfoForPlaylist(i, MaxTeamCount, MaxTeamSize, MaxPartySize))
+					{
+						FString PlaylistPlayerCount = FString::Printf(TEXT("%dv%d"), MaxTeamSize, MaxTeamSize);
+
+						PartyMemberBox->AddSlot()
+						.Padding(FMargin(2.0f, 0.0f))
+						[
+							SNew(SUTButton)
+							.ButtonStyle(SUTStyle::Get(), "UT.Button.MenuBar")
+							.OnClicked(FOnClicked::CreateSP(this, &SUTPartyWidget::OnStartRankedPlaylist, i))
+							[
+								SNew(SOverlay)
+								+ SOverlay::Slot()
+								[
+									SNew(SBox)
+									.WidthOverride(128)
+									.HeightOverride(128)
+									[
+										SNew(SImage)
+										.Image(SUTStyle::Get().GetBrush("UT.HeaderBackground.Dark"))
+									]
+								]
+								+ SOverlay::Slot()
+								[
+									SNew(SBox)
+									.WidthOverride(128)
+									.HeightOverride(128)
+									[
+										SNew(SVerticalBox)
+										+SVerticalBox::Slot()
+										.HAlign(HAlign_Center)
+										.VAlign(VAlign_Center)
+										[
+											SNew(STextBlock)
+											.Text(FText::FromString(TEXT("Ranked")))
+											.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Small.Bold")
+										]
+										+SVerticalBox::Slot()
+										.HAlign(HAlign_Center)
+										.VAlign(VAlign_Center)
+										.Padding(0, 0)
+										[
+											SNew(STextBlock)
+											.Text(FText::FromString(PlaylistName))
+											.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Small.Bold")
+										]
+										+SVerticalBox::Slot()
+										.HAlign(HAlign_Center)
+										.VAlign(VAlign_Center)
+										.Padding(0, 10)
+										[
+											SNew(STextBlock)
+											.Text(FText::FromString(PlaylistPlayerCount))
+											.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Medium.Bold")
+										]
+									]
+								]
+							]
+						];
+					}
+				}
+			}
+		}
+	}
+}
+
 void SUTPartyWidget::SetupPartyMemberBox()
 {
 	PartyMemberBox->ClearChildren();
-
+	
 	UPartyContext* PartyContext = Cast<UPartyContext>(UBlueprintContextLibrary::GetContext(Ctx.GetWorld(), UPartyContext::StaticClass()));
 
 	const int32 PartySize = PartyContext->GetPartySize();
@@ -72,6 +197,9 @@ void SUTPartyWidget::SetupPartyMemberBox()
 	{
 		return;
 	}
+
+	// Add enabled ranked playlists to the party bar
+	AddRankedPlaylistButtons();
 
 	if (PartySize >= 2)
 	{
@@ -526,11 +654,6 @@ FReply SUTPartyWidget::AllowMemberInvites(bool bAllow)
 	SetupPartyMemberBox();
 
 	return FReply::Handled();
-}
-
-
-SUTPartyWidget::~SUTPartyWidget()
-{
 }
 
 void SUTPartyWidget::Tick(const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime)
