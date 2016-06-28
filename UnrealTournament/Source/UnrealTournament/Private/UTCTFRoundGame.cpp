@@ -895,34 +895,31 @@ void AUTCTFRoundGame::InitRound()
 		InitFlags();
 	}
 
-	if (bPerPlayerLives)
+	for (int32 i = 0; i < UTGameState->PlayerArray.Num(); i++)
 	{
-		for (int32 i = 0; i < UTGameState->PlayerArray.Num(); i++)
+		AUTPlayerState* PS = Cast<AUTPlayerState>(UTGameState->PlayerArray[i]);
+		PS->bHasLifeLimit = bPerPlayerLives;
+		PS->RoundKills = 0;
+		PS->NextRallyTime = GetWorld()->GetTimeSeconds() + ((PS->Team && IsTeamOnOffense(PS->Team->TeamIndex)) ? 60.f : 45.f);
+		PS->RespawnWaitTime = IsPlayerOnLifeLimitedTeam(PS) ? LimitedRespawnWaitTime : UnlimitedRespawnWaitTime;
+		PS->SetRemainingBoosts(InitialBoostCount);
+		PS->bSpecialTeamPlayer = false;
+		PS->bSpecialPlayer = false;
+		if (GetNetMode() != NM_DedicatedServer)
 		{
-			AUTPlayerState* PS = Cast<AUTPlayerState>(UTGameState->PlayerArray[i]);
-			PS->bHasLifeLimit = false;
-			PS->RoundKills = 0;
-			PS->NextRallyTime = GetWorld()->GetTimeSeconds() + 60.f;
-			PS->RespawnWaitTime = IsPlayerOnLifeLimitedTeam(PS) ? LimitedRespawnWaitTime : UnlimitedRespawnWaitTime;
-			PS->SetRemainingBoosts(InitialBoostCount);
-			PS->bSpecialTeamPlayer = false;
-			PS->bSpecialPlayer = false;
-			if (GetNetMode() != NM_DedicatedServer)
-			{
-				PS->OnRepSpecialPlayer();
-				PS->OnRepSpecialTeamPlayer();
-			}
-			if (PS && (PS->bIsInactive || !PS->Team || PS->bOnlySpectator))
-			{
-				PS->RemainingLives = 0;
-				PS->SetOutOfLives(true);
-			}
-			else if (PS)
-			{
-				PS->RemainingLives = (!bAsymmetricVictoryConditions || (IsPlayerOnLifeLimitedTeam(PS))) ? RoundLives : 0;
-				PS->bHasLifeLimit = (PS->RemainingLives > 0);
-				PS->SetOutOfLives(false);
-			}
+			PS->OnRepSpecialPlayer();
+			PS->OnRepSpecialTeamPlayer();
+		}
+		if (PS && (PS->bIsInactive || !PS->Team || PS->bOnlySpectator))
+		{
+			PS->RemainingLives = 0;
+			PS->SetOutOfLives(true);
+		}
+		else if (PS)
+		{
+			PS->RemainingLives = (!bAsymmetricVictoryConditions || (IsPlayerOnLifeLimitedTeam(PS))) ? RoundLives : 0;
+			PS->bHasLifeLimit = (PS->RemainingLives > 0);
+			PS->SetOutOfLives(false);
 		}
 	}
 	CTFGameState->SetTimeLimit(TimeLimit);
