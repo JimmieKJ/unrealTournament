@@ -209,7 +209,6 @@ int32 AUTFlagRunGame::GetComSwitch(FName CommandTag, AActor* ContextActor, AUTPl
 		}
 	}
 
-
 	if (CommandTag == CommandTags::Distress)
 	{
 		return UNDER_HEAVY_ATTACK_SWITCH_INDEX;  
@@ -241,7 +240,7 @@ void AUTFlagRunGame::HandleRallyRequest(AUTPlayerController* RequestingPC)
 			}
 			UTPlayerState->GetCharacterVoiceClass();
 			UTPlayerState->AnnounceStatus(StatusMessage::NeedBackup);
-			UTPlayerState->NextRallyTime = GetWorld()->GetTimeSeconds() + 10.f;
+			UTPlayerState->NextRallyTime = GetWorld()->GetTimeSeconds() + 6.f;
 			RallyRequestTime = GetWorld()->GetTimeSeconds();
 			return;
 		}
