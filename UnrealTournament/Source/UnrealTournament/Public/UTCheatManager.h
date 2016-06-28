@@ -110,6 +110,14 @@ class UNREALTOURNAMENT_API UUTCheatManager : public UCheatManager
 	UFUNCTION(exec)
 	void UnlimitedPowerupUses();
 
+	UPROPERTY()
+		int32 AnnCount;
+
+	UFUNCTION(exec)
+		virtual void AnnM();
+
+	virtual void NextAnn();
+
 protected:
 
 	/** Used to cap the flag for the specified team number*/

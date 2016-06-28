@@ -84,6 +84,7 @@ protected:
 	virtual void ScoreKill_Implementation(AController* Killer, AController* Other, APawn* KilledPawn, TSubclassOf<UDamageType> DamageType) override;
 
 	virtual void UpdateSkillRating() override;
+	virtual FString GetRankedLeagueName() override;
 
 #if !UE_SERVER
 public:

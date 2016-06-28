@@ -1381,6 +1381,8 @@ void AUTPlayerState::ReadMMRFromBackend()
 	MatchRatingTypes.Add(TEXT("DMSkillRating"));
 	MatchRatingTypes.Add(TEXT("CTFSkillRating"));
 	MatchRatingTypes.Add(TEXT("ShowdownSkillRating"));
+	MatchRatingTypes.Add(TEXT("RankedDuelSkillRating"));
+	MatchRatingTypes.Add(TEXT("RankedCTFSkillRating"));
 	MatchRatingTypes.Add(TEXT("RankedShowdownSkillRating"));
 	// This should be a weak ptr here, but UTLocalPlayer is unlikely to go away
 	TWeakObjectPtr<AUTPlayerState> WeakPlayerState(this);
@@ -1403,14 +1405,18 @@ void AUTPlayerState::ReadMMRFromBackend()
 			WeakPlayerState->DMRank = Response.Ratings[2];
 			WeakPlayerState->CTFRank = Response.Ratings[3];
 			WeakPlayerState->ShowdownRank = Response.Ratings[4];
-			WeakPlayerState->RankedShowdownRank = Response.Ratings[5];
+			WeakPlayerState->RankedDuelRank = Response.Ratings[5];
+			WeakPlayerState->RankedCTFRank = Response.Ratings[6];
+			WeakPlayerState->RankedShowdownRank = Response.Ratings[7];
 
 			WeakPlayerState->DuelMatchesPlayed = FMath::Min(255, Response.NumGamesPlayed[0]);
 			WeakPlayerState->TDMMatchesPlayed = FMath::Min(255, Response.NumGamesPlayed[1]);
 			WeakPlayerState->DMMatchesPlayed = FMath::Min(255, Response.NumGamesPlayed[2]);
 			WeakPlayerState->CTFMatchesPlayed = FMath::Min(255, Response.NumGamesPlayed[3]);
 			WeakPlayerState->ShowdownMatchesPlayed = FMath::Min(255, Response.NumGamesPlayed[4]);
-			WeakPlayerState->RankedShowdownMatchesPlayed = FMath::Min(255, Response.NumGamesPlayed[5]);
+			WeakPlayerState->RankedDuelMatchesPlayed = FMath::Min(255, Response.NumGamesPlayed[5]);
+			WeakPlayerState->RankedCTFMatchesPlayed = FMath::Min(255, Response.NumGamesPlayed[6]);
+			WeakPlayerState->RankedShowdownMatchesPlayed = FMath::Min(255, Response.NumGamesPlayed[7]);
 			
 			AUTBaseGameMode* BaseGame = WeakPlayerState->GetWorld()->GetAuthGameMode<AUTBaseGameMode>();
 			if (BaseGame)
@@ -1420,6 +1426,7 @@ void AUTPlayerState::ReadMMRFromBackend()
 
 			UE_LOG(UT, Log, TEXT("%s MMR fetched from the backend (Duel:%d) (TDM:%d) (FFA:%d)"), *WeakPlayerState->PlayerName, WeakPlayerState->DuelRank, WeakPlayerState->TDMRank, WeakPlayerState->DMRank);
 			UE_LOG(UT, Log, TEXT("(CTF:%d) (Showdown:%d) (Ranked Showdown:%d)"), WeakPlayerState->CTFRank, WeakPlayerState->ShowdownRank, WeakPlayerState->RankedShowdownRank);
+			UE_LOG(UT, Log, TEXT("(Ranked Duel:%d) (Ranked CTF:%d)"), WeakPlayerState->RankedDuelRank, WeakPlayerState->RankedCTFRank);
 		}
 	});
 }
@@ -1915,6 +1922,7 @@ TSharedRef<SWidget> AUTPlayerState::BuildLeague(AUTBaseGameMode* DefaultGame, FT
 {
 	APlayerController* PC = Cast<APlayerController>(GetOwner());
 	UUTLocalPlayer* LP = nullptr;
+	FRankedLeagueProgress LeagueProgress;
 	if (PC != NULL)
 	{
 		LP = Cast<UUTLocalPlayer>(PC->Player);
@@ -1923,10 +1931,13 @@ TSharedRef<SWidget> AUTPlayerState::BuildLeague(AUTBaseGameMode* DefaultGame, FT
 	FText LeagueText = NSLOCTEXT("Generic", "LeagueNoData", "No League Data");
 	if (LP)
 	{
-		LeagueText = ((LP->GetShowdownPlacementMatches() >= 10) ?
-			FText::Format(NSLOCTEXT("AUTPlayerState", "LeagueText", "     {0} {1} ({2})"), LeagueTierToText(LP->GetShowdownLeagueTier()), FText::AsNumber(LP->GetShowdownLeagueDivision() + 1), FText::AsNumber(LP->GetShowdownLeaguePoints())) :
-			FText::Format(NSLOCTEXT("AUTPlayerState", "LeaguePlacementText", "     Play {0} more placement matches"), FText::AsNumber(10 - LP->GetShowdownPlacementMatches()))
-			);
+		if (LP->GetLeagueProgress(DefaultGame->GetRankedLeagueName(), LeagueProgress))
+		{
+			LeagueText = ((LeagueProgress.LeaguePlacementMatches >= 10) ?
+				FText::Format(NSLOCTEXT("AUTPlayerState", "LeagueText", "     {0} {1} ({2})"), LeagueTierToText(LeagueProgress.LeagueTier), FText::AsNumber(LeagueProgress.LeagueDivision + 1), FText::AsNumber(LeagueProgress.LeaguePoints)) :
+				FText::Format(NSLOCTEXT("AUTPlayerState", "LeaguePlacementText", "     Play {0} more placement matches"), FText::AsNumber(10 - LeagueProgress.LeaguePlacementMatches))
+				);
+		}
 	}
 
 
@@ -1984,6 +1995,55 @@ TSharedRef<SWidget> AUTPlayerState::BuildLeague(AUTBaseGameMode* DefaultGame, FT
 
 TSharedRef<SWidget> AUTPlayerState::BuildLeagueInfo()
 {
+	TSharedRef<SVerticalBox> VBox = SNew(SVerticalBox);
+
+	VBox->AddSlot()
+	.AutoHeight()
+	[
+		BuildLeagueInfoPane(NAME_RankedShowdownSkillRating.ToString(), NSLOCTEXT("Generic", "ShowdownLeagueHeader", "3v3 Showdown League"))
+	];
+	
+	VBox->AddSlot()
+	.Padding(10.0f, 5.0f, 10.0f, 5.0f)
+	.AutoHeight()
+	[
+		SNew(SBox)
+		.HeightOverride(2.f)
+		[
+			SNew(SImage)
+			.Image(SUTStyle::Get().GetBrush("UT.Divider.Black"))
+		]
+	];
+	
+	VBox->AddSlot()
+	.AutoHeight()
+	[
+		BuildLeagueInfoPane(NAME_RankedCTFSkillRating.ToString(), NSLOCTEXT("Generic", "CTFLeagueHeader", "5v5 CTF League"))
+	];
+	
+	VBox->AddSlot()
+	.Padding(10.0f, 5.0f, 10.0f, 5.0f)
+	.AutoHeight()
+	[
+		SNew(SBox)
+		.HeightOverride(2.f)
+		[
+			SNew(SImage)
+			.Image(SUTStyle::Get().GetBrush("UT.Divider.Black"))
+		]
+	];
+	
+	VBox->AddSlot()
+	.AutoHeight()
+	[
+		BuildLeagueInfoPane(NAME_RankedDuelSkillRating.ToString(), NSLOCTEXT("Generic", "DuelLeagueHeader", "1v1 Duel League"))
+	];
+
+	return VBox;
+}
+
+TSharedRef<SWidget> AUTPlayerState::BuildLeagueInfoPane(const FString& LeagueType, const FText& LeagueName)
+{
 	APlayerController* PC = Cast<APlayerController>(GetOwner());
 	UUTLocalPlayer* LP = nullptr;
 	if (PC != NULL)
@@ -2007,7 +2067,7 @@ TSharedRef<SWidget> AUTPlayerState::BuildLeagueInfo()
 			.WidthOverride(300)
 			[
 				SNew(STextBlock)
-				.Text(NSLOCTEXT("Generic", "ShowdownLeagueHeader", "3v3 Showdown League"))
+				.Text(LeagueName)
 				.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.White")
 				.ColorAndOpacity(FLinearColor::Gray)
 			]
@@ -2026,9 +2086,11 @@ TSharedRef<SWidget> AUTPlayerState::BuildLeagueInfo()
 	];
 	if (LP)
 	{
-		if (LP->GetShowdownPlacementMatches() < 10)
+		FRankedLeagueProgress LeagueProgress;
+		LP->GetLeagueProgress(LeagueType, LeagueProgress);
+		if (LeagueProgress.LeaguePlacementMatches < 10)
 		{
-			FText PlacementText = FText::Format(NSLOCTEXT("Generic", "ShowdownNeedPlacement", "{0} Matches Until Placement"), FText::AsNumber(10 - LP->GetShowdownPlacementMatches()));
+			FText PlacementText = FText::Format(NSLOCTEXT("Generic", "ShowdownNeedPlacement", "{0} Matches Until Placement"), FText::AsNumber(10 - LeagueProgress.LeaguePlacementMatches));
 
 			VBox->AddSlot()
 			.Padding(10.0f, 0.0f, 10.0f, 5.0f)
@@ -2056,14 +2118,14 @@ TSharedRef<SWidget> AUTPlayerState::BuildLeagueInfo()
 			.Padding(10.0f, 0.0f, 10.0f, 5.0f)
 			.AutoHeight()
 			[
-				BuildLeagueDivision(LP->GetShowdownLeagueTier(), LP->GetShowdownLeagueDivision())
+				BuildLeagueDivision(LeagueProgress.LeagueTier, LeagueProgress.LeagueDivision)
 			];
 			
 			VBox->AddSlot()
 			.Padding(10.0f, 0.0f, 10.0f, 5.0f)
 			.AutoHeight()
 			[
-				BuildLeagueDataRow(NSLOCTEXT("Generic", "3v3ShowdownPoints", "League Points :"), FText::AsNumber(LP->GetShowdownLeaguePoints()))
+				BuildLeagueDataRow(NSLOCTEXT("Generic", "3v3ShowdownPoints", "League Points :"), FText::AsNumber(LeagueProgress.LeaguePoints))
 			];
 			
 			VBox->AddSlot()
@@ -2080,14 +2142,14 @@ TSharedRef<SWidget> AUTPlayerState::BuildLeagueInfo()
 				BuildLeagueDataRow(NSLOCTEXT("Generic", "3v3ShowdownNumMatches", "Matches played :"), FText::AsNumber(LP->RankedShowdownEloMatches()))
 			];
 
-			if (LP->GetShowdownLeagueIsInPromotionSeries())
+			if (LeagueProgress.bLeaguePromotionSeries)
 			{
 				int32 NeededPromoSeriesWins = 3;
-				if (LP->GetShowdownLeagueDivision() == 0)
+				if (LeagueProgress.LeagueDivision == 0)
 				{
 					NeededPromoSeriesWins = 5;
 				}
-				FText PromoText = FText::Format(NSLOCTEXT("Generic", "3v3ShowdownPromotion", "{0} / {1} (Best of {2})"), FText::AsNumber(LP->GetShowdownLeaguePromotionSeriesWins()), FText::AsNumber(LP->GetShowdownLeaguePromotionSeriesMatches()), FText::AsNumber(NeededPromoSeriesWins));
+				FText PromoText = FText::Format(NSLOCTEXT("Generic", "3v3ShowdownPromotion", "{0} / {1} (Best of {2})"), FText::AsNumber(LeagueProgress.LeaguePromotionMatchesWon), FText::AsNumber(LeagueProgress.LeaguePromotionMatchesAttempted), FText::AsNumber(NeededPromoSeriesWins));
 				
 				VBox->AddSlot()
 				.Padding(10.0f, 0.0f, 10.0f, 5.0f)

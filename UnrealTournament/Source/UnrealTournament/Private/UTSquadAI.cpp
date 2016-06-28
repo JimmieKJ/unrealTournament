@@ -471,7 +471,7 @@ bool AUTSquadAI::ShouldUseTranslocator(AUTBot* B)
 	return (B->GetTarget() == NULL || !B->CanAttack(B->GetTarget(), (B->GetTarget() == B->GetEnemy()) ? B->GetEnemyLocation(B->GetEnemy(), true) : B->GetTarget()->GetActorLocation(), B->GetEnemy() == NULL || MustKeepEnemy(B->GetEnemy())));
 }
 
-void AUTSquadAI::GetPossibleEnemyGoals(AUTBot* B, const FBotEnemyInfo* EnemyInfo, TArray<FVector>& Goals)
+void AUTSquadAI::GetPossibleEnemyGoals(AUTBot* B, const FBotEnemyInfo* EnemyInfo, TArray<FPredictedGoal>& Goals)
 {
 	// assume enemy wants super pickups
 	FSuperPickupEval NodeEval(B->RespawnPredictionTime, (EnemyInfo->GetUTChar() != NULL) ? EnemyInfo->GetUTChar()->GetCharacterMovement()->MaxWalkSpeed : GetDefault<AUTCharacter>()->GetCharacterMovement()->MaxWalkSpeed, 10000, 1.0f);
@@ -480,7 +480,7 @@ void AUTSquadAI::GetPossibleEnemyGoals(AUTBot* B, const FBotEnemyInfo* EnemyInfo
 	// TODO: Would be better to pass enemy pawn; need to fix bot controller assumptions in places
 	if (NavData->FindBestPath(B->GetPawn(), B->GetPawn()->GetNavAgentPropertiesRef(), NodeEval, EnemyInfo->LastKnownLoc, Weight, false, EnemyRouteCache))
 	{
-		Goals.Add(EnemyRouteCache.Last().GetLocation(NULL));
+		Goals.Add(FPredictedGoal(EnemyRouteCache.Last().GetLocation(NULL), false));
 	}
 }
 

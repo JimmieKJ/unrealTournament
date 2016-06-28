@@ -1212,6 +1212,10 @@ protected:
 	UPROPERTY()
 	float LastComMessageTime;
 
+	UFUNCTION(exec)
+	void DumpMapVote();
+
+
 };
 
 

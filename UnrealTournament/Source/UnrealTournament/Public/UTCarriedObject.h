@@ -101,6 +101,10 @@ class UNREALTOURNAMENT_API AUTCarriedObject : public AActor, public IUTTeamInter
 	UPROPERTY(BlueprintReadWrite, Category = GameObject)
 	float LastPingedTime;
 
+	// Last time there was a voice notification of enemy flag carrier
+	UPROPERTY(BlueprintReadWrite, Category = GameObject)
+		float LastPingVerbalTime;
+
 	// How long a enemy ping is valid
 	UPROPERTY(EditDefaultsOnly, Category = GameObject)
 		float PingedDuration;

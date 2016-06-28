@@ -388,6 +388,12 @@ class UNREALTOURNAMENT_API AUTBot : public AAIController, public IUTTeamInterfac
 	/** when hunting, list of possible enemy goals that we've checked and confirmed the enemy is not there */
 	UPROPERTY()
 	TArray<FVector> HuntingCheckedSpots;
+	/** when hunting, node bot has reached on enemy's predicted path for intercepting */
+	UPROPERTY()
+	const UUTPathNode* HuntingInterceptNode;
+	/** when hunting, indicates bot is chasing enemy (further away from predicted goal than enemy is), so don't try to use intercept logic */
+	UPROPERTY()
+	float HuntInterceptFailedTime;
 
 	/** debugging string set during decision logic */
 	UPROPERTY()

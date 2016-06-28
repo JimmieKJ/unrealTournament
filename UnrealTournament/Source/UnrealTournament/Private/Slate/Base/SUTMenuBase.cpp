@@ -882,29 +882,6 @@ FReply SUTMenuBase::OnShowServerBrowserPanel()
 	return FReply::Handled();
 }
 
-FReply SUTMenuBase::OnRankedMatchmaking(int32 PlaylistId)
-{
-	if (!PlayerOwner->IsLoggedIn())
-	{
-		PlayerOwner->LoginOnline(TEXT(""), TEXT(""));
-		return FReply::Handled();
-	}
-
-	if (!PlayerOwner->IsRankedMatchmakingEnabled(PlaylistId))
-	{
-		PlayerOwner->ShowToast(NSLOCTEXT("SUTMenuBase", "RankedPlayDisabled", "This playlist is not currently active"));
-		return FReply::Handled();
-	}
-
-	UMatchmakingContext* MatchmakingContext = Cast<UMatchmakingContext>(UBlueprintContextLibrary::GetContext(PlayerOwner->GetWorld(), UMatchmakingContext::StaticClass()));
-	if (MatchmakingContext)
-	{
-		MatchmakingContext->StartMatchmaking(PlaylistId);
-	}
-
-	return FReply::Handled();
-}
-
 FReply SUTMenuBase::ToggleFriendsAndChat()
 {
 #if PLATFORM_LINUX

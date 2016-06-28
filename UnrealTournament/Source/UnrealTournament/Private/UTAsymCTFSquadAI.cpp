@@ -91,16 +91,19 @@ bool AUTAsymCTFSquadAI::SetFlagCarrierAction(AUTBot* B)
 	return TryPathTowardObjective(B, Objective, false, "Head to enemy base with flag");
 }
 
-void AUTAsymCTFSquadAI::GetPossibleEnemyGoals(AUTBot* B, const FBotEnemyInfo* EnemyInfo, TArray<FVector>& Goals)
+void AUTAsymCTFSquadAI::GetPossibleEnemyGoals(AUTBot* B, const FBotEnemyInfo* EnemyInfo, TArray<FPredictedGoal>& Goals)
 {
 	Super::GetPossibleEnemyGoals(B, EnemyInfo, Goals);
 	if (!IsAttackingTeam() && Flag != NULL && Objective != NULL)
 	{
 		if (Flag->HoldingPawn == NULL)
 		{
-			Goals.Add(Flag->GetActorLocation());
+			Goals.Add(FPredictedGoal(Flag->GetActorLocation() - FVector(0.0f, 0.0f, Flag->GetSimpleCollisionHalfHeight()), true));
 		}
-		Goals.Add(Objective->GetActorLocation());
+		else
+		{
+			Goals.Add(FPredictedGoal(Objective->GetActorLocation(), true));
+		}
 	}
 }
 

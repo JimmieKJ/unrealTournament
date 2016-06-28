@@ -555,12 +555,6 @@ bool FXAudio2SoundSource::IsPreparedToInit()
 
 bool FXAudio2SoundSource::Init(FWaveInstance* InWaveInstance)
 {
-
-if (InWaveInstance->WaveData->bProcedural)
-{
-UE_LOG(LogTemp, Log, TEXT("foo"));
-}
-
 	check(XAudio2Buffer);
 	check(XAudio2Buffer->IsRealTimeSourceReady());
 	check(Buffer);

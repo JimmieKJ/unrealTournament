@@ -506,6 +506,7 @@ void AUTCTFRoundGame::EndTeamGame(AUTTeamInfo* Winner, FName Reason)
 	}
 
 	// SETENDGAMEFOCUS
+	EndMatch();
 	PlacePlayersAroundFlagBase(Winner->TeamIndex, bRedToCap ? 1 : 0);
 	AUTCTFFlagBase* WinningBase = CTFGameState->FlagBases[bRedToCap ? 1 : 0];
 	for (FConstControllerIterator Iterator = GetWorld()->GetControllerIterator(); Iterator; ++Iterator)
@@ -551,7 +552,6 @@ void AUTCTFRoundGame::EndTeamGame(AUTTeamInfo* Winner, FName Reason)
 	GetWorldTimerManager().SetTimer(TempHandle4, this, &AUTCTFRoundGame::StopRCTFReplayRecording, EndReplayDelay);
 
 	SendEndOfGameStats(Reason);
-	EndMatch();
 }
 
 void AUTCTFRoundGame::StopRCTFReplayRecording()
@@ -738,7 +738,7 @@ void AUTCTFRoundGame::InitFlags()
 		if (Base != NULL && Base->MyFlag)
 		{
 			AUTCarriedObject* Flag = Base->MyFlag;
-			Flag->AutoReturnTime = 7.f; // fixmesteve make config
+			Flag->AutoReturnTime = 8.f; 
 			Flag->bGradualAutoReturn = true;
 			Flag->bDisplayHolderTrail = true;
 			Flag->bShouldPingFlag = true;
@@ -1147,13 +1147,14 @@ void AUTCTFRoundGame::ScoreKill_Implementation(AController* Killer, AController*
 	{
 		// check if just transitioned to last man
 		bLastManOccurred = true;
+		int32 RemainingDefenders = 0;
 		for (int32 i = 0; i < UTGameState->PlayerArray.Num(); i++)
 		{
 			AUTPlayerState* PS = Cast<AUTPlayerState>(UTGameState->PlayerArray[i]);
 			if (PS && (PS != OtherPS) && (OtherPS->Team == PS->Team) && !PS->bOutOfLives && !PS->bIsInactive)
 			{
 				bLastManOccurred = false;
-				break;
+				RemainingDefenders++;
 			}
 		}
 		if (bLastManOccurred)
@@ -1168,6 +1169,10 @@ void AUTCTFRoundGame::ScoreKill_Implementation(AController* Killer, AController*
 					PC->ClientReceiveLocalizedMessage(UUTShowdownRewardMessage::StaticClass(), MessageType, PS, NULL, NULL);
 				}
 			}
+		}
+		else
+		{
+			OtherPS->RespawnWaitTime = RemainingDefenders;
 		}
 	}
 }
@@ -1199,6 +1204,7 @@ void AUTCTFRoundGame::ScoreAlternateWin(int32 WinningTeamIndex, uint8 Reason)
 			FCTFScoringPlay NewScoringPlay;
 			NewScoringPlay.Team = WinningTeam;
 			NewScoringPlay.bDefenseWon = !IsTeamOnOffense(WinningTeamIndex);
+			NewScoringPlay.Period = CTFGameState->CTFRound;
 			NewScoringPlay.bAnnihilation = (Reason == 0);
 			NewScoringPlay.TeamScores[0] = CTFGameState->Teams[0] ? CTFGameState->Teams[0]->Score : 0;
 			NewScoringPlay.TeamScores[1] = CTFGameState->Teams[1] ? CTFGameState->Teams[1]->Score : 0;

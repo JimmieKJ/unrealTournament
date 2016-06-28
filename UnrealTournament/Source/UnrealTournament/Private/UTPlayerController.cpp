@@ -4891,3 +4891,20 @@ void AUTPlayerController::ServerSendComsMessage_Implementation(AUTPlayerState* T
 		UTGameMode->SendComsMessage(this, Target, Switch);
 	}
 }
+
+void AUTPlayerController::DumpMapVote()
+{
+	AUTGameState* GameState = GetWorld()->GetGameState<AUTGameState>();
+	if (GameState && GameState->MapVoteList.Num() > 0)
+	{
+		for (int32 i=0; i < GameState->MapVoteList.Num(); i++)
+		{
+			UE_LOG(UT,Log,TEXT("MapVoteList[%i] Map = %s  Image = %s"), i, *GameState->MapVoteList[i]->MapPackageName, *GameState->MapVoteList[i]->MapScreenshot->GetFullName());
+		}
+	}
+	else
+	{
+		UE_LOG(UT,Log,TEXT("Nothing in the mapvote list!"));
+	}
+
+}

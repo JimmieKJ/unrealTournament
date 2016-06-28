@@ -839,12 +839,17 @@ void AUTShowdownGame::UpdateSkillRating()
 {
 	if (bRankedSession)
 	{
-		ReportRankedMatchResults(NAME_RankedShowdownSkillRating.ToString());
+		ReportRankedMatchResults(GetRankedLeagueName());
 	}
 	else
 	{
 		ReportRankedMatchResults(NAME_ShowdownSkillRating.ToString());
 	}
+}
+
+FString AUTShowdownGame::GetRankedLeagueName()
+{
+	return NAME_RankedShowdownSkillRating.ToString();
 }
 
 uint8 AUTShowdownGame::GetNumMatchesFor(AUTPlayerState* PS, bool bRankedSession) const

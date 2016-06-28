@@ -111,28 +111,27 @@ void SUTInGameMenu::BuildLeftMenuBar()
 					];
 			}
 		}
-		else if (GS && GS->GetMatchState() == MatchState::MapVoteHappening)
-		{
-			LeftMenuBar->AddSlot()
-			.Padding(5.0f,0.0f,0.0f,0.0f)
-			.AutoWidth()
+
+		LeftMenuBar->AddSlot()
+		.Padding(5.0f,0.0f,0.0f,0.0f)
+		.AutoWidth()
+		[
+			SNew(SUTButton)
+			.ButtonStyle(SUTStyle::Get(), "UT.Button.MenuBar")
+			.OnClicked(this, &SUTInGameMenu::OnMapVoteClick)
+			.Visibility(this, &SUTInGameMenu::GetMapVoteVisibility)
+			.ContentPadding(FMargin(25.0,0.0,25.0,5.0))
 			[
-				SNew(SUTButton)
-				.ButtonStyle(SUTStyle::Get(), "UT.Button.MenuBar")
-				.OnClicked(this, &SUTInGameMenu::OnMapVoteClick)
-				.ContentPadding(FMargin(25.0,0.0,25.0,5.0))
+				SNew(SHorizontalBox)
+				+SHorizontalBox::Slot()
+				.VAlign(VAlign_Center)
 				[
-					SNew(SHorizontalBox)
-					+SHorizontalBox::Slot()
-					.VAlign(VAlign_Center)
-					[
-						SNew(STextBlock)
-						.Text(this, &SUTInGameMenu::GetMapVoteTitle)
-						.TextStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button.TextStyle")
-					]
+					SNew(STextBlock)
+					.Text(this, &SUTInGameMenu::GetMapVoteTitle)
+					.TextStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button.TextStyle")
 				]
-			];
-		}
+			]
+		];
 
 		LeftMenuBar->AddSlot()
 		.Padding(5.0f,0.0f,0.0f,0.0f)
@@ -492,7 +491,7 @@ void SUTInGameMenu::BackResult(TSharedPtr<SCompoundWidget> Dialog, uint16 Button
 EVisibility SUTInGameMenu::GetChangeTeamVisibility() const
 {
 	AUTGameState* GameState = PlayerOwner->GetWorld()->GetGameState<AUTGameState>();
-	if (GameState && GameState->GetMatchState() != MatchState::WaitingPostMatch && GameState->GetMatchState() != MatchState::PlayerIntro)
+	if (GameState && GameState->GetMatchState() != MatchState::WaitingPostMatch && GameState->GetMatchState() != MatchState::PlayerIntro && GameState->GetMatchState() != MatchState::MapVoteHappening)
 	{
 		return EVisibility::Visible;
 	}
@@ -502,6 +501,20 @@ EVisibility SUTInGameMenu::GetChangeTeamVisibility() const
 	}
 }
 
+EVisibility SUTInGameMenu::GetMapVoteVisibility() const
+{
+	AUTGameState* GameState = PlayerOwner->GetWorld()->GetGameState<AUTGameState>();
+	if (GameState && GameState->GetMatchState() == MatchState::MapVoteHappening)
+	{
+		return EVisibility::Visible;
+	}
+	else
+	{
+		return EVisibility::Collapsed;
+	}
+}
+
+
 EVisibility SUTInGameMenu::GetMatchSummaryVisibility() const
 {
 	return StaticCastSharedPtr<SUTInGameHomePanel>(HomePanel)->GetSummaryVisibility();
@@ -510,7 +523,7 @@ EVisibility SUTInGameMenu::GetMatchSummaryVisibility() const
 EVisibility SUTInGameMenu::GetMatchSummaryButtonVisibility() const
 {
 	AUTGameState* GameState = PlayerOwner->GetWorld()->GetGameState<AUTGameState>();
-	if (GameState && GameState->GetMatchState() == MatchState::WaitingPostMatch)
+	if (GameState && (GameState->GetMatchState() == MatchState::WaitingPostMatch || GameState->GetMatchState() == MatchState::MapVoteHappening) )
 	{
 		if ( GetMatchSummaryVisibility() == EVisibility::Hidden)
 		{

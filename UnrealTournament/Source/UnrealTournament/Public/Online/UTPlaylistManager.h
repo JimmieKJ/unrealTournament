@@ -10,6 +10,8 @@ struct FPlaylistItem
 	GENERATED_USTRUCT_BODY()
 
 	UPROPERTY()
+	FString FriendlyName;
+	UPROPERTY()
 	int32 PlaylistId;
 	UPROPERTY()
 	int32 MaxTeamCount;
@@ -51,4 +53,8 @@ public:
 	bool GetTeamEloRatingForPlaylist(int32 PlaylistId, FString& TeamEloRating);
 
 	void UpdatePlaylistFromMCP(int32 PlaylistId, FString InExtraCommandline, TArray<FString>& InMapNames);
+
+	int32 GetNumPlaylists() { return Playlist.Num(); }
+
+	bool GetPlaylistName(int32 PlaylistId, FString& OutPlaylistName);
 };

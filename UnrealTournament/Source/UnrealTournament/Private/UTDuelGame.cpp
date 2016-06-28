@@ -229,7 +229,19 @@ void AUTDuelGame::CreateConfigWidgets(TSharedPtr<class SVerticalBox> MenuSpace, 
 
 void AUTDuelGame::UpdateSkillRating()
 {
-	ReportRankedMatchResults(NAME_SkillRating.ToString());
+	if (bRankedSession)
+	{
+		ReportRankedMatchResults(GetRankedLeagueName());
+	}
+	else
+	{
+		ReportRankedMatchResults(NAME_SkillRating.ToString());
+	}
+}
+
+FString AUTDuelGame::GetRankedLeagueName()
+{
+	return NAME_RankedDuelSkillRating.ToString();
 }
 
 void AUTDuelGame::FindAndMarkHighScorer()

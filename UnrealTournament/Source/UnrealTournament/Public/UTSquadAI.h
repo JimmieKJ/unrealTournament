@@ -39,6 +39,26 @@ struct FAlternateRoute
 	{}
 };
 
+struct FPredictedGoal
+{
+	FVector Location;
+	/** indicates this is an active, immediately relevant game goal (assume target is pursuing it even if can't see him/her around it)
+	 * for example, in CTF this is true for the flag stand only when the flag is home
+	 */
+	bool bCritical;
+
+	FPredictedGoal()
+	{}
+	FPredictedGoal(const FVector& InLoc, bool bInCrit)
+		: Location(InLoc), bCritical(bInCrit)
+	{}
+
+	bool operator== (const FPredictedGoal& Other) const
+	{
+		return bCritical == Other.bCritical && (Location - Other.Location).IsNearlyZero();
+	}
+};
+
 extern FName NAME_Attack;
 extern FName NAME_Defend;
 
@@ -199,6 +219,21 @@ public:
 		if (MustKeepEnemy(B->GetEnemy()))
 		{
 			Aggressiveness += 0.5f;
+			const FBotEnemyInfo* Info = B->GetEnemyInfo(B->GetEnemy(), true);
+			if (Info != NULL)
+			{
+				// if enemy is closer to objective than the one bot is supposed to be preventing the enemy from reaching, up aggressiveness to increase liklihood of chasing
+				TArray<FPredictedGoal> Goals;
+				GetPossibleEnemyGoals(B, Info, Goals);
+				for (const FPredictedGoal& TestGoal : Goals)
+				{
+					if (TestGoal.bCritical && (TestGoal.Location - B->GetPawn()->GetActorLocation()).SizeSquared() > (TestGoal.Location - Info->LastKnownLoc).SizeSquared())
+					{
+						Aggressiveness += 0.5f;
+						break;
+					}
+				}
+			}
 		}
 	}
 
@@ -259,7 +294,7 @@ public:
 	}
 
 	/** pick potential goal locations enemy might want to go to, used by bot hunting/tracking logic */
-	virtual void GetPossibleEnemyGoals(AUTBot* B, const FBotEnemyInfo* EnemyInfo, TArray<FVector>& Goals);
+	virtual void GetPossibleEnemyGoals(AUTBot* B, const FBotEnemyInfo* EnemyInfo, TArray<FPredictedGoal>& Goals);
 
 	/** debug drawing of squad route for B, if applicable */
 	virtual void DrawDebugSquadRoute(AUTBot* B) const

@@ -716,6 +716,10 @@ public:
 	UPROPERTY(Replicated)
 	int32 ShowdownRank;
 	UPROPERTY(Replicated)
+	int32 RankedDuelRank;
+	UPROPERTY(Replicated)
+	int32 RankedCTFRank;
+	UPROPERTY(Replicated)
 	int32 RankedShowdownRank;
 	
 	/** Note only valid up to 255, enough to figure out beginner badges. */
@@ -729,6 +733,10 @@ public:
 	uint8 DMMatchesPlayed;
 	UPROPERTY(Replicated)
 	uint8 ShowdownMatchesPlayed;
+	UPROPERTY(Replicated)
+	uint8 RankedDuelMatchesPlayed;
+	UPROPERTY(Replicated)
+	uint8 RankedCTFMatchesPlayed;
 	UPROPERTY(Replicated)
 	uint8 RankedShowdownMatchesPlayed;
 
@@ -774,7 +782,17 @@ public:
 
 	static bool CheckRank(int32 PlayerRank, int32 TargetRank)
 	{
-		return PlayerRank <= TargetRank;
+		int32 Ceiling = PlayerRank + (PlayerRank > STARTER_RANK_LEVEL ? 4 : 2);
+
+		// If this player is > Bronze 9 then remove the ceiling.
+		if (PlayerRank > NUMBER_RANK_LEVELS * 2) Ceiling = NUMBER_RANK_LEVELS * 4;
+
+		int32 Floor = PlayerRank - (PlayerRank > STARTER_RANK_LEVEL ? 4 : 2);
+
+		// If this player is > the Starter rank level, then clamp is floor at the starter rank level.
+		if (PlayerRank > STARTER_RANK_LEVEL && Floor <= STARTER_RANK_LEVEL) Floor = STARTER_RANK_LEVEL + 1;
+
+		return (TargetRank >= Floor && TargetRank <= Ceiling);
 	}
 
 
@@ -806,6 +824,7 @@ public:
 	TSharedRef<SWidget> BuildRankInfo();
 	TSharedRef<SWidget> BuildStatsInfo();
 	TSharedRef<SWidget> BuildLeagueInfo();
+	TSharedRef<SWidget> BuildLeagueInfoPane(const FString& LeagueType, const FText& LeagueName);
 	TSharedRef<SWidget> BuildRank(AUTBaseGameMode* DefaultGame, bool bRankedSession, FText RankName);
 	TSharedRef<SWidget> BuildLeague(AUTBaseGameMode* DefaultGame, FText LeagueName);
 	TSharedRef<SWidget> BuildLeagueDataRow(FText Label, FText Data);

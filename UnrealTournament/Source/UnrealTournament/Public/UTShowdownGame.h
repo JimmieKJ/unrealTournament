@@ -41,6 +41,7 @@ protected:
 	virtual void StartNewRound();
 	virtual void HandleCountdownToBegin() override;
 	virtual void UpdateSkillRating() override;
+	virtual FString GetRankedLeagueName() override;
 
 	// experimental tiebreaker options
 	// will be removed once we decide on a path

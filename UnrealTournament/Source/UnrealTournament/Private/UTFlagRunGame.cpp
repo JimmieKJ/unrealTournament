@@ -209,7 +209,6 @@ int32 AUTFlagRunGame::GetComSwitch(FName CommandTag, AActor* ContextActor, AUTPl
 		}
 	}
 
-
 	if (CommandTag == CommandTags::Distress)
 	{
 		return UNDER_HEAVY_ATTACK_SWITCH_INDEX;  
@@ -241,7 +240,7 @@ void AUTFlagRunGame::HandleRallyRequest(AUTPlayerController* RequestingPC)
 			}
 			UTPlayerState->GetCharacterVoiceClass();
 			UTPlayerState->AnnounceStatus(StatusMessage::NeedBackup);
-			UTPlayerState->NextRallyTime = GetWorld()->GetTimeSeconds() + 10.f;
+			UTPlayerState->NextRallyTime = GetWorld()->GetTimeSeconds() + 6.f;
 			RallyRequestTime = GetWorld()->GetTimeSeconds();
 			return;
 		}
@@ -313,7 +312,7 @@ void AUTFlagRunGame::HandleRallyRequest(AUTPlayerController* RequestingPC)
 		{
 			static FName NAME_LineOfSight = FName(TEXT("LineOfSight"));
 			FCollisionQueryParams CollisionParms(NAME_LineOfSight, true, UTCharacter);
-			if (!It->IsTaken(UTCharacter) && ((It->GetActorLocation() - UTCharacter->GetActorLocation()).Size() < 1000.f) && !GetWorld()->LineTraceTestByChannel(UTCharacter->GetActorLocation(), It->GetActorLocation(), COLLISION_TRACE_WEAPONNOCHARACTER, CollisionParms))
+			if (!It->IsTaken(UTCharacter) && ((It->GetActorLocation() - UTCharacter->GetActorLocation()).Size() < 2000.f) && !GetWorld()->LineTraceTestByChannel(UTCharacter->GetActorLocation(), It->GetActorLocation(), COLLISION_TRACE_WEAPONNOCHARACTER, CollisionParms))
 			{
 				It->ProcessTouch(UTCharacter);
 				break;

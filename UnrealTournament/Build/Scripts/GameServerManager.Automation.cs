@@ -44,19 +44,18 @@ namespace UnrealTournamentGame.Automation
 			FEngineVersionSupport ParsedVersion = FEngineVersionSupport.FromString(InBuildString, bAllowNoVersion: true);
 			this.Changelist = ParsedVersion.Changelist;
 
-			// using stage only while testing this for the first time.
-			this.D2BaseUri = "https://fleet-manager-stage.ol.epicgames.net:8080/v1/";
-
-			//if (AppName == UnrealTournamentBuild.UnrealTournamentAppName.UnrealTournamentDevPlaytest || AppName == UnrealTournamentBuild.UnrealTournamentAppName.UnrealTournamentDevStage)
-			//{
-			//	// test the stage endpoint for DevPlaytest and DevStage
-			//	this.D2BaseUri = "https://fleet-manager-stage.ol.epicgames.net:8080/v1/";
-			//}
-			//else 
-			//{
-			//	// Use the Prod endpoint for everything else.
-			//	this.D2BaseUri = "https://fleet-manager.ol.epicgames.net:8080/v1/";
-			//}
+            if (this.Debug)
+            {
+                this.D2BaseUri = "https://fleet-manager-ci.ol.epicgames.net:8080/v1/";
+            }
+            else if (AppName == UnrealTournamentBuild.UnrealTournamentAppName.UnrealTournamentDevStage || AppName == UnrealTournamentBuild.UnrealTournamentAppName.UnrealTournamentDevPlaytest)
+            {
+                this.D2BaseUri = "https://fleet-manager-stage.ol.epicgames.net:8080/v1/";
+            }
+            else
+            {
+                this.D2BaseUri = "https://fleet-manager.ol.epicgames.net:8080/v1/";
+            }
 		}
 
 		public void DistributeImagesAsync()
@@ -246,6 +245,8 @@ namespace UnrealTournamentGame.Automation
 										  string HubServerName = "")
 		{
 			string AwsCredentialsFile = "AwsDedicatedServerCredentialsDecoded.txt";
+            string GameBinary = "UE4Server-Linux-Test";
+
 			int LocalCpuBudget = CpuBudget;
 			if (InstanceSize == 0)
 			{
@@ -266,6 +267,11 @@ namespace UnrealTournamentGame.Automation
 				throw new AutomationException("Unable to parse credentials from file {0} {1}",
 					AwsCredentialsFile, AwsCredentials);
 			}
+
+            if (AppName == UnrealTournamentBuild.UnrealTournamentAppName.UnrealTournamentDev)
+            {
+                GameBinary = "UE4Server-Linux-Shipping";
+            }
 
 			if (Debug)
 			{
@@ -288,6 +294,7 @@ namespace UnrealTournamentGame.Automation
 			Byte[] BuildStringBytes = System.Text.Encoding.UTF8.GetBytes(BuildString);
 
 			string CloudArgs = "epic_game_name=" + GameNameShort + "&" +
+                "epic_game_binary=" + GameBinary + "&" +
 				"epic_game_tag=" + GetTag(AppName, Region, tag) + "&" +
 				"epic_game_version=" + Changelist.ToString() + "&" +
 				"epic_game_buildstr_base64=" + System.Convert.ToBase64String(BuildStringBytes) + "&" +
@@ -332,12 +339,14 @@ namespace UnrealTournamentGame.Automation
 
 			string NetworkId = "default";
 			string CredentialsFile = "GceUtDevCredentials.txt";
+            string GameBinary = "UE4Server-Linux-Test";
 
 			/* This is very confusing. UnrealTournament's live lable is UnrealTournamentDev. */
 			if (LocalAppName == UnrealTournamentBuild.UnrealTournamentAppName.UnrealTournamentDev)
 			{
 				NetworkId = "unreal-tournament";
 				CredentialsFile = "GceUtLiveCredentials.txt";
+                GameBinary = "UE4Server-Linux-Shipping";
 			}
 
 			if (InstanceSize == 0)
@@ -374,6 +383,7 @@ namespace UnrealTournamentGame.Automation
 			}
 			Byte[] BuildStringBytes = System.Text.Encoding.UTF8.GetBytes(BuildString);
 			string CloudArgs = "epic_game_name=" + GameNameShort + "&" +
+                "epic_game_binary=" + GameBinary + "&" +
 				"epic_game_tag=" + GetTag(LocalAppName, Region, tag) + "&" +
 				"epic_game_version=" + Changelist.ToString() + "&" +
 				"epic_game_region=" + Region + "&" +

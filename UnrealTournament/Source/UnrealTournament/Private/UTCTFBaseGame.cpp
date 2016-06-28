@@ -454,7 +454,19 @@ void AUTCTFBaseGame::SetEndGameFocus(AUTPlayerState* Winner)
 
 void AUTCTFBaseGame::UpdateSkillRating()
 {
-	ReportRankedMatchResults(NAME_CTFSkillRating.ToString());
+	if (bRankedSession)
+	{
+		ReportRankedMatchResults(GetRankedLeagueName());
+	}
+	else
+	{
+		ReportRankedMatchResults(NAME_CTFSkillRating.ToString());
+	}
+}
+
+FString AUTCTFBaseGame::GetRankedLeagueName()
+{
+	return NAME_RankedCTFSkillRating.ToString();
 }
 
 bool AUTCTFBaseGame::SkipPlacement(AUTCharacter* UTChar)
