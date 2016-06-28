@@ -244,6 +244,34 @@ void AUTFlagRunGame::HandleRallyRequest(AUTPlayerController* RequestingPC)
 			RallyRequestTime = GetWorld()->GetTimeSeconds();
 			return;
 		}
+		else if ((Team->TeamIndex == 0) == GS->bRedToCap)
+		{
+			// rally to flag carrier
+			AUTCTFFlag* Flag = Cast<AUTCTFFlag>(GS->FlagBases[GS->bRedToCap ? 0 : 1]->GetCarriedObject());
+			AUTCharacter* FlagCarrier = Flag ? Flag->HoldingPawn : nullptr;
+			if (FlagCarrier != nullptr)
+			{
+				RequestingPC->BeginRallyTo(FlagCarrier, 1.f);
+			}
+		}
+		else
+		{
+			CompleteRallyRequest(RequestingPC);
+		}
+	}
+}
+
+void AUTFlagRunGame::CompleteRallyRequest(AUTPlayerController* RequestingPC)
+{
+	AUTCharacter* UTCharacter = RequestingPC->GetUTCharacter();
+	AUTPlayerState* UTPlayerState = RequestingPC->UTPlayerState;
+
+	// if can rally, teleport with transloc effect, set last rally time
+	AUTCTFGameState* GS = GetWorld()->GetGameState<AUTCTFGameState>();
+	AUTTeamInfo* Team = UTPlayerState ? UTPlayerState->Team : nullptr;
+
+	if (Team && UTPlayerState->bCanRally && UTCharacter && GS && ((Team->TeamIndex == 0) ? GS->bRedCanRally : GS->bBlueCanRally) && GS->FlagBases.IsValidIndex(Team->TeamIndex) && GS->FlagBases[Team->TeamIndex] != nullptr)
+	{
 		FVector WarpLocation = FVector::ZeroVector;
 		FRotator WarpRotation(0.0f, UTCharacter->GetActorRotation().Yaw, 0.0f);
 		FCollisionShape PlayerCapsule = FCollisionShape::MakeCapsule(UTCharacter->GetCapsuleComponent()->GetUnscaledCapsuleRadius(), UTCharacter->GetCapsuleComponent()->GetUnscaledCapsuleHalfHeight());
@@ -312,7 +340,7 @@ void AUTFlagRunGame::HandleRallyRequest(AUTPlayerController* RequestingPC)
 			}
 			WarpRotation = GS->FlagBases[Team->TeamIndex]->GetActorRotation();
 			RallyDelay = 500.f;
-			UTPlayerState->AnnounceStatus(StatusMessage::ImOnDefense);  
+			UTPlayerState->AnnounceStatus(StatusMessage::ImOnDefense);
 		}
 
 		// teleport
@@ -345,4 +373,5 @@ void AUTFlagRunGame::HandleRallyRequest(AUTPlayerController* RequestingPC)
 			}
 		}
 	}
+
 }

@@ -244,6 +244,8 @@ public:
 	UFUNCTION(exec)
 	virtual void ToggleScoreboard(bool bShow);
 
+	virtual void BeginRallyTo(AUTCharacter* RallyTarget, float Delay);
+
 	UFUNCTION(client, reliable)
 	virtual void ClientToggleScoreboard(bool bShow);
 	

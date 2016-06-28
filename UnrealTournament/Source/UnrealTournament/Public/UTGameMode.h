@@ -822,6 +822,7 @@ public:
 	bool PlayerCanAltRestart( APlayerController* Player );
 
 	virtual void HandleRallyRequest(AUTPlayerController* PC) {};
+	virtual void CompleteRallyRequest(AUTPlayerController* PC) {};
 
 	virtual void GetGameURLOptions(const TArray<TSharedPtr<TAttributePropertyBase>>& MenuProps, TArray<FString>& OptionsList, int32& DesiredPlayerCount);
 

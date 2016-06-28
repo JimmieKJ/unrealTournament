@@ -285,6 +285,15 @@ void AUTPlayerController::ServerMutate_Implementation(const FString& MutateStrin
 	}
 }
 
+void AUTPlayerController::BeginRallyTo(AUTCharacter* RallyTarget, float Delay)
+{
+	AUTGameMode* GameMode = GetWorld()->GetAuthGameMode<AUTGameMode>();
+	if (GameMode)
+	{
+		GameMode->CompleteRallyRequest(this);
+	}
+}
+
 void AUTPlayerController::RequestRally()
 {
 	if (UTPlayerState && UTPlayerState->bCanRally)
@@ -303,7 +312,10 @@ void AUTPlayerController::ServerRequestRally_Implementation()
 	if (UTCharacter && !UTCharacter->IsRagdoll())
 	{
 		AUTGameMode* Game = GetWorld()->GetAuthGameMode<AUTGameMode>();
-		Game->HandleRallyRequest(this);
+		if (Game)
+		{
+			Game->HandleRallyRequest(this);
+		}
 	}
 }
 
