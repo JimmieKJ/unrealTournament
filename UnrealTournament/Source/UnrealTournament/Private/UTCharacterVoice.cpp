@@ -225,7 +225,7 @@ FName UUTCharacterVoice::GetAnnouncementName_Implementation(int32 Switch, const 
 
 USoundBase* UUTCharacterVoice::GetAnnouncementSound_Implementation(int32 Switch, const UObject* OptionalObject) const
 {
-	UE_LOG(UT,Log,TEXT("Announcement: %i"),Switch);
+//	UE_LOG(UT,Log,TEXT("Announcement: %i"),Switch);
 
 	if (TauntMessages.Num() > Switch)
 	{
