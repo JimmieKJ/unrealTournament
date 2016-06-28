@@ -8,4 +8,8 @@ UCLASS()
 class UNREALTOURNAMENT_API AUTHUD_DM : public AUTHUD
 {
 	GENERATED_UCLASS_BODY()
+
+	// Short circult toggle coms in DM.
+	virtual void ToggleComsMenu(bool bShow) {}
+
 };
