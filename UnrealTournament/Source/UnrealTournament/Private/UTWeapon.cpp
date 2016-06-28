@@ -1258,6 +1258,8 @@ void AUTWeapon::GuessPlayerTarget(const FVector& StartFireLoc, const FVector& Fi
 {
 	if (Role == ROLE_Authority && UTOwner != NULL)
 	{
+		AUTCharacter* TargetedCharacter = nullptr;
+		AUTPlayerState* PS = nullptr;
 		AUTPlayerController* PC = Cast<AUTPlayerController>(UTOwner->Controller);
 		if (PC != NULL)
 		{
@@ -1270,23 +1272,29 @@ void AUTWeapon::GuessPlayerTarget(const FVector& StartFireLoc, const FVector& Fi
 			float BestDist = 0.f;
 			float BestOffset = 0.f;
 			PC->LastShotTargetGuess = UUTGameplayStatics::ChooseBestAimTarget(PC, StartFireLoc, FireDir, 0.85f, MaxRange, 500.f, APawn::StaticClass(), &BestAim, &BestDist, &BestOffset);
-			AUTCharacter* TargetedCharacter = Cast<AUTCharacter>(PC->LastShotTargetGuess);
-			if (TargetedCharacter)
+			TargetedCharacter = Cast<AUTCharacter>(PC->LastShotTargetGuess);
+			PS = PC->UTPlayerState;
+		}
+		else if (Cast<AUTBot>(UTOwner->GetController()))
+		{
+			TargetedCharacter = Cast<AUTCharacter>(((AUTBot*)(UTOwner->GetController()))->GetEnemy());
+		}
+		if (TargetedCharacter)
+		{
+			TargetedCharacter->LastTargetedTime = GetWorld()->GetTimeSeconds();
+			AUTCarriedObject* Flag = TargetedCharacter->GetCarriedObject();
+			if (Flag && Flag->bShouldPingFlag)
 			{
-				TargetedCharacter->LastTargetedTime = GetWorld()->GetTimeSeconds();
-				AUTCarriedObject* Flag = TargetedCharacter->GetCarriedObject();
-				if (Flag && Flag->bShouldPingFlag)
-				{
 					if ((GetWorld()->GetTimeSeconds() - Flag->LastPingVerbalTime > 12.f) && (GetWorld()->GetTimeSeconds() - Flag->LastPingedTime > Flag->PingedDuration))
+				{
+					Flag->LastPingVerbalTime = GetWorld()->GetTimeSeconds();
+					if (PS)
 					{
-						Flag->LastPingVerbalTime = GetWorld()->GetTimeSeconds();
-						if (PC->UTPlayerState)
-						{
-							PC->UTPlayerState->AnnounceStatus(StatusMessage::EnemyFCHere);
-						}
+						PS->GetCharacterVoiceClass();
+						PS->AnnounceStatus(StatusMessage::EnemyFCHere);
 					}
-					Flag->LastPingedTime = GetWorld()->GetTimeSeconds();
 				}
+				Flag->LastPingedTime = GetWorld()->GetTimeSeconds();
 			}
 		}
 	}
