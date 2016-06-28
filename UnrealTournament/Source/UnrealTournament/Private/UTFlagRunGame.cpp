@@ -303,21 +303,21 @@ void AUTFlagRunGame::CompleteRallyRequest(AUTPlayerController* RequestingPC)
 			FRotator DesiredRotation = (FlagCarrier->GetActorLocation() - WarpLocation).Rotation();
 			WarpRotation.Yaw = DesiredRotation.Yaw;
 			RallyDelay = 20.f;
-			if (GetWorld()->GetTimeSeconds() - RallyRequestTime < 6.f)
+			for (FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator)
 			{
-				for (FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator)
+				AUTPlayerController* PC = Cast<AUTPlayerController>(*Iterator);
+				if (PC)
 				{
-					AUTPlayerController* PC = Cast<AUTPlayerController>(*Iterator);
-					if (PC)
+					if (GS->OnSameTeam(RequestingPC, PC))
 					{
-						if (GS->OnSameTeam(RequestingPC, PC))
+						if (GetWorld()->GetTimeSeconds() - RallyRequestTime < 6.f)
 						{
 							PC->ClientReceiveLocalizedMessage(UTPlayerState->GetCharacterVoiceClass(), ACKNOWLEDGE_SWITCH_INDEX, UTPlayerState, PC->PlayerState, NULL);
 						}
-						else
-						{
-							PC->ClientReceiveLocalizedMessage(UUTCTFMajorMessage::StaticClass(), 24, UTPlayerState);
-						}
+					}
+					else
+					{
+						PC->ClientReceiveLocalizedMessage(UUTCTFMajorMessage::StaticClass(), 24, UTPlayerState);
 					}
 				}
 			}
