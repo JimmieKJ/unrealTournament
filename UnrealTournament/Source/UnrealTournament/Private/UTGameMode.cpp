@@ -4712,14 +4712,29 @@ bool AUTGameMode::AttemptBoost(AUTPlayerController* Who)
 
 void AUTGameMode::SendComsMessage( AUTPlayerController* Sender, AUTPlayerState* Target, int32 Switch)
 {
-	AUTPlayerState* UTPlayerState = Cast<AUTPlayerState>(Instigator->PlayerState);
+	AUTPlayerState* UTPlayerState = Cast<AUTPlayerState>(Sender->PlayerState);
 
-	if (Target != nullptr)
+	if (UTPlayerState != nullptr)
 	{
-		// This is a targeting com message.  Send it only to the sender and the target
-		AUTPlayerController* TargetPC = Cast<AUTPlayerController>(Target->GetOwner());
-		if (TargetPC != nullptr) TargetPC->ClientReceiveLocalizedMessage(UTPlayerState->GetCharacterVoiceClass(), Switch, UTPlayerState, nullptr, UTPlayerState->LastKnownLocation);
-		Sender->ClientReceiveLocalizedMessage(UTPlayerState->GetCharacterVoiceClass(), Switch, UTPlayerState, nullptr, UTPlayerState->LastKnownLocation);
+		if (Target != nullptr)
+		{
+			// This is a targeting com message.  Send it only to the sender and the target
+			AUTPlayerController* TargetPC = Cast<AUTPlayerController>(Target->GetOwner());
+			if (TargetPC != nullptr) TargetPC->ClientReceiveLocalizedMessage(UTPlayerState->GetCharacterVoiceClass(), Switch, UTPlayerState, nullptr, UTPlayerState->LastKnownLocation);
+
+			Sender->ClientReceiveLocalizedMessage(UTPlayerState->GetCharacterVoiceClass(), Switch, UTPlayerState, nullptr, UTPlayerState->LastKnownLocation);
+		}
+		else
+		{
+			for (FConstPlayerControllerIterator It = GetWorld()->GetPlayerControllerIterator(); It; ++It)
+			{
+				AUTPlayerController* UTPlayerController = Cast<AUTPlayerController>(It->Get());
+				if (UTPlayerController != NULL)
+				{
+					UTPlayerController->ClientReceiveLocalizedMessage(UTPlayerState->GetCharacterVoiceClass(), Switch, UTPlayerState, nullptr, UTPlayerState->LastKnownLocation);
+				}
+			}
+		}
 	}
 }
 
