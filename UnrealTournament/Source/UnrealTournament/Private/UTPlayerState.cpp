@@ -298,6 +298,7 @@ void AUTPlayerState::AnnounceReactionTo(const AUTPlayerState* ReactionPS) const
 
 void AUTPlayerState::AnnounceStatus(FName NewStatus)
 {
+	GetCharacterVoiceClass();
 	if (CharacterVoice != NULL)
 	{
 		// send to same team only

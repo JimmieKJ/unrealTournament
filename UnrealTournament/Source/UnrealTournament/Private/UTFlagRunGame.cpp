@@ -238,7 +238,6 @@ void AUTFlagRunGame::HandleRallyRequest(AUTPlayerController* RequestingPC)
 					PC->ClientReceiveLocalizedMessage(UUTCTFMajorMessage::StaticClass(), 22, UTPlayerState);
 				}
 			}
-			UTPlayerState->GetCharacterVoiceClass();
 			UTPlayerState->AnnounceStatus(StatusMessage::NeedBackup);
 			UTPlayerState->NextRallyTime = GetWorld()->GetTimeSeconds() + 6.f;
 			RallyRequestTime = GetWorld()->GetTimeSeconds();

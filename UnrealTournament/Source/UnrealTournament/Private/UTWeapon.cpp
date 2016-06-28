@@ -1290,7 +1290,6 @@ void AUTWeapon::GuessPlayerTarget(const FVector& StartFireLoc, const FVector& Fi
 					Flag->LastPingVerbalTime = GetWorld()->GetTimeSeconds();
 					if (PS)
 					{
-						PS->GetCharacterVoiceClass();
 						PS->AnnounceStatus(StatusMessage::EnemyFCHere);
 					}
 				}
