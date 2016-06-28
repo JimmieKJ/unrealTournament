@@ -307,17 +307,7 @@ void AUTFlagRunGame::HandleRallyRequest(AUTPlayerController* RequestingPC)
 			RallyDelay = 500.f;
 			UTPlayerState->AnnounceStatus(StatusMessage::ImOnDefense);  
 		}
-		// grab weapons from nearby locker if needed
-		for (TActorIterator<AUTWeaponLocker> It(GetWorld()); It; ++It)
-		{
-			static FName NAME_LineOfSight = FName(TEXT("LineOfSight"));
-			FCollisionQueryParams CollisionParms(NAME_LineOfSight, true, UTCharacter);
-			if (!It->IsTaken(UTCharacter) && ((It->GetActorLocation() - UTCharacter->GetActorLocation()).Size() < 2000.f) && !GetWorld()->LineTraceTestByChannel(UTCharacter->GetActorLocation(), It->GetActorLocation(), COLLISION_TRACE_WEAPONNOCHARACTER, CollisionParms))
-			{
-				It->ProcessTouch(UTCharacter);
-				break;
-			}
-		}
+
 		// teleport
 		UPrimitiveComponent* SavedPlayerBase = UTCharacter->GetMovementBase();
 		FTransform SavedPlayerTransform = UTCharacter->GetTransform();

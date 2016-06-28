@@ -3,6 +3,7 @@
 #include "UTGameVolume.h"
 #include "UTDmgType_Suicide.h"
 #include "UTGameState.h"
+#include "UTWeaponLocker.h"
 
 AUTGameVolume::AUTGameVolume(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -14,7 +15,7 @@ AUTGameVolume::AUTGameVolume(const FObjectInitializer& ObjectInitializer)
 
 void AUTGameVolume::ActorEnteredVolume(class AActor* Other)
 {
-	if (Other && bIsTeamSafeVolume)
+	if (Other && bIsTeamSafeVolume && (Role == ROLE_Authority))
 	{
 		AUTCharacter* P = Cast<AUTCharacter>(Other);
 		AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
@@ -50,10 +51,14 @@ void AUTGameVolume::ActorLeavingVolume(class AActor* Other)
 {
 	if (Other && bIsTeamSafeVolume)
 	{
-		AUTCharacter* P = Cast<AUTCharacter>(Other);
-		if (P)
+		AUTCharacter* UTCharacter = Cast<AUTCharacter>(Other);
+		if (UTCharacter)
 		{
-			P->bDamageHurtsHealth = true;
+			UTCharacter->bDamageHurtsHealth = true;
+			if ((Role == ROLE_Authority) && UTCharacter->GetController() && TeamLocker)
+			{
+				TeamLocker->ProcessTouch(UTCharacter);
+			}
 		}
 	}
 }
