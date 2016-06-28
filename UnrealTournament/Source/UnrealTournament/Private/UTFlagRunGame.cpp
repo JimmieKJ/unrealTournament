@@ -280,9 +280,16 @@ void AUTFlagRunGame::HandleRallyRequest(AUTPlayerController* RequestingPC)
 				for (FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator)
 				{
 					AUTPlayerController* PC = Cast<AUTPlayerController>(*Iterator);
-					if (PC && GS->OnSameTeam(RequestingPC, PC))
+					if (PC)
 					{
-						PC->ClientReceiveLocalizedMessage(UTPlayerState->GetCharacterVoiceClass(), ACKNOWLEDGE_SWITCH_INDEX, UTPlayerState, PC->PlayerState, NULL);
+						if (GS->OnSameTeam(RequestingPC, PC))
+						{
+							PC->ClientReceiveLocalizedMessage(UTPlayerState->GetCharacterVoiceClass(), ACKNOWLEDGE_SWITCH_INDEX, UTPlayerState, PC->PlayerState, NULL);
+						}
+						else
+						{
+							PC->ClientReceiveLocalizedMessage(UUTCTFMajorMessage::StaticClass(), 24, UTPlayerState);
+						}
 					}
 				}
 			}
