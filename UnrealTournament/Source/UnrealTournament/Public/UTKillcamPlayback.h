@@ -55,6 +55,8 @@ public:
 	 */
 	void KillcamStart(const float RewindDemoSeconds, const FNetworkGUID FocusActorGUID);
 
+	void CoolMomentCamStart(const float RewindDemoSeconds, const FUniqueNetIdRepl FocusActorNetId);
+
 	/** Stops playback of the killcam world and switches the view to the live world. */
 	void KillcamStop();
 
@@ -152,6 +154,8 @@ private:
 	void OnKillcamGoToTimeComplete(bool bWasSuccessful, FOnGotoTimeDelegate UserDelegate);
 
 	void OnKillcamReady(bool bWasSuccessful, FNetworkGUID InKillcamViewTargetGUID);
+
+	void OnCoolMomentCamReady(bool bWasSuccessful, FUniqueNetIdRepl InCoolMomentViewTargetNetId);
 
 	/** Chokepoint for switching the UI to show the killcam world and HUD */
 	void ShowKillcamToUser();

@@ -87,6 +87,18 @@ struct FCustomSoundAmplification
 	{}
 };
 
+USTRUCT()
+struct FQueuedCoolMoment
+{
+	GENERATED_USTRUCT_BODY()
+
+	UPROPERTY()
+	FUniqueNetIdRepl NetId;
+
+	UPROPERTY()
+	float TimeToRewind;
+};
+
 UCLASS(config=Game)
 class UNREALTOURNAMENT_API AUTPlayerController : public AUTBasePlayerController
 {
@@ -1176,6 +1188,11 @@ public:
 
 	virtual void ProcessVoiceDebug(const FString& Command);
 
+	TArray<FQueuedCoolMoment> QueuedCoolMoments;
+
+	UFUNCTION(Client, Reliable)
+	void ClientQueueCoolMoment(FUniqueNetIdRepl NetId, float TimeToRewind);
+
 	UFUNCTION(Client, Reliable)
 	void ClientPlayInstantReplay(APawn* PawnToFocus, float TimeToRewind);
 
@@ -1189,6 +1206,8 @@ public:
 
 	/** Our own timer callback, to start the killcam a moment after the character's death. */
 	void OnKillcamStart(const FNetworkGUID InFocusActorGUID, float TimeToRewind);
+
+	void OnCoolMomentReplayStart(const FUniqueNetIdRepl NetId, float TimeToRewind);
 
 	FTimerHandle KillcamStartHandle;
 	FTimerHandle KillcamStopHandle;

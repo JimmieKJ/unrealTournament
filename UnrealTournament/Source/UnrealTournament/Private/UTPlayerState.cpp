@@ -75,6 +75,10 @@ AUTPlayerState::AUTPlayerState(const class FObjectInitializer& ObjectInitializer
 	CurrentLoadoutPackTag = NAME_None;
 	RespawnWaitTime = 0.f;
 	bIsPowerupSelectWindowOpen = false;
+
+	CoolFactorCombinationWindow = 5.0f;
+	CoolFactorBleedSpeed = 20.0f;
+	MinimumConsiderationForCoolFactorHistory = 200.0f;
 }
 
 void AUTPlayerState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & OutLifetimeProps) const
@@ -372,6 +376,8 @@ void AUTPlayerState::IncrementKills(TSubclassOf<UDamageType> DamageType, bool bE
 {
 	if (bEnemyKill)
 	{
+		AddCoolFactorEvent(100.0f);
+
 		AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
 		AUTGameMode* GM = GetWorld()->GetAuthGameMode<AUTGameMode>();
 		AController* Controller = Cast<AController>(GetOwner());
@@ -396,6 +402,8 @@ void AUTPlayerState::IncrementKills(TSubclassOf<UDamageType> DamageType, bool bE
 			{
 				MyPC->SendPersonalMessage(GS->MultiKillMessageClass, MultiKillLevel - 1, this, NULL);
 			}
+
+			AddCoolFactorEvent(MultiKillLevel * 50.0f);
 
 			if (GM)
 			{
@@ -445,6 +453,7 @@ void AUTPlayerState::IncrementKills(TSubclassOf<UDamageType> DamageType, bool bE
 				bShouldTauntKill = true;
 				if (MyPC != nullptr)
 				{
+					MyPC->UTPlayerState->AddCoolFactorMinorEvent();
 					MyPC->SendPersonalMessage(UTDamage.GetDefaultObject()->RewardAnnouncementClass, 0, this, VictimPS);
 				}
 			}
@@ -468,6 +477,8 @@ void AUTPlayerState::IncrementKills(TSubclassOf<UDamageType> DamageType, bool bE
 					UTChar->CosmeticSpreeCount = FMath::Min(Spree / 5, 5);
 					UTChar->OnRepCosmeticSpreeCount();
 				}
+
+				AddCoolFactorEvent(Spree * 20.0f);
 
 				if (GM)
 				{
@@ -679,6 +690,15 @@ void AUTPlayerState::Tick(float DeltaTime)
 				BoostRechargeTimeRemaining += GS->BoostRechargeTime;
 				SetRemainingBoosts(RemainingBoosts + 1); // note: will set BoostRechargeTimeRemaining to zero if we're no longer allowed to recharge
 			}
+		}
+	}
+
+	if (CurrentCoolFactor > 0.0f)
+	{
+		CurrentCoolFactor -= CoolFactorBleedSpeed * DeltaTime;
+		if (CurrentCoolFactor < 0.0f)
+		{
+			CurrentCoolFactor = 0.0f;
 		}
 	}
 }
@@ -3131,6 +3151,11 @@ void AUTPlayerState::PlayTauntByClass(TSubclassOf<AUTTaunt> TauntToPlay)
 	{
 		if (Role == ROLE_Authority)
 		{
+			if (EmoteReplicationInfo.EmoteCount == 0)
+			{
+				AddCoolFactorEvent(50.0f);
+			}
+
 			EmoteReplicationInfo.EmoteCount++;
 			ForceNetUpdate();
 		}
@@ -3418,4 +3443,43 @@ TSubclassOf<UUTCharacterVoice> AUTPlayerState::GetCharacterVoiceClass()
 	}
 
 	return CharacterVoice;
+}
+
+void AUTPlayerState::AddCoolFactorMinorEvent()
+{
+	AddCoolFactorEvent(20.0f);
+}
+
+void AUTPlayerState::AddCoolFactorEvent(float CoolFactorAddition)
+{
+	// No negative cool please
+	if (CoolFactorAddition <= 0)
+	{
+		return;
+	}
+
+	float CurrentWorldTime = GetWorld()->GetTimeSeconds();
+	CurrentCoolFactor += CoolFactorAddition;
+
+	if (CurrentCoolFactor >= MinimumConsiderationForCoolFactorHistory)
+	{
+		UE_LOG(UT, Verbose, TEXT("CoolFactorHistory updated for %s at %f"), *PlayerName, CurrentWorldTime);
+
+		if (CoolFactorHistory.Num() > 0 && CoolFactorHistory[CoolFactorHistory.Num() - 1].TimeOccurred - CurrentWorldTime < CoolFactorCombinationWindow)
+		{
+			// Overwrite the old cool history if we're cooler, highly likely
+			if (CurrentCoolFactor > CoolFactorHistory[CoolFactorHistory.Num() - 1].CoolFactorAmount)
+			{
+				CoolFactorHistory[CoolFactorHistory.Num() - 1].CoolFactorAmount = CurrentCoolFactor;
+				CoolFactorHistory[CoolFactorHistory.Num() - 1].TimeOccurred = CurrentWorldTime;
+			}
+		}
+		else
+		{
+			FCoolFactorHistoricalEvent NewEvent;
+			NewEvent.CoolFactorAmount = CurrentCoolFactor;
+			NewEvent.TimeOccurred = CurrentWorldTime;
+			CoolFactorHistory.Add(NewEvent);
+		}		
+	}
 }

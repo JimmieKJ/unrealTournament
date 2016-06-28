@@ -1405,6 +1405,7 @@ void AUTCharacter::AnnounceShred(AUTPlayerController *KillerPC)
 	if (KillerPS && CloseFlakRewardMessageClass)
 	{
 		KillerPS->ModifyStatsValue(FlakShredStatName, 1);
+		KillerPS->AddCoolFactorMinorEvent();
 		KillerPS->bAnnounceWeaponReward = true;
 		KillerPC->SendPersonalMessage(CloseFlakRewardMessageClass, KillerPS->GetStatsValue(FlakShredStatName), PlayerState, KillerPS);
 

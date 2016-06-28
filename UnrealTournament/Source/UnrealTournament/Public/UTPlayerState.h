@@ -66,6 +66,30 @@ struct FEmoteRepInfo
 
 	UPROPERTY()
 	int32 EmoteIndex;
+
+	FEmoteRepInfo()
+		: EmoteCount(0)
+		, EmoteIndex(0)
+	{
+	}
+};
+
+USTRUCT()
+struct FCoolFactorHistoricalEvent
+{
+	GENERATED_USTRUCT_BODY()
+
+	UPROPERTY()
+	float CoolFactorAmount;
+
+	UPROPERTY()
+	float TimeOccurred;
+
+	FCoolFactorHistoricalEvent()
+		: CoolFactorAmount(0)
+		, TimeOccurred(0)
+	{
+	}
 };
 
 class AUTReplicatedMapInfo;
@@ -814,6 +838,27 @@ public:
 
 	// Calculated client-side by the local player when 
 	bool bIsFriend;
+
+	UPROPERTY()
+	float CoolFactorCombinationWindow;
+
+	UPROPERTY()
+	float CoolFactorBleedSpeed;
+
+	UPROPERTY()
+	float MinimumConsiderationForCoolFactorHistory;
+
+	UPROPERTY()
+	float CurrentCoolFactor;
+
+	UPROPERTY()
+	TArray<FCoolFactorHistoricalEvent> CoolFactorHistory;
+
+	UFUNCTION()
+	void AddCoolFactorEvent(float CoolFactorAddition);
+
+	UFUNCTION()
+	void AddCoolFactorMinorEvent();
 
 #if !UE_SERVER
 public:

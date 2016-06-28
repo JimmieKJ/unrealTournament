@@ -455,7 +455,8 @@ public:
 
 	virtual void FindAndMarkHighScorer();
 	virtual void AdjustLeaderHatFor(AUTCharacter* UTChar);
-	virtual void SetEndGameFocus(AUTPlayerState* Winner);
+	virtual void SetEndGameFocus(AUTPlayerState* Winner);	
+	virtual void PickMostCoolMoments();
 
 	UFUNCTION(BlueprintCallable, Category = UTGame)
 	virtual void EndGame(AUTPlayerState* Winner, FName Reason);

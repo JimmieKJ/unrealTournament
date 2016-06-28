@@ -1990,8 +1990,96 @@ void AUTGameMode::EndGame(AUTPlayerState* Winner, FName Reason )
 	UnlockSession();
 	EndMatch();
 
+	PickMostCoolMoments();
+
 	// This should happen after EndMatch()
 	SetEndGameFocus(Winner);
+}
+
+// Keep cool moments spread out a bit
+bool IsValidCoolMomentTime(float TimeToCheck, TArray<float>& UsedTimes)
+{
+	if (UsedTimes.Num() == 0)
+	{
+		return true;
+	}
+
+	for (int32 i = 0; i < UsedTimes.Num(); i++)
+	{
+		if (FMath::Abs(UsedTimes[i] - TimeToCheck) < 5.0f)
+		{
+			return false;
+		}
+	}
+
+	return true;
+}
+
+void AUTGameMode::PickMostCoolMoments()
+{
+	UE_LOG(UT, Log, TEXT("PickMostCoolMoments"));
+
+	TArray<AUTPlayerState*> CoolestPlayers;
+	TArray<float> HighestCoolFactors;
+	TArray<float> CoolPlayTimes;
+
+	TArray<AUTPlayerState*> PlayerStates;
+	for (int32 i = 0; i < GameState->PlayerArray.Num(); i++)
+	{
+		AUTPlayerState* UTPS = Cast<AUTPlayerState>(GameState->PlayerArray[i]);
+		if (UTPS && UTPS->CoolFactorHistory.Num() > 0 && UTPS->UniqueId.IsValid())
+		{
+			PlayerStates.Add(UTPS);
+		}
+	}
+
+	AUTPlayerState* CoolestPlayer = nullptr;
+	float MostCoolFactor = 0;
+	float BestTimeOccurred = 0;
+	while (CoolestPlayers.Num() < 3 && PlayerStates.Num() > 0)
+	{
+		CoolestPlayer = nullptr;
+		MostCoolFactor = 0;
+		BestTimeOccurred = 0;
+
+		for (int32 PlayerIdx = 0; PlayerIdx < PlayerStates.Num(); PlayerIdx++)
+		{
+			for (int32 CoolMomentIdx = 0; CoolMomentIdx < PlayerStates[PlayerIdx]->CoolFactorHistory.Num(); CoolMomentIdx++)
+			{
+				if (PlayerStates[PlayerIdx]->CoolFactorHistory[CoolMomentIdx].CoolFactorAmount > MostCoolFactor)
+				{
+					if (IsValidCoolMomentTime(PlayerStates[PlayerIdx]->CoolFactorHistory[CoolMomentIdx].TimeOccurred, CoolPlayTimes))
+					{
+						MostCoolFactor = PlayerStates[PlayerIdx]->CoolFactorHistory[CoolMomentIdx].CoolFactorAmount;
+						BestTimeOccurred = PlayerStates[PlayerIdx]->CoolFactorHistory[CoolMomentIdx].TimeOccurred;
+						CoolestPlayer = PlayerStates[PlayerIdx];
+					}
+				}
+			}
+		}
+
+		if (CoolestPlayer == nullptr)
+		{
+			break;
+		}
+
+		CoolestPlayers.Add(CoolestPlayer);
+		HighestCoolFactors.Add(MostCoolFactor);
+		CoolPlayTimes.Add(BestTimeOccurred);
+
+		PlayerStates.Remove(CoolestPlayer);
+
+		UE_LOG(UT, Log, TEXT("PickMostCoolMoments found cool moment #%d at %f by %s"), CoolestPlayers.Num(), BestTimeOccurred, *CoolestPlayer->PlayerName);
+
+		for (FConstPlayerControllerIterator It = GetWorld()->GetPlayerControllerIterator(); It; ++It)
+		{
+			AUTPlayerController* PC = Cast<AUTPlayerController>(It->Get());
+			if (PC)
+			{
+				PC->ClientQueueCoolMoment(CoolestPlayer->UniqueId, GetWorld()->TimeSeconds - BestTimeOccurred);
+			}
+		}
+	}
 }
 
 float AUTGameMode::GetTravelDelay()
