@@ -119,7 +119,7 @@ void AUTCTFGameState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & O
 void AUTCTFGameState::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
-	if (bAllowRallies)
+	if (bAllowRallies && (Role == ROLE_Authority))
 	{
 		uint8 OffensiveTeam = bRedToCap ? 0 : 1;
 		bRedCanRally = true;
@@ -127,7 +127,7 @@ void AUTCTFGameState::Tick(float DeltaTime)
 		if (FlagBases.IsValidIndex(OffensiveTeam) && FlagBases[OffensiveTeam] != nullptr)
 		{
 			AUTCTFFlag* Flag = Cast<AUTCTFFlag>(FlagBases[OffensiveTeam]->GetCarriedObject());
-			bool bOffenseCanRally = (Flag && Flag->Holder && (GetWorld()->GetTimeSeconds() - FMath::Max(Flag->LastPingedTime, Flag->PickedUpTime) > 3.f));
+			bool bOffenseCanRally = (Flag && Flag->Holder && Flag->HoldingPawn && (GetWorld()->GetTimeSeconds() - Flag->PickedUpTime > 3.f) && (GetWorld()->GetTimeSeconds() - FMath::Max(Flag->HoldingPawn->LastTargetingTime, Flag->HoldingPawn->LastTargetedTime) > 3.f));
 			if (!bOffenseCanRally)
 			{
 				if (bRedToCap)

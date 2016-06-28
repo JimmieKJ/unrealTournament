@@ -1281,6 +1281,7 @@ void AUTWeapon::GuessPlayerTarget(const FVector& StartFireLoc, const FVector& Fi
 		}
 		if (TargetedCharacter)
 		{
+			UTOwner->LastTargetingTime = GetWorld()->GetTimeSeconds();
 			TargetedCharacter->LastTargetedTime = GetWorld()->GetTimeSeconds();
 			AUTCarriedObject* Flag = TargetedCharacter->GetCarriedObject();
 			if (Flag && Flag->bShouldPingFlag)
