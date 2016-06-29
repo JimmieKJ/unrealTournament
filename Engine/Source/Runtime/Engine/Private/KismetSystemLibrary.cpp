@@ -3090,23 +3090,6 @@ int32 UKismetSystemLibrary::GetMinYResolutionFor3DView()
 	return Value;
 }
 
-void UKismetSystemLibrary::LaunchURL(const FString& URL)
-{
-	if (!URL.IsEmpty())
-	{
-		FPlatformProcess::LaunchURL(*URL, nullptr, nullptr);
-	}
-}
-
-bool UKismetSystemLibrary::CanLaunchURL(const FString& URL)
-{
-	if (!URL.IsEmpty())
-	{
-		return FPlatformProcess::CanLaunchURL(*URL);
-	}
-
-	return false;
-}
 void UKismetSystemLibrary::CollectGarbage()
 {
 	GEngine->DeferredCommands.Add(TEXT("obj gc"));
