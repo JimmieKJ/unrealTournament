@@ -77,6 +77,17 @@ public:
 };
 
 USTRUCT()
+struct FHighestMmr
+{
+	GENERATED_USTRUCT_BODY()
+public:
+	FHighestMmr() : Mmr(1500) {}
+
+	UPROPERTY()
+	int32 Mmr;
+};
+
+USTRUCT()
 struct FBulkAccountMmrQuery
 {
 	GENERATED_USTRUCT_BODY()
@@ -161,6 +172,18 @@ public:
 	* @param Callback Callback delegate
 	*/
 	void GetTeamElo(const FString& RatingType, const TArray<FUniqueNetIdRepl>& AccountIds, int32 SocialPartySize, const FGetTeamEloCb& Callback);
+
+public:
+	typedef TFunction<void(const FOnlineError& /*Result*/, const FHighestMmr& /*Response*/)> FGetTeamHighestMmrCb;
+
+	/**
+	 * Query the server for the highest MMR of the listed accounts
+	 *
+	 * @param RatingType The type of rating we are querying for
+	 * @param AccountIds Array of Epic accountIDs for the players on the team
+	 * @param Callback Callback delegate
+	 */
+	void GetTeamHighestMmr(const FString& RatingType, const TArray<FUniqueNetIdRepl>& AccountIds, const FGetTeamHighestMmrCb& Callback);
 
 public:
 	typedef TFunction<void(const FOnlineError& /*Result*/, const FAccountMmr& /*Response*/)> FGetAccountMmrCb;
