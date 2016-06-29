@@ -3733,7 +3733,7 @@ void AUTPlayerController::SetWeaponGroup(AUTWeapon* InWeapon)
 		UUTProfileSettings* ProfileSettings = Cast<UUTLocalPlayer>(Player)->GetProfileSettings();
 		if (ProfileSettings)
 		{
-			FString WeaponClassName = GetNameSafe(InWeapon);
+			FString WeaponClassName = GetNameSafe(InWeapon->GetClass());
 			if (ProfileSettings->WeaponGroupLookup.Contains(WeaponClassName))
 			{
 				InWeapon->Group = ProfileSettings->WeaponGroupLookup[WeaponClassName].Group;
