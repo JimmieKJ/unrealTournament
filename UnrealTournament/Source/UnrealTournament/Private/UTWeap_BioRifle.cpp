@@ -178,8 +178,7 @@ void AUTWeap_BioRifle::UpdateTiming()
 	Super::UpdateTiming();
 	if (GetWorldTimerManager().IsTimerActive(IncreaseGlobStrengthHandle))
 	{
-		float RemainingPct = GetWorldTimerManager().GetTimerRemaining(IncreaseGlobStrengthHandle) / GetWorldTimerManager().GetTimerRate(IncreaseGlobStrengthHandle);
-		GetWorldTimerManager().SetTimer(IncreaseGlobStrengthHandle, this, &AUTWeap_BioRifle::IncreaseGlobStrength, GlobConsumeTime / ((UTOwner != NULL) ? UTOwner->GetFireRateMultiplier() : 1.0f), false);
+		GetWorldTimerManager().SetTimer(IncreaseGlobStrengthHandle, this, &AUTWeap_BioRifle::IncreaseGlobStrength, GlobConsumeTime / ((UTOwner != NULL) ? UTOwner->GetFireRateMultiplier() : 1.0f), false, GetWorldTimerManager().GetTimerRemaining(IncreaseGlobStrengthHandle));
 	}
 }
 

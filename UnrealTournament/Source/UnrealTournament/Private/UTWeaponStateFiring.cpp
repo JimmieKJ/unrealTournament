@@ -35,8 +35,13 @@ void UUTWeaponStateFiring::ToggleLoopingEffects(bool bNowOn)
 
 void UUTWeaponStateFiring::UpdateTiming()
 {
-	// TODO: we should really restart the timer at the percentage it currently is, but FTimerManager has no facility to do this
-	GetOuterAUTWeapon()->GetWorldTimerManager().SetTimer(RefireCheckHandle, this, &UUTWeaponStateFiring::RefireCheckTimer, GetOuterAUTWeapon()->GetRefireTime(GetOuterAUTWeapon()->GetCurrentFireMode()), true);
+	float FirstDelay = -1.0f;
+	FTimerManager& TimerMgr = GetOuterAUTWeapon()->GetWorldTimerManager();
+	if (TimerMgr.IsTimerActive(RefireCheckHandle))
+	{
+		FirstDelay = TimerMgr.GetTimerRemaining(RefireCheckHandle);
+	}
+	TimerMgr.SetTimer(RefireCheckHandle, this, &UUTWeaponStateFiring::RefireCheckTimer, GetOuterAUTWeapon()->GetRefireTime(GetOuterAUTWeapon()->GetCurrentFireMode()), true, FirstDelay);
 }
 
 bool UUTWeaponStateFiring::WillSpawnShot(float DeltaTime)
