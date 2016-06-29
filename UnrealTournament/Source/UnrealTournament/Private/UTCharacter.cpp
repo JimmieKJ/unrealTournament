@@ -1853,7 +1853,10 @@ void AUTCharacter::SpawnGib(const FGibSlotInfo& GibInfo, TSubclassOf<UUTDamageTy
 
 void AUTCharacter::FeignDeath()
 {
-	ServerFeignDeath();
+	if (GetWorld()->TimeSeconds - CreationTime > 1.0f) // workaround for feign death immediately on spawn bug
+	{
+		ServerFeignDeath();
+	}
 }
 bool AUTCharacter::ServerFeignDeath_Validate()
 {
