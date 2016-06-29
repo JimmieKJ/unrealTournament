@@ -848,7 +848,7 @@ public:
 	UPROPERTY()
 	float MinimumConsiderationForCoolFactorHistory;
 
-	UPROPERTY()
+	UPROPERTY(replicated)
 	float CurrentCoolFactor;
 
 	UPROPERTY()

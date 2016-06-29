@@ -168,6 +168,11 @@ void AUTPlayerState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & Ou
 
 	DOREPLIFETIME_CONDITION(AUTPlayerState, CriticalObject, COND_OwnerOnly);
 	DOREPLIFETIME_CONDITION(AUTPlayerState, UnlockList, COND_OwnerOnly);
+
+	// Allow "displayall UTPlayerState CurrentCoolFactor" in development builds
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+	DOREPLIFETIME_CONDITION(AUTPlayerState, CurrentCoolFactor, COND_OwnerOnly);
+#endif
 }
 
 void AUTPlayerState::Destroyed()
@@ -403,7 +408,7 @@ void AUTPlayerState::IncrementKills(TSubclassOf<UDamageType> DamageType, bool bE
 				MyPC->SendPersonalMessage(GS->MultiKillMessageClass, MultiKillLevel - 1, this, NULL);
 			}
 
-			AddCoolFactorEvent(MultiKillLevel * 50.0f);
+			AddCoolFactorEvent(MultiKillLevel * 100.0f);
 
 			if (GM)
 			{
@@ -3447,7 +3452,7 @@ TSubclassOf<UUTCharacterVoice> AUTPlayerState::GetCharacterVoiceClass()
 
 void AUTPlayerState::AddCoolFactorMinorEvent()
 {
-	AddCoolFactorEvent(20.0f);
+	AddCoolFactorEvent(50.0f);
 }
 
 void AUTPlayerState::AddCoolFactorEvent(float CoolFactorAddition)
