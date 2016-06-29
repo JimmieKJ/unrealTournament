@@ -297,14 +297,16 @@ void AUTFlagRunGame::CompleteRallyRequest(AUTPlayerController* RequestingPC)
 			{
 				return;
 			}
-			FVector CarrierLocation = FlagCarrier->GetActorLocation() + FVector(0.f, 0.f, UTCharacter->GetCapsuleComponent()->GetUnscaledCapsuleHalfHeight());
+			float HalfHeight = UTCharacter->GetCapsuleComponent()->GetUnscaledCapsuleHalfHeight();
+			FVector CarrierLocation = FlagCarrier->GetActorLocation() + FVector(0.f, 0.f, HalfHeight);
 			ECollisionChannel SavedObjectType = UTCharacter->GetCapsuleComponent()->GetCollisionObjectType();
 			UTCharacter->GetCapsuleComponent()->SetCollisionObjectType(COLLISION_TELEPORTING_OBJECT);
 			float Offset = 4.f * UTCharacter->GetCapsuleComponent()->GetUnscaledCapsuleRadius();
 			for (int32 i = 0; i < 4; i++)
 			{
 				WarpLocation = CarrierLocation + FVector(Offset * ((i % 2 == 0) ? 1.f : -1.f), Offset * ((i > 1) ? 1.f : -1.f), 0.f);
-				if (GetWorld()->FindTeleportSpot(UTCharacter, WarpLocation, WarpRotation) && !GetWorld()->LineTraceTestByChannel(CarrierLocation, WarpLocation, COLLISION_TELEPORTING_OBJECT, FCollisionQueryParams(FName(TEXT("Translocator")), false), WorldResponseParams))
+				if (GetWorld()->FindTeleportSpot(UTCharacter, WarpLocation, WarpRotation) && !GetWorld()->LineTraceTestByChannel(CarrierLocation, WarpLocation, COLLISION_TELEPORTING_OBJECT, FCollisionQueryParams(FName(TEXT("Translocator")), false), WorldResponseParams)
+					&& GetWorld()->LineTraceTestByChannel(WarpLocation, WarpLocation - FVector(0.f,0.f,3.f* HalfHeight), COLLISION_TELEPORTING_OBJECT, FCollisionQueryParams(FName(TEXT("Translocator")), false), WorldResponseParams))
 				{
 					break;
 				}
@@ -358,14 +360,7 @@ void AUTFlagRunGame::CompleteRallyRequest(AUTPlayerController* RequestingPC)
 		FTransform SavedPlayerTransform = UTCharacter->GetTransform();
 		if (UTCharacter->TeleportTo(WarpLocation, WarpRotation))
 		{
-			UTCharacter->FaceRotation(WarpRotation, 0.0f);
-			RequestingPC->SetControlRotation(WarpRotation);
-			if (UTCharacter->UTCharacterMovement && UTCharacter->UTCharacterMovement->bIsFloorSliding)
-			{
-				float VelZ = UTCharacter->UTCharacterMovement->Velocity.Z;
-				UTCharacter->UTCharacterMovement->Velocity *= 0.9f;
-				UTCharacter->UTCharacterMovement->Velocity.Z = VelZ;
-			}
+			RequestingPC->UTClientSetRotation(WarpRotation);
 			UTPlayerState->NextRallyTime = GetWorld()->GetTimeSeconds() + RallyDelay;
 
 			// spawn effects
