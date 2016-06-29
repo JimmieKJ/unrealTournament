@@ -191,7 +191,7 @@ protected:
 
 	FReply Logout();
 	void SignOutConfirmationResult(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID);
-
+	EVisibility VoteKickVis() const;
 private:
 	void UpdatePlayerStateInReplays();
 	void UpdatePlayerCharacterPreviewInReplays();

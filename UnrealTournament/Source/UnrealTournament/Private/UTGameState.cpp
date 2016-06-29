@@ -1119,11 +1119,12 @@ void AUTGameState::VoteForTempBan(AUTPlayerState* BadGuy, AUTPlayerState* Voter)
 		Game->BroadcastLocalized(Voter, UUTGameMessage::StaticClass(), 13, Voter, BadGuy);
 
 		float Perc = (float(BadGuy->CountBanVotes()) / float(Game->NumPlayers)) * 100.0f;
-		BadGuy->KickPercent = int8(Perc);
-		UE_LOG(UT,Log,TEXT("VoteForTempBan %f %i %i %i"),Perc,BadGuy->KickPercent,BadGuy->CountBanVotes(),Game->NumPlayers);
+		BadGuy->KickCount = BadGuy->CountBanVotes();
+		UE_LOG(UT,Log,TEXT("[KICK VOTE] Target = %s - # of Votes = %i (%i players), % = %f"), * BadGuy->PlayerName, BadGuy->KickCount, Game->NumPlayers, Perc);
 
 		if ( Perc >=  KickThreshold )
 		{
+			UE_LOG(UT,Log,TEXT("[KICK VOTE]     KICKED!!!!"));
 			AUTPlayerController* PC = Cast<AUTPlayerController>(BadGuy->GetOwner());
 			if (PC)
 			{

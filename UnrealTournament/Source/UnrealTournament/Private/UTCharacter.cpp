@@ -1204,9 +1204,13 @@ void AUTCharacter::NotifyTakeHit(AController* InstigatedBy, int32 AppliedDamage,
 	{
 		AUTCarriedObject* Flag = GetCarriedObject();
 		AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
-		if (Flag && InstigatedBy && GS && !GS->OnSameTeam(this, InstigatedBy))
+		if (InstigatedBy && GS && !GS->OnSameTeam(this, InstigatedBy))
 		{
-			Flag->LastPingedTime = GetWorld()->GetTimeSeconds();
+			if (Flag)
+			{
+				Flag->LastPingedTime = GetWorld()->GetTimeSeconds();
+			}
+			LastTargetedTime = GetWorld()->GetTimeSeconds();
 		}
 		AUTPlayerController* InstigatedByPC = Cast<AUTPlayerController>(InstigatedBy);
 		APawn* InstigatorPawn = nullptr;
@@ -1404,6 +1408,7 @@ void AUTCharacter::AnnounceShred(AUTPlayerController *KillerPC)
 	if (KillerPS && CloseFlakRewardMessageClass)
 	{
 		KillerPS->ModifyStatsValue(FlakShredStatName, 1);
+		KillerPS->AddCoolFactorMinorEvent();
 		KillerPS->bAnnounceWeaponReward = true;
 		KillerPC->SendPersonalMessage(CloseFlakRewardMessageClass, KillerPS->GetStatsValue(FlakShredStatName), PlayerState, KillerPS);
 
@@ -1848,7 +1853,10 @@ void AUTCharacter::SpawnGib(const FGibSlotInfo& GibInfo, TSubclassOf<UUTDamageTy
 
 void AUTCharacter::FeignDeath()
 {
-	ServerFeignDeath();
+	if (GetWorld()->TimeSeconds - CreationTime > 1.0f) // workaround for feign death immediately on spawn bug
+	{
+		ServerFeignDeath();
+	}
 }
 bool AUTCharacter::ServerFeignDeath_Validate()
 {

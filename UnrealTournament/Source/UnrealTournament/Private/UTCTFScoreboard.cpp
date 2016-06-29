@@ -233,7 +233,7 @@ void UUTCTFScoreboard::DrawScoringPlays(float DeltaTime, float& YPos, float XOff
 				if (RoundBonus >= 120)
 				{
 					BonusString = TEXT("\u2605 \u2605 \u2605");
-					BonusColor = FLinearColor(1.f, 0.9f, 0.3f);
+					BonusColor = FLinearColor(1.f, 0.9f, 0.15f);
 				}
 				else if (RoundBonus < 60)
 				{

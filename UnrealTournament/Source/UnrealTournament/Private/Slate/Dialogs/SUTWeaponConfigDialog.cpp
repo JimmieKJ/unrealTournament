@@ -48,7 +48,9 @@ void SUTWeaponConfigDialog::Construct(const FArguments& InArgs)
 						{
 							//Add weapons for the priority list
 							int32 Group = (TestClass->GetDefaultObject<AUTWeapon>()->Group >= 0) ? TestClass->GetDefaultObject<AUTWeapon>()->Group : TestClass->GetDefaultObject<AUTWeapon>()->DefaultGroup;
-							Group = ProfileSettings && ProfileSettings->WeaponGroupLookup.Contains(*ClassPath) ? ProfileSettings->WeaponGroupLookup[*ClassPath].Group : Group;
+
+							FString ClassName = GetNameSafe(TestClass);
+							Group = ProfileSettings && ProfileSettings->WeaponGroupLookup.Contains(ClassName) ? ProfileSettings->WeaponGroupLookup[ClassName].Group : Group;
 							Group = FMath::Clamp<int32>(Group, 0,10);
 							WeaponClassList.Add(TestClass);
 							WeakWeaponClassList.Add(TestClass);

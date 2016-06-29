@@ -218,6 +218,43 @@ void UUTMcpUtils::GetTeamElo(const FString& RatingType, const TArray<FUniqueNetI
 #endif
 }
 
+void UUTMcpUtils::GetTeamHighestMmr(const FString& RatingType, const TArray<FUniqueNetIdRepl>& AccountIds, const FGetTeamHighestMmrCb& Callback)
+{
+#if WITH_PROFILE
+	// build parameters struct
+	FRankedTeamInfo Team;
+	for (const FUniqueNetIdWrapper& AccountId : AccountIds)
+	{
+		if (AccountId.IsValid())
+		{
+			FRankedTeamMemberInfo Member;
+			Member.AccountId = AccountId.ToString();
+			Team.Members.Add(Member);
+		}
+	}
+
+	// check for error case
+	if (Team.Members.Num() <= 0)
+	{
+		McpSubsystem->ExecuteNextTick([Callback]() {
+			Callback(FOnlineError(TEXT("NoTeamMembers")), FHighestMmr());
+		});
+		return;
+	}
+
+	// build request URL
+	static const FString ServerPath = TEXT("/api/game/v2/ratings/team/highestmmr/`ratingType");
+	auto HttpRequest = CreateRequest(TEXT("POST"), ServerPath
+		.Replace(TEXT("`ratingType"), *RatingType, ESearchCase::CaseSensitive)
+		);
+
+	// send the request
+	HttpRequest->SetHeader(TEXT("Content-Type"), TEXT("application/json"));
+	HttpRequest->SetContentAsString(JsonSerialize(Team));
+	SendRequest(HttpRequest, SimpleResponseHandler(Callback));
+#endif
+}
+
 void UUTMcpUtils::GetAccountMmr(const FString& RatingType, const FGetAccountMmrCb& Callback)
 {
 #if WITH_PROFILE

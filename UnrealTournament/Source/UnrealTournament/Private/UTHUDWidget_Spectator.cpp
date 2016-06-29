@@ -224,9 +224,14 @@ FText UUTHUDWidget_Spectator::GetSpectatorMessageText(bool &bViewingMessage)
 				}
 				else if (!UTPS->bOutOfLives)
 				{
-					SpectatorMessage = (UTPS->RespawnChoiceA != nullptr)
-						? NSLOCTEXT("UUTHUDWidget_Spectator", "ChooseRespawnMessage", "Choose a respawn point with [FIRE] or [ALT-FIRE]")
-						: NSLOCTEXT("UUTHUDWidget_Spectator", "RespawnMessage", "Press [FIRE] to respawn...");
+					if (UTPS->RespawnChoiceA != nullptr)
+					{
+						SpectatorMessage = NSLOCTEXT("UUTHUDWidget_Spectator", "ChooseRespawnMessage", "Choose a respawn point with [FIRE] or [ALT-FIRE]");
+					}
+					else
+					{
+						SpectatorMessage = (UTGameState->ForceRespawnTime > 0.3f) ? NSLOCTEXT("UUTHUDWidget_Spectator", "RespawnMessage", "Press [FIRE] to respawn...") : FText::GetEmpty();
+					}
 				}
 			}
 		}

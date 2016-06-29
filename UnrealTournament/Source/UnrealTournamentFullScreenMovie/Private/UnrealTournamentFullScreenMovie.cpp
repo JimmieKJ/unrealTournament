@@ -24,7 +24,8 @@ public:
 
 		LoadingScreen.MoviePaths.Empty();
 
-		FString MovieName = ( FParse::Param( FCommandLine::Get(), TEXT( "nomovie" )) ) ? TEXT("load_generic_nosound") : TEXT("intro_full;intro_loop");
+		//FString MovieName = ( FParse::Param( FCommandLine::Get(), TEXT( "nomovie" )) ) ? TEXT("load_generic_nosound") : TEXT("intro_full;intro_loop");
+		FString MovieName = TEXT("load_generic_nosound");
 		MovieName.ParseIntoArray(LoadingScreen.MoviePaths, TEXT(";"), true);
 		GetMoviePlayer()->SetupLoadingScreen(LoadingScreen);
 #endif

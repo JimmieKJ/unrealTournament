@@ -225,7 +225,7 @@ void AUTFlagRunGame::HandleRallyRequest(AUTPlayerController* RequestingPC)
 	// if can rally, teleport with transloc effect, set last rally time
 	AUTCTFGameState* GS = GetWorld()->GetGameState<AUTCTFGameState>();
 	AUTTeamInfo* Team = UTPlayerState ? UTPlayerState->Team : nullptr;
-	if (Team && UTPlayerState->bCanRally && UTCharacter && GS && ((Team->TeamIndex == 0) ? GS->bRedCanRally : GS->bBlueCanRally) && GS->FlagBases.IsValidIndex(Team->TeamIndex) && GS->FlagBases[Team->TeamIndex] != nullptr)
+	if (Team && UTPlayerState->bCanRally && UTCharacter && GS && IsMatchInProgress() && !GS->IsMatchIntermission() && ((Team->TeamIndex == 0) ? GS->bRedCanRally : GS->bBlueCanRally) && GS->FlagBases.IsValidIndex(Team->TeamIndex) && GS->FlagBases[Team->TeamIndex] != nullptr)
 	{
 		if (UTCharacter->GetCarriedObject())
 		{
@@ -238,12 +238,50 @@ void AUTFlagRunGame::HandleRallyRequest(AUTPlayerController* RequestingPC)
 					PC->ClientReceiveLocalizedMessage(UUTCTFMajorMessage::StaticClass(), 22, UTPlayerState);
 				}
 			}
-			UTPlayerState->GetCharacterVoiceClass();
 			UTPlayerState->AnnounceStatus(StatusMessage::NeedBackup);
 			UTPlayerState->NextRallyTime = GetWorld()->GetTimeSeconds() + 6.f;
 			RallyRequestTime = GetWorld()->GetTimeSeconds();
 			return;
 		}
+		else if ((Team->TeamIndex == 0) == GS->bRedToCap)
+		{
+			// rally to flag carrier
+			AUTCTFFlag* Flag = Cast<AUTCTFFlag>(GS->FlagBases[GS->bRedToCap ? 0 : 1]->GetCarriedObject());
+			AUTCharacter* FlagCarrier = Flag ? Flag->HoldingPawn : nullptr;
+			if (FlagCarrier != nullptr)
+			{
+				if (bDelayedRally)
+				{
+					RequestingPC->BeginRallyTo(FlagCarrier, 1.f);
+				}
+				else
+				{
+					CompleteRallyRequest(RequestingPC);
+				}
+			}
+		}
+		else
+		{
+			CompleteRallyRequest(RequestingPC);
+		}
+	}
+}
+
+void AUTFlagRunGame::CompleteRallyRequest(AUTPlayerController* RequestingPC)
+{
+	AUTCharacter* UTCharacter = RequestingPC->GetUTCharacter();
+	AUTPlayerState* UTPlayerState = RequestingPC->UTPlayerState;
+
+	// if can rally, teleport with transloc effect, set last rally time
+	AUTCTFGameState* GS = GetWorld()->GetGameState<AUTCTFGameState>();
+	AUTTeamInfo* Team = UTPlayerState ? UTPlayerState->Team : nullptr;
+	if (!IsMatchInProgress() || (GS && GS->IsMatchIntermission()))
+	{
+		return;
+	}
+
+	if (Team && UTCharacter && GS && GS->FlagBases.IsValidIndex(Team->TeamIndex) && GS->FlagBases[Team->TeamIndex] != nullptr)
+	{
 		FVector WarpLocation = FVector::ZeroVector;
 		FRotator WarpRotation(0.0f, UTCharacter->GetActorRotation().Yaw, 0.0f);
 		FCollisionShape PlayerCapsule = FCollisionShape::MakeCapsule(UTCharacter->GetCapsuleComponent()->GetUnscaledCapsuleRadius(), UTCharacter->GetCapsuleComponent()->GetUnscaledCapsuleHalfHeight());
@@ -259,30 +297,42 @@ void AUTFlagRunGame::HandleRallyRequest(AUTPlayerController* RequestingPC)
 			{
 				return;
 			}
-			FVector CarrierLocation = FlagCarrier->GetActorLocation() + FVector(0.f, 0.f, UTCharacter->GetCapsuleComponent()->GetUnscaledCapsuleHalfHeight());
+			float HalfHeight = UTCharacter->GetCapsuleComponent()->GetUnscaledCapsuleHalfHeight();
+			FVector CarrierLocation = FlagCarrier->GetActorLocation() + FVector(0.f, 0.f, HalfHeight);
 			ECollisionChannel SavedObjectType = UTCharacter->GetCapsuleComponent()->GetCollisionObjectType();
 			UTCharacter->GetCapsuleComponent()->SetCollisionObjectType(COLLISION_TELEPORTING_OBJECT);
 			float Offset = 4.f * UTCharacter->GetCapsuleComponent()->GetUnscaledCapsuleRadius();
 			for (int32 i = 0; i < 4; i++)
 			{
 				WarpLocation = CarrierLocation + FVector(Offset * ((i % 2 == 0) ? 1.f : -1.f), Offset * ((i > 1) ? 1.f : -1.f), 0.f);
-				if (GetWorld()->FindTeleportSpot(UTCharacter, WarpLocation, WarpRotation) && !GetWorld()->LineTraceTestByChannel(CarrierLocation, WarpLocation, COLLISION_TELEPORTING_OBJECT, FCollisionQueryParams(FName(TEXT("Translocator")), false), WorldResponseParams))
+				if (GetWorld()->FindTeleportSpot(UTCharacter, WarpLocation, WarpRotation) && !GetWorld()->LineTraceTestByChannel(CarrierLocation, WarpLocation, COLLISION_TELEPORTING_OBJECT, FCollisionQueryParams(FName(TEXT("Translocation")), false), WorldResponseParams))
 				{
-					break;
+					bool bHitFloor = true; // GetWorld()->SweepSingleByChannel(Hit, WarpLocation, WarpLocation - FVector(0.f, 0.f, 3.f* HalfHeight), FQuat::Identity, UTCharacter->GetCapsuleComponent()->GetCollisionObjectType(), FCollisionShape::MakeSphere(SweepRadius), FCollisionQueryParams(FName(TEXT("Translocation")), false, UTCharacter), UTCharacter->GetCapsuleComponent()->GetCollisionResponseToChannels());
+					if (bHitFloor)
+					{
+						break;
+					}
 				}
 			}
 			UTCharacter->GetCapsuleComponent()->SetCollisionObjectType(SavedObjectType);
 			FRotator DesiredRotation = (FlagCarrier->GetActorLocation() - WarpLocation).Rotation();
 			WarpRotation.Yaw = DesiredRotation.Yaw;
 			RallyDelay = 20.f;
-			if (GetWorld()->GetTimeSeconds() - RallyRequestTime < 6.f)
+			for (FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator)
 			{
-				for (FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator)
+				AUTPlayerController* PC = Cast<AUTPlayerController>(*Iterator);
+				if (PC)
 				{
-					AUTPlayerController* PC = Cast<AUTPlayerController>(*Iterator);
-					if (PC && GS->OnSameTeam(RequestingPC, PC))
+					if (GS->OnSameTeam(RequestingPC, PC))
 					{
-						PC->ClientReceiveLocalizedMessage(UTPlayerState->GetCharacterVoiceClass(), ACKNOWLEDGE_SWITCH_INDEX, UTPlayerState, PC->PlayerState, NULL);
+						if (GetWorld()->GetTimeSeconds() - RallyRequestTime < 6.f)
+						{
+							PC->ClientReceiveLocalizedMessage(UTPlayerState->GetCharacterVoiceClass(), ACKNOWLEDGE_SWITCH_INDEX, UTPlayerState, PC->PlayerState, NULL);
+						}
+					}
+					else
+					{
+						PC->ClientReceiveLocalizedMessage(UUTCTFMajorMessage::StaticClass(), 24, UTPlayerState);
 					}
 				}
 			}
@@ -305,32 +355,15 @@ void AUTFlagRunGame::HandleRallyRequest(AUTPlayerController* RequestingPC)
 			}
 			WarpRotation = GS->FlagBases[Team->TeamIndex]->GetActorRotation();
 			RallyDelay = 500.f;
-			UTPlayerState->AnnounceStatus(StatusMessage::ImOnDefense);  
+			UTPlayerState->AnnounceStatus(StatusMessage::ImOnDefense);
 		}
-		// grab weapons from nearby locker if needed
-		for (TActorIterator<AUTWeaponLocker> It(GetWorld()); It; ++It)
-		{
-			static FName NAME_LineOfSight = FName(TEXT("LineOfSight"));
-			FCollisionQueryParams CollisionParms(NAME_LineOfSight, true, UTCharacter);
-			if (!It->IsTaken(UTCharacter) && ((It->GetActorLocation() - UTCharacter->GetActorLocation()).Size() < 2000.f) && !GetWorld()->LineTraceTestByChannel(UTCharacter->GetActorLocation(), It->GetActorLocation(), COLLISION_TRACE_WEAPONNOCHARACTER, CollisionParms))
-			{
-				It->ProcessTouch(UTCharacter);
-				break;
-			}
-		}
+
 		// teleport
 		UPrimitiveComponent* SavedPlayerBase = UTCharacter->GetMovementBase();
 		FTransform SavedPlayerTransform = UTCharacter->GetTransform();
 		if (UTCharacter->TeleportTo(WarpLocation, WarpRotation))
 		{
-			UTCharacter->FaceRotation(WarpRotation, 0.0f);
-			RequestingPC->SetControlRotation(WarpRotation);
-			if (UTCharacter->UTCharacterMovement && UTCharacter->UTCharacterMovement->bIsFloorSliding)
-			{
-				float VelZ = UTCharacter->UTCharacterMovement->Velocity.Z;
-				UTCharacter->UTCharacterMovement->Velocity *= 0.9f;
-				UTCharacter->UTCharacterMovement->Velocity.Z = VelZ;
-			}
+			RequestingPC->UTClientSetRotation(WarpRotation);
 			UTPlayerState->NextRallyTime = GetWorld()->GetTimeSeconds() + RallyDelay;
 
 			// spawn effects
@@ -348,4 +381,5 @@ void AUTFlagRunGame::HandleRallyRequest(AUTPlayerController* RequestingPC)
 			}
 		}
 	}
+
 }

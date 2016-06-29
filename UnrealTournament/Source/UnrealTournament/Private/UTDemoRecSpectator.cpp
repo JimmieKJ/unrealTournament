@@ -10,6 +10,16 @@ AUTDemoRecSpectator::AUTDemoRecSpectator(const FObjectInitializer& OI)
 	bShouldPerformFullTickWhenPaused = true;
 }
 
+void AUTDemoRecSpectator::PlayerTick(float DeltaTime)
+{
+	Super::PlayerTick(DeltaTime);
+
+	if (QueuedPlayerStateToView)
+	{
+		ViewPlayerState(QueuedPlayerStateToView);
+	}
+}
+
 void AUTDemoRecSpectator::ViewPlayerState(APlayerState* PS)
 {
 	// we have to redirect back to the Pawn because engine hardcoded FTViewTarget code will reject a PlayerState with NULL owner
@@ -18,8 +28,13 @@ void AUTDemoRecSpectator::ViewPlayerState(APlayerState* PS)
 		if (It->IsValid() && It->Get()->PlayerState == PS)
 		{
 			SetViewTarget(It->Get());
+			QueuedPlayerStateToView = nullptr;
+			return;
 		}
 	}
+
+	UE_CLOG(PS != nullptr, UT, Verbose, TEXT("ViewPlayerState failed to find %s, queuing"), *PS->PlayerName);
+	QueuedPlayerStateToView = PS;
 }
 
 void AUTDemoRecSpectator::DemoNotifyCausedHit_Implementation(APawn* InstigatorPawn, AUTCharacter* HitPawn, uint8 AppliedDamage, FVector Momentum, const FDamageEvent& DamageEvent)

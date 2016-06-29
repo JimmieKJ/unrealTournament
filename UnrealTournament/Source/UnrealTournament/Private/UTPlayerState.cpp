@@ -75,6 +75,10 @@ AUTPlayerState::AUTPlayerState(const class FObjectInitializer& ObjectInitializer
 	CurrentLoadoutPackTag = NAME_None;
 	RespawnWaitTime = 0.f;
 	bIsPowerupSelectWindowOpen = false;
+
+	CoolFactorCombinationWindow = 5.0f;
+	CoolFactorBleedSpeed = 20.0f;
+	MinimumConsiderationForCoolFactorHistory = 200.0f;
 }
 
 void AUTPlayerState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & OutLifetimeProps) const
@@ -123,7 +127,7 @@ void AUTPlayerState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & Ou
 	DOREPLIFETIME(AUTPlayerState, bCanRally);
 	DOREPLIFETIME(AUTPlayerState, OverrideHatClass);
 	DOREPLIFETIME(AUTPlayerState, Loadout);
-	DOREPLIFETIME(AUTPlayerState, KickPercent);
+	DOREPLIFETIME(AUTPlayerState, KickCount);
 	DOREPLIFETIME(AUTPlayerState, AvailableCurrency);
 	DOREPLIFETIME(AUTPlayerState, StatsID);
 	DOREPLIFETIME(AUTPlayerState, FavoriteWeapon);
@@ -164,6 +168,11 @@ void AUTPlayerState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & Ou
 
 	DOREPLIFETIME_CONDITION(AUTPlayerState, CriticalObject, COND_OwnerOnly);
 	DOREPLIFETIME_CONDITION(AUTPlayerState, UnlockList, COND_OwnerOnly);
+
+	// Allow "displayall UTPlayerState CurrentCoolFactor" in development builds
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+	DOREPLIFETIME_CONDITION(AUTPlayerState, CurrentCoolFactor, COND_OwnerOnly);
+#endif
 }
 
 void AUTPlayerState::Destroyed()
@@ -298,6 +307,7 @@ void AUTPlayerState::AnnounceReactionTo(const AUTPlayerState* ReactionPS) const
 
 void AUTPlayerState::AnnounceStatus(FName NewStatus)
 {
+	GetCharacterVoiceClass();
 	if (CharacterVoice != NULL)
 	{
 		// send to same team only
@@ -371,6 +381,8 @@ void AUTPlayerState::IncrementKills(TSubclassOf<UDamageType> DamageType, bool bE
 {
 	if (bEnemyKill)
 	{
+		AddCoolFactorEvent(100.0f);
+
 		AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
 		AUTGameMode* GM = GetWorld()->GetAuthGameMode<AUTGameMode>();
 		AController* Controller = Cast<AController>(GetOwner());
@@ -395,6 +407,8 @@ void AUTPlayerState::IncrementKills(TSubclassOf<UDamageType> DamageType, bool bE
 			{
 				MyPC->SendPersonalMessage(GS->MultiKillMessageClass, MultiKillLevel - 1, this, NULL);
 			}
+
+			AddCoolFactorEvent(MultiKillLevel * 100.0f);
 
 			if (GM)
 			{
@@ -444,6 +458,7 @@ void AUTPlayerState::IncrementKills(TSubclassOf<UDamageType> DamageType, bool bE
 				bShouldTauntKill = true;
 				if (MyPC != nullptr)
 				{
+					MyPC->UTPlayerState->AddCoolFactorMinorEvent();
 					MyPC->SendPersonalMessage(UTDamage.GetDefaultObject()->RewardAnnouncementClass, 0, this, VictimPS);
 				}
 			}
@@ -467,6 +482,8 @@ void AUTPlayerState::IncrementKills(TSubclassOf<UDamageType> DamageType, bool bE
 					UTChar->CosmeticSpreeCount = FMath::Min(Spree / 5, 5);
 					UTChar->OnRepCosmeticSpreeCount();
 				}
+
+				AddCoolFactorEvent(Spree * 20.0f);
 
 				if (GM)
 				{
@@ -643,7 +660,8 @@ void AUTPlayerState::Tick(float DeltaTime)
 
 	if (Role == ROLE_Authority)
 	{
-		bCanRally = (GetWorld()->GetTimeSeconds() > NextRallyTime) && (!GetUTCharacter() || GetUTCharacter()->bCanRally);
+		AUTCharacter* UTChar = GetUTCharacter();
+		bCanRally = (GetWorld()->GetTimeSeconds() > NextRallyTime) && UTChar && UTChar->bCanRally && (GetWorld()->GetTimeSeconds() - FMath::Max(UTChar->LastTargetingTime, UTChar->LastTargetedTime) > 3.f);
 	}
 	// If we are waiting to respawn then count down
 	if (RespawnTime > 0.0f)
@@ -677,6 +695,15 @@ void AUTPlayerState::Tick(float DeltaTime)
 				BoostRechargeTimeRemaining += GS->BoostRechargeTime;
 				SetRemainingBoosts(RemainingBoosts + 1); // note: will set BoostRechargeTimeRemaining to zero if we're no longer allowed to recharge
 			}
+		}
+	}
+
+	if (CurrentCoolFactor > 0.0f)
+	{
+		CurrentCoolFactor -= CoolFactorBleedSpeed * DeltaTime;
+		if (CurrentCoolFactor < 0.0f)
+		{
+			CurrentCoolFactor = 0.0f;
 		}
 	}
 }
@@ -3129,6 +3156,11 @@ void AUTPlayerState::PlayTauntByClass(TSubclassOf<AUTTaunt> TauntToPlay)
 	{
 		if (Role == ROLE_Authority)
 		{
+			if (EmoteReplicationInfo.EmoteCount == 0)
+			{
+				AddCoolFactorEvent(50.0f);
+			}
+
 			EmoteReplicationInfo.EmoteCount++;
 			ForceNetUpdate();
 		}
@@ -3416,4 +3448,43 @@ TSubclassOf<UUTCharacterVoice> AUTPlayerState::GetCharacterVoiceClass()
 	}
 
 	return CharacterVoice;
+}
+
+void AUTPlayerState::AddCoolFactorMinorEvent()
+{
+	AddCoolFactorEvent(50.0f);
+}
+
+void AUTPlayerState::AddCoolFactorEvent(float CoolFactorAddition)
+{
+	// No negative cool please
+	if (CoolFactorAddition <= 0)
+	{
+		return;
+	}
+
+	float CurrentWorldTime = GetWorld()->GetTimeSeconds();
+	CurrentCoolFactor += CoolFactorAddition;
+
+	if (CurrentCoolFactor >= MinimumConsiderationForCoolFactorHistory)
+	{
+		UE_LOG(UT, Verbose, TEXT("CoolFactorHistory updated for %s at %f"), *PlayerName, CurrentWorldTime);
+
+		if (CoolFactorHistory.Num() > 0 && CoolFactorHistory[CoolFactorHistory.Num() - 1].TimeOccurred - CurrentWorldTime < CoolFactorCombinationWindow)
+		{
+			// Overwrite the old cool history if we're cooler, highly likely
+			if (CurrentCoolFactor > CoolFactorHistory[CoolFactorHistory.Num() - 1].CoolFactorAmount)
+			{
+				CoolFactorHistory[CoolFactorHistory.Num() - 1].CoolFactorAmount = CurrentCoolFactor;
+				CoolFactorHistory[CoolFactorHistory.Num() - 1].TimeOccurred = CurrentWorldTime;
+			}
+		}
+		else
+		{
+			FCoolFactorHistoricalEvent NewEvent;
+			NewEvent.CoolFactorAmount = CurrentCoolFactor;
+			NewEvent.TimeOccurred = CurrentWorldTime;
+			CoolFactorHistory.Add(NewEvent);
+		}		
+	}
 }

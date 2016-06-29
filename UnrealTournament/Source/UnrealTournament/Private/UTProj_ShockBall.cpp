@@ -239,6 +239,7 @@ void AUTProj_ShockBall::RateShockCombo(AUTPlayerController *PC, AUTPlayerState* 
 	if ((ComboScore >= 8.f) && (KillCount > 0))
 	{
 		PS->ModifyStatsValue(NAME_AmazingCombos, 1);
+		PS->AddCoolFactorMinorEvent();
 		if (ComboScore > 11.f)
 		{
 			PC->SendPersonalMessage(ComboRewardMessageClass, 100);

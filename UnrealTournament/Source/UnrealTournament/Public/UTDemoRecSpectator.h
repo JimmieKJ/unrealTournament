@@ -10,6 +10,8 @@ class UNREALTOURNAMENT_API AUTDemoRecSpectator : public AUTPlayerController
 {
 	GENERATED_UCLASS_BODY()
 
+	virtual void PlayerTick(float DeltaTime) override;
+
 	virtual void ReceivedPlayer() override;
 
 	virtual void ViewPlayerState(APlayerState* PS) override;
@@ -52,4 +54,7 @@ class UNREALTOURNAMENT_API AUTDemoRecSpectator : public AUTPlayerController
 
 	UFUNCTION(Client, UnReliable)
 	virtual void DemoNotifyCausedHit(APawn* InstigatorPawn, AUTCharacter* HitPawn, uint8 AppliedDamage, FVector Momentum, const FDamageEvent& DamageEvent);
+
+	UPROPERTY()
+	APlayerState* QueuedPlayerStateToView;
 };

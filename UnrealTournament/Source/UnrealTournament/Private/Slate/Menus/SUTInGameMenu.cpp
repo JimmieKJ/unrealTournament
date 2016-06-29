@@ -27,6 +27,7 @@
 #include "PartyContext.h"
 #include "UTGameInstance.h"
 #include "UTParty.h"
+#include "UTGameMode.h"
 
 #if !UE_SERVER
 
@@ -36,10 +37,11 @@ void SUTInGameMenu::BuildLeftMenuBar()
 {
 	if (LeftMenuBar.IsValid())
 	{
+		AUTGameMode* Game = PlayerOwner->GetWorld()->GetAuthGameMode<AUTGameMode>();
 		AUTGameState* GS = PlayerOwner->GetWorld()->GetGameState<AUTGameState>();
 		AUTPlayerState* PS = PlayerOwner->PlayerController ? Cast<AUTPlayerState>(PlayerOwner->PlayerController->PlayerState) : NULL;
 		bool bIsSpectator = PS && PS->bOnlySpectator;
-		if (GS && GS->bTeamGame && !bIsSpectator)
+		if (GS && GS->bTeamGame && !bIsSpectator && (!Game || !Game->bOfflineChallenge))
 		{
 			LeftMenuBar->AddSlot()
 			.Padding(5.0f,0.0f,0.0f,0.0f)

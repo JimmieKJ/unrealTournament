@@ -20,6 +20,11 @@ TAutoConsoleVariable<float> CVarUTKillcamRewindTime(
 	3.5f,
 	TEXT("Number of seconds to rewind the killcam for playback."));
 
+TAutoConsoleVariable<float> CVarUTCoolMomentRewindTime(
+	TEXT("UT.CoolMomentRewindTime"),
+	9.5f,
+	TEXT("Number of seconds to rewind the cool moments for playback."));
+
 int32 UUTKillcamPlayback::NumWorldsCreated = 0;
 
 UUTKillcamPlayback::UUTKillcamPlayback()
@@ -152,6 +157,22 @@ void UUTKillcamPlayback::KillcamStart(const float RewindDemoSeconds, const FNetw
 			AbsoluteTimeSeconds,
 			FocusActorGUID,
 			FOnGotoTimeDelegate::CreateUObject(this, &UUTKillcamPlayback::OnKillcamReady, FocusActorGUID));
+	}
+}
+
+void UUTKillcamPlayback::CoolMomentCamStart(const float RewindDemoSeconds, const FUniqueNetIdRepl FocusActorNetId)
+{
+	UE_LOG(LogUTKillcam, Log, TEXT("UUTKillcamPlayback::CoolMomentCamStart: %f"), RewindDemoSeconds);
+
+	UWorld* CachedSourceWorld = SourceWorld.Get();
+	if (CachedSourceWorld)
+	{
+		const float AbsoluteTimeSeconds = CachedSourceWorld->DemoNetDriver->DemoCurrentTime - RewindDemoSeconds;
+
+		KillcamGoToTime(
+			AbsoluteTimeSeconds,
+			FNetworkGUID(),
+			FOnGotoTimeDelegate::CreateUObject(this, &UUTKillcamPlayback::OnCoolMomentCamReady, FocusActorNetId));
 	}
 }
 
@@ -370,6 +391,52 @@ void UUTKillcamPlayback::OnKillcamReady(bool bWasSuccessful, FNetworkGUID InKill
 	{
 		SpectatorCameraComponent->SetAutoFollow(true);
 	}*/
+}
+
+void UUTKillcamPlayback::OnCoolMomentCamReady(bool bWasSuccessful, FUniqueNetIdRepl InCoolMomentViewTargetNetId)
+{
+	if (!bWasSuccessful)
+	{
+		UE_LOG(LogUTKillcam, Warning, TEXT("OnCoolMomentCamReady failed"));
+		return;
+	}
+
+	if (KillcamWorld == nullptr || KillcamWorld->DemoNetDriver == nullptr || KillcamWorld->GameState == nullptr)
+	{
+		// Cancel killcam
+		KillcamStop();
+		return;
+	}
+
+	AUTDemoRecSpectator* SpecController = Cast<AUTDemoRecSpectator>(GetKillcamSpectatorController());
+	if (SpecController == nullptr)
+	{
+		UE_LOG(LogUTKillcam, Warning, TEXT("Couldn't find spectator controller"));
+		KillcamStop();
+		return;
+	}
+	
+	APlayerState* PS = nullptr;
+	for (int32 i = 0; i < KillcamWorld->GameState->PlayerArray.Num(); i++)
+	{
+		if (KillcamWorld->GameState->PlayerArray[i]->UniqueId == InCoolMomentViewTargetNetId)
+		{
+			PS = KillcamWorld->GameState->PlayerArray[i];
+		}
+	}
+
+	if (PS == nullptr)
+	{
+		UE_LOG(LogUTKillcam, Warning, TEXT("Couldn't find player to view"));
+		KillcamStop();
+		return;
+	}
+
+	SpecController->bAutoCam = false;
+	SpecController->ViewPlayerState(PS);
+	// Weapon isn't replicated so first person view doesn't have a class to spawn for first person visuals
+	SpecController->bSpectateBehindView = true;
+	SpecController->BehindView(SpecController->bSpectateBehindView);
 }
 
 void UUTKillcamPlayback::ShowKillcamToUser()

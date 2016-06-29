@@ -3,6 +3,7 @@
 #include "UTWorldSettings.h"
 #include "UnrealNetwork.h"
 #include "UTPickupMessage.h"
+#include "UTGameVolume.h"
 
 AUTWeaponLocker::AUTWeaponLocker(const FObjectInitializer& OI)
 	: Super(OI)
@@ -44,6 +45,33 @@ void AUTWeaponLocker::BeginPlay()
 	else
 	{
 		WeaponListUpdated();
+	}
+
+	// associate as team locker with team volume I am in
+	TArray<UPrimitiveComponent*> OverlappingComponents;
+	Collision->GetOverlappingComponents(OverlappingComponents);
+	AUTGameVolume* BestVolume = nullptr;
+	int32 BestPriority = -1.f;
+
+	for (auto CompIt = OverlappingComponents.CreateIterator(); CompIt; ++CompIt)
+	{
+		UPrimitiveComponent* OtherComponent = *CompIt;
+		if (OtherComponent && OtherComponent->bGenerateOverlapEvents)
+		{
+			AUTGameVolume* V = Cast<AUTGameVolume>(OtherComponent->GetOwner());
+			if (V && V->Priority > BestPriority)
+			{
+				if (V->IsOverlapInVolume(*Collision))
+				{
+					BestPriority = V->Priority;
+					BestVolume = V;
+				}
+			}
+		}
+	}
+	if (BestVolume && BestVolume->bIsTeamSafeVolume && !BestVolume->TeamLocker)
+	{
+		BestVolume->TeamLocker = this;
 	}
 }
 

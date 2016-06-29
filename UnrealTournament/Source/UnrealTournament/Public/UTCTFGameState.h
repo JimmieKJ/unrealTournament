@@ -182,6 +182,8 @@ class UNREALTOURNAMENT_API AUTCTFGameState: public AUTGameState
 	UPROPERTY(Replicated)
 		bool bBlueCanRally;
 
+	UPROPERTY()
+		float LastOffenseRallyTime;
 
 	/** Delay before bringing up scoreboard at halftime. */
 	UPROPERTY(BlueprintReadOnly, Replicated, Category = CTF)

@@ -91,6 +91,7 @@ AUTCTFRoundGame::AUTCTFRoundGame(const FObjectInitializer& ObjectInitializer)
 
 	bSitOutDuringRound = false;
 	bSlowFlagCarrier = false;
+	bDelayedRally = false;
 }
 
 int32 AUTCTFRoundGame::GetFlagCapScore()
@@ -145,7 +146,7 @@ void AUTCTFRoundGame::InitGame(const FString& MapName, const FString& Options, F
 		RepulsorClass = Cast<UClass>(StaticLoadObject(UClass::StaticClass(), NULL, *RepulsorObject.ToStringReference().ToString(), NULL, LOAD_NoWarn));
 	}
 
-	// key options are ?RoundLives=xx?Dash=xx?Asymm=xx?PerPlayerLives=xx?OffKillsForPowerup=xx?DefKillsForPowerup=xx?AllowPrototypePowerups=xx
+	// key options are ?RoundLives=xx?Dash=xx?Asymm=xx?PerPlayerLives=xx?OffKillsForPowerup=xx?DefKillsForPowerup=xx?AllowPrototypePowerups=xx?DelayRally=xxx
 	RoundLives = FMath::Max(1, UGameplayStatics::GetIntOption(Options, TEXT("RoundLives"), RoundLives));
 
 	FString InOpt = UGameplayStatics::ParseOption(Options, TEXT("OwnFlag"));
@@ -168,6 +169,10 @@ void AUTCTFRoundGame::InitGame(const FString& MapName, const FString& Options, F
 
 	InOpt = UGameplayStatics::ParseOption(Options, TEXT("SlowFC"));
 	bSlowFlagCarrier = EvalBoolOptions(InOpt, bSlowFlagCarrier);
+
+	InOpt = UGameplayStatics::ParseOption(Options, TEXT("DelayRally"));
+	bDelayedRally = EvalBoolOptions(InOpt, bDelayedRally);
+
 }
 
 void AUTCTFRoundGame::SetPlayerDefaults(APawn* PlayerPawn)
@@ -895,34 +900,31 @@ void AUTCTFRoundGame::InitRound()
 		InitFlags();
 	}
 
-	if (bPerPlayerLives)
+	for (int32 i = 0; i < UTGameState->PlayerArray.Num(); i++)
 	{
-		for (int32 i = 0; i < UTGameState->PlayerArray.Num(); i++)
+		AUTPlayerState* PS = Cast<AUTPlayerState>(UTGameState->PlayerArray[i]);
+		PS->bHasLifeLimit = bPerPlayerLives;
+		PS->RoundKills = 0;
+		PS->NextRallyTime = GetWorld()->GetTimeSeconds() + ((PS->Team && IsTeamOnOffense(PS->Team->TeamIndex)) ? 60.f : 45.f);
+		PS->RespawnWaitTime = IsPlayerOnLifeLimitedTeam(PS) ? LimitedRespawnWaitTime : UnlimitedRespawnWaitTime;
+		PS->SetRemainingBoosts(InitialBoostCount);
+		PS->bSpecialTeamPlayer = false;
+		PS->bSpecialPlayer = false;
+		if (GetNetMode() != NM_DedicatedServer)
 		{
-			AUTPlayerState* PS = Cast<AUTPlayerState>(UTGameState->PlayerArray[i]);
-			PS->bHasLifeLimit = false;
-			PS->RoundKills = 0;
-			PS->NextRallyTime = GetWorld()->GetTimeSeconds() + 60.f;
-			PS->RespawnWaitTime = IsPlayerOnLifeLimitedTeam(PS) ? LimitedRespawnWaitTime : UnlimitedRespawnWaitTime;
-			PS->SetRemainingBoosts(InitialBoostCount);
-			PS->bSpecialTeamPlayer = false;
-			PS->bSpecialPlayer = false;
-			if (GetNetMode() != NM_DedicatedServer)
-			{
-				PS->OnRepSpecialPlayer();
-				PS->OnRepSpecialTeamPlayer();
-			}
-			if (PS && (PS->bIsInactive || !PS->Team || PS->bOnlySpectator))
-			{
-				PS->RemainingLives = 0;
-				PS->SetOutOfLives(true);
-			}
-			else if (PS)
-			{
-				PS->RemainingLives = (!bAsymmetricVictoryConditions || (IsPlayerOnLifeLimitedTeam(PS))) ? RoundLives : 0;
-				PS->bHasLifeLimit = (PS->RemainingLives > 0);
-				PS->SetOutOfLives(false);
-			}
+			PS->OnRepSpecialPlayer();
+			PS->OnRepSpecialTeamPlayer();
+		}
+		if (PS && (PS->bIsInactive || !PS->Team || PS->bOnlySpectator))
+		{
+			PS->RemainingLives = 0;
+			PS->SetOutOfLives(true);
+		}
+		else if (PS)
+		{
+			PS->RemainingLives = (!bAsymmetricVictoryConditions || (IsPlayerOnLifeLimitedTeam(PS))) ? RoundLives : 0;
+			PS->bHasLifeLimit = (PS->RemainingLives > 0);
+			PS->SetOutOfLives(false);
 		}
 	}
 	CTFGameState->SetTimeLimit(TimeLimit);
@@ -1172,7 +1174,7 @@ void AUTCTFRoundGame::ScoreKill_Implementation(AController* Killer, AController*
 		}
 		else
 		{
-			OtherPS->RespawnWaitTime = RemainingDefenders;
+			OtherPS->RespawnWaitTime = FMath::Max(1.f, float(RemainingDefenders));
 		}
 	}
 }

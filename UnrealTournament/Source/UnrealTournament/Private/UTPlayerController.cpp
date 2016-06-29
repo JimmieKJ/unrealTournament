@@ -285,6 +285,46 @@ void AUTPlayerController::ServerMutate_Implementation(const FString& MutateStrin
 	}
 }
 
+void AUTPlayerController::BeginRallyTo(AUTCharacter* RallyTarget, float Delay)
+{
+	if (!GetWorldTimerManager().IsTimerActive(RallyTimerHandle))
+	{
+		GetWorldTimerManager().SetTimer(RallyTimerHandle, this, &AUTPlayerController::CompleteRally, Delay, false);
+	}
+	ClientStartRally(RallyTarget);
+}
+
+void AUTPlayerController::ClientStartRally_Implementation(AUTCharacter* RallyTarget)
+{
+	if (RallyTarget)
+	{
+		// client side
+		SetCameraMode(FName(TEXT("FreeCam")));
+		SetViewTarget(RallyTarget);
+	}
+}
+
+void AUTPlayerController::CompleteRally()
+{
+	AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
+	AUTGameMode* GameMode = GetWorld()->GetAuthGameMode<AUTGameMode>();
+	if (GameMode && GameMode->IsMatchInProgress() && GS && !GS->IsMatchIntermission())
+	{
+		GameMode->CompleteRallyRequest(this);
+		ClientCompleteRally();
+	}
+}
+
+void AUTPlayerController::ClientCompleteRally_Implementation()
+{
+	if (GetPawn())
+	{
+		//client side
+		BehindView(bPlayBehindView);
+		SetViewTarget(GetPawn());
+	}
+}
+
 void AUTPlayerController::RequestRally()
 {
 	if (UTPlayerState && UTPlayerState->bCanRally)
@@ -303,7 +343,10 @@ void AUTPlayerController::ServerRequestRally_Implementation()
 	if (UTCharacter && !UTCharacter->IsRagdoll())
 	{
 		AUTGameMode* Game = GetWorld()->GetAuthGameMode<AUTGameMode>();
-		Game->HandleRallyRequest(this);
+		if (Game)
+		{
+			Game->HandleRallyRequest(this);
+		}
 	}
 }
 
@@ -3691,7 +3734,7 @@ void AUTPlayerController::SetWeaponGroup(AUTWeapon* InWeapon)
 		UUTProfileSettings* ProfileSettings = Cast<UUTLocalPlayer>(Player)->GetProfileSettings();
 		if (ProfileSettings)
 		{
-			FString WeaponClassName = GetNameSafe(InWeapon);
+			FString WeaponClassName = GetNameSafe(InWeapon->GetClass());
 			if (ProfileSettings->WeaponGroupLookup.Contains(WeaponClassName))
 			{
 				InWeapon->Group = ProfileSettings->WeaponGroupLookup[WeaponClassName].Group;
@@ -4794,8 +4837,37 @@ void AUTPlayerController::ProcessVoiceDebug(const FString& Command)
 	}
 }
 
+void AUTPlayerController::ClientQueueCoolMoment_Implementation(FUniqueNetIdRepl NetId, float TimeToRewind)
+{
+	UE_LOG(UT, Log, TEXT("ClientQueueCoolMoment %f"), TimeToRewind);
+
+	UUTLocalPlayer* LocalPlayer = Cast<UUTLocalPlayer>(GetLocalPlayer());
+	if (LocalPlayer != nullptr && LocalPlayer->GetKillcamPlaybackManager() != nullptr)
+	{
+		if (LocalPlayer->GetKillcamPlaybackManager()->IsEnabled() ||
+			GetWorld()->GetTimerManager().IsTimerActive(KillcamStartHandle) ||
+			GetWorld()->GetTimerManager().IsTimerActive(KillcamStopHandle))
+		{
+			// queue it up
+			FQueuedCoolMoment QueuedCoolMoment;
+			QueuedCoolMoment.NetId = NetId;
+			QueuedCoolMoment.TimeToRewind = TimeToRewind;
+			QueuedCoolMoments.Add(QueuedCoolMoment);
+			return;
+		}
+		
+		GetWorld()->GetTimerManager().SetTimer(
+			KillcamStartHandle,
+			FTimerDelegate::CreateUObject(this, &AUTPlayerController::OnCoolMomentReplayStart, NetId, TimeToRewind),
+			CVarUTKillcamStartDelay.GetValueOnGameThread(),
+			false);
+	}
+}
+
 void AUTPlayerController::ClientPlayInstantReplay_Implementation(APawn* PawnToFocus, float TimeToRewind)
 {
+	UE_LOG(UT, Log, TEXT("ClientPlayInstantReplay %f"), TimeToRewind);
+
 	if (GetWorld()->DemoNetDriver && IsLocalController())
 	{
 		FNetworkGUID FocusPawnGuid = GetWorld()->DemoNetDriver->GetGUIDForActor(PawnToFocus);
@@ -4835,12 +4907,49 @@ void AUTPlayerController::ClientStopKillcam_Implementation()
 	UUTLocalPlayer* LocalPlayer = Cast<UUTLocalPlayer>(GetLocalPlayer());
 	if (LocalPlayer != nullptr && LocalPlayer->GetKillcamPlaybackManager() != nullptr)
 	{
+		if (LocalPlayer->GetKillcamPlaybackManager()->IsEnabled())
+		{
+			FlushPressedKeys();
+		}
+
 		LocalPlayer->GetKillcamPlaybackManager()->KillcamStop();
+
+		if (QueuedCoolMoments.Num() > 0)
+		{
+			OnCoolMomentReplayStart(QueuedCoolMoments[0].NetId, QueuedCoolMoments[0].TimeToRewind);
+			QueuedCoolMoments.RemoveAt(0);
+		}
+	}
+}
+
+void AUTPlayerController::OnCoolMomentReplayStart(const FUniqueNetIdRepl NetId, float TimeToRewind)
+{
+	UE_LOG(UT, Log, TEXT("OnCoolMomentReplayStart %f"), TimeToRewind);
+
+	// Show killcam
+	if (IsLocalController())
+	{
+		UUTLocalPlayer* LocalPlayer = Cast<UUTLocalPlayer>(GetLocalPlayer());
+		if (LocalPlayer != nullptr && LocalPlayer->GetKillcamPlaybackManager() != nullptr)
+		{
+			if (LocalPlayer->GetKillcamPlaybackManager()->GetKillcamWorld() != GetWorld())
+			{
+				// The cool stuff peaked at TimeToRewind, go back a few seconds before that
+				LocalPlayer->GetKillcamPlaybackManager()->CoolMomentCamStart(TimeToRewind + CVarUTCoolMomentRewindTime.GetValueOnGameThread(), NetId);
+			}
+			GetWorld()->GetTimerManager().SetTimer(
+				KillcamStopHandle,
+				FTimerDelegate::CreateUObject(this, &AUTPlayerController::ClientStopKillcam),
+				CVarUTCoolMomentRewindTime.GetValueOnGameThread() + 0.5f,
+				false);
+		}
 	}
 }
 
 void AUTPlayerController::OnKillcamStart(const FNetworkGUID InFocusActorGUID, float TimeToRewind)
 {
+	UE_LOG(UT, Log, TEXT("OnKillcamStart %f"), TimeToRewind);
+
 	// Show killcam
 	if (IsLocalController())
 	{

@@ -720,12 +720,22 @@ class UNREALTOURNAMENT_API AUTCharacter : public ACharacter, public IUTTeamInter
 	/** time of last SetLastTakeHitInfo() - authority only */
 	UPROPERTY(BlueprintReadOnly, Category = Pawn)
 	float LastTakeHitTime;
+
 	/** last time LastTakeHitInfo was checked for replication; used to combine multiple hits into one LastTakeHitInfo */
 	UPROPERTY(BlueprintReadOnly, Category = Pawn)
 	float LastTakeHitReplicatedTime;
-	
+
+	/** Last time this character targeted or hit  an enemy. */
+	UPROPERTY(BlueprintReadOnly, Category = Pawn)
+		float LastTargetingTime;
+
+	/** Last time this character was targeted or hit by an enemy. */
+	UPROPERTY(BlueprintReadOnly, Category = Pawn)
+		float LastTargetedTime;
+
 	UPROPERTY(replicated)
 	int32 VisibilityMask;
+
 	/** Use 1-32 to enable a visibility channel */
 	UFUNCTION(BlueprintCallable, Category = Pawn, BlueprintAuthorityOnly)
 	void AddVisibilityMask(int32 Channel);

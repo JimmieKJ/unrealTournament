@@ -18,6 +18,7 @@ struct FWorldContext;
 
 extern TAutoConsoleVariable<int32> CVarUTEnableKillcam;
 extern TAutoConsoleVariable<float> CVarUTKillcamRewindTime;
+extern TAutoConsoleVariable<float> CVarUTCoolMomentRewindTime;
 
 /**
  * A class that manages an instance of a world used for playing back a killcam replay.
@@ -54,6 +55,8 @@ public:
 	 * @param FocusActorGUID The network GUID of the actor the camera will focus on in the killcam world. Bunches for this actor will not be queued during playback so that it is available immediately.
 	 */
 	void KillcamStart(const float RewindDemoSeconds, const FNetworkGUID FocusActorGUID);
+
+	void CoolMomentCamStart(const float RewindDemoSeconds, const FUniqueNetIdRepl FocusActorNetId);
 
 	/** Stops playback of the killcam world and switches the view to the live world. */
 	void KillcamStop();
@@ -152,6 +155,8 @@ private:
 	void OnKillcamGoToTimeComplete(bool bWasSuccessful, FOnGotoTimeDelegate UserDelegate);
 
 	void OnKillcamReady(bool bWasSuccessful, FNetworkGUID InKillcamViewTargetGUID);
+
+	void OnCoolMomentCamReady(bool bWasSuccessful, FUniqueNetIdRepl InCoolMomentViewTargetNetId);
 
 	/** Chokepoint for switching the UI to show the killcam world and HUD */
 	void ShowKillcamToUser();

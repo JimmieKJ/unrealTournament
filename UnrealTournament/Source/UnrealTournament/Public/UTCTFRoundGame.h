@@ -35,6 +35,10 @@ class UNREALTOURNAMENT_API AUTCTFRoundGame : public AUTCTFBaseGame
 	UPROPERTY(BlueprintReadOnly, Category = CTF)
 		bool bSlowFlagCarrier;
 
+	/*  If true, delay rally teleport */
+	UPROPERTY(BlueprintReadOnly, Category = CTF)
+		bool bDelayedRally;
+
 	/** If true, red team is trying to cap with asymmetric conditions. */
 	UPROPERTY(BlueprintReadOnly, Category = CTF)
 		bool bRedToCap;

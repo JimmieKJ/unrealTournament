@@ -502,6 +502,7 @@ void AUTProj_BioShot::DamageImpactedActor_Implementation(AActor* OtherActor, UPr
 			if (PS)
 			{
 				PS->ModifyStatsValue(NAME_AirSnot, 1);
+				PS->AddCoolFactorMinorEvent();
 			}
 			int32 SnotRanking = 0;
 			float SnotSkill = (GetWorld()->GetTimeSeconds() - CreationTime) * 4.f;
