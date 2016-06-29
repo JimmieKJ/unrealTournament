@@ -287,10 +287,40 @@ void AUTPlayerController::ServerMutate_Implementation(const FString& MutateStrin
 
 void AUTPlayerController::BeginRallyTo(AUTCharacter* RallyTarget, float Delay)
 {
+	if (!GetWorldTimerManager().IsTimerActive(RallyTimerHandle))
+	{
+		GetWorldTimerManager().SetTimer(RallyTimerHandle, this, &AUTPlayerController::CompleteRally, Delay, false);
+	}
+	ClientStartRally(RallyTarget);
+}
+
+void AUTPlayerController::ClientStartRally_Implementation(AUTCharacter* RallyTarget)
+{
+	if (RallyTarget)
+	{
+		// client side
+		SetCameraMode(FName(TEXT("FreeCam")));
+		SetViewTarget(RallyTarget);
+	}
+}
+
+void AUTPlayerController::CompleteRally()
+{
 	AUTGameMode* GameMode = GetWorld()->GetAuthGameMode<AUTGameMode>();
-	if (GameMode)
+	if (GameMode && GameMode->IsMatchInProgress())
 	{
 		GameMode->CompleteRallyRequest(this);
+		ClientCompleteRally();
+	}
+}
+
+void AUTPlayerController::ClientCompleteRally_Implementation()
+{
+	if (GetPawn())
+	{
+		//client side
+		BehindView(bPlayBehindView);
+		SetViewTarget(GetPawn());
 	}
 }
 

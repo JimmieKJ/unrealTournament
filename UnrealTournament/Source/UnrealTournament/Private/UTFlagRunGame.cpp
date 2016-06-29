@@ -250,7 +250,14 @@ void AUTFlagRunGame::HandleRallyRequest(AUTPlayerController* RequestingPC)
 			AUTCharacter* FlagCarrier = Flag ? Flag->HoldingPawn : nullptr;
 			if (FlagCarrier != nullptr)
 			{
-				RequestingPC->BeginRallyTo(FlagCarrier, 1.f);
+				if (bDelayedRally)
+				{
+					RequestingPC->BeginRallyTo(FlagCarrier, 1.f);
+				}
+				else
+				{
+					CompleteRallyRequest(RequestingPC);
+				}
 			}
 		}
 		else
@@ -262,6 +269,10 @@ void AUTFlagRunGame::HandleRallyRequest(AUTPlayerController* RequestingPC)
 
 void AUTFlagRunGame::CompleteRallyRequest(AUTPlayerController* RequestingPC)
 {
+	if (!IsMatchInProgress())
+	{
+		return;
+	}
 	AUTCharacter* UTCharacter = RequestingPC->GetUTCharacter();
 	AUTPlayerState* UTPlayerState = RequestingPC->UTPlayerState;
 

@@ -253,10 +253,20 @@ public:
 	UFUNCTION(server, reliable, withvalidation)
 		virtual void ServerRequestRally();
 
+	UFUNCTION(client, reliable)
+		virtual void ClientStartRally(AUTCharacter* RallyTarget);
+
+	UFUNCTION(client, reliable)
+		virtual void ClientCompleteRally();
+
 	UFUNCTION(exec)
 	virtual void ToggleScoreboard(bool bShow);
 
 	virtual void BeginRallyTo(AUTCharacter* RallyTarget, float Delay);
+
+	FTimerHandle RallyTimerHandle;
+
+	virtual void CompleteRally();
 
 	UFUNCTION(client, reliable)
 	virtual void ClientToggleScoreboard(bool bShow);

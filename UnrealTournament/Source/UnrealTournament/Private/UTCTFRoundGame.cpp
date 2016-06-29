@@ -91,6 +91,7 @@ AUTCTFRoundGame::AUTCTFRoundGame(const FObjectInitializer& ObjectInitializer)
 
 	bSitOutDuringRound = false;
 	bSlowFlagCarrier = false;
+	bDelayedRally = false;
 }
 
 int32 AUTCTFRoundGame::GetFlagCapScore()
@@ -145,7 +146,7 @@ void AUTCTFRoundGame::InitGame(const FString& MapName, const FString& Options, F
 		RepulsorClass = Cast<UClass>(StaticLoadObject(UClass::StaticClass(), NULL, *RepulsorObject.ToStringReference().ToString(), NULL, LOAD_NoWarn));
 	}
 
-	// key options are ?RoundLives=xx?Dash=xx?Asymm=xx?PerPlayerLives=xx?OffKillsForPowerup=xx?DefKillsForPowerup=xx?AllowPrototypePowerups=xx
+	// key options are ?RoundLives=xx?Dash=xx?Asymm=xx?PerPlayerLives=xx?OffKillsForPowerup=xx?DefKillsForPowerup=xx?AllowPrototypePowerups=xx?DelayRally=xxx
 	RoundLives = FMath::Max(1, UGameplayStatics::GetIntOption(Options, TEXT("RoundLives"), RoundLives));
 
 	FString InOpt = UGameplayStatics::ParseOption(Options, TEXT("OwnFlag"));
@@ -168,6 +169,10 @@ void AUTCTFRoundGame::InitGame(const FString& MapName, const FString& Options, F
 
 	InOpt = UGameplayStatics::ParseOption(Options, TEXT("SlowFC"));
 	bSlowFlagCarrier = EvalBoolOptions(InOpt, bSlowFlagCarrier);
+
+	InOpt = UGameplayStatics::ParseOption(Options, TEXT("DelayRally"));
+	bDelayedRally = EvalBoolOptions(InOpt, bDelayedRally);
+
 }
 
 void AUTCTFRoundGame::SetPlayerDefaults(APawn* PlayerPawn)
@@ -1169,7 +1174,7 @@ void AUTCTFRoundGame::ScoreKill_Implementation(AController* Killer, AController*
 		}
 		else
 		{
-			OtherPS->RespawnWaitTime = RemainingDefenders;
+			OtherPS->RespawnWaitTime = FMath::Max(1.f, float(RemainingDefenders));
 		}
 	}
 }
