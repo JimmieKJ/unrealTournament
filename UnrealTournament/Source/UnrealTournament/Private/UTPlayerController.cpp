@@ -4907,7 +4907,10 @@ void AUTPlayerController::ClientStopKillcam_Implementation()
 	UUTLocalPlayer* LocalPlayer = Cast<UUTLocalPlayer>(GetLocalPlayer());
 	if (LocalPlayer != nullptr && LocalPlayer->GetKillcamPlaybackManager() != nullptr)
 	{
-		FlushPressedKeys();
+		if (LocalPlayer->GetKillcamPlaybackManager()->IsEnabled())
+		{
+			FlushPressedKeys();
+		}
 
 		LocalPlayer->GetKillcamPlaybackManager()->KillcamStop();
 
