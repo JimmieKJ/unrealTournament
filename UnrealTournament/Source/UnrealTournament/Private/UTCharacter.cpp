@@ -1204,11 +1204,14 @@ void AUTCharacter::NotifyTakeHit(AController* InstigatedBy, int32 AppliedDamage,
 	{
 		AUTCarriedObject* Flag = GetCarriedObject();
 		AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
-		if (Flag && InstigatedBy && GS && !GS->OnSameTeam(this, InstigatedBy))
+		if (InstigatedBy && GS && !GS->OnSameTeam(this, InstigatedBy))
 		{
-			Flag->LastPingedTime = GetWorld()->GetTimeSeconds();
+			if (Flag)
+			{
+				Flag->LastPingedTime = GetWorld()->GetTimeSeconds();
+			}
+			LastTargetedTime = GetWorld()->GetTimeSeconds();
 		}
-		LastTargetedTime = GetWorld()->GetTimeSeconds();
 		AUTPlayerController* InstigatedByPC = Cast<AUTPlayerController>(InstigatedBy);
 		APawn* InstigatorPawn = nullptr;
 		uint8 CompressedDamage = FMath::Clamp(AppliedDamage, 0, 255);
