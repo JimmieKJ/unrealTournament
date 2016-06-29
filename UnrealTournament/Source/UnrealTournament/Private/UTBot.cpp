@@ -1901,13 +1901,15 @@ void AUTBot::NotifyMoveBlocked(const FHitResult& Impact)
 				// check for spontaneous wall dodge
 				// if hit wall because of incoming damage momentum, add additional reaction time check
 				else if ( (Skill + Personality.Jumpiness > 4.0f && UTChar->UTCharacterMovement->bIsDodging) ||
-						(!UTChar->UTCharacterMovement->bIsDodging && Enemy != NULL && Skill >= 3.0f && GetWorld()->TimeSeconds - UTChar->LastTakeHitTime > 2.0f - Skill * 0.2f - Personality.ReactionTime * 0.5f) )
+						( !UTChar->UTCharacterMovement->bIsDodging && Enemy != NULL && (GetWorld()->TimeSeconds - GetEnemyInfo(Enemy, false)->LastSeenTime < 5.0f || HasOtherVisibleEnemy()) &&
+							Skill >= 3.0f && GetWorld()->TimeSeconds - UTChar->LastTakeHitTime > 2.0f - Skill * 0.2f - Personality.ReactionTime * 0.5f ) )
 				{
 					if (FMath::FRand() < 0.5f + 0.5f * Personality.Jumpiness && (Enemy == NULL || Impact.Actor != Enemy))
 					{
 						FVector Start = GetPawn()->GetActorLocation();
 						// reject if on special path, unless above dest already and dodge is in its direction, or in direct combat and prefer evasiveness
-						if ((!CurrentPath.Spec.IsValid() && CurrentPath.ReachFlags == 0) || (Start.Z > GetMovePoint().Z && (WallNormal2D | (GetMovePoint() - Start).GetSafeNormal2D()) > 0.7f) || (Enemy != NULL && IsEnemyVisible(Enemy) && FMath::FRand() < Personality.Jumpiness))
+						if ( (!CurrentPath.Spec.IsValid() && CurrentPath.ReachFlags == 0) || (Start.Z > GetMovePoint().Z && (WallNormal2D | (GetMovePoint() - Start).GetSafeNormal2D()) > 0.7f && (Start - GetMovePoint()).Size2D() > GetPawn()->GetSimpleCollisionRadius() * 3.0f) ||
+							(Enemy != NULL && IsEnemyVisible(Enemy) && FMath::FRand() < Personality.Jumpiness) )
 						{
 							Start.Z += 50.0f;
 							FVector DuckDir = WallNormal2D * 1000.0f; // technically not reliable since we're in air, but every once in a while a bot wall dodging off a cliff is pretty realistic
