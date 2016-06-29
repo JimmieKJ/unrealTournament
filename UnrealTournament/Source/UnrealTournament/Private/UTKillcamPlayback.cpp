@@ -20,6 +20,11 @@ TAutoConsoleVariable<float> CVarUTKillcamRewindTime(
 	3.5f,
 	TEXT("Number of seconds to rewind the killcam for playback."));
 
+TAutoConsoleVariable<float> CVarUTCoolMomentRewindTime(
+	TEXT("UT.CoolMomentRewindTime"),
+	9.5f,
+	TEXT("Number of seconds to rewind the cool moments for playback."));
+
 int32 UUTKillcamPlayback::NumWorldsCreated = 0;
 
 UUTKillcamPlayback::UUTKillcamPlayback()

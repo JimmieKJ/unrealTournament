@@ -18,6 +18,7 @@ struct FWorldContext;
 
 extern TAutoConsoleVariable<int32> CVarUTEnableKillcam;
 extern TAutoConsoleVariable<float> CVarUTKillcamRewindTime;
+extern TAutoConsoleVariable<float> CVarUTCoolMomentRewindTime;
 
 /**
  * A class that manages an instance of a world used for playing back a killcam replay.

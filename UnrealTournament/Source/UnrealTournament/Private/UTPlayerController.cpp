@@ -4932,12 +4932,12 @@ void AUTPlayerController::OnCoolMomentReplayStart(const FUniqueNetIdRepl NetId, 
 			if (LocalPlayer->GetKillcamPlaybackManager()->GetKillcamWorld() != GetWorld())
 			{
 				// The cool stuff peaked at TimeToRewind, go back a few seconds before that
-				LocalPlayer->GetKillcamPlaybackManager()->CoolMomentCamStart(TimeToRewind + CVarUTKillcamRewindTime.GetValueOnGameThread(), NetId);
+				LocalPlayer->GetKillcamPlaybackManager()->CoolMomentCamStart(TimeToRewind + CVarUTCoolMomentRewindTime.GetValueOnGameThread(), NetId);
 			}
 			GetWorld()->GetTimerManager().SetTimer(
 				KillcamStopHandle,
 				FTimerDelegate::CreateUObject(this, &AUTPlayerController::ClientStopKillcam),
-				CVarUTKillcamRewindTime.GetValueOnGameThread() + 0.5f,
+				CVarUTCoolMomentRewindTime.GetValueOnGameThread() + 0.5f,
 				false);
 		}
 	}
