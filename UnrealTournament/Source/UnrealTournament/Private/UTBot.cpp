@@ -3098,7 +3098,7 @@ void AUTBot::DoHunt(APawn* NewHuntTarget)
 			}
 		}
 		TArray<FRouteCacheItem> HuntEndpoints;
-		if (RemainingSpots.Num() == 0 && GetWorld()->TimeSeconds - EnemyInfo->LastFullUpdateTime < 2.0f)
+		if (RemainingSpots.Num() == 0 && GetWorld()->TimeSeconds - EnemyInfo->LastFullUpdateTime < 2.0f && (EnemyInfo->LastKnownLoc - GetPawn()->GetActorLocation()).Size() > GetPawn()->GetSimpleCollisionRadius() * 4.0f)
 		{
 			// we know where the enemy is or was recently, just go with that for now
 			NavNodeRef Poly = NavData->FindAnchorPoly(EnemyInfo->LastKnownLoc, EnemyInfo->GetPawn(), EnemyInfo->GetPawn()->GetNavAgentPropertiesRef());
