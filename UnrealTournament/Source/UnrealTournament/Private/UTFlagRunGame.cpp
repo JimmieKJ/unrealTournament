@@ -225,7 +225,7 @@ void AUTFlagRunGame::HandleRallyRequest(AUTPlayerController* RequestingPC)
 	// if can rally, teleport with transloc effect, set last rally time
 	AUTCTFGameState* GS = GetWorld()->GetGameState<AUTCTFGameState>();
 	AUTTeamInfo* Team = UTPlayerState ? UTPlayerState->Team : nullptr;
-	if (Team && UTPlayerState->bCanRally && UTCharacter && GS && ((Team->TeamIndex == 0) ? GS->bRedCanRally : GS->bBlueCanRally) && GS->FlagBases.IsValidIndex(Team->TeamIndex) && GS->FlagBases[Team->TeamIndex] != nullptr)
+	if (Team && UTPlayerState->bCanRally && UTCharacter && GS && IsMatchInProgress() && !GS->IsMatchIntermission() && ((Team->TeamIndex == 0) ? GS->bRedCanRally : GS->bBlueCanRally) && GS->FlagBases.IsValidIndex(Team->TeamIndex) && GS->FlagBases[Team->TeamIndex] != nullptr)
 	{
 		if (UTCharacter->GetCarriedObject())
 		{
@@ -269,18 +269,18 @@ void AUTFlagRunGame::HandleRallyRequest(AUTPlayerController* RequestingPC)
 
 void AUTFlagRunGame::CompleteRallyRequest(AUTPlayerController* RequestingPC)
 {
-	if (!IsMatchInProgress())
-	{
-		return;
-	}
 	AUTCharacter* UTCharacter = RequestingPC->GetUTCharacter();
 	AUTPlayerState* UTPlayerState = RequestingPC->UTPlayerState;
 
 	// if can rally, teleport with transloc effect, set last rally time
 	AUTCTFGameState* GS = GetWorld()->GetGameState<AUTCTFGameState>();
 	AUTTeamInfo* Team = UTPlayerState ? UTPlayerState->Team : nullptr;
+	if (!IsMatchInProgress() || (GS && GS->IsMatchIntermission()))
+	{
+		return;
+	}
 
-	if (Team && UTPlayerState->bCanRally && UTCharacter && GS && ((Team->TeamIndex == 0) ? GS->bRedCanRally : GS->bBlueCanRally) && GS->FlagBases.IsValidIndex(Team->TeamIndex) && GS->FlagBases[Team->TeamIndex] != nullptr)
+	if (Team && UTCharacter && GS && GS->FlagBases.IsValidIndex(Team->TeamIndex) && GS->FlagBases[Team->TeamIndex] != nullptr)
 	{
 		FVector WarpLocation = FVector::ZeroVector;
 		FRotator WarpRotation(0.0f, UTCharacter->GetActorRotation().Yaw, 0.0f);

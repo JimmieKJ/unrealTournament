@@ -306,8 +306,9 @@ void AUTPlayerController::ClientStartRally_Implementation(AUTCharacter* RallyTar
 
 void AUTPlayerController::CompleteRally()
 {
+	AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
 	AUTGameMode* GameMode = GetWorld()->GetAuthGameMode<AUTGameMode>();
-	if (GameMode && GameMode->IsMatchInProgress())
+	if (GameMode && GameMode->IsMatchInProgress() && GS && !GS->IsMatchIntermission())
 	{
 		GameMode->CompleteRallyRequest(this);
 		ClientCompleteRally();
