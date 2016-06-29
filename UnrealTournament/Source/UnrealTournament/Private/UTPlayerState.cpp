@@ -127,7 +127,7 @@ void AUTPlayerState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & Ou
 	DOREPLIFETIME(AUTPlayerState, bCanRally);
 	DOREPLIFETIME(AUTPlayerState, OverrideHatClass);
 	DOREPLIFETIME(AUTPlayerState, Loadout);
-	DOREPLIFETIME(AUTPlayerState, KickPercent);
+	DOREPLIFETIME(AUTPlayerState, KickCount);
 	DOREPLIFETIME(AUTPlayerState, AvailableCurrency);
 	DOREPLIFETIME(AUTPlayerState, StatsID);
 	DOREPLIFETIME(AUTPlayerState, FavoriteWeapon);

@@ -933,7 +933,7 @@ public:
 	int32 CountBanVotes();
 
 	UPROPERTY(Replicated)
-	uint8 KickPercent;
+	uint8 KickCount;
 
 	UPROPERTY(Replicated)
 	uint32 bHasVoted : 1;

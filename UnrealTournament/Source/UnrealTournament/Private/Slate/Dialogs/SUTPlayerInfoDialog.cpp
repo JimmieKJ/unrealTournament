@@ -405,24 +405,32 @@ TSharedRef<class SWidget> SUTPlayerInfoDialog::BuildCustomButtonBar()
 		SAssignNew(FriendPanel, SHorizontalBox)
 	];
 
-	if ((GetPlayerOwner()->GetWorld()->GetNetMode() == NM_Client) && GetPlayerOwner()->PlayerController->PlayerState && !GetPlayerOwner()->PlayerController->PlayerState->bOnlySpectator && TargetPlayerState.IsValid() && !TargetPlayerState->bIsABot && (GetPlayerOwner()->PlayerController->PlayerState != TargetPlayerState))
-	{
-		CustomBox->AddSlot()
-		.Padding(10.0f,0.0f,10.0f,0.0f)
-		[
-			SAssignNew(KickButton, SButton)
-			.HAlign(HAlign_Center)
-			.ButtonStyle(SUWindowsStyle::Get(), "UT.BottomMenu.Button")
-			.ContentPadding(FMargin(5.0f, 5.0f, 5.0f, 5.0f))
-			.Text(NSLOCTEXT("SUTPlayerInfoDialog","KickVote","Vote to Kick"))
-			.TextStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button.SmallTextStyle")
-			.OnClicked(this, &SUTPlayerInfoDialog::KickVote)
-		];
-	}
-
+	CustomBox->AddSlot()
+	.Padding(10.0f,0.0f,10.0f,0.0f)
+	[
+		SAssignNew(KickButton, SButton)
+		.HAlign(HAlign_Center)
+		.ButtonStyle(SUWindowsStyle::Get(), "UT.BottomMenu.Button")
+		.ContentPadding(FMargin(5.0f, 5.0f, 5.0f, 5.0f))
+		.Text(NSLOCTEXT("SUTPlayerInfoDialog","KickVote","Vote to Kick"))
+		.TextStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button.SmallTextStyle")
+		.Visibility(this, &SUTPlayerInfoDialog::VoteKickVis)
+		.OnClicked(this, &SUTPlayerInfoDialog::KickVote)
+	];
 
 	return CustomBox.ToSharedRef();
 }
+
+EVisibility SUTPlayerInfoDialog::VoteKickVis() const
+{
+	if ((GetPlayerOwner()->GetWorld()->GetNetMode() == NM_Client) && GetPlayerOwner()->PlayerController->PlayerState && !GetPlayerOwner()->PlayerController->PlayerState->bOnlySpectator && TargetPlayerState.IsValid() && !TargetPlayerState->bIsABot && (GetPlayerOwner()->PlayerController->PlayerState != TargetPlayerState))
+	{
+		return EVisibility::Visible;
+	}
+
+	return EVisibility::Collapsed;
+}
+
 
 FReply SUTPlayerInfoDialog::OnSendFriendRequest()
 {
