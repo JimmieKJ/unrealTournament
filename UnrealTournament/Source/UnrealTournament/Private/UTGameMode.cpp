@@ -3886,7 +3886,7 @@ void AUTGameMode::UpdatePlayersPresence()
 	bool bAllowInvites = !bPrivateMatch && (!bNoJoinInProgress || !UTGameState->HasMatchStarted());
 	bool bAllowJoinInProgress = !bNoJoinInProgress || !UTGameState->HasMatchStarted();
 
-	UE_LOG(UT,Log,TEXT("UpdatePlayersPresence: AllowJoin: %i %i %i"), bAllowJoin, bAllowInvites, bAllowJoinInProgress);
+	UE_LOG(UT,Verbose,TEXT("UpdatePlayersPresence: AllowJoin: %i %i %i"), bAllowJoin, bAllowInvites, bAllowJoinInProgress);
 
 	if (GameSession)
 	{
@@ -3901,7 +3901,7 @@ void AUTGameMode::UpdatePlayersPresence()
 					State == EOnlineSessionState::Starting ||
 					State == EOnlineSessionState::InProgress)
 				{
-					GameSession->UpdateSessionJoinability(GameSessionName, true, bAllowInvites, bAllowJoinInProgress, false);
+					GameSession->UpdateSessionJoinability(GameSessionName, true, bAllowInvites, true, false);
 				}
 			}
 		}
