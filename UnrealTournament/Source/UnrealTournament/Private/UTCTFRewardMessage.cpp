@@ -29,6 +29,8 @@ UUTCTFRewardMessage::UUTCTFRewardMessage(const class FObjectInitializer& ObjectI
 	SilverScoreBonusPostfix = NSLOCTEXT("CTFRewardMessage", "SilverScoreBonusPostfix", " Scores!  \u2605 \u2605");
 	BronzeScoreBonusPrefix = NSLOCTEXT("CTFRewardMessage", "BronzeScoreBonusPrefix", "");
 	BronzeScoreBonusPostfix = NSLOCTEXT("CTFRewardMessage", "BronzeScoreBonusPostfix", " Scores!  \u2605");
+	DefenseScoreBonusPrefix = NSLOCTEXT("CTFRewardMessage", "DefenseScoreBonusPrefix", "");
+	DefenseScoreBonusPostfix = NSLOCTEXT("CTFRewardMessage", "DefenseScoreBonusPostfix", " successfully defends!  \u2605");
 	EarnedSpecialPrefix = NSLOCTEXT("CTFGameMessage", "EarnedSpecialPrefix", "");
 	EarnedSpecialPostfix = NSLOCTEXT("CTFGameMessage", "EarnedSpecialPostfix", " earned a power up for your team!");
 	bIsStatusAnnouncement = false;
@@ -124,6 +126,11 @@ void UUTCTFRewardMessage::GetEmphasisText(FText& PrefixText, FText& EmphasisText
 		FText TeamScoreBonusPrefix = BronzeScoreBonusPrefix;
 		FText TeamScoreBonusPostfix = BronzeScoreBonusPostfix;
 		if (Switch >= 300)
+		{
+			TeamScoreBonusPrefix = DefenseScoreBonusPrefix;
+			TeamScoreBonusPostfix = DefenseScoreBonusPostfix;
+		}
+		else if (Switch >= 300)
 		{
 			TeamScoreBonusPrefix = GoldScoreBonusPrefix;
 			TeamScoreBonusPostfix = GoldScoreBonusPostfix;

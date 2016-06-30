@@ -92,6 +92,7 @@ AUTCTFRoundGame::AUTCTFRoundGame(const FObjectInitializer& ObjectInitializer)
 	bSitOutDuringRound = false;
 	bSlowFlagCarrier = false;
 	bDelayedRally = false;
+	EndOfMatchMessageDelay = 4.f;
 }
 
 int32 AUTCTFRoundGame::GetFlagCapScore()
@@ -1221,6 +1222,23 @@ void AUTCTFRoundGame::ScoreAlternateWin(int32 WinningTeamIndex, uint8 Reason)
 
 		WinningTeam->ForceNetUpdate();
 		LastTeamToScore = WinningTeam;
+		if (Reason == 0)
+		{
+			int32 BonusType = 100 + BronzeScore;
+			if (WinningTeam->RoundBonus > GoldBonusTime)
+			{
+				BonusType = 300 + GoldScore;
+			}
+			else if (WinningTeam->RoundBonus > SilverBonusTime)
+			{
+				BonusType = 200 + SilverScore;
+			}
+			BroadcastLocalized(this, UUTCTFRewardMessage::StaticClass(), BonusType, nullptr, nullptr, WinningTeam);
+		}
+		else
+		{
+			BroadcastLocalized(this, UUTCTFRewardMessage::StaticClass(), 400, nullptr, nullptr, WinningTeam);
+		}
 		BroadcastLocalized(NULL, UUTShowdownGameMessage::StaticClass(), 3 + WinningTeam->TeamIndex);
 		CheckForWinner(LastTeamToScore);
 		if (UTGameState->IsMatchInProgress())

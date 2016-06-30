@@ -275,11 +275,11 @@ void UUTFlagRunScoreboard::DrawScoringPlays(float DeltaTime, float& YPos, float 
 	FText ScorePreamble = NSLOCTEXT("UTFlagRun", "ScoreTied", "Score Tied");
 	if (GS->Teams[0]->Score > GS->Teams[1]->Score)
 	{
-		ScorePreamble = NSLOCTEXT("UTFlagRun", "RedLeads", "Red Team leads");
+		ScorePreamble = NSLOCTEXT("UTFlagRun", "RedLeads", "Red Team leads  ");
 	}
 	else if (GS->Teams[1]->Score > GS->Teams[0]->Score)
 	{
-		ScorePreamble = NSLOCTEXT("UTFlagRun", "BlueLeads", "Blue Team leads");
+		ScorePreamble = NSLOCTEXT("UTFlagRun", "BlueLeads", "Blue Team leads  ");
 		bDrawBlueFirst = true;
 	}
 	FFormatNamedArguments Args;
@@ -294,6 +294,7 @@ void UUTFlagRunScoreboard::DrawScoringPlays(float DeltaTime, float& YPos, float 
 	float ScoreX = XOffset + 0.99f*ScoreWidth - ScoringOffsetX;
 	FString PreambleString = ScorePreamble.ToString();
 	Canvas->TextSize(UTHUDOwner->MediumFont, PreambleString, SingleXL, SingleYL, RenderScale, RenderScale);
+	YPos -= 0.1f * SingleYL;
 	Canvas->DrawText(UTHUDOwner->MediumFont, PreambleString, ScoreX, YPos, RenderScale, RenderScale, TextRenderInfo);
 	Canvas->SetLinearDrawColor(FLinearColor::White);
 	ScoreX += SingleXL;
@@ -312,7 +313,7 @@ void UUTFlagRunScoreboard::DrawScoringPlays(float DeltaTime, float& YPos, float 
 	Canvas->SetLinearDrawColor(GS->Teams[TeamIndex]->TeamColor);
 	SingleScorePart = FString::Printf(TEXT("%i"), GS->Teams[TeamIndex]->Score);
 	Canvas->DrawText(UTHUDOwner->MediumFont, SingleScorePart, ScoreX, YPos, RenderScale, RenderScale, TextRenderInfo);
-	YPos += SingleYL;
+	YPos += 0.9f * SingleYL;
 
 	if (true)// (((GS->CTFRound == GS->NumRounds-2) || (GS->CTFRound == GS->NumRounds - 1))
 	{
@@ -523,8 +524,10 @@ void UUTFlagRunScoreboard::DrawScoringPlayInfo(const FCTFScoringPlay& Play, floa
 
 		YPos += 0.82f* MedYL;
 		FString BonusLine = FString::Printf(TEXT("Bonus Time: %d"), RoundBonus);
+		Canvas->TextSize(UTHUDOwner->MediumFont, BonusLine, ScoringOffsetX, ScoringOffsetY, RenderScale, RenderScale);
+		ScoreX = XOffset + 0.99f*ScoreWidth - ScoringOffsetX;
 		Canvas->SetLinearDrawColor(FLinearColor::White);
-		Canvas->DrawText(UTHUDOwner->TinyFont, BonusLine, XOffset + 0.7f*ScoreWidth, YPos, 0.75f*RenderScale, RenderScale, TextRenderInfo);
+		Canvas->DrawText(UTHUDOwner->TinyFont, BonusLine, ScoreX, YPos, 0.75f*RenderScale, RenderScale, TextRenderInfo);
 	}
 }
 

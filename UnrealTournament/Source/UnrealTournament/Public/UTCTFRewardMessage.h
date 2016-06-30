@@ -57,6 +57,12 @@ class UNREALTOURNAMENT_API UUTCTFRewardMessage : public UUTLocalMessage
 		FText BronzeScoreBonusPostfix;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Message)
+		FText DefenseScoreBonusPrefix;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Message)
+		FText DefenseScoreBonusPostfix;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Message)
 		FText EarnedSpecialPrefix;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Message)
