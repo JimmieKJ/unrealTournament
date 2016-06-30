@@ -107,6 +107,20 @@ void AUTRecastNavMesh::PostLoad()
 			Size.Height = 108;
 		}
 	}
+
+	// init lookup hashes
+	for (UUTPathNode* Node : PathNodes)
+	{
+		if (Node->PhysicsVolume != NULL)
+		{
+			VolumeToNode.Add(Node->PhysicsVolume, Node);
+		}
+		for (NavNodeRef PolyRef : Node->Polys)
+		{
+			PolyToNode.Add(PolyRef, Node);
+		}
+	}
+
 }
 
 UPrimitiveComponent* AUTRecastNavMesh::ConstructRenderingComponent()
@@ -1025,8 +1039,7 @@ void AUTRecastNavMesh::BuildNodeNetwork()
 #if WITH_EDITORONLY_DATA
 	if (NodeRenderer != NULL)
 	{
-		// we need to update the rendering immediately since a new build could be started and wipe the data before the end of the frame (e.g. if user is dragging things in the editor)
-		NodeRenderer->RecreateRenderState_Concurrent();
+		NodeRenderer->MarkRenderStateDirty();
 	}
 	RequestDrawingUpdate();
 #endif

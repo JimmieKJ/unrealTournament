@@ -13,16 +13,16 @@ FPrimitiveSceneProxy* UUTNavMeshRenderingComponent::CreateSceneProxy()
 		ProxyData.Reset();
 		// use our own handling of NavMesh->bDrawNavMesh
 		{
-			bool bSavedDrawNavMesh = NavMesh->bDrawNavMesh;
-			NavMesh->bDrawNavMesh = false;
+			bool bSavedDrawNavMesh = NavMesh->bDrawFilledPolys;
+			NavMesh->bDrawFilledPolys = false;
 
 			const int32 DetailFlags = ProxyData.GetDetailFlags(NavMesh);
 			TArray<int32> EmptyTileSet;
 			ProxyData.GatherData(NavMesh, DetailFlags, EmptyTileSet);
 
-			NavMesh->bDrawNavMesh = bSavedDrawNavMesh;
+			NavMesh->bDrawFilledPolys = bSavedDrawNavMesh;
 		}
-		if (NavMesh->bDrawNavMesh)
+		if (NavMesh->bDrawFilledPolys)
 		{
 			GatherTriangleData(&ProxyData);
 		}
