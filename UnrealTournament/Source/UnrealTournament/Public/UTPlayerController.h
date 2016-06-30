@@ -250,6 +250,9 @@ public:
 	UFUNCTION(exec)
 		virtual void RequestRally();
 
+	UPROPERTY()
+		FVector RallyLocation;
+
 	UFUNCTION(server, reliable, withvalidation)
 		virtual void ServerRequestRally();
 
