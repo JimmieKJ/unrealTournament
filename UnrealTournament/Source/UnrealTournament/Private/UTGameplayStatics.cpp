@@ -876,3 +876,16 @@ float UUTGameplayStatics::GetFloatOption(const FString& Options, const FString& 
 	}
 	return DefaultValue;
 }
+
+bool UUTGameplayStatics::IsPlayInEditor(UObject* WorldContextObject)
+{
+	UWorld* World = GEngine->GetWorldFromContextObject(WorldContextObject, false);
+	if (World == NULL)
+	{
+		return TEXT("None");
+	}
+	else
+	{
+		return World->IsPlayInEditor();
+	}
+}
