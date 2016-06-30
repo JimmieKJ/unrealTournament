@@ -81,7 +81,7 @@ protected:
 
 	int32 RedirectCount;
 
-	virtual void DirectSay(const FString& User, const FString& Message);
+	virtual void DirectSay(const FString& Message);
 
 public:
 	TArray<FPackageRedirectReference> AllRedirects;

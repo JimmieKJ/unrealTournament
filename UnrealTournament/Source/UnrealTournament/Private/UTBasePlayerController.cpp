@@ -238,16 +238,7 @@ void AUTBasePlayerController::ServerSay_Implementation(const FString& Message, b
 		{
 			// Remove the @
 			FString TrimmedMessage = Message.Right(Message.Len()-1);
-
-			// Talking to someone directly.
-	
-			int32 Pos = -1;
-			if (TrimmedMessage.FindChar(TEXT(' '), Pos) && Pos > 0)
-			{
-				FString User = TrimmedMessage.Left(Pos);
-				FString FinalMessage = TrimmedMessage.Right(Message.Len() - Pos - 1);		
-				DirectSay(User, FinalMessage);
-			}
+			DirectSay(TrimmedMessage);
 			return;
 		}
 
@@ -271,21 +262,37 @@ void AUTBasePlayerController::ServerSay_Implementation(const FString& Message, b
 	}
 }
 
-void AUTBasePlayerController::DirectSay(const FString& User, const FString& Message)
+void AUTBasePlayerController::DirectSay(const FString& Message)
 {
-	for (FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator)
+	// Figure out who we are talking too...
+
+	AUTGameState* UTGameState = GetWorld()->GetGameState<AUTGameState>();
+	if (UTGameState)
 	{
-		AUTBasePlayerController* UTPC = Cast<AUTBasePlayerController>(*Iterator);
-		if (UTPC != nullptr && UTPC->PlayerState->PlayerName.Equals(User, ESearchCase::IgnoreCase))
+		FString TargetPlayerName;
+		FString FinalMessage = Message;
+
+		for (FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator)
 		{
-			UTPC->ClientSay(UTPlayerState, Message, ChatDestinations::Whisper);
+			AUTBasePlayerController* UTPC = Cast<AUTBasePlayerController>(*Iterator);
+			if (UTPC != nullptr && UTPC->PlayerState != nullptr)
+			{
+				AUTPlayerState* UTPlayerState = Cast<AUTPlayerState>(UTPC->PlayerState);
+				if (UTPlayerState != nullptr)
+				{
+					TargetPlayerName = UTPC->PlayerState->PlayerName;
+					if (Message.Left(TargetPlayerName.Len()).Equals(TargetPlayerName, ESearchCase::IgnoreCase))
+					{
+						FinalMessage = FinalMessage.Right(FinalMessage.Len() - TargetPlayerName.Len() + 1);
+						UTPC->ClientSay(UTPlayerState, FinalMessage, ChatDestinations::Whisper);
+						break;
+					}
+				}
+			}
+		// Make sure I see that I sent it..
+		ClientSay(UTPlayerState, FinalMessage, ChatDestinations::Whisper);
 		}
 	}
-
-	// Make sure I see that I sent it..
-
-	ClientSay(UTPlayerState, Message, ChatDestinations::Whisper);
-
 }
 
 void AUTBasePlayerController::ClientSay_Implementation(AUTPlayerState* Speaker, const FString& Message, FName Destination)

@@ -776,7 +776,7 @@ void AUTLobbyMatchInfo::ServerSetRules_Implementation(const FString&RulesetTag, 
 		{
 			AUTBaseGameMode* DefaultGameMode = CurrentRuleset->GetDefaultGameModeObject();
 			if (DefaultGameMode == nullptr) DefaultGameMode = AUTBaseGameMode::StaticClass()->GetDefaultObject<AUTBaseGameMode>();
-			RankCheck = OwnerPlayerState->GetRankCheck(DefaultGameMode) + RANK_LOCK_TOLERANCE;
+			RankCheck = OwnerPlayerState->GetRankCheck(DefaultGameMode);
 
 			TWeakObjectPtr<AUTLobbyPlayerState> MatchOwner = GetOwnerPlayerState();
 			if (!bIsInParty && MatchOwner.IsValid() && MatchOwner->IsABeginner(CurrentRuleset.IsValid() ? CurrentRuleset->GetDefaultGameModeObject() : NULL))
@@ -907,7 +907,7 @@ void AUTLobbyMatchInfo::ServerCreateCustomRule_Implementation(const FString& Gam
 		TWeakObjectPtr<AUTLobbyPlayerState> OwnerPlayerState = GetOwnerPlayerState();
 		if (OwnerPlayerState.IsValid())
 		{
-			RankCheck = OwnerPlayerState->GetRankCheck(DefaultGameMode) + RANK_LOCK_TOLERANCE;
+			RankCheck = OwnerPlayerState->GetRankCheck(DefaultGameMode);
 		}
 	}
 }

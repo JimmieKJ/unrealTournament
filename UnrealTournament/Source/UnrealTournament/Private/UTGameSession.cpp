@@ -144,8 +144,7 @@ FString AUTGameSession::ApproveLogin(const FString& Options)
 			if (UTGameMode->bRankLocked && !bSpectator)
 			{
 				int32 IncomingRank = UGameplayStatics::GetIntOption(Options, TEXT("RankCheck"), 0);
-
-				if (IncomingRank > UTGameMode->RankCheck)
+				if (AUTPlayerState::CheckRank(IncomingRank,UTGameMode->RankCheck))
 				{
 					return TEXT("TOOSTRONG");
 				}

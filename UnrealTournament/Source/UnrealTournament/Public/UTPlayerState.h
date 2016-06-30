@@ -806,6 +806,11 @@ public:
 
 	static bool CheckRank(int32 PlayerRank, int32 TargetRank)
 	{
+		return AUTPlayerState::CheckRank(PlayerRank, TargetRank, false) == 0;
+	}
+
+	static int32 CheckRank(int32 PlayerRank, int32 TargetRank, bool bCheckFloor)
+	{
 		int32 Ceiling = PlayerRank + (PlayerRank > STARTER_RANK_LEVEL ? 4 : 2);
 
 		// If this player is > Bronze 9 then remove the ceiling.
@@ -816,7 +821,10 @@ public:
 		// If this player is > the Starter rank level, then clamp is floor at the starter rank level.
 		if (PlayerRank > STARTER_RANK_LEVEL && Floor <= STARTER_RANK_LEVEL) Floor = STARTER_RANK_LEVEL + 1;
 
-		return (TargetRank >= Floor && TargetRank <= Ceiling);
+		if (bCheckFloor && TargetRank < Floor) return -1;
+		if (TargetRank > Ceiling) return 1;
+
+		return 0;
 	}
 
 
