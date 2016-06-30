@@ -7,7 +7,7 @@
 UUTHUDWidget_FlagRunStatus::UUTHUDWidget_FlagRunStatus(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
-	NormalLineBrightness = 0.03f;
+	NormalLineBrightness = 0.025f;
 	LineGlow = 0.5f;
 	PulseLength = 3.f;
 }
