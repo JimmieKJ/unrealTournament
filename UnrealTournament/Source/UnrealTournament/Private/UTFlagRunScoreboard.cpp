@@ -264,13 +264,59 @@ void UUTFlagRunScoreboard::DrawScoringPlays(float DeltaTime, float& YPos, float 
 		return;
 	}
 	AUTCTFRoundGameState* GS = GetWorld()->GetGameState<AUTCTFRoundGameState>();
-	if (GS && !GS->HasMatchEnded() && ((GS->CTFRound == GS->NumRounds-2) || (GS->CTFRound == GS->NumRounds - 1)) && (GS->Teams.Num() > 1) && GS->Teams[0] && GS->Teams[1])
+	if (!GS || GS->HasMatchEnded() || (GS->Teams.Num() < 2) || !GS->Teams[0] || !GS->Teams[1])
+	{
+		return;
+	}
+	FFontRenderInfo TextRenderInfo;
+	TextRenderInfo.bEnableShadow = true;
+	TextRenderInfo.bClipText = true;
+	bool bDrawBlueFirst = false;
+	FText ScorePreamble = NSLOCTEXT("UTFlagRun", "ScoreTied", "Score Tied");
+	if (GS->Teams[0]->Score > GS->Teams[1]->Score)
+	{
+		ScorePreamble = NSLOCTEXT("UTFlagRun", "RedLeads", "Red Team leads");
+	}
+	else if (GS->Teams[1]->Score > GS->Teams[0]->Score)
+	{
+		ScorePreamble = NSLOCTEXT("UTFlagRun", "BlueLeads", "Blue Team leads");
+		bDrawBlueFirst = true;
+	}
+	FFormatNamedArguments Args;
+	Args.Add("Preamble", ScorePreamble);
+	Args.Add("RedScore", FText::AsNumber(GS->Teams[0]->Score));
+	Args.Add("BlueScore", FText::AsNumber(GS->Teams[1]->Score));
+
+	FText ScoreText = FText::Format(NSLOCTEXT("UTFlagRun", "ScoreTied", "{Preamble} {RedScore} - {BlueScore}"), Args);
+	float ScoringOffsetX, ScoringOffsetY;
+	Canvas->TextSize(UTHUDOwner->MediumFont, ScoreText.ToString(), ScoringOffsetX, ScoringOffsetY, RenderScale, RenderScale);
+	float SingleXL, SingleYL;
+	float ScoreX = XOffset + 0.99f*ScoreWidth - ScoringOffsetX;
+	FString PreambleString = ScorePreamble.ToString();
+	Canvas->TextSize(UTHUDOwner->MediumFont, PreambleString, SingleXL, SingleYL, RenderScale, RenderScale);
+	Canvas->DrawText(UTHUDOwner->MediumFont, PreambleString, ScoreX, YPos, RenderScale, RenderScale, TextRenderInfo);
+	Canvas->SetLinearDrawColor(FLinearColor::White);
+	ScoreX += SingleXL;
+
+	int32 TeamIndex = bDrawBlueFirst ? 1 : 0;
+	Canvas->SetLinearDrawColor(GS->Teams[TeamIndex]->TeamColor);
+	FString SingleScorePart = FString::Printf(TEXT("%i"), GS->Teams[TeamIndex]->Score);
+	Canvas->TextSize(UTHUDOwner->MediumFont, SingleScorePart, SingleXL, SingleYL, RenderScale, RenderScale);
+	Canvas->DrawText(UTHUDOwner->MediumFont, SingleScorePart, ScoreX, YPos, RenderScale, RenderScale, TextRenderInfo);
+	Canvas->SetLinearDrawColor(FLinearColor::White);
+	ScoreX += SingleXL;
+	Canvas->TextSize(UTHUDOwner->MediumFont, " - ", SingleXL, SingleYL, RenderScale, RenderScale);
+	Canvas->DrawText(UTHUDOwner->MediumFont, " - ", ScoreX, YPos, RenderScale, RenderScale, TextRenderInfo);
+	ScoreX += SingleXL;
+	TeamIndex = bDrawBlueFirst ? 0 : 1;
+	Canvas->SetLinearDrawColor(GS->Teams[TeamIndex]->TeamColor);
+	SingleScorePart = FString::Printf(TEXT("%i"), GS->Teams[TeamIndex]->Score);
+	Canvas->DrawText(UTHUDOwner->MediumFont, SingleScorePart, ScoreX, YPos, RenderScale, RenderScale, TextRenderInfo);
+	YPos += SingleYL;
+
+	if (true)// (((GS->CTFRound == GS->NumRounds-2) || (GS->CTFRound == GS->NumRounds - 1))
 	{
 		Canvas->SetLinearDrawColor(FLinearColor::White);
-		FFontRenderInfo TextRenderInfo;
-		TextRenderInfo.bEnableShadow = true;
-		TextRenderInfo.bClipText = true;
-
 		AUTTeamInfo* NextAttacker = GS->bRedToCap ? GS->Teams[1] : GS->Teams[0];
 		AUTTeamInfo* NextDefender = GS->bRedToCap ? GS->Teams[0] : GS->Teams[1];
 		FText AttackerNameText = (NextAttacker->TeamIndex == 0) ? RedTeamText : BlueTeamText;
