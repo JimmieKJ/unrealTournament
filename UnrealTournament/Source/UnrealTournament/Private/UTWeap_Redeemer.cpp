@@ -88,7 +88,7 @@ AUTProjectile* AUTWeap_Redeemer::FireProjectile()
 				if (LaunchedMissile != nullptr)
 				{
 					FTimerHandle TempHandle;
-					GetWorldTimerManager().SetTimer(TempHandle, this, &AUTWeap_Redeemer::AnnounceLaunch, 0.1f, false);
+					GetWorldTimerManager().SetTimer(TempHandle, this, &AUTWeap_Redeemer::AnnounceLaunch, 0.5f, false);
 				}
 			}
 			else
@@ -120,7 +120,7 @@ void AUTWeap_Redeemer::DropFrom(const FVector& StartLocation, const FVector& Tos
 
 void AUTWeap_Redeemer::AnnounceLaunch()
 {
-	if (LaunchedMissile && !LaunchedMissile->IsPendingKillPending() && !LaunchedMissile->bTearOff && (!Cast<AUTProjectile>(LaunchedMissile) || !Cast<AUTProjectile>(LaunchedMissile)->bExploded))
+	if (LaunchedMissile && !LaunchedMissile->IsPendingKillPending() && !LaunchedMissile->bTearOff && (Cast<AUTProjectile>(LaunchedMissile) ? !Cast<AUTProjectile>(LaunchedMissile)->bExploded : (RemoteRedeemer && !RemoteRedeemer->bExploded)))
 	{
 		for (FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator)
 		{

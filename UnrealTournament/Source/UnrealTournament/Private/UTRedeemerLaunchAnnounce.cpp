@@ -13,7 +13,7 @@ UUTRedeemerLaunchAnnounce::UUTRedeemerLaunchAnnounce(const class FObjectInitiali
 	bIsConsoleMessage = false;
 	bIsStatusAnnouncement = false;
 	Lifetime = 2.f;
-	AnnouncementDelay = 1.f;
+	AnnouncementDelay = 0.f;
 }
 
 FName UUTRedeemerLaunchAnnounce::GetAnnouncementName_Implementation(int32 Switch, const UObject* OptionalObject, const class APlayerState* RelatedPlayerState_1, const class APlayerState* RelatedPlayerState_2) const
