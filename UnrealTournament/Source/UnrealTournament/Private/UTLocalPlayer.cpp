@@ -118,6 +118,9 @@ UUTLocalPlayer::UUTLocalPlayer(const class FObjectInitializer& ObjectInitializer
 	bJoinSessionInProgress = false;
 
 	KillcamPlayback = ObjectInitializer.CreateDefaultSubobject<UUTKillcamPlayback>(this, TEXT("KillcamPlayback"));
+
+	bHasShownDLCWarning = false;
+
 }
 
 UUTLocalPlayer::~UUTLocalPlayer()
@@ -3538,6 +3541,8 @@ bool UUTLocalPlayer::ContentExists(const FPackageRedirectReference& Redirect)
 
 void UUTLocalPlayer::AccquireContent(TArray<FPackageRedirectReference>& Redirects)
 {
+	bool bNeedsToShowWarning = !bHasShownDLCWarning;
+
 	UUTGameViewportClient* UTGameViewport = Cast<UUTGameViewportClient>(ViewportClient);
 	if (UTGameViewport)
 	{
@@ -3548,6 +3553,32 @@ void UUTLocalPlayer::AccquireContent(TArray<FPackageRedirectReference>& Redirect
 				UTGameViewport->DownloadRedirect(Redirects[i]);
 			}
 		}
+	}
+
+	// Look at the trust level of the current session
+	IOnlineSubsystem* OnlineSubsystem = IOnlineSubsystem::Get();
+	if (OnlineSubsystem) 
+	{
+		IOnlineSessionPtr OnlineSessionInterface = OnlineSubsystem->GetSessionInterface();
+		FOnlineSessionSettings* Settings = OnlineSessionInterface->GetSessionSettings(TEXT("Game"));
+
+		if (Settings != nullptr)
+		{
+			int32 TrustLevel = 2;
+			if (Settings->Get(SETTING_TRUSTLEVEL, TrustLevel))
+			{
+				if (TrustLevel == 0)
+				{
+					bNeedsToShowWarning = false;
+				}
+			}
+		}
+	}
+
+	if (bNeedsToShowWarning)
+	{
+		MessageBox(NSLOCTEXT("UTLocalPlayer","ContentWarningTitle","!! Content Warning !!"), NSLOCTEXT("UTLocalPlayer","ContentWarningText",""));
+		bHasShownDLCWarning = true;
 	}
 }
 
@@ -5396,4 +5427,9 @@ void UUTLocalPlayer::UpdateLeagueProgress(const FString& LeagueName, const FRank
 	{
 		LeagueRecords.Add(LeagueName, InLeagueProgress);
 	}
+}
+
+void UUTLocalPlayer::ResetDLCWarning()
+{
+	bHasShownDLCWarning = false;
 }

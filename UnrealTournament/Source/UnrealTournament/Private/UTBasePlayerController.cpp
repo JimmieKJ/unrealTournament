@@ -49,6 +49,12 @@ void AUTBasePlayerController::InitInputSystem()
 
 	// read profile on every level change so we can detect updates
 	UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(Player);
+
+	if (LP)
+	{
+		LP->ResetDLCWarning();
+	}
+
 #if WITH_PROFILE
 	if (LP != NULL && LP->IsLoggedIn() && LP->GetMcpProfileManager())
 	{
