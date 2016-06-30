@@ -570,7 +570,12 @@ public:
 	bool bRestrictPartyJoin;
 
 	virtual bool CanShowBoostMenu(AUTPlayerController* Target);
-
+ 
+	UPROPERTY(Replicated, GlobalConfig, EditAnywhere, BlueprintReadWrite, Category = GameState)
+	bool bOnlyTeamCanVoteKick;
+	
+	UPROPERTY(Replicated, GlobalConfig, EditAnywhere, BlueprintReadWrite, Category = GameState)
+	bool bDisableVoteKick;
 
 };
 
