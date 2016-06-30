@@ -128,7 +128,7 @@ void AUTCTFGameState::Tick(float DeltaTime)
 		{
 			AUTCTFFlag* Flag = Cast<AUTCTFFlag>(FlagBases[OffensiveTeam]->GetCarriedObject());
 			bool bOffenseCanRally = (Flag && Flag->Holder && Flag->HoldingPawn && (GetWorld()->GetTimeSeconds() - Flag->PickedUpTime > 3.f) && (GetWorld()->GetTimeSeconds() - FMath::Max(Flag->HoldingPawn->LastTargetingTime, Flag->HoldingPawn->LastTargetedTime) > 3.f));
-			if (!bOffenseCanRally && (GetWorld()->GetTimeSeconds() - LastOffenseRallyTime > 1.f))
+			if (!bOffenseCanRally)
 			{
 				if (bRedToCap)
 				{
