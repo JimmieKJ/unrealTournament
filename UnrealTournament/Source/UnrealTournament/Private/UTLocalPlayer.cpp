@@ -3577,10 +3577,42 @@ void UUTLocalPlayer::AccquireContent(TArray<FPackageRedirectReference>& Redirect
 
 	if (bNeedsToShowWarning)
 	{
-		MessageBox(NSLOCTEXT("UTLocalPlayer","ContentWarningTitle","!! Content Warning !!"), NSLOCTEXT("UTLocalPlayer","ContentWarningText",""));
+#if !UE_SERVER
+
+		// Ask player if they want to try to rejoin last ranked game
+		ShowMessage(NSLOCTEXT("UTLocalPlayer","ContentWarningTitle","!! Content Warning !!"),
+			NSLOCTEXT("UTLocalPlayer","ContentWarningText","This server is attempting to send you third party content that has not been verified by Epic Games.  You should only accept content from servers that you trust.  Continue download?"),
+			UTDIALOG_BUTTON_YES + UTDIALOG_BUTTON_NO,
+			FDialogResultDelegate::CreateUObject(this, &UUTLocalPlayer::ContentAcceptResult));
+#else
+		bHasShownDLCWarning = true;
+#endif
+	}
+	else
+	{
 		bHasShownDLCWarning = true;
 	}
 }
+
+#if !UE_SERVER
+void UUTLocalPlayer::ContentAcceptResult(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID)
+{
+	if (ButtonID == UTDIALOG_BUTTON_YES)
+	{
+		bHasShownDLCWarning = true;
+	}
+	else
+	{
+		UUTGameViewportClient* UTGameViewport = Cast<UUTGameViewportClient>(ViewportClient);
+		if (UTGameViewport && UTGameViewport->IsDownloadInProgress())
+		{
+			UTGameViewport->CancelAllRedirectDownloads();		
+			ConsoleCommand(TEXT("Disconnect"));
+		}
+	}
+}
+#endif
+
 
 FText UUTLocalPlayer::GetDownloadStatusText()
 {

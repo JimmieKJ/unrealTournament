@@ -768,6 +768,9 @@ void UUTGameViewportClient::Tick(float DeltaSeconds)
 
 void UUTGameViewportClient::UpdateRedirects(float DeltaTime)
 {
+	UUTLocalPlayer* FirstPlayer = Cast<UUTLocalPlayer>(GEngine->GetLocalPlayerFromControllerId(this, 0));	// Grab the first local player.
+	if (FirstPlayer == nullptr || !FirstPlayer->bHasShownDLCWarning) return;
+
 	if (PendingDownloads.Num() >0)
 	{
 		if (PendingDownloads[0].Status == ERedirectStatus::Pending)

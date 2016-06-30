@@ -446,6 +446,7 @@ public:
 
 #if !UE_SERVER
 	virtual void RankedReconnectResult(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID);
+	virtual void ContentAcceptResult(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID);
 #endif
 
 private:
@@ -1047,6 +1048,8 @@ public:
 	bool bAutoRankLockWarningShown;
 
 	void ResetDLCWarning();
+	// If true, then this client has shown the downloadable content warning since the last travel.
+	bool bHasShownDLCWarning;
 
 protected:
 	
@@ -1063,7 +1066,4 @@ protected:
 	bool bJoinSessionInProgress;	
 	FDelegateHandle SpeakerDelegate;
 	void OnPlayerTalkingStateChanged(TSharedRef<const FUniqueNetId> TalkerId, bool bIsTalking);
-
-	// If true, then this client has shown the downloadable content warning since the last travel.
-	bool bHasShownDLCWarning;
 };
