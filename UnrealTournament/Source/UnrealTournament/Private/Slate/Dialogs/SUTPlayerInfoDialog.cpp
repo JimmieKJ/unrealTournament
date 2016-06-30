@@ -423,9 +423,22 @@ TSharedRef<class SWidget> SUTPlayerInfoDialog::BuildCustomButtonBar()
 
 EVisibility SUTPlayerInfoDialog::VoteKickVis() const
 {
-	if ((GetPlayerOwner()->GetWorld()->GetNetMode() == NM_Client) && GetPlayerOwner()->PlayerController->PlayerState && !GetPlayerOwner()->PlayerController->PlayerState->bOnlySpectator && TargetPlayerState.IsValid() && !TargetPlayerState->bIsABot && (GetPlayerOwner()->PlayerController->PlayerState != TargetPlayerState))
+	if (PlayerOwner.IsValid() && PlayerOwner->PlayerController)
 	{
-		return EVisibility::Visible;
+		AUTGameState* UTGameState = PlayerOwner->GetWorld()->GetGameState<AUTGameState>();
+		AUTPlayerState* OwnerPlayerState = Cast<AUTPlayerState>(PlayerOwner->PlayerController->PlayerState);
+		if ( GetPlayerOwner()->GetWorld()->GetNetMode() == NM_Client && 
+				OwnerPlayerState != nullptr && 
+				!OwnerPlayerState->bOnlySpectator && 
+				TargetPlayerState.IsValid() && 
+				!TargetPlayerState->bIsABot && 
+				OwnerPlayerState != TargetPlayerState &&
+				!UTGameState->bDisableVoteKick &&
+				(!UTGameState->bOnlyTeamCanVoteKick || UTGameState->OnSameTeam(OwnerPlayerState, TargetPlayerState.Get()))
+			)
+		{
+			return EVisibility::Visible;
+		}
 	}
 
 	return EVisibility::Collapsed;

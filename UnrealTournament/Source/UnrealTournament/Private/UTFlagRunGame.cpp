@@ -250,6 +250,7 @@ void AUTFlagRunGame::HandleRallyRequest(AUTPlayerController* RequestingPC)
 			AUTCharacter* FlagCarrier = Flag ? Flag->HoldingPawn : nullptr;
 			if (FlagCarrier != nullptr)
 			{
+				RequestingPC->RallyLocation = FlagCarrier->GetActorLocation();
 				if (bDelayedRally)
 				{
 					RequestingPC->BeginRallyTo(FlagCarrier, 1.f);
@@ -280,11 +281,13 @@ void AUTFlagRunGame::CompleteRallyRequest(AUTPlayerController* RequestingPC)
 		return;
 	}
 
-	if (Team && UTCharacter && GS && GS->FlagBases.IsValidIndex(Team->TeamIndex) && GS->FlagBases[Team->TeamIndex] != nullptr)
+	if (Team && UTCharacter && !UTCharacter->IsPendingKillPending() && GS && GS->FlagBases.IsValidIndex(Team->TeamIndex) && GS->FlagBases[Team->TeamIndex] != nullptr)
 	{
 		FVector WarpLocation = FVector::ZeroVector;
 		FRotator WarpRotation(0.0f, UTCharacter->GetActorRotation().Yaw, 0.0f);
-		FCollisionShape PlayerCapsule = FCollisionShape::MakeCapsule(UTCharacter->GetCapsuleComponent()->GetUnscaledCapsuleRadius(), UTCharacter->GetCapsuleComponent()->GetUnscaledCapsuleHalfHeight());
+		float HalfHeight = UTCharacter->GetCapsuleComponent()->GetUnscaledCapsuleHalfHeight();
+		float Radius = UTCharacter->GetCapsuleComponent()->GetUnscaledCapsuleRadius();
+		FCollisionShape PlayerCapsule = FCollisionShape::MakeCapsule(Radius, HalfHeight);
 		FHitResult Hit;
 		float SweepRadius = UTCharacter->GetCapsuleComponent()->GetUnscaledCapsuleRadius();
 		float RallyDelay = 10.f;
@@ -297,20 +300,23 @@ void AUTFlagRunGame::CompleteRallyRequest(AUTPlayerController* RequestingPC)
 			{
 				return;
 			}
-			float HalfHeight = UTCharacter->GetCapsuleComponent()->GetUnscaledCapsuleHalfHeight();
-			FVector CarrierLocation = FlagCarrier->GetActorLocation() + FVector(0.f, 0.f, HalfHeight);
+			FVector CarrierLocation = RequestingPC->RallyLocation + FVector(0.f, 0.f, HalfHeight);
 			ECollisionChannel SavedObjectType = UTCharacter->GetCapsuleComponent()->GetCollisionObjectType();
 			UTCharacter->GetCapsuleComponent()->SetCollisionObjectType(COLLISION_TELEPORTING_OBJECT);
-			float Offset = 4.f * UTCharacter->GetCapsuleComponent()->GetUnscaledCapsuleRadius();
-			for (int32 i = 0; i < 4; i++)
+			float Offset = 4.f * Radius;
+			WarpLocation = CarrierLocation;
+			if (!GetWorld()->FindTeleportSpot(UTCharacter, WarpLocation, WarpRotation) && !GetWorld()->LineTraceTestByChannel(CarrierLocation, WarpLocation, COLLISION_TELEPORTING_OBJECT, FCollisionQueryParams(FName(TEXT("Translocation")), false), WorldResponseParams))
 			{
-				WarpLocation = CarrierLocation + FVector(Offset * ((i % 2 == 0) ? 1.f : -1.f), Offset * ((i > 1) ? 1.f : -1.f), 0.f);
-				if (GetWorld()->FindTeleportSpot(UTCharacter, WarpLocation, WarpRotation) && !GetWorld()->LineTraceTestByChannel(CarrierLocation, WarpLocation, COLLISION_TELEPORTING_OBJECT, FCollisionQueryParams(FName(TEXT("Translocation")), false), WorldResponseParams))
+				for (int32 i = 0; i < 4; i++)
 				{
-					bool bHitFloor = true; // GetWorld()->SweepSingleByChannel(Hit, WarpLocation, WarpLocation - FVector(0.f, 0.f, 3.f* HalfHeight), FQuat::Identity, UTCharacter->GetCapsuleComponent()->GetCollisionObjectType(), FCollisionShape::MakeSphere(SweepRadius), FCollisionQueryParams(FName(TEXT("Translocation")), false, UTCharacter), UTCharacter->GetCapsuleComponent()->GetCollisionResponseToChannels());
-					if (bHitFloor)
+					WarpLocation = CarrierLocation + FVector(Offset * ((i % 2 == 0) ? 1.f : -1.f), Offset * ((i > 1) ? 1.f : -1.f), HalfHeight);
+					if (GetWorld()->FindTeleportSpot(UTCharacter, WarpLocation, WarpRotation) && !GetWorld()->LineTraceTestByChannel(CarrierLocation, WarpLocation, COLLISION_TELEPORTING_OBJECT, FCollisionQueryParams(FName(TEXT("Translocation")), false), WorldResponseParams))
 					{
-						break;
+						bool bHitFloor = true; // GetWorld()->SweepSingleByChannel(Hit, WarpLocation, WarpLocation - FVector(0.f, 0.f, 3.f* HalfHeight), FQuat::Identity, UTCharacter->GetCapsuleComponent()->GetCollisionObjectType(), FCollisionShape::MakeSphere(SweepRadius), FCollisionQueryParams(FName(TEXT("Translocation")), false, UTCharacter), UTCharacter->GetCapsuleComponent()->GetCollisionResponseToChannels());
+						if (bHitFloor)
+						{
+							break;
+						}
 					}
 				}
 			}

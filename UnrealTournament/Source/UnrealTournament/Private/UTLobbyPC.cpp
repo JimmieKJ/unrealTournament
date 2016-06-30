@@ -96,6 +96,17 @@ void AUTLobbyPC::ServerChat_Implementation(const FName Destination, const FStrin
 	AUTLobbyGameState* LobbyGameState = GetWorld()->GetGameState<AUTLobbyGameState>();
 	if (LobbyGameState)
 	{
+
+		// Look to see if this is a direct message..
+
+		if (Message.Left(1) == TEXT("@"))
+		{
+			// Remove the @
+			FString TrimmedMessage = Message.Right(Message.Len()-1);
+			DirectSay(TrimmedMessage);
+			return;
+		}
+
 		LobbyGameState->BroadcastChat(UTLobbyPlayerState, Destination, Message);
 	}
 }
@@ -300,23 +311,15 @@ void AUTLobbyPC::ClientReceiveRedirect_Implementation(const FPackageRedirectRefe
 	}
 }
 
-void AUTLobbyPC::DirectSay(const FString& User, const FString& Message)
+void AUTLobbyPC::DirectSay(const FString& Message)
 {
-	AUTLobbyGameState* LobbyGameState = GetWorld()->GetGameState<AUTLobbyGameState>();
-	if (UTPlayerState != nullptr && UTPlayerState->bIsRconAdmin)
-	{
-		AUTBaseGameMode* GameMode = GetWorld()->GetAuthGameMode<AUTBaseGameMode>();
-		if (GameMode)
-		{
-			GameMode->SendRconMessage(User, Message);
-			return;
-		}
-	}
+	// look to see if there is a remote player..
 
-	if (LobbyGameState && LobbyGameState->SendSayToInstance(User, PlayerState->PlayerName, Message))
+	AUTLobbyGameState* LobbyGameState = GetWorld()->GetGameState<AUTLobbyGameState>();
+	if (LobbyGameState && LobbyGameState->SendSayToInstance(PlayerState->PlayerName, Message))
 	{
 		return;
 	}
 
-	Super::DirectSay(User, Message);
+	Super::DirectSay(Message);
 }

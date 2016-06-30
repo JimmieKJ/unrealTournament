@@ -152,6 +152,11 @@ void SUTInGameHomePanel::ShowContextMenu(UUTScoreboard* Scoreboard, FVector2D Co
 	{
 		HideContextMenu();
 	}
+	AUTPlayerState* OwnerPlayerState = nullptr;
+	if (PlayerOwner->PlayerController)
+	{
+		OwnerPlayerState = Cast<AUTPlayerState>(PlayerOwner->PlayerController->PlayerState);
+	}
 
 	if (Scoreboard == nullptr) return;
 	
@@ -237,55 +242,58 @@ void SUTInGameHomePanel::ShowContextMenu(UUTScoreboard* Scoreboard, FVector2D Co
 					];
 				}
 
-				MenuBox->AddSlot()
-				.AutoHeight()
-				[
-					SNew(SUTButton)
-					.OnClicked(this, &SUTInGameHomePanel::ContextCommand, 2, SelectedPlayer)
-					.ButtonStyle(SUTStyle::Get(),"UT.ContextMenu.Item")
-					.Text(NSLOCTEXT("SUTInGameHomePanel","VoteToKick","Vote to Kick"))
-					.TextStyle(SUTStyle::Get(),"UT.Font.NormalText.Small")
-				];
-			}
-
-			if (PlayerOwner->PlayerController)
-			{
-				AUTPlayerState* OwnerPlayerState = Cast<AUTPlayerState>(PlayerOwner->PlayerController->PlayerState);
-				if (OwnerPlayerState && OwnerPlayerState->bIsRconAdmin && SelectedPlayer != OwnerPlayerState)
+				AUTGameState* UTGameState = PlayerOwner->GetWorld()->GetGameState<AUTGameState>();
+				if (OwnerPlayerState && 
+						!UTGameState->bDisableVoteKick && 
+						(!UTGameState->bOnlyTeamCanVoteKick || UTGameState->OnSameTeam(OwnerPlayerState, SelectedPlayer.Get()))
+					)
 				{
 					MenuBox->AddSlot()
 					.AutoHeight()
 					[
-						SNew(SHorizontalBox)
-						+SHorizontalBox::Slot().Padding(FMargin(10.0,0.0,10.0,0.0))
-						[
-							SNew(SBox).HeightOverride(3)
-							[
-								SNew(SImage)
-								.Image(SUTStyle::Get().GetBrush("UT.HeaderBackground.SuperDark"))
-							]
-						]
-					];
-
-					MenuBox->AddSlot()
-					.AutoHeight()
-					[
 						SNew(SUTButton)
-						.OnClicked(this, &SUTInGameHomePanel::ContextCommand, 3, SelectedPlayer)
+						.OnClicked(this, &SUTInGameHomePanel::ContextCommand, 2, SelectedPlayer)
 						.ButtonStyle(SUTStyle::Get(),"UT.ContextMenu.Item")
-						.Text(NSLOCTEXT("SUTInGameHomePanel","AdminKick","Admin Kick"))
-						.TextStyle(SUTStyle::Get(),"UT.Font.NormalText.Small")
-					];
-					MenuBox->AddSlot()
-					.AutoHeight()
-					[
-						SNew(SUTButton)
-						.OnClicked(this, &SUTInGameHomePanel::ContextCommand, 4, SelectedPlayer)
-						.ButtonStyle(SUTStyle::Get(),"UT.ContextMenu.Item")
-						.Text(NSLOCTEXT("SUTInGameHomePanel","AdminBan","Admin Ban"))
+						.Text(NSLOCTEXT("SUTInGameHomePanel","VoteToKick","Vote to Kick"))
 						.TextStyle(SUTStyle::Get(),"UT.Font.NormalText.Small")
 					];
 				}
+			}
+
+			if (OwnerPlayerState && OwnerPlayerState->bIsRconAdmin && SelectedPlayer != OwnerPlayerState)
+			{
+				MenuBox->AddSlot()
+				.AutoHeight()
+				[
+					SNew(SHorizontalBox)
+					+SHorizontalBox::Slot().Padding(FMargin(10.0,0.0,10.0,0.0))
+					[
+						SNew(SBox).HeightOverride(3)
+						[
+							SNew(SImage)
+							.Image(SUTStyle::Get().GetBrush("UT.HeaderBackground.SuperDark"))
+						]
+					]
+				];
+
+				MenuBox->AddSlot()
+				.AutoHeight()
+				[
+					SNew(SUTButton)
+					.OnClicked(this, &SUTInGameHomePanel::ContextCommand, 3, SelectedPlayer)
+					.ButtonStyle(SUTStyle::Get(),"UT.ContextMenu.Item")
+					.Text(NSLOCTEXT("SUTInGameHomePanel","AdminKick","Admin Kick"))
+					.TextStyle(SUTStyle::Get(),"UT.Font.NormalText.Small")
+				];
+				MenuBox->AddSlot()
+				.AutoHeight()
+				[
+					SNew(SUTButton)
+					.OnClicked(this, &SUTInGameHomePanel::ContextCommand, 4, SelectedPlayer)
+					.ButtonStyle(SUTStyle::Get(),"UT.ContextMenu.Item")
+					.Text(NSLOCTEXT("SUTInGameHomePanel","AdminBan","Admin Ban"))
+					.TextStyle(SUTStyle::Get(),"UT.Font.NormalText.Small")
+				];
 			}
 		}
 	

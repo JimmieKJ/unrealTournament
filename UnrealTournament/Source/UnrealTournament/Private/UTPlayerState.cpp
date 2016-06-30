@@ -2935,6 +2935,12 @@ void AUTPlayerState::SetReadyToPlay(bool bNewReadyState)
 
 void AUTPlayerState::LogBanRequest(AUTPlayerState* Voter)
 {
+	AUTGameState* UTGameState = GetWorld()->GetGameState<AUTGameState>();
+	if (UTGameState->bDisableVoteKick || (UTGameState->bOnlyTeamCanVoteKick && GetTeamNum() != Voter->GetTeamNum())) 
+	{
+		return;
+	}
+
 	float CurrentTime = GetWorld()->GetRealTimeSeconds();
 	for (int32 i=0; i < BanVotes.Num(); i++)
 	{

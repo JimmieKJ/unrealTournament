@@ -1046,6 +1046,8 @@ public:
 	UPROPERTY()
 	bool bAutoRankLockWarningShown;
 
+	void ResetDLCWarning();
+
 protected:
 	
 	UPROPERTY()
@@ -1062,4 +1064,6 @@ protected:
 	FDelegateHandle SpeakerDelegate;
 	void OnPlayerTalkingStateChanged(TSharedRef<const FUniqueNetId> TalkerId, bool bIsTalking);
 
+	// If true, then this client has shown the downloadable content warning since the last travel.
+	bool bHasShownDLCWarning;
 };

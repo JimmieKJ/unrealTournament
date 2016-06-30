@@ -3,6 +3,8 @@
 #include "UTDemoRecSpectator.h"
 #include "UTGameViewportClient.h"
 #include "UTDemoNetDriver.h"
+#include "UTKillcamPlayback.h"
+#include "UTHUD_InstantReplay.h"
 
 AUTDemoRecSpectator::AUTDemoRecSpectator(const FObjectInitializer& OI)
 	: Super(OI)
@@ -327,4 +329,37 @@ void AUTDemoRecSpectator::InitPlayerState()
 	{
 		UTPS->bIsDemoRecording = true;
 	}
+}
+
+
+void AUTDemoRecSpectator::SetPlayer(UPlayer* InPlayer)
+{
+	Super::SetPlayer(InPlayer);
+
+	if (IsKillcamSpectator())
+	{
+		FActorSpawnParameters SpawnInfo;
+		SpawnInfo.Owner = this;
+		SpawnInfo.Instigator = Instigator;
+		SpawnInfo.ObjectFlags |= RF_Transient;	// We never want to save HUDs into a map
+
+		MyHUD = GetWorld()->SpawnActor<AHUD>(AUTHUD_InstantReplay::StaticClass(), SpawnInfo);		
+	}
+}
+
+bool AUTDemoRecSpectator::IsKillcamSpectator() const
+{
+	UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(GetLocalPlayer());
+	if (LP != nullptr)
+	{
+		if (LP->GetKillcamPlaybackManager() != nullptr)
+		{
+			if (LP->GetKillcamPlaybackManager()->GetKillcamWorld() == GetWorld())
+			{
+				return true;
+			}
+		}
+	}
+
+	return false;
 }

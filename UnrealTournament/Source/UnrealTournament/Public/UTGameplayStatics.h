@@ -221,4 +221,6 @@ class UNREALTOURNAMENT_API UUTGameplayStatics : public UBlueprintFunctionLibrary
 #endif
 	);
 
+	UFUNCTION(BlueprintCallable, Category = "UT", meta = (WorldContext = "WorldContextObject"))
+	static bool IsPlayInEditor(UObject* WorldContextObject);
 };

@@ -275,7 +275,7 @@ public:
 
 protected:
 	// Sends a message directly to a user.  
-	virtual void DirectSay(const FString& User, const FString& Message);
+	virtual void DirectSay(const FString& Message);
 
 	
 

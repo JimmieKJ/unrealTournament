@@ -20,6 +20,7 @@
 #include "UTGameInstance.h"
 #include "UTParty.h"
 #include "UTPartyGameState.h"
+#include "UTMcpUtils.h"
 
 #if !UE_SERVER
 
@@ -168,7 +169,63 @@ void SUTQuickMatchWindow::BuildWindow()
 
 	];
 
-	BeginQuickmatch();
+	UUTGameInstance* UTGameInstance = Cast<UUTGameInstance>(PlayerOwner->GetGameInstance());
+	AUTPlayerState* PlayerState = Cast<AUTPlayerState>(GetPlayerOwner()->PlayerController->PlayerState);
+	MatchTargetRank = (PlayerState != nullptr && DefaultGameModeObject != nullptr) ? PlayerState->GetRankCheck(DefaultGameModeObject.Get()) : NUMBER_RANK_LEVELS * 4;
+	TArray<FUniqueNetIdRepl> AccountIds;
+
+	bool bStartQuickMatch = true;
+
+	UUTMcpUtils* McpUtils = nullptr;
+	IOnlineSubsystem* OnlineSubsystem = IOnlineSubsystem::Get();
+	if (OnlineSubsystem)
+	{
+		IOnlineIdentityPtr OnlineIdentityInterface = OnlineSubsystem->GetIdentityInterface();
+		if (OnlineIdentityInterface.IsValid())
+		{
+			McpUtils = UUTMcpUtils::Get(PlayerOwner->GetWorld(), OnlineIdentityInterface->GetUniquePlayerId(PlayerOwner->GetControllerId()));
+			if (McpUtils == nullptr)
+			{
+				UE_LOG(LogOnline, Warning, TEXT("Unable to load McpUtils. Will not be able to read ELO from MCP"));
+			}
+		}
+	}
+
+	if (McpUtils && UTGameInstance)
+	{
+		UUTParty* Parties = UTGameInstance->GetParties();
+		if (Parties)
+		{
+			UPartyGameState* Party = Parties->GetPersistentParty();
+			if (Party)
+			{
+				TArray<UPartyMemberState*> PartyMembers;
+				Party->GetAllPartyMembers(PartyMembers);
+
+				for (int32 i = 0; i < PartyMembers.Num(); i++)
+				{
+					AccountIds.Add(PartyMembers[i]->UniqueId);
+				}
+
+				bStartQuickMatch = false;
+				McpUtils->GetTeamHighestMmr(GetNameSafe(DefaultGameModeObject->GetClass()), AccountIds, [this](const FOnlineError& TeamMmrResult, const FHighestMmr& Response)
+				{
+					if (!TeamMmrResult.bSucceeded)
+					{
+						UE_LOG(UT,Log,TEXT("Best MMR: %i"),Response.Mmr);
+						MatchTargetRank = Response.Mmr;
+					}
+					BeginQuickmatch();
+				});
+			}
+		}
+	}
+
+	if (bStartQuickMatch)
+	{
+		BeginQuickmatch();
+	}
+
 	FSlateApplication::Get().SetKeyboardFocus(SharedThis(this), EKeyboardFocusCause::Keyboard);
 }
 
@@ -498,14 +555,7 @@ void SUTQuickMatchWindow::CollectInstances()
 						if (Instance->RulesTag.Equals(QuickMatchType, ESearchCase::IgnoreCase) && Instance->bJoinableAsPlayer)
 						{
 							// Get the Target Rank based on the quickmatch type
-
-							int32 PlayerRank = 0;
-							if (DefaultGameModeObject != nullptr)
-							{
-								PlayerRank = PlayerState->GetRankCheck(DefaultGameModeObject.Get());
-							}
-
-							if ( AUTPlayerState::CheckRank(PlayerRank, FinalList[i]->Beacon->Instances[j]->RankCheck) )
+							if ( AUTPlayerState::CheckRank(MatchTargetRank, FinalList[i]->Beacon->Instances[j]->RankCheck, true) == 0 )
 							{
 								// Look to see if I could 
 								Instances.Add(FInstanceTracker(FinalList[i], FinalList[i]->Beacon->Instances[j]));					

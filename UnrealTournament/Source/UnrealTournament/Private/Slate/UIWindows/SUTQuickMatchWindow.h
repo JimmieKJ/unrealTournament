@@ -146,6 +146,9 @@ private:
 	FText GetStatusText() const;
 	FText GetMinorStatusText() const;
 
+	// This should hold the highest rank of anyone in the party, or the player's rank if partyless
+	int32 MatchTargetRank;
+
 	// Begin the search for a HUB to join
 	void BeginQuickmatch();
 	void OnInitialFindCancel(bool bWasSuccessful);

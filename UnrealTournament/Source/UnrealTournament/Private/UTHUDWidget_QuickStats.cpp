@@ -400,12 +400,12 @@ void UUTHUDWidget_QuickStats::PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCa
 			bool bWantsPulse = ((UTPlayerState->Team->TeamIndex == 0) == GameState->bRedToCap);// && !UTPlayerState->CarriedObject;
 			if (UTHUDOwner->UTPlayerOwner->bNeedsRallyNotify)
 			{
-				UTHUDOwner->UTPlayerOwner->bNeedsRallyNotify = false;
 				if (bWantsPulse)
 				{
 					RallyInfo.Animate(StatAnimTypes::Scale, 2.0f, 10.f, 1.0f, true);
 					UTHUDOwner->UTPlayerOwner->ClientReceiveLocalizedMessage(UUTCTFMajorMessage::StaticClass(), 23);
 				}
+				UTHUDOwner->UTPlayerOwner->bNeedsRallyNotify = false;
 			}
 			else if (bWantsPulse && !RallyInfo.IsAnimationTypeAlreadyPlaying(StatAnimTypes::Scale))
 			{

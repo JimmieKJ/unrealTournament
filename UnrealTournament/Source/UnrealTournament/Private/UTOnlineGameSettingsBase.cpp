@@ -81,6 +81,6 @@ void FUTOnlineGameSettingsBase::ApplyGameSettings(FOnlineSessionSettings* Settin
 	Settings->Set(SETTING_UTMAXSPECTATORS, CurrentSession->MaxSpectators, EOnlineDataAdvertisementType::ViaOnlineServiceAndPing);
 
 
-	Settings->Set(SETTING_UTMAXSPECTATORS, CurrentGame->GetMatchState().ToString(), EOnlineDataAdvertisementType::ViaOnlineServiceAndPing);
+	Settings->Set(SETTING_UTMATCHSTATE, CurrentGame->GetMatchState().ToString(), EOnlineDataAdvertisementType::ViaOnlineServiceAndPing);
 }
 

@@ -1043,9 +1043,11 @@ void AUTLobbyGameState::HandleQuickplayRequest(AUTServerBeaconClient* Beacon, co
 			NewMatchInfo->NotifyBeacons.Add(Beacon);
 			NewMatchInfo->bJoinAnytime = true;
 			NewMatchInfo->bSpectatable = true;
-			NewMatchInfo->bRankLocked = true;
 			NewMatchInfo->bBeginnerMatch = bBeginner;
-			NewMatchInfo->RankCheck = RankCheck + RANK_LOCK_TOLERANCE;
+
+			NewMatchInfo->RankCheck = RankCheck;
+
+			NewMatchInfo->bRankLocked = RankCheck < ((NUMBER_RANK_LEVELS * 2) -1); // Bronze 9
 			NewMatchInfo->LaunchMatch(true,1);
 		}
 	}
@@ -1169,13 +1171,13 @@ void AUTLobbyGameState::FillOutRconPlayerList(TArray<FRconPlayerData>& PlayerLis
 	}
 }
 
-bool AUTLobbyGameState::SendSayToInstance(const FString& User, const FString& PlayerName, const FString& Message)
+bool AUTLobbyGameState::SendSayToInstance(const FString& PlayerName, const FString& Message)
 {
 	bool bSent = false;
 
 	// Try and this user.	
 
-	FString FinalMessage = FString::Printf(TEXT("%s: %s"), *PlayerName, *Message);
+	FString FinalMessage = Message; // FString::Printf(TEXT("%s: %s"), *PlayerName, *Message);
 
 	for (int32 MatchIndex = 0; MatchIndex < AvailableMatches.Num(); MatchIndex++)
 	{
@@ -1184,11 +1186,27 @@ bool AUTLobbyGameState::SendSayToInstance(const FString& User, const FString& Pl
 		{
 			for (int32 i = 0 ; i < Match->PlayersInMatchInstance.Num(); i++)
 			{
-				if (Match->PlayersInMatchInstance[i].PlayerName.Equals(User, ESearchCase::IgnoreCase) ||
-					Match->PlayersInMatchInstance[i].PlayerID.ToString().Equals(User, ESearchCase::IgnoreCase))
+				bool bIsUser = false;
+
+				FString TargetPlayerName = Match->PlayersInMatchInstance[i].PlayerName;
+				FString TargetUID = Match->PlayersInMatchInstance[i].PlayerID.ToString();
+
+				if (FinalMessage.Left(TargetPlayerName.Len()).Equals(TargetPlayerName,ESearchCase::IgnoreCase))
+				{
+					bIsUser = true;
+					FinalMessage = FinalMessage.Right(FinalMessage.Len() - TargetPlayerName.Len());
+				}
+				else if (FinalMessage.Left(TargetUID.Len()).Equals(TargetUID,ESearchCase::IgnoreCase)) 
+				{
+					bIsUser = true;
+					FinalMessage = FinalMessage.Right(FinalMessage.Len() - TargetUID.Len());
+				}
+
+				if (bIsUser)
 				{
 					bSent = true;
 					Match->InstanceBeacon->Instance_ReceiveUserMessage(Match->PlayersInMatchInstance[i].PlayerID.ToString(), FinalMessage);
+					break;
 				}
 			}
 		}

@@ -23,7 +23,6 @@ const int32 DEFAULT_RANK_CHECK = 0;
 const int32 NEW_USER_ELO = 1000;
 const int32 NUMBER_RANK_LEVELS = 9;
 const int32 STARTER_RANK_LEVEL = 4;
-const int32 RANK_LOCK_TOLERANCE = 2;
 
 UENUM()
 namespace EGameStage

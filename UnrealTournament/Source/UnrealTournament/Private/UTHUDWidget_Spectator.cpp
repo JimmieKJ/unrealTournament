@@ -4,6 +4,7 @@
 #include "UTHUDWidget_Spectator.h"
 #include "UTCarriedObject.h"
 #include "UTCTFGameState.h"
+#include "UTDemoRecSpectator.h"
 
 UUTHUDWidget_Spectator::UUTHUDWidget_Spectator(const class FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
 {
@@ -16,6 +17,11 @@ UUTHUDWidget_Spectator::UUTHUDWidget_Spectator(const class FObjectInitializer& O
 
 bool UUTHUDWidget_Spectator::ShouldDraw_Implementation(bool bShowScores)
 {
+	if (UTHUDOwner && Cast<AUTDemoRecSpectator>(UTHUDOwner->UTPlayerOwner))
+	{
+		return true;
+	}
+
 	if (!bShowScores && UTHUDOwner && UTHUDOwner->UTPlayerOwner && UTHUDOwner->UTPlayerOwner->UTPlayerState && UTGameState)
 	{
 		AUTPlayerState* PS = UTHUDOwner->UTPlayerOwner->UTPlayerState;
@@ -108,8 +114,30 @@ FText UUTHUDWidget_Spectator::GetSpectatorMessageText(bool &bViewingMessage)
 	FText SpectatorMessage;
 	if (UTGameState)
 	{
+		bool bDemoRecSpectator = UTHUDOwner->UTPlayerOwner && Cast<AUTDemoRecSpectator>(UTHUDOwner->UTPlayerOwner);
 		AUTPlayerState* UTPS = UTHUDOwner->UTPlayerOwner->UTPlayerState;
-		if (!UTGameState->HasMatchStarted())
+
+		if (bDemoRecSpectator)
+		{
+			AActor* ViewActor = UTHUDOwner->UTPlayerOwner->GetViewTarget();
+			AUTCharacter* ViewCharacter = Cast<AUTCharacter>(ViewActor);
+			if (!ViewCharacter)
+			{
+				AUTCarriedObject* Flag = Cast<AUTCarriedObject>(ViewActor);
+				if (Flag && Flag->Holder)
+				{
+					ViewCharacter = Cast<AUTCharacter>(Flag->GetAttachmentReplication().AttachParent);
+				}
+			}
+			if (ViewCharacter && ViewCharacter->PlayerState)
+			{
+				FFormatNamedArguments Args;
+				Args.Add("PlayerName", FText::AsCultureInvariant(ViewCharacter->PlayerState->PlayerName));
+				bViewingMessage = true;
+				SpectatorMessage = FText::Format(NSLOCTEXT("UUTHUDWidget_Spectator", "SpectatorPlayerWatching", "{PlayerName}"), Args);
+			}
+		}
+		else if (!UTGameState->HasMatchStarted())
 		{
 			// Look to see if we are waiting to play and if we must be ready.  If we aren't, just exit cause we don
 			if (UTGameState->IsMatchInCountdown())

@@ -33,7 +33,7 @@ UUTCTFMajorMessage::UUTCTFMajorMessage(const FObjectInitializer& ObjectInitializ
 	RallyReadySound = RallyReadySoundFinder.Object;
 
 	static ConstructorHelpers::FObjectFinder<USoundBase> EnemyRallySoundFinder(TEXT("SoundWave'/Game/RestrictedAssets/Audio/Stingers/EnemyRally.EnemyRally'"));
-	EnemyRallySound = RallyReadySoundFinder.Object;
+	EnemyRallySound = EnemyRallySoundFinder.Object;
 }
 
 void UUTCTFMajorMessage::ClientReceive(const FClientReceiveData& ClientData) const
@@ -49,12 +49,11 @@ void UUTCTFMajorMessage::ClientReceive(const FClientReceiveData& ClientData) con
 		else if (ClientData.MessageIndex == 22)
 		{
 			PC->UTClientPlaySound(FlagRallySound);
-			PC->bNeedsRallyNotify = false;
+			PC->bNeedsRallyNotify = true;
 		}
 		else if (ClientData.MessageIndex == 23)
 		{
 			PC->UTClientPlaySound(RallyReadySound);
-			PC->bNeedsRallyNotify = false;
 		}
 		else if (ClientData.MessageIndex == 24)
 		{

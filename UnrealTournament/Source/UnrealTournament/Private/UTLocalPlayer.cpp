@@ -118,6 +118,9 @@ UUTLocalPlayer::UUTLocalPlayer(const class FObjectInitializer& ObjectInitializer
 	bJoinSessionInProgress = false;
 
 	KillcamPlayback = ObjectInitializer.CreateDefaultSubobject<UUTKillcamPlayback>(this, TEXT("KillcamPlayback"));
+
+	bHasShownDLCWarning = false;
+
 }
 
 UUTLocalPlayer::~UUTLocalPlayer()
@@ -1577,6 +1580,15 @@ void UUTLocalPlayer::OnReadUserFileComplete(bool bWasSuccessful, const FUniqueNe
 
 			CurrentProfileSettings->Serialize(Ar);
 			CurrentProfileSettings->VersionFixup();
+
+			if (FUTAnalytics::IsAvailable())
+			{
+				TArray<FAnalyticsEventAttribute> ParamArray;
+				ParamArray.Add(FAnalyticsEventAttribute(TEXT("HatPath"), CurrentProfileSettings->HatPath));
+				ParamArray.Add(FAnalyticsEventAttribute(TEXT("LeaderHatPath"), CurrentProfileSettings->LeaderHatPath));
+				ParamArray.Add(FAnalyticsEventAttribute(TEXT("LocalXP"), CurrentProfileSettings->LocalXP));
+				FUTAnalytics::GetProvider().RecordEvent(TEXT("CloudProfileLoaded"), ParamArray);
+			}
 
 			FString CmdLineSwitch = TEXT("");
 			bool bClearProfile = FParse::Param(FCommandLine::Get(), TEXT("ClearProfile"));
@@ -3529,6 +3541,8 @@ bool UUTLocalPlayer::ContentExists(const FPackageRedirectReference& Redirect)
 
 void UUTLocalPlayer::AccquireContent(TArray<FPackageRedirectReference>& Redirects)
 {
+	bool bNeedsToShowWarning = !bHasShownDLCWarning;
+
 	UUTGameViewportClient* UTGameViewport = Cast<UUTGameViewportClient>(ViewportClient);
 	if (UTGameViewport)
 	{
@@ -3539,6 +3553,32 @@ void UUTLocalPlayer::AccquireContent(TArray<FPackageRedirectReference>& Redirect
 				UTGameViewport->DownloadRedirect(Redirects[i]);
 			}
 		}
+	}
+
+	// Look at the trust level of the current session
+	IOnlineSubsystem* OnlineSubsystem = IOnlineSubsystem::Get();
+	if (OnlineSubsystem) 
+	{
+		IOnlineSessionPtr OnlineSessionInterface = OnlineSubsystem->GetSessionInterface();
+		FOnlineSessionSettings* Settings = OnlineSessionInterface->GetSessionSettings(TEXT("Game"));
+
+		if (Settings != nullptr)
+		{
+			int32 TrustLevel = 2;
+			if (Settings->Get(SETTING_TRUSTLEVEL, TrustLevel))
+			{
+				if (TrustLevel == 0)
+				{
+					bNeedsToShowWarning = false;
+				}
+			}
+		}
+	}
+
+	if (bNeedsToShowWarning)
+	{
+		MessageBox(NSLOCTEXT("UTLocalPlayer","ContentWarningTitle","!! Content Warning !!"), NSLOCTEXT("UTLocalPlayer","ContentWarningText",""));
+		bHasShownDLCWarning = true;
 	}
 }
 
@@ -4896,6 +4936,13 @@ void UUTLocalPlayer::HandleProfileNotification(const FOnlineNotification& Notifi
 		{
 			PC->XPBreakdown = FNewScoreXP(float(Payload.XP - Payload.PrevXP));
 		}
+
+		if (FUTAnalytics::IsAvailable())
+		{
+			TArray<FAnalyticsEventAttribute> ParamArray;
+			ParamArray.Add(FAnalyticsEventAttribute(TEXT("XP"), Payload.XP));
+			FUTAnalytics::GetProvider().RecordEvent(TEXT("XPProgress"), ParamArray);
+		}
 	}
 	else if (Notification.TypeStr == TEXT("LevelUpReward"))
 	{
@@ -5380,4 +5427,9 @@ void UUTLocalPlayer::UpdateLeagueProgress(const FString& LeagueName, const FRank
 	{
 		LeagueRecords.Add(LeagueName, InLeagueProgress);
 	}
+}
+
+void UUTLocalPlayer::ResetDLCWarning()
+{
+	bHasShownDLCWarning = false;
 }

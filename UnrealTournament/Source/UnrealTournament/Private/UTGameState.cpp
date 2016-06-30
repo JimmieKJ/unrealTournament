@@ -269,6 +269,11 @@ AUTGameState::AUTGameState(const class FObjectInitializer& ObjectInitializer)
 	BoostRechargeRateDead = 2.0f;
 	BoostRechargeTime = 0.0f; // off by default
 	MusicVolume = 1.f;
+
+	bOnlyTeamCanVoteKick = false;
+	bDisableVoteKick = false;
+
+
 }
 
 void AUTGameState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty> & OutLifetimeProps) const
@@ -1113,14 +1118,24 @@ bool AUTGameState::IsTempBanned(const TSharedPtr<const FUniqueNetId>& UniqueId)
 void AUTGameState::VoteForTempBan(AUTPlayerState* BadGuy, AUTPlayerState* Voter)
 {
 	AUTGameMode* Game = GetWorld()->GetAuthGameMode<AUTGameMode>();
+
 	if (Game && Game->NumPlayers > 0)
 	{
+		// Quick out.
+		if (bDisableVoteKick || (bOnlyTeamCanVoteKick && OnSameTeam(BadGuy, Voter)))
+		{
+			return;
+		}
+		
+
 		BadGuy->LogBanRequest(Voter);
 		Game->BroadcastLocalized(Voter, UUTGameMessage::StaticClass(), 13, Voter, BadGuy);
 
-		float Perc = (float(BadGuy->CountBanVotes()) / float(Game->NumPlayers)) * 100.0f;
+		int32 NumPlayers = bOnlyTeamCanVoteKick ? BadGuy->Team->GetSize() : Game->NumPlayers;
+
+		float Perc = (float(BadGuy->CountBanVotes()) / float(NumPlayers)) * 100.0f;
 		BadGuy->KickCount = BadGuy->CountBanVotes();
-		UE_LOG(UT,Log,TEXT("[KICK VOTE] Target = %s - # of Votes = %i (%i players), % = %f"), * BadGuy->PlayerName, BadGuy->KickCount, Game->NumPlayers, Perc);
+		UE_LOG(UT,Log,TEXT("[KICK VOTE] Target = %s - # of Votes = %i (%i players), % = %f"), * BadGuy->PlayerName, BadGuy->KickCount, NumPlayers, Perc);
 
 		if ( Perc >=  KickThreshold )
 		{
