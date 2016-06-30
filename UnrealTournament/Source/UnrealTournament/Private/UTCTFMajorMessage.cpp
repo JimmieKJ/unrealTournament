@@ -54,7 +54,6 @@ void UUTCTFMajorMessage::ClientReceive(const FClientReceiveData& ClientData) con
 		else if (ClientData.MessageIndex == 23)
 		{
 			PC->UTClientPlaySound(RallyReadySound);
-			PC->bNeedsRallyNotify = true;
 		}
 		else if (ClientData.MessageIndex == 24)
 		{

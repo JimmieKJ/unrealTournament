@@ -303,7 +303,7 @@ void UUTFlagRunScoreboard::DrawScoringPlays(float DeltaTime, float& YPos, float 
 				{
 					BonusType = (NextAttacker->Score - NextDefender->Score == 2) ? GS->BronzeBonusText : GS->SilverBonusText;
 					Args.Add("BonusType", BonusType);
-					Canvas->DrawText(UTHUDOwner->SmallFont, FText::Format(NSLOCTEXT("UTFlagRun", "DefendersMustHold", " must hold {AttackerName} to {BonusType} to have a chance."), Args).ToString(), XOffset, YPos, RenderScale, RenderScale, TextRenderInfo);
+					Canvas->DrawText(UTHUDOwner->SmallFont, FText::Format(NSLOCTEXT("UTFlagRun", "DefendersMustHold", " must hold {AttackerName} to {BonusType} \n to have a chance."), Args).ToString(), XOffset, YPos, RenderScale, RenderScale, TextRenderInfo);
 				}
 			}
 			else if (NextDefender->Score > NextAttacker->Score)
@@ -412,3 +412,73 @@ void UUTFlagRunScoreboard::DrawScoringPlays(float DeltaTime, float& YPos, float 
 		}
 	}
 }
+
+void UUTFlagRunScoreboard::DrawScoringPlayInfo(const FCTFScoringPlay& Play, float CurrentScoreHeight, float SmallYL, float MedYL, float DeltaTime, float& YPos, float XOffset, float ScoreWidth, FFontRenderInfo TextRenderInfo, bool bIsSmallPlay)
+{
+	AUTCTFGameState* CTFState = Cast<AUTCTFGameState>(UTGameState);
+	float BoxYPos = YPos;
+
+	// draw scoring team icon
+	int32 IconIndex = Play.Team->TeamIndex;
+	IconIndex = FMath::Min(IconIndex, 1);
+	float IconHeight = 0.9f*CurrentScoreHeight;
+	float IconOffset = 0.13f*ScoreWidth;
+	DrawTexture(UTHUDOwner->HUDAtlas, XOffset + IconOffset, YPos + 0.1f*CurrentScoreHeight, IconHeight, IconHeight, UTHUDOwner->TeamIconUV[IconIndex].X, UTHUDOwner->TeamIconUV[IconIndex].Y, 72, 72, 1.f, Play.Team->TeamColor);
+
+	FString ScoredByLine;
+	if (Play.bDefenseWon)
+	{
+		ScoredByLine = FString::Printf(TEXT("Defense Won"));
+	}
+	else if (Play.bAnnihilation)
+	{
+		ScoredByLine = FString::Printf(TEXT("Annihilation"));
+	}
+	else
+	{
+		ScoredByLine = Play.ScoredBy.GetPlayerName();
+		if (Play.ScoredByCaps > 1)
+		{
+			ScoredByLine += FString::Printf(TEXT(" (%i)"), Play.ScoredByCaps);
+		}
+	}
+
+	// time of game
+	FString TimeStampLine = UTHUDOwner->ConvertTime(FText::GetEmpty(), FText::GetEmpty(), Play.RemainingTime, false, true, false).ToString();
+	Canvas->SetLinearDrawColor(FLinearColor::White);
+	Canvas->DrawText(UTHUDOwner->SmallFont, TimeStampLine, XOffset + 0.01f*ScoreWidth, YPos + 0.5f*CurrentScoreHeight - 0.5f*SmallYL, RenderScale, RenderScale, TextRenderInfo);
+
+	// scored by
+	Canvas->SetLinearDrawColor(Play.Team->TeamColor);
+	float NameSizeX, NameSizeY;
+	Canvas->TextSize(UTHUDOwner->MediumFont, ScoredByLine, NameSizeX, NameSizeY, RenderScale, RenderScale);
+	Canvas->DrawText(UTHUDOwner->MediumFont, ScoredByLine, XOffset + 0.32f*ScoreWidth, YPos + 0.5f*CurrentScoreHeight - 0.6f*MedYL, RenderScale * FMath::Min(1.f, ScoreWidth*0.35f / FMath::Max(NameSizeX, 1.f)), RenderScale, TextRenderInfo);
+
+	int32 RoundBonus = FMath::Max(Play.RedBonus, Play.BlueBonus);
+	if ((RoundBonus > 0) && !Play.bDefenseWon)
+	{
+		FLinearColor BonusColor = FLinearColor::White;
+		FString BonusString = (RoundBonus >= 60) ? TEXT("\u2605 \u2605") : TEXT("\u2605");
+		if (RoundBonus >= 120)
+		{
+			BonusString = TEXT("\u2605 \u2605 \u2605");
+			BonusColor = FLinearColor(1.f, 0.9f, 0.15f);
+		}
+		else if (RoundBonus < 60)
+		{
+			BonusColor = FLinearColor(0.48f, 0.25f, 0.18f);;
+		}
+		float ScoringOffsetX, ScoringOffsetY;
+		Canvas->TextSize(UTHUDOwner->MediumFont, BonusString, ScoringOffsetX, ScoringOffsetY, RenderScale, RenderScale);
+		float ScoreX = XOffset + 0.99f*ScoreWidth - ScoringOffsetX;
+
+		Canvas->SetLinearDrawColor(BonusColor);
+		Canvas->DrawText(UTHUDOwner->MediumFont, BonusString, ScoreX, YPos + 0.5f*CurrentScoreHeight - 0.6f*MedYL, RenderScale, RenderScale, TextRenderInfo);
+
+		YPos += 0.82f* MedYL;
+		FString BonusLine = FString::Printf(TEXT("Bonus Time: %d"), RoundBonus);
+		Canvas->SetLinearDrawColor(FLinearColor::White);
+		Canvas->DrawText(UTHUDOwner->TinyFont, BonusLine, XOffset + 0.7f*ScoreWidth, YPos, 0.75f*RenderScale, RenderScale, TextRenderInfo);
+	}
+}
+

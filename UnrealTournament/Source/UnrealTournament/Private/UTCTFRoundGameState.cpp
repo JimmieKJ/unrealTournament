@@ -163,7 +163,6 @@ void AUTCTFRoundGameState::UpdateTimeMessage()
 			}
 		}
 	}
-
 }
 
 float AUTCTFRoundGameState::GetIntermissionTime()
