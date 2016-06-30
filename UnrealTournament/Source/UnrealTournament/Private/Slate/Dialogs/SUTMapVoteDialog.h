@@ -112,6 +112,8 @@ protected:
 	virtual TSharedRef<class SWidget> BuildCustomButtonBar();
 	FText GetClockTime() const;
 
+	bool MapVoteSortCompare(AUTReplicatedMapInfo* A, AUTReplicatedMapInfo* B);
+
 	virtual void AddReferencedObjects(FReferenceCollector& Collector) override
 	{
 		for (int32 i = 0; i < VoteButtons.Num(); i++)

@@ -389,6 +389,35 @@ void SUTMapVoteDialog::UpdateTopVotes()
 	}
 }
 
+bool SUTMapVoteDialog::MapVoteSortCompare(AUTReplicatedMapInfo* A, AUTReplicatedMapInfo* B)
+{
+
+	if (A->bIsEpicMap)
+	{
+		if (!B->bIsEpicMap) 
+		{
+			return true;
+		}
+		else if (A->bIsMeshedMap && !B->bIsMeshedMap) 
+		{
+			return true;
+		}
+		else if (!A->bIsMeshedMap && B->bIsMeshedMap)
+		{
+			return false;
+		}
+	}
+
+	else if (B->bIsEpicMap)
+	{
+		return false;
+	}
+	else if (A->bIsMeshedMap && !B->bIsMeshedMap) 
+	{
+		return true;
+	}
+	return A->Title < B->Title;
+}
 
 void SUTMapVoteDialog::BuildAllVotes()
 {
@@ -413,27 +442,9 @@ void SUTMapVoteDialog::BuildAllVotes()
 				bool bAdd = true;
 				for (int32 j=0; j < AlphaSortedList.Num(); j++)
 				{
-					bool bNeedsInsert = false;
-					
-					if (VoteInfo->bIsEpicMap)
+					if ( MapVoteSortCompare(VoteInfo, AlphaSortedList[j]) )
 					{
-						// if we have hit the non-Epic maps, then insert this epic map
-						if (!AlphaSortedList[j]->bIsEpicMap)
-						{
-							bNeedsInsert = true;
-						}
-						else
-						{
-							if (VoteInfo->bIsMeshedMap && !AlphaSortedList[j]->bIsMeshedMap)
-							{
-								bNeedsInsert = true;
-							}
-						}
-					}
-
-
-					if (bNeedsInsert || AlphaSortedList[j]->Title > VoteInfo->Title)
-					{
+						UE_LOG(UT,Log,TEXT("   - Inserting"));
 						AlphaSortedList.Insert(VoteInfo, j);
 						bAdd = false;
 						break;
@@ -442,6 +453,7 @@ void SUTMapVoteDialog::BuildAllVotes()
 
 				if (bAdd)
 				{
+					UE_LOG(UT,Log,TEXT("   - Adding"));
 					AlphaSortedList.Add(VoteInfo);
 				}
 			}
