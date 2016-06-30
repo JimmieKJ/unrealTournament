@@ -1578,6 +1578,15 @@ void UUTLocalPlayer::OnReadUserFileComplete(bool bWasSuccessful, const FUniqueNe
 			CurrentProfileSettings->Serialize(Ar);
 			CurrentProfileSettings->VersionFixup();
 
+			if (FUTAnalytics::IsAvailable())
+			{
+				TArray<FAnalyticsEventAttribute> ParamArray;
+				ParamArray.Add(FAnalyticsEventAttribute(TEXT("HatPath"), CurrentProfileSettings->HatPath));
+				ParamArray.Add(FAnalyticsEventAttribute(TEXT("LeaderHatPath"), CurrentProfileSettings->LeaderHatPath));
+				ParamArray.Add(FAnalyticsEventAttribute(TEXT("LocalXP"), CurrentProfileSettings->LocalXP));
+				FUTAnalytics::GetProvider().RecordEvent(TEXT("CloudProfileLoaded"), ParamArray);
+			}
+
 			FString CmdLineSwitch = TEXT("");
 			bool bClearProfile = FParse::Param(FCommandLine::Get(), TEXT("ClearProfile"));
 
@@ -4895,6 +4904,13 @@ void UUTLocalPlayer::HandleProfileNotification(const FOnlineNotification& Notifi
 		if (PC != NULL)
 		{
 			PC->XPBreakdown = FNewScoreXP(float(Payload.XP - Payload.PrevXP));
+		}
+
+		if (FUTAnalytics::IsAvailable())
+		{
+			TArray<FAnalyticsEventAttribute> ParamArray;
+			ParamArray.Add(FAnalyticsEventAttribute(TEXT("XP"), Payload.XP));
+			FUTAnalytics::GetProvider().RecordEvent(TEXT("XPProgress"), ParamArray);
 		}
 	}
 	else if (Notification.TypeStr == TEXT("LevelUpReward"))
