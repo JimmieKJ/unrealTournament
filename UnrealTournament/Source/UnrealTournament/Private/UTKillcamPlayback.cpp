@@ -265,7 +265,7 @@ bool UUTKillcamPlayback::IsEnabled() const
 
 void UUTKillcamPlayback::KillcamStop()
 {
-	UE_LOG(LogUTKillcam, Log, TEXT("UUTKillcamPlayback::KillcamStop"));
+	UE_LOG(LogUTKillcam, Verbose, TEXT("UUTKillcamPlayback::KillcamStop"));
 
 	if (KillcamWorld != nullptr && KillcamWorld->DemoNetDriver != nullptr)
 	{
