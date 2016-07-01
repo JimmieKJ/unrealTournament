@@ -17,18 +17,25 @@ class UNREALTOURNAMENT_API UUTVictoryMessage : public UUTLocalMessage
 	FText YouHaveLostText;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Message)
-	FText RedTeamWinsText;
+	FText TeamWinsPrefix;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Message)
-	FText BlueTeamWinsText;
+	FText TeamWinsPostfix;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Message)
-		FText RedTeamWinsSecondaryText;
+		FText TeamWinsSecondaryPrefix;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Message)
-		FText BlueTeamWinsSecondaryText;
+		FText TeamWinsSecondaryPostfix;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Message)
+		FText BlueTeamName;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Message)
+		FText RedTeamName;
 
 	virtual FName GetAnnouncementName_Implementation(int32 Switch, const UObject* OptionalObject, const class APlayerState* RelatedPlayerState_1, const class APlayerState* RelatedPlayerState_2) const override;
+	virtual void GetEmphasisText(FText& PrefixText, FText& EmphasisText, FText& PostfixText, FLinearColor& EmphasisColor, int32 Switch, class APlayerState* RelatedPlayerState_1, class APlayerState* RelatedPlayerState_2, class UObject* OptionalObject) const override;
 	virtual FText GetText(int32 Switch,bool bTargetsPlayerState1,class APlayerState* RelatedPlayerState_1,class APlayerState* RelatedPlayerState_2,class UObject* OptionalObject) const override;
 	virtual FLinearColor GetMessageColor_Implementation(int32 MessageIndex) const override;
 	virtual void ClientReceive(const FClientReceiveData& ClientData) const override;

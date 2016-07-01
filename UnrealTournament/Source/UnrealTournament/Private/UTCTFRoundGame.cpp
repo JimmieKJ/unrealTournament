@@ -87,12 +87,12 @@ AUTCTFRoundGame::AUTCTFRoundGame(const FObjectInitializer& ObjectInitializer)
 	LimitedRespawnWaitTime = 6.f;
 
 	MainScoreboardDisplayTime = 7.5f;
-	EndScoreboardDelay = 6.f;
+	EndScoreboardDelay = 8.7f;
 
 	bSitOutDuringRound = false;
 	bSlowFlagCarrier = false;
 	bDelayedRally = false;
-	EndOfMatchMessageDelay = 4.f;
+	EndOfMatchMessageDelay = 2.5f;
 }
 
 int32 AUTCTFRoundGame::GetFlagCapScore()
