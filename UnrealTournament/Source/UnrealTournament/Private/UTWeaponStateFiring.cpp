@@ -40,6 +40,8 @@ void UUTWeaponStateFiring::UpdateTiming()
 	if (TimerMgr.IsTimerActive(RefireCheckHandle))
 	{
 		FirstDelay = TimerMgr.GetTimerRemaining(RefireCheckHandle);
+		// hack - GetTimerRemaining returns bad value if timer is popping
+		FirstDelay = FMath::Min(FirstDelay, GetOuterAUTWeapon()->GetRefireTime(GetOuterAUTWeapon()->GetCurrentFireMode()));
 	}
 	TimerMgr.SetTimer(RefireCheckHandle, this, &UUTWeaponStateFiring::RefireCheckTimer, GetOuterAUTWeapon()->GetRefireTime(GetOuterAUTWeapon()->GetCurrentFireMode()), true, FirstDelay);
 }
