@@ -626,7 +626,7 @@ void SUTWeaponConfigDialog::Construct(const FArguments& InArgs)
 						SNew(SBox).WidthOverride(300)
 						[
 							SNew(STextBlock)
-							.Text(NSLOCTEXT("SUTWeaponConfigDialog", "QuickSlot", "Quick Weapon Slot"))
+							.Text(NSLOCTEXT("SUTWeaponConfigDialog", "QuickSlot", "Weapon Radial Menu Slot"))
 							.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.White")
 						]
 					]
