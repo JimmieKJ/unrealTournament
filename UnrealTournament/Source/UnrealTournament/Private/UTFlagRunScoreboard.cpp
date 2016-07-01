@@ -268,11 +268,12 @@ void UUTFlagRunScoreboard::DrawScoringPlays(float DeltaTime, float& YPos, float 
 	{
 		return;
 	}
+
 	FFontRenderInfo TextRenderInfo;
 	TextRenderInfo.bEnableShadow = true;
 	TextRenderInfo.bClipText = true;
 	bool bDrawBlueFirst = false;
-	FText ScorePreamble = NSLOCTEXT("UTFlagRun", "ScoreTied", "Score Tied");
+	FText ScorePreamble = NSLOCTEXT("UTFlagRun", "ScoreTied", "Score Tied ");
 	if (GS->Teams[0]->Score > GS->Teams[1]->Score)
 	{
 		ScorePreamble = NSLOCTEXT("UTFlagRun", "RedLeads", "Red Team leads  ");
@@ -287,9 +288,15 @@ void UUTFlagRunScoreboard::DrawScoringPlays(float DeltaTime, float& YPos, float 
 	Args.Add("RedScore", FText::AsNumber(GS->Teams[0]->Score));
 	Args.Add("BlueScore", FText::AsNumber(GS->Teams[1]->Score));
 
-	FText ScoreText = FText::Format(NSLOCTEXT("UTFlagRun", "ScoreTied", "{Preamble} {RedScore} - {BlueScore}"), Args);
+	FText ScoreText = FText::Format(NSLOCTEXT("UTFlagRun", "ScoreText", "{Preamble} {RedScore} - {BlueScore}"), Args);
 	float ScoringOffsetX, ScoringOffsetY;
 	Canvas->TextSize(UTHUDOwner->MediumFont, ScoreText.ToString(), ScoringOffsetX, ScoringOffsetY, RenderScale, RenderScale);
+
+	FLinearColor DrawColor = FLinearColor::White;
+	float CurrentScoreHeight = (GS->CTFRound >= GS->NumRounds - 2) ? 2.4f*ScoringOffsetY : 1.2f*ScoringOffsetY;
+	float BackAlpha = 0.3f;
+	DrawTexture(UTHUDOwner->ScoreboardAtlas, XOffset - 0.0175f*ScoreWidth, YPos, 1.06f*ScoreWidth, CurrentScoreHeight, 149, 138, 32, 32, BackAlpha, DrawColor);
+
 	float SingleXL, SingleYL;
 	float ScoreX = XOffset + 0.99f*ScoreWidth - ScoringOffsetX;
 	FString PreambleString = ScorePreamble.ToString();
@@ -313,13 +320,14 @@ void UUTFlagRunScoreboard::DrawScoringPlays(float DeltaTime, float& YPos, float 
 	Canvas->SetLinearDrawColor(GS->Teams[TeamIndex]->TeamColor);
 	SingleScorePart = FString::Printf(TEXT("%i"), GS->Teams[TeamIndex]->Score);
 	Canvas->DrawText(UTHUDOwner->MediumFont, SingleScorePart, ScoreX, YPos, RenderScale, RenderScale, TextRenderInfo);
-	YPos += 0.9f * SingleYL;
+	YPos += (GS->CTFRound == GS->NumRounds - 2) ? 0.9f*SingleYL : 0.8f*SingleYL;
 
-	if (true)// (((GS->CTFRound == GS->NumRounds-2) || (GS->CTFRound == GS->NumRounds - 1))
+	if  (GS->CTFRound >= GS->NumRounds-2)
 	{
+		int32 RoundOffset = GS->IsMatchIntermission() ? 0 : 1;
 		Canvas->SetLinearDrawColor(FLinearColor::White);
-		AUTTeamInfo* NextAttacker = GS->bRedToCap ? GS->Teams[1] : GS->Teams[0];
-		AUTTeamInfo* NextDefender = GS->bRedToCap ? GS->Teams[0] : GS->Teams[1];
+		AUTTeamInfo* NextAttacker = (GS->bRedToCap == GS->IsMatchIntermission()) ? GS->Teams[1] : GS->Teams[0];
+		AUTTeamInfo* NextDefender = (GS->bRedToCap == GS->IsMatchIntermission()) ? GS->Teams[0] : GS->Teams[1];
 		FText AttackerNameText = (NextAttacker->TeamIndex == 0) ? RedTeamText : BlueTeamText;
 		FText DefenderNameText = (NextDefender->TeamIndex == 0) ? RedTeamText : BlueTeamText;
 		FFormatNamedArguments Args;
@@ -330,7 +338,7 @@ void UUTFlagRunScoreboard::DrawScoringPlays(float DeltaTime, float& YPos, float 
 		Args.Add("TimeNeeded", TimeStampLine);
 		FText BonusType = GS->BronzeBonusText;
 
-		if (GS->CTFRound == GS->NumRounds - 2)
+		if (GS->CTFRound == GS->NumRounds - 2 + RoundOffset)
 		{
 			if (NextAttacker->Score > NextDefender->Score)
 			{
@@ -344,7 +352,7 @@ void UUTFlagRunScoreboard::DrawScoringPlays(float DeltaTime, float& YPos, float 
 				if (NextAttacker->Score - NextDefender->Score > 2)
 				{
 					// Defenders must stop attackers to have a chance
-					Canvas->DrawText(UTHUDOwner->SmallFont, FText::Format(NSLOCTEXT("UTFlagRun", "DefendersMustStop", " must hold on defense to have a chance."), Args).ToString(), XOffset, YPos, RenderScale, RenderScale, TextRenderInfo);
+					Canvas->DrawText(UTHUDOwner->SmallFont, FText::Format(NSLOCTEXT("UTFlagRun", "DefendersMustStop", " must hold on defense to have \n a chance."), Args).ToString(), XOffset, YPos, RenderScale, RenderScale, TextRenderInfo);
 				}
 				else
 				{
@@ -398,7 +406,7 @@ void UUTFlagRunScoreboard::DrawScoringPlays(float DeltaTime, float& YPos, float 
 				}
 			}
 		}
-		else if (GS->CTFRound == GS->NumRounds - 1)
+		else if (GS->CTFRound == GS->NumRounds - 1 + RoundOffset)
 		{
 			Canvas->SetLinearDrawColor(NextAttacker->TeamIndex == 0 ? FLinearColor::Red : FLinearColor::Blue);
 			FString AttackerName = FText::Format(NSLOCTEXT("UTFlagRun", "AttackerName", "{AttackerName}"), Args).ToString();

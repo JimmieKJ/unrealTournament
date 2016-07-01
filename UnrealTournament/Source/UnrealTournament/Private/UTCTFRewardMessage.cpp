@@ -125,7 +125,7 @@ void UUTCTFRewardMessage::GetEmphasisText(FText& PrefixText, FText& EmphasisText
 	{
 		FText TeamScoreBonusPrefix = BronzeScoreBonusPrefix;
 		FText TeamScoreBonusPostfix = BronzeScoreBonusPostfix;
-		if (Switch >= 300)
+		if (Switch >= 400)
 		{
 			TeamScoreBonusPrefix = DefenseScoreBonusPrefix;
 			TeamScoreBonusPostfix = DefenseScoreBonusPostfix;
