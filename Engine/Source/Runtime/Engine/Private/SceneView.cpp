@@ -246,6 +246,14 @@ static TAutoConsoleVariable<int32> CVarTonemapperQuality(
 	TEXT(" 5: + GrainJitter = full quality (default)"),
 	ECVF_Scalability | ECVF_RenderThreadSafe);
 
+static TAutoConsoleVariable<int32> CVarBlendables(
+	TEXT("r.Blendables"),
+	1,
+	TEXT("If post-process blendables will be applied\n")
+	TEXT(" 0: off, blendables are not applied\n")
+	TEXT(" 1: on (default)"),
+	ECVF_Scalability | ECVF_RenderThreadSafe);
+
 /** Global vertex color view mode setting when SHOW_VertexColors show flag is set */
 EVertexColorViewMode::Type GVertexColorViewMode = EVertexColorViewMode::Color;
 
@@ -1149,6 +1157,7 @@ void FSceneView::OverridePostProcessSettings(const FPostProcessSettings& Src, fl
 	}
 
 	// Blendable objects
+	if (CVarBlendables.GetValueOnGameThread())
 	{
 		uint32 Count = Src.WeightedBlendables.Array.Num();
 

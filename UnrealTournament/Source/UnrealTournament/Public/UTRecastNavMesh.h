@@ -552,18 +552,13 @@ public:
 	{
 		Super::PostInitializeComponents();
 
-		// init lookup hashes
+		// DefaultPhysicsVolume is transient, put it back if needed so all nodes have a volume
 		for (UUTPathNode* Node : PathNodes)
 		{
-			// DefaultPhysicsVolume is transient, put it back if needed so all nodes have a volume
 			if (Node->PhysicsVolume == NULL)
 			{
 				Node->PhysicsVolume = GetWorld()->GetDefaultPhysicsVolume();
-			}
-			VolumeToNode.Add(Node->PhysicsVolume, Node);
-			for (NavNodeRef PolyRef : Node->Polys)
-			{
-				PolyToNode.Add(PolyRef, Node);
+				VolumeToNode.Add(Node->PhysicsVolume, Node);
 			}
 		}
 	}

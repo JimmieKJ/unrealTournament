@@ -143,6 +143,7 @@ AUTGameMode::AUTGameMode(const class FObjectInitializer& ObjectInitializer)
 
 	bDisableMapVote = false;
 	AntiCheatEngine = nullptr;
+	EndOfMatchMessageDelay = 1.f;
 }
 
 float AUTGameMode::OverrideRespawnTime(TSubclassOf<AUTInventory> InventoryType)
@@ -1306,6 +1307,15 @@ void AUTGameMode::Killed(AController* Killer, AController* KilledPlayer, APawn* 
 			if (UTDamage && bEnemyKill)
 			{
 				UTDamage.GetDefaultObject()->ScoreKill(KillerPlayerState, KilledPlayerState, KilledPawn);
+
+				if (EnemyKillsByDamageType.Contains(UTDamage))
+				{
+					EnemyKillsByDamageType[UTDamage] = EnemyKillsByDamageType[UTDamage] + 1;
+				}
+				else
+				{
+					EnemyKillsByDamageType.Add(UTDamage, 1);
+				}
 			}
 
 			if (!bEnemyKill && (Killer != KilledPlayer) && (Killer != NULL))
@@ -1755,11 +1765,23 @@ void AUTGameMode::BeginGame()
 void AUTGameMode::EndMatch()
 {
 	Super::EndMatch();
+	
+#if !(UE_BUILD_SHIPPING)
+	EnemyKillsByDamageType.ValueSort([](int32 A, int32 B) 
+	{
+		return A > B;
+	});
+
+	for (auto& KillElement : EnemyKillsByDamageType)
+	{
+		UE_LOG(UT, Log, TEXT("%s -> %d"), *KillElement.Key->GetName(), KillElement.Value);
+	}
+#endif
 
 	UTGameState->UpdateMatchHighlights();
 
 	FTimerHandle TempHandle;
-	GetWorldTimerManager().SetTimer(TempHandle, this, &AUTGameMode::PlayEndOfMatchMessage, GetActorTimeDilation());
+	GetWorldTimerManager().SetTimer(TempHandle, this, &AUTGameMode::PlayEndOfMatchMessage, EndOfMatchMessageDelay * GetActorTimeDilation());
 
 	for (FConstPawnIterator Iterator = GetWorld()->GetPawnIterator(); Iterator; ++Iterator )
 	{
@@ -2015,7 +2037,7 @@ bool IsValidCoolMomentTime(float TimeToCheck, TArray<float>& UsedTimes)
 	return true;
 }
 
-void AUTGameMode::PickMostCoolMoments()
+void AUTGameMode::PickMostCoolMoments(bool bClearCoolMoments, int32 CoolMomentsToShow)
 {
 	UE_LOG(UT, Log, TEXT("PickMostCoolMoments"));
 
@@ -2036,7 +2058,7 @@ void AUTGameMode::PickMostCoolMoments()
 	AUTPlayerState* CoolestPlayer = nullptr;
 	float MostCoolFactor = 0;
 	float BestTimeOccurred = 0;
-	while (CoolestPlayers.Num() < 3 && PlayerStates.Num() > 0)
+	while (CoolestPlayers.Num() < CoolMomentsToShow && PlayerStates.Num() > 0)
 	{
 		CoolestPlayer = nullptr;
 		MostCoolFactor = 0;
@@ -2077,6 +2099,18 @@ void AUTGameMode::PickMostCoolMoments()
 			if (PC)
 			{
 				PC->ClientQueueCoolMoment(CoolestPlayer->UniqueId, GetWorld()->TimeSeconds - BestTimeOccurred);
+			}
+		}
+	}
+
+	if (bClearCoolMoments)
+	{
+		for (int32 i = 0; i < GameState->PlayerArray.Num(); i++)
+		{
+			AUTPlayerState* UTPS = Cast<AUTPlayerState>(GameState->PlayerArray[i]);
+			if (UTPS)
+			{
+				UTPS->CoolFactorHistory.Empty();
 			}
 		}
 	}

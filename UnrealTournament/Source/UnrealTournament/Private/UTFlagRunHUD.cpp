@@ -95,29 +95,6 @@ void AUTFlagRunHUD::DrawHUD()
 					}
 				}
 			}
-			else
-			{
-				// @todo fixmesteve optimize - one pass through pawns, set the value of cachedcharacter, show those with none or dead
-				AUTCharacter* Character = UTPS->GetUTCharacter();
-				Canvas->SetLinearDrawColor(FLinearColor::White, 0.7f);
-				if (!Character || Character->IsDead())
-				{
-					if (UTPS->Team->TeamIndex == 0)
-					{
-						Canvas->DrawTile(HUDAtlas, XOffsetRed, YOffset, SkullPipSize, SkullPipSize, 725, 0, 28, 36, BLEND_Translucent);
-						XOffsetText = XOffsetRed;
-						XOffsetRed -= 1.8f*SkullPipSize;
-					}
-					else
-					{
-						Canvas->DrawTile(HUDAtlas, XOffsetBlue, YOffset, SkullPipSize, SkullPipSize, 725, 0, 28, 36, BLEND_Translucent);
-						XOffsetText = XOffsetBlue;
-						XOffsetBlue += 1.8f*SkullPipSize;
-					}
-					Canvas->SetLinearDrawColor(FLinearColor::White, 1.f);
-					Canvas->DrawText(TinyFont, FText::AsNumber(int32(UTPS->RespawnTime + 1.f)), XOffsetText + 0.4f*SkullPipSize, YOffset, 0.75f, 0.75f, TextRenderInfo);
-				}
-			}
 		}
 		if (OldRedCount > RedPlayerCount)
 		{

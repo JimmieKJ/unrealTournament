@@ -11,6 +11,8 @@ AUTGameVolume::AUTGameVolume(const FObjectInitializer& ObjectInitializer)
 	VolumeName = FText::GetEmpty();
 	TeamIndex = 255;
 	bShowOnMinimap = true;
+	bIsNoRallyZone = false;
+	bIsTeamSafeVolume = false;
 }
 
 void AUTGameVolume::ActorEnteredVolume(class AActor* Other)

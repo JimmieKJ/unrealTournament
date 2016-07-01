@@ -25,8 +25,6 @@ class UNREALTOURNAMENT_API AUTSCTFGame : public AUTCTFRoundGame
 	virtual bool IsTeamStillAlive(uint8 TeamNum);
 	bool CanFlagTeamSwap(uint8 NewTeamNum);
 
-	virtual void BroadcastVictoryConditions();
-
 	virtual void InitRound();
 
 	virtual int32 GetFlagCapScore() override

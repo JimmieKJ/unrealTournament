@@ -112,7 +112,7 @@ void UUTCTFScoreboard::DrawScoringPlays(float DeltaTime, float& YPos, float XOff
 	float MedYL;
 	Canvas->TextSize(UTHUDOwner->MediumFont, ScoringPlaysHeader.ToString(), XL, MedYL, RenderScale, RenderScale);
 
-	float ScoreHeight = 0.9f * (MedYL + TinyYL);
+	float ScoreHeight = 0.85f * (MedYL + TinyYL);
 	int32 TotalPlays = CTFState->GetScoringPlays().Num();
 
 	Canvas->DrawText(UTHUDOwner->MediumFont, ScoringPlaysHeader, XOffset + (ScoreWidth - XL) * 0.5f, YPos, RenderScale, RenderScale, TextRenderInfo);
@@ -174,7 +174,7 @@ void UUTCTFScoreboard::DrawScoringPlays(float DeltaTime, float& YPos, float XOff
 			{
 				// draw group background
 				FLinearColor DrawColor = FLinearColor::White;
-				float CurrentScoreHeight = 2.f * ScoreHeight + 16.f * RenderScale;
+				float CurrentScoreHeight = (DrawnPlays == NumPlays) ? (ScoreHeight + 8.f * RenderScale) : (2.f * ScoreHeight + 16.f * RenderScale);
 				float BackAlpha = ((DrawnPlays == NumPlays) && (NumPlays == TimeFloor + 1)) ? FMath::Max(0.5f, PctOffset) : 0.3f;
 				DrawTexture(UTHUDOwner->ScoreboardAtlas, XOffset - 0.0175f*ScoreWidth, YPos - 4.f*RenderScale, 1.06f*ScoreWidth, CurrentScoreHeight, 149, 138, 32, 32, BackAlpha, DrawColor);
 			}

@@ -64,7 +64,7 @@ void UUTCTFMajorMessage::ClientReceive(const FClientReceiveData& ClientData) con
 
 FLinearColor UUTCTFMajorMessage::GetMessageColor_Implementation(int32 MessageIndex) const
 {
-	return FLinearColor::Yellow;
+	return FLinearColor::White;
 }
 
 void UUTCTFMajorMessage::GetEmphasisText(FText& PrefixText, FText& EmphasisText, FText& PostfixText, FLinearColor& EmphasisColor, int32 Switch, class APlayerState* RelatedPlayerState_1, class APlayerState* RelatedPlayerState_2, class UObject* OptionalObject) const

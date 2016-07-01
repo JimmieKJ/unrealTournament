@@ -403,6 +403,9 @@ public:
 	UPROPERTY(GlobalConfig)
 	FString DemoFilename;
 
+	UPROPERTY()
+		float EndOfMatchMessageDelay;
+
 	/** workaround for call chain from engine, SetPlayerDefaults() could be called while pawn is alive to reset its values but we don't want it to do new spawn stuff like spawning inventory unless it's called from RestartPlayer() */
 	UPROPERTY(Transient, BlueprintReadOnly)
 	bool bSetPlayerDefaultsNewSpawn;
@@ -443,6 +446,8 @@ public:
 	UFUNCTION(BlueprintNativeEvent, BlueprintAuthorityOnly)
 	void ScoreKill(AController* Killer, AController* Other, APawn* KilledPawn, TSubclassOf<UDamageType> DamageType);
 
+	TMap<TSubclassOf<UDamageType>, int32> EnemyKillsByDamageType;
+
 	/** Score teammate killing another teammate. */
 	UFUNCTION(BlueprintNativeEvent, BlueprintAuthorityOnly)
 	void ScoreTeamKill(AController* Killer, AController* Other, APawn* KilledPawn, TSubclassOf<UDamageType> DamageType);
@@ -456,7 +461,7 @@ public:
 	virtual void FindAndMarkHighScorer();
 	virtual void AdjustLeaderHatFor(AUTCharacter* UTChar);
 	virtual void SetEndGameFocus(AUTPlayerState* Winner);	
-	virtual void PickMostCoolMoments();
+	virtual void PickMostCoolMoments(bool bClearCoolMoments = false, int32 CoolMomentsToShow = 3);
 
 	UFUNCTION(BlueprintCallable, Category = UTGame)
 	virtual void EndGame(AUTPlayerState* Winner, FName Reason);

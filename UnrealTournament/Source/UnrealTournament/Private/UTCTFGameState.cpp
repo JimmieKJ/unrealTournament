@@ -5,6 +5,7 @@
 #include "Net/UnrealNetwork.h"
 #include "UTCTFScoring.h"
 #include "StatNames.h"
+#include "UTGameVolume.h"
 
 AUTCTFGameState::AUTCTFGameState(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -139,9 +140,14 @@ void AUTCTFGameState::Tick(float DeltaTime)
 					bBlueCanRally = false;
 				}
 			}
-			else if (bOffenseCanRally)
+			else
 			{
-				LastOffenseRallyTime = GetWorld()->GetTimeSeconds();
+				AUTGameVolume* GV = Flag->HoldingPawn->UTCharacterMovement ? Cast<AUTGameVolume>(Flag->HoldingPawn->UTCharacterMovement->GetPhysicsVolume()) : nullptr;
+				bOffenseCanRally = !GV || !GV->bIsNoRallyZone;
+				if (bOffenseCanRally)
+				{
+					LastOffenseRallyTime = GetWorld()->GetTimeSeconds();
+				}
 			}
 		}
 	}

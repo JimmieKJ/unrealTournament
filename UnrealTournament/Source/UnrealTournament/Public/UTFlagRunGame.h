@@ -20,8 +20,6 @@ public:
 	UPROPERTY()
 		float RallyRequestTime;
 
-	virtual void BroadcastVictoryConditions();
-
 	virtual float OverrideRespawnTime(TSubclassOf<AUTInventory> InventoryType) override;
 	virtual void HandleRallyRequest(AUTPlayerController* PC) override;
 	virtual void CompleteRallyRequest(AUTPlayerController* PC) override;

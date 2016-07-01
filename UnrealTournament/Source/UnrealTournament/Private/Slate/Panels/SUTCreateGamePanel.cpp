@@ -567,14 +567,33 @@ void SUTCreateGamePanel::OnGameSelected(UClass* NewSelection, ESelectInfo::Type 
 						{
 							return true;
 						}
-						else if (!bHasTitleA && bHasTitleB)
+
+						if (A->bIsEpicMap)
+						{
+							if (!B->bIsEpicMap) 
+							{
+								return true;
+							}
+							else if (A->bIsMeshedMap && !B->bIsMeshedMap) 
+							{
+								return true;
+							}
+							else if (!A->bIsMeshedMap && B->bIsMeshedMap)
+							{
+								return false;
+							}
+						}
+
+						else if (B->bIsEpicMap)
 						{
 							return false;
 						}
-						else
+						else if (A->bIsMeshedMap && !B->bIsMeshedMap) 
 						{
-							return A->Title < B->Title;
+							return true;
 						}
+						return A->Title < B->Title;
+
 					});
 
 		MapList->RefreshOptions();

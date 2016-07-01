@@ -87,11 +87,12 @@ AUTCTFRoundGame::AUTCTFRoundGame(const FObjectInitializer& ObjectInitializer)
 	LimitedRespawnWaitTime = 6.f;
 
 	MainScoreboardDisplayTime = 7.5f;
-	EndScoreboardDelay = 6.f;
+	EndScoreboardDelay = 8.7f;
 
 	bSitOutDuringRound = false;
 	bSlowFlagCarrier = false;
 	bDelayedRally = false;
+	EndOfMatchMessageDelay = 2.5f;
 }
 
 int32 AUTCTFRoundGame::GetFlagCapScore()
@@ -609,14 +610,8 @@ void AUTCTFRoundGame::HandleFlagCapture(AUTCharacter* HolderPawn, AUTPlayerState
 	CheckScore(Holder);
 	if (UTGameState && UTGameState->IsMatchInProgress())
 	{
-		for (FConstPlayerControllerIterator It = GetWorld()->GetPlayerControllerIterator(); It; ++It)
-		{
-			AUTPlayerController* PC = Cast<AUTPlayerController>(It->Get());
-			if (PC != NULL)
-			{
-				PC->ClientPlayInstantReplay(HolderPawn, 10.0f);
-			}
-		}
+		Holder->AddCoolFactorEvent(400.0f);
+		PickMostCoolMoments(true);
 
 		SetMatchState(MatchState::MatchIntermission);
 	}
@@ -795,14 +790,6 @@ void AUTCTFRoundGame::InitFlags()
 	}
 }
 
-void AUTCTFRoundGame::BroadcastVictoryConditions()
-{
-	if (RoundLives > 0)
-	{
-		BroadcastLocalized(this, UUTCTFRoleMessage::StaticClass(), 5, NULL, NULL, NULL);
-	}
-}
-
 void AUTCTFRoundGame::FlagCountDown()
 {
 	AUTCTFRoundGameState* RCTFGameState = Cast<AUTCTFRoundGameState>(CTFGameState);
@@ -856,7 +843,6 @@ void AUTCTFRoundGame::InitRound()
 
 	bRedToCap = !bRedToCap;
 	CTFGameState->bRedToCap = bRedToCap;
-	BroadcastVictoryConditions();
 
 	for (AUTCTFFlagBase* Base : CTFGameState->FlagBases)
 	{
@@ -1221,10 +1207,28 @@ void AUTCTFRoundGame::ScoreAlternateWin(int32 WinningTeamIndex, uint8 Reason)
 
 		WinningTeam->ForceNetUpdate();
 		LastTeamToScore = WinningTeam;
+		if (Reason == 0)
+		{
+			int32 BonusType = 100 + BronzeScore;
+			if (WinningTeam->RoundBonus > GoldBonusTime)
+			{
+				BonusType = 300 + GoldScore;
+			}
+			else if (WinningTeam->RoundBonus > SilverBonusTime)
+			{
+				BonusType = 200 + SilverScore;
+			}
+			BroadcastLocalized(this, UUTCTFRewardMessage::StaticClass(), BonusType, nullptr, nullptr, WinningTeam);
+		}
+		else
+		{
+			BroadcastLocalized(this, UUTCTFRewardMessage::StaticClass(), 400, nullptr, nullptr, WinningTeam);
+		}
 		BroadcastLocalized(NULL, UUTShowdownGameMessage::StaticClass(), 3 + WinningTeam->TeamIndex);
 		CheckForWinner(LastTeamToScore);
 		if (UTGameState->IsMatchInProgress())
 		{
+			PickMostCoolMoments(true);
 			SetMatchState(MatchState::MatchIntermission);
 		}
 
