@@ -446,6 +446,8 @@ public:
 	UFUNCTION(BlueprintNativeEvent, BlueprintAuthorityOnly)
 	void ScoreKill(AController* Killer, AController* Other, APawn* KilledPawn, TSubclassOf<UDamageType> DamageType);
 
+	TMap<TSubclassOf<UDamageType>, int32> EnemyKillsByDamageType;
+
 	/** Score teammate killing another teammate. */
 	UFUNCTION(BlueprintNativeEvent, BlueprintAuthorityOnly)
 	void ScoreTeamKill(AController* Killer, AController* Other, APawn* KilledPawn, TSubclassOf<UDamageType> DamageType);

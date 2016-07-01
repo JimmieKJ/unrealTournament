@@ -1307,6 +1307,15 @@ void AUTGameMode::Killed(AController* Killer, AController* KilledPlayer, APawn* 
 			if (UTDamage && bEnemyKill)
 			{
 				UTDamage.GetDefaultObject()->ScoreKill(KillerPlayerState, KilledPlayerState, KilledPawn);
+
+				if (EnemyKillsByDamageType.Contains(UTDamage))
+				{
+					EnemyKillsByDamageType[UTDamage] = EnemyKillsByDamageType[UTDamage] + 1;
+				}
+				else
+				{
+					EnemyKillsByDamageType.Add(UTDamage, 1);
+				}
 			}
 
 			if (!bEnemyKill && (Killer != KilledPlayer) && (Killer != NULL))
@@ -1756,6 +1765,18 @@ void AUTGameMode::BeginGame()
 void AUTGameMode::EndMatch()
 {
 	Super::EndMatch();
+	
+#if !(UE_BUILD_SHIPPING)
+	EnemyKillsByDamageType.ValueSort([](int32 A, int32 B) 
+	{
+		return A > B;
+	});
+
+	for (auto& KillElement : EnemyKillsByDamageType)
+	{
+		UE_LOG(UT, Log, TEXT("%s -> %d"), *KillElement.Key->GetName(), KillElement.Value);
+	}
+#endif
 
 	UTGameState->UpdateMatchHighlights();
 
