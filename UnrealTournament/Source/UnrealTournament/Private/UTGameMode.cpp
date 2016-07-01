@@ -2016,7 +2016,7 @@ bool IsValidCoolMomentTime(float TimeToCheck, TArray<float>& UsedTimes)
 	return true;
 }
 
-void AUTGameMode::PickMostCoolMoments()
+void AUTGameMode::PickMostCoolMoments(bool bClearCoolMoments, int32 CoolMomentsToShow)
 {
 	UE_LOG(UT, Log, TEXT("PickMostCoolMoments"));
 
@@ -2037,7 +2037,7 @@ void AUTGameMode::PickMostCoolMoments()
 	AUTPlayerState* CoolestPlayer = nullptr;
 	float MostCoolFactor = 0;
 	float BestTimeOccurred = 0;
-	while (CoolestPlayers.Num() < 3 && PlayerStates.Num() > 0)
+	while (CoolestPlayers.Num() < CoolMomentsToShow && PlayerStates.Num() > 0)
 	{
 		CoolestPlayer = nullptr;
 		MostCoolFactor = 0;
@@ -2078,6 +2078,18 @@ void AUTGameMode::PickMostCoolMoments()
 			if (PC)
 			{
 				PC->ClientQueueCoolMoment(CoolestPlayer->UniqueId, GetWorld()->TimeSeconds - BestTimeOccurred);
+			}
+		}
+	}
+
+	if (bClearCoolMoments)
+	{
+		for (int32 i = 0; i < GameState->PlayerArray.Num(); i++)
+		{
+			AUTPlayerState* UTPS = Cast<AUTPlayerState>(GameState->PlayerArray[i]);
+			if (UTPS)
+			{
+				UTPS->CoolFactorHistory.Empty();
 			}
 		}
 	}

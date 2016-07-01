@@ -610,14 +610,8 @@ void AUTCTFRoundGame::HandleFlagCapture(AUTCharacter* HolderPawn, AUTPlayerState
 	CheckScore(Holder);
 	if (UTGameState && UTGameState->IsMatchInProgress())
 	{
-		for (FConstPlayerControllerIterator It = GetWorld()->GetPlayerControllerIterator(); It; ++It)
-		{
-			AUTPlayerController* PC = Cast<AUTPlayerController>(It->Get());
-			if (PC != NULL)
-			{
-				PC->ClientPlayInstantReplay(HolderPawn, 10.0f);
-			}
-		}
+		Holder->AddCoolFactorEvent(200.0f);
+		PickMostCoolMoments(true);
 
 		SetMatchState(MatchState::MatchIntermission);
 	}
@@ -1234,6 +1228,7 @@ void AUTCTFRoundGame::ScoreAlternateWin(int32 WinningTeamIndex, uint8 Reason)
 		CheckForWinner(LastTeamToScore);
 		if (UTGameState->IsMatchInProgress())
 		{
+			PickMostCoolMoments(true);
 			SetMatchState(MatchState::MatchIntermission);
 		}
 
