@@ -796,14 +796,6 @@ void AUTCTFRoundGame::InitFlags()
 	}
 }
 
-void AUTCTFRoundGame::BroadcastVictoryConditions()
-{
-	if (RoundLives > 0)
-	{
-		BroadcastLocalized(this, UUTCTFRoleMessage::StaticClass(), 5, NULL, NULL, NULL);
-	}
-}
-
 void AUTCTFRoundGame::FlagCountDown()
 {
 	AUTCTFRoundGameState* RCTFGameState = Cast<AUTCTFRoundGameState>(CTFGameState);
@@ -857,7 +849,6 @@ void AUTCTFRoundGame::InitRound()
 
 	bRedToCap = !bRedToCap;
 	CTFGameState->bRedToCap = bRedToCap;
-	BroadcastVictoryConditions();
 
 	for (AUTCTFFlagBase* Base : CTFGameState->FlagBases)
 	{

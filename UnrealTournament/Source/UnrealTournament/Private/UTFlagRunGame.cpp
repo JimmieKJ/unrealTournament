@@ -51,19 +51,6 @@ AUTFlagRunGame::AUTFlagRunGame(const FObjectInitializer& ObjectInitializer)
 	AfterImageType = AfterImageFinder.Object;
 }
 
-void AUTFlagRunGame::BroadcastVictoryConditions()
-{
-	for (FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator)
-	{
-		AUTPlayerController* PC = Cast<AUTPlayerController>(*Iterator);
-		if (PC)
-		{
-			int32 MessageIndex = IsTeamOnOffense(PC->GetTeamNum()) ? 10 * PC->GetTeamNum() + 1 : 3;
-			PC->ClientReceiveLocalizedMessage(UUTCTFRoleMessage::StaticClass(), MessageIndex);
-		}
-	}
-}
-
 void AUTFlagRunGame::InitFlags()
 {
 	Super::InitFlags();

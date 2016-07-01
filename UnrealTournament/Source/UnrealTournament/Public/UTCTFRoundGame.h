@@ -174,8 +174,6 @@ class UNREALTOURNAMENT_API AUTCTFRoundGame : public AUTCTFBaseGame
 	/** Initialize for new round. */
 	virtual void InitRound();
 
-	virtual void BroadcastVictoryConditions();
-
 	TAssetSubclassOf<class AUTArmor> ShieldBeltObject;
 	TAssetSubclassOf<class AUTArmor> ThighPadObject;
 	TAssetSubclassOf<class AUTArmor> ArmorVestObject;

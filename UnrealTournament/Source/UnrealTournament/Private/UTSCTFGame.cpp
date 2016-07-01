@@ -68,10 +68,6 @@ void AUTSCTFGame::InitGame(const FString& MapName, const FString& Options, FStri
 
 }
 
-void AUTSCTFGame::BroadcastVictoryConditions()
-{
-}
-
 void AUTSCTFGame::InitGameState()
 {
 	Super::InitGameState();

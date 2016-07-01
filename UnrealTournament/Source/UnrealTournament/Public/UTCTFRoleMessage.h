@@ -19,11 +19,6 @@ public:
 		MessageSlot = FName(TEXT("MultiKill"));
 		Lifetime = 8.f;
 
-		CapFlagMessage = NSLOCTEXT("CTFGameMessage", "TakeFlagToEnemy", "Get your flag to the enemy base");
-		PreventCapMessage = NSLOCTEXT("CTFGameMessage", "StopEnemyFlag", "Keep other team's flag out");
-		ExhaustLivesMessage = NSLOCTEXT("CTFGameMessage", "ExhaustLivesMessage", "Get your flag to the enemy base or exhaust their lives.");
-		KeepLivesMessage = NSLOCTEXT("CTFGameMessage", "KeepLivesMessage", "Keep other team's flag out and don't run out of lives.");
-		CapAndKillMessage = NSLOCTEXT("CTFGameMessage", "RCTFRules", "Capture or kill to win.");
 		EnemyTeamSpecialEarned = NSLOCTEXT("CTFGameMessage", "EnemyEarnedSpecialMove", "Enemy team has earned their power up!");
 		BoostAvailable = NSLOCTEXT("CTFGameMessage", "BoostAvailable", "Your power up is available!");
 		FontSizeIndex = 1;
@@ -31,21 +26,6 @@ public:
 		static ConstructorHelpers::FObjectFinder<USoundBase> EarnedSoundFinder(TEXT("SoundWave'/Game/RestrictedAssets/Audio/Stingers/EnemyBoostAvailable.EnemyBoostAvailable'"));
 		EnemyEarnedBoostSound = EarnedSoundFinder.Object;
 	}
-
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Message)
-		FText CapFlagMessage;
-
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Message)
-		FText PreventCapMessage;
-
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Message)
-		FText CapAndKillMessage;
-
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Message)
-		FText ExhaustLivesMessage;
-
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Message)
-		FText KeepLivesMessage;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Message)
 		FText EarnedSpecialMessage;
@@ -77,14 +57,7 @@ public:
 	{
 		switch (Switch)
 		{
-			case 1: return ExhaustLivesMessage; break;
-			case 2: return CapFlagMessage; break;
-			case 3: return KeepLivesMessage; break;
-			case 4: return PreventCapMessage; break;
-			case 5: return CapAndKillMessage; break;
 			case 7: return EnemyTeamSpecialEarned; break;
-			case 11: return ExhaustLivesMessage; break;
-			case 12: return CapFlagMessage; break;
 			case 20: return BoostAvailable; break;
 			default:
 				return FText();
