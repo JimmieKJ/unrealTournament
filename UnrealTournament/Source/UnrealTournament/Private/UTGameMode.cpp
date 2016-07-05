@@ -495,8 +495,11 @@ void AUTGameMode::InitGameState()
 		UTGameState->bWeaponStay = bWeaponStayActive;
 		UTGameState->bCasterControl = bCasterControl;
 		UTGameState->bPlayPlayerIntro = bPlayPlayerIntro;
-
 		UTGameState->bIsInstanceServer = IsGameInstanceServer();
+		if (bOfflineChallenge)
+		{
+			UTGameState->bAllowTeamSwitches = false;
+		}
 		
 		// Setup the loadout replication
 		for (int32 i=0; i < AvailableLoadout.Num(); i++)
