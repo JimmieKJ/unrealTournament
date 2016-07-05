@@ -35,4 +35,17 @@ class UNREALTOURNAMENT_API UUTAIAction_RangedAttack : public UUTAIAction
 			GetOuterAUTBot()->WhatToDoNext();
 		}
 	}
+
+	virtual bool SetFocusForNoTarget() override
+	{
+		if (GetOuterAUTBot()->IsStopped())
+		{
+			GetOuterAUTBot()->SetFocus(GetEnemy());
+			return true;
+		}
+		else
+		{
+			return false;
+		}
+	}
 };
