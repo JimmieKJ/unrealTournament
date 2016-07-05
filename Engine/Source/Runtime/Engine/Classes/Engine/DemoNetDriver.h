@@ -88,7 +88,7 @@ class ENGINE_API UDemoNetDriver : public UNetDriver
 	bool bChannelsArePaused;
 
 	/** This is our spectator controller that is used to view the demo world from */
-	APlayerController* SpectatorController;
+	TWeakObjectPtr<APlayerController> SpectatorController;
 
 	/** Our network replay streamer */
 	TSharedPtr< class INetworkReplayStreamer >	ReplayStreamer;
