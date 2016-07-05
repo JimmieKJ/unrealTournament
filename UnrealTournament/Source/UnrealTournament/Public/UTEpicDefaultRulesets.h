@@ -269,7 +269,7 @@ public:
 
 			NewRuleset->MaxMapsInList=16;
 
-			NewRuleset->EpicMaps = "/Game/RestrictedAssets/Maps/CTF-TitanPass";
+			NewRuleset->EpicMaps = "/Game/EpicInternal/Anton/CTF-TitanPass_UPD";
 			NewRuleset->EpicMaps = NewRuleset->EpicMaps + ",/Game/RestrictedAssets/Maps/CTF-Face";
 			NewRuleset->EpicMaps = NewRuleset->EpicMaps + ",/Game/EpicInternal/Pistola/CTF-Pistola";
 			NewRuleset->EpicMaps = NewRuleset->EpicMaps + ",/Game/RestrictedAssets/Maps/WIP/CTF-Blank";
@@ -281,8 +281,8 @@ public:
 			NewRuleset->EpicMaps = NewRuleset->EpicMaps + ",/Game/RestrictedAssets/Maps/WIP/CTF-Lance";
 			NewRuleset->EpicMaps = NewRuleset->EpicMaps + ",/Game/RestrictedAssets/Maps/WIP/CTF-Mine";
 			NewRuleset->EpicMaps = NewRuleset->EpicMaps + ",/Game/RestrictedAssets/Maps/WIP/CTF-CrashSite";
-			NewRuleset->DefaultMap = "/Game/RestrictedAssets/Maps/CTF-TitanPass";
-			NewRuleset->QuickPlayMaps.Add(TEXT("/Game/RestrictedAssets/Maps/CTF-TitanPass"));
+			NewRuleset->DefaultMap = "/Game/EpicInternal/Anton/CTF-TitanPass_UPD";
+			NewRuleset->QuickPlayMaps.Add(TEXT("/Game/EpicInternal/Anton/CTF-TitanPass_UPD"));
 			NewRuleset->QuickPlayMaps.Add(TEXT("/Game/RestrictedAssets/Maps/CTF-Face"));
 		}
 		else if (NewRuleset->UniqueTag.Equals(EEpicDefaultRuleTags::BIGCTF, ESearchCase::IgnoreCase))
@@ -327,7 +327,7 @@ public:
 			NewRuleset->bTeamGame = true;
 			NewRuleset->MaxMapsInList = 16;
 
-			NewRuleset->EpicMaps = "/Game/RestrictedAssets/Maps/CTF-TitanPass";
+			NewRuleset->EpicMaps = "/Game/EpicInternal/Anton/CTF-TitanPass_UPD";
 			NewRuleset->EpicMaps = NewRuleset->EpicMaps + ",/Game/RestrictedAssets/Maps/CTF-Face";
 			NewRuleset->EpicMaps = NewRuleset->EpicMaps + ",/Game/EpicInternal/Pistola/CTF-Pistola";
 			NewRuleset->EpicMaps = NewRuleset->EpicMaps + ",/Game/RestrictedAssets/Maps/WIP/CTF-Blank";
@@ -339,8 +339,8 @@ public:
 			NewRuleset->EpicMaps = NewRuleset->EpicMaps + ",/Game/RestrictedAssets/Maps/WIP/CTF-Plaza";
 			NewRuleset->EpicMaps = NewRuleset->EpicMaps + ",/Game/RestrictedAssets/Maps/WIP/CTF-Mine";
 			NewRuleset->EpicMaps = NewRuleset->EpicMaps + ",/Game/RestrictedAssets/Maps/WIP/CTF-CrashSite";
-			NewRuleset->DefaultMap = "/Game/RestrictedAssets/Maps/CTF-TitanPass";
-			NewRuleset->QuickPlayMaps.Add(TEXT("/Game/RestrictedAssets/Maps/CTF-TitanPass"));
+			NewRuleset->DefaultMap = "/Game/EpicInternal/Anton/CTF-TitanPass_UPD";
+			NewRuleset->QuickPlayMaps.Add(TEXT("/Game/EpicInternal/Anton/CTF-TitanPass_UPD"));
 		}
 		else if (NewRuleset->UniqueTag.Equals(EEpicDefaultRuleTags::iDM, ESearchCase::IgnoreCase))
 		{
@@ -431,7 +431,7 @@ public:
 
 			NewRuleset->MaxMapsInList=16;
 
-			NewRuleset->EpicMaps = "/Game/RestrictedAssets/Maps/CTF-TitanPass";
+			NewRuleset->EpicMaps = "/Game/EpicInternal/Anton/CTF-TitanPass_UPD";
 			NewRuleset->EpicMaps = NewRuleset->EpicMaps + ",/Game/RestrictedAssets/Maps/CTF-Face";
 			NewRuleset->EpicMaps = NewRuleset->EpicMaps + ",/Game/EpicInternal/Pistola/CTF-Pistola";
 			NewRuleset->EpicMaps = NewRuleset->EpicMaps + ",/Game/RestrictedAssets/Maps/WIP/CTF-Blank";
@@ -442,7 +442,7 @@ public:
 			NewRuleset->EpicMaps = NewRuleset->EpicMaps + ",/Game/RestrictedAssets/Maps/WIP/CTF-Mine";
 			NewRuleset->EpicMaps = NewRuleset->EpicMaps + ",/Game/RestrictedAssets/Maps/WIP/CTF-CrashSite";
 			NewRuleset->EpicMaps = NewRuleset->EpicMaps + ",/Game/RestrictedAssets/Maps/WIP/CTF-Quick";
-			NewRuleset->DefaultMap = "/Game/RestrictedAssets/Maps/CTF-TitanPass";
+			NewRuleset->DefaultMap = "/Game/EpicInternal/Anton/CTF-TitanPass_UPD";
 		}
 		else if (NewRuleset->UniqueTag.Equals(EEpicDefaultRuleTags::iCTFT, ESearchCase::IgnoreCase))
 		{
@@ -461,7 +461,7 @@ public:
 
 			NewRuleset->MaxMapsInList=16;
 
-			NewRuleset->EpicMaps = "/Game/RestrictedAssets/Maps/CTF-TitanPass";
+			NewRuleset->EpicMaps = "/Game/EpicInternal/Anton/CTF-TitanPass_UPD";
 			NewRuleset->EpicMaps = NewRuleset->EpicMaps + ",/Game/RestrictedAssets/Maps/CTF-Face";
 			NewRuleset->EpicMaps = NewRuleset->EpicMaps + ",/Game/EpicInternal/Pistola/CTF-Pistola";
 			NewRuleset->EpicMaps = NewRuleset->EpicMaps + ",/Game/RestrictedAssets/Maps/WIP/CTF-Blank";
@@ -472,7 +472,7 @@ public:
 			NewRuleset->EpicMaps = NewRuleset->EpicMaps + ",/Game/RestrictedAssets/Maps/WIP/CTF-Mine";
 			NewRuleset->EpicMaps = NewRuleset->EpicMaps + ",/Game/RestrictedAssets/Maps/WIP/CTF-CrashSite";
 			NewRuleset->EpicMaps = NewRuleset->EpicMaps + ",/Game/RestrictedAssets/Maps/WIP/CTF-Quick";
-			NewRuleset->DefaultMap = "/Game/RestrictedAssets/Maps/CTF-TitanPass";
+			NewRuleset->DefaultMap = "/Game/EpicInternal/Anton/CTF-TitanPass_UPD";
 		}
 		else if (NewRuleset->UniqueTag.Equals(EEpicDefaultRuleTags::FlagRun, ESearchCase::IgnoreCase))
 		{
@@ -492,7 +492,7 @@ public:
 
 			NewRuleset->EpicMaps = "/Game/RestrictedAssets/Maps/WIP/CTF-BlackStone";
 			NewRuleset->EpicMaps = NewRuleset->EpicMaps + ",/Game/RestrictedAssets/Maps/WIP/CTF-BigRock";
-			NewRuleset->EpicMaps = NewRuleset->EpicMaps + ",/Game/RestrictedAssets/Maps/CTF-TitanPass";
+			NewRuleset->EpicMaps = NewRuleset->EpicMaps + ",/Game/EpicInternal/Anton/CTF-TitanPass_UPD";
 			NewRuleset->EpicMaps = NewRuleset->EpicMaps + ",/Game/EpicInternal/Pistola/CTF-Pistola";
 			NewRuleset->EpicMaps = NewRuleset->EpicMaps + ",/Game/RestrictedAssets/Maps/WIP/CTF-Volcano";
 			NewRuleset->EpicMaps = NewRuleset->EpicMaps + ",/Game/RestrictedAssets/Maps/WIP/CTF-Lance";
