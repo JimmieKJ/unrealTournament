@@ -104,7 +104,7 @@ FText UUTVictoryMessage::GetText(int32 Switch, bool bTargetsPlayerState1, class 
 	AUTTeamInfo* WinningTeam = Cast<AUTTeamInfo>(OptionalObject);
 	if (WinningTeam)
 	{
-		BuildEmphasisText(Switch, RelatedPlayerState_1, RelatedPlayerState_2, OptionalObject);
+		return BuildEmphasisText(Switch, RelatedPlayerState_1, RelatedPlayerState_2, OptionalObject);
 	}
 	if (RelatedPlayerState_1 == RelatedPlayerState_2)
 	{
