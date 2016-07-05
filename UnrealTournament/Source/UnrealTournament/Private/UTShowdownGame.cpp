@@ -17,6 +17,7 @@
 #include "StatNames.h"
 #include "UTSpectatorCamera.h"
 #include "UTPickupAmmo.h"
+#include "UTPlayerStart.h"
 
 AUTShowdownGame::AUTShowdownGame(const FObjectInitializer& OI)
 : Super(OI)
@@ -67,6 +68,20 @@ void AUTShowdownGame::InitGameState()
 		if (PowerupClass != NULL)
 		{
 			PowerupClass.GetDefaultObject()->AddOverlayMaterials(UTGameState);
+		}
+	}
+}
+
+void AUTShowdownGame::BeginPlay()
+{
+	Super::BeginPlay();
+
+	for (TActorIterator<AUTPlayerStart> It(GetWorld()); It; ++It)
+	{
+		if (It->AssociatedPickup != nullptr)
+		{
+			bAssociatedPickupsSet = true;
+			break;
 		}
 	}
 }
@@ -689,6 +704,116 @@ void AUTShowdownGame::CallMatchStateChangeNotify()
 	}
 }
 
+AUTPickupInventory* AUTShowdownGame::GetNearestItemToStart(APlayerStart* Start) const
+{
+	if (bAssociatedPickupsSet)
+	{
+		// prefer LD specified item if possible
+		AUTPlayerStart* UTStart = Cast<AUTPlayerStart>(Start);
+		return (UTStart != nullptr) ? Cast<AUTPickupInventory>(UTStart->AssociatedPickup) : nullptr;
+	}
+	else
+	{
+		// fallback, find shortest line distance
+		AUTPickupInventory* Best = nullptr;
+		float BestDistSq = FLT_MAX;
+		for (TActorIterator<AUTPickupInventory> It(GetWorld()); It; ++It)
+		{
+			float DistSq = (It->GetActorLocation() - Start->GetActorLocation()).SizeSquared();
+			if (DistSq < BestDistSq)
+			{
+				Best = *It;
+				BestDistSq = DistSq;
+			}
+		}
+		
+		if (Best == nullptr)
+		{
+			return nullptr;
+		}
+		else
+		{
+			// make sure there are no playerstarts that are closer
+			for (TActorIterator<APlayerStart> It(GetWorld()); It; ++It)
+			{
+				if ((It->GetActorLocation() - Best->GetActorLocation()).SizeSquared() < BestDistSq)
+				{
+					return nullptr;
+				}
+			}
+
+			return Best;
+		}
+	}
+}
+
+APlayerStart* AUTShowdownGame::AutoSelectPlayerStart(AController* Requestor)
+{
+	TArray<AUTPickupInventory*> WeaponPickups;
+	TArray<AUTPickupInventory*> ItemPickups;
+
+	for (TActorIterator<AUTPickupInventory> It(GetWorld()); It; ++It)
+	{
+		if (It->GetInventoryType() != nullptr)
+		{
+			if (It->GetInventoryType()->IsChildOf(AUTWeapon::StaticClass()))
+			{
+				WeaponPickups.Add(*It);
+			}
+			ItemPickups.Add(*It);
+		}
+	}
+
+	for (APlayerState* PS : UTGameState->PlayerArray)
+	{
+		AUTPlayerState* UTPS = Cast<AUTPlayerState>(PS);
+		if (UTPS != nullptr && UTPS->RespawnChoiceA != nullptr)
+		{
+			AUTPickupInventory* PickedItem = GetNearestItemToStart(UTPS->RespawnChoiceA);
+			if (PickedItem != nullptr)
+			{
+				ItemPickups.Remove(PickedItem);
+				WeaponPickups.Remove(PickedItem);
+			}
+		}
+	}
+
+	if (WeaponPickups.Num() > 0)
+	{
+		// pick playerstart near best weapon
+		// TODO: evaluate player's weapon preference from stats?
+		WeaponPickups.Sort([](const AUTPickupInventory& A, const AUTPickupInventory& B) { return A.GetInventoryType().GetDefaultObject()->BasePickupDesireability > B.GetInventoryType().GetDefaultObject()->BasePickupDesireability; });
+		for (AUTPickupInventory* Item : WeaponPickups)
+		{
+			for (TActorIterator<APlayerStart> It(GetWorld()); It; ++It)
+			{
+				if (GetNearestItemToStart(*It) == Item && UTGameState->IsAllowedSpawnPoint(Cast<AUTPlayerState>(Requestor->PlayerState), *It))
+				{
+					return *It;
+				}
+			}
+		}
+	}
+	if (ItemPickups.Num() > 0)
+	{
+		// no weapons, so at least pick powerup or armor
+		ItemPickups.Sort([](const AUTPickupInventory& A, const AUTPickupInventory& B) { return A.GetInventoryType().GetDefaultObject()->BasePickupDesireability > B.GetInventoryType().GetDefaultObject()->BasePickupDesireability; });
+		for (AUTPickupInventory* Item : ItemPickups)
+		{
+			for (TActorIterator<APlayerStart> It(GetWorld()); It; ++It)
+			{
+				if (GetNearestItemToStart(*It) == Item && UTGameState->IsAllowedSpawnPoint(Cast<AUTPlayerState>(Requestor->PlayerState), *It))
+				{
+					return *It;
+				}
+			}
+		}
+	}
+
+	// fallback, just pick anything
+	return Cast<APlayerStart>(FindPlayerStart(Requestor));
+}
+
 void AUTShowdownGame::DefaultTimer()
 {
 	AUTShowdownGameState* GS = Cast<AUTShowdownGameState>(GameState);
@@ -734,7 +859,7 @@ void AUTShowdownGame::DefaultTimer()
 				{
 					if (GS->SpawnSelector->RespawnChoiceA == NULL)
 					{
-						GS->SpawnSelector->RespawnChoiceA = Cast<APlayerStart>(FindPlayerStart(Cast<AController>(GS->SpawnSelector->GetOwner())));
+						GS->SpawnSelector->RespawnChoiceA = AutoSelectPlayerStart(Cast<AController>(GS->SpawnSelector->GetOwner()));
 						GS->SpawnSelector->ForceNetUpdate();
 					}
 					RemainingPicks.Remove(GS->SpawnSelector);
