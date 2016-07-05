@@ -917,7 +917,7 @@ void UDemoNetDriver::TickDispatch( float DeltaSeconds )
 
 	// Update time dilation on spectator pawn to compensate for any demo dilation 
 	//	(we want to continue to fly around in real-time)
-	if ( SpectatorController != NULL )
+	if ( SpectatorController.IsValid() )
 	{
 		if ( World->GetWorldSettings()->DemoPlayTimeDilation > KINDA_SMALL_NUMBER )
 		{
@@ -1258,7 +1258,7 @@ void UDemoNetDriver::SaveCheckpoint()
 		if ( CheckpointConnection->ActorChannels.Contains( Actor ) )
 		{
 			Actor->CallPreReplication( this );
-			DemoReplicateActor( Actor, CheckpointConnection, SpectatorController, true );
+			DemoReplicateActor( Actor, CheckpointConnection, SpectatorController.Get(), true );
 		}
 	}
 
@@ -1501,7 +1501,7 @@ void UDemoNetDriver::TickDemoRecord( float DeltaSeconds )
 
 			const bool bUpdatedExternalData = ( FindOrCreateRepChangedPropertyTracker( Actor ).Get()->ExternalData.Num() > 0 );
 
-			if ( DemoReplicateActor( Actor, ClientConnections[0], SpectatorController, false ) || bUpdatedExternalData )
+			if ( DemoReplicateActor( Actor, ClientConnections[0], SpectatorController.Get(), false ) || bUpdatedExternalData )
 			{
 				// Choose an optimal time, we choose 70% of the actual rate to allow frequency to go up if needed
 				ActorInfo->OptimalNetUpdateDelta = FMath::Clamp( LastReplicateDelta * 0.7f, MinOptimalDelta, MaxOptimalDelta );
@@ -2080,7 +2080,7 @@ void UDemoNetDriver::SpawnDemoRecSpectator( UNetConnection* Connection, const FU
 	SpawnInfo.ObjectFlags |= RF_Transient;	// We never want these to save into a map
 	SpectatorController = World->SpawnActor<APlayerController>( C, SpawnInfo );
 
-	if ( SpectatorController == NULL )
+	if ( !SpectatorController.IsValid() )
 	{
 		UE_LOG( LogDemo, Error, TEXT( "UDemoNetDriver::SpawnDemoRecSpectator: Failed to spawn demo spectator." ) );
 		return;
@@ -2186,16 +2186,16 @@ void UDemoNetDriver::LoadCheckpoint( FArchive* GotoCheckpointArchive, int64 Goto
 
 	// Save off the current spectator position
 	// Check for NULL, which can be the case if we haven't played any of the demo yet but want to fast forward (joining live game for example)
-	if ( SpectatorController != NULL )
+	if ( SpectatorController.IsValid() )
 	{
 		// Save off the SpectatorController's GUID so that we know not to queue his bunches
-		AddNonQueuedActorForScrubbing( SpectatorController );
+		AddNonQueuedActorForScrubbing( SpectatorController.Get() );
 	}
 
 	// Remember the spectator controller's view target so we can restore it
 	FNetworkGUID ViewTargetGUID;
 
-	if ( SpectatorController && SpectatorController->GetViewTarget() )
+	if ( SpectatorController.IsValid() && SpectatorController->GetViewTarget() )
 	{
 		ViewTargetGUID = GuidCache->NetGUIDLookup.FindRef( SpectatorController->GetViewTarget() );
 
@@ -2392,7 +2392,7 @@ void UDemoNetDriver::LoadCheckpoint( FArchive* GotoCheckpointArchive, int64 Goto
 		}
 	}
 
-	if ( SpectatorController && ViewTargetGUID.IsValid() )
+	if ( SpectatorController.IsValid() && ViewTargetGUID.IsValid() )
 	{
 		AActor* ViewTarget = Cast< AActor >( GuidCache->GetObjectFromNetGUID( ViewTargetGUID, false ) );
 
