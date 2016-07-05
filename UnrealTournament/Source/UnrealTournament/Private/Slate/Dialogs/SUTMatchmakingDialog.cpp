@@ -15,7 +15,7 @@ void SUTMatchmakingDialog::Construct(const FArguments& InArgs)
 	LastMatchmakingPlayersNeeded = 0;
 	RetryTime = 120.0f;
 	RetryCountdown = RetryTime;
-
+	
 	SUTDialogBase::Construct(SUTDialogBase::FArguments()
 		.PlayerOwner(InArgs._PlayerOwner)
 		.DialogTitle(InArgs._DialogTitle)
@@ -27,6 +27,8 @@ void SUTMatchmakingDialog::Construct(const FArguments& InArgs)
 		.ButtonMask(InArgs._ButtonMask)
 		.OnDialogResult(InArgs._OnDialogResult)
 		);
+
+	TimeDialogOpened = PlayerOwner->GetWorld()->RealTimeSeconds;
 
 	if (DialogContent.IsValid())
 	{		
@@ -63,6 +65,17 @@ void SUTMatchmakingDialog::Construct(const FArguments& InArgs)
 			[
 				SNew(STextBlock)
 				.Text(this, &SUTMatchmakingDialog::GetMatchmakingText2)
+				.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.White")
+				.ColorAndOpacity(FLinearColor::Gray)
+			]
+			+ SVerticalBox::Slot()
+			.Padding(0.0f, 15.0f, 0.0f, 15.0f)
+			.AutoHeight()
+			.VAlign(VAlign_Center)
+			.HAlign(HAlign_Center)
+			[
+				SNew(STextBlock)
+				.Text(this, &SUTMatchmakingDialog::GetMatchmakingTimeElapsedText)
 				.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.White")
 				.ColorAndOpacity(FLinearColor::Gray)
 			]
@@ -167,6 +180,34 @@ FText SUTMatchmakingDialog::GetMatchmakingText2() const
 	}
 
 	return FText::GetEmpty();
+}
+
+FText SUTMatchmakingDialog::GetMatchmakingTimeElapsedText() const
+{
+	UUTGameInstance* GameInstance = Cast<UUTGameInstance>(GetPlayerOwner()->GetGameInstance());
+	if (GameInstance)
+	{
+		UUTParty* Party = GameInstance->GetParties();
+		if (Party)
+		{
+			UUTPartyGameState* PartyState = Party->GetUTPersistentParty();
+			if (PartyState)
+			{
+				if (PlayerOwner->IsPartyLeader())
+				{
+					FNumberFormattingOptions NumberFormattingOptions;
+					NumberFormattingOptions.MaximumFractionalDigits = 0;
+					return FText::Format(NSLOCTEXT("Generic", "ElapsedMatchMakingTime", "You Have Been Matchmaking For {0} Seconds"), FText::AsNumber(PlayerOwner->GetWorld()->RealTimeSeconds - TimeDialogOpened, &NumberFormattingOptions));
+				}
+				else
+				{
+					return FText::GetEmpty();
+				}
+			}
+		}
+	}
+	
+	return FText::GetEmpty();	
 }
 
 FReply SUTMatchmakingDialog::OnButtonClick(uint16 ButtonID)
