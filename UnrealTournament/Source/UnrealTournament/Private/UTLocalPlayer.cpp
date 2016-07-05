@@ -3607,7 +3607,8 @@ void UUTLocalPlayer::ContentAcceptResult(TSharedPtr<SCompoundWidget> Widget, uin
 		if (UTGameViewport && UTGameViewport->IsDownloadInProgress())
 		{
 			UTGameViewport->CancelAllRedirectDownloads();		
-			ConsoleCommand(TEXT("Disconnect"));
+			CloseAllUI();
+			ReturnToMainMenu();
 		}
 	}
 }
