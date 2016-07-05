@@ -437,9 +437,12 @@ void UUTScoreboard::DrawPlayer(int32 Index, AUTPlayerState* PlayerState, float R
 
 		for (int32 i=0; i < UTGameState->PlayerArray.Num(); i++)
 		{
-			if (!UTGameState->PlayerArray[i]->bIsSpectator)		
+			if (!UTGameState->PlayerArray[i]->bIsSpectator && !UTGameState->PlayerArray[i]->bOnlySpectator)		
 			{
-				NumPlayers += 1.0f;
+				if (!UTGameState->bOnlyTeamCanVoteKick || UTGameState->OnSameTeam(PlayerState,UTGameState->PlayerArray[i]) )
+				{
+					NumPlayers += 1.0f;
+				}
 			}
 		}
 
@@ -449,7 +452,7 @@ void UUTScoreboard::DrawPlayer(int32 Index, AUTPlayerState* PlayerState, float R
 			float XL, SmallYL;
 			Canvas->TextSize(UTHUDOwner->SmallFont, "Kick", XL, SmallYL, RenderScale, RenderScale);
 			DrawText(NSLOCTEXT("UTScoreboard", "Kick", "Kick"), XOffset + (ScaledCellWidth * FlagX), YOffset + ColumnY - 0.27f*SmallYL, UTHUDOwner->TinyFont, RenderScale, 1.0f, DrawColor, ETextHorzPos::Left, ETextVertPos::Center);
-			FText Kick = FText::Format(NSLOCTEXT("Common", "PercFormat", "{0}%"), FText::AsNumber(KickPercent));
+			FText Kick = FText::Format(NSLOCTEXT("Common", "PercFormat", "{0}%"), FText::AsNumber(int32(KickPercent * 100.0)));
 			DrawText(Kick, XOffset + (ScaledCellWidth * FlagX), YOffset + ColumnY + 0.33f*SmallYL, UTHUDOwner->TinyFont, RenderScale, 1.0f, DrawColor, ETextHorzPos::Left, ETextVertPos::Center);
 		}
 	}
