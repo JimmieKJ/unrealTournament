@@ -36,7 +36,8 @@ bool UUTDemoNetDriver::ShouldSaveCheckpoint()
 		APlayerController* PC = UGameplayStatics::GetPlayerController(GetWorld(), 0);
 		if (PC)
 		{
-			if (PC->GetPawn() == nullptr)
+			AUTCharacter* Char = Cast<AUTCharacter>(PC->GetPawn());
+			if (Char == nullptr || Char->IsDead())
 			{
 				return true;
 			}
