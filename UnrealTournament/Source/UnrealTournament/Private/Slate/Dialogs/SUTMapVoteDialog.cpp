@@ -364,6 +364,10 @@ void SUTMapVoteDialog::UpdateTopVotes()
 					}
 
 				}
+				else
+				{
+					LeadingVoteButtons[i].MapImage->SetImage(MapBrush);
+				}
 
 				LeadingVoteButtons[i].MapTitle->SetText(MapVoteInfo->Title);
 				LeadingVoteButtons[i].MapTitle->SetVisibility(EVisibility::Visible);
