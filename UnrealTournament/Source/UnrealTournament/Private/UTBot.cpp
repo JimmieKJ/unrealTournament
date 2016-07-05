@@ -346,7 +346,7 @@ void AUTBot::InitializeSkill(float NewBaseSkill)
 	TrackingPredictionError = MaxTrackingPredictionError;
 	AdjustedMaxTrackingOffsetError = MaxTrackingOffsetError;
 
-	bLeadTarget = Skill >= 4.0f;
+	bLeadTarget = Skill >= 3.0f;
 	SetPeripheralVision();
 	HearingRadiusMult = FMath::Clamp<float>(Skill / 6.5f, 0.0f, 0.9f);
 
