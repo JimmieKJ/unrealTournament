@@ -112,7 +112,7 @@ void AUTShowdownGame::StartNewRound()
 		if (Pickup != NULL && Pickup != BreakerPickup)
 		{
 			Pickup->bDelayedSpawn = false;
-			if (!Pickup->IsA<AUTPickupAmmo>())
+			if (!Pickup->IsA<AUTPickupAmmo>() && (!UTGameState->bWeaponStay || !Pickup->IsA<AUTPickupWeapon>()))
 			{
 				Pickup->RespawnTime = 0.0f;
 			}
