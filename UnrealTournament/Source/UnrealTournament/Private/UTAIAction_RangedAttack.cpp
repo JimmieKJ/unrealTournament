@@ -10,13 +10,16 @@ UUTAIAction_RangedAttack::UUTAIAction_RangedAttack(const FObjectInitializer& Obj
 
 void UUTAIAction_RangedAttack::Started()
 {
+	bEnemyWasAttackable = IsEnemyAttackable();
+
 	GetOuterAUTBot()->ClearMoveTarget();
 	if (GetUTChar() != NULL && (GetUTChar()->GetWeapon() == NULL || GetUTChar()->GetWeapon()->bMeleeWeapon))
 	{
 		GetOuterAUTBot()->SwitchToBestWeapon();
 	}
 	// maybe crouch to throw off opponent aim
-	if (GetEnemy() != NULL && GetCharacter() != NULL && GetWeapon() != NULL && GetWeapon()->bPrioritizeAccuracy && FMath::FRand() < 0.5f - GetOuterAUTBot()->Skill * 0.05f - 0.5f * GetOuterAUTBot()->Personality.Jumpiness)
+	if (GetEnemy() != NULL && GetCharacter() != NULL && GetWeapon() != NULL && GetWeapon()->bPrioritizeAccuracy && (GetOuterAUTBot()->GetEnemyLocation(GetEnemy(), false) - GetPawn()->GetActorLocation()).Size() > 4000.0f &&
+		FMath::FRand() < FMath::Max<float>(5.0f, GetOuterAUTBot()->Skill) * 0.05f - 0.1f - (GetOuterAUTBot()->Personality.Jumpiness - 0.5f))
 	{
 		GetCharacter()->GetCharacterMovement()->bWantsToCrouch = true;
 	}

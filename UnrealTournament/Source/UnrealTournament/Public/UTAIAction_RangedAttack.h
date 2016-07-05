@@ -11,6 +11,12 @@ class UNREALTOURNAMENT_API UUTAIAction_RangedAttack : public UUTAIAction
 {
 	GENERATED_UCLASS_BODY()
 
+	/** set if ranged attack target is bot's enemy and it was attackable (directly or indirectly) from our position at the start of the action.
+	 * generally the action gets aborted if this was true and becomes false
+	 * unused when attacking non-Enemy targets
+	 */
+	bool bEnemyWasAttackable;
+
 	/** if the bot is skilled enough, finds another spot that the bot can also shoot the target from and sets MoveTarget to it
 	 * @return whether a valid MoveTarget was found
 	 */
@@ -25,12 +31,18 @@ class UNREALTOURNAMENT_API UUTAIAction_RangedAttack : public UUTAIAction
 	UFUNCTION()
 	virtual void EndTimer();
 
-	virtual void EnemyNotVisible() override
+	/** true only if Target == Enemy and it can be directly or indirectly attacked from the bot's current position */
+	bool IsEnemyAttackable() const
 	{
 		AUTWeapon* MyWeap = (GetUTChar() != NULL) ? GetUTChar()->GetWeapon() : NULL;
 		bool bCanTryIndirect = (MyWeap != NULL && (GetOuterAUTBot()->Skill >= 2.0f || GetOuterAUTBot()->IsFavoriteWeapon(MyWeap->GetClass())));
 		// abort if can't attack predicted enemy loc or enemy info is too outdated to trust its accuracy
-		if (GetTarget() == GetEnemy() && /*!Pawn.RecommendLongRangedAttack() &&*/ (GetWorld()->TimeSeconds - GetOuterAUTBot()->GetEnemyInfo(GetEnemy(), true)->LastFullUpdateTime > 1.0f || MyWeap == NULL || !MyWeap->CanAttack(GetEnemy(), GetOuterAUTBot()->GetEnemyLocation(GetEnemy(), true), bCanTryIndirect)))
+		return (GetTarget() == GetEnemy() && /*!Pawn.RecommendLongRangedAttack() &&*/ (GetWorld()->TimeSeconds - GetOuterAUTBot()->GetEnemyInfo(GetEnemy(), true)->LastFullUpdateTime > 1.0f || MyWeap == NULL || !MyWeap->CanAttack(GetEnemy(), GetOuterAUTBot()->GetEnemyLocation(GetEnemy(), true), bCanTryIndirect)));
+	}
+
+	virtual void EnemyNotVisible() override
+	{
+		if (bEnemyWasAttackable && !IsEnemyAttackable())
 		{
 			GetOuterAUTBot()->WhatToDoNext();
 		}
