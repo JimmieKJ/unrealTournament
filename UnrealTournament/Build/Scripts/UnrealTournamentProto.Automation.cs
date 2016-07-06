@@ -483,7 +483,8 @@ namespace UnrealTournamentGame.Automation
 				UnversionedCookedContent: true,
 				// if we are running, we assume this is a local test and don't chunk
 				Run: Cmd.ParseParam("Run"),
-				StageDirectoryParam: UnrealTournamentBuild.GetArchiveDir()
+                TreatNonShippingBinariesAsDebugFiles: true,
+                StageDirectoryParam: UnrealTournamentBuild.GetArchiveDir()
 			);
 			Params.ValidateAndLog();
 			return Params;
