@@ -11,7 +11,7 @@ UUTTeamScoreboard::UUTTeamScoreboard(const class FObjectInitializer& ObjectIniti
 	TeamScoringHeader = NSLOCTEXT("UTTeamScoreboard", "TeamScoringBreakDownHeader", "Team Stats");
 	RedTeamText = NSLOCTEXT("UTTeamScoreboard", "RedTeam", "RED");
 	BlueTeamText = NSLOCTEXT("UTTeamScoreboard", "BlueTeam", "BLUE");
-	CenterBuffer = 520.f;
+	CenterBuffer = 500.f;
 	MinimapCenter = FVector2D(0.5f, 0.5f);
 	bUseRoundKills = false;
 }
