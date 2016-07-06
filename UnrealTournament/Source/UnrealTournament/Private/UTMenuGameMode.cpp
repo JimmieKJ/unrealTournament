@@ -14,7 +14,8 @@ AUTMenuGameMode::AUTMenuGameMode(const class FObjectInitializer& ObjectInitializ
 	PlayerStateClass = AUTPlayerState::StaticClass();
 	PlayerControllerClass = AUTPlayerController::StaticClass();
 
-	static ConstructorHelpers::FObjectFinder<USoundBase> DefaultMusicRef[] = { TEXT("/Game/RestrictedAssets/Audio/Music/Music_UTMenu_Classic.Music_UTMenu_Classic"), TEXT("/Game/RestrictedAssets/Audio/Music/Music_FragCenterIntro.Music_FragCenterIntro") };
+	static ConstructorHelpers::FObjectFinder<USoundBase> DefaultMusicRef[] = { TEXT("/Game/RestrictedAssets/Audio/Music/Music_UTMuenu_New01.Music_UTMuenu_New01"), TEXT("/Game/RestrictedAssets/Audio/Music/Music_FragCenterIntro.Music_FragCenterIntro") };
+	
 
 	for (int32 i = 0; i < ARRAY_COUNT(DefaultMusicRef); i++)
 	{
