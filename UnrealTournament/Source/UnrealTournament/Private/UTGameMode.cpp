@@ -2394,26 +2394,12 @@ void AUTGameMode::PlayEndOfMatchMessage()
 	{
 		return;
 	}
-	bool bIsFlawlessVictory = (UTGameState->WinnerPlayerState->Deaths == 0);
-/*	if (bIsFlawlessVictory)
-	{
-		for (FConstControllerIterator Iterator = GetWorld()->GetControllerIterator(); Iterator; ++Iterator)
-		{
-			AController* Controller = *Iterator;
-			if (Controller->PlayerState != NULL && !Controller->PlayerState->bOnlySpectator && (Controller->PlayerState->Score > 0.f) & (Controller->PlayerState != UTGameState->WinnerPlayerState))
-			{
-				bIsFlawlessVictory = false;
-				break;
-			}
-		}
-	}*/
-	uint32 FlawlessOffset = bIsFlawlessVictory ? 2 : 0;
 	for (FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator)
 	{
 		AUTPlayerController* PC = Cast<AUTPlayerController>(*Iterator);
 		if (PC && (PC->PlayerState != NULL) && !PC->PlayerState->bOnlySpectator)
 		{
-			PC->ClientReceiveLocalizedMessage(VictoryMessageClass, FlawlessOffset + ((UTGameState->WinnerPlayerState == PC->PlayerState) ? 1 : 0), UTGameState->WinnerPlayerState, PC->PlayerState, NULL);
+			PC->ClientReceiveLocalizedMessage(VictoryMessageClass, ((UTGameState->WinnerPlayerState == PC->PlayerState) ? 1 : 0), UTGameState->WinnerPlayerState, PC->PlayerState, NULL);
 		}
 	}
 }

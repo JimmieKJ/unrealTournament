@@ -22,7 +22,6 @@ UUTVictoryMessage::UUTVictoryMessage(const class FObjectInitializer& ObjectIniti
 	BlueTeamName = NSLOCTEXT("CTFRewardMessage", "BlueTeamName", "BLUE TEAM");
 	RedTeamName = NSLOCTEXT("CTFRewardMessage", "RedTeamName", "RED TEAM");
 	YouHaveWonText = NSLOCTEXT("UTVictoryMessage","YouHaveWonText","You Have Won The Match!");
-	YouHaveLostText = NSLOCTEXT("UTVictoryMessage","YouHaveLostText","You Have Lost The Match!");
 	TeamWinsPrefix = NSLOCTEXT("UTVictoryMessage", "TeamWinsPrefix", "");
 	TeamWinsPostfix = NSLOCTEXT("UTVictoryMessage", "TeamWinsPostfix", " Wins The Match!");
 	TeamWinsSecondaryPrefix = NSLOCTEXT("UTVictoryMessage", "TeamWinsSecondaryPrefix", "");
@@ -53,26 +52,15 @@ FLinearColor UUTVictoryMessage::GetMessageColor_Implementation(int32 MessageInde
 // @TODO FIXMESTEVE why not passing playerstates here too?
 FName UUTVictoryMessage::GetAnnouncementName_Implementation(int32 Switch, const UObject* OptionalObject, const class APlayerState* RelatedPlayerState_1, const class APlayerState* RelatedPlayerState_2) const
 {
-	if (Switch == 2)
-	{
-		//return FName(TEXT("HumiliatingDefeat"));
-	}
-	else if (Switch == 3)
+	if (Switch == 3)
 	{
 		return FName(TEXT("FlawlessVictory"));
 	}
 
 	const AUTTeamInfo* WinningTeam = Cast<AUTTeamInfo>(OptionalObject);
-	if (WinningTeam)
+	if (WinningTeam != nullptr)
 	{
-		if (WinningTeam->TeamIndex == 0)
-		{
-			return FName(TEXT("RedTeamWinsMatch"));
-		}
-		else
-		{
-			return FName(TEXT("BlueTeamWinsMatch"));
-		}
+		return (WinningTeam->TeamIndex == 0) ? FName(TEXT("RedTeamWinsMatch")) : FName(TEXT("BlueTeamWinsMatch"));
 	}
 	else
 	{
@@ -80,40 +68,42 @@ FName UUTVictoryMessage::GetAnnouncementName_Implementation(int32 Switch, const 
 	}
 }
 
-
 void UUTVictoryMessage::GetEmphasisText(FText& PrefixText, FText& EmphasisText, FText& PostfixText, FLinearColor& EmphasisColor, int32 Switch, class APlayerState* RelatedPlayerState_1, class APlayerState* RelatedPlayerState_2, class UObject* OptionalObject) const
 {
+	PrefixText = TeamWinsPrefix;
+	PostfixText = TeamWinsPostfix;
 	AUTTeamInfo* WinningTeam = Cast<AUTTeamInfo>(OptionalObject);
-	EmphasisText = (WinningTeam && (WinningTeam->TeamIndex == 0)) ? RedTeamName : BlueTeamName;
-	EmphasisColor = (WinningTeam && (WinningTeam->TeamIndex == 0)) ? FLinearColor::Red : FLinearColor::Blue;
+	if (WinningTeam != nullptr)
+	{
+		EmphasisText = (WinningTeam->TeamIndex == 0) ? RedTeamName : BlueTeamName;
+		EmphasisColor = (WinningTeam->TeamIndex == 0) ? FLinearColor::Red : FLinearColor::Blue;
 
-	if (Switch >= 4)
-	{
-		PrefixText = TeamWinsSecondaryPrefix;
-		PostfixText = TeamWinsSecondaryPostfix;
+		if (Switch >= 4)
+		{
+			PrefixText = TeamWinsSecondaryPrefix;
+			PostfixText = TeamWinsSecondaryPostfix;
+		}
+		return;
 	}
-	else
+	else if (RelatedPlayerState_1 != RelatedPlayerState_2)
 	{
-		PrefixText = TeamWinsPrefix;
-		PostfixText = TeamWinsPostfix;
+		EmphasisText = FText::FromString(RelatedPlayerState_1->PlayerName);
+		EmphasisColor = FLinearColor::Red;
+		return;
 	}
+
+	Super::GetEmphasisText(PrefixText, EmphasisText, PostfixText, EmphasisColor, Switch, RelatedPlayerState_1, RelatedPlayerState_2, OptionalObject);
+
 }
 
 FText UUTVictoryMessage::GetText(int32 Switch, bool bTargetsPlayerState1, class APlayerState* RelatedPlayerState_1, class APlayerState* RelatedPlayerState_2, class UObject* OptionalObject) const
 {
 	AUTTeamInfo* WinningTeam = Cast<AUTTeamInfo>(OptionalObject);
-	if (WinningTeam)
+	if ((WinningTeam != nullptr) || (RelatedPlayerState_1 != RelatedPlayerState_2))
 	{
 		return BuildEmphasisText(Switch, RelatedPlayerState_1, RelatedPlayerState_2, OptionalObject);
 	}
-	if (RelatedPlayerState_1 == RelatedPlayerState_2)
-	{
-		return GetDefault<UUTVictoryMessage>(GetClass())->YouHaveWonText;
-	}
-	else
-	{
-		return GetDefault<UUTVictoryMessage>(GetClass())->YouHaveLostText;
-	}
+	return YouHaveWonText;
 }
 
 
