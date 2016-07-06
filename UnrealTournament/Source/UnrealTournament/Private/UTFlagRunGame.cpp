@@ -293,12 +293,14 @@ void AUTFlagRunGame::CompleteRallyRequest(AUTPlayerController* RequestingPC)
 			float Offset = 4.f * Radius;
 			WarpLocation = CarrierLocation + FVector(0.f, 0.f, HalfHeight);
 			bool bHitFloor = true;
-			if (!GetWorld()->FindTeleportSpot(UTCharacter, WarpLocation, WarpRotation) || GetWorld()->LineTraceTestByChannel(CarrierLocation, WarpLocation, COLLISION_TELEPORTING_OBJECT, FCollisionQueryParams(FName(TEXT("Translocation")), false), WorldResponseParams))
+			// fixme linetracetest needs to be sweepsinglebychannel
+			// also move off of flag carrier so can watch
+			if (!GetWorld()->FindTeleportSpot(UTCharacter, WarpLocation, WarpRotation) || GetWorld()->SweepSingleByChannel(Hit, CarrierLocation, WarpLocation, FQuat::Identity, UTCharacter->GetCapsuleComponent()->GetCollisionObjectType(), FCollisionShape::MakeCapsule(Radius, HalfHeight), FCollisionQueryParams(FName(TEXT("Translocation")), false, UTCharacter), UTCharacter->GetCapsuleComponent()->GetCollisionResponseToChannels()))
 			{
 				for (int32 i = 0; i < 4; i++)
 				{
 					WarpLocation = CarrierLocation + FVector(Offset * ((i % 2 == 0) ? 1.f : -1.f), Offset * ((i > 1) ? 1.f : -1.f), HalfHeight);
-					if (GetWorld()->FindTeleportSpot(UTCharacter, WarpLocation, WarpRotation) && !GetWorld()->LineTraceTestByChannel(CarrierLocation, WarpLocation, COLLISION_TELEPORTING_OBJECT, FCollisionQueryParams(FName(TEXT("Translocation")), false), WorldResponseParams))
+					if (GetWorld()->FindTeleportSpot(UTCharacter, WarpLocation, WarpRotation) && !GetWorld()->SweepSingleByChannel(Hit, CarrierLocation, WarpLocation, FQuat::Identity, UTCharacter->GetCapsuleComponent()->GetCollisionObjectType(), FCollisionShape::MakeCapsule(Radius, HalfHeight), FCollisionQueryParams(FName(TEXT("Translocation")), false, UTCharacter), UTCharacter->GetCapsuleComponent()->GetCollisionResponseToChannels()))
 					{
 						bHitFloor = GetWorld()->SweepSingleByChannel(Hit, WarpLocation, WarpLocation - FVector(0.f, 0.f, 3.f* HalfHeight), FQuat::Identity, UTCharacter->GetCapsuleComponent()->GetCollisionObjectType(), FCollisionShape::MakeSphere(SweepRadius), FCollisionQueryParams(FName(TEXT("Translocation")), false, UTCharacter), UTCharacter->GetCapsuleComponent()->GetCollisionResponseToChannels());
 						if (bHitFloor)
