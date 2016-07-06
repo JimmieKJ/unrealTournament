@@ -15,6 +15,7 @@
 #include "SUWindowsStyle.h"
 #include "SNumericEntryBox.h"
 #include "UTShowdownRewardMessage.h"
+#include "UTShowdownStatusMessage.h"
 #include "UTFirstBloodMessage.h"
 #include "UTMutator.h"
 

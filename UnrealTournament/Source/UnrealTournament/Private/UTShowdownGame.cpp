@@ -12,6 +12,7 @@
 #include "UTShowdownSquadAI.h"
 #include "UTGenericObjectivePoint.h"
 #include "UTShowdownRewardMessage.h"
+#include "UTShowdownStatusMessage.h"
 #include "UTFirstBloodMessage.h"
 #include "UTMutator.h"
 #include "StatNames.h"
