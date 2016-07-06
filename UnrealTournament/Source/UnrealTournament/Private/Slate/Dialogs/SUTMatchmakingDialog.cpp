@@ -69,13 +69,24 @@ void SUTMatchmakingDialog::Construct(const FArguments& InArgs)
 				.ColorAndOpacity(FLinearColor::Gray)
 			]
 			+ SVerticalBox::Slot()
-			.Padding(0.0f, 15.0f, 0.0f, 15.0f)
+			.Padding(0.0f, 15.0f, 0.0f, 5.0f)
 			.AutoHeight()
 			.VAlign(VAlign_Center)
 			.HAlign(HAlign_Center)
 			[
 				SNew(STextBlock)
 				.Text(this, &SUTMatchmakingDialog::GetMatchmakingTimeElapsedText)
+				.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.White")
+				.ColorAndOpacity(FLinearColor::Gray)
+			]
+			+ SVerticalBox::Slot()
+			.Padding(0.0f, 5.0f, 0.0f, 5.0f)
+			.AutoHeight()
+			.VAlign(VAlign_Center)
+			.HAlign(HAlign_Center)
+			[
+				SNew(STextBlock)
+				.Text(this, &SUTMatchmakingDialog::GetMatchmakingEstimatedTimeText)
 				.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.White")
 				.ColorAndOpacity(FLinearColor::Gray)
 			]
@@ -199,15 +210,42 @@ FText SUTMatchmakingDialog::GetMatchmakingTimeElapsedText() const
 					NumberFormattingOptions.MaximumFractionalDigits = 0;
 					return FText::Format(NSLOCTEXT("Generic", "ElapsedMatchMakingTime", "You Have Been Matchmaking For {0} Seconds"), FText::AsNumber(PlayerOwner->GetWorld()->RealTimeSeconds - TimeDialogOpened, &NumberFormattingOptions));
 				}
-				else
-				{
-					return FText::GetEmpty();
-				}
 			}
 		}
 	}
 	
 	return FText::GetEmpty();	
+}
+
+FText SUTMatchmakingDialog::GetMatchmakingEstimatedTimeText() const
+{
+	UUTGameInstance* GameInstance = Cast<UUTGameInstance>(GetPlayerOwner()->GetGameInstance());
+	if (GameInstance)
+	{
+		UUTParty* Party = GameInstance->GetParties();
+		if (Party)
+		{
+			UUTPartyGameState* PartyState = Party->GetUTPersistentParty();
+			if (PartyState)
+			{
+				if (PlayerOwner->IsPartyLeader())
+				{
+					UUTMatchmaking* Matchmaking = GameInstance->GetMatchmaking();
+					if (Matchmaking)
+					{
+						int32 EstimatedWaitTime = Matchmaking->GetEstimatedMatchmakingTime();
+						if (EstimatedWaitTime > 0 && EstimatedWaitTime < 60*10)
+						{
+							FTimespan TimeSpan(0, 0, EstimatedWaitTime);
+							return FText::Format(NSLOCTEXT("Generic", "EstimateMatchMakingTime", "Estimated Wait Time {0}"), FText::AsTimespan(TimeSpan));
+						}
+					}
+				}
+			}
+		}
+	}
+
+	return FText::GetEmpty();
 }
 
 FReply SUTMatchmakingDialog::OnButtonClick(uint16 ButtonID)
