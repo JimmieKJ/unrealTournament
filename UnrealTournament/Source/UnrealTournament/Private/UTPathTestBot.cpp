@@ -21,7 +21,7 @@ void AUTPathTestBot::ExecuteWhatToDoNext()
 			// move to next test
 			CurrentTestIndex = TestList.IsValidIndex(CurrentTestIndex + 1) ? (CurrentTestIndex + 1) : 0;
 
-			GetPawn()->TeleportTo(TestList[CurrentTestIndex].Src.GetLocation(GetPawn()), (TestList[CurrentTestIndex].Dest.GetLocation(GetPawn()) - TestList[CurrentTestIndex].Src.GetLocation(GetPawn())).Rotation());
+			GetPawn()->TeleportTo(TestList[CurrentTestIndex].Src.GetLocation(GetPawn()), (TestList[CurrentTestIndex].Dest.GetLocation(GetPawn()) - TestList[CurrentTestIndex].Src.GetLocation(GetPawn())).GetSafeNormal2D().Rotation());
 		}
 
 		SetMoveTarget(TestList[CurrentTestIndex].Dest);
