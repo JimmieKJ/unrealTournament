@@ -520,6 +520,10 @@ class UNREALTOURNAMENT_API AUTWeapon : public AUTInventory
 	UFUNCTION(Server, Reliable, WithValidation)
 	virtual void ServerStopFire(uint8 FireModeNum, uint8 FireEventIndex);
 
+	/** Used when client just triggered a fire on a held trigger right before releasing.*/
+	UFUNCTION(Server, Reliable, WithValidation)
+		virtual void ServerStopFireRecent(uint8 FireModeNum, uint8 FireEventIndex);
+
 	virtual bool BeginFiringSequence(uint8 FireModeNum, bool bClientFired);
 	virtual void EndFiringSequence(uint8 FireModeNum);
 
@@ -536,6 +540,10 @@ class UNREALTOURNAMENT_API AUTWeapon : public AUTInventory
 	/** hook for the return to active state (was firing, refire timer expired, trigger released and/or out of ammo)  */
 	UFUNCTION(BlueprintNativeEvent)
 	void OnStoppedFiring();
+
+	/* Last time weapon fired because of held trigger*/
+	UPROPERTY(BlueprintReadOnly, Category = Weapon)
+		float LastContinuedFiring;
 
 	/** Return true and  trigger effects if should continue firing, otherwise sends weapon to its active state */
 	virtual bool HandleContinuedFiring();
