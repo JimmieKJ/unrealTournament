@@ -1191,6 +1191,7 @@ void SUTSystemSettingsDialog::OnSettingsAutodetected(const Scalability::FQuality
 	ShadowQuality->SetSelectedItem(GeneralScalabilityList[DetectedQuality.ShadowQuality]);
 	EffectQuality->SetSelectedItem(GeneralScalabilityList[DetectedQuality.EffectsQuality]);
 	PPQuality->SetSelectedItem(GeneralScalabilityList[DetectedQuality.PostProcessQuality]);
+	ViewDistance->SetSelectedItem(GeneralScalabilityList[DetectedQuality.ViewDistanceQuality]);
 
 	int32 AAModeInt = UUTGameUserSettings::ConvertAAScalabilityQualityToAAMode(DetectedQuality.AntiAliasingQuality);
 	int32 AAModeSelection = ConvertAAModeToComboSelection(AAModeInt);
