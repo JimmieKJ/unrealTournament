@@ -11,7 +11,7 @@ class UNREALTOURNAMENT_API UUTFirstBloodMessage : public UUTLocalMessage
 	GENERATED_UCLASS_BODY()
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Message)
-	TArray<FName> AnnouncementNames;
+	FName FirstBloodAnnouncement;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Message)
 	FText FirstBloodLocalText;
@@ -27,7 +27,7 @@ class UNREALTOURNAMENT_API UUTFirstBloodMessage : public UUTLocalMessage
 		FirstBloodLocalText = NSLOCTEXT("UTFirstBloodMessage", "FirstBloodLocalText", "First Blood!");
 		FirstBloodRemoteText = NSLOCTEXT("UTFirstBloodMessage", "FirstBloodRemoteText", "{Player1Name} drew First Blood!");
 
-		AnnouncementNames.Add(TEXT("FirstBlood"));
+		FirstBloodAnnouncement = FName(TEXT("FirstBlood"));
 
 		bIsSpecial = true;
 		bIsUnique = true;
@@ -49,7 +49,7 @@ class UNREALTOURNAMENT_API UUTFirstBloodMessage : public UUTLocalMessage
 
 	virtual FName GetAnnouncementName_Implementation(int32 Switch, const UObject* OptionalObject, const class APlayerState* RelatedPlayerState_1, const class APlayerState* RelatedPlayerState_2) const override
 	{
-		return AnnouncementNames.Num() > 0 ? AnnouncementNames[FMath::Clamp<int32>(Switch, 0, AnnouncementNames.Num() - 1)] : NAME_None;
+		return FirstBloodAnnouncement;
 	}
 
 	virtual FText GetText(int32 Switch = 0, bool bTargetsPlayerState1 = false, class APlayerState* RelatedPlayerState_1 = NULL, class APlayerState* RelatedPlayerState_2 = NULL, class UObject* OptionalObject = NULL) const override
