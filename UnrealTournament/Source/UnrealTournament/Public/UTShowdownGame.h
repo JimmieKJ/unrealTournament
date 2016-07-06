@@ -37,6 +37,7 @@ protected:
 	UFUNCTION()
 	virtual void StartIntermission();
 
+	virtual void BeginPlay() override;
 	virtual void HandleMatchHasStarted() override;
 	virtual void StartNewRound();
 	virtual void HandleCountdownToBegin() override;
@@ -62,6 +63,9 @@ protected:
 
 	UPROPERTY()
 	AUTPickupInventory* BreakerPickup;
+
+	// true if map has UTPlayerStarts with AssociatedPickup filled in; if not we use slow fallback to try to figure out spawn auto select mechanics
+	bool bAssociatedPickupsSet;
 public:
 	AUTShowdownGame(const FObjectInitializer& OI);
 
@@ -109,6 +113,9 @@ public:
 	virtual void ScoreExpiredRoundTime();
 	virtual void CallMatchStateChangeNotify() override;
 	virtual void DefaultTimer() override;
+	class AUTPickupInventory* GetNearestItemToStart(APlayerStart* Start) const;
+	/** select a PlayerStart during spawn selection for a player that failed to choose themselves */
+	virtual APlayerStart* AutoSelectPlayerStart(AController* Requestor);
 
 	virtual uint8 GetNumMatchesFor(AUTPlayerState* PS, bool bRankedSession) const override;
 	virtual int32 GetEloFor(AUTPlayerState* PS, bool bRankedSession) const override;

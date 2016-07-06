@@ -94,9 +94,10 @@ void UUTCheatManager::Ann(int32 Switch)
 */
 }
 
-void UUTCheatManager::AnnM()
+void UUTCheatManager::AnnM(float F)
 {
 	AnnCount = 0;
+	AnnDelay = F;
 	NextAnn();
 }
 
@@ -106,21 +107,31 @@ void UUTCheatManager::NextAnn()
 	if (AnnCount == 0)
 	{
 		GetOuterAPlayerController()->ClientReceiveLocalizedMessage(UUTMultiKillMessage::StaticClass(), 3, GetOuterAPlayerController()->PlayerState, GetOuterAPlayerController()->PlayerState, NULL);
-		GetOuterAPlayerController()->GetWorld()->GetTimerManager().SetTimer(TempHandle, this, &UUTCheatManager::NextAnn, 0.25f, false);
+		GetOuterAPlayerController()->GetWorld()->GetTimerManager().SetTimer(TempHandle, this, &UUTCheatManager::NextAnn, AnnDelay, false);
 	}
 	else if (AnnCount == 1)
 	{
-		GetOuterAPlayerController()->ClientReceiveLocalizedMessage(UUTSpreeMessage::StaticClass(), 1, GetOuterAPlayerController()->PlayerState, GetOuterAPlayerController()->PlayerState, NULL);
-		GetOuterAPlayerController()->GetWorld()->GetTimerManager().SetTimer(TempHandle, this, &UUTCheatManager::NextAnn, 0.25f, false);
+		GetOuterAUTPlayerController()->UTPlayerState->AnnounceStatus(StatusMessage::ImOnDefense);
+		GetOuterAPlayerController()->GetWorld()->GetTimerManager().SetTimer(TempHandle, this, &UUTCheatManager::NextAnn, AnnDelay, false);
 	}
 	else if (AnnCount == 2)
 	{
-		GetOuterAPlayerController()->ClientReceiveLocalizedMessage(UUTCTFRewardMessage::StaticClass(), 0, GetOuterAPlayerController()->PlayerState, GetOuterAPlayerController()->PlayerState, NULL);
-		GetOuterAPlayerController()->GetWorld()->GetTimerManager().SetTimer(TempHandle, this, &UUTCheatManager::NextAnn, 0.25f, false);
+		GetOuterAPlayerController()->ClientReceiveLocalizedMessage(UUTSpreeMessage::StaticClass(), 1, GetOuterAPlayerController()->PlayerState, GetOuterAPlayerController()->PlayerState, NULL);
+		GetOuterAPlayerController()->GetWorld()->GetTimerManager().SetTimer(TempHandle, this, &UUTCheatManager::NextAnn, AnnDelay, false);
 	}
 	else if (AnnCount == 3)
 	{
-		GetOuterAUTPlayerController()->UTPlayerState->AnnounceStatus(StatusMessage::ImOnDefense);
+		GetOuterAUTPlayerController()->UTPlayerState->AnnounceStatus(StatusMessage::IGotFlag);
+		GetOuterAPlayerController()->GetWorld()->GetTimerManager().SetTimer(TempHandle, this, &UUTCheatManager::NextAnn, AnnDelay, false);
+	}
+	else if (AnnCount == 4)
+	{
+		GetOuterAPlayerController()->ClientReceiveLocalizedMessage(UUTCTFRewardMessage::StaticClass(), 0, GetOuterAPlayerController()->PlayerState, GetOuterAPlayerController()->PlayerState, NULL);
+		GetOuterAPlayerController()->GetWorld()->GetTimerManager().SetTimer(TempHandle, this, &UUTCheatManager::NextAnn, AnnDelay, false);
+	}
+	else if (AnnCount == 5)
+	{
+		GetOuterAUTPlayerController()->UTPlayerState->AnnounceStatus(StatusMessage::NeedBackup);
 //		GetOuterAPlayerController()->ClientReceiveLocalizedMessage(AUTProj_Rocket::StaticClass()->GetDefaultObject<AUTProj_Rocket>()->AirRocketRewardClass, 0, GetOuterAPlayerController()->PlayerState, GetOuterAPlayerController()->PlayerState, NULL);
 	}
 	AnnCount++;

@@ -4367,7 +4367,7 @@ void AUTCharacter::Tick(float DeltaTime)
 		else
 		{
 			SetLocalAmbientSound(FallingAmbientSound, 0.f, true);
-			if (bApplyWallSlide || (UTCharacterMovement && UTCharacterMovement->bSlidingAlongWall))
+			if (UTCharacterMovement && UTCharacterMovement->bSlidingAlongWall)
 			{
 				SetLocalAmbientSound(WallSlideAmbientSound, 1.f, false);
 			}

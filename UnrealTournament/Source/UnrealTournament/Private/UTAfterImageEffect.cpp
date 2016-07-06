@@ -80,4 +80,5 @@ void AUTAfterImageEffect::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& 
 
 	DOREPLIFETIME_CONDITION(AUTAfterImageEffect, CharMesh, COND_InitialOnly);
 	DOREPLIFETIME_CONDITION(AUTAfterImageEffect, TeamColor, COND_InitialOnly);
+	DOREPLIFETIME_CONDITION(AUTWeaponRedirector, PortalDest, COND_InitialOnly);
 }

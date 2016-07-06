@@ -34,8 +34,10 @@ public:
 
 	FText GetMatchmakingText() const;
 	FText GetMatchmakingText2() const;
+	FText GetMatchmakingTimeElapsedText() const;
 	FText GetRegionText() const;
 
+	float TimeDialogOpened;
 	float RetryTime;
 	float RetryCountdown;
 	int32 LastMatchmakingPlayersNeeded;

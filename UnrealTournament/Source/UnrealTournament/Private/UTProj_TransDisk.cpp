@@ -393,6 +393,12 @@ void AUTProj_TransDisk::BotTranslocate()
 	AUTBot* B = Cast<AUTBot>(InstigatorController);
 	if (UTC != NULL && B != NULL && UTC->GetWeapon() == MyTranslocator && MyTranslocator->TransDisk == this)
 	{
+		// very minor cheat here: if the bot is walking, pretend it switched directions last frame so it doesn't get stuck falling in an undesired direction and overshoot the target
+		if (UTC->GetCharacterMovement()->IsMovingOnGround())
+		{
+			const FVector Diff = B->TranslocTarget - GetActorLocation();
+			UTC->GetCharacterMovement()->Velocity = Diff.GetSafeNormal2D() * FMath::Min<float>(Diff.Size2D(), UTC->GetCharacterMovement()->Velocity.Size2D());
+		}
 		UTC->StartFire(1);
 		UTC->StopFire(1);
 		B->ClearFocus(SCRIPTEDMOVE_FOCUS_PRIORITY);

@@ -500,12 +500,37 @@ void AUTWeapon::StopFire(uint8 FireModeNum)
 	{
 		UUTWeaponStateFiring* CurrentFiringState = FiringState.IsValidIndex(FireModeNum) ? FiringState[FireModeNum] : nullptr;
 		uint8 FireEventIndex = CurrentFiringState ? CurrentFiringState->FireEventIndex : 0;
-		ServerStopFire(FireModeNum, FireEventIndex);
+		if (GetWorld()->GetTimeSeconds() - LastContinuedFiring < 0.1f)
+		{
+			ServerStopFireRecent(FireModeNum, FireEventIndex);
+		}
+		else
+		{
+			ServerStopFire(FireModeNum, FireEventIndex);
+		}
 		if (CurrentFiringState)
 		{
 			CurrentFiringState->FireEventIndex++;
 		}
 	}
+}
+
+void AUTWeapon::ServerStopFireRecent_Implementation(uint8 FireModeNum, uint8 FireEventIndex)
+{
+	if (GetWorld()->GetTimeSeconds() - LastContinuedFiring > 0.2f)
+	{
+		//UE_LOG(UT, Warning, TEXT("MISSED RECENT"));
+		if (FiringState.IsValidIndex(FireModeNum))
+		{
+			FiringState[FireModeNum]->PendingFireSequence = FireModeNum;
+		} 
+	}
+	EndFiringSequence(FireModeNum);
+}
+
+bool AUTWeapon::ServerStopFireRecent_Validate(uint8 FireModeNum, uint8 FireEventIndex)
+{
+	return true;
 }
 
 void AUTWeapon::ServerStopFire_Implementation(uint8 FireModeNum, uint8 FireEventIndex)
@@ -1854,6 +1879,7 @@ bool AUTWeapon::HandleContinuedFiring()
 		GotoActiveState();
 		return false;
 	}
+	LastContinuedFiring = GetWorld()->GetTimeSeconds();
 
 	OnContinuedFiring();
 	return true;

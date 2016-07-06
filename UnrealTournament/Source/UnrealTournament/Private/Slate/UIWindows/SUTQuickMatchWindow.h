@@ -114,7 +114,8 @@ public:
 
 	virtual void TellSlateIWantKeyboardFocus();
 
-	virtual void OnDialogClosed();
+	virtual void OnClosed();
+
 
 protected:
 	bool bWaitingForMatch;
@@ -199,6 +200,20 @@ protected:
 
 	bool bWaitingForResponseFromHub;
 	float HubResponseWaitTime;
+
+private:
+	int32 QMStats_NumHubsConsidered;
+	int32 QMStats_NumInstancesConsidered;
+	int32 QMStats_NumRejectedForRank;
+	int32 QMStats_NumRejectedForGameType;
+	int32 QMStats_NumRejectedForJoinable;
+	int32 QMStats_NumPingFailures;
+	int32 QMStats_NumInstancesSpooled;
+	int32 QMStats_NumAttemptedJoins;
+	int32 QMStats_RankCheck;
+	FString QMStats_FinalResult;
+
+
 };
 
 #endif

@@ -21,6 +21,9 @@
 #include "UTParty.h"
 #include "UTPartyGameState.h"
 #include "UTMcpUtils.h"
+#include "UTAnalytics.h"
+#include "Runtime/Analytics/Analytics/Public/Analytics.h"
+#include "Runtime/Analytics/Analytics/Public/Interfaces/IAnalyticsProvider.h"
 
 #if !UE_SERVER
 
@@ -53,7 +56,18 @@ void SUTQuickMatchWindow::Construct(const FArguments& InArgs, TWeakObjectPtr<UUT
 	QuickMatchType = InArgs._QuickMatchType;
 	bWaitingForMatch = false;
 	checkSlow(PlayerOwner != NULL);
-	StartTime = PlayerOwner->GetWorld()->GetTimeSeconds();
+	StartTime = PlayerOwner->GetWorld()->GetRealTimeSeconds();
+
+	QMStats_NumHubsConsidered = 0;
+	QMStats_NumInstancesConsidered = 0;
+	QMStats_NumRejectedForRank = 0;
+	QMStats_NumRejectedForGameType = 0;
+	QMStats_NumRejectedForJoinable = 0;
+	QMStats_NumPingFailures = 0;
+	QMStats_NumInstancesSpooled = 0;
+	QMStats_NumAttemptedJoins = 0;
+	QMStats_RankCheck = 0;
+	QMStats_FinalResult = TEXT("Invalid");
 
 	DefaultGameModeObject = nullptr;
 	UClass* GameModeClass = AUTDMGameMode::StaticClass();
@@ -221,6 +235,8 @@ void SUTQuickMatchWindow::BuildWindow()
 		}
 	}
 
+	QMStats_RankCheck = MatchTargetRank;
+
 	if (bStartQuickMatch)
 	{
 		BeginQuickmatch();
@@ -282,6 +298,8 @@ void SUTQuickMatchWindow::OnInitialFindCancel(bool bWasSuccessful)
 		OnlineSessionInterface->ClearOnCancelFindSessionsCompleteDelegate_Handle(OnCancelFindSessionCompleteHandle);
 		OnCancelFindSessionCompleteHandle.Reset();
 	}
+
+	QMStats_FinalResult = TEXT("OSS_Cancelled");
 
 	if (bCancelQuickmatch)
 	{
@@ -359,6 +377,9 @@ void SUTQuickMatchWindow::OnFindSessionsComplete(bool bWasSuccessful)
 
 		if (SearchSettings->SearchResults.Num() > 0)
 		{
+
+			QMStats_NumHubsConsidered = SearchSettings->SearchResults.Num();
+
 			for (int32 ServerIndex = 0; ServerIndex < SearchSettings->SearchResults.Num(); ServerIndex++)
 			{
 				int32 ServerFlags = 0x0000;
@@ -455,6 +476,9 @@ void SUTQuickMatchWindow::OnServerBeaconFailure(AUTServerBeaconClient* Sender)
 			// Server is not responding, so ignore it...
 			PingTrackers[i].Beacon->DestroyBeacon();
 			PingTrackers.RemoveAt(i, 1);
+
+			QMStats_NumPingFailures++;
+
 			break;
 		}
 	}
@@ -536,6 +560,8 @@ void SUTQuickMatchWindow::CollectInstances()
 	AUTPlayerState* PlayerState = Cast<AUTPlayerState>(GetPlayerOwner()->PlayerController->PlayerState);
 	bool bIsBeginner = PlayerState && PlayerState->IsABeginner(DefaultGameModeObject.Get());  
 
+	QMStats_NumInstancesConsidered = FinalList.Num();
+
 	for (int32 i=0; i < FinalList.Num(); i++)
 	{
 		if (FinalList[i]->Beacon.IsValid())
@@ -559,6 +585,21 @@ void SUTQuickMatchWindow::CollectInstances()
 							{
 								// Look to see if I could 
 								Instances.Add(FInstanceTracker(FinalList[i], FinalList[i]->Beacon->Instances[j]));					
+							}
+							else
+							{
+								QMStats_NumRejectedForRank++;
+							}
+						}
+						else
+						{
+							if (!Instance->bJoinableAsPlayer)
+							{
+								QMStats_NumRejectedForJoinable++;
+							}
+							else if (!Instance->RulesTag.Equals(QuickMatchType, ESearchCase::IgnoreCase))
+							{
+								QMStats_NumRejectedForGameType++;
 							}
 						}
 					}
@@ -762,6 +803,9 @@ void SUTQuickMatchWindow::Tick( const FGeometry& AllottedGeometry, const double 
 
 void SUTQuickMatchWindow::AttemptQuickMatch(TSharedPtr<FServerSearchInfo> DesiredServer, TSharedPtr<FServerInstanceData> DesiredInstance)
 {
+
+	QMStats_NumAttemptedJoins++;
+
 	bWaitingForResponseFromHub = true;
 	HubResponseWaitTime = 0.0;
 
@@ -807,6 +851,7 @@ void SUTQuickMatchWindow::RequestJoinInstanceResult(EInstanceJoinResult::Type Re
 		AUTBasePlayerController* UTPlayerController = Cast<AUTBasePlayerController>(PlayerOwner->PlayerController);
 		if (UTPlayerController)
 		{
+			QMStats_FinalResult = TEXT("DirectJoin");
 			UTPlayerController->ConnectToServerViaGUID(Params,-1, false);
 			return;
 		}
@@ -823,6 +868,7 @@ void SUTQuickMatchWindow::RequestQuickPlayResults(AUTServerBeaconClient* Beacon,
 	if (CommandCode == EQuickMatchResults::WaitingForStart || CommandCode == EQuickMatchResults::WaitingForStartNew )
 	{
 		UE_LOG(UT,Log,TEXT("Quickmatch instance is spooling up."));
+		QMStats_NumInstancesSpooled++;
 		bWaitingForMatch = true;
 		if ( CommandCode == EQuickMatchResults::WaitingForStartNew )
 		{
@@ -839,6 +885,7 @@ void SUTQuickMatchWindow::RequestQuickPlayResults(AUTServerBeaconClient* Beacon,
 		AUTBasePlayerController* PC = Cast<AUTBasePlayerController>(GetPlayerOwner()->PlayerController);
 		if (PC)
 		{
+			QMStats_FinalResult = TEXT("HubFoundInstance");
 			PC->ConnectToServerViaGUID(InstanceGuid, -1, false);
 		}
 		else
@@ -849,7 +896,7 @@ void SUTQuickMatchWindow::RequestQuickPlayResults(AUTServerBeaconClient* Beacon,
 
 }
 
-void SUTQuickMatchWindow::OnDialogClosed()
+void SUTQuickMatchWindow::OnClosed()
 {
 	for (int32 i=0; i < FinalList.Num(); i++)
 	{
@@ -857,6 +904,32 @@ void SUTQuickMatchWindow::OnDialogClosed()
 	}
 
 	Instances.Empty();
+
+	if (bCancelQuickmatch) QMStats_FinalResult = TEXT("UserCancel");
+
+	if (FUTAnalytics::IsAvailable() && PlayerOwner.IsValid() && PlayerOwner->PlayerController && PlayerOwner->PlayerController->PlayerState)
+	{
+		TArray<FAnalyticsEventAttribute> ParamArray;
+		ParamArray.Add(FAnalyticsEventAttribute(TEXT("PlayerId"), PlayerOwner->PlayerController->PlayerState->UniqueId.ToString()));
+		ParamArray.Add(FAnalyticsEventAttribute(TEXT("QuickMatchType"), QuickMatchType));
+		
+		ParamArray.Add(FAnalyticsEventAttribute(TEXT("RankCheck"), QMStats_RankCheck));
+			
+		ParamArray.Add(FAnalyticsEventAttribute(TEXT("NumHubsConsidered"), QMStats_NumHubsConsidered));
+		ParamArray.Add(FAnalyticsEventAttribute(TEXT("NumInstancesConsidered"), QMStats_NumInstancesConsidered));
+		ParamArray.Add(FAnalyticsEventAttribute(TEXT("NumRejectedForRank"), QMStats_NumRejectedForRank));
+		ParamArray.Add(FAnalyticsEventAttribute(TEXT("NumRejectedForGameType"), QMStats_NumRejectedForGameType));
+		ParamArray.Add(FAnalyticsEventAttribute(TEXT("NumRejectedForJoinable"), QMStats_NumRejectedForJoinable));
+		ParamArray.Add(FAnalyticsEventAttribute(TEXT("NumPingFailures"), QMStats_NumPingFailures));
+		ParamArray.Add(FAnalyticsEventAttribute(TEXT("NumInstancesSpooled"), QMStats_NumInstancesSpooled));
+		ParamArray.Add(FAnalyticsEventAttribute(TEXT("NumAttemptedJoins"), QMStats_NumAttemptedJoins));
+		ParamArray.Add(FAnalyticsEventAttribute(TEXT("FinalResult"), QMStats_FinalResult));
+
+		float Duration = PlayerOwner->GetWorld()->GetRealTimeSeconds() - StartTime;
+		ParamArray.Add(FAnalyticsEventAttribute(TEXT("Duration"), Duration));
+
+		FUTAnalytics::GetProvider().RecordEvent(TEXT("QuickMatch"), ParamArray);
+	}
 }
 
 

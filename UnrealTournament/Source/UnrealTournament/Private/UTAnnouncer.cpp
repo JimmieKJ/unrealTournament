@@ -42,12 +42,12 @@ void UUTAnnouncer::PlayAnnouncement(TSubclassOf<UUTLocalMessage> MessageClass, i
 		FName SoundName = MessageClass.GetDefaultObject()->GetAnnouncementName(Switch, OptionalObject, PlayerState1, PlayerState2);
 		if (SoundName != NAME_None)
 		{
-			FAnnouncementInfo NewAnnouncement(MessageClass, Switch, PlayerState1, PlayerState2, OptionalObject);
+			FAnnouncementInfo NewAnnouncement(MessageClass, Switch, PlayerState1, PlayerState2, OptionalObject, GetWorld()->GetTimeSeconds());
 			// if we should cancel the current announcement, then play the new one over top of it
 			if (CurrentAnnouncement.MessageClass != NULL && MessageClass.GetDefaultObject()->InterruptAnnouncement(Switch, OptionalObject, CurrentAnnouncement.MessageClass, CurrentAnnouncement.Switch, CurrentAnnouncement.OptionalObject))
 			{
 				QueuedAnnouncements.Insert(NewAnnouncement, 0);
-				PlayNextAnnouncement();
+				StartNextAnnouncement(false);
 			}
 			else
 			{
@@ -85,20 +85,9 @@ void UUTAnnouncer::PlayAnnouncement(TSubclassOf<UUTLocalMessage> MessageClass, i
 					}
 
 					// play now if nothing in progress
-					if (!GetWorld()->GetTimerManager().IsTimerActive(PlayNextAnnouncementHandle) && !AnnouncementComp->IsPlaying())
+					if ((CurrentAnnouncement.MessageClass == NULL) && !GetWorld()->GetTimerManager().IsTimerActive(PlayNextAnnouncementHandle) && !AnnouncementComp->IsPlaying())
 					{
-						if (CurrentAnnouncement.MessageClass == NULL)
-						{
-							float Delay = MessageClass->GetDefaultObject<UUTLocalMessage>()->GetAnnouncementDelay(Switch);
-							if (Delay > 0.f)
-							{
-								GetWorld()->GetTimerManager().SetTimer(PlayNextAnnouncementHandle, this, &UUTAnnouncer::PlayNextAnnouncement, Delay, false);
-							}
-							else
-							{
-								PlayNextAnnouncement();
-							}
-						}
+						StartNextAnnouncement(false);
 					}
 				}
 			}
@@ -110,13 +99,25 @@ void UUTAnnouncer::AnnouncementFinished()
 {
 	ReactionAnnouncement = (CurrentAnnouncement.MessageClass && CurrentAnnouncement.MessageClass.GetDefaultObject()->bWantsBotReaction) ? CurrentAnnouncement : FAnnouncementInfo();
 	CurrentAnnouncement = FAnnouncementInfo();
-	float AnnouncementDelay = Spacing;
+	StartNextAnnouncement(true);
+}
+
+void UUTAnnouncer::StartNextAnnouncement(bool bUseSpacing)
+{
+	float AnnouncementDelay = bUseSpacing ? Spacing : 0.f;
 	if (QueuedAnnouncements.Num() > 0)
 	{
 		FAnnouncementInfo Next = QueuedAnnouncements[0];
-		AnnouncementDelay = Next.MessageClass.GetDefaultObject()->GetAnnouncementSpacing(Next.Switch, Next.OptionalObject);
+		AnnouncementDelay = Next.MessageClass.GetDefaultObject()->GetAnnouncementSpacing(Next.Switch, Next.OptionalObject) - (GetWorld()->GetTimeSeconds() - Next.QueueTime);
 	}
-	GetWorld()->GetTimerManager().SetTimer(PlayNextAnnouncementHandle, this, &UUTAnnouncer::PlayNextAnnouncement, AnnouncementDelay, false);
+	if (AnnouncementDelay > 0.f)
+	{
+		GetWorld()->GetTimerManager().SetTimer(PlayNextAnnouncementHandle, this, &UUTAnnouncer::PlayNextAnnouncement, AnnouncementDelay, false);
+	}
+	else
+	{
+		PlayNextAnnouncement();
+	}
 }
 
 void UUTAnnouncer::PlayNextAnnouncement()
@@ -204,8 +205,9 @@ void UUTAnnouncer::PlayNextAnnouncement()
 		}
 		else
 		{
+			//UE_LOG(UT, Warning, TEXT("NO AUDIO FOR SWITCH %d"), Next.Switch);
 			CurrentAnnouncement = FAnnouncementInfo();
-			PlayNextAnnouncement();
+			StartNextAnnouncement(true);
 		}
 	}
 	else if (ReactionAnnouncement.MessageClass != NULL)

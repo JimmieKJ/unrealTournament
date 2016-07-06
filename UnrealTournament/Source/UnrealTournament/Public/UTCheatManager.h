@@ -113,8 +113,11 @@ class UNREALTOURNAMENT_API UUTCheatManager : public UCheatManager
 	UPROPERTY()
 		int32 AnnCount;
 
+	UPROPERTY()
+		float AnnDelay;
+
 	UFUNCTION(exec)
-		virtual void AnnM();
+		virtual void AnnM(float F);
 
 	virtual void NextAnn();
 

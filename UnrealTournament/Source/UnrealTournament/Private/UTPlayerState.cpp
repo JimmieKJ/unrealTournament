@@ -3443,6 +3443,10 @@ TSubclassOf<UUTCharacterVoice> AUTPlayerState::GetCharacterVoiceClass()
 {
 	if (CharacterVoice == nullptr)
 	{
+		if (SelectedCharacter == NULL)
+		{
+			SelectedCharacter = GetDefault<AUTCharacter>()->CharacterData;
+		}
 		if (SelectedCharacter != nullptr)
 		{
 			AUTCharacterContent* CharacterDefaultObject = Cast<AUTCharacterContent>(SelectedCharacter.GetDefaultObject());
