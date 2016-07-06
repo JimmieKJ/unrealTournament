@@ -930,6 +930,8 @@ void SUTQuickMatchWindow::OnClosed()
 
 		FUTAnalytics::GetProvider().RecordEvent(TEXT("QuickMatch"), ParamArray);
 	}
+
+	SUTWindowBase::OnClosed();
 }
 
 
