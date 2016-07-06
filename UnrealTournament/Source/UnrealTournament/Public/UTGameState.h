@@ -127,6 +127,14 @@ class UNREALTOURNAMENT_API AUTGameState : public AGameState
 	// Tell clients if more players are needed before match starts
 	UPROPERTY(Replicated)
 	int32 PlayersNeeded;
+	
+	/** Used to limit frequency of enemy entering base messages. */
+	UPROPERTY()
+		float LastEnemyEnteringBaseTime;
+
+	/** Used to limit frequency of entering enemy base messages. */
+	UPROPERTY()
+		float LastEnteringEnemyBaseTime;
 
 	protected:
 	/** How much time is remaining in this match. */
