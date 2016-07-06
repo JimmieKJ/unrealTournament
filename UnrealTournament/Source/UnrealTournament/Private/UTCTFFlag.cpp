@@ -355,8 +355,12 @@ void AUTCTFFlag::Tick(float DeltaTime)
 		{
 			bool bAddedReturnSpot = false;
 			FVector PreviousPos = (PastPositions.Num() > 0) ? PastPositions[PastPositions.Num() - 1].Location : (HomeBase ? HomeBase->GetActorLocation() : FVector(0.f));
-			if ((GetWorld()->GetTimeSeconds() - LastPositionUpdateTime > 1.f)  && HoldingPawn->GetCharacterMovement() && HoldingPawn->GetCharacterMovement()->IsWalking() && (!HoldingPawn->GetMovementBase() || !MovementBaseUtility::UseRelativeLocation(HoldingPawn->GetMovementBase())))
+			if (HoldingPawn->GetCharacterMovement() && HoldingPawn->GetCharacterMovement()->IsWalking() && (!HoldingPawn->GetMovementBase() || !MovementBaseUtility::UseRelativeLocation(HoldingPawn->GetMovementBase())))
 			{
+				if ((HoldingPawn->GetActorLocation() - RecentPosition).Size() > 100.f)
+				{
+					RecentPosition = HoldingPawn->GetActorLocation();
+				}
 				if ((HoldingPawn->GetActorLocation() - PreviousPos).Size() > MinGradualReturnDist)
 				{
 					if (PastPositions.Num() > 0)
@@ -366,7 +370,6 @@ void AUTCTFFlag::Tick(float DeltaTime)
 							PastPositions[PastPositions.Num() - 1].MidPoints[i] = MidPoints[i];
 						}
 					}
-					LastPositionUpdateTime = GetWorld()->GetTimeSeconds();
 					FFlagTrailPos NewPosition;
 					NewPosition.Location = HoldingPawn->GetActorLocation();
 					NewPosition.MidPoints[0] = FVector::ZeroVector;
