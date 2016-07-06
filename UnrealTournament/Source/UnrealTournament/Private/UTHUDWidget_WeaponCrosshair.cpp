@@ -9,14 +9,10 @@ const float MAX_HIT_DAMAGE = 200.0f;
 const float HIT_STRETCH_TIME=0.15f;
 const float FLASH_BLINK_TIME=0.5;
 
-
 UUTHUDWidget_WeaponCrosshair::UUTHUDWidget_WeaponCrosshair(const class FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
 {
 	Size=FVector2D(0.0f,0.0f);
 	ScreenPosition=FVector2D(0.5f, 0.5f);
-	LastHitTime = -100;
-	LastHitMagnitude = 0.0f;
-	bFlashing = false;
 }
 
 void UUTHUDWidget_WeaponCrosshair::Draw_Implementation(float DeltaTime)
@@ -90,43 +86,19 @@ void UUTHUDWidget_WeaponCrosshair::Draw_Implementation(float DeltaTime)
 	if (UTHUDOwner && UTHUDOwner->UTPlayerOwner && (UTHUDOwner->UTPlayerOwner->GetProfileSettings() == nullptr || !UTHUDOwner->UTPlayerOwner->GetProfileSettings()->bHideDamageIndicators) )
 	{
 		// Display hit/kill indicators...		
-		if (UTHUDOwner->LastConfirmedHitTime != LastHitTime)
+		float LastHitMagnitude = FMath::Clamp<float>(float(UTHUDOwner->LastConfirmedHitDamage) / MAX_HIT_DAMAGE, 0.0f, 1.0f);
+		float Duration = FMath::Clamp<float>(FLASH_BLINK_TIME * LastHitMagnitude, 0.2f, 1.f);
+		float FlashTime = GetWorld()->GetTimeSeconds() - UTHUDOwner->LastConfirmedHitTime;
+		if (FlashTime < Duration)
 		{
-			// We have store it here since the amount of time and distance the indicator moves is dependent on the size of the hit and if there was a kill.
-			LastHitTime = UTHUDOwner->LastConfirmedHitTime;
-			LastHitMagnitude = FMath::Clamp<float>(float(UTHUDOwner->LastConfirmedHitDamage) / MAX_HIT_DAMAGE, 0.0f, 1.0f);
-			bFlashing = true;
-			FlashTime = 0.0f;
-		}
-
-		float TimeSinceLastKill = GetWorld()->GetTimeSeconds() - UTHUDOwner->LastConfirmedHitTime;
-		if (bFlashing)
-		{
-			float Duration = FMath::Clamp<float>(FLASH_BLINK_TIME * LastHitMagnitude, 0.20, 1.0);
-			float Perc = FlashTime / Duration;
-			float Opacity = 1.0f - Perc;
-			float BackOpacity = Opacity;
-
+			float Opacity = 1.0f - FlashTime / Duration;
 			float Height = 16.0f + (128.0f * LastHitMagnitude * Opacity) ;
 
-			FVector2D DrawLocation;
-			DrawLocation = CalcRotatedDrawLocation(32.0f, 45.0f);
-			DrawTexture(UTHUDOwner->HUDAtlas, DrawLocation.X, DrawLocation.Y, 16.0f, Height, 2.0f, 679.0f, 32.0f, 72.0f, Opacity, FLinearColor::White, FVector2D(0.5f, 1.0f), 45.0f, FVector2D(0.5f, 1.0f));
-
-			DrawLocation = CalcRotatedDrawLocation(32.0f, 135.0f);
-			DrawTexture(UTHUDOwner->HUDAtlas, DrawLocation.X, DrawLocation.Y, 16.0f, Height, 2.0f, 679.0f, 32.0f, 72.0f, Opacity, FLinearColor::White, FVector2D(0.5f, 1.0f), 135.0f, FVector2D(0.5f, 1.0f));
-
-			DrawLocation = CalcRotatedDrawLocation(32.0f, 225.0f);
-			DrawTexture(UTHUDOwner->HUDAtlas, DrawLocation.X, DrawLocation.Y, 16.0f, Height, 2.0f, 679.0f, 32.0f, 72.0f, Opacity, FLinearColor::White, FVector2D(0.5f, 1.0f), 225.0f, FVector2D(0.5f, 1.0f));
-
-			DrawLocation = CalcRotatedDrawLocation(32.0f, 315.0f);
-			DrawTexture(UTHUDOwner->HUDAtlas, DrawLocation.X, DrawLocation.Y, 16.0f, Height, 2.0f, 679.0f, 32.0f, 72.0f, Opacity, FLinearColor::White, FVector2D(0.5f, 1.0f), 315.0f, FVector2D(0.5f, 1.0f));
-
-			FlashTime += DeltaTime;
-			if (FlashTime >= Duration)
+			for (int32 i = 0; i < 4; i++)
 			{
-				FlashTime = 0;
-				bFlashing = false;
+				float RotAngle = 45.0f + 90.f*i;
+				FVector2D DrawLocation = CalcRotatedDrawLocation(32.0f, RotAngle);
+				DrawTexture(UTHUDOwner->HUDAtlas, DrawLocation.X, DrawLocation.Y, 16.0f, Height, 2.0f, 679.0f, 32.0f, 72.0f, Opacity, FLinearColor::White, FVector2D(0.5f, 1.0f), RotAngle, FVector2D(0.5f, 1.0f));
 			}
 		}
 	}

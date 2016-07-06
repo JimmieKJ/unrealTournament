@@ -104,9 +104,7 @@ AUTHUD::AUTHUD(const class FObjectInitializer& ObjectInitializer) : Super(Object
 
 	CachedProfileSettings = nullptr;
 	BuildText = NSLOCTEXT("UTHUD", "info", "PRE-ALPHA Build 0.1.3");
-
 	bShowVoiceDebug = false;
-
 }
 
 void AUTHUD::Destroyed()
