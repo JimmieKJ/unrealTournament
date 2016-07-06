@@ -683,7 +683,7 @@ TSharedRef<SWidget> SUTSystemSettingsDialog::BuildGeneralTab()
 				SNew(STextBlock)
 				.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
 				.Text(NSLOCTEXT("SUTSystemSettingsDialog", "Frame Rate Cap", "Frame Rate Cap"))
-				.ToolTip(SUTUtils::CreateTooltip(NSLOCTEXT("SUTSystemSettingsDialog", "FrameRateCap_Tooltip", "Limiting the max frame rate can improve the smoothness of mouse improvement.")))
+				.ToolTip(SUTUtils::CreateTooltip(NSLOCTEXT("SUTSystemSettingsDialog", "FrameRateCap_Tooltip", "Limiting the max frame rate can improve the smoothness of mouse movement.")))
 			]
 		]
 		+ SHorizontalBox::Slot()
