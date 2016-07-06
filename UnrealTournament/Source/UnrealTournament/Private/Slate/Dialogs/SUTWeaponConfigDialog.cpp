@@ -736,13 +736,18 @@ void SUTWeaponConfigDialog::OnWeaponChanged(TWeakObjectPtr<UClass> NewSelectedWe
 	}
 
 	int32 WeaponIndex = WeakWeaponClassList.Find(SelectedWeapon);
-	if ( WeaponIndex != INDEX_NONE )
+	if ( WeaponIndex != INDEX_NONE && WeakWeaponClassList.IsValidIndex(WeaponIndex) && WeakWeaponClassList[WeaponIndex].IsValid() )
 	{
 		// Look to see if this weapon is already in the list.
 		FString ClassName = WeakWeaponClassList[WeaponIndex]->GetName();
-		UE_LOG(UT,Log,TEXT("ClassName=%s %i"),*ClassName, WeaponIndex);
-		int32 WheelIndex = WeaponWheelClassnames.Find(ClassName);
-		QuickSlotComboBox->SetSelectedItem(QuickSlotTexts[WheelIndex+1]);
+		if ( !ClassName.IsEmpty() )
+		{
+			int32 WheelIndex = WeaponWheelClassnames.Find(ClassName);
+			if (QuickSlotTexts.IsValidIndex(WheelIndex+1))
+			{
+				QuickSlotComboBox->SetSelectedItem(QuickSlotTexts[WheelIndex+1]);
+			}
+		}
 	}
 
 	UpdateWeaponsInGroup();
