@@ -18,12 +18,14 @@ struct FAnnouncementInfo
 	const class APlayerState* RelatedPlayerState_2;
 	UPROPERTY(BlueprintReadWrite, Category = Announcement)
 	const UObject* OptionalObject;
+	UPROPERTY(BlueprintReadWrite, Category = Announcement)
+		float QueueTime;
 
 	FAnnouncementInfo()
-		: MessageClass(NULL), Switch(0), RelatedPlayerState_1(NULL), RelatedPlayerState_2(NULL), OptionalObject(NULL)
+		: MessageClass(NULL), Switch(0), RelatedPlayerState_1(NULL), RelatedPlayerState_2(NULL), OptionalObject(NULL), QueueTime(0.f)
 	{}
-	FAnnouncementInfo(TSubclassOf<UUTLocalMessage> InMessageClass, int32 InSwitch, const class APlayerState* InRelatedPlayerState_1, const class APlayerState* InRelatedPlayerState_2, const UObject* InOptionalObject)
-		: MessageClass(InMessageClass), Switch(InSwitch), RelatedPlayerState_1(InRelatedPlayerState_1), RelatedPlayerState_2(InRelatedPlayerState_2), OptionalObject(InOptionalObject)
+	FAnnouncementInfo(TSubclassOf<UUTLocalMessage> InMessageClass, int32 InSwitch, const class APlayerState* InRelatedPlayerState_1, const class APlayerState* InRelatedPlayerState_2, const UObject* InOptionalObject, float InQueueTime)
+		: MessageClass(InMessageClass), Switch(InSwitch), RelatedPlayerState_1(InRelatedPlayerState_1), RelatedPlayerState_2(InRelatedPlayerState_2), OptionalObject(InOptionalObject), QueueTime(InQueueTime)
 	{}
 };
 
@@ -135,6 +137,9 @@ class UNREALTOURNAMENT_API UUTAnnouncer : public UObject
 
 	UFUNCTION(BlueprintCallable, Category = Announcement)
 	virtual void PlayAnnouncement(TSubclassOf<UUTLocalMessage> MessageClass, int32 Switch, const APlayerState* PlayerState1, const APlayerState* PlayerState2, const UObject* OptionalObject);
+
+	UFUNCTION()
+		virtual void StartNextAnnouncement(bool bUseSpacing);
 
 	/** play next announcement in queue (if any)
 	 * cancels any currently playing announcement

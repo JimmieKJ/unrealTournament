@@ -100,7 +100,7 @@ FName UUTCTFRewardMessage::GetAnnouncementName_Implementation(int32 Switch, cons
 
 bool UUTCTFRewardMessage::ShouldPlayAnnouncement(const FClientReceiveData& ClientData) const
 {
-	return (ClientData.MessageIndex == 0) || (ClientData.MessageIndex == 6)  || (ClientData.MessageIndex == 7) || IsLocalForAnnouncement(ClientData, true, true) || (ClientData.MessageIndex > 100);
+	return (ClientData.MessageIndex == 0) || (ClientData.MessageIndex == 6)  || (ClientData.MessageIndex == 7) || IsLocalForAnnouncement(ClientData, true, true) || (ClientData.MessageIndex >= 100);
 }
 
 void UUTCTFRewardMessage::GetEmphasisText(FText& PrefixText, FText& EmphasisText, FText& PostfixText, FLinearColor& EmphasisColor, int32 Switch, class APlayerState* RelatedPlayerState_1, class APlayerState* RelatedPlayerState_2, class UObject* OptionalObject) const
