@@ -7,6 +7,29 @@
 
 #include "UTMcpUtils.generated.h"
 
+USTRUCT()
+struct FWaitTimeInfo
+{
+	GENERATED_USTRUCT_BODY()
+public:
+	UPROPERTY()
+	FString RatingType;
+	UPROPERTY()
+	double AverageWaitTimeSecs;
+	UPROPERTY()
+	int32 NumSamples;
+};
+
+USTRUCT()
+struct FEstimatedWaitTimeInfo
+{
+	GENERATED_USTRUCT_BODY()
+public:
+	FEstimatedWaitTimeInfo() {}
+
+	UPROPERTY()
+	TArray<FWaitTimeInfo> WaitTimes;
+};
 
 USTRUCT()
 struct FRankedTeamMemberInfo
@@ -159,6 +182,26 @@ class UNREALTOURNAMENT_API UUTMcpUtils : public UObject
 public:
 
 	static UUTMcpUtils* Get(UWorld* World, const TSharedPtr<const FUniqueNetId>& InGameAccountId);
+
+public:
+	typedef TFunction<void(const FOnlineError& /*Result*/, const FEstimatedWaitTimeInfo& /*Response*/)> FGetEstimatedWaitTimesCb;
+
+	/**
+	 * Estimate the wait times
+	 *
+	 * @param Callback Callback delegate
+	 */
+	void GetEstimatedWaitTimes(const FGetEstimatedWaitTimesCb& Callback);
+
+public:
+	typedef TFunction<void(const FOnlineError& /*Result*/)> FReportWaitTimeCb;
+
+	/**
+	 * Report the wait time
+	 *
+	 * @param Callback Called when the request completes
+	*/
+	void ReportWaitTime(const FString& RatingType, int32 WaitTime, const FReportWaitTimeCb& Callback);
 
 public:
 	typedef TFunction<void(const FOnlineError& /*Result*/, const FTeamElo& /*Response*/)> FGetTeamEloCb;

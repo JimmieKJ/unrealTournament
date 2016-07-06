@@ -5110,6 +5110,8 @@ void UUTLocalPlayer::StartMatchmaking(int32 PlaylistId)
 	UUTMatchmaking* Matchmaking = UTGameInstance->GetMatchmaking(); 
 	if (ensure(Matchmaking))
 	{
+		Matchmaking->TimeMatchmakingStarted = GetWorld()->RealTimeSeconds;
+
 		FMatchmakingParams MatchmakingParams;
 		MatchmakingParams.ControllerId = GetControllerId();
 		MatchmakingParams.StartWith = EMatchmakingStartLocation::Game;
