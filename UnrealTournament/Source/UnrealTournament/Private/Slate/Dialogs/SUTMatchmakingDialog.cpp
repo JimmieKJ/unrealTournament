@@ -206,9 +206,9 @@ FText SUTMatchmakingDialog::GetMatchmakingTimeElapsedText() const
 			{
 				if (PlayerOwner->IsPartyLeader())
 				{
-					FNumberFormattingOptions NumberFormattingOptions;
-					NumberFormattingOptions.MaximumFractionalDigits = 0;
-					return FText::Format(NSLOCTEXT("Generic", "ElapsedMatchMakingTime", "You Have Been Matchmaking For {0} Seconds"), FText::AsNumber(PlayerOwner->GetWorld()->RealTimeSeconds - TimeDialogOpened, &NumberFormattingOptions));
+					int32 ElapsedTime = PlayerOwner->GetWorld()->RealTimeSeconds - TimeDialogOpened;
+					FTimespan TimeSpan(0, 0, ElapsedTime);
+					return FText::Format(NSLOCTEXT("Generic", "ElapsedMatchMakingTime", "You Have Been Matchmaking For {0}"), FText::AsTimespan(TimeSpan));
 				}
 			}
 		}
