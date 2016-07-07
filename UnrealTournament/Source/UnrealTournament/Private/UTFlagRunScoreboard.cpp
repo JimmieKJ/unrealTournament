@@ -13,8 +13,7 @@ UUTFlagRunScoreboard::UUTFlagRunScoreboard(const FObjectInitializer& ObjectIniti
 
 	ColumnHeaderPowerupX = 0.715f;
 	ColumnHeaderPowerupEndX = ColumnHeaderPowerupX + 0.0575f;
-	const float AdditionalPadding = 0.09f;
-	ColumnHeaderPowerupXDuringReadyUp = ColumnHeaderPingX - AdditionalPadding;
+	ColumnHeaderPowerupXDuringReadyUp = 0.82f;
 	bGroupRoundPairs = true;
 	bUseRoundKills = true;
 }

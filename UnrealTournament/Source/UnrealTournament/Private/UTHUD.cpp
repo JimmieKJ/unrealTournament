@@ -104,9 +104,7 @@ AUTHUD::AUTHUD(const class FObjectInitializer& ObjectInitializer) : Super(Object
 
 	CachedProfileSettings = nullptr;
 	BuildText = NSLOCTEXT("UTHUD", "info", "PRE-ALPHA Build 0.1.3");
-
 	bShowVoiceDebug = false;
-
 }
 
 void AUTHUD::Destroyed()
@@ -827,8 +825,8 @@ void AUTHUD::CausedDamage(APawn* HitPawn, int32 Damage)
 	AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
 	if ((HitPawn != UTPlayerOwner->GetViewTarget()) && (GS == NULL || !GS->OnSameTeam(HitPawn, PlayerOwner)))
 	{
+		LastConfirmedHitDamage = (GetWorld()->GetTimeSeconds() - LastConfirmedHitTime < 0.05f) ? LastConfirmedHitDamage + Damage : Damage;
 		LastConfirmedHitTime = GetWorld()->TimeSeconds;
-		LastConfirmedHitDamage = Damage;
 		AUTCharacter* Char = Cast<AUTCharacter>(HitPawn);
 		LastConfirmedHitWasAKill = (Char && (Char->IsDead() || Char->Health <= 0));
 	}
@@ -852,7 +850,7 @@ void AUTHUD::CausedDamage(APawn* HitPawn, int32 Damage)
 
 void AUTHUD::DrawDamageNumbers()
 {
-#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+#if !UE_BUILD_SHIPPING
 	//	UE_LOG(UT, Warning, TEXT("DrawDamageNumbers, numbers %d"), DamageNumbers.Num());
 	FFontRenderInfo TextRenderInfo;
 	TextRenderInfo.bEnableShadow = true;

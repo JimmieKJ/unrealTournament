@@ -197,16 +197,16 @@ void SUTWeaponConfigDialog::Construct(const FArguments& InArgs)
 	QuickSlotTexts.Add(MakeShareable(new FText(NSLOCTEXT("UT","SlotSeven","Slot Seven"))));
 	QuickSlotTexts.Add(MakeShareable(new FText(NSLOCTEXT("UT","SlotEight","Slot Eight"))));
 
+	WeaponWheelClassnames.AddZeroed(8);
 	if (ProfileSettings)
 	{
 		for (int32 i = 0 ; i < ProfileSettings->WeaponWheelQuickSlots.Num(); i++)
 		{
-			WeaponWheelClassnames.Add(ProfileSettings->WeaponWheelQuickSlots[i]);
+			if (i < 8)
+			{
+				WeaponWheelClassnames[i] = ProfileSettings->WeaponWheelQuickSlots[i];
+			}
 		}
-	}
-	else
-	{
-		WeaponWheelClassnames.AddZeroed(8);
 	}
 
 	if (DialogContent.IsValid())

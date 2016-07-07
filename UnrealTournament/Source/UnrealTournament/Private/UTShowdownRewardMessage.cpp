@@ -9,23 +9,19 @@ UUTShowdownRewardMessage::UUTShowdownRewardMessage(const class FObjectInitialize
 	bIsStatusAnnouncement = false;
 	bIsPartiallyUnique = true;
 	MessageArea = FName(TEXT("Announcements"));
-	MessageSlot = FName(TEXT("VictimMessage"));
+	MessageSlot = FName(TEXT("MajorRewardMessage"));
 
 	FinishItMsg = NSLOCTEXT("ShowdownRewardMessage", "FinishItMsg", "FINISH IT!");
 	LastManMsg = NSLOCTEXT("ShowdownRewardMessage", "LastManMsg", "Last Man Standing");
 	OverChargeMsg = NSLOCTEXT("ShowdownRewardMessage", "OverChargeMsg", "OVERCHARGE AVAILABLE!");
 	TerminationMsg = NSLOCTEXT("ShowdownRewardMessage", "TerminationMsg", "{Player1Name} TERMINATED!");
 	AnnihilationMsg = NSLOCTEXT("ShowdownRewardMessage", "AnnihilationMsg", "ANNIHILATION!");
-	FinalLifeMsg = NSLOCTEXT("ShowdownRewardMessage", "FinalLifeMsg", "FINAL LIFE!");
 	FinishIt = FName(TEXT("RW_FinishIt"));
 	LastMan = FName(TEXT("RW_LMS"));
 	OverCharge = FName(TEXT("Overload"));
-	Termination = FName(TEXT("RW_Termination"));
 	Annihilation = FName(TEXT("RW_Annihilation"));
-	FinalLife = FName(TEXT("RZE_FinalLife"));
-	LivesRemainingPrefix = NSLOCTEXT("CTFGameMessage", "LivesRemainingPrefix", "");
-	LivesRemainingPostfix = NSLOCTEXT("CTFGameMessage", "LivesRemainingPostfix", " lives remaining.");
-	AnnouncementDelay = 0.5f;
+	Termination = FName(TEXT("RW_Termination"));
+	AnnouncementDelay = 0.f;
 
 	static ConstructorHelpers::FObjectFinder<USoundBase> TerminationSoundFinder(TEXT("SoundWave'/Game/RestrictedAssets/Audio/Stingers/Terminated.Terminated'"));
 	TerminationSound = TerminationSoundFinder.Object;
@@ -52,27 +48,8 @@ float UUTShowdownRewardMessage::GetAnnouncementDelay(int32 Switch)
 	return (Switch == 3) ? 0.5f : 0.f;
 }
 
-void UUTShowdownRewardMessage::GetEmphasisText(FText& PrefixText, FText& EmphasisText, FText& PostfixText, FLinearColor& EmphasisColor, int32 Switch, class APlayerState* RelatedPlayerState_1, class APlayerState* RelatedPlayerState_2, class UObject* OptionalObject) const
-{
-	if (Switch > 30)
-	{
-		Switch -= 30;
-		PrefixText = LivesRemainingPrefix;
-		PostfixText = LivesRemainingPostfix;
-		EmphasisText = FText::AsNumber(Switch);
-		EmphasisColor = FLinearColor::Red;
-		return;
-	}
-
-	Super::GetEmphasisText(PrefixText, EmphasisText, PostfixText, EmphasisColor, Switch, RelatedPlayerState_1, RelatedPlayerState_2, OptionalObject);
-}
-
 FText UUTShowdownRewardMessage::GetText(int32 Switch, bool bTargetsPlayerState1, class APlayerState* RelatedPlayerState_1, class APlayerState* RelatedPlayerState_2, class UObject* OptionalObject) const 
 {
-	if (Switch > 30)
-	{
-		return BuildEmphasisText(Switch, RelatedPlayerState_1, RelatedPlayerState_2, OptionalObject);
-	}
 	switch (Switch)
 	{
 	case 0:
@@ -85,8 +62,6 @@ FText UUTShowdownRewardMessage::GetText(int32 Switch, bool bTargetsPlayerState1,
 		return TerminationMsg;
 	case 4:
 		return AnnihilationMsg;
-	case 5:
-		return FinalLifeMsg;
 	default:
 		return FText();
 	}
@@ -95,11 +70,6 @@ FText UUTShowdownRewardMessage::GetText(int32 Switch, bool bTargetsPlayerState1,
 bool UUTShowdownRewardMessage::ShouldPlayAnnouncement(const FClientReceiveData& ClientData) const
 {
 	return IsLocalForAnnouncement(ClientData, true, true) ||(ClientData.MessageIndex == 2) || (ClientData.MessageIndex == 3) || (ClientData.MessageIndex == 4);
-}
-
-FLinearColor UUTShowdownRewardMessage::GetMessageColor_Implementation(int32 MessageIndex) const 
-{
-	return FLinearColor::White;
 }
 
 FName UUTShowdownRewardMessage::GetAnnouncementName_Implementation(int32 Switch, const UObject* OptionalObject, const class APlayerState* RelatedPlayerState_1, const class APlayerState* RelatedPlayerState_2) const
@@ -116,8 +86,6 @@ FName UUTShowdownRewardMessage::GetAnnouncementName_Implementation(int32 Switch,
 		return Termination;
 	case 4:
 		return Annihilation;
-	case 5:
-		return FinalLife;
 	default:
 		return NAME_None;
 	}

@@ -14,9 +14,6 @@ class UNREALTOURNAMENT_API UUTVictoryMessage : public UUTLocalMessage
 	FText YouHaveWonText;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Message)
-	FText YouHaveLostText;
-
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Message)
 	FText TeamWinsPrefix;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Message)

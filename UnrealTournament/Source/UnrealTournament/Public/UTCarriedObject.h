@@ -332,7 +332,7 @@ public:
 		TArray<FFlagTrailPos> PastPositions;
 
 	UPROPERTY()
-		float LastPositionUpdateTime;
+		FVector RecentPosition;
 
 	UPROPERTY()
 		FVector MidPoints[3];

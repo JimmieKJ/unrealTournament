@@ -466,6 +466,7 @@ void UUTMatchmaking::RetryFindGatheringSession()
 bool UUTMatchmaking::FindGatheringSession(const FMatchmakingParams& InParams)
 {
 	bool bResult = false;
+	EstimatedWaitTime = 0;
 	if (InParams.ControllerId != INVALID_CONTROLLERID)
 	{
 		UUTMatchmakingGather* MatchmakingGather = NewObject<UUTMatchmakingGather>();
@@ -509,6 +510,7 @@ bool UUTMatchmaking::FindGatheringSession(const FMatchmakingParams& InParams)
 bool UUTMatchmaking::FindSessionAsClient(const FMatchmakingParams& InParams)
 {
 	bool bResult = false;
+	EstimatedWaitTime = 0;
 	if (InParams.ControllerId != INVALID_CONTROLLERID)
 	{
 		UUTMatchmakingSingleSession* MatchmakingSingleSession = NewObject<UUTMatchmakingSingleSession>();
@@ -629,6 +631,25 @@ void UUTMatchmaking::LookupTeamElo(EQosCompletionResult Result, const FString& D
 			else
 			{
 				ContinueMatchmaking(Response.Rating, InParams);
+			}
+		});
+
+		McpUtils->GetEstimatedWaitTimes([this, MatchRatingType](const FOnlineError& Result, const FEstimatedWaitTimeInfo& EstimateWaitTimeInfo) {
+			if (!Result.bSucceeded)
+			{
+				// best we can do is log an error
+				UE_LOG(LogOnline, Warning, TEXT("Failed to get estimated wait times to the server. (%d) %s %s"), Result.HttpResult, *Result.ErrorCode, *Result.ErrorMessage.ToString());
+			}
+			else
+			{
+				for (int32 i = 0; i < EstimateWaitTimeInfo.WaitTimes.Num(); i++)
+				{
+					UE_LOG(LogOnline, Log, TEXT("%s %f"), *EstimateWaitTimeInfo.WaitTimes[i].RatingType, EstimateWaitTimeInfo.WaitTimes[i].AverageWaitTimeSecs);
+					if (EstimateWaitTimeInfo.WaitTimes[i].RatingType == MatchRatingType)
+					{
+						EstimatedWaitTime = EstimateWaitTimeInfo.WaitTimes[i].AverageWaitTimeSecs;
+					}
+				}
 			}
 		});
 	}
@@ -782,10 +803,34 @@ void UUTMatchmaking::OnReservationFull()
 	UE_LOG(LogOnline, Log, TEXT("OnReservationFull"));
 
 	TravelToServer();
-
+	
 	UUTGameInstance* UTGameInstance = GetUTGameInstance();
 	if (ensure(UTGameInstance))
 	{
+		if (TimeMatchmakingStarted > 0)
+		{
+			UUTMcpUtils* McpUtils = UUTMcpUtils::Get(GetWorld(), TSharedPtr<const FUniqueNetId>());
+			if (McpUtils)
+			{
+				FString MatchRatingType;
+				if (UTGameInstance->GetPlaylistManager()->GetTeamEloRatingForPlaylist(CachedMatchmakingSearchParams.GetMatchmakingParams().PlaylistId, MatchRatingType))
+				{
+					// tell MCP about the match to update players' MMRs
+					McpUtils->ReportWaitTime(MatchRatingType, GetWorld()->RealTimeSeconds - TimeMatchmakingStarted, [this, MatchRatingType](const FOnlineError& Result) {
+						if (!Result.bSucceeded)
+						{
+							// best we can do is log an error
+							UE_LOG(UT, Warning, TEXT("Failed to report wait time to the server. (%d) %s %s"), Result.HttpResult, *Result.ErrorCode, *Result.ErrorMessage.ToString());
+						}
+						else
+						{
+							UE_LOG(UT, Log, TEXT("Wait time reported to backend"));
+						}
+					});
+				}
+			}
+		}
+
 		UUTParty* Parties = UTGameInstance->GetParties();
 		if (ensure(Parties))
 		{
@@ -910,6 +955,11 @@ bool UUTMatchmaking::IsMatchmaking()
 		return Matchmaking->IsMatchmaking();
 	}
 	return false;
+}
+
+int32 UUTMatchmaking::GetEstimatedMatchmakingTime()
+{
+	return EstimatedWaitTime;
 }
 
 #undef LOCTEXT_NAMESPACE

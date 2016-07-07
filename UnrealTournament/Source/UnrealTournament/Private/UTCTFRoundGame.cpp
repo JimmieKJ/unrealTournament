@@ -21,6 +21,7 @@
 #include "UTCTFScoreboard.h"
 #include "UTShowdownGameMessage.h"
 #include "UTShowdownRewardMessage.h"
+#include "UTShowdownStatusMessage.h"
 #include "UTPlayerStart.h"
 #include "UTSkullPickup.h"
 #include "UTArmor.h"
@@ -1034,14 +1035,14 @@ void AUTCTFRoundGame::RestartPlayer(AController* aPlayer)
 				{
 					if (PC)
 					{
-						PC->ClientReceiveLocalizedMessage(UUTShowdownRewardMessage::StaticClass(), 5, PS, NULL, NULL);
+						PC->ClientReceiveLocalizedMessage(UUTShowdownStatusMessage::StaticClass(), 5, PS, NULL, NULL);
 					}
 					PS->RespawnWaitTime = 0.5f;
 					PS->OnRespawnWaitReceived();
 				}
 				else if (PC)
 				{
-					PC->ClientReceiveLocalizedMessage(UUTShowdownRewardMessage::StaticClass(), 31+PS->RemainingLives, PS, NULL, NULL);
+					PC->ClientReceiveLocalizedMessage(UUTShowdownStatusMessage::StaticClass(), 31+PS->RemainingLives, PS, NULL, NULL);
 				}
 			}
 			else

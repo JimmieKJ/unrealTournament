@@ -20,17 +20,7 @@ void UUTHUDWidgetMessage::InitializeWidget(AUTHUD* Hud)
 	MessageQueue.AddZeroed(MESSAGE_QUEUE_LENGTH);
 	for (int32 i=0;i<MessageQueue.Num();i++)
 	{
-		MessageQueue[i].MessageClass = NULL;
-		MessageQueue[i].Text = FText::GetEmpty();
-		MessageQueue[i].EmphasisText = FText::GetEmpty();
-		MessageQueue[i].OptionalObject = NULL;
-		MessageQueue[i].DisplayFont = NULL;
-		MessageQueue[i].bHasBeenRendered = false;
-		MessageQueue[i].DrawColor = FLinearColor::White;
-		MessageQueue[i].LifeLeft = 0;
-		MessageQueue[i].LifeSpan = 0;
-		MessageQueue[i].MessageCount = 0;
-		MessageQueue[i].MessageIndex = 0;
+		ClearMessage(MessageQueue[i]);
 	}
 }
 
@@ -176,6 +166,14 @@ void UUTHUDWidgetMessage::ClearMessage(FLocalizedMessageData& Message)
 	Message.MessageClass = NULL;
 	Message.DisplayFont = NULL;
 	Message.bHasBeenRendered = false;
+	Message.Text = FText::GetEmpty();
+	Message.EmphasisText = FText::GetEmpty();
+	Message.OptionalObject = NULL;
+	Message.DrawColor = FLinearColor::White;
+	Message.LifeLeft = 0.f;
+	Message.LifeSpan = 0.f;
+	Message.MessageCount = 0;
+	Message.MessageIndex = 0;
 }
 
 void UUTHUDWidgetMessage::ReceiveLocalMessage(TSubclassOf<class UUTLocalMessage> MessageClass, APlayerState* RelatedPlayerState_1, APlayerState* RelatedPlayerState_2, uint32 MessageIndex, FText LocalMessageText, UObject* OptionalObject)

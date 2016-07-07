@@ -143,6 +143,7 @@ public:
 
 	int32 GetMatchmakingEloRange();
 	int32 GetMatchmakingTeamElo();
+	int32 GetEstimatedMatchmakingTime();
 
 private:
 
@@ -391,4 +392,10 @@ private:
 
 	UPROPERTY()
 	bool bQueuedTravelToServer;
+
+	UPROPERTY()
+	float TimeMatchmakingStarted;
+
+	UPROPERTY()
+	int32 EstimatedWaitTime;
 };

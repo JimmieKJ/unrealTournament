@@ -112,7 +112,7 @@ UUTChallengeManager::UUTChallengeManager(const FObjectInitializer& ObjectInitial
 		0, 5, NAME_EasyFFATeam, NAME_MediumFFATeam, NAME_HardFFATeam, NAME_ChallengeSlateBadgeName_DM_OP23, NAME_REWARD_GoldStars));
 
 	Challenges.Add(NAME_ChallengeCTF, 
-		FUTChallengeInfo(NAME_ChallengeCTF,TEXT("Capture the Flag in Titan Pass"), TEXT("/Game/EpicInternal/Anton/CTF-TitanPass_UPD"),
+		FUTChallengeInfo(NAME_ChallengeCTF,TEXT("Capture the Flag in Titan Pass"), TEXT("/Game/RestrictedAssets/Maps/CTF-TitanPass"),
 		TEXT("?Game=CTF"),
 		TEXT("CTF in the newest arena approved for the Liandri Grand Tournament."), 
 		4, 5, NAME_EasyNecrisTeam, NAME_MediumMixedTeam, NAME_HardMixedTeamB, NAME_ChallengeSlateBadgeName_CTF_Titan, NAME_REWARD_GoldStars));

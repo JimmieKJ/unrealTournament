@@ -523,7 +523,7 @@ bool AUTBot::FindBestJumpVelocityXY(FVector& JumpVelocity, const FVector& StartL
 	else
 	{
 		Determinant = FMath::Sqrt(Determinant);
-		float Time = FMath::Max<float>(-ZSpeed + Determinant, -ZSpeed - Determinant) / GravityZ;
+		float Time = FMath::Max<float>((-ZSpeed + Determinant) / GravityZ, (-ZSpeed - Determinant) / GravityZ);
 		if (Time > 0.0f)
 		{
 			JumpVelocity = (TargetLoc - StartLoc) / Time;
@@ -838,9 +838,12 @@ void AUTBot::Tick(float DeltaTime)
 						if ( FindBestJumpVelocityXY(DesiredVel2D, MyPawn->GetActorLocation(), TargetLoc, GetCharacter()->GetCharacterMovement()->Velocity.Z, GetCharacter()->GetCharacterMovement()->GetGravityZ(), MyPawn->GetSimpleCollisionHalfHeight()) ||
 							(UTChar != NULL && UTChar->UTCharacterMovement->CanMultiJump() && FindBestJumpVelocityXY(DesiredVel2D, MyPawn->GetActorLocation(), TargetLoc, UTChar->UTCharacterMovement->MultiJumpImpulse, GetCharacter()->GetCharacterMovement()->GetGravityZ(), MyPawn->GetSimpleCollisionHalfHeight())) )
 						{
-							FVector NewAccel = (DesiredVel2D - GetCharacter()->GetCharacterMovement()->Velocity) / FMath::Max<float>(0.001f, DeltaTime) / GetCharacter()->GetCharacterMovement()->AirControl;
+							FVector MyVel2D = GetCharacter()->GetCharacterMovement()->Velocity;
+							MyVel2D.Z = 0.0f;
+							float MaxTickSpeedChange = FMath::Max<float>(1.0f, GetCharacter()->GetCharacterMovement()->GetMaxAcceleration() * GetCharacter()->GetCharacterMovement()->AirControl * DeltaTime);
+							FVector NewAccel = ((DesiredVel2D - MyVel2D) / MaxTickSpeedChange).GetClampedToMaxSize2D(1.0f);
 							NewAccel.Z = 0.0f;
-							MyPawn->GetMovementComponent()->AddInputVector(NewAccel.GetSafeNormal() * (NewAccel.Size() / FMath::Max<float>(1.0f, GetCharacter()->GetCharacterMovement()->GetMaxAcceleration())));
+							MyPawn->GetMovementComponent()->AddInputVector(NewAccel);
 						}
 						else
 						{

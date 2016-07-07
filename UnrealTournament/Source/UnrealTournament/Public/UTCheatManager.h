@@ -121,6 +121,12 @@ class UNREALTOURNAMENT_API UUTCheatManager : public UCheatManager
 
 	virtual void NextAnn();
 
+	UFUNCTION(exec)
+	void ReportWaitTime(FString RatingType, int32 Seconds);
+
+	UFUNCTION(exec)
+	void EstimateWaitTimes();
+
 protected:
 
 	/** Used to cap the flag for the specified team number*/

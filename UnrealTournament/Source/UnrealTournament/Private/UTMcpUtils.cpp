@@ -180,6 +180,69 @@ static TFunction<bool(const FHttpResponsePtr&)> SimpleResponseHandler(const TFun
 	};
 }
 
+void UUTMcpUtils::GetEstimatedWaitTimes(const FGetEstimatedWaitTimesCb& Callback)
+{
+#if WITH_PROFILE
+	// build request URL
+	static const FString ServerPath = TEXT("/api/game/v2/wait_times/estimate");
+	auto HttpRequest = CreateRequest(TEXT("GET"), ServerPath
+		);
+
+	// send the request
+	SendRequest(HttpRequest, [Callback](const FHttpResponsePtr& HttpResponse) {
+
+		FOnlineError Result;
+		FEstimatedWaitTimeInfo EstimatedWaitTimeInfo;
+		if (HttpResponse.IsValid() && EHttpResponseCodes::IsOk(HttpResponse->GetResponseCode()) && HttpResponse->GetContentType() == TEXT("application/json"))
+		{
+			TSharedPtr<FJsonValue> JsonRoot;
+			if (FJsonSerializer::Deserialize(TJsonReaderFactory<>::Create(HttpResponse->GetContentAsString()), JsonRoot) && JsonRoot.IsValid())
+			{
+				Result.bSucceeded = true;
+				for (const auto& It : JsonRoot->AsArray())
+				{
+					FWaitTimeInfo WaitTime;
+					const TSharedPtr<FJsonObject>& Obj = It->AsObject();
+					if (Obj.IsValid())
+					{
+						WaitTime.RatingType = Obj->GetStringField(TEXT("ratingType"));
+						WaitTime.NumSamples = Obj->GetIntegerField(TEXT("numSamples"));
+						WaitTime.AverageWaitTimeSecs = Obj->GetNumberField(TEXT("averageWaitTimeSecs"));
+						EstimatedWaitTimeInfo.WaitTimes.Add(WaitTime);
+					}
+				}
+			}
+		}
+
+		Callback(Result, EstimatedWaitTimeInfo);
+		return Result.bSucceeded;
+	});
+#endif
+}
+
+void UUTMcpUtils::ReportWaitTime(const FString& RatingType, int32 WaitTime, const FReportWaitTimeCb& Callback)
+{
+#if WITH_PROFILE
+	// build request URL
+	static const FString ServerPath = TEXT("/api/game/v2/wait_times/report/`ratingType/`waitTime");
+	auto HttpRequest = CreateRequest(TEXT("GET"), ServerPath
+		.Replace(TEXT("`ratingType"), *RatingType, ESearchCase::CaseSensitive)
+		.Replace(TEXT("`waitTime"), *FString::FromInt(WaitTime), ESearchCase::CaseSensitive)
+		);
+
+	// send the request
+	SendRequest(HttpRequest, [Callback](const FHttpResponsePtr& HttpResponse) {
+		// parse the result
+		FOnlineError Result;
+		FMcpQueryResult::Parse(Result, HttpResponse);
+
+		// fire the callback
+		Callback(Result);
+		return Result.bSucceeded;
+	});
+#endif
+}
+
 void UUTMcpUtils::GetTeamElo(const FString& RatingType, const TArray<FUniqueNetIdRepl>& AccountIds, int32 SocialPartySize, const FGetTeamEloCb& Callback)
 {
 #if WITH_PROFILE

@@ -37,6 +37,8 @@
 #include "MatchmakingContext.h"
 #include "UTProj_Rocket.h"
 #include "UTRewardMessage.h"
+#include "UTShowdownRewardMessage.h"
+#include "UTMcpUtils.h"
 
 #if WITH_PROFILE
 #include "OnlineSubsystemMcp.h"
@@ -81,7 +83,7 @@ void UUTCheatManager::Ann(int32 Switch)
 	Flag->SendGameMessage(4, Holder, NULL);
 	Flag->SendGameMessage(3, Holder, NULL);
 	Flag->SendGameMessage(1, NULL, NULL);*/
-	GetOuterAPlayerController()->ClientReceiveLocalizedMessage(UUTMultiKillMessage::StaticClass(), Switch, GetOuterAPlayerController()->PlayerState, GetOuterAPlayerController()->PlayerState, NULL);
+	GetOuterAPlayerController()->ClientReceiveLocalizedMessage(UUTShowdownRewardMessage::StaticClass(), Switch, GetOuterAPlayerController()->PlayerState, GetOuterAPlayerController()->PlayerState, NULL);
 /*
 	GetOuterAPlayerController()->ClientReceiveLocalizedMessage(UUTSpreeMessage::StaticClass(), Switch, GetOuterAPlayerController()->PlayerState, GetOuterAPlayerController()->PlayerState, NULL);
 	GetOuterAPlayerController()->ClientReceiveLocalizedMessage(UUTCountDownMessage::StaticClass(), Switch, GetOuterAPlayerController()->PlayerState, GetOuterAPlayerController()->PlayerState, NULL);
@@ -633,4 +635,57 @@ void UUTCheatManager::UnlimitedPowerupUses()
 	{
 		UTPlayerController->UTPlayerState->SetRemainingBoosts(255);
 	}
+}
+
+void UUTCheatManager::ReportWaitTime(FString RatingType, int32 Seconds)
+{
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+	UUTMcpUtils* McpUtils = UUTMcpUtils::Get(GetWorld(), TSharedPtr<const FUniqueNetId>());
+	if (McpUtils == nullptr)
+	{
+		UE_LOG(UT, Warning, TEXT("Unable to load McpUtils. Will not be able to report wait time."));
+		return;
+	}
+
+	// tell MCP about the match to update players' MMRs
+	McpUtils->ReportWaitTime(RatingType, Seconds, [this, RatingType](const FOnlineError& Result) {
+		if (!Result.bSucceeded)
+		{
+			// best we can do is log an error
+			UE_LOG(UT, Warning, TEXT("Failed to report wait time to the server. (%d) %s %s"), Result.HttpResult, *Result.ErrorCode, *Result.ErrorMessage.ToString());
+		}
+		else
+		{
+			UE_LOG(UT, Log, TEXT("Wait time reported to backend"));
+		}
+	});
+#endif
+}
+
+void UUTCheatManager::EstimateWaitTimes()
+{
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+	UUTMcpUtils* McpUtils = UUTMcpUtils::Get(GetWorld(), TSharedPtr<const FUniqueNetId>());
+	if (McpUtils == nullptr)
+	{
+		UE_LOG(UT, Warning, TEXT("Unable to load McpUtils. Will not be able to report wait time."));
+		return;
+	}
+
+	McpUtils->GetEstimatedWaitTimes([this](const FOnlineError& Result, const FEstimatedWaitTimeInfo& EstimateWaitTimeInfo) {
+		if (!Result.bSucceeded)
+		{
+			// best we can do is log an error
+			UE_LOG(UT, Warning, TEXT("Failed to get estimated wait times to the server. (%d) %s %s"), Result.HttpResult, *Result.ErrorCode, *Result.ErrorMessage.ToString());
+		}
+		else
+		{
+			for (int32 i = 0; i < EstimateWaitTimeInfo.WaitTimes.Num(); i++)
+			{
+				UE_LOG(UT, Log, TEXT("%s %f"), *EstimateWaitTimeInfo.WaitTimes[i].RatingType, EstimateWaitTimeInfo.WaitTimes[i].AverageWaitTimeSecs);
+			}
+		}
+	});
+#endif
+
 }

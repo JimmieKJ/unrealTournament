@@ -24,7 +24,7 @@ UUTScoreboard::UUTScoreboard(const class FObjectInitializer& ObjectInitializer) 
 	ColumnHeaderPlayerX = 0.1f;
 	ColumnHeaderScoreX = 0.52f;
 	ColumnHeaderDeathsX = 0.68f;
-	ColumnHeaderPingX = 0.93f;
+	ColumnHeaderPingX = 0.95f;
 	ColumnHeaderY = 6.f;
 	ColumnY = 12.f;
 	ColumnMedalX = 0.55f;
@@ -486,7 +486,9 @@ void UUTScoreboard::DrawPlayer(int32 Index, AUTPlayerState* PlayerState, float R
 	{
 		DrawReadyText(PlayerState, XOffset, YOffset, ScaledCellWidth);
 	}
-	DrawText(PlayerPing, XOffset + (ScaledCellWidth * ColumnHeaderPingX), YOffset + ColumnY, UTHUDOwner->TinyFont, RenderScale, 1.0f, DrawColor, ETextHorzPos::Center, ETextVertPos::Center);
+	float PingXL, PingYL;
+	Canvas->TextSize(UTHUDOwner->TinyFont, PlayerPing.ToString(), PingXL, PingYL, 0.75f*RenderScale, 0.75f*RenderScale);
+	DrawText(PlayerPing, XOffset + 1.02f*ScaledCellWidth - PingXL, YOffset + ColumnY, UTHUDOwner->TinyFont, 0.75f*RenderScale, 1.f, DrawColor, ETextHorzPos::Center, ETextVertPos::Center);
 
 	// Strike out players that are out of lives
 	if (PlayerState->bOutOfLives)
@@ -582,7 +584,7 @@ void UUTScoreboard::DrawPlayerScore(AUTPlayerState* PlayerState, float XOffset, 
 
 void UUTScoreboard::DrawServerPanel(float RenderDelta, float YOffset)
 {
-	if (UTGameState)
+	if (UTGameState && (UTGameState->GetMatchState() != MatchState::PlayerIntro))
 	{
 		FText SpectatorMessage;
 		bool bShortMessage = false;

@@ -749,15 +749,6 @@ void AUTTeamGameMode::PlayEndOfMatchMessage()
 {
 	if (UTGameState && UTGameState->WinningTeam)
 	{
-		int32 IsFlawlessVictory = (UTGameState->WinningTeam->Score > 3) ? 1 : 0;
-		for (int32 i = 0; i < Teams.Num(); i++)
-		{
-			if ((Teams[i] != UTGameState->WinningTeam) && (Teams[i]->Score > 0))
-			{
-				IsFlawlessVictory = 0;
-				break;
-			}
-		}
 		for (FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator)
 		{
 			APlayerController* Controller = *Iterator;
@@ -766,12 +757,11 @@ void AUTTeamGameMode::PlayEndOfMatchMessage()
 				AUTPlayerController* PC = Cast<AUTPlayerController>(Controller);
 				if (PC && Cast<AUTPlayerState>(PC->PlayerState))
 				{
-					PC->ClientReceiveLocalizedMessage(VictoryMessageClass, 2*IsFlawlessVictory + ((UTGameState->WinningTeam == Cast<AUTPlayerState>(PC->PlayerState)->Team) ? 1 : 0), UTGameState->WinnerPlayerState, PC->PlayerState, UTGameState->WinningTeam);
+					PC->ClientReceiveLocalizedMessage(VictoryMessageClass, ((UTGameState->WinningTeam == Cast<AUTPlayerState>(PC->PlayerState)->Team) ? 1 : 0), UTGameState->WinnerPlayerState, PC->PlayerState, UTGameState->WinningTeam);
 				}
 			}
 		}
 	}
-
 }
 
 void AUTTeamGameMode::SendEndOfGameStats(FName Reason)
