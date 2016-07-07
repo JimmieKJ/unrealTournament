@@ -676,7 +676,7 @@ void UUTCheatManager::EstimateWaitTimes()
 		if (!Result.bSucceeded)
 		{
 			// best we can do is log an error
-			UE_LOG(UT, Warning, TEXT("Failed to get estimated wait times to the server. (%d) %s %s"), Result.HttpResult, *Result.ErrorCode, *Result.ErrorMessage.ToString());
+			UE_LOG(UT, Warning, TEXT("Failed to get estimated wait times from the server. (%d) %s %s"), Result.HttpResult, *Result.ErrorCode, *Result.ErrorMessage.ToString());
 		}
 		else
 		{
