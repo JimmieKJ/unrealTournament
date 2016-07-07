@@ -216,19 +216,20 @@ void AUTFlagRunGame::HandleRallyRequest(AUTPlayerController* RequestingPC)
 	{
 		if (UTCharacter->GetCarriedObject())
 		{
-			// requesting rally
-			for (FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator)
+			if (GetWorld()->GetTimeSeconds() - RallyRequestTime > 6.f)
 			{
-				AUTPlayerController* PC = Cast<AUTPlayerController>(*Iterator);
-				if (PC && GS->OnSameTeam(RequestingPC, PC) && PC->UTPlayerState && PC->UTPlayerState->bCanRally)
+				// requesting rally
+				for (FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator)
 				{
-					PC->ClientReceiveLocalizedMessage(UUTCTFMajorMessage::StaticClass(), 22, UTPlayerState);
+					AUTPlayerController* PC = Cast<AUTPlayerController>(*Iterator);
+					if (PC && GS->OnSameTeam(RequestingPC, PC) && PC->UTPlayerState && PC->UTPlayerState->bCanRally)
+					{
+						PC->ClientReceiveLocalizedMessage(UUTCTFMajorMessage::StaticClass(), 22, UTPlayerState);
+					}
 				}
+				UTPlayerState->AnnounceStatus(StatusMessage::NeedBackup);
+				RallyRequestTime = GetWorld()->GetTimeSeconds();
 			}
-			UTPlayerState->AnnounceStatus(StatusMessage::NeedBackup);
-			UTPlayerState->NextRallyTime = GetWorld()->GetTimeSeconds() + 6.f;
-			RallyRequestTime = GetWorld()->GetTimeSeconds();
-			return;
 		}
 		else if ((Team->TeamIndex == 0) == GS->bRedToCap)
 		{
