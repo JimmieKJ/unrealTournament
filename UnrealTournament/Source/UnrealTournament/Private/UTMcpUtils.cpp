@@ -195,23 +195,23 @@ void UUTMcpUtils::GetEstimatedWaitTimes(const FGetEstimatedWaitTimesCb& Callback
 		FEstimatedWaitTimeInfo EstimatedWaitTimeInfo;
 		if (HttpResponse.IsValid() && EHttpResponseCodes::IsOk(HttpResponse->GetResponseCode()) && HttpResponse->GetContentType() == TEXT("application/json"))
 		{
-			TSharedPtr<FJsonValue> JsonRoot;
-			if (FJsonSerializer::Deserialize(TJsonReaderFactory<>::Create(HttpResponse->GetContentAsString()), JsonRoot) && JsonRoot.IsValid())
+			auto JsonValue = FMcpQueryResult::Parse(Result, HttpResponse);
+			for (const auto& It : JsonValue->AsArray())
 			{
-				Result.bSucceeded = true;
-				for (const auto& It : JsonRoot->AsArray())
+				FWaitTimeInfo WaitTime;
+				const TSharedPtr<FJsonObject>& Obj = It->AsObject();
+				if (Obj.IsValid())
 				{
-					FWaitTimeInfo WaitTime;
-					const TSharedPtr<FJsonObject>& Obj = It->AsObject();
-					if (Obj.IsValid())
-					{
-						WaitTime.RatingType = Obj->GetStringField(TEXT("ratingType"));
-						WaitTime.NumSamples = Obj->GetIntegerField(TEXT("numSamples"));
-						WaitTime.AverageWaitTimeSecs = Obj->GetNumberField(TEXT("averageWaitTimeSecs"));
-						EstimatedWaitTimeInfo.WaitTimes.Add(WaitTime);
-					}
+					WaitTime.RatingType = Obj->GetStringField(TEXT("ratingType"));
+					WaitTime.NumSamples = Obj->GetIntegerField(TEXT("numSamples"));
+					WaitTime.AverageWaitTimeSecs = Obj->GetNumberField(TEXT("averageWaitTimeSecs"));
+					EstimatedWaitTimeInfo.WaitTimes.Add(WaitTime);
 				}
 			}
+		}
+		else if (HttpResponse.IsValid())
+		{
+			UE_LOG(LogOnlineGame, Warning, TEXT("GetEstimatedWaitTimes Error: %d %s"), EHttpResponseCodes::IsOk(HttpResponse->GetResponseCode()) ? 1 : 0, *HttpResponse->GetContentType());
 		}
 
 		Callback(Result, EstimatedWaitTimeInfo);
