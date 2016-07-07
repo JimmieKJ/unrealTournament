@@ -18,7 +18,7 @@ UUTShowdownRewardMessage::UUTShowdownRewardMessage(const class FObjectInitialize
 	AnnihilationMsg = NSLOCTEXT("ShowdownRewardMessage", "AnnihilationMsg", "ANNIHILATION!");
 	FinishIt = FName(TEXT("RW_FinishIt"));
 	LastMan = FName(TEXT("RW_LMS"));
-	OverCharge = FName(TEXT("Overload"));
+	OverCharge = FName(TEXT("RW_Overload"));
 	Annihilation = FName(TEXT("RW_Annihilation"));
 	Termination = FName(TEXT("RW_Termination"));
 	AnnouncementDelay = 0.f;
