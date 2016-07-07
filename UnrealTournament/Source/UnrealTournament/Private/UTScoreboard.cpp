@@ -584,7 +584,7 @@ void UUTScoreboard::DrawPlayerScore(AUTPlayerState* PlayerState, float XOffset, 
 
 void UUTScoreboard::DrawServerPanel(float RenderDelta, float YOffset)
 {
-	if (UTGameState)
+	if (UTGameState && (UTGameState->GetMatchState() != MatchState::PlayerIntro))
 	{
 		FText SpectatorMessage;
 		bool bShortMessage = false;
