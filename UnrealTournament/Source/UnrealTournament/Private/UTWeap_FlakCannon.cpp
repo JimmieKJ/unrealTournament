@@ -122,6 +122,7 @@ AUTProjectile* AUTWeap_FlakCannon::FireProjectile()
 
 		// Fire projectiles
 		AUTProjectile* MainProjectile = NULL;
+		NetSynchRandomSeed();
 		for (int32 i = 0; i < MultiShotCount[CurrentFireMode]; ++i)
 		{
 			// Get firing location and rotation for this projectile
