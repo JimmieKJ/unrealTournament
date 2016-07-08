@@ -55,7 +55,7 @@ public:
 		Rules.Add(EEpicDefaultRuleTags::iTDM);
 		Rules.Add(EEpicDefaultRuleTags::iCTF);
 		Rules.Add(EEpicDefaultRuleTags::iCTFT);
-		Rules.Add(EEpicDefaultRuleTags::FlagRun);
+//		Rules.Add(EEpicDefaultRuleTags::FlagRun);
 	}
 
 	static void InsureEpicDefaults(UUTGameRuleset* NewRuleset)

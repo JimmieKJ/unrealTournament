@@ -429,10 +429,10 @@ bool AUTTeamShowdownGame::ModifyDamage_Implementation(int32& Damage, FVector& Mo
 
 	AUTCharacter* InjuredChar = Cast<AUTCharacter>(Injured);
 	IUTTeamInterface* InstigatorTeamInt = Cast<IUTTeamInterface>(InstigatedBy);
-	if (Damage > 0 && InstigatorTeamInt != nullptr && InjuredChar != nullptr && !UTGameState->OnSameTeam(Injured, InstigatedBy))
+/*	if (Damage > 0 && InstigatorTeamInt != nullptr && InjuredChar != nullptr && !UTGameState->OnSameTeam(Injured, InstigatedBy))
 	{
 		AddDamagePing(InjuredChar, InstigatorTeamInt->GetTeamNum(), 1.0f);
-	}
+	}*/
 
 	return true;
 }
