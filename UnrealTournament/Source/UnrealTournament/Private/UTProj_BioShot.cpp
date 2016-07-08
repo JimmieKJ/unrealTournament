@@ -492,7 +492,8 @@ void AUTProj_BioShot::DamageImpactedActor_Implementation(AActor* OtherActor, UPr
 	bool bPossibleAirSnot = bPendingSpecialReward && HitCharacter->GetCharacterMovement() != NULL && (HitCharacter->GetCharacterMovement()->MovementMode == MOVE_Falling) && (GetWorld()->GetTimeSeconds() - HitCharacter->FallingStartTime > 0.3f);
 	int32 PreHitStack = HitCharacter ? HitCharacter->Health + HitCharacter->ArmorAmount : 0.f;
 	Super::DamageImpactedActor_Implementation(OtherActor, OtherComp, HitLocation, HitNormal);
-	if (bPendingSpecialReward && bPossibleAirSnot && HitCharacter && (HitCharacter->Health <= 0))
+	bPendingSpecialReward = bPendingSpecialReward && bPossibleAirSnot && HitCharacter && (HitCharacter->Health <= 0);
+	if (bPendingSpecialReward)
 	{
 		// Air Snot reward
 		AUTPlayerController* PC = Cast<AUTPlayerController>(InstigatorController);
