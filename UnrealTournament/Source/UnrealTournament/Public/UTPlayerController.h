@@ -792,7 +792,17 @@ public:
 	inline EWeaponHand GetWeaponHand() const
 	{
 		//Spectators always see right handed weapons
-		return IsInState(NAME_Spectating) ? EWeaponHand::HAND_Right : GetPreferredWeaponHand();
+		bool bIsReallySpectating = false;
+		// this is detecting edge cases where we're transitioning to controlling a Pawn but not all the data has replicated and we're still in spectating state
+		if (IsInState(NAME_Spectating) && GetPawn() == nullptr)
+		{
+			APawn* P = Cast<APawn>(GetViewTarget());
+			if (P == nullptr || P->Controller != this)
+			{
+				bIsReallySpectating = true;
+			}
+		}
+		return bIsReallySpectating ? EWeaponHand::HAND_Right : GetPreferredWeaponHand();
 	}
 
 	inline EWeaponHand GetPreferredWeaponHand() const
