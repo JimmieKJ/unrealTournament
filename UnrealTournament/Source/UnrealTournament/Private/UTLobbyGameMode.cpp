@@ -303,6 +303,7 @@ void AUTLobbyGameMode::GetInstanceData(TArray<TSharedPtr<FServerInstanceData>>& 
 				}
 
 				Data->MatchData = MatchInfo->MatchUpdate;
+				Data->MatchData.MatchState = MatchInfo->CurrentState;
 
 				// If this match hasn't started yet, the MatchUpdate will be empty.  So we have to manually fix up the # of players in the match.
 				if (!MatchInfo->IsInProgress())
