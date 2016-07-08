@@ -585,6 +585,34 @@ public:
 	UPROPERTY(Replicated, GlobalConfig, EditAnywhere, BlueprintReadWrite, Category = GameState)
 	bool bDisableVoteKick;
 
+
+	//User Info Query for all players in the match
+public:
+
+	FText GetEpicAccountNameForAccount(TSharedRef<const FUniqueNetId> UserId);
+
+	/** Informs the player controller that it might need to do a new UserInfoQuery as UserInfo may have changed*/
+	virtual void AddUserInfoQuery(TSharedRef<const FUniqueNetId> UserId);
+	virtual void AddAllUsersToInfoQuery();
+
+protected:
+	IOnlineUserPtr OnlineUserInterface;
+	FOnQueryUserInfoCompleteDelegate OnUserInfoCompleteDelegate;
+	virtual void OnQueryUserInfoComplete(int32 LocalPlayer, bool bWasSuccessful, const TArray< TSharedRef<const FUniqueNetId> >& UserIds, const FString& ErrorStr);
+	virtual void RunAllUserInfoQuery();
+
+protected:
+	float UserInfoQueryRetryTime;
+	FTimerHandle UserInfoQueryRetryHandle;
+
+	/**Used to determine if we have gotten new User Data and thus need to perform a new Query*/
+	bool bIsUserQueryNeeded;
+
+	/**Used  to determine if a UserQuery is in progress*/
+	bool bIsAlreadyPendingUserQuery;
+
+	/** Array holding net ids to query*/
+	TArray<TSharedRef<const FUniqueNetId>> CurrentUsersToQuery;
 };
 
 

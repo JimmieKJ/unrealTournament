@@ -898,6 +898,16 @@ void AUTBasePlayerController::ServerReceiveStatsID_Implementation(const FString&
 			UTPlayerState->StatsID = NewStatsID;
 			UTPlayerState->ReadStatsFromCloud();
 			UTPlayerState->ReadMMRFromBackend();
+
+			AUTGameState* GameState = GetWorld()->GetGameState<AUTGameState>();
+			if (GameState)
+			{
+				TSharedRef<const FUniqueNetId> UserId = MakeShareable(new FUniqueNetIdString(NewStatsID));
+				if (UserId->IsValid())
+				{
+					GameState->AddUserInfoQuery(UserId);
+				}
+			}
 		}
 		else
 		{

@@ -1194,6 +1194,20 @@ void AUTPlayerState::BeginPlay()
 			OnlineUserCloudInterface->AddOnWriteUserFileCompleteDelegate_Handle(OnWriteUserFileCompleteDelegate);
 		}
 	}
+
+	//A new playerstate has been created, the gamestate might need to update the player info query with this new information
+	if (GetWorld())
+	{
+		AUTGameState* UTGS = GetWorld()->GetGameState<AUTGameState>();
+		if (UTGS != nullptr)
+		{
+			TSharedRef<const FUniqueNetId> UserId = MakeShareable(new FUniqueNetIdString(*StatsID));
+			if (UserId->IsValid())
+			{
+				UTGS->AddUserInfoQuery(UserId);
+			}
+		}
+	}
 }
 
 void AUTPlayerState::SetCharacterVoice(const FString& CharacterVoicePath)
@@ -1787,6 +1801,19 @@ void AUTPlayerState::OnRep_UniqueId()
 	if (LP != NULL)
 	{
 		bIsFriend = LP->IsAFriend(UniqueId);
+	}
+
+	//The gamestate might need to update the player info query with this new information
+	if (GetWorld())
+	{
+		AUTGameState* UTGS = GetWorld()->GetGameState<AUTGameState>();
+		if (UTGS != nullptr)
+		{
+			if (UniqueId->IsValid())
+			{
+				UTGS->AddUserInfoQuery(UniqueId->AsShared());
+			}
+		}
 	}
 }
 
@@ -2673,6 +2700,23 @@ void AUTPlayerState::BuildPlayerInfo(TSharedPtr<SUTTabWidget> TabWidget, TArray<
 		}
 	}
 
+	FText EpicAccountName = FText::GetEmpty();
+	if (!StatsID.IsEmpty())
+	{
+		TSharedRef<const FUniqueNetId> UserId = MakeShareable(new FUniqueNetIdString(*StatsID));
+		if (UserId->IsValid())
+		{	
+			if (GetWorld())
+			{
+				AUTGameState* UTGS = GetWorld()->GetGameState<AUTGameState>();
+				if (UTGS != nullptr)
+				{
+					EpicAccountName = UTGS->GetEpicAccountNameForAccount(UserId);
+				}
+			}
+		}
+	}
+
 	UUTFlagInfo* Flag = Cast<UUTGameEngine>(GEngine) ? Cast<UUTGameEngine>(GEngine)->GetFlag(CountryFlag) : nullptr;
 	if ((Avatar == NAME_None) && PC)
 	{
@@ -2688,6 +2732,34 @@ void AUTPlayerState::BuildPlayerInfo(TSharedPtr<SUTTabWidget> TabWidget, TArray<
 	.AutoHeight()
 	[
 		SNew(SHorizontalBox)
+		+ SHorizontalBox::Slot()
+		.HAlign(HAlign_Left)
+		.VAlign(VAlign_Center)
+		.AutoWidth()
+		[
+			SNew(SBox)
+			[
+				SNew(STextBlock)
+				.Text(EpicAccountName)
+				.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.White")
+			]
+		]
+		+SHorizontalBox::Slot()
+		.HAlign(HAlign_Left)
+		.VAlign(VAlign_Center)
+		.AutoWidth()
+		[
+			//blank space between name and player icon
+			SNew(SBox)
+			.WidthOverride(64.0f)
+			.HeightOverride(64.0f)
+			.MaxDesiredWidth(64.0f)
+			.MaxDesiredHeight(64.0f)
+			[
+				SNew(SImage)
+				.Image(SUTStyle::Get().GetBrush("UT.NoStyle"))
+			]
+		]
 		+ SHorizontalBox::Slot()
 		.HAlign(HAlign_Left)
 		.VAlign(VAlign_Center)

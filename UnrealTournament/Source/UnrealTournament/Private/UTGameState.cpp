@@ -1,6 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "UnrealTournament.h"
+#include "Online.h"
+#include "OnlineSubsystemTypes.h"
+#include "OnlineSubsystemUtils.h"
 #include "UTMultiKillMessage.h"
 #include "UTSpreeMessage.h"
 #include "UTRemoteRedeemer.h"
@@ -273,7 +276,7 @@ AUTGameState::AUTGameState(const class FObjectInitializer& ObjectInitializer)
 	bOnlyTeamCanVoteKick = false;
 	bDisableVoteKick = false;
 
-
+	UserInfoQueryRetryTime = 0.5f;
 }
 
 void AUTGameState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty> & OutLifetimeProps) const
@@ -446,6 +449,109 @@ void AUTGameState::BeginPlay()
 			}
 		}
 	}
+
+	IOnlineSubsystem* OnlineSub = IOnlineSubsystem::Get();
+	if (OnlineSub)
+	{
+		OnlineUserInterface = OnlineSub->GetUserInterface();
+
+		if (OnlineUserInterface.IsValid())
+		{
+			OnUserInfoCompleteDelegate = FOnQueryUserInfoCompleteDelegate::CreateUObject(this, &AUTGameState::OnQueryUserInfoComplete);
+			OnlineUserInterface->AddOnQueryUserInfoCompleteDelegate_Handle(0, OnUserInfoCompleteDelegate);
+		}
+	}
+
+	bIsAlreadyPendingUserQuery = false;
+	AddAllUsersToInfoQuery();
+}
+
+void AUTGameState::AddUserInfoQuery(TSharedRef<const FUniqueNetId> UserId)
+{
+	if (OnlineUserInterface.IsValid() && UserId->IsValid())
+	{
+		TSharedPtr<FOnlineUser> UserInfo = OnlineUserInterface->GetUserInfo(0, *UserId);
+		if (!UserInfo.IsValid())
+		{
+			bIsUserQueryNeeded = true;
+			CurrentUsersToQuery.AddUnique(UserId);
+		}
+	}
+
+	RunAllUserInfoQuery();
+}
+
+void AUTGameState::AddAllUsersToInfoQuery()
+{
+	if (OnlineUserInterface.IsValid())
+	{
+		for (APlayerState* ConnectedPlayer : PlayerArray)
+		{
+			if (ConnectedPlayer && ConnectedPlayer->UniqueId.IsValid())
+			{
+				TSharedPtr<FOnlineUser> UserInfo = OnlineUserInterface->GetUserInfo(0, *ConnectedPlayer->UniqueId);
+				if (!UserInfo.IsValid())
+				{
+					bIsUserQueryNeeded = true;
+					CurrentUsersToQuery.AddUnique(ConnectedPlayer->UniqueId->AsShared());
+				}
+			}
+		}
+	}
+
+	RunAllUserInfoQuery();
+}
+
+void AUTGameState::RunAllUserInfoQuery()
+{
+	if (bIsUserQueryNeeded && !bIsAlreadyPendingUserQuery && (GetWorld()->GetNetMode() != NM_DedicatedServer))
+	{
+		bIsAlreadyPendingUserQuery = true;
+		bIsUserQueryNeeded = false;
+
+		OnlineUserInterface->QueryUserInfo(0, CurrentUsersToQuery);
+	}
+}
+
+void AUTGameState::OnQueryUserInfoComplete(int32 LocalPlayer, bool bWasSuccessful, const TArray< TSharedRef<const FUniqueNetId> >& UserIds, const FString& ErrorStr)
+{
+	bIsAlreadyPendingUserQuery = false;
+
+	//remove all successfully processed names from the list
+	if (bWasSuccessful)
+	{
+		for (TSharedRef<const FUniqueNetId> id : UserIds)
+		{
+			CurrentUsersToQuery.Remove(id);
+		}
+	}
+	
+	if (!bWasSuccessful || bIsUserQueryNeeded)
+	{
+		bIsUserQueryNeeded = true;
+
+		//Schedule a retry of this query if this one failed or if new information has come in since this query was started
+		if (!GetWorldTimerManager().IsTimerActive(UserInfoQueryRetryHandle))
+		{
+			GetWorldTimerManager().SetTimer(UserInfoQueryRetryHandle, this, &AUTGameState::RunAllUserInfoQuery, UserInfoQueryRetryTime, false);
+		}
+	}
+}
+
+FText AUTGameState::GetEpicAccountNameForAccount(TSharedRef<const FUniqueNetId> UserId)
+{
+	FText ReturnName = FText::GetEmpty();
+
+	if (UserId->IsValid())
+	{
+		TSharedPtr<FOnlineUser> UserInfo = OnlineUserInterface->GetUserInfo(0, *UserId);
+		if (UserInfo.IsValid())
+		{
+			ReturnName = FText::FromString(UserInfo->GetDisplayName());
+		}
+	}
+
+	return ReturnName;
 }
 
 float AUTGameState::GetRespawnWaitTimeFor(AUTPlayerState* PS)
