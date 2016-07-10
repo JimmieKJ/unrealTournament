@@ -183,7 +183,7 @@ void AUTHUD_Showdown::DrawHUD()
 {
 	AUTShowdownGameState* GS = GetWorld()->GetGameState<AUTShowdownGameState>();
 	bool bRealShowScores = bShowScores;
-	bShowScores = bShowScores || (GS != NULL && GS->GetMatchState() == MatchState::MatchIntermission && !GS->bStartedSpawnSelection);
+	bShowScores = (GS != NULL && GS->GetMatchState() == MatchState::MatchIntermission) ? !GS->bStartedSpawnSelection : bShowScores;
 	bool bDrewSpawnMap = false;
 	if (KillIconWidget)
 	{
