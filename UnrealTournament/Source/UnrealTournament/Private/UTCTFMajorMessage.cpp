@@ -108,7 +108,7 @@ FText UUTCTFMajorMessage::GetText(int32 Switch, bool bTargetsPlayerState1, APlay
 
 float UUTCTFMajorMessage::GetAnnouncementPriority(int32 Switch) const
 {
-	return 1.f;
+	return (Switch <13) ? 1.f : 0.f;
 }
 
 bool UUTCTFMajorMessage::InterruptAnnouncement_Implementation(int32 Switch, const UObject* OptionalObject, TSubclassOf<UUTLocalMessage> OtherMessageClass, int32 OtherSwitch, const UObject* OtherOptionalObject) const

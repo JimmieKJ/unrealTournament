@@ -36,7 +36,7 @@ void UUTHUDWidgetAnnouncements::DrawMessages(float DeltaTime)
 	bool bNoLivePawnTarget = !UTCharacterOwner || UTCharacterOwner->IsDead();
 	for (int32 QueueIndex = 0; QueueIndex < MessageQueue.Num(); QueueIndex++)
 	{
-		// When we hit the empty section of the array, exit out
+		// skip empty entries
 		if ((MessageQueue[QueueIndex].MessageClass == NULL) || MessageQueue[QueueIndex].bHasBeenRendered 
 			|| (bIsAtIntermission && !GetDefault<UUTLocalMessage>(MessageQueue[QueueIndex].MessageClass)->bDrawAtIntermission)
 			|| (bNoLivePawnTarget && GetDefault<UUTLocalMessage>(MessageQueue[QueueIndex].MessageClass)->bDrawOnlyIfAlive))
@@ -60,30 +60,32 @@ void UUTHUDWidgetAnnouncements::DrawMessages(float DeltaTime)
 	}
 }
 
-void UUTHUDWidgetAnnouncements::AddMessage(int32 QueueIndex, TSubclassOf<class UUTLocalMessage> MessageClass, uint32 MessageIndex, FText LocalMessageText, int32 MessageCount, APlayerState* RelatedPlayerState_1, APlayerState* RelatedPlayerState_2, UObject* OptionalObject)
+void UUTHUDWidgetAnnouncements::AddMessage(int32 InQueueIndex, TSubclassOf<class UUTLocalMessage> MessageClass, uint32 MessageIndex, FText LocalMessageText, int32 MessageCount, APlayerState* RelatedPlayerState_1, APlayerState* RelatedPlayerState_2, UObject* OptionalObject)
 {
-	Super::AddMessage(QueueIndex, MessageClass, MessageIndex, LocalMessageText, MessageCount, RelatedPlayerState_1, RelatedPlayerState_2, OptionalObject);
+	Super::AddMessage(InQueueIndex, MessageClass, MessageIndex, LocalMessageText, MessageCount, RelatedPlayerState_1, RelatedPlayerState_2, OptionalObject);
 
 	// find which slot this message wants
-	MessageQueue[QueueIndex].RequestedSlot = -1;
+	MessageQueue[InQueueIndex].RequestedSlot = -1;
 	for (int32 SlotIndex = 0; SlotIndex < Slots.Num(); SlotIndex++)
 	{
 		if (Slots[SlotIndex].MessageArea == GetDefault<UUTLocalMessage>(MessageClass)->MessageSlot)
 		{
-			MessageQueue[QueueIndex].RequestedSlot = SlotIndex;
+			MessageQueue[InQueueIndex].RequestedSlot = SlotIndex;
 			break;
 		}
 	}
-
+	for (int32 i = 0; i < MessageQueue.Num(); i++)
+	{
+		if ((i != InQueueIndex) && (MessageQueue[i].MessageClass != nullptr) && (MessageQueue[i].RequestedSlot == MessageQueue[InQueueIndex].RequestedSlot) && MessageQueue[InQueueIndex].MessageClass.GetDefaultObject()->InterruptAnnouncement(MessageQueue[InQueueIndex].MessageIndex, MessageQueue[InQueueIndex].OptionalObject, MessageQueue[i].MessageClass, MessageQueue[i].MessageIndex, MessageQueue[i].OptionalObject))
+		{
+			ClearMessage(MessageQueue[i]);
+		}
+	}
 	// FIXMESTEVE TEMP
-	if (MessageQueue[QueueIndex].RequestedSlot == -1)
+	if (MessageQueue[InQueueIndex].RequestedSlot == -1)
 	{
 		UE_LOG(UT, Warning, TEXT("No slot found for %s"), *MessageClass->GetName());
 	}
-/*	else
-	{
-		UE_LOG(UT, Warning, TEXT("Slot %d found for %s"), MessageQueue[QueueIndex].RequestedSlot, *MessageClass->GetName());
-	}*/
 }
 
 FVector2D UUTHUDWidgetAnnouncements::DrawMessage(int32 QueueIndex, float X, float Y)

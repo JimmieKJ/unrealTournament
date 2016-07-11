@@ -63,21 +63,17 @@ void UUTHUDWidgetMessage::AgeMessages_Implementation(float DeltaTime)
 	for (int32 QueueIndex = 0; QueueIndex < MessageQueue.Num(); QueueIndex++)
 	{
 		MessageQueue[QueueIndex].bHasBeenRendered = false;
-		if (MessageQueue[QueueIndex].MessageClass != NULL)
+		if (MessageQueue[QueueIndex].MessageClass == NULL)
 		{
-			if (MessageQueue[QueueIndex].DisplayFont == NULL)
-			{
-				for (int32 j=QueueIndex; j < MessageQueue.Num() - 1; j++)
-				{
-					MessageQueue[j] = MessageQueue[j+1];
-				}
-				ClearMessage(MessageQueue[QueueIndex]);
-				QueueIndex--;
-				continue;
-			}
+			continue;
 		}
-		else if (MessageQueue[QueueIndex].MessageClass == NULL)
+		if (MessageQueue[QueueIndex].DisplayFont == NULL)
 		{
+			for (int32 j=QueueIndex; j < MessageQueue.Num() - 1; j++)
+			{
+				MessageQueue[j] = MessageQueue[j+1];
+			}
+			ClearMessage(MessageQueue[QueueIndex]);
 			continue;
 		}
 
@@ -90,7 +86,6 @@ void UUTHUDWidgetMessage::AgeMessages_Implementation(float DeltaTime)
 				MessageQueue[j] = MessageQueue[j+1];
 			}
 			ClearMessage(MessageQueue[MessageQueue.Num() - 1]);
-			QueueIndex--;
 			continue;
 		}
 	}
