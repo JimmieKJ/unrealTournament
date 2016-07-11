@@ -83,7 +83,6 @@ UUTCharacterMovement::UUTCharacterMovement(const class FObjectInitializer& Objec
 	FloorSlideBonusTapInterval = 0.17f;
 	FloorSlideEndingSpeedFactor = 0.4f;
 	FloorSlideSlopeBraking = 2.7f;
-	FallingDamageRollReduction = 6.f;
 
 	MaxSwimSpeed = 1000.f;
 	MaxWaterSpeed = 450.f; 
@@ -1274,7 +1273,7 @@ float UUTCharacterMovement::FallingDamageReduction(float FallingDamage, const FH
 		// Scale damage based on angle of wall we hit
 		return FallingDamage * Hit.ImpactNormal.Z;
 	}
-	return (GetCurrentMovementTime() - FloorSlideTapTime < FloorSlideBonusTapInterval) ? FallingDamageRollReduction : 0.f;
+	return 0.f;
 }
 
 void UUTCharacterMovement::RestrictJump(float RestrictedJumpTime)

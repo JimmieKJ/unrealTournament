@@ -414,10 +414,6 @@ public:
 
 	FTimerHandle FloorSlideTapHandle;
 
-	/** Falling damage reduction if hit floor slide within FloorSlideBonusTapInterval */
-	UPROPERTY(Category = "FloorSlide", EditAnywhere, BlueprintReadWrite)
-	float FallingDamageRollReduction;
-
 	/** Amount of falling damage reduction */
 	UFUNCTION(BlueprintCallable, Category = "FloorSlide")
 	virtual	float FallingDamageReduction(float FallingDamage, const FHitResult& Hit);
