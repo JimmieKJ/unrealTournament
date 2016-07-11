@@ -2,6 +2,7 @@
 
 #include "UnrealTournament.h"
 #include "UTHUDWidgetMessage.h"
+#include "UTUMGHudWidget_LocalMessage.h"
 #include "UTEngineMessage.h"
 #include "UTCharacterVoice.h"
 
@@ -13,6 +14,9 @@ UUTHUDWidgetMessage::UUTHUDWidgetMessage(const class FObjectInitializer& ObjectI
 	SmallShadowDirection = FVector2D(1.f, 2.f);
 	ScaleInDirection = 0.f;
 	NumVisibleLines = 3;
+
+	bDebugWidget = false;
+
 }
 
 void UUTHUDWidgetMessage::InitializeWidget(AUTHUD* Hud)
@@ -42,6 +46,11 @@ void UUTHUDWidgetMessage::PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCanvas
 
 void UUTHUDWidgetMessage::Draw_Implementation(float DeltaTime)
 {
+	if (bDebugWidget)
+	{
+		DumpMessages();
+	}
+
 	DrawMessages(DeltaTime);
 }
 
@@ -67,13 +76,15 @@ void UUTHUDWidgetMessage::AgeMessages_Implementation(float DeltaTime)
 		{
 			continue;
 		}
+
 		if (MessageQueue[QueueIndex].DisplayFont == NULL)
 		{
 			for (int32 j=QueueIndex; j < MessageQueue.Num() - 1; j++)
 			{
 				MessageQueue[j] = MessageQueue[j+1];
 			}
-			ClearMessage(MessageQueue[QueueIndex]);
+			ClearMessage(MessageQueue[MessageQueue.Num() - 1]);
+
 			continue;
 		}
 
@@ -81,6 +92,13 @@ void UUTHUDWidgetMessage::AgeMessages_Implementation(float DeltaTime)
 		MessageQueue[QueueIndex].LifeLeft -= DeltaTime;
 		if (MessageQueue[QueueIndex].LifeLeft <= 0.0)
 		{
+			// If this queue message has an UMG widget, clear it too
+			if (MessageQueue[QueueIndex].UMGWidget.IsValid())
+			{
+				UTHUDOwner->DeactivateActualUMGHudWidget(MessageQueue[QueueIndex].UMGWidget);
+				MessageQueue[QueueIndex].UMGWidget.Reset();
+			}
+				
 			for (int32 j=QueueIndex; j < MessageQueue.Num() - 1; j++)
 			{
 				MessageQueue[j] = MessageQueue[j+1];
@@ -121,6 +139,13 @@ void UUTHUDWidgetMessage::DrawMessages(float DeltaTime)
 FVector2D UUTHUDWidgetMessage::DrawMessage(int32 QueueIndex, float X, float Y)
 {
 	MessageQueue[QueueIndex].bHasBeenRendered = true;
+
+	// If this is an UMG widget, then don't try to draw it.  
+	if (MessageQueue[QueueIndex].UMGWidget.IsValid())
+	{
+		return FVector2D(X,Y);
+	}
+
 	float CurrentTextScale = GetTextScale(QueueIndex);
 	float Alpha = 1.f;
 
@@ -235,6 +260,15 @@ void UUTHUDWidgetMessage::ReceiveLocalMessage(TSubclassOf<class UUTLocalMessage>
 
 void UUTHUDWidgetMessage::AddMessage(int32 QueueIndex, TSubclassOf<class UUTLocalMessage> MessageClass, uint32 MessageIndex, FText LocalMessageText, int32 MessageCount, APlayerState* RelatedPlayerState_1, APlayerState* RelatedPlayerState_2, UObject* OptionalObject)
 {
+	// If this MessageQueue has an associated UMG widget, we have to kill it before adding the new one.
+	bool bHadToClear = false;
+	if (MessageQueue[QueueIndex].UMGWidget.IsValid())
+	{
+		UTHUDOwner->DeactivateActualUMGHudWidget(MessageQueue[QueueIndex].UMGWidget);
+		MessageQueue[QueueIndex].UMGWidget.Reset();
+		bHadToClear = true;
+	}
+
 	MessageQueue[QueueIndex].MessageClass = MessageClass;
 	MessageQueue[QueueIndex].MessageIndex = MessageIndex;
 	MessageQueue[QueueIndex].Text = LocalMessageText;
@@ -254,6 +288,31 @@ void UUTHUDWidgetMessage::AddMessage(int32 QueueIndex, TSubclassOf<class UUTLoca
 
 	MessageQueue[QueueIndex].RelatedPlayerState_1 = RelatedPlayerState_1;
 	MessageQueue[QueueIndex].RelatedPlayerState_2 = RelatedPlayerState_2;
+
+	// If there is an associated UMG class, set it up to be displayed.
+	FString UMGWidgetClass = GetDefault<UUTLocalMessage>(MessageClass)->GetAnnouncementUMGClassname(MessageIndex, OptionalObject);
+	if (!UMGWidgetClass.IsEmpty())
+	{
+		TWeakObjectPtr<class UUTUMGHudWidget> UMGWidget = UTHUDOwner->ActivateUMGHudWidget(UMGWidgetClass);
+		if (UMGWidget.IsValid())
+		{
+			UUTUMGHudWidget_LocalMessage* LocalMessageWidget = Cast<UUTUMGHudWidget_LocalMessage>(UMGWidget.Get());
+			if (LocalMessageWidget != nullptr)
+			{
+				LocalMessageWidget->InitializeMessage(MessageQueue[QueueIndex].MessageClass, MessageQueue[QueueIndex].MessageIndex, 
+														MessageQueue[QueueIndex].RelatedPlayerState_1, MessageQueue[QueueIndex].RelatedPlayerState_2, MessageQueue[QueueIndex].OptionalObject);
+
+				MessageQueue[QueueIndex].UMGWidget = UMGWidget;
+			}
+		}
+	}
+
+	if (bDebugWidget)
+	{
+		DumpQueueIndex(QueueIndex, TEXT("--Adding "));
+	}
+		
+
 }
 
 void UUTHUDWidgetMessage::LayoutMessage(int32 QueueIndex, TSubclassOf<class UUTLocalMessage> MessageClass, uint32 MessageIndex, FText LocalMessageText, int32 MessageCount, APlayerState* RelatedPlayerState_1, APlayerState* RelatedPlayerState_2, UObject* OptionalObject)
@@ -280,13 +339,22 @@ void UUTHUDWidgetMessage::DumpMessages()
 {
 	for (int32 i=0;i<MessageQueue.Num();i++)
 	{
-		if (MessageQueue[i].MessageClass == NULL)
+		if (MessageQueue[i].MessageClass != nullptr)
 		{
-			UE_LOG(UT,Log,TEXT("Message %i is NULL"),i);
-		}
-		else
-		{
-			UE_LOG(UT,Log,TEXT("Message %i = %s %s %i %f %f"), i, *GetNameSafe(MessageQueue[i].MessageClass), *MessageQueue[i].Text.ToString(), MessageQueue[i].MessageIndex, MessageQueue[i].LifeSpan, MessageQueue[i].LifeLeft);
+			DumpQueueIndex(i,FString::Printf(TEXT("[%s] "), *GetNameSafe(this)));
 		}
 	}
 }
+
+void UUTHUDWidgetMessage::DumpQueueIndex(int32 QueueIndex, FString Prefix)
+{
+	UE_LOG(UT,Log,TEXT("%s#%i :  Class = \"%s\" Text = \"%s\" Switch = %i  Widget = %s  Time Left = %f"),
+		   *Prefix,
+		   QueueIndex,
+		   MessageQueue[QueueIndex].MessageClass ? *GetNameSafe(MessageQueue[QueueIndex].MessageClass) : TEXT("<none>"),
+		   *MessageQueue[QueueIndex].Text.ToString(),
+		   MessageQueue[QueueIndex].MessageIndex,
+		   MessageQueue[QueueIndex].UMGWidget.IsValid() ? *GetNameSafe(MessageQueue[QueueIndex].UMGWidget.Get()) : TEXT("<none>"),
+		   MessageQueue[QueueIndex].LifeLeft);
+}
+

@@ -69,6 +69,8 @@ class UUTRadialMenu;
 class UUTRadialMenu_Coms;
 class UUTRadialMenu_WeaponWheel;
 
+class UUTUMGHudWidget;
+
 UCLASS(Config=Game)
 class UNREALTOURNAMENT_API AUTHUD : public AHUD
 {
@@ -612,7 +614,6 @@ public:
 	bool bShowWeaponWheel;
 	virtual void ToggleWeaponWheel(bool bShow);
 
-
 	bool bShowVoiceDebug;
 
 protected:
@@ -621,6 +622,20 @@ protected:
 	UUTRadialMenu_Coms* ComsMenu;
 	UUTRadialMenu_WeaponWheel* WeaponWheel;
 
+public:
+	/**
+	 *	Activate a UMG HUD widget and display it over the HUD
+	 **/
+	virtual TWeakObjectPtr<class UUTUMGHudWidget> ActivateUMGHudWidget(FString UMGHudWidgetClassName, bool bUnique = true);
+
+	/**
+	 *	Deactivates a UMG HUD widget that is already active
+	 **/
+	virtual void DeactivateUMGHudWidget(FString UMGHudWidgetClassName);
+	virtual void DeactivateActualUMGHudWidget(TWeakObjectPtr<UUTUMGHudWidget> WidgetToDeactivate);
+
+protected:
+	TArray<TWeakObjectPtr<UUTUMGHudWidget>> UMGHudWidgetStack;
 
 };
 

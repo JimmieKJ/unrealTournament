@@ -91,6 +91,13 @@ void UUTHUDWidgetAnnouncements::AddMessage(int32 InQueueIndex, TSubclassOf<class
 FVector2D UUTHUDWidgetAnnouncements::DrawMessage(int32 QueueIndex, float X, float Y)
 {
 	MessageQueue[QueueIndex].bHasBeenRendered = true;
+
+	// If this is an UMG widget, then don't try to draw it.  
+	if (MessageQueue[QueueIndex].UMGWidget.IsValid())
+	{
+		return FVector2D(X,Y);
+	}
+
 	float CurrentTextScale = GetTextScale(QueueIndex);
 	float Alpha = 1.f;
 

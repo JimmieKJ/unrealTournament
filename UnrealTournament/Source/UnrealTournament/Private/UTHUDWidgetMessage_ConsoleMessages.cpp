@@ -43,6 +43,13 @@ void UUTHUDWidgetMessage_ConsoleMessages::DrawMessages(float DeltaTime)
 FVector2D UUTHUDWidgetMessage_ConsoleMessages::DrawMessage(int32 QueueIndex, float X, float Y)
 {
 	MessageQueue[QueueIndex].bHasBeenRendered = true;
+
+	// If this is an UMG widget, then don't try to draw it.  
+	if (MessageQueue[QueueIndex].UMGWidget.IsValid())
+	{
+		return FVector2D(X,Y);
+	}
+
 	return DrawText(MessageQueue[QueueIndex].Text, X, Y, MessageQueue[QueueIndex].DisplayFont, FVector2D(2,2), FLinearColor::Black, 1.0f, 1.0f, MessageQueue[QueueIndex].DrawColor, ETextHorzPos::Left, ETextVertPos::Top);
 }
 

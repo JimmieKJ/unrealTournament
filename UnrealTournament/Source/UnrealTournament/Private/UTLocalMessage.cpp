@@ -245,3 +245,8 @@ bool UUTLocalMessage::ShouldCountInstances_Implementation(int32 MessageIndex, UO
 {
 	return false;
 }
+
+FString UUTLocalMessage::GetAnnouncementUMGClassname(int32 Switch, const UObject* OptionalObject) const
+{
+	return TEXT("");
+}

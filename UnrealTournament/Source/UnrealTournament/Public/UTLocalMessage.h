@@ -160,6 +160,11 @@ class UNREALTOURNAMENT_API UUTLocalMessage : public ULocalMessage
 
 	virtual bool IsConsoleMessage(int32 Switch) const;
 	bool PartiallyDuplicates(int32 Switch1, int32 Switch2, class UObject* OptionalObject1, class UObject* OptionalObject2 ) const;
+
+	/** return the UMG object to display instead of the message or Empty() if no UMG widget is assocated with this switch */
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = Message)
+	virtual FString GetAnnouncementUMGClassname(int32 Switch, const UObject* OptionalObject) const;
+
 };
 
 

@@ -7,6 +7,7 @@
  *
  **/
 
+#include "UTUMGHudWidget.h"
 #include "UTHUDWidgetMessage.generated.h"
 
 const int32 MESSAGE_QUEUE_LENGTH = 8;
@@ -99,6 +100,9 @@ struct UNREALTOURNAMENT_API FLocalizedMessageData
 	UPROPERTY()
 		FVector2D ShadowDirection;
 
+	UPROPERTY()
+	TWeakObjectPtr<class UUTUMGHudWidget> UMGWidget;
+
 	virtual bool ShouldDraw_Implementation(bool bShowScores)
 	{
 		return bShowScores;
@@ -119,6 +123,7 @@ struct UNREALTOURNAMENT_API FLocalizedMessageData
 		, bHasBeenRendered(false)
 		, MessageCount(0)
 	{
+		UMGWidget.Reset();
 	}
 
 };
@@ -212,6 +217,10 @@ protected:
 	// returns the text scaling factor for a given message.  Exposed here to make extending
 	// the widget easier.
 	virtual float GetTextScale(int32 QueueIndex);
+
+	bool bDebugWidget;
+
+	void DumpQueueIndex(int32 QueueIndex, FString Prefix);
 
 private:
 

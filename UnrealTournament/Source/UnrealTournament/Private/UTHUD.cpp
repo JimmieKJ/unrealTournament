@@ -27,6 +27,7 @@
 #include "UTRadialMenu_WeaponWheel.h"
 #include "OnlineSubsystemTypes.h"
 #include "OnlineSubsystemUtils.h"
+#include "UTUMGHudWidget.h"
 
 AUTHUD::AUTHUD(const class FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
 {
@@ -111,6 +112,8 @@ void AUTHUD::Destroyed()
 {
 	Super::Destroyed();
 	CachedProfileSettings = nullptr;
+
+	UMGHudWidgetStack.Empty();
 }
 
 void AUTHUD::ClearIndicators()
@@ -486,11 +489,10 @@ void AUTHUD::PostRender()
 	}
 	Super::PostRender();
 
-/*
-	DrawString(FText::Format( NSLOCTEXT("a","b","InputMode: {0}"),  FText::AsNumber(Cast<AUTBasePlayerController>(PlayerOwner)->InputMode)), 0, 0, ETextHorzPos::Left, ETextVertPos::Top, SmallFont, FLinearColor::White, 1.0, true);
-	Canvas->SetDrawColor(255,0,0,255);
-	Canvas->K2_DrawBox(DebugMousePosition, FVector2D(3,3),1.0);
-*/
+
+//	DrawString(FText::Format( NSLOCTEXT("a","b","InputMode: {0}"),  FText::AsNumber(Cast<AUTBasePlayerController>(PlayerOwner)->InputMode)), 0, 0, ETextHorzPos::Left, ETextVertPos::Top, SmallFont, FLinearColor::White, 1.0, true);
+//	Canvas->SetDrawColor(255,0,0,255);
+
 }
 
 void AUTHUD::CacheFonts()
@@ -1598,3 +1600,65 @@ void AUTHUD::ToggleWeaponWheel(bool bShow)
 	}
 }
 
+TWeakObjectPtr<class UUTUMGHudWidget> AUTHUD::ActivateUMGHudWidget(FString UMGHudWidgetClassName, bool bUnique)
+{
+	TWeakObjectPtr<class UUTUMGHudWidget> FinalUMGWidget;
+	FinalUMGWidget.Reset();
+
+	if ( !UMGHudWidgetClassName.IsEmpty() ) 
+	{
+
+		// Attempt to look up the class
+		UClass* UMGWidgetClass = LoadClass<UUTUMGHudWidget>(NULL, *UMGHudWidgetClassName, NULL, LOAD_NoWarn | LOAD_Quiet, NULL);
+		if (UMGWidgetClass)
+		{
+			// Look to see if there is a widget in the stack that matches this class.  And if so then exit.
+			if (bUnique)
+			{
+				for (int32 i=0; i < UMGHudWidgetStack.Num(); i++)
+				{
+					if (UMGHudWidgetStack[i].IsValid() && UMGHudWidgetStack[i]->GetClass() == UMGWidgetClass)
+					{
+						return FinalUMGWidget;
+					}
+				}
+			}
+
+			FinalUMGWidget = CreateWidget<UUTUMGHudWidget>(UTPlayerOwner, UMGWidgetClass);
+			if (FinalUMGWidget.IsValid())
+			{
+				UMGHudWidgetStack.Add(FinalUMGWidget);
+				FinalUMGWidget->AssociateHUD(this);
+				FinalUMGWidget->AddToViewport(FinalUMGWidget->DisplayZOrder);
+			}
+		}		
+		else	// The class wasn't found, so try again but this time add a _C to the classname
+		{
+			return ActivateUMGHudWidget(UMGHudWidgetClassName + TEXT("_C"), bUnique);
+		}
+	}
+	return FinalUMGWidget;
+}
+
+void AUTHUD::DeactivateUMGHudWidget(FString UMGHudWidgetClassName)
+{
+	// Attempt to look up the class
+	UClass* UMGWidgetClass = LoadClass<UUserWidget>(NULL, *UMGHudWidgetClassName, NULL, LOAD_NoWarn | LOAD_Quiet, NULL);
+	if (UMGWidgetClass && UMGWidgetClass->IsChildOf(UUTUMGHudWidget::StaticClass()))
+	{
+		// Look to see if there is a widget in the stack that matches this class.  And if so then exit.
+		for (int32 i=0; i < UMGHudWidgetStack.Num(); i++)
+		{
+			if (UMGHudWidgetStack[i].IsValid() && UMGHudWidgetStack[i]->GetClass() == UMGWidgetClass)
+			{
+				DeactivateActualUMGHudWidget(UMGHudWidgetStack[i]);
+			}
+		}
+	}
+}
+
+void AUTHUD::DeactivateActualUMGHudWidget(TWeakObjectPtr<UUTUMGHudWidget> WidgetToDeactivate)
+{
+	WidgetToDeactivate->RemoveFromViewport();
+	UMGHudWidgetStack.Remove(WidgetToDeactivate);
+}

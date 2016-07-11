@@ -78,6 +78,12 @@ FVector2D UUTHUDWidgetMessage_KillIconMessages::DrawMessage(int32 QueueIndex, fl
 {
 	MessageQueue[QueueIndex].bHasBeenRendered = true;
 
+	// If this is an UMG widget, then don't try to draw it.  
+	if (MessageQueue[QueueIndex].UMGWidget.IsValid())
+	{
+		return FVector2D(X,Y);
+	}
+
 	//Gather all the info needed to display the message
 	APlayerController* LocalPC = GEngine->GetFirstLocalPlayerController(GetWorld());
 	AUTPlayerState* LocalPS = (LocalPC != nullptr) ? Cast<AUTPlayerState>(LocalPC->PlayerState) : nullptr;
