@@ -372,9 +372,9 @@ void AUTShowdownGame::ScoreExpiredRoundTime()
 					}
 				}
 			}
+			BroadcastLocalized(NULL, UUTShowdownGameMessage::StaticClass(), 1);
 		}
 		LastRoundWinner = NULL;
-		BroadcastLocalized(NULL, UUTShowdownGameMessage::StaticClass(), 1);
 	}
 	else
 	{
