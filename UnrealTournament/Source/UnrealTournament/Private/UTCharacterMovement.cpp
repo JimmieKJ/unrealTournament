@@ -1900,7 +1900,7 @@ void UUTCharacterMovement::PhysFalling(float deltaTime, int32 Iterations)
 
 		FallAcceleration = FallAcceleration.GetClampedToMaxSize(MaxAccel);
 
-		if (!bHasPlayedWallHitSound && UTCharOwner && UTCharOwner->IsLocallyControlled() && Cast<AUTPlayerController>(UTCharOwner->GetController()) && (GetCurrentMovementTime() > FMath::Max(DodgeResetTime, JumpTime+0.2f)) && (CurrentWallDodgeCount < MaxWallDodges))
+		if (!bHasPlayedWallHitSound && UTCharOwner && UTCharOwner->IsLocallyControlled() && Cast<AUTPlayerController>(UTCharOwner->GetController()) && (GetCurrentMovementTime() > FMath::Max(DodgeResetTime - 0.05f, JumpTime+0.2f)) && (CurrentWallDodgeCount < MaxWallDodges))
 		{
 			bool bIsNearWall = false;
 			FHitResult Result;
