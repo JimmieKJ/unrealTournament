@@ -928,7 +928,7 @@ TSharedRef<SWidget> SUTControlSettingsDialog::BuildMovementTab()
 			[
 				SNew(STextBlock)
 				.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
-				.Text(NSLOCTEXT("SUTControlSettingsDialog", "SingleTapWallDodge", "Enable one tap wall dodge"))
+				.Text(NSLOCTEXT("SUTControlSettingsDialog", "SingleTapWallDodge", "Enable single movement key tap wall dodge"))
 			]
 		]
 		+ SHorizontalBox::Slot()
@@ -954,7 +954,7 @@ TSharedRef<SWidget> SUTControlSettingsDialog::BuildMovementTab()
 			[
 				SNew(STextBlock)
 				.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
-				.Text(NSLOCTEXT("SUTControlSettingsDialog", "SingleTapAfterJump", "One tap wall dodge only after jump"))
+				.Text(NSLOCTEXT("SUTControlSettingsDialog", "SingleTapAfterJump", "Single tap wall dodge only after jump"))
 			]
 		]
 		+ SHorizontalBox::Slot()
@@ -980,7 +980,7 @@ TSharedRef<SWidget> SUTControlSettingsDialog::BuildMovementTab()
 			[
 				SNew(STextBlock)
 				.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
-				.Text(NSLOCTEXT("SUTControlSettingsDialog", "MaxDodgeTapTime", "One Tap Wall Dodge Hold Time"))
+				.Text(NSLOCTEXT("SUTControlSettingsDialog", "MaxDodgeTapTime", "Single Tap Wall Dodge Hold Time"))
 			]
 		]
 		+ SHorizontalBox::Slot()
