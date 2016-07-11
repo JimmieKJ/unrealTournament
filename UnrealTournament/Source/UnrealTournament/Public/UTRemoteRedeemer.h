@@ -60,10 +60,6 @@ public:
 	UPROPERTY(BlueprintReadOnly, Category = Projectile)
 	AController* DamageInstigator;
 
-	/** Effects for full nuclear blast. */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Effects)
-	TSubclassOf<class AUTImpactEffect> ExplosionEffects;
-
 	UFUNCTION()
 	virtual bool TryToDrive(APawn* NewDriver);
 

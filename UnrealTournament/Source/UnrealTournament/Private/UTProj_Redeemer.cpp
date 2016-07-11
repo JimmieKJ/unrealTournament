@@ -216,7 +216,11 @@ void AUTProj_Redeemer::Explode_Implementation(const FVector& HitLocation, const 
 			bReplicateUTMovement = true; // so position of explosion is accurate even if flight path was a little off
 		}
 
-		if (ExplosionEffects != NULL)
+		if (ExplosionBP != NULL)
+		{
+			GetWorld()->SpawnActor<AActor>(ExplosionBP, FTransform(HitNormal.Rotation(), HitLocation));
+		}
+		else if (ExplosionEffects != NULL)
 		{
 			ExplosionEffects.GetDefaultObject()->SpawnEffect(GetWorld(), FTransform(HitNormal.Rotation(), HitLocation), HitComp, this, InstigatorController);
 		}

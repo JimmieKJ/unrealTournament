@@ -19,6 +19,10 @@ class UNREALTOURNAMENT_API AUTProj_Redeemer : public AUTProjectile
 	float ExplosionRadii[6];
 	float CollisionFreeRadius;
 
+	/** explosion effects blueprint, overrides the normal path; MUST DESTROY ITSELF */
+	UPROPERTY(EditDefaultsOnly)
+	TSubclassOf<AActor> ExplosionBP;
+
 	void Explode_Implementation(const FVector& HitLocation, const FVector& HitNormal, UPrimitiveComponent* HitComp) override;
 
 	void ExplodeStage(float RangeMultiplier);

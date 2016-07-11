@@ -327,9 +327,17 @@ void AUTRemoteRedeemer::PlayExplosionEffects()
 		}
 	}
 
-	if (ExplosionEffects != NULL)
+	AUTProj_Redeemer* DefaultRedeemer = (RedeemerProjectileClass != NULL) ? RedeemerProjectileClass->GetDefaultObject<AUTProj_Redeemer>() : NULL;
+	if (DefaultRedeemer != NULL)
 	{
-		ExplosionEffects.GetDefaultObject()->SpawnEffect(GetWorld(), FTransform(GetActorRotation(), GetActorLocation()), nullptr, this, DamageInstigator);
+		if (DefaultRedeemer->ExplosionBP != NULL)
+		{
+			GetWorld()->SpawnActor<AActor>(DefaultRedeemer->ExplosionBP, FTransform(GetActorRotation(), GetActorLocation()));
+		}
+		else if (DefaultRedeemer->ExplosionEffects != NULL)
+		{
+			DefaultRedeemer->ExplosionEffects.GetDefaultObject()->SpawnEffect(GetWorld(), FTransform(GetActorRotation(), GetActorLocation()), nullptr, this, DamageInstigator);
+		}
 	}
 }
 
@@ -429,8 +437,8 @@ void AUTRemoteRedeemer::OnRep_PlayerState()
 
 void AUTRemoteRedeemer::ExplodeStage(float RangeMultiplier)
 {
-	AUTProj_Redeemer *DefaultRedeemer = RedeemerProjectileClass->GetDefaultObject<AUTProj_Redeemer>();
-	if (DefaultRedeemer)
+	AUTProj_Redeemer* DefaultRedeemer = (RedeemerProjectileClass != NULL) ? RedeemerProjectileClass->GetDefaultObject<AUTProj_Redeemer>() : NULL;
+	if (DefaultRedeemer != NULL)
 	{
 		FRadialDamageParams AdjustedDamageParams = DefaultRedeemer->DamageParams;
 		if (AdjustedDamageParams.OuterRadius > 0.0f)
