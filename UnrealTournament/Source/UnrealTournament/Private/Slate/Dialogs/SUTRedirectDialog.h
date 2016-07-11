@@ -87,6 +87,8 @@ protected:
 	void AddSample(int32 Sample);
 	float GetAverageBytes() const;
 
+	bool bWaitingToDownloadFile;
+
 public:
 	virtual void Tick(const FGeometry & AllottedGeometry, const double InCurrentTime, const float InDeltaTime) override;
 };

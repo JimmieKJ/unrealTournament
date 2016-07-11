@@ -120,7 +120,7 @@ UUTLocalPlayer::UUTLocalPlayer(const class FObjectInitializer& ObjectInitializer
 	KillcamPlayback = ObjectInitializer.CreateDefaultSubobject<UUTKillcamPlayback>(this, TEXT("KillcamPlayback"));
 
 	bHasShownDLCWarning = false;
-
+	bDLCWarningIsVisible = false;
 }
 
 UUTLocalPlayer::~UUTLocalPlayer()
@@ -3541,8 +3541,6 @@ bool UUTLocalPlayer::ContentExists(const FPackageRedirectReference& Redirect)
 
 void UUTLocalPlayer::AccquireContent(TArray<FPackageRedirectReference>& Redirects)
 {
-	bool bNeedsToShowWarning = !bHasShownDLCWarning;
-
 	UUTGameViewportClient* UTGameViewport = Cast<UUTGameViewportClient>(ViewportClient);
 	if (UTGameViewport)
 	{
@@ -3554,6 +3552,16 @@ void UUTLocalPlayer::AccquireContent(TArray<FPackageRedirectReference>& Redirect
 			}
 		}
 	}
+
+	ShowDLCWarning();
+}
+
+void UUTLocalPlayer::ShowDLCWarning()
+{
+
+	if (bDLCWarningIsVisible) return;
+
+	bool bNeedsToShowWarning = !bHasShownDLCWarning;
 
 	// Look at the trust level of the current session
 	IOnlineSubsystem* OnlineSubsystem = IOnlineSubsystem::Get();
@@ -3578,7 +3586,7 @@ void UUTLocalPlayer::AccquireContent(TArray<FPackageRedirectReference>& Redirect
 	if (bNeedsToShowWarning)
 	{
 #if !UE_SERVER
-
+		bDLCWarningIsVisible = true;
 		// Ask player if they want to try to rejoin last ranked game
 		ShowMessage(NSLOCTEXT("UTLocalPlayer","ContentWarningTitle","!! Content Warning !!"),
 			NSLOCTEXT("UTLocalPlayer","ContentWarningText","This server is attempting to send you third party content that has not been verified by Epic Games.  You should only accept content from servers that you trust.  Continue download?"),
@@ -3597,6 +3605,8 @@ void UUTLocalPlayer::AccquireContent(TArray<FPackageRedirectReference>& Redirect
 #if !UE_SERVER
 void UUTLocalPlayer::ContentAcceptResult(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID)
 {
+	bDLCWarningIsVisible = false;
+
 	if (ButtonID == UTDIALOG_BUTTON_YES)
 	{
 		bHasShownDLCWarning = true;

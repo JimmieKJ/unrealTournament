@@ -1051,8 +1051,11 @@ public:
 	// If true, then this client has shown the downloadable content warning since the last travel.
 	bool bHasShownDLCWarning;
 
+	void ShowDLCWarning();
+
 protected:
-	
+	bool bDLCWarningIsVisible;
+
 	UPROPERTY()
 	UUTKillcamPlayback* KillcamPlayback;
 
