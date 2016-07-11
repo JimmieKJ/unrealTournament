@@ -231,8 +231,9 @@ class UNREALTOURNAMENT_API UUTHUDWidget_QuickStats : public UUTHUDWidget
 
 	virtual void InitializeWidget(AUTHUD* Hud);
 	virtual void Draw_Implementation(float DeltaTime) override;
-	virtual void PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCanvas* InCanvas, FVector2D InCanvasCenter);
-	virtual bool ShouldDraw_Implementation(bool bShowScores);
+	virtual void PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCanvas* InCanvas, FVector2D InCanvasCenter) override;
+	virtual bool ShouldDraw_Implementation(bool bShowScores) override;
+	virtual void UpdateKeyMappings(bool bForceUpdate) override;
 
 	virtual void PingBoostWidget();
 
@@ -299,6 +300,9 @@ protected:
 	UPROPERTY()
 	FHUDRenderObject_Texture PowerupIcon;
 
+	UPROPERTY()
+		bool bKeyMappingsSet;
+
 	virtual float GetDrawScaleOverride();
 
 private:
@@ -315,9 +319,6 @@ private:
 	FStatInfo PowerupInfo;
 	FStatInfo BoostProvidedPowerupInfo;
 	FStatInfo RallyInfo;
-
-	FInputActionKeyMapping ActivatePowerupBinding;
-	FInputActionKeyMapping RallyBinding;
 
 	AUTWeapon* LastWeapon;
 
