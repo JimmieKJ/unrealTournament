@@ -202,8 +202,9 @@ bool UUTGameInstance::StartRedirectDownload(const FString& PakName, const FStrin
 				.RedirectToURL(URL)
 				.PlayerOwner(LocalPlayer);
 			ActiveRedirectDialogs.Add(Dialog);
-			LocalPlayer->OpenDialog(Dialog);
+			LocalPlayer->OpenDialog(Dialog,240);
 
+			LocalPlayer->ShowDLCWarning();
 			return true;
 		}
 		else

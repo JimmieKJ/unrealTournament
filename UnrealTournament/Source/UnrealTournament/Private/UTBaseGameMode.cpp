@@ -291,6 +291,14 @@ bool AUTBaseGameMode::FindRedirect(const FString& PackageName, FPackageRedirectR
 
 void AUTBaseGameMode::GatherRequiredRedirects(TArray<FPackageRedirectReference>& Redirects)
 {
+/*
+	// Fake redirects for sync testing
+	for (int i=0; i < RedirectReferences.Num(); i++)
+	{
+		Redirects.AddUnique(RedirectReferences[i]);
+	}
+*/
+
 	// map pak
 	FPackageRedirectReference Redirect;
 	if (FindRedirect(GetModPakFilenameFromPkg(GetOutermost()->GetName()), Redirect))

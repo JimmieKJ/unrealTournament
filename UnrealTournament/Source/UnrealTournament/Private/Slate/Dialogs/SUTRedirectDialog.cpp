@@ -108,7 +108,15 @@ void SUTRedirectDialog::Construct(const FArguments& InArgs)
 
 	}
 
-	DownloadFile(RedirectToURL);
+	if (PlayerOwner->bHasShownDLCWarning)
+	{
+		bWaitingToDownloadFile = false;
+		DownloadFile(RedirectToURL);
+	}
+	else
+	{
+		bWaitingToDownloadFile = true;
+	}
 }
 
 FReply SUTRedirectDialog::OnButtonClick(uint16 ButtonID)
@@ -122,43 +130,53 @@ FReply SUTRedirectDialog::OnButtonClick(uint16 ButtonID)
 
 void SUTRedirectDialog::Tick(const FGeometry & AllottedGeometry, const double InCurrentTime, const float InDeltaTime)
 {
-	if (!RedirectToURL.IsEmpty())
+	if (PlayerOwner->bHasShownDLCWarning)
 	{
-		if (HttpRequest.IsValid() && HttpRequest->GetStatus() == EHttpRequestStatus::Processing)
+		if (bWaitingToDownloadFile)
 		{
-			HttpRequest->Tick(InDeltaTime);
-
-			//Update the download speeds and ETA
-			if (LastETATime < InCurrentTime - 1)
-			{
-				LastETATime = InCurrentTime;
-				UpdateETA();
-			}
-		}
-		else if (HttpRequest->GetStatus() == EHttpRequestStatus::Failed)
-		{
-			CancelDownload();
+			bWaitingToDownloadFile = false;
+			DownloadFile(RedirectToURL);
 		}
 		else
 		{
-			if (RedirectURLs.Num() > 0)
+			if (!RedirectToURL.IsEmpty())
 			{
-				RedirectToURL = RedirectURLs[0];
-				RedirectURLs.RemoveAt(0);
-				DownloadFile(RedirectToURL);
+				if (HttpRequest.IsValid() && HttpRequest->GetStatus() == EHttpRequestStatus::Processing)
+				{
+					HttpRequest->Tick(InDeltaTime);
+
+					//Update the download speeds and ETA
+					if (LastETATime < InCurrentTime - 1)
+					{
+						LastETATime = InCurrentTime;
+						UpdateETA();
+					}
+				}
+				else if (HttpRequest->GetStatus() == EHttpRequestStatus::Failed)
+				{
+					CancelDownload();
+				}
+				else
+				{
+					if (RedirectURLs.Num() > 0)
+					{
+						RedirectToURL = RedirectURLs[0];
+						RedirectURLs.RemoveAt(0);
+						DownloadFile(RedirectToURL);
+					}
+					else
+					{
+						OnDialogResult.ExecuteIfBound(SharedThis(this), UTDIALOG_BUTTON_OK);
+						GetPlayerOwner()->CloseDialog(SharedThis(this));
+					}
+				}
 			}
 			else
 			{
-				OnDialogResult.ExecuteIfBound(SharedThis(this), UTDIALOG_BUTTON_OK);
 				GetPlayerOwner()->CloseDialog(SharedThis(this));
 			}
 		}
 	}
-	else
-	{
-		GetPlayerOwner()->CloseDialog(SharedThis(this));
-	}
-
 	return SUTDialogBase::Tick(AllottedGeometry, InCurrentTime, InDeltaTime);
 }
 
