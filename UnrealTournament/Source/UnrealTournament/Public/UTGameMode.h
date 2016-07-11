@@ -177,6 +177,10 @@ public:
 	UPROPERTY(EditDefaultsOnly)
 	bool bHasRespawnChoices;
 
+	/** If true, allow announcements for pickup spawn. */
+	UPROPERTY(EditDefaultsOnly, Category=Game)
+		bool bAllowPickupAnnouncements;
+
 	UPROPERTY(AssetRegistrySearchable, EditDefaultsOnly)
 	bool bHideInUI;
 

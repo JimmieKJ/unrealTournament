@@ -50,6 +50,7 @@ public:
 	bool bAllowRotatingPickup;
 
 	virtual void BeginPlay() override;
+	virtual void PlayRespawnEffects() override;
 
 #if WITH_EDITOR
 	/** create transient pickup mesh for editor previewing */

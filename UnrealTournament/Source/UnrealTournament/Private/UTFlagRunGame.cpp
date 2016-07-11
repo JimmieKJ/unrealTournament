@@ -46,6 +46,7 @@ AUTFlagRunGame::AUTFlagRunGame(const FObjectInitializer& ObjectInitializer)
 	DisplayName = NSLOCTEXT("UTGameMode", "FLAGRUN", "Flag Run");
 	bHideInUI = false;
 	bWeaponStayActive = false;
+	bAllowPickupAnnouncements = true;
 
 	static ConstructorHelpers::FObjectFinder<UClass> AfterImageFinder(TEXT("Blueprint'/Game/RestrictedAssets/Weapons/Translocator/TransAfterImage.TransAfterImage_C'"));
 	AfterImageType = AfterImageFinder.Object;
@@ -241,7 +242,7 @@ void AUTFlagRunGame::HandleRallyRequest(AUTPlayerController* RequestingPC)
 				RequestingPC->RallyLocation = FlagCarrier->GetActorLocation();
 				if (bDelayedRally)
 				{
-					RequestingPC->BeginRallyTo(FlagCarrier, 1.f);
+					RequestingPC->BeginRallyTo(FlagCarrier, 1.2f);
 				}
 				else
 				{

@@ -31,6 +31,9 @@ AUTWeap_Redeemer::AUTWeap_Redeemer(const class FObjectInitializer& ObjectInitial
 	AmmoWarningAmount = 0;
 	AmmoDangerAmount = 0;
 	FireSoundAmp = SAT_None;
+
+	PickupSpawnAnnouncement = UUTRedeemerLaunchAnnounce::StaticClass();
+	PickupAnnouncementIndex = 2;
 }
 
 AUTProjectile* AUTWeap_Redeemer::FireProjectile()

@@ -326,6 +326,19 @@ void AUTPickupInventory::Reset_Implementation()
 	}
 }
 
+void AUTPickupInventory::PlayRespawnEffects()
+{
+	Super::PlayRespawnEffects();
+	if (InventoryType && InventoryType.GetDefaultObject()->PickupSpawnAnnouncement && (Role==ROLE_Authority))
+	{
+		AUTGameMode* GM = GetWorld()->GetAuthGameMode<AUTGameMode>();
+		if (GM && GM->bAllowPickupAnnouncements)
+		{
+			GM->BroadcastLocalized(this, InventoryType.GetDefaultObject()->PickupSpawnAnnouncement, InventoryType.GetDefaultObject()->PickupAnnouncementIndex, nullptr, nullptr, InventoryType.GetDefaultObject());
+		}
+	}
+}
+
 void AUTPickupInventory::SetPickupHidden(bool bNowHidden)
 {
 	if (GetNetMode() != NM_DedicatedServer)

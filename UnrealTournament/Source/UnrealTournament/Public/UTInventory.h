@@ -205,6 +205,12 @@ public:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = HUD)
 	FCanvasIcon MinimapIcon;
 
+	/** Optional announcement when the pickup respawns. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Effects)
+		TSubclassOf<class UUTLocalMessage> PickupSpawnAnnouncement;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Effects)
+		int32 PickupAnnouncementIndex;
+
 	/** Whether to show timer for this on spectator slide out HUD. */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = HUD)
 	bool bShowPowerupTimer;
