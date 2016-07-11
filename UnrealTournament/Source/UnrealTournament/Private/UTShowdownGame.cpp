@@ -284,7 +284,6 @@ void AUTShowdownGame::ScoreKill_Implementation(AController* Killer, AController*
 			}
 			else
 			{
-				OtherPlayerState->AdjustScore(-100);
 				AUTPlayerState * KillerPlayerState = Cast<AUTPlayerState>(Killer->PlayerState);
 				if (KillerPlayerState != NULL)
 				{
