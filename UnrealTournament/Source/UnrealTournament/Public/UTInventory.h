@@ -222,6 +222,13 @@ public:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Powerup)
 	int RemainingBoostsGivenOverride;
 	
+	//whether to display a centered message when this powerup is used
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Powerup)
+	bool bNotifyTeamOnPowerupUse;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Powerup)
+	FText NotifyMessage;
+
 	/** How important is this inventory item when rendering a group of them */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = HUD)
 	float HUDRenderPriority;

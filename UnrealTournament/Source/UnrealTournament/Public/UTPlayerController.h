@@ -962,6 +962,8 @@ protected:
 
 	UFUNCTION(Reliable, Server, WithValidation)
 	void ServerActivatePowerUpPress();
+	
+	void TeamNotifiyOfPowerupUse();
 
 public:
 	/** Hold down Power-Up handling **/

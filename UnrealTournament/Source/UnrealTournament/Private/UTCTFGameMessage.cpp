@@ -21,6 +21,7 @@ UUTCTFGameMessage::UUTCTFGameMessage(const FObjectInitializer& ObjectInitializer
 	OvertimeMessage = NSLOCTEXT("CTFGameMessage", "Overtime", "OVERTIME!");
 	NoReturnMessage = NSLOCTEXT("CTFGameMessage", "NoPickupFlag", "You can't pick up this flag.");
 	LastLifeMessage = NSLOCTEXT("CTFGameMessage", "LastLife", "This is your last life");
+	DefaultPowerupMessage = NSLOCTEXT("CTFGameMessage", "DefaultPowerupMessage", "{Player1Name} used their powerup!");
 
 	bIsStatusAnnouncement = true;
 	bIsPartiallyUnique = true;
@@ -49,6 +50,22 @@ FText UUTCTFGameMessage::GetText(int32 Switch, bool bTargetsPlayerState1, APlaye
 		case 12: return OvertimeMessage; break;
 		case 13: return NoReturnMessage; break;
 		case 20: return LastLifeMessage; break;
+		
+		//powerup message
+		case 21: 
+		{
+			AUTPlayerState* UTPS = Cast<AUTPlayerState>(RelatedPlayerState_1);
+			if (UTPS)
+			{
+				AUTInventory* Powerup = UTPS->BoostClass->GetDefaultObject<AUTInventory>();
+				if (Powerup)
+				{
+					return Powerup->NotifyMessage;
+				}
+			}
+
+			return DefaultPowerupMessage;
+		}
 	}
 	return FText::GetEmpty();
 }

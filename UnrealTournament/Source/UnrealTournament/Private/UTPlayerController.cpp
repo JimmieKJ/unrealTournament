@@ -10,6 +10,7 @@
 #include "UTPlayerCameraManager.h"
 #include "UTCheatManager.h"
 #include "UTCTFGameState.h"
+#include "UTCTFGameMessage.h"
 #include "Engine/Console.h"
 #include "UTAnalytics.h"
 #include "Runtime/Analytics/Analytics/Public/Analytics.h"
@@ -907,6 +908,12 @@ void AUTPlayerController::TriggerBoost()
 		{
 			if (UTPlayerState->BoostClass)
 			{
+				AUTInventory* Powerup = UTPlayerState->BoostClass->GetDefaultObject<AUTInventory>();
+				if (Powerup && Powerup->bNotifyTeamOnPowerupUse && GameMode->UTGameState && UTPlayerState->Team)
+				{
+					TeamNotifiyOfPowerupUse();
+				}
+
 				AUTPlaceablePowerup* FoundPlaceablePowerup = UTCharacter->FindInventoryType<AUTPlaceablePowerup>(AUTPlaceablePowerup::StaticClass(), false);
 				if (FoundPlaceablePowerup)
 				{
@@ -934,6 +941,37 @@ void AUTPlayerController::TriggerBoost()
 			else
 			{
 				GameMode->ToggleSpecialFor(UTCharacter);
+			}
+		}
+	}
+}
+
+void AUTPlayerController::TeamNotifiyOfPowerupUse()
+{
+	AUTGameMode* GameMode = GetWorld()->GetAuthGameMode<AUTGameMode>();
+	if (GameMode && UTCharacter && UTPlayerState)
+	{
+		if (UTPlayerState->BoostClass)
+		{
+			AUTInventory* Powerup = UTPlayerState->BoostClass->GetDefaultObject<AUTInventory>();
+			if (Powerup && Powerup->bNotifyTeamOnPowerupUse && GameMode->UTGameState && UTPlayerState->Team)
+			{
+				for (int32 PlayerIndex = 0; PlayerIndex < GameMode->UTGameState->PlayerArray.Num(); ++PlayerIndex)
+				{
+					AUTPlayerState* PS = Cast<AUTPlayerState>(GameMode->UTGameState->PlayerArray[PlayerIndex]);
+					if (PS && PS->Team)
+					{
+						if (PS->Team->TeamIndex == UTPlayerState->Team->TeamIndex)
+						{
+							AUTPlayerController* PC = Cast<AUTPlayerController>(PS->GetOwner());
+							if (PC)
+							{
+								//21 is Powerup Message
+								PC->ClientReceiveLocalizedMessage(UUTCTFGameMessage::StaticClass(), 21, UTPlayerState);
+							}
+						}
+					}
+				}
 			}
 		}
 	}
