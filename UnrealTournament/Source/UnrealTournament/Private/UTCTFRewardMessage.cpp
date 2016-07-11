@@ -56,14 +56,6 @@ void UUTCTFRewardMessage::ClientReceive(const FClientReceiveData& ClientData) co
 
 FLinearColor UUTCTFRewardMessage::GetMessageColor_Implementation(int32 MessageIndex) const
 {
-	if (MessageIndex == 3)
-	{
-		return FLinearColor::Red;
-	}
-	if (MessageIndex == 4)
-	{
-		return FLinearColor::Blue;
-	}
 	return FLinearColor::White;
 }
 
