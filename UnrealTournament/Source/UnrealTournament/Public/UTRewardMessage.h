@@ -14,7 +14,6 @@ class UNREALTOURNAMENT_API UUTRewardMessage : public UUTLocalMessage
 	{
 		MessageArea = FName(TEXT("Announcements"));
 		MessageSlot = FName(TEXT("MajorRewardMessage"));
-		bIsSpecial = true;
 		bIsUnique = true;
 		bIsConsoleMessage = false;
 		Lifetime = 2.0f;

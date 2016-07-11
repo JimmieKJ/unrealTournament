@@ -8,7 +8,6 @@ UUTEngineMessage::UUTEngineMessage(const FObjectInitializer& ObjectInitializer) 
 Super(ObjectInitializer)
 {
 	MessageArea = FName(TEXT("ConsoleMessage"));
-	bIsSpecial = false;
 	bIsConsoleMessage = true;
 	Lifetime = 6.0f;
 

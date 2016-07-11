@@ -12,7 +12,6 @@ class UNREALTOURNAMENT_API UUTKillIconMessage : public UUTLocalMessage
 		: Super(ObjectInitializer)
 	{
 		MessageArea = FName(TEXT("KillMessage"));
-		bIsSpecial = false;
 		Lifetime = 4.f;
 		FontSizeIndex = 0;
 		ScaleInSize = 2.5f;

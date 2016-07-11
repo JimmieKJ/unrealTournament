@@ -7,7 +7,6 @@
 UUTCTFMajorMessage::UUTCTFMajorMessage(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
-	bIsSpecial = true;
 	Lifetime = 3.0f;
 	MessageArea = FName(TEXT("Announcements"));
 	MessageSlot = FName(TEXT("MajorRewardMessage"));

@@ -21,10 +21,6 @@ class UNREALTOURNAMENT_API UUTLocalMessage : public ULocalMessage
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Message)
 	uint32 bIsStatusAnnouncement : 1;
 
-	// If true, don't add to normal queue.  
-	UPROPERTY(EditDefaultsOnly, Category = Message)
-	uint32 bIsSpecial:1;
-
 	// If true and special, only one can be in the HUD queue at a time.
 	UPROPERTY(EditDefaultsOnly, Category = Message)
 	uint32 bIsUnique:1;    

@@ -30,7 +30,6 @@ class UNREALTOURNAMENT_API UUTMultiKillMessage : public UUTLocalMessage
 		AnnouncementNames.Add(TEXT("UltraKill"));
 		AnnouncementNames.Add(TEXT("MonsterKill"));
 
-		bIsSpecial = true;
 		bIsUnique = true;
 		bIsConsoleMessage = false;
 		Lifetime = 3.0f;

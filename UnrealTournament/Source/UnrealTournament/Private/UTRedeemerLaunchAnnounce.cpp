@@ -9,7 +9,6 @@
 UUTRedeemerLaunchAnnounce::UUTRedeemerLaunchAnnounce(const class FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
-	bIsSpecial = true;
 	bIsUnique = true;
 	bIsConsoleMessage = false;
 	bIsStatusAnnouncement = false;

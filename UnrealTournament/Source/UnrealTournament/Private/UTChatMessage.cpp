@@ -14,7 +14,6 @@ UUTChatMessage::UUTChatMessage(const class FObjectInitializer& ObjectInitializer
 : Super(ObjectInitializer)
 {
 	MessageArea = FName(TEXT("ConsoleMessage"));
-	bIsSpecial = false;
 	bIsConsoleMessage = true;
 	FontSizeIndex = 0;
 

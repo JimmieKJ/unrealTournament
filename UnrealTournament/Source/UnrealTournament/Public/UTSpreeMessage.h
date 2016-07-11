@@ -82,7 +82,6 @@ class UNREALTOURNAMENT_API UUTSpreeMessage : public UUTLocalMessage
 		static ConstructorHelpers::FObjectFinder<USoundBase> OtherSpreeEndedSoundFinder(TEXT("SoundWave'/Game/RestrictedAssets/Audio/UI/A_UI_EnemySpreeBroken01.A_UI_EnemySpreeBroken01'"));
 		OtherSpreeEndedSound = OtherSpreeEndedSoundFinder.Object;
 
-		bIsSpecial = true;
 		bIsUnique = true;
 		bIsConsoleMessage = false;
 		Lifetime = 3.f;

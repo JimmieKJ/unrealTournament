@@ -8,7 +8,6 @@ UUTKillerMessage::UUTKillerMessage(const class FObjectInitializer& ObjectInitial
 	: Super(ObjectInitializer)
 {
 	Lifetime=3.0;
-	bIsSpecial = true;
 	bIsUnique = true;
 	MessageArea = FName(TEXT("Announcements"));
 	MessageSlot = FName(TEXT("DeathMessage"));

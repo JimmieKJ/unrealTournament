@@ -9,7 +9,6 @@ UUTCTFRewardMessage::UUTCTFRewardMessage(const class FObjectInitializer& ObjectI
 : Super(ObjectInitializer)
 {
 	bIsPartiallyUnique = true;
-	bIsSpecial = true;
 	Lifetime = 5.0f;
 	MessageArea = FName(TEXT("Announcements"));
 	MessageSlot = FName(TEXT("MajorRewardMessage"));
