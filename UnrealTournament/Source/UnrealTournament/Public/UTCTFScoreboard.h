@@ -52,12 +52,10 @@ class UNREALTOURNAMENT_API UUTCTFScoreboard : public UUTTeamScoreboard
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Scoreboard")
 		float ReadyX;
 
-	virtual void OpenScoringPlaysPage() override;
-
 	UPROPERTY()
 		float TimeLineOffset;
 
-	virtual void DrawPlayerStats(AUTPlayerState* PS, float DeltaTime, float& YPos, float XOffset, float ScoreWidth, float PageBottom, const FStatsFontInfo& StatsFontInfo) override;
+	virtual bool ShouldDrawScoringStats() override;
 
 protected:
 	virtual void DrawScoreHeaders(float RenderDelta, float& YOffset);
@@ -71,5 +69,4 @@ protected:
 	virtual void DrawScoringPlayInfo(const struct FCTFScoringPlay& Play, float CurrentScoreHeight, float SmallYL, float MedYL, float DeltaTime, float& YPos, float XOffset, float ScoreWidth, FFontRenderInfo TextRenderInfo, bool bIsSmallPlay);
 
 	virtual void DrawTeamStats(float DeltaTime, float& YPos, float XOffset, float ScoreWidth, float PageBottom, const FStatsFontInfo& StatsFontInfo) override;
-	virtual void PageChanged_Implementation() override;
 };

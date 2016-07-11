@@ -102,16 +102,7 @@ public:
 
 	virtual void PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCanvas* InCanvas, FVector2D InCanvasCenter);
 
-	UFUNCTION(BlueprintCallable, Category = "Scoreboard")
-	virtual void AdvancePage(int32 Increment);
-	UFUNCTION(BlueprintCallable, Category = "Scoreboard")
-	virtual void SetPage(int32 NewPage);
-
-	FTimerHandle OpenScoringPlaysHandle;
-
-	/** no-params accessor for timers */
-	UFUNCTION()
-		virtual void OpenScoringPlaysPage();
+	virtual bool ShouldDrawScoringStats() { return false; };
 
 	/** Show current 2 pages of scoring stats breakdowns. */
 	virtual void DrawScoringStats(float RenderDelta, float& YOffset);
@@ -183,16 +174,14 @@ public:
 		FText ArrowKeysText;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Scoreboard")
+		FText MinimapToggleText;
+
+	FInputActionKeyMapping MinimapBinding;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Scoreboard")
 		bool bDrawMinimapInScoreboard;
 
 protected:
-	/** number of 'pages' that can be flipped through on the scoreboard */
-	UPROPERTY(BlueprintReadOnly, Category = "Scoreboard")
-	int32 NumPages;
-
-	UFUNCTION(BlueprintNativeEvent, Category = "Scoreboard")
-	void PageChanged();
-
 	UPROPERTY(BlueprintReadOnly, Category = "Scoreboard")
 	int32 ActualPlayerCount;
 
@@ -283,23 +272,6 @@ protected:
 
 	/** Draw one line of scoring breakdown where values are PlayerStates instead of int32 */
 	virtual void DrawPlayerStatsLine(FText StatsName, AUTPlayerState* FirstPlayer, AUTPlayerState* SecondPlayer, float DeltaTime, float XOffset, float& YPos, const FStatsFontInfo& StatsFontInfo, float ScoreWidth, int32 HighlightIndex);
-
-	virtual void DrawWeaponStatsLine(FText StatsName, int32 StatValue, int32 ScoreValue, int32 Shots, float Accuracy, float DeltaTime, float XOffset, float& YPos, const FStatsFontInfo& StatsFontInfo, float ScoreWidth, bool bIsBestWeapon = false);
-
-	/** Draw individual weapon stats for player. */
-	virtual void DrawWeaponStats(AUTPlayerState* PS, float DeltaTime, float& YPos, float XOffset, float ScoreWidth, float PageBottom, const FStatsFontInfo& StatsFontInfo);
-
-	/** 5coring breakdown for an individual player. */
-	virtual void DrawScoreBreakdown(float DeltaTime, float& YPos, float XOffset, float ScoreWidth, float PageBottom);
-
-	/** Draw gametype specific stat lines for player score breakdown. */
-	virtual void DrawPlayerStats(AUTPlayerState* PS, float DeltaTime, float& YPos, float XOffset, float ScoreWidth, float PageBottom, const FStatsFontInfo& StatsFontInfoL);
-
-	/** Draw reward stat lines for player. */
-	virtual void DrawRewardStats(AUTPlayerState* PS, float DeltaTime, float& YPos, float XOffset, float ScoreWidth, float PageBottom, const FStatsFontInfo& StatsFontInfoL);
-
-	/** Draw movement stat lines for player. */
-	virtual void DrawMovementStats(AUTPlayerState* PS, float DeltaTime, float& YPos, float XOffset, float ScoreWidth, float PageBottom, const FStatsFontInfo& StatsFontInfoL);
 
 	//-------------------------------------
 

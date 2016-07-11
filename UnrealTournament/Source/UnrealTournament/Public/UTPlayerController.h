@@ -1085,8 +1085,6 @@ public:
 	UPROPERTY()
 	bool bBadgeChanged;
 
-	virtual void AdvanceStatsPage(int32 Increment);
-
 	int32 DilationIndex;
 
 	UFUNCTION(client, reliable)

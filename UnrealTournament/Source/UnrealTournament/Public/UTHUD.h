@@ -395,9 +395,6 @@ public:
 	UFUNCTION(BlueprintCallable, Category=HUD)
 	float GetQuickStatsBob();
 
-	
-
-
 	// accessor for CachedTeamColor.  
 	FLinearColor GetWidgetTeamColor();
 
@@ -411,16 +408,9 @@ public:
 	UPROPERTY()
 	TArray<AUTPlayerState*> Leaderboard;
 
-
 	virtual bool ShouldDrawMinimap();
 
-	virtual int32 GetScoreboardPage() { return ScoreboardPage; };
-	virtual void SetScoreboardPage(int32 NewPage) { ScoreboardPage = NewPage; };
-
 protected:
-	// Used to determine which page of the scoreboard we should show
-	UPROPERTY()
-		int32 ScoreboardPage;
 
 	// We cache the team color so we only have to look it up once at the start of the render pass
 	FLinearColor CachedTeamColor;

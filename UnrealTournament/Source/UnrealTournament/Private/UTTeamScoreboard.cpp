@@ -7,7 +7,6 @@
 
 UUTTeamScoreboard::UUTTeamScoreboard(const class FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
 {
-	NumPages = 2;
 	TeamScoringHeader = NSLOCTEXT("UTTeamScoreboard", "TeamScoringBreakDownHeader", "Team Stats");
 	RedTeamText = NSLOCTEXT("UTTeamScoreboard", "RedTeam", "RED");
 	BlueTeamText = NSLOCTEXT("UTTeamScoreboard", "BlueTeam", "BLUE");
@@ -64,7 +63,7 @@ void UUTTeamScoreboard::DrawPlayerScores(float RenderDelta, float& YOffset)
 	{
 		int32 Place = 1;
 		float DrawOffset = YOffset;
-		int32 NumPlayersToShow = (UTHUDOwner->GetScoreboardPage() == 0) ? UTGameState->PlayerArray.Num() : 5;
+		int32 NumPlayersToShow = ShouldDrawScoringStats() ? 5 : UTGameState->PlayerArray.Num();
 		for (int32 i = 0; i < UTGameState->PlayerArray.Num(); i++)
 		{
 			AUTPlayerState* PlayerState = Cast<AUTPlayerState>(UTGameState->PlayerArray[i]);
@@ -94,7 +93,7 @@ void UUTTeamScoreboard::DrawPlayerScores(float RenderDelta, float& YOffset)
 	}
 	YOffset = MaxYOffset;
 
-	if ((UTGameState->PlayerArray.Num() <= 28) && (NumSpectators > 0) && (UTHUDOwner->GetScoreboardPage() == 0))
+	if ((UTGameState->PlayerArray.Num() <= 28) && (NumSpectators > 0) && !ShouldDrawScoringStats())
 	{
 		FText SpectatorCount = (NumSpectators == 1)
 			? OneSpectatorWatchingText
@@ -293,11 +292,6 @@ AUTPlayerState* UUTTeamScoreboard::FindTopTeamSPMFor(uint8 TeamNum)
 		return A.Score / (ElapsedTime - A.StartTime) > B.Score / (ElapsedTime - B.StartTime);
 	});
 	return ((MemberPS.Num() > 0) && (MemberPS[0]->Score > 0.f)) ? MemberPS[0] : NULL;
-}
-
-void UUTTeamScoreboard::OpenScoringPlaysPage()
-{
-		SetPage(1);
 }
 
 void UUTTeamScoreboard::DrawStatsLeft(float DeltaTime, float& YPos, float XOffset, float ScoreWidth, float PageBottom)

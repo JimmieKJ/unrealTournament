@@ -51,7 +51,6 @@ protected:
 	/** Return player with best score for Team. */
 	virtual AUTPlayerState* FindTopTeamScoreFor(uint8 TeamNum);
 
-	virtual void OpenScoringPlaysPage() override;
 	virtual void DrawStatsLeft(float DeltaTime, float& YPos, float XOffset, float ScoreWidth, float PageBottom) override;
 };
 

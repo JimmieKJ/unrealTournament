@@ -710,12 +710,6 @@ void AUTPlayerController::FOV(float NewFOV)
 	}
 }
 
-void AUTPlayerController::AdvanceStatsPage(int32 Increment)
-{
-	CurrentlyViewedStatsTab = FMath::Clamp(CurrentlyViewedStatsTab + Increment, 0, 3);
-	ServerSetViewedScorePS(CurrentlyViewedScorePS, CurrentlyViewedStatsTab);
-}
-
 void AUTPlayerController::SetSpectatorMouseChangesView(bool bNewValue)
 {
 	if (bSpectatorMouseChangesView != bNewValue)
@@ -785,35 +779,6 @@ bool AUTPlayerController::InputKey(FKey Key, EInputEvent EventType, float Amount
 		SetSpectatorMouseChangesView(false);
 	}
 #endif
-
-	// hack for scoreboard until we have a real interactive system
-	if (MyUTHUD != NULL && MyUTHUD->bShowScores && MyUTHUD->GetScoreboard() != NULL && EventType == IE_Pressed)
-	{
-		static FName NAME_Left(TEXT("Left"));
-		static FName NAME_Right(TEXT("Right"));
-		static FName NAME_Down(TEXT("Down"));
-		static FName NAME_Up(TEXT("Up"));
-		if (Key.GetFName() == NAME_Left)
-		{
-			MyUTHUD->GetScoreboard()->AdvancePage(-1);
-			return true;
-		}
-		else if (Key.GetFName() == NAME_Right)
-		{
-			MyUTHUD->GetScoreboard()->AdvancePage(+1);
-			return true;
-		}
-		else if (Key.GetFName() == NAME_Up)
-		{
-			AdvanceStatsPage(-1);
-			return true;
-		}
-		else if (Key.GetFName() == NAME_Down)
-		{
-			AdvanceStatsPage(+1);
-			return true;
-		}
-	}
 
 	//This is a separate from OnFire() since we dont want casters starting games by accident when clicking the mouse while flying around
 	static FName NAME_Enter(TEXT("Enter"));
@@ -3885,7 +3850,6 @@ void AUTPlayerController::ShowScoreboardOnDeath()
 	if (!GetPawn() && GameState && MyUTHUD && GameState->IsMatchInProgress() && !GameState->IsMatchIntermission() && !IsInState(NAME_Spectating))
 	{
 		MyUTHUD->bShowScoresWhileDead = true;
-		MyUTHUD->SetScoreboardPage(0);
 	}
 }
 
@@ -4610,6 +4574,7 @@ void AUTPlayerController::OpenMatchSummary()
 void AUTPlayerController::UTClientSetRotation_Implementation(FRotator NewRotation)
 {
 	SetControlRotation(NewRotation);
+	UE_LOG(UT, Warning, TEXT("Control Rotation from UTClientSetRotation %f"), GetControlRotation().Yaw);
 	if (GetPawn() != NULL)
 	{
 		GetPawn()->FaceRotation(NewRotation, 0.f);

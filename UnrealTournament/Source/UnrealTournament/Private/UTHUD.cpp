@@ -412,10 +412,6 @@ void AUTHUD::ReceiveLocalMessage(TSubclassOf<class UUTLocalMessage> MessageClass
 
 void AUTHUD::ToggleScoreboard(bool bShow)
 {
-	if (!bShowScores)
-	{
-		SetScoreboardPage(0);
-	}
 	bShowScores = bShow;
 }
 
