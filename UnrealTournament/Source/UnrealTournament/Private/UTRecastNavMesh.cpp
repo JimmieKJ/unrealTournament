@@ -13,6 +13,7 @@
 #include "UTReachSpec_HighJump.h"
 #include "UTTeleporter.h"
 #include "UTWaterVolume.h"
+#include "UTJumpPad.h"
 #include "UTNavMeshRenderingComponent.h"
 #include "MessageLog.h"
 #include "UObjectToken.h"
@@ -2479,10 +2480,12 @@ bool AUTRecastNavMesh::HasReachedTarget(APawn* Asker, const FNavAgentProperties&
 
 			AUTPickup* Pickup = NULL;
 			AUTTeleporter* Teleporter = NULL;
+			AUTJumpPad* JumpPad = NULL;
 			if (Target.Actor.IsValid())
 			{
 				Pickup = Cast<AUTPickup>(Target.Actor.Get());
 				Teleporter = Cast<AUTTeleporter>(Target.Actor.Get());
+				JumpPad = Cast<AUTJumpPad>(Target.Actor.Get());
 			}
 			if (Pickup != NULL && Pickup->State.bActive)
 			{
@@ -2500,6 +2503,11 @@ bool AUTRecastNavMesh::HasReachedTarget(APawn* Asker, const FNavAgentProperties&
 			{
 				Teleporter->OnOverlapBegin(Asker);
 				return true;
+			}
+			else if (JumpPad != NULL && JumpPad->IsEnabled())
+			{
+				// jump pad trigger will pop the route itself
+				return false;
 			}
 			else if (Target.IsDirectTarget() || !Target.Node.IsValid())
 			{

@@ -108,7 +108,7 @@ void AUTJumpPad::Launch_Implementation(AActor* Actor)
 					if (B->RouteCache[i].Actor == this)
 					{
 						TArray<FComponentBasedPosition> MovePoints;
-						new(MovePoints) FComponentBasedPosition(ActorToWorld().TransformPosition(JumpTarget));
+						new(MovePoints) FComponentBasedPosition(B->RouteCache[i + 1].GetLocation(Char));
 						B->SetMoveTarget(B->RouteCache[i + 1], MovePoints);
 						B->MoveTimer = FMath::Max<float>(B->MoveTimer, MinMoveTimer);
 						bRepathOnLand = false;
@@ -121,7 +121,7 @@ void AUTJumpPad::Launch_Implementation(AActor* Actor)
 					if (B->RouteCache.Num() > 1)
 					{
 						TArray<FComponentBasedPosition> MovePoints;
-						new(MovePoints) FComponentBasedPosition(ActorToWorld().TransformPosition(JumpTarget));
+						new(MovePoints) FComponentBasedPosition(B->RouteCache[1].GetLocation(Char));
 						B->SetMoveTarget(B->RouteCache[1], MovePoints);
 					}
 					else
@@ -141,7 +141,7 @@ void AUTJumpPad::Launch_Implementation(AActor* Actor)
 				// make sure bot aborts move when it lands
 				B->MoveTimer = FMath::Min<float>(B->MoveTimer, MinMoveTimer - 0.1f);
 				// if bot might be stuck or the jump pad just goes straight up (such that it will never land without air control), we need to force something to happen
-				if (B->MoveTimer <= 0.0f || JumpTarget.Size2D() < 1.0f)
+				if ((B->MoveTimer <= 0.0f || JumpTarget.Size2D() < 1.0f) && (!B->GetMoveTarget().IsValid() || (B->GetMovePoint() - Char->GetActorLocation()).Size2D() < 50.0f || (B->GetMovePoint() - GetActorLocation()).Size2D() < 50.0f))
 				{
 					UUTPathNode* MyNode = NavData->FindNearestNode(GetActorLocation(), NavData->GetPOIExtent(this));
 					if (MyNode != NULL)
