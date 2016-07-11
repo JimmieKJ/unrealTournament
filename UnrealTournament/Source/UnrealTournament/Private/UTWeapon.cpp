@@ -672,6 +672,7 @@ void AUTWeapon::UpdateWeaponHand()
 				if (MuzzleFlash[i] != NULL)
 				{
 					MuzzleFlash[i]->AttachSocketName = MuzzleFlashSocketNames[i];
+					MuzzleFlash[i]->bUseAttachParentBound = true;
 					MuzzleFlash[i]->SetRelativeTransform(MuzzleFlashDefaultTransforms[i]);
 				}
 			}
@@ -724,6 +725,7 @@ void AUTWeapon::UpdateWeaponHand()
 					{
 						MuzzleFlash[i]->AttachSocketName = NAME_None;
 						MuzzleFlash[i]->SetRelativeLocationAndRotation(FVector::ZeroVector, FRotator::ZeroRotator);
+						MuzzleFlash[i]->bUseAttachParentBound = false;
 					}
 				}
 				break;
