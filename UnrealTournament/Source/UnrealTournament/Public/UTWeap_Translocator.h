@@ -119,4 +119,5 @@ class UNREALTOURNAMENT_API AUTWeap_Translocator : public AUTWeapon
 	virtual bool HUDShouldRender_Implementation(UUTHUDWidget* TargetWidget) override;
 	virtual void UpdateHUDText() override;
 	virtual void PostInitProperties() override;
+	virtual void GuessPlayerTarget(const FVector& StartFireLoc, const FVector& FireDir) override;
 };

@@ -5098,6 +5098,16 @@ void AUTCharacter::PostRenderFor(APlayerController* PC, UCanvas* Canvas, FVector
 				float PctFromCenter = (ScreenPosition - FVector(0.5f*Canvas->ClipX, 0.5f*Canvas->ClipY, 0.f)).Size() / Canvas->ClipX;
 				CenterFade = CenterFade * FMath::Clamp(10.f*PctFromCenter, 0.15f, 1.f);
 				TeamColor.A = 0.2f * CenterFade;
+				UTexture* BarTexture = AUTHUD::StaticClass()->GetDefaultObject<AUTHUD>()->HUDAtlas;
+				if (GetWorld()->GetTimeSeconds() - FMath::Max(LastTargetingTime, LastTargetedTime) < 2.f)
+				{
+					// indicate active combat
+					FLinearColor CombatColor(1.f, 0.5f, 0.f, 0.35f * CenterFade);
+					Canvas->SetLinearDrawColor(CombatColor);
+					float CombatHeight = 0.45f*BarWidth;
+					Canvas->DrawTile(BarTexture, ScreenPosition.X - 0.5f*BarWidth, YPos - YL - CombatHeight, BarWidth, CombatHeight, 935.f, 115.f, 65.f, -30.f);
+				}
+
 				Canvas->SetLinearDrawColor(TeamColor);
 				float Border = 2.f*Scale;
 				TransitionScaling = (BeaconTextScale - MinTextScale) / (1.f - MinTextScale);
@@ -5120,7 +5130,6 @@ void AUTCharacter::PostRenderFor(APlayerController* PC, UCanvas* Canvas, FVector
 					XPos += Border;
 					const float BarHeight = 6.f * TransitionScaling;
 					const float BarSpacing = 2.f * TransitionScaling;
-					UTexture* BarTexture = AUTHUD::StaticClass()->GetDefaultObject<AUTHUD>()->HUDAtlas;
 					FLinearColor BarColor = FLinearColor::Green;
 					BarColor.A = 0.5f * CenterFade;
 					Canvas->SetLinearDrawColor(BarColor);

@@ -666,7 +666,7 @@ class UNREALTOURNAMENT_API AUTWeapon : public AUTInventory
 
 	/** if owned by a human, set AUTPlayerController::LastShotTargetGuess to closest target to player's aim */
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = AI)
-	void GuessPlayerTarget(const FVector& StartFireLoc, const FVector& FireDir);
+	virtual void GuessPlayerTarget(const FVector& StartFireLoc, const FVector& FireDir);
 
 	/** add (or remove via negative number) the ammo held by the weapon */
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Weapon")

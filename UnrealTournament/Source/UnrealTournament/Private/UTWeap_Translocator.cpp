@@ -614,3 +614,7 @@ bool AUTWeap_Translocator::CanAttack_Implementation(AActor* Target, const FVecto
 		return false;
 	}
 }
+
+void AUTWeap_Translocator::GuessPlayerTarget(const FVector& StartFireLoc, const FVector& FireDir)
+{
+}
