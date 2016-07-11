@@ -326,6 +326,8 @@ public:
 	UFUNCTION()
 	bool PerformDodge(FVector &DodgeDir, FVector &DodgeCross);
 
+	virtual bool CanWallDodge(const FVector &DodgeDir, const FVector &DodgeCross, FHitResult& Result, bool bIsLowGrav);
+
 	/** True during a dodge. */
 	UPROPERTY(Category = "Dodging", BlueprintReadOnly)
 	bool bIsDodging;
@@ -352,6 +354,9 @@ protected:
 
 	/** true if wall slide stat should be updated.  Needed so we don't double count wallslides. */
 	bool bCountWallSlides;
+
+	/** true if wall hit has played. */
+	bool bHasPlayedWallHitSound;
 
 	/** set during ClientAdjustPosition() */
 	bool bProcessingClientAdjustment;
@@ -610,6 +615,10 @@ public:
 	/** True if already assisted this jump */
 	UPROPERTY(Category = "LandingAssist", BlueprintReadOnly, meta = (DisplayName = "Jump Assisted"))
 		bool bJumpAssisted;
+
+	/** True if already assisted this jump */
+	UPROPERTY(Category = "Jump", BlueprintReadOnly)
+		float JumpTime;
 
 	virtual void PhysFalling(float deltaTime, int32 Iterations) override;
 

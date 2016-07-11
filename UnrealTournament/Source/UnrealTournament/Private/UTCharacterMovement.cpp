@@ -71,6 +71,7 @@ UUTCharacterMovement::UUTCharacterMovement(const class FObjectInitializer& Objec
 	CrouchedHalfHeight = 69.0f;
 	SlopeDodgeScaling = 0.93f;
 	bSlideFromGround = false;
+	bHasPlayedWallHitSound = false;
 
 	FastInitialAcceleration = 12000.f;
 	MaxFastAccelSpeed = 250.f;
@@ -761,6 +762,27 @@ void UUTCharacterMovement::PerformWaterJump()
 	Velocity.Z = FMath::Max(Velocity.Z, SwimmingWallPushImpulse);
 }
 
+bool UUTCharacterMovement::CanWallDodge(const FVector &DodgeDir, const FVector &DodgeCross, FHitResult& Result, bool bIsLowGrav)
+{
+	FVector TraceEnd = -1.f*DodgeDir;
+	float PawnCapsuleRadius, PawnCapsuleHalfHeight;
+	CharacterOwner->GetCapsuleComponent()->GetScaledCapsuleSize(PawnCapsuleRadius, PawnCapsuleHalfHeight);
+	float TraceBoxSize = FMath::Min(0.25f*PawnCapsuleHalfHeight, 0.7f*PawnCapsuleRadius);
+	FVector TraceStart = CharacterOwner->GetActorLocation();
+	TraceStart.Z -= 0.5f*TraceBoxSize;
+	TraceEnd = TraceStart - (WallDodgeTraceDist + PawnCapsuleRadius - 0.5f*TraceBoxSize)*DodgeDir;
+
+	static const FName DodgeTag = FName(TEXT("Dodge"));
+	FCollisionQueryParams QueryParams(DodgeTag, false, CharacterOwner);
+	const bool bBlockingHit = GetWorld()->SweepSingleByChannel(Result, TraceStart, TraceEnd, FQuat::Identity, UpdatedComponent->GetCollisionObjectType(), FCollisionShape::MakeSphere(TraceBoxSize), QueryParams);
+	if (!bBlockingHit || (!IsSwimming() && (CurrentWallDodgeCount > 0) && !bIsLowGrav && ((Result.ImpactNormal | LastWallDodgeNormal) > MaxConsecutiveWallDodgeDP)))
+	{
+		//UE_LOG(UTNet, Warning, TEXT("No wall to dodge"));
+		return false;
+	}
+	return true;
+}
+
 bool UUTCharacterMovement::PerformDodge(FVector &DodgeDir, FVector &DodgeCross)
 {
 	if (!HasValidData())
@@ -789,21 +811,9 @@ bool UUTCharacterMovement::PerformDodge(FVector &DodgeDir, FVector &DodgeCross)
 			return false;
 		}
 		// if falling/swimming, check if can perform wall dodge
-		FVector TraceEnd = -1.f*DodgeDir;
-		float PawnCapsuleRadius, PawnCapsuleHalfHeight;
-		CharacterOwner->GetCapsuleComponent()->GetScaledCapsuleSize(PawnCapsuleRadius, PawnCapsuleHalfHeight);
-		float TraceBoxSize = FMath::Min(0.25f*PawnCapsuleHalfHeight, 0.7f*PawnCapsuleRadius);
-		FVector TraceStart = CharacterOwner->GetActorLocation();
-		TraceStart.Z -= 0.5f*TraceBoxSize;
-		TraceEnd = TraceStart - (WallDodgeTraceDist+PawnCapsuleRadius-0.5f*TraceBoxSize)*DodgeDir;
-
-		static const FName DodgeTag = FName(TEXT("Dodge"));
-		FCollisionQueryParams QueryParams(DodgeTag, false, CharacterOwner);
 		FHitResult Result;
-		const bool bBlockingHit = GetWorld()->SweepSingleByChannel(Result, TraceStart, TraceEnd, FQuat::Identity, UpdatedComponent->GetCollisionObjectType(), FCollisionShape::MakeSphere(TraceBoxSize), QueryParams);
-		if (!bBlockingHit || (!IsSwimming() && (CurrentWallDodgeCount > 0) && !bIsLowGrav && ((Result.ImpactNormal | LastWallDodgeNormal) > MaxConsecutiveWallDodgeDP)))
+		if (!CanWallDodge(DodgeDir, DodgeCross, Result, bIsLowGrav))
 		{
-			//UE_LOG(UTNet, Warning, TEXT("No wall to dodge"));
 			return false;
 		}
 		if ((Result.ImpactNormal | DodgeDir) < WallDodgeMinNormal)
@@ -825,6 +835,7 @@ bool UUTCharacterMovement::PerformDodge(FVector &DodgeDir, FVector &DodgeCross)
 		LastWallDodgeNormal = Result.ImpactNormal;
 		bIsAWallDodge = true;
 		bCountWallSlides = true;
+		bHasPlayedWallHitSound = false;
 	}
 	else if (!GetImpartedMovementBaseVelocity().IsZero())
 	{
@@ -1331,6 +1342,7 @@ void UUTCharacterMovement::ProcessLanded(const FHitResult& Hit, float remainingT
 	bIsAgainstWall = false;
 	bFallingInWater = false;
 	bCountWallSlides = true;
+	bHasPlayedWallHitSound = false;
 	if (CharacterOwner)
 	{
 		bIsFloorSliding = bWantsFloorSlide && !Acceleration.IsNearlyZero() && (Velocity.Size2D() > 0.7f * MaxWalkSpeed);
@@ -1437,6 +1449,7 @@ bool UUTCharacterMovement::DoJump(bool bReplayingMoves)
 				PS->ModifyStatsValue(NAME_NumLiftJumps, 1);
 			}
 		}
+		JumpTime = GetCurrentMovementTime();
 		bResult = true;
 	}
 	JumpZVelocity = RealJumpZVelocity;
@@ -1859,6 +1872,7 @@ void UUTCharacterMovement::PhysFalling(float deltaTime, int32 Iterations)
 					{
 						// We are against the wall, store info about it
 						bIsAgainstWall = true;
+						bSlidingAlongWall = true;
 						WallSlideNormal = Result.Normal;
 						WallRunMaterial = Result.PhysMaterial.Get();
 						CheckWallSlide(Result);
@@ -1885,8 +1899,55 @@ void UUTCharacterMovement::PhysFalling(float deltaTime, int32 Iterations)
 		float MaxAccel = GetMaxAcceleration() * TickAirControl;				
 
 		FallAcceleration = FallAcceleration.GetClampedToMaxSize(MaxAccel);
-	}
 
+		if (!bHasPlayedWallHitSound && UTCharOwner && UTCharOwner->IsLocallyControlled() && Cast<AUTPlayerController>(UTCharOwner->GetController()) && (GetCurrentMovementTime() > FMath::Max(DodgeResetTime, JumpTime+0.2f)) && (CurrentWallDodgeCount < MaxWallDodges))
+		{
+			bool bIsNearWall = false;
+			FHitResult Result;
+			if (!bIsAgainstWall)
+			{
+				// see if close enough to wall to wall dodge
+				FRotator TurnRot(0.f, CharacterOwner->GetActorRotation().Yaw, 0.f);
+				FRotationMatrix TurnRotMatrix = FRotationMatrix(TurnRot);
+				FVector X = TurnRotMatrix.GetScaledAxis(EAxis::X);
+				FVector Y = TurnRotMatrix.GetScaledAxis(EAxis::Y);
+
+				//check ability to dodge left
+				FVector DodgeDir = -1.f*Y;
+				bIsNearWall = CanWallDodge(DodgeDir, X, Result, false);
+				if (!bIsNearWall)
+				{
+					// moving left, check ability to dodge right
+					bIsNearWall = CanWallDodge(Y, X, Result, false);
+				}
+				if (!bIsNearWall)
+				{
+					if ((Velocity | X) >= 0.f)
+					{
+						// moving forward, check able to dodge back
+						DodgeDir = -1.f*X;
+						bIsNearWall = CanWallDodge(DodgeDir, Y, Result, false);
+					}
+					else
+					{
+						// moving backward, check able to dodge back
+						bIsNearWall = CanWallDodge(X, Y, Result, false);
+					}
+				}
+			}
+			if (bIsAgainstWall || bIsNearWall)
+			{
+				FVector WallNormal = bIsNearWall ? Result.ImpactNormal : WallSlideNormal;
+				//UE_LOG(UT, Warning, TEXT("NEar wall speed %f DOT impact %f Zprod %f"), Velocity.Size2D(), (Velocity | WallNormal), Velocity.Z*WallNormal.Z);
+				if ((Velocity | Result.ImpactNormal) < -0.1f*(bIsDodging ? DodgeMaxHorizontalVelocity : MaxWalkSpeed))
+				{
+					UUTGameplayStatics::UTPlaySound(GetWorld(), UTCharOwner->CharacterData.GetDefaultObject()->WallHitSound, UTCharOwner, SRT_None);
+					bHasPlayedWallHitSound = true;
+				}
+			}
+		}
+	}
+	
 	float remainingTime = deltaTime;
 	float timeTick = 0.1f;
 	/*

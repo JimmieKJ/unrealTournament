@@ -117,6 +117,9 @@ public:
 	UPROPERTY(BlueprintReadOnly, EditDefaultsOnly, Category = Sounds)
 	USoundBase* PainSound;
 	UPROPERTY(BlueprintReadOnly, EditDefaultsOnly, Category = Sounds)
+	USoundBase* WallHitSound;
+
+	UPROPERTY(BlueprintReadOnly, EditDefaultsOnly, Category = Sounds)
 		USoundBase* DeathSound;
 	UPROPERTY(BlueprintReadOnly, EditDefaultsOnly, Category = Sounds)
 		USoundBase* HeadShotDeathSound;
