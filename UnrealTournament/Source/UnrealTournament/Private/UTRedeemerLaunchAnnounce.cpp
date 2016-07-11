@@ -36,13 +36,14 @@ FName UUTRedeemerLaunchAnnounce::GetAnnouncementName_Implementation(int32 Switch
 	case 0: return TEXT("RZE_MissileIncoming"); break;
 	case 1: return TEXT("RZE_LaunchConfirmed"); break;
 	case 2: return TEXT("RZE_RedeemerOnline"); break;
+	case 3: return TEXT("Cancel"); break;  // SILENT AND SHORT, no announcement
 	}
 	return NAME_None;
 }
 
 void UUTRedeemerLaunchAnnounce::PrecacheAnnouncements_Implementation(class UUTAnnouncer* Announcer) const
 {
-	for (int32 i = 0; i < 3; i++)
+	for (int32 i = 0; i < 4; i++)
 	{
 		FName SoundName = GetAnnouncementName(i, NULL, NULL, NULL);
 		if (SoundName != NAME_None)
@@ -50,6 +51,11 @@ void UUTRedeemerLaunchAnnounce::PrecacheAnnouncements_Implementation(class UUTAn
 			Announcer->PrecacheAnnouncement(SoundName);
 		}
 	}
+}
+
+float UUTRedeemerLaunchAnnounce::GetAnnouncementPriority(int32 Switch) const
+{
+	return (Switch == 2) ? 0.5f : 0.9f;
 }
 
 bool UUTRedeemerLaunchAnnounce::ShouldPlayAnnouncement(const FClientReceiveData& ClientData) const

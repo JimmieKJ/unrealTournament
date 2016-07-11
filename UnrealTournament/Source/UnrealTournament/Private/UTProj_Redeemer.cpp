@@ -6,6 +6,7 @@
 #include "UTImpactEffect.h"
 #include "UTProj_Redeemer.h"
 #include "UTCTFRewardMessage.h"
+#include "UTRedeemerLaunchAnnounce.h"
 
 AUTProj_Redeemer::AUTProj_Redeemer(const class FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -180,6 +181,11 @@ void AUTProj_Redeemer::Explode_Implementation(const FVector& HitLocation, const 
 {
 	if (!bExploded)
 	{
+		AUTGameMode* GM = GetWorld()->GetAuthGameMode<AUTGameMode>();
+		if (GM)
+		{
+			GM->BroadcastLocalized(this, UUTRedeemerLaunchAnnounce::StaticClass(), 3);
+		}
 		if (GetNetMode() != NM_DedicatedServer)
 		{
 			PlayShotDownEffects();

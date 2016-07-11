@@ -9,6 +9,7 @@
 #include "StatNames.h"
 #include "UTWorldSettings.h"
 #include "UTProj_WeaponScreen.h"
+#include "UTRedeemerLaunchAnnounce.h"
 
 AUTRemoteRedeemer::AUTRemoteRedeemer(const class FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -213,6 +214,11 @@ void AUTRemoteRedeemer::BlowUp()
 {
 	if (!bExploded)
 	{
+		AUTGameMode* GM = GetWorld()->GetAuthGameMode<AUTGameMode>();
+		if (GM)
+		{
+			GM->BroadcastLocalized(this, UUTRedeemerLaunchAnnounce::StaticClass(), 3);
+		}
 		bExploded = true;
 		bTearOff = true;
 

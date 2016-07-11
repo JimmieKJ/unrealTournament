@@ -20,5 +20,5 @@ class UNREALTOURNAMENT_API UUTRedeemerLaunchAnnounce : public UUTLocalMessage
 	virtual FText GetText(int32 Switch = 0, bool bTargetsPlayerState1 = false, class APlayerState* RelatedPlayerState_1 = NULL, class APlayerState* RelatedPlayerState_2 = NULL, class UObject* OptionalObject = NULL) const override;
 	virtual float GetAnnouncementDelay(int32 Switch) override;
 	virtual bool InterruptAnnouncement_Implementation(int32 Switch, const UObject* OptionalObject, TSubclassOf<UUTLocalMessage> OtherMessageClass, int32 OtherSwitch, const UObject* OtherOptionalObject) const override;
-
+	virtual float GetAnnouncementPriority(int32 Switch) const override;
 };
