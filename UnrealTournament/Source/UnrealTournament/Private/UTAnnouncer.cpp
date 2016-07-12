@@ -39,6 +39,14 @@ void UUTAnnouncer::PlayAnnouncement(TSubclassOf<UUTLocalMessage> MessageClass, i
 {
 	if (MessageClass != NULL)
 	{
+		if (!MessageClass.GetDefaultObject()->bPlayDuringIntermission)
+		{
+			AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
+			if (GS && (!GS->IsMatchInProgress() || GS->IsMatchIntermission()))
+			{
+				return;
+			}
+		}
 		FName SoundName = MessageClass.GetDefaultObject()->GetAnnouncementName(Switch, OptionalObject, PlayerState1, PlayerState2);
 		if (SoundName != NAME_None)
 		{
@@ -134,6 +142,22 @@ void UUTAnnouncer::PlayNextAnnouncement()
 		}
 
 		FAnnouncementInfo Next = QueuedAnnouncements[0];
+		if (!Next.MessageClass.GetDefaultObject()->bPlayDuringIntermission)
+		{
+			AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
+			if (GS && (!GS->IsMatchInProgress() || GS->IsMatchIntermission()))
+			{
+				QueuedAnnouncements.RemoveAt(0);
+				if (QueuedAnnouncements.Num() > 0)
+				{
+					Next = QueuedAnnouncements[0];
+				}
+				else
+				{
+					return;
+				}
+			}
+		}
 		QueuedAnnouncements.RemoveAt(0);
 
 		FName SoundName = Next.MessageClass.GetDefaultObject()->GetAnnouncementName(Next.Switch, Next.OptionalObject, Next.RelatedPlayerState_1, Next.RelatedPlayerState_2);

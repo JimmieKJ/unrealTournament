@@ -12,6 +12,7 @@ UUTRedeemerLaunchAnnounce::UUTRedeemerLaunchAnnounce(const class FObjectInitiali
 	bIsUnique = true;
 	bIsConsoleMessage = false;
 	bIsStatusAnnouncement = false;
+	bPlayDuringIntermission = false;
 	Lifetime = 2.f;
 	AnnouncementDelay = 0.f;
 	MessageArea = FName(TEXT("Announcements"));

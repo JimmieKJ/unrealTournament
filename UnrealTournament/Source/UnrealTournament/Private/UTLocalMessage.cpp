@@ -21,6 +21,7 @@ UUTLocalMessage::UUTLocalMessage(const class FObjectInitializer& ObjectInitializ
 	bDrawOnlyIfAlive = false;
 	ScaleInSize = 1.f;
 	FontSizeIndex = 2;
+	bPlayDuringIntermission = true;
 }
 
 int32 UUTLocalMessage::GetFontSizeIndex(int32 MessageIndex) const
