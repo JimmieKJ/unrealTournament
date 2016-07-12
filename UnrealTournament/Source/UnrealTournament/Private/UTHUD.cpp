@@ -396,6 +396,15 @@ UUTHUDWidget* AUTHUD::FindHudWidgetByClass(TSubclassOf<UUTHUDWidget> SearchWidge
 	return NULL;
 }
 
+void AUTHUD::UpdateKeyMappings()
+{
+	for (int32 i = 0; i<HudWidgets.Num(); i++)
+	{
+		HudWidgets[i]->UpdateKeyMappings(true);
+	}
+
+}
+
 void AUTHUD::ReceiveLocalMessage(TSubclassOf<class UUTLocalMessage> MessageClass, APlayerState* RelatedPlayerState_1, APlayerState* RelatedPlayerState_2, uint32 MessageIndex, FText LocalMessageText, UObject* OptionalObject)
 {
 	UUTHUDWidgetMessage* DestinationWidget = (HudMessageWidgets.FindRef(MessageClass->GetDefaultObject<UUTLocalMessage>()->MessageArea));

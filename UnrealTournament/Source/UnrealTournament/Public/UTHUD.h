@@ -441,6 +441,8 @@ public:
 
 	virtual bool HasHudWidget(TSubclassOf<UUTHUDWidget> NewWidgetClass);
 
+	virtual void UpdateKeyMappings();
+
 protected:
 	// Helper function to take a JSON object and try to convert it to the FVector2D.  
 	virtual FVector2D JSon2FVector2D(const TSharedPtr<FJsonObject> Vector2DObject, FVector2D Default);

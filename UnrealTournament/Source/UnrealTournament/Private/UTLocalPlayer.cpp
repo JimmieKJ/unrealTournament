@@ -1760,7 +1760,6 @@ void UUTLocalPlayer::WelcomeDialogResult(TSharedPtr<SCompoundWidget> Widget, uin
 		OpenDialog(SNew(SUTPlayerSettingsDialog).PlayerOwner(this));			
 	}
 }
-
 #endif
 
 void UUTLocalPlayer::SaveProfileSettings()
@@ -1795,6 +1794,11 @@ void UUTLocalPlayer::SaveProfileSettings()
 				OnlineUserCloudInterface->WriteUserFile(*UserID, GetProfileFilename(), FileContents);
 			}
 		}
+	}
+	AUTPlayerController* PC = Cast<AUTPlayerController>(PlayerController);
+	if (PC && PC->MyUTHUD)
+	{
+		PC->MyUTHUD->UpdateKeyMappings();
 	}
 }
 
