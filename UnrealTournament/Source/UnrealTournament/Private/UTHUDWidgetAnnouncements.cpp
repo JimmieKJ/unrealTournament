@@ -102,7 +102,7 @@ FVector2D UUTHUDWidgetAnnouncements::DrawMessage(int32 QueueIndex, float X, floa
 	float Alpha = 1.f;
 
 	// Fade the message in if scaling
-	if ((MessageQueue[QueueIndex].ScaleInTime > 0.f) && (MessageQueue[QueueIndex].ScaleInSize != 1.f)
+	if ((MessageQueue[QueueIndex].ScaleInTime > 0.f) && (MessageQueue[QueueIndex].ScaleInSize != 1.f) && MessageQueue[QueueIndex].DisplayFont
 		&& (MessageQueue[QueueIndex].LifeLeft > MessageQueue[QueueIndex].LifeSpan - MessageQueue[QueueIndex].ScaleInTime))
 	{
 		Alpha = (MessageQueue[QueueIndex].LifeSpan - MessageQueue[QueueIndex].LifeLeft) / MessageQueue[QueueIndex].ScaleInTime;
