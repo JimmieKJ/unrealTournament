@@ -41,6 +41,11 @@ struct FFlagTrailPos
 	UPROPERTY()
 		FVector MidPoints[3];
 
+	UPROPERTY()
+		bool bIsInNoRallyZone;
+
+	UPROPERTY()
+		bool bEnteringNoRallyZone;
 
 	FFlagTrailPos()
 		: Location(ForceInit)
@@ -49,6 +54,8 @@ struct FFlagTrailPos
 		{
 			MidPoints[i] = FVector(0.f);
 		}
+		bIsInNoRallyZone = false;
+		bEnteringNoRallyZone = false;
 	}
 };
 

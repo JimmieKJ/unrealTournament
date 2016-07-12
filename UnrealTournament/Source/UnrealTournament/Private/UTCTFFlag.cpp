@@ -357,11 +357,17 @@ void AUTCTFFlag::Tick(float DeltaTime)
 			FVector PreviousPos = (PastPositions.Num() > 0) ? PastPositions[PastPositions.Num() - 1].Location : (HomeBase ? HomeBase->GetActorLocation() : FVector(0.f));
 			if (HoldingPawn->GetCharacterMovement() && HoldingPawn->GetCharacterMovement()->IsWalking() && (!HoldingPawn->GetMovementBase() || !MovementBaseUtility::UseRelativeLocation(HoldingPawn->GetMovementBase())))
 			{
+				AUTGameVolume* GV = HoldingPawn->UTCharacterMovement ? Cast<AUTGameVolume>(HoldingPawn->UTCharacterMovement->GetPhysicsVolume()) : nullptr;
+				bool bAlreadyPlacedInNoRallyZone = (PastPositions.Num() > 0) && PastPositions[PastPositions.Num() - 1].bIsInNoRallyZone;
+				bool bAlreadyInNoRallyZone = (PastPositions.Num() > 0) && (PastPositions[PastPositions.Num() - 1].bIsInNoRallyZone || PastPositions[PastPositions.Num() - 1].bEnteringNoRallyZone);
+				bool bNowInNoRallyZone = GV && GV->bIsNoRallyZone;
+				bool bJustTransitionedToNoRallyZone = !bAlreadyInNoRallyZone && bNowInNoRallyZone;
+				FVector PendingNewPosition = bJustTransitionedToNoRallyZone ? RecentPosition : HoldingPawn->GetActorLocation();
 				if ((HoldingPawn->GetActorLocation() - RecentPosition).Size() > 100.f)
 				{
 					RecentPosition = HoldingPawn->GetActorLocation();
 				}
-				if ((HoldingPawn->GetActorLocation() - PreviousPos).Size() > MinGradualReturnDist)
+				if (!bAlreadyPlacedInNoRallyZone && ((HoldingPawn->GetActorLocation() - PreviousPos).Size() > (bJustTransitionedToNoRallyZone ? 0.3f*MinGradualReturnDist : MinGradualReturnDist)))
 				{
 					if (PastPositions.Num() > 0)
 					{
@@ -371,14 +377,15 @@ void AUTCTFFlag::Tick(float DeltaTime)
 						}
 					}
 					FFlagTrailPos NewPosition;
-					NewPosition.Location = HoldingPawn->GetActorLocation();
+					NewPosition.Location = PendingNewPosition;
 					NewPosition.MidPoints[0] = FVector::ZeroVector;
+					NewPosition.bEnteringNoRallyZone = bJustTransitionedToNoRallyZone;
+					NewPosition.bIsInNoRallyZone = !bJustTransitionedToNoRallyZone && bNowInNoRallyZone;
 					PastPositions.Add(NewPosition);
 					MidPointPos = 0;
 					bAddedReturnSpot = true;
 					MidPoints[0] = FVector::ZeroVector;
 					MidPoints[1] = FVector::ZeroVector;
-					MidPoints[2] = FVector::ZeroVector;
 				}
 			}
 			if ((MidPointPos < 3) && !bAddedReturnSpot)
