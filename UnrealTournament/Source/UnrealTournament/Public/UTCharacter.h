@@ -733,6 +733,10 @@ class UNREALTOURNAMENT_API AUTCharacter : public ACharacter, public IUTTeamInter
 	UPROPERTY(BlueprintReadOnly, Category = Pawn)
 		float LastTargetedTime;
 
+	/** Last time this character targeted or hit  an enemy. */
+	UPROPERTY(BlueprintReadOnly, Replicated, Category = Pawn)
+		bool bIsInCombat;
+
 	UPROPERTY(replicated)
 	int32 VisibilityMask;
 

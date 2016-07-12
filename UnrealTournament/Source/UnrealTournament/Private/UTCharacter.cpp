@@ -3005,6 +3005,7 @@ void AUTCharacter::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& O
 	DOREPLIFETIME_CONDITION(AUTCharacter, HeadScale, COND_None);
 	DOREPLIFETIME_CONDITION(AUTCharacter, bFeigningDeath, COND_None);
 	DOREPLIFETIME_CONDITION(AUTCharacter, bRepFloorSliding, COND_SkipOwner);
+	DOREPLIFETIME_CONDITION(AUTCharacter, bIsInCombat, COND_None);
 	DOREPLIFETIME_CONDITION(AUTCharacter, bSpawnProtectionEligible, COND_None);
 	DOREPLIFETIME_CONDITION(AUTCharacter, DrivenVehicle, COND_OwnerOnly);
 	DOREPLIFETIME_CONDITION(AUTCharacter, bHasHighScore, COND_None);
@@ -4144,6 +4145,7 @@ void AUTCharacter::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
+	bIsInCombat = (GetWorld()->GetTimeSeconds() - FMath::Max(LastTargetingTime, LastTargetedTime) < 2.f);
 	if (HeadScale < 0.1f)
 	{
 		GetMesh()->ClothBlendWeight = 0.0f;
@@ -5100,7 +5102,7 @@ void AUTCharacter::PostRenderFor(APlayerController* PC, UCanvas* Canvas, FVector
 				CenterFade = CenterFade * FMath::Clamp(10.f*PctFromCenter, 0.15f, 1.f);
 				TeamColor.A = 0.2f * CenterFade;
 				UTexture* BarTexture = AUTHUD::StaticClass()->GetDefaultObject<AUTHUD>()->HUDAtlas;
-				if (GetWorld()->GetTimeSeconds() - FMath::Max(LastTargetingTime, LastTargetedTime) < 2.f)
+				if (bIsInCombat)
 				{
 					// indicate active combat
 					FLinearColor CombatColor(1.f, 0.5f, 0.f, 0.35f * CenterFade);
