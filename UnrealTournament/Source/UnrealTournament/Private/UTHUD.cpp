@@ -402,7 +402,6 @@ void AUTHUD::UpdateKeyMappings()
 	{
 		HudWidgets[i]->UpdateKeyMappings(true);
 	}
-
 }
 
 void AUTHUD::ReceiveLocalMessage(TSubclassOf<class UUTLocalMessage> MessageClass, APlayerState* RelatedPlayerState_1, APlayerState* RelatedPlayerState_2, uint32 MessageIndex, FText LocalMessageText, UObject* OptionalObject)

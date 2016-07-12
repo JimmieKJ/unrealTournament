@@ -703,6 +703,18 @@ void AUTCTFRoundGame::HandleExitingIntermission()
 	{
 		CTFGameState->ChangeTeamSides(1);
 	}
+	else if (bAsymmetricVictoryConditions)
+	{
+		// force update of flags since defender flag gets destroyed
+		for (AUTCTFFlagBase* Base : CTFGameState->FlagBases)
+		{
+			IUTTeamInterface* TeamObj = Cast<IUTTeamInterface>(Base);
+			if (TeamObj != NULL)
+			{
+				TeamObj->Execute_SetTeamForSideSwap(Base, Base->TeamNum);
+			}
+		}
+	}
 
 	// reset everything
 	for (FActorIterator It(GetWorld()); It; ++It)
@@ -758,11 +770,7 @@ void AUTCTFRoundGame::InitFlags()
 				}
 				else
 				{
-					Flag->SetActorHiddenInGame(true);
-					Flag->bEnemyCanPickup = false;
-					Flag->bFriendlyCanPickup = false;
-					Flag->bTeamPickupSendsHome = false;
-					Flag->bEnemyPickupSendsHome = false;
+					Flag->Destroy();
 				}
 			}
 			else

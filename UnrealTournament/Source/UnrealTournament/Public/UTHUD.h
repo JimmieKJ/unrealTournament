@@ -441,6 +441,7 @@ public:
 
 	virtual bool HasHudWidget(TSubclassOf<UUTHUDWidget> NewWidgetClass);
 
+	/** Update displayed key bindings on HUD */
 	virtual void UpdateKeyMappings();
 
 protected:
