@@ -219,6 +219,10 @@ void AUTProj_Redeemer::Explode_Implementation(const FVector& HitLocation, const 
 		if (ExplosionBP != NULL)
 		{
 			GetWorld()->SpawnActor<AActor>(ExplosionBP, FTransform(HitNormal.Rotation(), HitLocation));
+			if (ExplosionEffects && ExplosionEffects.GetDefaultObject()->Audio)
+			{
+				UUTGameplayStatics::UTPlaySound(GetWorld(), ExplosionEffects.GetDefaultObject()->Audio, this, SRT_IfSourceNotReplicated, false, HitLocation, NULL, NULL, false, SAT_None);
+			}
 		}
 		else if (ExplosionEffects != NULL)
 		{

@@ -333,6 +333,10 @@ void AUTRemoteRedeemer::PlayExplosionEffects()
 		if (DefaultRedeemer->ExplosionBP != NULL)
 		{
 			GetWorld()->SpawnActor<AActor>(DefaultRedeemer->ExplosionBP, FTransform(GetActorRotation(), GetActorLocation()));
+			if (DefaultRedeemer->ExplosionEffects && DefaultRedeemer->ExplosionEffects.GetDefaultObject()->Audio)
+			{
+				UUTGameplayStatics::UTPlaySound(GetWorld(), DefaultRedeemer->ExplosionEffects.GetDefaultObject()->Audio, this, SRT_IfSourceNotReplicated, false, GetActorLocation(), NULL, NULL, false, SAT_None);
+			}
 		}
 		else if (DefaultRedeemer->ExplosionEffects != NULL)
 		{
