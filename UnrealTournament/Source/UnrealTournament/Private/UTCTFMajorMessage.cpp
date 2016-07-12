@@ -18,6 +18,7 @@ UUTCTFMajorMessage::UUTCTFMajorMessage(const FObjectInitializer& ObjectInitializ
 	FlagRallyMessage = NSLOCTEXT("CTFGameMessage", "FlagRallyMessage", "RALLY NOW!");
 	RallyReadyMessage = NSLOCTEXT("CTFGameMessage", "RallyReadyMessage", "Rally Available");
 	EnemyRallyMessage = NSLOCTEXT("CTFGameMessage", "EnemyRallyMessage", "Enemy Rally!");
+	TeamRallyMessage = NSLOCTEXT("CTFGameMessage", "EnemyRallyMessage", "Team Rally!");
 	FallBackToRallyMessage = NSLOCTEXT("CTFGameMessage", "FallBackToRallyMessage", "Fall back to Rally!");
 	RallyCompleteMessage = NSLOCTEXT("CTFGameMessage", "RallyCompleteMessage", "Rally Complete!");
 	bIsStatusAnnouncement = true;
@@ -35,6 +36,9 @@ UUTCTFMajorMessage::UUTCTFMajorMessage(const FObjectInitializer& ObjectInitializ
 
 	static ConstructorHelpers::FObjectFinder<USoundBase> EnemyRallySoundFinder(TEXT("SoundWave'/Game/RestrictedAssets/Audio/Stingers/EnemyRally.EnemyRally'"));
 	EnemyRallySound = EnemyRallySoundFinder.Object;
+
+	static ConstructorHelpers::FObjectFinder<USoundBase> RallyFinalSoundFinder(TEXT("SoundWave'/Game/RestrictedAssets/Audio/Stingers/RallyFinal.RallyFinal'"));
+	RallyFinalSound = RallyFinalSoundFinder.Object;
 
 	static ConstructorHelpers::FObjectFinder<USoundBase> RallyCompleteSoundFinder(TEXT("SoundWave'/Game/RestrictedAssets/Audio/Stingers/RallyComplete.RallyComplete'"));
 	RallyCompleteSound = RallyCompleteSoundFinder.Object;
@@ -64,6 +68,10 @@ void UUTCTFMajorMessage::ClientReceive(const FClientReceiveData& ClientData) con
 			PC->UTClientPlaySound(EnemyRallySound);
 		}
 		else if (ClientData.MessageIndex == 25)
+		{
+			PC->UTClientPlaySound(RallyFinalSound);
+		}
+		else if (ClientData.MessageIndex == 27)
 		{
 			PC->UTClientPlaySound(RallyCompleteSound);
 		}
@@ -112,6 +120,7 @@ FText UUTCTFMajorMessage::GetText(int32 Switch, bool bTargetsPlayerState1, APlay
 	case 24: return EnemyRallyMessage; break;
 	case 25: return RallyCompleteMessage; break;
 	case 26: return FallBackToRallyMessage; break;
+	case 27: return TeamRallyMessage; break;
 	}
 	return FText::GetEmpty();
 }

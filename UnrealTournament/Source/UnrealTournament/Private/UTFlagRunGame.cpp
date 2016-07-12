@@ -341,6 +341,7 @@ void AUTFlagRunGame::CompleteRallyRequest(AUTPlayerController* RequestingPC)
 				{
 					if (GS->OnSameTeam(RequestingPC, PC))
 					{
+						PC->ClientReceiveLocalizedMessage(UUTCTFMajorMessage::StaticClass(), 27, UTPlayerState);
 						if (GetWorld()->GetTimeSeconds() - RallyRequestTime < 6.f)
 						{
 							PC->ClientReceiveLocalizedMessage(UTPlayerState->GetCharacterVoiceClass(), ACKNOWLEDGE_SWITCH_INDEX, UTPlayerState, PC->PlayerState, NULL);

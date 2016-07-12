@@ -34,6 +34,9 @@ class UNREALTOURNAMENT_API UUTCTFMajorMessage : public UUTCarriedObjectMessage
 		FText EnemyRallyMessage;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Message)
+		FText TeamRallyMessage;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Message)
 		FText FallBackToRallyMessage;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Message)
@@ -50,7 +53,10 @@ class UNREALTOURNAMENT_API UUTCTFMajorMessage : public UUTCarriedObjectMessage
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Message)
 		USoundBase* EnemyRallySound;
-	
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Message)
+		USoundBase* RallyFinalSound;
+
 		UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Message)
 		USoundBase* RallyCompleteSound;
 
