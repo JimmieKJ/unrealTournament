@@ -67,12 +67,11 @@ void UUTHUDWidget_QuickStats::UpdateKeyMappings(bool bForceUpdate)
 	{
 		bKeyMappingsSet = true;
 		FInputActionKeyMapping ActivatePowerupBinding = FindKeyMappingTo("StartActivatePowerup");
-		BoostProvidedPowerupInfo.Label = (ActivatePowerupBinding.Key.GetDisplayName().ToString().Len() < 6) ? ActivatePowerupBinding.Key.GetDisplayName() : FText::FromString(" ");
+		BoostLabel = (ActivatePowerupBinding.Key.GetDisplayName().ToString().Len() < 6) ? ActivatePowerupBinding.Key.GetDisplayName() : FText::FromString(" ");
 		FInputActionKeyMapping DropObjectAction = FindKeyMappingTo("DropCarriedObject");
-		FlagInfo.Label = (DropObjectAction.Key.IsValid() && (DropObjectAction.Key.GetDisplayName().ToString().Len() < 6)) ? DropObjectAction.Key.GetDisplayName() : FText::FromString(" ");
+		FlagLabel = (DropObjectAction.Key.IsValid() && (DropObjectAction.Key.GetDisplayName().ToString().Len() < 6)) ? DropObjectAction.Key.GetDisplayName() : FText::FromString(" ");
 		FInputActionKeyMapping RallyBinding = FindKeyMappingTo("RequestRally");
-		RallyInfo.Label = (RallyBinding.Key.GetDisplayName().ToString().Len() < 6) ? RallyBinding.Key.GetDisplayName() : FText::FromString(" ");
-		RallyLabel = RallyInfo.Label;
+		RallyLabel = (RallyBinding.Key.GetDisplayName().ToString().Len() < 6) ? RallyBinding.Key.GetDisplayName() : FText::FromString(" ");
 	}
 }
 
@@ -319,6 +318,7 @@ void UUTHUDWidget_QuickStats::PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCa
 					{
 						BoostProvidedPowerupInfo.Animate(StatAnimTypes::Scale, 2.f, 3.25f, 1.0f, true);
 					}
+					BoostProvidedPowerupInfo.Label = BoostLabel;
 				}
 				else
 				{
@@ -343,7 +343,7 @@ void UUTHUDWidget_QuickStats::PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCa
 			FlagInfo.Value = 1;
 			FlagInfo.IconColor = UTPlayerState->CarriedObject->GetTeamNum() == 0 ? FLinearColor::Red : FLinearColor::Blue;
 			FlagInfo.bUseLabel = true;
-			FlagInfo.Label = FText::GetEmpty();
+			FlagInfo.Label = FlagLabel;
 			FlagInfo.HighlightStrength = 1.f;
 			FlagInfo.bUseOverlayTexture = false;
 

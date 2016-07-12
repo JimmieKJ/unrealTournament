@@ -327,6 +327,13 @@ private:
 		FText RallyLabel;
 
 	UPROPERTY()
+		FText FlagLabel;
+
+	UPROPERTY()
+		FText BoostLabel;
+
+
+	UPROPERTY()
 	AUTWeapon* LastWeapon;
 
 	// Checks the Stat for updates.
