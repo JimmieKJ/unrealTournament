@@ -18,6 +18,8 @@ UUTCTFMajorMessage::UUTCTFMajorMessage(const FObjectInitializer& ObjectInitializ
 	FlagRallyMessage = NSLOCTEXT("CTFGameMessage", "FlagRallyMessage", "RALLY NOW!");
 	RallyReadyMessage = NSLOCTEXT("CTFGameMessage", "RallyReadyMessage", "Rally Available");
 	EnemyRallyMessage = NSLOCTEXT("CTFGameMessage", "EnemyRallyMessage", "Enemy Rally!");
+	FallBackToRallyMessage = NSLOCTEXT("CTFGameMessage", "FallBackToRallyMessage", "Fall back to Rally!");
+	RallyCompleteMessage = NSLOCTEXT("CTFGameMessage", "RallyCompleteMessage", "Rally Complete!");
 	bIsStatusAnnouncement = true;
 	bIsPartiallyUnique = true;
 	ScaleInSize = 3.f;
@@ -33,6 +35,9 @@ UUTCTFMajorMessage::UUTCTFMajorMessage(const FObjectInitializer& ObjectInitializ
 
 	static ConstructorHelpers::FObjectFinder<USoundBase> EnemyRallySoundFinder(TEXT("SoundWave'/Game/RestrictedAssets/Audio/Stingers/EnemyRally.EnemyRally'"));
 	EnemyRallySound = EnemyRallySoundFinder.Object;
+
+	static ConstructorHelpers::FObjectFinder<USoundBase> RallyCompleteSoundFinder(TEXT("SoundWave'/Game/RestrictedAssets/Audio/Stingers/RallyComplete.RallyComplete'"));
+	RallyCompleteSound = RallyCompleteSoundFinder.Object;
 }
 
 void UUTCTFMajorMessage::ClientReceive(const FClientReceiveData& ClientData) const
@@ -57,6 +62,10 @@ void UUTCTFMajorMessage::ClientReceive(const FClientReceiveData& ClientData) con
 		else if (ClientData.MessageIndex == 24)
 		{
 			PC->UTClientPlaySound(EnemyRallySound);
+		}
+		else if (ClientData.MessageIndex == 25)
+		{
+			PC->UTClientPlaySound(RallyCompleteSound);
 		}
 	}
 }
@@ -101,6 +110,8 @@ FText UUTCTFMajorMessage::GetText(int32 Switch, bool bTargetsPlayerState1, APlay
 	case 22: return FlagRallyMessage; break;
 	case 23: return RallyReadyMessage; break;
 	case 24: return EnemyRallyMessage; break;
+	case 25: return RallyCompleteMessage; break;
+	case 26: return FallBackToRallyMessage; break;
 	}
 	return FText::GetEmpty();
 }

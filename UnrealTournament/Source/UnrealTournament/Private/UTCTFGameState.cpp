@@ -6,6 +6,7 @@
 #include "UTCTFScoring.h"
 #include "StatNames.h"
 #include "UTGameVolume.h"
+#include "UTCTFMajorMessage.h"
 
 AUTCTFGameState::AUTCTFGameState(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -136,10 +137,29 @@ void AUTCTFGameState::Tick(float DeltaTime)
 			}
 			if (bOffenseCanRally)
 			{
+				if ((GetWorld()->GetTimeSeconds() - LastRallyCompleteTime > 20.f) && (GetWorld()->GetTimeSeconds() - FMath::Max(Flag->PickedUpTime, LastNoRallyTime) > 12.f) && Cast<AUTPlayerController>(Flag->HoldingPawn->GetController()))
+				{
+					// check for rally complete
+					int32 RemainingToRally = 0;
+					for (int32 i = 0; i < PlayerArray.Num() - 1; i++)
+					{
+						AUTPlayerState* PS = Cast<AUTPlayerState>(PlayerArray[i]);
+						if (PS && (PS != Flag->Holder) && (PS->Team == Flag->Holder->Team) && (PS->NextRallyTime < GetWorld()->GetTimeSeconds() + 7.f) && (!PS->GetUTCharacter() || (PS->GetUTCharacter()->bCanRally && ((PS->GetUTCharacter()->GetActorLocation() - Flag->HoldingPawn->GetActorLocation()).Size() > 2500.f))))
+						{
+							RemainingToRally++;
+						}
+					}
+					if (RemainingToRally == 0)
+					{
+						LastRallyCompleteTime = GetWorld()->GetTimeSeconds();
+						Cast<AUTPlayerController>(Flag->HoldingPawn->GetController())->ClientReceiveLocalizedMessage(UUTCTFMajorMessage::StaticClass(), 25);
+					}
+				}
 				LastOffenseRallyTime = GetWorld()->GetTimeSeconds();
 			}
 			else
 			{
+				LastNoRallyTime = GetWorld()->GetTimeSeconds();
 				if (bRedToCap)
 				{
 					bRedCanRally = false;

@@ -185,6 +185,12 @@ class UNREALTOURNAMENT_API AUTCTFGameState: public AUTGameState
 	UPROPERTY()
 		float LastOffenseRallyTime;
 
+	UPROPERTY()
+		float LastRallyCompleteTime;
+
+	UPROPERTY()
+		float LastNoRallyTime;
+
 	/** Delay before bringing up scoreboard at halftime. */
 	UPROPERTY(BlueprintReadOnly, Replicated, Category = CTF)
 		float HalftimeScoreDelay;
