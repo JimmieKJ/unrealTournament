@@ -3023,8 +3023,6 @@ void AUTCharacter::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& O
 	DOREPLIFETIME_CONDITION(AUTCharacter, WeaponSkins, COND_None);
 	DOREPLIFETIME_CONDITION(AUTCharacter, VisibilityMask, COND_None);
 	DOREPLIFETIME_CONDITION(AUTCharacter, bCanRally, COND_OwnerOnly);
-	DOREPLIFETIME_CONDITION(AUTCharacter, RedSkullCount, COND_None);
-	DOREPLIFETIME_CONDITION(AUTCharacter, BlueSkullCount, COND_None);
 
 	DOREPLIFETIME_CONDITION(AUTCharacter, MaxSpeedPctModifier, COND_None);
 	DOREPLIFETIME(AUTCharacter, bServerOutline);

@@ -23,7 +23,6 @@
 #include "UTShowdownRewardMessage.h"
 #include "UTShowdownStatusMessage.h"
 #include "UTPlayerStart.h"
-#include "UTSkullPickup.h"
 #include "UTArmor.h"
 #include "UTTimedPowerup.h"
 #include "UTPlayerState.h"
@@ -226,31 +225,6 @@ void AUTCTFRoundGame::BroadcastScoreUpdate(APlayerState* ScoringPlayer, AUTTeamI
 
 void AUTCTFRoundGame::DiscardInventory(APawn* Other, AController* Killer)
 {
-	AUTCharacter* UTC = Cast<AUTCharacter>(Other);
-	if (UTC != NULL)
-	{
-		FVector StartLocation = UTC->GetActorLocation() + UTC->GetActorRotation().Vector() * UTC->GetSimpleCollisionCylinderExtent().X;
-		if (UTC->RedSkullPickupClass)
-		{
-			for (int32 i = 0; i < UTC->RedSkullCount; i++)
-			{
-				FVector TossVelocity = UTC->GetVelocity() + UTC->GetActorRotation().RotateVector(FVector(FMath::FRandRange(0.0f, 200.0f), FMath::FRandRange(-400.0f, 400.0f), FMath::FRandRange(0.0f, 200.0f)) + FVector(300.0f, 0.0f, 150.0f));
-				TossSkull(UTC->RedSkullPickupClass, StartLocation, TossVelocity, UTC);
-			}
-		}
-		if (UTC->BlueSkullPickupClass)
-		{
-			for (int32 i = 0; i < UTC->BlueSkullCount; i++)
-			{
-				FVector TossVelocity = UTC->GetVelocity() + UTC->GetActorRotation().RotateVector(FVector(FMath::FRandRange(0.0f, 200.0f), FMath::FRandRange(-400.0f, 400.0f), FMath::FRandRange(0.0f, 200.0f)) + FVector(300.0f, 0.0f, 150.0f));
-				TossSkull(UTC->BlueSkullPickupClass, StartLocation, TossVelocity, UTC);
-			}
-		}
-
-		UTC->RedSkullCount = 0;
-		UTC->BlueSkullCount = 0;
-	}
-
 	HandlePowerupUnlocks(Other, Killer);
 	Super::DiscardInventory(Other, Killer);
 }
@@ -330,31 +304,6 @@ float AUTCTFRoundGame::AdjustNearbyPlayerStartScore(const AController* Player, c
 		}
 	}
 	return ScoreAdjust;
-}
-
-void AUTCTFRoundGame::TossSkull(TSubclassOf<AUTSkullPickup> SkullPickupClass, const FVector& StartLocation, const FVector& TossVelocity, AUTCharacter* FormerInstigator)
-{
-	// pull back spawn location if it is embedded in world geometry
-	FVector AdjustedStartLoc = StartLocation;
-	UCapsuleComponent* TestCapsule = SkullPickupClass.GetDefaultObject()->Collision;
-	if (TestCapsule != NULL)
-	{
-		FCollisionQueryParams QueryParams(FName(TEXT("DropPlacement")), false);
-		FHitResult Hit;
-		if (GetWorld()->SweepSingleByChannel(Hit, StartLocation - FVector(TossVelocity.X, TossVelocity.Y, 0.0f) * 0.25f, StartLocation, FQuat::Identity, TestCapsule->GetCollisionObjectType(), TestCapsule->GetCollisionShape(), QueryParams, TestCapsule->GetCollisionResponseToChannels()) &&
-			!Hit.bStartPenetrating)
-		{
-			AdjustedStartLoc = Hit.Location;
-		}
-	}
-
-	FActorSpawnParameters Params;
-	Params.Instigator = FormerInstigator;
-	AUTDroppedPickup* Pickup = GetWorld()->SpawnActor<AUTDroppedPickup>(SkullPickupClass, AdjustedStartLoc, TossVelocity.Rotation(), Params);
-	if (Pickup != NULL)
-	{
-		Pickup->Movement->Velocity = TossVelocity;
-	}
 }
 
 bool AUTCTFRoundGame::CheckScore_Implementation(AUTPlayerState* Scorer)

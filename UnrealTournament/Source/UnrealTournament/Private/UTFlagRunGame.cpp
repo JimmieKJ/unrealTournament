@@ -22,7 +22,6 @@
 #include "UTShowdownGameMessage.h"
 #include "UTShowdownRewardMessage.h"
 #include "UTPlayerStart.h"
-#include "UTSkullPickup.h"
 #include "UTArmor.h"
 #include "UTTimedPowerup.h"
 #include "UTPlayerState.h"

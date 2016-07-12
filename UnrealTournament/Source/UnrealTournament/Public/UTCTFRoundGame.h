@@ -161,8 +161,6 @@ class UNREALTOURNAMENT_API AUTCTFRoundGame : public AUTCTFBaseGame
 	virtual void AdjustLeaderHatFor(AUTCharacter* UTChar) override;
 	virtual bool SkipPlacement(AUTCharacter* UTChar) override;
 
-	virtual void TossSkull(TSubclassOf<AUTSkullPickup> SkullPickupClass, const FVector& StartLocation, const FVector& TossVelocity, AUTCharacter* FormerInstigator);
-
 	virtual void EndTeamGame(AUTTeamInfo* Winner, FName Reason);
 
 	virtual bool UTIsHandlingReplays() override { return false; }
