@@ -330,6 +330,7 @@ void AUTPlayerController::RequestRally()
 {
 	if (UTPlayerState && UTPlayerState->bCanRally)
 	{
+		LastRallyRequestTime = GetWorld()->GetTimeSeconds();
 		ServerRequestRally();
 	}
 }

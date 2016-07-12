@@ -296,6 +296,9 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Icons")
 		FHUDRenderObject_Texture RallyIcon;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Icons")
+		FHUDRenderObject_Texture RallyFlagIcon;
+
 	// NOTE: This icon will be generated from the data in the actual powerup
 	UPROPERTY()
 	FHUDRenderObject_Texture PowerupIcon;
@@ -320,6 +323,10 @@ private:
 	FStatInfo BoostProvidedPowerupInfo;
 	FStatInfo RallyInfo;
 
+	UPROPERTY()
+		FText RallyLabel;
+
+	UPROPERTY()
 	AUTWeapon* LastWeapon;
 
 	// Checks the Stat for updates.

@@ -72,6 +72,7 @@ void UUTHUDWidget_QuickStats::UpdateKeyMappings(bool bForceUpdate)
 		FlagInfo.Label = (DropObjectAction.Key.IsValid() && (DropObjectAction.Key.GetDisplayName().ToString().Len() < 6)) ? DropObjectAction.Key.GetDisplayName() : FText::FromString(" ");
 		FInputActionKeyMapping RallyBinding = FindKeyMappingTo("RequestRally");
 		RallyInfo.Label = (RallyBinding.Key.GetDisplayName().ToString().Len() < 6) ? RallyBinding.Key.GetDisplayName() : FText::FromString(" ");
+		RallyLabel = RallyInfo.Label;
 	}
 }
 
@@ -112,12 +113,6 @@ void UUTHUDWidget_QuickStats::PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCa
 	RallyInfo.Value = 0;
 	if (CharOwner && UTPlayerState)
 	{
-/*		if (UTHUDOwner->UTPlayerOwner && UTHUDOwner->UTPlayerOwner->WeaponBobGlobalScaling > 0 && InUTHUDOwner->GetQuickStatsBob())
-		{
-			RenderPosition.X += 4.0f * CharOwner->CurrentWeaponBob.Y;
-			RenderPosition.Y -= 4.0f * CharOwner->CurrentWeaponBob.Z;
-		}
-*/	
 		AUTWeapon* Weap = CharOwner->GetWeapon();
 
 		WeaponColor = Weap ? Weap->IconColor : FLinearColor::White;
@@ -158,7 +153,6 @@ void UUTHUDWidget_QuickStats::PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCa
 		GetHighlightStrength(HealthInfo, HealthPerc, 0.65f);
 
 		// ----------------- Armor / Inventory
-
 		bool bHasShieldBelt = false;
 		bool bArmorVisible = false;
 		bool bBootsVisible = false;
@@ -378,11 +372,24 @@ void UUTHUDWidget_QuickStats::PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCa
 			RallyInfo.bUseLabel = true;
 			RallyInfo.HighlightStrength = 1.f;
 			RallyInfo.bUseOverlayTexture = false;
+			RallyInfo.Label = RallyLabel;
+			RallyInfo.bUseOverlayTexture = false;
 			bool bWantsPulse = ((UTPlayerState->Team->TeamIndex == 0) == GameState->bRedToCap);// && !UTPlayerState->CarriedObject;
+			if (UTPlayerState->CarriedObject)
+			{
+				RallyInfo.bUseOverlayTexture = true;
+				RallyInfo.OverlayTexture = RallyFlagIcon;
+				if (InUTHUDOwner && InUTHUDOwner->UTPlayerOwner && (GetWorld()->GetTimeSeconds() - InUTHUDOwner->UTPlayerOwner->LastRallyRequestTime < 6.5f))
+				{
+					RallyInfo.Label = FText::GetEmpty();
+					bWantsPulse = false;
+				}
+			}
 			if (UTHUDOwner->UTPlayerOwner->bNeedsRallyNotify)
 			{
 				if (bWantsPulse)
 				{
+					RallyInfo.Animate(StatAnimTypes::ScaleOverlay, 2.0f, 10.f, 1.0f, true);
 					RallyInfo.Animate(StatAnimTypes::Scale, 2.0f, 10.f, 1.0f, true);
 					UTHUDOwner->UTPlayerOwner->ClientReceiveLocalizedMessage(UUTCTFMajorMessage::StaticClass(), 23);
 				}
@@ -390,6 +397,7 @@ void UUTHUDWidget_QuickStats::PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCa
 			}
 			else if (bWantsPulse && !RallyInfo.IsAnimationTypeAlreadyPlaying(StatAnimTypes::Scale))
 			{
+				RallyInfo.Animate(StatAnimTypes::ScaleOverlay, 2.0f, 3.25f, 1.0f, true);
 				RallyInfo.Animate(StatAnimTypes::Scale, 2.0f, 3.25f, 1.0f, true);
 			}
 		}

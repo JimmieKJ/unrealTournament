@@ -185,6 +185,9 @@ public:
 	UPROPERTY()
 	bool bNeedsBoostNotify;
 
+	UPROPERTY()
+		float LastRallyRequestTime;
+
 	UFUNCTION(reliable, client, BlueprintCallable, Category = PlayerController)
 	void UTClientSetRotation(FRotator NewRotation);
 
