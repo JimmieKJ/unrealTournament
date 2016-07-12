@@ -5,6 +5,7 @@
 #include "UTGameState.h"
 #include "UTWeaponLocker.h"
 #include "UTPlayerState.h"
+#include "UTTeleporter.h"
 
 AUTGameVolume::AUTGameVolume(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -14,6 +15,7 @@ AUTGameVolume::AUTGameVolume(const FObjectInitializer& ObjectInitializer)
 	bShowOnMinimap = true;
 	bIsNoRallyZone = false;
 	bIsTeamSafeVolume = false;
+	bIsTeleportZone = false;
 }
 
 void AUTGameVolume::ActorEnteredVolume(class AActor* Other)
@@ -55,6 +57,24 @@ void AUTGameVolume::ActorEnteredVolume(class AActor* Other)
 							break;
 						}
 					}
+				}
+			}
+			if (bIsTeleportZone)
+			{
+				if (AssociatedTeleporter == nullptr)
+				{
+					for (FActorIterator It(GetWorld()); It; ++It)
+					{
+						AssociatedTeleporter = Cast<AUTTeleporter>(*It);
+						if (AssociatedTeleporter)
+						{
+							break;
+						}
+					}
+				}
+				if (AssociatedTeleporter)
+				{
+					AssociatedTeleporter->OnOverlapBegin(P);
 				}
 			}
 		}

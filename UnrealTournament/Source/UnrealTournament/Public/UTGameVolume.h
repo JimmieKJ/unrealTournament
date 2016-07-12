@@ -32,6 +32,13 @@ class UNREALTOURNAMENT_API AUTGameVolume : public APhysicsVolume, public IUTTeam
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Gameplay")
 		bool bIsNoRallyZone;
 
+	/** Character entering this volume immediately triggers teleporter in this volume. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Gameplay")
+		bool bIsTeleportZone;
+
+	UPROPERTY()
+		class AUTTeleporter* AssociatedTeleporter;
+
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Gameplay")
 		uint8 TeamIndex;
 
