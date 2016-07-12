@@ -285,7 +285,7 @@ public:
 	UPROPERTY(BlueprintReadOnly, Replicated, Category = PlayerController)
 		bool bCanRally;
 
-	UPROPERTY(BlueprintReadOnly, Category = PlayerController)
+	UPROPERTY(BlueprintReadOnly, Replicated, Category = PlayerController)
 		float NextRallyTime;
 
 	UPROPERTY(BlueprintReadOnly, Category = PlayerState, replicated)

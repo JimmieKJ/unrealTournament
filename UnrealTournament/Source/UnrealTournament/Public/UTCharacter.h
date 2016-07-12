@@ -426,7 +426,7 @@ class UNREALTOURNAMENT_API AUTCharacter : public ACharacter, public IUTTeamInter
 	 */
 	void GetSimplifiedSavedPositions(TArray<FSavedPosition>& OutPositions, bool bStopAtTeleport) const;
 
-	UPROPERTY(BlueprintReadWrite, Category = "Pawn")
+	UPROPERTY(BlueprintReadWrite, Replicated, Category = "Pawn")
 		bool bCanRally;
 
 	/** Limit to armor stacking */

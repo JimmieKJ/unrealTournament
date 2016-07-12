@@ -365,40 +365,51 @@ void UUTHUDWidget_QuickStats::PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCa
 		}
 
 		AUTCTFGameState* GameState = GetWorld()->GetGameState<AUTCTFGameState>();
-		if (GameState && UTPlayerState && UTPlayerState->Team && UTPlayerState->bCanRally && ((UTPlayerState->Team->TeamIndex == 0) ? GameState->bRedCanRally : GameState->bBlueCanRally))
+		if (GameState && UTPlayerState && UTPlayerState->Team && ((UTPlayerState->Team->TeamIndex == 0) ? GameState->bRedCanRally : GameState->bBlueCanRally))
 		{
-			RallyInfo.Value = 1;
-			RallyInfo.IconColor = FLinearColor::Yellow;
-			RallyInfo.bUseLabel = true;
-			RallyInfo.HighlightStrength = 1.f;
-			RallyInfo.bUseOverlayTexture = false;
-			RallyInfo.Label = RallyLabel;
-			RallyInfo.bUseOverlayTexture = false;
-			bool bWantsPulse = ((UTPlayerState->Team->TeamIndex == 0) == GameState->bRedToCap);// && !UTPlayerState->CarriedObject;
-			if (UTPlayerState->CarriedObject)
+			if (UTPlayerState->bCanRally)
 			{
-				RallyInfo.bUseOverlayTexture = true;
-				RallyInfo.OverlayTexture = RallyFlagIcon;
-				if (InUTHUDOwner && InUTHUDOwner->UTPlayerOwner && (GetWorld()->GetTimeSeconds() - InUTHUDOwner->UTPlayerOwner->LastRallyRequestTime < 6.5f))
+				RallyInfo.Value = 1;
+				RallyInfo.IconColor = FLinearColor::Yellow;
+				RallyInfo.bUseLabel = true;
+				RallyInfo.HighlightStrength = 1.f;
+				RallyInfo.bUseOverlayTexture = false;
+				RallyInfo.Label = RallyLabel;
+				bool bWantsPulse = ((UTPlayerState->Team->TeamIndex == 0) == GameState->bRedToCap);// && !UTPlayerState->CarriedObject;
+				if (UTPlayerState->CarriedObject)
 				{
-					RallyInfo.Label = FText::GetEmpty();
-					bWantsPulse = false;
+					RallyInfo.bUseOverlayTexture = true;
+					RallyInfo.OverlayTexture = RallyFlagIcon;
+					if (InUTHUDOwner && InUTHUDOwner->UTPlayerOwner && (GetWorld()->GetTimeSeconds() - InUTHUDOwner->UTPlayerOwner->LastRallyRequestTime < 6.5f))
+					{
+						RallyInfo.Label = FText::GetEmpty();
+						bWantsPulse = false;
+					}
+				}
+				if (UTHUDOwner->UTPlayerOwner->bNeedsRallyNotify)
+				{
+					if (bWantsPulse)
+					{
+						RallyInfo.Animate(StatAnimTypes::ScaleOverlay, 2.0f, 10.f, 1.0f, true);
+						RallyInfo.Animate(StatAnimTypes::Scale, 2.0f, 10.f, 1.0f, true);
+						UTHUDOwner->UTPlayerOwner->ClientReceiveLocalizedMessage(UUTCTFMajorMessage::StaticClass(), 23);
+					}
+					UTHUDOwner->UTPlayerOwner->bNeedsRallyNotify = false;
+				}
+				else if (bWantsPulse && !RallyInfo.IsAnimationTypeAlreadyPlaying(StatAnimTypes::Scale))
+				{
+					RallyInfo.Animate(StatAnimTypes::ScaleOverlay, 2.0f, 3.25f, 1.0f, true);
+					RallyInfo.Animate(StatAnimTypes::Scale, 2.0f, 3.25f, 1.0f, true);
 				}
 			}
-			if (UTHUDOwner->UTPlayerOwner->bNeedsRallyNotify)
+			else if (CharOwner && CharOwner->bCanRally && (UTPlayerState->NextRallyTime - GetWorld()->GetTimeSeconds() > 0))
 			{
-				if (bWantsPulse)
-				{
-					RallyInfo.Animate(StatAnimTypes::ScaleOverlay, 2.0f, 10.f, 1.0f, true);
-					RallyInfo.Animate(StatAnimTypes::Scale, 2.0f, 10.f, 1.0f, true);
-					UTHUDOwner->UTPlayerOwner->ClientReceiveLocalizedMessage(UUTCTFMajorMessage::StaticClass(), 23);
-				}
-				UTHUDOwner->UTPlayerOwner->bNeedsRallyNotify = false;
-			}
-			else if (bWantsPulse && !RallyInfo.IsAnimationTypeAlreadyPlaying(StatAnimTypes::Scale))
-			{
-				RallyInfo.Animate(StatAnimTypes::ScaleOverlay, 2.0f, 3.25f, 1.0f, true);
-				RallyInfo.Animate(StatAnimTypes::Scale, 2.0f, 3.25f, 1.0f, true);
+				RallyInfo.Value = 1;
+				RallyInfo.IconColor = FLinearColor::Yellow;
+				RallyInfo.bUseLabel = true;
+				RallyInfo.HighlightStrength = 1.f;
+				RallyInfo.bUseOverlayTexture = false;
+				RallyInfo.Label = FText::AsNumber(int32(UTPlayerState->NextRallyTime - GetWorld()->GetTimeSeconds()));
 			}
 		}
 	}
