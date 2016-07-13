@@ -91,11 +91,6 @@ void AUTDuelGame::InitGame(const FString& MapName, const FString& Options, FStri
 
 void AUTDuelGame::SetPlayerDefaults(APawn* PlayerPawn)
 {
-	AUTCharacter* UTChar = Cast<AUTCharacter>(PlayerPawn);
-	if (UTChar)
-	{
-		UTChar->MaxStackedArmor = 150.f;
-	}
 	Super::SetPlayerDefaults(PlayerPawn);
 }
 

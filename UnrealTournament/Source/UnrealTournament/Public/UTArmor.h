@@ -9,7 +9,7 @@ class UNREALTOURNAMENT_API AUTArmor : public AUTInventory
 	GENERATED_UCLASS_BODY()
 
 	/** armor amount remaining */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Replicated, Category = Armor)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Armor)
 	int32 ArmorAmount;
 
 	/** percentage of incoming damage redirected to armor */
@@ -30,7 +30,7 @@ class UNREALTOURNAMENT_API AUTArmor : public AUTInventory
 	UPROPERTY(VisibleDefaultsOnly, Category = Effects)
 	UMaterialInterface* OverlayMaterial;
 
-	/** Hold a descriptive tag that describes what type of armor this is.   Used by the paper doll to display the various icons for this armor */
+	/** Hold a descriptive tag that describes what type of armor this is. */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Armor)
 	FName ArmorType;
 
@@ -53,18 +53,15 @@ class UNREALTOURNAMENT_API AUTArmor : public AUTInventory
 		}
 	}
 
+	virtual bool AllowPickupBy(AUTCharacter* Other) const override;
+
 	/** Handles any C++ generated effects, calls blueprint PlayArmorEffects */
 	bool HandleArmorEffects(AUTCharacter* HitPawn) const override;
 
 	virtual void GivenTo(AUTCharacter* NewOwner, bool bAutoActivate) override;
 	virtual void Removed() override;
 
-	virtual bool ModifyDamageTaken_Implementation(int32& Damage, FVector& Momentum, AUTInventory*& HitArmor, AController* InstigatedBy, const FHitResult& HitInfo, AActor* DamageCauser, TSubclassOf<UDamageType> DamageType) override;
-	virtual int32 GetEffectiveHealthModifier_Implementation(bool bOnlyVisible) const;
-
-	virtual bool StackPickup_Implementation(AUTInventory* ContainedInv) override;
-
-	virtual void ReduceArmor(int32 Amount);
+	virtual bool HandleGivenTo_Implementation(AUTCharacter* Character) override;
 
 	virtual float BotDesireability_Implementation(APawn* Asker, AActor* Pickup, float PathDistance) const override;
 	virtual float DetourWeight_Implementation(APawn* Asker, AActor* Pickup, float PathDistance) const override

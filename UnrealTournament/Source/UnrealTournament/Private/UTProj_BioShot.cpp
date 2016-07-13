@@ -490,7 +490,7 @@ void AUTProj_BioShot::DamageImpactedActor_Implementation(AActor* OtherActor, UPr
 	AUTCharacter* HitCharacter = Cast<AUTCharacter>(OtherActor);
 	bPendingSpecialReward = !bLanded && !bCanTrack && HitCharacter && AirSnotRewardClass && (HitCharacter->Health > 0) && (GlobStrength >= FMath::Max(3,int32(MaxRestingGlobStrength))) && (Role == ROLE_Authority)
 								&& HitCharacter->GetCharacterMovement() != NULL && (HitCharacter->GetCharacterMovement()->MovementMode == MOVE_Falling) && (GetWorld()->GetTimeSeconds() - HitCharacter->FallingStartTime > 0.3f);
-	int32 PreHitStack = HitCharacter ? HitCharacter->Health + HitCharacter->ArmorAmount : 0.f;
+	int32 PreHitStack = HitCharacter ? HitCharacter->Health + HitCharacter->GetArmorAmount() : 0.f;
 	Super::DamageImpactedActor_Implementation(OtherActor, OtherComp, HitLocation, HitNormal);
 	bPendingSpecialReward = bPendingSpecialReward && HitCharacter && (HitCharacter->Health <= 0);
 	if (bPendingSpecialReward)

@@ -611,12 +611,23 @@ bool AUTCharacter::BlockedHeadShot(FVector HitLocation, FVector ShotDirection, f
 			{
 				OnRepHeadArmorFlashCount();
 			}
+			HeadShotBlocked();
 			if (ShotInstigator)
 			{
 				ShotInstigator->HeadShotBlocked();
 			}
 			return true;
 		}
+	}
+	if ((GetArmorAmount() > 0) && bIsWearingHelmet)
+	{
+		bIsWearingHelmet = false;
+		HeadShotBlocked();
+		if (ShotInstigator)
+		{
+			ShotInstigator->HeadShotBlocked();
+		}
+		return true;
 	}
 	return false;
 }
@@ -801,10 +812,6 @@ float AUTCharacter::TakeDamage(float Damage, const FDamageEvent& DamageEvent, AC
 			int32 AppliedDamage = ResultDamage;
 			AUTInventory* HitArmor = NULL;
 			ModifyDamageTaken(AppliedDamage, ResultDamage, ResultMomentum, HitArmor, HitInfo, EventInstigator, DamageCauser, DamageEvent.DamageTypeClass);
-			if (HitArmor)
-			{
-				ArmorAmount = GetArmorAmount();
-			}
 			if (ResultDamage > 0 || !ResultMomentum.IsZero())
 			{
 				if (EventInstigator != NULL && EventInstigator != Controller)
@@ -1010,6 +1017,37 @@ bool AUTCharacter::ModifyDamageTaken_Implementation(int32& AppliedDamage, int32&
 		if (It->bCallDamageEvents)
 		{
 			It->ModifyDamageTaken(Damage, Momentum, HitArmor, EventInstigator, HitInfo, DamageCauser, DamageType);
+		}
+	}
+	// use armor
+	int32 CurrentArmor = GetArmorAmount();
+	if ((Damage > 0) && (CurrentArmor > 0))
+	{
+		const UDamageType* const DamageTypeCDO = (DamageType != NULL) ? DamageType->GetDefaultObject<UDamageType>() : GetDefault<UDamageType>();
+		const UUTDamageType* const UTDamageTypeCDO = Cast<UUTDamageType>(DamageTypeCDO); // warning: may be NULL
+		if (UTDamageTypeCDO == NULL || UTDamageTypeCDO->bBlockedByArmor)
+		{
+			HitArmor = ArmorType;
+			int32 AbsorbedDamage = 0;
+			int32 InitialDamage = Damage;
+			if (CurrentArmor > 100)
+			{
+				// absorb 100% of damage if armor > 100
+				AbsorbedDamage = FMath::Min(Damage, CurrentArmor - 100);
+				Damage -= AbsorbedDamage;
+			}
+			if (Damage > 0)
+			{
+				// absorb 50% of damage if armor <= 100
+				int32 PartialAbsorbedDamage = FMath::Min(Damage, FMath::Max<int32>(1, Damage * 0.5f));
+				Damage -= PartialAbsorbedDamage;
+				AbsorbedDamage += PartialAbsorbedDamage;
+			}
+			if (ArmorType && ArmorType->bAbsorbMomentum)
+			{
+				Momentum *= 1.0f - float(AbsorbedDamage) / float(InitialDamage);
+			}
+			RemoveArmor(AbsorbedDamage);
 		}
 	}
 	return false;
@@ -4143,7 +4181,10 @@ void AUTCharacter::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
-	bIsInCombat = (GetWorld()->GetTimeSeconds() - FMath::Max(LastTargetingTime, LastTargetedTime) < 2.f);
+	if (Role == ROLE_Authority)
+	{
+		bIsInCombat = (GetWorld()->GetTimeSeconds() - FMath::Max(LastTargetingTime, LastTargetedTime) < 2.f);
+	}
 	if (HeadScale < 0.1f)
 	{
 		GetMesh()->ClothBlendWeight = 0.0f;
@@ -4815,54 +4856,77 @@ AUTCarriedObject* AUTCharacter::GetCarriedObject()
 	return NULL;
 }
 
-int32 AUTCharacter::GetArmorAmount()
+int32 AUTCharacter::GetArmorAmount() const
 {
-	int32 TotalArmor = 0;
-	for (TInventoryIterator<AUTArmor> It(this); It; ++It)
-	{
-		TotalArmor += It->ArmorAmount;
-	}
-	return TotalArmor;
+	return ArmorAmount;
 }
 
-void AUTCharacter::CheckArmorStacking()
+void AUTCharacter::GiveArmor(AUTArmor* ArmorClass)
 {
-	int32 TotalArmor = GetArmorAmount();
-
-	// find the lowest absorption armors, and reduce them
-	while (TotalArmor > MaxStackedArmor)
+	if (ArmorClass == nullptr)
 	{
-		TotalArmor -= ReduceArmorStack(TotalArmor-MaxStackedArmor);
+		return;
 	}
-	ArmorAmount = TotalArmor;
+	if (ArmorClass->ArmorType == ArmorTypeName::Helmet)
+	{
+		bIsWearingHelmet = true;
+	}
+	// make sure helmet is subclass
+	ArmorType = ArmorClass;
+	ArmorAmount = FMath::Max(ArmorClass->ArmorAmount, ArmorAmount);
+	UpdateArmorOverlay();
 }
 
-int32 AUTCharacter::ReduceArmorStack(int32 Amount)
+void AUTCharacter::RemoveArmor(int32 Amount)
 {
-	AUTArmor* WorstArmor = NULL;
-	for (TInventoryIterator<AUTArmor> It(this); It; ++It)
+	ArmorAmount = FMath::Max(0, ArmorAmount - Amount);
+	if (ArmorAmount == 0)
 	{
-		// 0 amount indestructible armor can exist in rechargeable form, just ignore it here
-		if (It->ArmorAmount > 0)
+		bIsWearingHelmet = false;
+	}
+	UpdateArmorOverlay();
+}
+
+void AUTCharacter::UpdateArmorOverlay()
+{
+	if (ArmorType && (ArmorAmount > 50))
+	{
+		SetCharacterOverlayEffect(ArmorType->OverlayEffect.IsValid() ? ArmorType->OverlayEffect : FOverlayEffect(ArmorType->OverlayMaterial), true);
+		UMaterialInstanceDynamic* MID = OverlayMesh ? Cast<UMaterialInstanceDynamic>(OverlayMesh->GetMaterial(0)) : nullptr;
+		if (MID)
 		{
-			if ((WorstArmor == NULL || (It->AbsorptionPct < WorstArmor->AbsorptionPct)))
-			{
-				WorstArmor = *It;
-			}
+			static const FName NAME_Fresnel = FName(TEXT("Fresnel"));
+			float FresnelValue = (ArmorAmount > 100) ? 40.f : 2.f;
+			MID->SetScalarParameterValue(NAME_Fresnel, FresnelValue);
+			static const FName NAME_PushDistance = FName(TEXT("PushDistance"));
+			float PushValue = (ArmorAmount > 100) ? 2.f : 0.2f;
+			MID->SetScalarParameterValue(NAME_PushDistance, PushValue);
 		}
 	}
-	checkSlow(WorstArmor);
-	if (WorstArmor != NULL)
+	else if (ArmorType)
 	{
-		int32 ReducedAmount = FMath::Min(Amount, WorstArmor->ArmorAmount);
-		WorstArmor->ReduceArmor(ReducedAmount);
-		return ReducedAmount;
-	}
-	else
-	{
-		return 0;
+		SetCharacterOverlayEffect(ArmorType->OverlayEffect.IsValid() ? ArmorType->OverlayEffect : FOverlayEffect(ArmorType->OverlayMaterial), false);
 	}
 }
+
+void AUTCharacter::OVPAR(FName Param)
+{
+	TestParam = Param;
+}
+
+void AUTCharacter::OV(float value)
+{
+	UMaterialInstanceDynamic* MID = Cast<UMaterialInstanceDynamic>(OverlayMesh->GetMaterial(0));
+	MID->SetScalarParameterValue(TestParam, value);
+}
+
+void AUTCharacter::OVV(FVector value)
+{
+	UE_LOG(UT, Warning, TEXT("%s %f %f %f"), *TestParam.ToString(), value.X, value.Y, value.Z);
+	UMaterialInstanceDynamic* MID = Cast<UMaterialInstanceDynamic>(OverlayMesh->GetMaterial(0));
+	MID->SetVectorParameterValue(TestParam, value);
+}
+
 
 float AUTCharacter::GetEffectiveHealthPct(bool bOnlyVisible) const
 {
@@ -4874,7 +4938,16 @@ float AUTCharacter::GetEffectiveHealthPct(bool bOnlyVisible) const
 			TotalHealth += It->GetEffectiveHealthModifier(bOnlyVisible);
 		}
 	}
-
+	// Add pro-rated armor
+	int32 TotalArmor = GetArmorAmount();
+	if (TotalArmor > 100)
+	{
+		TotalHealth = TotalHealth + TotalArmor - 50;
+	}
+	else
+	{
+		TotalHealth = TotalHealth + TotalArmor / 2;
+	}
 	return float(TotalHealth) / float(HealthMax);
 }
 
@@ -5003,14 +5076,7 @@ bool AUTCharacter::TeleportTo(const FVector& DestLocation, const FRotator& DestR
 
 bool AUTCharacter::CanBlockTelefrags()
 {
-	for (TInventoryIterator<AUTArmor> It(this); It; ++It)
-	{
-		if (It->ArmorType == ArmorTypeName::ShieldBelt)
-		{
-			return true;
-		}
-	}
-	return false;
+	return (GetArmorAmount() > 100);
 }
 
 void AUTCharacter::OnOverlapBegin(AActor* OtherActor)

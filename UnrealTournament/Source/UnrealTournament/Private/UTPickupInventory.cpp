@@ -393,7 +393,7 @@ void AUTPickupInventory::SetPickupHidden(bool bNowHidden)
 bool AUTPickupInventory::AllowPickupBy_Implementation(APawn* Other, bool bDefaultAllowPickup)
 {
 	// TODO: vehicle consideration
-	bDefaultAllowPickup = bDefaultAllowPickup && Cast<AUTCharacter>(Other) != NULL && !((AUTCharacter*)Other)->IsRagdoll() && ((AUTCharacter*)Other)->bCanPickupItems;
+	bDefaultAllowPickup = bDefaultAllowPickup && Cast<AUTCharacter>(Other) != NULL && !((AUTCharacter*)Other)->IsRagdoll() && ((AUTCharacter*)Other)->bCanPickupItems && ((InventoryType == nullptr) || InventoryType.GetDefaultObject()->AllowPickupBy(((AUTCharacter*)Other)));
 	bool bAllowPickup = bDefaultAllowPickup;
 	AUTGameMode* UTGameMode = GetWorld()->GetAuthGameMode<AUTGameMode>();
 	return (UTGameMode == NULL || !UTGameMode->OverridePickupQuery(Other, InventoryType, this, bAllowPickup)) ? bDefaultAllowPickup : bAllowPickup;
@@ -404,13 +404,16 @@ void AUTPickupInventory::GiveTo_Implementation(APawn* Target)
 	AUTCharacter* P = Cast<AUTCharacter>(Target);
 	if (P != NULL && InventoryType != NULL)
 	{
-		AUTInventory* Existing = P->FindInventoryType(InventoryType, true);
-		if (Existing == NULL || !Existing->StackPickup(NULL))
+		if (!InventoryType.GetDefaultObject()->HandleGivenTo(P))
 		{
-			FActorSpawnParameters Params;
-			Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
-			Params.Instigator = P;
-			P->AddInventory(GetWorld()->SpawnActor<AUTInventory>(InventoryType, GetActorLocation(), GetActorRotation(), Params), true);
+			AUTInventory* Existing = P->FindInventoryType(InventoryType, true);
+			if (Existing == NULL || !Existing->StackPickup(NULL))
+			{
+				FActorSpawnParameters Params;
+				Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+				Params.Instigator = P;
+				P->AddInventory(GetWorld()->SpawnActor<AUTInventory>(InventoryType, GetActorLocation(), GetActorRotation(), Params), true);
+			}
 		}
 		P->DeactivateSpawnProtection();
 		AnnouncePickup(P);

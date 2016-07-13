@@ -119,6 +119,11 @@ void AUTInventory::Destroyed()
 	Super::Destroyed();
 }
 
+bool AUTInventory::AllowPickupBy(AUTCharacter* Other) const 
+{ 
+	return true; 
+}
+
 void AUTInventory::GivenTo(AUTCharacter* NewOwner, bool bAutoActivate)
 {
 	Instigator = NewOwner;
@@ -276,6 +281,11 @@ void AUTInventory::InitializeDroppedPickup(AUTDroppedPickup* Pickup)
 }
 
 bool AUTInventory::StackPickup_Implementation(AUTInventory* ContainedInv)
+{
+	return false;
+}
+
+bool AUTInventory::HandleGivenTo_Implementation(AUTCharacter* NewOwner)
 {
 	return false;
 }

@@ -117,6 +117,10 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Pickup)
 	TSubclassOf<class AUTDroppedPickup> DroppedPickupClass;
 
+	/** Allows inventory class to handle being given to character without spawning an instance. */
+	UFUNCTION(BlueprintNativeEvent)
+	bool HandleGivenTo(AUTCharacter* Character);
+
 	/** called by pickups when another inventory of same class will be given, allowing the item to simply stack instance values
 	 * instead of spawning a new item
 	 * ContainedInv may be NULL if it's a pickup that spawns new instead of containing a partially used existing item
@@ -135,7 +139,8 @@ public:
 	// NOTE: return value is a workaround for blueprint bugs involving ref parameters and is not used
 	UFUNCTION(BlueprintNativeEvent)
 	bool ModifyDamageTaken(UPARAM(ref) int32& Damage, UPARAM(ref) FVector& Momentum, UPARAM(ref) AUTInventory*& HitArmor, AController* InstigatedBy, const FHitResult& HitInfo, AActor* DamageCauser, TSubclassOf<UDamageType> DamageType); // TODO: UHT doesn't handle TSubclassOf<AUTInventory>&
-	/** when a character takes damage that is reduced by inventory, the inventory item is included in the hit info and this function is called for all clients on the inventory DEFAULT OBJECT
+
+																																																											/** when a character takes damage that is reduced by inventory, the inventory item is included in the hit info and this function is called for all clients on the inventory DEFAULT OBJECT
 	 * used to play shield/armor effects
 	 * @return whether an effect was played
 	 */
@@ -272,6 +277,8 @@ public:
 	/**The stat for how many times this was pickup up*/
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Powerup)
 	FName StatsNameCount;
+
+	virtual bool AllowPickupBy(AUTCharacter* Other) const;
 };
 
 // template to access a character's inventory

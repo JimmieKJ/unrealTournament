@@ -8,99 +8,30 @@ AUTArmor::AUTArmor(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
 {
 	ArmorAmount = 50;
-	AbsorptionPct = 0.5f;
-	bCallDamageEvents = true;
 	BasePickupDesireability = 1.5f;
 	bDestroyWhenConsumed = true;
 }
 
-void AUTArmor::GivenTo(AUTCharacter* NewOwner, bool bAutoActivate)
+bool AUTArmor::AllowPickupBy(AUTCharacter* Other) const
 {
-	Super::GivenTo(NewOwner, bAutoActivate);
+	return Other && !Other->IsRagdoll() && ((Other->GetArmorAmount() < ArmorAmount) || (ArmorType == ArmorTypeName::Helmet));
+}
 
-	if (ArmorType == ArmorTypeName::Helmet)
-	{
-		NewOwner->bIsWearingHelmet = true;
-	}
-	NewOwner->SetCharacterOverlayEffect(OverlayEffect.IsValid() ? OverlayEffect : FOverlayEffect(OverlayMaterial), true);
-
-	NewOwner->CheckArmorStacking();
+bool AUTArmor::HandleGivenTo_Implementation(AUTCharacter* NewOwner)
+{
+	NewOwner->GiveArmor(this);
+	return true;
 }
 
 void AUTArmor::Removed()
 {
-	if (ArmorType == ArmorTypeName::Helmet)
-	{
-		GetUTOwner()->bIsWearingHelmet = false;
-	}
-	GetUTOwner()->SetCharacterOverlayEffect(OverlayEffect.IsValid() ? OverlayEffect : FOverlayEffect(OverlayMaterial), false);
+	UE_LOG(UT, Warning, TEXT("AUTArmor::Removed Should never be called"));
 	Super::Removed();
 }
-
-bool AUTArmor::ModifyDamageTaken_Implementation(int32& Damage, FVector& Momentum, AUTInventory*& HitArmor, AController* InstigatedBy, const FHitResult& HitInfo, AActor* DamageCauser, TSubclassOf<UDamageType> DamageType)
+void AUTArmor::GivenTo(AUTCharacter* NewOwner, bool bAutoActivate)
 {
-	const UDamageType* const DamageTypeCDO = (DamageType != NULL) ? DamageType->GetDefaultObject<UDamageType>() : GetDefault<UDamageType>();
-	const UUTDamageType* const UTDamageTypeCDO = Cast<UUTDamageType>(DamageTypeCDO); // warning: may be NULL
-	if (UTDamageTypeCDO != NULL && !UTDamageTypeCDO->bBlockedByArmor)
-	{
-		return false;
-	}
-	if (Damage > 0)
-	{
-		if (HitArmor == NULL)
-		{
-			HitArmor = this;
-		}
-		int32 Absorb = FMath::Min<int32>(ArmorAmount, FMath::Max<int32>(1, Damage * AbsorptionPct));
-		if (bAbsorbMomentum)
-		{
-			Momentum *= 1.0f - float(Absorb) / float(Damage);
-		}
-		Damage -= Absorb;
-		ReduceArmor(Absorb);
-	}
-	return false;
-}
-
-int32 AUTArmor::GetEffectiveHealthModifier_Implementation(bool bOnlyVisible) const
-{
-	if (!bOnlyVisible || OverlayMaterial != NULL)
-	{
-		return FMath::Min<int32>(UTOwner->Health * AbsorptionPct, ArmorAmount);
-	}
-	else
-	{
-		return 0;
-	}
-}
-
-void AUTArmor::ReduceArmor(int32 Amount)
-{
-	ArmorAmount -= Amount;
-	if (ArmorAmount <= 0 && bDestroyWhenConsumed)
-	{
-		Destroy();
-	}
-}
-
-bool AUTArmor::StackPickup_Implementation(AUTInventory* ContainedInv)
-{
-	if (ContainedInv != NULL)
-	{
-		ArmorAmount = FMath::Clamp<int32>(ArmorAmount + Cast<AUTArmor>(ContainedInv)->ArmorAmount, ArmorAmount, GetClass()->GetDefaultObject<AUTArmor>()->ArmorAmount);
-	}
-	else
-	{
-		ArmorAmount = GetClass()->GetDefaultObject<AUTArmor>()->ArmorAmount;
-	}
-	GetUTOwner()->CheckArmorStacking();
-	return true;
-}
-
-void AUTArmor::GetLifetimeReplicatedProps(TArray<FLifetimeProperty> & OutLifetimeProps) const
-{
-	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
-	DOREPLIFETIME_CONDITION(AUTArmor, ArmorAmount, COND_None);
+	UE_LOG(UT, Warning, TEXT("AUTArmor::GivenTo Should never be called"));
+	Super::GivenTo(NewOwner, bAutoActivate);
 }
 
 float AUTArmor::BotDesireability_Implementation(APawn* Asker, AActor* Pickup, float PathDistance) const
@@ -112,28 +43,8 @@ float AUTArmor::BotDesireability_Implementation(APawn* Asker, AActor* Pickup, fl
 	}
 	else
 	{
-		int32 MatchingArmor = 0;
-		int32 TotalArmor = 0;
-		float MaxAbsorbPct = 0.0f;
-		for (TInventoryIterator<AUTArmor> It(P); It; ++It)
-		{
-			TotalArmor += It->ArmorAmount;
-			MaxAbsorbPct = FMath::Max<float>(MaxAbsorbPct, It->AbsorptionPct);
-			if (It->GetClass() == GetClass())
-			{
-				MatchingArmor += It->ArmorAmount;
-			}
-		}
-		// if this armor will overwrite other armor consider full value regardless of stacking
-		int32 Value = (MaxAbsorbPct < AbsorptionPct) ? (ArmorAmount - MatchingArmor) : FMath::Min<int32>(P->MaxStackedArmor - TotalArmor, ArmorAmount - MatchingArmor);
-		float Desire = 0.013f * BasePickupDesireability * float(Value);
-		//if (!WorldInfo.Game.bTeamGame && UTBot(C) != None && UTBot(C).Skill >= 4.0)
-		//{
-			// high skill bots keep considering powerups that they don't need if they can still pick them up
-			// to deny the enemy any chance of getting them
-		//	Desire = FMax(Desire, 0.001);
-		//}
-		return Desire;
+		// @TODO re-think with new armor system, whether team game, value of denying armor in duel
+		return FMath::Max(0.f, 0.013f * BasePickupDesireability * (ArmorAmount - P->GetArmorAmount()));
 	}
 }
 

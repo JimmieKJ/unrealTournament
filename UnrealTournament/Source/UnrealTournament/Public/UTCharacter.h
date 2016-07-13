@@ -429,20 +429,30 @@ class UNREALTOURNAMENT_API AUTCharacter : public ACharacter, public IUTTeamInter
 	UPROPERTY(BlueprintReadWrite, Replicated, Category = "Pawn")
 		bool bCanRally;
 
+	protected:
+		UPROPERTY(BlueprintReadWrite, Category = Pawn, ReplicatedUsing=UpdateArmorOverlay)
+			int32 ArmorAmount;
+	public:
 	/** Limit to armor stacking */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Pawn")
 	int32 MaxStackedArmor;
 
-	/** Find existing armor, make sure total doesn't exceed MaxStackedArmor */
-	UFUNCTION(BlueprintCallable, Category = Pawn)
-	virtual void CheckArmorStacking();
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Pawn")
+		class AUTArmor* ArmorType;
 
-	/** Remove excess armor from the lowest absorption armor type.  Returns amount of armor removed. */
-	virtual int32 ReduceArmorStack(int32 Amount);
+	UFUNCTION(BlueprintCallable, Category = Pawn)
+		virtual void GiveArmor(class AUTArmor* InArmorType);
+
+	UFUNCTION(BlueprintCallable, Category = Pawn)
+		virtual void RemoveArmor(int32 Amount);
 
 	/** Returns current total armor amount. */
 	UFUNCTION(BlueprintCallable, Category = Pawn)
-		virtual int32 GetArmorAmount();
+		virtual int32 GetArmorAmount() const;
+
+	/** Updates armor overlay to reflect current armor value. */
+	UFUNCTION(BlueprintCallable, Category = Pawn)
+		virtual void UpdateArmorOverlay();
 
 	/** return total effective health of this Pawn as a percentage/multiplier of its starting value
 	 * this is used by AI as part of evaluating enemy strength
@@ -672,10 +682,6 @@ class UNREALTOURNAMENT_API AUTCharacter : public ACharacter, public IUTTeamInter
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Pawn)
 	bool bDamageHurtsHealth;
-
-	/** Replicated to spectators, not authoritative. */
-	UPROPERTY(BlueprintReadWrite, Category = Pawn, Replicated)
-		int32 ArmorAmount;
 
 	/** head bone/socket for headshots */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Pawn)
@@ -908,6 +914,16 @@ public:
 	/** Replicate if this character has a helmet on (headshot blocking) */
 	UPROPERTY(BlueprintReadOnly, Replicated, Category = Pawn)
 	bool bIsWearingHelmet;
+
+	UPROPERTY()
+		FName TestParam;
+
+		UFUNCTION(exec)
+		void OVPAR(FName Param);
+	UFUNCTION(exec)
+		void OV(float value);
+	UFUNCTION(exec)
+		void OVV(FVector value);
 
 	UFUNCTION(BlueprintCallable, Category = Pawn)
 	void SetHeadScale(float NewHeadScale);

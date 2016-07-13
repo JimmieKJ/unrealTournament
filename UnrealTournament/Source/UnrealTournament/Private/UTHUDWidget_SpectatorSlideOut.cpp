@@ -634,10 +634,10 @@ void UUTHUDWidget_SpectatorSlideOut::DrawPlayer(int32 Index, AUTPlayerState* Pla
 				DrawColor = FLinearColor(0.5f, 1.f, 0.5f);
 				DrawText(FText::Format(NSLOCTEXT("UTCharacter", "HealthDisplay", "{Health}"), Args), XOffset + (Width * ColumnHeaderScoreX), YOffset + ColumnY, SlideOutFont, 1.0f, 1.0f, DrawColor, ETextHorzPos::Center, ETextVertPos::Center);
 
-				if (Character->ArmorAmount > 0)
+				if (Character->GetArmorAmount() > 0)
 				{
 					FFormatNamedArguments ArmorArgs;
-					ArmorArgs.Add("Armor", FText::AsNumber(Character->ArmorAmount));
+					ArmorArgs.Add("Armor", FText::AsNumber(Character->GetArmorAmount()));
 					DrawColor = FLinearColor(1.f, 1.f, 0.5f);
 					DrawText(FText::Format(NSLOCTEXT("UTCharacter", "ArmorDisplay", "{Armor}"), ArmorArgs), XOffset + (Width * ColumnHeaderArmor), YOffset + ColumnY, SlideOutFont, 1.0f, 1.0f, DrawColor, ETextHorzPos::Center, ETextVertPos::Center);
 				}

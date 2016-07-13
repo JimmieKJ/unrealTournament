@@ -46,21 +46,13 @@ void UUTHUDWidget_Paperdoll::ProcessArmor()
 	bool bHasJumpBoots = false;
 	if (UTC != NULL && !UTC->IsDead())
 	{
-		for (TInventoryIterator<> It(UTC); It; ++It)
+		PlayerArmor = UTC->GetArmorAmount();
+		if ((PlayerArmor > 0) && UTC->ArmorType)
 		{
-			AUTArmor* Armor = Cast<AUTArmor>(*It);
-			if (Armor != NULL)
-			{
-				PlayerArmor += Armor->ArmorAmount;
-				bHasShieldBelt |= (Armor->ArmorType == ArmorTypeName::ShieldBelt);
-				bHasThighPads |= (Armor->ArmorType == ArmorTypeName::ThighPads);
-				bHasChest |= (Armor->ArmorType == ArmorTypeName::FlakVest);
-				bHasHelmet |= (Armor->ArmorType == ArmorTypeName::Helmet);
-			}
-			else if (Cast<AUTJumpBoots>(*It) != NULL)
-			{
-				bHasJumpBoots = true;
-			}
+			bHasShieldBelt |= (UTC->ArmorType->ArmorType == ArmorTypeName::ShieldBelt);
+			bHasThighPads |= (UTC->ArmorType->ArmorType == ArmorTypeName::ThighPads);
+			bHasChest |= (UTC->ArmorType->ArmorType == ArmorTypeName::FlakVest);
+			bHasHelmet |= (UTC->ArmorType->ArmorType == ArmorTypeName::Helmet);
 		} 
 	}
 	PaperDoll_ShieldBeltOverlay.bHidden = !bHasShieldBelt;

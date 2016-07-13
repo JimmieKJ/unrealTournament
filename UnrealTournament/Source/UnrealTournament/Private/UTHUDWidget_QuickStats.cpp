@@ -152,23 +152,14 @@ void UUTHUDWidget_QuickStats::PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCa
 		GetHighlightStrength(HealthInfo, HealthPerc, 0.65f);
 
 		// ----------------- Armor / Inventory
-		bool bHasShieldBelt = false;
-		bool bArmorVisible = false;
+		bool bArmorVisible = (CharOwner->GetArmorAmount() > 0);
 		bool bBootsVisible = false;
 		BootsInfo.Value = 0;
-		ArmorInfo.Value = 0;
+		ArmorInfo.Value = CharOwner->GetArmorAmount();
 		AUTTimedPowerup* CurrentPowerup = nullptr;
 
 		for (TInventoryIterator<> It(CharOwner); It; ++It)
 		{
-			AUTArmor* Armor = Cast<AUTArmor>(*It);
-			if (Armor != nullptr)
-			{
-				bHasShieldBelt |= (Armor->ArmorType == ArmorTypeName::ShieldBelt);
-				ArmorInfo.Value += Armor->ArmorAmount;
-				bArmorVisible = true;
-			}
-
 			AUTJumpBoots* Boots = Cast<AUTJumpBoots>(*It);
 			if (Boots != nullptr)
 			{
@@ -202,8 +193,6 @@ void UUTHUDWidget_QuickStats::PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCa
 		}
 
 		ArmorInfo.bInfinite = false;
-		ArmorInfo.bAltIcon = bHasShieldBelt;
-		
 		if ( CheckStatForUpdate(DeltaTime, ArmorInfo)  )
 		{
 			ArmorInfo.Animate(StatAnimTypes::Scale, 1.5f, 3.25f, 1.0f, true);
@@ -211,7 +200,7 @@ void UUTHUDWidget_QuickStats::PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCa
 
 		float ArmorPerc = ArmorInfo.Value > 0 ? float(ArmorInfo.Value) / 100.0f : 1.0f;
 		ArmorInfo.HighlightStrength = 0.0f;
-		ArmorInfo.IconColor = bHasShieldBelt ? FLinearColor::Yellow : FLinearColor::White;
+		ArmorInfo.IconColor = FLinearColor::Yellow;
 
 		if (bBootsVisible!= BootsInfo.bVisible)
 		{
