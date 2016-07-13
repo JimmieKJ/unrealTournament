@@ -129,12 +129,9 @@ void AUTCTFGameState::Tick(float DeltaTime)
 		if (FlagBases.IsValidIndex(OffensiveTeam) && FlagBases[OffensiveTeam] != nullptr)
 		{
 			AUTCTFFlag* Flag = Cast<AUTCTFFlag>(FlagBases[OffensiveTeam]->GetCarriedObject());
-			bool bOffenseCanRally = (Flag && Flag->Holder && Flag->HoldingPawn && (GetWorld()->GetTimeSeconds() - Flag->PickedUpTime > 3.f) && (GetWorld()->GetTimeSeconds() - FMath::Max(Flag->HoldingPawn->LastTargetingTime, Flag->HoldingPawn->LastTargetedTime) > 3.f));
-			if (bOffenseCanRally)
-			{
-				AUTGameVolume* GV = Flag->HoldingPawn->UTCharacterMovement ? Cast<AUTGameVolume>(Flag->HoldingPawn->UTCharacterMovement->GetPhysicsVolume()) : nullptr;
-				bOffenseCanRally = !GV || !GV->bIsNoRallyZone;
-			}
+			AUTGameVolume* GV = Flag && Flag->HoldingPawn && Flag->HoldingPawn->UTCharacterMovement ? Cast<AUTGameVolume>(Flag->HoldingPawn->UTCharacterMovement->GetPhysicsVolume()) : nullptr;
+			bool bDefenseCanRally = GV && GV->bIsNoRallyZone;
+			bool bOffenseCanRally = (!bDefenseCanRally && Flag && Flag->Holder && Flag->HoldingPawn && (GetWorld()->GetTimeSeconds() - Flag->PickedUpTime > 3.f) && (GetWorld()->GetTimeSeconds() - FMath::Max(Flag->HoldingPawn->LastTargetingTime, Flag->HoldingPawn->LastTargetedTime) > 3.f));
 			if (bOffenseCanRally)
 			{
 				if ((GetWorld()->GetTimeSeconds() - LastRallyCompleteTime > 20.f) && (GetWorld()->GetTimeSeconds() - FMath::Max(Flag->PickedUpTime, LastNoRallyTime) > 12.f) && Cast<AUTPlayerController>(Flag->HoldingPawn->GetController()))
@@ -167,6 +164,17 @@ void AUTCTFGameState::Tick(float DeltaTime)
 				else
 				{
 					bBlueCanRally = false;
+				}
+			}
+			if (!bDefenseCanRally || (GetRemainingTime() < 210))
+			{
+				if (bRedToCap)
+				{
+					bBlueCanRally = false;
+				}
+				else
+				{
+					bRedCanRally = false;
 				}
 			}
 		}
