@@ -19,11 +19,11 @@ AUTProj_StingerShard::AUTProj_StingerShard(const class FObjectInitializer& Objec
 	}
 	if (PawnOverlapSphere != NULL)
 	{
-		PawnOverlapSphere->SetRelativeLocation(FVector(-20.f, 0.f, 0.f));
+		PawnOverlapSphere->SetRelativeLocation(FVector(-10.f, 0.f, 0.f));
 	}
-	InitialLifeSpan = 8.f;
+	InitialLifeSpan = 3.f;
 	ImpactedShardDamage = 12;
-	ImpactedShardMomentum = 100000.f;
+	ImpactedShardMomentum = 50000.f;
 }
 
 void AUTProj_StingerShard::Destroyed()
@@ -170,6 +170,7 @@ void AUTProj_StingerShard::AttachToRagdoll(AUTCharacter* HitChar, const FVector&
 		NewConstraint->ConstraintInstance.ProjectionLinearTolerance = 0.05f;
 		//NewConstraint->ConstraintInstance.EnableProjection();
 		HitChar->RagdollConstraint = NewConstraint;
+		ProjectileMovement->Velocity *= 0.3f;
 	}
 	AttachedPawns.Add(HitChar);
 	SetTimerUFunc(this, FName(TEXT("DetachRagdollsInFlight")), 0.5f);
