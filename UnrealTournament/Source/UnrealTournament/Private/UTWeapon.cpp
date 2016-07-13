@@ -932,8 +932,16 @@ FHitResult AUTWeapon::GetImpactEffectHit(APawn* Shooter, const FVector& StartLoc
 
 void AUTWeapon::GetImpactSpawnPosition(const FVector& TargetLoc, FVector& SpawnLocation, FRotator& SpawnRotation)
 {
-	SpawnLocation = (MuzzleFlash.IsValidIndex(CurrentFireMode) && MuzzleFlash[CurrentFireMode] != NULL) ? MuzzleFlash[CurrentFireMode]->GetComponentLocation() : UTOwner->GetActorLocation() + UTOwner->GetControlRotation().RotateVector(FireOffset);
-	SpawnRotation = (MuzzleFlash.IsValidIndex(CurrentFireMode) && MuzzleFlash[CurrentFireMode] != NULL) ? MuzzleFlash[CurrentFireMode]->GetComponentRotation() : (TargetLoc - SpawnLocation).Rotation();
+	if (UTOwner != NULL && (GetWeaponHand() == EWeaponHand::HAND_Hidden || ZoomState != EZoomState::EZS_NotZoomed))
+	{
+		SpawnRotation = UTOwner->CharacterCameraComponent->GetComponentRotation();
+		SpawnLocation = UTOwner->CharacterCameraComponent->GetComponentLocation() + SpawnRotation.RotateVector(FVector(-50.0f, 0.0f, -50.0f));
+	}
+	else
+	{
+		SpawnLocation = (MuzzleFlash.IsValidIndex(CurrentFireMode) && MuzzleFlash[CurrentFireMode] != NULL) ? MuzzleFlash[CurrentFireMode]->GetComponentLocation() : UTOwner->GetActorLocation() + UTOwner->GetControlRotation().RotateVector(FireOffset);
+		SpawnRotation = (MuzzleFlash.IsValidIndex(CurrentFireMode) && MuzzleFlash[CurrentFireMode] != NULL) ? MuzzleFlash[CurrentFireMode]->GetComponentRotation() : (TargetLoc - SpawnLocation).Rotation();
+	}
 }
 
 bool AUTWeapon::CancelImpactEffect(const FHitResult& ImpactHit) const
