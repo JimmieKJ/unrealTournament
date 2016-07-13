@@ -34,7 +34,7 @@ AUTProj_FlakShard::AUTProj_FlakShard(const class FObjectInitializer& ObjectIniti
 	ProjectileMovement->BounceVelocityStopSimulatingThreshold = 0.0f;
 
 	// Damage
-	DamageParams.BaseDamage = 17.0f;
+	DamageParams.BaseDamage = 15.0f;
 	DamageParams.MinimumDamage = 5.0f;
 	Momentum = 20000.f;
 
@@ -49,7 +49,7 @@ AUTProj_FlakShard::AUTProj_FlakShard(const class FObjectInitializer& ObjectIniti
 	BouncesRemaining = 2;
 	FirstBounceDamping = 0.9f;
 	BounceDamping = 0.75f;
-	BounceDamagePct = 0.7f;
+	BounceDamagePct = 0.5f;
 	RandomBounceCone = 0.3f;
 	FullGravityDelay = 0.5f;
 
