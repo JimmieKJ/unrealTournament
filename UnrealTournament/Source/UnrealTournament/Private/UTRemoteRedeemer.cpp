@@ -287,6 +287,10 @@ void AUTRemoteRedeemer::PlayShotDownEffects()
 	// stop any looping audio and particles
 	TArray<USceneComponent*> Components;
 	GetComponents<USceneComponent>(Components);
+	if (RedeemerProjectileClass && RedeemerProjectileClass->GetDefaultObject<AUTProj_Redeemer>()->ShotDownAmbient)
+	{
+		UUTGameplayStatics::UTPlaySound(GetWorld(), RedeemerProjectileClass->GetDefaultObject<AUTProj_Redeemer>()->ShotDownAmbient, this, SRT_IfSourceNotReplicated, false, GetActorLocation(), NULL, NULL, false, SAT_None);
+	}
 	for (int32 i = 0; i < Components.Num(); i++)
 	{
 		UAudioComponent* Audio = Cast<UAudioComponent>(Components[i]);

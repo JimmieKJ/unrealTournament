@@ -20,7 +20,7 @@ class UNREALTOURNAMENT_API AUTProj_Redeemer : public AUTProjectile
 	float CollisionFreeRadius;
 
 	/** explosion effects blueprint, overrides the normal path; MUST DESTROY ITSELF */
-	UPROPERTY(EditDefaultsOnly)
+	UPROPERTY(EditDefaultsOnly, Category = Redeemer)
 	TSubclassOf<AActor> ExplosionBP;
 
 	void Explode_Implementation(const FVector& HitLocation, const FVector& HitNormal, UPrimitiveComponent* HitComp) override;
@@ -32,6 +32,9 @@ class UNREALTOURNAMENT_API AUTProj_Redeemer : public AUTProjectile
 	/** Capsule collision component */
 	UPROPERTY(VisibleDefaultsOnly, BlueprintReadOnly, Category = Projectile)
 	UCapsuleComponent* CapsuleComp;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Redeemer)
+		USoundBase* ShotDownAmbient;
 
 	UFUNCTION()
 	virtual void ExplodeTimed();

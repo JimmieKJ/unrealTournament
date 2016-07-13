@@ -155,6 +155,11 @@ void AUTProj_Redeemer::PlayShotDownEffects()
 	// stop any looping audio and particles
 	TArray<USceneComponent*> Components;
 	GetComponents<USceneComponent>(Components);
+	if (ShotDownAmbient)
+	{
+		UUTGameplayStatics::UTPlaySound(GetWorld(), ShotDownAmbient, this, SRT_IfSourceNotReplicated);
+	}
+	
 	for (int32 i = 0; i < Components.Num(); i++)
 	{
 		UAudioComponent* Audio = Cast<UAudioComponent>(Components[i]);
