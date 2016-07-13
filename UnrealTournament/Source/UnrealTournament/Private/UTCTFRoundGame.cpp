@@ -49,13 +49,11 @@ AUTCTFRoundGame::AUTCTFRoundGame(const FObjectInitializer& ObjectInitializer)
 	bCarryOwnFlag = true;
 	bNoFlagReturn = true;
 	bFirstRoundInitialized = false;
-	ExtraHealth = 0;
 	FlagPickupDelay = 10;
 	HUDClass = AUTFlagRunHUD::StaticClass();
 	GameStateClass = AUTCTFRoundGameState::StaticClass();
 	SquadType = AUTAsymCTFSquadAI::StaticClass();
 	NumRounds = 6;
-	bGiveSpawnInventoryBonus = true;
 	bHideInUI = true;
 
 	bAttackerLivesLimited = false;
@@ -73,9 +71,7 @@ AUTCTFRoundGame::AUTCTFRoundGame(const FObjectInitializer& ObjectInitializer)
 	// remove translocator - fixmesteve make this an option
 	TranslocatorObject = nullptr;
 
-	ShieldBeltObject = FStringAssetReference(TEXT("/Game/RestrictedAssets/Pickups/Armor/Armor_ShieldBelt.Armor_ShieldBelt_C"));
 	ThighPadObject = FStringAssetReference(TEXT("/Game/RestrictedAssets/Pickups/Armor/Armor_ThighPads.Armor_ThighPads_C"));
-	ArmorVestObject = FStringAssetReference(TEXT("/Game/RestrictedAssets/Pickups/Armor/Armor_Chest.Armor_Chest_C"));
 	ActivatedPowerupPlaceholderObject = FStringAssetReference(TEXT("/Game/RestrictedAssets/Pickups/Powerups/BP_ActivatedPowerup_UDamage.BP_ActivatedPowerup_UDamage_C"));
 	RepulsorObject = FStringAssetReference(TEXT("/Game/RestrictedAssets/Pickups/Powerups/BP_Repulsor.BP_Repulsor_C"));
 
@@ -126,17 +122,9 @@ void AUTCTFRoundGame::InitGame(const FString& MapName, const FString& Options, F
 {
 	Super::InitGame(MapName, Options, ErrorMessage);
 
-	if (!ShieldBeltObject.IsNull())
-	{
-		ShieldBeltClass = Cast<UClass>(StaticLoadObject(UClass::StaticClass(), NULL, *ShieldBeltObject.ToStringReference().ToString(), NULL, LOAD_NoWarn));
-	}
 	if (!ThighPadObject.IsNull())
 	{
 		ThighPadClass = Cast<UClass>(StaticLoadObject(UClass::StaticClass(), NULL, *ThighPadObject.ToStringReference().ToString(), NULL, LOAD_NoWarn));
-	}
-	if (!ArmorVestObject.IsNull())
-	{
-		ArmorVestClass = Cast<UClass>(StaticLoadObject(UClass::StaticClass(), NULL, *ArmorVestObject.ToStringReference().ToString(), NULL, LOAD_NoWarn));
 	}
 	if (!ActivatedPowerupPlaceholderObject.IsNull())
 	{
@@ -159,7 +147,6 @@ void AUTCTFRoundGame::InitGame(const FString& MapName, const FString& Options, F
 	InOpt = UGameplayStatics::ParseOption(Options, TEXT("PerPlayerLives"));
 	bPerPlayerLives = EvalBoolOptions(InOpt, bPerPlayerLives);
 
-	ExtraHealth = FMath::Max(0, UGameplayStatics::GetIntOption(Options, TEXT("XHealth"), ExtraHealth));
 	FlagPickupDelay = FMath::Max(1, UGameplayStatics::GetIntOption(Options, TEXT("FlagDelay"), FlagPickupDelay));
 
 	OffenseKillsNeededForPowerUp = FMath::Max(0, UGameplayStatics::GetIntOption(Options, TEXT("OffKillsForPowerup"), OffenseKillsNeededForPowerUp));
@@ -173,32 +160,18 @@ void AUTCTFRoundGame::InitGame(const FString& MapName, const FString& Options, F
 
 	InOpt = UGameplayStatics::ParseOption(Options, TEXT("DelayRally"));
 	bDelayedRally = EvalBoolOptions(InOpt, bDelayedRally);
-
-}
-
-void AUTCTFRoundGame::SetPlayerDefaults(APawn* PlayerPawn)
-{
-	AUTCharacter* UTC = Cast<AUTCharacter>(PlayerPawn);
-	if (UTC != NULL)
-	{
-		UTC->HealthMax = UTC->GetClass()->GetDefaultObject<AUTCharacter>()->HealthMax + ExtraHealth;
-		UTC->SuperHealthMax = UTC->GetClass()->GetDefaultObject<AUTCharacter>()->SuperHealthMax + ExtraHealth;
-	}
-	Super::SetPlayerDefaults(PlayerPawn);
 }
 
 void AUTCTFRoundGame::GiveDefaultInventory(APawn* PlayerPawn)
 {
 	Super::GiveDefaultInventory(PlayerPawn);
 	AUTCharacter* UTCharacter = Cast<AUTCharacter>(PlayerPawn);
-	if (UTCharacter != NULL && bGiveSpawnInventoryBonus)
+	if (UTCharacter != NULL)
 	{
+		UTCharacter->AddInventory(GetWorld()->SpawnActor<AUTInventory>(ThighPadClass, FVector(0.0f), FRotator(0.f, 0.f, 0.f)), true);
+		
 		AUTPlayerState* UTPlayerState = Cast<AUTPlayerState>(UTCharacter->PlayerState);
 		bool bOnLastLife = (UTPlayerState && (UTPlayerState->RemainingLives == 0) && UTPlayerState->bHasLifeLimit);
-		TSubclassOf<AUTInventory> StartingArmor = (bOnLastLife && UTPlayerState->Team && IsTeamOnOffense(UTPlayerState->Team->TeamIndex)) ? ShieldBeltClass : ThighPadClass;
-		UTCharacter->AddInventory(GetWorld()->SpawnActor<AUTInventory>(StartingArmor, FVector(0.0f), FRotator(0.f, 0.f, 0.f)), true);
-		
-		AUTPlayerController* UTPC = Cast<AUTPlayerController>(UTPlayerState->GetOwner());
 		if (bOnLastLife)
 		{
 			UTCharacter->bShouldWearLeaderHat = true;

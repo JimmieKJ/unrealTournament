@@ -52,8 +52,6 @@ AUTSCTFGame::AUTSCTFGame(const FObjectInitializer& ObjectInitializer)
 	bAttackerLivesLimited = false;
 	bDefenderLivesLimited = false;
 	bRollingAttackerSpawns = false;
-	ExtraHealth = 0;
-	bGiveSpawnInventoryBonus = false;
 	bWeaponStayActive = false;
 }
 

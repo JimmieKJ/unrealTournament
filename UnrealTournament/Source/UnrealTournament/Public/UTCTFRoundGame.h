@@ -83,9 +83,6 @@ class UNREALTOURNAMENT_API AUTCTFRoundGame : public AUTCTFBaseGame
 	virtual void PlayEndOfMatchMessage() override;
 
 	UPROPERTY()
-		int32 ExtraHealth;
-
-	UPROPERTY()
 		int32 FlagPickupDelay;
 
 	UPROPERTY()
@@ -149,7 +146,6 @@ class UNREALTOURNAMENT_API AUTCTFRoundGame : public AUTCTFBaseGame
 	virtual int32 IntermissionTeamToView(AUTPlayerController* PC) override;
 	virtual void CreateGameURLOptions(TArray<TSharedPtr<TAttributePropertyBase>>& MenuProps);
 	virtual void HandleMatchHasStarted() override;
-	virtual void SetPlayerDefaults(APawn* PlayerPawn) override;
 	virtual bool AvoidPlayerStart(class AUTPlayerStart* P) override;
 	virtual void DiscardInventory(APawn* Other, AController* Killer) override;
 	virtual bool ChangeTeam(AController* Player, uint8 NewTeam, bool bBroadcast) override;
@@ -172,20 +168,12 @@ class UNREALTOURNAMENT_API AUTCTFRoundGame : public AUTCTFBaseGame
 	/** Initialize for new round. */
 	virtual void InitRound();
 
-	TAssetSubclassOf<class AUTArmor> ShieldBeltObject;
 	TAssetSubclassOf<class AUTArmor> ThighPadObject;
-	TAssetSubclassOf<class AUTArmor> ArmorVestObject;
 	TAssetSubclassOf<class AUTInventory> ActivatedPowerupPlaceholderObject;
 	TAssetSubclassOf<class AUTInventory> RepulsorObject;
 
 	UPROPERTY()
-		TSubclassOf<class AUTArmor> ShieldBeltClass;
-
-	UPROPERTY()
 		TSubclassOf<class AUTArmor> ThighPadClass;
-
-	UPROPERTY()
-		TSubclassOf<class AUTArmor> ArmorVestClass;
 
 	UPROPERTY()
 		TSubclassOf<class AUTInventory> ActivatedPowerupPlaceholderClass;
@@ -199,9 +187,6 @@ class UNREALTOURNAMENT_API AUTCTFRoundGame : public AUTCTFBaseGame
 
 	UPROPERTY()
 		bool bAllowPrototypePowerups;
-
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite)
-	bool bGiveSpawnInventoryBonus;
 
 protected:
 	virtual bool IsTeamOnOffense(int32 TeamNumber) const;
