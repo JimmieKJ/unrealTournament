@@ -74,7 +74,7 @@ AUTRemoteRedeemer::AUTRemoteRedeemer(const class FObjectInitializer& ObjectIniti
 	CollisionFreeRadius = 1000.f;
 	StatsHitCredit = 0.f;
 	HitsStatsName = NAME_RedeemerHits;
-	ProjHealth = 35;
+	ProjHealth = 50;
 	LockCount = 0;
 }
 
@@ -273,7 +273,7 @@ void AUTRemoteRedeemer::OnShotDown()
 		ProjectileMovement->MaxSpeed += 2000.0f; // make room for gravity
 		ProjectileMovement->bShouldBounce = true;
 		ProjectileMovement->Bounciness = 0.25f;
-		SetTimerUFunc(this, FName(TEXT("ExplodeTimed")), 2.0f, false);
+		SetTimerUFunc(this, FName(TEXT("ExplodeTimed")), 1.5f, false);
 
 		if (GetNetMode() != NM_DedicatedServer)
 		{

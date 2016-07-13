@@ -44,7 +44,7 @@ AUTProj_Redeemer::AUTProj_Redeemer(const class FObjectInitializer& ObjectInitial
 
 	InitialLifeSpan = 20.0f;
 	bAlwaysShootable = true;
-	ProjHealth = 35;
+	ProjHealth = 50;
 
 	PrimaryActorTick.bCanEverTick = true;
 	PrimaryActorTick.bStartWithTickEnabled = true;
@@ -141,7 +141,7 @@ void AUTProj_Redeemer::OnShotDown()
 		ProjectileMovement->MaxSpeed += 2000.0f; // make room for gravity
 		ProjectileMovement->bShouldBounce = true;
 		ProjectileMovement->Bounciness = 0.25f;
-		SetTimerUFunc(this, FName(TEXT("ExplodeTimed")), 2.0f, false);
+		SetTimerUFunc(this, FName(TEXT("ExplodeTimed")), 1.5f, false);
 
 		if (GetNetMode() != NM_DedicatedServer)
 		{
