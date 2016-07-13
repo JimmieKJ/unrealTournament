@@ -2157,27 +2157,21 @@ void AUTWeapon::UpdateOverlays()
 
 void AUTWeapon::SetSkin(UMaterialInterface* NewSkin)
 {
-	// FIXME: workaround for poor GetNumMaterials() implementation
-	int32 NumMats = Mesh->GetNumMaterials();
-	if (Mesh->SkeletalMesh != NULL)
-	{
-		NumMats = FMath::Max<int32>(NumMats, Mesh->SkeletalMesh->Materials.Num());
-	}
 	// save off existing materials if we haven't yet done so
-	while (SavedMeshMaterials.Num() < NumMats)
+	while (SavedMeshMaterials.Num() < Mesh->GetNumMaterials())
 	{
 		SavedMeshMaterials.Add(Mesh->GetMaterial(SavedMeshMaterials.Num()));
 	}
 	if (NewSkin != NULL)
 	{
-		for (int32 i = 0; i < NumMats; i++)
+		for (int32 i = 0; i < Mesh->GetNumMaterials(); i++)
 		{
 			Mesh->SetMaterial(i, NewSkin);
 		}
 	}
 	else
 	{
-		for (int32 i = 0; i < NumMats; i++)
+		for (int32 i = 0; i < Mesh->GetNumMaterials(); i++)
 		{
 			Mesh->SetMaterial(i, SavedMeshMaterials[i]);
 		}

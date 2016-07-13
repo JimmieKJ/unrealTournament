@@ -158,6 +158,11 @@ void AUTWeaponAttachment::UpdateOutline(bool bOn, uint8 StencilValue)
 
 void AUTWeaponAttachment::SetSkin(UMaterialInterface* NewSkin)
 {
+	// save off existing materials if we haven't yet done so
+	while (SavedMeshMaterials.Num() < Mesh->GetNumMaterials())
+	{
+		SavedMeshMaterials.Add(Mesh->GetMaterial(SavedMeshMaterials.Num()));
+	}
 	if (NewSkin != NULL)
 	{
 		for (int32 i = 0; i < Mesh->GetNumMaterials(); i++)
@@ -169,7 +174,7 @@ void AUTWeaponAttachment::SetSkin(UMaterialInterface* NewSkin)
 	{
 		for (int32 i = 0; i < Mesh->GetNumMaterials(); i++)
 		{
-			Mesh->SetMaterial(i, GetClass()->GetDefaultObject<AUTWeaponAttachment>()->Mesh->GetMaterial(i));
+			Mesh->SetMaterial(i, SavedMeshMaterials[i]);
 		}
 	}
 }
