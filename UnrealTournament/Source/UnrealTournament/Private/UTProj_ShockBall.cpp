@@ -9,8 +9,8 @@
 AUTProj_ShockBall::AUTProj_ShockBall(const class FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
-	ComboDamageParams = FRadialDamageParams(200.0f, 520.0f);   
-	ComboDamageParams.MinimumDamage = 25.f;
+	ComboDamageParams = FRadialDamageParams(220.0f, 500.0f);   
+	ComboDamageParams.MinimumDamage = 50.f;
 	ComboAmmoCost = 3;
 	bComboExplosion = false;
 	ComboMomentum = 330000.0f;
