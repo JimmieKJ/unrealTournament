@@ -55,6 +55,7 @@ AUTPlayerState::AUTPlayerState(const class FObjectInitializer& ObjectInitializer
 	bShouldAutoTaunt = false;
 	bSentLogoutAnalytics = false;
 	NextRallyTime = 0.f;
+	RemainingRallyDelay = 0;
 
 	// We want to be ticked.
 	PrimaryActorTick.bCanEverTick = true;
@@ -147,7 +148,7 @@ void AUTPlayerState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & Ou
 	DOREPLIFETIME_CONDITION(AUTPlayerState, RespawnChoiceB, COND_OwnerOnly);
 	DOREPLIFETIME_CONDITION(AUTPlayerState, bChosePrimaryRespawnChoice, COND_OwnerOnly);
 	DOREPLIFETIME_CONDITION(AUTPlayerState, WeaponSpreeDamage, COND_OwnerOnly);
-	DOREPLIFETIME_CONDITION(AUTPlayerState, NextRallyTime, COND_OwnerOnly);
+	DOREPLIFETIME_CONDITION(AUTPlayerState, RemainingRallyDelay, COND_OwnerOnly);
 
 	DOREPLIFETIME(AUTPlayerState, SpectatingID);
 	DOREPLIFETIME(AUTPlayerState, SpectatingIDTeam);
@@ -663,6 +664,7 @@ void AUTPlayerState::Tick(float DeltaTime)
 	{
 		AUTCharacter* UTChar = GetUTCharacter();
 		bCanRally = (GetWorld()->GetTimeSeconds() > NextRallyTime) && UTChar && (UTChar->bCanRally || UTChar->GetCarriedObject()) && (GetWorld()->GetTimeSeconds() - FMath::Max(UTChar->LastTargetingTime, UTChar->LastTargetedTime) > 3.f);
+		RemainingRallyDelay = FMath::Clamp(NextRallyTime - GetWorld()->GetTimeSeconds(), 0.f, 255.f);
 	}
 	// If we are waiting to respawn then count down
 	if (RespawnTime > 0.0f)

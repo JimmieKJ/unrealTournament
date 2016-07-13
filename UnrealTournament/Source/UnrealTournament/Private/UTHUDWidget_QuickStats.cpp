@@ -402,14 +402,14 @@ void UUTHUDWidget_QuickStats::PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCa
 					RallyInfo.Animate(StatAnimTypes::Scale, 2.0f, 3.25f, 1.0f, true);
 				}
 			}
-			else if (((UTPlayerState->Team->TeamIndex == 0) == GameState->bRedToCap) && CharOwner && CharOwner->bCanRally && (UTPlayerState->NextRallyTime - GetWorld()->GetTimeSeconds() > 0))
+			else if (((UTPlayerState->Team->TeamIndex == 0) == GameState->bRedToCap) && CharOwner && CharOwner->bCanRally && (UTPlayerState->RemainingRallyDelay > 0))
 			{
 				RallyInfo.Value = 1;
 				RallyInfo.IconColor = FLinearColor::Yellow;
 				RallyInfo.bUseLabel = true;
 				RallyInfo.HighlightStrength = 1.f;
 				RallyInfo.bUseOverlayTexture = false;
-				RallyInfo.Label = FText::AsNumber(int32(UTPlayerState->NextRallyTime - GetWorld()->GetTimeSeconds()));
+				RallyInfo.Label = FText::AsNumber(UTPlayerState->RemainingRallyDelay);
 			}
 		}
 	}
