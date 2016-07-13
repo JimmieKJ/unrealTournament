@@ -41,6 +41,10 @@ class UNREALTOURNAMENT_API AUTArmor : public AUTInventory
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Effects)
 	UParticleSystem* ArmorImpactEffect;
 
+	/** Sound when attempt to pick up armor fails (can't stack). */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Effects)
+		USoundBase* NoPickupSound;
+
 	virtual void AddOverlayMaterials_Implementation(AUTGameState* GS) const override
 	{
 		if (OverlayEffect.IsValid())

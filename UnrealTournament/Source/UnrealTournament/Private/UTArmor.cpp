@@ -14,7 +14,18 @@ AUTArmor::AUTArmor(const FObjectInitializer& ObjectInitializer)
 
 bool AUTArmor::AllowPickupBy(AUTCharacter* Other) const
 {
-	return Other && !Other->IsRagdoll() && ((Other->GetArmorAmount() < ArmorAmount) || (ArmorType == ArmorTypeName::Helmet));
+	if (Other && !Other->IsRagdoll())
+	{
+		if ((Other->GetArmorAmount() < ArmorAmount) || (ArmorType == ArmorTypeName::Helmet))
+		{
+			return true;
+		}
+		if (NoPickupSound)
+		{
+			UUTGameplayStatics::UTPlaySound(GetWorld(), NoPickupSound, Other, SRT_None, false, FVector::ZeroVector, NULL, NULL, false);
+		}
+	}
+	return false;
 }
 
 bool AUTArmor::HandleGivenTo_Implementation(AUTCharacter* NewOwner)
