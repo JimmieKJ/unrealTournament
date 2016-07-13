@@ -203,7 +203,6 @@ void USkeletalMeshComponent::PerformBlendPhysicsBones(const TArray<FBoneIndexTyp
 		// If so - get its world space matrix and its parents world space matrix and calc relative atom.
 		if(BodyIndex != INDEX_NONE )
 		{	
-#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 			// tracking down TTP 280421. Remove this if this doesn't happen. 
 			if ( !ensure(Bodies.IsValidIndex(BodyIndex)) )
 			{
@@ -216,7 +215,6 @@ void USkeletalMeshComponent::PerformBlendPhysicsBones(const TArray<FBoneIndexTyp
 				}
 				continue;
 			}
-#endif
 			BodyInstance = Bodies[BodyIndex];
 
 			//if simulated body copy back and blend with animation
@@ -371,7 +369,7 @@ bool USkeletalMeshComponent::DoAnyPhysicsBodiesHaveWeight() const
 	return false;
 }
 
-TAutoConsoleVariable<int32> CVarUseParallelBlendPhysics(TEXT("a.ParallelBlendPhysics"), 1, TEXT("If 1, physics blending will be run across the task graph system. If 0, blending will run purely on the game thread"));
+TAutoConsoleVariable<int32> CVarUseParallelBlendPhysics(TEXT("a.ParallelBlendPhysics"), 0, TEXT("If 1, physics blending will be run across the task graph system. If 0, blending will run purely on the game thread"));
 
 void USkeletalMeshComponent::BlendInPhysics(FTickFunction& ThisTickFunction)
 {
