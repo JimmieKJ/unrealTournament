@@ -380,7 +380,7 @@ namespace UnrealTournamentGame.Automation
 			Byte[] CliArgBytes;
 			if (HubServerName != "")
 			{
-				CliArgBytes = System.Text.Encoding.UTF8.GetBytes("UnrealTournament ut-entry?game=lobby?ServerName="+HubServerName+" -nocore -epicapp=" + LocalAppName.ToString() + " " + ExtraCliArgs);
+				CliArgBytes = System.Text.Encoding.UTF8.GetBytes("UnrealTournament ut-entry?game=lobby?ServerName=\""+HubServerName+"\" -nocore -epicapp=" + LocalAppName.ToString() + " " + ExtraCliArgs);
 				LocalCpuBudget=32000;
 			}
 			else
