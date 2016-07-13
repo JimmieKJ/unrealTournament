@@ -173,66 +173,77 @@ void AUTDroppedPickup::GiveTo_Implementation(APawn* Target)
 		AUTCharacter* C = Cast<AUTCharacter>(Target);
 		if (C != NULL)
 		{
-			AUTInventory* Duplicate = C->FindInventoryType<AUTInventory>(Inventory->GetClass(), true);
-			if (Duplicate == NULL || !Duplicate->StackPickup(Inventory))
+			if (Inventory->HandleGivenTo(C))
 			{
-				C->AddInventory(Inventory, true);
-
-				AUTWeapon* WeaponInv = Cast<AUTWeapon>(Inventory);
-				if (WeaponInv)
+				Inventory->Destroy();
+			}
+			else
+			{
+				AUTInventory* Duplicate = C->FindInventoryType<AUTInventory>(Inventory->GetClass(), true);
+				if (Duplicate == NULL || !Duplicate->StackPickup(Inventory))
 				{
-					if (WeaponSkin)
+					C->AddInventory(Inventory, true);
+
+					AUTWeapon* WeaponInv = Cast<AUTWeapon>(Inventory);
+					if (WeaponInv)
 					{
-						C->SetSkinForWeapon(WeaponSkin);
+						if (WeaponSkin)
+						{
+							C->SetSkinForWeapon(WeaponSkin);
+						}
+						else
+						{
+							FString WeaponPathName = WeaponInv->GetPathName();
+
+							bool bFoundSkin = false;
+							// Set character's skin back to what the UTPlayerState has
+							AUTPlayerState* PS = Cast<AUTPlayerState>(C->PlayerState);
+							if (PS)
+							{
+								for (int32 i = 0; i < PS->WeaponSkins.Num(); i++)
+								{
+									if (PS->WeaponSkins[i]->WeaponType == WeaponPathName)
+									{
+										C->SetSkinForWeapon(PS->WeaponSkins[i]);
+										bFoundSkin = true;
+										break;
+									}
+								}
+							}
+
+							if (!bFoundSkin)
+							{
+								for (int32 i = 0; i < C->WeaponSkins.Num(); i++)
+								{
+									if (C->WeaponSkins[i]->WeaponType == WeaponPathName)
+									{
+										C->WeaponSkins.RemoveAt(i);
+										break;
+									}
+								}
+							}
+						}
 					}
 					else
 					{
-						FString WeaponPathName = WeaponInv->GetPathName();
-
-						bool bFoundSkin = false;
-						// Set character's skin back to what the UTPlayerState has
-						AUTPlayerState* PS = Cast<AUTPlayerState>(C->PlayerState);
-						if (PS)
-						{
-							for (int32 i = 0; i < PS->WeaponSkins.Num(); i++)
-							{
-								if (PS->WeaponSkins[i]->WeaponType == WeaponPathName)
-								{
-									C->SetSkinForWeapon(PS->WeaponSkins[i]);
-									bFoundSkin = true;
-									break;
-								}
-							}
-						}
-
-						if (!bFoundSkin)
-						{
-							for (int32 i = 0; i < C->WeaponSkins.Num(); i++)
-							{
-								if (C->WeaponSkins[i]->WeaponType == WeaponPathName)
-								{
-									C->WeaponSkins.RemoveAt(i);
-									break;
-								}
-							}
-						}
+						Inventory->Destroy();
 					}
 				}
 
-				if (Cast<APlayerController>(Target->GetController()) && (!Cast<AUTWeapon>(Inventory) || !C->GetPendingWeapon() ||(C->GetPendingWeapon()->GetClass() != Inventory->GetClass())))
+				if (Cast<APlayerController>(Target->GetController()) && (!Cast<AUTWeapon>(Inventory) || !C->GetPendingWeapon() || (C->GetPendingWeapon()->GetClass() != Inventory->GetClass())))
 				{
 					Cast<APlayerController>(Target->GetController())->ClientReceiveLocalizedMessage(UUTPickupMessage::StaticClass(), 0, NULL, NULL, Inventory->GetClass());
 				}
 				Inventory = NULL;
 			}
-			else
+		}
+		else
+		{
+			if (Cast<APlayerController>(Target->GetController()))
 			{
-				if (Cast<APlayerController>(Target->GetController()))
-				{
-					Cast<APlayerController>(Target->GetController())->ClientReceiveLocalizedMessage(UUTPickupMessage::StaticClass(), 0, NULL, NULL, Inventory->GetClass());
-				}
-				Inventory->Destroy();
+				Cast<APlayerController>(Target->GetController())->ClientReceiveLocalizedMessage(UUTPickupMessage::StaticClass(), 0, NULL, NULL, Inventory->GetClass());
 			}
+			Inventory->Destroy();
 		}
 	}
 }

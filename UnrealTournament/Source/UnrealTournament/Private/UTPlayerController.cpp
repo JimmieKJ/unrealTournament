@@ -885,7 +885,7 @@ void AUTPlayerController::TriggerBoost()
 				{
 					FoundPlaceablePowerup->SpawnPowerup();
 				}
-				else
+				else if (!UTPlayerState->BoostClass.GetDefaultObject()->HandleGivenTo(UTCharacter))
 				{
 					AUTInventory* TriggeredBoost = GetWorld()->SpawnActor<AUTInventory>(UTPlayerState->BoostClass, FVector(0.0f), FRotator(0.f, 0.f, 0.f));
 					TriggeredBoost->InitAsTriggeredBoost(UTCharacter);
