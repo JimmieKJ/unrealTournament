@@ -123,9 +123,11 @@ namespace UnrealTournamentGame.Automation
 
 			CommandUtils.Log("Deploying new fleets for change list {0}", Changelist);
 
+			/* Always create the NA1 hub/server */
 			Deployment2Command("deployment_create", GceArgsNa1, "true", 1);
 			Deployment2Command("deployment_create", GceNaHub1, "true", 1);
-			/* This is very confusing. UnrealTournamentDev is the live lable. We deploy more fleets in live than our other environments */
+
+			/* This is very confusing. UnrealTournamentDev is the live label */
 			if (AppName == UnrealTournamentBuild.UnrealTournamentAppName.UnrealTournamentDev)
 			{
 				Deployment2Command("deployment_create", GceArgsNa2, "true", 1);
@@ -140,6 +142,8 @@ namespace UnrealTournamentGame.Automation
 				Deployment2Command("deployment_create", AwsNaHub1, "true", 1);
 				Deployment2Command("deployment_create", AwsNaHub2, "true", 1);
 				Deployment2Command("deployment_create", AwsAuHub1, "true", 1);
+			} else if (AppName == UnrealTournamentBuild.UnrealTournamentAppName.UnrealTournamentPublicTest) {
+				Deployment2Command("deployment_create", GceArgsEu1, "true", 1);
 			}
 
 			Deployment2Command("deployment_create", GceArgsNa1, "get_pending", MaxRetries);
@@ -158,6 +162,8 @@ namespace UnrealTournamentGame.Automation
 				Deployment2Command("deployment_create", AwsNaHub1, "get_pending", MaxRetries);
 				Deployment2Command("deployment_create", AwsNaHub2, "get_pending", MaxRetries);
 				Deployment2Command("deployment_create", AwsAuHub1, "get_pending", MaxRetries);
+			} else if (AppName == UnrealTournamentBuild.UnrealTournamentAppName.UnrealTournamentPublicTest) {
+				Deployment2Command("deployment_create", GceArgsEu1, "get_pending", MaxRetries);
 			}
 		}
 
