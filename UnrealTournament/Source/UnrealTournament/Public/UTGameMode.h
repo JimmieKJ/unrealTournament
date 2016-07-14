@@ -181,6 +181,10 @@ public:
 	UPROPERTY(EditDefaultsOnly, Category=Game)
 		bool bAllowPickupAnnouncements;
 
+	/** If true, allow armor pickup even if player can't use it. */
+	UPROPERTY(EditDefaultsOnly, Category = Game)
+		bool bAllowAllArmorPickups;
+
 	UPROPERTY(AssetRegistrySearchable, EditDefaultsOnly)
 	bool bHideInUI;
 

@@ -144,6 +144,7 @@ AUTGameMode::AUTGameMode(const class FObjectInitializer& ObjectInitializer)
 	bDisableMapVote = false;
 	AntiCheatEngine = nullptr;
 	EndOfMatchMessageDelay = 1.f;
+	bAllowAllArmorPickups = false;
 }
 
 float AUTGameMode::OverrideRespawnTime(TSubclassOf<AUTInventory> InventoryType)

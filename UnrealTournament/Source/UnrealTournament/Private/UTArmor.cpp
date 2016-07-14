@@ -20,6 +20,11 @@ bool AUTArmor::AllowPickupBy(AUTCharacter* Other) const
 		{
 			return true;
 		}
+		AUTGameMode* UTGameMode = Other->GetWorld()->GetAuthGameMode<AUTGameMode>();
+		if (UTGameMode && UTGameMode->bAllowAllArmorPickups)
+		{
+			return true;
+		}
 		if (NoPickupSound)
 		{
 			UUTGameplayStatics::UTPlaySound(GetWorld(), NoPickupSound, Other, SRT_None, false, FVector::ZeroVector, NULL, NULL, false);

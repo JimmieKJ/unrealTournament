@@ -29,6 +29,7 @@ AUTDuelGame::AUTDuelGame(const class FObjectInitializer& ObjectInitializer)
 	XPMultiplier = 7.0f;
 	SquadType = AUTDuelSquadAI::StaticClass();
 	QuickPlayersToStart = 2;
+	bAllowAllArmorPickups = true;
 }
 
 void AUTDuelGame::InitGameState()
