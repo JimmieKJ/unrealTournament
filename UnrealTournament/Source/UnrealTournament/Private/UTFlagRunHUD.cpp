@@ -6,6 +6,8 @@
 #include "UTCTFGameMode.h"
 #include "UTCTFScoreboard.h"
 #include "Slate/UIWindows/SUTPowerupSelectWindow.h"
+#include "UTFlagRunScoreboard.h"
+#include "UTFlagRunMessage.h"
 
 AUTFlagRunHUD::AUTFlagRunHUD(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -20,6 +22,20 @@ AUTFlagRunHUD::AUTFlagRunHUD(const FObjectInitializer& ObjectInitializer)
 	PlayerStartIcon.Texture = PlayerStartTextureObject.Object;
 
 	TimeToDelayMenuOpenForIntermission = 8.0f;
+}
+
+void AUTFlagRunHUD::NotifyMatchStateChange()
+{
+	AUTGameState* GS = Cast<AUTGameState>(GetWorld()->GetGameState());
+	if (GS && GS->GetMatchState() == MatchState::InProgress)
+	{
+		UUTFlagRunScoreboard* Scoreboard = Cast<UUTFlagRunScoreboard>(GetScoreboard());
+		if (Scoreboard && Scoreboard->FlagRunMessageTeam && UTPlayerOwner)
+		{
+			UTPlayerOwner->ClientReceiveLocalizedMessage(UUTFlagRunMessage::StaticClass(), Scoreboard->FlagRunMessageSwitch, nullptr, nullptr, Scoreboard->FlagRunMessageTeam);
+		}
+	}
+	Super::NotifyMatchStateChange();
 }
 
 void AUTFlagRunHUD::DrawHUD()

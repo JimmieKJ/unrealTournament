@@ -3,7 +3,7 @@
 #include "UTFlagRunScoreboard.h"
 #include "UTCTFRoundGameState.h"
 #include "UTCTFScoring.h"
-
+#include "UTFlagRunMessage.h"
 #include "StatNames.h"
 
 UUTFlagRunScoreboard::UUTFlagRunScoreboard(const FObjectInitializer& ObjectInitializer)
@@ -16,6 +16,8 @@ UUTFlagRunScoreboard::UUTFlagRunScoreboard(const FObjectInitializer& ObjectIniti
 	ColumnHeaderPowerupXDuringReadyUp = 0.82f;
 	bGroupRoundPairs = true;
 	bUseRoundKills = true;
+	FlagRunMessageSwitch = 0;
+	FlagRunMessageTeam = nullptr;
 }
 
 void UUTFlagRunScoreboard::DrawScoreHeaders(float RenderDelta, float& YOffset)
@@ -321,149 +323,24 @@ void UUTFlagRunScoreboard::DrawScoringPlays(float DeltaTime, float& YPos, float 
 	Canvas->DrawText(UTHUDOwner->MediumFont, SingleScorePart, ScoreX, YPos, RenderScale, RenderScale, TextRenderInfo);
 	YPos += (GS->CTFRound == GS->NumRounds - 2) ? 0.9f*SingleYL : 0.8f*SingleYL;
 
-	if  (GS->CTFRound >= GS->NumRounds-2)
+	if (FlagRunMessageTeam != nullptr)
 	{
-		int32 RoundOffset = GS->IsMatchIntermission() ? 0 : 1;
-		Canvas->SetLinearDrawColor(FLinearColor::White);
-		AUTTeamInfo* NextAttacker = (GS->bRedToCap == GS->IsMatchIntermission()) ? GS->Teams[1] : GS->Teams[0];
-		AUTTeamInfo* NextDefender = (GS->bRedToCap == GS->IsMatchIntermission()) ? GS->Teams[0] : GS->Teams[1];
-		FText AttackerNameText = (NextAttacker->TeamIndex == 0) ? RedTeamText : BlueTeamText;
-		FText DefenderNameText = (NextDefender->TeamIndex == 0) ? RedTeamText : BlueTeamText;
-		FFormatNamedArguments Args;
-		Args.Add("AttackerName", AttackerNameText);
-		Args.Add("DefenderName", DefenderNameText);
-		int32 RequiredTime = NextDefender->SecondaryScore - NextAttacker->SecondaryScore;
-		FText TimeStampLine = UTHUDOwner->ConvertTime(FText::GetEmpty(), FText::GetEmpty(), RequiredTime, false, true, false);
-		Args.Add("TimeNeeded", TimeStampLine);
-		FText BonusType = GS->BronzeBonusText;
+		FText PrefixText, EmphasisText, PostfixText;
+		FLinearColor EmphasisColor;
+		UUTFlagRunMessage::StaticClass()->GetDefaultObject<UUTFlagRunMessage>()->GetEmphasisText(PrefixText, EmphasisText, PostfixText, EmphasisColor, FlagRunMessageSwitch, nullptr, nullptr, FlagRunMessageTeam);
 
-		if (GS->CTFRound == GS->NumRounds - 2 + RoundOffset)
-		{
-			if (NextAttacker->Score > NextDefender->Score)
-			{
-				Canvas->SetLinearDrawColor(NextDefender->TeamIndex == 0 ? FLinearColor::Red : FLinearColor::Blue);
-				FString DefenderName = FText::Format(NSLOCTEXT("UTFlagRun", "DefendersName", "{DefenderName}"), Args).ToString();
-				float XL, YL;
-				Canvas->StrLen(UTHUDOwner->SmallFont,DefenderName, XL, YL);
-				Canvas->DrawText(UTHUDOwner->SmallFont, DefenderName, XOffset, YPos - 0.1f*YL*RenderScale, 1.1f*RenderScale, 1.1f*RenderScale, TextRenderInfo);
-				XOffset += 1.1f*XL*RenderScale;
-				Canvas->SetLinearDrawColor(FLinearColor::White);
-				if (NextAttacker->Score - NextDefender->Score > 2)
-				{
-					// Defenders must stop attackers to have a chance
-					Canvas->DrawText(UTHUDOwner->SmallFont, FText::Format(NSLOCTEXT("UTFlagRun", "DefendersMustStop", " must hold on defense to have \n a chance."), Args).ToString(), XOffset, YPos, RenderScale, RenderScale, TextRenderInfo);
-				}
-				else
-				{
-					BonusType = (NextAttacker->Score - NextDefender->Score == 2) ? GS->BronzeBonusText : GS->SilverBonusText;
-					Args.Add("BonusType", BonusType);
-					Canvas->DrawText(UTHUDOwner->SmallFont, FText::Format(NSLOCTEXT("UTFlagRun", "DefendersMustHold", " must hold {AttackerName} to {BonusType} \n to have a chance."), Args).ToString(), XOffset, YPos, RenderScale, RenderScale, TextRenderInfo);
-				}
-			}
-			else if (NextDefender->Score > NextAttacker->Score)
-			{
-				Canvas->SetLinearDrawColor(NextAttacker->TeamIndex == 0 ? FLinearColor::Red : FLinearColor::Blue);
-				FString AttackerName = FText::Format(NSLOCTEXT("UTFlagRun", "AttackerName", "{AttackerName}"), Args).ToString();
-				float XL, YL;
-				Canvas->StrLen(UTHUDOwner->SmallFont, AttackerName, XL, YL);
-				Canvas->DrawText(UTHUDOwner->SmallFont, AttackerName, XOffset, YPos - 0.1f*YL*RenderScale, 1.1f*RenderScale, 1.1f*RenderScale, TextRenderInfo);
-				XOffset += 1.1f*XL*RenderScale;
-				Canvas->SetLinearDrawColor(FLinearColor::White);
-				if (NextDefender->Score - NextAttacker->Score > 1)
-				{
-					// compare bonus times, see what level is implied and state for Attackers to have a chance
-					if (RequiredTime < 60 * (NextDefender->Score - NextAttacker->Score - 1))
-					{
-						if (NextDefender->Score - NextAttacker->Score > 2)
-						{
-							BonusType = (NextDefender->Score - NextAttacker->Score == 4) ? GS->GoldBonusText : GS->SilverBonusText;
-						}
-						Args.Add("BonusType", BonusType);
-						Canvas->DrawText(UTHUDOwner->SmallFont, FText::Format(NSLOCTEXT("UTFlagRun", "AttackersMustScore", " must score {BonusType} to have a chance."), Args).ToString(), XOffset, YPos, RenderScale, RenderScale, TextRenderInfo);
-					}
-					else
-					{
-						// state required time and threshold
-						if (RequiredTime >= GS->SilverBonusThreshold)
-						{
-							BonusType = (RequiredTime >= GS->GoldBonusThreshold) ? GS->GoldBonusText : GS->SilverBonusText;
-						}
-						Args.Add("BonusType", BonusType);
-						Canvas->DrawText(UTHUDOwner->SmallFont, FText::Format(NSLOCTEXT("UTFlagRun", "AttackersMustScoreTime", " must score {BonusType} with at least\n {TimeNeeded} remaining to have a chance."), Args).ToString(), XOffset, YPos, RenderScale, RenderScale, TextRenderInfo);
-					}
-				}
-				else if (NextDefender->Score - NextAttacker->Score == 1)
-				{
-					// Attackers must score bronze
-					Args.Add("BonusType", BonusType);
-					Canvas->DrawText(UTHUDOwner->SmallFont, FText::Format(NSLOCTEXT("UTFlagRun", "AttackersMustScore", " must score {BonusType} to have a chance."), Args).ToString(), XOffset, YPos, RenderScale, RenderScale, TextRenderInfo);
-				}
-				else
-				{
-					// WTF - unhandled condition
-					Canvas->DrawText(UTHUDOwner->SmallFont, FText::Format(NSLOCTEXT("UTFlagRun", "UnhandledCondition", "UNHANDLED WIN CONDITION"), Args).ToString(), XOffset, YPos, RenderScale, RenderScale, TextRenderInfo);
-				}
-			}
-		}
-		else if (GS->CTFRound == GS->NumRounds - 1 + RoundOffset)
-		{
-			Canvas->SetLinearDrawColor(NextAttacker->TeamIndex == 0 ? FLinearColor::Red : FLinearColor::Blue);
-			FString AttackerName = FText::Format(NSLOCTEXT("UTFlagRun", "AttackerName", "{AttackerName}"), Args).ToString();
-			float XL, YL;
-			Canvas->StrLen(UTHUDOwner->SmallFont, AttackerName, XL, YL);
-			Canvas->DrawText(UTHUDOwner->SmallFont, AttackerName, XOffset, YPos-0.1f*YL*RenderScale, 1.1f*RenderScale, 1.1f*RenderScale, TextRenderInfo);
-			XOffset += 1.1f*XL*RenderScale;
-			Canvas->SetLinearDrawColor(FLinearColor::White);
-			if (NextDefender->Score <= NextAttacker->Score)
-			{
-				Args.Add("BonusType", BonusType);
-				Canvas->DrawText(UTHUDOwner->SmallFont, FText::Format(NSLOCTEXT("UTFlagRun", "AttackersMustScoreWin", " must score {BonusType} to win."), Args).ToString(), XOffset, YPos, RenderScale, RenderScale, TextRenderInfo);
-			}
-			else
-			{ 
-				bool bNeedTimeThreshold = false;
-				if (NextDefender->Score - NextAttacker->Score > 2)
-				{
-					BonusType = GS->GoldBonusText;
-					bNeedTimeThreshold = (RequiredTime >= 120);
-				}
-				else if (NextDefender->Score - NextAttacker->Score == 2)
-				{
-					if (RequiredTime < 120)
-					{
-						BonusType = GS->SilverBonusText;
-						bNeedTimeThreshold = (RequiredTime >= 60);
-					}
-					else
-					{
-						BonusType = GS->GoldBonusText;
-						bNeedTimeThreshold = (RequiredTime >= 120);
-					}
-				}
-				else //(NextDefender->Score - NextAttacker->Score == 1)
-				{
-					if (RequiredTime < 60)
-					{
-						BonusType = GS->BronzeBonusText;
-						bNeedTimeThreshold = (RequiredTime >= 0);
-					}
-					else
-					{
-						BonusType = (RequiredTime < 120) ? GS->SilverBonusText : GS->GoldBonusText;
-						bNeedTimeThreshold = true;
-					}
-				}
-				Args.Add("BonusType", BonusType);
-				if (bNeedTimeThreshold)
-				{
-					Canvas->DrawText(UTHUDOwner->SmallFont, FText::Format(NSLOCTEXT("UTFlagRun", "AttackersMustScoreTimeWin", " must score {BonusType} with\n at least {TimeNeeded} remaining to win."), Args).ToString(), XOffset, YPos, RenderScale, RenderScale, TextRenderInfo);
-				}
-				else
-				{
-					Canvas->DrawText(UTHUDOwner->SmallFont, FText::Format(NSLOCTEXT("UTFlagRun", "AttackersMustScoreWin", " must score {BonusType} to win."), Args).ToString(), XOffset, YPos, RenderScale, RenderScale, TextRenderInfo);
-				}
-			}
-		}
+		Canvas->SetLinearDrawColor(FLinearColor::White);
+		float XL, YL;
+		Canvas->StrLen(UTHUDOwner->SmallFont, PrefixText.ToString(), XL, YL);
+		Canvas->DrawText(UTHUDOwner->SmallFont, PrefixText, XOffset, YPos - 0.1f*YL*RenderScale, RenderScale, RenderScale, TextRenderInfo);
+		XOffset += XL*RenderScale;
+
+		Canvas->SetLinearDrawColor(FlagRunMessageTeam->TeamIndex == 0 ? FLinearColor::Red : FLinearColor::Blue);
+		Canvas->StrLen(UTHUDOwner->SmallFont, EmphasisText.ToString(), XL, YL);
+		Canvas->DrawText(UTHUDOwner->SmallFont, EmphasisText, XOffset, YPos - 0.1f*YL*RenderScale, 1.1f*RenderScale, 1.1f*RenderScale, TextRenderInfo);
+		XOffset += 1.1f*XL*RenderScale;
+		Canvas->SetLinearDrawColor(FLinearColor::White);
+		Canvas->DrawText(UTHUDOwner->SmallFont, PostfixText, XOffset, YPos - 0.1f*YL*RenderScale, RenderScale, RenderScale, TextRenderInfo);
 	}
 }
 
