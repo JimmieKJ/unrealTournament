@@ -23,7 +23,6 @@
 #include "UTShowdownRewardMessage.h"
 #include "UTShowdownStatusMessage.h"
 #include "UTPlayerStart.h"
-#include "UTArmor.h"
 #include "UTTimedPowerup.h"
 #include "UTPlayerState.h"
 #include "UTFlagRunHUD.h"
@@ -71,7 +70,6 @@ AUTCTFRoundGame::AUTCTFRoundGame(const FObjectInitializer& ObjectInitializer)
 	// remove translocator - fixmesteve make this an option
 	TranslocatorObject = nullptr;
 
-	ThighPadObject = FStringAssetReference(TEXT("/Game/RestrictedAssets/Pickups/Armor/Armor_ThighPads.Armor_ThighPads_C"));
 	ActivatedPowerupPlaceholderObject = FStringAssetReference(TEXT("/Game/RestrictedAssets/Pickups/Powerups/BP_ActivatedPowerup_UDamage.BP_ActivatedPowerup_UDamage_C"));
 	RepulsorObject = FStringAssetReference(TEXT("/Game/RestrictedAssets/Pickups/Powerups/BP_Repulsor.BP_Repulsor_C"));
 
@@ -122,10 +120,6 @@ void AUTCTFRoundGame::InitGame(const FString& MapName, const FString& Options, F
 {
 	Super::InitGame(MapName, Options, ErrorMessage);
 
-	if (!ThighPadObject.IsNull())
-	{
-		ThighPadClass = Cast<UClass>(StaticLoadObject(UClass::StaticClass(), NULL, *ThighPadObject.ToStringReference().ToString(), NULL, LOAD_NoWarn));
-	}
 	if (!ActivatedPowerupPlaceholderObject.IsNull())
 	{
 		ActivatedPowerupPlaceholderClass = Cast<UClass>(StaticLoadObject(UClass::StaticClass(), NULL, *ActivatedPowerupPlaceholderObject.ToStringReference().ToString(), NULL, LOAD_NoWarn));
@@ -168,8 +162,6 @@ void AUTCTFRoundGame::GiveDefaultInventory(APawn* PlayerPawn)
 	AUTCharacter* UTCharacter = Cast<AUTCharacter>(PlayerPawn);
 	if (UTCharacter != NULL)
 	{
-		UTCharacter->AddInventory(GetWorld()->SpawnActor<AUTInventory>(ThighPadClass, FVector(0.0f), FRotator(0.f, 0.f, 0.f)), true);
-		
 		AUTPlayerState* UTPlayerState = Cast<AUTPlayerState>(UTCharacter->PlayerState);
 		bool bOnLastLife = (UTPlayerState && (UTPlayerState->RemainingLives == 0) && UTPlayerState->bHasLifeLimit);
 		if (bOnLastLife)

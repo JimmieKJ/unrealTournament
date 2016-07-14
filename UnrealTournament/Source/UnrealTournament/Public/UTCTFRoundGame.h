@@ -168,12 +168,8 @@ class UNREALTOURNAMENT_API AUTCTFRoundGame : public AUTCTFBaseGame
 	/** Initialize for new round. */
 	virtual void InitRound();
 
-	TAssetSubclassOf<class AUTArmor> ThighPadObject;
 	TAssetSubclassOf<class AUTInventory> ActivatedPowerupPlaceholderObject;
 	TAssetSubclassOf<class AUTInventory> RepulsorObject;
-
-	UPROPERTY()
-		TSubclassOf<class AUTArmor> ThighPadClass;
 
 	UPROPERTY()
 		TSubclassOf<class AUTInventory> ActivatedPowerupPlaceholderClass;

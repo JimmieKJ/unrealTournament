@@ -50,6 +50,7 @@
 #include "UTWeaponLocker.h"
 #include "UTCTFRoundGameState.h"
 #include "UTGameVolume.h"
+#include "UTArmor.h"
 
 UUTResetInterface::UUTResetInterface(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -145,6 +146,10 @@ AUTGameMode::AUTGameMode(const class FObjectInitializer& ObjectInitializer)
 	AntiCheatEngine = nullptr;
 	EndOfMatchMessageDelay = 1.f;
 	bAllowAllArmorPickups = false;
+
+	bPlayersStartWithArmor = true;
+	StartingArmorObject = FStringAssetReference(TEXT("/Game/RestrictedAssets/Pickups/Armor/Armor_ThighPads.Armor_ThighPads_C"));
+	StartingArmorClass;
 }
 
 float AUTGameMode::OverrideRespawnTime(TSubclassOf<AUTInventory> InventoryType)
@@ -363,6 +368,13 @@ void AUTGameMode::InitGame( const FString& MapName, const FString& Options, FStr
 	{
 		AUTGameSession* UTGameSession = Cast<AUTGameSession>(GameSession);
 		GetWorldTimerManager().SetTimer(ServerRestartTimerHandle, UTGameSession, &AUTGameSession::CheckForPossibleRestart, 60.0f, true);
+	}
+
+	InOpt = UGameplayStatics::ParseOption(Options, TEXT("StartArmor"));
+	bPlayersStartWithArmor = EvalBoolOptions(InOpt, bPlayersStartWithArmor);
+	if (!StartingArmorObject.IsNull())
+	{
+		StartingArmorClass = Cast<UClass>(StaticLoadObject(UClass::StaticClass(), NULL, *StartingArmorObject.ToStringReference().ToString(), NULL, LOAD_NoWarn));
 	}
 }
 
@@ -2477,6 +2489,13 @@ void AUTGameMode::GiveDefaultInventory(APawn* PlayerPawn)
 		if (bClearPlayerInventory)
 		{
 			UTCharacter->DefaultCharacterInventory.Empty();
+		}
+		if (bPlayersStartWithArmor && StartingArmorClass)
+		{
+			if (!StartingArmorClass.GetDefaultObject()->HandleGivenTo(UTCharacter))
+			{
+				UTCharacter->AddInventory(GetWorld()->SpawnActor<AUTInventory>(StartingArmorClass, FVector(0.0f), FRotator(0.f, 0.f, 0.f)), true);
+			}
 		}
 		UTCharacter->AddDefaultInventory(DefaultInventory);
 	}

@@ -418,6 +418,14 @@ public:
 	UPROPERTY(Transient, BlueprintReadOnly)
 	bool bSetPlayerDefaultsNewSpawn;
 
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category="Game")
+		bool bPlayersStartWithArmor;
+
+	TAssetSubclassOf<class AUTArmor> StartingArmorObject;
+
+	UPROPERTY()
+		TSubclassOf<class AUTArmor> StartingArmorClass;
+
 	/** assign squad to player - note that humans can have a squad for bots to follow their lead
 	 * this method should always result in a valid squad being assigned
 	 */
