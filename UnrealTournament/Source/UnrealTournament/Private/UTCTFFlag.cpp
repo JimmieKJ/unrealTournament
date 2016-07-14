@@ -355,10 +355,10 @@ void AUTCTFFlag::Tick(float DeltaTime)
 		{
 			bool bAddedReturnSpot = false;
 			FVector PreviousPos = (PastPositions.Num() > 0) ? PastPositions[PastPositions.Num() - 1].Location : (HomeBase ? HomeBase->GetActorLocation() : FVector(0.f));
+			bool bAlreadyPlacedInNoRallyZone = (PastPositions.Num() > 0) && PastPositions[PastPositions.Num() - 1].bIsInNoRallyZone;
 			if (HoldingPawn->GetCharacterMovement() && HoldingPawn->GetCharacterMovement()->IsWalking() && (!HoldingPawn->GetMovementBase() || !MovementBaseUtility::UseRelativeLocation(HoldingPawn->GetMovementBase())))
 			{
 				AUTGameVolume* GV = HoldingPawn->UTCharacterMovement ? Cast<AUTGameVolume>(HoldingPawn->UTCharacterMovement->GetPhysicsVolume()) : nullptr;
-				bool bAlreadyPlacedInNoRallyZone = (PastPositions.Num() > 0) && PastPositions[PastPositions.Num() - 1].bIsInNoRallyZone;
 				bool bAlreadyInNoRallyZone = (PastPositions.Num() > 0) && (PastPositions[PastPositions.Num() - 1].bIsInNoRallyZone || PastPositions[PastPositions.Num() - 1].bEnteringNoRallyZone);
 				bool bNowInNoRallyZone = GV && GV->bIsNoRallyZone;
 				bool bJustTransitionedToNoRallyZone = !bAlreadyInNoRallyZone && bNowInNoRallyZone;
@@ -388,7 +388,7 @@ void AUTCTFFlag::Tick(float DeltaTime)
 					MidPoints[1] = FVector::ZeroVector;
 				}
 			}
-			if ((MidPointPos < 3) && !bAddedReturnSpot)
+			if ((MidPointPos < 3) && !bAddedReturnSpot && !bAlreadyPlacedInNoRallyZone)
 			{
 				static FName NAME_FlagReturnLOS = FName(TEXT("FlagReturnLOS"));
 				FCollisionQueryParams CollisionParms(NAME_FlagReturnLOS, true, HoldingPawn);
