@@ -57,6 +57,10 @@ class UNREALTOURNAMENT_API UUTLocalMessage : public ULocalMessage
 	UPROPERTY(EditDefaultsOnly, Category = Message)
 		uint32 bPlayDuringIntermission : 1;
 
+	/** If true combine emphasis text with already displaying message of same class. */
+	UPROPERTY(EditDefaultsOnly, Category = Message)
+		uint32 bCombineEmphasisText : 1;	
+
 	// # of seconds to stay in HUD message queue.
 	UPROPERTY(EditDefaultsOnly, Category = Message)
 	float Lifetime;    

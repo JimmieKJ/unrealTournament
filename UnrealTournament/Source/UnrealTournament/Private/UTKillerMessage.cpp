@@ -9,6 +9,7 @@ UUTKillerMessage::UUTKillerMessage(const class FObjectInitializer& ObjectInitial
 {
 	Lifetime=3.0;
 	bIsUnique = true;
+	bCombineEmphasisText = true;
 	MessageArea = FName(TEXT("Announcements"));
 	MessageSlot = FName(TEXT("DeathMessage"));
 	YouKilledPrefixText = NSLOCTEXT("UTKillerMessage","YouKilledPrefixText","You killed ");

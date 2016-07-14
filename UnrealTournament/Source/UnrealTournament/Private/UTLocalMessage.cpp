@@ -22,6 +22,7 @@ UUTLocalMessage::UUTLocalMessage(const class FObjectInitializer& ObjectInitializ
 	ScaleInSize = 1.f;
 	FontSizeIndex = 2;
 	bPlayDuringIntermission = true;
+	bCombineEmphasisText = false;
 }
 
 int32 UUTLocalMessage::GetFontSizeIndex(int32 MessageIndex) const

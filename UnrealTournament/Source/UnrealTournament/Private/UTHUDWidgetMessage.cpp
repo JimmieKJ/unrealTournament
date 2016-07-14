@@ -209,12 +209,17 @@ void UUTHUDWidgetMessage::ReceiveLocalMessage(TSubclassOf<class UUTLocalMessage>
 	}
 	int32 QueueIndex = MessageQueue.Num();
 	int32 MessageCount = 0;
+	CombinedEmphasisText = FText::GetEmpty();
 	if (DefaultMessageObject->bIsUnique)
 	{
 		for (QueueIndex = 0; QueueIndex < MessageQueue.Num(); QueueIndex++)
 		{
 			if (MessageQueue[QueueIndex].MessageClass == MessageClass)
 			{
+				if (DefaultMessageObject->bCombineEmphasisText)
+				{
+					CombinedEmphasisText = MessageQueue[QueueIndex].EmphasisText;
+				}
 				if (DefaultMessageObject->ShouldCountInstances(MessageIndex, OptionalObject) && MessageQueue[QueueIndex].Text.EqualTo(LocalMessageText))
 				{
 					MessageCount = (MessageQueue[QueueIndex].MessageCount == 0) ? 2 : MessageQueue[QueueIndex].MessageCount + 1;
@@ -273,6 +278,15 @@ void UUTHUDWidgetMessage::AddMessage(int32 QueueIndex, TSubclassOf<class UUTLoca
 	MessageQueue[QueueIndex].MessageIndex = MessageIndex;
 	MessageQueue[QueueIndex].Text = LocalMessageText;
 	GetDefault<UUTLocalMessage>(MessageClass)->GetEmphasisText(MessageQueue[QueueIndex].PrefixText, MessageQueue[QueueIndex].EmphasisText, MessageQueue[QueueIndex].PostfixText, MessageQueue[QueueIndex].EmphasisColor, MessageIndex, RelatedPlayerState_1, RelatedPlayerState_2, OptionalObject);
+	if (GetDefault<UUTLocalMessage>(MessageClass)->bCombineEmphasisText && !CombinedEmphasisText.IsEmpty())
+	{
+		FFormatNamedArguments Args;
+		Args.Add(TEXT("FirstText"), CombinedEmphasisText);
+		Args.Add(TEXT("SecondText"), MessageQueue[QueueIndex].EmphasisText);
+		MessageQueue[QueueIndex].EmphasisText = FText::Format(NSLOCTEXT("UTLocalMessage", "CombinedEmphasisText", "{FirstText} & {SecondText}"), Args);
+		Args.Add(TEXT("FullText"), MessageQueue[QueueIndex].Text);
+		MessageQueue[QueueIndex].Text = FText::Format(NSLOCTEXT("UTLocalMessage", "CombinedFullText", "{FullText} & {FirstText}"), Args);
+	}
 	MessageQueue[QueueIndex].LifeSpan = GetDefault<UUTLocalMessage>(MessageClass)->GetLifeTime(MessageIndex);
 	MessageQueue[QueueIndex].LifeLeft = MessageQueue[QueueIndex].LifeSpan;
 	MessageQueue[QueueIndex].ScaleInTime = GetDefault<UUTLocalMessage>(MessageClass)->GetScaleInTime(MessageIndex);
