@@ -234,6 +234,9 @@ public:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Powerup)
 	FText NotifyMessage;
 
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Powerup)
+	USoundBase* NotifySound;
+
 	/** How important is this inventory item when rendering a group of them */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = HUD)
 	float HUDRenderPriority;

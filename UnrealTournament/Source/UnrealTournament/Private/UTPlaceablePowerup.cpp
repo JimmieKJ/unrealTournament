@@ -70,6 +70,7 @@ void AUTPlaceablePowerup::SpawnPowerup()
 		FActorSpawnParameters Params;
 		Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
 		Params.Instigator = UTOwner;
+		Params.bNoFail = true;
 		
 		AActor* NewlySpawnedActor = GetWorld()->SpawnActor<AActor>(PowerupToSpawn, SpawnLocation, SpawnRotation, Params);
 		SpawnedPowerups.Add(NewlySpawnedActor);

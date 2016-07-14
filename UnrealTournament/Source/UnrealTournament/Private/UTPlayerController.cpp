@@ -915,12 +915,12 @@ void AUTPlayerController::TriggerBoost()
 void AUTPlayerController::TeamNotifiyOfPowerupUse()
 {
 	AUTGameMode* GameMode = GetWorld()->GetAuthGameMode<AUTGameMode>();
-	if (GameMode && UTCharacter && UTPlayerState)
+	if (GameMode && UTPlayerState)
 	{
 		if (UTPlayerState->BoostClass)
 		{
 			AUTInventory* Powerup = UTPlayerState->BoostClass->GetDefaultObject<AUTInventory>();
-			if (Powerup && Powerup->bNotifyTeamOnPowerupUse && GameMode->UTGameState && UTPlayerState->Team)
+			if (Powerup && GameMode->UTGameState && UTPlayerState->Team)
 			{
 				for (int32 PlayerIndex = 0; PlayerIndex < GameMode->UTGameState->PlayerArray.Num(); ++PlayerIndex)
 				{
@@ -932,8 +932,16 @@ void AUTPlayerController::TeamNotifiyOfPowerupUse()
 							AUTPlayerController* PC = Cast<AUTPlayerController>(PS->GetOwner());
 							if (PC)
 							{
-								//21 is Powerup Message
-								PC->ClientReceiveLocalizedMessage(UUTCTFGameMessage::StaticClass(), 21, UTPlayerState);
+								if (Powerup->bNotifyTeamOnPowerupUse)
+								{
+									//21 is Powerup Message
+									PC->ClientReceiveLocalizedMessage(UUTCTFGameMessage::StaticClass(), 21, UTPlayerState);
+								}
+
+								if (Powerup->NotifySound)
+								{
+									PC->UTClientPlaySound(Powerup->NotifySound);
+								}
 							}
 						}
 					}
