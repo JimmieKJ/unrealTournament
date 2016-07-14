@@ -134,6 +134,11 @@ void AUTPickup::OnOverlapBegin(AActor* OtherActor, UPrimitiveComponent* OtherCom
 	}
 }
 
+bool AUTPickup::FlashOnMinimap_Implementation()
+{
+	return false;
+}
+
 bool AUTPickup::AllowPickupBy_Implementation(APawn* Other, bool bDefaultAllowPickup)
 {
 	AUTCharacter* UTC = Cast<AUTCharacter>(Other);

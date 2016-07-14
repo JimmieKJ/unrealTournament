@@ -339,6 +339,11 @@ void AUTPickupInventory::PlayRespawnEffects()
 	}
 }
 
+bool AUTPickupInventory::FlashOnMinimap_Implementation()
+{
+	return (State.bActive && InventoryType && InventoryType.GetDefaultObject()->PickupSpawnAnnouncement);
+}
+
 void AUTPickupInventory::SetPickupHidden(bool bNowHidden)
 {
 	if (GetNetMode() != NM_DedicatedServer)

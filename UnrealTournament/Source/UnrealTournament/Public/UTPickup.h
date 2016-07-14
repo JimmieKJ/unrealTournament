@@ -130,6 +130,9 @@ class UNREALTOURNAMENT_API AUTPickup : public AActor, public IUTResetInterface, 
 	UFUNCTION(BlueprintNativeEvent)
 	void ProcessTouch(APawn* TouchedBy);
 
+	UFUNCTION(BlueprintNativeEvent)
+		bool FlashOnMinimap();
+
 	UFUNCTION(BlueprintNativeEvent, BlueprintAuthorityOnly)
 	void GiveTo(APawn* Target);
 

@@ -75,6 +75,7 @@ public:
 	virtual void SetPickupHidden(bool bNowHidden) override;
 	virtual void Reset_Implementation() override;
 	virtual void PlayTakenEffects(bool bReplicate) override;
+	virtual bool FlashOnMinimap_Implementation() override;
 
 	virtual void AddHiddenComponents(bool bTaken, TSet<FPrimitiveComponentId>& HiddenComponents) override
 	{

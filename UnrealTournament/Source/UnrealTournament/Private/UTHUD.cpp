@@ -1297,8 +1297,18 @@ void AUTHUD::DrawMinimapSpectatorIcons()
 			const float Ratio = Icon.UL / Icon.VL;
 			FLinearColor MutedColor = (LastHoveredActor == *It) ? It->IconColor: It->IconColor * 0.6f;
 			MutedColor.A = (LastHoveredActor == *It) ? 1.f : 0.7f;
+			float IconSize = (LastHoveredActor == *It) ? (48.0f * RenderScale * FMath::InterpEaseOut<float>(1.0f, 1.25f, FMath::Min<float>(0.2f, GetWorld()->RealTimeSeconds - LastHoveredActorChangeTime) * 5.0f, 2.0f)) : (32.0f * RenderScale);
+			if (It->FlashOnMinimap())
+			{
+				float Speed = 2.f;
+				float ScaleTime = Speed*GetWorld()->GetTimeSeconds() - int32(Speed*GetWorld()->GetTimeSeconds());
+				float Scaling = (ScaleTime < 0.5f)
+					? ScaleTime
+					: 1.f - ScaleTime;
+				MutedColor = It->IconColor * (0.5f + Scaling);
+				IconSize = IconSize * (1.f + Scaling);
+			}
 			Canvas->DrawColor = MutedColor.ToFColor(false);
-			const float IconSize = (LastHoveredActor == *It) ? (48.0f * RenderScale * FMath::InterpEaseOut<float>(1.0f, 1.25f, FMath::Min<float>(0.2f, GetWorld()->RealTimeSeconds - LastHoveredActorChangeTime) * 5.0f, 2.0f)) : (32.0f * RenderScale);
 			Canvas->DrawTile(Icon.Texture, Pos.X - 0.5f * Ratio * IconSize, Pos.Y - 0.5f * IconSize, Ratio * IconSize, IconSize, Icon.U, Icon.V, Icon.UL, Icon.VL);
 			if (LastHoveredActor == *It)
 			{
