@@ -4,18 +4,20 @@
 #include "UTHUDWidget_Boost.h"
 #include "UTCarriedObject.h"
 #include "UTCTFGameState.h"
+#include "UTCTFRoundGameState.h"
+#include "UTHUDWidget_QuickStats.h"
 
 UUTHUDWidget_Boost::UUTHUDWidget_Boost(const class FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
 {
 	static ConstructorHelpers::FObjectFinder<UMaterialInterface> MI(TEXT("MaterialInstanceConstant'/Game/RestrictedAssets/Proto/UI/HUD/Elements/MI_HudTimer.MI_HudTimer'"));
 	HudTimerMI = MI.Object;
-	IconScale = 1.5f;
+	IconScale = 1.25f;
 
 	DesignedResolution = 1080.f;
-	Position=FVector2D(0.0f,0.0f) * IconScale;
+	Position=FVector2D(8.0f,0.0f) * IconScale;
 	Size=FVector2D(101.0f,114.0f) * IconScale;
-	ScreenPosition=FVector2D(0.9f, 0.955f);
-	Origin=FVector2D(0.0f,1.0f);
+	ScreenPosition=FVector2D(0.0f, 0.5f);
+	Origin=FVector2D(0.0f,0.5f);
 }
 
 void UUTHUDWidget_Boost::InitializeWidget(AUTHUD* Hud)
@@ -26,161 +28,95 @@ void UUTHUDWidget_Boost::InitializeWidget(AUTHUD* Hud)
 
 bool UUTHUDWidget_Boost::ShouldDraw_Implementation(bool bShowScores)
 {
-	if (UTHUDOwner && UTHUDOwner->UTPlayerOwner && UTHUDOwner->UTPlayerOwner->UTPlayerState)
+	if (UTGameState && (UTGameState->HasMatchEnded() || !UTGameState->HasMatchStarted() || UTGameState->IsMatchIntermission()))
 	{
-		AUTPlayerState* PlayerState = UTHUDOwner->UTPlayerOwner->UTPlayerState;
-		if (PlayerState->BoostClass && !PlayerState->bOutOfLives)
-		{
-			return true;
-		}
+		bLastUnlocked = false;
+		return false;
 	}
-	return false;
+	if (UTHUDOwner->bShowComsMenu || UTHUDOwner->bShowWeaponWheel)
+	{
+		bLastUnlocked = false;
+		return false;
+	}
+
+	AUTCharacter* UTC = Cast<AUTCharacter>(UTHUDOwner->UTPlayerOwner->GetViewTarget());
+	AUTPlayerState* UTPlayerState = UTC != nullptr ? Cast<AUTPlayerState>(UTC->PlayerState) : nullptr;
+	bool bShouldDraw = (!bShowScores && UTC && UTPlayerState && !UTC->IsDead() && !UTHUDOwner->GetQuickStatsHidden() && UTPlayerState->BoostClass && !UTPlayerState->bOutOfLives);
+
+	// Trigger the animation each spawn
+	if (!bShouldDraw)
+	{
+		bLastUnlocked = false;
+	}
+
+	return bShouldDraw;
 }
 
 
 void UUTHUDWidget_Boost::Draw_Implementation(float DeltaTime)
 {
-
 	if (UTHUDOwner && UTHUDOwner->UTPlayerOwner)
 	{
-
-		AUTGameState* UTGameState = GetWorld()->GetGameState<AUTGameState>();
-		ScreenPosition.X = (UTGameState && UTGameState->CanShowBoostMenu(UTHUDOwner->UTPlayerOwner)) ? 0.9f : 0.7f;
-		ScreenPosition.Y = (UTGameState && UTGameState->CanShowBoostMenu(UTHUDOwner->UTPlayerOwner)) ? 0.955f : 1.0f;
-
 		Super::Draw_Implementation(DeltaTime);
 
-		if (UTGameState && UTHUDOwner->UTPlayerOwner->UTPlayerState)
+		AUTPlayerState* UTPlayerState = Cast<AUTPlayerState>(UTHUDOwner->UTPlayerOwner->PlayerState);
+
+		if (UTGameState && UTPlayerState)
 		{
-			AUTPlayerState* PlayerState = UTHUDOwner->UTPlayerOwner->UTPlayerState;
-
-			if (PlayerState->BoostClass)
+			AUTCTFRoundGameState* RoundGameState = GetWorld()->GetGameState<AUTCTFRoundGameState>();
+			if (RoundGameState != nullptr && UTPlayerState->BoostClass)
 			{
-
-				if (PlayerState->GetAvailableCurrency() > LastCurrency)
+				bool bIsUnlocked = (UTPlayerState->GetRemainingBoosts() >= 1);
+				if (bIsUnlocked != bLastUnlocked)
 				{
-					int32 Amount = int32( PlayerState->GetAvailableCurrency() - LastCurrency);
-					FloatingNumbers.Add(FCurrentChange(Amount));
+					if (bIsUnlocked)
+					{
+						UnlockAnimTime = 0.0f;
+					}
+					bLastUnlocked = bIsUnlocked;
 				}
 
-				LastCurrency = PlayerState->GetAvailableCurrency();
+				float Opacity = 1.0f;
+				if (bIsUnlocked)
+				{
+					UnlockAnimTime += DeltaTime;
+					if (UnlockAnimTime >= UNLOCK_ANIM_DURATION) return;
 
-				DrawTexture(UTHUDOwner->HUDAtlas3, 0,0, 101.0f * IconScale, 114.0f * IconScale, 49.0f, 1.0f, 101.0f, 114.0f, 1.0f, FLinearColor(0.0f,0.0f,0.0f,0.3f));
-				DrawTexture(UTHUDOwner->HUDAtlas3, 0,0, 101.0f * IconScale, 114.0f * IconScale, 49.0f, 121.0f, 101.0f, 114.0f, 1.0f, FLinearColor::White);
+					float Alpha = (UnlockAnimTime / UNLOCK_ANIM_DURATION);
+					Opacity = 1.0f - Alpha;
 
-				AUTInventory* Inv = PlayerState->BoostClass->GetDefaultObject<AUTInventory>();
+					UUTHUDWidget_QuickStats* QuickStatWidget = Cast<UUTHUDWidget_QuickStats>(UTHUDOwner->FindHudWidgetByClass(UUTHUDWidget_QuickStats::StaticClass()));
+					if (QuickStatWidget != nullptr)
+					{
+						FVector2D DesiredLocation = QuickStatWidget->GetRenderPosition() + QuickStatWidget->GetBoostLocation();
+
+						RenderPosition.X = FMath::InterpEaseIn<float>(RenderPosition.X, DesiredLocation.X, Alpha, 2.0f);
+						RenderPosition.Y = FMath::InterpEaseIn<float>(RenderPosition.Y, DesiredLocation.Y, Alpha, 2.0f);
+
+						UE_LOG(UT,Log,TEXT("%f Render Position = %f,%f  vs %f,%f"), Opacity, RenderPosition.X, RenderPosition.Y, DesiredLocation.X, DesiredLocation.Y);
+					}
+				}
+
+				DrawTexture(UTHUDOwner->HUDAtlas3, 0,0, 101.0f * IconScale, 114.0f * IconScale, 49.0f, 1.0f, 101.0f, 114.0f, Opacity, FLinearColor(0.0f,0.0f,0.0f,0.3f));
+				DrawTexture(UTHUDOwner->HUDAtlas3, 0,0, 101.0f * IconScale, 114.0f * IconScale, 49.0f, 121.0f, 101.0f, 114.0f, Opacity, FLinearColor::White);
+
+				AUTInventory* Inv = UTPlayerState->BoostClass->GetDefaultObject<AUTInventory>();
 				if (Inv)
 				{
 					float XScale = (80.0f * IconScale) / Inv->HUDIcon.UL;
 					float Height = (80.0f * IconScale) * (Inv->HUDIcon.VL / Inv->HUDIcon.UL);
 
-					DrawTexture(Inv->HUDIcon.Texture, 51.0f * IconScale, 57.0f * IconScale, 80.0f * IconScale, Height, Inv->HUDIcon.U, Inv->HUDIcon.V, Inv->HUDIcon.UL, Inv->HUDIcon.VL, 1.0f, FLinearColor::White, FVector2D(0.5f, 0.5f));
-				}							
+					DrawTexture(Inv->HUDIcon.Texture, 51.0f * IconScale, 57.0f * IconScale, 80.0f * IconScale, Height, Inv->HUDIcon.U, Inv->HUDIcon.V, Inv->HUDIcon.UL, Inv->HUDIcon.VL, Opacity, FLinearColor::White, FVector2D(0.5f, 0.5f));
 
-				FText LabelA = FText::GetEmpty();
-				FText LabelB = FText::GetEmpty();
-				if (UTGameState->CanShowBoostMenu(UTHUDOwner->UTPlayerOwner))
-				{
-					UInputSettings* InputSettings = UInputSettings::StaticClass()->GetDefaultObject<UInputSettings>();
-					if (InputSettings)
+					//Show countdown to power up
+					if (!bIsUnlocked)
 					{
-						for (int32 inputIndex = 0; inputIndex < InputSettings->ActionMappings.Num(); ++inputIndex)
-						{
-							FInputActionKeyMapping& Action = InputSettings->ActionMappings[inputIndex];
-							if (Action.ActionName == "ShowBuyMenu")
-							{
-								LabelB = FText::Format(NSLOCTEXT("SUTBoostWidget","BuyMenu","Press {0} to change..."), Action.Key.GetDisplayName());
-								break;
-							}
-						}
+						FText BoostText = FText::Format(NSLOCTEXT("UTHUDWIDGET_Boost","BoostUnlockText","Unlocks in\n{0} kills"), FText::AsNumber(RoundGameState->GetKillsNeededForPowerup(UTPlayerState->GetTeamNum())));
+						DrawText(BoostText, 0, Height, UTHUDOwner->MediumFont, 1.0f, 1.0f, FLinearColor::White, ETextHorzPos::Left, ETextVertPos::Top);
 					}
 				}
-				else
-				{
-					AUTReplicatedLoadoutInfo* LoadoutInfo = nullptr;
-					for (int32 i=0; i < UTGameState->AvailableLoadout.Num();i++)
-					{
-						if (UTGameState->AvailableLoadout[i]->ItemClass == PlayerState->BoostClass)
-						{
-							LoadoutInfo = UTGameState->AvailableLoadout[i];
-							break;
-						}
-					}
-
-					if (LoadoutInfo)
-					{
-						float Strength = FMath::Clamp<float>(PlayerState->GetAvailableCurrency() / LoadoutInfo->CurrentCost, 0.0f, 1.0f);
-						if (Strength < 1.0f)
-						{
-							float NeededPoints = LoadoutInfo->CurrentCost - PlayerState->GetAvailableCurrency();
-							LabelA = NSLOCTEXT("SUTBoostWidget","NotReady","Not Ready");
-							LabelB = FText::Format(NSLOCTEXT("SUTBoostWidget","NotReadyFormat","{0}pts. needed"), FText::AsNumber(int(NeededPoints)));
-						}
-						else
-						{
-							UInputSettings* InputSettings = UInputSettings::StaticClass()->GetDefaultObject<UInputSettings>();
-							if (InputSettings)
-							{
-								for (int32 inputIndex = 0; inputIndex < InputSettings->ActionMappings.Num(); ++inputIndex)
-								{
-									FInputActionKeyMapping& Action = InputSettings->ActionMappings[inputIndex];
-									if (Action.ActionName == "StartActivatePowerup")
-									{
-										LabelA = FText::Format(NSLOCTEXT("SUTBoostWidget","Use","Press {0} to activate!"), Action.Key.GetDisplayName());
-										LabelB = FText::Format(NSLOCTEXT("SUTBoostWidget","ReadyFormat","You have {0}pts."), FText::AsNumber(int(PlayerState->GetAvailableCurrency())));
-										break;
-									}
-								}
-							}
-
-						}
-						float H = 114.0f * Strength;
-						DrawTexture(UTHUDOwner->HUDAtlas3, 0,0, 101.0f * IconScale, H * IconScale, 49.0f, 121.0f, 101.0f, H, 1.0f, FLinearColor::Red);
-					}
-				}
-
-				if (!LabelA.IsEmpty())
-				{
-					DrawText(LabelA,  51 * IconScale, -32.0f, UTHUDOwner->SmallFont, FLinearColor(0.0f,0.0f,0.0f,1.0f), 1.0f, 1.0f, FLinearColor(0.8f,0.8f,0.8f,1.0f), ETextHorzPos::Center, ETextVertPos::Bottom);
-				}
-
-				if (!LabelB.IsEmpty())
-				{
-					DrawText(LabelB,  51 * IconScale, 0.0f, UTHUDOwner->SmallFont, FLinearColor(0.0f,0.0f,0.0f,1.0f), 1.0f, 1.0f, FLinearColor::White, ETextHorzPos::Center, ETextVertPos::Bottom);
-				}
-
-				int32 Idx = 0;
-				while (Idx < FloatingNumbers.Num())
-				{	
-					FloatingNumbers[Idx].Timer -= DeltaTime;
-					if (FloatingNumbers[Idx].Timer <= 0.0f)
-					{
-						FloatingNumbers.RemoveAt(Idx);
-					}
-					else
-					{
-						Idx++;
-					}
-				}
-
-
-				for (int32 i=0; i < FloatingNumbers.Num(); i++)
-				{
-					float Perc = FloatingNumbers[i].Timer / FLOATING_NUMBER_ANIN_TIME;
-					FVector2D Offset = FVector2D(-600.0f * RenderScale, -540.0f * RenderScale) * Perc;
-					float Scale = 0.5f + (0.5f * Perc);
-					DrawText(FText::AsNumber(FloatingNumbers[i].Amount),  Offset.X, Offset.Y, UTHUDOwner->LargeFont, FLinearColor(0.0f,0.0f,0.0f,1.0f), Scale, Perc, FLinearColor::White, ETextHorzPos::Center, ETextVertPos::Bottom);
-				}
-
 			}
 		}
-/*
-		float Perc = GetWorld()->GetTimeSeconds();
-		Perc = Perc - float(int32(Perc));
-		UE_LOG(UT,Log,TEXT("Perc %f"),Perc);
-		HudTimerMID->SetScalarParameterValue(FName(TEXT("PercentageComplete")), 0.5f);
-		DrawMaterial(HudTimerMID, 0, 0, 101.0f * IconScale, 114.0f * IconScale, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f, FLinearColor(1.0f,1.0f,1.0f,0.5f));
-*/
 	}
 
 }

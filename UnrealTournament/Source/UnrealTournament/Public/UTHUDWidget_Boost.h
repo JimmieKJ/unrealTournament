@@ -7,20 +7,7 @@
 
 #include "UTHUDWidget_Boost.generated.h"
 
-const float FLOATING_NUMBER_ANIN_TIME = 0.75f;
-
-struct FCurrentChange
-{
-	int32 Amount;
-	float Timer;
-
-	FCurrentChange(int32 inAmount)
-		: Amount(inAmount)
-		, Timer(FLOATING_NUMBER_ANIN_TIME)
-	{
-	}
-
-};
+const float UNLOCK_ANIM_DURATION =0.65f;
 
 UCLASS()
 class UNREALTOURNAMENT_API UUTHUDWidget_Boost : public UUTHUDWidget
@@ -39,10 +26,9 @@ private:
 	UPROPERTY()
 	UMaterialInstanceDynamic* HudTimerMID;
 	float IconScale;
-	float LastCurrency;
 
-protected:
+	bool bLastUnlocked;
+	float UnlockAnimTime;
 
-	TArray<FCurrentChange> FloatingNumbers;
 
 };

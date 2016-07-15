@@ -47,10 +47,6 @@ struct FQStatLayoutInfo
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Layout")
 	FVector2D BoostProvidedPowerupOffset;
 
-	// Where should the rally widget go.  In Pixels based on 1080p
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Layout")
-		FVector2D RallyOffset;
-
 	// If true, this layout will pivot based on the rotation of the widget on the hud
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Layout")
 	bool bFollowRotation;
@@ -127,7 +123,9 @@ struct FStatInfo
 
 	bool bUseOverlayTexture;
 	float OverlayScale;
-	FHUDRenderObject_Texture OverlayTexture;
+	TArray<FHUDRenderObject_Texture> OverlayTextures;
+
+	bool bCustomIconUnderlay;
 
 	TArray<FStatAnimInfo> AnimStack;
 
@@ -294,17 +292,17 @@ protected:
 	FHUDRenderObject_Texture DetectedIcon;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Icons")
-		FHUDRenderObject_Texture RallyIcon;
+	FHUDRenderObject_Texture RallyFlagIcon;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Icons")
-		FHUDRenderObject_Texture RallyFlagIcon;
+	FHUDRenderObject_Texture HelmetIcon;
 
 	// NOTE: This icon will be generated from the data in the actual powerup
 	UPROPERTY()
 	FHUDRenderObject_Texture PowerupIcon;
 
 	UPROPERTY()
-		bool bKeyMappingsSet;
+	bool bKeyMappingsSet;
 
 	virtual float GetDrawScaleOverride();
 
@@ -321,17 +319,12 @@ private:
 	FStatInfo BootsInfo;
 	FStatInfo PowerupInfo;
 	FStatInfo BoostProvidedPowerupInfo;
-	FStatInfo RallyInfo;
 
 	UPROPERTY()
-		FText RallyLabel;
+	FText RallyLabel;
 
 	UPROPERTY()
-		FText FlagLabel;
-
-	UPROPERTY()
-		FText BoostLabel;
-
+	FText BoostLabel;
 
 	UPROPERTY()
 	AUTWeapon* LastWeapon;
@@ -351,4 +344,9 @@ private:
 	float ForegroundOpacity;
 
 	void DrawStat(FVector2D StatOffset, FStatInfo& StatInfo, FHUDRenderObject_Texture Icon);
+	void DrawIconUnderlay(FVector2D StatOffset);
+
+public:
+	FVector2D GetBoostLocation();
+
 };

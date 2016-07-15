@@ -69,7 +69,6 @@ void UUTHUDWidget_QuickStats::UpdateKeyMappings(bool bForceUpdate)
 		FInputActionKeyMapping ActivatePowerupBinding = FindKeyMappingTo("StartActivatePowerup");
 		BoostLabel = (ActivatePowerupBinding.Key.GetDisplayName().ToString().Len() < 6) ? ActivatePowerupBinding.Key.GetDisplayName() : FText::FromString(" ");
 		FInputActionKeyMapping DropObjectAction = FindKeyMappingTo("DropCarriedObject");
-		FlagLabel = (DropObjectAction.Key.IsValid() && (DropObjectAction.Key.GetDisplayName().ToString().Len() < 6)) ? DropObjectAction.Key.GetDisplayName() : FText::FromString(" ");
 		FInputActionKeyMapping RallyBinding = FindKeyMappingTo("RequestRally");
 		RallyLabel = (RallyBinding.Key.GetDisplayName().ToString().Len() < 6) ? RallyBinding.Key.GetDisplayName() : FText::FromString(" ");
 	}
@@ -109,7 +108,7 @@ void UUTHUDWidget_QuickStats::PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCa
 
 	AUTCharacter* CharOwner = Cast<AUTCharacter>(UTHUDOwner->UTPlayerOwner->GetViewTarget());
 	AUTPlayerState* UTPlayerState = CharOwner != nullptr ? Cast<AUTPlayerState>(CharOwner->PlayerState) : nullptr;
-	RallyInfo.Value = 0;
+	FlagInfo.Value = 0;
 	if (CharOwner && UTPlayerState)
 	{
 		AUTWeapon* Weap = CharOwner->GetWeapon();
@@ -179,6 +178,23 @@ void UUTHUDWidget_QuickStats::PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCa
 					CurrentPowerup = nullptr;
 				}
 			}
+		}
+
+		bool bHasHelmet = false;
+		if (CharOwner && CharOwner->ArmorType)
+		{
+			bHasHelmet |= (CharOwner->ArmorType->ArmorType == ArmorTypeName::Helmet);
+		}
+	
+		ArmorInfo.OverlayTextures.Empty();
+		if (bHasHelmet)
+		{
+			ArmorInfo.bUseOverlayTexture = true;
+			ArmorInfo.OverlayTextures.Add(HelmetIcon);
+		}
+		else
+		{
+			ArmorInfo.bUseOverlayTexture = true;
 		}
 
 		if (bArmorVisible != ArmorInfo.bVisible)
@@ -311,6 +327,8 @@ void UUTHUDWidget_QuickStats::PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCa
 				}
 				else
 				{
+					BoostProvidedPowerupInfo.Value = 0.0f;
+/*
 					//Show countdown to power up
 					AUTCTFRoundGameState* RoundGameState = GetWorld()->GetGameState<AUTCTFRoundGameState>();
 					if (RoundGameState != NULL && RoundGameState->IsTeamAbleToEarnPowerup(UTPlayerState->GetTeamNum()))
@@ -323,28 +341,83 @@ void UUTHUDWidget_QuickStats::PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCa
 						BoostProvidedPowerupInfo.Label = FText::FromString(FString::Printf(TEXT("CD: %i"), FMath::CeilToInt(UTPlayerState->BoostRechargeTimeRemaining)));
 						BoostProvidedPowerupInfo.Value = FMath::CeilToInt(UTPlayerState->BoostRechargeTimeRemaining);
 					}
+*/
 				}
 			}
 		}
 
-		if (UTPlayerState->CarriedObject != nullptr)
+		bool bPlayerCanRally = false;
+		AUTCTFGameState* GameState = GetWorld()->GetGameState<AUTCTFGameState>();
+		if (GameState && UTPlayerState && UTPlayerState->Team && ((UTPlayerState->Team->TeamIndex == 0) ? GameState->bRedCanRally : GameState->bBlueCanRally))
 		{
+			bPlayerCanRally = UTPlayerState->bCanRally;
+		}
+
+		if (UTPlayerState->CarriedObject != nullptr || bPlayerCanRally)
+		{
+
+			bool bRallyAvailable = 
+
+			FlagInfo.bCustomIconUnderlay = false;
+			FlagInfo.OverlayTextures.Empty();
+
 			FlagInfo.Value = 1;
-			FlagInfo.IconColor = UTPlayerState->CarriedObject->GetTeamNum() == 0 ? FLinearColor::Red : FLinearColor::Blue;
-			FlagInfo.bUseLabel = true;
-			FlagInfo.Label = FlagLabel;
+			bool bWantsPulse = true; 
+
+			if (bPlayerCanRally)
+			{
+				FlagInfo.IconColor = FLinearColor::Yellow;
+				FlagInfo.Label = RallyLabel;
+				FlagInfo.bUseLabel = true;
+			}
+			else
+			{
+				FlagInfo.IconColor = UTPlayerState->CarriedObject->GetTeamNum() == 0 ? FLinearColor::Red : FLinearColor::Blue;
+				FlagInfo.Label = FText::GetEmpty();
+				FlagInfo.bUseLabel = false;
+			}
+
 			FlagInfo.HighlightStrength = 1.f;
 			FlagInfo.bUseOverlayTexture = false;
 
-			AUTCTFFlag* CTFFlag = Cast<AUTCTFFlag>(UTPlayerState->CarriedObject);
-			if (CTFFlag && CTFFlag->bCurrentlyPinged)
+			if (bPlayerCanRally)
 			{
-				FlagInfo.bUseOverlayTexture = true;
-				FlagInfo.OverlayTexture = DetectedIcon;
-
-				if (!FlagInfo.IsAnimationTypeAlreadyPlaying(StatAnimTypes::ScaleOverlay))
+				FlagInfo.bCustomIconUnderlay = true;
+				if (UTPlayerState->CarriedObject)
 				{
-					FlagInfo.Animate(StatAnimTypes::ScaleOverlay, 2.0f, 3.25f, 1.0f, true);
+					if (InUTHUDOwner && InUTHUDOwner->UTPlayerOwner && (GetWorld()->GetTimeSeconds() - InUTHUDOwner->UTPlayerOwner->LastRallyRequestTime < 6.5f))
+					{
+						FlagInfo.Label = FText::GetEmpty();
+						bWantsPulse = false;
+					}
+				}
+
+				if (UTHUDOwner->UTPlayerOwner->bNeedsRallyNotify)
+				{
+					if (bWantsPulse)
+					{
+						FlagInfo.Animate(StatAnimTypes::Scale, 2.0f, 10.f, 1.0f, true);
+						UTHUDOwner->UTPlayerOwner->ClientReceiveLocalizedMessage(UUTCTFMajorMessage::StaticClass(), 23);
+					}
+					UTHUDOwner->UTPlayerOwner->bNeedsRallyNotify = false;
+				}
+				else if (bWantsPulse && !FlagInfo.IsAnimationTypeAlreadyPlaying(StatAnimTypes::Scale))
+				{
+					FlagInfo.Animate(StatAnimTypes::Scale, 2.0f, 3.25f, 1.0f, true);
+				}
+			}
+			else if (((UTPlayerState->Team->TeamIndex == 0) == GameState->bRedToCap) && CharOwner && CharOwner->bCanRally && (UTPlayerState->RemainingRallyDelay > 0))
+			{
+				FlagInfo.Label = FText::AsNumber(UTPlayerState->RemainingRallyDelay);
+			}
+
+			if (UTPlayerState->CarriedObject != nullptr)
+			{
+				AUTCTFFlag* CTFFlag = Cast<AUTCTFFlag>(UTPlayerState->CarriedObject);
+				if (CTFFlag != nullptr && CTFFlag->bCurrentlyPinged)
+				{
+					FlagInfo.bUseOverlayTexture = true;
+					FlagInfo.OverlayTextures.Add(DetectedIcon);
 				}
 			}
 		}
@@ -352,62 +425,11 @@ void UUTHUDWidget_QuickStats::PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCa
 		{
 			FlagInfo.Value = 0;
 		}
-
-		AUTCTFGameState* GameState = GetWorld()->GetGameState<AUTCTFGameState>();
-		if (GameState && UTPlayerState && UTPlayerState->Team && ((UTPlayerState->Team->TeamIndex == 0) ? GameState->bRedCanRally : GameState->bBlueCanRally))
-		{
-			if (UTPlayerState->bCanRally)
-			{
-				RallyInfo.Value = 1;
-				RallyInfo.IconColor = FLinearColor::Yellow;
-				RallyInfo.bUseLabel = true;
-				RallyInfo.HighlightStrength = 1.f;
-				RallyInfo.bUseOverlayTexture = false;
-				RallyInfo.Label = RallyLabel;
-				bool bWantsPulse = true; 
-				if (UTPlayerState->CarriedObject)
-				{
-					RallyInfo.bUseOverlayTexture = true;
-					RallyInfo.OverlayTexture = RallyFlagIcon;
-					if (InUTHUDOwner && InUTHUDOwner->UTPlayerOwner && (GetWorld()->GetTimeSeconds() - InUTHUDOwner->UTPlayerOwner->LastRallyRequestTime < 6.5f))
-					{
-						RallyInfo.Label = FText::GetEmpty();
-						bWantsPulse = false;
-					}
-				}
-				if (UTHUDOwner->UTPlayerOwner->bNeedsRallyNotify)
-				{
-					if (bWantsPulse)
-					{
-						RallyInfo.Animate(StatAnimTypes::ScaleOverlay, 2.0f, 10.f, 1.0f, true);
-						RallyInfo.Animate(StatAnimTypes::Scale, 2.0f, 10.f, 1.0f, true);
-						UTHUDOwner->UTPlayerOwner->ClientReceiveLocalizedMessage(UUTCTFMajorMessage::StaticClass(), 23);
-					}
-					UTHUDOwner->UTPlayerOwner->bNeedsRallyNotify = false;
-				}
-				else if (bWantsPulse && !RallyInfo.IsAnimationTypeAlreadyPlaying(StatAnimTypes::Scale))
-				{
-					RallyInfo.Animate(StatAnimTypes::ScaleOverlay, 2.0f, 3.25f, 1.0f, true);
-					RallyInfo.Animate(StatAnimTypes::Scale, 2.0f, 3.25f, 1.0f, true);
-				}
-			}
-			else if (((UTPlayerState->Team->TeamIndex == 0) == GameState->bRedToCap) && CharOwner && CharOwner->bCanRally && (UTPlayerState->RemainingRallyDelay > 0))
-			{
-				RallyInfo.Value = 1;
-				RallyInfo.IconColor = FLinearColor::Yellow;
-				RallyInfo.bUseLabel = true;
-				RallyInfo.HighlightStrength = 1.f;
-				RallyInfo.bUseOverlayTexture = false;
-				RallyInfo.Label = FText::AsNumber(UTPlayerState->RemainingRallyDelay);
-			}
-		}
 	}
 
 	HealthInfo.UpdateAnimation(DeltaTime);
 	AmmoInfo.UpdateAnimation(DeltaTime);
 	ArmorInfo.UpdateAnimation(DeltaTime);
-
-	RallyInfo.UpdateAnimation(DeltaTime);
 	FlagInfo.UpdateAnimation(DeltaTime);
 	BootsInfo.UpdateAnimation(DeltaTime);
 	PowerupInfo.UpdateAnimation(DeltaTime);
@@ -425,6 +447,12 @@ bool UUTHUDWidget_QuickStats::CheckStatForUpdate(float DeltaTime, FStatInfo& Sta
 	Stat.LastValue = Stat.Value;
 	return false;
 }
+
+FVector2D UUTHUDWidget_QuickStats::GetBoostLocation()
+{
+	return Layouts[CurrentLayoutIndex].bFollowRotation ? CalcRotOffset(Layouts[CurrentLayoutIndex].BoostProvidedPowerupOffset, DrawAngle) : Layouts[CurrentLayoutIndex].BoostProvidedPowerupOffset;
+}
+
 
 void UUTHUDWidget_QuickStats::Draw_Implementation(float DeltaTime)
 {
@@ -450,11 +478,7 @@ void UUTHUDWidget_QuickStats::Draw_Implementation(float DeltaTime)
 
 	if (BoostProvidedPowerupInfo.Value > 0)
 	{
-		DrawStat(bFollowRotation ? CalcRotOffset(Layouts[CurrentLayoutIndex].BoostProvidedPowerupOffset, DrawAngle) : Layouts[CurrentLayoutIndex].BoostProvidedPowerupOffset, BoostProvidedPowerupInfo, BoostIcon );
-	}
-	if (RallyInfo.Value > 0)
-	{
-		DrawStat(bFollowRotation ? CalcRotOffset(Layouts[CurrentLayoutIndex].RallyOffset, DrawAngle) : Layouts[CurrentLayoutIndex].RallyOffset, RallyInfo, RallyIcon);
+		DrawStat(GetBoostLocation(), BoostProvidedPowerupInfo, BoostIcon );
 	}
 }
 
@@ -493,6 +517,11 @@ void UUTHUDWidget_QuickStats::DrawStat(FVector2D StatOffset, FStatInfo& Info, FH
 		RenderObj_Texture(VerticalBackground, StatOffset);
 	}
 
+	if (Info.bCustomIconUnderlay)
+	{
+		DrawIconUnderlay(StatOffset);
+	}
+
 	Icon.RenderScale = Info.Scale;
 	Icon.RenderColor = Info.IconColor;
 	Icon.RenderOpacity = ForegroundOpacity * Info.Opacity;
@@ -517,13 +546,11 @@ void UUTHUDWidget_QuickStats::DrawStat(FVector2D StatOffset, FStatInfo& Info, FH
 
 	if (Info.bUseOverlayTexture)
 	{
-		Info.OverlayTexture.RenderScale = Info.OverlayScale;
-
-		//center Overlay 
-		StatOffset.X -= Info.OverlayTexture.GetWidth() *.75f; 
-		StatOffset.Y -= Info.OverlayTexture.GetHeight() / 2;
-		
-		RenderObj_Texture(Info.OverlayTexture, StatOffset);
+		for (int32 i=0; i < Info.OverlayTextures.Num(); i++)
+		{
+			Info.OverlayTextures[i].RenderScale = Info.OverlayScale;
+			RenderObj_Texture(Info.OverlayTextures[i], StatOffset);
+		}
 	}
 }
 
@@ -552,3 +579,15 @@ void UUTHUDWidget_QuickStats::PingBoostWidget()
 	BoostProvidedPowerupInfo.Animate(StatAnimTypes::Scale, 1.5f, 3.25f, 1.0f, true);		
 }
 
+
+void UUTHUDWidget_QuickStats::DrawIconUnderlay(FVector2D StatOffset)
+{
+	RallyFlagIcon.Rotation = 0.0f;
+	RenderObj_Texture(RallyFlagIcon, StatOffset + FVector2D(0.0f, -48.0f));
+
+	RallyFlagIcon.Rotation = 30.0f;
+	RenderObj_Texture(RallyFlagIcon, StatOffset + FVector2D(26.0f, -48.0f));
+
+	RallyFlagIcon.Rotation = 330.0f;
+	RenderObj_Texture(RallyFlagIcon, StatOffset + FVector2D(-26.0f, -48.0f));
+}
