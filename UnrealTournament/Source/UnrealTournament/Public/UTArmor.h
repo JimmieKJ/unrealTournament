@@ -27,6 +27,7 @@ class UNREALTOURNAMENT_API AUTArmor : public AUTInventory
 	/** character overlay applied while this armor is equipped */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Effects)
 	FOverlayEffect OverlayEffect;
+
 	UPROPERTY(VisibleDefaultsOnly, Category = Effects)
 	UMaterialInterface* OverlayMaterial;
 
@@ -37,7 +38,11 @@ class UNREALTOURNAMENT_API AUTArmor : public AUTInventory
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Powerup)
 	FName StatsName;
 
-	/** Effect to spawn on armor hit. */
+	/** Effect to spawn on armor hit when above 100 armor. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Effects)
+		UParticleSystem* ShieldImpactEffect;
+
+	/** Effect to spawn on armor hit when 100 armor or less. */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Effects)
 	UParticleSystem* ArmorImpactEffect;
 

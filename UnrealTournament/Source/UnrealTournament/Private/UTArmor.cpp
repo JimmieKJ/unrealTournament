@@ -27,7 +27,7 @@ bool AUTArmor::AllowPickupBy(AUTCharacter* Other) const
 		}
 		if (NoPickupSound)
 		{
-			UUTGameplayStatics::UTPlaySound(GetWorld(), NoPickupSound, Other, SRT_None, false, FVector::ZeroVector, NULL, NULL, false);
+			UUTGameplayStatics::UTPlaySound(GetWorld(), NoPickupSound, Other, SRT_All, false, FVector::ZeroVector, NULL, NULL, false);
 		}
 	}
 	return false;
@@ -68,7 +68,8 @@ bool AUTArmor::HandleArmorEffects(AUTCharacter* HitPawn) const
 {
 	bool bResult = false;
 	bool bRecentlyRendered = (HitPawn != NULL) && !HitPawn->IsPendingKillPending() && (HitPawn->GetWorld()->GetTimeSeconds() - HitPawn->GetLastRenderTime() < 1.0f);
-	if (ArmorImpactEffect && bRecentlyRendered)
+	UParticleSystem* ChosenImpactEffect = (ShieldImpactEffect && (HitPawn->GetArmorAmount() + HitPawn->LastTakeHitInfo.Damage/2 > 100)) ? ShieldImpactEffect : ArmorImpactEffect;
+	if (ChosenImpactEffect && bRecentlyRendered)
 	{
 		bResult = true;
 		const FVector WorldHitLocation = HitPawn->GetActorLocation() + HitPawn->LastTakeHitInfo.RelHitLocation;
@@ -87,7 +88,7 @@ bool AUTArmor::HandleArmorEffects(AUTCharacter* HitPawn) const
 			}
 			FVector CenterLocation = HitPawn->GetActorLocation();
 			CenterLocation.Z = AdjustedHitLocation.Z;
-			UGameplayStatics::SpawnEmitterAttached(ArmorImpactEffect, HitPawn->GetRootComponent(), NAME_None, AdjustedHitLocation, FRotationMatrix::MakeFromZ(AdjustedHitLocation - CenterLocation).Rotator(), EAttachLocation::KeepWorldPosition);
+			UGameplayStatics::SpawnEmitterAttached(ChosenImpactEffect, HitPawn->GetRootComponent(), NAME_None, AdjustedHitLocation, FRotationMatrix::MakeFromZ(AdjustedHitLocation - CenterLocation).Rotator(), EAttachLocation::KeepWorldPosition);
 		}
 	}
 	if (PlayArmorEffects(HitPawn))

@@ -113,6 +113,9 @@ public:
 	/** sound played when owner takes damage (armor hit sound, for example) */
 	UPROPERTY(EditDefaultsOnly, Category = Damage)
 	USoundBase* ReceivedDamageSound;
+	/** sound played when owner damage is fully shielded */
+	UPROPERTY(EditDefaultsOnly, Category = Damage)
+		USoundBase* ShieldDamageSound;
 	/** class used when this item is dropped by its holder */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Pickup)
 	TSubclassOf<class AUTDroppedPickup> DroppedPickupClass;

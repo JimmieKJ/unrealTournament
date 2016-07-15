@@ -437,7 +437,7 @@ class UNREALTOURNAMENT_API AUTCharacter : public ACharacter, public IUTTeamInter
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Pawn")
 	int32 MaxStackedArmor;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Pawn")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Pawn", ReplicatedUsing = UpdateArmorOverlay)
 		class AUTArmor* ArmorType;
 
 	UFUNCTION(BlueprintCallable, Category = Pawn)

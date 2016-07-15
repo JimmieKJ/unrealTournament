@@ -1274,9 +1274,13 @@ void AUTCharacter::NotifyTakeHit(AController* InstigatedBy, int32 AppliedDamage,
 		{
 			const UDamageType* const DamageTypeCDO = DamageEvent.DamageTypeClass ? DamageEvent.DamageTypeClass->GetDefaultObject<UDamageType>() : GetDefault<UDamageType>();
 			const UUTDamageType* const UTDamageTypeCDO = Cast<UUTDamageType>(DamageTypeCDO); // warning: may be NULL
-			if (HitArmor != nullptr && HitArmor->ReceivedDamageSound != nullptr && ((UTDamageTypeCDO == NULL) || UTDamageTypeCDO->bBlockedByArmor))
+			if (HitArmor != nullptr && ((UTDamageTypeCDO == NULL) || UTDamageTypeCDO->bBlockedByArmor))
 			{
-				UUTGameplayStatics::UTPlaySound(GetWorld(), HitArmor->ReceivedDamageSound, this, SRT_All, false, FVector::ZeroVector, InstigatedByPC, NULL, false, SAT_PainSound);
+				USoundBase* ArmorSound = (GetArmorAmount()+Damage/2 > 100) && HitArmor->ShieldDamageSound ? HitArmor->ShieldDamageSound : HitArmor->ReceivedDamageSound;
+				if (ArmorSound != nullptr)
+				{
+					UUTGameplayStatics::UTPlaySound(GetWorld(), ArmorSound, this, SRT_All, false, FVector::ZeroVector, InstigatedByPC, NULL, false, SAT_PainSound);
+				}
 			}
 			else if ((UTDamageTypeCDO == NULL) || UTDamageTypeCDO->bCausesPainSound)
 			{
@@ -3058,6 +3062,7 @@ void AUTCharacter::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& O
 	DOREPLIFETIME_CONDITION(AUTCharacter, CosmeticFlashCount, COND_Custom);
 	DOREPLIFETIME_CONDITION(AUTCharacter, CosmeticSpreeCount, COND_None);
 	DOREPLIFETIME_CONDITION(AUTCharacter, ArmorAmount, COND_None);
+	DOREPLIFETIME_CONDITION(AUTCharacter, ArmorType, COND_None);
 	DOREPLIFETIME_CONDITION(AUTCharacter, WeaponSkins, COND_None);
 	DOREPLIFETIME_CONDITION(AUTCharacter, VisibilityMask, COND_None);
 	DOREPLIFETIME_CONDITION(AUTCharacter, bCanRally, COND_OwnerOnly);
