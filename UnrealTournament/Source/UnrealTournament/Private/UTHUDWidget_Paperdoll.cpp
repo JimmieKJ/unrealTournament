@@ -64,10 +64,6 @@ void UUTHUDWidget_Paperdoll::ProcessArmor()
 
 bool UUTHUDWidget_Paperdoll::ShouldDraw_Implementation(bool bShowScores)
 {
-	if (!UTHUDOwner->GetQuickStatsHidden())
-	{
-		return false;
-	}
 	AUTGameState* GS = UTHUDOwner->GetWorld()->GetGameState<AUTGameState>();
 	bool bHidden = false;
 	if (UTHUDOwner && UTHUDOwner->UTPlayerOwner)
