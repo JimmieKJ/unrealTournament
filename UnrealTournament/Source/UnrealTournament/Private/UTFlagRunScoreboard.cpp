@@ -385,30 +385,30 @@ void UUTFlagRunScoreboard::DrawScoringPlayInfo(const FCTFScoringPlay& Play, floa
 	Canvas->DrawText(UTHUDOwner->MediumFont, ScoredByLine, XOffset + 0.32f*ScoreWidth, YPos + 0.5f*CurrentScoreHeight - 0.6f*MedYL, RenderScale * FMath::Min(1.f, ScoreWidth*0.35f / FMath::Max(NameSizeX, 1.f)), RenderScale, TextRenderInfo);
 
 	int32 RoundBonus = FMath::Max(Play.RedBonus, Play.BlueBonus);
+	FString BonusString = TEXT("\u2605");
+	FLinearColor BonusColor = FLinearColor(0.48f, 0.25f, 0.18f);
 	if ((RoundBonus > 0) && !Play.bDefenseWon)
 	{
 		FLinearColor BonusColor = FLinearColor::White;
-		FString BonusString = (RoundBonus >= 60) ? TEXT("\u2605 \u2605") : TEXT("\u2605");
-		if (RoundBonus >= 120)
+		if (RoundBonus >= 60)
 		{
-			BonusString = TEXT("\u2605 \u2605 \u2605");
-			BonusColor = FLinearColor(1.f, 0.9f, 0.15f);
+			BonusString = (RoundBonus >= 120) ? TEXT("\u2605 \u2605 \u2605") : TEXT("\u2605 \u2605");
+			BonusColor = (RoundBonus >= 120) ? FLinearColor(1.f, 0.9f, 0.15f) : FLinearColor::White;
 		}
-		else if (RoundBonus < 60)
-		{
-			BonusColor = FLinearColor(0.48f, 0.25f, 0.18f);;
-		}
-		float ScoringOffsetX, ScoringOffsetY;
-		Canvas->TextSize(UTHUDOwner->MediumFont, BonusString, ScoringOffsetX, ScoringOffsetY, RenderScale, RenderScale);
-		float ScoreX = XOffset + 0.99f*ScoreWidth - ScoringOffsetX;
+	}
+	float ScoringOffsetX, ScoringOffsetY;
+	Canvas->TextSize(UTHUDOwner->MediumFont, BonusString, ScoringOffsetX, ScoringOffsetY, RenderScale, RenderScale);
+	float ScoreX = XOffset + 0.99f*ScoreWidth - ScoringOffsetX;
 
-		Canvas->SetLinearDrawColor(BonusColor);
-		Canvas->DrawText(UTHUDOwner->MediumFont, BonusString, ScoreX, YPos + 0.5f*CurrentScoreHeight - 0.6f*MedYL, RenderScale, RenderScale, TextRenderInfo);
+	Canvas->SetLinearDrawColor(BonusColor);
+	Canvas->DrawText(UTHUDOwner->MediumFont, BonusString, ScoreX, YPos + 0.5f*CurrentScoreHeight - 0.6f*MedYL, RenderScale, RenderScale, TextRenderInfo);
 
+	if ((RoundBonus > 0) && !Play.bDefenseWon)
+	{
 		YPos += 0.82f* MedYL;
 		FString BonusLine = FString::Printf(TEXT("Bonus Time: %d"), RoundBonus);
 		Canvas->TextSize(UTHUDOwner->MediumFont, BonusLine, ScoringOffsetX, ScoringOffsetY, RenderScale, RenderScale);
-		ScoreX = XOffset + 0.99f*ScoreWidth - ScoringOffsetX;
+		ScoreX = XOffset + ScoreWidth - 0.5f*ScoringOffsetX;
 		Canvas->SetLinearDrawColor(FLinearColor::White);
 		Canvas->DrawText(UTHUDOwner->TinyFont, BonusLine, ScoreX, YPos, 0.75f*RenderScale, RenderScale, TextRenderInfo);
 	}
