@@ -1054,37 +1054,37 @@ void AUTCTFRoundGame::ScoreKill_Implementation(AController* Killer, AController*
 		}
 		OtherPS->OnRespawnWaitReceived();
 	}
-	if (!bLastManOccurred && OtherPS && IsPlayerOnLifeLimitedTeam(OtherPS) && (OtherPS->RemainingLives > 0))
+	if (OtherPS && IsPlayerOnLifeLimitedTeam(OtherPS) && (OtherPS->RemainingLives > 0))
 	{
-		// check if just transitioned to last man
-		bLastManOccurred = true;
 		int32 RemainingDefenders = 0;
-		for (int32 i = 0; i < UTGameState->PlayerArray.Num(); i++)
+		if (!bLastManOccurred)
 		{
-			AUTPlayerState* PS = Cast<AUTPlayerState>(UTGameState->PlayerArray[i]);
-			if (PS && (PS != OtherPS) && (OtherPS->Team == PS->Team) && !PS->bOutOfLives && !PS->bIsInactive)
-			{
-				bLastManOccurred = false;
-				RemainingDefenders++;
-			}
-		}
-		if (bLastManOccurred)
-		{
+			// check if just transitioned to last man
+			bLastManOccurred = true;
 			for (int32 i = 0; i < UTGameState->PlayerArray.Num(); i++)
 			{
 				AUTPlayerState* PS = Cast<AUTPlayerState>(UTGameState->PlayerArray[i]);
-				AUTPlayerController* PC = PS ? Cast<AUTPlayerController>(PS->GetOwner()) : nullptr;
-				if (PC)
+				if (PS && (PS != OtherPS) && (OtherPS->Team == PS->Team) && !PS->bOutOfLives && !PS->bIsInactive)
 				{
-					int32 MessageType = (OtherPS->Team == PS->Team) ? 1 : 0;
-					PC->ClientReceiveLocalizedMessage(UUTShowdownRewardMessage::StaticClass(), MessageType, PS, NULL, NULL);
+					bLastManOccurred = false;
+					RemainingDefenders++;
+				}
+			}
+			if (bLastManOccurred)
+			{
+				for (int32 i = 0; i < UTGameState->PlayerArray.Num(); i++)
+				{
+					AUTPlayerState* PS = Cast<AUTPlayerState>(UTGameState->PlayerArray[i]);
+					AUTPlayerController* PC = PS ? Cast<AUTPlayerController>(PS->GetOwner()) : nullptr;
+					if (PC)
+					{
+						int32 MessageType = (OtherPS->Team == PS->Team) ? 1 : 0;
+						PC->ClientReceiveLocalizedMessage(UUTShowdownRewardMessage::StaticClass(), MessageType, PS, NULL, NULL);
+					}
 				}
 			}
 		}
-		else
-		{
-			OtherPS->RespawnWaitTime = FMath::Max(1.f, float(RemainingDefenders));
-		}
+		OtherPS->RespawnWaitTime = FMath::Max(1.f, float(RemainingDefenders));
 	}
 }
 
