@@ -3949,6 +3949,7 @@ void AUTCharacter::UpdateCharOverlays()
 		{
 			Hat->SetActorHiddenInGame(true);
 		}
+		UpdateArmorOverlay();
 	}
 }
 
