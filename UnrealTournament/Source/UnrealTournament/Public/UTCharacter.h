@@ -1342,6 +1342,9 @@ public:
 	UFUNCTION(Meta = (DeprecatedFunction, DeprecationMessage = "Use SetCharacterOverlayEffect"), BlueprintCallable, BlueprintAuthorityOnly, Category = Effects)
 	virtual void SetCharacterOverlay(UMaterialInterface* NewOverlay, bool bEnabled);
 
+	UFUNCTION()
+		virtual void UpdateCharOverlayFlags();
+
 	/** uses CharOverlayFlags to apply the desired overlay material (if any) to OverlayMesh */
 	UFUNCTION()
 	virtual void UpdateCharOverlays();
@@ -1956,7 +1959,7 @@ protected:
 	uint8 LastFoot;
 	
 	/** replicated overlays, bits match entries in UTGameState's OverlayMaterials array */
-	UPROPERTY(Replicated, ReplicatedUsing = UpdateCharOverlays)
+	UPROPERTY(Replicated, ReplicatedUsing = UpdateCharOverlayFlags)
 	uint16 CharOverlayFlags;
 	UPROPERTY(Replicated, ReplicatedUsing = UpdateWeaponOverlays)
 	uint16 WeaponOverlayFlags;

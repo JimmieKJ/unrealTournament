@@ -145,7 +145,7 @@ AUTGameMode::AUTGameMode(const class FObjectInitializer& ObjectInitializer)
 	bDisableMapVote = false;
 	AntiCheatEngine = nullptr;
 	EndOfMatchMessageDelay = 1.f;
-	bAllowAllArmorPickups = false;
+	bAllowAllArmorPickups = true;
 
 	bPlayersStartWithArmor = true;
 	StartingArmorObject = FStringAssetReference(TEXT("/Game/RestrictedAssets/Pickups/Armor/Armor_ThighPads.Armor_ThighPads_C"));

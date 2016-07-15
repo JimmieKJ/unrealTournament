@@ -3822,6 +3822,12 @@ void AUTCharacter::SetWeaponAttachmentClass(TSubclassOf<AUTWeaponAttachment> New
 	}
 }
 
+void AUTCharacter::UpdateCharOverlayFlags()
+{
+	UpdateCharOverlays();
+	UpdateArmorOverlay();
+}
+
 void AUTCharacter::UpdateCharOverlays()
 {
 	AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
@@ -3949,7 +3955,6 @@ void AUTCharacter::UpdateCharOverlays()
 		{
 			Hat->SetActorHiddenInGame(true);
 		}
-		UpdateArmorOverlay();
 	}
 }
 
@@ -4879,7 +4884,7 @@ void AUTCharacter::GiveArmor(AUTArmor* ArmorClass)
 	}
 	// make sure helmet is subclass
 	ArmorType = ArmorClass;
-	ArmorAmount = FMath::Max(ArmorClass->ArmorAmount, ArmorAmount);
+	ArmorAmount = FMath::Max(ArmorClass->ArmorAmount, FMath::Min(100, ArmorAmount + ArmorClass->ArmorAmount));
 	UpdateArmorOverlay();
 }
 
