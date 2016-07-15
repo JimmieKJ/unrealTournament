@@ -367,20 +367,21 @@ void AUTCTFFlag::Tick(float DeltaTime)
 				{
 					RecentPosition = HoldingPawn->GetActorLocation();
 				}
-				if (!bAlreadyPlacedInNoRallyZone && ((HoldingPawn->GetActorLocation() - PreviousPos).Size() > (bJustTransitionedToNoRallyZone ? 0.3f*MinGradualReturnDist : MinGradualReturnDist)))
+				if ((!bAlreadyPlacedInNoRallyZone || !bNowInNoRallyZone) && ((HoldingPawn->GetActorLocation() - PreviousPos).Size() > (bJustTransitionedToNoRallyZone ? 0.3f*MinGradualReturnDist : MinGradualReturnDist)))
 				{
+					bool bFullyInNoRallyZone = !bJustTransitionedToNoRallyZone && bNowInNoRallyZone;
 					if (PastPositions.Num() > 0)
 					{
 						for (int32 i = 0; i < 3; i++)
 						{
-							PastPositions[PastPositions.Num() - 1].MidPoints[i] = MidPoints[i];
+							PastPositions[PastPositions.Num() - 1].MidPoints[i] = bFullyInNoRallyZone ? FVector::ZeroVector : MidPoints[i];
 						}
 					}
 					FFlagTrailPos NewPosition;
 					NewPosition.Location = PendingNewPosition;
 					NewPosition.MidPoints[0] = FVector::ZeroVector;
 					NewPosition.bEnteringNoRallyZone = bJustTransitionedToNoRallyZone;
-					NewPosition.bIsInNoRallyZone = !bJustTransitionedToNoRallyZone && bNowInNoRallyZone;
+					NewPosition.bIsInNoRallyZone = bFullyInNoRallyZone;
 					PastPositions.Add(NewPosition);
 					MidPointPos = 0;
 					bAddedReturnSpot = true;
@@ -388,7 +389,7 @@ void AUTCTFFlag::Tick(float DeltaTime)
 					MidPoints[1] = FVector::ZeroVector;
 				}
 			}
-			if ((MidPointPos < 3) && !bAddedReturnSpot && !bAlreadyPlacedInNoRallyZone)
+			if ((MidPointPos < 3) && !bAddedReturnSpot)
 			{
 				static FName NAME_FlagReturnLOS = FName(TEXT("FlagReturnLOS"));
 				FCollisionQueryParams CollisionParms(NAME_FlagReturnLOS, true, HoldingPawn);
