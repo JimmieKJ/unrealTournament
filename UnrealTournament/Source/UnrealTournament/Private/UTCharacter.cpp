@@ -1295,7 +1295,7 @@ void AUTCharacter::NotifyTakeHit(AController* InstigatedBy, int32 AppliedDamage,
 			for (FConstPlayerControllerIterator It = GetWorld()->GetPlayerControllerIterator(); It; ++It)
 			{
 				AUTPlayerController* PC = Cast<AUTPlayerController>(*It);
-				if (PC != NULL && PC->GetViewTarget() == InstigatorPawn && PC->GetPawn() != this)
+				if (PC != NULL && (PC != InstigatedByPC) && PC->GetViewTarget() == InstigatorPawn && PC->GetPawn() != this)
 				{
 					PC->ClientNotifyCausedHit(this, CompressedDamage);
 				}
