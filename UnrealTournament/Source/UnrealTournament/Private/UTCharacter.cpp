@@ -1039,7 +1039,7 @@ bool AUTCharacter::ModifyDamageTaken_Implementation(int32& AppliedDamage, int32&
 			if (Damage > 0)
 			{
 				// absorb 50% of damage if armor <= 100
-				int32 PartialAbsorbedDamage = FMath::Min(Damage, FMath::Max<int32>(1, Damage * 0.5f));
+				int32 PartialAbsorbedDamage = FMath::Min(CurrentArmor, FMath::Max<int32>(1, Damage * 0.5f));
 				Damage -= PartialAbsorbedDamage;
 				AbsorbedDamage += PartialAbsorbedDamage;
 			}
