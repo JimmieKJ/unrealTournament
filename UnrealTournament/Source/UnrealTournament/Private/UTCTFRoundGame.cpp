@@ -37,7 +37,7 @@ AUTCTFRoundGame::AUTCTFRoundGame(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
 {
 	TimeLimit = 5;
-	IntermissionDuration = 12.f;
+	IntermissionDuration = 30.f;
 	RoundLives = 5;
 	bPerPlayerLives = true;
 	bNeedFiveKillsMessage = true;

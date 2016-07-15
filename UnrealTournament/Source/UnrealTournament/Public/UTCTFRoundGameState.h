@@ -46,6 +46,12 @@ class UNREALTOURNAMENT_API AUTCTFRoundGameState : public AUTCTFGameState
 	UPROPERTY(ReplicatedUsing=OnBonusLevelChanged)
 		uint8 BonusLevel;
 
+	UPROPERTY(Replicated)
+		int32 FlagRunMessageSwitch;
+
+	UPROPERTY(Replicated)
+		class AUTTeamInfo* FlagRunMessageTeam;
+
 	UPROPERTY()
 		FText GoldBonusText;
 

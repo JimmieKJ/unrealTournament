@@ -400,84 +400,72 @@ void AUTFlagRunGame::CompleteRallyRequest(AUTPlayerController* RequestingPC)
 	}
 }
 
-bool AUTFlagRunGame::CheckForWinner(AUTTeamInfo* ScoringTeam)
+void AUTFlagRunGame::HandleMatchIntermission()
 {
-	if (Super::CheckForWinner(ScoringTeam))
-	{
-		return true;
-	}
+	Super::HandleMatchIntermission();
+
 	AUTCTFRoundGameState* GS = Cast<AUTCTFRoundGameState>(UTGameState);
 	if ((GS == nullptr) || (GS->CTFRound < GS->NumRounds - 2))
 	{
-		return false;
+		return;
 	}
 
 	// Update win requirements if last two rounds
-	int32 RoundOffset = GS->IsMatchIntermission() ? 0 : 1;
 	AUTTeamInfo* NextAttacker = (GS->bRedToCap == GS->IsMatchIntermission()) ? GS->Teams[1] : GS->Teams[0];
 	AUTTeamInfo* NextDefender = (GS->bRedToCap == GS->IsMatchIntermission()) ? GS->Teams[0] : GS->Teams[1];
 	int32 RequiredTime = NextDefender->SecondaryScore - NextAttacker->SecondaryScore;
 	int32 BonusType = 1;
-	AUTTeamInfo* SubjectTeam = nullptr;
+	GS->FlagRunMessageTeam = nullptr;
 	bool bNeedTimeThreshold = false;
-	if (GS->CTFRound == GS->NumRounds - 2 + RoundOffset)
+	if (GS->CTFRound == GS->NumRounds - 2)
 	{
 		if (NextAttacker->Score > NextDefender->Score)
 		{
-			SubjectTeam = NextDefender;
+			GS->FlagRunMessageTeam = NextDefender;
 			if (NextAttacker->Score - NextDefender->Score > 2)
 			{
 				// Defenders must stop attackers to have a chance
-				BroadcastLocalized(GS, UUTFlagRunMessage::StaticClass(), 1, nullptr, nullptr, SubjectTeam);
+				GS->FlagRunMessageSwitch = 1;
 			}
 			else
 			{
 				BonusType = (NextAttacker->Score - NextDefender->Score == 2) ? 1 : 2;
-				BroadcastLocalized(GS, UUTFlagRunMessage::StaticClass(), BonusType + 1, nullptr, nullptr, SubjectTeam);
+				GS->FlagRunMessageSwitch = BonusType + 1;
+			}
+		}
+		else if (NextDefender->Score > NextAttacker->Score)
+		{
+			GS->FlagRunMessageTeam = NextAttacker;
+			GS->FlagRunMessageSwitch = 4;
+			if (NextDefender->Score - NextAttacker->Score > 1)
+			{
+				// compare bonus times, see what level is implied and state for Attackers to have a chance
+				if (RequiredTime < 60 * (NextDefender->Score - NextAttacker->Score - 1))
+				{
+					if (NextDefender->Score - NextAttacker->Score > 2)
+					{
+						BonusType = (NextDefender->Score - NextAttacker->Score == 4) ? 3 : 2;
+					}
+					GS->FlagRunMessageSwitch = BonusType + 3;
+				}
+				else
+				{
+					// state required time and threshold
+					if (RequiredTime >= GS->SilverBonusThreshold)
+					{
+						BonusType = (RequiredTime >= GS->GoldBonusThreshold) ? 3 : 2;
+					}
+					GS->FlagRunMessageSwitch = 100 * RequiredTime + BonusType + 3;
+				}
 			}
 		}
 	}
-	else if (NextDefender->Score > NextAttacker->Score)
+	else if (GS->CTFRound == GS->NumRounds - 1)
 	{
-		SubjectTeam = NextAttacker;
-		if (NextDefender->Score - NextAttacker->Score > 1)
-		{
-			// compare bonus times, see what level is implied and state for Attackers to have a chance
-			if (RequiredTime < 60 * (NextDefender->Score - NextAttacker->Score - 1))
-			{
-				if (NextDefender->Score - NextAttacker->Score > 2)
-				{
-					BonusType = (NextDefender->Score - NextAttacker->Score == 4) ? 3 : 2;
-				}
-				BroadcastLocalized(GS, UUTFlagRunMessage::StaticClass(), BonusType + 3, nullptr, nullptr, SubjectTeam);
-			}
-			else
-			{
-				// state required time and threshold
-				if (RequiredTime >= GS->SilverBonusThreshold)
-				{
-					BonusType = (RequiredTime >= GS->GoldBonusThreshold) ? 3 : 2;
-				}
-				BroadcastLocalized(GS, UUTFlagRunMessage::StaticClass(), 100 * RequiredTime + BonusType + 3, nullptr, nullptr, SubjectTeam);
-			}
-		}
-		else if (NextDefender->Score - NextAttacker->Score == 1)
-		{
-			// Attackers must score bronze
-			BroadcastLocalized(GS, UUTFlagRunMessage::StaticClass(), 4, nullptr, nullptr, SubjectTeam);
-		}
-		else
-		{
-			// WTF - unhandled condition
-			BroadcastLocalized(GS, UUTFlagRunMessage::StaticClass(), 7, nullptr, nullptr, SubjectTeam);
-		}
-	}
-	else if (GS->CTFRound == GS->NumRounds - 1 + RoundOffset)
-	{
-		SubjectTeam = NextAttacker;
+		GS->FlagRunMessageTeam = NextAttacker;
 		if (NextDefender->Score <= NextAttacker->Score)
 		{
-			BroadcastLocalized(GS, UUTFlagRunMessage::StaticClass(), 8, nullptr, nullptr, SubjectTeam);
+			GS->FlagRunMessageSwitch = 8;
 		}
 		else
 		{
@@ -512,16 +500,8 @@ bool AUTFlagRunGame::CheckForWinner(AUTTeamInfo* ScoringTeam)
 					bNeedTimeThreshold = true;
 				}
 			}
-			if (bNeedTimeThreshold)
-			{
-				BroadcastLocalized(GS, UUTFlagRunMessage::StaticClass(), 100 * RequiredTime + 7 + BonusType, nullptr, nullptr, SubjectTeam);
-			}
-			else
-			{
-				BroadcastLocalized(GS, UUTFlagRunMessage::StaticClass(), 7 + BonusType, nullptr, nullptr, SubjectTeam);
-			}
+			GS->FlagRunMessageSwitch = 7 + BonusType + (bNeedTimeThreshold ? 100 * RequiredTime : 0);
 		}
 	}
-	return false;
 }
 

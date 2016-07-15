@@ -25,12 +25,6 @@ class UNREALTOURNAMENT_API UUTFlagRunScoreboard : public UUTCTFScoreboard
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Scoreboard")
 		FText CH_Powerup;
 
-	UPROPERTY()
-		int32 FlagRunMessageSwitch;
-
-	UPROPERTY()
-		class AUTTeamInfo* FlagRunMessageTeam;
-
 protected:
 	virtual void DrawScoreHeaders(float RenderDelta, float& YOffset);
 	virtual void DrawPlayerScore(AUTPlayerState* PlayerState, float XOffset, float YOffset, float Width, FLinearColor DrawColor) override;

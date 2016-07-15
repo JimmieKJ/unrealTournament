@@ -26,14 +26,10 @@ AUTFlagRunHUD::AUTFlagRunHUD(const FObjectInitializer& ObjectInitializer)
 
 void AUTFlagRunHUD::NotifyMatchStateChange()
 {
-	AUTGameState* GS = Cast<AUTGameState>(GetWorld()->GetGameState());
-	if (GS && GS->GetMatchState() == MatchState::InProgress)
+	AUTCTFRoundGameState* GS = Cast<AUTCTFRoundGameState>(GetWorld()->GetGameState());
+	if (GS && GS->GetMatchState() == MatchState::InProgress && GS->FlagRunMessageTeam && UTPlayerOwner)
 	{
-		UUTFlagRunScoreboard* Scoreboard = Cast<UUTFlagRunScoreboard>(GetScoreboard());
-		if (Scoreboard && Scoreboard->FlagRunMessageTeam && UTPlayerOwner)
-		{
-			UTPlayerOwner->ClientReceiveLocalizedMessage(UUTFlagRunMessage::StaticClass(), Scoreboard->FlagRunMessageSwitch, nullptr, nullptr, Scoreboard->FlagRunMessageTeam);
-		}
+		UTPlayerOwner->ClientReceiveLocalizedMessage(UUTFlagRunMessage::StaticClass(), GS->FlagRunMessageSwitch, nullptr, nullptr, GS->FlagRunMessageTeam);
 	}
 	Super::NotifyMatchStateChange();
 }

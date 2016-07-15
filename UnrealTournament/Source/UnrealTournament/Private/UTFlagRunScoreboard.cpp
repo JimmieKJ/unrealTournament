@@ -16,8 +16,6 @@ UUTFlagRunScoreboard::UUTFlagRunScoreboard(const FObjectInitializer& ObjectIniti
 	ColumnHeaderPowerupXDuringReadyUp = 0.82f;
 	bGroupRoundPairs = true;
 	bUseRoundKills = true;
-	FlagRunMessageSwitch = 0;
-	FlagRunMessageTeam = nullptr;
 }
 
 void UUTFlagRunScoreboard::DrawScoreHeaders(float RenderDelta, float& YOffset)
@@ -323,11 +321,11 @@ void UUTFlagRunScoreboard::DrawScoringPlays(float DeltaTime, float& YPos, float 
 	Canvas->DrawText(UTHUDOwner->MediumFont, SingleScorePart, ScoreX, YPos, RenderScale, RenderScale, TextRenderInfo);
 	YPos += (GS->CTFRound == GS->NumRounds - 2) ? 0.9f*SingleYL : 0.8f*SingleYL;
 
-	if (FlagRunMessageTeam != nullptr)
+	if (GS->FlagRunMessageTeam != nullptr)
 	{
 		FText PrefixText, EmphasisText, PostfixText;
 		FLinearColor EmphasisColor;
-		UUTFlagRunMessage::StaticClass()->GetDefaultObject<UUTFlagRunMessage>()->GetEmphasisText(PrefixText, EmphasisText, PostfixText, EmphasisColor, FlagRunMessageSwitch, nullptr, nullptr, FlagRunMessageTeam);
+		UUTFlagRunMessage::StaticClass()->GetDefaultObject<UUTFlagRunMessage>()->GetEmphasisText(PrefixText, EmphasisText, PostfixText, EmphasisColor, GS->FlagRunMessageSwitch, nullptr, nullptr, GS->FlagRunMessageTeam);
 
 		Canvas->SetLinearDrawColor(FLinearColor::White);
 		float XL, YL;
@@ -335,12 +333,13 @@ void UUTFlagRunScoreboard::DrawScoringPlays(float DeltaTime, float& YPos, float 
 		Canvas->DrawText(UTHUDOwner->SmallFont, PrefixText, XOffset, YPos - 0.1f*YL*RenderScale, RenderScale, RenderScale, TextRenderInfo);
 		XOffset += XL*RenderScale;
 
-		Canvas->SetLinearDrawColor(FlagRunMessageTeam->TeamIndex == 0 ? FLinearColor::Red : FLinearColor::Blue);
+		Canvas->SetLinearDrawColor(GS->FlagRunMessageTeam->TeamIndex == 0 ? FLinearColor::Red : FLinearColor::Blue);
 		Canvas->StrLen(UTHUDOwner->SmallFont, EmphasisText.ToString(), XL, YL);
 		Canvas->DrawText(UTHUDOwner->SmallFont, EmphasisText, XOffset, YPos - 0.1f*YL*RenderScale, 1.1f*RenderScale, 1.1f*RenderScale, TextRenderInfo);
 		XOffset += 1.1f*XL*RenderScale;
 		Canvas->SetLinearDrawColor(FLinearColor::White);
 		Canvas->DrawText(UTHUDOwner->SmallFont, PostfixText, XOffset, YPos - 0.1f*YL*RenderScale, RenderScale, RenderScale, TextRenderInfo);
+		ScoreMessageText = UUTFlagRunMessage::StaticClass()->GetDefaultObject<UUTFlagRunMessage>()->GetText(GS->FlagRunMessageSwitch, false, nullptr, nullptr, GS->FlagRunMessageTeam);
 	}
 }
 

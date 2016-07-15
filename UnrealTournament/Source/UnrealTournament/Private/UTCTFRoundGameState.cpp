@@ -19,6 +19,8 @@ AUTCTFRoundGameState::AUTCTFRoundGameState(const FObjectInitializer& ObjectIniti
 	BronzeBonusText = NSLOCTEXT("FlagRun", "BronzeBonusText", "\u2605");
 	BonusLevel = 3;
 	RemainingPickupDelay = 0;
+	FlagRunMessageSwitch = 0;
+	FlagRunMessageTeam = nullptr;
 }
 
 void AUTCTFRoundGameState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & OutLifetimeProps) const
@@ -37,6 +39,8 @@ void AUTCTFRoundGameState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty 
 	DOREPLIFETIME(AUTCTFRoundGameState, GoldBonusThreshold);
 	DOREPLIFETIME(AUTCTFRoundGameState, SilverBonusThreshold);
 	DOREPLIFETIME(AUTCTFRoundGameState, RemainingPickupDelay);
+	DOREPLIFETIME(AUTCTFRoundGameState, FlagRunMessageSwitch);
+	DOREPLIFETIME(AUTCTFRoundGameState, FlagRunMessageTeam);
 }
 
 void AUTCTFRoundGameState::BeginPlay()

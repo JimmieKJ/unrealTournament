@@ -26,6 +26,6 @@ public:
 
 	virtual int32 GetComSwitch(FName CommandTag, AActor* ContextActor, AUTPlayerController* Instigator, UWorld* World);
 	virtual void InitFlags() override;
-	virtual bool CheckForWinner(AUTTeamInfo* ScoringTeam) override;
+	virtual void HandleMatchIntermission() override;
 };
 
