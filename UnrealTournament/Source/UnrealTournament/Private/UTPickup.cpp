@@ -123,6 +123,7 @@ void AUTPickup::Reset_Implementation()
 	{
 		WakeUp();
 	}
+	bReplicateReset = !bReplicateReset;
 }
 
 void AUTPickup::OnOverlapBegin(AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepHitResult)
@@ -424,6 +425,15 @@ void AUTPickup::OnRep_RespawnTimeRemaining()
 	}
 }
 
+void AUTPickup::OnRep_Reset()
+{
+	// this is only important on non-initial cases as RespawnTimeRemaining handles the others
+	if (bFixedRespawnInterval && CreationTime < GetWorld()->TimeSeconds)
+	{
+		GetWorld()->GetTimerManager().SetTimer(WakeUpTimerHandle, this, &AUTPickup::WakeUpTimer, RespawnTime, false);
+	}
+}
+
 void AUTPickup::PreReplication(IRepChangedPropertyTracker & ChangedPropertyTracker)
 {
 	Super::PreReplication(ChangedPropertyTracker);
@@ -437,6 +447,7 @@ void AUTPickup::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& OutL
 	DOREPLIFETIME(AUTPickup, RespawnTime);
 	DOREPLIFETIME(AUTPickup, bFixedRespawnInterval);
 	// warning: we rely on this ordering
-	DOREPLIFETIME_CONDITION(AUTPickup, State, COND_None);
+	DOREPLIFETIME(AUTPickup, bReplicateReset);
+	DOREPLIFETIME(AUTPickup, State);
 	DOREPLIFETIME_CONDITION(AUTPickup, RespawnTimeRemaining, COND_InitialOnly);
 }
