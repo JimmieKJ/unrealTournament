@@ -1,16 +1,8 @@
 {
 	"FileVersion": 3,
-	"Version": 0,
-	"VersionName": "0.0",
-	"EngineVersion": "4.2.0-2092659+++depot+UE4-Releases+4.2",
-	"PackageFileUE4Version": 352,
-	"PackageFileLicenseeUE4Version": 0,
 	"EngineAssociation": "",
-	"FriendlyName": "",
-	"Description": "",
 	"Category": "",
-	"CreatedBy": "",
-	"CreatedByURL": "",
+	"Description": "",
 	"Modules": [
 		{
 			"Name": "UnrealTournamentFullScreenMovie",
@@ -59,8 +51,8 @@
 		},
 		{
 			"Name": "WinDualShock",
-            "Enabled": true,
-            "Optional": true
+			"Enabled": true,
+			"Optional": true
 		},
 		{
 			"Name": "LeapMotionController",
@@ -85,7 +77,11 @@
 		{
 			"Name": "LevelSequenceEditor",
 			"Enabled": true
+		},
+		{
+			"Name": "Substance",
+			"Enabled": true,
+			"MarketplaceURL": "com.epicgames.launcher://ue/marketplace/offers/2f6439c2f9584f49809d9b13b16c2ba4"
 		}
-	],
-	"EpicSampleNameHash": "0"
+	]
 }
