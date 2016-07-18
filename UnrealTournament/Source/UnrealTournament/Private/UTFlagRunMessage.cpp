@@ -70,13 +70,13 @@ void UUTFlagRunMessage::GetEmphasisText(FText& PrefixText, FText& EmphasisText, 
 		case 1: PostfixText = DefendersMustStop; break;
 		case 2: PostfixText = DefendersMustHold; break;
 		case 3: PostfixText = DefendersMustHold; BonusType = SilverBonusText;  break;
-		case 4: PostfixText = AttackersMustScore; break;
-		case 5: PostfixText = AttackersMustScore; BonusType = SilverBonusText; break;
-		case 6: PostfixText = AttackersMustScore; BonusType = GoldBonusText; break;
+		case 4: PostfixText = (TimeNeeded > 0) ? AttackersMustScoreTime : AttackersMustScore; break;
+		case 5: PostfixText = (TimeNeeded > 0) ? AttackersMustScoreTime : AttackersMustScore; BonusType = SilverBonusText; break;
+		case 6: PostfixText = (TimeNeeded > 0) ? AttackersMustScoreTime : AttackersMustScore; BonusType = GoldBonusText; break;
 		case 7: PostfixText = UnhandledCondition; break;
-		case 8: PostfixText = AttackersMustScoreWin; break;
-		case 9: PostfixText = AttackersMustScoreWin; BonusType = SilverBonusText; break;
-		case 10: PostfixText = AttackersMustScoreWin; BonusType = GoldBonusText; break;
+		case 8: PostfixText = (TimeNeeded > 0) ? AttackersMustScoreTimeWin : AttackersMustScoreWin; break;
+		case 9: PostfixText = (TimeNeeded > 0) ? AttackersMustScoreTimeWin : AttackersMustScoreWin; BonusType = SilverBonusText; break;
+		case 10: PostfixText = (TimeNeeded > 0) ? AttackersMustScoreTimeWin : AttackersMustScoreWin; BonusType = GoldBonusText; break;
 	}
 
 	Args.Add("BonusType", BonusType);

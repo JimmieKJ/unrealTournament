@@ -416,7 +416,6 @@ void AUTFlagRunGame::HandleMatchIntermission()
 	int32 RequiredTime = NextDefender->SecondaryScore - NextAttacker->SecondaryScore;
 	int32 BonusType = 1;
 	GS->FlagRunMessageTeam = nullptr;
-	bool bNeedTimeThreshold = false;
 	if (GS->CTFRound == GS->NumRounds - 2)
 	{
 		if (NextAttacker->Score > NextDefender->Score)
@@ -462,6 +461,7 @@ void AUTFlagRunGame::HandleMatchIntermission()
 	}
 	else if (GS->CTFRound == GS->NumRounds - 1)
 	{
+		bool bNeedTimeThreshold = false;
 		GS->FlagRunMessageTeam = NextAttacker;
 		if (NextDefender->Score <= NextAttacker->Score)
 		{
@@ -472,19 +472,19 @@ void AUTFlagRunGame::HandleMatchIntermission()
 			if (NextDefender->Score - NextAttacker->Score > 2)
 			{
 				BonusType = 3;
-				bNeedTimeThreshold = (RequiredTime >= 120);
+				bNeedTimeThreshold = (RequiredTime > 120);
 			}
 			else if (NextDefender->Score - NextAttacker->Score == 2)
 			{
 				if (RequiredTime < 120)
 				{
 					BonusType = 2;
-					bNeedTimeThreshold = (RequiredTime >= 60);
+					bNeedTimeThreshold = (RequiredTime > 60);
 				}
 				else
 				{
 					BonusType = 3;
-					bNeedTimeThreshold = (RequiredTime >= 120);
+					bNeedTimeThreshold = (RequiredTime > 120);
 				}
 			}
 			else //(NextDefender->Score - NextAttacker->Score == 1)
@@ -492,7 +492,7 @@ void AUTFlagRunGame::HandleMatchIntermission()
 				if (RequiredTime < 60)
 				{
 					BonusType = 1;
-					bNeedTimeThreshold = (RequiredTime >= 0);
+					bNeedTimeThreshold = (RequiredTime > 0);
 				}
 				else
 				{
