@@ -251,7 +251,8 @@ static TAutoConsoleVariable<int32> CVarBlendables(
 	1,
 	TEXT("If post-process blendables will be applied\n")
 	TEXT(" 0: off, blendables are not applied\n")
-	TEXT(" 1: on (default)"),
+	TEXT(" 1: on (default)\n")
+	TEXT(" 2: on but ignore blendables in post process volumes (used when important gameplay effects require blendables)"),
 	ECVF_Scalability | ECVF_RenderThreadSafe);
 
 /** Global vertex color view mode setting when SHOW_VertexColors show flag is set */
@@ -1194,6 +1195,10 @@ UBlendableInterface::UBlendableInterface(const FObjectInitializer& ObjectInitial
 
 void DoPostProcessVolume(IInterface_PostProcessVolume* Volume, FVector ViewLocation, FSceneView* SceneView)
 {
+	if (CVarBlendables.GetValueOnGameThread() != 1)
+	{
+		return;
+	}
 	const FPostProcessVolumeProperties VolumeProperties = Volume->GetProperties();
 	if (!VolumeProperties.bIsEnabled)
 	{
@@ -1309,7 +1314,7 @@ void FSceneView::StartFinalPostprocessSettings(FVector InViewLocation)
 	UWorld* World = Family->Scene->GetWorld();
 
 	// Some views have no world (e.g. material preview)
-	if (World)
+	if (World != nullptr && CVarBlendables.GetValueOnGameThread() == 1)
 	{
 		for (auto VolumeIt = World->PostProcessVolumes.CreateIterator(); VolumeIt; ++VolumeIt)
 		{
