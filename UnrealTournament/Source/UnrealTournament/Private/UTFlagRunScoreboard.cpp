@@ -389,7 +389,6 @@ void UUTFlagRunScoreboard::DrawScoringPlayInfo(const FCTFScoringPlay& Play, floa
 	FLinearColor BonusColor = FLinearColor(0.48f, 0.25f, 0.18f);
 	if ((RoundBonus > 0) && !Play.bDefenseWon)
 	{
-		FLinearColor BonusColor = FLinearColor::White;
 		if (RoundBonus >= 60)
 		{
 			BonusString = (RoundBonus >= 120) ? TEXT("\u2605 \u2605 \u2605") : TEXT("\u2605 \u2605");
