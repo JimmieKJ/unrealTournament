@@ -364,11 +364,15 @@ APawn* UUTGameplayStatics::ChooseBestAimTarget(AController* AskingC, FVector Sta
 								float OffsetDist = FMath::PointDistToLine(P->GetActorLocation(), FireDir, StartLoc);
 								if (OffsetDist < (*BestOffset))
 								{
-									// trace to head and center
+									// check visibility: try head, center, and actual fire line
 									bool bHit = TheWorld->LineTraceTestByChannel(StartLoc, P->GetActorLocation() + FVector(0.0f, 0.0f, P->BaseEyeHeight), COLLISION_TRACE_WEAPONNOCHARACTER, TraceParams);
 									if (bHit)
 									{
 										bHit = TheWorld->LineTraceTestByChannel(StartLoc, P->GetActorLocation(), COLLISION_TRACE_WEAPONNOCHARACTER, TraceParams);
+										if (bHit)
+										{
+											bHit = TheWorld->LineTraceTestByChannel(StartLoc, StartLoc + FireDir * FireDist, COLLISION_TRACE_WEAPONNOCHARACTER, TraceParams);
+										}
 									}
 									if (!bHit)
 									{
