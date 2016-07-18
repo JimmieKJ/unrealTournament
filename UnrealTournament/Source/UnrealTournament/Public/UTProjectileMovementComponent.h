@@ -62,8 +62,17 @@ class UNREALTOURNAMENT_API UUTProjectileMovementComponent : public UProjectileMo
 
 	virtual void SetUpdatedComponent(USceneComponent* NewUpdatedComponent) override;
 
+	// public access to HandleImpact() for handling hits caused by other actors (e.g. lifts) that we want to process as if the projectile move caused the impact
+	void SimulateImpact(const FHitResult& Hit)
+	{
+		if (UpdatedComponent != nullptr)
+		{
+			HandleImpact(Hit);
+		}
+	}
+
 protected:
-	virtual void HandleImpact(const FHitResult& Hit, float TimeSlice, const FVector& MoveDelta) override;
+	virtual void HandleImpact(const FHitResult& Hit, float TimeSlice = 0.0f, const FVector& MoveDelta = FVector::ZeroVector) override;
 
 	virtual bool MoveUpdatedComponentImpl(const FVector& Delta, const FQuat& NewRotation, bool bSweep, FHitResult* OutHit, ETeleportType Teleport = ETeleportType::None) override;
 };
