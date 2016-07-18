@@ -29,6 +29,10 @@ public:
 		{
 			Ar << PlayerName;
 		}
+		else if (Ar.IsLoading() && PlayerState != NULL)
+		{
+			PlayerName = PlayerState->PlayerName;
+		}
 		return true;
 	}
 
