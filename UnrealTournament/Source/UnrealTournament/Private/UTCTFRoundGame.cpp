@@ -1085,6 +1085,7 @@ void AUTCTFRoundGame::ScoreKill_Implementation(AController* Killer, AController*
 			}
 		}
 		OtherPS->RespawnWaitTime = FMath::Max(1.f, float(RemainingDefenders));
+		OtherPS->OnRespawnWaitReceived();
 	}
 }
 
