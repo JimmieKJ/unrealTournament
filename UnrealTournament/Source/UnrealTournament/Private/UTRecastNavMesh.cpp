@@ -2035,7 +2035,21 @@ bool AUTRecastNavMesh::FindBestPath(APawn* Asker, const FNavAgentProperties& Age
 		StartPoly = FindNearestPoly(StartLoc, FVector(AgentProps.AgentRadius * 2.0f, AgentProps.AgentRadius * 2.0f, AgentProps.AgentHeight * 0.5f));
 		if (StartPoly == INVALID_NAVNODEREF)
 		{
-			// TODO: radial search and do simple traces to try to find valid loc
+			// radial search and do simple traces to try to find valid loc
+			FBox SearchBox(StartLoc - FVector(1000.0f, 1000.0f, AgentProps.AgentHeight), StartLoc + FVector(1000.0f, 1000.0f, AgentProps.AgentHeight));
+			TArray<FNavPoly> FoundPolys;
+			GetPolysInBox(SearchBox, FoundPolys);
+			FoundPolys.Sort([StartLoc](const FNavPoly& A, const FNavPoly& B) { return (A.Center - StartLoc).SizeSquared() < (B.Center - StartLoc).SizeSquared(); });
+			const FVector StartTrace(StartLoc.X, StartLoc.Y, StartLoc.Z + AgentProps.AgentHeight * 0.5f);
+			for (const FNavPoly& TestPoly : FoundPolys)
+			{
+				// TODO: should do more complex test than this, but want to avoid getting caught up on slopes
+				if (!GetWorld()->LineTraceTestByChannel(StartTrace, TestPoly.Center + FVector(0.0f, 0.0f, AgentProps.AgentHeight), ECC_Pawn, FCollisionQueryParams(false), WorldResponseParams))
+				{
+					StartPoly = TestPoly.Ref;
+					break;
+				}
+			}
 		}
 	}
 	UUTPathNode* StartNode = PolyToNode.FindRef(StartPoly);
