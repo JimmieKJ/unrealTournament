@@ -4884,7 +4884,7 @@ void AUTCharacter::GiveArmor(AUTArmor* ArmorClass)
 	}
 	// make sure helmet is subclass
 	ArmorType = ArmorClass;
-	ArmorAmount = FMath::Max(ArmorClass->ArmorAmount, FMath::Min(100, ArmorAmount + ArmorClass->ArmorAmount));
+	ArmorAmount = FMath::Max(FMath::Max(ArmorAmount, ArmorClass->ArmorAmount), FMath::Min(100, ArmorAmount + ArmorClass->ArmorAmount));
 	UpdateArmorOverlay();
 }
 
