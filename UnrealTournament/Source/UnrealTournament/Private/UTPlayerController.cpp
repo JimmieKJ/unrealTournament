@@ -1163,11 +1163,11 @@ void AUTPlayerController::SwitchWeapon(int32 Group)
 {
 	AUTGameState* UTGameState = GetWorld()->GetGameState<AUTGameState>();
 	int32 AdjustedGroup = Group -1;
-	if ( UTGameState && 
+	if ( UTGameState && UTPlayerState && 
 		(UTPlayerState->bOutOfLives || (UTCharacter ? UTCharacter->IsDead() : (GetPawn() == NULL))) &&
 		(AdjustedGroup >= 0 && UTGameState->SpawnPacks.IsValidIndex(AdjustedGroup)) )
 	{
-		UE_LOG(UT,Log,TEXT("SeverSetLoadoutPack %s"),*UTGameState->SpawnPacks[AdjustedGroup].PackTag.ToString());
+		UE_LOG(UT,Log,TEXT("ServerSetLoadoutPack %s"),*UTGameState->SpawnPacks[AdjustedGroup].PackTag.ToString());
 		UTPlayerState->ServerSetLoadoutPack(UTGameState->SpawnPacks[AdjustedGroup].PackTag);
 	}
 	else
