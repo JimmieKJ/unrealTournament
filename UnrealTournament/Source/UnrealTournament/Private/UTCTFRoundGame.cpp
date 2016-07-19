@@ -65,7 +65,7 @@ AUTCTFRoundGame::AUTCTFRoundGame(const FObjectInitializer& ObjectInitializer)
 
 	InitialBoostCount = 0;
 	bNoLivesEndRound = true;
-	MaxTimeScoreBonus = 150;
+	MaxTimeScoreBonus = 180;
 
 	// remove translocator - fixmesteve make this an option
 	TranslocatorObject = nullptr;
