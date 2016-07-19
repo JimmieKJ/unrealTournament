@@ -33,7 +33,7 @@ void UUTFlagRunScoreboard::DrawScoreHeaders(float RenderDelta, float& YOffset)
 			DrawText(CH_Kills, XOffset + (ScaledCellWidth * ColumnHeaderScoreX), YOffset + ColumnHeaderY, UTHUDOwner->TinyFont, RenderScale, 1.0f, FLinearColor::Black, ETextHorzPos::Center, ETextVertPos::Center);
 			DrawText(CH_Powerup, XOffset + (ScaledCellWidth * 0.5f * (ColumnHeaderPowerupX + ColumnHeaderPowerupEndX)), YOffset + ColumnHeaderY, UTHUDOwner->TinyFont, RenderScale, 1.0f, FLinearColor::Black, ETextHorzPos::Center, ETextVertPos::Center);
 			AUTCTFGameState* CTFState = Cast<AUTCTFGameState>(UTGameState);
-			if (CTFState && (CTFState->bAttackerLivesLimited || CTFState->bDefenderLivesLimited))
+			if (CTFState && ((CTFState->bRedToCap == (i==0)) ? CTFState->bAttackerLivesLimited : CTFState->bDefenderLivesLimited))
 			{
 				DrawText(NSLOCTEXT("UTScoreboard", "LivesRemaining", "Lives"), XOffset + (ScaledCellWidth * 0.5f*(ColumnHeaderPowerupX + ColumnHeaderPingX)), YOffset + ColumnHeaderY, UTHUDOwner->TinyFont, RenderScale, 1.0f, FLinearColor::Black, ETextHorzPos::Center, ETextVertPos::Center);
 			}
@@ -96,16 +96,9 @@ void UUTFlagRunScoreboard::DrawPlayerScore(AUTPlayerState* PlayerState, float XO
 			DrawText(NSLOCTEXT("UTScoreboard", "Dash", "-"), XOffset + (Width * ColumnHeaderPowerupX), YOffset + ColumnY, UTHUDOwner->TinyFont, RenderScale, 1.0f, DrawColor, ETextHorzPos::Center, ETextVertPos::Center);
 		}
 
-		if (CTFState->bAttackerLivesLimited || CTFState->bDefenderLivesLimited)
+		if ((CTFState->bAttackerLivesLimited || CTFState->bDefenderLivesLimited) && PlayerState->bHasLifeLimit && (PlayerState->RemainingLives >= 0))
 		{
-			if (PlayerState->bHasLifeLimit && (PlayerState->RemainingLives >= 0))
-			{
-				DrawText(FText::AsNumber(PlayerState->RemainingLives+1), XOffset + LivesXOffset, YOffset + ColumnY, UTHUDOwner->TinyFont, RenderScale, 1.0f, DrawColor, ETextHorzPos::Center, ETextVertPos::Center);
-			}
-			else
-			{
-				DrawText(NSLOCTEXT("UTScoreboard", "Dash", "-"), XOffset + LivesXOffset, YOffset + ColumnY, UTHUDOwner->TinyFont, RenderScale, 1.0f, DrawColor, ETextHorzPos::Center, ETextVertPos::Center);
-			}
+			DrawText(FText::AsNumber(PlayerState->RemainingLives+1), XOffset + LivesXOffset, YOffset + ColumnY, UTHUDOwner->TinyFont, RenderScale, 1.0f, DrawColor, ETextHorzPos::Center, ETextVertPos::Center);
 		}
 	}
 	else
@@ -325,10 +318,10 @@ void UUTFlagRunScoreboard::DrawScoringPlays(float DeltaTime, float& YPos, float 
 	Canvas->DrawText(UTHUDOwner->MediumFont, SingleScorePart, ScoreX, YPos, RenderScale, RenderScale, TextRenderInfo);
 	YPos += (GS->CTFRound == GS->NumRounds - 2) ? 0.9f*SingleYL : 0.8f*SingleYL;
 
-	bool bRedLeadsTiebreak = (GS->Teams[0]->SecondaryScore > GS->Teams[1]->SecondaryScore);
+	bool bRedLeadsTiebreak = (GS->TiebreakValue > 0);
 	FText TiebreakPreamble = NSLOCTEXT("UTFlagRun", "TiebreakPreamble", "Tiebreak ");
 	Args.Add("TBPre", TiebreakPreamble);
-	Args.Add("Bonus", FText::AsNumber(FMath::Abs(GS->Teams[0]->SecondaryScore - GS->Teams[1]->SecondaryScore)));
+	Args.Add("Bonus", FText::AsNumber(FMath::Abs(GS->TiebreakValue)));
 	Args.Add("Team", bRedLeadsTiebreak ? RedTeamText : BlueTeamText);
 	FText TiebreakBonusPattern = NSLOCTEXT("UTFlagRun", "TiebreakPattern", "{TBPre}{Team} +{Bonus}");
 	FText TiebreakBonusText = FText::Format(TiebreakBonusPattern, Args);

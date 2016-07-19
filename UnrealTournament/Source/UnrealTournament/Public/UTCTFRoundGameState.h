@@ -50,6 +50,9 @@ class UNREALTOURNAMENT_API AUTCTFRoundGameState : public AUTCTFGameState
 		int32 FlagRunMessageSwitch;
 
 	UPROPERTY(Replicated)
+		int32 TiebreakValue;
+
+	UPROPERTY(Replicated)
 		class AUTTeamInfo* FlagRunMessageTeam;
 
 	UPROPERTY()

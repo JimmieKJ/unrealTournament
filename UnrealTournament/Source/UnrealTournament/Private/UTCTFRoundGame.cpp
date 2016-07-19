@@ -502,6 +502,23 @@ void AUTCTFRoundGame::ScoreObject_Implementation(AUTCarriedObject* GameObject, A
 			{
 				Holder->Team->RoundBonus = FMath::Min(MaxTimeScoreBonus, UTGameState->GetRemainingTime());
 				Holder->Team->SecondaryScore += Holder->Team->RoundBonus;
+				AUTCTFRoundGameState* RCTFGameState = Cast<AUTCTFRoundGameState>(CTFGameState);
+				if (RCTFGameState)
+				{
+					int32 LimitedBonus = Holder->Team->RoundBonus;
+					while (LimitedBonus > 60)
+					{
+						LimitedBonus -= 60;
+					}
+					if (Holder->Team->TeamIndex == 0)
+					{
+						RCTFGameState->TiebreakValue += LimitedBonus;
+					}
+					else
+					{
+						RCTFGameState->TiebreakValue -= LimitedBonus;
+					}
+				}
 			}
 		}
 
@@ -1112,6 +1129,23 @@ void AUTCTFRoundGame::ScoreAlternateWin(int32 WinningTeamIndex, uint8 Reason)
 			}
 			WinningTeam->RoundBonus = FMath::Min(MaxTimeScoreBonus, CTFGameState->GetRemainingTime());
 			WinningTeam->SecondaryScore += WinningTeam->RoundBonus;
+			AUTCTFRoundGameState* RCTFGameState = Cast<AUTCTFRoundGameState>(CTFGameState);
+			if (RCTFGameState)
+			{
+				int32 LimitedBonus = WinningTeam->RoundBonus;
+				while (LimitedBonus > 60)
+				{
+					LimitedBonus -= 60;
+				}
+				if (WinningTeam->TeamIndex == 0)
+				{
+					RCTFGameState->TiebreakValue += LimitedBonus;
+				}
+				else
+				{
+					RCTFGameState->TiebreakValue -= LimitedBonus;
+				}
+			}
 
 			FCTFScoringPlay NewScoringPlay;
 			NewScoringPlay.Team = WinningTeam;

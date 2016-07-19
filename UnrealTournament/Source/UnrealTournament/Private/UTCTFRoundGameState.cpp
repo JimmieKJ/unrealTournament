@@ -20,6 +20,7 @@ AUTCTFRoundGameState::AUTCTFRoundGameState(const FObjectInitializer& ObjectIniti
 	BonusLevel = 3;
 	RemainingPickupDelay = 0;
 	FlagRunMessageSwitch = 0;
+	TiebreakValue = 0;
 	FlagRunMessageTeam = nullptr;
 }
 
@@ -41,6 +42,7 @@ void AUTCTFRoundGameState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty 
 	DOREPLIFETIME(AUTCTFRoundGameState, RemainingPickupDelay);
 	DOREPLIFETIME(AUTCTFRoundGameState, FlagRunMessageSwitch);
 	DOREPLIFETIME(AUTCTFRoundGameState, FlagRunMessageTeam);
+	DOREPLIFETIME(AUTCTFRoundGameState, TiebreakValue);
 }
 
 void AUTCTFRoundGameState::BeginPlay()

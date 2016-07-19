@@ -505,3 +505,14 @@ void AUTFlagRunGame::HandleMatchIntermission()
 	}
 }
 
+
+void AUTFlagRunGame::CheatScore()
+{
+	if ((GetNetMode() == NM_Standalone) && !bOfflineChallenge && !bBasicTrainingGame && UTGameState)
+	{
+		UTGameState->SetRemainingTime(FMath::RandHelper(150));
+		IntermissionDuration = 12.f;
+	}
+	Super::CheatScore();
+}
+

@@ -53,7 +53,7 @@ class UNREALTOURNAMENT_API AUTCTFBaseGame : public AUTTeamGameMode
 	virtual bool SkipPlacement(AUTCharacter* UTChar);
 
 	UFUNCTION(exec)
-		void CheatScore();
+		virtual void CheatScore();
 
 	virtual int32 PickCheatWinTeam();
 
