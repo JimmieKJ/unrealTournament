@@ -11,6 +11,7 @@
 #include "UTCheatManager.h"
 #include "UTCTFGameState.h"
 #include "UTCTFGameMessage.h"
+#include "UTPowerupUseMessage.h"
 #include "Engine/Console.h"
 #include "UTAnalytics.h"
 #include "Runtime/Analytics/Analytics/Public/Analytics.h"
@@ -935,7 +936,7 @@ void AUTPlayerController::TeamNotifiyOfPowerupUse()
 								if (Powerup->bNotifyTeamOnPowerupUse)
 								{
 									//21 is Powerup Message
-									PC->ClientReceiveLocalizedMessage(UUTCTFGameMessage::StaticClass(), 21, UTPlayerState);
+									PC->ClientReceiveLocalizedMessage(UUTPowerupUseMessage::StaticClass(), 21, UTPlayerState);
 								}
 
 								if (Powerup->NotifySound)
