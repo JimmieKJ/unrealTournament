@@ -157,7 +157,7 @@ void UUTScoreboard::PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCanvas* InCa
 	ColumnY = 12.f *RenderScale;
 	ScaledEdgeSize = 10.f*RenderScale;
 	ScaledCellWidth = RenderScale * ((Size.X * 0.5f) - CenterBuffer);
-	FooterPosY = 996.f * RenderScale;
+	FooterPosY = 1032.f * RenderScale;
 }
 
 void UUTScoreboard::Draw_Implementation(float RenderDelta)
