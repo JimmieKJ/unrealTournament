@@ -68,6 +68,9 @@ class UNREALTOURNAMENT_API UUTCTFRewardMessage : public UUTLocalMessage
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Message)
 		FText EarnedSpecialPostfix;
 
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Message)
+		FText ExclamationPostfix;
+
 	/** sound played when team boost is earned */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Message)
 		USoundBase* EarnedBoostSound;

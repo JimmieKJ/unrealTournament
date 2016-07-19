@@ -14,8 +14,8 @@ UUTCTFRewardMessage::UUTCTFRewardMessage(const class FObjectInitializer& ObjectI
 	MessageSlot = FName(TEXT("MajorRewardMessage"));
 	bIsConsoleMessage = false;
 	AssistMessage = NSLOCTEXT("CTFRewardMessage", "Assist", "Assist!");
-	DeniedMessage = NSLOCTEXT("CTFRewardMessage", "Denied", "Denied!");
-	RejectedMessage = NSLOCTEXT("CTFRewardMessage", "Rejected", "Redeemer Rejected!");
+	DeniedMessage = NSLOCTEXT("CTFRewardMessage", "Denied", "Denied by ");
+	RejectedMessage = NSLOCTEXT("CTFRewardMessage", "Rejected", "Redeemer Rejected by ");
 	BlueTeamName = NSLOCTEXT("CTFRewardMessage", "BlueTeamName", "BLUE TEAM");
 	RedTeamName = NSLOCTEXT("CTFRewardMessage", "RedTeamName", "RED TEAM");
 	TeamScorePrefix = NSLOCTEXT("CTFRewardMessage", "TeamScorePrefix", "");
@@ -32,6 +32,7 @@ UUTCTFRewardMessage::UUTCTFRewardMessage(const class FObjectInitializer& ObjectI
 	DefenseScoreBonusPostfix = NSLOCTEXT("CTFRewardMessage", "DefenseScoreBonusPostfix", " successfully defends!  \u2605");
 	EarnedSpecialPrefix = NSLOCTEXT("CTFGameMessage", "EarnedSpecialPrefix", "");
 	EarnedSpecialPostfix = NSLOCTEXT("CTFGameMessage", "EarnedSpecialPostfix", " earned a power up for your team!");
+	ExclamationPostfix = NSLOCTEXT("CTFGameMessage", "ExclamationPostfix", "!");
 	bIsStatusAnnouncement = false;
 	bWantsBotReaction = true;
 	ScaleInSize = 3.f;
@@ -105,6 +106,24 @@ bool UUTCTFRewardMessage::ShouldPlayAnnouncement(const FClientReceiveData& Clien
 
 void UUTCTFRewardMessage::GetEmphasisText(FText& PrefixText, FText& EmphasisText, FText& PostfixText, FLinearColor& EmphasisColor, int32 Switch, class APlayerState* RelatedPlayerState_1, class APlayerState* RelatedPlayerState_2, class UObject* OptionalObject) const
 {
+	if (Switch == 0)
+	{
+		PrefixText = RejectedMessage;
+		EmphasisText = RelatedPlayerState_1 ? FText::FromString(RelatedPlayerState_1->PlayerName) : FText::GetEmpty();
+		AUTPlayerState* Denier = Cast<AUTPlayerState>(RelatedPlayerState_1);
+		EmphasisColor = Denier && Denier->Team && (Denier->Team->TeamIndex == 1) ? FLinearColor::Blue : FLinearColor::Red;
+		PostfixText = ExclamationPostfix;
+		return;
+	}
+	if (Switch == 6)
+	{
+		PrefixText = DeniedMessage;
+		EmphasisText = RelatedPlayerState_1 ? FText::FromString(RelatedPlayerState_1->PlayerName) : FText::GetEmpty();
+		AUTPlayerState* Denier = Cast<AUTPlayerState>(RelatedPlayerState_1);
+		EmphasisColor = Denier && Denier->Team && (Denier->Team->TeamIndex == 1) ? FLinearColor::Blue : FLinearColor::Red;
+		PostfixText = ExclamationPostfix;
+		return;
+	}
 	if ((Switch == 3) || (Switch == 4))
 	{
 		PrefixText = TeamScorePrefix;
@@ -161,12 +180,12 @@ FText UUTCTFRewardMessage::GetText(int32 Switch, bool bTargetsPlayerState1, APla
 {
 	switch (Switch)
 	{
-	case 0: return RejectedMessage; break;
+	case 0: return BuildEmphasisText(Switch, RelatedPlayerState_1, RelatedPlayerState_2, OptionalObject); break;
 	case 2: return AssistMessage; break;
 	case 3: return BuildEmphasisText(Switch, RelatedPlayerState_1, RelatedPlayerState_2, OptionalObject); break;
 	case 4: return BuildEmphasisText(Switch, RelatedPlayerState_1, RelatedPlayerState_2, OptionalObject); break;
 	case 5: return (bTargetsPlayerState1 ? HatTrickMessage : OtherHatTrickMessage); break;
-	case 6: return DeniedMessage; break;
+	case 6: return BuildEmphasisText(Switch, RelatedPlayerState_1, RelatedPlayerState_2, OptionalObject); break;
 	case 7: return BuildEmphasisText(Switch, RelatedPlayerState_1, RelatedPlayerState_2, OptionalObject); break;
 	}
 	if (Switch > 100)
