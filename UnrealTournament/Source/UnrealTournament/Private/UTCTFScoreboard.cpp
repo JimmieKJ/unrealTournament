@@ -34,7 +34,7 @@ UUTCTFScoreboard::UUTCTFScoreboard(const FObjectInitializer& ObjectInitializer)
 
 bool UUTCTFScoreboard::ShouldDrawScoringStats()
 {
-	return ((GetWorld()->GetGameState()->GetMatchState() == MatchState::MatchIntermission) || GetWorld()->GetGameState()->HasMatchEnded());
+	return UTGameState && ((UTGameState->GetMatchState() == MatchState::MatchIntermission) || UTGameState->HasMatchEnded());
 }
 
 void UUTCTFScoreboard::DrawScoreHeaders(float RenderDelta, float& YOffset)
