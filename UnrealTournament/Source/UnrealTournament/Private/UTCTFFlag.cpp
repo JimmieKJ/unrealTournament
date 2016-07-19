@@ -387,6 +387,7 @@ void AUTCTFFlag::Tick(float DeltaTime)
 					bAddedReturnSpot = true;
 					MidPoints[0] = FVector::ZeroVector;
 					MidPoints[1] = FVector::ZeroVector;
+					MidPoints[2] = FVector::ZeroVector;
 				}
 			}
 			if ((MidPointPos < 3) && !bAddedReturnSpot)
