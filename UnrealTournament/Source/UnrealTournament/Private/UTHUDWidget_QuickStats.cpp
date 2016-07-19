@@ -355,11 +355,9 @@ void UUTHUDWidget_QuickStats::PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCa
 
 		if (UTPlayerState->CarriedObject != nullptr || bPlayerCanRally)
 		{
-
-			bool bRallyAvailable = 
-
 			FlagInfo.bCustomIconUnderlay = false;
 			FlagInfo.OverlayTextures.Empty();
+			FlagInfo.bUseLabel = true;
 
 			FlagInfo.Value = 1;
 			bool bWantsPulse = true; 
@@ -368,13 +366,11 @@ void UUTHUDWidget_QuickStats::PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCa
 			{
 				FlagInfo.IconColor = FLinearColor::Yellow;
 				FlagInfo.Label = RallyLabel;
-				FlagInfo.bUseLabel = true;
 			}
 			else
 			{
 				FlagInfo.IconColor = UTPlayerState->CarriedObject->GetTeamNum() == 0 ? FLinearColor::Red : FLinearColor::Blue;
 				FlagInfo.Label = FText::GetEmpty();
-				FlagInfo.bUseLabel = false;
 			}
 
 			FlagInfo.HighlightStrength = 1.f;
@@ -385,7 +381,7 @@ void UUTHUDWidget_QuickStats::PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCa
 				FlagInfo.bCustomIconUnderlay = true;
 				if (UTPlayerState->CarriedObject)
 				{
-					if (InUTHUDOwner && InUTHUDOwner->UTPlayerOwner && (GetWorld()->GetTimeSeconds() - InUTHUDOwner->UTPlayerOwner->LastRallyRequestTime < 6.5f))
+					if (InUTHUDOwner && InUTHUDOwner->UTPlayerOwner && (GetWorld()->GetTimeSeconds() - InUTHUDOwner->UTPlayerOwner->LastRallyRequestTime < 10.5f))
 					{
 						FlagInfo.Label = FText::GetEmpty();
 						bWantsPulse = false;
@@ -406,9 +402,9 @@ void UUTHUDWidget_QuickStats::PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCa
 					FlagInfo.Animate(StatAnimTypes::Scale, 2.0f, 3.25f, 1.0f, true);
 				}
 			}
-			else if (((UTPlayerState->Team->TeamIndex == 0) == GameState->bRedToCap) && CharOwner && CharOwner->bCanRally && (UTPlayerState->RemainingRallyDelay > 0))
+			else if (((UTPlayerState->Team->TeamIndex == 0) == GameState->bRedToCap) && (UTPlayerState->CarriedObject == nullptr) && CharOwner && CharOwner->bCanRally && (UTPlayerState->RemainingRallyDelay > 0))
 			{
-				FlagInfo.Label = FText::AsNumber(UTPlayerState->RemainingRallyDelay);
+				FlagInfo.Label = FText::AsNumber(int32(UTPlayerState->RemainingRallyDelay));
 			}
 
 			if (UTPlayerState->CarriedObject != nullptr)

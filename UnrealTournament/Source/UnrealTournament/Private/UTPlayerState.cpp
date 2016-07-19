@@ -664,7 +664,7 @@ void AUTPlayerState::Tick(float DeltaTime)
 	{
 		AUTCharacter* UTChar = GetUTCharacter();
 		bCanRally = (GetWorld()->GetTimeSeconds() > NextRallyTime) && UTChar && (UTChar->bCanRally || UTChar->GetCarriedObject()) && (GetWorld()->GetTimeSeconds() - FMath::Max(UTChar->LastTargetingTime, UTChar->LastTargetedTime) > 3.f);
-		RemainingRallyDelay = FMath::Clamp(NextRallyTime - GetWorld()->GetTimeSeconds(), 0.f, 255.f);
+		RemainingRallyDelay = (NextRallyTime > GetWorld()->GetTimeSeconds()) ? FMath::Clamp(int32(NextRallyTime - GetWorld()->GetTimeSeconds()), 0, 255) : 0;
 	}
 	// If we are waiting to respawn then count down
 	if (RespawnTime > 0.0f)
