@@ -697,19 +697,13 @@ void AUTCarriedObject::PutGhostFlagAt(FFlagTrailPos NewPosition)
 {
 	if (GhostFlagClass && !IsPendingKillPending())
 	{
-		if ((MyGhostFlag == nullptr) || MyGhostFlag->IsPendingKillPending())
+		ClearGhostFlag();
+		FActorSpawnParameters Params;
+		Params.Owner = this;
+		MyGhostFlag = GetWorld()->SpawnActor<AUTGhostFlag>(GhostFlagClass, NewPosition.Location, GetActorRotation(), Params);
+		if (MyGhostFlag)
 		{
-			FActorSpawnParameters Params;
-			Params.Owner = this;
-			MyGhostFlag = GetWorld()->SpawnActor<AUTGhostFlag>(GhostFlagClass, NewPosition.Location, GetActorRotation(), Params);
-			if (MyGhostFlag)
-			{
-				MyGhostFlag->SetCarriedObject(this, NewPosition);
-			}
-		}
-		else
-		{
-			MyGhostFlag->MoveTo(NewPosition);
+			MyGhostFlag->SetCarriedObject(this, NewPosition);
 		}
 	}
 }

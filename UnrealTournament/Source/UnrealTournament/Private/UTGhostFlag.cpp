@@ -136,16 +136,6 @@ void AUTGhostFlag::SetCarriedObject(AUTCarriedObject* NewCarriedObject, const FF
 	OnSetCarriedObject();
 }
 
-void AUTGhostFlag::MoveTo(const FFlagTrailPos NewPosition)
-{
-	SetActorLocation(NewPosition.Location);
-	for (int32 i = 0; i < 3; i++)
-	{
-		MidPoints[i] = NewPosition.MidPoints[i];
-	}
-	OnSetCarriedObject();
-}
-
 void AUTGhostFlag::OnRep_ReplicatedMovement()
 {
 	Super::OnRep_ReplicatedMovement();

@@ -37,7 +37,6 @@ class UNREALTOURNAMENT_API AUTGhostFlag : public AActor
 	UFUNCTION()
 	virtual void OnSetMidPoint();
 
-	virtual void MoveTo(const FFlagTrailPos NewPosition);
 	virtual void SetCarriedObject(AUTCarriedObject* NewCarriedObject, const FFlagTrailPos NewPosition);
 	virtual void Tick(float DeltaTime) override;
 	virtual void Destroyed() override;
