@@ -41,6 +41,15 @@ bool UUTHUDWidget_Boost::ShouldDraw_Implementation(bool bShowScores)
 
 	AUTCharacter* UTC = Cast<AUTCharacter>(UTHUDOwner->UTPlayerOwner->GetViewTarget());
 	AUTPlayerState* UTPlayerState = UTC != nullptr ? Cast<AUTPlayerState>(UTC->PlayerState) : nullptr;
+
+	AUTCTFRoundGameState* RoundGameState = GetWorld()->GetGameState<AUTCTFRoundGameState>();
+	if (UTPlayerState == nullptr || RoundGameState == nullptr || !RoundGameState->IsTeamAbleToEarnPowerup(UTPlayerState->GetTeamNum()))
+	{
+		bLastUnlocked = false;
+		return false;
+	}
+
+
 	bool bShouldDraw = (!bShowScores && UTC && UTPlayerState && !UTC->IsDead() && !UTHUDOwner->GetQuickStatsHidden() && UTPlayerState->BoostClass && !UTPlayerState->bOutOfLives);
 
 	// Trigger the animation each spawn
@@ -66,7 +75,7 @@ void UUTHUDWidget_Boost::Draw_Implementation(float DeltaTime)
 			AUTCTFRoundGameState* RoundGameState = GetWorld()->GetGameState<AUTCTFRoundGameState>();
 			if (RoundGameState != nullptr && UTPlayerState->BoostClass)
 			{
-				bool bIsUnlocked = (UTPlayerState->GetRemainingBoosts() >= 1);
+				bool bIsUnlocked = RoundGameState->GetKillsNeededForPowerup(UTPlayerState->GetTeamNum()) <= 0;
 				if (bIsUnlocked != bLastUnlocked)
 				{
 					if (bIsUnlocked)
@@ -75,6 +84,9 @@ void UUTHUDWidget_Boost::Draw_Implementation(float DeltaTime)
 					}
 					bLastUnlocked = bIsUnlocked;
 				}
+
+
+				if (bIsUnlocked && UTPlayerState->GetRemainingBoosts() <= 0) return;
 
 				float Opacity = 1.0f;
 				if (bIsUnlocked)
