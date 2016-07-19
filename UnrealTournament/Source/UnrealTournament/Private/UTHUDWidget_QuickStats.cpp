@@ -179,22 +179,12 @@ void UUTHUDWidget_QuickStats::PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCa
 				}
 			}
 		}
-
-		bool bHasHelmet = false;
-		if (CharOwner && CharOwner->ArmorType)
-		{
-			bHasHelmet |= (CharOwner->ArmorType->ArmorType == ArmorTypeName::Helmet);
-		}
 	
 		ArmorInfo.OverlayTextures.Empty();
-		if (bHasHelmet)
+		ArmorInfo.bUseOverlayTexture = true;
+		if (CharOwner && CharOwner->bIsWearingHelmet)
 		{
-			ArmorInfo.bUseOverlayTexture = true;
 			ArmorInfo.OverlayTextures.Add(HelmetIcon);
-		}
-		else
-		{
-			ArmorInfo.bUseOverlayTexture = true;
 		}
 
 		if (bArmorVisible != ArmorInfo.bVisible)
