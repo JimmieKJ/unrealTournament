@@ -254,6 +254,10 @@ void UUTFlagRunScoreboard::DrawTeamStats(float DeltaTime, float& YPos, float XOf
 	// @TODO FIXMESTEVE make all the loc text into properties instead of recalc
 }
 
+void UUTFlagRunScoreboard::DrawStatsRight(float DeltaTime, float& YPos, float XOffset, float ScoreWidth, float PageBottom)
+{
+}
+
 void UUTFlagRunScoreboard::DrawScoringPlays(float DeltaTime, float& YPos, float XOffset, float ScoreWidth, float MaxHeight)
 {
 	Super::DrawScoringPlays(DeltaTime, YPos, XOffset, ScoreWidth, MaxHeight);
@@ -292,7 +296,7 @@ void UUTFlagRunScoreboard::DrawScoringPlays(float DeltaTime, float& YPos, float 
 	Canvas->TextSize(UTHUDOwner->MediumFont, ScoreText.ToString(), ScoringOffsetX, ScoringOffsetY, RenderScale, RenderScale);
 
 	FLinearColor DrawColor = FLinearColor::White;
-	float CurrentScoreHeight = (GS->CTFRound >= GS->NumRounds - 2) ? 2.4f*ScoringOffsetY : 1.2f*ScoringOffsetY;
+	float CurrentScoreHeight = (GS->CTFRound >= GS->NumRounds - 2) ? 3.f*ScoringOffsetY : 2.f*ScoringOffsetY;
 	float BackAlpha = 0.3f;
 	DrawTexture(UTHUDOwner->ScoreboardAtlas, XOffset - 0.0175f*ScoreWidth, YPos, 1.06f*ScoreWidth, CurrentScoreHeight, 149, 138, 32, 32, BackAlpha, DrawColor);
 
@@ -321,6 +325,33 @@ void UUTFlagRunScoreboard::DrawScoringPlays(float DeltaTime, float& YPos, float 
 	Canvas->DrawText(UTHUDOwner->MediumFont, SingleScorePart, ScoreX, YPos, RenderScale, RenderScale, TextRenderInfo);
 	YPos += (GS->CTFRound == GS->NumRounds - 2) ? 0.9f*SingleYL : 0.8f*SingleYL;
 
+	bool bRedLeadsTiebreak = (GS->Teams[0]->SecondaryScore > GS->Teams[1]->SecondaryScore);
+	FText TiebreakPreamble = NSLOCTEXT("UTFlagRun", "TiebreakPreamble", "Tiebreak ");
+	Args.Add("TBPre", TiebreakPreamble);
+	Args.Add("Bonus", FText::AsNumber(FMath::Abs(GS->Teams[0]->SecondaryScore - GS->Teams[1]->SecondaryScore)));
+	Args.Add("Team", bRedLeadsTiebreak ? RedTeamText : BlueTeamText);
+	FText TiebreakBonusPattern = NSLOCTEXT("UTFlagRun", "TiebreakPattern", "{TBPre}{Team} +{Bonus}");
+	FText TiebreakBonusText = FText::Format(TiebreakBonusPattern, Args);
+	Canvas->TextSize(UTHUDOwner->SmallFont, TiebreakBonusText.ToString(), ScoringOffsetX, ScoringOffsetY, RenderScale, RenderScale);
+	ScoreX = XOffset + 0.99f*ScoreWidth - ScoringOffsetX;
+
+	Canvas->SetLinearDrawColor(FLinearColor::White);
+	PreambleString = TiebreakPreamble.ToString();
+	Canvas->TextSize(UTHUDOwner->SmallFont, PreambleString, SingleXL, SingleYL, RenderScale, RenderScale);
+	Canvas->DrawText(UTHUDOwner->SmallFont, PreambleString, ScoreX, YPos, RenderScale, RenderScale, TextRenderInfo);
+	ScoreX += SingleXL;
+
+	Canvas->SetLinearDrawColor(bRedLeadsTiebreak ? GS->Teams[0]->TeamColor : GS->Teams[1]->TeamColor);
+	FString TeamString = bRedLeadsTiebreak ? RedTeamText.ToString() : BlueTeamText.ToString();
+	Canvas->TextSize(UTHUDOwner->SmallFont, TeamString, SingleXL, SingleYL, RenderScale, RenderScale);
+	Canvas->DrawText(UTHUDOwner->SmallFont, TeamString, ScoreX, YPos, RenderScale, RenderScale, TextRenderInfo);
+	ScoreX += SingleXL;
+
+	Canvas->SetLinearDrawColor(FLinearColor::White);
+	FText TiebreakValue = FText::Format(NSLOCTEXT("UTFlagRun", "TiebreakValue", " +{Bonus}"), Args);
+	Canvas->DrawText(UTHUDOwner->SmallFont, TiebreakValue, ScoreX, YPos, RenderScale, RenderScale, TextRenderInfo);
+
+	YPos += (GS->CTFRound == GS->NumRounds - 2) ? 0.9f*SingleYL : 0.8f*SingleYL;
 	if (GS->FlagRunMessageTeam != nullptr)
 	{
 		FText PrefixText, EmphasisText, PostfixText;
@@ -405,7 +436,12 @@ void UUTFlagRunScoreboard::DrawScoringPlayInfo(const FCTFScoringPlay& Play, floa
 	if ((RoundBonus > 0) && !Play.bDefenseWon)
 	{
 		YPos += 0.82f* MedYL;
-		FString BonusLine = FString::Printf(TEXT("Bonus Time: %d"), RoundBonus);
+		int32 NetBonus = RoundBonus;
+		while (NetBonus > 60)
+		{
+			NetBonus -= 60;
+		}
+		FString BonusLine = FString::Printf(TEXT("Bonus Time: %d"), NetBonus);
 		Canvas->TextSize(UTHUDOwner->MediumFont, BonusLine, ScoringOffsetX, ScoringOffsetY, RenderScale, RenderScale);
 		ScoreX = XOffset + ScoreWidth - 0.5f*ScoringOffsetX;
 		Canvas->SetLinearDrawColor(FLinearColor::White);
