@@ -108,7 +108,7 @@ FName AUTCTFFlagBase::GetFlagState()
 		return MyFlag->ObjectState;
 	}
 
-	return NAME_None;
+	return CarriedObjectState::Home;
 }
 
 void AUTCTFFlagBase::RecallFlag()
