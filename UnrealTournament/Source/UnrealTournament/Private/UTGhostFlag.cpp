@@ -43,7 +43,8 @@ void AUTGhostFlag::Destroyed()
 	Super::Destroyed();
 	if (Trail)
 	{
-		Trail->Destroy();
+		Trail->EndTrail();
+		Trail->SetLifeSpan(1.5f); //failsafe
 	}
 }
 
