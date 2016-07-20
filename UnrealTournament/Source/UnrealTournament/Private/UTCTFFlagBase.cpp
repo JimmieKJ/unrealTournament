@@ -149,6 +149,13 @@ void AUTCTFFlagBase::ObjectWasPickedUp(AUTCharacter* NewHolder, bool bWasHome)
 			}
 		}
 	}
+
+	OnObjectWasPickedUp();
+}
+
+void AUTCTFFlagBase::OnObjectWasPickedUp_Implementation()
+{
+
 }
 
 void AUTCTFFlagBase::ObjectReturnedHome(AUTCharacter* Returner)

@@ -79,6 +79,8 @@ class UNREALTOURNAMENT_API AUTCTFFlagBase : public AUTGameObjective
 	// Returns a status message for this object on the hud.
 	virtual FText GetHUDStatusMessage(AUTHUD* HUD);
 
+	UFUNCTION(BlueprintNativeEvent)
+	void OnObjectWasPickedUp();
 
 protected:
 	virtual void CreateCarriedObject();
