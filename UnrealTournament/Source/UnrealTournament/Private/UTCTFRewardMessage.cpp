@@ -82,7 +82,12 @@ float UUTCTFRewardMessage::GetAnnouncementDelay(int32 Switch)
 	{
 		return 1.f;
 	}
-	return ((Switch == 2) || (Switch == 5)) ? 1.5f : 0.f;
+	return ((Switch == 2) || (Switch == 5)) ? 2.5f : 0.f;
+}
+
+float UUTCTFRewardMessage::GetAnnouncementPriority(int32 Switch) const
+{
+	return ((Switch == 0) || (Switch == 6)) ? 0.8f : 1.f;
 }
 
 FName UUTCTFRewardMessage::GetAnnouncementName_Implementation(int32 Switch, const UObject* OptionalObject, const class APlayerState* RelatedPlayerState_1, const class APlayerState* RelatedPlayerState_2) const
