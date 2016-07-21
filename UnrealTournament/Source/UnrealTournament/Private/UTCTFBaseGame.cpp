@@ -36,14 +36,18 @@ AUTCTFBaseGame::AUTCTFBaseGame(const FObjectInitializer& ObjectInitializer)
 
 	//Add the translocator here for now :(
 	TranslocatorObject = FStringAssetReference(TEXT("/Game/RestrictedAssets/Weapons/Translocator/BP_Translocator.BP_Translocator_C"));
+	bGameHasTranslocator = true;
 }
 
 void AUTCTFBaseGame::InitGame(const FString& MapName, const FString& Options, FString& ErrorMessage)
 {
 	if (!TranslocatorObject.IsNull())
 	{
-		TSubclassOf<AUTWeapon> WeaponClass = Cast<UClass>(StaticLoadObject(UClass::StaticClass(), NULL, *TranslocatorObject.ToStringReference().ToString(), NULL, LOAD_NoWarn));
-		DefaultInventory.Add(WeaponClass);
+		TranslocatorClass = Cast<UClass>(StaticLoadObject(UClass::StaticClass(), NULL, *TranslocatorObject.ToStringReference().ToString(), NULL, LOAD_NoWarn));
+		if (bGameHasTranslocator)
+		{
+			DefaultInventory.Add(TranslocatorClass);
+		}
 	}
 
 	Super::InitGame(MapName, Options, ErrorMessage);

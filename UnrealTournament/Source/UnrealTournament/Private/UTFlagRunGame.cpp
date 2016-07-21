@@ -32,6 +32,8 @@
 #include "UTWeaponRedirector.h"
 #include "UTWeaponLocker.h"
 #include "UTFlagRunMessage.h"
+#include "UTWeap_Translocator.h"
+#include "UTReplicatedEmitter.h"
 
 AUTFlagRunGame::AUTFlagRunGame(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -344,6 +346,18 @@ void AUTFlagRunGame::CompleteRallyRequest(AUTPlayerController* RequestingPC)
 			if (!bHitFloor)
 			{
 				return;
+			}
+			if (TranslocatorClass)
+			{
+				if (TranslocatorClass->GetDefaultObject<AUTWeap_Translocator>()->DestinationEffect != nullptr)
+				{
+					FActorSpawnParameters SpawnParams;
+					SpawnParams.Instigator = UTCharacter;
+					SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+					SpawnParams.Owner = UTCharacter;
+					GetWorld()->SpawnActor<AUTReplicatedEmitter>(TranslocatorClass->GetDefaultObject<AUTWeap_Translocator>()->DestinationEffect, UTCharacter->GetActorLocation(), UTCharacter->GetActorRotation(), SpawnParams);
+				}
+				UUTGameplayStatics::UTPlaySound(GetWorld(), TranslocatorClass->GetDefaultObject<AUTWeap_Translocator>()->TeleSound, UTCharacter, SRT_All);
 			}
 			UTCharacter->GetCapsuleComponent()->SetCollisionObjectType(SavedObjectType);
 			FRotator DesiredRotation = (FlagCarrier->GetActorLocation() - WarpLocation).Rotation();
