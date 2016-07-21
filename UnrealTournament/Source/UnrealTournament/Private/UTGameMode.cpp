@@ -1939,8 +1939,8 @@ void AUTGameMode::EndGame(AUTPlayerState* Winner, FName Reason )
 		for( FConstControllerIterator Iterator = GetWorld()->GetControllerIterator(); Iterator; ++Iterator )
 		{
 			AController* Controller = *Iterator;
-			AUTPlayerState* CPS = Cast<AUTPlayerState> (Controller->PlayerState);
-			if ( CPS && ((Winner == NULL) || (CPS->Score >= Winner->Score)) )
+			AUTPlayerState* CPS = Cast<AUTPlayerState>(Controller->PlayerState);
+			if ( CPS && !CPS->bOnlySpectator && ((Winner == NULL) || (CPS->Score >= Winner->Score)) )
 			{
 				Winner = CPS;
 			}
