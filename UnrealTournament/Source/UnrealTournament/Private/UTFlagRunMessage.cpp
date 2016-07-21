@@ -39,12 +39,34 @@ UUTFlagRunMessage::UUTFlagRunMessage(const FObjectInitializer& ObjectInitializer
 	AttackersMustScoreWin = NSLOCTEXT("UTFlagRun", "AttackersMustScoreWin", " must score {BonusType} to win.");
 	AttackersMustScoreTime = NSLOCTEXT("UTFlagRun", "AttackersMustScoreTime", " must score {BonusType} with at least {TimeNeeded} remaining to have a chance.");
 	AttackersMustScoreTimeWin = NSLOCTEXT("UTFlagRun", "AttackersMustScoreTimeWin", " must score {BonusType} with at least {TimeNeeded} remaining to win.");
+	AttackersMustScoreTimeOne = NSLOCTEXT("UTFlagRun", "AttackersMustScoreTimeOne", " must score {BonusType} with at least {TimeNeeded}");
+	AttackersMustScoreChanceTwo = NSLOCTEXT("UTFlagRun", "AttackersMustScoreChanceTwo", "seconds remaining to have a chance.");
+	AttackersMustScoreTimeWinTwo = NSLOCTEXT("UTFlagRun", "AttackersMustScoreTimeWinTwo", "seconds remaining to win.");
 
 	RedTeamText = NSLOCTEXT("UTTeamScoreboard", "RedTeam", "RED");
 	BlueTeamText = NSLOCTEXT("UTTeamScoreboard", "BlueTeam", "BLUE");
 	GoldBonusText = NSLOCTEXT("FlagRun", "GoldBonusText", "\u2605 \u2605 \u2605");
 	SilverBonusText = NSLOCTEXT("FlagRun", "SilverBonusText", "\u2605 \u2605");
 	BronzeBonusText = NSLOCTEXT("FlagRun", "BronzeBonusText", "\u2605");
+}
+
+void UUTFlagRunMessage::SplitPostfixText(FText& PostfixText, FText& SecondPostfixText, int32 Switch, class UObject* OptionalObject) const
+{
+	AUTTeamInfo* SubjectTeam = Cast<AUTTeamInfo>(OptionalObject);
+	FFormatNamedArguments Args;
+	FText BonusType = BronzeBonusText;
+	FText SecondaryText = (SubjectTeam && (SubjectTeam->TeamIndex == 0)) ? BlueTeamText : RedTeamText;
+	int32 TimeNeeded = 0;
+	if (Switch >= 100)
+	{
+		TimeNeeded = Switch / 100;
+		Switch = Switch - 100 * TimeNeeded;
+	}
+	Args.Add("SecondaryName", SecondaryText);
+	Args.Add("TimeNeeded", TimeNeeded);
+	Args.Add("BonusType", BonusType);
+	PostfixText = FText::Format(AttackersMustScoreTimeOne, Args);
+	SecondPostfixText = (Switch >= 8) ? AttackersMustScoreTimeWinTwo : AttackersMustScoreChanceTwo;
 }
 
 void UUTFlagRunMessage::GetEmphasisText(FText& PrefixText, FText& EmphasisText, FText& PostfixText, FLinearColor& EmphasisColor, int32 Switch, class APlayerState* RelatedPlayerState_1, class APlayerState* RelatedPlayerState_2, class UObject* OptionalObject) const

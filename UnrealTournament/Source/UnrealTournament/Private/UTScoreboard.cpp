@@ -181,7 +181,7 @@ void UUTScoreboard::Draw_Implementation(float RenderDelta)
 		const float MapSize = float(Canvas->SizeY) * MapScale;
 		if (!bToggledMinimap || !UTHUDOwner->bShowScores)
 		{
-			FVector2D LeftCorner = FVector2D(MinimapCenter.X*Canvas->ClipX - 0.5f*MapSize, MinimapCenter.Y*Canvas->ClipY - 0.5f*MapSize);
+			FVector2D LeftCorner = FVector2D(MinimapCenter.X*Canvas->ClipX - 0.5f*MapSize, MinimapCenter.Y*Canvas->ClipY - 0.5f*MapSize + 16.f*RenderScale);
 			DrawTexture(UTHUDOwner->ScoreboardAtlas, LeftCorner.X, LeftCorner.Y, MapSize, MapSize, 149, 138, 32, 32, 0.5f, FLinearColor::Black);
 			UTHUDOwner->DrawMinimap(FColor(192, 192, 192, 220), MapSize, LeftCorner);
 		}

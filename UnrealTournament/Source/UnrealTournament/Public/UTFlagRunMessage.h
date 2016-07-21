@@ -31,6 +31,15 @@ class UNREALTOURNAMENT_API UUTFlagRunMessage : public UUTLocalMessage
 		FText AttackersMustScoreTimeWin;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Message)
+		FText AttackersMustScoreTimeOne;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Message)
+		FText AttackersMustScoreChanceTwo;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Message)
+		FText AttackersMustScoreTimeWinTwo;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Message)
 		FText BronzeBonusText;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Message)
@@ -47,6 +56,7 @@ class UNREALTOURNAMENT_API UUTFlagRunMessage : public UUTLocalMessage
 
 	virtual FText GetText(int32 Switch = 0, bool bTargetsPlayerState1 = false, class APlayerState* RelatedPlayerState_1 = NULL, class APlayerState* RelatedPlayerState_2 = NULL, class UObject* OptionalObject = NULL) const override;
 	virtual void GetEmphasisText(FText& PrefixText, FText& EmphasisText, FText& PostfixText, FLinearColor& EmphasisColor, int32 Switch, class APlayerState* RelatedPlayerState_1, class APlayerState* RelatedPlayerState_2, class UObject* OptionalObject) const override;
+	virtual void SplitPostfixText(FText& PostfixText, FText& SecondPostfixText,int32 Switch, class UObject* OptionalObject) const;
 };
 
 
