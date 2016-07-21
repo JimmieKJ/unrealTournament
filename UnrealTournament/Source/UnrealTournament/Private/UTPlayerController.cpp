@@ -4564,7 +4564,7 @@ void AUTPlayerController::OpenMatchSummary()
 void AUTPlayerController::UTClientSetRotation_Implementation(FRotator NewRotation)
 {
 	SetControlRotation(NewRotation);
-	UE_LOG(UT, Warning, TEXT("Control Rotation from UTClientSetRotation %f"), GetControlRotation().Yaw);
+//	UE_LOG(UT, Warning, TEXT("Control Rotation from UTClientSetRotation %f"), GetControlRotation().Yaw);
 	if (GetPawn() != NULL)
 	{
 		GetPawn()->FaceRotation(NewRotation, 0.f);

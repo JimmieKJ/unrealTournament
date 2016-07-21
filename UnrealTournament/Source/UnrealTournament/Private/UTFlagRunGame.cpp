@@ -347,41 +347,10 @@ void AUTFlagRunGame::CompleteRallyRequest(AUTPlayerController* RequestingPC)
 			{
 				return;
 			}
-			if (TranslocatorClass)
-			{
-				if (TranslocatorClass->GetDefaultObject<AUTWeap_Translocator>()->DestinationEffect != nullptr)
-				{
-					FActorSpawnParameters SpawnParams;
-					SpawnParams.Instigator = UTCharacter;
-					SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
-					SpawnParams.Owner = UTCharacter;
-					GetWorld()->SpawnActor<AUTReplicatedEmitter>(TranslocatorClass->GetDefaultObject<AUTWeap_Translocator>()->DestinationEffect, UTCharacter->GetActorLocation(), UTCharacter->GetActorRotation(), SpawnParams);
-				}
-				UUTGameplayStatics::UTPlaySound(GetWorld(), TranslocatorClass->GetDefaultObject<AUTWeap_Translocator>()->TeleSound, UTCharacter, SRT_All);
-			}
 			UTCharacter->GetCapsuleComponent()->SetCollisionObjectType(SavedObjectType);
 			FRotator DesiredRotation = (FlagCarrier->GetActorLocation() - WarpLocation).Rotation();
 			WarpRotation.Yaw = DesiredRotation.Yaw;
 			RallyDelay = 20.f;
-			for (FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator)
-			{
-				AUTPlayerController* PC = Cast<AUTPlayerController>(*Iterator);
-				if (PC)
-				{
-					if (GS->OnSameTeam(RequestingPC, PC))
-					{
-						PC->ClientReceiveLocalizedMessage(UUTCTFMajorMessage::StaticClass(), 27, UTPlayerState);
-						if (GetWorld()->GetTimeSeconds() - RallyRequestTime < 6.f)
-						{
-							PC->ClientReceiveLocalizedMessage(UTPlayerState->GetCharacterVoiceClass(), ACKNOWLEDGE_SWITCH_INDEX, UTPlayerState, PC->PlayerState, NULL);
-						}
-					}
-					else
-					{
-						PC->ClientReceiveLocalizedMessage(UUTCTFMajorMessage::StaticClass(), 24, UTPlayerState);
-					}
-				}
-			}
 		}
 		else
 		{
@@ -412,6 +381,19 @@ void AUTFlagRunGame::CompleteRallyRequest(AUTPlayerController* RequestingPC)
 			RequestingPC->UTClientSetRotation(WarpRotation);
 			UTPlayerState->NextRallyTime = GetWorld()->GetTimeSeconds() + RallyDelay;
 
+			if (TranslocatorClass)
+			{
+				if (TranslocatorClass->GetDefaultObject<AUTWeap_Translocator>()->DestinationEffect != nullptr)
+				{
+					FActorSpawnParameters SpawnParams;
+					SpawnParams.Instigator = UTCharacter;
+					SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+					SpawnParams.Owner = UTCharacter;
+					GetWorld()->SpawnActor<AUTReplicatedEmitter>(TranslocatorClass->GetDefaultObject<AUTWeap_Translocator>()->DestinationEffect, UTCharacter->GetActorLocation(), UTCharacter->GetActorRotation(), SpawnParams);
+				}
+				UUTGameplayStatics::UTPlaySound(GetWorld(), TranslocatorClass->GetDefaultObject<AUTWeap_Translocator>()->TeleSound, UTCharacter, SRT_All);
+			}
+
 			// spawn effects
 			FActorSpawnParameters SpawnParams;
 			SpawnParams.Instigator = UTCharacter;
@@ -423,6 +405,37 @@ void AUTFlagRunGame::CompleteRallyRequest(AUTPlayerController* RequestingPC)
 				if (AfterImage != NULL)
 				{
 					AfterImage->InitFor(UTCharacter, FRepCollisionShape(PlayerCapsule), SavedPlayerBase, UTCharacter->GetTransform());
+				}
+			}
+
+			// announce
+			UTCharacter->UTCharacterMovement->UpdatedComponent->UpdatePhysicsVolume(true);
+			AActor* RallySpot = UTCharacter->UTCharacterMovement ? UTCharacter->UTCharacterMovement->GetPhysicsVolume() : nullptr;
+			if ((RallySpot == nullptr) || (RallySpot == GetWorld()->GetDefaultPhysicsVolume()))
+			{
+				AUTCTFFlag* Flag = Cast<AUTCTFFlag>(GS->FlagBases[GS->bRedToCap ? 0 : 1]->GetCarriedObject());
+				if (Flag)
+				{
+					RallySpot = Flag;
+				}
+			}
+			for (FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator)
+			{
+				AUTPlayerController* PC = Cast<AUTPlayerController>(*Iterator);
+				if (PC)
+				{
+					if (GS->OnSameTeam(RequestingPC, PC))
+					{
+						PC->ClientReceiveLocalizedMessage(UUTCTFMajorMessage::StaticClass(), 27, UTPlayerState);
+						if (GetWorld()->GetTimeSeconds() - RallyRequestTime < 6.f)
+						{
+							PC->ClientReceiveLocalizedMessage(UTPlayerState->GetCharacterVoiceClass(), ACKNOWLEDGE_SWITCH_INDEX, UTPlayerState, PC->PlayerState, NULL);
+						}
+					}
+					else
+					{
+						PC->ClientReceiveLocalizedMessage(UUTCTFMajorMessage::StaticClass(), 24, UTPlayerState, nullptr, RallySpot);
+					}
 				}
 			}
 		}

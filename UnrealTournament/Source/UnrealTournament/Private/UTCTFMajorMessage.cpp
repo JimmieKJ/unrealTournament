@@ -18,6 +18,8 @@ UUTCTFMajorMessage::UUTCTFMajorMessage(const FObjectInitializer& ObjectInitializ
 	FlagRallyMessage = NSLOCTEXT("CTFGameMessage", "FlagRallyMessage", "RALLY NOW!");
 	RallyReadyMessage = NSLOCTEXT("CTFGameMessage", "RallyReadyMessage", "Rally Available");
 	EnemyRallyMessage = NSLOCTEXT("CTFGameMessage", "EnemyRallyMessage", "Enemy Rally!");
+	EnemyRallyPrefix = NSLOCTEXT("CTFGameMessage", "EnemyRallyPrefix", "Enemy Rally in ");
+	EnemyRallyPostfix = NSLOCTEXT("CTFGameMessage", "EnemyRallyPostfix", "!");
 	TeamRallyMessage = NSLOCTEXT("CTFGameMessage", "TeamRallyMessage", "");
 	FallBackToRallyMessage = NSLOCTEXT("CTFGameMessage", "FallBackToRallyMessage", "Fall back to Rally!");
 	RallyCompleteMessage = NSLOCTEXT("CTFGameMessage", "RallyCompleteMessage", "Rally Complete!");
@@ -102,6 +104,38 @@ void UUTCTFMajorMessage::GetEmphasisText(FText& PrefixText, FText& EmphasisText,
 		return;
 	}
 
+	if (Switch == 24)
+	{
+		AUTGameVolume* GV = Cast<AUTGameVolume>(OptionalObject);
+		if (GV)
+		{
+			PrefixText = EnemyRallyPrefix;
+			EmphasisText = GV->VolumeName;
+			PostfixText = EnemyRallyPostfix;
+			AUTPlayerState* PS = Cast<AUTPlayerState>(RelatedPlayerState_1);
+			EmphasisColor = (PS && PS->Team) ? PS->Team->TeamColor : FLinearColor::Red;
+		}
+		else
+		{
+			AUTCarriedObject* Flag = Cast<AUTCarriedObject>(OptionalObject);
+			if (Flag)
+			{
+				PrefixText = EnemyRallyPrefix;
+				EmphasisText = Flag->GetHUDStatusMessage(nullptr);
+				PostfixText = EnemyRallyPostfix;
+				AUTPlayerState* PS = Cast<AUTPlayerState>(RelatedPlayerState_1);
+				EmphasisColor = (PS && PS->Team) ? PS->Team->TeamColor : FLinearColor::Red;
+			}
+			else
+			{
+				PrefixText = EnemyRallyMessage;
+				EmphasisText = FText::GetEmpty();
+				PostfixText = FText::GetEmpty();
+			}
+		}
+		return;
+	}
+
 	Super::GetEmphasisText(PrefixText, EmphasisText, PostfixText, EmphasisColor, Switch, RelatedPlayerState_1, RelatedPlayerState_2, OptionalObject);
 }
 
@@ -117,7 +151,7 @@ FText UUTCTFMajorMessage::GetText(int32 Switch, bool bTargetsPlayerState1, APlay
 	case 21: return FlagReadyMessage; break;
 	case 22: return FlagRallyMessage; break;
 	case 23: return RallyReadyMessage; break;
-	case 24: return EnemyRallyMessage; break;
+	case 24: return BuildEmphasisText(Switch, RelatedPlayerState_1, RelatedPlayerState_2, OptionalObject); break;
 	case 25: return RallyCompleteMessage; break;
 	case 26: return FallBackToRallyMessage; break;
 	case 27: return TeamRallyMessage; break;
