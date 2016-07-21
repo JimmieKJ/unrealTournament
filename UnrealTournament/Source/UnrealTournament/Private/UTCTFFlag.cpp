@@ -362,10 +362,11 @@ void AUTCTFFlag::Tick(float DeltaTime)
 				bool bAlreadyInNoRallyZone = (PastPositions.Num() > 0) && (PastPositions[PastPositions.Num() - 1].bIsInNoRallyZone || PastPositions[PastPositions.Num() - 1].bEnteringNoRallyZone);
 				bool bNowInNoRallyZone = GV && GV->bIsNoRallyZone;
 				bool bJustTransitionedToNoRallyZone = !bAlreadyInNoRallyZone && bNowInNoRallyZone;
-				FVector PendingNewPosition = bJustTransitionedToNoRallyZone ? RecentPosition : HoldingPawn->GetActorLocation();
-				if ((HoldingPawn->GetActorLocation() - RecentPosition).Size() > 100.f)
+				FVector PendingNewPosition = bJustTransitionedToNoRallyZone ? RecentPosition[0] : HoldingPawn->GetActorLocation();
+				if ((HoldingPawn->GetActorLocation() - RecentPosition[0]).Size() > 100.f)
 				{
-					RecentPosition = HoldingPawn->GetActorLocation();
+					RecentPosition[1] = RecentPosition[0];
+					RecentPosition[0] = HoldingPawn->GetActorLocation();
 				}
 				if ((!bAlreadyPlacedInNoRallyZone || !bNowInNoRallyZone) && ((HoldingPawn->GetActorLocation() - PreviousPos).Size() > (bJustTransitionedToNoRallyZone ? 0.3f*MinGradualReturnDist : MinGradualReturnDist)))
 				{

@@ -239,7 +239,14 @@ void AUTFlagRunGame::HandleRallyRequest(AUTPlayerController* RequestingPC)
 			AUTCharacter* FlagCarrier = Flag ? Flag->HoldingPawn : nullptr;
 			if (FlagCarrier != nullptr)
 			{
-				RequestingPC->RallyLocation = Flag->RecentPosition;
+				FVector BestRecentPosition = Flag->RecentPosition[0];
+				float OneDist = (FlagCarrier->GetActorLocation() - Flag->RecentPosition[1]).Size();
+				if (OneDist < 400.f)
+				{
+					float ZeroDist = (FlagCarrier->GetActorLocation() - Flag->RecentPosition[0]).Size();
+					BestRecentPosition = (OneDist > ZeroDist) ? Flag->RecentPosition[1] : Flag->RecentPosition[0];
+				}
+				RequestingPC->RallyLocation = BestRecentPosition;
 				if (bDelayedRally)
 				{
 					RequestingPC->BeginRallyTo(FlagCarrier, RequestingPC->RallyLocation, 1.2f);
@@ -300,10 +307,10 @@ void AUTFlagRunGame::CompleteRallyRequest(AUTPlayerController* RequestingPC)
 			}
 			else
 			{
-				float RecentPosDist = (FlagCarrier->GetActorLocation() - Flag->RecentPosition).Size();
-				if ((RecentPosDist < 400.f) && (RecentPosDist > 50.f) && GetWorld()->FindTeleportSpot(UTCharacter, Flag->RecentPosition, WarpRotation))
+				float RecentPosDist = (FlagCarrier->GetActorLocation() - Flag->RecentPosition[0]).Size();
+				if ((RecentPosDist < 400.f) && (RecentPosDist > 50.f) && GetWorld()->FindTeleportSpot(UTCharacter, Flag->RecentPosition[0], WarpRotation))
 				{
-					WarpLocation = Flag->RecentPosition;
+					WarpLocation = Flag->RecentPosition[0];
 				}
 				else
 				{

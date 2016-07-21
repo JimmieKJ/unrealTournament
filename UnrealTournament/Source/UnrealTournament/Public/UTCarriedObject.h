@@ -339,7 +339,7 @@ public:
 		TArray<FFlagTrailPos> PastPositions;
 
 	UPROPERTY()
-		FVector RecentPosition;
+		FVector RecentPosition[2];
 
 	UPROPERTY()
 		FVector MidPoints[3];
