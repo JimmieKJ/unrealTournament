@@ -287,21 +287,22 @@ void AUTPlayerController::ServerMutate_Implementation(const FString& MutateStrin
 	}
 }
 
-void AUTPlayerController::BeginRallyTo(AUTCharacter* RallyTarget, float Delay)
+void AUTPlayerController::BeginRallyTo(AUTCharacter* RallyTarget, const FVector& NewRallyLocation, float Delay)
 {
 	if (!GetWorldTimerManager().IsTimerActive(RallyTimerHandle))
 	{
 		GetWorldTimerManager().SetTimer(RallyTimerHandle, this, &AUTPlayerController::CompleteRally, Delay, false);
 	}
-	ClientStartRally(RallyTarget);
+	ClientStartRally(RallyTarget, NewRallyLocation);
 }
 
-void AUTPlayerController::ClientStartRally_Implementation(AUTCharacter* RallyTarget)
+void AUTPlayerController::ClientStartRally_Implementation(AUTCharacter* RallyTarget, const FVector& NewRallyLocation)
 {
 	if (RallyTarget)
 	{
 		// client side
-		SetCameraMode(FName(TEXT("FreeCam")));
+		RallyLocation = NewRallyLocation;
+		SetCameraMode(FName(TEXT("RallyCam")));
 		SetViewTarget(RallyTarget);
 	}
 }
@@ -2637,6 +2638,7 @@ bool AUTPlayerController::IsBehindView() const
 	if (PlayerCameraManager != NULL)
 	{
 		static FName NAME_FreeCam(TEXT("FreeCam"));
+		static FName NAME_RallyCam(TEXT("RallyCam"));
 
 		AUTPlayerCameraManager* UTCam = Cast<AUTPlayerCameraManager>(PlayerCameraManager);
 		if (UTCam && UTCam->bIsForcingGoodCamLoc)
@@ -2644,7 +2646,7 @@ bool AUTPlayerController::IsBehindView() const
 			return true;
 		}
 		FName CameraStyle = (UTCam != NULL) ? UTCam->GetCameraStyleWithOverrides() : PlayerCameraManager->CameraStyle;
-		return CameraStyle == NAME_FreeCam;
+		return (CameraStyle == NAME_FreeCam) || (CameraStyle == NAME_RallyCam);
 	}
 	else
 	{

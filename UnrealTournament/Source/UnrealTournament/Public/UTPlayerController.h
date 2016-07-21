@@ -260,7 +260,7 @@ public:
 		virtual void ServerRequestRally();
 
 	UFUNCTION(client, reliable)
-		virtual void ClientStartRally(AUTCharacter* RallyTarget);
+		virtual void ClientStartRally(AUTCharacter* RallyTarget, const FVector& NewRallyLocation);
 
 	UFUNCTION(client, reliable)
 		virtual void ClientCompleteRally();
@@ -268,7 +268,7 @@ public:
 	UFUNCTION(exec)
 	virtual void ToggleScoreboard(bool bShow);
 
-	virtual void BeginRallyTo(AUTCharacter* RallyTarget, float Delay);
+	virtual void BeginRallyTo(AUTCharacter* RallyTarget, const FVector& NewRallyLocation, float Delay);
 
 	FTimerHandle RallyTimerHandle;
 
