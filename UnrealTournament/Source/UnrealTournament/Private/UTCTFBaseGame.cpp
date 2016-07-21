@@ -78,7 +78,7 @@ int32 AUTCTFBaseGame::PickCheatWinTeam()
 
 void AUTCTFBaseGame::CheatScore()
 {
-	if ((GetNetMode() == NM_Standalone) && !bOfflineChallenge && !bBasicTrainingGame)
+	if ((UE_BUILD_DEVELOPMENT || (GetNetMode() == NM_Standalone)) && !bOfflineChallenge && !bBasicTrainingGame)
 	{
 		int32 ScoringTeam = PickCheatWinTeam();
 		TArray<AController*> Members = Teams[ScoringTeam]->GetTeamMembers();

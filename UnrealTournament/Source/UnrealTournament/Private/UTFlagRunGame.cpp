@@ -550,7 +550,7 @@ void AUTFlagRunGame::HandleMatchIntermission()
 
 void AUTFlagRunGame::CheatScore()
 {
-	if ((GetNetMode() == NM_Standalone) && !bOfflineChallenge && !bBasicTrainingGame && UTGameState)
+	if ((UE_BUILD_DEVELOPMENT || (GetNetMode() == NM_Standalone)) && !bOfflineChallenge && !bBasicTrainingGame && UTGameState)
 	{
 		UTGameState->SetRemainingTime(FMath::RandHelper(150));
 		IntermissionDuration = 12.f;
