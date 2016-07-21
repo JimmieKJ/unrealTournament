@@ -97,11 +97,14 @@ namespace UnrealTournamentGame.Automation
 
 		public void DeployNewFleets(int MaxRetries)
 		{
-
 			string GceMachineType = "n1-standard-4";
+			string AwsMachineType = "c4.2xlarge";
+			string AwsSmallerMachineType = "c4.2xlarge";
 			if (AppName == UnrealTournamentBuild.UnrealTournamentAppName.UnrealTournamentDev)
 			{
 				GceMachineType = "n1-standard-32";
+				AwsMachineType = "c4.8xlarge";
+				AwsSmallerMachineType = "c4.4xlarge";
 			}
 
 			/* Hubs */
@@ -111,59 +114,57 @@ namespace UnrealTournamentGame.Automation
 			string GceEuHub1 = Deployment2GceArgs(tag: "hub1", MachineType: GceMachineType, Zone: "europe-west1-d", Region: "EU", HubServerName: "BEL (St. Ghislain) Hub 1");
 			string GceEuHub2 = Deployment2GceArgs(tag: "hub2", MachineType: GceMachineType, Zone: "europe-west1-c", Region: "EU", HubServerName: "BEL (St. Ghislain) Hub 2");
 			string GceEuHub3 = Deployment2GceArgs(tag: "hub3", MachineType: GceMachineType, Zone: "europe-west1-d", Region: "EU", HubServerName: "BEL (St. Ghislain) Hub 3");
-			string AwsNaHub1 = Deployment2AwsArgs(AwsRegion: "us-west-1", tag: "Aws1", Region: "NA", InstanceType: "c4.4xlarge", HubServerName: "USA(West) Hub 1");
-			string AwsNaHub2 = Deployment2AwsArgs(AwsRegion: "us-east-1", tag: "Aws2", Region: "NA", InstanceType: "c4.4xlarge", HubServerName: "USA(EpicHQ) Hub");
-			string AwsAuHub1 = Deployment2AwsArgs(AwsRegion: "ap-southeast-2", tag: "Aws1", Region: "AU", InstanceType: "c4.4xlarge", HubServerName: "AUS (Sydney) Hub 1");
+			string AwsNaHub1 = Deployment2AwsArgs(AwsRegion: "us-east-1", tag: "AwsHub1", Region: "NA", InstanceType: AwsMachineType, HubServerName: "USA (East) Hub 1");
+			string AwsNaHub2 = Deployment2AwsArgs(AwsRegion: "us-west-1", tag: "AwsHub2", Region: "NA", InstanceType: AwsMachineType, HubServerName: "USA (West) Hub 1");
+			string AwsEuHub1 = Deployment2AwsArgs(AwsRegion: "eu-central-1", tag: "AwsHub1", Region: "EU", InstanceType: AwsMachineType, HubServerName: "GER (Frankfurt) Hub 1");
+			string AwsEuHub2 = Deployment2AwsArgs(AwsRegion: "eu-central-1", tag: "AwsHub2", Region: "EU", InstanceType: AwsMachineType, HubServerName: "GER (Frankfurt) Hub 2");
+			string AwsAuHub1 = Deployment2AwsArgs(AwsRegion: "ap-southeast-2", tag: "AwsHub1", Region: "AU", InstanceType: AwsSmallerMachineType, HubServerName: "AUS (Sydney) Hub 1");
+			string AwsSaHub1 = Deployment2AwsArgs(AwsRegion: "sa-east-1", tag: "AwsHub1", Region: "SA", InstanceType: AwsSmallerMachineType, HubServerName: "BRA (Sao Paulo) Hub 1");
 
 			/* Match Making */
-			string GceArgsNa1 = Deployment2GceArgs(tag: "Gce1", MachineType: GceMachineType, Zone: "us-central1-c", Region: "NA");
-			string GceArgsNa2 = Deployment2GceArgs(tag: "Gce2", MachineType: GceMachineType, Zone: "us-central1-b", Region: "NA");
-			string GceArgsEu1 = Deployment2GceArgs(tag: "Gce1", MachineType: GceMachineType, Zone: "europe-west1-c", Region: "EU");
-			string GceArgsEu2 = Deployment2GceArgs(tag: "Gce2", MachineType: GceMachineType, Zone: "europe-west1-d", Region: "EU");
+			string GceArgsNa1 = Deployment2GceArgs(tag: "GceMM1", MachineType: GceMachineType, Zone: "us-central1-c", Region: "NA");
+			string GceArgsNa2 = Deployment2GceArgs(tag: "GceMM2", MachineType: GceMachineType, Zone: "us-central1-b", Region: "NA");
+			string GceArgsEu1 = Deployment2GceArgs(tag: "GceMM1", MachineType: GceMachineType, Zone: "europe-west1-c", Region: "EU");
+			string GceArgsEu2 = Deployment2GceArgs(tag: "GceMM2", MachineType: GceMachineType, Zone: "europe-west1-d", Region: "EU");
+			string AwsArgsNa1 = Deployment2AwsArgs(tag: "AwsMM1", InstanceType: AwsMachineType, AwsRegion: "us-east-1", Region: "NA");
+			string AwsArgsEu1 = Deployment2AwsArgs(tag: "AwsMM1", InstanceType: AwsMachineType, AwsRegion: "eu-central-1", Region: "EU");
 
 			CommandUtils.Log("Deploying new fleets for change list {0}", Changelist);
 
 			/* Always create the NA1 hub/server */
-			Deployment2Command("deployment_create", GceArgsNa1, "true", 1);
-			Deployment2Command("deployment_create", GceNaHub1, "true", 1);
+			Deployment2Command("deployment_create", AwsArgsNa1, "true", 1);
+			Deployment2Command("deployment_create", AwsNaHub1, "true", 1);
 
 			/* This is very confusing. UnrealTournamentDev is the live label */
 			if (AppName == UnrealTournamentBuild.UnrealTournamentAppName.UnrealTournamentDev)
 			{
-				Deployment2Command("deployment_create", GceArgsNa2, "true", 1);
-				Deployment2Command("deployment_create", GceArgsEu1, "true", 1);
-				Deployment2Command("deployment_create", GceArgsEu2, "true", 1);
+				Deployment2Command("deployment_create", AwsArgsEu1, "true", 1);
 
-				Deployment2Command("deployment_create", GceNaHub2, "true", 1);
-				Deployment2Command("deployment_create", GceNaHub3, "true", 1);
-				Deployment2Command("deployment_create", GceEuHub1, "true", 1);
-				Deployment2Command("deployment_create", GceEuHub2, "true", 1);
-				Deployment2Command("deployment_create", GceEuHub3, "true", 1);
-				Deployment2Command("deployment_create", AwsNaHub1, "true", 1);
 				Deployment2Command("deployment_create", AwsNaHub2, "true", 1);
+				Deployment2Command("deployment_create", AwsEuHub1, "true", 1);
+				Deployment2Command("deployment_create", AwsEuHub2, "true", 1);
 				Deployment2Command("deployment_create", AwsAuHub1, "true", 1);
-			} else if (AppName == UnrealTournamentBuild.UnrealTournamentAppName.UnrealTournamentPublicTest) {
-				Deployment2Command("deployment_create", GceArgsEu1, "true", 1);
+				Deployment2Command("deployment_create", AwsSaHub1, "true", 1);
+
+			}
+			/* Deploy a MM servers in EU for PublicTest OP-8372 */
+			else if (AppName == UnrealTournamentBuild.UnrealTournamentAppName.UnrealTournamentPublicTest) {
+				Deployment2Command("deployment_create", AwsArgsEu1, "true", 1);
 			}
 
-			Deployment2Command("deployment_create", GceArgsNa1, "get_pending", MaxRetries);
-			Deployment2Command("deployment_create", GceNaHub1, "get_pending", MaxRetries);
+			Deployment2Command("deployment_create", AwsArgsNa1, "get_pending", MaxRetries);
+			Deployment2Command("deployment_create", AwsNaHub1, "get_pending", MaxRetries);
 			if (AppName == UnrealTournamentBuild.UnrealTournamentAppName.UnrealTournamentDev)
 			{
-				Deployment2Command("deployment_create", GceArgsNa2, "get_pending", MaxRetries);
-				Deployment2Command("deployment_create", GceArgsEu1, "get_pending", MaxRetries);
-				Deployment2Command("deployment_create", GceArgsEu2, "get_pending", MaxRetries);
+				Deployment2Command("deployment_create", AwsArgsEu1, "get_pending", MaxRetries);
 
-				Deployment2Command("deployment_create", GceNaHub2, "get_pending", MaxRetries);
-				Deployment2Command("deployment_create", GceNaHub3, "get_pending", MaxRetries);
-				Deployment2Command("deployment_create", GceEuHub1, "get_pending", MaxRetries);
-				Deployment2Command("deployment_create", GceEuHub2, "get_pending", MaxRetries);
-				Deployment2Command("deployment_create", GceEuHub3, "get_pending", MaxRetries);
-				Deployment2Command("deployment_create", AwsNaHub1, "get_pending", MaxRetries);
 				Deployment2Command("deployment_create", AwsNaHub2, "get_pending", MaxRetries);
+				Deployment2Command("deployment_create", AwsEuHub1, "get_pending", MaxRetries);
+				Deployment2Command("deployment_create", AwsEuHub2, "get_pending", MaxRetries);
 				Deployment2Command("deployment_create", AwsAuHub1, "get_pending", MaxRetries);
+				Deployment2Command("deployment_create", AwsSaHub1, "get_pending", MaxRetries);
 			} else if (AppName == UnrealTournamentBuild.UnrealTournamentAppName.UnrealTournamentPublicTest) {
-				Deployment2Command("deployment_create", GceArgsEu1, "get_pending", MaxRetries);
+				Deployment2Command("deployment_create", AwsArgsEu1, "get_pending", MaxRetries);
 			}
 		}
 
@@ -176,15 +177,20 @@ namespace UnrealTournamentGame.Automation
 			string GceEuHub1 = Deployment2GceArgs(tag: "hub1", Region: "EU", HubServerName: "BEL (St. Ghislain) Hub 1");
 			string GceEuHub2 = Deployment2GceArgs(tag: "hub2", Region: "EU", HubServerName: "BEL (St. Ghislain) Hub 2");
 			string GceEuHub3 = Deployment2GceArgs(tag: "hub3", Region: "EU", HubServerName: "BEL (St. Ghislain) Hub 3");
-			string AwsNaHub1 = Deployment2AwsArgs(AwsRegion: "us-west-1", tag: "Aws1", Region: "NA", HubServerName: "USA(West) Hub 1");
-			string AwsNaHub2 = Deployment2AwsArgs(AwsRegion: "us-east-1", tag: "Aws2", Region: "NA", HubServerName: "USA(EpicHQ) Hub");
-			string AwsAuHub1 = Deployment2AwsArgs(AwsRegion: "ap-southeast-2", tag: "Aws1", Region: "AU", HubServerName: "AUS (Sydney) Hub 1");
+			string AwsNaHub1 = Deployment2AwsArgs(AwsRegion: "us-east-1", tag: "AwsHub1", Region: "NA", HubServerName: "USA (East) Hub 1");
+			string AwsNaHub2 = Deployment2AwsArgs(AwsRegion: "us-west-1", tag: "AwsHub2", Region: "NA",  HubServerName: "USA (West) Hub 1");
+			string AwsEuHub1 = Deployment2AwsArgs(AwsRegion: "eu-central-1", tag: "AwsHub1", Region: "EU", HubServerName: "GER (Frankfurt) Hub 1");
+			string AwsEuHub2 = Deployment2AwsArgs(AwsRegion: "eu-central-1", tag: "AwsHub2", Region: "EU", HubServerName: "GER (Frankfurt) Hub 2");
+			string AwsAuHub1 = Deployment2AwsArgs(AwsRegion: "ap-southeast-2", tag: "AwsHub1", Region: "AU", HubServerName: "AUS (Sydney) Hub 1");
+			string AwsSaHub1 = Deployment2AwsArgs(AwsRegion: "sa-east-1", tag: "AwsHub1", Region: "AU", HubServerName: "BRA (Sao Paulo) Hub 1");
 
 			/* Match Making */
-			string GceArgsNa1 = Deployment2GceArgs(tag: "Gce1", Region: "NA");
-			string GceArgsNa2 = Deployment2GceArgs(tag: "Gce2", Region: "NA");
-			string GceArgsEu1 = Deployment2GceArgs(tag: "Gce1", Region: "EU");
-			string GceArgsEu2 = Deployment2GceArgs(tag: "Gce2", Region: "EU");
+			string GceArgsNa1 = Deployment2GceArgs(tag: "GceMM1", Region: "NA");
+			string GceArgsNa2 = Deployment2GceArgs(tag: "GceMM2", Region: "NA");
+			string GceArgsEu1 = Deployment2GceArgs(tag: "GceMM1", Region: "EU");
+			string GceArgsEu2 = Deployment2GceArgs(tag: "GceMM2", Region: "EU");
+			string AwsArgsNa1 = Deployment2AwsArgs(tag: "AwsMM1", AwsRegion: "us-east-1", Region: "NA");
+			string AwsArgsEu1 = Deployment2AwsArgs(tag: "AwsMM1", AwsRegion: "eu-central-1", Region: "EU");
 
 			CommandUtils.Log("Degrading old fleets");
 
@@ -192,6 +198,8 @@ namespace UnrealTournamentGame.Automation
 			Deployment2Command("deployment_degrade_old", GceArgsNa2, "true", 1);
 			Deployment2Command("deployment_degrade_old", GceArgsEu1, "true", 1);
 			Deployment2Command("deployment_degrade_old", GceArgsEu2, "true", 1);
+			Deployment2Command("deployment_degrade_old", AwsArgsNa1, "true", 1);
+			Deployment2Command("deployment_degrade_old", AwsArgsEu1, "true", 1);
 			Deployment2Command("deployment_degrade_old", GceNaHub1, "true", 1);
 			Deployment2Command("deployment_degrade_old", GceNaHub2, "true", 1);
 			Deployment2Command("deployment_degrade_old", GceNaHub3, "true", 1);
@@ -200,12 +208,17 @@ namespace UnrealTournamentGame.Automation
 			Deployment2Command("deployment_degrade_old", GceEuHub3, "true", 1);
 			Deployment2Command("deployment_degrade_old", AwsNaHub1, "true", 1);
 			Deployment2Command("deployment_degrade_old", AwsNaHub2, "true", 1);
+			Deployment2Command("deployment_degrade_old", AwsEuHub1, "true", 1);
+			Deployment2Command("deployment_degrade_old", AwsEuHub2, "true", 1);
 			Deployment2Command("deployment_degrade_old", AwsAuHub1, "true", 1);
+			Deployment2Command("deployment_degrade_old", AwsSaHub1, "true", 1);
 
 			Deployment2Command("deployment_degrade_old", GceArgsNa1, "get_pending", MaxRetries);
 			Deployment2Command("deployment_degrade_old", GceArgsNa2, "get_pending", MaxRetries);
 			Deployment2Command("deployment_degrade_old", GceArgsEu1, "get_pending", MaxRetries);
 			Deployment2Command("deployment_degrade_old", GceArgsEu2, "get_pending", MaxRetries);
+			Deployment2Command("deployment_degrade_old", AwsArgsNa1, "get_pending", MaxRetries);
+			Deployment2Command("deployment_degrade_old", AwsArgsEu1, "get_pending", MaxRetries);
 			Deployment2Command("deployment_degrade_old", GceNaHub1, "get_pending", MaxRetries);
 			Deployment2Command("deployment_degrade_old", GceNaHub2, "get_pending", MaxRetries);
 			Deployment2Command("deployment_degrade_old", GceNaHub3, "get_pending", MaxRetries);
@@ -214,7 +227,10 @@ namespace UnrealTournamentGame.Automation
 			Deployment2Command("deployment_degrade_old", GceEuHub3, "get_pending", MaxRetries);
 			Deployment2Command("deployment_degrade_old", AwsNaHub1, "get_pending", MaxRetries);
 			Deployment2Command("deployment_degrade_old", AwsNaHub2, "get_pending", MaxRetries);
+			Deployment2Command("deployment_degrade_old", AwsEuHub1, "get_pending", MaxRetries);
+			Deployment2Command("deployment_degrade_old", AwsEuHub2, "get_pending", MaxRetries);
 			Deployment2Command("deployment_degrade_old", AwsAuHub1, "get_pending", MaxRetries);
+			Deployment2Command("deployment_degrade_old", AwsSaHub1, "get_pending", MaxRetries);
 		}
 
 		private string GetUtilitiesFilePath(string Filename)
@@ -278,11 +294,6 @@ namespace UnrealTournamentGame.Automation
             {
                 GameBinary = "UE4Server-Linux-Shipping";
             }
-
-			if (Debug)
-			{
-				tag = tag + "debug";
-			}
 
 			string AwsAccessKey = AwsCredentialsList[0];
 			Byte[] AwsAccessSecretKeyBytes = System.Text.Encoding.UTF8.GetBytes(AwsCredentialsList[1]);
