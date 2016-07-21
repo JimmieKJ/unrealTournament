@@ -150,6 +150,32 @@ void UUTProfileSettings::VersionFixup()
 		}
 	}
 
+	if (SettingsRevisionNum < RALLY_FIXUP_PROFILESETTINGS_VERSION)
+	{
+		bool bFound = false;
+		for (int32 i = 0; i < ActionMappings.Num(); i++)
+		{
+			if (ActionMappings[i].ActionName == FName(TEXT("RequestRally")))
+			{
+				bFound = true;
+				ActionMappings[i].Key = EKeys::E;
+			}
+			else if (ActionMappings[i].Key == EKeys::E)
+			{
+				ActionMappings[i].Key = EKeys::Enter;
+			}
+		}
+
+		if (!bFound)
+		{
+			FInputActionKeyMapping ComsMenuKey;
+			ComsMenuKey.ActionName = FName(TEXT("RequestRally"));
+			ComsMenuKey.Key = EKeys::E;
+			ActionMappings.AddUnique(ComsMenuKey);
+		}
+
+	}
+
 	// The format has changed during Dev versions.  So in case some people have written out unlocks, clear them here.
 	if (SettingsRevisionNum <= CHALLENGE_FIXUP_VERSION)
 	{
