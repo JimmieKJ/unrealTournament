@@ -224,7 +224,11 @@ protected:
 	TArray< TSharedPtr<FString> > QuickStatTypesList;
 	TSharedPtr<STextBlock> SelectedLayout;
 
+	TArray< TSharedPtr<FString> > WeaponBarOrientationList;
+	TSharedPtr<STextBlock> SelectedWeaponBarOrientation;
+
 	void OnLayoutChanged(TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo);
+	void OnWeaponBarOrientationChanged(TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo);
 
 private:
 	bool bInGame;

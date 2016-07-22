@@ -2,64 +2,29 @@
 
 #include "UnrealTournament.h"
 #include "UTHUDWidget_Paperdoll.h"
+#include "UTProfileSettings.h"
+#include "UTHUDWidget_WeaponBar.h"
 #include "UTJumpBoots.h"
+
 #include "UTArmor.h"
 
 UUTHUDWidget_Paperdoll::UUTHUDWidget_Paperdoll(const class FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
 {
-	Position=FVector2D(5.0f, -5.0f);
-	Size=FVector2D(205.0f,111.0f);
-	ScreenPosition=FVector2D(0.0f, 1.0f);
-	Origin=FVector2D(0.0f,1.0f);
+	DesignedResolution = 1080.0f;
+	Position=FVector2D(0.0f, -8.0f);
+	Size=FVector2D(224.0f,46.0f);
+	ScreenPosition=FVector2D(0.5f, 1.0f);
+	Origin=FVector2D(0.5f,1.0f);
 }
 
 void UUTHUDWidget_Paperdoll::InitializeWidget(AUTHUD* Hud)
 {
 	Super::InitializeWidget(Hud);
-	HealthText.GetTextDelegate.BindUObject(this, &UUTHUDWidget_Paperdoll::GetPlayerHealth);
-	ArmorText.GetTextDelegate.BindUObject(this, &UUTHUDWidget_Paperdoll::GetPlayerArmor);
+
 	LastHealth = 100;
 	LastArmor = 0;
 	ArmorFlashTimer = 0.0f;
 	HealthFlashTimer = 0.0f;
-}
-
-FText UUTHUDWidget_Paperdoll::GetPlayerHealth_Implementation()
-{
-	AUTCharacter* UTC = Cast<AUTCharacter>(UTHUDOwner->UTPlayerOwner->GetViewTarget());
-	return (UTC != NULL && !UTC->IsDead()) ? FText::AsNumber(UTC->Health) : FText::AsNumber(0);
-}
-
-FText UUTHUDWidget_Paperdoll::GetPlayerArmor_Implementation()
-{
-	return FText::AsNumber(PlayerArmor);
-}
-
-void UUTHUDWidget_Paperdoll::ProcessArmor()
-{
-	PlayerArmor = 0;
-	AUTCharacter* UTC = Cast<AUTCharacter>(UTHUDOwner->UTPlayerOwner->GetViewTarget());
-	bool bHasShieldBelt = false;
-	bool bHasThighPads = false;
-	bool bHasChest = false;
-	bool bHasHelmet = false;
-	bool bHasJumpBoots = false;
-	if (UTC != NULL && !UTC->IsDead())
-	{
-		PlayerArmor = UTC->GetArmorAmount();
-		if ((PlayerArmor > 0) && UTC->ArmorType)
-		{
-			bHasShieldBelt |= (UTC->ArmorType->ArmorType == ArmorTypeName::ShieldBelt);
-			bHasThighPads |= (UTC->ArmorType->ArmorType == ArmorTypeName::ThighPads);
-			bHasChest |= (UTC->ArmorType->ArmorType == ArmorTypeName::FlakVest);
-			bHasHelmet |= (UTC->ArmorType->ArmorType == ArmorTypeName::Helmet);
-		} 
-	}
-	PaperDoll_ShieldBeltOverlay.bHidden = !bHasShieldBelt;
-	PaperDoll_ChestArmorOverlay.bHidden = !bHasChest;
-	PaperDoll_HelmetOverlay.bHidden = !bHasHelmet;
-	PaperDoll_ThighPadArmorOverlay.bHidden = !bHasThighPads;
-	PaperDoll_BootsOverlay.bHidden = !bHasJumpBoots;
 }
 
 bool UUTHUDWidget_Paperdoll::ShouldDraw_Implementation(bool bShowScores)
@@ -69,26 +34,48 @@ bool UUTHUDWidget_Paperdoll::ShouldDraw_Implementation(bool bShowScores)
 	if (UTHUDOwner && UTHUDOwner->UTPlayerOwner)
 	{
 		UUTProfileSettings* ProfileSettings=  UTHUDOwner->UTPlayerOwner->GetProfileSettings();
-		bHidden = ProfileSettings ? ProfileSettings->bHidePaperdoll : false;
+		bHidden = ProfileSettings ? !ProfileSettings->bQuickStatsHidden: false;
 	}
 
 	return ( !bHidden && (GS == NULL || !GS->HasMatchEnded()) && Super::ShouldDraw_Implementation(bShowScores) );
 }
 
+void UUTHUDWidget_Paperdoll::PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCanvas* InCanvas, FVector2D InCanvasCenter)
+{
+	UUTHUDWidget_WeaponBar* WB = Cast<UUTHUDWidget_WeaponBar>(InUTHUDOwner->FindHudWidgetByClass(UUTHUDWidget_WeaponBar::StaticClass()));
+	ScreenPosition.Y = 1.0f;
+	if (WB)
+	{
+		UUTProfileSettings* PlayerProfile = InUTHUDOwner->UTPlayerOwner->GetProfileSettings();
+		if (PlayerProfile != nullptr && !PlayerProfile->bVerticalWeaponBar)
+		{
+			ScreenPosition.Y = 0.925f;	
+		}
+	}
+
+	AUTGameState* UTGameState = InUTHUDOwner->GetWorld()->GetGameState<AUTGameState>();
+	if (UTGameState)
+	{
+		HealthBackground.bUseTeamColors = false;	//UTGameState->bTeamGame;	
+		ArmorBackground.bUseTeamColors = false;		//UTGameState->bTeamGame;	
+	}
+
+	Super::PreDraw(DeltaTime, InUTHUDOwner, InCanvas, InCanvasCenter);
+}
+
+
 void UUTHUDWidget_Paperdoll::Draw_Implementation(float DeltaTime)
 {
 	AUTCharacter* UTC = Cast<AUTCharacter>(UTHUDOwner->UTPlayerOwner->GetViewTarget());
 	AUTPlayerState* PS = UTC ? Cast<AUTPlayerState>(UTC->PlayerState) : NULL;
-	FlagIconTemplate.RenderColor = (PS && PS->CarriedObject && PS->CarriedObject->Team) ? PS->CarriedObject->Team->TeamColor : FLinearColor::Blue;
-	FlagIconTemplate.bHidden = !PS || !PS->Team || !PS->CarriedObject;
-	PaperDollBase.RenderColor = (PS && PS->Team) ? PS->Team->TeamColor : FLinearColor::White;
-
-	ProcessArmor();
-
 	UUTHUDWidget_Paperdoll* DefObj = GetClass()->GetDefaultObject<UUTHUDWidget_Paperdoll>();
 
 	if (UTC != NULL && !UTC->IsDead())
 	{
+		PlayerArmor = UTC->GetArmorAmount();
+
+		ShieldOverlay.bHidden = PlayerArmor <= 100;
+		ArmorText.Text = FText::AsNumber(PlayerArmor);
 		if (PlayerArmor != LastArmor)
 		{
 			ArmorText.RenderColor = (PlayerArmor > LastArmor) ? ArmorPositiveFlashColor : ArmorNegativeFlashColor;
@@ -111,6 +98,7 @@ void UUTHUDWidget_Paperdoll::Draw_Implementation(float DeltaTime)
 			ArmorText.TextScale = 1.f;
 		}
 
+		HealthText.Text = FText::AsNumber(UTC->Health);
 		if (UTC->Health != LastHealth)
 		{
 			HealthText.RenderColor = (UTC->Health > LastHealth) ? HealthPositiveFlashColor : HealthNegativeFlashColor;

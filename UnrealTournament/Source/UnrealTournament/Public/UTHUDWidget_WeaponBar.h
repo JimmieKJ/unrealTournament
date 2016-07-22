@@ -5,33 +5,100 @@
  *
  **/
 
+#include "UTWeapon.h"
 #include "UTHUDWidget_WeaponBar.generated.h"
 
+const float CELL_ASPECT_RATIO = 2.43478260869565f;
+const float DEFAULT_CELL_WIDTH = 112.0f;
+const float DEFUALT_CELL_HEIGHT = 46.0f;
+const float CELL_PADDING_VERT = 4.0f;
+const float GROUP_PADDING_VERT = 8.0f;
+const float CELL_PADDING_HORZ = 4.0f;
+const float GROUP_PADDING_HORZ = 12.0f;
+const float ACTIVE_FADE_DELAY = 1.5f;
+const float ACTIVE_FADE_TIME = 0.75f;
+
 USTRUCT()
-struct FWeaponGroup
+struct FWeaponGroupInfo
 {
 	GENERATED_USTRUCT_BODY()
+
+	// Holds a list of class of all of the possible weapons in this group.
+	UPROPERTY()
+	TArray<TSubclassOf<AUTWeapon> > WeaponClasses;
+
+	// Holds a list of the actual weapons the pawn owns in this group.  NOTE: these might be null as one entry is created per WeaponClass
+	UPROPERTY()
+	TArray<AUTWeapon*> Weapons;
 
 	UPROPERTY()
 	int32 Group;
 
-	UPROPERTY()
-	TArray<AUTWeapon*> WeaponsInGroup;
-
-	FWeaponGroup()
+	FWeaponGroupInfo()
 	{
-		Group = -1;
 	}
 
-	FWeaponGroup(int32 inGroup, AUTWeapon* FirstWeapon)
+	void AddWeapon(TSubclassOf<AUTWeapon> inWeaponClass, AUTWeapon* inWeapon, int32 inGroup)
 	{
-		Group = inGroup;
-		if (FirstWeapon)
+		if (inWeaponClass != nullptr)
 		{
-			WeaponsInGroup.Add(FirstWeapon);
+			WeaponClasses.Add(inWeaponClass);
+			Weapons.Add(inWeapon);
+			Group = inGroup;
 		}
 	}
 
+	void UpdateWeapon(TSubclassOf<AUTWeapon> inWeaponClass, AUTWeapon* inWeapon, int32 inGroup)
+	{
+		int32 Index = WeaponClasses.Find(inWeaponClass);
+		if (Index != INDEX_NONE)
+		{
+			Weapons[Index] = inWeapon;		
+		}
+		else
+		{
+			AddWeapon(inWeaponClass, inWeapon, inGroup);
+		}
+	}
+
+};
+
+USTRUCT()
+struct FWeaponBarCell
+{
+	GENERATED_USTRUCT_BODY()
+
+	UPROPERTY()
+	FVector2D DrawPosition;
+
+	UPROPERTY()
+	FVector2D DrawSize;
+
+	UPROPERTY()
+	AUTWeapon* Weapon;
+
+	UPROPERTY()
+	TSubclassOf<AUTWeapon> WeaponClass;
+
+	UPROPERTY()
+	int32 WeaponGroup;
+
+	FWeaponBarCell()
+		: DrawPosition(FVector2D(0.0f,0.0f))
+		, DrawSize(FVector2D(0.0f,0.0f))
+		, Weapon(nullptr)
+		, WeaponGroup(-1)
+	{
+	}
+
+	FWeaponBarCell(FVector2D inDrawPosition, FVector2D inDrawSize, AUTWeapon* inWeapon, TSubclassOf<AUTWeapon> inWeaponClass, int32 inGroup)
+		: DrawPosition(inDrawPosition)
+		, DrawSize(inDrawSize)
+		, Weapon(inWeapon)
+		, WeaponClass(inWeaponClass)
+		, WeaponGroup(inGroup)
+	{
+	}
 };
 
 UCLASS(Config=Game)
@@ -47,73 +114,87 @@ public:
 
 protected:
 
-	// Insures this many groups will be shown on the weapon bar
-	UPROPERTY(config)
-	int32 RequiredGroups;
+	// Where on the screen in pixels should this bar be displayed when in it's vertical form
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "WeaponBar")
+	FVector2D VerticalPosition;
 
-	// This is the background slate for the weapon icon portion of the bar.  Index 0 is the for the first item in a group, Index 1 is for all other items
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
-	TArray<FHUDRenderObject_Texture> CellBackground;
+	// Where on the screen in relative positioning should this bar be displayed when in it's vertical form
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "WeaponBar")
+	FVector2D VerticalScreenPosition;
 
-	// This is the border for the weapon icon portion of the bar.  Index 0 is the for the first item in a group, Index 1 is for all other items
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
-	TArray<FHUDRenderObject_Texture> CellBorders;
+	// Where on the screen in pixels should this bar be displayed when in it's horz form
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "WeaponBar")
+	FVector2D HorizontalPosition;
 
-	// The header cap is the border piece that goes between the header tab and the weeapon icon portion of the bar.   Index 0 is the for the first item in a group, Index 1 is for all other items
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
-	TArray<FHUDRenderObject_Texture> GroupHeaderCap;
+	// Where on the screen in relative positioning should this bar be displayed when in it's horz. form
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "WeaponBar")
+	FVector2D HorizontalScreenPosition;
 
-	// This is the border piece that stretches between the Group header cap and the header tab.  It will expand as needed to fill the gap.  Index 0 is the for the first item in a group, Index 1 is for all other items
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
-	TArray<FHUDRenderObject_Texture> GroupSpacerBorder;
+	// What is the max size of the widget in 1080p.  X is used for horz. layouts, Y for vertical.
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "WeaponBar")
+	FVector2D MaxSize;
 
-	// The Header Tab is the portion of the bar that shows the "group" key to trigger the group.
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
-	TArray<FHUDRenderObject_Texture> HeaderTab;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
+	// How much space in the cell should the ammo bar take
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "WeaponBar")
+	FVector2D AmmoBarSizePct;
+	
+	// The text to use for the Group / Weapon #
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "WeaponBar")
 	FHUDRenderObject_Text GroupText;
 	
 	// The Header Tab is the portion of the bar that shows the "group" key to trigger the group.
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "WeaponBar")
 	FHUDRenderObject_Texture WeaponIcon;
 
-	// How wide (unscaled) should the final cell be.  This should be the width of all the parts together.  However,
-	// the CellBackground and CellBorders will be stretched to fill any portion of this not filled.
-
+	// The background image for each cell
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "WeaponBar")
-	float CellWidth;
+	FHUDRenderObject_Texture CellBackground;
 
+	// The background for the ammo bar
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "WeaponBar")
-	float PaddingBetweenCells;
+	FHUDRenderObject_Texture AmmoBarBackground;
 
-	// How much should a selected cell be scaled by.  NOTE: All of
+	// The fill for the ammo bar
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "WeaponBar")
+	FHUDRenderObject_Texture AmmoBarFill;
+
+	// How much should a selected cell be scaled by.  
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "WeaponBar")
 	float SelectedCellScale;
 
+	// How fast should a cell transition between scales
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "WeaponBar")
 	float SelectedAnimRate;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "WeaponBar")
-	UTexture* BarTexture;
+	float SelectedOpacity;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "WeaponBar")
-	FTextureUVs BarTextureUVs;
+	float ActiveOpacity;
 
-	/** Fills the WeaponGroups and returns the number of weapons found. */
-	int32 CollectWeaponData(TArray<FWeaponGroup> &WeaponGroups, float DeltaTime);
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "WeaponBar")
+	float InactiveOpacity;
 
 	// Override the default version to return the secondary scaling
 	virtual float GetDrawScaleOverride();
 
 private:
 
-	float InactiveOpacity;
-	float InactiveIconOpacity;
+	UPROPERTY()
+	UTexture2D* DefaultWeaponIconAtlas;
 
-	float WeaponNameDisplayTimer;
+	FTextureUVs ActiveBackgroundUVs;
+	FTextureUVs InactiveBackgroundUVs;
 
-	float FadeTimer;
-	int32 LastGroup;
-	float LastGroupSlot;
+	TArray<FWeaponBarCell> Cells;
+
+	int32 NumWeaponsToDraw;
+	bool bVerticalLayout;
+
+	UPROPERTY()
+	AUTWeapon* LastSelectedWeapon;
+	float LastActiveTime;
+	float InactiveFadePerc;
+	void DrawLabel(float LabelPos, float LabelStart, float LabelEnd, float LabelGroup);
+
 };

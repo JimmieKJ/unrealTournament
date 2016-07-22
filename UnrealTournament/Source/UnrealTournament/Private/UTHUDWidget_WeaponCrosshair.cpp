@@ -5,7 +5,7 @@
 
 const float MAX_HIT_INDICATOR_TIME = 1.5f;
 const float MAX_HIT_MOVEMENT = 100.0f;
-const float MAX_HIT_DAMAGE = 200.0f;
+const float MAX_HIT_DAMAGE = 150.0f;
 const float HIT_STRETCH_TIME=0.15f;
 const float FLASH_BLINK_TIME=0.5;
 

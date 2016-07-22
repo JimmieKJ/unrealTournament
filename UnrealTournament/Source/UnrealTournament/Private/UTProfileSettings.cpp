@@ -16,7 +16,7 @@ UUTProfileSettings::UUTProfileSettings(const FObjectInitializer& ObjectInitializ
 	ReplayCustomDOFScale = 1.0f;
 
 	Avatar = FName("UT.Avatar.0");
-
+	bVerticalWeaponBar = true;
 	ResetHUD();
 }
 
@@ -210,6 +210,7 @@ void UUTProfileSettings::ResetHUD()
 	bPlayKillSoundMsg = true;
 	HUDMinimapScale = 1.0f;
 	bPushToTalk = true;
+	bVerticalWeaponBar = true;
 }
 
 void UUTProfileSettings::SetWeaponPriority(FString WeaponClassName, float NewPriority)
@@ -510,4 +511,19 @@ void UUTProfileSettings::UpdateCrosshairs(AUTHUD* HUD)
 	HUD->CrosshairInfos = CrosshairInfos;
 	HUD->bCustomWeaponCrosshairs = bCustomWeaponCrosshairs;
 	HUD->SaveConfig();
+}
+
+
+void UUTProfileSettings::GetWeaponGroup(AUTWeapon* Weapon, int32& WeaponGroup, int32& GroupPriority)
+{
+	if (Weapon != nullptr)
+	{
+		WeaponGroup = Weapon->DefaultGroup;
+		GroupPriority = Weapon->GroupSlot;
+
+		if (WeaponGroupLookup.Contains(Weapon->GetClass()->GetName()))
+		{
+			WeaponGroup = WeaponGroupLookup[Weapon->GetClass()->GetName()].Group;
+		}
+	}
 }

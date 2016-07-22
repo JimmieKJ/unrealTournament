@@ -207,7 +207,7 @@ class UNREALTOURNAMENT_API UUTProfileSettings : public UObject
 	bool bHideDamageIndicators;
 
 	UPROPERTY()
-	bool bHidePaperdoll;
+	bool bVerticalWeaponBar;
 
 	// the below have been moved to UTProgressionStorage and are only here for backwards compatibility
 private:
@@ -428,4 +428,9 @@ public:
 	// These slots are used by the weapon wheel menu.  They hold the classname of the weapon in this slot
 	UPROPERTY()
 	TArray<FString> WeaponWheelQuickSlots;
+
+
+	// Weapon Accessors
+
+	void GetWeaponGroup(AUTWeapon* WeaponClass, int32& WeaponGroup, int32& GroupPriority);
 };

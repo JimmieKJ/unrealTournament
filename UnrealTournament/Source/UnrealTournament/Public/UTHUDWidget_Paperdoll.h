@@ -10,15 +10,19 @@ class UNREALTOURNAMENT_API UUTHUDWidget_Paperdoll : public UUTHUDWidget
 
 public:
 	virtual bool ShouldDraw_Implementation(bool bShowScores) override;
+	virtual void PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCanvas* InCanvas, FVector2D InCanvasCenter) override;
 	virtual void Draw_Implementation(float DeltaTime) override;
 	virtual void InitializeWidget(AUTHUD* Hud) override;
 
 protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
-	FHUDRenderObject_Texture BackgroundSlate;
+	FHUDRenderObject_Texture HealthBackground;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
-	FHUDRenderObject_Texture BackgroundBorder;
+	FHUDRenderObject_Texture ArmorBackground;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
+	FHUDRenderObject_Texture ShieldOverlay;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
 	FHUDRenderObject_Texture HealthIcon;
@@ -26,27 +30,6 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
 	FHUDRenderObject_Texture ArmorIcon;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
-		FHUDRenderObject_Texture FlagIconTemplate;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
-	FHUDRenderObject_Texture PaperDollBase;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
-	FHUDRenderObject_Texture PaperDoll_ShieldBeltOverlay;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
-	FHUDRenderObject_Texture PaperDoll_ChestArmorOverlay;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
-	FHUDRenderObject_Texture PaperDoll_ThighPadArmorOverlay;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
-	FHUDRenderObject_Texture PaperDoll_BootsOverlay;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
-	FHUDRenderObject_Texture PaperDoll_HelmetOverlay;
-	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
 	FHUDRenderObject_Text HealthText;
 
@@ -70,15 +53,6 @@ protected:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
 	FLinearColor ArmorNegativeFlashColor;
-
-	UFUNCTION(BlueprintNativeEvent, Category = "RenderObject")
-	FText GetPlayerHealth();
-
-	UFUNCTION(BlueprintNativeEvent, Category = "RenderObject")
-	FText GetPlayerArmor();
-
-	UFUNCTION(BlueprintCallable, Category = "PaperDoll")
-	virtual void ProcessArmor();
 
 	int32 PlayerArmor;
 

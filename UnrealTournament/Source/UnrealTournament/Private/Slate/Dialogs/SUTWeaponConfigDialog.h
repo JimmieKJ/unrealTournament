@@ -150,6 +150,8 @@ public:
 	TSharedPtr<STextBlock> SelectedWeaponQuickslot;
 
 	TArray<FString> WeaponWheelClassnames;
+	
+	virtual void OnDialogClosed();
 
 };
 #endif

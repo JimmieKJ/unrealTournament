@@ -1304,5 +1304,22 @@ void SUTWeaponConfigDialog::OnQuickslotSelected(TSharedPtr<FText> NewSelection, 
 	}
 }
 
+void SUTWeaponConfigDialog::OnDialogClosed()
+{
+	SUTDialogBase::OnDialogClosed();
+
+	WeaponClassList.Empty();
+	WeakWeaponClassList.Empty();
+	SelectedWeapon.Reset();
+
+	CrosshairInfos.Empty();
+	WeaponMap.Empty();
+	CrosshairMap.Empty();
+
+	CrosshairClassList.Empty();
+	WeakCrosshairList.Empty();
+
+	PlayerOwner->GetWorld()->ForceGarbageCollection(true);
+}
 
 #endif

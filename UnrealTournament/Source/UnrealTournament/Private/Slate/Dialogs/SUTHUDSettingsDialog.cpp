@@ -421,13 +421,76 @@ TSharedRef<SWidget> SUTHUDSettingsDialog::BuildGeneralTab()
 			SNew(SBox).HeightOverride(48)
 		]
 
-	+ AddIntOption(NAME_HUDMinimapScale, NSLOCTEXT("HUDSETTINGS", "Minimap", "Mini-map Scale"), NSLOCTEXT("SUTHUDSettingsDialog", "MinimapScaleTT", "Change the size of the mini-map"), NSLOCTEXT("SUTHUDSettingsDialog", "Percent", "%"), int32(ProfileSettings->HUDMinimapScale * 100.0f), 25, 200);
+		+ AddIntOption(NAME_HUDMinimapScale, NSLOCTEXT("HUDSETTINGS", "Minimap", "Mini-map Scale"), NSLOCTEXT("SUTHUDSettingsDialog", "MinimapScaleTT", "Change the size of the mini-map"), NSLOCTEXT("SUTHUDSettingsDialog", "Percent", "%"), int32(ProfileSettings->HUDMinimapScale * 100.0f), 25, 200)
+
+		// Spacer....
+		+SVerticalBox::Slot().AutoHeight()
+		[
+			SNew(SBox).HeightOverride(48)
+		]
+
+		+AddBoolOption(NAME_bQuickStatsHidden, NSLOCTEXT("SUTHUDSettingsDialog", "bQuickStatsHidden", "Show Quick Stats"), NSLOCTEXT("SUTHUDSettingsDialog", "bQuickStatsHiddenTT", "Check this box if you wish to show the quick stats indicator all together."), !ProfileSettings->bQuickStatsHidden)
+		+AddBoolOption(NAME_bHideDamageIndicators, NSLOCTEXT("SUTHUDSettingsDialog", "bHideDamageIndicators", "Show Damage Dealt Indicator"), NSLOCTEXT("SUTHUDSettingsDialog", "bHideDamageIndicatorsTT", "Enable this to show the damage delt indicators that appear around the crosshair."), !ProfileSettings->bHideDamageIndicators);
 }
 
 TSharedRef<SWidget> SUTHUDSettingsDialog::BuildWeaponBarTab()
 {
 
+	WeaponBarOrientationList.Empty();
+	WeaponBarOrientationList.Add( MakeShareable(new FString(TEXT("Vertical"))));
+	WeaponBarOrientationList.Add( MakeShareable(new FString(TEXT("Horizontal"))));
+
+	int32 WeaponBarOrientationIndex = ProfileSettings.IsValid() ? (ProfileSettings->bVerticalWeaponBar ? 0 : 1) : 0;
 	return SNew(SVerticalBox)
+
+		// The Layout
+		+SVerticalBox::Slot()
+			.HAlign(HAlign_Fill)
+			.AutoHeight()
+			.Padding(FMargin(40.0f, 15.0f, 10.0f, 5.0f))
+			[
+				SNew(SHorizontalBox)
+				+SHorizontalBox::Slot()
+				[
+					SNew(STextBlock)
+						.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Small.Bold")
+						.Text(NSLOCTEXT("SUTHUDSettingsDialog","WeaponBarOrientation","Orientation:"))
+						.ToolTip(SUTUtils::CreateTooltip(NSLOCTEXT("SUTHUDSettingsDialog","WeaponBarOrientationTT","Change how the weapon bar is displayed, either vertically on the right side of the screen, or horizontally across the bottom.")))
+				]
+				+SHorizontalBox::Slot()
+				.AutoWidth()
+				[
+					SNew(SBox)
+					.WidthOverride(140)
+					[
+						SNew(SComboBox< TSharedPtr<FString> >)
+						.InitiallySelectedItem(WeaponBarOrientationList[WeaponBarOrientationIndex])
+						.ComboBoxStyle(SUTStyle::Get(), "UT.ComboBox")
+						.ButtonStyle(SUTStyle::Get(), "UT.SimpleButton.Bright")
+						.OptionsSource(&WeaponBarOrientationList)
+						.OnGenerateWidget(this, &SUTDialogBase::GenerateStringListWidget)
+						.OnSelectionChanged(this, &SUTHUDSettingsDialog::OnWeaponBarOrientationChanged)
+						.Content()
+						[
+							SAssignNew(SelectedWeaponBarOrientation, STextBlock)
+							.Text(FText::FromString(*WeaponBarOrientationList[WeaponBarOrientationIndex].Get()))
+							.TextStyle(SUTStyle::Get(),"UT.Font.NormalText.Small")
+							.ColorAndOpacity(FLinearColor::Black)
+						]
+					]
+				]
+				+SHorizontalBox::Slot()
+				[
+					SNew(SCanvas)
+				]
+			]
+
+		+SVerticalBox::Slot().AutoHeight()
+		[
+			SNew(SBox).HeightOverride(48)
+		]
+
+
 		+AddIntOption(NAME_HUDWidgetWeaponbarInactiveOpacity, NSLOCTEXT("HUDSETTINGS", "WeaponBarOpacityLabel", "General Opacity:"),NSLOCTEXT("SUTHUDSettingsDialog", "HUDWeaponBarOpaictyTT", "Adjusts how transparent the Weapon Bar should be.  NOTE this is applied in addition to the normal transparency setting."), NSLOCTEXT("SUTHUDSettingsDialog", "Percent", "%"), int32(ProfileSettings->HUDWidgetWeaponbarInactiveOpacity * 100.0f), 0, 100)
 		+AddIntOption(NAME_HUDWidgetWeaponBarScaleOverride, NSLOCTEXT("HUDSETTINGS", "WeaponBarScaleLabel", "Scale:"), NSLOCTEXT("SUTHUDSettingsDialog", "HUDWeaponBarScaleTT", "Adjusts how big or small the Weapon Bar should be."), NSLOCTEXT("SUTHUDSettingsDialog", "Percent", "%"), (ProfileSettings->HUDWidgetWeaponBarScaleOverride * 100.0f), 25, 300)
 		+AddIntOption(NAME_HUDWidgetWeaponBarInactiveIconOpacity, NSLOCTEXT("HUDSETTINGS", "WeaponBarIconOpacityLabel", "Icon/Label Opacity:"), NSLOCTEXT("SUTHUDSettingsDialog", "HUDWeaponBarIconOpacityTT", "Adjusts how transparent the icons on the Weapon Bar should be."), NSLOCTEXT("SUTHUDSettingsDialog", "Percent", "%"), int32(ProfileSettings->HUDWidgetWeaponBarInactiveIconOpacity * 100.0f), 0, 100)
@@ -469,8 +532,6 @@ TSharedRef<SWidget> SUTHUDSettingsDialog::BuildQuickStatsTab()
 	int32 CurrentQuickStatType = ProfileSettings.IsValid() ? (ProfileSettings->QuickStatsType == FName(TEXT("Bunch")) ? 1 : 0) : 0;
 
 	return SNew(SVerticalBox)
-
-		+AddBoolOption(NAME_bQuickStatsHidden, NSLOCTEXT("SUTHUDSettingsDialog", "bQuickStatsHidden", "Hide Quick Stats"), NSLOCTEXT("SUTHUDSettingsDialog", "bQuickStatsHiddenTT", "Check this box if you wish to hide the quick stats indicator all together."), ProfileSettings->bQuickStatsHidden)
 		
 		// The Layout
 		+SVerticalBox::Slot()
@@ -523,9 +584,7 @@ TSharedRef<SWidget> SUTHUDSettingsDialog::BuildQuickStatsTab()
 		+AddFloatOption(NAME_QuickStatsDistance, NSLOCTEXT("HUDSETTINGS", "QuickStatsDistance", "Distance:"), NSLOCTEXT("SUTHUDSettingsDialog", "QuickStatsDistanceTT", "Changes how far from the crosshair your quick stats menu should be."), NSLOCTEXT("SUTHUDSettingsDialog", "Percent", "%"), ProfileSettings->QuickStatsDistance, 0.0f, 0.75f)
 		+AddIntOption(NAME_QuickStatsForegroundAlpha, NSLOCTEXT("HUDSETTINGS", "QuickStatsForegroundAlpha", "Icon & Text Opacity:"), NSLOCTEXT("SUTHUDSettingsDialog", "QuickStatsForegroundAlphaTT", "Adjusts the opacity of the icon and text for each stat."), NSLOCTEXT("SUTHUDSettingsDialog", "Percent", "%"), int32(ProfileSettings->QuickStatsForegroundAlpha * 100.0f), 0, 100)
 		+AddIntOption(NAME_QuickStatsBackgroundAlpha, NSLOCTEXT("HUDSETTINGS", "QuickStatsBackgroundAlpha", "Background Opacity:"), NSLOCTEXT("SUTHUDSettingsDialog", "QuickStatsBackgroundAlphaTT", "Adjusts the opacity of the background."), NSLOCTEXT("SUTHUDSettingsDialog", "Percent", "%"), int32(ProfileSettings->QuickStatsBackgroundAlpha * 100.0f), 0, 100)
-		+AddBoolOption(NAME_bQuickStatsBob, NSLOCTEXT("SUTHUDSettingsDialog", "bQuickStatsBob", "Bob With Weapon"), NSLOCTEXT("SUTHUDSettingsDialog", "bQuickStatsBobTT", "If selected, the on-screen inditators will animate and follow the weapon's bob."), ProfileSettings->bQuickStatsBob)
-		+AddBoolOption(NAME_bHideDamageIndicators, NSLOCTEXT("SUTHUDSettingsDialog", "bHideDamageIndicators", "Hide Damage Dealt Indicator"), NSLOCTEXT("SUTHUDSettingsDialog", "bHideDamageIndicatorsTT", "Enable this to hide the damage delt indicators that appear around the crosshair."), ProfileSettings->bHideDamageIndicators)
-		+AddBoolOption(NAME_bHidePaperdoll, NSLOCTEXT("SUTHUDSettingsDialog", "bHidePaperdoll", "Hide Paperdoll"), NSLOCTEXT("SUTHUDSettingsDialog", "bHidePaperdollTT", "Enable this to hide the paper doll at the bottom of the screen."), ProfileSettings->bHidePaperdoll);
+		+AddBoolOption(NAME_bQuickStatsBob, NSLOCTEXT("SUTHUDSettingsDialog", "bQuickStatsBob", "Bob With Weapon"), NSLOCTEXT("SUTHUDSettingsDialog", "bQuickStatsBobTT", "If selected, the on-screen inditators will animate and follow the weapon's bob."), ProfileSettings->bQuickStatsBob);
 }
 
 
@@ -602,11 +661,11 @@ void SUTHUDSettingsDialog::ApplySettings()
 		ProfileSettings->QuickStatsDistance = SettingsInfos[NAME_QuickStatsDistance]->GetActualValue_float();
 		ProfileSettings->QuickStatsBackgroundAlpha = float(SettingsInfos[NAME_QuickStatsBackgroundAlpha]->GetActualValue_int32()) / 100.0f;
 		ProfileSettings->QuickStatsForegroundAlpha = float(SettingsInfos[NAME_QuickStatsForegroundAlpha]->GetActualValue_int32()) / 100.0f;
-		ProfileSettings->bQuickStatsHidden = SettingsInfos[NAME_bQuickStatsHidden]->GetActualValue_bool();
+		ProfileSettings->bQuickStatsHidden = !SettingsInfos[NAME_bQuickStatsHidden]->GetActualValue_bool();
 		ProfileSettings->bQuickStatsBob = SettingsInfos[NAME_bQuickStatsBob]->GetActualValue_bool();
 
-		ProfileSettings->bHideDamageIndicators = SettingsInfos[NAME_bHideDamageIndicators]->GetActualValue_bool();
-		ProfileSettings->bHidePaperdoll = SettingsInfos[NAME_bHidePaperdoll]->GetActualValue_bool();
+		ProfileSettings->bHideDamageIndicators = !SettingsInfos[NAME_bHideDamageIndicators]->GetActualValue_bool();
+		ProfileSettings->bVerticalWeaponBar = SelectedWeaponBarOrientation->GetText().ToString().Equals(*WeaponBarOrientationList[1].Get(), ESearchCase::IgnoreCase) ? false : true;
 
 		ProfileSettings->QuickStatsType = SelectedLayout->GetText().ToString().Equals(TEXT("Arc"),ESearchCase::IgnoreCase) ? EQuickStatsLayouts::Arc : EQuickStatsLayouts::Bunch;
 		PlayerOwner->SaveProfileSettings();
@@ -651,6 +710,11 @@ FReply SUTHUDSettingsDialog::OnButtonClick(uint16 ButtonID)
 void SUTHUDSettingsDialog::OnLayoutChanged(TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo)
 {
 	SelectedLayout->SetText(*NewSelection.Get());
+}
+
+void SUTHUDSettingsDialog::OnWeaponBarOrientationChanged(TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo)
+{
+	SelectedWeaponBarOrientation->SetText(*NewSelection.Get());
 }
 
 #endif
