@@ -656,14 +656,6 @@ void AUTCTFRoundGame::HandleExitingIntermission()
 		}
 	}
 
-	// reset everything
-	for (FActorIterator It(GetWorld()); It; ++It)
-	{
-		if (It->GetClass()->ImplementsInterface(UUTResetInterface::StaticClass()))
-		{
-			IUTResetInterface::Execute_Reset(*It);
-		}
-	}
 	InitRound();
 
 	//now respawn all the players
