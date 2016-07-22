@@ -27,6 +27,7 @@
 #include "UTPlayerState.h"
 #include "UTFlagRunHUD.h"
 #include "UTGhostFlag.h"
+#include "UTIntermissionBeginInterface.h"
 #include "UTCTFRoundGameState.h"
 #include "UTAsymCTFSquadAI.h"
 #include "UTAnalytics.h"
@@ -221,6 +222,15 @@ void AUTCTFRoundGame::HandleMatchIntermission()
 		if (*It && !Cast<ASpectatorPawn>((*It).Get()))
 		{
 			(*It)->TurnOff();
+		}
+	}
+
+	// inform actors of intermission start
+	for (FActorIterator It(GetWorld()); It; ++It)
+	{
+		if (It->GetClass()->ImplementsInterface(UUTIntermissionBeginInterface::StaticClass()))
+		{
+			IUTIntermissionBeginInterface::Execute_IntermissionBegin(*It);
 		}
 	}
 
