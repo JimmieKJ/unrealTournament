@@ -56,13 +56,17 @@ UUTHUDWidget_WeaponBar::UUTHUDWidget_WeaponBar(const class FObjectInitializer& O
 void UUTHUDWidget_WeaponBar::InitializeWidget(AUTHUD* Hud)
 {
 	Super::InitializeWidget(Hud);
-	GroupText.Font = Hud->TinyFont;
-	GroupText.RenderColor = FLinearColor::White;
-	GroupText.HorzPosition = ETextHorzPos::Center;
-	GroupText.VertPosition = ETextVertPos::Center;
-	GroupText.bDrawShadow = true;
-	GroupText.ShadowDirection = FVector2D(1.0f, 1.0f);
-	GroupText.ShadowColor = FLinearColor::Black;
+
+	if (Hud)
+	{
+		GroupText.Font = Hud->TinyFont;
+		GroupText.RenderColor = FLinearColor::White;
+		GroupText.HorzPosition = ETextHorzPos::Center;
+		GroupText.VertPosition = ETextVertPos::Center;
+		GroupText.bDrawShadow = true;
+		GroupText.ShadowDirection = FVector2D(1.0f, 1.0f);
+		GroupText.ShadowColor = FLinearColor::Black;
+	}
 }
 
 /**
