@@ -251,7 +251,7 @@ void AUTFlagRunGame::HandleRallyRequest(AUTPlayerController* RequestingPC)
 				RequestingPC->RallyLocation = BestRecentPosition;
 				if (bDelayedRally)
 				{
-					RequestingPC->BeginRallyTo(FlagCarrier, RequestingPC->RallyLocation, 1.2f);
+					RequestingPC->BeginRallyTo(FlagCarrier, RequestingPC->RallyLocation, 0.6f);
 				}
 				else
 				{
