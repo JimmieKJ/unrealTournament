@@ -719,6 +719,12 @@ void AUTCarriedObject::SendHome()
 	NoLongerHeld();
 	if (bGradualAutoReturn && (PastPositions.Num() > 0) && (Role == ROLE_Authority))
 	{
+		AUTGameState* GameState = GetWorld()->GetGameState<AUTGameState>();
+		if (!GameState->IsMatchInProgress() || GameState->IsMatchIntermission())
+		{
+			// don't gradual return during intermissions
+			return;
+		}
 		if ((GetActorLocation() - PastPositions[PastPositions.Num() - 1].Location).Size() < MinGradualReturnDist)
 		{
 			PastPositions.RemoveAt(PastPositions.Num() - 1);
@@ -745,7 +751,6 @@ void AUTCarriedObject::SendHome()
 					bWantsGhostFlag = true;
 				}
 			}
-			AUTGameState* GameState = GetWorld()->GetGameState<AUTGameState>();
 			if ((GetWorld()->GetTimeSeconds() - LastDroppedMessageTime > AutoReturnTime - 2.f) && GameState && !GameState->IsMatchIntermission() && !GameState->HasMatchEnded())
 			{
 				LastDroppedMessageTime = GetWorld()->GetTimeSeconds();
