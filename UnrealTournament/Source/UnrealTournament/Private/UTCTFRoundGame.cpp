@@ -67,8 +67,7 @@ AUTCTFRoundGame::AUTCTFRoundGame(const FObjectInitializer& ObjectInitializer)
 	bNoLivesEndRound = true;
 	MaxTimeScoreBonus = 180;
 
-	// remove translocator - fixmesteve make this an option
-	TranslocatorObject = nullptr;
+	bGameHasTranslocator = false;
 
 	ActivatedPowerupPlaceholderObject = FStringAssetReference(TEXT("/Game/RestrictedAssets/Pickups/Powerups/BP_ActivatedPowerup_UDamage.BP_ActivatedPowerup_UDamage_C"));
 	RepulsorObject = FStringAssetReference(TEXT("/Game/RestrictedAssets/Pickups/Powerups/BP_Repulsor.BP_Repulsor_C"));

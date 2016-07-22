@@ -138,15 +138,23 @@ void AUTCTFGameState::Tick(float DeltaTime)
 				{
 					// check for rally complete
 					int32 RemainingToRally = 0;
+					int32 AlreadyRallied = 0;
 					for (int32 i = 0; i < PlayerArray.Num() - 1; i++)
 					{
 						AUTPlayerState* PS = Cast<AUTPlayerState>(PlayerArray[i]);
-						if (PS && (PS != Flag->Holder) && (PS->Team == Flag->Holder->Team) && (PS->NextRallyTime < GetWorld()->GetTimeSeconds() + 7.f) && (!PS->GetUTCharacter() || (PS->GetUTCharacter()->bCanRally && ((PS->GetUTCharacter()->GetActorLocation() - Flag->HoldingPawn->GetActorLocation()).Size() > 2500.f))))
+						if (PS && (PS != Flag->Holder) && (PS->Team == Flag->Holder->Team))
 						{
-							RemainingToRally++;
+							if (PS->NextRallyTime > GetWorld()->GetTimeSeconds() + 12.f)
+							{
+								AlreadyRallied++;
+							}
+							else if ((PS->NextRallyTime < GetWorld()->GetTimeSeconds() + 7.f) && (!PS->GetUTCharacter() || (PS->GetUTCharacter()->bCanRally && ((PS->GetUTCharacter()->GetActorLocation() - Flag->HoldingPawn->GetActorLocation()).Size() > 2500.f))))
+							{
+								RemainingToRally++;
+							}
 						}
 					}
-					if (RemainingToRally == 0)
+					if ((RemainingToRally == 0) && (AlreadyRallied > 0))
 					{
 						LastRallyCompleteTime = GetWorld()->GetTimeSeconds();
 						Cast<AUTPlayerController>(Flag->HoldingPawn->GetController())->ClientReceiveLocalizedMessage(UUTCTFMajorMessage::StaticClass(), 25);
