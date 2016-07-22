@@ -184,6 +184,8 @@ protected:
 
 	void OnSoundVolumeChangedMaster(float NewValue);
 	void OnSoundVolumeChangedMusic(float NewValue);
+	void OnSoundVolumeChangedGameMusic(float NewValue);
+	void OnSoundVolumeChangedStingers(float NewValue);
 	void OnSoundVolumeChangedSFX(float NewValue);
 	void OnSoundVolumeChangedVoice(float NewValue);
 	void OnSoundVolumeChangedVOIP(float NewValue);

@@ -961,9 +961,13 @@ TSharedRef<SWidget> SUTSystemSettingsDialog::BuildAudioTab()
 	return SNew(SVerticalBox)
 
 	+ AddGeneralSliderWithLabelWidget(SoundVolumes[EUTSoundClass::Master], SoundVolumesLabels[EUTSoundClass::Master], &SUTSystemSettingsDialog::OnSoundVolumeChangedMaster, NSLOCTEXT("SUTSystemSettingsDialog", "MasterSoundVolume", "Master Sound Volume").ToString(), UserSettings->GetSoundClassVolume(EUTSoundClass::Master),
-		NSLOCTEXT("SUTSystemSettingsDialog", "MasterSoundVolume_Tooltip", "Controls the volume of all audio, this setting in conjuction the vlolumes below will determine the volume of a particular piece of audio."))
-	+ AddGeneralSliderWithLabelWidget(SoundVolumes[EUTSoundClass::Music], SoundVolumesLabels[EUTSoundClass::Music], &SUTSystemSettingsDialog::OnSoundVolumeChangedMusic, NSLOCTEXT("SUTSystemSettingsDialog", "MusicVolume", "In Game Music Volume").ToString(), UserSettings->GetSoundClassVolume(EUTSoundClass::Music),
-		NSLOCTEXT("SUTSystemSettingsDialog", "MusicSoundVolume_Tooltip", "Controls the volume of music playing during gameplay.  Music stingers for important match events and intermission music are not affected by this setting."))
+		NSLOCTEXT("SUTSystemSettingsDialog", "MasterSoundVolume_Tooltip", "Controls the volume of all audio, this setting in conjuction with the settings below will determine the volume of a particular piece of audio."))
+	+ AddGeneralSliderWithLabelWidget(SoundVolumes[EUTSoundClass::Music], SoundVolumesLabels[EUTSoundClass::Music], &SUTSystemSettingsDialog::OnSoundVolumeChangedMusic, NSLOCTEXT("SUTSystemSettingsDialog", "MusicVolume", "Music Volume").ToString(), UserSettings->GetSoundClassVolume(EUTSoundClass::Music),
+		NSLOCTEXT("SUTSystemSettingsDialog", "MusicSoundVolume_Tooltip", "Controls the volume of music playing in UI.  Music stingers and level music played during gameplay are not affected by this setting."))
+	+ AddGeneralSliderWithLabelWidget(SoundVolumes[EUTSoundClass::GameMusic], SoundVolumesLabels[EUTSoundClass::GameMusic], &SUTSystemSettingsDialog::OnSoundVolumeChangedGameMusic, NSLOCTEXT("SUTSystemSettingsDialog", "GameMusicVolume", "In Game Music Volume").ToString(), UserSettings->GetSoundClassVolume(EUTSoundClass::GameMusic),
+			NSLOCTEXT("SUTSystemSettingsDialog", "MusicSoundVolume_Tooltip", "Controls the volume of level music playing during gameplay.  Volume is relative to the base music volume."))
+		+ AddGeneralSliderWithLabelWidget(SoundVolumes[EUTSoundClass::Music_Stingers], SoundVolumesLabels[EUTSoundClass::Music_Stingers], &SUTSystemSettingsDialog::OnSoundVolumeChangedStingers, NSLOCTEXT("SUTSystemSettingsDialog", "StingerMusicVolume", "Stinger Volume").ToString(), UserSettings->GetSoundClassVolume(EUTSoundClass::Music_Stingers),
+			NSLOCTEXT("SUTSystemSettingsDialog", "MusicSoundVolume_Tooltip", "Controls the volume music stingers for important match events."))
 		+ AddGeneralSliderWithLabelWidget(SoundVolumes[EUTSoundClass::SFX], SoundVolumesLabels[EUTSoundClass::SFX], &SUTSystemSettingsDialog::OnSoundVolumeChangedSFX, NSLOCTEXT("SUTSystemSettingsDialog", "SFXVolume", "Effects Volume").ToString(), UserSettings->GetSoundClassVolume(EUTSoundClass::SFX))
 	+ AddGeneralSliderWithLabelWidget(SoundVolumes[EUTSoundClass::Voice], SoundVolumesLabels[EUTSoundClass::Voice], &SUTSystemSettingsDialog::OnSoundVolumeChangedVoice, NSLOCTEXT("SUTSystemSettingsDialog", "VoiceVolume", "Announcer Volume").ToString(), UserSettings->GetSoundClassVolume(EUTSoundClass::Voice))
 	+ AddGeneralSliderWithLabelWidget(SoundVolumes[EUTSoundClass::VOIP], SoundVolumesLabels[EUTSoundClass::VOIP], &SUTSystemSettingsDialog::OnSoundVolumeChangedVOIP, NSLOCTEXT("SUTSystemSettingsDialog", "VOIPVolume", "Voice over IP Volume").ToString(), UserSettings->GetSoundClassVolume(EUTSoundClass::VOIP) * 0.5f)
@@ -1097,6 +1101,25 @@ void SUTSystemSettingsDialog::OnSoundVolumeChangedMusic(float NewValue)
 	}
 }
 
+void SUTSystemSettingsDialog::OnSoundVolumeChangedGameMusic(float NewValue)
+{
+	// Temporarily change audio level
+	UUTAudioSettings* AudioSettings = UUTAudioSettings::StaticClass()->GetDefaultObject<UUTAudioSettings>();
+	if (AudioSettings)
+	{
+		AudioSettings->SetSoundClassVolume(EUTSoundClass::GameMusic, NewValue);
+	}
+}
+
+void SUTSystemSettingsDialog::OnSoundVolumeChangedStingers(float NewValue)
+{
+	// Temporarily change audio level
+	UUTAudioSettings* AudioSettings = UUTAudioSettings::StaticClass()->GetDefaultObject<UUTAudioSettings>();
+	if (AudioSettings)
+	{
+		AudioSettings->SetSoundClassVolume(EUTSoundClass::Music_Stingers, NewValue);
+	}
+}
 void SUTSystemSettingsDialog::OnSoundVolumeChangedSFX(float NewValue)
 {
 	// Temporarily change audio level

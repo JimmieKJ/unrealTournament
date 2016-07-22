@@ -388,7 +388,8 @@ void AUTGameState::Tick(float DeltaTime)
 	AUTWorldSettings* Settings = Cast<AUTWorldSettings>(GetWorldSettings());
 	if (Settings && Settings->MusicComp)
 	{
-		float DesiredVolume = IsMatchInProgress() && !IsMatchIntermission() ? 0.f : 1.f;
+		UUTGameUserSettings* UserSettings = Cast<UUTGameUserSettings>(GEngine->GetGameUserSettings()); 
+		float DesiredVolume = IsMatchInProgress() && !IsMatchIntermission() ? UserSettings->GetSoundClassVolume(EUTSoundClass::GameMusic) : 1.f;
 		MusicVolume = MusicVolume * (1.f - 0.5f*DeltaTime) + 0.5f*DeltaTime*DesiredVolume;
 		Settings->MusicComp->SetVolumeMultiplier(MusicVolume);
 	}
