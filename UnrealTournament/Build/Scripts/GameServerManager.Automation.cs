@@ -48,7 +48,9 @@ namespace UnrealTournamentGame.Automation
             {
                 this.D2BaseUri = "https://fleet-manager-ci.ol.epicgames.net:8080/v1/";
             }
-            else if (AppName == UnrealTournamentBuild.UnrealTournamentAppName.UnrealTournamentDevStage || AppName == UnrealTournamentBuild.UnrealTournamentAppName.UnrealTournamentDevPlaytest)
+            else if (AppName == UnrealTournamentBuild.UnrealTournamentAppName.UnrealTournamentDevStage ||
+				AppName == UnrealTournamentBuild.UnrealTournamentAppName.UnrealTournamentDevPlaytest ||
+				AppName == UnrealTournamentBuild.UnrealTournamentAppName.UnrealTournamentPublicTest)
             {
                 this.D2BaseUri = "https://fleet-manager-stage.ol.epicgames.net:8080/v1/";
             }
@@ -182,7 +184,7 @@ namespace UnrealTournamentGame.Automation
 			string AwsEuHub1 = Deployment2AwsArgs(AwsRegion: "eu-central-1", tag: "AwsHub1", Region: "EU", HubServerName: "GER (Frankfurt) Hub 1");
 			string AwsEuHub2 = Deployment2AwsArgs(AwsRegion: "eu-central-1", tag: "AwsHub2", Region: "EU", HubServerName: "GER (Frankfurt) Hub 2");
 			string AwsAuHub1 = Deployment2AwsArgs(AwsRegion: "ap-southeast-2", tag: "AwsHub1", Region: "AU", HubServerName: "AUS (Sydney) Hub 1");
-			string AwsSaHub1 = Deployment2AwsArgs(AwsRegion: "sa-east-1", tag: "AwsHub1", Region: "AU", HubServerName: "BRA (Sao Paulo) Hub 1");
+			string AwsSaHub1 = Deployment2AwsArgs(AwsRegion: "sa-east-1", tag: "AwsHub1", Region: "SA", HubServerName: "BRA (Sao Paulo) Hub 1");
 
 			/* Match Making */
 			string GceArgsNa1 = Deployment2GceArgs(tag: "GceMM1", Region: "NA");
