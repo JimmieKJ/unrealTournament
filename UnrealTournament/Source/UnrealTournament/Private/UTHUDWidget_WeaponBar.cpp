@@ -263,7 +263,7 @@ void UUTHUDWidget_WeaponBar::Draw_Implementation(float DeltaTime)
 	if (UTHUDOwner && UTHUDOwner->UTPlayerOwner)
 	{
 		AUTCharacter* UTCharacter = Cast<AUTCharacter>(UTHUDOwner->UTPlayerOwner->GetPawn());
-		CurrentWeapon = UTCharacter->GetWeapon();
+		CurrentWeapon = UTCharacter != nullptr ? UTCharacter->GetWeapon() : nullptr;
 	}
 
 	float LastActiveDelta = GetWorld()->GetTimeSeconds() - LastActiveTime;
