@@ -837,7 +837,7 @@ void AUTShowdownGame::DefaultTimer()
 			}
 		}
 
-		if (GS->SpawnSelector != NULL && GS->SpawnSelector->RespawnChoiceA != NULL)
+		if (GS->SpawnSelector != NULL && (GS->SpawnSelector->IsPendingKillPending() || GS->SpawnSelector->RespawnChoiceA != NULL))
 		{
 			GS->IntermissionStageTime = 0;
 		}
@@ -857,7 +857,7 @@ void AUTShowdownGame::DefaultTimer()
 			{
 				if (GS->SpawnSelector != NULL)
 				{
-					if (GS->SpawnSelector->RespawnChoiceA == NULL)
+					if (GS->SpawnSelector->RespawnChoiceA == NULL && !GS->SpawnSelector->IsPendingKillPending())
 					{
 						GS->SpawnSelector->RespawnChoiceA = AutoSelectPlayerStart(Cast<AController>(GS->SpawnSelector->GetOwner()));
 						GS->SpawnSelector->ForceNetUpdate();
