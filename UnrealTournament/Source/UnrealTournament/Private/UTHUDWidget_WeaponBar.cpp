@@ -337,7 +337,7 @@ void UUTHUDWidget_WeaponBar::Draw_Implementation(float DeltaTime)
 				RenderObj_Texture(AmmoBarBackground, Cells[i].DrawPosition + AmmoBarPosition);
 
 				FVector2D FillPosition = AmmoBarPosition;
-				FillPosition.X += (AmmoBarSize.X - FillSize.X);
+				//FillPosition.X += (AmmoBarSize.X - FillSize.X);
 				AmmoBarFill.Size = FillSize;
 				AmmoBarFill.RenderColor = (bIsCurrentWeapon) ? FLinearColor(0.0f, 1.0f, 0.0f, 1.0f) : FLinearColor(0.8f, 0.8f, 0.8f, 1.0f); 
 				RenderObj_Texture(AmmoBarFill, Cells[i].DrawPosition + FillPosition);
