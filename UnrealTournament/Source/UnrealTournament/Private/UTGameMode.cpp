@@ -1584,7 +1584,7 @@ void AUTGameMode::FindAndMarkHighScorer()
 	for (int32 i = 0; i < UTGameState->PlayerArray.Num(); i++)
 	{
 		AUTPlayerState *PS = Cast<AUTPlayerState>(UTGameState->PlayerArray[i]);
-		if (PS != nullptr)
+		if (PS && !PS->bOnlySpectator)
 		{
 			if (BestScore == 0 || PS->Score > BestScore)
 			{
@@ -3139,7 +3139,7 @@ AUTPlayerState* AUTGameMode::IsThereAWinner_Implementation(bool& bTied)
 
 	for (int32 PlayerIdx=0; PlayerIdx < UTGameState->PlayerArray.Num();PlayerIdx++)
 	{
-		if (UTGameState->PlayerArray[PlayerIdx] != NULL)
+		if ((UTGameState->PlayerArray[PlayerIdx] != NULL) && !UTGameState->PlayerArray[PlayerIdx]->bOnlySpectator)
 		{
 			if (BestPlayer == NULL || UTGameState->PlayerArray[PlayerIdx]->Score > BestScore)
 			{
