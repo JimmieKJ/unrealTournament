@@ -28,4 +28,11 @@ public:
 	/** added to scale (visuals and collision) per link */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = LinkBolt)
 	float ExtraScalePerLink;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = LinkBolt)
+	float OverlapSphereGrowthRate;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = LinkBolt)
+	float MaxOverlapSphereSize;
+
+	virtual void Tick(float DeltaTime) override;
 };
