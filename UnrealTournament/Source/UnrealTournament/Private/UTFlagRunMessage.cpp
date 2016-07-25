@@ -37,8 +37,8 @@ UUTFlagRunMessage::UUTFlagRunMessage(const FObjectInitializer& ObjectInitializer
 	AttackersMustScore = NSLOCTEXT("UTFlagRun", "AttackersMustScore", " must score {BonusType} to have a chance.");
 	UnhandledCondition = NSLOCTEXT("UTFlagRun", "UnhandledCondition", "UNHANDLED WIN CONDITION");
 	AttackersMustScoreWin = NSLOCTEXT("UTFlagRun", "AttackersMustScoreWin", " must score {BonusType} to win.");
-	AttackersMustScoreTime = NSLOCTEXT("UTFlagRun", "AttackersMustScoreTime", " must score {BonusType} with at least {TimeNeeded} remaining to have a chance.");
-	AttackersMustScoreTimeWin = NSLOCTEXT("UTFlagRun", "AttackersMustScoreTimeWin", " must score {BonusType} with at least {TimeNeeded} remaining to win.");
+	AttackersMustScoreTime = NSLOCTEXT("UTFlagRun", "AttackersMustScoreTime", " must score {BonusType} with at least {TimeNeeded}s remaining to have a chance.");
+	AttackersMustScoreTimeWin = NSLOCTEXT("UTFlagRun", "AttackersMustScoreTimeWin", " must score {BonusType} with at least {TimeNeeded}s remaining to win.");
 	AttackersMustScoreTimeOne = NSLOCTEXT("UTFlagRun", "AttackersMustScoreTimeOne", " must score {BonusType} with at least {TimeNeeded}");
 	AttackersMustScoreChanceTwo = NSLOCTEXT("UTFlagRun", "AttackersMustScoreChanceTwo", "seconds remaining to have a chance.");
 	AttackersMustScoreTimeWinTwo = NSLOCTEXT("UTFlagRun", "AttackersMustScoreTimeWinTwo", "seconds remaining to win.");
@@ -56,17 +56,38 @@ void UUTFlagRunMessage::SplitPostfixText(FText& PostfixText, FText& SecondPostfi
 	FFormatNamedArguments Args;
 	FText BonusType = BronzeBonusText;
 	FText SecondaryText = (SubjectTeam && (SubjectTeam->TeamIndex == 0)) ? BlueTeamText : RedTeamText;
+	Args.Add("SecondaryName", SecondaryText);
 	int32 TimeNeeded = 0;
 	if (Switch >= 100)
 	{
 		TimeNeeded = Switch / 100;
 		Switch = Switch - 100 * TimeNeeded;
+		Args.Add("TimeNeeded", TimeNeeded);
 	}
-	Args.Add("SecondaryName", SecondaryText);
-	Args.Add("TimeNeeded", TimeNeeded);
+	switch (Switch)
+	{
+	case 1: PostfixText = DefendersMustStop; break;
+	case 2: PostfixText = DefendersMustHold; break;
+	case 3: PostfixText = DefendersMustHold; BonusType = SilverBonusText;  break;
+	case 4: PostfixText = (TimeNeeded > 0) ? AttackersMustScoreTime : AttackersMustScore; break;
+	case 5: PostfixText = (TimeNeeded > 0) ? AttackersMustScoreTime : AttackersMustScore; BonusType = SilverBonusText; break;
+	case 6: PostfixText = (TimeNeeded > 0) ? AttackersMustScoreTime : AttackersMustScore; BonusType = GoldBonusText; break;
+	case 7: PostfixText = UnhandledCondition; break;
+	case 8: PostfixText = (TimeNeeded > 0) ? AttackersMustScoreTimeWin : AttackersMustScoreWin; break;
+	case 9: PostfixText = (TimeNeeded > 0) ? AttackersMustScoreTimeWin : AttackersMustScoreWin; BonusType = SilverBonusText; break;
+	case 10: PostfixText = (TimeNeeded > 0) ? AttackersMustScoreTimeWin : AttackersMustScoreWin; BonusType = GoldBonusText; break;
+	}
 	Args.Add("BonusType", BonusType);
-	PostfixText = FText::Format(AttackersMustScoreTimeOne, Args);
-	SecondPostfixText = (Switch >= 8) ? AttackersMustScoreTimeWinTwo : AttackersMustScoreChanceTwo;
+	if (TimeNeeded > 0)
+	{
+		PostfixText = FText::Format(AttackersMustScoreTimeOne, Args);
+		SecondPostfixText = (Switch >= 8) ? AttackersMustScoreTimeWinTwo : AttackersMustScoreChanceTwo;
+	}
+	else
+	{
+		PostfixText = FText::Format(PostfixText, Args);
+		SecondPostfixText = FText::GetEmpty();
+	}
 }
 
 void UUTFlagRunMessage::GetEmphasisText(FText& PrefixText, FText& EmphasisText, FText& PostfixText, FLinearColor& EmphasisColor, int32 Switch, class APlayerState* RelatedPlayerState_1, class APlayerState* RelatedPlayerState_2, class UObject* OptionalObject) const
