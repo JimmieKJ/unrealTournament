@@ -174,6 +174,13 @@ namespace UnrealTournamentGame.Automation
 				Deployment2Command("deployment_create", AwsSaHub1, "get_pending", MaxRetries);
 			} else if (AppName == UnrealTournamentBuild.UnrealTournamentAppName.UnrealTournamentPublicTest) {
 				Deployment2Command("deployment_create", AwsArgsEu1, "get_pending", MaxRetries);
+
+				/** TODO: THIS IS TEMPORARY FOR JULY 25, REMOVE AFTER UT TESTS ALL HUB NAMES */
+				Deployment2Command("deployment_create", AwsNaHub2, "get_pending", MaxRetries);
+				Deployment2Command("deployment_create", AwsEuHub1, "get_pending", MaxRetries);
+				Deployment2Command("deployment_create", AwsEuHub2, "get_pending", MaxRetries);
+				Deployment2Command("deployment_create", AwsAuHub1, "get_pending", MaxRetries);
+				Deployment2Command("deployment_create", AwsSaHub1, "get_pending", MaxRetries);
 			}
 		}
 
