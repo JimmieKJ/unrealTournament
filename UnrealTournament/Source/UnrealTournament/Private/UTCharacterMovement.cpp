@@ -1434,7 +1434,10 @@ bool UUTCharacterMovement::DoJump(bool bReplayingMoves)
 		{
 			((AUTCharacter*)CharacterOwner)->OnJumped();
 			((AUTCharacter*)CharacterOwner)->MovementEventUpdated(EME_Jump, Velocity.GetSafeNormal());
-			((AUTCharacter*)CharacterOwner)->InventoryEvent(InventoryEventName::Jump);
+			if (!bPressedSlide)
+			{
+				((AUTCharacter*)CharacterOwner)->InventoryEvent(InventoryEventName::Jump);
+			}
 		}
 		bNotifyApex = true;
 		bExplicitJump = true;
