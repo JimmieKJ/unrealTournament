@@ -96,7 +96,7 @@ void AUTProj_BioLauncherShot::SpawnWeb(FVector HitNormal)
 		const FVector End = MyLoc + (HitNormal * MaxWebReach).RotateAngleAxis(TraceAngle, WebReferenceAxis);
 		FHitResult Hit;
 		if ( GetWorld()->LineTraceSingleByChannel(Hit, Start, End, ECC_Visibility, FCollisionQueryParams(FName(TEXT("BioWeb")), true)) && (Start - Hit.Location).Size() >= MinWebStringDistance &&
-			!GetWorld()->SweepSingleByChannel(Hit, Start, End, FQuat::Identity, ECC_Pawn, WebPawnTraceSphere, FCollisionQueryParams(FName(TEXT("BioWebPawnCheck")), true), WebPawnTraceResponses) )
+			!GetWorld()->SweepTestByChannel(Start, End, FQuat::Identity, ECC_Pawn, WebPawnTraceSphere, FCollisionQueryParams(FName(TEXT("BioWebPawnCheck")), true), WebPawnTraceResponses) )
 		{
 			SuccessfulHitDestinations.Add(End);
 			WebHitLocations.Add(Hit.Location);
@@ -119,7 +119,7 @@ void AUTProj_BioLauncherShot::SpawnWeb(FVector HitNormal)
 				const FVector End = HitDest + FVector(FMath::RandRange(-200.0f, 200.0f), FMath::RandRange(-200.0f, 200.0f), FMath::RandRange(-200.0f, 200.0f));
 				FHitResult Hit;
 				if ( GetWorld()->LineTraceSingleByChannel(Hit, Start, End, ECC_Visibility, FCollisionQueryParams(FName(TEXT("BioWeb")), true)) && (Start - Hit.Location).Size() >= MinWebStringDistance &&
-					!GetWorld()->SweepSingleByChannel(Hit, Start, End, FQuat::Identity, ECC_Pawn, WebPawnTraceSphere, FCollisionQueryParams(FName(TEXT("BioWebPawnCheck")), true), WebPawnTraceResponses) )
+					!GetWorld()->SweepTestByChannel(Start, End, FQuat::Identity, ECC_Pawn, WebPawnTraceSphere, FCollisionQueryParams(FName(TEXT("BioWebPawnCheck")), true), WebPawnTraceResponses) )
 				{
 					SuccessfulHitDestinations.Add(End);
 					WebHitLocations.Add(Hit.Location);
