@@ -371,7 +371,13 @@ APawn* UUTGameplayStatics::ChooseBestAimTarget(AController* AskingC, FVector Sta
 										bHit = TheWorld->LineTraceTestByChannel(StartLoc, P->GetActorLocation(), COLLISION_TRACE_WEAPONNOCHARACTER, TraceParams);
 										if (bHit)
 										{
-											bHit = TheWorld->LineTraceTestByChannel(StartLoc, StartLoc + FireDir * FireDist, COLLISION_TRACE_WEAPONNOCHARACTER, TraceParams);
+											// try spot on capsule nearest to where shot is firing
+											FVector ClosestPoint = FMath::ClosestPointOnSegment(P->GetActorLocation(), StartLoc, StartLoc + FireDir*(FireDist + 500.f));
+											FVector TestPoint = P->GetActorLocation() + P->GetCapsuleComponent()->GetUnscaledCapsuleRadius() * (ClosestPoint - P->GetActorLocation()).Size();
+											float CharZ = P->GetActorLocation().Z;
+											float CapsuleHeight = P->GetCapsuleComponent()->GetUnscaledCapsuleHalfHeight();
+											TestPoint.Z = FMath::Clamp(ClosestPoint.Z, CharZ - CapsuleHeight, CharZ + CapsuleHeight);
+											bHit = TheWorld->LineTraceTestByChannel(StartLoc, TestPoint, COLLISION_TRACE_WEAPONNOCHARACTER, TraceParams); 
 										}
 									}
 									if (!bHit)
