@@ -866,6 +866,11 @@ float AUTCharacter::TakeDamage(float Damage, const FDamageEvent& DamageEvent, AC
 				{
 					AppliedDamage += Health;
 				}
+				if ((Health <= 0) && (ArmorAmount > 0))
+				{
+					ArmorAmount = 0;
+					UpdateArmorOverlay();
+				}
 			}
 			UE_LOG(LogUTCharacter, Verbose, TEXT("%s took %d damage, %d health remaining"), *GetName(), ResultDamage, Health);
 			AUTPlayerState* EnemyPS = EventInstigator ? Cast<AUTPlayerState>(EventInstigator->PlayerState) : NULL;
