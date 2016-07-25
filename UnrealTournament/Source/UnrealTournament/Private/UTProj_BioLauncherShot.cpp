@@ -194,7 +194,8 @@ float AUTProj_BioLauncherShot::TakeDamage(float DamageAmount, struct FDamageEven
 				{
 					WebReferenceAxis = (DamageCauser->GetActorLocation() - GetActorLocation()).GetSafeNormal();
 				}
-				SpawnWeb(FVector(0.0f, 0.0f, 1.0f));
+				SurfaceNormal = FVector(0.0f, 0.0f, 1.0f);
+				SpawnWeb(SurfaceNormal);
 			}
 		}
 		else
@@ -202,7 +203,7 @@ float AUTProj_BioLauncherShot::TakeDamage(float DamageAmount, struct FDamageEven
 			WebHealth -= int32(DamageAmount);
 			if (WebHealth <= 0 && GetNetMode() != NM_Client)
 			{
-				Explode(GetActorLocation(), FVector(0.0f, 0.0f, 1.0f));
+				Explode(GetActorLocation(), SurfaceNormal);
 			}
 			else
 			{
