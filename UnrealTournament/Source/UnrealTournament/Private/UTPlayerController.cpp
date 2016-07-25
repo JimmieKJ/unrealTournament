@@ -2732,6 +2732,21 @@ void AUTPlayerController::ClientGameEnded_Implementation(AActor* EndGameFocus, b
 	Super::ClientGameEnded_Implementation(EndGameFocus, bIsWinner);
 
 	TurnOffPawns();
+
+	// try to pick good end rotation that won't leave camera clipping into player
+	if (FinalViewTarget != nullptr)
+	{
+		for (int32 i = 0; i < 16; i++)
+		{
+			FRotator TestRot = ControlRotation + FRotator(0.0f, 22.5 * i, 0.0f);
+			if (!GetWorld()->SweepTestByChannel(FinalViewTarget->GetActorLocation(), FinalViewTarget->GetActorLocation() - TestRot.Vector() * 200.0f, FQuat::Identity, ECC_Visibility, FCollisionShape::MakeSphere(FinalViewTarget->GetSimpleCollisionRadius())))
+			{
+				UE_LOG(UT, Log, TEXT("TEST: %s - %s"), *ControlRotation.ToString(), *TestRot.ToString());
+				SetControlRotation(TestRot);
+				break;
+			}
+		}
+	}
 }
 
 void AUTPlayerController::ShowEndGameScoreboard()
