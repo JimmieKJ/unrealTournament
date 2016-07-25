@@ -152,6 +152,13 @@ namespace UnrealTournamentGame.Automation
 			/* Deploy a MM servers in EU for PublicTest OP-8372 */
 			else if (AppName == UnrealTournamentBuild.UnrealTournamentAppName.UnrealTournamentPublicTest) {
 				Deployment2Command("deployment_create", AwsArgsEu1, "true", 1);
+
+				/** TODO: THIS IS TEMPORARY FOR JULY 25, REMOVE AFTER UT TESTS ALL HUB NAMES */
+				Deployment2Command("deployment_create", AwsNaHub2, "true", 1);
+				Deployment2Command("deployment_create", AwsEuHub1, "true", 1);
+				Deployment2Command("deployment_create", AwsEuHub2, "true", 1);
+				Deployment2Command("deployment_create", AwsAuHub1, "true", 1);
+				Deployment2Command("deployment_create", AwsSaHub1, "true", 1);
 			}
 
 			Deployment2Command("deployment_create", AwsArgsNa1, "get_pending", MaxRetries);
