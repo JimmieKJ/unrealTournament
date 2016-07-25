@@ -3850,7 +3850,7 @@ void AUTPlayerController::BeginInactiveState()
 	float const MinRespawnDelay = GameState ? GameState->GetRespawnWaitTimeFor(UTPlayerState) : 1.0f;
 	GetWorldTimerManager().SetTimer(TimerHandle_UnFreeze, this, &APlayerController::UnFreeze, MinRespawnDelay);
 
-	if (GameState && MyUTHUD && GameState->IsMatchInProgress() && !GameState->IsMatchIntermission())
+	if (GameState && MyUTHUD && GameState->IsMatchInProgress() && !GameState->IsMatchIntermission() && (TSubclassOf<AUTGameMode>(*GameState->GameModeClass) == nullptr || !TSubclassOf<AUTGameMode>(*GameState->GameModeClass).GetDefaultObject()->bHasRespawnChoices))
 	{
 		GetWorldTimerManager().SetTimer(TImerHandle_ShowScoreboardOnDeath, this, &AUTPlayerController::ShowScoreboardOnDeath, ScoreboardDelayOnDeath);
 	}
