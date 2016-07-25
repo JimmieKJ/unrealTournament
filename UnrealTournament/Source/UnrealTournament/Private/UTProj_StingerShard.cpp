@@ -24,6 +24,7 @@ AUTProj_StingerShard::AUTProj_StingerShard(const class FObjectInitializer& Objec
 	InitialLifeSpan = 3.f;
 	ImpactedShardDamage = 12;
 	ImpactedShardMomentum = 50000.f;
+	bLowPriorityLight = true;
 }
 
 void AUTProj_StingerShard::Destroyed()
