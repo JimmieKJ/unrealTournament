@@ -498,7 +498,7 @@ void AUTCTFBaseGame::PlacePlayersAroundFlagBase(int32 TeamNum, int32 FlagTeamNum
 		if (C)
 		{
 			AUTCharacter* UTChar = Cast<AUTCharacter>(C->GetPawn());
-			if (!UTChar || UTChar->IsDead())
+			if (!UTChar || UTChar->IsDead() || UTChar->IsRagdoll())
 			{
 				if (C->GetPawn())
 				{
