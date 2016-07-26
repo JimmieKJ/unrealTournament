@@ -8,7 +8,7 @@ UUTHUDWidgetMessage_ConsoleMessages::UUTHUDWidgetMessage_ConsoleMessages(const c
 {
 	ManagedMessageArea = FName(TEXT("ConsoleMessage"));
 	Position = FVector2D(0.0f, 0.0f);			
-	ScreenPosition = FVector2D(0.0f, 0.8f);
+	ScreenPosition = FVector2D(0.01f, 0.8f);
 	Size = FVector2D(0.0f, 0.0f);			
 	Origin = FVector2D(0.0f, 0.0f);				
 	NumVisibleLines=4;
@@ -56,9 +56,9 @@ FVector2D UUTHUDWidgetMessage_ConsoleMessages::DrawMessage(int32 QueueIndex, flo
 	case 1: DestinationTag = FText::FromString(TEXT("[Global]")); break;
 	case 2:	DestinationTag = FText::FromString(TEXT("[System]")); break;
 	case 3: DestinationTag = FText::FromString(TEXT("[Lobby]")); break;
-	case 4: DestinationTag = FText::FromString(TEXT("[Chat]")); break;
-	case 5: DestinationTag = FText::FromString(TEXT("[Match]")); break;
-	case 6: DestinationTag = FText::FromString(TEXT("[Team]")); break;
+//	case 4: DestinationTag = FText::FromString(TEXT("[Chat]")); break;
+//	case 5: DestinationTag = FText::FromString(TEXT("[Match]")); break;
+//	case 6: DestinationTag = FText::FromString(TEXT("[Team]")); break;
 	case 7: DestinationTag = FText::FromString(TEXT("[MOTD]")); break;
 	case 8: DestinationTag = FText::FromString(TEXT("[Whisper]")); break;
 	case 9: DestinationTag = FText::FromString(TEXT("[Instance]")); break;
@@ -89,9 +89,9 @@ FVector2D UUTHUDWidgetMessage_ConsoleMessages::DrawMessage(int32 QueueIndex, flo
 			FUTCanvasTextItem PrefixTextItem(RenderPos, DestinationTag, MessageQueue[QueueIndex].DisplayFont, DrawColor, WordWrapper);
 			PrefixTextItem.FontRenderInfo = FontRenderInfo;
 			PrefixTextItem.Scale = FVector2D(TextScaling, TextScaling);
+			PrefixTextItem.EnableShadow(ShadowColor, MessageQueue[QueueIndex].ShadowDirection);
 			Canvas->DrawItem(PrefixTextItem);
-			float PreXL = 0.0f;
-			float PreYL = 0.0f;
+			float PreXL, PreYL;
 			Canvas->StrLen(MessageQueue[QueueIndex].DisplayFont, DestinationTag.ToString(), PreXL, PreYL);
 			RenderPos.X += PreXL * TextScaling;
 		}
@@ -101,15 +101,16 @@ FVector2D UUTHUDWidgetMessage_ConsoleMessages::DrawMessage(int32 QueueIndex, flo
 			FUTCanvasTextItem TextItem(RenderPos, PlayerName, MessageQueue[QueueIndex].DisplayFont, MessageQueue[QueueIndex].DrawColor, WordWrapper);
 			TextItem.FontRenderInfo = FontRenderInfo;
 			TextItem.Scale = FVector2D(TextScaling, TextScaling);
+			TextItem.EnableShadow(ShadowColor, MessageQueue[QueueIndex].ShadowDirection);
 			Canvas->DrawItem(TextItem);
-			float PreXL = 0.0f;
-			float PreYL = 0.0f;
+			float PreXL, PreYL;
 			Canvas->StrLen(MessageQueue[QueueIndex].DisplayFont, MessageQueue[QueueIndex].RelatedPlayerState_1->PlayerName, PreXL, PreYL);
 			RenderPos.X += PreXL * TextScaling;
 		}
 		FUTCanvasTextItem TextItem(RenderPos, MessageQueue[QueueIndex].Text, MessageQueue[QueueIndex].DisplayFont, DrawColor, WordWrapper);
 		TextItem.FontRenderInfo = FontRenderInfo;
 		TextItem.Scale = FVector2D(TextScaling, TextScaling);
+		TextItem.EnableShadow(ShadowColor, MessageQueue[QueueIndex].ShadowDirection);
 		Canvas->DrawItem(TextItem);
 	}
 	return FVector2D(0.f,0.f);
