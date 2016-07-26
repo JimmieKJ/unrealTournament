@@ -69,13 +69,13 @@ void AUTGameVolume::ActorEnteredVolume(class AActor* Other)
 				}
 				return;*/
 				// possibly announce flag carrier changed zones
-				if (bIsNoRallyZone && (GetWorld()->GetTimeSeconds() - FMath::Max(GS->LastEnemyEnteringBaseTime, GS->LastEnteringEnemyBaseTime) > 12.f))
+				if (bIsNoRallyZone && (GetWorld()->GetTimeSeconds() - FMath::Max(GS->LastEnemyEnteringBaseTime, GS->LastEnteringEnemyBaseTime) > 10.f))
 				{
-					if ((GetWorld()->GetTimeSeconds() - GS->LastEnteringEnemyBaseTime > 12.f) && Cast<AUTPlayerState>(P->PlayerState))
+					if ((GetWorld()->GetTimeSeconds() - GS->LastEnteringEnemyBaseTime > 10.f) && Cast<AUTPlayerState>(P->PlayerState))
 					{
 						if (VoiceLinesSet != NAME_None)
 						{
-							((AUTPlayerState *)(P->PlayerState))->AnnounceStatus(VoiceLinesSet, 0);
+							((AUTPlayerState *)(P->PlayerState))->AnnounceStatus(VoiceLinesSet, 1);
 						}
 						else
 						{
@@ -119,7 +119,7 @@ void AUTGameVolume::ActorEnteredVolume(class AActor* Other)
 						{
 							if (VoiceLinesSet != NAME_None)
 							{
-								((AUTPlayerState *)(P->PlayerState))->AnnounceStatus(VoiceLinesSet, 1);
+								((AUTPlayerState *)(P->PlayerState))->AnnounceStatus(VoiceLinesSet, 0);
 							}
 							else
 							{
@@ -129,17 +129,19 @@ void AUTGameVolume::ActorEnteredVolume(class AActor* Other)
 						}
 					}
 				}
-				else if ((VoiceLinesSet != NAME_None) && (GetWorld()->GetTimeSeconds() - FMath::Max(GS->LastFriendlyLocationReportTime, GS->LastEnemyLocationReportTime) > 12.f))
+				else if ((VoiceLinesSet != NAME_None) && (GetWorld()->GetTimeSeconds() - FMath::Max(GS->LastFriendlyLocationReportTime, GS->LastEnemyLocationReportTime) > 3.f) && (GS->LastFriendlyLocationName != VoiceLinesSet))
 				{
-					if ((GetWorld()->GetTimeSeconds() - GS->LastFriendlyLocationReportTime > 12.f) && Cast<AUTPlayerState>(P->PlayerState))
+					if ((GetWorld()->GetTimeSeconds() - GS->LastFriendlyLocationReportTime > 3.f) && Cast<AUTPlayerState>(P->PlayerState))
 					{
 						((AUTPlayerState *)(P->PlayerState))->AnnounceStatus(VoiceLinesSet, 1);
 						GS->LastFriendlyLocationReportTime = GetWorld()->GetTimeSeconds();
+						GS->LastFriendlyLocationName = VoiceLinesSet;
 					}
-					if (P->GetCarriedObject()->bCurrentlyPinged && P->GetCarriedObject()->LastPinger && (GetWorld()->GetTimeSeconds() - GS->LastEnemyLocationReportTime > 12.f))
+					if (P->GetCarriedObject()->bCurrentlyPinged && P->GetCarriedObject()->LastPinger && (GetWorld()->GetTimeSeconds() - GS->LastEnemyLocationReportTime > 3.f) && (GS->LastEnemyLocationName != VoiceLinesSet))
 					{
 						P->GetCarriedObject()->LastPinger->AnnounceStatus(VoiceLinesSet, 0);
 						GS->LastEnemyLocationReportTime = GetWorld()->GetTimeSeconds();
+						GS->LastEnemyLocationName = VoiceLinesSet;
 					}
 				}
 			}

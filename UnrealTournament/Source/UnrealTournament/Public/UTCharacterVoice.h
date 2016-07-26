@@ -180,6 +180,7 @@ class UNREALTOURNAMENT_API UUTCharacterVoice : public UUTLocalMessage
 
 
 	virtual USoundBase* GetGVLine(const FGameVolumeSpeech& GVLines, int32 Switch) const;
+	virtual FText GetGVText(const FGameVolumeSpeech& GVLines, int32 Switch) const;
 
 	virtual FText GetText(int32 Switch, bool bTargetsPlayerState1, class APlayerState* RelatedPlayerState_1, class APlayerState* RelatedPlayerState_2, class UObject* OptionalObject) const override;
 

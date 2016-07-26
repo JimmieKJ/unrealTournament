@@ -41,37 +41,37 @@ UUTCharacterVoice::UUTCharacterVoice(const FObjectInitializer& ObjectInitializer
 	StatusTextFormat = NSLOCTEXT("UTCharacterVoice", "StatusFormat", "{PlayerName} @ {LastKnownLocation}: {TauntMessage}");
 
 	BridgeLines.EnemyFCText = NSLOCTEXT("UTCharacterVoice", "BridgeEnemyFC", "Enemy Flag Carrier is on Bridge!");;
-	BridgeLines.FriendlyFCText = NSLOCTEXT("UTCharacterVoice", "BridgeFriendlyFC", "I'm on Bridge!");;
+	BridgeLines.FriendlyFCText = NSLOCTEXT("UTCharacterVoice", "BridgeFriendlyFC", "I'm on bridge with the flag!");;
 	BridgeLines.SecureText = NSLOCTEXT("UTCharacterVoice", "BridgeSecure", "Bridge is secure.");;
 	BridgeLines.UndefendedText = NSLOCTEXT("UTCharacterVoice", "BridgeUndefended", "Bridge is undefended!");;
 
 	RiverLines.EnemyFCText = NSLOCTEXT("UTCharacterVoice", "RiverEnemyFC", "Enemy Flag Carrier is in River!");;
-	RiverLines.FriendlyFCText = NSLOCTEXT("UTCharacterVoice", "RiverFriendlyFC", "I'm in River!");;
+	RiverLines.FriendlyFCText = NSLOCTEXT("UTCharacterVoice", "RiverFriendlyFC", "I'm in River with the flag!");;
 	RiverLines.SecureText = NSLOCTEXT("UTCharacterVoice", "RiverSecure", "River is secure.");;
 	RiverLines.UndefendedText = NSLOCTEXT("UTCharacterVoice", "RiverUndefended", "River is undefended!");;
 
 	AntechamberLines.EnemyFCText = NSLOCTEXT("UTCharacterVoice", "AntechamberEnemyFC", "Enemy Flag Carrier is in Antechamber!");;
-	AntechamberLines.FriendlyFCText = NSLOCTEXT("UTCharacterVoice", "AntechamberFriendlyFC", "I'm in Antechamber!");;
+	AntechamberLines.FriendlyFCText = NSLOCTEXT("UTCharacterVoice", "AntechamberFriendlyFC", "I'm in Antechamber with the flag!");;
 	AntechamberLines.SecureText = NSLOCTEXT("UTCharacterVoice", "AntechamberSecure", "Antechamber is secure.");;
 	AntechamberLines.UndefendedText = NSLOCTEXT("UTCharacterVoice", "AntechamberUndefended", "Antechamber is undefended!");;
 
 	ThroneRoomLines.EnemyFCText = NSLOCTEXT("UTCharacterVoice", "ThroneRoomEnemyFC", "Enemy Flag Carrier is in ThroneRoom!");;
-	ThroneRoomLines.FriendlyFCText = NSLOCTEXT("UTCharacterVoice", "ThroneRoomFriendlyFC", "I'm in ThroneRoom!");;
+	ThroneRoomLines.FriendlyFCText = NSLOCTEXT("UTCharacterVoice", "ThroneRoomFriendlyFC", "I'm in ThroneRoom with the flag!");;
 	ThroneRoomLines.SecureText = NSLOCTEXT("UTCharacterVoice", "ThroneRoomSecure", "ThroneRoom is secure.");;
 	ThroneRoomLines.UndefendedText = NSLOCTEXT("UTCharacterVoice", "ThroneRoomUndefended", "ThroneRoom is undefended!");;
 
 	CourtyardLines.EnemyFCText = NSLOCTEXT("UTCharacterVoice", "CourtyardEnemyFC", "Enemy Flag Carrier is in Courtyard!");;
-	CourtyardLines.FriendlyFCText = NSLOCTEXT("UTCharacterVoice", "CourtyardFriendlyFC", "I'm in Courtyard!");;
+	CourtyardLines.FriendlyFCText = NSLOCTEXT("UTCharacterVoice", "CourtyardFriendlyFC", "I'm in Courtyard with the flag!");;
 	CourtyardLines.SecureText = NSLOCTEXT("UTCharacterVoice", "CourtyardSecure", "Courtyard is secure.");;
 	CourtyardLines.UndefendedText = NSLOCTEXT("UTCharacterVoice", "CourtyardUndefended", "Courtyard is undefended!");;
 
 	StablesLines.EnemyFCText = NSLOCTEXT("UTCharacterVoice", "StablesEnemyFC", "Enemy Flag Carrier is in Stables!");;
-	StablesLines.FriendlyFCText = NSLOCTEXT("UTCharacterVoice", "StablesFriendlyFC", "I'm in Stables!");;
+	StablesLines.FriendlyFCText = NSLOCTEXT("UTCharacterVoice", "StablesFriendlyFC", "I'm in Stables with the flag!");;
 	StablesLines.SecureText = NSLOCTEXT("UTCharacterVoice", "StablesSecure", "Stables are secure.");;
 	StablesLines.UndefendedText = NSLOCTEXT("UTCharacterVoice", "StablesUndefended", "Stables are undefended!");;
 
 	DefenderBaseLines.EnemyFCText = NSLOCTEXT("UTCharacterVoice", "DefenderBaseEnemyFC", "Enemy Flag Carrier is in our base!");;
-	DefenderBaseLines.FriendlyFCText = NSLOCTEXT("UTCharacterVoice", "DefenderBaseFriendlyFC", "I'm going in!");;
+	DefenderBaseLines.FriendlyFCText = NSLOCTEXT("UTCharacterVoice", "DefenderBaseFriendlyFC", "I'm going in with the flag!");;
 	DefenderBaseLines.SecureText = NSLOCTEXT("UTCharacterVoice", "DefenderBaseSecure", "Base is secure.");;
 	DefenderBaseLines.UndefendedText = NSLOCTEXT("UTCharacterVoice", "DefenderBaseUndefended", "Base is undefended!");;
 }
@@ -234,6 +234,34 @@ FText UUTCharacterVoice::GetText(int32 Switch, bool bTargetsPlayerState1, class 
 			}
 			Args.Add("TauntMessage", SpreadOutMessages[FMath::RandRange(0, SpreadOutMessages.Num() - 1)].SpeechText);
 		}
+		if (Switch / 100 == GetStatusIndex(GameVolumeSpeechType::GV_Bridge) / 100)
+		{
+			Args.Add("TauntMessage", GetGVText(BridgeLines, Switch - GetStatusIndex(GameVolumeSpeechType::GV_Bridge)));
+		}
+		if (Switch / 100 == GetStatusIndex(GameVolumeSpeechType::GV_River) / 100)
+		{
+			Args.Add("TauntMessage", GetGVText(RiverLines, Switch - GetStatusIndex(GameVolumeSpeechType::GV_River)));
+		}
+		if (Switch / 100 == GetStatusIndex(GameVolumeSpeechType::GV_Antechamber) / 100)
+		{
+			Args.Add("TauntMessage", GetGVText(AntechamberLines, Switch - GetStatusIndex(GameVolumeSpeechType::GV_Antechamber)));
+		}
+		if (Switch / 100 == GetStatusIndex(GameVolumeSpeechType::GV_ThroneRoom) / 100)
+		{
+			Args.Add("TauntMessage", GetGVText(ThroneRoomLines, Switch - GetStatusIndex(GameVolumeSpeechType::GV_ThroneRoom)));
+		}
+		if (Switch / 100 == GetStatusIndex(GameVolumeSpeechType::GV_Courtyard) / 100)
+		{
+			Args.Add("TauntMessage", GetGVText(CourtyardLines, Switch - GetStatusIndex(GameVolumeSpeechType::GV_Courtyard)));
+		}
+		if (Switch / 100 == GetStatusIndex(GameVolumeSpeechType::GV_Stables) / 100)
+		{
+			Args.Add("TauntMessage", GetGVText(StablesLines, Switch - GetStatusIndex(GameVolumeSpeechType::GV_Stables)));
+		}
+		if (Switch / 100 == GetStatusIndex(GameVolumeSpeechType::GV_DefenderBase) / 100)
+		{
+			Args.Add("TauntMessage", GetGVText(DefenderBaseLines, Switch - GetStatusIndex(GameVolumeSpeechType::GV_DefenderBase)));
+		}
 	}
 	else
 	{
@@ -258,6 +286,18 @@ FText UUTCharacterVoice::GetText(int32 Switch, bool bTargetsPlayerState1, class 
 	}
 
 	return bStatusMessage ? FText::Format(StatusTextFormat, Args) : FText::Format(TauntText, Args);
+}
+
+FText UUTCharacterVoice::GetGVText(const FGameVolumeSpeech& GVLines, int32 SwitchIndex) const
+{
+	switch (SwitchIndex)
+	{
+	case 0: return GVLines.EnemyFCText;
+	case 1: return GVLines.FriendlyFCText;
+	case 2: return GVLines.SecureText;
+	case 3: return GVLines.UndefendedText;
+	}
+	return FText::GetEmpty();
 }
 
 FName UUTCharacterVoice::GetAnnouncementName_Implementation(int32 Switch, const UObject* OptionalObject, const class APlayerState* RelatedPlayerState_1, const class APlayerState* RelatedPlayerState_2) const

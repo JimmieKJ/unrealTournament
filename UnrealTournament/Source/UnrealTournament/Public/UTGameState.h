@@ -142,6 +142,12 @@ class UNREALTOURNAMENT_API AUTGameState : public AGameState
 	UPROPERTY()
 		float LastEnemyLocationReportTime;
 
+	UPROPERTY()
+		FName LastFriendlyLocationName;
+
+	UPROPERTY()
+		FName LastEnemyLocationName;
+
 	protected:
 	/** How much time is remaining in this match. */
 	UPROPERTY(BlueprintReadOnly, Category = GameState)

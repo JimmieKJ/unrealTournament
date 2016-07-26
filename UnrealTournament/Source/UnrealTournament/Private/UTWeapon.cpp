@@ -1333,6 +1333,7 @@ void AUTWeapon::GuessPlayerTarget(const FVector& StartFireLoc, const FVector& Fi
 					if (GV && (GV->VoiceLinesSet != NAME_None))
 					{
 						PS->AnnounceStatus(GV->VoiceLinesSet, 0);
+						GS->LastEnemyLocationName = GV->VoiceLinesSet;
 					}
 					else
 					{
