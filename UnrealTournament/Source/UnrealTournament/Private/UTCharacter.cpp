@@ -1252,6 +1252,7 @@ void AUTCharacter::NotifyTakeHit(AController* InstigatedBy, int32 AppliedDamage,
 			if (Flag)
 			{
 				Flag->LastPingedTime = GetWorld()->GetTimeSeconds();
+				Flag->LastPinger = Cast<AUTPlayerState>(InstigatedBy->PlayerState) ? ((AUTPlayerState*)(InstigatedBy->PlayerState)) : Flag->LastPinger;
 			}
 			LastTargetedTime = GetWorld()->GetTimeSeconds();
 		}

@@ -29,6 +29,13 @@ UUTCharacterVoice::UUTCharacterVoice(const FObjectInitializer& ObjectInitializer
 	StatusOffsets.Add(StatusMessage::ImOnOffense, 900);
 	StatusOffsets.Add(StatusMessage::SpreadOut, 1000);
 	StatusOffsets.Add(StatusMessage::BaseUnderAttack, 1100);
+	StatusOffsets.Add(GameVolumeSpeechType::GV_Bridge, 1200);
+	StatusOffsets.Add(GameVolumeSpeechType::GV_River, 1300);
+	StatusOffsets.Add(GameVolumeSpeechType::GV_Antechamber, 1400);
+	StatusOffsets.Add(GameVolumeSpeechType::GV_ThroneRoom, 1500);
+	StatusOffsets.Add(GameVolumeSpeechType::GV_Courtyard, 1600);
+	StatusOffsets.Add(GameVolumeSpeechType::GV_Stables, 1700);
+	StatusOffsets.Add(GameVolumeSpeechType::GV_DefenderBase, 1800);
 
 	TauntText = NSLOCTEXT("UTCharacterVoice", "Taunt", "{PlayerName}: {TauntMessage}");
 	StatusTextFormat = NSLOCTEXT("UTCharacterVoice", "StatusFormat", "{PlayerName} @ {LastKnownLocation}: {TauntMessage}");
@@ -36,37 +43,37 @@ UUTCharacterVoice::UUTCharacterVoice(const FObjectInitializer& ObjectInitializer
 	BridgeLines.EnemyFCText = NSLOCTEXT("UTCharacterVoice", "BridgeEnemyFC", "Enemy Flag Carrier is on Bridge!");;
 	BridgeLines.FriendlyFCText = NSLOCTEXT("UTCharacterVoice", "BridgeFriendlyFC", "I'm on Bridge!");;
 	BridgeLines.SecureText = NSLOCTEXT("UTCharacterVoice", "BridgeSecure", "Bridge is secure.");;
-	BridgeLines.SecureText = NSLOCTEXT("UTCharacterVoice", "BridgeUndefended", "Bridge is undefended!");;
+	BridgeLines.UndefendedText = NSLOCTEXT("UTCharacterVoice", "BridgeUndefended", "Bridge is undefended!");;
 
 	RiverLines.EnemyFCText = NSLOCTEXT("UTCharacterVoice", "RiverEnemyFC", "Enemy Flag Carrier is in River!");;
 	RiverLines.FriendlyFCText = NSLOCTEXT("UTCharacterVoice", "RiverFriendlyFC", "I'm in River!");;
 	RiverLines.SecureText = NSLOCTEXT("UTCharacterVoice", "RiverSecure", "River is secure.");;
-	RiverLines.SecureText = NSLOCTEXT("UTCharacterVoice", "RiverUndefended", "River is undefended!");;
+	RiverLines.UndefendedText = NSLOCTEXT("UTCharacterVoice", "RiverUndefended", "River is undefended!");;
 
 	AntechamberLines.EnemyFCText = NSLOCTEXT("UTCharacterVoice", "AntechamberEnemyFC", "Enemy Flag Carrier is in Antechamber!");;
 	AntechamberLines.FriendlyFCText = NSLOCTEXT("UTCharacterVoice", "AntechamberFriendlyFC", "I'm in Antechamber!");;
 	AntechamberLines.SecureText = NSLOCTEXT("UTCharacterVoice", "AntechamberSecure", "Antechamber is secure.");;
-	AntechamberLines.SecureText = NSLOCTEXT("UTCharacterVoice", "AntechamberUndefended", "Antechamber is undefended!");;
+	AntechamberLines.UndefendedText = NSLOCTEXT("UTCharacterVoice", "AntechamberUndefended", "Antechamber is undefended!");;
 
 	ThroneRoomLines.EnemyFCText = NSLOCTEXT("UTCharacterVoice", "ThroneRoomEnemyFC", "Enemy Flag Carrier is in ThroneRoom!");;
 	ThroneRoomLines.FriendlyFCText = NSLOCTEXT("UTCharacterVoice", "ThroneRoomFriendlyFC", "I'm in ThroneRoom!");;
 	ThroneRoomLines.SecureText = NSLOCTEXT("UTCharacterVoice", "ThroneRoomSecure", "ThroneRoom is secure.");;
-	ThroneRoomLines.SecureText = NSLOCTEXT("UTCharacterVoice", "ThroneRoomUndefended", "ThroneRoom is undefended!");;
+	ThroneRoomLines.UndefendedText = NSLOCTEXT("UTCharacterVoice", "ThroneRoomUndefended", "ThroneRoom is undefended!");;
 
 	CourtyardLines.EnemyFCText = NSLOCTEXT("UTCharacterVoice", "CourtyardEnemyFC", "Enemy Flag Carrier is in Courtyard!");;
 	CourtyardLines.FriendlyFCText = NSLOCTEXT("UTCharacterVoice", "CourtyardFriendlyFC", "I'm in Courtyard!");;
 	CourtyardLines.SecureText = NSLOCTEXT("UTCharacterVoice", "CourtyardSecure", "Courtyard is secure.");;
-	CourtyardLines.SecureText = NSLOCTEXT("UTCharacterVoice", "CourtyardUndefended", "Courtyard is undefended!");;
+	CourtyardLines.UndefendedText = NSLOCTEXT("UTCharacterVoice", "CourtyardUndefended", "Courtyard is undefended!");;
 
 	StablesLines.EnemyFCText = NSLOCTEXT("UTCharacterVoice", "StablesEnemyFC", "Enemy Flag Carrier is in Stables!");;
 	StablesLines.FriendlyFCText = NSLOCTEXT("UTCharacterVoice", "StablesFriendlyFC", "I'm in Stables!");;
 	StablesLines.SecureText = NSLOCTEXT("UTCharacterVoice", "StablesSecure", "Stables are secure.");;
-	StablesLines.SecureText = NSLOCTEXT("UTCharacterVoice", "StablesUndefended", "Stables are undefended!");;
+	StablesLines.UndefendedText = NSLOCTEXT("UTCharacterVoice", "StablesUndefended", "Stables are undefended!");;
 
 	DefenderBaseLines.EnemyFCText = NSLOCTEXT("UTCharacterVoice", "DefenderBaseEnemyFC", "Enemy Flag Carrier is in our base!");;
 	DefenderBaseLines.FriendlyFCText = NSLOCTEXT("UTCharacterVoice", "DefenderBaseFriendlyFC", "I'm going in!");;
 	DefenderBaseLines.SecureText = NSLOCTEXT("UTCharacterVoice", "DefenderBaseSecure", "Base is secure.");;
-	DefenderBaseLines.SecureText = NSLOCTEXT("UTCharacterVoice", "DefenderBaseUndefended", "Base is undefended!");;
+	DefenderBaseLines.UndefendedText = NSLOCTEXT("UTCharacterVoice", "DefenderBaseUndefended", "Base is undefended!");;
 }
 
 FText UUTCharacterVoice::GetText(int32 Switch, bool bTargetsPlayerState1, class APlayerState* RelatedPlayerState_1, class APlayerState* RelatedPlayerState_2, class UObject* OptionalObject) const
@@ -396,6 +403,46 @@ USoundBase* UUTCharacterVoice::GetAnnouncementSound_Implementation(int32 Switch,
 			}
 			return SpreadOutMessages[FMath::RandRange(0, SpreadOutMessages.Num() - 1)].SpeechSound;
 		}
+		if (Switch / 100 == GetStatusIndex(GameVolumeSpeechType::GV_Bridge) / 100)
+		{
+			return GetGVLine(BridgeLines, Switch - GetStatusIndex(GameVolumeSpeechType::GV_Bridge));
+		}
+		if (Switch / 100 == GetStatusIndex(GameVolumeSpeechType::GV_River) / 100)
+		{
+			return GetGVLine(RiverLines, Switch - GetStatusIndex(GameVolumeSpeechType::GV_River));
+		}
+		if (Switch / 100 == GetStatusIndex(GameVolumeSpeechType::GV_Antechamber) / 100)
+		{
+			return GetGVLine(AntechamberLines, Switch - GetStatusIndex(GameVolumeSpeechType::GV_Antechamber));
+		}
+		if (Switch / 100 == GetStatusIndex(GameVolumeSpeechType::GV_ThroneRoom) / 100)
+		{
+			return GetGVLine(ThroneRoomLines, Switch - GetStatusIndex(GameVolumeSpeechType::GV_ThroneRoom));
+		}
+		if (Switch / 100 == GetStatusIndex(GameVolumeSpeechType::GV_Courtyard) / 100)
+		{
+			return GetGVLine(CourtyardLines, Switch - GetStatusIndex(GameVolumeSpeechType::GV_Courtyard));
+		}
+		if (Switch / 100 == GetStatusIndex(GameVolumeSpeechType::GV_Stables) / 100)
+		{
+			return GetGVLine(StablesLines, Switch - GetStatusIndex(GameVolumeSpeechType::GV_Stables));
+		}
+		if (Switch / 100 == GetStatusIndex(GameVolumeSpeechType::GV_DefenderBase) / 100)
+		{
+			return GetGVLine(DefenderBaseLines, Switch - GetStatusIndex(GameVolumeSpeechType::GV_DefenderBase));
+		}
+	}
+	return NULL;
+}
+
+USoundBase* UUTCharacterVoice::GetGVLine(const FGameVolumeSpeech& GVLines, int32 SwitchIndex) const
+{
+	switch(SwitchIndex)
+	{
+	case 0: return GVLines.EnemyFCSound;
+	case 1: return GVLines.FriendlyFCSound;
+	case 2: return GVLines.SecureSound;
+	case 3: return GVLines.UndefendedSound;
 	}
 	return NULL;
 }

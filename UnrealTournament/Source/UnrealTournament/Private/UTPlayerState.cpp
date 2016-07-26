@@ -307,7 +307,7 @@ void AUTPlayerState::AnnounceReactionTo(const AUTPlayerState* ReactionPS) const
 	}
 }
 
-void AUTPlayerState::AnnounceStatus(FName NewStatus)
+void AUTPlayerState::AnnounceStatus(FName NewStatus, int32 SwitchOffset)
 {
 	GetCharacterVoiceClass();
 	if (CharacterVoice != NULL)
@@ -318,7 +318,7 @@ void AUTPlayerState::AnnounceStatus(FName NewStatus)
 		{
 			return;
 		}
-		int32 Switch = CharacterVoice.GetDefaultObject()->GetStatusIndex(NewStatus);
+		int32 Switch = CharacterVoice.GetDefaultObject()->GetStatusIndex(NewStatus) + SwitchOffset;
 		if (Switch < 0)
 		{
 			// no valid index found (NewStatus was not a valid selection)

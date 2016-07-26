@@ -38,28 +38,7 @@ void AUTGameVolume::ActorEnteredVolume(class AActor* Other)
 					P->bDamageHurtsHealth = false;
 				}
 			}
-			else if (bIsNoRallyZone && P->GetCarriedObject() && (GetWorld()->GetTimeSeconds() - FMath::Max(GS->LastEnemyEnteringBaseTime, GS->LastEnteringEnemyBaseTime) > 15.f))
-			{
-				if ((GetWorld()->GetTimeSeconds() - GS->LastEnteringEnemyBaseTime > 15.f) && Cast<AUTPlayerState>(P->PlayerState))
-				{
-					((AUTPlayerState *)(P->PlayerState))->AnnounceStatus(StatusMessage::ImGoingIn);
-					GS->LastEnteringEnemyBaseTime = GetWorld()->GetTimeSeconds();
-				}
-				if (GetWorld()->GetTimeSeconds() - GS->LastEnemyEnteringBaseTime > 15.f)
-				{
-					for (FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator)
-					{
-						AUTPlayerController* PC = Cast<AUTPlayerController>(*Iterator);
-						if (PC && !GS->OnSameTeam(P, PC) && PC->GetPawn() && PC->UTPlayerState && PC->LineOfSightTo(P))
-						{
-							PC->UTPlayerState->AnnounceStatus(StatusMessage::BaseUnderAttack);
-							GS->LastEnemyEnteringBaseTime = GetWorld()->GetTimeSeconds();
-							break;
-						}
-					}
-				}
-			}
-			if (bIsTeleportZone)
+			else if (bIsTeleportZone)
 			{
 				if (AssociatedTeleporter == nullptr)
 				{
@@ -75,6 +54,83 @@ void AUTGameVolume::ActorEnteredVolume(class AActor* Other)
 				if (AssociatedTeleporter)
 				{
 					AssociatedTeleporter->OnOverlapBegin(P);
+				}
+			}
+			else if (P->GetCarriedObject())
+			{
+				// possibly announce flag carrier changed zones
+				if (bIsNoRallyZone && (GetWorld()->GetTimeSeconds() - FMath::Max(GS->LastEnemyEnteringBaseTime, GS->LastEnteringEnemyBaseTime) > 12.f))
+				{
+					if ((GetWorld()->GetTimeSeconds() - GS->LastEnteringEnemyBaseTime > 12.f) && Cast<AUTPlayerState>(P->PlayerState))
+					{
+						if (VoiceLinesSet != NAME_None)
+						{
+							((AUTPlayerState *)(P->PlayerState))->AnnounceStatus(VoiceLinesSet, 0);
+						}
+						else
+						{
+							((AUTPlayerState *)(P->PlayerState))->AnnounceStatus(StatusMessage::ImGoingIn);
+						}
+						GS->LastEnteringEnemyBaseTime = GetWorld()->GetTimeSeconds();
+					}
+					if (GetWorld()->GetTimeSeconds() - GS->LastEnemyEnteringBaseTime > 12.f)
+					{
+						bool bHasVisibility = P->GetCarriedObject()->bCurrentlyPinged;
+						AUTPlayerState* PS = P->GetCarriedObject()->LastPinger;
+						if (!bHasVisibility)
+						{
+							for (FConstControllerIterator Iterator = GetWorld()->GetControllerIterator(); Iterator; ++Iterator)
+							{
+								AController* C = *Iterator;
+								if (C && !GS->OnSameTeam(P, C) && C->GetPawn() && Cast<AUTPlayerState>(C->PlayerState) && C->LineOfSightTo(P))
+								{
+									PS = ((AUTPlayerState*)(C->PlayerState));
+									if (PS)
+									{
+										bHasVisibility = true;
+										break;
+									}
+								}
+							}
+						}
+						else if (!PS)
+						{
+							for (FConstControllerIterator Iterator = GetWorld()->GetControllerIterator(); Iterator; ++Iterator)
+							{
+								AController* C = *Iterator;
+								if (C && !GS->OnSameTeam(P, C) && C->GetPawn() && Cast<AUTPlayerState>(C->PlayerState))
+								{
+									PS = ((AUTPlayerState*)(C->PlayerState));
+									break;
+								}
+							}
+						}
+						if (bHasVisibility && PS)
+						{
+							if (VoiceLinesSet != NAME_None)
+							{
+								((AUTPlayerState *)(P->PlayerState))->AnnounceStatus(VoiceLinesSet, 1);
+							}
+							else
+							{
+								PS->AnnounceStatus(StatusMessage::BaseUnderAttack);
+							}
+							GS->LastEnemyEnteringBaseTime = GetWorld()->GetTimeSeconds();
+						}
+					}
+				}
+				else if ((VoiceLinesSet != NAME_None) && (GetWorld()->GetTimeSeconds() - FMath::Max(GS->LastFriendlyLocationReportTime, GS->LastEnemyLocationReportTime) > 12.f))
+				{
+					if ((GetWorld()->GetTimeSeconds() - GS->LastFriendlyLocationReportTime > 12.f) && Cast<AUTPlayerState>(P->PlayerState))
+					{
+						((AUTPlayerState *)(P->PlayerState))->AnnounceStatus(VoiceLinesSet, 1);
+						GS->LastFriendlyLocationReportTime = GetWorld()->GetTimeSeconds();
+					}
+					if (P->GetCarriedObject()->bCurrentlyPinged && P->GetCarriedObject()->LastPinger && (GetWorld()->GetTimeSeconds() - GS->LastEnemyLocationReportTime > 12.f))
+					{
+						P->GetCarriedObject()->LastPinger->AnnounceStatus(VoiceLinesSet, 0);
+						GS->LastEnemyLocationReportTime = GetWorld()->GetTimeSeconds();
+					}
 				}
 			}
 		}

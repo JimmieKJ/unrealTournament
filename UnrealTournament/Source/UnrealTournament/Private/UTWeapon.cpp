@@ -1321,14 +1321,25 @@ void AUTWeapon::GuessPlayerTarget(const FVector& StartFireLoc, const FVector& Fi
 			AUTCarriedObject* Flag = TargetedCharacter->GetCarriedObject();
 			if (Flag && Flag->bShouldPingFlag)
 			{
-					if ((GetWorld()->GetTimeSeconds() - Flag->LastPingVerbalTime > 12.f) && (GetWorld()->GetTimeSeconds() - Flag->LastPingedTime > Flag->PingedDuration))
+				if (PS && (GetWorld()->GetTimeSeconds() - Flag->LastPingVerbalTime > 12.f) && (GetWorld()->GetTimeSeconds() - Flag->LastPingedTime > Flag->PingedDuration))
 				{
 					Flag->LastPingVerbalTime = GetWorld()->GetTimeSeconds();
-					if (PS)
+					AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
+					if (GS)
+					{
+						GS->LastEnemyLocationReportTime = GetWorld()->GetTimeSeconds();
+					}
+					AUTGameVolume* GV = TargetedCharacter->UTCharacterMovement ? Cast<AUTGameVolume>(TargetedCharacter->UTCharacterMovement->GetPhysicsVolume()) : nullptr;
+					if (GV && (GV->VoiceLinesSet != NAME_None))
+					{
+						PS->AnnounceStatus(GV->VoiceLinesSet, 0);
+					}
+					else
 					{
 						PS->AnnounceStatus(StatusMessage::EnemyFCHere);
 					}
 				}
+				Flag->LastPinger = PS ? PS : Flag->LastPinger;
 				Flag->LastPingedTime = GetWorld()->GetTimeSeconds();
 			}
 		}

@@ -44,7 +44,7 @@ class UNREALTOURNAMENT_API AUTGameVolume : public APhysicsVolume, public IUTTeam
 		uint8 TeamIndex;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Gameplay")
-		FName CharacterSpeechType;
+		FName VoiceLinesSet;
 
 	virtual void ActorEnteredVolume(class AActor* Other) override;
 	virtual void ActorLeavingVolume(class AActor* Other) override;
