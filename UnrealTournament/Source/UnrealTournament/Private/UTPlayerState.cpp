@@ -1091,6 +1091,7 @@ void AUTPlayerState::CopyProperties(APlayerState* PlayerState)
 		PS->bSkipELO = bSkipELO;
 		PS->RemainingBoosts = RemainingBoosts;
 		PS->RemainingLives = RemainingLives;
+		PS->bOutOfLives = bOutOfLives;
 		PS->BoostRechargeTimeRemaining = BoostRechargeTimeRemaining;
 		if (PS->StatManager)
 		{
