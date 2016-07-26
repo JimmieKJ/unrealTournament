@@ -26,6 +26,9 @@ UUTVictoryMessage::UUTVictoryMessage(const class FObjectInitializer& ObjectIniti
 	TeamWinsPostfix = NSLOCTEXT("UTVictoryMessage", "TeamWinsPostfix", " Wins The Match!");
 	TeamWinsSecondaryPrefix = NSLOCTEXT("UTVictoryMessage", "TeamWinsSecondaryPrefix", "");
 	TeamWinsSecondaryPostfix = NSLOCTEXT("UTVictoryMessage", "TeamWinsSecondaryPostfix", " Wins The Match (TIEBREAKER: total capture time)");
+
+	static ConstructorHelpers::FObjectFinder<USoundBase> VictorySoundFinder(TEXT("SoundWave'/Game/RestrictedAssets/Audio/Stingers/FlagUp_stereo.FlagUp_stereo'"));
+	VictorySound = VictorySoundFinder.Object;
 }
 
 void UUTVictoryMessage::ClientReceive(const FClientReceiveData& ClientData) const
@@ -40,6 +43,11 @@ void UUTVictoryMessage::ClientReceive(const FClientReceiveData& ClientData) cons
 		if (MyScoreboard != nullptr)
 		{
 			MyScoreboard->ScoreMessageText = LocalMessageText;
+		}
+		AUTPlayerController* PC = Cast<AUTPlayerController>(ClientData.LocalPC);
+		if (PC)
+		{
+			PC->UTClientPlaySound(VictorySound);
 		}
 	}
 }
@@ -60,7 +68,7 @@ FName UUTVictoryMessage::GetAnnouncementName_Implementation(int32 Switch, const 
 	const AUTTeamInfo* WinningTeam = Cast<AUTTeamInfo>(OptionalObject);
 	if (WinningTeam != nullptr)
 	{
-		return (WinningTeam->TeamIndex == 0) ? FName(TEXT("RedTeamWinsMatch")) : FName(TEXT("BlueTeamWinsMatch"));
+		return (WinningTeam->TeamIndex == 0) ? FName(TEXT("RedTeamIsTheWinner")) : FName(TEXT("BlueTeamIsTheWinner"));
 	}
 	else
 	{
