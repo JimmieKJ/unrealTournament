@@ -66,6 +66,16 @@ const FName NAME_RedCountryFlag = FName(TEXT("Red.Team"));
 const FName NAME_BlueCountryFlag = FName(TEXT("Blue.Team"));
 const FName NAME_Epic = FName(TEXT("Epic"));
 
+namespace GameVolumeSpeechType
+{
+	const FName GV_Bridge = FName(TEXT("GV_Bridge"));
+	const FName GV_River = FName(TEXT("GV_River"));
+	const FName GV_Antechamber = FName(TEXT("GV_Antechamber"));
+	const FName GV_ThroneRoom = FName(TEXT("GV_ThroneRoom"));
+	const FName GV_Courtyard = FName(TEXT("GV_Courtyard"));
+	const FName GV_Stables = FName(TEXT("GV_Stables"));
+	const FName GV_DefenderBase = FName(TEXT("GV_DefenderBase"));
+}
 
 namespace CarriedObjectState
 {

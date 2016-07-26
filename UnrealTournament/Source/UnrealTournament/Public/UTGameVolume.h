@@ -1,6 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+#include "UTATypes.h"
 #include "UTGameVolume.generated.h"
 
 /**
@@ -41,6 +42,9 @@ class UNREALTOURNAMENT_API AUTGameVolume : public APhysicsVolume, public IUTTeam
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Gameplay")
 		uint8 TeamIndex;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Gameplay")
+		FName CharacterSpeechType;
 
 	virtual void ActorEnteredVolume(class AActor* Other) override;
 	virtual void ActorLeavingVolume(class AActor* Other) override;

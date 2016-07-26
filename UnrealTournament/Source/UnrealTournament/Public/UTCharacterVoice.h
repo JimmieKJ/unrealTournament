@@ -16,6 +16,36 @@ struct FCharacterSpeech
 	USoundBase* SpeechSound;
 };
 
+USTRUCT()
+struct FGameVolumeSpeech
+{
+	GENERATED_USTRUCT_BODY()
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Voice)
+		FText EnemyFCText;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Voice)
+		USoundBase* EnemyFCSound;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Voice)
+		FText FriendlyFCText;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Voice)
+		USoundBase* FriendlyFCSound;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Voice)
+		FText SecureText;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Voice)
+		USoundBase* SecureSound;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Voice)
+	FText UndefendedText;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Voice)
+	USoundBase* UndefendedSound;
+};
+
 const int32 ACKNOWLEDGE_SWITCH_INDEX = 3000;
 const int32 NEGATIVE_SWITCH_INDEX = 3500;
 const int32 GOT_YOUR_BACK_SWITCH_INDEX = 4000;
@@ -101,6 +131,27 @@ class UNREALTOURNAMENT_API UUTCharacterVoice : public UUTLocalMessage
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Voice)
 	TArray<FCharacterSpeech> AttackTheirBaseMessages;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Voice)
+		FGameVolumeSpeech BridgeLines;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Voice)
+		FGameVolumeSpeech RiverLines;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Voice)
+		FGameVolumeSpeech AntechamberLines;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Voice)
+		FGameVolumeSpeech ThroneRoomLines;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Voice)
+		FGameVolumeSpeech CourtyardLines;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Voice)
+		FGameVolumeSpeech StablesLines;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Voice)
+		FGameVolumeSpeech DefenderBaseLines;
 
 	/** Index offset for sending Same Team messages. */
 	UPROPERTY(BlueprintReadOnly, Category = Voice)
