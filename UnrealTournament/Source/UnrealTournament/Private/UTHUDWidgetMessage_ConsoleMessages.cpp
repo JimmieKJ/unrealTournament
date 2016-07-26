@@ -50,7 +50,69 @@ FVector2D UUTHUDWidgetMessage_ConsoleMessages::DrawMessage(int32 QueueIndex, flo
 		return FVector2D(X,Y);
 	}
 
-	return DrawText(MessageQueue[QueueIndex].Text, X, Y, MessageQueue[QueueIndex].DisplayFont, FVector2D(2,2), FLinearColor::Black, 1.0f, 1.0f, MessageQueue[QueueIndex].DrawColor, ETextHorzPos::Left, ETextVertPos::Top);
+	FText DestinationTag = FText::GetEmpty();
+	switch (MessageQueue[QueueIndex].MessageIndex)
+	{
+	case 1: DestinationTag = FText::FromString(TEXT("[Global]")); break;
+	case 2:	DestinationTag = FText::FromString(TEXT("[System]")); break;
+	case 3: DestinationTag = FText::FromString(TEXT("[Lobby]")); break;
+	case 4: DestinationTag = FText::FromString(TEXT("[Chat]")); break;
+	case 5: DestinationTag = FText::FromString(TEXT("[Match]")); break;
+	case 6: DestinationTag = FText::FromString(TEXT("[Team]")); break;
+	case 7: DestinationTag = FText::FromString(TEXT("[MOTD]")); break;
+	case 8: DestinationTag = FText::FromString(TEXT("[Whisper]")); break;
+	case 9: DestinationTag = FText::FromString(TEXT("[Instance]")); break;
+	}
+
+	if (MessageQueue[QueueIndex].DisplayFont && !MessageQueue[QueueIndex].Text.IsEmpty())
+	{
+		if (bScaleByDesignedResolution)
+		{
+			X *= RenderScale;
+			Y *= RenderScale;
+		}
+		FVector2D RenderPos = FVector2D(RenderPosition.X + X, RenderPosition.Y + Y);
+		float CurrentTextScale = GetTextScale(QueueIndex);
+		float TextScaling = bScaleByDesignedResolution ? RenderScale*CurrentTextScale : CurrentTextScale;
+
+		FLinearColor DrawColor = FLinearColor::White;
+		Canvas->DrawColor = DrawColor.ToFColor(false);
+
+		if (!WordWrapper.IsValid())
+		{
+			WordWrapper = MakeShareable(new FCanvasWordWrapper());
+		}
+		FFontRenderInfo FontRenderInfo = FFontRenderInfo();
+
+		if (!DestinationTag.IsEmpty())
+		{
+			FUTCanvasTextItem PrefixTextItem(RenderPos, DestinationTag, MessageQueue[QueueIndex].DisplayFont, DrawColor, WordWrapper);
+			PrefixTextItem.FontRenderInfo = FontRenderInfo;
+			PrefixTextItem.Scale = FVector2D(TextScaling, TextScaling);
+			Canvas->DrawItem(PrefixTextItem);
+			float PreXL = 0.0f;
+			float PreYL = 0.0f;
+			Canvas->StrLen(MessageQueue[QueueIndex].DisplayFont, DestinationTag.ToString(), PreXL, PreYL);
+			RenderPos.X += PreXL * TextScaling;
+		}
+		if (MessageQueue[QueueIndex].RelatedPlayerState_1)
+		{
+			FText PlayerName = FText::FromString(MessageQueue[QueueIndex].RelatedPlayerState_1->PlayerName);
+			FUTCanvasTextItem TextItem(RenderPos, PlayerName, MessageQueue[QueueIndex].DisplayFont, MessageQueue[QueueIndex].DrawColor, WordWrapper);
+			TextItem.FontRenderInfo = FontRenderInfo;
+			TextItem.Scale = FVector2D(TextScaling, TextScaling);
+			Canvas->DrawItem(TextItem);
+			float PreXL = 0.0f;
+			float PreYL = 0.0f;
+			Canvas->StrLen(MessageQueue[QueueIndex].DisplayFont, MessageQueue[QueueIndex].RelatedPlayerState_1->PlayerName, PreXL, PreYL);
+			RenderPos.X += PreXL * TextScaling;
+		}
+		FUTCanvasTextItem TextItem(RenderPos, MessageQueue[QueueIndex].Text, MessageQueue[QueueIndex].DisplayFont, DrawColor, WordWrapper);
+		TextItem.FontRenderInfo = FontRenderInfo;
+		TextItem.Scale = FVector2D(TextScaling, TextScaling);
+		Canvas->DrawItem(TextItem);
+	}
+	return FVector2D(0.f,0.f);
 }
 
 void UUTHUDWidgetMessage_ConsoleMessages::LayoutMessage(int32 QueueIndex, TSubclassOf<class UUTLocalMessage> MessageClass, uint32 MessageIndex, FText LocalMessageText, int32 MessageCount, APlayerState* RelatedPlayerState_1, APlayerState* RelatedPlayerState_2, UObject* OptionalObject)

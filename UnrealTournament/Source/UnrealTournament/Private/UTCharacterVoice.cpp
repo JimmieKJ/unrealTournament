@@ -9,6 +9,7 @@ UUTCharacterVoice::UUTCharacterVoice(const FObjectInitializer& ObjectInitializer
 	MessageArea = FName(TEXT("ConsoleMessage"));
 	bIsStatusAnnouncement = false;
 	bOptionalSpoken = true;
+	FontSizeIndex = 0;
 
 	// < 1000 is reserved for taunts
 	SameTeamBaseIndex = 1000;
@@ -37,8 +38,8 @@ UUTCharacterVoice::UUTCharacterVoice(const FObjectInitializer& ObjectInitializer
 	StatusOffsets.Add(GameVolumeSpeechType::GV_Stables, 1700);
 	StatusOffsets.Add(GameVolumeSpeechType::GV_DefenderBase, 1800);
 
-	TauntText = NSLOCTEXT("UTCharacterVoice", "Taunt", "{PlayerName}: {TauntMessage}");
-	StatusTextFormat = NSLOCTEXT("UTCharacterVoice", "StatusFormat", "{PlayerName} @ {LastKnownLocation}: {TauntMessage}");
+	TauntText = NSLOCTEXT("UTCharacterVoice", "Taunt", ": {TauntMessage}");
+	StatusTextFormat = NSLOCTEXT("UTCharacterVoice", "StatusFormat", " at {LastKnownLocation}: {TauntMessage}");
 
 	BridgeLines.EnemyFCText = NSLOCTEXT("UTCharacterVoice", "BridgeEnemyFC", "Enemy Flag Carrier is on Bridge!");;
 	BridgeLines.FriendlyFCText = NSLOCTEXT("UTCharacterVoice", "BridgeFriendlyFC", "I'm on bridge with the flag!");;
