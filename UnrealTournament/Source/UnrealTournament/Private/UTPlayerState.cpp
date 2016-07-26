@@ -321,9 +321,11 @@ void AUTPlayerState::AnnounceStatus(FName NewStatus, int32 SwitchOffset)
 		int32 Switch = CharacterVoice.GetDefaultObject()->GetStatusIndex(NewStatus) + SwitchOffset;
 		if (Switch < 0)
 		{
+			UE_LOG(UT, Warning, TEXT("No valid index found"));
 			// no valid index found (NewStatus was not a valid selection)
 			return;
 		}
+//		UE_LOG(UT, Warning, TEXT("Switch is %d"), Switch);
 		for (FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator)
 		{
 			AUTPlayerController* PC = Cast<AUTPlayerController>(*Iterator);
@@ -663,7 +665,7 @@ void AUTPlayerState::Tick(float DeltaTime)
 	if (Role == ROLE_Authority)
 	{
 		AUTCharacter* UTChar = GetUTCharacter();
-		bCanRally = (GetWorld()->GetTimeSeconds() > NextRallyTime) && UTChar && (UTChar->bCanRally || UTChar->GetCarriedObject()) && (GetWorld()->GetTimeSeconds() - FMath::Max(UTChar->LastTargetingTime, UTChar->LastTargetedTime) > 3.f);
+		bCanRally = (GetWorld()->GetTimeSeconds() > NextRallyTime) && UTChar && (UTChar->bCanRally || UTChar->GetCarriedObject());
 		RemainingRallyDelay = (NextRallyTime > GetWorld()->GetTimeSeconds()) ? FMath::Clamp(int32(NextRallyTime - GetWorld()->GetTimeSeconds()), 0, 255) : 0;
 	}
 	// If we are waiting to respawn then count down
