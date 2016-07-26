@@ -842,7 +842,7 @@ void AUTHUD::CausedDamage(APawn* HitPawn, int32 Damage)
 		// add to current hit if there
 		for (int32 i = 0; i < DamageNumbers.Num(); i++)
 		{
-			if ((DamageNumbers[i].DamagedPawn == HitPawn) && (GetWorld()->GetTimeSeconds() - DamageNumbers[i].DamageTime < 0.05f))
+			if ((DamageNumbers[i].DamagedPawn == HitPawn) && (GetWorld()->GetTimeSeconds() - DamageNumbers[i].DamageTime < 0.04f))
 			{
 				DamageNumbers[i].DamageAmount = FMath::Min(255, Damage + int32(DamageNumbers[i].DamageAmount));
 				return;
