@@ -20,11 +20,11 @@ AUTGameVolume::AUTGameVolume(const FObjectInitializer& ObjectInitializer)
 
 void AUTGameVolume::ActorEnteredVolume(class AActor* Other)
 {
-	if (Other && (bIsTeamSafeVolume || bIsNoRallyZone) && (Role == ROLE_Authority))
+	if ((Role == ROLE_Authority) && Cast<AUTCharacter>(Other))
 	{
-		AUTCharacter* P = Cast<AUTCharacter>(Other);
+		AUTCharacter* P = ((AUTCharacter*)(Other));
 		AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
-		if (P != nullptr && GS != nullptr && P->PlayerState != nullptr)
+		if (GS != nullptr && P->PlayerState != nullptr)
 		{
 			if (bIsTeamSafeVolume)
 			{
@@ -58,6 +58,16 @@ void AUTGameVolume::ActorEnteredVolume(class AActor* Other)
 			}
 			else if (P->GetCarriedObject())
 			{
+/*				if (VoiceLinesSet != NAME_None)
+				{
+					UE_LOG(UT, Warning, TEXT("VoiceLineSet %s for %s location %s"), *VoiceLinesSet.ToString(), *GetName(), *VolumeName.ToString());
+					((AUTPlayerState *)(P->PlayerState))->AnnounceStatus(VoiceLinesSet, 1);
+				}
+				else
+				{
+					UE_LOG(UT, Warning, TEXT("No VoiceLineSet for %s location %s"), *GetName(), *VolumeName.ToString());
+				}
+				return;*/
 				// possibly announce flag carrier changed zones
 				if (bIsNoRallyZone && (GetWorld()->GetTimeSeconds() - FMath::Max(GS->LastEnemyEnteringBaseTime, GS->LastEnteringEnemyBaseTime) > 12.f))
 				{
