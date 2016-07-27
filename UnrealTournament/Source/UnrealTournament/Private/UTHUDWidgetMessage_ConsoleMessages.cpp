@@ -2,6 +2,7 @@
 
 #include "UnrealTournament.h"
 #include "UTHUDWidgetMessage.h"
+#include "UTDeathMessage.h"
 #include "UTHUDWidgetMessage_ConsoleMessages.h"
 
 UUTHUDWidgetMessage_ConsoleMessages::UUTHUDWidgetMessage_ConsoleMessages(const class FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
@@ -95,7 +96,7 @@ FVector2D UUTHUDWidgetMessage_ConsoleMessages::DrawMessage(int32 QueueIndex, flo
 			Canvas->StrLen(MessageQueue[QueueIndex].DisplayFont, DestinationTag.ToString(), PreXL, PreYL);
 			RenderPos.X += PreXL * TextScaling;
 		}
-		if (MessageQueue[QueueIndex].RelatedPlayerState_1)
+		if (MessageQueue[QueueIndex].RelatedPlayerState_1 && (MessageQueue[QueueIndex].MessageClass != UUTDeathMessage::StaticClass()))
 		{
 			FText PlayerName = FText::FromString(MessageQueue[QueueIndex].RelatedPlayerState_1->PlayerName);
 			FUTCanvasTextItem TextItem(RenderPos, PlayerName, MessageQueue[QueueIndex].DisplayFont, MessageQueue[QueueIndex].DrawColor, WordWrapper);
