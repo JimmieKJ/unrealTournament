@@ -9,7 +9,7 @@
 UUTFlagRunScoreboard::UUTFlagRunScoreboard(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
 {
-	CH_Powerup = NSLOCTEXT("UTFlagRunScoreboard", "ColumnHeader_Powerups", "PU");
+	CH_Powerup = NSLOCTEXT("UTFlagRunScoreboard", "ColumnHeader_Powerups", "");
 
 	ColumnHeaderPowerupX = 0.715f;
 	ColumnHeaderPowerupEndX = ColumnHeaderPowerupX + 0.0575f;

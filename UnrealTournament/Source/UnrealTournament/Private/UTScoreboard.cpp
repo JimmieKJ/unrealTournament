@@ -370,10 +370,6 @@ FLinearColor UUTScoreboard::GetPlayerColorFor(AUTPlayerState* InPS) const
 	{
 		return FLinearColor(0.0f, 0.92f, 1.0f, 1.0f);
 	}
-	else if (InPS->bIsFriend)
-	{
-		return FLinearColor(FColor(254, 255, 174, 255));
-	}
 	else
 	{
 		return FLinearColor::White;
@@ -397,10 +393,13 @@ void UUTScoreboard::DrawPlayer(int32 Index, AUTPlayerState* PlayerState, float R
 	}
 
 	float NameXL, NameYL;
-	float MaxNameWidth = 0.45f*ScaledCellWidth;
+	float MaxNameWidth = 0.32f*ScaledCellWidth - (PlayerState->bIsFriend ? 30.f*RenderScale : 0.f);
 	Canvas->TextSize(UTHUDOwner->SmallFont, PlayerState->PlayerName, NameXL, NameYL, RenderScale, RenderScale);
 	UFont* NameFont = (NameXL < MaxNameWidth) ? UTHUDOwner->SmallFont : UTHUDOwner->TinyFont;
-	FText PlayerName = (NameXL < MaxNameWidth) ? FText::FromString(PlayerState->PlayerName) : FText::FromString(GetClampedName(PlayerState, UTHUDOwner->TinyFont, RenderScale, MaxNameWidth));
+	if (NameFont == UTHUDOwner->TinyFont)
+	{
+		Canvas->TextSize(UTHUDOwner->TinyFont, PlayerState->PlayerName, NameXL, NameYL, RenderScale, RenderScale);
+	}
 	FLinearColor DrawColor = GetPlayerColorFor(PlayerState);
 
 	int32 Ping = PlayerState->Ping * 4;
@@ -470,7 +469,7 @@ void UUTScoreboard::DrawPlayer(int32 Index, AUTPlayerState* PlayerState, float R
 	}
 
 	// Draw the Text
-	FVector2D NameSize = DrawText(PlayerName, XOffset + (ScaledCellWidth * ColumnHeaderPlayerX), YOffset + ColumnY, NameFont, RenderScale, 1.0f, DrawColor, ETextHorzPos::Left, ETextVertPos::Center);
+	FVector2D NameSize = DrawText(FText::FromString(PlayerState->PlayerName), XOffset + (ScaledCellWidth * ColumnHeaderPlayerX), YOffset + ColumnY, NameFont, FMath::Min(RenderScale, MaxNameWidth/FMath::Max(NameXL, 1.f)), 1.0f, DrawColor, ETextHorzPos::Left, ETextVertPos::Center);
 
 	if (PlayerState->bIsFriend)
 	{
