@@ -340,9 +340,9 @@ void AUTPickupInventory::PlayRespawnEffects()
 			{
 				GM->BroadcastLocalized(this, InventoryType.GetDefaultObject()->PickupSpawnAnnouncement, InventoryType.GetDefaultObject()->PickupAnnouncementIndex, nullptr, nullptr, InventoryType.GetDefaultObject());
 			}
-			else if (!bHasEverSpawned && (InventoryType.GetDefaultObject()->PickupAnnouncementName != NAME_None))
+			else if (InventoryType.GetDefaultObject()->PickupAnnouncementName != NAME_None)
 			{
-				GetWorldTimerManager().SetTimer(SpawnVoiceLineTimer, this, &AUTPickupInventory::PlaySpawnVoiceLine, 5.f);
+				GetWorldTimerManager().SetTimer(SpawnVoiceLineTimer, this, &AUTPickupInventory::PlaySpawnVoiceLine, bHasEverSpawned ? 25.f : 5.f);
 			}
 			bHasEverSpawned = true;
 		}
@@ -353,8 +353,8 @@ void AUTPickupInventory::PlaySpawnVoiceLine()
 {
 	// find player to announce this pickup 
 	AUTPlayerState* Speaker = nullptr;
-	bool bHasPlayedForRed = true;
-	bool bHasPlayedForBlue = true;
+	bool bHasPlayedForRed = false;
+	bool bHasPlayedForBlue = false;
 	for (FConstControllerIterator Iterator = GetWorld()->GetControllerIterator(); Iterator; ++Iterator)
 	{
 		AUTPlayerState* UTPS = Cast<AUTPlayerState>((*Iterator)->PlayerState);

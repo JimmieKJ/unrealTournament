@@ -76,7 +76,7 @@ void AUTFlagRunGame::DefaultTimer()
 	if (UTGameState && UTGameState->IsMatchInProgress() && !UTGameState->IsMatchIntermission())
 	{
 		AUTCTFRoundGameState* RCTFGameState = Cast<AUTCTFRoundGameState>(CTFGameState);
-		if (RCTFGameState && (RCTFGameState->RemainingPickupDelay <= 0) && (GetWorld()->GetTimeSeconds() - LastEntryDefenseWarningTime > 10.f))
+		if (RCTFGameState && (RCTFGameState->RemainingPickupDelay <= 0) && (GetWorld()->GetTimeSeconds() - LastEntryDefenseWarningTime > 15.f))
 		{
 			// check for uncovered routes - support up to 5 entries for now
 			for (int32 i = 0; i < MAXENTRYROUTES; i++)
@@ -111,6 +111,10 @@ void AUTFlagRunGame::DefaultTimer()
 					else if ((CoveredRoute > 0) && (CoveredRoute < MAXENTRYROUTES))
 					{
 						EntryRoutes[CoveredRoute] = nullptr;
+					}
+					else
+					{
+		//				UE_LOG(UT, Warning, TEXT("Not in defensive position %s %s routeid %s"), *UTChar->LastGameVolume->GetName(), *UTChar->LastGameVolume->VolumeName.ToString(), UTChar->LastGameVolume->RouteID)
 					}
 				}
 			}
