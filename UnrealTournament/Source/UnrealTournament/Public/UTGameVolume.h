@@ -46,6 +46,13 @@ class UNREALTOURNAMENT_API AUTGameVolume : public APhysicsVolume, public IUTTeam
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Gameplay")
 		FName VoiceLinesSet;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Gameplay")
+		bool bReportDefenseStatus;
+
+	/** Used to identify unique routes/entries to enemy base.  Default -1, inner base 0, entries each have own value. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Gameplay")
+		int32 RouteID;
+
 	virtual void ActorEnteredVolume(class AActor* Other) override;
 	virtual void ActorLeavingVolume(class AActor* Other) override;
 

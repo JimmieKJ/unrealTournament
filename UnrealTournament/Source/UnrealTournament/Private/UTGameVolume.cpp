@@ -16,6 +16,8 @@ AUTGameVolume::AUTGameVolume(const FObjectInitializer& ObjectInitializer)
 	bIsNoRallyZone = false;
 	bIsTeamSafeVolume = false;
 	bIsTeleportZone = false;
+	RouteID = -1;
+	bReportDefenseStatus = false;
 }
 
 void AUTGameVolume::ActorEnteredVolume(class AActor* Other)
@@ -23,6 +25,7 @@ void AUTGameVolume::ActorEnteredVolume(class AActor* Other)
 	if ((Role == ROLE_Authority) && Cast<AUTCharacter>(Other))
 	{
 		AUTCharacter* P = ((AUTCharacter*)(Other));
+		P->LastGameVolume = this;
 		AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
 		if (GS != nullptr && P->PlayerState != nullptr)
 		{

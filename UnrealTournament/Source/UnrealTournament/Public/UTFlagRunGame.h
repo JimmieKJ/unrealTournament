@@ -4,6 +4,7 @@
 #include "UTCTFGameState.h"
 #include "UTCTFScoring.h"
 #include "UTCTFRoundGame.h"
+#include "UTATypes.h"
 #include "UTFlagRunGame.generated.h"
 
 UCLASS()
@@ -20,6 +21,12 @@ public:
 	UPROPERTY()
 		float RallyRequestTime;
 
+	UPROPERTY()
+		class AUTGameVolume* EntryRoutes[MAXENTRYROUTES];
+
+	UPROPERTY()
+		float LastEntryDefenseWarningTime;
+
 	virtual float OverrideRespawnTime(TSubclassOf<AUTInventory> InventoryType) override;
 	virtual void HandleRallyRequest(AUTPlayerController* PC) override;
 	virtual void CompleteRallyRequest(AUTPlayerController* PC) override;
@@ -28,5 +35,6 @@ public:
 	virtual void InitFlags() override;
 	virtual void HandleMatchIntermission() override;
 	virtual void CheatScore() override;
+	virtual void DefaultTimer() override;
 };
 

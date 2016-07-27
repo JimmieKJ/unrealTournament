@@ -24,6 +24,8 @@ const int32 NEW_USER_ELO = 1000;
 const int32 NUMBER_RANK_LEVELS = 9;
 const int32 STARTER_RANK_LEVEL = 4;
 
+const int32 MAXENTRYROUTES = 5;
+
 UENUM()
 namespace EGameStage
 {

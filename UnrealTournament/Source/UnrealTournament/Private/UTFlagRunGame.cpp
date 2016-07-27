@@ -34,6 +34,8 @@
 #include "UTFlagRunMessage.h"
 #include "UTWeap_Translocator.h"
 #include "UTReplicatedEmitter.h"
+#include "UTATypes.h"
+#include "UTGameVolume.h"
 
 AUTFlagRunGame::AUTFlagRunGame(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -49,6 +51,7 @@ AUTFlagRunGame::AUTFlagRunGame(const FObjectInitializer& ObjectInitializer)
 	bHideInUI = false;
 	bWeaponStayActive = false;
 	bAllowPickupAnnouncements = true;
+	LastEntryDefenseWarningTime = 0.f;
 
 	static ConstructorHelpers::FObjectFinder<UClass> AfterImageFinder(TEXT("Blueprint'/Game/RestrictedAssets/Weapons/Translocator/TransAfterImage.TransAfterImage_C'"));
 	AfterImageType = AfterImageFinder.Object;
@@ -62,6 +65,67 @@ void AUTFlagRunGame::InitFlags()
 		if (Base)
 		{
 			Base->Capsule->SetCapsuleSize(160.f, 134.0f);
+		}
+	}
+}
+
+void AUTFlagRunGame::DefaultTimer()
+{
+	Super::DefaultTimer();
+
+	if (UTGameState && UTGameState->IsMatchInProgress() && !UTGameState->IsMatchIntermission())
+	{
+		AUTCTFRoundGameState* RCTFGameState = Cast<AUTCTFRoundGameState>(CTFGameState);
+		if (RCTFGameState && (RCTFGameState->RemainingPickupDelay <= 0) && (GetWorld()->GetTimeSeconds() - LastEntryDefenseWarningTime > 10.f))
+		{
+			// check for uncovered routes - support up to 5 entries for now
+			for (int32 i = 0; i < MAXENTRYROUTES; i++)
+			{
+				EntryRoutes[i] = nullptr;
+			}
+			// mark routes that need to be covered
+			for (TActorIterator<AUTGameVolume> It(GetWorld()); It; ++It)
+			{
+				AUTGameVolume* GV = *It;
+				if ((GV->RouteID > 0) && (GV->RouteID < MAXENTRYROUTES) && GV->bReportDefenseStatus && (GV->VoiceLinesSet != NAME_None))
+				{
+					EntryRoutes[GV->RouteID] = GV;
+				}
+			}
+			// figure out where defenders are
+			bool bFoundInnerDefender = false;
+			AUTPlayerState* Speaker = nullptr;
+			for (FConstControllerIterator Iterator = GetWorld()->GetControllerIterator(); Iterator; ++Iterator)
+			{
+				AUTCharacter* UTChar = Cast<AUTCharacter>((*Iterator)->GetPawn());
+				AUTPlayerState* UTPS = Cast<AUTPlayerState>((*Iterator)->PlayerState);
+				if (UTChar && UTChar->LastGameVolume && UTPS && UTPS->Team && (bRedToCap == (UTPS->Team->TeamIndex == 1)))
+				{
+					Speaker = UTPS;
+					int32 CoveredRoute = UTChar->LastGameVolume->RouteID;
+					if (CoveredRoute == 0)
+					{
+						bFoundInnerDefender = true;
+						break;
+					}
+					else if ((CoveredRoute > 0) && (CoveredRoute < MAXENTRYROUTES))
+					{
+						EntryRoutes[CoveredRoute] = nullptr;
+					}
+				}
+			}
+			if (!bFoundInnerDefender && Speaker)
+			{
+				// warn about any uncovered entries
+				for (int32 i = 0; i < MAXENTRYROUTES; i++)
+				{
+					if (EntryRoutes[i] && (EntryRoutes[i]->VoiceLinesSet != NAME_None))
+					{
+						LastEntryDefenseWarningTime = GetWorld()->GetTimeSeconds();
+						Speaker->AnnounceStatus(EntryRoutes[i]->VoiceLinesSet, 3);
+					}
+				}
+			}
 		}
 	}
 }

@@ -414,6 +414,9 @@ class UNREALTOURNAMENT_API AUTCharacter : public ACharacter, public IUTTeamInter
 	UPROPERTY(EditAnyWhere, Category = "Weapon")
 	float MaxShotSynchDelay;
 
+	UPROPERTY(BlueprintReadOnly, Category = Pawn)
+		class AUTGameVolume* LastGameVolume;
+
 	/** Returns most recent position with bShotSpawned. */
 	virtual FVector GetDelayedShotPosition();
 	virtual FRotator GetDelayedShotRotation();
