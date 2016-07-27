@@ -541,7 +541,7 @@ void UUTCharacterVoice::PrecacheAnnouncements_Implementation(UUTAnnouncer* Annou
 
 bool UUTCharacterVoice::ShouldPlayAnnouncement(const FClientReceiveData& ClientData) const
 {
-	if (ClientData.RelatedPlayerState_1 && ClientData.RelatedPlayerState_1->bIsABot)
+	if (ClientData.RelatedPlayerState_1 && ClientData.RelatedPlayerState_1->bIsABot && (TauntMessages.Num() > ClientData.MessageIndex))
 	{
 		UUTGameUserSettings* GS = Cast<UUTGameUserSettings>(GEngine->GetGameUserSettings());
 		if (GS != NULL && GS->GetBotSpeech() < BSO_All)
@@ -563,7 +563,14 @@ bool UUTCharacterVoice::InterruptAnnouncement_Implementation(int32 Switch, const
 
 bool UUTCharacterVoice::CancelByAnnouncement_Implementation(int32 Switch, const UObject* OptionalObject, TSubclassOf<UUTLocalMessage> OtherMessageClass, int32 OtherSwitch, const UObject* OtherOptionalObject) const
 {
-	return (GetClass() != OtherMessageClass) || (Switch < 1000);
+	if (GetClass() == OtherMessageClass)
+	{
+		return (Switch < 1000) && (OtherSwitch >= 1000);
+	}
+	else
+	{
+		return (Switch < 1000);
+	}
 }
 
 float UUTCharacterVoice::GetAnnouncementPriority(int32 Switch) const
