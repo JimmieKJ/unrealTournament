@@ -121,7 +121,7 @@ namespace UnrealTournamentGame.Automation
 			string AwsEuHub1 = Deployment2AwsArgs(AwsRegion: "eu-central-1", tag: "AwsHub1", Region: "EU", InstanceType: AwsMachineType, HubServerName: "GER (Frankfurt) Hub 1");
 			string AwsEuHub2 = Deployment2AwsArgs(AwsRegion: "eu-central-1", tag: "AwsHub2", Region: "EU", InstanceType: AwsMachineType, HubServerName: "GER (Frankfurt) Hub 2");
 			string AwsAuHub1 = Deployment2AwsArgs(AwsRegion: "ap-southeast-2", tag: "AwsHub1", Region: "AU", InstanceType: AwsSmallerMachineType, HubServerName: "AUS (Sydney) Hub 1");
-			string AwsSaHub1 = Deployment2AwsArgs(AwsRegion: "sa-east-1", tag: "AwsHub1", Region: "SA", InstanceType: AwsSmallerMachineType, HubServerName: "BRA (Sao Paulo) Hub 1");
+			string AwsSaHub1 = Deployment2AwsArgs(AwsRegion: "sa-east-1", tag: "AwsHub1", Region: "SA", InstanceType: "c3.4xlarge", HubServerName: "BRA (Sao Paulo) Hub 1");
 
 			/* Match Making */
 			string GceArgsNa1 = Deployment2GceArgs(tag: "GceMM1", MachineType: GceMachineType, Zone: "us-central1-c", Region: "NA");
