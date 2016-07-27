@@ -122,8 +122,10 @@ protected:
 
 	FString HubKey;
 
+	UPROPERTY()
 	TArray<AUTReplicatedMapInfo*> AllowedMaps;
 
+	UPROPERTY()
 	TArray<FUniqueNetIdRepl> BannedIds;
 
 };
