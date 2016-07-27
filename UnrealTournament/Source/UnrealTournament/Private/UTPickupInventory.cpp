@@ -12,6 +12,7 @@ AUTPickupInventory::AUTPickupInventory(const FObjectInitializer& ObjectInitializ
 	FloatHeight = 50.0f;
 	bAllowRotatingPickup = true;
 	bHasTacComView = true;
+	bHasEverSpawned = false;
 }
 
 void AUTPickupInventory::BeginPlay()
@@ -316,6 +317,7 @@ void AUTPickupInventory::InventoryTypeUpdated_Implementation()
 
 void AUTPickupInventory::Reset_Implementation()
 {
+	bHasEverSpawned = false;
 	if (InventoryType == NULL)
 	{
 		StartSleeping();
@@ -329,12 +331,49 @@ void AUTPickupInventory::Reset_Implementation()
 void AUTPickupInventory::PlayRespawnEffects()
 {
 	Super::PlayRespawnEffects();
-	if (InventoryType && InventoryType.GetDefaultObject()->PickupSpawnAnnouncement && (Role==ROLE_Authority))
+	if (InventoryType && (InventoryType.GetDefaultObject()->PickupSpawnAnnouncement || (InventoryType.GetDefaultObject()->PickupAnnouncementName != NAME_None)) && (Role==ROLE_Authority))
 	{
 		AUTGameMode* GM = GetWorld()->GetAuthGameMode<AUTGameMode>();
 		if (GM && GM->bAllowPickupAnnouncements)
 		{
-			GM->BroadcastLocalized(this, InventoryType.GetDefaultObject()->PickupSpawnAnnouncement, InventoryType.GetDefaultObject()->PickupAnnouncementIndex, nullptr, nullptr, InventoryType.GetDefaultObject());
+			if (InventoryType.GetDefaultObject()->PickupSpawnAnnouncement)
+			{
+				GM->BroadcastLocalized(this, InventoryType.GetDefaultObject()->PickupSpawnAnnouncement, InventoryType.GetDefaultObject()->PickupAnnouncementIndex, nullptr, nullptr, InventoryType.GetDefaultObject());
+			}
+			else if (!bHasEverSpawned && (InventoryType.GetDefaultObject()->PickupAnnouncementName != NAME_None))
+			{
+				GetWorldTimerManager().SetTimer(SpawnVoiceLineTimer, this, &AUTPickupInventory::PlaySpawnVoiceLine, 5.f);
+			}
+			bHasEverSpawned = true;
+		}
+	}
+}
+
+void AUTPickupInventory::PlaySpawnVoiceLine()
+{
+	// find player to announce this pickup 
+	AUTPlayerState* Speaker = nullptr;
+	bool bHasPlayedForRed = true;
+	bool bHasPlayedForBlue = true;
+	for (FConstControllerIterator Iterator = GetWorld()->GetControllerIterator(); Iterator; ++Iterator)
+	{
+		AUTPlayerState* UTPS = Cast<AUTPlayerState>((*Iterator)->PlayerState);
+		if (UTPS && UTPS->Team)
+		{
+			if (!bHasPlayedForRed && (UTPS->Team->TeamIndex == 0))
+			{
+				UTPS->AnnounceStatus(InventoryType.GetDefaultObject()->PickupAnnouncementName, 0);
+				bHasPlayedForRed = true;
+			}
+			else if (!bHasPlayedForBlue && (UTPS->Team->TeamIndex == 1))
+			{
+				UTPS->AnnounceStatus(InventoryType.GetDefaultObject()->PickupAnnouncementName, 0);
+				bHasPlayedForBlue = true;
+			}
+			if (bHasPlayedForRed && bHasPlayedForBlue)
+			{
+				break;
+			}
 		}
 	}
 }
@@ -469,9 +508,18 @@ void AUTPickupInventory::PlayTakenEffects(bool bReplicate)
 
 void AUTPickupInventory::AnnouncePickup(AUTCharacter* P)
 {
+	GetWorldTimerManager().ClearTimer(SpawnVoiceLineTimer);
 	if (Cast<APlayerController>(P->GetController()))
 	{
 		Cast<APlayerController>(P->GetController())->ClientReceiveLocalizedMessage(UUTPickupMessage::StaticClass(), 0, P->PlayerState, NULL, InventoryType);
+	}
+	if (InventoryType && (InventoryType.GetDefaultObject()->PickupAnnouncementName != NAME_None))
+	{
+		AUTPlayerState* PS = Cast<AUTPlayerState>(P->PlayerState);
+		if (PS)
+		{
+			PS->AnnounceStatus(InventoryType.GetDefaultObject()->PickupAnnouncementName, 1);
+		}
 	}
 }
 

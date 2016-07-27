@@ -219,6 +219,10 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Effects)
 		int32 PickupAnnouncementIndex;
 
+	/** Character message when pickup is picked up, or it first spawns. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Effects)
+		FName PickupAnnouncementName;
+
 	/** Whether to show timer for this on spectator slide out HUD. */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = HUD)
 	bool bShowPowerupTimer;

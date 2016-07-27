@@ -45,12 +45,19 @@ public:
 	/** added to pickup mesh's RelativeRotation */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = PickupDisplay)
 	FRotator RotationOffset;
+	/** set true when first spawned in round */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = PickupDisplay)
+		bool bHasEverSpawned;
+
 	/** whether the pickup mesh is allowed to rotate (requires blueprint to have RotatingMovementComponent) */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = PickupDisplay)
 	bool bAllowRotatingPickup;
 
 	virtual void BeginPlay() override;
 	virtual void PlayRespawnEffects() override;
+	
+	FTimerHandle SpawnVoiceLineTimer;
+	virtual void PlaySpawnVoiceLine();
 
 #if WITH_EDITOR
 	/** create transient pickup mesh for editor previewing */
