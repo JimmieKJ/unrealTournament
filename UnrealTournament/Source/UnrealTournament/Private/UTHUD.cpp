@@ -29,6 +29,8 @@
 #include "OnlineSubsystemUtils.h"
 #include "UTUMGHudWidget.h"
 
+static FName NAME_Intensity(TEXT("Intensity"));
+
 AUTHUD::AUTHUD(const class FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
 {
 	WidgetOpacity = 1.0f;
@@ -106,6 +108,9 @@ AUTHUD::AUTHUD(const class FObjectInitializer& ObjectInitializer) : Super(Object
 	CachedProfileSettings = nullptr;
 	BuildText = NSLOCTEXT("UTHUD", "info", "PRE-ALPHA Build 0.1.4");
 	bShowVoiceDebug = false;
+
+	static ConstructorHelpers::FObjectFinder<UMaterialInterface> DamageScreenMatObject(TEXT("/Game/RestrictedAssets/Blueprints/WIP/Nick/CameraAnims/HitScreenEffect.HitScreenEffect"));
+	DamageScreenMat = DamageScreenMatObject.Object;
 }
 
 void AUTHUD::Destroyed()
@@ -176,6 +181,11 @@ void AUTHUD::BeginPlay()
 	WeaponWheel = Cast<UUTRadialMenu_WeaponWheel>(AddHudWidget(UUTRadialMenu_WeaponWheel::StaticClass()));
 	RadialMenus.Add(ComsMenu);
 	RadialMenus.Add(WeaponWheel);
+
+	if (DamageScreenMat != nullptr)
+	{
+		DamageScreenMID = UMaterialInstanceDynamic::Create(DamageScreenMat, this);
+	}
 }
 
 void AUTHUD::AddSpectatorWidgets()
@@ -641,6 +651,23 @@ void AUTHUD::DrawHUD()
 						}
 					}
 				}
+			}
+		}
+
+		if (DamageScreenMID != nullptr)
+		{
+			float Intensity = 0.0f;
+			for (const FDamageHudIndicator& Indicator : DamageIndicators)
+			{
+				if (Indicator.FadeTime > 0.0f && Indicator.DamageAmount > 0.0f)
+				{
+					Intensity = FMath::Max<float>(Intensity, FMath::Min<float>(1.0f, Indicator.FadeTime / DAMAGE_FADE_DURATION));
+				}
+			}
+			if (Intensity > 0.0f)
+			{
+				DamageScreenMID->SetScalarParameterValue(NAME_Intensity, Intensity);
+				DrawMaterial(DamageScreenMID, 0.0f, 0.0f, Canvas->ClipX, Canvas->ClipY, 0.0f, 0.0f, 1.0f, 1.0f);
 			}
 		}
 	}

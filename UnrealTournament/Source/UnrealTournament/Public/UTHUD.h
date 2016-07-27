@@ -213,6 +213,12 @@ public:
 	UPROPERTY()
 	TArray<struct FDamageHudIndicator> DamageIndicators;
 
+	/** full screen material drawn when taking damage, intensity based on damage amount */
+	UPROPERTY()
+	UMaterialInterface* DamageScreenMat;
+	UPROPERTY()
+	UMaterialInstanceDynamic* DamageScreenMID;
+
 	// This is a list of hud widgets that are defined in DefaultGame.ini to be loaded.  NOTE: you can use 
 	// embedded JSON to set their position.  See BuildHudWidget().
 	UPROPERTY(Config = Game)
