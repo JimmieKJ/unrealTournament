@@ -81,6 +81,13 @@ namespace GameVolumeSpeechType
 	const FName GV_AntechamberHigh = FName(TEXT("GV_AntechamberHigh"));
 }
 
+namespace PickupSpeechType
+{
+	const FName RedeemerPickup = FName(TEXT("RedeemerPickup"));
+	const FName UDamagePickup = FName(TEXT("UDamagePickup"));
+	const FName ShieldbeltPickup = FName(TEXT("ShieldbeltPickup"));
+}
+
 namespace CarriedObjectState
 {
 	const FName Home = FName(TEXT("Home"));

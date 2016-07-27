@@ -40,6 +40,10 @@ UUTCharacterVoice::UUTCharacterVoice(const FObjectInitializer& ObjectInitializer
 	StatusOffsets.Add(GameVolumeSpeechType::GV_DefenderBase, 1800);
 	StatusOffsets.Add(GameVolumeSpeechType::GV_AntechamberHigh, 1900);
 
+	StatusOffsets.Add(PickupSpeechType::RedeemerPickup, 2000);
+	StatusOffsets.Add(PickupSpeechType::UDamagePickup, 2100);
+	StatusOffsets.Add(PickupSpeechType::ShieldbeltPickup, 2200);
+
 	TauntText = NSLOCTEXT("UTCharacterVoice", "Taunt", ": {TauntMessage}");
 	StatusTextFormat = NSLOCTEXT("UTCharacterVoice", "StatusFormat", " at {LastKnownLocation}: {TauntMessage}");
 
@@ -274,6 +278,18 @@ FText UUTCharacterVoice::GetText(int32 Switch, bool bTargetsPlayerState1, class 
 		{
 			Args.Add("TauntMessage", GetGVText(AntechamberHighLines, Switch - GetStatusIndex(GameVolumeSpeechType::GV_AntechamberHigh)));
 		}
+		if (Switch / 100 == GetStatusIndex(PickupSpeechType::UDamagePickup) / 100)
+		{
+			Args.Add("TauntMessage", (Switch - GetStatusIndex(PickupSpeechType::UDamagePickup) == 0) ? UDamageAvailableLine.SpeechText : UDamagePickupLine.SpeechText);
+		}
+		if (Switch / 100 == GetStatusIndex(PickupSpeechType::ShieldbeltPickup) / 100)
+		{
+			Args.Add("TauntMessage", (Switch - GetStatusIndex(PickupSpeechType::ShieldbeltPickup) == 0) ? ShieldbeltAvailableLine.SpeechText : ShieldbeltPickupLine.SpeechText);
+		}
+		if (Switch / 100 == GetStatusIndex(PickupSpeechType::RedeemerPickup) / 100)
+		{
+			Args.Add("TauntMessage", (Switch - GetStatusIndex(PickupSpeechType::RedeemerPickup) == 0) ? RedeemerAvailableLine.SpeechText : RedeemerPickupLine.SpeechText);
+		}
 	}
 	else
 	{
@@ -486,6 +502,18 @@ USoundBase* UUTCharacterVoice::GetAnnouncementSound_Implementation(int32 Switch,
 		if (Switch / 100 == GetStatusIndex(GameVolumeSpeechType::GV_AntechamberHigh) / 100)
 		{
 			return GetGVLine(AntechamberHighLines, Switch - GetStatusIndex(GameVolumeSpeechType::GV_AntechamberHigh));
+		}
+		if (Switch / 100 == GetStatusIndex(PickupSpeechType::UDamagePickup) / 100)
+		{
+			return (Switch - GetStatusIndex(PickupSpeechType::UDamagePickup) == 0) ? UDamageAvailableLine.SpeechSound : UDamagePickupLine.SpeechSound;
+		}
+		if (Switch / 100 == GetStatusIndex(PickupSpeechType::ShieldbeltPickup) / 100)
+		{
+			return (Switch - GetStatusIndex(PickupSpeechType::ShieldbeltPickup) == 0) ? ShieldbeltAvailableLine.SpeechSound : ShieldbeltPickupLine.SpeechSound;
+		}
+		if (Switch / 100 == GetStatusIndex(PickupSpeechType::RedeemerPickup) / 100)
+		{
+			return (Switch - GetStatusIndex(PickupSpeechType::RedeemerPickup) == 0) ? RedeemerAvailableLine.SpeechSound : RedeemerPickupLine.SpeechSound;
 		}
 	}
 	return NULL;

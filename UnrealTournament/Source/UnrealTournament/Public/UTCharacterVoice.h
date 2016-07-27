@@ -156,6 +156,24 @@ class UNREALTOURNAMENT_API UUTCharacterVoice : public UUTLocalMessage
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Voice)
 		FGameVolumeSpeech AntechamberHighLines;
 
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Voice)
+		FCharacterSpeech RedeemerPickupLine;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Voice)
+		FCharacterSpeech UDamagePickupLine;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Voice)
+		FCharacterSpeech ShieldbeltPickupLine;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Voice)
+		FCharacterSpeech RedeemerAvailableLine;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Voice)
+		FCharacterSpeech UDamageAvailableLine;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Voice)
+		FCharacterSpeech ShieldbeltAvailableLine;
+
 	/** Index offset for sending Same Team messages. */
 	UPROPERTY(BlueprintReadOnly, Category = Voice)
 		int32 SameTeamBaseIndex;
@@ -174,7 +192,6 @@ class UNREALTOURNAMENT_API UUTCharacterVoice : public UUTLocalMessage
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Voice)
 		FText StatusTextFormat;
-
 
 	/** map of status index offsets. */
 	TMap< FName, float > StatusOffsets;
