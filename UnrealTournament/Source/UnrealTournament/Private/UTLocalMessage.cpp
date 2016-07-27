@@ -25,6 +25,11 @@ UUTLocalMessage::UUTLocalMessage(const class FObjectInitializer& ObjectInitializ
 	bCombineEmphasisText = false;
 }
 
+bool UUTLocalMessage::IsOptionalSpoken(int32 MessageIndex) const
+{
+	return bOptionalSpoken;
+}
+
 int32 UUTLocalMessage::GetFontSizeIndex(int32 MessageIndex) const
 {
 	return FontSizeIndex;
@@ -221,7 +226,7 @@ USoundBase* UUTLocalMessage::GetAnnouncementSound_Implementation(int32 Switch, c
 bool UUTLocalMessage::InterruptAnnouncement_Implementation(int32 Switch, const UObject* OptionalObject, TSubclassOf<UUTLocalMessage> OtherMessageClass, int32 OtherSwitch, const UObject* OtherOptionalObject) const
 {
 	// by default interrupt messages of same type, and countdown messages
-	return (GetClass() == OtherMessageClass) || Cast<UUTLocalMessage>(OtherMessageClass->GetDefaultObject())->bOptionalSpoken;
+	return (GetClass() == OtherMessageClass) || Cast<UUTLocalMessage>(OtherMessageClass->GetDefaultObject())->IsOptionalSpoken(OtherSwitch);
 }
 
 bool UUTLocalMessage::CancelByAnnouncement_Implementation(int32 Switch, const UObject* OptionalObject, TSubclassOf<UUTLocalMessage> OtherMessageClass, int32 OtherSwitch, const UObject* OtherOptionalObject) const

@@ -47,7 +47,7 @@ bool UUTCTFRewardMessage::InterruptAnnouncement_Implementation(int32 Switch, con
 	{
 		return ((Switch == 3) || (Switch == 4) || (Switch >= 100));
 	}
-	return Cast<UUTLocalMessage>(OtherMessageClass->GetDefaultObject())->bOptionalSpoken;
+	return Cast<UUTLocalMessage>(OtherMessageClass->GetDefaultObject())->IsOptionalSpoken(OtherSwitch);
 }
 
 void UUTCTFRewardMessage::ClientReceive(const FClientReceiveData& ClientData) const 

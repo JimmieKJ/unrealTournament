@@ -76,6 +76,8 @@ class UNREALTOURNAMENT_API UUTLocalMessage : public ULocalMessage
 	UPROPERTY(EditDefaultsOnly, Category = Message)
 		int32 FontSizeIndex;
 
+	virtual bool IsOptionalSpoken(int32 MessageIndex) const;
+
 	virtual int32 GetFontSizeIndex(int32 MessageIndex) const;
 
 	virtual float GetAnnouncementDelay(int32 Switch);

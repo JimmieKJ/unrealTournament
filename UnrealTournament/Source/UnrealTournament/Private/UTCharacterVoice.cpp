@@ -39,7 +39,6 @@ UUTCharacterVoice::UUTCharacterVoice(const FObjectInitializer& ObjectInitializer
 	StatusOffsets.Add(GameVolumeSpeechType::GV_Stables, 1700);
 	StatusOffsets.Add(GameVolumeSpeechType::GV_DefenderBase, 1800);
 	StatusOffsets.Add(GameVolumeSpeechType::GV_AntechamberHigh, 1900);
-
 	StatusOffsets.Add(PickupSpeechType::RedeemerPickup, 2000);
 	StatusOffsets.Add(PickupSpeechType::UDamagePickup, 2100);
 	StatusOffsets.Add(PickupSpeechType::ShieldbeltPickup, 2200);
@@ -86,6 +85,11 @@ UUTCharacterVoice::UUTCharacterVoice(const FObjectInitializer& ObjectInitializer
 	DefenderBaseLines.FriendlyFCText = NSLOCTEXT("UTCharacterVoice", "DefenderBaseFriendlyFC", "I'm going in with the flag!");;
 	DefenderBaseLines.SecureText = NSLOCTEXT("UTCharacterVoice", "DefenderBaseSecure", "Base is secure.");;
 	DefenderBaseLines.UndefendedText = NSLOCTEXT("UTCharacterVoice", "DefenderBaseUndefended", "Base is undefended!");;
+}
+
+bool UUTCharacterVoice::IsOptionalSpoken(int32 MessageIndex) const
+{
+	return bOptionalSpoken && (MessageIndex < 1200);
 }
 
 FText UUTCharacterVoice::GetText(int32 Switch, bool bTargetsPlayerState1, class APlayerState* RelatedPlayerState_1, class APlayerState* RelatedPlayerState_2, class UObject* OptionalObject) const
@@ -564,7 +568,7 @@ bool UUTCharacterVoice::CancelByAnnouncement_Implementation(int32 Switch, const 
 
 float UUTCharacterVoice::GetAnnouncementPriority(int32 Switch) const
 {
-	return 0.f;
+	return 0.1f;
 }
 
 int32 UUTCharacterVoice::GetStatusIndex(FName NewStatus) const

@@ -198,7 +198,6 @@ class UNREALTOURNAMENT_API UUTCharacterVoice : public UUTLocalMessage
 
 	virtual int32 GetStatusIndex(FName NewStatus) const;
 
-
 	virtual USoundBase* GetGVLine(const FGameVolumeSpeech& GVLines, int32 Switch) const;
 	virtual FText GetGVText(const FGameVolumeSpeech& GVLines, int32 Switch) const;
 
@@ -211,4 +210,5 @@ class UNREALTOURNAMENT_API UUTCharacterVoice : public UUTLocalMessage
 	virtual bool InterruptAnnouncement_Implementation(int32 Switch, const UObject* OptionalObject, TSubclassOf<UUTLocalMessage> OtherMessageClass, int32 OtherSwitch, const UObject* OtherOptionalObject) const override;
 	virtual bool CancelByAnnouncement_Implementation(int32 Switch, const UObject* OptionalObject, TSubclassOf<UUTLocalMessage> OtherMessageClass, int32 OtherSwitch, const UObject* OtherOptionalObject) const override;
 	virtual float GetAnnouncementPriority(int32 Switch) const override;
+	virtual bool IsOptionalSpoken(int32 MessageIndex) const override;
 };

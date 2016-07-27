@@ -108,7 +108,7 @@ class UNREALTOURNAMENT_API UUTSpreeMessage : public UUTLocalMessage
 	
 	virtual bool InterruptAnnouncement_Implementation(int32 Switch, const UObject* OptionalObject, TSubclassOf<UUTLocalMessage> OtherMessageClass, int32 OtherSwitch, const UObject* OtherOptionalObject) const override
 	{
-		return ((GetClass() == OtherMessageClass) && (Switch > 0) && (Switch != 99) && (OtherSwitch != 99))  || Cast<UUTLocalMessage>(OtherMessageClass->GetDefaultObject())->bOptionalSpoken;
+		return ((GetClass() == OtherMessageClass) && (Switch > 0) && (Switch != 99) && (OtherSwitch != 99))  || Cast<UUTLocalMessage>(OtherMessageClass->GetDefaultObject())->IsOptionalSpoken(OtherSwitch);
 	}
 
 	virtual FLinearColor GetMessageColor_Implementation(int32 MessageIndex) const override

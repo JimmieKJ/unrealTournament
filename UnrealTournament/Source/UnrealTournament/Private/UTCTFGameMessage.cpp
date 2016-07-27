@@ -79,7 +79,7 @@ float UUTCTFGameMessage::GetScaleInSize_Implementation(int32 MessageIndex) const
 
 bool UUTCTFGameMessage::InterruptAnnouncement_Implementation(int32 Switch, const UObject* OptionalObject, TSubclassOf<UUTLocalMessage> OtherMessageClass, int32 OtherSwitch, const UObject* OtherOptionalObject) const
 {
-	if (OtherMessageClass->GetDefaultObject<UUTLocalMessage>()->bOptionalSpoken)
+	if (OtherMessageClass->GetDefaultObject<UUTLocalMessage>()->IsOptionalSpoken(OtherSwitch))
 	{
 		return true;
 	}
