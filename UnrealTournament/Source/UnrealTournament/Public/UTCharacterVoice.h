@@ -153,6 +153,9 @@ class UNREALTOURNAMENT_API UUTCharacterVoice : public UUTLocalMessage
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Voice)
 		FGameVolumeSpeech DefenderBaseLines;
 
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Voice)
+		FGameVolumeSpeech AntechamberHighLines;
+
 	/** Index offset for sending Same Team messages. */
 	UPROPERTY(BlueprintReadOnly, Category = Voice)
 		int32 SameTeamBaseIndex;

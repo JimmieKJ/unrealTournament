@@ -38,6 +38,7 @@ UUTCharacterVoice::UUTCharacterVoice(const FObjectInitializer& ObjectInitializer
 	StatusOffsets.Add(GameVolumeSpeechType::GV_Courtyard, 1600);
 	StatusOffsets.Add(GameVolumeSpeechType::GV_Stables, 1700);
 	StatusOffsets.Add(GameVolumeSpeechType::GV_DefenderBase, 1800);
+	StatusOffsets.Add(GameVolumeSpeechType::GV_AntechamberHigh, 1900);
 
 	TauntText = NSLOCTEXT("UTCharacterVoice", "Taunt", ": {TauntMessage}");
 	StatusTextFormat = NSLOCTEXT("UTCharacterVoice", "StatusFormat", " at {LastKnownLocation}: {TauntMessage}");
@@ -52,10 +53,15 @@ UUTCharacterVoice::UUTCharacterVoice(const FObjectInitializer& ObjectInitializer
 	RiverLines.SecureText = NSLOCTEXT("UTCharacterVoice", "RiverSecure", "River is secure.");;
 	RiverLines.UndefendedText = NSLOCTEXT("UTCharacterVoice", "RiverUndefended", "River is undefended!");;
 
-	AntechamberLines.EnemyFCText = NSLOCTEXT("UTCharacterVoice", "AntechamberEnemyFC", "Enemy Flag Carrier is in Antechamber!");;
-	AntechamberLines.FriendlyFCText = NSLOCTEXT("UTCharacterVoice", "AntechamberFriendlyFC", "I'm in Antechamber with the flag!");;
+	AntechamberLines.EnemyFCText = NSLOCTEXT("UTCharacterVoice", "AntechamberEnemyFC", "Enemy Flag Carrier is in Antechamber Low!");;
+	AntechamberLines.FriendlyFCText = NSLOCTEXT("UTCharacterVoice", "AntechamberFriendlyFC", "I'm in Antechamber Low with the flag!");;
 	AntechamberLines.SecureText = NSLOCTEXT("UTCharacterVoice", "AntechamberSecure", "Antechamber is secure.");;
 	AntechamberLines.UndefendedText = NSLOCTEXT("UTCharacterVoice", "AntechamberUndefended", "Antechamber is undefended!");;
+
+	AntechamberHighLines.EnemyFCText = NSLOCTEXT("UTCharacterVoice", "AntechamberHighEnemyFC", "Enemy Flag Carrier is in Antechamber High!");;
+	AntechamberHighLines.FriendlyFCText = NSLOCTEXT("UTCharacterVoice", "AntechamberHighFriendlyFC", "I'm in Antechamber High with the flag!");;
+	AntechamberHighLines.SecureText = NSLOCTEXT("UTCharacterVoice", "AntechamberHighSecure", "Antechamber is secure.");;
+	AntechamberHighLines.UndefendedText = NSLOCTEXT("UTCharacterVoice", "AntechamberHighUndefended", "Antechamber is undefended!");;
 
 	ThroneRoomLines.EnemyFCText = NSLOCTEXT("UTCharacterVoice", "ThroneRoomEnemyFC", "Enemy Flag Carrier is in ThroneRoom!");;
 	ThroneRoomLines.FriendlyFCText = NSLOCTEXT("UTCharacterVoice", "ThroneRoomFriendlyFC", "I'm in ThroneRoom with the flag!");;
@@ -263,6 +269,10 @@ FText UUTCharacterVoice::GetText(int32 Switch, bool bTargetsPlayerState1, class 
 		if (Switch / 100 == GetStatusIndex(GameVolumeSpeechType::GV_DefenderBase) / 100)
 		{
 			Args.Add("TauntMessage", GetGVText(DefenderBaseLines, Switch - GetStatusIndex(GameVolumeSpeechType::GV_DefenderBase)));
+		}
+		if (Switch / 100 == GetStatusIndex(GameVolumeSpeechType::GV_AntechamberHigh) / 100)
+		{
+			Args.Add("TauntMessage", GetGVText(AntechamberHighLines, Switch - GetStatusIndex(GameVolumeSpeechType::GV_AntechamberHigh)));
 		}
 	}
 	else
@@ -472,6 +482,10 @@ USoundBase* UUTCharacterVoice::GetAnnouncementSound_Implementation(int32 Switch,
 		if (Switch / 100 == GetStatusIndex(GameVolumeSpeechType::GV_DefenderBase) / 100)
 		{
 			return GetGVLine(DefenderBaseLines, Switch - GetStatusIndex(GameVolumeSpeechType::GV_DefenderBase));
+		}
+		if (Switch / 100 == GetStatusIndex(GameVolumeSpeechType::GV_AntechamberHigh) / 100)
+		{
+			return GetGVLine(AntechamberHighLines, Switch - GetStatusIndex(GameVolumeSpeechType::GV_AntechamberHigh));
 		}
 	}
 	return NULL;

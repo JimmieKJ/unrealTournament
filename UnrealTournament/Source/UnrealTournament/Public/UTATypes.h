@@ -78,6 +78,7 @@ namespace GameVolumeSpeechType
 	const FName GV_Courtyard = FName(TEXT("GV_Courtyard"));
 	const FName GV_Stables = FName(TEXT("GV_Stables"));
 	const FName GV_DefenderBase = FName(TEXT("GV_DefenderBase"));
+	const FName GV_AntechamberHigh = FName(TEXT("GV_AntechamberHigh"));
 }
 
 namespace CarriedObjectState
