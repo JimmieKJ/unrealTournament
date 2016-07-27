@@ -2,6 +2,7 @@
 
 #pragma once
 #include "UTATypes.h"
+#include "UTResetInterface.h"
 #include "UTGameVolume.generated.h"
 
 /**
@@ -9,7 +10,7 @@
 */
 
 UCLASS(BlueprintType)
-class UNREALTOURNAMENT_API AUTGameVolume : public APhysicsVolume, public IUTTeamInterface
+class UNREALTOURNAMENT_API AUTGameVolume : public APhysicsVolume, public IUTTeamInterface, public IUTResetInterface
 {
 	GENERATED_UCLASS_BODY()
 
@@ -49,6 +50,10 @@ class UNREALTOURNAMENT_API AUTGameVolume : public APhysicsVolume, public IUTTeam
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Gameplay")
 		bool bReportDefenseStatus;
 
+	/** Set when volume is entered for the first time. */
+	UPROPERTY(BlueprintReadWrite, Category = "Gameplay")
+		bool bHasBeenEntered;
+
 	/** Used to identify unique routes/entries to enemy base.  Default -1, inner base 0, entries each have own value. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Gameplay")
 		int32 RouteID;
@@ -63,6 +68,7 @@ class UNREALTOURNAMENT_API AUTGameVolume : public APhysicsVolume, public IUTTeam
 	virtual uint8 GetTeamNum() const { return TeamIndex; };
 
 	virtual void SetTeamForSideSwap_Implementation(uint8 NewTeamNum) override;
+	virtual void Reset_Implementation() override;
 };
 
 

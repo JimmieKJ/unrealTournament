@@ -6,6 +6,7 @@
 #include "UTWeaponLocker.h"
 #include "UTPlayerState.h"
 #include "UTTeleporter.h"
+#include "UTFlagRunGame.h"
 
 AUTGameVolume::AUTGameVolume(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -18,6 +19,12 @@ AUTGameVolume::AUTGameVolume(const FObjectInitializer& ObjectInitializer)
 	bIsTeleportZone = false;
 	RouteID = -1;
 	bReportDefenseStatus = false;
+	bHasBeenEntered = false;
+}
+
+void AUTGameVolume::Reset_Implementation()
+{
+	bHasBeenEntered = false;
 }
 
 void AUTGameVolume::ActorEnteredVolume(class AActor* Other)
@@ -148,7 +155,17 @@ void AUTGameVolume::ActorEnteredVolume(class AActor* Other)
 					}
 				}
 			}
+			else if (!bHasBeenEntered && bReportDefenseStatus && (VoiceLinesSet != NAME_None))
+			{
+				AUTPlayerState* PS = Cast<AUTPlayerState>(P->PlayerState);
+				AUTFlagRunGame* Game = GetWorld()->GetAuthGameMode<AUTFlagRunGame>();
+				if (PS && PS->Team && Game && (Game->bRedToCap == (PS->Team->TeamIndex == 1)))
+				{
+					PS->AnnounceStatus(VoiceLinesSet, 2);
+				}
+			}
 		}
+		bHasBeenEntered = true;
 	}
 
 	if (!VolumeName.IsEmpty())
