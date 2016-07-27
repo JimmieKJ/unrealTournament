@@ -463,10 +463,6 @@ void SUTQuickMatchWindow::PingServer(TSharedPtr<FServerSearchInfo> ServerToPing)
 			Beacon->InitClient(BeaconURL);
 			PingTrackers.Add(FServerSearchPingTracker(ServerToPing, Beacon, PlayerOwner->GetWorld()->GetRealTimeSeconds()));
 		}
-		else
-		{
-			OnServerBeaconFailure(Beacon);
-		}
 	}
 }
 
