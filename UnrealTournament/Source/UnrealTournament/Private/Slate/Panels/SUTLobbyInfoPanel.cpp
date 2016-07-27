@@ -249,6 +249,8 @@ void SUTLobbyInfoPanel::Tick( const FGeometry& AllottedGeometry, const double In
 			ShowMatchBrowser();
 		}
 	}
+	
+	if ( TextChatPanel.IsValid() ) TextChatPanel->UpdateTeamList();
 }
 
 

@@ -8,6 +8,7 @@
 #include "UTLobbyMatchInfo.h"
 #include "../Widgets/SUTButton.h"
 #include "../Widgets/SUTComboButton.h"
+#include "../Widgets/SUTMenuAnchor.h"
 #include "UTGameEngine.h"
 
 #define MAX_CHAT_LINES = 1000;
@@ -172,6 +173,111 @@ public:
 
 };
 
+
+class FTeamListTracker : public TSharedFromThis<FTeamListTracker>
+{
+public:
+	TWeakObjectPtr<AUTLobbyPlayerState> PlayerState;
+
+	uint8 TeamNum;
+
+	FTeamListTracker()
+	{
+	}
+
+	FTeamListTracker(AUTLobbyPlayerState* inPlayerState, uint8 inTeamNum)
+	{
+		PlayerState = inPlayerState;
+		TeamNum = inTeamNum;
+	}
+
+	static TSharedRef<FTeamListTracker> Make(AUTLobbyPlayerState* inPlayerState, uint8 inTeamNum)
+	{
+		return MakeShareable( new FTeamListTracker(inPlayerState, inTeamNum));
+	}
+
+	const FSlateBrush* GetBadge() const
+	{
+		int32 Badge = 0;
+		int32 Level = 0;
+
+		if (PlayerState.IsValid())
+		{
+			AUTGameState* UTGameState = PlayerState->GetWorld()->GetGameState<AUTGameState>();
+			AUTBaseGameMode* BaseGame = nullptr;
+			AUTLobbyPlayerState* LobbyPlayerState = Cast<AUTLobbyPlayerState>(PlayerState.Get());
+			if (LobbyPlayerState && LobbyPlayerState->CurrentMatch && LobbyPlayerState->CurrentMatch->CurrentRuleset.IsValid())
+			{
+				BaseGame = LobbyPlayerState->CurrentMatch->CurrentRuleset->GetDefaultGameModeObject();
+			}
+			else
+			{
+				// Attempt to use the GameMode
+				BaseGame = (UTGameState && UTGameState->GameModeClass) ? UTGameState->GameModeClass->GetDefaultObject<AUTBaseGameMode>() : AUTBaseGameMode::StaticClass()->GetDefaultObject<AUTBaseGameMode>();
+			}
+
+			bool bRankedSession = false;
+			if (UTGameState)
+			{
+				bRankedSession = UTGameState->bRankedSession;
+			}
+
+			PlayerState->GetBadgeFromELO(BaseGame, bRankedSession, Badge, Level);
+		}
+
+		Badge = FMath::Clamp<int32>(Badge, 0, 3);
+		FString BadgeStr = FString::Printf(TEXT("UT.RankBadge.%i"), Badge);
+		return SUTStyle::Get().GetBrush(*BadgeStr);
+	}
+
+	FText GetRank()
+	{
+		int32 Badge = 0;
+		int32 Level = 0;
+
+		if (PlayerState.IsValid())
+		{
+			AUTGameState* UTGameState = PlayerState->GetWorld()->GetGameState<AUTGameState>();
+			AUTBaseGameMode* BaseGame = nullptr;
+			AUTLobbyPlayerState* LobbyPlayerState = Cast<AUTLobbyPlayerState>(PlayerState.Get());
+			if (LobbyPlayerState && LobbyPlayerState->CurrentMatch && LobbyPlayerState->CurrentMatch->CurrentRuleset.IsValid())
+			{
+				BaseGame = LobbyPlayerState->CurrentMatch->CurrentRuleset->GetDefaultGameModeObject();
+			}
+			else
+			{
+				// Attempt to use the GameMode
+				BaseGame = (UTGameState && UTGameState->GameModeClass) ? UTGameState->GameModeClass->GetDefaultObject<AUTBaseGameMode>() : AUTBaseGameMode::StaticClass()->GetDefaultObject<AUTBaseGameMode>();
+			}
+
+			bool bRankedSession = false;
+			if (UTGameState)
+			{
+				bRankedSession = UTGameState->bRankedSession;
+			}
+
+			PlayerState->GetBadgeFromELO(BaseGame, bRankedSession, Badge, Level);
+		}
+
+		return FText::AsNumber(Level+1);
+	}
+
+	const FSlateBrush* GetXPStarImage() const
+	{
+		int32 Star = 0;
+		UUTLocalPlayer::GetStarsFromXP(GetLevelForXP(PlayerState.IsValid() ? PlayerState->GetPrevXP() : 0), Star);
+		if (Star > 0 && Star <= 5)
+		{
+			FString StarStr = FString::Printf(TEXT("UT.RankStar.%i.Tiny"), Star-1);
+			return SUTStyle::Get().GetBrush(*StarStr);
+		}
+
+		return SUTStyle::Get().GetBrush("UT.RankStar.Empty");
+	}
+
+
+};
+
 class SUTPlayerListPanel;
 
 class UNREALTOURNAMENT_API SUTTextChatPanel : public SCompoundWidget
@@ -205,6 +311,10 @@ public:
 
 	void RouteBufferedChat();
 
+	TSharedPtr<SVerticalBox> ChangeTeamListBoxVisibility(bool bIsVisible);
+
+	void UpdateTeamList();
+
 protected:
 	// The Player Owner that owns this panel
 	TWeakObjectPtr<UUTLocalPlayer> PlayerOwner;
@@ -214,6 +324,9 @@ protected:
 	TArray<TSharedPtr<FChatDestination>> ChatDestinationList;
 	TSharedPtr<SHorizontalBox> ChatDestinationBar;
 	TSharedPtr<SScrollBox> ChatScrollBox;
+
+	TSharedPtr<SBox> TeamListContainer;
+	TSharedPtr<SVerticalBox> TeamListBox;
 
 	FReply OnDestinationClick(TSharedPtr<FChatDestination> Destination);
 
@@ -229,6 +342,28 @@ protected:
 	void ChatTextCommited(const FText& NewText, ETextCommit::Type CommitType);
 
 	FChatDestinationChangedDelegate ChatDestinationChangedDelegate;
+	EVisibility TeamListVisible() const;
+
+	TArray<TSharedPtr<FTeamListTracker>> TeamPSList;
+
+	TArray<TSharedPtr<FTeamListTracker>> RedList;
+	TSharedPtr<SListView<TSharedPtr<FTeamListTracker>>> RedListview;
+	TArray<TSharedPtr<FTeamListTracker>> BlueList;
+	TSharedPtr<SListView<TSharedPtr<FTeamListTracker>>> BlueListview;
+	TArray<TSharedPtr<FTeamListTracker>> SpectatorList;
+	TSharedPtr<SListView<TSharedPtr<FTeamListTracker>>> SpectatorListview;
+
+	/** utility to generate a simple text widget for list and combo boxes given a string value */
+	TSharedRef<ITableRow> OnGenerateRedWidget( TSharedPtr<FTeamListTracker> InItem, const TSharedRef<STableViewBase>& OwnerTable);
+	TSharedRef<ITableRow> OnGenerateBlueWidget( TSharedPtr<FTeamListTracker> InItem, const TSharedRef<STableViewBase>& OwnerTable);
+	TSharedRef<ITableRow> OnGenerateSpectatorWidget( TSharedPtr<FTeamListTracker> InItem, const TSharedRef<STableViewBase>& OwnerTable);
+	TSharedRef<ITableRow> GenerateWidget( TSharedPtr<FTeamListTracker> InItem, const TSharedRef<STableViewBase>& OwnerTable, FName StyleName);
+	TSharedRef<SBox> GenerateBadge(TSharedPtr<FTeamListTracker> InItem);
+	void OnListSelect(TSharedPtr<FTeamListTracker> Selected);
+
+	void GetMenuContent(FString SearchTag, TArray<FMenuOptionData>& MenuOptions);
+	void OnSubMenuSelect(FName Tag, TSharedPtr<FTeamListTracker> InItem);
+
 
 };
 

@@ -205,7 +205,7 @@ bool AUTBasePlayerController::AllowTextMessage(const FString& Msg)
 void AUTBasePlayerController::Say(FString Message)
 {
 	// clamp message length; aside from troll prevention this is needed for networking reasons
-	Message = Message.Left(128);
+	Message = Message.Left(MAX_CHAT_TEXT_SIZE);
 	if (AllowTextMessage(Message))
 	{
 		ServerSay(Message, false);
@@ -220,7 +220,7 @@ void AUTBasePlayerController::Say(FString Message)
 void AUTBasePlayerController::TeamSay(FString Message)
 {
 	// clamp message length; aside from troll prevention this is needed for networking reasons
-	Message = Message.Left(128);
+	Message = Message.Left(MAX_CHAT_TEXT_SIZE);
 	if (AllowTextMessage(Message))
 	{
 		ServerSay(Message, true);
@@ -991,7 +991,7 @@ void AUTBasePlayerController::ServerFriendSay_Implementation(const FString& Mess
 void AUTBasePlayerController::LobbySay(FString Message)
 {
 	// clamp message length; aside from troll prevention this is needed for networking reasons
-	Message = Message.Left(128);
+	Message = Message.Left(MAX_CHAT_TEXT_SIZE);
 	if (AllowTextMessage(Message))
 	{
 		ServerLobbySay(Message);

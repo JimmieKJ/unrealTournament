@@ -5356,7 +5356,7 @@ void UUTLocalPlayer::VerifyChatWidget()
 		SAssignNew(ChatWidget, SUTChatEditBox, this)
 		.Style(SUTStyle::Get(), "UT.ChatEditBox")
 		.MinDesiredWidth(500.0f)
-		.MaxTextSize(128);
+		.MaxTextSize(MAX_CHAT_TEXT_SIZE);
 	}
 }
 

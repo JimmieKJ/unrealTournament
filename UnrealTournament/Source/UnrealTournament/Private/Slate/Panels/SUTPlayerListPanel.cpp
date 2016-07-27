@@ -112,15 +112,15 @@ void SUTPlayerListPanel::Construct(const FArguments& InArgs)
 			+SVerticalBox::Slot()
 			.FillHeight(1.0)
 			[
-				SAssignNew( PlayerList, SListView< TSharedPtr<FTrackedPlayer> > )
-				// List view items are this tall
-				.ItemHeight(64)
-				// Tell the list view where to get its source data
-				.ListItemsSource( &TrackedPlayers)
-				// When the list view needs to generate a widget for some data item, use this method
-				.OnGenerateRow( this, &SUTPlayerListPanel::OnGenerateWidgetForPlayerList)
-				//.OnContextMenuOpening( this, &SUTPlayerListPanel::OnGetContextMenuContent )
-				//.OnMouseButtonDoubleClick(this, &SUTPlayerListPanel::OnListSelect)
+ 				SAssignNew( PlayerList, SListView< TSharedPtr<FTrackedPlayer> > )
+ 				// List view items are this tall
+ 				.ItemHeight(64)
+ 				// Tell the list view where to get its source data
+ 				.ListItemsSource( &TrackedPlayers)
+ 				// When the list view needs to generate a widget for some data item, use this method
+ 				.OnGenerateRow( this, &SUTPlayerListPanel::OnGenerateWidgetForPlayerList)
+ 				//.OnContextMenuOpening( this, &SUTPlayerListPanel::OnGetContextMenuContent )
+ 				//.OnMouseButtonDoubleClick(this, &SUTPlayerListPanel::OnListSelect)
 				.SelectionMode(ESelectionMode::Single)
 			]
 			+SVerticalBox::Slot()
@@ -386,8 +386,11 @@ void SUTPlayerListPanel::GetMenuContent(FString SearchTag, TArray<FMenuOptionDat
 		MenuOptions.Add(FMenuOptionData(NSLOCTEXT("PlayerListSubMenu","ServerBan","Admin Ban"), EPlayerListContentCommand::ServerBan));
 	}
 
-	MenuOptions.Add(FMenuOptionData());
-	MenuOptions.Add(FMenuOptionData(NSLOCTEXT("PlayerListSubMenu","Message","Send Message"), EPlayerListContentCommand::SendMessage));
+	if (TrackedPlayers[Idx]->PlayerState.Get() != PlayerOwner->PlayerController->PlayerState )
+	{
+		MenuOptions.Add(FMenuOptionData());
+		MenuOptions.Add(FMenuOptionData(NSLOCTEXT("PlayerListSubMenu","Message","Send Message"), EPlayerListContentCommand::SendMessage));
+	}
 }
 
 int32 SUTPlayerListPanel::IsTracked(const FUniqueNetIdRepl& PlayerID)

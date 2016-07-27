@@ -55,6 +55,7 @@ const int32 FONT_SIZE_Browser = 16;
 const FColor SuperDark(1,1,1,255);
 const FColor Dark(4,4,4,255);
 const FColor Navy(0,0,4,255);
+const FColor DeepRed(6,0,0,255);
 const FColor Medium(10,10,10,255);
 const FColor Light(14,14,14,255);
 const FColor SuperLight(32,32,32,255);
@@ -297,6 +298,7 @@ void SUTStyle::SetCommonStyle(TSharedRef<FSlateStyleSet> StyleRef)
 	Style.Set("UT.HeaderBackground.SuperDark", new FSlateColorBrush(SuperDark));
 	Style.Set("UT.HeaderBackground.Dark", new FSlateColorBrush(Dark));
 	Style.Set("UT.HeaderBackground.Navy", new FSlateColorBrush(Navy));
+	Style.Set("UT.HeaderBackground.DeepRed", new FSlateColorBrush(DeepRed));
 	Style.Set("UT.HeaderBackground.Medium", new FSlateColorBrush(Medium));
 	Style.Set("UT.HeaderBackground.Light", new FSlateColorBrush(Light));
 	Style.Set("UT.HeaderBackground.SuperLight", new FSlateColorBrush(SuperLight));
@@ -401,6 +403,37 @@ void SUTStyle::SetCommonStyle(TSharedRef<FSlateStyleSet> StyleRef)
 		.SetTextColor(FLinearColor::White)
 		.SetSelectedTextColor(FLinearColor::Black)
 		);
+
+	Style.Set("UT.PlayerList.Row.Red", FTableRowStyle()
+		.SetEvenRowBackgroundBrush(FSlateNoResource(FVector2D(256.0f, 256.0f)))
+		.SetEvenRowBackgroundHoveredBrush(FSlateColorBrush(FColor(5,2,2,255)))
+		.SetOddRowBackgroundBrush(FSlateNoResource(FVector2D(256.0f, 256.0f)))
+		.SetOddRowBackgroundHoveredBrush(FSlateColorBrush(FColor(7,3,3,255)))
+		.SetSelectorFocusedBrush(FSlateColorBrush(FColor(9,2,2,255)))
+		.SetActiveBrush(FSlateColorBrush(FColor(9,2,2,255)))
+		.SetActiveHoveredBrush(FSlateColorBrush(FColor(9,2,2,255)))
+		.SetInactiveBrush(FSlateColorBrush(FColor(9,2,2,255)))
+		.SetInactiveHoveredBrush(FSlateColorBrush(FColor(9,2,2,255)))
+		.SetTextColor(FLinearColor::White)
+		.SetSelectedTextColor(FLinearColor::Black)
+		);
+
+
+	Style.Set("UT.PlayerList.Row.Blue", FTableRowStyle()
+		.SetEvenRowBackgroundBrush(FSlateNoResource(FVector2D(256.0f, 256.0f)))
+		.SetEvenRowBackgroundHoveredBrush(FSlateColorBrush(FColor(2,2,5,255)))
+		.SetOddRowBackgroundBrush(FSlateNoResource(FVector2D(256.0f, 256.0f)))
+		.SetOddRowBackgroundHoveredBrush(FSlateColorBrush(FColor(2,2,7,255)))
+		.SetSelectorFocusedBrush(FSlateColorBrush(FColor(2,2,9,255)))
+		.SetActiveBrush(FSlateColorBrush(FColor(2,2,9,255)))
+		.SetActiveHoveredBrush(FSlateColorBrush(FColor(2,2,9,255)))
+		.SetInactiveBrush(FSlateColorBrush(FColor(2,2,9,255)))
+		.SetInactiveHoveredBrush(FSlateColorBrush(FColor(2,2,9,255)))
+		.SetTextColor(FLinearColor::White)
+		.SetSelectedTextColor(FLinearColor::Black)
+		);
+
+
 
 
 
