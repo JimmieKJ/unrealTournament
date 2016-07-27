@@ -248,7 +248,7 @@ void SUTQuickMatchWindow::BuildWindow()
 
 FText SUTQuickMatchWindow::GetStatusText() const
 {
-	int32 DeltaSeconds = int32(PlayerOwner->GetWorld()->GetTimeSeconds() - StartTime);
+	int32 DeltaSeconds = int32(PlayerOwner->GetWorld()->GetRealTimeSeconds() - StartTime);
 
 	if (bWaitingForMatch)
 	{
