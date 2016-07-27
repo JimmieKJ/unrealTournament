@@ -428,8 +428,8 @@ void AUTFlagRunGame::HandleMatchIntermission()
 	// Update win requirements if last two rounds
 	AUTTeamInfo* NextAttacker = (GS->bRedToCap == GS->IsMatchIntermission()) ? GS->Teams[1] : GS->Teams[0];
 	AUTTeamInfo* NextDefender = (GS->bRedToCap == GS->IsMatchIntermission()) ? GS->Teams[0] : GS->Teams[1];
-	int32 RequiredTime = NextDefender->SecondaryScore - NextAttacker->SecondaryScore;
-	int32 BonusType = 1;
+	int32 RequiredTime = (GS->bRedToCap == GS->IsMatchIntermission()) ? GS->TiebreakValue : -1 * GS->TiebreakValue;
+	RequiredTime = FMath::Max(RequiredTime, 0);
 	GS->FlagRunMessageTeam = nullptr;
 	if (GS->CTFRound == GS->NumRounds - 2)
 	{
@@ -443,35 +443,22 @@ void AUTFlagRunGame::HandleMatchIntermission()
 			}
 			else
 			{
-				BonusType = (NextAttacker->Score - NextDefender->Score == 2) ? 1 : 2;
+				int32 BonusType = (NextAttacker->Score - NextDefender->Score == 2) ? 1 : 2;
 				GS->FlagRunMessageSwitch = BonusType + 1;
 			}
 		}
 		else if (NextDefender->Score > NextAttacker->Score)
 		{
 			GS->FlagRunMessageTeam = NextAttacker;
-			GS->FlagRunMessageSwitch = 4;
-			if (NextDefender->Score - NextAttacker->Score > 1)
+			
+			int32 BonusType = FMath::Max(1, (NextDefender->Score - NextAttacker->Score) - 1);
+			if (RequiredTime > 60)
 			{
-				// compare bonus times, see what level is implied and state for Attackers to have a chance
-				if (RequiredTime < 60 * (NextDefender->Score - NextAttacker->Score - 1))
-				{
-					if (NextDefender->Score - NextAttacker->Score > 2)
-					{
-						BonusType = (NextDefender->Score - NextAttacker->Score == 4) ? 3 : 2;
-					}
-					GS->FlagRunMessageSwitch = BonusType + 3;
-				}
-				else
-				{
-					// state required time and threshold
-					if (RequiredTime >= GS->SilverBonusThreshold)
-					{
-						BonusType = (RequiredTime >= GS->GoldBonusThreshold) ? 3 : 2;
-					}
-					GS->FlagRunMessageSwitch = 100 * RequiredTime + BonusType + 3;
-				}
+				BonusType++;
+				RequiredTime = 0;
 			}
+			BonusType = FMath::Min(BonusType, 3);
+			GS->FlagRunMessageSwitch = 100 * RequiredTime + BonusType + 3;
 		}
 	}
 	else if (GS->CTFRound == GS->NumRounds - 1)
@@ -484,38 +471,13 @@ void AUTFlagRunGame::HandleMatchIntermission()
 		}
 		else
 		{
-			if (NextDefender->Score - NextAttacker->Score > 2)
+			int32 BonusType = NextDefender->Score - NextAttacker->Score;
+			if (RequiredTime > 60)
 			{
-				BonusType = 3;
-				bNeedTimeThreshold = (RequiredTime > 120);
+				BonusType++;
+				RequiredTime = 0;
 			}
-			else if (NextDefender->Score - NextAttacker->Score == 2)
-			{
-				if (RequiredTime < 120)
-				{
-					BonusType = 2;
-					bNeedTimeThreshold = (RequiredTime > 60);
-				}
-				else
-				{
-					BonusType = 3;
-					bNeedTimeThreshold = (RequiredTime > 120);
-				}
-			}
-			else //(NextDefender->Score - NextAttacker->Score == 1)
-			{
-				if (RequiredTime < 60)
-				{
-					BonusType = 1;
-					bNeedTimeThreshold = (RequiredTime > 0);
-				}
-				else
-				{
-					BonusType = (RequiredTime < 120) ? 2 : 3;
-					bNeedTimeThreshold = true;
-				}
-			}
-			GS->FlagRunMessageSwitch = 7 + BonusType + (bNeedTimeThreshold ? 100 * RequiredTime : 0);
+			GS->FlagRunMessageSwitch = 7 + BonusType + 100 * RequiredTime;
 		}
 	}
 }

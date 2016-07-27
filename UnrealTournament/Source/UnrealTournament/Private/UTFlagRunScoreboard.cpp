@@ -148,28 +148,8 @@ void UUTFlagRunScoreboard::DrawReadyText(AUTPlayerState* PlayerState, float XOff
 	}
 }
 
-void UUTFlagRunScoreboard::DrawBonusTeamStatsLine(FText StatsName, float DeltaTime, float XOffset, float& YPos, const FStatsFontInfo& StatsFontInfo, float ScoreWidth, bool bSkipEmpty)
-{
-	int32 HighlightIndex = 0;
-	int32 RedTeamValue = UTGameState->Teams[0]->SecondaryScore;
-	int32 BlueTeamValue = UTGameState->Teams[1]->SecondaryScore;
-	if (RedTeamValue < BlueTeamValue)
-	{
-		HighlightIndex = 2;
-	}
-	else if (RedTeamValue > BlueTeamValue)
-	{
-		HighlightIndex = 1;
-	}
-
-	FText ClockStringRed = UTHUDOwner->ConvertTime(FText::GetEmpty(), FText::GetEmpty(), RedTeamValue, false);
-	FText ClockStringBlue = UTHUDOwner->ConvertTime(FText::GetEmpty(), FText::GetEmpty(), BlueTeamValue, false);
-	DrawTextStatsLine(StatsName, ClockStringRed.ToString(), ClockStringBlue.ToString(), DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth, HighlightIndex);
-}
-
 void UUTFlagRunScoreboard::DrawTeamStats(float DeltaTime, float& YPos, float XOffset, float ScoreWidth, float MaxHeight, const FStatsFontInfo& StatsFontInfo)
 {
-	DrawBonusTeamStatsLine(NSLOCTEXT("UTScoreboard", "TeamBonusTime", "Bonus Time (Tiebreak)"), DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth, false);
 	DrawStatsLine(NSLOCTEXT("UTScoreboard", "TeamKills", "Kills"), UTGameState->Teams[0]->GetStatsValue(NAME_TeamKills), UTGameState->Teams[1]->GetStatsValue(NAME_TeamKills), DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth);
 
 	float SectionSpacing = 0.6f * StatsFontInfo.TextHeight;

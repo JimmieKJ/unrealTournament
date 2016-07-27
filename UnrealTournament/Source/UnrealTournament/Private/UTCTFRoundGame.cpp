@@ -338,9 +338,10 @@ bool AUTCTFRoundGame::CheckForWinner(AUTTeamInfo* ScoringTeam)
 			else if ((Team != BestTeam) && (Team->Score == BestTeam->Score))
 			{
 				bHaveTie = true;
-				if (Team->SecondaryScore != BestTeam->SecondaryScore)
+				AUTCTFRoundGameState* GS = Cast<AUTCTFRoundGameState>(UTGameState);
+				if (GS && (GS->TiebreakValue != 0))
 				{
-					BestTeam = (Team->SecondaryScore > BestTeam->SecondaryScore) ? Team : BestTeam;
+					BestTeam = (GS->TiebreakValue > 0) ? Teams[0] : Teams[1];
 					bHaveTie = false;
 					bSecondaryWin = true;
 				}
@@ -510,7 +511,6 @@ void AUTCTFRoundGame::ScoreObject_Implementation(AUTCarriedObject* GameObject, A
 			if (Holder && Holder->Team)
 			{
 				Holder->Team->RoundBonus = FMath::Min(MaxTimeScoreBonus, UTGameState->GetRemainingTime());
-				Holder->Team->SecondaryScore += Holder->Team->RoundBonus;
 				AUTCTFRoundGameState* RCTFGameState = Cast<AUTCTFRoundGameState>(CTFGameState);
 				if (RCTFGameState)
 				{
@@ -1129,7 +1129,6 @@ void AUTCTFRoundGame::ScoreAlternateWin(int32 WinningTeamIndex, uint8 Reason)
 				}
 			}
 			WinningTeam->RoundBonus = FMath::Min(MaxTimeScoreBonus, CTFGameState->GetRemainingTime());
-			WinningTeam->SecondaryScore += WinningTeam->RoundBonus;
 			AUTCTFRoundGameState* RCTFGameState = Cast<AUTCTFRoundGameState>(CTFGameState);
 			if (RCTFGameState)
 			{

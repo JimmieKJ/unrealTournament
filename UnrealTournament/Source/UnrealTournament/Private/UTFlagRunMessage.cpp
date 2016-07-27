@@ -33,7 +33,7 @@ UUTFlagRunMessage::UUTFlagRunMessage(const FObjectInitializer& ObjectInitializer
 	AnnouncementDelay = 2.f;
 
 	DefendersMustStop = NSLOCTEXT("UTFlagRun", "DefendersMustStop", " must hold on defense to have a chance.");
-	DefendersMustHold = NSLOCTEXT("UTFlagRun", "DefendersMustHold", " must hold {SecondaryName} to {BonusType} to have a chance.");
+	DefendersMustHold = NSLOCTEXT("UTFlagRun", "DefendersMustHold", " must hold {SecondaryName} to {BonusType}.");
 	AttackersMustScore = NSLOCTEXT("UTFlagRun", "AttackersMustScore", " must score {BonusType} to have a chance.");
 	UnhandledCondition = NSLOCTEXT("UTFlagRun", "UnhandledCondition", "UNHANDLED WIN CONDITION");
 	AttackersMustScoreWin = NSLOCTEXT("UTFlagRun", "AttackersMustScoreWin", " must score {BonusType} to win.");
