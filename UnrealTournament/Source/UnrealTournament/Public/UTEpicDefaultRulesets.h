@@ -143,7 +143,7 @@ public:
 
 			NewRuleset->Title = TEXT("Team Deathmatch");
 			NewRuleset->Tooltip = TEXT("Red versus blue team deathmatch.");
-			NewRuleset->Description = TEXT("Red versus blue team deathmatch.\n\n<UT.Hub.RulesText_Small>TimeLimit : %timelimit% minutes</>\n<UT.Hub.RulesText_Small>Mercy Rule : On</>\n<UT.Hub.RulesText_Small>Maximum players: %maxplayers%</>");
+			NewRuleset->Description = TEXT("Red versus blue team deathmatch.\n\n<UT.Hub.RulesText_Small>TimeLimit : %timelimit% minutes</>\n<UT.Hub.RulesText_Small>Maximum players: %maxplayers%</>");
 			NewRuleset->MinPlayersToStart = 2;
 			NewRuleset->MaxPlayers = 12;
 			NewRuleset->DisplayTexture = TEXT("Texture2D'/Game/RestrictedAssets/UI/GameModeBadges/GB_TDM.GB_TDM'");
@@ -212,7 +212,7 @@ public:
 
 			NewRuleset->Title = TEXT("Duel");
 			NewRuleset->Tooltip = TEXT("One vs one test of deathmatch skill.");
-			NewRuleset->Description = TEXT("One vs one test of deathmatch skill.\n\n<UT.Hub.RulesText_Small>TimeLimit : %timelimit% minutes</>\n<UT.Hub.RulesText_Small>Mercy Rule : OFF</>\n<UT.Hub.RulesText_Small>Maximum players: %maxplayers%</>");
+			NewRuleset->Description = TEXT("One vs one test of deathmatch skill.\n\n<UT.Hub.RulesText_Small>TimeLimit : %timelimit% minutes</>\n<UT.Hub.RulesText_Small>Maximum players: %maxplayers%</>");
 			NewRuleset->MinPlayersToStart = 2;
 			NewRuleset->MaxPlayers = 2;
 			NewRuleset->DisplayTexture = TEXT("Texture2D'/Game/RestrictedAssets/UI/GameModeBadges/GB_Duel.GB_Duel'");
@@ -236,7 +236,7 @@ public:
 
 			NewRuleset->Title = TEXT("Duel Showdown");
 			NewRuleset->Tooltip = TEXT("New School one vs one test of deathmatch skill.");
-			NewRuleset->Description = TEXT("New School one vs one test of deathmatch skill.\n\n<UT.Hub.RulesText_Small>TimeLimit : %timelimit% minute rounds</>\n<UT.Hub.RulesText_Small>Mercy Rule : OFF</>\n<UT.Hub.RulesText_Small>Maximum players : %maxplayers%</>");
+			NewRuleset->Description = TEXT("New School one vs one test of deathmatch skill.\n\n<UT.Hub.RulesText_Small>TimeLimit : %timelimit% minute rounds</>\n<UT.Hub.RulesText_Small>Maximum players : %maxplayers%</>");
 			NewRuleset->MinPlayersToStart = 2;
 			NewRuleset->MaxPlayers = 2;
 			NewRuleset->DisplayTexture = TEXT("Texture2D'/Game/RestrictedAssets/UI/GameModeBadges/GB_Duel.GB_Duel'");
@@ -386,7 +386,7 @@ public:
 
 			NewRuleset->Title = TEXT("Instagib TDM");
 			NewRuleset->Tooltip = TEXT("One hit one kill Team Deathmatch.");
-			NewRuleset->Description = TEXT("One hit one kill Team Deathmatch.\n\n<UT.Hub.RulesText_Small>Mutators : Instagib</>\n<UT.Hub.RulesText_Small>TimeLimit : %timelimit% minutes</>\n<UT.Hub.RulesText_Small>Mercy Rule : On</>\n<UT.Hub.RulesText_Small>Maximum players : %maxplayers%</>");
+			NewRuleset->Description = TEXT("One hit one kill Team Deathmatch.\n\n<UT.Hub.RulesText_Small>Mutators : Instagib</>\n<UT.Hub.RulesText_Small>TimeLimit : %timelimit% minutes</>\n<UT.Hub.RulesText_Small>Maximum players : %maxplayers%</>");
 			NewRuleset->MinPlayersToStart = 2;
 			NewRuleset->MaxPlayers = 20;
 			NewRuleset->DisplayTexture = TEXT("Texture2D'/Game/RestrictedAssets/UI/GameModeBadges/GB_InstagibDuel.GB_InstagibDuel'");
