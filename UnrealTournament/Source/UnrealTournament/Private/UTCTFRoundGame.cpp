@@ -511,23 +511,7 @@ void AUTCTFRoundGame::ScoreObject_Implementation(AUTCarriedObject* GameObject, A
 			if (Holder && Holder->Team)
 			{
 				Holder->Team->RoundBonus = FMath::Min(MaxTimeScoreBonus, UTGameState->GetRemainingTime());
-				AUTCTFRoundGameState* RCTFGameState = Cast<AUTCTFRoundGameState>(CTFGameState);
-				if (RCTFGameState)
-				{
-					int32 LimitedBonus = Holder->Team->RoundBonus;
-					while (LimitedBonus > 60)
-					{
-						LimitedBonus -= 60;
-					}
-					if (Holder->Team->TeamIndex == 0)
-					{
-						RCTFGameState->TiebreakValue += LimitedBonus;
-					}
-					else
-					{
-						RCTFGameState->TiebreakValue -= LimitedBonus;
-					}
-				}
+				UpdateTiebreak(Holder->Team->RoundBonus, Holder->Team->TeamIndex);
 			}
 		}
 
@@ -543,6 +527,26 @@ void AUTCTFRoundGame::ScoreObject_Implementation(AUTCarriedObject* GameObject, A
 	}
 
 	Super::ScoreObject_Implementation(GameObject, HolderPawn, Holder, Reason);
+}
+
+void AUTCTFRoundGame::UpdateTiebreak(int32 Bonus, int32 TeamIndex)
+{
+	AUTCTFRoundGameState* RCTFGameState = Cast<AUTCTFRoundGameState>(CTFGameState);
+	if (RCTFGameState)
+	{
+		while (Bonus > 60)
+		{
+			Bonus -= 60;
+		}
+		if (TeamIndex == 0)
+		{
+			RCTFGameState->TiebreakValue += Bonus;
+		}
+		else
+		{
+			RCTFGameState->TiebreakValue -= Bonus;
+		}
+	}
 }
 
 void AUTCTFRoundGame::HandleFlagCapture(AUTCharacter* HolderPawn, AUTPlayerState* Holder)
@@ -1129,23 +1133,7 @@ void AUTCTFRoundGame::ScoreAlternateWin(int32 WinningTeamIndex, uint8 Reason)
 				}
 			}
 			WinningTeam->RoundBonus = FMath::Min(MaxTimeScoreBonus, CTFGameState->GetRemainingTime());
-			AUTCTFRoundGameState* RCTFGameState = Cast<AUTCTFRoundGameState>(CTFGameState);
-			if (RCTFGameState)
-			{
-				int32 LimitedBonus = WinningTeam->RoundBonus;
-				while (LimitedBonus > 60)
-				{
-					LimitedBonus -= 60;
-				}
-				if (WinningTeam->TeamIndex == 0)
-				{
-					RCTFGameState->TiebreakValue += LimitedBonus;
-				}
-				else
-				{
-					RCTFGameState->TiebreakValue -= LimitedBonus;
-				}
-			}
+			UpdateTiebreak(WinningTeam->RoundBonus, WinningTeam->TeamIndex);
 
 			FCTFScoringPlay NewScoringPlay;
 			NewScoringPlay.Team = WinningTeam;
