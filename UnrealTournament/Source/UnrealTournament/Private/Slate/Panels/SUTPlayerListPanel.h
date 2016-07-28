@@ -135,7 +135,7 @@ public:
 			return FSlateColor(FLinearColor(0.25f, 1.0f, 1.0f,1.0f));
 		}
 
-		AUTGameState* GameState = PlayerState->GetWorld()->GetGameState<AUTGameState>();
+		AUTGameState* GameState = PlayerState.IsValid() ? PlayerState->GetWorld()->GetGameState<AUTGameState>() : nullptr;
 		if (GameState && GameState->bTeamGame)
 		{
 			if (bIsInMatch && !bIsSpectator)

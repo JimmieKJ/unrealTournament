@@ -620,11 +620,11 @@ void SUTTextChatPanel::UpdateTeamList()
 						bool bFound = false;
 						for (int32 j = 0; j < TeamPSList.Num(); j++)
 						{
-							if (TeamPSList[i]->PlayerState.Get() == PlayerState)
+							if (TeamPSList[j]->PlayerState.Get() == PlayerState)
 							{
-								if (TeamPSList[i]->TeamNum != PlayerState->DesiredTeamNum)
+								if (TeamPSList[j]->TeamNum != PlayerState->DesiredTeamNum)
 								{
-									TeamPSList[i]->TeamNum = PlayerState->DesiredTeamNum;
+									TeamPSList[j]->TeamNum = PlayerState->DesiredTeamNum;
 									bNeedsRefresh = true;
 								}
 								bFound = true;
