@@ -6,7 +6,7 @@
 UUTHUDWidgetAnnouncements::UUTHUDWidgetAnnouncements(const class FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
 {
 	EmphasisOutlineColor = FLinearColor::Black;
-	EmphasisScaling = 1.25f;
+	EmphasisScaling = 1.1f;
 	ManagedMessageArea = FName(TEXT("Announcements"));
 	Slots.Add(FAnnouncementSlot(FName(TEXT("MajorRewardMessage")), 0.17f));
 	Slots.Add(FAnnouncementSlot(FName(TEXT("Spree")), 0.23f));
@@ -174,7 +174,7 @@ FVector2D UUTHUDWidgetAnnouncements::DrawMessage(int32 QueueIndex, float X, floa
 			}
 
 			FVector2D EmphasisRenderPos = RenderPos;
-			EmphasisRenderPos.Y -= (EmphasisScaling - 1.f) * YL * 0.7f; // FIXMESTEVE 0.7f is guess - what is ideal? maybe less emphasis scaling?
+			EmphasisRenderPos.Y -= (EmphasisScaling - 1.f) * YL * 0.77f; // FIXMESTEVE 0.7f is guess - what is ideal? maybe less emphasis scaling?
 			FLinearColor EmphasisColor = MessageQueue[QueueIndex].EmphasisColor;
 			EmphasisColor.A = Opacity * Alpha * UTHUDOwner->WidgetOpacity;
 			FUTCanvasTextItem EmphasisTextItem(EmphasisRenderPos, MessageQueue[QueueIndex].EmphasisText, MessageQueue[QueueIndex].DisplayFont, EmphasisColor, WordWrapper);
