@@ -83,7 +83,7 @@ void AUTFlagRunHUD::DrawHUD()
 			{
 				if (!UTPS->bOutOfLives)
 				{
-					bool bLastLife = (UTPS->RemainingLives == 0);
+					bool bLastLife = (UTPS->RemainingLives == 1);
 					if (UTPS->Team->TeamIndex == 0)
 					{
 						RedPlayerCount++;
@@ -103,7 +103,7 @@ void AUTFlagRunHUD::DrawHUD()
 					if (!bLastLife)
 					{
 						Canvas->SetLinearDrawColor(FLinearColor::White, 1.f);
-						Canvas->DrawText(TinyFont, FText::AsNumber(UTPS->RemainingLives+1), XOffsetText + 0.4f*PipSize, YOffset + 0.2f*PipSize, 0.75f, 0.75f, TextRenderInfo);
+						Canvas->DrawText(TinyFont, FText::AsNumber(UTPS->RemainingLives), XOffsetText + 0.4f*PipSize, YOffset + 0.2f*PipSize, 0.75f, 0.75f, TextRenderInfo);
 					}
 				}
 			}
