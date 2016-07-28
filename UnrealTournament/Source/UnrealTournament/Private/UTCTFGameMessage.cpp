@@ -115,12 +115,12 @@ bool UUTCTFGameMessage::CancelByAnnouncement_Implementation(int32 Switch, const 
 		// never cancel scoring announcement
 		return false;
 	}
-	if ((OtherSwitch == 2) || (OtherSwitch == 8) || (OtherSwitch == 9) || (OtherSwitch == 10))
+	if ((GetClass() == OtherMessageClass) && ((OtherSwitch == 2) || (OtherSwitch == 8) || (OtherSwitch == 9) || (OtherSwitch == 10)))
 	{
 		// always cancel if before scoring announcement
 		return true;
 	}
-	return ((OtherSwitch == Switch) && ((OtherSwitch == 11) || (OtherSwitch == 12)));
+	return (GetClass() == OtherMessageClass) && ((OtherSwitch == Switch) && ((OtherSwitch == 11) || (OtherSwitch == 12)));
 }
 
 void UUTCTFGameMessage::PrecacheAnnouncements_Implementation(UUTAnnouncer* Announcer) const

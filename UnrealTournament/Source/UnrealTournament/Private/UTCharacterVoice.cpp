@@ -27,21 +27,21 @@ UUTCharacterVoice::UUTCharacterVoice(const FObjectInitializer& ObjectInitializer
 	StatusOffsets.Add(StatusMessage::DefendFC, 500);
 	StatusOffsets.Add(StatusMessage::GetFlagBack, 600);
 	StatusOffsets.Add(StatusMessage::ImOnDefense, 700);
-	StatusOffsets.Add(StatusMessage::ImGoingIn, 800);
+	StatusOffsets.Add(StatusMessage::ImGoingIn, KEY_CALLOUTS+100);
 	StatusOffsets.Add(StatusMessage::ImOnOffense, 900);
 	StatusOffsets.Add(StatusMessage::SpreadOut, 1000);
-	StatusOffsets.Add(StatusMessage::BaseUnderAttack, 1100);
-	StatusOffsets.Add(GameVolumeSpeechType::GV_Bridge, 1200);
-	StatusOffsets.Add(GameVolumeSpeechType::GV_River, 1300);
-	StatusOffsets.Add(GameVolumeSpeechType::GV_Antechamber, 1400);
-	StatusOffsets.Add(GameVolumeSpeechType::GV_ThroneRoom, 1500);
-	StatusOffsets.Add(GameVolumeSpeechType::GV_Courtyard, 1600);
-	StatusOffsets.Add(GameVolumeSpeechType::GV_Stables, 1700);
-	StatusOffsets.Add(GameVolumeSpeechType::GV_DefenderBase, 1800);
-	StatusOffsets.Add(GameVolumeSpeechType::GV_AntechamberHigh, 1900);
-	StatusOffsets.Add(PickupSpeechType::RedeemerPickup, 2000);
-	StatusOffsets.Add(PickupSpeechType::UDamagePickup, 2100);
-	StatusOffsets.Add(PickupSpeechType::ShieldbeltPickup, 2200);
+	StatusOffsets.Add(StatusMessage::BaseUnderAttack, KEY_CALLOUTS + 200);
+	StatusOffsets.Add(GameVolumeSpeechType::GV_Bridge, KEY_CALLOUTS + 300);
+	StatusOffsets.Add(GameVolumeSpeechType::GV_River, KEY_CALLOUTS + 400);
+	StatusOffsets.Add(GameVolumeSpeechType::GV_Antechamber, KEY_CALLOUTS + 500);
+	StatusOffsets.Add(GameVolumeSpeechType::GV_ThroneRoom, KEY_CALLOUTS + 600);
+	StatusOffsets.Add(GameVolumeSpeechType::GV_Courtyard, KEY_CALLOUTS + 700);
+	StatusOffsets.Add(GameVolumeSpeechType::GV_Stables, KEY_CALLOUTS + 800);
+	StatusOffsets.Add(GameVolumeSpeechType::GV_DefenderBase, KEY_CALLOUTS + 900);
+	StatusOffsets.Add(GameVolumeSpeechType::GV_AntechamberHigh, KEY_CALLOUTS + 1000);
+	StatusOffsets.Add(PickupSpeechType::RedeemerPickup, KEY_CALLOUTS + 1100);
+	StatusOffsets.Add(PickupSpeechType::UDamagePickup, KEY_CALLOUTS + 1200);
+	StatusOffsets.Add(PickupSpeechType::ShieldbeltPickup, KEY_CALLOUTS + 1300);
 
 	TauntText = NSLOCTEXT("UTCharacterVoice", "Taunt", ": {TauntMessage}");
 	StatusTextFormat = NSLOCTEXT("UTCharacterVoice", "StatusFormat", " at {LastKnownLocation}: {TauntMessage}");
@@ -89,7 +89,7 @@ UUTCharacterVoice::UUTCharacterVoice(const FObjectInitializer& ObjectInitializer
 
 bool UUTCharacterVoice::IsOptionalSpoken(int32 MessageIndex) const
 {
-	return bOptionalSpoken && (MessageIndex < 1200);
+	return bOptionalSpoken && (MessageIndex < KEY_CALLOUTS);
 }
 
 FText UUTCharacterVoice::GetText(int32 Switch, bool bTargetsPlayerState1, class APlayerState* RelatedPlayerState_1, class APlayerState* RelatedPlayerState_2, class UObject* OptionalObject) const
@@ -558,24 +558,24 @@ bool UUTCharacterVoice::ShouldPlayAnnouncement(const FClientReceiveData& ClientD
 
 bool UUTCharacterVoice::InterruptAnnouncement_Implementation(int32 Switch, const UObject* OptionalObject, TSubclassOf<UUTLocalMessage> OtherMessageClass, int32 OtherSwitch, const UObject* OtherOptionalObject) const
 {
-	return (GetClass() == OtherMessageClass) && (Switch >= 1000) && (OtherSwitch < 1000);
+	return (GetClass() == OtherMessageClass) && (Switch >= KEY_CALLOUTS) && (OtherSwitch < KEY_CALLOUTS);
 }
 
 bool UUTCharacterVoice::CancelByAnnouncement_Implementation(int32 Switch, const UObject* OptionalObject, TSubclassOf<UUTLocalMessage> OtherMessageClass, int32 OtherSwitch, const UObject* OtherOptionalObject) const
 {
 	if (GetClass() == OtherMessageClass)
 	{
-		return (Switch < 1000) && (OtherSwitch >= 1000);
+		return (Switch < KEY_CALLOUTS) && (OtherSwitch >= KEY_CALLOUTS);
 	}
 	else
 	{
-		return (Switch < 1000);
+		return (Switch < KEY_CALLOUTS);
 	}
 }
 
 float UUTCharacterVoice::GetAnnouncementPriority(int32 Switch) const
 {
-	return 0.1f;
+	return (Switch >= KEY_CALLOUTS) ? 0.5f : 0.1f;
 }
 
 int32 UUTCharacterVoice::GetStatusIndex(FName NewStatus) const
