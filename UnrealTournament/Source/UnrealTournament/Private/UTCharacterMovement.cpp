@@ -774,7 +774,7 @@ bool UUTCharacterMovement::CanWallDodge(const FVector &DodgeDir, const FVector &
 	static const FName DodgeTag = FName(TEXT("Dodge"));
 	FCollisionQueryParams QueryParams(DodgeTag, false, CharacterOwner);
 	const bool bBlockingHit = GetWorld()->SweepSingleByChannel(Result, TraceStart, TraceEnd, FQuat::Identity, UpdatedComponent->GetCollisionObjectType(), FCollisionShape::MakeSphere(TraceBoxSize), QueryParams);
-	if (!bBlockingHit || (!IsSwimming() && (CurrentWallDodgeCount > 0) && !bIsLowGrav && ((Result.ImpactNormal | LastWallDodgeNormal) > MaxConsecutiveWallDodgeDP)))
+	if (!bBlockingHit || Cast<ACharacter>(Result.Actor.Get()) || (!IsSwimming() && (CurrentWallDodgeCount > 0) && !bIsLowGrav && ((Result.ImpactNormal | LastWallDodgeNormal) > MaxConsecutiveWallDodgeDP)))
 	{
 		//UE_LOG(UTNet, Warning, TEXT("No wall to dodge"));
 		return false;
