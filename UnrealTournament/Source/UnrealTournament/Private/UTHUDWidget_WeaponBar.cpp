@@ -95,7 +95,8 @@ void UUTHUDWidget_WeaponBar::PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCan
 	if (UTCharacterOwner != nullptr)
 	{
 		// Look for activity
-		AUTWeapon* CurrentWeapon = UTCharacterOwner->GetWeapon();
+		AUTWeapon* CurrentWeapon = UTCharacterOwner->GetPendingWeapon();
+		if (CurrentWeapon == nullptr) CurrentWeapon = UTCharacterOwner->GetWeapon();
 		if (CurrentWeapon != LastSelectedWeapon)
 		{
 			LastActiveTime = InUTHUDOwner->GetWorld()->GetTimeSeconds();
@@ -263,7 +264,11 @@ void UUTHUDWidget_WeaponBar::Draw_Implementation(float DeltaTime)
 	if (UTHUDOwner && UTHUDOwner->UTPlayerOwner)
 	{
 		AUTCharacter* UTCharacter = Cast<AUTCharacter>(UTHUDOwner->UTPlayerOwner->GetPawn());
-		CurrentWeapon = UTCharacter != nullptr ? UTCharacter->GetWeapon() : nullptr;
+		CurrentWeapon = UTCharacter != nullptr ? UTCharacter->GetPendingWeapon() : nullptr;
+		if (CurrentWeapon == nullptr)
+		{
+			CurrentWeapon = UTCharacter != nullptr ? UTCharacter->GetWeapon() : nullptr;
+		}
 	}
 
 	float LastActiveDelta = GetWorld()->GetTimeSeconds() - LastActiveTime;
