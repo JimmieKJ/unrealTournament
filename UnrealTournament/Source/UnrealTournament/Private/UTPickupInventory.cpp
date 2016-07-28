@@ -318,6 +318,7 @@ void AUTPickupInventory::InventoryTypeUpdated_Implementation()
 void AUTPickupInventory::Reset_Implementation()
 {
 	bHasEverSpawned = false;
+	GetWorldTimerManager().ClearTimer(SpawnVoiceLineTimer);
 	if (InventoryType == NULL)
 	{
 		StartSleeping();
