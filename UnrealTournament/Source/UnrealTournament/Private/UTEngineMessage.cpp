@@ -13,10 +13,10 @@ Super(ObjectInitializer)
 
 	FailedPlaceMessage = NSLOCTEXT("UTEngineMessage", "FailedPlaceMessage", "No valid playerstart found.");
 	MaxedOutMessage = NSLOCTEXT("UTEngineMessage", "MaxedOutMessage", "Server is full.");
-	EnteredMessage = NSLOCTEXT("UTEngineMessage", "EnteredMessage", "{Player1Name} has joined the server.");
-	LeftMessage = NSLOCTEXT("UTEngineMessage", "LeftMessage", "{Player1Name} has left the game.");
-	GlobalNameChange = NSLOCTEXT("UTEngineMessage", "GlobalNameChange", "{Player1OldName} changed name to {Player1Name}.");
-	SpecEnteredMessage = NSLOCTEXT("UTEngineMessage", "SpecEnteredMessage", "{Player1Name} joined as a spectator.");
+	EnteredMessage = NSLOCTEXT("UTEngineMessage", "EnteredMessage", " has joined the server.");
+	LeftMessage = NSLOCTEXT("UTEngineMessage", "LeftMessage", " has left the game.");
+	GlobalNameChange = NSLOCTEXT("UTEngineMessage", "GlobalNameChange", " {Player1OldName} changed name to {Player1Name}.");
+	SpecEnteredMessage = NSLOCTEXT("UTEngineMessage", "SpecEnteredMessage", " joined as a spectator.");
 	NewPlayerMessage = NSLOCTEXT("UTEngineMessage", "NewPlayerMessage", "A new player has joined the server.");
 	NewSpecMessage = NSLOCTEXT("UTEngineMessage", "NewSpecMessage", "A new spectator joined the server.");
 	ServerNotResponding = NSLOCTEXT("UTGameMessage", "ServerNotResponding", "Server not responding.");
