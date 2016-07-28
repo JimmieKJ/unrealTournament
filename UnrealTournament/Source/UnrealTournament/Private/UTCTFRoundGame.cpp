@@ -952,28 +952,6 @@ void AUTCTFRoundGame::RestartPlayer(AController* aPlayer)
 		{
 			if (PS->RemainingLives >= 0)
 			{
-				PS->RemainingLives--;
-				if (PS->RemainingLives < 0)
-				{
-					if (bNoLivesEndRound)
-					{
-						// this player is out of lives
-						PS->SetOutOfLives(true);
-						for (int32 i = 0; i < UTGameState->PlayerArray.Num(); i++)
-						{
-							AUTPlayerState* OtherPS = Cast<AUTPlayerState>(UTGameState->PlayerArray[i]);
-							if (OtherPS && (OtherPS->Team == PS->Team) && !OtherPS->bOutOfLives && !OtherPS->bIsInactive)
-							{
-								// found a live teammate, so round isn't over - notify about termination though
-								BroadcastLocalized(NULL, UUTShowdownRewardMessage::StaticClass(), 3, PS);
-								return;
-							}
-						}
-						BroadcastLocalized(NULL, UUTShowdownRewardMessage::StaticClass(), 4);
-						ScoreAlternateWin((PS->Team->TeamIndex == 0) ? 1 : 0);
-					}
-					return;
-				}
 				AUTPlayerController* PC = Cast<AUTPlayerController>(aPlayer);
 				if (PS->RemainingLives == 0)
 				{
@@ -1076,7 +1054,7 @@ void AUTCTFRoundGame::ScoreKill_Implementation(AController* Killer, AController*
 		}
 		OtherPS->OnRespawnWaitReceived();
 	}
-	if (OtherPS && IsPlayerOnLifeLimitedTeam(OtherPS) && (OtherPS->RemainingLives > 0))
+	if (OtherPS && IsPlayerOnLifeLimitedTeam(OtherPS) && (OtherPS->RemainingLives >= 0))
 	{
 		int32 RemainingDefenders = 0;
 		if (!bLastManOccurred)
@@ -1106,8 +1084,37 @@ void AUTCTFRoundGame::ScoreKill_Implementation(AController* Killer, AController*
 				}
 			}
 		}
-		OtherPS->RespawnWaitTime = FMath::Max(1.f, float(RemainingDefenders));
-		OtherPS->OnRespawnWaitReceived();
+		OtherPS->RemainingLives--;
+		if (OtherPS->RemainingLives < 0)
+		{
+			// this player is out of lives
+			if (bNoLivesEndRound)
+			{
+				OtherPS->SetOutOfLives(true);
+				bool bFoundTeammate = false;
+				for (int32 i = 0; i < UTGameState->PlayerArray.Num(); i++)
+				{
+					AUTPlayerState* TeamPS = Cast<AUTPlayerState>(UTGameState->PlayerArray[i]);
+					if (TeamPS && (OtherPS->Team == TeamPS->Team) && !TeamPS->bOutOfLives && !TeamPS->bIsInactive)
+					{
+						// found a live teammate, so round isn't over - notify about termination though
+						BroadcastLocalized(NULL, UUTShowdownRewardMessage::StaticClass(), 3, OtherPS);
+						bFoundTeammate = true;
+						break;
+					}
+				}
+				if (!bFoundTeammate)
+				{
+					BroadcastLocalized(NULL, UUTShowdownRewardMessage::StaticClass(), 4);
+					ScoreAlternateWin((OtherPS->Team->TeamIndex == 0) ? 1 : 0);
+				}
+			}
+		}
+		else
+		{
+			OtherPS->RespawnWaitTime = FMath::Max(1.f, float(RemainingDefenders));
+			OtherPS->OnRespawnWaitReceived();
+		}
 	}
 }
 
