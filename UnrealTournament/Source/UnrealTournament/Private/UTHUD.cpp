@@ -1287,7 +1287,7 @@ void AUTHUD::DrawMinimap(const FColor& DrawColor, float MapSize, FVector2D DrawP
 		DrawPos.X += MapSize;
 		MapToScreen = FTranslationMatrix(FVector(DrawPos, 0.0f) / ScaleFactor) * FScaleMatrix(ScaleFactor);
 	}
-	if (MinimapTexture != NULL)
+	if (MinimapTexture && Canvas)
 	{
 		Canvas->DrawColor = DrawColor;
 		if (bInvertMinimap)
