@@ -38,8 +38,8 @@ UUTFlagRunMessage::UUTFlagRunMessage(const FObjectInitializer& ObjectInitializer
 	UnhandledCondition = NSLOCTEXT("UTFlagRun", "UnhandledCondition", "UNHANDLED WIN CONDITION");
 	AttackersMustScoreWin = NSLOCTEXT("UTFlagRun", "AttackersMustScoreWin", " must score {BonusType} to win.");
 	AttackersMustScoreTime = NSLOCTEXT("UTFlagRun", "AttackersMustScoreTime", " must score {BonusType} with at least {TimeNeeded}s remaining to have a chance.");
-	AttackersMustScoreTimeWin = NSLOCTEXT("UTFlagRun", "AttackersMustScoreTimeWin", " must score {BonusType} with at least {TimeNeeded}s remaining to win.");
-	AttackersMustScoreTimeOne = NSLOCTEXT("UTFlagRun", "AttackersMustScoreTimeOne", " must score {BonusType} with at least {TimeNeeded}");
+	AttackersMustScoreTimeWin = NSLOCTEXT("UTFlagRun", "AttackersMustScoreTimeWin", " must score {BonusType} with over {TimeNeeded}s remaining to win.");
+	AttackersMustScoreTimeOne = NSLOCTEXT("UTFlagRun", "AttackersMustScoreTimeOne", " must score {BonusType} with over {TimeNeeded}");
 	AttackersMustScoreChanceTwo = NSLOCTEXT("UTFlagRun", "AttackersMustScoreChanceTwo", "seconds remaining to have a chance.");
 	AttackersMustScoreTimeWinTwo = NSLOCTEXT("UTFlagRun", "AttackersMustScoreTimeWinTwo", "seconds remaining to win.");
 
