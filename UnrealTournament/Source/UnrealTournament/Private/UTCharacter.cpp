@@ -35,6 +35,7 @@
 #include "UTWeaponSkin.h"
 #include "UTPickupMessage.h"
 #include "UTDemoRecSpectator.h"
+#include "UTGameVolume.h"
 
 static FName NAME_HatSocket(TEXT("HatSocket"));
 
@@ -811,7 +812,11 @@ float AUTCharacter::TakeDamage(float Damage, const FDamageEvent& DamageEvent, AC
 			}
 			int32 AppliedDamage = ResultDamage;
 			AUTInventory* HitArmor = NULL;
-			ModifyDamageTaken(AppliedDamage, ResultDamage, ResultMomentum, HitArmor, HitInfo, EventInstigator, DamageCauser, DamageEvent.DamageTypeClass);
+			bool bApplyDamageToCharacter = ((Game->bDamageHurtsHealth && bDamageHurtsHealth) || (!Cast<AUTPlayerController>(GetController()) && (!DrivenVehicle || !Cast<AUTPlayerController>(DrivenVehicle->GetController()))));
+			if (bApplyDamageToCharacter)
+			{
+				ModifyDamageTaken(AppliedDamage, ResultDamage, ResultMomentum, HitArmor, HitInfo, EventInstigator, DamageCauser, DamageEvent.DamageTypeClass);
+			}
 			if (ResultDamage > 0 || !ResultMomentum.IsZero())
 			{
 				if (EventInstigator != NULL && EventInstigator != Controller)
@@ -858,7 +863,7 @@ float AUTCharacter::TakeDamage(float Damage, const FDamageEvent& DamageEvent, AC
 				}
 			}
 
-			if ((Game->bDamageHurtsHealth && bDamageHurtsHealth) || (!Cast<AUTPlayerController>(GetController()) && (!DrivenVehicle || !Cast<AUTPlayerController>(DrivenVehicle->GetController()))))
+			if (bApplyDamageToCharacter)
 			{
 				Health -= ResultDamage;
 				bWasFallingWhenDamaged = (GetCharacterMovement() != NULL && (GetCharacterMovement()->MovementMode == MOVE_Falling));
@@ -4660,6 +4665,15 @@ void AUTCharacter::PossessedBy(AController* NewController)
 	if (Role == ROLE_Authority)
 	{
 		SetCosmeticsFromPlayerState();
+		AUTGameVolume* GV = UTCharacterMovement ? Cast<AUTGameVolume>(UTCharacterMovement->GetPhysicsVolume()) : nullptr;
+		if (GV && GV->bIsTeamSafeVolume)
+		{
+			AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
+			if (GS && GS->OnSameTeam(this, GV))
+			{
+				bDamageHurtsHealth = false;
+			}
+		}
 	}
 }
 
