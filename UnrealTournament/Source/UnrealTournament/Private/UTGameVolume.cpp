@@ -34,7 +34,7 @@ void AUTGameVolume::ActorEnteredVolume(class AActor* Other)
 		AUTCharacter* P = ((AUTCharacter*)(Other));
 		P->LastGameVolume = this;
 		AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
-		if (GS != nullptr && P->PlayerState != nullptr)
+		if (GS != nullptr && P->PlayerState != nullptr && !GS->IsMatchIntermission() && GS->IsMatchInProgress())
 		{
 			if (bIsTeamSafeVolume)
 			{
