@@ -88,6 +88,11 @@ void UUTCTFScoreboard::DrawStatsRight(float DeltaTime, float& YPos, float XOffse
 	DrawTeamScoreBreakdown(DeltaTime, YPos, XOffset, ScoreWidth, PageBottom);
 }
 
+int32 UUTCTFScoreboard::GetSmallPlaysCount(int32 NumPlays) const
+{
+	return  FMath::Clamp(2 * (NumPlays - 6), 0, NumPlays - 1);
+}
+
 void UUTCTFScoreboard::DrawScoringPlays(float DeltaTime, float& YPos, float XOffset, float ScoreWidth, float MaxHeight)
 {
 	AUTCTFGameState* CTFState = Cast<AUTCTFGameState>(UTGameState);
@@ -130,7 +135,7 @@ void UUTCTFScoreboard::DrawScoringPlays(float DeltaTime, float& YPos, float XOff
 		UTPlayerOwner->UTClientPlaySound(ScoreUpdateSound);
 	}
 	int32 NumPlays = FMath::Min(TotalPlays, int32(TimeFloor) + 1);
-	int32 SmallPlays = FMath::Clamp(2 * (NumPlays - 6), 0, NumPlays - 1);
+	int32 SmallPlays = GetSmallPlaysCount(NumPlays);
 	int32 SkippedPlays = FMath::Max(SmallPlays - 10, 0);
 	int32 DrawnPlays = 0;
 	float PctOffset = 1.f + TimeFloor - TimeLineOffset;

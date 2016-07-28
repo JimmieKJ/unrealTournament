@@ -373,6 +373,11 @@ void UUTFlagRunScoreboard::DrawScoringPlays(float DeltaTime, float& YPos, float 
 	}
 }
 
+int32 UUTFlagRunScoreboard::GetSmallPlaysCount(int32 NumPlays) const
+{
+	return  (NumPlays > 6) ? NumPlays : 0;
+}
+
 void UUTFlagRunScoreboard::DrawScoringPlayInfo(const FCTFScoringPlay& Play, float CurrentScoreHeight, float SmallYL, float MedYL, float DeltaTime, float& YPos, float XOffset, float ScoreWidth, FFontRenderInfo TextRenderInfo, bool bIsSmallPlay)
 {
 	AUTCTFGameState* CTFState = Cast<AUTCTFGameState>(UTGameState);
@@ -432,7 +437,7 @@ void UUTFlagRunScoreboard::DrawScoringPlayInfo(const FCTFScoringPlay& Play, floa
 	Canvas->SetLinearDrawColor(BonusColor);
 	Canvas->DrawText(UTHUDOwner->MediumFont, BonusString, ScoreX, YPos + 0.5f*CurrentScoreHeight - 0.6f*MedYL, RenderScale, RenderScale, TextRenderInfo);
 
-	if ((RoundBonus > 0) && !Play.bDefenseWon)
+	if ((RoundBonus > 0) && !Play.bDefenseWon && !bIsSmallPlay)
 	{
 		YPos += 0.82f* MedYL;
 		int32 NetBonus = RoundBonus;
