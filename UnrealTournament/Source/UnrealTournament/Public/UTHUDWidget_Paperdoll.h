@@ -22,6 +22,9 @@ protected:
 	FHUDRenderObject_Texture ArmorBackground;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
+	FHUDRenderObject_Texture FlagBackground;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
 	FHUDRenderObject_Texture ShieldOverlay;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
@@ -31,10 +34,16 @@ protected:
 	FHUDRenderObject_Texture ArmorIcon;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
+	FHUDRenderObject_Texture FlagIcon;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
 	FHUDRenderObject_Text HealthText;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
 	FHUDRenderObject_Text ArmorText;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
+	FHUDRenderObject_Text FlagText;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
 	float HealthFlashTime;
@@ -54,7 +63,23 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
 	FLinearColor ArmorNegativeFlashColor;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
+	FTextureUVs FlagHolderIconUVs;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
+	FTextureUVs RallyIconUVs;
+
 	int32 PlayerArmor;
+	
+	bool bAnimating;
+	bool bShowFlagInfo;
+
+	FVector2D DrawOffset;
+	float DrawOffsetTransitionTime;
+
+	void DrawRallyIcon(float DeltaTime);
+
+	TArray<float> RallyAnimTimers;
 
 private:
 	int32 LastHealth;

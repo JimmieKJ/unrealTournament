@@ -5025,3 +5025,18 @@ void AUTPlayerController::DumpMapVote()
 	}
 
 }
+
+bool AUTPlayerController::CanPerformRally()
+{
+	AUTCTFGameState* GameState = GetWorld()->GetGameState<AUTCTFGameState>();
+	if (GameState && UTPlayerState && UTPlayerState->Team && ((UTPlayerState->Team->TeamIndex == 0) ? GameState->bRedCanRally : GameState->bBlueCanRally))
+	{
+		if (UTPlayerState->CarriedObject == nullptr ||
+			(GetWorld()->GetTimeSeconds() - LastRallyRequestTime >= 10.5f) )
+		{
+			return UTPlayerState->bCanRally;
+		}
+	}
+
+	return false;
+}

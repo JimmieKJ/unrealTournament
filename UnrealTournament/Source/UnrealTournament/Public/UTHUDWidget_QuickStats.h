@@ -346,6 +346,9 @@ private:
 	void DrawStat(FVector2D StatOffset, FStatInfo& StatInfo, FHUDRenderObject_Texture Icon);
 	void DrawIconUnderlay(FVector2D StatOffset);
 
+	float RenderDelta;
+	TArray<float> RallyAnimTimers;
+
 public:
 	FVector2D GetBoostLocation();
 

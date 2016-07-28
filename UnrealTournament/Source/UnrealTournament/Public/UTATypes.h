@@ -27,6 +27,8 @@ const int32 STARTER_RANK_LEVEL = 4;
 const int32 MAXENTRYROUTES = 5;
 const int32 MAX_CHAT_TEXT_SIZE = 384;
 
+const float RALLY_ANIMATION_TIME = 1.2;
+
 UENUM()
 namespace EGameStage
 {

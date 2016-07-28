@@ -20,6 +20,10 @@ UUTHUDWidget_QuickStats::UUTHUDWidget_QuickStats(const FObjectInitializer& Objec
 	ScreenPosition=FVector2D(0.5f, 0.5f);
 	Origin=FVector2D(0.f,0.0f);
 	DesignedResolution=1080;
+
+	RallyAnimTimers.Add(RALLY_ANIMATION_TIME * 0.25);
+	RallyAnimTimers.Add(RALLY_ANIMATION_TIME * 0.5);
+	RallyAnimTimers.Add(RALLY_ANIMATION_TIME * 0.75);
 }
 
 void UUTHUDWidget_QuickStats::InitializeWidget(AUTHUD* Hud)
@@ -336,12 +340,8 @@ void UUTHUDWidget_QuickStats::PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCa
 			}
 		}
 
-		bool bPlayerCanRally = false;
+		bool bPlayerCanRally = UTHUDOwner->UTPlayerOwner->CanPerformRally();
 		AUTCTFGameState* GameState = GetWorld()->GetGameState<AUTCTFGameState>();
-		if (GameState && UTPlayerState && UTPlayerState->Team && ((UTPlayerState->Team->TeamIndex == 0) ? GameState->bRedCanRally : GameState->bBlueCanRally))
-		{
-			bPlayerCanRally = UTPlayerState->bCanRally;
-		}
 
 		if (UTPlayerState->CarriedObject != nullptr || bPlayerCanRally)
 		{
@@ -442,6 +442,9 @@ FVector2D UUTHUDWidget_QuickStats::GetBoostLocation()
 
 void UUTHUDWidget_QuickStats::Draw_Implementation(float DeltaTime)
 {
+
+	RenderDelta = DeltaTime;
+
 	bool bFollowRotation = Layouts[CurrentLayoutIndex].bFollowRotation;
 	DrawStat(bFollowRotation ? CalcRotOffset(Layouts[CurrentLayoutIndex].HealthOffset,DrawAngle) : Layouts[CurrentLayoutIndex].HealthOffset, HealthInfo, HealthIcon);
 	DrawStat(bFollowRotation ? CalcRotOffset(Layouts[CurrentLayoutIndex].ArmorOffset,DrawAngle) : Layouts[CurrentLayoutIndex].ArmorOffset, ArmorInfo, ArmorInfo.bAltIcon ? ArmorIconWithShieldBelt : ArmorIcon);
@@ -568,12 +571,18 @@ void UUTHUDWidget_QuickStats::PingBoostWidget()
 
 void UUTHUDWidget_QuickStats::DrawIconUnderlay(FVector2D StatOffset)
 {
-	RallyFlagIcon.Rotation = 0.0f;
-	RenderObj_Texture(RallyFlagIcon, StatOffset + FVector2D(0.0f, -48.0f));
+	RallyFlagIcon.bUseTeamColors = true;
+	RallyFlagIcon.RenderScale = 1.0f;
 
-	RallyFlagIcon.Rotation = 30.0f;
-	RenderObj_Texture(RallyFlagIcon, StatOffset + FVector2D(26.0f, -48.0f));
-
-	RallyFlagIcon.Rotation = 330.0f;
-	RenderObj_Texture(RallyFlagIcon, StatOffset + FVector2D(-26.0f, -48.0f));
+	for (int32 i = 0; i < RallyAnimTimers.Num(); i++)
+	{
+		RallyAnimTimers[i] += RenderDelta;
+		if (RallyAnimTimers[i] > RALLY_ANIMATION_TIME) RallyAnimTimers[i] = 0;
+		float Position = (RallyAnimTimers[i] / RALLY_ANIMATION_TIME);
+	
+		float XPos = FMath::InterpEaseOut<float>(64.0f, 0.0f, Position, 2.0f);
+		RallyFlagIcon.RenderOpacity = FMath::InterpEaseOut<float>(1.0f, 0.0f, Position, 2.0f);
+		RenderObj_Texture(RallyFlagIcon,StatOffset + FVector2D(XPos, 0.0f));
+		RenderObj_Texture(RallyFlagIcon,StatOffset + FVector2D(XPos * -1, 0.0f));
+	}
 }

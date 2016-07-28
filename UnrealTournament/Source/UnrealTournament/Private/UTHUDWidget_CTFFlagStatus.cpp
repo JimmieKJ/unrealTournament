@@ -132,27 +132,6 @@ void UUTHUDWidget_CTFFlagStatus::DrawFlagStatus(AUTCTFGameState* GameState, FVec
 					DetectedIcon.RenderScale = 1.0f + (0.5f * FMath::Abs<float>(FMath::Sin(UTHUDOwner->GetWorld()->GetTimeSeconds())));
 					RenderObj_Texture(DetectedIcon, FVector2D(XPos, YPos));
 				}
-
-				
-				AUTPlayerState* UTPlayerState = Cast<AUTPlayerState>(UTHUDOwner->UTPlayerOwner->PlayerState);
-				if (GameState && UTPlayerState && UTPlayerState->Team && ((UTPlayerState->Team->TeamIndex == 0) ? GameState->bRedCanRally : GameState->bBlueCanRally) && UTPlayerState->bCanRally)
-				{
-					if (UTHUDOwner->UTPlayerOwner && (GetWorld()->GetTimeSeconds() - UTHUDOwner->UTPlayerOwner->LastRallyRequestTime > 10.5f))
-					{
-						FInputActionKeyMapping RallyBinding = FindKeyMappingTo("RequestRally");
-						FText KeyText = (RallyBinding.Key.GetDisplayName().ToString().Len() < 6) ? RallyBinding.Key.GetDisplayName() : FText::FromString(" ");
-						if (UTPlayerState == FlagHolder)
-						{
-							RallyText.Text = FText::Format(NSLOCTEXT("UTHUDWidget_CTFFlagStatus","HolderRallyFormat","'{0}' Call For Rally"), KeyText);
-						}
-						else
-						{
-							RallyText.Text = FText::Format(NSLOCTEXT("UTHUDWidget_CTFFlagStatus","OtherRallyFormat","'{0}' To Rally"), KeyText);
-						}
-
-						RenderObj_Text(RallyText, FVector2D(XPos, YPos));
-					}
-				}
 			}
 
 		}

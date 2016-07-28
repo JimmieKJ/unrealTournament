@@ -1248,6 +1248,9 @@ protected:
 	UFUNCTION(exec)
 	void DumpMapVote();
 
+public:
+	// Will return true if this player can perform a rally
+	bool CanPerformRally();
 
 };
 
