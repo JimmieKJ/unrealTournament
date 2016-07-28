@@ -853,7 +853,7 @@ void AUTPlayerController::ServerActivatePowerUpPress_Implementation()
 	if (UTCharacter != NULL && UTPlayerState != NULL && !GetWorldTimerManager().IsTimerActive(TriggerBoostTimerHandle))
 	{
 		AUTGameMode* UTGM = GetWorld()->GetAuthGameMode<AUTGameMode>();
-		if (UTGM && UTGM->CanBoost(this))
+		if (UTGM && UTGM->TriggerBoost(this))
 		{
 			UTClientPlaySound(BoostActivateSound);
 			GetWorldTimerManager().SetTimer(TriggerBoostTimerHandle, this, &AUTPlayerController::TriggerBoost, TimeToHoldPowerUpButtonToActivate, false);
@@ -905,10 +905,6 @@ void AUTPlayerController::TriggerBoost()
 						UTCharacter->SwitchWeapon(BoostAsWeapon);
 					}
 				}
-			}
-			else
-			{
-				GameMode->ToggleSpecialFor(UTCharacter);
 			}
 		}
 	}

@@ -2135,11 +2135,6 @@ bool AUTGameMode::UTIsHandlingReplays()
 	return bRecordReplays && GetNetMode() == ENetMode::NM_DedicatedServer;
 }
 
-void AUTGameMode::ToggleSpecialFor(AUTCharacter* C)
-{
-	//do nothing by default
-}
-
 void AUTGameMode::InstanceNextMap(const FString& NextMap)
 {
 	if (NextMap != TEXT(""))
@@ -4802,6 +4797,15 @@ bool AUTGameMode::CanBoost(AUTPlayerController* Who)
 	}
 
 	return false;
+}
+
+bool AUTGameMode::TriggerBoost(AUTPlayerController* Who)
+{
+	if (BaseMutator != NULL)
+	{
+		BaseMutator->TriggerBoost(Who);
+	}
+	return CanBoost(Who);
 }
 
 bool AUTGameMode::AttemptBoost(AUTPlayerController* Who)

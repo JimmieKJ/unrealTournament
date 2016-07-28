@@ -570,8 +570,6 @@ public:
 	/** The standard IsHandlingReplays() codepath is not flexible enough for UT, this is the compromise */
 	virtual bool UTIsHandlingReplays();
 
-	virtual void ToggleSpecialFor(AUTCharacter* C);
-
 protected:
 
 	/** Returns random bot character skill matched to current GameDifficulty. */
@@ -920,6 +918,9 @@ public:
 
 	// Returns true if a player can activate a boost
 	virtual bool CanBoost(AUTPlayerController* Who);
+
+	/** PlayerController wants to trigger boost, return true if he can handle it. Mutator hooks as well. */
+	virtual bool TriggerBoost(AUTPlayerController* Who);
 
 	// Look to see if we can attempt a boost.  It will use up the charge if we can and return true, otherwise it returns false.
 	virtual bool AttemptBoost(AUTPlayerController* Who);

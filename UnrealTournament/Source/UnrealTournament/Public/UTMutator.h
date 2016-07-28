@@ -70,6 +70,10 @@ class UNREALTOURNAMENT_API AUTMutator : public AInfo
 	UFUNCTION(BlueprintNativeEvent, BlueprintAuthorityOnly)
 	void NotifyLogout(AController* C);
 
+	/** called when player has pressed his server activate powerup buttone */
+	UFUNCTION(BlueprintNativeEvent, BlueprintAuthorityOnly)
+		void TriggerBoost(AUTPlayerController* Who);
+
 	/** if any mutator returns true for AlwaysKeep() then an Actor won't be destroyed by CheckRelevance() returning false
 	* when returning true, set bPreventModify to true as well to prevent CheckRelevance() from even being called;
 	* otherwise it is called but return value ignored so other mutators can modify even if they can't delete
