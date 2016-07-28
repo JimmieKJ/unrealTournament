@@ -108,6 +108,7 @@ void UUTFlagRunMessage::GetEmphasisText(FText& PrefixText, FText& EmphasisText, 
 	}
 	Args.Add("SecondaryName", SecondaryText);
 	Args.Add("TimeNeeded", TimeNeeded);
+	PostfixText = FText::GetEmpty();
 	switch (Switch)
 	{
 		case 1: PostfixText = DefendersMustStop; break;
