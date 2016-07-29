@@ -125,7 +125,7 @@ void UUTHUDWidget_CTFFlagStatus::DrawFlagStatus(AUTCTFGameState* GameState, FVec
 
 			RenderObj_TextureAt(FlagIconTemplate, CarriedX, CarriedY, FlagStatusScale * FlagIconTemplate.GetWidth(), FlagStatusScale * FlagIconTemplate.GetHeight());
 
-			if (UTHUDOwner->GetQuickStatsHidden())
+			if (UTHUDOwner->GetQuickInfoHidden())
 			{
 				if (Flag->bCurrentlyPinged)
 				{

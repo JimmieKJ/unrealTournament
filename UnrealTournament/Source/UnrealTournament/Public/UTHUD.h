@@ -396,7 +396,10 @@ public:
 	float GetQuickStatsForegroundAlpha();
 
 	UFUNCTION(BlueprintCallable, Category=HUD)
-	float GetQuickStatsHidden();
+	bool GetQuickStatsHidden();
+
+	UFUNCTION(BlueprintCallable, Category=HUD)
+	bool GetQuickInfoHidden();
 
 	UFUNCTION(BlueprintCallable, Category=HUD)
 	float GetQuickStatsBob();

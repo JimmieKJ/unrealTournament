@@ -16,9 +16,34 @@ class UNREALTOURNAMENT_API UUTHUDWidget_Boost : public UUTHUDWidget
 
 public:
 	virtual void InitializeWidget(AUTHUD* Hud);
-	virtual void Draw_Implementation(float DeltaTime);
+	virtual void PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCanvas* InCanvas, FVector2D InCanvasCenter) override;
+	//virtual void Draw_Implementation(float DeltaTime);
 	virtual bool ShouldDraw_Implementation(bool bShowScores);
 	
+protected:
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
+	FVector2D LockedPosition;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
+	FVector2D UnLockedPosition;
+
+	// This is the background slate for the weapon icon portion of the bar.  Index 0 is the for the first item in a group, Index 1 is for all other items
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
+	FHUDRenderObject_Texture Background;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
+	FHUDRenderObject_Texture BoostIcon;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
+	FHUDRenderObject_Texture BoostSkull;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
+	FHUDRenderObject_Text BoostText;
+
+	bool bAnimating;
+	float AnimTime;
+	float LastAnimTime;
+
 private:
 	UPROPERTY()
 	UMaterialInterface* HudTimerMI;
@@ -26,9 +51,4 @@ private:
 	UPROPERTY()
 	UMaterialInstanceDynamic* HudTimerMID;
 	float IconScale;
-
-	bool bLastUnlocked;
-	float UnlockAnimTime;
-
-
 };

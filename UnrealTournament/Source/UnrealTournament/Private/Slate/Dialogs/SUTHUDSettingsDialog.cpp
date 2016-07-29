@@ -20,6 +20,7 @@ const FName NAME_QuickStatsType				= FName(TEXT("QuickStatsType"));
 const FName NAME_QuickStatsBackgroundAlpha	= FName(TEXT("QuickStatsBackgroundAlpha"));
 const FName NAME_QuickStatsForegroundAlpha	= FName(TEXT("QuickStatsForegroundAlpha"));
 const FName NAME_bQuickStatsHidden			= FName(TEXT("bQuickStatsHidden"));
+const FName NAME_bQuickInfoHidden			= FName(TEXT("bQuickInfoHidden"));
 const FName NAME_bQuickStatsBob				= FName(TEXT("bQuickStatsBob"));
 
 const FName NAME_bHideDamageIndicators		= FName(TEXT("bHideDamageIndicators"));
@@ -429,7 +430,8 @@ TSharedRef<SWidget> SUTHUDSettingsDialog::BuildGeneralTab()
 			SNew(SBox).HeightOverride(48)
 		]
 
-		+AddBoolOption(NAME_bQuickStatsHidden, NSLOCTEXT("SUTHUDSettingsDialog", "bQuickStatsHidden", "Show Quick Stats"), NSLOCTEXT("SUTHUDSettingsDialog", "bQuickStatsHiddenTT", "Check this box if you wish to show the quick stats indicator all together."), !ProfileSettings->bQuickStatsHidden)
+		+AddBoolOption(NAME_bQuickStatsHidden, NSLOCTEXT("SUTHUDSettingsDialog", "bQuickStatsHidden", "Show Health/Armor/Ammo on MiniHUD"), NSLOCTEXT("SUTHUDSettingsDialog", "bQuickStatsHiddenTT", "Check this box if you wish to show your health, ammo and armor on the mini-HUD."), !ProfileSettings->bQuickStatsHidden)
+		+AddBoolOption(NAME_bQuickInfoHidden, NSLOCTEXT("SUTHUDSettingsDialog", "bQuickInfoHidden", "Show Powerups/Flag on MiniHUD"), NSLOCTEXT("SUTHUDSettingsDialog", "bQuickInfoHiddenTT", "Check this box if you wish to show power up and flags on the mini-HUD."), !ProfileSettings->bQuickInfoHidden)
 		+AddBoolOption(NAME_bHideDamageIndicators, NSLOCTEXT("SUTHUDSettingsDialog", "bHideDamageIndicators", "Show Damage Dealt Indicator"), NSLOCTEXT("SUTHUDSettingsDialog", "bHideDamageIndicatorsTT", "Enable this to show the damage delt indicators that appear around the crosshair."), !ProfileSettings->bHideDamageIndicators);
 }
 
@@ -662,6 +664,7 @@ void SUTHUDSettingsDialog::ApplySettings()
 		ProfileSettings->QuickStatsBackgroundAlpha = float(SettingsInfos[NAME_QuickStatsBackgroundAlpha]->GetActualValue_int32()) / 100.0f;
 		ProfileSettings->QuickStatsForegroundAlpha = float(SettingsInfos[NAME_QuickStatsForegroundAlpha]->GetActualValue_int32()) / 100.0f;
 		ProfileSettings->bQuickStatsHidden = !SettingsInfos[NAME_bQuickStatsHidden]->GetActualValue_bool();
+		ProfileSettings->bQuickInfoHidden = !SettingsInfos[NAME_bQuickInfoHidden]->GetActualValue_bool();
 		ProfileSettings->bQuickStatsBob = SettingsInfos[NAME_bQuickStatsBob]->GetActualValue_bool();
 
 		ProfileSettings->bHideDamageIndicators = !SettingsInfos[NAME_bHideDamageIndicators]->GetActualValue_bool();

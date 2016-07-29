@@ -42,10 +42,9 @@ bool UUTHUDWidget_Paperdoll::ShouldDraw_Implementation(bool bShowScores)
 {
 	AUTGameState* GS = UTHUDOwner->GetWorld()->GetGameState<AUTGameState>();
 	bool bHidden = false;
-	if (UTHUDOwner && UTHUDOwner->UTPlayerOwner)
+	if (UTHUDOwner)
 	{
-		UUTProfileSettings* ProfileSettings=  UTHUDOwner->UTPlayerOwner->GetProfileSettings();
-		bHidden = ProfileSettings ? !ProfileSettings->bQuickStatsHidden: false;
+		bHidden = !UTHUDOwner->GetQuickStatsHidden();
 	}
 
 	return ( !bHidden && (GS == NULL || !GS->HasMatchEnded()) && Super::ShouldDraw_Implementation(bShowScores) );
@@ -153,7 +152,7 @@ void UUTHUDWidget_Paperdoll::Draw_Implementation(float DeltaTime)
 		}
 
 		DrawOffsetTransitionTime -= DeltaTime;
-		if (DrawOffsetTransitionTime > 0.0f)
+		if (DrawOffsetTransitionTime > 0.0f && UTHUDOwner->GetQuickInfoHidden())
 		{
 			FlagOpacity = 1.0f - (DrawOffsetTransitionTime / ANIMATION_TIME);
 			DrawOffset.X = FMath::InterpEaseInOut<float>(DesiredXOffset != 0.0f ? 0.0f : ALTERNATE_X_OFFSET, DesiredXOffset, FlagOpacity, 2.0f);
@@ -178,7 +177,7 @@ void UUTHUDWidget_Paperdoll::Draw_Implementation(float DeltaTime)
 
 	FlagText.Text = FText::GetEmpty();
 
-	if (bPlayerCanRally || bShowFlagInfo)
+	if (UTHUDOwner->GetQuickInfoHidden() && (bPlayerCanRally || bShowFlagInfo))
 	{
 		FlagIcon.Position.Y = bPlayerCanRally ? -16 : 0;
 

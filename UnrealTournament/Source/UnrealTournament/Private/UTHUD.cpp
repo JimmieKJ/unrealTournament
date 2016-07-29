@@ -1570,10 +1570,16 @@ float AUTHUD::GetQuickStatsForegroundAlpha()
 	return VerifyProfileSettings() ? CachedProfileSettings->QuickStatsForegroundAlpha : 1.0f;
 }
 
-float AUTHUD::GetQuickStatsHidden()
+bool AUTHUD::GetQuickStatsHidden()
 {
 	return VerifyProfileSettings() ? CachedProfileSettings->bQuickStatsHidden : false;
 }
+
+bool AUTHUD::GetQuickInfoHidden()
+{
+	return VerifyProfileSettings() ? CachedProfileSettings->bQuickInfoHidden : false;
+}
+
 
 float AUTHUD::GetQuickStatsBob()
 {

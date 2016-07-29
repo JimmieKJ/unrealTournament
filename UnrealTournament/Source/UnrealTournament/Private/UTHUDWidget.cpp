@@ -434,7 +434,7 @@ void UUTHUDWidget::PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCanvas* InCan
 	RenderSize.Y = Size.Y * RenderScale;
 	if (Size.X > 0)
 	{
-		RenderSize.X = (bMaintainAspectRatio ?  RenderSize.Y * AspectScale : RenderSize.X * RenderScale);
+		RenderSize.X = (bMaintainAspectRatio ?  RenderSize.Y * AspectScale : Size.X * RenderScale);
 	}
 	RenderPosition.X += (Position.X * RenderScale) - (RenderSize.X * Origin.X);
 	RenderPosition.Y += (Position.Y * RenderScale) - (RenderSize.Y * Origin.Y);

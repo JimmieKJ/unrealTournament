@@ -24,6 +24,11 @@ UUTHUDWidget_QuickStats::UUTHUDWidget_QuickStats(const FObjectInitializer& Objec
 	RallyAnimTimers.Add(RALLY_ANIMATION_TIME * 0.25);
 	RallyAnimTimers.Add(RALLY_ANIMATION_TIME * 0.5);
 	RallyAnimTimers.Add(RALLY_ANIMATION_TIME * 0.75);
+
+	FlagInfo.bIsInfo = true;
+	BootsInfo.bIsInfo = true;
+	PowerupInfo.bIsInfo = true;
+	BoostProvidedPowerupInfo.bIsInfo = true;
 }
 
 void UUTHUDWidget_QuickStats::InitializeWidget(AUTHUD* Hud)
@@ -49,7 +54,7 @@ bool UUTHUDWidget_QuickStats::ShouldDraw_Implementation(bool bShowScores)
 	}
 
 	AUTCharacter* UTC = Cast<AUTCharacter>(UTHUDOwner->UTPlayerOwner->GetViewTarget());
-	return (!bShowScores && UTC && !UTC->IsDead() && !UTHUDOwner->GetQuickStatsHidden());
+	return (!bShowScores && UTC && !UTC->IsDead() && (!UTHUDOwner->GetQuickStatsHidden() || !UTHUDOwner->GetQuickInfoHidden()));
 }
 
 FVector2D UUTHUDWidget_QuickStats::CalcRotOffset(FVector2D InitialPosition, float Angle)
@@ -474,6 +479,8 @@ void UUTHUDWidget_QuickStats::Draw_Implementation(float DeltaTime)
 void UUTHUDWidget_QuickStats::DrawStat(FVector2D StatOffset, FStatInfo& Info, FHUDRenderObject_Texture Icon)
 {
 	if (!Info.bVisible) return;
+	if (Info.bIsInfo && UTHUDOwner->GetQuickInfoHidden()) return;
+	if (!Info.bIsInfo && UTHUDOwner->GetQuickStatsHidden()) return;
 
 	if (bHorizBorders)
 	{

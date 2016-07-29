@@ -194,8 +194,13 @@ class UNREALTOURNAMENT_API UUTProfileSettings : public UObject
 	UPROPERTY()
 	float QuickStatsForegroundAlpha;	
 
+	// Are the health/armor/ammo stats hidden in the mini-hud?
 	UPROPERTY()
 	bool bQuickStatsHidden;
+
+	// Are the powerup/flags hidden in the mini-hud?
+	UPROPERTY()
+	bool bQuickInfoHidden;
 
 	UPROPERTY()
 	bool bQuickStatsBob;

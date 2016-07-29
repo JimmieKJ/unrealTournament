@@ -129,6 +129,8 @@ struct FStatInfo
 
 	TArray<FStatAnimInfo> AnimStack;
 
+	bool bIsInfo;
+
 	FStatInfo()
 	{
 		bVisible = true;
@@ -149,6 +151,9 @@ struct FStatInfo
 		TextColor = FLinearColor::White;
 		DrawOffset = FVector2D(0.0f, 0.0f);
 		Opacity = 1.0f;
+
+		bIsInfo = false;
+
 	}
 
 	void Animate(FName AnimType, float AnimDuration, float Start, float End, bool bBounce = false)
