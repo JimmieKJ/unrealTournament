@@ -55,7 +55,7 @@ void UUTRedeemerLaunchAnnounce::PrecacheAnnouncements_Implementation(class UUTAn
 
 float UUTRedeemerLaunchAnnounce::GetAnnouncementPriority(int32 Switch) const
 {
-	return (Switch == 2) ? 0.5f : 0.9f;
+	return (Switch == 2) ? 0.8f : 0.9f;
 }
 
 bool UUTRedeemerLaunchAnnounce::ShouldPlayAnnouncement(const FClientReceiveData& ClientData) const
