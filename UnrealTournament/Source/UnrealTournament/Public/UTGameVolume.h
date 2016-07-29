@@ -38,6 +38,10 @@ class UNREALTOURNAMENT_API AUTGameVolume : public APhysicsVolume, public IUTTeam
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Gameplay")
 		bool bIsTeleportZone;
 
+	/** Alarm sound played if this is bNoRallyZone and enemy flag carrier enters. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Gameplay")
+		USoundBase* AlarmSound;
+
 	UPROPERTY()
 		class AUTTeleporter* AssociatedTeleporter;
 

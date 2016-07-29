@@ -132,6 +132,12 @@ class UNREALTOURNAMENT_API AUTCarriedObject : public AActor, public IUTTeamInter
 	UPROPERTY(EditDefaultsOnly, Category = GameObject)
 		TSubclassOf<class AUTGhostFlag> GhostFlagClass;
 
+	UPROPERTY(BlueprintReadOnly, Category = GameObject)
+		bool bWasInEnemyBase;
+	
+	UPROPERTY(BlueprintReadOnly, Category = GameObject)
+		float EnteredEnemyBaseTime;
+
 	virtual bool SetDetectingCamera(class UUTSecurityCameraComponent* NewDetectingCamera);
 
 	virtual class UUTSecurityCameraComponent* GetDetectingCamera();

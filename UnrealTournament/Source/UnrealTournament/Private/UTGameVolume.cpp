@@ -20,6 +20,9 @@ AUTGameVolume::AUTGameVolume(const FObjectInitializer& ObjectInitializer)
 	RouteID = -1;
 	bReportDefenseStatus = false;
 	bHasBeenEntered = false;
+
+	static ConstructorHelpers::FObjectFinder<USoundBase> AlarmSoundFinder(TEXT("SoundCue'/Game/RestrictedAssets/Audio/Gameplay/A_FlagRunBaseAlarm.A_FlagRunBaseAlarm'"));
+	AlarmSound = AlarmSoundFinder.Object;
 }
 
 void AUTGameVolume::Reset_Implementation()
@@ -78,6 +81,17 @@ void AUTGameVolume::ActorEnteredVolume(class AActor* Other)
 					UE_LOG(UT, Warning, TEXT("No VoiceLineSet for %s location %s"), *GetName(), *VolumeName.ToString());
 				}
 				return;*/
+				if (bIsNoRallyZone && !P->GetCarriedObject()->bWasInEnemyBase)
+				{
+					if (GetWorld()->GetTimeSeconds() - P->GetCarriedObject()->EnteredEnemyBaseTime > 10.f)
+					{
+						// play alarm
+						UUTGameplayStatics::UTPlaySound(GetWorld(), AlarmSound, P, SRT_All, false, FVector::ZeroVector, NULL, NULL, false);
+					}
+					P->GetCarriedObject()->EnteredEnemyBaseTime = GetWorld()->GetTimeSeconds();
+				}
+				P->GetCarriedObject()->bWasInEnemyBase = bIsNoRallyZone;
+
 				// possibly announce flag carrier changed zones
 				if (bIsNoRallyZone && (GetWorld()->GetTimeSeconds() - FMath::Max(GS->LastEnemyEnteringBaseTime, GS->LastEnteringEnemyBaseTime) > 10.f))
 				{
