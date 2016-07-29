@@ -418,6 +418,7 @@ void AUTCarriedObject::SetHolder(AUTCharacter* NewHolder)
 	HoldingPawn = NewHolder;
 	AttachTo(HoldingPawn->GetMesh());
 	Holder = Cast<AUTPlayerState>(HoldingPawn->PlayerState);
+	Holder->NextRallyTime = 0.f;
 	PickedUpTime = GetWorld()->GetTimeSeconds();
 
 	// If we have authority, immediately notify of the holder change, otherwise replication will handle it
