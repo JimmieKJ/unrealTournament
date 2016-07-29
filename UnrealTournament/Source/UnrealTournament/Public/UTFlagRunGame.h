@@ -22,9 +22,6 @@ public:
 		float RallyRequestTime;
 
 	UPROPERTY()
-		class AUTGameVolume* EntryRoutes[MAXENTRYROUTES];
-
-	UPROPERTY()
 		float LastEntryDefenseWarningTime;
 
 	virtual float OverrideRespawnTime(TSubclassOf<AUTInventory> InventoryType) override;

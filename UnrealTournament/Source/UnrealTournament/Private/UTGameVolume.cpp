@@ -139,9 +139,9 @@ void AUTGameVolume::ActorEnteredVolume(class AActor* Other)
 						}
 					}
 				}
-				else if ((VoiceLinesSet != NAME_None) && (GetWorld()->GetTimeSeconds() - FMath::Max(GS->LastFriendlyLocationReportTime, GS->LastEnemyLocationReportTime) > 3.f) && (GS->LastFriendlyLocationName != VoiceLinesSet))
+				else if ((VoiceLinesSet != NAME_None) && (GetWorld()->GetTimeSeconds() - FMath::Max(GS->LastFriendlyLocationReportTime, GS->LastEnemyLocationReportTime) > 3.f))
 				{
-					if ((GetWorld()->GetTimeSeconds() - GS->LastFriendlyLocationReportTime > 3.f) && Cast<AUTPlayerState>(P->PlayerState))
+					if ((GetWorld()->GetTimeSeconds() - GS->LastFriendlyLocationReportTime > 3.f) && Cast<AUTPlayerState>(P->PlayerState) && (GS->LastFriendlyLocationName != VoiceLinesSet))
 					{
 						((AUTPlayerState *)(P->PlayerState))->AnnounceStatus(VoiceLinesSet, 1);
 						GS->LastFriendlyLocationReportTime = GetWorld()->GetTimeSeconds();

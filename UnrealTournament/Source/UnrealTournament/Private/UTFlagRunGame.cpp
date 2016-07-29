@@ -79,6 +79,7 @@ void AUTFlagRunGame::DefaultTimer()
 		if (RCTFGameState && (RCTFGameState->RemainingPickupDelay <= 0) && (GetWorld()->GetTimeSeconds() - LastEntryDefenseWarningTime > 15.f))
 		{
 			// check for uncovered routes - support up to 5 entries for now
+			AUTGameVolume* EntryRoutes[MAXENTRYROUTES];
 			for (int32 i = 0; i < MAXENTRYROUTES; i++)
 			{
 				EntryRoutes[i] = nullptr;
@@ -99,7 +100,7 @@ void AUTFlagRunGame::DefaultTimer()
 			{
 				AUTCharacter* UTChar = Cast<AUTCharacter>((*Iterator)->GetPawn());
 				AUTPlayerState* UTPS = Cast<AUTPlayerState>((*Iterator)->PlayerState);
-				if (UTChar && UTChar->LastGameVolume && UTPS && UTPS->Team && (bRedToCap == (UTPS->Team->TeamIndex == 1)))
+				if (UTChar && UTChar->LastGameVolume && UTPS && UTPS->Team && IsTeamOnDefense(UTPS->Team->TeamIndex))
 				{
 					Speaker = UTPS;
 					int32 CoveredRoute = UTChar->LastGameVolume->RouteID;
@@ -114,7 +115,7 @@ void AUTFlagRunGame::DefaultTimer()
 					}
 					else
 					{
-		//				UE_LOG(UT, Warning, TEXT("Not in defensive position %s %s routeid %s"), *UTChar->LastGameVolume->GetName(), *UTChar->LastGameVolume->VolumeName.ToString(), UTChar->LastGameVolume->RouteID)
+//						UE_LOG(UT, Warning, TEXT("Not in defensive position %s %s routeid %d"), *UTChar->LastGameVolume->GetName(), *UTChar->LastGameVolume->VolumeName.ToString(), UTChar->LastGameVolume->RouteID);
 					}
 				}
 			}
