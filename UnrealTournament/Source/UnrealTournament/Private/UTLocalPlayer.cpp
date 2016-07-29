@@ -804,7 +804,7 @@ void UUTLocalPlayer::LoginOnline(FString EpicID, FString Auth, bool bIsRememberT
 		bIsRememberToken=false;
 	}
 
-	if (EpicID == TEXT(""))
+	if (EpicID == TEXT("") && !FParse::Param(FCommandLine::Get(), TEXT("skiplastid")))
 	{
 		EpicID = LastEpicIDLogin;
 	}
@@ -998,7 +998,7 @@ void UUTLocalPlayer::OnLoginComplete(int32 LocalUserNum, bool bWasSuccessful, co
 	// We have enough credentials to auto-login.  So try it, but silently fail if we cant.
 	else if (bInitialSignInAttempt)
 	{
-		if (LastEpicIDLogin != TEXT("") && LastEpicRememberMeToken != TEXT(""))
+		if (LastEpicIDLogin != TEXT("") && LastEpicRememberMeToken != TEXT("") && !FParse::Param(FCommandLine::Get(), TEXT("skiplastid")))
 		{
 			bInitialSignInAttempt = false;
 			LoginOnline(LastEpicIDLogin, LastEpicRememberMeToken, true, true);
