@@ -640,16 +640,16 @@ void AUTCarriedObject::Drop(AController* Killer)
 		TGuardValue<bool> DropGuard(bIsDropping, true);
 		NoLongerHeld(Killer);
 	}
-
-	// Toss is out
-	TossObject(LastHoldingPawn);
-
 	if (HomeBase != NULL)
 	{
 		HomeBase->ObjectWasDropped(LastHoldingPawn);
 	}
 	ChangeState(CarriedObjectState::Dropped);
-	if (bGradualAutoReturn && (PastPositions.Num() > 0))
+
+	// Toss is out
+	TossObject(LastHoldingPawn);
+
+	if (bGradualAutoReturn && (PastPositions.Num() > 0) && (Holder == nullptr))
 	{
 		if ((GetActorLocation() - PastPositions[PastPositions.Num() - 1].Location).Size() < MinGradualReturnDist)
 		{

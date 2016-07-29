@@ -222,7 +222,7 @@ void AUTCTFFlag::Drop(AController* Killer)
 	// Toss is out
 	TossObject(LastHoldingPawn);
 
-	if (bGradualAutoReturn && (PastPositions.Num() > 0))
+	if (bGradualAutoReturn && (PastPositions.Num() > 0) && (Holder == nullptr))
 	{
 		if ((GetActorLocation() - PastPositions[PastPositions.Num() - 1].Location).Size() < MinGradualReturnDist)
 		{
