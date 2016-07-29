@@ -352,6 +352,12 @@ void AUTPickupInventory::PlayRespawnEffects()
 
 void AUTPickupInventory::PlaySpawnVoiceLine()
 {
+	AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
+	if (GS && (GS->IsMatchIntermission() || !GS->IsMatchInProgress()))
+	{
+		return;
+	}
+
 	// find player to announce this pickup 
 	AUTPlayerState* Speaker = nullptr;
 	bool bHasPlayedForRed = false;
