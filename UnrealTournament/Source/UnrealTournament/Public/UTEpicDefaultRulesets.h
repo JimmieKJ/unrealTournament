@@ -491,16 +491,9 @@ public:
 			NewRuleset->bTeamGame = true;
 			NewRuleset->MaxMapsInList = 16;
 
-			NewRuleset->EpicMaps = "/Game/RestrictedAssets/Maps/WIP/CTF-BlackStone";
-			NewRuleset->EpicMaps = NewRuleset->EpicMaps + ",/Game/RestrictedAssets/Maps/WIP/CTF-BigRock";
-			NewRuleset->EpicMaps = NewRuleset->EpicMaps + ",/Game/RestrictedAssets/Maps/CTF-TitanPass";
-			NewRuleset->EpicMaps = NewRuleset->EpicMaps + ",/Game/EpicInternal/Pistola/CTF-Pistola";
-			NewRuleset->EpicMaps = NewRuleset->EpicMaps + ",/Game/RestrictedAssets/Maps/WIP/CTF-Volcano";
-			NewRuleset->EpicMaps = NewRuleset->EpicMaps + ",/Game/RestrictedAssets/Maps/WIP/CTF-Lance";
-			NewRuleset->EpicMaps = NewRuleset->EpicMaps + ",/Game/RestrictedAssets/Maps/WIP/CTF-Mine";
-			NewRuleset->EpicMaps = NewRuleset->EpicMaps + ",/Game/RestrictedAssets/Maps/WIP/CTF-CrashSite";
-			NewRuleset->DefaultMap = "/Game/RestrictedAssets/Maps/WIP/CTF-BlackStone";
-			NewRuleset->QuickPlayMaps.Add(TEXT("/Game/RestrictedAssets/Maps/WIP/CTF-BlackStone"));
+			NewRuleset->EpicMaps = "/Game/RestrictedAssets/Maps/WIP/FR-BlackStone";
+			NewRuleset->DefaultMap = "/Game/RestrictedAssets/Maps/WIP/FR-BlackStone";
+			NewRuleset->QuickPlayMaps.Add(TEXT("/Game/RestrictedAssets/Maps/WIP/FR-BlackStone"));
 		}
 	}
 };

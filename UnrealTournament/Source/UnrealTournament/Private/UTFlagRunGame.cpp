@@ -52,6 +52,7 @@ AUTFlagRunGame::AUTFlagRunGame(const FObjectInitializer& ObjectInitializer)
 	bWeaponStayActive = false;
 	bAllowPickupAnnouncements = true;
 	LastEntryDefenseWarningTime = 0.f;
+	MapPrefix = TEXT("FR");
 
 	static ConstructorHelpers::FObjectFinder<UClass> AfterImageFinder(TEXT("Blueprint'/Game/RestrictedAssets/Weapons/Translocator/TransAfterImage.TransAfterImage_C'"));
 	AfterImageType = AfterImageFinder.Object;
