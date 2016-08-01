@@ -143,7 +143,7 @@ void AUTGameVolume::ActorEnteredVolume(class AActor* Other)
 						{
 							if (VoiceLinesSet != NAME_None)
 							{
-								((AUTPlayerState *)(P->PlayerState))->AnnounceStatus(VoiceLinesSet, 0);
+								PS->AnnounceStatus(VoiceLinesSet, 0);
 							}
 							else
 							{
