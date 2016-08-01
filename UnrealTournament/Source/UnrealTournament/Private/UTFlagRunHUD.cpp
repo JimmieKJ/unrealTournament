@@ -83,7 +83,7 @@ void AUTFlagRunHUD::DrawHUD()
 			{
 				if (!UTPS->bOutOfLives)
 				{
-					bool bLastLife = (UTPS->RemainingLives == 1);
+					bool bLastLife = (UTPS->RemainingLives == 0);
 					if (UTPS->Team->TeamIndex == 0)
 					{
 						RedPlayerCount++;
