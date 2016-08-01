@@ -80,11 +80,19 @@ void UUTCTFScoreboard::DrawPlayerScore(AUTPlayerState* PlayerState, float XOffse
 
 void UUTCTFScoreboard::DrawStatsLeft(float DeltaTime, float& YPos, float XOffset, float ScoreWidth, float PageBottom)
 {
+	float MaxHeight = PageBottom - YPos;
+	FLinearColor PageColor = FLinearColor::Black;
+	PageColor.A = 0.5f;
+	DrawTexture(UTHUDOwner->ScoreboardAtlas, XOffset - 0.05f*ScoreWidth, YPos, 1.15f*ScoreWidth, MaxHeight, 149, 138, 32, 32, 0.5f, PageColor);
 	DrawScoringPlays(DeltaTime, YPos, XOffset, ScoreWidth, PageBottom);
 }
 
 void UUTCTFScoreboard::DrawStatsRight(float DeltaTime, float& YPos, float XOffset, float ScoreWidth, float PageBottom)
 {
+	float MaxHeight = PageBottom - YPos;
+	FLinearColor PageColor = FLinearColor::Black;
+	PageColor.A = 0.5f;
+	DrawTexture(UTHUDOwner->ScoreboardAtlas, XOffset - 0.05f*ScoreWidth, YPos, 1.15f*ScoreWidth, MaxHeight, 149, 138, 32, 32, 0.5f, PageColor);
 	DrawTeamScoreBreakdown(DeltaTime, YPos, XOffset, ScoreWidth, PageBottom);
 }
 

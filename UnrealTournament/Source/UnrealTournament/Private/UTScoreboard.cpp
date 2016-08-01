@@ -824,22 +824,17 @@ void UUTScoreboard::DrawScoringStats(float DeltaTime, float& YPos)
 	FVector2D SavedRenderPosition = RenderPosition;
 	RenderPosition = FVector2D(0.f, 0.f);
 	float TopYPos = YPos;
-
-	// draw left side
-	float XOffset = ScaledEdgeSize;
 	float ScoreWidth = ScaledCellWidth;
 	float MaxHeight = FooterPosY + SavedRenderPosition.Y - YPos;
 	float PageBottom = TopYPos + MaxHeight;
 
-	FLinearColor PageColor = FLinearColor::Black;
-	PageColor.A = 0.5f;
-	DrawTexture(UTHUDOwner->ScoreboardAtlas, XOffset - 0.05f*ScoreWidth, YPos, 1.1f*ScoreWidth, MaxHeight, 149, 138, 32, 32, 0.5f, PageColor);
+	// draw left side
+	float XOffset = ScaledEdgeSize;
 	DrawStatsLeft(DeltaTime, YPos, XOffset, ScoreWidth, PageBottom);
 
 	// draw right side
 	XOffset = Canvas->ClipX - ScoreWidth - ScaledEdgeSize;
 	YPos = TopYPos;
-	DrawTexture(UTHUDOwner->ScoreboardAtlas, XOffset - 0.05f*ScoreWidth, YPos, 1.1f*ScoreWidth, MaxHeight, 149, 138, 32, 32, 0.5f, PageColor);
 	DrawStatsRight(DeltaTime, YPos, XOffset, ScoreWidth, PageBottom);
 
 	RenderPosition = SavedRenderPosition;

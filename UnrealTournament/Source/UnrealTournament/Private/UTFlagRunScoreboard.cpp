@@ -307,7 +307,7 @@ void UUTFlagRunScoreboard::DrawScoringPlays(float DeltaTime, float& YPos, float 
 	FText TiebreakBonusPattern = NSLOCTEXT("UTFlagRun", "TiebreakPattern", "{TBPre}{Team} +{Bonus}");
 	FText TiebreakBonusText = FText::Format(TiebreakBonusPattern, Args);
 	Canvas->TextSize(UTHUDOwner->SmallFont, TiebreakBonusText.ToString(), ScoringOffsetX, ScoringOffsetY, RenderScale, RenderScale);
-	ScoreX = XOffset + 0.99f*ScoreWidth - ScoringOffsetX;
+	ScoreX = XOffset + ScoreWidth - ScoringOffsetX;
 
 	Canvas->SetLinearDrawColor(FLinearColor::White);
 	PreambleString = TiebreakPreamble.ToString();
@@ -346,11 +346,11 @@ void UUTFlagRunScoreboard::DrawScoringPlays(float DeltaTime, float& YPos, float 
 			UUTFlagRunMessage::StaticClass()->GetDefaultObject<UUTFlagRunMessage>()->SplitPostfixText(PostfixText, SecondPostfixText, GS->FlagRunMessageSwitch, GS->FlagRunMessageTeam);
 			float PostXL;
 			Canvas->StrLen(UTHUDOwner->SmallFont, PostfixText.ToString(), PostXL, YL);
-			ScoreX = XOffset + 0.99f*ScoreWidth - RenderScale * (PreXL + EmphasisXL + PostXL);
+			ScoreX = XOffset + ScoreWidth - RenderScale * (PreXL + EmphasisXL + PostXL);
 		}
 		else
 		{
-			ScoreX = XOffset + 0.99f*ScoreWidth - RenderScale * XL;
+			ScoreX = XOffset + ScoreWidth - RenderScale * XL;
 		}
 		Canvas->SetLinearDrawColor(FLinearColor::White);
 		Canvas->DrawText(UTHUDOwner->SmallFont, PrefixText, ScoreX, YPos, RenderScale, RenderScale, TextRenderInfo);
@@ -366,7 +366,7 @@ void UUTFlagRunScoreboard::DrawScoringPlays(float DeltaTime, float& YPos, float 
 		if (!SecondPostfixText.IsEmpty())
 		{
 			Canvas->StrLen(UTHUDOwner->SmallFont, SecondPostfixText.ToString(), XL, YL);
-			ScoreX = XOffset + 0.99f*ScoreWidth - RenderScale * XL;
+			ScoreX = XOffset + ScoreWidth - RenderScale * XL;
 			YPos += 0.9f*SingleYL;
 			Canvas->DrawText(UTHUDOwner->SmallFont, SecondPostfixText, ScoreX, YPos, RenderScale, RenderScale, TextRenderInfo);
 		}
