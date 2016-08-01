@@ -61,7 +61,10 @@ void UUTHUDWidget_Spectator::DrawSimpleMessage(FText SimpleMessage, float DeltaT
 	DrawTexture(UTHUDOwner->ScoreboardAtlas, MessageOffset, YOffset, BackgroundWidth, Scaling * 108.0f, 4, 2, 124, 128, 1.0);
 	if (bViewingMessage)
 	{
-		DrawText(FText::FromString("Now Viewing"), TextPosition, YOffset + 14.f, UTHUDOwner->SmallFont, Scaling, 1.f, GetMessageColor(), ETextHorzPos::Left, ETextVertPos::Center);
+//		if (SimpleMessage != NSLOCTEXT("UUTHUDWidget_Spectator", "Warmup", "[ENTER] to leave warmup."))
+		{
+			DrawText(FText::FromString("Now Viewing"), TextPosition, YOffset + 14.f, UTHUDOwner->SmallFont, Scaling, 1.f, GetMessageColor(), ETextHorzPos::Left, ETextVertPos::Center);
+		}
 	}
 	else
 	{
@@ -150,6 +153,11 @@ FText UUTHUDWidget_Spectator::GetSpectatorMessageText(bool &bViewingMessage)
 				{
 					SpectatorMessage = NSLOCTEXT("UUTHUDWidget_Spectator", "MatchStarting", "Match is about to start");
 				}
+			}
+			else if (UTHUDOwner->UTPlayerOwner && UTHUDOwner->UTPlayerOwner->bIsWarmingUp)
+			{
+				bViewingMessage = true;
+				SpectatorMessage = NSLOCTEXT("UUTHUDWidget_Spectator", "Warmup", "[ENTER] to leave warmup.");
 			}
 			else if (UTGameState->PlayersNeeded > 0)
 			{
