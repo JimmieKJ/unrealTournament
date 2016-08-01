@@ -1255,6 +1255,10 @@ void AUTGameMode::Reset()
 	for( FConstControllerIterator Iterator = GetWorld()->GetControllerIterator(); Iterator; ++Iterator )
 	{
 		AController* Controller = *Iterator;
+		if (Cast<AUTPlayerController>(Controller))
+		{
+			((AUTPlayerController *)Controller)->bIsWarmingUp = false;
+		}
 		if (Controller->PlayerState != NULL && !Controller->PlayerState->bOnlySpectator)
 		{
 			RestartPlayer(Controller);
@@ -2405,8 +2409,12 @@ void AUTGameMode::RestartPlayer(AController* aPlayer)
 		UE_LOG(UT, Warning, TEXT("RestartPlayer with a bad player, bad playerstate, or empty player name"));
 		return;
 	}
-
-	if (!IsMatchInProgress() || aPlayer->PlayerState->bOnlySpectator)
+	if (aPlayer->PlayerState->bOnlySpectator)
+	{
+		return;
+	}
+	AUTPlayerController* UTPC = Cast<AUTPlayerController>(aPlayer);
+	if (!IsMatchInProgress() && (!UTPC || !UTPC->bIsWarmingUp || HasMatchStarted()))
 	{
 		return;
 	}
@@ -2428,17 +2436,15 @@ void AUTGameMode::RestartPlayer(AController* aPlayer)
 		((AUTBot*)aPlayer)->LastRespawnTime = GetWorld()->TimeSeconds;
 	}
 
-	if (Cast<AUTPlayerController>(aPlayer) != NULL)
+	if (UTPC)
 	{
 		// forced camera cut is a good time to GC
-		((APlayerController*)aPlayer)->ClientForceGarbageCollection();
-
-		if (!aPlayer->IsLocalController())
+		UTPC->ClientForceGarbageCollection();
+		if (!UTPC->IsLocalController())
 		{
-			((AUTPlayerController*)aPlayer)->ClientSwitchToBestWeapon();
+			UTPC->ClientSwitchToBestWeapon();
 		}
-
-		((AUTPlayerController*)aPlayer)->ClientStopKillcam();
+		UTPC->ClientStopKillcam();
 	}
 
 	// clear spawn choices
@@ -2793,6 +2799,25 @@ float AUTGameMode::AdjustNearbyPlayerStartScore(const AController* Player, const
 bool AUTGameMode::AvoidPlayerStart(AUTPlayerStart* P)
 {
 	return P && (!bTeamGame && P->bIgnoreInNonTeamGame);
+}
+
+bool AUTGameMode::PlayerCanRestart_Implementation(APlayerController* Player)
+{
+	if (Player == NULL || Player->IsPendingKillPending())
+	{
+		return false;
+	}
+	if (!IsMatchInProgress())
+	{
+		AUTPlayerController* UTPC = Cast<AUTPlayerController>(Player);
+		if (!UTPC || HasMatchStarted() || !UTPC->bIsWarmingUp)
+		{
+			return false;
+		}
+	}
+
+	// Ask the player controller if it's ready to restart as well
+	return Player->CanRestartPlayer();
 }
 
 /**
@@ -3333,7 +3358,7 @@ bool AUTGameMode::ModifyDamage_Implementation(int32& Damage, FVector& Momentum, 
 	{
 		Damage = 0;
 	}
-	if (!IsMatchInProgress() || (UTGameState && UTGameState->IsMatchIntermission()))
+	if (HasMatchStarted() && (!IsMatchInProgress() || (UTGameState && UTGameState->IsMatchIntermission())))
 	{
 		Damage = 0;
 	}

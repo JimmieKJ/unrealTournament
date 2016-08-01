@@ -190,6 +190,7 @@ void AUTPlayerController::GetLifetimeReplicatedProps(TArray<class FLifetimePrope
 	DOREPLIFETIME_CONDITION(AUTPlayerController, bCastingGuide, COND_OwnerOnly);
 	DOREPLIFETIME_CONDITION(AUTPlayerController, CastingGuideViewIndex, COND_OwnerOnly);
 	DOREPLIFETIME_CONDITION(AUTPlayerController, HUDClass, COND_OwnerOnly);
+	DOREPLIFETIME_CONDITION(AUTPlayerController, bIsWarmingUp, COND_OwnerOnly);
 }
 
 void AUTPlayerController::SendPersonalMessage(TSubclassOf<ULocalMessage> Message, int32 Switch, APlayerState* RelatedPlayerState_1, APlayerState* RelatedPlayerState_2, UObject* OptionalObject)
@@ -785,10 +786,16 @@ bool AUTPlayerController::InputKey(FKey Key, EInputEvent EventType, float Amount
 
 	//This is a separate from OnFire() since we dont want casters starting games by accident when clicking the mouse while flying around
 	static FName NAME_Enter(TEXT("Enter"));
-	AUTGameState* GS = Cast<AUTGameState>(GetWorld()->GameState);
-	if (Key.GetFName() == NAME_Enter && GS != nullptr && UTPlayerState != nullptr && UTPlayerState->bCaster && !UTPlayerState->bReadyToPlay)
+	if (Key.GetFName() == NAME_Enter && (EventType == IE_Pressed) && UTPlayerState != nullptr)
 	{
-		ServerRestartPlayer();
+		if (UTPlayerState->bCaster && !UTPlayerState->bReadyToPlay)
+		{
+			ServerRestartPlayer();
+		}
+		else if (UTPlayerState->bReadyToPlay && !UTPlayerState->bOnlySpectator)
+		{
+			ServerToggleWarmup();
+		}
 		return true;
 	}
 
@@ -2409,9 +2416,31 @@ AUTCharacter* AUTPlayerController::GetUTCharacter()
 	return UTCharacter;
 }
 
+
+bool AUTPlayerController::ServerToggleWarmup_Validate()
+{
+	return true;
+}
+
+void AUTPlayerController::ServerToggleWarmup_Implementation()
+{
+	AUTGameState* GS = Cast<AUTGameState>(GetWorld()->GameState);
+	if (!GS || GS->HasMatchStarted())
+	{
+		return;
+	}
+	bIsWarmingUp = !bIsWarmingUp;
+	if (bIsWarmingUp)
+	{
+		if (!IsFrozen())
+		{
+			Super::ServerRestartPlayer_Implementation();
+		}
+	}
+}
+
 void AUTPlayerController::ServerRestartPlayer_Implementation()
 {
-
 	bUseAltSpawnPoint = false;
 
 	if (UTPlayerState != nullptr)

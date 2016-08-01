@@ -497,6 +497,8 @@ public:
 	virtual void PostLogin( APlayerController* NewPlayer );
 	virtual void Logout(AController* Exiting) override;
 	virtual void RestartPlayer(AController* aPlayer);
+	virtual bool PlayerCanRestart_Implementation(APlayerController* Player) override;
+
 	UFUNCTION(BlueprintCallable, Category = UTGame)
 	virtual void SetPlayerDefaults(APawn* PlayerPawn) override;
 	virtual FString InitNewPlayer(class APlayerController* NewPlayerController, const TSharedPtr<const FUniqueNetId>& UniqueId, const FString& Options, const FString& Portal = TEXT("")) override;
