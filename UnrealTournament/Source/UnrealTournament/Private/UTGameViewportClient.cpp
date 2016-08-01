@@ -508,6 +508,11 @@ void UUTGameViewportClient::Draw(FViewport* InViewport, FCanvas* SceneCanvas)
 
 							new(SavedTransforms) FSavedTransform(Attachment, Attachment->GetComponentTransform());
 							Attachment->SetWorldLocation(AdjustedLoc);
+							// hacky solution to attached spline mesh beams that need to update their endpoint
+							if (Attachment->GetOwner() != nullptr && Attachment->GetOwner() != UTC->GetWeapon())
+							{
+								Attachment->GetOwner()->Tick(0.0f);
+							}
 							Attachment->DoDeferredRenderUpdates_Concurrent();
 						}
 					}
