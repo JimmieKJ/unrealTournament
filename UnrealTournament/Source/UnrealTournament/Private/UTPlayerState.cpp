@@ -1091,6 +1091,7 @@ void AUTPlayerState::CopyProperties(APlayerState* PlayerState)
 		PS->TauntClass = TauntClass;
 		PS->Taunt2Class = Taunt2Class;
 		PS->bSkipELO = bSkipELO;
+		PS->BoostClass = BoostClass;
 		PS->RemainingBoosts = RemainingBoosts;
 		PS->RemainingLives = RemainingLives;
 		PS->bOutOfLives = bOutOfLives;
