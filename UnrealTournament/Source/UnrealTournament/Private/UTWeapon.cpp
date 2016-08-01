@@ -1839,14 +1839,14 @@ void AUTWeapon::UpdateViewBob(float DeltaTime)
 	if (MyPC != NULL && Mesh != NULL && UTOwner->GetWeapon() == this && ShouldPlay1PVisuals())
 	{
 		// if weapon is up in first person, view bob with movement
+		USkeletalMeshComponent* BobbedMesh = (HandsAttachSocket != NAME_None) ? UTOwner->FirstPersonMesh : Mesh;
+		if (FirstPMeshOffset.IsZero())
+		{
+			FirstPMeshOffset = BobbedMesh->GetRelativeTransform().GetLocation();
+			FirstPMeshRotation = BobbedMesh->GetRelativeTransform().Rotator();
+		}
 		if (GetWeaponHand() != EWeaponHand::HAND_Hidden)
 		{
-			USkeletalMeshComponent* BobbedMesh = (HandsAttachSocket != NAME_None) ? UTOwner->FirstPersonMesh : Mesh;
-			if (FirstPMeshOffset.IsZero())
-			{
-				FirstPMeshOffset = BobbedMesh->GetRelativeTransform().GetLocation();
-				FirstPMeshRotation = BobbedMesh->GetRelativeTransform().Rotator();
-			}
 			FVector ScaledMeshOffset = FirstPMeshOffset;
 			const float FOVScaling = (MyPC != NULL) ? ((MyPC->PlayerCameraManager->GetFOVAngle() - 100.f) * 0.05f) : 1.0f;
 			if (FOVScaling > 0.f)
@@ -1877,6 +1877,7 @@ void AUTWeapon::UpdateViewBob(float DeltaTime)
 		{
 			// for first person footsteps
 			UTOwner->GetWeaponBobOffset(DeltaTime, this);
+			BobbedMesh->SetRelativeLocation(FirstPMeshOffset + UTOwner->EyeOffset);
 		}
 	}
 }
