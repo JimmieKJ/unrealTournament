@@ -187,6 +187,25 @@ bool UUTGameInstance::IsAutoDownloadingContent()
 #endif
 }
 
+
+void UUTGameInstance::CloseAllRedirectDownloadDialogs()
+{
+	UUTLocalPlayer* LocalPlayer = Cast<UUTLocalPlayer>(GetFirstGamePlayer());
+	if (LocalPlayer != NULL)
+	{
+		for (int32 i=0; i < ActiveRedirectDialogs.Num(); i++)
+		{
+			TSharedPtr<SUTRedirectDialog> Dialog = ActiveRedirectDialogs[i].Pin();
+			if (Dialog.IsValid())
+			{
+				LocalPlayer->CloseDialog(Dialog.ToSharedRef());
+			}
+		}
+		ActiveRedirectDialogs.Empty();
+	}
+}
+
+
 bool UUTGameInstance::StartRedirectDownload(const FString& PakName, const FString& URL, const FString& Checksum)
 {
 #if !UE_SERVER

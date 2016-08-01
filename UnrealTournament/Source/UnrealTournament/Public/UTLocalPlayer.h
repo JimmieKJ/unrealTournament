@@ -1069,4 +1069,9 @@ protected:
 	bool bJoinSessionInProgress;	
 	FDelegateHandle SpeakerDelegate;
 	void OnPlayerTalkingStateChanged(TSharedRef<const FUniqueNetId> TalkerId, bool bIsTalking);
+
+	// Holds a list of servers where the DLC warning has been accepted.  If the current server is in this list
+	// then the DLC content warning will not be displayed this run.
+	TArray<FGuid> AcceptedDLCServers;
+
 };

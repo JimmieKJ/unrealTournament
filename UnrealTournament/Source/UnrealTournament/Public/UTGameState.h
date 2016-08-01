@@ -625,6 +625,12 @@ protected:
 
 	/** Array holding net ids to query*/
 	TArray<TSharedRef<const FUniqueNetId>> CurrentUsersToQuery;
+
+public:
+	// This is the GUID if the current servers.  See UTBaseGameMode for more information
+	UPROPERTY(Replicated)
+	FGuid ServerInstanceGUID;
+
 };
 
 

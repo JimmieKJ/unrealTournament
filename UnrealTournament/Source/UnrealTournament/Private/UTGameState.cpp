@@ -331,6 +331,10 @@ void AUTGameState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty> & OutLif
 
 	DOREPLIFETIME(AUTGameState, bRestrictPartyJoin);
 	DOREPLIFETIME(AUTGameState, bTeamProjHits);
+
+	DOREPLIFETIME_CONDITION(AUTGameState, ServerInstanceGUID, COND_InitialOnly);
+
+
 }
 
 void AUTGameState::PreReplication(IRepChangedPropertyTracker& ChangedPropertyTracker)

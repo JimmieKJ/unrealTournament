@@ -129,6 +129,7 @@ void AUTBaseGameMode::InitGameState()
 	AUTGameState* GS = Cast<AUTGameState>(GameState);
 	if (GS && !ServerNameOverride.IsEmpty())
 	{
+		GS->ServerInstanceGUID = ServerInstanceGUID;
 		GS->ServerName = ServerNameOverride;
 	}
 }

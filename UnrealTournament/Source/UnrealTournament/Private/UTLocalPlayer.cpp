@@ -3589,6 +3589,19 @@ void UUTLocalPlayer::ShowDLCWarning()
 
 	if (bNeedsToShowWarning)
 	{
+		// Look to see if this server is on the list.
+		AUTGameState* UTGameState = GetWorld()->GetGameState<AUTGameState>();
+		if (UTGameState)
+		{
+			if (AcceptedDLCServers.Find(UTGameState->ServerInstanceGUID) != INDEX_NONE)
+			{
+				bNeedsToShowWarning = false;
+			}
+		}
+	}
+
+	if (bNeedsToShowWarning)
+	{
 #if !UE_SERVER
 		bDLCWarningIsVisible = true;
 		// Ask player if they want to try to rejoin last ranked game
@@ -3614,6 +3627,13 @@ void UUTLocalPlayer::ContentAcceptResult(TSharedPtr<SCompoundWidget> Widget, uin
 	if (ButtonID == UTDIALOG_BUTTON_YES)
 	{
 		bHasShownDLCWarning = true;
+
+		// Look to see if this server is on the list.
+		AUTGameState* UTGameState = GetWorld()->GetGameState<AUTGameState>();
+		if (UTGameState)
+		{
+			AcceptedDLCServers.Add(UTGameState->ServerInstanceGUID);
+		}
 	}
 	else
 	{
@@ -4311,6 +4331,12 @@ void UUTLocalPlayer::CloseAllUI(bool bExceptDialogs)
 	{
 		GEngine->GameViewport->RemoveViewportWidgetContent(ToastList[0].ToSharedRef());
 		ToastList.Empty();
+	}
+
+	UUTGameInstance* UTGameInstance = Cast<UUTGameInstance>(ViewportClient->GetGameInstance());
+	if (UTGameInstance != nullptr)
+	{
+		UTGameInstance->CloseAllRedirectDownloadDialogs();
 	}
 
 #endif

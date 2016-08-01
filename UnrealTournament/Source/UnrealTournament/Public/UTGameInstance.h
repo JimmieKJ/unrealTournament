@@ -187,6 +187,8 @@ public:
 	virtual void WaitForMovieToFinish(bool bEnsureDefaultSlateOverlay);
 	virtual void WaitForMovieToFinish(TSharedPtr<SWidget> SlateOverlayWidget);
 
+	virtual void CloseAllRedirectDownloadDialogs();
+
 protected:
 
 	TSharedPtr<SWidget> MovieOverlay;
