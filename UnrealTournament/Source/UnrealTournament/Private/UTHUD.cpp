@@ -1546,7 +1546,7 @@ float AUTHUD::GetQuickStatsAngle()
 
 float AUTHUD::GetQuickStatsDistance()
 {
-	return VerifyProfileSettings() ? CachedProfileSettings->QuickStatsDistance : 0.1f;
+	return FMath::Clamp<float>((VerifyProfileSettings() ? CachedProfileSettings->QuickStatsDistance : 0.11f), 0.11f, 0.75f);
 }
 
 float AUTHUD::GetQuickStatScaleOverride()

@@ -136,7 +136,7 @@ void SUTHUDSettingsDialog::Construct(const FArguments& InArgs)
 								.IsToggleButton(true)
 								.ButtonStyle(SUTStyle::Get(), "UT.TabButton")
 								.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Medium")
-								.Text(NSLOCTEXT("SUTHUDSettingsDialog", "ControlQuickStats", "Quick Stats"))
+								.Text(NSLOCTEXT("SUTHUDSettingsDialog", "ControlQuickStats", "MiniHUD"))
 								.OnClicked(this, &SUTHUDSettingsDialog::OnTabClickQuickStats)
 							]
 
@@ -412,8 +412,8 @@ TSharedRef<SWidget> SUTHUDSettingsDialog::BuildGeneralTab()
 {
 	return SNew(SVerticalBox)
 		+AddIntOption(NAME_HUDWidgetOpacity, NSLOCTEXT("HUDSETTINGS","OpacityLabel","General Opacity:"),NSLOCTEXT("SUTHUDSettingsDialog", "HUDOpacityTT", "Adjusts how transparent the HUD should be."), NSLOCTEXT("SUTHUDSettingsDialog", "Percent", "%"), int32(ProfileSettings->HUDWidgetOpacity * 100.0f), 0, 100)
-		+AddIntOption(NAME_HUDWidgetBorderOpacity, NSLOCTEXT("HUDSETTINGS", "BorderOpacityLabel", "Border Opacity:"), NSLOCTEXT("SUTHUDSettingsDialog", "HUDBorderOpacityTT", "Adjusts how transparent the hard edge border around each element of the HUD should be."), NSLOCTEXT("SUTHUDSettingsDialog", "Percent", "%"), int32(ProfileSettings->HUDWidgetOpacity * 100.0f), 0, 100)
-		+AddIntOption(NAME_HUDWidgetSlateOpacity, NSLOCTEXT("HUDSETTINGS", "SlateOpacityLabel", "Slate Opacity:"), NSLOCTEXT("SUTHUDSettingsDialog", "HUDSlateOpacityTT", "Adjusts how transparent the background portion of each HUD element should be."), NSLOCTEXT("SUTHUDSettingsDialog", "Percent", "%"), int32(ProfileSettings->HUDWidgetSlateOpacity * 100), 0, 100)
+		//+AddIntOption(NAME_HUDWidgetBorderOpacity, NSLOCTEXT("HUDSETTINGS", "BorderOpacityLabel", "Border Opacity:"), NSLOCTEXT("SUTHUDSettingsDialog", "HUDBorderOpacityTT", "Adjusts how transparent the hard edge border around each element of the HUD should be."), NSLOCTEXT("SUTHUDSettingsDialog", "Percent", "%"), int32(ProfileSettings->HUDWidgetOpacity * 100.0f), 0, 100)
+		//+AddIntOption(NAME_HUDWidgetSlateOpacity, NSLOCTEXT("HUDSETTINGS", "SlateOpacityLabel", "Slate Opacity:"), NSLOCTEXT("SUTHUDSettingsDialog", "HUDSlateOpacityTT", "Adjusts how transparent the background portion of each HUD element should be."), NSLOCTEXT("SUTHUDSettingsDialog", "Percent", "%"), int32(ProfileSettings->HUDWidgetSlateOpacity * 100), 0, 100)
 		+AddIntOption(NAME_HUDWidgetScaleOverride, NSLOCTEXT("HUDSETTINGS", "ScaleLabel", "Scale:"), NSLOCTEXT("SUTHUDSettingsDialog", "HUDScaleTT", "Makes the HUD elements bigger or smaller."), NSLOCTEXT("SUTHUDSettingsDialog", "Percent", "%"), int32(ProfileSettings->HUDWidgetScaleOverride * 100.0f), 25, 300)
 
 		// Spacer....
@@ -583,10 +583,10 @@ TSharedRef<SWidget> SUTHUDSettingsDialog::BuildQuickStatsTab()
 		]
 
 		+AddFloatOption(NAME_QuickStatsAngle, NSLOCTEXT("HUDSETTINGS", "QuickStatsAngle", "Angle:"),NSLOCTEXT("SUTHUDSettingsDialog", "QuickStatsAngleTT", "Changes where around the crosshair will the quick stats be displayed."), NSLOCTEXT("SUTHUDSettingsDialog", "Angle", "deg"), ProfileSettings->QuickStatsAngle, 0.0f, 360.0f)
-		+AddFloatOption(NAME_QuickStatsDistance, NSLOCTEXT("HUDSETTINGS", "QuickStatsDistance", "Distance:"), NSLOCTEXT("SUTHUDSettingsDialog", "QuickStatsDistanceTT", "Changes how far from the crosshair your quick stats menu should be."), NSLOCTEXT("SUTHUDSettingsDialog", "Percent", "%"), ProfileSettings->QuickStatsDistance, 0.0f, 0.75f)
+		+AddFloatOption(NAME_QuickStatsDistance, NSLOCTEXT("HUDSETTINGS", "QuickStatsDistance", "Distance:"), NSLOCTEXT("SUTHUDSettingsDialog", "QuickStatsDistanceTT", "Changes how far from the crosshair your quick stats menu should be."), NSLOCTEXT("SUTHUDSettingsDialog", "Percent", "%"), ProfileSettings->QuickStatsDistance, 0.11f, 0.75f)
 		+AddIntOption(NAME_QuickStatsForegroundAlpha, NSLOCTEXT("HUDSETTINGS", "QuickStatsForegroundAlpha", "Icon & Text Opacity:"), NSLOCTEXT("SUTHUDSettingsDialog", "QuickStatsForegroundAlphaTT", "Adjusts the opacity of the icon and text for each stat."), NSLOCTEXT("SUTHUDSettingsDialog", "Percent", "%"), int32(ProfileSettings->QuickStatsForegroundAlpha * 100.0f), 0, 100)
-		+AddIntOption(NAME_QuickStatsBackgroundAlpha, NSLOCTEXT("HUDSETTINGS", "QuickStatsBackgroundAlpha", "Background Opacity:"), NSLOCTEXT("SUTHUDSettingsDialog", "QuickStatsBackgroundAlphaTT", "Adjusts the opacity of the background."), NSLOCTEXT("SUTHUDSettingsDialog", "Percent", "%"), int32(ProfileSettings->QuickStatsBackgroundAlpha * 100.0f), 0, 100)
-		+AddBoolOption(NAME_bQuickStatsBob, NSLOCTEXT("SUTHUDSettingsDialog", "bQuickStatsBob", "Bob With Weapon"), NSLOCTEXT("SUTHUDSettingsDialog", "bQuickStatsBobTT", "If selected, the on-screen inditators will animate and follow the weapon's bob."), ProfileSettings->bQuickStatsBob);
+		+AddIntOption(NAME_QuickStatsBackgroundAlpha, NSLOCTEXT("HUDSETTINGS", "QuickStatsBackgroundAlpha", "Background Opacity:"), NSLOCTEXT("SUTHUDSettingsDialog", "QuickStatsBackgroundAlphaTT", "Adjusts the opacity of the background."), NSLOCTEXT("SUTHUDSettingsDialog", "Percent", "%"), int32(ProfileSettings->QuickStatsBackgroundAlpha * 100.0f), 0, 100);
+		//+AddBoolOption(NAME_bQuickStatsBob, NSLOCTEXT("SUTHUDSettingsDialog", "bQuickStatsBob", "Bob With Weapon"), NSLOCTEXT("SUTHUDSettingsDialog", "bQuickStatsBobTT", "If selected, the on-screen inditators will animate and follow the weapon's bob."), ProfileSettings->bQuickStatsBob);
 }
 
 
@@ -644,8 +644,8 @@ void SUTHUDSettingsDialog::ApplySettings()
 	if (ProfileSettings.IsValid())
 	{
 		ProfileSettings->HUDWidgetOpacity = float(SettingsInfos[NAME_HUDWidgetOpacity]->GetActualValue_int32()) / 100.0f;
-		ProfileSettings->HUDWidgetBorderOpacity = float(SettingsInfos[NAME_HUDWidgetBorderOpacity]->GetActualValue_int32()) / 100.0f;
-		ProfileSettings->HUDWidgetSlateOpacity = float(SettingsInfos[NAME_HUDWidgetSlateOpacity]->GetActualValue_int32()) / 100.0f;
+		//ProfileSettings->HUDWidgetBorderOpacity = float(SettingsInfos[NAME_HUDWidgetBorderOpacity]->GetActualValue_int32()) / 100.0f;
+		//ProfileSettings->HUDWidgetSlateOpacity = float(SettingsInfos[NAME_HUDWidgetSlateOpacity]->GetActualValue_int32()) / 100.0f;
 		ProfileSettings->HUDWidgetWeaponbarInactiveOpacity = float(SettingsInfos[NAME_HUDWidgetWeaponbarInactiveOpacity]->GetActualValue_int32()) / 100.0f;
 		ProfileSettings->HUDWidgetWeaponBarScaleOverride = float(SettingsInfos[NAME_HUDWidgetWeaponBarScaleOverride]->GetActualValue_int32()) / 100.0f;
 		ProfileSettings->HUDWidgetWeaponBarInactiveIconOpacity = float(SettingsInfos[NAME_HUDWidgetWeaponBarInactiveIconOpacity]->GetActualValue_int32()) / 100.0f;
