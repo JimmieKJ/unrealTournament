@@ -86,6 +86,11 @@ FVector AUTRemoteRedeemer::GetVelocity() const
 void AUTRemoteRedeemer::PostNetReceiveVelocity(const FVector& NewVelocity)
 {
 	ProjectileMovement->Velocity = NewVelocity;
+	// make sure if client thought there was a collision and stopped the projectile that we undo that state
+	if (!NewVelocity.IsZero() && ProjectileMovement->UpdatedComponent == NULL)
+	{
+		ProjectileMovement->SetUpdatedComponent(CollisionComp);
+	}
 }
 
 bool AUTRemoteRedeemer::TryToDrive(APawn* NewDriver)
