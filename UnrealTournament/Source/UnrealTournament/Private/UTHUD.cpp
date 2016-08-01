@@ -670,6 +670,15 @@ void AUTHUD::DrawHUD()
 				DrawMaterial(DamageScreenMID, 0.0f, 0.0f, Canvas->ClipX, Canvas->ClipY, 0.0f, 0.0f, 1.0f, 1.0f);
 			}
 		}
+
+		// tick down damage indicators
+		for (FDamageHudIndicator& Indicator : DamageIndicators)
+		{
+			if (Indicator.FadeTime > 0.0f)
+			{
+				Indicator.FadeTime -= RenderDelta;
+			}
+		}
 	}
 
 	if (bShowVoiceDebug)
@@ -848,7 +857,6 @@ void AUTHUD::DrawDamageIndicators()
 			ImageItem.PivotPoint = FVector2D(0.5f,0.5f);
 			ImageItem.BlendMode = ESimpleElementBlendMode::SE_BLEND_Translucent;
 			Canvas->DrawItem( ImageItem );
-			DamageIndicators[i].FadeTime -= RenderDelta;
 		}
 	}
 }
