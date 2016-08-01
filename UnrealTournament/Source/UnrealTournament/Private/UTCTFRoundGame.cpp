@@ -181,6 +181,21 @@ void AUTCTFRoundGame::GiveDefaultInventory(APawn* PlayerPawn)
 	}
 }
 
+void AUTCTFRoundGame::PlacePlayersAroundFlagBase(int32 TeamNum, int32 FlagTeamNum)
+{
+	// Hide other team
+	TArray<AController*> Members = Teams[1-TeamNum]->GetTeamMembers();
+	for (AController* C : Members)
+	{
+		if (C && C->GetPawn())
+		{
+			C->GetPawn()->GetRootComponent()->SetHiddenInGame(true, true);
+		}
+	}
+
+	Super::PlacePlayersAroundFlagBase(TeamNum, FlagTeamNum);
+}
+
 void AUTCTFRoundGame::BroadcastScoreUpdate(APlayerState* ScoringPlayer, AUTTeamInfo* ScoringTeam, int32 OldScore)
 {
 	int32 BonusType = 100 + BronzeScore;
