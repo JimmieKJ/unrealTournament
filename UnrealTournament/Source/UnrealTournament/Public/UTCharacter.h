@@ -1390,7 +1390,7 @@ public:
 	 * pass NULL to restore default skin
 	 */
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = Effects)
-	virtual void SetSkin(UMaterialInterface* NewSkin);
+	virtual void SetSkin(UMaterialInterface* NewSkin, UMaterialInterface* NewSkin1P = NULL);
 	inline UMaterialInterface* GetSkin()
 	{
 		return ReplicatedBodyMaterial;
@@ -1973,6 +1973,8 @@ protected:
 	/** replicated character material override */
 	UPROPERTY(Replicated, ReplicatedUsing = UpdateSkin)
 	UMaterialInterface* ReplicatedBodyMaterial;
+	UPROPERTY(Replicated, ReplicatedUsing = UpdateSkin)
+	UMaterialInterface* ReplicatedBodyMaterial1P;
 
 	/** runtime material instance for setting body material parameters (team color, etc) */
 	UPROPERTY(BlueprintReadOnly, Category = Pawn)

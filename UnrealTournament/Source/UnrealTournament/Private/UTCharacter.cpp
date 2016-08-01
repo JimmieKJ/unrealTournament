@@ -3055,6 +3055,7 @@ void AUTCharacter::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& O
 	DOREPLIFETIME_CONDITION(AUTCharacter, CharOverlayFlags, COND_None);
 	DOREPLIFETIME_CONDITION(AUTCharacter, WeaponOverlayFlags, COND_None);
 	DOREPLIFETIME_CONDITION(AUTCharacter, ReplicatedBodyMaterial, COND_None);
+	DOREPLIFETIME_CONDITION(AUTCharacter, ReplicatedBodyMaterial1P, COND_None);
 	DOREPLIFETIME_CONDITION(AUTCharacter, HeadScale, COND_None);
 	DOREPLIFETIME_CONDITION(AUTCharacter, bFeigningDeath, COND_None);
 	DOREPLIFETIME_CONDITION(AUTCharacter, bRepFloorSliding, COND_SkipOwner);
@@ -4097,9 +4098,10 @@ void AUTCharacter::UpdateWeaponOverlays()
 	}
 }
 
-void AUTCharacter::SetSkin(UMaterialInterface* NewSkin)
+void AUTCharacter::SetSkin(UMaterialInterface* NewSkin, UMaterialInterface* NewSkin1P)
 {
 	ReplicatedBodyMaterial = NewSkin;
+	ReplicatedBodyMaterial1P = (NewSkin != NULL) ? NewSkin1P : NULL;
 	if (GetNetMode() != NM_DedicatedServer)
 	{
 		UpdateSkin();
@@ -4115,7 +4117,7 @@ void AUTCharacter::UpdateSkin()
 		}
 		for (int32 i = 0; i < FirstPersonMesh->GetNumMaterials(); i++)
 		{
-			FirstPersonMesh->SetMaterial(i, ReplicatedBodyMaterial);
+			FirstPersonMesh->SetMaterial(i, (ReplicatedBodyMaterial1P != NULL) ? ReplicatedBodyMaterial1P : ReplicatedBodyMaterial);
 		}
 	}
 	else
@@ -4131,7 +4133,7 @@ void AUTCharacter::UpdateSkin()
 	}
 	if (Weapon != NULL)
 	{
-		Weapon->SetSkin(ReplicatedBodyMaterial);
+		Weapon->SetSkin((ReplicatedBodyMaterial1P != NULL) ? ReplicatedBodyMaterial1P : ReplicatedBodyMaterial);
 	}
 	if (WeaponAttachment != NULL)
 	{
