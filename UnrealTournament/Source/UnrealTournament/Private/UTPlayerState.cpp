@@ -56,6 +56,7 @@ AUTPlayerState::AUTPlayerState(const class FObjectInitializer& ObjectInitializer
 	bSentLogoutAnalytics = false;
 	NextRallyTime = 0.f;
 	RemainingRallyDelay = 0;
+	SelectionOrder = 255;
 
 	// We want to be ticked.
 	PrimaryActorTick.bCanEverTick = true;

@@ -143,7 +143,12 @@ void AUTShowdownGame::StartNewRound()
 		AController* C = It->Get();
 		if (C != NULL && C->GetPawn() == NULL && C->PlayerState != NULL && !C->PlayerState->bOnlySpectator)
 		{
-			RestartPlayer(*It);
+			// don't spawn players that joined during spawn selection and therefore didn't get to pick yet
+			AUTPlayerState* PS = Cast<AUTPlayerState>(C->PlayerState);
+			if (PS == NULL || PS->SelectionOrder != 255)
+			{
+				RestartPlayer(*It);
+			}
 		}
 	}
 	bAllowPlayerRespawns = false;

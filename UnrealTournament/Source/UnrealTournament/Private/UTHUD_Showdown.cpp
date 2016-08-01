@@ -424,7 +424,7 @@ void AUTHUD_Showdown::DrawPlayerList()
 	for (APlayerState* PS : GS->PlayerArray)
 	{
 		AUTPlayerState* UTPS = Cast<AUTPlayerState>(PS);
-		if (UTPS != NULL && UTPS->Team != NULL && !UTPS->bOnlySpectator)
+		if (UTPS != NULL && UTPS->Team != NULL && !UTPS->bOnlySpectator && UTPS->SelectionOrder != 255)
 		{
 			LivePlayers.Add(UTPS);
 		}
