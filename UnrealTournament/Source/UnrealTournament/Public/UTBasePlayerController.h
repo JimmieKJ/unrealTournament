@@ -277,6 +277,8 @@ protected:
 	// Sends a message directly to a user.  
 	virtual void DirectSay(const FString& Message);
 
+	// Forward the direct say to alternate servers
+	virtual bool ForwardDirectSay(AUTPlayerState* SenderPlayerState, FString& FinalMessage);
 	
 
 };

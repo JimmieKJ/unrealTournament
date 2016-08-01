@@ -278,6 +278,9 @@ void AUTBasePlayerController::DirectSay(const FString& Message)
 		FString TargetPlayerName;
 		FString FinalMessage = Message;
 
+		bool bSent = false;
+
+		// Look for a local player controller to send to...
 		for (FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator)
 		{
 			AUTBasePlayerController* UTPC = Cast<AUTBasePlayerController>(*Iterator);
@@ -287,19 +290,38 @@ void AUTBasePlayerController::DirectSay(const FString& Message)
 				if (UTPlayerState != nullptr)
 				{
 					TargetPlayerName = UTPC->PlayerState->PlayerName;
+
 					if (Message.Left(TargetPlayerName.Len()).Equals(TargetPlayerName, ESearchCase::IgnoreCase))
 					{
-						FinalMessage = FinalMessage.Right(FinalMessage.Len() - TargetPlayerName.Len() + 1);
-						UTPC->ClientSay(UTPlayerState, FinalMessage, ChatDestinations::Whisper);
+						FinalMessage = FinalMessage.Right(FinalMessage.Len() - TargetPlayerName.Len()).Trim();
+						bSent = true;
+						UTPC->ClientSay(UTPlayerState, FString::Printf(TEXT("%s says \"%s\""),*UTPlayerState->PlayerName, *FinalMessage), ChatDestinations::Whisper);
+						FinalMessage = FString::Printf(TEXT("to %s \"%s\""), *TargetPlayerName, *FinalMessage);
 						break;
 					}
 				}
 			}
-		// Make sure I see that I sent it..
-		ClientSay(UTPlayerState, FinalMessage, ChatDestinations::Whisper);
+		}
+
+		// If we haven't sent the message. Look to see if we need to forward this message elsewhere
+		if (!bSent)
+		{
+			bSent = ForwardDirectSay(UTPlayerState, FinalMessage);
+		}
+
+		if (bSent)
+		{
+			// Make sure I see that I sent it..
+			ClientSay(UTPlayerState, FinalMessage, ChatDestinations::Whisper);
 		}
 	}
 }
+
+bool AUTBasePlayerController::ForwardDirectSay(AUTPlayerState* SenderPlayerState, FString& FinalMessage)
+{
+	return false;
+}
+
 
 void AUTBasePlayerController::ClientSay_Implementation(AUTPlayerState* Speaker, const FString& Message, FName Destination)
 {

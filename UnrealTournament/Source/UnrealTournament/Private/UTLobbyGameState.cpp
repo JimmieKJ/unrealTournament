@@ -1171,14 +1171,11 @@ void AUTLobbyGameState::FillOutRconPlayerList(TArray<FRconPlayerData>& PlayerLis
 	}
 }
 
-bool AUTLobbyGameState::SendSayToInstance(const FString& PlayerName, const FString& Message)
+bool AUTLobbyGameState::SendSayToInstance(const FString& PlayerName, FString& Message)
 {
 	bool bSent = false;
 
 	// Try and this user.	
-
-	FString FinalMessage = Message; // FString::Printf(TEXT("%s: %s"), *PlayerName, *Message);
-
 	for (int32 MatchIndex = 0; MatchIndex < AvailableMatches.Num(); MatchIndex++)
 	{
 		AUTLobbyMatchInfo* Match = AvailableMatches[MatchIndex];
@@ -1188,24 +1185,25 @@ bool AUTLobbyGameState::SendSayToInstance(const FString& PlayerName, const FStri
 			{
 				bool bIsUser = false;
 
-				FString TargetPlayerName = Match->PlayersInMatchInstance[i].PlayerName;
-				FString TargetUID = Match->PlayersInMatchInstance[i].PlayerID.ToString();
+				FString TestPlayerName = Match->PlayersInMatchInstance[i].PlayerName;
+				FString TestUID = Match->PlayersInMatchInstance[i].PlayerID.ToString();
 
-				if (FinalMessage.Left(TargetPlayerName.Len()).Equals(TargetPlayerName,ESearchCase::IgnoreCase))
+				if (Message.Left(TestPlayerName.Len()).Equals(TestPlayerName,ESearchCase::IgnoreCase))
 				{
+					Message = Message.Right(Message.Len() - TestPlayerName.Len()).Trim();
 					bIsUser = true;
-					FinalMessage = FinalMessage.Right(FinalMessage.Len() - TargetPlayerName.Len());
 				}
-				else if (FinalMessage.Left(TargetUID.Len()).Equals(TargetUID,ESearchCase::IgnoreCase)) 
+				else if (Message.Left(TestPlayerName.Len()).Equals(TestUID,ESearchCase::IgnoreCase)) 
 				{
+					Message = Message.Right(Message.Len() - TestUID.Len()).Trim();
 					bIsUser = true;
-					FinalMessage = FinalMessage.Right(FinalMessage.Len() - TargetUID.Len());
 				}
 
 				if (bIsUser)
 				{
 					bSent = true;
-					Match->InstanceBeacon->Instance_ReceiveUserMessage(Match->PlayersInMatchInstance[i].PlayerID.ToString(), FinalMessage);
+					Match->InstanceBeacon->Instance_ReceiveUserMessage(Match->PlayersInMatchInstance[i].PlayerID.ToString(), FString::Printf(TEXT("%s says \"%s\""), *PlayerName, *Message));
+					Message = FString::Printf(TEXT("to %s \"%s\""), *TestPlayerName, *Message);
 					break;
 				}
 			}
