@@ -171,6 +171,9 @@ class UNREALTOURNAMENT_API AUTCTFRoundGame : public AUTCTFBaseGame
 	/** Initialize for new round. */
 	virtual void InitRound();
 
+	/** Initialize a player for the new round. */
+	virtual void InitPlayerForRound(AUTPlayerState* PS);
+
 	TAssetSubclassOf<class AUTInventory> ActivatedPowerupPlaceholderObject;
 	TAssetSubclassOf<class AUTInventory> RepulsorObject;
 
@@ -186,6 +189,8 @@ class UNREALTOURNAMENT_API AUTCTFRoundGame : public AUTCTFBaseGame
 
 	UPROPERTY()
 		bool bAllowPrototypePowerups;
+
+	virtual void PostLogin(APlayerController* NewPlayer) override;
 
 protected:
 	virtual bool IsTeamOnOffense(int32 TeamNumber) const;

@@ -89,6 +89,15 @@ AUTCTFRoundGame::AUTCTFRoundGame(const FObjectInitializer& ObjectInitializer)
 	EndOfMatchMessageDelay = 2.5f;
 }
 
+void AUTCTFRoundGame::PostLogin(APlayerController* NewPlayer)
+{
+	if (NewPlayer)
+	{
+		InitPlayerForRound(Cast<AUTPlayerState>(NewPlayer->PlayerState));
+	}
+	Super::PostLogin(NewPlayer);
+}
+
 int32 AUTCTFRoundGame::GetFlagCapScore()
 {
 	int32 BonusTime = UTGameState->GetRemainingTime();
@@ -834,6 +843,22 @@ void AUTCTFRoundGame::InitRound()
 	for (int32 i = 0; i < UTGameState->PlayerArray.Num(); i++)
 	{
 		AUTPlayerState* PS = Cast<AUTPlayerState>(UTGameState->PlayerArray[i]);
+		InitPlayerForRound(PS);
+
+	}
+	CTFGameState->SetTimeLimit(TimeLimit);
+
+	// re-initialize all AI squads, in case objectives have changed sides
+	for (AUTTeamInfo* Team : Teams)
+	{
+		Team->ReinitSquads();
+	}
+}
+
+void AUTCTFRoundGame::InitPlayerForRound(AUTPlayerState* PS)
+{
+	if (PS)
+	{
 		PS->bHasLifeLimit = bPerPlayerLives;
 		PS->RoundKills = 0;
 		PS->NextRallyTime = GetWorld()->GetTimeSeconds() + ((PS->Team && IsTeamOnOffense(PS->Team->TeamIndex)) ? 30.f : 0.f);
@@ -857,13 +882,6 @@ void AUTCTFRoundGame::InitRound()
 			PS->bHasLifeLimit = (PS->RemainingLives > 0);
 			PS->SetOutOfLives(false);
 		}
-	}
-	CTFGameState->SetTimeLimit(TimeLimit);
-
-	// re-initialize all AI squads, in case objectives have changed sides
-	for (AUTTeamInfo* Team : Teams)
-	{
-		Team->ReinitSquads();
 	}
 }
 
