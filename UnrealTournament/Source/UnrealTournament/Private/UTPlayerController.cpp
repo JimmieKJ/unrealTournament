@@ -788,15 +788,17 @@ bool AUTPlayerController::InputKey(FKey Key, EInputEvent EventType, float Amount
 	static FName NAME_Enter(TEXT("Enter"));
 	if (Key.GetFName() == NAME_Enter && (EventType == IE_Pressed) && UTPlayerState != nullptr)
 	{
+		AUTGameState* UTGameState = GetWorld()->GetGameState<AUTGameState>();
 		if (UTPlayerState->bCaster && !UTPlayerState->bReadyToPlay)
 		{
 			ServerRestartPlayer();
+			return true;
 		}
-		else if (UTPlayerState->bReadyToPlay && !UTPlayerState->bOnlySpectator)
+		else if (UTGameState && !UTGameState->HasMatchStarted() && UTPlayerState->bReadyToPlay && !UTPlayerState->bOnlySpectator)
 		{
 			ServerToggleWarmup();
+			return true;
 		}
-		return true;
 	}
 
 	// unfortunately have to go roundabout because this is the only InputKey() that's virtual
