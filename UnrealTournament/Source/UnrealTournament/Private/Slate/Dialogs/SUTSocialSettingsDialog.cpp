@@ -46,7 +46,7 @@ void SUTSocialSettingsDialog::Construct(const FArguments& InArgs)
 				[
 					SNew(STextBlock)
 					.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
-					.Text(NSLOCTEXT("SUTSocialSettingsDialog", "SuppressToastsInGame", "Suppress Toasts While In-Game"))
+					.Text(NSLOCTEXT("SUTSocialSettingsDialog", "SuppressToastsInGame", "Suppress Toasts While Online"))
 					.ToolTip(SUTUtils::CreateTooltip(NSLOCTEXT("SUTSocialSettingsDialog","SuppressToastsInGameTT","Turn this option on to stop toasts from appearing while you are in a multiplayer game.")))
 				]
 			]
