@@ -338,21 +338,6 @@ void SUTPlayerListPanel::GetMenuContent(FString SearchTag, TArray<FMenuOptionDat
 	{
 		if (TrackedPlayers[Idx]->bIsInMatch)
 		{
-
-			// Look to see if this player is in a team game...
-
-			if (bIsHost && (bTeamGame || TrackedPlayers[Idx]->bIsSpectator))
-			{
-				MenuOptions.Add(FMenuOptionData());
-				MenuOptions.Add(FMenuOptionData(NSLOCTEXT("PlayerListSubMenu","ChangeTeam","Change Team"), EPlayerListContentCommand::ChangeTeam));
-			}
-
-			if (bIsHost && !TrackedPlayers[Idx]->bIsSpectator)
-			{
-				MenuOptions.Add(FMenuOptionData());
-				MenuOptions.Add(FMenuOptionData(NSLOCTEXT("PlayerListSubMenu","Spectate","Spectate"), EPlayerListContentCommand::Spectate));
-			}
-
 			if (bIsHost && (TrackedPlayers[Idx]->PlayerState.Get() != PlayerOwner->PlayerController->PlayerState))
 			{
 				MenuOptions.Add(FMenuOptionData());
@@ -763,20 +748,6 @@ void SUTPlayerListPanel::OnSubMenuSelect(FName Tag, TSharedPtr<FTrackedPlayer> I
 			if (PlayerOwner.IsValid() && InItem->PlayerState.IsValid())
 			{
 				PlayerOwner->ShowPlayerInfo(InItem->PlayerState);
-			}
-		}
-		else if (Tag == EPlayerListContentCommand::ChangeTeam)
-		{
-			if (LobbyPlayerState && TargetPlayerState && LobbyPlayerState->CurrentMatch)
-			{
-				LobbyPlayerState->CurrentMatch->ServerManageUser(0,TargetPlayerState);
-			}
-		}
-		else if (Tag == EPlayerListContentCommand::Spectate)
-		{
-			if (LobbyPlayerState && TargetPlayerState && LobbyPlayerState->CurrentMatch)
-			{
-				LobbyPlayerState->CurrentMatch->ServerManageUser(1,TargetPlayerState);
 			}
 		}
 		else if (Tag == EPlayerListContentCommand::Kick)
