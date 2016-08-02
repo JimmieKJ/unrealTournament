@@ -3263,6 +3263,9 @@ void UUTLocalPlayer::StartQuickMatch(FString QuickMatchType)
 			MessageBox(NSLOCTEXT("Generic","RequestInProgressTitle","Busy"), NSLOCTEXT("Generic","RequestInProgressText","A server list request is already in progress.  Please wait for it to finish before attempting to quickmatch."));
 			return;
 		}
+
+		CurrentQuickMatchType = QuickMatchType;
+
 		if (OnlineSessionInterface.IsValid())
 		{
 			OnlineSessionInterface->CancelFindSessions();				
@@ -4609,6 +4612,10 @@ void UUTLocalPlayer::RestartQuickMatch()
 	{
 		// Restart the quickmatch attempt.
 		QuickMatchDialog->FindHUBToJoin();
+	}
+	else
+	{
+		StartQuickMatch(CurrentQuickMatchType);
 	}
 #endif
 }

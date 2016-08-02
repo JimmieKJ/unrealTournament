@@ -286,16 +286,16 @@ void AUTBasePlayerController::DirectSay(const FString& Message)
 			AUTBasePlayerController* UTPC = Cast<AUTBasePlayerController>(*Iterator);
 			if (UTPC != nullptr && UTPC->PlayerState != nullptr)
 			{
-				AUTPlayerState* UTPlayerState = Cast<AUTPlayerState>(UTPC->PlayerState);
-				if (UTPlayerState != nullptr)
+				AUTPlayerState* TargetPlayerState = Cast<AUTPlayerState>(UTPC->PlayerState);
+				if (TargetPlayerState != nullptr)
 				{
-					TargetPlayerName = UTPC->PlayerState->PlayerName;
+					TargetPlayerName = TargetPlayerState->PlayerName;
 
 					if (Message.Left(TargetPlayerName.Len()).Equals(TargetPlayerName, ESearchCase::IgnoreCase))
 					{
 						FinalMessage = FinalMessage.Right(FinalMessage.Len() - TargetPlayerName.Len()).Trim();
 						bSent = true;
-						UTPC->ClientSay(UTPlayerState, FString::Printf(TEXT("%s says \"%s\""),*UTPlayerState->PlayerName, *FinalMessage), ChatDestinations::Whisper);
+						UTPC->ClientSay(UTPlayerState, FinalMessage, ChatDestinations::Whisper);
 						FinalMessage = FString::Printf(TEXT("to %s \"%s\""), *TargetPlayerName, *FinalMessage);
 						break;
 					}

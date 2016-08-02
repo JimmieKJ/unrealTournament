@@ -226,6 +226,8 @@ public:
 	TSharedPtr<class SUTStatsViewerPanel> GetStatsViewer();
 	TSharedPtr<class SUTCreditsPanel> GetCreditsPanel();
 	
+	FString CurrentQuickMatchType;
+
 	void StartQuickMatch(FString QuickMatchType);
 	void CloseQuickMatch();
 
