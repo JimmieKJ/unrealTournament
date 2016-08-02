@@ -158,6 +158,21 @@ class UNREALTOURNAMENT_API UUTCharacterVoice : public UUTLocalMessage
 		FGameVolumeSpeech AntechamberHighLines;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Voice)
+		FGameVolumeSpeech TowerLines;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Voice)
+		FGameVolumeSpeech CreekLines;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Voice)
+		FGameVolumeSpeech TempleLines;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Voice)
+		FGameVolumeSpeech CaveLines;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Voice)
+		FGameVolumeSpeech BaseCampLines;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Voice)
 		FCharacterSpeech RedeemerPickupLine;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Voice)
