@@ -2437,6 +2437,14 @@ void AUTPlayerController::ServerToggleWarmup_Implementation()
 			Super::ServerRestartPlayer_Implementation();
 		}
 	}
+	else
+	{
+		AUTCharacter* Char = Cast<AUTCharacter>(GetPawn());
+		if (Char != NULL)
+		{
+			Char->PlayerSuicide();
+		}
+	}
 }
 
 void AUTPlayerController::ServerRestartPlayer_Implementation()
