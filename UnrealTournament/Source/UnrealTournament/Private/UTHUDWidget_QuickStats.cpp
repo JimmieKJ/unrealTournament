@@ -141,7 +141,14 @@ void UUTHUDWidget_QuickStats::PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCa
 		HealthInfo.Value = CharOwner->Health;
 		HealthInfo.bInfinite = false;
 
-		if ( CheckStatForUpdate(DeltaTime, HealthInfo) )
+		if (HealthInfo.Value < HealthInfo.LastValue)
+		{
+			HealthInfo.Flash(FLinearColor(1.0f, 0.0f, 0.0f, 1.0f), 0.8f);
+			HealthInfo.Animate(StatAnimTypes::Scale, 1.5f, 3.25f, 1.0f, true);
+			HealthInfo.LastValue = HealthInfo.Value;
+		
+		}
+		else if ( CheckStatForUpdate(DeltaTime, HealthInfo) )
 		{
 			HealthInfo.Animate(StatAnimTypes::Scale, 1.5f, 3.25f, 1.0f, true);
 		}
@@ -198,7 +205,15 @@ void UUTHUDWidget_QuickStats::PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCa
 		}
 
 		ArmorInfo.bInfinite = false;
-		if ( CheckStatForUpdate(DeltaTime, ArmorInfo)  )
+
+		if (ArmorInfo.Value < ArmorInfo.LastValue)
+		{
+			ArmorInfo.Flash(FLinearColor(1.0f, 0.0f, 0.0f, 1.0f), 0.8f);
+			ArmorInfo.Animate(StatAnimTypes::Scale, 1.5f, 3.25f, 1.0f, true);
+			ArmorInfo.LastValue = ArmorInfo.Value;
+		
+		}
+		else if ( CheckStatForUpdate(DeltaTime, ArmorInfo)  )
 		{
 			ArmorInfo.Animate(StatAnimTypes::Scale, 1.5f, 3.25f, 1.0f, true);
 		}
@@ -524,7 +539,20 @@ void UUTHUDWidget_QuickStats::DrawStat(FVector2D StatOffset, FStatInfo& Info, FH
 		{
 			TextTemplate.TextScale = Info.Scale;
 			TextTemplate.Text = Info.bUseLabel ? Info.Label : FText::AsNumber(Info.Value);
-			TextTemplate.RenderColor = Info.TextColor;
+
+			FLinearColor DrawColor = Info.TextColor;
+			if (Info.TextColorOverrideDuration > 0.0f)
+			{
+				Info.TextColorOverrideTimer += RenderDelta;
+				float Perc = FMath::Clamp<float>(Info.TextColorOverrideTimer / Info.TextColorOverrideDuration, 0.0f, 1.0f);
+				DrawColor.R = FMath::Lerp<float>(Info.TextColorOverride.R, Info.TextColor.R, Perc);
+				DrawColor.G = FMath::Lerp<float>(Info.TextColorOverride.G, Info.TextColor.G, Perc);
+				DrawColor.B = FMath::Lerp<float>(Info.TextColorOverride.B, Info.TextColor.B, Perc);
+		
+				if (Perc >= 1.0f) Info.TextColorOverrideDuration = 0.0f;
+			}
+
+			TextTemplate.RenderColor = DrawColor;
 			TextTemplate.RenderOpacity = ForegroundOpacity * Info.Opacity;
 			RenderObj_Text(TextTemplate, StatOffset);
 		}

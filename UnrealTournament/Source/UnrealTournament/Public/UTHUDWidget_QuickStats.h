@@ -108,6 +108,10 @@ struct FStatInfo
 	FLinearColor IconColor;
 	FLinearColor TextColor;
 
+	FLinearColor TextColorOverride;
+	float TextColorOverrideTimer;
+	float TextColorOverrideDuration;
+
 	FVector2D DrawOffset;
 
 	float Opacity;
@@ -154,6 +158,13 @@ struct FStatInfo
 
 		bIsInfo = false;
 
+	}
+
+	void Flash(FLinearColor FlashColor, float FlashTime)
+	{
+		TextColorOverride = FlashColor;
+		TextColorOverrideDuration = FlashTime;
+		TextColorOverrideTimer = 0.0f;
 	}
 
 	void Animate(FName AnimType, float AnimDuration, float Start, float End, bool bBounce = false)

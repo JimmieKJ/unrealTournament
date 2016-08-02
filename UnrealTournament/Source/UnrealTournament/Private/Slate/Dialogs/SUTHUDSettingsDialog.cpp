@@ -665,7 +665,7 @@ void SUTHUDSettingsDialog::ApplySettings()
 		ProfileSettings->QuickStatsForegroundAlpha = float(SettingsInfos[NAME_QuickStatsForegroundAlpha]->GetActualValue_int32()) / 100.0f;
 		ProfileSettings->bQuickStatsHidden = !SettingsInfos[NAME_bQuickStatsHidden]->GetActualValue_bool();
 		ProfileSettings->bQuickInfoHidden = !SettingsInfos[NAME_bQuickInfoHidden]->GetActualValue_bool();
-		ProfileSettings->bQuickStatsBob = SettingsInfos[NAME_bQuickStatsBob]->GetActualValue_bool();
+		ProfileSettings->bQuickStatsBob = false; //SettingsInfos[NAME_bQuickStatsBob]->GetActualValue_bool();
 
 		ProfileSettings->bHideDamageIndicators = !SettingsInfos[NAME_bHideDamageIndicators]->GetActualValue_bool();
 		ProfileSettings->bVerticalWeaponBar = SelectedWeaponBarOrientation->GetText().ToString().Equals(*WeaponBarOrientationList[1].Get(), ESearchCase::IgnoreCase) ? false : true;
