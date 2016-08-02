@@ -187,8 +187,6 @@ public:
 	virtual void WaitForMovieToFinish(bool bEnsureDefaultSlateOverlay);
 	virtual void WaitForMovieToFinish(TSharedPtr<SWidget> SlateOverlayWidget);
 
-	virtual void CloseAllRedirectDownloadDialogs();
-
 protected:
 
 	TSharedPtr<SWidget> MovieOverlay;
@@ -199,6 +197,9 @@ protected:
 	virtual EVisibility GetLevelLoadThrobberVisibility() const;
 	virtual EVisibility GetLevelLoadAnyKeyVisibility() const;
 #endif
+
+public:
+	virtual void CloseAllRedirectDownloadDialogs();
 
 };
 

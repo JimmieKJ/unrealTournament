@@ -190,6 +190,7 @@ bool UUTGameInstance::IsAutoDownloadingContent()
 
 void UUTGameInstance::CloseAllRedirectDownloadDialogs()
 {
+#if !UE_SERVER
 	UUTLocalPlayer* LocalPlayer = Cast<UUTLocalPlayer>(GetFirstGamePlayer());
 	if (LocalPlayer != NULL)
 	{
@@ -203,6 +204,7 @@ void UUTGameInstance::CloseAllRedirectDownloadDialogs()
 		}
 		ActiveRedirectDialogs.Empty();
 	}
+#endif
 }
 
 
