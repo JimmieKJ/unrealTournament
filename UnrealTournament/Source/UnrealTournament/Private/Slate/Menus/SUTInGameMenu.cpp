@@ -40,8 +40,9 @@ void SUTInGameMenu::BuildLeftMenuBar()
 		AUTGameMode* Game = PlayerOwner->GetWorld()->GetAuthGameMode<AUTGameMode>();
 		AUTGameState* GS = PlayerOwner->GetWorld()->GetGameState<AUTGameState>();
 		AUTPlayerState* PS = PlayerOwner->PlayerController ? Cast<AUTPlayerState>(PlayerOwner->PlayerController->PlayerState) : NULL;
+		AUTPlayerController* PC = Cast<AUTPlayerController>(PlayerOwner->PlayerController);
 		bool bIsSpectator = PS && PS->bOnlySpectator;
-		if (GS && GS->bTeamGame && !bIsSpectator && GS->bAllowTeamSwitches)
+		if (GS && GS->bTeamGame && !bIsSpectator && GS->bAllowTeamSwitches && (!PC || !PC->bIsWarmingUp))
 		{
 			LeftMenuBar->AddSlot()
 			.Padding(5.0f,0.0f,0.0f,0.0f)
@@ -66,7 +67,7 @@ void SUTInGameMenu::BuildLeftMenuBar()
 		}
 
 
-		if (GS && GS->GetMatchState() == MatchState::WaitingToStart)
+		if (GS && (GS->GetMatchState() == MatchState::WaitingToStart) && (!PC || !PC->bIsWarmingUp))
 		{
 			if (GS->GetNetMode() == NM_Standalone)
 			{

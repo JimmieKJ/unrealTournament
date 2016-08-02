@@ -2427,7 +2427,7 @@ bool AUTPlayerController::ServerToggleWarmup_Validate()
 void AUTPlayerController::ServerToggleWarmup_Implementation()
 {
 	AUTGameState* GS = Cast<AUTGameState>(GetWorld()->GameState);
-	if (!GS || GS->HasMatchStarted())
+	if (!GS || GS->HasMatchStarted() || !UTPlayerState || !UTPlayerState->bReadyToPlay)
 	{
 		return;
 	}
@@ -2465,7 +2465,7 @@ void AUTPlayerController::ServerRestartPlayer_Implementation()
 		return;
 	}
 	// Ready up if match hasn't started and not a ranked match
-	if (!UTGM->HasMatchStarted() && !UTGM->bRankedSession)
+	if (!UTGM->HasMatchStarted() && !UTGM->bRankedSession && !bIsWarmingUp)
 	{
 		if (UTPlayerState)
 		{
@@ -2524,6 +2524,11 @@ void AUTPlayerController::ServerSwitchTeam_Implementation()
 		uint8 NewTeam = (UTPlayerState->Team->TeamIndex + 1) % GetWorld()->GetGameState<AUTGameState>()->Teams.Num();
 		if (!GetWorld()->GetAuthGameMode()->HasMatchStarted())
 		{
+			if (bIsWarmingUp)
+			{
+				// no team swaps while warming up
+				return;
+			}
 			if (UTPlayerState->bPendingTeamSwitch)
 			{
 				UTPlayerState->bPendingTeamSwitch = false;
@@ -2561,7 +2566,7 @@ void AUTPlayerController::ServerRestartPlayerAltFire_Implementation()
 	}
 
 	AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
-	if (GS && !GS->HasMatchStarted())
+	if (GS && !GS->HasMatchStarted() && !bIsWarmingUp)
 	{
 		if (GS->GetMatchState() != MatchState::CountdownToBegin && GS->GetMatchState() != MatchState::PlayerIntro)
 		{
