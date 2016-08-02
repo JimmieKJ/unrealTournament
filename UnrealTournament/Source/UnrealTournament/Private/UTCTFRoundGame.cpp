@@ -638,32 +638,7 @@ void AUTCTFRoundGame::HandleMatchHasStarted()
 void AUTCTFRoundGame::HandleExitingIntermission()
 {
 	CTFGameState->bStopGameClock = false;
-	for (FConstControllerIterator Iterator = GetWorld()->GetControllerIterator(); Iterator; ++Iterator)
-	{
-		// Detach all controllers from their pawns
-		if ((*Iterator)->GetPawn() != NULL)
-		{
-			(*Iterator)->UnPossess();
-		}
-	}
-
-	TArray<APawn*> PawnsToDestroy;
-	for (FConstPawnIterator It = GetWorld()->GetPawnIterator(); It; ++It)
-	{
-		if (*It && !Cast<ASpectatorPawn>((*It).Get()))
-		{
-			PawnsToDestroy.Add(*It);
-		}
-	}
-
-	for (int32 i = 0; i<PawnsToDestroy.Num(); i++)
-	{
-		APawn* Pawn = PawnsToDestroy[i];
-		if (Pawn != NULL && !Pawn->IsPendingKill())
-		{
-			Pawn->Destroy();
-		}
-	}
+	RemoveAllPawns();
 
 	// swap sides, if desired
 	AUTWorldSettings* Settings = Cast<AUTWorldSettings>(GetWorld()->GetWorldSettings());

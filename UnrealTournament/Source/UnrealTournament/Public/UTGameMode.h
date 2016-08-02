@@ -444,6 +444,7 @@ public:
 	virtual void InitGameState() override;
 	virtual APlayerController* Login(class UPlayer* NewPlayer, ENetRole RemoteRole, const FString& Portal, const FString& Options, const TSharedPtr<const FUniqueNetId>& UniqueId, FString& ErrorMessage) override;
 	virtual void Reset();
+	virtual void RemoveAllPawns();
 	virtual void RestartGame();
 	virtual void BeginGame();
 	virtual bool AllowPausing(APlayerController* PC) override;

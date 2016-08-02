@@ -1255,10 +1255,6 @@ void AUTGameMode::Reset()
 	for( FConstControllerIterator Iterator = GetWorld()->GetControllerIterator(); Iterator; ++Iterator )
 	{
 		AController* Controller = *Iterator;
-		if (Cast<AUTPlayerController>(Controller))
-		{
-			((AUTPlayerController *)Controller)->bIsWarmingUp = false;
-		}
 		if (Controller->PlayerState != NULL && !Controller->PlayerState->bOnlySpectator)
 		{
 			RestartPlayer(Controller);
@@ -1700,8 +1696,46 @@ void AUTGameMode::StartMatch()
 	}
 }
 
+void AUTGameMode::RemoveAllPawns()
+{
+	// remove any warm up pawns
+	for (FConstControllerIterator Iterator = GetWorld()->GetControllerIterator(); Iterator; ++Iterator)
+	{
+		// Detach all controllers from their pawns
+		AController* Controller = *Iterator;
+		if (Cast<AUTPlayerController>(Controller))
+		{
+			((AUTPlayerController *)Controller)->bIsWarmingUp = false;
+		}
+		if (Controller->GetPawn() != NULL)
+		{
+			Controller->UnPossess();
+		}
+	}
+
+	TArray<APawn*> PawnsToDestroy;
+	for (FConstPawnIterator It = GetWorld()->GetPawnIterator(); It; ++It)
+	{
+		if (*It && !Cast<ASpectatorPawn>((*It).Get()))
+		{
+			PawnsToDestroy.Add(*It);
+		}
+	}
+
+	for (int32 i = 0; i<PawnsToDestroy.Num(); i++)
+	{
+		APawn* Pawn = PawnsToDestroy[i];
+		if (Pawn != NULL && !Pawn->IsPendingKill())
+		{
+			Pawn->Destroy();
+		}
+	}
+}
+
 void AUTGameMode::HandleMatchHasStarted()
 {
+	RemoveAllPawns();
+
 	// reset things, relevant for any kind of warmup mode and to make sure placed Actors like pickups are in their initial state no matter how much time has passed in pregame
 	for (FActorIterator It(GetWorld()); It; ++It)
 	{
