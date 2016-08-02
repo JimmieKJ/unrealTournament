@@ -927,10 +927,12 @@ FText AUTGameState::ServerRules()
 void AUTGameState::ReceivedGameModeClass()
 {
 	Super::ReceivedGameModeClass();
+	UE_LOG(UT, Warning, TEXT("%s ReceivedGameModeClass"), *GetName());
 
 	TSubclassOf<AUTGameMode> UTGameClass(*GameModeClass);
 	if (UTGameClass != NULL)
 	{
+		UE_LOG(UT, Warning, TEXT("%s ReceivedGameModeClass %s"), *GetName(), *UTGameClass->GetName());
 		// precache announcements
 		for (FLocalPlayerIterator It(GEngine, GetWorld()); It; ++It)
 		{

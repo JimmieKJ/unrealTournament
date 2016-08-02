@@ -150,18 +150,10 @@ class UNREALTOURNAMENT_API UUTSpreeMessage : public UUTLocalMessage
 
 	virtual void PrecacheAnnouncements_Implementation(class UUTAnnouncer* Announcer) const
 	{
-		// switch 0 has no announcement, skip it
-		for (int32 i = 1; i < 50; i++)
+		UE_LOG(UT, Warning, TEXT("PRECACHE SPREES"));
+		for (int32 i = 0; i < AnnouncementNames.Num(); i++)
 		{
-			FName SoundName = GetAnnouncementName(i, NULL, NULL, NULL);
-			if (SoundName != NAME_None)
-			{
-				Announcer->PrecacheAnnouncement(SoundName);
-			}
-			else
-			{
-				break;
-			}
+			Announcer->PrecacheAnnouncement(AnnouncementNames[i]);
 		}
 
 		// precache weapon spree announcements

@@ -3804,6 +3804,7 @@ void AUTGameMode::BroadcastSpectatorPickup(AUTPlayerState* PS, FName StatsName, 
 
 void AUTGameMode::PrecacheAnnouncements(UUTAnnouncer* Announcer) const
 {
+	UE_LOG(UT, Warning, TEXT("%s GAME PrecacheAnnouncements"), *GetName());
 	// slow but fairly reliable base implementation that looks up all local messages
 	for (TObjectIterator<UClass> It; It; ++It)
 	{
