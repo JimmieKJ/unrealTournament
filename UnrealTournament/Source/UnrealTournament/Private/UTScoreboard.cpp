@@ -591,17 +591,17 @@ void UUTScoreboard::DrawServerPanel(float RenderDelta, float YOffset)
 {
 	if (UTGameState && (UTGameState->GetMatchState() != MatchState::PlayerIntro))
 	{
-		FText SpectatorMessage;
-		bool bShortMessage = false;
+		FText SpectatorMessage, ShortMessage;
 		if (UTHUDOwner->SpectatorMessageWidget)
 		{
-			SpectatorMessage = UTHUDOwner->SpectatorMessageWidget->GetSpectatorMessageText(bShortMessage);
+			SpectatorMessage = UTHUDOwner->SpectatorMessageWidget->GetSpectatorMessageText(ShortMessage);
 		}
+		bool bShortMessage = !ShortMessage.IsEmpty();
 		if (!SpectatorMessage.IsEmpty() && !bShortMessage && (UTGameState->PlayerArray.Num() < 26) && !ShouldDrawScoringStats())
 		{
 			// Only draw if there is room above spectator panel
 			UTHUDOwner->SpectatorMessageWidget->PreDraw(RenderDelta, UTHUDOwner, Canvas, CanvasCenter);
-			UTHUDOwner->SpectatorMessageWidget->DrawSimpleMessage(SpectatorMessage, RenderDelta, bShortMessage);
+			UTHUDOwner->SpectatorMessageWidget->DrawSimpleMessage(SpectatorMessage, RenderDelta, ShortMessage);
 			return;
 		}
 		if (SpectatorMessage.IsEmpty() || bShortMessage)

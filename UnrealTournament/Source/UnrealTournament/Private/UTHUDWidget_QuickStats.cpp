@@ -44,17 +44,7 @@ void UUTHUDWidget_QuickStats::InitializeWidget(AUTHUD* Hud)
 
 bool UUTHUDWidget_QuickStats::ShouldDraw_Implementation(bool bShowScores)
 {
-	if (UTGameState && (UTGameState->HasMatchEnded() || !UTGameState->HasMatchStarted() || UTGameState->IsMatchIntermission()))
-	{
-		return false;
-	}
-	if (UTHUDOwner->bShowComsMenu || UTHUDOwner->bShowWeaponWheel)
-	{
-		return false;
-	}
-
-	AUTCharacter* UTC = Cast<AUTCharacter>(UTHUDOwner->UTPlayerOwner->GetViewTarget());
-	return (!bShowScores && UTC && !UTC->IsDead() && (!UTHUDOwner->GetQuickStatsHidden() || !UTHUDOwner->GetQuickInfoHidden()));
+	return Super::ShouldDraw_Implementation(bShowScores) && !UTHUDOwner->bShowComsMenu && !UTHUDOwner->bShowWeaponWheel && !UTHUDOwner->GetQuickStatsHidden() && !UTHUDOwner->GetQuickInfoHidden();
 }
 
 FVector2D UUTHUDWidget_QuickStats::CalcRotOffset(FVector2D InitialPosition, float Angle)

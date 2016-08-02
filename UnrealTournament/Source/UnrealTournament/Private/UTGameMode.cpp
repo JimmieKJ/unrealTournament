@@ -1295,29 +1295,33 @@ void AUTGameMode::Killed(AController* Killer, AController* KilledPlayer, APawn* 
 		{
 			bool const bEnemyKill = IsEnemy(Killer, KilledPlayer);
 			KilledPlayerState->LastKillerPlayerState = KillerPlayerState;
-			KilledPlayerState->IncrementDeaths(DamageType, KillerPlayerState);
-			TSubclassOf<UUTDamageType> UTDamage(*DamageType);
-			if (UTDamage && bEnemyKill)
-			{
-				UTDamage.GetDefaultObject()->ScoreKill(KillerPlayerState, KilledPlayerState, KilledPawn);
 
-				if (EnemyKillsByDamageType.Contains(UTDamage))
+			if (HasMatchStarted())
+			{
+				KilledPlayerState->IncrementDeaths(DamageType, KillerPlayerState);
+				TSubclassOf<UUTDamageType> UTDamage(*DamageType);
+				if (UTDamage && bEnemyKill)
 				{
-					EnemyKillsByDamageType[UTDamage] = EnemyKillsByDamageType[UTDamage] + 1;
+					UTDamage.GetDefaultObject()->ScoreKill(KillerPlayerState, KilledPlayerState, KilledPawn);
+
+					if (EnemyKillsByDamageType.Contains(UTDamage))
+					{
+						EnemyKillsByDamageType[UTDamage] = EnemyKillsByDamageType[UTDamage] + 1;
+					}
+					else
+					{
+						EnemyKillsByDamageType.Add(UTDamage, 1);
+					}
+				}
+
+				if (!bEnemyKill && (Killer != KilledPlayer) && (Killer != NULL))
+				{
+					ScoreTeamKill(Killer, KilledPlayer, KilledPawn, DamageType);
 				}
 				else
 				{
-					EnemyKillsByDamageType.Add(UTDamage, 1);
+					ScoreKill(Killer, KilledPlayer, KilledPawn, DamageType);
 				}
-			}
-
-			if (!bEnemyKill && (Killer != KilledPlayer) && (Killer != NULL))
-			{
-				ScoreTeamKill(Killer, KilledPlayer, KilledPawn, DamageType);
-			}
-			else
-			{
-				ScoreKill(Killer, KilledPlayer, KilledPawn, DamageType);
 			}
 			BroadcastDeathMessage(Killer, KilledPlayer, DamageType);
 
