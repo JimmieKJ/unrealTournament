@@ -257,8 +257,12 @@ void AUTBasePlayerController::ServerSay_Implementation(const FString& Message, b
 			{
 				if (!bTeamMessage || UTPC->GetTeamNum() == GetTeamNum())
 				{
+
+					TSharedPtr<const FUniqueNetId> Id = UTPC->PlayerState->UniqueId.GetUniqueNetId();
+					bool bIsMuted = Id.IsValid() && IsPlayerMuted(Id.ToSharedRef().Get());
+
 					// Dont send spectator chat to players
-					if (UTPC->PlayerState != nullptr && (!bSpectatorMsg || UTPC->PlayerState->bOnlySpectator))
+					if (UTPC->PlayerState != nullptr && (!bSpectatorMsg || UTPC->PlayerState->bOnlySpectator) && !bIsMuted)
 					{
 						UTPC->ClientSay(UTPlayerState, Message, (bTeamMessage ? ChatDestinations::Team : ChatDestinations::Local));
 					}
@@ -295,7 +299,14 @@ void AUTBasePlayerController::DirectSay(const FString& Message)
 					{
 						FinalMessage = FinalMessage.Right(FinalMessage.Len() - TargetPlayerName.Len()).Trim();
 						bSent = true;
-						UTPC->ClientSay(UTPlayerState, FinalMessage, ChatDestinations::Whisper);
+		
+						TSharedPtr<const FUniqueNetId> Id = UTPC->PlayerState->UniqueId.GetUniqueNetId();
+						bool bIsMuted = Id.IsValid() && IsPlayerMuted(Id.ToSharedRef().Get());
+
+						if (!bIsMuted)
+						{
+							UTPC->ClientSay(UTPlayerState, FinalMessage, ChatDestinations::Whisper);
+						}
 						FinalMessage = FString::Printf(TEXT("to %s \"%s\""), *TargetPlayerName, *FinalMessage);
 						break;
 					}
@@ -325,8 +336,6 @@ bool AUTBasePlayerController::ForwardDirectSay(AUTPlayerState* SenderPlayerState
 
 void AUTBasePlayerController::ClientSay_Implementation(AUTPlayerState* Speaker, const FString& Message, FName Destination)
 {
-
-
 	FClientReceiveData ClientData;
 	ClientData.LocalPC = this;
 	ClientData.MessageIndex = Destination == ChatDestinations::Team;

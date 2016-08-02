@@ -167,7 +167,7 @@ void SUTInGameHomePanel::ShowContextMenu(UUTScoreboard* Scoreboard, FVector2D Co
 	TSharedPtr<SVerticalBox> MenuBox;
 
 	bShowingContextMenu = true;
-	SubMenuOverlay->AddSlot(1)
+	SubMenuOverlay->AddSlot(201)
 	.Padding(FMargin(ContextMenuLocation.X, ContextMenuLocation.Y, 0, 0))
 	[
 		SNew(SHorizontalBox)
@@ -306,7 +306,7 @@ void SUTInGameHomePanel::HideContextMenu()
 {
 	if (bShowingContextMenu)
 	{
-		SubMenuOverlay->RemoveSlot(1);
+		SubMenuOverlay->RemoveSlot(201);
 		bShowingContextMenu = false;
 	}
 }
