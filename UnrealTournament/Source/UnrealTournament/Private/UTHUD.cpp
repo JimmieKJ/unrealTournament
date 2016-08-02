@@ -28,6 +28,7 @@
 #include "OnlineSubsystemTypes.h"
 #include "OnlineSubsystemUtils.h"
 #include "UTUMGHudWidget.h"
+#include "UTGameMessage.h"
 
 static FName NAME_Intensity(TEXT("Intensity"));
 
@@ -461,7 +462,11 @@ void AUTHUD::NotifyMatchStateChange()
 		}
 		else if (GS->GetMatchState() == MatchState::PlayerIntro)
 		{
-			GetWorldTimerManager().SetTimer(MatchSummaryHandle, this, &AUTHUD::OpenMatchSummary, 0.2f, false);
+			if (UTPlayerOwner->bIsWarmingUp)
+			{
+				UTPlayerOwner->ClientReceiveLocalizedMessage(UUTGameMessage::StaticClass(), 16, nullptr, nullptr, nullptr);
+			}
+			GetWorldTimerManager().SetTimer(MatchSummaryHandle, this, &AUTHUD::OpenMatchSummary, 1.7f, false);
 		}
 		else if (GS->GetMatchState() != MatchState::MapVoteHappening)
 		{
