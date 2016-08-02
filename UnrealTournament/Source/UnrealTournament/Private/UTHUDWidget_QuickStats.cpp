@@ -60,23 +60,8 @@ FVector2D UUTHUDWidget_QuickStats::CalcRotOffset(FVector2D InitialPosition, floa
 	return NewPoint;
 }
 
-void UUTHUDWidget_QuickStats::UpdateKeyMappings(bool bForceUpdate)
-{
-	if (!bKeyMappingsSet || bForceUpdate)
-	{
-		bKeyMappingsSet = true;
-		FInputActionKeyMapping ActivatePowerupBinding = FindKeyMappingTo("StartActivatePowerup");
-		BoostLabel = (ActivatePowerupBinding.Key.GetDisplayName().ToString().Len() < 6) ? ActivatePowerupBinding.Key.GetDisplayName() : FText::FromString(" ");
-		FInputActionKeyMapping DropObjectAction = FindKeyMappingTo("DropCarriedObject");
-		FInputActionKeyMapping RallyBinding = FindKeyMappingTo("RequestRally");
-		RallyLabel = (RallyBinding.Key.GetDisplayName().ToString().Len() < 6) ? RallyBinding.Key.GetDisplayName() : FText::FromString(" ");
-	}
-}
-
 void UUTHUDWidget_QuickStats::PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCanvas* InCanvas, FVector2D InCanvasCenter)
 {
-	UpdateKeyMappings(false);
-
 	// Look to see if we should draw the ammo...
 	DrawAngle = InUTHUDOwner->GetQuickStatsAngle();
 
@@ -327,7 +312,7 @@ void UUTHUDWidget_QuickStats::PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCa
 					{
 						BoostProvidedPowerupInfo.Animate(StatAnimTypes::Scale, 2.f, 3.25f, 1.0f, true);
 					}
-					BoostProvidedPowerupInfo.Label = BoostLabel;
+					BoostProvidedPowerupInfo.Label = UTHUDOwner->BoostLabel;
 				}
 				else
 				{
@@ -365,7 +350,7 @@ void UUTHUDWidget_QuickStats::PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCa
 			if (bPlayerCanRally)
 			{
 				FlagInfo.IconColor = FLinearColor::Yellow;
-				FlagInfo.Label = RallyLabel;
+				FlagInfo.Label = UTHUDOwner->RallyLabel;
 			}
 			else
 			{

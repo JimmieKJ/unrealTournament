@@ -450,8 +450,20 @@ public:
 
 	virtual bool HasHudWidget(TSubclassOf<UUTHUDWidget> NewWidgetClass);
 
+	/** Find and return requested key mapping. */
+	virtual FInputActionKeyMapping FindKeyMappingTo(FName ActionName);
+
 	/** Update displayed key bindings on HUD */
-	virtual void UpdateKeyMappings();
+	virtual void UpdateKeyMappings(bool bForceUpdate);
+
+	UPROPERTY()
+		bool bKeyMappingsSet;
+
+	UPROPERTY()
+		FText RallyLabel;
+
+	UPROPERTY()
+		FText BoostLabel;
 
 protected:
 	// Helper function to take a JSON object and try to convert it to the FVector2D.  

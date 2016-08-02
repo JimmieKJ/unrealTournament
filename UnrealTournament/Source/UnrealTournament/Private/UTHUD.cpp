@@ -407,12 +407,33 @@ UUTHUDWidget* AUTHUD::FindHudWidgetByClass(TSubclassOf<UUTHUDWidget> SearchWidge
 	return NULL;
 }
 
-void AUTHUD::UpdateKeyMappings()
+void AUTHUD::UpdateKeyMappings(bool bForceUpdate)
 {
-	for (int32 i = 0; i<HudWidgets.Num(); i++)
+	if (!bKeyMappingsSet || bForceUpdate)
 	{
-		HudWidgets[i]->UpdateKeyMappings(true);
+		bKeyMappingsSet = true;
+		FInputActionKeyMapping ActivatePowerupBinding = FindKeyMappingTo("StartActivatePowerup");
+		BoostLabel = (ActivatePowerupBinding.Key.GetDisplayName().ToString().Len() < 6) ? ActivatePowerupBinding.Key.GetDisplayName() : FText::FromString(" ");
+		FInputActionKeyMapping RallyBinding = FindKeyMappingTo("RequestRally");
+		RallyLabel = (RallyBinding.Key.GetDisplayName().ToString().Len() < 6) ? RallyBinding.Key.GetDisplayName() : FText::FromString(" ");
 	}
+}
+
+FInputActionKeyMapping AUTHUD::FindKeyMappingTo(FName InActionName)
+{
+	UInputSettings* InputSettings = UInputSettings::StaticClass()->GetDefaultObject<UInputSettings>();
+	if (InputSettings)
+	{
+		for (int32 inputIndex = 0; inputIndex < InputSettings->ActionMappings.Num(); ++inputIndex)
+		{
+			FInputActionKeyMapping& Action = InputSettings->ActionMappings[inputIndex];
+			if (Action.ActionName == InActionName)
+			{
+				return Action;
+			}
+		}
+	}
+	return FInputActionKeyMapping();
 }
 
 void AUTHUD::ReceiveLocalMessage(TSubclassOf<class UUTLocalMessage> MessageClass, APlayerState* RelatedPlayerState_1, APlayerState* RelatedPlayerState_2, uint32 MessageIndex, FText LocalMessageText, UObject* OptionalObject)
@@ -576,6 +597,7 @@ void AUTHUD::DrawHUD()
 			}
 		}
 
+		UpdateKeyMappings(false);
 		for (int32 WidgetIndex = 0; WidgetIndex < HudWidgets.Num(); WidgetIndex++)
 		{
 			// If we aren't hidden then set the canvas and render..

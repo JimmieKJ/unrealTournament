@@ -797,24 +797,5 @@ FVector2D UUTHUDWidget::CalcRotatedDrawLocation(float DistanceInPixels, float An
 	return NewPoint;
 }
 
-void UUTHUDWidget::UpdateKeyMappings(bool bForceUpdate)
-{}
-
-FInputActionKeyMapping UUTHUDWidget::FindKeyMappingTo(FName InActionName)
-{
-	UInputSettings* InputSettings = UInputSettings::StaticClass()->GetDefaultObject<UInputSettings>();
-	if (InputSettings)
-	{
-		for (int32 inputIndex = 0; inputIndex < InputSettings->ActionMappings.Num(); ++inputIndex)
-		{
-			FInputActionKeyMapping& Action = InputSettings->ActionMappings[inputIndex];
-			if (Action.ActionName == InActionName)
-			{
-				return Action;
-			}
-		}
-	}
-	return FInputActionKeyMapping();
-}
 
 

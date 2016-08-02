@@ -66,8 +66,7 @@ void UUTHUDWidget_Boost::PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCanvas*
 
 				if (bIsUnlocked)
 				{
-					FInputActionKeyMapping ActivatePowerupBinding = FindKeyMappingTo("StartActivatePowerup");
-					BoostText.Text = (ActivatePowerupBinding.Key.GetDisplayName().ToString().Len() < 6) ? ActivatePowerupBinding.Key.GetDisplayName() : FText::FromString(" ");
+					BoostText.Text = InUTHUDOwner->BoostLabel;
 				}
 				else
 				{

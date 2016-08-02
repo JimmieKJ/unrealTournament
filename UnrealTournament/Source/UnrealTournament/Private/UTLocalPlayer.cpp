@@ -1798,7 +1798,7 @@ void UUTLocalPlayer::SaveProfileSettings()
 	AUTPlayerController* PC = Cast<AUTPlayerController>(PlayerController);
 	if (PC && PC->MyUTHUD)
 	{
-		PC->MyUTHUD->UpdateKeyMappings();
+		PC->MyUTHUD->UpdateKeyMappings(true);
 	}
 }
 

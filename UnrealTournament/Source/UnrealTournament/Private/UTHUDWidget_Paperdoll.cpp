@@ -180,7 +180,6 @@ void UUTHUDWidget_Paperdoll::Draw_Implementation(float DeltaTime)
 	if (UTHUDOwner->GetQuickInfoHidden() && (bPlayerCanRally || bShowFlagInfo))
 	{
 		FlagIcon.Position.Y = bPlayerCanRally ? -16 : 0;
-
 		Opacity = FlagOpacity;		
 		RenderScale *= FlagOpacity;
 
@@ -208,8 +207,7 @@ void UUTHUDWidget_Paperdoll::Draw_Implementation(float DeltaTime)
 
 		if (bPlayerCanRally)
 		{
-			FInputActionKeyMapping RallyBinding = FindKeyMappingTo("RequestRally");
-			FlagText.Text = (RallyBinding.Key.GetDisplayName().ToString().Len() < 6) ? RallyBinding.Key.GetDisplayName() : FText::FromString(" ");
+			FlagText.Text = UTHUDOwner->RallyLabel;
 			RenderObj_Text(FlagText);
 		}
 	}
