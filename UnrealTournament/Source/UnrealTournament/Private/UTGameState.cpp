@@ -1021,6 +1021,27 @@ void AUTGameState::OnRep_MatchState()
 			}
 		}
 	}
+	if ((Role < ROLE_Authority) && (GetMatchState() == MatchState::PlayerIntro))
+	{
+		// destroy torn off pawns
+		TArray<APawn*> PawnsToDestroy;
+		for (FConstPawnIterator It = GetWorld()->GetPawnIterator(); It; ++It)
+		{
+			if (*It && !Cast<ASpectatorPawn>((*It).Get()))
+			{
+				PawnsToDestroy.Add(*It);
+			}
+		}
+
+		for (int32 i = 0; i<PawnsToDestroy.Num(); i++)
+		{
+			APawn* Pawn = PawnsToDestroy[i];
+			if (Pawn != NULL && !Pawn->IsPendingKill() && Pawn->bTearOff)
+			{
+				Pawn->Destroy();
+			}
+		}
+	}
 }
 
 // By default, do nothing.  
