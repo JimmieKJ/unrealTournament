@@ -1236,32 +1236,11 @@ void AUTGameMode::DefaultTimer()
 			}
 		}
 	}
-
 }
 
 void AUTGameMode::ForceLobbyUpdate()
 {
 	LastLobbyUpdateTime = -10.0;
-}
-
-
-void AUTGameMode::Reset()
-{
-	Super::Reset();
-
-	bGameEnded = false;
-
-	//now respawn all the players
-	for( FConstControllerIterator Iterator = GetWorld()->GetControllerIterator(); Iterator; ++Iterator )
-	{
-		AController* Controller = *Iterator;
-		if (Controller->PlayerState != NULL && !Controller->PlayerState->bOnlySpectator)
-		{
-			RestartPlayer(Controller);
-		}
-	}
-
-	UTGameState->SetTimeLimit(0);
 }
 
 void AUTGameMode::RestartGame()

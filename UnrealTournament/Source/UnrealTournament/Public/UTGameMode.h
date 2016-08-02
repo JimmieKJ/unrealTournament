@@ -443,7 +443,6 @@ public:
 	virtual void AddMutatorClass(TSubclassOf<AUTMutator> MutClass);
 	virtual void InitGameState() override;
 	virtual APlayerController* Login(class UPlayer* NewPlayer, ENetRole RemoteRole, const FString& Portal, const FString& Options, const TSharedPtr<const FUniqueNetId>& UniqueId, FString& ErrorMessage) override;
-	virtual void Reset();
 	virtual void RemoveAllPawns();
 	virtual void RestartGame();
 	virtual void BeginGame();
