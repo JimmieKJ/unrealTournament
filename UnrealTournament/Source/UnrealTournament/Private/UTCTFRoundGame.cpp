@@ -189,7 +189,7 @@ void AUTCTFRoundGame::PlacePlayersAroundFlagBase(int32 TeamNum, int32 FlagTeamNu
 	{
 		if (C && C->GetPawn())
 		{
-			C->GetPawn()->GetRootComponent()->SetHiddenInGame(true, true);
+			C->GetPawn()->SetActorHiddenInGame(true);
 		}
 	}
 
