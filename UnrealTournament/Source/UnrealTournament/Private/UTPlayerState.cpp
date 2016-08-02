@@ -3110,15 +3110,23 @@ float AUTPlayerState::GetStatsValue(FName StatsName) const
 
 void AUTPlayerState::SetStatsValue(FName StatsName, float NewValue)
 {
-	LastScoreStatsUpdateTime = GetWorld()->GetTimeSeconds();
-	StatsData.Add(StatsName, NewValue);
+	AUTGameState* UTGameState = GetWorld()->GetGameState<AUTGameState>();
+	if (UTGameState && UTGameState->HasMatchStarted())
+	{
+		LastScoreStatsUpdateTime = GetWorld()->GetTimeSeconds();
+		StatsData.Add(StatsName, NewValue);
+	}
 }
 
 void AUTPlayerState::ModifyStatsValue(FName StatsName, float Change)
 {
-	LastScoreStatsUpdateTime = GetWorld()->GetTimeSeconds();
-	float CurrentValue = StatsData.FindRef(StatsName);
-	StatsData.Add(StatsName, CurrentValue + Change);
+	AUTGameState* UTGameState = GetWorld()->GetGameState<AUTGameState>();
+	if (UTGameState && UTGameState->HasMatchStarted())
+	{
+		LastScoreStatsUpdateTime = GetWorld()->GetTimeSeconds();
+		float CurrentValue = StatsData.FindRef(StatsName);
+		StatsData.Add(StatsName, CurrentValue + Change);
+	}
 }
 
 bool AUTPlayerState::RegisterVote_Validate(AUTReplicatedMapInfo* VoteInfo) { return true; }

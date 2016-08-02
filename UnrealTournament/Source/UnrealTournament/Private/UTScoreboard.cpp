@@ -176,7 +176,7 @@ void UUTScoreboard::Draw_Implementation(float RenderDelta)
 
 	if (bDrawMinimapInScoreboard && UTGameState)
 	{
-		bool bToggledMinimap = !UTGameState->HasMatchStarted();
+		bool bToggledMinimap = !UTGameState->HasMatchStarted() && (!UTPlayerOwner || !UTPlayerOwner->bIsWarmingUp);
 		float MapScale = 0.65f;
 		const float MapSize = float(Canvas->SizeY) * MapScale;
 		if (!bToggledMinimap || !UTHUDOwner->bShowScores)
