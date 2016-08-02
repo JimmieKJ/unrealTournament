@@ -794,7 +794,7 @@ bool AUTPlayerController::InputKey(FKey Key, EInputEvent EventType, float Amount
 			ServerRestartPlayer();
 			return true;
 		}
-		else if (UTGameState && !UTGameState->HasMatchStarted() && UTPlayerState->bReadyToPlay && !UTPlayerState->bOnlySpectator)
+		else if (UTGameState && (UTGameState->GetMatchState() == MatchState::WaitingToStart) && UTPlayerState->bReadyToPlay && !UTPlayerState->bOnlySpectator)
 		{
 			ServerToggleWarmup();
 			return true;
@@ -2427,7 +2427,7 @@ bool AUTPlayerController::ServerToggleWarmup_Validate()
 void AUTPlayerController::ServerToggleWarmup_Implementation()
 {
 	AUTGameState* GS = Cast<AUTGameState>(GetWorld()->GameState);
-	if (!GS || GS->HasMatchStarted() || !UTPlayerState || !UTPlayerState->bReadyToPlay)
+	if (!GS || (GS->GetMatchState() != MatchState::WaitingToStart) || !UTPlayerState || !UTPlayerState->bReadyToPlay)
 	{
 		return;
 	}

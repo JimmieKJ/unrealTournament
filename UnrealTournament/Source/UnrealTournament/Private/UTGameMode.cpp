@@ -2434,7 +2434,7 @@ void AUTGameMode::RestartPlayer(AController* aPlayer)
 		return;
 	}
 	AUTPlayerController* UTPC = Cast<AUTPlayerController>(aPlayer);
-	if (!IsMatchInProgress() && (!UTPC || !UTPC->bIsWarmingUp || HasMatchStarted()))
+	if (!IsMatchInProgress() && (!UTPC || !UTPC->bIsWarmingUp || (GetMatchState() != MatchState::WaitingToStart)))
 	{
 		return;
 	}
@@ -2830,7 +2830,7 @@ bool AUTGameMode::PlayerCanRestart_Implementation(APlayerController* Player)
 	if (!IsMatchInProgress())
 	{
 		AUTPlayerController* UTPC = Cast<AUTPlayerController>(Player);
-		if (!UTPC || HasMatchStarted() || !UTPC->bIsWarmingUp)
+		if (!UTPC || (GetMatchState() != MatchState::WaitingToStart) || !UTPC->bIsWarmingUp)
 		{
 			return false;
 		}
@@ -3110,6 +3110,8 @@ void AUTGameMode::HandleMatchInOvertime()
 
 void AUTGameMode::HandlePlayerIntro()
 {
+	RemoveAllPawns();
+
 	FTimerHandle TempHandle;
 	GetWorldTimerManager().SetTimer(TempHandle, this, &AUTGameMode::EndPlayerIntro, 7.5f*GetActorTimeDilation(), false);
 }
