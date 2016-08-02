@@ -412,6 +412,9 @@ public:
 	FString DemoFilename;
 
 	UPROPERTY()
+		bool bDevServer;
+
+	UPROPERTY()
 		float EndOfMatchMessageDelay;
 
 	/** workaround for call chain from engine, SetPlayerDefaults() could be called while pawn is alive to reset its values but we don't want it to do new spawn stuff like spawning inventory unless it's called from RestartPlayer() */

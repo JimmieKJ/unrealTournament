@@ -324,6 +324,9 @@ void AUTGameMode::InitGame( const FString& MapName, const FString& Options, FStr
 	InOpt = UGameplayStatics::ParseOption(Options, TEXT("PlayPlayerIntro"));
 	bPlayPlayerIntro = EvalBoolOptions(InOpt, bPlayPlayerIntro);
 
+	InOpt = UGameplayStatics::ParseOption(Options, TEXT("Dev"));
+	bDevServer = EvalBoolOptions(InOpt, bDevServer);
+
 	if (UGameplayStatics::HasOption(Options, TEXT("Challenge")) && (GetNetMode() == NM_Standalone))
 	{
 		InOpt = UGameplayStatics::ParseOption(Options, TEXT("Challenge"));
@@ -2933,7 +2936,7 @@ bool AUTGameMode::ReadyToStartMatch_Implementation()
 		else
 		{
 			UTGameState->PlayersNeeded = (GetWorld()->GetTimeSeconds() - StartPlayTime > MaxWaitForQuickMatch) ? FMath::Max(0, MinPlayersToStart - NumPlayers - NumBots) : FMath::Max(0, QuickPlayersToStart - NumPlayers - NumBots);
-			if (((GetNetMode() == NM_Standalone) || (UTGameState->PlayersNeeded == 0)) && (NumPlayers + NumSpectators > 0))
+			if (((GetNetMode() == NM_Standalone) || bDevServer || (UTGameState->PlayersNeeded == 0)) && (NumPlayers + NumSpectators > 0))
 			{
 				// Count how many ready players we have
 				bool bCasterReady = false;
