@@ -94,8 +94,8 @@ AUTGameMode::AUTGameMode(const class FObjectInitializer& ObjectInitializer)
 	bHasRespawnChoices = false;
 	MinPlayersToStart = 2;
 	QuickPlayersToStart = 4;
-	MaxWaitForPlayers = 240;
-	MaxWaitForQuickMatch = 180;
+	MaxWaitForPlayers = 480;
+	MaxWaitForQuickMatch = 240;
 	EndScoreboardDelay = 4.f;
 	MainScoreboardDisplayTime = 5.f;
 	ScoringPlaysDisplayTime = 0.f; 
@@ -2426,7 +2426,7 @@ void AUTGameMode::RestartPlayer(AController* aPlayer)
 	{
 		TGuardValue<bool> FlagGuard(bSetPlayerDefaultsNewSpawn, true);
 		Super::RestartPlayer(aPlayer);
-
+	
 		// apply any health changes
 		AUTCharacter* UTC = Cast<AUTCharacter>(aPlayer->GetPawn());
 		if (UTC != NULL && UTC->GetClass()->GetDefaultObject<AUTCharacter>()->Health == 0)
@@ -2919,8 +2919,7 @@ bool AUTGameMode::ReadyToStartMatch_Implementation()
 		}
 		else
 		{
-			float MaxWaitForDesiredPlayers = bIsQuickMatch ? MaxWaitForQuickMatch : 15;
-			UTGameState->PlayersNeeded = (GetWorld()->GetTimeSeconds() - StartPlayTime > MaxWaitForDesiredPlayers) ? FMath::Max(0, MinPlayersToStart - NumPlayers - NumBots) : FMath::Max(0, QuickPlayersToStart - NumPlayers - NumBots);
+			UTGameState->PlayersNeeded = (GetWorld()->GetTimeSeconds() - StartPlayTime > MaxWaitForQuickMatch) ? FMath::Max(0, MinPlayersToStart - NumPlayers - NumBots) : FMath::Max(0, QuickPlayersToStart - NumPlayers - NumBots);
 			if (((GetNetMode() == NM_Standalone) || (UTGameState->PlayersNeeded == 0)) && (NumPlayers + NumSpectators > 0))
 			{
 				// Count how many ready players we have

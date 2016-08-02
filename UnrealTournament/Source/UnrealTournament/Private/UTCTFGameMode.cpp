@@ -334,7 +334,6 @@ bool AUTCTFGameMode::PlayerCanRestart_Implementation(APlayerController* Player)
 		{
 			return false;
 		}
-
 	}
 	else if (!CTFGameState->IsMatchInProgress() || CTFGameState->IsMatchIntermission())
 	{
