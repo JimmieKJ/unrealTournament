@@ -936,7 +936,7 @@ void AUTCTFRoundGame::RestartPlayer(AController* aPlayer)
 	}
 	AUTPlayerState* PS = Cast<AUTPlayerState>(aPlayer->PlayerState);
 	AUTPlayerController* PC = Cast<AUTPlayerController>(aPlayer);
-	if (bPerPlayerLives && PS && PS->Team)
+	if (bPerPlayerLives && PS && PS->Team && HasMatchStarted())
 	{
 		if (PS->bOutOfLives)
 		{
