@@ -1377,7 +1377,7 @@ void AUTHUD::DrawMinimapSpectatorIcons()
 	}
 
 	AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
-	if (GS && GS->IsMatchInProgress() && !GS->IsMatchIntermission())
+	if (GS && (!GS->HasMatchStarted() || (GS->IsMatchInProgress() && !GS->IsMatchIntermission())))
 	{
 		const FVector2D PlayerIconScale = 32.f*RenderScale*FVector2D(1.f, 1.f);
 		bool bOnlyShowTeammates = !UTPlayerOwner || !UTPlayerOwner->UTPlayerState || !UTPlayerOwner->UTPlayerState->bOnlySpectator;
