@@ -322,13 +322,25 @@ void AUTCTFGameMode::DefaultTimer()
 
 bool AUTCTFGameMode::PlayerCanRestart_Implementation(APlayerController* Player)
 {
-	// Can't restart in overtime
-	if (!CTFGameState->IsMatchInProgress() || CTFGameState->IsMatchIntermission() ||
-			Player == NULL || Player->IsPendingKillPending())
+	if (Player == NULL || Player->IsPendingKillPending())
 	{
 		return false;
 	}
-	
+
+	if (!HasMatchStarted())
+	{
+		AUTPlayerController* UTPC = Cast<AUTPlayerController>(Player);
+		if (!UTPC || !UTPC->bIsWarmingUp)
+		{
+			return false;
+		}
+
+	}
+	else if (!CTFGameState->IsMatchInProgress() || CTFGameState->IsMatchIntermission())
+	{
+		return false;
+	}
+
 	// Ask the player controller if it's ready to restart as well
 	return Player->CanRestartPlayer();
 }
