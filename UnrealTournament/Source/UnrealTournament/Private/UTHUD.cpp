@@ -413,9 +413,9 @@ void AUTHUD::UpdateKeyMappings(bool bForceUpdate)
 	{
 		bKeyMappingsSet = true;
 		FInputActionKeyMapping ActivatePowerupBinding = FindKeyMappingTo("StartActivatePowerup");
-		BoostLabel = (ActivatePowerupBinding.Key.GetDisplayName().ToString().Len() < 6) ? ActivatePowerupBinding.Key.GetDisplayName() : FText::FromString(" ");
+		BoostLabel = ActivatePowerupBinding.Key.GetDisplayName();
 		FInputActionKeyMapping RallyBinding = FindKeyMappingTo("RequestRally");
-		RallyLabel = (RallyBinding.Key.GetDisplayName().ToString().Len() < 6) ? RallyBinding.Key.GetDisplayName() : FText::FromString(" ");
+		RallyLabel = RallyBinding.Key.GetDisplayName();
 	}
 }
 
