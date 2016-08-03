@@ -7,6 +7,7 @@
 #include "UTPlayerState.h"
 #include "UTTeleporter.h"
 #include "UTFlagRunGame.h"
+#include "UTCharacterVoice.h"
 
 AUTGameVolume::AUTGameVolume(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -28,6 +29,20 @@ AUTGameVolume::AUTGameVolume(const FObjectInitializer& ObjectInitializer)
 void AUTGameVolume::Reset_Implementation()
 {
 	bHasBeenEntered = false;
+}
+
+void AUTGameVolume::PostInitializeComponents()
+{
+	Super::PostInitializeComponents();
+
+	if ((VoiceLinesSet == NAME_None) && !VolumeName.IsEmpty())
+	{
+		VoiceLinesSet = UUTCharacterVoice::StaticClass()->GetDefaultObject<UUTCharacterVoice>()->GetFallbackLines(FName(*VolumeName.ToString()));
+		if (VoiceLinesSet == NAME_None)
+		{
+			UE_LOG(UT, Warning, TEXT("No voice lines found for %s"), *VolumeName.ToString());
+		}
+	}
 }
 
 void AUTGameVolume::ActorEnteredVolume(class AActor* Other)
@@ -145,10 +160,7 @@ void AUTGameVolume::ActorEnteredVolume(class AActor* Other)
 							{
 								PS->AnnounceStatus(VoiceLinesSet, 0);
 							}
-							else
-							{
-								PS->AnnounceStatus(StatusMessage::BaseUnderAttack);
-							}
+							PS->AnnounceStatus(StatusMessage::BaseUnderAttack);
 							GS->LastEnemyEnteringBaseTime = GetWorld()->GetTimeSeconds();
 						}
 					}

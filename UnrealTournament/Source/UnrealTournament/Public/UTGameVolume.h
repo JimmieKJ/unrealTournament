@@ -14,6 +14,7 @@ class UNREALTOURNAMENT_API AUTGameVolume : public APhysicsVolume, public IUTTeam
 {
 	GENERATED_UCLASS_BODY()
 
+	/** Displayed volume name, @TODO FIXMESTEVE should be localized. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Gameplay")
 		FText VolumeName;
 
@@ -73,6 +74,7 @@ class UNREALTOURNAMENT_API AUTGameVolume : public APhysicsVolume, public IUTTeam
 
 	virtual void SetTeamForSideSwap_Implementation(uint8 NewTeamNum) override;
 	virtual void Reset_Implementation() override;
+	virtual void PostInitializeComponents() override;
 };
 
 

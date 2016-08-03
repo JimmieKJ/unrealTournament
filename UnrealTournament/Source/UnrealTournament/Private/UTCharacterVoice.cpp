@@ -126,6 +126,23 @@ UUTCharacterVoice::UUTCharacterVoice(const FObjectInitializer& ObjectInitializer
 	BaseCampLines.FriendlyFCText = NSLOCTEXT("UTCharacterVoice", "BaseCampFriendlyFC", "I'm going in with the flag!");
 	BaseCampLines.SecureText = NSLOCTEXT("UTCharacterVoice", "BaseCampSecure", "Base Camp is secure.");
 	BaseCampLines.UndefendedText = NSLOCTEXT("UTCharacterVoice", "BaseCampUndefended", "Base Camp is undefended!");
+
+	FallbackLines.Add(FName(TEXT("Bridge")), GameVolumeSpeechType::GV_Bridge);
+	FallbackLines.Add(FName(TEXT("River")), GameVolumeSpeechType::GV_River);
+	FallbackLines.Add(FName(TEXT("Tower")), GameVolumeSpeechType::GV_Tower);
+	FallbackLines.Add(FName(TEXT("Creek")), GameVolumeSpeechType::GV_Creek);
+	FallbackLines.Add(FName(TEXT("Temple")), GameVolumeSpeechType::GV_Temple);
+	FallbackLines.Add(FName(TEXT("Cave")), GameVolumeSpeechType::GV_Cave);
+	FallbackLines.Add(FName(TEXT("BaseCamp")), GameVolumeSpeechType::GV_BaseCamp);
+	FallbackLines.Add(FName(TEXT("Antechamber")), GameVolumeSpeechType::GV_Antechamber);
+	FallbackLines.Add(FName(TEXT("Courtyard")), GameVolumeSpeechType::GV_Courtyard);
+	FallbackLines.Add(FName(TEXT("ThroneRoom")), GameVolumeSpeechType::GV_ThroneRoom);
+	FallbackLines.Add(FName(TEXT("Stables")), GameVolumeSpeechType::GV_Stables);
+}
+
+FName UUTCharacterVoice::GetFallbackLines(FName InName) const
+{
+	return FallbackLines.FindRef(InName);
 }
 
 bool UUTCharacterVoice::IsOptionalSpoken(int32 MessageIndex) const

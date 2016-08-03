@@ -233,6 +233,11 @@ class UNREALTOURNAMENT_API UUTCharacterVoice : public UUTLocalMessage
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Voice)
 		FText StatusTextFormat;
 
+	UPROPERTY()
+		TMap<FName, FName> FallbackLines;
+
+	virtual FName GetFallbackLines(FName InName) const;
+
 	/** map of status index offsets. */
 	TMap< FName, float > StatusOffsets;
 
