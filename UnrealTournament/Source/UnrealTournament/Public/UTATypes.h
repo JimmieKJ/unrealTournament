@@ -130,6 +130,14 @@ namespace StatusMessage
 	const FName BaseUnderAttack = FName(TEXT("BaseUnderAttack"));
 	const FName Affirmative = FName(TEXT("Affirmative"));
 	const FName Negative = FName(TEXT("Negative"));
+	const FName EnemyRally = FName(TEXT("EnemyRally"));
+	const FName FindFC = FName(TEXT("FindFC"));
+	const FName LastLife = FName(TEXT("LastLife"));
+	const FName EnemyLowLives = FName(TEXT("EnemyLowLives"));
+	const FName EnemyThreePlayers = FName(TEXT("EnemyThreePlayers"));
+	const FName DroppedRedeemer = FName(TEXT("DroppedRedeemer"));
+	const FName NeedRally = FName(TEXT("NeedRally"));
+	const FName NeedHealth = FName(TEXT("NeedHealth"));
 }
 
 namespace HighlightNames

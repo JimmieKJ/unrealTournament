@@ -27,9 +27,10 @@ UUTCharacterVoice::UUTCharacterVoice(const FObjectInitializer& ObjectInitializer
 	StatusOffsets.Add(StatusMessage::DefendFC, 500);
 	StatusOffsets.Add(StatusMessage::GetFlagBack, 600);
 	StatusOffsets.Add(StatusMessage::ImOnDefense, 700);
-	StatusOffsets.Add(StatusMessage::ImGoingIn, KEY_CALLOUTS+100);
 	StatusOffsets.Add(StatusMessage::ImOnOffense, 900);
 	StatusOffsets.Add(StatusMessage::SpreadOut, 1000);
+
+	StatusOffsets.Add(StatusMessage::ImGoingIn, KEY_CALLOUTS + 100);
 	StatusOffsets.Add(StatusMessage::BaseUnderAttack, KEY_CALLOUTS + 200);
 	StatusOffsets.Add(GameVolumeSpeechType::GV_Bridge, KEY_CALLOUTS + 300);
 	StatusOffsets.Add(GameVolumeSpeechType::GV_River, KEY_CALLOUTS + 400);
@@ -44,6 +45,16 @@ UUTCharacterVoice::UUTCharacterVoice(const FObjectInitializer& ObjectInitializer
 	StatusOffsets.Add(GameVolumeSpeechType::GV_Temple, KEY_CALLOUTS + 1300);
 	StatusOffsets.Add(GameVolumeSpeechType::GV_Cave, KEY_CALLOUTS + 1400);
 	StatusOffsets.Add(GameVolumeSpeechType::GV_BaseCamp, KEY_CALLOUTS + 1500);
+
+	StatusOffsets.Add(StatusMessage::EnemyRally, KEY_CALLOUTS + 5000);
+	StatusOffsets.Add(StatusMessage::FindFC, KEY_CALLOUTS + 5001);
+	StatusOffsets.Add(StatusMessage::LastLife, KEY_CALLOUTS + 5002);
+	StatusOffsets.Add(StatusMessage::EnemyLowLives, KEY_CALLOUTS + 5003);
+	StatusOffsets.Add(StatusMessage::EnemyThreePlayers, KEY_CALLOUTS + 5004);
+	StatusOffsets.Add(StatusMessage::DroppedRedeemer, KEY_CALLOUTS + 5005);
+	StatusOffsets.Add(StatusMessage::NeedRally, KEY_CALLOUTS + 5006);
+	StatusOffsets.Add(StatusMessage::NeedHealth, KEY_CALLOUTS + 5007);
+
 	StatusOffsets.Add(PickupSpeechType::RedeemerPickup, KEY_CALLOUTS + 5100);
 	StatusOffsets.Add(PickupSpeechType::UDamagePickup, KEY_CALLOUTS + 5200);
 	StatusOffsets.Add(PickupSpeechType::ShieldbeltPickup, KEY_CALLOUTS + 5300);
@@ -184,165 +195,235 @@ FText UUTCharacterVoice::GetText(int32 Switch, bool bTargetsPlayerState1, class 
 	else if (Switch >= StatusBaseIndex)
 	{
 		bStatusMessage = true;
-		if (Switch == GetStatusIndex(StatusMessage::NeedBackup))
+		if (Switch < KEY_CALLOUTS)
 		{
-			if (NeedBackupMessages.Num() == 0)
+			if (Switch == GetStatusIndex(StatusMessage::NeedBackup))
 			{
-				return FText::GetEmpty();
+				if (NeedBackupMessages.Num() == 0)
+				{
+					return FText::GetEmpty();
+				}
+				Args.Add("TauntMessage", NeedBackupMessages[FMath::RandRange(0, NeedBackupMessages.Num() - 1)].SpeechText);
 			}
-			Args.Add("TauntMessage", NeedBackupMessages[FMath::RandRange(0, NeedBackupMessages.Num() - 1)].SpeechText);
-		}
-		if (Switch == GetStatusIndex(StatusMessage::EnemyFCHere))
-		{
-			if (EnemyFCHereMessages.Num() == 0)
+			else if (Switch == GetStatusIndex(StatusMessage::EnemyFCHere))
 			{
-				return FText::GetEmpty();
+				if (EnemyFCHereMessages.Num() == 0)
+				{
+					return FText::GetEmpty();
+				}
+				Args.Add("TauntMessage", EnemyFCHereMessages[FMath::RandRange(0, EnemyFCHereMessages.Num() - 1)].SpeechText);
 			}
-			Args.Add("TauntMessage", EnemyFCHereMessages[FMath::RandRange(0, EnemyFCHereMessages.Num() - 1)].SpeechText);
-		}
-		if (Switch == GetStatusIndex(StatusMessage::AreaSecure))
-		{
-			if (AreaSecureMessages.Num() == 0)
+			else if (Switch == GetStatusIndex(StatusMessage::AreaSecure))
 			{
-				return FText::GetEmpty();
+				if (AreaSecureMessages.Num() == 0)
+				{
+					return FText::GetEmpty();
+				}
+				Args.Add("TauntMessage", AreaSecureMessages[FMath::RandRange(0, AreaSecureMessages.Num() - 1)].SpeechText);
 			}
-			Args.Add("TauntMessage", AreaSecureMessages[FMath::RandRange(0, AreaSecureMessages.Num() - 1)].SpeechText);
-		}
-		if (Switch == GetStatusIndex(StatusMessage::IGotFlag))
-		{
-			if (IGotFlagMessages.Num() == 0)
+			else if (Switch == GetStatusIndex(StatusMessage::IGotFlag))
 			{
-				return FText::GetEmpty();
+				if (IGotFlagMessages.Num() == 0)
+				{
+					return FText::GetEmpty();
+				}
+				Args.Add("TauntMessage", IGotFlagMessages[FMath::RandRange(0, IGotFlagMessages.Num() - 1)].SpeechText);
 			}
-			Args.Add("TauntMessage", IGotFlagMessages[FMath::RandRange(0, IGotFlagMessages.Num() - 1)].SpeechText);
-		}
-		if (Switch == GetStatusIndex(StatusMessage::DefendFlag))
-		{
-			if (DefendFlagMessages.Num() == 0)
+			else if (Switch == GetStatusIndex(StatusMessage::DefendFlag))
 			{
-				return FText::GetEmpty();
+				if (DefendFlagMessages.Num() == 0)
+				{
+					return FText::GetEmpty();
+				}
+				Args.Add("TauntMessage", DefendFlagMessages[FMath::RandRange(0, DefendFlagMessages.Num() - 1)].SpeechText);
 			}
-			Args.Add("TauntMessage", DefendFlagMessages[FMath::RandRange(0, DefendFlagMessages.Num() - 1)].SpeechText);
-		}
-		if (Switch == GetStatusIndex(StatusMessage::DefendFC))
-		{
-			if (DefendFCMessages.Num() == 0)
+			else if (Switch == GetStatusIndex(StatusMessage::DefendFC))
 			{
-				return FText::GetEmpty();
+				if (DefendFCMessages.Num() == 0)
+				{
+					return FText::GetEmpty();
+				}
+				Args.Add("TauntMessage", DefendFCMessages[FMath::RandRange(0, DefendFCMessages.Num() - 1)].SpeechText);
 			}
-			Args.Add("TauntMessage", DefendFCMessages[FMath::RandRange(0, DefendFCMessages.Num() - 1)].SpeechText);
-		}
-		if (Switch == GetStatusIndex(StatusMessage::GetFlagBack))
-		{
-			if (GetFlagBackMessages.Num() == 0)
+			else if (Switch == GetStatusIndex(StatusMessage::GetFlagBack))
 			{
-				return FText::GetEmpty();
+				if (GetFlagBackMessages.Num() == 0)
+				{
+					return FText::GetEmpty();
+				}
+				Args.Add("TauntMessage", GetFlagBackMessages[FMath::RandRange(0, GetFlagBackMessages.Num() - 1)].SpeechText);
 			}
-			Args.Add("TauntMessage", GetFlagBackMessages[FMath::RandRange(0, GetFlagBackMessages.Num() - 1)].SpeechText);
-		}
-		if (Switch == GetStatusIndex(StatusMessage::ImOnDefense))
-		{
-			if (ImOnDefenseMessages.Num() == 0)
+			else if (Switch == GetStatusIndex(StatusMessage::ImOnDefense))
 			{
-				return FText::GetEmpty();
+				if (ImOnDefenseMessages.Num() == 0)
+				{
+					return FText::GetEmpty();
+				}
+				Args.Add("TauntMessage", ImOnDefenseMessages[FMath::RandRange(0, ImOnDefenseMessages.Num() - 1)].SpeechText);
 			}
-			Args.Add("TauntMessage", ImOnDefenseMessages[FMath::RandRange(0, ImOnDefenseMessages.Num() - 1)].SpeechText);
-		}
-		if (Switch == GetStatusIndex(StatusMessage::ImGoingIn))
-		{
-			if (ImGoingInMessages.Num() == 0)
+			else if (Switch == GetStatusIndex(StatusMessage::ImOnOffense))
 			{
-				return FText::GetEmpty();
+				if (ImOnOffenseMessages.Num() == 0)
+				{
+					return FText::GetEmpty();
+				}
+				Args.Add("TauntMessage", ImOnOffenseMessages[FMath::RandRange(0, ImOnOffenseMessages.Num() - 1)].SpeechText);
 			}
-			Args.Add("TauntMessage", ImGoingInMessages[FMath::RandRange(0, ImGoingInMessages.Num() - 1)].SpeechText);
-		}
-		if (Switch == GetStatusIndex(StatusMessage::ImOnOffense))
-		{
-			if (ImOnOffenseMessages.Num() == 0)
+			else if (Switch == GetStatusIndex(StatusMessage::SpreadOut))
 			{
-				return FText::GetEmpty();
+				if (SpreadOutMessages.Num() == 0)
+				{
+					return FText::GetEmpty();
+				}
+				Args.Add("TauntMessage", SpreadOutMessages[FMath::RandRange(0, SpreadOutMessages.Num() - 1)].SpeechText);
 			}
-			Args.Add("TauntMessage", ImOnOffenseMessages[FMath::RandRange(0, ImOnOffenseMessages.Num() - 1)].SpeechText);
 		}
-		if (Switch == GetStatusIndex(StatusMessage::BaseUnderAttack))
+		else
 		{
-			if (BaseUnderAttackMessages.Num() == 0)
+			if (Switch == GetStatusIndex(StatusMessage::ImGoingIn))
 			{
-				return FText::GetEmpty();
+				if (ImGoingInMessages.Num() == 0)
+				{
+					return FText::GetEmpty();
+				}
+				Args.Add("TauntMessage", ImGoingInMessages[FMath::RandRange(0, ImGoingInMessages.Num() - 1)].SpeechText);
 			}
-			Args.Add("TauntMessage", BaseUnderAttackMessages[FMath::RandRange(0, BaseUnderAttackMessages.Num() - 1)].SpeechText);
-		}
-		if (Switch == GetStatusIndex(StatusMessage::SpreadOut))
-		{
-			if (SpreadOutMessages.Num() == 0)
+			else if (Switch == GetStatusIndex(StatusMessage::BaseUnderAttack))
 			{
-				return FText::GetEmpty();
+				if (BaseUnderAttackMessages.Num() == 0)
+				{
+					return FText::GetEmpty();
+				}
+				Args.Add("TauntMessage", BaseUnderAttackMessages[FMath::RandRange(0, BaseUnderAttackMessages.Num() - 1)].SpeechText);
 			}
-			Args.Add("TauntMessage", SpreadOutMessages[FMath::RandRange(0, SpreadOutMessages.Num() - 1)].SpeechText);
-		}
-		if (Switch / 100 == GetStatusIndex(GameVolumeSpeechType::GV_Bridge) / 100)
-		{
-			Args.Add("TauntMessage", GetGVText(BridgeLines, Switch - GetStatusIndex(GameVolumeSpeechType::GV_Bridge)));
-		}
-		if (Switch / 100 == GetStatusIndex(GameVolumeSpeechType::GV_River) / 100)
-		{
-			Args.Add("TauntMessage", GetGVText(RiverLines, Switch - GetStatusIndex(GameVolumeSpeechType::GV_River)));
-		}
-		if (Switch / 100 == GetStatusIndex(GameVolumeSpeechType::GV_Antechamber) / 100)
-		{
-			Args.Add("TauntMessage", GetGVText(AntechamberLines, Switch - GetStatusIndex(GameVolumeSpeechType::GV_Antechamber)));
-		}
-		if (Switch / 100 == GetStatusIndex(GameVolumeSpeechType::GV_ThroneRoom) / 100)
-		{
-			Args.Add("TauntMessage", GetGVText(ThroneRoomLines, Switch - GetStatusIndex(GameVolumeSpeechType::GV_ThroneRoom)));
-		}
-		if (Switch / 100 == GetStatusIndex(GameVolumeSpeechType::GV_Courtyard) / 100)
-		{
-			Args.Add("TauntMessage", GetGVText(CourtyardLines, Switch - GetStatusIndex(GameVolumeSpeechType::GV_Courtyard)));
-		}
-		if (Switch / 100 == GetStatusIndex(GameVolumeSpeechType::GV_Stables) / 100)
-		{
-			Args.Add("TauntMessage", GetGVText(StablesLines, Switch - GetStatusIndex(GameVolumeSpeechType::GV_Stables)));
-		}
-		if (Switch / 100 == GetStatusIndex(GameVolumeSpeechType::GV_DefenderBase) / 100)
-		{
-			Args.Add("TauntMessage", GetGVText(DefenderBaseLines, Switch - GetStatusIndex(GameVolumeSpeechType::GV_DefenderBase)));
-		}
-		if (Switch / 100 == GetStatusIndex(GameVolumeSpeechType::GV_AntechamberHigh) / 100)
-		{
-			Args.Add("TauntMessage", GetGVText(AntechamberHighLines, Switch - GetStatusIndex(GameVolumeSpeechType::GV_AntechamberHigh)));
-		}
-		if (Switch / 100 == GetStatusIndex(GameVolumeSpeechType::GV_Tower) / 100)
-		{
-			Args.Add("TauntMessage", GetGVText(TowerLines, Switch - GetStatusIndex(GameVolumeSpeechType::GV_Tower)));
-		}
-		if (Switch / 100 == GetStatusIndex(GameVolumeSpeechType::GV_Creek) / 100)
-		{
-			Args.Add("TauntMessage", GetGVText(CreekLines, Switch - GetStatusIndex(GameVolumeSpeechType::GV_Creek)));
-		}
-		if (Switch / 100 == GetStatusIndex(GameVolumeSpeechType::GV_Temple) / 100)
-		{
-			Args.Add("TauntMessage", GetGVText(TempleLines, Switch - GetStatusIndex(GameVolumeSpeechType::GV_Temple)));
-		}
-		if (Switch / 100 == GetStatusIndex(GameVolumeSpeechType::GV_Cave) / 100)
-		{
-			Args.Add("TauntMessage", GetGVText(CaveLines, Switch - GetStatusIndex(GameVolumeSpeechType::GV_Cave)));
-		}
-		if (Switch / 100 == GetStatusIndex(GameVolumeSpeechType::GV_BaseCamp) / 100)
-		{
-			Args.Add("TauntMessage", GetGVText(BaseCampLines, Switch - GetStatusIndex(GameVolumeSpeechType::GV_BaseCamp)));
-		}
-		if (Switch / 100 == GetStatusIndex(PickupSpeechType::UDamagePickup) / 100)
-		{
-			Args.Add("TauntMessage", (Switch - GetStatusIndex(PickupSpeechType::UDamagePickup) == 0) ? UDamageAvailableLine.SpeechText : UDamagePickupLine.SpeechText);
-		}
-		if (Switch / 100 == GetStatusIndex(PickupSpeechType::ShieldbeltPickup) / 100)
-		{
-			Args.Add("TauntMessage", (Switch - GetStatusIndex(PickupSpeechType::ShieldbeltPickup) == 0) ? ShieldbeltAvailableLine.SpeechText : ShieldbeltPickupLine.SpeechText);
-		}
-		if (Switch / 100 == GetStatusIndex(PickupSpeechType::RedeemerPickup) / 100)
-		{
-			Args.Add("TauntMessage", (Switch - GetStatusIndex(PickupSpeechType::RedeemerPickup) == 0) ? RedeemerAvailableLine.SpeechText : RedeemerPickupLine.SpeechText);
+			else if (Switch / 100 == GetStatusIndex(GameVolumeSpeechType::GV_Bridge) / 100)
+			{
+				Args.Add("TauntMessage", GetGVText(BridgeLines, Switch - GetStatusIndex(GameVolumeSpeechType::GV_Bridge)));
+			}
+			else if (Switch / 100 == GetStatusIndex(GameVolumeSpeechType::GV_River) / 100)
+			{
+				Args.Add("TauntMessage", GetGVText(RiverLines, Switch - GetStatusIndex(GameVolumeSpeechType::GV_River)));
+			}
+			else if (Switch / 100 == GetStatusIndex(GameVolumeSpeechType::GV_Antechamber) / 100)
+			{
+				Args.Add("TauntMessage", GetGVText(AntechamberLines, Switch - GetStatusIndex(GameVolumeSpeechType::GV_Antechamber)));
+			}
+			else if (Switch / 100 == GetStatusIndex(GameVolumeSpeechType::GV_ThroneRoom) / 100)
+			{
+				Args.Add("TauntMessage", GetGVText(ThroneRoomLines, Switch - GetStatusIndex(GameVolumeSpeechType::GV_ThroneRoom)));
+			}
+			else if (Switch / 100 == GetStatusIndex(GameVolumeSpeechType::GV_Courtyard) / 100)
+			{
+				Args.Add("TauntMessage", GetGVText(CourtyardLines, Switch - GetStatusIndex(GameVolumeSpeechType::GV_Courtyard)));
+			}
+			else if (Switch / 100 == GetStatusIndex(GameVolumeSpeechType::GV_Stables) / 100)
+			{
+				Args.Add("TauntMessage", GetGVText(StablesLines, Switch - GetStatusIndex(GameVolumeSpeechType::GV_Stables)));
+			}
+			else if (Switch / 100 == GetStatusIndex(GameVolumeSpeechType::GV_DefenderBase) / 100)
+			{
+				Args.Add("TauntMessage", GetGVText(DefenderBaseLines, Switch - GetStatusIndex(GameVolumeSpeechType::GV_DefenderBase)));
+			}
+			else if (Switch / 100 == GetStatusIndex(GameVolumeSpeechType::GV_AntechamberHigh) / 100)
+			{
+				Args.Add("TauntMessage", GetGVText(AntechamberHighLines, Switch - GetStatusIndex(GameVolumeSpeechType::GV_AntechamberHigh)));
+			}
+			else if (Switch / 100 == GetStatusIndex(GameVolumeSpeechType::GV_Tower) / 100)
+			{
+				Args.Add("TauntMessage", GetGVText(TowerLines, Switch - GetStatusIndex(GameVolumeSpeechType::GV_Tower)));
+			}
+			else if (Switch / 100 == GetStatusIndex(GameVolumeSpeechType::GV_Creek) / 100)
+			{
+				Args.Add("TauntMessage", GetGVText(CreekLines, Switch - GetStatusIndex(GameVolumeSpeechType::GV_Creek)));
+			}
+			else if (Switch / 100 == GetStatusIndex(GameVolumeSpeechType::GV_Temple) / 100)
+			{
+				Args.Add("TauntMessage", GetGVText(TempleLines, Switch - GetStatusIndex(GameVolumeSpeechType::GV_Temple)));
+			}
+			else if (Switch / 100 == GetStatusIndex(GameVolumeSpeechType::GV_Cave) / 100)
+			{
+				Args.Add("TauntMessage", GetGVText(CaveLines, Switch - GetStatusIndex(GameVolumeSpeechType::GV_Cave)));
+			}
+			else if (Switch / 100 == GetStatusIndex(GameVolumeSpeechType::GV_BaseCamp) / 100)
+			{
+				Args.Add("TauntMessage", GetGVText(BaseCampLines, Switch - GetStatusIndex(GameVolumeSpeechType::GV_BaseCamp)));
+			}
+			else if (Switch / 100 == GetStatusIndex(PickupSpeechType::UDamagePickup) / 100)
+			{
+				Args.Add("TauntMessage", (Switch - GetStatusIndex(PickupSpeechType::UDamagePickup) == 0) ? UDamageAvailableLine.SpeechText : UDamagePickupLine.SpeechText);
+			}
+			else if (Switch / 100 == GetStatusIndex(PickupSpeechType::ShieldbeltPickup) / 100)
+			{
+				Args.Add("TauntMessage", (Switch - GetStatusIndex(PickupSpeechType::ShieldbeltPickup) == 0) ? ShieldbeltAvailableLine.SpeechText : ShieldbeltPickupLine.SpeechText);
+			}
+			else if (Switch / 100 == GetStatusIndex(PickupSpeechType::RedeemerPickup) / 100)
+			{
+				Args.Add("TauntMessage", (Switch - GetStatusIndex(PickupSpeechType::RedeemerPickup) == 0) ? RedeemerAvailableLine.SpeechText : RedeemerPickupLine.SpeechText);
+			}
+			else if (Switch == GetStatusIndex(StatusMessage::EnemyRally))
+			{
+				if (EnemyRallyMessages.Num() == 0)
+				{
+					return FText::GetEmpty();
+				}
+				Args.Add("TauntMessage", EnemyRallyMessages[FMath::RandRange(0, EnemyRallyMessages.Num() - 1)].SpeechText);
+			}
+			else if (Switch == GetStatusIndex(StatusMessage::FindFC))
+			{
+				if (FindFCMessages.Num() == 0)
+				{
+					return FText::GetEmpty();
+				}
+				Args.Add("TauntMessage", FindFCMessages[FMath::RandRange(0, FindFCMessages.Num() - 1)].SpeechText);
+			}
+			else if (Switch == GetStatusIndex(StatusMessage::LastLife))
+			{
+				if (LastLifeMessages.Num() == 0)
+				{
+					return FText::GetEmpty();
+				}
+				Args.Add("TauntMessage", LastLifeMessages[FMath::RandRange(0, LastLifeMessages.Num() - 1)].SpeechText);
+			}
+			else if (Switch == GetStatusIndex(StatusMessage::EnemyLowLives))
+			{
+				if (EnemyLowLivesMessages.Num() == 0)
+				{
+					return FText::GetEmpty();
+				}
+				Args.Add("TauntMessage", EnemyLowLivesMessages[FMath::RandRange(0, EnemyLowLivesMessages.Num() - 1)].SpeechText);
+			}
+			else if (Switch == GetStatusIndex(StatusMessage::EnemyThreePlayers))
+			{
+				if (EnemyThreePlayersMessages.Num() == 0)
+				{
+					return FText::GetEmpty();
+				}
+				Args.Add("TauntMessage", EnemyThreePlayersMessages[FMath::RandRange(0, EnemyThreePlayersMessages.Num() - 1)].SpeechText);
+			}
+			else if (Switch == GetStatusIndex(StatusMessage::DroppedRedeemer))
+			{
+				if (DroppedRedeemerMessages.Num() == 0)
+				{
+					return FText::GetEmpty();
+				}
+				Args.Add("TauntMessage", DroppedRedeemerMessages[FMath::RandRange(0, DroppedRedeemerMessages.Num() - 1)].SpeechText);
+			}
+			else if (Switch == GetStatusIndex(StatusMessage::NeedRally))
+			{
+				if (NeedRallyMessages.Num() == 0)
+				{
+					return FText::GetEmpty();
+				}
+				Args.Add("TauntMessage", NeedRallyMessages[FMath::RandRange(0, NeedRallyMessages.Num() - 1)].SpeechText);
+			}
+			else if (Switch == GetStatusIndex(StatusMessage::NeedHealth))
+			{
+				if (NeedHealthMessages.Num() == 0)
+				{
+					return FText::GetEmpty();
+				}
+				Args.Add("TauntMessage", NeedHealthMessages[FMath::RandRange(0, NeedHealthMessages.Num() - 1)].SpeechText);
+			}
 		}
 	}
 	else
