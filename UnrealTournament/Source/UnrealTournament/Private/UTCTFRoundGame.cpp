@@ -65,7 +65,6 @@ AUTCTFRoundGame::AUTCTFRoundGame(const FObjectInitializer& ObjectInitializer)
 	bAllowPrototypePowerups = false;
 
 	InitialBoostCount = 0;
-	bNoLivesEndRound = true;
 	MaxTimeScoreBonus = 180;
 
 	bGameHasTranslocator = false;
@@ -958,15 +957,16 @@ void AUTCTFRoundGame::RestartPlayer(AController* aPlayer)
 		}
 		if (IsPlayerOnLifeLimitedTeam(PS))
 		{
-			if (PS->RemainingLives >= 0)
+			if (PS->RemainingLives > 0)
 			{
 				AUTPlayerController* PC = Cast<AUTPlayerController>(aPlayer);
-				if (PS->RemainingLives == 0)
+				if (PS->RemainingLives == 1)
 				{
 					if (PC)
 					{
 						PC->ClientReceiveLocalizedMessage(UUTShowdownStatusMessage::StaticClass(), 5, PS, NULL, NULL);
 					}
+					PS->AnnounceStatus(StatusMessage::LastLife);
 					PS->RespawnWaitTime = 0.5f;
 					PS->OnRespawnWaitReceived();
 				}
@@ -1062,63 +1062,87 @@ void AUTCTFRoundGame::ScoreKill_Implementation(AController* Killer, AController*
 		}
 		OtherPS->OnRespawnWaitReceived();
 	}
-	if (OtherPS && IsPlayerOnLifeLimitedTeam(OtherPS) && (OtherPS->RemainingLives >= 0))
+	if (OtherPS && IsPlayerOnLifeLimitedTeam(OtherPS) && (OtherPS->RemainingLives > 0))
 	{
-		int32 RemainingDefenders = 0;
-		if (!bLastManOccurred)
+		OtherPS->RemainingLives--;
+		if (OtherPS->RemainingLives == 0)
 		{
-			// check if just transitioned to last man
-			bLastManOccurred = true;
+			// this player is out of lives
+			OtherPS->SetOutOfLives(true);
+			bool bFoundTeammate = false;
+			for (int32 i = 0; i < UTGameState->PlayerArray.Num(); i++)
+			{
+				AUTPlayerState* TeamPS = Cast<AUTPlayerState>(UTGameState->PlayerArray[i]);
+				if (TeamPS && (OtherPS->Team == TeamPS->Team) && !TeamPS->bOutOfLives && !TeamPS->bIsInactive)
+				{
+					// found a live teammate, so round isn't over - notify about termination though
+					BroadcastLocalized(NULL, UUTShowdownRewardMessage::StaticClass(), 3, OtherPS);
+					bFoundTeammate = true;
+					break;
+				}
+			}
+			if (!bFoundTeammate)
+			{
+				BroadcastLocalized(NULL, UUTShowdownRewardMessage::StaticClass(), 4);
+				ScoreAlternateWin((OtherPS->Team->TeamIndex == 0) ? 1 : 0);
+			}
+		}
+
+		int32 RemainingDefenders = 0;
+		int32 RemainingLives = 0;
+
+		// check if just transitioned to last man
+		bool bWasAlreadyLastMan = bLastManOccurred;
+		for (int32 i = 0; i < UTGameState->PlayerArray.Num(); i++)
+		{
+			AUTPlayerState* PS = Cast<AUTPlayerState>(UTGameState->PlayerArray[i]);
+			if (PS && (OtherPS->Team == PS->Team) && !PS->bOutOfLives && !PS->bIsInactive)
+			{
+				RemainingDefenders++;
+				RemainingLives += PS->RemainingLives;
+			}
+		}
+		bLastManOccurred = (RemainingDefenders == 1);
+		if (bLastManOccurred && !bWasAlreadyLastMan)
+		{
 			for (int32 i = 0; i < UTGameState->PlayerArray.Num(); i++)
 			{
 				AUTPlayerState* PS = Cast<AUTPlayerState>(UTGameState->PlayerArray[i]);
-				if (PS && (PS != OtherPS) && (OtherPS->Team == PS->Team) && !PS->bOutOfLives && !PS->bIsInactive)
+				AUTPlayerController* PC = PS ? Cast<AUTPlayerController>(PS->GetOwner()) : nullptr;
+				if (PC)
 				{
-					bLastManOccurred = false;
-					RemainingDefenders++;
-				}
-			}
-			if (bLastManOccurred)
-			{
-				for (int32 i = 0; i < UTGameState->PlayerArray.Num(); i++)
-				{
-					AUTPlayerState* PS = Cast<AUTPlayerState>(UTGameState->PlayerArray[i]);
-					AUTPlayerController* PC = PS ? Cast<AUTPlayerController>(PS->GetOwner()) : nullptr;
-					if (PC)
-					{
-						int32 MessageType = (OtherPS->Team == PS->Team) ? 1 : 0;
-						PC->ClientReceiveLocalizedMessage(UUTShowdownRewardMessage::StaticClass(), MessageType, PS, NULL, NULL);
-					}
+					int32 MessageType = (OtherPS->Team == PS->Team) ? 1 : 0;
+					PC->ClientReceiveLocalizedMessage(UUTShowdownRewardMessage::StaticClass(), MessageType, PS, NULL, NULL);
 				}
 			}
 		}
-		OtherPS->RemainingLives--;
-		if (OtherPS->RemainingLives < 0)
+		else if ((RemainingDefenders == 3) || (RemainingLives < 10))
 		{
-			// this player is out of lives
-			if (bNoLivesEndRound)
+			// find player on other team to speak message
+			AUTPlayerState* Speaker = nullptr;
+			for (int32 i = 0; i < UTGameState->PlayerArray.Num(); i++)
 			{
-				OtherPS->SetOutOfLives(true);
-				bool bFoundTeammate = false;
-				for (int32 i = 0; i < UTGameState->PlayerArray.Num(); i++)
+				AUTPlayerState* TeamPS = Cast<AUTPlayerState>(UTGameState->PlayerArray[i]);
+				if (TeamPS && TeamPS->Team && (OtherPS->Team != TeamPS->Team) && !TeamPS->bOutOfLives && !TeamPS->bIsInactive)
 				{
-					AUTPlayerState* TeamPS = Cast<AUTPlayerState>(UTGameState->PlayerArray[i]);
-					if (TeamPS && (OtherPS->Team == TeamPS->Team) && !TeamPS->bOutOfLives && !TeamPS->bIsInactive)
-					{
-						// found a live teammate, so round isn't over - notify about termination though
-						BroadcastLocalized(NULL, UUTShowdownRewardMessage::StaticClass(), 3, OtherPS);
-						bFoundTeammate = true;
-						break;
-					}
+					Speaker = TeamPS;
+					break;
 				}
-				if (!bFoundTeammate)
+			}
+			if (Speaker != nullptr)
+			{
+				if (RemainingDefenders == 3)
 				{
-					BroadcastLocalized(NULL, UUTShowdownRewardMessage::StaticClass(), 4);
-					ScoreAlternateWin((OtherPS->Team->TeamIndex == 0) ? 1 : 0);
+					Speaker->AnnounceStatus(StatusMessage::EnemyThreePlayers);
+				}
+				else if (RemainingLives == 9)
+				{
+					Speaker->AnnounceStatus(StatusMessage::EnemyLowLives);
 				}
 			}
 		}
-		else
+
+		if (OtherPS->RemainingLives > 0)
 		{
 			OtherPS->RespawnWaitTime = FMath::Max(1.f, float(RemainingDefenders));
 			OtherPS->OnRespawnWaitReceived();

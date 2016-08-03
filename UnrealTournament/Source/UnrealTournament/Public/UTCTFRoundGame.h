@@ -204,9 +204,6 @@ protected:
 	virtual void GrantPowerupToTeam(int TeamIndex, AUTPlayerState* PlayerToHighlight);
 
 	UPROPERTY()
-	bool bNoLivesEndRound;
-
-	UPROPERTY()
 	int32 InitialBoostCount;
 
 	// If true, players who join during the round, or switch teams during the round will be forced to

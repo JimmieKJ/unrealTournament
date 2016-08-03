@@ -48,7 +48,6 @@ AUTSCTFGame::AUTSCTFGame(const FObjectInitializer& ObjectInitializer)
 	FlagSpawnDelay=30;
 	MapPrefix = TEXT("CTF");
 	bHideInUI = true;
-	bNoLivesEndRound = true;
 	bAttackerLivesLimited = false;
 	bDefenderLivesLimited = false;
 	bRollingAttackerSpawns = false;
