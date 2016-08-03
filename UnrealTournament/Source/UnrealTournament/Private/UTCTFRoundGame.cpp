@@ -983,6 +983,21 @@ void AUTCTFRoundGame::RestartPlayer(AController* aPlayer)
 	if (PS->Team && IsTeamOnOffense(PS->Team->TeamIndex))
 	{
 		LastAttackerSpawnTime = GetWorld()->GetTimeSeconds();
+		if ((CTFGameState->GetRemainingTime() < 240) && !(bRedToCap ? CTFGameState->bRedCanRally : CTFGameState->bBlueCanRally) && PS->bCanRally)
+		{
+			int32 AttackerTeamIndex = bRedToCap ? 0 : 1;
+			AUTCTFFlagBase* AttackerBase = CTFGameState->FlagBases.IsValidIndex(AttackerTeamIndex) ? CTFGameState->FlagBases[AttackerTeamIndex] : nullptr;
+			// if flag carrier is there that can't rally, complain
+			if (AttackerBase)
+			{
+				AUTCTFFlag* Flag = Cast<AUTCTFFlag>(AttackerBase->GetCarriedObject());
+				AUTGameVolume* GV = Flag && Flag->HoldingPawn && Flag->HoldingPawn->UTCharacterMovement ? Cast<AUTGameVolume>(Flag->HoldingPawn->UTCharacterMovement->GetPhysicsVolume()) : nullptr;
+				if (GV && !GV->bIsNoRallyZone && Flag && Flag->Holder && (GetWorld()->GetTimeSeconds() - Flag->PickedUpTime > 3.f))
+				{
+					PS->AnnounceStatus(StatusMessage::NeedRally);
+				}
+			}
+		}
 	}
 	if (PC && (PS->GetRemainingBoosts() > 0))
 	{
