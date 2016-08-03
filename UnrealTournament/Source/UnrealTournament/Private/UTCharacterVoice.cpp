@@ -133,10 +133,8 @@ UUTCharacterVoice::UUTCharacterVoice(const FObjectInitializer& ObjectInitializer
 	FallbackLines.Add(FName(TEXT("Creek")), GameVolumeSpeechType::GV_Creek);
 	FallbackLines.Add(FName(TEXT("Temple")), GameVolumeSpeechType::GV_Temple);
 	FallbackLines.Add(FName(TEXT("Cave")), GameVolumeSpeechType::GV_Cave);
-	FallbackLines.Add(FName(TEXT("BaseCamp")), GameVolumeSpeechType::GV_BaseCamp);
 	FallbackLines.Add(FName(TEXT("Antechamber")), GameVolumeSpeechType::GV_Antechamber);
 	FallbackLines.Add(FName(TEXT("Courtyard")), GameVolumeSpeechType::GV_Courtyard);
-	FallbackLines.Add(FName(TEXT("ThroneRoom")), GameVolumeSpeechType::GV_ThroneRoom);
 	FallbackLines.Add(FName(TEXT("Stables")), GameVolumeSpeechType::GV_Stables);
 }
 
