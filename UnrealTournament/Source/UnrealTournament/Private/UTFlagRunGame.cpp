@@ -481,6 +481,28 @@ void AUTFlagRunGame::CompleteRallyRequest(AUTPlayerController* RequestingPC)
 					}
 				}
 			}
+			if (!GetWorldTimerManager().IsTimerActive(EnemyRallyWarningHandle) && (GetWorld()->GetTimeSeconds() - LastEnemyRallyWarning > 10.f))
+			{
+				GetWorldTimerManager().SetTimer(EnemyRallyWarningHandle, this, &AUTFlagRunGame::WarnEnemyRally, 1.5f, false);
+			}
+		}
+	}
+}
+
+void AUTFlagRunGame::WarnEnemyRally()
+{
+	AUTCTFGameState* GS = GetWorld()->GetGameState<AUTCTFGameState>();
+	if (bRedToCap ? GS->bRedCanRally : GS->bBlueCanRally)
+	{
+		LastEnemyRallyWarning = GetWorld()->GetTimeSeconds();
+		for (FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator)
+		{
+			AUTPlayerController* PC = Cast<AUTPlayerController>(*Iterator);
+			if (PC && PC->UTPlayerState && PC->UTPlayerState->Team && ((PC->UTPlayerState->Team->TeamIndex == 0) != bRedToCap))
+			{
+				PC->UTPlayerState->AnnounceStatus(StatusMessage::EnemyRally);
+				break;
+			}
 		}
 	}
 }

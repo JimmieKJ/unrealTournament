@@ -24,6 +24,13 @@ public:
 	UPROPERTY()
 		float LastEntryDefenseWarningTime;
 
+	UPROPERTY()
+		float LastEnemyRallyWarning;
+
+	FTimerHandle EnemyRallyWarningHandle;
+
+	virtual void WarnEnemyRally();
+
 	virtual float OverrideRespawnTime(TSubclassOf<AUTInventory> InventoryType) override;
 	virtual void HandleRallyRequest(AUTPlayerController* PC) override;
 	virtual void CompleteRallyRequest(AUTPlayerController* PC) override;
