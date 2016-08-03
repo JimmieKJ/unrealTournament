@@ -186,9 +186,10 @@ void AUTCTFRoundGame::PlacePlayersAroundFlagBase(int32 TeamNum, int32 FlagTeamNu
 	TArray<AController*> Members = Teams[1-TeamNum]->GetTeamMembers();
 	for (AController* C : Members)
 	{
-		if (C && C->GetPawn())
+		AUTCharacter* Character = C ? Cast<AUTCharacter>(C->GetPawn()) : nullptr;
+		if (Character != nullptr)
 		{
-			C->GetPawn()->SetActorHiddenInGame(true);
+			Character->HideCharacter(true);
 		}
 	}
 
