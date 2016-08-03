@@ -44,6 +44,7 @@
 #include "UTKillcamPlayback.h"
 #include "UTWeaponAttachment.h"
 #include "UTGameViewportClient.h"
+#include "UTHeartbeatManager.h"
 
 static TAutoConsoleVariable<float> CVarUTKillcamStartDelay(
 	TEXT("UT.KillcamStartDelay"),
@@ -3597,6 +3598,11 @@ void AUTPlayerController::ReceivedPlayer()
 			ServerReceiveCountryFlag(CountryFlag);
 		}
 	}
+
+	if (GetNetMode() == NM_Client || GetNetMode() == NM_Standalone)
+	{
+		InitializeHeartbeatManager();
+	}
 }
 
 bool AUTPlayerController::ServerReceiveCountryFlag_Validate(FName NewCountryFlag)
@@ -5079,4 +5085,13 @@ bool AUTPlayerController::CanPerformRally()
 	}
 
 	return false;
+}
+
+void AUTPlayerController::InitializeHeartbeatManager()
+{
+	if (!HeartbeatManager)
+	{
+		HeartbeatManager = NewObject<UUTHeartbeatManager>(this);
+		HeartbeatManager->StartManager(this);
+	}
 }

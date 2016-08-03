@@ -1259,6 +1259,12 @@ public:
 	// Will return true if this player can perform a rally
 	bool CanPerformRally();
 
+
+protected:
+	void InitializeHeartbeatManager();
+
+	UPROPERTY()
+	class UUTHeartbeatManager* HeartbeatManager;
 };
 
 

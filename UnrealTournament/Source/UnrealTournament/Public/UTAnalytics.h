@@ -3,6 +3,7 @@
 #pragma once
 
 #include "UnrealTemplate.h"
+#include "UTAnalyticParams.h"
 
 DECLARE_LOG_CATEGORY_EXTERN(LogUTAnalytics, Display, All);
 
@@ -33,6 +34,31 @@ public:
 	 */
 	static void LoginStatusChanged(FString NewAccountID);
 
+/** Analytics events*/
+public:
+	/* Server metrics */
+	static void FireEvent_ServerUnplayableCondition(AUTGameMode* UTGM, double HitchThresholdInMs, int32 NumHitchesAboveThreshold, double TotalUnplayableTimeInMs);
+	static void FireEvent_PlayerContextLocationPerMinute(AUTPlayerController* UTPC, FString& PlayerContextLocation, const int32 NumSocialPartyMembers);
+
+
+	//Param name generalizer
+	static FString GetGenericParamName(EGenericAnalyticParam::Type InGenericParam);
+
+	static void SetMatchInitialParameters(AUTGameMode* UTGM, TArray<FAnalyticsEventAttribute>& ParamArray, bool bNeedMatchTime);
+	static void SetServerInitialParameters(TArray<FAnalyticsEventAttribute>& ParamArray);
+
+private:
+	/** Initialize the FString Array of Analytic Parameters */
+	static void InitializeAnalyticParameterNames();
+
+/** Analytics Helper Functions */
+public:
+	static FString GetPlatform();
+	static int32 GetMatchTime(AUTPlayerController* UTPC);
+	static int32 GetMatchTime(AUTGameMode* UTGM);
+	static FString GetMapName(AUTPlayerController* UTPC);
+	static FString GetMapName(AUTGameMode* UTGM);
+
 private:
 	enum class EAccountSource
 	{
@@ -47,4 +73,6 @@ private:
 	static TSharedPtr<IAnalyticsProvider> Analytics;
 	static FString CurrentAccountID;
 	static EAccountSource CurrentAccountSource;
+
+	static TArray<FString> GenericParamNames;
 };

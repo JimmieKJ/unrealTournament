@@ -23,6 +23,7 @@
 #include "UTWorldSettings.h"
 #include "Engine/DemoNetDriver.h"
 #include "UTKillcamPlayback.h"
+#include "UTAnalytics.h"
 
 AUTGameState::AUTGameState(const class FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -859,6 +860,66 @@ void AUTGameState::SortPRIArray()
 				PlayerArray[i] = P2;
 				PlayerArray[j] = P1;
 				P1 = P2;
+			}
+		}
+	}
+}
+
+void AUTGameState::HandleMatchHasStarted()
+{
+	StartFPSCharts();
+}
+
+void AUTGameState::HandleMatchHasEnded()
+{
+	MatchEndTime = GetWorld()->TimeSeconds;
+
+	StartFPSCharts();
+}
+
+void AUTGameState::StartFPSCharts()
+{
+	if (bRunFPSChart)
+	{
+		FString FPSChartLabel;
+		if (GetNetMode() == NM_Client)
+		{
+			FPSChartLabel = TEXT("OrionAnalyticsFPSCharts");
+		}
+		else
+		{
+			FPSChartLabel = TEXT("OrionServerFPSChart");
+		}
+
+		FMemory::Memzero(HitchChart);
+
+		GEngine->StartFPSChart(FPSChartLabel, /*bRecordPerFrameTimes=*/ false);
+		OnHitchDetectedHandle = GEngine->OnHitchDetectedDelegate.AddUObject(this, &AUTGameState::OnHitchDetected);
+	}
+}
+
+void AUTGameState::OnHitchDetected(float DurationInSeconds)
+{
+	const float DurationInMs = DurationInSeconds * 1000.0f;
+	if (IsRunningDedicatedServer())
+	{
+		if (DurationInMs >= UnplayableHitchThresholdInMs)
+		{
+			++UnplayableHitchesDetected;
+			UnplayableTimeInMs += DurationInMs;
+
+			if (UnplayableHitchesDetected > MaxUnplayableHitchesToTolerate)
+			{
+				// send an analytics event
+				AUTGameMode* UTGM = Cast<AUTGameMode>(GetWorld()->GetAuthGameMode());
+				if (LIKELY(UTGM))
+				{
+					FUTAnalytics::FireEvent_ServerUnplayableCondition(UTGM, UnplayableHitchThresholdInMs, UnplayableHitchesDetected, UnplayableTimeInMs);
+				}
+
+				// reset the counter, in case unplayable condition is going to be resolved by outside tools
+				UnplayableHitchesDetected = 0;
+				UnplayableTimeInMs = 0.0;
 			}
 		}
 	}

@@ -2,6 +2,8 @@
 #pragma once
 
 #include "UTReplicatedLoadoutInfo.h"
+#include "ChartCreation.h"
+
 #include "UTGameState.generated.h"
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FTeamSideSwapDelegate, uint8, Offset);
@@ -382,10 +384,8 @@ protected:
 	UPROPERTY(ReplicatedUsing = OnRep_OverlayEffects)
 	FOverlayEffect OverlayEffects1P[MAX_OVERLAY_MATERIALS];
 
-	virtual void HandleMatchHasEnded() override
-	{
-		MatchEndTime = GetWorld()->TimeSeconds;
-	}
+	virtual void HandleMatchHasStarted() override;
+	virtual void HandleMatchHasEnded() override;
 
 	UFUNCTION()
 	virtual void OnRep_OverlayEffects();
@@ -612,6 +612,41 @@ protected:
 	FOnQueryUserInfoCompleteDelegate OnUserInfoCompleteDelegate;
 	virtual void OnQueryUserInfoComplete(int32 LocalPlayer, bool bWasSuccessful, const TArray< TSharedRef<const FUniqueNetId> >& UserIds, const FString& ErrorStr);
 	virtual void RunAllUserInfoQuery();
+
+	void StartFPSCharts();
+	void StopFPSCharts();
+
+	void OnHitchDetected(float DurationInSeconds);
+
+	bool bRunFPSChart;
+	/** Running hitch chart */
+	FHitchChartEntry HitchChart[STAT_FPSChart_LastHitchBucketStat - STAT_FPSChart_FirstHitchStat];
+	/** Handle to the delegate bound for hitch detection */
+	FDelegateHandle OnHitchDetectedHandle;
+
+	/** How many unplayable hitches we have had during this match. */
+	int32 UnplayableHitchesDetected;
+
+	/** How much time we spent hitching above unplayable threshold, in milliseconds. */
+	double UnplayableTimeInMs;
+
+	/** Threshold after which a hitch is considered unplayable (hitch must be >= the threshold) */
+	UPROPERTY(Config)
+	float UnplayableHitchThresholdInMs;
+
+	/** Threshold after which we consider that the server is unplayable and report that. */
+	UPROPERTY(Config)
+	int32 MaxUnplayableHitchesToTolerate;
+
+	/** Helper structure for hitch entries. */
+	struct FHitchChartEntry
+	{
+		/** Number of hitches */
+		int32 HitchCount;
+
+		/** Time spent in this bucket */
+		double TimeSpentHitching;
+	};
 
 protected:
 	float UserInfoQueryRetryTime;
