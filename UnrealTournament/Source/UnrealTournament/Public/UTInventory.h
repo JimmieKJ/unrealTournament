@@ -142,7 +142,6 @@ public:
 	// NOTE: return value is a workaround for blueprint bugs involving ref parameters and is not used
 	UFUNCTION(BlueprintNativeEvent)
 	bool ModifyDamageTaken(UPARAM(ref) int32& Damage, UPARAM(ref) FVector& Momentum, UPARAM(ref) AUTInventory*& HitArmor, AController* InstigatedBy, const FHitResult& HitInfo, AActor* DamageCauser, TSubclassOf<UDamageType> DamageType); // TODO: UHT doesn't handle TSubclassOf<AUTInventory>&
-
 																																																											/** when a character takes damage that is reduced by inventory, the inventory item is included in the hit info and this function is called for all clients on the inventory DEFAULT OBJECT
 	 * used to play shield/armor effects
 	 * @return whether an effect was played
@@ -222,6 +221,10 @@ public:
 	/** Character message when pickup is picked up, or it first spawns. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Effects)
 		FName PickupAnnouncementName;
+
+	/** Whether dropping player should announce it. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = HUD)
+		bool bShouldAnnounceDrops;
 
 	/** Whether to show timer for this on spectator slide out HUD. */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = HUD)

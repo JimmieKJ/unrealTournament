@@ -51,7 +51,6 @@ UUTCharacterVoice::UUTCharacterVoice(const FObjectInitializer& ObjectInitializer
 	StatusOffsets.Add(StatusMessage::LastLife, KEY_CALLOUTS + 5002);
 	StatusOffsets.Add(StatusMessage::EnemyLowLives, KEY_CALLOUTS + 5003);
 	StatusOffsets.Add(StatusMessage::EnemyThreePlayers, KEY_CALLOUTS + 5004);
-	StatusOffsets.Add(StatusMessage::DroppedRedeemer, KEY_CALLOUTS + 5005);
 	StatusOffsets.Add(StatusMessage::NeedRally, KEY_CALLOUTS + 5006);
 	StatusOffsets.Add(StatusMessage::NeedHealth, KEY_CALLOUTS + 5007);
 
@@ -373,7 +372,19 @@ FText UUTCharacterVoice::GetText(int32 Switch, bool bTargetsPlayerState1, class 
 			}
 			else if (Switch / 100 == GetStatusIndex(PickupSpeechType::RedeemerPickup) / 100)
 			{
-				Args.Add("TauntMessage", (Switch - GetStatusIndex(PickupSpeechType::RedeemerPickup) == 0) ? RedeemerAvailableLine.SpeechText : RedeemerPickupLine.SpeechText);
+				int32 Index = Switch - GetStatusIndex(PickupSpeechType::RedeemerPickup);
+				if (Index == 2)
+				{
+					if (DroppedRedeemerMessages.Num() == 0)
+					{
+						return FText::GetEmpty();
+					}
+					Args.Add("TauntMessage", DroppedRedeemerMessages[FMath::RandRange(0, DroppedRedeemerMessages.Num() - 1)].SpeechText);
+				}
+				else
+				{
+					Args.Add("TauntMessage", (Index == 0) ? RedeemerAvailableLine.SpeechText : RedeemerPickupLine.SpeechText);
+				}
 			}
 			else if (Switch == GetStatusIndex(StatusMessage::EnemyRally))
 			{
@@ -414,14 +425,6 @@ FText UUTCharacterVoice::GetText(int32 Switch, bool bTargetsPlayerState1, class 
 					return FText::GetEmpty();
 				}
 				Args.Add("TauntMessage", EnemyThreePlayersMessages[FMath::RandRange(0, EnemyThreePlayersMessages.Num() - 1)].SpeechText);
-			}
-			else if (Switch == GetStatusIndex(StatusMessage::DroppedRedeemer))
-			{
-				if (DroppedRedeemerMessages.Num() == 0)
-				{
-					return FText::GetEmpty();
-				}
-				Args.Add("TauntMessage", DroppedRedeemerMessages[FMath::RandRange(0, DroppedRedeemerMessages.Num() - 1)].SpeechText);
 			}
 			else if (Switch == GetStatusIndex(StatusMessage::NeedRally))
 			{
@@ -688,7 +691,16 @@ USoundBase* UUTCharacterVoice::GetAnnouncementSound_Implementation(int32 Switch,
 			}
 			else if (Switch / 100 == GetStatusIndex(PickupSpeechType::RedeemerPickup) / 100)
 			{
-				return (Switch - GetStatusIndex(PickupSpeechType::RedeemerPickup) == 0) ? RedeemerAvailableLine.SpeechSound : RedeemerPickupLine.SpeechSound;
+				int32 Index = Switch - GetStatusIndex(PickupSpeechType::RedeemerPickup);
+				if (Index == 2)
+				{
+					if (DroppedRedeemerMessages.Num() == 0)
+					{
+						return nullptr;
+					}
+					return DroppedRedeemerMessages[FMath::RandRange(0, DroppedRedeemerMessages.Num() - 1)].SpeechSound;
+				}
+				return (Index == 0) ? RedeemerAvailableLine.SpeechSound : RedeemerPickupLine.SpeechSound;
 			}
 			else if (Switch == GetStatusIndex(StatusMessage::EnemyRally))
 			{
@@ -709,10 +721,6 @@ USoundBase* UUTCharacterVoice::GetAnnouncementSound_Implementation(int32 Switch,
 			else if (Switch == GetStatusIndex(StatusMessage::EnemyThreePlayers))
 			{
 				return (EnemyThreePlayersMessages.Num() == 0) ? nullptr : EnemyThreePlayersMessages[FMath::RandRange(0, EnemyThreePlayersMessages.Num() - 1)].SpeechSound;
-			}
-			else if (Switch == GetStatusIndex(StatusMessage::DroppedRedeemer))
-			{
-				return (DroppedRedeemerMessages.Num() == 0) ? nullptr : DroppedRedeemerMessages[FMath::RandRange(0, DroppedRedeemerMessages.Num() - 1)].SpeechSound;
 			}
 			else if (Switch == GetStatusIndex(StatusMessage::NeedRally))
 			{

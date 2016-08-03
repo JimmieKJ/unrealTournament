@@ -1539,6 +1539,14 @@ void AUTGameMode::DiscardInventory(APawn* Other, AController* Killer)
 		{
 			if (UTC->GetWeapon()->ShouldDropOnDeath())
 			{
+				if (UTC->GetWeapon()->bShouldAnnounceDrops && (UTC->GetWeapon()->PickupAnnouncementName != NAME_None))
+				{
+					AUTPlayerState* UTPS = Cast<AUTPlayerState>(Other->PlayerState);
+					if (UTPS)
+					{
+						UTPS->AnnounceStatus(UTC->GetWeapon()->PickupAnnouncementName, 2);
+					}
+				}
 				UTC->TossInventory(UTC->GetWeapon());
 			}
 			else
@@ -1557,6 +1565,14 @@ void AUTGameMode::DiscardInventory(APawn* Other, AController* Killer)
 			if (It->bAlwaysDropOnDeath)
 			{
 				UTC->TossInventory(*It, FVector(FMath::FRandRange(0.0f, 200.0f), FMath::FRandRange(-400.0f, 400.0f), FMath::FRandRange(0.0f, 200.0f)));
+				if (It->bShouldAnnounceDrops && (It->PickupAnnouncementName != NAME_None))
+				{
+					AUTPlayerState* UTPS = Cast<AUTPlayerState>(Other->PlayerState);
+					if (UTPS)
+					{
+						UTPS->AnnounceStatus(It->PickupAnnouncementName, 2);
+					}
+				}
 			}
 		}
 		// delete the rest

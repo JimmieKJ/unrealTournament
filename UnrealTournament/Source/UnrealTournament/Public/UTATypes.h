@@ -135,7 +135,6 @@ namespace StatusMessage
 	const FName LastLife = FName(TEXT("LastLife"));
 	const FName EnemyLowLives = FName(TEXT("EnemyLowLives"));
 	const FName EnemyThreePlayers = FName(TEXT("EnemyThreePlayers"));
-	const FName DroppedRedeemer = FName(TEXT("DroppedRedeemer"));
 	const FName NeedRally = FName(TEXT("NeedRally"));
 	const FName NeedHealth = FName(TEXT("NeedHealth"));
 }
