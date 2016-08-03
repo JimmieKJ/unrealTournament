@@ -64,6 +64,11 @@ void AUTGameVolume::ActorEnteredVolume(class AActor* Other)
 				else
 				{
 					P->bDamageHurtsHealth = false;
+					if ((P->Health < 80) && Cast<AUTPlayerState>(P->PlayerState) && (GetWorld()->GetTimeSeconds() - ((AUTPlayerState*)(P->PlayerState))->LastNeedHealthTime > 20.f))
+					{
+						((AUTPlayerState*)(P->PlayerState))->LastNeedHealthTime = GetWorld()->GetTimeSeconds();
+						((AUTPlayerState*)(P->PlayerState))->AnnounceStatus(StatusMessage::NeedHealth);
+					}
 				}
 			}
 			else if (bIsTeleportZone)

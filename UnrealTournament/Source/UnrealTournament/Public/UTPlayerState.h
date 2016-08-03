@@ -194,6 +194,10 @@ public:
 	UPROPERTY()
 		float LastTauntTime;
 
+	/** Last time this player sent a need health message. */
+	UPROPERTY()
+		float LastNeedHealthTime;
+
 	FTimerHandle PlayKillAnnouncement;
 	FTimerHandle UpdateOldNameHandle;
 
