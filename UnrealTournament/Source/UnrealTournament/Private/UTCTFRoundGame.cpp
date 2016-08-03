@@ -617,7 +617,6 @@ void AUTCTFRoundGame::HandleMatchHasStarted()
 		CTFGameState->bAllowRallies = true;
 		CTFGameState->bDefenderLivesLimited = bDefenderLivesLimited;
 		CTFGameState->bAttackerLivesLimited = bAttackerLivesLimited;
-		CTFGameState->bOverrideToggle = true;
 		CTFGameState->HalftimeScoreDelay = 6.f;
 		bFirstRoundInitialized = true;
 		AUTCTFRoundGameState* RCTFGameState = Cast<AUTCTFRoundGameState>(CTFGameState);
