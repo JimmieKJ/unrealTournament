@@ -138,7 +138,7 @@ void UUTHUDWidget_Paperdoll::Draw_Implementation(float DeltaTime)
 
 		int32 DesiredXOffset = 0;
 
-		bShowFlagInfo = PS->CarriedObject != nullptr;
+		bShowFlagInfo = PS && PS->CarriedObject;
 		if (bShowFlagInfo || bPlayerCanRally)
 		{
 			// We have the flag.. make room for it.
