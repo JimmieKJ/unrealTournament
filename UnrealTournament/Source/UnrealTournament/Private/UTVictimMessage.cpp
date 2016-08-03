@@ -20,6 +20,11 @@ UUTVictimMessage::UUTVictimMessage(const class FObjectInitializer& ObjectInitial
 	FontSizeIndex = 1;
 }
 
+float UUTVictimMessage::GetLifeTime(int32 Switch) const
+{
+	return (Switch == 2) ? 0.2 : Blueprint_GetLifeTime(Switch);
+}
+
 FLinearColor UUTVictimMessage::GetMessageColor_Implementation(int32 MessageIndex) const
 {
 	return FLinearColor::White;
