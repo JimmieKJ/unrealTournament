@@ -28,6 +28,12 @@ namespace EGenericAnalyticParam
 		TotalUnplayableTimeInMs,
 		ServerUnplayableCondition,
 
+		UTFPSCharts,
+		UTServerFPSCharts,
+
+		Team,
+		MaxRequiredTextureSize,
+
 		NUM_GENERIC_PARAMS
 	};
 }

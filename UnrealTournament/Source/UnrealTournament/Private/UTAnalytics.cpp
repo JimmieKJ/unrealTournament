@@ -1,6 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "UnrealTournament.h"
+#include "UTGameMode.h"
+#include "UTGameState.h"
 #include "Runtime/Analytics/Analytics/Public/Analytics.h"
 #include "Runtime/Analytics/Analytics/Public/Interfaces/IAnalyticsProvider.h"
 #include "UTAnalytics.h"
@@ -105,6 +107,8 @@ void FUTAnalytics::InitializeAnalyticParameterNames()
 	AddGenericParamName(TotalUnplayableTimeInMs);
 	AddGenericParamName(ServerUnplayableCondition);
 
+	AddGenericParamName(Team);
+	AddGenericParamName(MaxRequiredTextureSize);
 }
 
 void FUTAnalytics::Shutdown()
@@ -167,6 +171,26 @@ FString FUTAnalytics::GetGenericParamName(EGenericAnalyticParam::Type InGenericP
 	{
 		check(InGenericParam < GenericParamNames.Num());
 		return GenericParamNames[InGenericParam];
+	}
+}
+
+void FUTAnalytics::SetInitialParameters(AUTPlayerController* UTPC, TArray<FAnalyticsEventAttribute>& ParamArray, bool bNeedMatchTime)
+{
+	if (UTPC)
+	{
+		if (bNeedMatchTime == true)
+		{
+			ParamArray.Add(FAnalyticsEventAttribute(GetGenericParamName(EGenericAnalyticParam::MatchTime), GetMatchTime(UTPC)));
+		}
+
+		FString MapName = GetMapName(UTPC);
+		const int32 Team = UTPC->GetTeamNum();
+		
+		AUTPlayerState* UTPlayerState = Cast<AUTPlayerState>(UTPC->PlayerState);
+		
+		ParamArray.Add(FAnalyticsEventAttribute(GetGenericParamName(EGenericAnalyticParam::MapName), MapName));
+		ParamArray.Add(FAnalyticsEventAttribute(GetGenericParamName(EGenericAnalyticParam::Platform), GetPlatform()));
+		ParamArray.Add(FAnalyticsEventAttribute(GetGenericParamName(EGenericAnalyticParam::Team), Team));
 	}
 }
 
@@ -284,6 +308,161 @@ FString FUTAnalytics::GetMapName(AUTGameMode* UTGM)
 	}
 
 	return MapName;
+}
+
+/*
+* @EventName UTFPSCharts
+*
+* @Trigger Fires at the end of the match with the FPS Charts stats for each player
+*
+* @Type Sent by client
+*
+* @EventParam MapName string The name of the played map
+* @EventParam PlaylistId int32 The playlist of the current match (4=PvP, 5=Coop, 6=Solo)
+* @EventParam Bucket_%i_%i_TimePercentage float The percentage of time that the FPS amount was between x - y
+* @EventParam Hitch_%i_%i_HitchCount int32 The number of hitches between x - y milliseconds long
+* @EventParam Hitch_%i_%i_HitchTime float The time spent in hitchy frames that lasted between x - y milliseconds long
+* @EventParam TotalHitches int32 The total number of hitches
+* @EventParam TotalGameBoundHitches	int32 The total number of game thread bound hitches
+* @EventParam TotalRenderBoundHitches int32 The total number of render thread bound hitches
+* @EventParam TotalGPUBoundHitches int32 The total number of gpu bound hitches
+* @EventParam TotalTimeInHitchFrames float The total time spent in all hitch buckets
+* @EventParam PercentSpentHitching float The percentage of time spent hitching (has the desired frame time subtracted out of hitch frames before computing)
+* @EventParam HitchesPerMinute float The avg. number of hitches per minute played
+* @EventParam ChangeList string The change list that was played
+* @EventParam BuildType string The games build type that was played
+* @EventParam DateStamp string The date stamp that the FPS charts stats took place
+* @EventParam Platform string The platform this build was played on
+* @EventParam OS string The OS of the client
+* @EventParam CPU string The CPU of the client
+* @EventParam DesktopGPU string The desktop GPU of the client (may not be teh one we end up using for rendering, see GPUAdapter)
+* @EventParam ResolutionQuality float The resolution quality of the client
+* @EventParam ViewDistanceQuality int32 The view distance quality of the client
+* @EventParam AntiAliasingQuality int32 The anti-aliasing quality of the client
+* @EventParam ShadowQuality int32 The shadow quality of the client
+* @EventParam PostProcessQuality int32 The post process quality of the client
+* @EventParam TextureQuality int32 The texture quality of the client
+* @EventParam FXQuality int32 The effects quality of the client
+* @EventParam AvgFPS float The average fps of the client
+* @EventParam PercentAbove30 float The time percentage when the fps was above 30
+* @EventParam PercentAbove60 float The time percentage when the fps was above 60
+* @EventParam PercentAbove120 float The time percentage when the fps was above 120
+* @EventParam MVP30 float The estimated percentage of missed vsyncs at a target framerate of 30
+* @EventParam MVP60 float The estimated percentage of missed vsyncs at a target framerate of 60
+* @EventParam MVP120 float The estimated percentage of missed vsyncs at a target framerate of 120
+* @EventParam TimeDisregarded float The time that the FPS chart didn't count anywhere
+* @EventParam Time float The amount of time FPS Charts was capturing data
+* @EventParam FrameCount float The total number of frames
+* @EventParam AvgGPUTime float The average time the GPU took to render the frame
+* @EventParam PercentGameThreadBound float The percentage of game thread bound frames
+* @EventParam PercentRenderThreadBound float The percentage of render thread bound frames
+* @EventParam PercentGPUBound float The percentage of GPU bound frames
+* @EventParam TotalPhysical The total amount of CPU physical memory detected
+* @EventParam TotalVirtual The total amount of CPU virtual memory detected
+* @EventParam VRAM The amount of VRAM detected
+* @EventParam VSYS The amound of video system memory detected
+* @EventParam VSHR The amount of shared video memory detected
+* @EventParam CPU_NumCoresP The number of physical CPU cores detected
+* @EventParam CPU_NumCoresL The number of logical CPU cores detected (e.g., hyperthreading)
+* @EventParam GPUAdapter The GPU adapter string we actually created the D3D11 device for
+* @EventParam GPUVendorID The vendor ID for the GPU adapter
+* @EventParam GPUDeviceID The device ID for the GPU adapter
+* @EventParam GPUDriverVerI The internal driver version string for the GPU
+* @EventParam GPUDriverVerU The user facing driver version string for the GPU
+* @EventParam CPUBM The last cached value of the CPU benchmark result
+* @EventParam GPUBM The last cached value of the GPU benchmark result
+* @EventParam ScreenPct The screen percentage for 3D rendering
+* @EventParam WindowMode The fullscreen/windowing mode
+* @EventParam SizeX The width of the display screen
+* @EventParam SizeY The height of the display screen
+* @EventParam VSync Whether or not VSync is enabled
+* @EventParam FrameRateLimit The frame rate limit
+* @EventParam MaxRequiredTextureSize The maximum required texture memory size recorded
+*
+* @Comments
+*/
+void FUTAnalytics::FireEvent_UTFPSCharts(AUTPlayerController* UTPC, TArray<FAnalyticsEventAttribute>& InParamArray)
+{
+	if (UTPC)
+	{
+		const TSharedPtr<IAnalyticsProvider>& AnalyticsProvider = GetProviderPtr();
+		if (AnalyticsProvider.IsValid())
+		{
+			SetInitialParameters(UTPC, InParamArray, false);
+			AnalyticsProvider->RecordEvent(GetGenericParamName(EGenericAnalyticParam::UTFPSCharts), InParamArray);
+		}
+	}
+}
+
+/*
+* @EventName UTServerFPSCharts
+*
+* @Trigger Fires at the end of the match with the FPS Charts stats for the server
+*
+* @Type Sent by the server for the match
+*
+* @EventParam MapName string The name of the played map
+* @EventParam Bucket_%i_%i_TimePercentage float The percentage of time that the FPS amount was between x - y
+* @EventParam Hitch_%i_%i_HitchCount int32 The number of hitches between x - y milliseconds long
+* @EventParam Hitch_%i_%i_HitchTime float The time spent in hitchy frames that lasted between x - y milliseconds long
+* @EventParam TotalHitches int32 The total number of hitches
+* @EventParam TotalGameBoundHitches	int32 The total number of game thread bound hitches
+* @EventParam TotalRenderBoundHitches int32 The total number of render thread bound hitches
+* @EventParam TotalGPUBoundHitches int32 The total number of gpu bound hitches
+* @EventParam TotalTimeInHitchFrames float The total time spent in all hitch buckets
+* @EventParam PercentSpentHitching float The percentage of time spent hitching (has the desired frame time subtracted out of hitch frames before computing)
+* @EventParam HitchesPerMinute float The avg. number of hitches per minute played
+* @EventParam ChangeList string The change list that was played
+* @EventParam BuildType string The games build type that was played
+* @EventParam DateStamp string The date stamp that the FPS charts stats took place
+* @EventParam Platform string The platform this build was played on
+* @EventParam OS string The OS of the server
+* @EventParam CPU string The CPU of the server
+* @EventParam GPU string The GPU of the server
+* @EventParam ResolutionQuality float The resolution quality of the server
+* @EventParam ViewDistanceQuality int32 The view distance quality of the server
+* @EventParam AntiAliasingQuality int32 The anti-aliasing quality of the server
+* @EventParam ShadowQuality int32 The shadow quality of the client
+* @EventParam PostProcessQuality int32 The post process quality of the server
+* @EventParam TextureQuality int32 The texture quality of the server
+* @EventParam FXQuality int32 The effects quality of the server
+* @EventParam AvgFPS float The average fps of the server
+* @EventParam PercentAbove30 float The time percentage when the fps was above 30
+* @EventParam PercentAbove60 float The time percentage when the fps was above 60
+* @EventParam PercentAbove120 float The time percentage when the fps was above 120
+* @EventParam MVP30 float The estimated percentage of missed vsyncs at a target framerate of 30
+* @EventParam MVP60 float The estimated percentage of missed vsyncs at a target framerate of 60
+* @EventParam MVP120 float The estimated percentage of missed vsyncs at a target framerate of 120
+* @EventParam TimeDisregarded float The time that the FPS chart didn't count anywhere
+* @EventParam Time float The amount of time FPS Charts was capturing data
+* @EventParam FrameCount float The total number of frames
+* @EventParam AvgGPUTime float The average time the GPU took to render the frame
+* @EventParam PercentGameThreadBound float The percentage of game thread bound frames
+* @EventParam PercentRenderThreadBound float The percentage of render thread bound frames
+* @EventParam PercentGPUBound float The percentage of GPU bound frames
+*
+* @Comments
+*/
+void FUTAnalytics::FireEvent_UTServerFPSCharts(AUTGameMode* UTGM, TArray<FAnalyticsEventAttribute>& InParamArray)
+{
+	if (UTGM)
+	{
+		SetMatchInitialParameters(UTGM, InParamArray, false);
+
+		const TSharedPtr<IAnalyticsProvider>& AnalyticsProvider = GetProviderPtr();
+		if (AnalyticsProvider.IsValid())
+		{
+			AnalyticsProvider->RecordEvent(GetGenericParamName(EGenericAnalyticParam::UTServerFPSCharts), InParamArray);
+		}
+
+#if WITH_QOSREPORTER
+		if (FQoSReporter::IsAvailable())
+		{
+			FQoSReporter::GetProvider().RecordEvent(GetGenericParamName(EGenericAnalyticParam::UTServerFPSCharts), InParamArray);
+		}
+#endif
+
+	}
 }
 
 /*

@@ -24,6 +24,8 @@
 #include "Engine/DemoNetDriver.h"
 #include "UTKillcamPlayback.h"
 #include "UTAnalytics.h"
+#include "ContentStreaming.h"
+#include "Runtime/Analytics/Analytics/Public/AnalyticsEventAttribute.h"
 
 AUTGameState::AUTGameState(const class FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -277,6 +279,10 @@ AUTGameState::AUTGameState(const class FObjectInitializer& ObjectInitializer)
 	bDisableVoteKick = false;
 
 	UserInfoQueryRetryTime = 0.5f;
+
+	// more stringent by default
+	UnplayableHitchThresholdInMs = 300;
+	MaxUnplayableHitchesToTolerate = 1;
 }
 
 void AUTGameState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty> & OutLifetimeProps) const
@@ -865,14 +871,23 @@ void AUTGameState::SortPRIArray()
 
 void AUTGameState::HandleMatchHasStarted()
 {
+	if (GetNetMode() == NM_Client || GetNetMode() == NM_DedicatedServer)
+	{
+		bRunFPSChart = true;
+	}
+
 	StartFPSCharts();
+
+	Super::HandleMatchHasStarted();
 }
 
 void AUTGameState::HandleMatchHasEnded()
 {
 	MatchEndTime = GetWorld()->TimeSeconds;
 
-	StartFPSCharts();
+	StopFPSCharts();
+
+	Super::HandleMatchHasEnded();
 }
 
 void AUTGameState::StartFPSCharts()
@@ -882,17 +897,69 @@ void AUTGameState::StartFPSCharts()
 		FString FPSChartLabel;
 		if (GetNetMode() == NM_Client)
 		{
-			FPSChartLabel = TEXT("OrionAnalyticsFPSCharts");
+			FPSChartLabel = TEXT("UTAnalyticsFPSCharts");
 		}
 		else
 		{
-			FPSChartLabel = TEXT("OrionServerFPSChart");
+			FPSChartLabel = TEXT("UTServerFPSChart");
 		}
 
 		FMemory::Memzero(HitchChart);
 
 		GEngine->StartFPSChart(FPSChartLabel, /*bRecordPerFrameTimes=*/ false);
 		OnHitchDetectedHandle = GEngine->OnHitchDetectedDelegate.AddUObject(this, &AUTGameState::OnHitchDetected);
+	}
+}
+
+void AUTGameState::StopFPSCharts()
+{
+	if (bRunFPSChart)
+	{
+		TArray<FAnalyticsEventAttribute> ParamArray;
+		FString MapName;
+
+		if (GetLevel() && GetLevel()->OwningWorld)
+		{
+			MapName = GetLevel()->OwningWorld->GetMapName();
+		}
+
+		GEngine->StopFPSChart();
+		GEngine->DumpFPSChartAnalytics(MapName, ParamArray);
+	
+		if (GetNetMode() == NM_Client)
+		{
+			AUTPlayerController* UTPC = Cast<AUTPlayerController>(GetWorld()->GetFirstPlayerController());
+			if (UTPC)
+			{
+				if (ParamArray.Num() > 0)
+				{
+					int64 MaxRequiredTextureSize = 0;
+					if (FPlatformProperties::SupportsTextureStreaming() && IStreamingManager::Get().IsTextureStreamingEnabled())
+					{
+						MaxRequiredTextureSize = IStreamingManager::Get().GetTextureStreamingManager().GetMaxEverRequired();
+					}
+					ParamArray.Add(FAnalyticsEventAttribute(TEXT("MaxRequiredTextureSize"), MaxRequiredTextureSize));
+
+					// Fire off the analytics event
+					FUTAnalytics::FireEvent_UTFPSCharts(UTPC, ParamArray);
+				}
+				else
+				{
+					UE_LOG(UT, Error, TEXT("UT FPS Charts ParamArray is empty"));
+				}
+			}
+		}
+		else
+		{
+			AUTGameMode* UTGM = Cast<AUTGameMode>(GetWorld()->GetAuthGameMode());
+			if (UTGM)
+			{
+				FUTAnalytics::FireEvent_UTServerFPSCharts(UTGM, ParamArray);
+			}
+		}
+
+		GEngine->OnHitchDetectedDelegate.Remove(OnHitchDetectedHandle);
+		bRunFPSChart = false;
 	}
 }
 

@@ -39,13 +39,17 @@ public:
 	/* Server metrics */
 	static void FireEvent_ServerUnplayableCondition(AUTGameMode* UTGM, double HitchThresholdInMs, int32 NumHitchesAboveThreshold, double TotalUnplayableTimeInMs);
 	static void FireEvent_PlayerContextLocationPerMinute(AUTPlayerController* UTPC, FString& PlayerContextLocation, const int32 NumSocialPartyMembers);
-
+	static void FireEvent_UTServerFPSCharts(AUTGameMode* UTGM, TArray<FAnalyticsEventAttribute>& InParamArray);
 
 	//Param name generalizer
 	static FString GetGenericParamName(EGenericAnalyticParam::Type InGenericParam);
 
 	static void SetMatchInitialParameters(AUTGameMode* UTGM, TArray<FAnalyticsEventAttribute>& ParamArray, bool bNeedMatchTime);
 	static void SetServerInitialParameters(TArray<FAnalyticsEventAttribute>& ParamArray);
+	static void SetInitialParameters(AUTPlayerController* UTPC, TArray<FAnalyticsEventAttribute>& ParamArray, bool bNeedMatchTime);
+
+	/* Client metrics */
+	static void FireEvent_UTFPSCharts(AUTPlayerController* UTPC, TArray<FAnalyticsEventAttribute>& InParamArray);
 
 private:
 	/** Initialize the FString Array of Analytic Parameters */
