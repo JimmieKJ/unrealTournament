@@ -510,165 +510,203 @@ USoundBase* UUTCharacterVoice::GetAnnouncementSound_Implementation(int32 Switch,
 	}
 	else if (Switch >= StatusBaseIndex)
 	{
-		if (Switch == GetStatusIndex(StatusMessage::NeedBackup))
+		if (Switch < KEY_CALLOUTS)
 		{
-			if (NeedBackupMessages.Num() == 0)
+			if (Switch == GetStatusIndex(StatusMessage::NeedBackup))
 			{
-				return NULL;
+				if (NeedBackupMessages.Num() == 0)
+				{
+					return NULL;
+				}
+				return NeedBackupMessages[FMath::RandRange(0, NeedBackupMessages.Num() - 1)].SpeechSound;
 			}
-			return NeedBackupMessages[FMath::RandRange(0, NeedBackupMessages.Num() - 1)].SpeechSound;
-		}
-		if (Switch == GetStatusIndex(StatusMessage::EnemyFCHere))
-		{
-			if (EnemyFCHereMessages.Num() == 0)
+			else if (Switch == GetStatusIndex(StatusMessage::EnemyFCHere))
 			{
-				return NULL;
+				if (EnemyFCHereMessages.Num() == 0)
+				{
+					return NULL;
+				}
+				return EnemyFCHereMessages[FMath::RandRange(0, EnemyFCHereMessages.Num() - 1)].SpeechSound;
 			}
-			return EnemyFCHereMessages[FMath::RandRange(0, EnemyFCHereMessages.Num() - 1)].SpeechSound;
-		}
-		if (Switch == GetStatusIndex(StatusMessage::AreaSecure))
-		{
-			if (AreaSecureMessages.Num() == 0)
+			else if (Switch == GetStatusIndex(StatusMessage::AreaSecure))
 			{
-				return NULL;
+				if (AreaSecureMessages.Num() == 0)
+				{
+					return NULL;
+				}
+				return AreaSecureMessages[FMath::RandRange(0, AreaSecureMessages.Num() - 1)].SpeechSound;
 			}
-			return AreaSecureMessages[FMath::RandRange(0, AreaSecureMessages.Num() - 1)].SpeechSound;
-		}
-		if (Switch == GetStatusIndex(StatusMessage::IGotFlag))
-		{
-			if (IGotFlagMessages.Num() == 0)
+			else if (Switch == GetStatusIndex(StatusMessage::IGotFlag))
 			{
-				return NULL;
+				if (IGotFlagMessages.Num() == 0)
+				{
+					return NULL;
+				}
+				return IGotFlagMessages[FMath::RandRange(0, IGotFlagMessages.Num() - 1)].SpeechSound;
 			}
-			return IGotFlagMessages[FMath::RandRange(0, IGotFlagMessages.Num() - 1)].SpeechSound;
-		}
-		if (Switch == GetStatusIndex(StatusMessage::DefendFlag))
-		{
-			if (DefendFlagMessages.Num() == 0)
+			else if (Switch == GetStatusIndex(StatusMessage::DefendFlag))
 			{
-				return NULL;
+				if (DefendFlagMessages.Num() == 0)
+				{
+					return NULL;
+				}
+				return DefendFlagMessages[FMath::RandRange(0, DefendFlagMessages.Num() - 1)].SpeechSound;
 			}
-			return DefendFlagMessages[FMath::RandRange(0, DefendFlagMessages.Num() - 1)].SpeechSound;
-		}
-		if (Switch == GetStatusIndex(StatusMessage::DefendFC))
-		{
-			if (DefendFCMessages.Num() == 0)
+			else if (Switch == GetStatusIndex(StatusMessage::DefendFC))
 			{
-				return NULL;
+				if (DefendFCMessages.Num() == 0)
+				{
+					return NULL;
+				}
+				return DefendFCMessages[FMath::RandRange(0, DefendFCMessages.Num() - 1)].SpeechSound;
 			}
-			return DefendFCMessages[FMath::RandRange(0, DefendFCMessages.Num() - 1)].SpeechSound;
-		}
-		if (Switch == GetStatusIndex(StatusMessage::GetFlagBack))
-		{
-			if (GetFlagBackMessages.Num() == 0)
+			else if (Switch == GetStatusIndex(StatusMessage::GetFlagBack))
 			{
-				return NULL;
+				if (GetFlagBackMessages.Num() == 0)
+				{
+					return NULL;
+				}
+				return GetFlagBackMessages[FMath::RandRange(0, GetFlagBackMessages.Num() - 1)].SpeechSound;
 			}
-			return GetFlagBackMessages[FMath::RandRange(0, GetFlagBackMessages.Num() - 1)].SpeechSound;
-		}
-		if (Switch == GetStatusIndex(StatusMessage::ImOnDefense))
-		{
-			if (ImOnDefenseMessages.Num() == 0)
+			else if (Switch == GetStatusIndex(StatusMessage::ImOnDefense))
 			{
-				return NULL;
+				if (ImOnDefenseMessages.Num() == 0)
+				{
+					return NULL;
+				}
+				return ImOnDefenseMessages[FMath::RandRange(0, ImOnDefenseMessages.Num() - 1)].SpeechSound;
 			}
-			return ImOnDefenseMessages[FMath::RandRange(0, ImOnDefenseMessages.Num() - 1)].SpeechSound;
-		}
-		if (Switch == GetStatusIndex(StatusMessage::ImGoingIn))
-		{
-			if (ImGoingInMessages.Num() == 0)
+			else if (Switch == GetStatusIndex(StatusMessage::ImOnOffense))
 			{
-				return NULL;
+				if (ImOnOffenseMessages.Num() == 0)
+				{
+					return NULL;
+				}
+				return ImOnOffenseMessages[FMath::RandRange(0, ImOnOffenseMessages.Num() - 1)].SpeechSound;
 			}
-			return ImGoingInMessages[FMath::RandRange(0, ImGoingInMessages.Num() - 1)].SpeechSound;
-		}
-		if (Switch == GetStatusIndex(StatusMessage::ImOnOffense))
-		{
-			if (ImOnOffenseMessages.Num() == 0)
+			else if (Switch == GetStatusIndex(StatusMessage::SpreadOut))
 			{
-				return NULL;
+				if (SpreadOutMessages.Num() == 0)
+				{
+					return NULL;
+				}
+				return SpreadOutMessages[FMath::RandRange(0, SpreadOutMessages.Num() - 1)].SpeechSound;
 			}
-			return ImOnOffenseMessages[FMath::RandRange(0, ImOnOffenseMessages.Num() - 1)].SpeechSound;
 		}
-		if (Switch == GetStatusIndex(StatusMessage::BaseUnderAttack))
+		else
 		{
-			if (BaseUnderAttackMessages.Num() == 0)
+			if (Switch == GetStatusIndex(StatusMessage::ImGoingIn))
 			{
-				return NULL;
+				if (ImGoingInMessages.Num() == 0)
+				{
+					return NULL;
+				}
+				return ImGoingInMessages[FMath::RandRange(0, ImGoingInMessages.Num() - 1)].SpeechSound;
 			}
-			return BaseUnderAttackMessages[FMath::RandRange(0, BaseUnderAttackMessages.Num() - 1)].SpeechSound;
-		}
-		if (Switch == GetStatusIndex(StatusMessage::SpreadOut))
-		{
-			if (SpreadOutMessages.Num() == 0)
+			else if (Switch == GetStatusIndex(StatusMessage::BaseUnderAttack))
 			{
-				return NULL;
+				if (BaseUnderAttackMessages.Num() == 0)
+				{
+					return NULL;
+				}
+				return BaseUnderAttackMessages[FMath::RandRange(0, BaseUnderAttackMessages.Num() - 1)].SpeechSound;
 			}
-			return SpreadOutMessages[FMath::RandRange(0, SpreadOutMessages.Num() - 1)].SpeechSound;
-		}
-		if (Switch / 100 == GetStatusIndex(GameVolumeSpeechType::GV_Bridge) / 100)
-		{
-			return GetGVLine(BridgeLines, Switch - GetStatusIndex(GameVolumeSpeechType::GV_Bridge));
-		}
-		if (Switch / 100 == GetStatusIndex(GameVolumeSpeechType::GV_River) / 100)
-		{
-			return GetGVLine(RiverLines, Switch - GetStatusIndex(GameVolumeSpeechType::GV_River));
-		}
-		if (Switch / 100 == GetStatusIndex(GameVolumeSpeechType::GV_Antechamber) / 100)
-		{
-			return GetGVLine(AntechamberLines, Switch - GetStatusIndex(GameVolumeSpeechType::GV_Antechamber));
-		}
-		if (Switch / 100 == GetStatusIndex(GameVolumeSpeechType::GV_ThroneRoom) / 100)
-		{
-			return GetGVLine(ThroneRoomLines, Switch - GetStatusIndex(GameVolumeSpeechType::GV_ThroneRoom));
-		}
-		if (Switch / 100 == GetStatusIndex(GameVolumeSpeechType::GV_Courtyard) / 100)
-		{
-			return GetGVLine(CourtyardLines, Switch - GetStatusIndex(GameVolumeSpeechType::GV_Courtyard));
-		}
-		if (Switch / 100 == GetStatusIndex(GameVolumeSpeechType::GV_Stables) / 100)
-		{
-			return GetGVLine(StablesLines, Switch - GetStatusIndex(GameVolumeSpeechType::GV_Stables));
-		}
-		if (Switch / 100 == GetStatusIndex(GameVolumeSpeechType::GV_DefenderBase) / 100)
-		{
-			return GetGVLine(DefenderBaseLines, Switch - GetStatusIndex(GameVolumeSpeechType::GV_DefenderBase));
-		}
-		if (Switch / 100 == GetStatusIndex(GameVolumeSpeechType::GV_AntechamberHigh) / 100)
-		{
-			return GetGVLine(AntechamberHighLines, Switch - GetStatusIndex(GameVolumeSpeechType::GV_AntechamberHigh));
-		}
-		if (Switch / 100 == GetStatusIndex(GameVolumeSpeechType::GV_Tower) / 100)
-		{
-			return GetGVLine(TowerLines, Switch - GetStatusIndex(GameVolumeSpeechType::GV_Tower));
-		}
-		if (Switch / 100 == GetStatusIndex(GameVolumeSpeechType::GV_Creek) / 100)
-		{
-			return GetGVLine(CreekLines, Switch - GetStatusIndex(GameVolumeSpeechType::GV_Creek));
-		}
-		if (Switch / 100 == GetStatusIndex(GameVolumeSpeechType::GV_Temple) / 100)
-		{
-			return GetGVLine(TempleLines, Switch - GetStatusIndex(GameVolumeSpeechType::GV_Temple));
-		}
-		if (Switch / 100 == GetStatusIndex(GameVolumeSpeechType::GV_Cave) / 100)
-		{
-			return GetGVLine(CaveLines, Switch - GetStatusIndex(GameVolumeSpeechType::GV_Cave));
-		}
-		if (Switch / 100 == GetStatusIndex(GameVolumeSpeechType::GV_BaseCamp) / 100)
-		{
-			return GetGVLine(BaseCampLines, Switch - GetStatusIndex(GameVolumeSpeechType::GV_BaseCamp));
-		}
-		if (Switch / 100 == GetStatusIndex(PickupSpeechType::UDamagePickup) / 100)
-		{
-			return (Switch - GetStatusIndex(PickupSpeechType::UDamagePickup) == 0) ? UDamageAvailableLine.SpeechSound : UDamagePickupLine.SpeechSound;
-		}
-		if (Switch / 100 == GetStatusIndex(PickupSpeechType::ShieldbeltPickup) / 100)
-		{
-			return (Switch - GetStatusIndex(PickupSpeechType::ShieldbeltPickup) == 0) ? ShieldbeltAvailableLine.SpeechSound : ShieldbeltPickupLine.SpeechSound;
-		}
-		if (Switch / 100 == GetStatusIndex(PickupSpeechType::RedeemerPickup) / 100)
-		{
-			return (Switch - GetStatusIndex(PickupSpeechType::RedeemerPickup) == 0) ? RedeemerAvailableLine.SpeechSound : RedeemerPickupLine.SpeechSound;
+			else if (Switch / 100 == GetStatusIndex(GameVolumeSpeechType::GV_Bridge) / 100)
+			{
+				return GetGVLine(BridgeLines, Switch - GetStatusIndex(GameVolumeSpeechType::GV_Bridge));
+			}
+			else if (Switch / 100 == GetStatusIndex(GameVolumeSpeechType::GV_River) / 100)
+			{
+				return GetGVLine(RiverLines, Switch - GetStatusIndex(GameVolumeSpeechType::GV_River));
+			}
+			else if (Switch / 100 == GetStatusIndex(GameVolumeSpeechType::GV_Antechamber) / 100)
+			{
+				return GetGVLine(AntechamberLines, Switch - GetStatusIndex(GameVolumeSpeechType::GV_Antechamber));
+			}
+			else if (Switch / 100 == GetStatusIndex(GameVolumeSpeechType::GV_ThroneRoom) / 100)
+			{
+				return GetGVLine(ThroneRoomLines, Switch - GetStatusIndex(GameVolumeSpeechType::GV_ThroneRoom));
+			}
+			else if (Switch / 100 == GetStatusIndex(GameVolumeSpeechType::GV_Courtyard) / 100)
+			{
+				return GetGVLine(CourtyardLines, Switch - GetStatusIndex(GameVolumeSpeechType::GV_Courtyard));
+			}
+			else if (Switch / 100 == GetStatusIndex(GameVolumeSpeechType::GV_Stables) / 100)
+			{
+				return GetGVLine(StablesLines, Switch - GetStatusIndex(GameVolumeSpeechType::GV_Stables));
+			}
+			else if (Switch / 100 == GetStatusIndex(GameVolumeSpeechType::GV_DefenderBase) / 100)
+			{
+				return GetGVLine(DefenderBaseLines, Switch - GetStatusIndex(GameVolumeSpeechType::GV_DefenderBase));
+			}
+			else if (Switch / 100 == GetStatusIndex(GameVolumeSpeechType::GV_AntechamberHigh) / 100)
+			{
+				return GetGVLine(AntechamberHighLines, Switch - GetStatusIndex(GameVolumeSpeechType::GV_AntechamberHigh));
+			}
+			else if (Switch / 100 == GetStatusIndex(GameVolumeSpeechType::GV_Tower) / 100)
+			{
+				return GetGVLine(TowerLines, Switch - GetStatusIndex(GameVolumeSpeechType::GV_Tower));
+			}
+			else if (Switch / 100 == GetStatusIndex(GameVolumeSpeechType::GV_Creek) / 100)
+			{
+				return GetGVLine(CreekLines, Switch - GetStatusIndex(GameVolumeSpeechType::GV_Creek));
+			}
+			else if (Switch / 100 == GetStatusIndex(GameVolumeSpeechType::GV_Temple) / 100)
+			{
+				return GetGVLine(TempleLines, Switch - GetStatusIndex(GameVolumeSpeechType::GV_Temple));
+			}
+			else if (Switch / 100 == GetStatusIndex(GameVolumeSpeechType::GV_Cave) / 100)
+			{
+				return GetGVLine(CaveLines, Switch - GetStatusIndex(GameVolumeSpeechType::GV_Cave));
+			}
+			else if (Switch / 100 == GetStatusIndex(GameVolumeSpeechType::GV_BaseCamp) / 100)
+			{
+				return GetGVLine(BaseCampLines, Switch - GetStatusIndex(GameVolumeSpeechType::GV_BaseCamp));
+			}
+			else if (Switch / 100 == GetStatusIndex(PickupSpeechType::UDamagePickup) / 100)
+			{
+				return (Switch - GetStatusIndex(PickupSpeechType::UDamagePickup) == 0) ? UDamageAvailableLine.SpeechSound : UDamagePickupLine.SpeechSound;
+			}
+			else if (Switch / 100 == GetStatusIndex(PickupSpeechType::ShieldbeltPickup) / 100)
+			{
+				return (Switch - GetStatusIndex(PickupSpeechType::ShieldbeltPickup) == 0) ? ShieldbeltAvailableLine.SpeechSound : ShieldbeltPickupLine.SpeechSound;
+			}
+			else if (Switch / 100 == GetStatusIndex(PickupSpeechType::RedeemerPickup) / 100)
+			{
+				return (Switch - GetStatusIndex(PickupSpeechType::RedeemerPickup) == 0) ? RedeemerAvailableLine.SpeechSound : RedeemerPickupLine.SpeechSound;
+			}
+			else if (Switch == GetStatusIndex(StatusMessage::EnemyRally))
+			{
+				return (EnemyRallyMessages.Num() == 0) ? nullptr : EnemyRallyMessages[FMath::RandRange(0, EnemyRallyMessages.Num() - 1)].SpeechSound;
+			}
+			else if (Switch == GetStatusIndex(StatusMessage::FindFC))
+			{
+				return (FindFCMessages.Num() == 0) ? nullptr : FindFCMessages[FMath::RandRange(0, FindFCMessages.Num() - 1)].SpeechSound;
+			}
+			else if (Switch == GetStatusIndex(StatusMessage::LastLife))
+			{
+				return (LastLifeMessages.Num() == 0) ? nullptr : LastLifeMessages[FMath::RandRange(0, LastLifeMessages.Num() - 1)].SpeechSound;
+			}
+			else if (Switch == GetStatusIndex(StatusMessage::EnemyLowLives))
+			{
+				return (EnemyLowLivesMessages.Num() == 0) ? nullptr : EnemyLowLivesMessages[FMath::RandRange(0, EnemyLowLivesMessages.Num() - 1)].SpeechSound;
+			}
+			else if (Switch == GetStatusIndex(StatusMessage::EnemyThreePlayers))
+			{
+				return (EnemyThreePlayersMessages.Num() == 0) ? nullptr : EnemyThreePlayersMessages[FMath::RandRange(0, EnemyThreePlayersMessages.Num() - 1)].SpeechSound;
+			}
+			else if (Switch == GetStatusIndex(StatusMessage::DroppedRedeemer))
+			{
+				return (DroppedRedeemerMessages.Num() == 0) ? nullptr : DroppedRedeemerMessages[FMath::RandRange(0, DroppedRedeemerMessages.Num() - 1)].SpeechSound;
+			}
+			else if (Switch == GetStatusIndex(StatusMessage::NeedRally))
+			{
+				return (NeedRallyMessages.Num() == 0) ? nullptr : NeedRallyMessages[FMath::RandRange(0, NeedRallyMessages.Num() - 1)].SpeechSound;
+			}
+			else if (Switch == GetStatusIndex(StatusMessage::NeedHealth))
+			{
+				return (NeedHealthMessages.Num() == 0) ? nullptr : NeedHealthMessages[FMath::RandRange(0, NeedHealthMessages.Num() - 1)].SpeechSound;
+			}
 		}
 	}
 	return NULL;
