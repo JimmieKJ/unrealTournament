@@ -977,7 +977,7 @@ void AUTGameState::OnHitchDetected(float DurationInSeconds)
 			{
 				// send an analytics event
 				AUTGameMode* UTGM = Cast<AUTGameMode>(GetWorld()->GetAuthGameMode());
-				if (LIKELY(UTGM))
+				if (UTGM)
 				{
 					FUTAnalytics::FireEvent_ServerUnplayableCondition(UTGM, UnplayableHitchThresholdInMs, UnplayableHitchesDetected, UnplayableTimeInMs);
 				}

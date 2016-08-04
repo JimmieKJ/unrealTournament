@@ -493,13 +493,13 @@ void FUTAnalytics::FireEvent_UTServerFPSCharts(AUTGameMode* UTGM, TArray<FAnalyt
 */
 void FUTAnalytics::FireEvent_ServerUnplayableCondition(AUTGameMode* UTGM, double HitchThresholdInMs, int32 NumHitchesAboveThreshold, double TotalUnplayableTimeInMs)
 {
-	if (LIKELY(UTGM))
+	if (UTGM)
 	{
 		const TSharedPtr<IAnalyticsProvider>& AnalyticsProvider = GetProviderPtr();
 		if (AnalyticsProvider.IsValid())
 		{
 			AUTGameState* GameState = UTGM->GetGameState<AUTGameState>();
-			if (LIKELY(GameState))
+			if (GameState)
 			{
 				TArray<FAnalyticsEventAttribute> ParamArray;
 				SetMatchInitialParameters(UTGM, ParamArray, true);
