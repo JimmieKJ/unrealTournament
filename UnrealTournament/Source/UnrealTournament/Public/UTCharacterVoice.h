@@ -224,7 +224,7 @@ class UNREALTOURNAMENT_API UUTCharacterVoice : public UUTLocalMessage
 	virtual FName GetFallbackLines(FName InName) const;
 
 	/** map of status index offsets. */
-	TMap< FName, float > StatusOffsets;
+	TMap< FName, int32 > StatusOffsets;
 
 	virtual int32 GetStatusIndex(FName NewStatus) const;
 

@@ -319,13 +319,14 @@ void AUTPlayerState::AnnounceStatus(FName NewStatus, int32 SwitchOffset)
 		{
 			return;
 		}
-		int32 Switch = CharacterVoice.GetDefaultObject()->GetStatusIndex(NewStatus) + SwitchOffset;
+		int32 Switch = CharacterVoice.GetDefaultObject()->GetStatusIndex(NewStatus);
 		if (Switch < 0)
 		{
 			UE_LOG(UT, Warning, TEXT("No valid index found"));
 			// no valid index found (NewStatus was not a valid selection)
 			return;
 		}
+		Switch += SwitchOffset;
 //		UE_LOG(UT, Warning, TEXT("Switch is %d"), Switch);
 		for (FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator)
 		{
