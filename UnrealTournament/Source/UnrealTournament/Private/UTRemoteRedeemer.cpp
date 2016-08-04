@@ -186,7 +186,8 @@ void AUTRemoteRedeemer::OnOverlapBegin(AActor* OtherActor, UPrimitiveComponent* 
 		AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
 		if (GS == NULL || !GS->OnSameTeam(this, OtherActor))
 		{
-			if (Cast<AUTProjectile>(OtherActor))
+			AUTProjectile* Proj = Cast<AUTProjectile>(OtherActor);
+			if (Proj != nullptr)
 			{
 				if (Cast<AUTProj_WeaponScreen>(OtherActor))
 				{
@@ -195,8 +196,7 @@ void AUTRemoteRedeemer::OnOverlapBegin(AActor* OtherActor, UPrimitiveComponent* 
 				}
 				else
 				{
-					OnShotDown();
-					RedeemerDenied(OtherActor->GetInstigatorController());
+					Proj->DamageImpactedActor(this, CollisionComp, Proj->GetActorLocation(), (Proj->GetActorLocation() - GetActorLocation()).SafeNormal());
 				}
 			}
 			else
@@ -692,11 +692,14 @@ float AUTRemoteRedeemer::TakeDamage(float Damage, const FDamageEvent& DamageEven
 					EventInstigator->InstigatedAnyDamage(ActualDamage, DamageTypeCDO, this, DamageCauser);
 				}
 				ProjHealth -= ActualDamage;
+				UUTGameplayStatics::UTPlaySound(GetWorld(), HitSound, this, SRT_All, false, FVector::ZeroVector, Cast<AUTPlayerController>(EventInstigator), NULL, false, SAT_PainSound);
 				if (ProjHealth <= 0)
 				{
-					// small explosion when damaged
-					OnShotDown();
-					RedeemerDenied(EventInstigator);
+					if (!bShotDown)
+					{
+						OnShotDown();
+						RedeemerDenied(EventInstigator);
+					}
 				}
 			}
 		}

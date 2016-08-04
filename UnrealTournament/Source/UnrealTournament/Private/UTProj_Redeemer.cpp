@@ -63,6 +63,10 @@ void AUTProj_Redeemer::RedeemerDenied(AController* InstigatedBy)
 
 float AUTProj_Redeemer::TakeDamage(float Damage, const FDamageEvent& DamageEvent, AController* EventInstigator, AActor* DamageCauser)
 {
+	if (bDetonated)
+	{
+		return Damage;
+	}
 	AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
 	if (GS && GS->OnSameTeam(InstigatorController, EventInstigator))
 	{
@@ -73,12 +77,7 @@ float AUTProj_Redeemer::TakeDamage(float Damage, const FDamageEvent& DamageEvent
 	bool bUsingClientSideHits = UTPC && (UTPC->GetPredictionTime() > 0.f);
 	if ((Role == ROLE_Authority) && !bUsingClientSideHits)
 	{
-		ProjHealth -= Damage;
-		if (ProjHealth <= 0)
-		{
-			OnShotDown();
-			RedeemerDenied(EventInstigator);
-		}
+		ApplyDamage(Damage, EventInstigator);
 	}
 	else if ((Role != ROLE_Authority) && bUsingClientSideHits)
 	{
@@ -88,21 +87,33 @@ float AUTProj_Redeemer::TakeDamage(float Damage, const FDamageEvent& DamageEvent
 	return Damage;
 }
 
+void AUTProj_Redeemer::ApplyDamage(float Damage, AController* EventInstigator)
+{
+	UUTGameplayStatics::UTPlaySound(GetWorld(), HitSound, this, SRT_All, false, FVector::ZeroVector, Cast<AUTPlayerController>(EventInstigator), NULL, false, SAT_PainSound);
+	if (!bDetonated)
+	{
+		ProjHealth -= Damage;
+		if (ProjHealth <= 0)
+		{
+			OnShotDown();
+			RedeemerDenied(EventInstigator);
+		}
+	}
+}
+
 void AUTProj_Redeemer::NotifyClientSideHit(AUTPlayerController* InstigatedBy, FVector HitLocation, AActor* DamageCauser, int32 Damage)
 {
+	if (bDetonated)
+	{
+		return;
+	}
 	AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
 	if (GS && GS->OnSameTeam(InstigatorController, InstigatedBy))
 	{
 		// no friendly fire
 		return;
 	}
-
-	ProjHealth -= Damage;
-	if (ProjHealth <= 0)
-	{
-		OnShotDown();
-		RedeemerDenied(InstigatedBy);
-	}
+	ApplyDamage(Damage, InstigatedBy);
 }
 
 void AUTProj_Redeemer::ExplodeTimed()

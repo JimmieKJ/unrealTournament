@@ -30,6 +30,10 @@ class UNREALTOURNAMENT_API AUTRemoteRedeemer : public APawn, public IUTTeamInter
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Lock)
 	USoundBase*  			LockAcquiredSound;
 
+	/** Sound played when redeemer receives damage. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Redeemer)
+		USoundBase* HitSound;
+
 	UPROPERTY()
 	int32 LockCount;
 

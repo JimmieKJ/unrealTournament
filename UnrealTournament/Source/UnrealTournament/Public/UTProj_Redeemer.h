@@ -12,6 +12,8 @@ class UNREALTOURNAMENT_API AUTProj_Redeemer : public AUTProjectile
 	virtual float TakeDamage(float Damage, const FDamageEvent& DamageEvent, AController* EventInstigator, AActor* DamageCauser) override;
 	virtual void NotifyClientSideHit(AUTPlayerController* InstigatedBy, FVector HitLocation, AActor* DamageCauser, int32 Damage) override;
 
+	virtual void ApplyDamage(float Damage, AController* EventInstigator);
+
 	FVector ExplodeHitLocation;
 	float ExplodeMomentum;
 
@@ -35,6 +37,9 @@ class UNREALTOURNAMENT_API AUTProj_Redeemer : public AUTProjectile
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Redeemer)
 		USoundBase* ShotDownAmbient;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Redeemer)
+		USoundBase* HitSound;
 
 	UFUNCTION()
 	virtual void ExplodeTimed();
