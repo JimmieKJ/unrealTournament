@@ -2198,12 +2198,23 @@ void UUTCharacterMovement::FindValidLandingSpot(const FVector& CapsuleLocation)
 	const ECollisionChannel CollisionChannel = UpdatedComponent->GetCollisionObjectType();
 	bool bHit = GetWorld()->SweepSingleByChannel(Result, PawnLocation, PawnLocation + FVector(0.f, 0.f, LandingStepUp), FQuat::Identity, CollisionChannel, GetPawnCapsuleCollisionShape(SHRINK_None), CapsuleQuery, ResponseParam);
 	FVector HorizontalStart = bHit ? Result.Location : PawnLocation + FVector(0.f, 0.f, LandingStepUp);
-	float ElapsedTime = 0.05f; // FMath::Min(0.05f, remainingTime);
+
 	FVector HorizontalDir = Acceleration.GetSafeNormal2D() * MaxWalkSpeed * 0.05f;
 	bHit = GetWorld()->SweepSingleByChannel(Result, HorizontalStart, HorizontalStart + HorizontalDir, FQuat::Identity, CollisionChannel, GetPawnCapsuleCollisionShape(SHRINK_None), CapsuleQuery, ResponseParam);
+	bool bHorizontaltHit = bHit;
+	FVector HorizontalNormal = bHorizontaltHit ? Result.ImpactNormal : FVector(0.f);
 	FVector LandingStart = bHit ? Result.Location : HorizontalStart + HorizontalDir;
 	bHit = GetWorld()->SweepSingleByChannel(Result, LandingStart, LandingStart - FVector(0.f, 0.f, LandingStepUp), FQuat::Identity, CollisionChannel, GetPawnCapsuleCollisionShape(SHRINK_None), CapsuleQuery, ResponseParam);
-
+	bool bAlterVelocity = false;
+	if (bHorizontaltHit && !IsValidLandingSpot(Result.Location, Result))
+	{
+		// second try along first hit wall
+		HorizontalDir = HorizontalDir - (HorizontalDir | HorizontalNormal) * HorizontalNormal;
+		bHit = GetWorld()->SweepSingleByChannel(Result, HorizontalStart, HorizontalStart + HorizontalDir, FQuat::Identity, CollisionChannel, GetPawnCapsuleCollisionShape(SHRINK_None), CapsuleQuery, ResponseParam);
+		LandingStart = bHit ? Result.Location : HorizontalStart + HorizontalDir;
+		bHit = GetWorld()->SweepSingleByChannel(Result, LandingStart, LandingStart - FVector(0.f, 0.f, LandingStepUp), FQuat::Identity, CollisionChannel, GetPawnCapsuleCollisionShape(SHRINK_None), CapsuleQuery, ResponseParam);
+		bAlterVelocity = true;
+	}
 	if (IsValidLandingSpot(Result.Location, Result))
 	{
 		// Found a valid landing spot, so boost the player up onto it.
@@ -2211,6 +2222,10 @@ void UUTCharacterMovement::FindValidLandingSpot(const FVector& CapsuleLocation)
 		if (Cast<AUTCharacter>(CharacterOwner))
 		{
 			Cast<AUTCharacter>(CharacterOwner)->OnLandingAssist();
+		}
+		if (bAlterVelocity)
+		{
+			Velocity = HorizontalDir.SafeNormal() * Velocity.Size();
 		}
 		Velocity.Z = LandingAssistBoost; 
 	}
