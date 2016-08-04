@@ -176,8 +176,10 @@ void UUTHUDWidget_Paperdoll::Draw_Implementation(float DeltaTime)
 	RenderObj_Text(ArmorText, DrawOffset * -1); 
 
 	FlagText.Text = FText::GetEmpty();
+	AUTCTFGameState* GameState = UTHUDOwner->GetWorld()->GetGameState<AUTCTFGameState>();
+	bool bShowTimer = !bPlayerCanRally && PS->Team && GameState && ((PS->Team->TeamIndex == 0) == GameState->bRedToCap) && (PS->CarriedObject == nullptr) && UTC && UTC->bCanRally && (PS->RemainingRallyDelay > 0);
 
-	if (UTHUDOwner->GetQuickInfoHidden() && (bPlayerCanRally || bShowFlagInfo))
+	if (UTHUDOwner->GetQuickInfoHidden() && (bPlayerCanRally || bShowFlagInfo || bShowTimer))
 	{
 		FlagIcon.Position.Y = bPlayerCanRally ? -16 : 0;
 		Opacity = FlagOpacity;		
@@ -208,6 +210,11 @@ void UUTHUDWidget_Paperdoll::Draw_Implementation(float DeltaTime)
 		if (bPlayerCanRally)
 		{
 			FlagText.Text = UTHUDOwner->RallyLabel;
+			RenderObj_Text(FlagText);
+		}
+		else if (bShowTimer)
+		{
+			FlagText.Text = FText::AsNumber(int32(PS->RemainingRallyDelay));
 			RenderObj_Text(FlagText);
 		}
 	}

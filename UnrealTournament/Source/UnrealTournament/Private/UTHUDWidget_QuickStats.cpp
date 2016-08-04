@@ -337,8 +337,9 @@ void UUTHUDWidget_QuickStats::PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCa
 
 		bool bPlayerCanRally = UTHUDOwner->UTPlayerOwner->CanPerformRally();
 		AUTCTFGameState* GameState = GetWorld()->GetGameState<AUTCTFGameState>();
+		bool bShowTimer = !bPlayerCanRally && UTPlayerState->Team && GameState && ((UTPlayerState->Team->TeamIndex == 0) == GameState->bRedToCap) && (UTPlayerState->CarriedObject == nullptr) && CharOwner && CharOwner->bCanRally && (UTPlayerState->RemainingRallyDelay > 0);
 
-		if (UTPlayerState->CarriedObject != nullptr || bPlayerCanRally)
+		if (UTPlayerState->CarriedObject != nullptr || bPlayerCanRally || bShowTimer)
 		{
 			FlagInfo.bCustomIconUnderlay = false;
 			FlagInfo.OverlayTextures.Empty();
@@ -387,7 +388,7 @@ void UUTHUDWidget_QuickStats::PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCa
 					FlagInfo.Animate(StatAnimTypes::Scale, 2.0f, 3.25f, 1.0f, true);
 				}
 			}
-			else if (UTPlayerState->Team && GameState && ((UTPlayerState->Team->TeamIndex == 0) == GameState->bRedToCap) && (UTPlayerState->CarriedObject == nullptr) && CharOwner && CharOwner->bCanRally && (UTPlayerState->RemainingRallyDelay > 0))
+			else if (bShowTimer)
 			{
 				FlagInfo.Label = FText::AsNumber(int32(UTPlayerState->RemainingRallyDelay));
 			}
