@@ -180,8 +180,6 @@ protected:
 	UPROPERTY(BlueprintReadOnly, Category = "Scoreboard")
 	int32 ActualPlayerCount;
 
-	virtual AUTPlayerState* GetNextScoringPlayer(int32 dir, int32& PSIndex);
-
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Scoreboard")
 	UTexture2D* FlagAtlas;
 
@@ -254,10 +252,6 @@ protected:
 	/** List of default weapons to display stats for. */
 	UPROPERTY()
 	TArray<AUTWeapon *> StatsWeapons;
-
-	/** Index of current top weapon (in kills). */
-	UPROPERTY()
-		int32 BestWeaponIndex;
 
 	/** Draw one line of scoring breakdown. */
 	virtual void DrawStatsLine(FText StatsName, int32 StatValue, int32 ScoreValue, float DeltaTime, float XOffset, float& YPos, const FStatsFontInfo& StatsFontInfo, float ScoreWidth);

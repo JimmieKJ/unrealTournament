@@ -40,7 +40,6 @@ UUTScoreboard::UUTScoreboard(const class FObjectInitializer& ObjectInitializer) 
 	ValueColumn = 0.5f;
 	ScoreColumn = 0.75f;
 	bHighlightStatsLineTopValue = false;
-	BestWeaponIndex = -1;
 
 	static ConstructorHelpers::FObjectFinder<USoundBase> OtherSpreeSoundFinder(TEXT("SoundWave'/Game/RestrictedAssets/Audio/UI/A_UI_SpecSwitch01.A_UI_SpecSwitch01'"));
 	ScoreUpdateSound = OtherSpreeSoundFinder.Object;
@@ -65,58 +64,6 @@ UUTScoreboard::UUTScoreboard(const class FObjectInitializer& ObjectInitializer) 
 	ReadyColor = FLinearColor::White;
 	ReadyScale = 1.f;
 	bDrawMinimapInScoreboard = true;
-}
-
-AUTPlayerState* UUTScoreboard::GetNextScoringPlayer(int32 dir, int32& PSIndex)
-{
-	AUTPlayerState* ScoreBreakdownPS = UTHUDOwner->UTPlayerOwner->CurrentlyViewedScorePS;
-	if (!ScoreBreakdownPS)
-	{
-		ScoreBreakdownPS = UTHUDOwner->GetScorerPlayerState();
-	}
-	TArray<AUTPlayerState*> PlayerArrayCopy;
-	for (APlayerState* PS : UTGameState->PlayerArray)
-	{
-		AUTPlayerState* UTPS = Cast<AUTPlayerState>(PS);
-		if (UTPS != NULL && !UTPS->bOnlySpectator)
-		{
-			PlayerArrayCopy.Add(UTPS);
-		}
-	}
-	if (PlayerArrayCopy.Num() == 0)
-	{
-		return NULL;
-	}
-	PlayerArrayCopy.Sort([](const AUTPlayerState& A, const AUTPlayerState& B) -> bool
-	{
-		return A.SpectatingID < B.SpectatingID;
-	});
-
-	if (!ScoreBreakdownPS)
-	{
-		PSIndex = 0;
-		return PlayerArrayCopy[0];
-	}
-
-	int32 CurrentIndex = 0;
-	for (int32 i = 0; i < PlayerArrayCopy.Num(); i++)
-	{
-		if (PlayerArrayCopy[i] == ScoreBreakdownPS)
-		{
-			CurrentIndex = i;
-			break;
-		}
-	}
-	if (CurrentIndex + dir >= PlayerArrayCopy.Num())
-	{
-		CurrentIndex = -1;
-	}
-	else if (CurrentIndex + dir < 0)
-	{
-		CurrentIndex = PlayerArrayCopy.Num();
-	}
-	PSIndex = CurrentIndex + dir;
-	return PlayerArrayCopy[PSIndex];
 }
 
 void UUTScoreboard::PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCanvas* InCanvas, FVector2D InCanvasCenter)
