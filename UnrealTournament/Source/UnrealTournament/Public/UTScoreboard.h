@@ -116,12 +116,6 @@ public:
 		return InPS ? InPS->PlayerName : "";
 	};
 
-	UPROPERTY()
-		TArray<FText> StatsPageTitles;
-
-	UPROPERTY()
-		TArray<FText> StatsPageFooters;
-
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Scoreboard")
 		FText GameMessageText;
 
@@ -169,9 +163,6 @@ public:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Scoreboard")
 		FText NotReadyText;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Scoreboard")
-		FText ArrowKeysText;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Scoreboard")
 		FText MinimapToggleText;
