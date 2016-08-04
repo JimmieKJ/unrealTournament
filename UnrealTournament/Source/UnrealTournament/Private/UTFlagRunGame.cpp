@@ -105,7 +105,7 @@ void AUTFlagRunGame::DefaultTimer()
 				{
 					Speaker = UTPS;
 					int32 CoveredRoute = UTChar->LastGameVolume->RouteID;
-					if (CoveredRoute == 0)
+					if ((CoveredRoute == 0) || UTChar->LastGameVolume->bIsTeamSafeVolume)
 					{
 						bFoundInnerDefender = true;
 						break;
