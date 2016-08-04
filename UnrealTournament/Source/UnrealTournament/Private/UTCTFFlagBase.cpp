@@ -24,19 +24,19 @@ AUTCTFFlagBase::AUTCTFFlagBase(const FObjectInitializer& ObjectInitializer)
 	Capsule->AttachParent = RootComponent;
 
 	RoundLivesAdjustment = 0;
-	bShowDefenseEffect = false;
+	ShowDefenseEffect = 0;
 }
 
 void AUTCTFFlagBase::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & OutLifetimeProps) const
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 	DOREPLIFETIME(AUTCTFFlagBase, MyFlag);
-	DOREPLIFETIME(AUTCTFFlagBase, bShowDefenseEffect);
+	DOREPLIFETIME(AUTCTFFlagBase, ShowDefenseEffect);
 }
 
 void AUTCTFFlagBase::ClearDefenseEffect()
 {
-	bShowDefenseEffect = false;
+	ShowDefenseEffect = 0;
 	if (DefensePSC)
 	{
 		DefensePSC->ActivateSystem(false);
@@ -53,12 +53,12 @@ void AUTCTFFlagBase::SpawnDefenseEffect()
 		UParticleSystem* DesiredEffect = (TeamNum == 0) ? RedDefenseEffect : BlueDefenseEffect;
 		DefensePSC = UGameplayStatics::SpawnEmitterAtLocation(this, DesiredEffect, GetActorLocation() + FVector(0.f, 0.f, 80.f), GetActorRotation());
 	}
-	bShowDefenseEffect = true;
+	ShowDefenseEffect = TeamNum;
 }
 
 void AUTCTFFlagBase::OnDefenseEffectChanged()
 {
-	if (bShowDefenseEffect)
+	if (ShowDefenseEffect > 0)
 	{
 		SpawnDefenseEffect();
 	}

@@ -56,7 +56,7 @@ class UNREALTOURNAMENT_API AUTCTFFlagBase : public AUTGameObjective
 		UParticleSystemComponent* DefensePSC;
 
 	UPROPERTY(ReplicatedUsing = OnDefenseEffectChanged, BlueprintReadOnly, Category = Objective)
-		bool bShowDefenseEffect;
+		uint8 ShowDefenseEffect;
 
 	UFUNCTION()
 		void OnDefenseEffectChanged();
