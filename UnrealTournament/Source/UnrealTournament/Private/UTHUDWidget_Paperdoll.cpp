@@ -177,7 +177,7 @@ void UUTHUDWidget_Paperdoll::Draw_Implementation(float DeltaTime)
 
 	FlagText.Text = FText::GetEmpty();
 	AUTCTFGameState* GameState = UTHUDOwner->GetWorld()->GetGameState<AUTCTFGameState>();
-	bool bShowTimer = !bPlayerCanRally && PS->Team && GameState && ((PS->Team->TeamIndex == 0) == GameState->bRedToCap) && (PS->CarriedObject == nullptr) && UTC && UTC->bCanRally && (PS->RemainingRallyDelay > 0);
+	bool bShowTimer = !bPlayerCanRally && !PS->CarriedObject && PS->Team && GameState && ((PS->Team->TeamIndex == 0) == GameState->bRedToCap) && (PS->CarriedObject == nullptr) && UTC && UTC->bCanRally && (PS->RemainingRallyDelay > 0);
 
 	if (UTHUDOwner->GetQuickInfoHidden() && (bPlayerCanRally || bShowFlagInfo || bShowTimer))
 	{

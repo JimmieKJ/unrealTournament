@@ -337,7 +337,7 @@ void UUTHUDWidget_QuickStats::PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCa
 
 		bool bPlayerCanRally = UTHUDOwner->UTPlayerOwner->CanPerformRally();
 		AUTCTFGameState* GameState = GetWorld()->GetGameState<AUTCTFGameState>();
-		bool bShowTimer = !bPlayerCanRally && UTPlayerState->Team && GameState && ((UTPlayerState->Team->TeamIndex == 0) == GameState->bRedToCap) && (UTPlayerState->CarriedObject == nullptr) && CharOwner && CharOwner->bCanRally && (UTPlayerState->RemainingRallyDelay > 0);
+		bool bShowTimer = !bPlayerCanRally && !UTPlayerState->CarriedObject && UTPlayerState->Team && GameState && ((UTPlayerState->Team->TeamIndex == 0) == GameState->bRedToCap) && (UTPlayerState->CarriedObject == nullptr) && CharOwner && CharOwner->bCanRally && (UTPlayerState->RemainingRallyDelay > 0);
 
 		if (UTPlayerState->CarriedObject != nullptr || bPlayerCanRally || bShowTimer)
 		{
@@ -348,7 +348,7 @@ void UUTHUDWidget_QuickStats::PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCa
 			FlagInfo.Value = 1;
 			bool bWantsPulse = true; 
 
-			if (bPlayerCanRally)
+			if (bPlayerCanRally || bShowTimer)
 			{
 				FlagInfo.IconColor = FLinearColor::Yellow;
 				FlagInfo.Label = UTHUDOwner->RallyLabel;
