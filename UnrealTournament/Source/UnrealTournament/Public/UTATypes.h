@@ -79,7 +79,6 @@ namespace GameVolumeSpeechType
 	const FName GV_ThroneRoom = FName(TEXT("GV_ThroneRoom"));
 	const FName GV_Courtyard = FName(TEXT("GV_Courtyard"));
 	const FName GV_Stables = FName(TEXT("GV_Stables"));
-	const FName GV_DefenderBase = FName(TEXT("GV_DefenderBase"));
 	const FName GV_AntechamberHigh = FName(TEXT("GV_AntechamberHigh"));
 	const FName GV_Tower = FName(TEXT("GV_Tower"));
 	const FName GV_Creek = FName(TEXT("GV_Creek"));

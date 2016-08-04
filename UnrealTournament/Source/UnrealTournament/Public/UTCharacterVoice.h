@@ -22,28 +22,16 @@ struct FGameVolumeSpeech
 	GENERATED_USTRUCT_BODY()
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Voice)
-		FText EnemyFCText;
+		TArray<FCharacterSpeech> EnemyFCSpeech;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Voice)
-		USoundBase* EnemyFCSound;
+		TArray<FCharacterSpeech> FriendlyFCSpeech;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Voice)
-		FText FriendlyFCText;
+		TArray<FCharacterSpeech> SecureSpeech;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Voice)
-		USoundBase* FriendlyFCSound;
-
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Voice)
-		FText SecureText;
-
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Voice)
-		USoundBase* SecureSound;
-
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Voice)
-	FText UndefendedText;
-
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Voice)
-	USoundBase* UndefendedSound;
+		TArray<FCharacterSpeech> UndefendedSpeech;
 };
 
 const int32 ACKNOWLEDGE_SWITCH_INDEX = 3000;
@@ -176,9 +164,6 @@ class UNREALTOURNAMENT_API UUTCharacterVoice : public UUTLocalMessage
 		FGameVolumeSpeech StablesLines;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Voice)
-		FGameVolumeSpeech DefenderBaseLines;
-
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Voice)
 		FGameVolumeSpeech AntechamberHighLines;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Voice)
@@ -243,10 +228,11 @@ class UNREALTOURNAMENT_API UUTCharacterVoice : public UUTLocalMessage
 
 	virtual int32 GetStatusIndex(FName NewStatus) const;
 
-	virtual USoundBase* GetGVLine(const FGameVolumeSpeech& GVLines, int32 Switch) const;
-	virtual FText GetGVText(const FGameVolumeSpeech& GVLines, int32 Switch) const;
+	virtual FCharacterSpeech GetGVLine(const FGameVolumeSpeech& GVLines, int32 Switch) const;
 
 	virtual FText GetText(int32 Switch, bool bTargetsPlayerState1, class APlayerState* RelatedPlayerState_1, class APlayerState* RelatedPlayerState_2, class UObject* OptionalObject) const override;
+
+	virtual FCharacterSpeech UUTCharacterVoice::GetCharacterSpeech(int32 Switch) const;
 
 	virtual FName GetAnnouncementName_Implementation(int32 Switch, const UObject* OptionalObject, const class APlayerState* RelatedPlayerState_1, const class APlayerState* RelatedPlayerState_2) const override;
 	virtual USoundBase* GetAnnouncementSound_Implementation(int32 Switch, const UObject* OptionalObject) const override;
