@@ -10,7 +10,7 @@ UUTShowdownScoreboard::UUTShowdownScoreboard(const class FObjectInitializer& Obj
 	ColumnHeaderScoreX = 0.65f;
 	ColumnHeaderKillsX = 0.75f;
 	ColumnHeaderDeathsX = 0.85f;
-	CenterBuffer = 440.f;
+	CellWidth = 510.f;
 }
 
 void UUTShowdownScoreboard::DrawPlayer(int32 Index, AUTPlayerState* PlayerState, float RenderDelta, float XOffset, float YOffset)

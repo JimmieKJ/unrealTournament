@@ -73,9 +73,13 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Scoreboard")
 	float CellHeight;
 
-	// How much space in between each column
+	// Width of each cell
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Scoreboard")
-	float CenterBuffer;
+	float CellWidth;
+
+	// width of outside edge
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Scoreboard")
+		float EdgeWidth;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Scoreboard")
 	float ColumnMedalX;

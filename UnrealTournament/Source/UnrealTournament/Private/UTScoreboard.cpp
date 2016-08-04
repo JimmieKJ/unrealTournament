@@ -28,7 +28,8 @@ UUTScoreboard::UUTScoreboard(const class FObjectInitializer& ObjectInitializer) 
 	ColumnY = 12.f;
 	ColumnMedalX = 0.55f;
 	CellHeight = 32.f;
-	CenterBuffer = 420.f;
+	CellWidth = 530.f;
+	EdgeWidth = 420.f;
 	FlagX = 0.01f;
 	MinimapCenter = FVector2D(0.75f, 0.5f);
 
@@ -144,8 +145,8 @@ void UUTScoreboard::PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCanvas* InCa
 		RenderSize.X = (bMaintainAspectRatio ? RenderSize.Y * AspectScale : RenderSize.X * RenderScale);
 	}
 	ColumnY = 12.f *RenderScale;
-	ScaledEdgeSize = 10.f*RenderScale;
-	ScaledCellWidth = RenderScale * ((Size.X * 0.5f) - CenterBuffer);
+	ScaledEdgeSize = EdgeWidth*RenderScale;
+	ScaledCellWidth = RenderScale * CellWidth;
 	FooterPosY = 1032.f * RenderScale;
 }
 

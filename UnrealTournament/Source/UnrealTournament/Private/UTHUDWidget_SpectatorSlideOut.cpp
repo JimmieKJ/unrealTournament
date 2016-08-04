@@ -29,7 +29,6 @@ UUTHUDWidget_SpectatorSlideOut::UUTHUDWidget_SpectatorSlideOut(const class FObje
 
 	CellHeight = 32;
 	SlideIn = 0.f;
-	CenterBuffer = 10.f;
 	SlideSpeed = 6.f;
 	ActionHighlightTime = 1.1f;
 

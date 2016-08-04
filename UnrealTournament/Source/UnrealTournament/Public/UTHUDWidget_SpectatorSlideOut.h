@@ -55,10 +55,6 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SlideOut")
 		float CellHeight;
 
-	// How much space in between each column
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SlideOut")
-		float CenterBuffer;
-
 	UPROPERTY()
 		UFont* SlideOutFont;
 
