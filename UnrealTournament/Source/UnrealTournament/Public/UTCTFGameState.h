@@ -181,10 +181,7 @@ class UNREALTOURNAMENT_API AUTCTFGameState: public AUTGameState
 		bool bAllowRallies;
 
 	UPROPERTY(Replicated)
-		bool bRedCanRally;
-
-	UPROPERTY(Replicated)
-		bool bBlueCanRally;
+		bool bAttackersCanRally;
 
 	UPROPERTY()
 		float LastOffenseRallyTime;

@@ -285,7 +285,7 @@ void AUTFlagRunGame::HandleRallyRequest(AUTPlayerController* RequestingPC)
 	// if can rally, teleport with transloc effect, set last rally time
 	AUTCTFGameState* GS = GetWorld()->GetGameState<AUTCTFGameState>();
 	AUTTeamInfo* Team = UTPlayerState ? UTPlayerState->Team : nullptr;
-	if (Team && UTPlayerState->bCanRally && UTCharacter && GS && IsMatchInProgress() && !GS->IsMatchIntermission() && ((Team->TeamIndex == 0) ? GS->bRedCanRally : GS->bBlueCanRally) && GS->FlagBases.IsValidIndex(Team->TeamIndex) && GS->FlagBases[Team->TeamIndex] != nullptr)
+	if (Team && UTPlayerState->bCanRally &&GS->bAttackersCanRally && UTCharacter && GS && IsMatchInProgress() && !GS->IsMatchIntermission() && ((Team->TeamIndex == 0) == GS->bRedToCap) && GS->FlagBases.IsValidIndex(Team->TeamIndex) && GS->FlagBases[Team->TeamIndex] != nullptr)
 	{
 		if (UTCharacter->GetCarriedObject())
 		{
@@ -304,7 +304,7 @@ void AUTFlagRunGame::HandleRallyRequest(AUTPlayerController* RequestingPC)
 				RallyRequestTime = GetWorld()->GetTimeSeconds();
 			}
 		}
-		else if ((Team->TeamIndex == 0) == GS->bRedToCap)
+		else
 		{
 			// rally to flag carrier
 			AUTCTFFlag* Flag = Cast<AUTCTFFlag>(GS->FlagBases[GS->bRedToCap ? 0 : 1]->GetCarriedObject());
@@ -492,7 +492,7 @@ void AUTFlagRunGame::CompleteRallyRequest(AUTPlayerController* RequestingPC)
 void AUTFlagRunGame::WarnEnemyRally()
 {
 	AUTCTFGameState* GS = GetWorld()->GetGameState<AUTCTFGameState>();
-	if (bRedToCap ? GS->bRedCanRally : GS->bBlueCanRally)
+	if (GS->bAttackersCanRally)
 	{
 		LastEnemyRallyWarning = GetWorld()->GetTimeSeconds();
 		for (FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator)

@@ -984,7 +984,7 @@ void AUTCTFRoundGame::RestartPlayer(AController* aPlayer)
 	if (PS->Team && IsTeamOnOffense(PS->Team->TeamIndex))
 	{
 		LastAttackerSpawnTime = GetWorld()->GetTimeSeconds();
-		if ((CTFGameState->GetRemainingTime() < 240) && !(bRedToCap ? CTFGameState->bRedCanRally : CTFGameState->bBlueCanRally) && PS->bCanRally)
+		if ((CTFGameState->GetRemainingTime() < 240) && !CTFGameState->bAttackersCanRally && PS->bCanRally)
 		{
 			int32 AttackerTeamIndex = bRedToCap ? 0 : 1;
 			AUTCTFFlagBase* AttackerBase = CTFGameState->FlagBases.IsValidIndex(AttackerTeamIndex) ? CTFGameState->FlagBases[AttackerTeamIndex] : nullptr;

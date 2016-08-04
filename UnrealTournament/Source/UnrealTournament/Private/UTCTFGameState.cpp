@@ -114,8 +114,7 @@ void AUTCTFGameState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & O
 	DOREPLIFETIME(AUTCTFGameState, bAttackerLivesLimited);
 	DOREPLIFETIME(AUTCTFGameState, bDefenderLivesLimited);
 	DOREPLIFETIME(AUTCTFGameState, NumRounds);
-	DOREPLIFETIME(AUTCTFGameState, bRedCanRally);
-	DOREPLIFETIME(AUTCTFGameState, bBlueCanRally);
+	DOREPLIFETIME(AUTCTFGameState, bAttackersCanRally);
 }
 
 void AUTCTFGameState::Tick(float DeltaTime)
@@ -124,15 +123,13 @@ void AUTCTFGameState::Tick(float DeltaTime)
 	if (bAllowRallies && (Role == ROLE_Authority))
 	{
 		uint8 OffensiveTeam = bRedToCap ? 0 : 1;
-		bRedCanRally = bRedToCap;
-		bBlueCanRally = !bRedToCap;
 		if (FlagBases.IsValidIndex(OffensiveTeam) && FlagBases[OffensiveTeam] != nullptr)
 		{
 			AUTCTFFlag* Flag = Cast<AUTCTFFlag>(FlagBases[OffensiveTeam]->GetCarriedObject());
 			AUTGameVolume* GV = Flag && Flag->HoldingPawn && Flag->HoldingPawn->UTCharacterMovement ? Cast<AUTGameVolume>(Flag->HoldingPawn->UTCharacterMovement->GetPhysicsVolume()) : nullptr;
 			bool bInFlagRoom = GV && GV->bIsNoRallyZone;
-			bool bOffenseCanRally = (!bInFlagRoom && Flag && Flag->Holder && Flag->HoldingPawn && (GetWorld()->GetTimeSeconds() - Flag->PickedUpTime > 3.f) && (GetWorld()->GetTimeSeconds() - FMath::Max(Flag->HoldingPawn->LastTargetingTime, Flag->HoldingPawn->LastTargetedTime) > 3.f));
-			if (bOffenseCanRally)
+			bAttackersCanRally = (!bInFlagRoom && Flag && Flag->Holder && Flag->HoldingPawn && (GetWorld()->GetTimeSeconds() - Flag->PickedUpTime > 3.f) && (GetWorld()->GetTimeSeconds() - FMath::Max(Flag->HoldingPawn->LastTargetingTime, Flag->HoldingPawn->LastTargetedTime) > 3.f));
+			if (bAttackersCanRally)
 			{
 				if ((GetWorld()->GetTimeSeconds() - LastRallyCompleteTime > 20.f) && (GetWorld()->GetTimeSeconds() - FMath::Max(Flag->PickedUpTime, LastNoRallyTime) > 12.f) && Cast<AUTPlayerController>(Flag->HoldingPawn->GetController()))
 				{
@@ -165,14 +162,6 @@ void AUTCTFGameState::Tick(float DeltaTime)
 			else
 			{
 				LastNoRallyTime = GetWorld()->GetTimeSeconds();
-				if (bRedToCap)
-				{
-					bRedCanRally = false;
-				}
-				else
-				{
-					bBlueCanRally = false;
-				}
 			}
 		}
 	}
