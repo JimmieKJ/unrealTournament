@@ -920,7 +920,7 @@ void UUTCharacterMovement::HandlePressedSlide()
 	bPressedSlide = true;
 	if (IsMovingOnGround())
 	{
-		if (GetCurrentMovementTime() > DodgeResetTime)
+		if (GetCurrentMovementTime() > FloorSlideEndTime + DodgeResetInterval)
 		{
 			CharacterOwner->bPressedJump = true;
 		}
