@@ -915,23 +915,28 @@ bool UUTCharacterMovement::PerformDodge(FVector &DodgeDir, FVector &DodgeCross)
 	return true;
 }
 
+void UUTCharacterMovement::HandlePressedSlide()
+{
+	bPressedSlide = true;
+	if (IsMovingOnGround())
+	{
+		if (GetCurrentMovementTime() > DodgeResetTime)
+		{
+			CharacterOwner->bPressedJump = true;
+		}
+		else
+		{
+			bPressedSlide = false;
+		}
+	}
+}
+
 void UUTCharacterMovement::HandleSlideRequest()
 {
 	AUTCharacter* UTCharacterOwner = Cast<AUTCharacter>(CharacterOwner);
 	if (!Acceleration.IsNearlyZero() && (Velocity.Size() > 0.5f * MaxWalkSpeed) && UTCharacterOwner && UTCharacterOwner->CanSlide())
 	{
-		bPressedSlide = true;
-		if (IsMovingOnGround())
-		{
-			if (GetCurrentMovementTime() > DodgeResetTime)
-			{
-				CharacterOwner->bPressedJump = true;
-			}
-			else
-			{
-				bPressedSlide = false;
-			}
-		}
+		HandlePressedSlide();
 	}
 }
 
@@ -944,18 +949,7 @@ void UUTCharacterMovement::HandleCrouchRequest()
 		AUTPlayerController* PC = Cast<AUTPlayerController>(UTCharacterOwner->GetController());
 		if (PC && PC->bCrouchTriggersSlide)
 		{
-			bPressedSlide = true;
-			if (IsMovingOnGround())
-			{
-				if (GetCurrentMovementTime() > DodgeResetTime)
-				{
-					CharacterOwner->bPressedJump = true;
-				}
-				else
-				{
-					bPressedSlide = false;
-				}
-			}
+			HandlePressedSlide();
 		}
 	}
 	bWantsToCrouch = true;

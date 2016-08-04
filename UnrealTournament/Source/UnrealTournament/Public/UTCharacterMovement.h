@@ -447,6 +447,7 @@ public:
 		virtual bool WantsWallSlide();
 
 	virtual void HandleSlideRequest();
+	virtual void HandlePressedSlide();
 
 	virtual void HandleCrouchRequest();
 
