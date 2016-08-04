@@ -4677,6 +4677,7 @@ void AUTCharacter::PossessedBy(AController* NewController)
 			}
 		}
 	}
+	OldPlayerState = Cast<AUTPlayerState>(PlayerState);
 }
 
 void AUTCharacter::UnPossessed()
@@ -4720,6 +4721,7 @@ void AUTCharacter::OnRep_PlayerState()
 	if (PlayerState != NULL)
 	{
 		NotifyTeamChanged();
+		OldPlayerState = Cast<AUTPlayerState>(PlayerState);
 	}
 
 	SetCosmeticsFromPlayerState();

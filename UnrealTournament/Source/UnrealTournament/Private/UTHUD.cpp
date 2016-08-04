@@ -1412,7 +1412,8 @@ void AUTHUD::DrawMinimapSpectatorIcons()
 				if (UTChar->bTearOff)
 				{
 					// Draw skull at location
-					DrawMinimapIcon(HUDAtlas, Pos, FVector2D(20.f, 20.f) * RenderScale, FVector2D(725.f, 0.f), FVector2D(28.f, 36.f), FLinearColor::White, true);
+					FLinearColor SkullColor = (UTChar->OldPlayerState && UTChar->OldPlayerState->Team) ? UTChar->OldPlayerState->Team->TeamColor : FLinearColor::White;
+					DrawMinimapIcon(HUDAtlas, Pos, FVector2D(20.f, 20.f) * RenderScale, FVector2D(725.f, 0.f), FVector2D(28.f, 36.f), SkullColor, true);
 				}
 				else
 				{

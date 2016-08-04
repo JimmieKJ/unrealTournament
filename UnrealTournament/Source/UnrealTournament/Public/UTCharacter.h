@@ -980,6 +980,10 @@ public:
 	UPROPERTY()
 	class AUTPlayerController* FlakShredInstigator;
 
+	/** Playerstate this pawn had when last possessed. */
+	UPROPERTY(BlueprintReadOnly, Category = Pawn)
+		AUTPlayerState* OldPlayerState;
+
 	/** Reward announcement for close up flak kill. */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Announcement)
 		TSubclassOf<class UUTRewardMessage> CloseFlakRewardMessageClass;
