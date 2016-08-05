@@ -525,7 +525,7 @@ void AUTPickupInventory::AnnouncePickup(AUTCharacter* P)
 		AUTPlayerState* PS = Cast<AUTPlayerState>(P->PlayerState);
 		if (PS)
 		{
-			PS->AnnounceStatus(InventoryType.GetDefaultObject()->PickupAnnouncementName, 1);
+			PS->AnnounceStatus(InventoryType.GetDefaultObject()->PickupAnnouncementName, 1, true);
 		}
 	}
 }

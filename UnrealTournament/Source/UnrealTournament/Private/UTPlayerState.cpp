@@ -308,7 +308,7 @@ void AUTPlayerState::AnnounceReactionTo(const AUTPlayerState* ReactionPS) const
 	}
 }
 
-void AUTPlayerState::AnnounceStatus(FName NewStatus, int32 SwitchOffset)
+void AUTPlayerState::AnnounceStatus(FName NewStatus, int32 SwitchOffset, bool bSkipSelf)
 {
 	GetCharacterVoiceClass();
 	if (CharacterVoice != NULL)
@@ -331,7 +331,7 @@ void AUTPlayerState::AnnounceStatus(FName NewStatus, int32 SwitchOffset)
 		for (FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator)
 		{
 			AUTPlayerController* PC = Cast<AUTPlayerController>(*Iterator);
-			if (PC && GS->OnSameTeam(this, PC))
+			if (PC && GS->OnSameTeam(this, PC) && (!bSkipSelf || (PC->PlayerState != this)))
 			{
 				PC->ClientReceiveLocalizedMessage(CharacterVoice, Switch, this, PC->PlayerState, NULL);
 			}

@@ -213,7 +213,7 @@ public:
 
 	virtual void AnnounceReactionTo(const AUTPlayerState* ReactionPS) const;
 
-	virtual void AnnounceStatus(FName NewStatus, int32 Switch=0);
+	virtual void AnnounceStatus(FName NewStatus, int32 Switch=0, bool bSkipSelf=false);
 
 	virtual bool IsOwnedByReplayController() const;
 
