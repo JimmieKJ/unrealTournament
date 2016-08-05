@@ -118,6 +118,9 @@ class UNREALTOURNAMENT_API AUTGameState : public AGameState
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = GameState)
 		FText PreGameStatus;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = GameState)
+		FText NeedPlayersStatus;
+
 	/** amount of time between kills to qualify as a multikill */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = GameState)
 	float MultiKillDelay;

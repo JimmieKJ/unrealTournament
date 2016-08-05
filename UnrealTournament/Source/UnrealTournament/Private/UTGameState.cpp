@@ -266,6 +266,7 @@ AUTGameState::AUTGameState(const class FObjectInitializer& ObjectInitializer)
 	GameOverStatus = NSLOCTEXT("UTGameState", "PostGame", "Game Over");
 	MapVoteStatus = NSLOCTEXT("UTGameState", "Mapvote", "Map Vote");
 	PreGameStatus = NSLOCTEXT("UTGameState", "PreGame", "Pre-Game");
+	NeedPlayersStatus = NSLOCTEXT("UTGameState", "NeedPlayers", "Need {NumNeeded} More");
 
 	bWeightedCharacter = false;
 
@@ -1122,6 +1123,12 @@ FText AUTGameState::GetGameStatusText(bool bForScoreboard)
 		else if (GetMatchState() == MatchState::MapVoteHappening)
 		{
 			return MapVoteStatus;
+		}
+		else if (PlayersNeeded > 0)
+		{
+			FFormatNamedArguments Args;
+			Args.Add("NumNeeded", FText::AsNumber(PlayersNeeded));
+			return FText::Format(NeedPlayersStatus, Args);
 		}
 		else
 		{
