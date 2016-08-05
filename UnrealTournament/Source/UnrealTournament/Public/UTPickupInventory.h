@@ -49,6 +49,14 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = PickupDisplay)
 		bool bHasEverSpawned;
 
+	/** If pickup wants spoken spawn notification, whether to play for offense (this is for speech, not announcer) */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = PickupDisplay)
+		bool bNotifySpawnForOffense;
+
+	/** If pickup wants spoken spawn notification, whether to play for defense (this is for speech, not announcer) */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = PickupDisplay)
+		bool bNotifySpawnForDefense;
+
 	/** whether the pickup mesh is allowed to rotate (requires blueprint to have RotatingMovementComponent) */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = PickupDisplay)
 	bool bAllowRotatingPickup;

@@ -5,6 +5,7 @@
 #include "UnrealNetwork.h"
 #include "UTPickupMessage.h"
 #include "UTWorldSettings.h"
+#include "UTCTFGameState.h"
 
 AUTPickupInventory::AUTPickupInventory(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -13,6 +14,8 @@ AUTPickupInventory::AUTPickupInventory(const FObjectInitializer& ObjectInitializ
 	bAllowRotatingPickup = true;
 	bHasTacComView = true;
 	bHasEverSpawned = false;
+	bNotifySpawnForOffense = true;
+	bNotifySpawnForDefense = true;
 }
 
 void AUTPickupInventory::BeginPlay()
@@ -362,6 +365,18 @@ void AUTPickupInventory::PlaySpawnVoiceLine()
 	AUTPlayerState* Speaker = nullptr;
 	bool bHasPlayedForRed = false;
 	bool bHasPlayedForBlue = false;
+
+	// maybe don't announce for one team
+	AUTCTFGameState* CTFGameState = GetWorld()->GetGameState<AUTCTFGameState>();
+	if (CTFGameState)
+	{
+		bHasPlayedForRed = CTFGameState->bRedToCap ? !bNotifySpawnForOffense : !bNotifySpawnForDefense;
+		bHasPlayedForBlue = CTFGameState->bRedToCap ? !bNotifySpawnForDefense : !bNotifySpawnForOffense;
+		if (bHasPlayedForRed && bHasPlayedForBlue)
+		{
+			return;
+		}
+	}
 	for (FConstControllerIterator Iterator = GetWorld()->GetControllerIterator(); Iterator; ++Iterator)
 	{
 		AUTPlayerState* UTPS = Cast<AUTPlayerState>((*Iterator)->PlayerState);
