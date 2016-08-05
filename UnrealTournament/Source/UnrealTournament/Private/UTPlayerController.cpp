@@ -45,6 +45,7 @@
 #include "UTWeaponAttachment.h"
 #include "UTGameViewportClient.h"
 #include "UTHeartbeatManager.h"
+#include "QoSInterface.h"
 
 static TAutoConsoleVariable<float> CVarUTKillcamStartDelay(
 	TEXT("UT.KillcamStartDelay"),
@@ -3575,6 +3576,11 @@ void AUTPlayerController::ReceivedPlayer()
 			}
 		}
 		
+		if (FUTAnalytics::IsAvailable())
+		{
+			FQosInterface::Get()->BeginQosEvaluation(GetWorld(), FUTAnalytics::GetProviderPtr(), nullptr);
+		}
+
 		// Send over the country flag....
 		UUTProfileSettings* Settings = LP->GetProfileSettings();
 		if (Settings != NULL)

@@ -51,7 +51,7 @@ void FUTAnalytics::Initialize()
 			{
 				ConfigMap.Add(TEXT("ProviderModuleName"), TEXT("AnalyticsET"));
 				ConfigMap.Add(TEXT("APIServerET"), TEXT("https://datarouter.ol.epicgames.com/"));
-				ConfigMap.Add(TEXT("APIKeyET"), TEXT("UnrealTournament.Release"));
+				ConfigMap.Add(TEXT("APIKeyET"), FString::Printf(TEXT("UnrealTournament.%s"), FAnalytics::ToString(FAnalytics::Get().GetBuildType())));
 			}
 
 			FString* ConfigValue = ConfigMap.Find(KeyName);
