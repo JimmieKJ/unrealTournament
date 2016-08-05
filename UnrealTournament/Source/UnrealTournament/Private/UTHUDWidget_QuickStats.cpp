@@ -458,7 +458,7 @@ void UUTHUDWidget_QuickStats::Draw_Implementation(float DeltaTime)
 
 	if (PowerupInfo.Value > 0)
 	{
-		DrawStat(bFollowRotation ? CalcRotOffset(Layouts[CurrentLayoutIndex].PowerupOffset, DrawAngle) : Layouts[CurrentLayoutIndex].AmmoOffset, PowerupInfo, PowerupIcon);
+		DrawStat(bFollowRotation ? CalcRotOffset(Layouts[CurrentLayoutIndex].PowerupOffset, DrawAngle) : Layouts[CurrentLayoutIndex].PowerupOffset, PowerupInfo, PowerupIcon);
 	}
 
 	if (BoostProvidedPowerupInfo.Value > 0)
