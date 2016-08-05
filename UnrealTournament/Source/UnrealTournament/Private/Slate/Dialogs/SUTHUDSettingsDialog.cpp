@@ -40,7 +40,6 @@ const FName NAME_bDrawChatKillMsg						= FName(TEXT("bDrawChatKillMsg"));
 const FName NAME_bDrawCenteredKillMsg					= FName(TEXT("bDrawCenteredKillMsg"));
 const FName NAME_bDrawHUDKillIconMsg					= FName(TEXT("bDrawHUDKillIconMsg"));
 const FName NAME_bPlayKillSoundMsg						= FName(TEXT("bPlayKillSoundMsg"));
-const FName NAME_HUDMinimapScale						= FName(TEXT("HUDMinimapScale"));
 
 void SUTHUDSettingsDialog::Construct(const FArguments& InArgs)
 {
@@ -422,14 +421,6 @@ TSharedRef<SWidget> SUTHUDSettingsDialog::BuildGeneralTab()
 			SNew(SBox).HeightOverride(48)
 		]
 
-		+ AddIntOption(NAME_HUDMinimapScale, NSLOCTEXT("HUDSETTINGS", "Minimap", "Mini-map Scale"), NSLOCTEXT("SUTHUDSettingsDialog", "MinimapScaleTT", "Change the size of the mini-map"), NSLOCTEXT("SUTHUDSettingsDialog", "Percent", "%"), int32(ProfileSettings->HUDMinimapScale * 100.0f), 25, 200)
-
-		// Spacer....
-		+SVerticalBox::Slot().AutoHeight()
-		[
-			SNew(SBox).HeightOverride(48)
-		]
-
 		+AddBoolOption(NAME_bQuickStatsHidden, NSLOCTEXT("SUTHUDSettingsDialog", "bQuickStatsHidden", "Show Health/Armor/Ammo on MiniHUD"), NSLOCTEXT("SUTHUDSettingsDialog", "bQuickStatsHiddenTT", "Check this box if you wish to show your health, ammo and armor on the mini-HUD."), !ProfileSettings->bQuickStatsHidden)
 		+AddBoolOption(NAME_bQuickInfoHidden, NSLOCTEXT("SUTHUDSettingsDialog", "bQuickInfoHidden", "Show Powerups/Flag on MiniHUD"), NSLOCTEXT("SUTHUDSettingsDialog", "bQuickInfoHiddenTT", "Check this box if you wish to show power up and flags on the mini-HUD."), !ProfileSettings->bQuickInfoHidden)
 		+AddBoolOption(NAME_bHideDamageIndicators, NSLOCTEXT("SUTHUDSettingsDialog", "bHideDamageIndicators", "Show Damage Dealt Indicator"), NSLOCTEXT("SUTHUDSettingsDialog", "bHideDamageIndicatorsTT", "Enable this to show the damage delt indicators that appear around the crosshair."), !ProfileSettings->bHideDamageIndicators);
@@ -657,7 +648,6 @@ void SUTHUDSettingsDialog::ApplySettings()
 		ProfileSettings->bDrawCenteredKillMsg = SettingsInfos[NAME_bDrawCenteredKillMsg]->GetActualValue_bool();
 		ProfileSettings->bDrawHUDKillIconMsg = SettingsInfos[NAME_bDrawHUDKillIconMsg]->GetActualValue_bool();
 		ProfileSettings->bPlayKillSoundMsg = SettingsInfos[NAME_bPlayKillSoundMsg]->GetActualValue_bool();
-		ProfileSettings->HUDMinimapScale = float(SettingsInfos[NAME_HUDMinimapScale]->GetActualValue_int32()) / 100.0f;
 
 		ProfileSettings->QuickStatsAngle = SettingsInfos[NAME_QuickStatsAngle]->GetActualValue_float();
 		ProfileSettings->QuickStatsDistance = SettingsInfos[NAME_QuickStatsDistance]->GetActualValue_float();

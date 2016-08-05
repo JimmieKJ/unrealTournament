@@ -642,7 +642,7 @@ void AUTHUD::DrawHUD()
 				if (ShouldDrawMinimap())
 				{
 					bool bSpectatingMinimap = UTPlayerOwner->UTPlayerState && (UTPlayerOwner->UTPlayerState->bOnlySpectator || UTPlayerOwner->UTPlayerState->bOutOfLives);
-					float MapScale = (bSpectatingMinimap ? 0.75f : 0.25f) * GetHUDMinimapScale();
+					float MapScale = bSpectatingMinimap ? 0.75f : 0.25f;
 					const float MapSize = float(Canvas->SizeY) * MapScale;
 					uint8 MapAlpha = bSpectatingMinimap ? 210 : 100;
 					const float YOffsetToMaintainPosition = MapSize * MinimapOffset.Y * -.5f;
@@ -1345,7 +1345,7 @@ bool AUTHUD::ShouldInvertMinimap()
 
 void AUTHUD::DrawMinimapSpectatorIcons()
 {
-	const float RenderScale = (float(Canvas->SizeY) / 1080.0f) * GetHUDMinimapScale();
+	const float RenderScale = float(Canvas->SizeY) / 1080.0f;
 
 	// draw pickup icons
 	AUTPickup* NamedPickup = NULL;
@@ -1454,7 +1454,7 @@ void AUTHUD::DrawMinimapSpectatorIcons()
 
 void AUTHUD::DrawMinimapIcon(UTexture2D* Texture, FVector2D Pos, FVector2D DrawSize, FVector2D UV, FVector2D UVL, FLinearColor DrawColor, bool bDropShadow)
 {
-	const float RenderScale = (float(Canvas->SizeY) / 1080.0f) * GetHUDMinimapScale();
+	const float RenderScale = float(Canvas->SizeY) / 1080.0f;
 	float Height = DrawSize.X * RenderScale;
 	float Width = DrawSize.Y * RenderScale;
 	FVector2D RenderPos = FVector2D(Pos.X - (Width * 0.5f), Pos.Y - (Height * 0.5f));
@@ -1568,11 +1568,6 @@ bool AUTHUD::GetDrawHUDKillIconMsg()
 bool AUTHUD::GetPlayKillSoundMsg()
 {
 	return VerifyProfileSettings() ? CachedProfileSettings->bPlayKillSoundMsg : true;
-}
-
-float AUTHUD::GetHUDMinimapScale()
-{
-	return VerifyProfileSettings() ? CachedProfileSettings->HUDMinimapScale : 1.0f;
 }
 
 float AUTHUD::GetQuickStatsAngle()

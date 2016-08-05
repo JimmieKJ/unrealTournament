@@ -209,7 +209,6 @@ void UUTProfileSettings::ResetHUD()
 	bDrawCenteredKillMsg = true;
 	bDrawHUDKillIconMsg = true;
 	bPlayKillSoundMsg = true;
-	HUDMinimapScale = 1.0f;
 	bPushToTalk = true;
 	bVerticalWeaponBar = true;
 }

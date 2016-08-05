@@ -373,9 +373,6 @@ public:
 
 	UFUNCTION(BlueprintCallable, Category=HUD)
 	bool GetPlayKillSoundMsg();
-	
-	UFUNCTION(BlueprintCallable, Category = HUD)
-	float GetHUDMinimapScale();
 
 	UFUNCTION(BlueprintCallable, Category=HUD)
 	float GetQuickStatsAngle();
