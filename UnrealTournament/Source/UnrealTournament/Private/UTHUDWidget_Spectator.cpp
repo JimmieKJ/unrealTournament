@@ -179,7 +179,7 @@ FText UUTHUDWidget_Spectator::GetSpectatorMessageText(FText& ShortMessage)
 					SpectatorMessage = NSLOCTEXT("UUTHUDWidget_Spectator", "Warmup", "Warm Up");
 				}
 			}
-			else if (UTPS && UTPS->bReadyToPlay)
+			else if (UTPS && UTPS->bReadyToPlay && (UTPS->GetNetMode() != NM_Standalone))
 			{
 				SpectatorMessage = NSLOCTEXT("UUTHUDWidget_Spectator", "IsReadyTeam", "You are ready, press [ENTER] to warm up.");
 			}
