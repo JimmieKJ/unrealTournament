@@ -50,6 +50,7 @@ FText UUTCTFGameMessage::GetText(int32 Switch, bool bTargetsPlayerState1, APlaye
 		case 12: return OvertimeMessage; break;
 		case 13: return NoReturnMessage; break;
 		case 20: return LastLifeMessage; break;
+		case 255 : return FText::FromString("Test");
 	}
 	return FText::GetEmpty();
 }
@@ -171,3 +172,18 @@ FName UUTCTFGameMessage::GetAnnouncementName_Implementation(int32 Switch, const 
 	return GetTeamAnnouncement(Switch, TeamNum, OptionalObject, RelatedPlayerState_1, RelatedPlayerState_2);
 }
 
+FString UUTCTFGameMessage::GetAnnouncementUMGClassname(int32 Switch, const UObject* OptionalObject) const
+{
+	if (Switch == 255)
+	{
+		return TEXT("/Game/RestrictedAssets/UI/UMGHudMessages/VictoryScreenWidget.VictoryScreenWidget");
+	}
+
+	return TEXT("");
+}
+
+float UUTCTFGameMessage::GetLifeTime(int32 Switch) const
+{
+	if (Switch == 255) return 20.0f;
+	return Super::GetLifeTime(Switch);
+}

@@ -4189,7 +4189,7 @@ void AUTPlayerController::ClientPumpkinPickedUp_Implementation(float GainedAmoun
 
 void AUTPlayerController::DebugTest(FString TestCommand)
 {
-	Super::DebugTest(TestCommand);
+	ClientReceiveLocalizedMessage( UUTCTFGameMessage::StaticClass(), 255, PlayerState, nullptr, nullptr);
 }
 
 void AUTPlayerController::ServerDebugTest_Implementation(const FString& TestCommand)
