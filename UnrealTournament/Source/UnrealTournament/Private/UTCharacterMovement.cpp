@@ -63,7 +63,7 @@ UUTCharacterMovement::UUTCharacterMovement(const class FObjectInitializer& Objec
 	BrakingDecelerationFalling = 0.f;
 	BrakingDecelerationSwimming = 300.f;
 	BrakingDecelerationSliding = 300.f;
-	GroundFriction = 11.f;
+	GroundFriction = 10.5f;
 	BrakingFriction = 5.f;
 	GravityScale = 1.f;
 	MaxStepHeight = 51.0f;
@@ -664,6 +664,15 @@ void UUTCharacterMovement::AddDampedImpulse(FVector Impulse, bool bSelfInflicted
 			float PctAboveDodge = FMath::Max(0.f, 1.f - PctBelowDodge);
 			PctBelowDodge = FMath::Max(0.f, PctBelowDodge - PctBelowRun);
 			FinalImpulse *= (PctBelowRun + PctBelowDodge + FMath::Max(0.5f, 1.f - PctAboveDodge)*PctAboveDodge);
+
+			FVector FinalVelocityXY = PendingVelocity + FinalImpulse;
+			FinalVelocityXY.Z = 0.f;
+			float FinalXYSpeed = FinalVelocityXY.Size();
+			if (FinalXYSpeed > DodgeMaxHorizontalVelocity)
+			{
+				FVector DesiredVelocity = FinalVelocityXY.SafeNormal() * DodgeMaxHorizontalVelocity;
+				FinalImpulse = DesiredVelocity - PendingVelocity;
+			}
 		}
 		FinalImpulse.Z = FinalImpulseZ;
 
