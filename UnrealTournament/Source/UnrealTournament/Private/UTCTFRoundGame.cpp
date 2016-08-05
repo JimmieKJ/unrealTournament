@@ -992,8 +992,8 @@ void AUTCTFRoundGame::RestartPlayer(AController* aPlayer)
 			if (AttackerBase)
 			{
 				AUTCTFFlag* Flag = Cast<AUTCTFFlag>(AttackerBase->GetCarriedObject());
-				AUTGameVolume* GV = Flag && Flag->HoldingPawn && Flag->HoldingPawn->UTCharacterMovement ? Cast<AUTGameVolume>(Flag->HoldingPawn->UTCharacterMovement->GetPhysicsVolume()) : nullptr;
-				if (GV && !GV->bIsNoRallyZone && Flag && Flag->Holder && (GetWorld()->GetTimeSeconds() - Flag->PickedUpTime > 3.f))
+				AUTGameVolume* GV = Flag && Flag->HoldingPawn ? Flag->HoldingPawn->LastGameVolume : nullptr;
+				if (GV && !GV->bIsNoRallyZone && !GV->bIsTeamSafeVolume && (GetWorld()->GetTimeSeconds() - Flag->PickedUpTime > 3.f))
 				{
 					PS->AnnounceStatus(StatusMessage::NeedRally);
 				}
