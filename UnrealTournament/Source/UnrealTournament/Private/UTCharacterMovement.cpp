@@ -53,9 +53,9 @@ UUTCharacterMovement::UUTCharacterMovement(const class FObjectInitializer& Objec
 	DodgeAirControl = 0.41f;
 	bAllowSlopeDodgeBoost = true;
 	SetWalkableFloorZ(0.695f); 
-	MaxAcceleration = 4200.f; 
-	MaxFallingAcceleration = 4200.f;
-	MaxSwimmingAcceleration = 4200.f;
+	MaxAcceleration = 4000.f; 
+	MaxFallingAcceleration = 4000.f;
+	MaxSwimmingAcceleration = 4000.f;
 	MaxRelativeSwimmingAccelNumerator = 0.f;
 	MaxRelativeSwimmingAccelDenominator = 1000.f;
 	BrakingDecelerationWalking = 520.f;
@@ -74,7 +74,7 @@ UUTCharacterMovement::UUTCharacterMovement(const class FObjectInitializer& Objec
 	bHasPlayedWallHitSound = false;
 
 	FastInitialAcceleration = 12000.f;
-	MaxFastAccelSpeed = 250.f;
+	MaxFastAccelSpeed = 220.f;
 
 	FloorSlideAcceleration = 400.f;
 	MaxFloorSlideSpeed = 900.f;
@@ -670,7 +670,7 @@ void UUTCharacterMovement::AddDampedImpulse(FVector Impulse, bool bSelfInflicted
 			float FinalXYSpeed = FinalVelocityXY.Size();
 			if (FinalXYSpeed > DodgeMaxHorizontalVelocity)
 			{
-				FVector DesiredVelocity = FinalVelocityXY.SafeNormal() * DodgeMaxHorizontalVelocity;
+				FVector DesiredVelocity = FinalVelocityXY.GetSafeNormal() * DodgeMaxHorizontalVelocity;
 				FinalImpulse = DesiredVelocity - PendingVelocity;
 			}
 		}
@@ -2234,7 +2234,7 @@ void UUTCharacterMovement::FindValidLandingSpot(const FVector& CapsuleLocation)
 		}
 		if (bAlterVelocity)
 		{
-			Velocity = HorizontalDir.SafeNormal() * Velocity.Size();
+			Velocity = HorizontalDir.GetSafeNormal() * Velocity.Size();
 		}
 		Velocity.Z = LandingAssistBoost; 
 	}
