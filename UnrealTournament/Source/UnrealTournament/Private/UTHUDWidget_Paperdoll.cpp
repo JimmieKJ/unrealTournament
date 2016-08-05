@@ -83,7 +83,11 @@ void UUTHUDWidget_Paperdoll::Draw_Implementation(float DeltaTime)
 	AUTPlayerState* PS = UTC ? Cast<AUTPlayerState>(UTC->PlayerState) : NULL;
 	UUTHUDWidget_Paperdoll* DefObj = GetClass()->GetDefaultObject<UUTHUDWidget_Paperdoll>();
 
+	AUTCTFGameState* GameState = UTHUDOwner->GetWorld()->GetGameState<AUTCTFGameState>();
+
 	bool bPlayerCanRally = UTHUDOwner->UTPlayerOwner->CanPerformRally();
+	bool bShowTimer = !bPlayerCanRally && PS->Team && GameState && GameState->bAttackersCanRally && ((PS->Team->TeamIndex == 0) == GameState->bRedToCap) && UTC && UTC->bCanRally && (PS->RemainingRallyDelay > 0);
+
 	if (UTC != NULL && !UTC->IsDead())
 	{
 		PlayerArmor = UTC->GetArmorAmount();
@@ -139,10 +143,13 @@ void UUTHUDWidget_Paperdoll::Draw_Implementation(float DeltaTime)
 		int32 DesiredXOffset = 0;
 
 		bShowFlagInfo = PS && PS->CarriedObject;
-		if (bShowFlagInfo || bPlayerCanRally)
+		if (bShowFlagInfo || bPlayerCanRally || bShowTimer)
 		{
-			// We have the flag.. make room for it.
-			DesiredXOffset = -64;		
+			if ( UTHUDOwner->GetQuickInfoHidden() )
+			{
+				// We have the flag.. make room for it.
+				DesiredXOffset = -64;		
+			}
 		}
 
 		if (DrawOffset.X != DesiredXOffset && !bAnimating)
@@ -176,9 +183,6 @@ void UUTHUDWidget_Paperdoll::Draw_Implementation(float DeltaTime)
 	RenderObj_Text(ArmorText, DrawOffset * -1); 
 
 	FlagText.Text = FText::GetEmpty();
-	AUTCTFGameState* GameState = UTHUDOwner->GetWorld()->GetGameState<AUTCTFGameState>();
-	bool bShowTimer = !bPlayerCanRally && !PS->CarriedObject && PS->Team && GameState && GameState->bAttackersCanRally && ((PS->Team->TeamIndex == 0) == GameState->bRedToCap) && (PS->CarriedObject == nullptr) && UTC && UTC->bCanRally && (PS->RemainingRallyDelay > 0);
-
 	if (UTHUDOwner->GetQuickInfoHidden() && (bPlayerCanRally || bShowFlagInfo || bShowTimer))
 	{
 		FlagIcon.Position.Y = bPlayerCanRally ? -16 : 0;

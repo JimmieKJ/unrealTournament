@@ -116,8 +116,6 @@ void UUTHUDWidget_Boost::PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCanvas*
 			BoostIcon.RenderScale = AnimScale;
 			BoostText.TextScale = AnimScale;
 			bAnimating = AnimTime < ANIM_DURATION;
-
-			UE_LOG(UT,Log,TEXT("### Animating: %f %f"), Perc, AnimScale);
 		}
 		else
 		{
