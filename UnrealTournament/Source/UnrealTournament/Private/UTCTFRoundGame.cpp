@@ -180,22 +180,6 @@ void AUTCTFRoundGame::GiveDefaultInventory(APawn* PlayerPawn)
 	}
 }
 
-void AUTCTFRoundGame::PlacePlayersAroundFlagBase(int32 TeamNum, int32 FlagTeamNum)
-{
-	// Hide other team
-	TArray<AController*> Members = Teams[1-TeamNum]->GetTeamMembers();
-	for (AController* C : Members)
-	{
-		AUTCharacter* Character = C ? Cast<AUTCharacter>(C->GetPawn()) : nullptr;
-		if (Character != nullptr)
-		{
-			Character->HideCharacter(true);
-		}
-	}
-
-	Super::PlacePlayersAroundFlagBase(TeamNum, FlagTeamNum);
-}
-
 void AUTCTFRoundGame::BroadcastScoreUpdate(APlayerState* ScoringPlayer, AUTTeamInfo* ScoringTeam, int32 OldScore)
 {
 	int32 BonusType = 100 + BronzeScore;
@@ -227,6 +211,7 @@ void AUTCTFRoundGame::HandleMatchIntermission()
 {
 	// view defender base, with last team to score around it
 	int32 TeamToWatch = IntermissionTeamToView(nullptr);
+	PlacePlayersAroundFlagBase(1-TeamToWatch, bRedToCap ? 0 : 1);
 	PlacePlayersAroundFlagBase(TeamToWatch, bRedToCap ? 1 : 0);
 
 	// Tell the controllers to look at defender base
@@ -462,6 +447,7 @@ void AUTCTFRoundGame::EndTeamGame(AUTTeamInfo* Winner, FName Reason)
 
 	// SETENDGAMEFOCUS
 	EndMatch();
+	PlacePlayersAroundFlagBase(1 - Winner->TeamIndex, bRedToCap ? 0 : 1);
 	PlacePlayersAroundFlagBase(Winner->TeamIndex, bRedToCap ? 1 : 0);
 	AUTCTFFlagBase* WinningBase = CTFGameState->FlagBases[bRedToCap ? 1 : 0];
 	for (FConstControllerIterator Iterator = GetWorld()->GetControllerIterator(); Iterator; ++Iterator)
