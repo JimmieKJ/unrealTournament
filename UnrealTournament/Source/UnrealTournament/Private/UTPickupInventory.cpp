@@ -335,7 +335,7 @@ void AUTPickupInventory::PlayRespawnEffects()
 	if (InventoryType && (InventoryType.GetDefaultObject()->PickupSpawnAnnouncement || (InventoryType.GetDefaultObject()->PickupAnnouncementName != NAME_None)) && (Role==ROLE_Authority))
 	{
 		AUTGameMode* GM = GetWorld()->GetAuthGameMode<AUTGameMode>();
-		if (GM && GM->bAllowPickupAnnouncements)
+		if (GM && GM->bAllowPickupAnnouncements && GM->IsMatchInProgress())
 		{
 			if (InventoryType.GetDefaultObject()->PickupSpawnAnnouncement)
 			{
@@ -343,7 +343,7 @@ void AUTPickupInventory::PlayRespawnEffects()
 			}
 			else if (InventoryType.GetDefaultObject()->PickupAnnouncementName != NAME_None)
 			{
-				GetWorldTimerManager().SetTimer(SpawnVoiceLineTimer, this, &AUTPickupInventory::PlaySpawnVoiceLine, bHasEverSpawned ? 25.f : 5.f);
+				GetWorldTimerManager().SetTimer(SpawnVoiceLineTimer, this, &AUTPickupInventory::PlaySpawnVoiceLine, bHasEverSpawned ? 30.f : 10.f);
 			}
 			bHasEverSpawned = true;
 		}
