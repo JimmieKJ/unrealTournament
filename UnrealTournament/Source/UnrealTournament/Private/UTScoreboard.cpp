@@ -330,13 +330,9 @@ void UUTScoreboard::DrawPlayer(int32 Index, AUTPlayerState* PlayerState, float R
 	}
 
 	float NameXL, NameYL;
-	float MaxNameWidth = 0.32f*ScaledCellWidth - (PlayerState->bIsFriend ? 30.f*RenderScale : 0.f);
-	Canvas->TextSize(UTHUDOwner->SmallFont, PlayerState->PlayerName, NameXL, NameYL, RenderScale, RenderScale);
-	UFont* NameFont = (NameXL < MaxNameWidth) ? UTHUDOwner->SmallFont : UTHUDOwner->TinyFont;
-	if (NameFont == UTHUDOwner->TinyFont)
-	{
-		Canvas->TextSize(UTHUDOwner->TinyFont, PlayerState->PlayerName, NameXL, NameYL, RenderScale, RenderScale);
-	}
+	float MaxNameWidth = 0.42f*ScaledCellWidth - (PlayerState->bIsFriend ? 30.f*RenderScale : 0.f);
+	Canvas->TextSize(UTHUDOwner->SmallFont, PlayerState->PlayerName, NameXL, NameYL, 1.f, 1.f);
+	UFont* NameFont = UTHUDOwner->SmallFont;
 	FLinearColor DrawColor = GetPlayerColorFor(PlayerState);
 
 	int32 Ping = PlayerState->Ping * 4;
