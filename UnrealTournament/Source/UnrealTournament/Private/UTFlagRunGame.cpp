@@ -97,6 +97,7 @@ void AUTFlagRunGame::DefaultTimer()
 			// figure out where defenders are
 			bool bFoundInnerDefender = false;
 			AUTPlayerState* Speaker = nullptr;
+			FString Why = "";
 			for (FConstControllerIterator Iterator = GetWorld()->GetControllerIterator(); Iterator; ++Iterator)
 			{
 				AUTCharacter* UTChar = Cast<AUTCharacter>((*Iterator)->GetPawn());
@@ -116,8 +117,9 @@ void AUTFlagRunGame::DefaultTimer()
 					}
 					else
 					{
-//						UE_LOG(UT, Warning, TEXT("Not in defensive position %s %s routeid %d"), *UTChar->LastGameVolume->GetName(), *UTChar->LastGameVolume->VolumeName.ToString(), UTChar->LastGameVolume->RouteID);
+						//						UE_LOG(UT, Warning, TEXT("Not in defensive position %s %s routeid %d"), *UTChar->LastGameVolume->GetName(), *UTChar->LastGameVolume->VolumeName.ToString(), UTChar->LastGameVolume->RouteID);
 					}
+					Why = Why + FString::Printf(TEXT("%s in position %s routeid %d, "), *UTPS->PlayerName, *UTChar->LastGameVolume->VolumeName.ToString(), UTChar->LastGameVolume->RouteID);
 				}
 			}
 			if (!bFoundInnerDefender && Speaker)
@@ -128,6 +130,14 @@ void AUTFlagRunGame::DefaultTimer()
 					if (EntryRoutes[i] && (EntryRoutes[i]->VoiceLinesSet != NAME_None))
 					{
 						LastEntryDefenseWarningTime = GetWorld()->GetTimeSeconds();
+						if (Cast<AUTPlayerController>(Speaker->GetOwner()))
+						{
+							Cast<AUTPlayerController>(Speaker->GetOwner())->TeamSay(Why);
+						}
+						else if (Cast<AUTBot>(Speaker->GetOwner()))
+						{
+							Cast<AUTBot>(Speaker->GetOwner())->Say(Why, true);
+						}
 						Speaker->AnnounceStatus(EntryRoutes[i]->VoiceLinesSet, 3);
 					}
 				}
