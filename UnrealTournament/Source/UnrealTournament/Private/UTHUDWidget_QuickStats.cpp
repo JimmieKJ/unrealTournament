@@ -44,7 +44,7 @@ void UUTHUDWidget_QuickStats::InitializeWidget(AUTHUD* Hud)
 
 bool UUTHUDWidget_QuickStats::ShouldDraw_Implementation(bool bShowScores)
 {
-	return Super::ShouldDraw_Implementation(bShowScores) && !UTHUDOwner->bShowComsMenu && !UTHUDOwner->bShowWeaponWheel && !UTHUDOwner->GetQuickStatsHidden() && !UTHUDOwner->GetQuickInfoHidden();
+	return Super::ShouldDraw_Implementation(bShowScores) && !UTHUDOwner->bShowComsMenu && !UTHUDOwner->bShowWeaponWheel && (!UTHUDOwner->GetQuickStatsHidden() || !UTHUDOwner->GetQuickInfoHidden());
 }
 
 FVector2D UUTHUDWidget_QuickStats::CalcRotOffset(FVector2D InitialPosition, float Angle)
