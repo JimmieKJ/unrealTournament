@@ -196,7 +196,7 @@ void AUTRemoteRedeemer::OnOverlapBegin(AActor* OtherActor, UPrimitiveComponent* 
 				}
 				else
 				{
-					Proj->DamageImpactedActor(this, CollisionComp, Proj->GetActorLocation(), (Proj->GetActorLocation() - GetActorLocation()).SafeNormal());
+					Proj->DamageImpactedActor(this, CollisionComp, Proj->GetActorLocation(), (Proj->GetActorLocation() - GetActorLocation()).GetSafeNormal());
 				}
 			}
 			else

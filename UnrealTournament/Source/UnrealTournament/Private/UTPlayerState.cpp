@@ -2414,7 +2414,7 @@ TSharedRef<SWidget> AUTPlayerState::BuildRankInfo()
 	if (LevelXPRange > 0)
 	{
 		LevelAlpha = (float)(PrevXP - LevelXPStart) / (float)LevelXPRange;
-		TooltipXP = FText::Format(NSLOCTEXT("AUTPlayerState", "XPTooltip", "{0} XP need to obtain the next level"), FText::AsNumber(LevelXPEnd - PrevXP));
+		TooltipXP = FText::Format(NSLOCTEXT("AUTPlayerState", "XPTooltip", "{0} XP needed for the next level"), FText::AsNumber(LevelXPEnd - PrevXP));
 	}
 
 	VBox->AddSlot()
@@ -2587,7 +2587,7 @@ TSharedRef<SWidget> AUTPlayerState::BuildRankInfo()
 			.AutoWidth()
 			[
 				SNew(STextBlock)
-				.Text(FText::Format(NSLOCTEXT("AUTPlayerState", "ChallengeStarsFormat", "     {0} "), FText::AsNumber(LP->GetRewardStars(NAME_REWARD_BlueStars))))
+				.Text(FText::Format(NSLOCTEXT("AUTPlayerState", "ChallengeStarsFormat", ".          {0} "), FText::AsNumber(LP->GetRewardStars(NAME_REWARD_BlueStars))))
 					.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.White")
 					.ColorAndOpacity(FLinearColor::Gray)
 			]
