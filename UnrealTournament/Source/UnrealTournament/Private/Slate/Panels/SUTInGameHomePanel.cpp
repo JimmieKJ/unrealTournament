@@ -188,6 +188,31 @@ void SUTInGameHomePanel::ShowContextMenu(UUTScoreboard* Scoreboard, FVector2D Co
 
 	if (MenuBox.IsValid())
 	{
+
+		if (Scoreboard != nullptr)
+		{
+			TArray<FScoreboardContextMenuItem> ContextItems;
+			Scoreboard->GetContextMenuItems(ContextItems);
+			if (ContextItems.Num() > 0)
+			{
+				for (int32 i=0; i < ContextItems.Num(); i++)
+				{
+					// Add the show player card
+					MenuBox->AddSlot()
+					.AutoHeight()
+					[
+						SNew(SUTButton)
+						.OnClicked(this, &SUTInGameHomePanel::ContextCommand, ContextItems[i].Id, SelectedPlayer)
+						.ButtonStyle(SUTStyle::Get(),"UT.ContextMenu.Item")
+						.Text(ContextItems[i].MenuText)
+						.TextStyle(SUTStyle::Get(),"UT.Font.NormalText.Small")
+					];
+				}
+			
+				return;
+			}
+		}
+
 		// Add the show player card
 		MenuBox->AddSlot()
 		.AutoHeight()
@@ -321,6 +346,12 @@ FReply SUTInGameHomePanel::ContextCommand(int32 CommandId, TWeakObjectPtr<AUTPla
 
 		if (MyPlayerState && PC)
 		{
+			UUTScoreboard* SB = PC->MyUTHUD->GetScoreboard();
+			if (SB && SB->HandleContextCommand(CommandId, TargetPlayerState.Get()))
+			{
+				return FReply::Handled();
+			}
+
 			switch (CommandId)
 			{
 				case 0: PlayerOwner->ShowPlayerInfo(TargetPlayerState); break;

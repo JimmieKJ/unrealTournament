@@ -3465,6 +3465,14 @@ void UUTLocalPlayer::RequestFriendship(TSharedPtr<const FUniqueNetId> FriendID)
 	}
 }
 
+void UUTLocalPlayer::SendFriendRequest(AUTPlayerState* DesiredPlayerState)
+{
+	if (DesiredPlayerState != nullptr)
+	{
+		RequestFriendship(DesiredPlayerState->UniqueId.GetUniqueNetId());
+	}
+}
+
 void UUTLocalPlayer::UpdateRedirect(const FString& FileURL, int32 NumBytes, float Progress, int32 NumFilesLeft)
 {
 	FString FName = FPaths::GetBaseFilename(FileURL);

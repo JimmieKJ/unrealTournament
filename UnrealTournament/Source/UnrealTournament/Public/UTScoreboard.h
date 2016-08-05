@@ -290,5 +290,26 @@ public:
 
 	virtual float GetDrawScaleOverride();
 
+	/**
+	 *	Returns a TArray of FScoreboardContextMenuItem that can be used to override the default context menu in the scoreboard.  This array will be empty 
+	 *  when executed, leave it empty for the default scoreboard context menu.  There are some existing context ids:
+	 *
+	 *  0 = Show Player Card
+	 *  1 = Send Friend Request
+	 *  2 = Vote to Kick
+	 *  3 = Admin Kick  * Must have Admin priv.
+	 *  4 = Admin Ban * Must have Admin priv.
+	 *  255 = Toggle Mute Status
+	 **/
+	UFUNCTION(BlueprintNativeEvent, Category = "Scoreboard")
+	void GetContextMenuItems(TArray<FScoreboardContextMenuItem>& MenuItems);
+
+	/**
+	 *	Allows blueprints to handle a context command.  Should return TRUE if blueprint handles the command.
+	 **/
+	UFUNCTION(BlueprintNativeEvent, Category = "Scoreboard")
+	bool HandleContextCommand(uint8 ContextId, AUTPlayerState* SelectedPlayer);
+
+
 };
 

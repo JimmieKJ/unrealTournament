@@ -1506,3 +1506,29 @@ public:
 	FComMenuCommand Defend;
 	FComMenuCommand Distress;
 };
+
+USTRUCT()
+struct FScoreboardContextMenuItem
+{
+	GENERATED_USTRUCT_BODY()
+
+public:
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "ContextItem")
+	FText MenuText;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "ContextItem")
+	int32 Id;
+
+	FScoreboardContextMenuItem()
+		: MenuText(FText::GetEmpty())
+		, Id(0)
+	{
+	}
+
+	FScoreboardContextMenuItem(FText inMenuText, uint8 inId)
+		: MenuText(inMenuText)
+		, Id(inId)
+	{
+	}
+
+};

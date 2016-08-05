@@ -726,6 +726,9 @@ public:
 	virtual void OnEmoteSpeedChanged(AUTPlayerState* PS, float EmoteSpeed);
 
 	// Request someone be my friend...
+	UFUNCTION(BlueprintCallable, Category = Friends)
+	void SendFriendRequest(AUTPlayerState* DesiredPlayerState);
+
 	virtual void RequestFriendship(TSharedPtr<const FUniqueNetId> FriendID);
 
 	// Holds a list of maps to play in Single player

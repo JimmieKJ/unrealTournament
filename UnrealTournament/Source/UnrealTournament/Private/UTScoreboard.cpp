@@ -790,3 +790,12 @@ TWeakObjectPtr<AUTPlayerState> UUTScoreboard::GetSelectedPlayer()
 {
 	return SelectedPlayer;
 }
+
+void UUTScoreboard::GetContextMenuItems_Implementation(TArray<FScoreboardContextMenuItem>& MenuItems)
+{
+}
+
+bool UUTScoreboard::HandleContextCommand_Implementation(uint8 ContextId, AUTPlayerState* SelectedPlayer)
+{
+	return false;
+}

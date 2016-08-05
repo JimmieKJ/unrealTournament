@@ -345,9 +345,10 @@ protected:
 	FXPBreakdown XP;
 public:
 	/** Currently awarded challenge stars. */
-	UPROPERTY(replicated)
+	UPROPERTY(replicated, BlueprintReadOnly, Category = "Game")
 	int32 TotalChallengeStars;
 
+	UFUNCTION(BlueprintCallable, Category = "Game")
 	inline int32 GetPrevXP() const
 	{
 		return PrevXP;
@@ -356,12 +357,16 @@ public:
 	{
 		return XP;
 	}
+
+	UFUNCTION(BlueprintCallable, Category = "Game")
 	inline bool CanAwardOnlineXP() const
 	{
 		return PrevXP >= 0 && UniqueId.IsValid() && !StatsID.IsEmpty(); // PrevXP == -1 before a successful read, should always be >= 0 after even if there was no value
 	}
 
 	void GiveXP(const FXPBreakdown& AddXP);
+
+	UFUNCTION(BlueprintCallable, Category = "Game")
 	void ClampXP(int32 MaxValue);
 	void ApplyBotXPPenalty(float GameDifficulty)
 	{
@@ -852,6 +857,7 @@ public:
 	virtual void UnregisterPlayerWithSession() override;
 
 	// Calculated client-side by the local player when 
+	UPROPERTY(BlueprintReadOnly, Category = "Game")
 	bool bIsFriend;
 
 	UPROPERTY()
