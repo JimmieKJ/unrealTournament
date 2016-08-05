@@ -312,7 +312,8 @@ bool AUTInventory::PreventHeadShot_Implementation(FVector HitLocation, FVector S
 
 bool AUTInventory::ShouldDisplayHitEffect_Implementation(int32 AttemptedDamage, int32 DamageAmount, int32 FinalHealth, int32 FinalArmor)
 {
-	return (FinalHealth > 0) && ((FinalHealth + FinalArmor > 90) || (AttemptedDamage > 90));
+	int32 StartingStack = AttemptedDamage + FinalHealth + FinalArmor;
+	return ((FinalArmor > 50) || (StartingStack > 110)) && (FinalHealth > 0) && ((FinalHealth + FinalArmor > 90) || (AttemptedDamage > 90));
 }
 
 void AUTInventory::OwnerEvent_Implementation(FName EventName)
