@@ -186,23 +186,22 @@ void UUTProfileSettings::VersionFixup()
 void UUTProfileSettings::ResetHUD()
 {
 	QuickStatsAngle = 180.0f;
-	QuickStatsDistance = 0.1f;
-	QuickStatsScaleOverride = 1.0f;
+	QuickStatsDistance = 0.08f;
+	QuickStatsScaleOverride = 0.75f;
 	QuickStatsType = EQuickStatsLayouts::Arc;
 	QuickStatsBackgroundAlpha = 0.15;
 	QuickStatsForegroundAlpha = 1.0f;
-	bQuickStatsHidden = false;
+	bQuickStatsHidden = true;
 	bQuickInfoHidden = false;
-	bQuickStatsBob = true;
 			
 	HUDWidgetOpacity = 1.0f;
 	HUDWidgetBorderOpacity = 1.0f;
 	HUDWidgetSlateOpacity = 0.5f;
-	HUDWidgetWeaponbarInactiveOpacity = 0.25f;
-	HUDWidgetWeaponBarScaleOverride = 0.9f;
-	HUDWidgetWeaponBarInactiveIconOpacity = 0.25f;
-	HUDWidgetWeaponBarEmptyOpacity = 0.0f;
-	HUDWidgetScaleOverride = 0.7f;
+	HUDWidgetWeaponbarInactiveOpacity = 0.35f;
+	HUDWidgetWeaponBarScaleOverride = 1.f;
+	HUDWidgetWeaponBarInactiveIconOpacity = 0.35f;
+	HUDWidgetWeaponBarEmptyOpacity = 0.2f;
+	HUDWidgetScaleOverride = 1.f;
 	HUDMessageScaleOverride = 1.0f;
 	bUseWeaponColors = false;
 	bDrawChatKillMsg = false;

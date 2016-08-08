@@ -21,7 +21,6 @@ const FName NAME_QuickStatsBackgroundAlpha	= FName(TEXT("QuickStatsBackgroundAlp
 const FName NAME_QuickStatsForegroundAlpha	= FName(TEXT("QuickStatsForegroundAlpha"));
 const FName NAME_bQuickStatsHidden			= FName(TEXT("bQuickStatsHidden"));
 const FName NAME_bQuickInfoHidden			= FName(TEXT("bQuickInfoHidden"));
-const FName NAME_bQuickStatsBob				= FName(TEXT("bQuickStatsBob"));
 
 const FName NAME_bHideDamageIndicators		= FName(TEXT("bHideDamageIndicators"));
 const FName NAME_bHidePaperdoll				= FName(TEXT("bHidePaperdoll"));
@@ -574,10 +573,9 @@ TSharedRef<SWidget> SUTHUDSettingsDialog::BuildQuickStatsTab()
 		]
 
 		+AddFloatOption(NAME_QuickStatsAngle, NSLOCTEXT("HUDSETTINGS", "QuickStatsAngle", "Angle:"),NSLOCTEXT("SUTHUDSettingsDialog", "QuickStatsAngleTT", "Changes where around the crosshair will the quick stats be displayed."), NSLOCTEXT("SUTHUDSettingsDialog", "Angle", "deg"), ProfileSettings->QuickStatsAngle, 0.0f, 360.0f)
-		+AddFloatOption(NAME_QuickStatsDistance, NSLOCTEXT("HUDSETTINGS", "QuickStatsDistance", "Distance:"), NSLOCTEXT("SUTHUDSettingsDialog", "QuickStatsDistanceTT", "Changes how far from the crosshair your quick stats menu should be."), NSLOCTEXT("SUTHUDSettingsDialog", "Percent", "%"), ProfileSettings->QuickStatsDistance, 0.11f, 0.75f)
+		+AddFloatOption(NAME_QuickStatsDistance, NSLOCTEXT("HUDSETTINGS", "QuickStatsDistance", "Distance:"), NSLOCTEXT("SUTHUDSettingsDialog", "QuickStatsDistanceTT", "Changes how far from the crosshair your quick stats menu should be."), NSLOCTEXT("SUTHUDSettingsDialog", "Percent", "%"), ProfileSettings->QuickStatsDistance, 0.05f, 0.55f)
 		+AddIntOption(NAME_QuickStatsForegroundAlpha, NSLOCTEXT("HUDSETTINGS", "QuickStatsForegroundAlpha", "Icon & Text Opacity:"), NSLOCTEXT("SUTHUDSettingsDialog", "QuickStatsForegroundAlphaTT", "Adjusts the opacity of the icon and text for each stat."), NSLOCTEXT("SUTHUDSettingsDialog", "Percent", "%"), int32(ProfileSettings->QuickStatsForegroundAlpha * 100.0f), 0, 100)
 		+AddIntOption(NAME_QuickStatsBackgroundAlpha, NSLOCTEXT("HUDSETTINGS", "QuickStatsBackgroundAlpha", "Background Opacity:"), NSLOCTEXT("SUTHUDSettingsDialog", "QuickStatsBackgroundAlphaTT", "Adjusts the opacity of the background."), NSLOCTEXT("SUTHUDSettingsDialog", "Percent", "%"), int32(ProfileSettings->QuickStatsBackgroundAlpha * 100.0f), 0, 100);
-		//+AddBoolOption(NAME_bQuickStatsBob, NSLOCTEXT("SUTHUDSettingsDialog", "bQuickStatsBob", "Bob With Weapon"), NSLOCTEXT("SUTHUDSettingsDialog", "bQuickStatsBobTT", "If selected, the on-screen inditators will animate and follow the weapon's bob."), ProfileSettings->bQuickStatsBob);
 }
 
 
@@ -655,7 +653,6 @@ void SUTHUDSettingsDialog::ApplySettings()
 		ProfileSettings->QuickStatsForegroundAlpha = float(SettingsInfos[NAME_QuickStatsForegroundAlpha]->GetActualValue_int32()) / 100.0f;
 		ProfileSettings->bQuickStatsHidden = !SettingsInfos[NAME_bQuickStatsHidden]->GetActualValue_bool();
 		ProfileSettings->bQuickInfoHidden = !SettingsInfos[NAME_bQuickInfoHidden]->GetActualValue_bool();
-		ProfileSettings->bQuickStatsBob = false; //SettingsInfos[NAME_bQuickStatsBob]->GetActualValue_bool();
 
 		ProfileSettings->bHideDamageIndicators = !SettingsInfos[NAME_bHideDamageIndicators]->GetActualValue_bool();
 		ProfileSettings->bVerticalWeaponBar = SelectedWeaponBarOrientation->GetText().ToString().Equals(*WeaponBarOrientationList[1].Get(), ESearchCase::IgnoreCase) ? false : true;

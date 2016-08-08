@@ -398,9 +398,6 @@ public:
 	UFUNCTION(BlueprintCallable, Category=HUD)
 	bool GetQuickInfoHidden();
 
-	UFUNCTION(BlueprintCallable, Category=HUD)
-	float GetQuickStatsBob();
-
 	// accessor for CachedTeamColor.  
 	FLinearColor GetWidgetTeamColor();
 

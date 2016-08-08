@@ -1577,18 +1577,17 @@ float AUTHUD::GetQuickStatsAngle()
 
 float AUTHUD::GetQuickStatsDistance()
 {
-	return FMath::Clamp<float>((VerifyProfileSettings() ? CachedProfileSettings->QuickStatsDistance : 0.11f), 0.11f, 0.75f);
+	return FMath::Clamp<float>((VerifyProfileSettings() ? CachedProfileSettings->QuickStatsDistance : 0.05f), 0.05f, 0.55f);
 }
 
 float AUTHUD::GetQuickStatScaleOverride()
 {
-	return VerifyProfileSettings() ? CachedProfileSettings->QuickStatsScaleOverride: 1.0f;
+	return VerifyProfileSettings() ? CachedProfileSettings->QuickStatsScaleOverride: 0.75f;
 }
 
 FName AUTHUD::GetQuickStatsType()
 {
 	return VerifyProfileSettings() ? CachedProfileSettings->QuickStatsType : EQuickStatsLayouts::Arc;
-
 }
 
 float AUTHUD::GetQuickStatsBackgroundAlpha()
@@ -1609,12 +1608,6 @@ bool AUTHUD::GetQuickStatsHidden()
 bool AUTHUD::GetQuickInfoHidden()
 {
 	return VerifyProfileSettings() ? CachedProfileSettings->bQuickInfoHidden : false;
-}
-
-
-float AUTHUD::GetQuickStatsBob()
-{
-	return VerifyProfileSettings() ? CachedProfileSettings->bQuickStatsBob : true;
 }
 
 bool AUTHUD::ProcessInputAxis(FKey Key, float Delta)
