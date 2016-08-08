@@ -35,8 +35,8 @@ struct FWeaponGroupInfo
 	int32 Group;
 
 	FWeaponGroupInfo()
-	{
-	}
+		: Group(0)
+	{}
 
 	void AddWeapon(TSubclassOf<AUTWeapon> inWeaponClass, AUTWeapon* inWeapon, int32 inGroup)
 	{
@@ -60,7 +60,6 @@ struct FWeaponGroupInfo
 			AddWeapon(inWeaponClass, inWeapon, inGroup);
 		}
 	}
-
 };
 
 USTRUCT()
@@ -113,6 +112,10 @@ public:
 	virtual bool ShouldDraw_Implementation(bool bShowScores) override;
 
 protected:
+
+	// weapons available in each slot (in this persistent copy only the classes are filled out)
+	UPROPERTY()
+	TArray<FWeaponGroupInfo> KnownWeaponMap;
 
 	// Where on the screen in pixels should this bar be displayed when in it's vertical form
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "WeaponBar")
@@ -177,8 +180,6 @@ protected:
 
 	// Override the default version to return the secondary scaling
 	virtual float GetDrawScaleOverride();
-
-private:
 
 	UPROPERTY()
 	UTexture2D* DefaultWeaponIconAtlas;

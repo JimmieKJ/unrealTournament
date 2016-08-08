@@ -57,7 +57,11 @@ void UUTHUDWidget_WeaponBar::InitializeWidget(AUTHUD* Hud)
 {
 	Super::InitializeWidget(Hud);
 
-	if (Hud)
+	// There are 10 groups
+	KnownWeaponMap.SetNumZeroed(10);
+
+	checkSlow(Hud != nullptr);
+	if (Hud != nullptr)
 	{
 		GroupText.Font = Hud->TinyFont;
 		GroupText.RenderColor = FLinearColor::White;
@@ -66,6 +70,48 @@ void UUTHUDWidget_WeaponBar::InitializeWidget(AUTHUD* Hud)
 		GroupText.bDrawShadow = true;
 		GroupText.ShadowDirection = FVector2D(1.0f, 1.0f);
 		GroupText.ShadowColor = FLinearColor::Black;
+
+		UUTProfileSettings* PlayerProfile = Hud->UTPlayerOwner->GetProfileSettings();
+
+		// Find all of the weapons currently in memory to figure out the max # of slots we will need.
+
+		// grant all weapons that are in memory
+		for (TObjectIterator<UClass> It; It; ++It)
+		{
+			// make sure we don't use abstract, deprecated, or blueprint skeleton classes
+			if (It->IsChildOf(AUTWeapon::StaticClass()) && !It->HasAnyClassFlags(CLASS_Abstract | CLASS_Deprecated | CLASS_NewerVersionExists) && !It->GetName().StartsWith(TEXT("SKEL_")) && !It->IsChildOf(AUTWeap_Translocator::StaticClass()))
+			{
+				UClass* WeaponClass = *It;
+				AUTWeapon* DefaultWeaponObj = Cast<AUTWeapon>(WeaponClass->GetDefaultObject());
+				NumWeaponsToDraw++;
+
+				int32 WeaponGroup = (DefaultWeaponObj != nullptr) ? DefaultWeaponObj->DefaultGroup : 0;
+				int32 GroupPriority = 0;
+				if (PlayerProfile)
+				{
+					PlayerProfile->GetWeaponGroup(DefaultWeaponObj, WeaponGroup, GroupPriority);
+				}
+
+				if (KnownWeaponMap.IsValidIndex(WeaponGroup))
+				{
+					// hacky for bio launcher: if we have both a base class and its direct subclass, only record the subclass for now
+					// this will get updated if necessary at runtime if both weapons are really around
+					bool bAdd = true;
+					if (KnownWeaponMap[WeaponGroup].WeaponClasses.Num() > 0 && KnownWeaponMap[WeaponGroup].WeaponClasses[0] != nullptr)
+					{
+						if (KnownWeaponMap[WeaponGroup].WeaponClasses[0]->IsChildOf(WeaponClass))
+						{
+							bAdd = false;
+						}
+						else
+						{
+							KnownWeaponMap[WeaponGroup].WeaponClasses.RemoveAt(0);
+						}
+					}
+					KnownWeaponMap[WeaponGroup].AddWeapon(WeaponClass, nullptr, WeaponGroup);
+				}
+			}
+		}
 	}
 }
 
@@ -79,13 +125,7 @@ void UUTHUDWidget_WeaponBar::PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCan
 	MaxSize = FVector2D(InCanvas->ClipX * 0.925f, InCanvas->ClipY * 0.8f);
 
 	// Built at the start of each frame then emptied.
-	TArray<FWeaponGroupInfo> WeaponMap;
-
-	// There are 10 groups
-	for (int32 i=0; i < 11; i++)
-	{
-		WeaponMap.Add(FWeaponGroupInfo());
-	}
+	TArray<FWeaponGroupInfo> WeaponMap = KnownWeaponMap;
 
 	NumWeaponsToDraw = 0;
 	Cells.Empty();
@@ -116,32 +156,12 @@ void UUTHUDWidget_WeaponBar::PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCan
 		ScreenPosition = (bVerticalLayout) ? VerticalScreenPosition : HorizontalScreenPosition;
 		Position = (bVerticalLayout) ? VerticalPosition : HorizontalPosition;
 
-		// Find all of the weapons currently in memory to figure out the max # of slots we will need.
-
-		// grant all weapons that are in memory
-		for (TObjectIterator<UClass> It; It; ++It)
-		{
-			// make sure we don't use abstract, deprecated, or blueprint skeleton classes
-			if (It->IsChildOf(AUTWeapon::StaticClass()) && !It->HasAnyClassFlags(CLASS_Abstract | CLASS_Deprecated | CLASS_NewerVersionExists) && !It->GetName().StartsWith(TEXT("SKEL_")) && !It->IsChildOf(AUTWeap_Translocator::StaticClass()))
-			{
-				UClass* WeaponClass = *It;
-				AUTWeapon* DefaultWeaponObj = Cast<AUTWeapon>(WeaponClass->GetDefaultObject());
-				NumWeaponsToDraw++;
-
-				int32 WeaponGroup = (DefaultWeaponObj != nullptr) ? DefaultWeaponObj->DefaultGroup : 0;
-				int32 GroupPriority = 0;
-				if (PlayerProfile) PlayerProfile->GetWeaponGroup(DefaultWeaponObj, WeaponGroup, GroupPriority);
-
-				if (WeaponMap.IsValidIndex(WeaponGroup))
-				{
-					WeaponMap[WeaponGroup].AddWeapon(DefaultWeaponObj->GetClass(), nullptr, WeaponGroup);
-				}
-			}
-		}
-
 		for (int32 i=0; i < WeaponMap.Num();i++)
 		{
-			if (WeaponMap[i].WeaponClasses.Num() >0) GroupCount++;
+			if (WeaponMap[i].WeaponClasses.Num() > 0)
+			{
+				GroupCount++;
+			}
 		}
 
 		// Now look at the player's Inventory and find all of the weapons they have and update the map
@@ -152,8 +172,19 @@ void UUTHUDWidget_WeaponBar::PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCan
 			{
 				int32 WeaponGroup = Weapon->DefaultGroup;
 				int32 GroupPriority = Weapon->GroupSlot;
-				if (PlayerProfile) PlayerProfile->GetWeaponGroup(Weapon, WeaponGroup, GroupPriority);
-				WeaponMap[WeaponGroup].UpdateWeapon(Weapon->GetClass(), Weapon, WeaponGroup);
+				if (PlayerProfile)
+				{
+					PlayerProfile->GetWeaponGroup(Weapon, WeaponGroup, GroupPriority);
+				}
+				if (WeaponMap.IsValidIndex(WeaponGroup))
+				{
+					WeaponMap[WeaponGroup].UpdateWeapon(Weapon->GetClass(), Weapon, WeaponGroup);
+					// update default state if necessary (e.g. weapon was loaded after HUD was initialized)
+					if (!KnownWeaponMap[WeaponGroup].WeaponClasses.Contains(Weapon->GetClass()))
+					{
+						KnownWeaponMap[WeaponGroup].AddWeapon(Weapon->GetClass(), nullptr, WeaponGroup);
+					}
+				}
 			}
 		}
 	}
