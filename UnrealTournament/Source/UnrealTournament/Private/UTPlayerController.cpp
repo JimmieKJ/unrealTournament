@@ -46,6 +46,7 @@
 #include "UTGameViewportClient.h"
 #include "UTHeartbeatManager.h"
 #include "QoSInterface.h"
+#include "UTGameObjective.h"
 
 static TAutoConsoleVariable<float> CVarUTKillcamStartDelay(
 	TEXT("UT.KillcamStartDelay"),
@@ -3103,7 +3104,6 @@ void AUTPlayerController::ClientHalftime_Implementation()
 			(*It)->TurnOff();
 		}
 	}
-
 	if (UTCharacter)
 	{
 		UTCharacter->SetAmbientSound(NULL);
@@ -3206,7 +3206,7 @@ void AUTPlayerController::PlayerTick( float DeltaTime )
 	}
 	APawn* ViewTargetPawn = PlayerCameraManager->GetViewTargetPawn();
 	AUTCharacter* ViewTargetCharacter = Cast<AUTCharacter>(ViewTargetPawn);
-	if (IsInState(NAME_Spectating) && UTPlayerState && (UTPlayerState->bOnlySpectator || UTPlayerState->bOutOfLives) && bAutoCam && (!ViewTargetCharacter || !ViewTargetCharacter->IsRecentlyDead()))
+	if (IsInState(NAME_Spectating) && UTPlayerState  && bAutoCam && (UTPlayerState->bOnlySpectator || (UTPlayerState->bOutOfLives && !Cast<AUTGameObjective>(GetViewTarget()))) && (!ViewTargetCharacter || !ViewTargetCharacter->IsRecentlyDead()))
 	{
 		// possibly switch cameras
 		ChooseBestCamera();
