@@ -119,7 +119,7 @@ void AUTFlagRunGame::DefaultTimer()
 					{
 						//						UE_LOG(UT, Warning, TEXT("Not in defensive position %s %s routeid %d"), *UTChar->LastGameVolume->GetName(), *UTChar->LastGameVolume->VolumeName.ToString(), UTChar->LastGameVolume->RouteID);
 					}
-					Why = Why + FString::Printf(TEXT("%s in position %s routeid %d, "), *UTPS->PlayerName, *UTChar->LastGameVolume->VolumeName.ToString(), UTChar->LastGameVolume->RouteID);
+					//Why = Why + FString::Printf(TEXT("%s in position %s routeid %d, "), *UTPS->PlayerName, *UTChar->LastGameVolume->VolumeName.ToString(), UTChar->LastGameVolume->RouteID);
 				}
 			}
 			if (!bFoundInnerDefender && Speaker)
@@ -130,6 +130,7 @@ void AUTFlagRunGame::DefaultTimer()
 					if (EntryRoutes[i] && (EntryRoutes[i]->VoiceLinesSet != NAME_None))
 					{
 						LastEntryDefenseWarningTime = GetWorld()->GetTimeSeconds();
+						/*
 						if (Cast<AUTPlayerController>(Speaker->GetOwner()))
 						{
 							Cast<AUTPlayerController>(Speaker->GetOwner())->TeamSay(Why);
@@ -138,6 +139,7 @@ void AUTFlagRunGame::DefaultTimer()
 						{
 							Cast<AUTBot>(Speaker->GetOwner())->Say(Why, true);
 						}
+						*/
 						Speaker->AnnounceStatus(EntryRoutes[i]->VoiceLinesSet, 3);
 					}
 				}
