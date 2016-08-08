@@ -298,7 +298,7 @@ void SUTControlSettingsDialog::CreateBinds()
 		->AddDefaults(EKeys::MouseScrollDown)));
 	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "BestWeapon", "Best Weapon")))
 		->AddCustomBinding("SwitchToBestWeapon")
-		->AddDefaults(EKeys::E)));
+		->AddDefaults(EKeys::Enter)));
 	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Throw Weapon", "Throw Weapon")))
 		->AddActionMapping("ThrowWeapon")
 		->AddDefaults(EKeys::M)));
@@ -397,7 +397,7 @@ void SUTControlSettingsDialog::CreateBinds()
 */
 	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "RequestRally", "Request Rally")))
 		->AddActionMapping("RequestRally")
-		->AddDefaults(EKeys::Enter)));
+		->AddDefaults(EKeys::E)));
 
 	// TODO: mod binding registration
 }

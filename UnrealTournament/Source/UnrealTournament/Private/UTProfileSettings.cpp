@@ -122,7 +122,7 @@ void UUTProfileSettings::VersionFixup()
 	{
 		FInputActionKeyMapping RequestRally;
 		RequestRally.ActionName = FName(TEXT("RequestRally"));
-		RequestRally.Key = EKeys::Enter;
+		RequestRally.Key = EKeys::E;
 		ActionMappings.AddUnique(RequestRally);
 	}
 
@@ -168,10 +168,10 @@ void UUTProfileSettings::VersionFixup()
 
 		if (!bFound)
 		{
-			FInputActionKeyMapping ComsMenuKey;
-			ComsMenuKey.ActionName = FName(TEXT("RequestRally"));
-			ComsMenuKey.Key = EKeys::E;
-			ActionMappings.AddUnique(ComsMenuKey);
+			FInputActionKeyMapping RallyKey;
+			RallyKey.ActionName = FName(TEXT("RequestRally"));
+			RallyKey.Key = EKeys::E;
+			ActionMappings.AddUnique(RallyKey);
 		}
 
 	}

@@ -20,6 +20,7 @@ UUTLocalMessage::UUTLocalMessage(const class FObjectInitializer& ObjectInitializ
 	bDrawAtIntermission = true;
 	bDrawOnlyIfAlive = false;
 	ScaleInSize = 1.f;
+	ScaleInTime = 0.2f;
 	FontSizeIndex = 2;
 	bPlayDuringIntermission = true;
 	bCombineEmphasisText = false;
@@ -109,7 +110,7 @@ FLinearColor UUTLocalMessage::GetMessageColor_Implementation(int32 MessageIndex)
 
 float UUTLocalMessage::GetScaleInTime_Implementation(int32 MessageIndex) const
 {
-	return 0.2f;
+	return ScaleInTime;
 }
 
 float UUTLocalMessage::GetScaleInSize_Implementation(int32 MessageIndex) const
