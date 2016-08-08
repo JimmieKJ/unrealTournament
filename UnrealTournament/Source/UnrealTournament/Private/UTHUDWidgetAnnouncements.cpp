@@ -136,11 +136,12 @@ FVector2D UUTHUDWidgetAnnouncements::DrawMessage(int32 QueueIndex, float X, floa
 				Y *= RenderScale;
 			}
 			FVector2D RenderPos = FVector2D(RenderPosition.X + X, RenderPosition.Y + Y);
-			float TextScaling = bScaleByDesignedResolution ? RenderScale*CurrentTextScale : CurrentTextScale;
+			float TextScalingY = bScaleByDesignedResolution ? RenderScale*CurrentTextScale : CurrentTextScale;
+			float TextScalingX = TextScalingY * FMath::Min(1.f, 0.98f*Canvas->ClipY / FMath::Max(XL*TextScalingY, 1.f));
 
 			// Handle justification
-			XL *= TextScaling; 
-			YL *= TextScaling;
+			XL *= TextScalingX; 
+			YL *= TextScalingY;
 			RenderPos.X -= XL * 0.5f;
 
 			FLinearColor DrawColor = MessageQueue[QueueIndex].DrawColor;
@@ -165,12 +166,12 @@ FVector2D UUTHUDWidgetAnnouncements::DrawMessage(int32 QueueIndex, float X, floa
 				{
 					PrefixTextItem.EnableShadow(FinalShadowColor, MessageQueue[QueueIndex].ShadowDirection);
 				}
-				PrefixTextItem.Scale = FVector2D(TextScaling, TextScaling);
+				PrefixTextItem.Scale = FVector2D(TextScalingX, TextScalingY);
 				Canvas->DrawItem(PrefixTextItem);
 				float PreXL = 0.0f;
 				float PreYL = 0.0f;
 				Canvas->StrLen(MessageQueue[QueueIndex].DisplayFont, MessageQueue[QueueIndex].PrefixText.ToString(), PreXL, PreYL);
-				RenderPos.X += PreXL * TextScaling;
+				RenderPos.X += PreXL * TextScalingX;
 			}
 
 			FVector2D EmphasisRenderPos = RenderPos;
@@ -182,7 +183,7 @@ FVector2D UUTHUDWidgetAnnouncements::DrawMessage(int32 QueueIndex, float X, floa
 			EmphasisTextItem.bOutlined = true;
 			EmphasisTextItem.OutlineColor = EmphasisOutlineColor;
 			EmphasisTextItem.OutlineColor.A *= Alpha * UTHUDOwner->WidgetOpacity;
-			EmphasisTextItem.Scale = EmphasisScaling * FVector2D(TextScaling, TextScaling);
+			EmphasisTextItem.Scale = EmphasisScaling * FVector2D(TextScalingX, TextScalingY);
 			if (bShadowedText)
 			{
 				EmphasisTextItem.EnableShadow(FinalShadowColor, MessageQueue[QueueIndex].ShadowDirection);
@@ -191,8 +192,8 @@ FVector2D UUTHUDWidgetAnnouncements::DrawMessage(int32 QueueIndex, float X, floa
 			float EmpXL = 0.0f;
 			float EmpYL = 0.0f;
 			Canvas->StrLen(MessageQueue[QueueIndex].DisplayFont, MessageQueue[QueueIndex].EmphasisText.ToString(), EmpXL, EmpYL);
-			RenderPos.X += EmphasisScaling * EmpXL * TextScaling;
-			TextSize.X += 2.f * (EmphasisScaling - 1.f) * EmpXL * TextScaling;
+			RenderPos.X += EmphasisScaling * EmpXL * TextScalingX;
+			TextSize.X += 2.f * (EmphasisScaling - 1.f) * EmpXL * TextScalingX;
 			if (!MessageQueue[QueueIndex].PostfixText.IsEmpty())
 			{
 				FUTCanvasTextItem PostfixTextItem(RenderPos, MessageQueue[QueueIndex].PostfixText, MessageQueue[QueueIndex].DisplayFont, DrawColor, WordWrapper);
@@ -202,7 +203,7 @@ FVector2D UUTHUDWidgetAnnouncements::DrawMessage(int32 QueueIndex, float X, floa
 				{
 					PostfixTextItem.EnableShadow(FinalShadowColor, MessageQueue[QueueIndex].ShadowDirection);
 				}
-				PostfixTextItem.Scale = FVector2D(TextScaling, TextScaling);
+				PostfixTextItem.Scale = FVector2D(TextScalingX, TextScalingY);
 				Canvas->DrawItem(PostfixTextItem);
 			}
 		}
