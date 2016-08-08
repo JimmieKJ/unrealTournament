@@ -217,32 +217,36 @@ void AUTCTFRoundGame::HandleMatchIntermission()
 		return;
 	}
 	// place losing team around attacker base, away from camera
-	TArray<AController*> Members = Teams[1 - TeamToWatch]->GetTeamMembers();
-	FVector PlacementOffset = FVector(200.f, 0.f, 0.f);
-	float StartAngle = 0.f;
-	FVector FlagLoc = CTFGameState->FlagBases[TeamToWatch]->GetActorLocation();
-	float AngleSlices = 360.0f / 8;
-	int32 PlacementCounter = 0;
-	for (AController* C : Members)
+	int32 AttackerIndex = bRedToCap ? 0 : 1;
+	if ((Teams.Num() > 1 - TeamToWatch) && (CTFGameState->FlagBases.Num() > AttackerIndex) && (CTFGameState->FlagBases[AttackerIndex] != nullptr) && (Teams[1 - TeamToWatch] != nullptr))
 	{
-		AUTCharacter* UTChar = C ? Cast<AUTCharacter>(C->GetPawn()) : NULL;
-		if (UTChar && !UTChar->IsDead() && !SkipPlacement(UTChar))
+		TArray<AController*> Members = Teams[1 - TeamToWatch]->GetTeamMembers();
+		FVector PlacementOffset = FVector(200.f, 0.f, 0.f);
+		float StartAngle = 0.f;
+		FVector FlagLoc = CTFGameState->FlagBases[AttackerIndex]->GetActorLocation();
+		float AngleSlices = 360.0f / 8;
+		int32 PlacementCounter = 0;
+		for (AController* C : Members)
 		{
-			AUTPlayerState* PS = Cast<AUTPlayerState>(UTChar->PlayerState);
-			if (PS && PS->CarriedObject && PS->CarriedObject->HolderTrail)
+			AUTCharacter* UTChar = C ? Cast<AUTCharacter>(C->GetPawn()) : NULL;
+			if (UTChar && !UTChar->IsDead() && !SkipPlacement(UTChar))
 			{
-				PS->CarriedObject->HolderTrail->DetachFromParent();
+				AUTPlayerState* PS = Cast<AUTPlayerState>(UTChar->PlayerState);
+				if (PS && PS->CarriedObject && PS->CarriedObject->HolderTrail)
+				{
+					PS->CarriedObject->HolderTrail->DetachFromParent();
+				}
+				FRotator AdjustmentAngle(0, StartAngle + AngleSlices * PlacementCounter, 0);
+				FVector PlacementLoc = FlagLoc + AdjustmentAngle.RotateVector(PlacementOffset);
+				PlacementLoc.Z += UTChar->GetCapsuleComponent()->GetUnscaledCapsuleHalfHeight() * 1.1f;
+				PlacementCounter++;
+				UTChar->bIsTranslocating = true; // hack to get rid of teleport effect
+				if (UTChar->TeleportTo(PlacementLoc, UTChar->GetActorRotation()))
+				{
+					break;
+				}
+				UTChar->bIsTranslocating = false;
 			}
-			FRotator AdjustmentAngle(0, StartAngle + AngleSlices * PlacementCounter, 0);
-			FVector PlacementLoc = FlagLoc + AdjustmentAngle.RotateVector(PlacementOffset);
-			PlacementLoc.Z += UTChar->GetCapsuleComponent()->GetUnscaledCapsuleHalfHeight() * 1.1f;
-			PlacementCounter++;
-			UTChar->bIsTranslocating = true; // hack to get rid of teleport effect
-			if (UTChar->TeleportTo(PlacementLoc, UTChar->GetActorRotation()))
-			{
-				break;
-			}
-			UTChar->bIsTranslocating = false;
 		}
 	}
 
