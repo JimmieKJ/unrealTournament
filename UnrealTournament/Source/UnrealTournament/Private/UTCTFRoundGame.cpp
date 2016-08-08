@@ -211,7 +211,42 @@ void AUTCTFRoundGame::HandleMatchIntermission()
 {
 	// view defender base, with last team to score around it
 	int32 TeamToWatch = IntermissionTeamToView(nullptr);
-	PlacePlayersAroundFlagBase(1-TeamToWatch, bRedToCap ? 0 : 1);
+
+	if ((CTFGameState == NULL) || (TeamToWatch >= CTFGameState->FlagBases.Num()) || (CTFGameState->FlagBases[TeamToWatch] == NULL))
+	{
+		return;
+	}
+	// place losing team around attacker base, away from camera
+	TArray<AController*> Members = Teams[1 - TeamToWatch]->GetTeamMembers();
+	FVector PlacementOffset = FVector(200.f, 0.f, 0.f);
+	float StartAngle = 0.f;
+	FVector FlagLoc = CTFGameState->FlagBases[TeamToWatch]->GetActorLocation();
+	float AngleSlices = 360.0f / 8;
+	int32 PlacementCounter = 0;
+	for (AController* C : Members)
+	{
+		AUTCharacter* UTChar = C ? Cast<AUTCharacter>(C->GetPawn()) : NULL;
+		if (UTChar && !UTChar->IsDead() && !SkipPlacement(UTChar))
+		{
+			AUTPlayerState* PS = Cast<AUTPlayerState>(UTChar->PlayerState);
+			if (PS && PS->CarriedObject && PS->CarriedObject->HolderTrail)
+			{
+				PS->CarriedObject->HolderTrail->DetachFromParent();
+			}
+			FRotator AdjustmentAngle(0, StartAngle + AngleSlices * PlacementCounter, 0);
+			FVector PlacementLoc = FlagLoc + AdjustmentAngle.RotateVector(PlacementOffset);
+			PlacementLoc.Z += UTChar->GetCapsuleComponent()->GetUnscaledCapsuleHalfHeight() * 1.1f;
+			PlacementCounter++;
+			UTChar->bIsTranslocating = true; // hack to get rid of teleport effect
+			if (UTChar->TeleportTo(PlacementLoc, UTChar->GetActorRotation()))
+			{
+				break;
+			}
+			UTChar->bIsTranslocating = false;
+		}
+	}
+
+	// place winners around defender base
 	PlacePlayersAroundFlagBase(TeamToWatch, bRedToCap ? 1 : 0);
 
 	// Tell the controllers to look at defender base
@@ -943,7 +978,7 @@ void AUTCTFRoundGame::RestartPlayer(AController* aPlayer)
 		}
 		if (IsPlayerOnLifeLimitedTeam(PS))
 		{
-			if (PS->RemainingLives > 0)
+			if ((PS->RemainingLives > 0) && IsMatchInProgress() && (GetMatchState() != MatchState::MatchIntermission))
 			{
 				AUTPlayerController* PC = Cast<AUTPlayerController>(aPlayer);
 				if (PS->RemainingLives == 1)
