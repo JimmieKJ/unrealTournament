@@ -450,14 +450,22 @@ void AUTShowdownGame::StartIntermission()
 
 void AUTShowdownGame::RestartPlayer(AController* aPlayer)
 {
-	AUTPlayerState* PS = Cast<AUTPlayerState>(aPlayer->PlayerState);
-	if (PS)
+	if (GetMatchState() == MatchState::WaitingToStart)
 	{
-		PS->SetOutOfLives(!bAllowPlayerRespawns);
-	}
-	if (bAllowPlayerRespawns)
-	{
+		// warmup
 		Super::RestartPlayer(aPlayer);
+	}
+	else
+	{
+		AUTPlayerState* PS = Cast<AUTPlayerState>(aPlayer->PlayerState);
+		if (PS)
+		{
+			PS->SetOutOfLives(!bAllowPlayerRespawns);
+		}
+		if (bAllowPlayerRespawns)
+		{
+			Super::RestartPlayer(aPlayer);
+		}
 	}
 }
 
