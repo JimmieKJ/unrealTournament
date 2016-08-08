@@ -905,6 +905,9 @@ bool AUTCTFRoundGame::ChangeTeam(AController* Player, uint8 NewTeamIndex, bool b
 		if (PS && bSitOutDuringRound )
 		{
 			PS->RemainingLives = 0;
+		}
+		if (PS->RemainingLives == 0)
+		{ 
 			PS->SetOutOfLives(true);
 		}
 		if (UTGameState)
@@ -987,7 +990,7 @@ void AUTCTFRoundGame::RestartPlayer(AController* aPlayer)
 					{
 						PC->ClientReceiveLocalizedMessage(UUTShowdownStatusMessage::StaticClass(), 5, PS, NULL, NULL);
 					}
-					PS->AnnounceStatus(StatusMessage::LastLife);
+					PS->AnnounceStatus(StatusMessage::LastLife, 0, true);
 					PS->RespawnWaitTime = 0.5f;
 					PS->OnRespawnWaitReceived();
 				}
