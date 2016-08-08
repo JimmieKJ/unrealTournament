@@ -608,13 +608,20 @@ void AUTRemoteRedeemer::Tick(float DeltaSeconds)
 		bool bShowOutline = false;
 		if (GS != nullptr && !bExploded)
 		{
-			for (FLocalPlayerIterator It(GEngine, GetWorld()); It; ++It)
+			if (bShotDown)
 			{
-				if (It->PlayerController != nullptr && GS->OnSameTeam(It->PlayerController, this))
+				bShowOutline = true;
+			}
+			else
+			{
+				for (FLocalPlayerIterator It(GEngine, GetWorld()); It; ++It)
 				{
-					// note: does not handle splitscreen
-					bShowOutline = true;
-					break;
+					if (It->PlayerController != nullptr && GS->OnSameTeam(It->PlayerController, this))
+					{
+						// note: does not handle splitscreen
+						bShowOutline = true;
+						break;
+					}
 				}
 			}
 		}

@@ -336,13 +336,20 @@ void AUTProj_Redeemer::Tick(float DeltaTime)
 		bool bShowOutline = false;
 		if (GS != nullptr && TeamOwner != nullptr && !bExploded)
 		{
-			for (FLocalPlayerIterator It(GEngine, GetWorld()); It; ++It)
+			if (bDetonated)
 			{
-				if (It->PlayerController != nullptr && GS->OnSameTeam(It->PlayerController, Instigator))
+				bShowOutline = true;
+			}
+			else
+			{
+				for (FLocalPlayerIterator It(GEngine, GetWorld()); It; ++It)
 				{
-					// note: does not handle splitscreen
-					bShowOutline = true;
-					break;
+					if (It->PlayerController != nullptr && GS->OnSameTeam(It->PlayerController, Instigator))
+					{
+						// note: does not handle splitscreen
+						bShowOutline = true;
+						break;
+					}
 				}
 			}
 		}
