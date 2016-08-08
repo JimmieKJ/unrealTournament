@@ -53,7 +53,7 @@ void AUTCTFFlagBase::SpawnDefenseEffect()
 		UParticleSystem* DesiredEffect = (TeamNum == 0) ? RedDefenseEffect : BlueDefenseEffect;
 		DefensePSC = UGameplayStatics::SpawnEmitterAtLocation(this, DesiredEffect, GetActorLocation() + FVector(0.f, 0.f, 80.f), GetActorRotation());
 	}
-	ShowDefenseEffect = TeamNum;
+	ShowDefenseEffect = TeamNum+1;
 }
 
 void AUTCTFFlagBase::OnDefenseEffectChanged()
