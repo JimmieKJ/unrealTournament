@@ -95,6 +95,11 @@ class UNREALTOURNAMENT_API UUTWeaponStateFiringCharged : public UUTWeaponStateFi
 			{
 				GetOuterAUTWeapon()->GetWorldTimerManager().SetTimer(RefireCheckHandle, this, &UUTWeaponStateFiring::RefireCheckTimer, GetOuterAUTWeapon()->GetRefireTime(GetOuterAUTWeapon()->GetCurrentFireMode()), false);
 			}
+			// weapon switch now if out of ammo
+			if (!GetOuterAUTWeapon()->HasAnyAmmo() && GetUTOwner() != nullptr && GetUTOwner()->IsLocallyControlled() && GetUTOwner()->GetPendingWeapon() == nullptr)
+			{
+				GetOuterAUTWeapon()->AUTWeapon::OnRep_Ammo();
+			}
 		}
 	}
 	virtual void Tick(float DeltaTime) override

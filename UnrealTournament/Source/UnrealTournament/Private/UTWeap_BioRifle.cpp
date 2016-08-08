@@ -131,6 +131,15 @@ void AUTWeap_BioRifle::OnChargeShot_Implementation()
 {
 }
 
+void AUTWeap_BioRifle::OnRep_Ammo()
+{
+	// defer weapon switch on out of ammo until charge release
+	if (Cast<UUTWeaponStateFiringCharged>(GetCurrentState()) == nullptr)
+	{
+		Super::OnRep_Ammo();
+	}
+}
+
 void AUTWeap_BioRifle::IncreaseGlobStrength()
 {
 	if (GlobStrength < MaxGlobStrength && HasAmmo(CurrentFireMode))

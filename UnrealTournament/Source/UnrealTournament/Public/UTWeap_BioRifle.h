@@ -46,6 +46,7 @@ class UNREALTOURNAMENT_API AUTWeap_BioRifle : public AUTWeapon
 	virtual void OnContinuedFiring_Implementation() override;
 	virtual void OnStoppedFiring_Implementation() override;
 
+	virtual void OnRep_Ammo() override;
 	virtual void StartCharge();
 
 	virtual void FireShot() override;
