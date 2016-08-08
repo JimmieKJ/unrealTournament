@@ -1124,7 +1124,7 @@ FText AUTGameState::GetGameStatusText(bool bForScoreboard)
 		{
 			return MapVoteStatus;
 		}
-		else if (PlayersNeeded > 0)
+		else if ((PlayersNeeded > 0) && (GetNetMode() != NM_Standalone))
 		{
 			FFormatNamedArguments Args;
 			Args.Add("NumNeeded", FText::AsNumber(PlayersNeeded));
