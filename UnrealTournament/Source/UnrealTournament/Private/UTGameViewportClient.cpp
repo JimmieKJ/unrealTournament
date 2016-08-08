@@ -513,7 +513,10 @@ void UUTGameViewportClient::Draw(FViewport* InViewport, FCanvas* SceneCanvas)
 							{
 								Attachment->GetOwner()->Tick(0.0f);
 							}
-							Attachment->DoDeferredRenderUpdates_Concurrent();
+							if (!Attachment->IsPendingKill())
+							{
+								Attachment->DoDeferredRenderUpdates_Concurrent();
+							}
 						}
 					}
 				}
