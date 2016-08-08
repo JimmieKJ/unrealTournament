@@ -1045,7 +1045,15 @@ void AUTWeapon::FireShot()
 
 bool AUTWeapon::IsFiring() const
 {
-	return CurrentState->IsFiring();
+	// first person spectating needs to use the replicated info from the owner
+	if (Role < ROLE_Authority && UTOwner != nullptr && UTOwner->Role < ROLE_AutonomousProxy && UTOwner->Controller == nullptr && CurrentState == InactiveState)
+	{
+		return UTOwner->FlashCount > 0 || !UTOwner->FlashLocation.IsZero();
+	}
+	else
+	{
+		return CurrentState->IsFiring();
+	}
 }
 
 void AUTWeapon::AddAmmo(int32 Amount)
