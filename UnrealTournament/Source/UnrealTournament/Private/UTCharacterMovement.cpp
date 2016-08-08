@@ -1886,7 +1886,7 @@ void UUTCharacterMovement::PhysFalling(float deltaTime, int32 Iterations)
 							TickAirControl = GetCurrentAirControl();
 							FallAcceleration = FallAcceleration - FMath::Max(0.f, (FallAcceleration | WallSlideNormal)) * WallSlideNormal - Result.Time * FallAcceleration.Size() * WallSlideNormal;
 						}
-						else
+						else if (WallSlideNormal.Z > 0.f)
 						{
 							TickAirControl = 0.f;
 						}
