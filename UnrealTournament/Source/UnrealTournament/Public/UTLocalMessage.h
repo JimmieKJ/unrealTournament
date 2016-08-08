@@ -72,6 +72,9 @@ class UNREALTOURNAMENT_API UUTLocalMessage : public ULocalMessage
 	UPROPERTY(EditDefaultsOnly, Category = Message)
 		float ScaleInSize;
 
+	UPROPERTY(EditDefaultsOnly, Category = Message)
+		float ScaleInTime;
+
 	/** 0=smallest font, 3=largest font. */
 	UPROPERTY(EditDefaultsOnly, Category = Message)
 		int32 FontSizeIndex;

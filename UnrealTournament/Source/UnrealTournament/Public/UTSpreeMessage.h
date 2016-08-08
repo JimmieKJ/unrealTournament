@@ -84,7 +84,7 @@ class UNREALTOURNAMENT_API UUTSpreeMessage : public UUTLocalMessage
 
 		bIsUnique = true;
 		bIsConsoleMessage = false;
-		Lifetime = 3.f;
+		Lifetime = 2.5f;
 		bWantsBotReaction = true;
 	}
 
