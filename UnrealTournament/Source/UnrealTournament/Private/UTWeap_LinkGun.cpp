@@ -57,6 +57,7 @@ AUTWeap_LinkGun::AUTWeap_LinkGun(const FObjectInitializer& OI)
 	ShotsStatsName = NAME_LinkShots;
 
 	ScreenMaterialID = 2;
+	SideScreenMaterialID = 1;
 	LastClientKillTime = -100000.0f;
 }
 
@@ -71,6 +72,11 @@ void AUTWeap_LinkGun::AttachToOwner_Implementation()
 		ScreenTexture->ClearColor = FLinearColor(0.0f, 0.0f, 0.0f, 1.0f);
 		ScreenTexture->OnCanvasRenderTargetUpdate.AddDynamic(this, &AUTWeap_LinkGun::UpdateScreenTexture);
 		ScreenMI->SetTextureParameterValue(FName(TEXT("ScreenTexture")), ScreenTexture);
+
+		if (SideScreenMaterialID < Mesh->GetNumMaterials())
+		{ 
+			SideScreenMI = Mesh->CreateAndSetMaterialInstanceDynamic(SideScreenMaterialID);
+		}
 	}
 }
 
@@ -92,26 +98,73 @@ void AUTWeap_LinkGun::UpdateScreenTexture(UCanvas* C, int32 Width, int32 Height)
 		RenderInfo.GlowInfo.GlowInnerRadius.X = 0.475f;
 		RenderInfo.GlowInfo.GlowInnerRadius.Y = 0.5f;
 
-		bool bInfiniteAmmo = true;
-		for (int32 Cost : AmmoCost)
-		{
-			if (Cost > 0)
-			{
-				bInfiniteAmmo = false;
-				break;
-			}
-		}
-		FString AmmoText = bInfiniteAmmo ? TEXT("--") : FString::FromInt(Ammo);
+		FString OverheatText = FString::FromInt(int32(100.f*OverheatFactor));
 		float XL, YL;
-		C->TextSize(ScreenFont, AmmoText, XL, YL);
+		C->TextSize(ScreenFont, OverheatText, XL, YL);
 		if (!WordWrapper.IsValid())
 		{
 			WordWrapper = MakeShareable(new FCanvasWordWrapper());
 		}
-		FUTCanvasTextItem Item(FVector2D(Width / 2 - XL * 0.5f, Height / 2 - YL * 0.5f), FText::FromString(AmmoText), ScreenFont, (Ammo <= 5) ? FLinearColor::Red : FLinearColor::White, WordWrapper);
+		FLinearColor ScreenColor = (OverheatFactor <= (IsFiring() ? 0.5f : 0.f)) ? FLinearColor::Green : FLinearColor::Yellow;
+		if (OverheatFactor > 1.f)
+		{
+			ScreenColor = FLinearColor::Red;
+		}
+		if (ScreenMI)
+		{
+			ScreenMI->SetVectorParameterValue(FName(TEXT("Screen Color")), ScreenColor);
+			ScreenMI->SetVectorParameterValue(FName(TEXT("Screen Low Color")), ScreenColor);
+		}
+		if (SideScreenMI)
+		{
+			SideScreenMI->SetVectorParameterValue(FName(TEXT("Screen Color")), ScreenColor);
+			SideScreenMI->SetVectorParameterValue(FName(TEXT("Screen Low Color")), ScreenColor);
+		}
+		C->SetDrawColor(ScreenColor.ToFColor(true));
+		FUTCanvasTextItem Item(FVector2D(Width / 2 - XL * 0.5f, Height / 2 - YL * 0.5f), FText::FromString(OverheatText), ScreenFont, ScreenColor, WordWrapper);
 		Item.FontRenderInfo = RenderInfo;
 		C->DrawItem(Item);
 	}
+}
+
+float AUTWeap_LinkGun::GetRefireTime(uint8 FireModeNum)
+{
+	if ((FireModeNum == 0) && (OverheatFactor > 1.f) && FireInterval.IsValidIndex(FireModeNum))
+	{
+		float Result = FireInterval[FireModeNum] * 5.f * (OverheatFactor - 0.8f);
+		if (UTOwner != NULL)
+		{
+			Result /= UTOwner->GetFireRateMultiplier();
+		}
+		return FMath::Max<float>(0.01f, Result);
+
+	}
+	else
+	{
+		return Super::GetRefireTime(FireModeNum);
+	}
+}
+
+bool AUTWeap_LinkGun::HandleContinuedFiring()
+{
+	if (!CanFireAgain() || !GetUTOwner()->IsPendingFire(GetCurrentFireMode()))
+	{
+		GotoActiveState();
+		return false;
+	}
+	if (GetCurrentFireMode() == 0)
+	{
+		if (OverheatFactor > 1.f)
+		{
+			UpdateTiming();
+		}
+		OverheatFactor = FMath::Min(OverheatFactor+ 0.2f, 2.f);
+	}
+
+	LastContinuedFiring = GetWorld()->GetTimeSeconds();
+
+	OnContinuedFiring();
+	return true;
 }
 
 AUTProjectile* AUTWeap_LinkGun::FireProjectile()
@@ -217,6 +270,18 @@ void AUTWeap_LinkGun::FireInstantHit(bool bDealDamage, FHitResult* OutHit)
 	}
 }
 
+UAnimMontage* AUTWeap_LinkGun::GetFiringAnim(uint8 FireMode, bool bOnHands) const
+{
+	if (FireMode == 0 && (OverheatFactor > 1.f) && OverheatAnim)
+	{
+		return OverheatAnim;
+	}
+	else
+	{
+		return Super::GetFiringAnim(FireMode, bOnHands);
+	}
+}
+
 void AUTWeap_LinkGun::PlayWeaponAnim(UAnimMontage* WeaponAnim, UAnimMontage* HandsAnim, float RateOverride)
 {
 	// give pull anim priority
@@ -285,6 +350,19 @@ void AUTWeap_LinkGun::Tick(float DeltaTime)
 			if (Hit.Time < 1.f)
 			{
 				PulseLoc = Hit.Location;
+			}
+		}
+	}
+	else
+	{
+		float OldOverheatFactor = OverheatFactor;
+		OverheatFactor = FMath::Clamp(OverheatFactor - 2.f*DeltaTime, 0.f, 2.f);
+		if ((OldOverheatFactor > 0.f) && (OverheatFactor == 0.f))
+		{
+			UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
+			if ((AnimInstance != NULL) && (EndOverheatAnimSection != NAME_None))
+			{
+				AnimInstance->Montage_JumpToSection(EndOverheatAnimSection, OverheatAnim);
 			}
 		}
 	}

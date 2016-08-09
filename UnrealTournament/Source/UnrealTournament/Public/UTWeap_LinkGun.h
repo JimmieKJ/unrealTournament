@@ -59,6 +59,16 @@ class UNREALTOURNAMENT_API AUTWeap_LinkGun : public AUTWeapon
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = LinkGun)
 	int32 LinkPullDamage;
 
+	UPROPERTY(BlueprintReadWrite, Category = LinkGun)
+		float OverheatFactor;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = LinkGun)
+		UAnimMontage* OverheatAnim;
+
+	/** jump loop anim to this section when stopping overheat anim */
+	UPROPERTY(EditDefaultsOnly, Category = Effects)
+		FName EndOverheatAnimSection;
+
 	UPROPERTY(Transient, BlueprintReadWrite, Category = LinkGun)
 	bool bPendingBeamPulse;
 	// last time pulse was used
@@ -85,6 +95,9 @@ class UNREALTOURNAMENT_API AUTWeap_LinkGun : public AUTWeapon
 	// override to handle link beam distance scaling by Links
 	virtual void FireInstantHit(bool bDealDamage = true, FHitResult* OutHit = NULL) override;
 
+	virtual bool HandleContinuedFiring() override;
+	virtual float GetRefireTime(uint8 FireModeNum) override;
+
 	// Overridden to call linkedConsumeAmmo on gun that's linked to us
 	virtual void ConsumeAmmo(uint8 FireModeNum);
 
@@ -103,9 +116,17 @@ class UNREALTOURNAMENT_API AUTWeap_LinkGun : public AUTWeapon
 	/** material ID for the screen */
 	UPROPERTY(EditDefaultsOnly, Category = Mesh)
 	int32 ScreenMaterialID;
+	/** material ID for the side screen */
+	UPROPERTY(EditDefaultsOnly, Category = Mesh)
+		int32 SideScreenMaterialID;
 	/** material instance showing the screen */
 	UPROPERTY(BlueprintReadWrite, Category = Mesh)
 	UMaterialInstanceDynamic* ScreenMI;
+	/** material instance showing the side screen */
+	UPROPERTY(BlueprintReadWrite, Category = Mesh)
+		UMaterialInstanceDynamic* SideScreenMI;
+
+	virtual UAnimMontage* GetFiringAnim(uint8 FireMode, bool bOnHands = false) const override;
 
 	virtual void AttachToOwner_Implementation() override;
 
