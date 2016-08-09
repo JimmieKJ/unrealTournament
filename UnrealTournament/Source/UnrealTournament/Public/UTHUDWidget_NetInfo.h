@@ -38,6 +38,18 @@ protected:
 	UPROPERTY()
 		int32 NumPingsRcvd;
 
+	UPROPERTY()
+		int32 PacketsIn;
+
+	UPROPERTY()
+		int32 PacketsOut;
+
+	UPROPERTY()
+		int32 LastPacketsIn;
+
+	UPROPERTY()
+		int32 LastPacketsOut;
+
 	virtual float CalcAvgPing();
 	virtual float CalcPingStandardDeviation(float AvgPing);
 
