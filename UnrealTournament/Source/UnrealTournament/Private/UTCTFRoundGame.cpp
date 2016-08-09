@@ -216,6 +216,11 @@ void AUTCTFRoundGame::HandleMatchIntermission()
 	{
 		return;
 	}
+	for (AUTCTFFlagBase* Base : CTFGameState->FlagBases)
+	{
+		Base->ClearDefenseEffect();
+	}
+
 	// place losing team around attacker base, away from camera
 	int32 AttackerIndex = bRedToCap ? 0 : 1;
 	if ((Teams.Num() > 1 - TeamToWatch) && (CTFGameState->FlagBases.Num() > AttackerIndex) && (CTFGameState->FlagBases[AttackerIndex] != nullptr) && (Teams[1 - TeamToWatch] != nullptr))
