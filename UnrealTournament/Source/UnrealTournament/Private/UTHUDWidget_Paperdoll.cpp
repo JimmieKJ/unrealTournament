@@ -57,7 +57,8 @@ void UUTHUDWidget_Paperdoll::PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCan
 	if (WB)
 	{
 		UUTProfileSettings* PlayerProfile = InUTHUDOwner->UTPlayerOwner->GetProfileSettings();
-		if (PlayerProfile != nullptr && !PlayerProfile->bVerticalWeaponBar)
+		bool bVerticalWeaponBar = PlayerProfile ? PlayerProfile->bVerticalWeaponBar : UUTProfileSettings::StaticClass()->GetDefaultObject<UUTProfileSettings>()->bVerticalWeaponBar;
+		if (!bVerticalWeaponBar)
 		{
 			ScreenPosition.Y = 0.925f;	
 		}

@@ -1499,115 +1499,114 @@ void AUTHUD::PlayKillNotification()
 }
 
 // NOTE: Defaults are defined here because we don't currently have a local profile.
-
 float AUTHUD::GetHUDWidgetOpacity()
 {
-	return VerifyProfileSettings() ? CachedProfileSettings->HUDWidgetOpacity : 1.0f;
+	return VerifyProfileSettings() ? CachedProfileSettings->HUDWidgetOpacity : UUTProfileSettings::StaticClass()->GetDefaultObject<UUTProfileSettings>()->HUDWidgetOpacity;
 }
 
 float AUTHUD::GetHUDWidgetBorderOpacity()
 {
-	return VerifyProfileSettings() ? CachedProfileSettings->HUDWidgetBorderOpacity : 1.0f;
+	return VerifyProfileSettings() ? CachedProfileSettings->HUDWidgetBorderOpacity : UUTProfileSettings::StaticClass()->GetDefaultObject<UUTProfileSettings>()->HUDWidgetBorderOpacity;
 }
 
 float AUTHUD::GetHUDWidgetSlateOpacity()
 {
-	return VerifyProfileSettings() ? CachedProfileSettings->HUDWidgetSlateOpacity: 0.5f;
+	return VerifyProfileSettings() ? CachedProfileSettings->HUDWidgetSlateOpacity: UUTProfileSettings::StaticClass()->GetDefaultObject<UUTProfileSettings>()->HUDWidgetSlateOpacity;
 }
 
 float AUTHUD::GetHUDWidgetWeaponbarInactiveOpacity()
 {
-	return VerifyProfileSettings() ? CachedProfileSettings->HUDWidgetWeaponbarInactiveOpacity : 0.25f;
+	return VerifyProfileSettings() ? CachedProfileSettings->HUDWidgetWeaponbarInactiveOpacity : UUTProfileSettings::StaticClass()->GetDefaultObject<UUTProfileSettings>()->HUDWidgetWeaponbarInactiveOpacity;
 }
 
 float AUTHUD::GetHUDWidgetWeaponBarScaleOverride()
 {
-	return VerifyProfileSettings() ? CachedProfileSettings->HUDWidgetWeaponBarScaleOverride : 0.9f;
+	return VerifyProfileSettings() ? CachedProfileSettings->HUDWidgetWeaponBarScaleOverride : UUTProfileSettings::StaticClass()->GetDefaultObject<UUTProfileSettings>()->HUDWidgetWeaponBarScaleOverride;
 }
 
 float AUTHUD::GetHUDWidgetWeaponBarInactiveIconOpacity()
 {
-	return VerifyProfileSettings() ? CachedProfileSettings->HUDWidgetWeaponBarInactiveIconOpacity : 0.25f;
+	return VerifyProfileSettings() ? CachedProfileSettings->HUDWidgetWeaponBarInactiveIconOpacity : UUTProfileSettings::StaticClass()->GetDefaultObject<UUTProfileSettings>()->HUDWidgetWeaponBarInactiveIconOpacity;
 }
 
 float AUTHUD::GetHUDWidgetWeaponBarEmptyOpacity()
 {
-	return VerifyProfileSettings() ? CachedProfileSettings->HUDWidgetWeaponBarEmptyOpacity : 0.0f;
+	return VerifyProfileSettings() ? CachedProfileSettings->HUDWidgetWeaponBarEmptyOpacity : UUTProfileSettings::StaticClass()->GetDefaultObject<UUTProfileSettings>()->HUDWidgetWeaponBarEmptyOpacity;
 }
 
 float AUTHUD::GetHUDWidgetScaleOverride()
 {
-	return VerifyProfileSettings() ? CachedProfileSettings->HUDWidgetScaleOverride : 0.7f;
+	return VerifyProfileSettings() ? CachedProfileSettings->HUDWidgetScaleOverride : UUTProfileSettings::StaticClass()->GetDefaultObject<UUTProfileSettings>()->HUDWidgetScaleOverride;
 }
 
 float AUTHUD::GetHUDMessageScaleOverride()
 {
-	return VerifyProfileSettings() ? CachedProfileSettings->HUDMessageScaleOverride : 1.0f;
+	return VerifyProfileSettings() ? CachedProfileSettings->HUDMessageScaleOverride : UUTProfileSettings::StaticClass()->GetDefaultObject<UUTProfileSettings>()->HUDMessageScaleOverride;
 }
 
 bool AUTHUD::GetUseWeaponColors()
 {
-	return VerifyProfileSettings() ? CachedProfileSettings->bUseWeaponColors : false;
+	return VerifyProfileSettings() ? CachedProfileSettings->bUseWeaponColors : UUTProfileSettings::StaticClass()->GetDefaultObject<UUTProfileSettings>()->bUseWeaponColors;
 }
 
 bool AUTHUD::GetDrawChatKillMsg()
 {
-	return VerifyProfileSettings() ? CachedProfileSettings->bDrawChatKillMsg : false;
+	return VerifyProfileSettings() ? CachedProfileSettings->bDrawChatKillMsg : UUTProfileSettings::StaticClass()->GetDefaultObject<UUTProfileSettings>()->bDrawChatKillMsg;
 }
 
 bool AUTHUD::GetDrawCenteredKillMsg()
 {
-	return VerifyProfileSettings() ? CachedProfileSettings->bDrawCenteredKillMsg : true;
+	return VerifyProfileSettings() ? CachedProfileSettings->bDrawCenteredKillMsg : UUTProfileSettings::StaticClass()->GetDefaultObject<UUTProfileSettings>()->bDrawCenteredKillMsg;
 }
 
 bool AUTHUD::GetDrawHUDKillIconMsg()
 {
-	return VerifyProfileSettings() ? CachedProfileSettings->bDrawHUDKillIconMsg : true;
+	return VerifyProfileSettings() ? CachedProfileSettings->bDrawHUDKillIconMsg : UUTProfileSettings::StaticClass()->GetDefaultObject<UUTProfileSettings>()->bDrawHUDKillIconMsg;
 }
 
 bool AUTHUD::GetPlayKillSoundMsg()
 {
-	return VerifyProfileSettings() ? CachedProfileSettings->bPlayKillSoundMsg : true;
+	return VerifyProfileSettings() ? CachedProfileSettings->bPlayKillSoundMsg : UUTProfileSettings::StaticClass()->GetDefaultObject<UUTProfileSettings>()->bPlayKillSoundMsg;
 }
 
 float AUTHUD::GetQuickStatsAngle()
 {
-	return VerifyProfileSettings() ? CachedProfileSettings->QuickStatsAngle : 180.0f;
+	return VerifyProfileSettings() ? CachedProfileSettings->QuickStatsAngle : UUTProfileSettings::StaticClass()->GetDefaultObject<UUTProfileSettings>()->QuickStatsAngle;
 }
 
 float AUTHUD::GetQuickStatsDistance()
 {
-	return FMath::Clamp<float>((VerifyProfileSettings() ? CachedProfileSettings->QuickStatsDistance : 0.05f), 0.05f, 0.55f);
+	return FMath::Clamp<float>((VerifyProfileSettings() ? CachedProfileSettings->QuickStatsDistance : UUTProfileSettings::StaticClass()->GetDefaultObject<UUTProfileSettings>()->QuickStatsDistance), 0.05f, 0.55f);
 }
 
 float AUTHUD::GetQuickStatScaleOverride()
 {
-	return VerifyProfileSettings() ? CachedProfileSettings->QuickStatsScaleOverride: 0.75f;
+	return VerifyProfileSettings() ? CachedProfileSettings->QuickStatsScaleOverride: UUTProfileSettings::StaticClass()->GetDefaultObject<UUTProfileSettings>()->QuickStatsScaleOverride;
 }
 
 FName AUTHUD::GetQuickStatsType()
 {
-	return VerifyProfileSettings() ? CachedProfileSettings->QuickStatsType : EQuickStatsLayouts::Arc;
+	return VerifyProfileSettings() ? CachedProfileSettings->QuickStatsType : UUTProfileSettings::StaticClass()->GetDefaultObject<UUTProfileSettings>()->QuickStatsType;
 }
 
 float AUTHUD::GetQuickStatsBackgroundAlpha()
 {
-	return VerifyProfileSettings() ? CachedProfileSettings->QuickStatsBackgroundAlpha: 0.15f;
+	return VerifyProfileSettings() ? CachedProfileSettings->QuickStatsBackgroundAlpha: UUTProfileSettings::StaticClass()->GetDefaultObject<UUTProfileSettings>()->QuickStatsBackgroundAlpha;
 }
 
 float AUTHUD::GetQuickStatsForegroundAlpha()
 {
-	return VerifyProfileSettings() ? CachedProfileSettings->QuickStatsForegroundAlpha : 1.0f;
+	return VerifyProfileSettings() ? CachedProfileSettings->QuickStatsForegroundAlpha : UUTProfileSettings::StaticClass()->GetDefaultObject<UUTProfileSettings>()->QuickStatsForegroundAlpha;
 }
 
 bool AUTHUD::GetQuickStatsHidden()
 {
-	return VerifyProfileSettings() ? CachedProfileSettings->bQuickStatsHidden : false;
+	return VerifyProfileSettings() ? CachedProfileSettings->bQuickStatsHidden : UUTProfileSettings::StaticClass()->GetDefaultObject<UUTProfileSettings>()->bQuickStatsHidden;
 }
 
 bool AUTHUD::GetQuickInfoHidden()
 {
-	return VerifyProfileSettings() ? CachedProfileSettings->bQuickInfoHidden : false;
+	return VerifyProfileSettings() ? CachedProfileSettings->bQuickInfoHidden : UUTProfileSettings::StaticClass()->GetDefaultObject<UUTProfileSettings>()->bQuickInfoHidden;
 }
 
 bool AUTHUD::ProcessInputAxis(FKey Key, float Delta)

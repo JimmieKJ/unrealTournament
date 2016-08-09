@@ -16,7 +16,6 @@ UUTProfileSettings::UUTProfileSettings(const FObjectInitializer& ObjectInitializ
 	ReplayCustomDOFScale = 1.0f;
 
 	Avatar = FName("UT.Avatar.0");
-	bVerticalWeaponBar = true;
 	ResetHUD();
 }
 

@@ -144,7 +144,7 @@ void UUTHUDWidget_WeaponBar::PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCan
 		}
 
 		UUTProfileSettings* PlayerProfile = InUTHUDOwner->UTPlayerOwner->GetProfileSettings();
-		bVerticalLayout = PlayerProfile == nullptr ? true : PlayerProfile->bVerticalWeaponBar;
+		bVerticalLayout = PlayerProfile == nullptr ? UUTProfileSettings::StaticClass()->GetDefaultObject<UUTProfileSettings>()->bVerticalWeaponBar : PlayerProfile->bVerticalWeaponBar;
 
 		AUTGameState* UTGameState = InUTHUDOwner->GetWorld()->GetGameState<AUTGameState>();
 		if (UTGameState)
