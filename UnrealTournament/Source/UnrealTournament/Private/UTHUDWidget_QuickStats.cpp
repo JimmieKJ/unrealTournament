@@ -302,7 +302,7 @@ void UUTHUDWidget_QuickStats::PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCa
 				if (UTPlayerState->GetRemainingBoosts() >= 1)
 				{
 					BoostProvidedPowerupInfo.Value = UTPlayerState->GetRemainingBoosts();
-					BoostProvidedPowerupInfo.HighlightStrength = 0.5f;
+					BoostProvidedPowerupInfo.HighlightStrength = 0.f;
 					if (UTHUDOwner->UTPlayerOwner->bNeedsBoostNotify)
 					{
 						UTHUDOwner->UTPlayerOwner->bNeedsBoostNotify = false;
@@ -359,7 +359,7 @@ void UUTHUDWidget_QuickStats::PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCa
 				FlagInfo.Label = FText::GetEmpty();
 			}
 
-			FlagInfo.HighlightStrength = 1.f;
+			FlagInfo.HighlightStrength = 0.f;
 			FlagInfo.bUseOverlayTexture = false;
 
 			if (bPlayerCanRally)

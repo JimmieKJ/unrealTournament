@@ -209,7 +209,7 @@ void UUTProfileSettings::ResetHUD()
 	bDrawHUDKillIconMsg = true;
 	bPlayKillSoundMsg = true;
 	bPushToTalk = true;
-	bVerticalWeaponBar = true;
+	bVerticalWeaponBar = false;
 }
 
 void UUTProfileSettings::SetWeaponPriority(FString WeaponClassName, float NewPriority)
