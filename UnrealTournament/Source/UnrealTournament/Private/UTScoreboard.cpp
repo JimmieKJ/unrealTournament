@@ -21,8 +21,8 @@ UUTScoreboard::UUTScoreboard(const class FObjectInitializer& ObjectInitializer) 
 	bScaleByDesignedResolution = false;
 
 	ColumnHeaderPlayerX = 0.1f;
-	ColumnHeaderScoreX = 0.52f;
-	ColumnHeaderDeathsX = 0.68f;
+	ColumnHeaderScoreX = 0.63f;
+	ColumnHeaderDeathsX = 0.79f;
 	ColumnHeaderPingX = 0.95f;
 	ColumnHeaderY = 6.f;
 	ColumnY = 12.f;
