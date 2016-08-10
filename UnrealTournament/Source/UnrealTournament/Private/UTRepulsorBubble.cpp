@@ -29,18 +29,18 @@ AUTRepulsorBubble::AUTRepulsorBubble(const class FObjectInitializer& ObjectIniti
 		BubbleMesh->AttachTo(CollisionComp);
 	}
 
-	AUTCharacter* UTOwner = Cast<AUTCharacter>(Instigator);
-	if (UTOwner)
-	{
-		TeamNum = UTOwner->GetTeamNum();
-	}
-
 	SetReplicates(true);
 }
 
 void AUTRepulsorBubble::PostInitializeComponents()
 {
 	Super::PostInitializeComponents();
+	
+	AUTCharacter* UTOwner = Cast<AUTCharacter>(Instigator);
+	if (UTOwner)
+	{
+		TeamNum = UTOwner->GetTeamNum();
+	}
 
 	CollisionComp->SetWorldScale3D(FVector(MaxRepulsorSize,MaxRepulsorSize,MaxRepulsorSize));
 
