@@ -1339,9 +1339,8 @@ void AUTHUD::DrawMinimap(const FColor& DrawColor, float MapSize, FVector2D DrawP
 		{
 			Canvas->DrawTile(MinimapTexture, MapToScreen.GetOrigin().X, MapToScreen.GetOrigin().Y, MapSize, MapSize, 0.0f, 0.0f, MinimapTexture->GetSurfaceWidth(), MinimapTexture->GetSurfaceHeight());
 		}
+		DrawMinimapSpectatorIcons();
 	}
-
-	DrawMinimapSpectatorIcons();
 }
 
 bool AUTHUD::ShouldInvertMinimap()
@@ -1351,6 +1350,10 @@ bool AUTHUD::ShouldInvertMinimap()
 
 void AUTHUD::DrawMinimapSpectatorIcons()
 {
+	if (Canvas == nullptr)
+	{
+		return;
+	}
 	const float RenderScale = float(Canvas->SizeY) / 1080.0f;
 
 	// draw pickup icons

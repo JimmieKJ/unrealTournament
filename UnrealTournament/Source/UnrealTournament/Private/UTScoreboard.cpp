@@ -111,7 +111,7 @@ void UUTScoreboard::Draw_Implementation(float RenderDelta)
 	}
 	DrawServerPanel(RenderDelta, FooterPosY);
 
-	if (bDrawMinimapInScoreboard && UTGameState)
+	if (bDrawMinimapInScoreboard && UTGameState && UTHUDOwner && !UTHUDOwner->IsPendingKillPending())
 	{
 		bool bToggledMinimap = !UTGameState->HasMatchStarted() && (!UTPlayerOwner || !UTPlayerOwner->bIsWarmingUp);
 		float MapScale = 0.62f;
