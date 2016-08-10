@@ -270,6 +270,15 @@ void AUTWeap_LinkGun::FireInstantHit(bool bDealDamage, FHitResult* OutHit)
 	}
 }
 
+void AUTWeap_LinkGun::PlayFiringEffects()
+{
+	if (UTOwner && (CurrentFireMode == 0) && Cast<AUTPlayerController>(UTOwner->GetController()) && UTOwner->IsLocallyControlled() && FPFireSound.IsValidIndex(0))
+	{
+		FPFireSound[0] = (OverheatFactor > 0.9f) ? OverheatFPFireSound : NormalFPFireSound;
+	}
+	Super::PlayFiringEffects();
+}
+
 UAnimMontage* AUTWeap_LinkGun::GetFiringAnim(uint8 FireMode, bool bOnHands) const
 {
 	if (FireMode == 0 && (OverheatFactor > 1.f) && OverheatAnim)

@@ -62,6 +62,14 @@ class UNREALTOURNAMENT_API AUTWeap_LinkGun : public AUTWeapon
 	UPROPERTY(BlueprintReadWrite, Category = LinkGun)
 		float OverheatFactor;
 
+	virtual void PlayFiringEffects() override;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = LinkGun)
+		USoundBase* OverheatFPFireSound;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = LinkGun)
+		USoundBase* NormalFPFireSound;
+
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = LinkGun)
 		UAnimMontage* OverheatAnim;
 
