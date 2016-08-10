@@ -911,7 +911,7 @@ bool AUTCTFRoundGame::ChangeTeam(AController* Player, uint8 NewTeamIndex, bool b
 	bool bResult = Super::ChangeTeam(Player, NewTeamIndex, bBroadcast);
 	if (bResult && (GetMatchState() == MatchState::InProgress))
 	{
-		if (PS && bSitOutDuringRound )
+		if (PS && (bSitOutDuringRound || PS->Team) )
 		{
 			PS->RemainingLives = 0;
 		}
