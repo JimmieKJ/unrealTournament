@@ -494,7 +494,7 @@ void AUTHUD::NotifyMatchStateChange()
 			ToggleScoreboard(false);
 			UTLP->HideMenu();
 
-			if (!UTLP->HasChatText() && UTPlayerOwner && UTPlayerOwner->UTPlayerState)
+			if (UTLP->HasChatText() && UTPlayerOwner && UTPlayerOwner->UTPlayerState)
 			{
 				UTLP->ShowQuickChat(UTPlayerOwner->UTPlayerState->ChatDestination);
 			}
