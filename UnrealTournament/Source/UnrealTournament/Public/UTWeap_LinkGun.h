@@ -65,6 +65,9 @@ class UNREALTOURNAMENT_API AUTWeap_LinkGun : public AUTWeapon
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = LinkGun)
 		UAnimMontage* OverheatAnim;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = LinkGun)
+		USoundBase* OverheatSound;
+
 	/** jump loop anim to this section when stopping overheat anim */
 	UPROPERTY(EditDefaultsOnly, Category = Effects)
 		FName EndOverheatAnimSection;

@@ -357,8 +357,18 @@ void AUTWeap_LinkGun::Tick(float DeltaTime)
 	{
 		float OldOverheatFactor = OverheatFactor;
 		OverheatFactor = FMath::Clamp(OverheatFactor - 2.f*DeltaTime, 0.f, 2.f);
+		if (OverheatFactor > 0.f)
+		{
+			// @TOOD FIXMESTEVE - set this sound when stop firing
+			if (OverheatSound)
+			{
+				UTOwner->SetAmbientSound(OverheatSound, false);
+				UTOwner->ChangeAmbientSoundPitch(OverheatSound, OverheatFactor);
+			}
+		}
 		if ((OldOverheatFactor > 0.f) && (OverheatFactor == 0.f))
 		{
+			UTOwner->SetAmbientSound(OverheatSound, true);
 			UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
 			if ((AnimInstance != NULL) && (EndOverheatAnimSection != NAME_None))
 			{
