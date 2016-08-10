@@ -366,7 +366,7 @@ void AUTWeap_LinkGun::Tick(float DeltaTime)
 				UTOwner->ChangeAmbientSoundPitch(OverheatSound, OverheatFactor);
 			}
 		}
-		if ((OldOverheatFactor > 0.f) && (OverheatFactor == 0.f))
+		if ((OldOverheatFactor > 0.f) && (OverheatFactor == 0.f) && UTOwner)
 		{
 			UTOwner->SetAmbientSound(OverheatSound, true);
 			UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
