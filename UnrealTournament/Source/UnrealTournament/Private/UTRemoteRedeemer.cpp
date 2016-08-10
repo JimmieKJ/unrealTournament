@@ -142,6 +142,17 @@ bool AUTRemoteRedeemer::DriverLeave(bool bForceLeave)
 	AController* C = Controller;
 	if (Driver && C)
 	{
+		if (C->PlayerState)
+		{
+			for (FLocalPlayerIterator It(GEngine, GetWorld()); It; ++It)
+			{
+				AUTPlayerController* UTPC = Cast<AUTPlayerController>(It->PlayerController);
+				if (UTPC && UTPC->LastSpectatedPlayerState == C->PlayerState)
+				{
+					UTPC->ViewPawn(Driver);
+				}
+			}
+		}
 		C->UnPossess();
 		Driver->SetOwner(C);
 		AUTCharacter *UTChar = Cast<AUTCharacter>(Driver);
@@ -154,17 +165,6 @@ bool AUTRemoteRedeemer::DriverLeave(bool bForceLeave)
 			}
 		}
 		C->Possess(Driver);
-	}
-	if (Driver && PlayerState)
-	{
-		for (FLocalPlayerIterator It(GEngine, GetWorld()); It; ++It)
-		{
-			AUTPlayerController* UTPC = Cast<AUTPlayerController>(It->PlayerController);
-			if (UTPC && UTPC->LastSpectatedPlayerState == PlayerState)
-			{
-				UTPC->ViewPawn(Driver);
-			}
-		}
 	}
 
 	Driver = nullptr;
@@ -492,10 +492,6 @@ void AUTRemoteRedeemer::ExplodeStage2()
 }
 void AUTRemoteRedeemer::ExplodeStage3()
 {
-	if (Role == ROLE_Authority)
-	{
-		DriverLeave(true);
-	}
 	ExplodeStage(ExplosionRadii[2]);
 	FTimerHandle TempHandle;
 	GetWorldTimerManager().SetTimer(TempHandle, this, &AUTRemoteRedeemer::ExplodeStage4, ExplosionTimings[2]);
@@ -514,6 +510,10 @@ void AUTRemoteRedeemer::ExplodeStage5()
 }
 void AUTRemoteRedeemer::ExplodeStage6()
 {
+	if (Role == ROLE_Authority)
+	{
+		DriverLeave(true);
+	}
 	ExplodeStage(ExplosionRadii[5]);
 	ShutDown();
 }
