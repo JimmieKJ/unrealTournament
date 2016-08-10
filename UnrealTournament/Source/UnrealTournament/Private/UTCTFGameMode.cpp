@@ -32,6 +32,7 @@ AUTCTFGameMode::AUTCTFGameMode(const FObjectInitializer& ObjectInitializer)
 	GoalScore = 0;
 	TimeLimit = 14;
 	QuickPlayersToStart = 8;
+	RespawnWaitTime = 3.f;
 
 	DisplayName = NSLOCTEXT("UTGameMode", "CTF", "Capture the Flag");
 }

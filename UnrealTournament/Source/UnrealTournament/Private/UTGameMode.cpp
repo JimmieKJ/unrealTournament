@@ -88,7 +88,7 @@ AUTGameMode::AUTGameMode(const class FObjectInitializer& ObjectInitializer)
 	bUseSeamlessTravel = false;
 	CountDown = 3;
 	bPauseable = false;
-	RespawnWaitTime = 1.5f;
+	RespawnWaitTime = 2.f;
 	ForceRespawnTime = 5.f;
 	MaxReadyWaitTime = 60;
 	bHasRespawnChoices = false;

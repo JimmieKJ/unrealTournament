@@ -165,7 +165,7 @@ FText UUTHUDWidget_Spectator::GetSpectatorMessageText(FText& ShortMessage)
 						static const FNumberFormattingOptions RespawnTimeFormat = FNumberFormattingOptions()
 							.SetMinimumFractionalDigits(0)
 							.SetMaximumFractionalDigits(0);
-						Args.Add("RespawnTime", FText::AsNumber(UTHUDOwner->UTPlayerOwner->UTPlayerState->RespawnTime + 1, &RespawnTimeFormat));
+						Args.Add("RespawnTime", FText::AsNumber(UTHUDOwner->UTPlayerOwner->UTPlayerState->RespawnTime + 0.5f, &RespawnTimeFormat));
 						SpectatorMessage = FText::Format(NSLOCTEXT("UUTHUDWidget_Spectator", "RespawnWaitMessage", "You can respawn in {RespawnTime}..."), Args);
 					}
 					else
@@ -273,7 +273,7 @@ FText UUTHUDWidget_Spectator::GetSpectatorMessageText(FText& ShortMessage)
 					static const FNumberFormattingOptions RespawnTimeFormat = FNumberFormattingOptions()
 						.SetMinimumFractionalDigits(0)
 						.SetMaximumFractionalDigits(0);
-					Args.Add("RespawnTime", FText::AsNumber(UTHUDOwner->UTPlayerOwner->UTPlayerState->RespawnTime + 1, &RespawnTimeFormat));
+					Args.Add("RespawnTime", FText::AsNumber(UTHUDOwner->UTPlayerOwner->UTPlayerState->RespawnTime + 0.5f, &RespawnTimeFormat));
 					SpectatorMessage = FText::Format(NSLOCTEXT("UUTHUDWidget_Spectator", "RespawnWaitMessage", "You can respawn in {RespawnTime}..."), Args);
 				}
 				else if (!UTPS->bOutOfLives)
