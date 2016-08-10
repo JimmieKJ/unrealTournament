@@ -536,7 +536,15 @@ void SUTInGameHomePanel::ShowMatchSummary(bool bInitial)
 		PlayerOwner->GetSlateOperations() = FReply::Handled().ReleaseMouseCapture().SetUserFocus(SummaryPanel.ToSharedRef(), EFocusCause::SetDirectly);
 	}
 */
-	FSlateApplication::Get().SetKeyboardFocus(PlayerOwner->GetChatWidget(), EFocusCause::SetDirectly);
+
+	if (PlayerOwner->HasChatText())
+	{
+		FSlateApplication::Get().SetKeyboardFocus(PlayerOwner->GetChatWidget(), EFocusCause::SetDirectly);
+	}
+	else
+	{
+		FSlateApplication::Get().SetKeyboardFocus(ChatArea, EFocusCause::SetDirectly);
+	}
 }
 
 void SUTInGameHomePanel::HideMatchSummary()
@@ -560,8 +568,12 @@ TSharedPtr<SWidget> SUTInGameHomePanel::GetInitialFocus()
 	{
 		return GetSummaryPanel();
 	}
-	
-	return PlayerOwner->GetChatWidget();
+	if (PlayerOwner->HasChatText())
+	{
+		return PlayerOwner->GetChatWidget();
+	}
+
+	return ChatArea;
 }
 
 FText SUTInGameHomePanel::GetMuteLabelText() const
