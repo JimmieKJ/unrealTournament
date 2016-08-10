@@ -281,7 +281,7 @@ void AUTWeap_LinkGun::PlayFiringEffects()
 
 UAnimMontage* AUTWeap_LinkGun::GetFiringAnim(uint8 FireMode, bool bOnHands) const
 {
-	if (FireMode == 0 && (OverheatFactor > 1.f) && OverheatAnim)
+	if (FireMode == 0 && (OverheatFactor > 1.f) && OverheatAnim && !bOnHands)
 	{
 		return OverheatAnim;
 	}
