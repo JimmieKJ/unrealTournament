@@ -473,9 +473,9 @@ void UUTHUDWidget_QuickStats::Draw_Implementation(float DeltaTime)
 		DrawStat(GetBoostLocation(), BoostProvidedPowerupInfo, BoostIcon );
 	}
 
-	// draw health/armor pips @TODO FIXMESTEVE need separate HUD option to toggle this
+	// draw health/armor pips
 	AUTCharacter* UTChar = Cast<AUTCharacter>(UTHUDOwner->UTPlayerOwner->GetViewTarget());
-	if (false && UTHUDOwner->GetQuickStatsHidden() && UTChar && !UTChar->IsDead())
+	if (UTHUDOwner->GetHealthArcShown() && UTChar && !UTChar->IsDead())
 	{
 		int32 CurrentHealth = UTChar->Health;
 		const float CurrentTime = GetWorld()->GetTimeSeconds();

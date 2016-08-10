@@ -1610,6 +1610,11 @@ bool AUTHUD::GetQuickStatsHidden()
 	return VerifyProfileSettings() ? CachedProfileSettings->bQuickStatsHidden : UUTProfileSettings::StaticClass()->GetDefaultObject<UUTProfileSettings>()->bQuickStatsHidden;
 }
 
+bool AUTHUD::GetHealthArcShown()
+{
+	return VerifyProfileSettings() ? CachedProfileSettings->bHealthArcShown : UUTProfileSettings::StaticClass()->GetDefaultObject<UUTProfileSettings>()->bHealthArcShown;
+}
+
 bool AUTHUD::GetQuickInfoHidden()
 {
 	return VerifyProfileSettings() ? CachedProfileSettings->bQuickInfoHidden : UUTProfileSettings::StaticClass()->GetDefaultObject<UUTProfileSettings>()->bQuickInfoHidden;

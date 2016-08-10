@@ -398,6 +398,9 @@ public:
 	UFUNCTION(BlueprintCallable, Category=HUD)
 	bool GetQuickInfoHidden();
 
+	UFUNCTION(BlueprintCallable, Category = HUD)
+		bool GetHealthArcShown();
+
 	// accessor for CachedTeamColor.  
 	FLinearColor GetWidgetTeamColor();
 

@@ -192,6 +192,7 @@ void UUTProfileSettings::ResetHUD()
 	QuickStatsForegroundAlpha = 1.0f;
 	bQuickStatsHidden = true;
 	bQuickInfoHidden = false;
+	bHealthArcShown = false;
 			
 	HUDWidgetOpacity = 1.0f;
 	HUDWidgetBorderOpacity = 1.0f;

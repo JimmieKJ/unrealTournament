@@ -203,6 +203,9 @@ class UNREALTOURNAMENT_API UUTProfileSettings : public UObject
 	bool bQuickInfoHidden;
 
 	UPROPERTY()
+		bool bHealthArcShown;
+
+	UPROPERTY()
 	float QuickStatsScaleOverride;	
 
 	UPROPERTY()
