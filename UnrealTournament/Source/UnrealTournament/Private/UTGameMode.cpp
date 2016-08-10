@@ -149,7 +149,6 @@ AUTGameMode::AUTGameMode(const class FObjectInitializer& ObjectInitializer)
 
 	bPlayersStartWithArmor = true;
 	StartingArmorObject = FStringAssetReference(TEXT("/Game/RestrictedAssets/Pickups/Armor/Armor_ThighPads.Armor_ThighPads_C"));
-	StartingArmorClass;
 }
 
 float AUTGameMode::OverrideRespawnTime(TSubclassOf<AUTInventory> InventoryType)

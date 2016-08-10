@@ -426,7 +426,7 @@ public:
 
 	TAssetSubclassOf<class AUTArmor> StartingArmorObject;
 
-	UPROPERTY()
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Game")
 		TSubclassOf<class AUTArmor> StartingArmorClass;
 
 	/** assign squad to player - note that humans can have a squad for bots to follow their lead

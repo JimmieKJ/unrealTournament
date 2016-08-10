@@ -36,6 +36,7 @@
 #include "UTPickupMessage.h"
 #include "UTDemoRecSpectator.h"
 #include "UTGameVolume.h"
+#include "UTGameMode.h"
 
 static FName NAME_HatSocket(TEXT("HatSocket"));
 
@@ -4899,7 +4900,11 @@ void AUTCharacter::GiveArmor(AUTArmor* ArmorClass)
 {
 	if (ArmorClass == nullptr)
 	{
-		return;
+		ArmorClass = AUTGameMode::StaticClass()->GetDefaultObject<AUTGameMode>()->StartingArmorClass.GetDefaultObject();
+		if (ArmorClass == nullptr)
+		{
+			return;
+		}
 	}
 	if (ArmorClass->ArmorType == ArmorTypeName::Helmet)
 	{
