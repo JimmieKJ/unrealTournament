@@ -29,6 +29,13 @@ UUTHUDWidget_QuickStats::UUTHUDWidget_QuickStats(const FObjectInitializer& Objec
 	BootsInfo.bIsInfo = true;
 	PowerupInfo.bIsInfo = true;
 	BoostProvidedPowerupInfo.bIsInfo = true;
+
+	LastHealth = 0;
+	LastArmor = 0;
+	InfoBarRadius = 30.f;
+	AngleDelta = 9.f;
+	PipSize = 10.f;
+	PipPopTime = 0.4f;
 }
 
 void UUTHUDWidget_QuickStats::InitializeWidget(AUTHUD* Hud)
@@ -464,6 +471,105 @@ void UUTHUDWidget_QuickStats::Draw_Implementation(float DeltaTime)
 	if (BoostProvidedPowerupInfo.Value > 0)
 	{
 		DrawStat(GetBoostLocation(), BoostProvidedPowerupInfo, BoostIcon );
+	}
+
+	// draw health/armor pips @TODO FIXMESTEVE need separate HUD option to toggle this
+	AUTCharacter* UTChar = Cast<AUTCharacter>(UTHUDOwner->UTPlayerOwner->GetViewTarget());
+	if (false && UTHUDOwner->GetQuickStatsHidden() && UTChar && !UTChar->IsDead())
+	{
+		int32 CurrentHealth = UTChar->Health;
+		const float CurrentTime = GetWorld()->GetTimeSeconds();
+		if (CurrentHealth != LastHealth)
+		{
+			for (int32 i = 0; i < 20; i++)
+			{
+				if ((LastHealth > 10 * i) != (CurrentHealth > 10 * i))
+				{
+					HealthPipChange[i] = CurrentTime;
+				}
+			}
+			LastHealth = CurrentHealth;
+		}
+		int32 CurrentArmor = UTChar->GetArmorAmount();
+		if (CurrentArmor != LastArmor)
+		{
+			for (int32 i = 0; i < 20; i++)
+			{
+				if ((LastArmor > 10 * i) != (CurrentArmor > 10 * i))
+				{
+					ArmorPipChange[i] = CurrentTime;
+				}
+			}
+			LastArmor = CurrentArmor;
+		}
+
+		bool bDefaultScaled = bScaleByDesignedResolution;
+		FVector2D RealRenderPosition = RenderPosition;
+		RenderPosition.X = Canvas->ClipX * 0.5f;
+		RenderPosition.Y = Canvas->ClipY * 0.5f;
+		bScaleByDesignedResolution = false;
+		Position = FVector2D(0.0f, 0.0f);
+		FHUDRenderObject_Texture Pip = HealthPip;
+		float PipPopSize = 3.f / PipPopTime;
+
+		float PipAngle = -140.f;
+		for (int32 i = 0; i < 10; i++)
+		{
+			Pip.RenderColor = (CurrentHealth > 0) ? FLinearColor::Green : FLinearColor::Black;
+			float PipScaling = FMath::Max(1.f, PipPopSize * (PipPopTime + HealthPipChange[i] - CurrentTime));
+			if ((PipScaling > 1.f) && (CurrentHealth <= 0))
+			{
+				Pip.RenderColor = FLinearColor::Red;
+			}
+			Pip.Size = FVector2D(PipSize, PipSize) * RenderScale * PipScaling;
+			RenderObj_Texture(Pip, CalcRotOffset(FVector2D(InfoBarRadius, InfoBarRadius), PipAngle));
+			PipAngle -= AngleDelta;
+			CurrentHealth -= 10;
+		}
+		for (int32 i = 10; i < 20; i++)
+		{
+			if ((CurrentHealth <= 0) && (CurrentTime - HealthPipChange[i] > PipPopTime))
+			{
+				break;
+			}
+			float PipScaling = FMath::Max(1.f, PipPopSize * (PipPopTime + HealthPipChange[i] - CurrentTime));
+			Pip.RenderColor = (CurrentHealth > 0) ? FLinearColor::Blue : FLinearColor::Red;
+			Pip.Size = FVector2D(PipSize, PipSize) * RenderScale * PipScaling;
+			RenderObj_Texture(Pip, CalcRotOffset(FVector2D(InfoBarRadius, InfoBarRadius), PipAngle));
+			PipAngle -= AngleDelta;
+			CurrentHealth -= 10;
+		}
+
+		PipAngle = -130.f;
+		for (int32 i = 0; i < 10; i++)
+		{
+			if ((CurrentArmor <= 0) && (CurrentTime - ArmorPipChange[i] > PipPopTime))
+			{
+				break;
+			}
+			Pip.RenderColor = (CurrentArmor > 0) ? FLinearColor::Yellow : FLinearColor::Red;
+			float PipScaling = FMath::Max(1.f, PipPopSize * (PipPopTime + ArmorPipChange[i] - CurrentTime));
+			Pip.Size = FVector2D(PipSize, PipSize) * RenderScale * PipScaling;
+			RenderObj_Texture(Pip, CalcRotOffset(FVector2D(InfoBarRadius, InfoBarRadius), PipAngle));
+			PipAngle += AngleDelta;
+			CurrentArmor -= 10;
+		}
+		for (int32 i = 10; i < 20; i++)
+		{
+			if ((CurrentArmor <= 0) && (CurrentTime - ArmorPipChange[i] > PipPopTime))
+			{
+				break;
+			}
+			float PipScaling = FMath::Max(1.f, PipPopSize * (PipPopTime + ArmorPipChange[i] - CurrentTime));
+			Pip.RenderColor = (CurrentArmor > 0) ? FLinearColor::Yellow : FLinearColor::Red;
+			Pip.Size = FVector2D(PipSize, PipSize) * RenderScale * PipScaling;
+			RenderObj_Texture(Pip, CalcRotOffset(FVector2D(InfoBarRadius, InfoBarRadius), PipAngle));
+			PipAngle += AngleDelta;
+			CurrentArmor -= 10;
+		}
+
+		bScaleByDesignedResolution = bDefaultScaled;
+		RenderPosition = RealRenderPosition;
 	}
 }
 

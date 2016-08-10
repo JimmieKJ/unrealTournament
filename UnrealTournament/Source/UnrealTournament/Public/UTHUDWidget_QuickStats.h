@@ -316,6 +316,33 @@ protected:
 	UPROPERTY()
 	FHUDRenderObject_Texture PowerupIcon;
 
+	// Health/Armor bar properties
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Icons")
+		FHUDRenderObject_Texture HealthPip;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "HealthBar")
+		float InfoBarRadius;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "HealthBar")
+		float AngleDelta;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "HealthBar")
+		float PipSize;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "HealthBar")
+		float PipPopTime;
+
+	UPROPERTY()
+	int32 LastHealth;
+
+	UPROPERTY()
+	int32 LastArmor;
+
+	UPROPERTY()
+		float HealthPipChange[20];
+
+	UPROPERTY()
+		float ArmorPipChange[20];
 
 	virtual float GetDrawScaleOverride();
 
