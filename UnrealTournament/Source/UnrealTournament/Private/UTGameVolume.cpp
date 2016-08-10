@@ -67,7 +67,7 @@ void AUTGameVolume::ActorEnteredVolume(class AActor* Other)
 					if ((P->Health < 80) && Cast<AUTPlayerState>(P->PlayerState) && (GetWorld()->GetTimeSeconds() - ((AUTPlayerState*)(P->PlayerState))->LastNeedHealthTime > 20.f))
 					{
 						((AUTPlayerState*)(P->PlayerState))->LastNeedHealthTime = GetWorld()->GetTimeSeconds();
-						((AUTPlayerState*)(P->PlayerState))->AnnounceStatus(StatusMessage::NeedHealth);
+						((AUTPlayerState*)(P->PlayerState))->AnnounceStatus(StatusMessage::NeedHealth, 0, true);
 					}
 				}
 			}
