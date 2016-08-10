@@ -918,7 +918,7 @@ public:
 
 	static const FString& GetRankedPlayFilename()
 	{
-		const static FString RankedPlayFilename = "UnrealTournmentRankedPlay.json";
+		const static FString RankedPlayFilename = "UnrealTournamentRankedPlay.json";
 		return RankedPlayFilename;
 	}
 	bool IsRankedMatchmakingEnabled(int32 PlaylistId);
