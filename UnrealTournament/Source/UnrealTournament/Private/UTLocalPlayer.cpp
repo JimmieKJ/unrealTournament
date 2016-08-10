@@ -5523,3 +5523,15 @@ void UUTLocalPlayer::ResetDLCWarning()
 {
 	bHasShownDLCWarning = false;
 }
+
+bool UUTLocalPlayer::HasChatText()
+{
+#if !UE_SERVER
+	VerifyChatWidget();
+	if (!ChatWidget->GetText().IsEmpty())
+	{
+		return true;
+	}
+#endif
+	return  false;
+}

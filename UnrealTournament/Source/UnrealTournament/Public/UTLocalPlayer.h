@@ -1079,4 +1079,9 @@ protected:
 	// then the DLC content warning will not be displayed this run.
 	TArray<FGuid> AcceptedDLCServers;
 
+public:
+
+	// Returns true if there is chat text available.
+	virtual bool HasChatText();
+
 };

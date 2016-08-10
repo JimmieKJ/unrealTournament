@@ -529,12 +529,14 @@ void SUTInGameHomePanel::ShowMatchSummary(bool bInitial)
 	}
 
 	bFocusSummaryInv = false;
+/*
 	if (bInitial && SummaryPanel.IsValid())
 	{
 		SummaryPanel->SetInitialCams();
 		PlayerOwner->GetSlateOperations() = FReply::Handled().ReleaseMouseCapture().SetUserFocus(SummaryPanel.ToSharedRef(), EFocusCause::SetDirectly);
 	}
-
+*/
+	FSlateApplication::Get().SetKeyboardFocus(PlayerOwner->GetChatWidget(), EFocusCause::SetDirectly);
 }
 
 void SUTInGameHomePanel::HideMatchSummary()
@@ -577,6 +579,5 @@ FText SUTInGameHomePanel::GetMuteLabelText() const
 	bool bIsMuted = Id.IsValid() && PlayerOwner->PlayerController->IsPlayerMuted(Id.ToSharedRef().Get());
 	return bIsMuted ? NSLOCTEXT("SUTInGameHomePanel","Unmute","Unmute Player") : NSLOCTEXT("SUTInGameHomePanel","Mute","Mute Player");
 }
-
 
 #endif
