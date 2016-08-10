@@ -102,7 +102,7 @@ void UUTHUDWidget_NetInfo::Draw_Implementation(float DeltaTime)
 
 	float XL, SmallYL;
 	Canvas->TextSize(UTHUDOwner->TinyFont, "TEST", XL, SmallYL, RenderScale, RenderScale);
-	DrawTexture(UTHUDOwner->ScoreboardAtlas, 0.5f*XOffset, DrawOffset, Size.X, 12*SmallYL, 149, 138, 32, 32, 0.4f, FLinearColor::Black);
+	DrawTexture(UTHUDOwner->ScoreboardAtlas, 0.5f*XOffset, DrawOffset, Size.X, 14*SmallYL, 149, 138, 32, 32, 0.4f, FLinearColor::Black);
 	DrawOffset += 0.5f * SmallYL;
 
 	if (UTPS)
