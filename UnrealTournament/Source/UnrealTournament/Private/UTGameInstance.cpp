@@ -774,6 +774,7 @@ void UUTGameInstance::StopMovie()
 	if (FullScreenMovieModule != nullptr)
 	{
 		FullScreenMovieModule->StopMovie();
+		FullScreenMovieModule->WaitForMovieToFinished(SNullWidget::NullWidget);
 	}
 }
 
