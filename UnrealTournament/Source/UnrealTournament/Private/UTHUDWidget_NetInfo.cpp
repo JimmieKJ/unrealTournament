@@ -151,20 +151,20 @@ void UUTHUDWidget_NetInfo::Draw_Implementation(float DeltaTime)
 		DrawOffset += SmallYL;
 	}
 
-	if (int32(NetDriver->InPackets) < LastPacketsIn)
-	{
-		PacketsIn = LastPacketsIn;
-	}
-	if (int32(NetDriver->OutPackets) < LastPacketsOut)
-	{
-		PacketsOut = LastPacketsOut;
-	}
-	LastPacketsIn = NetDriver->InPackets;
-	LastPacketsOut = NetDriver->OutPackets;
-
 	// bytes in and out, and packet loss
 	if (NetDriver)
 	{
+		if (int32(NetDriver->InPackets) < LastPacketsIn)
+		{
+			PacketsIn = LastPacketsIn;
+		}
+		if (int32(NetDriver->OutPackets) < LastPacketsOut)
+		{
+			PacketsOut = LastPacketsOut;
+		}
+		LastPacketsIn = NetDriver->InPackets;
+		LastPacketsOut = NetDriver->OutPackets;
+
 		DrawText(NSLOCTEXT("NetInfo", "PacketsINtitle", "Pkts In"), XOffset, DrawOffset, UTHUDOwner->TinyFont, 1.0f, 1.0f, FLinearColor::White, ETextHorzPos::Left, ETextVertPos::Center);
 		FFormatNamedArguments Args;
 		Args.Add("PacketsIN", FText::AsNumber(PacketsIn));
