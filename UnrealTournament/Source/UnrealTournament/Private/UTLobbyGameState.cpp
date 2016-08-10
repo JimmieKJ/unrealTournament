@@ -524,6 +524,26 @@ void AUTLobbyGameState::LaunchGameInstance(AUTLobbyMatchInfo* MatchOwner, FStrin
 			Options += TEXT(" -BuildIdOverride=") + BuildIdOverride;
 		}
 
+		FString StatsPort;
+		if (FParse::Value(FCommandLine::Get(), TEXT("StatsPort="), StatsPort))
+		{
+			int32 NewPort = FCString::Atoi(*StatsPort) + 1;
+			bool bFound = false;
+			for (int32 i=0; i < GameInstances.Num(); i++)
+			{
+				if (GameInstances[i].MatchInfo->StatsPort == NewPort)
+				{
+					bFound = true;
+					break;
+				}
+			}
+			if (!bFound)
+			{
+				MatchOwner->StatsPort = NewPort;
+				Options += FString::Printf(TEXT(" -statsport=%i"), NewPort);
+			}
+		}
+
 		UE_LOG(UT,Verbose,TEXT("Launching %s with Params %s"), *ExecPath, *Options);
 
 		MatchOwner->GameInstanceProcessHandle = FPlatformProcess::CreateProc(*ExecPath, *Options, true, false, false, NULL, 0, NULL, NULL);
