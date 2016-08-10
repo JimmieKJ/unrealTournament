@@ -334,6 +334,23 @@ void AUTFlagRunGame::HandleRallyRequest(AUTPlayerController* RequestingPC)
 				if (bDelayedRally)
 				{
 					RequestingPC->BeginRallyTo(FlagCarrier, RequestingPC->RallyLocation, 0.6f);
+					if (UTCharacter->UTCharacterMovement)
+					{
+						UTCharacter->UTCharacterMovement->StopMovementImmediately();
+						UTCharacter->UTCharacterMovement->DisableMovement();
+						UTCharacter->DisallowWeaponFiring(true);
+						TSubclassOf<AUTReplicatedEmitter> PickedEffect = UTCharacter->TeleportEffect[0];
+						int32 TeamNum = UTCharacter->GetTeamNum();
+						if (TeamNum < UTCharacter->TeleportEffect.Num() && UTCharacter->TeleportEffect[TeamNum] != NULL)
+						{
+							PickedEffect = UTCharacter->TeleportEffect[TeamNum];
+						}
+
+						FActorSpawnParameters Params;
+						Params.Owner = UTCharacter;
+						Params.Instigator = UTCharacter;
+						GetWorld()->SpawnActor<AUTReplicatedEmitter>(PickedEffect, UTCharacter->GetActorLocation(), UTCharacter->GetActorRotation(), Params);
+					}
 				}
 				else
 				{
@@ -352,12 +369,17 @@ void AUTFlagRunGame::CompleteRallyRequest(AUTPlayerController* RequestingPC)
 	// if can rally, teleport with transloc effect, set last rally time
 	AUTCTFGameState* GS = GetWorld()->GetGameState<AUTCTFGameState>();
 	AUTTeamInfo* Team = UTPlayerState ? UTPlayerState->Team : nullptr;
-	if (!IsMatchInProgress() || (GS && GS->IsMatchIntermission()))
+	if (!UTCharacter || !IsMatchInProgress() || !GS || GS->IsMatchIntermission() || UTCharacter->IsPendingKillPending())
 	{
 		return;
 	}
+	if (UTCharacter->UTCharacterMovement)
+	{
+		UTCharacter->UTCharacterMovement->SetDefaultMovementMode();
+	}
+	UTCharacter->DisallowWeaponFiring(false);
 
-	if (Team && ((Team->TeamIndex == 0) == GS->bRedToCap) && UTCharacter && !UTCharacter->IsPendingKillPending() && GS && GS->FlagBases.IsValidIndex(Team->TeamIndex) && GS->FlagBases[Team->TeamIndex] != nullptr)
+	if (Team && ((Team->TeamIndex == 0) == GS->bRedToCap) && GS->FlagBases.IsValidIndex(Team->TeamIndex) && GS->FlagBases[Team->TeamIndex] != nullptr)
 	{
 		FVector WarpLocation = FVector::ZeroVector;
 		FRotator WarpRotation(0.0f, UTCharacter->GetActorRotation().Yaw, 0.0f);
