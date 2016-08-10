@@ -139,6 +139,18 @@ bool AUTRepulsorBubble::ShouldInteractWithActor(AActor* OtherActor)
 							(bShouldIgnoreTeamProjectiles && (TeamNum == OtherProjInstigator->GetTeamNum()) && (OtherProjInstigator->GetTeamNum() != 255)); // 255 is FFA team num, in FFA everyone has the same team num, but is on their own teams
 		}
 	}
+
+	AUTInventory* ActorAsInventory = Cast<AUTInventory>(OtherActor);
+	if (ActorAsInventory)
+	{
+		if (ActorAsInventory->GetUTOwner())
+		{
+			const AUTCharacter* ActorAsUTChar = ActorAsInventory->GetUTOwner();
+			bIsOnSameTeam = (ActorAsUTChar == Instigator) || //Always ignore the character that spawned us
+							(bShouldIgnoreTeamCharacters && (ActorAsUTChar->GetTeamNum() == TeamNum) && (ActorAsUTChar->GetTeamNum() != 255)); //255 is FFA team num, in FFA everyone has the same team num, but is on their own teams
+
+		}
+	}
 	
 	return !bIsOnSameTeam;
 }
