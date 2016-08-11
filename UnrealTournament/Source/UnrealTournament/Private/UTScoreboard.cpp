@@ -328,6 +328,11 @@ void UUTScoreboard::DrawPlayer(int32 Index, AUTPlayerState* PlayerState, float R
 		SelectionStack.Add(FSelectionObject(PlayerState, Bounds));
 		bIsUnderCursor = (CursorPosition.X >= Bounds.X && CursorPosition.X <= Bounds.Z && CursorPosition.Y >= Bounds.Y && CursorPosition.Y <= Bounds.W);
 	}
+	PlayerState->ScoreCorner = FVector(RenderPosition.X + XOffset, RenderPosition.Y + YOffset + 0.25f*CellHeight*RenderScale, 0.f);
+	if (!PlayerState->Team || (PlayerState->Team->TeamIndex != 1))
+	{
+		PlayerState->ScoreCorner.X += ScaledCellWidth;
+	}
 
 	float NameXL, NameYL;
 	float MaxNameWidth = 0.42f*ScaledCellWidth - (PlayerState->bIsFriend ? 30.f*RenderScale : 0.f);

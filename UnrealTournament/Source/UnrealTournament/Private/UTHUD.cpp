@@ -1403,6 +1403,17 @@ void AUTHUD::DrawMinimapSpectatorIcons()
 					{
 						continue;
 					}
+					if (bShowScores || bForceScores || bShowScoresWhileDead)
+					{
+						// draw line from hud to this loc - can't used Canvas line drawing code because it doesn't support translucency
+						FVector LineStartPoint(Pos.X, Pos.Y, 0.f);
+						FLinearColor LineColor = (PS == GetScorerPlayerState()) ? FLinearColor::Yellow : FLinearColor::White;
+						LineColor.A = 0.1f;
+						FBatchedElements* BatchedElements = Canvas->Canvas->GetBatchedElements(FCanvas::ET_Line);
+						FHitProxyId HitProxyId = Canvas->Canvas->GetHitProxyId();
+						BatchedElements->AddTranslucentLine(PS->ScoreCorner, LineStartPoint, LineColor, HitProxyId, 4.f);
+					}
+
 					FLinearColor PlayerColor = (PS && PS->Team) ? PS->Team->TeamColor : FLinearColor::Green;
 					PlayerColor.A = 1.f;
 					float IconRotation = bInvertMinimap ? UTChar->GetActorRotation().Yaw - 90.0f : UTChar->GetActorRotation().Yaw + 90.0f;
