@@ -203,8 +203,8 @@ protected:
 	EVisibility VarientSelectVis() const;
 
 
-	FText SUTWeaponConfigDialog::GetVarientText() const;
-	FText SUTWeaponConfigDialog::GetVarientSetText() const;
+	FText GetVarientText() const;
+	FText GetVarientSetText() const;
 
 	// returns true if this varient is the currently selected variant
 	bool IsCurrentSkin() const;
@@ -220,10 +220,10 @@ protected:
 
 	TSharedPtr<class SUTColorPicker> ColorPicker;
 
-	TOptional<float> SUTWeaponConfigDialog::GetCrosshairScale() const;
-	void SUTWeaponConfigDialog::SetCrosshairScale(float InScale);
-	FLinearColor SUTWeaponConfigDialog::GetCrosshairColor() const;
-	void SUTWeaponConfigDialog::SetCrosshairColor(FLinearColor NewColor);
+	TOptional<float> GetCrosshairScale() const;
+	void SetCrosshairScale(float InScale);
+	FLinearColor GetCrosshairColor() const;
+	void SetCrosshairColor(FLinearColor NewColor);
 
 
 protected:
