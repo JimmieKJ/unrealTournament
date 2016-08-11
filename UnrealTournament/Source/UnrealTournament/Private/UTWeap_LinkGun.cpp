@@ -129,7 +129,7 @@ void AUTWeap_LinkGun::UpdateScreenTexture(UCanvas* C, int32 Width, int32 Height)
 
 float AUTWeap_LinkGun::GetRefireTime(uint8 FireModeNum)
 {
-	if ((FireModeNum == 0) && (OverheatFactor > 1.f) && FireInterval.IsValidIndex(FireModeNum))
+	if ((FireModeNum == 0) && (OverheatFactor > 1.f) && FireInterval.IsValidIndex(FireModeNum) && (UTOwner->GetFireRateMultiplier() <= 1.f))
 	{
 		float Result = FireInterval[FireModeNum] * 5.f * (OverheatFactor - 0.8f);
 		if (UTOwner != NULL)
@@ -158,7 +158,7 @@ bool AUTWeap_LinkGun::HandleContinuedFiring()
 		{
 			UpdateTiming();
 		}
-		OverheatFactor = FMath::Min(OverheatFactor + 0.1f, 2.f);
+		OverheatFactor = (UTOwner->GetFireRateMultiplier() <= 1.f) ? FMath::Min(OverheatFactor + 0.1f, 2.f) : 0.f;
 	}
 
 	LastContinuedFiring = GetWorld()->GetTimeSeconds();
