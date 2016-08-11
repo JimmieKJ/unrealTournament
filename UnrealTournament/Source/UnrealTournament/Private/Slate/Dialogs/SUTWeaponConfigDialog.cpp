@@ -703,7 +703,6 @@ void SUTWeaponConfigDialog::GatherWeaponData(UUTProfileSettings* ProfileSettings
 				if (TestClass != NULL && !TestClass->HasAnyClassFlags(CLASS_Abstract) && TestClass->IsChildOf(AUTWeapon::StaticClass()))
 				{
 					AUTWeapon* WeaponDefaultObject = TestClass->GetDefaultObject<AUTWeapon>();
-					UE_LOG(UT,Log,TEXT("%s %i "), *WeaponDefaultObject->DisplayName.ToString(),WeaponDefaultObject->bHideInMenus );
 					if (!WeaponDefaultObject->bHideInMenus)
 					{
 						bool bFound = false;
@@ -968,6 +967,7 @@ void SUTWeaponConfigDialog::RecreateWeaponPreview()
 
 		// Add the Epic Default Weapon
 		FVector SpawnLocation = FVector(0.0f, 0.0f, 0.0f);
+
 		AUTWeapon* BaseWeapon = PreviewWorld->SpawnActor<AUTWeapon>(AllWeapons[CurrentWeaponIndex].WeaponClass, SpawnLocation, PreviewActorRotation);
 		if (BaseWeapon != nullptr)
 		{
@@ -1005,7 +1005,7 @@ void SUTWeaponConfigDialog::RecreateWeaponPreview()
 					if (SkinPickup != nullptr)
 					{
 						SkinPickup->SetActorTickEnabled(false);
-						SkinPickup->SetInventory(BaseWeapon);
+						SkinPickup->SetInventory(SkinWeapon);
 						SkinPickup->Movement->StopMovementImmediately();
 						SkinPickup->Movement->ProjectileGravityScale = 0.0f;
 						SkinPickup->SetWeaponSkin(WeaponSkin);
@@ -1135,7 +1135,7 @@ TSharedRef<SWidget> SUTWeaponConfigDialog::GenerateWeaponHand()
 		SAssignNew(WeaponHand, SComboBox< TSharedPtr<FText> >)
 		.InitiallySelectedItem(InitiallySelectedHand)
 		.ComboBoxStyle(SUTStyle::Get(), "UT.ComboBox")
-		.ButtonStyle(SUTStyle::Get(), "UT.ComboButton")
+		.ButtonStyle(SUTStyle::Get(), "UT.SimpleButton.Bright")
 		.OptionsSource(&WeaponHandList)
 		.OnGenerateWidget(this, &SUTWeaponConfigDialog::GenerateHandListWidget)
 		.OnSelectionChanged(this, &SUTWeaponConfigDialog::OnHandSelected)
@@ -1332,8 +1332,6 @@ void SUTWeaponConfigDialog::GatherWeaponSkins(UUTProfileSettings* ProfileSetting
 	for (const FAssetData& Asset : AssetList)
 	{
 		UUTWeaponSkin* NewWeaponSkin = Cast<UUTWeaponSkin>(Asset.GetAsset());
-		UE_LOG(UT, Log, TEXT("WeaponSkin %s"), *NewWeaponSkin->GetPathName());
-
 		if (NewWeaponSkin)
 		{
 			TArray<UUTWeaponSkin*>* WeaponSkinArray = AllWeaponSkins.Find(NewWeaponSkin->WeaponSkinCustomizationTag);
@@ -1476,7 +1474,7 @@ FReply SUTWeaponConfigDialog::OnModeChanged(int32 NewMode)
 	}
 
 	GeneratePage();
-	if (!bShowingCrosshairs) UpdateWeaponGroups(AllWeapons[CurrentWeaponIndex].WeaponCustomizationInfo->WeaponGroup);
+	UpdateWeaponGroups(AllWeapons[CurrentWeaponIndex].WeaponCustomizationInfo->WeaponGroup);
 
 	return FReply::Handled();
 }
