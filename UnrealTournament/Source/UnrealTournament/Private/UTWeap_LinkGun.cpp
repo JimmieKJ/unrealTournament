@@ -725,13 +725,13 @@ void AUTWeap_LinkGun::DrawWeaponCrosshair_Implementation(UUTHUDWidget* WeaponHud
 	{
 		float CircleSize = 76.f;
 		float ScaledCircleSize = CircleSize * GetCrosshairScale(WeaponHudWidget->UTHUDOwner);
-		WeaponHudWidget->DrawTexture(WeaponHudWidget->UTHUDOwner->HUDAtlas, 0, 0.25f*ScaledCircleSize, ScaledCircleSize, 0.5f*ScaledCircleSize, 98, 936 + 0.5f*CircleSize, CircleSize, CircleSize*0.5f, 0.2f, FLinearColor::White, FVector2D(0.5f, 0.5f));
+		WeaponHudWidget->DrawTexture(WeaponHudWidget->UTHUDOwner->HUDAtlas, 0, 0, ScaledCircleSize, ScaledCircleSize, 98, 936, CircleSize, CircleSize, 0.2f, FLinearColor::White, FVector2D(0.5f, 0.5f));
 		FLinearColor ChargeColor = FLinearColor::Red;
 		if (OverheatFactor < 1.f)
 		{
 			ChargeColor = (OverheatFactor > 0.8f) ? FLinearColor::Yellow : FLinearColor::White;
 		}
-		float ChargePct = FMath::Clamp(0.5f*OverheatFactor, 0.f, 0.5f);
+		float ChargePct = FMath::Clamp(OverheatFactor, 0.f, 1.f);
 		WeaponHudWidget->DrawTexture(WeaponHudWidget->UTHUDOwner->HUDAtlas, 0, 0.5f * ScaledCircleSize*(1.f - ChargePct), ScaledCircleSize, ScaledCircleSize*ChargePct, 98, 936 + CircleSize*(1.f - ChargePct), CircleSize, CircleSize*ChargePct, 0.7f, ChargeColor, FVector2D(0.5f, 0.5f));
 	}
 }
