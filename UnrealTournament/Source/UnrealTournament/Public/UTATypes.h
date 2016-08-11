@@ -1586,8 +1586,8 @@ struct FWeaponCustomizationInfo
 		, WeaponGroup(-1)
 		, WeaponAutoSwitchPriority(-1.0f)
 		, CrosshairTag(NAME_None)
-		, CrosshairColorOverride(FLinearColor::White)
 		, CrosshairScaleOverride(1.0)
+		, CrosshairColorOverride(FLinearColor::White)
 	{
 	}
 
@@ -1597,8 +1597,8 @@ struct FWeaponCustomizationInfo
 		, WeaponGroup(inWeaponGroup)
 		, WeaponAutoSwitchPriority(inWeaponAutoSwitchPriority)
 		, CrosshairTag(inCrosshairTag)
-		, CrosshairColorOverride(inCrosshairColorOverride)
 		, CrosshairScaleOverride(inCrosshairScaleOverride)
+		, CrosshairColorOverride(inCrosshairColorOverride)
 	{
 	}
 
