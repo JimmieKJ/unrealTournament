@@ -87,7 +87,7 @@ void UUTHUDWidget_Paperdoll::Draw_Implementation(float DeltaTime)
 	AUTCTFGameState* GameState = UTHUDOwner->GetWorld()->GetGameState<AUTCTFGameState>();
 
 	bool bPlayerCanRally = UTHUDOwner->UTPlayerOwner->CanPerformRally();
-	bool bShowTimer = !bPlayerCanRally && PS->Team && GameState && GameState->bAttackersCanRally && ((PS->Team->TeamIndex == 0) == GameState->bRedToCap) && UTC && UTC->bCanRally && (PS->RemainingRallyDelay > 0);
+	bool bShowTimer = !bPlayerCanRally && PS && PS->Team && GameState && GameState->bAttackersCanRally && ((PS->Team->TeamIndex == 0) == GameState->bRedToCap) && UTC && UTC->bCanRally && (PS->RemainingRallyDelay > 0);
 
 	if (UTC != NULL && !UTC->IsDead())
 	{
