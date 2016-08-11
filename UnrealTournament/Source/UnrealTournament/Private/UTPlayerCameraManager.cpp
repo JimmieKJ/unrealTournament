@@ -187,7 +187,7 @@ void AUTPlayerCameraManager::UpdateViewTarget(FTViewTarget& OutVT, float DeltaTi
 	else if (CameraStyle == NAME_RallyCam)
 	{
 		AUTPlayerController* UTPC = Cast<AUTPlayerController>(PCOwner);
-		OutVT.POV.FOV = DefaultFOV + (170.f - DefaultFOV) * ((UTPC != nullptr) ? FMath::Clamp(1.2f - 2.f*(GetWorld()->GetTimeSeconds() - UTPC->StartRallyTime), 0.f, 1.f) : 0.f);
+		OutVT.POV.FOV = DefaultFOV + (170.f - DefaultFOV) * ((UTPC != nullptr) ? FMath::Clamp(UTPC->EndRallyTime - GetWorld()->GetTimeSeconds(), 0.f, 1.f) : 0.f);
 		OutVT.POV.OrthoWidth = DefaultOrthoWidth;
 		OutVT.POV.bConstrainAspectRatio = false;
 		OutVT.POV.ProjectionMode = bIsOrthographic ? ECameraProjectionMode::Orthographic : ECameraProjectionMode::Perspective;

@@ -257,13 +257,13 @@ public:
 		FVector RallyLocation;
 
 	UPROPERTY()
-		float StartRallyTime;
+		float EndRallyTime;
 
 	UFUNCTION(server, reliable, withvalidation)
 		virtual void ServerRequestRally();
 
 	UFUNCTION(client, reliable)
-		virtual void ClientStartRally(AUTCharacter* RallyTarget, const FVector& NewRallyLocation);
+		virtual void ClientStartRally(AUTCharacter* RallyTarget, const FVector& NewRallyLocation, float Delay);
 
 	UFUNCTION(client, reliable)
 		virtual void ClientCompleteRally();

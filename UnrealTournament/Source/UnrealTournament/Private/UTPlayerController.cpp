@@ -297,16 +297,16 @@ void AUTPlayerController::BeginRallyTo(AUTCharacter* RallyTarget, const FVector&
 	{
 		GetWorldTimerManager().SetTimer(RallyTimerHandle, this, &AUTPlayerController::CompleteRally, Delay, false);
 	}
-	ClientStartRally(RallyTarget, NewRallyLocation);
+	ClientStartRally(RallyTarget, NewRallyLocation, Delay);
 }
 
-void AUTPlayerController::ClientStartRally_Implementation(AUTCharacter* RallyTarget, const FVector& NewRallyLocation)
+void AUTPlayerController::ClientStartRally_Implementation(AUTCharacter* RallyTarget, const FVector& NewRallyLocation, float Delay)
 {
 	if (RallyTarget)
 	{
 		// client side
 		RallyLocation = NewRallyLocation;
-		StartRallyTime = GetWorld()->GetTimeSeconds();
+		EndRallyTime = GetWorld()->GetTimeSeconds() + Delay;
 		SetCameraMode(FName(TEXT("RallyCam")));
 		SetViewTarget(RallyTarget);
 	}
