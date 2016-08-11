@@ -528,7 +528,7 @@ void FUTAnalytics::FireEvent_ServerUnplayableCondition(AUTGameMode* UTGM, double
 *
 * @Type Sent by the client
 *
-* @EventParam Platform int32 The platform the client is on 0=PC / 1=PS4
+* @EventParam Platform string The platform the client is on.
 * @EventParam Location string The context location of the player
 * @EventParam SocialPartyCount int32 The number of people in a players social party (counts the player as a party member)
 * @EventParam RegionId the region reported by the user (automatic from ping, or self selected in settings)
