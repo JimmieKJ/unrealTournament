@@ -462,7 +462,7 @@ void SUTMatchSummaryPanel::SetInitialCams()
 	//Set the camera state based on the game state
 	if (GameState.IsValid())
 	{
-		if (!GameState->HasMatchStarted())
+		if (!GameState->HasMatchStarted() || (GameState->GetMatchState() == MatchState::PlayerIntro))
 		{
 			SetupIntroCam();
 		}

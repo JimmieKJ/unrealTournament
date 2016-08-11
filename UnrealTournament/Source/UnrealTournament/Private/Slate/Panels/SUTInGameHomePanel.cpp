@@ -529,13 +529,11 @@ void SUTInGameHomePanel::ShowMatchSummary(bool bInitial)
 	}
 
 	bFocusSummaryInv = false;
-/*
 	if (bInitial && SummaryPanel.IsValid())
 	{
 		SummaryPanel->SetInitialCams();
-		PlayerOwner->GetSlateOperations() = FReply::Handled().ReleaseMouseCapture().SetUserFocus(SummaryPanel.ToSharedRef(), EFocusCause::SetDirectly);
+//		PlayerOwner->GetSlateOperations() = FReply::Handled().ReleaseMouseCapture().SetUserFocus(SummaryPanel.ToSharedRef(), EFocusCause::SetDirectly);
 	}
-*/
 
 	if (PlayerOwner->HasChatText())
 	{
