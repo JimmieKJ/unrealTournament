@@ -365,7 +365,7 @@ void AUTWeap_LinkGun::Tick(float DeltaTime)
 	else
 	{
 		float OldOverheatFactor = OverheatFactor;
-		OverheatFactor = FMath::Clamp(OverheatFactor - 2.5f*DeltaTime, 0.f, 2.f);
+		OverheatFactor = FMath::Clamp(OverheatFactor - 2.f*DeltaTime, 0.f, 2.f);
 		if ((OverheatFactor > 0.f) && UTOwner)
 		{
 			// @TOOD FIXMESTEVE - set this sound when stop firing
@@ -721,17 +721,20 @@ void AUTWeap_LinkGun::DrawWeaponCrosshair_Implementation(UUTHUDWidget* WeaponHud
 {
 	Super::DrawWeaponCrosshair_Implementation(WeaponHudWidget, RenderDelta);
 
-	if ((OverheatFactor > 0.f) && WeaponHudWidget && WeaponHudWidget->UTHUDOwner)
+	if (WeaponHudWidget && WeaponHudWidget->UTHUDOwner)
 	{
 		float CircleSize = 76.f;
 		float ScaledCircleSize = CircleSize * GetCrosshairScale(WeaponHudWidget->UTHUDOwner);
 		WeaponHudWidget->DrawTexture(WeaponHudWidget->UTHUDOwner->HUDAtlas, 0, 0, ScaledCircleSize, ScaledCircleSize, 98, 936, CircleSize, CircleSize, 0.2f, FLinearColor::White, FVector2D(0.5f, 0.5f));
-		FLinearColor ChargeColor = FLinearColor::Red;
-		if (OverheatFactor < 1.f)
+		if (OverheatFactor > 0.f)
 		{
-			ChargeColor = (OverheatFactor > 0.8f) ? FLinearColor::Yellow : FLinearColor::White;
+			FLinearColor ChargeColor = FLinearColor::Red;
+			if (OverheatFactor < 1.f)
+			{
+				ChargeColor = (OverheatFactor > 0.8f) ? FLinearColor::Yellow : FLinearColor::White;
+			}
+			float ChargePct = FMath::Clamp(OverheatFactor, 0.f, 1.f);
+			WeaponHudWidget->DrawTexture(WeaponHudWidget->UTHUDOwner->HUDAtlas, 0, 0.5f * ScaledCircleSize*(1.f - ChargePct), ScaledCircleSize, ScaledCircleSize*ChargePct, 98, 936 + CircleSize*(1.f - ChargePct), CircleSize, CircleSize*ChargePct, 0.7f, ChargeColor, FVector2D(0.5f, 0.5f));
 		}
-		float ChargePct = FMath::Clamp(OverheatFactor, 0.f, 1.f);
-		WeaponHudWidget->DrawTexture(WeaponHudWidget->UTHUDOwner->HUDAtlas, 0, 0.5f * ScaledCircleSize*(1.f - ChargePct), ScaledCircleSize, ScaledCircleSize*ChargePct, 98, 936 + CircleSize*(1.f - ChargePct), CircleSize, CircleSize*ChargePct, 0.7f, ChargeColor, FVector2D(0.5f, 0.5f));
 	}
 }
