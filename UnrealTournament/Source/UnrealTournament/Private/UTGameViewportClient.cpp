@@ -499,7 +499,8 @@ void UUTGameViewportClient::Draw(FViewport* InViewport, FCanvas* SceneCanvas)
 				if (SceneView != NULL)
 				{
 					TArray<UMeshComponent*> WeaponMeshes = UTC->GetWeapon()->Get1PMeshes();
-					for (USceneComponent* Attachment : UTC->GetWeapon()->GetMesh()->AttachChildren)
+					TArray<USceneComponent*> Children = UTC->GetWeapon()->GetMesh()->AttachChildren; // make a copy in case something below causes it to change
+					for (USceneComponent* Attachment : Children)
 					{
 						// any additional weapon meshes are assumed to be projected in the shader if desired
 						if (!Attachment->IsPendingKill() && !WeaponMeshes.Contains(Attachment) && !SavedTransforms.ContainsByPredicate([Attachment](const FSavedTransform& TestItem) { return TestItem.Component == Attachment; }))
