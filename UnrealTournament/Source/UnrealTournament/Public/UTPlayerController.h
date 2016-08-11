@@ -256,6 +256,9 @@ public:
 	UPROPERTY()
 		FVector RallyLocation;
 
+	UPROPERTY()
+		float StartRallyTime;
+
 	UFUNCTION(server, reliable, withvalidation)
 		virtual void ServerRequestRally();
 

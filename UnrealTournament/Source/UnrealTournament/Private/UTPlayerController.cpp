@@ -306,6 +306,7 @@ void AUTPlayerController::ClientStartRally_Implementation(AUTCharacter* RallyTar
 	{
 		// client side
 		RallyLocation = NewRallyLocation;
+		StartRallyTime = GetWorld()->GetTimeSeconds();
 		SetCameraMode(FName(TEXT("RallyCam")));
 		SetViewTarget(RallyTarget);
 	}
@@ -2842,7 +2843,6 @@ void AUTPlayerController::ShowMenu(const FString& Parameters)
 	OnStopFire();
 	OnStopAltFire();
 }
-
 
 void AUTPlayerController::SetViewTarget(class AActor* NewViewTarget, FViewTargetTransitionParams TransitionParams)
 {
