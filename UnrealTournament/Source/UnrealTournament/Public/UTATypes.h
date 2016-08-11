@@ -1607,7 +1607,7 @@ struct FWeaponCustomizationInfo
 		Copy(Source);
 	}
 
-	void FWeaponCustomizationInfo::Copy(const FWeaponCustomizationInfo& Source)
+	void Copy(const FWeaponCustomizationInfo& Source)
 	{
 		WeaponCustomizationTag = Source.WeaponCustomizationTag;
 		WeaponGroup = Source.WeaponGroup;
