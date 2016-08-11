@@ -686,6 +686,7 @@ void UUTGameEngine::IndexExpansionContent()
 					FCoreDelegates::OnUnmountPak.Execute(PakPath);
 					UE_LOG(UT, Warning, TEXT("Unmounted %s"), *PakPath);
 				}
+				PaksThatFailedToLoad.Add(PakFilename);
 			}
 		}
 
@@ -717,6 +718,7 @@ void UUTGameEngine::IndexExpansionContent()
 					FCoreDelegates::OnUnmountPak.Execute(PakPath);
 					UE_LOG(UT, Warning, TEXT("Unmounted %s"), *PakPath);
 				}
+				PaksThatFailedToLoad.Add(PakFilename);
 			}
 		}
 
@@ -752,6 +754,10 @@ void UUTGameEngine::IndexExpansionContent()
 						}
 					}
 					AddAssetRegistry(PakFilename);
+				}
+				else
+				{
+					PaksThatFailedToLoad.Add(PakFilename);
 				}
 			}
 			else

@@ -170,6 +170,9 @@ public:
 
 	bool CheckVersionOfPakFile(const FString& PakFilename) const;
 
+	UPROPERTY()
+	TArray<FString>	PaksThatFailedToLoad;
+
 protected:
 	virtual bool ShouldShutdownWorldNetDriver() override;
 	void OnLoadingMoviePlaybackFinished();

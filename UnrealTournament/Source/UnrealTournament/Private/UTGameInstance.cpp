@@ -125,6 +125,20 @@ void UUTGameInstance::DeferredStartGameInstance()
 	if (LocalPlayer)
 	{
 		Settings->BenchmarkDetailSettingsIfNeeded(LocalPlayer);
+
+		if (!Settings->bBenchmarkInProgress)
+		{
+			UUTGameEngine* Engine = Cast<UUTGameEngine>(GEngine);
+			if (Engine)
+			{
+				if (Engine->PaksThatFailedToLoad.Num() > 0)
+				{
+					LocalPlayer->ShowMessage(NSLOCTEXT("UUTGameInstance", "FailedToLoadPaksTitle", "Could Not Load Custom Content"),
+						                     NSLOCTEXT("UUTGameInstance", "FailedToLoadPaks", "One or more custom content packages were not loaded because they are not compatible with this version of Unreal Tournament.\n\nWe apologize for the inconvenience. We recommend downloading updated content packages from the content creator."), 
+											 UTDIALOG_BUTTON_OK, FDialogResultDelegate(), FVector2D(0.6f, 0.4f));
+				}
+			}
+		}
 	}
 #endif
 }
