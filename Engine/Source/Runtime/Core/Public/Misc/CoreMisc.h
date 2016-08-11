@@ -132,19 +132,19 @@ struct CORE_API FCommandLine
 	 */
 	static void Parse(const TCHAR* CmdLine, TArray<FString>& Tokens, TArray<FString>& Switches);
 private:
-#if WANTS_COMMANDLINE_WHITELIST
 	/** Filters both the original and current command line list for approved only args */
 	static void WhitelistCommandLines();
-	/** Filters any command line args that aren't on the approved list */
-	static TArray<FString> FilterCommandLine(TCHAR* CommandLine);
+
 	/** Filters any command line args that are on the to-strip list */
 	static TArray<FString> FilterCommandLineForLogging(TCHAR* CommandLine);
+	static TArray<FString> FilterArgsForLogging;
 	/** Rebuilds the command line using the filtered args */
 	static void BuildWhitelistCommandLine(TCHAR* CommandLine, uint32 Length, const TArray<FString>& FilteredArgs);
+
+#if WANTS_COMMANDLINE_WHITELIST
+	/** Filters any command line args that aren't on the approved list */
+	static TArray<FString> FilterCommandLine(TCHAR* CommandLine);
 	static TArray<FString> ApprovedArgs;
-	static TArray<FString> FilterArgsForLogging;
-#else
-#define WhitelistCommandLines()
 #endif
 
 	/** Flag to check if the commandline has been initialized or not. */

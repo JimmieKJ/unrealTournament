@@ -629,9 +629,23 @@ void FCommandLine::Append(const TCHAR* AppendString)
 	WhitelistCommandLines();
 }
 
+TArray<FString> FCommandLine::FilterArgsForLogging;
+
+#ifdef FILTER_COMMANDLINE_LOGGING
+/**
+* When overriding this setting make sure that your define looks like the following in your .cs file:
+*
+*		OutCPPEnvironmentConfiguration.Definitions.Add("FILTER_COMMANDLINE_LOGGING=\"-arg1 -arg2 -arg3 -arg4\"");
+*
+* The important part is the \" as they quotes get stripped off by the compiler without them
+*/
+const TCHAR* FilterForLoggingList = TEXT(FILTER_COMMANDLINE_LOGGING);
+#else
+const TCHAR* FilterForLoggingList = TEXT("-AUTH_LOGIN -AUTH_PASSWORD -password");
+#endif
+
 #if WANTS_COMMANDLINE_WHITELIST
 TArray<FString> FCommandLine::ApprovedArgs;
-TArray<FString> FCommandLine::FilterArgsForLogging;
 
 #ifdef OVERRIDE_COMMANDLINE_WHITELIST
 /**
@@ -646,45 +660,6 @@ const TCHAR* OverrideList = TEXT(OVERRIDE_COMMANDLINE_WHITELIST);
 // Default list most conservative restrictions
 const TCHAR* OverrideList = TEXT("-fullscreen /windowed");
 #endif
-
-#ifdef FILTER_COMMANDLINE_LOGGING
-/**
- * When overriding this setting make sure that your define looks like the following in your .cs file:
- *
- *		OutCPPEnvironmentConfiguration.Definitions.Add("FILTER_COMMANDLINE_LOGGING=\"-arg1 -arg2 -arg3 -arg4\"");
- *
- * The important part is the \" as they quotes get stripped off by the compiler without them
- */
-const TCHAR* FilterForLoggingList = TEXT(FILTER_COMMANDLINE_LOGGING);
-#else
-const TCHAR* FilterForLoggingList = TEXT("");
-#endif
-
-void FCommandLine::WhitelistCommandLines()
-{
-	if (ApprovedArgs.Num() == 0)
-	{
-		TArray<FString> Ignored;
-		FCommandLine::Parse(OverrideList, ApprovedArgs, Ignored);
-	}
-	if (FilterArgsForLogging.Num() == 0)
-	{
-		TArray<FString> Ignored;
-		FCommandLine::Parse(FilterForLoggingList, FilterArgsForLogging, Ignored);
-	}
-	// Process the original command line
-	TArray<FString> OriginalList = FilterCommandLine(OriginalCmdLine);
-	BuildWhitelistCommandLine(OriginalCmdLine, ARRAY_COUNT(OriginalCmdLine), OriginalList);
-	// Process the current command line
-	TArray<FString> CmdList = FilterCommandLine(CmdLine);
-	BuildWhitelistCommandLine(CmdLine, ARRAY_COUNT(CmdLine), CmdList);
-	// Process the command line for logging purposes
-	TArray<FString> LoggingCmdList = FilterCommandLineForLogging(LoggingCmdLine);
-	BuildWhitelistCommandLine(LoggingCmdLine, ARRAY_COUNT(LoggingCmdLine), LoggingCmdList);
-	// Process the original command line for logging purposes
-	TArray<FString> LoggingOriginalCmdList = FilterCommandLineForLogging(LoggingOriginalCmdLine);
-	BuildWhitelistCommandLine(LoggingOriginalCmdLine, ARRAY_COUNT(LoggingOriginalCmdLine), LoggingOriginalCmdList);
-}
 
 TArray<FString> FCommandLine::FilterCommandLine(TCHAR* CommandLine)
 {
@@ -712,6 +687,8 @@ TArray<FString> FCommandLine::FilterCommandLine(TCHAR* CommandLine)
 	}
 	return ParsedList;
 }
+
+#endif
 
 TArray<FString> FCommandLine::FilterCommandLineForLogging(TCHAR* CommandLine)
 {
@@ -756,7 +733,36 @@ void FCommandLine::BuildWhitelistCommandLine(TCHAR* CommandLine, uint32 ArrayCou
 		}
 	}
 }
+
+void FCommandLine::WhitelistCommandLines()
+{
+#if WANTS_COMMANDLINE_WHITELIST
+	if (ApprovedArgs.Num() == 0)
+	{
+		TArray<FString> Ignored;
+		FCommandLine::Parse(OverrideList, ApprovedArgs, Ignored);
+	}
+
+	// Process the original command line
+	TArray<FString> OriginalList = FilterCommandLine(OriginalCmdLine);
+	BuildWhitelistCommandLine(OriginalCmdLine, ARRAY_COUNT(OriginalCmdLine), OriginalList);
+	// Process the current command line
+	TArray<FString> CmdList = FilterCommandLine(CmdLine);
+	BuildWhitelistCommandLine(CmdLine, ARRAY_COUNT(CmdLine), CmdList);
 #endif
+
+	if (FilterArgsForLogging.Num() == 0)
+	{
+		TArray<FString> Ignored;
+		FCommandLine::Parse(FilterForLoggingList, FilterArgsForLogging, Ignored);
+	}
+	// Process the command line for logging purposes
+	TArray<FString> LoggingCmdList = FilterCommandLineForLogging(LoggingCmdLine);
+	BuildWhitelistCommandLine(LoggingCmdLine, ARRAY_COUNT(LoggingCmdLine), LoggingCmdList);
+	// Process the original command line for logging purposes
+	TArray<FString> LoggingOriginalCmdList = FilterCommandLineForLogging(LoggingOriginalCmdLine);
+	BuildWhitelistCommandLine(LoggingOriginalCmdLine, ARRAY_COUNT(LoggingOriginalCmdLine), LoggingOriginalCmdList);
+}
 
 void FCommandLine::AddToSubprocessCommandline( const TCHAR* Param )
 {
