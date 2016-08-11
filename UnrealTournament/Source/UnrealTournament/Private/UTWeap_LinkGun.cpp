@@ -162,7 +162,7 @@ bool AUTWeap_LinkGun::HandleContinuedFiring()
 		{
 			UpdateTiming();
 		}
-		OverheatFactor = (UTOwner->GetFireRateMultiplier() <= 1.f) ? FMath::Min(OverheatFactor + 0.1f, 2.f) : 0.f;
+		OverheatFactor = (UTOwner->GetFireRateMultiplier() <= 1.f) ? FMath::Min(OverheatFactor + 0.07f, 2.f) : 0.f;
 	}
 
 	LastContinuedFiring = GetWorld()->GetTimeSeconds();
