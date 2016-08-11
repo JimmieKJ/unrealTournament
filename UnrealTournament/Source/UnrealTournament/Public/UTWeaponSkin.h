@@ -36,4 +36,8 @@ public:
 
 	UPROPERTY(EditAnywhere, Meta = (MetaClass = "UTWeapon"))
 	FStringClassReference WeaponType;
+
+	UPROPERTY(EditAnywhere, Meta = (MetaClass = "UTWeapon"))
+	FName WeaponSkinCustomizationTag;
+
 };

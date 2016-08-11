@@ -110,6 +110,9 @@ AUTWeapon::AUTWeapon(const FObjectInitializer& ObjectInitializer)
 	LowAmmoSoundDelay = 0.2f;
 	LowAmmoThreshold = 3;
 	FireSoundAmp = SAT_WeaponFire;
+
+	WeaponSkinCustomizationTag = NAME_None;
+
 }
 
 void AUTWeapon::PostInitProperties()
@@ -302,8 +305,8 @@ void AUTWeapon::ClientGivenTo_Internal(bool bAutoActivate)
 	AUTPlayerController *UTPC = Cast<AUTPlayerController>(UTOwner->Controller);
 	if (UTPC != NULL)
 	{
-		AutoSwitchPriority = UTPC->GetWeaponAutoSwitchPriority(GetNameSafe(this), AutoSwitchPriority);
-		UTPC->SetWeaponGroup(this);
+		AutoSwitchPriority = UTPC->GetWeaponAutoSwitchPriority(this);
+		Group = UTPC->GetWeaponGroup(this);
 	}
 
 	// assign GroupSlot if required
@@ -561,6 +564,16 @@ void AUTWeapon::BringUp(float OverflowTime)
 	AttachToOwner();
 	OnBringUp();
 	CurrentState->BringUp(OverflowTime);
+
+	if (ActiveCrosshair == nullptr)
+	{
+		AUTPlayerController* UTPlayerController = Cast<AUTPlayerController>(UTOwner->Controller);
+		if (UTPlayerController != nullptr && UTPlayerController->MyUTHUD != nullptr)
+		{
+			ActiveCrosshair = UTPlayerController->MyUTHUD->GetCrosshairForWeapon(WeaponCustomizationTag, ActiveCrosshairCustomizationInfo);			
+		}
+	}
+
 }
 
 float AUTWeapon::GetPutDownTime()
@@ -583,6 +596,13 @@ bool AUTWeapon::PutDown()
 	{
 		SetZoomState(EZoomState::EZS_NotZoomed);
 		CurrentState->PutDown();
+
+		// Clear out the active crosshair
+		if (ActiveCrosshair == nullptr)
+		{
+			ActiveCrosshair = nullptr;
+		}
+
 		return true;
 	}
 }
@@ -2005,43 +2025,28 @@ void AUTWeapon::DrawWeaponCrosshair_Implementation(UUTHUDWidget* WeaponHudWidget
 		bDrawCrosshair = FiringState[i]->DrawHUD(WeaponHudWidget) && bDrawCrosshair;
 	}
 
-	// for debugging crosshair centering
-	//WeaponHudWidget->UTHUDOwner->DrawLine(0.f, WeaponHudWidget->GetCanvas()->SizeY*0.5f, WeaponHudWidget->GetCanvas()->SizeX - 8.f, WeaponHudWidget->GetCanvas()->SizeY*0.5f, FLinearColor::Yellow);
-	//WeaponHudWidget->UTHUDOwner->DrawLine(WeaponHudWidget->GetCanvas()->SizeX*0.5f, 0.f, WeaponHudWidget->GetCanvas()->SizeX*0.5f, WeaponHudWidget->GetCanvas()->SizeY, FLinearColor::Yellow);
-
-	if (bDrawCrosshair && WeaponHudWidget && WeaponHudWidget->UTHUDOwner)
+	if (bDrawCrosshair)
 	{
-		UTexture2D* CrosshairTexture = WeaponHudWidget->UTHUDOwner->DefaultCrosshairTex;
-		if (CrosshairTexture != NULL)
+		if (ActiveCrosshair != nullptr)
 		{
-			float W = CrosshairTexture->GetSurfaceWidth();
-			float H = CrosshairTexture->GetSurfaceHeight();
-			float CrosshairScale = GetCrosshairScale(WeaponHudWidget->UTHUDOwner);
-
-			// draw a different indicator if there is a friendly where the camera is pointing
-			AUTPlayerState* PS;
-			if (ShouldDrawFFIndicator(WeaponHudWidget->UTHUDOwner->PlayerOwner, PS))
+			ActiveCrosshair->NativeDrawCrosshair(WeaponHudWidget->GetCanvas(), this, RenderDelta, ActiveCrosshairCustomizationInfo);
+		}
+		else
+		{
+			// fall back crosshair
+			UTexture2D* CrosshairTexture = WeaponHudWidget->UTHUDOwner->DefaultCrosshairTex;
+			if (CrosshairTexture != NULL)
 			{
-				WeaponHudWidget->DrawTexture(WeaponHudWidget->UTHUDOwner->HUDAtlas, 0, 0, W * CrosshairScale, H * CrosshairScale, 407, 940, 72, 72, 1.0, FLinearColor::Green, FVector2D(0.5f, 0.5f));
-			}
-			else
-			{
-				UUTCrosshair* Crosshair = WeaponHudWidget->UTHUDOwner->GetCrosshair(GetClass());
-				FCrosshairInfo* CrosshairInfo = WeaponHudWidget->UTHUDOwner->GetCrosshairInfo(GetClass());
+				float W = CrosshairTexture->GetSurfaceWidth();
+				float H = CrosshairTexture->GetSurfaceHeight();
+				float CrosshairScale = WeaponHudWidget->UTHUDOwner->GetCrosshairScale();
 
-				if (Crosshair != nullptr && CrosshairInfo != nullptr)
-				{
-					Crosshair->DrawCrosshair(WeaponHudWidget->GetCanvas(), this, RenderDelta, GetCrosshairScale(WeaponHudWidget->UTHUDOwner) * CrosshairInfo->Scale, WeaponHudWidget->UTHUDOwner->GetCrosshairColor(CrosshairInfo->Color));
-				}
-				else
-				{
-					WeaponHudWidget->DrawTexture(CrosshairTexture, 0, 0, W * CrosshairScale, H * CrosshairScale, 0.0, 0.0, 16, 16, 1.0, GetCrosshairColor(WeaponHudWidget), FVector2D(0.5f, 0.5f));
-				}
-				UpdateCrosshairTarget(PS, WeaponHudWidget, RenderDelta);
+				WeaponHudWidget->DrawTexture(CrosshairTexture, 0, 0, W * CrosshairScale, H * CrosshairScale, 0.0, 0.0, 16, 16, 1.0, WeaponHudWidget->UTHUDOwner->GetCrosshairColor(FLinearColor::White), FVector2D(0.5f, 0.5f));
 			}
 		}
 	}
 }
+
 
 void AUTWeapon::UpdateCrosshairTarget(AUTPlayerState* NewCrosshairTarget, UUTHUDWidget* WeaponHudWidget, float RenderDelta)
 {

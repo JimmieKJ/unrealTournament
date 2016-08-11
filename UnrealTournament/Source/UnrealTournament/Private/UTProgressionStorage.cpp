@@ -14,19 +14,6 @@ void UUTProgressionStorage::VersionFixup()
 	TokensCommit(); // just in case any achievements failed to unlock previously due to bug
 }
 
-void UUTProgressionStorage::LoadFromProfile(UUTProfileSettings* ProfileSettings)
-{
-	if (ProfileSettings)
-	{
-		ChallengeResults = ProfileSettings->ChallengeResults;
-		UnlockedDailyChallenges = ProfileSettings->UnlockedDailyChallenges;
-		TotalChallengeStars = ProfileSettings->TotalChallengeStars;
-		SkullCount = ProfileSettings->SkullCount;
-		Achievements = ProfileSettings->Achievements;
-		ProfileSettings->CopyTokens(FoundTokenUniqueIDs);
-	}
-}
-
 bool UUTProgressionStorage::HasTokenBeenPickedUpBefore(FName TokenUniqueID)
 {
 	return FoundTokenUniqueIDs.Contains(TokenUniqueID);

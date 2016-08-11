@@ -2843,7 +2843,7 @@ void AUTCharacter::WeaponChanged(float OverflowTime)
 		WeaponClass = Weapon->GetClass();
 		WeaponAttachmentClass = Weapon->AttachmentType;
 		Weapon->BringUp(OverflowTime);
-		UpdateWeaponSkinPrefFromProfile();
+		UpdateWeaponSkinPrefFromProfile(Weapon);
 		UpdateWeaponAttachment();
 	}
 	else if (Weapon != NULL && Weapon->GetUTOwner() == this)
@@ -2936,14 +2936,14 @@ void AUTCharacter::SetSkinForWeapon(UUTWeaponSkin* WeaponSkin)
 	}
 }
 
-void AUTCharacter::UpdateWeaponSkinPrefFromProfile()
+void AUTCharacter::UpdateWeaponSkinPrefFromProfile(AUTWeapon* Weapon)
 {
-	if (Weapon && IsLocallyControlled())
+	if (Weapon != nullptr && IsLocallyControlled())
 	{
 		AUTPlayerState* PS = Cast<AUTPlayerState>(PlayerState);
 		if (PS)
 		{
-			PS->UpdateWeaponSkinPrefFromProfile(WeaponClass);
+			PS->UpdateWeaponSkinPrefFromProfile(Weapon);
 		}
 	}
 }

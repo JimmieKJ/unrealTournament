@@ -491,7 +491,7 @@ public:
 	virtual void ServerReceiveWeaponSkin(const FString& NewWeaponSkin);
 	
 	UFUNCTION()
-	virtual void UpdateWeaponSkinPrefFromProfile(TSubclassOf<AUTWeapon> Weapon);
+	virtual void UpdateWeaponSkinPrefFromProfile(AUTWeapon* Weapon);
 
 	UPROPERTY(replicatedUsing = OnRepHat)
 	TSubclassOf<AUTHat> HatClass;

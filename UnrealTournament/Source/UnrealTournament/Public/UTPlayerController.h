@@ -710,8 +710,8 @@ public:
 	UPROPERTY(BlueprintReadWrite, Category = AI)
 	APawn* LastShotTargetGuess;
 
-	virtual float GetWeaponAutoSwitchPriority(FString WeaponClassname, float DefaultPriority);
-	virtual void SetWeaponGroup(class AUTWeapon* InWeapon);
+	virtual float GetWeaponAutoSwitchPriority(class AUTWeapon* InWeapon);
+	virtual int32 GetWeaponGroup(class AUTWeapon* InWeapon);
 
 	virtual void ClientRequireContentItemListComplete_Implementation() override;
 
@@ -1168,7 +1168,6 @@ public:
 
 public:
 	void SetSpectatorMouseChangesView(bool bNewValue);
-	void UpdateCrosshairs(AUTHUD* HUD);
 
 	UFUNCTION(exec)
 	void QSSetType(const FName& Tag);
@@ -1257,6 +1256,7 @@ protected:
 
 	UFUNCTION(exec)
 	void DumpMapVote();
+
 
 public:
 	// Will return true if this player can perform a rally

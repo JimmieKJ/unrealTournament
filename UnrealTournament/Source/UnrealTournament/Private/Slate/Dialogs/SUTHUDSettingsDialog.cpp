@@ -669,7 +669,7 @@ FReply SUTHUDSettingsDialog::ResetClick()
 {
 	if (ProfileSettings.IsValid())
 	{
-		ProfileSettings->ResetHUD();
+		ProfileSettings->ResetProfile(EProfileResetType::HUD);
 		PlayerOwner->SaveProfileSettings();
 		GetPlayerOwner()->HideHUDSettings();
 	}

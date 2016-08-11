@@ -1709,7 +1709,7 @@ public:
 	virtual void UpdateWeaponAttachment();
 
 	UFUNCTION()
-	virtual void UpdateWeaponSkinPrefFromProfile();
+	virtual void UpdateWeaponSkinPrefFromProfile(AUTWeapon* Weapon);
 
 	UPROPERTY(replicatedUsing = OnRepWeaponSkin)
 	TArray<UUTWeaponSkin*> WeaponSkins;

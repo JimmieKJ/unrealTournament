@@ -3796,33 +3796,35 @@ void AUTPlayerController::SetMouseSensitivityUT(float NewSensitivity)
 	InputSettings->SaveConfig();
 }
 
-float AUTPlayerController::GetWeaponAutoSwitchPriority(FString WeaponClassname, float DefaultPriority)
+float AUTPlayerController::GetWeaponAutoSwitchPriority(AUTWeapon* InWeapon)
 {
 	if (Cast<UUTLocalPlayer>(Player))
 	{
 		UUTProfileSettings* ProfileSettings = Cast<UUTLocalPlayer>(Player)->GetProfileSettings();
 		if (ProfileSettings)
 		{
-			return ProfileSettings->GetWeaponPriority(WeaponClassname, DefaultPriority);
+			FWeaponCustomizationInfo WeaponCustomization;
+			ProfileSettings->GetWeaponCustomizationForWeapon(InWeapon, WeaponCustomization);
+			return WeaponCustomization.WeaponAutoSwitchPriority;
 		}
 	}
-	return DefaultPriority;
+	return 0.0f;
 }
 
-void AUTPlayerController::SetWeaponGroup(AUTWeapon* InWeapon)
+int32 AUTPlayerController::GetWeaponGroup(AUTWeapon* InWeapon)
 {
 	if (Cast<UUTLocalPlayer>(Player))
 	{
 		UUTProfileSettings* ProfileSettings = Cast<UUTLocalPlayer>(Player)->GetProfileSettings();
 		if (ProfileSettings)
 		{
-			FString WeaponClassName = GetNameSafe(InWeapon->GetClass());
-			if (ProfileSettings->WeaponGroupLookup.Contains(WeaponClassName))
-			{
-				InWeapon->Group = ProfileSettings->WeaponGroupLookup[WeaponClassName].Group;
-			}
+			FWeaponCustomizationInfo WeaponCustomization;
+			ProfileSettings->GetWeaponCustomizationForWeapon(InWeapon, WeaponCustomization);
+			return WeaponCustomization.WeaponGroup;
 		}
 	}
+
+	return 1.0f;
 }
 
 void AUTPlayerController::ClientSay_Implementation(AUTPlayerState* Speaker, const FString& Message, FName Destination)
@@ -4195,7 +4197,8 @@ void AUTPlayerController::ClientPumpkinPickedUp_Implementation(float GainedAmoun
 
 void AUTPlayerController::DebugTest(FString TestCommand)
 {
-	ClientReceiveLocalizedMessage( UUTCTFGameMessage::StaticClass(), 255, PlayerState, nullptr, nullptr);
+	Super::DebugTest(TestCommand);
+
 }
 
 void AUTPlayerController::ServerDebugTest_Implementation(const FString& TestCommand)
@@ -4700,19 +4703,6 @@ void AUTPlayerController::TestCallstack()
 	}
 
 	UE_LOG(UT, Log, TEXT("%s"), ANSI_TO_TCHAR(StackTrace));
-}
-
-void AUTPlayerController::UpdateCrosshairs(AUTHUD* HUD)
-{
-	UUTLocalPlayer *LocalPlayer = Cast<UUTLocalPlayer>(Player);
-	if (LocalPlayer)
-	{
-		UUTProfileSettings* Settings = LocalPlayer->GetProfileSettings();
-		if (Settings)
-		{
-			Settings->UpdateCrosshairs(HUD);
-		}
-	}
 }
 
 void AUTPlayerController::QSSetType(const FName& Tag)

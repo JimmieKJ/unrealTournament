@@ -11,74 +11,30 @@
 #include "UTWeaponSkin.h"
 #include "UTProfileSettings.generated.h"
 
-static const uint32 VALID_PROFILESETTINGS_VERSION = 6;
-static const uint32 EMOTE_TO_TAUNT_PROFILESETTINGS_VERSION = 6;
-static const uint32 TAUNTFIXUP_PROFILESETTINGS_VERSION = 7;
-static const uint32 SPECTATING_FIXUP_PROFILESETTINGS_VERSION = 8;
-static const uint32 SLIDEFROMRUN_FIXUP_PROFILESETTINGS_VERSION = 8;
-static const uint32 HEARTAUNTS_FIXUP_PROFILESETTINGS_VERSION = 10;
-static const uint32 PAUSEKEY_FIXUP_PROFILESETTINGS_VERSION = 11;
-static const uint32 HUDSETTINGS_FIXUP_PROFILESETTINGS_VERSION = 26;
-static const uint32 ACTIVATEPOWERUP_FIXUP_PROFILESETTINGS_VERSION = 16;
-static const uint32 BUY_MENU_AND_DROP_FLAG_BUTTON_FIXUP_PROFILE_SETTINGS_VERSION = 17;
-static const uint32 SLIDE_FIXUP_PROFILE_SETTINGS_VERSION = 18;
-static const uint32 WEAPON_WHEEL_FIXUP_PROFILESETTINGS_VERSION=19;
-static const uint32 PUSH_TO_TALK_FIXUP_PROFILESETTINGS_VERSION=20;
-static const uint32 COMS_MENU_FIXUP_PROFILESETTINGS_VERSION=21;
-static const uint32 RALLY_FIXUP_PROFILESETTINGS_VERSION = 25;
-
-static const uint32 CHALLENGE_FIXUP_VERSION = 12;
-
-static const uint32 CURRENT_PROFILESETTINGS_VERSION = 26;
+static const uint32 VALID_PROFILESETTINGS_VERSION = 28;
+static const uint32 CURRENT_PROFILESETTINGS_VERSION = 28;
 
 class UUTLocalPlayer;
 
-USTRUCT()
-struct FStoredWeaponPriority
+UENUM()
+namespace EProfileResetType
 {
-	GENERATED_USTRUCT_BODY()
-
-	UPROPERTY()
-	FString WeaponClassName;
-
-	UPROPERTY()
-	float WeaponPriority;
-
-	FStoredWeaponPriority()
-		: WeaponClassName(TEXT(""))
-		, WeaponPriority(0.0)
-	{};
-
-	FStoredWeaponPriority(FString inWeaponClassName, float inWeaponPriority)
-		: WeaponClassName(inWeaponClassName)
-		, WeaponPriority(inWeaponPriority)
-	{};
-};
-
-USTRUCT()
-struct FStoredWeaponGroupInfo
-{
-	GENERATED_USTRUCT_BODY()
-
-	UPROPERTY()
-	FString WeaponClassName;
-
-	UPROPERTY()
-	int32 Group;
-
-	FStoredWeaponGroupInfo()
-		: WeaponClassName(TEXT(""))
-		, Group(0)
+	enum Type
 	{
-	}
+		All,
+		System,
+		Character,
+		Challenges,
+		Weapons,
+		Social,
+		HUD,
+		Game,
+		Input,
+		Binds,
+		MAX,
+	};
+}
 
-	FStoredWeaponGroupInfo(FString inWeaponClassName, int32 InGroup)
-		: WeaponClassName(inWeaponClassName)
-		, Group(InGroup)
-	{
-	}
-
-};
 
 UCLASS()
 class UNREALTOURNAMENT_API UUTProfileSettings : public UObject
@@ -87,21 +43,7 @@ class UNREALTOURNAMENT_API UUTProfileSettings : public UObject
 
 	friend class UUTProgressionStorage;
 
-	void ClearWeaponPriorities();
-	void SetWeaponPriority(FString WeaponClassName, float NewPriority);
-	float GetWeaponPriority(FString WeaponClassName, float DefaultPriority);
-
-	/**
-	 *	Gather all of the settings so that this profile object can be saved.
-	 **/
-	void GatherAllSettings(UUTLocalPlayer* ProfilePlayer);
-
-	void VersionFixup();
-
-	/**
-	 *	return the current player name.
-	 **/
-	FString GetPlayerName() { return PlayerName; };
+public:
 
 	/**
 	 *	Apply any settings stored in this profile object
@@ -109,330 +51,343 @@ class UNREALTOURNAMENT_API UUTProfileSettings : public UObject
 	void ApplyAllSettings(UUTLocalPlayer* ProfilePlayer);
 
 	/**
-	 *	Versioning
+	 *	Allows specific hacks to be applied to the profile based on the version number
 	 **/
-	UPROPERTY()
-	uint32 SettingsRevisionNum;
 
-	UPROPERTY()
-	FString HatPath;
-	UPROPERTY()
-	FString LeaderHatPath;
-	UPROPERTY()
-	int32 HatVariant;
-	UPROPERTY()
-	FString EyewearPath;
-	UPROPERTY()
-	int32 EyewearVariant;
-	UPROPERTY()
-	FString TauntPath;
-	UPROPERTY()
-	FString Taunt2Path;
-
-	UPROPERTY()
-	FString CharacterPath;
-
-	UPROPERTY()
-	FName CountryFlag;
-
-	UPROPERTY()
-	TArray<FCrosshairInfo> CrosshairInfos;
-
-	UPROPERTY()
-	bool bCustomWeaponCrosshairs;
-
-	bool bNeedProfileWriteOnLevelChange;
-	
-	UPROPERTY()
-	uint32 ReplayScreenshotResX;
-
-	UPROPERTY()
-	uint32 ReplayScreenshotResY;
-	
-	UPROPERTY()
-	bool bReplayCustomPostProcess;
-
-	UPROPERTY()
-	float ReplayCustomBloomIntensity;
-	
-	UPROPERTY()
-	float ReplayCustomDOFAmount;
-
-	UPROPERTY()
-	float ReplayCustomDOFDistance;
-
-	UPROPERTY()
-	float ReplayCustomDOFScale;
-
-	UPROPERTY()
-	float ReplayCustomDOFNearBlur;
-
-	UPROPERTY()
-	float ReplayCustomDOFFarBlur;
-
-	UPROPERTY()
-	float ReplayCustomMotionBlurAmount;
-
-	UPROPERTY()
-	float ReplayCustomMotionBlurMax;
-
-	UPROPERTY()
-	FString MatchmakingRegion;
-
-	UPROPERTY()
-	float QuickStatsAngle;
-
-	UPROPERTY()
-	float QuickStatsDistance;
-
-	UPROPERTY()
-	FName QuickStatsType;
-
-	UPROPERTY()
-	float QuickStatsBackgroundAlpha;	
-
-	UPROPERTY()
-	float QuickStatsForegroundAlpha;	
-
-	// Are the health/armor/ammo stats hidden in the mini-hud?
-	UPROPERTY()
-	bool bQuickStatsHidden;
-
-	// Are the powerup/flags hidden in the mini-hud?
-	UPROPERTY()
-	bool bQuickInfoHidden;
-
-	UPROPERTY()
-		bool bHealthArcShown;
-
-	UPROPERTY()
-	float QuickStatsScaleOverride;	
-
-	UPROPERTY()
-	bool bHideDamageIndicators;
-
-	UPROPERTY()
-	bool bVerticalWeaponBar;
-
-	// the below have been moved to UTProgressionStorage and are only here for backwards compatibility
-private:
-	UPROPERTY()
-	TArray<FName> Achievements;
-
-	UPROPERTY()
-	int32 TotalChallengeStars;
-
-	UPROPERTY()
-	int32 SkullCount;
-
-	// Linear list of token unique ids for serialization
-	UPROPERTY()
-	TArray<FName> FoundTokenUniqueIDs;
-
-	TArray<FName> TempFoundTokenUniqueIDs;
-
-	UPROPERTY()
-	TMap<FName, float> BestTimes;
-public:
-	/** UNUSED - REMOVE */
-	UPROPERTY()
-	int32 LocalXP;
-
-	UPROPERTY()
-	FName Avatar;
-
-	UPROPERTY()
-	TArray<FUTChallengeResult> ChallengeResults;
-
-	UPROPERTY()
-	TArray<FUTDailyChallengeUnlock> UnlockedDailyChallenges;
-
-	UPROPERTY()
-	TArray<FStoredWeaponGroupInfo> WeaponGroups;
-
-	// Yes. the WeaponGroups array holds all of this information.  We use a TMap for
-	// quick lookup.
-	TMap<FString, FStoredWeaponGroupInfo> WeaponGroupLookup;
-
-	UPROPERTY()
-	TArray<UUTWeaponSkin*> WeaponSkins;
-
-protected:
+	void VersionFixup();
 
 	/**
-	 *	Profiles settings go here.  Any standard UPROPERY is supported.
+	 *	Use this function to reset values in the profile to their default state.  NOTE this doesn't save the profile, you have
+	 *  to do that manually
 	 **/
 
-	// What is the Player name associated with this profile
-	UPROPERTY()
-	FString PlayerName;
+	void ResetProfile(EProfileResetType::Type SectionToReset);
 
-	// The UInputSettings object converted in to raw data for storage.
-	UPROPERTY()
-	TArray<uint8> RawInputSettings;
+	/**
+	 *	Verify that the input is up to date and that all input rules have been applied.  Returns true if we should save the profile
+	 **/
+	bool VerifyInputRules();
 
-	UPROPERTY()
-	TArray<struct FInputActionKeyMapping> ActionMappings;
-
-	UPROPERTY()
-	TArray<struct FInputAxisKeyMapping> AxisMappings;
-
-	UPROPERTY()
-	TArray<struct FInputAxisConfigEntry> AxisConfig;
-
-	UPROPERTY()
-	TArray<FCustomKeyBinding> CustomBinds;
-
-	UPROPERTY()
-	uint32 bEnableMouseSmoothing:1;
-
-	UPROPERTY()
-	uint32 bInvertMouse;
-
-	UPROPERTY()
-	float MouseAcceleration;
-
-	UPROPERTY()
-	float MouseAccelerationPower;
-
-	UPROPERTY()
-	float MouseAccelerationMax;
-
-	UPROPERTY()
-	float DoubleClickTime;
-
-	UPROPERTY()
-	float MouseSensitivity;
-
-	UPROPERTY()
-	float MaxDodgeClickTimeValue;
-
-	UPROPERTY()
-	float MaxDodgeTapTimeValue;
-	
-	UPROPERTY()
-	uint32 bSingleTapWallDodge:1;
-
-	UPROPERTY()
-	uint32 bSingleTapAfterJump : 1;
-
-	/** For backwards compatibility, maps to bCrouchTriggersSlide. */
-	UPROPERTY()
-	uint32 bAllowSlideFromRun : 1;
-
-	UPROPERTY()
-	uint32 bHearsTaunts : 1;
-
-	UPROPERTY()
-	FKey ConsoleKey;
-
-	UPROPERTY()
-	uint32 bAutoWeaponSwitch:1;
-
-	UPROPERTY()
-	float WeaponBob;
-
-	UPROPERTY()
-	float ViewBob;
-
-	UPROPERTY()
-	TEnumAsByte<EWeaponHand> WeaponHand;
-
-	UPROPERTY()
-	FLinearColor FFAPlayerColor;
-
-	/** Holds a list of weapon class names (as string) and weapon switch priorities. - NOTE: this will only show priorities of those weapon the player has "seen" and are stored as "WeaponName:####" */
-	UPROPERTY()
-	TArray<FStoredWeaponPriority> WeaponPriorities;
-
-	UPROPERTY()
-	float PlayerFOV;
-
-	// If true, then the player will not show toasts in game.
-	UPROPERTY()
-	uint32 bSuppressToastsInGame : 1;
-
-public:
-
-	// This is the base HUD opacity level used by HUD Widgets RenderObjects
-	UPROPERTY()
-	float HUDWidgetOpacity;
-
-	// HUD widgets that have borders will use this opacity value when rendering.
-	UPROPERTY()
-	float HUDWidgetBorderOpacity;
-
-	// HUD widgets that have background slates will use this opacity value when rendering.
-	UPROPERTY()
-	float HUDWidgetSlateOpacity;
-
-	// This is a special opacity value used by just the Weapon bar.  When the weapon bar isn't in use, this opacity value will be multipled in
-	UPROPERTY()
-	float HUDWidgetWeaponbarInactiveOpacity;
-
-	// The weapon bar can get a secondary scale override using this value
-	UPROPERTY()
-	float HUDWidgetWeaponBarScaleOverride;
-
-	UPROPERTY()
-	float HUDWidgetWeaponBarInactiveIconOpacity;
-
-	UPROPERTY()
-	float HUDWidgetWeaponBarEmptyOpacity;
+	// If true, the profile object should be saved on level change.
+	bool bNeedProfileWriteOnLevelChange;
 
 	/** Set true to force weapon bar to immediately update. */
-	UPROPERTY()
-	bool bHUDWeaponBarSettingChanged;
-
-	// Allows the user to override the scaling factor for their hud.
-	UPROPERTY()
-	float HUDWidgetScaleOverride;
-
-	// Allows the user to override the scaling factor for their hud.
-	UPROPERTY()
-	float HUDMessageScaleOverride;
-
-	UPROPERTY()
-	bool bUseWeaponColors;
-
-	UPROPERTY()
-	bool bDrawChatKillMsg;
-
-	UPROPERTY()
-	bool bDrawCenteredKillMsg;
-
-	UPROPERTY()
-	bool bDrawHUDKillIconMsg;
-
-	UPROPERTY()
-	bool bPlayKillSoundMsg;
-
-	//This is called in the constructor so do not make this virtual / BlueprintImplementable without reworking the constructor to remove it!
-	UFUNCTION(BlueprintCallable, Category=Hud)
-	void ResetHUD();
-
-	UPROPERTY()
-	bool bPushToTalk;
-
-
-public:
-	void UpdateCrosshairs(AUTHUD* HUD);
+	UPROPERTY(BlueprintReadOnly, Category = HUD)
+	uint32 bHUDWeaponBarSettingChanged : 1;
 
 	// If true, we have forced and epic Employee to use the Epic Logo at least once before they changed it.
 	UPROPERTY()
 	uint32 bForcedToEpicAtLeastOnce : 1;
 
-	void CopyTokens(TArray<FName>& Destination)
-	{
-		Destination = FoundTokenUniqueIDs;
-	}
-
-	// These slots are used by the weapon wheel menu.  They hold the classname of the weapon in this slot
+	// The Version Number
 	UPROPERTY()
-	TArray<FString> WeaponWheelQuickSlots;
+	uint32 SettingsRevisionNum;
+
+	// When were these settings saved
+	UPROPERTY(BlueprintReadOnly, Category = Profile)
+	FDateTime SettingsSavedOn;
+
+	// The UInputSettings object converted in to raw data for storage.
+	UPROPERTY()
+	TArray<uint8> RawInputSettings;
 
 
-	// Weapon Accessors
+	// ======================== Character Settings
 
+	// What is the Player name associated with this profile
+	UPROPERTY(BlueprintReadOnly, Category = Character)
+	FString PlayerName;
+
+	UPROPERTY(BlueprintReadOnly, Category = Character)
+	FString HatPath;
+
+	UPROPERTY(BlueprintReadOnly, Category = Character)
+	FString LeaderHatPath;
+
+	UPROPERTY(BlueprintReadOnly, Category = Character)
+	int32 HatVariant;
+
+	UPROPERTY(BlueprintReadOnly, Category = Character)
+	FString EyewearPath;
+
+	UPROPERTY(BlueprintReadOnly, Category = Character)
+	int32 EyewearVariant;
+
+	UPROPERTY(BlueprintReadOnly, Category = Character)
+	FString TauntPath;
+
+	UPROPERTY(BlueprintReadOnly, Category = Character)
+	FString Taunt2Path;
+
+	UPROPERTY(BlueprintReadOnly, Category = Character)
+	FString CharacterPath;
+
+	UPROPERTY(BlueprintReadOnly, Category = Character)
+	FName CountryFlag;
+
+	UPROPERTY(BlueprintReadOnly, Category = Character)
+	FName Avatar;
+
+	UPROPERTY(BlueprintReadOnly, Category = Character)
+	float WeaponBob;
+
+	UPROPERTY(BlueprintReadOnly, Category = Character)
+	float ViewBob;
+
+	UPROPERTY(BlueprintReadOnly, Category = Character)
+	FLinearColor FFAPlayerColor;
+
+	UPROPERTY(BlueprintReadOnly, Category = Character)
+	float PlayerFOV;
+
+	// ======================== Challenge Settings
+
+	UPROPERTY(BlueprintReadOnly, Category = Character)
+	int32 LocalXP;
+
+	UPROPERTY(BlueprintReadOnly, Category = Challenges)
+	TArray<FUTChallengeResult> ChallengeResults;
+
+	UPROPERTY(BlueprintReadOnly, Category = Challenges)
+	TArray<FUTDailyChallengeUnlock> UnlockedDailyChallenges;
+
+	// ======================== Social Settings
+
+	// If true, then the player will not show toasts in game.
+	UPROPERTY(BlueprintReadOnly, Category = Social)
+	uint32 bSuppressToastsInGame : 1;
+
+	// ======================== Weapon Settings
+
+	UPROPERTY(BlueprintReadOnly, Category = Weapon)
+	uint32 bCustomWeaponCrosshairs : 1;
+
+	UPROPERTY(BlueprintReadOnly, Category = Weapon)
+	uint32 bAutoWeaponSwitch : 1;
+
+	UPROPERTY(BlueprintReadOnly, Category = Weapon)
+	TEnumAsByte<EWeaponHand> WeaponHand;
+
+	// Holds the mapping values for the weapon wheel.  This will always have 8 entries and each entry is the weapon group to activate on the weapon wheel or -1 for empty
+	UPROPERTY(BlueprintReadOnly, Category = HUD)
+	TArray<int32> WeaponWheelMapping;
+
+	UPROPERTY()
+	TMap<FName, FWeaponCustomizationInfo> WeaponCustomizations;
+
+	UPROPERTY()
+	TMap<FName, FString> WeaponSkins;
+
+	// ======================== System Settings
+
+	UPROPERTY(BlueprintReadOnly, Category = System)
+	int32 ReplayScreenshotResX;
+
+	UPROPERTY(BlueprintReadOnly, Category = System)
+	int32 ReplayScreenshotResY;
+
+	UPROPERTY(BlueprintReadOnly, Category = System)
+	uint32 bReplayCustomPostProcess : 1;
+
+	UPROPERTY(BlueprintReadOnly, Category = System)
+	float ReplayCustomBloomIntensity;
+	
+	UPROPERTY(BlueprintReadOnly, Category = System)
+	float ReplayCustomDOFAmount;
+
+	UPROPERTY(BlueprintReadOnly, Category = System)
+	float ReplayCustomDOFDistance;
+
+	UPROPERTY(BlueprintReadOnly, Category = System)
+	float ReplayCustomDOFScale;
+
+	UPROPERTY(BlueprintReadOnly, Category = System)
+	float ReplayCustomDOFNearBlur;
+
+	UPROPERTY(BlueprintReadOnly, Category = System)
+	float ReplayCustomDOFFarBlur;
+
+	UPROPERTY(BlueprintReadOnly, Category = System)
+	float ReplayCustomMotionBlurAmount;
+
+	UPROPERTY(BlueprintReadOnly, Category = System)
+	float ReplayCustomMotionBlurMax;
+
+	UPROPERTY(BlueprintReadOnly, Category = System)
+	FString MatchmakingRegion;
+
+	UPROPERTY(BlueprintReadOnly, Category = System)
+	uint32 bPushToTalk : 1;
+
+	UPROPERTY(BlueprintReadOnly, Category = System)
+	uint32 bHearsTaunts : 1;
+
+	// ======================== HUD Settings
+
+	UPROPERTY(BlueprintReadOnly, Category = HUD)
+	float QuickStatsAngle;
+
+	UPROPERTY(BlueprintReadOnly, Category = HUD)
+	float QuickStatsDistance;
+
+	UPROPERTY(BlueprintReadOnly, Category = HUD)
+	FName QuickStatsType;
+
+	UPROPERTY(BlueprintReadOnly, Category = HUD)
+	float QuickStatsBackgroundAlpha;	
+
+	UPROPERTY(BlueprintReadOnly, Category = HUD)
+	float QuickStatsForegroundAlpha;	
+
+	// Are the health/armor/ammo stats hidden in the mini-hud?
+	UPROPERTY(BlueprintReadOnly, Category = HUD)
+	uint32 bQuickStatsHidden : 1;
+
+	// Are the powerup/flags hidden in the mini-hud?
+	UPROPERTY(BlueprintReadOnly, Category = HUD)
+	uint32 bQuickInfoHidden : 1;
+
+	UPROPERTY(BlueprintReadOnly, Category = HUD)
+	uint32 bHealthArcShown : 1;
+
+	UPROPERTY(BlueprintReadOnly, Category = HUD)
+	float QuickStatsScaleOverride;	
+
+	UPROPERTY(BlueprintReadOnly, Category = HUD)
+	uint32 bHideDamageIndicators : 1;
+
+	UPROPERTY(BlueprintReadOnly, Category = HUD)
+	uint32 bHidePaperdoll : 1;
+
+	UPROPERTY(BlueprintReadOnly, Category = HUD)
+	uint32 bVerticalWeaponBar : 1;
+
+	// This is the base HUD opacity level used by HUD Widgets RenderObjects
+	UPROPERTY(BlueprintReadOnly, Category = HUD)
+	float HUDWidgetOpacity;
+
+	// HUD widgets that have borders will use this opacity value when rendering.
+	UPROPERTY(BlueprintReadOnly, Category = HUD)
+	float HUDWidgetBorderOpacity;
+
+	// HUD widgets that have background slates will use this opacity value when rendering.
+	UPROPERTY(BlueprintReadOnly, Category = HUD)
+	float HUDWidgetSlateOpacity;
+
+	// This is a special opacity value used by just the Weapon bar.  When the weapon bar isn't in use, this opacity value will be multipled in
+	UPROPERTY(BlueprintReadOnly, Category = HUD)
+	float HUDWidgetWeaponbarInactiveOpacity;
+
+	// The weapon bar can get a secondary scale override using this value
+	UPROPERTY(BlueprintReadOnly, Category = HUD)
+	float HUDWidgetWeaponBarScaleOverride;
+
+	UPROPERTY(BlueprintReadOnly, Category = HUD)
+	float HUDWidgetWeaponBarInactiveIconOpacity;
+
+	UPROPERTY(BlueprintReadOnly, Category = HUD)
+	float HUDWidgetWeaponBarEmptyOpacity;
+
+	// Allows the user to override the scaling factor for their hud.
+	UPROPERTY(BlueprintReadOnly, Category = HUD)
+	float HUDWidgetScaleOverride;
+
+	// Allows the user to override the scaling factor for their hud.
+	UPROPERTY(BlueprintReadOnly, Category = HUD)
+	float HUDMessageScaleOverride;
+
+	UPROPERTY(BlueprintReadOnly, Category = HUD)
+	uint32 bUseWeaponColors : 1;
+
+	UPROPERTY(BlueprintReadOnly, Category = HUD)
+	uint32 bDrawChatKillMsg : 1;
+
+	UPROPERTY(BlueprintReadOnly, Category = HUD)
+	uint32 bDrawCenteredKillMsg : 1;
+
+	UPROPERTY(BlueprintReadOnly, Category = HUD)
+	uint32 bDrawHUDKillIconMsg : 1;
+
+	UPROPERTY(BlueprintReadOnly, Category = HUD)
+	uint32 bPlayKillSoundMsg : 1;
+
+	// ======================== Input Settings
+
+	UPROPERTY(BlueprintReadOnly, Category = Input)
+	TArray<struct FInputActionKeyMapping> ActionMappings;
+
+	UPROPERTY(BlueprintReadOnly, Category = Input)
+	TArray<struct FInputAxisKeyMapping> AxisMappings;
+
+	UPROPERTY(BlueprintReadOnly, Category = Input)
+	TArray<struct FInputAxisConfigEntry> AxisConfig;
+
+	UPROPERTY(BlueprintReadOnly, Category = Input)
+	TArray<FCustomKeyBinding> CustomBinds;
+
+	UPROPERTY(BlueprintReadOnly, Category = Input)
+	uint32 bEnableMouseSmoothing : 1;
+
+	UPROPERTY(BlueprintReadOnly, Category = Input)
+	uint32 bInvertMouse : 1;
+
+	UPROPERTY(BlueprintReadOnly, Category = Input)
+	float MouseAcceleration;
+
+	UPROPERTY(BlueprintReadOnly, Category = Input)
+	float MouseAccelerationPower;
+
+	UPROPERTY(BlueprintReadOnly, Category = Input)
+	float MouseAccelerationMax;
+
+	UPROPERTY(BlueprintReadOnly, Category = Input)
+	float DoubleClickTime;
+
+	UPROPERTY(BlueprintReadOnly, Category = Input)
+	float MouseSensitivity;
+
+	UPROPERTY(BlueprintReadOnly, Category = Input)
+	float MaxDodgeClickTimeValue;
+
+	UPROPERTY(BlueprintReadOnly, Category = Input)
+	float MaxDodgeTapTimeValue;
+	
+	UPROPERTY(BlueprintReadOnly, Category = Input)
+	uint32 bSingleTapWallDodge:1;
+
+	UPROPERTY(BlueprintReadOnly, Category = Input)
+	uint32 bSingleTapAfterJump : 1;
+
+	/** For backwards compatibility, maps to bCrouchTriggersSlide. */
+	UPROPERTY(BlueprintReadOnly, Category = Input)
+	uint32 bAllowSlideFromRun : 1;
+
+	UPROPERTY(BlueprintReadOnly, Category = Input)
+	FKey ConsoleKey;
+
+
+public:
+
+	// Accessor functions.  NOTE: If you add a function here, please make sure it's blueprint callable.
+
+	// Returns the current name of the player
+	UFUNCTION(BlueprintCallable, Category = Character)
+	FString GetPlayerName() { return PlayerName; };
+
+	// Given a wepaon, look up the Weapon Group information for it.
+	UFUNCTION(BlueprintCallable, Category = Weapon)
 	void GetWeaponGroup(AUTWeapon* WeaponClass, int32& WeaponGroup, int32& GroupPriority);
+
+	// Performs the actual lookup of a weapon customization tag
+	UFUNCTION(BlueprintCallable, Category = Weapon)
+	void GetWeaponCustomization(FName WeaponCustomizationTag, FWeaponCustomizationInfo& outWeaponCustomizationInfo);
+
+	// Returns the customization info for a given weapon
+	UFUNCTION(BlueprintCallable, Category = Weapon)
+	void GetWeaponCustomizationForWeapon(AUTWeapon* Weapon, FWeaponCustomizationInfo& outWeaponCustomizationInfo);
+
+	// Returns the weapon skin for a given weapon
+	UFUNCTION(BlueprintCallable, Category = Weapon)
+	FString GetWeaponSkinClassname(AUTWeapon* Weapon);
+
 };

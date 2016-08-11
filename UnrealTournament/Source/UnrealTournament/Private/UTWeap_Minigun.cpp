@@ -45,6 +45,9 @@ AUTWeap_Minigun::AUTWeap_Minigun(const FObjectInitializer& ObjectInitializer)
 	AltDeathStatsName = NAME_MinigunShardDeaths;
 	HitsStatsName = NAME_MinigunHits;
 	ShotsStatsName = NAME_MinigunShots;
+	
+	WeaponCustomizationTag = EpicWeaponCustomizationTags::Minigun;
+	WeaponSkinCustomizationTag = EpicWeaponSkinCustomizationTags::Minigun;
 }
 
 float AUTWeap_Minigun::GetAISelectRating_Implementation()

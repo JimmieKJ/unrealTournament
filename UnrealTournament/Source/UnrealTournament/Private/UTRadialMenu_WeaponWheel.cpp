@@ -36,10 +36,13 @@ void UUTRadialMenu_WeaponWheel::BecomeInteractive()
 			// Find what weapons to display...
 			for (TInventoryIterator<AUTWeapon> It(UTHUDOwner->UTPlayerOwner->GetUTCharacter()); It; ++It)
 			{
-				for (int32 SlotId=0; SlotId < ProfileSettings->WeaponWheelQuickSlots.Num();SlotId++)
+				for (int32 SlotId=0; SlotId < ProfileSettings->WeaponWheelMapping.Num();SlotId++)
 				{
-					FString WeaponClass = It->GetClass()->GetName();
-					if (ProfileSettings->WeaponWheelQuickSlots[SlotId] == WeaponClass && WeaponList.IsValidIndex(SlotId))
+					int32 Group = 0;
+					int32 GroupPriority = 0;
+
+					ProfileSettings->GetWeaponGroup(*It, Group, GroupPriority);
+					if (ProfileSettings->WeaponWheelMapping[SlotId] == Group)
 					{
 						WeaponList[SlotId] = *It;
 						break;

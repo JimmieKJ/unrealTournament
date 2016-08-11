@@ -36,6 +36,9 @@ AUTWeap_Sniper::AUTWeap_Sniper(const FObjectInitializer& ObjectInitializer)
 	ShotsStatsName = NAME_SniperShots;
 	bCheckHeadSphere = true;
 	bCheckMovingHeadSphere = true;
+
+	WeaponCustomizationTag = EpicWeaponCustomizationTags::Sniper;
+	WeaponSkinCustomizationTag = EpicWeaponSkinCustomizationTags::Sniper;
 }
 
 float AUTWeap_Sniper::GetHeadshotScale() const

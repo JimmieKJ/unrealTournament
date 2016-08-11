@@ -12,6 +12,7 @@ const uint32 MAX_DAMAGE_INDICATORS = 3;				// # of damage indicators on the scre
 const float DAMAGE_FADE_DURATION = 1.0f;			// How fast a damage indicator fades out
 const float MAX_MY_DAMAGE_BOUNCE_TIME = 1.25f;		// How fast will the numbers bounce in to the screen.
 const float MAX_TALLY_FADE_TIME = 0.6f;				// How fast should the talley numbers fade in
+
 class UUTProfileSettings;
 
 USTRUCT()
@@ -524,22 +525,13 @@ public:
 	UFUNCTION(BlueprintNativeEvent)
 	EInputMode::Type GetInputMode() const;
 
-	/**The list of crosshair information for each weapon*/
-	UPROPERTY(globalconfig)
-	TArray<FCrosshairInfo> CrosshairInfos;
-
 	/**If true, crosshairs can be unique per weapon*/
 	UPROPERTY(globalconfig)
 	bool bCustomWeaponCrosshairs;
 
-	/**Gets the crosshair for the weapon. Creates a new one if necessary*/
-	UFUNCTION(BlueprintCallable, Category = Crosshair)
-	class UUTCrosshair* GetCrosshair(TSubclassOf<AUTWeapon> Weapon);
-
-	FCrosshairInfo* GetCrosshairInfo(TSubclassOf<AUTWeapon> Weapon);
-
+	// Holds a list of all loaded crosshairs.
 	UPROPERTY()
-	TArray<class UUTCrosshair*> LoadedCrosshairs;
+	TMap<FName, UUTCrosshair*> Crosshairs;
 
 	/** called by PlayerController (locally) when clicking mouse while crosshair is selected
 	 * return true to override default behavior
@@ -638,6 +630,7 @@ public:
 	 *	Activate a UMG HUD widget and display it over the HUD
 	 **/
 	virtual TWeakObjectPtr<class UUTUMGHudWidget> ActivateUMGHudWidget(FString UMGHudWidgetClassName, bool bUnique = true);
+	virtual void ActivateActualUMGHudWidget(TWeakObjectPtr<UUTUMGHudWidget> WidgetToActivate);
 
 	/**
 	 *	Deactivates a UMG HUD widget that is already active
@@ -645,8 +638,18 @@ public:
 	virtual void DeactivateUMGHudWidget(FString UMGHudWidgetClassName);
 	virtual void DeactivateActualUMGHudWidget(TWeakObjectPtr<UUTUMGHudWidget> WidgetToDeactivate);
 
+	/**
+	 *	Look up the crosshair information for a given weapon.  Returns the default object for the crosshair and passes out 
+	 *  the customization info.
+	 **/
+	UFUNCTION()
+	UUTCrosshair* GetCrosshairForWeapon(FName WeaponCustomizationTag, FWeaponCustomizationInfo& outWeaponCustomizationInfo);
+
+
 protected:
 	TArray<TWeakObjectPtr<UUTUMGHudWidget>> UMGHudWidgetStack;
+
+
 
 };
 

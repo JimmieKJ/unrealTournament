@@ -1089,6 +1089,7 @@ void UUTLocalPlayer::OnLoginStatusChanged(int32 LocalUserNum, ELoginStatus::Type
 		MCPPulledData.bValid = false;
 
 		CurrentProfileSettings = NULL;
+		LoadLocalProfileSettings();
 		FUTAnalytics::LoginStatusChanged(FString());
 		
 		OnPlayerLoggedOut().Broadcast();
@@ -1423,12 +1424,7 @@ void UUTLocalPlayer::ToastCompleted()
 
 FString UUTLocalPlayer::GetProfileFilename()
 {
-	if (IsLoggedIn())
-	{
-		return TEXT("user_profile_1");
-	}
-
-	return TEXT("local_user_profile");
+	return TEXT("user_profile_2");
 }
 
 FString UUTLocalPlayer::GetProgressionFilename()
@@ -1547,11 +1543,8 @@ void UUTLocalPlayer::OnReadUserFileComplete(bool bWasSuccessful, const FUniqueNe
 			// the fallback to the old profile based progression info
 			LoadProgression();
 
-			// Create the current profile.
-			if (CurrentProfileSettings == NULL)
-			{
-				CurrentProfileSettings = NewObject<UUTProfileSettings>(GetTransientPackage(),UUTProfileSettings::StaticClass());
-			}
+			// Create a new Profile object.  We always create a new one and discard the old one.
+			CurrentProfileSettings = NewObject<UUTProfileSettings>(GetTransientPackage(),UUTProfileSettings::StaticClass());
 
 			TArray<uint8> FileContents;
 			OnlineUserCloudInterface->GetFileContents(InUserId, FileName, FileContents);
@@ -1597,8 +1590,9 @@ void UUTLocalPlayer::OnReadUserFileComplete(bool bWasSuccessful, const FUniqueNe
 			// to be cleared.  If all is OK, then apply these settings.
 			if (CurrentProfileSettings->SettingsRevisionNum >= VALID_PROFILESETTINGS_VERSION && !bClearProfile)
 			{
+				bool bNeedToSaveProfile = CurrentProfileSettings->VerifyInputRules();
 				CurrentProfileSettings->ApplyAllSettings(this);
-
+				SaveLocalProfileSettings();
 				// It's possible for the MCP data to get here before the profile, so we havbe to check for daily challenges 
 				// in two places.
 				UUTGameEngine* GameEngine = Cast<UUTGameEngine>(GEngine);
@@ -1606,32 +1600,32 @@ void UUTLocalPlayer::OnReadUserFileComplete(bool bWasSuccessful, const FUniqueNe
 				{
 					if ( GameEngine->GetChallengeManager()->CheckDailyChallenge(CurrentProgression) )
 					{
-						SaveProfileSettings();
+						bNeedToSaveProfile = true;
 						SaveProgression();
 					}
+				}
+
+				if (bNeedToSaveProfile)
+				{
+					SaveProfileSettings();
 				}
 
 				EpicFlagCheck();
 				return;
 			}
-			else
-			{
-				CurrentProfileSettings->ClearWeaponPriorities();
-			}
 
 		}
-		else if (CurrentProfileSettings == NULL) // Create a new profile settings object
+		else 
 		{
-			CurrentProfileSettings = NewObject<UUTProfileSettings>(GetTransientPackage(),UUTProfileSettings::StaticClass());
-
-			// Set some profile defaults, should be a function call if this gets any larger
-			CurrentProfileSettings->TauntPath = GetDefaultURLOption(TEXT("Taunt"));
-			CurrentProfileSettings->Taunt2Path = GetDefaultURLOption(TEXT("Taunt2"));
+			if (CurrentProfileSettings == NULL) // Create a new profile settings object
+			{
+				CurrentProfileSettings = NewObject<UUTProfileSettings>(GetTransientPackage(),UUTProfileSettings::StaticClass());
+				CurrentProfileSettings->ResetProfile(EProfileResetType::All);
+				SaveProfileSettings();
+			}
 
 			// Attempt to load the progression anyway since the user might have reset their profile.
 			LoadProgression();
-
-
 		}
 
 		EpicFlagCheck();
@@ -1713,7 +1707,6 @@ void UUTLocalPlayer::OnReadUserFileComplete(bool bWasSuccessful, const FUniqueNe
 		else if (CurrentProfileSettings)
 		{
 			CurrentProgression = NewObject<UUTProgressionStorage>(GetTransientPackage(),UUTProgressionStorage::StaticClass());
-			CurrentProgression->LoadFromProfile(CurrentProfileSettings);
 			SaveProgression();
 		}
 
@@ -1764,37 +1757,51 @@ void UUTLocalPlayer::WelcomeDialogResult(TSharedPtr<SCompoundWidget> Widget, uin
 
 void UUTLocalPlayer::SaveProfileSettings()
 {
-	if ( CurrentProfileSettings != NULL && IsLoggedIn() )
+	if ( CurrentProfileSettings != NULL )
 	{
-		CurrentProfileSettings->GatherAllSettings(this);
-		CurrentProfileSettings->SettingsRevisionNum = CURRENT_PROFILESETTINGS_VERSION;
-
-		CurrentProfileSettings->bNeedProfileWriteOnLevelChange = false;
-
-		// Build a blob of the profile contents
-		TArray<uint8> FileContents;
-		FMemoryWriter MemoryWriter(FileContents, true);
-		FObjectAndNameAsStringProxyArchive Ar(MemoryWriter, false);
-		Ar << CloudProfileMagicNumberVersion1;
-		int32 UE4Ver = Ar.UE4Ver();
-		Ar << UE4Ver;
-		CurrentProfileSettings->Serialize(Ar);
-
-		if (FApp::GetCurrentTime() - LastProfileCloudWriteTime < ProfileCloudWriteCooldownTime)
+		if (PlayerController && PlayerController->PlayerState)
 		{
-			GetWorld()->GetTimerManager().SetTimer(ProfileWriteTimerHandle, this, &UUTLocalPlayer::SaveProfileSettings, ProfileCloudWriteCooldownTime - (FApp::GetCurrentTime() - LastProfileCloudWriteTime), false);
+			CurrentProfileSettings->PlayerName = PlayerController->PlayerState->PlayerName;
 		}
-		else
+
+		CurrentProfileSettings->SettingsRevisionNum = CURRENT_PROFILESETTINGS_VERSION;
+		CurrentProfileSettings->bNeedProfileWriteOnLevelChange = false;
+		CurrentProfileSettings->SettingsSavedOn = FDateTime::UtcNow();
+
+		if ( IsLoggedIn() )
 		{
-			// Save the blob to the cloud
-			TSharedPtr<const FUniqueNetId> UserID = OnlineIdentityInterface->GetUniquePlayerId(GetControllerId());
-			if (OnlineUserCloudInterface.IsValid() && UserID.IsValid())
+
+			// Build a blob of the profile contents
+			TArray<uint8> FileContents;
+			FMemoryWriter MemoryWriter(FileContents, true);
+			FObjectAndNameAsStringProxyArchive Ar(MemoryWriter, false);
+			Ar << CloudProfileMagicNumberVersion1;
+			int32 UE4Ver = Ar.UE4Ver();
+			Ar << UE4Ver;
+
+			CurrentProfileSettings->Serialize(Ar);
+
+			if (FApp::GetCurrentTime() - LastProfileCloudWriteTime < ProfileCloudWriteCooldownTime)
 			{
-				LastProfileCloudWriteTime = FApp::GetCurrentTime();
-				OnlineUserCloudInterface->WriteUserFile(*UserID, GetProfileFilename(), FileContents);
+				GetWorld()->GetTimerManager().SetTimer(ProfileWriteTimerHandle, this, &UUTLocalPlayer::SaveProfileSettings, ProfileCloudWriteCooldownTime - (FApp::GetCurrentTime() - LastProfileCloudWriteTime), false);
+			}
+			else
+			{
+				// Save the blob to the cloud
+				TSharedPtr<const FUniqueNetId> UserID = OnlineIdentityInterface->GetUniquePlayerId(GetControllerId());
+				if (OnlineUserCloudInterface.IsValid() && UserID.IsValid())
+				{
+					LastProfileCloudWriteTime = FApp::GetCurrentTime();
+					OnlineUserCloudInterface->WriteUserFile(*UserID, GetProfileFilename(), FileContents);
+				}
 			}
 		}
+
+		// Update the local version as well
+		SaveLocalProfileSettings();
 	}
+
+
 	AUTPlayerController* PC = Cast<AUTPlayerController>(PlayerController);
 	if (PC && PC->MyUTHUD)
 	{
@@ -4906,6 +4913,13 @@ bool UUTLocalPlayer::IsEarningXP() const
 void UUTLocalPlayer::PostInitProperties()
 {
 	Super::PostInitProperties();
+
+	if (!HasAnyFlags(RF_ClassDefaultObject))
+	{
+		// Loading the local profile while we wait for a connection
+		LoadLocalProfileSettings();
+	}
+
 	if (!IsTemplate())
 	{
 #if WITH_PROFILE
@@ -5535,3 +5549,66 @@ bool UUTLocalPlayer::HasChatText()
 #endif
 	return  false;
 }
+
+void UUTLocalPlayer::LoadLocalProfileSettings()
+{
+	FString Path = FPaths::GameSavedDir() + GetProfileFilename() + TEXT(".local");
+
+	// We only load the local profile if there isn't a profile.  It will be overwritten upon login
+	if (CurrentProfileSettings == NULL)
+	{
+		CurrentProfileSettings = NewObject<UUTProfileSettings>(GetTransientPackage(), UUTProfileSettings::StaticClass());
+
+		TArray<uint8> FileContents;
+		if ( FFileHelper::LoadFileToArray(FileContents, *Path) )
+		{
+
+			// Serialize the object
+			FMemoryReader MemoryReader(FileContents, true);
+			FObjectAndNameAsStringProxyArchive Ar(MemoryReader, true);
+
+			// FObjectAndNameAsStringProxyArchive does not have versioning, but we need it
+			// In 4.12, Serialization has been modified and we need the FArchive to use the right serialization path
+			uint32 PossibleMagicNumber;
+			Ar << PossibleMagicNumber;
+			if (CloudProfileMagicNumberVersion1 == PossibleMagicNumber)
+			{
+				int32 CloudProfileUE4Ver;
+				Ar << CloudProfileUE4Ver;
+				Ar.SetUE4Ver(CloudProfileUE4Ver);
+			}
+			else
+			{
+				// Very likely this is from an unversioned cloud profile, set it to the last released serialization version
+				Ar.SetUE4Ver(CloudProfileUE4VerForUnversionedProfile);
+				// Rewind to the beginning as the magic number was not in the archive
+				Ar.Seek(0);
+			}
+
+			CurrentProfileSettings->Serialize(Ar);
+			CurrentProfileSettings->VersionFixup();
+		}
+		else
+		{
+			CurrentProfileSettings->ResetProfile(EProfileResetType::All);
+		}
+		CurrentProfileSettings->ApplyAllSettings(this);
+	}
+}
+void UUTLocalPlayer::SaveLocalProfileSettings()
+{
+	FString Path = FPaths::GameSavedDir() + GetProfileFilename() + TEXT(".local");
+
+	// Build a blob of the profile contents
+	TArray<uint8> FileContents;
+	FMemoryWriter MemoryWriter(FileContents, true);
+	FObjectAndNameAsStringProxyArchive Ar(MemoryWriter, false);
+	Ar << CloudProfileMagicNumberVersion1;
+	int32 UE4Ver = Ar.UE4Ver();
+	Ar << UE4Ver;
+
+	CurrentProfileSettings->Serialize(Ar);
+	FFileHelper::SaveArrayToFile(FileContents, *Path);
+}
+
+

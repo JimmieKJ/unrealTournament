@@ -1165,6 +1165,7 @@ FReply SUTControlSettingsDialog::OKClick()
 	AUTPlayerController::StaticClass()->GetDefaultObject<AUTPlayerController>()->SaveConfig();
 	UUTPlayerInput::StaticClass()->GetDefaultObject<UUTPlayerInput>()->SaveConfig();
 
+	GetPlayerOwner()->GetProfileSettings()->ResetProfile(EProfileResetType::Binds);
 	GetPlayerOwner()->CloseDialog(SharedThis(this));
 	GetPlayerOwner()->SaveProfileSettings();
 

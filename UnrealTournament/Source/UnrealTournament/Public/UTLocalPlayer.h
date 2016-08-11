@@ -492,10 +492,10 @@ private:
 
 public:
 	virtual void LoadProfileSettings();
-	UFUNCTION()
-		virtual void SaveProfileSettings();
+	virtual void SaveProfileSettings();
 	virtual void ClearProfileSettings();
 
+	UFUNCTION(BlueprintCallable, Category = Profile)
 	virtual UUTProfileSettings* GetProfileSettings() { return CurrentProfileSettings; };
 
 	virtual void SetNickname(FString NewName);
@@ -1083,5 +1083,12 @@ public:
 
 	// Returns true if there is chat text available.
 	virtual bool HasChatText();
+
+protected:
+	// Loads the local profile from disk.  This happens immediately upon creation and again when a logout occurs.  
+	virtual void LoadLocalProfileSettings();
+
+	// Saving of any profile saves locally, as does logging in.  NOTE: There is no toast this with save, it is silent
+	virtual void SaveLocalProfileSettings();
 
 };

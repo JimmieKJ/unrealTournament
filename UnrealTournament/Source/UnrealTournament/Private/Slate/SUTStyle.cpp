@@ -53,6 +53,10 @@ const int32 FONT_SIZE_Notice = 20;
 const int32 FONT_SIZE_Browser = 16;
 
 const FColor SuperDark(1,1,1,255);
+
+const FColor SuperDarkListA(2, 2, 2, 255);
+const FColor SuperDarkListB(3, 3, 3, 255);
+
 const FColor Dark(4,4,4,255);
 const FColor Navy(0,0,4,255);
 const FColor DeepRed(6,0,0,255);
@@ -184,8 +188,16 @@ void SUTStyle::SetIcons(TSharedRef<FSlateStyleSet> StyleRef)
 	Style.Set("UT.Icon.ComboTick", new IMAGE_BRUSH("UTStyle/Icons/UT.Icon.ComboTick", FVector2D(8,8), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f)));
 	Style.Set("UT.Icon.SortDown", new IMAGE_BRUSH("UTStyle/Icons/UT.Icon.SortDown", FVector2D(8,4), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f)));
 	Style.Set("UT.Icon.SortDownX2", new IMAGE_BRUSH("UTStyle/Icons/UT.Icon.SortDownX2", FVector2D(16,4), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f)));
-	Style.Set("UT.Icon.SortUp", new IMAGE_BRUSH("UTStyle/Icons/UT.Icon.SortDown", FVector2D(8,4), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f)));
-	Style.Set("UT.Icon.SortUpX2", new IMAGE_BRUSH("UTStyle/Icons/UT.Icon.SortDownX2", FVector2D(16,4), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f)));
+	Style.Set("UT.Icon.SortUp", new IMAGE_BRUSH("UTStyle/Icons/UT.Icon.SortUp", FVector2D(8,4), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f)));
+	Style.Set("UT.Icon.SortUpX2", new IMAGE_BRUSH("UTStyle/Icons/UT.Icon.SortUpX2", FVector2D(16,4), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f)));
+
+	Style.Set("UT.Icon.SortTop", new IMAGE_BRUSH("UTStyle/Icons/UT.Icon.SortTop", FVector2D(8, 8), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f)));
+	Style.Set("UT.Icon.SortBottom", new IMAGE_BRUSH("UTStyle/Icons/UT.Icon.SortBottom", FVector2D(8, 8), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f)));
+
+	Style.Set("UT.Icon.SortUp.Big", new IMAGE_BRUSH("UTStyle/Icons/UT.Icon.SortUp48x48", FVector2D(48, 48), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f)));
+	Style.Set("UT.Icon.SortDown.Big", new IMAGE_BRUSH("UTStyle/Icons/UT.Icon.SortDown48x48", FVector2D(48, 48), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f)));
+	Style.Set("UT.Icon.SortTop.Big", new IMAGE_BRUSH("UTStyle/Icons/UT.Icon.SortTop48x48", FVector2D(48, 48), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f)));
+	Style.Set("UT.Icon.SortBottom.Big", new IMAGE_BRUSH("UTStyle/Icons/UT.Icon.SortBottom48x48", FVector2D(48, 48), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f)));
 
 	Style.Set("UT.Icon.Alert", new IMAGE_BRUSH("UTStyle/Icons/UT.Icon.Alert", FVector2D(64,64), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f)));
 
@@ -285,6 +297,24 @@ void SUTStyle::SetCommonStyle(TSharedRef<FSlateStyleSet> StyleRef)
 		.SetPressedSound(ButtonPressSound)
 	);
 
+	Style.Set("UT.ArrowButton.Left", FButtonStyle()
+		.SetNormal(IMAGE_BRUSH("UTStyle/Buttons/Button.Arrow.Left", FVector2D(256,256)))
+		.SetHovered(IMAGE_BRUSH("UTStyle/Buttons/Button.Arrow.Left.Hover", FVector2D(256,256)))
+		.SetPressed(IMAGE_BRUSH("UTStyle/Buttons/Button.Arrow.Left.Press", FVector2D(256,256)))
+		.SetDisabled(FSlateColorBrush(Disabled))
+		.SetHoveredSound(ButtonHoverSound)
+		.SetPressedSound(ButtonPressSound)
+	);
+
+	Style.Set("UT.ArrowButton.Right", FButtonStyle()
+		.SetNormal(IMAGE_BRUSH("UTStyle/Buttons/Button.Arrow.Right", FVector2D(256, 256)))
+		.SetHovered(IMAGE_BRUSH("UTStyle/Buttons/Button.Arrow.Right.Hover", FVector2D(256, 256)))
+		.SetPressed(IMAGE_BRUSH("UTStyle/Buttons/Button.Arrow.Right.Press", FVector2D(256, 256)))
+		.SetDisabled(FSlateColorBrush(Disabled))
+		.SetHoveredSound(ButtonHoverSound)
+		.SetPressedSound(ButtonPressSound)
+	);
+
 
 	Style.Set("UT.NoStyle", new FSlateNoResource(FVector2D(128.0f, 128.0f)));
 
@@ -296,6 +326,11 @@ void SUTStyle::SetCommonStyle(TSharedRef<FSlateStyleSet> StyleRef)
 	Style.Set("UT.ListBackground.Odd", new FSlateColorBrush(FColor(7,7,7,255)));
 
 	Style.Set("UT.HeaderBackground.SuperDark", new FSlateColorBrush(SuperDark));
+
+	Style.Set("UT.HeaderBackground.SuperDark.ListA", new FSlateColorBrush(SuperDarkListA));
+	Style.Set("UT.HeaderBackground.SuperDark.ListB", new FSlateColorBrush(SuperDarkListB));
+
+
 	Style.Set("UT.HeaderBackground.Dark", new FSlateColorBrush(Dark));
 	Style.Set("UT.HeaderBackground.Navy", new FSlateColorBrush(Navy));
 	Style.Set("UT.HeaderBackground.DeepRed", new FSlateColorBrush(DeepRed));
@@ -488,6 +523,25 @@ void SUTStyle::SetCommonStyle(TSharedRef<FSlateStyleSet> StyleRef)
 		.SetHoveredSound(ButtonHoverSound)
 		.SetPressedSound(ButtonPressSound)
 	);
+
+	Style.Set("UT.WeaponConfig.Button", FButtonStyle()
+		.SetNormal(FSlateNoResource(FVector2D(256.0f, 256.0f)))
+		.SetHovered(BOX_BRUSH("UTStyle/MainPanel/Highlight", FVector2D(256, 256), FMargin(16.0f / 256.0f, 16.0f / 256.0f, 16.0f / 256.0f, 16.0f / 256.0f), FLinearColor(200.0 / 255.0, 200.0 / 255.0, 200.0 / 255.0, 1.0)))
+		.SetPressed(BOX_BRUSH("UTStyle/MainPanel/Pressed", FVector2D(256, 256), FMargin(16.0f / 256.0f, 16.0f / 256.0f, 16.0f / 256.0f, 16.0f / 256.0f), FLinearColor(1.0, 1.0, 1.0, 1.0)))
+		.SetDisabled(FSlateNoResource(FVector2D(256.0f, 256.0f)))
+		.SetHoveredSound(ButtonHoverSound)
+		.SetPressedSound(ButtonPressSound)
+	);
+
+	Style.Set("UT.WeaponConfig.Use.Button", FButtonStyle()
+		.SetNormal(IMAGE_BRUSH("UTStyle/Buttons/Use.Normal", FVector2D(192, 192)))
+		.SetHovered(IMAGE_BRUSH("UTStyle/Buttons/Use.Hovered", FVector2D(192, 192)))
+		.SetPressed(IMAGE_BRUSH("UTStyle/Buttons/Use.Pressed", FVector2D(192, 192)))
+		.SetDisabled(FSlateNoResource(FVector2D(256.0f, 256.0f)))
+		.SetHoveredSound(ButtonHoverSound)
+		.SetPressedSound(ButtonPressSound)
+	);
+
 
 	Style.Set("UT.Button.MenuBar", FButtonStyle()
 		.SetNormal( FSlateNoResource(FVector2D(256.0f, 256.0f)) )

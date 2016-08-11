@@ -37,6 +37,9 @@ AUTWeap_BioRifle::AUTWeap_BioRifle(const class FObjectInitializer& ObjectInitial
 	DeathStatsName = NAME_BioRifleDeaths;
 	HitsStatsName = NAME_BioRifleHits;
 	ShotsStatsName = NAME_BioRifleShots;
+
+	WeaponCustomizationTag = EpicWeaponCustomizationTags::BioRifle;
+	WeaponSkinCustomizationTag = EpicWeaponSkinCustomizationTags::BioRifle;
 }
 
 void AUTWeap_BioRifle::UpdateSqueeze()

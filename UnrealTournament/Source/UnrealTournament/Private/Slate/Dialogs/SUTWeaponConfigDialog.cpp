@@ -1,6 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #include "UnrealTournament.h"
 #include "SUTWeaponConfigDialog.h"
+#include "SUTWeaponPriorityDialog.h"
 #include "../SUWindowsStyle.h"
 #include "../SUTStyle.h"
 #include "../Widgets/SUTTabWidget.h"
@@ -9,12 +10,28 @@
 #include "EngineModule.h"
 #include "SlateMaterialBrush.h"
 #include "SNumericEntryBox.h"
+#include "UTPlayerCameraManager.h"
+#include "Engine/UserInterfaceSettings.h"
+#include "../Widgets/SUTButton.h"
+#include "AssetData.h"
+#include "SScaleBox.h"
+#include "Widgets/SDragImage.h"
+#include "../Widgets/SUTBorder.h"
+#include "UTCrosshair.h"
+#include "UTWeap_Translocator.h"
 
 #if !UE_SERVER
 #include "Widgets/SUTColorPicker.h"
 
+const float CAMERA_RETURN_WAIT_TIME=5.0f;
+const float CAMERA_SPEED = 128.0f;
+const float PREVIEW_Y_SPACING = 256.0f;
+const float NEXT_PREV_ANIM_TIME = 2.75f;
+
 void SUTWeaponConfigDialog::Construct(const FArguments& InArgs)
 {
+	DefaultPreviewCameraLocation = FVector(220.0f, 0.0f, -16.0f);
+
 	SUTDialogBase::Construct(SUTDialogBase::FArguments()
 		.PlayerOwner(InArgs._PlayerOwner)
 		.DialogTitle(NSLOCTEXT("SUTMenuBase", "WeaponSettings", "Weapon Settings"))
@@ -24,12 +41,655 @@ void SUTWeaponConfigDialog::Construct(const FArguments& InArgs)
 		.DialogAnchorPoint(InArgs._DialogAnchorPoint)
 		.ContentPadding(InArgs._ContentPadding)
 		.ButtonMask(UTDIALOG_BUTTON_OK | UTDIALOG_BUTTON_CANCEL)
+		.IsScrollable(false)
 		.OnDialogResult(InArgs._OnDialogResult)
 		);
 
+	FVector2D ViewportSize;
+	InArgs._PlayerOwner->ViewportClient->GetViewportSize(ViewportSize);
+	ViewportSize = FVector2D(1160.0f, 902.0f);
+
+	bShowingCrosshairs = false;
+
+	PreviewActorRotation = FRotator(0.0f, 0.0f, 0.0f);
 
 	UUTProfileSettings* ProfileSettings = GetPlayerOwner()->GetProfileSettings();
-	AUTHUD* Hud = AUTHUD::StaticClass()->GetDefaultObject<AUTHUD>();
+	ConstructPreviewWorld(ViewportSize);
+
+	GatherCrosshairs(ProfileSettings);
+	GatherWeaponData(ProfileSettings);
+	GatherWeaponSkins(ProfileSettings);
+
+
+	bCustomWeaponCrosshairs = ProfileSettings->bCustomWeaponCrosshairs;
+
+	if (DialogContent.IsValid())
+	{
+		const float MessageTextPaddingX = 10.0f;
+		TSharedPtr<STextBlock> MessageTextBlock;
+		DialogContent->AddSlot()
+			[
+				SNew(SHorizontalBox)
+				+ SHorizontalBox::Slot().AutoWidth().Padding(10.0f, 10.0f, 10.0f, 10.0f)
+				[
+					SNew(SBox).WidthOverride(700).HeightOverride(902)
+					[
+						SNew(SUTBorder)
+						.BorderImage(SUTStyle::Get().GetBrush("UT.HeaderBackground.SuperDark"))
+						[
+							SNew(SVerticalBox)
+							+ SVerticalBox::Slot().AutoHeight()
+							[
+								SNew(SUTBorder)
+								.BorderImage(SUTStyle::Get().GetBrush("UT.HeaderBackground.Medium"))
+								[
+									SNew(SVerticalBox)
+									+ SVerticalBox::Slot().AutoHeight().Padding(0.0f,5.0f,0.0f,5.0f).HAlign(HAlign_Center)
+									[
+										SNew(STextBlock)
+										.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Large")
+										.Text(NSLOCTEXT("SUTWeaponConfigDialog", "Options", "Weapon Options"))
+									]
+
+									+ SVerticalBox::Slot().AutoHeight().Padding(5.0f, 5.0f, 5.0f, 5.0f).HAlign(HAlign_Fill)
+									[
+										GenerateCustomWeaponCrosshairs()
+									]
+
+									+SVerticalBox::Slot().AutoHeight().Padding(5.0f,5.0f,5.0f,5.0f).HAlign(HAlign_Fill)
+									[
+										GenerateAutoSwitch()								
+									]
+
+									+ SVerticalBox::Slot().AutoHeight().Padding(5.0f,5.0f,5.0f,5.0f).HAlign(HAlign_Fill)
+									[
+										GenerateWeaponHand()
+									]
+								]
+							]
+							+ SVerticalBox::Slot().AutoHeight().HAlign(HAlign_Center).Padding(0.0f,15.0f,0.0f,10.0f).HAlign(HAlign_Center)
+							[
+								SNew(STextBlock)
+								.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Large")
+								.Text(NSLOCTEXT("SUTWeaponConfigDialog", "AvailableWeapons", "Unreal Weapon Guide"))
+							]
+							+ SVerticalBox::Slot().FillHeight(1.0f)
+							[
+								SAssignNew(WeaponScrollBox, SScrollBox).Orientation(Orient_Vertical)
+							]
+						]
+					]
+				]
+
+				+SHorizontalBox::Slot().FillWidth(1.0f).Padding(10.0f,10.0f,10.0f,10.0f)
+				[
+					SNew(SBox).WidthOverride(1160).HeightOverride(902)
+					[
+						SNew(SOverlay)
+						+ SOverlay::Slot().HAlign(HAlign_Fill).VAlign(VAlign_Fill)
+						[
+							SNew(SDragImage)
+							.Image(PreviewBrush)
+								.OnDrag(this, &SUTWeaponConfigDialog::DragPreview)
+								.OnZoom(this, &SUTWeaponConfigDialog::ZoomPreview)
+						]
+						+ SOverlay::Slot().HAlign(HAlign_Fill).VAlign(VAlign_Bottom)
+						[
+							SAssignNew(Page,SVerticalBox)
+						]
+						+ SOverlay::Slot().HAlign(HAlign_Fill).VAlign(VAlign_Top).Padding(40.0f, 20.0f, 40.0f,0.0f)
+						[
+							SNew(SBox).HeightOverride(128)
+							[
+								SNew(SHorizontalBox)
+								+SHorizontalBox::Slot().AutoWidth()
+								[
+									SNew(SVerticalBox)
+									+SVerticalBox::Slot().AutoHeight()
+									[
+										SNew(SBox).HeightOverride(24)
+										[
+											SNew(SVerticalBox)
+											+SVerticalBox::Slot().FillHeight(1.0f)
+											[
+												SNew(SHorizontalBox)
+												+SHorizontalBox::Slot().FillWidth(1.0)
+												[
+													SNew(SBorder)
+													.BorderImage(SUTStyle::Get().GetBrush("UT.HeaderBackground.SuperDark"))
+													[
+														SNew(SVerticalBox)
+														+ SVerticalBox::Slot().AutoHeight().HAlign(HAlign_Center)
+														[
+															SNew(STextBlock)
+															.Text(NSLOCTEXT("SUTWeaponConfigDialog", "View", " View "))
+															.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Tiny.Bold.Gold")
+														]
+													]
+												]
+											]
+										]
+									]
+									+ SVerticalBox::Slot().AutoHeight()
+									[
+										SNew(SHorizontalBox)
+										+SHorizontalBox::Slot().AutoWidth()
+										[
+											SNew(SUTBorder)
+											.BorderImage(SUTStyle::Get().GetBrush("UT.HeaderBackground.Shaded"))
+											[
+												SAssignNew(VariantsButton, SUTButton)
+												.OnClicked(this, &SUTWeaponConfigDialog::OnModeChanged, 0)
+												.ButtonStyle(SUTStyle::Get(), "UT.WeaponConfig.Button")
+												.ContentPadding(FMargin(10.0f, 0.0f, 10.0f, 0.0f))
+												.IsToggleButton(true)
+												//.ToolTip(SUTUtils::CreateTooltip(AvailableItems[Idx]->DefaultObject->DisplayName))
+												//.UTOnMouseOver(this, &SUTLoadoutWindow::AvailableUpdateItemInfo)
+												//.WidgetTag(Idx)
+												[
+													SNew(STextBlock)
+													.Text(NSLOCTEXT("SUTWeaponConfigDialog","Variants","Skins"))
+													.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Large")
+												]
+											]
+										]
+										+ SHorizontalBox::Slot().AutoWidth().Padding(60.0f, 0.0f, 0.0f, 0.0f)
+										[
+											SNew(SUTBorder)
+											.BorderImage(SUTStyle::Get().GetBrush("UT.HeaderBackground.Shaded"))
+											[
+												SAssignNew(CrosshairButton, SUTButton)
+												.ContentPadding(FMargin(10.0f, 0.0f, 10.0f, 0.0f))
+												.OnClicked(this, &SUTWeaponConfigDialog::OnModeChanged, 1)
+												.IsToggleButton(true)
+												.ButtonStyle(SUTStyle::Get(), "UT.WeaponConfig.Button")
+												//.ToolTip(SUTUtils::CreateTooltip(AvailableItems[Idx]->DefaultObject->DisplayName))
+												//.UTOnMouseOver(this, &SUTLoadoutWindow::AvailableUpdateItemInfo)
+												//.WidgetTag(Idx)
+												[
+													SNew(STextBlock)
+													.Text(NSLOCTEXT("SUTWeaponConfigDialog", "Crosshairs", "Crosshair"))
+													.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Large")
+												]
+											]
+										]
+									]
+								]
+							]
+						]
+						+ SOverlay::Slot().HAlign(HAlign_Fill).VAlign(VAlign_Bottom)
+						[
+							SNew(SVerticalBox)
+							+SVerticalBox::Slot().AutoHeight().Padding(0.0f,0.0f,0.0f,72.0f)
+							[
+								SNew(SOverlay)
+								+SOverlay::Slot().HAlign(HAlign_Fill)
+								[
+									SNew(SHorizontalBox)
+									+ SHorizontalBox::Slot().HAlign(HAlign_Left).AutoWidth()
+									[
+										SNew(SBox).WidthOverride(128.0f).HeightOverride(128.0f)
+										[
+											SNew(SUTButton)
+											.OnClicked(this, &SUTWeaponConfigDialog::HandleNextPrevious, -1)
+											.ButtonStyle(SUTStyle::Get(), "UT.ArrowButton.Left")
+											.Visibility(this, &SUTWeaponConfigDialog::LeftArrowVis)
+											//.ToolTip(SUTUtils::CreateTooltip(AvailableItems[Idx]->DefaultObject->DisplayName))
+											//.UTOnMouseOver(this, &SUTLoadoutWindow::AvailableUpdateItemInfo)
+											//.WidgetTag(Idx)
+										]
+									]
+									+ SHorizontalBox::Slot().HAlign(HAlign_Center).FillWidth(1.0)
+									[
+										SNew(SCanvas)
+									]
+									+ SHorizontalBox::Slot().HAlign(HAlign_Left).AutoWidth()
+									[
+										SNew(SBox).WidthOverride(128.0f).HeightOverride(128.0f)
+										[
+											SNew(SUTButton)
+											.OnClicked(this, &SUTWeaponConfigDialog::HandleNextPrevious, 1)
+											.ButtonStyle(SUTStyle::Get(), "UT.ArrowButton.Right")
+											.Visibility(this, &SUTWeaponConfigDialog::RightArrowVis)
+											//.ToolTip(SUTUtils::CreateTooltip(AvailableItems[Idx]->DefaultObject->DisplayName))
+											//.UTOnMouseOver(this, &SUTLoadoutWindow::AvailableUpdateItemInfo)
+											//.WidgetTag(Idx)
+										]
+									]
+								]
+								+ SOverlay::Slot().HAlign(HAlign_Fill)
+								[
+									SNew(SVerticalBox)
+									+ SVerticalBox::Slot().AutoHeight().HAlign(HAlign_Center)
+									[
+										SNew(STextBlock)
+										.Text(this, &SUTWeaponConfigDialog::GetVarientText)
+										.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Huge")
+										.ColorAndOpacity(FLinearColor(0.2f, 0.75f, 1.0f, 1.0f))
+									]
+									+ SVerticalBox::Slot().AutoHeight().HAlign(HAlign_Center)
+									[
+										SNew(STextBlock)
+										.Text(this, &SUTWeaponConfigDialog::GetVarientSetText)
+										.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Small.Bold")
+										.ColorAndOpacity(FLinearColor::Yellow)
+									]
+								]
+
+							]
+						]
+					]
+				]
+			];
+	}
+
+	VariantsButton->BePressed();
+
+	GenerateWeaponList(nullptr);
+	GeneratePage();
+
+	if (AllWeapons.Num() > 0)
+	{
+		CurrentWeaponIndex = -1;
+		WeaponClicked(0);
+	}
+
+}
+
+TSharedRef<class SWidget> BuildCustomButtonBar();
+TSharedRef<class SWidget> SUTWeaponConfigDialog::BuildCustomButtonBar()
+{
+	return SNew(SHorizontalBox)
+		+SHorizontalBox::Slot().AutoWidth().Padding(0.0f,0.0f,20.0f,0.0f)
+		[
+			SAssignNew(WeaponPriorityConfigButton, SButton)
+			.HAlign(HAlign_Center)
+			.ButtonStyle(SUWindowsStyle::Get(), "UT.BottomMenu.Button")
+			.ContentPadding(FMargin(5.0f, 5.0f, 5.0f, 5.0f))
+			.Text(NSLOCTEXT("SUTWeaponConfigDialog", "PriorityButton", "SET AUTO-SWITCH PRIORITIES"))
+			.TextStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button.SmallTextStyle")
+			.OnClicked(this, &SUTWeaponConfigDialog::SetAutoSwitchPriorities)
+		]
+	+ SHorizontalBox::Slot().AutoWidth().Padding(0.0f, 0.0f, 10.0f, 0.0f)
+		[
+			SAssignNew(WeaponPriorityConfigButton, SButton)
+			.HAlign(HAlign_Center)
+			.ButtonStyle(SUWindowsStyle::Get(), "UT.BottomMenu.Button")
+			.ContentPadding(FMargin(5.0f, 5.0f, 5.0f, 5.0f))
+			.Text(NSLOCTEXT("SUTWeaponConfigDialog", "WeaponWheel", "CONFIGURE WEAPON WHEEL"))
+			.TextStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button.SmallTextStyle")
+			//.OnClicked(this, &SUTControlSettingsDialog::OnBindDefaultClick)
+		];
+		
+}
+
+void SUTWeaponConfigDialog::AddReferencedObjects(FReferenceCollector& Collector)
+{
+	Collector.AddReferencedObject(PreviewTexture);
+	Collector.AddReferencedObject(PreviewMID);
+	Collector.AddReferencedObject(PreviewWorld);
+
+	for (int32 i=0; i < AllCrosshairs.Num(); i++)
+	{
+		Collector.AddReferencedObject(AllCrosshairs[i]);
+	}
+
+	for (int32 i=0; i < AllWeapons.Num(); i++)
+	{
+		Collector.AddReferencedObject(AllWeapons[i].WeaponClass);
+		AUTWeapon* D = AllWeapons[i].WeaponDefaultObject.Get();
+		Collector.AddReferencedObject(D);
+	}
+
+	for (int32 i = 0 ; i < WeaponSkinGCList.Num(); i++) Collector.AddReferencedObject(WeaponSkinGCList[i]);
+	for (int32 i = 0 ; i < PickupPreviewActors.Num(); i++) Collector.AddReferencedObject(PickupPreviewActors[i]);
+	for (int32 i = 0; i < WeaponPreviewActors.Num(); i++) Collector.AddReferencedObject(WeaponPreviewActors[i]);
+
+
+}
+
+void SUTWeaponConfigDialog::GeneratePage()
+{
+	Page->ClearChildren();
+	if (bShowingCrosshairs)
+	{
+		// If we can change the crosshairs, then 
+		if (CustomWeaponCrosshairs->IsChecked())
+		{
+			Page->AddSlot().HAlign(HAlign_Fill).AutoHeight().Padding(50.0f, 0.0f, 50.0f, 300.0f)
+			[
+				SNew(SHorizontalBox)
+				+SHorizontalBox::Slot().FillWidth(0.3).VAlign(VAlign_Top)
+				[
+					SNew(SVerticalBox)
+					+SVerticalBox::Slot().AutoHeight()
+					[
+						SNew(SUTBorder)
+						.BorderImage(SUTStyle::Get().GetBrush("UT.HeaderBackground.SuperDark"))
+						[
+							SNew(STextBlock)
+							.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Small")
+							.Text(NSLOCTEXT("SUTWeaponConfigDialog", "ColorPicker", " Crosshair Color "))
+						]
+					]
+					+SVerticalBox::Slot().AutoHeight().Padding(0.0f,10.0f,0.0f,0.0f)
+					[
+						SAssignNew(ColorPicker, SUTColorPicker)
+						.TargetColorAttribute(this, &SUTWeaponConfigDialog::GetCrosshairColor)
+						.OnColorCommitted(this, &SUTWeaponConfigDialog::SetCrosshairColor)
+						.PreColorCommitted(this, &SUTWeaponConfigDialog::SetCrosshairColor)
+						.DisplayInlineVersion(true)
+						.UseAlpha(true)
+					]
+				]
+				+ SHorizontalBox::Slot().FillWidth(0.3).VAlign(VAlign_Top)
+				[
+					SNew(SCanvas)
+				]
+				+SHorizontalBox::Slot().FillWidth(0.3).VAlign(VAlign_Top)
+				[
+					SNew(SVerticalBox)
+					+ SVerticalBox::Slot().AutoHeight().HAlign(HAlign_Right)
+					[
+						SNew(SUTBorder)
+						.BorderImage(SUTStyle::Get().GetBrush("UT.HeaderBackground.SuperDark"))
+						[
+							SNew(STextBlock)
+							.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Small")
+							.Text(NSLOCTEXT("SUTWeaponConfigDialog", "CrosshairScale", " Crosshair Scale "))
+						]
+					]
+					+ SVerticalBox::Slot().AutoHeight().HAlign(HAlign_Right)
+					[
+						SNew(SBox).WidthOverride(300)
+						[
+							SNew(SNumericEntryBox<float>)
+							.EditableTextBoxStyle(SUWindowsStyle::Get(), "UT.Common.Editbox.White")
+							.LabelPadding(FMargin(50.0f, 50.0f))
+							.Value(this, &SUTWeaponConfigDialog::GetCrosshairScale)
+							.OnValueChanged(this, &SUTWeaponConfigDialog::SetCrosshairScale)
+							.AllowSpin(true)
+							.MinSliderValue(0.00001f)
+							.MinValue(0.00001f)
+							.MaxSliderValue(10.0f)
+							.MaxValue(10.0f)
+						]
+					]
+				]
+			];
+		}
+	}
+	else
+	{
+		Page->AddSlot().HAlign(HAlign_Fill).AutoHeight()
+		[
+			SNew(SBox).HeightOverride(880)
+			[
+				SNew(SHorizontalBox)
+				+SHorizontalBox::Slot().HAlign(HAlign_Right).VAlign(VAlign_Top).Padding(0.0f,40.0f,40.0f,0.0f)
+				[
+					SNew(SHorizontalBox).Visibility(this, &SUTWeaponConfigDialog::VarientSelectVis)
+					+SHorizontalBox::Slot()
+					[
+						SNew(SVerticalBox)
+						+SVerticalBox::Slot().AutoHeight().HAlign(HAlign_Right)
+						[
+							SNew(STextBlock)
+							.Text(NSLOCTEXT("SUTWeaponConfigDialog","ClickToUse","Click to Select"))
+							.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Small.Bold")
+							.ColorAndOpacity(FLinearColor::Yellow)
+						]
+						+ SVerticalBox::Slot().AutoHeight()
+						[
+							SNew(SUTButton)
+							.ContentPadding(FMargin(10.0f, 0.0f, 10.0f, 0.0f))
+							.OnClicked(this, &SUTWeaponConfigDialog::SetWeaponSkin)
+							.ButtonStyle(SUTStyle::Get(), "UT.WeaponConfig.Use.Button")
+						]
+					]
+				]
+			]
+		];
+	}
+	Page->AddSlot().HAlign(HAlign_Fill).VAlign(VAlign_Bottom)
+	[
+		SNew(SBox).HeightOverride(40)
+		[
+			SNew(SUTBorder)
+			.BorderImage(SUTStyle::Get().GetBrush("UT.HeaderBackground.Shaded"))
+			[
+				SNew(SHorizontalBox)
+				+ SHorizontalBox::Slot().AutoWidth().Padding(40.0f, 0.0f, 15.0f, 0.0f)
+				[
+					SNew(STextBlock)
+					.Text(this, &SUTWeaponConfigDialog::GetVariantTitle)
+					.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Tween")
+				]
+				+ SHorizontalBox::Slot().AutoWidth().Padding(0.0f, 0.0f, 0.0f, 0.0f)
+				[
+					SNew(SBox).WidthOverride(200)
+					[
+						SNew(STextBlock)
+						.Text(this, &SUTWeaponConfigDialog::GetVariantCount)
+						.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Tween")
+					]
+				]
+				+ SHorizontalBox::Slot().FillWidth(1.0).Padding(0.0f, 0.0f, 0.0f, 0.0f)
+				[
+					SNew(SCanvas)
+				]
+				+ SHorizontalBox::Slot().AutoWidth().Padding(0.0f, 0.0f, 15.0f, 0.0f)
+				[
+					SNew(STextBlock)
+					.Text(NSLOCTEXT("SUTWeaponConfigDialog", "Group", "Weapon Group:"))
+				.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Tween")
+				]
+				+ SHorizontalBox::Slot().AutoWidth().Padding(0.0f, 0.0f, 40.0f, 0.0f)
+				[
+					SAssignNew(WeaponGroupBox, SHorizontalBox)
+				]
+			]
+		]
+	];
+
+	GenerateWeaponGroups();
+}
+
+
+void SUTWeaponConfigDialog::ConstructPreviewWorld(FVector2D ViewportSize)
+{	
+	/********************* Create the preview world to render meshes */
+
+	// allocate a preview scene for rendering
+	PreviewWorld = UWorld::CreateWorld(EWorldType::Preview, true);
+	PreviewWorld->bHack_Force_UsesGameHiddenFlags_True = true;
+	PreviewWorld->bShouldSimulatePhysics = true;
+	GEngine->CreateNewWorldContext(EWorldType::Preview).SetCurrentWorld(PreviewWorld);
+	PreviewWorld->InitializeActorsForPlay(FURL(), true);
+	PreviewViewState.Allocate();
+	{
+		UClass* PreviewEnvironmentClass = LoadObject<UClass>(nullptr, TEXT("/Game/RestrictedAssets/UI/PlayerPreviewEnvironment.PlayerPreviewEnvironment_C"));
+		PreviewEnvironment = PreviewWorld->SpawnActor<AActor>(PreviewEnvironmentClass, FVector(500.f, 50.f, 0.f), FRotator(0, 0, 0));
+	}
+
+	UMaterialInterface* PreviewBaseMat = LoadObject<UMaterialInterface>(NULL, TEXT("/Game/RestrictedAssets/UI/PlayerPreviewProxy.PlayerPreviewProxy"));
+	if (PreviewBaseMat != NULL)
+	{
+		PreviewTexture = Cast<UUTCanvasRenderTarget2D>(UCanvasRenderTarget2D::CreateCanvasRenderTarget2D(GetPlayerOwner().Get(), UUTCanvasRenderTarget2D::StaticClass(), ViewportSize.X, ViewportSize.Y));
+		PreviewTexture->ClearColor = FLinearColor(0.0f, 0.0f, 0.0f, 1.0f);
+		PreviewTexture->OnNonUObjectRenderTargetUpdate.BindSP(this, &SUTWeaponConfigDialog::UpdatePreviewRender);
+		PreviewMID = UMaterialInstanceDynamic::Create(PreviewBaseMat, PreviewWorld);
+		PreviewMID->SetTextureParameterValue(FName(TEXT("TheTexture")), PreviewTexture);
+		PreviewBrush = new FSlateMaterialBrush(*PreviewMID, ViewportSize);
+	}
+	else
+	{
+		PreviewTexture = NULL;
+		PreviewMID = NULL;
+		PreviewBrush = new FSlateMaterialBrush(*UMaterial::GetDefaultMaterial(MD_Surface), ViewportSize);
+	}
+
+	PreviewTexture->TargetGamma = GEngine->GetDisplayGamma();
+	PreviewTexture->InitCustomFormat(ViewportSize.X, ViewportSize.Y, PF_B8G8R8A8, false);
+
+	PreviewTexture->UpdateResourceImmediate();
+
+	PreviewCameraLocation = DefaultPreviewCameraLocation;
+	DesiredPreviewCameraLocation = DefaultPreviewCameraLocation;
+}
+
+
+SUTWeaponConfigDialog::~SUTWeaponConfigDialog()
+{
+	if (!GExitPurge)
+	{
+		for (int32 i=0; i < DeleteList.Num(); i++)
+		{
+			delete DeleteList[i];
+		}
+
+		if (PreviewTexture != NULL)
+		{
+			PreviewTexture->OnNonUObjectRenderTargetUpdate.Unbind();
+			PreviewTexture = NULL;
+		}
+		FlushRenderingCommands();
+		if (PreviewBrush != NULL)
+		{
+			// FIXME: Slate will corrupt memory if this is deleted. Must be referencing it somewhere that doesn't get cleaned up...
+			//		for now, we'll take the minor memory leak (the texture still gets GC'ed so it's not too bad)
+			//delete PlayerPreviewBrush;
+			PreviewBrush->SetResourceObject(NULL);
+			PreviewBrush = NULL;
+		}
+		if (PreviewWorld != NULL)
+		{
+			PreviewWorld->DestroyWorld(true);
+			GEngine->DestroyWorldContext(PreviewWorld);
+			PreviewWorld = NULL;
+			GetPlayerOwner()->GetWorld()->ForceGarbageCollection(true);
+		}
+	}
+	PreviewViewState.Destroy();
+}
+
+void SUTWeaponConfigDialog::Tick(const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime)
+{
+	SUTDialogBase::Tick(AllottedGeometry, InCurrentTime, InDeltaTime);
+
+	if (bAnimating)
+	{
+		AnimTimer += InDeltaTime;
+		if (AnimTimer < NEXT_PREV_ANIM_TIME)
+		{
+			PreviewCameraOffset.Y = FUTMath::LerpOvershoot(AnimStartY, AnimEndY, AnimTimer / NEXT_PREV_ANIM_TIME, 2.56f, 9.0f);
+		}
+		else
+		{
+			PreviewCameraOffset.Y = AnimEndY;
+			bAnimating = false;
+		}
+	}
+
+	TimeSinceLastCameraAdjustment += InDeltaTime;
+	if (TimeSinceLastCameraAdjustment > CAMERA_RETURN_WAIT_TIME)
+	{
+		if (!PreviewCameraFreeLookOffset.IsZero())
+		{
+			FUTMath::ReturnVectorToZero(PreviewCameraFreeLookOffset, CAMERA_SPEED * InDeltaTime);		
+		}
+		
+
+		if ( PickupPreviewActors.IsValidIndex(CurrentWeaponPreviewIndex) )
+		{
+			FRotator R = PickupPreviewActors[CurrentWeaponPreviewIndex]->GetActorRotation();
+			if (R.Yaw != 0)
+			{
+				FUTMath::ReturnToZero(R.Yaw, CAMERA_SPEED * InDeltaTime);
+				PickupPreviewActors[CurrentWeaponPreviewIndex]->SetActorRotation(R);
+			}
+		}
+	}
+
+	if (DesiredPreviewCameraLocation != PreviewCameraLocation)
+	{
+		float Dist = (PreviewCameraLocation - DesiredPreviewCameraLocation).Size();
+		FVector Direction = (DesiredPreviewCameraLocation - PreviewCameraLocation).GetSafeNormal();
+		PreviewCameraLocation += Direction * CAMERA_SPEED * InDeltaTime;
+
+		if ( (PreviewCameraLocation - DesiredPreviewCameraLocation).Size() >= Dist)
+		{
+			PreviewCameraLocation = DesiredPreviewCameraLocation;
+		}
+	}
+
+	if (PreviewWorld != nullptr)
+	{
+		PreviewWorld->Tick(LEVELTICK_All, InDeltaTime);
+	}
+
+	if (PreviewTexture != nullptr)
+	{
+		PreviewTexture->FastUpdateResource();
+	}
+}
+
+
+void SUTWeaponConfigDialog::UpdatePreviewRender(UCanvas* C, int32 Width, int32 Height)
+{
+	FEngineShowFlags ShowFlags(ESFIM_Game);
+	//ShowFlags.SetLighting(false); // FIXME: create some proxy light and use lit mode
+	ShowFlags.SetMotionBlur(false);
+	ShowFlags.SetGrain(false);
+	
+	//ShowFlags.SetPostProcessing(false);
+	FSceneViewFamilyContext ViewFamily(FSceneViewFamily::ConstructionValues(PreviewTexture->GameThread_GetRenderTargetResource(), PreviewWorld->Scene, ShowFlags).SetRealtimeUpdate(true));
+
+	const float PreviewFOV = 45;
+	const float AspectRatio = Width / (float)Height;
+
+	FSceneViewInitOptions PreviewInitOptions;
+	PreviewInitOptions.SetViewRectangle(FIntRect(0, 0, C->SizeX, C->SizeY));
+	PreviewInitOptions.ViewOrigin = -(PreviewCameraLocation - PreviewCameraOffset - PreviewCameraFreeLookOffset);
+	PreviewInitOptions.ViewRotationMatrix = FMatrix(FPlane(0, 0, 1, 0), FPlane(1, 0, 0, 0), FPlane(0, 1, 0, 0), FPlane(0, 0, 0, 1));
+	PreviewInitOptions.ProjectionMatrix =
+		FReversedZPerspectiveMatrix(
+			FMath::Max(0.001f, PreviewFOV) * (float)PI / 360.0f,
+			AspectRatio,
+			1.0f,
+			GNearClippingPlane);
+	PreviewInitOptions.ViewFamily = &ViewFamily;
+	PreviewInitOptions.SceneViewStateInterface = PreviewViewState.GetReference();
+	PreviewInitOptions.BackgroundColor = FLinearColor::Black;
+	PreviewInitOptions.WorldToMetersScale = GetPlayerOwner()->GetWorld()->GetWorldSettings()->WorldToMeters;
+	PreviewInitOptions.CursorPos = FIntPoint(-1, -1);
+
+	ViewFamily.bUseSeparateRenderTarget = true;
+
+	FSceneView* View = new FSceneView(PreviewInitOptions); // note: renderer gets ownership
+	View->ViewLocation = FVector::ZeroVector;
+	View->ViewRotation = FRotator::ZeroRotator;
+	FPostProcessSettings PPSettings = GetDefault<AUTPlayerCameraManager>()->DefaultPPSettings;
+
+	ViewFamily.Views.Add(View);
+	View->StartFinalPostprocessSettings(PreviewCameraLocation);
+	View->EndFinalPostprocessSettings(PreviewInitOptions);
+	View->ViewRect = View->UnscaledViewRect;
+
+	// workaround for hacky renderer code that uses GFrameNumber to decide whether to resize render targets
+	--GFrameNumber;
+	GetRendererModule().BeginRenderingViewFamily(C->Canvas, &ViewFamily);
+
+	if (bShowingCrosshairs && AllCrosshairs.IsValidIndex(CurrentCrosshairIndex))
+	{
+		AllCrosshairs[CurrentCrosshairIndex]->DrawCrosshair(C, nullptr, 0.0f, *AllWeapons[CurrentWeaponIndex].WeaponCustomizationInfo);
+	}
+}
+
+
+void SUTWeaponConfigDialog::GatherWeaponData(UUTProfileSettings* ProfileSettings)
+{
+	if (ProfileSettings != nullptr)
 	{
 		TArray<FAssetData> AssetList;
 		GetAllBlueprintAssetData(AUTWeapon::StaticClass(), AssetList);
@@ -42,132 +702,407 @@ void SUTWeaponConfigDialog::Construct(const FArguments& InArgs)
 				UClass* TestClass = LoadObject<UClass>(NULL, **ClassPath);
 				if (TestClass != NULL && !TestClass->HasAnyClassFlags(CLASS_Abstract) && TestClass->IsChildOf(AUTWeapon::StaticClass()))
 				{
-					if (!TestClass->GetDefaultObject<AUTWeapon>()->bHideInMenus && (TestClass->GetDefaultObject<AUTWeapon>()->DefaultGroup >= 0))
+					AUTWeapon* WeaponDefaultObject = TestClass->GetDefaultObject<AUTWeapon>();
+					UE_LOG(UT,Log,TEXT("%s %i "), *WeaponDefaultObject->DisplayName.ToString(),WeaponDefaultObject->bHideInMenus );
+					if (!WeaponDefaultObject->bHideInMenus)
 					{
-						if (WeaponClassList.Find(TestClass) == INDEX_NONE)
+						bool bFound = false;
+						for (int32 i=0; i < AllWeapons.Num(); i++)
 						{
-							//Add weapons for the priority list
-							int32 Group = (TestClass->GetDefaultObject<AUTWeapon>()->Group >= 0) ? TestClass->GetDefaultObject<AUTWeapon>()->Group : TestClass->GetDefaultObject<AUTWeapon>()->DefaultGroup;
+							if (AllWeapons[i].WeaponClass == TestClass)
+							{
+								bFound = true;
+								break;
+							}
+						}
 
-							FString ClassName = GetNameSafe(TestClass);
-							Group = ProfileSettings && ProfileSettings->WeaponGroupLookup.Contains(ClassName) ? ProfileSettings->WeaponGroupLookup[ClassName].Group : Group;
-							Group = FMath::Clamp<int32>(Group, 0,10);
-							WeaponClassList.Add(TestClass);
-							WeakWeaponClassList.Add(TestClass);
-							WeaponGroups.Add(TestClass, Group);
+						if (!bFound)
+						{
+							int32 Index = AllWeapons.Add(FWeaponInfo(TestClass, WeaponDefaultObject));
+							if (Index != INDEX_NONE)
+							{
+								bool bUnique = true;
+								// Look for duplicates
+								for (int32 i = 0; i < Index; i++)
+								{
+									if (AllWeapons[i].WeaponCustomizationInfo->WeaponCustomizationTag == WeaponDefaultObject->WeaponCustomizationTag)
+									{
+										AllWeapons[Index].WeaponCustomizationInfo = AllWeapons[i].WeaponCustomizationInfo;
+										bUnique = false;
+										break;
+									}
+								}
+
+								if (bUnique)
+								{
+									// Look to see if there is a customization record for this tag in the profile. If not, create  one
+									if (ProfileSettings->WeaponCustomizations.Contains(WeaponDefaultObject->WeaponCustomizationTag))
+									{
+										AllWeapons[Index].WeaponCustomizationInfo = new FWeaponCustomizationInfo(ProfileSettings->WeaponCustomizations[WeaponDefaultObject->WeaponCustomizationTag]);
+									}
+									else
+									{
+										AllWeapons[Index].WeaponCustomizationInfo = new FWeaponCustomizationInfo(WeaponDefaultObject->WeaponCustomizationTag, WeaponDefaultObject->Group, WeaponDefaultObject->AutoSwitchPriority, DefaultWeaponCrosshairs::Dot, FLinearColor::White, 1.0f);
+										DeleteList.Add(AllWeapons[Index].WeaponCustomizationInfo);
+									}
+								}
+
+								AllWeapons[Index].WeaponSkinClassname = ProfileSettings->GetWeaponSkinClassname(WeaponDefaultObject);
+							}
 						}
 					}
 				}
 			}
 		}
 	}
+}
 
-	if (Hud)
+void SUTWeaponConfigDialog::GenerateWeaponList(UClass* DesiredSelectedWeaponClass)
+{
+	if (!WeaponScrollBox.IsValid()) return;
+	WeaponScrollBox->ClearChildren();
+
+	TSharedPtr<SUTButton> SelectedButton;
+	SelectedButton.Reset();
+
+	struct FGroupInfo
 	{
-		bool bFoundGlobal = false;
-		for (int32 i = 0; i < Hud->CrosshairInfos.Num(); i++)
+		TSharedPtr<SHorizontalBox> GroupBox;
+		TSharedPtr<SGridPanel> ButtonBox;
+		int32 NoButtons;
+
+		FGroupInfo()
 		{
-			TSharedPtr<FCrosshairInfo> NewCrosshairInfo = MakeShareable(new FCrosshairInfo());
-			*NewCrosshairInfo = Hud->CrosshairInfos[i];
-			CrosshairInfos.Add(NewCrosshairInfo);
-			if (Hud->CrosshairInfos[i].WeaponClassName == TEXT("Global"))
-			{
-				bFoundGlobal = true;
-			}
+			GroupBox.Reset();
+			ButtonBox.Reset();
+			NoButtons = 0;
 		}
-		if (!bFoundGlobal)
+
+		FGroupInfo(TSharedPtr<SHorizontalBox> inGroupBox, TSharedPtr<SGridPanel> inButtonBox)
+			: GroupBox(inGroupBox)
+			, ButtonBox(inButtonBox)
 		{
-			CrosshairInfos.Add(MakeShareable(new FCrosshairInfo()));
-		}
-	}
-
-	bCustomWeaponCrosshairs = Hud->bCustomWeaponCrosshairs;
-	
-	{//Gather all the crosshair classes
-		TArray<FAssetData> AssetList;
-		GetAllBlueprintAssetData(UUTCrosshair::StaticClass(), AssetList);
-		for (const FAssetData& Asset : AssetList)
-		{
-			static FName NAME_GeneratedClass(TEXT("GeneratedClass"));
-			const FString* ClassPath = Asset.TagsAndValues.Find(NAME_GeneratedClass);
-			if (ClassPath != NULL && !ClassPath->Contains(TEXT("/EpicInternal/"))) // exclude debug/test crosshairs
-			{
-				UClass* TestClass = LoadObject<UClass>(NULL, **ClassPath);
-				if (TestClass != NULL && !TestClass->HasAnyClassFlags(CLASS_Abstract) && TestClass->IsChildOf(UUTCrosshair::StaticClass()))
-				{
-					CrosshairClassList.Add(TestClass);
-					WeakCrosshairList.Add(TestClass);
-
-					//Add weapon to a map for easy weapon class lookup
-					CrosshairMap.Add(TestClass->GetPathName(), TestClass);
-				}
-			}
-		}
-	}
-	
-	{//Gather all the weapon skin classes
-		TArray<FAssetData> AssetList;
-		GetAllAssetData(UUTWeaponSkin::StaticClass(), AssetList);
-		for (const FAssetData& Asset : AssetList)
-		{
-			UUTWeaponSkin* EligibleWeaponSkin = Cast<UUTWeaponSkin>(Asset.GetAsset());
-			if (EligibleWeaponSkin)
-			{
-				TArray<UUTWeaponSkin*>* WeaponSkinArray = WeaponToSkinListMap.Find(EligibleWeaponSkin->WeaponType.ToString());
-				if (WeaponSkinArray == nullptr)
-				{
-					WeaponSkinArray = &(WeaponToSkinListMap.Add(EligibleWeaponSkin->WeaponType.ToString()));
-				}
-
-				if (WeaponSkinArray)
-				{
-					(*WeaponSkinArray).Add(EligibleWeaponSkin);
-				}
-			}
-		}
-	}
-
-	//Set up the Crosshair WYSIWYG view
-	//Just set to some samll size to satisfy hooking everything up. Will resize the rendertarget once we know the size Slate gives us for the crosshair image
-	FVector2D CrosshairSize(1.0f, 1.0f);
-	UMaterialInterface* BaseMat = LoadObject<UMaterialInterface>(NULL, TEXT("/Game/RestrictedAssets/UI/PlayerPreviewProxy.PlayerPreviewProxy"));
-	if (BaseMat != NULL)
-	{
-		CrosshairPreviewTexture = Cast<UUTCanvasRenderTarget2D>(UCanvasRenderTarget2D::CreateCanvasRenderTarget2D(GetPlayerOwner().Get(), UUTCanvasRenderTarget2D::StaticClass(), CrosshairSize.X, CrosshairSize.Y));
-		CrosshairPreviewTexture->ClearColor = FLinearColor(0.0f, 0.0f, 0.0f, 1.0f);
-		CrosshairPreviewTexture->OnNonUObjectRenderTargetUpdate.BindSP(this, &SUTWeaponConfigDialog::UpdateCrosshairRender);
-		CrosshairPreviewMID = UMaterialInstanceDynamic::Create(BaseMat, CrosshairPreviewTexture);
-		CrosshairPreviewMID->SetTextureParameterValue(FName(TEXT("TheTexture")), CrosshairPreviewTexture);
-		CrosshairPreviewBrush = new FSlateMaterialBrush(*CrosshairPreviewMID, CrosshairSize);
-	}
-	else
-	{
-		CrosshairPreviewTexture = NULL;
-		CrosshairPreviewMID = NULL;
-		CrosshairPreviewBrush = new FSlateMaterialBrush(*UMaterial::GetDefaultMaterial(MD_Surface), CrosshairSize);
-	}
-	CrosshairPreviewTexture->TargetGamma = GEngine->GetDisplayGamma();
-
-
-	if (ProfileSettings)
-	{
-		for (int32 i = 0; i < WeakWeaponClassList.Num(); i++)
-		{
-			float Pri = ProfileSettings->GetWeaponPriority(GetNameSafe(WeakWeaponClassList[i].Get()), WeakWeaponClassList[i]->GetDefaultObject<AUTWeapon>()->AutoSwitchPriority);
-			WeakWeaponClassList[i]->GetDefaultObject<AUTWeapon>()->AutoSwitchPriority = Pri;
-		}
-	}
-
-	struct FWeaponListSort
-	{
-		bool operator()(TWeakObjectPtr<UClass> A, TWeakObjectPtr<UClass> B) const
-		{
-			return (A->GetDefaultObject<AUTWeapon>()->AutoSwitchPriority > B->GetDefaultObject<AUTWeapon>()->AutoSwitchPriority);
+			NoButtons = 0;
 		}
 	};
 
-	WeakWeaponClassList.Sort(FWeaponListSort());
+	TMap<int32, FGroupInfo> GroupBoxes;
+	int32 MaxGroupIndex = -1;
 
+	// Build all of the groups.
+	for (int32 i = 0; i < AllWeapons.Num(); i++)
+	{
+		TSharedPtr<SHorizontalBox> GroupBox;
+		TSharedPtr<SGridPanel> ButtonBox;
+		int32 Group = AllWeapons[i].WeaponCustomizationInfo->WeaponGroup;
+		if (Group > MaxGroupIndex) MaxGroupIndex = Group;
+
+		bool bAlt = Group % 2 > 0;
+
+		if ( !GroupBoxes.Contains(Group) )
+		{
+			FText GroupText = FText::GetEmpty();
+			if (Group > 0)
+			{
+				GroupText = FText::AsNumber(Group < 10 ? Group : 0);
+			}
+
+			// Add an slot for it.
+			SAssignNew(GroupBox, SHorizontalBox)
+			+SHorizontalBox::Slot().Padding(0.0f, 0.0f, 0.0f, 0.0f).AutoWidth()
+			[
+				SNew(SBox).WidthOverride(32)
+				[
+					SNew(SVerticalBox)
+					+SVerticalBox::Slot().FillHeight(0.45f).VAlign(VAlign_Fill).HAlign(HAlign_Center)
+					[
+						SNew(SBox).WidthOverride(6)
+						[
+							SNew(SImage)
+							.Image(SUTStyle::Get().GetBrush("UT.HeaderBackground.Dark"))
+						]
+					]
+					+ SVerticalBox::Slot().AutoHeight().Padding(0.0f,5.0f,0.0f,5.0f).HAlign(HAlign_Center)
+					[
+						SNew(STextBlock)
+						.Text(GroupText)
+						.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Small.Bold")
+						.ColorAndOpacity(FLinearColor::Yellow)
+					]
+					+ SVerticalBox::Slot().FillHeight(0.45f).VAlign(VAlign_Fill).HAlign(HAlign_Center)
+					[
+						SNew(SBox).WidthOverride(6)
+						[
+							SNew(SImage)
+							.Image(SUTStyle::Get().GetBrush("UT.HeaderBackground.Dark"))
+						]
+					]
+				]
+			]
+			+ SHorizontalBox::Slot().FillWidth(1.0)
+			[
+				SNew(SUTBorder)
+				.BorderImage(bAlt ? SUTStyle::Get().GetBrush("UT.HeaderBackground.SuperDark.ListB") : SUTStyle::Get().GetBrush("UT.HeaderBackground.SuperDark.ListA"))
+				[
+					SAssignNew(ButtonBox, SGridPanel)
+				]
+
+			];
+
+			// Save them.
+			GroupBoxes.Add(Group, FGroupInfo(GroupBox, ButtonBox));	
+		}
+		else
+		{
+			GroupBox = GroupBoxes[Group].GroupBox;
+			ButtonBox = GroupBoxes[Group].ButtonBox;
+		}
+		// Add the button....
+
+		int32 Row = GroupBoxes[Group].NoButtons / 3;
+		int32 Col = GroupBoxes[Group].NoButtons % 3;
+		GroupBoxes[Group].NoButtons++;
+		TSharedPtr<SUTButton> Button;
+		ButtonBox->AddSlot(Col, Row).Padding(5.0f, 5.0f, 5.0f, 5.0f)
+		[
+			SNew(SVerticalBox)
+			+ SVerticalBox::Slot().AutoHeight()
+			[
+				SNew(SBox).WidthOverride(192).HeightOverride(96)
+				[
+					SNew(SVerticalBox)
+					+ SVerticalBox::Slot().HAlign(HAlign_Center)
+					[
+						SAssignNew(Button, SUTButton)
+						.OnClicked(this, &SUTWeaponConfigDialog::WeaponClicked, i)
+						.IsToggleButton(true)
+						.ButtonStyle(SUTStyle::Get(), "UT.WeaponConfig.Button")
+						//.ToolTip(SUTUtils::CreateTooltip(AvailableItems[Idx]->DefaultObject->DisplayName))
+						//.UTOnMouseOver(this, &SUTLoadoutWindow::AvailableUpdateItemInfo)
+						//.WidgetTag(Idx)
+						[
+							SNew(SVerticalBox)
+							+ SVerticalBox::Slot().HAlign(HAlign_Center).AutoHeight()
+							[	
+								SNew(STextBlock)
+								.Text(AllWeapons[i].WeaponDefaultObject->DisplayName)
+								.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Tiny.Bold")
+							]
+							+ SVerticalBox::Slot().HAlign(HAlign_Center).AutoHeight()
+							[
+								SNew(SBox).WidthOverride(144).HeightOverride(72).HAlign(HAlign_Fill).VAlign(VAlign_Fill)
+								[
+									SNew(SImage)
+									.Image(AllWeapons[i].WeaponIconBrush)
+								]
+							]
+						]
+					]
+				]
+			]
+		];
+
+		AllWeapons[i].WeaponButton = Button;
+		if (DesiredSelectedWeaponClass != nullptr && AllWeapons[i].WeaponClass == DesiredSelectedWeaponClass)
+		{
+			SelectedButton = Button;
+		}
+	}
+
+	TSharedPtr<SVerticalBox> Box;
+	WeaponScrollBox->AddSlot()
+	[
+		SAssignNew(Box, SVerticalBox)
+	];
+	
+	if (Box.IsValid())
+	{
+		for (int32 i=0; i <= MaxGroupIndex; i++)
+		{
+			if (GroupBoxes.Contains(i))
+			{
+				Box->AddSlot().Padding(5.0f, 0.0f, 5.0f, 15.0f).AutoHeight()
+				[
+					GroupBoxes[i].GroupBox.ToSharedRef()
+				];
+			}
+		}
+	}
+
+	if (SelectedButton.IsValid())
+	{
+		SelectedButton->IsPressed();
+	}
+}
+
+void SUTWeaponConfigDialog::RecreateWeaponPreview()
+{
+	PreviewWeaponSkins.Empty();
+
+	int32 DesiredIndex = 0;
+	if ( AllWeapons.IsValidIndex(CurrentWeaponIndex) )
+	{
+		// Kill all existing actors
+		for (int32 i = 0 ; i < PickupPreviewActors.Num(); i++)
+		{
+			if (PickupPreviewActors[i] != nullptr)
+			{
+				PickupPreviewActors[i]->Destroy();
+			}
+		}
+
+		for (int32 i = 0; i < WeaponPreviewActors.Num(); i++)
+		{
+			if (WeaponPreviewActors[i] != nullptr)
+			{
+				WeaponPreviewActors[i]->Destroy();
+			}
+		}
+
+		// Reset everything
+		PreviewCameraOffset = FVector(0.0f, 0.0f, 0.0f);
+		PreviewCameraFreeLookOffset = FVector(0.0f, 0.0f, 0.0f);
+		PickupPreviewActors.Empty();
+		WeaponPreviewActors.Empty();
+		CurrentWeaponPreviewIndex = 0;
+
+		// Add the Epic Default Weapon
+		FVector SpawnLocation = FVector(0.0f, 0.0f, 0.0f);
+		AUTWeapon* BaseWeapon = PreviewWorld->SpawnActor<AUTWeapon>(AllWeapons[CurrentWeaponIndex].WeaponClass, SpawnLocation, PreviewActorRotation);
+		if (BaseWeapon != nullptr)
+		{
+			BaseWeapon->SetActorTickEnabled(false);
+			AUTDroppedPickup* BasePickup = PreviewWorld->SpawnActor<AUTDroppedPickup>(AUTDroppedPickup::StaticClass(), SpawnLocation, PreviewActorRotation);
+			if (BasePickup != nullptr)
+			{
+				BasePickup->SetInventory(BaseWeapon);
+				BasePickup->SetActorTickEnabled(false);
+				BasePickup->Movement->StopMovementImmediately();
+				BasePickup->Movement->ProjectileGravityScale = 0.0f;
+				BasePickup->SetActorHiddenInGame(bShowingCrosshairs);
+				PickupPreviewActors.Add(BasePickup);
+				
+				WeaponPreviewActors.Add(BaseWeapon);
+				PreviewWeaponSkins.Add(nullptr);
+				SpawnLocation.Y += PREVIEW_Y_SPACING;
+			}
+		}
+
+		// Build each of the skinned versions
+
+		FName WeaponSkinCustomizationTag = AllWeapons[CurrentWeaponIndex].WeaponDefaultObject->WeaponSkinCustomizationTag;
+		CurrentWeaponSkinArray = AllWeaponSkins.Find(WeaponSkinCustomizationTag);
+		if (CurrentWeaponSkinArray != nullptr)
+		{
+			for (int32 i = 0; i < CurrentWeaponSkinArray->Num(); i++)
+			{
+				UUTWeaponSkin* WeaponSkin = (*CurrentWeaponSkinArray)[i];
+				AUTWeapon* SkinWeapon = PreviewWorld->SpawnActor<AUTWeapon>(AllWeapons[CurrentWeaponIndex].WeaponClass, SpawnLocation, PreviewActorRotation);
+				if (SkinWeapon != nullptr)
+				{
+					SkinWeapon->SetActorTickEnabled(false);
+					AUTDroppedPickup* SkinPickup = PreviewWorld->SpawnActor<AUTDroppedPickup>(AUTDroppedPickup::StaticClass(), SpawnLocation, PreviewActorRotation);
+					if (SkinPickup != nullptr)
+					{
+						SkinPickup->SetActorTickEnabled(false);
+						SkinPickup->SetInventory(BaseWeapon);
+						SkinPickup->Movement->StopMovementImmediately();
+						SkinPickup->Movement->ProjectileGravityScale = 0.0f;
+						SkinPickup->SetWeaponSkin(WeaponSkin);
+						PreviewWeaponSkins.Add(WeaponSkin);
+						PickupPreviewActors.Add(SkinPickup);
+						WeaponPreviewActors.Add(SkinWeapon);
+
+						if (WeaponSkin->GetPathName() == AllWeapons[CurrentWeaponIndex].WeaponSkinClassname)
+						{
+							DesiredIndex = WeaponPreviewActors.Num()-1;
+						}
+
+						SpawnLocation.Y += PREVIEW_Y_SPACING;
+					}
+				}
+			}
+		}
+	}
+
+	CurrentWeaponPreviewIndex = DesiredIndex;
+	PreviewCameraOffset.Y = CurrentWeaponPreviewIndex * PREVIEW_Y_SPACING;;
+}
+
+FReply SUTWeaponConfigDialog::WeaponClicked(int32 NewWeaponIndex)
+{
+	if (AllWeapons.IsValidIndex(NewWeaponIndex))
+	{
+		if (AllWeapons.IsValidIndex(CurrentWeaponIndex) && AllWeapons[CurrentWeaponIndex].WeaponButton.IsValid() )
+		{
+			AllWeapons[CurrentWeaponIndex].WeaponButton->UnPressed();
+		}
+
+		CurrentWeaponIndex = NewWeaponIndex;
+		if (AllWeapons[CurrentWeaponIndex].WeaponButton.IsValid())
+		{
+			AllWeapons[CurrentWeaponIndex].WeaponButton->BePressed();
+			UpdateWeaponGroups(AllWeapons[CurrentWeaponIndex].WeaponCustomizationInfo->WeaponGroup);
+		}
+		
+		FName CrosshairTag = AllWeapons[CurrentWeaponIndex].WeaponCustomizationInfo->CrosshairTag;
+		CurrentCrosshairIndex = 0;
+		for (int32 i = 0; i < AllCrosshairs.Num(); i++)
+		{
+			if (AllCrosshairs[i]->CrosshairTag == CrosshairTag)
+			{
+				CurrentCrosshairIndex = i;
+				break;
+			}
+		}
+
+		RecreateWeaponPreview();
+	}
+
+	return FReply::Handled();
+}
+
+void SUTWeaponConfigDialog::DragPreview(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent)
+{
+	TimeSinceLastCameraAdjustment = 0.0f;
+
+	if ( MouseEvent.IsMouseButtonDown(EKeys::LeftMouseButton) && MouseEvent.IsMouseButtonDown(EKeys::RightMouseButton) )
+	{
+		PreviewCameraFreeLookOffset.X += MouseEvent.GetCursorDelta().Y;
+		PreviewCameraFreeLookOffset.X = FMath::Clamp<float>(PreviewCameraFreeLookOffset.X, -96.0f, 96.0f);
+	}
+	else if (MouseEvent.IsMouseButtonDown(EKeys::LeftMouseButton))
+	{
+		PreviewCameraFreeLookOffset.Y -= MouseEvent.GetCursorDelta().X * 0.25f;
+		PreviewCameraFreeLookOffset.Z += MouseEvent.GetCursorDelta().Y * 0.25f;
+
+		PreviewCameraFreeLookOffset.Y = FMath::Clamp<float>(PreviewCameraFreeLookOffset.Y,-32.0f, 32.0f);
+		PreviewCameraFreeLookOffset.Z = FMath::Clamp<float>(PreviewCameraFreeLookOffset.Z, -32.0f, 16.0f);
+
+		// Update the local camera offset
+	}
+	else if (MouseEvent.IsMouseButtonDown(EKeys::RightMouseButton))
+	{
+		if (PickupPreviewActors.IsValidIndex(CurrentWeaponPreviewIndex))
+		{
+			if (PickupPreviewActors[CurrentWeaponPreviewIndex]!= nullptr)
+			{
+				FRotator CurrentActorRotation = PickupPreviewActors[CurrentWeaponPreviewIndex]->GetActorRotation();
+				PickupPreviewActors[CurrentWeaponPreviewIndex]->SetActorRotation(CurrentActorRotation + FRotator(0, 0.2f * -MouseEvent.GetCursorDelta().X, 0.0f));
+			}
+		}
+	}
+}
+
+void SUTWeaponConfigDialog::ZoomPreview(float WheelDelta)
+{
+	PreviewCameraFreeLookOffset.X += (WheelDelta > 0.0f) ? 10.0f : -10.0f;
+	TimeSinceLastCameraAdjustment = 0;
+}
+
+
+TSharedRef<SWidget> SUTWeaponConfigDialog::GenerateWeaponHand()
+{
 	WeaponHandDesc.Add(NSLOCTEXT("UT", "Right", "Right"));
 	WeaponHandDesc.Add(NSLOCTEXT("UT", "Left", "Left"));
 	WeaponHandDesc.Add(NSLOCTEXT("UT", "Center", "Center"));
@@ -187,647 +1122,95 @@ void SUTWeaponConfigDialog::Construct(const FArguments& InArgs)
 		}
 	}
 
-	QuickSlotTexts.Add(MakeShareable(new FText(NSLOCTEXT("UT","NotInList","Not in List"))));
-	QuickSlotTexts.Add(MakeShareable(new FText(NSLOCTEXT("UT","SlotOne","Slot One"))));
-	QuickSlotTexts.Add(MakeShareable(new FText(NSLOCTEXT("UT","SlotTwo","Slot Two"))));
-	QuickSlotTexts.Add(MakeShareable(new FText(NSLOCTEXT("UT","SlotThree","Slot Three"))));
-	QuickSlotTexts.Add(MakeShareable(new FText(NSLOCTEXT("UT","SlotFour","Slot Four"))));
-	QuickSlotTexts.Add(MakeShareable(new FText(NSLOCTEXT("UT","SlotFive","Slot Five"))));
-	QuickSlotTexts.Add(MakeShareable(new FText(NSLOCTEXT("UT","SlotSix","Slot Six"))));
-	QuickSlotTexts.Add(MakeShareable(new FText(NSLOCTEXT("UT","SlotSeven","Slot Seven"))));
-	QuickSlotTexts.Add(MakeShareable(new FText(NSLOCTEXT("UT","SlotEight","Slot Eight"))));
-
-	WeaponWheelClassnames.AddZeroed(8);
-	if (ProfileSettings)
-	{
-		for (int32 i = 0 ; i < ProfileSettings->WeaponWheelQuickSlots.Num(); i++)
-		{
-			if (i < 8)
-			{
-				WeaponWheelClassnames[i] = ProfileSettings->WeaponWheelQuickSlots[i];
-			}
-		}
-	}
-
-	if (DialogContent.IsValid())
-	{
-		const float MessageTextPaddingX = 10.0f;
-		TSharedPtr<STextBlock> MessageTextBlock;
-		DialogContent->AddSlot()
+	TSharedPtr<SHorizontalBox> Box;
+	SAssignNew(Box,SHorizontalBox)
+	+ SHorizontalBox::Slot().HAlign(HAlign_Left).AutoWidth().Padding(5.0f,0.0f,0.0f,0.0f)
+	[
+		SNew(STextBlock)
+		.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Tween")
+		.Text(NSLOCTEXT("SUTWeaponConfigDialog", "WeaponHand", "Weapon Hand"))
+	]
+	+ SHorizontalBox::Slot().FillWidth(1.0).HAlign(HAlign_Right).Padding(0.0f,0.0f,5.0f,0.0f)
+	[
+		SAssignNew(WeaponHand, SComboBox< TSharedPtr<FText> >)
+		.InitiallySelectedItem(InitiallySelectedHand)
+		.ComboBoxStyle(SUTStyle::Get(), "UT.ComboBox")
+		.ButtonStyle(SUTStyle::Get(), "UT.ComboButton")
+		.OptionsSource(&WeaponHandList)
+		.OnGenerateWidget(this, &SUTWeaponConfigDialog::GenerateHandListWidget)
+		.OnSelectionChanged(this, &SUTWeaponConfigDialog::OnHandSelected)
+		.ContentPadding(FMargin(10.0f, 0.0f, 10.0f, 0.0f))
+		.Content()
 		[
-			SNew(SVerticalBox)
-			+SVerticalBox::Slot()
-			.AutoHeight()
-			.HAlign(HAlign_Fill)
-			[
-				SNew(SBox).HeightOverride(80)
-				[
-					SNew(SHorizontalBox)
-					+SHorizontalBox::Slot().FillWidth(0.33).Padding(FMargin(20.0,0.0,10.0,0.0))
-					[
-						SNew(SVerticalBox)
-						+SVerticalBox::Slot().AutoHeight()			
-						[
-							SNew(SHorizontalBox)
-							+SHorizontalBox::Slot().HAlign(HAlign_Left).AutoWidth()
-							[
-								SNew(STextBlock)
-								.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
-								.Text(NSLOCTEXT("SUTWeaponConfigDialog", "AutoWeaponSwitch", "Weapon Switch on Pickup"))
-							]
-							+ SHorizontalBox::Slot().FillWidth(1.0).HAlign(HAlign_Right)
-							[
-								SAssignNew(AutoWeaponSwitch, SCheckBox)
-								.Style(SUWindowsStyle::Get(), "UT.Common.CheckBox")
-								.ForegroundColor(FLinearColor::White)
-								.IsChecked(GetDefault<AUTPlayerController>()->bAutoWeaponSwitch ? ESlateCheckBoxState::Checked : ESlateCheckBoxState::Unchecked)
-							]
-						]
-						+SVerticalBox::Slot().AutoHeight()			
-						[
-							SNew(SHorizontalBox)
-							+SHorizontalBox::Slot().HAlign(HAlign_Left).AutoWidth()
-							[
-								SNew(STextBlock)
-								.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.White")
-								.Text(NSLOCTEXT("SUTWeaponConfigDialog", "CustomWeaponCrosshairs", "Use Custom Weapon Crosshairs"))
-							]
-							+ SHorizontalBox::Slot().FillWidth(1.0).HAlign(HAlign_Right)
-							[
-								SNew(SCheckBox)
-								.IsChecked(this, &SUTWeaponConfigDialog::GetCustomWeaponCrosshairs)
-								.OnCheckStateChanged(this, &SUTWeaponConfigDialog::SetCustomWeaponCrosshairs)
-								.Style(SUWindowsStyle::Get(), "UT.Common.CheckBox")
-							]
-						]
+			SAssignNew(SelectedWeaponHand, STextBlock)
+			.Text(*InitiallySelectedHand.Get())
+			.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Tween.Bold")
+			.ColorAndOpacity(FLinearColor::Black)
+		]
+	];
 
-					]
+	return Box.ToSharedRef();
+}
 
-					+SHorizontalBox::Slot().AutoWidth().Padding(20.0f, 0.0f, 20.0f, 0.0f).VAlign(VAlign_Fill)
-					[
-						SNew(SBox).WidthOverride(2)
-						[
-							SNew(SImage)
-							.Image(SUTStyle::Get().GetBrush("UT.HeaderBackground.Dark"))
-						]
-					]
+TSharedRef<SWidget> SUTWeaponConfigDialog::GenerateHandListWidget(TSharedPtr<FText> InItem)
+{
+	return SNew(SBox)
+		.Padding(5)
+		[
+			SNew(STextBlock)
+			.Text(*InItem.Get())
+			.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Tween.Bold")
+		];
+}
 
-					+SHorizontalBox::Slot().FillWidth(0.34).Padding(FMargin(10.0,0.0,10.0,0.0))
-					[
-						SNew(SVerticalBox)
-						+SVerticalBox::Slot().AutoHeight()
-						[
-							SNew(SHorizontalBox)
-							+SHorizontalBox::Slot().HAlign(HAlign_Left).AutoWidth()
-							[
-								SNew(STextBlock)
-								.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
-								.Text(NSLOCTEXT("SUTWeaponConfigDialog", "WeaponHand", "Weapon Hand"))
-							]
-							+ SHorizontalBox::Slot().FillWidth(1.0).HAlign(HAlign_Right)
-							[
-								SAssignNew(WeaponHand, SComboBox< TSharedPtr<FText> >)
-								.InitiallySelectedItem(InitiallySelectedHand)
-								.ComboBoxStyle(SUWindowsStyle::Get(), "UT.ComboBox")
-								.ButtonStyle(SUWindowsStyle::Get(), "UT.Button.White")
-								.OptionsSource(&WeaponHandList)
-								.OnGenerateWidget(this, &SUTWeaponConfigDialog::GenerateHandListWidget)
-								.OnSelectionChanged(this, &SUTWeaponConfigDialog::OnHandSelected)
-								.ContentPadding(FMargin(10.0f, 0.0f, 10.0f, 0.0f))
-								.Content()
-								[
-									SAssignNew(SelectedWeaponHand, STextBlock)
-									.Text(*InitiallySelectedHand.Get())
-									.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.Black")
-								]
-							]
-						]
-					]
-				]
-			]
-			+SVerticalBox::Slot()
-			.AutoHeight()
-			.HAlign(HAlign_Fill)
-			.Padding(FMargin(25.0,0.0,25.0,0.0))
-			[
-				SNew(SBox).HeightOverride(2)
-				[
-					SNew(SImage)
-					.Image(SUTStyle::Get().GetBrush("UT.HeaderBackground.Dark"))
-				]
-			]
-			+SVerticalBox::Slot()
-			.AutoHeight()
-			.HAlign(HAlign_Fill)
-			[
-				SNew(SBox).HeightOverride(750)
-				[
-					SNew(SHorizontalBox)
-					+SHorizontalBox::Slot().AutoWidth()
-					[
-						// This is the Priority list / Weapon list
-						SNew(SBox).WidthOverride(450)
-						[
-							SNew(SVerticalBox)
-							+ SVerticalBox::Slot()
-							.Padding(10.0f, 10.0f, 0.0f, 5.0f)
-							.AutoHeight()
-							[
-								SNew(SHorizontalBox)
-								+SHorizontalBox::Slot().FillWidth(1.0).VAlign(VAlign_Center).HAlign(HAlign_Center)
-								[
-									SNew(STextBlock)
-									.Text(NSLOCTEXT("SUTWeaponConfigDialog", "WeaponTitle", "Available Weapons"))
-									.TextStyle(SUWindowsStyle::Get(),"UT.Common.BoldText")
-								]
-							]
-							+ SVerticalBox::Slot()
-							.Padding(10.0f, 5.0f, 0.0f, 1.0f)
-							.AutoHeight()
-							[
-								SNew(SHorizontalBox)
-								+ SHorizontalBox::Slot()
-								.AutoWidth()
-								.Padding(0.0f, 0.0f, 10.0f, 0.0f)
-								.VAlign(VAlign_Center)
-								.HAlign(HAlign_Left)
-								[
-									SNew(SBox)
-									.WidthOverride(440)
-									.HeightOverride(600)
-									[
-										SNew(SBorder)
-										.Content()
-										[
-											SAssignNew(WeaponList, SListView<TWeakObjectPtr<UClass>>)
-											.SelectionMode(ESelectionMode::Single)
-											.ListItemsSource(&WeakWeaponClassList)
-											.OnSelectionChanged(this, &SUTWeaponConfigDialog::OnWeaponChanged)
-											.OnGenerateRow(this, &SUTWeaponConfigDialog::GenerateWeaponListRow)
-										]
-									]
-								]
-							]
+void SUTWeaponConfigDialog::OnHandSelected(TSharedPtr<FText> NewSelection, ESelectInfo::Type SelectInfo)
+{
+	SelectedWeaponHand->SetText(*NewSelection.Get());
+}
 
-							+SVerticalBox::Slot()
-							.Padding(10.0f, 10.0f, 0.0f, 5.0f)
-							.AutoHeight()
-							[
-								SNew(SHorizontalBox)
-								+SHorizontalBox::Slot().AutoWidth().Padding(FMargin(5.0,5.0,5.0,5.0))
-								[
-									SNew(SBox)
-									.HeightOverride(48)
-									.WidthOverride(48)
-									[
-										SNew(SButton)
-										.HAlign(HAlign_Center)
-										.ButtonStyle(SUWindowsStyle::Get(), "UT.Button.White")
-										.ContentPadding(FMargin(4.0f, 4.0f, 4.0f, 4.0f))
-										.OnClicked(this, &SUTWeaponConfigDialog::WeaponPriorityUp)
-										.IsEnabled(this, &SUTWeaponConfigDialog::CanMoveWeaponPriorityUp)
-										[
-											SNew(SImage)
-											.Image(SUWindowsStyle::Get().GetBrush("UT.Icon.UpArrow"))
-										]
-									]
-								]
-								+SHorizontalBox::Slot().FillWidth(1.0).VAlign(VAlign_Center).HAlign(HAlign_Center)
-								[
-									SNew(STextBlock)
-									.Text(NSLOCTEXT("SUTWeaponConfigDialog", "WeaponPriorities", "Change Priorities"))
-									.TextStyle(SUWindowsStyle::Get(),"UT.Common.BoldText")
-								]
-								+SHorizontalBox::Slot().AutoWidth().Padding(FMargin(5.0,5.0,5.0,5.0))
-								[
-									SNew(SBox)
-									.HeightOverride(48)
-									.WidthOverride(48)
-									[
-										SNew(SButton)
-										.HAlign(HAlign_Center)
-										.ButtonStyle(SUWindowsStyle::Get(), "UT.Button.White")
-										.ContentPadding(FMargin(4.0f, 4.0f, 4.0f, 4.0f))
-										.OnClicked(this, &SUTWeaponConfigDialog::WeaponPriorityDown)
-										.IsEnabled(this, &SUTWeaponConfigDialog::CanMoveWeaponPriorityDown)
-										[
-											SNew(SImage)
-											.Image(SUWindowsStyle::Get().GetBrush("UT.Icon.DownArrow"))
-										]
 
-									]
-								]
-							]
-						]
-					]
-					+SHorizontalBox::Slot().FillWidth(1.0).Padding(FMargin(20.0,20.0,20.0,20.0))
-					[
-						SAssignNew(TabWidget, SUTTabWidget)
-					]
-				]
-			]
+TSharedRef<SWidget> SUTWeaponConfigDialog::GenerateAutoSwitch()
+{
+	TSharedPtr<SHorizontalBox> Box;
+	SAssignNew(Box,SHorizontalBox)
+	+ SHorizontalBox::Slot().HAlign(HAlign_Left).AutoWidth().Padding(5.0f,0.0f,0.0f,0.0f)
+	[
+		SNew(STextBlock)
+		.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Tween")
+		.Text(NSLOCTEXT("SUTWeaponConfigDialog", "AutoWeaponSwitch", "Weapon Switch on Pickup"))
+	]
+	+ SHorizontalBox::Slot().FillWidth(1.0).HAlign(HAlign_Right).Padding(0.0f,0.0f,5.0f,0.0f)
 
+	[
+		SAssignNew(AutoWeaponSwitch, SCheckBox)
+		.Style(SUTStyle::Get(), "UT.CheckBox")
+		.ForegroundColor(FLinearColor::White)
+		.IsChecked(GetDefault<AUTPlayerController>()->bAutoWeaponSwitch ? ESlateCheckBoxState::Checked : ESlateCheckBoxState::Unchecked)
+	];
+
+	return Box.ToSharedRef();
+}
+
+TSharedRef<SWidget> SUTWeaponConfigDialog::GenerateCustomWeaponCrosshairs()
+{
+	TSharedPtr<SHorizontalBox> Box;
+	SAssignNew(Box, SHorizontalBox)
+		+ SHorizontalBox::Slot().HAlign(HAlign_Left).AutoWidth().Padding(5.0f, 0.0f, 0.0f, 0.0f)
+		[
+			SNew(STextBlock)
+			.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Tween")
+			.Text(NSLOCTEXT("SUTWeaponConfigDialog", "CustomCrosshair", "Use Custom Weapon Crosshairs"))
+		]
+	+ SHorizontalBox::Slot().FillWidth(1.0).HAlign(HAlign_Right).Padding(0.0f, 0.0f, 5.0f, 0.0f)
+		[
+			SAssignNew(CustomWeaponCrosshairs, SCheckBox)
+			.Style(SUTStyle::Get(), "UT.CheckBox")
+			.ForegroundColor(FLinearColor::White)
+			.IsChecked(this, &SUTWeaponConfigDialog::GetCustomWeaponCrosshairs)
+			.OnCheckStateChanged(this, &SUTWeaponConfigDialog::SetCustomWeaponCrosshairs)
 		];
 
-		TabWidget->AddTab(FText::FromString(TEXT("Crosshairs & Groups")),
-		SNew(SOverlay)
-		+ SOverlay::Slot()
-		[
-			SNew(SHorizontalBox)
-			+SHorizontalBox::Slot()
-			.AutoWidth()
-			.Padding(10.0f, 0.0f, 0.0f, 0.0f)
-			.VAlign(VAlign_Center)
-			.HAlign(HAlign_Right)
-			[
-				SNew(SVerticalBox)
-				+ SVerticalBox::Slot()
-				.Padding(0.0f, 10.0f, 0.0f, 5.0f)
-				.AutoHeight()
-				.VAlign(VAlign_Center)
-				.HAlign(HAlign_Center)
-				[
-					SNew(SOverlay)
-					+ SOverlay::Slot()
-					[
-						SNew(SBox)
-						.WidthOverride(300.0f)
-						.HeightOverride(300.0f)
-						.MaxDesiredWidth(300.0f)
-						.MaxDesiredHeight(300.0f)
-						[
-							SAssignNew(CrosshairImage, SImage)
-							.Image(CrosshairPreviewBrush)
-						]
-					]
-				]
-				+ SVerticalBox::Slot()
-				.Padding(0.0f, 10.0f, 0.0f, 5.0f)
-				.AutoHeight()
-				.VAlign(VAlign_Fill)
-				.HAlign(HAlign_Fill)
-				[
-					SAssignNew(CrosshairComboBox, SComboBox<TWeakObjectPtr<UClass> >)
-					.InitiallySelectedItem(nullptr)
-					.ComboBoxStyle(SUWindowsStyle::Get(), "UT.ComboBox")
-					.ButtonStyle(SUWindowsStyle::Get(), "UT.Button.White")
-					.OptionsSource(&WeakCrosshairList)
-					.OnGenerateWidget(this, &SUTWeaponConfigDialog::GenerateCrosshairRow)
-					.OnSelectionChanged(this, &SUTWeaponConfigDialog::OnCrosshairSelected)
-					.Content()
-					[
-						SAssignNew(CrosshairText, STextBlock)
-						.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.Black")
-					]
-				]
-				+ SVerticalBox::Slot()
-				.Padding(0.0f, 10.0f, 0.0f, 5.0f)
-				.AutoHeight()
-				.VAlign(VAlign_Fill)
-				.HAlign(HAlign_Fill)
-				[
-					SNew(SHorizontalBox)
-					+ SHorizontalBox::Slot()
-					.AutoWidth()
-					.Padding(10.0f, 0.0f, 0.0f, 0.0f)
-					.VAlign(VAlign_Center)
-					.HAlign(HAlign_Left)
-					[
-						SNew(STextBlock)
-						.Text(NSLOCTEXT("SUTWeaponConfigDialog", "Scale", "Scale"))
-						.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.White")
-					]
-					+ SHorizontalBox::Slot()
-					.Padding(10.0f, 0.0f, 0.0f, 0.0f)
-					.VAlign(VAlign_Center)
-					.HAlign(HAlign_Fill)
-					[
-						SNew(SBox)
-						.MaxDesiredWidth(200)
-						.Content()
-						[
-							SNew(SNumericEntryBox<float>)
-							.EditableTextBoxStyle(SUWindowsStyle::Get(), "UT.Common.Editbox.White")
-							.LabelPadding(FMargin(50.0f, 50.0f))
-							.Value(this, &SUTWeaponConfigDialog::GetCrosshairScale)
-							.OnValueChanged(this, &SUTWeaponConfigDialog::SetCrosshairScale)
-							.AllowSpin(true)
-							.MinSliderValue(0.00001f)
-							.MinValue(0.00001f)
-							.MaxSliderValue(10.0f)
-							.MaxValue(10.0f)
-						]
-					]
-				]
-				+ SVerticalBox::Slot()
-				.Padding(0.0f, 10.0f, 0.0f, 5.0f)
-				.AutoHeight()
-				.VAlign(VAlign_Fill)
-				.HAlign(HAlign_Center)
-				[
-					SAssignNew(ColorOverlay, SOverlay)
-				]
-			]	
-			+SHorizontalBox::Slot().Padding(20.0,0.0,0.0,0.0).FillWidth(1.0)
-			[
-				SAssignNew(GroupControlsBox, SVerticalBox)
-				+ SVerticalBox::Slot()
-				.Padding(0.0f, 10.0f, 0.0f, 5.0f)
-				.AutoHeight()
-				.VAlign(VAlign_Fill)
-				.HAlign(HAlign_Fill)
-				[
-					SNew(SHorizontalBox)
-					+ SHorizontalBox::Slot()
-					.AutoWidth()
-					.Padding(10.0f, 0.0f, 0.0f, 0.0f)
-					.VAlign(VAlign_Top)
-					.HAlign(HAlign_Left)
-					[
-						SNew(SBox).WidthOverride(300)
-						[
-							SNew(STextBlock)
-							.Text(NSLOCTEXT("SUTWeaponConfigDialog", "Group", "Weapon Group"))
-							.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.White")
-						]
-					]
-					+ SHorizontalBox::Slot().AutoWidth()
-					.Padding(10.0f, 0.0f, 0.0f, 0.0f)
-					.VAlign(VAlign_Top)
-					.HAlign(HAlign_Left)
-					[
-						SNew(SBox).WidthOverride(300)
-						[
-							SAssignNew(GroupEdit, SNumericEntryBox<int32>)
-							.EditableTextBoxStyle(SUWindowsStyle::Get(), "UT.Common.Editbox.White")
-							.Value(this, &SUTWeaponConfigDialog::GetWeaponGroup)
-							.OnValueChanged(this, &SUTWeaponConfigDialog::SetWeaponGroup)
-							.LabelPadding(FMargin(50.0f, 50.0f))
-							.AllowSpin(true)
-							.MinSliderValue(1)
-							.MinValue(1)
-							.MaxSliderValue(10)
-							.MaxValue(10)
-						]
-					]
-					+ SHorizontalBox::Slot()
-					.FillWidth(1.0)
-					.Padding(FMargin(10.0f,0.0f,10.0f,0.0f))
-					.VAlign(VAlign_Top)
-					.HAlign(HAlign_Right)
-					[
-						SNew(SVerticalBox)
-						+ SVerticalBox::Slot().AutoHeight()
-						[
-							SNew(STextBlock)
-							.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.White")
-							.ColorAndOpacity(FLinearColor(0.5f, 0.5f, 0.5f, 1.0f))
-							.Text(NSLOCTEXT("SUTWeaponConfigDialog", "WepsInGroupText", "Weapons Also in this group..."))
-						]
-						+SVerticalBox::Slot().AutoHeight()
-						[
-							SAssignNew(WeaponsInGroupText, STextBlock)
-							.TextStyle(SUWindowsStyle::Get(), "UT.Common.SmallText")
-							.Text(FText::GetEmpty())
-							.AutoWrapText(true)
-						]
-					]
-				]
-				+ SVerticalBox::Slot()
-				.Padding(0.0f, 10.0f, 0.0f, 5.0f)
-				.AutoHeight()
-				.HAlign(HAlign_Fill)
-				[
-					SNew(SHorizontalBox)
-					+SHorizontalBox::Slot().FillWidth(1.0)
-					[
-						SNew(SButton)
-						.ButtonStyle(SUWindowsStyle::Get(), "UWindows.Standard.Button")
-						.ContentPadding(FMargin(5.0f, 5.0f, 5.0f, 5.0f))
-						.Text(NSLOCTEXT("SUTWeaponConfigDialog", "DefaultGroups", "Reset Groups"))
-						.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText.Black")
-						.OnClicked(this, &SUTWeaponConfigDialog::DefaultGroupsClicked)
-					]
-				]
-
-				+ SVerticalBox::Slot()
-				.Padding(0.0f, 10.0f, 0.0f, 5.0f)
-				.AutoHeight()
-				.VAlign(VAlign_Fill)
-				.HAlign(HAlign_Fill)
-				[
-					SNew(SHorizontalBox)
-					+ SHorizontalBox::Slot()
-					.AutoWidth()
-					.Padding(10.0f, 0.0f, 0.0f, 0.0f)
-					.VAlign(VAlign_Top)
-					.HAlign(HAlign_Left)
-					[
-						SNew(SBox).WidthOverride(300)
-						[
-							SNew(STextBlock)
-							.Text(NSLOCTEXT("SUTWeaponConfigDialog", "QuickSlot", "Weapon Radial Menu Slot"))
-							.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.White")
-						]
-					]
-					+ SHorizontalBox::Slot().AutoWidth()
-					.Padding(10.0f, 0.0f, 0.0f, 0.0f)
-					.VAlign(VAlign_Top)
-					.HAlign(HAlign_Left)
-					[
-						SNew(SBox).WidthOverride(300)
-						[
-							SAssignNew(QuickSlotComboBox, SComboBox< TSharedPtr<FText> >)
-							.InitiallySelectedItem(QuickSlotTexts[0])
-							.ComboBoxStyle(SUWindowsStyle::Get(), "UT.ComboBox")
-							.ButtonStyle(SUWindowsStyle::Get(), "UT.Button.White")
-							.OptionsSource(&QuickSlotTexts)
-							.OnGenerateWidget(this, &SUTWeaponConfigDialog::GenerateQuickslotListWidget)
-							.OnSelectionChanged(this, &SUTWeaponConfigDialog::OnQuickslotSelected)
-							.ContentPadding(FMargin(10.0f, 0.0f, 10.0f, 0.0f))
-							.Content()
-							[
-								SAssignNew(SelectedWeaponQuickslot, STextBlock)
-								.Text(*QuickSlotTexts[0].Get())
-								.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.Black")
-							]
-						]
-					]
-				]
-			]
-		]);
-	
-		WeaponList->SetSelection(WeakWeaponClassList[0]);
-		
-		WeaponSkinList.Add(MakeShareable(new FString(TEXT("No Skins Available"))));
-
-		TabWidget->AddTab(FText::FromString(TEXT("Weapon Skins")),
-		SNew(SOverlay)
-		+ SOverlay::Slot()
-		[
-			SNew(SHorizontalBox)
-			+ SHorizontalBox::Slot()
-			.AutoWidth()
-			.Padding(10.0f, 0.0f, 0.0f, 0.0f)
-			.VAlign(VAlign_Center)
-			.HAlign(HAlign_Right)
-			[
-				SNew(SVerticalBox)
-				+ SVerticalBox::Slot()
-				.Padding(0.0f, 10.0f, 0.0f, 5.0f)
-				.AutoHeight()
-				.VAlign(VAlign_Fill)
-				.HAlign(HAlign_Fill)
-				[
-					SAssignNew(WeaponSkinComboBox, SComboBox< TSharedPtr<FString> >)
-					.InitiallySelectedItem(nullptr)
-					.ComboBoxStyle(SUWindowsStyle::Get(), "UT.ComboBox")
-					.ButtonStyle(SUWindowsStyle::Get(), "UT.Button.White")
-					.OptionsSource(&WeaponSkinList)
-					.OnSelectionChanged(this, &SUTWeaponConfigDialog::OnWeaponSkinSelected)
-					.OnGenerateWidget(this, &SUTWeaponConfigDialog::GenerateStringListWidget)
-					.Content()
-					[
-						SAssignNew(WeaponSkinText, STextBlock)
-						.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.Black")
-					]
-				]
-			]
-		]);
-
-		WeaponSkinText->SetText(*WeaponSkinList[0].Get());
-
-		SetCustomWeaponCrosshairs(bCustomWeaponCrosshairs ? ECheckBoxState::Checked : ECheckBoxState::Unchecked);
-
-		//Color picker needs to be created after the weapon has been selected due to a SColorPicker animation quirk
-		ColorOverlay->AddSlot()
-		[
-			SAssignNew(ColorPicker, SUTColorPicker)
-			.TargetColorAttribute(this, &SUTWeaponConfigDialog::GetCrosshairColor)
-			.OnColorCommitted(this, &SUTWeaponConfigDialog::SetCrosshairColor)
-			.PreColorCommitted(this, &SUTWeaponConfigDialog::SetCrosshairColor)
-			.DisplayInlineVersion(true)
-			.UseAlpha(true)
-		];
-	}
-}
-
-void SUTWeaponConfigDialog::OnWeaponChanged(TWeakObjectPtr<UClass> NewSelectedWeapon, ESelectInfo::Type SelectInfo)
-{
-	SelectedWeapon = NewSelectedWeapon;
-	for (int32 i=0; i < CrosshairInfos.Num(); i++)
-	{
-		if (CrosshairInfos[i]->WeaponClassName == SelectedWeapon.Get()->GetPathName())
-		{
-			SelectedCrosshairInfo = CrosshairInfos[i];
-			if (SelectedCrosshairInfo.IsValid() && CrosshairMap.Contains(SelectedCrosshairInfo->CrosshairClassName))
-			{
-				//Change the crosshair combobox text
-				UClass* SelectedCrosshair = CrosshairMap[SelectedCrosshairInfo->CrosshairClassName].Get();
-				CrosshairComboBox->SetSelectedItem(SelectedCrosshair);
-		
-				//Update the color
-				if (ColorPicker.IsValid())
-				{
-					ColorPicker->UTSetNewTargetColorRGB(SelectedCrosshairInfo->Color);
-				}
-			}
-		}
-	}
-
-	int32 WeaponIndex = WeakWeaponClassList.Find(SelectedWeapon);
-	if ( WeaponIndex != INDEX_NONE && WeakWeaponClassList.IsValidIndex(WeaponIndex) && WeakWeaponClassList[WeaponIndex].IsValid() )
-	{
-		// Look to see if this weapon is already in the list.
-		FString ClassName = WeakWeaponClassList[WeaponIndex]->GetName();
-		if ( !ClassName.IsEmpty() )
-		{
-			int32 WheelIndex = WeaponWheelClassnames.Find(ClassName);
-			if (QuickSlotTexts.IsValidIndex(WheelIndex+1))
-			{
-				QuickSlotComboBox->SetSelectedItem(QuickSlotTexts[WheelIndex+1]);
-			}
-		}
-	}
-
-	UpdateWeaponsInGroup();
-
-	UpdateAvailableWeaponSkins();
-
-	if (GroupControlsBox.Get()) 
-	{
-		bool bDisableGroupControls = SelectedWeapon.IsValid() && WeaponGroups.Contains(SelectedWeapon.Get()) && WeaponGroups[SelectedWeapon.Get()] == 0;
-		GroupControlsBox->SetEnabled(!bDisableGroupControls);
-		GroupControlsBox->SetVisibility(bDisableGroupControls ? EVisibility::Collapsed : EVisibility::Visible);
-	}
-}
-
-void SUTWeaponConfigDialog::UpdateCrosshairRender(UCanvas* C, int32 Width, int32 Height)
-{
-	if (SelectedCrosshairInfo.IsValid() && CrosshairMap.Contains(SelectedCrosshairInfo->CrosshairClassName))
-	{
-		UClass* SelectedCrosshair = CrosshairMap[SelectedCrosshairInfo->CrosshairClassName].Get();
-		if (SelectedCrosshair != nullptr)
-		{
-			SelectedCrosshair->GetDefaultObject<UUTCrosshair>()->DrawPreviewCrosshair(C, nullptr, 0.0f, SelectedCrosshairInfo->Scale, SelectedCrosshairInfo->Color);
-		}
-	}
-}
-
-void SUTWeaponConfigDialog::Tick(const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime)
-{
-	//Find the geometry of the Crosshair Image
-	TSet< TSharedRef<SWidget> > WidgetsToFind;
-	{
-		WidgetsToFind.Add(CrosshairImage.ToSharedRef());
-	}
-	TMap<TSharedRef<SWidget>, FArrangedWidget> Result;
-	FindChildGeometries(AllottedGeometry, WidgetsToFind, Result);
-
-	//Check to see if the size of our render target matches what Slate has given us. Resize if needed
-	if (Result.Contains(CrosshairImage.ToSharedRef()))
-	{
-		FGeometry CrosshairGeomety = Result[CrosshairImage.ToSharedRef()].Geometry;
-		FVector2D WantedSize = CrosshairGeomety.Size * CrosshairGeomety.Scale;
-		WantedSize.X = FMath::RoundToFloat(WantedSize.X);
-		WantedSize.Y = FMath::RoundToFloat(WantedSize.Y);
-
-		FVector2D CrosshairSize(CrosshairPreviewTexture->SizeX, CrosshairPreviewTexture->SizeY);
-		
-		if (WantedSize != CrosshairSize)
-		{
-			CrosshairPreviewTexture->InitCustomFormat(WantedSize.X, WantedSize.Y, PF_B8G8R8A8, false);
-			CrosshairPreviewTexture->UpdateResourceImmediate();
-		}
-	}
-
-	//Draw the crosshair
-	CrosshairPreviewTexture->UpdateResource();
-
-	return SUTDialogBase::Tick(AllottedGeometry, InCurrentTime, InDeltaTime);
-}
-
-void SUTWeaponConfigDialog::AddReferencedObjects(FReferenceCollector& Collector)
-{
-	Collector.AddReferencedObjects(WeaponClassList);
-	Collector.AddReferencedObjects(CrosshairClassList);
-	Collector.AddReferencedObject(CrosshairPreviewTexture);
-	Collector.AddReferencedObject(CrosshairPreviewMID);
-
-	for (auto WeaponToSkinListMapPair : WeaponToSkinListMap)
-	{
-		Collector.AddReferencedObjects(WeaponToSkinListMapPair.Value);
-	}
-}
-
-void SUTWeaponConfigDialog::OnCrosshairSelected(TWeakObjectPtr<UClass> NewSelection, ESelectInfo::Type SelectInfo)
-{
-	if (SelectedCrosshairInfo.IsValid())
-	{
-		SelectedCrosshairInfo->CrosshairClassName = NewSelection->GetPathName();
-		CrosshairPreviewTexture->UpdateResource();
-		CrosshairText->SetText(NewSelection->GetDefaultObject<UUTCrosshair>()->CrosshairName);
-	}
+	return Box.ToSharedRef();
 }
 
 ECheckBoxState SUTWeaponConfigDialog::GetCustomWeaponCrosshairs() const
@@ -838,488 +1221,433 @@ ECheckBoxState SUTWeaponConfigDialog::GetCustomWeaponCrosshairs() const
 void SUTWeaponConfigDialog::SetCustomWeaponCrosshairs(ECheckBoxState NewState)
 {
 	bCustomWeaponCrosshairs = NewState == ECheckBoxState::Checked;
+	GeneratePage();
 }
 
-TSharedRef<SWidget> SUTWeaponConfigDialog::GenerateCrosshairRow(TWeakObjectPtr<UClass> CrosshairClass)
-{	
-	return 	SNew(STextBlock)
-		.Text(CrosshairClass->GetDefaultObject<UUTCrosshair>()->CrosshairName)
-		.TextStyle(SUTStyle::Get(), "UT.Font.ContextMenuItem");
-}
 
-TSharedRef<ITableRow> SUTWeaponConfigDialog::GenerateWeaponListRow(TWeakObjectPtr<UClass> WeaponType, const TSharedRef<STableViewBase>& OwningList)
+void SUTWeaponConfigDialog::GenerateWeaponGroups()
 {
-	checkSlow(WeaponType->IsChildOf(AUTWeapon::StaticClass()));
-
-	return SNew(STableRow<TWeakObjectPtr<UClass>>, OwningList)
-		.Padding(5)
-		[
-			SNew(STextBlock)
-			.Text(WeaponType->GetDefaultObject<AUTWeapon>()->DisplayName)
-			.TextStyle(SUWindowsStyle::Get(),"UT.Common.NormalText")
-		];
-}
-
-TSharedRef<SWidget> SUTWeaponConfigDialog::GenerateHandListWidget(TSharedPtr<FText> InItem)
-{
-	return SNew(SBox)
-		.Padding(5)
-		[
-			SNew(STextBlock)
-			.Text(*InItem.Get())
-			.TextStyle(SUTStyle::Get(), "UT.Font.ContextMenuItem")
-		];
-}
-
-void SUTWeaponConfigDialog::OnHandSelected(TSharedPtr<FText> NewSelection, ESelectInfo::Type SelectInfo)
-{
-	SelectedWeaponHand->SetText(*NewSelection.Get());
-}
-
-FReply SUTWeaponConfigDialog::WeaponPriorityUp()
-{
-	TArray<TWeakObjectPtr<UClass>> SelectedItems = WeaponList->GetSelectedItems();
-	if (SelectedItems.Num() > 0)
+	if (WeaponGroupBox.IsValid())
 	{
-		int32 Index = WeakWeaponClassList.Find(SelectedItems[0]);
-		if (Index > 0)
+		WeaponGroupBox->ClearChildren();
+		WeaponGroupButtons.Empty();
+		WeaponGroupButtons.AddZeroed(11);
+
+		for (int32 i=1; i <=10; i++)
 		{
-			Exchange(WeakWeaponClassList[Index], WeakWeaponClassList[Index - 1]);
-			WeaponList->RequestListRefresh();
+			TSharedPtr<SUTButton> Button;
+
+			WeaponGroupBox->AddSlot()
+			.Padding(5.0f,0.0f,0.0f,0.0f)
+			.AutoWidth()
+			.HAlign(HAlign_Center)
+			[
+				SNew(SBox).WidthOverride(32)
+				[
+					SAssignNew(Button, SUTButton)
+					.OnClicked(this, &SUTWeaponConfigDialog::WeaponGroupClicked, i)
+					.ButtonStyle(SUTStyle::Get(), "UT.SimpleButton.Dark")
+					.IsToggleButton(true)
+					.CaptionHAlign(HAlign_Center)
+					.Text(i < 10 ? FText::AsNumber(i) : FText::AsNumber(0))
+					.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Small.Bold")
+				]
+			];
+			WeaponGroupButtons[i] = Button;
 		}
 	}
-	return FReply::Handled();
-}
-FReply SUTWeaponConfigDialog::WeaponPriorityDown()
-{
-	TArray<TWeakObjectPtr<UClass>> SelectedItems = WeaponList->GetSelectedItems();
-	if (SelectedItems.Num() > 0)
-	{
-		int32 Index = WeakWeaponClassList.Find(SelectedItems[0]);
-		if (Index != INDEX_NONE && Index < WeakWeaponClassList.Num() - 1)
-		{
-			Exchange(WeakWeaponClassList[Index], WeakWeaponClassList[Index + 1]);
-			WeaponList->RequestListRefresh();
-		}
-	}
-	return FReply::Handled();
 }
 
-FReply SUTWeaponConfigDialog::OKClick()
+void SUTWeaponConfigDialog::UpdateWeaponGroups(int32 NewWeaponGroup)
 {
-	EWeaponHand NewHand = EWeaponHand::HAND_Right;
-	for (int32 i = 0; i < WeaponHandDesc.Num(); i++)
+	if (!AllWeapons[CurrentWeaponIndex].WeaponClass->IsChildOf(AUTWeap_Translocator::StaticClass()))
 	{
-		if (WeaponHandDesc[i].EqualTo(*WeaponHand->GetSelectedItem().Get()))
+		for (int i=0; i < WeaponGroupButtons.Num(); i++)
 		{
-			NewHand = EWeaponHand(i);
-			break;
+			if (WeaponGroupButtons[i].IsValid())
+			{
+				WeaponGroupButtons[i]->SetVisibility(EVisibility::Visible);
+				if (i == NewWeaponGroup)
+				{
+					WeaponGroupButtons[i]->BePressed();
+				}
+				else
+				{
+					WeaponGroupButtons[i]->UnPressed();
+				}
+			}
 		}
-	}
-
-	AUTPlayerController* UTPlayerController = Cast<AUTPlayerController>(GetPlayerOwner()->PlayerController);
-	if (UTPlayerController != NULL)
-	{
-		UTPlayerController->bAutoWeaponSwitch = AutoWeaponSwitch->IsChecked();
-		UTPlayerController->SetWeaponHand(NewHand);
-		UTPlayerController->SaveConfig();
 	}
 	else
 	{
-		AUTPlayerController* DefaultPC = AUTPlayerController::StaticClass()->GetDefaultObject<AUTPlayerController>();
-		DefaultPC->bAutoWeaponSwitch = AutoWeaponSwitch->IsChecked();
-		DefaultPC->SetWeaponHand(NewHand);
-		DefaultPC->SaveConfig();
-	}
-
-	UUTProfileSettings* ProfileSettings = GetPlayerOwner()->GetProfileSettings();
-	if (ProfileSettings)
-	{
-		// Clear out existing data
-		ProfileSettings->WeaponGroups.Empty();
-		ProfileSettings->WeaponGroupLookup.Empty();
-	}
-	// note that the array mirrors the list widget so we can use it directly
-	for (int32 i = 0; i < WeakWeaponClassList.Num(); i++)
-	{
-		float NewPriority = float(WeakWeaponClassList.Num() - i); // top of list is highest priority
-		int32 NewGroup = FMath::Clamp<int32>(WeaponGroups[WeakWeaponClassList[i].Get()], 0, 10);
-		WeakWeaponClassList[i]->GetDefaultObject<AUTWeapon>()->Group = NewGroup;
-		WeakWeaponClassList[i]->GetDefaultObject<AUTWeapon>()->AutoSwitchPriority = NewPriority;
-		WeakWeaponClassList[i]->GetDefaultObject<AUTWeapon>()->SaveConfig();
-		// update instances so changes take effect immediately
-		if (UTPlayerController != NULL)
+		for (int i = 0; i < WeaponGroupButtons.Num(); i++)
 		{
-			for (TActorIterator<AUTWeapon> It(UTPlayerController->GetWorld()); It; ++It)
+			if (WeaponGroupButtons[i].IsValid())
 			{
-				if (It->GetClass() == WeakWeaponClassList[i])
-				{
-					It->AutoSwitchPriority = NewPriority;
-				}
+				WeaponGroupButtons[i]->SetVisibility(EVisibility::Collapsed);
 			}
 		}
-		if (ProfileSettings != NULL)
-		{
-			ProfileSettings->SetWeaponPriority(GetNameSafe(WeakWeaponClassList[i].Get()), WeakWeaponClassList[i]->GetDefaultObject<AUTWeapon>()->AutoSwitchPriority);
-		}
 	}
+}
 
-	if (ProfileSettings)
+FReply SUTWeaponConfigDialog::WeaponGroupClicked(int32 NewWeaponGroup)
+{
+	if (AllWeapons.IsValidIndex(CurrentWeaponIndex))
 	{
-		for (int32 i = 0; i < WeaponClassList.Num(); i++)
-		{
-			int32 NewGroup = FMath::Clamp<int32>(WeaponGroups[WeaponClassList[i]],0,10);
-			FString ClassPath = GetNameSafe(WeaponClassList[i]);
 
-			FStoredWeaponGroupInfo WeaponInfo(ClassPath, NewGroup);
-			ProfileSettings->WeaponGroups.Add(WeaponInfo);
-			ProfileSettings->WeaponGroupLookup.Add(ClassPath, WeaponInfo);
-			WeaponClassList[i]->GetDefaultObject<AUTWeapon>()->Group = NewGroup;
-			WeaponClassList[i]->GetDefaultObject<AUTWeapon>()->SaveConfig();
-		}
+		AUTWeapon* DefaultWeapon = AllWeapons[CurrentWeaponIndex].WeaponDefaultObject.Get();
 
-		for (int32 i = 0 ; i < ProfileSettings->WeaponWheelQuickSlots.Num(); i++)
-		{
-			ProfileSettings->WeaponWheelQuickSlots[i] = WeaponWheelClassnames[i];
-		}
-	}
+		FName WeaponCustomizationTag = AllWeapons[CurrentWeaponIndex].WeaponCustomizationInfo->WeaponCustomizationTag;
 
-	AUTHUD* DefaultHud = AUTHUD::StaticClass()->GetDefaultObject<AUTHUD>();
-	for (auto CrosshairInfo : CrosshairInfos)
-	{
-		//Update or add a new one if not found
-		int32 Index = DefaultHud->CrosshairInfos.Find(*CrosshairInfo.Get());
-		if (Index != INDEX_NONE)
+		for (int32 i=0; i < AllWeapons.Num(); i++)
 		{
-			DefaultHud->CrosshairInfos[Index] = *CrosshairInfo.Get();
-		}
-		else
-		{
-			DefaultHud->CrosshairInfos.Add(*CrosshairInfo.Get());
-		}
-	}
-	DefaultHud->LoadedCrosshairs.Empty();
-	DefaultHud->bCustomWeaponCrosshairs = bCustomWeaponCrosshairs;
-	DefaultHud->SaveConfig();
-
-	// Copy settings to existing actors
-	if (UTPlayerController)
-	{
-		for (FActorIterator It(UTPlayerController->GetWorld()); It; ++It)
-		{
-			AUTWeapon* Weapon = Cast<AUTWeapon>(*It);
-			if (Weapon)
+			if (AllWeapons[i].WeaponCustomizationInfo->WeaponCustomizationTag == WeaponCustomizationTag)
 			{
-				Weapon->Group = Weapon->GetClass()->GetDefaultObject<AUTWeapon>()->Group;
-				Weapon->AutoSwitchPriority = Weapon->GetClass()->GetDefaultObject<AUTWeapon>()->AutoSwitchPriority;
-			}
-			AUTHUD* HUD = Cast<AUTHUD>(*It);
-			if (HUD)
-			{
-				HUD->LoadedCrosshairs.Empty();
-				HUD->CrosshairInfos = DefaultHud->CrosshairInfos;
-				HUD->bCustomWeaponCrosshairs = DefaultHud->bCustomWeaponCrosshairs;
+				AllWeapons[i].WeaponCustomizationInfo->WeaponGroup = NewWeaponGroup;
 			}
 		}
 
+		UpdateWeaponGroups(NewWeaponGroup);
+		GenerateWeaponList(AllWeapons[CurrentWeaponIndex].WeaponClass);
 
-		UTPlayerController->RefreshWeaponGroups();
+		for (int32 i=0; i < AllWeapons.Num(); i++)
+		{
+			if (AllWeapons[i].WeaponDefaultObject.Get() == DefaultWeapon)
+			{
+				CurrentWeaponIndex = i;
+				AllWeapons[i].WeaponButton->BePressed();
+				break;
+			}
+		}
+
+	}
+	return FReply::Handled();
+}
+
+
+void SUTWeaponConfigDialog::GatherWeaponSkins(UUTProfileSettings* ProfileSettings)
+{
+	TArray<FAssetData> AssetList;
+	GetAllAssetData(UUTWeaponSkin::StaticClass(), AssetList);
+	for (const FAssetData& Asset : AssetList)
+	{
+		UUTWeaponSkin* NewWeaponSkin = Cast<UUTWeaponSkin>(Asset.GetAsset());
+		UE_LOG(UT, Log, TEXT("WeaponSkin %s"), *NewWeaponSkin->GetPathName());
+
+		if (NewWeaponSkin)
+		{
+			TArray<UUTWeaponSkin*>* WeaponSkinArray = AllWeaponSkins.Find(NewWeaponSkin->WeaponSkinCustomizationTag);
+			if (WeaponSkinArray == nullptr)
+			{
+				WeaponSkinArray = &(AllWeaponSkins.Add(NewWeaponSkin->WeaponSkinCustomizationTag));
+			}
+
+			if (WeaponSkinArray)
+			{
+				WeaponSkinGCList.Add(NewWeaponSkin);
+				(*WeaponSkinArray).Add(NewWeaponSkin);
+			}
+		}
+	}
+}
+
+FText SUTWeaponConfigDialog::GetVariantTitle() const
+{
+	if (bShowingCrosshairs)
+	{
+		return NSLOCTEXT("SUTWeaponConfigDialog", "CrosshairVariant", "Crosshair:");
 	}
 
-	if (ProfileSettings != nullptr)
+	return NSLOCTEXT("SUTWeaponConfigDialog", "SkinVariant", "Weapon Skin:");
+}
+
+FText SUTWeaponConfigDialog::GetVariantCount() const
+{
+	return FText::Format(NSLOCTEXT("SUTWeaponConfigDialog", "VariantCountFormat", "{0} of {1}"), FText::AsNumber(CurrentWeaponPreviewIndex + 1), FText::AsNumber(bShowingCrosshairs ? AllCrosshairs.Num() : WeaponPreviewActors.Num()));
+}
+
+FReply SUTWeaponConfigDialog::HandleNextPrevious(int32 Step)
+{
+	if (bShowingCrosshairs)
 	{
-		ProfileSettings->CrosshairInfos = AUTHUD::StaticClass()->GetDefaultObject<AUTHUD>()->CrosshairInfos;
-		ProfileSettings->bCustomWeaponCrosshairs = bCustomWeaponCrosshairs;
-
-		for (auto& Selection : WeaponSkinSelection)
+		if (CustomWeaponCrosshairs->IsChecked())
 		{
-			// Find the weapon skin pointer for this selection
-			TArray<UUTWeaponSkin*>* SkinArrayPtr = WeaponToSkinListMap.Find(Selection.Key);
-			if (SkinArrayPtr)
+			CurrentCrosshairIndex = FMath::Clamp<int32>(CurrentCrosshairIndex + Step, 0, AllCrosshairs.Num()-1);
+			AllWeapons[CurrentWeaponIndex].WeaponCustomizationInfo->CrosshairTag = AllCrosshairs[CurrentCrosshairIndex]->CrosshairTag;
+		}
+	}
+	else
+	{
+		int32 LastWeaponPreviewIndex = CurrentWeaponPreviewIndex;
+
+		CurrentWeaponPreviewIndex += Step;
+		CurrentWeaponPreviewIndex = FMath::Clamp<int32>(CurrentWeaponPreviewIndex, 0, WeaponPreviewActors.Num()-1);
+
+		if (LastWeaponPreviewIndex != CurrentWeaponPreviewIndex)
+		{
+			AnimStartY = PreviewCameraOffset.Y;
+			AnimEndY = CurrentWeaponPreviewIndex * PREVIEW_Y_SPACING;
+			AnimTimer = 0;
+			bAnimating = true;
+		}
+	}
+	return FReply::Handled();
+}
+
+FText SUTWeaponConfigDialog::GetVarientText() const
+{
+	if (bShowingCrosshairs)
+	{
+		if (AllCrosshairs.IsValidIndex(CurrentCrosshairIndex))
+		{
+			return AllCrosshairs[CurrentCrosshairIndex]->CrosshairName;
+		}
+		return NSLOCTEXT("SUTWeaponConfigDialog","BadCrosshair","Bad Crosshair");
+	}
+	else
+	{
+		// NOTE: we have to account for the default weapon not having a weapon skin
+		if (CurrentWeaponPreviewIndex > 0 && CurrentWeaponSkinArray != nullptr && CurrentWeaponSkinArray->IsValidIndex(CurrentWeaponPreviewIndex-1))
+		{
+			UUTWeaponSkin* WeaponSkin = (*CurrentWeaponSkinArray)[CurrentWeaponPreviewIndex-1];
+			if (WeaponSkin != nullptr)
 			{
-				TArray<UUTWeaponSkin*>& SkinArray = *SkinArrayPtr;
+				return WeaponSkin->DisplayName;
+			}
+		}
+	}
+	return NSLOCTEXT("SUTWeaponConfigDialog","DefaultWeaponSkinDesc","Epic Special");
+}
 
-				UUTWeaponSkin* Skin = nullptr;
-				for (int32 SkinIter = 0; SkinIter < SkinArray.Num(); SkinIter++)
-				{
-					if (SkinArray[SkinIter]->DisplayName.ToString() == Selection.Value)
-					{
-						Skin = SkinArray[SkinIter];
-						break;
-					}
-				}
+FText SUTWeaponConfigDialog::GetVarientSetText() const
+{
+	if (bShowingCrosshairs)
+	{
+		return (!bCustomWeaponCrosshairs ? NSLOCTEXT("SUTWeaponConfigDialog","TurnOnCustomWeaponCrosshairs","You are using default crosshairs -- Check \"Use Custom Weapon Crosshairs\" to change.") : FText::GetEmpty());
+	}
+	else
+	{
+		return (IsCurrentSkin() ? NSLOCTEXT("SUTWeaponConfigDialog","VarientSetLabel","( currently selected )") : FText::GetEmpty());
+	}
+}
 
-				if (Skin)
+
+EVisibility SUTWeaponConfigDialog::LeftArrowVis() const
+{
+	if (bShowingCrosshairs)
+	{
+		return (CustomWeaponCrosshairs->IsChecked() && AllCrosshairs.Num() > 1 && CurrentCrosshairIndex > 0) ? EVisibility::Visible : EVisibility::Collapsed;
+	}
+	else
+	{
+		return (PickupPreviewActors.Num() > 1 && CurrentWeaponPreviewIndex > 0) ? EVisibility::Visible : EVisibility::Collapsed;
+	}
+}
+EVisibility SUTWeaponConfigDialog::RightArrowVis() const
+{
+	if (bShowingCrosshairs)
+	{
+		return (CustomWeaponCrosshairs->IsChecked() && AllCrosshairs.Num() > 1 && CurrentCrosshairIndex < AllCrosshairs.Num() - 1) ? EVisibility::Visible : EVisibility::Collapsed;
+	}
+	else
+	{
+		return (PickupPreviewActors.Num() > 1 && CurrentWeaponPreviewIndex < PickupPreviewActors.Num() - 1) ? EVisibility::Visible : EVisibility::Collapsed;
+	}
+}
+
+FReply SUTWeaponConfigDialog::OnModeChanged(int32 NewMode)
+{
+	bShowingCrosshairs = NewMode == 1;
+	
+	for (int32 i=0; i < PickupPreviewActors.Num();i++)
+	{
+		PickupPreviewActors[i]->SetActorHiddenInGame(bShowingCrosshairs);
+	}
+
+	if (bShowingCrosshairs)
+	{
+		VariantsButton->UnPressed();
+		CrosshairButton->BePressed();
+	}
+	else
+	{
+		VariantsButton->BePressed();
+		CrosshairButton->UnPressed();
+	}
+
+	GeneratePage();
+	if (!bShowingCrosshairs) UpdateWeaponGroups(AllWeapons[CurrentWeaponIndex].WeaponCustomizationInfo->WeaponGroup);
+
+	return FReply::Handled();
+}
+
+void SUTWeaponConfigDialog::GatherCrosshairs(UUTProfileSettings* ProfileSettings)
+{
+	CurrentCrosshairIndex = 0;
+	AllCrosshairs.Empty();
+	TArray<FAssetData> AssetList;
+	GetAllBlueprintAssetData(UUTCrosshair::StaticClass(), AssetList);
+	for (const FAssetData& Asset : AssetList)
+	{
+		static FName NAME_GeneratedClass(TEXT("GeneratedClass"));
+		const FString* ClassPath = Asset.TagsAndValues.Find(NAME_GeneratedClass);
+		UClass* CrosshairClass = LoadObject<UClass>(NULL, **ClassPath);
+		if (CrosshairClass != nullptr)
+		{
+			UUTCrosshair* Crosshair = NewObject<UUTCrosshair>(GetPlayerOwner().Get(), CrosshairClass, NAME_None, RF_NoFlags);
+			if (Crosshair && Crosshair->CrosshairTag != NAME_None)
+			{
+				AllCrosshairs.Add(Crosshair);
+			}
+		}
+	}
+	
+}
+
+TOptional<float> SUTWeaponConfigDialog::GetCrosshairScale() const
+{
+	return AllWeapons[CurrentWeaponIndex].WeaponCustomizationInfo->CrosshairScaleOverride;
+}
+
+void SUTWeaponConfigDialog::SetCrosshairScale(float InScale)
+{
+	AllWeapons[CurrentWeaponIndex].WeaponCustomizationInfo->CrosshairScaleOverride = InScale;
+}
+
+FLinearColor SUTWeaponConfigDialog::GetCrosshairColor() const
+{
+	return AllWeapons[CurrentWeaponIndex].WeaponCustomizationInfo->CrosshairColorOverride;
+}
+
+void SUTWeaponConfigDialog::SetCrosshairColor(FLinearColor NewColor)
+{
+	AllWeapons[CurrentWeaponIndex].WeaponCustomizationInfo->CrosshairColorOverride = NewColor;
+}
+
+bool SUTWeaponConfigDialog::IsCurrentSkin() const
+{
+	// If we are on the first variant and the customization is blank, this is the skin
+	if (CurrentWeaponPreviewIndex == 0 && AllWeapons[CurrentWeaponIndex].WeaponSkinClassname.IsEmpty()) return true;
+	return (PreviewWeaponSkins.IsValidIndex(CurrentWeaponPreviewIndex) && PreviewWeaponSkins[CurrentWeaponPreviewIndex] != nullptr
+		&& PreviewWeaponSkins[CurrentWeaponPreviewIndex]->GetPathName() == AllWeapons[CurrentWeaponIndex].WeaponSkinClassname);
+}
+
+EVisibility SUTWeaponConfigDialog::VarientSelectVis() const
+{
+	if (!bShowingCrosshairs)
+	{
+		return IsCurrentSkin() ? EVisibility::Collapsed	: EVisibility::Visible;
+	}
+
+	return EVisibility::Collapsed;
+}
+
+FReply SUTWeaponConfigDialog::SetWeaponSkin()
+{
+	// If we are on the first variant and the customization is blank, this is the skin
+	if (CurrentWeaponPreviewIndex == 0)
+	{
+		AllWeapons[CurrentWeaponIndex].WeaponSkinClassname = TEXT("");
+	}
+	else if (PreviewWeaponSkins.IsValidIndex(CurrentWeaponPreviewIndex) && PreviewWeaponSkins[CurrentWeaponPreviewIndex] != nullptr)
+	{
+		AllWeapons[CurrentWeaponIndex].WeaponSkinClassname = PreviewWeaponSkins[CurrentWeaponPreviewIndex]->GetPathName();
+	}
+
+	return FReply::Handled();
+}
+
+FReply SUTWeaponConfigDialog::SetAutoSwitchPriorities()
+{
+	SAssignNew(AutoSwitchDialog, SUTWeaponPriorityDialog)
+		.PlayerOwner(PlayerOwner)
+		.OnDialogResult(this, &SUTWeaponConfigDialog::AutoSwitchDialogClosed);
+
+	AutoSwitchDialog->InitializeList(AllWeapons);
+
+	PlayerOwner->OpenDialog(AutoSwitchDialog.ToSharedRef(), 512);
+	return FReply::Handled();
+}
+
+void SUTWeaponConfigDialog::AutoSwitchDialogClosed(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID)
+{
+	TMap<FName, float> Tags;
+	if (ButtonID == UTDIALOG_BUTTON_OK)
+	{
+		for (int32 i = 0; i < AllWeapons.Num(); i++)
+		{
+			float Priority = AutoSwitchDialog->GetPriorityFor(AllWeapons[i].WeaponDefaultObject);
+			if (Priority >= 0.0f)
+			{
+				// Look to see if any weapon that came before it used the same weapon settings tag.  If it does, then
+				// look to see if we should override it.  This is to deal with 2 weapons in the same settings group
+				// but still visible in the UI (which should be avoided).
+
+				if (Tags.Contains(AllWeapons[i].WeaponCustomizationInfo->WeaponCustomizationTag))
 				{
-					// First check for an existing entry in profile
-					bool bFoundInProfile = false;
-					for (int i = 0; i < ProfileSettings->WeaponSkins.Num(); i++)
+					float OtherPriority = Tags[AllWeapons[i].WeaponCustomizationInfo->WeaponCustomizationTag];
+					if (Priority < OtherPriority)
 					{
-						if (ProfileSettings->WeaponSkins[i] && ProfileSettings->WeaponSkins[i]->WeaponType == Selection.Key)
-						{
-							ProfileSettings->WeaponSkins[i] = Skin;
-							bFoundInProfile = true;
-							break;
-						}
-					}
-					if (!bFoundInProfile)
-					{
-						ProfileSettings->WeaponSkins.Add(Skin);
+						continue;
 					}
 				}
 				else
 				{
-					// User selected "No Skin"
-					for (int i = 0; i < ProfileSettings->WeaponSkins.Num(); i++)
-					{
-						if (ProfileSettings->WeaponSkins[i] && ProfileSettings->WeaponSkins[i]->WeaponType == Selection.Key)
-						{
-							ProfileSettings->WeaponSkins.RemoveAt(i);
-							break;
-						}
-					}
+					Tags.Add(AllWeapons[i].WeaponCustomizationInfo->WeaponCustomizationTag, Priority);
 				}
+
+				AllWeapons[i].WeaponCustomizationInfo->WeaponAutoSwitchPriority = Priority;
 			}
 		}
-	}
-
-	GetPlayerOwner()->SaveProfileSettings();
-	GetPlayerOwner()->CloseDialog(SharedThis(this));
-
-	return FReply::Handled();
-}
-
-FReply SUTWeaponConfigDialog::CancelClick()
-{
-	GetPlayerOwner()->CloseDialog(SharedThis(this));
-	return FReply::Handled();
+	}	
 }
 
 FReply SUTWeaponConfigDialog::OnButtonClick(uint16 ButtonID)
 {
-	if (ButtonID == UTDIALOG_BUTTON_OK)
+	UUTProfileSettings* ProfileSettings = GetPlayerOwner()->GetProfileSettings();
+	if (ProfileSettings != nullptr && ButtonID == UTDIALOG_BUTTON_OK)
 	{
-		OKClick();
-	}
-	else if (ButtonID == UTDIALOG_BUTTON_CANCEL)
-	{
-		CancelClick();
-	}
-	return FReply::Handled();
-}
-
-bool SUTWeaponConfigDialog::CanMoveWeaponPriorityUp() const
-{
-	auto SelectedItems = WeaponList->GetSelectedItems();
-
-	if ( (SelectedItems.Num() > 0) && (SelectedWeapon.Get()) && (WeaponGroups[SelectedWeapon.Get()] != 0) )
-	{
-		int32 Index = WeakWeaponClassList.Find(SelectedItems[0]);
-		if (Index != INDEX_NONE && Index != 0)
+		// Copy everything back in to the profile..	
+	
+		EWeaponHand NewHand = EWeaponHand::HAND_Right;
+		for (int32 i = 0; i < WeaponHandDesc.Num(); i++)
 		{
-			return true;
-		}
-	}
-	return false;
-}
-
-bool SUTWeaponConfigDialog::CanMoveWeaponPriorityDown() const
-{
-	auto SelectedItems = WeaponList->GetSelectedItems();
-	if ((SelectedItems.Num() > 0) && (SelectedWeapon.Get()) && (WeaponGroups[SelectedWeapon.Get()] != 0))
-	{
-		int32 Index = WeakWeaponClassList.Find(SelectedItems[0]);
-		if (Index != INDEX_NONE && Index < WeakWeaponClassList.Num() - 2) //-2 because the translocator is always in the last slot.
-		{
-			return true;
-		}
-	}
-	return false;
-}
-
-TOptional<int32> SUTWeaponConfigDialog::GetWeaponGroup() const
-{
-	return WeaponGroups.Contains(SelectedWeapon.Get()) ? TOptional<int32>(WeaponGroups[SelectedWeapon.Get()]) : TOptional<int32>(0);
-}
-
-
-void SUTWeaponConfigDialog::SetWeaponGroup(int32 NewGroup)
-{
-	if ( (WeaponGroups.Contains(SelectedWeapon.Get())) && (WeaponGroups[SelectedWeapon.Get()] != 0) )
-	{
-		WeaponGroups[SelectedWeapon.Get()] = NewGroup;
-		UpdateWeaponsInGroup();
-	}
-}
-
-void SUTWeaponConfigDialog::UpdateWeaponsInGroup()
-{
-	FString Text = TEXT("");
-	if (SelectedWeapon.IsValid())
-	{
-		int32 CurrentGroup = WeaponGroups.Contains(SelectedWeapon.Get()) ? WeaponGroups[SelectedWeapon.Get()] : -1;
-		for (int32 i=0; i < WeaponClassList.Num(); i++)
-		{
-			int32 Grp = WeaponGroups.Contains(WeaponClassList[i]) ? WeaponGroups[WeaponClassList[i]] : -1;
-			if (Grp == CurrentGroup)
+			if (WeaponHandDesc[i].EqualTo(*WeaponHand->GetSelectedItem().Get()))
 			{
-				if (!Text.IsEmpty()) 
-				{
-					Text = Text + TEXT(", ");
-				}
-				Text = Text + WeaponClassList[i]->GetDefaultObject<AUTWeapon>()->DisplayName.ToString();
-			}
-		}
-	}
-
-	WeaponsInGroupText->SetText(FText::FromString(Text));
-}
-
-FReply SUTWeaponConfigDialog::DefaultGroupsClicked()
-{
-	for (int i = 0; i < WeaponClassList.Num(); i++)
-	{
-		WeaponGroups[WeaponClassList[i]] = WeaponClassList[i]->GetDefaultObject<AUTWeapon>()->DefaultGroup;
-	}
-
-	return FReply::Handled();
-}
-
-void SUTWeaponConfigDialog::OnWeaponSkinSelected(TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo)
-{
-	if (NewSelection.IsValid())
-	{
-		WeaponSkinText->SetText(*NewSelection.Get());
-		if (SelectedWeapon.IsValid())
-		{
-			WeaponSkinSelection.Add(SelectedWeapon->GetPathName(), *NewSelection.Get());
-		}
-	}
-}
-
-TSharedRef<SWidget> SUTWeaponConfigDialog::GenerateStringListWidget(TSharedPtr<FString> InItem)
-{
-	return SNew(SBox)
-		.Padding(5)
-		[
-			SNew(STextBlock)
-			.ColorAndOpacity(FLinearColor::White)
-			.Text(FText::FromString(*InItem.Get()))
-		];
-}
-
-void SUTWeaponConfigDialog::UpdateAvailableWeaponSkins()
-{
-	// We have not been initialized yet
-	if (!WeaponSkinComboBox.IsValid())
-	{
-		return;
-	}
-
-	WeaponSkinList.Empty();
-	WeaponSkinList.Add(MakeShareable(new FString(TEXT("No Skin"))));
-
-	if (SelectedWeapon.IsValid())
-	{
-		FString SelectedWeaponPath = SelectedWeapon->GetPathName();
-		TArray<UUTWeaponSkin*>* AvailableSkins = WeaponToSkinListMap.Find(SelectedWeaponPath);
-		if (AvailableSkins)
-		{
-			for (auto Skin : *AvailableSkins)
-			{
-				WeaponSkinList.Add(MakeShareable(new FString(Skin->DisplayName.ToString())));
+				NewHand = EWeaponHand(i);
+				break;
 			}
 		}
 
-		// Check if we have an assigned skin in the pre-confirmation cache
-		FString* SelectedSkin = WeaponSkinSelection.Find(SelectedWeaponPath);
-		if (SelectedSkin)
+		ProfileSettings->bCustomWeaponCrosshairs = bCustomWeaponCrosshairs;
+		ProfileSettings->bAutoWeaponSwitch = AutoWeaponSwitch->IsChecked();
+		ProfileSettings->WeaponHand = NewHand;
+		ProfileSettings->WeaponSkins.Empty();
+
+		for(int32 i = 0; i < AllWeapons.Num(); i++)
 		{
-			for (int i = 0; i < WeaponSkinList.Num(); i++)
+			FName WeaponCustomizationTag = AllWeapons[i].WeaponCustomizationInfo->WeaponCustomizationTag;
+			if (ProfileSettings->WeaponCustomizations.Contains(WeaponCustomizationTag))
 			{
-				if (*WeaponSkinList[i].Get() == *SelectedSkin)
-				{
-					WeaponSkinComboBox->SetSelectedItem(WeaponSkinList[i]);
-					return;
-				}
+				// We already have a customization tag for this weapon.. so, just update it.
+				ProfileSettings->WeaponCustomizations[WeaponCustomizationTag].Copy(*AllWeapons[i].WeaponCustomizationInfo);
 			}
-		}
-		else
-		{
-			// If haven't picked one this session, highlight the one that was in profile settings
-			UUTProfileSettings* ProfileSettings = GetPlayerOwner()->GetProfileSettings();
-			if (ProfileSettings)
+			else
 			{
-				for (int32 j = 0; j < ProfileSettings->WeaponSkins.Num(); j++)
-				{
-					if (ProfileSettings->WeaponSkins[j] && ProfileSettings->WeaponSkins[j]->WeaponType.ToString() == SelectedWeaponPath)
-					{
-						for (int i = 0; i < WeaponSkinList.Num(); i++)
-						{
-							if (*WeaponSkinList[i].Get() == ProfileSettings->WeaponSkins[j]->DisplayName.ToString())
-							{
-								WeaponSkinComboBox->SetSelectedItem(WeaponSkinList[i]);
-								return;
-							}
-						}
-					}
-				}
+				// This is a new customization so we add it.
+				ProfileSettings->WeaponCustomizations.Add(WeaponCustomizationTag, FWeaponCustomizationInfo(*AllWeapons[i].WeaponCustomizationInfo));
 			}
+
+			if (!AllWeapons[i].WeaponSkinClassname.IsEmpty())
+			{
+				ProfileSettings->WeaponSkins.Add(AllWeapons[i].WeaponDefaultObject->WeaponSkinCustomizationTag,AllWeapons[i].WeaponSkinClassname);
+			}
+
 		}
+		PlayerOwner->SaveProfileSettings();
 	}
 
-	WeaponSkinComboBox->SetSelectedItem(WeaponSkinList[0]);
-}
-
-TSharedRef<SWidget> SUTWeaponConfigDialog::GenerateQuickslotListWidget(TSharedPtr<FText> InItem)
-{
-	return SNew(SBox)
-		.Padding(5)
-		[
-			SNew(STextBlock)
-			.Text(*InItem.Get())
-			.TextStyle(SUTStyle::Get(), "UT.Font.ContextMenuItem")
-		];
-}
-
-void SUTWeaponConfigDialog::OnQuickslotSelected(TSharedPtr<FText> NewSelection, ESelectInfo::Type SelectInfo)
-{
-	int32 WeaponIndex = WeakWeaponClassList.Find(SelectedWeapon);
-	int32 SlotIndex = QuickSlotTexts.Find(NewSelection);
-	if ( WeaponIndex != INDEX_NONE && SlotIndex > 0 )
-	{
-		// Look to see if this weapon is already in the list.
-		int32 WheelIndex = WeaponWheelClassnames.Find(WeakWeaponClassList[WeaponIndex]->GetName());
-		if (WheelIndex != INDEX_NONE && WheelIndex != SlotIndex - 1)
-		{
-			WeaponWheelClassnames[WheelIndex] = TEXT("");
-		}
-		
-		WeaponWheelClassnames[SlotIndex-1] = WeakWeaponClassList[WeaponIndex]->GetName();
-		SelectedWeaponQuickslot->SetText(*QuickSlotTexts[SlotIndex]);
-	}
-	else
-	{
-		SelectedWeaponQuickslot->SetText(*QuickSlotTexts[0]);
-	}
-}
-
-void SUTWeaponConfigDialog::OnDialogClosed()
-{
-	SUTDialogBase::OnDialogClosed();
-
-	WeaponClassList.Empty();
-	WeakWeaponClassList.Empty();
-	SelectedWeapon.Reset();
-
-	CrosshairInfos.Empty();
-	WeaponMap.Empty();
-	CrosshairMap.Empty();
-
-	CrosshairClassList.Empty();
-	WeakCrosshairList.Empty();
-
-	PlayerOwner->GetWorld()->ForceGarbageCollection(true);
+	return SUTDialogBase::OnButtonClick(ButtonID);
 }
 
 #endif

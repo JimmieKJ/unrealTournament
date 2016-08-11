@@ -748,7 +748,7 @@ AUTCharacter* AUTPlayerState::GetUTCharacter()
 	return CachedCharacter;
 }
 
-void AUTPlayerState::UpdateWeaponSkinPrefFromProfile(TSubclassOf<AUTWeapon> Weapon)
+void AUTPlayerState::UpdateWeaponSkinPrefFromProfile(AUTWeapon* Weapon)
 {
 	AUTBasePlayerController* PC = Cast<AUTBasePlayerController>(GetOwner());
 	if (PC)
@@ -759,16 +759,10 @@ void AUTPlayerState::UpdateWeaponSkinPrefFromProfile(TSubclassOf<AUTWeapon> Weap
 			UUTProfileSettings* ProfileSettings = LP->GetProfileSettings();
 			if (ProfileSettings)
 			{
-				FString WeaponPathName = Weapon->GetPathName();
-				for (int32 i = 0; i < ProfileSettings->WeaponSkins.Num(); i++)
+				FString WeaponSkinClassname = ProfileSettings->GetWeaponSkinClassname(Weapon);
+				if (!WeaponSkinClassname.IsEmpty())
 				{
-					if (ProfileSettings->WeaponSkins[i] && ProfileSettings->WeaponSkins[i]->WeaponType.ToString() == WeaponPathName)
-					{
-						if (!WeaponSkins.Contains(ProfileSettings->WeaponSkins[i]))
-						{
-							ServerReceiveWeaponSkin(ProfileSettings->WeaponSkins[i]->GetPathName());
-						}
-					}
+					ServerReceiveWeaponSkin(WeaponSkinClassname);
 				}
 			}
 		}

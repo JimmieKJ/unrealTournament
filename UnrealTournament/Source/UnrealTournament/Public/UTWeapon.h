@@ -6,6 +6,7 @@
 #include "UTProjectile.h"
 #include "UTATypes.h"
 #include "UTGameplayStatics.h"
+#include "UTCrosshair.h"
 #include "UTWeapon.generated.h"
 
 USTRUCT(BlueprintType)
@@ -1067,5 +1068,20 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon")
 	int32 AmmoDangerAmount;
 
+	/** defines which weapon config info to use for this weapon.  Children can use their own custom tag or just leave it be to inheirt the parents */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon")
+	FName WeaponCustomizationTag;
 
+	/** defines which type of weapon skins this weapon uses. Children can use their own custom tag or just leave it be to inheirt the parents */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon")
+	FName WeaponSkinCustomizationTag;
+
+
+	/** Holds a pointer to the current crosshair */
+	UPROPERTY(BlueprintReadOnly, Category = "Weapon")
+	UUTCrosshair* ActiveCrosshair;
+
+	// The customization for this crosshair based on the customization info
+	UPROPERTY(BlueprintReadOnly, Category = Crosshair)
+	FWeaponCustomizationInfo ActiveCrosshairCustomizationInfo;
 };

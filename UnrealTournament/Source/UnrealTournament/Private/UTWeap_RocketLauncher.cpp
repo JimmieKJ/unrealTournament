@@ -60,6 +60,9 @@ AUTWeap_RocketLauncher::AUTWeap_RocketLauncher(const class FObjectInitializer& O
 	DeathStatsName = NAME_RocketDeaths;
 	HitsStatsName = NAME_RocketHits;
 	ShotsStatsName = NAME_RocketShots;
+
+	WeaponCustomizationTag = EpicWeaponCustomizationTags::RocketLauncher;
+	WeaponSkinCustomizationTag = EpicWeaponSkinCustomizationTags::RocketLauncher;
 }
 
 void AUTWeap_RocketLauncher::Destroyed()

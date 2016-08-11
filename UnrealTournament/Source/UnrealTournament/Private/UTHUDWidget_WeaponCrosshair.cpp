@@ -1,6 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "UnrealTournament.h"
+#include "UTCrosshair.h"
 #include "UTHUDWidget_WeaponCrosshair.h"
 
 const float MAX_HIT_INDICATOR_TIME = 1.5f;
@@ -19,27 +20,13 @@ void UUTHUDWidget_WeaponCrosshair::Draw_Implementation(float DeltaTime)
 {
 	if (UTHUDOwner != NULL && UTHUDOwner->UTPlayerOwner != NULL)
 	{
+		bool bDrawDefaultCrosshair = true;
 		AUTCharacter* UTCharacter = Cast<AUTCharacter>(UTHUDOwner->UTPlayerOwner->GetViewTarget());
-		if (UTCharacter)
+		if (UTCharacter != nullptr && UTCharacter->GetWeapon() != nullptr)
 		{
-			if (UTCharacter->GetWeapon() != NULL)
-			{
-				UTCharacter->GetWeapon()->DrawWeaponCrosshair(this, DeltaTime);
-			}
-			else
-			{
-				// fall back crosshair
-				UTexture2D* CrosshairTexture = UTHUDOwner->DefaultCrosshairTex;
-				if (CrosshairTexture != NULL)
-				{
-					float W = CrosshairTexture->GetSurfaceWidth();
-					float H = CrosshairTexture->GetSurfaceHeight();
-					float CrosshairScale = UTHUDOwner->GetCrosshairScale();
-
-					DrawTexture(CrosshairTexture, 0, 0, W * CrosshairScale, H * CrosshairScale, 0.0, 0.0, 16, 16, 1.0, UTHUDOwner->GetCrosshairColor(FLinearColor::White), FVector2D(0.5f, 0.5f));
-				}
-			}
+			UTCharacter->GetWeapon()->DrawWeaponCrosshair(this, DeltaTime);
 		}
+
 		float TimeSinceKill = GetWorld()->GetTimeSeconds() - UTHUDOwner->LastKillTime;
 		float SkullDisplayTime = (UTHUDOwner->LastMultiKillCount > 1) ? 1.1f : 0.8f;
 		if ((TimeSinceKill < SkullDisplayTime) && (UTHUDOwner->GetDrawHUDKillIconMsg()))
@@ -103,5 +90,3 @@ void UUTHUDWidget_WeaponCrosshair::Draw_Implementation(float DeltaTime)
 		}
 	}
 }
-
-

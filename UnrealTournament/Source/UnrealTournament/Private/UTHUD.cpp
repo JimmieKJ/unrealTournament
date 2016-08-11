@@ -11,6 +11,7 @@
 #include "UTHUDWidget_Spectator.h"
 #include "UTHUDWidget_WeaponBar.h"
 #include "UTHUDWidget_SpectatorSlideOut.h"
+#include "UTHUDWidget_WeaponCrosshair.h"
 #include "UTScoreboard.h"
 #include "UTHUDWidget_Powerups.h"
 #include "Json.h"
@@ -167,14 +168,20 @@ void AUTHUD::BeginPlay()
 		DamageIndicators[i].FadeTime = 0.0f;
 	}
 
-	// preload all known required crosshairs
+	// preload all known required crosshairs for this map
 	for (TObjectIterator<UClass> It; It; ++It)
 	{
 		if (It->IsChildOf(AUTWeapon::StaticClass()))
 		{
-			GetCrosshair(*It);
+			AUTWeapon* DefaultWeapon = It->GetDefaultObject<AUTWeapon>();
+			if (DefaultWeapon != nullptr)
+			{
+				FWeaponCustomizationInfo Info;
+				GetCrosshairForWeapon(DefaultWeapon->WeaponCustomizationTag, Info);
+			}
 		}
 	}
+
 	AddSpectatorWidgets();
 
 	// Add the Coms Menu
@@ -201,10 +208,26 @@ void AUTHUD::AddSpectatorWidgets()
 void AUTHUD::PostInitializeComponents()
 {
 	Super::PostInitializeComponents();
+
 	UTPlayerOwner = Cast<AUTPlayerController>(GetOwner());
-	if (UTPlayerOwner)
+
+	// Grab all of the available crosshairs...
+
+	TArray<FAssetData> AssetList;
+	GetAllBlueprintAssetData(UUTCrosshair::StaticClass(), AssetList);
+	for (const FAssetData& Asset : AssetList)
 	{
-		UTPlayerOwner->UpdateCrosshairs(this);
+		static FName NAME_GeneratedClass(TEXT("GeneratedClass"));
+		const FString* ClassPath = Asset.TagsAndValues.Find(NAME_GeneratedClass);
+		UClass* CrosshairClass = LoadObject<UClass>(NULL, **ClassPath);
+		if (CrosshairClass != nullptr)
+		{
+			UUTCrosshair* Crosshair = NewObject<UUTCrosshair>(this, CrosshairClass, NAME_None, RF_NoFlags);
+			if (Crosshair && Crosshair->CrosshairTag != NAME_None)
+			{
+				Crosshairs.Add(Crosshair->CrosshairTag, Crosshair);
+			}
+		}
 	}
 }
 
@@ -575,7 +598,7 @@ void AUTHUD::ShowHUD()
 void AUTHUD::DrawHUD()
 {
 	// FIXMESTEVE - once bShowHUD is not config, can just use it without bShowUTHUD and bCinematicMode
-	if (!bShowUTHUD || (!bShowHUD && UTPlayerOwner && UTPlayerOwner->bCinematicMode))
+	if (!bShowUTHUD || UTPlayerOwner == nullptr || (!bShowHUD && UTPlayerOwner && UTPlayerOwner->bCinematicMode))
 	{
 		return;
 	}
@@ -1161,58 +1184,6 @@ EInputMode::Type AUTHUD::GetInputMode_Implementation() const
 	return EInputMode::EIM_None;
 }
 
-UUTCrosshair* AUTHUD::GetCrosshair(TSubclassOf<AUTWeapon> Weapon)
-{
-	FCrosshairInfo* CrosshairInfo = GetCrosshairInfo(Weapon);
-	if (CrosshairInfo != nullptr)
-	{
-		for (int32 i = 0; i < LoadedCrosshairs.Num(); i++)
-		{
-			if (LoadedCrosshairs[i]->GetClass()->GetPathName() == CrosshairInfo->CrosshairClassName)
-			{
-				return LoadedCrosshairs[i];
-			}
-		}
-
-		//Didn't find it so create a new one
-		UClass* TestClass = LoadObject<UClass>(NULL, *CrosshairInfo->CrosshairClassName);
-		if (TestClass != NULL && !TestClass->HasAnyClassFlags(CLASS_Abstract) && TestClass->IsChildOf(UUTCrosshair::StaticClass()))
-		{
-			UUTCrosshair* NewCrosshair = NewObject<UUTCrosshair>(this, TestClass);
-			LoadedCrosshairs.Add(NewCrosshair);
-		}
-	}
-	return nullptr;
-}
-
-FCrosshairInfo* AUTHUD::GetCrosshairInfo(TSubclassOf<AUTWeapon> Weapon)
-{
-	FString WeaponClass = (!bCustomWeaponCrosshairs || Weapon == nullptr) ? TEXT("Global") : Weapon->GetPathName();
-
-	FCrosshairInfo* FoundInfo = CrosshairInfos.FindByPredicate([WeaponClass](const FCrosshairInfo& Info) { return Info.WeaponClassName == WeaponClass; });
-	if (FoundInfo != nullptr)
-	{
-		return FoundInfo;
-	}
-
-	//Make a Global one if we couldn't find one
-	if (WeaponClass == TEXT("Global"))
-	{
-		return &CrosshairInfos[CrosshairInfos.Add(FCrosshairInfo())];
-	}
-	else
-	{
-		//Create a new crosshair for this weapon based off the global one
-		FCrosshairInfo NewInfo;
-		FCrosshairInfo* GlobalCrosshair = CrosshairInfos.FindByPredicate([](const FCrosshairInfo& Info){ return Info.WeaponClassName == TEXT("Global"); });
-		if (GlobalCrosshair != nullptr)
-		{
-			NewInfo = *GlobalCrosshair;
-		}
-		NewInfo.WeaponClassName = WeaponClass;
-		return &CrosshairInfos[CrosshairInfos.Add(NewInfo)];
-	}
-}
 
 void AUTHUD::CreateMinimapTexture()
 {
@@ -1711,9 +1682,7 @@ TWeakObjectPtr<class UUTUMGHudWidget> AUTHUD::ActivateUMGHudWidget(FString UMGHu
 			FinalUMGWidget = CreateWidget<UUTUMGHudWidget>(UTPlayerOwner, UMGWidgetClass);
 			if (FinalUMGWidget.IsValid())
 			{
-				UMGHudWidgetStack.Add(FinalUMGWidget);
-				FinalUMGWidget->AssociateHUD(this);
-				FinalUMGWidget->AddToViewport(FinalUMGWidget->DisplayZOrder);
+				ActivateActualUMGHudWidget(FinalUMGWidget);
 			}
 		}		
 		else	// The class wasn't found, so try again but this time add a _C to the classname
@@ -1722,6 +1691,13 @@ TWeakObjectPtr<class UUTUMGHudWidget> AUTHUD::ActivateUMGHudWidget(FString UMGHu
 		}
 	}
 	return FinalUMGWidget;
+}
+
+void AUTHUD::ActivateActualUMGHudWidget(TWeakObjectPtr<UUTUMGHudWidget> WidgetToActivate)
+{
+	UMGHudWidgetStack.Add(WidgetToActivate);
+	WidgetToActivate->AssociateHUD(this);
+	WidgetToActivate->AddToViewport(WidgetToActivate->DisplayZOrder);
 }
 
 void AUTHUD::DeactivateUMGHudWidget(FString UMGHudWidgetClassName)
@@ -1746,3 +1722,25 @@ void AUTHUD::DeactivateActualUMGHudWidget(TWeakObjectPtr<UUTUMGHudWidget> Widget
 	WidgetToDeactivate->RemoveFromViewport();
 	UMGHudWidgetStack.Remove(WidgetToDeactivate);
 }
+
+UUTCrosshair* AUTHUD::GetCrosshairForWeapon(FName WeaponCustomizationTag, FWeaponCustomizationInfo& outWeaponCustomizationInfo)
+{
+	if ( VerifyProfileSettings() )
+	{
+		CachedProfileSettings->GetWeaponCustomization(WeaponCustomizationTag, outWeaponCustomizationInfo);	
+	}
+	else
+	{
+		outWeaponCustomizationInfo = FWeaponCustomizationInfo();
+	}
+
+	FName DesiredCrosshairName = outWeaponCustomizationInfo.CrosshairTag;
+	if (DesiredCrosshairName == NAME_None) DesiredCrosshairName = FName(TEXT("CrossDot"));
+	if (Crosshairs.Contains(DesiredCrosshairName))
+	{
+		return Crosshairs[DesiredCrosshairName];
+	}
+
+	return nullptr;
+}
+

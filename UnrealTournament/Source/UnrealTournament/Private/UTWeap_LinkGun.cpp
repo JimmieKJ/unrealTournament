@@ -59,6 +59,10 @@ AUTWeap_LinkGun::AUTWeap_LinkGun(const FObjectInitializer& OI)
 	ScreenMaterialID = 2;
 	SideScreenMaterialID = 1;
 	LastClientKillTime = -100000.0f;
+
+	WeaponCustomizationTag = EpicWeaponCustomizationTags::LinkGun;
+	WeaponSkinCustomizationTag = EpicWeaponSkinCustomizationTags::LinkGun;
+
 }
 
 void AUTWeap_LinkGun::AttachToOwner_Implementation()
