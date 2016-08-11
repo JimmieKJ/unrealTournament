@@ -411,6 +411,7 @@ bool AUTCTFRoundGame::CheckForWinner(AUTTeamInfo* ScoringTeam)
 	// current implementation assumes 6 rounds and 2 teams
 	if (CTFGameState && (CTFGameState->CTFRound >= NumRounds - 2) && Teams[0] && Teams[1])
 	{
+		AUTCTFRoundGameState* GS = Cast<AUTCTFRoundGameState>(UTGameState);
 		bSecondaryWin = false;
 		if ((CTFGameState->CTFRound == NumRounds - 2) && (FMath::Abs(Teams[0]->Score - Teams[1]->Score) > DefenseScore + GoldScore))
 		{
@@ -428,7 +429,7 @@ bool AUTCTFRoundGame::CheckForWinner(AUTTeamInfo* ScoringTeam)
 					EndTeamGame(Teams[0], FName(TEXT("scorelimit")));
 					return true;
 				}
-				if (Teams[1]->Score > Teams[0]->Score + DefenseScore)
+				if ((Teams[1]->Score > Teams[0]->Score + DefenseScore) || ((Teams[1]->Score == Teams[0]->Score + DefenseScore) && (GS->TiebreakValue < 0)))
 				{
 					EndTeamGame(Teams[1], FName(TEXT("scorelimit")));
 					return true;
@@ -437,7 +438,7 @@ bool AUTCTFRoundGame::CheckForWinner(AUTTeamInfo* ScoringTeam)
 			else
 			{
 				// next round is red cap
-				if (Teams[0]->Score > Teams[1]->Score + DefenseScore)
+				if ((Teams[0]->Score > Teams[1]->Score + DefenseScore) || ((Teams[0]->Score == Teams[1]->Score + DefenseScore) && (GS->TiebreakValue > 0)))
 				{
 					EndTeamGame(Teams[0], FName(TEXT("scorelimit")));
 					return true;
