@@ -55,4 +55,16 @@ class UNREALTOURNAMENT_API UUTAIAction_TacticalMove : public UUTAIAction
 		return false;
 	}
 	virtual bool NotifyMoveBlocked(const FHitResult& Impact) override;
+	virtual bool NotifyHitLedge() override
+	{
+		if (bFinalMove)
+		{
+			GetOuterAUTBot()->ClearMoveTarget();
+			return true;
+		}
+		else
+		{
+			return NotifyMoveBlocked(FHitResult(NULL, NULL, GetOuterAUTBot()->GetPawn()->GetActorLocation(), -GetOuterAUTBot()->GetPawn()->GetVelocity().GetSafeNormal2D()));
+		}
+	}
 };

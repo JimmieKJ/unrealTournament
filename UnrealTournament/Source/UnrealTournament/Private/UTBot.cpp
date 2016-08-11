@@ -1943,6 +1943,14 @@ void AUTBot::NotifyMoveBlocked(const FHitResult& Impact)
 	}
 }
 
+void AUTBot::NotifyHitLedge()
+{
+	if (CurrentAction == NULL || !CurrentAction->NotifyHitLedge())
+	{
+		// TODO: consider jump off in some cases?
+	}
+}
+
 void AUTBot::PostMovementUpdate(float DeltaTime, FVector OldLocation, FVector OldVelocity)
 {
 	if (!PendingWallDodgeDir.IsZero())

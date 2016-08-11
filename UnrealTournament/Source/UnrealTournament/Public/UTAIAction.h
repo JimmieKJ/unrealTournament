@@ -75,6 +75,11 @@ class UNREALTOURNAMENT_API UUTAIAction : public UObject
 	{
 		return false;
 	}
+	/** notification of Pawn's move being obstructed because it hit a ledge - return true to override default handling */
+	virtual bool NotifyHitLedge()
+	{
+		return false;
+	}
 
 	/** called repeatedly while enemy is valid but not visible; combat actions often react to this by changing position, aborting, etc */
 	virtual void EnemyNotVisible()

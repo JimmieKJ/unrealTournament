@@ -389,6 +389,16 @@ bool UUTCharacterMovement::CheckFall(const FFindFloorResult& OldFloor, const FHi
 	return bResult;
 }
 
+FVector UUTCharacterMovement::GetLedgeMove(const FVector& OldLocation, const FVector& Delta, const FVector& GravDir) const
+{
+	AUTBot* B = Cast<AUTBot>(CharacterOwner->Controller);
+	if (B != NULL)
+	{
+		B->NotifyHitLedge();
+	}
+	return Super::GetLedgeMove(OldLocation, Delta, GravDir);
+}
+
 void UUTCharacterMovement::OnUnableToFollowBaseMove(const FVector& DeltaPosition, const FVector& OldLocation, const FHitResult& MoveOnBaseHit)
 {
 	UPrimitiveComponent* MovementBase = CharacterOwner->GetMovementBase();
