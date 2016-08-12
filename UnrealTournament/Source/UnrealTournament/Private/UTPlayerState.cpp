@@ -674,15 +674,8 @@ void AUTPlayerState::Tick(float DeltaTime)
 		RemainingRallyDelay = (NextRallyTime > GetWorld()->GetTimeSeconds()) ? FMath::Clamp(int32(NextRallyTime - GetWorld()->GetTimeSeconds()), 0, 255) : 0;
 	}
 	// If we are waiting to respawn then count down
-	if (RespawnTime > 0.0f)
-	{
-		RespawnTime -= DeltaTime;
-	}
-
-	if (ForceRespawnTime > 0.0f)
-	{
-		ForceRespawnTime -= DeltaTime;
-	}
+	RespawnTime -= DeltaTime;
+	ForceRespawnTime -= DeltaTime;
 
 	if (BoostRechargeTimeRemaining > 0.0f)
 	{

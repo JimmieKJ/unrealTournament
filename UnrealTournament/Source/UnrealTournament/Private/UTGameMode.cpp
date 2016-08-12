@@ -1300,6 +1300,11 @@ void AUTGameMode::Killed(AController* Killer, AController* KilledPlayer, APawn* 
 					ScoreKill(Killer, KilledPlayer, KilledPawn, DamageType);
 				}
 			}
+			else if (KilledPlayerState)
+			{
+				KilledPlayerState->RespawnWaitTime = 2.f;
+				KilledPlayerState->OnRespawnWaitReceived();
+			}
 			BroadcastDeathMessage(Killer, KilledPlayer, DamageType);
 
 			if (bHasRespawnChoices)
