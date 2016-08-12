@@ -1613,6 +1613,10 @@ void UUTLocalPlayer::OnReadUserFileComplete(bool bWasSuccessful, const FUniqueNe
 				EpicFlagCheck();
 				return;
 			}
+			else
+			{
+				CurrentProfileSettings->ResetProfile(EProfileResetType::All);
+			}
 
 		}
 		else 
@@ -1621,7 +1625,6 @@ void UUTLocalPlayer::OnReadUserFileComplete(bool bWasSuccessful, const FUniqueNe
 			{
 				CurrentProfileSettings = NewObject<UUTProfileSettings>(GetTransientPackage(),UUTProfileSettings::StaticClass());
 				CurrentProfileSettings->ResetProfile(EProfileResetType::All);
-				SaveProfileSettings();
 			}
 
 			// Attempt to load the progression anyway since the user might have reset their profile.
