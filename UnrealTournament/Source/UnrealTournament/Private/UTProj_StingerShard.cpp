@@ -134,6 +134,17 @@ void AUTProj_StingerShard::ProcessHit_Implementation(AActor* OtherActor, UPrimit
 		{
 			AttachRootComponentTo(Lift->GetEncroachComponent(), NAME_None, EAttachLocation::KeepWorldPosition);
 		}
+
+		// turn off in-flight sound
+		TArray<UAudioComponent*> AudioComponents;
+		GetComponents<UAudioComponent>(AudioComponents);
+		for (int32 i = 0; i < AudioComponents.Num(); i++)
+		{
+			if (AudioComponents[i] && AudioComponents[i]->Sound != NULL && AudioComponents[i]->Sound->GetDuration() >= INDEFINITELY_LOOPING_DURATION)
+			{
+				AudioComponents[i]->Stop();
+			}
+		}
 	}
 }
 
