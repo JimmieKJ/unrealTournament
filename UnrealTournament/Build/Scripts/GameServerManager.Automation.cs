@@ -20,6 +20,13 @@ namespace UnrealTournamentGame.Automation
 		private string D2BaseUri { get; set; }
 		private string S3BucketName { get; set; }
 		private int AsyncId { get; set; }
+		private string GameBinary { get; set; }
+		private string GameBinaryPath { get; set; }
+		private string GameLogPath { get; set; }
+		private string GameSavedPath { get; set; }
+		private int MaxMatchLength { get; set; }
+		private int TtlInterval { get; set; }
+		private string InstallSumo { get; set; }
 
 		public bool Debug { get; private set; }
 		public string GameName { get; private set; }
@@ -39,6 +46,13 @@ namespace UnrealTournamentGame.Automation
 			this.S3BucketName = InS3BucketName;
 			this.BuildString = InBuildString;
 			this.Debug = InDebug;
+			this.InstallSumo = "true";
+			this.GameBinaryPath = "Engine/Binaries/Linux";
+			this.GameLogPath = "/UnrealTournament/Saved/Logs";
+			this.GameSavedPath = "/UnrealTournament/Saved";
+			this.MaxMatchLength = 0; /* value is in seconds. 0 disables ttl */
+			this.TtlInterval = 0; /* idle server refresh time in seconds.  0 disables ttl*/
+			this.GameBinary = "UE4Server-Linux-Shipping";
 			this.CpuBudget = 33;
 			this.RamBudget = 55;
 
@@ -59,6 +73,21 @@ namespace UnrealTournamentGame.Automation
             {
                 this.D2BaseUri = "https://fleet-manager.ol.epicgames.net:8080/v1/";
             }
+
+			switch (AppName)
+			{
+				case UnrealTournamentBuild.UnrealTournamentAppName.UnrealTournamentDev:
+				case UnrealTournamentBuild.UnrealTournamentAppName.UnrealTournamentPublicTest:
+					this.GameBinary = "UE4Server-Linux-Shipping";
+					break;
+				case UnrealTournamentBuild.UnrealTournamentAppName.UnrealTournamentDevPlaytest:
+					this.GameBinary = "UE4Server-Linux-Test";
+					break;
+				default:
+					this.GameBinary = "UE4Server-Linux-Shipping";
+					break;
+			}
+
 			Random rnd = new Random();
 			this.AsyncId = rnd.Next();
 		}
@@ -274,7 +303,6 @@ namespace UnrealTournamentGame.Automation
 										  string HubServerName = "")
 		{
 			string AwsCredentialsFile = "AwsDedicatedServerCredentialsDecoded.txt";
-            string GameBinary = "UE4Server-Linux-Test";
 
 			int LocalCpuBudget = CpuBudget;
 			if (InstanceSize == 0)
@@ -297,11 +325,6 @@ namespace UnrealTournamentGame.Automation
 					AwsCredentialsFile, AwsCredentials);
 			}
 
-            if (AppName == UnrealTournamentBuild.UnrealTournamentAppName.UnrealTournamentDev)
-            {
-                GameBinary = "UE4Server-Linux-Shipping";
-            }
-
 			string AwsAccessKey = AwsCredentialsList[0];
 			Byte[] AwsAccessSecretKeyBytes = System.Text.Encoding.UTF8.GetBytes(AwsCredentialsList[1]);
 
@@ -318,7 +341,13 @@ namespace UnrealTournamentGame.Automation
 			Byte[] BuildStringBytes = System.Text.Encoding.UTF8.GetBytes(BuildString);
 
 			string CloudArgs = "epic_game_name=" + GameNameShort + "&" +
-                "epic_game_binary=" + GameBinary + "&" +
+                "epic_game_binary=" + this.GameBinary + "&" +
+				"epic_game_binary_path=" + this.GameBinaryPath + "&" +
+				"epic_game_log_path=" + this.GameLogPath + "&" +
+				"epic_game_saved_path=" + this.GameSavedPath + "&" +
+				"epic_game_max_match_length=" + this.MaxMatchLength.ToString() + "&" +
+				"epic_game_ttl_interval=" + this.TtlInterval.ToString() + "&" +
+				"epic_install_sumo=" + this.InstallSumo + "&" +
 				"epic_game_tag=" + GetTag(AppName, Region, tag) + "&" +
 				"epic_game_version=" + Changelist.ToString() + "&" +
 				"epic_game_buildstr_base64=" + System.Convert.ToBase64String(BuildStringBytes) + "&" +
@@ -363,14 +392,12 @@ namespace UnrealTournamentGame.Automation
 
 			string NetworkId = "default";
 			string CredentialsFile = "GceUtDevCredentials.txt";
-            string GameBinary = "UE4Server-Linux-Test";
 
 			/* This is very confusing. UnrealTournament's live lable is UnrealTournamentDev. */
 			if (LocalAppName == UnrealTournamentBuild.UnrealTournamentAppName.UnrealTournamentDev)
 			{
 				NetworkId = "unreal-tournament";
 				CredentialsFile = "GceUtLiveCredentials.txt";
-                GameBinary = "UE4Server-Linux-Shipping";
 			}
 
 			if (InstanceSize == 0)
@@ -407,7 +434,13 @@ namespace UnrealTournamentGame.Automation
 			}
 			Byte[] BuildStringBytes = System.Text.Encoding.UTF8.GetBytes(BuildString);
 			string CloudArgs = "epic_game_name=" + GameNameShort + "&" +
-                "epic_game_binary=" + GameBinary + "&" +
+                "epic_game_binary=" + this.GameBinary + "&" +
+				"epic_game_binary_path=" + this.GameBinaryPath + "&" +
+				"epic_game_log_path=" + this.GameLogPath + "&" +
+				"epic_game_saved_path=" + this.GameSavedPath + "&" +
+				"epic_game_max_match_length=" + this.MaxMatchLength.ToString() + "&" +
+				"epic_game_ttl_interval=" + this.TtlInterval.ToString() + "&" +
+				"epic_install_sumo=" + this.InstallSumo + "&" +
 				"epic_game_tag=" + GetTag(LocalAppName, Region, tag) + "&" +
 				"epic_game_version=" + Changelist.ToString() + "&" +
 				"epic_game_region=" + Region + "&" +
