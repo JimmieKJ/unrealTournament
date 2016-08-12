@@ -165,6 +165,9 @@ class UNREALTOURNAMENT_API AUTCTFRoundGame : public AUTCTFBaseGame
 	virtual bool UTIsHandlingReplays() override { return false; }
 	virtual void StopRCTFReplayRecording();
 
+	virtual void ScoreRedAlternateWin();
+	virtual void ScoreBlueAlternateWin();
+
 	/** Score round ending due some other reason than capture. */
 	virtual void ScoreAlternateWin(int32 WinningTeamIndex, uint8 Reason = 0);
 

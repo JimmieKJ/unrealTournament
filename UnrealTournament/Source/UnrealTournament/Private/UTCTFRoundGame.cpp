@@ -1133,7 +1133,19 @@ void AUTCTFRoundGame::ScoreKill_Implementation(AController* Killer, AController*
 			if (!bFoundTeammate)
 			{
 				BroadcastLocalized(NULL, UUTShowdownRewardMessage::StaticClass(), 4);
-				ScoreAlternateWin((OtherPS->Team->TeamIndex == 0) ? 1 : 0);
+				CTFGameState->bStopGameClock = true;
+
+				if (OtherPS->Team->TeamIndex == 0)
+				{
+					FTimerHandle TempHandle;
+					GetWorldTimerManager().SetTimer(TempHandle, this, &AUTCTFRoundGame::ScoreBlueAlternateWin, 1.f);
+				}
+				else
+				{
+					FTimerHandle TempHandle;
+					GetWorldTimerManager().SetTimer(TempHandle, this, &AUTCTFRoundGame::ScoreRedAlternateWin, 1.f);
+
+				}
 			}
 		}
 
@@ -1202,6 +1214,22 @@ void AUTCTFRoundGame::ScoreKill_Implementation(AController* Killer, AController*
 void AUTCTFRoundGame::AdjustLeaderHatFor(AUTCharacter* UTChar)
 {
 // no leader hat for high score, only for last life
+}
+
+void AUTCTFRoundGame::ScoreRedAlternateWin()
+{
+	if (!IsMatchInProgress() || (GetMatchState() == MatchState::MatchIntermission))
+	{
+		ScoreAlternateWin(0);
+	}
+}
+
+void AUTCTFRoundGame::ScoreBlueAlternateWin()
+{
+	if (!IsMatchInProgress() || (GetMatchState() == MatchState::MatchIntermission))
+	{
+		ScoreAlternateWin(1);
+	}
 }
 
 void AUTCTFRoundGame::ScoreAlternateWin(int32 WinningTeamIndex, uint8 Reason)
