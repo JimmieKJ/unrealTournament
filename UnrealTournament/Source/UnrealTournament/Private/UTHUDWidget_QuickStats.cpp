@@ -32,7 +32,6 @@ UUTHUDWidget_QuickStats::UUTHUDWidget_QuickStats(const FObjectInitializer& Objec
 
 	LastHealth = 0;
 	LastArmor = 0;
-	InfoBarRadius = 30.f;
 	AngleDelta = 9.f;
 	PipSize = 10.f;
 	PipPopTime = 0.4f;
@@ -511,7 +510,8 @@ void UUTHUDWidget_QuickStats::Draw_Implementation(float DeltaTime)
 		Position = FVector2D(0.0f, 0.0f);
 		FHUDRenderObject_Texture Pip = HealthPip;
 		float PipPopSize = 3.f / PipPopTime;
-
+		float InfoBarRadius = UTHUDOwner->GetHealthArcRadius();
+		float CurrentPipSize = PipSize * InfoBarRadius / 30.f;
 		float PipAngle = -140.f;
 		for (int32 i = 0; i < 10; i++)
 		{
@@ -521,7 +521,7 @@ void UUTHUDWidget_QuickStats::Draw_Implementation(float DeltaTime)
 			{
 				Pip.RenderColor = FLinearColor::Red;
 			}
-			Pip.Size = FVector2D(PipSize, PipSize) * RenderScale * PipScaling;
+			Pip.Size = FVector2D(CurrentPipSize, CurrentPipSize) * RenderScale * PipScaling;
 			RenderObj_Texture(Pip, CalcRotOffset(FVector2D(InfoBarRadius, InfoBarRadius), PipAngle));
 			PipAngle -= AngleDelta;
 			CurrentHealth -= 10;
@@ -534,7 +534,7 @@ void UUTHUDWidget_QuickStats::Draw_Implementation(float DeltaTime)
 			}
 			float PipScaling = FMath::Max(1.f, PipPopSize * (PipPopTime + HealthPipChange[i] - CurrentTime));
 			Pip.RenderColor = (CurrentHealth > 0) ? FLinearColor::Blue : FLinearColor::Red;
-			Pip.Size = FVector2D(PipSize, PipSize) * RenderScale * PipScaling;
+			Pip.Size = FVector2D(CurrentPipSize, CurrentPipSize) * RenderScale * PipScaling;
 			RenderObj_Texture(Pip, CalcRotOffset(FVector2D(InfoBarRadius, InfoBarRadius), PipAngle));
 			PipAngle -= AngleDelta;
 			CurrentHealth -= 10;
@@ -549,7 +549,7 @@ void UUTHUDWidget_QuickStats::Draw_Implementation(float DeltaTime)
 			}
 			Pip.RenderColor = (CurrentArmor > 0) ? FLinearColor::Yellow : FLinearColor::Red;
 			float PipScaling = FMath::Max(1.f, PipPopSize * (PipPopTime + ArmorPipChange[i] - CurrentTime));
-			Pip.Size = FVector2D(PipSize, PipSize) * RenderScale * PipScaling;
+			Pip.Size = FVector2D(CurrentPipSize, CurrentPipSize) * RenderScale * PipScaling;
 			RenderObj_Texture(Pip, CalcRotOffset(FVector2D(InfoBarRadius, InfoBarRadius), PipAngle));
 			PipAngle += AngleDelta;
 			CurrentArmor -= 10;
@@ -562,7 +562,7 @@ void UUTHUDWidget_QuickStats::Draw_Implementation(float DeltaTime)
 			}
 			float PipScaling = FMath::Max(1.f, PipPopSize * (PipPopTime + ArmorPipChange[i] - CurrentTime));
 			Pip.RenderColor = (CurrentArmor > 0) ? FLinearColor::Yellow : FLinearColor::Red;
-			Pip.Size = FVector2D(PipSize, PipSize) * RenderScale * PipScaling;
+			Pip.Size = FVector2D(CurrentPipSize, CurrentPipSize) * RenderScale * PipScaling;
 			RenderObj_Texture(Pip, CalcRotOffset(FVector2D(InfoBarRadius, InfoBarRadius), PipAngle));
 			PipAngle += AngleDelta;
 			CurrentArmor -= 10;

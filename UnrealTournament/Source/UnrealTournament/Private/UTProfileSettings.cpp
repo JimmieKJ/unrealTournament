@@ -55,6 +55,7 @@ void UUTProfileSettings::ResetProfile(EProfileResetType::Type SectionToReset)
 		bQuickInfoHidden = false;
 		bHealthArcShown = false;
 		QuickStatsScaleOverride = 0.75f;
+		HealthArcRadius = 60;
 
 		bHideDamageIndicators = false;
 		bHidePaperdoll = true;

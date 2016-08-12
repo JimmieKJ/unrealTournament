@@ -251,6 +251,9 @@ public:
 	uint32 bHealthArcShown : 1;
 
 	UPROPERTY(BlueprintReadOnly, Category = HUD)
+		int32 HealthArcRadius;
+
+	UPROPERTY(BlueprintReadOnly, Category = HUD)
 	float QuickStatsScaleOverride;	
 
 	UPROPERTY(BlueprintReadOnly, Category = HUD)

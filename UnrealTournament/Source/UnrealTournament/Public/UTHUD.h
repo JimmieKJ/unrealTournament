@@ -402,6 +402,9 @@ public:
 	UFUNCTION(BlueprintCallable, Category = HUD)
 		bool GetHealthArcShown();
 
+	UFUNCTION(BlueprintCallable, Category = HUD)
+		float GetHealthArcRadius();
+
 	// accessor for CachedTeamColor.  
 	FLinearColor GetWidgetTeamColor();
 

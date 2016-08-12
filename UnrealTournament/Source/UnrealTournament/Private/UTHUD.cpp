@@ -1600,6 +1600,11 @@ bool AUTHUD::GetHealthArcShown()
 	return VerifyProfileSettings() ? CachedProfileSettings->bHealthArcShown : UUTProfileSettings::StaticClass()->GetDefaultObject<UUTProfileSettings>()->bHealthArcShown;
 }
 
+float AUTHUD::GetHealthArcRadius()
+{
+	return VerifyProfileSettings() ? CachedProfileSettings->HealthArcRadius : UUTProfileSettings::StaticClass()->GetDefaultObject<UUTProfileSettings>()->HealthArcRadius;
+}
+
 bool AUTHUD::GetQuickInfoHidden()
 {
 	return VerifyProfileSettings() ? CachedProfileSettings->bQuickInfoHidden : UUTProfileSettings::StaticClass()->GetDefaultObject<UUTProfileSettings>()->bQuickInfoHidden;

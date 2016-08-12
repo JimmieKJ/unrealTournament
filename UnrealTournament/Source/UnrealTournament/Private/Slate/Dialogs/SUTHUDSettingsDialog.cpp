@@ -22,6 +22,7 @@ const FName NAME_QuickStatsForegroundAlpha	= FName(TEXT("QuickStatsForegroundAlp
 const FName NAME_bQuickStatsHidden			= FName(TEXT("bQuickStatsHidden"));
 const FName NAME_bQuickInfoHidden			= FName(TEXT("bQuickInfoHidden"));
 const FName NAME_bHealthArcShown			= FName(TEXT("bHealthArcShown"));
+const FName NAME_HealthArcRadius			= FName(TEXT("HealthArcRadius"));
 
 const FName NAME_bHideDamageIndicators		= FName(TEXT("bHideDamageIndicators"));
 const FName NAME_bHidePaperdoll				= FName(TEXT("bHidePaperdoll"));
@@ -424,7 +425,8 @@ TSharedRef<SWidget> SUTHUDSettingsDialog::BuildGeneralTab()
 		+AddBoolOption(NAME_bQuickStatsHidden, NSLOCTEXT("SUTHUDSettingsDialog", "bQuickStatsHidden", "Show Health/Armor/Ammo on MiniHUD"), NSLOCTEXT("SUTHUDSettingsDialog", "bQuickStatsHiddenTT", "Check this box if you wish to show your health, ammo and armor on the mini-HUD."), !ProfileSettings->bQuickStatsHidden)
 		+AddBoolOption(NAME_bQuickInfoHidden, NSLOCTEXT("SUTHUDSettingsDialog", "bQuickInfoHidden", "Show Powerups/Flag on MiniHUD"), NSLOCTEXT("SUTHUDSettingsDialog", "bQuickInfoHiddenTT", "Check this box if you wish to show power up and flags on the mini-HUD."), !ProfileSettings->bQuickInfoHidden)
 		+AddBoolOption(NAME_bHideDamageIndicators, NSLOCTEXT("SUTHUDSettingsDialog", "bHideDamageIndicators", "Show Damage Dealt Indicator"), NSLOCTEXT("SUTHUDSettingsDialog", "bHideDamageIndicatorsTT", "Enable this to show the damage delt indicators that appear around the crosshair."), !ProfileSettings->bHideDamageIndicators)
-		+AddBoolOption(NAME_bHealthArcShown, NSLOCTEXT("SUTHUDSettingsDialog", "bHealthArcShown", "Show Health/Armor Arcs"), NSLOCTEXT("SUTHUDSettingsDialog", "bHealthArcShownTT", "Enable this to show the health and armor arcs around the crosshair."), ProfileSettings->bHealthArcShown);
+		+AddBoolOption(NAME_bHealthArcShown, NSLOCTEXT("SUTHUDSettingsDialog", "bHealthArcShown", "Show Health/Armor Arcs"), NSLOCTEXT("SUTHUDSettingsDialog", "bHealthArcShownTT", "Enable this to show the health and armor arcs around the crosshair."), ProfileSettings->bHealthArcShown)
+		+AddIntOption(NAME_HealthArcRadius, NSLOCTEXT("HUDSETTINGS", "HealthArcRadius", "Arc Radius:"), NSLOCTEXT("SUTHUDSettingsDialog", "HealthArcRadiusTT", "Set radius of Health/Armor arcs."), NSLOCTEXT("SUTHUDSettingsDialog", "Units", ""), ProfileSettings->HealthArcRadius, 15, 100);
 }
 
 TSharedRef<SWidget> SUTHUDSettingsDialog::BuildWeaponBarTab()
@@ -656,6 +658,7 @@ void SUTHUDSettingsDialog::ApplySettings()
 		ProfileSettings->bQuickStatsHidden = !SettingsInfos[NAME_bQuickStatsHidden]->GetActualValue_bool();
 		ProfileSettings->bQuickInfoHidden = !SettingsInfos[NAME_bQuickInfoHidden]->GetActualValue_bool();
 		ProfileSettings->bHealthArcShown = SettingsInfos[NAME_bHealthArcShown]->GetActualValue_bool();
+		ProfileSettings->HealthArcRadius = SettingsInfos[NAME_HealthArcRadius]->GetActualValue_int32();
 
 		ProfileSettings->bHideDamageIndicators = !SettingsInfos[NAME_bHideDamageIndicators]->GetActualValue_bool();
 		ProfileSettings->bVerticalWeaponBar = SelectedWeaponBarOrientation->GetText().ToString().Equals(*WeaponBarOrientationList[1].Get(), ESearchCase::IgnoreCase) ? false : true;

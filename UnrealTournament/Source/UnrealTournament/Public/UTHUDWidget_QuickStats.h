@@ -321,9 +321,6 @@ protected:
 		FHUDRenderObject_Texture HealthPip;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "HealthBar")
-		float InfoBarRadius;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "HealthBar")
 		float AngleDelta;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "HealthBar")
