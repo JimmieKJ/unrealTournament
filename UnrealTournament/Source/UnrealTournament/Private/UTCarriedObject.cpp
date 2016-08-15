@@ -639,16 +639,16 @@ void AUTCarriedObject::Drop(AController* Killer)
 		TGuardValue<bool> DropGuard(bIsDropping, true);
 		NoLongerHeld(Killer);
 	}
-
-	// Toss is out
-	TossObject(LastHoldingPawn);
-
 	if (HomeBase != NULL)
 	{
 		HomeBase->ObjectWasDropped(LastHoldingPawn);
 	}
 	ChangeState(CarriedObjectState::Dropped);
-	if (bGradualAutoReturn && (PastPositions.Num() > 0))
+
+	// Toss is out
+	TossObject(LastHoldingPawn);
+
+	if (bGradualAutoReturn && (PastPositions.Num() > 0) && (Holder == nullptr))
 	{
 		if ((GetActorLocation() - PastPositions[PastPositions.Num() - 1].Location).Size() < MinGradualReturnDist)
 		{
@@ -697,19 +697,13 @@ void AUTCarriedObject::PutGhostFlagAt(FFlagTrailPos NewPosition)
 {
 	if (GhostFlagClass && !IsPendingKillPending())
 	{
-		if ((MyGhostFlag == nullptr) || MyGhostFlag->IsPendingKillPending())
+		ClearGhostFlag();
+		FActorSpawnParameters Params;
+		Params.Owner = this;
+		MyGhostFlag = GetWorld()->SpawnActor<AUTGhostFlag>(GhostFlagClass, NewPosition.Location, GetActorRotation(), Params);
+		if (MyGhostFlag)
 		{
-			FActorSpawnParameters Params;
-			Params.Owner = this;
-			MyGhostFlag = GetWorld()->SpawnActor<AUTGhostFlag>(GhostFlagClass, NewPosition.Location, GetActorRotation(), Params);
-			if (MyGhostFlag)
-			{
-				MyGhostFlag->SetCarriedObject(this, NewPosition);
-			}
-		}
-		else
-		{
-			MyGhostFlag->MoveTo(NewPosition);
+			MyGhostFlag->SetCarriedObject(this, NewPosition);
 		}
 	}
 }
@@ -725,6 +719,12 @@ void AUTCarriedObject::SendHome()
 	NoLongerHeld();
 	if (bGradualAutoReturn && (PastPositions.Num() > 0) && (Role == ROLE_Authority))
 	{
+		AUTGameState* GameState = GetWorld()->GetGameState<AUTGameState>();
+		if (!GameState->IsMatchInProgress() || GameState->IsMatchIntermission())
+		{
+			// don't gradual return during intermissions
+			return;
+		}
 		if ((GetActorLocation() - PastPositions[PastPositions.Num() - 1].Location).Size() < MinGradualReturnDist)
 		{
 			PastPositions.RemoveAt(PastPositions.Num() - 1);
@@ -751,7 +751,6 @@ void AUTCarriedObject::SendHome()
 					bWantsGhostFlag = true;
 				}
 			}
-			AUTGameState* GameState = GetWorld()->GetGameState<AUTGameState>();
 			if ((GetWorld()->GetTimeSeconds() - LastDroppedMessageTime > AutoReturnTime - 2.f) && GameState && !GameState->IsMatchIntermission() && !GameState->HasMatchEnded())
 			{
 				LastDroppedMessageTime = GetWorld()->GetTimeSeconds();

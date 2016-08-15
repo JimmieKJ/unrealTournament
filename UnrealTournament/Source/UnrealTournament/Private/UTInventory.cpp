@@ -119,6 +119,11 @@ void AUTInventory::Destroyed()
 	Super::Destroyed();
 }
 
+bool AUTInventory::AllowPickupBy(AUTCharacter* Other) const 
+{ 
+	return true; 
+}
+
 void AUTInventory::GivenTo(AUTCharacter* NewOwner, bool bAutoActivate)
 {
 	Instigator = NewOwner;
@@ -280,6 +285,11 @@ bool AUTInventory::StackPickup_Implementation(AUTInventory* ContainedInv)
 	return false;
 }
 
+bool AUTInventory::HandleGivenTo_Implementation(AUTCharacter* NewOwner)
+{
+	return false;
+}
+
 bool AUTInventory::ModifyDamageTaken_Implementation(int32& Damage, FVector& Momentum, AUTInventory*& HitArmor, AController* InstigatedBy, const FHitResult& HitInfo, AActor* DamageCauser, TSubclassOf<UDamageType> DamageType)
 {
 	return false;
@@ -302,7 +312,8 @@ bool AUTInventory::PreventHeadShot_Implementation(FVector HitLocation, FVector S
 
 bool AUTInventory::ShouldDisplayHitEffect_Implementation(int32 AttemptedDamage, int32 DamageAmount, int32 FinalHealth, int32 FinalArmor)
 {
-	return (FinalHealth > 0) && ((FinalHealth + FinalArmor > 90) || (AttemptedDamage > 90));
+	int32 StartingStack = AttemptedDamage + FinalHealth + FinalArmor;
+	return ((FinalArmor > 50) || (StartingStack > 110)) && (FinalHealth > 0) && ((FinalHealth + FinalArmor > 90) || (AttemptedDamage > 90));
 }
 
 void AUTInventory::OwnerEvent_Implementation(FName EventName)

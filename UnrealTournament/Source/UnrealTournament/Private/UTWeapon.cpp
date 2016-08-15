@@ -110,6 +110,9 @@ AUTWeapon::AUTWeapon(const FObjectInitializer& ObjectInitializer)
 	LowAmmoSoundDelay = 0.2f;
 	LowAmmoThreshold = 3;
 	FireSoundAmp = SAT_WeaponFire;
+
+	WeaponSkinCustomizationTag = NAME_None;
+
 }
 
 void AUTWeapon::PostInitProperties()
@@ -302,8 +305,8 @@ void AUTWeapon::ClientGivenTo_Internal(bool bAutoActivate)
 	AUTPlayerController *UTPC = Cast<AUTPlayerController>(UTOwner->Controller);
 	if (UTPC != NULL)
 	{
-		AutoSwitchPriority = UTPC->GetWeaponAutoSwitchPriority(GetNameSafe(this), AutoSwitchPriority);
-		UTPC->SetWeaponGroup(this);
+		AutoSwitchPriority = UTPC->GetWeaponAutoSwitchPriority(this);
+		Group = UTPC->GetWeaponGroup(this);
 	}
 
 	// assign GroupSlot if required
@@ -561,6 +564,16 @@ void AUTWeapon::BringUp(float OverflowTime)
 	AttachToOwner();
 	OnBringUp();
 	CurrentState->BringUp(OverflowTime);
+
+	if (ActiveCrosshair == nullptr)
+	{
+		AUTPlayerController* UTPlayerController = Cast<AUTPlayerController>(UTOwner->Controller);
+		if (UTPlayerController != nullptr && UTPlayerController->MyUTHUD != nullptr)
+		{
+			ActiveCrosshair = UTPlayerController->MyUTHUD->GetCrosshairForWeapon(WeaponCustomizationTag, ActiveCrosshairCustomizationInfo);			
+		}
+	}
+
 }
 
 float AUTWeapon::GetPutDownTime()
@@ -583,6 +596,13 @@ bool AUTWeapon::PutDown()
 	{
 		SetZoomState(EZoomState::EZS_NotZoomed);
 		CurrentState->PutDown();
+
+		// Clear out the active crosshair
+		if (ActiveCrosshair == nullptr)
+		{
+			ActiveCrosshair = nullptr;
+		}
+
 		return true;
 	}
 }
@@ -932,8 +952,16 @@ FHitResult AUTWeapon::GetImpactEffectHit(APawn* Shooter, const FVector& StartLoc
 
 void AUTWeapon::GetImpactSpawnPosition(const FVector& TargetLoc, FVector& SpawnLocation, FRotator& SpawnRotation)
 {
-	SpawnLocation = (MuzzleFlash.IsValidIndex(CurrentFireMode) && MuzzleFlash[CurrentFireMode] != NULL) ? MuzzleFlash[CurrentFireMode]->GetComponentLocation() : UTOwner->GetActorLocation() + UTOwner->GetControlRotation().RotateVector(FireOffset);
-	SpawnRotation = (MuzzleFlash.IsValidIndex(CurrentFireMode) && MuzzleFlash[CurrentFireMode] != NULL) ? MuzzleFlash[CurrentFireMode]->GetComponentRotation() : (TargetLoc - SpawnLocation).Rotation();
+	if (UTOwner != NULL && (GetWeaponHand() == EWeaponHand::HAND_Hidden || ZoomState != EZoomState::EZS_NotZoomed))
+	{
+		SpawnRotation = UTOwner->CharacterCameraComponent->GetComponentRotation();
+		SpawnLocation = UTOwner->CharacterCameraComponent->GetComponentLocation() + SpawnRotation.RotateVector(FVector(-50.0f, 0.0f, -50.0f));
+	}
+	else
+	{
+		SpawnLocation = (MuzzleFlash.IsValidIndex(CurrentFireMode) && MuzzleFlash[CurrentFireMode] != NULL) ? MuzzleFlash[CurrentFireMode]->GetComponentLocation() : UTOwner->GetActorLocation() + UTOwner->GetControlRotation().RotateVector(FireOffset);
+		SpawnRotation = (MuzzleFlash.IsValidIndex(CurrentFireMode) && MuzzleFlash[CurrentFireMode] != NULL) ? MuzzleFlash[CurrentFireMode]->GetComponentRotation() : (TargetLoc - SpawnLocation).Rotation();
+	}
 }
 
 bool AUTWeapon::CancelImpactEffect(const FHitResult& ImpactHit) const
@@ -1037,7 +1065,15 @@ void AUTWeapon::FireShot()
 
 bool AUTWeapon::IsFiring() const
 {
-	return CurrentState->IsFiring();
+	// first person spectating needs to use the replicated info from the owner
+	if (Role < ROLE_Authority && UTOwner != nullptr && UTOwner->Role < ROLE_AutonomousProxy && UTOwner->Controller == nullptr && CurrentState == InactiveState)
+	{
+		return UTOwner->FlashCount > 0 || !UTOwner->FlashLocation.IsZero();
+	}
+	else
+	{
+		return CurrentState->IsFiring();
+	}
 }
 
 void AUTWeapon::AddAmmo(int32 Amount)
@@ -1313,14 +1349,26 @@ void AUTWeapon::GuessPlayerTarget(const FVector& StartFireLoc, const FVector& Fi
 			AUTCarriedObject* Flag = TargetedCharacter->GetCarriedObject();
 			if (Flag && Flag->bShouldPingFlag)
 			{
-					if ((GetWorld()->GetTimeSeconds() - Flag->LastPingVerbalTime > 12.f) && (GetWorld()->GetTimeSeconds() - Flag->LastPingedTime > Flag->PingedDuration))
+				if (PS && (GetWorld()->GetTimeSeconds() - Flag->LastPingVerbalTime > 12.f) && (GetWorld()->GetTimeSeconds() - Flag->LastPingedTime > Flag->PingedDuration))
 				{
 					Flag->LastPingVerbalTime = GetWorld()->GetTimeSeconds();
-					if (PS)
+					AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
+					if (GS)
+					{
+						GS->LastEnemyLocationReportTime = GetWorld()->GetTimeSeconds();
+					}
+					AUTGameVolume* GV = TargetedCharacter->UTCharacterMovement ? Cast<AUTGameVolume>(TargetedCharacter->UTCharacterMovement->GetPhysicsVolume()) : nullptr;
+					if (GV && (GV->VoiceLinesSet != NAME_None))
+					{
+						PS->AnnounceStatus(GV->VoiceLinesSet, 0);
+						GS->LastEnemyLocationName = GV->VoiceLinesSet;
+					}
+					else
 					{
 						PS->AnnounceStatus(StatusMessage::EnemyFCHere);
 					}
 				}
+				Flag->LastPinger = PS ? PS : Flag->LastPinger;
 				Flag->LastPingedTime = GetWorld()->GetTimeSeconds();
 			}
 		}
@@ -1819,14 +1867,14 @@ void AUTWeapon::UpdateViewBob(float DeltaTime)
 	if (MyPC != NULL && Mesh != NULL && UTOwner->GetWeapon() == this && ShouldPlay1PVisuals())
 	{
 		// if weapon is up in first person, view bob with movement
+		USkeletalMeshComponent* BobbedMesh = (HandsAttachSocket != NAME_None) ? UTOwner->FirstPersonMesh : Mesh;
+		if (FirstPMeshOffset.IsZero())
+		{
+			FirstPMeshOffset = BobbedMesh->GetRelativeTransform().GetLocation();
+			FirstPMeshRotation = BobbedMesh->GetRelativeTransform().Rotator();
+		}
 		if (GetWeaponHand() != EWeaponHand::HAND_Hidden)
 		{
-			USkeletalMeshComponent* BobbedMesh = (HandsAttachSocket != NAME_None) ? UTOwner->FirstPersonMesh : Mesh;
-			if (FirstPMeshOffset.IsZero())
-			{
-				FirstPMeshOffset = BobbedMesh->GetRelativeTransform().GetLocation();
-				FirstPMeshRotation = BobbedMesh->GetRelativeTransform().Rotator();
-			}
 			FVector ScaledMeshOffset = FirstPMeshOffset;
 			const float FOVScaling = (MyPC != NULL) ? ((MyPC->PlayerCameraManager->GetFOVAngle() - 100.f) * 0.05f) : 1.0f;
 			if (FOVScaling > 0.f)
@@ -1857,6 +1905,7 @@ void AUTWeapon::UpdateViewBob(float DeltaTime)
 		{
 			// for first person footsteps
 			UTOwner->GetWeaponBobOffset(DeltaTime, this);
+			BobbedMesh->SetRelativeLocation(FirstPMeshOffset + UTOwner->EyeOffset);
 		}
 	}
 }
@@ -1976,43 +2025,28 @@ void AUTWeapon::DrawWeaponCrosshair_Implementation(UUTHUDWidget* WeaponHudWidget
 		bDrawCrosshair = FiringState[i]->DrawHUD(WeaponHudWidget) && bDrawCrosshair;
 	}
 
-	// for debugging crosshair centering
-	//WeaponHudWidget->UTHUDOwner->DrawLine(0.f, WeaponHudWidget->GetCanvas()->SizeY*0.5f, WeaponHudWidget->GetCanvas()->SizeX - 8.f, WeaponHudWidget->GetCanvas()->SizeY*0.5f, FLinearColor::Yellow);
-	//WeaponHudWidget->UTHUDOwner->DrawLine(WeaponHudWidget->GetCanvas()->SizeX*0.5f, 0.f, WeaponHudWidget->GetCanvas()->SizeX*0.5f, WeaponHudWidget->GetCanvas()->SizeY, FLinearColor::Yellow);
-
-	if (bDrawCrosshair && WeaponHudWidget && WeaponHudWidget->UTHUDOwner)
+	if (bDrawCrosshair)
 	{
-		UTexture2D* CrosshairTexture = WeaponHudWidget->UTHUDOwner->DefaultCrosshairTex;
-		if (CrosshairTexture != NULL)
+		if (ActiveCrosshair != nullptr)
 		{
-			float W = CrosshairTexture->GetSurfaceWidth();
-			float H = CrosshairTexture->GetSurfaceHeight();
-			float CrosshairScale = GetCrosshairScale(WeaponHudWidget->UTHUDOwner);
-
-			// draw a different indicator if there is a friendly where the camera is pointing
-			AUTPlayerState* PS;
-			if (ShouldDrawFFIndicator(WeaponHudWidget->UTHUDOwner->PlayerOwner, PS))
+			ActiveCrosshair->NativeDrawCrosshair(WeaponHudWidget->GetCanvas(), this, RenderDelta, ActiveCrosshairCustomizationInfo);
+		}
+		else
+		{
+			// fall back crosshair
+			UTexture2D* CrosshairTexture = WeaponHudWidget->UTHUDOwner->DefaultCrosshairTex;
+			if (CrosshairTexture != NULL)
 			{
-				WeaponHudWidget->DrawTexture(WeaponHudWidget->UTHUDOwner->HUDAtlas, 0, 0, W * CrosshairScale, H * CrosshairScale, 407, 940, 72, 72, 1.0, FLinearColor::Green, FVector2D(0.5f, 0.5f));
-			}
-			else
-			{
-				UUTCrosshair* Crosshair = WeaponHudWidget->UTHUDOwner->GetCrosshair(GetClass());
-				FCrosshairInfo* CrosshairInfo = WeaponHudWidget->UTHUDOwner->GetCrosshairInfo(GetClass());
+				float W = CrosshairTexture->GetSurfaceWidth();
+				float H = CrosshairTexture->GetSurfaceHeight();
+				float CrosshairScale = WeaponHudWidget->UTHUDOwner->GetCrosshairScale();
 
-				if (Crosshair != nullptr && CrosshairInfo != nullptr)
-				{
-					Crosshair->DrawCrosshair(WeaponHudWidget->GetCanvas(), this, RenderDelta, GetCrosshairScale(WeaponHudWidget->UTHUDOwner) * CrosshairInfo->Scale, WeaponHudWidget->UTHUDOwner->GetCrosshairColor(CrosshairInfo->Color));
-				}
-				else
-				{
-					WeaponHudWidget->DrawTexture(CrosshairTexture, 0, 0, W * CrosshairScale, H * CrosshairScale, 0.0, 0.0, 16, 16, 1.0, GetCrosshairColor(WeaponHudWidget), FVector2D(0.5f, 0.5f));
-				}
-				UpdateCrosshairTarget(PS, WeaponHudWidget, RenderDelta);
+				WeaponHudWidget->DrawTexture(CrosshairTexture, 0, 0, W * CrosshairScale, H * CrosshairScale, 0.0, 0.0, 16, 16, 1.0, WeaponHudWidget->UTHUDOwner->GetCrosshairColor(FLinearColor::White), FVector2D(0.5f, 0.5f));
 			}
 		}
 	}
 }
+
 
 void AUTWeapon::UpdateCrosshairTarget(AUTPlayerState* NewCrosshairTarget, UUTHUDWidget* WeaponHudWidget, float RenderDelta)
 {
@@ -2157,27 +2191,21 @@ void AUTWeapon::UpdateOverlays()
 
 void AUTWeapon::SetSkin(UMaterialInterface* NewSkin)
 {
-	// FIXME: workaround for poor GetNumMaterials() implementation
-	int32 NumMats = Mesh->GetNumMaterials();
-	if (Mesh->SkeletalMesh != NULL)
-	{
-		NumMats = FMath::Max<int32>(NumMats, Mesh->SkeletalMesh->Materials.Num());
-	}
 	// save off existing materials if we haven't yet done so
-	while (SavedMeshMaterials.Num() < NumMats)
+	while (SavedMeshMaterials.Num() < Mesh->GetNumMaterials())
 	{
 		SavedMeshMaterials.Add(Mesh->GetMaterial(SavedMeshMaterials.Num()));
 	}
 	if (NewSkin != NULL)
 	{
-		for (int32 i = 0; i < NumMats; i++)
+		for (int32 i = 0; i < Mesh->GetNumMaterials(); i++)
 		{
 			Mesh->SetMaterial(i, NewSkin);
 		}
 	}
 	else
 	{
-		for (int32 i = 0; i < NumMats; i++)
+		for (int32 i = 0; i < Mesh->GetNumMaterials(); i++)
 		{
 			Mesh->SetMaterial(i, SavedMeshMaterials[i]);
 		}

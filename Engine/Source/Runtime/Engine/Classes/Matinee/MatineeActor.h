@@ -49,8 +49,8 @@ struct FInterpGroupActorInfo
 
 };
 
-UCLASS(MinimalAPI, NotBlueprintable, hidecategories=(Collision, Game, Input), showcategories=("Input|MouseInput", "Input|TouchInput", "Game|Damage"))
-class AMatineeActor : public AActor
+UCLASS(NotBlueprintable, hidecategories=(Collision, Game, Input), showcategories=("Input|MouseInput", "Input|TouchInput", "Game|Damage"))
+class ENGINE_API AMatineeActor : public AActor
 {
 	GENERATED_UCLASS_BODY()
 
@@ -212,13 +212,13 @@ private:
 public:
 
 	/** Increment the count to ignore internal matinee actor selection */
-	ENGINE_API static void PushIgnoreActorSelection();
+	static void PushIgnoreActorSelection();
 
 	/** Decrement the count to ignore internal matinee actor selection */
-	ENGINE_API static void PopIgnoreActorSelection();
+	static void PopIgnoreActorSelection();
 
 	/** @return Should we ignore internal matinee actor selection? */
-	ENGINE_API static bool IgnoreActorSelection();
+	static bool IgnoreActorSelection();
 
 	/**
 	 * Check if we should perform a network positional update of this matinee
@@ -253,7 +253,7 @@ public:
 	 * @param bJump if true, teleport to the new position (don't trigger any events between the old and new positions, etc)
 	 */
 	UFUNCTION(BlueprintCallable, Category="Cinematic")
-	ENGINE_API void SetPosition(float NewPosition, bool bJump = false);
+	void SetPosition(float NewPosition, bool bJump = false);
 
 	/** Changes the direction of playback (go in reverse if it was going forward, or vice versa) */
 	UFUNCTION(BlueprintCallable, Category="Cinematic")
@@ -265,7 +265,7 @@ public:
 
 #if WITH_EDITOR
 	/** Fix up our references to any objects that have been replaced (e.g. through blueprint compiling) */
-	ENGINE_API void OnObjectsReplaced(const TMap<UObject*,UObject*>& ReplacementMap);
+	void OnObjectsReplaced(const TMap<UObject*,UObject*>& ReplacementMap);
 #endif //WITH_EDITOR
 
 	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
@@ -347,16 +347,16 @@ public:
 	//~ End UObject Interface
 
 	/** Increment track forwards by given timestep and iterate over each track updating any properties. */
-	ENGINE_API void StepInterp(float DeltaTime, bool bPreview=false);
+	void StepInterp(float DeltaTime, bool bPreview=false);
 
 	/** Move interpolation to new position and iterate over each track updating any properties. */
-	ENGINE_API void UpdateInterp(float NewPosition, bool bPreview=false, bool bJump=false);
+	void UpdateInterp(float NewPosition, bool bPreview=false, bool bJump=false);
 
 	/** For each InterGroup/Actor combination, create a UInterpGroupInst, assign  AActor  and initialise each track. */
-	ENGINE_API void InitInterp();
+	void InitInterp();
 
 	/** Destroy all UInterpGroupInst. */
-	ENGINE_API void TermInterp();
+	void TermInterp();
 
 	/** Scan the matinee data for camera cuts and sets up the CameraCut array. */
 	void SetupCameraCuts();
@@ -380,7 +380,7 @@ public:
 	void GetAffectedActors( TArray<AActor*>& OutActors, bool bMovementTrackOnly );
 
 	/** Get all actors controlled by this matinee. Iterates over GroupActorInfos and finds all referenced actors, regardless of matinee state. */
-	ENGINE_API void GetControlledActors(TArray<AActor*>& OutActors);
+	void GetControlledActors(TArray<AActor*>& OutActors);
 
 	/**
 	 *	Update the streaming system with the camera locations for the upcoming camera cuts, so
@@ -405,75 +405,75 @@ public:
 	bool IsMatineeCompatibleWithPlayer( APlayerController* InPC ) const;
 
 	/** @return a group instance referring to the supplied Actor. Returns NULL if no group can be found. */
-	ENGINE_API UInterpGroupInst* FindGroupInst(const AActor* InActor) const;
+	UInterpGroupInst* FindGroupInst(const AActor* InActor) const;
 
 
 
 #if WITH_EDITOR
 
 	/** Ensure that the group to actor mapping is consistent with the interp data groups */
-	ENGINE_API void EnsureActorGroupConsistency();
+	void EnsureActorGroupConsistency();
 
 	/** Validate All Actors in the group **/
 	void ValidateActorGroups();
 
 	/** Replace Group Actors */
-	ENGINE_API void ReplaceActorGroupInfo(class UInterpGroup * Group, AActor* OldActor, AActor* NewActor);
+	void ReplaceActorGroupInfo(class UInterpGroup * Group, AActor* OldActor, AActor* NewActor);
 
 	/** Delete Group Actors */
-	ENGINE_API void DeleteActorGroupInfo(class UInterpGroup * Group, AActor* ActorToDelete);
+	void DeleteActorGroupInfo(class UInterpGroup * Group, AActor* ActorToDelete);
 
 	/** Rename groupinfo **/
-	ENGINE_API void DeleteGroupinfo(class UInterpGroup * GroupToDelete);
+	void DeleteGroupinfo(class UInterpGroup * GroupToDelete);
 
 	/** Save whether or not the passed in actor is hidden so we can restore it later */
 	void SaveActorVisibility( AActor*  AActor  );
 
 	/** return if this actor is valid to add **/
-	ENGINE_API EActorAddWarningType IsValidActorToAdd(const AActor* NewActor) const;
+	EActorAddWarningType IsValidActorToAdd(const AActor* NewActor) const;
 
 	/**
 	 * Conditionally save state for the specified actor and its children
 	 */
-	ENGINE_API void ConditionallySaveActorState( UInterpGroupInst* GroupInst, AActor*  AActor  );
+	void ConditionallySaveActorState( UInterpGroupInst* GroupInst, AActor*  AActor  );
 
 	/**
 	 * Add the specified actor and any actors attached to it to the list
 	 * of saved actor transforms.  Does nothing if an actor has already
 	 * been saved.
 	 */
-	ENGINE_API void SaveActorTransforms( AActor*  AActor  );
+	void SaveActorTransforms( AActor*  AActor  );
 
 	/**
 	 * Apply the saved locations and rotations to all saved actors.
 	 */
-	ENGINE_API void RestoreActorTransforms();
+	void RestoreActorTransforms();
 	
 	/** Apply the saved visibility state for all saved actors */
-	ENGINE_API void RestoreActorVisibilities();
+	void RestoreActorVisibilities();
 
 	/**
 	 * Store the current scrub position, restores all saved actor transforms,
 	 * then saves off the transforms for actors referenced (directly or indirectly)
 	 * by group instances, and finally restores the scrub position.
 	 */
-	ENGINE_API void RecaptureActorState();
+	void RecaptureActorState();
 
 	/** Set up the group actor for the specified UInterpGroup. */
-	ENGINE_API void InitGroupActorForGroup(class UInterpGroup* InGroup, class AActor* GroupActor);
+	void InitGroupActorForGroup(class UInterpGroup* InGroup, class AActor* GroupActor);
 #endif
 
 	/** Find the first group instance based on the given UInterpGroup. */
-	ENGINE_API UInterpGroupInst* FindFirstGroupInst(class UInterpGroup* InGroup);
+	UInterpGroupInst* FindFirstGroupInst(class UInterpGroup* InGroup);
 
 	/** Find the first group instance based on the UInterpGroup with the given name. */
-	ENGINE_API UInterpGroupInst* FindFirstGroupInstByName(const FString& InGroupName);
+	UInterpGroupInst* FindFirstGroupInstByName(const FString& InGroupName);
 
 	/** 
 	 * If there is DirectorGroup, use it to find the viewed group at the current position, 
 	 * then the first instance of that group, and the  AActor  it is bound to. 
 	 */
-	ENGINE_API AActor* FindViewedActor();
+	AActor* FindViewedActor();
 
 	
 	void AddPlayerToDirectorTracks( class APlayerController* PC );
@@ -486,12 +486,12 @@ public:
 	virtual void NotifyEventTriggered(FName EventName, float EventTime, bool bUseCustomEventName=false);
 
 	/** Util to get the name of the function to find for the given event name */
-	ENGINE_API FName GetFunctionNameForEvent(FName EventName,bool bUseCustomEventName=false);
+	FName GetFunctionNameForEvent(FName EventName,bool bUseCustomEventName=false);
 
 public:
 #if WITH_EDITORONLY_DATA
 	/** Returns SpriteComponent subobject **/
-	ENGINE_API class UBillboardComponent* GetSpriteComponent() const;
+	class UBillboardComponent* GetSpriteComponent() const;
 #endif
 };
 

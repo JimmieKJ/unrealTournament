@@ -185,6 +185,9 @@ public:
 	UPROPERTY()
 	bool bNeedsBoostNotify;
 
+	UPROPERTY()
+		float LastRallyRequestTime;
+
 	UFUNCTION(reliable, client, BlueprintCallable, Category = PlayerController)
 	void UTClientSetRotation(FRotator NewRotation);
 
@@ -253,11 +256,14 @@ public:
 	UPROPERTY()
 		FVector RallyLocation;
 
+	UPROPERTY()
+		float EndRallyTime;
+
 	UFUNCTION(server, reliable, withvalidation)
 		virtual void ServerRequestRally();
 
 	UFUNCTION(client, reliable)
-		virtual void ClientStartRally(AUTCharacter* RallyTarget);
+		virtual void ClientStartRally(AUTCharacter* RallyTarget, const FVector& NewRallyLocation, float Delay);
 
 	UFUNCTION(client, reliable)
 		virtual void ClientCompleteRally();
@@ -265,7 +271,7 @@ public:
 	UFUNCTION(exec)
 	virtual void ToggleScoreboard(bool bShow);
 
-	virtual void BeginRallyTo(AUTCharacter* RallyTarget, float Delay);
+	virtual void BeginRallyTo(AUTCharacter* RallyTarget, const FVector& NewRallyLocation, float Delay);
 
 	FTimerHandle RallyTimerHandle;
 
@@ -287,6 +293,13 @@ public:
 	/** Attempts to restart this player, generally called from the client upon respawn request. */
 	UFUNCTION(reliable, server, WithValidation)
 	void ServerRestartPlayerAltFire();
+
+	UPROPERTY(BlueprintReadOnly, Replicated, Category = PlayerController)
+		bool bIsWarmingUp;
+
+	/** pre-match player goes in or out of warmup mode. */
+	UFUNCTION(reliable, server, WithValidation)
+		void ServerToggleWarmup();
 
 	FTimerHandle TriggerBoostTimerHandle;
 
@@ -697,8 +710,8 @@ public:
 	UPROPERTY(BlueprintReadWrite, Category = AI)
 	APawn* LastShotTargetGuess;
 
-	virtual float GetWeaponAutoSwitchPriority(FString WeaponClassname, float DefaultPriority);
-	virtual void SetWeaponGroup(class AUTWeapon* InWeapon);
+	virtual float GetWeaponAutoSwitchPriority(class AUTWeapon* InWeapon);
+	virtual int32 GetWeaponGroup(class AUTWeapon* InWeapon);
 
 	virtual void ClientRequireContentItemListComplete_Implementation() override;
 
@@ -792,7 +805,17 @@ public:
 	inline EWeaponHand GetWeaponHand() const
 	{
 		//Spectators always see right handed weapons
-		return IsInState(NAME_Spectating) ? EWeaponHand::HAND_Right : GetPreferredWeaponHand();
+		bool bIsReallySpectating = false;
+		// this is detecting edge cases where we're transitioning to controlling a Pawn but not all the data has replicated and we're still in spectating state
+		if (IsInState(NAME_Spectating) && GetPawn() == nullptr)
+		{
+			APawn* P = Cast<APawn>(GetViewTarget());
+			if (P == nullptr || P->Controller != this)
+			{
+				bIsReallySpectating = true;
+			}
+		}
+		return bIsReallySpectating ? EWeaponHand::HAND_Right : GetPreferredWeaponHand();
 	}
 
 	inline EWeaponHand GetPreferredWeaponHand() const
@@ -952,6 +975,8 @@ protected:
 
 	UFUNCTION(Reliable, Server, WithValidation)
 	void ServerActivatePowerUpPress();
+	
+	void TeamNotifiyOfPowerupUse();
 
 public:
 	/** Hold down Power-Up handling **/
@@ -1073,8 +1098,6 @@ public:
 	UPROPERTY()
 	bool bBadgeChanged;
 
-	virtual void AdvanceStatsPage(int32 Increment);
-
 	int32 DilationIndex;
 
 	UFUNCTION(client, reliable)
@@ -1091,20 +1114,6 @@ public:
 
 	/** Make sure no firing and scoreboard hidden before bringing up menu. */
 	virtual void ShowMenu(const FString& Parameters) override;
-	
-	/** used to preload things like selected character prior to players actually getting in to minimize on-join hitches
-	 * ideally the internal replication code would do this for us
-	 */
-	UFUNCTION(reliable, client)
-	void PreloadItem(const FString& ItemPath);
-
-	void PreloadComplete(const FName& PackageName, UPackage* LoadedPackage, EAsyncLoadingResult::Type Result);
-	UFUNCTION()
-	void PreloadExpired();
-	
-	// used to hold onto temporarily so they don't get GC'ed between preload and use
-	UPROPERTY()
-	TArray<UObject*> PreloadedItems;
 
 	UPROPERTY()
 	AUTCharacter* PreGhostChar;
@@ -1159,7 +1168,6 @@ public:
 
 public:
 	void SetSpectatorMouseChangesView(bool bNewValue);
-	void UpdateCrosshairs(AUTHUD* HUD);
 
 	UFUNCTION(exec)
 	void QSSetType(const FName& Tag);
@@ -1250,6 +1258,16 @@ protected:
 	void DumpMapVote();
 
 
+public:
+	// Will return true if this player can perform a rally
+	bool CanPerformRally();
+
+
+protected:
+	void InitializeHeartbeatManager();
+
+	UPROPERTY()
+	class UUTHeartbeatManager* HeartbeatManager;
 };
 
 

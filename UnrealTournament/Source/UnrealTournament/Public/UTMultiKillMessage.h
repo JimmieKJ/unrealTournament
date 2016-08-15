@@ -30,7 +30,6 @@ class UNREALTOURNAMENT_API UUTMultiKillMessage : public UUTLocalMessage
 		AnnouncementNames.Add(TEXT("UltraKill"));
 		AnnouncementNames.Add(TEXT("MonsterKill"));
 
-		bIsSpecial = true;
 		bIsUnique = true;
 		bIsConsoleMessage = false;
 		Lifetime = 3.0f;
@@ -77,4 +76,16 @@ class UNREALTOURNAMENT_API UUTMultiKillMessage : public UUTLocalMessage
 	{
 		return MessageIndex == AnnouncementText.Num() - 1;
 	}
+
+	virtual FString GetAnnouncementUMGClassname(int32 Switch, const UObject* OptionalObject) const override
+	{
+		if (Switch == 3) 
+		{
+			UE_LOG(UT,Log,TEXT("Here"));
+			return TEXT("/Game/RestrictedAssets/UI/UMGHudElements/UTUMG_MonsterKill.UTUMG_MonsterKill");
+		}
+		return Super::GetAnnouncementUMGClassname(Switch, OptionalObject);
+	}
+	
+
 };

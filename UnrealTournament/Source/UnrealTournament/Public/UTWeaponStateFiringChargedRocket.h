@@ -50,6 +50,7 @@ class UNREALTOURNAMENT_API UUTWeaponStateFiringChargedRocket : public UUTWeaponS
 		ChargeTime = 0.0f;
 		bCharging = false;
 		RocketLauncher->NumLoadedRockets = 0;
+		RocketLauncher->NumLoadedBarrels = 0;
 		GetOuterAUTWeapon()->GetWorldTimerManager().ClearTimer(RefireCheckHandle);
 		GetOuterAUTWeapon()->GetWorldTimerManager().ClearTimer(GraceTimerHandle);
 		GetOuterAUTWeapon()->GetWorldTimerManager().ClearTimer(LoadTimerHandle);
@@ -68,7 +69,7 @@ class UNREALTOURNAMENT_API UUTWeaponStateFiringChargedRocket : public UUTWeaponS
 			//Fire delay for shooting one alternate rocket
 			EndFiringSequence(GetFireMode());
 		}
-		else if (RocketLauncher->NumLoadedRockets >= RocketLauncher->MaxLoadedRockets || !RocketLauncher->HasAmmo(GetFireMode()))
+		else if (RocketLauncher->NumLoadedBarrels >= RocketLauncher->MaxLoadedRockets)
 		{
 			//If we are fully loaded or out of ammo start the grace timer
 			// since ammo consumption is not locally simulated the client won't know if it needs to stop loading rockets early and thus we need to tell it
@@ -84,7 +85,6 @@ class UNREALTOURNAMENT_API UUTWeaponStateFiringChargedRocket : public UUTWeaponS
 		else
 		{
 			RocketLauncher->BeginLoadRocket();
-
 			GetOuterAUTWeapon()->GetWorldTimerManager().SetTimer(LoadTimerHandle, this, &UUTWeaponStateFiringChargedRocket::LoadTimer, RocketLauncher->GetLoadTime(RocketLauncher->NumLoadedRockets), false);
 		}
 	}
@@ -107,6 +107,7 @@ class UNREALTOURNAMENT_API UUTWeaponStateFiringChargedRocket : public UUTWeaponS
 			}
 		}
 	}
+
 	virtual void GraceTimer()
 	{
 		EndFiringSequence(GetFireMode());

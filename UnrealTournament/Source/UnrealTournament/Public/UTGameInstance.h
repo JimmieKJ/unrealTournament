@@ -198,5 +198,8 @@ protected:
 	virtual EVisibility GetLevelLoadAnyKeyVisibility() const;
 #endif
 
+public:
+	virtual void CloseAllRedirectDownloadDialogs();
+
 };
 

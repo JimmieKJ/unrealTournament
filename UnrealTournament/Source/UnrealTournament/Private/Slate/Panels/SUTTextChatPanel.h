@@ -8,6 +8,7 @@
 #include "UTLobbyMatchInfo.h"
 #include "../Widgets/SUTButton.h"
 #include "../Widgets/SUTComboButton.h"
+#include "../Widgets/SUTMenuAnchor.h"
 #include "UTGameEngine.h"
 
 #define MAX_CHAT_LINES = 1000;
@@ -229,7 +230,6 @@ protected:
 	void ChatTextCommited(const FText& NewText, ETextCommit::Type CommitType);
 
 	FChatDestinationChangedDelegate ChatDestinationChangedDelegate;
-
 };
 
 #endif

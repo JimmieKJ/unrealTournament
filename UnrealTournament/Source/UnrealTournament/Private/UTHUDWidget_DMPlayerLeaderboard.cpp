@@ -53,7 +53,7 @@ void UUTHUDWidget_DMPlayerLeaderboard::Draw_Implementation(float DeltaTime)
 
 bool UUTHUDWidget_DMPlayerLeaderboard::ShouldDraw_Implementation(bool bShowScores)
 {
-	return Super::ShouldDraw_Implementation(bShowScores) && !UTHUDOwner->bDrawMinimap;
+	return Super::ShouldDraw_Implementation(bShowScores) && !UTHUDOwner->bDrawMinimap && UTGameState && UTGameState->HasMatchStarted();
 }
 
 void UUTHUDWidget_DMPlayerLeaderboard::DrawPlayer(float& YPosition, int32 PlayerIndex, AUTPlayerState* OwnerPS)

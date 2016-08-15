@@ -26,7 +26,7 @@ class UNREALTOURNAMENT_API UUTTimerMessage : public UUTLocalMessage
 		bIsUnique = true;
 		Lifetime = 2.0f;
 		bIsStatusAnnouncement = true;
-		bOptionalSpoken = true; // @TODO FIXMESTEVE - depends on the message - some should just delay!
+		bOptionalSpoken = true; 
 
 		CountDownText.Add( NSLOCTEXT("UTTimerMessage","Text1","1..."));
 		CountDownText.Add( NSLOCTEXT("UTTimerMessage","Text2","2..."));
@@ -59,6 +59,11 @@ class UNREALTOURNAMENT_API UUTTimerMessage : public UUTLocalMessage
 		CountDownAnnouncements.Add(TEXT("1MinRemains"));
 		CountDownAnnouncements.Add(TEXT("3MinRemains"));
 		CountDownAnnouncements.Add(TEXT("FiveMinuteWarning"));
+	}
+
+	virtual bool IsOptionalSpoken(int32 MessageIndex) const override
+	{
+		return bOptionalSpoken && (MessageIndex < 11);
 	}
 
 	virtual FName GetAnnouncementName_Implementation(int32 Switch, const UObject* OptionalObject, const class APlayerState* RelatedPlayerState_1, const class APlayerState* RelatedPlayerState_2) const override

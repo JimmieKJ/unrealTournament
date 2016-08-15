@@ -311,15 +311,15 @@ void AUTLobbyPC::ClientReceiveRedirect_Implementation(const FPackageRedirectRefe
 	}
 }
 
-void AUTLobbyPC::DirectSay(const FString& Message)
+bool AUTLobbyPC::ForwardDirectSay(AUTPlayerState* SenderPlayerState, FString& Message)
 {
 	// look to see if there is a remote player..
 
 	AUTLobbyGameState* LobbyGameState = GetWorld()->GetGameState<AUTLobbyGameState>();
 	if (LobbyGameState && LobbyGameState->SendSayToInstance(PlayerState->PlayerName, Message))
 	{
-		return;
+		return true;
 	}
 
-	Super::DirectSay(Message);
+	return false;
 }

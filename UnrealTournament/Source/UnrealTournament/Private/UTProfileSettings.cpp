@@ -7,335 +7,253 @@
 UUTProfileSettings::UUTProfileSettings(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
 {
-	PlayerName = TEXT("Player");
-	bSuppressToastsInGame = false;
-
 	bNeedProfileWriteOnLevelChange = false;
-
-	ReplayCustomBloomIntensity = 0.2f;
-	ReplayCustomDOFScale = 1.0f;
-
-	Avatar = FName("UT.Avatar.0");
-
-	ResetHUD();
 }
 
-void UUTProfileSettings::ClearWeaponPriorities()
+
+void UUTProfileSettings::ResetProfile(EProfileResetType::Type SectionToReset)
 {
-	WeaponPriorities.Empty();
+	AUTPlayerController* DefaultUTPlayerController = AUTPlayerController::StaticClass()->GetDefaultObject<AUTPlayerController>();
+	UUTPlayerInput* DefaultUTPlayerInput = UUTPlayerInput::StaticClass()->GetDefaultObject<UUTPlayerInput>();
+	UInputSettings* DefaultInputSettings = UInputSettings::StaticClass()->GetDefaultObject<UInputSettings>();
+
+	if (SectionToReset == EProfileResetType::All || SectionToReset == EProfileResetType::Character)
+	{
+		PlayerName = TEXT("Player");
+		HatPath = TEXT("");
+		LeaderHatPath = TEXT("");
+		HatVariant = 0;
+		EyewearPath = TEXT("");
+		EyewearVariant = 0;
+		TauntPath = TEXT("/Game/RestrictedAssets/Blueprints/Taunts/Taunt_Boom.Taunt_Boom_C");
+		Taunt2Path = TEXT("/Game/RestrictedAssets/Blueprints/Taunts/Taunt_Bow.Taunt_Bow_C");
+		CharacterPath = TEXT("");
+		CountryFlag = FName(TEXT("Unreal"));
+		Avatar = FName("UT.Avatar.0");
+
+		WeaponBob = 1.0f;
+		ViewBob = 1.0f;
+		FFAPlayerColor = FLinearColor(0.020845f, 0.335f, 0.0f, 1.0f);
+		PlayerFOV = 100.0f;
+	}
+
+	if (SectionToReset == EProfileResetType::All || SectionToReset == EProfileResetType::Challenges)
+	{
+		LocalXP = 0;
+		ChallengeResults.Empty();
+		UnlockedDailyChallenges.Empty();
+	}
+
+	if (SectionToReset == EProfileResetType::All || SectionToReset == EProfileResetType::HUD)
+	{
+		QuickStatsAngle = 180.0f;
+		QuickStatsDistance = 0.08f;
+		QuickStatsType = EQuickStatsLayouts::Arc;
+		QuickStatsBackgroundAlpha = 0.15;
+		QuickStatsForegroundAlpha = 1.0f;
+		bQuickStatsHidden = true;
+		bQuickInfoHidden = false;
+		bHealthArcShown = false;
+		QuickStatsScaleOverride = 0.75f;
+		HealthArcRadius = 60;
+
+		bHideDamageIndicators = false;
+		bHidePaperdoll = true;
+		bVerticalWeaponBar = false;
+
+		HUDWidgetOpacity = 1.0f;
+		HUDWidgetBorderOpacity = 1.0f;
+		HUDWidgetSlateOpacity = 0.5f;
+		HUDWidgetWeaponbarInactiveOpacity = 0.35f;
+		HUDWidgetWeaponBarScaleOverride = 1.f;
+		HUDWidgetWeaponBarInactiveIconOpacity = 0.35f;
+		HUDWidgetWeaponBarEmptyOpacity = 0.2f;
+		HUDWidgetScaleOverride = 1.f;
+		HUDMessageScaleOverride = 1.0f;
+		bUseWeaponColors = false;
+		bDrawChatKillMsg = false;
+		bDrawCenteredKillMsg = true;
+		bDrawHUDKillIconMsg = true;
+		bPlayKillSoundMsg = true;
+	}
+
+	if (SectionToReset == EProfileResetType::All || SectionToReset == EProfileResetType::Input)
+	{
+		bEnableMouseSmoothing = DefaultInputSettings ? DefaultInputSettings->bEnableMouseSmoothing : true;
+		MouseAcceleration = DefaultUTPlayerInput ? DefaultUTPlayerInput->Acceleration : 0;
+		MouseAccelerationPower = DefaultUTPlayerInput ? DefaultUTPlayerInput->AccelerationPower : 0;
+		MouseAccelerationMax = DefaultUTPlayerInput ? DefaultUTPlayerInput->AccelerationMax : 0;
+		DoubleClickTime = DefaultInputSettings ? DefaultInputSettings->DoubleClickTime : 0.3f;
+
+		MouseSensitivity = DefaultUTPlayerInput ? DefaultUTPlayerInput->GetMouseSensitivity() : 1.0f;
+
+		MaxDodgeClickTimeValue = 0.2;
+		MaxDodgeTapTimeValue = 0.2;
+		bSingleTapWallDodge = true;
+		bSingleTapAfterJump = true;
+		bAllowSlideFromRun = true;
+
+		bInvertMouse = false;
+	}
+	if (SectionToReset == EProfileResetType::All || SectionToReset == EProfileResetType::Binds)
+	{
+		/**
+		 *	Pull all of the input binds from DefaultInput.ini.  
+		 **/
+
+		CustomBinds.Empty();
+		if (DefaultUTPlayerInput)
+		{
+			for (int32 i = 0; i < DefaultUTPlayerInput->CustomBinds.Num(); i++)
+			{
+				CustomBinds.Add(DefaultUTPlayerInput->CustomBinds[i]);
+			}
+		}
+
+		ActionMappings.Empty();
+		AxisMappings.Empty();
+		AxisConfig.Empty();
+
+		if (DefaultInputSettings)
+		{			
+			for (int32 i = 0; i < DefaultInputSettings->ActionMappings.Num(); i++)
+			{
+				ActionMappings.Add(DefaultInputSettings->ActionMappings[i]);
+			}
+			
+			for (int32 i = 0; i < DefaultInputSettings->AxisMappings.Num(); i++)
+			{
+				AxisMappings.Add(DefaultInputSettings->AxisMappings[i]);
+			}
+			
+			for (int32 i = 0; i < DefaultInputSettings->AxisConfig.Num(); i++)
+			{
+				AxisConfig.Add(DefaultInputSettings->AxisConfig[i]);
+				if (AxisConfig[i].AxisKeyName == EKeys::MouseY && AxisConfig[i].AxisProperties.bInvert)
+				{
+					bInvertMouse = true;
+				}
+			}
+		}
+
+		ConsoleKey = EKeys::Tilde;
+	}
+
+	if (SectionToReset == EProfileResetType::All || SectionToReset == EProfileResetType::Social)
+	{
+		bSuppressToastsInGame = false;
+	}
+
+	if (SectionToReset == EProfileResetType::All || SectionToReset == EProfileResetType::System)
+	{
+		ReplayScreenshotResX = 1920.0f;
+		ReplayScreenshotResY = 1080.0f;
+		bReplayCustomPostProcess = false;
+		ReplayCustomBloomIntensity = 0.2f;
+		ReplayCustomDOFAmount = 0.0f;
+		ReplayCustomDOFDistance = 0.0f;
+		ReplayCustomDOFScale = 1.0f;
+		ReplayCustomDOFNearBlur = 0.0f;
+		ReplayCustomDOFFarBlur = 0.0f;
+		ReplayCustomMotionBlurAmount = 0.0f;
+		ReplayCustomMotionBlurMax = 0.0f;
+		
+		MatchmakingRegion = TEXT("NA");
+		bPushToTalk = true;
+		bHearsTaunts = DefaultUTPlayerController ? DefaultUTPlayerController->bHearsTaunts : true;
+	}
+
+	if (SectionToReset == EProfileResetType::All || SectionToReset == EProfileResetType::Weapons)
+	{
+		WeaponSkins.Empty();
+		WeaponCustomizations.Empty();
+		WeaponCustomizations.Add(EpicWeaponCustomizationTags::Redeemer, FWeaponCustomizationInfo(EpicWeaponCustomizationTags::Redeemer, 10, 10.0f, DefaultWeaponCrosshairs::Circle2, FLinearColor::White, 1.0f));
+		WeaponCustomizations.Add(EpicWeaponCustomizationTags::RocketLauncher, FWeaponCustomizationInfo(EpicWeaponCustomizationTags::RocketLauncher, 8, 8.0f, DefaultWeaponCrosshairs::Triad2, FLinearColor::White, 1.0f));
+		WeaponCustomizations.Add(EpicWeaponCustomizationTags::Sniper, FWeaponCustomizationInfo(EpicWeaponCustomizationTags::Sniper, 9, 9.0f, DefaultWeaponCrosshairs::Cross1, FLinearColor::White, 1.0f));
+		WeaponCustomizations.Add(EpicWeaponCustomizationTags::IGShockRifle, FWeaponCustomizationInfo(EpicWeaponCustomizationTags::IGShockRifle, 4, 4.0f, DefaultWeaponCrosshairs::Cross1, FLinearColor::White, 1.0f));
+		WeaponCustomizations.Add(EpicWeaponCustomizationTags::ShockRifle, FWeaponCustomizationInfo(EpicWeaponCustomizationTags::ShockRifle, 4, 4.0f, DefaultWeaponCrosshairs::Cross2, FLinearColor::White, 1.0f));
+		WeaponCustomizations.Add(EpicWeaponCustomizationTags::FlakCannon, FWeaponCustomizationInfo(EpicWeaponCustomizationTags::FlakCannon, 7, 7.0f, DefaultWeaponCrosshairs::Triad3, FLinearColor::White, 1.0f));
+		WeaponCustomizations.Add(EpicWeaponCustomizationTags::LinkGun, FWeaponCustomizationInfo(EpicWeaponCustomizationTags::LinkGun, 5, 5.0f, DefaultWeaponCrosshairs::Bracket1, FLinearColor::White, 1.0f));
+		WeaponCustomizations.Add(EpicWeaponCustomizationTags::Minigun, FWeaponCustomizationInfo(EpicWeaponCustomizationTags::Minigun, 6, 6.0f, DefaultWeaponCrosshairs::Circle1, FLinearColor::White, 1.0f));
+		WeaponCustomizations.Add(EpicWeaponCustomizationTags::BioRifle, FWeaponCustomizationInfo(EpicWeaponCustomizationTags::BioRifle, 3, 3.0f, DefaultWeaponCrosshairs::Triad1, FLinearColor::White, 1.0f));
+		WeaponCustomizations.Add(EpicWeaponCustomizationTags::Enforcer, FWeaponCustomizationInfo(EpicWeaponCustomizationTags::Enforcer, 2, 2.0f, DefaultWeaponCrosshairs::Cross5, FLinearColor::White, 1.0f));
+		WeaponCustomizations.Add(EpicWeaponCustomizationTags::Translocator, FWeaponCustomizationInfo(EpicWeaponCustomizationTags::Translocator, 0, 1.0f, DefaultWeaponCrosshairs::Cross3, FLinearColor::White, 1.0f));
+		WeaponCustomizations.Add(EpicWeaponCustomizationTags::ImpactHammer, FWeaponCustomizationInfo(EpicWeaponCustomizationTags::ImpactHammer, 1, 1.0f, DefaultWeaponCrosshairs::Bracket1, FLinearColor::White, 1.0f));
+	}
 }
+
 
 void UUTProfileSettings::VersionFixup()
 {
-	if (SettingsRevisionNum <= EMOTE_TO_TAUNT_PROFILESETTINGS_VERSION)
-	{
-		for (auto Iter = ActionMappings.CreateIterator(); Iter; ++Iter)
-		{
-			if (Iter->ActionName == FName(TEXT("PlayEmote1")))
-			{
-				Iter->ActionName = FName(TEXT("PlayTaunt"));
-			}
-			else if (Iter->ActionName == FName(TEXT("PlayEmote2")))
-			{
-				Iter->ActionName = FName(TEXT("PlayTaunt2"));
-			}
-			else if (Iter->ActionName == FName(TEXT("PlayEmote3")))
-			{
-				ActionMappings.RemoveAt(Iter.GetIndex());
-			}
-		}
-	}
-	if (SettingsRevisionNum <= TAUNTFIXUP_PROFILESETTINGS_VERSION)
-	{
-		FInputActionKeyMapping Taunt2;
-		Taunt2.ActionName = FName(TEXT("PlayTaunt2"));
-		Taunt2.Key = EKeys::K;
-		ActionMappings.AddUnique(Taunt2);
-	}
-	if (SettingsRevisionNum <= SLIDEFROMRUN_FIXUP_PROFILESETTINGS_VERSION)
-	{
-		bAllowSlideFromRun = true;
-	}
-	if (SettingsRevisionNum <= HEARTAUNTS_FIXUP_PROFILESETTINGS_VERSION)
-	{
-		bHearsTaunts = true;
-	}
-	if (SettingsRevisionNum <= PAUSEKEY_FIXUP_PROFILESETTINGS_VERSION)
-	{
-		new(CustomBinds) FCustomKeyBinding(EKeys::Pause.GetFName(), IE_Pressed, TEXT("Pause"));
-	}
-	if (SettingsRevisionNum < HUDSETTINGS_FIXUP_PROFILESETTINGS_VERSION)
-	{
-		ResetHUD();
-	}
+	// Place any hacks needed to fix or update the profile here.  NOTE: you should no longer need to hack in changes for
+	// input.  VerifyInputRules() will attempt to make sure any new input binds are brought in to the profile as well as
+	// check for double bindings.
 
-	if (SettingsRevisionNum < ACTIVATEPOWERUP_FIXUP_PROFILESETTINGS_VERSION)
-	{
-		FInputActionKeyMapping ActivatePowerup;
-		ActivatePowerup.ActionName = FName(TEXT("StartActivatePowerup"));
-		ActivatePowerup.Key = EKeys::Q;
-		ActionMappings.AddUnique(ActivatePowerup);
-	}
-
-	if (SettingsRevisionNum < BUY_MENU_AND_DROP_FLAG_BUTTON_FIXUP_PROFILE_SETTINGS_VERSION)
-	{
-		FInputActionKeyMapping BuyMenu;
-		BuyMenu.ActionName = FName(TEXT("ShowBuyMenu"));
-		BuyMenu.Key = EKeys::B;
-		ActionMappings.AddUnique(BuyMenu);
-
-		FInputActionKeyMapping DropCarriedObject;
-		DropCarriedObject.ActionName = FName(TEXT("DropCarriedObject"));
-		DropCarriedObject.Key = EKeys::G;
-		ActionMappings.AddUnique(DropCarriedObject);
-	}
-
-	if (SettingsRevisionNum < SLIDE_FIXUP_PROFILE_SETTINGS_VERSION)
-	{
-		FInputActionKeyMapping Slide;
-		Slide.ActionName = FName(TEXT("Slide"));
-		Slide.Key = EKeys::LeftShift;
-		ActionMappings.AddUnique(Slide);
-	}
-
-	if (SettingsRevisionNum < WEAPON_WHEEL_FIXUP_PROFILESETTINGS_VERSION)
-	{
-		// Add 8 weapon wheel slots for the weapon wheel menu
-		WeaponWheelQuickSlots.Add(TEXT("BP_RocketLauncher_C"));
-		WeaponWheelQuickSlots.Add(TEXT("BP_BioRifle_C"));
-		WeaponWheelQuickSlots.Add(TEXT("BP_Sniper_C"));
-		WeaponWheelQuickSlots.Add(TEXT("BP_Minigun_C"));
-		WeaponWheelQuickSlots.Add(TEXT("BP_FlakCannon_C"));
-		WeaponWheelQuickSlots.Add(TEXT("BP_LinkGun_C"));
-		WeaponWheelQuickSlots.Add(TEXT("ShockRifle_C"));
-		WeaponWheelQuickSlots.Add(TEXT("Enforcer_C"));
-	}
-
-	if (SettingsRevisionNum < PUSH_TO_TALK_FIXUP_PROFILESETTINGS_VERSION)
-	{
-		FInputActionKeyMapping PushToTalk;
-		PushToTalk.ActionName = FName(TEXT("PushToTalk"));
-		PushToTalk.Key = EKeys::B;
-		ActionMappings.AddUnique(PushToTalk);
-	}
-	if (SettingsRevisionNum < RALLY_FIXUP_PROFILESETTINGS_VERSION)
-	{
-		FInputActionKeyMapping RequestRally;
-		RequestRally.ActionName = FName(TEXT("RequestRally"));
-		RequestRally.Key = EKeys::Enter;
-		ActionMappings.AddUnique(RequestRally);
-	}
-
-	if (SettingsRevisionNum < COMS_MENU_FIXUP_PROFILESETTINGS_VERSION)
-	{
-		// Look to see if we already have a coms menu setup
-
-		bool bFound = false;
-		for (int32 i=0; i < ActionMappings.Num();i++)
-		{
-			if (ActionMappings[i].ActionName == FName(TEXT("ToggleComMenu")))
-			{
-				bFound = true;
-				ActionMappings[i].Key = EKeys::V;
-				break;
-			}
-		}
-
-		if (!bFound)
-		{
-			FInputActionKeyMapping ComsMenuKey;
-			ComsMenuKey.ActionName = FName(TEXT("ToggleComMenu"));
-			ComsMenuKey.Key = EKeys::V;
-			ActionMappings.AddUnique(ComsMenuKey);
-		}
-	}
-
-	// The format has changed during Dev versions.  So in case some people have written out unlocks, clear them here.
-	if (SettingsRevisionNum <= CHALLENGE_FIXUP_VERSION)
-	{
-		UnlockedDailyChallenges.Empty();
-	}
 }
 
-void UUTProfileSettings::ResetHUD()
+bool UUTProfileSettings::VerifyInputRules()
 {
-	QuickStatsAngle = 180.0f;
-	QuickStatsDistance = 0.1f;
-	QuickStatsScaleOverride = 1.0f;
-	QuickStatsType = EQuickStatsLayouts::Arc;
-	QuickStatsBackgroundAlpha = 0.15;
-	QuickStatsForegroundAlpha = 1.0f;
-	bQuickStatsHidden = false;
-	bQuickStatsBob = true;
-			
-	HUDWidgetOpacity = 1.0f;
-	HUDWidgetBorderOpacity = 1.0f;
-	HUDWidgetSlateOpacity = 0.5f;
-	HUDWidgetWeaponbarInactiveOpacity = 0.25f;
-	HUDWidgetWeaponBarScaleOverride = 0.9f;
-	HUDWidgetWeaponBarInactiveIconOpacity = 0.25f;
-	HUDWidgetWeaponBarEmptyOpacity = 0.0f;
-	HUDWidgetScaleOverride = 0.7f;
-	HUDMessageScaleOverride = 1.0f;
-	bUseWeaponColors = false;
-	bDrawChatKillMsg = false;
-	bDrawCenteredKillMsg = true;
-	bDrawHUDKillIconMsg = true;
-	bPlayKillSoundMsg = true;
-	HUDMinimapScale = 1.0f;
-	bPushToTalk = true;
-}
+	bool bCustomBindsChanged = false;
 
-void UUTProfileSettings::SetWeaponPriority(FString WeaponClassName, float NewPriority)
-{
-	for (int32 i=0;i<WeaponPriorities.Num(); i++)
+	UUTPlayerInput* DefaultUTPlayerInput = UUTPlayerInput::StaticClass()->GetDefaultObject<UUTPlayerInput>();
+	if (DefaultUTPlayerInput)
 	{
-		if (WeaponPriorities[i].WeaponClassName == WeaponClassName)
+		// Verify that the custom binds is correct.  First we remove any custom binds in the profile that are no longer in the DefaultObject.
+
+		int32 BindIndex = 0;
+		while (BindIndex < CustomBinds.Num())
 		{
-			if (WeaponPriorities[i].WeaponPriority != NewPriority)
+			bool bFound = false;
+			for (int32 i = 0; i < DefaultUTPlayerInput->CustomBinds.Num(); i++)
 			{
-				WeaponPriorities[i].WeaponPriority = NewPriority;
+				if (DefaultUTPlayerInput->CustomBinds[i].Command.Equals(CustomBinds[BindIndex].Command,ESearchCase::IgnoreCase))
+				{
+					bFound = true;
+					break;
+				}
 			}
-			return;
-		}
-	}
-
-	WeaponPriorities.Add(FStoredWeaponPriority(WeaponClassName, NewPriority));
-}
-
-float UUTProfileSettings::GetWeaponPriority(FString WeaponClassName, float DefaultPriority)
-{
-	for (int32 i=0;i<WeaponPriorities.Num(); i++)
-	{
-		//We need to do a left string compare because unfortunately during the data baking process extra characters can be appended to the name blueprint name.
-		const int WeaponPrioritiesNameSize = WeaponPriorities[i].WeaponClassName.Len();
-		if (WeaponPriorities[i].WeaponClassName == WeaponClassName.Left(WeaponPrioritiesNameSize))
-		{
-			return WeaponPriorities[i].WeaponPriority;
-		}
-	}
-
-	return DefaultPriority;
-}
-
-
-void UUTProfileSettings::GatherAllSettings(UUTLocalPlayer* ProfilePlayer)
-{
-	bSuppressToastsInGame = ProfilePlayer->bSuppressToastsInGame;
-	PlayerName = ProfilePlayer->GetNickname();
-
-	// Get all settings from the Player Controller
-	AUTPlayerController* PC = Cast<AUTPlayerController>(ProfilePlayer->PlayerController);
-	if (PC == NULL)
-	{
-		PC = AUTPlayerController::StaticClass()->GetDefaultObject<AUTPlayerController>();
-	}
-
-	if (PC != NULL)
-	{
-		MaxDodgeClickTimeValue = PC->MaxDodgeClickTime;
-		MaxDodgeTapTimeValue = PC->MaxDodgeTapTime;
-		bSingleTapWallDodge = PC->bSingleTapWallDodge;
-		bSingleTapAfterJump = PC->bSingleTapAfterJump;
-		bAutoWeaponSwitch = PC->bAutoWeaponSwitch;
-		bAllowSlideFromRun = PC->bCrouchTriggersSlide;
-		bHearsTaunts = PC->bHearsTaunts;
-		WeaponBob = PC->WeaponBobGlobalScaling;
-		ViewBob = PC->EyeOffsetGlobalScaling;
-		WeaponHand = PC->GetPreferredWeaponHand();
-		FFAPlayerColor = PC->FFAPlayerColor;
-
-		PlayerFOV = PC->ConfigDefaultFOV;
-
-		// Get any settings from UTPlayerInput
-		UUTPlayerInput* UTPlayerInput = Cast<UUTPlayerInput>(PC->PlayerInput);
-		if (UTPlayerInput == NULL)
-		{
-			UTPlayerInput = UUTPlayerInput::StaticClass()->GetDefaultObject<UUTPlayerInput>();
-		}
-		if (UTPlayerInput)
-		{
-			MouseAccelerationPower = UTPlayerInput->AccelerationPower;
-			MouseAcceleration = UTPlayerInput->Acceleration;
-			MouseAccelerationMax = UTPlayerInput->AccelerationMax;
-
-			CustomBinds.Empty();
-			for (int32 i = 0; i < UTPlayerInput->CustomBinds.Num(); i++)
+		
+			if (!bFound)
 			{
-				CustomBinds.Add(UTPlayerInput->CustomBinds[i]);
+				CustomBinds.RemoveAt(BindIndex);
+				bCustomBindsChanged = true;
 			}
-			//MouseSensitivity = UTPlayerInput->GetMouseSensitivity();
-		}
-	}
-
-	// Grab the various settings from the InputSettings object.
-
-	UInputSettings* DefaultInputSettingsObject = UInputSettings::StaticClass()->GetDefaultObject<UInputSettings>();
-	if (DefaultInputSettingsObject)
-	{
-		ActionMappings.Empty();
-		for (int32 i = 0; i < DefaultInputSettingsObject->ActionMappings.Num(); i++)
-		{
-			ActionMappings.Add(DefaultInputSettingsObject->ActionMappings[i]);
-		}
-
-		AxisMappings.Empty();
-		for (int32 i = 0; i < DefaultInputSettingsObject->AxisMappings.Num(); i++)
-		{
-			AxisMappings.Add(DefaultInputSettingsObject->AxisMappings[i]);
-		}
-
-		AxisConfig.Empty();
-		for (int32 i = 0; i < DefaultInputSettingsObject->AxisConfig.Num(); i++)
-		{
-			AxisConfig.Add(DefaultInputSettingsObject->AxisConfig[i]);
-			if (AxisConfig[i].AxisKeyName == EKeys::MouseY && AxisConfig[i].AxisProperties.bInvert)
+			else
 			{
-				bInvertMouse = true;
+				BindIndex++;
 			}
 		}
 
-		bEnableMouseSmoothing = DefaultInputSettingsObject->bEnableMouseSmoothing;
-		DoubleClickTime = DefaultInputSettingsObject->DoubleClickTime;
-
-		if (DefaultInputSettingsObject->ConsoleKeys.Num() > 0)
+		// Now add in any ini binds that are missing from the custom binds array
+		
+		for (int32 i = 0; i < DefaultUTPlayerInput->CustomBinds.Num(); i++)
 		{
-			ConsoleKey = DefaultInputSettingsObject->ConsoleKeys[0];
+			bool bFound = false;
+			for (int32 j = 0; j < CustomBinds.Num(); j++)
+			{
+				if (DefaultUTPlayerInput->CustomBinds[i].Command.Equals(CustomBinds[j].Command, ESearchCase::IgnoreCase))
+				{
+					bFound = true;
+					break;
+				}
+			}
+
+			if (!bFound)
+			{
+				CustomBinds.Add(DefaultUTPlayerInput->CustomBinds[i]);
+				bCustomBindsChanged = true;
+			}
 		}
+
+		// Search for double key binds.
 	}
+	return bCustomBindsChanged;
 }
+
 void UUTProfileSettings::ApplyAllSettings(UUTLocalPlayer* ProfilePlayer)
 {
-
-	// Unfortunately, the profile may have multiple WeaponPriorites due to older bugs, so let's clean it up here
-
-	int32 WeaponPriIdx = 1;
-	while (WeaponPriIdx < WeaponPriorities.Num())
-	{
-		bool bFound = false;
-		for (int32 j = 0; j < WeaponPriIdx; j++)
-		{
-			if (WeaponPriorities[j].WeaponClassName == WeaponPriorities[WeaponPriIdx].WeaponClassName)
-			{
-				bFound = true;
-				UE_LOG(UT, Log, TEXT("Found Duplicate %s"), *WeaponPriorities[WeaponPriIdx].WeaponClassName);
-			}
-		}
-
-		if (bFound)
-		{
-			WeaponPriorities.RemoveAt(WeaponPriIdx);
-		}
-		else
-		{
-			WeaponPriIdx++;
-		}
-	}
-
-
 	ProfilePlayer->bSuppressToastsInGame = bSuppressToastsInGame;
 	ProfilePlayer->SetNickname(PlayerName);
-	ProfilePlayer->SaveConfig();
 
 	// Get all settings from the Player Controller
 	AUTPlayerController* PC = Cast<AUTPlayerController>(ProfilePlayer->PlayerController);
@@ -447,20 +365,6 @@ void UUTProfileSettings::ApplyAllSettings(UUTLocalPlayer* ProfilePlayer)
 	}
 	UUTPlayerInput::StaticClass()->GetDefaultObject<UUTPlayerInput>()->ForceRebuildingKeyMaps(true);
 
-	//Don't overwrite default crosshair info if nothing has been saved to the profile yet
-	if (CrosshairInfos.Num() > 0)
-	{
-		//Copy crosshair settings to every hud class
-		for (TObjectIterator<AUTHUD> It(EObjectFlags::RF_NoFlags, true); It; ++It)
-		{
-			AUTHUD* Hud = *It;
-			if (Hud != nullptr)
-			{
-				UpdateCrosshairs(Hud);
-			}
-		}
-	}
-
 	ProfilePlayer->SetCharacterPath(CharacterPath);
 	ProfilePlayer->SetHatPath(HatPath);
 	ProfilePlayer->SetLeaderHatPath(LeaderHatPath);
@@ -469,19 +373,43 @@ void UUTProfileSettings::ApplyAllSettings(UUTLocalPlayer* ProfilePlayer)
 	ProfilePlayer->SetTaunt2Path(Taunt2Path);
 	ProfilePlayer->SetHatVariant(HatVariant);
 	ProfilePlayer->SetEyewearVariant(EyewearVariant);
-
-	for (int32 i=0; i < WeaponGroups.Num(); i++)
-	{
-		WeaponGroupLookup.Add(WeaponGroups[i].WeaponClassName, WeaponGroups[i]);
-	}
-
-	WeaponSkins.Remove(nullptr);
 }
 
-void UUTProfileSettings::UpdateCrosshairs(AUTHUD* HUD)
+void UUTProfileSettings::GetWeaponGroup(AUTWeapon* Weapon, int32& WeaponGroup, int32& GroupPriority)
 {
-	HUD->LoadedCrosshairs.Empty();
-	HUD->CrosshairInfos = CrosshairInfos;
-	HUD->bCustomWeaponCrosshairs = bCustomWeaponCrosshairs;
-	HUD->SaveConfig();
+	if (Weapon != nullptr)
+	{
+		WeaponGroup = Weapon->DefaultGroup;
+		GroupPriority = Weapon->GroupSlot;
+
+		if (WeaponCustomizations.Contains(Weapon->WeaponCustomizationTag))
+		{
+			WeaponGroup = WeaponCustomizations[Weapon->WeaponCustomizationTag].WeaponGroup;
+		}
+	}
+}
+void UUTProfileSettings::GetWeaponCustomization(FName WeaponCustomizationTag, FWeaponCustomizationInfo& outWeaponCustomizationInfo)
+{
+	if (WeaponCustomizations.Contains(WeaponCustomizationTag))
+	{
+		outWeaponCustomizationInfo= WeaponCustomizations[WeaponCustomizationTag];
+	}
+	else
+	{
+		outWeaponCustomizationInfo = FWeaponCustomizationInfo();
+	}
+}
+
+void UUTProfileSettings::GetWeaponCustomizationForWeapon(AUTWeapon* Weapon, FWeaponCustomizationInfo& outWeaponCustomizationInfo)
+{
+	GetWeaponCustomization(Weapon->WeaponCustomizationTag, outWeaponCustomizationInfo);
+}
+
+FString UUTProfileSettings::GetWeaponSkinClassname(AUTWeapon* Weapon)
+{
+	if (WeaponSkins.Contains(Weapon->WeaponSkinCustomizationTag))
+	{
+		return WeaponSkins[Weapon->WeaponSkinCustomizationTag];
+	}
+	return TEXT("");
 }

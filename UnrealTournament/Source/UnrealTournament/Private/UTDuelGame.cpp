@@ -29,6 +29,7 @@ AUTDuelGame::AUTDuelGame(const class FObjectInitializer& ObjectInitializer)
 	XPMultiplier = 7.0f;
 	SquadType = AUTDuelSquadAI::StaticClass();
 	QuickPlayersToStart = 2;
+	bAllowAllArmorPickups = true;
 }
 
 void AUTDuelGame::InitGameState()
@@ -91,11 +92,6 @@ void AUTDuelGame::InitGame(const FString& MapName, const FString& Options, FStri
 
 void AUTDuelGame::SetPlayerDefaults(APawn* PlayerPawn)
 {
-	AUTCharacter* UTChar = Cast<AUTCharacter>(PlayerPawn);
-	if (UTChar)
-	{
-		UTChar->MaxStackedArmor = 150.f;
-	}
 	Super::SetPlayerDefaults(PlayerPawn);
 }
 

@@ -45,11 +45,27 @@ public:
 	/** added to pickup mesh's RelativeRotation */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = PickupDisplay)
 	FRotator RotationOffset;
+	/** set true when first spawned in round */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = PickupDisplay)
+		bool bHasEverSpawned;
+
+	/** If pickup wants spoken spawn notification, whether to play for offense (this is for speech, not announcer) */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = PickupDisplay)
+		bool bNotifySpawnForOffense;
+
+	/** If pickup wants spoken spawn notification, whether to play for defense (this is for speech, not announcer) */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = PickupDisplay)
+		bool bNotifySpawnForDefense;
+
 	/** whether the pickup mesh is allowed to rotate (requires blueprint to have RotatingMovementComponent) */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = PickupDisplay)
 	bool bAllowRotatingPickup;
 
 	virtual void BeginPlay() override;
+	virtual void PlayRespawnEffects() override;
+	
+	FTimerHandle SpawnVoiceLineTimer;
+	virtual void PlaySpawnVoiceLine();
 
 #if WITH_EDITOR
 	/** create transient pickup mesh for editor previewing */
@@ -74,6 +90,7 @@ public:
 	virtual void SetPickupHidden(bool bNowHidden) override;
 	virtual void Reset_Implementation() override;
 	virtual void PlayTakenEffects(bool bReplicate) override;
+	virtual bool FlashOnMinimap_Implementation() override;
 
 	virtual void AddHiddenComponents(bool bTaken, TSet<FPrimitiveComponentId>& HiddenComponents) override
 	{

@@ -16,6 +16,24 @@ struct FCharacterSpeech
 	USoundBase* SpeechSound;
 };
 
+USTRUCT()
+struct FGameVolumeSpeech
+{
+	GENERATED_USTRUCT_BODY()
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Voice)
+		TArray<FCharacterSpeech> EnemyFCSpeech;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Voice)
+		TArray<FCharacterSpeech> FriendlyFCSpeech;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Voice)
+		TArray<FCharacterSpeech> SecureSpeech;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Voice)
+		TArray<FCharacterSpeech> UndefendedSpeech;
+};
+
 const int32 ACKNOWLEDGE_SWITCH_INDEX = 3000;
 const int32 NEGATIVE_SWITCH_INDEX = 3500;
 const int32 GOT_YOUR_BACK_SWITCH_INDEX = 4000;
@@ -33,6 +51,7 @@ const int32 GOING_IN_SWITCH_INDEX = 10800;
 const int32 ON_OFFENSE_SWITCH_INDEX = 10900;
 const int32 SPREAD_OUT_SWITCH_INDEX = 11000;
 const int32 BASE_UNDER_ATTACK_SWITCH_INDEX = 11100;
+const int32 KEY_CALLOUTS = 100000;
 
 UCLASS()
 class UNREALTOURNAMENT_API UUTCharacterVoice : public UUTLocalMessage
@@ -102,6 +121,84 @@ class UNREALTOURNAMENT_API UUTCharacterVoice : public UUTLocalMessage
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Voice)
 	TArray<FCharacterSpeech> AttackTheirBaseMessages;
 
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Voice)
+		TArray<FCharacterSpeech> EnemyRallyMessages;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Voice)
+		TArray<FCharacterSpeech> FindFCMessages;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Voice)
+		TArray<FCharacterSpeech> LastLifeMessages;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Voice)
+		TArray<FCharacterSpeech> EnemyLowLivesMessages;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Voice)
+		TArray<FCharacterSpeech> EnemyThreePlayersMessages;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Voice)
+		TArray<FCharacterSpeech> DroppedRedeemerMessages;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Voice)
+		TArray<FCharacterSpeech> NeedRallyMessages;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Voice)
+		TArray<FCharacterSpeech> NeedHealthMessages;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Voice)
+		FGameVolumeSpeech BridgeLines;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Voice)
+		FGameVolumeSpeech RiverLines;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Voice)
+		FGameVolumeSpeech AntechamberLines;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Voice)
+		FGameVolumeSpeech ThroneRoomLines;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Voice)
+		FGameVolumeSpeech CourtyardLines;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Voice)
+		FGameVolumeSpeech StablesLines;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Voice)
+		FGameVolumeSpeech AntechamberHighLines;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Voice)
+		FGameVolumeSpeech TowerLines;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Voice)
+		FGameVolumeSpeech CreekLines;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Voice)
+		FGameVolumeSpeech TempleLines;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Voice)
+		FGameVolumeSpeech CaveLines;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Voice)
+		FGameVolumeSpeech BaseCampLines;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Voice)
+		FCharacterSpeech RedeemerPickupLine;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Voice)
+		FCharacterSpeech UDamagePickupLine;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Voice)
+		FCharacterSpeech ShieldbeltPickupLine;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Voice)
+		FCharacterSpeech RedeemerAvailableLine;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Voice)
+		FCharacterSpeech UDamageAvailableLine;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Voice)
+		FCharacterSpeech ShieldbeltAvailableLine;
+
 	/** Index offset for sending Same Team messages. */
 	UPROPERTY(BlueprintReadOnly, Category = Voice)
 		int32 SameTeamBaseIndex;
@@ -121,13 +218,21 @@ class UNREALTOURNAMENT_API UUTCharacterVoice : public UUTLocalMessage
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Voice)
 		FText StatusTextFormat;
 
+	UPROPERTY()
+		TMap<FName, FName> FallbackLines;
+
+	virtual FName GetFallbackLines(FName InName) const;
 
 	/** map of status index offsets. */
-	TMap< FName, float > StatusOffsets;
+	TMap< FName, int32 > StatusOffsets;
 
 	virtual int32 GetStatusIndex(FName NewStatus) const;
 
+	virtual FCharacterSpeech GetGVLine(const FGameVolumeSpeech& GVLines, int32 Switch) const;
+
 	virtual FText GetText(int32 Switch, bool bTargetsPlayerState1, class APlayerState* RelatedPlayerState_1, class APlayerState* RelatedPlayerState_2, class UObject* OptionalObject) const override;
+
+	virtual FCharacterSpeech GetCharacterSpeech(int32 Switch) const;
 
 	virtual FName GetAnnouncementName_Implementation(int32 Switch, const UObject* OptionalObject, const class APlayerState* RelatedPlayerState_1, const class APlayerState* RelatedPlayerState_2) const override;
 	virtual USoundBase* GetAnnouncementSound_Implementation(int32 Switch, const UObject* OptionalObject) const override;
@@ -136,4 +241,5 @@ class UNREALTOURNAMENT_API UUTCharacterVoice : public UUTLocalMessage
 	virtual bool InterruptAnnouncement_Implementation(int32 Switch, const UObject* OptionalObject, TSubclassOf<UUTLocalMessage> OtherMessageClass, int32 OtherSwitch, const UObject* OtherOptionalObject) const override;
 	virtual bool CancelByAnnouncement_Implementation(int32 Switch, const UObject* OptionalObject, TSubclassOf<UUTLocalMessage> OtherMessageClass, int32 OtherSwitch, const UObject* OtherOptionalObject) const override;
 	virtual float GetAnnouncementPriority(int32 Switch) const override;
+	virtual bool IsOptionalSpoken(int32 MessageIndex) const override;
 };

@@ -42,6 +42,12 @@ class UNREALTOURNAMENT_API AUTCTFBaseGame : public AUTTeamGameMode
 
 	TAssetSubclassOf<AUTWeapon> TranslocatorObject;
 
+	UPROPERTY()
+		TSubclassOf<AUTWeapon> TranslocatorClass;
+
+	UPROPERTY(EditDefaultsOnly, Category = CTF)
+		bool bGameHasTranslocator;
+
 	virtual void InitGame(const FString& MapName, const FString& Options, FString& ErrorMessage) override;
 	virtual void InitGameState() override;
 	virtual void PreInitializeComponents() override;
@@ -53,7 +59,7 @@ class UNREALTOURNAMENT_API AUTCTFBaseGame : public AUTTeamGameMode
 	virtual bool SkipPlacement(AUTCharacter* UTChar);
 
 	UFUNCTION(exec)
-		void CheatScore();
+		virtual void CheatScore();
 
 	virtual int32 PickCheatWinTeam();
 

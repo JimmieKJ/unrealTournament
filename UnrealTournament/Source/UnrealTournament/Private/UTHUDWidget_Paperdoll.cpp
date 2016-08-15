@@ -2,101 +2,99 @@
 
 #include "UnrealTournament.h"
 #include "UTHUDWidget_Paperdoll.h"
+#include "UTProfileSettings.h"
+#include "UTHUDWidget_WeaponBar.h"
 #include "UTJumpBoots.h"
+#include "UTCTFGameState.h"
+
 #include "UTArmor.h"
+
+const int32 ALTERNATE_X_OFFSET = -64;
+const float ANIMATION_TIME = 0.45f;
+
 
 UUTHUDWidget_Paperdoll::UUTHUDWidget_Paperdoll(const class FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
 {
-	Position=FVector2D(5.0f, -5.0f);
-	Size=FVector2D(205.0f,111.0f);
-	ScreenPosition=FVector2D(0.0f, 1.0f);
-	Origin=FVector2D(0.0f,1.0f);
+	DesignedResolution = 1080.0f;
+	Position=FVector2D(0.0f, -8.0f);
+	Size=FVector2D(224.0f,46.0f);
+	ScreenPosition=FVector2D(0.5f, 1.0f);
+	Origin=FVector2D(0.5f,1.0f);
+	bAnimating = false;
+	FVector2D DrawOffset = FVector2D(0.0f, 0.0f);
+
+	RallyAnimTimers.Add(RALLY_ANIMATION_TIME * 0.25);
+	RallyAnimTimers.Add(RALLY_ANIMATION_TIME * 0.5);
+	RallyAnimTimers.Add(RALLY_ANIMATION_TIME * 0.75);
 }
 
 void UUTHUDWidget_Paperdoll::InitializeWidget(AUTHUD* Hud)
 {
 	Super::InitializeWidget(Hud);
-	HealthText.GetTextDelegate.BindUObject(this, &UUTHUDWidget_Paperdoll::GetPlayerHealth);
-	ArmorText.GetTextDelegate.BindUObject(this, &UUTHUDWidget_Paperdoll::GetPlayerArmor);
+
 	LastHealth = 100;
 	LastArmor = 0;
 	ArmorFlashTimer = 0.0f;
 	HealthFlashTimer = 0.0f;
 }
 
-FText UUTHUDWidget_Paperdoll::GetPlayerHealth_Implementation()
-{
-	AUTCharacter* UTC = Cast<AUTCharacter>(UTHUDOwner->UTPlayerOwner->GetViewTarget());
-	return (UTC != NULL && !UTC->IsDead()) ? FText::AsNumber(UTC->Health) : FText::AsNumber(0);
-}
-
-FText UUTHUDWidget_Paperdoll::GetPlayerArmor_Implementation()
-{
-	return FText::AsNumber(PlayerArmor);
-}
-
-void UUTHUDWidget_Paperdoll::ProcessArmor()
-{
-	PlayerArmor = 0;
-	AUTCharacter* UTC = Cast<AUTCharacter>(UTHUDOwner->UTPlayerOwner->GetViewTarget());
-	bool bHasShieldBelt = false;
-	bool bHasThighPads = false;
-	bool bHasChest = false;
-	bool bHasHelmet = false;
-	bool bHasJumpBoots = false;
-	if (UTC != NULL && !UTC->IsDead())
-	{
-		for (TInventoryIterator<> It(UTC); It; ++It)
-		{
-			AUTArmor* Armor = Cast<AUTArmor>(*It);
-			if (Armor != NULL)
-			{
-				PlayerArmor += Armor->ArmorAmount;
-				bHasShieldBelt |= (Armor->ArmorType == ArmorTypeName::ShieldBelt);
-				bHasThighPads |= (Armor->ArmorType == ArmorTypeName::ThighPads);
-				bHasChest |= (Armor->ArmorType == ArmorTypeName::FlakVest);
-				bHasHelmet |= (Armor->ArmorType == ArmorTypeName::Helmet);
-			}
-			else if (Cast<AUTJumpBoots>(*It) != NULL)
-			{
-				bHasJumpBoots = true;
-			}
-		} 
-	}
-	PaperDoll_ShieldBeltOverlay.bHidden = !bHasShieldBelt;
-	PaperDoll_ChestArmorOverlay.bHidden = !bHasChest;
-	PaperDoll_HelmetOverlay.bHidden = !bHasHelmet;
-	PaperDoll_ThighPadArmorOverlay.bHidden = !bHasThighPads;
-	PaperDoll_BootsOverlay.bHidden = !bHasJumpBoots;
-}
-
 bool UUTHUDWidget_Paperdoll::ShouldDraw_Implementation(bool bShowScores)
 {
 	AUTGameState* GS = UTHUDOwner->GetWorld()->GetGameState<AUTGameState>();
 	bool bHidden = false;
-	if (UTHUDOwner && UTHUDOwner->UTPlayerOwner)
+	if (UTHUDOwner)
 	{
-		UUTProfileSettings* ProfileSettings=  UTHUDOwner->UTPlayerOwner->GetProfileSettings();
-		bHidden = ProfileSettings ? ProfileSettings->bHidePaperdoll : false;
+		bHidden = !UTHUDOwner->GetQuickStatsHidden();
 	}
 
 	return ( !bHidden && (GS == NULL || !GS->HasMatchEnded()) && Super::ShouldDraw_Implementation(bShowScores) );
 }
 
+void UUTHUDWidget_Paperdoll::PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCanvas* InCanvas, FVector2D InCanvasCenter)
+{
+	UUTHUDWidget_WeaponBar* WB = Cast<UUTHUDWidget_WeaponBar>(InUTHUDOwner->FindHudWidgetByClass(UUTHUDWidget_WeaponBar::StaticClass()));
+	ScreenPosition.Y = 1.0f;
+	if (WB)
+	{
+		UUTProfileSettings* PlayerProfile = InUTHUDOwner->UTPlayerOwner->GetProfileSettings();
+		bool bVerticalWeaponBar = PlayerProfile ? PlayerProfile->bVerticalWeaponBar : UUTProfileSettings::StaticClass()->GetDefaultObject<UUTProfileSettings>()->bVerticalWeaponBar;
+		if (!bVerticalWeaponBar)
+		{
+			ScreenPosition.Y = 0.925f;	
+		}
+	}
+
+	AUTGameState* UTGameState = InUTHUDOwner->GetWorld()->GetGameState<AUTGameState>();
+	if (UTGameState)
+	{
+		HealthBackground.bUseTeamColors = false;	//UTGameState->bTeamGame;	
+		ArmorBackground.bUseTeamColors = false;		//UTGameState->bTeamGame;	
+	}
+
+	Super::PreDraw(DeltaTime, InUTHUDOwner, InCanvas, InCanvasCenter);
+}
+
+
 void UUTHUDWidget_Paperdoll::Draw_Implementation(float DeltaTime)
 {
+	Opacity = 1.0f;
+	float FlagOpacity = 1.0f;
+
 	AUTCharacter* UTC = Cast<AUTCharacter>(UTHUDOwner->UTPlayerOwner->GetViewTarget());
 	AUTPlayerState* PS = UTC ? Cast<AUTPlayerState>(UTC->PlayerState) : NULL;
-	FlagIconTemplate.RenderColor = (PS && PS->CarriedObject && PS->CarriedObject->Team) ? PS->CarriedObject->Team->TeamColor : FLinearColor::Blue;
-	FlagIconTemplate.bHidden = !PS || !PS->Team || !PS->CarriedObject;
-	PaperDollBase.RenderColor = (PS && PS->Team) ? PS->Team->TeamColor : FLinearColor::White;
-
-	ProcessArmor();
-
 	UUTHUDWidget_Paperdoll* DefObj = GetClass()->GetDefaultObject<UUTHUDWidget_Paperdoll>();
+
+	AUTCTFGameState* GameState = UTHUDOwner->GetWorld()->GetGameState<AUTCTFGameState>();
+
+	bool bPlayerCanRally = UTHUDOwner->UTPlayerOwner->CanPerformRally();
+	bool bShowTimer = !bPlayerCanRally && PS && PS->Team && GameState && GameState->bAttackersCanRally && ((PS->Team->TeamIndex == 0) == GameState->bRedToCap) && UTC && UTC->bCanRally && (PS->RemainingRallyDelay > 0);
 
 	if (UTC != NULL && !UTC->IsDead())
 	{
+		PlayerArmor = UTC->GetArmorAmount();
+
+		ShieldOverlay.bHidden = PlayerArmor <= 100;
+		ArmorText.Text = FText::AsNumber(PlayerArmor);
 		if (PlayerArmor != LastArmor)
 		{
 			ArmorText.RenderColor = (PlayerArmor > LastArmor) ? ArmorPositiveFlashColor : ArmorNegativeFlashColor;
@@ -119,6 +117,7 @@ void UUTHUDWidget_Paperdoll::Draw_Implementation(float DeltaTime)
 			ArmorText.TextScale = 1.f;
 		}
 
+		HealthText.Text = FText::AsNumber(UTC->Health);
 		if (UTC->Health != LastHealth)
 		{
 			HealthText.RenderColor = (UTC->Health > LastHealth) ? HealthPositiveFlashColor : HealthNegativeFlashColor;
@@ -141,8 +140,106 @@ void UUTHUDWidget_Paperdoll::Draw_Implementation(float DeltaTime)
 			HealthText.RenderColor = DefObj->HealthText.RenderColor;
 			HealthText.TextScale = 1.f;
 		}
+
+		int32 DesiredXOffset = 0;
+
+		bShowFlagInfo = PS && PS->CarriedObject;
+		if (bShowFlagInfo || bPlayerCanRally || bShowTimer)
+		{
+			if ( UTHUDOwner->GetQuickInfoHidden() )
+			{
+				// We have the flag.. make room for it.
+				DesiredXOffset = -64;		
+			}
+		}
+
+		if (DrawOffset.X != DesiredXOffset && !bAnimating)
+		{
+			bAnimating = true;
+			DrawOffsetTransitionTime = ANIMATION_TIME;
+		}
+
+		DrawOffsetTransitionTime -= DeltaTime;
+		if (DrawOffsetTransitionTime > 0.0f && UTHUDOwner->GetQuickInfoHidden())
+		{
+			FlagOpacity = 1.0f - (DrawOffsetTransitionTime / ANIMATION_TIME);
+			DrawOffset.X = FMath::InterpEaseInOut<float>(DesiredXOffset != 0.0f ? 0.0f : ALTERNATE_X_OFFSET, DesiredXOffset, FlagOpacity, 2.0f);
+		}
+		else
+		{
+			DrawOffset.X = DesiredXOffset;
+			bAnimating = false;
+		}
 	}
 
-	Super::Draw_Implementation(DeltaTime);
+	// Draw the Health...
+	RenderObj_Texture(HealthBackground, DrawOffset); 
+	RenderObj_Texture(HealthIcon, DrawOffset); 
+	RenderObj_Text(HealthText, DrawOffset); 
+
+	// Draw the Armor...
+	RenderObj_Texture(ArmorBackground, DrawOffset * -1); 
+	RenderObj_Texture(ShieldOverlay, DrawOffset * -1); 
+	RenderObj_Texture(ArmorIcon, DrawOffset * -1); 
+	RenderObj_Text(ArmorText, DrawOffset * -1); 
+
+	FlagText.Text = FText::GetEmpty();
+	if (UTHUDOwner->GetQuickInfoHidden() && (bPlayerCanRally || bShowFlagInfo || bShowTimer))
+	{
+		FlagIcon.Position.Y = bPlayerCanRally ? -16 : 0;
+		Opacity = FlagOpacity;		
+		RenderScale *= FlagOpacity;
+
+		RenderObj_Texture(FlagBackground);
+		if (bPlayerCanRally)
+		{
+			DrawRallyIcon(DeltaTime);		
+		}
+
+		if (bPlayerCanRally)
+		{
+			FlagIcon.RenderScale = 1.25 + (0.75 * FMath::Abs<float>(FMath::Sin(GetWorld()->GetTimeSeconds() * 3)));
+		}
+		else
+		{
+			FlagIcon.RenderScale = 1.25;
+		}
+
+		FlagIcon.UVs = FlagHolderIconUVs;
+		FlagIcon.bUseTeamColors = false;
+		FlagIcon.RenderOpacity = 1.0f;
+		FlagIcon.RenderColor = FLinearColor::White;
+
+		RenderObj_Texture(FlagIcon);
+
+		if (bPlayerCanRally)
+		{
+			FlagText.Text = UTHUDOwner->RallyLabel;
+			RenderObj_Text(FlagText);
+		}
+		else if (bShowTimer)
+		{
+			FlagText.Text = FText::AsNumber(int32(PS->RemainingRallyDelay));
+			RenderObj_Text(FlagText);
+		}
+	}
 }
 
+void UUTHUDWidget_Paperdoll::DrawRallyIcon(float DeltaTime)
+{
+	FlagIcon.UVs = RallyIconUVs;
+	FlagIcon.bUseTeamColors = true;
+	FlagIcon.RenderScale = 1.0f;
+
+	for (int32 i = 0; i < RallyAnimTimers.Num(); i++)
+	{
+		RallyAnimTimers[i] += DeltaTime;
+		if (RallyAnimTimers[i] > RALLY_ANIMATION_TIME) RallyAnimTimers[i] = 0;
+		float Position = (RallyAnimTimers[i] / RALLY_ANIMATION_TIME);
+	
+		float XPos = FMath::InterpEaseOut<float>(64.0f, 0.0f, Position, 2.0f);
+		FlagIcon.RenderOpacity = FMath::InterpEaseOut<float>(1.0f, 0.0f, Position, 2.0f);
+		RenderObj_Texture(FlagIcon,FVector2D(XPos, 0.0f));
+		RenderObj_Texture(FlagIcon,FVector2D(XPos * -1, 0.0f));
+	}
+}

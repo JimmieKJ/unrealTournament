@@ -12,6 +12,7 @@ const uint32 MAX_DAMAGE_INDICATORS = 3;				// # of damage indicators on the scre
 const float DAMAGE_FADE_DURATION = 1.0f;			// How fast a damage indicator fades out
 const float MAX_MY_DAMAGE_BOUNCE_TIME = 1.25f;		// How fast will the numbers bounce in to the screen.
 const float MAX_TALLY_FADE_TIME = 0.6f;				// How fast should the talley numbers fade in
+
 class UUTProfileSettings;
 
 USTRUCT()
@@ -68,6 +69,8 @@ struct FEnemyDamageNumber
 class UUTRadialMenu;
 class UUTRadialMenu_Coms;
 class UUTRadialMenu_WeaponWheel;
+
+class UUTUMGHudWidget;
 
 UCLASS(Config=Game)
 class UNREALTOURNAMENT_API AUTHUD : public AHUD
@@ -210,6 +213,12 @@ public:
 	// Active Damage Indicators.  NOTE: if FadeTime == 0 then it's not in use
 	UPROPERTY()
 	TArray<struct FDamageHudIndicator> DamageIndicators;
+
+	/** full screen material drawn when taking damage, intensity based on damage amount */
+	UPROPERTY()
+	UMaterialInterface* DamageScreenMat;
+	UPROPERTY()
+	UMaterialInstanceDynamic* DamageScreenMID;
 
 	// This is a list of hud widgets that are defined in DefaultGame.ini to be loaded.  NOTE: you can use 
 	// embedded JSON to set their position.  See BuildHudWidget().
@@ -365,9 +374,6 @@ public:
 
 	UFUNCTION(BlueprintCallable, Category=HUD)
 	bool GetPlayKillSoundMsg();
-	
-	UFUNCTION(BlueprintCallable, Category = HUD)
-	float GetHUDMinimapScale();
 
 	UFUNCTION(BlueprintCallable, Category=HUD)
 	float GetQuickStatsAngle();
@@ -388,13 +394,16 @@ public:
 	float GetQuickStatsForegroundAlpha();
 
 	UFUNCTION(BlueprintCallable, Category=HUD)
-	float GetQuickStatsHidden();
+	bool GetQuickStatsHidden();
 
 	UFUNCTION(BlueprintCallable, Category=HUD)
-	float GetQuickStatsBob();
+	bool GetQuickInfoHidden();
 
-	
+	UFUNCTION(BlueprintCallable, Category = HUD)
+		bool GetHealthArcShown();
 
+	UFUNCTION(BlueprintCallable, Category = HUD)
+		float GetHealthArcRadius();
 
 	// accessor for CachedTeamColor.  
 	FLinearColor GetWidgetTeamColor();
@@ -409,16 +418,9 @@ public:
 	UPROPERTY()
 	TArray<AUTPlayerState*> Leaderboard;
 
-
 	virtual bool ShouldDrawMinimap();
 
-	virtual int32 GetScoreboardPage() { return ScoreboardPage; };
-	virtual void SetScoreboardPage(int32 NewPage) { ScoreboardPage = NewPage; };
-
 protected:
-	// Used to determine which page of the scoreboard we should show
-	UPROPERTY()
-		int32 ScoreboardPage;
 
 	// We cache the team color so we only have to look it up once at the start of the render pass
 	FLinearColor CachedTeamColor;
@@ -448,6 +450,21 @@ public:
 	virtual void BuildHudWidget(FString NewWidgetString);
 
 	virtual bool HasHudWidget(TSubclassOf<UUTHUDWidget> NewWidgetClass);
+
+	/** Find and return requested key mapping. */
+	virtual FInputActionKeyMapping FindKeyMappingTo(FName ActionName);
+
+	/** Update displayed key bindings on HUD */
+	virtual void UpdateKeyMappings(bool bForceUpdate);
+
+	UPROPERTY()
+		bool bKeyMappingsSet;
+
+	UPROPERTY()
+		FText RallyLabel;
+
+	UPROPERTY()
+		FText BoostLabel;
 
 protected:
 	// Helper function to take a JSON object and try to convert it to the FVector2D.  
@@ -511,22 +528,13 @@ public:
 	UFUNCTION(BlueprintNativeEvent)
 	EInputMode::Type GetInputMode() const;
 
-	/**The list of crosshair information for each weapon*/
-	UPROPERTY(globalconfig)
-	TArray<FCrosshairInfo> CrosshairInfos;
-
 	/**If true, crosshairs can be unique per weapon*/
 	UPROPERTY(globalconfig)
 	bool bCustomWeaponCrosshairs;
 
-	/**Gets the crosshair for the weapon. Creates a new one if necessary*/
-	UFUNCTION(BlueprintCallable, Category = Crosshair)
-	class UUTCrosshair* GetCrosshair(TSubclassOf<AUTWeapon> Weapon);
-
-	FCrosshairInfo* GetCrosshairInfo(TSubclassOf<AUTWeapon> Weapon);
-
+	// Holds a list of all loaded crosshairs.
 	UPROPERTY()
-	TArray<class UUTCrosshair*> LoadedCrosshairs;
+	TMap<FName, UUTCrosshair*> Crosshairs;
 
 	/** called by PlayerController (locally) when clicking mouse while crosshair is selected
 	 * return true to override default behavior
@@ -612,7 +620,6 @@ public:
 	bool bShowWeaponWheel;
 	virtual void ToggleWeaponWheel(bool bShow);
 
-
 	bool bShowVoiceDebug;
 
 protected:
@@ -620,6 +627,31 @@ protected:
 	TArray<UUTRadialMenu*> RadialMenus;
 	UUTRadialMenu_Coms* ComsMenu;
 	UUTRadialMenu_WeaponWheel* WeaponWheel;
+
+public:
+	/**
+	 *	Activate a UMG HUD widget and display it over the HUD
+	 **/
+	virtual TWeakObjectPtr<class UUTUMGHudWidget> ActivateUMGHudWidget(FString UMGHudWidgetClassName, bool bUnique = true);
+	virtual void ActivateActualUMGHudWidget(TWeakObjectPtr<UUTUMGHudWidget> WidgetToActivate);
+
+	/**
+	 *	Deactivates a UMG HUD widget that is already active
+	 **/
+	virtual void DeactivateUMGHudWidget(FString UMGHudWidgetClassName);
+	virtual void DeactivateActualUMGHudWidget(TWeakObjectPtr<UUTUMGHudWidget> WidgetToDeactivate);
+
+	/**
+	 *	Look up the crosshair information for a given weapon.  Returns the default object for the crosshair and passes out 
+	 *  the customization info.
+	 **/
+	UFUNCTION()
+	UUTCrosshair* GetCrosshairForWeapon(FName WeaponCustomizationTag, FWeaponCustomizationInfo& outWeaponCustomizationInfo);
+
+
+protected:
+	TArray<TWeakObjectPtr<UUTUMGHudWidget>> UMGHudWidgetStack;
+
 
 
 };

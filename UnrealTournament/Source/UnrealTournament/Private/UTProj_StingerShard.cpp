@@ -19,11 +19,12 @@ AUTProj_StingerShard::AUTProj_StingerShard(const class FObjectInitializer& Objec
 	}
 	if (PawnOverlapSphere != NULL)
 	{
-		PawnOverlapSphere->SetRelativeLocation(FVector(-20.f, 0.f, 0.f));
+		PawnOverlapSphere->SetRelativeLocation(FVector(-10.f, 0.f, 0.f));
 	}
-	InitialLifeSpan = 8.f;
+	InitialLifeSpan = 3.f;
 	ImpactedShardDamage = 12;
-	ImpactedShardMomentum = 100000.f;
+	ImpactedShardMomentum = 50000.f;
+	bLowPriorityLight = true;
 }
 
 void AUTProj_StingerShard::Destroyed()
@@ -133,6 +134,17 @@ void AUTProj_StingerShard::ProcessHit_Implementation(AActor* OtherActor, UPrimit
 		{
 			AttachRootComponentTo(Lift->GetEncroachComponent(), NAME_None, EAttachLocation::KeepWorldPosition);
 		}
+
+		// turn off in-flight sound
+		TArray<UAudioComponent*> AudioComponents;
+		GetComponents<UAudioComponent>(AudioComponents);
+		for (int32 i = 0; i < AudioComponents.Num(); i++)
+		{
+			if (AudioComponents[i] && AudioComponents[i]->Sound != NULL && AudioComponents[i]->Sound->GetDuration() >= INDEFINITELY_LOOPING_DURATION)
+			{
+				AudioComponents[i]->Stop();
+			}
+		}
 	}
 }
 
@@ -170,6 +182,7 @@ void AUTProj_StingerShard::AttachToRagdoll(AUTCharacter* HitChar, const FVector&
 		NewConstraint->ConstraintInstance.ProjectionLinearTolerance = 0.05f;
 		//NewConstraint->ConstraintInstance.EnableProjection();
 		HitChar->RagdollConstraint = NewConstraint;
+		ProjectileMovement->Velocity *= 0.3f;
 	}
 	AttachedPawns.Add(HitChar);
 	SetTimerUFunc(this, FName(TEXT("DetachRagdollsInFlight")), 0.5f);

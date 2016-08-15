@@ -3,14 +3,46 @@
 
 #include "SlateBasics.h"
 #include "../Base/SUTDialogBase.h"
+#include "UTDroppedPickup.h"
 
 #if !UE_SERVER
+
+class SUTButton;
+class UTCrosshair;
+class SUTWeaponPriorityDialog;
+
+struct FWeaponInfo
+{
+	UClass* WeaponClass;
+	TWeakObjectPtr<AUTWeapon> WeaponDefaultObject;
+	FSlateDynamicImageBrush* WeaponIconBrush;
+	FWeaponCustomizationInfo* WeaponCustomizationInfo;
+	TSharedPtr<SUTButton> WeaponButton;
+	FString WeaponSkinClassname;
+
+	FWeaponInfo()
+	{
+		WeaponClass = nullptr;
+		WeaponDefaultObject.Reset();
+		WeaponIconBrush = nullptr;
+		WeaponSkinClassname = TEXT("");
+	}
+
+	FWeaponInfo(UClass* inClass, AUTWeapon* inWeapon)
+	{
+		WeaponClass = inClass;
+		WeaponDefaultObject = inWeapon;
+
+		FVector2D WeaponIconSize = FVector2D(WeaponDefaultObject->MenuGraphic->GetSizeX(), WeaponDefaultObject->MenuGraphic->GetSizeY());
+		WeaponIconBrush = new FSlateDynamicImageBrush(WeaponDefaultObject->MenuGraphic, WeaponIconSize, NAME_None);
+	}
+};
 
 class UNREALTOURNAMENT_API SUTWeaponConfigDialog : public SUTDialogBase, public FGCObject
 {
 public:
 	SLATE_BEGIN_ARGS(SUTWeaponConfigDialog)
-		: _DialogSize(FVector2D(1800,1000))
+		: _DialogSize(FVector2D(1920.0,1060.0))
 		, _bDialogSizeIsRelative(false)
 		, _DialogPosition(FVector2D(0.5f, 0.5f))
 		, _DialogAnchorPoint(FVector2D(0.5f, 0.5f))
@@ -25,131 +57,179 @@ public:
 		SLATE_EVENT(FDialogResultDelegate, OnDialogResult)
 	SLATE_END_ARGS()
 
+	virtual ~SUTWeaponConfigDialog();
 	void Construct(const FArguments& InArgs);
+	virtual void AddReferencedObjects(FReferenceCollector& Collector) override;
+	virtual void Tick(const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime) override;
 
-	TSharedPtr<class SUTTabWidget> TabWidget;
+	virtual TSharedRef<class SWidget> BuildCustomButtonBar();
+	virtual FReply OnButtonClick(uint16 ButtonID) override;
 
-	TSharedPtr<SBoxPanel> GroupControlsBox;
-	TSharedPtr<SCheckBox> ClassicGroups;
-	TSharedPtr<SNumericEntryBox<int32>> GroupEdit;
-	TSharedPtr<SCheckBox> AutoWeaponSwitch;
+protected:
+	TSharedPtr<SButton> WeaponWheelConfigButton;
+	TSharedPtr<SButton> WeaponPriorityConfigButton;
 
-	TArray<UClass*> WeaponClassList;
-	TArray<TWeakObjectPtr<UClass>> WeakWeaponClassList;
-	TSharedPtr< SListView<TWeakObjectPtr<UClass>> > WeaponList;
+	TSharedPtr<SUTButton> VariantsButton;
+	TSharedPtr<SUTButton> CrosshairButton;
 
-	TWeakObjectPtr<UClass> SelectedWeapon;
-	void OnWeaponChanged(TWeakObjectPtr<UClass> NewSelectedWeapon, ESelectInfo::Type SelectInfo);
-	TSharedRef<ITableRow> GenerateWeaponListRow(TWeakObjectPtr<UClass> WeaponClass, const TSharedRef<STableViewBase>& OwningList);
-	FReply WeaponPriorityUp();
-	FReply WeaponPriorityDown();
+protected:
 
-	TMap<UClass*, int32> WeaponGroups;
+	// The 3d world preview
+
+	class UWorld* PreviewWorld;
+	FSceneViewStateReference PreviewViewState;
+	class UUTCanvasRenderTarget2D* PreviewTexture;
+	class UMaterialInstanceDynamic* PreviewMID;
+	FSlateBrush* PreviewBrush;
+	AActor* PreviewEnvironment;
+
+	FRotator PreviewActorRotation;
+	FVector PreviewCameraLocation;
+	FVector DefaultPreviewCameraLocation;
+	FVector DesiredPreviewCameraLocation;
+
+	// Holds the offset to add to the camera for the selected variant
+	FVector PreviewCameraOffset;
+
+	// Holds a second offset that is applied to the camera to allow for some fine tune movement
+	FVector PreviewCameraFreeLookOffset;
+
+	float TimeSinceLastCameraAdjustment;
+
+	virtual void ConstructPreviewWorld(FVector2D ViewportSize);
+	virtual void UpdatePreviewRender(UCanvas* C, int32 Width, int32 Height);
+
+	int32 CurrentWeaponIndex;
+
+	TArray<AUTDroppedPickup*> PickupPreviewActors;
+	TArray<AUTWeapon*> WeaponPreviewActors;
+	TArray<UUTWeaponSkin*> PreviewWeaponSkins;
+
+	void RecreateWeaponPreview();
+
+	void DragPreview(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent);
+	void ZoomPreview(float WheelDelta);
+
+	int32 CurrentWeaponPreviewIndex;
+	
+	float AnimStartY;
+	float AnimEndY;
+	float AnimTimer;
+
+	bool bAnimating;
+
+
+protected:
+
+	TArray<FWeaponCustomizationInfo*> DeleteList;
+
+	// All of the weapon specifics
+
+	TArray<FWeaponInfo> AllWeapons;
+
+	void GatherWeaponData(UUTProfileSettings* ProfileSettings);
+
+	bool bShowingCrosshairs;
+	TSharedPtr<SVerticalBox> Page;
+	void GeneratePage();
+
+	FReply OnModeChanged(int32 NewMode);
+
+protected:
+
+	// Weapon Hand
 
 	TArray< TSharedPtr<FText> > WeaponHandList;
 	TArray<FText> WeaponHandDesc;
 	TSharedPtr< SComboBox< TSharedPtr<FText> > > WeaponHand;
 	TSharedPtr<STextBlock> SelectedWeaponHand;
 
+	TSharedRef<SWidget> GenerateWeaponHand();
 	TSharedRef<SWidget> GenerateHandListWidget(TSharedPtr<FText> InItem);
 	void OnHandSelected(TSharedPtr<FText> NewSelection, ESelectInfo::Type SelectInfo);
 
+protected:
 
-	/** render target for the WYSIWYG crosshair */
-	class UUTCanvasRenderTarget2D* CrosshairPreviewTexture;
-	/** material for the crosshair preview since Slate doesn't support rendering the target directly */
-	class UMaterialInstanceDynamic* CrosshairPreviewMID;
-	/** Slate brush to render the preview */
-	FSlateBrush* CrosshairPreviewBrush;
+	// Auto-Weapon Switch
 
-	virtual void UpdateCrosshairRender(UCanvas* C, int32 Width, int32 Height);
+	TSharedPtr<SCheckBox> AutoWeaponSwitch;
+	TSharedRef<SWidget> GenerateAutoSwitch();
+
+
+protected:
+
+	// Custom Crosshairs
 
 	bool bCustomWeaponCrosshairs;
+
+	TSharedPtr<SCheckBox> CustomWeaponCrosshairs;
+	TSharedRef<SWidget> GenerateCustomWeaponCrosshairs();
 	ECheckBoxState GetCustomWeaponCrosshairs() const;
 	void SetCustomWeaponCrosshairs(ECheckBoxState NewState);
 
-	TSharedPtr<SImage> CrosshairImage;
-	TSharedPtr<SOverlay> ColorOverlay;
-	TSharedPtr<class SUTColorPicker> ColorPicker;
-	TSharedPtr<STextBlock> CrosshairText;
 
-	TSharedPtr<FCrosshairInfo> SelectedCrosshairInfo;
+protected:
 
-	TArray<TSharedPtr<FCrosshairInfo> > CrosshairInfos;
-	TSharedPtr< SListView<TSharedPtr<FCrosshairInfo> > > CrosshairInfosList;
-
-	TMap<FString, TWeakObjectPtr<UClass>> WeaponMap;
-	TMap<FString, TWeakObjectPtr<UClass>> CrosshairMap;
-
-	TArray<UClass*> CrosshairClassList;
-	TArray<TWeakObjectPtr<UClass>> WeakCrosshairList;
-
-	TSharedPtr<SComboBox< TWeakObjectPtr<UClass>  > > CrosshairComboBox;
-	void OnCrosshairSelected(TWeakObjectPtr<UClass> NewSelection, ESelectInfo::Type SelectInfo);
-	TSharedRef<SWidget> GenerateCrosshairRow(TWeakObjectPtr<UClass>  CrosshairClass);
-
-	TOptional<float> GetCrosshairScale() const
-	{
-		return SelectedCrosshairInfo.IsValid() ? TOptional<float>(SelectedCrosshairInfo->Scale) : TOptional<float>(1.0f);
-	}
-
-	void SetCrosshairScale(float InScale)
-	{
-		if (SelectedCrosshairInfo.IsValid())
-		{
-			SelectedCrosshairInfo->Scale = InScale;
-		}
-	}
-
-	FLinearColor GetCrosshairColor() const
-	{
-		return SelectedCrosshairInfo.IsValid() ? SelectedCrosshairInfo->Color : FLinearColor::White;
-	}
-
-	void SetCrosshairColor(FLinearColor NewColor)
-	{
-		if (SelectedCrosshairInfo.IsValid())
-		{
-			SelectedCrosshairInfo->Color = NewColor;
-		}
-	}
-
-	TSharedPtr<SComboBox< TSharedPtr<FString>  > > WeaponSkinComboBox;
-	TSharedPtr<STextBlock> WeaponSkinText;
-	TArray<TSharedPtr<FString>> WeaponSkinList;
-
-	TMap< FString, TArray<UUTWeaponSkin*> > WeaponToSkinListMap;
-	TMap< FString, FString > WeaponSkinSelection;
-	void OnWeaponSkinSelected(TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo);
-	TSharedRef<SWidget> GenerateStringListWidget(TSharedPtr<FString> InItem);
-	void UpdateAvailableWeaponSkins();
-
-	virtual void Tick(const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime) override;
-	virtual void AddReferencedObjects(FReferenceCollector& Collector) override;
-
-	virtual FReply OnButtonClick(uint16 ButtonID);
-	FReply OKClick();
-	FReply CancelClick();
-
-	bool CanMoveWeaponPriorityUp() const;
-	bool CanMoveWeaponPriorityDown() const;
-
-	TOptional<int32> GetWeaponGroup() const;
-	void SetWeaponGroup(int32 NewGroup);
-
-	TSharedPtr<STextBlock> WeaponsInGroupText;
-	void UpdateWeaponsInGroup();
-
-	FReply DefaultGroupsClicked();
-
-	TArray<TSharedPtr<FText>> QuickSlotTexts;
-	TSharedPtr< SComboBox< TSharedPtr<FText> > > QuickSlotComboBox;
+	// Weapon Groups
 	
-	TSharedRef<SWidget> GenerateQuickslotListWidget(TSharedPtr<FText> InItem);
-	void OnQuickslotSelected(TSharedPtr<FText> NewSelection, ESelectInfo::Type SelectInfo);
-	TSharedPtr<STextBlock> SelectedWeaponQuickslot;
+	TArray<TSharedPtr<SUTButton>> WeaponGroupButtons;
+	TSharedPtr<SHorizontalBox> WeaponGroupBox;
+	void GenerateWeaponGroups();
+	void UpdateWeaponGroups(int32 NewWeaponGroup);
+	FReply WeaponGroupClicked(int32 NewWeaponGroup);
 
-	TArray<FString> WeaponWheelClassnames;
+protected:
+
+	// Weapon List
+
+	TSharedPtr<SScrollBox> WeaponScrollBox;
+	FReply WeaponClicked(int32 NewWeaponIndex);
+	void GenerateWeaponList(UClass* DesiredSelectedWeaponClass);
+
+protected:
+
+	// Weapon Skins
+	TArray<UUTWeaponSkin*> WeaponSkinGCList;
+	TMap< FName, TArray<UUTWeaponSkin*> > AllWeaponSkins;
+	TArray<UUTWeaponSkin*>* CurrentWeaponSkinArray;
+	void GatherWeaponSkins(UUTProfileSettings* ProfileSettings);
+	FText GetVariantTitle() const;
+	FText GetVariantCount() const;
+
+	FReply HandleNextPrevious(int32 Step);
+	EVisibility LeftArrowVis() const;
+	EVisibility RightArrowVis() const;
+	
+	EVisibility VarientSelectVis() const;
+
+
+	FText GetVarientText() const;
+	FText GetVarientSetText() const;
+
+	// returns true if this varient is the currently selected variant
+	bool IsCurrentSkin() const;
+	FReply SetWeaponSkin();
+
+protected:
+
+	// Crosshairs
+
+	int32 CurrentCrosshairIndex;
+	TArray<UUTCrosshair*> AllCrosshairs;
+	void GatherCrosshairs(UUTProfileSettings* ProfileSettings);
+
+	TSharedPtr<class SUTColorPicker> ColorPicker;
+
+	TOptional<float> GetCrosshairScale() const;
+	void SetCrosshairScale(float InScale);
+	FLinearColor GetCrosshairColor() const;
+	void SetCrosshairColor(FLinearColor NewColor);
+
+
+protected:
+	FReply SetAutoSwitchPriorities();
+	TSharedPtr<SUTWeaponPriorityDialog> AutoSwitchDialog;
+	void AutoSwitchDialogClosed(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID);
 
 };
 #endif

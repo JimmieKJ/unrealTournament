@@ -33,6 +33,9 @@ AUTWeap_Translocator::AUTWeap_Translocator(const class FObjectInitializer& Objec
 
 	FirstFireInterval = 0.12f;
 	MinFastTranslocInterval = 0.7f;
+
+	WeaponCustomizationTag = EpicWeaponCustomizationTags::Translocator;
+	WeaponSkinCustomizationTag = EpicWeaponSkinCustomizationTags::Translocator;
 }
 
 void AUTWeap_Translocator::PostInitProperties()
@@ -613,4 +616,8 @@ bool AUTWeap_Translocator::CanAttack_Implementation(AActor* Target, const FVecto
 		BestFireMode = 0;
 		return false;
 	}
+}
+
+void AUTWeap_Translocator::GuessPlayerTarget(const FVector& StartFireLoc, const FVector& FireDir)
+{
 }

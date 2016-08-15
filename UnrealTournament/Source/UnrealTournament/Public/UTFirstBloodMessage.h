@@ -29,10 +29,9 @@ class UNREALTOURNAMENT_API UUTFirstBloodMessage : public UUTLocalMessage
 
 		FirstBloodAnnouncement = FName(TEXT("FirstBlood"));
 
-		bIsSpecial = true;
 		bIsUnique = true;
 		bIsConsoleMessage = false;
-		Lifetime = 3.0f;
+		Lifetime = 2.0f;
 		AnnouncementDelay = 0.5f;
 		ScaleInSize = 3.f;
 	}

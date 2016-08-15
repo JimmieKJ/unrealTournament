@@ -29,6 +29,10 @@ public:
 		{
 			Ar << PlayerName;
 		}
+		else if (Ar.IsLoading() && PlayerState != NULL)
+		{
+			PlayerName = PlayerState->PlayerName;
+		}
 		return true;
 	}
 
@@ -177,13 +181,16 @@ class UNREALTOURNAMENT_API AUTCTFGameState: public AUTGameState
 		bool bAllowRallies;
 
 	UPROPERTY(Replicated)
-		bool bRedCanRally;
-
-	UPROPERTY(Replicated)
-		bool bBlueCanRally;
+		bool bAttackersCanRally;
 
 	UPROPERTY()
 		float LastOffenseRallyTime;
+
+	UPROPERTY()
+		float LastRallyCompleteTime;
+
+	UPROPERTY()
+		float LastNoRallyTime;
 
 	/** Delay before bringing up scoreboard at halftime. */
 	UPROPERTY(BlueprintReadOnly, Replicated, Category = CTF)

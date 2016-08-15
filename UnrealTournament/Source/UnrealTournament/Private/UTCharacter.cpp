@@ -35,6 +35,8 @@
 #include "UTWeaponSkin.h"
 #include "UTPickupMessage.h"
 #include "UTDemoRecSpectator.h"
+#include "UTGameVolume.h"
+#include "UTGameMode.h"
 
 static FName NAME_HatSocket(TEXT("HatSocket"));
 
@@ -611,12 +613,23 @@ bool AUTCharacter::BlockedHeadShot(FVector HitLocation, FVector ShotDirection, f
 			{
 				OnRepHeadArmorFlashCount();
 			}
+			HeadShotBlocked();
 			if (ShotInstigator)
 			{
 				ShotInstigator->HeadShotBlocked();
 			}
 			return true;
 		}
+	}
+	if ((GetArmorAmount() > 0) && bIsWearingHelmet)
+	{
+		bIsWearingHelmet = false;
+		HeadShotBlocked();
+		if (ShotInstigator)
+		{
+			ShotInstigator->HeadShotBlocked();
+		}
+		return true;
 	}
 	return false;
 }
@@ -800,10 +813,10 @@ float AUTCharacter::TakeDamage(float Damage, const FDamageEvent& DamageEvent, AC
 			}
 			int32 AppliedDamage = ResultDamage;
 			AUTInventory* HitArmor = NULL;
-			ModifyDamageTaken(AppliedDamage, ResultDamage, ResultMomentum, HitArmor, HitInfo, EventInstigator, DamageCauser, DamageEvent.DamageTypeClass);
-			if (HitArmor)
+			bool bApplyDamageToCharacter = ((Game->bDamageHurtsHealth && bDamageHurtsHealth) || (!Cast<AUTPlayerController>(GetController()) && (!DrivenVehicle || !Cast<AUTPlayerController>(DrivenVehicle->GetController()))));
+			if (bApplyDamageToCharacter)
 			{
-				ArmorAmount = GetArmorAmount();
+				ModifyDamageTaken(AppliedDamage, ResultDamage, ResultMomentum, HitArmor, HitInfo, EventInstigator, DamageCauser, DamageEvent.DamageTypeClass);
 			}
 			if (ResultDamage > 0 || !ResultMomentum.IsZero())
 			{
@@ -851,13 +864,18 @@ float AUTCharacter::TakeDamage(float Damage, const FDamageEvent& DamageEvent, AC
 				}
 			}
 
-			if ((Game->bDamageHurtsHealth && bDamageHurtsHealth) || (!Cast<AUTPlayerController>(GetController()) && (!DrivenVehicle || !Cast<AUTPlayerController>(DrivenVehicle->GetController()))))
+			if (bApplyDamageToCharacter)
 			{
 				Health -= ResultDamage;
 				bWasFallingWhenDamaged = (GetCharacterMovement() != NULL && (GetCharacterMovement()->MovementMode == MOVE_Falling));
 				if (Health < 0)
 				{
 					AppliedDamage += Health;
+				}
+				if ((Health <= 0) && (ArmorAmount > 0))
+				{
+					ArmorAmount = 0;
+					UpdateArmorOverlay();
 				}
 			}
 			UE_LOG(LogUTCharacter, Verbose, TEXT("%s took %d damage, %d health remaining"), *GetName(), ResultDamage, Health);
@@ -920,7 +938,7 @@ float AUTCharacter::TakeDamage(float Damage, const FDamageEvent& DamageEvent, AC
 			}
 			else if (UTCharacterMovement != NULL)
 			{
-				if (UTCharacterMovement->bIsFloorSliding)
+				if ((UTCharacterMovement->bIsFloorSliding) && !ResultMomentum.IsZero())
 				{
 					UTCharacterMovement->Velocity.X *= 0.5f;
 					UTCharacterMovement->Velocity.Y *= 0.5f;
@@ -1012,6 +1030,37 @@ bool AUTCharacter::ModifyDamageTaken_Implementation(int32& AppliedDamage, int32&
 			It->ModifyDamageTaken(Damage, Momentum, HitArmor, EventInstigator, HitInfo, DamageCauser, DamageType);
 		}
 	}
+	// use armor
+	int32 CurrentArmor = GetArmorAmount();
+	if ((Damage > 0) && (CurrentArmor > 0))
+	{
+		const UDamageType* const DamageTypeCDO = (DamageType != NULL) ? DamageType->GetDefaultObject<UDamageType>() : GetDefault<UDamageType>();
+		const UUTDamageType* const UTDamageTypeCDO = Cast<UUTDamageType>(DamageTypeCDO); // warning: may be NULL
+		if (UTDamageTypeCDO == NULL || UTDamageTypeCDO->bBlockedByArmor)
+		{
+			HitArmor = ArmorType;
+			int32 AbsorbedDamage = 0;
+			int32 InitialDamage = Damage;
+			if (CurrentArmor > 100)
+			{
+				// absorb 100% of damage if armor > 100
+				AbsorbedDamage = FMath::Min(Damage, CurrentArmor - 100);
+				Damage -= AbsorbedDamage;
+			}
+			if (Damage > 0)
+			{
+				// absorb 50% of damage if armor <= 100
+				int32 PartialAbsorbedDamage = FMath::Min(CurrentArmor, FMath::Max<int32>(1, Damage * 0.5f));
+				Damage -= PartialAbsorbedDamage;
+				AbsorbedDamage += PartialAbsorbedDamage;
+			}
+			if (ArmorType && ArmorType->bAbsorbMomentum)
+			{
+				Momentum *= 1.0f - float(AbsorbedDamage) / float(InitialDamage);
+			}
+			RemoveArmor(AbsorbedDamage);
+		}
+	}
 	return false;
 }
 
@@ -1028,8 +1077,7 @@ bool AUTCharacter::ModifyDamageCaused_Implementation(int32& AppliedDamage, int32
 void AUTCharacter::SetLastTakeHitInfo(int32 AttemptedDamage, int32 Damage, const FVector& Momentum, AUTInventory* HitArmor, const FDamageEvent& DamageEvent)
 {
 	// if we haven't replicated a previous hit yet (generally, multi hit within same frame), stack with it
-	bool bStackHit = (LastTakeHitTime > LastTakeHitReplicatedTime && DamageEvent.DamageTypeClass == LastTakeHitInfo.DamageType);
-
+	bool bStackHit = (LastTakeHitTime > LastTakeHitReplicatedTime && DamageEvent.DamageTypeClass == LastTakeHitInfo.DamageType) && (GetNetMode() == NM_DedicatedServer);
 	LastTakeHitInfo.Damage = Damage;
 	LastTakeHitInfo.DamageType = DamageEvent.DamageTypeClass;
 	if (!bStackHit || LastTakeHitInfo.HitArmor == NULL)
@@ -1209,6 +1257,7 @@ void AUTCharacter::NotifyTakeHit(AController* InstigatedBy, int32 AppliedDamage,
 			if (Flag)
 			{
 				Flag->LastPingedTime = GetWorld()->GetTimeSeconds();
+				Flag->LastPinger = Cast<AUTPlayerState>(InstigatedBy->PlayerState) ? ((AUTPlayerState*)(InstigatedBy->PlayerState)) : Flag->LastPinger;
 			}
 			LastTargetedTime = GetWorld()->GetTimeSeconds();
 		}
@@ -1236,9 +1285,13 @@ void AUTCharacter::NotifyTakeHit(AController* InstigatedBy, int32 AppliedDamage,
 		{
 			const UDamageType* const DamageTypeCDO = DamageEvent.DamageTypeClass ? DamageEvent.DamageTypeClass->GetDefaultObject<UDamageType>() : GetDefault<UDamageType>();
 			const UUTDamageType* const UTDamageTypeCDO = Cast<UUTDamageType>(DamageTypeCDO); // warning: may be NULL
-			if (HitArmor != nullptr && HitArmor->ReceivedDamageSound != nullptr && ((UTDamageTypeCDO == NULL) || UTDamageTypeCDO->bBlockedByArmor))
+			if (HitArmor != nullptr && ((UTDamageTypeCDO == NULL) || UTDamageTypeCDO->bBlockedByArmor))
 			{
-				UUTGameplayStatics::UTPlaySound(GetWorld(), HitArmor->ReceivedDamageSound, this, SRT_All, false, FVector::ZeroVector, InstigatedByPC, NULL, false, SAT_PainSound);
+				USoundBase* ArmorSound = (GetArmorAmount()+Damage/2 > 100) && HitArmor->ShieldDamageSound ? HitArmor->ShieldDamageSound : HitArmor->ReceivedDamageSound;
+				if (ArmorSound != nullptr)
+				{
+					UUTGameplayStatics::UTPlaySound(GetWorld(), ArmorSound, this, SRT_All, false, FVector::ZeroVector, InstigatedByPC, NULL, false, SAT_PainSound);
+				}
 			}
 			else if ((UTDamageTypeCDO == NULL) || UTDamageTypeCDO->bCausesPainSound)
 			{
@@ -1253,7 +1306,7 @@ void AUTCharacter::NotifyTakeHit(AController* InstigatedBy, int32 AppliedDamage,
 			for (FConstPlayerControllerIterator It = GetWorld()->GetPlayerControllerIterator(); It; ++It)
 			{
 				AUTPlayerController* PC = Cast<AUTPlayerController>(*It);
-				if (PC != NULL && PC->GetViewTarget() == InstigatorPawn && PC->GetPawn() != this)
+				if (PC != NULL && (PC != InstigatedByPC) && PC->GetViewTarget() == InstigatorPawn && PC->GetPawn() != this)
 				{
 					PC->ClientNotifyCausedHit(this, CompressedDamage);
 				}
@@ -2790,7 +2843,7 @@ void AUTCharacter::WeaponChanged(float OverflowTime)
 		WeaponClass = Weapon->GetClass();
 		WeaponAttachmentClass = Weapon->AttachmentType;
 		Weapon->BringUp(OverflowTime);
-		UpdateWeaponSkinPrefFromProfile();
+		UpdateWeaponSkinPrefFromProfile(Weapon);
 		UpdateWeaponAttachment();
 	}
 	else if (Weapon != NULL && Weapon->GetUTOwner() == this)
@@ -2883,14 +2936,14 @@ void AUTCharacter::SetSkinForWeapon(UUTWeaponSkin* WeaponSkin)
 	}
 }
 
-void AUTCharacter::UpdateWeaponSkinPrefFromProfile()
+void AUTCharacter::UpdateWeaponSkinPrefFromProfile(AUTWeapon* Weapon)
 {
-	if (Weapon && IsLocallyControlled())
+	if (Weapon != nullptr && IsLocallyControlled())
 	{
 		AUTPlayerState* PS = Cast<AUTPlayerState>(PlayerState);
 		if (PS)
 		{
-			PS->UpdateWeaponSkinPrefFromProfile(WeaponClass);
+			PS->UpdateWeaponSkinPrefFromProfile(Weapon);
 		}
 	}
 }
@@ -3002,9 +3055,11 @@ void AUTCharacter::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& O
 	DOREPLIFETIME_CONDITION(AUTCharacter, CharOverlayFlags, COND_None);
 	DOREPLIFETIME_CONDITION(AUTCharacter, WeaponOverlayFlags, COND_None);
 	DOREPLIFETIME_CONDITION(AUTCharacter, ReplicatedBodyMaterial, COND_None);
+	DOREPLIFETIME_CONDITION(AUTCharacter, ReplicatedBodyMaterial1P, COND_None);
 	DOREPLIFETIME_CONDITION(AUTCharacter, HeadScale, COND_None);
 	DOREPLIFETIME_CONDITION(AUTCharacter, bFeigningDeath, COND_None);
 	DOREPLIFETIME_CONDITION(AUTCharacter, bRepFloorSliding, COND_SkipOwner);
+	DOREPLIFETIME_CONDITION(AUTCharacter, bIsInCombat, COND_None);
 	DOREPLIFETIME_CONDITION(AUTCharacter, bSpawnProtectionEligible, COND_None);
 	DOREPLIFETIME_CONDITION(AUTCharacter, DrivenVehicle, COND_OwnerOnly);
 	DOREPLIFETIME_CONDITION(AUTCharacter, bHasHighScore, COND_None);
@@ -3019,10 +3074,10 @@ void AUTCharacter::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& O
 	DOREPLIFETIME_CONDITION(AUTCharacter, CosmeticFlashCount, COND_Custom);
 	DOREPLIFETIME_CONDITION(AUTCharacter, CosmeticSpreeCount, COND_None);
 	DOREPLIFETIME_CONDITION(AUTCharacter, ArmorAmount, COND_None);
+	DOREPLIFETIME_CONDITION(AUTCharacter, ArmorType, COND_None);
 	DOREPLIFETIME_CONDITION(AUTCharacter, WeaponSkins, COND_None);
 	DOREPLIFETIME_CONDITION(AUTCharacter, VisibilityMask, COND_None);
-	DOREPLIFETIME_CONDITION(AUTCharacter, RedSkullCount, COND_None);
-	DOREPLIFETIME_CONDITION(AUTCharacter, BlueSkullCount, COND_None);
+	DOREPLIFETIME_CONDITION(AUTCharacter, bCanRally, COND_OwnerOnly);
 
 	DOREPLIFETIME_CONDITION(AUTCharacter, MaxSpeedPctModifier, COND_None);
 	DOREPLIFETIME(AUTCharacter, bServerOutline);
@@ -3779,6 +3834,12 @@ void AUTCharacter::SetWeaponAttachmentClass(TSubclassOf<AUTWeaponAttachment> New
 	}
 }
 
+void AUTCharacter::UpdateCharOverlayFlags()
+{
+	UpdateCharOverlays();
+	UpdateArmorOverlay();
+}
+
 void AUTCharacter::UpdateCharOverlays()
 {
 	AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
@@ -4037,9 +4098,10 @@ void AUTCharacter::UpdateWeaponOverlays()
 	}
 }
 
-void AUTCharacter::SetSkin(UMaterialInterface* NewSkin)
+void AUTCharacter::SetSkin(UMaterialInterface* NewSkin, UMaterialInterface* NewSkin1P)
 {
 	ReplicatedBodyMaterial = NewSkin;
+	ReplicatedBodyMaterial1P = (NewSkin != NULL) ? NewSkin1P : NULL;
 	if (GetNetMode() != NM_DedicatedServer)
 	{
 		UpdateSkin();
@@ -4055,7 +4117,7 @@ void AUTCharacter::UpdateSkin()
 		}
 		for (int32 i = 0; i < FirstPersonMesh->GetNumMaterials(); i++)
 		{
-			FirstPersonMesh->SetMaterial(i, ReplicatedBodyMaterial);
+			FirstPersonMesh->SetMaterial(i, (ReplicatedBodyMaterial1P != NULL) ? ReplicatedBodyMaterial1P : ReplicatedBodyMaterial);
 		}
 	}
 	else
@@ -4071,7 +4133,7 @@ void AUTCharacter::UpdateSkin()
 	}
 	if (Weapon != NULL)
 	{
-		Weapon->SetSkin(ReplicatedBodyMaterial);
+		Weapon->SetSkin((ReplicatedBodyMaterial1P != NULL) ? ReplicatedBodyMaterial1P : ReplicatedBodyMaterial);
 	}
 	if (WeaponAttachment != NULL)
 	{
@@ -4143,6 +4205,10 @@ void AUTCharacter::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
+	if (Role == ROLE_Authority)
+	{
+		bIsInCombat = (GetWorld()->GetTimeSeconds() - FMath::Max(LastTargetingTime, LastTargetedTime) < 2.f);
+	}
 	if (HeadScale < 0.1f)
 	{
 		GetMesh()->ClothBlendWeight = 0.0f;
@@ -4601,7 +4667,17 @@ void AUTCharacter::PossessedBy(AController* NewController)
 	if (Role == ROLE_Authority)
 	{
 		SetCosmeticsFromPlayerState();
+		AUTGameVolume* GV = UTCharacterMovement ? Cast<AUTGameVolume>(UTCharacterMovement->GetPhysicsVolume()) : nullptr;
+		if (GV && GV->bIsTeamSafeVolume)
+		{
+			AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
+			if (GS && GS->OnSameTeam(this, GV))
+			{
+				bDamageHurtsHealth = false;
+			}
+		}
 	}
+	OldPlayerState = Cast<AUTPlayerState>(PlayerState);
 }
 
 void AUTCharacter::UnPossessed()
@@ -4645,6 +4721,7 @@ void AUTCharacter::OnRep_PlayerState()
 	if (PlayerState != NULL)
 	{
 		NotifyTeamChanged();
+		OldPlayerState = Cast<AUTPlayerState>(PlayerState);
 	}
 
 	SetCosmeticsFromPlayerState();
@@ -4814,54 +4891,81 @@ AUTCarriedObject* AUTCharacter::GetCarriedObject()
 	return NULL;
 }
 
-int32 AUTCharacter::GetArmorAmount()
+int32 AUTCharacter::GetArmorAmount() const
 {
-	int32 TotalArmor = 0;
-	for (TInventoryIterator<AUTArmor> It(this); It; ++It)
-	{
-		TotalArmor += It->ArmorAmount;
-	}
-	return TotalArmor;
+	return ArmorAmount;
 }
 
-void AUTCharacter::CheckArmorStacking()
+void AUTCharacter::GiveArmor(AUTArmor* ArmorClass)
 {
-	int32 TotalArmor = GetArmorAmount();
-
-	// find the lowest absorption armors, and reduce them
-	while (TotalArmor > MaxStackedArmor)
+	if (ArmorClass == nullptr)
 	{
-		TotalArmor -= ReduceArmorStack(TotalArmor-MaxStackedArmor);
-	}
-	ArmorAmount = TotalArmor;
-}
-
-int32 AUTCharacter::ReduceArmorStack(int32 Amount)
-{
-	AUTArmor* WorstArmor = NULL;
-	for (TInventoryIterator<AUTArmor> It(this); It; ++It)
-	{
-		// 0 amount indestructible armor can exist in rechargeable form, just ignore it here
-		if (It->ArmorAmount > 0)
+		ArmorClass = AUTGameMode::StaticClass()->GetDefaultObject<AUTGameMode>()->StartingArmorClass.GetDefaultObject();
+		if (ArmorClass == nullptr)
 		{
-			if ((WorstArmor == NULL || (It->AbsorptionPct < WorstArmor->AbsorptionPct)))
-			{
-				WorstArmor = *It;
-			}
+			return;
 		}
 	}
-	checkSlow(WorstArmor);
-	if (WorstArmor != NULL)
+	if (ArmorClass->ArmorType == ArmorTypeName::Helmet)
 	{
-		int32 ReducedAmount = FMath::Min(Amount, WorstArmor->ArmorAmount);
-		WorstArmor->ReduceArmor(ReducedAmount);
-		return ReducedAmount;
+		bIsWearingHelmet = true;
 	}
-	else
+	// make sure helmet is subclass
+	ArmorType = ArmorClass;
+	ArmorAmount = FMath::Max(FMath::Max(ArmorAmount, ArmorClass->ArmorAmount), FMath::Min(100, ArmorAmount + ArmorClass->ArmorAmount));
+	UpdateArmorOverlay();
+}
+
+void AUTCharacter::RemoveArmor(int32 Amount)
+{
+	ArmorAmount = FMath::Max(0, ArmorAmount - Amount);
+	if (ArmorAmount == 0)
 	{
-		return 0;
+		bIsWearingHelmet = false;
+	}
+	UpdateArmorOverlay();
+}
+
+void AUTCharacter::UpdateArmorOverlay()
+{
+	if (ArmorType && (ArmorAmount > 50))
+	{
+		SetCharacterOverlayEffect(ArmorType->OverlayEffect.IsValid() ? ArmorType->OverlayEffect : FOverlayEffect(ArmorType->OverlayMaterial), true);
+		UMaterialInstanceDynamic* MID = OverlayMesh ? Cast<UMaterialInstanceDynamic>(OverlayMesh->GetMaterial(0)) : nullptr;
+		if (MID)
+		{
+			static const FName NAME_Fresnel = FName(TEXT("Fresnel"));
+			float FresnelValue = (ArmorAmount > 100) ? 40.f : 2.f;
+			MID->SetScalarParameterValue(NAME_Fresnel, FresnelValue);
+			static const FName NAME_PushDistance = FName(TEXT("PushDistance"));
+			float PushValue = (ArmorAmount > 100) ? 2.f : 0.2f;
+			MID->SetScalarParameterValue(NAME_PushDistance, PushValue);
+		}
+	}
+	else if (ArmorType)
+	{
+		SetCharacterOverlayEffect(ArmorType->OverlayEffect.IsValid() ? ArmorType->OverlayEffect : FOverlayEffect(ArmorType->OverlayMaterial), false);
 	}
 }
+
+void AUTCharacter::OVPAR(FName Param)
+{
+	TestParam = Param;
+}
+
+void AUTCharacter::OV(float value)
+{
+	UMaterialInstanceDynamic* MID = Cast<UMaterialInstanceDynamic>(OverlayMesh->GetMaterial(0));
+	MID->SetScalarParameterValue(TestParam, value);
+}
+
+void AUTCharacter::OVV(FVector value)
+{
+	UE_LOG(UT, Warning, TEXT("%s %f %f %f"), *TestParam.ToString(), value.X, value.Y, value.Z);
+	UMaterialInstanceDynamic* MID = Cast<UMaterialInstanceDynamic>(OverlayMesh->GetMaterial(0));
+	MID->SetVectorParameterValue(TestParam, value);
+}
+
 
 float AUTCharacter::GetEffectiveHealthPct(bool bOnlyVisible) const
 {
@@ -4873,7 +4977,16 @@ float AUTCharacter::GetEffectiveHealthPct(bool bOnlyVisible) const
 			TotalHealth += It->GetEffectiveHealthModifier(bOnlyVisible);
 		}
 	}
-
+	// Add pro-rated armor
+	int32 TotalArmor = GetArmorAmount();
+	if (TotalArmor > 100)
+	{
+		TotalHealth = TotalHealth + TotalArmor - 50;
+	}
+	else
+	{
+		TotalHealth = TotalHealth + TotalArmor / 2;
+	}
 	return float(TotalHealth) / float(HealthMax);
 }
 
@@ -5002,14 +5115,7 @@ bool AUTCharacter::TeleportTo(const FVector& DestLocation, const FRotator& DestR
 
 bool AUTCharacter::CanBlockTelefrags()
 {
-	for (TInventoryIterator<AUTArmor> It(this); It; ++It)
-	{
-		if (It->ArmorType == ArmorTypeName::ShieldBelt)
-		{
-			return true;
-		}
-	}
-	return false;
+	return (GetArmorAmount() > 100);
 }
 
 void AUTCharacter::OnOverlapBegin(AActor* OtherActor)
@@ -5098,6 +5204,16 @@ void AUTCharacter::PostRenderFor(APlayerController* PC, UCanvas* Canvas, FVector
 				float PctFromCenter = (ScreenPosition - FVector(0.5f*Canvas->ClipX, 0.5f*Canvas->ClipY, 0.f)).Size() / Canvas->ClipX;
 				CenterFade = CenterFade * FMath::Clamp(10.f*PctFromCenter, 0.15f, 1.f);
 				TeamColor.A = 0.2f * CenterFade;
+				UTexture* BarTexture = AUTHUD::StaticClass()->GetDefaultObject<AUTHUD>()->HUDAtlas;
+				if (bIsInCombat)
+				{
+					// indicate active combat
+					FLinearColor CombatColor(1.f, 0.5f, 0.f, 0.35f * CenterFade);
+					Canvas->SetLinearDrawColor(CombatColor);
+					float CombatHeight = 0.45f*BarWidth;
+					Canvas->DrawTile(BarTexture, ScreenPosition.X - 0.5f*BarWidth, YPos - YL - CombatHeight, BarWidth, CombatHeight, 935.f, 115.f, 65.f, -30.f);
+				}
+
 				Canvas->SetLinearDrawColor(TeamColor);
 				float Border = 2.f*Scale;
 				TransitionScaling = (BeaconTextScale - MinTextScale) / (1.f - MinTextScale);
@@ -5120,7 +5236,6 @@ void AUTCharacter::PostRenderFor(APlayerController* PC, UCanvas* Canvas, FVector
 					XPos += Border;
 					const float BarHeight = 6.f * TransitionScaling;
 					const float BarSpacing = 2.f * TransitionScaling;
-					UTexture* BarTexture = AUTHUD::StaticClass()->GetDefaultObject<AUTHUD>()->HUDAtlas;
 					FLinearColor BarColor = FLinearColor::Green;
 					BarColor.A = 0.5f * CenterFade;
 					Canvas->SetLinearDrawColor(BarColor);

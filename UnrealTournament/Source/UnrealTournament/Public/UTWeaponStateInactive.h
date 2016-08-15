@@ -16,7 +16,7 @@ class UNREALTOURNAMENT_API UUTWeaponStateInactive : public UUTWeaponState
 	: Super(ObjectInitializer)
 	{}
 
-	virtual void BeginState(const UUTWeaponState* PrevState)
+	virtual void BeginState(const UUTWeaponState* PrevState) override
 	{
 		for (int32 i = 0; i < GetOuterAUTWeapon()->FiringState.Num(); i++)
 		{
@@ -28,8 +28,11 @@ class UNREALTOURNAMENT_API UUTWeaponStateInactive : public UUTWeaponState
 		Super::BeginState(PrevState);
 	}
 
-	virtual void BringUp(float OverflowTime)
+	virtual void BringUp(float OverflowTime) override
 	{
 		GetOuterAUTWeapon()->GotoEquippingState(OverflowTime);
 	}
+
+	virtual void PutDown() override
+	{}
 };

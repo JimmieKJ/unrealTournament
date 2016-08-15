@@ -14,7 +14,6 @@ class UNREALTOURNAMENT_API UUTTranslocatorMessage : public UUTLocalMessage
 	{
 		MessageArea = FName(TEXT("Announcements"));
 		MessageSlot = FName(TEXT("PickupMessage"));
-		bIsSpecial = true;
 		bIsUnique = true;
 		bIsConsoleMessage = false;
 		Lifetime = 4.0f;

@@ -81,7 +81,7 @@ protected:
 
 	int32 RedirectCount;
 
-	virtual void DirectSay(const FString& Message);
+	virtual bool ForwardDirectSay(AUTPlayerState* SenderPlayerState, FString& Message);
 
 public:
 	TArray<FPackageRedirectReference> AllRedirects;

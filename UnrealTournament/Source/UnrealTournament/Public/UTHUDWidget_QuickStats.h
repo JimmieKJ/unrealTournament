@@ -47,10 +47,6 @@ struct FQStatLayoutInfo
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Layout")
 	FVector2D BoostProvidedPowerupOffset;
 
-	// Where should the rally widget go.  In Pixels based on 1080p
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Layout")
-		FVector2D RallyOffset;
-
 	// If true, this layout will pivot based on the rotation of the widget on the hud
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Layout")
 	bool bFollowRotation;
@@ -112,6 +108,10 @@ struct FStatInfo
 	FLinearColor IconColor;
 	FLinearColor TextColor;
 
+	FLinearColor TextColorOverride;
+	float TextColorOverrideTimer;
+	float TextColorOverrideDuration;
+
 	FVector2D DrawOffset;
 
 	float Opacity;
@@ -127,9 +127,13 @@ struct FStatInfo
 
 	bool bUseOverlayTexture;
 	float OverlayScale;
-	FHUDRenderObject_Texture OverlayTexture;
+	TArray<FHUDRenderObject_Texture> OverlayTextures;
+
+	bool bCustomIconUnderlay;
 
 	TArray<FStatAnimInfo> AnimStack;
+
+	bool bIsInfo;
 
 	FStatInfo()
 	{
@@ -151,6 +155,16 @@ struct FStatInfo
 		TextColor = FLinearColor::White;
 		DrawOffset = FVector2D(0.0f, 0.0f);
 		Opacity = 1.0f;
+
+		bIsInfo = false;
+
+	}
+
+	void Flash(FLinearColor FlashColor, float FlashTime)
+	{
+		TextColorOverride = FlashColor;
+		TextColorOverrideDuration = FlashTime;
+		TextColorOverrideTimer = 0.0f;
 	}
 
 	void Animate(FName AnimType, float AnimDuration, float Start, float End, bool bBounce = false)
@@ -231,8 +245,8 @@ class UNREALTOURNAMENT_API UUTHUDWidget_QuickStats : public UUTHUDWidget
 
 	virtual void InitializeWidget(AUTHUD* Hud);
 	virtual void Draw_Implementation(float DeltaTime) override;
-	virtual void PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCanvas* InCanvas, FVector2D InCanvasCenter);
-	virtual bool ShouldDraw_Implementation(bool bShowScores);
+	virtual void PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCanvas* InCanvas, FVector2D InCanvasCenter) override;
+	virtual bool ShouldDraw_Implementation(bool bShowScores) override;
 
 	virtual void PingBoostWidget();
 
@@ -293,11 +307,39 @@ protected:
 	FHUDRenderObject_Texture DetectedIcon;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Icons")
-		FHUDRenderObject_Texture RallyIcon;
+	FHUDRenderObject_Texture RallyFlagIcon;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Icons")
+	FHUDRenderObject_Texture HelmetIcon;
 
 	// NOTE: This icon will be generated from the data in the actual powerup
 	UPROPERTY()
 	FHUDRenderObject_Texture PowerupIcon;
+
+	// Health/Armor bar properties
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Icons")
+		FHUDRenderObject_Texture HealthPip;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "HealthBar")
+		float AngleDelta;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "HealthBar")
+		float PipSize;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "HealthBar")
+		float PipPopTime;
+
+	UPROPERTY()
+	int32 LastHealth;
+
+	UPROPERTY()
+	int32 LastArmor;
+
+	UPROPERTY()
+		float HealthPipChange[20];
+
+	UPROPERTY()
+		float ArmorPipChange[20];
 
 	virtual float GetDrawScaleOverride();
 
@@ -314,11 +356,8 @@ private:
 	FStatInfo BootsInfo;
 	FStatInfo PowerupInfo;
 	FStatInfo BoostProvidedPowerupInfo;
-	FStatInfo RallyInfo;
 
-	FInputActionKeyMapping ActivatePowerupBinding;
-	FInputActionKeyMapping RallyBinding;
-
+	UPROPERTY()
 	AUTWeapon* LastWeapon;
 
 	// Checks the Stat for updates.
@@ -336,4 +375,12 @@ private:
 	float ForegroundOpacity;
 
 	void DrawStat(FVector2D StatOffset, FStatInfo& StatInfo, FHUDRenderObject_Texture Icon);
+	void DrawIconUnderlay(FVector2D StatOffset);
+
+	float RenderDelta;
+	TArray<float> RallyAnimTimers;
+
+public:
+	FVector2D GetBoostLocation();
+
 };

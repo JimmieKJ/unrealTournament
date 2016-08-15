@@ -298,7 +298,7 @@ void SUTControlSettingsDialog::CreateBinds()
 		->AddDefaults(EKeys::MouseScrollDown)));
 	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "BestWeapon", "Best Weapon")))
 		->AddCustomBinding("SwitchToBestWeapon")
-		->AddDefaults(EKeys::E)));
+		->AddDefaults(EKeys::Enter)));
 	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Throw Weapon", "Throw Weapon")))
 		->AddActionMapping("ThrowWeapon")
 		->AddDefaults(EKeys::M)));
@@ -397,7 +397,7 @@ void SUTControlSettingsDialog::CreateBinds()
 */
 	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "RequestRally", "Request Rally")))
 		->AddActionMapping("RequestRally")
-		->AddDefaults(EKeys::Enter)));
+		->AddDefaults(EKeys::E)));
 
 	// TODO: mod binding registration
 }
@@ -928,7 +928,7 @@ TSharedRef<SWidget> SUTControlSettingsDialog::BuildMovementTab()
 			[
 				SNew(STextBlock)
 				.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
-				.Text(NSLOCTEXT("SUTControlSettingsDialog", "SingleTapWallDodge", "Enable one tap wall dodge"))
+				.Text(NSLOCTEXT("SUTControlSettingsDialog", "SingleTapWallDodge", "Enable single movement key tap wall dodge"))
 			]
 		]
 		+ SHorizontalBox::Slot()
@@ -954,7 +954,7 @@ TSharedRef<SWidget> SUTControlSettingsDialog::BuildMovementTab()
 			[
 				SNew(STextBlock)
 				.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
-				.Text(NSLOCTEXT("SUTControlSettingsDialog", "SingleTapAfterJump", "One tap wall dodge only after jump"))
+				.Text(NSLOCTEXT("SUTControlSettingsDialog", "SingleTapAfterJump", "Single tap wall dodge only after jump"))
 			]
 		]
 		+ SHorizontalBox::Slot()
@@ -980,7 +980,7 @@ TSharedRef<SWidget> SUTControlSettingsDialog::BuildMovementTab()
 			[
 				SNew(STextBlock)
 				.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
-				.Text(NSLOCTEXT("SUTControlSettingsDialog", "MaxDodgeTapTime", "One Tap Wall Dodge Hold Time"))
+				.Text(NSLOCTEXT("SUTControlSettingsDialog", "MaxDodgeTapTime", "Single Tap Wall Dodge Hold Time"))
 			]
 		]
 		+ SHorizontalBox::Slot()
@@ -1165,6 +1165,7 @@ FReply SUTControlSettingsDialog::OKClick()
 	AUTPlayerController::StaticClass()->GetDefaultObject<AUTPlayerController>()->SaveConfig();
 	UUTPlayerInput::StaticClass()->GetDefaultObject<UUTPlayerInput>()->SaveConfig();
 
+	GetPlayerOwner()->GetProfileSettings()->ResetProfile(EProfileResetType::Binds);
 	GetPlayerOwner()->CloseDialog(SharedThis(this));
 	GetPlayerOwner()->SaveProfileSettings();
 

@@ -22,7 +22,7 @@ void AUTHUD_SCTF::DrawMinimapSpectatorIcons()
 	AUTPlayerController* PC = Cast<AUTPlayerController>(PlayerOwner);
 	if (PC == nullptr) return;
 
-	const float RenderScale = float(Canvas->SizeY) / 1080.0f * GetHUDMinimapScale();
+	const float RenderScale = float(Canvas->SizeY) / 1080.0f;
 
 	Super::DrawMinimapSpectatorIcons();
 

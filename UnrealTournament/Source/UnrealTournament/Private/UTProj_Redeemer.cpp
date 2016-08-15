@@ -6,6 +6,7 @@
 #include "UTImpactEffect.h"
 #include "UTProj_Redeemer.h"
 #include "UTCTFRewardMessage.h"
+#include "UTRedeemerLaunchAnnounce.h"
 
 AUTProj_Redeemer::AUTProj_Redeemer(const class FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -43,7 +44,7 @@ AUTProj_Redeemer::AUTProj_Redeemer(const class FObjectInitializer& ObjectInitial
 
 	InitialLifeSpan = 20.0f;
 	bAlwaysShootable = true;
-	ProjHealth = 35;
+	ProjHealth = 50;
 
 	PrimaryActorTick.bCanEverTick = true;
 	PrimaryActorTick.bStartWithTickEnabled = true;
@@ -62,6 +63,10 @@ void AUTProj_Redeemer::RedeemerDenied(AController* InstigatedBy)
 
 float AUTProj_Redeemer::TakeDamage(float Damage, const FDamageEvent& DamageEvent, AController* EventInstigator, AActor* DamageCauser)
 {
+	if (bDetonated)
+	{
+		return Damage;
+	}
 	AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
 	if (GS && GS->OnSameTeam(InstigatorController, EventInstigator))
 	{
@@ -72,12 +77,7 @@ float AUTProj_Redeemer::TakeDamage(float Damage, const FDamageEvent& DamageEvent
 	bool bUsingClientSideHits = UTPC && (UTPC->GetPredictionTime() > 0.f);
 	if ((Role == ROLE_Authority) && !bUsingClientSideHits)
 	{
-		ProjHealth -= Damage;
-		if (ProjHealth <= 0)
-		{
-			OnShotDown();
-			RedeemerDenied(EventInstigator);
-		}
+		ApplyDamage(Damage, EventInstigator);
 	}
 	else if ((Role != ROLE_Authority) && bUsingClientSideHits)
 	{
@@ -87,21 +87,33 @@ float AUTProj_Redeemer::TakeDamage(float Damage, const FDamageEvent& DamageEvent
 	return Damage;
 }
 
+void AUTProj_Redeemer::ApplyDamage(float Damage, AController* EventInstigator)
+{
+	UUTGameplayStatics::UTPlaySound(GetWorld(), HitSound, this, SRT_All, false, FVector::ZeroVector, Cast<AUTPlayerController>(EventInstigator), NULL, false, SAT_PainSound);
+	if (!bDetonated)
+	{
+		ProjHealth -= Damage;
+		if (ProjHealth <= 0)
+		{
+			OnShotDown();
+			RedeemerDenied(EventInstigator);
+		}
+	}
+}
+
 void AUTProj_Redeemer::NotifyClientSideHit(AUTPlayerController* InstigatedBy, FVector HitLocation, AActor* DamageCauser, int32 Damage)
 {
+	if (bDetonated)
+	{
+		return;
+	}
 	AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
 	if (GS && GS->OnSameTeam(InstigatorController, InstigatedBy))
 	{
 		// no friendly fire
 		return;
 	}
-
-	ProjHealth -= Damage;
-	if (ProjHealth <= 0)
-	{
-		OnShotDown();
-		RedeemerDenied(InstigatedBy);
-	}
+	ApplyDamage(Damage, InstigatedBy);
 }
 
 void AUTProj_Redeemer::ExplodeTimed()
@@ -140,7 +152,7 @@ void AUTProj_Redeemer::OnShotDown()
 		ProjectileMovement->MaxSpeed += 2000.0f; // make room for gravity
 		ProjectileMovement->bShouldBounce = true;
 		ProjectileMovement->Bounciness = 0.25f;
-		SetTimerUFunc(this, FName(TEXT("ExplodeTimed")), 2.0f, false);
+		SetTimerUFunc(this, FName(TEXT("ExplodeTimed")), 1.5f, false);
 
 		if (GetNetMode() != NM_DedicatedServer)
 		{
@@ -154,6 +166,11 @@ void AUTProj_Redeemer::PlayShotDownEffects()
 	// stop any looping audio and particles
 	TArray<USceneComponent*> Components;
 	GetComponents<USceneComponent>(Components);
+	if (ShotDownAmbient)
+	{
+		UUTGameplayStatics::UTPlaySound(GetWorld(), ShotDownAmbient, this, SRT_IfSourceNotReplicated);
+	}
+	
 	for (int32 i = 0; i < Components.Num(); i++)
 	{
 		UAudioComponent* Audio = Cast<UAudioComponent>(Components[i]);
@@ -180,6 +197,11 @@ void AUTProj_Redeemer::Explode_Implementation(const FVector& HitLocation, const 
 {
 	if (!bExploded)
 	{
+		AUTGameMode* GM = GetWorld()->GetAuthGameMode<AUTGameMode>();
+		if (GM)
+		{
+			GM->BroadcastLocalized(this, UUTRedeemerLaunchAnnounce::StaticClass(), 3);
+		}
 		if (GetNetMode() != NM_DedicatedServer)
 		{
 			PlayShotDownEffects();
@@ -210,7 +232,15 @@ void AUTProj_Redeemer::Explode_Implementation(const FVector& HitLocation, const 
 			bReplicateUTMovement = true; // so position of explosion is accurate even if flight path was a little off
 		}
 
-		if (ExplosionEffects != NULL)
+		if (ExplosionBP != NULL)
+		{
+			GetWorld()->SpawnActor<AActor>(ExplosionBP, FTransform(HitNormal.Rotation(), HitLocation));
+			if (ExplosionEffects && ExplosionEffects.GetDefaultObject()->Audio)
+			{
+				UUTGameplayStatics::UTPlaySound(GetWorld(), ExplosionEffects.GetDefaultObject()->Audio, this, SRT_IfSourceNotReplicated, false, HitLocation, NULL, NULL, false, SAT_None);
+			}
+		}
+		else if (ExplosionEffects != NULL)
 		{
 			ExplosionEffects.GetDefaultObject()->SpawnEffect(GetWorld(), FTransform(HitNormal.Rotation(), HitLocation), HitComp, this, InstigatorController);
 		}
@@ -306,13 +336,20 @@ void AUTProj_Redeemer::Tick(float DeltaTime)
 		bool bShowOutline = false;
 		if (GS != nullptr && TeamOwner != nullptr && !bExploded)
 		{
-			for (FLocalPlayerIterator It(GEngine, GetWorld()); It; ++It)
+			if (bDetonated)
 			{
-				if (It->PlayerController != nullptr && GS->OnSameTeam(It->PlayerController, Instigator))
+				bShowOutline = true;
+			}
+			else
+			{
+				for (FLocalPlayerIterator It(GEngine, GetWorld()); It; ++It)
 				{
-					// note: does not handle splitscreen
-					bShowOutline = true;
-					break;
+					if (It->PlayerController != nullptr && GS->OnSameTeam(It->PlayerController, Instigator))
+					{
+						// note: does not handle splitscreen
+						bShowOutline = true;
+						break;
+					}
 				}
 			}
 		}

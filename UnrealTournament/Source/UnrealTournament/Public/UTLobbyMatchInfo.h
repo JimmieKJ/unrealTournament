@@ -366,6 +366,9 @@ public:
 
 	virtual void MakeJsonReport(TSharedPtr<FJsonObject> JsonObject);
 
+	// Used internally, this is the stat's port that this instance will listen to.
+	int32 StatsPort;
+
 };
 
 

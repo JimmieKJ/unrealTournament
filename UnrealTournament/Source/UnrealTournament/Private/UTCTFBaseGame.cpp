@@ -36,14 +36,18 @@ AUTCTFBaseGame::AUTCTFBaseGame(const FObjectInitializer& ObjectInitializer)
 
 	//Add the translocator here for now :(
 	TranslocatorObject = FStringAssetReference(TEXT("/Game/RestrictedAssets/Weapons/Translocator/BP_Translocator.BP_Translocator_C"));
+	bGameHasTranslocator = true;
 }
 
 void AUTCTFBaseGame::InitGame(const FString& MapName, const FString& Options, FString& ErrorMessage)
 {
 	if (!TranslocatorObject.IsNull())
 	{
-		TSubclassOf<AUTWeapon> WeaponClass = Cast<UClass>(StaticLoadObject(UClass::StaticClass(), NULL, *TranslocatorObject.ToStringReference().ToString(), NULL, LOAD_NoWarn));
-		DefaultInventory.Add(WeaponClass);
+		TranslocatorClass = Cast<UClass>(StaticLoadObject(UClass::StaticClass(), NULL, *TranslocatorObject.ToStringReference().ToString(), NULL, LOAD_NoWarn));
+		if (bGameHasTranslocator)
+		{
+			DefaultInventory.Add(TranslocatorClass);
+		}
 	}
 
 	Super::InitGame(MapName, Options, ErrorMessage);
@@ -74,7 +78,7 @@ int32 AUTCTFBaseGame::PickCheatWinTeam()
 
 void AUTCTFBaseGame::CheatScore()
 {
-	if ((GetNetMode() == NM_Standalone) && !bOfflineChallenge && !bBasicTrainingGame)
+	if ((UE_BUILD_DEVELOPMENT || (GetNetMode() == NM_Standalone)) && !bOfflineChallenge && !bBasicTrainingGame)
 	{
 		int32 ScoringTeam = PickCheatWinTeam();
 		TArray<AController*> Members = Teams[ScoringTeam]->GetTeamMembers();
@@ -345,32 +349,7 @@ int32 AUTCTFBaseGame::IntermissionTeamToView(AUTPlayerController* PC)
 
 void AUTCTFBaseGame::HandleExitingIntermission()
 {
-	for (FConstControllerIterator Iterator = GetWorld()->GetControllerIterator(); Iterator; ++Iterator)
-	{
-		// Detach all controllers from their pawns
-		if ((*Iterator)->GetPawn() != NULL)
-		{
-			(*Iterator)->UnPossess();
-		}
-	}
-
-	TArray<APawn*> PawnsToDestroy;
-	for (FConstPawnIterator It = GetWorld()->GetPawnIterator(); It; ++It)
-	{
-		if (*It && !Cast<ASpectatorPawn>((*It).Get()))
-		{
-			PawnsToDestroy.Add(*It);
-		}
-	}
-
-	for (int32 i = 0; i<PawnsToDestroy.Num(); i++)
-	{
-		APawn* Pawn = PawnsToDestroy[i];
-		if (Pawn != NULL && !Pawn->IsPendingKill())
-		{
-			Pawn->Destroy();
-		}
-	}
+	RemoveAllPawns();
 
 	// swap sides, if desired
 	AUTWorldSettings* Settings = Cast<AUTWorldSettings>(GetWorld()->GetWorldSettings());
@@ -494,7 +473,7 @@ void AUTCTFBaseGame::PlacePlayersAroundFlagBase(int32 TeamNum, int32 FlagTeamNum
 		if (C)
 		{
 			AUTCharacter* UTChar = Cast<AUTCharacter>(C->GetPawn());
-			if (!UTChar || UTChar->IsDead())
+			if (!UTChar || UTChar->IsDead() || UTChar->IsRagdoll())
 			{
 				if (C->GetPawn())
 				{

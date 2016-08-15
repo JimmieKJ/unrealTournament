@@ -11,6 +11,7 @@
 #include "UTHUDWidget_Spectator.h"
 #include "UTHUDWidget_WeaponBar.h"
 #include "UTHUDWidget_SpectatorSlideOut.h"
+#include "UTHUDWidget_WeaponCrosshair.h"
 #include "UTScoreboard.h"
 #include "UTHUDWidget_Powerups.h"
 #include "Json.h"
@@ -27,6 +28,10 @@
 #include "UTRadialMenu_WeaponWheel.h"
 #include "OnlineSubsystemTypes.h"
 #include "OnlineSubsystemUtils.h"
+#include "UTUMGHudWidget.h"
+#include "UTGameMessage.h"
+
+static FName NAME_Intensity(TEXT("Intensity"));
 
 AUTHUD::AUTHUD(const class FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
 {
@@ -103,14 +108,19 @@ AUTHUD::AUTHUD(const class FObjectInitializer& ObjectInitializer) : Super(Object
 	SuffixNth = NSLOCTEXT("UTHUD", "NthPlaceSuffix", "th");
 
 	CachedProfileSettings = nullptr;
-	BuildText = NSLOCTEXT("UTHUD", "info", "PRE-ALPHA Build 0.1.3");
+	BuildText = NSLOCTEXT("UTHUD", "info", "PRE-ALPHA Build 0.1.4");
 	bShowVoiceDebug = false;
+
+	static ConstructorHelpers::FObjectFinder<UMaterialInterface> DamageScreenMatObject(TEXT("/Game/RestrictedAssets/Blueprints/WIP/Nick/CameraAnims/HitScreenEffect.HitScreenEffect"));
+	DamageScreenMat = DamageScreenMatObject.Object;
 }
 
 void AUTHUD::Destroyed()
 {
 	Super::Destroyed();
 	CachedProfileSettings = nullptr;
+
+	UMGHudWidgetStack.Empty();
 }
 
 void AUTHUD::ClearIndicators()
@@ -158,14 +168,20 @@ void AUTHUD::BeginPlay()
 		DamageIndicators[i].FadeTime = 0.0f;
 	}
 
-	// preload all known required crosshairs
+	// preload all known required crosshairs for this map
 	for (TObjectIterator<UClass> It; It; ++It)
 	{
 		if (It->IsChildOf(AUTWeapon::StaticClass()))
 		{
-			GetCrosshair(*It);
+			AUTWeapon* DefaultWeapon = It->GetDefaultObject<AUTWeapon>();
+			if (DefaultWeapon != nullptr)
+			{
+				FWeaponCustomizationInfo Info;
+				GetCrosshairForWeapon(DefaultWeapon->WeaponCustomizationTag, Info);
+			}
 		}
 	}
+
 	AddSpectatorWidgets();
 
 	// Add the Coms Menu
@@ -173,6 +189,11 @@ void AUTHUD::BeginPlay()
 	WeaponWheel = Cast<UUTRadialMenu_WeaponWheel>(AddHudWidget(UUTRadialMenu_WeaponWheel::StaticClass()));
 	RadialMenus.Add(ComsMenu);
 	RadialMenus.Add(WeaponWheel);
+
+	if (DamageScreenMat != nullptr)
+	{
+		DamageScreenMID = UMaterialInstanceDynamic::Create(DamageScreenMat, this);
+	}
 }
 
 void AUTHUD::AddSpectatorWidgets()
@@ -187,10 +208,26 @@ void AUTHUD::AddSpectatorWidgets()
 void AUTHUD::PostInitializeComponents()
 {
 	Super::PostInitializeComponents();
+
 	UTPlayerOwner = Cast<AUTPlayerController>(GetOwner());
-	if (UTPlayerOwner)
+
+	// Grab all of the available crosshairs...
+
+	TArray<FAssetData> AssetList;
+	GetAllBlueprintAssetData(UUTCrosshair::StaticClass(), AssetList);
+	for (const FAssetData& Asset : AssetList)
 	{
-		UTPlayerOwner->UpdateCrosshairs(this);
+		static FName NAME_GeneratedClass(TEXT("GeneratedClass"));
+		const FString* ClassPath = Asset.TagsAndValues.Find(NAME_GeneratedClass);
+		UClass* CrosshairClass = LoadObject<UClass>(NULL, **ClassPath);
+		if (CrosshairClass != nullptr)
+		{
+			UUTCrosshair* Crosshair = NewObject<UUTCrosshair>(this, CrosshairClass, NAME_None, RF_NoFlags);
+			if (Crosshair && Crosshair->CrosshairTag != NAME_None)
+			{
+				Crosshairs.Add(Crosshair->CrosshairTag, Crosshair);
+			}
+		}
 	}
 }
 
@@ -393,6 +430,35 @@ UUTHUDWidget* AUTHUD::FindHudWidgetByClass(TSubclassOf<UUTHUDWidget> SearchWidge
 	return NULL;
 }
 
+void AUTHUD::UpdateKeyMappings(bool bForceUpdate)
+{
+	if (!bKeyMappingsSet || bForceUpdate)
+	{
+		bKeyMappingsSet = true;
+		FInputActionKeyMapping ActivatePowerupBinding = FindKeyMappingTo("StartActivatePowerup");
+		BoostLabel = ActivatePowerupBinding.Key.GetDisplayName();
+		FInputActionKeyMapping RallyBinding = FindKeyMappingTo("RequestRally");
+		RallyLabel = RallyBinding.Key.GetDisplayName();
+	}
+}
+
+FInputActionKeyMapping AUTHUD::FindKeyMappingTo(FName InActionName)
+{
+	UInputSettings* InputSettings = UInputSettings::StaticClass()->GetDefaultObject<UInputSettings>();
+	if (InputSettings)
+	{
+		for (int32 inputIndex = 0; inputIndex < InputSettings->ActionMappings.Num(); ++inputIndex)
+		{
+			FInputActionKeyMapping& Action = InputSettings->ActionMappings[inputIndex];
+			if (Action.ActionName == InActionName)
+			{
+				return Action;
+			}
+		}
+	}
+	return FInputActionKeyMapping();
+}
+
 void AUTHUD::ReceiveLocalMessage(TSubclassOf<class UUTLocalMessage> MessageClass, APlayerState* RelatedPlayerState_1, APlayerState* RelatedPlayerState_2, uint32 MessageIndex, FText LocalMessageText, UObject* OptionalObject)
 {
 	UUTHUDWidgetMessage* DestinationWidget = (HudMessageWidgets.FindRef(MessageClass->GetDefaultObject<UUTLocalMessage>()->MessageArea));
@@ -409,10 +475,6 @@ void AUTHUD::ReceiveLocalMessage(TSubclassOf<class UUTLocalMessage> MessageClass
 
 void AUTHUD::ToggleScoreboard(bool bShow)
 {
-	if (!bShowScores)
-	{
-		SetScoreboardPage(0);
-	}
 	bShowScores = bShow;
 }
 
@@ -444,12 +506,22 @@ void AUTHUD::NotifyMatchStateChange()
 		}
 		else if (GS->GetMatchState() == MatchState::PlayerIntro)
 		{
-			GetWorldTimerManager().SetTimer(MatchSummaryHandle, this, &AUTHUD::OpenMatchSummary, 0.2f, false);
+			if (UTPlayerOwner->bIsWarmingUp)
+			{
+				UTPlayerOwner->ClientReceiveLocalizedMessage(UUTGameMessage::StaticClass(), 16, nullptr, nullptr, nullptr);
+			}
+			GetWorldTimerManager().SetTimer(MatchSummaryHandle, this, &AUTHUD::OpenMatchSummary, 1.7f, false);
 		}
 		else if (GS->GetMatchState() != MatchState::MapVoteHappening)
 		{
 			ToggleScoreboard(false);
 			UTLP->HideMenu();
+
+			if (UTLP->HasChatText() && UTPlayerOwner && UTPlayerOwner->UTPlayerState)
+			{
+				UTLP->ShowQuickChat(UTPlayerOwner->UTPlayerState->ChatDestination);
+			}
+
 		}
 	}
 }
@@ -486,11 +558,10 @@ void AUTHUD::PostRender()
 	}
 	Super::PostRender();
 
-/*
-	DrawString(FText::Format( NSLOCTEXT("a","b","InputMode: {0}"),  FText::AsNumber(Cast<AUTBasePlayerController>(PlayerOwner)->InputMode)), 0, 0, ETextHorzPos::Left, ETextVertPos::Top, SmallFont, FLinearColor::White, 1.0, true);
-	Canvas->SetDrawColor(255,0,0,255);
-	Canvas->K2_DrawBox(DebugMousePosition, FVector2D(3,3),1.0);
-*/
+
+//	DrawString(FText::Format( NSLOCTEXT("a","b","InputMode: {0}"),  FText::AsNumber(Cast<AUTBasePlayerController>(PlayerOwner)->InputMode)), 0, 0, ETextHorzPos::Left, ETextVertPos::Top, SmallFont, FLinearColor::White, 1.0, true);
+//	Canvas->SetDrawColor(255,0,0,255);
+
 }
 
 void AUTHUD::CacheFonts()
@@ -527,7 +598,7 @@ void AUTHUD::ShowHUD()
 void AUTHUD::DrawHUD()
 {
 	// FIXMESTEVE - once bShowHUD is not config, can just use it without bShowUTHUD and bCinematicMode
-	if (!bShowUTHUD || (!bShowHUD && UTPlayerOwner && UTPlayerOwner->bCinematicMode))
+	if (!bShowUTHUD || UTPlayerOwner == nullptr || (!bShowHUD && UTPlayerOwner && UTPlayerOwner->bCinematicMode))
 	{
 		return;
 	}
@@ -539,7 +610,7 @@ void AUTHUD::DrawHUD()
 		const FVector2D Center(Canvas->ClipX * 0.5f, Canvas->ClipY * 0.5f);
 
 		AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
-		bool bPreMatchScoreBoard = (GS && !GS->HasMatchStarted() && !GS->IsMatchInCountdown());
+		bool bPreMatchScoreBoard = (GS && !GS->HasMatchStarted() && !GS->IsMatchInCountdown()) && (!UTPlayerOwner || !UTPlayerOwner->bIsWarmingUp);
 		bShowScoresWhileDead = bShowScoresWhileDead && GS && GS->IsMatchInProgress() && !GS->IsMatchIntermission() && UTPlayerOwner && !UTPlayerOwner->GetPawn() && !UTPlayerOwner->IsInState(NAME_Spectating);
 		bool bScoreboardIsUp = bShowScores || bPreMatchScoreBoard || bForceScores || bShowScoresWhileDead;
 		if (!bFontsCached)
@@ -555,6 +626,7 @@ void AUTHUD::DrawHUD()
 			}
 		}
 
+		UpdateKeyMappings(false);
 		for (int32 WidgetIndex = 0; WidgetIndex < HudWidgets.Num(); WidgetIndex++)
 		{
 			// If we aren't hidden then set the canvas and render..
@@ -599,7 +671,7 @@ void AUTHUD::DrawHUD()
 				if (ShouldDrawMinimap())
 				{
 					bool bSpectatingMinimap = UTPlayerOwner->UTPlayerState && (UTPlayerOwner->UTPlayerState->bOnlySpectator || UTPlayerOwner->UTPlayerState->bOutOfLives);
-					float MapScale = (bSpectatingMinimap ? 0.75f : 0.25f) * GetHUDMinimapScale();
+					float MapScale = bSpectatingMinimap ? 0.75f : 0.25f;
 					const float MapSize = float(Canvas->SizeY) * MapScale;
 					uint8 MapAlpha = bSpectatingMinimap ? 210 : 100;
 					const float YOffsetToMaintainPosition = MapSize * MinimapOffset.Y * -.5f;
@@ -637,6 +709,32 @@ void AUTHUD::DrawHUD()
 				}
 			}
 		}
+
+		if (DamageScreenMID != nullptr)
+		{
+			float Intensity = 0.0f;
+			for (const FDamageHudIndicator& Indicator : DamageIndicators)
+			{
+				if (Indicator.FadeTime > 0.0f && Indicator.DamageAmount > 0.0f)
+				{
+					Intensity = FMath::Max<float>(Intensity, FMath::Min<float>(1.0f, Indicator.FadeTime / DAMAGE_FADE_DURATION));
+				}
+			}
+			if (Intensity > 0.0f)
+			{
+				DamageScreenMID->SetScalarParameterValue(NAME_Intensity, Intensity);
+				DrawMaterial(DamageScreenMID, 0.0f, 0.0f, Canvas->ClipX, Canvas->ClipY, 0.0f, 0.0f, 1.0f, 1.0f);
+			}
+		}
+
+		// tick down damage indicators
+		for (FDamageHudIndicator& Indicator : DamageIndicators)
+		{
+			if (Indicator.FadeTime > 0.0f)
+			{
+				Indicator.FadeTime -= RenderDelta;
+			}
+		}
 	}
 
 	if (bShowVoiceDebug)
@@ -670,7 +768,7 @@ void AUTHUD::DrawWatermark()
 {
 	float RenderScale = Canvas->ClipX / 1920.0f;
 	FVector2D Size = FVector2D(150.0f * RenderScale, 49.0f * RenderScale);
-	FVector2D Position = FVector2D(Canvas->ClipX - Size.X - 10.0f * RenderScale, Canvas->ClipY - Size.Y - 120.0f * RenderScale);
+	FVector2D Position = FVector2D(Canvas->ClipX - Size.X - 10.0f * RenderScale, Canvas->ClipY - Size.Y - 100.0f * RenderScale);
 	Canvas->DrawColor = FColor(255,255,255,64);
 	Canvas->DrawTile(ScoreboardAtlas, Position.X, Position.Y, Size.X, Size.Y, 162.0f, 14.0f, 301.0f, 98.0f);
 
@@ -815,7 +913,6 @@ void AUTHUD::DrawDamageIndicators()
 			ImageItem.PivotPoint = FVector2D(0.5f,0.5f);
 			ImageItem.BlendMode = ESimpleElementBlendMode::SE_BLEND_Translucent;
 			Canvas->DrawItem( ImageItem );
-			DamageIndicators[i].FadeTime -= RenderDelta;
 		}
 	}
 }
@@ -836,7 +933,7 @@ void AUTHUD::CausedDamage(APawn* HitPawn, int32 Damage)
 		// add to current hit if there
 		for (int32 i = 0; i < DamageNumbers.Num(); i++)
 		{
-			if ((DamageNumbers[i].DamagedPawn == HitPawn) && (GetWorld()->GetTimeSeconds() - DamageNumbers[i].DamageTime < 0.05f))
+			if ((DamageNumbers[i].DamagedPawn == HitPawn) && (GetWorld()->GetTimeSeconds() - DamageNumbers[i].DamageTime < 0.04f))
 			{
 				DamageNumbers[i].DamageAmount = FMath::Min(255, Damage + int32(DamageNumbers[i].DamageAmount));
 				return;
@@ -1087,58 +1184,6 @@ EInputMode::Type AUTHUD::GetInputMode_Implementation() const
 	return EInputMode::EIM_None;
 }
 
-UUTCrosshair* AUTHUD::GetCrosshair(TSubclassOf<AUTWeapon> Weapon)
-{
-	FCrosshairInfo* CrosshairInfo = GetCrosshairInfo(Weapon);
-	if (CrosshairInfo != nullptr)
-	{
-		for (int32 i = 0; i < LoadedCrosshairs.Num(); i++)
-		{
-			if (LoadedCrosshairs[i]->GetClass()->GetPathName() == CrosshairInfo->CrosshairClassName)
-			{
-				return LoadedCrosshairs[i];
-			}
-		}
-
-		//Didn't find it so create a new one
-		UClass* TestClass = LoadObject<UClass>(NULL, *CrosshairInfo->CrosshairClassName);
-		if (TestClass != NULL && !TestClass->HasAnyClassFlags(CLASS_Abstract) && TestClass->IsChildOf(UUTCrosshair::StaticClass()))
-		{
-			UUTCrosshair* NewCrosshair = NewObject<UUTCrosshair>(this, TestClass);
-			LoadedCrosshairs.Add(NewCrosshair);
-		}
-	}
-	return nullptr;
-}
-
-FCrosshairInfo* AUTHUD::GetCrosshairInfo(TSubclassOf<AUTWeapon> Weapon)
-{
-	FString WeaponClass = (!bCustomWeaponCrosshairs || Weapon == nullptr) ? TEXT("Global") : Weapon->GetPathName();
-
-	FCrosshairInfo* FoundInfo = CrosshairInfos.FindByPredicate([WeaponClass](const FCrosshairInfo& Info) { return Info.WeaponClassName == WeaponClass; });
-	if (FoundInfo != nullptr)
-	{
-		return FoundInfo;
-	}
-
-	//Make a Global one if we couldn't find one
-	if (WeaponClass == TEXT("Global"))
-	{
-		return &CrosshairInfos[CrosshairInfos.Add(FCrosshairInfo())];
-	}
-	else
-	{
-		//Create a new crosshair for this weapon based off the global one
-		FCrosshairInfo NewInfo;
-		FCrosshairInfo* GlobalCrosshair = CrosshairInfos.FindByPredicate([](const FCrosshairInfo& Info){ return Info.WeaponClassName == TEXT("Global"); });
-		if (GlobalCrosshair != nullptr)
-		{
-			NewInfo = *GlobalCrosshair;
-		}
-		NewInfo.WeaponClassName = WeaponClass;
-		return &CrosshairInfos[CrosshairInfos.Add(NewInfo)];
-	}
-}
 
 void AUTHUD::CreateMinimapTexture()
 {
@@ -1254,7 +1299,7 @@ void AUTHUD::DrawMinimap(const FColor& DrawColor, float MapSize, FVector2D DrawP
 		DrawPos.X += MapSize;
 		MapToScreen = FTranslationMatrix(FVector(DrawPos, 0.0f) / ScaleFactor) * FScaleMatrix(ScaleFactor);
 	}
-	if (MinimapTexture != NULL)
+	if (MinimapTexture && Canvas)
 	{
 		Canvas->DrawColor = DrawColor;
 		if (bInvertMinimap)
@@ -1265,9 +1310,8 @@ void AUTHUD::DrawMinimap(const FColor& DrawColor, float MapSize, FVector2D DrawP
 		{
 			Canvas->DrawTile(MinimapTexture, MapToScreen.GetOrigin().X, MapToScreen.GetOrigin().Y, MapSize, MapSize, 0.0f, 0.0f, MinimapTexture->GetSurfaceWidth(), MinimapTexture->GetSurfaceHeight());
 		}
+		DrawMinimapSpectatorIcons();
 	}
-
-	DrawMinimapSpectatorIcons();
 }
 
 bool AUTHUD::ShouldInvertMinimap()
@@ -1277,7 +1321,11 @@ bool AUTHUD::ShouldInvertMinimap()
 
 void AUTHUD::DrawMinimapSpectatorIcons()
 {
-	const float RenderScale = (float(Canvas->SizeY) / 1080.0f) * GetHUDMinimapScale();
+	if (Canvas == nullptr)
+	{
+		return;
+	}
+	const float RenderScale = float(Canvas->SizeY) / 1080.0f;
 
 	// draw pickup icons
 	AUTPickup* NamedPickup = NULL;
@@ -1291,8 +1339,18 @@ void AUTHUD::DrawMinimapSpectatorIcons()
 			const float Ratio = Icon.UL / Icon.VL;
 			FLinearColor MutedColor = (LastHoveredActor == *It) ? It->IconColor: It->IconColor * 0.6f;
 			MutedColor.A = (LastHoveredActor == *It) ? 1.f : 0.7f;
+			float IconSize = (LastHoveredActor == *It) ? (48.0f * RenderScale * FMath::InterpEaseOut<float>(1.0f, 1.25f, FMath::Min<float>(0.2f, GetWorld()->RealTimeSeconds - LastHoveredActorChangeTime) * 5.0f, 2.0f)) : (32.0f * RenderScale);
+			if (It->FlashOnMinimap())
+			{
+				float Speed = 2.f;
+				float ScaleTime = Speed*GetWorld()->GetTimeSeconds() - int32(Speed*GetWorld()->GetTimeSeconds());
+				float Scaling = (ScaleTime < 0.5f)
+					? ScaleTime
+					: 1.f - ScaleTime;
+				MutedColor = It->IconColor * (0.5f + Scaling);
+				IconSize = IconSize * (1.f + Scaling);
+			}
 			Canvas->DrawColor = MutedColor.ToFColor(false);
-			const float IconSize = (LastHoveredActor == *It) ? (48.0f * RenderScale * FMath::InterpEaseOut<float>(1.0f, 1.25f, FMath::Min<float>(0.2f, GetWorld()->RealTimeSeconds - LastHoveredActorChangeTime) * 5.0f, 2.0f)) : (32.0f * RenderScale);
 			Canvas->DrawTile(Icon.Texture, Pos.X - 0.5f * Ratio * IconSize, Pos.Y - 0.5f * IconSize, Ratio * IconSize, IconSize, Icon.U, Icon.V, Icon.UL, Icon.VL);
 			if (LastHoveredActor == *It)
 			{
@@ -1321,7 +1379,7 @@ void AUTHUD::DrawMinimapSpectatorIcons()
 	}
 
 	AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
-	if (GS && GS->IsMatchInProgress() && !GS->IsMatchIntermission())
+	if (GS && (!GS->HasMatchStarted() || (GS->IsMatchInProgress() && !GS->IsMatchIntermission())))
 	{
 		const FVector2D PlayerIconScale = 32.f*RenderScale*FVector2D(1.f, 1.f);
 		bool bOnlyShowTeammates = !UTPlayerOwner || !UTPlayerOwner->UTPlayerState || !UTPlayerOwner->UTPlayerState->bOnlySpectator;
@@ -1334,7 +1392,8 @@ void AUTHUD::DrawMinimapSpectatorIcons()
 				if (UTChar->bTearOff)
 				{
 					// Draw skull at location
-					DrawMinimapIcon(HUDAtlas, Pos, FVector2D(20.f, 20.f) * RenderScale, FVector2D(725.f, 0.f), FVector2D(28.f, 36.f), FLinearColor::White, true);
+					FLinearColor SkullColor = (UTChar->OldPlayerState && UTChar->OldPlayerState->Team) ? UTChar->OldPlayerState->Team->TeamColor : FLinearColor::White;
+					DrawMinimapIcon(HUDAtlas, Pos, FVector2D(20.f, 20.f) * RenderScale, FVector2D(725.f, 0.f), FVector2D(28.f, 36.f), SkullColor, true);
 				}
 				else
 				{
@@ -1344,6 +1403,17 @@ void AUTHUD::DrawMinimapSpectatorIcons()
 					{
 						continue;
 					}
+					if (bShowScores || bForceScores || bShowScoresWhileDead)
+					{
+						// draw line from hud to this loc - can't used Canvas line drawing code because it doesn't support translucency
+						FVector LineStartPoint(Pos.X, Pos.Y, 0.f);
+						FLinearColor LineColor = (PS == GetScorerPlayerState()) ? FLinearColor::Yellow : FLinearColor::White;
+						LineColor.A = 0.1f;
+						FBatchedElements* BatchedElements = Canvas->Canvas->GetBatchedElements(FCanvas::ET_Line);
+						FHitProxyId HitProxyId = Canvas->Canvas->GetHitProxyId();
+						BatchedElements->AddTranslucentLine(PS->ScoreCorner, LineStartPoint, LineColor, HitProxyId, 4.f);
+					}
+
 					FLinearColor PlayerColor = (PS && PS->Team) ? PS->Team->TeamColor : FLinearColor::Green;
 					PlayerColor.A = 1.f;
 					float IconRotation = bInvertMinimap ? UTChar->GetActorRotation().Yaw - 90.0f : UTChar->GetActorRotation().Yaw + 90.0f;
@@ -1375,7 +1445,7 @@ void AUTHUD::DrawMinimapSpectatorIcons()
 
 void AUTHUD::DrawMinimapIcon(UTexture2D* Texture, FVector2D Pos, FVector2D DrawSize, FVector2D UV, FVector2D UVL, FLinearColor DrawColor, bool bDropShadow)
 {
-	const float RenderScale = (float(Canvas->SizeY) / 1080.0f) * GetHUDMinimapScale();
+	const float RenderScale = float(Canvas->SizeY) / 1080.0f;
 	float Height = DrawSize.X * RenderScale;
 	float Width = DrawSize.Y * RenderScale;
 	FVector2D RenderPos = FVector2D(Pos.X - (Width * 0.5f), Pos.Y - (Height * 0.5f));
@@ -1420,121 +1490,124 @@ void AUTHUD::PlayKillNotification()
 }
 
 // NOTE: Defaults are defined here because we don't currently have a local profile.
-
 float AUTHUD::GetHUDWidgetOpacity()
 {
-	return VerifyProfileSettings() ? CachedProfileSettings->HUDWidgetOpacity : 1.0f;
+	return VerifyProfileSettings() ? CachedProfileSettings->HUDWidgetOpacity : UUTProfileSettings::StaticClass()->GetDefaultObject<UUTProfileSettings>()->HUDWidgetOpacity;
 }
 
 float AUTHUD::GetHUDWidgetBorderOpacity()
 {
-	return VerifyProfileSettings() ? CachedProfileSettings->HUDWidgetBorderOpacity : 1.0f;
+	return VerifyProfileSettings() ? CachedProfileSettings->HUDWidgetBorderOpacity : UUTProfileSettings::StaticClass()->GetDefaultObject<UUTProfileSettings>()->HUDWidgetBorderOpacity;
 }
 
 float AUTHUD::GetHUDWidgetSlateOpacity()
 {
-	return VerifyProfileSettings() ? CachedProfileSettings->HUDWidgetSlateOpacity: 0.5f;
+	return VerifyProfileSettings() ? CachedProfileSettings->HUDWidgetSlateOpacity: UUTProfileSettings::StaticClass()->GetDefaultObject<UUTProfileSettings>()->HUDWidgetSlateOpacity;
 }
 
 float AUTHUD::GetHUDWidgetWeaponbarInactiveOpacity()
 {
-	return VerifyProfileSettings() ? CachedProfileSettings->HUDWidgetWeaponbarInactiveOpacity : 0.25f;
+	return VerifyProfileSettings() ? CachedProfileSettings->HUDWidgetWeaponbarInactiveOpacity : UUTProfileSettings::StaticClass()->GetDefaultObject<UUTProfileSettings>()->HUDWidgetWeaponbarInactiveOpacity;
 }
 
 float AUTHUD::GetHUDWidgetWeaponBarScaleOverride()
 {
-	return VerifyProfileSettings() ? CachedProfileSettings->HUDWidgetWeaponBarScaleOverride : 0.9f;
+	return VerifyProfileSettings() ? CachedProfileSettings->HUDWidgetWeaponBarScaleOverride : UUTProfileSettings::StaticClass()->GetDefaultObject<UUTProfileSettings>()->HUDWidgetWeaponBarScaleOverride;
 }
 
 float AUTHUD::GetHUDWidgetWeaponBarInactiveIconOpacity()
 {
-	return VerifyProfileSettings() ? CachedProfileSettings->HUDWidgetWeaponBarInactiveIconOpacity : 0.25f;
+	return VerifyProfileSettings() ? CachedProfileSettings->HUDWidgetWeaponBarInactiveIconOpacity : UUTProfileSettings::StaticClass()->GetDefaultObject<UUTProfileSettings>()->HUDWidgetWeaponBarInactiveIconOpacity;
 }
 
 float AUTHUD::GetHUDWidgetWeaponBarEmptyOpacity()
 {
-	return VerifyProfileSettings() ? CachedProfileSettings->HUDWidgetWeaponBarEmptyOpacity : 0.0f;
+	return VerifyProfileSettings() ? CachedProfileSettings->HUDWidgetWeaponBarEmptyOpacity : UUTProfileSettings::StaticClass()->GetDefaultObject<UUTProfileSettings>()->HUDWidgetWeaponBarEmptyOpacity;
 }
 
 float AUTHUD::GetHUDWidgetScaleOverride()
 {
-	return VerifyProfileSettings() ? CachedProfileSettings->HUDWidgetScaleOverride : 0.7f;
+	return VerifyProfileSettings() ? CachedProfileSettings->HUDWidgetScaleOverride : UUTProfileSettings::StaticClass()->GetDefaultObject<UUTProfileSettings>()->HUDWidgetScaleOverride;
 }
 
 float AUTHUD::GetHUDMessageScaleOverride()
 {
-	return VerifyProfileSettings() ? CachedProfileSettings->HUDMessageScaleOverride : 1.0f;
+	return VerifyProfileSettings() ? CachedProfileSettings->HUDMessageScaleOverride : UUTProfileSettings::StaticClass()->GetDefaultObject<UUTProfileSettings>()->HUDMessageScaleOverride;
 }
 
 bool AUTHUD::GetUseWeaponColors()
 {
-	return VerifyProfileSettings() ? CachedProfileSettings->bUseWeaponColors : false;
+	return VerifyProfileSettings() ? CachedProfileSettings->bUseWeaponColors : UUTProfileSettings::StaticClass()->GetDefaultObject<UUTProfileSettings>()->bUseWeaponColors;
 }
 
 bool AUTHUD::GetDrawChatKillMsg()
 {
-	return VerifyProfileSettings() ? CachedProfileSettings->bDrawChatKillMsg : false;
+	return VerifyProfileSettings() ? CachedProfileSettings->bDrawChatKillMsg : UUTProfileSettings::StaticClass()->GetDefaultObject<UUTProfileSettings>()->bDrawChatKillMsg;
 }
 
 bool AUTHUD::GetDrawCenteredKillMsg()
 {
-	return VerifyProfileSettings() ? CachedProfileSettings->bDrawCenteredKillMsg : true;
+	return VerifyProfileSettings() ? CachedProfileSettings->bDrawCenteredKillMsg : UUTProfileSettings::StaticClass()->GetDefaultObject<UUTProfileSettings>()->bDrawCenteredKillMsg;
 }
 
 bool AUTHUD::GetDrawHUDKillIconMsg()
 {
-	return VerifyProfileSettings() ? CachedProfileSettings->bDrawHUDKillIconMsg : true;
+	return VerifyProfileSettings() ? CachedProfileSettings->bDrawHUDKillIconMsg : UUTProfileSettings::StaticClass()->GetDefaultObject<UUTProfileSettings>()->bDrawHUDKillIconMsg;
 }
 
 bool AUTHUD::GetPlayKillSoundMsg()
 {
-	return VerifyProfileSettings() ? CachedProfileSettings->bPlayKillSoundMsg : true;
-}
-
-float AUTHUD::GetHUDMinimapScale()
-{
-	return VerifyProfileSettings() ? CachedProfileSettings->HUDMinimapScale : 1.0f;
+	return VerifyProfileSettings() ? CachedProfileSettings->bPlayKillSoundMsg : UUTProfileSettings::StaticClass()->GetDefaultObject<UUTProfileSettings>()->bPlayKillSoundMsg;
 }
 
 float AUTHUD::GetQuickStatsAngle()
 {
-	return VerifyProfileSettings() ? CachedProfileSettings->QuickStatsAngle : 180.0f;
+	return VerifyProfileSettings() ? CachedProfileSettings->QuickStatsAngle : UUTProfileSettings::StaticClass()->GetDefaultObject<UUTProfileSettings>()->QuickStatsAngle;
 }
 
 float AUTHUD::GetQuickStatsDistance()
 {
-	return VerifyProfileSettings() ? CachedProfileSettings->QuickStatsDistance : 0.1f;
+	return FMath::Clamp<float>((VerifyProfileSettings() ? CachedProfileSettings->QuickStatsDistance : UUTProfileSettings::StaticClass()->GetDefaultObject<UUTProfileSettings>()->QuickStatsDistance), 0.05f, 0.55f);
 }
 
 float AUTHUD::GetQuickStatScaleOverride()
 {
-	return VerifyProfileSettings() ? CachedProfileSettings->QuickStatsScaleOverride: 1.0f;
+	return VerifyProfileSettings() ? CachedProfileSettings->QuickStatsScaleOverride: UUTProfileSettings::StaticClass()->GetDefaultObject<UUTProfileSettings>()->QuickStatsScaleOverride;
 }
 
 FName AUTHUD::GetQuickStatsType()
 {
-	return VerifyProfileSettings() ? CachedProfileSettings->QuickStatsType : EQuickStatsLayouts::Arc;
-
+	return VerifyProfileSettings() ? CachedProfileSettings->QuickStatsType : UUTProfileSettings::StaticClass()->GetDefaultObject<UUTProfileSettings>()->QuickStatsType;
 }
 
 float AUTHUD::GetQuickStatsBackgroundAlpha()
 {
-	return VerifyProfileSettings() ? CachedProfileSettings->QuickStatsBackgroundAlpha: 0.15f;
+	return VerifyProfileSettings() ? CachedProfileSettings->QuickStatsBackgroundAlpha: UUTProfileSettings::StaticClass()->GetDefaultObject<UUTProfileSettings>()->QuickStatsBackgroundAlpha;
 }
 
 float AUTHUD::GetQuickStatsForegroundAlpha()
 {
-	return VerifyProfileSettings() ? CachedProfileSettings->QuickStatsForegroundAlpha : 1.0f;
+	return VerifyProfileSettings() ? CachedProfileSettings->QuickStatsForegroundAlpha : UUTProfileSettings::StaticClass()->GetDefaultObject<UUTProfileSettings>()->QuickStatsForegroundAlpha;
 }
 
-float AUTHUD::GetQuickStatsHidden()
+bool AUTHUD::GetQuickStatsHidden()
 {
-	return VerifyProfileSettings() ? CachedProfileSettings->bQuickStatsHidden : false;
+	return VerifyProfileSettings() ? CachedProfileSettings->bQuickStatsHidden : UUTProfileSettings::StaticClass()->GetDefaultObject<UUTProfileSettings>()->bQuickStatsHidden;
 }
 
-float AUTHUD::GetQuickStatsBob()
+bool AUTHUD::GetHealthArcShown()
 {
-	return VerifyProfileSettings() ? CachedProfileSettings->bQuickStatsBob : true;
+	return VerifyProfileSettings() ? CachedProfileSettings->bHealthArcShown : UUTProfileSettings::StaticClass()->GetDefaultObject<UUTProfileSettings>()->bHealthArcShown;
+}
+
+float AUTHUD::GetHealthArcRadius()
+{
+	return VerifyProfileSettings() ? CachedProfileSettings->HealthArcRadius : UUTProfileSettings::StaticClass()->GetDefaultObject<UUTProfileSettings>()->HealthArcRadius;
+}
+
+bool AUTHUD::GetQuickInfoHidden()
+{
+	return VerifyProfileSettings() ? CachedProfileSettings->bQuickInfoHidden : UUTProfileSettings::StaticClass()->GetDefaultObject<UUTProfileSettings>()->bQuickInfoHidden;
 }
 
 bool AUTHUD::ProcessInputAxis(FKey Key, float Delta)
@@ -1596,5 +1669,94 @@ void AUTHUD::ToggleWeaponWheel(bool bShow)
 	{
 		WeaponWheel->BecomeNonInteractive();
 	}
+}
+
+TWeakObjectPtr<class UUTUMGHudWidget> AUTHUD::ActivateUMGHudWidget(FString UMGHudWidgetClassName, bool bUnique)
+{
+	TWeakObjectPtr<class UUTUMGHudWidget> FinalUMGWidget;
+	FinalUMGWidget.Reset();
+
+	if ( !UMGHudWidgetClassName.IsEmpty() ) 
+	{
+
+		// Attempt to look up the class
+		UClass* UMGWidgetClass = LoadClass<UUTUMGHudWidget>(NULL, *UMGHudWidgetClassName, NULL, LOAD_NoWarn | LOAD_Quiet, NULL);
+		if (UMGWidgetClass)
+		{
+			// Look to see if there is a widget in the stack that matches this class.  And if so then exit.
+			if (bUnique)
+			{
+				for (int32 i=0; i < UMGHudWidgetStack.Num(); i++)
+				{
+					if (UMGHudWidgetStack[i].IsValid() && UMGHudWidgetStack[i]->GetClass() == UMGWidgetClass)
+					{
+						return FinalUMGWidget;
+					}
+				}
+			}
+
+			FinalUMGWidget = CreateWidget<UUTUMGHudWidget>(UTPlayerOwner, UMGWidgetClass);
+			if (FinalUMGWidget.IsValid())
+			{
+				ActivateActualUMGHudWidget(FinalUMGWidget);
+			}
+		}		
+		else	// The class wasn't found, so try again but this time add a _C to the classname
+		{
+			return ActivateUMGHudWidget(UMGHudWidgetClassName + TEXT("_C"), bUnique);
+		}
+	}
+	return FinalUMGWidget;
+}
+
+void AUTHUD::ActivateActualUMGHudWidget(TWeakObjectPtr<UUTUMGHudWidget> WidgetToActivate)
+{
+	UMGHudWidgetStack.Add(WidgetToActivate);
+	WidgetToActivate->AssociateHUD(this);
+	WidgetToActivate->AddToViewport(WidgetToActivate->DisplayZOrder);
+}
+
+void AUTHUD::DeactivateUMGHudWidget(FString UMGHudWidgetClassName)
+{
+	// Attempt to look up the class
+	UClass* UMGWidgetClass = LoadClass<UUserWidget>(NULL, *UMGHudWidgetClassName, NULL, LOAD_NoWarn | LOAD_Quiet, NULL);
+	if (UMGWidgetClass && UMGWidgetClass->IsChildOf(UUTUMGHudWidget::StaticClass()))
+	{
+		// Look to see if there is a widget in the stack that matches this class.  And if so then exit.
+		for (int32 i=0; i < UMGHudWidgetStack.Num(); i++)
+		{
+			if (UMGHudWidgetStack[i].IsValid() && UMGHudWidgetStack[i]->GetClass() == UMGWidgetClass)
+			{
+				DeactivateActualUMGHudWidget(UMGHudWidgetStack[i]);
+			}
+		}
+	}
+}
+
+void AUTHUD::DeactivateActualUMGHudWidget(TWeakObjectPtr<UUTUMGHudWidget> WidgetToDeactivate)
+{
+	WidgetToDeactivate->RemoveFromViewport();
+	UMGHudWidgetStack.Remove(WidgetToDeactivate);
+}
+
+UUTCrosshair* AUTHUD::GetCrosshairForWeapon(FName WeaponCustomizationTag, FWeaponCustomizationInfo& outWeaponCustomizationInfo)
+{
+	if ( VerifyProfileSettings() )
+	{
+		CachedProfileSettings->GetWeaponCustomization(WeaponCustomizationTag, outWeaponCustomizationInfo);	
+	}
+	else
+	{
+		outWeaponCustomizationInfo = FWeaponCustomizationInfo();
+	}
+
+	FName DesiredCrosshairName = outWeaponCustomizationInfo.CrosshairTag;
+	if (DesiredCrosshairName == NAME_None) DesiredCrosshairName = FName(TEXT("CrossDot"));
+	if (Crosshairs.Contains(DesiredCrosshairName))
+	{
+		return Crosshairs[DesiredCrosshairName];
+	}
+
+	return nullptr;
 }
 

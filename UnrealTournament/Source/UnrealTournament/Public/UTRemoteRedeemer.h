@@ -30,6 +30,10 @@ class UNREALTOURNAMENT_API AUTRemoteRedeemer : public APawn, public IUTTeamInter
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Lock)
 	USoundBase*  			LockAcquiredSound;
 
+	/** Sound played when redeemer receives damage. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Redeemer)
+		USoundBase* HitSound;
+
 	UPROPERTY()
 	int32 LockCount;
 
@@ -59,10 +63,6 @@ public:
 	/** Controller that gets credit for damage, since main Controller will be lost due to driver leaving when we blow up */
 	UPROPERTY(BlueprintReadOnly, Category = Projectile)
 	AController* DamageInstigator;
-
-	/** Effects for full nuclear blast. */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Effects)
-	TSubclassOf<class AUTImpactEffect> ExplosionEffects;
 
 	UFUNCTION()
 	virtual bool TryToDrive(APawn* NewDriver);

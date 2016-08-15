@@ -16,6 +16,8 @@ namespace EUTSoundClass
 		SFX UMETA(DisplayName = "SFX"),
 		Voice UMETA(DisplayName = "Voice"),
 		VOIP UMETA(DisplayName ="VOIP"),
+		Music_Stingers UMETA(DisplayName="Stingers"),
+		GameMusic UMETA(DisplayName="Game Music"),
 		// should always be last, used to size arrays
 		MAX UMETA(Hidden)
 	};

@@ -9,6 +9,7 @@
 #include "StatNames.h"
 #include "UTWorldSettings.h"
 #include "UTProj_WeaponScreen.h"
+#include "UTRedeemerLaunchAnnounce.h"
 
 AUTRemoteRedeemer::AUTRemoteRedeemer(const class FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -73,7 +74,7 @@ AUTRemoteRedeemer::AUTRemoteRedeemer(const class FObjectInitializer& ObjectIniti
 	CollisionFreeRadius = 1000.f;
 	StatsHitCredit = 0.f;
 	HitsStatsName = NAME_RedeemerHits;
-	ProjHealth = 35;
+	ProjHealth = 50;
 	LockCount = 0;
 }
 
@@ -85,6 +86,11 @@ FVector AUTRemoteRedeemer::GetVelocity() const
 void AUTRemoteRedeemer::PostNetReceiveVelocity(const FVector& NewVelocity)
 {
 	ProjectileMovement->Velocity = NewVelocity;
+	// make sure if client thought there was a collision and stopped the projectile that we undo that state
+	if (!NewVelocity.IsZero() && ProjectileMovement->UpdatedComponent == NULL)
+	{
+		ProjectileMovement->SetUpdatedComponent(CollisionComp);
+	}
 }
 
 bool AUTRemoteRedeemer::TryToDrive(APawn* NewDriver)
@@ -136,6 +142,17 @@ bool AUTRemoteRedeemer::DriverLeave(bool bForceLeave)
 	AController* C = Controller;
 	if (Driver && C)
 	{
+		if (C->PlayerState)
+		{
+			for (FLocalPlayerIterator It(GEngine, GetWorld()); It; ++It)
+			{
+				AUTPlayerController* UTPC = Cast<AUTPlayerController>(It->PlayerController);
+				if (UTPC && UTPC->LastSpectatedPlayerState == C->PlayerState)
+				{
+					UTPC->ViewPawn(Driver);
+				}
+			}
+		}
 		C->UnPossess();
 		Driver->SetOwner(C);
 		AUTCharacter *UTChar = Cast<AUTCharacter>(Driver);
@@ -148,17 +165,6 @@ bool AUTRemoteRedeemer::DriverLeave(bool bForceLeave)
 			}
 		}
 		C->Possess(Driver);
-	}
-	if (Driver && PlayerState)
-	{
-		for (FLocalPlayerIterator It(GEngine, GetWorld()); It; ++It)
-		{
-			AUTPlayerController* UTPC = Cast<AUTPlayerController>(It->PlayerController);
-			if (UTPC && UTPC->LastSpectatedPlayerState == PlayerState)
-			{
-				UTPC->ViewPawn(Driver);
-			}
-		}
 	}
 
 	Driver = nullptr;
@@ -180,7 +186,8 @@ void AUTRemoteRedeemer::OnOverlapBegin(AActor* OtherActor, UPrimitiveComponent* 
 		AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
 		if (GS == NULL || !GS->OnSameTeam(this, OtherActor))
 		{
-			if (Cast<AUTProjectile>(OtherActor))
+			AUTProjectile* Proj = Cast<AUTProjectile>(OtherActor);
+			if (Proj != nullptr)
 			{
 				if (Cast<AUTProj_WeaponScreen>(OtherActor))
 				{
@@ -189,8 +196,7 @@ void AUTRemoteRedeemer::OnOverlapBegin(AActor* OtherActor, UPrimitiveComponent* 
 				}
 				else
 				{
-					OnShotDown();
-					RedeemerDenied(OtherActor->GetInstigatorController());
+					Proj->DamageImpactedActor(this, CollisionComp, Proj->GetActorLocation(), (Proj->GetActorLocation() - GetActorLocation()).GetSafeNormal());
 				}
 			}
 			else
@@ -213,6 +219,11 @@ void AUTRemoteRedeemer::BlowUp()
 {
 	if (!bExploded)
 	{
+		AUTGameMode* GM = GetWorld()->GetAuthGameMode<AUTGameMode>();
+		if (GM)
+		{
+			GM->BroadcastLocalized(this, UUTRedeemerLaunchAnnounce::StaticClass(), 3);
+		}
 		bExploded = true;
 		bTearOff = true;
 
@@ -267,7 +278,7 @@ void AUTRemoteRedeemer::OnShotDown()
 		ProjectileMovement->MaxSpeed += 2000.0f; // make room for gravity
 		ProjectileMovement->bShouldBounce = true;
 		ProjectileMovement->Bounciness = 0.25f;
-		SetTimerUFunc(this, FName(TEXT("ExplodeTimed")), 2.0f, false);
+		SetTimerUFunc(this, FName(TEXT("ExplodeTimed")), 1.5f, false);
 
 		if (GetNetMode() != NM_DedicatedServer)
 		{
@@ -281,6 +292,10 @@ void AUTRemoteRedeemer::PlayShotDownEffects()
 	// stop any looping audio and particles
 	TArray<USceneComponent*> Components;
 	GetComponents<USceneComponent>(Components);
+	if (RedeemerProjectileClass && RedeemerProjectileClass->GetDefaultObject<AUTProj_Redeemer>()->ShotDownAmbient)
+	{
+		UUTGameplayStatics::UTPlaySound(GetWorld(), RedeemerProjectileClass->GetDefaultObject<AUTProj_Redeemer>()->ShotDownAmbient, this, SRT_IfSourceNotReplicated, false, GetActorLocation(), NULL, NULL, false, SAT_None);
+	}
 	for (int32 i = 0; i < Components.Num(); i++)
 	{
 		UAudioComponent* Audio = Cast<UAudioComponent>(Components[i]);
@@ -321,9 +336,21 @@ void AUTRemoteRedeemer::PlayExplosionEffects()
 		}
 	}
 
-	if (ExplosionEffects != NULL)
+	AUTProj_Redeemer* DefaultRedeemer = (RedeemerProjectileClass != NULL) ? RedeemerProjectileClass->GetDefaultObject<AUTProj_Redeemer>() : NULL;
+	if (DefaultRedeemer != NULL)
 	{
-		ExplosionEffects.GetDefaultObject()->SpawnEffect(GetWorld(), FTransform(GetActorRotation(), GetActorLocation()), nullptr, this, DamageInstigator);
+		if (DefaultRedeemer->ExplosionBP != NULL)
+		{
+			GetWorld()->SpawnActor<AActor>(DefaultRedeemer->ExplosionBP, FTransform(GetActorRotation(), GetActorLocation()));
+			if (DefaultRedeemer->ExplosionEffects && DefaultRedeemer->ExplosionEffects.GetDefaultObject()->Audio)
+			{
+				UUTGameplayStatics::UTPlaySound(GetWorld(), DefaultRedeemer->ExplosionEffects.GetDefaultObject()->Audio, this, SRT_IfSourceNotReplicated, false, GetActorLocation(), NULL, NULL, false, SAT_None);
+			}
+		}
+		else if (DefaultRedeemer->ExplosionEffects != NULL)
+		{
+			DefaultRedeemer->ExplosionEffects.GetDefaultObject()->SpawnEffect(GetWorld(), FTransform(GetActorRotation(), GetActorLocation()), nullptr, this, DamageInstigator);
+		}
 	}
 }
 
@@ -423,8 +450,8 @@ void AUTRemoteRedeemer::OnRep_PlayerState()
 
 void AUTRemoteRedeemer::ExplodeStage(float RangeMultiplier)
 {
-	AUTProj_Redeemer *DefaultRedeemer = RedeemerProjectileClass->GetDefaultObject<AUTProj_Redeemer>();
-	if (DefaultRedeemer)
+	AUTProj_Redeemer* DefaultRedeemer = (RedeemerProjectileClass != NULL) ? RedeemerProjectileClass->GetDefaultObject<AUTProj_Redeemer>() : NULL;
+	if (DefaultRedeemer != NULL)
 	{
 		FRadialDamageParams AdjustedDamageParams = DefaultRedeemer->DamageParams;
 		if (AdjustedDamageParams.OuterRadius > 0.0f)
@@ -465,10 +492,6 @@ void AUTRemoteRedeemer::ExplodeStage2()
 }
 void AUTRemoteRedeemer::ExplodeStage3()
 {
-	if (Role == ROLE_Authority)
-	{
-		DriverLeave(true);
-	}
 	ExplodeStage(ExplosionRadii[2]);
 	FTimerHandle TempHandle;
 	GetWorldTimerManager().SetTimer(TempHandle, this, &AUTRemoteRedeemer::ExplodeStage4, ExplosionTimings[2]);
@@ -487,6 +510,10 @@ void AUTRemoteRedeemer::ExplodeStage5()
 }
 void AUTRemoteRedeemer::ExplodeStage6()
 {
+	if (Role == ROLE_Authority)
+	{
+		DriverLeave(true);
+	}
 	ExplodeStage(ExplosionRadii[5]);
 	ShutDown();
 }
@@ -581,13 +608,20 @@ void AUTRemoteRedeemer::Tick(float DeltaSeconds)
 		bool bShowOutline = false;
 		if (GS != nullptr && !bExploded)
 		{
-			for (FLocalPlayerIterator It(GEngine, GetWorld()); It; ++It)
+			if (bShotDown)
 			{
-				if (It->PlayerController != nullptr && GS->OnSameTeam(It->PlayerController, this))
+				bShowOutline = true;
+			}
+			else
+			{
+				for (FLocalPlayerIterator It(GEngine, GetWorld()); It; ++It)
 				{
-					// note: does not handle splitscreen
-					bShowOutline = true;
-					break;
+					if (It->PlayerController != nullptr && GS->OnSameTeam(It->PlayerController, this))
+					{
+						// note: does not handle splitscreen
+						bShowOutline = true;
+						break;
+					}
 				}
 			}
 		}
@@ -665,11 +699,14 @@ float AUTRemoteRedeemer::TakeDamage(float Damage, const FDamageEvent& DamageEven
 					EventInstigator->InstigatedAnyDamage(ActualDamage, DamageTypeCDO, this, DamageCauser);
 				}
 				ProjHealth -= ActualDamage;
+				UUTGameplayStatics::UTPlaySound(GetWorld(), HitSound, this, SRT_All, false, FVector::ZeroVector, Cast<AUTPlayerController>(EventInstigator), NULL, false, SAT_PainSound);
 				if (ProjHealth <= 0)
 				{
-					// small explosion when damaged
-					OnShotDown();
-					RedeemerDenied(EventInstigator);
+					if (!bShotDown)
+					{
+						OnShotDown();
+						RedeemerDenied(EventInstigator);
+					}
 				}
 			}
 		}
@@ -720,7 +757,7 @@ void AUTRemoteRedeemer::PostRender(AUTHUD* HUD, UCanvas* C)
 						float SizeY = FMath::Max<float>(MidY - UpperLeft.Y, (BottomRight.X - UpperLeft.X) * 0.5f);
 						UpperLeft.Y = MidY - SizeY;
 						BottomRight.Y = MidY + SizeY;
-						FLinearColor TargetColor = EnemyChar->bIsWearingHelmet ? FLinearColor(1.0f, 1.0f, 0.0f, 1.0f) : FLinearColor(1.0f, 0.0f, 0.0f, 1.0f);
+						FLinearColor TargetColor = FLinearColor(1.0f, 0.0f, 0.0f, 1.0f);
 						FCanvasTileItem HeadCircleItem(UpperLeft, TargetIndicator->Resource, BottomRight - UpperLeft, TargetColor);
 						HeadCircleItem.BlendMode = SE_BLEND_Translucent;
 						C->DrawItem(HeadCircleItem);

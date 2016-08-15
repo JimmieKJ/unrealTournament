@@ -399,7 +399,7 @@ void UUTHUDWidget::SetHidden(bool bIsHidden)
 
 bool UUTHUDWidget::ShouldDraw_Implementation(bool bShowScores)
 {
-	return UTGameState && UTGameState->HasMatchStarted() && (UTCharacterOwner && !UTCharacterOwner->IsDead()) && !bShowScores && (UTGameState->GetMatchState() != MatchState::MatchIntermission);
+	return UTGameState && (UTGameState->HasMatchStarted() || (UTHUDOwner && UTHUDOwner->UTPlayerOwner && UTHUDOwner->UTPlayerOwner->bIsWarmingUp)) && (UTCharacterOwner && !UTCharacterOwner->IsDead()) && !bShowScores && (UTGameState->GetMatchState() != MatchState::MatchIntermission) && !UTGameState->HasMatchEnded();
 }
 
 void UUTHUDWidget::PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCanvas* InCanvas, FVector2D InCanvasCenter)
@@ -434,7 +434,7 @@ void UUTHUDWidget::PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCanvas* InCan
 	RenderSize.Y = Size.Y * RenderScale;
 	if (Size.X > 0)
 	{
-		RenderSize.X = (bMaintainAspectRatio ?  RenderSize.Y * AspectScale : RenderSize.X * RenderScale);
+		RenderSize.X = (bMaintainAspectRatio ?  RenderSize.Y * AspectScale : Size.X * RenderScale);
 	}
 	RenderPosition.X += (Position.X * RenderScale) - (RenderSize.X * Origin.X);
 	RenderPosition.Y += (Position.Y * RenderScale) - (RenderSize.Y * Origin.Y);
@@ -796,3 +796,6 @@ FVector2D UUTHUDWidget::CalcRotatedDrawLocation(float DistanceInPixels, float An
 	NewPoint.Y = -1.0f * DistanceInPixels * Cos;
 	return NewPoint;
 }
+
+
+

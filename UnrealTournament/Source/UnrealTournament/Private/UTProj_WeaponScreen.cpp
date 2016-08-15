@@ -42,12 +42,6 @@ AUTProj_WeaponScreen::AUTProj_WeaponScreen(const FObjectInitializer& ObjectIniti
 
 float AUTProj_WeaponScreen::TakeDamage(float DamageAmount, FDamageEvent const& DamageEvent, AController* EventInstigator, AActor* DamageCauser)
 {
-	AUTProjectile* OtherProj = Cast<AUTProjectile>(DamageCauser);
-	if (OtherProj != NULL)
-	{
-		OtherProj->FFInstigatorController = InstigatorController;
-		OtherProj->FFDamageType = BlockedProjDamageType;
-	}
 	return 0.f;
 }
 
@@ -56,8 +50,6 @@ void AUTProj_WeaponScreen::ProcessHit_Implementation(AActor* OtherActor, UPrimit
 	AUTProjectile* OtherProj = Cast<AUTProjectile>(OtherActor);
 	if (OtherProj != NULL)
 	{
-		OtherProj->FFInstigatorController = InstigatorController;
-		OtherProj->FFDamageType = BlockedProjDamageType;
 		OtherProj->ImpactedActor = this;
 		if (Cast<AUTProj_TransDisk>(OtherProj))
 		{

@@ -488,11 +488,11 @@ void AUTProj_BioShot::ProcessHit_Implementation(AActor* OtherActor, UPrimitiveCo
 void AUTProj_BioShot::DamageImpactedActor_Implementation(AActor* OtherActor, UPrimitiveComponent* OtherComp, const FVector& HitLocation, const FVector& HitNormal)
 {
 	AUTCharacter* HitCharacter = Cast<AUTCharacter>(OtherActor);
-	bPendingSpecialReward = !bLanded && !bCanTrack && HitCharacter && AirSnotRewardClass && (HitCharacter->Health > 0) && (GlobStrength >= FMath::Max(3,int32(MaxRestingGlobStrength))) && (Role == ROLE_Authority);
-	bool bPossibleAirSnot = bPendingSpecialReward && HitCharacter->GetCharacterMovement() != NULL && (HitCharacter->GetCharacterMovement()->MovementMode == MOVE_Falling) && (GetWorld()->GetTimeSeconds() - HitCharacter->FallingStartTime > 0.3f);
-	int32 PreHitStack = HitCharacter ? HitCharacter->Health + HitCharacter->ArmorAmount : 0.f;
+	bPendingSpecialReward = !bLanded && !bCanTrack && HitCharacter && AirSnotRewardClass && (HitCharacter->Health > 0) && (GlobStrength >= FMath::Max(3,int32(MaxRestingGlobStrength))) && (Role == ROLE_Authority)
+								&& HitCharacter->GetCharacterMovement() != NULL && (HitCharacter->GetCharacterMovement()->MovementMode == MOVE_Falling) && (GetWorld()->GetTimeSeconds() - HitCharacter->FallingStartTime > 0.3f);
+	int32 PreHitStack = HitCharacter ? HitCharacter->Health + HitCharacter->GetArmorAmount() : 0.f;
 	Super::DamageImpactedActor_Implementation(OtherActor, OtherComp, HitLocation, HitNormal);
-	bPendingSpecialReward = bPendingSpecialReward && bPossibleAirSnot && HitCharacter && (HitCharacter->Health <= 0);
+	bPendingSpecialReward = bPendingSpecialReward && HitCharacter && (HitCharacter->Health <= 0);
 	if (bPendingSpecialReward)
 	{
 		// Air Snot reward

@@ -12,12 +12,18 @@ class UNREALTOURNAMENT_API AUTProj_Redeemer : public AUTProjectile
 	virtual float TakeDamage(float Damage, const FDamageEvent& DamageEvent, AController* EventInstigator, AActor* DamageCauser) override;
 	virtual void NotifyClientSideHit(AUTPlayerController* InstigatedBy, FVector HitLocation, AActor* DamageCauser, int32 Damage) override;
 
+	virtual void ApplyDamage(float Damage, AController* EventInstigator);
+
 	FVector ExplodeHitLocation;
 	float ExplodeMomentum;
 
 	float ExplosionTimings[5];
 	float ExplosionRadii[6];
 	float CollisionFreeRadius;
+
+	/** explosion effects blueprint, overrides the normal path; MUST DESTROY ITSELF */
+	UPROPERTY(EditDefaultsOnly, Category = Redeemer)
+	TSubclassOf<AActor> ExplosionBP;
 
 	void Explode_Implementation(const FVector& HitLocation, const FVector& HitNormal, UPrimitiveComponent* HitComp) override;
 
@@ -28,6 +34,12 @@ class UNREALTOURNAMENT_API AUTProj_Redeemer : public AUTProjectile
 	/** Capsule collision component */
 	UPROPERTY(VisibleDefaultsOnly, BlueprintReadOnly, Category = Projectile)
 	UCapsuleComponent* CapsuleComp;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Redeemer)
+		USoundBase* ShotDownAmbient;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Redeemer)
+		USoundBase* HitSound;
 
 	UFUNCTION()
 	virtual void ExplodeTimed();

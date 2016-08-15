@@ -143,7 +143,12 @@ void AUTShowdownGame::StartNewRound()
 		AController* C = It->Get();
 		if (C != NULL && C->GetPawn() == NULL && C->PlayerState != NULL && !C->PlayerState->bOnlySpectator)
 		{
-			RestartPlayer(*It);
+			// don't spawn players that joined during spawn selection and therefore didn't get to pick yet
+			AUTPlayerState* PS = Cast<AUTPlayerState>(C->PlayerState);
+			if (PS == NULL || PS->SelectionOrder != 255)
+			{
+				RestartPlayer(*It);
+			}
 		}
 	}
 	bAllowPlayerRespawns = false;
@@ -284,7 +289,6 @@ void AUTShowdownGame::ScoreKill_Implementation(AController* Killer, AController*
 			}
 			else
 			{
-				OtherPlayerState->AdjustScore(-100);
 				AUTPlayerState * KillerPlayerState = Cast<AUTPlayerState>(Killer->PlayerState);
 				if (KillerPlayerState != NULL)
 				{
@@ -372,9 +376,9 @@ void AUTShowdownGame::ScoreExpiredRoundTime()
 					}
 				}
 			}
+			BroadcastLocalized(NULL, UUTShowdownGameMessage::StaticClass(), 1);
 		}
 		LastRoundWinner = NULL;
-		BroadcastLocalized(NULL, UUTShowdownGameMessage::StaticClass(), 1);
 	}
 	else
 	{
@@ -446,14 +450,22 @@ void AUTShowdownGame::StartIntermission()
 
 void AUTShowdownGame::RestartPlayer(AController* aPlayer)
 {
-	AUTPlayerState* PS = Cast<AUTPlayerState>(aPlayer->PlayerState);
-	if (PS)
+	if (GetMatchState() == MatchState::WaitingToStart)
 	{
-		PS->SetOutOfLives(!bAllowPlayerRespawns);
-	}
-	if (bAllowPlayerRespawns)
-	{
+		// warmup
 		Super::RestartPlayer(aPlayer);
+	}
+	else
+	{
+		AUTPlayerState* PS = Cast<AUTPlayerState>(aPlayer->PlayerState);
+		if (PS)
+		{
+			PS->SetOutOfLives(!bAllowPlayerRespawns);
+		}
+		if (bAllowPlayerRespawns)
+		{
+			Super::RestartPlayer(aPlayer);
+		}
 	}
 }
 
@@ -838,7 +850,7 @@ void AUTShowdownGame::DefaultTimer()
 			}
 		}
 
-		if (GS->SpawnSelector != NULL && GS->SpawnSelector->RespawnChoiceA != NULL)
+		if (GS->SpawnSelector != NULL && (GS->SpawnSelector->IsPendingKillPending() || GS->SpawnSelector->RespawnChoiceA != NULL))
 		{
 			GS->IntermissionStageTime = 0;
 		}
@@ -858,7 +870,7 @@ void AUTShowdownGame::DefaultTimer()
 			{
 				if (GS->SpawnSelector != NULL)
 				{
-					if (GS->SpawnSelector->RespawnChoiceA == NULL)
+					if (GS->SpawnSelector->RespawnChoiceA == NULL && !GS->SpawnSelector->IsPendingKillPending())
 					{
 						GS->SpawnSelector->RespawnChoiceA = AutoSelectPlayerStart(Cast<AController>(GS->SpawnSelector->GetOwner()));
 						GS->SpawnSelector->ForceNetUpdate();

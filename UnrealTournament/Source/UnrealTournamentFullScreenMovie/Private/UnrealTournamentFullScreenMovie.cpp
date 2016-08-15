@@ -27,7 +27,7 @@ public:
 		//FString MovieName = ( FParse::Param( FCommandLine::Get(), TEXT( "nomovie" )) ) ? TEXT("load_generic_nosound") : TEXT("intro_full;intro_loop");
 		FString MovieName = TEXT("load_generic_nosound");
 		MovieName.ParseIntoArray(LoadingScreen.MoviePaths, TEXT(";"), true);
-		GetMoviePlayer()->SetupLoadingScreen(LoadingScreen);
+		if (GetMoviePlayer().IsValid()) GetMoviePlayer()->SetupLoadingScreen(LoadingScreen);
 #endif
 	}
 	
@@ -63,31 +63,38 @@ public:
 
 			LoadingScreen.PlaybackType = PlaybackType;
 			LoadingScreen.WidgetLoadingScreen = SlateOverlayWidget; 
-			GetMoviePlayer()->SetupLoadingScreen(LoadingScreen);
-			GetMoviePlayer()->PlayMovie();
+
+			if (GetMoviePlayer().IsValid())
+			{
+				GetMoviePlayer()->SetupLoadingScreen(LoadingScreen);
+				GetMoviePlayer()->PlayMovie();
+			}
 		}
 	}
 
 	virtual void StopMovie() override
 	{
-		GetMoviePlayer()->StopMovie();
+		if (GetMoviePlayer().IsValid()) GetMoviePlayer()->StopMovie();
 	}
 
 	virtual void WaitForMovieToFinished(TSharedPtr<SWidget> SlateOverlayWidget) override
 	{
-		GetMoviePlayer()->WaitForMovieToFinish();
-		SetSlateOverlayWidget(SlateOverlayWidget);
+		if (GetMoviePlayer().IsValid())
+		{
+			GetMoviePlayer()->WaitForMovieToFinish();
+			SetSlateOverlayWidget(SlateOverlayWidget);
+		}
 	}
 
 
 	virtual bool IsMoviePlaying() override
 	{
-		return GetMoviePlayer()->IsMovieCurrentlyPlaying();
+		return GetMoviePlayer().IsValid() ? GetMoviePlayer()->IsMovieCurrentlyPlaying() : false;
 	}
 
 	virtual void SetSlateOverlayWidget(TSharedPtr<SWidget> NewSlateOverlayWidget) override
 	{
-		GetMoviePlayer()->SetSlateOverlayWidget(NewSlateOverlayWidget);
+		if (GetMoviePlayer().IsValid()) GetMoviePlayer()->SetSlateOverlayWidget(NewSlateOverlayWidget);
 	}
 	
 

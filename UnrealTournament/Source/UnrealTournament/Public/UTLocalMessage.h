@@ -21,10 +21,6 @@ class UNREALTOURNAMENT_API UUTLocalMessage : public ULocalMessage
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Message)
 	uint32 bIsStatusAnnouncement : 1;
 
-	// If true, don't add to normal queue.  
-	UPROPERTY(EditDefaultsOnly, Category = Message)
-	uint32 bIsSpecial:1;
-
 	// If true and special, only one can be in the HUD queue at a time.
 	UPROPERTY(EditDefaultsOnly, Category = Message)
 	uint32 bIsUnique:1;    
@@ -57,6 +53,14 @@ class UNREALTOURNAMENT_API UUTLocalMessage : public ULocalMessage
 	UPROPERTY(EditDefaultsOnly, Category = Message)
 		uint32 bDrawOnlyIfAlive : 1;
 
+	/** Display/play during intermissions only if viewtarget is a live player. */
+	UPROPERTY(EditDefaultsOnly, Category = Message)
+		uint32 bPlayDuringIntermission : 1;
+
+	/** If true combine emphasis text with already displaying message of same class. */
+	UPROPERTY(EditDefaultsOnly, Category = Message)
+		uint32 bCombineEmphasisText : 1;	
+
 	// # of seconds to stay in HUD message queue.
 	UPROPERTY(EditDefaultsOnly, Category = Message)
 	float Lifetime;    
@@ -68,9 +72,14 @@ class UNREALTOURNAMENT_API UUTLocalMessage : public ULocalMessage
 	UPROPERTY(EditDefaultsOnly, Category = Message)
 		float ScaleInSize;
 
+	UPROPERTY(EditDefaultsOnly, Category = Message)
+		float ScaleInTime;
+
 	/** 0=smallest font, 3=largest font. */
 	UPROPERTY(EditDefaultsOnly, Category = Message)
 		int32 FontSizeIndex;
+
+	virtual bool IsOptionalSpoken(int32 MessageIndex) const;
 
 	virtual int32 GetFontSizeIndex(int32 MessageIndex) const;
 
@@ -160,6 +169,11 @@ class UNREALTOURNAMENT_API UUTLocalMessage : public ULocalMessage
 
 	virtual bool IsConsoleMessage(int32 Switch) const;
 	bool PartiallyDuplicates(int32 Switch1, int32 Switch2, class UObject* OptionalObject1, class UObject* OptionalObject2 ) const;
+
+	/** return the UMG object to display instead of the message or Empty() if no UMG widget is assocated with this switch */
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = Message)
+	virtual FString GetAnnouncementUMGClassname(int32 Switch, const UObject* OptionalObject) const;
+
 };
 
 

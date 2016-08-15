@@ -50,7 +50,7 @@ FText UUTShowdownStatusMessage::GetText(int32 Switch, bool bTargetsPlayerState1,
 
 bool UUTShowdownStatusMessage::ShouldPlayAnnouncement(const FClientReceiveData& ClientData) const
 {
-	return IsLocalForAnnouncement(ClientData, true, true) || (ClientData.MessageIndex == 2) || (ClientData.MessageIndex == 3) || (ClientData.MessageIndex == 4);
+	return IsLocalForAnnouncement(ClientData, true, true);
 }
 
 FName UUTShowdownStatusMessage::GetAnnouncementName_Implementation(int32 Switch, const UObject* OptionalObject, const class APlayerState* RelatedPlayerState_1, const class APlayerState* RelatedPlayerState_2) const

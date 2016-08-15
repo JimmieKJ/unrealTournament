@@ -13,7 +13,6 @@ class UNREALTOURNAMENT_API UUTJumpbootMessage : public UUTLocalMessage
 	{
 		MessageArea = FName(TEXT("Announcements"));
 		MessageSlot = FName(TEXT("PickupMessage"));
-		bIsSpecial = true;
 		bIsUnique = true;
 		bIsConsoleMessage = false;
 		Lifetime = 1.0f;

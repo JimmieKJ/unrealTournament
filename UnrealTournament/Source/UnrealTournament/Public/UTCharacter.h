@@ -414,6 +414,9 @@ class UNREALTOURNAMENT_API AUTCharacter : public ACharacter, public IUTTeamInter
 	UPROPERTY(EditAnyWhere, Category = "Weapon")
 	float MaxShotSynchDelay;
 
+	UPROPERTY(BlueprintReadOnly, Category = Pawn)
+		class AUTGameVolume* LastGameVolume;
+
 	/** Returns most recent position with bShotSpawned. */
 	virtual FVector GetDelayedShotPosition();
 	virtual FRotator GetDelayedShotRotation();
@@ -426,23 +429,33 @@ class UNREALTOURNAMENT_API AUTCharacter : public ACharacter, public IUTTeamInter
 	 */
 	void GetSimplifiedSavedPositions(TArray<FSavedPosition>& OutPositions, bool bStopAtTeleport) const;
 
-	UPROPERTY(BlueprintReadWrite, Category = "Pawn")
+	UPROPERTY(BlueprintReadWrite, Replicated, Category = "Pawn")
 		bool bCanRally;
 
+	protected:
+		UPROPERTY(BlueprintReadWrite, Category = Pawn, ReplicatedUsing=UpdateArmorOverlay)
+			int32 ArmorAmount;
+	public:
 	/** Limit to armor stacking */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Pawn")
 	int32 MaxStackedArmor;
 
-	/** Find existing armor, make sure total doesn't exceed MaxStackedArmor */
-	UFUNCTION(BlueprintCallable, Category = Pawn)
-	virtual void CheckArmorStacking();
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Pawn", ReplicatedUsing = UpdateArmorOverlay)
+		class AUTArmor* ArmorType;
 
-	/** Remove excess armor from the lowest absorption armor type.  Returns amount of armor removed. */
-	virtual int32 ReduceArmorStack(int32 Amount);
+	UFUNCTION(BlueprintCallable, Category = Pawn)
+		virtual void GiveArmor(class AUTArmor* InArmorType);
+
+	UFUNCTION(BlueprintCallable, Category = Pawn)
+		virtual void RemoveArmor(int32 Amount);
 
 	/** Returns current total armor amount. */
 	UFUNCTION(BlueprintCallable, Category = Pawn)
-		virtual int32 GetArmorAmount();
+		virtual int32 GetArmorAmount() const;
+
+	/** Updates armor overlay to reflect current armor value. */
+	UFUNCTION(BlueprintCallable, Category = Pawn)
+		virtual void UpdateArmorOverlay();
 
 	/** return total effective health of this Pawn as a percentage/multiplier of its starting value
 	 * this is used by AI as part of evaluating enemy strength
@@ -673,22 +686,6 @@ class UNREALTOURNAMENT_API AUTCharacter : public ACharacter, public IUTTeamInter
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Pawn)
 	bool bDamageHurtsHealth;
 
-	/** Replicated to spectators, not authoritative. */
-	UPROPERTY(BlueprintReadWrite, Category = Pawn, Replicated)
-		int32 ArmorAmount;
-
-	UPROPERTY(BlueprintReadWrite, Category = Skulls, Replicated)
-		int32 RedSkullCount;
-
-	UPROPERTY(BlueprintReadWrite, Category = Skulls, Replicated)
-		int32 BlueSkullCount;
-
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Skulls)
-	TSubclassOf<class AUTSkullPickup> RedSkullPickupClass;
-
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Skulls)
-		TSubclassOf<class AUTSkullPickup> BlueSkullPickupClass;
-
 	/** head bone/socket for headshots */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Pawn)
 	FName HeadBone;
@@ -732,6 +729,10 @@ class UNREALTOURNAMENT_API AUTCharacter : public ACharacter, public IUTTeamInter
 	/** Last time this character was targeted or hit by an enemy. */
 	UPROPERTY(BlueprintReadOnly, Category = Pawn)
 		float LastTargetedTime;
+
+	/** Last time this character targeted or hit  an enemy. */
+	UPROPERTY(BlueprintReadOnly, Replicated, Category = Pawn)
+		bool bIsInCombat;
 
 	UPROPERTY(replicated)
 	int32 VisibilityMask;
@@ -917,6 +918,16 @@ public:
 	UPROPERTY(BlueprintReadOnly, Replicated, Category = Pawn)
 	bool bIsWearingHelmet;
 
+	UPROPERTY()
+		FName TestParam;
+
+		UFUNCTION(exec)
+		void OVPAR(FName Param);
+	UFUNCTION(exec)
+		void OV(float value);
+	UFUNCTION(exec)
+		void OVV(FVector value);
+
 	UFUNCTION(BlueprintCallable, Category = Pawn)
 	void SetHeadScale(float NewHeadScale);
 
@@ -968,6 +979,10 @@ public:
 
 	UPROPERTY()
 	class AUTPlayerController* FlakShredInstigator;
+
+	/** Playerstate this pawn had when last possessed. */
+	UPROPERTY(BlueprintReadOnly, Category = Pawn)
+		AUTPlayerState* OldPlayerState;
 
 	/** Reward announcement for close up flak kill. */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Announcement)
@@ -1334,6 +1349,9 @@ public:
 	UFUNCTION(Meta = (DeprecatedFunction, DeprecationMessage = "Use SetCharacterOverlayEffect"), BlueprintCallable, BlueprintAuthorityOnly, Category = Effects)
 	virtual void SetCharacterOverlay(UMaterialInterface* NewOverlay, bool bEnabled);
 
+	UFUNCTION()
+		virtual void UpdateCharOverlayFlags();
+
 	/** uses CharOverlayFlags to apply the desired overlay material (if any) to OverlayMesh */
 	UFUNCTION()
 	virtual void UpdateCharOverlays();
@@ -1376,7 +1394,7 @@ public:
 	 * pass NULL to restore default skin
 	 */
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = Effects)
-	virtual void SetSkin(UMaterialInterface* NewSkin);
+	virtual void SetSkin(UMaterialInterface* NewSkin, UMaterialInterface* NewSkin1P = NULL);
 	inline UMaterialInterface* GetSkin()
 	{
 		return ReplicatedBodyMaterial;
@@ -1691,7 +1709,7 @@ public:
 	virtual void UpdateWeaponAttachment();
 
 	UFUNCTION()
-	virtual void UpdateWeaponSkinPrefFromProfile();
+	virtual void UpdateWeaponSkinPrefFromProfile(AUTWeapon* Weapon);
 
 	UPROPERTY(replicatedUsing = OnRepWeaponSkin)
 	TArray<UUTWeaponSkin*> WeaponSkins;
@@ -1948,7 +1966,7 @@ protected:
 	uint8 LastFoot;
 	
 	/** replicated overlays, bits match entries in UTGameState's OverlayMaterials array */
-	UPROPERTY(Replicated, ReplicatedUsing = UpdateCharOverlays)
+	UPROPERTY(Replicated, ReplicatedUsing = UpdateCharOverlayFlags)
 	uint16 CharOverlayFlags;
 	UPROPERTY(Replicated, ReplicatedUsing = UpdateWeaponOverlays)
 	uint16 WeaponOverlayFlags;
@@ -1959,6 +1977,8 @@ protected:
 	/** replicated character material override */
 	UPROPERTY(Replicated, ReplicatedUsing = UpdateSkin)
 	UMaterialInterface* ReplicatedBodyMaterial;
+	UPROPERTY(Replicated, ReplicatedUsing = UpdateSkin)
+	UMaterialInterface* ReplicatedBodyMaterial1P;
 
 	/** runtime material instance for setting body material parameters (team color, etc) */
 	UPROPERTY(BlueprintReadOnly, Category = Pawn)

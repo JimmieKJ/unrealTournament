@@ -43,6 +43,14 @@ void AUTMutator::NotifyLogout_Implementation(AController* C)
 	}
 }
 
+void AUTMutator::TriggerBoost_Implementation(AUTPlayerController* Who)
+{
+	if (NextMutator != NULL)
+	{
+		NextMutator->TriggerBoost(Who);
+	}
+}
+
 bool AUTMutator::AlwaysKeep_Implementation(AActor* Other, bool& bPreventModify)
 {
 	return (NextMutator != NULL && NextMutator->AlwaysKeep(Other, bPreventModify));

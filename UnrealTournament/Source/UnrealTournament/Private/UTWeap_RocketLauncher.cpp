@@ -16,6 +16,7 @@ AUTWeap_RocketLauncher::AUTWeap_RocketLauncher(const class FObjectInitializer& O
 	BringUpTime = 0.41f;
 
 	NumLoadedRockets = 0;
+	NumLoadedBarrels = 0;
 	MaxLoadedRockets = 3;
 	RocketLoadTime = 0.9f;
 	FirstRocketLoadTime = 0.4f;
@@ -59,6 +60,9 @@ AUTWeap_RocketLauncher::AUTWeap_RocketLauncher(const class FObjectInitializer& O
 	DeathStatsName = NAME_RocketDeaths;
 	HitsStatsName = NAME_RocketHits;
 	ShotsStatsName = NAME_RocketShots;
+
+	WeaponCustomizationTag = EpicWeaponCustomizationTags::RocketLauncher;
+	WeaponSkinCustomizationTag = EpicWeaponSkinCustomizationTags::RocketLauncher;
 }
 
 void AUTWeap_RocketLauncher::Destroyed()
@@ -73,16 +77,17 @@ void AUTWeap_RocketLauncher::BeginLoadRocket()
 	if (GetNetMode() != NM_DedicatedServer)
 	{
 		UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
-		if (AnimInstance != NULL && LoadingAnimation.IsValidIndex(NumLoadedRockets) && LoadingAnimation[NumLoadedRockets] != NULL)
+		// @TODO FIXMESTEVE - different animations for empty versus loaded barrels
+		if (AnimInstance != NULL && LoadingAnimation.IsValidIndex(NumLoadedBarrels) && LoadingAnimation[NumLoadedBarrels] != NULL)
 		{
-			AnimInstance->Montage_Play(LoadingAnimation[NumLoadedRockets], LoadingAnimation[NumLoadedRockets]->SequenceLength / GetLoadTime(NumLoadedRockets));
+			AnimInstance->Montage_Play(LoadingAnimation[NumLoadedBarrels], LoadingAnimation[NumLoadedBarrels]->SequenceLength / GetLoadTime(NumLoadedBarrels));
 		}
 	}
 
 	//Replicate the loading sound to other players 
 	//Local players will use the sounds synced to the animation
 	AUTPlayerController* PC = Cast<AUTPlayerController>(UTOwner->Controller);
-	if (PC != NULL && !PC->IsLocalPlayerController())
+	if (PC != NULL && !PC->IsLocalPlayerController() && (NumLoadedRockets == NumLoadedBarrels))
 	{
 		UUTGameplayStatics::UTPlaySound(GetWorld(), LoadingSounds[NumLoadedRockets], UTOwner, SRT_AllButOwner, false, FVector::ZeroVector, NULL, NULL, true, SAT_WeaponFoley);
 	}
@@ -90,9 +95,17 @@ void AUTWeap_RocketLauncher::BeginLoadRocket()
 
 void AUTWeap_RocketLauncher::EndLoadRocket()
 {
-	ConsumeAmmo(CurrentFireMode);
-	NumLoadedRockets++;
-	SetRocketFlashExtra(CurrentFireMode, NumLoadedRockets + 1, CurrentRocketFireMode, bDrawRocketModeString);
+	NumLoadedBarrels++;
+	if (Ammo > 0)
+	{
+		ConsumeAmmo(CurrentFireMode);
+		NumLoadedRockets++;
+		SetRocketFlashExtra(CurrentFireMode, NumLoadedRockets + 1, CurrentRocketFireMode, bDrawRocketModeString);
+	}
+	else
+	{
+		PlayLowAmmoSound();
+	}
 	LastLoadTime = GetWorld()->TimeSeconds;
 
 	UUTGameplayStatics::UTPlaySound(GetWorld(), RocketLoadedSound, UTOwner, SRT_AllButOwner, false, FVector::ZeroVector, NULL, NULL, true, SAT_WeaponFoley);
@@ -134,6 +147,7 @@ void AUTWeap_RocketLauncher::EndLoadRocket()
 void AUTWeap_RocketLauncher::ClearLoadedRockets()
 {
 	CurrentRocketFireMode = 0;
+	NumLoadedBarrels = 0;
 	NumLoadedRockets = 0;
 	if (UTOwner != NULL)
 	{
@@ -333,6 +347,7 @@ AUTProjectile* AUTWeap_RocketLauncher::FireProjectile()
 			Cast<AUTProj_Rocket>(SpawnedProjectile)->TargetActor = LockedTarget;
 		}
 		NumLoadedRockets = 0;
+		NumLoadedBarrels = 0;
 		return SpawnedProjectile;
 	}
 }
@@ -897,4 +912,5 @@ void AUTWeap_RocketLauncher::FiringInfoUpdated_Implementation(uint8 InFireMode, 
 	CurrentRocketFireMode = 0;
 	bDrawRocketModeString = false;
 	NumLoadedRockets = 0;
+	NumLoadedBarrels = 0;
 }

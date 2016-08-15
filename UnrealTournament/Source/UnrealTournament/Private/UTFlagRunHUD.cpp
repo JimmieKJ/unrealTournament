@@ -6,6 +6,8 @@
 #include "UTCTFGameMode.h"
 #include "UTCTFScoreboard.h"
 #include "Slate/UIWindows/SUTPowerupSelectWindow.h"
+#include "UTFlagRunScoreboard.h"
+#include "UTFlagRunMessage.h"
 
 AUTFlagRunHUD::AUTFlagRunHUD(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -20,6 +22,16 @@ AUTFlagRunHUD::AUTFlagRunHUD(const FObjectInitializer& ObjectInitializer)
 	PlayerStartIcon.Texture = PlayerStartTextureObject.Object;
 
 	TimeToDelayMenuOpenForIntermission = 8.0f;
+}
+
+void AUTFlagRunHUD::NotifyMatchStateChange()
+{
+	AUTCTFRoundGameState* GS = Cast<AUTCTFRoundGameState>(GetWorld()->GetGameState());
+	if (GS && GS->GetMatchState() == MatchState::InProgress && GS->FlagRunMessageTeam && UTPlayerOwner)
+	{
+		UTPlayerOwner->ClientReceiveLocalizedMessage(UUTFlagRunMessage::StaticClass(), GS->FlagRunMessageSwitch, nullptr, nullptr, GS->FlagRunMessageTeam);
+	}
+	Super::NotifyMatchStateChange();
 }
 
 void AUTFlagRunHUD::DrawHUD()
@@ -71,7 +83,7 @@ void AUTFlagRunHUD::DrawHUD()
 			{
 				if (!UTPS->bOutOfLives)
 				{
-					bool bLastLife = (UTPS->RemainingLives == 0);
+					bool bLastLife = (UTPS->RemainingLives == 1);
 					if (UTPS->Team->TeamIndex == 0)
 					{
 						RedPlayerCount++;
@@ -91,7 +103,7 @@ void AUTFlagRunHUD::DrawHUD()
 					if (!bLastLife)
 					{
 						Canvas->SetLinearDrawColor(FLinearColor::White, 1.f);
-						Canvas->DrawText(TinyFont, FText::AsNumber(UTPS->RemainingLives+1), XOffsetText + 0.4f*PipSize, YOffset + 0.2f*PipSize, 0.75f, 0.75f, TextRenderInfo);
+						Canvas->DrawText(TinyFont, FText::AsNumber(UTPS->RemainingLives), XOffsetText + 0.4f*PipSize, YOffset + 0.2f*PipSize, 0.75f, 0.75f, TextRenderInfo);
 					}
 				}
 			}
@@ -152,6 +164,8 @@ void AUTFlagRunHUD::HandlePowerups()
 				UTPlayerOwner->GetUTLocalPlayer()->OpenWindow(PowerupSelectWindow);
 
 				bConstructedPowerupWindowForDefense = bIsOnDefense;
+				UTPS->bIsPowerupSelectWindowOpen = false;
+				bAlreadyForcedWindowOpening = false;
 			}
 			//if we switch teams nuke the old window and make a new one
 			else if (bIsOnDefense != bConstructedPowerupWindowForDefense)
@@ -165,6 +179,8 @@ void AUTFlagRunHUD::HandlePowerups()
 				UTPlayerOwner->GetUTLocalPlayer()->OpenWindow(PowerupSelectWindow);
 
 				bConstructedPowerupWindowForDefense = bIsOnDefense;
+				UTPS->bIsPowerupSelectWindowOpen = false;
+				bAlreadyForcedWindowOpening = false;
 			}
 			else
 			{
@@ -173,23 +189,22 @@ void AUTFlagRunHUD::HandlePowerups()
 				{
 					bAlreadyForcedWindowOpening = true;
 
-					//if they have already opened it manually, let it go
-					if (!UTPS->bIsPowerupSelectWindowOpen)
+					//Intermission we want a delay before forcing it open to give the scoring info time to display
+					if (GS->GetMatchState() == MatchState::MatchIntermission)
 					{
-						//Intermission we want a delay before forcing it open to give the scoring info time to display
-						if (GS->GetMatchState() == MatchState::MatchIntermission)
+						GetWorldTimerManager().SetTimer(MenuOpenDelayTimerHandle, this, &AUTFlagRunHUD::OpenPowerupSelectMenu, TimeToDelayMenuOpenForIntermission, false);
+							
+						//its possible the menu was already thinking it should be opened. We want to force a delay here, so lets set it to close.
+						UTPS->bIsPowerupSelectWindowOpen = false;
+					}
+					else
+					{
+						if (GetWorldTimerManager().IsTimerActive(MenuOpenDelayTimerHandle))
 						{
-							GetWorldTimerManager().SetTimer(MenuOpenDelayTimerHandle, this, &AUTFlagRunHUD::OpenPowerupSelectMenu, TimeToDelayMenuOpenForIntermission, false);
+							GetWorldTimerManager().ClearTimer(MenuOpenDelayTimerHandle);
 						}
-						else
-						{
-							if (GetWorldTimerManager().IsTimerActive(MenuOpenDelayTimerHandle))
-							{
-								GetWorldTimerManager().ClearTimer(MenuOpenDelayTimerHandle);
-							}
 
-							OpenPowerupSelectMenu();
-						}
+						OpenPowerupSelectMenu();
 					}
 				}
 			}

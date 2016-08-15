@@ -83,9 +83,6 @@ class UNREALTOURNAMENT_API AUTCTFRoundGame : public AUTCTFBaseGame
 	virtual void PlayEndOfMatchMessage() override;
 
 	UPROPERTY()
-		int32 ExtraHealth;
-
-	UPROPERTY()
 		int32 FlagPickupDelay;
 
 	UPROPERTY()
@@ -137,6 +134,9 @@ class UNREALTOURNAMENT_API AUTCTFRoundGame : public AUTCTFBaseGame
 
 	virtual void FlagCountDown();
 
+	/** Update tiebreaker value based on new round bonus. Tiebreaker is positive if Red is ahead, negative if blue is ahead. */
+	virtual void UpdateTiebreak(int32 Bonus, int32 TeamIndex);
+
 	virtual void ScoreObject_Implementation(AUTCarriedObject* GameObject, AUTCharacter* HolderPawn, AUTPlayerState* Holder, FName Reason) override;
 	virtual void BroadcastScoreUpdate(APlayerState* ScoringPlayer, AUTTeamInfo* ScoringTeam, int32 OldScore = 0) override;
 	virtual void RestartPlayer(AController* aPlayer) override;
@@ -149,7 +149,6 @@ class UNREALTOURNAMENT_API AUTCTFRoundGame : public AUTCTFBaseGame
 	virtual int32 IntermissionTeamToView(AUTPlayerController* PC) override;
 	virtual void CreateGameURLOptions(TArray<TSharedPtr<TAttributePropertyBase>>& MenuProps);
 	virtual void HandleMatchHasStarted() override;
-	virtual void SetPlayerDefaults(APawn* PlayerPawn) override;
 	virtual bool AvoidPlayerStart(class AUTPlayerStart* P) override;
 	virtual void DiscardInventory(APawn* Other, AController* Killer) override;
 	virtual bool ChangeTeam(AController* Player, uint8 NewTeam, bool bBroadcast) override;
@@ -161,12 +160,13 @@ class UNREALTOURNAMENT_API AUTCTFRoundGame : public AUTCTFBaseGame
 	virtual void AdjustLeaderHatFor(AUTCharacter* UTChar) override;
 	virtual bool SkipPlacement(AUTCharacter* UTChar) override;
 
-	virtual void TossSkull(TSubclassOf<AUTSkullPickup> SkullPickupClass, const FVector& StartLocation, const FVector& TossVelocity, AUTCharacter* FormerInstigator);
-
 	virtual void EndTeamGame(AUTTeamInfo* Winner, FName Reason);
 
 	virtual bool UTIsHandlingReplays() override { return false; }
 	virtual void StopRCTFReplayRecording();
+
+	virtual void ScoreRedAlternateWin();
+	virtual void ScoreBlueAlternateWin();
 
 	/** Score round ending due some other reason than capture. */
 	virtual void ScoreAlternateWin(int32 WinningTeamIndex, uint8 Reason = 0);
@@ -174,20 +174,11 @@ class UNREALTOURNAMENT_API AUTCTFRoundGame : public AUTCTFBaseGame
 	/** Initialize for new round. */
 	virtual void InitRound();
 
-	TAssetSubclassOf<class AUTArmor> ShieldBeltObject;
-	TAssetSubclassOf<class AUTArmor> ThighPadObject;
-	TAssetSubclassOf<class AUTArmor> ArmorVestObject;
+	/** Initialize a player for the new round. */
+	virtual void InitPlayerForRound(AUTPlayerState* PS);
+
 	TAssetSubclassOf<class AUTInventory> ActivatedPowerupPlaceholderObject;
 	TAssetSubclassOf<class AUTInventory> RepulsorObject;
-
-	UPROPERTY()
-		TSubclassOf<class AUTArmor> ShieldBeltClass;
-
-	UPROPERTY()
-		TSubclassOf<class AUTArmor> ThighPadClass;
-
-	UPROPERTY()
-		TSubclassOf<class AUTArmor> ArmorVestClass;
 
 	UPROPERTY()
 		TSubclassOf<class AUTInventory> ActivatedPowerupPlaceholderClass;
@@ -202,8 +193,7 @@ class UNREALTOURNAMENT_API AUTCTFRoundGame : public AUTCTFBaseGame
 	UPROPERTY()
 		bool bAllowPrototypePowerups;
 
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite)
-	bool bGiveSpawnInventoryBonus;
+	virtual void PostLogin(APlayerController* NewPlayer) override;
 
 protected:
 	virtual bool IsTeamOnOffense(int32 TeamNumber) const;
@@ -213,9 +203,6 @@ protected:
 	virtual void HandlePowerupUnlocks(APawn* Other, AController* Killer);
 	virtual void UpdatePowerupUnlockProgress(AUTPlayerState* VictimPS, AUTPlayerState* KillerPS);
 	virtual void GrantPowerupToTeam(int TeamIndex, AUTPlayerState* PlayerToHighlight);
-
-	UPROPERTY()
-	bool bNoLivesEndRound;
 
 	UPROPERTY()
 	int32 InitialBoostCount;

@@ -297,24 +297,6 @@ void SUTTextChatPanel::RouteChat(UUTLocalPlayer* LocalPlayer, TSharedPtr<FStored
 			(ChatMessage->Type == ChatDestinations::Lobby && i==0) ||
 			ChatDestinationList[i]->ChatDestination == ChatMessage->Type)
 		{
-
-			if (ChatMessage->Type == ChatDestinations::Team)
-			{
-				// Look to see if we should reject this based on the player owner's team.
-
-				int32 MyTeamNum = 255;
-				AUTPlayerState* UTPlayerState = Cast<AUTPlayerState>(PlayerOwner->PlayerController->PlayerState);
-				if (UTPlayerState)
-				{
-					MyTeamNum = UTPlayerState->GetTeamNum();
-				}
-
-				if (ChatMessage->TeamNum != MyTeamNum)
-				{
-					return;
-				}
-			}
-
 			ChatDestinationList[i]->HandleChat(ChatMessage);
 		}
 	}
@@ -341,7 +323,6 @@ void SUTTextChatPanel::ChatTextCommited(const FText& NewText, ETextCommit::Type 
 			if (CurrentChatDestination == ChatDestinations::Friends)	FinalText = FString::Printf(TEXT("FriendSay %s"), *FinalText);
 			if (CurrentChatDestination == ChatDestinations::Local)		FinalText = FString::Printf(TEXT("Say %s"), *FinalText);
 			if (CurrentChatDestination == ChatDestinations::Match)		FinalText = FString::Printf(TEXT("Matchchat %s"), *FinalText);
-			if (CurrentChatDestination == ChatDestinations::Team)		FinalText = FString::Printf(TEXT("TeamSay %s"), *FinalText);
 		}
 		else
 		{
@@ -399,26 +380,6 @@ int32 SUTTextChatPanel::FilterPlayer(AUTPlayerState* PlayerState, FUniqueNetIdRe
 			return false;
 		}
 	}
-	else if (CurrentChatDestination == ChatDestinations::Team)
-	{
-		AUTPlayerState* UTPlayerState = Cast<AUTPlayerState>(PlayerOwner->PlayerController->PlayerState);
-		if (UTPlayerState)
-		{
-			AUTLobbyPlayerState* LobbyPlayerState = Cast<AUTLobbyPlayerState>(UTPlayerState);
-
-			// If we are a lobby game then compare DesiredTeamNums
-			if (LobbyPlayerState != NULL)
-			{
-				AUTLobbyPlayerState* TheirLobbyPlayerState = Cast<AUTLobbyPlayerState>(PlayerState);
-				return (LobbyPlayerState != NULL && TheirLobbyPlayerState != NULL && LobbyPlayerState->DesiredTeamNum == TheirLobbyPlayerState->DesiredTeamNum);
-			}
-			else
-			{
-				return (UTPlayerState && PlayerState && UTPlayerState->GetTeamNum() == PlayerState->GetTeamNum());
-			}
-
-		}
-	}
 
 	return true;
 }
@@ -434,6 +395,7 @@ void SUTTextChatPanel::RouteBufferedChat()
 	}
 
 }
+
 
 
 #endif

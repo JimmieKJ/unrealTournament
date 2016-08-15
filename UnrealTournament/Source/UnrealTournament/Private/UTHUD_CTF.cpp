@@ -30,17 +30,17 @@ FLinearColor AUTHUD_CTF::GetBaseHUDColor()
 
 void AUTHUD_CTF::NotifyMatchStateChange()
 {
+	UUTCTFScoreboard* CTFScoreboard = Cast<UUTCTFScoreboard>(MyUTScoreboard);
+	if (CTFScoreboard)
+	{
+		AUTCTFGameState* CTFState = Cast<AUTCTFGameState>(GetWorld()->GetGameState());
+		CTFScoreboard->TimeLineOffset = (CTFState && ((CTFState->IsMatchIntermission() && (CTFState->CTFRound == 0)) || CTFState->HasMatchEnded())) ? -1.5f : 99999.f;
+	}
 	if (GetWorld()->GetGameState()->GetMatchState() != MatchState::MatchIntermission)
 	{
 		Super::NotifyMatchStateChange();
 	}
 }
-
-int32 AUTHUD_CTF::GetScoreboardPage() 
-{ 
-	return ((GetWorld()->GetGameState()->GetMatchState() == MatchState::MatchIntermission) || GetWorld()->GetGameState()->HasMatchEnded()) ? 1 : ScoreboardPage;
-};
-
 
 void AUTHUD_CTF::DrawMinimapSpectatorIcons()
 {
@@ -49,7 +49,7 @@ void AUTHUD_CTF::DrawMinimapSpectatorIcons()
 	AUTCTFGameState* GS = Cast<AUTCTFGameState>(GetWorld()->GetGameState());
 	if (GS == NULL) return;
 
-	const float RenderScale = ( float(Canvas->SizeY) / 1080.0f) * GetHUDMinimapScale();
+	const float RenderScale = float(Canvas->SizeY) / 1080.0f;
 	bool bShowAllFlags = UTPlayerOwner && UTPlayerOwner->UTPlayerState && UTPlayerOwner->UTPlayerState->bOnlySpectator;
 
 	for (int32 TeamIndex = 0; TeamIndex < 2; TeamIndex++)

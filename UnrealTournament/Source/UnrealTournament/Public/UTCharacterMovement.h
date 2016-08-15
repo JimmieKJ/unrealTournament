@@ -91,6 +91,8 @@ public:
 
 	virtual bool CheckFall(const FFindFloorResult& OldFloor, const FHitResult& Hit, const FVector& Delta, const FVector& OldLocation, float remainingTime, float timeTick, int32 Iterations, bool bMustJump) override;
 
+	virtual FVector GetLedgeMove(const FVector& OldLocation, const FVector& Delta, const FVector& GravDir) const override;
+
 	/** If I'm on a lift, tell it to return */
 	virtual void OnUnableToFollowBaseMove(const FVector& DeltaPosition, const FVector& OldLocation, const FHitResult& MoveOnBaseHit) override;
 	
@@ -326,6 +328,8 @@ public:
 	UFUNCTION()
 	bool PerformDodge(FVector &DodgeDir, FVector &DodgeCross);
 
+	virtual bool CanWallDodge(const FVector &DodgeDir, const FVector &DodgeCross, FHitResult& Result, bool bIsLowGrav);
+
 	/** True during a dodge. */
 	UPROPERTY(Category = "Dodging", BlueprintReadOnly)
 	bool bIsDodging;
@@ -352,6 +356,9 @@ protected:
 
 	/** true if wall slide stat should be updated.  Needed so we don't double count wallslides. */
 	bool bCountWallSlides;
+
+	/** true if wall hit has played. */
+	bool bHasPlayedWallHitSound;
 
 	/** set during ClientAdjustPosition() */
 	bool bProcessingClientAdjustment;
@@ -409,10 +416,6 @@ public:
 
 	FTimerHandle FloorSlideTapHandle;
 
-	/** Falling damage reduction if hit floor slide within FloorSlideBonusTapInterval */
-	UPROPERTY(Category = "FloorSlide", EditAnywhere, BlueprintReadWrite)
-	float FallingDamageRollReduction;
-
 	/** Amount of falling damage reduction */
 	UFUNCTION(BlueprintCallable, Category = "FloorSlide")
 	virtual	float FallingDamageReduction(float FallingDamage, const FHitResult& Hit);
@@ -446,6 +449,7 @@ public:
 		virtual bool WantsWallSlide();
 
 	virtual void HandleSlideRequest();
+	virtual void HandlePressedSlide();
 
 	virtual void HandleCrouchRequest();
 
@@ -610,6 +614,10 @@ public:
 	/** True if already assisted this jump */
 	UPROPERTY(Category = "LandingAssist", BlueprintReadOnly, meta = (DisplayName = "Jump Assisted"))
 		bool bJumpAssisted;
+
+	/** True if already assisted this jump */
+	UPROPERTY(Category = "Jump", BlueprintReadOnly)
+		float JumpTime;
 
 	virtual void PhysFalling(float deltaTime, int32 Iterations) override;
 

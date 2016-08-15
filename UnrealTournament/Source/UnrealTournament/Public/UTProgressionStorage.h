@@ -78,8 +78,6 @@ class UNREALTOURNAMENT_API UUTProgressionStorage : public UObject
 		Achievements.Remove(AchievementToRemove);
 	}
 
-	virtual void LoadFromProfile(UUTProfileSettings* ProfileSettings);
-
 	virtual void NeedsUpdate()
 	{
 		bNeedsUpdate = true;

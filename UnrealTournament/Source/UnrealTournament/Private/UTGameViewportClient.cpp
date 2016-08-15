@@ -499,7 +499,8 @@ void UUTGameViewportClient::Draw(FViewport* InViewport, FCanvas* SceneCanvas)
 				if (SceneView != NULL)
 				{
 					TArray<UMeshComponent*> WeaponMeshes = UTC->GetWeapon()->Get1PMeshes();
-					for (USceneComponent* Attachment : UTC->GetWeapon()->GetMesh()->AttachChildren)
+					TArray<USceneComponent*> Children = UTC->GetWeapon()->GetMesh()->AttachChildren; // make a copy in case something below causes it to change
+					for (USceneComponent* Attachment : Children)
 					{
 						// any additional weapon meshes are assumed to be projected in the shader if desired
 						if (!Attachment->IsPendingKill() && !WeaponMeshes.Contains(Attachment) && !SavedTransforms.ContainsByPredicate([Attachment](const FSavedTransform& TestItem) { return TestItem.Component == Attachment; }))
@@ -508,7 +509,15 @@ void UUTGameViewportClient::Draw(FViewport* InViewport, FCanvas* SceneCanvas)
 
 							new(SavedTransforms) FSavedTransform(Attachment, Attachment->GetComponentTransform());
 							Attachment->SetWorldLocation(AdjustedLoc);
-							Attachment->DoDeferredRenderUpdates_Concurrent();
+							// hacky solution to attached spline mesh beams that need to update their endpoint
+							if (Attachment->GetOwner() != nullptr && Attachment->GetOwner() != UTC->GetWeapon())
+							{
+								Attachment->GetOwner()->Tick(0.0f);
+							}
+							if (!Attachment->IsPendingKill())
+							{
+								Attachment->DoDeferredRenderUpdates_Concurrent();
+							}
 						}
 					}
 				}

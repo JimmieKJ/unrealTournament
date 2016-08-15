@@ -25,6 +25,9 @@ AUTWeap_ShockRifle::AUTWeap_ShockRifle(const FObjectInitializer& ObjectInitializ
 	ShotsStatsName = NAME_ShockRifleShots;
 	bCheckHeadSphere = true;
 	bCheckMovingHeadSphere = true;
+
+	WeaponCustomizationTag = EpicWeaponCustomizationTags::ShockRifle;
+	WeaponSkinCustomizationTag= EpicWeaponSkinCustomizationTags::ShockRifle;
 }
 
 void AUTWeap_ShockRifle::AttachToOwner_Implementation()

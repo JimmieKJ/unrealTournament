@@ -364,11 +364,21 @@ APawn* UUTGameplayStatics::ChooseBestAimTarget(AController* AskingC, FVector Sta
 								float OffsetDist = FMath::PointDistToLine(P->GetActorLocation(), FireDir, StartLoc);
 								if (OffsetDist < (*BestOffset))
 								{
-									// trace to head and center
-									bool bHit = TheWorld->LineTraceTestByChannel(StartLoc, P->GetActorLocation() + FVector(0.0f, 0.0f, P->BaseEyeHeight), COLLISION_TRACE_WEAPONNOCHARACTER, TraceParams);
+									// check visibility: try head, center, and actual fire line
+									bool bHit = TheWorld->LineTraceTestByChannel(StartLoc, P->GetActorLocation() + FVector(0.0f, 0.0f, P->GetCapsuleComponent()->GetUnscaledCapsuleHalfHeight()), COLLISION_TRACE_WEAPONNOCHARACTER, TraceParams);
 									if (bHit)
 									{
 										bHit = TheWorld->LineTraceTestByChannel(StartLoc, P->GetActorLocation(), COLLISION_TRACE_WEAPONNOCHARACTER, TraceParams);
+										if (bHit)
+										{
+											// try spot on capsule nearest to where shot is firing
+											FVector ClosestPoint = FMath::ClosestPointOnSegment(P->GetActorLocation(), StartLoc, StartLoc + FireDir*(FireDist + 500.f));
+											FVector TestPoint = P->GetActorLocation() + P->GetCapsuleComponent()->GetUnscaledCapsuleRadius() * (ClosestPoint - P->GetActorLocation()).Size();
+											float CharZ = P->GetActorLocation().Z;
+											float CapsuleHeight = P->GetCapsuleComponent()->GetUnscaledCapsuleHalfHeight();
+											TestPoint.Z = FMath::Clamp(ClosestPoint.Z, CharZ - CapsuleHeight, CharZ + CapsuleHeight);
+											bHit = TheWorld->LineTraceTestByChannel(StartLoc, TestPoint, COLLISION_TRACE_WEAPONNOCHARACTER, TraceParams); 
+										}
 									}
 									if (!bHit)
 									{

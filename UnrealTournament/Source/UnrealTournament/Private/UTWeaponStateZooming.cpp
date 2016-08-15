@@ -68,12 +68,6 @@ bool UUTWeaponStateZooming::DrawHUD(UUTHUDWidget* WeaponHudWidget)
 		{
 			OverlayMI = UMaterialInstanceDynamic::Create(OverlayMat, this);
 		}
-		AUTPlayerState* PS = Cast<AUTPlayerState>(GetUTOwner()->PlayerState);
-		if (PS != NULL && PS->Team != NULL)
-		{
-			static FName NAME_TeamColor(TEXT("TeamColor"));
-			OverlayMI->SetVectorParameterValue(NAME_TeamColor, PS->Team->TeamColor);
-		}
 		FCanvasTileItem Item(FVector2D(0.0f, 0.0f), OverlayMI->GetRenderProxy(false), FVector2D(C->ClipX, C->ClipY));
 		// expand X axis size to be widest supported aspect ratio (16:9)
 		float OrigSizeX = Item.Size.X;

@@ -34,22 +34,25 @@ bool UUTHUDWidget_Spectator::ShouldDraw_Implementation(bool bShowScores)
 	return false;
 }
 
-void UUTHUDWidget_Spectator::DrawSimpleMessage(FText SimpleMessage, float DeltaTime, bool bViewingMessage)
+void UUTHUDWidget_Spectator::DrawSimpleMessage(FText SimpleMessage, float DeltaTime, FText ViewingMessage)
 {
 	if (SimpleMessage.IsEmpty())
 	{
 		return;
 	}
+	bool bViewingMessage = !ViewingMessage.IsEmpty();
 	float Scaling = bViewingMessage ? FMath::Max(1.f, 3.f - 6.f*(GetWorld()->GetTimeSeconds() - ViewCharChangeTime)) : 1.f;
 	float ScreenWidth = (Canvas->ClipX / RenderScale);
 	float BackgroundWidth = ScreenWidth;
 	float TextPosition = 360.f;
 	float MessageOffset = 0.f;
 	float YOffset = 0.f;
-	if (bViewingMessage && UTHUDOwner->LargeFont)
+	if (bViewingMessage && UTHUDOwner->LargeFont && UTHUDOwner->SmallFont)
 	{
-		float YL = 0.0f;
+		float XL, YL;
 		Canvas->StrLen(UTHUDOwner->LargeFont, SimpleMessage.ToString(), BackgroundWidth, YL);
+		Canvas->StrLen(UTHUDOwner->SmallFont, ViewingMessage.ToString(), XL, YL);
+		BackgroundWidth = FMath::Max(XL, BackgroundWidth);
 		BackgroundWidth = Scaling* (FMath::Max(BackgroundWidth, 128.f) + 64.f);
 		MessageOffset = (ScreenWidth - BackgroundWidth) * (UTGameState->HasMatchEnded() ? 0.5f : 1.f);
 		TextPosition = 32.f + MessageOffset;
@@ -61,7 +64,7 @@ void UUTHUDWidget_Spectator::DrawSimpleMessage(FText SimpleMessage, float DeltaT
 	DrawTexture(UTHUDOwner->ScoreboardAtlas, MessageOffset, YOffset, BackgroundWidth, Scaling * 108.0f, 4, 2, 124, 128, 1.0);
 	if (bViewingMessage)
 	{
-		DrawText(FText::FromString("Now Viewing"), TextPosition, YOffset + 14.f, UTHUDOwner->SmallFont, Scaling, 1.f, GetMessageColor(), ETextHorzPos::Left, ETextVertPos::Center);
+		DrawText(ViewingMessage, TextPosition, YOffset + 14.f, UTHUDOwner->SmallFont, Scaling, 1.f, GetMessageColor(), ETextHorzPos::Left, ETextVertPos::Center);
 	}
 	else
 	{
@@ -103,15 +106,16 @@ void UUTHUDWidget_Spectator::Draw_Implementation(float DeltaTime)
 {
 	Super::Draw_Implementation(DeltaTime);
 
-	bool bViewingMessage = false;
-	FText SpectatorMessage = GetSpectatorMessageText(bViewingMessage);
-	DrawSimpleMessage(SpectatorMessage, DeltaTime, bViewingMessage);
+	FText ShortMessage;
+	FText SpectatorMessage = GetSpectatorMessageText(ShortMessage);
+	DrawSimpleMessage(SpectatorMessage, DeltaTime, ShortMessage);
 	DrawSpawnPacks(DeltaTime);
 }
 
-FText UUTHUDWidget_Spectator::GetSpectatorMessageText(bool &bViewingMessage)
+FText UUTHUDWidget_Spectator::GetSpectatorMessageText(FText& ShortMessage)
 {
 	FText SpectatorMessage;
+	ShortMessage = FText::GetEmpty();
 	if (UTGameState)
 	{
 		bool bDemoRecSpectator = UTHUDOwner->UTPlayerOwner && Cast<AUTDemoRecSpectator>(UTHUDOwner->UTPlayerOwner);
@@ -133,7 +137,7 @@ FText UUTHUDWidget_Spectator::GetSpectatorMessageText(bool &bViewingMessage)
 			{
 				FFormatNamedArguments Args;
 				Args.Add("PlayerName", FText::AsCultureInvariant(ViewCharacter->PlayerState->PlayerName));
-				bViewingMessage = true;
+				ShortMessage = NSLOCTEXT("UUTHUDWidget_Spectator", "NowViewing", "Now viewing");
 				SpectatorMessage = FText::Format(NSLOCTEXT("UUTHUDWidget_Spectator", "SpectatorPlayerWatching", "{PlayerName}"), Args);
 			}
 		}
@@ -151,15 +155,37 @@ FText UUTHUDWidget_Spectator::GetSpectatorMessageText(bool &bViewingMessage)
 					SpectatorMessage = NSLOCTEXT("UUTHUDWidget_Spectator", "MatchStarting", "Match is about to start");
 				}
 			}
+			else if (UTHUDOwner->UTPlayerOwner && UTHUDOwner->UTPlayerOwner->bIsWarmingUp)
+			{
+				if (UTCharacterOwner ? UTCharacterOwner->IsDead() : (UTHUDOwner->UTPlayerOwner->GetPawn() == NULL))
+				{
+					if (UTPS->RespawnTime > 0.0f)
+					{
+						FFormatNamedArguments Args;
+						static const FNumberFormattingOptions RespawnTimeFormat = FNumberFormattingOptions()
+							.SetMinimumFractionalDigits(0)
+							.SetMaximumFractionalDigits(0);
+						Args.Add("RespawnTime", FText::AsNumber(UTHUDOwner->UTPlayerOwner->UTPlayerState->RespawnTime + 0.5f, &RespawnTimeFormat));
+						SpectatorMessage = FText::Format(NSLOCTEXT("UUTHUDWidget_Spectator", "RespawnWaitMessage", "You can respawn in {RespawnTime}..."), Args);
+					}
+					else
+					{
+						SpectatorMessage = (UTGameState->ForceRespawnTime > 0.3f) ? NSLOCTEXT("UUTHUDWidget_Spectator", "RespawnMessage", "Press [FIRE] to respawn...") : FText::GetEmpty();
+					}
+				}
+				else
+				{
+					ShortMessage = NSLOCTEXT("UUTHUDWidget_Spectator", "PressEnter", "Press [ENTER] to leave");
+					SpectatorMessage = NSLOCTEXT("UUTHUDWidget_Spectator", "Warmup", "Warm Up");
+				}
+			}
+			else if (UTPS && UTPS->bReadyToPlay && (UTPS->GetNetMode() != NM_Standalone))
+			{
+				SpectatorMessage = NSLOCTEXT("UUTHUDWidget_Spectator", "IsReadyTeam", "You are ready, press [ENTER] to warm up.");
+			}
 			else if (UTGameState->PlayersNeeded > 0)
 			{
-				SpectatorMessage = NSLOCTEXT("UUTHUDWidget_Spectator", "WaitingForPlayers", "Waiting for players to join.");
-			}
-			else if (UTPS && UTPS->bReadyToPlay)
-			{
-				SpectatorMessage = (UTGameState->bTeamGame && UTGameState->bAllowTeamSwitches)
-					? NSLOCTEXT("UUTHUDWidget_Spectator", "IsReadyTeam", "You are ready, press [ALTFIRE] to change teams.")
-					: NSLOCTEXT("UUTHUDWidget_Spectator", "IsReady", "You are ready to play.");
+				SpectatorMessage = NSLOCTEXT("UUTHUDWidget_Spectator", "WaitingForPlayers", "Waiting for players to join. Press [FIRE] to ready up.");
 			}
 			else if (UTPS && UTPS->bCaster)
 			{
@@ -231,7 +257,7 @@ FText UUTHUDWidget_Spectator::GetSpectatorMessageText(bool &bViewingMessage)
 					}
 					FFormatNamedArguments Args;
 					Args.Add("PlayerName", FText::AsCultureInvariant(ViewCharacter->PlayerState->PlayerName));
-					bViewingMessage = true;
+					ShortMessage = NSLOCTEXT("UUTHUDWidget_Spectator", "NowViewing", "Now viewing");
 					SpectatorMessage = FText::Format(NSLOCTEXT("UUTHUDWidget_Spectator", "SpectatorPlayerWatching", "{PlayerName}"), Args);
 				}
 				else
@@ -247,7 +273,7 @@ FText UUTHUDWidget_Spectator::GetSpectatorMessageText(bool &bViewingMessage)
 					static const FNumberFormattingOptions RespawnTimeFormat = FNumberFormattingOptions()
 						.SetMinimumFractionalDigits(0)
 						.SetMaximumFractionalDigits(0);
-					Args.Add("RespawnTime", FText::AsNumber(UTHUDOwner->UTPlayerOwner->UTPlayerState->RespawnTime + 1, &RespawnTimeFormat));
+					Args.Add("RespawnTime", FText::AsNumber(UTHUDOwner->UTPlayerOwner->UTPlayerState->RespawnTime + 0.5f, &RespawnTimeFormat));
 					SpectatorMessage = FText::Format(NSLOCTEXT("UUTHUDWidget_Spectator", "RespawnWaitMessage", "You can respawn in {RespawnTime}..."), Args);
 				}
 				else if (!UTPS->bOutOfLives)
@@ -271,7 +297,7 @@ FText UUTHUDWidget_Spectator::GetSpectatorMessageText(bool &bViewingMessage)
 			{
 				FFormatNamedArguments Args;
 				Args.Add("PlayerName", FText::AsCultureInvariant(PS->PlayerName));
-				bViewingMessage = true;
+				ShortMessage = NSLOCTEXT("UUTHUDWidget_Spectator", "NowViewing", "Now viewing");
 				if (UTGameState->bTeamGame && PS && PS->Team && (!UTGameState->GameModeClass || !UTGameState->GameModeClass->GetDefaultObject<AUTTeamGameMode>() || UTGameState->GameModeClass->GetDefaultObject<AUTTeamGameMode>()->bAnnounceTeam))
 				{
 					SpectatorMessage = (PS->Team->TeamIndex == 0)

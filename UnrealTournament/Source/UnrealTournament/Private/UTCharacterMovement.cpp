@@ -53,9 +53,9 @@ UUTCharacterMovement::UUTCharacterMovement(const class FObjectInitializer& Objec
 	DodgeAirControl = 0.41f;
 	bAllowSlopeDodgeBoost = true;
 	SetWalkableFloorZ(0.695f); 
-	MaxAcceleration = 4200.f; 
-	MaxFallingAcceleration = 4200.f;
-	MaxSwimmingAcceleration = 4200.f;
+	MaxAcceleration = 4000.f; 
+	MaxFallingAcceleration = 4000.f;
+	MaxSwimmingAcceleration = 4000.f;
 	MaxRelativeSwimmingAccelNumerator = 0.f;
 	MaxRelativeSwimmingAccelDenominator = 1000.f;
 	BrakingDecelerationWalking = 520.f;
@@ -63,7 +63,7 @@ UUTCharacterMovement::UUTCharacterMovement(const class FObjectInitializer& Objec
 	BrakingDecelerationFalling = 0.f;
 	BrakingDecelerationSwimming = 300.f;
 	BrakingDecelerationSliding = 300.f;
-	GroundFriction = 11.f;
+	GroundFriction = 10.5f;
 	BrakingFriction = 5.f;
 	GravityScale = 1.f;
 	MaxStepHeight = 51.0f;
@@ -71,9 +71,10 @@ UUTCharacterMovement::UUTCharacterMovement(const class FObjectInitializer& Objec
 	CrouchedHalfHeight = 69.0f;
 	SlopeDodgeScaling = 0.93f;
 	bSlideFromGround = false;
+	bHasPlayedWallHitSound = false;
 
 	FastInitialAcceleration = 12000.f;
-	MaxFastAccelSpeed = 250.f;
+	MaxFastAccelSpeed = 220.f;
 
 	FloorSlideAcceleration = 400.f;
 	MaxFloorSlideSpeed = 900.f;
@@ -82,7 +83,6 @@ UUTCharacterMovement::UUTCharacterMovement(const class FObjectInitializer& Objec
 	FloorSlideBonusTapInterval = 0.17f;
 	FloorSlideEndingSpeedFactor = 0.4f;
 	FloorSlideSlopeBraking = 2.7f;
-	FallingDamageRollReduction = 6.f;
 
 	MaxSwimSpeed = 1000.f;
 	MaxWaterSpeed = 450.f; 
@@ -103,7 +103,7 @@ UUTCharacterMovement::UUTCharacterMovement(const class FObjectInitializer& Objec
 	SlideGravityScaling = 0.15f;
 	MinWallSlideSpeed = 500.f;
 	MaxSlideWallDist = 20.f;
-	FloorSlideJumpZ = 350.f;
+	FloorSlideJumpZ = 100.f;
 
 	NavAgentProps.bCanCrouch = true;
 
@@ -389,6 +389,16 @@ bool UUTCharacterMovement::CheckFall(const FFindFloorResult& OldFloor, const FHi
 	return bResult;
 }
 
+FVector UUTCharacterMovement::GetLedgeMove(const FVector& OldLocation, const FVector& Delta, const FVector& GravDir) const
+{
+	AUTBot* B = Cast<AUTBot>(CharacterOwner->Controller);
+	if (B != NULL)
+	{
+		B->NotifyHitLedge();
+	}
+	return Super::GetLedgeMove(OldLocation, Delta, GravDir);
+}
+
 void UUTCharacterMovement::OnUnableToFollowBaseMove(const FVector& DeltaPosition, const FVector& OldLocation, const FHitResult& MoveOnBaseHit)
 {
 	UPrimitiveComponent* MovementBase = CharacterOwner->GetMovementBase();
@@ -664,6 +674,15 @@ void UUTCharacterMovement::AddDampedImpulse(FVector Impulse, bool bSelfInflicted
 			float PctAboveDodge = FMath::Max(0.f, 1.f - PctBelowDodge);
 			PctBelowDodge = FMath::Max(0.f, PctBelowDodge - PctBelowRun);
 			FinalImpulse *= (PctBelowRun + PctBelowDodge + FMath::Max(0.5f, 1.f - PctAboveDodge)*PctAboveDodge);
+
+			FVector FinalVelocityXY = PendingVelocity + FinalImpulse;
+			FinalVelocityXY.Z = 0.f;
+			float FinalXYSpeed = FinalVelocityXY.Size();
+			if (FinalXYSpeed > DodgeMaxHorizontalVelocity)
+			{
+				FVector DesiredVelocity = FinalVelocityXY.GetSafeNormal() * DodgeMaxHorizontalVelocity;
+				FinalImpulse = DesiredVelocity - PendingVelocity;
+			}
 		}
 		FinalImpulse.Z = FinalImpulseZ;
 
@@ -761,6 +780,27 @@ void UUTCharacterMovement::PerformWaterJump()
 	Velocity.Z = FMath::Max(Velocity.Z, SwimmingWallPushImpulse);
 }
 
+bool UUTCharacterMovement::CanWallDodge(const FVector &DodgeDir, const FVector &DodgeCross, FHitResult& Result, bool bIsLowGrav)
+{
+	FVector TraceEnd = -1.f*DodgeDir;
+	float PawnCapsuleRadius, PawnCapsuleHalfHeight;
+	CharacterOwner->GetCapsuleComponent()->GetScaledCapsuleSize(PawnCapsuleRadius, PawnCapsuleHalfHeight);
+	float TraceBoxSize = FMath::Min(0.25f*PawnCapsuleHalfHeight, 0.7f*PawnCapsuleRadius);
+	FVector TraceStart = CharacterOwner->GetActorLocation();
+	TraceStart.Z -= 0.5f*TraceBoxSize;
+	TraceEnd = TraceStart - (WallDodgeTraceDist + PawnCapsuleRadius - 0.5f*TraceBoxSize)*DodgeDir;
+
+	static const FName DodgeTag = FName(TEXT("Dodge"));
+	FCollisionQueryParams QueryParams(DodgeTag, false, CharacterOwner);
+	const bool bBlockingHit = GetWorld()->SweepSingleByChannel(Result, TraceStart, TraceEnd, FQuat::Identity, UpdatedComponent->GetCollisionObjectType(), FCollisionShape::MakeSphere(TraceBoxSize), QueryParams);
+	if (!bBlockingHit || Cast<ACharacter>(Result.Actor.Get()) || (!IsSwimming() && (CurrentWallDodgeCount > 0) && !bIsLowGrav && ((Result.ImpactNormal | LastWallDodgeNormal) > MaxConsecutiveWallDodgeDP)))
+	{
+		//UE_LOG(UTNet, Warning, TEXT("No wall to dodge"));
+		return false;
+	}
+	return true;
+}
+
 bool UUTCharacterMovement::PerformDodge(FVector &DodgeDir, FVector &DodgeCross)
 {
 	if (!HasValidData())
@@ -789,21 +829,9 @@ bool UUTCharacterMovement::PerformDodge(FVector &DodgeDir, FVector &DodgeCross)
 			return false;
 		}
 		// if falling/swimming, check if can perform wall dodge
-		FVector TraceEnd = -1.f*DodgeDir;
-		float PawnCapsuleRadius, PawnCapsuleHalfHeight;
-		CharacterOwner->GetCapsuleComponent()->GetScaledCapsuleSize(PawnCapsuleRadius, PawnCapsuleHalfHeight);
-		float TraceBoxSize = FMath::Min(0.25f*PawnCapsuleHalfHeight, 0.7f*PawnCapsuleRadius);
-		FVector TraceStart = CharacterOwner->GetActorLocation();
-		TraceStart.Z -= 0.5f*TraceBoxSize;
-		TraceEnd = TraceStart - (WallDodgeTraceDist+PawnCapsuleRadius-0.5f*TraceBoxSize)*DodgeDir;
-
-		static const FName DodgeTag = FName(TEXT("Dodge"));
-		FCollisionQueryParams QueryParams(DodgeTag, false, CharacterOwner);
 		FHitResult Result;
-		const bool bBlockingHit = GetWorld()->SweepSingleByChannel(Result, TraceStart, TraceEnd, FQuat::Identity, UpdatedComponent->GetCollisionObjectType(), FCollisionShape::MakeSphere(TraceBoxSize), QueryParams);
-		if (!bBlockingHit || (!IsSwimming() && (CurrentWallDodgeCount > 0) && !bIsLowGrav && ((Result.ImpactNormal | LastWallDodgeNormal) > MaxConsecutiveWallDodgeDP)))
+		if (!CanWallDodge(DodgeDir, DodgeCross, Result, bIsLowGrav))
 		{
-			//UE_LOG(UTNet, Warning, TEXT("No wall to dodge"));
 			return false;
 		}
 		if ((Result.ImpactNormal | DodgeDir) < WallDodgeMinNormal)
@@ -825,6 +853,7 @@ bool UUTCharacterMovement::PerformDodge(FVector &DodgeDir, FVector &DodgeCross)
 		LastWallDodgeNormal = Result.ImpactNormal;
 		bIsAWallDodge = true;
 		bCountWallSlides = true;
+		bHasPlayedWallHitSound = false;
 	}
 	else if (!GetImpartedMovementBaseVelocity().IsZero())
 	{
@@ -905,23 +934,28 @@ bool UUTCharacterMovement::PerformDodge(FVector &DodgeDir, FVector &DodgeCross)
 	return true;
 }
 
+void UUTCharacterMovement::HandlePressedSlide()
+{
+	bPressedSlide = true;
+	if (IsMovingOnGround())
+	{
+		if (GetCurrentMovementTime() > FloorSlideEndTime + DodgeResetInterval)
+		{
+			CharacterOwner->bPressedJump = true;
+		}
+		else
+		{
+			bPressedSlide = false;
+		}
+	}
+}
+
 void UUTCharacterMovement::HandleSlideRequest()
 {
 	AUTCharacter* UTCharacterOwner = Cast<AUTCharacter>(CharacterOwner);
 	if (!Acceleration.IsNearlyZero() && (Velocity.Size() > 0.5f * MaxWalkSpeed) && UTCharacterOwner && UTCharacterOwner->CanSlide())
 	{
-		bPressedSlide = true;
-		if (IsMovingOnGround())
-		{
-			if (GetCurrentMovementTime() > DodgeResetTime)
-			{
-				CharacterOwner->bPressedJump = true;
-			}
-			else
-			{
-				bPressedSlide = false;
-			}
-		}
+		HandlePressedSlide();
 	}
 }
 
@@ -934,18 +968,7 @@ void UUTCharacterMovement::HandleCrouchRequest()
 		AUTPlayerController* PC = Cast<AUTPlayerController>(UTCharacterOwner->GetController());
 		if (PC && PC->bCrouchTriggersSlide)
 		{
-			bPressedSlide = true;
-			if (IsMovingOnGround())
-			{
-				if (GetCurrentMovementTime() > DodgeResetTime)
-				{
-					CharacterOwner->bPressedJump = true;
-				}
-				else
-				{
-					bPressedSlide = false;
-				}
-			}
+			HandlePressedSlide();
 		}
 	}
 	bWantsToCrouch = true;
@@ -1263,7 +1286,7 @@ float UUTCharacterMovement::FallingDamageReduction(float FallingDamage, const FH
 		// Scale damage based on angle of wall we hit
 		return FallingDamage * Hit.ImpactNormal.Z;
 	}
-	return (GetCurrentMovementTime() - FloorSlideTapTime < FloorSlideBonusTapInterval) ? FallingDamageRollReduction : 0.f;
+	return 0.f;
 }
 
 void UUTCharacterMovement::RestrictJump(float RestrictedJumpTime)
@@ -1331,6 +1354,7 @@ void UUTCharacterMovement::ProcessLanded(const FHitResult& Hit, float remainingT
 	bIsAgainstWall = false;
 	bFallingInWater = false;
 	bCountWallSlides = true;
+	bHasPlayedWallHitSound = false;
 	if (CharacterOwner)
 	{
 		bIsFloorSliding = bWantsFloorSlide && !Acceleration.IsNearlyZero() && (Velocity.Size2D() > 0.7f * MaxWalkSpeed);
@@ -1423,7 +1447,10 @@ bool UUTCharacterMovement::DoJump(bool bReplayingMoves)
 		{
 			((AUTCharacter*)CharacterOwner)->OnJumped();
 			((AUTCharacter*)CharacterOwner)->MovementEventUpdated(EME_Jump, Velocity.GetSafeNormal());
-			((AUTCharacter*)CharacterOwner)->InventoryEvent(InventoryEventName::Jump);
+			if (!bPressedSlide)
+			{
+				((AUTCharacter*)CharacterOwner)->InventoryEvent(InventoryEventName::Jump);
+			}
 		}
 		bNotifyApex = true;
 		bExplicitJump = true;
@@ -1437,6 +1464,7 @@ bool UUTCharacterMovement::DoJump(bool bReplayingMoves)
 				PS->ModifyStatsValue(NAME_NumLiftJumps, 1);
 			}
 		}
+		JumpTime = GetCurrentMovementTime();
 		bResult = true;
 	}
 	JumpZVelocity = RealJumpZVelocity;
@@ -1859,6 +1887,7 @@ void UUTCharacterMovement::PhysFalling(float deltaTime, int32 Iterations)
 					{
 						// We are against the wall, store info about it
 						bIsAgainstWall = true;
+						bSlidingAlongWall = true;
 						WallSlideNormal = Result.Normal;
 						WallRunMaterial = Result.PhysMaterial.Get();
 						CheckWallSlide(Result);
@@ -1867,7 +1896,7 @@ void UUTCharacterMovement::PhysFalling(float deltaTime, int32 Iterations)
 							TickAirControl = GetCurrentAirControl();
 							FallAcceleration = FallAcceleration - FMath::Max(0.f, (FallAcceleration | WallSlideNormal)) * WallSlideNormal - Result.Time * FallAcceleration.Size() * WallSlideNormal;
 						}
-						else
+						else if (WallSlideNormal.Z > 0.f)
 						{
 							TickAirControl = 0.f;
 						}
@@ -1885,8 +1914,55 @@ void UUTCharacterMovement::PhysFalling(float deltaTime, int32 Iterations)
 		float MaxAccel = GetMaxAcceleration() * TickAirControl;				
 
 		FallAcceleration = FallAcceleration.GetClampedToMaxSize(MaxAccel);
-	}
 
+		if (!bHasPlayedWallHitSound && UTCharOwner && UTCharOwner->IsLocallyControlled() && Cast<AUTPlayerController>(UTCharOwner->GetController()) && (GetCurrentMovementTime() > FMath::Max(DodgeResetTime - 0.05f, JumpTime+0.2f)) && (CurrentWallDodgeCount < MaxWallDodges))
+		{
+			bool bIsNearWall = false;
+			FHitResult Result;
+			if (!bIsAgainstWall)
+			{
+				// see if close enough to wall to wall dodge
+				FRotator TurnRot(0.f, CharacterOwner->GetActorRotation().Yaw, 0.f);
+				FRotationMatrix TurnRotMatrix = FRotationMatrix(TurnRot);
+				FVector X = TurnRotMatrix.GetScaledAxis(EAxis::X);
+				FVector Y = TurnRotMatrix.GetScaledAxis(EAxis::Y);
+
+				//check ability to dodge left
+				FVector DodgeDir = -1.f*Y;
+				bIsNearWall = CanWallDodge(DodgeDir, X, Result, false);
+				if (!bIsNearWall)
+				{
+					// moving left, check ability to dodge right
+					bIsNearWall = CanWallDodge(Y, X, Result, false);
+				}
+				if (!bIsNearWall)
+				{
+					if ((Velocity | X) >= 0.f)
+					{
+						// moving forward, check able to dodge back
+						DodgeDir = -1.f*X;
+						bIsNearWall = CanWallDodge(DodgeDir, Y, Result, false);
+					}
+					else
+					{
+						// moving backward, check able to dodge back
+						bIsNearWall = CanWallDodge(X, Y, Result, false);
+					}
+				}
+			}
+			if (bIsAgainstWall || bIsNearWall)
+			{
+				FVector WallNormal = bIsNearWall ? Result.ImpactNormal : WallSlideNormal;
+				//UE_LOG(UT, Warning, TEXT("NEar wall speed %f DOT impact %f Zprod %f"), Velocity.Size2D(), (Velocity | WallNormal), Velocity.Z*WallNormal.Z);
+				if ((Velocity | Result.ImpactNormal) < -0.1f*(bIsDodging ? DodgeMaxHorizontalVelocity : MaxWalkSpeed))
+				{
+					UUTGameplayStatics::UTPlaySound(GetWorld(), UTCharOwner->CharacterData.GetDefaultObject()->WallHitSound, UTCharOwner, SRT_None);
+					bHasPlayedWallHitSound = true;
+				}
+			}
+		}
+	}
+	
 	float remainingTime = deltaTime;
 	float timeTick = 0.1f;
 	/*
@@ -2141,12 +2217,23 @@ void UUTCharacterMovement::FindValidLandingSpot(const FVector& CapsuleLocation)
 	const ECollisionChannel CollisionChannel = UpdatedComponent->GetCollisionObjectType();
 	bool bHit = GetWorld()->SweepSingleByChannel(Result, PawnLocation, PawnLocation + FVector(0.f, 0.f, LandingStepUp), FQuat::Identity, CollisionChannel, GetPawnCapsuleCollisionShape(SHRINK_None), CapsuleQuery, ResponseParam);
 	FVector HorizontalStart = bHit ? Result.Location : PawnLocation + FVector(0.f, 0.f, LandingStepUp);
-	float ElapsedTime = 0.05f; // FMath::Min(0.05f, remainingTime);
+
 	FVector HorizontalDir = Acceleration.GetSafeNormal2D() * MaxWalkSpeed * 0.05f;
 	bHit = GetWorld()->SweepSingleByChannel(Result, HorizontalStart, HorizontalStart + HorizontalDir, FQuat::Identity, CollisionChannel, GetPawnCapsuleCollisionShape(SHRINK_None), CapsuleQuery, ResponseParam);
+	bool bHorizontaltHit = bHit;
+	FVector HorizontalNormal = bHorizontaltHit ? Result.ImpactNormal : FVector(0.f);
 	FVector LandingStart = bHit ? Result.Location : HorizontalStart + HorizontalDir;
 	bHit = GetWorld()->SweepSingleByChannel(Result, LandingStart, LandingStart - FVector(0.f, 0.f, LandingStepUp), FQuat::Identity, CollisionChannel, GetPawnCapsuleCollisionShape(SHRINK_None), CapsuleQuery, ResponseParam);
-
+	bool bAlterVelocity = false;
+	if (bHorizontaltHit && !IsValidLandingSpot(Result.Location, Result))
+	{
+		// second try along first hit wall
+		HorizontalDir = HorizontalDir - (HorizontalDir | HorizontalNormal) * HorizontalNormal;
+		bHit = GetWorld()->SweepSingleByChannel(Result, HorizontalStart, HorizontalStart + HorizontalDir, FQuat::Identity, CollisionChannel, GetPawnCapsuleCollisionShape(SHRINK_None), CapsuleQuery, ResponseParam);
+		LandingStart = bHit ? Result.Location : HorizontalStart + HorizontalDir;
+		bHit = GetWorld()->SweepSingleByChannel(Result, LandingStart, LandingStart - FVector(0.f, 0.f, LandingStepUp), FQuat::Identity, CollisionChannel, GetPawnCapsuleCollisionShape(SHRINK_None), CapsuleQuery, ResponseParam);
+		bAlterVelocity = true;
+	}
 	if (IsValidLandingSpot(Result.Location, Result))
 	{
 		// Found a valid landing spot, so boost the player up onto it.
@@ -2154,6 +2241,10 @@ void UUTCharacterMovement::FindValidLandingSpot(const FVector& CapsuleLocation)
 		if (Cast<AUTCharacter>(CharacterOwner))
 		{
 			Cast<AUTCharacter>(CharacterOwner)->OnLandingAssist();
+		}
+		if (bAlterVelocity)
+		{
+			Velocity = HorizontalDir.GetSafeNormal() * Velocity.Size();
 		}
 		Velocity.Z = LandingAssistBoost; 
 	}

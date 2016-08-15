@@ -10,21 +10,48 @@ UUTCrosshair::UUTCrosshair(const class FObjectInitializer& ObjectInitializer)
 	OffsetAdjust = FVector2D(0.f, 0.f);
 }
 
-void UUTCrosshair::DrawCrosshair_Implementation(UCanvas* Canvas, AUTWeapon* Weapon, float DeltaTime, float Scale, FLinearColor Color)
+void UUTCrosshair::ActivateCrosshair_Implementation(AUTHUD* TargetHUD, const FWeaponCustomizationInfo& CustomizationsToApply)
 {
-	float X = (Canvas->SizeX * 0.5f) - (CrosshairIcon.UL * Scale * 0.5f) - 1.f + OffsetAdjust.X;
-	float Y = (Canvas->SizeY * 0.5f) - (CrosshairIcon.VL * Scale * 0.5f) - 1.f + OffsetAdjust.Y;
+	if (!UMGClassname.IsEmpty() && TargetHUD != nullptr)
+	{
+		if (!ActiveUMG.IsValid())			
+		{
+			ActiveUMG = Cast<UUTUMGHudWidget_Crosshair>(TargetHUD->ActivateUMGHudWidget(UMGClassname).Get());
+		}
+		else
+		{
+			TargetHUD->ActivateActualUMGHudWidget(ActiveUMG);
+		}
 
-	Canvas->DrawColor = Color.ToFColor(false);
-	Canvas->DrawIcon(CrosshairIcon, X, Y, Scale);
+		if (ActiveUMG.IsValid())
+		{
+			ActiveUMG->ApplyCustomizations(CustomizationsToApply);
+		}
+	}
 }
 
-void UUTCrosshair::DrawPreviewCrosshair_Implementation(UCanvas* Canvas, AUTWeapon* Weapon, float DeltaTime, float Scale, FLinearColor Color)
+void UUTCrosshair::DeactivateCrosshair_Implementation(AUTHUD* TargetHUD)
 {
-	//Make sure we round since slate cursor preview could be have an odd size causing aliasing 
-	float X = FMath::RoundToFloat((Canvas->SizeX * 0.5f) - (CrosshairIcon.UL * Scale * 0.5f));
-	float Y = FMath::RoundToFloat((Canvas->SizeY * 0.5f) - (CrosshairIcon.VL * Scale * 0.5f));
-
-	Canvas->DrawColor = Color.ToFColor(false);
-	Canvas->DrawIcon(CrosshairIcon, X, Y, Scale);
+	if (ActiveUMG.IsValid())
+	{
+		TargetHUD->DeactivateActualUMGHudWidget(ActiveUMG);
+	}
 }
+
+void UUTCrosshair::NativeDrawCrosshair(UCanvas* Canvas, AUTWeapon* Weapon, float DeltaTime, const FWeaponCustomizationInfo& CustomizationsToApply)
+{
+	if (!ActiveUMG.IsValid())
+	{
+		DrawCrosshair(Canvas, Weapon, DeltaTime, CustomizationsToApply);
+	}
+}
+
+void UUTCrosshair::DrawCrosshair_Implementation(UCanvas* Canvas, AUTWeapon* Weapon, float DeltaTime, const FWeaponCustomizationInfo& CustomizationsToApply)
+{
+	float X = (Canvas->SizeX * 0.5f) - (CrosshairIcon.UL * CustomizationsToApply.CrosshairScaleOverride * 0.5f) - 1.f + OffsetAdjust.X;
+	float Y = (Canvas->SizeY * 0.5f) - (CrosshairIcon.VL * CustomizationsToApply.CrosshairScaleOverride * 0.5f) - 1.f + OffsetAdjust.Y;
+
+	Canvas->DrawColor = CustomizationsToApply.CrosshairColorOverride.ToFColor(false);
+	Canvas->DrawIcon(CrosshairIcon, X, Y, CustomizationsToApply.CrosshairScaleOverride);
+}
+

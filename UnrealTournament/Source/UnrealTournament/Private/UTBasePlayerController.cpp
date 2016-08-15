@@ -205,7 +205,7 @@ bool AUTBasePlayerController::AllowTextMessage(const FString& Msg)
 void AUTBasePlayerController::Say(FString Message)
 {
 	// clamp message length; aside from troll prevention this is needed for networking reasons
-	Message = Message.Left(128);
+	Message = Message.Left(MAX_CHAT_TEXT_SIZE);
 	if (AllowTextMessage(Message))
 	{
 		ServerSay(Message, false);
@@ -220,7 +220,7 @@ void AUTBasePlayerController::Say(FString Message)
 void AUTBasePlayerController::TeamSay(FString Message)
 {
 	// clamp message length; aside from troll prevention this is needed for networking reasons
-	Message = Message.Left(128);
+	Message = Message.Left(MAX_CHAT_TEXT_SIZE);
 	if (AllowTextMessage(Message))
 	{
 		ServerSay(Message, true);
@@ -257,8 +257,12 @@ void AUTBasePlayerController::ServerSay_Implementation(const FString& Message, b
 			{
 				if (!bTeamMessage || UTPC->GetTeamNum() == GetTeamNum())
 				{
+
+					TSharedPtr<const FUniqueNetId> Id = UTPC->PlayerState->UniqueId.GetUniqueNetId();
+					bool bIsMuted = Id.IsValid() && IsPlayerMuted(Id.ToSharedRef().Get());
+
 					// Dont send spectator chat to players
-					if (UTPC->PlayerState != nullptr && (!bSpectatorMsg || UTPC->PlayerState->bOnlySpectator))
+					if (UTPC->PlayerState != nullptr && (!bSpectatorMsg || UTPC->PlayerState->bOnlySpectator) && !bIsMuted)
 					{
 						UTPC->ClientSay(UTPlayerState, Message, (bTeamMessage ? ChatDestinations::Team : ChatDestinations::Local));
 					}
@@ -278,33 +282,60 @@ void AUTBasePlayerController::DirectSay(const FString& Message)
 		FString TargetPlayerName;
 		FString FinalMessage = Message;
 
+		bool bSent = false;
+
+		// Look for a local player controller to send to...
 		for (FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator)
 		{
 			AUTBasePlayerController* UTPC = Cast<AUTBasePlayerController>(*Iterator);
 			if (UTPC != nullptr && UTPC->PlayerState != nullptr)
 			{
-				AUTPlayerState* UTPlayerState = Cast<AUTPlayerState>(UTPC->PlayerState);
-				if (UTPlayerState != nullptr)
+				AUTPlayerState* TargetPlayerState = Cast<AUTPlayerState>(UTPC->PlayerState);
+				if (TargetPlayerState != nullptr)
 				{
-					TargetPlayerName = UTPC->PlayerState->PlayerName;
+					TargetPlayerName = TargetPlayerState->PlayerName;
+
 					if (Message.Left(TargetPlayerName.Len()).Equals(TargetPlayerName, ESearchCase::IgnoreCase))
 					{
-						FinalMessage = FinalMessage.Right(FinalMessage.Len() - TargetPlayerName.Len() + 1);
-						UTPC->ClientSay(UTPlayerState, FinalMessage, ChatDestinations::Whisper);
+						FinalMessage = FinalMessage.Right(FinalMessage.Len() - TargetPlayerName.Len()).Trim();
+						bSent = true;
+		
+						TSharedPtr<const FUniqueNetId> Id = UTPC->PlayerState->UniqueId.GetUniqueNetId();
+						bool bIsMuted = Id.IsValid() && IsPlayerMuted(Id.ToSharedRef().Get());
+
+						if (!bIsMuted)
+						{
+							UTPC->ClientSay(UTPlayerState, FinalMessage, ChatDestinations::Whisper);
+						}
+						FinalMessage = FString::Printf(TEXT("to %s \"%s\""), *TargetPlayerName, *FinalMessage);
 						break;
 					}
 				}
 			}
-		// Make sure I see that I sent it..
-		ClientSay(UTPlayerState, FinalMessage, ChatDestinations::Whisper);
+		}
+
+		// If we haven't sent the message. Look to see if we need to forward this message elsewhere
+		if (!bSent)
+		{
+			bSent = ForwardDirectSay(UTPlayerState, FinalMessage);
+		}
+
+		if (bSent)
+		{
+			// Make sure I see that I sent it..
+			ClientSay(UTPlayerState, FinalMessage, ChatDestinations::Whisper);
 		}
 	}
 }
 
+bool AUTBasePlayerController::ForwardDirectSay(AUTPlayerState* SenderPlayerState, FString& FinalMessage)
+{
+	return false;
+}
+
+
 void AUTBasePlayerController::ClientSay_Implementation(AUTPlayerState* Speaker, const FString& Message, FName Destination)
 {
-
-
 	FClientReceiveData ClientData;
 	ClientData.LocalPC = this;
 	ClientData.MessageIndex = Destination == ChatDestinations::Team;
@@ -898,6 +929,16 @@ void AUTBasePlayerController::ServerReceiveStatsID_Implementation(const FString&
 			UTPlayerState->StatsID = NewStatsID;
 			UTPlayerState->ReadStatsFromCloud();
 			UTPlayerState->ReadMMRFromBackend();
+
+			AUTGameState* GameState = GetWorld()->GetGameState<AUTGameState>();
+			if (GameState)
+			{
+				TSharedRef<const FUniqueNetId> UserId = MakeShareable(new FUniqueNetIdString(NewStatsID));
+				if (UserId->IsValid())
+				{
+					GameState->AddUserInfoQuery(UserId);
+				}
+			}
 		}
 		else
 		{
@@ -981,7 +1022,7 @@ void AUTBasePlayerController::ServerFriendSay_Implementation(const FString& Mess
 void AUTBasePlayerController::LobbySay(FString Message)
 {
 	// clamp message length; aside from troll prevention this is needed for networking reasons
-	Message = Message.Left(128);
+	Message = Message.Left(MAX_CHAT_TEXT_SIZE);
 	if (AllowTextMessage(Message))
 	{
 		ServerLobbySay(Message);

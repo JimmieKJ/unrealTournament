@@ -86,6 +86,10 @@ public:
 	UPROPERTY(EditDefaultsOnly, Category = "Weapon")
 	bool bCopyWeaponImpactEffect;
 
+	/** materials on weapon mesh first time we change its skin, used to preserve any runtime blueprint changes */
+	UPROPERTY(BlueprintReadWrite, Category = "Weapon")
+	TArray<UMaterialInterface*> SavedMeshMaterials;
+
 	/** optional bullet whip sound when instant hit shots pass close by a local player without hitting */
 	UPROPERTY(EditDefaultsOnly, Category = "Weapon")
 	USoundBase* BulletWhip;

@@ -1,6 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+#include "UTATypes.h"
+#include "UTResetInterface.h"
 #include "UTGameVolume.generated.h"
 
 /**
@@ -8,10 +10,11 @@
 */
 
 UCLASS(BlueprintType)
-class UNREALTOURNAMENT_API AUTGameVolume : public APhysicsVolume, public IUTTeamInterface
+class UNREALTOURNAMENT_API AUTGameVolume : public APhysicsVolume, public IUTTeamInterface, public IUTResetInterface
 {
 	GENERATED_UCLASS_BODY()
 
+	/** Displayed volume name, @TODO FIXMESTEVE should be localized. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Gameplay")
 		FText VolumeName;
 
@@ -32,8 +35,33 @@ class UNREALTOURNAMENT_API AUTGameVolume : public APhysicsVolume, public IUTTeam
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Gameplay")
 		bool bIsNoRallyZone;
 
+	/** Character entering this volume immediately triggers teleporter in this volume. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Gameplay")
+		bool bIsTeleportZone;
+
+	/** Alarm sound played if this is bNoRallyZone and enemy flag carrier enters. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Gameplay")
+		USoundBase* AlarmSound;
+
+	UPROPERTY()
+		class AUTTeleporter* AssociatedTeleporter;
+
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Gameplay")
 		uint8 TeamIndex;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Gameplay")
+		FName VoiceLinesSet;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Gameplay")
+		bool bReportDefenseStatus;
+
+	/** Set when volume is entered for the first time. */
+	UPROPERTY(BlueprintReadWrite, Category = "Gameplay")
+		bool bHasBeenEntered;
+
+	/** Used to identify unique routes/entries to enemy base.  Default -1, inner base 0, entries each have own value. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Gameplay")
+		int32 RouteID;
 
 	virtual void ActorEnteredVolume(class AActor* Other) override;
 	virtual void ActorLeavingVolume(class AActor* Other) override;
@@ -45,6 +73,8 @@ class UNREALTOURNAMENT_API AUTGameVolume : public APhysicsVolume, public IUTTeam
 	virtual uint8 GetTeamNum() const { return TeamIndex; };
 
 	virtual void SetTeamForSideSwap_Implementation(uint8 NewTeamNum) override;
+	virtual void Reset_Implementation() override;
+	virtual void PostInitializeComponents() override;
 };
 
 

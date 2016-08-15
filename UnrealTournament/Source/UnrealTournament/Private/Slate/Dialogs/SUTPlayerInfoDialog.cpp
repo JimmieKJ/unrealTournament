@@ -817,7 +817,7 @@ TSharedRef<class SWidget> SUTPlayerInfoDialog::BuildTitleBar(FText InDialogTitle
 	if (TargetPlayerState.IsValid())
 	{
 		UWorld* World = TargetPlayerState->GetWorld();
-		if (World && (World->GameState->PlayerArray.Num() > 1))
+		if (World && World->GameState && (World->GameState->PlayerArray.Num() > 1))
 		{
 			return SNew(SHorizontalBox)
 				+ SHorizontalBox::Slot()

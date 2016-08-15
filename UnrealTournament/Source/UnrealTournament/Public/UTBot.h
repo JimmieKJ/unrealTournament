@@ -733,6 +733,7 @@ public:
 	UFUNCTION()
 	virtual void NotifyBump(AActor* SelfActor, AActor* OtherActor, FVector NormalImpulse, const FHitResult& Hit);
 	virtual void NotifyMoveBlocked(const FHitResult& Impact);
+	virtual void NotifyHitLedge();
 	UFUNCTION()
 	virtual void PostMovementUpdate(float DeltaTime, FVector OldLocation,  FVector OldVelocity);
 	virtual void NotifyLanded(const FHitResult& Hit);

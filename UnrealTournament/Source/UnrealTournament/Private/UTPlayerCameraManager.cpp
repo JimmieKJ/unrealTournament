@@ -161,7 +161,8 @@ static const FName NAME_FirstPerson = FName(TEXT("FirstPerson"));
 void AUTPlayerCameraManager::UpdateViewTarget(FTViewTarget& OutVT, float DeltaTime)
 {
 	static const FName NAME_FreeCam = FName(TEXT("FreeCam"));
-	static const FName NAME_GameOver = FName(TEXT("GameOver"));	
+	static const FName NAME_RallyCam = FName(TEXT("RallyCam"));
+	static const FName NAME_GameOver = FName(TEXT("GameOver"));
 
 	FName SavedCameraStyle = CameraStyle;
 	CameraStyle = GetCameraStyleWithOverrides();
@@ -182,6 +183,21 @@ void AUTPlayerCameraManager::UpdateViewTarget(FTViewTarget& OutVT, float DeltaTi
 			OutVT.POV.Location = PCOwner->GetFocalLocation();
 		}
 		OutVT.POV.Rotation = PCOwner->GetControlRotation();
+	}
+	else if (CameraStyle == NAME_RallyCam)
+	{
+		AUTPlayerController* UTPC = Cast<AUTPlayerController>(PCOwner);
+		OutVT.POV.FOV = DefaultFOV + (170.f - DefaultFOV) * ((UTPC != nullptr) ? FMath::Clamp(UTPC->EndRallyTime - GetWorld()->GetTimeSeconds(), 0.f, 1.f) : 0.f);
+		OutVT.POV.OrthoWidth = DefaultOrthoWidth;
+		OutVT.POV.bConstrainAspectRatio = false;
+		OutVT.POV.ProjectionMode = bIsOrthographic ? ECameraProjectionMode::Orthographic : ECameraProjectionMode::Perspective;
+		OutVT.POV.PostProcessBlendWeight = 1.0f;
+		OutVT.POV.Location = UTPC ? UTPC->RallyLocation : PCOwner->GetFocalLocation();
+		OutVT.POV.Rotation = (OutVT.Target->GetActorLocation() - OutVT.POV.Location).Rotation();
+		ApplyCameraModifiers(DeltaTime, OutVT.POV);
+
+		// Synchronize the actor with the view target results
+		SetActorLocationAndRotation(OutVT.POV.Location, OutVT.POV.Rotation, false);
 	}
 	else if (CameraStyle == NAME_FreeCam)
 	{

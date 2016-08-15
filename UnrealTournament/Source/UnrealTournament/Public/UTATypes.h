@@ -23,6 +23,10 @@ const int32 DEFAULT_RANK_CHECK = 0;
 const int32 NEW_USER_ELO = 1000;
 const int32 NUMBER_RANK_LEVELS = 9;
 const int32 STARTER_RANK_LEVEL = 4;
+const int32 MAXENTRYROUTES = 5;
+const int32 MAX_CHAT_TEXT_SIZE = 384;
+
+const float RALLY_ANIMATION_TIME = 1.2;
 
 UENUM()
 namespace EGameStage
@@ -65,6 +69,28 @@ const FName NAME_Custom = FName(TEXT("Custom"));
 const FName NAME_RedCountryFlag = FName(TEXT("Red.Team"));
 const FName NAME_BlueCountryFlag = FName(TEXT("Blue.Team"));
 const FName NAME_Epic = FName(TEXT("Epic"));
+namespace GameVolumeSpeechType
+{
+	const FName GV_Bridge = FName(TEXT("GV_Bridge"));
+	const FName GV_River = FName(TEXT("GV_River"));
+	const FName GV_Antechamber = FName(TEXT("GV_Antechamber"));
+	const FName GV_ThroneRoom = FName(TEXT("GV_ThroneRoom"));
+	const FName GV_Courtyard = FName(TEXT("GV_Courtyard"));
+	const FName GV_Stables = FName(TEXT("GV_Stables"));
+	const FName GV_AntechamberHigh = FName(TEXT("GV_AntechamberHigh"));
+	const FName GV_Tower = FName(TEXT("GV_Tower"));
+	const FName GV_Creek = FName(TEXT("GV_Creek"));
+	const FName GV_Temple = FName(TEXT("GV_Temple"));
+	const FName GV_Cave = FName(TEXT("GV_Cave"));
+	const FName GV_BaseCamp = FName(TEXT("GV_BaseCamp"));
+}
+
+namespace PickupSpeechType
+{
+	const FName RedeemerPickup = FName(TEXT("RedeemerPickup"));
+	const FName UDamagePickup = FName(TEXT("UDamagePickup"));
+	const FName ShieldbeltPickup = FName(TEXT("ShieldbeltPickup"));
+}
 
 
 namespace CarriedObjectState
@@ -102,6 +128,13 @@ namespace StatusMessage
 	const FName BaseUnderAttack = FName(TEXT("BaseUnderAttack"));
 	const FName Affirmative = FName(TEXT("Affirmative"));
 	const FName Negative = FName(TEXT("Negative"));
+	const FName EnemyRally = FName(TEXT("EnemyRally"));
+	const FName FindFC = FName(TEXT("FindFC"));
+	const FName LastLife = FName(TEXT("LastLife"));
+	const FName EnemyLowLives = FName(TEXT("EnemyLowLives"));
+	const FName EnemyThreePlayers = FName(TEXT("EnemyThreePlayers"));
+	const FName NeedRally = FName(TEXT("NeedRally"));
+	const FName NeedHealth = FName(TEXT("NeedHealth"));
 }
 
 namespace HighlightNames
@@ -923,39 +956,6 @@ namespace EEpicDefaultRuleTags
 	const FString FlagRun = TEXT("FlagRun");
 }
 
-
-USTRUCT(BlueprintType)
-struct FCrosshairInfo
-{
-	GENERATED_USTRUCT_BODY()
-
-		FCrosshairInfo()
-	{
-		//Global is used to describe the crosshair that is used when bCustomWeaponCrosshairs == false
-		WeaponClassName = TEXT("Global");
-		CrosshairClassName = TEXT("/Game/RestrictedAssets/UI/Crosshairs/BP_DefaultCrosshair.BP_DefaultCrosshair_C");
-		Color = FLinearColor::White;
-		Scale = 1.0f;
-	}
-
-	UPROPERTY(EditAnywhere, GlobalConfig, Category = CrosshairInfo)
-	FString CrosshairClassName;
-
-	UPROPERTY(EditAnywhere, GlobalConfig, Category = CrosshairInfo)
-	FString WeaponClassName;
-
-	UPROPERTY(EditAnywhere, GlobalConfig, Category = CrosshairInfo)
-	float Scale;
-
-	UPROPERTY(EditAnywhere, GlobalConfig, Category = CrosshairInfo)
-	FLinearColor Color;
-
-	bool operator==(const FCrosshairInfo& Other) const
-	{
-		return WeaponClassName == Other.WeaponClassName;
-	}
-};
-
 namespace EPlayerListContentCommand
 {
 	const FName PlayerCard = FName(TEXT("PlayerCard"));
@@ -1471,4 +1471,171 @@ public:
 	FComMenuCommand Attack;
 	FComMenuCommand Defend;
 	FComMenuCommand Distress;
+};
+
+USTRUCT()
+struct FScoreboardContextMenuItem
+{
+	GENERATED_USTRUCT_BODY()
+
+public:
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "ContextItem")
+	FText MenuText;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "ContextItem")
+	int32 Id;
+
+	FScoreboardContextMenuItem()
+		: MenuText(FText::GetEmpty())
+		, Id(0)
+	{
+	}
+
+	FScoreboardContextMenuItem(FText inMenuText, uint8 inId)
+		: MenuText(inMenuText)
+		, Id(inId)
+	{
+	}
+
+};
+
+
+namespace DefaultWeaponCrosshairs
+{
+const FName Dot = FName(TEXT("CrossDot"));
+const FName Bracket1 = FName(TEXT("CrossBracket1"));
+const FName Bracket2 = FName(TEXT("CrossBracket2"));
+const FName Circle1 = FName(TEXT("CrossCircle1"));
+const FName Circle2 = FName(TEXT("CrossCircle2"));
+const FName Cross1 = FName(TEXT("CrossCross1"));
+const FName Cross2 = FName(TEXT("CrossCross2"));
+const FName Cross3 = FName(TEXT("CrossCross3"));
+const FName Cross4 = FName(TEXT("CrossCross4"));
+const FName Cross5 = FName(TEXT("CrossCross5"));
+const FName Pointer = FName(TEXT("CrossPointer"));
+const FName Triad1 = FName(TEXT("CrossTriad1"));
+const FName Triad2 = FName(TEXT("CrossTriad2"));
+const FName Triad3 = FName(TEXT("CrossTriad3"));
+};
+
+namespace EpicWeaponSkinCustomizationTags
+{
+	const FName BioRifle = FName(TEXT("BioRifle_Skins"));
+	const FName ImpactHammer = FName(TEXT("ImpactHammer_Skins"));
+	const FName Enforcer = FName(TEXT("Enforcer_Skins"));
+	const FName LinkGun = FName(TEXT("LinkGun_Skins"));
+	const FName Minigun = FName(TEXT("Minigun_Skins"));
+	const FName Translocator = FName(TEXT("Translocator_Skins"));
+	const FName FlakCannon = FName(TEXT("FlakCannon_Skins"));
+	const FName Redeemer = FName(TEXT("Redeemer_Skins"));
+	const FName RocketLauncher = FName(TEXT("RocketLauncher_Skins"));
+	const FName ShockRifle = FName(TEXT("ShockRifle_Skins"));
+	const FName IGShockRifle = FName(TEXT("IGShockRifle_Skins"));
+	const FName Sniper = FName(TEXT("Sniper_Skins"));
+};
+
+
+namespace EpicWeaponCustomizationTags
+{
+	const FName BioRifle		= FName(TEXT("BioRifle_Settings"));
+	const FName ImpactHammer	= FName(TEXT("ImpactHammer_Settings"));
+	const FName Enforcer		= FName(TEXT("Enforcer_Settings"));
+	const FName LinkGun			= FName(TEXT("LinkGun_Settings"));
+	const FName Minigun			= FName(TEXT("Minigun_Settings"));
+	const FName Translocator	= FName(TEXT("Translocator_Settings"));
+	const FName FlakCannon		= FName(TEXT("FlakCannon_Settings"));
+	const FName Redeemer		= FName(TEXT("Redeemer_Settings"));
+	const FName RocketLauncher	= FName(TEXT("RocketLauncher_Settings"));
+	const FName ShockRifle		= FName(TEXT("ShockRifle_Settings"));
+	const FName IGShockRifle	= FName(TEXT("IGShockRifle_Settings"));
+	const FName Sniper			= FName(TEXT("Sniper_Settings"));
+};
+
+USTRUCT(BlueprintType)
+struct FWeaponCustomizationInfo
+{
+	GENERATED_USTRUCT_BODY()
+
+	// This is the main lookup tag for this customization info.  Multiple weapons can share the same
+	// tag so that children, mods and experimental weapons can inheirt the same config data.
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = WeaponInfo)
+	FName WeaponCustomizationTag;
+
+	// This is the weapon group for all weapons of this config type.
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = WeaponInfo)
+	int32 WeaponGroup;
+
+	// This is the auto-switch priority for weapons of this config type
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = WeaponInfo)
+	float WeaponAutoSwitchPriority;
+
+	// This tag is used to look up the UTCrosshair for this config.  
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = CrosshairInfo)
+	FName CrosshairTag;
+
+	// The scale for the crosshair
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = CrosshairInfo)
+	float CrosshairScaleOverride;
+
+	// The color override for the crosshair
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = CrosshairInfo)
+	FLinearColor CrosshairColorOverride;
+
+	FWeaponCustomizationInfo()
+		: WeaponCustomizationTag(NAME_None)
+		, WeaponGroup(-1)
+		, WeaponAutoSwitchPriority(-1.0f)
+		, CrosshairTag(NAME_None)
+		, CrosshairScaleOverride(1.0)
+		, CrosshairColorOverride(FLinearColor::White)
+	{
+	}
+
+	FWeaponCustomizationInfo(FName inWeaponCustomizationTag, int32 inWeaponGroup, float inWeaponAutoSwitchPriority, 
+				FName inCrosshairTag, FLinearColor inCrosshairColorOverride, float inCrosshairScaleOverride)
+		: WeaponCustomizationTag(inWeaponCustomizationTag)
+		, WeaponGroup(inWeaponGroup)
+		, WeaponAutoSwitchPriority(inWeaponAutoSwitchPriority)
+		, CrosshairTag(inCrosshairTag)
+		, CrosshairScaleOverride(inCrosshairScaleOverride)
+		, CrosshairColorOverride(inCrosshairColorOverride)
+	{
+	}
+
+	FWeaponCustomizationInfo(const FWeaponCustomizationInfo& Source)
+	{
+		Copy(Source);
+	}
+
+	void Copy(const FWeaponCustomizationInfo& Source)
+	{
+		WeaponCustomizationTag = Source.WeaponCustomizationTag;
+		WeaponGroup = Source.WeaponGroup;
+		WeaponAutoSwitchPriority = Source.WeaponAutoSwitchPriority;
+		CrosshairTag = Source.CrosshairTag;
+		CrosshairColorOverride = Source.CrosshairColorOverride;
+		CrosshairScaleOverride = Source.CrosshairScaleOverride;
+	}
+
+};
+
+struct FUTMath
+{
+	static float LerpOvershoot(float Start, float End, float Alpha, float BounceAmount, float Decay)
+	{
+		float AV = BounceAmount * PI * 2;
+		return End + ((End - Start) / 0.1f) * (FMath::Sin((Alpha - 0.1) * AV) / FMath::Exp(Decay * Alpha) / AV);
+	}
+
+	static void ReturnToZero(float& Value, float Speed)
+	{
+		Value = (Value < 0) ? FMath::Clamp<float>(Value + Speed, Value, 0) : FMath::Clamp<float>(Value - Speed, 0, Value);
+	}
+
+	static void ReturnVectorToZero(FVector& Value, float Speed)
+	{
+		FUTMath::ReturnToZero(Value.X, Speed);
+		FUTMath::ReturnToZero(Value.Y, Speed);
+		FUTMath::ReturnToZero(Value.Z, Speed);
+	}
 };

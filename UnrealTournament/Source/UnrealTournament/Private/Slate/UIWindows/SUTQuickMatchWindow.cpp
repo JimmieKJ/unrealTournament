@@ -248,7 +248,7 @@ void SUTQuickMatchWindow::BuildWindow()
 
 FText SUTQuickMatchWindow::GetStatusText() const
 {
-	int32 DeltaSeconds = int32(PlayerOwner->GetWorld()->GetTimeSeconds() - StartTime);
+	int32 DeltaSeconds = int32(PlayerOwner->GetWorld()->GetRealTimeSeconds() - StartTime);
 
 	if (bWaitingForMatch)
 	{
@@ -385,8 +385,11 @@ void SUTQuickMatchWindow::OnFindSessionsComplete(bool bWasSuccessful)
 				int32 ServerFlags = 0x0000;
 				SearchSettings->SearchResults[ServerIndex].Session.SessionSettings.Get(SETTING_SERVERFLAGS, ServerFlags);
 
+				int32 TrustLevel = 2;
+				SearchSettings->SearchResults[ServerIndex].Session.SessionSettings.Get(SETTING_TRUSTLEVEL, TrustLevel);
+
 				// Make sure the server we are connecting to isn't password protected.
-				if ((ServerFlags & 0x01) != 0x01)
+				if ((ServerFlags & 0x01) != 0x01 && TrustLevel < 2)
 				{
 					int32 NoPlayers;
 					SearchSettings->SearchResults[ServerIndex].Session.SessionSettings.Get(SETTING_PLAYERSONLINE, NoPlayers);
@@ -459,10 +462,6 @@ void SUTQuickMatchWindow::PingServer(TSharedPtr<FServerSearchInfo> ServerToPing)
 			FURL BeaconURL(nullptr, *BeaconIP, TRAVEL_Absolute);
 			Beacon->InitClient(BeaconURL);
 			PingTrackers.Add(FServerSearchPingTracker(ServerToPing, Beacon, PlayerOwner->GetWorld()->GetRealTimeSeconds()));
-		}
-		else
-		{
-			OnServerBeaconFailure(Beacon);
 		}
 	}
 }
@@ -651,21 +650,24 @@ void SUTQuickMatchWindow::FindBestMatch()
 			Instances.RemoveAt(DesiredIndex,1);
 			return;
 		}
+	}
 
-		// So there were no instances within 50 ms of our best hub, so attempt to join a hub.
+	// So there were no instances within 50 ms of our best hub, so attempt to join a hub.
 
-		TSharedPtr<FServerInstanceData> Empty;
-		Empty.Reset();
+	TSharedPtr<FServerInstanceData> Empty;
+	Empty.Reset();
+
+	if (FinalList.Num() > 0)
+	{
 		AttemptQuickMatch(FinalList[0], Empty);
 		FinalList.RemoveAt(0,1);
 	}
-/*
 	else
 	{
-		UE_LOG(UT,Log,TEXT("No more hubs to try and connect to!"));
-		NoAvailableMatches();
+		// Start over and keep trying until a match is found or the user cancels
+		BeginQuickmatch();
 	}
-*/
+
 }
 
 void SUTQuickMatchWindow::Cancel()

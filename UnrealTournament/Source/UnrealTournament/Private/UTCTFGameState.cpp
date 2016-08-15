@@ -6,6 +6,7 @@
 #include "UTCTFScoring.h"
 #include "StatNames.h"
 #include "UTGameVolume.h"
+#include "UTCTFMajorMessage.h"
 
 AUTCTFGameState::AUTCTFGameState(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -113,8 +114,7 @@ void AUTCTFGameState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & O
 	DOREPLIFETIME(AUTCTFGameState, bAttackerLivesLimited);
 	DOREPLIFETIME(AUTCTFGameState, bDefenderLivesLimited);
 	DOREPLIFETIME(AUTCTFGameState, NumRounds);
-	DOREPLIFETIME(AUTCTFGameState, bRedCanRally);
-	DOREPLIFETIME(AUTCTFGameState, bBlueCanRally);
+	DOREPLIFETIME(AUTCTFGameState, bAttackersCanRally);
 }
 
 void AUTCTFGameState::Tick(float DeltaTime)
@@ -123,31 +123,51 @@ void AUTCTFGameState::Tick(float DeltaTime)
 	if (bAllowRallies && (Role == ROLE_Authority))
 	{
 		uint8 OffensiveTeam = bRedToCap ? 0 : 1;
-		bRedCanRally = true;
-		bBlueCanRally = true;
 		if (FlagBases.IsValidIndex(OffensiveTeam) && FlagBases[OffensiveTeam] != nullptr)
 		{
 			AUTCTFFlag* Flag = Cast<AUTCTFFlag>(FlagBases[OffensiveTeam]->GetCarriedObject());
-			bool bOffenseCanRally = (Flag && Flag->Holder && Flag->HoldingPawn && (GetWorld()->GetTimeSeconds() - Flag->PickedUpTime > 3.f) && (GetWorld()->GetTimeSeconds() - FMath::Max(Flag->HoldingPawn->LastTargetingTime, Flag->HoldingPawn->LastTargetedTime) > 3.f));
-			if (bOffenseCanRally)
+			AUTGameVolume* GV = Flag && Flag->HoldingPawn && Flag->HoldingPawn->UTCharacterMovement ? Cast<AUTGameVolume>(Flag->HoldingPawn->UTCharacterMovement->GetPhysicsVolume()) : nullptr;
+			bool bInFlagRoom = GV && (GV->bIsNoRallyZone || GV->bIsTeamSafeVolume);
+			bAttackersCanRally = (!bInFlagRoom && Flag && Flag->Holder && Flag->HoldingPawn && (GetWorld()->GetTimeSeconds() - Flag->PickedUpTime > 3.f));
+			bool bFlagCarrierPinged = Flag && Flag->Holder && Flag->HoldingPawn && (GetWorld()->GetTimeSeconds() - FMath::Max(Flag->HoldingPawn->LastTargetingTime, Flag->HoldingPawn->LastTargetedTime) < 3.f);
+			
+			if (bAttackersCanRally && (!bFlagCarrierPinged || (GetWorld()->GetTimeSeconds() - LastOffenseRallyTime < 0.4f)))
 			{
-				AUTGameVolume* GV = Flag->HoldingPawn->UTCharacterMovement ? Cast<AUTGameVolume>(Flag->HoldingPawn->UTCharacterMovement->GetPhysicsVolume()) : nullptr;
-				bOffenseCanRally = !GV || !GV->bIsNoRallyZone;
-			}
-			if (bOffenseCanRally)
-			{
-				LastOffenseRallyTime = GetWorld()->GetTimeSeconds();
+				if ((GetWorld()->GetTimeSeconds() - LastRallyCompleteTime > 20.f) && (GetWorld()->GetTimeSeconds() - FMath::Max(Flag->PickedUpTime, LastNoRallyTime) > 12.f) && Cast<AUTPlayerController>(Flag->HoldingPawn->GetController()))
+				{
+					// check for rally complete
+					int32 RemainingToRally = 0;
+					int32 AlreadyRallied = 0;
+					for (int32 i = 0; i < PlayerArray.Num() - 1; i++)
+					{
+						AUTPlayerState* PS = Cast<AUTPlayerState>(PlayerArray[i]);
+						if (PS && (PS != Flag->Holder) && (PS->Team == Flag->Holder->Team))
+						{
+							if (PS->NextRallyTime > GetWorld()->GetTimeSeconds() + 12.f)
+							{
+								AlreadyRallied++;
+							}
+							else if ((PS->NextRallyTime < GetWorld()->GetTimeSeconds() + 7.f) && (!PS->GetUTCharacter() || (PS->GetUTCharacter()->bCanRally && ((PS->GetUTCharacter()->GetActorLocation() - Flag->HoldingPawn->GetActorLocation()).Size() > 2500.f))))
+							{
+								RemainingToRally++;
+							}
+						}
+					}
+					if ((RemainingToRally == 0) && (AlreadyRallied > 0))
+					{
+						LastRallyCompleteTime = GetWorld()->GetTimeSeconds();
+						Cast<AUTPlayerController>(Flag->HoldingPawn->GetController())->ClientReceiveLocalizedMessage(UUTCTFMajorMessage::StaticClass(), 25);
+					}
+				}
+				if (!bFlagCarrierPinged)
+				{
+					LastOffenseRallyTime = GetWorld()->GetTimeSeconds();
+				}
 			}
 			else
 			{
-				if (bRedToCap)
-				{
-					bRedCanRally = false;
-				}
-				else
-				{
-					bBlueCanRally = false;
-				}
+				bAttackersCanRally = false;
+				LastNoRallyTime = GetWorld()->GetTimeSeconds();
 			}
 		}
 	}

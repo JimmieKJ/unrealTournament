@@ -14,7 +14,6 @@ UUTDeathMessage::UUTDeathMessage(const class FObjectInitializer& ObjectInitializ
 	: Super(ObjectInitializer)
 {
 	MessageArea = FName(TEXT("ConsoleMessage"));
-	bIsSpecial = false;
 	Lifetime = 3.5f;
 	FontSizeIndex = 0;
 }

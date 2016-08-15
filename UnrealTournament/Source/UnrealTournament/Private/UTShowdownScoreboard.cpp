@@ -10,7 +10,7 @@ UUTShowdownScoreboard::UUTShowdownScoreboard(const class FObjectInitializer& Obj
 	ColumnHeaderScoreX = 0.65f;
 	ColumnHeaderKillsX = 0.75f;
 	ColumnHeaderDeathsX = 0.85f;
-	CenterBuffer = 440.f;
+	CellWidth = 510.f;
 }
 
 void UUTShowdownScoreboard::DrawPlayer(int32 Index, AUTPlayerState* PlayerState, float RenderDelta, float XOffset, float YOffset)
@@ -28,7 +28,7 @@ void UUTShowdownScoreboard::DrawPlayer(int32 Index, AUTPlayerState* PlayerState,
 		{
 			// draw armor and health bars
 			float HealthPct = FMath::Clamp<float>(float(UTC->Health) / float(UTC->SuperHealthMax), 0.f, 1.f);
-			float ArmorPct = float(UTC->ArmorAmount) / float(UTC->MaxStackedArmor);
+			float ArmorPct = float(UTC->GetArmorAmount()) / float(UTC->MaxStackedArmor);
 			float Height = 8.f;
 			float YPos = YOffset + 0.5f*CellHeight*RenderScale;
 			XOffset += 0.05f*Width;

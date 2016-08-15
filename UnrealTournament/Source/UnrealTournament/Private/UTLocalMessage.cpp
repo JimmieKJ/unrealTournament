@@ -20,7 +20,15 @@ UUTLocalMessage::UUTLocalMessage(const class FObjectInitializer& ObjectInitializ
 	bDrawAtIntermission = true;
 	bDrawOnlyIfAlive = false;
 	ScaleInSize = 1.f;
+	ScaleInTime = 0.2f;
 	FontSizeIndex = 2;
+	bPlayDuringIntermission = true;
+	bCombineEmphasisText = false;
+}
+
+bool UUTLocalMessage::IsOptionalSpoken(int32 MessageIndex) const
+{
+	return bOptionalSpoken;
 }
 
 int32 UUTLocalMessage::GetFontSizeIndex(int32 MessageIndex) const
@@ -102,7 +110,7 @@ FLinearColor UUTLocalMessage::GetMessageColor_Implementation(int32 MessageIndex)
 
 float UUTLocalMessage::GetScaleInTime_Implementation(int32 MessageIndex) const
 {
-	return 0.2f;
+	return ScaleInTime;
 }
 
 float UUTLocalMessage::GetScaleInSize_Implementation(int32 MessageIndex) const
@@ -219,7 +227,7 @@ USoundBase* UUTLocalMessage::GetAnnouncementSound_Implementation(int32 Switch, c
 bool UUTLocalMessage::InterruptAnnouncement_Implementation(int32 Switch, const UObject* OptionalObject, TSubclassOf<UUTLocalMessage> OtherMessageClass, int32 OtherSwitch, const UObject* OtherOptionalObject) const
 {
 	// by default interrupt messages of same type, and countdown messages
-	return (GetClass() == OtherMessageClass) || Cast<UUTLocalMessage>(OtherMessageClass->GetDefaultObject())->bOptionalSpoken;
+	return (GetClass() == OtherMessageClass) || Cast<UUTLocalMessage>(OtherMessageClass->GetDefaultObject())->IsOptionalSpoken(OtherSwitch);
 }
 
 bool UUTLocalMessage::CancelByAnnouncement_Implementation(int32 Switch, const UObject* OptionalObject, TSubclassOf<UUTLocalMessage> OtherMessageClass, int32 OtherSwitch, const UObject* OtherOptionalObject) const
@@ -244,4 +252,9 @@ float UUTLocalMessage::Blueprint_GetLifeTime_Implementation(int32 Switch) const
 bool UUTLocalMessage::ShouldCountInstances_Implementation(int32 MessageIndex, UObject* OptionalObject) const
 {
 	return false;
+}
+
+FString UUTLocalMessage::GetAnnouncementUMGClassname(int32 Switch, const UObject* OptionalObject) const
+{
+	return TEXT("");
 }

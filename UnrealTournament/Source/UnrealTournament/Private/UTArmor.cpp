@@ -8,99 +8,46 @@ AUTArmor::AUTArmor(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
 {
 	ArmorAmount = 50;
-	AbsorptionPct = 0.5f;
-	bCallDamageEvents = true;
 	BasePickupDesireability = 1.5f;
 	bDestroyWhenConsumed = true;
 }
 
-void AUTArmor::GivenTo(AUTCharacter* NewOwner, bool bAutoActivate)
+bool AUTArmor::AllowPickupBy(AUTCharacter* Other) const
 {
-	Super::GivenTo(NewOwner, bAutoActivate);
-
-	if (ArmorType == ArmorTypeName::Helmet)
+	if (Other && !Other->IsRagdoll())
 	{
-		NewOwner->bIsWearingHelmet = true;
-	}
-	NewOwner->SetCharacterOverlayEffect(OverlayEffect.IsValid() ? OverlayEffect : FOverlayEffect(OverlayMaterial), true);
-
-	NewOwner->CheckArmorStacking();
-}
-
-void AUTArmor::Removed()
-{
-	if (ArmorType == ArmorTypeName::Helmet)
-	{
-		GetUTOwner()->bIsWearingHelmet = false;
-	}
-	GetUTOwner()->SetCharacterOverlayEffect(OverlayEffect.IsValid() ? OverlayEffect : FOverlayEffect(OverlayMaterial), false);
-	Super::Removed();
-}
-
-bool AUTArmor::ModifyDamageTaken_Implementation(int32& Damage, FVector& Momentum, AUTInventory*& HitArmor, AController* InstigatedBy, const FHitResult& HitInfo, AActor* DamageCauser, TSubclassOf<UDamageType> DamageType)
-{
-	const UDamageType* const DamageTypeCDO = (DamageType != NULL) ? DamageType->GetDefaultObject<UDamageType>() : GetDefault<UDamageType>();
-	const UUTDamageType* const UTDamageTypeCDO = Cast<UUTDamageType>(DamageTypeCDO); // warning: may be NULL
-	if (UTDamageTypeCDO != NULL && !UTDamageTypeCDO->bBlockedByArmor)
-	{
-		return false;
-	}
-	if (Damage > 0)
-	{
-		if (HitArmor == NULL)
+		if ((Other->GetArmorAmount() < FMath::Max(100,ArmorAmount)) || (ArmorType == ArmorTypeName::Helmet))
 		{
-			HitArmor = this;
+			return true;
 		}
-		int32 Absorb = FMath::Min<int32>(ArmorAmount, FMath::Max<int32>(1, Damage * AbsorptionPct));
-		if (bAbsorbMomentum)
+		AUTGameMode* UTGameMode = Other->GetWorld()->GetAuthGameMode<AUTGameMode>();
+		if (UTGameMode && UTGameMode->bAllowAllArmorPickups)
 		{
-			Momentum *= 1.0f - float(Absorb) / float(Damage);
+			return true;
 		}
-		Damage -= Absorb;
-		ReduceArmor(Absorb);
+		if (NoPickupSound)
+		{
+			UUTGameplayStatics::UTPlaySound(GetWorld(), NoPickupSound, Other, SRT_All, false, FVector::ZeroVector, NULL, NULL, false);
+		}
 	}
 	return false;
 }
 
-int32 AUTArmor::GetEffectiveHealthModifier_Implementation(bool bOnlyVisible) const
+bool AUTArmor::HandleGivenTo_Implementation(AUTCharacter* NewOwner)
 {
-	if (!bOnlyVisible || OverlayMaterial != NULL)
-	{
-		return FMath::Min<int32>(UTOwner->Health * AbsorptionPct, ArmorAmount);
-	}
-	else
-	{
-		return 0;
-	}
-}
-
-void AUTArmor::ReduceArmor(int32 Amount)
-{
-	ArmorAmount -= Amount;
-	if (ArmorAmount <= 0 && bDestroyWhenConsumed)
-	{
-		Destroy();
-	}
-}
-
-bool AUTArmor::StackPickup_Implementation(AUTInventory* ContainedInv)
-{
-	if (ContainedInv != NULL)
-	{
-		ArmorAmount = FMath::Clamp<int32>(ArmorAmount + Cast<AUTArmor>(ContainedInv)->ArmorAmount, ArmorAmount, GetClass()->GetDefaultObject<AUTArmor>()->ArmorAmount);
-	}
-	else
-	{
-		ArmorAmount = GetClass()->GetDefaultObject<AUTArmor>()->ArmorAmount;
-	}
-	GetUTOwner()->CheckArmorStacking();
+	NewOwner->GiveArmor(this);
 	return true;
 }
 
-void AUTArmor::GetLifetimeReplicatedProps(TArray<FLifetimeProperty> & OutLifetimeProps) const
+void AUTArmor::Removed()
 {
-	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
-	DOREPLIFETIME_CONDITION(AUTArmor, ArmorAmount, COND_None);
+	UE_LOG(UT, Warning, TEXT("AUTArmor::Removed Should never be called"));
+	Super::Removed();
+}
+void AUTArmor::GivenTo(AUTCharacter* NewOwner, bool bAutoActivate)
+{
+	UE_LOG(UT, Warning, TEXT("AUTArmor::GivenTo Should never be called"));
+	Super::GivenTo(NewOwner, bAutoActivate);
 }
 
 float AUTArmor::BotDesireability_Implementation(APawn* Asker, AActor* Pickup, float PathDistance) const
@@ -112,28 +59,8 @@ float AUTArmor::BotDesireability_Implementation(APawn* Asker, AActor* Pickup, fl
 	}
 	else
 	{
-		int32 MatchingArmor = 0;
-		int32 TotalArmor = 0;
-		float MaxAbsorbPct = 0.0f;
-		for (TInventoryIterator<AUTArmor> It(P); It; ++It)
-		{
-			TotalArmor += It->ArmorAmount;
-			MaxAbsorbPct = FMath::Max<float>(MaxAbsorbPct, It->AbsorptionPct);
-			if (It->GetClass() == GetClass())
-			{
-				MatchingArmor += It->ArmorAmount;
-			}
-		}
-		// if this armor will overwrite other armor consider full value regardless of stacking
-		int32 Value = (MaxAbsorbPct < AbsorptionPct) ? (ArmorAmount - MatchingArmor) : FMath::Min<int32>(P->MaxStackedArmor - TotalArmor, ArmorAmount - MatchingArmor);
-		float Desire = 0.013f * BasePickupDesireability * float(Value);
-		//if (!WorldInfo.Game.bTeamGame && UTBot(C) != None && UTBot(C).Skill >= 4.0)
-		//{
-			// high skill bots keep considering powerups that they don't need if they can still pick them up
-			// to deny the enemy any chance of getting them
-		//	Desire = FMax(Desire, 0.001);
-		//}
-		return Desire;
+		// @TODO re-think with new armor system, whether team game, value of denying armor in duel
+		return FMath::Max(0.f, 0.013f * BasePickupDesireability * (ArmorAmount - P->GetArmorAmount()));
 	}
 }
 
@@ -141,7 +68,8 @@ bool AUTArmor::HandleArmorEffects(AUTCharacter* HitPawn) const
 {
 	bool bResult = false;
 	bool bRecentlyRendered = (HitPawn != NULL) && !HitPawn->IsPendingKillPending() && (HitPawn->GetWorld()->GetTimeSeconds() - HitPawn->GetLastRenderTime() < 1.0f);
-	if (ArmorImpactEffect && bRecentlyRendered)
+	UParticleSystem* ChosenImpactEffect = (ShieldImpactEffect && (HitPawn->GetArmorAmount() + HitPawn->LastTakeHitInfo.Damage/2 > 100)) ? ShieldImpactEffect : ArmorImpactEffect;
+	if (ChosenImpactEffect && bRecentlyRendered)
 	{
 		bResult = true;
 		const FVector WorldHitLocation = HitPawn->GetActorLocation() + HitPawn->LastTakeHitInfo.RelHitLocation;
@@ -160,7 +88,7 @@ bool AUTArmor::HandleArmorEffects(AUTCharacter* HitPawn) const
 			}
 			FVector CenterLocation = HitPawn->GetActorLocation();
 			CenterLocation.Z = AdjustedHitLocation.Z;
-			UGameplayStatics::SpawnEmitterAttached(ArmorImpactEffect, HitPawn->GetRootComponent(), NAME_None, AdjustedHitLocation, FRotationMatrix::MakeFromZ(AdjustedHitLocation - CenterLocation).Rotator(), EAttachLocation::KeepWorldPosition);
+			UGameplayStatics::SpawnEmitterAttached(ChosenImpactEffect, HitPawn->GetRootComponent(), NAME_None, AdjustedHitLocation, FRotationMatrix::MakeFromZ(AdjustedHitLocation - CenterLocation).Rotator(), EAttachLocation::KeepWorldPosition);
 		}
 	}
 	if (PlayArmorEffects(HitPawn))

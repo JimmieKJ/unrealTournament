@@ -18,6 +18,8 @@ UUTHUDWidget_NetInfo::UUTHUDWidget_NetInfo(const class FObjectInitializer& Objec
 	ValueHighlight[0] = FLinearColor::White;
 	ValueHighlight[1] = FLinearColor::Yellow;
 	ValueHighlight[2] = FLinearColor::Red;
+	LastPacketsIn = 200;
+	LastPacketsOut = 200;
 }
 
 bool UUTHUDWidget_NetInfo::ShouldDraw_Implementation(bool bShowScores)
@@ -100,7 +102,7 @@ void UUTHUDWidget_NetInfo::Draw_Implementation(float DeltaTime)
 
 	float XL, SmallYL;
 	Canvas->TextSize(UTHUDOwner->TinyFont, "TEST", XL, SmallYL, RenderScale, RenderScale);
-	DrawTexture(UTHUDOwner->ScoreboardAtlas, 0.5f*XOffset, DrawOffset, Size.X, 12*SmallYL, 149, 138, 32, 32, 0.4f, FLinearColor::Black);
+	DrawTexture(UTHUDOwner->ScoreboardAtlas, 0.5f*XOffset, DrawOffset, Size.X, 14*SmallYL, 149, 138, 32, 32, 0.4f, FLinearColor::Black);
 	DrawOffset += 0.5f * SmallYL;
 
 	if (UTPS)
@@ -152,8 +154,29 @@ void UUTHUDWidget_NetInfo::Draw_Implementation(float DeltaTime)
 	// bytes in and out, and packet loss
 	if (NetDriver)
 	{
-		DrawText(NSLOCTEXT("NetInfo", "BytesIn title", "Bytes In"), XOffset, DrawOffset, UTHUDOwner->TinyFont, 1.0f, 1.0f, FLinearColor::White, ETextHorzPos::Left, ETextVertPos::Center);
+		if (int32(NetDriver->InPackets) < LastPacketsIn)
+		{
+			PacketsIn = LastPacketsIn;
+		}
+		if (int32(NetDriver->OutPackets) < LastPacketsOut)
+		{
+			PacketsOut = LastPacketsOut;
+		}
+		LastPacketsIn = NetDriver->InPackets;
+		LastPacketsOut = NetDriver->OutPackets;
+
+		DrawText(NSLOCTEXT("NetInfo", "PacketsINtitle", "Pkts In"), XOffset, DrawOffset, UTHUDOwner->TinyFont, 1.0f, 1.0f, FLinearColor::White, ETextHorzPos::Left, ETextVertPos::Center);
 		FFormatNamedArguments Args;
+		Args.Add("PacketsIN", FText::AsNumber(PacketsIn));
+		DrawText(FText::Format(NSLOCTEXT("NetInfo", "NetPacketsIN", "{PacketsIN}/sec"), Args), XOffset + DataColumnX*Size.X, DrawOffset, UTHUDOwner->TinyFont, 1.0f, 1.0f, FLinearColor::White, ETextHorzPos::Left, ETextVertPos::Center);
+		DrawOffset += SmallYL;
+
+		DrawText(NSLOCTEXT("NetInfo", "PacketsOUTtitle", "Pkts Out"), XOffset, DrawOffset, UTHUDOwner->TinyFont, 1.0f, 1.0f, FLinearColor::White, ETextHorzPos::Left, ETextVertPos::Center);
+		Args.Add("PacketsOUT", FText::AsNumber(PacketsOut));
+		DrawText(FText::Format(NSLOCTEXT("NetInfo", "NetPacketsOUT", "{PacketsOUT}/sec"), Args), XOffset + DataColumnX*Size.X, DrawOffset, UTHUDOwner->TinyFont, 1.0f, 1.0f, FLinearColor::White, ETextHorzPos::Left, ETextVertPos::Center);
+		DrawOffset += SmallYL;
+
+		DrawText(NSLOCTEXT("NetInfo", "BytesIn title", "Bytes In"), XOffset, DrawOffset, UTHUDOwner->TinyFont, 1.0f, 1.0f, FLinearColor::White, ETextHorzPos::Left, ETextVertPos::Center);
 		Args.Add("NetBytesIN", FText::AsNumber(NetDriver->InBytesPerSecond));
 		DrawText(FText::Format(NSLOCTEXT("NetInfo", "NetBytesIN", "{NetBytesIN} Bps"), Args), XOffset + DataColumnX*Size.X, DrawOffset, UTHUDOwner->TinyFont, 1.0f, 1.0f, FLinearColor::White, ETextHorzPos::Left, ETextVertPos::Center);
 		DrawOffset += SmallYL;

@@ -10,6 +10,7 @@
 #include "UTCountDownMessage.h"
 #include "UTPickup.h"
 #include "UTGameMessage.h"
+#include "UTIntermissionBeginInterface.h"
 #include "UTMutator.h"
 #include "UTCTFSquadAI.h"
 #include "UTWorldSettings.h"
@@ -31,6 +32,7 @@ AUTCTFGameMode::AUTCTFGameMode(const FObjectInitializer& ObjectInitializer)
 	GoalScore = 0;
 	TimeLimit = 14;
 	QuickPlayersToStart = 8;
+	RespawnWaitTime = 3.f;
 
 	DisplayName = NSLOCTEXT("UTGameMode", "CTF", "Capture the Flag");
 }
@@ -271,6 +273,15 @@ void AUTCTFGameMode::HandleMatchIntermission()
 		CTFGameState->SetTimeLimit(10);
 	}
 
+	// inform actors of intermission start
+	for (FActorIterator It(GetWorld()); It; ++It)
+	{
+		if (It->GetClass()->ImplementsInterface(UUTIntermissionBeginInterface::StaticClass()))
+		{
+			IUTIntermissionBeginInterface::Execute_IntermissionBegin(*It);
+		}
+	}
+
 	BroadcastLocalized(this, UUTCTFMajorMessage::StaticClass(), 11, NULL, NULL, NULL);
 }
 
@@ -312,13 +323,24 @@ void AUTCTFGameMode::DefaultTimer()
 
 bool AUTCTFGameMode::PlayerCanRestart_Implementation(APlayerController* Player)
 {
-	// Can't restart in overtime
-	if (!CTFGameState->IsMatchInProgress() || CTFGameState->IsMatchIntermission() ||
-			Player == NULL || Player->IsPendingKillPending())
+	if (Player == NULL || Player->IsPendingKillPending())
 	{
 		return false;
 	}
-	
+
+	if (!HasMatchStarted())
+	{
+		AUTPlayerController* UTPC = Cast<AUTPlayerController>(Player);
+		if (!UTPC || !UTPC->bIsWarmingUp)
+		{
+			return false;
+		}
+	}
+	else if (!CTFGameState->IsMatchInProgress() || CTFGameState->IsMatchIntermission())
+	{
+		return false;
+	}
+
 	// Ask the player controller if it's ready to restart as well
 	return Player->CanRestartPlayer();
 }

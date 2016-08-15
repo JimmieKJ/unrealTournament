@@ -1,6 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "UnrealTournament.h"
+#include "Online.h"
+#include "OnlineSubsystemTypes.h"
+#include "OnlineSubsystemUtils.h"
 #include "UTMultiKillMessage.h"
 #include "UTSpreeMessage.h"
 #include "UTRemoteRedeemer.h"
@@ -20,6 +23,9 @@
 #include "UTWorldSettings.h"
 #include "Engine/DemoNetDriver.h"
 #include "UTKillcamPlayback.h"
+#include "UTAnalytics.h"
+#include "ContentStreaming.h"
+#include "Runtime/Analytics/Analytics/Public/AnalyticsEventAttribute.h"
 
 AUTGameState::AUTGameState(const class FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -35,7 +41,6 @@ AUTGameState::AUTGameState(const class FObjectInitializer& ObjectInitializer)
 	KickThreshold=51.0f;
 	TauntSelectionIndex = 0;
 	bPersistentKillIconMessages = false;
-	bOverrideToggle = false;
 	bTeamProjHits = false;
 
 	// We want to be ticked.
@@ -261,6 +266,7 @@ AUTGameState::AUTGameState(const class FObjectInitializer& ObjectInitializer)
 	GameOverStatus = NSLOCTEXT("UTGameState", "PostGame", "Game Over");
 	MapVoteStatus = NSLOCTEXT("UTGameState", "Mapvote", "Map Vote");
 	PreGameStatus = NSLOCTEXT("UTGameState", "PreGame", "Pre-Game");
+	NeedPlayersStatus = NSLOCTEXT("UTGameState", "NeedPlayers", "Need {NumNeeded} More");
 
 	bWeightedCharacter = false;
 
@@ -273,7 +279,11 @@ AUTGameState::AUTGameState(const class FObjectInitializer& ObjectInitializer)
 	bOnlyTeamCanVoteKick = false;
 	bDisableVoteKick = false;
 
+	UserInfoQueryRetryTime = 0.5f;
 
+	// more stringent by default
+	UnplayableHitchThresholdInMs = 300;
+	MaxUnplayableHitchesToTolerate = 1;
 }
 
 void AUTGameState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty> & OutLifetimeProps) const
@@ -294,7 +304,6 @@ void AUTGameState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty> & OutLif
 	DOREPLIFETIME(AUTGameState, PlayersNeeded);  
 	DOREPLIFETIME(AUTGameState, AvailableLoadout);
 	DOREPLIFETIME(AUTGameState, HubGuid);
-	DOREPLIFETIME(AUTGameState, bOverrideToggle);
 
 	DOREPLIFETIME_CONDITION(AUTGameState, bAllowTeamSwitches, COND_InitialOnly);
 	DOREPLIFETIME_CONDITION(AUTGameState, bWeaponStay, COND_InitialOnly);
@@ -328,6 +337,10 @@ void AUTGameState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty> & OutLif
 
 	DOREPLIFETIME(AUTGameState, bRestrictPartyJoin);
 	DOREPLIFETIME(AUTGameState, bTeamProjHits);
+
+	DOREPLIFETIME_CONDITION(AUTGameState, ServerInstanceGUID, COND_InitialOnly);
+
+
 }
 
 void AUTGameState::PreReplication(IRepChangedPropertyTracker& ChangedPropertyTracker)
@@ -385,7 +398,8 @@ void AUTGameState::Tick(float DeltaTime)
 	AUTWorldSettings* Settings = Cast<AUTWorldSettings>(GetWorldSettings());
 	if (Settings && Settings->MusicComp)
 	{
-		float DesiredVolume = IsMatchInProgress() && !IsMatchIntermission() ? 0.f : 1.f;
+		UUTGameUserSettings* UserSettings = Cast<UUTGameUserSettings>(GEngine->GetGameUserSettings()); 
+		float DesiredVolume = IsMatchInProgress() && !IsMatchIntermission() ? UserSettings->GetSoundClassVolume(EUTSoundClass::GameMusic) : 1.f;
 		MusicVolume = MusicVolume * (1.f - 0.5f*DeltaTime) + 0.5f*DeltaTime*DesiredVolume;
 		Settings->MusicComp->SetVolumeMultiplier(MusicVolume);
 	}
@@ -446,6 +460,109 @@ void AUTGameState::BeginPlay()
 			}
 		}
 	}
+
+	IOnlineSubsystem* OnlineSub = IOnlineSubsystem::Get();
+	if (OnlineSub)
+	{
+		OnlineUserInterface = OnlineSub->GetUserInterface();
+
+		if (OnlineUserInterface.IsValid())
+		{
+			OnUserInfoCompleteDelegate = FOnQueryUserInfoCompleteDelegate::CreateUObject(this, &AUTGameState::OnQueryUserInfoComplete);
+			OnlineUserInterface->AddOnQueryUserInfoCompleteDelegate_Handle(0, OnUserInfoCompleteDelegate);
+		}
+	}
+
+	bIsAlreadyPendingUserQuery = false;
+	AddAllUsersToInfoQuery();
+}
+
+void AUTGameState::AddUserInfoQuery(TSharedRef<const FUniqueNetId> UserId)
+{
+	if (OnlineUserInterface.IsValid() && UserId->IsValid())
+	{
+		TSharedPtr<FOnlineUser> UserInfo = OnlineUserInterface->GetUserInfo(0, *UserId);
+		if (!UserInfo.IsValid())
+		{
+			bIsUserQueryNeeded = true;
+			CurrentUsersToQuery.AddUnique(UserId);
+		}
+	}
+
+	RunAllUserInfoQuery();
+}
+
+void AUTGameState::AddAllUsersToInfoQuery()
+{
+	if (OnlineUserInterface.IsValid())
+	{
+		for (APlayerState* ConnectedPlayer : PlayerArray)
+		{
+			if (ConnectedPlayer && ConnectedPlayer->UniqueId.IsValid())
+			{
+				TSharedPtr<FOnlineUser> UserInfo = OnlineUserInterface->GetUserInfo(0, *ConnectedPlayer->UniqueId);
+				if (!UserInfo.IsValid())
+				{
+					bIsUserQueryNeeded = true;
+					CurrentUsersToQuery.AddUnique(ConnectedPlayer->UniqueId->AsShared());
+				}
+			}
+		}
+	}
+
+	RunAllUserInfoQuery();
+}
+
+void AUTGameState::RunAllUserInfoQuery()
+{
+	if (bIsUserQueryNeeded && !bIsAlreadyPendingUserQuery && (GetWorld()->GetNetMode() != NM_DedicatedServer))
+	{
+		bIsAlreadyPendingUserQuery = true;
+		bIsUserQueryNeeded = false;
+
+		OnlineUserInterface->QueryUserInfo(0, CurrentUsersToQuery);
+	}
+}
+
+void AUTGameState::OnQueryUserInfoComplete(int32 LocalPlayer, bool bWasSuccessful, const TArray< TSharedRef<const FUniqueNetId> >& UserIds, const FString& ErrorStr)
+{
+	bIsAlreadyPendingUserQuery = false;
+
+	//remove all successfully processed names from the list
+	if (bWasSuccessful)
+	{
+		for (TSharedRef<const FUniqueNetId> id : UserIds)
+		{
+			CurrentUsersToQuery.Remove(id);
+		}
+	}
+	
+	if (!bWasSuccessful || bIsUserQueryNeeded)
+	{
+		bIsUserQueryNeeded = true;
+
+		//Schedule a retry of this query if this one failed or if new information has come in since this query was started
+		if (!GetWorldTimerManager().IsTimerActive(UserInfoQueryRetryHandle))
+		{
+			GetWorldTimerManager().SetTimer(UserInfoQueryRetryHandle, this, &AUTGameState::RunAllUserInfoQuery, UserInfoQueryRetryTime, false);
+		}
+	}
+}
+
+FText AUTGameState::GetEpicAccountNameForAccount(TSharedRef<const FUniqueNetId> UserId)
+{
+	FText ReturnName = FText::GetEmpty();
+
+	if (UserId->IsValid())
+	{
+		TSharedPtr<FOnlineUser> UserInfo = OnlineUserInterface->GetUserInfo(0, *UserId);
+		if (UserInfo.IsValid())
+		{
+			ReturnName = FText::FromString(UserInfo->GetDisplayName());
+		}
+	}
+
+	return ReturnName;
 }
 
 float AUTGameState::GetRespawnWaitTimeFor(AUTPlayerState* PS)
@@ -753,6 +870,127 @@ void AUTGameState::SortPRIArray()
 	}
 }
 
+void AUTGameState::HandleMatchHasStarted()
+{
+	if (GetNetMode() == NM_Client || GetNetMode() == NM_DedicatedServer)
+	{
+		bRunFPSChart = true;
+	}
+
+	StartFPSCharts();
+
+	Super::HandleMatchHasStarted();
+}
+
+void AUTGameState::HandleMatchHasEnded()
+{
+	MatchEndTime = GetWorld()->TimeSeconds;
+
+	StopFPSCharts();
+
+	Super::HandleMatchHasEnded();
+}
+
+void AUTGameState::StartFPSCharts()
+{
+	if (bRunFPSChart)
+	{
+		FString FPSChartLabel;
+		if (GetNetMode() == NM_Client)
+		{
+			FPSChartLabel = TEXT("UTAnalyticsFPSCharts");
+		}
+		else
+		{
+			FPSChartLabel = TEXT("UTServerFPSChart");
+		}
+
+		FMemory::Memzero(HitchChart);
+
+		GEngine->StartFPSChart(FPSChartLabel, /*bRecordPerFrameTimes=*/ false);
+		OnHitchDetectedHandle = GEngine->OnHitchDetectedDelegate.AddUObject(this, &AUTGameState::OnHitchDetected);
+	}
+}
+
+void AUTGameState::StopFPSCharts()
+{
+	if (bRunFPSChart)
+	{
+		TArray<FAnalyticsEventAttribute> ParamArray;
+		FString MapName;
+
+		if (GetLevel() && GetLevel()->OwningWorld)
+		{
+			MapName = GetLevel()->OwningWorld->GetMapName();
+		}
+
+		GEngine->StopFPSChart();
+		GEngine->DumpFPSChartAnalytics(MapName, ParamArray);
+	
+		if (GetNetMode() == NM_Client)
+		{
+			AUTPlayerController* UTPC = Cast<AUTPlayerController>(GetWorld()->GetFirstPlayerController());
+			if (UTPC)
+			{
+				if (ParamArray.Num() > 0)
+				{
+					int64 MaxRequiredTextureSize = 0;
+					if (FPlatformProperties::SupportsTextureStreaming() && IStreamingManager::Get().IsTextureStreamingEnabled())
+					{
+						MaxRequiredTextureSize = IStreamingManager::Get().GetTextureStreamingManager().GetMaxEverRequired();
+					}
+					ParamArray.Add(FAnalyticsEventAttribute(TEXT("MaxRequiredTextureSize"), MaxRequiredTextureSize));
+
+					// Fire off the analytics event
+					FUTAnalytics::FireEvent_UTFPSCharts(UTPC, ParamArray);
+				}
+				else
+				{
+					UE_LOG(UT, Error, TEXT("UT FPS Charts ParamArray is empty"));
+				}
+			}
+		}
+		else
+		{
+			AUTGameMode* UTGM = Cast<AUTGameMode>(GetWorld()->GetAuthGameMode());
+			if (UTGM)
+			{
+				FUTAnalytics::FireEvent_UTServerFPSCharts(UTGM, ParamArray);
+			}
+		}
+
+		GEngine->OnHitchDetectedDelegate.Remove(OnHitchDetectedHandle);
+		bRunFPSChart = false;
+	}
+}
+
+void AUTGameState::OnHitchDetected(float DurationInSeconds)
+{
+	const float DurationInMs = DurationInSeconds * 1000.0f;
+	if (IsRunningDedicatedServer())
+	{
+		if (DurationInMs >= UnplayableHitchThresholdInMs)
+		{
+			++UnplayableHitchesDetected;
+			UnplayableTimeInMs += DurationInMs;
+
+			if (UnplayableHitchesDetected > MaxUnplayableHitchesToTolerate)
+			{
+				// send an analytics event
+				AUTGameMode* UTGM = Cast<AUTGameMode>(GetWorld()->GetAuthGameMode());
+				if (UTGM)
+				{
+					FUTAnalytics::FireEvent_ServerUnplayableCondition(UTGM, UnplayableHitchThresholdInMs, UnplayableHitchesDetected, UnplayableTimeInMs);
+				}
+
+				// reset the counter, in case unplayable condition is going to be resolved by outside tools
+				UnplayableHitchesDetected = 0;
+				UnplayableTimeInMs = 0.0;
+			}
+		}
+	}
+}
+
 bool AUTGameState::IsMatchInCountdown() const
 {
 	return GetMatchState() == MatchState::CountdownToBegin;
@@ -816,10 +1054,12 @@ FText AUTGameState::ServerRules()
 void AUTGameState::ReceivedGameModeClass()
 {
 	Super::ReceivedGameModeClass();
+	UE_LOG(UT, Warning, TEXT("%s ReceivedGameModeClass"), *GetName());
 
 	TSubclassOf<AUTGameMode> UTGameClass(*GameModeClass);
 	if (UTGameClass != NULL)
 	{
+		UE_LOG(UT, Warning, TEXT("%s ReceivedGameModeClass %s"), *GetName(), *UTGameClass->GetName());
 		// precache announcements
 		for (FLocalPlayerIterator It(GEngine, GetWorld()); It; ++It)
 		{
@@ -884,6 +1124,12 @@ FText AUTGameState::GetGameStatusText(bool bForScoreboard)
 		{
 			return MapVoteStatus;
 		}
+		else if ((PlayersNeeded > 0) && (GetNetMode() != NM_Standalone))
+		{
+			FFormatNamedArguments Args;
+			Args.Add("NumNeeded", FText::AsNumber(PlayersNeeded));
+			return FText::Format(NeedPlayersStatus, Args);
+		}
 		else
 		{
 			return PreGameStatus;
@@ -905,6 +1151,27 @@ void AUTGameState::OnRep_MatchState()
 			if (Hud != NULL)
 			{
 				Hud->NotifyMatchStateChange();
+			}
+		}
+	}
+	if ((Role < ROLE_Authority) && (GetMatchState() == MatchState::PlayerIntro))
+	{
+		// destroy torn off pawns
+		TArray<APawn*> PawnsToDestroy;
+		for (FConstPawnIterator It = GetWorld()->GetPawnIterator(); It; ++It)
+		{
+			if (*It && !Cast<ASpectatorPawn>((*It).Get()))
+			{
+				PawnsToDestroy.Add(*It);
+			}
+		}
+
+		for (int32 i = 0; i<PawnsToDestroy.Num(); i++)
+		{
+			APawn* Pawn = PawnsToDestroy[i];
+			if (Pawn != NULL && !Pawn->IsPendingKill() && Pawn->bTearOff)
+			{
+				Pawn->Destroy();
 			}
 		}
 	}

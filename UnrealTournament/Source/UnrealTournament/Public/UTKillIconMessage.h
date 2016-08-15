@@ -12,10 +12,10 @@ class UNREALTOURNAMENT_API UUTKillIconMessage : public UUTLocalMessage
 		: Super(ObjectInitializer)
 	{
 		MessageArea = FName(TEXT("KillMessage"));
-		bIsSpecial = false;
 		Lifetime = 4.f;
 		FontSizeIndex = 0;
 		ScaleInSize = 2.5f;
+		ScaleInTime = 0.3f;
 	}
 
 	virtual FText GetText(int32 Switch, bool bTargetsPlayerState1, class APlayerState* RelatedPlayerState_1, class APlayerState* RelatedPlayerState_2, class UObject* OptionalObject) const
@@ -23,10 +23,6 @@ class UNREALTOURNAMENT_API UUTKillIconMessage : public UUTLocalMessage
 		return FText::GetEmpty();
 	}
 
-	virtual float GetScaleInTime_Implementation(int32 MessageIndex) const override
-	{
-		return 0.3f;
-	}
 };
 
 

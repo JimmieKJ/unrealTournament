@@ -82,10 +82,9 @@ class UNREALTOURNAMENT_API UUTSpreeMessage : public UUTLocalMessage
 		static ConstructorHelpers::FObjectFinder<USoundBase> OtherSpreeEndedSoundFinder(TEXT("SoundWave'/Game/RestrictedAssets/Audio/UI/A_UI_EnemySpreeBroken01.A_UI_EnemySpreeBroken01'"));
 		OtherSpreeEndedSound = OtherSpreeEndedSoundFinder.Object;
 
-		bIsSpecial = true;
 		bIsUnique = true;
 		bIsConsoleMessage = false;
-		Lifetime = 3.f;
+		Lifetime = 2.5f;
 		bWantsBotReaction = true;
 	}
 
@@ -109,7 +108,7 @@ class UNREALTOURNAMENT_API UUTSpreeMessage : public UUTLocalMessage
 	
 	virtual bool InterruptAnnouncement_Implementation(int32 Switch, const UObject* OptionalObject, TSubclassOf<UUTLocalMessage> OtherMessageClass, int32 OtherSwitch, const UObject* OtherOptionalObject) const override
 	{
-		return ((GetClass() == OtherMessageClass) && (Switch > 0) && (Switch != 99) && (OtherSwitch != 99))  || Cast<UUTLocalMessage>(OtherMessageClass->GetDefaultObject())->bOptionalSpoken;
+		return ((GetClass() == OtherMessageClass) && (Switch > 0) && (Switch != 99) && (OtherSwitch != 99))  || Cast<UUTLocalMessage>(OtherMessageClass->GetDefaultObject())->IsOptionalSpoken(OtherSwitch);
 	}
 
 	virtual FLinearColor GetMessageColor_Implementation(int32 MessageIndex) const override
@@ -151,18 +150,10 @@ class UNREALTOURNAMENT_API UUTSpreeMessage : public UUTLocalMessage
 
 	virtual void PrecacheAnnouncements_Implementation(class UUTAnnouncer* Announcer) const
 	{
-		// switch 0 has no announcement, skip it
-		for (int32 i = 1; i < 50; i++)
+		UE_LOG(UT, Warning, TEXT("PRECACHE SPREES"));
+		for (int32 i = 0; i < AnnouncementNames.Num(); i++)
 		{
-			FName SoundName = GetAnnouncementName(i, NULL, NULL, NULL);
-			if (SoundName != NAME_None)
-			{
-				Announcer->PrecacheAnnouncement(SoundName);
-			}
-			else
-			{
-				break;
-			}
+			Announcer->PrecacheAnnouncement(AnnouncementNames[i]);
 		}
 
 		// precache weapon spree announcements

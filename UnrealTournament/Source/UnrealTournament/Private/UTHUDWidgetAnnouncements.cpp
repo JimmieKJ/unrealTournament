@@ -6,7 +6,7 @@
 UUTHUDWidgetAnnouncements::UUTHUDWidgetAnnouncements(const class FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
 {
 	EmphasisOutlineColor = FLinearColor::Black;
-	EmphasisScaling = 1.25f;
+	EmphasisScaling = 1.1f;
 	ManagedMessageArea = FName(TEXT("Announcements"));
 	Slots.Add(FAnnouncementSlot(FName(TEXT("MajorRewardMessage")), 0.17f));
 	Slots.Add(FAnnouncementSlot(FName(TEXT("Spree")), 0.23f));
@@ -36,7 +36,7 @@ void UUTHUDWidgetAnnouncements::DrawMessages(float DeltaTime)
 	bool bNoLivePawnTarget = !UTCharacterOwner || UTCharacterOwner->IsDead();
 	for (int32 QueueIndex = 0; QueueIndex < MessageQueue.Num(); QueueIndex++)
 	{
-		// When we hit the empty section of the array, exit out
+		// skip empty entries
 		if ((MessageQueue[QueueIndex].MessageClass == NULL) || MessageQueue[QueueIndex].bHasBeenRendered 
 			|| (bIsAtIntermission && !GetDefault<UUTLocalMessage>(MessageQueue[QueueIndex].MessageClass)->bDrawAtIntermission)
 			|| (bNoLivePawnTarget && GetDefault<UUTLocalMessage>(MessageQueue[QueueIndex].MessageClass)->bDrawOnlyIfAlive))
@@ -60,40 +60,49 @@ void UUTHUDWidgetAnnouncements::DrawMessages(float DeltaTime)
 	}
 }
 
-void UUTHUDWidgetAnnouncements::AddMessage(int32 QueueIndex, TSubclassOf<class UUTLocalMessage> MessageClass, uint32 MessageIndex, FText LocalMessageText, int32 MessageCount, APlayerState* RelatedPlayerState_1, APlayerState* RelatedPlayerState_2, UObject* OptionalObject)
+void UUTHUDWidgetAnnouncements::AddMessage(int32 InQueueIndex, TSubclassOf<class UUTLocalMessage> MessageClass, uint32 MessageIndex, FText LocalMessageText, int32 MessageCount, APlayerState* RelatedPlayerState_1, APlayerState* RelatedPlayerState_2, UObject* OptionalObject)
 {
-	Super::AddMessage(QueueIndex, MessageClass, MessageIndex, LocalMessageText, MessageCount, RelatedPlayerState_1, RelatedPlayerState_2, OptionalObject);
+	Super::AddMessage(InQueueIndex, MessageClass, MessageIndex, LocalMessageText, MessageCount, RelatedPlayerState_1, RelatedPlayerState_2, OptionalObject);
 
 	// find which slot this message wants
-	MessageQueue[QueueIndex].RequestedSlot = -1;
+	MessageQueue[InQueueIndex].RequestedSlot = -1;
 	for (int32 SlotIndex = 0; SlotIndex < Slots.Num(); SlotIndex++)
 	{
 		if (Slots[SlotIndex].MessageArea == GetDefault<UUTLocalMessage>(MessageClass)->MessageSlot)
 		{
-			MessageQueue[QueueIndex].RequestedSlot = SlotIndex;
+			MessageQueue[InQueueIndex].RequestedSlot = SlotIndex;
 			break;
 		}
 	}
-
+	for (int32 i = 0; i < MessageQueue.Num(); i++)
+	{
+		if ((i != InQueueIndex) && (MessageQueue[i].MessageClass != nullptr) && (MessageQueue[i].RequestedSlot == MessageQueue[InQueueIndex].RequestedSlot) && MessageQueue[InQueueIndex].MessageClass.GetDefaultObject()->InterruptAnnouncement(MessageQueue[InQueueIndex].MessageIndex, MessageQueue[InQueueIndex].OptionalObject, MessageQueue[i].MessageClass, MessageQueue[i].MessageIndex, MessageQueue[i].OptionalObject))
+		{
+			ClearMessage(MessageQueue[i]);
+		}
+	}
 	// FIXMESTEVE TEMP
-	if (MessageQueue[QueueIndex].RequestedSlot == -1)
+	if (MessageQueue[InQueueIndex].RequestedSlot == -1)
 	{
 		UE_LOG(UT, Warning, TEXT("No slot found for %s"), *MessageClass->GetName());
 	}
-/*	else
-	{
-		UE_LOG(UT, Warning, TEXT("Slot %d found for %s"), MessageQueue[QueueIndex].RequestedSlot, *MessageClass->GetName());
-	}*/
 }
 
 FVector2D UUTHUDWidgetAnnouncements::DrawMessage(int32 QueueIndex, float X, float Y)
 {
 	MessageQueue[QueueIndex].bHasBeenRendered = true;
+
+	// If this is an UMG widget, then don't try to draw it.  
+	if (MessageQueue[QueueIndex].UMGWidget.IsValid())
+	{
+		return FVector2D(X,Y);
+	}
+
 	float CurrentTextScale = GetTextScale(QueueIndex);
 	float Alpha = 1.f;
 
 	// Fade the message in if scaling
-	if ((MessageQueue[QueueIndex].ScaleInTime > 0.f) && (MessageQueue[QueueIndex].ScaleInSize != 1.f)
+	if ((MessageQueue[QueueIndex].ScaleInTime > 0.f) && (MessageQueue[QueueIndex].ScaleInSize != 1.f) && MessageQueue[QueueIndex].DisplayFont
 		&& (MessageQueue[QueueIndex].LifeLeft > MessageQueue[QueueIndex].LifeSpan - MessageQueue[QueueIndex].ScaleInTime))
 	{
 		Alpha = (MessageQueue[QueueIndex].LifeSpan - MessageQueue[QueueIndex].LifeLeft) / MessageQueue[QueueIndex].ScaleInTime;
@@ -127,11 +136,12 @@ FVector2D UUTHUDWidgetAnnouncements::DrawMessage(int32 QueueIndex, float X, floa
 				Y *= RenderScale;
 			}
 			FVector2D RenderPos = FVector2D(RenderPosition.X + X, RenderPosition.Y + Y);
-			float TextScaling = bScaleByDesignedResolution ? RenderScale*CurrentTextScale : CurrentTextScale;
+			float TextScalingY = bScaleByDesignedResolution ? RenderScale*CurrentTextScale : CurrentTextScale;
+			float TextScalingX = TextScalingY * FMath::Min(1.f, 0.98f*Canvas->ClipY / FMath::Max(XL*TextScalingY, 1.f));
 
 			// Handle justification
-			XL *= TextScaling; 
-			YL *= TextScaling;
+			XL *= TextScalingX; 
+			YL *= TextScalingY;
 			RenderPos.X -= XL * 0.5f;
 
 			FLinearColor DrawColor = MessageQueue[QueueIndex].DrawColor;
@@ -156,16 +166,16 @@ FVector2D UUTHUDWidgetAnnouncements::DrawMessage(int32 QueueIndex, float X, floa
 				{
 					PrefixTextItem.EnableShadow(FinalShadowColor, MessageQueue[QueueIndex].ShadowDirection);
 				}
-				PrefixTextItem.Scale = FVector2D(TextScaling, TextScaling);
+				PrefixTextItem.Scale = FVector2D(TextScalingX, TextScalingY);
 				Canvas->DrawItem(PrefixTextItem);
 				float PreXL = 0.0f;
 				float PreYL = 0.0f;
 				Canvas->StrLen(MessageQueue[QueueIndex].DisplayFont, MessageQueue[QueueIndex].PrefixText.ToString(), PreXL, PreYL);
-				RenderPos.X += PreXL * TextScaling;
+				RenderPos.X += PreXL * TextScalingX;
 			}
 
 			FVector2D EmphasisRenderPos = RenderPos;
-			EmphasisRenderPos.Y -= (EmphasisScaling - 1.f) * YL * 0.7f; // FIXMESTEVE 0.7f is guess - what is ideal? maybe less emphasis scaling?
+			EmphasisRenderPos.Y -= (EmphasisScaling - 1.f) * YL * 0.77f; // FIXMESTEVE 0.7f is guess - what is ideal? maybe less emphasis scaling?
 			FLinearColor EmphasisColor = MessageQueue[QueueIndex].EmphasisColor;
 			EmphasisColor.A = Opacity * Alpha * UTHUDOwner->WidgetOpacity;
 			FUTCanvasTextItem EmphasisTextItem(EmphasisRenderPos, MessageQueue[QueueIndex].EmphasisText, MessageQueue[QueueIndex].DisplayFont, EmphasisColor, WordWrapper);
@@ -173,7 +183,7 @@ FVector2D UUTHUDWidgetAnnouncements::DrawMessage(int32 QueueIndex, float X, floa
 			EmphasisTextItem.bOutlined = true;
 			EmphasisTextItem.OutlineColor = EmphasisOutlineColor;
 			EmphasisTextItem.OutlineColor.A *= Alpha * UTHUDOwner->WidgetOpacity;
-			EmphasisTextItem.Scale = EmphasisScaling * FVector2D(TextScaling, TextScaling);
+			EmphasisTextItem.Scale = EmphasisScaling * FVector2D(TextScalingX, TextScalingY);
 			if (bShadowedText)
 			{
 				EmphasisTextItem.EnableShadow(FinalShadowColor, MessageQueue[QueueIndex].ShadowDirection);
@@ -182,8 +192,8 @@ FVector2D UUTHUDWidgetAnnouncements::DrawMessage(int32 QueueIndex, float X, floa
 			float EmpXL = 0.0f;
 			float EmpYL = 0.0f;
 			Canvas->StrLen(MessageQueue[QueueIndex].DisplayFont, MessageQueue[QueueIndex].EmphasisText.ToString(), EmpXL, EmpYL);
-			RenderPos.X += EmphasisScaling * EmpXL * TextScaling;
-			TextSize.X += 2.f * (EmphasisScaling - 1.f) * EmpXL * TextScaling;
+			RenderPos.X += EmphasisScaling * EmpXL * TextScalingX;
+			TextSize.X += 2.f * (EmphasisScaling - 1.f) * EmpXL * TextScalingX;
 			if (!MessageQueue[QueueIndex].PostfixText.IsEmpty())
 			{
 				FUTCanvasTextItem PostfixTextItem(RenderPos, MessageQueue[QueueIndex].PostfixText, MessageQueue[QueueIndex].DisplayFont, DrawColor, WordWrapper);
@@ -193,7 +203,7 @@ FVector2D UUTHUDWidgetAnnouncements::DrawMessage(int32 QueueIndex, float X, floa
 				{
 					PostfixTextItem.EnableShadow(FinalShadowColor, MessageQueue[QueueIndex].ShadowDirection);
 				}
-				PostfixTextItem.Scale = FVector2D(TextScaling, TextScaling);
+				PostfixTextItem.Scale = FVector2D(TextScalingX, TextScalingY);
 				Canvas->DrawItem(PostfixTextItem);
 			}
 		}

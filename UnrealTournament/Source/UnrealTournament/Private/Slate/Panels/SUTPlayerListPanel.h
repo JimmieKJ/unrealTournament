@@ -135,13 +135,7 @@ public:
 			return FSlateColor(FLinearColor(0.25f, 1.0f, 1.0f,1.0f));
 		}
 
-		if (bIsInMatch && !bIsSpectator)
-		{
-			if (TeamNum == 0) return FSlateColor(FLinearColor(1.0f, 0.05f, 0.0f, 1.0f));
-			else if (TeamNum == 1) return FSlateColor(FLinearColor(0.1f, 0.1f, 1.0f, 1.0f));
-		}
-
-		return FSlateColor(FLinearColor::Gray);
+		return bIsSpectator ? FSlateColor(FLinearColor::Gray) : FSlateColor(FLinearColor::White);
 	}
 
 	FText GetLobbyStatusText()

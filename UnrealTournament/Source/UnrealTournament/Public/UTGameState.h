@@ -2,6 +2,8 @@
 #pragma once
 
 #include "UTReplicatedLoadoutInfo.h"
+#include "ChartCreation.h"
+
 #include "UTGameState.generated.h"
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FTeamSideSwapDelegate, uint8, Offset);
@@ -79,10 +81,6 @@ class UNREALTOURNAMENT_API AUTGameState : public AGameState
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = GameState)
 		uint32 bPersistentKillIconMessages : 1;
 
-	/** If true, game overrides toggle translocator  */
-	UPROPERTY(Replicated, BlueprintReadOnly, Replicated, Category = GameState)
-		bool bOverrideToggle;
-
 	/** If a single player's (or team's) score hits this limited, the game is over */
 	UPROPERTY(Replicated, EditDefaultsOnly, BlueprintReadOnly, Category = GameState)
 	int32 GoalScore;
@@ -120,6 +118,9 @@ class UNREALTOURNAMENT_API AUTGameState : public AGameState
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = GameState)
 		FText PreGameStatus;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = GameState)
+		FText NeedPlayersStatus;
+
 	/** amount of time between kills to qualify as a multikill */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = GameState)
 	float MultiKillDelay;
@@ -135,6 +136,18 @@ class UNREALTOURNAMENT_API AUTGameState : public AGameState
 	/** Used to limit frequency of entering enemy base messages. */
 	UPROPERTY()
 		float LastEnteringEnemyBaseTime;
+
+	UPROPERTY()
+		float LastFriendlyLocationReportTime;
+
+	UPROPERTY()
+		float LastEnemyLocationReportTime;
+
+	UPROPERTY()
+		FName LastFriendlyLocationName;
+
+	UPROPERTY()
+		FName LastEnemyLocationName;
 
 	protected:
 	/** How much time is remaining in this match. */
@@ -370,10 +383,8 @@ protected:
 	UPROPERTY(ReplicatedUsing = OnRep_OverlayEffects)
 	FOverlayEffect OverlayEffects1P[MAX_OVERLAY_MATERIALS];
 
-	virtual void HandleMatchHasEnded() override
-	{
-		MatchEndTime = GetWorld()->TimeSeconds;
-	}
+	virtual void HandleMatchHasStarted() override;
+	virtual void HandleMatchHasEnded() override;
 
 	UFUNCTION()
 	virtual void OnRep_OverlayEffects();
@@ -584,6 +595,75 @@ public:
 	
 	UPROPERTY(Replicated, GlobalConfig, EditAnywhere, BlueprintReadWrite, Category = GameState)
 	bool bDisableVoteKick;
+
+
+	//User Info Query for all players in the match
+public:
+
+	FText GetEpicAccountNameForAccount(TSharedRef<const FUniqueNetId> UserId);
+
+	/** Informs the player controller that it might need to do a new UserInfoQuery as UserInfo may have changed*/
+	virtual void AddUserInfoQuery(TSharedRef<const FUniqueNetId> UserId);
+	virtual void AddAllUsersToInfoQuery();
+
+protected:
+	IOnlineUserPtr OnlineUserInterface;
+	FOnQueryUserInfoCompleteDelegate OnUserInfoCompleteDelegate;
+	virtual void OnQueryUserInfoComplete(int32 LocalPlayer, bool bWasSuccessful, const TArray< TSharedRef<const FUniqueNetId> >& UserIds, const FString& ErrorStr);
+	virtual void RunAllUserInfoQuery();
+
+	void StartFPSCharts();
+	void StopFPSCharts();
+
+	void OnHitchDetected(float DurationInSeconds);
+
+	bool bRunFPSChart;
+	/** Running hitch chart */
+	FHitchChartEntry HitchChart[STAT_FPSChart_LastHitchBucketStat - STAT_FPSChart_FirstHitchStat];
+	/** Handle to the delegate bound for hitch detection */
+	FDelegateHandle OnHitchDetectedHandle;
+
+	/** How many unplayable hitches we have had during this match. */
+	int32 UnplayableHitchesDetected;
+
+	/** How much time we spent hitching above unplayable threshold, in milliseconds. */
+	double UnplayableTimeInMs;
+
+	/** Threshold after which a hitch is considered unplayable (hitch must be >= the threshold) */
+	UPROPERTY(Config)
+	float UnplayableHitchThresholdInMs;
+
+	/** Threshold after which we consider that the server is unplayable and report that. */
+	UPROPERTY(Config)
+	int32 MaxUnplayableHitchesToTolerate;
+
+	/** Helper structure for hitch entries. */
+	struct FHitchChartEntry
+	{
+		/** Number of hitches */
+		int32 HitchCount;
+
+		/** Time spent in this bucket */
+		double TimeSpentHitching;
+	};
+
+protected:
+	float UserInfoQueryRetryTime;
+	FTimerHandle UserInfoQueryRetryHandle;
+
+	/**Used to determine if we have gotten new User Data and thus need to perform a new Query*/
+	bool bIsUserQueryNeeded;
+
+	/**Used  to determine if a UserQuery is in progress*/
+	bool bIsAlreadyPendingUserQuery;
+
+	/** Array holding net ids to query*/
+	TArray<TSharedRef<const FUniqueNetId>> CurrentUsersToQuery;
+
+public:
+	// This is the GUID if the current servers.  See UTBaseGameMode for more information
+	UPROPERTY(Replicated)
+	FGuid ServerInstanceGUID;
 
 };
 

@@ -167,7 +167,7 @@ void SUTInGameHomePanel::ShowContextMenu(UUTScoreboard* Scoreboard, FVector2D Co
 	TSharedPtr<SVerticalBox> MenuBox;
 
 	bShowingContextMenu = true;
-	SubMenuOverlay->AddSlot(1)
+	SubMenuOverlay->AddSlot(201)
 	.Padding(FMargin(ContextMenuLocation.X, ContextMenuLocation.Y, 0, 0))
 	[
 		SNew(SHorizontalBox)
@@ -188,6 +188,31 @@ void SUTInGameHomePanel::ShowContextMenu(UUTScoreboard* Scoreboard, FVector2D Co
 
 	if (MenuBox.IsValid())
 	{
+
+		if (Scoreboard != nullptr)
+		{
+			TArray<FScoreboardContextMenuItem> ContextItems;
+			Scoreboard->GetContextMenuItems(ContextItems);
+			if (ContextItems.Num() > 0)
+			{
+				for (int32 i=0; i < ContextItems.Num(); i++)
+				{
+					// Add the show player card
+					MenuBox->AddSlot()
+					.AutoHeight()
+					[
+						SNew(SUTButton)
+						.OnClicked(this, &SUTInGameHomePanel::ContextCommand, ContextItems[i].Id, SelectedPlayer)
+						.ButtonStyle(SUTStyle::Get(),"UT.ContextMenu.Item")
+						.Text(ContextItems[i].MenuText)
+						.TextStyle(SUTStyle::Get(),"UT.Font.NormalText.Small")
+					];
+				}
+			
+				return;
+			}
+		}
+
 		// Add the show player card
 		MenuBox->AddSlot()
 		.AutoHeight()
@@ -306,7 +331,7 @@ void SUTInGameHomePanel::HideContextMenu()
 {
 	if (bShowingContextMenu)
 	{
-		SubMenuOverlay->RemoveSlot(1);
+		SubMenuOverlay->RemoveSlot(201);
 		bShowingContextMenu = false;
 	}
 }
@@ -321,6 +346,12 @@ FReply SUTInGameHomePanel::ContextCommand(int32 CommandId, TWeakObjectPtr<AUTPla
 
 		if (MyPlayerState && PC)
 		{
+			UUTScoreboard* SB = PC->MyUTHUD->GetScoreboard();
+			if (SB && SB->HandleContextCommand(CommandId, TargetPlayerState.Get()))
+			{
+				return FReply::Handled();
+			}
+
 			switch (CommandId)
 			{
 				case 0: PlayerOwner->ShowPlayerInfo(TargetPlayerState); break;
@@ -501,9 +532,17 @@ void SUTInGameHomePanel::ShowMatchSummary(bool bInitial)
 	if (bInitial && SummaryPanel.IsValid())
 	{
 		SummaryPanel->SetInitialCams();
-		PlayerOwner->GetSlateOperations() = FReply::Handled().ReleaseMouseCapture().SetUserFocus(SummaryPanel.ToSharedRef(), EFocusCause::SetDirectly);
+//		PlayerOwner->GetSlateOperations() = FReply::Handled().ReleaseMouseCapture().SetUserFocus(SummaryPanel.ToSharedRef(), EFocusCause::SetDirectly);
 	}
 
+	if (PlayerOwner->HasChatText())
+	{
+		FSlateApplication::Get().SetKeyboardFocus(PlayerOwner->GetChatWidget(), EFocusCause::SetDirectly);
+	}
+	else
+	{
+		FSlateApplication::Get().SetKeyboardFocus(ChatArea, EFocusCause::SetDirectly);
+	}
 }
 
 void SUTInGameHomePanel::HideMatchSummary()
@@ -527,8 +566,12 @@ TSharedPtr<SWidget> SUTInGameHomePanel::GetInitialFocus()
 	{
 		return GetSummaryPanel();
 	}
-	
-	return PlayerOwner->GetChatWidget();
+	if (PlayerOwner->HasChatText())
+	{
+		return PlayerOwner->GetChatWidget();
+	}
+
+	return ChatArea;
 }
 
 FText SUTInGameHomePanel::GetMuteLabelText() const
@@ -546,6 +589,5 @@ FText SUTInGameHomePanel::GetMuteLabelText() const
 	bool bIsMuted = Id.IsValid() && PlayerOwner->PlayerController->IsPlayerMuted(Id.ToSharedRef().Get());
 	return bIsMuted ? NSLOCTEXT("SUTInGameHomePanel","Unmute","Unmute Player") : NSLOCTEXT("SUTInGameHomePanel","Mute","Mute Player");
 }
-
 
 #endif

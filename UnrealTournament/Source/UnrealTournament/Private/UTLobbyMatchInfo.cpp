@@ -908,6 +908,23 @@ void AUTLobbyMatchInfo::ServerCreateCustomRule_Implementation(const FString& Gam
 		if (OwnerPlayerState.IsValid())
 		{
 			RankCheck = OwnerPlayerState->GetRankCheck(DefaultGameMode);
+			
+			TWeakObjectPtr<AUTLobbyPlayerState> MatchOwner = GetOwnerPlayerState();
+			if (MatchOwner.IsValid() && MatchOwner->IsABeginner(CurrentRuleset.IsValid() ? CurrentRuleset->GetDefaultGameModeObject() : NULL))
+			{
+				bRankLocked = true;
+				bBeginnerMatch = true;
+
+				// Tell the host to display a warning
+
+				if (CurrentRuleset.IsValid())
+				{
+					MatchOwner->NotifyBeginnerAutoLock();
+				}
+			}
+
+
+
 		}
 	}
 }

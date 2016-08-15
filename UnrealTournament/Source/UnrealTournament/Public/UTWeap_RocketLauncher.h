@@ -97,6 +97,10 @@ class UNREALTOURNAMENT_API AUTWeap_RocketLauncher : public AUTWeapon
 	UPROPERTY(BlueprintReadOnly, Category = RocketLauncher)
 	int32 NumLoadedRockets;
 
+	/** NumLoadedBarrels equals NumLoadedRockets unless running out of ammo. */
+	UPROPERTY(BlueprintReadOnly, Category = RocketLauncher)
+		int32 NumLoadedBarrels;
+
 	/** Spread in degrees when unloading loaded rockets on player death. */
 	UPROPERTY(BlueprintReadOnly, Category = RocketLauncher)
 		float FullLoadSpread;

@@ -16,10 +16,10 @@ public:
 	virtual void Draw_Implementation(float DeltaTime);
 	virtual bool ShouldDraw_Implementation(bool bShowScores);
 
-	/** Draw the bar and the spectator message.  If bShortMessage, don't use entire bottom of screen. */
-	virtual void DrawSimpleMessage(FText SimpleMessage, float DeltaTime, bool bShortMessage);
+	/** Draw the bar and the spectator message.  If ShortMessage, don't use entire bottom of screen. */
+	virtual void DrawSimpleMessage(FText SimpleMessage, float DeltaTime, FText ShortMessage);
 
-	virtual FText GetSpectatorMessageText(bool &bShortMessage);
+	virtual FText GetSpectatorMessageText(FText& ShortMessage);
 
 	virtual FLinearColor GetMessageColor() const
 	{

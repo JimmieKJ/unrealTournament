@@ -20,6 +20,7 @@ class UNREALTOURNAMENT_API UUTVictimMessage : public UUTLocalMessage
 	virtual FText GetText(int32 Switch,bool bTargetsPlayerState1,class APlayerState* RelatedPlayerState_1,class APlayerState* RelatedPlayerState_2,class UObject* OptionalObject) const override;
 	virtual FLinearColor GetMessageColor_Implementation(int32 MessageIndex) const override;
 	virtual void GetEmphasisText(FText& PrefixText, FText& EmphasisText, FText& PostfixText, FLinearColor& EmphasisColor, int32 Switch, class APlayerState* RelatedPlayerState_1, class APlayerState* RelatedPlayerState_2, class UObject* OptionalObject) const override;
+	virtual float GetLifeTime(int32 Switch) const override;
 };
 
 

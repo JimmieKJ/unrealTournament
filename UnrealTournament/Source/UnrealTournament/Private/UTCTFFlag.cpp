@@ -222,7 +222,7 @@ void AUTCTFFlag::Drop(AController* Killer)
 	// Toss is out
 	TossObject(LastHoldingPawn);
 
-	if (bGradualAutoReturn && (PastPositions.Num() > 0))
+	if (bGradualAutoReturn && (PastPositions.Num() > 0) && (Holder == nullptr))
 	{
 		if ((GetActorLocation() - PastPositions[PastPositions.Num() - 1].Location).Size() < MinGradualReturnDist)
 		{
@@ -340,10 +340,11 @@ void AUTCTFFlag::Tick(float DeltaTime)
 	}
 	if (Role == ROLE_Authority)
 	{
+		AUTGameVolume* GV = HoldingPawn && HoldingPawn->UTCharacterMovement ? Cast<AUTGameVolume>(HoldingPawn->UTCharacterMovement->GetPhysicsVolume()) : nullptr;
 		if (Holder)
 		{
 			//Update currently pinged
-			bCurrentlyPinged = (bShouldPingFlag && (GetWorld()->GetTimeSeconds() - LastPingedTime < PingedDuration));
+			bCurrentlyPinged = (bShouldPingFlag && ((GetWorld()->GetTimeSeconds() - LastPingedTime < PingedDuration) || (GV && GV->bIsNoRallyZone)));
 
 			Holder->bSpecialPlayer = bCurrentlyPinged;
 			if (GetNetMode() != NM_DedicatedServer)
@@ -355,24 +356,33 @@ void AUTCTFFlag::Tick(float DeltaTime)
 		{
 			bool bAddedReturnSpot = false;
 			FVector PreviousPos = (PastPositions.Num() > 0) ? PastPositions[PastPositions.Num() - 1].Location : (HomeBase ? HomeBase->GetActorLocation() : FVector(0.f));
+			bool bAlreadyPlacedInNoRallyZone = (PastPositions.Num() > 0) && PastPositions[PastPositions.Num() - 1].bIsInNoRallyZone;
 			if (HoldingPawn->GetCharacterMovement() && HoldingPawn->GetCharacterMovement()->IsWalking() && (!HoldingPawn->GetMovementBase() || !MovementBaseUtility::UseRelativeLocation(HoldingPawn->GetMovementBase())))
 			{
-				if ((HoldingPawn->GetActorLocation() - RecentPosition).Size() > 100.f)
+				bool bAlreadyInNoRallyZone = (PastPositions.Num() > 0) && (PastPositions[PastPositions.Num() - 1].bIsInNoRallyZone || PastPositions[PastPositions.Num() - 1].bEnteringNoRallyZone);
+				bool bNowInNoRallyZone = GV && GV->bIsNoRallyZone;
+				bool bJustTransitionedToNoRallyZone = !bAlreadyInNoRallyZone && bNowInNoRallyZone;
+				FVector PendingNewPosition = bJustTransitionedToNoRallyZone ? RecentPosition[0] : HoldingPawn->GetActorLocation();
+				if ((HoldingPawn->GetActorLocation() - RecentPosition[0]).Size() > 100.f)
 				{
-					RecentPosition = HoldingPawn->GetActorLocation();
+					RecentPosition[1] = RecentPosition[0];
+					RecentPosition[0] = HoldingPawn->GetActorLocation();
 				}
-				if ((HoldingPawn->GetActorLocation() - PreviousPos).Size() > MinGradualReturnDist)
+				if ((!bAlreadyPlacedInNoRallyZone || !bNowInNoRallyZone) && ((HoldingPawn->GetActorLocation() - PreviousPos).Size() > (bJustTransitionedToNoRallyZone ? 0.3f*MinGradualReturnDist : MinGradualReturnDist)))
 				{
+					bool bFullyInNoRallyZone = !bJustTransitionedToNoRallyZone && bNowInNoRallyZone;
 					if (PastPositions.Num() > 0)
 					{
 						for (int32 i = 0; i < 3; i++)
 						{
-							PastPositions[PastPositions.Num() - 1].MidPoints[i] = MidPoints[i];
+							PastPositions[PastPositions.Num() - 1].MidPoints[i] = bFullyInNoRallyZone ? FVector::ZeroVector : MidPoints[i];
 						}
 					}
 					FFlagTrailPos NewPosition;
-					NewPosition.Location = HoldingPawn->GetActorLocation();
+					NewPosition.Location = PendingNewPosition;
 					NewPosition.MidPoints[0] = FVector::ZeroVector;
+					NewPosition.bEnteringNoRallyZone = bJustTransitionedToNoRallyZone;
+					NewPosition.bIsInNoRallyZone = bFullyInNoRallyZone;
 					PastPositions.Add(NewPosition);
 					MidPointPos = 0;
 					bAddedReturnSpot = true;

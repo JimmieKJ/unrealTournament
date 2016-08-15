@@ -177,6 +177,14 @@ public:
 	UPROPERTY(EditDefaultsOnly)
 	bool bHasRespawnChoices;
 
+	/** If true, allow announcements for pickup spawn. */
+	UPROPERTY(EditDefaultsOnly, Category=Game)
+		bool bAllowPickupAnnouncements;
+
+	/** If true, allow armor pickup even if player can't use it. */
+	UPROPERTY(EditDefaultsOnly, Category = Game)
+		bool bAllowAllArmorPickups;
+
 	UPROPERTY(AssetRegistrySearchable, EditDefaultsOnly)
 	bool bHideInUI;
 
@@ -404,11 +412,22 @@ public:
 	FString DemoFilename;
 
 	UPROPERTY()
+		bool bDevServer;
+
+	UPROPERTY()
 		float EndOfMatchMessageDelay;
 
 	/** workaround for call chain from engine, SetPlayerDefaults() could be called while pawn is alive to reset its values but we don't want it to do new spawn stuff like spawning inventory unless it's called from RestartPlayer() */
 	UPROPERTY(Transient, BlueprintReadOnly)
 	bool bSetPlayerDefaultsNewSpawn;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category="Game")
+		bool bPlayersStartWithArmor;
+
+	TAssetSubclassOf<class AUTArmor> StartingArmorObject;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Game")
+		TSubclassOf<class AUTArmor> StartingArmorClass;
 
 	/** assign squad to player - note that humans can have a squad for bots to follow their lead
 	 * this method should always result in a valid squad being assigned
@@ -426,9 +445,8 @@ public:
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = Mutator)
 	virtual void AddMutatorClass(TSubclassOf<AUTMutator> MutClass);
 	virtual void InitGameState() override;
-	virtual void PreLogin(const FString& Options, const FString& Address, const TSharedPtr<const FUniqueNetId>& UniqueId, FString& ErrorMessage);
 	virtual APlayerController* Login(class UPlayer* NewPlayer, ENetRole RemoteRole, const FString& Portal, const FString& Options, const TSharedPtr<const FUniqueNetId>& UniqueId, FString& ErrorMessage) override;
-	virtual void Reset();
+	virtual void RemoveAllPawns();
 	virtual void RestartGame();
 	virtual void BeginGame();
 	virtual bool AllowPausing(APlayerController* PC) override;
@@ -482,6 +500,8 @@ public:
 	virtual void PostLogin( APlayerController* NewPlayer );
 	virtual void Logout(AController* Exiting) override;
 	virtual void RestartPlayer(AController* aPlayer);
+	virtual bool PlayerCanRestart_Implementation(APlayerController* Player) override;
+
 	UFUNCTION(BlueprintCallable, Category = UTGame)
 	virtual void SetPlayerDefaults(APawn* PlayerPawn) override;
 	virtual FString InitNewPlayer(class APlayerController* NewPlayerController, const TSharedPtr<const FUniqueNetId>& UniqueId, const FString& Options, const FString& Portal = TEXT("")) override;
@@ -555,12 +575,10 @@ public:
 	/** The standard IsHandlingReplays() codepath is not flexible enough for UT, this is the compromise */
 	virtual bool UTIsHandlingReplays();
 
-	virtual void ToggleSpecialFor(AUTCharacter* C);
-
 protected:
 
 	/** Returns random bot character skill matched to current GameDifficulty. */
-	virtual UUTBotCharacter* ChooseRandomCharacter();
+	virtual UUTBotCharacter* ChooseRandomCharacter(uint8 TeamNum);
 
 	/** Adds a bot to the game */
 	virtual class AUTBot* AddBot(uint8 TeamNum = 255);
@@ -905,6 +923,9 @@ public:
 
 	// Returns true if a player can activate a boost
 	virtual bool CanBoost(AUTPlayerController* Who);
+
+	/** PlayerController wants to trigger boost, return true if he can handle it. Mutator hooks as well. */
+	virtual bool TriggerBoost(AUTPlayerController* Who);
 
 	// Look to see if we can attempt a boost.  It will use up the charge if we can and return true, otherwise it returns false.
 	virtual bool AttemptBoost(AUTPlayerController* Who);

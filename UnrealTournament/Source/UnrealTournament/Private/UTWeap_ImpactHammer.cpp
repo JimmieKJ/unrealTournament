@@ -39,6 +39,10 @@ AUTWeap_ImpactHammer::AUTWeap_ImpactHammer(const FObjectInitializer& ObjectIniti
 	KillStatsName = NAME_ImpactHammerKills;
 	DeathStatsName = NAME_ImpactHammerDeaths;
 	DisplayName = NSLOCTEXT("UTWeap_ImpactHammer", "DisplayName", "Impact Hammer");
+
+	WeaponCustomizationTag = EpicWeaponCustomizationTags::ImpactHammer;
+	WeaponSkinCustomizationTag = EpicWeaponSkinCustomizationTags::ImpactHammer;
+
 }
 
 void AUTWeap_ImpactHammer::DrawWeaponCrosshair_Implementation(UUTHUDWidget* WeaponHudWidget, float RenderDelta)

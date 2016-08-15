@@ -77,6 +77,14 @@ void AUTLift::NotifyHit(class UPrimitiveComponent* MyComp, class AActor* Other, 
 					Proj->Explode(Proj->GetActorLocation(), -HitNormal, MyComp);
 					Proj->ImpactedActor = NULL;
 				}
+				else if (Cast<UUTProjectileMovementComponent>(Proj->ProjectileMovement) != nullptr && Proj->ProjectileMovement->bShouldBounce)
+				{
+					// try to move projectile by amount lift moved so that next attempt won't be blocked and trigger bounce event to change velocity
+					if (Proj->SetActorLocation(Proj->GetActorLocation() + (Hit.TraceEnd - Hit.TraceStart), false) && !Proj->bExploded)
+					{
+						((UUTProjectileMovementComponent*)Proj->ProjectileMovement)->SimulateImpact(FHitResult(Proj, Proj->ProjectileMovement->UpdatedPrimitive, Hit.Location, -Hit.Normal));
+					}
+				}
 				bMoveWasBlocked = true;
 				return;
 			}

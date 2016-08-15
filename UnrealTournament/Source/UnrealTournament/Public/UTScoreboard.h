@@ -73,9 +73,13 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Scoreboard")
 	float CellHeight;
 
-	// How much space in between each column
+	// Width of each cell
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Scoreboard")
-	float CenterBuffer;
+	float CellWidth;
+
+	// width of outside edge
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Scoreboard")
+		float EdgeWidth;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Scoreboard")
 	float ColumnMedalX;
@@ -102,16 +106,7 @@ public:
 
 	virtual void PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCanvas* InCanvas, FVector2D InCanvasCenter);
 
-	UFUNCTION(BlueprintCallable, Category = "Scoreboard")
-	virtual void AdvancePage(int32 Increment);
-	UFUNCTION(BlueprintCallable, Category = "Scoreboard")
-	virtual void SetPage(int32 NewPage);
-
-	FTimerHandle OpenScoringPlaysHandle;
-
-	/** no-params accessor for timers */
-	UFUNCTION()
-		virtual void OpenScoringPlaysPage();
+	virtual bool ShouldDrawScoringStats() { return false; };
 
 	/** Show current 2 pages of scoring stats breakdowns. */
 	virtual void DrawScoringStats(float RenderDelta, float& YOffset);
@@ -124,12 +119,6 @@ public:
 	{
 		return InPS ? InPS->PlayerName : "";
 	};
-
-	UPROPERTY()
-		TArray<FText> StatsPageTitles;
-
-	UPROPERTY()
-		TArray<FText> StatsPageFooters;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Scoreboard")
 		FText GameMessageText;
@@ -180,23 +169,16 @@ public:
 		FText NotReadyText;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Scoreboard")
-		FText ArrowKeysText;
+		FText MinimapToggleText;
+
+	FInputActionKeyMapping MinimapBinding;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Scoreboard")
 		bool bDrawMinimapInScoreboard;
 
 protected:
-	/** number of 'pages' that can be flipped through on the scoreboard */
-	UPROPERTY(BlueprintReadOnly, Category = "Scoreboard")
-	int32 NumPages;
-
-	UFUNCTION(BlueprintNativeEvent, Category = "Scoreboard")
-	void PageChanged();
-
 	UPROPERTY(BlueprintReadOnly, Category = "Scoreboard")
 	int32 ActualPlayerCount;
-
-	virtual AUTPlayerState* GetNextScoringPlayer(int32 dir, int32& PSIndex);
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Scoreboard")
 	UTexture2D* FlagAtlas;
@@ -271,10 +253,6 @@ protected:
 	UPROPERTY()
 	TArray<AUTWeapon *> StatsWeapons;
 
-	/** Index of current top weapon (in kills). */
-	UPROPERTY()
-		int32 BestWeaponIndex;
-
 	/** Draw one line of scoring breakdown. */
 	virtual void DrawStatsLine(FText StatsName, int32 StatValue, int32 ScoreValue, float DeltaTime, float XOffset, float& YPos, const FStatsFontInfo& StatsFontInfo, float ScoreWidth);
 
@@ -283,23 +261,6 @@ protected:
 
 	/** Draw one line of scoring breakdown where values are PlayerStates instead of int32 */
 	virtual void DrawPlayerStatsLine(FText StatsName, AUTPlayerState* FirstPlayer, AUTPlayerState* SecondPlayer, float DeltaTime, float XOffset, float& YPos, const FStatsFontInfo& StatsFontInfo, float ScoreWidth, int32 HighlightIndex);
-
-	virtual void DrawWeaponStatsLine(FText StatsName, int32 StatValue, int32 ScoreValue, int32 Shots, float Accuracy, float DeltaTime, float XOffset, float& YPos, const FStatsFontInfo& StatsFontInfo, float ScoreWidth, bool bIsBestWeapon = false);
-
-	/** Draw individual weapon stats for player. */
-	virtual void DrawWeaponStats(AUTPlayerState* PS, float DeltaTime, float& YPos, float XOffset, float ScoreWidth, float PageBottom, const FStatsFontInfo& StatsFontInfo);
-
-	/** 5coring breakdown for an individual player. */
-	virtual void DrawScoreBreakdown(float DeltaTime, float& YPos, float XOffset, float ScoreWidth, float PageBottom);
-
-	/** Draw gametype specific stat lines for player score breakdown. */
-	virtual void DrawPlayerStats(AUTPlayerState* PS, float DeltaTime, float& YPos, float XOffset, float ScoreWidth, float PageBottom, const FStatsFontInfo& StatsFontInfoL);
-
-	/** Draw reward stat lines for player. */
-	virtual void DrawRewardStats(AUTPlayerState* PS, float DeltaTime, float& YPos, float XOffset, float ScoreWidth, float PageBottom, const FStatsFontInfo& StatsFontInfoL);
-
-	/** Draw movement stat lines for player. */
-	virtual void DrawMovementStats(AUTPlayerState* PS, float DeltaTime, float& YPos, float XOffset, float ScoreWidth, float PageBottom, const FStatsFontInfo& StatsFontInfoL);
 
 	//-------------------------------------
 
@@ -328,6 +289,27 @@ public:
 	virtual void SelectionClick();
 
 	virtual float GetDrawScaleOverride();
+
+	/**
+	 *	Returns a TArray of FScoreboardContextMenuItem that can be used to override the default context menu in the scoreboard.  This array will be empty 
+	 *  when executed, leave it empty for the default scoreboard context menu.  There are some existing context ids:
+	 *
+	 *  0 = Show Player Card
+	 *  1 = Send Friend Request
+	 *  2 = Vote to Kick
+	 *  3 = Admin Kick  * Must have Admin priv.
+	 *  4 = Admin Ban * Must have Admin priv.
+	 *  255 = Toggle Mute Status
+	 **/
+	UFUNCTION(BlueprintNativeEvent, Category = "Scoreboard")
+	void GetContextMenuItems(TArray<FScoreboardContextMenuItem>& MenuItems);
+
+	/**
+	 *	Allows blueprints to handle a context command.  Should return TRUE if blueprint handles the command.
+	 **/
+	UFUNCTION(BlueprintNativeEvent, Category = "Scoreboard")
+	bool HandleContextCommand(uint8 ContextId, AUTPlayerState* SelectedPlayer);
+
 
 };
 

@@ -41,6 +41,11 @@ struct FFlagTrailPos
 	UPROPERTY()
 		FVector MidPoints[3];
 
+	UPROPERTY()
+		bool bIsInNoRallyZone;
+
+	UPROPERTY()
+		bool bEnteringNoRallyZone;
 
 	FFlagTrailPos()
 		: Location(ForceInit)
@@ -49,6 +54,8 @@ struct FFlagTrailPos
 		{
 			MidPoints[i] = FVector(0.f);
 		}
+		bIsInNoRallyZone = false;
+		bEnteringNoRallyZone = false;
 	}
 };
 
@@ -101,7 +108,11 @@ class UNREALTOURNAMENT_API AUTCarriedObject : public AActor, public IUTTeamInter
 	UPROPERTY(BlueprintReadWrite, Category = GameObject)
 	float LastPingedTime;
 
-	// Last time there was a voice notification of enemy flag carrier
+	// last player to ping this object
+	UPROPERTY(BlueprintReadWrite, Category = GameObject)
+		AUTPlayerState* LastPinger;
+
+		// Last time there was a voice notification of enemy flag carrier
 	UPROPERTY(BlueprintReadWrite, Category = GameObject)
 		float LastPingVerbalTime;
 
@@ -120,6 +131,12 @@ class UNREALTOURNAMENT_API AUTCarriedObject : public AActor, public IUTTeamInter
 
 	UPROPERTY(EditDefaultsOnly, Category = GameObject)
 		TSubclassOf<class AUTGhostFlag> GhostFlagClass;
+
+	UPROPERTY(BlueprintReadOnly, Category = GameObject)
+		bool bWasInEnemyBase;
+	
+	UPROPERTY(BlueprintReadOnly, Category = GameObject)
+		float EnteredEnemyBaseTime;
 
 	virtual bool SetDetectingCamera(class UUTSecurityCameraComponent* NewDetectingCamera);
 
@@ -332,7 +349,7 @@ public:
 		TArray<FFlagTrailPos> PastPositions;
 
 	UPROPERTY()
-		FVector RecentPosition;
+		FVector RecentPosition[2];
 
 	UPROPERTY()
 		FVector MidPoints[3];

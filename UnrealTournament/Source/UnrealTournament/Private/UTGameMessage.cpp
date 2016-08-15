@@ -24,7 +24,7 @@ UUTGameMessage::UUTGameMessage(const class FObjectInitializer& ObjectInitializer
 	KickVote = NSLOCTEXT("UTGameMessage", "KickVote", "{Player1Name} voted to kick {Player2Name}");
 	NotEnoughMoney = NSLOCTEXT("UTGameMessage", "NotEnoughMoney", "{Player1Name}, you lack the funds to buy it.");
 	PotentialSpeedHack = NSLOCTEXT("UTGameMessage", "Speedhack", "Server or network hitching.");
-
+	OnDeck = NSLOCTEXT("UTGameMessage", "On Deck", "You are on deck.");
 	bIsStatusAnnouncement = true;
 }
 
@@ -109,6 +109,8 @@ FText UUTGameMessage::GetText(int32 Switch = 0, bool bTargetsPlayerState1 = fals
 			return GetDefault<UUTGameMessage>(GetClass())->NotEnoughMoney;
 		case 15:
 			return GetDefault<UUTGameMessage>(GetClass())->PotentialSpeedHack;
+		case 16:
+			return GetDefault<UUTGameMessage>(GetClass())->OnDeck;
 		default:
 			return FText::GetEmpty();
 	}
@@ -121,6 +123,7 @@ FName UUTGameMessage::GetAnnouncementName_Implementation(int32 Switch, const UOb
 		case 1: return TEXT("Overtime"); break;
 		case 9: return TEXT("YouAreOnRedTeam"); break;
 		case 10: return TEXT("YouAreOnBlueTeam"); break;
+		case 16: return TEXT("SUV_OnDeck"); break;
 	}
 	return NAME_None;
 }

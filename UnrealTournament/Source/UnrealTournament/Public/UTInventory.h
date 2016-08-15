@@ -113,9 +113,16 @@ public:
 	/** sound played when owner takes damage (armor hit sound, for example) */
 	UPROPERTY(EditDefaultsOnly, Category = Damage)
 	USoundBase* ReceivedDamageSound;
+	/** sound played when owner damage is fully shielded */
+	UPROPERTY(EditDefaultsOnly, Category = Damage)
+		USoundBase* ShieldDamageSound;
 	/** class used when this item is dropped by its holder */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Pickup)
 	TSubclassOf<class AUTDroppedPickup> DroppedPickupClass;
+
+	/** Allows inventory class to handle being given to character without spawning an instance. */
+	UFUNCTION(BlueprintNativeEvent)
+	bool HandleGivenTo(AUTCharacter* Character);
 
 	/** called by pickups when another inventory of same class will be given, allowing the item to simply stack instance values
 	 * instead of spawning a new item
@@ -135,7 +142,7 @@ public:
 	// NOTE: return value is a workaround for blueprint bugs involving ref parameters and is not used
 	UFUNCTION(BlueprintNativeEvent)
 	bool ModifyDamageTaken(UPARAM(ref) int32& Damage, UPARAM(ref) FVector& Momentum, UPARAM(ref) AUTInventory*& HitArmor, AController* InstigatedBy, const FHitResult& HitInfo, AActor* DamageCauser, TSubclassOf<UDamageType> DamageType); // TODO: UHT doesn't handle TSubclassOf<AUTInventory>&
-	/** when a character takes damage that is reduced by inventory, the inventory item is included in the hit info and this function is called for all clients on the inventory DEFAULT OBJECT
+																																																											/** when a character takes damage that is reduced by inventory, the inventory item is included in the hit info and this function is called for all clients on the inventory DEFAULT OBJECT
 	 * used to play shield/armor effects
 	 * @return whether an effect was played
 	 */
@@ -205,6 +212,20 @@ public:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = HUD)
 	FCanvasIcon MinimapIcon;
 
+	/** Optional announcement when the pickup respawns. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Effects)
+		TSubclassOf<class UUTLocalMessage> PickupSpawnAnnouncement;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Effects)
+		int32 PickupAnnouncementIndex;
+
+	/** Character message when pickup is picked up, or it first spawns. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Effects)
+		FName PickupAnnouncementName;
+
+	/** Whether dropping player should announce it. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = HUD)
+		bool bShouldAnnounceDrops;
+
 	/** Whether to show timer for this on spectator slide out HUD. */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = HUD)
 	bool bShowPowerupTimer;
@@ -216,6 +237,16 @@ public:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Powerup)
 	int RemainingBoostsGivenOverride;
 	
+	//whether to display a centered message when this powerup is used
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Powerup)
+	bool bNotifyTeamOnPowerupUse;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Powerup)
+	FText NotifyMessage;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Powerup)
+	USoundBase* NotifySound;
+
 	/** How important is this inventory item when rendering a group of them */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = HUD)
 	float HUDRenderPriority;
@@ -259,6 +290,8 @@ public:
 	/**The stat for how many times this was pickup up*/
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Powerup)
 	FName StatsNameCount;
+
+	virtual bool AllowPickupBy(AUTCharacter* Other) const;
 };
 
 // template to access a character's inventory

@@ -112,7 +112,7 @@ void SUTLobbyInfoPanel::BuildChatAndPlayerList()
 
 		if (TextChatPanel.IsValid())
 		{
-			TextChatPanel->AddDestination(NSLOCTEXT("LobbyChatDestinations","Everyone","Everyone"), ChatDestinations::Local,0.0,true);
+			TextChatPanel->AddDestination(NSLOCTEXT("LobbyChatDestinations","Global","HUB"), ChatDestinations::Local,0.0,true);
 			TextChatPanel->RouteBufferedChat();
 		}
 	}
@@ -249,6 +249,7 @@ void SUTLobbyInfoPanel::Tick( const FGeometry& AllottedGeometry, const double In
 			ShowMatchBrowser();
 		}
 	}
+	
 }
 
 
@@ -320,13 +321,6 @@ void SUTLobbyInfoPanel::ChatDestionationChanged(FName NewDestination)
 void SUTLobbyInfoPanel::RulesetChanged()
 {
 	AUTLobbyPlayerState* LobbyPlayerState = Cast<AUTLobbyPlayerState>(GetOwnerPlayerState());
-	if (LobbyPlayerState && LobbyPlayerState->CurrentMatch && LobbyPlayerState->CurrentMatch->CurrentRuleset.IsValid() && LobbyPlayerState->CurrentMatch->CurrentRuleset->bTeamGame)
-	{
-		TextChatPanel->AddDestination(NSLOCTEXT("LobbyChatDestinations","Team","Team"), ChatDestinations::Team, 4.0, false);
-		return;
-	}
-	
-	TextChatPanel->RemoveDestination(ChatDestinations::Team);
 	PlayerListPanel->ForceRefresh();
 }
 

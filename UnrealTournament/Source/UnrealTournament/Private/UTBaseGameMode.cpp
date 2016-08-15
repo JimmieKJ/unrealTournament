@@ -129,6 +129,7 @@ void AUTBaseGameMode::InitGameState()
 	AUTGameState* GS = Cast<AUTGameState>(GameState);
 	if (GS && !ServerNameOverride.IsEmpty())
 	{
+		GS->ServerInstanceGUID = ServerInstanceGUID;
 		GS->ServerName = ServerNameOverride;
 	}
 }
@@ -451,9 +452,11 @@ void AUTBaseGameMode::RconAuth(AUTBasePlayerController* Admin, const FString& Pa
 {
 	if (Admin)
 	{
-		if (Admin->UTPlayerState && !Admin->UTPlayerState->bIsRconAdmin && !GetDefault<UUTGameEngine>()->RconPassword.IsEmpty())
+		if (Admin->UTPlayerState && !Admin->UTPlayerState->bIsRconAdmin)
 		{
-			if (GetDefault<UUTGameEngine>()->RconPassword.Equals(Password, ESearchCase::CaseSensitive))
+			UUTGameEngine* UTEngine = Cast<UUTGameEngine>(GEngine);
+			if ( (UTEngine && !UTEngine->RconPassword.IsEmpty() && UTEngine->RconPassword.Equals(Password, ESearchCase::CaseSensitive)) ||
+				 (!GetDefault<UUTGameEngine>()->RconPassword.IsEmpty() && GetDefault<UUTGameEngine>()->RconPassword.Equals(Password, ESearchCase::CaseSensitive)) )
 			{
 				Admin->ClientSay(Admin->UTPlayerState, TEXT("Rcon authenticated!"), ChatDestinations::System);
 				Admin->UTPlayerState->bIsRconAdmin = true;

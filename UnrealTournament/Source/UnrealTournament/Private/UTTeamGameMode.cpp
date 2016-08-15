@@ -16,6 +16,7 @@
 #include "SNumericEntryBox.h"
 #include "StatNames.h"
 #include "UTGameSessionRanked.h"
+#include "UTBotCharacter.h"
 
 UUTTeamInterface::UUTTeamInterface(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -471,6 +472,80 @@ void AUTTeamGameMode::HandlePlayerIntro()
 	}
 
 	Super::HandlePlayerIntro();
+}
+
+UUTBotCharacter* AUTTeamGameMode::ChooseRandomCharacter(uint8 TeamNum)
+{
+	if (!Teams.IsValidIndex(TeamNum) || Teams.Num() < 2 || Teams[TeamNum] == nullptr || EligibleBots.Num() == 0)
+	{
+		return Super::ChooseRandomCharacter(TeamNum);
+	}
+	else
+	{
+		TArray<float> TeamAvgSkill;
+		TeamAvgSkill.AddZeroed(Teams.Num());
+		for (int32 i = 0; i < Teams.Num(); i++)
+		{
+			if (Teams[i] != nullptr)
+			{
+				int32 BotsOnTeam = 0;
+				float Avg = 0.0f;
+				for (AController* Member : Teams[i]->GetTeamMembers())
+				{
+					AUTBot* B = Cast<AUTBot>(Member);
+					if (B != nullptr)
+					{
+						BotsOnTeam++;
+						Avg += B->Skill;
+					}
+				}
+				if (BotsOnTeam > 0)
+				{
+					Avg /= BotsOnTeam;
+				}
+			}
+		}
+
+		int32 ClosestTeam = INDEX_NONE;
+		float ClosestSkillDiff = FLT_MAX;
+		for (int32 i = 0; i < Teams.Num(); i++)
+		{
+			if (FMath::Abs<float>(TeamAvgSkill[i] - TeamAvgSkill[TeamNum]) < ClosestSkillDiff)
+			{
+				ClosestTeam = i;
+				ClosestSkillDiff = TeamAvgSkill[i] - TeamAvgSkill[TeamNum];
+			}
+		}
+
+		int32 BestMatch = 0;
+		for (int32 i = 0; i < EligibleBots.Num(); i++)
+		{
+			if (EligibleBots[i]->Skill >= GameDifficulty)
+			{
+				BestMatch = i;
+				break;
+			}
+		}
+		int32 Index = FMath::Clamp(BestMatch + FMath::RandHelper(5) - 2, 0, EligibleBots.Num() - 1);
+		// shift to bot with different skill to balance this team's average against the other teams
+		if (ClosestSkillDiff < 0.0f)
+		{
+			while (Index > 0 && EligibleBots[Index]->Skill > TeamAvgSkill[TeamNum])
+			{
+				Index--;
+			}
+		}
+		else
+		{
+			while (Index < EligibleBots.Num() - 1 && EligibleBots[Index]->Skill < TeamAvgSkill[TeamNum])
+			{
+				Index++;
+			}
+		}
+		UUTBotCharacter* ChosenCharacter = EligibleBots[Index];
+		EligibleBots.RemoveAt(Index);
+		return ChosenCharacter;
+	}
 }
 
 void AUTTeamGameMode::CheckBotCount()

@@ -125,7 +125,7 @@ void AUTTimedPowerup::Tick(float DeltaTime)
 	{
 		float TickMultiplier = (GetUTOwner() != NULL) ? 1.f : DroppedTickRate;
 		TimeRemaining -= (DeltaTime * TickMultiplier);
-		if (TimeRemaining <= 0.0f)
+		if ((TimeRemaining <= 0.0f) || (TimeRemaining <= 2.0f && GetUTOwner() == NULL))
 		{
 			TimeExpired();
 		}

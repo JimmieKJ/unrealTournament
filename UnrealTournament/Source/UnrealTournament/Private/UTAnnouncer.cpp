@@ -23,6 +23,7 @@ void UUTAnnouncer::PostInitProperties()
 
 	if (!IsTemplate())
 	{
+		UE_LOG(UT, Warning, TEXT("%s PostInitProperties"), *GetName());
 		AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
 		if (GS != NULL)
 		{
@@ -39,6 +40,14 @@ void UUTAnnouncer::PlayAnnouncement(TSubclassOf<UUTLocalMessage> MessageClass, i
 {
 	if (MessageClass != NULL)
 	{
+		if (!MessageClass.GetDefaultObject()->bPlayDuringIntermission)
+		{
+			AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
+			if (GS && (!GS->IsMatchInProgress() || GS->IsMatchIntermission()))
+			{
+				return;
+			}
+		}
 		FName SoundName = MessageClass.GetDefaultObject()->GetAnnouncementName(Switch, OptionalObject, PlayerState1, PlayerState2);
 		if (SoundName != NAME_None)
 		{
@@ -134,6 +143,22 @@ void UUTAnnouncer::PlayNextAnnouncement()
 		}
 
 		FAnnouncementInfo Next = QueuedAnnouncements[0];
+		if (!Next.MessageClass.GetDefaultObject()->bPlayDuringIntermission)
+		{
+			AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
+			if (GS && (!GS->IsMatchInProgress() || GS->IsMatchIntermission()))
+			{
+				QueuedAnnouncements.RemoveAt(0);
+				if (QueuedAnnouncements.Num() > 0)
+				{
+					Next = QueuedAnnouncements[0];
+				}
+				else
+				{
+					return;
+				}
+			}
+		}
 		QueuedAnnouncements.RemoveAt(0);
 
 		FName SoundName = Next.MessageClass.GetDefaultObject()->GetAnnouncementName(Next.Switch, Next.OptionalObject, Next.RelatedPlayerState_1, Next.RelatedPlayerState_2);
@@ -144,6 +169,10 @@ void UUTAnnouncer::PlayNextAnnouncement()
 		}
 		else if (SoundName != NAME_None)
 		{
+			if ((StatusCachedAudio.Num() == 0) && (RewardCachedAudio.Num() == 0))
+			{
+				UE_LOG(UT, Warning, TEXT("Play announcement %s with no cached audio"), *SoundName.ToString());
+			}
 			USoundBase** CachePtr = Next.MessageClass.GetDefaultObject()->bIsStatusAnnouncement ? StatusCachedAudio.Find(SoundName) : RewardCachedAudio.Find(SoundName);
 			// note that we store a NULL in the map for sounds known to not exist
 			if (CachePtr == NULL || (*CachePtr) != NULL)

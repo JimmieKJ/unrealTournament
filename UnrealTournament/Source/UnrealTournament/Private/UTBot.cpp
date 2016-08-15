@@ -1943,6 +1943,14 @@ void AUTBot::NotifyMoveBlocked(const FHitResult& Impact)
 	}
 }
 
+void AUTBot::NotifyHitLedge()
+{
+	if (CurrentAction == NULL || !CurrentAction->NotifyHitLedge())
+	{
+		// TODO: consider jump off in some cases?
+	}
+}
+
 void AUTBot::PostMovementUpdate(float DeltaTime, FVector OldLocation, FVector OldVelocity)
 {
 	if (!PendingWallDodgeDir.IsZero())
@@ -3061,7 +3069,8 @@ void AUTBot::DoHunt(APawn* NewHuntTarget)
 	}
 	if (NewHuntTarget == NULL || !FBotEnemyInfo::StaticIsValid(NewHuntTarget) || GetEnemyInfo(NewHuntTarget, false) == NULL)
 	{
-		UE_LOG(UT, Warning, TEXT("Bot %s in DoHunt() with no or invalid enemy %s"), *PlayerState->PlayerName, *GetNameSafe(NewHuntTarget));
+		AUTCharacter* UTC = Cast<AUTCharacter>(NewHuntTarget);
+		UE_LOG(UT, Warning, TEXT("Bot %s in DoHunt() with no or invalid enemy %s (flag %s)"), *PlayerState->PlayerName, (NewHuntTarget->PlayerState != NULL) ? *NewHuntTarget->PlayerState->PlayerName : *GetNameSafe(NewHuntTarget), *GetNameSafe((UTC != NULL) ? UTC->GetCarriedObject() : NULL));
 		GoalString = TEXT("BUG - HUNT WITH BAD TARGET - Force CampAction");
 		StartNewAction(CampAction);
 	}

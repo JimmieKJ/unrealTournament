@@ -130,6 +130,9 @@ class UNREALTOURNAMENT_API AUTPickup : public AActor, public IUTResetInterface, 
 	UFUNCTION(BlueprintNativeEvent)
 	void ProcessTouch(APawn* TouchedBy);
 
+	UFUNCTION(BlueprintNativeEvent)
+		bool FlashOnMinimap();
+
 	UFUNCTION(BlueprintNativeEvent, BlueprintAuthorityOnly)
 	void GiveTo(APawn* Target);
 
@@ -224,7 +227,12 @@ protected:
 	/** used to replicate remaining respawn time to newly joining clients */
 	UPROPERTY(Replicated, ReplicatedUsing = OnRep_RespawnTimeRemaining)
 	float RespawnTimeRemaining;
+	/** used to replicate effects of a call to Reset() (flag is flipped to trigger the repnotify, value is meaningless) */
+	UPROPERTY(ReplicatedUsing = OnRep_Reset)
+	bool bReplicateReset;
 
 	UFUNCTION()
 	virtual void OnRep_RespawnTimeRemaining();
+	UFUNCTION()
+	virtual void OnRep_Reset();
 };

@@ -35,7 +35,7 @@ void UUTAudioSettings::SetSoundClassVolumeByName(const FString& SoundClassName, 
 			for (TMap<USoundClass*, FSoundClassProperties>::TIterator It(AudioDevice->SoundClasses); It; ++It)
 			{
 				USoundClass* ThisSoundClass = It.Key();
-				if (ThisSoundClass != NULL && ThisSoundClass->GetFullName().Find(SoundClassName) != INDEX_NONE)
+				if (ThisSoundClass != NULL && (ThisSoundClass->GetName() == SoundClassName))
 				{
 					// the audiodevice function logspams for some reason
 					//AudioDevice->SetClassVolume(ThisSoundClass, NewVolume);

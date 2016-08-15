@@ -13,6 +13,11 @@ AUTProj_LinkPlasma::AUTProj_LinkPlasma(const class FObjectInitializer& ObjectIni
 	MaxSpeedPerLink = 700.f;
 	ExtraScalePerLink = 0.25f;
 	bLowPriorityLight = true;
+	OverlapSphereGrowthRate = 40.0f;
+	MaxOverlapSphereSize = 10.0f;
+
+	PrimaryActorTick.bCanEverTick = true;
+	PrimaryActorTick.bStartWithTickEnabled = true;
 }
 
 void AUTProj_LinkPlasma::SetLinks(int32 NewLinks)
@@ -30,7 +35,17 @@ void AUTProj_LinkPlasma::LinksUpdated_Implementation()
 	{
 		ProjectileMovement->Velocity = ProjectileMovement->Velocity.GetSafeNormal() * ProjectileMovement->InitialSpeed;
 	}
-	RootComponent->SetWorldScale3D(GetClass()->GetDefaultObject<AUTProj_LinkPlasma>()->RootComponent->RelativeScale3D * (1.0f + ExtraScalePerLink));
+	RootComponent->SetWorldScale3D(GetClass()->GetDefaultObject<AUTProj_LinkPlasma>()->RootComponent->RelativeScale3D * (1.0f + (ExtraScalePerLink * Links)));
+}
+
+void AUTProj_LinkPlasma::Tick(float DeltaTime)
+{
+	Super::Tick(DeltaTime);
+
+	if (PawnOverlapSphere != nullptr && PawnOverlapSphere->GetUnscaledSphereRadius() < MaxOverlapSphereSize)
+	{
+		PawnOverlapSphere->SetSphereRadius(FMath::Min<float>(MaxOverlapSphereSize, PawnOverlapSphere->GetUnscaledSphereRadius() + OverlapSphereGrowthRate * DeltaTime));
+	}
 }
 
 void AUTProj_LinkPlasma::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& OutLifetimeProps) const

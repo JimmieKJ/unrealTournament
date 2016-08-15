@@ -13,9 +13,11 @@
 #include "UTReachSpec_HighJump.h"
 #include "UTTeleporter.h"
 #include "UTWaterVolume.h"
+#include "UTJumpPad.h"
 #include "UTNavMeshRenderingComponent.h"
 #include "MessageLog.h"
 #include "UObjectToken.h"
+#include "UTMatineeActor.h"
 #if WITH_EDITOR
 #include "EditorBuildUtils.h"
 #endif
@@ -635,6 +637,29 @@ void AUTRecastNavMesh::BuildNodeNetwork()
 	} QueryMark(this);
 
 	DeletePaths();
+
+	// move matinees with a path building position
+	struct FMatineeGuard
+	{
+		AUTMatineeActor* Actor;
+		float SavedPosition;
+		FMatineeGuard(AUTMatineeActor* InActor)
+			: Actor(InActor), SavedPosition(InActor->InterpPosition)
+		{}
+		~FMatineeGuard()
+		{
+			Actor->SetPosition(SavedPosition);
+		}
+	};
+	TArray<FMatineeGuard> AdjustedMatinees;
+	for (TActorIterator<AUTMatineeActor> It(GetWorld()); It; ++It)
+	{
+		if (It->PathBuildingPosition > 0.0f)
+		{
+			new(AdjustedMatinees) FMatineeGuard(*It);
+			It->SetPosition(It->PathBuildingPosition);
+		}
+	}
 
 	const dtNavMesh* InternalMesh = GetRecastNavMeshImpl()->GetRecastMesh();
 	dtNavMeshQuery& InternalQuery = GetRecastNavMeshImpl()->SharedNavQuery;
@@ -2034,7 +2059,21 @@ bool AUTRecastNavMesh::FindBestPath(APawn* Asker, const FNavAgentProperties& Age
 		StartPoly = FindNearestPoly(StartLoc, FVector(AgentProps.AgentRadius * 2.0f, AgentProps.AgentRadius * 2.0f, AgentProps.AgentHeight * 0.5f));
 		if (StartPoly == INVALID_NAVNODEREF)
 		{
-			// TODO: radial search and do simple traces to try to find valid loc
+			// radial search and do simple traces to try to find valid loc
+			FBox SearchBox(StartLoc - FVector(1000.0f, 1000.0f, AgentProps.AgentHeight), StartLoc + FVector(1000.0f, 1000.0f, AgentProps.AgentHeight));
+			TArray<FNavPoly> FoundPolys;
+			GetPolysInBox(SearchBox, FoundPolys);
+			FoundPolys.Sort([StartLoc](const FNavPoly& A, const FNavPoly& B) { return (A.Center - StartLoc).SizeSquared() < (B.Center - StartLoc).SizeSquared(); });
+			const FVector StartTrace(StartLoc.X, StartLoc.Y, StartLoc.Z + AgentProps.AgentHeight * 0.5f);
+			for (const FNavPoly& TestPoly : FoundPolys)
+			{
+				// TODO: should do more complex test than this, but want to avoid getting caught up on slopes
+				if (!GetWorld()->LineTraceTestByChannel(StartTrace, TestPoly.Center + FVector(0.0f, 0.0f, AgentProps.AgentHeight), ECC_Pawn, FCollisionQueryParams(NAME_None, false), WorldResponseParams))
+				{
+					StartPoly = TestPoly.Ref;
+					break;
+				}
+			}
 		}
 	}
 	UUTPathNode* StartNode = PolyToNode.FindRef(StartPoly);
@@ -2479,10 +2518,12 @@ bool AUTRecastNavMesh::HasReachedTarget(APawn* Asker, const FNavAgentProperties&
 
 			AUTPickup* Pickup = NULL;
 			AUTTeleporter* Teleporter = NULL;
+			AUTJumpPad* JumpPad = NULL;
 			if (Target.Actor.IsValid())
 			{
 				Pickup = Cast<AUTPickup>(Target.Actor.Get());
 				Teleporter = Cast<AUTTeleporter>(Target.Actor.Get());
+				JumpPad = Cast<AUTJumpPad>(Target.Actor.Get());
 			}
 			if (Pickup != NULL && Pickup->State.bActive)
 			{
@@ -2500,6 +2541,11 @@ bool AUTRecastNavMesh::HasReachedTarget(APawn* Asker, const FNavAgentProperties&
 			{
 				Teleporter->OnOverlapBegin(Asker);
 				return true;
+			}
+			else if (JumpPad != NULL && JumpPad->IsEnabled())
+			{
+				// jump pad trigger will pop the route itself
+				return false;
 			}
 			else if (Target.IsDirectTarget() || !Target.Node.IsValid())
 			{

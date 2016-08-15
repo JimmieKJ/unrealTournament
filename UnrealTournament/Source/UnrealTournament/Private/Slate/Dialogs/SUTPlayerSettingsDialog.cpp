@@ -954,17 +954,28 @@ void SUTPlayerSettingsDialog::PlayerColorChanged(FLinearColor NewValue)
 
 FReply SUTPlayerSettingsDialog::OKClick()
 {
+	UUTProfileSettings* ProfileSettings = GetPlayerOwner()->GetProfileSettings();
+
 	GetPlayerOwner()->SetNickname(PlayerName->GetText().ToString());
 
 	if (SelectedFlag.IsValid())
 	{
 		GetPlayerOwner()->SetCountryFlag(SelectedFlag->GetFName(), false);
+		if (ProfileSettings) ProfileSettings->CountryFlag = SelectedFlag->GetFName();
 	}
 
 	GetPlayerOwner()->SetAvatar(SelectedAvatar);
+	if (ProfileSettings) ProfileSettings->Avatar = SelectedAvatar;
 
 	// FOV
 	float NewFOV = FMath::TruncToFloat(FOV->GetValue() * (FOV_CONFIG_MAX - FOV_CONFIG_MIN) + FOV_CONFIG_MIN);
+
+	if (ProfileSettings)
+	{
+		ProfileSettings->WeaponBob = WeaponBobScaling->GetValue() * BOB_SCALING_FACTOR;
+		ProfileSettings->ViewBob = ViewBobScaling->GetValue() * BOB_SCALING_FACTOR;
+		ProfileSettings->FFAPlayerColor = SelectedPlayerColor;
+	}
 
 	// If we have a valid PC then tell the PC to set it's name
 	AUTPlayerController* UTPlayerController = Cast<AUTPlayerController>(GetPlayerOwner()->PlayerController);
@@ -988,8 +999,6 @@ FReply SUTPlayerSettingsDialog::OKClick()
 		AUTPlayerController::StaticClass()->GetDefaultObject<AUTPlayerController>()->ConfigDefaultFOV = NewFOV;
 		AUTPlayerController::StaticClass()->GetDefaultObject<AUTPlayerController>()->SaveConfig();
 	}
-
-	UUTProfileSettings* ProfileSettings = GetPlayerOwner()->GetProfileSettings();
 
 	int32 Index = HatList.Find(HatComboBox->GetSelectedItem());
 	GetPlayerOwner()->SetHatPath(HatPathList.IsValidIndex(Index) ? HatPathList[Index] : FString());

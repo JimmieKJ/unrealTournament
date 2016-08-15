@@ -31,8 +31,9 @@ public:
 		return FLinearColor::White;
 	}
 
-	virtual FText GetSpectatorMessageText(bool &bShortMessage) override
+	virtual FText GetSpectatorMessageText(FText& ShortMessage) override
 	{
+		ShortMessage = FText::GetEmpty();
 		AUTShowdownGameState* GS = Cast<AUTShowdownGameState>(UTGameState);
 		if (GS != NULL && GS->GetMatchState() == MatchState::MatchIntermission)
 		{
@@ -51,7 +52,7 @@ public:
 		}
 		else
 		{
-			return Super::GetSpectatorMessageText(bShortMessage);
+			return Super::GetSpectatorMessageText(ShortMessage);
 		}
 		return FText::GetEmpty();
 	}

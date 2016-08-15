@@ -24,19 +24,19 @@ AUTCTFFlagBase::AUTCTFFlagBase(const FObjectInitializer& ObjectInitializer)
 	Capsule->AttachParent = RootComponent;
 
 	RoundLivesAdjustment = 0;
-	bShowDefenseEffect = false;
+	ShowDefenseEffect = 0;
 }
 
 void AUTCTFFlagBase::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & OutLifetimeProps) const
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 	DOREPLIFETIME(AUTCTFFlagBase, MyFlag);
-	DOREPLIFETIME(AUTCTFFlagBase, bShowDefenseEffect);
+	DOREPLIFETIME(AUTCTFFlagBase, ShowDefenseEffect);
 }
 
 void AUTCTFFlagBase::ClearDefenseEffect()
 {
-	bShowDefenseEffect = false;
+	ShowDefenseEffect = 0;
 	if (DefensePSC)
 	{
 		DefensePSC->ActivateSystem(false);
@@ -53,12 +53,12 @@ void AUTCTFFlagBase::SpawnDefenseEffect()
 		UParticleSystem* DesiredEffect = (TeamNum == 0) ? RedDefenseEffect : BlueDefenseEffect;
 		DefensePSC = UGameplayStatics::SpawnEmitterAtLocation(this, DesiredEffect, GetActorLocation() + FVector(0.f, 0.f, 80.f), GetActorRotation());
 	}
-	bShowDefenseEffect = true;
+	ShowDefenseEffect = TeamNum+1;
 }
 
 void AUTCTFFlagBase::OnDefenseEffectChanged()
 {
-	if (bShowDefenseEffect)
+	if (ShowDefenseEffect > 0)
 	{
 		SpawnDefenseEffect();
 	}
@@ -74,7 +74,7 @@ void AUTCTFFlagBase::OnOverlapBegin(AActor* OtherActor, UPrimitiveComponent* Oth
 	if (Character != NULL && Role == ROLE_Authority)
 	{
 		AUTCTFFlag* CharFlag = Cast<AUTCTFFlag>(Character->GetCarriedObject());
-		if ( CharFlag != NULL && CharFlag != CarriedObject && CarriedObject != NULL && CarriedObject->ObjectState == CarriedObjectState::Home && CharFlag->GetTeamNum() != GetTeamNum() &&
+		if ( CharFlag != NULL && CharFlag != CarriedObject && (CarriedObject == NULL || CarriedObject->ObjectState == CarriedObjectState::Home) && CharFlag->GetTeamNum() != GetTeamNum() &&
 			!GetWorld()->LineTraceTestByChannel(OtherActor->GetActorLocation(), Capsule->GetComponentLocation(), ECC_Pawn, FCollisionQueryParams(), WorldResponseParams) )
 		{
 			AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
@@ -108,7 +108,7 @@ FName AUTCTFFlagBase::GetFlagState()
 		return MyFlag->ObjectState;
 	}
 
-	return NAME_None;
+	return CarriedObjectState::Home;
 }
 
 void AUTCTFFlagBase::RecallFlag()
@@ -149,6 +149,13 @@ void AUTCTFFlagBase::ObjectWasPickedUp(AUTCharacter* NewHolder, bool bWasHome)
 			}
 		}
 	}
+
+	OnObjectWasPickedUp();
+}
+
+void AUTCTFFlagBase::OnObjectWasPickedUp_Implementation()
+{
+
 }
 
 void AUTCTFFlagBase::ObjectReturnedHome(AUTCharacter* Returner)

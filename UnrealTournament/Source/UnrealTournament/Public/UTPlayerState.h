@@ -194,6 +194,10 @@ public:
 	UPROPERTY()
 		float LastTauntTime;
 
+	/** Last time this player sent a need health message. */
+	UPROPERTY()
+		float LastNeedHealthTime;
+
 	FTimerHandle PlayKillAnnouncement;
 	FTimerHandle UpdateOldNameHandle;
 
@@ -209,7 +213,7 @@ public:
 
 	virtual void AnnounceReactionTo(const AUTPlayerState* ReactionPS) const;
 
-	virtual void AnnounceStatus(FName NewStatus);
+	virtual void AnnounceStatus(FName NewStatus, int32 Switch=0, bool bSkipSelf=false);
 
 	virtual bool IsOwnedByReplayController() const;
 
@@ -288,6 +292,9 @@ public:
 	UPROPERTY(BlueprintReadOnly, Category = PlayerController)
 		float NextRallyTime;
 
+	UPROPERTY(BlueprintReadOnly, Replicated, Category = PlayerController)
+		uint8 RemainingRallyDelay;
+
 	UPROPERTY(BlueprintReadOnly, Category = PlayerState, replicated)
 	bool bIsRconAdmin;
 
@@ -338,9 +345,10 @@ protected:
 	FXPBreakdown XP;
 public:
 	/** Currently awarded challenge stars. */
-	UPROPERTY(replicated)
+	UPROPERTY(replicated, BlueprintReadOnly, Category = "Game")
 	int32 TotalChallengeStars;
 
+	UFUNCTION(BlueprintCallable, Category = "Game")
 	inline int32 GetPrevXP() const
 	{
 		return PrevXP;
@@ -349,12 +357,16 @@ public:
 	{
 		return XP;
 	}
+
+	UFUNCTION(BlueprintCallable, Category = "Game")
 	inline bool CanAwardOnlineXP() const
 	{
 		return PrevXP >= 0 && UniqueId.IsValid() && !StatsID.IsEmpty(); // PrevXP == -1 before a successful read, should always be >= 0 after even if there was no value
 	}
 
 	void GiveXP(const FXPBreakdown& AddXP);
+
+	UFUNCTION(BlueprintCallable, Category = "Game")
 	void ClampXP(int32 MaxValue);
 	void ApplyBotXPPenalty(float GameDifficulty)
 	{
@@ -479,7 +491,7 @@ public:
 	virtual void ServerReceiveWeaponSkin(const FString& NewWeaponSkin);
 	
 	UFUNCTION()
-	virtual void UpdateWeaponSkinPrefFromProfile(TSubclassOf<AUTWeapon> Weapon);
+	virtual void UpdateWeaponSkinPrefFromProfile(AUTWeapon* Weapon);
 
 	UPROPERTY(replicatedUsing = OnRepHat)
 	TSubclassOf<AUTHat> HatClass;
@@ -595,6 +607,10 @@ public:
 
 	UPROPERTY(BlueprintReadWrite, Category = PlayerState)
 		bool bIsPowerupSelectWindowOpen;
+
+	/** Last scoreboard position, used by minimap. */
+	UPROPERTY()
+		FVector ScoreCorner;
 
 private:
 	UPROPERTY()
@@ -845,6 +861,7 @@ public:
 	virtual void UnregisterPlayerWithSession() override;
 
 	// Calculated client-side by the local player when 
+	UPROPERTY(BlueprintReadOnly, Category = "Game")
 	bool bIsFriend;
 
 	UPROPERTY()

@@ -5,6 +5,7 @@
 #include "UnrealNetwork.h"
 #include "UTPickupMessage.h"
 #include "UTWorldSettings.h"
+#include "UTCTFGameState.h"
 
 AUTPickupInventory::AUTPickupInventory(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -12,6 +13,9 @@ AUTPickupInventory::AUTPickupInventory(const FObjectInitializer& ObjectInitializ
 	FloatHeight = 50.0f;
 	bAllowRotatingPickup = true;
 	bHasTacComView = true;
+	bHasEverSpawned = false;
+	bNotifySpawnForOffense = true;
+	bNotifySpawnForDefense = true;
 }
 
 void AUTPickupInventory::BeginPlay()
@@ -316,6 +320,8 @@ void AUTPickupInventory::InventoryTypeUpdated_Implementation()
 
 void AUTPickupInventory::Reset_Implementation()
 {
+	bHasEverSpawned = false;
+	GetWorldTimerManager().ClearTimer(SpawnVoiceLineTimer);
 	if (InventoryType == NULL)
 	{
 		StartSleeping();
@@ -324,6 +330,79 @@ void AUTPickupInventory::Reset_Implementation()
 	{
 		Super::Reset_Implementation();
 	}
+}
+
+void AUTPickupInventory::PlayRespawnEffects()
+{
+	Super::PlayRespawnEffects();
+	if (InventoryType && (InventoryType.GetDefaultObject()->PickupSpawnAnnouncement || (InventoryType.GetDefaultObject()->PickupAnnouncementName != NAME_None)) && (Role==ROLE_Authority))
+	{
+		AUTGameMode* GM = GetWorld()->GetAuthGameMode<AUTGameMode>();
+		if (GM && GM->bAllowPickupAnnouncements && GM->IsMatchInProgress())
+		{
+			if (InventoryType.GetDefaultObject()->PickupSpawnAnnouncement)
+			{
+				GM->BroadcastLocalized(this, InventoryType.GetDefaultObject()->PickupSpawnAnnouncement, InventoryType.GetDefaultObject()->PickupAnnouncementIndex, nullptr, nullptr, InventoryType.GetDefaultObject());
+			}
+			else if (InventoryType.GetDefaultObject()->PickupAnnouncementName != NAME_None)
+			{
+				GetWorldTimerManager().SetTimer(SpawnVoiceLineTimer, this, &AUTPickupInventory::PlaySpawnVoiceLine, bHasEverSpawned ? 30.f : 10.f);
+			}
+			bHasEverSpawned = true;
+		}
+	}
+}
+
+void AUTPickupInventory::PlaySpawnVoiceLine()
+{
+	AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
+	if (GS && (GS->IsMatchIntermission() || !GS->IsMatchInProgress()))
+	{
+		return;
+	}
+
+	// find player to announce this pickup 
+	AUTPlayerState* Speaker = nullptr;
+	bool bHasPlayedForRed = false;
+	bool bHasPlayedForBlue = false;
+
+	// maybe don't announce for one team
+	AUTCTFGameState* CTFGameState = GetWorld()->GetGameState<AUTCTFGameState>();
+	if (CTFGameState)
+	{
+		bHasPlayedForRed = CTFGameState->bRedToCap ? !bNotifySpawnForOffense : !bNotifySpawnForDefense;
+		bHasPlayedForBlue = CTFGameState->bRedToCap ? !bNotifySpawnForDefense : !bNotifySpawnForOffense;
+		if (bHasPlayedForRed && bHasPlayedForBlue)
+		{
+			return;
+		}
+	}
+	for (FConstControllerIterator Iterator = GetWorld()->GetControllerIterator(); Iterator; ++Iterator)
+	{
+		AUTPlayerState* UTPS = Cast<AUTPlayerState>((*Iterator)->PlayerState);
+		if (UTPS && UTPS->Team)
+		{
+			if (!bHasPlayedForRed && (UTPS->Team->TeamIndex == 0))
+			{
+				UTPS->AnnounceStatus(InventoryType.GetDefaultObject()->PickupAnnouncementName, 0);
+				bHasPlayedForRed = true;
+			}
+			else if (!bHasPlayedForBlue && (UTPS->Team->TeamIndex == 1))
+			{
+				UTPS->AnnounceStatus(InventoryType.GetDefaultObject()->PickupAnnouncementName, 0);
+				bHasPlayedForBlue = true;
+			}
+			if (bHasPlayedForRed && bHasPlayedForBlue)
+			{
+				break;
+			}
+		}
+	}
+}
+
+bool AUTPickupInventory::FlashOnMinimap_Implementation()
+{
+	return (State.bActive && InventoryType && InventoryType.GetDefaultObject()->PickupSpawnAnnouncement);
 }
 
 void AUTPickupInventory::SetPickupHidden(bool bNowHidden)
@@ -380,7 +459,7 @@ void AUTPickupInventory::SetPickupHidden(bool bNowHidden)
 bool AUTPickupInventory::AllowPickupBy_Implementation(APawn* Other, bool bDefaultAllowPickup)
 {
 	// TODO: vehicle consideration
-	bDefaultAllowPickup = bDefaultAllowPickup && Cast<AUTCharacter>(Other) != NULL && !((AUTCharacter*)Other)->IsRagdoll() && ((AUTCharacter*)Other)->bCanPickupItems;
+	bDefaultAllowPickup = bDefaultAllowPickup && Cast<AUTCharacter>(Other) != NULL && !((AUTCharacter*)Other)->IsRagdoll() && ((AUTCharacter*)Other)->bCanPickupItems && ((InventoryType == nullptr) || InventoryType.GetDefaultObject()->AllowPickupBy(((AUTCharacter*)Other)));
 	bool bAllowPickup = bDefaultAllowPickup;
 	AUTGameMode* UTGameMode = GetWorld()->GetAuthGameMode<AUTGameMode>();
 	return (UTGameMode == NULL || !UTGameMode->OverridePickupQuery(Other, InventoryType, this, bAllowPickup)) ? bDefaultAllowPickup : bAllowPickup;
@@ -391,13 +470,16 @@ void AUTPickupInventory::GiveTo_Implementation(APawn* Target)
 	AUTCharacter* P = Cast<AUTCharacter>(Target);
 	if (P != NULL && InventoryType != NULL)
 	{
-		AUTInventory* Existing = P->FindInventoryType(InventoryType, true);
-		if (Existing == NULL || !Existing->StackPickup(NULL))
+		if (!InventoryType.GetDefaultObject()->HandleGivenTo(P))
 		{
-			FActorSpawnParameters Params;
-			Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
-			Params.Instigator = P;
-			P->AddInventory(GetWorld()->SpawnActor<AUTInventory>(InventoryType, GetActorLocation(), GetActorRotation(), Params), true);
+			AUTInventory* Existing = P->FindInventoryType(InventoryType, true);
+			if (Existing == NULL || !Existing->StackPickup(NULL))
+			{
+				FActorSpawnParameters Params;
+				Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+				Params.Instigator = P;
+				P->AddInventory(GetWorld()->SpawnActor<AUTInventory>(InventoryType, GetActorLocation(), GetActorRotation(), Params), true);
+			}
 		}
 		P->DeactivateSpawnProtection();
 		AnnouncePickup(P);
@@ -448,9 +530,18 @@ void AUTPickupInventory::PlayTakenEffects(bool bReplicate)
 
 void AUTPickupInventory::AnnouncePickup(AUTCharacter* P)
 {
+	GetWorldTimerManager().ClearTimer(SpawnVoiceLineTimer);
 	if (Cast<APlayerController>(P->GetController()))
 	{
 		Cast<APlayerController>(P->GetController())->ClientReceiveLocalizedMessage(UUTPickupMessage::StaticClass(), 0, P->PlayerState, NULL, InventoryType);
+	}
+	if (InventoryType && (InventoryType.GetDefaultObject()->PickupAnnouncementName != NAME_None))
+	{
+		AUTPlayerState* PS = Cast<AUTPlayerState>(P->PlayerState);
+		if (PS)
+		{
+			PS->AnnounceStatus(InventoryType.GetDefaultObject()->PickupAnnouncementName, 1, true);
+		}
 	}
 }
 

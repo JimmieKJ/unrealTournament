@@ -21,6 +21,7 @@ UUTCTFGameMessage::UUTCTFGameMessage(const FObjectInitializer& ObjectInitializer
 	OvertimeMessage = NSLOCTEXT("CTFGameMessage", "Overtime", "OVERTIME!");
 	NoReturnMessage = NSLOCTEXT("CTFGameMessage", "NoPickupFlag", "You can't pick up this flag.");
 	LastLifeMessage = NSLOCTEXT("CTFGameMessage", "LastLife", "This is your last life");
+	DefaultPowerupMessage = NSLOCTEXT("CTFGameMessage", "DefaultPowerupMessage", "{Player1Name} used their powerup!");
 
 	bIsStatusAnnouncement = true;
 	bIsPartiallyUnique = true;
@@ -28,7 +29,7 @@ UUTCTFGameMessage::UUTCTFGameMessage(const FObjectInitializer& ObjectInitializer
 
 FLinearColor UUTCTFGameMessage::GetMessageColor_Implementation(int32 MessageIndex) const
 {
-	return FLinearColor::Yellow;
+	return FLinearColor::White;
 }
 
 FText UUTCTFGameMessage::GetText(int32 Switch, bool bTargetsPlayerState1, APlayerState* RelatedPlayerState_1, APlayerState* RelatedPlayerState_2, UObject* OptionalObject) const
@@ -49,6 +50,7 @@ FText UUTCTFGameMessage::GetText(int32 Switch, bool bTargetsPlayerState1, APlaye
 		case 12: return OvertimeMessage; break;
 		case 13: return NoReturnMessage; break;
 		case 20: return LastLifeMessage; break;
+		case 255 : return FText::FromString("Test");
 	}
 	return FText::GetEmpty();
 }
@@ -78,7 +80,7 @@ float UUTCTFGameMessage::GetScaleInSize_Implementation(int32 MessageIndex) const
 
 bool UUTCTFGameMessage::InterruptAnnouncement_Implementation(int32 Switch, const UObject* OptionalObject, TSubclassOf<UUTLocalMessage> OtherMessageClass, int32 OtherSwitch, const UObject* OtherOptionalObject) const
 {
-	if (OtherMessageClass->GetDefaultObject<UUTLocalMessage>()->bOptionalSpoken)
+	if (OtherMessageClass->GetDefaultObject<UUTLocalMessage>()->IsOptionalSpoken(OtherSwitch))
 	{
 		return true;
 	}
@@ -114,12 +116,12 @@ bool UUTCTFGameMessage::CancelByAnnouncement_Implementation(int32 Switch, const 
 		// never cancel scoring announcement
 		return false;
 	}
-	if ((OtherSwitch == 2) || (OtherSwitch == 8) || (OtherSwitch == 9) || (OtherSwitch == 10))
+	if ((GetClass() == OtherMessageClass) && ((OtherSwitch == 2) || (OtherSwitch == 8) || (OtherSwitch == 9) || (OtherSwitch == 10)))
 	{
 		// always cancel if before scoring announcement
 		return true;
 	}
-	return ((OtherSwitch == Switch) && ((OtherSwitch == 11) || (OtherSwitch == 12)));
+	return (GetClass() == OtherMessageClass) && ((OtherSwitch == Switch) && ((OtherSwitch == 11) || (OtherSwitch == 12)));
 }
 
 void UUTCTFGameMessage::PrecacheAnnouncements_Implementation(UUTAnnouncer* Announcer) const
@@ -170,3 +172,18 @@ FName UUTCTFGameMessage::GetAnnouncementName_Implementation(int32 Switch, const 
 	return GetTeamAnnouncement(Switch, TeamNum, OptionalObject, RelatedPlayerState_1, RelatedPlayerState_2);
 }
 
+FString UUTCTFGameMessage::GetAnnouncementUMGClassname(int32 Switch, const UObject* OptionalObject) const
+{
+	if (Switch == 255)
+	{
+		return TEXT("/Game/RestrictedAssets/UI/UMGHudMessages/VictoryScreenWidget.VictoryScreenWidget");
+	}
+
+	return TEXT("");
+}
+
+float UUTCTFGameMessage::GetLifeTime(int32 Switch) const
+{
+	if (Switch == 255) return 20.0f;
+	return Super::GetLifeTime(Switch);
+}

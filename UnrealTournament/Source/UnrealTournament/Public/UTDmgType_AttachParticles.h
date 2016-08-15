@@ -59,6 +59,7 @@ class UNREALTOURNAMENT_API UUTDmgType_AttachParticles : public UUTDamageType
 				PSC->AttachTo(HitPawn->GetMesh(), HitPawn->GetMesh()->FindClosestBone(HitPawn->GetActorLocation() + HitPawn->LastTakeHitInfo.RelHitLocation), EAttachLocation::SnapToTarget);
 			}
 		}
+		Super::PlayHitEffects_Implementation(HitPawn, bPlayedArmorEffect);
 	}
 
 	virtual void PlayGibEffects_Implementation(AUTGib* Gib) const override

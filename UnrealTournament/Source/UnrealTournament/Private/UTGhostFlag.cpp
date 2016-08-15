@@ -43,7 +43,8 @@ void AUTGhostFlag::Destroyed()
 	Super::Destroyed();
 	if (Trail)
 	{
-		Trail->Destroy();
+		Trail->EndTrail();
+		Trail->SetLifeSpan(1.5f); //failsafe
 	}
 }
 
@@ -129,16 +130,6 @@ void AUTGhostFlag::OnSetCarriedObject()
 void AUTGhostFlag::SetCarriedObject(AUTCarriedObject* NewCarriedObject, const FFlagTrailPos NewPosition)
 {
 	MyCarriedObject = NewCarriedObject;
-	for (int32 i = 0; i < 3; i++)
-	{
-		MidPoints[i] = NewPosition.MidPoints[i];
-	}
-	OnSetCarriedObject();
-}
-
-void AUTGhostFlag::MoveTo(const FFlagTrailPos NewPosition)
-{
-	SetActorLocation(NewPosition.Location);
 	for (int32 i = 0; i < 3; i++)
 	{
 		MidPoints[i] = NewPosition.MidPoints[i];

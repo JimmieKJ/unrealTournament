@@ -14,14 +14,14 @@ class UNREALTOURNAMENT_API UUTRewardMessage : public UUTLocalMessage
 	{
 		MessageArea = FName(TEXT("Announcements"));
 		MessageSlot = FName(TEXT("MajorRewardMessage"));
-		bIsSpecial = true;
 		bIsUnique = true;
 		bIsConsoleMessage = false;
-		Lifetime = 2.0f;
+		Lifetime = 1.2f;
 		AnnouncementHS = FName(TEXT("RW_HolyShit"));
 		bWantsBotReaction = true;
 		ScaleInSize = 3.f;
 		AnnouncementDelay = 0.3f;
+		ScaleInTime = 0.15f;
 	}
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Message)
@@ -53,7 +53,7 @@ class UNREALTOURNAMENT_API UUTRewardMessage : public UUTLocalMessage
 
 	virtual bool InterruptAnnouncement_Implementation(int32 Switch, const UObject* OptionalObject, TSubclassOf<UUTLocalMessage> OtherMessageClass, int32 OtherSwitch, const UObject* OtherOptionalObject) const
 	{
-		return Cast<UUTLocalMessage>(OtherMessageClass->GetDefaultObject())->bOptionalSpoken;
+		return Cast<UUTLocalMessage>(OtherMessageClass->GetDefaultObject())->IsOptionalSpoken(OtherSwitch);
 	}
 
 	virtual FName GetAnnouncementName_Implementation(int32 Switch, const UObject* OptionalObject, const class APlayerState* RelatedPlayerState_1, const class APlayerState* RelatedPlayerState_2) const override
@@ -75,7 +75,7 @@ class UNREALTOURNAMENT_API UUTRewardMessage : public UUTLocalMessage
 
 	virtual FText GetText(int32 Switch, bool bTargetsPlayerState1, class APlayerState* RelatedPlayerState_1, class APlayerState* RelatedPlayerState_2, class UObject* OptionalObject) const override
 	{
-		return FText::GetEmpty(); // MessageText;
+		return MessageText;
 	}
 
 	virtual void PrecacheAnnouncements_Implementation(UUTAnnouncer* Announcer) const override

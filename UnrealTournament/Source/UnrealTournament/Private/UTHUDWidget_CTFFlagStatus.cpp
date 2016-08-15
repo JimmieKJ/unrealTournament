@@ -124,6 +124,16 @@ void UUTHUDWidget_CTFFlagStatus::DrawFlagStatus(AUTCTFGameState* GameState, FVec
 			float CarriedY = YPos - 0.25f * FlagIconTemplate.GetHeight() * FlagStatusScale;
 
 			RenderObj_TextureAt(FlagIconTemplate, CarriedX, CarriedY, FlagStatusScale * FlagIconTemplate.GetWidth(), FlagStatusScale * FlagIconTemplate.GetHeight());
+
+			if (UTHUDOwner->GetQuickInfoHidden())
+			{
+				if (Flag->bCurrentlyPinged)
+				{
+					DetectedIcon.RenderScale = 1.0f + (0.5f * FMath::Abs<float>(FMath::Sin(UTHUDOwner->GetWorld()->GetTimeSeconds())));
+					RenderObj_Texture(DetectedIcon, FVector2D(XPos, YPos));
+				}
+			}
+
 		}
 		else
 		{

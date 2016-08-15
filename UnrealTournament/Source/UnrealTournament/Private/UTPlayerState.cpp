@@ -55,6 +55,8 @@ AUTPlayerState::AUTPlayerState(const class FObjectInitializer& ObjectInitializer
 	bShouldAutoTaunt = false;
 	bSentLogoutAnalytics = false;
 	NextRallyTime = 0.f;
+	RemainingRallyDelay = 0;
+	SelectionOrder = 255;
 
 	// We want to be ticked.
 	PrimaryActorTick.bCanEverTick = true;
@@ -147,6 +149,7 @@ void AUTPlayerState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & Ou
 	DOREPLIFETIME_CONDITION(AUTPlayerState, RespawnChoiceB, COND_OwnerOnly);
 	DOREPLIFETIME_CONDITION(AUTPlayerState, bChosePrimaryRespawnChoice, COND_OwnerOnly);
 	DOREPLIFETIME_CONDITION(AUTPlayerState, WeaponSpreeDamage, COND_OwnerOnly);
+	DOREPLIFETIME_CONDITION(AUTPlayerState, RemainingRallyDelay, COND_OwnerOnly);
 
 	DOREPLIFETIME(AUTPlayerState, SpectatingID);
 	DOREPLIFETIME(AUTPlayerState, SpectatingIDTeam);
@@ -296,16 +299,19 @@ void AUTPlayerState::AnnounceReactionTo(const AUTPlayerState* ReactionPS) const
 				PC->ClientReceiveLocalizedMessage(CharacterVoice, CharacterVoice.GetDefaultObject()->FriendlyReactionBaseIndex + FMath::RandRange(0, CharacterVoice.GetDefaultObject()->FriendlyReactions.Num() - 1), const_cast<AUTPlayerState*>(this), PC->PlayerState, NULL);
 				return;
 			}
-			else if (bSameTeam || (NumEnemyReactions == 0))
+			else if (bSameTeam)
 			{
 				return;
 			}
 		}
-		PC->ClientReceiveLocalizedMessage(CharacterVoice, CharacterVoice.GetDefaultObject()->EnemyReactionBaseIndex + FMath::RandRange(0, CharacterVoice.GetDefaultObject()->EnemyReactions.Num() - 1), const_cast<AUTPlayerState*>(this), PC->PlayerState, NULL);
+		if (NumEnemyReactions > 0)
+		{
+			PC->ClientReceiveLocalizedMessage(CharacterVoice, CharacterVoice.GetDefaultObject()->EnemyReactionBaseIndex + FMath::RandRange(0, CharacterVoice.GetDefaultObject()->EnemyReactions.Num() - 1), const_cast<AUTPlayerState*>(this), PC->PlayerState, NULL);
+		}
 	}
 }
 
-void AUTPlayerState::AnnounceStatus(FName NewStatus)
+void AUTPlayerState::AnnounceStatus(FName NewStatus, int32 SwitchOffset, bool bSkipSelf)
 {
 	GetCharacterVoiceClass();
 	if (CharacterVoice != NULL)
@@ -319,13 +325,16 @@ void AUTPlayerState::AnnounceStatus(FName NewStatus)
 		int32 Switch = CharacterVoice.GetDefaultObject()->GetStatusIndex(NewStatus);
 		if (Switch < 0)
 		{
+			UE_LOG(UT, Warning, TEXT("No valid index found"));
 			// no valid index found (NewStatus was not a valid selection)
 			return;
 		}
+		Switch += SwitchOffset;
+//		UE_LOG(UT, Warning, TEXT("Switch is %d"), Switch);
 		for (FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator)
 		{
 			AUTPlayerController* PC = Cast<AUTPlayerController>(*Iterator);
-			if (PC && GS->OnSameTeam(this, PC))
+			if (PC && GS->OnSameTeam(this, PC) && (!bSkipSelf || (PC->PlayerState != this)))
 			{
 				PC->ClientReceiveLocalizedMessage(CharacterVoice, Switch, this, PC->PlayerState, NULL);
 			}
@@ -661,18 +670,12 @@ void AUTPlayerState::Tick(float DeltaTime)
 	if (Role == ROLE_Authority)
 	{
 		AUTCharacter* UTChar = GetUTCharacter();
-		bCanRally = (GetWorld()->GetTimeSeconds() > NextRallyTime) && UTChar && (UTChar->bCanRally || UTChar->GetCarriedObject()) && (GetWorld()->GetTimeSeconds() - FMath::Max(UTChar->LastTargetingTime, UTChar->LastTargetedTime) > 3.f);
+		bCanRally = (GetWorld()->GetTimeSeconds() > NextRallyTime) && UTChar && (UTChar->bCanRally || UTChar->GetCarriedObject());
+		RemainingRallyDelay = (NextRallyTime > GetWorld()->GetTimeSeconds()) ? FMath::Clamp(int32(NextRallyTime - GetWorld()->GetTimeSeconds()), 0, 255) : 0;
 	}
 	// If we are waiting to respawn then count down
-	if (RespawnTime > 0.0f)
-	{
-		RespawnTime -= DeltaTime;
-	}
-
-	if (ForceRespawnTime > 0.0f)
-	{
-		ForceRespawnTime -= DeltaTime;
-	}
+	RespawnTime -= DeltaTime;
+	ForceRespawnTime -= DeltaTime;
 
 	if (BoostRechargeTimeRemaining > 0.0f)
 	{
@@ -738,7 +741,7 @@ AUTCharacter* AUTPlayerState::GetUTCharacter()
 	return CachedCharacter;
 }
 
-void AUTPlayerState::UpdateWeaponSkinPrefFromProfile(TSubclassOf<AUTWeapon> Weapon)
+void AUTPlayerState::UpdateWeaponSkinPrefFromProfile(AUTWeapon* Weapon)
 {
 	AUTBasePlayerController* PC = Cast<AUTBasePlayerController>(GetOwner());
 	if (PC)
@@ -749,16 +752,10 @@ void AUTPlayerState::UpdateWeaponSkinPrefFromProfile(TSubclassOf<AUTWeapon> Weap
 			UUTProfileSettings* ProfileSettings = LP->GetProfileSettings();
 			if (ProfileSettings)
 			{
-				FString WeaponPathName = Weapon->GetPathName();
-				for (int32 i = 0; i < ProfileSettings->WeaponSkins.Num(); i++)
+				FString WeaponSkinClassname = ProfileSettings->GetWeaponSkinClassname(Weapon);
+				if (!WeaponSkinClassname.IsEmpty())
 				{
-					if (ProfileSettings->WeaponSkins[i] && ProfileSettings->WeaponSkins[i]->WeaponType.ToString() == WeaponPathName)
-					{
-						if (!WeaponSkins.Contains(ProfileSettings->WeaponSkins[i]))
-						{
-							ServerReceiveWeaponSkin(ProfileSettings->WeaponSkins[i]->GetPathName());
-						}
-					}
+					ServerReceiveWeaponSkin(WeaponSkinClassname);
 				}
 			}
 		}
@@ -1086,8 +1083,10 @@ void AUTPlayerState::CopyProperties(APlayerState* PlayerState)
 		PS->TauntClass = TauntClass;
 		PS->Taunt2Class = Taunt2Class;
 		PS->bSkipELO = bSkipELO;
+		PS->BoostClass = BoostClass;
 		PS->RemainingBoosts = RemainingBoosts;
 		PS->RemainingLives = RemainingLives;
+		PS->bOutOfLives = bOutOfLives;
 		PS->BoostRechargeTimeRemaining = BoostRechargeTimeRemaining;
 		if (PS->StatManager)
 		{
@@ -1192,6 +1191,31 @@ void AUTPlayerState::BeginPlay()
 
 			OnWriteUserFileCompleteDelegate = FOnWriteUserFileCompleteDelegate::CreateUObject(this, &AUTPlayerState::OnWriteUserFileComplete);
 			OnlineUserCloudInterface->AddOnWriteUserFileCompleteDelegate_Handle(OnWriteUserFileCompleteDelegate);
+		}
+	}
+
+	//A new playerstate has been created, the gamestate might need to update the player info query with this new information
+	if (GetWorld())
+	{
+		AUTGameState* UTGS = GetWorld()->GetGameState<AUTGameState>();
+		if (UTGS != nullptr)
+		{
+			TSharedRef<const FUniqueNetId> UserId = MakeShareable(new FUniqueNetIdString(*StatsID));
+			if (UserId->IsValid())
+			{
+				UTGS->AddUserInfoQuery(UserId);
+			}
+		}
+	}
+
+	// If a player doesn't have a selected boost powerup while the game starts, lets go ahead and give them the 1st one available in the Powerup List
+	if (GetWorld() && (BoostClass == nullptr))
+	{
+		AUTGameState* UTGS = GetWorld()->GetGameState<AUTGameState>();
+		if (UTGS != nullptr)
+		{
+			TSubclassOf<class AUTInventory> SelectedBoost = UTGS->GetSelectableBoostByIndex(this, 0);
+			BoostClass = SelectedBoost;
 		}
 	}
 }
@@ -1788,6 +1812,19 @@ void AUTPlayerState::OnRep_UniqueId()
 	{
 		bIsFriend = LP->IsAFriend(UniqueId);
 	}
+
+	//The gamestate might need to update the player info query with this new information
+	if (GetWorld())
+	{
+		AUTGameState* UTGS = GetWorld()->GetGameState<AUTGameState>();
+		if (UTGS != nullptr)
+		{
+			if (UniqueId->IsValid())
+			{
+				UTGS->AddUserInfoQuery(UniqueId->AsShared());
+			}
+		}
+	}
 }
 
 void AUTPlayerState::RegisterPlayerWithSession(bool bWasFromInvite)
@@ -2378,7 +2415,7 @@ TSharedRef<SWidget> AUTPlayerState::BuildRankInfo()
 	if (LevelXPRange > 0)
 	{
 		LevelAlpha = (float)(PrevXP - LevelXPStart) / (float)LevelXPRange;
-		TooltipXP = FText::Format(NSLOCTEXT("AUTPlayerState", "XPTooltip", "{0} XP need to obtain the next level"), FText::AsNumber(LevelXPEnd - PrevXP));
+		TooltipXP = FText::Format(NSLOCTEXT("AUTPlayerState", "XPTooltip", "{0} XP needed for the next level"), FText::AsNumber(LevelXPEnd - PrevXP));
 	}
 
 	VBox->AddSlot()
@@ -2551,7 +2588,7 @@ TSharedRef<SWidget> AUTPlayerState::BuildRankInfo()
 			.AutoWidth()
 			[
 				SNew(STextBlock)
-				.Text(FText::Format(NSLOCTEXT("AUTPlayerState", "ChallengeStarsFormat", "     {0} "), FText::AsNumber(LP->GetRewardStars(NAME_REWARD_BlueStars))))
+				.Text(FText::Format(NSLOCTEXT("AUTPlayerState", "ChallengeStarsFormat", ".          {0} "), FText::AsNumber(LP->GetRewardStars(NAME_REWARD_BlueStars))))
 					.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.White")
 					.ColorAndOpacity(FLinearColor::Gray)
 			]
@@ -2673,6 +2710,23 @@ void AUTPlayerState::BuildPlayerInfo(TSharedPtr<SUTTabWidget> TabWidget, TArray<
 		}
 	}
 
+	FText EpicAccountName = FText::GetEmpty();
+	if (!StatsID.IsEmpty())
+	{
+		TSharedRef<const FUniqueNetId> UserId = MakeShareable(new FUniqueNetIdString(*StatsID));
+		if (UserId->IsValid())
+		{	
+			if (GetWorld())
+			{
+				AUTGameState* UTGS = GetWorld()->GetGameState<AUTGameState>();
+				if (UTGS != nullptr)
+				{
+					EpicAccountName = UTGS->GetEpicAccountNameForAccount(UserId);
+				}
+			}
+		}
+	}
+
 	UUTFlagInfo* Flag = Cast<UUTGameEngine>(GEngine) ? Cast<UUTGameEngine>(GEngine)->GetFlag(CountryFlag) : nullptr;
 	if ((Avatar == NAME_None) && PC)
 	{
@@ -2688,6 +2742,34 @@ void AUTPlayerState::BuildPlayerInfo(TSharedPtr<SUTTabWidget> TabWidget, TArray<
 	.AutoHeight()
 	[
 		SNew(SHorizontalBox)
+		+ SHorizontalBox::Slot()
+		.HAlign(HAlign_Left)
+		.VAlign(VAlign_Center)
+		.AutoWidth()
+		[
+			SNew(SBox)
+			[
+				SNew(STextBlock)
+				.Text(EpicAccountName)
+				.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.White")
+			]
+		]
+		+SHorizontalBox::Slot()
+		.HAlign(HAlign_Left)
+		.VAlign(VAlign_Center)
+		.AutoWidth()
+		[
+			//blank space between name and player icon
+			SNew(SBox)
+			.WidthOverride(64.0f)
+			.HeightOverride(64.0f)
+			.MaxDesiredWidth(64.0f)
+			.MaxDesiredHeight(64.0f)
+			[
+				SNew(SImage)
+				.Image(SUTStyle::Get().GetBrush("UT.NoStyle"))
+			]
+		]
 		+ SHorizontalBox::Slot()
 		.HAlign(HAlign_Left)
 		.VAlign(VAlign_Center)
@@ -3030,15 +3112,23 @@ float AUTPlayerState::GetStatsValue(FName StatsName) const
 
 void AUTPlayerState::SetStatsValue(FName StatsName, float NewValue)
 {
-	LastScoreStatsUpdateTime = GetWorld()->GetTimeSeconds();
-	StatsData.Add(StatsName, NewValue);
+	AUTGameState* UTGameState = GetWorld()->GetGameState<AUTGameState>();
+	if (UTGameState && UTGameState->HasMatchStarted())
+	{
+		LastScoreStatsUpdateTime = GetWorld()->GetTimeSeconds();
+		StatsData.Add(StatsName, NewValue);
+	}
 }
 
 void AUTPlayerState::ModifyStatsValue(FName StatsName, float Change)
 {
-	LastScoreStatsUpdateTime = GetWorld()->GetTimeSeconds();
-	float CurrentValue = StatsData.FindRef(StatsName);
-	StatsData.Add(StatsName, CurrentValue + Change);
+	AUTGameState* UTGameState = GetWorld()->GetGameState<AUTGameState>();
+	if (UTGameState && UTGameState->HasMatchStarted())
+	{
+		LastScoreStatsUpdateTime = GetWorld()->GetTimeSeconds();
+		float CurrentValue = StatsData.FindRef(StatsName);
+		StatsData.Add(StatsName, CurrentValue + Change);
+	}
 }
 
 bool AUTPlayerState::RegisterVote_Validate(AUTReplicatedMapInfo* VoteInfo) { return true; }

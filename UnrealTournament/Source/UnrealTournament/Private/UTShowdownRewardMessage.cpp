@@ -27,6 +27,11 @@ UUTShowdownRewardMessage::UUTShowdownRewardMessage(const class FObjectInitialize
 	TerminationSound = TerminationSoundFinder.Object;
 }
 
+float UUTShowdownRewardMessage::GetAnnouncementPriority(int32 Switch) const
+{
+	return 1.f;
+}
+
 void UUTShowdownRewardMessage::ClientReceive(const FClientReceiveData& ClientData) const
 {
 	Super::ClientReceive(ClientData);

@@ -23,7 +23,7 @@ AUTWeap_Minigun::AUTWeap_Minigun(const FObjectInitializer& ObjectInitializer)
 	}
 	DefaultGroup = 6;
 	AmmoCost[0] = 1;
-	AmmoCost[1] = 2;
+	AmmoCost[1] = 1;
 	FireEffectInterval = 2;
 	Ammo = 80;
 	MaxAmmo = 240;
@@ -45,6 +45,9 @@ AUTWeap_Minigun::AUTWeap_Minigun(const FObjectInitializer& ObjectInitializer)
 	AltDeathStatsName = NAME_MinigunShardDeaths;
 	HitsStatsName = NAME_MinigunHits;
 	ShotsStatsName = NAME_MinigunShots;
+	
+	WeaponCustomizationTag = EpicWeaponCustomizationTags::Minigun;
+	WeaponSkinCustomizationTag = EpicWeaponSkinCustomizationTags::Minigun;
 }
 
 float AUTWeap_Minigun::GetAISelectRating_Implementation()

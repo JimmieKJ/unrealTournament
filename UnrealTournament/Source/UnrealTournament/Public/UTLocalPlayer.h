@@ -226,6 +226,8 @@ public:
 	TSharedPtr<class SUTStatsViewerPanel> GetStatsViewer();
 	TSharedPtr<class SUTCreditsPanel> GetCreditsPanel();
 	
+	FString CurrentQuickMatchType;
+
 	void StartQuickMatch(FString QuickMatchType);
 	void CloseQuickMatch();
 
@@ -490,10 +492,10 @@ private:
 
 public:
 	virtual void LoadProfileSettings();
-	UFUNCTION()
-		virtual void SaveProfileSettings();
+	virtual void SaveProfileSettings();
 	virtual void ClearProfileSettings();
 
+	UFUNCTION(BlueprintCallable, Category = Profile)
 	virtual UUTProfileSettings* GetProfileSettings() { return CurrentProfileSettings; };
 
 	virtual void SetNickname(FString NewName);
@@ -724,6 +726,9 @@ public:
 	virtual void OnEmoteSpeedChanged(AUTPlayerState* PS, float EmoteSpeed);
 
 	// Request someone be my friend...
+	UFUNCTION(BlueprintCallable, Category = Friends)
+	void SendFriendRequest(AUTPlayerState* DesiredPlayerState);
+
 	virtual void RequestFriendship(TSharedPtr<const FUniqueNetId> FriendID);
 
 	// Holds a list of maps to play in Single player
@@ -913,7 +918,7 @@ public:
 
 	static const FString& GetRankedPlayFilename()
 	{
-		const static FString RankedPlayFilename = "UnrealTournmentRankedPlay.json";
+		const static FString RankedPlayFilename = "UnrealTournamentRankedPlay.json";
 		return RankedPlayFilename;
 	}
 	bool IsRankedMatchmakingEnabled(int32 PlaylistId);
@@ -1069,4 +1074,21 @@ protected:
 	bool bJoinSessionInProgress;	
 	FDelegateHandle SpeakerDelegate;
 	void OnPlayerTalkingStateChanged(TSharedRef<const FUniqueNetId> TalkerId, bool bIsTalking);
+
+	// Holds a list of servers where the DLC warning has been accepted.  If the current server is in this list
+	// then the DLC content warning will not be displayed this run.
+	TArray<FGuid> AcceptedDLCServers;
+
+public:
+
+	// Returns true if there is chat text available.
+	virtual bool HasChatText();
+
+protected:
+	// Loads the local profile from disk.  This happens immediately upon creation and again when a logout occurs.  
+	virtual void LoadLocalProfileSettings();
+
+	// Saving of any profile saves locally, as does logging in.  NOTE: There is no toast this with save, it is silent
+	virtual void SaveLocalProfileSettings();
+
 };

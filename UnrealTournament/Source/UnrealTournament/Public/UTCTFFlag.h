@@ -2,6 +2,7 @@
 
 #pragma once
 
+#include "UTCarriedObject.h"
 #include "UTCTFFlag.generated.h"
 
 UCLASS()
