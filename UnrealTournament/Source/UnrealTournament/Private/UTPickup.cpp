@@ -232,6 +232,10 @@ void AUTPickup::StartSleeping_Implementation()
 		if (!bFixedRespawnInterval || !GetWorld()->GetTimerManager().IsTimerActive(WakeUpTimerHandle))
 		{
 			GetWorld()->GetTimerManager().SetTimer(WakeUpTimerHandle, this, &AUTPickup::WakeUpTimer, RespawnTime, false);
+			if (bFixedRespawnInterval && Role == ROLE_Authority)
+			{
+				bReplicateReset = !bReplicateReset;
+			}
 		}
 		if (TimerEffect != NULL && TimerEffect->Template != NULL)
 		{
