@@ -578,7 +578,7 @@ public:
 protected:
 
 	/** Returns random bot character skill matched to current GameDifficulty. */
-	virtual UUTBotCharacter* ChooseRandomCharacter();
+	virtual UUTBotCharacter* ChooseRandomCharacter(uint8 TeamNum);
 
 	/** Adds a bot to the game */
 	virtual class AUTBot* AddBot(uint8 TeamNum = 255);

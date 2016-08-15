@@ -121,6 +121,8 @@ class UNREALTOURNAMENT_API AUTTeamGameMode : public AUTGameMode
 	virtual void SendComsMessage( AUTPlayerController* Sender, AUTPlayerState* Target, int32 Switch) override;
 
 protected:
-	virtual void SendEndOfGameStats(FName Reason);
-	virtual void UpdateLobbyScore(FMatchUpdate& MatchUpdate);
+	virtual void SendEndOfGameStats(FName Reason) override;
+	virtual void UpdateLobbyScore(FMatchUpdate& MatchUpdate) override;
+
+	virtual UUTBotCharacter* ChooseRandomCharacter(uint8 TeamNum) override;
 };

@@ -777,7 +777,7 @@ void AUTGameMode::EntitlementQueryComplete(bool bWasSuccessful, const FUniqueNet
 	}
 }
 
-UUTBotCharacter* AUTGameMode::ChooseRandomCharacter()
+UUTBotCharacter* AUTGameMode::ChooseRandomCharacter(uint8 TeamNum)
 {
 	UUTBotCharacter* ChosenCharacter = NULL;
 	if (EligibleBots.Num() > 0)
@@ -793,7 +793,6 @@ UUTBotCharacter* AUTGameMode::ChooseRandomCharacter()
 		}
 		int32 Index = FMath::Clamp(BestMatch + FMath::RandHelper(5) - 2, 0, EligibleBots.Num() - 1);
 		ChosenCharacter = EligibleBots[Index];
-		ChosenCharacter->Skill = FMath::Clamp(ChosenCharacter->Skill, GameDifficulty - 1.f, GameDifficulty + 1.5f);
 		EligibleBots.RemoveAt(Index);
 	}
 	return ChosenCharacter;
@@ -823,12 +822,6 @@ AUTBot* AUTGameMode::AddBot(uint8 TeamNum)
 			{
 				return A.Skill < B.Skill;
 			});
-
-			/*			for (int32 i = 0; i < EligibleBots.Num(); i++)
-						{
-						UE_LOG(UT, Warning, TEXT("%s Skill %f character %s"), *EligibleBots[i]->GetFName().ToString(), EligibleBots[i]->Skill, *EligibleBots[i]->Character.ToString());
-						}
-						*/
 		}
 		UUTBotCharacter* SelectedCharacter = NULL;
 		int32 TotalStars = 0;
@@ -846,12 +839,17 @@ AUTBot* AUTGameMode::AddBot(uint8 TeamNum)
 		}
 		if (SelectedCharacter == NULL)
 		{
-			SelectedCharacter = ChooseRandomCharacter();
+			SelectedCharacter = ChooseRandomCharacter(TeamNum);
 		}
 
 		if (SelectedCharacter != NULL)
 		{
 			NewBot->InitializeCharacter(SelectedCharacter);
+			const float AdjustedSkill = FMath::Clamp(NewBot->Skill, GameDifficulty - 1.f, GameDifficulty + 1.5f);
+			if (AdjustedSkill != NewBot->Skill)
+			{
+				NewBot->InitializeSkill(AdjustedSkill);
+			}
 			SetUniqueBotName(NewBot, SelectedCharacter);
 			if (bOfflineChallenge && (TeamNum != 1) && (TotalStars < 6) && (ChallengeDifficulty == 0))
 			{
