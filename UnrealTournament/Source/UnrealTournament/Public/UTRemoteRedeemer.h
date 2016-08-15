@@ -37,6 +37,8 @@ class UNREALTOURNAMENT_API AUTRemoteRedeemer : public APawn, public IUTTeamInter
 	UPROPERTY()
 	int32 LockCount;
 
+	uint8 CachedTeamNum;
+
 protected:
 	/** for outline rendering */
 	UPROPERTY()
