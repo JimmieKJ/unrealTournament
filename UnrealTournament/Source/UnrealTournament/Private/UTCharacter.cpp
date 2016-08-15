@@ -1339,6 +1339,19 @@ void AUTCharacter::OnRepFloorSliding()
 	if (UTCharacterMovement)
 	{
 		UTCharacterMovement->bIsFloorSliding = bRepFloorSliding;
+		// replay sim breaks if the capsule doesn't get updated correctly but SimulatedTick() doesn't do that for slide, force it here
+		if (Role < ROLE_AutonomousProxy && UTCharacterMovement->NetworkSmoothingMode == ENetworkSmoothingMode::Replay)
+		{
+			if (bRepFloorSliding)
+			{
+				UTCharacterMovement->SetMovementMode(MOVE_Walking);
+				UTCharacterMovement->Crouch(true);
+			}
+			else
+			{
+				UTCharacterMovement->UnCrouch(true);
+			}
+		}
 	}
 }
 
