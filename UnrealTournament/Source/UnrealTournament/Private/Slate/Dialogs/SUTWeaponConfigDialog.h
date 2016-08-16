@@ -235,7 +235,7 @@ protected:
 protected:
 
 	TSharedPtr<SUTWeaponWheelConfigDialog> WheelConfigDialog;
-	FReply SUTWeaponConfigDialog::OnConfigureWheelClick();
+	FReply OnConfigureWheelClick();
 	void WheelConfigDialogClosed(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID);
 
 	bool bRequiresSave;
