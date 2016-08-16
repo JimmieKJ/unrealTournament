@@ -249,7 +249,7 @@ void AUTWeap_LinkGun::FireInstantHit(bool bDealDamage, FHitResult* OutHit)
 		if (Role == ROLE_Authority)
 		{
 			AUTGameMode* GameMode = GetWorld()->GetAuthGameMode<AUTGameMode>();
-			if (!GameMode || GameMode->bAmmoIsLimited || (Ammo > 9))
+			if (!GameMode || GameMode->bAmmoIsLimited || (Ammo > 11))
 			{
 				AddAmmo(-BeamPulseAmmoCost);
 			}
