@@ -35,7 +35,7 @@ AUTRepulsorBubble::AUTRepulsorBubble(const class FObjectInitializer& ObjectIniti
 void AUTRepulsorBubble::PostInitializeComponents()
 {
 	Super::PostInitializeComponents();
-	
+
 	AUTCharacter* UTOwner = Cast<AUTCharacter>(Instigator);
 	if (UTOwner)
 	{
@@ -122,36 +122,27 @@ bool AUTRepulsorBubble::ShouldInteractWithActor(AActor* OtherActor)
 {
 	bool bIsOnSameTeam = false;
 
-	AUTCharacter* ActorAsUTChar = Cast<AUTCharacter>(OtherActor);
-	if (ActorAsUTChar)
+	//if instigator is invalid, we should not interact with any actors
+	if (Instigator == nullptr)
 	{
-		bIsOnSameTeam = (ActorAsUTChar == Instigator) || //Always ignore the character that spawned us
-						(bShouldIgnoreTeamCharacters && (ActorAsUTChar->GetTeamNum() == TeamNum) && (ActorAsUTChar->GetTeamNum() != 255)); //255 is FFA team num, in FFA everyone has the same team num, but is on their own teams
+		return false;
 	}
 
-	AUTProjectile* ActorAsProj = Cast<AUTProjectile>(OtherActor);
-	if (ActorAsProj)
+	if (GetWorld())
 	{
-		AUTCharacter* OtherProjInstigator = Cast<AUTCharacter>(ActorAsProj->Instigator);
-		if (OtherProjInstigator)
+		AUTGameState* UTGS = Cast<AUTGameState>(GetWorld()->GetGameState());
+		
+		AUTProjectile* ActorAsProj = Cast<AUTProjectile>(OtherActor);
+		if (ActorAsProj)
 		{
-			bIsOnSameTeam = (OtherProjInstigator == Instigator) ||  //always ignore our own projectiles
-							(bShouldIgnoreTeamProjectiles && (TeamNum == OtherProjInstigator->GetTeamNum()) && (OtherProjInstigator->GetTeamNum() != 255)); // 255 is FFA team num, in FFA everyone has the same team num, but is on their own teams
+			bIsOnSameTeam = UTGS->OnSameTeam(ActorAsProj->InstigatorController, Instigator);
+		}
+		else
+		{
+			bIsOnSameTeam = UTGS->OnSameTeam(OtherActor->Instigator, Instigator);
 		}
 	}
 
-	AUTInventory* ActorAsInventory = Cast<AUTInventory>(OtherActor);
-	if (ActorAsInventory)
-	{
-		if (ActorAsInventory->GetUTOwner())
-		{
-			const AUTCharacter* ActorAsUTChar = ActorAsInventory->GetUTOwner();
-			bIsOnSameTeam = (ActorAsUTChar == Instigator) || //Always ignore the character that spawned us
-							(bShouldIgnoreTeamCharacters && (ActorAsUTChar->GetTeamNum() == TeamNum) && (ActorAsUTChar->GetTeamNum() != 255)); //255 is FFA team num, in FFA everyone has the same team num, but is on their own teams
-
-		}
-	}
-	
 	return !bIsOnSameTeam;
 }
 
@@ -174,13 +165,19 @@ void AUTRepulsorBubble::ProcessHitPlayer(AUTCharacter* OtherPlayer, UPrimitiveCo
 
 void AUTRepulsorBubble::ProcessHitProjectile(AUTProjectile* OtherProj, UPrimitiveComponent* OtherComp, const FVector& HitLocation, const FVector& HitNormal)
 {
-	//This is before reflection of the projectile so that we damage the Repulsor. Otherwise the instigator changes to us and the shield ignores the damage.
+	//This is before exploding / reflecting projectile so that we damage the Repulsor. Otherwise the instigator changes to us and the shield ignores the damage.
 	OtherProj->DamageImpactedActor(this, CollisionComp, HitLocation, HitNormal);
+	OtherProj->Instigator = Instigator;
+	
+	//Attempt to change instigator controller for projectile to our instigator's controller
+	AUTCharacter* UTOwner = Cast<AUTCharacter>(Instigator);
+	if (UTOwner)
+	{
+		OtherProj->InstigatorController = UTOwner->GetController();
+	}
 
 	if (bShouldReflectProjectiles)
 	{
-		OtherProj->Instigator = Instigator;
-
 		const bool bOriginalBounceSetting = OtherProj->ProjectileMovement->bShouldBounce;
 		OtherProj->ProjectileMovement->bShouldBounce = true;
 		((UUTProjectileMovementComponent*)OtherProj->ProjectileMovement)->SimulateImpact(FHitResult(this, OtherProj->ProjectileMovement->UpdatedPrimitive, HitLocation, -HitNormal));
@@ -216,7 +213,7 @@ float AUTRepulsorBubble::TakeDamage(float Damage, AActor* DamageCauser)
 
 		return Damage;
 	}
-
+	
 	return 0.f;
 }
 
