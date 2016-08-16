@@ -585,6 +585,12 @@ TSubclassOf<class AUTInventory> AUTGameState::GetSelectableBoostByIndex(AUTPlaye
 	return nullptr;
 }
 
+//By default return false, this should be overriden in other game modes.
+bool AUTGameState::IsSelectedBoostValid(AUTPlayerState* PlayerState) const
+{
+	return false;
+}
+
 float AUTGameState::GetClockTime()
 {
 	if (IsMatchInOvertime())

@@ -1207,17 +1207,6 @@ void AUTPlayerState::BeginPlay()
 			}
 		}
 	}
-
-	// If a player doesn't have a selected boost powerup while the game starts, lets go ahead and give them the 1st one available in the Powerup List
-	if (GetWorld() && (BoostClass == nullptr))
-	{
-		AUTGameState* UTGS = GetWorld()->GetGameState<AUTGameState>();
-		if (UTGS != nullptr)
-		{
-			TSubclassOf<class AUTInventory> SelectedBoost = UTGS->GetSelectableBoostByIndex(this, 0);
-			BoostClass = SelectedBoost;
-		}
-	}
 }
 
 void AUTPlayerState::SetCharacterVoice(const FString& CharacterVoicePath)

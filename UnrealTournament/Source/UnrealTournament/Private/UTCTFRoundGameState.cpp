@@ -129,6 +129,16 @@ TSubclassOf<class AUTInventory> AUTCTFRoundGameState::GetSelectableBoostByIndex(
 	return nullptr;
 }
 
+bool AUTCTFRoundGameState::IsSelectedBoostValid(AUTPlayerState* PlayerState) const 
+{
+	if (PlayerState == nullptr || PlayerState->BoostClass == nullptr)
+	{
+		return false;
+	}
+
+	return IsTeamOnDefenseNextRound(PlayerState->GetTeamNum()) ? DefenseSelectablePowerups.Contains(PlayerState->BoostClass) : OffenseSelectablePowerups.Contains(PlayerState->BoostClass);
+}
+
 void AUTCTFRoundGameState::PrecacheAllPowerupAnnouncements(class UUTAnnouncer* Announcer) const
 {
 	for (TSubclassOf<class AUTInventory> PowerupClass : DefenseSelectablePowerups)

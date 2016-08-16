@@ -912,6 +912,16 @@ bool AUTCTFRoundGame::ChangeTeam(AController* Player, uint8 NewTeamIndex, bool b
 	bool bResult = Super::ChangeTeam(Player, NewTeamIndex, bBroadcast);
 	if (bResult && (GetMatchState() == MatchState::InProgress))
 	{
+		// If a player doesn't have a valid selected boost powerup, lets go ahead and give them the 1st one available in the Powerup List
+		if (PS && UTGameState)
+		{
+			if (!PS->BoostClass || !UTGameState->IsSelectedBoostValid(PS))
+			{
+				TSubclassOf<class AUTInventory> SelectedBoost = UTGameState->GetSelectableBoostByIndex(PS, 0);
+				PS->BoostClass = SelectedBoost;
+			}
+		}
+
 		if (PS && (bSitOutDuringRound || PS->Team) )
 		{
 			PS->RemainingLives = 0;
