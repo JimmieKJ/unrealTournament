@@ -687,7 +687,6 @@ void AUTCarriedObject::ClearGhostFlag()
 {
 	if (MyGhostFlag != nullptr)
 	{
-		MyGhostFlag->MyCarriedObject = nullptr;
 		MyGhostFlag->Destroy();
 		MyGhostFlag = nullptr;
 	}
