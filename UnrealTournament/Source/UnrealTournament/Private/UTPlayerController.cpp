@@ -5057,7 +5057,7 @@ EWeaponHand AUTPlayerController::GetPreferredWeaponHand()
 	else
 	{
 		UUTProfileSettings* ProfileSettings = GetProfileSettings();
-		return ProfileSettings ? ProfileSettings->WeaponHand : ReplicatedWeaponHand;
+		return ProfileSettings ? ProfileSettings->WeaponHand.GetValue() : ReplicatedWeaponHand;
 	}
 }
 
