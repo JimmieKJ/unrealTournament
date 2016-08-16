@@ -9,6 +9,15 @@
 #include "Runtime/Launch/Resources/Version.h"
 #include "PerfCountersHelpers.h"
 #include "QosInterface.h"
+#include "GameServiceMcp.h"
+
+#include "OnlineSubsystemMcp.h"
+#include "OnlineHttpRequest.h"
+#include "OnlineSubsystemUtils.h"
+#include "UTMcpUtils.h"
+
+
+
 #if WITH_QOSREPORTER
 	#include "QoSReporter.h"
 #endif // WITH_QOSREPORTER
@@ -51,7 +60,7 @@ void FUTAnalytics::Initialize()
 			{
 				ConfigMap.Add(TEXT("ProviderModuleName"), TEXT("AnalyticsET"));
 				ConfigMap.Add(TEXT("APIServerET"), TEXT("https://datarouter.ol.epicgames.com/"));
-				ConfigMap.Add(TEXT("APIKeyET"), FString::Printf(TEXT("UnrealTournament.%s"), FAnalytics::ToString(FAnalytics::Get().GetBuildType())));
+				ConfigMap.Add(TEXT("APIKeyET"), FString::Printf(TEXT("UnrealTournament.%s"), *GetBuildType()));
 			}
 
 			FString* ConfigValue = ConfigMap.Find(KeyName);
@@ -69,6 +78,29 @@ void FUTAnalytics::Initialize()
 
 	bIsInitialized = true;
 }
+
+FString FUTAnalytics::GetBuildType()
+{
+	FString BuildType = FString();
+	
+	FOnlineSubsystemMcp* WorldMcp = (FOnlineSubsystemMcp*)Online::GetSubsystem(nullptr, MCP_SUBSYSTEM);
+	if (WorldMcp)
+	{
+		FGameServiceMcpPtr MCPService = WorldMcp->GetMcpGameService();
+		if (MCPService.IsValid())
+		{
+			BuildType = MCPService->GetGameBackendName();
+		}
+	}
+
+	if (BuildType.IsEmpty())
+	{
+		BuildType = FAnalytics::ToString(FAnalytics::Get().GetBuildType());
+	}
+
+	return BuildType;
+}
+
 
 void FUTAnalytics::InitializeAnalyticParameterNames()
 {
@@ -546,8 +578,24 @@ void FUTAnalytics::FireEvent_PlayerContextLocationPerMinute(AUTPlayerController*
 			ParamArray.Add(FAnalyticsEventAttribute(GetGenericParamName(EGenericAnalyticParam::Platform), GetPlatform()));
 			ParamArray.Add(FAnalyticsEventAttribute(GetGenericParamName(EGenericAnalyticParam::Location), PlayerContextLocation));
 			ParamArray.Add(FAnalyticsEventAttribute(GetGenericParamName(EGenericAnalyticParam::SocialPartyCount), NumSocialPartyMembers));
-			ParamArray.Add(FAnalyticsEventAttribute(GetGenericParamName(EGenericAnalyticParam::RegionId), FQosInterface::Get()->GetRegionId()));
+			
+			if (FQosInterface::Get()->GetRegionId().IsEmpty() || (FQosInterface::Get()->GetRegionId() == "None"))
+			{
+				ParamArray.Add(FAnalyticsEventAttribute(GetGenericParamName(EGenericAnalyticParam::RegionId), TEXT("Unknown")));
+			
+				if (FUTAnalytics::IsAvailable())
+				{
+					FQosInterface::Get()->BeginQosEvaluation(UTPC->GetWorld(), FUTAnalytics::GetProviderPtr(), nullptr);
+				}
+			}
+			else
+			{
+				ParamArray.Add(FAnalyticsEventAttribute(GetGenericParamName(EGenericAnalyticParam::RegionId), FQosInterface::Get()->GetRegionId()));
+			}
+
 			AnalyticsProvider->RecordEvent(GetGenericParamName(EGenericAnalyticParam::PlayerContextLocationPerMinute), ParamArray);
+		
+			UE_LOG(UT, Warning, TEXT("Sending PlayerContext Location Per Minute Event"));
 		}
 	}
 }

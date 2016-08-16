@@ -64,6 +64,8 @@ public:
 	static FString GetMapName(AUTGameMode* UTGM);
 
 private:
+	static FString GetBuildType();
+
 	enum class EAccountSource
 	{
 		EFromRegistry,
