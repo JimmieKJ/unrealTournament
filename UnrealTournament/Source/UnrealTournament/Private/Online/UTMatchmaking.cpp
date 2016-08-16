@@ -665,8 +665,11 @@ void UUTMatchmaking::ContinueMatchmaking(int32 TeamElo, FMatchmakingParams InPar
 	UE_LOG(LogOnline, Log, TEXT("ContinueMatchmaking TeamElo:%d"), (int32)TeamElo);
 	
 	InParams.TeamElo = TeamElo;
-	Matchmaking->Init(InParams);
-	Matchmaking->StartMatchmaking();
+	if (Matchmaking)
+	{
+		Matchmaking->Init(InParams);
+		Matchmaking->StartMatchmaking();
+	}
 }
 
 void UUTMatchmaking::OnMatchmakingCompleteInternal(EMatchmakingCompleteResult Result, const FOnlineSessionSearchResult& SearchResult)
