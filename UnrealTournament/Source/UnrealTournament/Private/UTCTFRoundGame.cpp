@@ -1218,7 +1218,7 @@ void AUTCTFRoundGame::AdjustLeaderHatFor(AUTCharacter* UTChar)
 
 void AUTCTFRoundGame::ScoreRedAlternateWin()
 {
-	if (!IsMatchInProgress() || (GetMatchState() == MatchState::MatchIntermission))
+	if (IsMatchInProgress() && (GetMatchState() != MatchState::MatchIntermission))
 	{
 		ScoreAlternateWin(0);
 	}
@@ -1226,7 +1226,7 @@ void AUTCTFRoundGame::ScoreRedAlternateWin()
 
 void AUTCTFRoundGame::ScoreBlueAlternateWin()
 {
-	if (!IsMatchInProgress() || (GetMatchState() == MatchState::MatchIntermission))
+	if (IsMatchInProgress() && (GetMatchState() != MatchState::MatchIntermission))
 	{
 		ScoreAlternateWin(1);
 	}
