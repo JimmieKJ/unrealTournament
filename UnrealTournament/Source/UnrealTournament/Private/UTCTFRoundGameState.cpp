@@ -8,6 +8,7 @@
 #include "UTCTFScoring.h"
 #include "StatNames.h"
 #include "UTCountDownMessage.h"
+#include "UTAnnouncer.h"
 
 AUTCTFRoundGameState::AUTCTFRoundGameState(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -126,6 +127,28 @@ TSubclassOf<class AUTInventory> AUTCTFRoundGameState::GetSelectableBoostByIndex(
 	}
 
 	return nullptr;
+}
+
+void AUTCTFRoundGameState::PrecacheAllPowerupAnnouncements(class UUTAnnouncer* Announcer) const
+{
+	for (TSubclassOf<class AUTInventory> PowerupClass : DefenseSelectablePowerups)
+	{
+		CachePowerupAnnouncement(Announcer, PowerupClass);
+	}
+
+	for (TSubclassOf<class AUTInventory> PowerupClass : OffenseSelectablePowerups)
+	{
+		CachePowerupAnnouncement(Announcer, PowerupClass);
+	}
+}
+
+void AUTCTFRoundGameState::CachePowerupAnnouncement(class UUTAnnouncer* Announcer, const TSubclassOf<AUTInventory> PowerupClass) const
+{
+	AUTInventory* Powerup = PowerupClass->GetDefaultObject<AUTInventory>();
+	if (Powerup)
+	{
+		Announcer->PrecacheAnnouncement(Powerup->AnnouncementName);
+	}
 }
 
 void AUTCTFRoundGameState::DefaultTimer()

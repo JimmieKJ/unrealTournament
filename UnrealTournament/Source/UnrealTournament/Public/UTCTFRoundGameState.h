@@ -95,6 +95,9 @@ class UNREALTOURNAMENT_API AUTCTFRoundGameState : public AUTCTFGameState
 	UFUNCTION(BlueprintCallable, Category = GameState)
 	virtual TSubclassOf<class AUTInventory> GetSelectableBoostByIndex(AUTPlayerState* PlayerState, int Index) const override;
 
+	//Handles precaching all game announcement sounds for the local player
+	virtual void PrecacheAllPowerupAnnouncements(class UUTAnnouncer* Announcer) const;
+
 	virtual void BeginPlay() override;
 
 	UFUNCTION(BlueprintCallable, Category = GameState)
@@ -107,6 +110,8 @@ protected:
 
 	virtual void UpdateSelectablePowerups();
 	virtual void AddModeSpecificOverlays();
+
+	virtual void CachePowerupAnnouncement(class UUTAnnouncer* Announcer, TSubclassOf<AUTInventory> PowerupClass) const;
 
 	UPROPERTY()
 	TArray<TSubclassOf<class AUTInventory>> DefenseSelectablePowerups;

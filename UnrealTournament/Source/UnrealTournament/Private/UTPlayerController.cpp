@@ -947,11 +947,6 @@ void AUTPlayerController::TeamNotifiyOfPowerupUse()
 									//21 is Powerup Message
 									PC->ClientReceiveLocalizedMessage(UUTPowerupUseMessage::StaticClass(), 21, UTPlayerState);
 								}
-
-								if (Powerup->NotifySound)
-								{
-									PC->UTClientPlaySound(Powerup->NotifySound);
-								}
 							}
 						}
 					}
