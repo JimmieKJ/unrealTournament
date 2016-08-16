@@ -3223,6 +3223,9 @@ void AUTPlayerState::OnRepTaunt()
 
 void AUTPlayerState::PlayTauntByIndex(int32 TauntIndex)
 {
+	// SetEmoteSpeed here to make sure that it gets unfrozen if freezing isn't allowed
+	ServerSetEmoteSpeed(EmoteSpeed);
+
 	if (TauntIndex == 0 && TauntClass != nullptr)
 	{
 		EmoteReplicationInfo.EmoteIndex = TauntIndex;
