@@ -737,7 +737,7 @@ void AUTWeap_LinkGun::DrawWeaponCrosshair_Implementation(UUTHUDWidget* WeaponHud
 			{
 				ChargeColor = (OverheatFactor > 0.8f) ? FLinearColor::Yellow : FLinearColor::White;
 			}
-			float ChargePct = FMath::Clamp(OverheatFactor, 0.f, 1.f);
+			float ChargePct = FMath::Clamp(OverheatFactor, 0.f, 1.5f)/1.5F;
 			WeaponHudWidget->DrawTexture(WeaponHudWidget->UTHUDOwner->HUDAtlas, 0, 0.5f * ScaledCircleSize*(1.f - ChargePct), ScaledCircleSize, ScaledCircleSize*ChargePct, 98, 936 + CircleSize*(1.f - ChargePct), CircleSize, CircleSize*ChargePct, 0.7f, ChargeColor, FVector2D(0.5f, 0.5f));
 		}
 	}
