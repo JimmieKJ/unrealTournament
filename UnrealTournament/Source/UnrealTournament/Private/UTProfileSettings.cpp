@@ -179,6 +179,19 @@ void UUTProfileSettings::ResetProfile(EProfileResetType::Type SectionToReset)
 		WeaponCustomizations.Add(EpicWeaponCustomizationTags::Enforcer, FWeaponCustomizationInfo(EpicWeaponCustomizationTags::Enforcer, 2, 2.0f, DefaultWeaponCrosshairs::Cross5, FLinearColor::White, 1.0f));
 		WeaponCustomizations.Add(EpicWeaponCustomizationTags::Translocator, FWeaponCustomizationInfo(EpicWeaponCustomizationTags::Translocator, 0, 1.0f, DefaultWeaponCrosshairs::Cross3, FLinearColor::White, 1.0f));
 		WeaponCustomizations.Add(EpicWeaponCustomizationTags::ImpactHammer, FWeaponCustomizationInfo(EpicWeaponCustomizationTags::ImpactHammer, 1, 1.0f, DefaultWeaponCrosshairs::Bracket1, FLinearColor::White, 1.0f));
+
+		bAutoWeaponSwitch = true;
+
+		WeaponWheelMapping.Empty();
+		WeaponWheelMapping.Add(8);
+		WeaponWheelMapping.Add(5);
+		WeaponWheelMapping.Add(4);
+		WeaponWheelMapping.Add(3);
+		WeaponWheelMapping.Add(7);
+		WeaponWheelMapping.Add(2);
+		WeaponWheelMapping.Add(9);
+		WeaponWheelMapping.Add(6);
+
 	}
 }
 
@@ -188,8 +201,9 @@ void UUTProfileSettings::VersionFixup()
 	// Place any hacks needed to fix or update the profile here.  NOTE: you should no longer need to hack in changes for
 	// input.  VerifyInputRules() will attempt to make sure any new input binds are brought in to the profile as well as
 	// check for double bindings.
-
 }
+
+
 
 bool UUTProfileSettings::VerifyInputRules()
 {
@@ -268,7 +282,6 @@ void UUTProfileSettings::ApplyAllSettings(UUTLocalPlayer* ProfilePlayer)
 		PC->MaxDodgeTapTime = MaxDodgeTapTimeValue;
 		PC->bSingleTapWallDodge = bSingleTapWallDodge;
 		PC->bSingleTapAfterJump = bSingleTapAfterJump;
-		PC->bAutoWeaponSwitch = bAutoWeaponSwitch;
 		PC->bCrouchTriggersSlide = bAllowSlideFromRun;
 		PC->bHearsTaunts = bHearsTaunts;
 		PC->WeaponBobGlobalScaling = WeaponBob;

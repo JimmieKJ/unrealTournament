@@ -63,8 +63,6 @@ AUTPlayerController::AUTPlayerController(const class FObjectInitializer& ObjectI
 	BaseTurnRate = 45.f;
 	BaseLookUpRate = 45.f;
 
-	bAutoWeaponSwitch = true;
-	
 	MaxDodgeClickTime = 0.25f;
 	MaxDodgeTapTime = 0.3f;
 	LastTapLeftTime = -10.f;
@@ -149,6 +147,7 @@ AUTPlayerController::AUTPlayerController(const class FObjectInitializer& ObjectI
 
 	LastComMessageSwitch = -1;
 	LastComMessageTime = 0.0f;
+	ReplicatedWeaponHand = EWeaponHand::HAND_Right;
 }
 
 void AUTPlayerController::BeginPlay()
@@ -966,7 +965,7 @@ void AUTPlayerController::ToggleTranslocator()
 {
 	if (UTCharacter != NULL && UTCharacter->GetWeapon() != NULL && IsLocalPlayerController())
 	{
-		int32 CurrentGroup = UTCharacter->GetWeapon()->Group;
+		int32 CurrentGroup = GetWeaponGroup(UTCharacter->GetWeapon());
 		if (CurrentGroup == 0)
 		{
 			SwitchWeapon(PreviousWeaponGroup);
@@ -983,7 +982,7 @@ void AUTPlayerController::SelectTranslocator()
 {
 	if (UTCharacter != NULL && UTCharacter->GetWeapon() != NULL && IsLocalPlayerController())
 	{
-		int32 CurrentGroup = UTCharacter->GetWeapon()->Group;
+		int32 CurrentGroup = GetWeaponGroup(UTCharacter->GetWeapon());
 		if (CurrentGroup != 0)
 		{
 			ToggleTranslocator();
@@ -1038,13 +1037,6 @@ void AUTPlayerController::SwitchWeaponInSequence(bool bPrev)
 		}
 		else
 		{
-			UUTProfileSettings* ProfileSettings = NULL;
-
-			if (Cast<UUTLocalPlayer>(Player))
-			{
-				ProfileSettings = Cast<UUTLocalPlayer>(Player)->GetProfileSettings();
-			}
-
 			AUTWeapon* Best = NULL;
 			AUTWeapon* WraparoundChoice = NULL;
 			AUTWeapon* CurrentWeapon = (UTCharacter->GetPendingWeapon() != NULL) ? UTCharacter->GetPendingWeapon() : UTCharacter->GetWeapon();
@@ -1107,6 +1099,10 @@ void AUTPlayerController::CheckAutoWeaponSwitch(AUTWeapon* TestWeapon)
 		{
 			CurWeapon = UTCharacter->GetWeapon();
 		}
+
+		UUTProfileSettings* ProfileSettings = GetProfileSettings();
+
+		bool bAutoWeaponSwitch = ProfileSettings ? ProfileSettings->bAutoWeaponSwitch : true;
 		if (CurWeapon == NULL || (bAutoWeaponSwitch && !UTCharacter->IsPendingFire(CurWeapon->GetCurrentFireMode()) && TestWeapon->AutoSwitchPriority > CurWeapon->AutoSwitchPriority))
 		{
 			UTCharacter->SwitchWeapon(TestWeapon);
@@ -1116,6 +1112,7 @@ void AUTPlayerController::CheckAutoWeaponSwitch(AUTWeapon* TestWeapon)
 
 void AUTPlayerController::RefreshWeaponGroups()
 {
+/*
 	if (UTCharacter == nullptr)  return;
 
 	TArray<int32> GroupSlotIndexes;
@@ -1130,6 +1127,7 @@ void AUTPlayerController::RefreshWeaponGroups()
 			GroupSlotIndexes[Weap->Group]++;
 		}
 	}
+*/
 }
 
 void AUTPlayerController::SwitchWeaponGroup(int32 Group)
@@ -1141,18 +1139,21 @@ void AUTPlayerController::SwitchWeaponGroup(int32 Group)
 		AUTWeapon* CurrWeapon = (UTCharacter->GetPendingWeapon() != NULL) ? UTCharacter->GetPendingWeapon() : UTCharacter->GetWeapon();
 		AUTWeapon* LowestSlotWeapon = NULL;
 		AUTWeapon* NextSlotWeapon = NULL;
+
+		int32 CurrentGroup = GetWeaponGroup(CurrWeapon);
 		for (TInventoryIterator<AUTWeapon> It(UTCharacter); It; ++It)
 		{
 			AUTWeapon* Weap = *It;
 			if (Weap != UTCharacter->GetWeapon() && Weap->HasAnyAmmo())
 			{
-				if (Weap->Group == Group)
+				int32 WeapGroup = GetWeaponGroup(Weap);
+				if (WeapGroup == Group)
 				{
 					if (LowestSlotWeapon == NULL || LowestSlotWeapon->GroupSlot > Weap->GroupSlot)
 					{
 						LowestSlotWeapon = Weap;
 					}
-					if (CurrWeapon != NULL && CurrWeapon->Group == Group && Weap->GroupSlot > CurrWeapon->GroupSlot && (NextSlotWeapon == NULL || NextSlotWeapon->GroupSlot > Weap->GroupSlot))
+					if (CurrWeapon != NULL && CurrentGroup == Group && Weap->GroupSlot > CurrWeapon->GroupSlot && (NextSlotWeapon == NULL || NextSlotWeapon->GroupSlot > Weap->GroupSlot))
 					{
 						NextSlotWeapon = Weap;
 					}
@@ -3499,7 +3500,8 @@ bool AUTPlayerController::ServerSuicide_Validate()
 
 void AUTPlayerController::SetWeaponHand(EWeaponHand NewHand)
 {
-	WeaponHand = NewHand;
+	ReplicatedWeaponHand = NewHand;
+
 	AUTCharacter* UTCharTarget = Cast<AUTCharacter>(GetViewTarget());
 	if (UTCharTarget != NULL && UTCharTarget->GetWeapon() != NULL)
 	{
@@ -3568,7 +3570,7 @@ void AUTPlayerController::ReceivedPlayer()
 	{
 		if (GetNetMode() != NM_Standalone)
 		{
-			ServerSetWeaponHand(WeaponHand);
+			ServerSetWeaponHand(GetWeaponHand());
 			if (FUTAnalytics::IsAvailable() && (GetWorld()->GetNetMode() != NM_Client || GetWorld()->GetNetDriver() != NULL)) // make sure we don't do analytics for demo playback
 			{
 				FString ServerInfo = (GetWorld()->GetNetMode() == NM_Client) ? GetWorld()->GetNetDriver()->ServerConnection->URL.ToString() : GEngine->GetWorldContextFromWorldChecked(GetWorld()).LastURL.ToString();
@@ -3582,7 +3584,7 @@ void AUTPlayerController::ReceivedPlayer()
 		}
 
 		// Send over the country flag....
-		UUTProfileSettings* Settings = LP->GetProfileSettings();
+		UUTProfileSettings* Settings = GetProfileSettings();
 		if (Settings != NULL)
 		{
 			FName CountryFlag = Settings->CountryFlag;
@@ -3800,7 +3802,7 @@ float AUTPlayerController::GetWeaponAutoSwitchPriority(AUTWeapon* InWeapon)
 {
 	if (Cast<UUTLocalPlayer>(Player))
 	{
-		UUTProfileSettings* ProfileSettings = Cast<UUTLocalPlayer>(Player)->GetProfileSettings();
+		UUTProfileSettings* ProfileSettings = GetProfileSettings();
 		if (ProfileSettings)
 		{
 			FWeaponCustomizationInfo WeaponCustomization;
@@ -3815,7 +3817,7 @@ int32 AUTPlayerController::GetWeaponGroup(AUTWeapon* InWeapon)
 {
 	if (Cast<UUTLocalPlayer>(Player))
 	{
-		UUTProfileSettings* ProfileSettings = Cast<UUTLocalPlayer>(Player)->GetProfileSettings();
+		UUTProfileSettings* ProfileSettings = GetProfileSettings();
 		if (ProfileSettings)
 		{
 			FWeaponCustomizationInfo WeaponCustomization;
@@ -4705,52 +4707,6 @@ void AUTPlayerController::TestCallstack()
 	UE_LOG(UT, Log, TEXT("%s"), ANSI_TO_TCHAR(StackTrace));
 }
 
-void AUTPlayerController::QSSetType(const FName& Tag)
-{
-	UUTLocalPlayer *LocalPlayer = Cast<UUTLocalPlayer>(Player);
-	if (LocalPlayer)
-	{
-		UUTProfileSettings* Settings = LocalPlayer->GetProfileSettings();
-		if (Settings)
-		{
-			Settings->QuickStatsType = Tag;
-		}
-	}
-}
-void AUTPlayerController::QSSetDist(float Distance)
-{
-	UUTLocalPlayer *LocalPlayer = Cast<UUTLocalPlayer>(Player);
-	if (LocalPlayer)
-	{
-		UUTProfileSettings* Settings = LocalPlayer->GetProfileSettings();
-		if (Settings)
-		{
-			Settings->QuickStatsDistance = Distance;
-		}
-	}
-}
-void AUTPlayerController::QSSetAngle(float Angle)
-{
-	UUTLocalPlayer *LocalPlayer = Cast<UUTLocalPlayer>(Player);
-	if (LocalPlayer)
-	{
-		UUTProfileSettings* Settings = LocalPlayer->GetProfileSettings();
-		if (Settings)
-		{
-			Settings->QuickStatsAngle = Angle;
-		}
-	}
-}
-
-void AUTPlayerController::QSSave()
-{
-	UUTLocalPlayer *LocalPlayer = Cast<UUTLocalPlayer>(Player);
-	if (LocalPlayer)
-	{
-		LocalPlayer->SaveProfileSettings();
-	}
-}
-
 void AUTPlayerController::ResetFoliageDitheredLOD()
 {
 	static auto DitheredLODCVar = IConsoleManager::Get().FindConsoleVariable(TEXT("foliage.DitheredLOD"));
@@ -5091,3 +5047,17 @@ void AUTPlayerController::InitializeHeartbeatManager()
 		HeartbeatManager->StartManager(this);
 	}
 }
+
+EWeaponHand AUTPlayerController::GetPreferredWeaponHand()
+{
+	if (GetNetMode() == NM_DedicatedServer)
+	{
+		return ReplicatedWeaponHand;
+	}
+	else
+	{
+		UUTProfileSettings* ProfileSettings = GetProfileSettings();
+		return ProfileSettings ? ProfileSettings->WeaponHand : ReplicatedWeaponHand;
+	}
+}
+

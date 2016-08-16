@@ -2,6 +2,7 @@
 #include "UnrealTournament.h"
 #include "SUTWeaponConfigDialog.h"
 #include "SUTWeaponPriorityDialog.h"
+#include "SUTWeaponWheelConfigDialog.h"
 #include "../SUWindowsStyle.h"
 #include "../SUTStyle.h"
 #include "../Widgets/SUTTabWidget.h"
@@ -60,6 +61,8 @@ void SUTWeaponConfigDialog::Construct(const FArguments& InArgs)
 	GatherWeaponData(ProfileSettings);
 	GatherWeaponSkins(ProfileSettings);
 
+	bRequiresSave = false;
+
 
 	bCustomWeaponCrosshairs = ProfileSettings->bCustomWeaponCrosshairs;
 
@@ -93,17 +96,17 @@ void SUTWeaponConfigDialog::Construct(const FArguments& InArgs)
 
 									+ SVerticalBox::Slot().AutoHeight().Padding(5.0f, 5.0f, 5.0f, 5.0f).HAlign(HAlign_Fill)
 									[
-										GenerateCustomWeaponCrosshairs()
+										GenerateCustomWeaponCrosshairs(ProfileSettings)
 									]
 
 									+SVerticalBox::Slot().AutoHeight().Padding(5.0f,5.0f,5.0f,5.0f).HAlign(HAlign_Fill)
 									[
-										GenerateAutoSwitch()								
+										GenerateAutoSwitch(ProfileSettings)		
 									]
 
 									+ SVerticalBox::Slot().AutoHeight().Padding(5.0f,5.0f,5.0f,5.0f).HAlign(HAlign_Fill)
 									[
-										GenerateWeaponHand()
+										GenerateWeaponHand(ProfileSettings)
 									]
 								]
 							]
@@ -291,7 +294,22 @@ void SUTWeaponConfigDialog::Construct(const FArguments& InArgs)
 	if (AllWeapons.Num() > 0)
 	{
 		CurrentWeaponIndex = -1;
-		WeaponClicked(0);
+		
+		int32 LowestGroup = -1;
+		int32 SelectedIndex = -1;
+		for (int32 i=0; i < AllWeapons.Num(); i++)
+		{
+			int32 Group = AllWeapons[i].WeaponCustomizationInfo->WeaponGroup;
+			if (SelectedIndex < 0 || Group < LowestGroup)
+			{
+				LowestGroup = Group;
+				SelectedIndex = i;
+			}
+		}
+
+
+
+		WeaponClicked(SelectedIndex < 0 ? 0 : SelectedIndex);
 	}
 
 }
@@ -318,7 +336,7 @@ TSharedRef<class SWidget> SUTWeaponConfigDialog::BuildCustomButtonBar()
 			.ContentPadding(FMargin(5.0f, 5.0f, 5.0f, 5.0f))
 			.Text(NSLOCTEXT("SUTWeaponConfigDialog", "WeaponWheel", "CONFIGURE WEAPON WHEEL"))
 			.TextStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button.SmallTextStyle")
-			//.OnClicked(this, &SUTControlSettingsDialog::OnBindDefaultClick)
+			.OnClicked(this, &SUTWeaponConfigDialog::OnConfigureWheelClick)
 		];
 		
 }
@@ -1008,6 +1026,7 @@ void SUTWeaponConfigDialog::RecreateWeaponPreview()
 						SkinPickup->SetInventory(SkinWeapon);
 						SkinPickup->Movement->StopMovementImmediately();
 						SkinPickup->Movement->ProjectileGravityScale = 0.0f;
+						SkinPickup->SetActorHiddenInGame(bShowingCrosshairs);
 						SkinPickup->SetWeaponSkin(WeaponSkin);
 						PreviewWeaponSkins.Add(WeaponSkin);
 						PickupPreviewActors.Add(SkinPickup);
@@ -1101,7 +1120,7 @@ void SUTWeaponConfigDialog::ZoomPreview(float WheelDelta)
 }
 
 
-TSharedRef<SWidget> SUTWeaponConfigDialog::GenerateWeaponHand()
+TSharedRef<SWidget> SUTWeaponConfigDialog::GenerateWeaponHand(UUTProfileSettings* Profile)
 {
 	WeaponHandDesc.Add(NSLOCTEXT("UT", "Right", "Right"));
 	WeaponHandDesc.Add(NSLOCTEXT("UT", "Left", "Left"));
@@ -1116,7 +1135,7 @@ TSharedRef<SWidget> SUTWeaponConfigDialog::GenerateWeaponHand()
 	TSharedPtr<FText> InitiallySelectedHand = WeaponHandList[0];
 	for (TSharedPtr<FText> TestItem : WeaponHandList)
 	{
-		if (TestItem.Get()->EqualTo(WeaponHandDesc[uint8(GetDefault<AUTPlayerController>()->GetWeaponHand())]))
+		if (TestItem.Get()->EqualTo(WeaponHandDesc[uint8(Profile->WeaponHand.GetValue())]))
 		{
 			InitiallySelectedHand = TestItem;
 		}
@@ -1169,7 +1188,7 @@ void SUTWeaponConfigDialog::OnHandSelected(TSharedPtr<FText> NewSelection, ESele
 }
 
 
-TSharedRef<SWidget> SUTWeaponConfigDialog::GenerateAutoSwitch()
+TSharedRef<SWidget> SUTWeaponConfigDialog::GenerateAutoSwitch(UUTProfileSettings* Profile)
 {
 	TSharedPtr<SHorizontalBox> Box;
 	SAssignNew(Box,SHorizontalBox)
@@ -1185,13 +1204,13 @@ TSharedRef<SWidget> SUTWeaponConfigDialog::GenerateAutoSwitch()
 		SAssignNew(AutoWeaponSwitch, SCheckBox)
 		.Style(SUTStyle::Get(), "UT.CheckBox")
 		.ForegroundColor(FLinearColor::White)
-		.IsChecked(GetDefault<AUTPlayerController>()->bAutoWeaponSwitch ? ESlateCheckBoxState::Checked : ESlateCheckBoxState::Unchecked)
+		.IsChecked(Profile->bAutoWeaponSwitch ? ESlateCheckBoxState::Checked : ESlateCheckBoxState::Unchecked)
 	];
 
 	return Box.ToSharedRef();
 }
 
-TSharedRef<SWidget> SUTWeaponConfigDialog::GenerateCustomWeaponCrosshairs()
+TSharedRef<SWidget> SUTWeaponConfigDialog::GenerateCustomWeaponCrosshairs(UUTProfileSettings* Profile)
 {
 	TSharedPtr<SHorizontalBox> Box;
 	SAssignNew(Box, SHorizontalBox)
@@ -1642,10 +1661,30 @@ FReply SUTWeaponConfigDialog::OnButtonClick(uint16 ButtonID)
 			}
 
 		}
+		bRequiresSave = true;
+	}
+
+	if (bRequiresSave)
+	{
 		PlayerOwner->SaveProfileSettings();
 	}
 
 	return SUTDialogBase::OnButtonClick(ButtonID);
 }
+
+FReply SUTWeaponConfigDialog::OnConfigureWheelClick()
+{
+	SAssignNew(WheelConfigDialog, SUTWeaponWheelConfigDialog).PlayerOwner(PlayerOwner).OnDialogResult(this, &SUTWeaponConfigDialog::WheelConfigDialogClosed);
+	WheelConfigDialog->InitializeList(&AllWeapons);
+	PlayerOwner->OpenDialog(WheelConfigDialog.ToSharedRef());
+	return FReply::Handled();
+
+}
+
+void SUTWeaponConfigDialog::WheelConfigDialogClosed(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID)
+{
+	if (ButtonID == UTDIALOG_BUTTON_OK) bRequiresSave = true;
+}
+
 
 #endif

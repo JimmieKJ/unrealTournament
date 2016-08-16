@@ -315,6 +315,16 @@ void SUTStyle::SetCommonStyle(TSharedRef<FSlateStyleSet> StyleRef)
 		.SetPressedSound(ButtonPressSound)
 	);
 
+	Style.Set("UT.WeaponWheelButton", FButtonStyle()
+		.SetNormal(IMAGE_BRUSH("UTStyle/Buttons/Button.WeaponWheel", FVector2D(189, 113)))
+		.SetHovered(IMAGE_BRUSH("UTStyle/Buttons/Button.WeaponWheel.Hover", FVector2D(189, 113)))
+		.SetPressed(IMAGE_BRUSH("UTStyle/Buttons/Button.WeaponWheel.Press", FVector2D(189, 113)))
+		.SetDisabled(FSlateColorBrush(Disabled))
+		.SetHoveredSound(ButtonHoverSound)
+		.SetPressedSound(ButtonPressSound)
+	);
+
+
 
 	Style.Set("UT.NoStyle", new FSlateNoResource(FVector2D(128.0f, 128.0f)));
 

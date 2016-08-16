@@ -10,6 +10,7 @@
 class SUTButton;
 class UTCrosshair;
 class SUTWeaponPriorityDialog;
+class SUTWeaponWheelConfigDialog;
 
 struct FWeaponInfo
 {
@@ -144,7 +145,7 @@ protected:
 	TSharedPtr< SComboBox< TSharedPtr<FText> > > WeaponHand;
 	TSharedPtr<STextBlock> SelectedWeaponHand;
 
-	TSharedRef<SWidget> GenerateWeaponHand();
+	TSharedRef<SWidget> GenerateWeaponHand(UUTProfileSettings* Profile);
 	TSharedRef<SWidget> GenerateHandListWidget(TSharedPtr<FText> InItem);
 	void OnHandSelected(TSharedPtr<FText> NewSelection, ESelectInfo::Type SelectInfo);
 
@@ -153,7 +154,7 @@ protected:
 	// Auto-Weapon Switch
 
 	TSharedPtr<SCheckBox> AutoWeaponSwitch;
-	TSharedRef<SWidget> GenerateAutoSwitch();
+	TSharedRef<SWidget> GenerateAutoSwitch(UUTProfileSettings* Profile);
 
 
 protected:
@@ -163,7 +164,7 @@ protected:
 	bool bCustomWeaponCrosshairs;
 
 	TSharedPtr<SCheckBox> CustomWeaponCrosshairs;
-	TSharedRef<SWidget> GenerateCustomWeaponCrosshairs();
+	TSharedRef<SWidget> GenerateCustomWeaponCrosshairs(UUTProfileSettings* Profile);
 	ECheckBoxState GetCustomWeaponCrosshairs() const;
 	void SetCustomWeaponCrosshairs(ECheckBoxState NewState);
 
@@ -230,6 +231,15 @@ protected:
 	FReply SetAutoSwitchPriorities();
 	TSharedPtr<SUTWeaponPriorityDialog> AutoSwitchDialog;
 	void AutoSwitchDialogClosed(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID);
+
+protected:
+
+	TSharedPtr<SUTWeaponWheelConfigDialog> WheelConfigDialog;
+	FReply SUTWeaponConfigDialog::OnConfigureWheelClick();
+	void WheelConfigDialogClosed(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID);
+
+	bool bRequiresSave;
+
 
 };
 #endif

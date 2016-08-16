@@ -87,11 +87,15 @@ void AUTBasePlayerController::SetName(const FString& S)
 {
 	if (!S.IsEmpty())
 	{
-		UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(Player);
-		if (LP != NULL)
+		UUTLocalPlayer* LocalPlayer = Cast<UUTLocalPlayer>(Player);
+		if (LocalPlayer != NULL)
 		{
-			LP->SetNickname(S);
-			LP->SaveProfileSettings();
+			LocalPlayer->SetNickname(S);
+			UUTProfileSettings* ProfileSettings = GetProfileSettings();
+			if (ProfileSettings != nullptr)
+			{
+				LocalPlayer->SaveProfileSettings();
+			}
 		}
 	}
 }
@@ -1086,13 +1090,7 @@ void AUTBasePlayerController::ClientWaitForMovieToFinish_Implementation()
 
 void AUTBasePlayerController::ClientEnableNetworkVoice_Implementation(bool bEnable)
 {
-	UUTProfileSettings* ProfileSettings = NULL;
-
-	if (Cast<UUTLocalPlayer>(Player))
-	{
-		ProfileSettings = Cast<UUTLocalPlayer>(Player)->GetProfileSettings();
-	}
-
+	UUTProfileSettings* ProfileSettings = GetProfileSettings();
 	ToggleSpeaking(ProfileSettings ? !ProfileSettings->bPushToTalk : bEnable);
 }
 
@@ -1114,3 +1112,8 @@ void AUTBasePlayerController::StopVOIPTalking()
 	}
 }
 
+bool AUTBasePlayerController::AreMenusOpen()
+{
+	UUTLocalPlayer* LocalPlayer = Cast<UUTLocalPlayer>(Player);
+	return (LocalPlayer && LocalPlayer->AreMenusOpen());
+}

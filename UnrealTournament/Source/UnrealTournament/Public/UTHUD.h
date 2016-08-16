@@ -528,10 +528,6 @@ public:
 	UFUNCTION(BlueprintNativeEvent)
 	EInputMode::Type GetInputMode() const;
 
-	/**If true, crosshairs can be unique per weapon*/
-	UPROPERTY(globalconfig)
-	bool bCustomWeaponCrosshairs;
-
 	// Holds a list of all loaded crosshairs.
 	UPROPERTY()
 	TMap<FName, UUTCrosshair*> Crosshairs;

@@ -301,14 +301,6 @@ void AUTWeapon::ClientGivenTo_Internal(bool bAutoActivate)
 
 	Super::ClientGivenTo_Internal(bAutoActivate);
 
-	// Grab our switch priority
-	AUTPlayerController *UTPC = Cast<AUTPlayerController>(UTOwner->Controller);
-	if (UTPC != NULL)
-	{
-		AutoSwitchPriority = UTPC->GetWeaponAutoSwitchPriority(this);
-		Group = UTPC->GetWeaponGroup(this);
-	}
-
 	// assign GroupSlot if required
 	int32 MaxGroupSlot = 0;
 	bool bDuplicateSlot = false;
@@ -325,9 +317,10 @@ void AUTWeapon::ClientGivenTo_Internal(bool bAutoActivate)
 		GroupSlot = MaxGroupSlot + 1;
 	}
 
-	if (bAutoActivate && UTPC != NULL)
+	AUTPlayerController* UTPlayerController = Cast<AUTPlayerController>(UTOwner->Controller);
+	if (bAutoActivate && UTPlayerController != NULL)
 	{
-		UTPC->CheckAutoWeaponSwitch(this);
+		UTPlayerController->CheckAutoWeaponSwitch(this);
 	}
 }
 
@@ -408,8 +401,14 @@ bool AUTWeapon::FollowsInList(AUTWeapon* OtherWeapon)
 	{
 		return true;
 	}
+
+	AUTPlayerController* UTPlayerController = Cast<AUTPlayerController>(UTOwner->Controller);
+
+	int32 MyWeaponGroup = UTPlayerController ? UTPlayerController->GetWeaponGroup(this) : DefaultGroup;
+	int32 OtherWeaponGroup = UTPlayerController ? UTPlayerController->GetWeaponGroup(OtherWeapon) : OtherWeapon->DefaultGroup;
+
 	// if same group, order by slot, else order by group number
-	return (Group == OtherWeapon->Group) ? (GroupSlot > OtherWeapon->GroupSlot) : (Group > OtherWeapon->Group);
+	return (MyWeaponGroup == OtherWeaponGroup) ? (GroupSlot > OtherWeapon->GroupSlot) : (MyWeaponGroup> OtherWeaponGroup);
 }
 
 void AUTWeapon::StartFire(uint8 FireModeNum)
@@ -564,16 +563,6 @@ void AUTWeapon::BringUp(float OverflowTime)
 	AttachToOwner();
 	OnBringUp();
 	CurrentState->BringUp(OverflowTime);
-
-	if (ActiveCrosshair == nullptr)
-	{
-		AUTPlayerController* UTPlayerController = Cast<AUTPlayerController>(UTOwner->Controller);
-		if (UTPlayerController != nullptr && UTPlayerController->MyUTHUD != nullptr)
-		{
-			ActiveCrosshair = UTPlayerController->MyUTHUD->GetCrosshairForWeapon(WeaponCustomizationTag, ActiveCrosshairCustomizationInfo);			
-		}
-	}
-
 }
 
 float AUTWeapon::GetPutDownTime()
@@ -2027,6 +2016,12 @@ void AUTWeapon::DrawWeaponCrosshair_Implementation(UUTHUDWidget* WeaponHudWidget
 
 	if (bDrawCrosshair)
 	{
+		AUTPlayerController* UTPlayerController = Cast<AUTPlayerController>(UTOwner->Controller);
+		if (UTPlayerController != nullptr && UTPlayerController->MyUTHUD != nullptr)
+		{
+			ActiveCrosshair = UTPlayerController->MyUTHUD->GetCrosshairForWeapon(WeaponCustomizationTag, ActiveCrosshairCustomizationInfo);			
+		}
+
 		if (ActiveCrosshair != nullptr)
 		{
 			ActiveCrosshair->NativeDrawCrosshair(WeaponHudWidget->GetCanvas(), this, RenderDelta, ActiveCrosshairCustomizationInfo);
