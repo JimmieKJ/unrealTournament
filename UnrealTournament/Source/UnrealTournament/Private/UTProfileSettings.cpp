@@ -201,6 +201,10 @@ void UUTProfileSettings::VersionFixup()
 	// Place any hacks needed to fix or update the profile here.  NOTE: you should no longer need to hack in changes for
 	// input.  VerifyInputRules() will attempt to make sure any new input binds are brought in to the profile as well as
 	// check for double bindings.
+
+	// HACK - We aren't supporting weapon skins right now since they are disabled in netplay in editor builds.  So force clear them here just in
+	// case there was stale data.
+	WeaponSkins.Empty();
 }
 
 

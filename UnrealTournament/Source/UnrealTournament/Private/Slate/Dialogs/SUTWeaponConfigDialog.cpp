@@ -1346,6 +1346,10 @@ FReply SUTWeaponConfigDialog::WeaponGroupClicked(int32 NewWeaponGroup)
 
 void SUTWeaponConfigDialog::GatherWeaponSkins(UUTProfileSettings* ProfileSettings)
 {
+	// We are not supporting weapon skins in editor builds right now due to performance.
+	// So disable the gathering .  Also note that they are forced off in the profile.
+
+/*
 	TArray<FAssetData> AssetList;
 	GetAllAssetData(UUTWeaponSkin::StaticClass(), AssetList);
 	for (const FAssetData& Asset : AssetList)
@@ -1366,6 +1370,7 @@ void SUTWeaponConfigDialog::GatherWeaponSkins(UUTProfileSettings* ProfileSetting
 			}
 		}
 	}
+*/
 }
 
 FText SUTWeaponConfigDialog::GetVariantTitle() const
