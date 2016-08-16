@@ -86,6 +86,7 @@ AUTCharacter::AUTCharacter(const class FObjectInitializer& ObjectInitializer)
 	GetMesh()->bReceivesDecals = false;
 	GetMesh()->bLightAttachmentsAsGroup = true;
 	GetMesh()->LightingChannels.bChannel1 = true;
+	GetMesh()->bCastCapsuleIndirectShadow = true;
 	UTCharacterMovement = Cast<UUTCharacterMovement>(GetCharacterMovement());
 	HealthMax = 100;
 	SuperHealthMax = 199;
