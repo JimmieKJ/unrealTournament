@@ -4840,6 +4840,11 @@ void AUTPlayerController::ProcessVoiceDebug(const FString& Command)
 
 void AUTPlayerController::ClientQueueCoolMoment_Implementation(FUniqueNetIdRepl NetId, float TimeToRewind)
 {
+	if (CVarUTEnableKillcam.GetValueOnGameThread() == 0)
+	{
+		return;
+	}
+
 	UE_LOG(UT, Log, TEXT("ClientQueueCoolMoment %f"), TimeToRewind);
 
 	UUTLocalPlayer* LocalPlayer = Cast<UUTLocalPlayer>(GetLocalPlayer());
