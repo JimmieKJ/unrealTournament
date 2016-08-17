@@ -100,6 +100,7 @@ public:
 	virtual void SendHomeWithNotify() override;
 	virtual void Drop(AController* Killer) override;
 	virtual void MoveToHome() override;
+	virtual void SetHolder(AUTCharacter* NewHolder) override;
 
 	virtual void Tick(float DeltaTime) override;
 

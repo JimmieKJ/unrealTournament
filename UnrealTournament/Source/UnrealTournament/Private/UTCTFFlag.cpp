@@ -235,6 +235,27 @@ void AUTCTFFlag::Drop(AController* Killer)
 	}
 }
 
+void AUTCTFFlag::SetHolder(AUTCharacter* NewHolder)
+{
+	Super::SetHolder(NewHolder);
+
+	if (HoldingPawn != nullptr)
+	{
+		// force a re-touch on any flag bases the new holder is overlapping
+		// this handles the case where the flag was dropped such that the next holder is touching the capture point already when it is picked up
+		TArray<UPrimitiveComponent*> Overlaps;
+		HoldingPawn->GetOverlappingComponents(Overlaps);
+		for (UPrimitiveComponent* OtherComp : Overlaps)
+		{
+			AUTCTFFlagBase* FlagBase = Cast<AUTCTFFlagBase>(OtherComp->GetOwner());
+			if (FlagBase != nullptr)
+			{
+				FlagBase->OnOverlapBegin(HoldingPawn, HoldingPawn->GetCapsuleComponent(), 0, false, FHitResult());
+			}
+		}
+	}
+}
+
 void AUTCTFFlag::DelayedDropMessage()
 {
 	if ((LastGameMessageTime < FlagDropTime) && (ObjectState == CarriedObjectState::Dropped))
