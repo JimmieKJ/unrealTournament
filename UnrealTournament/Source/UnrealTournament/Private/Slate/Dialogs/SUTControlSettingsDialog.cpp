@@ -833,7 +833,7 @@ void SUTControlSettingsDialog::OnKeyBindingChanged( FKey PreviousKey, FKey NewKe
 					TSharedPtr<FKeyBindTracker> OldBindInContention = BindList[i];
 
 					bool bOldPrimary = BindList[i]->PrimaryKeyBindWidget->GetKey() == NewKey;
-					auto OnDuplicateDialogResult = [SharedThis(this), bPrimaryKey, NewKey, PreviousKey, NewBindInContention, OldBindInContention, bOldPrimary](TSharedPtr<SCompoundWidget> Widget, uint16 Button)
+					auto OnDuplicateDialogResult = [bPrimaryKey, NewKey, PreviousKey, NewBindInContention, OldBindInContention, bOldPrimary](TSharedPtr<SCompoundWidget> Widget, uint16 Button)
 					{
 						if (Button == UTDIALOG_BUTTON_NO)
 						{
@@ -874,7 +874,7 @@ void SUTControlSettingsDialog::OnKeyBindingChanged( FKey PreviousKey, FKey NewKe
 					TSharedPtr<FKeyBindTracker> OldBindInContention = BindList[i];
 
 					bool bOldPrimary = BindList[i]->PrimaryKeyBindWidget->GetKey() == NewKey;
-					auto OnPossibleDuplicateDialogResult = [SharedThis(this), bPrimaryKey, NewKey, PreviousKey, NewBindInContention, OldBindInContention, bOldPrimary](TSharedPtr<SCompoundWidget> Widget, uint16 Button)
+					auto OnPossibleDuplicateDialogResult = [bPrimaryKey, NewKey, PreviousKey, NewBindInContention, OldBindInContention, bOldPrimary](TSharedPtr<SCompoundWidget> Widget, uint16 Button)
 					{
 						if (Button == UTDIALOG_BUTTON_NO)
 						{
