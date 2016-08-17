@@ -59,7 +59,7 @@ public:
 		OnKeyBindingChanged = InArgs._OnKeyBindingChanged;
 
 		NonDefaultKeyColor = FLinearColor(0.0f, 0.0f, 0.24f, 1.0f);
-
+#if !UE_SERVER
 		ChildSlot
 			[
 				SNew(SOverlay)
@@ -90,6 +90,7 @@ public:
 				]
 
 			];
+#endif
 		if (InArgs._Key.IsValid())
 		{
 			Key = InArgs._Key;
