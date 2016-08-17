@@ -929,6 +929,7 @@ bool AUTCTFRoundGame::ChangeTeam(AController* Player, uint8 NewTeamIndex, bool b
 		if (PS->RemainingLives == 0)
 		{ 
 			PS->SetOutOfLives(true);
+			PS->ForceRespawnTime = 1.f;
 		}
 		if (UTGameState)
 		{
