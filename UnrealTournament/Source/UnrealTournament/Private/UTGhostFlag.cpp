@@ -3,6 +3,7 @@
 #include "UTGhostFlag.h"
 #include "Net/UnrealNetwork.h"
 #include "UTFlagReturnTrail.h"
+#include "UTCTFRoundGameState.h"
 
 AUTGhostFlag::AUTGhostFlag(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -74,7 +75,9 @@ void AUTGhostFlag::Tick(float DeltaTime)
 				break;
 			}
 		}
-		float TimerPosition = GhostMaster.MyCarriedObject->AutoReturnTime > 0.f ? (1.0f - GhostMaster.MyCarriedObject->FlagReturnTime / GhostMaster.MyCarriedObject->AutoReturnTime) : 0.5f;
+		AUTCTFRoundGameState* RCTFGameState = GetWorld()->GetGameState<AUTCTFRoundGameState>();
+		float ReturnTime = (RCTFGameState && (RCTFGameState->RemainingPickupDelay > 0.f)) ? RCTFGameState->RemainingPickupDelay : GhostMaster.MyCarriedObject->FlagReturnTime;
+		float TimerPosition = GhostMaster.MyCarriedObject->AutoReturnTime > 0.f ? (1.0f - ReturnTime / 12.f) : 0.f;
 		TimerEffect->SetHiddenInGame(false);
 		TimerEffect->SetFloatParameter(NAME_Progress, TimerPosition);			
 		TimerEffect->SetFloatParameter(NAME_RespawnTime, 60);
