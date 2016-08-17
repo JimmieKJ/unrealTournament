@@ -4120,56 +4120,18 @@ void AUTPlayerController::HUDSettings()
 void AUTPlayerController::ResolveKeybindToFKey(FString Command, TArray<FKey>& Keys, bool bIncludeGamepad, bool bIncludeAxis)
 {
 	Keys.Empty();
-	UInputSettings* InputSettings = UInputSettings::StaticClass()->GetDefaultObject<UInputSettings>();
 
-	//Look though ActionMappings
-	for (int32 i = 0; i < InputSettings->ActionMappings.Num(); i++)
+	UUTProfileSettings* ProfileSettings = GetProfileSettings();
+	if (ProfileSettings)
 	{
-		if (InputSettings->ActionMappings[i].ActionName.ToString() == Command)
+		const FKeyConfigurationInfo* GameAction = ProfileSettings->FindGameAction(Command);
+		if (GameAction)
 		{
-			if (!InputSettings->ActionMappings[i].Key.IsGamepadKey() || bIncludeGamepad)
-			{
-				Keys.Add(InputSettings->ActionMappings[i].Key);
-			}
-		}
-	}
-	
-	if (bIncludeAxis)
-	{
-		for (int32 i = 0; i < InputSettings->AxisMappings.Num(); i++)
-		{
-			if (InputSettings->AxisMappings[i].AxisName.ToString() == Command)
-			{
-				if (!InputSettings->AxisMappings[i].Key.IsGamepadKey() || bIncludeGamepad)
-				{
-					Keys.Add(InputSettings->AxisMappings[i].Key);
-				}
-			}
+			if (GameAction->PrimaryKey != FKey()) Keys.Add(GameAction->PrimaryKey);
+			if (GameAction->SecondaryKey != FKey()) Keys.Add(GameAction->SecondaryKey);
 		}
 	}
 
-	// Look at my Custom Keybinds
-
-	UUTPlayerInput* UTPlayerInput = Cast<UUTPlayerInput>(PlayerInput);
-	if (UTPlayerInput)
-	{
-		for (int32 i = 0; i < UTPlayerInput->CustomBinds.Num(); i++)
-		{
-			if (UTPlayerInput->CustomBinds[i].Command == Command)
-			{
-				if (!FKey(UTPlayerInput->CustomBinds[i].KeyName).IsGamepadKey() || bIncludeGamepad)
-				Keys.Add(FKey(UTPlayerInput->CustomBinds[i].KeyName));
-			}
-		}
-		for (int32 i = 0; i < UTPlayerInput->SpectatorBinds.Num(); i++)
-		{
-			if (UTPlayerInput->SpectatorBinds[i].Command == Command)
-			{
-				if (!FKey(UTPlayerInput->SpectatorBinds[i].KeyName).IsGamepadKey() || bIncludeGamepad)
-					Keys.Add(FKey(UTPlayerInput->SpectatorBinds[i].KeyName));
-			}
-		}
-	}
 }
 
 void AUTPlayerController::ResolveKeybind(FString Command, TArray<FString>& Keys, bool bIncludeGamepad, bool bIncludeAxis)

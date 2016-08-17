@@ -452,7 +452,7 @@ public:
 	virtual bool HasHudWidget(TSubclassOf<UUTHUDWidget> NewWidgetClass);
 
 	/** Find and return requested key mapping. */
-	virtual FInputActionKeyMapping FindKeyMappingTo(FName ActionName);
+	FText FindKeyMappingTo(FName ActionName);
 
 	/** Update displayed key bindings on HUD */
 	virtual void UpdateKeyMappings(bool bForceUpdate);

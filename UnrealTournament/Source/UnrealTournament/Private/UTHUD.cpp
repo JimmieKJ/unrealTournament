@@ -434,28 +434,26 @@ void AUTHUD::UpdateKeyMappings(bool bForceUpdate)
 	if (!bKeyMappingsSet || bForceUpdate)
 	{
 		bKeyMappingsSet = true;
-		FInputActionKeyMapping ActivatePowerupBinding = FindKeyMappingTo("StartActivatePowerup");
-		BoostLabel = ActivatePowerupBinding.Key.GetDisplayName();
-		FInputActionKeyMapping RallyBinding = FindKeyMappingTo("RequestRally");
-		RallyLabel = RallyBinding.Key.GetDisplayName();
+		BoostLabel = FindKeyMappingTo("StartActivatePowerup");
+		RallyLabel = FindKeyMappingTo("RequestRally");
 	}
 }
 
-FInputActionKeyMapping AUTHUD::FindKeyMappingTo(FName InActionName)
+FText AUTHUD::FindKeyMappingTo(FName InActionName)
 {
-	UInputSettings* InputSettings = UInputSettings::StaticClass()->GetDefaultObject<UInputSettings>();
-	if (InputSettings)
+	UUTProfileSettings* ProfileSettings;
+	ProfileSettings = UTPlayerOwner->GetProfileSettings();
+	if (ProfileSettings)
 	{
-		for (int32 inputIndex = 0; inputIndex < InputSettings->ActionMappings.Num(); ++inputIndex)
+		const FKeyConfigurationInfo* GameAction = ProfileSettings->FindGameAction(InActionName);
+		if (GameAction != nullptr)
 		{
-			FInputActionKeyMapping& Action = InputSettings->ActionMappings[inputIndex];
-			if (Action.ActionName == InActionName)
-			{
-				return Action;
-			}
+			if (GameAction->PrimaryKey != FKey()) return GameAction->PrimaryKey.GetDisplayName();
+			if (GameAction->SecondaryKey != FKey()) return GameAction->SecondaryKey.GetDisplayName();
 		}
 	}
-	return FInputActionKeyMapping();
+
+	return FText::FromString(TEXT("<none>"));
 }
 
 void AUTHUD::ReceiveLocalMessage(TSubclassOf<class UUTLocalMessage> MessageClass, APlayerState* RelatedPlayerState_1, APlayerState* RelatedPlayerState_2, uint32 MessageIndex, FText LocalMessageText, UObject* OptionalObject)

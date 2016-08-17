@@ -654,6 +654,10 @@ void UUTProfileSettings::ApplyInputSettings(UUTLocalPlayer* ProfilePlayer)
 	{
 		PlayerController->UpdateWeaponGroupKeys();
 		PlayerController->UpdateInventoryKeys();
+		if (PlayerController->MyUTHUD != nullptr)
+		{
+			PlayerController->MyUTHUD->UpdateKeyMappings(true);
+		}
 		PlayerController->MaxDodgeClickTime = MaxDodgeClickTimeValue;
 		PlayerController->MaxDodgeTapTime = MaxDodgeTapTimeValue;
 		PlayerController->bSingleTapWallDodge = bSingleTapWallDodge;
@@ -681,5 +685,22 @@ void UUTProfileSettings::ApplyInputSettings(UUTLocalPlayer* ProfilePlayer)
 		DefaultInputSettingsObject->DoubleClickTime = DoubleClickTime;
 	}
 
-
 }
+
+const FKeyConfigurationInfo* UUTProfileSettings::FindGameAction(FName SearchTag)
+{
+	return FindGameAction(SearchTag.ToString());
+}
+const FKeyConfigurationInfo* UUTProfileSettings::FindGameAction(const FString& SearchTag)
+{
+	for (int32 i = 0 ; i < GameActions.Num(); i++)
+	{
+		if ( GameActions[i].GameActionTag.ToString().Equals(SearchTag, ESearchCase::IgnoreCase) )
+		{
+			return &(GameActions[i]);
+		}
+	}
+
+	return nullptr;
+}
+

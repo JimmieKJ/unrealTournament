@@ -391,4 +391,7 @@ public:
 	UFUNCTION(BlueprintCallable, Category = Weapon)
 	void ApplyInputSettings(UUTLocalPlayer* ProfilePlayer);
 
+	const FKeyConfigurationInfo* FindGameAction(FName SearchTag);
+	const FKeyConfigurationInfo* FindGameAction(const FString& SearchTag);
+
 };
