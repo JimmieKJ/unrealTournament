@@ -112,10 +112,6 @@ void AUTGhostFlag::OnSetCarriedObject()
 		{
 			for (int32 j = 0; j < NUM_MIDPOINTS; j++)
 			{
-				if (!GhostMaster.MidPoints[j].IsZero())
-				{
-					DrawDebugSphere(GetWorld(), GhostMaster.MidPoints[j], 24.f, 12, FColor::Green, false, 10.f);
-				}
 				GhostMaster.MidPoints[j] = FVector::ZeroVector;
 			}
 		}
@@ -131,10 +127,6 @@ void AUTGhostFlag::OnSetCarriedObject()
 						// LOS to this point, remove intermediates
 						for (int32 j = i+1; j < NUM_MIDPOINTS; j++)
 						{
-							if (!GhostMaster.MidPoints[j].IsZero())
-							{
-								DrawDebugSphere(GetWorld(), GhostMaster.MidPoints[j], 24.f, 12, FColor::Red, false, 10.f);
-							}
 							GhostMaster.MidPoints[j] = FVector::ZeroVector;
 						}
 						break;
@@ -152,10 +144,6 @@ void AUTGhostFlag::OnSetCarriedObject()
 					// LOS to this point, remove intermediates
 					for (int32 j = i-1; j >=0; j--)
 					{
-						if (!GhostMaster.MidPoints[j].IsZero())
-						{
-							DrawDebugSphere(GetWorld(), GhostMaster.MidPoints[j], 24.f, 12, FColor::Yellow, false, 10.f);
-						}
 						GhostMaster.MidPoints[j] = FVector::ZeroVector;
 					}
 					break;
