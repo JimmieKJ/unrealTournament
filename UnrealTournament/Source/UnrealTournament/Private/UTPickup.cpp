@@ -232,10 +232,6 @@ void AUTPickup::StartSleeping_Implementation()
 		if (!bFixedRespawnInterval || !GetWorld()->GetTimerManager().IsTimerActive(WakeUpTimerHandle))
 		{
 			GetWorld()->GetTimerManager().SetTimer(WakeUpTimerHandle, this, &AUTPickup::WakeUpTimer, RespawnTime, false);
-			if (bFixedRespawnInterval && Role == ROLE_Authority)
-			{
-				bReplicateReset = !bReplicateReset;
-			}
 		}
 		if (TimerEffect != NULL && TimerEffect->Template != NULL)
 		{
@@ -297,6 +293,10 @@ void AUTPickup::WakeUp_Implementation()
 	{
 		// start timer for next time
 		GetWorld()->GetTimerManager().SetTimer(WakeUpTimerHandle, this, &AUTPickup::WakeUpTimer, RespawnTime, false);
+		if (bFixedRespawnInterval && Role == ROLE_Authority)
+		{
+			bReplicateReset = !bReplicateReset;
+		}
 	}
 
 	PrimaryActorTick.SetTickFunctionEnable(GetClass()->GetDefaultObject<AUTPickup>()->PrimaryActorTick.bStartWithTickEnabled);
