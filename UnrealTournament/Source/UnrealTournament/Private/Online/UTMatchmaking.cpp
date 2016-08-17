@@ -566,9 +566,9 @@ void UUTMatchmaking::OnSingleSessionMatchmakingStateChangeInternal(EMatchmakingS
 	OnMatchmakingStateChange().Broadcast(OldState, NewState, MMState);
 }
 
-void UUTMatchmaking::LookupTeamElo(EQosCompletionResult Result, const FString& DatacenterId, FMatchmakingParams InParams)
+void UUTMatchmaking::LookupTeamElo(EQosCompletionResult QoSResult, const FString& DatacenterId, FMatchmakingParams InParams)
 {
-	UE_LOG(LogOnline, Log, TEXT("LookupTeamElo %d"), (int32)Result);
+	UE_LOG(LogOnline, Log, TEXT("LookupTeamElo %d"), (int32)QoSResult);
 
 	//QosEvaluator->SetAnalyticsProvider(nullptr);
 	
@@ -587,7 +587,7 @@ void UUTMatchmaking::LookupTeamElo(EQosCompletionResult Result, const FString& D
 		}
 	}
 
-	if (McpUtils && Matchmaking && Result == EQosCompletionResult::Success)
+	if (McpUtils && Matchmaking && QoSResult == EQosCompletionResult::Success)
 	{
 		InParams.DatacenterId = DatacenterId;
 
@@ -656,7 +656,7 @@ void UUTMatchmaking::LookupTeamElo(EQosCompletionResult Result, const FString& D
 	else
 	{
 		FOnlineSessionSearchResult EmptySearchResult;
-		OnMatchmakingCompleteInternal(Result == EQosCompletionResult::Canceled ? EMatchmakingCompleteResult::Cancelled : EMatchmakingCompleteResult::Failure, EmptySearchResult);
+		OnMatchmakingCompleteInternal(QoSResult == EQosCompletionResult::Canceled ? EMatchmakingCompleteResult::Cancelled : EMatchmakingCompleteResult::Failure, EmptySearchResult);
 	}
 }
 
