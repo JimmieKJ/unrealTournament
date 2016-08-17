@@ -886,7 +886,7 @@ FString UUTGameEngine::MD5Sum(const TArray<uint8>& Data)
 void UUTGameEngine::HandleNetworkFailure(UWorld* World, UNetDriver* NetDriver, ENetworkFailure::Type FailureType, const FString& ErrorString)
 {
 	// ignore connection loss on game net driver if we have a pending one; this happens during standard blocking server travel
-	if ( NetDriver->NetDriverName != NAME_GameNetDriver || GEngine->GetWorldContextFromWorld(World)->PendingNetGame == NULL ||
+	if (NetDriver == nullptr || NetDriver->NetDriverName != NAME_GameNetDriver || GEngine->GetWorldContextFromWorld(World)->PendingNetGame == NULL ||
 		(FailureType != ENetworkFailure::ConnectionLost && FailureType != ENetworkFailure::FailureReceived) )
 	{
 		Super::HandleNetworkFailure(World, NetDriver, FailureType, ErrorString);
