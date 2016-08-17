@@ -25,6 +25,7 @@ AUTProj_StingerShard::AUTProj_StingerShard(const class FObjectInitializer& Objec
 	ImpactedShardDamage = 12;
 	ImpactedShardMomentum = 50000.f;
 	bLowPriorityLight = true;
+	bNetTemporary = true;
 }
 
 void AUTProj_StingerShard::Destroyed()
@@ -116,14 +117,10 @@ void AUTProj_StingerShard::ProcessHit_Implementation(AActor* OtherActor, UPrimit
 		ProjectileMovement->Velocity = FVector::ZeroVector;
 		ShardMesh->SetCollisionResponseToChannel(ECC_Pawn, ECR_Overlap);
 		bCanHitInstigator = true;
+		SetLifeSpan(0.9f);
 		if (BounceSound != NULL)
 		{
 			UUTGameplayStatics::UTPlaySound(GetWorld(), BounceSound, this, SRT_IfSourceNotReplicated, false, FVector::ZeroVector, NULL, NULL, true, SAT_WeaponFoley);
-		}
-
-		if (Role == ROLE_Authority)
-		{
-			bReplicateUTMovement = true;
 		}
 
 		SetActorLocation(HitLocation + HitNormal);
@@ -135,7 +132,7 @@ void AUTProj_StingerShard::ProcessHit_Implementation(AActor* OtherActor, UPrimit
 			AttachRootComponentTo(Lift->GetEncroachComponent(), NAME_None, EAttachLocation::KeepWorldPosition);
 		}
 
-		// turn off in-flight sound
+		// turn off in-flight sound and particle system
 		TArray<UAudioComponent*> AudioComponents;
 		GetComponents<UAudioComponent>(AudioComponents);
 		for (int32 i = 0; i < AudioComponents.Num(); i++)
@@ -143,6 +140,20 @@ void AUTProj_StingerShard::ProcessHit_Implementation(AActor* OtherActor, UPrimit
 			if (AudioComponents[i] && AudioComponents[i]->Sound != NULL && AudioComponents[i]->Sound->GetDuration() >= INDEFINITELY_LOOPING_DURATION)
 			{
 				AudioComponents[i]->Stop();
+			}
+		}
+		TArray<UParticleSystemComponent*> ParticleComponents;
+		GetComponents<UParticleSystemComponent>(ParticleComponents);
+		for (int32 i = 0; i < ParticleComponents.Num(); i++)
+		{
+			if (ParticleComponents[i])
+			{
+				UParticleSystem* SavedTemplate = ParticleComponents[i]->Template;
+				ParticleComponents[i]->DeactivateSystem();
+				ParticleComponents[i]->KillParticlesForced();
+				// FIXME: KillParticlesForced() doesn't kill particles immediately for GPU particles, but the below does...
+				ParticleComponents[i]->SetTemplate(NULL);
+				ParticleComponents[i]->SetTemplate(SavedTemplate);
 			}
 		}
 	}
