@@ -1639,3 +1639,151 @@ struct FUTMath
 		FUTMath::ReturnToZero(Value.Z, Speed);
 	}
 };
+
+USTRUCT()
+struct FCustomKeyBinding
+{
+	GENERATED_USTRUCT_BODY()
+
+	FCustomKeyBinding() : KeyName(FName(TEXT(""))), EventType(IE_Pressed), Command(FString("")) {};
+
+	FCustomKeyBinding(FName InKeyName, TEnumAsByte<EInputEvent> InEventType, FString InCommand) : KeyName(InKeyName), EventType(InEventType), Command(InCommand) {};
+
+	UPROPERTY()
+	FName KeyName;
+	UPROPERTY()
+	TEnumAsByte<EInputEvent> EventType;
+	UPROPERTY()
+	FString Command;
+	UPROPERTY()
+	FString FriendlyName;
+};
+
+UENUM()
+namespace EControlCategory
+{
+	enum Type
+	{
+		Movement,
+		Combat,
+		Weapon,
+		Taunts,
+		UI,
+		Misc,
+		MAX,
+	};
+}
+
+/**
+ *	ControlGameModeRestriction controls whether or not another key can be duplicated on 
+ **/
+UENUM()
+namespace EControlGameModeRestriction
+{
+	enum Type
+	{
+		NeverAllow,				// You can never bind another Game Action if this action is set.
+		AlwaysAllow,			// Allways allow keys to bind if this action is set
+		RestrictInDM,			// This action is only used in DM type games
+		RestrictInCTF,			// This action is only used in CTF type games (for example, Translocator actions)
+		RestrictInFlagRun,		// This action is only used in Flag Run type games (for example Rally).
+		MAX,
+	};
+}
+
+
+/**
+ *	Holds the configuration info for a given key.,
+ **/
+USTRUCT(BlueprintType)
+struct FKeyConfigurationInfo
+{
+	GENERATED_USTRUCT_BODY()
+
+public:
+
+	// This is the unique tag that describes this action.  
+	UPROPERTY(BlueprintReadOnly,Category = INPUT)
+	FName GameActionTag;
+
+	UPROPERTY(BlueprintReadOnly, Category = INPUT)
+	TEnumAsByte<EControlCategory::Type> Category;
+
+	// This is the name that is displayed in the UI via the Controls menu
+	UPROPERTY(BlueprintReadOnly, Category = INPUT)
+	FText MenuText;
+
+	// This is the primary key that triggers this action
+	UPROPERTY(BlueprintReadOnly, Category = INPUT)
+	FKey PrimaryKey;
+
+	// This is the secondy key that can trigger this action
+	UPROPERTY(BlueprintReadOnly, Category = INPUT)
+	FKey SecondaryKey;
+
+	// This is the key for a game pad that can this action.  For now these are hard coded
+	UPROPERTY(BlueprintReadOnly, Category = INPUT)
+	FKey GamePadKey;
+
+	UPROPERTY(BlueprintReadOnly, Category = INPUT)
+	TEnumAsByte<EControlGameModeRestriction::Type> Restrictions;
+
+	UPROPERTY(BlueprintReadOnly, Category = INPUT)
+	uint32 bShowInUI : 1;
+
+	// These values are the meat of the key bind system.  Any GameAction can be used to build multiple Action/Axis/Custom mappings.  
+	// The game will clear and rebuild the key table each time it's loaded.  INI's are no longer used.
+
+	UPROPERTY(BlueprintReadOnly, Category = INPUT)
+	TArray<FInputActionKeyMapping> ActionMappings;
+
+	UPROPERTY(BlueprintReadOnly, Category = INPUT)
+	TArray<FInputAxisKeyMapping> AxisMappings;
+
+	UPROPERTY(BlueprintReadOnly, Category = INPUT)
+	TArray<FCustomKeyBinding>  CustomBindings;
+
+	UPROPERTY(BlueprintReadOnly, Category = INPUT)
+	TArray<FCustomKeyBinding> SpectatorBindings;
+
+public:
+
+	FKeyConfigurationInfo()
+	{
+		bShowInUI = true;
+		Restrictions = EControlGameModeRestriction::NeverAllow;
+	}
+
+	FKeyConfigurationInfo(const FName& inGameActionTag, EControlCategory::Type inCategory, FKey inDefaultPrimaryKey, FKey inDefaultSecondayKey, const FText& inMenuText)
+		: GameActionTag(inGameActionTag)
+		, Category(inCategory)
+		, PrimaryKey(inDefaultPrimaryKey)
+		, SecondaryKey(inDefaultSecondayKey)
+		, MenuText(inMenuText)
+	{
+		bShowInUI = true;
+		Restrictions = EControlGameModeRestriction::NeverAllow;
+	}
+
+	void AddActionMapping(const FName& inActionName)
+	{
+		ActionMappings.Add(FInputActionKeyMapping(inActionName, EKeys::Invalid, false, false, false, false));
+	}
+
+	void AddAxisMapping(const FName& inAxisName, float Scale)
+	{
+		AxisMappings.Add(FInputAxisKeyMapping(inAxisName, EKeys::Invalid, Scale));
+	}
+
+	void AddCustomBinding(const FString& inCommand, TEnumAsByte<EInputEvent> inEvent = EInputEvent::IE_Pressed)
+	{
+		CustomBindings.Add(FCustomKeyBinding(NAME_None, inEvent, inCommand));
+	}
+
+	void AddSpectatorBinding(const FString& inCommand, TEnumAsByte<EInputEvent> inEvent = EInputEvent::IE_Pressed)
+	{
+		SpectatorBindings.Add(FCustomKeyBinding(NAME_None, inEvent, inCommand));
+	}
+
+
+};

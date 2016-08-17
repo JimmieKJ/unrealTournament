@@ -7,400 +7,6 @@
 
 #if !UE_SERVER
 
-FSimpleBind::FSimpleBind(const FText& InDisplayName)
-{
-	DisplayName = InDisplayName.ToString();
-	bHeader = false;
-	Key = MakeShareable(new FKey());
-	AltKey = MakeShareable(new FKey());
-}
-FSimpleBind* FSimpleBind::AddActionMapping(const FName& Mapping)
-{
-	UInputSettings* InputSettings = UInputSettings::StaticClass()->GetDefaultObject<UInputSettings>();
-
-	bool bFound = false;
-	for (int32 i = 0; i < InputSettings->ActionMappings.Num(); i++)
-	{
-		FInputActionKeyMapping Action = InputSettings->ActionMappings[i];
-		if (Mapping == Action.ActionName && !Action.Key.IsGamepadKey())
-		{
-			ActionMappings.Add(Action);
-
-			//Fill in the first 2 keys we find from the ini
-			if (*Key == FKey())
-			{
-				*Key = Action.Key;
-			}
-			else if (*AltKey == FKey() && Action.Key != *Key)
-			{
-				*AltKey = Action.Key;
-			}
-			bFound = true;
-		}
-	}
-
-	if (!bFound)
-	{
-		FInputActionKeyMapping Action;
-		Action.ActionName = Mapping;
-		ActionMappings.Add(Action);
-	}
-	return this;
-}
-
-FSimpleBind* FSimpleBind::AddAxisMapping(const FName& Mapping, float Scale)
-{
-	UInputSettings* InputSettings = UInputSettings::StaticClass()->GetDefaultObject<UInputSettings>();
-
-	bool bFound = false;
-	for (int32 i = 0; i < InputSettings->AxisMappings.Num(); i++)
-	{
-		FInputAxisKeyMapping Axis = InputSettings->AxisMappings[i];
-		if (Mapping == Axis.AxisName && Axis.Scale == Scale && !Axis.Key.IsGamepadKey())
-		{
-			AxisMappings.Add(Axis);
-
-			//Fill in the first 2 keys we find from the ini
-			if (*Key == FKey())
-			{
-				*Key = Axis.Key;
-			}
-			else if (*AltKey == FKey() && Axis.Key != *Key)
-			{
-				*AltKey = Axis.Key;
-			}
-			bFound = true;
-		}
-	}
-
-	if (!bFound)
-	{
-		FInputAxisKeyMapping Action;
-		Action.AxisName = Mapping;
-		Action.Scale = Scale;
-		AxisMappings.Add(Action);
-	}
-	return this;
-}
-
-FSimpleBind* FSimpleBind::AddCustomBinding(const FName& Mapping)
-{
-	UInputSettings* InputSettings = UInputSettings::StaticClass()->GetDefaultObject<UInputSettings>();
-
-	bool bFound = false;
-	UUTPlayerInput* UTPlayerInput = UUTPlayerInput::StaticClass()->GetDefaultObject<UUTPlayerInput>();
-	for (int32 i = 0; i < UTPlayerInput->CustomBinds.Num(); i++)
-	{
-		FCustomKeyBinding CustomBind = UTPlayerInput->CustomBinds[i];
-		if (Mapping.ToString().Compare(CustomBind.Command) == 0 && !FKey(CustomBind.KeyName).IsGamepadKey())
-		{
-			//Fill in the first 2 keys we find from the ini
-			if (*Key == FKey())
-			{
-				*Key = CustomBind.KeyName;
-			}
-			else if (*AltKey == FKey() && CustomBind.KeyName != *Key)
-			{
-				*AltKey = CustomBind.KeyName;
-			}
-
-			//Check for duplicates and add if unique
-			bool bDuplicate = false;
-			for (auto Bind : CustomBindings)
-			{
-				if (Bind.Command.Compare(CustomBind.Command) == 0 && Bind.KeyName.Compare(CustomBind.KeyName) == 0)
-				{
-					bDuplicate = true;
-					break;
-				}
-			}
-			if (!bDuplicate)
-			{
-				CustomBindings.Add(CustomBind);
-			}
-			bFound = true;
-		}
-	}
-
-	if (!bFound)
-	{
-		FCustomKeyBinding* Bind = new(CustomBindings)FCustomKeyBinding;
-		Bind->KeyName = NAME_None;
-		Bind->EventType = IE_Pressed;
-		Bind->Command = Mapping.ToString();
-	}
-	return this;
-}
-
-FSimpleBind* FSimpleBind::AddSpecialBinding(const FName& Mapping)
-{
-	if (Mapping == FName(TEXT("Console")))
-	{
-		UInputSettings* InputSettings = UInputSettings::StaticClass()->GetDefaultObject<UInputSettings>();
-		if (InputSettings->ConsoleKeys.IsValidIndex(0))
-		{
-			*Key = InputSettings->ConsoleKeys[0];
-		}
-		if (InputSettings->ConsoleKeys.IsValidIndex(1))
-		{
-			*AltKey = InputSettings->ConsoleKeys[1];
-		}
-	}
-
-	SpecialBindings.Add(Mapping);
-
-	return this;
-}
-
-void FSimpleBind::WriteBind()
-{
-	if (bHeader)
-	{
-		return;
-	}
-	UInputSettings* InputSettings = UInputSettings::StaticClass()->GetDefaultObject<UInputSettings>();
-
-	// Collapse the keys if the main key is missing.
-	if (*Key == FKey() && *AltKey != FKey())
-	{
-		Key = AltKey;
-		AltKey = MakeShareable(new FKey());
-	}
-
-	//Remove the original bindings
-	for (auto& Bind : ActionMappings)
-	{
-		InputSettings->RemoveActionMapping(Bind);
-	}
-	for (auto& Bind : AxisMappings)
-	{
-		InputSettings->RemoveAxisMapping(Bind);
-	}
-	for (TObjectIterator<UUTPlayerInput> It(RF_NoFlags); It; ++It)
-	{
-		UUTPlayerInput* UTPlayerInput = *It;
-		for (auto& Bind : CustomBindings)
-		{
-			for (int32 i = 0; i < UTPlayerInput->CustomBinds.Num(); i++)
-			{
-				const FCustomKeyBinding& KeyMapping = UTPlayerInput->CustomBinds[i];
-				if (KeyMapping.Command == Bind.Command)
-				{
-					UTPlayerInput->CustomBinds.RemoveAt(i, 1);
-					i--;
-				}
-			}
-		}
-	}
-	//Set our new keys and readd them
-	for (auto Bind : ActionMappings)
-	{
-		Bind.Key = *Key;
-		InputSettings->AddActionMapping(Bind);
-		if (*AltKey != FKey())
-		{
-			Bind.Key = *AltKey;
-			InputSettings->AddActionMapping(Bind);
-		}
-	}
-	for (auto Bind : AxisMappings)
-	{
-		Bind.Key = *Key;
-		InputSettings->AddAxisMapping(Bind);
-		if (*AltKey != FKey())
-		{
-			Bind.Key = *AltKey;
-			InputSettings->AddAxisMapping(Bind);
-		}
-	}
-
-	for (TObjectIterator<UUTPlayerInput> It(RF_NoFlags); It; ++It)
-	{
-		UUTPlayerInput* UTPlayerInput = *It;
-		for (auto Bind : CustomBindings)
-		{
-			Bind.KeyName = FName(*Key->ToString());
-			UTPlayerInput->CustomBinds.Add(Bind);
-			if (*AltKey != FKey())
-			{
-				Bind.KeyName = FName(*AltKey->ToString());
-				UTPlayerInput->CustomBinds.Add(Bind);
-			}
-		}
-	}
-
-	for (FName Bind : SpecialBindings)
-	{
-		if (Bind == FName(TEXT("Console")))
-		{
-			InputSettings->ConsoleKeys.Empty();
-			InputSettings->ConsoleKeys.Add(*Key);
-			InputSettings->ConsoleKeys.Add(*AltKey);
-		}
-	}
-}
-
-void SUTControlSettingsDialog::CreateBinds()
-{
-	//Movement
-	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Movement", "Movement")))->MakeHeader()));
-	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Move Forward", "Move Forward")))
-		->AddAxisMapping("MoveForward", 1.0f)
-		->AddActionMapping("TapForward")
-		->AddDefaults(EKeys::W, EKeys::Up)));
-	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Move Backward", "Move Backward")))
-		->AddAxisMapping("MoveBackward", 1.0f)
-		->AddActionMapping("TapBack")
-		->AddDefaults(EKeys::S, EKeys::Down)));
-	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Move Left", "Move Left")))
-		->AddAxisMapping("MoveLeft", 1.0f)
-		->AddActionMapping("TapLeft")
-		->AddDefaults(EKeys::A)));
-	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Move Right", "Move Right")))
-		->AddAxisMapping("MoveRight", 1.0f)
-		->AddActionMapping("TapRight")
-		->AddDefaults(EKeys::D)));
-	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Turn Left", "Turn Left")))
-		->AddAxisMapping("TurnRate", -1.0f)
-		->AddDefaults(EKeys::Left)));
-	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Turn Right", "Turn Right")))
-		->AddAxisMapping("TurnRate", 1.0f)
-		->AddDefaults(EKeys::Right)));
-	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Jump", "Jump")))
-		->AddAxisMapping("MoveUp", 1.0f)
-		->AddActionMapping("Jump")
-		->AddDefaults(EKeys::SpaceBar)));
-	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Crouch", "Crouch")))
-		->AddAxisMapping("MoveUp", -1.0f)
-		->AddActionMapping("Crouch")
-		->AddDefaults(EKeys::LeftControl, EKeys::C)));
-	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Slide", "Slide")))
-		->AddActionMapping("Slide")
-		->AddDefaults(EKeys::LeftShift)));
-	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "One Tap Dodge", "One Tap Dodge")))
-		->AddActionMapping("SingleTapDodge")
-		->AddDefaults(EKeys::V)));
-	//Weapons
-	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Weapons", "Weapons")))->MakeHeader()));
-	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Fire", "Fire")))
-		->AddActionMapping("StartFire")
-		->AddActionMapping("StopFire")
-		->AddDefaults(EKeys::LeftMouseButton, EKeys::RightControl)));
-	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Alt Fire", "Alt Fire")))
-		->AddActionMapping("StartAltFire")
-		->AddActionMapping("StopAltFire")
-		->AddDefaults(EKeys::RightMouseButton)));
-	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Next Weapon", "Next Weapon")))
-		->AddActionMapping("NextWeapon")
-		->AddDefaults(EKeys::MouseScrollUp)));
-	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Previous Weapon", "Previous Weapon")))
-		->AddActionMapping("PrevWeapon")
-		->AddDefaults(EKeys::MouseScrollDown)));
-	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "BestWeapon", "Best Weapon")))
-		->AddCustomBinding("SwitchToBestWeapon")
-		->AddDefaults(EKeys::Enter)));
-	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Throw Weapon", "Throw Weapon")))
-		->AddActionMapping("ThrowWeapon")
-		->AddDefaults(EKeys::M)));
-	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Toggle Translocator", "Toggle Translocator")))
-		->AddCustomBinding("ToggleTranslocator")
-		->AddDefaults(EKeys::Q)));
-	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Select Translocator", "Select Translocator")))
-		->AddCustomBinding("SelectTranslocator")
-		->AddDefaults(FKey())));
-	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Activate Powerup", "Activate Powerup")))
-		->AddActionMapping("StartActivatePowerup")
-		->AddDefaults(EKeys::Q)));
-	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Select WeaponGroup1", "Select Group 1")))
-		->AddCustomBinding("SwitchWeapon 1")
-		->AddDefaults(EKeys::One)));
-	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Select WeaponGroup2", "Select Group 2")))
-		->AddCustomBinding("SwitchWeapon 2")
-		->AddDefaults(EKeys::Two)));
-	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Select WeaponGroup3", "Select Group 3")))
-		->AddCustomBinding("SwitchWeapon 3")
-		->AddDefaults(EKeys::Three)));
-	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Select WeaponGroup4", "Select Group 4")))
-		->AddCustomBinding("SwitchWeapon 4")
-		->AddDefaults(EKeys::Four)));
-	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Select WeaponGroup5", "Select Group 5")))
-		->AddCustomBinding("SwitchWeapon 5")
-		->AddDefaults(EKeys::Five)));
-	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Select WeaponGroup6", "Select Group 6")))
-		->AddCustomBinding("SwitchWeapon 6")
-		->AddDefaults(EKeys::Six)));
-	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Select WeaponGroup7", "Select Group 7")))
-		->AddCustomBinding("SwitchWeapon 7")
-		->AddDefaults(EKeys::Seven)));
-	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Select WeaponGroup8", "Select Group 8")))
-		->AddCustomBinding("SwitchWeapon 8")
-		->AddDefaults(EKeys::Eight)));
-	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Select WeaponGroup9", "Select Group 9")))
-		->AddCustomBinding("SwitchWeapon 9")
-		->AddDefaults(EKeys::Nine)));
-	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Select WeaponGroup10", "Select Group 10")))
-		->AddCustomBinding("SwitchWeapon 10")
-		->AddDefaults(EKeys::Zero)));
-
-	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "WeaponSelect", "Weapon Wheel")))
-		->AddActionMapping("ToggleWeaponWheel")));
-
-	//Taunts
-	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Taunts", "Taunts")))->MakeHeader()));
-	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Taunt", "Taunt 1")))
-		->AddActionMapping("PlayTaunt")
-		->AddDefaults(EKeys::J)));
-	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Taunt2", "Taunt 2")))
-		->AddActionMapping("PlayTaunt2")
-		->AddDefaults(EKeys::K)));
-	//Hud
-	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Hud", "Hud")))->MakeHeader()));
-	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Show Scores", "Show Scores")))
-		->AddActionMapping("ShowScores")
-		->AddDefaults(EKeys::Tab)));
-	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Show Menu", "Show Menu")))
-		->AddActionMapping("ShowMenu")
-		->AddDefaults(EKeys::Escape)));
-	//Misc
-	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Misc", "Misc")))->MakeHeader()));
-	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Console", "Console")))
-		->AddSpecialBinding("Console")
-		->AddDefaults(EKeys::Tilde)));
-
-	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Feign Death", "Feign Death")))
-		->AddCustomBinding("FeignDeath")
-		->AddDefaults(EKeys::H)));
-
-	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Drop Carried Object", "Drop Carried Object")))
-		->AddActionMapping("DropCarriedObject")
-		->AddDefaults(EKeys::G)));
-
-	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Talk", "Talk")))
-		->AddActionMapping("Talk")
-		->AddDefaults(EKeys::T)));
-	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Team Talk", "Team Talk")))
-		->AddActionMapping("TeamTalk")
-		->AddDefaults(EKeys::Y)));
-
-	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Buy Menu", "Buy Menu")))
-		->AddActionMapping("ShowBuyMenu")
-		->AddDefaults(EKeys::B)));
-
-	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "ComMenu", "Com Menu")))
-		->AddActionMapping("ToggleComMenu")
-		->AddDefaults(EKeys::F)));
-
-/*
-	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "PushToTalk", "Push To Talk")))
-	->AddActionMapping("PushToTalk")
-	->AddDefaults(EKeys::CapsLock)));
-*/
-	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "RequestRally", "Request Rally")))
-		->AddActionMapping("RequestRally")
-		->AddDefaults(EKeys::E)));
-
-	// TODO: mod binding registration
-}
 
 void SUTControlSettingsDialog::Construct(const FArguments& InArgs)
 {
@@ -411,12 +17,11 @@ void SUTControlSettingsDialog::Construct(const FArguments& InArgs)
 							.bDialogSizeIsRelative(InArgs._bDialogSizeIsRelative)
 							.DialogPosition(InArgs._DialogPosition)
 							.DialogAnchorPoint(InArgs._DialogAnchorPoint)
+							.IsScrollable(false)
 							.ContentPadding(InArgs._ContentPadding)
 							.ButtonMask(InArgs._ButtonMask)
 							.OnDialogResult(InArgs._OnDialogResult)
 						);
-
-	CreateBinds();
 
 	if (DialogContent.IsValid())
 	{
@@ -518,6 +123,7 @@ void SUTControlSettingsDialog::Construct(const FArguments& InArgs)
 						+ SWidgetSwitcher::Slot()
 						[
 							BuildKeyboardTab()
+
 						]
 
 						//Mouse Settings
@@ -597,16 +203,39 @@ TSharedRef<SWidget> SUTControlSettingsDialog::BuildKeyboardTab()
 	.AutoHeight()
 	.Padding(FMargin(10.0f, 10.0f, 10.0f, 5.0f))
 	[
-		SAssignNew(ControlList, SVerticalBox)
+		SNew(SBox).HeightOverride(700)
+		[
+			SNew(SScrollBox)
+			.Orientation(Orient_Vertical)
+			+SScrollBox::Slot().Padding(0.0f,5.0f,0.0f,0.0f)
+			[
+				SAssignNew(ControlList, SVerticalBox)
+			]
+		]
 	];
 
-	if (KeyboardBox.IsValid())
+	UUTProfileSettings* ProfileSettings = PlayerOwner->GetProfileSettings();
+
+	if (ProfileSettings && KeyboardBox.IsValid())
 	{
-		//Create the bind list
-		for (const auto& Bind : Binds)
+		EControlCategory::Type CurrentSection = EControlCategory::MAX;
+		for (int32 i = 0 ; i < ProfileSettings->GameActions.Num(); i++)		
 		{
-			if (Bind->bHeader)
+			// If the section changes, create a new section
+			if (ProfileSettings->GameActions[i].Category != CurrentSection)
 			{
+				CurrentSection = ProfileSettings->GameActions[i].Category;
+				FText SectionTitle = FText::GetEmpty();
+				switch (ProfileSettings->GameActions[i].Category)
+				{
+					case EControlCategory::Movement :	SectionTitle = NSLOCTEXT("SUTControlSettingsDialog", "MovementHeader", "Movement"); break;
+					case EControlCategory::Weapon :		SectionTitle = NSLOCTEXT("SUTControlSettingsDialog", "WeaponHeader", "Weapon"); break;
+					case EControlCategory::Combat :		SectionTitle = NSLOCTEXT("SUTControlSettingsDialog", "CombatHeader", "Combat"); break;
+					case EControlCategory::UI:			SectionTitle = NSLOCTEXT("SUTControlSettingsDialog", "UIHeader", "UI"); break;
+					case EControlCategory::Taunts :		SectionTitle = NSLOCTEXT("SUTControlSettingsDialog", "TauntsHeader", "Taunts"); break;
+					case EControlCategory::Misc :		SectionTitle = NSLOCTEXT("SUTControlSettingsDialog", "MiscHeader", "Misc"); break;
+				}
+
 				ControlList->AddSlot()
 				.AutoHeight()
 				.Padding(FMargin(10.0f, 15.0f, 10.0f, 5.0f))
@@ -619,12 +248,17 @@ TSharedRef<SWidget> SUTControlSettingsDialog::BuildKeyboardTab()
 					[
 						SNew(STextBlock)
 						.TextStyle(SUWindowsStyle::Get(), "UT.Common.BoldText")
-						.Text(FText::FromString(Bind->DisplayName))
+						.Text(SectionTitle)
 					]
 				];
 			}
-			else
+			
+			// Add the bind
+
+			TSharedPtr<FKeyBindTracker> Bind = FKeyBindTracker::Make(&ProfileSettings->GameActions[i]);
+			if (Bind.IsValid())
 			{
+				BindList.Add(Bind);
 				ControlList->AddSlot()
 				.AutoHeight()
 				.Padding(FMargin(10.0f, 4.0f, 10.0f, 4.0f))
@@ -637,55 +271,53 @@ TSharedRef<SWidget> SUTControlSettingsDialog::BuildKeyboardTab()
 					[
 						SNew(STextBlock)
 						.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
-						.Text(FText::FromString(Bind->DisplayName))
+						.Text(Bind->KeyConfig->MenuText)
 					]
 					+ SHorizontalBox::Slot()
 					.Padding(10.0f, 4.0f, 10.0f, 4.0f)
 					[
-						SAssignNew(Bind->KeyWidget, SKeyBind)
-						.Key(Bind->Key)
-						.DefaultKey(Bind->DefaultKey)
-						.ButtonStyle(SUWindowsStyle::Get(), "UT.Button.White")
+						SAssignNew(Bind->PrimaryKeyBindWidget, SKeyBind)
+						.Key(MakeShareable(&Bind->KeyConfig->PrimaryKey))
+						.DefaultKey(Bind->KeyConfig->PrimaryKey)
+						.ButtonStyle(SUTStyle::Get(), "UT.SimpleButton.Bright")
 						.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.Black")
-						.OnKeyBindingChanged( this, &SUTControlSettingsDialog::OnKeyBindingChanged, Bind, true)
+						.OnKeyBindingChanged(this, &SUTControlSettingsDialog::OnKeyBindingChanged, Bind, true)
 					]
 					+ SHorizontalBox::Slot()
 					.Padding(10.0f, 4.0f, 10.0f, 4.0f)
 					[
-						SAssignNew(Bind->AltKeyWidget, SKeyBind)
+						SAssignNew(Bind->SecondaryKeyBindWidget, SKeyBind)
 						.ContentPadding(FMargin(4.0f, 4.0f))
-						.Key(Bind->AltKey)
-						.DefaultKey(Bind->DefaultAltKey)
-						.ButtonStyle(SUWindowsStyle::Get(), "UT.Button.White")
+						.Key(MakeShareable(&Bind->KeyConfig->SecondaryKey))
+						.DefaultKey(Bind->KeyConfig->SecondaryKey)
+						.ButtonStyle(SUTStyle::Get(), "UT.SimpleButton.Bright")
 						.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.Black")
-						.OnKeyBindingChanged( this, &SUTControlSettingsDialog::OnKeyBindingChanged, Bind, false)
+						.OnKeyBindingChanged(this, &SUTControlSettingsDialog::OnKeyBindingChanged, Bind, false)
 					]
 				];
 			}
 		}
-	}
 
+		// Add a little extra space at the end because the scrollbox is dumb
+		ControlList->AddSlot()
+		.AutoHeight()
+		.Padding(FMargin(10.0f, 10.0f, 10.0f, 10.0f))
+		[
+			SNew(SCanvas)
+		];
+
+	}
 	return KeyboardBox.ToSharedRef();
 }
 
 TSharedRef<SWidget> SUTControlSettingsDialog::BuildMouseTab()
 {
+	UUTProfileSettings* ProfileSettings = PlayerOwner->GetProfileSettings();
+
 	MouseSensitivityRange = FVector2D(0.0075f, 0.15f);
 	MouseAccelerationRange = FVector2D(0.00001f, 0.0001f);
 	MouseAccelerationMaxRange = FVector2D(0.5f, 1.5f);
-
-	//Is Mouse Inverted
-	bool bMouseInverted = false;
-	UInputSettings* InputSettings = UInputSettings::StaticClass()->GetDefaultObject<UInputSettings>();
-	for (FInputAxisConfigEntry& Entry : InputSettings->AxisConfig)
-	{
-		if (Entry.AxisKeyName == EKeys::MouseY)
-		{
-			bMouseInverted = Entry.AxisProperties.bInvert;
-			break;
-		}
-	}
-	
+		
 	return SNew(SBox)
 	.VAlign(VAlign_Fill)
 	[
@@ -713,7 +345,7 @@ TSharedRef<SWidget> SUTControlSettingsDialog::BuildMouseTab()
 				SAssignNew(MouseSmoothing, SCheckBox)
 				.Style(SUWindowsStyle::Get(), "UT.Common.CheckBox")
 				.ForegroundColor(FLinearColor::White)
-				.IsChecked(GetDefault<UInputSettings>()->bEnableMouseSmoothing ? ECheckBoxState::Checked : ECheckBoxState::Unchecked)
+				.IsChecked(ProfileSettings->bEnableMouseSmoothing ? ECheckBoxState::Checked : ECheckBoxState::Unchecked)
 			]
 		]
 		+ SVerticalBox::Slot()
@@ -739,7 +371,7 @@ TSharedRef<SWidget> SUTControlSettingsDialog::BuildMouseTab()
 				SAssignNew(MouseInvert, SCheckBox)
 				.Style(SUWindowsStyle::Get(), "UT.Common.CheckBox")
 				.ForegroundColor(FLinearColor::White)
-				.IsChecked(bMouseInverted ? ECheckBoxState::Checked : ECheckBoxState::Unchecked)
+				.IsChecked(ProfileSettings->bInvertMouse ? ECheckBoxState::Checked : ECheckBoxState::Unchecked)
 			]
 		]		
 		+ SVerticalBox::Slot()
@@ -768,7 +400,7 @@ TSharedRef<SWidget> SUTControlSettingsDialog::BuildMouseTab()
 					SAssignNew(MouseSensitivityEdit, SEditableTextBox)
 					.MinDesiredWidth(200)
 					.Style(SUWindowsStyle::Get(),"UT.Common.Editbox.White")
-					.Text(FText::AsNumber(UUTPlayerInput::StaticClass()->GetDefaultObject<UUTPlayerInput>()->GetMouseSensitivity()))
+					.Text(FText::AsNumber(ProfileSettings->MouseSensitivity))
 					.OnTextCommitted(this, &SUTControlSettingsDialog::EditSensitivity)
 				]		
 			]
@@ -783,7 +415,7 @@ TSharedRef<SWidget> SUTControlSettingsDialog::BuildMouseTab()
 					SAssignNew(MouseSensitivity, SSlider)
 					.Style(SUWindowsStyle::Get(),"UT.Common.Slider")
 					.Orientation(Orient_Horizontal)
-					.Value((UUTPlayerInput::StaticClass()->GetDefaultObject<UUTPlayerInput>()->GetMouseSensitivity() - MouseSensitivityRange.X) / (MouseSensitivityRange.Y - MouseSensitivityRange.X))
+					.Value((ProfileSettings->MouseSensitivity - MouseSensitivityRange.X) / (MouseSensitivityRange.Y - MouseSensitivityRange.X))
 				]
 			]
 		]		
@@ -810,7 +442,7 @@ TSharedRef<SWidget> SUTControlSettingsDialog::BuildMouseTab()
 				SAssignNew(MouseAccelerationCheckBox, SCheckBox)
 				.Style(SUWindowsStyle::Get(), "UT.Common.CheckBox")
 				.ForegroundColor(FLinearColor::White)
-				.IsChecked(UUTPlayerInput::StaticClass()->GetDefaultObject<UUTPlayerInput>()->AccelerationPower > 0 ? ECheckBoxState::Checked : ECheckBoxState::Unchecked)
+				.IsChecked(ProfileSettings->MouseAccelerationPower > 0 ? ECheckBoxState::Checked : ECheckBoxState::Unchecked)
 			]
 		]				
 		+ SVerticalBox::Slot()
@@ -839,7 +471,7 @@ TSharedRef<SWidget> SUTControlSettingsDialog::BuildMouseTab()
 					SAssignNew(MouseAccelerationEdit, SEditableTextBox)
 					.MinDesiredWidth(200)
 					.Style(SUWindowsStyle::Get(),"UT.Common.Editbox.White")
-					.Text(FText::AsNumber(UUTPlayerInput::StaticClass()->GetDefaultObject<UUTPlayerInput>()->Acceleration))
+					.Text(FText::AsNumber(ProfileSettings->MouseAcceleration))
 					.OnTextCommitted(this, &SUTControlSettingsDialog::EditAcceleration)
 				]		
 			]
@@ -854,7 +486,7 @@ TSharedRef<SWidget> SUTControlSettingsDialog::BuildMouseTab()
 					SAssignNew(MouseAcceleration, SSlider)
 					.Style(SUWindowsStyle::Get(),"UT.Common.Slider")
 					.Orientation(Orient_Horizontal)
-					.Value((UUTPlayerInput::StaticClass()->GetDefaultObject<UUTPlayerInput>()->Acceleration - MouseAccelerationRange.X) / (MouseAccelerationRange.Y - MouseAccelerationRange.X))
+					.Value((ProfileSettings->MouseAcceleration - MouseAccelerationRange.X) / (MouseAccelerationRange.Y - MouseAccelerationRange.X))
 				]
 			]
 		]	
@@ -884,7 +516,7 @@ TSharedRef<SWidget> SUTControlSettingsDialog::BuildMouseTab()
 					SAssignNew(MouseAccelerationMaxEdit, SEditableTextBox)
 					.MinDesiredWidth(200)
 					.Style(SUWindowsStyle::Get(),"UT.Common.Editbox.White")
-					.Text(FText::AsNumber(UUTPlayerInput::StaticClass()->GetDefaultObject<UUTPlayerInput>()->AccelerationMax))
+					.Text(FText::AsNumber(ProfileSettings->MouseAccelerationMax))
 					.OnTextCommitted(this, &SUTControlSettingsDialog::EditAccelerationMax)
 				]		
 			]
@@ -899,7 +531,7 @@ TSharedRef<SWidget> SUTControlSettingsDialog::BuildMouseTab()
 					SAssignNew(MouseAccelerationMax, SSlider)
 					.Style(SUWindowsStyle::Get(),"UT.Common.Slider")
 					.Orientation(Orient_Horizontal)
-					.Value((UUTPlayerInput::StaticClass()->GetDefaultObject<UUTPlayerInput>()->AccelerationMax - MouseAccelerationMaxRange.X) / (MouseAccelerationMaxRange.Y - MouseAccelerationMaxRange.X))
+					.Value((ProfileSettings->MouseAccelerationMax - MouseAccelerationMaxRange.X) / (MouseAccelerationMaxRange.Y - MouseAccelerationMaxRange.X))
 				]
 			]
 		]	
@@ -908,10 +540,10 @@ TSharedRef<SWidget> SUTControlSettingsDialog::BuildMouseTab()
 
 TSharedRef<SWidget> SUTControlSettingsDialog::BuildMovementTab()
 {
-	//Get the dodge settings
-	AUTPlayerController* PC = AUTPlayerController::StaticClass()->GetDefaultObject<AUTPlayerController>();
-	MaxDodgeClickTimeValue = PC->MaxDodgeClickTime;
-	MaxDodgeTapTimeValue = PC->MaxDodgeTapTime;
+	UUTProfileSettings* ProfileSettings = PlayerOwner->GetProfileSettings();
+
+	MaxDodgeClickTimeValue = ProfileSettings->MaxDodgeClickTimeValue;
+	MaxDodgeTapTimeValue = ProfileSettings->MaxDodgeTapTimeValue;
 
 	return SNew(SVerticalBox)
 	+ SVerticalBox::Slot()
@@ -937,7 +569,7 @@ TSharedRef<SWidget> SUTControlSettingsDialog::BuildMovementTab()
 			SAssignNew(SingleTapWallDodge, SCheckBox)
 			.Style(SUWindowsStyle::Get(), "UT.Common.CheckBox")
 			.ForegroundColor(FLinearColor::White)
-			.IsChecked(PC->bSingleTapWallDodge ? ECheckBoxState::Checked : ECheckBoxState::Unchecked)
+			.IsChecked(ProfileSettings->bSingleTapWallDodge ? ECheckBoxState::Checked : ECheckBoxState::Unchecked)
 		]
 	]
 	+ SVerticalBox::Slot()
@@ -963,7 +595,7 @@ TSharedRef<SWidget> SUTControlSettingsDialog::BuildMovementTab()
 			SAssignNew(SingleTapAfterJump, SCheckBox)
 			.Style(SUWindowsStyle::Get(), "UT.Common.CheckBox")
 			.ForegroundColor(FLinearColor::White)
-			.IsChecked(PC->bSingleTapAfterJump ? ECheckBoxState::Checked : ECheckBoxState::Unchecked)
+			.IsChecked(ProfileSettings->bSingleTapAfterJump ? ECheckBoxState::Checked : ECheckBoxState::Unchecked)
 		]
 	]
 	+ SVerticalBox::Slot()
@@ -1049,123 +681,66 @@ TSharedRef<SWidget> SUTControlSettingsDialog::BuildMovementTab()
 					SAssignNew(SlideFromRun, SCheckBox)
 					.Style(SUWindowsStyle::Get(), "UT.Common.CheckBox")
 					.ForegroundColor(FLinearColor::White)
-					.IsChecked(PC->bCrouchTriggersSlide ? ECheckBoxState::Checked : ECheckBoxState::Unchecked)
+					.IsChecked(ProfileSettings->bAllowSlideFromRun ? ECheckBoxState::Checked : ECheckBoxState::Unchecked)
 				]
 		];
 }
 
 FReply SUTControlSettingsDialog::OnBindDefaultClick()
 {
-	//Reset all the binds to their default value
-	for (auto Bind : Binds)
+	UUTProfileSettings* ProfileSettings = PlayerOwner->GetProfileSettings();
+	if (ProfileSettings != nullptr)
 	{
-		if (!Bind->bHeader)
-		{
-			Bind->KeyWidget->SetKey(Bind->DefaultKey, false,false);
-			Bind->AltKeyWidget->SetKey(Bind->DefaultAltKey, false,false);
-		}
+		ProfileSettings->ResetProfile(EProfileResetType::Input);
+		ProfileSettings->ResetProfile(EProfileResetType::Binds);
+		PlayerOwner->SaveProfileSettings();
+
+		// Close then reopen
+		GetPlayerOwner()->CloseDialog(SharedThis(this));
+		PlayerOwner->OpenDialog(SNew(SUTControlSettingsDialog).PlayerOwner(PlayerOwner).DialogTitle(NSLOCTEXT("SUTMenuBase","Controls","Control Settings")));
 	}
 	return FReply::Handled();
 }
 
 FReply SUTControlSettingsDialog::OKClick()
 {
-	UInputSettings* InputSettings = UInputSettings::StaticClass()->GetDefaultObject<UInputSettings>();
+	// Copy the action settings back in to the profile;
 
-	//Write the binds to the ini
-	for (const auto& Bind : Binds)
+	UUTProfileSettings* ProfileSettings = PlayerOwner->GetProfileSettings();
+	if (ProfileSettings != nullptr)
 	{
-		Bind->WriteBind();
-	}
-	InputSettings->SaveConfig();
-
-	AUTPlayerController* UTPC = Cast<AUTPlayerController>(GetPlayerOwner()->PlayerController);
-	if (UTPC != nullptr)
-	{
-		UTPC->UpdateWeaponGroupKeys();
-		UTPC->UpdateInventoryKeys();
-	}
-
-	//Update the playing players custom binds
-	APlayerController* PC = GetPlayerOwner()->PlayerController;
-	if (PC != NULL && Cast<UUTPlayerInput>(PC->PlayerInput) != NULL)
-	{
-		Cast<UUTPlayerInput>(PC->PlayerInput)->CustomBinds = UUTPlayerInput::StaticClass()->GetDefaultObject<UUTPlayerInput>()->CustomBinds;
-	}
-
-	//Mouse Settings
-	UUTGameUserSettings* UserSettings = Cast<UUTGameUserSettings>(GEngine->GetGameUserSettings());
-
-	// mouse sensitivity
-	float NewSensitivity = MouseSensitivity->GetValue() * (MouseSensitivityRange.Y - MouseSensitivityRange.X) + MouseSensitivityRange.X;
-	float NewAcceleration = MouseAcceleration->GetValue() * (MouseAccelerationRange.Y - MouseAccelerationRange.X) + MouseAccelerationRange.X;
-	float NewAccelerationMax = MouseAccelerationMax->GetValue() * (MouseAccelerationMaxRange.Y - MouseAccelerationMaxRange.X) + MouseAccelerationMaxRange.X;
-	float NewAccelerationPower = UUTPlayerInput::StaticClass()->GetDefaultObject<UUTPlayerInput>()->AccelerationPower;
-	if (MouseAccelerationCheckBox->IsChecked())
-	{
-		// Leave untouched if non-zero
-		if (NewAccelerationPower <= 0)
+		// Copy the binds back in to the profile
+		for (int32 i=0 ; i < BindList.Num(); i++)
 		{
-			NewAccelerationPower = 1.0f;
+			FKeyConfigurationInfo* GameAction = BindList[i]->KeyConfig;
+			GameAction->PrimaryKey = BindList[i]->PrimaryKeyBindWidget->GetKey();
+			GameAction->SecondaryKey = BindList[i]->SecondaryKeyBindWidget->GetKey();
 		}
-	}
-	else
-	{
-		NewAccelerationPower = 0;
-	}
-	UUTPlayerInput::StaticClass()->GetDefaultObject<UUTPlayerInput>()->AccelerationPower = NewAccelerationPower;
-	UUTPlayerInput::StaticClass()->GetDefaultObject<UUTPlayerInput>()->Acceleration = NewAcceleration;
-	UUTPlayerInput::StaticClass()->GetDefaultObject<UUTPlayerInput>()->AccelerationMax = NewAccelerationMax;
 
-	for (TObjectIterator<UUTPlayerInput> It(RF_NoFlags); It; ++It)
-	{
-		It->SetMouseSensitivity(NewSensitivity);
-		It->AccelerationPower = NewAccelerationPower;
-		It->Acceleration = NewAcceleration;
-		It->AccelerationMax = NewAccelerationMax;
-
-		//Invert mouse
-		for (FInputAxisConfigEntry& Entry : It->AxisConfig)
+		ProfileSettings->MouseSensitivity = MouseSensitivity->GetValue() * (MouseSensitivityRange.Y - MouseSensitivityRange.X) + MouseSensitivityRange.X;
+		ProfileSettings->MouseAcceleration = MouseAcceleration->GetValue() * (MouseAccelerationRange.Y - MouseAccelerationRange.X) + MouseAccelerationRange.X;
+		ProfileSettings->MouseAccelerationMax = MouseAccelerationMax->GetValue() * (MouseAccelerationMaxRange.Y - MouseAccelerationMaxRange.X) + MouseAccelerationMaxRange.X;
+		if (MouseAccelerationCheckBox->IsChecked())
 		{
-			if (Entry.AxisKeyName == EKeys::MouseY)
-			{
-				Entry.AxisProperties.bInvert = MouseInvert->IsChecked();
-			}
+			float MAP = UUTPlayerInput::StaticClass()->GetDefaultObject<UUTPlayerInput>()->AccelerationPower;
+			ProfileSettings->MouseAccelerationPower = MAP <= 0 ? 1.0f : MAP;
 		}
-	}
-
-	for (FInputAxisConfigEntry& Entry : InputSettings->AxisConfig)
-	{
-		if (Entry.AxisKeyName == EKeys::MouseX || Entry.AxisKeyName == EKeys::MouseY)
+		else
 		{
-			Entry.AxisProperties.Sensitivity = NewSensitivity;
+			ProfileSettings->MouseAccelerationPower = 0.0f;
 		}
-	}
-	//Invert Mouse
-	for (FInputAxisConfigEntry& Entry : InputSettings->AxisConfig)
-	{
-		if (Entry.AxisKeyName == EKeys::MouseY)
-		{
-			Entry.AxisProperties.bInvert = MouseInvert->IsChecked();
-		}
-	}
-	//Mouse Smooth
-	InputSettings->bEnableMouseSmoothing = MouseSmoothing->IsChecked();
-	InputSettings->SaveConfig();
 
-	//Movement settings
-	for (TObjectIterator<AUTPlayerController> It(RF_NoFlags); It; ++It)
-	{
-		It->bSingleTapWallDodge = SingleTapWallDodge->IsChecked();
-		It->bSingleTapAfterJump = SingleTapAfterJump->IsChecked();
-		It->MaxDodgeClickTime = MaxDodgeClickTimeValue;
-		It->MaxDodgeTapTime = MaxDodgeTapTimeValue;
-		It->bCrouchTriggersSlide = SlideFromRun->IsChecked();
-	}
-	AUTPlayerController::StaticClass()->GetDefaultObject<AUTPlayerController>()->SaveConfig();
-	UUTPlayerInput::StaticClass()->GetDefaultObject<UUTPlayerInput>()->SaveConfig();
+		ProfileSettings->bInvertMouse = MouseInvert->IsChecked();
+		ProfileSettings->bEnableMouseSmoothing = MouseSmoothing->IsChecked();
 
-	GetPlayerOwner()->GetProfileSettings()->ResetProfile(EProfileResetType::Binds);
+		ProfileSettings->bAllowSlideFromRun = SlideFromRun->IsChecked();
+		ProfileSettings->MaxDodgeClickTimeValue = MaxDodgeClickTimeValue;
+		ProfileSettings->MaxDodgeTapTimeValue = MaxDodgeTapTimeValue;
+
+		ProfileSettings->ApplyInputSettings(PlayerOwner.Get());
+	}
+
+
 	GetPlayerOwner()->CloseDialog(SharedThis(this));
 	GetPlayerOwner()->SaveProfileSettings();
 
@@ -1239,73 +814,94 @@ void SUTControlSettingsDialog::Tick(const FGeometry& AllottedGeometry, const dou
 	}
 }
 
-void SUTControlSettingsDialog::OnKeyBindingChanged( FKey PreviousKey, FKey NewKey, TSharedPtr<FSimpleBind> BindingThatChanged, bool bPrimaryKey ) 
+void SUTControlSettingsDialog::OnKeyBindingChanged( FKey PreviousKey, FKey NewKey, TSharedPtr<FKeyBindTracker> BindingThatChanged, bool bPrimaryKey ) 
 {
-	// Primary or Alt key changed to a valid state.  Search through all the other bindings to find a duplicate
-	if( NewKey.IsValid() )
+	// Validate the binding
+
+	for (int32 i = 0; i < BindList.Num(); i++)
 	{
-		FString DisplayNameOfDuplicate;
-
-		for (const auto& Bind : Binds)
+		if (BindList[i]->KeyConfig != BindingThatChanged->KeyConfig)
 		{
-			if( !Bind->bHeader && Bind != BindingThatChanged )
+			if (BindList[i]->PrimaryKeyBindWidget->GetKey() == NewKey || BindList[i]->SecondaryKeyBindWidget->GetKey() == NewKey)
 			{
-				if( NewKey == (*Bind->Key) || NewKey == (*Bind->AltKey ) )
-				{
-					DisplayNameOfDuplicate = Bind->DisplayName;
-					break;
-				}
-			}
-		}
+				// Look to see if we can overwrite the binds...
 
-		TSharedPtr<SUTControlSettingsDialog> CSD = SharedThis(this);
+				if (BindList[i]->KeyConfig->Restrictions == EControlGameModeRestriction::NeverAllow ||
+					BindList[i]->KeyConfig->Restrictions == BindingThatChanged->KeyConfig->Restrictions)
+				{
+					TSharedPtr<FKeyBindTracker> NewBindInContention = BindingThatChanged;
+					TSharedPtr<FKeyBindTracker> OldBindInContention = BindList[i];
 
-		auto OnDuplicateDialogResult = [CSD, BindingThatChanged, bPrimaryKey, NewKey, PreviousKey](TSharedPtr<SCompoundWidget> Widget, uint16 Button)
-		{
-			
-			if( Button == UTDIALOG_BUTTON_NO )
-			{
-				if( bPrimaryKey )
-				{
-					BindingThatChanged->KeyWidget->SetKey( PreviousKey, true, false );
-				}
-				else
-				{
-					BindingThatChanged->AltKeyWidget->SetKey( PreviousKey, true, false );
-				}
-			}
-			else if (Button == UTDIALOG_BUTTON_YESCLEAR)
-			{
-				for (const auto& Bind : CSD->Binds)
-				{
-					if (!Bind->bHeader && Bind != BindingThatChanged)
+					bool bOldPrimary = BindList[i]->PrimaryKeyBindWidget->GetKey() == NewKey;
+					auto OnDuplicateDialogResult = [SharedThis(this), bPrimaryKey, NewKey, PreviousKey, NewBindInContention, OldBindInContention, bOldPrimary](TSharedPtr<SCompoundWidget> Widget, uint16 Button)
 					{
-						if (NewKey == (*Bind->Key))
+						if (Button == UTDIALOG_BUTTON_NO)
 						{
-							Bind->KeyWidget->SetKey(FKey());
-						}
-						
-						if (NewKey == (*Bind->AltKey))
-						{
-							Bind->AltKeyWidget->SetKey(FKey());
-						}
-					}
-				}
-			}
-		};
+							if (bPrimaryKey)
+							{
+								NewBindInContention->PrimaryKeyBindWidget->SetKey(PreviousKey, true, false);
+							}
+							else
+							{
+								NewBindInContention->SecondaryKeyBindWidget->SetKey(PreviousKey, true, false);
+							}
 
-		if( !DisplayNameOfDuplicate.IsEmpty() )
-		{
-			GetPlayerOwner()->ShowMessage
-			( 
-				NSLOCTEXT("SUTControlSettingsDialog", "DuplicateBindingTitle", "Duplicate Binding"),
-				FText::Format( NSLOCTEXT("SUTControlSettingsDialog", "DuplicateBindingMessage", "{0} is already bound to {1}.\n\nBind to {2} anyway?"), NewKey.GetDisplayName(), FText::FromString( DisplayNameOfDuplicate ), FText::FromString(BindingThatChanged->DisplayName) ),
-				UTDIALOG_BUTTON_YES | UTDIALOG_BUTTON_YESCLEAR | UTDIALOG_BUTTON_NO,
-				FDialogResultDelegate::CreateLambda( OnDuplicateDialogResult )
-			);
+						}
+						else if (Button == UTDIALOG_BUTTON_YES)
+						{
+							if (bOldPrimary)
+							{
+								OldBindInContention->PrimaryKeyBindWidget->SetKey(FKey(), true, false);
+							}
+							else
+							{
+								OldBindInContention->SecondaryKeyBindWidget->SetKey(FKey(), true, false);
+							}
+						}
+					};
+
+					GetPlayerOwner()->ShowMessage
+							(
+								NSLOCTEXT("SUTControlSettingsDialog", "DuplicateBindingTitle", "Duplicate Binding"),
+								FText::Format(NSLOCTEXT("SUTControlSettingsDialog", "DuplicateBindingMessage", "The key '{0}' is already bound to \"{1}\".\n\nDo you want to Bind '{0}' to \"{2}\" and remove the key from \"{1}\"?"), NewKey.GetDisplayName(), BindList[i]->KeyConfig->MenuText, BindingThatChanged->KeyConfig->MenuText),
+								UTDIALOG_BUTTON_YES | UTDIALOG_BUTTON_NO,
+								FDialogResultDelegate::CreateLambda(OnDuplicateDialogResult)
+							);
+				}
+				else if ( BindList[i]->KeyConfig->Restrictions != EControlGameModeRestriction::AlwaysAllow )
+				{
+					TSharedPtr<FKeyBindTracker> NewBindInContention = BindingThatChanged;
+					TSharedPtr<FKeyBindTracker> OldBindInContention = BindList[i];
+
+					bool bOldPrimary = BindList[i]->PrimaryKeyBindWidget->GetKey() == NewKey;
+					auto OnPossibleDuplicateDialogResult = [SharedThis(this), bPrimaryKey, NewKey, PreviousKey, NewBindInContention, OldBindInContention, bOldPrimary](TSharedPtr<SCompoundWidget> Widget, uint16 Button)
+					{
+						if (Button == UTDIALOG_BUTTON_NO)
+						{
+							if (bPrimaryKey)
+							{
+								NewBindInContention->PrimaryKeyBindWidget->SetKey(PreviousKey, true, false);
+							}
+							else
+							{
+								NewBindInContention->SecondaryKeyBindWidget->SetKey(PreviousKey, true, false);
+							}
+
+						}
+					};
+
+					GetPlayerOwner()->ShowMessage
+							(
+								NSLOCTEXT("SUTControlSettingsDialog", "DuplicateBindingAllowedTitle", "Possible Duplicate Binding Detected "),
+								FText::Format(NSLOCTEXT("SUTControlSettingsDialog", "PossibleDuplicateBindingMessage", "The key '{0}' is already bound to \"{1}\" however that action is only used in some game modes.\n\nIf you bind the key '{0}' to \"{2}\" it may conflict.  Are you sure?"), NewKey.GetDisplayName(), BindList[i]->KeyConfig->MenuText, BindingThatChanged->KeyConfig->MenuText),
+								UTDIALOG_BUTTON_YES | UTDIALOG_BUTTON_NO,
+								FDialogResultDelegate::CreateLambda(OnPossibleDuplicateDialogResult)
+							);				
+				}
+
+			}
 		}
 	}
-
 }
 
 #endif

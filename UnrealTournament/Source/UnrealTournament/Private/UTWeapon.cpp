@@ -2016,15 +2016,10 @@ void AUTWeapon::DrawWeaponCrosshair_Implementation(UUTHUDWidget* WeaponHudWidget
 
 	if (bDrawCrosshair)
 	{
-		AUTPlayerController* UTPlayerController = Cast<AUTPlayerController>(UTOwner->Controller);
-		if (UTPlayerController != nullptr && UTPlayerController->MyUTHUD != nullptr)
-		{
-			ActiveCrosshair = UTPlayerController->MyUTHUD->GetCrosshairForWeapon(WeaponCustomizationTag, ActiveCrosshairCustomizationInfo);
-		}
-
+		ActiveCrosshair = WeaponHudWidget->UTHUDOwner->GetCrosshairForWeapon(WeaponCustomizationTag, ActiveCrosshairCustomizationInfo);			
 		if (ActiveCrosshair != nullptr)
 		{
-			ActiveCrosshair->NativeDrawCrosshair(WeaponHudWidget->GetCanvas(), this, RenderDelta, ActiveCrosshairCustomizationInfo);
+			ActiveCrosshair->NativeDrawCrosshair(WeaponHudWidget->UTHUDOwner, WeaponHudWidget->GetCanvas(), this, RenderDelta, ActiveCrosshairCustomizationInfo);
 		}
 		else
 		{

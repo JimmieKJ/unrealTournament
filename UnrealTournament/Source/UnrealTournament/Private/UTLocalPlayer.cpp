@@ -1590,7 +1590,8 @@ void UUTLocalPlayer::OnReadUserFileComplete(bool bWasSuccessful, const FUniqueNe
 			// to be cleared.  If all is OK, then apply these settings.
 			if (CurrentProfileSettings->SettingsRevisionNum >= VALID_PROFILESETTINGS_VERSION && !bClearProfile)
 			{
-				bool bNeedToSaveProfile = CurrentProfileSettings->VerifyInputRules();
+				bool bNeedToSaveProfile = false;
+
 				CurrentProfileSettings->ApplyAllSettings(this);
 				SaveLocalProfileSettings();
 				// It's possible for the MCP data to get here before the profile, so we havbe to check for daily challenges 

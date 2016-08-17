@@ -260,7 +260,6 @@ void SUTStyle::SetCommonStyle(TSharedRef<FSlateStyleSet> StyleRef)
 		.SetPressedSound(ButtonPressSound)
 	);
 
-
 	Style.Set("UT.SimpleButton.Dark", FButtonStyle()
 		.SetNormal( FSlateColorBrush(Dark) )
 		.SetHovered( FSlateColorBrush(Hovered) )
@@ -297,10 +296,28 @@ void SUTStyle::SetCommonStyle(TSharedRef<FSlateStyleSet> StyleRef)
 		.SetPressedSound(ButtonPressSound)
 	);
 
+	Style.Set("UT.Button.Clear", FButtonStyle()
+		.SetNormal(IMAGE_BRUSH("UTStyle/Buttons/Button.Clear", FVector2D(36, 24)))
+		.SetHovered(IMAGE_BRUSH("UTStyle/Buttons/Button.Clear.Hover", FVector2D(36, 24)))
+		.SetPressed(IMAGE_BRUSH("UTStyle/Buttons/Button.Clear.Press", FVector2D(36, 24)))
+		.SetDisabled(FSlateColorBrush(Disabled))
+		.SetHoveredSound(ButtonHoverSound)
+		.SetPressedSound(ButtonPressSound)
+	);
+
+	Style.Set("UT.Button.Abort", FButtonStyle()
+		.SetNormal(IMAGE_BRUSH("UTStyle/Buttons/Button.Abort", FVector2D(36, 24)))
+		.SetHovered(IMAGE_BRUSH("UTStyle/Buttons/Button.Abort.Hover", FVector2D(36, 24)))
+		.SetPressed(IMAGE_BRUSH("UTStyle/Buttons/Button.Abort.Press", FVector2D(36, 24)))
+		.SetDisabled(FSlateColorBrush(Disabled))
+		.SetHoveredSound(ButtonHoverSound)
+		.SetPressedSound(ButtonPressSound)
+	);
+
 	Style.Set("UT.ArrowButton.Left", FButtonStyle()
-		.SetNormal(IMAGE_BRUSH("UTStyle/Buttons/Button.Arrow.Left", FVector2D(256,256)))
-		.SetHovered(IMAGE_BRUSH("UTStyle/Buttons/Button.Arrow.Left.Hover", FVector2D(256,256)))
-		.SetPressed(IMAGE_BRUSH("UTStyle/Buttons/Button.Arrow.Left.Press", FVector2D(256,256)))
+		.SetNormal(IMAGE_BRUSH("UTStyle/Buttons/Button.Arrow.Left", FVector2D(256, 256)))
+		.SetHovered(IMAGE_BRUSH("UTStyle/Buttons/Button.Arrow.Left.Hover", FVector2D(256, 256)))
+		.SetPressed(IMAGE_BRUSH("UTStyle/Buttons/Button.Arrow.Left.Press", FVector2D(256, 256)))
 		.SetDisabled(FSlateColorBrush(Disabled))
 		.SetHoveredSound(ButtonHoverSound)
 		.SetPressedSound(ButtonPressSound)

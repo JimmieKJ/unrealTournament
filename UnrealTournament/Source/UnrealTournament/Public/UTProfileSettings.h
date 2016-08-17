@@ -57,16 +57,20 @@ public:
 	void VersionFixup();
 
 	/**
+	 *	Makes sure the GameActions array is up to date
+	 **/
+	void ValidateGameActions();
+
+	/**
+	 *	Builds the list of default game actions.
+	 **/
+	void GetDefaultGameActions(TArray<FKeyConfigurationInfo>& outGameActions);
+
+	/**
 	 *	Use this function to reset values in the profile to their default state.  NOTE this doesn't save the profile, you have
 	 *  to do that manually
 	 **/
-
 	void ResetProfile(EProfileResetType::Type SectionToReset);
-
-	/**
-	 *	Verify that the input is up to date and that all input rules have been applied.  Returns true if we should save the profile
-	 **/
-	bool VerifyInputRules();
 
 	// If true, the profile object should be saved on level change.
 	bool bNeedProfileWriteOnLevelChange;
@@ -86,10 +90,6 @@ public:
 	// When were these settings saved
 	UPROPERTY(BlueprintReadOnly, Category = Profile)
 	FDateTime SettingsSavedOn;
-
-	// The UInputSettings object converted in to raw data for storage.
-	UPROPERTY()
-	TArray<uint8> RawInputSettings;
 
 
 	// ======================== Character Settings
@@ -316,17 +316,9 @@ public:
 
 	// ======================== Input Settings
 
+	// Holds all of the actions for the base game.  TODO: Add a mod version so that mods can bind keys easier
 	UPROPERTY(BlueprintReadOnly, Category = Input)
-	TArray<struct FInputActionKeyMapping> ActionMappings;
-
-	UPROPERTY(BlueprintReadOnly, Category = Input)
-	TArray<struct FInputAxisKeyMapping> AxisMappings;
-
-	UPROPERTY(BlueprintReadOnly, Category = Input)
-	TArray<struct FInputAxisConfigEntry> AxisConfig;
-
-	UPROPERTY(BlueprintReadOnly, Category = Input)
-	TArray<FCustomKeyBinding> CustomBinds;
+	TArray<FKeyConfigurationInfo> GameActions;
 
 	UPROPERTY(BlueprintReadOnly, Category = Input)
 	uint32 bEnableMouseSmoothing : 1;
@@ -365,10 +357,6 @@ public:
 	UPROPERTY(BlueprintReadOnly, Category = Input)
 	uint32 bAllowSlideFromRun : 1;
 
-	UPROPERTY(BlueprintReadOnly, Category = Input)
-	FKey ConsoleKey;
-
-
 public:
 
 	// Accessor functions.  NOTE: If you add a function here, please make sure it's blueprint callable.
@@ -392,5 +380,9 @@ public:
 	// Returns the weapon skin for a given weapon
 	UFUNCTION(BlueprintCallable, Category = Weapon)
 	FString GetWeaponSkinClassname(AUTWeapon* Weapon);
+
+	// Apply the keyboard bindings to the input system.  
+	UFUNCTION(BlueprintCallable, Category = Weapon)
+	void ApplyInputSettings(UUTLocalPlayer* ProfilePlayer);
 
 };

@@ -79,8 +79,15 @@ void AUTBasePlayerController::InitInputSystem()
 
 void AUTBasePlayerController::SetupInputComponent()
 {
+
+	UUTProfileSettings* ProfileSettings = GetProfileSettings();
+	if (ProfileSettings != nullptr) ProfileSettings->ApplyInputSettings(Cast<UUTLocalPlayer>(Player));
+
 	Super::SetupInputComponent();
 	InputComponent->BindAction("ShowMenu", IE_Released, this, &AUTBasePlayerController::execShowMenu);
+
+
+
 }
 
 void AUTBasePlayerController::SetName(const FString& S)

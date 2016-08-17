@@ -700,7 +700,7 @@ void SUTWeaponConfigDialog::UpdatePreviewRender(UCanvas* C, int32 Width, int32 H
 
 	if (bShowingCrosshairs && AllCrosshairs.IsValidIndex(CurrentCrosshairIndex))
 	{
-		AllCrosshairs[CurrentCrosshairIndex]->DrawCrosshair(C, nullptr, 0.0f, *AllWeapons[CurrentWeaponIndex].WeaponCustomizationInfo);
+		AllCrosshairs[CurrentCrosshairIndex]->DrawCrosshair(nullptr, C, nullptr, 0.0f, *AllWeapons[CurrentWeaponIndex].WeaponCustomizationInfo);
 	}
 }
 
