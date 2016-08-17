@@ -2273,6 +2273,7 @@ void AUTPlayerController::UpdateHiddenComponents(const FVector& ViewLocation, TS
 				}
 			}
 			P->GetMesh()->bCastCapsuleIndirectShadow = true;
+			P->GetMesh()->MarkRenderStateDirty();
 		}
 	}
 	else if (P != NULL)
@@ -2301,6 +2302,7 @@ void AUTPlayerController::UpdateHiddenComponents(const FVector& ViewLocation, TS
 		// hide third person character model
 		HideComponentTree(P->GetMesh(), HiddenComponents);
 		P->GetMesh()->bCastCapsuleIndirectShadow = false;
+		P->GetMesh()->MarkRenderStateDirty();
 
 		// hide flag
 		// TODO: long term would be nice to not do this and have it visible at the edge of vision
