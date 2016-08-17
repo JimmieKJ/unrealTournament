@@ -10,10 +10,10 @@ UUTHUDWidgetAnnouncements::UUTHUDWidgetAnnouncements(const class FObjectInitiali
 	ManagedMessageArea = FName(TEXT("Announcements"));
 	Slots.Add(FAnnouncementSlot(FName(TEXT("MajorRewardMessage")), 0.17f));
 	Slots.Add(FAnnouncementSlot(FName(TEXT("Spree")), 0.23f));
-	Slots.Add(FAnnouncementSlot(FName(TEXT("MultiKill")), 0.29f));
-	Slots.Add(FAnnouncementSlot(FName(TEXT("DeathMessage")), 0.36f));
+	Slots.Add(FAnnouncementSlot(FName(TEXT("DeathMessage")), 0.30f));
+	Slots.Add(FAnnouncementSlot(FName(TEXT("Multikill")), 0.36f));
 	Slots.Add(FAnnouncementSlot(FName(TEXT("VictimMessage")), 0.43f));
-	Slots.Add(FAnnouncementSlot(FName(TEXT("PickupMessage")), 0.52f));
+	Slots.Add(FAnnouncementSlot(FName(TEXT("PickupMessage")), 0.64f));
 	Slots.Add(FAnnouncementSlot(FName(TEXT("GameMessages")), 0.7f));
 	Slots.Add(FAnnouncementSlot(FName(TEXT("CountDownMessages")), 0.77f));
 	Position = FVector2D(0.0f, 0.0f);
