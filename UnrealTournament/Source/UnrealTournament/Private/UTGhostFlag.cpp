@@ -29,9 +29,10 @@ AUTGhostFlag::AUTGhostFlag(const FObjectInitializer& ObjectInitializer)
 		TimerEffect->Mobility = EComponentMobility::Movable;
 		TimerEffect->SetCastShadow(false);
 	}
-	GhostMaster.MidPoints[0] = FVector(0.f);
-	GhostMaster.MidPoints[1] = FVector(0.f);
-	GhostMaster.MidPoints[2] = FVector(0.f);
+	for (int32 i = 0; i < NUM_MIDPOINTS; i++)
+	{
+		GhostMaster.MidPoints[i] = FVector::ZeroVector;
+	}
 
 	static ConstructorHelpers::FClassFinder<AUTFlagReturnTrail> TrailFinder(TEXT("/Game/RestrictedAssets/Effects/CTF/Blueprints/BP_FlagSplineCreator.BP_FlagSplineCreator_C"));
 	TrailClass = TrailFinder.Class;
@@ -43,7 +44,7 @@ void AUTGhostFlag::Destroyed()
 	if (Trail)
 	{
 		Trail->EndTrail();
-		Trail->SetLifeSpan(1.5f); //failsafe
+		Trail->SetLifeSpan(1.f); //failsafe
 	}
 }
 
@@ -73,7 +74,7 @@ void AUTGhostFlag::Tick(float DeltaTime)
 				break;
 			}
 		}
-		float TimerPosition = GhostMaster.MyCarriedObject->AutoReturnTime > 0 ? (1.0f - GhostMaster.MyCarriedObject->FlagReturnTime / GhostMaster.MyCarriedObject->AutoReturnTime) : 0.0;
+		float TimerPosition = GhostMaster.MyCarriedObject->AutoReturnTime > 0.f ? (1.0f - GhostMaster.MyCarriedObject->FlagReturnTime / GhostMaster.MyCarriedObject->AutoReturnTime) : 0.5f;
 		TimerEffect->SetHiddenInGame(false);
 		TimerEffect->SetFloatParameter(NAME_Progress, TimerPosition);			
 		TimerEffect->SetFloatParameter(NAME_RespawnTime, 60);
@@ -95,16 +96,78 @@ void AUTGhostFlag::OnSetCarriedObject()
 		if (Trail != nullptr)
 		{
 			Trail->EndTrail();
+			Trail->SetLifeSpan(1.f); //failsafe
 		}
 		FActorSpawnParameters Params;
 		Params.Owner = this;
-		Trail = GetWorld()->SpawnActor<AUTFlagReturnTrail>(TrailClass, GhostMaster.MyCarriedObject->GetActorLocation(), FRotator::ZeroRotator, Params);
+		Trail = GetWorld()->SpawnActor<AUTFlagReturnTrail>(TrailClass, GhostMaster.FlagLocation, FRotator::ZeroRotator, Params);
 		Trail->Flag = GhostMaster.MyCarriedObject;
 		Trail->SetTeam(GhostMaster.MyCarriedObject->Team);
+		FHitResult Hit;
+		static FName NAME_GhostTrail = FName(TEXT("GhostTrail"));
+		FCollisionQueryParams CollisionParms(NAME_GhostTrail, true, GhostMaster.MyCarriedObject);
+		// remove unnecessary midpoints
+		bool bHit = GetWorld()->LineTraceSingleByChannel(Hit, GhostMaster.FlagLocation, GetActorLocation(), COLLISION_TRACE_WEAPONNOCHARACTER, CollisionParms);
+		if (!bHit)
+		{
+			for (int32 j = 0; j < NUM_MIDPOINTS; j++)
+			{
+				if (!GhostMaster.MidPoints[j].IsZero())
+				{
+					DrawDebugSphere(GetWorld(), GhostMaster.MidPoints[j], 24.f, 12, FColor::Green, false, 10.f);
+				}
+				GhostMaster.MidPoints[j] = FVector::ZeroVector;
+			}
+		}
+		else
+		{
+			for (int32 i = 0; i < NUM_MIDPOINTS-1; i++)
+			{
+				if (!GhostMaster.MidPoints[i].IsZero())
+				{
+					bHit = GetWorld()->LineTraceSingleByChannel(Hit, GhostMaster.FlagLocation, GhostMaster.MidPoints[i], COLLISION_TRACE_WEAPONNOCHARACTER, CollisionParms);
+					if (!bHit)
+					{
+						// LOS to this point, remove intermediates
+						for (int32 j = i+1; j < NUM_MIDPOINTS; j++)
+						{
+							if (!GhostMaster.MidPoints[j].IsZero())
+							{
+								DrawDebugSphere(GetWorld(), GhostMaster.MidPoints[j], 24.f, 12, FColor::Red, false, 10.f);
+							}
+							GhostMaster.MidPoints[j] = FVector::ZeroVector;
+						}
+						break;
+					}
+				}
+			}
+		}
+		for (int32 i = NUM_MIDPOINTS - 1; i >=1 ; i--)
+		{
+			if (!GhostMaster.MidPoints[i].IsZero())
+			{
+				bHit = GetWorld()->LineTraceSingleByChannel(Hit,GhostMaster.MidPoints[i], GetActorLocation(), COLLISION_TRACE_WEAPONNOCHARACTER, CollisionParms);
+				if (!bHit)
+				{
+					// LOS to this point, remove intermediates
+					for (int32 j = i-1; j >=0; j--)
+					{
+						if (!GhostMaster.MidPoints[j].IsZero())
+						{
+							DrawDebugSphere(GetWorld(), GhostMaster.MidPoints[j], 24.f, 12, FColor::Yellow, false, 10.f);
+						}
+						GhostMaster.MidPoints[j] = FVector::ZeroVector;
+					}
+					break;
+				}
+			}
+		}
+		// @TODO FIXMESTEVE - could check midpoint to midpoint, but cost may be prohibitive
+
 		TArray<FVector> Points;
-		Points.Reserve(5);
-		Points.Add(GhostMaster.MyCarriedObject->GetActorLocation());
-		for (int32 i = 2; i >= 0; i--)
+		Points.Reserve(NUM_MIDPOINTS + 2);
+		Points.Add(GhostMaster.FlagLocation);
+		for (int32 i = NUM_MIDPOINTS - 1; i >= 0; i--)
 		{
 			if (!GhostMaster.MidPoints[i].IsZero())
 			{
@@ -120,7 +183,8 @@ void AUTGhostFlag::OnSetCarriedObject()
 void AUTGhostFlag::SetCarriedObject(AUTCarriedObject* NewCarriedObject, const FFlagTrailPos NewPosition)
 {
 	GhostMaster.MyCarriedObject = NewCarriedObject;
-	for (int32 i = 0; i < 3; i++)
+	GhostMaster.FlagLocation = NewCarriedObject->GetActorLocation();
+	for (int32 i = 0; i < NUM_MIDPOINTS; i++)
 	{
 		GhostMaster.MidPoints[i] = NewPosition.MidPoints[i];
 	}

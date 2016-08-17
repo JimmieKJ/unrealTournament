@@ -14,7 +14,10 @@ struct FGhostMaster
 		AUTCarriedObject* MyCarriedObject;
 
 	UPROPERTY()
-		FVector MidPoints[3];
+		FVector_NetQuantize FlagLocation;
+
+	UPROPERTY()
+		FVector_NetQuantize MidPoints[NUM_MIDPOINTS];
 };
 
 UCLASS(meta = (ChildCanTick))

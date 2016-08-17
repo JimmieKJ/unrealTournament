@@ -13,6 +13,7 @@ class AUTCarriedObject;
 class AUTHUD;
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnCarriedObjectStateChangedDelegate, class AUTCarriedObject*, Sender, FName, NewState);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnCarriedObjectHolderChangedDelegate, class AUTCarriedObject*, Sender);
+const int32 NUM_MIDPOINTS = 3;
 
 USTRUCT()
 struct FAssistTracker
@@ -352,7 +353,7 @@ public:
 		FVector RecentPosition[2];
 
 	UPROPERTY()
-		FVector MidPoints[3];
+		FVector MidPoints[NUM_MIDPOINTS];
 
 	UPROPERTY()
 		int32 MidPointPos;

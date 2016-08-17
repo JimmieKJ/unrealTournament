@@ -409,6 +409,10 @@ void AUTCarriedObject::SetHolder(AUTCharacter* NewHolder)
 	}
 
 	ClearGhostFlag();
+	for (int32 i = 0; i < NUM_MIDPOINTS; i++)
+	{
+		MidPoints[i] = FVector::ZeroVector;
+	}
 	bool bWasHome = (ObjectState == CarriedObjectState::Home);
 	ChangeState(CarriedObjectState::Held);
 
