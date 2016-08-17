@@ -133,7 +133,7 @@ bool AUTRepulsorBubble::ShouldInteractWithActor(AActor* OtherActor)
 		AUTGameState* UTGS = Cast<AUTGameState>(GetWorld()->GetGameState());
 		
 		AUTProjectile* ActorAsProj = Cast<AUTProjectile>(OtherActor);
-		if (ActorAsProj)
+		if (ActorAsProj && ActorAsProj->InstigatorController)
 		{
 			bIsOnSameTeam = UTGS->OnSameTeam(ActorAsProj->InstigatorController, Instigator);
 		}
@@ -160,6 +160,8 @@ void AUTRepulsorBubble::ProcessHitPlayer(AUTCharacter* OtherPlayer, UPrimitiveCo
 		TakeDamage(HealthLostToRepulsePlayer, OtherPlayer);
 
 		GetWorldTimerManager().SetTimer(RecentlyBouncedClearTimerHandle,this, &AUTRepulsorBubble::ClearRecentlyBouncedPlayers, RecentlyBouncedResetTime, false);
+
+		OnCharacterBounce();
 	}
 }
 
@@ -185,13 +187,14 @@ void AUTRepulsorBubble::ProcessHitProjectile(AUTProjectile* OtherProj, UPrimitiv
 	}
 	else
 	{
-		//Prevent damage from being delt to the Instigator of the Repulsor
+		//Prevent damage from being dealt to the Instigator of the Repulsor
 		OtherProj->ImpactedActor = Instigator;
 
 		//Explode projectile
 		OtherProj->Explode(HitLocation, HitNormal, CollisionComp);
 	}
 
+	OnProjectileHit();
 }
 
 
@@ -209,6 +212,14 @@ float AUTRepulsorBubble::TakeDamage(float Damage, AActor* DamageCauser)
 		if (Health <= 0.f)
 		{
 			Destroy();
+		}
+
+		//If an inventory item is responsible for damage and not a character/projectile
+		//then it is being caused by hitscan. Otherwise this would be the instigator or projectile.
+		AUTInventory* DamageFromInventory = Cast<AUTInventory>(DamageCauser);
+		if (DamageFromInventory)
+		{
+			OnHitScanBlocked();
 		}
 
 		return Damage;
@@ -232,4 +243,29 @@ void AUTRepulsorBubble::Destroyed()
 	}
 
 	Super::Destroyed();
+}
+
+void AUTRepulsorBubble::OnHitScanBlocked_Implementation()
+{
+
+}
+
+void AUTRepulsorBubble::OnCharacterBounce_Implementation()
+{
+
+}
+
+void AUTRepulsorBubble::OnProjectileHit_Implementation()
+{
+
+}
+
+void AUTRepulsorBubble::Reset_Implementation()
+{
+	Destroy();
+}
+
+void AUTRepulsorBubble::IntermissionBegin_Implementation()
+{
+	Destroy();
 }

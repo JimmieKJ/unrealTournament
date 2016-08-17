@@ -1,10 +1,13 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
+#include "UTIntermissionBeginInterface.h"
+#include "UTResetInterface.h"
+
 #include "UTRepulsorBubble.generated.h"
 
 UCLASS(Blueprintable, Abstract)
-class UNREALTOURNAMENT_API AUTRepulsorBubble : public AActor
+class UNREALTOURNAMENT_API AUTRepulsorBubble : public AActor , public IUTResetInterface , public IUTIntermissionBeginInterface
 {
 
 	GENERATED_UCLASS_BODY()
@@ -94,6 +97,18 @@ public:
 
 	virtual void Destroyed() override;
 
+	UFUNCTION(BlueprintNativeEvent)
+	void OnCharacterBounce();
+
+	UFUNCTION(BlueprintNativeEvent)
+	void OnProjectileHit();
+
+	UFUNCTION(BlueprintNativeEvent)
+	void OnHitScanBlocked();
+
+	virtual void Reset_Implementation() override;
+	virtual void IntermissionBegin_Implementation() override;
+	
 protected:
 
 	UFUNCTION(BlueprintCallable, Category = Bubble)
