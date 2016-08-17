@@ -1757,9 +1757,9 @@ public:
 	FKeyConfigurationInfo(const FName& inGameActionTag, EControlCategory::Type inCategory, FKey inDefaultPrimaryKey, FKey inDefaultSecondayKey, const FText& inMenuText)
 		: GameActionTag(inGameActionTag)
 		, Category(inCategory)
+		, MenuText(inMenuText)
 		, PrimaryKey(inDefaultPrimaryKey)
 		, SecondaryKey(inDefaultSecondayKey)
-		, MenuText(inMenuText)
 	{
 		bShowInUI = true;
 		Restrictions = EControlGameModeRestriction::NeverAllow;
