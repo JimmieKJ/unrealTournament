@@ -1114,6 +1114,10 @@ void AUTBasePlayerController::StopVOIPTalking()
 
 bool AUTBasePlayerController::AreMenusOpen()
 {
+#if !UE_SERVER
 	UUTLocalPlayer* LocalPlayer = Cast<UUTLocalPlayer>(Player);
 	return (LocalPlayer && LocalPlayer->AreMenusOpen());
+#else
+	return false;
+#endif
 }
