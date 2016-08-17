@@ -11,8 +11,8 @@
 #include "UTWeaponSkin.h"
 #include "UTProfileSettings.generated.h"
 
-static const uint32 VALID_PROFILESETTINGS_VERSION = 28;
-static const uint32 CURRENT_PROFILESETTINGS_VERSION = 28;
+static const uint32 VALID_PROFILESETTINGS_VERSION = 31;
+static const uint32 CURRENT_PROFILESETTINGS_VERSION = 31;
 
 class UUTLocalPlayer;
 
@@ -163,10 +163,16 @@ public:
 	uint32 bCustomWeaponCrosshairs : 1;
 
 	UPROPERTY(BlueprintReadOnly, Category = Weapon)
+	uint32 bSingleCustomWeaponCrosshair : 1;
+
+	UPROPERTY(BlueprintReadOnly, Category = Weapon)
 	uint32 bAutoWeaponSwitch : 1;
 
 	UPROPERTY(BlueprintReadOnly, Category = Weapon)
 	TEnumAsByte<EWeaponHand> WeaponHand;
+
+	UPROPERTY(BlueprintReadOnly, Category = Input)
+	FWeaponCustomizationInfo SingleCustomWeaponCrosshair;
 
 	// Holds the mapping values for the weapon wheel.  This will always have 8 entries and each entry is the weapon group to activate on the weapon wheel or -1 for empty
 	UPROPERTY(BlueprintReadOnly, Category = HUD)

@@ -1571,6 +1571,10 @@ struct FWeaponCustomizationInfo
 
 	// This tag is used to look up the UTCrosshair for this config.  
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = CrosshairInfo)
+	FName DefaultCrosshairTag;
+
+	// This tag is used to look up the UTCrosshair for this config when using custom crosshairs
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = CrosshairInfo)
 	FName CrosshairTag;
 
 	// The scale for the crosshair
@@ -1585,6 +1589,7 @@ struct FWeaponCustomizationInfo
 		: WeaponCustomizationTag(NAME_None)
 		, WeaponGroup(-1)
 		, WeaponAutoSwitchPriority(-1.0f)
+		, DefaultCrosshairTag(NAME_None)
 		, CrosshairTag(NAME_None)
 		, CrosshairScaleOverride(1.0)
 		, CrosshairColorOverride(FLinearColor::White)
@@ -1596,6 +1601,7 @@ struct FWeaponCustomizationInfo
 		: WeaponCustomizationTag(inWeaponCustomizationTag)
 		, WeaponGroup(inWeaponGroup)
 		, WeaponAutoSwitchPriority(inWeaponAutoSwitchPriority)
+		, DefaultCrosshairTag(inCrosshairTag)
 		, CrosshairTag(inCrosshairTag)
 		, CrosshairScaleOverride(inCrosshairScaleOverride)
 		, CrosshairColorOverride(inCrosshairColorOverride)
@@ -1612,6 +1618,7 @@ struct FWeaponCustomizationInfo
 		WeaponCustomizationTag = Source.WeaponCustomizationTag;
 		WeaponGroup = Source.WeaponGroup;
 		WeaponAutoSwitchPriority = Source.WeaponAutoSwitchPriority;
+		DefaultCrosshairTag = Source.DefaultCrosshairTag;
 		CrosshairTag = Source.CrosshairTag;
 		CrosshairColorOverride = Source.CrosshairColorOverride;
 		CrosshairScaleOverride = Source.CrosshairScaleOverride;

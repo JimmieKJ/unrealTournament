@@ -168,6 +168,14 @@ protected:
 	ECheckBoxState GetCustomWeaponCrosshairs() const;
 	void SetCustomWeaponCrosshairs(ECheckBoxState NewState);
 
+	bool bSingleCustomWeaponCrosshair;
+	TSharedPtr<SCheckBox> SingleCustomWeaponCrosshairCheckbox;
+	ECheckBoxState GetSingleCustomWeaponCrosshair() const;
+	void SetSingleCustomWeaponCrosshair(ECheckBoxState NewState);
+	EVisibility GetSingleCustomWeaponCrosshairVis() const;
+
+	// Holds the configuration data for a single weapon crosshair
+	FWeaponCustomizationInfo SingleCustomWeaponCrosshair;
 
 protected:
 
@@ -226,6 +234,7 @@ protected:
 	FLinearColor GetCrosshairColor() const;
 	void SetCrosshairColor(FLinearColor NewColor);
 
+	void CalcCrosshairIndex();
 
 protected:
 	FReply SetAutoSwitchPriorities();

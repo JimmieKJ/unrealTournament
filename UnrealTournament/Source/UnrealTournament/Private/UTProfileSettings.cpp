@@ -142,6 +142,8 @@ void UUTProfileSettings::ResetProfile(EProfileResetType::Type SectionToReset)
 		WeaponCustomizations.Add(EpicWeaponCustomizationTags::ImpactHammer, FWeaponCustomizationInfo(EpicWeaponCustomizationTags::ImpactHammer, 1, 1.0f, DefaultWeaponCrosshairs::Bracket1, FLinearColor::White, 1.0f));
 
 		bAutoWeaponSwitch = true;
+		bCustomWeaponCrosshairs = false;
+		bSingleCustomWeaponCrosshair = false;
 
 		WeaponWheelMapping.Empty();
 		WeaponWheelMapping.Add(8);
@@ -152,6 +154,10 @@ void UUTProfileSettings::ResetProfile(EProfileResetType::Type SectionToReset)
 		WeaponWheelMapping.Add(2);
 		WeaponWheelMapping.Add(9);
 		WeaponWheelMapping.Add(6);
+
+		SingleCustomWeaponCrosshair.CrosshairTag = DefaultWeaponCrosshairs::Dot;
+		SingleCustomWeaponCrosshair.CrosshairColorOverride = FLinearColor::White;
+		SingleCustomWeaponCrosshair.CrosshairScaleOverride = 1.0f;
 	}
 }
 
@@ -222,11 +228,6 @@ void UUTProfileSettings::GetDefaultGameActions(TArray<FKeyConfigurationInfo>& ou
 	Key = FKeyConfigurationInfo("AltFire", EControlCategory::Combat, EKeys::RightMouseButton, EKeys::Invalid, NSLOCTEXT("Keybinds", "AltFire", "Alt Fire"));
 	Key.AddActionMapping("StartAltFire");
 	Key.AddActionMapping("StopAltFire");
-	outGameActions.Add(Key);
-
-	Key = FKeyConfigurationInfo("Fire", EControlCategory::Combat, EKeys::LeftMouseButton, EKeys::Invalid, NSLOCTEXT("Keybinds", "Fire", "Fire"));
-	Key.AddActionMapping("StartFire");
-	Key.AddActionMapping("StopFire");
 	outGameActions.Add(Key);
 
 	Key = FKeyConfigurationInfo("NextWeapon", EControlCategory::Combat, EKeys::MouseScrollUp, EKeys::Invalid, NSLOCTEXT("Keybinds", "NextWeapon", "Next Weapon"));
@@ -419,20 +420,6 @@ void UUTProfileSettings::VersionFixup()
 	// HACK - We aren't supporting weapon skins right now since they are disabled in netplay in editor builds.  So force clear them here just in
 	// case there was stale data.
 	WeaponSkins.Empty();
-
-	if (WeaponWheelMapping.Num() != 8)
-	{
-		WeaponWheelMapping.Empty();
-		WeaponWheelMapping.Add(8);
-		WeaponWheelMapping.Add(5);
-		WeaponWheelMapping.Add(4);
-		WeaponWheelMapping.Add(3);
-		WeaponWheelMapping.Add(7);
-		WeaponWheelMapping.Add(2);
-		WeaponWheelMapping.Add(9);
-		WeaponWheelMapping.Add(6);
-	}
-
 	ValidateGameActions();
 
 }
@@ -472,6 +459,21 @@ void UUTProfileSettings::GetWeaponCustomization(FName WeaponCustomizationTag, FW
 	if (WeaponCustomizations.Contains(WeaponCustomizationTag))
 	{
 		outWeaponCustomizationInfo= WeaponCustomizations[WeaponCustomizationTag];
+		if (bCustomWeaponCrosshairs)
+		{
+			if (bSingleCustomWeaponCrosshair)
+			{
+				outWeaponCustomizationInfo.CrosshairTag = SingleCustomWeaponCrosshair.CrosshairTag;
+				outWeaponCustomizationInfo.CrosshairColorOverride = SingleCustomWeaponCrosshair.CrosshairColorOverride;
+				outWeaponCustomizationInfo.CrosshairScaleOverride = SingleCustomWeaponCrosshair.CrosshairScaleOverride;
+			}
+		}
+		else
+		{
+			outWeaponCustomizationInfo.CrosshairTag = WeaponCustomizations[WeaponCustomizationTag].DefaultCrosshairTag;
+			outWeaponCustomizationInfo.CrosshairColorOverride = FLinearColor::White;
+			outWeaponCustomizationInfo.CrosshairScaleOverride = 1.0f;
+		}
 	}
 	else
 	{

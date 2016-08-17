@@ -63,8 +63,8 @@ void SUTWeaponConfigDialog::Construct(const FArguments& InArgs)
 
 	bRequiresSave = false;
 
-
 	bCustomWeaponCrosshairs = ProfileSettings->bCustomWeaponCrosshairs;
+	bSingleCustomWeaponCrosshair = ProfileSettings->bSingleCustomWeaponCrosshair;
 
 	if (DialogContent.IsValid())
 	{
@@ -306,8 +306,6 @@ void SUTWeaponConfigDialog::Construct(const FArguments& InArgs)
 				SelectedIndex = i;
 			}
 		}
-
-
 
 		WeaponClicked(SelectedIndex < 0 ? 0 : SelectedIndex);
 	}
@@ -700,7 +698,13 @@ void SUTWeaponConfigDialog::UpdatePreviewRender(UCanvas* C, int32 Width, int32 H
 
 	if (bShowingCrosshairs && AllCrosshairs.IsValidIndex(CurrentCrosshairIndex))
 	{
-		AllCrosshairs[CurrentCrosshairIndex]->DrawCrosshair(nullptr, C, nullptr, 0.0f, *AllWeapons[CurrentWeaponIndex].WeaponCustomizationInfo);
+		FWeaponCustomizationInfo Customization = FWeaponCustomizationInfo();
+		Customization.CrosshairTag = AllWeapons[CurrentWeaponIndex].WeaponCustomizationInfo->DefaultCrosshairTag;
+		if (bCustomWeaponCrosshairs)
+		{
+			Customization = bSingleCustomWeaponCrosshair ? SingleCustomWeaponCrosshair : *AllWeapons[CurrentWeaponIndex].WeaponCustomizationInfo;
+		}
+		AllCrosshairs[CurrentCrosshairIndex]->DrawCrosshair(nullptr, C, nullptr, 0.0f, Customization);
 	}
 }
 
@@ -1064,22 +1068,35 @@ FReply SUTWeaponConfigDialog::WeaponClicked(int32 NewWeaponIndex)
 			UpdateWeaponGroups(AllWeapons[CurrentWeaponIndex].WeaponCustomizationInfo->WeaponGroup);
 		}
 		
-		FName CrosshairTag = AllWeapons[CurrentWeaponIndex].WeaponCustomizationInfo->CrosshairTag;
-		CurrentCrosshairIndex = 0;
-		for (int32 i = 0; i < AllCrosshairs.Num(); i++)
-		{
-			if (AllCrosshairs[i]->CrosshairTag == CrosshairTag)
-			{
-				CurrentCrosshairIndex = i;
-				break;
-			}
-		}
-
+		CalcCrosshairIndex();
 		RecreateWeaponPreview();
 	}
 
 	return FReply::Handled();
 }
+
+void SUTWeaponConfigDialog::CalcCrosshairIndex()
+{
+	FName CrosshairTag = AllWeapons[CurrentWeaponIndex].WeaponCustomizationInfo->DefaultCrosshairTag;
+	if (bCustomWeaponCrosshairs)
+	{
+		CrosshairTag = bSingleCustomWeaponCrosshair
+			? SingleCustomWeaponCrosshair.CrosshairTag
+			: AllWeapons[CurrentWeaponIndex].WeaponCustomizationInfo->CrosshairTag;
+	}
+
+	CurrentCrosshairIndex = 0;
+	for (int32 i = 0; i < AllCrosshairs.Num(); i++)
+	{
+		if (AllCrosshairs[i]->CrosshairTag == CrosshairTag)
+		{
+			CurrentCrosshairIndex = i;
+			break;
+		}
+	}
+}
+
+
 
 void SUTWeaponConfigDialog::DragPreview(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent)
 {
@@ -1212,22 +1229,47 @@ TSharedRef<SWidget> SUTWeaponConfigDialog::GenerateAutoSwitch(UUTProfileSettings
 
 TSharedRef<SWidget> SUTWeaponConfigDialog::GenerateCustomWeaponCrosshairs(UUTProfileSettings* Profile)
 {
-	TSharedPtr<SHorizontalBox> Box;
-	SAssignNew(Box, SHorizontalBox)
+	TSharedPtr<SVerticalBox> Box;
+
+	SAssignNew(Box,SVerticalBox)
+	+SVerticalBox::Slot().AutoHeight()
+	[
+		SNew(SHorizontalBox)
 		+ SHorizontalBox::Slot().HAlign(HAlign_Left).AutoWidth().Padding(5.0f, 0.0f, 0.0f, 0.0f)
 		[
 			SNew(STextBlock)
 			.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Tween")
 			.Text(NSLOCTEXT("SUTWeaponConfigDialog", "CustomCrosshair", "Use Custom Weapon Crosshairs"))
 		]
-	+ SHorizontalBox::Slot().FillWidth(1.0).HAlign(HAlign_Right).Padding(0.0f, 0.0f, 5.0f, 0.0f)
+		+ SHorizontalBox::Slot().FillWidth(1.0).HAlign(HAlign_Right).Padding(0.0f, 0.0f, 5.0f, 0.0f)
 		[
 			SAssignNew(CustomWeaponCrosshairs, SCheckBox)
 			.Style(SUTStyle::Get(), "UT.CheckBox")
 			.ForegroundColor(FLinearColor::White)
 			.IsChecked(this, &SUTWeaponConfigDialog::GetCustomWeaponCrosshairs)
 			.OnCheckStateChanged(this, &SUTWeaponConfigDialog::SetCustomWeaponCrosshairs)
-		];
+		]
+	]
+	+SVerticalBox::Slot().AutoHeight()
+	[
+		SNew(SHorizontalBox)
+		+ SHorizontalBox::Slot().HAlign(HAlign_Left).AutoWidth().Padding(15.0f, 0.0f, 0.0f, 0.0f)
+		[
+			SNew(STextBlock)
+			.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Tween")
+			.Text(NSLOCTEXT("SUTWeaponConfigDialog", "SingleCrosshair", "All Weapons use the same Crosshair"))
+			.Visibility(this, &SUTWeaponConfigDialog::GetSingleCustomWeaponCrosshairVis)
+		]
+		+ SHorizontalBox::Slot().FillWidth(1.0).HAlign(HAlign_Right).Padding(0.0f, 0.0f, 5.0f, 0.0f)
+		[
+			SAssignNew(SingleCustomWeaponCrosshairCheckbox, SCheckBox)
+			.Style(SUTStyle::Get(), "UT.CheckBox")
+			.ForegroundColor(FLinearColor::White)
+			.IsChecked(this, &SUTWeaponConfigDialog::GetSingleCustomWeaponCrosshair)
+			.OnCheckStateChanged(this, &SUTWeaponConfigDialog::SetSingleCustomWeaponCrosshair)
+			.Visibility(this, &SUTWeaponConfigDialog::GetSingleCustomWeaponCrosshairVis)
+		]
+	];
 
 	return Box.ToSharedRef();
 }
@@ -1240,7 +1282,26 @@ ECheckBoxState SUTWeaponConfigDialog::GetCustomWeaponCrosshairs() const
 void SUTWeaponConfigDialog::SetCustomWeaponCrosshairs(ECheckBoxState NewState)
 {
 	bCustomWeaponCrosshairs = NewState == ECheckBoxState::Checked;
+	CalcCrosshairIndex();
 	GeneratePage();
+}
+
+ECheckBoxState SUTWeaponConfigDialog::GetSingleCustomWeaponCrosshair() const
+{
+	return bSingleCustomWeaponCrosshair ? ECheckBoxState::Checked : ECheckBoxState::Unchecked;
+}
+
+void SUTWeaponConfigDialog::SetSingleCustomWeaponCrosshair(ECheckBoxState NewState)
+{
+	bSingleCustomWeaponCrosshair = NewState == ECheckBoxState::Checked;
+
+	CalcCrosshairIndex();
+	GeneratePage();
+}
+
+EVisibility SUTWeaponConfigDialog::GetSingleCustomWeaponCrosshairVis() const
+{
+	return bCustomWeaponCrosshairs ? EVisibility::Visible : EVisibility::Collapsed;
 }
 
 
@@ -1395,7 +1456,14 @@ FReply SUTWeaponConfigDialog::HandleNextPrevious(int32 Step)
 		if (CustomWeaponCrosshairs->IsChecked())
 		{
 			CurrentCrosshairIndex = FMath::Clamp<int32>(CurrentCrosshairIndex + Step, 0, AllCrosshairs.Num()-1);
-			AllWeapons[CurrentWeaponIndex].WeaponCustomizationInfo->CrosshairTag = AllCrosshairs[CurrentCrosshairIndex]->CrosshairTag;
+			if (!bSingleCustomWeaponCrosshair)
+			{
+				AllWeapons[CurrentWeaponIndex].WeaponCustomizationInfo->CrosshairTag = AllCrosshairs[CurrentCrosshairIndex]->CrosshairTag;
+			}
+			else
+			{
+				SingleCustomWeaponCrosshair.CrosshairTag = AllCrosshairs[CurrentCrosshairIndex]->CrosshairTag;
+			}
 		}
 	}
 	else
@@ -1488,6 +1556,7 @@ FReply SUTWeaponConfigDialog::OnModeChanged(int32 NewMode)
 
 	if (bShowingCrosshairs)
 	{
+		CalcCrosshairIndex();
 		VariantsButton->UnPressed();
 		CrosshairButton->BePressed();
 	}
@@ -1524,27 +1593,53 @@ void SUTWeaponConfigDialog::GatherCrosshairs(UUTProfileSettings* ProfileSettings
 		}
 	}
 	
+	SingleCustomWeaponCrosshair.CrosshairTag = ProfileSettings->SingleCustomWeaponCrosshair.CrosshairTag;
+	SingleCustomWeaponCrosshair.CrosshairColorOverride = ProfileSettings->SingleCustomWeaponCrosshair.CrosshairColorOverride;
+	SingleCustomWeaponCrosshair.CrosshairScaleOverride = ProfileSettings->SingleCustomWeaponCrosshair.CrosshairScaleOverride;
 }
 
 TOptional<float> SUTWeaponConfigDialog::GetCrosshairScale() const
 {
-	return AllWeapons[CurrentWeaponIndex].WeaponCustomizationInfo->CrosshairScaleOverride;
+	
+	return !bSingleCustomWeaponCrosshair 
+		? AllWeapons[CurrentWeaponIndex].WeaponCustomizationInfo->CrosshairScaleOverride 
+		: SingleCustomWeaponCrosshair.CrosshairScaleOverride;
 }
 
 void SUTWeaponConfigDialog::SetCrosshairScale(float InScale)
 {
-	AllWeapons[CurrentWeaponIndex].WeaponCustomizationInfo->CrosshairScaleOverride = InScale;
+	if (bCustomWeaponCrosshairs)
+	{
+		if (bSingleCustomWeaponCrosshair)
+		{
+			SingleCustomWeaponCrosshair.CrosshairScaleOverride = InScale;
+		}
+		else
+		{
+			AllWeapons[CurrentWeaponIndex].WeaponCustomizationInfo->CrosshairScaleOverride = InScale;
+		}
+	}
 }
 
 FLinearColor SUTWeaponConfigDialog::GetCrosshairColor() const
 {
-	return AllWeapons[CurrentWeaponIndex].WeaponCustomizationInfo->CrosshairColorOverride;
+	return !bSingleCustomWeaponCrosshair 
+		? AllWeapons[CurrentWeaponIndex].WeaponCustomizationInfo->CrosshairColorOverride 
+		: SingleCustomWeaponCrosshair.CrosshairColorOverride;
 }
 
 void SUTWeaponConfigDialog::SetCrosshairColor(FLinearColor NewColor)
 {
-	AllWeapons[CurrentWeaponIndex].WeaponCustomizationInfo->CrosshairColorOverride = NewColor;
+	if (!bSingleCustomWeaponCrosshair)
+	{
+		AllWeapons[CurrentWeaponIndex].WeaponCustomizationInfo->CrosshairColorOverride = NewColor;
+	}
+	else
+	{
+		SingleCustomWeaponCrosshair.CrosshairColorOverride = NewColor;
+	}
 }
+
 
 bool SUTWeaponConfigDialog::IsCurrentSkin() const
 {
@@ -1666,6 +1761,12 @@ FReply SUTWeaponConfigDialog::OnButtonClick(uint16 ButtonID)
 			}
 
 		}
+
+		ProfileSettings->bSingleCustomWeaponCrosshair = bSingleCustomWeaponCrosshair;
+		ProfileSettings->SingleCustomWeaponCrosshair.CrosshairTag = SingleCustomWeaponCrosshair.CrosshairTag;
+		ProfileSettings->SingleCustomWeaponCrosshair.CrosshairColorOverride = SingleCustomWeaponCrosshair.CrosshairColorOverride;
+		ProfileSettings->SingleCustomWeaponCrosshair.CrosshairScaleOverride = SingleCustomWeaponCrosshair.CrosshairScaleOverride;
+
 		bRequiresSave = true;
 	}
 

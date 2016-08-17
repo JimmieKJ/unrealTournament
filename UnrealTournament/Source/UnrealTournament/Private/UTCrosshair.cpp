@@ -50,8 +50,8 @@ void UUTCrosshair::DrawCrosshair_Implementation(AUTHUD* TargetHUD, UCanvas* Canv
 {
 	float HUDCrosshairScale = (TargetHUD == nullptr ? 1.0f : TargetHUD->GetCrosshairScale());
 
-	float X = (Canvas->SizeX * 0.5f) - (CrosshairIcon.UL * CustomizationsToApply.CrosshairScaleOverride * HUDCrosshairScale * 0.5f) - 1.f + OffsetAdjust.X;
-	float Y = (Canvas->SizeY * 0.5f) - (CrosshairIcon.VL * CustomizationsToApply.CrosshairScaleOverride * HUDCrosshairScale * 0.5f) - 1.f + OffsetAdjust.Y;
+	float X = (Canvas->SizeX * 0.5f) - FMath::CeilToFloat(CrosshairIcon.UL * CustomizationsToApply.CrosshairScaleOverride * HUDCrosshairScale * 0.5f) + OffsetAdjust.X;
+	float Y = (Canvas->SizeY * 0.5f) - FMath::CeilToFloat(CrosshairIcon.VL * CustomizationsToApply.CrosshairScaleOverride * HUDCrosshairScale * 0.5f)  + OffsetAdjust.Y;
 
 	Canvas->DrawColor = CustomizationsToApply.CrosshairColorOverride.ToFColor(false);
 	Canvas->DrawIcon(CrosshairIcon, X, Y, CustomizationsToApply.CrosshairScaleOverride * HUDCrosshairScale);

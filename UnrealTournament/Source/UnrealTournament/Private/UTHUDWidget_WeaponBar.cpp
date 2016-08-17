@@ -173,6 +173,33 @@ void UUTHUDWidget_WeaponBar::PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCan
 				GroupCount++;
 			}
 		}
+
+		// Now look at the player's Inventory and find all of the weapons they have and update the map
+		for (TInventoryIterator<AUTWeapon> It(UTCharacterOwner); It; ++It)
+		{
+			AUTWeapon* Weapon = *It;
+			if (Weapon != nullptr)
+			{
+				int32 WeaponGroup = Weapon->DefaultGroup;
+				int32 GroupPriority = Weapon->GroupSlot;
+				if (PlayerProfile)
+				{
+					PlayerProfile->GetWeaponGroup(Weapon, WeaponGroup, GroupPriority);
+				}
+				if (WeaponMap.IsValidIndex(WeaponGroup))
+				{
+					WeaponMap[WeaponGroup].UpdateWeapon(Weapon->GetClass(), Weapon, WeaponGroup);
+					// update default state if necessary (e.g. weapon was loaded after HUD was initialized)
+					if (!KnownWeaponMap[WeaponGroup].WeaponClasses.Contains(Weapon->GetClass()))
+					{
+						KnownWeaponMap[WeaponGroup].AddWeapon(Weapon->GetClass(), nullptr, WeaponGroup);
+					}
+				}
+			}
+		}
+
+
+
 	}
 
 	FVector2D CellSize = FVector2D(0.0f, 0.0f);

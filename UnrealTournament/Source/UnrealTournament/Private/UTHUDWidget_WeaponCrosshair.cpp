@@ -85,7 +85,7 @@ void UUTHUDWidget_WeaponCrosshair::Draw_Implementation(float DeltaTime)
 			{
 				float RotAngle = 45.0f + 90.f*i;
 				FVector2D DrawLocation = CalcRotatedDrawLocation(32.0f, RotAngle);
-				DrawTexture(UTHUDOwner->HUDAtlas, DrawLocation.X, DrawLocation.Y, 16.0f, Height, 2.0f, 679.0f, 32.0f, 72.0f, Opacity, FLinearColor::White, FVector2D(0.5f, 1.0f), RotAngle, FVector2D(0.5f, 1.0f));
+				DrawTexture(UTHUDOwner->HUDAtlas, DrawLocation.X, DrawLocation.Y, 8.0f, Height, 2.0f, 679.0f, 32.0f, 72.0f, Opacity, FLinearColor::White, FVector2D(0.5f, 1.0f), RotAngle, FVector2D(0.5f, 1.0f));
 			}
 		}
 	}
