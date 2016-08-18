@@ -629,6 +629,7 @@ TSharedRef<SWidget> SUTControlSettingsDialog::BuildMovementTab()
 			]
 		]
 	]
+
 	+ SVerticalBox::Slot()
 	.HAlign(HAlign_Left)
 	.Padding(FMargin(10.0f, 15.0f, 10.0f, 5.0f))
@@ -658,6 +659,38 @@ TSharedRef<SWidget> SUTControlSettingsDialog::BuildMovementTab()
 			]
 		]
 	]
+
+	+ SVerticalBox::Slot()
+	.HAlign(HAlign_Left)
+	.Padding(FMargin(10.0f, 15.0f, 10.0f, 5.0f))
+	[
+		SNew(SHorizontalBox)
+		+ SHorizontalBox::Slot()
+		.VAlign(VAlign_Center)
+		.AutoWidth()
+		[
+			SNew(SBox)
+			.WidthOverride(750)
+			[
+				SNew(STextBlock)
+				.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
+				.Text(NSLOCTEXT("SUTControlSettingsDialog", "DisableDoubleTapDodge", "Disable Double Tap Dodge"))
+			]
+		]
+		+ SHorizontalBox::Slot()
+		.AutoWidth()
+		[
+			SNew(SBox)
+			.WidthOverride(150)
+			[
+				SAssignNew(DisableDoubleTapDodge, SCheckBox)
+				.Style(SUWindowsStyle::Get(), "UT.Common.CheckBox")
+				.ForegroundColor(FLinearColor::White)
+				.IsChecked(ProfileSettings->bDisableDoubleTapDodge ? ECheckBoxState::Checked : ECheckBoxState::Unchecked)
+			]
+		]
+	]
+
 	+ SVerticalBox::Slot()
 		.Padding(FMargin(10.0f, 25.0f, 10.0f, 5.0f))
 		.AutoHeight()
@@ -734,6 +767,7 @@ FReply SUTControlSettingsDialog::OKClick()
 		ProfileSettings->bEnableMouseSmoothing = MouseSmoothing->IsChecked();
 
 		ProfileSettings->bAllowSlideFromRun = SlideFromRun->IsChecked();
+		ProfileSettings->bDisableDoubleTapDodge = DisableDoubleTapDodge->IsChecked();
 		ProfileSettings->MaxDodgeClickTimeValue = MaxDodgeClickTimeValue;
 		ProfileSettings->MaxDodgeTapTimeValue = MaxDodgeTapTimeValue;
 

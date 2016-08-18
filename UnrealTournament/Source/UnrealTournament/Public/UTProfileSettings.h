@@ -351,6 +351,9 @@ public:
 	float MaxDodgeClickTimeValue;
 
 	UPROPERTY(BlueprintReadOnly, Category = Input)
+	uint32 bDisableDoubleTapDodge : 1;
+
+	UPROPERTY(BlueprintReadOnly, Category = Input)
 	float MaxDodgeTapTimeValue;
 	
 	UPROPERTY(BlueprintReadOnly, Category = Input)
