@@ -38,7 +38,7 @@ UUTScoreboard::UUTScoreboard(const class FObjectInitializer& ObjectInitializer) 
 	ShotsColumn = 0.72f;
 	AccuracyColumn = 0.84f;
 	ValueColumn = 0.5f;
-	ScoreColumn = 0.75f;
+	ScoreColumn = 0.85f;
 	bHighlightStatsLineTopValue = false;
 
 	static ConstructorHelpers::FObjectFinder<USoundBase> OtherSpreeSoundFinder(TEXT("SoundWave'/Game/RestrictedAssets/Audio/UI/A_UI_SpecSwitch01.A_UI_SpecSwitch01'"));
@@ -739,16 +739,21 @@ void UUTScoreboard::DrawTextStatsLine(FText StatsName, FString StatValue, FStrin
 {
 	Canvas->SetLinearDrawColor(FLinearColor::White);
 	Canvas->DrawText(StatsFontInfo.TextFont, StatsName, XOffset, YPos, RenderScale, RenderScale, StatsFontInfo.TextRenderInfo);
-
 	if (!StatValue.IsEmpty())
 	{
+		float XL, YL;
+		Canvas->StrLen(StatsFontInfo.TextFont, StatValue, XL, YL);
+		float NameScale = FMath::Clamp(0.96f*ScoreWidth * (ScoreColumn - ValueColumn)/ FMath::Max(XL, 1.f), 0.5f, 1.f);
 		Canvas->SetLinearDrawColor((HighlightIndex & 1) ? FLinearColor::Yellow : FLinearColor::White);
-		Canvas->DrawText(StatsFontInfo.TextFont, StatValue, XOffset + ValueColumn*ScoreWidth, YPos, RenderScale, RenderScale, StatsFontInfo.TextRenderInfo);
+		Canvas->DrawText(StatsFontInfo.TextFont, StatValue, XOffset + ValueColumn*ScoreWidth, YPos, NameScale, RenderScale, StatsFontInfo.TextRenderInfo);
 	}
 	if (!ScoreValue.IsEmpty())
 	{
+		float XL, YL;
+		Canvas->StrLen(StatsFontInfo.TextFont, ScoreValue, XL, YL);
+		float NameScale = FMath::Clamp(0.96f*ScoreWidth * (ScoreColumn - ValueColumn) / FMath::Max(XL, 1.f), 0.5f, 1.f);
 		Canvas->SetLinearDrawColor((HighlightIndex & 2) ? FLinearColor::Yellow : FLinearColor::White);
-		Canvas->DrawText(StatsFontInfo.TextFont, ScoreValue, XOffset + ScoreColumn*ScoreWidth, YPos, RenderScale, RenderScale, StatsFontInfo.TextRenderInfo);
+		Canvas->DrawText(StatsFontInfo.TextFont, ScoreValue, XOffset + ScoreColumn*ScoreWidth, YPos, NameScale, RenderScale, StatsFontInfo.TextRenderInfo);
 	}
 	YPos += StatsFontInfo.TextHeight;
 }
