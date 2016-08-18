@@ -38,6 +38,8 @@ void AUTRepulsorBubble::PostInitializeComponents()
 {
 	Super::PostInitializeComponents();
 
+	Health = MaxHealth;
+
 	AUTCharacter* UTOwner = Cast<AUTCharacter>(Instigator);
 	if (UTOwner)
 	{
@@ -45,9 +47,6 @@ void AUTRepulsorBubble::PostInitializeComponents()
 	}
 
 	CollisionComp->SetWorldScale3D(FVector(MaxRepulsorSize,MaxRepulsorSize,MaxRepulsorSize));
-
-	//Starting health set
-	Health = MaxHealth;
 
 	//Setup up bubble MID
 	if (BubbleMesh != NULL && BubbleMaterial != NULL)
@@ -135,8 +134,7 @@ bool AUTRepulsorBubble::ShouldInteractWithActor(AActor* OtherActor)
 {
 	bool bIsOnSameTeam = false;
 
-	//if instigator is invalid, we should not interact with any actors
-	if (Instigator == nullptr)
+	if ( (Instigator == nullptr))
 	{
 		return false;
 	}
@@ -148,11 +146,25 @@ bool AUTRepulsorBubble::ShouldInteractWithActor(AActor* OtherActor)
 		AUTProjectile* ActorAsProj = Cast<AUTProjectile>(OtherActor);
 		if (ActorAsProj && ActorAsProj->InstigatorController)
 		{
-			bIsOnSameTeam = UTGS->OnSameTeam(ActorAsProj->InstigatorController, Instigator);
+			if (ActorAsProj->InstigatorController == Instigator->GetController())
+			{
+				bIsOnSameTeam = true;
+			}
+			else
+			{
+				bIsOnSameTeam = UTGS->OnSameTeam(ActorAsProj->InstigatorController, Instigator);
+			}
 		}
 		else
 		{
-			bIsOnSameTeam = UTGS->OnSameTeam(OtherActor->Instigator, Instigator);
+			if (OtherActor == Instigator || OtherActor->Instigator == Instigator)
+			{
+				bIsOnSameTeam = true;
+			}
+			else
+			{
+				bIsOnSameTeam = UTGS->OnSameTeam(OtherActor->Instigator, Instigator);
+			}
 		}
 	}
 
@@ -165,7 +177,7 @@ void AUTRepulsorBubble::ProcessHitPlayer(AUTCharacter* OtherPlayer, UPrimitiveCo
 	{
 		RecentlyBouncedCharacters.Add(OtherPlayer);
 
-		FVector LaunchAngle = HitNormal.IsZero() ? (OtherPlayer->GetActorLocation() - GetActorLocation()) + KnockbackVector : -HitNormal;
+		FVector LaunchAngle = (OtherPlayer->GetActorLocation() - GetActorLocation()) + KnockbackVector;
 		LaunchAngle.Normalize();
 		LaunchAngle *= KnockbackStrength;
 		OtherPlayer->LaunchCharacter(LaunchAngle, true, true);
