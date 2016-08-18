@@ -3307,26 +3307,21 @@ void AUTPlayerState::GetBadgeFromELO(AUTBaseGameMode* DefaultGameMode, bool bRan
 	SubLevel = 0;
 
 	// Elo bounds for bronze levels
-	int32 EloBounds[9] = { 670, 820, 960, 1090, 1210, 1320, 1420, 1510, 1590 };
-	if (NumMatches < 40)
+	int32 EloBounds[9] = { 670, 900, 1080, 1260, 1360, 1430, 1480, 1510, 1540 };
+	if (NumMatches < 20)
 	{
 		// possibly beginner badges
-		if (NumMatches < 2)
+		if (NumMatches < 3)
 		{
 			SubLevel = 0;
 			return;
 		}
-		else if (NumMatches < 5)
+		else if (NumMatches < 6)
 		{
 			SubLevel = 1;
 			return;
 		}
-		else if (NumMatches < 10)
-		{
-			SubLevel = 2;
-			return;
-		}
-		else if ((EloRating < 1590) || (NumMatches < 20))
+		else
 		{
 			int32 i = 0;
 			for (i = 0; i < 9; i++)
@@ -3341,7 +3336,7 @@ void AUTPlayerState::GetBadgeFromELO(AUTBaseGameMode* DefaultGameMode, bool bRan
 		}
 	}
 
-	if (EloRating < 1590)
+	if (EloRating < EloBounds[8])
 	{
 		int32 i = 0;
 		for (i = 0; i < 9; i++)

@@ -825,22 +825,66 @@ public:
 		return AUTPlayerState::CheckRank(PlayerRank, TargetRank, false) == 0;
 	}
 
+	// return 0 for rank match, -1 for match rank too high, 1 for match rank too low
 	static int32 CheckRank(int32 PlayerRank, int32 TargetRank, bool bCheckFloor)
 	{
-		int32 Ceiling = TargetRank + (TargetRank > STARTER_RANK_LEVEL ? 4 : 2);
+		// check floor only for quickmatch
+		// beginner matches only get beginners
+		if (TargetRank < 2)
+		{
+			return (PlayerRank < 2) ? 0 : 1;
+		}
+		if (PlayerRank < 2)
+		{
+			return ((TargetRank < 2) || !bCheckFloor) ? 0 : -1;
+		}
 
-		// If this player is > Bronze 9 then remove the ceiling.
-		if (TargetRank > NUMBER_RANK_LEVELS * 2) Ceiling = NUMBER_RANK_LEVELS * 4;
+		// Bronze 8 and up can go into all Bronze 8 and up matches
+		if ((PlayerRank > 15) && (TargetRank > 15))
+		{
+			return 0;
+		}
 
-		int32 Floor = TargetRank - (TargetRank > STARTER_RANK_LEVEL ? 4 : 2);
+		// silver and gold can't join lower matches
+		if (PlayerRank > 17)
+		{
+			return 1;
+		}
 
-		// If this player is > the Starter rank level, then clamp is floor at the starter rank level.
-		if (TargetRank > STARTER_RANK_LEVEL && Floor <= STARTER_RANK_LEVEL) Floor = STARTER_RANK_LEVEL + 1;
-
-		if (bCheckFloor && PlayerRank < Floor) return -1;
-		if (PlayerRank > Ceiling) return 1;
-
-		return 0;
+		// can join matches within 2 levels
+		if ((PlayerRank > 8) && (TargetRank > 8))
+		{
+			if (bCheckFloor && (TargetRank > PlayerRank + 2))
+			{
+				return -1;
+			}
+			return (TargetRank >= PlayerRank - 2) ? 0 : 1;
+		}
+		else if (TargetRank > 8)
+		{
+			// Green player checking to join equivalent level bronze match
+			int32 EquivalentBronzeRank = PlayerRank + 9;
+			if (bCheckFloor && (TargetRank > EquivalentBronzeRank + 1))
+			{
+				return -1;
+			}
+			return (TargetRank >= EquivalentBronzeRank - 2) ? 0 : 1;
+		}
+		else if (PlayerRank > 8)
+		{
+			// Bronze player can join equal or higher level Green match
+			int32 EquivalentBronzeRank = TargetRank + 9;
+			return (PlayerRank <= EquivalentBronzeRank) ? 0 : 1;
+		}
+		else
+		{
+			// Green player joining green match
+			if (bCheckFloor && (TargetRank > PlayerRank + 2))
+			{
+				return -1;
+			}
+			return (TargetRank >= PlayerRank - 2) ? 0 : 1;
+		}
 	}
 
 
