@@ -453,8 +453,6 @@ void AUTPlayerController::SetupInputComponent()
 	InputComponent->BindAction("TapForward", IE_Released, this, &AUTPlayerController::OnTapForwardRelease);
 	InputComponent->BindAction("TapBack", IE_Released, this, &AUTPlayerController::OnTapBackRelease);
 
-	InputComponent->BindAction("StartActivatePowerup", IE_Pressed, this, &AUTPlayerController::OnActivatePowerupPress);
-
 	// We have 2 versions of the rotation bindings to handle different kinds of devices differently
 	// "turn" handles devices that provide an absolute delta, such as a mouse.
 	// "turnrate" is for devices that we choose to treat as a rate of change, such as an analog joystick
@@ -850,11 +848,6 @@ void AUTPlayerController::NextWeapon()
 	SwitchWeaponInSequence(false);
 }
 
-void AUTPlayerController::OnActivatePowerupPress()
-{
-	ServerActivatePowerUpPress();
-}
-
 bool AUTPlayerController::ServerActivatePowerUpPress_Validate()
 {
 	return true;
@@ -953,6 +946,18 @@ void AUTPlayerController::TeamNotifiyOfPowerupUse()
 				}
 			}
 		}
+	}
+}
+
+void AUTPlayerController::ActivateSpecial()
+{
+	if (UTPlayerState->BoostClass != nullptr)
+	{
+		ServerActivatePowerUpPress();
+	}
+	else
+	{
+		ToggleTranslocator();
 	}
 }
 

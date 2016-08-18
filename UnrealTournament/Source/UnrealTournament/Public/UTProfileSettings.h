@@ -11,8 +11,8 @@
 #include "UTWeaponSkin.h"
 #include "UTProfileSettings.generated.h"
 
-static const uint32 VALID_PROFILESETTINGS_VERSION = 31;
-static const uint32 CURRENT_PROFILESETTINGS_VERSION = 31;
+static const uint32 VALID_PROFILESETTINGS_VERSION = 32;
+static const uint32 CURRENT_PROFILESETTINGS_VERSION = 32;
 
 class UUTLocalPlayer;
 
@@ -54,12 +54,12 @@ public:
 	 *	Allows specific hacks to be applied to the profile based on the version number
 	 **/
 
-	void VersionFixup();
+	bool VersionFixup();
 
 	/**
 	 *	Makes sure the GameActions array is up to date
 	 **/
-	void ValidateGameActions();
+	bool ValidateGameActions();
 
 	/**
 	 *	Builds the list of default game actions.
@@ -393,5 +393,8 @@ public:
 
 	const FKeyConfigurationInfo* FindGameAction(FName SearchTag);
 	const FKeyConfigurationInfo* FindGameAction(const FString& SearchTag);
+
+	void ExportKeyBinds();
+	void ImportKeyBinds();
 
 };

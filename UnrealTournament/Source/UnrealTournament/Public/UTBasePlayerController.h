@@ -277,6 +277,12 @@ public:
 	UFUNCTION(exec, BlueprintCallable, Category = "UI")
 	bool AreMenusOpen();
 
+	UFUNCTION(exec)
+	void ExportKeyBinds();
+
+	UFUNCTION(exec)
+	void ImportKeyBinds();
+
 protected:
 	// Sends a message directly to a user.  
 	virtual void DirectSay(const FString& Message);

@@ -1571,8 +1571,11 @@ void UUTLocalPlayer::OnReadUserFileComplete(bool bWasSuccessful, const FUniqueNe
 				Ar.Seek(0);
 			}
 
+			bool bNeedToSaveProfile = false;
+
+
 			CurrentProfileSettings->Serialize(Ar);
-			CurrentProfileSettings->VersionFixup();
+			bNeedToSaveProfile = CurrentProfileSettings->VersionFixup();
 
 			if (FUTAnalytics::IsAvailable())
 			{
@@ -1590,8 +1593,6 @@ void UUTLocalPlayer::OnReadUserFileComplete(bool bWasSuccessful, const FUniqueNe
 			// to be cleared.  If all is OK, then apply these settings.
 			if (CurrentProfileSettings->SettingsRevisionNum >= VALID_PROFILESETTINGS_VERSION && !bClearProfile)
 			{
-				bool bNeedToSaveProfile = false;
-
 				CurrentProfileSettings->ApplyAllSettings(this);
 				SaveLocalProfileSettings();
 				// It's possible for the MCP data to get here before the profile, so we havbe to check for daily challenges 
@@ -1617,6 +1618,11 @@ void UUTLocalPlayer::OnReadUserFileComplete(bool bWasSuccessful, const FUniqueNe
 			else
 			{
 				CurrentProfileSettings->ResetProfile(EProfileResetType::All);
+			}
+
+			if (bNeedToSaveProfile)
+			{
+				SaveProfileSettings();
 			}
 
 		}

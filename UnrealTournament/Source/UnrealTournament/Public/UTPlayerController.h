@@ -873,6 +873,8 @@ protected:
 	void NextWeapon();
 
 	UFUNCTION(exec)
+	void ActivateSpecial();
+
 	void ToggleTranslocator();
 
 	UFUNCTION(exec)
@@ -973,9 +975,7 @@ protected:
 	void TeamNotifiyOfPowerupUse();
 
 public:
-	/** Hold down Power-Up handling **/
-	void OnActivatePowerupPress();
-	
+
 	UPROPERTY()
 	float TimeToHoldPowerUpButtonToActivate;
 

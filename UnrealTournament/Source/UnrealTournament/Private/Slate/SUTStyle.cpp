@@ -64,7 +64,9 @@ const FColor Medium(10,10,10,255);
 const FColor Light(14,14,14,255);
 const FColor SuperLight(32,32,32,255);
 const FColor UltraBright(61,135,255,255);
+const FColor Bright(128,128,128,255);
 const FColor WhiteBright(255,255,255,255);
+const FColor GoldBright(255,255,171,255);
 const FColor Disabled(189,189,189,255);
 const FColor Shaded(4,4,4,200);
 
@@ -286,6 +288,16 @@ void SUTStyle::SetCommonStyle(TSharedRef<FSlateStyleSet> StyleRef)
 		.SetHoveredSound(ButtonHoverSound)
 		.SetPressedSound(ButtonPressSound)
 	);
+
+	Style.Set("UT.SimpleButton.Keybind", FButtonStyle()
+		.SetNormal( FSlateColorBrush(Bright) )
+		.SetHovered( FSlateColorBrush(WhiteBright) )
+		.SetPressed( FSlateColorBrush(GoldBright) )
+		.SetDisabled( FSlateColorBrush(SuperDark) )
+		.SetHoveredSound(ButtonHoverSound)
+		.SetPressedSound(ButtonPressSound)
+	);
+
 
 	Style.Set("UT.SimpleButton.SuperDark", FButtonStyle()
 		.SetNormal( FSlateColorBrush(Dark) )

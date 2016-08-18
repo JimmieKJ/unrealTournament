@@ -3,6 +3,8 @@
 #include "UTProfileSettings.h"
 #include "UTPlayerInput.h"
 #include "GameFramework/InputSettings.h"
+#include "Runtime/JsonUtilities/Public/JsonUtilities.h"
+
 
 UUTProfileSettings::UUTProfileSettings(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -168,198 +170,190 @@ void UUTProfileSettings::GetDefaultGameActions(TArray<FKeyConfigurationInfo>& ou
 
 	// Move
 
-	Key = FKeyConfigurationInfo("MoveForward", EControlCategory::Movement, EKeys::W, EKeys::Up, NSLOCTEXT("Keybinds","MoveForward","Move Forward"));
+	Key = FKeyConfigurationInfo("MoveForward", EControlCategory::Movement, EKeys::W, EKeys::Up, EKeys::Gamepad_LeftY, NSLOCTEXT("Keybinds","MoveForward","Move Forward"));
 	Key.AddAxisMapping("MoveForward", 1.0f);
 	Key.AddActionMapping("TapForward");
 	outGameActions.Add(Key);
 
-	Key = FKeyConfigurationInfo("MoveBackward", EControlCategory::Movement, EKeys::S, EKeys::Down, NSLOCTEXT("Keybinds", "MoveBackward", "Move Backwards"));
+	Key = FKeyConfigurationInfo("MoveBackward", EControlCategory::Movement, EKeys::S, EKeys::Down, EKeys::Invalid, NSLOCTEXT("Keybinds", "MoveBackward", "Move Backwards"));
 	Key.AddAxisMapping("MoveBackward", 1.0f);
 	Key.AddActionMapping("TapBack");
 	outGameActions.Add(Key);
 
-	Key = FKeyConfigurationInfo("MoveLeft", EControlCategory::Movement, EKeys::A, EKeys::PageUp, NSLOCTEXT("Keybinds", "MoveLeft", "Strafe Left"));
+	Key = FKeyConfigurationInfo("MoveLeft", EControlCategory::Movement, EKeys::A, EKeys::PageUp, EKeys::Invalid, NSLOCTEXT("Keybinds", "MoveLeft", "Strafe Left"));
 	Key.AddAxisMapping("MoveLeft", 1.0f);
 	Key.AddActionMapping("TapLeft");
 	outGameActions.Add(Key);
 
-	Key = FKeyConfigurationInfo("MoveRight", EControlCategory::Movement, EKeys::D, EKeys::PageDown, NSLOCTEXT("Keybinds", "MoveRight", "Strafe Right"));
+	Key = FKeyConfigurationInfo("MoveRight", EControlCategory::Movement, EKeys::D, EKeys::PageDown, EKeys::Gamepad_LeftX,NSLOCTEXT("Keybinds", "MoveRight", "Strafe Right"));
 	Key.AddAxisMapping("MoveRight", 1.0f);
 	Key.AddActionMapping("TapRight");
 	outGameActions.Add(Key);
 
 	// Turn
 
-	Key = FKeyConfigurationInfo("TurnLeft", EControlCategory::Movement, EKeys::Left, EKeys::Invalid, NSLOCTEXT("Keybinds", "TurnLeft", "Turn Left"));
+	Key = FKeyConfigurationInfo("TurnLeft", EControlCategory::Movement, EKeys::Left, EKeys::Invalid, EKeys::Invalid, NSLOCTEXT("Keybinds", "TurnLeft", "Turn Left"));
 	Key.AddAxisMapping("TurnRate", -1.0f);
 	outGameActions.Add(Key);
 
-	Key = FKeyConfigurationInfo("TurnRight", EControlCategory::Movement, EKeys::Right, EKeys::Invalid, NSLOCTEXT("Keybinds", "TurnRight", "Turn Right"));
+	Key = FKeyConfigurationInfo("TurnRight", EControlCategory::Movement, EKeys::Right, EKeys::Invalid, EKeys::Gamepad_RightX, NSLOCTEXT("Keybinds", "TurnRight", "Turn Right"));
 	Key.AddAxisMapping("TurnRate", 1.0f);
 	outGameActions.Add(Key);
 
 	// Actions
 
-	Key = FKeyConfigurationInfo("Jump", EControlCategory::Movement, EKeys::SpaceBar, EKeys::Invalid, NSLOCTEXT("Keybinds", "Jump", "Jump"));
+	Key = FKeyConfigurationInfo("Jump", EControlCategory::Movement, EKeys::SpaceBar, EKeys::Invalid, EKeys::Gamepad_FaceButton_Bottom, NSLOCTEXT("Keybinds", "Jump", "Jump"));
 	Key.AddAxisMapping("MoveUp", 1.0f);
 	Key.AddActionMapping("Jump");
 	outGameActions.Add(Key);
 
-	Key = FKeyConfigurationInfo("Crouch", EControlCategory::Movement, EKeys::LeftControl, EKeys::C, NSLOCTEXT("Keybinds", "Crouch", "Crouch"));
+	Key = FKeyConfigurationInfo("Crouch", EControlCategory::Movement, EKeys::LeftControl, EKeys::C, EKeys::Gamepad_LeftThumbstick, NSLOCTEXT("Keybinds", "Crouch", "Crouch"));
 	Key.AddAxisMapping("MoveUp", -1.0f);
 	Key.AddActionMapping("Crouch");
 	outGameActions.Add(Key);
 
-	Key = FKeyConfigurationInfo("Slide", EControlCategory::Movement, EKeys::LeftShift, EKeys::Invalid, NSLOCTEXT("Keybinds", "Slide", "Slide"));
+	Key = FKeyConfigurationInfo("Slide", EControlCategory::Movement, EKeys::LeftShift, EKeys::Invalid, EKeys::Invalid, NSLOCTEXT("Keybinds", "Slide", "Slide"));
 	Key.AddActionMapping("Slide");
 	outGameActions.Add(Key);
 
-	Key = FKeyConfigurationInfo("SingleTapDodge", EControlCategory::Movement, EKeys::V, EKeys::Invalid, NSLOCTEXT("Keybinds", "SingleTapDodge", "One Tap Dodge"));
+	Key = FKeyConfigurationInfo("SingleTapDodge", EControlCategory::Movement, EKeys::V, EKeys::Invalid, EKeys::Gamepad_DPad_Down, NSLOCTEXT("Keybinds", "SingleTapDodge", "One Tap Dodge"));
 	Key.AddActionMapping("SingleTapDodge");
 	outGameActions.Add(Key);
 
 	// Combat
 
-	Key = FKeyConfigurationInfo("Fire", EControlCategory::Combat, EKeys::LeftMouseButton, EKeys::Invalid, NSLOCTEXT("Keybinds", "Fire", "Fire"));
+	Key = FKeyConfigurationInfo("Fire", EControlCategory::Combat, EKeys::LeftMouseButton, EKeys::Invalid, EKeys::Gamepad_RightTrigger, NSLOCTEXT("Keybinds", "Fire", "Fire"));
 	Key.AddActionMapping("StartFire");
 	Key.AddActionMapping("StopFire");
 	outGameActions.Add(Key);
 
-	Key = FKeyConfigurationInfo("AltFire", EControlCategory::Combat, EKeys::RightMouseButton, EKeys::Invalid, NSLOCTEXT("Keybinds", "AltFire", "Alt Fire"));
+	Key = FKeyConfigurationInfo("AltFire", EControlCategory::Combat, EKeys::RightMouseButton, EKeys::Invalid, EKeys::Gamepad_LeftTrigger, NSLOCTEXT("Keybinds", "AltFire", "Alt Fire"));
 	Key.AddActionMapping("StartAltFire");
 	Key.AddActionMapping("StopAltFire");
 	outGameActions.Add(Key);
 
-	Key = FKeyConfigurationInfo("NextWeapon", EControlCategory::Combat, EKeys::MouseScrollUp, EKeys::Invalid, NSLOCTEXT("Keybinds", "NextWeapon", "Next Weapon"));
+	Key = FKeyConfigurationInfo("NextWeapon", EControlCategory::Combat, EKeys::MouseScrollUp, EKeys::Invalid, EKeys::Gamepad_LeftShoulder, NSLOCTEXT("Keybinds", "NextWeapon", "Next Weapon"));
 	Key.AddActionMapping("NextWeapon");
 	outGameActions.Add(Key);
 
-	Key = FKeyConfigurationInfo("PrevWeapon", EControlCategory::Combat, EKeys::MouseScrollDown, EKeys::Invalid, NSLOCTEXT("Keybinds", "PrevWeapon", "Previous Weapon"));
+	Key = FKeyConfigurationInfo("PrevWeapon", EControlCategory::Combat, EKeys::MouseScrollDown, EKeys::Invalid, EKeys::Gamepad_RightShoulder, NSLOCTEXT("Keybinds", "PrevWeapon", "Previous Weapon"));
 	Key.AddActionMapping("PrevWeapon");
 	outGameActions.Add(Key);
 
-	Key = FKeyConfigurationInfo("BestWeapon", EControlCategory::Combat, EKeys::Enter, EKeys::Invalid, NSLOCTEXT("Keybinds", "BestWeapon", "Best Weapon"));
+	Key = FKeyConfigurationInfo("BestWeapon", EControlCategory::Combat, EKeys::Enter, EKeys::Invalid, EKeys::Invalid, NSLOCTEXT("Keybinds", "BestWeapon", "Best Weapon"));
 	Key.AddActionMapping("BestWeapon");
 	outGameActions.Add(Key);
 
-	Key = FKeyConfigurationInfo("ThrowWeapon", EControlCategory::Combat, EKeys::M, EKeys::Invalid, NSLOCTEXT("Keybinds", "ThrowWeapon", "Throw Weapon"));
+	Key = FKeyConfigurationInfo("ThrowWeapon", EControlCategory::Combat, EKeys::M, EKeys::Invalid, EKeys::Invalid, NSLOCTEXT("Keybinds", "ThrowWeapon", "Throw Weapon"));
 	Key.AddActionMapping("ThrowWeapon");
 	outGameActions.Add(Key);
 
-	Key = FKeyConfigurationInfo("ToggleTrans", EControlCategory::Combat, EKeys::Q, EKeys::Invalid, NSLOCTEXT("Keybinds", "ToggleTrans", "Toggle Translocator"));
-	Key.AddCustomBinding("ToggleTranslocator");
-	Key.Restrictions = EControlGameModeRestriction::RestrictInCTF;
+	Key = FKeyConfigurationInfo("ActivateSpecial", EControlCategory::Combat, EKeys::Q, EKeys::Invalid, EKeys::Invalid, NSLOCTEXT("Keybinds", "ActivateSepcial", "Activate Powerup / Toggle Translocator"));
+	Key.AddCustomBinding("ActivateSpecial");
 	outGameActions.Add(Key);
 
-	Key = FKeyConfigurationInfo("SelectTrans", EControlCategory::Combat, EKeys::Invalid, EKeys::Invalid, NSLOCTEXT("Keybinds", "SelectTrans", "Select Translocator"));
+	Key = FKeyConfigurationInfo("SelectTrans", EControlCategory::Combat, EKeys::Invalid, EKeys::Invalid, EKeys::Invalid, NSLOCTEXT("Keybinds", "SelectTrans", "Select Translocator"));
 	Key.AddCustomBinding("SelectTranslocator");
-	Key.Restrictions = EControlGameModeRestriction::RestrictInCTF;
-	outGameActions.Add(Key);
-	
-	Key = FKeyConfigurationInfo("StartActivatePowerup", EControlCategory::Combat, EKeys::Q, EKeys::Invalid, NSLOCTEXT("Keybinds", "ActivatePowerup", "Activate Powerup"));
-	Key.AddActionMapping("StartActivatePowerup");
-	Key.Restrictions = EControlGameModeRestriction::RestrictInFlagRun;
 	outGameActions.Add(Key);
 
-	Key = FKeyConfigurationInfo("ToggleWepaonWheel", EControlCategory::Combat, EKeys::Invalid, EKeys::Invalid, NSLOCTEXT("Keybinds", "ToggleWeaponWheel", "Show Weapon Wheel"));
+	Key = FKeyConfigurationInfo("ToggleWepaonWheel", EControlCategory::Combat, EKeys::Invalid, EKeys::Invalid, EKeys::Gamepad_DPad_Up, NSLOCTEXT("Keybinds", "ToggleWeaponWheel", "Show Weapon Wheel"));
 	Key.AddActionMapping("ToggleWeaponWheel");
 	outGameActions.Add(Key);
 
 	// Weapon
 
-	Key = FKeyConfigurationInfo("SwitchWeapon1", EControlCategory::Weapon, EKeys::One, EKeys::Invalid, NSLOCTEXT("Keybinds", "SwitchWeapon1", "Select Weapon Group 1"));
+	Key = FKeyConfigurationInfo("SwitchWeapon1", EControlCategory::Weapon, EKeys::One, EKeys::Invalid, EKeys::Invalid, NSLOCTEXT("Keybinds", "SwitchWeapon1", "Select Weapon Group 1"));
 	Key.AddCustomBinding("SwitchWeapon 1");
 	outGameActions.Add(Key);
 
-	Key = FKeyConfigurationInfo("SwitchWeapon2", EControlCategory::Weapon, EKeys::Two, EKeys::Invalid, NSLOCTEXT("Keybinds", "SwitchWeapon2", "Select Weapon Group 2"));
+	Key = FKeyConfigurationInfo("SwitchWeapon2", EControlCategory::Weapon, EKeys::Two, EKeys::Invalid, EKeys::Invalid, NSLOCTEXT("Keybinds", "SwitchWeapon2", "Select Weapon Group 2"));
 	Key.AddCustomBinding("SwitchWeapon 2");
 	outGameActions.Add(Key);
 
-	Key = FKeyConfigurationInfo("SwitchWeapon3", EControlCategory::Weapon, EKeys::Three, EKeys::Invalid, NSLOCTEXT("Keybinds", "SwitchWeapon3", "Select Weapon Group 3"));
+	Key = FKeyConfigurationInfo("SwitchWeapon3", EControlCategory::Weapon, EKeys::Three, EKeys::Invalid, EKeys::Invalid, NSLOCTEXT("Keybinds", "SwitchWeapon3", "Select Weapon Group 3"));
 	Key.AddCustomBinding("SwitchWeapon 3");
 	outGameActions.Add(Key);
 
-	Key = FKeyConfigurationInfo("SwitchWeapon4", EControlCategory::Weapon, EKeys::Four, EKeys::Invalid, NSLOCTEXT("Keybinds", "SwitchWeapon4", "Select Weapon Group 4"));
+	Key = FKeyConfigurationInfo("SwitchWeapon4", EControlCategory::Weapon, EKeys::Four, EKeys::Invalid, EKeys::Invalid, NSLOCTEXT("Keybinds", "SwitchWeapon4", "Select Weapon Group 4"));
 	Key.AddCustomBinding("SwitchWeapon 4");
 	outGameActions.Add(Key);
 
-	Key = FKeyConfigurationInfo("SwitchWeapon5", EControlCategory::Weapon, EKeys::Five, EKeys::Invalid, NSLOCTEXT("Keybinds", "SwitchWeapon5", "Select Weapon Group 5"));
+	Key = FKeyConfigurationInfo("SwitchWeapon5", EControlCategory::Weapon, EKeys::Five, EKeys::Invalid, EKeys::Invalid, NSLOCTEXT("Keybinds", "SwitchWeapon5", "Select Weapon Group 5"));
 	Key.AddCustomBinding("SwitchWeapon 5");
 	outGameActions.Add(Key);
 
-	Key = FKeyConfigurationInfo("SwitchWeapon6", EControlCategory::Weapon, EKeys::Six, EKeys::Invalid, NSLOCTEXT("Keybinds", "SwitchWeapon6", "Select Weapon Group 6"));
+	Key = FKeyConfigurationInfo("SwitchWeapon6", EControlCategory::Weapon, EKeys::Six, EKeys::Invalid, EKeys::Invalid, NSLOCTEXT("Keybinds", "SwitchWeapon6", "Select Weapon Group 6"));
 	Key.AddCustomBinding("SwitchWeapon 6");
 	outGameActions.Add(Key);
 
-	Key = FKeyConfigurationInfo("SwitchWeapon7", EControlCategory::Weapon, EKeys::Seven, EKeys::Invalid, NSLOCTEXT("Keybinds", "SwitchWeapon7", "Select Weapon Group 7"));
+	Key = FKeyConfigurationInfo("SwitchWeapon7", EControlCategory::Weapon, EKeys::Seven, EKeys::Invalid, EKeys::Invalid, NSLOCTEXT("Keybinds", "SwitchWeapon7", "Select Weapon Group 7"));
 	Key.AddCustomBinding("SwitchWeapon 7");
 	outGameActions.Add(Key);
 
-	Key = FKeyConfigurationInfo("SwitchWeapon8", EControlCategory::Weapon, EKeys::Eight, EKeys::Invalid, NSLOCTEXT("Keybinds", "SwitchWeapon8", "Select Weapon Group 8"));
+	Key = FKeyConfigurationInfo("SwitchWeapon8", EControlCategory::Weapon, EKeys::Eight, EKeys::Invalid, EKeys::Invalid, NSLOCTEXT("Keybinds", "SwitchWeapon8", "Select Weapon Group 8"));
 	Key.AddCustomBinding("SwitchWeapon 8");
 	outGameActions.Add(Key);
 
-	Key = FKeyConfigurationInfo("SwitchWeapon9", EControlCategory::Weapon, EKeys::Nine, EKeys::Invalid, NSLOCTEXT("Keybinds", "SwitchWeapon9", "Select Weapon Group 9"));
+	Key = FKeyConfigurationInfo("SwitchWeapon9", EControlCategory::Weapon, EKeys::Nine, EKeys::Invalid, EKeys::Invalid, NSLOCTEXT("Keybinds", "SwitchWeapon9", "Select Weapon Group 9"));
 	Key.AddCustomBinding("SwitchWeapon 9");
 	outGameActions.Add(Key);
 
-	Key = FKeyConfigurationInfo("SwitchWeapon0", EControlCategory::Weapon, EKeys::Zero, EKeys::Invalid, NSLOCTEXT("Keybinds", "SwitchWeapon0", "Select Weapon Group 0"));
+	Key = FKeyConfigurationInfo("SwitchWeapon0", EControlCategory::Weapon, EKeys::Zero, EKeys::Invalid, EKeys::Invalid, NSLOCTEXT("Keybinds", "SwitchWeapon0", "Select Weapon Group 0"));
 	Key.AddCustomBinding("SwitchWeapon 0");
 	outGameActions.Add(Key);
 
 	// Taunts
 
-	Key = FKeyConfigurationInfo("Taunt1", EControlCategory::Taunts, EKeys::J, EKeys::Invalid, NSLOCTEXT("Keybinds", "Taunt1", "Taunt #1"));
+	Key = FKeyConfigurationInfo("Taunt1", EControlCategory::Taunts, EKeys::J, EKeys::Invalid, EKeys::Gamepad_DPad_Left, NSLOCTEXT("Keybinds", "Taunt1", "Taunt #1"));
 	Key.AddActionMapping("PlayTaunt");
 	outGameActions.Add(Key);
 
-	Key = FKeyConfigurationInfo("Taunt2", EControlCategory::Taunts, EKeys::K, EKeys::Invalid, NSLOCTEXT("Keybinds", "Taunt2", "Taunt #2"));
+	Key = FKeyConfigurationInfo("Taunt2", EControlCategory::Taunts, EKeys::K, EKeys::Invalid, EKeys::Gamepad_DPad_Right, NSLOCTEXT("Keybinds", "Taunt2", "Taunt #2"));
 	Key.AddActionMapping("PlayTaunt2");
 	outGameActions.Add(Key);
 
 	// UI
 
-	Key = FKeyConfigurationInfo("ShowMenu", EControlCategory::UI, EKeys::Escape, EKeys::Invalid, NSLOCTEXT("Keybinds", "ShowMenu", "Show Menu"));
+	Key = FKeyConfigurationInfo("ShowMenu", EControlCategory::UI, EKeys::Escape, EKeys::Invalid, EKeys::Gamepad_Special_Right, NSLOCTEXT("Keybinds", "ShowMenu", "Show Menu"));
 	Key.AddActionMapping("ShowMenu");
 	outGameActions.Add(Key);
 
-	Key = FKeyConfigurationInfo("ShowScores", EControlCategory::UI, EKeys::Tab, EKeys::Invalid, NSLOCTEXT("Keybinds", "ShowScores", "Show Scores"));
+	Key = FKeyConfigurationInfo("ShowScores", EControlCategory::UI, EKeys::Tab, EKeys::Invalid, EKeys::Gamepad_Special_Left, NSLOCTEXT("Keybinds", "ShowScores", "Show Scores"));
 	Key.AddActionMapping("ShowScores");
 	outGameActions.Add(Key);
 
-	Key = FKeyConfigurationInfo("ShowConsole", EControlCategory::UI, EKeys::Tilde, EKeys::Invalid, NSLOCTEXT("Keybinds", "ShowConsole", "Show Console"));
+	Key = FKeyConfigurationInfo("ShowConsole", EControlCategory::UI, EKeys::Tilde, EKeys::Invalid, EKeys::Invalid, NSLOCTEXT("Keybinds", "ShowConsole", "Show Console"));
 	Key.AddActionMapping("Console");
 	outGameActions.Add(Key);
 
-	Key = FKeyConfigurationInfo("Talk", EControlCategory::UI, EKeys::T, EKeys::Invalid, NSLOCTEXT("Keybinds", "Talk", "Talk"));
+	Key = FKeyConfigurationInfo("Talk", EControlCategory::UI, EKeys::T, EKeys::Invalid, EKeys::Invalid, NSLOCTEXT("Keybinds", "Talk", "Talk"));
 	Key.AddActionMapping("Talk");
 	outGameActions.Add(Key);
 
-	Key = FKeyConfigurationInfo("TeamTalk", EControlCategory::UI, EKeys::Y, EKeys::Invalid, NSLOCTEXT("Keybinds", "TeamTalk", "Team Talk"));
+	Key = FKeyConfigurationInfo("TeamTalk", EControlCategory::UI, EKeys::Y, EKeys::Invalid, EKeys::Invalid, NSLOCTEXT("Keybinds", "TeamTalk", "Team Talk"));
 	Key.AddActionMapping("TeamTalk");
 	outGameActions.Add(Key);
 
-	Key = FKeyConfigurationInfo("BuyMenu", EControlCategory::UI, EKeys::B, EKeys::Invalid, NSLOCTEXT("Keybinds", "BuyMenu", "Show Buy Menu"));
+	Key = FKeyConfigurationInfo("BuyMenu", EControlCategory::UI, EKeys::B, EKeys::Invalid, EKeys::Gamepad_FaceButton_Left, NSLOCTEXT("Keybinds", "BuyMenu", "Show Buy Menu"));
 	Key.AddActionMapping("ShowBuyMenu");
 	outGameActions.Add(Key);
 
-	Key = FKeyConfigurationInfo("ComsMenu", EControlCategory::UI, EKeys::F, EKeys::Invalid, NSLOCTEXT("Keybinds", "ShowComsMenu", "Show Coms Menu"));
+	Key = FKeyConfigurationInfo("ComsMenu", EControlCategory::UI, EKeys::F, EKeys::Invalid, EKeys::Gamepad_FaceButton_Right, NSLOCTEXT("Keybinds", "ShowComsMenu", "Show Coms Menu"));
 	Key.AddCustomBinding("ToggleComMenu");
 	outGameActions.Add(Key);
 
 	// Misc
 
-	Key = FKeyConfigurationInfo("FeignDeath", EControlCategory::Misc, EKeys::H, EKeys::Invalid, NSLOCTEXT("Keybinds", "FeignDeath", "Feign Death"));
+	Key = FKeyConfigurationInfo("FeignDeath", EControlCategory::Misc, EKeys::H, EKeys::Invalid, EKeys::Invalid, NSLOCTEXT("Keybinds", "FeignDeath", "Feign Death"));
 	Key.AddCustomBinding("FeignDeath");
 	outGameActions.Add(Key);
 
-	Key = FKeyConfigurationInfo("DropCarriedObject", EControlCategory::Misc, EKeys::G, EKeys::Invalid, NSLOCTEXT("Keybinds", "DropCarriedObject", "Drop Carried Object"));
+	Key = FKeyConfigurationInfo("DropCarriedObject", EControlCategory::Misc, EKeys::G, EKeys::Invalid, EKeys::Invalid, NSLOCTEXT("Keybinds", "DropCarriedObject", "Drop Carried Object"));
 	Key.AddActionMapping("DropCarriedObject");
 	outGameActions.Add(Key);
 
-	Key = FKeyConfigurationInfo("RequestRally", EControlCategory::Misc, EKeys::E, EKeys::Invalid, NSLOCTEXT("Keybinds", "RequestRally", "Request Rally"));
+	Key = FKeyConfigurationInfo("RequestRally", EControlCategory::Misc, EKeys::E, EKeys::Invalid, EKeys::Gamepad_FaceButton_Top, NSLOCTEXT("Keybinds", "RequestRally", "Request Rally"));
 	Key.AddActionMapping("RequestRally");
-	Key.Restrictions = EControlGameModeRestriction::RestrictInFlagRun;
 	outGameActions.Add(Key);
 
 /*
@@ -370,11 +364,113 @@ void UUTProfileSettings::GetDefaultGameActions(TArray<FKeyConfigurationInfo>& ou
 }
 
 
-void UUTProfileSettings::ValidateGameActions()
+bool UUTProfileSettings::ValidateGameActions()
 {
+	bool bNeedsResaving = false;
 	TArray<FKeyConfigurationInfo> DefaultGameActions;
 	GetDefaultGameActions(DefaultGameActions);
-	
+
+	// This is a special hackey fix up.  The ini system doesn't make it that easy to remove entries from
+	// inis and this can be trouble with input.  So we clear out the various input mappings that may correspond with
+	// the GameActions.
+
+	if (SettingsRevisionNum < 32)
+	{
+		UInputSettings* InputSettings = UInputSettings::StaticClass()->GetDefaultObject<UInputSettings>();
+		UUTPlayerInput* UTPlayerInput = UUTPlayerInput::StaticClass()->GetDefaultObject<UUTPlayerInput>();
+		for (int32 i = 0; i < DefaultGameActions.Num(); i++)
+		{
+			FKeyConfigurationInfo* Action = &DefaultGameActions[i];
+
+			if (InputSettings != nullptr)
+			{
+
+				for (int32 j = 0; j < Action->ActionMappings.Num(); j++)
+				{
+					FName ActionName = Action->ActionMappings[j].ActionName;
+					int32 k = 0;
+					while (k < InputSettings->ActionMappings.Num())
+					{
+						if (InputSettings->ActionMappings[k].ActionName == ActionName )
+						{
+							InputSettings->ActionMappings.RemoveAt(k,1);
+						}
+						else
+						{
+							k++;
+						}
+					}
+				}
+
+				for (int32 j = 0; j < Action->CustomBindings.Num(); j++)
+				{
+					FString Command = Action->CustomBindings[j].Command;
+					int32 k = 0;
+					while (k < InputSettings->ActionMappings.Num())
+					{
+						FString ActionName = InputSettings->ActionMappings[k].ActionName.ToString();
+						// NOTE: StartActivePowerup and ToggleComMenu were once placed in the wrong group.
+						if (ActionName.Equals(Command, ESearchCase::IgnoreCase) 
+							|| ActionName.Equals(TEXT("StartActivatePowerup"),ESearchCase::IgnoreCase)		
+							|| ActionName.Equals(TEXT("ToggleComMenu"),ESearchCase::IgnoreCase))
+						{
+							InputSettings->ActionMappings.RemoveAt(k,1);
+						}
+						else
+						{
+							k++;
+						}
+					}
+				}
+
+				for (int32 j = 0; j < Action->AxisMappings.Num(); j++)
+				{
+					FName AxisName = Action->AxisMappings[j].AxisName;
+					int32 k = 0;
+					while (k < InputSettings->AxisMappings.Num())
+					{
+						if (InputSettings->AxisMappings[k].AxisName == AxisName)
+						{
+							InputSettings->AxisMappings.RemoveAt(k,1);
+						}
+						else
+						{
+							k++;
+						}
+					}
+				}
+			}
+
+			if (UTPlayerInput != nullptr)
+			{
+				for (int32 j = 0; j < Action->CustomBindings.Num(); j++)
+				{
+					FString Command = Action->CustomBindings[j].Command;
+					int32 k = 0;
+					while (k < UTPlayerInput->CustomBinds.Num())
+					{
+						FString Command = UTPlayerInput->CustomBinds[k].Command;
+						// NOTE: StartActivePowerup and ToggleComMenu were once placed in the wrong group.
+						if (Command.Equals(Command, ESearchCase::IgnoreCase) 
+							|| Command.Equals(TEXT("StartActivatePowerup"),ESearchCase::IgnoreCase)		
+							|| Command.Equals(TEXT("ToggleComMenu"),ESearchCase::IgnoreCase))
+						{
+							UTPlayerInput->CustomBinds.RemoveAt(k,1);
+						}
+						else
+						{
+							k++;
+						}
+					}
+				}
+			}
+		}
+
+		if (InputSettings != nullptr) InputSettings->SaveConfig();
+		if (UTPlayerInput != nullptr) UTPlayerInput->SaveConfig();
+	}
+		
+
 	// Remove any GameActions that no longer exist in the default list.
 	int32 Action = GameActions.Num()-1;
 	while (Action >= 0)
@@ -389,7 +485,11 @@ void UUTProfileSettings::ValidateGameActions()
 			}
 		}
 
-		if (!bFound) GameActions.RemoveAt(Action,1);
+		if (!bFound)
+		{
+			GameActions.RemoveAt(Action,1);
+			bNeedsResaving = true;
+		}
 		Action--;
 	}
 
@@ -410,18 +510,19 @@ void UUTProfileSettings::ValidateGameActions()
 		if (!bFound)
 		{
 			GameActions.Add(DefaultGameActions[i]);
+			bNeedsResaving = true;
 		}
 	}
 
+	return bNeedsResaving;
 }
 
-void UUTProfileSettings::VersionFixup()
+bool UUTProfileSettings::VersionFixup()
 {
 	// HACK - We aren't supporting weapon skins right now since they are disabled in netplay in editor builds.  So force clear them here just in
 	// case there was stale data.
 	WeaponSkins.Empty();
-	ValidateGameActions();
-
+	return ValidateGameActions();
 }
 
 void UUTProfileSettings::ApplyAllSettings(UUTLocalPlayer* ProfilePlayer)
@@ -579,9 +680,16 @@ void UUTProfileSettings::ApplyInputSettings(UUTLocalPlayer* ProfilePlayer)
 		}
 		else
 		{
-			for (int32 K = 0; K < 2; K++)
+			for (int32 K = 0; K < 3; K++)
 			{
-				FKey Key = K == 0 ? GameActions[i].PrimaryKey : GameActions[i].SecondaryKey;
+				FKey Key = FKey();
+				switch (K)
+				{
+					case 0 : Key = GameActions[i].PrimaryKey; break;
+					case 1 : Key = GameActions[i].SecondaryKey; break;
+					case 2 : Key = GameActions[i].GamepadKey; break;
+				}
+
 				if (Key != FKey())
 				{
 					for (int32 B=0; B < GameActions[i].ActionMappings.Num(); B++)
@@ -702,5 +810,71 @@ const FKeyConfigurationInfo* UUTProfileSettings::FindGameAction(const FString& S
 	}
 
 	return nullptr;
+}
+
+void UUTProfileSettings::ExportKeyBinds()
+{
+	FKeyConfigurationImportExport ExportData;
+	for (int32 i = 0 ; i < GameActions.Num(); i++)
+	{
+		ExportData.GameActions.Add(FKeyConfigurationImportExportObject(GameActions[i].GameActionTag, GameActions[i].PrimaryKey, GameActions[i].SecondaryKey, GameActions[i].GamepadKey));
+	}
+
+	FString FilePath = FPaths::GameSavedDir() + TEXT("keybinds.json");
+	FString jsonText;
+	if (FJsonObjectConverter::UStructToJsonObjectString(FKeyConfigurationImportExport::StaticStruct(), &ExportData, jsonText,0,0))
+	{
+		FFileHelper::SaveStringToFile(jsonText, *FilePath);
+		UE_LOG(UT,Log,TEXT("Exported binds to %s"), *FilePath);
+	}
+	else
+	{
+		UE_LOG(UT,Log,TEXT("Could not export binds"));
+	}
+
+}
+
+void UUTProfileSettings::ImportKeyBinds()
+{
+	FKeyConfigurationImportExport ImportData;
+
+	FString FilePath = FPaths::GameSavedDir() + TEXT("keybinds.json");
+	FString jsonText;
+
+	if ( FFileHelper::LoadFileToString(jsonText, *FilePath) )
+	{
+		if (FJsonObjectConverter::JsonObjectStringToUStruct(jsonText, &ImportData, 0,0))
+		{
+			for (int32 i=0; i < ImportData.GameActions.Num(); i++)
+			{
+				for (int32 j=0; j < GameActions.Num(); j++)
+				{
+					if (GameActions[j].GameActionTag == ImportData.GameActions[i].GameActionTag)
+					{
+						GameActions[j].PrimaryKey   = ImportData.GameActions[i].PrimaryKey;
+						GameActions[j].SecondaryKey = ImportData.GameActions[i].SecondaryKey;
+						GameActions[j].GamepadKey = ImportData.GameActions[i].GamepadKey;
+					}
+					else
+					{
+						if (ImportData.GameActions[i].PrimaryKey == GameActions[j].PrimaryKey) ImportData.GameActions[i].PrimaryKey = FKey();
+						if (ImportData.GameActions[i].SecondaryKey == GameActions[j].SecondaryKey) ImportData.GameActions[i].SecondaryKey= FKey();
+						if (ImportData.GameActions[i].GamepadKey == GameActions[j].GamepadKey) ImportData.GameActions[i].GamepadKey= FKey();
+					
+					}
+				
+				}
+			}
+		}
+		else
+		{
+			UE_LOG(UT,Log,TEXT("Error parsing %s"), *FilePath);			
+		}
+	}
+	else
+	{
+		UE_LOG(UT,Log,TEXT("Could not load %s"), *FilePath);
+	}
+
 }
 

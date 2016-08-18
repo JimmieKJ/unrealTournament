@@ -1128,3 +1128,21 @@ bool AUTBasePlayerController::AreMenusOpen()
 	return false;
 #endif
 }
+
+void AUTBasePlayerController::ExportKeyBinds()
+{
+	UUTProfileSettings* ProfileSettings = GetProfileSettings();
+	if (ProfileSettings && ProfileSettings->bPushToTalk)
+	{
+		ProfileSettings->ExportKeyBinds();
+	}
+}
+void AUTBasePlayerController::ImportKeyBinds()
+{
+	UUTProfileSettings* ProfileSettings = GetProfileSettings();
+	if (ProfileSettings && ProfileSettings->bPushToTalk)
+	{
+		ProfileSettings->ImportKeyBinds();
+	}
+}
+

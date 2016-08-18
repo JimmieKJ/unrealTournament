@@ -434,7 +434,7 @@ void AUTHUD::UpdateKeyMappings(bool bForceUpdate)
 	if (!bKeyMappingsSet || bForceUpdate)
 	{
 		bKeyMappingsSet = true;
-		BoostLabel = FindKeyMappingTo("StartActivatePowerup");
+		BoostLabel = FindKeyMappingTo("ActivateSpecial");
 		RallyLabel = FindKeyMappingTo("RequestRally");
 	}
 }
@@ -450,6 +450,7 @@ FText AUTHUD::FindKeyMappingTo(FName InActionName)
 		{
 			if (GameAction->PrimaryKey != FKey()) return GameAction->PrimaryKey.GetDisplayName();
 			if (GameAction->SecondaryKey != FKey()) return GameAction->SecondaryKey.GetDisplayName();
+			if (GameAction->GamepadKey != FKey()) return GameAction->GamepadKey.GetDisplayName();
 		}
 	}
 

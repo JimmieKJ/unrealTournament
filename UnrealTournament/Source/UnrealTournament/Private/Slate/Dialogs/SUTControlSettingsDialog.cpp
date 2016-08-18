@@ -279,7 +279,7 @@ TSharedRef<SWidget> SUTControlSettingsDialog::BuildKeyboardTab()
 						SAssignNew(Bind->PrimaryKeyBindWidget, SKeyBind)
 						.Key(MakeShareable(&Bind->KeyConfig->PrimaryKey))
 						.DefaultKey(Bind->KeyConfig->PrimaryKey)
-						.ButtonStyle(SUTStyle::Get(), "UT.SimpleButton.Bright")
+						.ButtonStyle(SUTStyle::Get(), "UT.SimpleButton.Keybind")
 						.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.Black")
 						.OnKeyBindingChanged(this, &SUTControlSettingsDialog::OnKeyBindingChanged, Bind, true)
 					]
@@ -290,7 +290,7 @@ TSharedRef<SWidget> SUTControlSettingsDialog::BuildKeyboardTab()
 						.ContentPadding(FMargin(4.0f, 4.0f))
 						.Key(MakeShareable(&Bind->KeyConfig->SecondaryKey))
 						.DefaultKey(Bind->KeyConfig->SecondaryKey)
-						.ButtonStyle(SUTStyle::Get(), "UT.SimpleButton.Bright")
+						.ButtonStyle(SUTStyle::Get(), "UT.SimpleButton.Keybind")
 						.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.Black")
 						.OnKeyBindingChanged(this, &SUTControlSettingsDialog::OnKeyBindingChanged, Bind, false)
 					]
@@ -824,81 +824,44 @@ void SUTControlSettingsDialog::OnKeyBindingChanged( FKey PreviousKey, FKey NewKe
 		{
 			if (BindList[i]->PrimaryKeyBindWidget->GetKey() == NewKey || BindList[i]->SecondaryKeyBindWidget->GetKey() == NewKey)
 			{
-				// Look to see if we can overwrite the binds...
+				TSharedPtr<FKeyBindTracker> NewBindInContention = BindingThatChanged;
+				TSharedPtr<FKeyBindTracker> OldBindInContention = BindList[i];
 
-				if (BindList[i]->KeyConfig->Restrictions == EControlGameModeRestriction::NeverAllow ||
-					BindList[i]->KeyConfig->Restrictions == BindingThatChanged->KeyConfig->Restrictions)
+				bool bOldPrimary = BindList[i]->PrimaryKeyBindWidget->GetKey() == NewKey;
+				auto OnDuplicateDialogResult = [bPrimaryKey, NewKey, PreviousKey, NewBindInContention, OldBindInContention, bOldPrimary](TSharedPtr<SCompoundWidget> Widget, uint16 Button)
 				{
-					TSharedPtr<FKeyBindTracker> NewBindInContention = BindingThatChanged;
-					TSharedPtr<FKeyBindTracker> OldBindInContention = BindList[i];
-
-					bool bOldPrimary = BindList[i]->PrimaryKeyBindWidget->GetKey() == NewKey;
-					auto OnDuplicateDialogResult = [bPrimaryKey, NewKey, PreviousKey, NewBindInContention, OldBindInContention, bOldPrimary](TSharedPtr<SCompoundWidget> Widget, uint16 Button)
+					if (Button == UTDIALOG_BUTTON_NO)
 					{
-						if (Button == UTDIALOG_BUTTON_NO)
+						if (bPrimaryKey)
 						{
-							if (bPrimaryKey)
-							{
-								NewBindInContention->PrimaryKeyBindWidget->SetKey(PreviousKey, true, false);
-							}
-							else
-							{
-								NewBindInContention->SecondaryKeyBindWidget->SetKey(PreviousKey, true, false);
-							}
-
+							NewBindInContention->PrimaryKeyBindWidget->SetKey(PreviousKey, true, false);
 						}
-						else if (Button == UTDIALOG_BUTTON_YES)
+						else
 						{
-							if (bOldPrimary)
-							{
-								OldBindInContention->PrimaryKeyBindWidget->SetKey(FKey(), true, false);
-							}
-							else
-							{
-								OldBindInContention->SecondaryKeyBindWidget->SetKey(FKey(), true, false);
-							}
+							NewBindInContention->SecondaryKeyBindWidget->SetKey(PreviousKey, true, false);
 						}
-					};
 
-					GetPlayerOwner()->ShowMessage
-							(
-								NSLOCTEXT("SUTControlSettingsDialog", "DuplicateBindingTitle", "Duplicate Binding"),
-								FText::Format(NSLOCTEXT("SUTControlSettingsDialog", "DuplicateBindingMessage", "The key '{0}' is already bound to \"{1}\".\n\nDo you want to Bind '{0}' to \"{2}\" and remove the key from \"{1}\"?"), NewKey.GetDisplayName(), BindList[i]->KeyConfig->MenuText, BindingThatChanged->KeyConfig->MenuText),
-								UTDIALOG_BUTTON_YES | UTDIALOG_BUTTON_NO,
-								FDialogResultDelegate::CreateLambda(OnDuplicateDialogResult)
-							);
-				}
-				else if ( BindList[i]->KeyConfig->Restrictions != EControlGameModeRestriction::AlwaysAllow )
-				{
-					TSharedPtr<FKeyBindTracker> NewBindInContention = BindingThatChanged;
-					TSharedPtr<FKeyBindTracker> OldBindInContention = BindList[i];
-
-					bool bOldPrimary = BindList[i]->PrimaryKeyBindWidget->GetKey() == NewKey;
-					auto OnPossibleDuplicateDialogResult = [bPrimaryKey, NewKey, PreviousKey, NewBindInContention, OldBindInContention, bOldPrimary](TSharedPtr<SCompoundWidget> Widget, uint16 Button)
+					}
+					else if (Button == UTDIALOG_BUTTON_YES)
 					{
-						if (Button == UTDIALOG_BUTTON_NO)
+						if (bOldPrimary)
 						{
-							if (bPrimaryKey)
-							{
-								NewBindInContention->PrimaryKeyBindWidget->SetKey(PreviousKey, true, false);
-							}
-							else
-							{
-								NewBindInContention->SecondaryKeyBindWidget->SetKey(PreviousKey, true, false);
-							}
-
+							OldBindInContention->PrimaryKeyBindWidget->SetKey(FKey(), true, false);
 						}
-					};
+						else
+						{
+							OldBindInContention->SecondaryKeyBindWidget->SetKey(FKey(), true, false);
+						}
+					}
+				};
 
-					GetPlayerOwner()->ShowMessage
-							(
-								NSLOCTEXT("SUTControlSettingsDialog", "DuplicateBindingAllowedTitle", "Possible Duplicate Binding Detected "),
-								FText::Format(NSLOCTEXT("SUTControlSettingsDialog", "PossibleDuplicateBindingMessage", "The key '{0}' is already bound to \"{1}\" however that action is only used in some game modes.\n\nIf you bind the key '{0}' to \"{2}\" it may conflict.  Are you sure?"), NewKey.GetDisplayName(), BindList[i]->KeyConfig->MenuText, BindingThatChanged->KeyConfig->MenuText),
-								UTDIALOG_BUTTON_YES | UTDIALOG_BUTTON_NO,
-								FDialogResultDelegate::CreateLambda(OnPossibleDuplicateDialogResult)
-							);				
-				}
-
+				GetPlayerOwner()->ShowMessage
+						(
+							NSLOCTEXT("SUTControlSettingsDialog", "DuplicateBindingTitle", "Duplicate Binding"),
+							FText::Format(NSLOCTEXT("SUTControlSettingsDialog", "DuplicateBindingMessage", "The key '{0}' is already bound to \"{1}\".\n\nDo you want to Bind '{0}' to \"{2}\" and remove the key from \"{1}\"?"), NewKey.GetDisplayName(), BindList[i]->KeyConfig->MenuText, BindingThatChanged->KeyConfig->MenuText),
+							UTDIALOG_BUTTON_YES | UTDIALOG_BUTTON_NO,
+							FDialogResultDelegate::CreateLambda(OnDuplicateDialogResult)
+						);
 			}
 		}
 	}

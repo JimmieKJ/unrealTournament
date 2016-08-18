@@ -1682,24 +1682,6 @@ namespace EControlCategory
 }
 
 /**
- *	ControlGameModeRestriction controls whether or not another key can be duplicated on 
- **/
-UENUM()
-namespace EControlGameModeRestriction
-{
-	enum Type
-	{
-		NeverAllow,				// You can never bind another Game Action if this action is set.
-		AlwaysAllow,			// Allways allow keys to bind if this action is set
-		RestrictInDM,			// This action is only used in DM type games
-		RestrictInCTF,			// This action is only used in CTF type games (for example, Translocator actions)
-		RestrictInFlagRun,		// This action is only used in Flag Run type games (for example Rally).
-		MAX,
-	};
-}
-
-
-/**
  *	Holds the configuration info for a given key.,
  **/
 USTRUCT(BlueprintType)
@@ -1730,10 +1712,7 @@ public:
 
 	// This is the key for a game pad that can this action.  For now these are hard coded
 	UPROPERTY(BlueprintReadOnly, Category = INPUT)
-	FKey GamePadKey;
-
-	UPROPERTY(BlueprintReadOnly, Category = INPUT)
-	TEnumAsByte<EControlGameModeRestriction::Type> Restrictions;
+	FKey GamepadKey;
 
 	UPROPERTY(BlueprintReadOnly, Category = INPUT)
 	uint32 bShowInUI : 1;
@@ -1758,18 +1737,17 @@ public:
 	FKeyConfigurationInfo()
 	{
 		bShowInUI = true;
-		Restrictions = EControlGameModeRestriction::NeverAllow;
 	}
 
-	FKeyConfigurationInfo(const FName& inGameActionTag, EControlCategory::Type inCategory, FKey inDefaultPrimaryKey, FKey inDefaultSecondayKey, const FText& inMenuText)
+	FKeyConfigurationInfo(const FName& inGameActionTag, EControlCategory::Type inCategory, FKey inDefaultPrimaryKey, FKey inDefaultSecondayKey, FKey inGamepadKey, const FText& inMenuText)
 		: GameActionTag(inGameActionTag)
 		, Category(inCategory)
 		, MenuText(inMenuText)
 		, PrimaryKey(inDefaultPrimaryKey)
 		, SecondaryKey(inDefaultSecondayKey)
+		, GamepadKey(inGamepadKey)
 	{
 		bShowInUI = true;
-		Restrictions = EControlGameModeRestriction::NeverAllow;
 	}
 
 	void AddActionMapping(const FName& inActionName)
@@ -1792,5 +1770,50 @@ public:
 		SpectatorBindings.Add(FCustomKeyBinding(NAME_None, inEvent, inCommand));
 	}
 
+};
 
+USTRUCT()
+struct FKeyConfigurationImportExportObject
+{
+	GENERATED_USTRUCT_BODY()
+
+	UPROPERTY()
+	FName GameActionTag;
+
+	UPROPERTY()
+	FKey PrimaryKey;
+
+	UPROPERTY()
+	FKey SecondaryKey;
+
+	UPROPERTY()
+	FKey GamepadKey;
+
+	FKeyConfigurationImportExportObject()
+		: GameActionTag(NAME_None), PrimaryKey(EKeys::Invalid), SecondaryKey(EKeys::Invalid), GamepadKey(EKeys::Invalid)
+	{
+	}
+
+	FKeyConfigurationImportExportObject(FName inGameActionTag, FKey inPrimaryKey, FKey inSecondaryKey, FKey inGamepadKey)
+		: GameActionTag(inGameActionTag)
+		, PrimaryKey(inPrimaryKey)
+		, SecondaryKey(inSecondaryKey)
+		, GamepadKey(inGamepadKey)
+	{}
+};
+
+USTRUCT()
+struct FKeyConfigurationImportExport
+{
+	GENERATED_USTRUCT_BODY()
+	
+public:
+
+	UPROPERTY()
+	TArray<FKeyConfigurationImportExportObject> GameActions;
+
+	FKeyConfigurationImportExport()
+	{
+		GameActions.Empty();
+	}
 };
