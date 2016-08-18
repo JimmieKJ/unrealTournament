@@ -59,6 +59,8 @@ UUTScoreboard::UUTScoreboard(const class FObjectInitializer& ObjectInitializer) 
 	TeamSwapText = NSLOCTEXT("UTScoreboard", "TEAMSWITCH", "TEAM SWAP");
 	ReadyText = NSLOCTEXT("UTScoreboard", "READY", "READY");
 	NotReadyText = NSLOCTEXT("UTScoreboard", "NOTREADY", "");
+	WarmupText = NSLOCTEXT("UTScoreboard", "WARMUP", "WARMUP");
+	WarmupWarningText = NSLOCTEXT("UTScoreboard", "WarmupWarningText", "Players warming up will increase the number of players needed to start.");
 	MinimapToggleText = NSLOCTEXT("UTScoreboard", "MinimapToggle", "Press {key} to toggle Minimap");
 	
 	ReadyColor = FLinearColor::White;
@@ -101,6 +103,7 @@ void UUTScoreboard::Draw_Implementation(float RenderDelta)
 {
 	Super::Draw_Implementation(RenderDelta);
 
+	bHaveWarmup = false;
 	float YOffset = 64.f*RenderScale;
 	DrawGamePanel(RenderDelta, YOffset);
 	DrawTeamPanel(RenderDelta, YOffset);
@@ -113,7 +116,7 @@ void UUTScoreboard::Draw_Implementation(float RenderDelta)
 
 	if (bDrawMinimapInScoreboard && UTGameState && UTHUDOwner && !UTHUDOwner->IsPendingKillPending())
 	{
-		bool bToggledMinimap = !UTGameState->HasMatchStarted() && (!UTPlayerOwner || !UTPlayerOwner->bIsWarmingUp);
+		bool bToggledMinimap = !UTGameState->HasMatchStarted() && (!UTPlayerOwner || !UTPlayerOwner->UTPlayerState || !UTPlayerOwner->UTPlayerState->bIsWarmingUp);
 		float MapScale = 0.62f;
 		const float MapSize = float(Canvas->SizeY) * MapScale;
 		if (!bToggledMinimap || !UTHUDOwner->bShowScores)
@@ -147,6 +150,10 @@ void UUTScoreboard::Draw_Implementation(float RenderDelta)
 			FText MinimapMessage = FText::Format(MinimapToggleText, Args);
 			DrawText(MinimapMessage, MinimapCenter.X*Canvas->ClipX - 0.5f*MapSize, MinimapCenter.Y*Canvas->ClipY + 0.5f*MapSize, UTHUDOwner->TinyFont, RenderScale, 1.f, FLinearColor::White, ETextHorzPos::Left, ETextVertPos::Center);
 		}
+	}
+	if (bHaveWarmup)
+	{
+		DrawText(WarmupWarningText, 16.f * RenderScale, 16.f*RenderScale, UTHUDOwner->SmallFont, RenderScale, 1.f, FLinearColor::White, ETextHorzPos::Left, ETextVertPos::Center);
 	}
 }
 
@@ -402,7 +409,6 @@ void UUTScoreboard::DrawPlayer(int32 Index, AUTPlayerState* PlayerState, float R
 	{
 		DrawTexture(UTHUDOwner->ScoreboardAtlas, XOffset + (ScaledCellWidth * ColumnHeaderPlayerX) + (NameSize.X+5.f)*RenderScale, YOffset + 18.f*RenderScale, 30.f*RenderScale, 24.f*RenderScale, 236, 136, 30, 24, 1.0, FLinearColor::White, FVector2D(0.0f, 0.5f));
 	}
-
 	if (UTGameState && UTGameState->HasMatchStarted())
 	{
 		if (PlayerState->bPendingTeamSwitch)
@@ -456,7 +462,13 @@ void UUTScoreboard::DrawPlayer(int32 Index, AUTPlayerState* PlayerState, float R
 
 void UUTScoreboard::DrawReadyText(AUTPlayerState* PlayerState, float XOffset, float YOffset, float Width)
 {
-	FText PlayerReady = PlayerState->bReadyToPlay ? ReadyText : NotReadyText;
+	FText PlayerReady = NotReadyText;
+	if (PlayerState->bReadyToPlay)
+	{
+		PlayerReady = PlayerState->bIsWarmingUp ? WarmupText : ReadyText;
+		bHaveWarmup = bHaveWarmup || PlayerState->bIsWarmingUp;
+	}
+		
 	float ReadyX = XOffset + ScaledCellWidth * ColumnHeaderScoreX;
 	if (PlayerState && PlayerState->bPendingTeamSwitch)
 	{

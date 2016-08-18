@@ -169,6 +169,15 @@ public:
 		FText NotReadyText;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Scoreboard")
+		FText WarmupText;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Scoreboard")
+		FText WarmupWarningText;
+
+	UPROPERTY()
+		bool bHaveWarmup;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Scoreboard")
 		FText MinimapToggleText;
 
 	FInputActionKeyMapping MinimapBinding;

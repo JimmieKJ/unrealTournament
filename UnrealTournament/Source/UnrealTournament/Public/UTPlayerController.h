@@ -294,9 +294,6 @@ public:
 	UFUNCTION(reliable, server, WithValidation)
 	void ServerRestartPlayerAltFire();
 
-	UPROPERTY(BlueprintReadOnly, Replicated, Category = PlayerController)
-		bool bIsWarmingUp;
-
 	/** pre-match player goes in or out of warmup mode. */
 	UFUNCTION(reliable, server, WithValidation)
 		void ServerToggleWarmup();

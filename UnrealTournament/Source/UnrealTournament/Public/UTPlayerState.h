@@ -153,6 +153,10 @@ public:
 	UPROPERTY(BlueprintReadWrite, replicated, Category = PlayerState)
 	uint32 bReadyToPlay:1;
 
+
+	UPROPERTY(BlueprintReadOnly, Replicated, Category = PlayerState)
+		uint32 bIsWarmingUp : 1;
+
 	virtual void SetReadyToPlay(bool bNewReadyState);
 
 	UPROPERTY(BlueprintReadWrite, replicated, Category = PlayerState)

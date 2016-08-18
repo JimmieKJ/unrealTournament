@@ -43,6 +43,7 @@ AUTPlayerState::AUTPlayerState(const class FObjectInitializer& ObjectInitializer
 	: Super(ObjectInitializer)
 {
 	bReadyToPlay = false;
+	bIsWarmingUp = false;
 	bPendingTeamSwitch = false;
 	bCaster = false;
 	LastKillTime = 0.0f;
@@ -89,6 +90,7 @@ void AUTPlayerState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & Ou
 
 	DOREPLIFETIME(AUTPlayerState, CarriedObject);
 	DOREPLIFETIME(AUTPlayerState, bReadyToPlay);
+	DOREPLIFETIME(AUTPlayerState, bIsWarmingUp);
 	DOREPLIFETIME(AUTPlayerState, bPendingTeamSwitch);
 	DOREPLIFETIME(AUTPlayerState, RespawnWaitTime);
 	DOREPLIFETIME(AUTPlayerState, bOutOfLives);

@@ -90,12 +90,12 @@ AUTGameMode::AUTGameMode(const class FObjectInitializer& ObjectInitializer)
 	bPauseable = false;
 	RespawnWaitTime = 2.f;
 	ForceRespawnTime = 5.f;
-	MaxReadyWaitTime = 60;
+	MaxReadyWaitTime = 300;
 	bHasRespawnChoices = false;
 	MinPlayersToStart = 2;
 	QuickPlayersToStart = 4;
 	MaxWaitForPlayers = 480;
-	MaxWaitForQuickMatch = 240;
+	MaxWaitForQuickMatch = 300;
 	EndScoreboardDelay = 4.f;
 	MainScoreboardDisplayTime = 5.f;
 	ScoringPlaysDisplayTime = 0.f; 
@@ -236,7 +236,6 @@ void AUTGameMode::InitGame( const FString& MapName, const FString& Options, FStr
 	bForceRespawn = EvalBoolOptions(InOpt, bForceRespawn);
 
 	MaxWaitForPlayers = UGameplayStatics::GetIntOption(Options, TEXT("MaxPlayerWait"), MaxWaitForPlayers);
-	MaxReadyWaitTime = UGameplayStatics::GetIntOption(Options, TEXT("MaxReadyWait"), MaxReadyWaitTime);
 
 	TimeLimit = FMath::Max(0, UGameplayStatics::GetIntOption(Options, TEXT("TimeLimit"), TimeLimit));
 	TimeLimit *= 60;
@@ -1707,7 +1706,7 @@ void AUTGameMode::RemoveAllPawns()
 		AController* Controller = *Iterator;
 		if (Cast<AUTPlayerController>(Controller))
 		{
-			((AUTPlayerController *)Controller)->bIsWarmingUp = false;
+			((AUTPlayerController *)Controller)->UTPlayerState->bIsWarmingUp = false;
 		}
 		if (Controller->GetPawn() != NULL)
 		{
@@ -2454,7 +2453,7 @@ void AUTGameMode::RestartPlayer(AController* aPlayer)
 		return;
 	}
 	AUTPlayerController* UTPC = Cast<AUTPlayerController>(aPlayer);
-	if (!IsMatchInProgress() && (!UTPC || !UTPC->bIsWarmingUp || (GetMatchState() != MatchState::WaitingToStart)))
+	if (!IsMatchInProgress() && (!UTPC || !UTPC->UTPlayerState || !UTPC->UTPlayerState->bIsWarmingUp || (GetMatchState() != MatchState::WaitingToStart)))
 	{
 		return;
 	}
@@ -2850,7 +2849,7 @@ bool AUTGameMode::PlayerCanRestart_Implementation(APlayerController* Player)
 	if (!IsMatchInProgress())
 	{
 		AUTPlayerController* UTPC = Cast<AUTPlayerController>(Player);
-		if (!UTPC || (GetMatchState() != MatchState::WaitingToStart) || !UTPC->bIsWarmingUp)
+		if (!UTPC || (GetMatchState() != MatchState::WaitingToStart) || !UTPC->UTPlayerState || !UTPC->UTPlayerState->bIsWarmingUp)
 		{
 			return false;
 		}
@@ -2924,7 +2923,7 @@ bool AUTGameMode::ReadyToStartMatch_Implementation()
 				LockSession();
 			}
 
-			bool bMaxWaitComplete = (MaxReadyWaitTime > 0) && !bRequireReady && (GetNetMode() != NM_Standalone) && (ElapsedWaitTime > MaxReadyWaitTime);
+			bool bMaxWaitComplete = (MaxWaitForPlayers > 0) && (GetNetMode() != NM_Standalone) && (ElapsedWaitTime > MaxWaitForPlayers);
 			if (bMaxWaitComplete)
 			{
 				if (ExpectedPlayerCount == 0 || ExpectedPlayerCount == NumPlayers)
@@ -2951,23 +2950,31 @@ bool AUTGameMode::ReadyToStartMatch_Implementation()
 						RankedGameSession->Restart();
 					}
 				}
-			}
+		}
 		}
 		else
 		{
-			UTGameState->PlayersNeeded = (!bIsQuickMatch || GetWorld()->GetTimeSeconds() - StartPlayTime > MaxWaitForQuickMatch) ? FMath::Max(0, MinPlayersToStart - NumPlayers - NumBots) : FMath::Max(0, QuickPlayersToStart - NumPlayers - NumBots);
+			UTGameState->PlayersNeeded = (!bIsQuickMatch || GetWorld()->GetTimeSeconds() - StartPlayTime > MaxWaitForQuickMatch) ? FMath::Max(0, MinPlayersToStart - NumPlayers - NumBots) : FMath::Max(0, FMath::Min(GameSession->MaxPlayers, QuickPlayersToStart) - NumPlayers - NumBots);
 			if (((GetNetMode() == NM_Standalone) || bDevServer || (UTGameState->PlayersNeeded == 0)) && (NumPlayers + NumSpectators > 0))
 			{
 				// Count how many ready players we have
 				bool bCasterReady = false;
 				int32 ReadyCount = 0;
 				int32 AllCount = 0;
+				int32 WarmupCount = 0;
 				for (int32 i = 0; i < UTGameState->PlayerArray.Num(); i++)
 				{
 					AUTPlayerState* PS = Cast<AUTPlayerState>(UTGameState->PlayerArray[i]);
 					if (PS != NULL && !PS->bOnlySpectator)
 					{
-						ReadyCount = PS->bReadyToPlay ? ReadyCount + 1 : ReadyCount;
+						if (PS->bReadyToPlay)
+						{
+							ReadyCount++;
+							if (PS->bIsWarmingUp)
+							{
+								WarmupCount++;
+							}
+						}
 						AllCount++;
 					}
 
@@ -2978,16 +2985,23 @@ bool AUTGameMode::ReadyToStartMatch_Implementation()
 					}
 				}
 
+				if (WarmupCount > 0)
+				{
+					// don't start if people are warming up unless game is full
+					UTGameState->PlayersNeeded = FMath::Min(GameSession->MaxPlayers, QuickPlayersToStart) - NumPlayers - NumBots;
+					if (!bCasterControl)
+					{
+						ReadyCount -= 1;
+					}
+				}
+
 				// start if everyone is ready, or have waited long enough and 60% ready.
-				// ranked sesisons will quit if expected player count not met
+				// ranked sessions will quit if expected player count not met
 				bool bMaxWaitComplete = (MaxReadyWaitTime > 0) && !bRequireReady && (GetNetMode() != NM_Standalone) && (ElapsedWaitTime > MaxReadyWaitTime);
 				
 				if ((ReadyCount == AllCount) || (bMaxWaitComplete && (float(ReadyCount) >= 0.6f*float(AllCount))))
 				{
-					if (((ReadyCount > 0) && !bCasterControl) || bCasterReady)
-					{
-						return true;
-					}
+					return bCasterControl ? bCasterReady : (ReadyCount > 0);
 				}
 			}
 		}
@@ -3008,7 +3022,7 @@ bool AUTGameMode::ReadyToStartMatch_Implementation()
 
 		if (bUpdateWaitCountdown)
 		{
-			int32 WaitCountDown = (NumPlayers > 1) ? MaxReadyWaitTime  : FMath::Max(MaxReadyWaitTime, MaxWaitForPlayers);
+			int32 WaitCountDown = (NumPlayers >= MinPlayersToStart) ? MaxReadyWaitTime  : FMath::Max(MaxReadyWaitTime, MaxWaitForPlayers);
 			WaitCountDown -= ElapsedWaitTime;
 			UTGameState->SetRemainingTime(FMath::Max(0, WaitCountDown));
 		}

@@ -331,7 +331,7 @@ bool AUTCTFGameMode::PlayerCanRestart_Implementation(APlayerController* Player)
 	if (!HasMatchStarted())
 	{
 		AUTPlayerController* UTPC = Cast<AUTPlayerController>(Player);
-		if (!UTPC || !UTPC->bIsWarmingUp)
+		if (!UTPC || !UTPC->UTPlayerState || !UTPC->UTPlayerState->bIsWarmingUp)
 		{
 			return false;
 		}

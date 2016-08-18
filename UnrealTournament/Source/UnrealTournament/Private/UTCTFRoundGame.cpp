@@ -38,6 +38,7 @@ AUTCTFRoundGame::AUTCTFRoundGame(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
 {
 	TimeLimit = 5;
+	QuickPlayersToStart = 10;
 	IntermissionDuration = 30.f;
 	RoundLives = 5;
 	bPerPlayerLives = true;

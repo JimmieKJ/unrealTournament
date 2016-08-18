@@ -192,7 +192,6 @@ void AUTPlayerController::GetLifetimeReplicatedProps(TArray<class FLifetimePrope
 	DOREPLIFETIME_CONDITION(AUTPlayerController, bCastingGuide, COND_OwnerOnly);
 	DOREPLIFETIME_CONDITION(AUTPlayerController, CastingGuideViewIndex, COND_OwnerOnly);
 	DOREPLIFETIME_CONDITION(AUTPlayerController, HUDClass, COND_OwnerOnly);
-	DOREPLIFETIME_CONDITION(AUTPlayerController, bIsWarmingUp, COND_OwnerOnly);
 }
 
 void AUTPlayerController::SendPersonalMessage(TSubclassOf<ULocalMessage> Message, int32 Switch, APlayerState* RelatedPlayerState_1, APlayerState* RelatedPlayerState_2, UObject* OptionalObject)
@@ -2447,8 +2446,8 @@ void AUTPlayerController::ServerToggleWarmup_Implementation()
 	{
 		return;
 	}
-	bIsWarmingUp = !bIsWarmingUp;
-	if (bIsWarmingUp)
+	UTPlayerState->bIsWarmingUp = !UTPlayerState->bIsWarmingUp;
+	if (UTPlayerState->bIsWarmingUp)
 	{
 		if (!IsFrozen())
 		{
@@ -2481,26 +2480,23 @@ void AUTPlayerController::ServerRestartPlayer_Implementation()
 		return;
 	}
 	// Ready up if match hasn't started and not a ranked match
-	if (!UTGM->HasMatchStarted() && !UTGM->bRankedSession && !bIsWarmingUp)
+	if (!UTGM->HasMatchStarted() && !UTGM->bRankedSession && UTPlayerState && !UTPlayerState->bIsWarmingUp)
 	{
-		if (UTPlayerState)
+		if (UTPlayerState->bCaster)
 		{
-			if (UTPlayerState->bCaster)
+			//For casters, all players need to be ready before the caster can be ready. This avoids the game starting if the caster has been mashing buttons while players are getting ready
+			AUTGameState* GS = Cast<AUTGameState>(GetWorld()->GameState);
+			if (UTPlayerState->bCaster && GS != nullptr && GS->AreAllPlayersReady())
 			{
-				//For casters, all players need to be ready before the caster can be ready. This avoids the game starting if the caster has been mashing buttons while players are getting ready
-				AUTGameState* GS = Cast<AUTGameState>(GetWorld()->GameState);
-				if (UTPlayerState->bCaster && GS != nullptr && GS->AreAllPlayersReady())
-				{
-					UTPlayerState->SetReadyToPlay(true);
-					UTPlayerState->ForceNetUpdate();
-				}
-			}
-			else
-			{
-				UTPlayerState->SetReadyToPlay(!UTPlayerState->bReadyToPlay);
-				UTPlayerState->bPendingTeamSwitch = false;
+				UTPlayerState->SetReadyToPlay(true);
 				UTPlayerState->ForceNetUpdate();
 			}
+		}
+		else
+		{
+			UTPlayerState->SetReadyToPlay(!UTPlayerState->bReadyToPlay);
+			UTPlayerState->bPendingTeamSwitch = false;
+			UTPlayerState->ForceNetUpdate();
 		}
 	}
 	//Half-time ready up for caster control
@@ -2540,7 +2536,7 @@ void AUTPlayerController::ServerSwitchTeam_Implementation()
 		uint8 NewTeam = (UTPlayerState->Team->TeamIndex + 1) % GetWorld()->GetGameState<AUTGameState>()->Teams.Num();
 		if (!GetWorld()->GetAuthGameMode()->HasMatchStarted())
 		{
-			if (bIsWarmingUp)
+			if (UTPlayerState->bIsWarmingUp)
 			{
 				// no team swaps while warming up
 				return;
@@ -2582,7 +2578,7 @@ void AUTPlayerController::ServerRestartPlayerAltFire_Implementation()
 	}
 
 	AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
-	if (GS && !GS->HasMatchStarted() && !bIsWarmingUp)
+	if (GS && !GS->HasMatchStarted() && UTPlayerState && !UTPlayerState->bIsWarmingUp)
 	{
 		if (GS->GetMatchState() != MatchState::CountdownToBegin && GS->GetMatchState() != MatchState::PlayerIntro)
 		{
