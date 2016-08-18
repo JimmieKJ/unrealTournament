@@ -1002,6 +1002,7 @@ void SUTWeaponConfigDialog::RecreateWeaponPreview()
 				BasePickup->Movement->StopMovementImmediately();
 				BasePickup->Movement->ProjectileGravityScale = 0.0f;
 				BasePickup->SetActorHiddenInGame(bShowingCrosshairs);
+				BasePickup->PrestreamTextures(0, true);
 				PickupPreviewActors.Add(BasePickup);
 				
 				WeaponPreviewActors.Add(BaseWeapon);
@@ -1032,7 +1033,9 @@ void SUTWeaponConfigDialog::RecreateWeaponPreview()
 						SkinPickup->Movement->ProjectileGravityScale = 0.0f;
 						SkinPickup->SetActorHiddenInGame(bShowingCrosshairs);
 						SkinPickup->SetWeaponSkin(WeaponSkin);
+						SkinPickup->PrestreamTextures(0,true);
 						PreviewWeaponSkins.Add(WeaponSkin);
+
 						PickupPreviewActors.Add(SkinPickup);
 						WeaponPreviewActors.Add(SkinWeapon);
 
