@@ -29,7 +29,9 @@ AUTRepulsorBubble::AUTRepulsorBubble(const class FObjectInitializer& ObjectIniti
 		BubbleMesh->AttachTo(CollisionComp);
 	}
 
-	SetReplicates(true);
+	bAlwaysRelevant = true;
+	bReplicates = true;
+	LastHitByType = RepulsorLastHitType::None;
 }
 
 void AUTRepulsorBubble::PostInitializeComponents()
@@ -57,6 +59,8 @@ void AUTRepulsorBubble::PostInitializeComponents()
 
 void AUTRepulsorBubble::BeginPlay()
 {
+	Super::BeginPlay();
+
 	if (MID_Bubble)
 	{
 		if (TeamNum == 0)
@@ -69,7 +73,15 @@ void AUTRepulsorBubble::BeginPlay()
 		}
 	}
 
-	Super::BeginPlay();
+	if (Instigator && GEngine)
+	{
+		if (Instigator->GetController())
+		{
+			//If we instigated this object then we want to fully fade out the center, so that we can see through the repulsor effects.
+			//Other players should have no center fade effect
+			MID_Bubble->SetScalarParameterValue(FName("CenterFade"), Instigator->GetController() == GEngine->GetFirstLocalPlayerController(GetWorld()) ? 1.0f : 0.0f);
+		}
+	}
 }
 
 void AUTRepulsorBubble::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & OutLifetimeProps) const
@@ -78,6 +90,7 @@ void AUTRepulsorBubble::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > &
 
 	DOREPLIFETIME(AUTRepulsorBubble, TeamNum);
 	DOREPLIFETIME(AUTRepulsorBubble, Health);
+	DOREPLIFETIME(AUTRepulsorBubble, LastHitByType);
 }
 
 void AUTRepulsorBubble::OnOverlapBegin(AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
@@ -157,16 +170,19 @@ void AUTRepulsorBubble::ProcessHitPlayer(AUTCharacter* OtherPlayer, UPrimitiveCo
 		LaunchAngle *= KnockbackStrength;
 		OtherPlayer->LaunchCharacter(LaunchAngle, true, true);
 		
+		LastHitByType = RepulsorLastHitType::Character;
 		TakeDamage(HealthLostToRepulsePlayer, OtherPlayer);
 
 		GetWorldTimerManager().SetTimer(RecentlyBouncedClearTimerHandle,this, &AUTRepulsorBubble::ClearRecentlyBouncedPlayers, RecentlyBouncedResetTime, false);
-
+		
 		OnCharacterBounce();
 	}
 }
 
 void AUTRepulsorBubble::ProcessHitProjectile(AUTProjectile* OtherProj, UPrimitiveComponent* OtherComp, const FVector& HitLocation, const FVector& HitNormal)
 {
+	LastHitByType = RepulsorLastHitType::Projectile;
+
 	//This is before exploding / reflecting projectile so that we damage the Repulsor. Otherwise the instigator changes to us and the shield ignores the damage.
 	OtherProj->DamageImpactedActor(this, CollisionComp, HitLocation, HitNormal);
 	OtherProj->Instigator = Instigator;
@@ -207,19 +223,20 @@ float AUTRepulsorBubble::TakeDamage(float Damage, AActor* DamageCauser)
 {
 	if (ShouldInteractWithActor(DamageCauser))
 	{
-		Health -= Damage;
-
-		if (Health <= 0.f)
-		{
-			Destroy();
-		}
-
 		//If an inventory item is responsible for damage and not a character/projectile
 		//then it is being caused by hitscan. Otherwise this would be the instigator or projectile.
 		AUTInventory* DamageFromInventory = Cast<AUTInventory>(DamageCauser);
 		if (DamageFromInventory)
 		{
+			LastHitByType = RepulsorLastHitType::Hitscan;
 			OnHitScanBlocked();
+		}
+
+		Health -= Damage;
+
+		if (Health <= 0.f)
+		{
+			Destroy();
 		}
 
 		return Damage;
@@ -268,4 +285,18 @@ void AUTRepulsorBubble::Reset_Implementation()
 void AUTRepulsorBubble::IntermissionBegin_Implementation()
 {
 	Destroy();
+}
+
+void AUTRepulsorBubble::OnRep_Health()
+{
+	//Take Damage does not fire on the receiving end for a hitscan weapon. This will
+	//allow us to play hit effects when the damage from the hitscan is replicated to us.
+	switch (LastHitByType)
+	{
+		case RepulsorLastHitType::Hitscan:
+		{
+			OnHitScanBlocked();
+			break;
+		}
+	}
 }

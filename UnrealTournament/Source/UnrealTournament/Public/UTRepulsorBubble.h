@@ -6,6 +6,16 @@
 
 #include "UTRepulsorBubble.generated.h"
 
+UENUM()
+enum class RepulsorLastHitType: uint8
+{
+	None,
+	Projectile,
+	Hitscan,
+	Character
+};
+
+
 UCLASS(Blueprintable, Abstract)
 class UNREALTOURNAMENT_API AUTRepulsorBubble : public AActor , public IUTResetInterface , public IUTIntermissionBeginInterface
 {
@@ -48,7 +58,7 @@ public:
 	float KnockbackStrength;
 	
 	/** Amount of damage the repulsor can absorb/reflect before being destroyed */
-	UPROPERTY(BlueprintReadWrite, Replicated, Category = Repulsor)
+	UPROPERTY(BlueprintReadWrite, Replicated, Category = Repulsor, ReplicatedUsing = OnRep_Health)
 	float Health;
 	
 	UPROPERTY(EditDefaultsOnly, Category = Repulsor)
@@ -109,6 +119,9 @@ public:
 	virtual void Reset_Implementation() override;
 	virtual void IntermissionBegin_Implementation() override;
 	
+	UFUNCTION()
+	virtual void OnRep_Health();
+
 protected:
 
 	UFUNCTION(BlueprintCallable, Category = Bubble)
@@ -120,4 +133,7 @@ protected:
 	virtual void PostInitializeComponents() override;
 
 	void ClearRecentlyBouncedPlayers();
+
+	UPROPERTY(Replicated)
+	RepulsorLastHitType LastHitByType;
 };
