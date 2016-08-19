@@ -1126,10 +1126,12 @@ void AUTCTFRoundGame::ScoreKill_Implementation(AController* Killer, AController*
 	if (OtherPS && IsPlayerOnLifeLimitedTeam(OtherPS) && (OtherPS->RemainingLives > 0))
 	{
 		OtherPS->RemainingLives--;
+		bool bEliminated = false;
 		if (OtherPS->RemainingLives == 0)
 		{
 			// this player is out of lives
 			OtherPS->SetOutOfLives(true);
+			bEliminated = true;
 			bool bFoundTeammate = false;
 			for (int32 i = 0; i < UTGameState->PlayerArray.Num(); i++)
 			{
@@ -1189,7 +1191,7 @@ void AUTCTFRoundGame::ScoreKill_Implementation(AController* Killer, AController*
 				}
 			}
 		}
-		else if ((RemainingDefenders == 3) || (RemainingLives < 10))
+		else if (((RemainingDefenders == 3) && bEliminated) || (RemainingLives < 10))
 		{
 			// find player on other team to speak message
 			AUTPlayerState* Speaker = nullptr;
@@ -1204,7 +1206,7 @@ void AUTCTFRoundGame::ScoreKill_Implementation(AController* Killer, AController*
 			}
 			if (Speaker != nullptr)
 			{
-				if (RemainingDefenders == 3)
+				if ((RemainingDefenders == 3) && bEliminated)
 				{
 					Speaker->AnnounceStatus(StatusMessage::EnemyThreePlayers);
 				}
