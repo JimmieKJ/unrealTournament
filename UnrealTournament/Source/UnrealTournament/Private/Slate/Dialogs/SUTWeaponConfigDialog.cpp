@@ -5,6 +5,7 @@
 #include "SUTWeaponWheelConfigDialog.h"
 #include "../SUWindowsStyle.h"
 #include "../SUTStyle.h"
+#include "../SUTUtils.h"
 #include "../Widgets/SUTTabWidget.h"
 #include "UTCrosshair.h"
 #include "UTCanvasRenderTarget2D.h"
@@ -185,10 +186,8 @@ void SUTWeaponConfigDialog::Construct(const FArguments& InArgs)
 												.OnClicked(this, &SUTWeaponConfigDialog::OnModeChanged, 0)
 												.ButtonStyle(SUTStyle::Get(), "UT.WeaponConfig.Button")
 												.ContentPadding(FMargin(10.0f, 0.0f, 10.0f, 0.0f))
+												.ClickMethod(EButtonClickMethod::MouseDown)
 												.IsToggleButton(true)
-												//.ToolTip(SUTUtils::CreateTooltip(AvailableItems[Idx]->DefaultObject->DisplayName))
-												//.UTOnMouseOver(this, &SUTLoadoutWindow::AvailableUpdateItemInfo)
-												//.WidgetTag(Idx)
 												[
 													SNew(STextBlock)
 													.Text(NSLOCTEXT("SUTWeaponConfigDialog","Variants","Skins"))
@@ -205,10 +204,8 @@ void SUTWeaponConfigDialog::Construct(const FArguments& InArgs)
 												.ContentPadding(FMargin(10.0f, 0.0f, 10.0f, 0.0f))
 												.OnClicked(this, &SUTWeaponConfigDialog::OnModeChanged, 1)
 												.IsToggleButton(true)
+												.ClickMethod(EButtonClickMethod::MouseDown)
 												.ButtonStyle(SUTStyle::Get(), "UT.WeaponConfig.Button")
-												//.ToolTip(SUTUtils::CreateTooltip(AvailableItems[Idx]->DefaultObject->DisplayName))
-												//.UTOnMouseOver(this, &SUTLoadoutWindow::AvailableUpdateItemInfo)
-												//.WidgetTag(Idx)
 												[
 													SNew(STextBlock)
 													.Text(NSLOCTEXT("SUTWeaponConfigDialog", "Crosshairs", "Crosshair"))
@@ -237,9 +234,6 @@ void SUTWeaponConfigDialog::Construct(const FArguments& InArgs)
 											.OnClicked(this, &SUTWeaponConfigDialog::HandleNextPrevious, -1)
 											.ButtonStyle(SUTStyle::Get(), "UT.ArrowButton.Left")
 											.Visibility(this, &SUTWeaponConfigDialog::LeftArrowVis)
-											//.ToolTip(SUTUtils::CreateTooltip(AvailableItems[Idx]->DefaultObject->DisplayName))
-											//.UTOnMouseOver(this, &SUTLoadoutWindow::AvailableUpdateItemInfo)
-											//.WidgetTag(Idx)
 										]
 									]
 									+ SHorizontalBox::Slot().HAlign(HAlign_Center).FillWidth(1.0)
@@ -254,9 +248,6 @@ void SUTWeaponConfigDialog::Construct(const FArguments& InArgs)
 											.OnClicked(this, &SUTWeaponConfigDialog::HandleNextPrevious, 1)
 											.ButtonStyle(SUTStyle::Get(), "UT.ArrowButton.Right")
 											.Visibility(this, &SUTWeaponConfigDialog::RightArrowVis)
-											//.ToolTip(SUTUtils::CreateTooltip(AvailableItems[Idx]->DefaultObject->DisplayName))
-											//.UTOnMouseOver(this, &SUTLoadoutWindow::AvailableUpdateItemInfo)
-											//.WidgetTag(Idx)
 										]
 									]
 								]
@@ -884,6 +875,7 @@ void SUTWeaponConfigDialog::GenerateWeaponList(UClass* DesiredSelectedWeaponClas
 		int32 Col = GroupBoxes[Group].NoButtons % 3;
 		GroupBoxes[Group].NoButtons++;
 		TSharedPtr<SUTButton> Button;
+
 		ButtonBox->AddSlot(Col, Row).Padding(5.0f, 5.0f, 5.0f, 5.0f)
 		[
 			SNew(SVerticalBox)
@@ -898,9 +890,8 @@ void SUTWeaponConfigDialog::GenerateWeaponList(UClass* DesiredSelectedWeaponClas
 						.OnClicked(this, &SUTWeaponConfigDialog::WeaponClicked, i)
 						.IsToggleButton(true)
 						.ButtonStyle(SUTStyle::Get(), "UT.WeaponConfig.Button")
-						//.ToolTip(SUTUtils::CreateTooltip(AvailableItems[Idx]->DefaultObject->DisplayName))
-						//.UTOnMouseOver(this, &SUTLoadoutWindow::AvailableUpdateItemInfo)
-						//.WidgetTag(Idx)
+						.ClickMethod(EButtonClickMethod::MouseDown)
+						.ToolTip(SUTUtils::CreateTooltip(AllWeapons[i].WeaponDefaultObject->DisplayName))
 						[
 							SNew(SVerticalBox)
 							+ SVerticalBox::Slot().HAlign(HAlign_Center).AutoHeight()
@@ -1331,6 +1322,7 @@ void SUTWeaponConfigDialog::GenerateWeaponGroups()
 					.OnClicked(this, &SUTWeaponConfigDialog::WeaponGroupClicked, i)
 					.ButtonStyle(SUTStyle::Get(), "UT.SimpleButton.Dark")
 					.IsToggleButton(true)
+					.ClickMethod(EButtonClickMethod::MouseDown)
 					.CaptionHAlign(HAlign_Center)
 					.Text(i < 10 ? FText::AsNumber(i) : FText::AsNumber(0))
 					.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Small.Bold")
