@@ -535,6 +535,10 @@ void AUTHUD::OpenMatchSummary()
 	AUTGameState* GS = Cast<AUTGameState>(GetWorld()->GetGameState());
 	if (UTLP && GS && !GS->IsPendingKillPending())
 	{
+		if (PlayerOwner && PlayerOwner->PlayerState && !PlayerOwner->PlayerState->bOnlySpectator)
+		{
+			UTLP->CloseSpectatorWindow();
+		}
 		UTLP->ShowMenu(TEXT("forcesummary"));
 	}
 }
@@ -557,8 +561,8 @@ void AUTHUD::PostRender()
 	Super::PostRender();
 
 
-//	DrawString(FText::Format( NSLOCTEXT("a","b","InputMode: {0}"),  FText::AsNumber(Cast<AUTBasePlayerController>(PlayerOwner)->InputMode)), 0, 0, ETextHorzPos::Left, ETextVertPos::Top, SmallFont, FLinearColor::White, 1.0, true);
-//	Canvas->SetDrawColor(255,0,0,255);
+	//DrawString(FText::Format( NSLOCTEXT("a","b","InputMode: {0}"),  FText::AsNumber(Cast<AUTBasePlayerController>(PlayerOwner)->InputMode)), 0, 0, ETextHorzPos::Left, ETextVertPos::Top, SmallFont, FLinearColor::White, 1.0, true);
+	//Canvas->SetDrawColor(255,0,0,255);
 
 }
 
@@ -1166,16 +1170,20 @@ EInputMode::Type AUTHUD::GetInputMode_Implementation() const
 {
 	if (UTPlayerOwner != nullptr)
 	{
-		AUTPlayerState* UTPlayerState = UTPlayerOwner->UTPlayerState;
-		if (UTPlayerState && (UTPlayerState->bOnlySpectator || UTPlayerState->bOutOfLives) )
+		AUTGameState* GameState = GetWorld()->GetGameState<AUTGameState>();
+		if (GameState == nullptr || GameState->GetMatchState() == MatchState::InProgress)
 		{
-			if (UTPlayerOwner->bSpectatorMouseChangesView)
+			AUTPlayerState* UTPlayerState = UTPlayerOwner->UTPlayerState;
+			if (UTPlayerState && (UTPlayerState->bOnlySpectator || UTPlayerState->bOutOfLives) )
 			{
-				return EInputMode::EIM_GameOnly;
-			}
-			else
-			{
-				return EInputMode::EIM_UIOnly;
+				if (UTPlayerOwner->bSpectatorMouseChangesView)
+				{
+					return EInputMode::EIM_GameOnly;
+				}
+				else
+				{
+					return EInputMode::EIM_UIOnly;
+				}
 			}
 		}
 	}
