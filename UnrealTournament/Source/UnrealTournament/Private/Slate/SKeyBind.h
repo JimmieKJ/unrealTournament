@@ -166,8 +166,12 @@ protected:
 		return FReply::Handled();
 	}
 
-
 	virtual FReply OnKeyDown(const FGeometry& MyGeometry, const FKeyEvent& InKeyEvent) override
+	{
+		return bWaitingForKey ? FReply::Handled() : FReply::Unhandled();
+	}
+
+	virtual FReply OnKeyUp(const FGeometry& MyGeometry, const FKeyEvent& InKeyEvent) override
 	{
 		if (bWaitingForKey)
 		{
