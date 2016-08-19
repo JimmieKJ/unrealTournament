@@ -60,7 +60,7 @@ UUTScoreboard::UUTScoreboard(const class FObjectInitializer& ObjectInitializer) 
 	ReadyText = NSLOCTEXT("UTScoreboard", "READY", "READY");
 	NotReadyText = NSLOCTEXT("UTScoreboard", "NOTREADY", "");
 	WarmupText = NSLOCTEXT("UTScoreboard", "WARMUP", "WARMUP");
-	WarmupWarningText = NSLOCTEXT("UTScoreboard", "WarmupWarningText", "Players warming up will increase the number of players needed to start.");
+	WarmupWarningText = NSLOCTEXT("UTScoreboard", "WarmupWarningText", "If players are warming up, will wait for match to fill before starting.");
 	MinimapToggleText = NSLOCTEXT("UTScoreboard", "MinimapToggle", "Press {key} to toggle Minimap");
 	
 	ReadyColor = FLinearColor::White;
