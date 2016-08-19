@@ -10,6 +10,7 @@ AUTServerBeaconClient::AUTServerBeaconClient(const class FObjectInitializer& Obj
 Super(ObjectInitializer)
 {
 	PingStartTime = -1;
+	bRelevantForNetworkReplays = false;
 }
 
 void AUTServerBeaconClient::OnConnected()
