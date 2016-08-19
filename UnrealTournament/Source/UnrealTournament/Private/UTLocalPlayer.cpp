@@ -4716,6 +4716,14 @@ void UUTLocalPlayer::OnReadTitleFileComplete(bool bWasSuccessful, const FString&
 						SaveProfileSettings();
 					}
 				}
+
+				if (MCPPulledData.CurrentVersionNumber > GEngineNetVersion)
+				{
+#if !UE_SERVER
+					ShowMessage(NSLOCTEXT("UTLocalPlayer", "NeedtoUpdateTitle", "New Version Available"), NSLOCTEXT("UTLocalPlayer", "NeedtoUpdateMsg", "There is a newer version of game available.  Would you like to open the launcher and upgrade now?"), UTDIALOG_BUTTON_YES + UTDIALOG_BUTTON_NO, FDialogResultDelegate::CreateUObject(this, &UUTLocalPlayer::OnUpgradeResults),FVector2D(0.25,0.25));					
+#endif
+				}
+
 			}
 		}
 	}
@@ -5629,4 +5637,16 @@ void UUTLocalPlayer::SaveLocalProfileSettings()
 	FFileHelper::SaveArrayToFile(FileContents, *Path);
 }
 
-
+#if !UE_SERVER
+void UUTLocalPlayer::OnUpgradeResults(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID)
+{
+	if (ButtonID == UTDIALOG_BUTTON_YES)
+	{
+		FString URL = TEXT("com.epicgames.launcher://ut");
+		FString Command = TEXT("");
+		FString Error = TEXT("");
+		FPlatformProcess::LaunchURL(*URL, *Command, &Error);
+		FPlatformMisc::RequestExit( 0 );
+	}
+}
+#endif

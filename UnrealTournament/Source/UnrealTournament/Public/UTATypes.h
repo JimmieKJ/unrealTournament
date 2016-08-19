@@ -1258,10 +1258,14 @@ struct FMCPPulledData
 	UPROPERTY()
 	int32 FragCenterCounter;
 
+	UPROPERTY()
+	int32 CurrentVersionNumber;
+
 	FMCPPulledData()
 	{
 		Challenges.Empty();
 		FragCenterCounter=0;
+		CurrentVersionNumber=0;
 	}
 };
 
@@ -1817,3 +1821,4 @@ public:
 		GameActions.Empty();
 	}
 };
+
