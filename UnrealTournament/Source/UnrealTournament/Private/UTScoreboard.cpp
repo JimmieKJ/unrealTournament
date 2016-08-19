@@ -38,7 +38,7 @@ UUTScoreboard::UUTScoreboard(const class FObjectInitializer& ObjectInitializer) 
 	ShotsColumn = 0.72f;
 	AccuracyColumn = 0.84f;
 	ValueColumn = 0.5f;
-	ScoreColumn = 0.75f;
+	ScoreColumn = 0.85f;
 	bHighlightStatsLineTopValue = false;
 
 	static ConstructorHelpers::FObjectFinder<USoundBase> OtherSpreeSoundFinder(TEXT("SoundWave'/Game/RestrictedAssets/Audio/UI/A_UI_SpecSwitch01.A_UI_SpecSwitch01'"));
@@ -59,6 +59,8 @@ UUTScoreboard::UUTScoreboard(const class FObjectInitializer& ObjectInitializer) 
 	TeamSwapText = NSLOCTEXT("UTScoreboard", "TEAMSWITCH", "TEAM SWAP");
 	ReadyText = NSLOCTEXT("UTScoreboard", "READY", "READY");
 	NotReadyText = NSLOCTEXT("UTScoreboard", "NOTREADY", "");
+	WarmupText = NSLOCTEXT("UTScoreboard", "WARMUP", "WARMUP");
+	WarmupWarningText = NSLOCTEXT("UTScoreboard", "WarmupWarningText", "If players are warming up, will wait for match to fill before starting.");
 	MinimapToggleText = NSLOCTEXT("UTScoreboard", "MinimapToggle", "Press {key} to toggle Minimap");
 	
 	ReadyColor = FLinearColor::White;
@@ -101,6 +103,7 @@ void UUTScoreboard::Draw_Implementation(float RenderDelta)
 {
 	Super::Draw_Implementation(RenderDelta);
 
+	bHaveWarmup = false;
 	float YOffset = 64.f*RenderScale;
 	DrawGamePanel(RenderDelta, YOffset);
 	DrawTeamPanel(RenderDelta, YOffset);
@@ -113,7 +116,7 @@ void UUTScoreboard::Draw_Implementation(float RenderDelta)
 
 	if (bDrawMinimapInScoreboard && UTGameState && UTHUDOwner && !UTHUDOwner->IsPendingKillPending())
 	{
-		bool bToggledMinimap = !UTGameState->HasMatchStarted() && (!UTPlayerOwner || !UTPlayerOwner->bIsWarmingUp);
+		bool bToggledMinimap = !UTGameState->HasMatchStarted() && (!UTPlayerOwner || !UTPlayerOwner->UTPlayerState || !UTPlayerOwner->UTPlayerState->bIsWarmingUp);
 		float MapScale = 0.62f;
 		const float MapSize = float(Canvas->SizeY) * MapScale;
 		if (!bToggledMinimap || !UTHUDOwner->bShowScores)
@@ -124,29 +127,15 @@ void UUTScoreboard::Draw_Implementation(float RenderDelta)
 		}
 		if (bToggledMinimap)
 		{
-			if (MinimapBinding.ActionName != "ShowScores")
-			{
-				UInputSettings* InputSettings = UInputSettings::StaticClass()->GetDefaultObject<UInputSettings>();
-				if (InputSettings)
-				{
-					for (int32 inputIndex = 0; inputIndex < InputSettings->ActionMappings.Num(); ++inputIndex)
-					{
-						FInputActionKeyMapping& Action = InputSettings->ActionMappings[inputIndex];
-						if (Action.ActionName == "ShowScores")
-						{
-							if ((MinimapBinding.ActionName != "ShowScores") || (MinimapBinding.Key.GetDisplayName().ToString().Len() > Action.Key.GetDisplayName().ToString().Len()))
-							{
-								MinimapBinding = Action;
-							}
-						}
-					}
-				}
-			}
 			FFormatNamedArguments Args;
-			Args.Add("key", MinimapBinding.Key.GetDisplayName());
+			Args.Add("key", UTHUDOwner->ShowScoresLabel);
 			FText MinimapMessage = FText::Format(MinimapToggleText, Args);
 			DrawText(MinimapMessage, MinimapCenter.X*Canvas->ClipX - 0.5f*MapSize, MinimapCenter.Y*Canvas->ClipY + 0.5f*MapSize, UTHUDOwner->TinyFont, RenderScale, 1.f, FLinearColor::White, ETextHorzPos::Left, ETextVertPos::Center);
 		}
+	}
+	if (bHaveWarmup)
+	{
+		DrawText(WarmupWarningText, 16.f * RenderScale, 16.f*RenderScale, UTHUDOwner->SmallFont, RenderScale, 1.f, FLinearColor::White, ETextHorzPos::Left, ETextVertPos::Center);
 	}
 }
 
@@ -402,7 +391,6 @@ void UUTScoreboard::DrawPlayer(int32 Index, AUTPlayerState* PlayerState, float R
 	{
 		DrawTexture(UTHUDOwner->ScoreboardAtlas, XOffset + (ScaledCellWidth * ColumnHeaderPlayerX) + (NameSize.X+5.f)*RenderScale, YOffset + 18.f*RenderScale, 30.f*RenderScale, 24.f*RenderScale, 236, 136, 30, 24, 1.0, FLinearColor::White, FVector2D(0.0f, 0.5f));
 	}
-
 	if (UTGameState && UTGameState->HasMatchStarted())
 	{
 		if (PlayerState->bPendingTeamSwitch)
@@ -456,7 +444,13 @@ void UUTScoreboard::DrawPlayer(int32 Index, AUTPlayerState* PlayerState, float R
 
 void UUTScoreboard::DrawReadyText(AUTPlayerState* PlayerState, float XOffset, float YOffset, float Width)
 {
-	FText PlayerReady = PlayerState->bReadyToPlay ? ReadyText : NotReadyText;
+	FText PlayerReady = NotReadyText;
+	if (PlayerState->bReadyToPlay)
+	{
+		PlayerReady = PlayerState->bIsWarmingUp ? WarmupText : ReadyText;
+		bHaveWarmup = bHaveWarmup || PlayerState->bIsWarmingUp;
+	}
+		
 	float ReadyX = XOffset + ScaledCellWidth * ColumnHeaderScoreX;
 	if (PlayerState && PlayerState->bPendingTeamSwitch)
 	{
@@ -739,16 +733,21 @@ void UUTScoreboard::DrawTextStatsLine(FText StatsName, FString StatValue, FStrin
 {
 	Canvas->SetLinearDrawColor(FLinearColor::White);
 	Canvas->DrawText(StatsFontInfo.TextFont, StatsName, XOffset, YPos, RenderScale, RenderScale, StatsFontInfo.TextRenderInfo);
-
 	if (!StatValue.IsEmpty())
 	{
+		float XL, YL;
+		Canvas->StrLen(StatsFontInfo.TextFont, StatValue, XL, YL);
+		float NameScale = FMath::Clamp(0.96f*ScoreWidth * (ScoreColumn - ValueColumn)/ FMath::Max(XL, 1.f), 0.5f, 1.f);
 		Canvas->SetLinearDrawColor((HighlightIndex & 1) ? FLinearColor::Yellow : FLinearColor::White);
-		Canvas->DrawText(StatsFontInfo.TextFont, StatValue, XOffset + ValueColumn*ScoreWidth, YPos, RenderScale, RenderScale, StatsFontInfo.TextRenderInfo);
+		Canvas->DrawText(StatsFontInfo.TextFont, StatValue, XOffset + ValueColumn*ScoreWidth, YPos, NameScale, RenderScale, StatsFontInfo.TextRenderInfo);
 	}
 	if (!ScoreValue.IsEmpty())
 	{
+		float XL, YL;
+		Canvas->StrLen(StatsFontInfo.TextFont, ScoreValue, XL, YL);
+		float NameScale = FMath::Clamp(0.96f*ScoreWidth * (ScoreColumn - ValueColumn) / FMath::Max(XL, 1.f), 0.5f, 1.f);
 		Canvas->SetLinearDrawColor((HighlightIndex & 2) ? FLinearColor::Yellow : FLinearColor::White);
-		Canvas->DrawText(StatsFontInfo.TextFont, ScoreValue, XOffset + ScoreColumn*ScoreWidth, YPos, RenderScale, RenderScale, StatsFontInfo.TextRenderInfo);
+		Canvas->DrawText(StatsFontInfo.TextFont, ScoreValue, XOffset + ScoreColumn*ScoreWidth, YPos, NameScale, RenderScale, StatsFontInfo.TextRenderInfo);
 	}
 	YPos += StatsFontInfo.TextHeight;
 }

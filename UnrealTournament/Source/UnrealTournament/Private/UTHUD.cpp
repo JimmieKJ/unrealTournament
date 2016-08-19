@@ -96,7 +96,6 @@ AUTHUD::AUTHUD(const class FObjectInitializer& ObjectInitializer) : Super(Object
 	TeamIconUV[0] = FVector2D(257.f, 940.f);
 	TeamIconUV[1] = FVector2D(333.f, 940.f);
 
-	bCustomWeaponCrosshairs = true;
 	bShowUTHUD = true;
 
 	TimerHours = NSLOCTEXT("UTHUD", "TIMERHOURS", "{Prefix}{Hours}:{Minutes}:{Seconds}{Suffix}");
@@ -435,28 +434,28 @@ void AUTHUD::UpdateKeyMappings(bool bForceUpdate)
 	if (!bKeyMappingsSet || bForceUpdate)
 	{
 		bKeyMappingsSet = true;
-		FInputActionKeyMapping ActivatePowerupBinding = FindKeyMappingTo("StartActivatePowerup");
-		BoostLabel = ActivatePowerupBinding.Key.GetDisplayName();
-		FInputActionKeyMapping RallyBinding = FindKeyMappingTo("RequestRally");
-		RallyLabel = RallyBinding.Key.GetDisplayName();
+		BoostLabel = FindKeyMappingTo("ActivateSpecial");
+		RallyLabel = FindKeyMappingTo("RequestRally");
+		ShowScoresLabel = FindKeyMappingTo("ShowScores");
 	}
 }
 
-FInputActionKeyMapping AUTHUD::FindKeyMappingTo(FName InActionName)
+FText AUTHUD::FindKeyMappingTo(FName InActionName)
 {
-	UInputSettings* InputSettings = UInputSettings::StaticClass()->GetDefaultObject<UInputSettings>();
-	if (InputSettings)
+	UUTProfileSettings* ProfileSettings;
+	ProfileSettings = UTPlayerOwner->GetProfileSettings();
+	if (ProfileSettings)
 	{
-		for (int32 inputIndex = 0; inputIndex < InputSettings->ActionMappings.Num(); ++inputIndex)
+		const FKeyConfigurationInfo* GameAction = ProfileSettings->FindGameAction(InActionName);
+		if (GameAction != nullptr)
 		{
-			FInputActionKeyMapping& Action = InputSettings->ActionMappings[inputIndex];
-			if (Action.ActionName == InActionName)
-			{
-				return Action;
-			}
+			if (GameAction->PrimaryKey != FKey()) return GameAction->PrimaryKey.GetDisplayName();
+			if (GameAction->SecondaryKey != FKey()) return GameAction->SecondaryKey.GetDisplayName();
+			if (GameAction->GamepadKey != FKey()) return GameAction->GamepadKey.GetDisplayName();
 		}
 	}
-	return FInputActionKeyMapping();
+
+	return FText::FromString(TEXT("<none>"));
 }
 
 void AUTHUD::ReceiveLocalMessage(TSubclassOf<class UUTLocalMessage> MessageClass, APlayerState* RelatedPlayerState_1, APlayerState* RelatedPlayerState_2, uint32 MessageIndex, FText LocalMessageText, UObject* OptionalObject)
@@ -506,7 +505,7 @@ void AUTHUD::NotifyMatchStateChange()
 		}
 		else if (GS->GetMatchState() == MatchState::PlayerIntro)
 		{
-			if (UTPlayerOwner->bIsWarmingUp)
+			if (UTPlayerOwner->UTPlayerState->bIsWarmingUp)
 			{
 				UTPlayerOwner->ClientReceiveLocalizedMessage(UUTGameMessage::StaticClass(), 16, nullptr, nullptr, nullptr);
 			}
@@ -537,6 +536,10 @@ void AUTHUD::OpenMatchSummary()
 	AUTGameState* GS = Cast<AUTGameState>(GetWorld()->GetGameState());
 	if (UTLP && GS && !GS->IsPendingKillPending())
 	{
+		if (PlayerOwner && PlayerOwner->PlayerState && !PlayerOwner->PlayerState->bOnlySpectator)
+		{
+			UTLP->CloseSpectatorWindow();
+		}
 		UTLP->ShowMenu(TEXT("forcesummary"));
 	}
 }
@@ -559,8 +562,8 @@ void AUTHUD::PostRender()
 	Super::PostRender();
 
 
-//	DrawString(FText::Format( NSLOCTEXT("a","b","InputMode: {0}"),  FText::AsNumber(Cast<AUTBasePlayerController>(PlayerOwner)->InputMode)), 0, 0, ETextHorzPos::Left, ETextVertPos::Top, SmallFont, FLinearColor::White, 1.0, true);
-//	Canvas->SetDrawColor(255,0,0,255);
+	//DrawString(FText::Format( NSLOCTEXT("a","b","InputMode: {0}"),  FText::AsNumber(Cast<AUTBasePlayerController>(PlayerOwner)->InputMode)), 0, 0, ETextHorzPos::Left, ETextVertPos::Top, SmallFont, FLinearColor::White, 1.0, true);
+	//Canvas->SetDrawColor(255,0,0,255);
 
 }
 
@@ -610,7 +613,7 @@ void AUTHUD::DrawHUD()
 		const FVector2D Center(Canvas->ClipX * 0.5f, Canvas->ClipY * 0.5f);
 
 		AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
-		bool bPreMatchScoreBoard = (GS && !GS->HasMatchStarted() && !GS->IsMatchInCountdown()) && (!UTPlayerOwner || !UTPlayerOwner->bIsWarmingUp);
+		bool bPreMatchScoreBoard = (GS && !GS->HasMatchStarted() && !GS->IsMatchInCountdown()) && (!UTPlayerOwner || !UTPlayerOwner->UTPlayerState || !UTPlayerOwner->UTPlayerState->bIsWarmingUp);
 		bShowScoresWhileDead = bShowScoresWhileDead && GS && GS->IsMatchInProgress() && !GS->IsMatchIntermission() && UTPlayerOwner && !UTPlayerOwner->GetPawn() && !UTPlayerOwner->IsInState(NAME_Spectating);
 		bool bScoreboardIsUp = bShowScores || bPreMatchScoreBoard || bForceScores || bShowScoresWhileDead;
 		if (!bFontsCached)
@@ -1168,16 +1171,20 @@ EInputMode::Type AUTHUD::GetInputMode_Implementation() const
 {
 	if (UTPlayerOwner != nullptr)
 	{
-		AUTPlayerState* UTPlayerState = UTPlayerOwner->UTPlayerState;
-		if (UTPlayerState && (UTPlayerState->bOnlySpectator || UTPlayerState->bOutOfLives) )
+		AUTGameState* GameState = GetWorld()->GetGameState<AUTGameState>();
+		if (GameState == nullptr || GameState->GetMatchState() == MatchState::InProgress)
 		{
-			if (UTPlayerOwner->bSpectatorMouseChangesView)
+			AUTPlayerState* UTPlayerState = UTPlayerOwner->UTPlayerState;
+			if (UTPlayerState && (UTPlayerState->bOnlySpectator || UTPlayerState->bOutOfLives) )
 			{
-				return EInputMode::EIM_GameOnly;
-			}
-			else
-			{
-				return EInputMode::EIM_UIOnly;
+				if (UTPlayerOwner->bSpectatorMouseChangesView)
+				{
+					return EInputMode::EIM_GameOnly;
+				}
+				else
+				{
+					return EInputMode::EIM_UIOnly;
+				}
 			}
 		}
 	}

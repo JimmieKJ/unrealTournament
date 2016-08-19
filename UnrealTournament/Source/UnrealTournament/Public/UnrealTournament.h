@@ -22,6 +22,7 @@ UNREALTOURNAMENT_API DECLARE_LOG_CATEGORY_EXTERN(UTLoading, Log, All);
 #include "UTResetInterface.h"
 #include "UTGameplayStatics.h"
 #include "UTGameUserSettings.h"
+#include "UTTextRenderComponent.h"
 #include "UTLocalPlayer.h"
 #include "UTBaseGameMode.h"
 #include "UTLocalMessage.h"

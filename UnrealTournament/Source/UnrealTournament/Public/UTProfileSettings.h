@@ -11,8 +11,8 @@
 #include "UTWeaponSkin.h"
 #include "UTProfileSettings.generated.h"
 
-static const uint32 VALID_PROFILESETTINGS_VERSION = 28;
-static const uint32 CURRENT_PROFILESETTINGS_VERSION = 28;
+static const uint32 VALID_PROFILESETTINGS_VERSION = 32;
+static const uint32 CURRENT_PROFILESETTINGS_VERSION = 32;
 
 class UUTLocalPlayer;
 
@@ -54,19 +54,23 @@ public:
 	 *	Allows specific hacks to be applied to the profile based on the version number
 	 **/
 
-	void VersionFixup();
+	bool VersionFixup();
+
+	/**
+	 *	Makes sure the GameActions array is up to date
+	 **/
+	bool ValidateGameActions();
+
+	/**
+	 *	Builds the list of default game actions.
+	 **/
+	void GetDefaultGameActions(TArray<FKeyConfigurationInfo>& outGameActions);
 
 	/**
 	 *	Use this function to reset values in the profile to their default state.  NOTE this doesn't save the profile, you have
 	 *  to do that manually
 	 **/
-
 	void ResetProfile(EProfileResetType::Type SectionToReset);
-
-	/**
-	 *	Verify that the input is up to date and that all input rules have been applied.  Returns true if we should save the profile
-	 **/
-	bool VerifyInputRules();
 
 	// If true, the profile object should be saved on level change.
 	bool bNeedProfileWriteOnLevelChange;
@@ -86,10 +90,6 @@ public:
 	// When were these settings saved
 	UPROPERTY(BlueprintReadOnly, Category = Profile)
 	FDateTime SettingsSavedOn;
-
-	// The UInputSettings object converted in to raw data for storage.
-	UPROPERTY()
-	TArray<uint8> RawInputSettings;
 
 
 	// ======================== Character Settings
@@ -163,10 +163,16 @@ public:
 	uint32 bCustomWeaponCrosshairs : 1;
 
 	UPROPERTY(BlueprintReadOnly, Category = Weapon)
+	uint32 bSingleCustomWeaponCrosshair : 1;
+
+	UPROPERTY(BlueprintReadOnly, Category = Weapon)
 	uint32 bAutoWeaponSwitch : 1;
 
 	UPROPERTY(BlueprintReadOnly, Category = Weapon)
 	TEnumAsByte<EWeaponHand> WeaponHand;
+
+	UPROPERTY(BlueprintReadOnly, Category = Input)
+	FWeaponCustomizationInfo SingleCustomWeaponCrosshair;
 
 	// Holds the mapping values for the weapon wheel.  This will always have 8 entries and each entry is the weapon group to activate on the weapon wheel or -1 for empty
 	UPROPERTY(BlueprintReadOnly, Category = HUD)
@@ -316,17 +322,9 @@ public:
 
 	// ======================== Input Settings
 
+	// Holds all of the actions for the base game.  TODO: Add a mod version so that mods can bind keys easier
 	UPROPERTY(BlueprintReadOnly, Category = Input)
-	TArray<struct FInputActionKeyMapping> ActionMappings;
-
-	UPROPERTY(BlueprintReadOnly, Category = Input)
-	TArray<struct FInputAxisKeyMapping> AxisMappings;
-
-	UPROPERTY(BlueprintReadOnly, Category = Input)
-	TArray<struct FInputAxisConfigEntry> AxisConfig;
-
-	UPROPERTY(BlueprintReadOnly, Category = Input)
-	TArray<FCustomKeyBinding> CustomBinds;
+	TArray<FKeyConfigurationInfo> GameActions;
 
 	UPROPERTY(BlueprintReadOnly, Category = Input)
 	uint32 bEnableMouseSmoothing : 1;
@@ -353,6 +351,9 @@ public:
 	float MaxDodgeClickTimeValue;
 
 	UPROPERTY(BlueprintReadOnly, Category = Input)
+	uint32 bDisableDoubleTapDodge : 1;
+
+	UPROPERTY(BlueprintReadOnly, Category = Input)
 	float MaxDodgeTapTimeValue;
 	
 	UPROPERTY(BlueprintReadOnly, Category = Input)
@@ -364,10 +365,6 @@ public:
 	/** For backwards compatibility, maps to bCrouchTriggersSlide. */
 	UPROPERTY(BlueprintReadOnly, Category = Input)
 	uint32 bAllowSlideFromRun : 1;
-
-	UPROPERTY(BlueprintReadOnly, Category = Input)
-	FKey ConsoleKey;
-
 
 public:
 
@@ -392,5 +389,15 @@ public:
 	// Returns the weapon skin for a given weapon
 	UFUNCTION(BlueprintCallable, Category = Weapon)
 	FString GetWeaponSkinClassname(AUTWeapon* Weapon);
+
+	// Apply the keyboard bindings to the input system.  
+	UFUNCTION(BlueprintCallable, Category = Weapon)
+	void ApplyInputSettings(UUTLocalPlayer* ProfilePlayer);
+
+	const FKeyConfigurationInfo* FindGameAction(FName SearchTag);
+	const FKeyConfigurationInfo* FindGameAction(const FString& SearchTag);
+
+	void ExportKeyBinds();
+	void ImportKeyBinds();
 
 };

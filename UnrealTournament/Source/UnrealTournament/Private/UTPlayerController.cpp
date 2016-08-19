@@ -63,8 +63,6 @@ AUTPlayerController::AUTPlayerController(const class FObjectInitializer& ObjectI
 	BaseTurnRate = 45.f;
 	BaseLookUpRate = 45.f;
 
-	bAutoWeaponSwitch = true;
-	
 	MaxDodgeClickTime = 0.25f;
 	MaxDodgeTapTime = 0.3f;
 	LastTapLeftTime = -10.f;
@@ -149,6 +147,7 @@ AUTPlayerController::AUTPlayerController(const class FObjectInitializer& ObjectI
 
 	LastComMessageSwitch = -1;
 	LastComMessageTime = 0.0f;
+	ReplicatedWeaponHand = EWeaponHand::HAND_Right;
 }
 
 void AUTPlayerController::BeginPlay()
@@ -193,7 +192,6 @@ void AUTPlayerController::GetLifetimeReplicatedProps(TArray<class FLifetimePrope
 	DOREPLIFETIME_CONDITION(AUTPlayerController, bCastingGuide, COND_OwnerOnly);
 	DOREPLIFETIME_CONDITION(AUTPlayerController, CastingGuideViewIndex, COND_OwnerOnly);
 	DOREPLIFETIME_CONDITION(AUTPlayerController, HUDClass, COND_OwnerOnly);
-	DOREPLIFETIME_CONDITION(AUTPlayerController, bIsWarmingUp, COND_OwnerOnly);
 }
 
 void AUTPlayerController::SendPersonalMessage(TSubclassOf<ULocalMessage> Message, int32 Switch, APlayerState* RelatedPlayerState_1, APlayerState* RelatedPlayerState_2, UObject* OptionalObject)
@@ -453,8 +451,6 @@ void AUTPlayerController::SetupInputComponent()
 	InputComponent->BindAction("TapRight", IE_Released, this, &AUTPlayerController::OnTapRightRelease);
 	InputComponent->BindAction("TapForward", IE_Released, this, &AUTPlayerController::OnTapForwardRelease);
 	InputComponent->BindAction("TapBack", IE_Released, this, &AUTPlayerController::OnTapBackRelease);
-
-	InputComponent->BindAction("StartActivatePowerup", IE_Pressed, this, &AUTPlayerController::OnActivatePowerupPress);
 
 	// We have 2 versions of the rotation bindings to handle different kinds of devices differently
 	// "turn" handles devices that provide an absolute delta, such as a mouse.
@@ -851,11 +847,6 @@ void AUTPlayerController::NextWeapon()
 	SwitchWeaponInSequence(false);
 }
 
-void AUTPlayerController::OnActivatePowerupPress()
-{
-	ServerActivatePowerUpPress();
-}
-
 bool AUTPlayerController::ServerActivatePowerUpPress_Validate()
 {
 	return true;
@@ -948,11 +939,6 @@ void AUTPlayerController::TeamNotifiyOfPowerupUse()
 									//21 is Powerup Message
 									PC->ClientReceiveLocalizedMessage(UUTPowerupUseMessage::StaticClass(), 21, UTPlayerState);
 								}
-
-								if (Powerup->NotifySound)
-								{
-									PC->UTClientPlaySound(Powerup->NotifySound);
-								}
 							}
 						}
 					}
@@ -962,11 +948,23 @@ void AUTPlayerController::TeamNotifiyOfPowerupUse()
 	}
 }
 
+void AUTPlayerController::ActivateSpecial()
+{
+	if (UTPlayerState->BoostClass != nullptr)
+	{
+		ServerActivatePowerUpPress();
+	}
+	else
+	{
+		ToggleTranslocator();
+	}
+}
+
 void AUTPlayerController::ToggleTranslocator()
 {
 	if (UTCharacter != NULL && UTCharacter->GetWeapon() != NULL && IsLocalPlayerController())
 	{
-		int32 CurrentGroup = UTCharacter->GetWeapon()->Group;
+		int32 CurrentGroup = GetWeaponGroup(UTCharacter->GetWeapon());
 		if (CurrentGroup == 0)
 		{
 			SwitchWeapon(PreviousWeaponGroup);
@@ -983,7 +981,7 @@ void AUTPlayerController::SelectTranslocator()
 {
 	if (UTCharacter != NULL && UTCharacter->GetWeapon() != NULL && IsLocalPlayerController())
 	{
-		int32 CurrentGroup = UTCharacter->GetWeapon()->Group;
+		int32 CurrentGroup = GetWeaponGroup(UTCharacter->GetWeapon());
 		if (CurrentGroup != 0)
 		{
 			ToggleTranslocator();
@@ -1038,13 +1036,6 @@ void AUTPlayerController::SwitchWeaponInSequence(bool bPrev)
 		}
 		else
 		{
-			UUTProfileSettings* ProfileSettings = NULL;
-
-			if (Cast<UUTLocalPlayer>(Player))
-			{
-				ProfileSettings = Cast<UUTLocalPlayer>(Player)->GetProfileSettings();
-			}
-
 			AUTWeapon* Best = NULL;
 			AUTWeapon* WraparoundChoice = NULL;
 			AUTWeapon* CurrentWeapon = (UTCharacter->GetPendingWeapon() != NULL) ? UTCharacter->GetPendingWeapon() : UTCharacter->GetWeapon();
@@ -1107,6 +1098,10 @@ void AUTPlayerController::CheckAutoWeaponSwitch(AUTWeapon* TestWeapon)
 		{
 			CurWeapon = UTCharacter->GetWeapon();
 		}
+
+		UUTProfileSettings* ProfileSettings = GetProfileSettings();
+
+		bool bAutoWeaponSwitch = ProfileSettings ? ProfileSettings->bAutoWeaponSwitch : true;
 		if (CurWeapon == NULL || (bAutoWeaponSwitch && !UTCharacter->IsPendingFire(CurWeapon->GetCurrentFireMode()) && TestWeapon->AutoSwitchPriority > CurWeapon->AutoSwitchPriority))
 		{
 			UTCharacter->SwitchWeapon(TestWeapon);
@@ -1116,6 +1111,7 @@ void AUTPlayerController::CheckAutoWeaponSwitch(AUTWeapon* TestWeapon)
 
 void AUTPlayerController::RefreshWeaponGroups()
 {
+/*
 	if (UTCharacter == nullptr)  return;
 
 	TArray<int32> GroupSlotIndexes;
@@ -1130,6 +1126,7 @@ void AUTPlayerController::RefreshWeaponGroups()
 			GroupSlotIndexes[Weap->Group]++;
 		}
 	}
+*/
 }
 
 void AUTPlayerController::SwitchWeaponGroup(int32 Group)
@@ -1141,18 +1138,21 @@ void AUTPlayerController::SwitchWeaponGroup(int32 Group)
 		AUTWeapon* CurrWeapon = (UTCharacter->GetPendingWeapon() != NULL) ? UTCharacter->GetPendingWeapon() : UTCharacter->GetWeapon();
 		AUTWeapon* LowestSlotWeapon = NULL;
 		AUTWeapon* NextSlotWeapon = NULL;
+
+		int32 CurrentGroup = GetWeaponGroup(CurrWeapon);
 		for (TInventoryIterator<AUTWeapon> It(UTCharacter); It; ++It)
 		{
 			AUTWeapon* Weap = *It;
 			if (Weap != UTCharacter->GetWeapon() && Weap->HasAnyAmmo())
 			{
-				if (Weap->Group == Group)
+				int32 WeapGroup = GetWeaponGroup(Weap);
+				if (WeapGroup == Group)
 				{
 					if (LowestSlotWeapon == NULL || LowestSlotWeapon->GroupSlot > Weap->GroupSlot)
 					{
 						LowestSlotWeapon = Weap;
 					}
-					if (CurrWeapon != NULL && CurrWeapon->Group == Group && Weap->GroupSlot > CurrWeapon->GroupSlot && (NextSlotWeapon == NULL || NextSlotWeapon->GroupSlot > Weap->GroupSlot))
+					if (CurrWeapon != NULL && CurrentGroup == Group && Weap->GroupSlot > CurrWeapon->GroupSlot && (NextSlotWeapon == NULL || NextSlotWeapon->GroupSlot > Weap->GroupSlot))
 					{
 						NextSlotWeapon = Weap;
 					}
@@ -2276,6 +2276,11 @@ void AUTPlayerController::UpdateHiddenComponents(const FVector& ViewLocation, TS
 					}
 				}
 			}
+			if (!P->GetMesh()->bCastCapsuleIndirectShadow)
+			{
+				P->GetMesh()->bCastCapsuleIndirectShadow = true;
+				P->GetMesh()->MarkRenderStateDirty();
+			}
 		}
 	}
 	else if (P != NULL)
@@ -2303,6 +2308,12 @@ void AUTPlayerController::UpdateHiddenComponents(const FVector& ViewLocation, TS
 		}
 		// hide third person character model
 		HideComponentTree(P->GetMesh(), HiddenComponents);
+		if (P->GetMesh()->bCastCapsuleIndirectShadow)
+		{
+			P->GetMesh()->bCastCapsuleIndirectShadow = false;
+			P->GetMesh()->MarkRenderStateDirty();
+		}
+
 		// hide flag
 		// TODO: long term would be nice to not do this and have it visible at the edge of vision
 		if (P->GetCarriedObject() != NULL)
@@ -2435,8 +2446,8 @@ void AUTPlayerController::ServerToggleWarmup_Implementation()
 	{
 		return;
 	}
-	bIsWarmingUp = !bIsWarmingUp;
-	if (bIsWarmingUp)
+	UTPlayerState->bIsWarmingUp = !UTPlayerState->bIsWarmingUp;
+	if (UTPlayerState->bIsWarmingUp)
 	{
 		if (!IsFrozen())
 		{
@@ -2469,26 +2480,23 @@ void AUTPlayerController::ServerRestartPlayer_Implementation()
 		return;
 	}
 	// Ready up if match hasn't started and not a ranked match
-	if (!UTGM->HasMatchStarted() && !UTGM->bRankedSession && !bIsWarmingUp)
+	if (!UTGM->HasMatchStarted() && !UTGM->bRankedSession && UTPlayerState && !UTPlayerState->bIsWarmingUp)
 	{
-		if (UTPlayerState)
+		if (UTPlayerState->bCaster)
 		{
-			if (UTPlayerState->bCaster)
+			//For casters, all players need to be ready before the caster can be ready. This avoids the game starting if the caster has been mashing buttons while players are getting ready
+			AUTGameState* GS = Cast<AUTGameState>(GetWorld()->GameState);
+			if (UTPlayerState->bCaster && GS != nullptr && GS->AreAllPlayersReady())
 			{
-				//For casters, all players need to be ready before the caster can be ready. This avoids the game starting if the caster has been mashing buttons while players are getting ready
-				AUTGameState* GS = Cast<AUTGameState>(GetWorld()->GameState);
-				if (UTPlayerState->bCaster && GS != nullptr && GS->AreAllPlayersReady())
-				{
-					UTPlayerState->SetReadyToPlay(true);
-					UTPlayerState->ForceNetUpdate();
-				}
-			}
-			else
-			{
-				UTPlayerState->SetReadyToPlay(!UTPlayerState->bReadyToPlay);
-				UTPlayerState->bPendingTeamSwitch = false;
+				UTPlayerState->SetReadyToPlay(true);
 				UTPlayerState->ForceNetUpdate();
 			}
+		}
+		else
+		{
+			UTPlayerState->SetReadyToPlay(!UTPlayerState->bReadyToPlay);
+			UTPlayerState->bPendingTeamSwitch = false;
+			UTPlayerState->ForceNetUpdate();
 		}
 	}
 	//Half-time ready up for caster control
@@ -2528,7 +2536,7 @@ void AUTPlayerController::ServerSwitchTeam_Implementation()
 		uint8 NewTeam = (UTPlayerState->Team->TeamIndex + 1) % GetWorld()->GetGameState<AUTGameState>()->Teams.Num();
 		if (!GetWorld()->GetAuthGameMode()->HasMatchStarted())
 		{
-			if (bIsWarmingUp)
+			if (UTPlayerState->bIsWarmingUp)
 			{
 				// no team swaps while warming up
 				return;
@@ -2570,7 +2578,7 @@ void AUTPlayerController::ServerRestartPlayerAltFire_Implementation()
 	}
 
 	AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
-	if (GS && !GS->HasMatchStarted() && !bIsWarmingUp)
+	if (GS && !GS->HasMatchStarted() && UTPlayerState && !UTPlayerState->bIsWarmingUp)
 	{
 		if (GS->GetMatchState() != MatchState::CountdownToBegin && GS->GetMatchState() != MatchState::PlayerIntro)
 		{
@@ -3499,7 +3507,8 @@ bool AUTPlayerController::ServerSuicide_Validate()
 
 void AUTPlayerController::SetWeaponHand(EWeaponHand NewHand)
 {
-	WeaponHand = NewHand;
+	ReplicatedWeaponHand = NewHand;
+
 	AUTCharacter* UTCharTarget = Cast<AUTCharacter>(GetViewTarget());
 	if (UTCharTarget != NULL && UTCharTarget->GetWeapon() != NULL)
 	{
@@ -3568,7 +3577,7 @@ void AUTPlayerController::ReceivedPlayer()
 	{
 		if (GetNetMode() != NM_Standalone)
 		{
-			ServerSetWeaponHand(WeaponHand);
+			ServerSetWeaponHand(GetWeaponHand());
 			if (FUTAnalytics::IsAvailable() && (GetWorld()->GetNetMode() != NM_Client || GetWorld()->GetNetDriver() != NULL)) // make sure we don't do analytics for demo playback
 			{
 				FString ServerInfo = (GetWorld()->GetNetMode() == NM_Client) ? GetWorld()->GetNetDriver()->ServerConnection->URL.ToString() : GEngine->GetWorldContextFromWorldChecked(GetWorld()).LastURL.ToString();
@@ -3582,7 +3591,7 @@ void AUTPlayerController::ReceivedPlayer()
 		}
 
 		// Send over the country flag....
-		UUTProfileSettings* Settings = LP->GetProfileSettings();
+		UUTProfileSettings* Settings = GetProfileSettings();
 		if (Settings != NULL)
 		{
 			FName CountryFlag = Settings->CountryFlag;
@@ -3800,7 +3809,7 @@ float AUTPlayerController::GetWeaponAutoSwitchPriority(AUTWeapon* InWeapon)
 {
 	if (Cast<UUTLocalPlayer>(Player))
 	{
-		UUTProfileSettings* ProfileSettings = Cast<UUTLocalPlayer>(Player)->GetProfileSettings();
+		UUTProfileSettings* ProfileSettings = GetProfileSettings();
 		if (ProfileSettings)
 		{
 			FWeaponCustomizationInfo WeaponCustomization;
@@ -3815,7 +3824,7 @@ int32 AUTPlayerController::GetWeaponGroup(AUTWeapon* InWeapon)
 {
 	if (Cast<UUTLocalPlayer>(Player))
 	{
-		UUTProfileSettings* ProfileSettings = Cast<UUTLocalPlayer>(Player)->GetProfileSettings();
+		UUTProfileSettings* ProfileSettings = GetProfileSettings();
 		if (ProfileSettings)
 		{
 			FWeaponCustomizationInfo WeaponCustomization;
@@ -4112,56 +4121,18 @@ void AUTPlayerController::HUDSettings()
 void AUTPlayerController::ResolveKeybindToFKey(FString Command, TArray<FKey>& Keys, bool bIncludeGamepad, bool bIncludeAxis)
 {
 	Keys.Empty();
-	UInputSettings* InputSettings = UInputSettings::StaticClass()->GetDefaultObject<UInputSettings>();
 
-	//Look though ActionMappings
-	for (int32 i = 0; i < InputSettings->ActionMappings.Num(); i++)
+	UUTProfileSettings* ProfileSettings = GetProfileSettings();
+	if (ProfileSettings)
 	{
-		if (InputSettings->ActionMappings[i].ActionName.ToString() == Command)
+		const FKeyConfigurationInfo* GameAction = ProfileSettings->FindGameAction(Command);
+		if (GameAction)
 		{
-			if (!InputSettings->ActionMappings[i].Key.IsGamepadKey() || bIncludeGamepad)
-			{
-				Keys.Add(InputSettings->ActionMappings[i].Key);
-			}
-		}
-	}
-	
-	if (bIncludeAxis)
-	{
-		for (int32 i = 0; i < InputSettings->AxisMappings.Num(); i++)
-		{
-			if (InputSettings->AxisMappings[i].AxisName.ToString() == Command)
-			{
-				if (!InputSettings->AxisMappings[i].Key.IsGamepadKey() || bIncludeGamepad)
-				{
-					Keys.Add(InputSettings->AxisMappings[i].Key);
-				}
-			}
+			if (GameAction->PrimaryKey != FKey()) Keys.Add(GameAction->PrimaryKey);
+			if (GameAction->SecondaryKey != FKey()) Keys.Add(GameAction->SecondaryKey);
 		}
 	}
 
-	// Look at my Custom Keybinds
-
-	UUTPlayerInput* UTPlayerInput = Cast<UUTPlayerInput>(PlayerInput);
-	if (UTPlayerInput)
-	{
-		for (int32 i = 0; i < UTPlayerInput->CustomBinds.Num(); i++)
-		{
-			if (UTPlayerInput->CustomBinds[i].Command == Command)
-			{
-				if (!FKey(UTPlayerInput->CustomBinds[i].KeyName).IsGamepadKey() || bIncludeGamepad)
-				Keys.Add(FKey(UTPlayerInput->CustomBinds[i].KeyName));
-			}
-		}
-		for (int32 i = 0; i < UTPlayerInput->SpectatorBinds.Num(); i++)
-		{
-			if (UTPlayerInput->SpectatorBinds[i].Command == Command)
-			{
-				if (!FKey(UTPlayerInput->SpectatorBinds[i].KeyName).IsGamepadKey() || bIncludeGamepad)
-					Keys.Add(FKey(UTPlayerInput->SpectatorBinds[i].KeyName));
-			}
-		}
-	}
 }
 
 void AUTPlayerController::ResolveKeybind(FString Command, TArray<FString>& Keys, bool bIncludeGamepad, bool bIncludeAxis)
@@ -4336,9 +4307,9 @@ bool AUTPlayerController::ServerRegisterBanVote_Validate(AUTPlayerState* BadGuy)
 void AUTPlayerController::ServerRegisterBanVote_Implementation(AUTPlayerState* BadGuy)
 {
 	AUTGameState* GameState = GetWorld()->GetGameState<AUTGameState>();
-	if (GameState && UTPlayerState && BadGuy)
+	if (GameState && UTPlayerState && BadGuy && !UTPlayerState->bOnlySpectator)
 	{
-		GameState->VoteForTempBan(BadGuy, UTPlayerState);	
+		GameState->VoteForTempBan(BadGuy, UTPlayerState);
 	}
 }
 
@@ -4705,52 +4676,6 @@ void AUTPlayerController::TestCallstack()
 	UE_LOG(UT, Log, TEXT("%s"), ANSI_TO_TCHAR(StackTrace));
 }
 
-void AUTPlayerController::QSSetType(const FName& Tag)
-{
-	UUTLocalPlayer *LocalPlayer = Cast<UUTLocalPlayer>(Player);
-	if (LocalPlayer)
-	{
-		UUTProfileSettings* Settings = LocalPlayer->GetProfileSettings();
-		if (Settings)
-		{
-			Settings->QuickStatsType = Tag;
-		}
-	}
-}
-void AUTPlayerController::QSSetDist(float Distance)
-{
-	UUTLocalPlayer *LocalPlayer = Cast<UUTLocalPlayer>(Player);
-	if (LocalPlayer)
-	{
-		UUTProfileSettings* Settings = LocalPlayer->GetProfileSettings();
-		if (Settings)
-		{
-			Settings->QuickStatsDistance = Distance;
-		}
-	}
-}
-void AUTPlayerController::QSSetAngle(float Angle)
-{
-	UUTLocalPlayer *LocalPlayer = Cast<UUTLocalPlayer>(Player);
-	if (LocalPlayer)
-	{
-		UUTProfileSettings* Settings = LocalPlayer->GetProfileSettings();
-		if (Settings)
-		{
-			Settings->QuickStatsAngle = Angle;
-		}
-	}
-}
-
-void AUTPlayerController::QSSave()
-{
-	UUTLocalPlayer *LocalPlayer = Cast<UUTLocalPlayer>(Player);
-	if (LocalPlayer)
-	{
-		LocalPlayer->SaveProfileSettings();
-	}
-}
-
 void AUTPlayerController::ResetFoliageDitheredLOD()
 {
 	static auto DitheredLODCVar = IConsoleManager::Get().FindConsoleVariable(TEXT("foliage.DitheredLOD"));
@@ -4889,6 +4814,11 @@ void AUTPlayerController::ProcessVoiceDebug(const FString& Command)
 
 void AUTPlayerController::ClientQueueCoolMoment_Implementation(FUniqueNetIdRepl NetId, float TimeToRewind)
 {
+	if (CVarUTEnableKillcam.GetValueOnGameThread() == 0)
+	{
+		return;
+	}
+
 	UE_LOG(UT, Log, TEXT("ClientQueueCoolMoment %f"), TimeToRewind);
 
 	UUTLocalPlayer* LocalPlayer = Cast<UUTLocalPlayer>(GetLocalPlayer());
@@ -5091,3 +5021,17 @@ void AUTPlayerController::InitializeHeartbeatManager()
 		HeartbeatManager->StartManager(this);
 	}
 }
+
+EWeaponHand AUTPlayerController::GetPreferredWeaponHand()
+{
+	if (GetNetMode() == NM_DedicatedServer)
+	{
+		return ReplicatedWeaponHand;
+	}
+	else
+	{
+		UUTProfileSettings* ProfileSettings = GetProfileSettings();
+		return ProfileSettings ? ProfileSettings->WeaponHand.GetValue() : ReplicatedWeaponHand;
+	}
+}
+

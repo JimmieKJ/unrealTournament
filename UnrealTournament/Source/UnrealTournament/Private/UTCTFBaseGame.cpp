@@ -17,6 +17,7 @@
 #include "StatNames.h"
 #include "Engine/DemoNetDriver.h"
 #include "UTCTFScoreboard.h"
+#include "UTAssistMessage.h"
 
 AUTCTFBaseGame::AUTCTFBaseGame(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -240,11 +241,11 @@ void AUTCTFBaseGame::ScoreObject_Implementation(AUTCarriedObject* GameObject, AU
 			Holder->Team->Score += NewFlagCapScore;
 			Holder->Team->ForceNetUpdate();
 			LastTeamToScore = Holder->Team;
-			BroadcastScoreUpdate(Holder, Holder->Team, OldScore);
+			BroadcastCTFScore(Holder, Holder->Team, OldScore);
 			AddCaptureEventToReplay(Holder, Holder->Team);
 			if (Holder->FlagCaptures == 3)
 			{
-				BroadcastLocalized(this, UUTCTFRewardMessage::StaticClass(), 5, Holder, NULL, Holder->Team);
+				BroadcastLocalized(this, UUTAssistMessage::StaticClass(), 5, Holder, NULL, Holder->Team);
 			}
 
 			for (FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator)
@@ -260,13 +261,42 @@ void AUTCTFBaseGame::ScoreObject_Implementation(AUTCarriedObject* GameObject, AU
 					AUTPlayerState* PS = Cast<AUTPlayerState>((*Iterator)->PlayerState);
 					if (PS && PS->bNeedsAssistAnnouncement)
 					{
-						PC->SendPersonalMessage(UUTCTFRewardMessage::StaticClass(), 2, PS, Holder, NULL);
+						PC->SendPersonalMessage(UUTAssistMessage::StaticClass(), 2, PS, Holder, NULL);
 						PS->bNeedsAssistAnnouncement = false;
 					}
 				}
 			}
 			HandleFlagCapture(HolderPawn, Holder);
 		}
+	}
+}
+
+void AUTCTFBaseGame::BroadcastCTFScore(APlayerState* ScoringPlayer, AUTTeamInfo* ScoringTeam, int32 OldScore)
+{
+	// find best competing score - assume this is called after scores are updated.
+	int32 BestScore = 0;
+	for (int32 i = 0; i < Teams.Num(); i++)
+	{
+		if ((Teams[i] != ScoringTeam) && (Teams[i]->Score >= BestScore))
+		{
+			BestScore = Teams[i]->Score;
+		}
+	}
+	BroadcastLocalized(this, UUTCTFRewardMessage::StaticClass(), 3 + ScoringTeam->TeamIndex, ScoringPlayer, NULL, ScoringTeam);
+
+	if ((OldScore > BestScore) && (OldScore <= BestScore + 2) && (ScoringTeam->Score > BestScore + 2))
+	{
+		BroadcastLocalized(this, UUTCTFGameMessage::StaticClass(), 8, ScoringPlayer, NULL, ScoringTeam);
+	}
+	else if (ScoringTeam->Score >= ((MercyScore > 0) ? (BestScore + MercyScore - 1) : (BestScore + 4)))
+	{
+		BroadcastLocalized(this, UUTCTFGameMessage::StaticClass(), bHasBroadcastDominating ? 2 : 9, ScoringPlayer, NULL, ScoringTeam);
+		bHasBroadcastDominating = true;
+	}
+	else
+	{
+		bHasBroadcastDominating = false; // since other team scored, need new reminder if mercy rule might be hit again
+		BroadcastLocalized(this, UUTCTFGameMessage::StaticClass(), 2, ScoringPlayer, NULL, ScoringTeam);
 	}
 }
 

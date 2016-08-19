@@ -2,8 +2,10 @@
 #include "UnrealTournament.h"
 #include "SUTWeaponConfigDialog.h"
 #include "SUTWeaponPriorityDialog.h"
+#include "SUTWeaponWheelConfigDialog.h"
 #include "../SUWindowsStyle.h"
 #include "../SUTStyle.h"
+#include "../SUTUtils.h"
 #include "../Widgets/SUTTabWidget.h"
 #include "UTCrosshair.h"
 #include "UTCanvasRenderTarget2D.h"
@@ -60,8 +62,10 @@ void SUTWeaponConfigDialog::Construct(const FArguments& InArgs)
 	GatherWeaponData(ProfileSettings);
 	GatherWeaponSkins(ProfileSettings);
 
+	bRequiresSave = false;
 
 	bCustomWeaponCrosshairs = ProfileSettings->bCustomWeaponCrosshairs;
+	bSingleCustomWeaponCrosshair = ProfileSettings->bSingleCustomWeaponCrosshair;
 
 	if (DialogContent.IsValid())
 	{
@@ -93,17 +97,17 @@ void SUTWeaponConfigDialog::Construct(const FArguments& InArgs)
 
 									+ SVerticalBox::Slot().AutoHeight().Padding(5.0f, 5.0f, 5.0f, 5.0f).HAlign(HAlign_Fill)
 									[
-										GenerateCustomWeaponCrosshairs()
+										GenerateCustomWeaponCrosshairs(ProfileSettings)
 									]
 
 									+SVerticalBox::Slot().AutoHeight().Padding(5.0f,5.0f,5.0f,5.0f).HAlign(HAlign_Fill)
 									[
-										GenerateAutoSwitch()								
+										GenerateAutoSwitch(ProfileSettings)		
 									]
 
 									+ SVerticalBox::Slot().AutoHeight().Padding(5.0f,5.0f,5.0f,5.0f).HAlign(HAlign_Fill)
 									[
-										GenerateWeaponHand()
+										GenerateWeaponHand(ProfileSettings)
 									]
 								]
 							]
@@ -182,10 +186,8 @@ void SUTWeaponConfigDialog::Construct(const FArguments& InArgs)
 												.OnClicked(this, &SUTWeaponConfigDialog::OnModeChanged, 0)
 												.ButtonStyle(SUTStyle::Get(), "UT.WeaponConfig.Button")
 												.ContentPadding(FMargin(10.0f, 0.0f, 10.0f, 0.0f))
+												.ClickMethod(EButtonClickMethod::MouseDown)
 												.IsToggleButton(true)
-												//.ToolTip(SUTUtils::CreateTooltip(AvailableItems[Idx]->DefaultObject->DisplayName))
-												//.UTOnMouseOver(this, &SUTLoadoutWindow::AvailableUpdateItemInfo)
-												//.WidgetTag(Idx)
 												[
 													SNew(STextBlock)
 													.Text(NSLOCTEXT("SUTWeaponConfigDialog","Variants","Skins"))
@@ -202,10 +204,8 @@ void SUTWeaponConfigDialog::Construct(const FArguments& InArgs)
 												.ContentPadding(FMargin(10.0f, 0.0f, 10.0f, 0.0f))
 												.OnClicked(this, &SUTWeaponConfigDialog::OnModeChanged, 1)
 												.IsToggleButton(true)
+												.ClickMethod(EButtonClickMethod::MouseDown)
 												.ButtonStyle(SUTStyle::Get(), "UT.WeaponConfig.Button")
-												//.ToolTip(SUTUtils::CreateTooltip(AvailableItems[Idx]->DefaultObject->DisplayName))
-												//.UTOnMouseOver(this, &SUTLoadoutWindow::AvailableUpdateItemInfo)
-												//.WidgetTag(Idx)
 												[
 													SNew(STextBlock)
 													.Text(NSLOCTEXT("SUTWeaponConfigDialog", "Crosshairs", "Crosshair"))
@@ -234,9 +234,6 @@ void SUTWeaponConfigDialog::Construct(const FArguments& InArgs)
 											.OnClicked(this, &SUTWeaponConfigDialog::HandleNextPrevious, -1)
 											.ButtonStyle(SUTStyle::Get(), "UT.ArrowButton.Left")
 											.Visibility(this, &SUTWeaponConfigDialog::LeftArrowVis)
-											//.ToolTip(SUTUtils::CreateTooltip(AvailableItems[Idx]->DefaultObject->DisplayName))
-											//.UTOnMouseOver(this, &SUTLoadoutWindow::AvailableUpdateItemInfo)
-											//.WidgetTag(Idx)
 										]
 									]
 									+ SHorizontalBox::Slot().HAlign(HAlign_Center).FillWidth(1.0)
@@ -251,9 +248,6 @@ void SUTWeaponConfigDialog::Construct(const FArguments& InArgs)
 											.OnClicked(this, &SUTWeaponConfigDialog::HandleNextPrevious, 1)
 											.ButtonStyle(SUTStyle::Get(), "UT.ArrowButton.Right")
 											.Visibility(this, &SUTWeaponConfigDialog::RightArrowVis)
-											//.ToolTip(SUTUtils::CreateTooltip(AvailableItems[Idx]->DefaultObject->DisplayName))
-											//.UTOnMouseOver(this, &SUTLoadoutWindow::AvailableUpdateItemInfo)
-											//.WidgetTag(Idx)
 										]
 									]
 								]
@@ -291,7 +285,20 @@ void SUTWeaponConfigDialog::Construct(const FArguments& InArgs)
 	if (AllWeapons.Num() > 0)
 	{
 		CurrentWeaponIndex = -1;
-		WeaponClicked(0);
+		
+		int32 LowestGroup = -1;
+		int32 SelectedIndex = -1;
+		for (int32 i=0; i < AllWeapons.Num(); i++)
+		{
+			int32 Group = AllWeapons[i].WeaponCustomizationInfo->WeaponGroup;
+			if (SelectedIndex < 0 || Group < LowestGroup)
+			{
+				LowestGroup = Group;
+				SelectedIndex = i;
+			}
+		}
+
+		WeaponClicked(SelectedIndex < 0 ? 0 : SelectedIndex);
 	}
 
 }
@@ -318,7 +325,7 @@ TSharedRef<class SWidget> SUTWeaponConfigDialog::BuildCustomButtonBar()
 			.ContentPadding(FMargin(5.0f, 5.0f, 5.0f, 5.0f))
 			.Text(NSLOCTEXT("SUTWeaponConfigDialog", "WeaponWheel", "CONFIGURE WEAPON WHEEL"))
 			.TextStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button.SmallTextStyle")
-			//.OnClicked(this, &SUTControlSettingsDialog::OnBindDefaultClick)
+			.OnClicked(this, &SUTWeaponConfigDialog::OnConfigureWheelClick)
 		];
 		
 }
@@ -682,7 +689,13 @@ void SUTWeaponConfigDialog::UpdatePreviewRender(UCanvas* C, int32 Width, int32 H
 
 	if (bShowingCrosshairs && AllCrosshairs.IsValidIndex(CurrentCrosshairIndex))
 	{
-		AllCrosshairs[CurrentCrosshairIndex]->DrawCrosshair(C, nullptr, 0.0f, *AllWeapons[CurrentWeaponIndex].WeaponCustomizationInfo);
+		FWeaponCustomizationInfo Customization = FWeaponCustomizationInfo();
+		Customization.CrosshairTag = AllWeapons[CurrentWeaponIndex].WeaponCustomizationInfo->DefaultCrosshairTag;
+		if (bCustomWeaponCrosshairs)
+		{
+			Customization = bSingleCustomWeaponCrosshair ? SingleCustomWeaponCrosshair : *AllWeapons[CurrentWeaponIndex].WeaponCustomizationInfo;
+		}
+		AllCrosshairs[CurrentCrosshairIndex]->DrawCrosshair(nullptr, C, nullptr, 0.0f, Customization);
 	}
 }
 
@@ -862,6 +875,7 @@ void SUTWeaponConfigDialog::GenerateWeaponList(UClass* DesiredSelectedWeaponClas
 		int32 Col = GroupBoxes[Group].NoButtons % 3;
 		GroupBoxes[Group].NoButtons++;
 		TSharedPtr<SUTButton> Button;
+
 		ButtonBox->AddSlot(Col, Row).Padding(5.0f, 5.0f, 5.0f, 5.0f)
 		[
 			SNew(SVerticalBox)
@@ -876,9 +890,8 @@ void SUTWeaponConfigDialog::GenerateWeaponList(UClass* DesiredSelectedWeaponClas
 						.OnClicked(this, &SUTWeaponConfigDialog::WeaponClicked, i)
 						.IsToggleButton(true)
 						.ButtonStyle(SUTStyle::Get(), "UT.WeaponConfig.Button")
-						//.ToolTip(SUTUtils::CreateTooltip(AvailableItems[Idx]->DefaultObject->DisplayName))
-						//.UTOnMouseOver(this, &SUTLoadoutWindow::AvailableUpdateItemInfo)
-						//.WidgetTag(Idx)
+						.ClickMethod(EButtonClickMethod::MouseDown)
+						.ToolTip(SUTUtils::CreateTooltip(AllWeapons[i].WeaponDefaultObject->DisplayName))
 						[
 							SNew(SVerticalBox)
 							+ SVerticalBox::Slot().HAlign(HAlign_Center).AutoHeight()
@@ -980,6 +993,7 @@ void SUTWeaponConfigDialog::RecreateWeaponPreview()
 				BasePickup->Movement->StopMovementImmediately();
 				BasePickup->Movement->ProjectileGravityScale = 0.0f;
 				BasePickup->SetActorHiddenInGame(bShowingCrosshairs);
+				BasePickup->PrestreamTextures(0, true);
 				PickupPreviewActors.Add(BasePickup);
 				
 				WeaponPreviewActors.Add(BaseWeapon);
@@ -1008,8 +1022,11 @@ void SUTWeaponConfigDialog::RecreateWeaponPreview()
 						SkinPickup->SetInventory(SkinWeapon);
 						SkinPickup->Movement->StopMovementImmediately();
 						SkinPickup->Movement->ProjectileGravityScale = 0.0f;
+						SkinPickup->SetActorHiddenInGame(bShowingCrosshairs);
 						SkinPickup->SetWeaponSkin(WeaponSkin);
+						SkinPickup->PrestreamTextures(0,true);
 						PreviewWeaponSkins.Add(WeaponSkin);
+
 						PickupPreviewActors.Add(SkinPickup);
 						WeaponPreviewActors.Add(SkinWeapon);
 
@@ -1045,22 +1062,35 @@ FReply SUTWeaponConfigDialog::WeaponClicked(int32 NewWeaponIndex)
 			UpdateWeaponGroups(AllWeapons[CurrentWeaponIndex].WeaponCustomizationInfo->WeaponGroup);
 		}
 		
-		FName CrosshairTag = AllWeapons[CurrentWeaponIndex].WeaponCustomizationInfo->CrosshairTag;
-		CurrentCrosshairIndex = 0;
-		for (int32 i = 0; i < AllCrosshairs.Num(); i++)
-		{
-			if (AllCrosshairs[i]->CrosshairTag == CrosshairTag)
-			{
-				CurrentCrosshairIndex = i;
-				break;
-			}
-		}
-
+		CalcCrosshairIndex();
 		RecreateWeaponPreview();
 	}
 
 	return FReply::Handled();
 }
+
+void SUTWeaponConfigDialog::CalcCrosshairIndex()
+{
+	FName CrosshairTag = AllWeapons[CurrentWeaponIndex].WeaponCustomizationInfo->DefaultCrosshairTag;
+	if (bCustomWeaponCrosshairs)
+	{
+		CrosshairTag = bSingleCustomWeaponCrosshair
+			? SingleCustomWeaponCrosshair.CrosshairTag
+			: AllWeapons[CurrentWeaponIndex].WeaponCustomizationInfo->CrosshairTag;
+	}
+
+	CurrentCrosshairIndex = 0;
+	for (int32 i = 0; i < AllCrosshairs.Num(); i++)
+	{
+		if (AllCrosshairs[i]->CrosshairTag == CrosshairTag)
+		{
+			CurrentCrosshairIndex = i;
+			break;
+		}
+	}
+}
+
+
 
 void SUTWeaponConfigDialog::DragPreview(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent)
 {
@@ -1101,7 +1131,7 @@ void SUTWeaponConfigDialog::ZoomPreview(float WheelDelta)
 }
 
 
-TSharedRef<SWidget> SUTWeaponConfigDialog::GenerateWeaponHand()
+TSharedRef<SWidget> SUTWeaponConfigDialog::GenerateWeaponHand(UUTProfileSettings* Profile)
 {
 	WeaponHandDesc.Add(NSLOCTEXT("UT", "Right", "Right"));
 	WeaponHandDesc.Add(NSLOCTEXT("UT", "Left", "Left"));
@@ -1116,7 +1146,7 @@ TSharedRef<SWidget> SUTWeaponConfigDialog::GenerateWeaponHand()
 	TSharedPtr<FText> InitiallySelectedHand = WeaponHandList[0];
 	for (TSharedPtr<FText> TestItem : WeaponHandList)
 	{
-		if (TestItem.Get()->EqualTo(WeaponHandDesc[uint8(GetDefault<AUTPlayerController>()->GetWeaponHand())]))
+		if (TestItem.Get()->EqualTo(WeaponHandDesc[uint8(Profile->WeaponHand.GetValue())]))
 		{
 			InitiallySelectedHand = TestItem;
 		}
@@ -1169,7 +1199,7 @@ void SUTWeaponConfigDialog::OnHandSelected(TSharedPtr<FText> NewSelection, ESele
 }
 
 
-TSharedRef<SWidget> SUTWeaponConfigDialog::GenerateAutoSwitch()
+TSharedRef<SWidget> SUTWeaponConfigDialog::GenerateAutoSwitch(UUTProfileSettings* Profile)
 {
 	TSharedPtr<SHorizontalBox> Box;
 	SAssignNew(Box,SHorizontalBox)
@@ -1185,30 +1215,55 @@ TSharedRef<SWidget> SUTWeaponConfigDialog::GenerateAutoSwitch()
 		SAssignNew(AutoWeaponSwitch, SCheckBox)
 		.Style(SUTStyle::Get(), "UT.CheckBox")
 		.ForegroundColor(FLinearColor::White)
-		.IsChecked(GetDefault<AUTPlayerController>()->bAutoWeaponSwitch ? ESlateCheckBoxState::Checked : ESlateCheckBoxState::Unchecked)
+		.IsChecked(Profile->bAutoWeaponSwitch ? ESlateCheckBoxState::Checked : ESlateCheckBoxState::Unchecked)
 	];
 
 	return Box.ToSharedRef();
 }
 
-TSharedRef<SWidget> SUTWeaponConfigDialog::GenerateCustomWeaponCrosshairs()
+TSharedRef<SWidget> SUTWeaponConfigDialog::GenerateCustomWeaponCrosshairs(UUTProfileSettings* Profile)
 {
-	TSharedPtr<SHorizontalBox> Box;
-	SAssignNew(Box, SHorizontalBox)
+	TSharedPtr<SVerticalBox> Box;
+
+	SAssignNew(Box,SVerticalBox)
+	+SVerticalBox::Slot().AutoHeight()
+	[
+		SNew(SHorizontalBox)
 		+ SHorizontalBox::Slot().HAlign(HAlign_Left).AutoWidth().Padding(5.0f, 0.0f, 0.0f, 0.0f)
 		[
 			SNew(STextBlock)
 			.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Tween")
 			.Text(NSLOCTEXT("SUTWeaponConfigDialog", "CustomCrosshair", "Use Custom Weapon Crosshairs"))
 		]
-	+ SHorizontalBox::Slot().FillWidth(1.0).HAlign(HAlign_Right).Padding(0.0f, 0.0f, 5.0f, 0.0f)
+		+ SHorizontalBox::Slot().FillWidth(1.0).HAlign(HAlign_Right).Padding(0.0f, 0.0f, 5.0f, 0.0f)
 		[
 			SAssignNew(CustomWeaponCrosshairs, SCheckBox)
 			.Style(SUTStyle::Get(), "UT.CheckBox")
 			.ForegroundColor(FLinearColor::White)
 			.IsChecked(this, &SUTWeaponConfigDialog::GetCustomWeaponCrosshairs)
 			.OnCheckStateChanged(this, &SUTWeaponConfigDialog::SetCustomWeaponCrosshairs)
-		];
+		]
+	]
+	+SVerticalBox::Slot().AutoHeight()
+	[
+		SNew(SHorizontalBox)
+		+ SHorizontalBox::Slot().HAlign(HAlign_Left).AutoWidth().Padding(15.0f, 0.0f, 0.0f, 0.0f)
+		[
+			SNew(STextBlock)
+			.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Tween")
+			.Text(NSLOCTEXT("SUTWeaponConfigDialog", "SingleCrosshair", "All Weapons use the same Crosshair"))
+			.Visibility(this, &SUTWeaponConfigDialog::GetSingleCustomWeaponCrosshairVis)
+		]
+		+ SHorizontalBox::Slot().FillWidth(1.0).HAlign(HAlign_Right).Padding(0.0f, 0.0f, 5.0f, 0.0f)
+		[
+			SAssignNew(SingleCustomWeaponCrosshairCheckbox, SCheckBox)
+			.Style(SUTStyle::Get(), "UT.CheckBox")
+			.ForegroundColor(FLinearColor::White)
+			.IsChecked(this, &SUTWeaponConfigDialog::GetSingleCustomWeaponCrosshair)
+			.OnCheckStateChanged(this, &SUTWeaponConfigDialog::SetSingleCustomWeaponCrosshair)
+			.Visibility(this, &SUTWeaponConfigDialog::GetSingleCustomWeaponCrosshairVis)
+		]
+	];
 
 	return Box.ToSharedRef();
 }
@@ -1221,7 +1276,26 @@ ECheckBoxState SUTWeaponConfigDialog::GetCustomWeaponCrosshairs() const
 void SUTWeaponConfigDialog::SetCustomWeaponCrosshairs(ECheckBoxState NewState)
 {
 	bCustomWeaponCrosshairs = NewState == ECheckBoxState::Checked;
+	CalcCrosshairIndex();
 	GeneratePage();
+}
+
+ECheckBoxState SUTWeaponConfigDialog::GetSingleCustomWeaponCrosshair() const
+{
+	return bSingleCustomWeaponCrosshair ? ECheckBoxState::Checked : ECheckBoxState::Unchecked;
+}
+
+void SUTWeaponConfigDialog::SetSingleCustomWeaponCrosshair(ECheckBoxState NewState)
+{
+	bSingleCustomWeaponCrosshair = NewState == ECheckBoxState::Checked;
+
+	CalcCrosshairIndex();
+	GeneratePage();
+}
+
+EVisibility SUTWeaponConfigDialog::GetSingleCustomWeaponCrosshairVis() const
+{
+	return bCustomWeaponCrosshairs ? EVisibility::Visible : EVisibility::Collapsed;
 }
 
 
@@ -1248,6 +1322,7 @@ void SUTWeaponConfigDialog::GenerateWeaponGroups()
 					.OnClicked(this, &SUTWeaponConfigDialog::WeaponGroupClicked, i)
 					.ButtonStyle(SUTStyle::Get(), "UT.SimpleButton.Dark")
 					.IsToggleButton(true)
+					.ClickMethod(EButtonClickMethod::MouseDown)
 					.CaptionHAlign(HAlign_Center)
 					.Text(i < 10 ? FText::AsNumber(i) : FText::AsNumber(0))
 					.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Small.Bold")
@@ -1327,6 +1402,10 @@ FReply SUTWeaponConfigDialog::WeaponGroupClicked(int32 NewWeaponGroup)
 
 void SUTWeaponConfigDialog::GatherWeaponSkins(UUTProfileSettings* ProfileSettings)
 {
+	// We are not supporting weapon skins in editor builds right now due to performance.
+	// So disable the gathering .  Also note that they are forced off in the profile.
+
+/*
 	TArray<FAssetData> AssetList;
 	GetAllAssetData(UUTWeaponSkin::StaticClass(), AssetList);
 	for (const FAssetData& Asset : AssetList)
@@ -1347,6 +1426,7 @@ void SUTWeaponConfigDialog::GatherWeaponSkins(UUTProfileSettings* ProfileSetting
 			}
 		}
 	}
+*/
 }
 
 FText SUTWeaponConfigDialog::GetVariantTitle() const
@@ -1371,7 +1451,14 @@ FReply SUTWeaponConfigDialog::HandleNextPrevious(int32 Step)
 		if (CustomWeaponCrosshairs->IsChecked())
 		{
 			CurrentCrosshairIndex = FMath::Clamp<int32>(CurrentCrosshairIndex + Step, 0, AllCrosshairs.Num()-1);
-			AllWeapons[CurrentWeaponIndex].WeaponCustomizationInfo->CrosshairTag = AllCrosshairs[CurrentCrosshairIndex]->CrosshairTag;
+			if (!bSingleCustomWeaponCrosshair)
+			{
+				AllWeapons[CurrentWeaponIndex].WeaponCustomizationInfo->CrosshairTag = AllCrosshairs[CurrentCrosshairIndex]->CrosshairTag;
+			}
+			else
+			{
+				SingleCustomWeaponCrosshair.CrosshairTag = AllCrosshairs[CurrentCrosshairIndex]->CrosshairTag;
+			}
 		}
 	}
 	else
@@ -1464,6 +1551,7 @@ FReply SUTWeaponConfigDialog::OnModeChanged(int32 NewMode)
 
 	if (bShowingCrosshairs)
 	{
+		CalcCrosshairIndex();
 		VariantsButton->UnPressed();
 		CrosshairButton->BePressed();
 	}
@@ -1500,27 +1588,53 @@ void SUTWeaponConfigDialog::GatherCrosshairs(UUTProfileSettings* ProfileSettings
 		}
 	}
 	
+	SingleCustomWeaponCrosshair.CrosshairTag = ProfileSettings->SingleCustomWeaponCrosshair.CrosshairTag;
+	SingleCustomWeaponCrosshair.CrosshairColorOverride = ProfileSettings->SingleCustomWeaponCrosshair.CrosshairColorOverride;
+	SingleCustomWeaponCrosshair.CrosshairScaleOverride = ProfileSettings->SingleCustomWeaponCrosshair.CrosshairScaleOverride;
 }
 
 TOptional<float> SUTWeaponConfigDialog::GetCrosshairScale() const
 {
-	return AllWeapons[CurrentWeaponIndex].WeaponCustomizationInfo->CrosshairScaleOverride;
+	
+	return !bSingleCustomWeaponCrosshair 
+		? AllWeapons[CurrentWeaponIndex].WeaponCustomizationInfo->CrosshairScaleOverride 
+		: SingleCustomWeaponCrosshair.CrosshairScaleOverride;
 }
 
 void SUTWeaponConfigDialog::SetCrosshairScale(float InScale)
 {
-	AllWeapons[CurrentWeaponIndex].WeaponCustomizationInfo->CrosshairScaleOverride = InScale;
+	if (bCustomWeaponCrosshairs)
+	{
+		if (bSingleCustomWeaponCrosshair)
+		{
+			SingleCustomWeaponCrosshair.CrosshairScaleOverride = InScale;
+		}
+		else
+		{
+			AllWeapons[CurrentWeaponIndex].WeaponCustomizationInfo->CrosshairScaleOverride = InScale;
+		}
+	}
 }
 
 FLinearColor SUTWeaponConfigDialog::GetCrosshairColor() const
 {
-	return AllWeapons[CurrentWeaponIndex].WeaponCustomizationInfo->CrosshairColorOverride;
+	return !bSingleCustomWeaponCrosshair 
+		? AllWeapons[CurrentWeaponIndex].WeaponCustomizationInfo->CrosshairColorOverride 
+		: SingleCustomWeaponCrosshair.CrosshairColorOverride;
 }
 
 void SUTWeaponConfigDialog::SetCrosshairColor(FLinearColor NewColor)
 {
-	AllWeapons[CurrentWeaponIndex].WeaponCustomizationInfo->CrosshairColorOverride = NewColor;
+	if (!bSingleCustomWeaponCrosshair)
+	{
+		AllWeapons[CurrentWeaponIndex].WeaponCustomizationInfo->CrosshairColorOverride = NewColor;
+	}
+	else
+	{
+		SingleCustomWeaponCrosshair.CrosshairColorOverride = NewColor;
+	}
 }
+
 
 bool SUTWeaponConfigDialog::IsCurrentSkin() const
 {
@@ -1622,6 +1736,12 @@ FReply SUTWeaponConfigDialog::OnButtonClick(uint16 ButtonID)
 		ProfileSettings->WeaponHand = NewHand;
 		ProfileSettings->WeaponSkins.Empty();
 
+		AUTPlayerController* UTPlayerController = Cast<AUTPlayerController>(PlayerOwner->PlayerController);
+		if (UTPlayerController != nullptr)
+		{
+			UTPlayerController->SetWeaponHand(ProfileSettings->WeaponHand);
+		}
+
 		for(int32 i = 0; i < AllWeapons.Num(); i++)
 		{
 			FName WeaponCustomizationTag = AllWeapons[i].WeaponCustomizationInfo->WeaponCustomizationTag;
@@ -1642,10 +1762,36 @@ FReply SUTWeaponConfigDialog::OnButtonClick(uint16 ButtonID)
 			}
 
 		}
+
+		ProfileSettings->bSingleCustomWeaponCrosshair = bSingleCustomWeaponCrosshair;
+		ProfileSettings->SingleCustomWeaponCrosshair.CrosshairTag = SingleCustomWeaponCrosshair.CrosshairTag;
+		ProfileSettings->SingleCustomWeaponCrosshair.CrosshairColorOverride = SingleCustomWeaponCrosshair.CrosshairColorOverride;
+		ProfileSettings->SingleCustomWeaponCrosshair.CrosshairScaleOverride = SingleCustomWeaponCrosshair.CrosshairScaleOverride;
+
+		bRequiresSave = true;
+	}
+
+	if (bRequiresSave)
+	{
 		PlayerOwner->SaveProfileSettings();
 	}
 
 	return SUTDialogBase::OnButtonClick(ButtonID);
 }
+
+FReply SUTWeaponConfigDialog::OnConfigureWheelClick()
+{
+	SAssignNew(WheelConfigDialog, SUTWeaponWheelConfigDialog).PlayerOwner(PlayerOwner).OnDialogResult(this, &SUTWeaponConfigDialog::WheelConfigDialogClosed);
+	WheelConfigDialog->InitializeList(&AllWeapons);
+	PlayerOwner->OpenDialog(WheelConfigDialog.ToSharedRef());
+	return FReply::Handled();
+
+}
+
+void SUTWeaponConfigDialog::WheelConfigDialogClosed(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID)
+{
+	if (ButtonID == UTDIALOG_BUTTON_OK) bRequiresSave = true;
+}
+
 
 #endif

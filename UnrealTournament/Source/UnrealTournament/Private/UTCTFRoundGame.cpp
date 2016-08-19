@@ -38,6 +38,7 @@ AUTCTFRoundGame::AUTCTFRoundGame(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
 {
 	TimeLimit = 5;
+	QuickPlayersToStart = 10;
 	IntermissionDuration = 30.f;
 	RoundLives = 5;
 	bPerPlayerLives = true;
@@ -180,7 +181,7 @@ void AUTCTFRoundGame::GiveDefaultInventory(APawn* PlayerPawn)
 	}
 }
 
-void AUTCTFRoundGame::BroadcastScoreUpdate(APlayerState* ScoringPlayer, AUTTeamInfo* ScoringTeam, int32 OldScore)
+void AUTCTFRoundGame::BroadcastCTFScore(APlayerState* ScoringPlayer, AUTTeamInfo* ScoringTeam, int32 OldScore)
 {
 	int32 BonusType = 100 + BronzeScore;
 	if (ScoringTeam->RoundBonus > GoldBonusTime)
@@ -193,7 +194,7 @@ void AUTCTFRoundGame::BroadcastScoreUpdate(APlayerState* ScoringPlayer, AUTTeamI
 	}
 
 	BroadcastLocalized(this, UUTCTFRewardMessage::StaticClass(), BonusType, ScoringPlayer, NULL, ScoringTeam);
-	BroadcastLocalized(this, UUTCTFMajorMessage::StaticClass(), 2, ScoringPlayer, NULL, ScoringTeam);
+	BroadcastLocalized(this, UUTCTFGameMessage::StaticClass(), 2, ScoringPlayer, NULL, ScoringTeam);
 }
 
 void AUTCTFRoundGame::DiscardInventory(APawn* Other, AController* Killer)
@@ -912,6 +913,16 @@ bool AUTCTFRoundGame::ChangeTeam(AController* Player, uint8 NewTeamIndex, bool b
 	bool bResult = Super::ChangeTeam(Player, NewTeamIndex, bBroadcast);
 	if (bResult && (GetMatchState() == MatchState::InProgress))
 	{
+		// If a player doesn't have a valid selected boost powerup, lets go ahead and give them the 1st one available in the Powerup List
+		if (PS && UTGameState)
+		{
+			if (!PS->BoostClass || !UTGameState->IsSelectedBoostValid(PS))
+			{
+				TSubclassOf<class AUTInventory> SelectedBoost = UTGameState->GetSelectableBoostByIndex(PS, 0);
+				PS->BoostClass = SelectedBoost;
+			}
+		}
+
 		if (PS && (bSitOutDuringRound || PS->Team) )
 		{
 			PS->RemainingLives = 0;
@@ -919,6 +930,7 @@ bool AUTCTFRoundGame::ChangeTeam(AController* Player, uint8 NewTeamIndex, bool b
 		if (PS->RemainingLives == 0)
 		{ 
 			PS->SetOutOfLives(true);
+			PS->ForceRespawnTime = 1.f;
 		}
 		if (UTGameState)
 		{
@@ -1114,10 +1126,12 @@ void AUTCTFRoundGame::ScoreKill_Implementation(AController* Killer, AController*
 	if (OtherPS && IsPlayerOnLifeLimitedTeam(OtherPS) && (OtherPS->RemainingLives > 0))
 	{
 		OtherPS->RemainingLives--;
+		bool bEliminated = false;
 		if (OtherPS->RemainingLives == 0)
 		{
 			// this player is out of lives
 			OtherPS->SetOutOfLives(true);
+			bEliminated = true;
 			bool bFoundTeammate = false;
 			for (int32 i = 0; i < UTGameState->PlayerArray.Num(); i++)
 			{
@@ -1177,7 +1191,7 @@ void AUTCTFRoundGame::ScoreKill_Implementation(AController* Killer, AController*
 				}
 			}
 		}
-		else if ((RemainingDefenders == 3) || (RemainingLives < 10))
+		else if (((RemainingDefenders == 3) && bEliminated) || (RemainingLives < 10))
 		{
 			// find player on other team to speak message
 			AUTPlayerState* Speaker = nullptr;
@@ -1192,7 +1206,7 @@ void AUTCTFRoundGame::ScoreKill_Implementation(AController* Killer, AController*
 			}
 			if (Speaker != nullptr)
 			{
-				if (RemainingDefenders == 3)
+				if ((RemainingDefenders == 3) && bEliminated)
 				{
 					Speaker->AnnounceStatus(StatusMessage::EnemyThreePlayers);
 				}
@@ -1218,7 +1232,7 @@ void AUTCTFRoundGame::AdjustLeaderHatFor(AUTCharacter* UTChar)
 
 void AUTCTFRoundGame::ScoreRedAlternateWin()
 {
-	if (!IsMatchInProgress() || (GetMatchState() == MatchState::MatchIntermission))
+	if (IsMatchInProgress() && (GetMatchState() != MatchState::MatchIntermission))
 	{
 		ScoreAlternateWin(0);
 	}
@@ -1226,7 +1240,7 @@ void AUTCTFRoundGame::ScoreRedAlternateWin()
 
 void AUTCTFRoundGame::ScoreBlueAlternateWin()
 {
-	if (!IsMatchInProgress() || (GetMatchState() == MatchState::MatchIntermission))
+	if (IsMatchInProgress() && (GetMatchState() != MatchState::MatchIntermission))
 	{
 		ScoreAlternateWin(1);
 	}

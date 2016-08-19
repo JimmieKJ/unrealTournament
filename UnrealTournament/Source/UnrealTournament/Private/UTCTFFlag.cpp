@@ -235,6 +235,27 @@ void AUTCTFFlag::Drop(AController* Killer)
 	}
 }
 
+void AUTCTFFlag::SetHolder(AUTCharacter* NewHolder)
+{
+	Super::SetHolder(NewHolder);
+
+	if (HoldingPawn != nullptr)
+	{
+		// force a re-touch on any flag bases the new holder is overlapping
+		// this handles the case where the flag was dropped such that the next holder is touching the capture point already when it is picked up
+		TArray<UPrimitiveComponent*> Overlaps;
+		HoldingPawn->GetOverlappingComponents(Overlaps);
+		for (UPrimitiveComponent* OtherComp : Overlaps)
+		{
+			AUTCTFFlagBase* FlagBase = Cast<AUTCTFFlagBase>(OtherComp->GetOwner());
+			if (FlagBase != nullptr)
+			{
+				FlagBase->OnOverlapBegin(HoldingPawn, HoldingPawn->GetCapsuleComponent(), 0, false, FHitResult());
+			}
+		}
+	}
+}
+
 void AUTCTFFlag::DelayedDropMessage()
 {
 	if ((LastGameMessageTime < FlagDropTime) && (ObjectState == CarriedObjectState::Dropped))
@@ -373,7 +394,7 @@ void AUTCTFFlag::Tick(float DeltaTime)
 					bool bFullyInNoRallyZone = !bJustTransitionedToNoRallyZone && bNowInNoRallyZone;
 					if (PastPositions.Num() > 0)
 					{
-						for (int32 i = 0; i < 3; i++)
+						for (int32 i = 0; i < NUM_MIDPOINTS; i++)
 						{
 							PastPositions[PastPositions.Num() - 1].MidPoints[i] = bFullyInNoRallyZone ? FVector::ZeroVector : MidPoints[i];
 						}
@@ -386,12 +407,13 @@ void AUTCTFFlag::Tick(float DeltaTime)
 					PastPositions.Add(NewPosition);
 					MidPointPos = 0;
 					bAddedReturnSpot = true;
-					MidPoints[0] = FVector::ZeroVector;
-					MidPoints[1] = FVector::ZeroVector;
-					MidPoints[2] = FVector::ZeroVector;
+					for (int32 i = 0; i < NUM_MIDPOINTS; i++)
+					{
+						MidPoints[i] = FVector::ZeroVector;
+					}
 				}
 			}
-			if ((MidPointPos < 3) && !bAddedReturnSpot)
+			if ((MidPointPos < NUM_MIDPOINTS) && !bAddedReturnSpot)
 			{
 				static FName NAME_FlagReturnLOS = FName(TEXT("FlagReturnLOS"));
 				FCollisionQueryParams CollisionParms(NAME_FlagReturnLOS, true, HoldingPawn);

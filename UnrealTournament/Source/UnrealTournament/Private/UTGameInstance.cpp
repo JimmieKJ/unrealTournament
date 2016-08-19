@@ -28,6 +28,7 @@ UUTGameInstance::UUTGameInstance(const class FObjectInitializer& ObjectInitializ
 	, Party(nullptr)
 {
 	bLevelIsLoading = false;
+	bDisablePerformanceCounters = false;
 }
 
 void UUTGameInstance::Init()

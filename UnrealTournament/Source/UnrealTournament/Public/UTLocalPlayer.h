@@ -916,6 +916,7 @@ public:
 		return MCPStorageFilename;
 	}
 
+
 	static const FString& GetRankedPlayFilename()
 	{
 		const static FString RankedPlayFilename = "UnrealTournamentRankedPlay.json";
@@ -1091,4 +1092,7 @@ protected:
 	// Saving of any profile saves locally, as does logging in.  NOTE: There is no toast this with save, it is silent
 	virtual void SaveLocalProfileSettings();
 
+#if !UE_SERVER
+	void OnUpgradeResults(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID);
+#endif
 };

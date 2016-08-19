@@ -63,22 +63,22 @@ class UNREALTOURNAMENT_API UUTGameInstance : public UGameInstance
 
 inline void InitPerfCounters()
 {
-#if !UE_SERVER
-	
-	IPerfCountersModule& PerfCountersModule = FModuleManager::LoadModuleChecked<IPerfCountersModule>("PerfCounters");
-	IPerfCounters* PerfCounters = PerfCountersModule.CreatePerformanceCounters();
-	
-	if (PerfCounters != nullptr)
+	if (!bDisablePerformanceCounters)
 	{
-		// Not exactly full version string, but the build number
-		//UE_LOG(UT,Log,TEXT("GEngineNetVersion %i"),GEngineNetVersion);
-		PerfCounters->Set(TEXT("BuildVersion"), GEngineNetVersion);
+		IPerfCountersModule& PerfCountersModule = FModuleManager::LoadModuleChecked<IPerfCountersModule>("PerfCounters");
+		IPerfCounters* PerfCounters = PerfCountersModule.CreatePerformanceCounters();
+	
+		if (PerfCounters != nullptr)
+		{
+			// Not exactly full version string, but the build number
+			//UE_LOG(UT,Log,TEXT("GEngineNetVersion %i"),GEngineNetVersion);
+			PerfCounters->Set(TEXT("BuildVersion"), GEngineNetVersion);
+		}
+		else
+		{
+			UE_LOG(LogInit, Warning, TEXT("Could not initialize performance counters."));
+		}
 	}
-	else
-	{
-		UE_LOG(LogInit, Warning, TEXT("Could not initialize performance counters."));
-	}
-#endif
 }
 
 protected:
@@ -198,8 +198,13 @@ protected:
 	virtual EVisibility GetLevelLoadAnyKeyVisibility() const;
 #endif
 
+	UPROPERTY()
+	bool bDisablePerformanceCounters;
+
 public:
 	virtual void CloseAllRedirectDownloadDialogs();
+
+
 
 };
 

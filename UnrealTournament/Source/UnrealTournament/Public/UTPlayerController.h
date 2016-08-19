@@ -294,9 +294,6 @@ public:
 	UFUNCTION(reliable, server, WithValidation)
 	void ServerRestartPlayerAltFire();
 
-	UPROPERTY(BlueprintReadOnly, Replicated, Category = PlayerController)
-		bool bIsWarmingUp;
-
 	/** pre-match player goes in or out of warmup mode. */
 	UFUNCTION(reliable, server, WithValidation)
 		void ServerToggleWarmup();
@@ -468,9 +465,6 @@ public:
 	/** blueprint hook */
 	UFUNCTION(BlueprintCallable, Category = Message)
 	void K2_ReceiveLocalizedMessage(TSubclassOf<ULocalMessage> Message, int32 Switch = 0, class APlayerState* RelatedPlayerState_1 = NULL, class APlayerState* RelatedPlayerState_2 = NULL, class UObject* OptionalObject = NULL);
-
-	UPROPERTY(GlobalConfig, BlueprintReadOnly, Category = Weapon)
-	bool bAutoWeaponSwitch;
 
 	/** Global scaling for weapon bob. */
 	UPROPERTY(EditAnywhere, GlobalConfig, Category = WeaponBob)
@@ -799,10 +793,10 @@ public:
 	virtual void ServerSwitchTeam();
 
 protected:
-	UPROPERTY(globalconfig, BlueprintReadOnly, Category = Weapon)
-	TEnumAsByte<EWeaponHand> WeaponHand;
+	EWeaponHand ReplicatedWeaponHand;
+
 public:
-	inline EWeaponHand GetWeaponHand() const
+	inline EWeaponHand GetWeaponHand()
 	{
 		//Spectators always see right handed weapons
 		bool bIsReallySpectating = false;
@@ -818,10 +812,7 @@ public:
 		return bIsReallySpectating ? EWeaponHand::HAND_Right : GetPreferredWeaponHand();
 	}
 
-	inline EWeaponHand GetPreferredWeaponHand() const
-	{
-		return WeaponHand;
-	}
+	EWeaponHand GetPreferredWeaponHand();
 
 	UFUNCTION(BlueprintCallable, Category = Weapon)
 	void SetWeaponHand(EWeaponHand NewHand);
@@ -835,6 +826,10 @@ public:
 	
 	UFUNCTION(BlueprintCallable, Category=PlayerController)
 	void ThrowWeapon();
+
+	/** Switches weapons using modern groups. */
+	UFUNCTION(Exec)
+	virtual void SwitchWeaponGroup(int32 Group);
 
 protected:
 	UPROPERTY(BluePrintReadOnly, Category = Dodging)
@@ -875,6 +870,8 @@ protected:
 	void NextWeapon();
 
 	UFUNCTION(exec)
+	void ActivateSpecial();
+
 	void ToggleTranslocator();
 
 	UFUNCTION(exec)
@@ -890,10 +887,6 @@ protected:
 	/** Switches weapons using classic groups. */
 	UFUNCTION(Exec)
 	virtual void SwitchWeapon(int32 Group);
-
-	/** Switches weapons using modern groups. */
-	UFUNCTION(Exec)
-	virtual void SwitchWeaponGroup(int32 Group);
 
 	/** weapon fire input handling -- NOTE: Just forward to the pawn */
 	virtual void OnFire();
@@ -979,9 +972,7 @@ protected:
 	void TeamNotifiyOfPowerupUse();
 
 public:
-	/** Hold down Power-Up handling **/
-	void OnActivatePowerupPress();
-	
+
 	UPROPERTY()
 	float TimeToHoldPowerUpButtonToActivate;
 
@@ -1168,18 +1159,6 @@ public:
 
 public:
 	void SetSpectatorMouseChangesView(bool bNewValue);
-
-	UFUNCTION(exec)
-	void QSSetType(const FName& Tag);
-
-	UFUNCTION(exec)
-	void QSSetDist(float Distance);
-
-	UFUNCTION(exec)
-	void QSSetAngle(float Angle);
-
-	UFUNCTION(exec)
-	void QSSave();
 
 	UPROPERTY()
 	bool bUseAltSpawnPoint;

@@ -38,20 +38,22 @@ void UUTCrosshair::DeactivateCrosshair_Implementation(AUTHUD* TargetHUD)
 	}
 }
 
-void UUTCrosshair::NativeDrawCrosshair(UCanvas* Canvas, AUTWeapon* Weapon, float DeltaTime, const FWeaponCustomizationInfo& CustomizationsToApply)
+void UUTCrosshair::NativeDrawCrosshair(AUTHUD* TargetHUD, UCanvas* Canvas, AUTWeapon* Weapon, float DeltaTime, const FWeaponCustomizationInfo& CustomizationsToApply)
 {
 	if (!ActiveUMG.IsValid())
 	{
-		DrawCrosshair(Canvas, Weapon, DeltaTime, CustomizationsToApply);
+		DrawCrosshair(TargetHUD, Canvas, Weapon, DeltaTime, CustomizationsToApply);
 	}
 }
 
-void UUTCrosshair::DrawCrosshair_Implementation(UCanvas* Canvas, AUTWeapon* Weapon, float DeltaTime, const FWeaponCustomizationInfo& CustomizationsToApply)
+void UUTCrosshair::DrawCrosshair_Implementation(AUTHUD* TargetHUD, UCanvas* Canvas, AUTWeapon* Weapon, float DeltaTime, const FWeaponCustomizationInfo& CustomizationsToApply)
 {
-	float X = (Canvas->SizeX * 0.5f) - (CrosshairIcon.UL * CustomizationsToApply.CrosshairScaleOverride * 0.5f) - 1.f + OffsetAdjust.X;
-	float Y = (Canvas->SizeY * 0.5f) - (CrosshairIcon.VL * CustomizationsToApply.CrosshairScaleOverride * 0.5f) - 1.f + OffsetAdjust.Y;
+	float HUDCrosshairScale = (TargetHUD == nullptr ? 1.0f : TargetHUD->GetCrosshairScale());
+
+	float X = (Canvas->SizeX * 0.5f) - FMath::CeilToFloat(CrosshairIcon.UL * CustomizationsToApply.CrosshairScaleOverride * HUDCrosshairScale * 0.5f) + OffsetAdjust.X;
+	float Y = (Canvas->SizeY * 0.5f) - FMath::CeilToFloat(CrosshairIcon.VL * CustomizationsToApply.CrosshairScaleOverride * HUDCrosshairScale * 0.5f)  + OffsetAdjust.Y;
 
 	Canvas->DrawColor = CustomizationsToApply.CrosshairColorOverride.ToFColor(false);
-	Canvas->DrawIcon(CrosshairIcon, X, Y, CustomizationsToApply.CrosshairScaleOverride);
+	Canvas->DrawIcon(CrosshairIcon, X, Y, CustomizationsToApply.CrosshairScaleOverride * HUDCrosshairScale);
 }
 

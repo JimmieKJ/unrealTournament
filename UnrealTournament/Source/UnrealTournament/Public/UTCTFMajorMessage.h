@@ -10,12 +10,6 @@ class UNREALTOURNAMENT_API UUTCTFMajorMessage : public UUTCarriedObjectMessage
 	GENERATED_UCLASS_BODY()
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Message)
-		FText CaptureMessagePrefix;
-
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Message)
-		FText CaptureMessagePostfix;
-
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Message)
 		FText HalftimeMessage;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Message)

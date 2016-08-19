@@ -11,40 +11,31 @@
 
 #if !UE_SERVER
 
-struct FSimpleBind
+struct FKeyBindTracker
 {
-	FString DisplayName;
-	TSharedPtr<FKey> Key;
-	TSharedPtr<FKey> AltKey;
-	FKey DefaultKey;
-	FKey DefaultAltKey;
-	TSharedPtr<SKeyBind> KeyWidget;
-	TSharedPtr<SKeyBind> AltKeyWidget;
-	bool bHeader;
+	TSharedPtr<SKeyBind> PrimaryKeyBindWidget;
+	TSharedPtr<SKeyBind> SecondaryKeyBindWidget;
+	FKeyConfigurationInfo* KeyConfig;
 
-	explicit FSimpleBind(const FText& InDisplayName);
-
-	TArray<FInputActionKeyMapping> ActionMappings;
-	TArray<FInputAxisKeyMapping> AxisMappings;
-	TArray<FCustomKeyBinding>  CustomBindings;
-	TArray<FName>  SpecialBindings;
-
-	FSimpleBind* AddActionMapping(const FName& Mapping);
-	FSimpleBind* AddAxisMapping(const FName& Mapping, float Scale);
-	FSimpleBind* AddCustomBinding(const FName& Mapping);
-	FSimpleBind* AddSpecialBinding(const FName& Mapping);
-	FSimpleBind* AddDefaults(FKey InDefaultKey, FKey InDefaultAltKey = FKey())
+	FKeyBindTracker()
 	{
-		DefaultKey = InDefaultKey;
-		DefaultAltKey = InDefaultAltKey;
-		return this;
+		PrimaryKeyBindWidget.Reset();
+		SecondaryKeyBindWidget.Reset();
+		KeyConfig = nullptr;
 	}
-	FSimpleBind* MakeHeader()
+
+	FKeyBindTracker(FKeyConfigurationInfo* inKeyConfig)
+		: KeyConfig(inKeyConfig)
 	{
-		bHeader = true;
-		return this;
+		PrimaryKeyBindWidget.Reset();
+		SecondaryKeyBindWidget.Reset();
 	}
-	void WriteBind();
+
+	static TSharedRef<FKeyBindTracker> Make(FKeyConfigurationInfo* inKeyConfig)
+	{
+		return MakeShareable( new FKeyBindTracker( inKeyConfig ) );
+	}
+
 };
 
 class UNREALTOURNAMENT_API SUTControlSettingsDialog : public SUTDialogBase
@@ -52,7 +43,7 @@ class UNREALTOURNAMENT_API SUTControlSettingsDialog : public SUTDialogBase
 public:
 
 	SLATE_BEGIN_ARGS(SUTControlSettingsDialog)
-	: _DialogSize(FVector2D(1000,900))
+	: _DialogSize(FVector2D(1300,900))
 	, _bDialogSizeIsRelative(false)
 	, _DialogPosition(FVector2D(0.5f,0.5f))
 	, _DialogAnchorPoint(FVector2D(0.5f,0.5f))
@@ -74,11 +65,6 @@ public:
 protected:
 
 	virtual TSharedRef<class SWidget> BuildCustomButtonBar();
-
-	void CreateBinds();
-
-	TArray<TSharedPtr<FSimpleBind> > Binds;
-
 	virtual FReply OnButtonClick(uint16 ButtonID);	
 
 	FReply OKClick();
@@ -89,6 +75,9 @@ protected:
 	TSharedPtr<SScrollBox> ScrollBox;
 	TSharedPtr<SWidgetSwitcher> TabWidget;
 	TSharedPtr<SButton> ResetToDefaultsButton;
+
+	TArray<TSharedPtr<FKeyBindTracker>> BindList;
+
 	FReply OnTabClickKeyboard()
 	{
 		ResetToDefaultsButton->SetVisibility(EVisibility::All);
@@ -145,6 +134,7 @@ protected:
 	TSharedPtr<SCheckBox> SingleTapAfterJump;
 	TSharedPtr<SNumericEntryBox<float> > MaxDodgeClickTime;
 	TSharedPtr<SNumericEntryBox<float> > MaxDodgeTapTime;
+	TSharedPtr<SCheckBox> DisableDoubleTapDodge;
 	TSharedPtr<SCheckBox> DeferFireInput;
 
 
@@ -170,7 +160,7 @@ protected:
 
 	virtual void Tick(const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime) override;
 
-	void OnKeyBindingChanged( FKey PreviousKey, FKey NewKey, TSharedPtr<FSimpleBind> BindingThatChanged, bool bPrimaryKey );
+	void OnKeyBindingChanged( FKey PreviousKey, FKey NewKey, TSharedPtr<FKeyBindTracker> BindingThatChanged, bool bPrimaryKey );
 
 	TSharedPtr <SUTTabButton> KeyboardSettingsTabButton;
 	TSharedPtr <SUTTabButton> MouseSettingsTabButton;

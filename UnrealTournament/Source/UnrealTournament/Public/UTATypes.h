@@ -1258,10 +1258,14 @@ struct FMCPPulledData
 	UPROPERTY()
 	int32 FragCenterCounter;
 
+	UPROPERTY()
+	int32 CurrentVersionNumber;
+
 	FMCPPulledData()
 	{
 		Challenges.Empty();
 		FragCenterCounter=0;
+		CurrentVersionNumber=0;
 	}
 };
 
@@ -1571,6 +1575,10 @@ struct FWeaponCustomizationInfo
 
 	// This tag is used to look up the UTCrosshair for this config.  
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = CrosshairInfo)
+	FName DefaultCrosshairTag;
+
+	// This tag is used to look up the UTCrosshair for this config when using custom crosshairs
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = CrosshairInfo)
 	FName CrosshairTag;
 
 	// The scale for the crosshair
@@ -1585,6 +1593,7 @@ struct FWeaponCustomizationInfo
 		: WeaponCustomizationTag(NAME_None)
 		, WeaponGroup(-1)
 		, WeaponAutoSwitchPriority(-1.0f)
+		, DefaultCrosshairTag(NAME_None)
 		, CrosshairTag(NAME_None)
 		, CrosshairScaleOverride(1.0)
 		, CrosshairColorOverride(FLinearColor::White)
@@ -1596,6 +1605,7 @@ struct FWeaponCustomizationInfo
 		: WeaponCustomizationTag(inWeaponCustomizationTag)
 		, WeaponGroup(inWeaponGroup)
 		, WeaponAutoSwitchPriority(inWeaponAutoSwitchPriority)
+		, DefaultCrosshairTag(inCrosshairTag)
 		, CrosshairTag(inCrosshairTag)
 		, CrosshairScaleOverride(inCrosshairScaleOverride)
 		, CrosshairColorOverride(inCrosshairColorOverride)
@@ -1612,6 +1622,7 @@ struct FWeaponCustomizationInfo
 		WeaponCustomizationTag = Source.WeaponCustomizationTag;
 		WeaponGroup = Source.WeaponGroup;
 		WeaponAutoSwitchPriority = Source.WeaponAutoSwitchPriority;
+		DefaultCrosshairTag = Source.DefaultCrosshairTag;
 		CrosshairTag = Source.CrosshairTag;
 		CrosshairColorOverride = Source.CrosshairColorOverride;
 		CrosshairScaleOverride = Source.CrosshairScaleOverride;
@@ -1639,3 +1650,175 @@ struct FUTMath
 		FUTMath::ReturnToZero(Value.Z, Speed);
 	}
 };
+
+USTRUCT()
+struct FCustomKeyBinding
+{
+	GENERATED_USTRUCT_BODY()
+
+	FCustomKeyBinding() : KeyName(FName(TEXT(""))), EventType(IE_Pressed), Command(FString("")) {};
+
+	FCustomKeyBinding(FName InKeyName, TEnumAsByte<EInputEvent> InEventType, FString InCommand) : KeyName(InKeyName), EventType(InEventType), Command(InCommand) {};
+
+	UPROPERTY()
+	FName KeyName;
+	UPROPERTY()
+	TEnumAsByte<EInputEvent> EventType;
+	UPROPERTY()
+	FString Command;
+	UPROPERTY()
+	FString FriendlyName;
+};
+
+UENUM()
+namespace EControlCategory
+{
+	enum Type
+	{
+		Movement,
+		Combat,
+		Weapon,
+		Taunts,
+		UI,
+		Misc,
+		MAX,
+	};
+}
+
+/**
+ *	Holds the configuration info for a given key.,
+ **/
+USTRUCT(BlueprintType)
+struct FKeyConfigurationInfo
+{
+	GENERATED_USTRUCT_BODY()
+
+public:
+
+	// This is the unique tag that describes this action.  
+	UPROPERTY(BlueprintReadOnly,Category = INPUT)
+	FName GameActionTag;
+
+	UPROPERTY(BlueprintReadOnly, Category = INPUT)
+	TEnumAsByte<EControlCategory::Type> Category;
+
+	// This is the name that is displayed in the UI via the Controls menu
+	UPROPERTY(BlueprintReadOnly, Category = INPUT)
+	FText MenuText;
+
+	// This is the primary key that triggers this action
+	UPROPERTY(BlueprintReadOnly, Category = INPUT)
+	FKey PrimaryKey;
+
+	// This is the secondy key that can trigger this action
+	UPROPERTY(BlueprintReadOnly, Category = INPUT)
+	FKey SecondaryKey;
+
+	// This is the key for a game pad that can this action.  For now these are hard coded
+	UPROPERTY(BlueprintReadOnly, Category = INPUT)
+	FKey GamepadKey;
+
+	UPROPERTY(BlueprintReadOnly, Category = INPUT)
+	uint32 bShowInUI : 1;
+
+	// These values are the meat of the key bind system.  Any GameAction can be used to build multiple Action/Axis/Custom mappings.  
+	// The game will clear and rebuild the key table each time it's loaded.  INI's are no longer used.
+
+	UPROPERTY(BlueprintReadOnly, Category = INPUT)
+	TArray<FInputActionKeyMapping> ActionMappings;
+
+	UPROPERTY(BlueprintReadOnly, Category = INPUT)
+	TArray<FInputAxisKeyMapping> AxisMappings;
+
+	UPROPERTY(BlueprintReadOnly, Category = INPUT)
+	TArray<FCustomKeyBinding>  CustomBindings;
+
+	UPROPERTY(BlueprintReadOnly, Category = INPUT)
+	TArray<FCustomKeyBinding> SpectatorBindings;
+
+public:
+
+	FKeyConfigurationInfo()
+	{
+		bShowInUI = true;
+	}
+
+	FKeyConfigurationInfo(const FName& inGameActionTag, EControlCategory::Type inCategory, FKey inDefaultPrimaryKey, FKey inDefaultSecondayKey, FKey inGamepadKey, const FText& inMenuText)
+		: GameActionTag(inGameActionTag)
+		, Category(inCategory)
+		, MenuText(inMenuText)
+		, PrimaryKey(inDefaultPrimaryKey)
+		, SecondaryKey(inDefaultSecondayKey)
+		, GamepadKey(inGamepadKey)
+	{
+		bShowInUI = true;
+	}
+
+	void AddActionMapping(const FName& inActionName)
+	{
+		ActionMappings.Add(FInputActionKeyMapping(inActionName, EKeys::Invalid, false, false, false, false));
+	}
+
+	void AddAxisMapping(const FName& inAxisName, float Scale)
+	{
+		AxisMappings.Add(FInputAxisKeyMapping(inAxisName, EKeys::Invalid, Scale));
+	}
+
+	void AddCustomBinding(const FString& inCommand, TEnumAsByte<EInputEvent> inEvent = EInputEvent::IE_Pressed)
+	{
+		CustomBindings.Add(FCustomKeyBinding(NAME_None, inEvent, inCommand));
+	}
+
+	void AddSpectatorBinding(const FString& inCommand, TEnumAsByte<EInputEvent> inEvent = EInputEvent::IE_Pressed)
+	{
+		SpectatorBindings.Add(FCustomKeyBinding(NAME_None, inEvent, inCommand));
+	}
+
+};
+
+USTRUCT()
+struct FKeyConfigurationImportExportObject
+{
+	GENERATED_USTRUCT_BODY()
+
+	UPROPERTY()
+	FName GameActionTag;
+
+	UPROPERTY()
+	FKey PrimaryKey;
+
+	UPROPERTY()
+	FKey SecondaryKey;
+
+	UPROPERTY()
+	FKey GamepadKey;
+
+	FKeyConfigurationImportExportObject()
+		: GameActionTag(NAME_None), PrimaryKey(EKeys::Invalid), SecondaryKey(EKeys::Invalid), GamepadKey(EKeys::Invalid)
+	{
+	}
+
+	FKeyConfigurationImportExportObject(FName inGameActionTag, FKey inPrimaryKey, FKey inSecondaryKey, FKey inGamepadKey)
+		: GameActionTag(inGameActionTag)
+		, PrimaryKey(inPrimaryKey)
+		, SecondaryKey(inSecondaryKey)
+		, GamepadKey(inGamepadKey)
+	{}
+};
+
+USTRUCT()
+struct FKeyConfigurationImportExport
+{
+	GENERATED_USTRUCT_BODY()
+	
+public:
+
+	UPROPERTY()
+	TArray<FKeyConfigurationImportExportObject> GameActions;
+
+	FKeyConfigurationImportExport()
+	{
+		GameActions.Empty();
+	}
+};
+

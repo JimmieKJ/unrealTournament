@@ -11,9 +11,6 @@ class UNREALTOURNAMENT_API UUTCTFRewardMessage : public UUTLocalMessage
 	GENERATED_UCLASS_BODY()
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Message)
-	FText AssistMessage;
-
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Message)
 		FText DeniedMessage;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Message)
@@ -30,13 +27,6 @@ class UNREALTOURNAMENT_API UUTCTFRewardMessage : public UUTLocalMessage
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Message)
 		FText TeamScorePostfix;
-
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Message)
-		FText HatTrickMessage;
-
-	/** Message when someone else got a hat trick. */
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Message)
-		FText OtherHatTrickMessage;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Message)
 		FText GoldScoreBonusPrefix;

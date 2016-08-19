@@ -29,13 +29,17 @@ AUTRepulsorBubble::AUTRepulsorBubble(const class FObjectInitializer& ObjectIniti
 		BubbleMesh->AttachTo(CollisionComp);
 	}
 
-	SetReplicates(true);
+	bAlwaysRelevant = true;
+	bReplicates = true;
+	LastHitByType = RepulsorLastHitType::None;
 }
 
 void AUTRepulsorBubble::PostInitializeComponents()
 {
 	Super::PostInitializeComponents();
-	
+
+	Health = MaxHealth;
+
 	AUTCharacter* UTOwner = Cast<AUTCharacter>(Instigator);
 	if (UTOwner)
 	{
@@ -43,9 +47,6 @@ void AUTRepulsorBubble::PostInitializeComponents()
 	}
 
 	CollisionComp->SetWorldScale3D(FVector(MaxRepulsorSize,MaxRepulsorSize,MaxRepulsorSize));
-
-	//Starting health set
-	Health = MaxHealth;
 
 	//Setup up bubble MID
 	if (BubbleMesh != NULL && BubbleMaterial != NULL)
@@ -57,6 +58,8 @@ void AUTRepulsorBubble::PostInitializeComponents()
 
 void AUTRepulsorBubble::BeginPlay()
 {
+	Super::BeginPlay();
+
 	if (MID_Bubble)
 	{
 		if (TeamNum == 0)
@@ -69,7 +72,15 @@ void AUTRepulsorBubble::BeginPlay()
 		}
 	}
 
-	Super::BeginPlay();
+	if (Instigator && GEngine)
+	{
+		if (Instigator->GetController())
+		{
+			//If we instigated this object then we want to fully fade out the center, so that we can see through the repulsor effects.
+			//Other players should have no center fade effect
+			MID_Bubble->SetScalarParameterValue(FName("CenterFade"), Instigator->GetController() == GEngine->GetFirstLocalPlayerController(GetWorld()) ? 1.0f : 0.0f);
+		}
+	}
 }
 
 void AUTRepulsorBubble::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & OutLifetimeProps) const
@@ -78,6 +89,7 @@ void AUTRepulsorBubble::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > &
 
 	DOREPLIFETIME(AUTRepulsorBubble, TeamNum);
 	DOREPLIFETIME(AUTRepulsorBubble, Health);
+	DOREPLIFETIME(AUTRepulsorBubble, LastHitByType);
 }
 
 void AUTRepulsorBubble::OnOverlapBegin(AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
@@ -122,36 +134,40 @@ bool AUTRepulsorBubble::ShouldInteractWithActor(AActor* OtherActor)
 {
 	bool bIsOnSameTeam = false;
 
-	AUTCharacter* ActorAsUTChar = Cast<AUTCharacter>(OtherActor);
-	if (ActorAsUTChar)
+	if (Instigator == nullptr)
 	{
-		bIsOnSameTeam = (ActorAsUTChar == Instigator) || //Always ignore the character that spawned us
-						(bShouldIgnoreTeamCharacters && (ActorAsUTChar->GetTeamNum() == TeamNum) && (ActorAsUTChar->GetTeamNum() != 255)); //255 is FFA team num, in FFA everyone has the same team num, but is on their own teams
+		return false;
 	}
 
-	AUTProjectile* ActorAsProj = Cast<AUTProjectile>(OtherActor);
-	if (ActorAsProj)
+	if (GetWorld())
 	{
-		AUTCharacter* OtherProjInstigator = Cast<AUTCharacter>(ActorAsProj->Instigator);
-		if (OtherProjInstigator)
+		AUTGameState* UTGS = Cast<AUTGameState>(GetWorld()->GetGameState());
+		
+		AUTProjectile* ActorAsProj = Cast<AUTProjectile>(OtherActor);
+		if (ActorAsProj && ActorAsProj->InstigatorController)
 		{
-			bIsOnSameTeam = (OtherProjInstigator == Instigator) ||  //always ignore our own projectiles
-							(bShouldIgnoreTeamProjectiles && (TeamNum == OtherProjInstigator->GetTeamNum()) && (OtherProjInstigator->GetTeamNum() != 255)); // 255 is FFA team num, in FFA everyone has the same team num, but is on their own teams
+			if (ActorAsProj->InstigatorController == Instigator->GetController())
+			{
+				bIsOnSameTeam = true;
+			}
+			else
+			{
+				bIsOnSameTeam = UTGS->OnSameTeam(ActorAsProj->InstigatorController, Instigator);
+			}
+		}
+		else
+		{
+			if (OtherActor == Instigator || OtherActor->Instigator == Instigator)
+			{
+				bIsOnSameTeam = true;
+			}
+			else
+			{
+				bIsOnSameTeam = UTGS->OnSameTeam(OtherActor->Instigator, Instigator);
+			}
 		}
 	}
 
-	AUTInventory* ActorAsInventory = Cast<AUTInventory>(OtherActor);
-	if (ActorAsInventory)
-	{
-		if (ActorAsInventory->GetUTOwner())
-		{
-			const AUTCharacter* ActorAsUTChar = ActorAsInventory->GetUTOwner();
-			bIsOnSameTeam = (ActorAsUTChar == Instigator) || //Always ignore the character that spawned us
-							(bShouldIgnoreTeamCharacters && (ActorAsUTChar->GetTeamNum() == TeamNum) && (ActorAsUTChar->GetTeamNum() != 255)); //255 is FFA team num, in FFA everyone has the same team num, but is on their own teams
-
-		}
-	}
-	
 	return !bIsOnSameTeam;
 }
 
@@ -161,26 +177,37 @@ void AUTRepulsorBubble::ProcessHitPlayer(AUTCharacter* OtherPlayer, UPrimitiveCo
 	{
 		RecentlyBouncedCharacters.Add(OtherPlayer);
 
-		FVector LaunchAngle = HitNormal.IsZero() ? (OtherPlayer->GetActorLocation() - GetActorLocation()) + KnockbackVector : -HitNormal;
+		FVector LaunchAngle = (OtherPlayer->GetActorLocation() - GetActorLocation()) + KnockbackVector;
 		LaunchAngle.Normalize();
 		LaunchAngle *= KnockbackStrength;
 		OtherPlayer->LaunchCharacter(LaunchAngle, true, true);
 		
+		LastHitByType = RepulsorLastHitType::Character;
 		TakeDamage(HealthLostToRepulsePlayer, OtherPlayer);
 
 		GetWorldTimerManager().SetTimer(RecentlyBouncedClearTimerHandle,this, &AUTRepulsorBubble::ClearRecentlyBouncedPlayers, RecentlyBouncedResetTime, false);
+		
+		OnCharacterBounce();
 	}
 }
 
 void AUTRepulsorBubble::ProcessHitProjectile(AUTProjectile* OtherProj, UPrimitiveComponent* OtherComp, const FVector& HitLocation, const FVector& HitNormal)
 {
-	//This is before reflection of the projectile so that we damage the Repulsor. Otherwise the instigator changes to us and the shield ignores the damage.
+	LastHitByType = RepulsorLastHitType::Projectile;
+
+	//This is before exploding / reflecting projectile so that we damage the Repulsor. Otherwise the instigator changes to us and the shield ignores the damage.
 	OtherProj->DamageImpactedActor(this, CollisionComp, HitLocation, HitNormal);
+	OtherProj->Instigator = Instigator;
+	
+	//Attempt to change instigator controller for projectile to our instigator's controller
+	AUTCharacter* UTOwner = Cast<AUTCharacter>(Instigator);
+	if (UTOwner)
+	{
+		OtherProj->InstigatorController = UTOwner->GetController();
+	}
 
 	if (bShouldReflectProjectiles)
 	{
-		OtherProj->Instigator = Instigator;
-
 		const bool bOriginalBounceSetting = OtherProj->ProjectileMovement->bShouldBounce;
 		OtherProj->ProjectileMovement->bShouldBounce = true;
 		((UUTProjectileMovementComponent*)OtherProj->ProjectileMovement)->SimulateImpact(FHitResult(this, OtherProj->ProjectileMovement->UpdatedPrimitive, HitLocation, -HitNormal));
@@ -188,13 +215,14 @@ void AUTRepulsorBubble::ProcessHitProjectile(AUTProjectile* OtherProj, UPrimitiv
 	}
 	else
 	{
-		//Prevent damage from being delt to the Instigator of the Repulsor
+		//Prevent damage from being dealt to the Instigator of the Repulsor
 		OtherProj->ImpactedActor = Instigator;
 
 		//Explode projectile
 		OtherProj->Explode(HitLocation, HitNormal, CollisionComp);
 	}
 
+	OnProjectileHit();
 }
 
 
@@ -207,6 +235,15 @@ float AUTRepulsorBubble::TakeDamage(float Damage, AActor* DamageCauser)
 {
 	if (ShouldInteractWithActor(DamageCauser))
 	{
+		//If an inventory item is responsible for damage and not a character/projectile
+		//then it is being caused by hitscan. Otherwise this would be the instigator or projectile.
+		AUTInventory* DamageFromInventory = Cast<AUTInventory>(DamageCauser);
+		if (DamageFromInventory)
+		{
+			LastHitByType = RepulsorLastHitType::Hitscan;
+			OnHitScanBlocked();
+		}
+
 		Health -= Damage;
 
 		if (Health <= 0.f)
@@ -216,7 +253,7 @@ float AUTRepulsorBubble::TakeDamage(float Damage, AActor* DamageCauser)
 
 		return Damage;
 	}
-
+	
 	return 0.f;
 }
 
@@ -235,4 +272,43 @@ void AUTRepulsorBubble::Destroyed()
 	}
 
 	Super::Destroyed();
+}
+
+void AUTRepulsorBubble::OnHitScanBlocked_Implementation()
+{
+
+}
+
+void AUTRepulsorBubble::OnCharacterBounce_Implementation()
+{
+
+}
+
+void AUTRepulsorBubble::OnProjectileHit_Implementation()
+{
+
+}
+
+void AUTRepulsorBubble::Reset_Implementation()
+{
+	Destroy();
+}
+
+void AUTRepulsorBubble::IntermissionBegin_Implementation()
+{
+	Destroy();
+}
+
+void AUTRepulsorBubble::OnRep_Health()
+{
+	//Take Damage does not fire on the receiving end for a hitscan weapon. This will
+	//allow us to play hit effects when the damage from the hitscan is replicated to us.
+	switch (LastHitByType)
+	{
+		case RepulsorLastHitType::Hitscan:
+		{
+			OnHitScanBlocked();
+			break;
+		}
+	}
 }

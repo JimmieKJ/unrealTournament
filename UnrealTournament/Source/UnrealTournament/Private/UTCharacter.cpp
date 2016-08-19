@@ -86,6 +86,7 @@ AUTCharacter::AUTCharacter(const class FObjectInitializer& ObjectInitializer)
 	GetMesh()->bReceivesDecals = false;
 	GetMesh()->bLightAttachmentsAsGroup = true;
 	GetMesh()->LightingChannels.bChannel1 = true;
+	GetMesh()->bCastCapsuleIndirectShadow = true;
 	UTCharacterMovement = Cast<UUTCharacterMovement>(GetCharacterMovement());
 	HealthMax = 100;
 	SuperHealthMax = 199;
@@ -1339,6 +1340,19 @@ void AUTCharacter::OnRepFloorSliding()
 	if (UTCharacterMovement)
 	{
 		UTCharacterMovement->bIsFloorSliding = bRepFloorSliding;
+		// replay sim breaks if the capsule doesn't get updated correctly but SimulatedTick() doesn't do that for slide, force it here
+		if (Role < ROLE_AutonomousProxy && UTCharacterMovement->NetworkSmoothingMode == ENetworkSmoothingMode::Replay)
+		{
+			if (bRepFloorSliding)
+			{
+				UTCharacterMovement->SetMovementMode(MOVE_Walking);
+				UTCharacterMovement->Crouch(true);
+			}
+			else
+			{
+				UTCharacterMovement->UnCrouch(true);
+			}
+		}
 	}
 }
 
@@ -2652,7 +2666,8 @@ void AUTCharacter::RemoveInventory(AUTInventory* InvToRemove)
 				{
 					WeaponChanged();
 				}
-				else
+				// note: this function is called for spectators when switching viewed player but we need to make sure not to mess with replicated properties for non-owners
+				else if (Role == ROLE_Authority || IsLocallyControlled())
 				{
 					WeaponClass = NULL;
 					WeaponAttachmentClass = NULL;

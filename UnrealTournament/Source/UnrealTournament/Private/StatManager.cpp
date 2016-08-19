@@ -32,6 +32,7 @@ UStatManager::UStatManager(const FObjectInitializer& ObjectInitializer)
 	Stats.Add(NAME_ImpactHammerKills, new FStat());
 	Stats.Add(NAME_EnforcerKills, new FStat());
 	Stats.Add(NAME_BioRifleKills, new FStat());
+	Stats.Add(NAME_BioLauncherKills, new FStat());
 	Stats.Add(NAME_ShockBeamKills, new FStat());
 	Stats.Add(NAME_ShockCoreKills, new FStat());
 	Stats.Add(NAME_ShockComboKills, new FStat());
@@ -51,6 +52,7 @@ UStatManager::UStatManager(const FObjectInitializer& ObjectInitializer)
 	Stats.Add(NAME_ImpactHammerDeaths, new FStat());
 	Stats.Add(NAME_EnforcerDeaths, new FStat());
 	Stats.Add(NAME_BioRifleDeaths, new FStat());
+	Stats.Add(NAME_BioLauncherDeaths, new FStat());
 	Stats.Add(NAME_ShockBeamDeaths, new FStat());
 	Stats.Add(NAME_ShockCoreDeaths, new FStat());
 	Stats.Add(NAME_ShockComboDeaths, new FStat());
@@ -69,6 +71,7 @@ UStatManager::UStatManager(const FObjectInitializer& ObjectInitializer)
 
 	Stats.Add(NAME_EnforcerShots, new FStat());
 	Stats.Add(NAME_BioRifleShots, new FStat());
+	Stats.Add(NAME_BioLauncherShots, new FStat());
 	Stats.Add(NAME_ShockRifleShots, new FStat());
 	Stats.Add(NAME_LinkShots, new FStat());
 	Stats.Add(NAME_MinigunShots, new FStat());
@@ -81,6 +84,7 @@ UStatManager::UStatManager(const FObjectInitializer& ObjectInitializer)
 	// Hits can be fractional, multiply by 100 to make sure that we don't lose much precision when going to integers
 	Stats.Add(NAME_EnforcerHits, new FStat(100.0f));
 	Stats.Add(NAME_BioRifleHits, new FStat(100.0f));
+	Stats.Add(NAME_BioLauncherHits, new FStat(100.0f));
 	Stats.Add(NAME_ShockRifleHits, new FStat(100.0f));
 	Stats.Add(NAME_LinkHits, new FStat(100.0f));
 	Stats.Add(NAME_MinigunHits, new FStat(100.0f));

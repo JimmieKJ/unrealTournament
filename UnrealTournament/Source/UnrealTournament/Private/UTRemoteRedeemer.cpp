@@ -76,6 +76,7 @@ AUTRemoteRedeemer::AUTRemoteRedeemer(const class FObjectInitializer& ObjectIniti
 	HitsStatsName = NAME_RedeemerHits;
 	ProjHealth = 50;
 	LockCount = 0;
+	CachedTeamNum = 255;
 }
 
 FVector AUTRemoteRedeemer::GetVelocity() const
@@ -362,7 +363,7 @@ uint8 AUTRemoteRedeemer::GetTeamNum() const
 		return TeamInterface->GetTeamNum();
 	}
 
-	return 255;
+	return CachedTeamNum;
 }
 
 void AUTRemoteRedeemer::FaceRotation(FRotator NewControlRotation, float DeltaTime)
@@ -433,11 +434,20 @@ bool AUTRemoteRedeemer::ServerBlowUp_Validate()
 
 void AUTRemoteRedeemer::ServerBlowUp_Implementation()
 {
-	BlowUp();
+	AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
+	if (GS && GS->IsMatchInProgress() && !GS->IsMatchIntermission())
+	{
+		BlowUp();
+	}
 }
 
 void AUTRemoteRedeemer::OnRep_PlayerState()
 {
+	AUTPlayerState* PS = Cast<AUTPlayerState>(PlayerState);
+	if (PS != nullptr)
+	{
+		CachedTeamNum = PS->GetTeamNum();
+	}
 	for (FLocalPlayerIterator It(GEngine, GetWorld()); It; ++It)
 	{
 		AUTPlayerController* UTPC = Cast<AUTPlayerController>(It->PlayerController);
@@ -633,7 +643,7 @@ void AUTRemoteRedeemer::Tick(float DeltaSeconds)
 				if (Meshes.Num() > 0)
 				{
 					CustomDepthMesh = CreateCustomDepthOutlineMesh(Meshes[0], this);
-					CustomDepthMesh->CustomDepthStencilValue = GetTeamNum() + 1;
+					CustomDepthMesh->CustomDepthStencilValue = (GetTeamNum() == 255) ? 255 : GetTeamNum() + 1;
 					CustomDepthMesh->RegisterComponent();
 				}
 			}

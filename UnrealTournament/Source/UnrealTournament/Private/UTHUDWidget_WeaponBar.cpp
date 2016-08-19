@@ -57,9 +57,6 @@ void UUTHUDWidget_WeaponBar::InitializeWidget(AUTHUD* Hud)
 {
 	Super::InitializeWidget(Hud);
 
-	// There are 10 groups
-	KnownWeaponMap.SetNumZeroed(10);
-
 	checkSlow(Hud != nullptr);
 	if (Hud != nullptr)
 	{
@@ -70,18 +67,30 @@ void UUTHUDWidget_WeaponBar::InitializeWidget(AUTHUD* Hud)
 		GroupText.bDrawShadow = true;
 		GroupText.ShadowDirection = FVector2D(1.0f, 1.0f);
 		GroupText.ShadowColor = FLinearColor::Black;
+	}
+}
 
-		UUTProfileSettings* PlayerProfile = Hud->UTPlayerOwner->GetProfileSettings();
+void UUTHUDWidget_WeaponBar::UpdateGroups(AUTHUD* Hud)
+{
+	// Find all of the weapons currently in memory to figure out the max # of slots we will need.
 
-		// Find all of the weapons currently in memory to figure out the max # of slots we will need.
+	if (Hud->UTPlayerOwner->AreMenusOpen()) return;
 
-		// grant all weapons that are in memory
-		for (TObjectIterator<UClass> It; It; ++It)
+	UUTProfileSettings* PlayerProfile = Hud->UTPlayerOwner->GetProfileSettings();
+
+	// There are 10 groups
+	KnownWeaponMap.Empty();
+	KnownWeaponMap.SetNumZeroed(11);
+
+	// grant all weapons that are in memory
+	for (TObjectIterator<UClass> It; It; ++It)
+	{
+		// make sure we don't use abstract, deprecated, or blueprint skeleton classes
+		if (It->IsChildOf(AUTWeapon::StaticClass()) && !It->HasAnyClassFlags(CLASS_Abstract | CLASS_Deprecated | CLASS_NewerVersionExists) && !It->GetName().StartsWith(TEXT("SKEL_")) && !It->IsChildOf(AUTWeap_Translocator::StaticClass()))
 		{
-			// make sure we don't use abstract, deprecated, or blueprint skeleton classes
-			if (It->IsChildOf(AUTWeapon::StaticClass()) && !It->HasAnyClassFlags(CLASS_Abstract | CLASS_Deprecated | CLASS_NewerVersionExists) && !It->GetName().StartsWith(TEXT("SKEL_")) && !It->IsChildOf(AUTWeap_Translocator::StaticClass()))
+			UClass* WeaponClass = *It;
+			if (!WeaponClass->IsPendingKill())
 			{
-				UClass* WeaponClass = *It;
 				AUTWeapon* DefaultWeaponObj = Cast<AUTWeapon>(WeaponClass->GetDefaultObject());
 				NumWeaponsToDraw++;
 
@@ -96,19 +105,18 @@ void UUTHUDWidget_WeaponBar::InitializeWidget(AUTHUD* Hud)
 				{
 					// hacky for bio launcher: if we have both a base class and its direct subclass, only record the subclass for now
 					// this will get updated if necessary at runtime if both weapons are really around
-					bool bAdd = true;
+					bool bOk = true;
 					if (KnownWeaponMap[WeaponGroup].WeaponClasses.Num() > 0 && KnownWeaponMap[WeaponGroup].WeaponClasses[0] != nullptr)
 					{
 						if (KnownWeaponMap[WeaponGroup].WeaponClasses[0]->IsChildOf(WeaponClass))
 						{
-							bAdd = false;
-						}
-						else
-						{
-							KnownWeaponMap[WeaponGroup].WeaponClasses.RemoveAt(0);
+							bOk = false;
 						}
 					}
-					KnownWeaponMap[WeaponGroup].AddWeapon(WeaponClass, nullptr, WeaponGroup);
+					if (bOk)
+					{
+						KnownWeaponMap[WeaponGroup].UpdateWeapon(WeaponClass, nullptr, WeaponGroup);
+					}
 				}
 			}
 		}
@@ -121,6 +129,8 @@ void UUTHUDWidget_WeaponBar::InitializeWidget(AUTHUD* Hud)
 void UUTHUDWidget_WeaponBar::PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCanvas* InCanvas, FVector2D InCanvasCenter)
 {
 	if (InUTHUDOwner->GetWorld() == nullptr) return;
+
+	UpdateGroups(InUTHUDOwner);
 
 	MaxSize = FVector2D(InCanvas->ClipX * 0.925f, InCanvas->ClipY * 0.8f);
 
@@ -187,6 +197,9 @@ void UUTHUDWidget_WeaponBar::PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCan
 				}
 			}
 		}
+
+
+
 	}
 
 	FVector2D CellSize = FVector2D(0.0f, 0.0f);

@@ -86,6 +86,7 @@ AUTGameState::AUTGameState(const class FObjectInitializer& ObjectInitializer)
 	WeaponStats.Add(NAME_ImpactHammerKills);
 	WeaponStats.Add(NAME_EnforcerKills);
 	WeaponStats.Add(NAME_BioRifleKills);
+	WeaponStats.Add(NAME_BioLauncherKills);
 	WeaponStats.Add(NAME_ShockBeamKills);
 	WeaponStats.Add(NAME_ShockCoreKills);
 	WeaponStats.Add(NAME_ShockComboKills);
@@ -105,6 +106,7 @@ AUTGameState::AUTGameState(const class FObjectInitializer& ObjectInitializer)
 	WeaponStats.Add(NAME_ImpactHammerDeaths);
 	WeaponStats.Add(NAME_EnforcerDeaths);
 	WeaponStats.Add(NAME_BioRifleDeaths);
+	WeaponStats.Add(NAME_BioLauncherDeaths);
 	WeaponStats.Add(NAME_ShockBeamDeaths);
 	WeaponStats.Add(NAME_ShockCoreDeaths);
 	WeaponStats.Add(NAME_ShockComboDeaths);
@@ -156,6 +158,7 @@ AUTGameState::AUTGameState(const class FObjectInitializer& ObjectInitializer)
 
 	WeaponStats.Add(NAME_EnforcerShots);
 	WeaponStats.Add(NAME_BioRifleShots);
+	WeaponStats.Add(NAME_BioLauncherShots);
 	WeaponStats.Add(NAME_ShockRifleShots);
 	WeaponStats.Add(NAME_LinkShots);
 	WeaponStats.Add(NAME_MinigunShots);
@@ -167,6 +170,7 @@ AUTGameState::AUTGameState(const class FObjectInitializer& ObjectInitializer)
 
 	WeaponStats.Add(NAME_EnforcerHits);
 	WeaponStats.Add(NAME_BioRifleHits);
+	WeaponStats.Add(NAME_BioLauncherHits);
 	WeaponStats.Add(NAME_ShockRifleHits);
 	WeaponStats.Add(NAME_LinkHits);
 	WeaponStats.Add(NAME_MinigunHits);
@@ -579,6 +583,12 @@ void AUTGameState::SetRespawnWaitTime(float NewWaitTime)
 TSubclassOf<class AUTInventory> AUTGameState::GetSelectableBoostByIndex(AUTPlayerState* PlayerState, int Index) const
 {
 	return nullptr;
+}
+
+//By default return false, this should be overriden in other game modes.
+bool AUTGameState::IsSelectedBoostValid(AUTPlayerState* PlayerState) const
+{
+	return false;
 }
 
 float AUTGameState::GetClockTime()
@@ -1174,6 +1184,11 @@ void AUTGameState::OnRep_MatchState()
 				Pawn->Destroy();
 			}
 		}
+	}
+
+	if ( bRunFPSChart && (GetMatchState() == MatchState::MatchIntermission))
+	{
+		StopFPSCharts();
 	}
 }
 

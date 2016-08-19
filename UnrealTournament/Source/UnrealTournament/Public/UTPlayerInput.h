@@ -4,24 +4,6 @@
 
 #include "UTPlayerInput.generated.h"
 
-USTRUCT()
-struct FCustomKeyBinding
-{
-	GENERATED_USTRUCT_BODY()
-
-	FCustomKeyBinding() : KeyName(FName(TEXT(""))), EventType(IE_Pressed), Command(FString("")) {};
-
-	FCustomKeyBinding(FName InKeyName, TEnumAsByte<EInputEvent> InEventType, FString InCommand) : KeyName(InKeyName), EventType(InEventType), Command(InCommand) {};
-
-	UPROPERTY()
-	FName KeyName;
-	UPROPERTY()
-	TEnumAsByte<EInputEvent> EventType;
-	UPROPERTY()
-	FString Command;
-	UPROPERTY()
-		FString FriendlyName;
-};
 
 UCLASS()
 class UNREALTOURNAMENT_API UUTPlayerInput : public UPlayerInput

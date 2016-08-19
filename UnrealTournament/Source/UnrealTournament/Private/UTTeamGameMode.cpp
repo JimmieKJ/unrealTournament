@@ -806,17 +806,17 @@ void AUTTeamGameMode::BroadcastScoreUpdate(APlayerState* ScoringPlayer, AUTTeamI
 
 	if ((OldScore > BestScore) && (OldScore <= BestScore + 2) && (ScoringTeam->Score > BestScore + 2))
 	{
-		BroadcastLocalized(this, UUTCTFMajorMessage::StaticClass(), 8, ScoringPlayer, NULL, ScoringTeam);
+		BroadcastLocalized(this, UUTCTFGameMessage::StaticClass(), 8, ScoringPlayer, NULL, ScoringTeam);
 	}
 	else if (ScoringTeam->Score >= ((MercyScore > 0) ? (BestScore + MercyScore - 1) : (BestScore + 4)))
 	{
-		BroadcastLocalized(this, UUTCTFMajorMessage::StaticClass(), bHasBroadcastDominating ? 2 : 9, ScoringPlayer, NULL, ScoringTeam);
+		BroadcastLocalized(this, UUTCTFGameMessage::StaticClass(), bHasBroadcastDominating ? 2 : 9, ScoringPlayer, NULL, ScoringTeam);
 		bHasBroadcastDominating = true;
 	}
 	else
 	{
 		bHasBroadcastDominating = false; // since other team scored, need new reminder if mercy rule might be hit again
-		BroadcastLocalized(this, UUTCTFMajorMessage::StaticClass(), 2, ScoringPlayer, NULL, ScoringTeam);
+		BroadcastLocalized(this, UUTCTFGameMessage::StaticClass(), 2, ScoringPlayer, NULL, ScoringTeam);
 	}
 }
 

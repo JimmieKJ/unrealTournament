@@ -40,7 +40,7 @@ struct FWeaponGroupInfo
 
 	void AddWeapon(TSubclassOf<AUTWeapon> inWeaponClass, AUTWeapon* inWeapon, int32 inGroup)
 	{
-		if (inWeaponClass != nullptr)
+		if (inWeaponClass != nullptr && WeaponClasses.Find(inWeaponClass) == INDEX_NONE)
 		{
 			WeaponClasses.Add(inWeaponClass);
 			Weapons.Add(inWeapon);
@@ -111,7 +111,9 @@ public:
 	virtual void InitializeWidget(AUTHUD* Hud);
 	virtual bool ShouldDraw_Implementation(bool bShowScores) override;
 
+
 protected:
+	void UpdateGroups(AUTHUD* Hud);
 
 	// weapons available in each slot (in this persistent copy only the classes are filled out)
 	UPROPERTY()

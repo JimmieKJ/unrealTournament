@@ -43,6 +43,7 @@ AUTPlayerState::AUTPlayerState(const class FObjectInitializer& ObjectInitializer
 	: Super(ObjectInitializer)
 {
 	bReadyToPlay = false;
+	bIsWarmingUp = false;
 	bPendingTeamSwitch = false;
 	bCaster = false;
 	LastKillTime = 0.0f;
@@ -89,6 +90,7 @@ void AUTPlayerState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & Ou
 
 	DOREPLIFETIME(AUTPlayerState, CarriedObject);
 	DOREPLIFETIME(AUTPlayerState, bReadyToPlay);
+	DOREPLIFETIME(AUTPlayerState, bIsWarmingUp);
 	DOREPLIFETIME(AUTPlayerState, bPendingTeamSwitch);
 	DOREPLIFETIME(AUTPlayerState, RespawnWaitTime);
 	DOREPLIFETIME(AUTPlayerState, bOutOfLives);
@@ -1205,17 +1207,6 @@ void AUTPlayerState::BeginPlay()
 			{
 				UTGS->AddUserInfoQuery(UserId);
 			}
-		}
-	}
-
-	// If a player doesn't have a selected boost powerup while the game starts, lets go ahead and give them the 1st one available in the Powerup List
-	if (GetWorld() && (BoostClass == nullptr))
-	{
-		AUTGameState* UTGS = GetWorld()->GetGameState<AUTGameState>();
-		if (UTGS != nullptr)
-		{
-			TSubclassOf<class AUTInventory> SelectedBoost = UTGS->GetSelectableBoostByIndex(this, 0);
-			BoostClass = SelectedBoost;
 		}
 	}
 }
@@ -3234,6 +3225,9 @@ void AUTPlayerState::OnRepTaunt()
 
 void AUTPlayerState::PlayTauntByIndex(int32 TauntIndex)
 {
+	// SetEmoteSpeed here to make sure that it gets unfrozen if freezing isn't allowed
+	ServerSetEmoteSpeed(EmoteSpeed);
+
 	if (TauntIndex == 0 && TauntClass != nullptr)
 	{
 		EmoteReplicationInfo.EmoteIndex = TauntIndex;
@@ -3315,26 +3309,21 @@ void AUTPlayerState::GetBadgeFromELO(AUTBaseGameMode* DefaultGameMode, bool bRan
 	SubLevel = 0;
 
 	// Elo bounds for bronze levels
-	int32 EloBounds[9] = { 670, 820, 960, 1090, 1210, 1320, 1420, 1510, 1590 };
-	if (NumMatches < 40)
+	int32 EloBounds[9] = { 670, 900, 1080, 1260, 1360, 1430, 1480, 1510, 1540 };
+	if (NumMatches < 20)
 	{
 		// possibly beginner badges
-		if (NumMatches < 2)
+		if (NumMatches < 3)
 		{
 			SubLevel = 0;
 			return;
 		}
-		else if (NumMatches < 5)
+		else if (NumMatches < 6)
 		{
 			SubLevel = 1;
 			return;
 		}
-		else if (NumMatches < 10)
-		{
-			SubLevel = 2;
-			return;
-		}
-		else if ((EloRating < 1590) || (NumMatches < 20))
+		else
 		{
 			int32 i = 0;
 			for (i = 0; i < 9; i++)
@@ -3344,12 +3333,13 @@ void AUTPlayerState::GetBadgeFromELO(AUTBaseGameMode* DefaultGameMode, bool bRan
 					break;
 				}
 			}
-			SubLevel = FMath::Clamp(i, 2, NumMatches/3);
+			int32 MaxLevel = (NumMatches < 10) ? NumMatches / 2 : 8;
+			SubLevel = FMath::Clamp(i, 2, MaxLevel);
 			return;
 		}
 	}
 
-	if (EloRating < 1590)
+	if (EloRating < EloBounds[8])
 	{
 		int32 i = 0;
 		for (i = 0; i < 9; i++)
@@ -3362,15 +3352,15 @@ void AUTPlayerState::GetBadgeFromELO(AUTBaseGameMode* DefaultGameMode, bool bRan
 		BadgeLevel = 1;
 		SubLevel = i;
 	}
-	else if (EloRating < 2000)
+	else if (EloRating < 1900)
 	{
 		BadgeLevel = 2;
-		SubLevel = FMath::Clamp((float(EloRating) - 1500.f) / 55.6f, 0.f, 8.f);
+		SubLevel = FMath::Clamp((float(EloRating) - 1540.f) / 40.f, 0.f, 8.f);
 	}
 	else
 	{
 		BadgeLevel = 3;
-		SubLevel = FMath::Clamp((float(EloRating) - 2000.f) / 40.f, 0.f, 8.f);
+		SubLevel = FMath::Clamp((float(EloRating) - 1900.f) / 50.f, 0.f, 8.f);
 	}
 }
 

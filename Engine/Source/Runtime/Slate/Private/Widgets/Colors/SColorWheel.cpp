@@ -148,7 +148,5 @@ bool SColorWheel::ProcessMouseAction(const FGeometry& MyGeometry, const FPointer
 		OnValueChanged.ExecuteIfBound(NewColor);
 	}
 
-	GLog->Logf(TEXT("%f"), RelativeRadius);
-
 	return (RelativeRadius <= 1.0f);
 }

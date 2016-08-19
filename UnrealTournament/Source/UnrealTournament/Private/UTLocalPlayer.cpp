@@ -78,6 +78,8 @@
 #include "MatchmakingContext.h"
 #include "UTKillcamPlayback.h"
 #include "UTDemoNetDriver.h"
+#include "UTAnalytics.h"
+#include "QoSInterface.h"
 
 #if WITH_SOCIAL
 #include "Social.h"
@@ -993,6 +995,12 @@ void UUTLocalPlayer::OnLoginComplete(int32 LocalUserNum, bool bWasSuccessful, co
 				}
 			}
 		}
+
+		//Begin QoS eval to find where we just logged in from.
+		if (UTPC && UTPC->GetWorld() && FUTAnalytics::GetProviderPtr().IsValid())
+		{
+			FQosInterface::Get()->BeginQosEvaluation(UTPC->GetWorld(), FUTAnalytics::GetProviderPtr(), nullptr);
+		}
 	}
 
 	// We have enough credentials to auto-login.  So try it, but silently fail if we cant.
@@ -1571,8 +1579,11 @@ void UUTLocalPlayer::OnReadUserFileComplete(bool bWasSuccessful, const FUniqueNe
 				Ar.Seek(0);
 			}
 
+			bool bNeedToSaveProfile = false;
+
+
 			CurrentProfileSettings->Serialize(Ar);
-			CurrentProfileSettings->VersionFixup();
+			bNeedToSaveProfile = CurrentProfileSettings->VersionFixup();
 
 			if (FUTAnalytics::IsAvailable())
 			{
@@ -1590,7 +1601,6 @@ void UUTLocalPlayer::OnReadUserFileComplete(bool bWasSuccessful, const FUniqueNe
 			// to be cleared.  If all is OK, then apply these settings.
 			if (CurrentProfileSettings->SettingsRevisionNum >= VALID_PROFILESETTINGS_VERSION && !bClearProfile)
 			{
-				bool bNeedToSaveProfile = CurrentProfileSettings->VerifyInputRules();
 				CurrentProfileSettings->ApplyAllSettings(this);
 				SaveLocalProfileSettings();
 				// It's possible for the MCP data to get here before the profile, so we havbe to check for daily challenges 
@@ -1618,6 +1628,11 @@ void UUTLocalPlayer::OnReadUserFileComplete(bool bWasSuccessful, const FUniqueNe
 				CurrentProfileSettings->ResetProfile(EProfileResetType::All);
 			}
 
+			if (bNeedToSaveProfile)
+			{
+				SaveProfileSettings();
+			}
+
 		}
 		else 
 		{
@@ -1636,12 +1651,6 @@ void UUTLocalPlayer::OnReadUserFileComplete(bool bWasSuccessful, const FUniqueNe
 		PlayerNickname = GetAccountDisplayName().ToString();
 		SaveConfig();
 		SaveProfileSettings();
-
-#if !UE_SERVER
-		FText WelcomeMessage = FText::Format(NSLOCTEXT("UTLocalPlayer","Welcome","Your player name is set to '{0}'. Would you like to change it?"), GetAccountDisplayName());
-		ShowMessage(NSLOCTEXT("UTLocalPlayer", "WelcomeTitle", "Welcome to Unreal Tournament"), WelcomeMessage, UTDIALOG_BUTTON_YES + UTDIALOG_BUTTON_NO, FDialogResultDelegate::CreateUObject(this, &UUTLocalPlayer::WelcomeDialogResult),FVector2D(0.35,0.25));
-		// We couldn't load our profile or it was invalid or we choose to clear it so save it out.
-#endif
 	}
 	else if (FileName == GetProgressionFilename())
 	{
@@ -4701,6 +4710,14 @@ void UUTLocalPlayer::OnReadTitleFileComplete(bool bWasSuccessful, const FString&
 						SaveProfileSettings();
 					}
 				}
+
+				if (MCPPulledData.CurrentVersionNumber > GEngineNetVersion)
+				{
+#if !UE_SERVER
+					ShowMessage(NSLOCTEXT("UTLocalPlayer", "NeedtoUpdateTitle", "New Version Available"), NSLOCTEXT("UTLocalPlayer", "NeedtoUpdateMsg", "There is a newer version of game available.  Would you like to open the launcher and upgrade now?"), UTDIALOG_BUTTON_YES + UTDIALOG_BUTTON_NO, FDialogResultDelegate::CreateUObject(this, &UUTLocalPlayer::OnUpgradeResults),FVector2D(0.25,0.25));					
+#endif
+				}
+
 			}
 		}
 	}
@@ -5614,4 +5631,16 @@ void UUTLocalPlayer::SaveLocalProfileSettings()
 	FFileHelper::SaveArrayToFile(FileContents, *Path);
 }
 
-
+#if !UE_SERVER
+void UUTLocalPlayer::OnUpgradeResults(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID)
+{
+	if (ButtonID == UTDIALOG_BUTTON_YES)
+	{
+		FString URL = TEXT("com.epicgames.launcher://ut");
+		FString Command = TEXT("");
+		FString Error = TEXT("");
+		FPlatformProcess::LaunchURL(*URL, *Command, &Error);
+		FPlatformMisc::RequestExit( 0 );
+	}
+}
+#endif

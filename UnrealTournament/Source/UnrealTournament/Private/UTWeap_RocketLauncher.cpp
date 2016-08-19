@@ -74,13 +74,21 @@ void AUTWeap_RocketLauncher::Destroyed()
 void AUTWeap_RocketLauncher::BeginLoadRocket()
 {
 	//Play the load animation. Speed of anim based on GetLoadTime()
-	if (GetNetMode() != NM_DedicatedServer)
+	if ((GetNetMode() != NM_DedicatedServer) && (GetMesh()->GetAnimInstance() != nullptr))
 	{
-		UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
-		// @TODO FIXMESTEVE - different animations for empty versus loaded barrels
-		if (AnimInstance != NULL && LoadingAnimation.IsValidIndex(NumLoadedBarrels) && LoadingAnimation[NumLoadedBarrels] != NULL)
+		UAnimMontage* PickedAnimation = nullptr;
+		if (Ammo > 0)
 		{
-			AnimInstance->Montage_Play(LoadingAnimation[NumLoadedBarrels], LoadingAnimation[NumLoadedBarrels]->SequenceLength / GetLoadTime(NumLoadedBarrels));
+			PickedAnimation = (LoadingAnimation.IsValidIndex(NumLoadedBarrels) && LoadingAnimation[NumLoadedBarrels] != NULL) ? LoadingAnimation[NumLoadedBarrels] : nullptr;
+		}
+		else
+		{
+			PickedAnimation = (EmptyLoadingAnimation.IsValidIndex(NumLoadedBarrels) && EmptyLoadingAnimation[NumLoadedBarrels] != NULL) ? EmptyLoadingAnimation[NumLoadedBarrels] : nullptr;
+		}
+
+		if (PickedAnimation != nullptr)
+		{
+			GetMesh()->GetAnimInstance()->Montage_Play(PickedAnimation, PickedAnimation->SequenceLength / GetLoadTime(NumLoadedBarrels));
 		}
 	}
 

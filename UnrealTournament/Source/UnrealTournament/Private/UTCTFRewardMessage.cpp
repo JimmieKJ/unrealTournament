@@ -13,15 +13,12 @@ UUTCTFRewardMessage::UUTCTFRewardMessage(const class FObjectInitializer& ObjectI
 	MessageArea = FName(TEXT("Announcements"));
 	MessageSlot = FName(TEXT("MajorRewardMessage"));
 	bIsConsoleMessage = false;
-	AssistMessage = NSLOCTEXT("CTFRewardMessage", "Assist", "Assist!");
 	DeniedMessage = NSLOCTEXT("CTFRewardMessage", "Denied", "Denied by ");
 	RejectedMessage = NSLOCTEXT("CTFRewardMessage", "Rejected", "Redeemer Rejected by ");
 	BlueTeamName = NSLOCTEXT("CTFRewardMessage", "BlueTeamName", "BLUE TEAM");
 	RedTeamName = NSLOCTEXT("CTFRewardMessage", "RedTeamName", "RED TEAM");
 	TeamScorePrefix = NSLOCTEXT("CTFRewardMessage", "TeamScorePrefix", "");
 	TeamScorePostfix = NSLOCTEXT("CTFRewardMessage", "TeamScorePostfix", " Scores!");
-	HatTrickMessage = NSLOCTEXT("CTFRewardMessage", "HatTrick", "Hat Trick!");
-	OtherHatTrickMessage = NSLOCTEXT("CTFRewardMessage", "OtherHatTrick", "{Player1Name} got a Hat Trick!");
 	GoldScoreBonusPrefix = NSLOCTEXT("CTFRewardMessage", "GoldScoreBonusPrefix", "");
 	GoldScoreBonusPostfix = NSLOCTEXT("CTFRewardMessage", "GoldScoreBonusPostfix", " Scores!  \u2605 \u2605 \u2605");
 	SilverScoreBonusPrefix = NSLOCTEXT("CTFRewardMessage", "SilverScoreBonusPrefix", "");
@@ -82,7 +79,7 @@ float UUTCTFRewardMessage::GetAnnouncementDelay(int32 Switch)
 	{
 		return 1.f;
 	}
-	return ((Switch == 2) || (Switch == 5)) ? 2.5f : 0.f;
+	return 0.f;
 }
 
 float UUTCTFRewardMessage::GetAnnouncementPriority(int32 Switch) const
@@ -96,8 +93,6 @@ FName UUTCTFRewardMessage::GetAnnouncementName_Implementation(int32 Switch, cons
 	{
 	case 0: return TEXT("RW_Rejected"); break;
 	case 1: return TEXT("LastSecondSave"); break;
-	case 2: return TEXT("Assist"); break;
-	case 5: return TEXT("HatTrick"); break;
 	case 6: return TEXT("Denied"); break;
 	case 7: return TEXT("RZE_PowerupUnlocked"); break;
 	}
@@ -186,10 +181,8 @@ FText UUTCTFRewardMessage::GetText(int32 Switch, bool bTargetsPlayerState1, APla
 	switch (Switch)
 	{
 	case 0: return BuildEmphasisText(Switch, RelatedPlayerState_1, RelatedPlayerState_2, OptionalObject); break;
-	case 2: return AssistMessage; break;
 	case 3: return BuildEmphasisText(Switch, RelatedPlayerState_1, RelatedPlayerState_2, OptionalObject); break;
 	case 4: return BuildEmphasisText(Switch, RelatedPlayerState_1, RelatedPlayerState_2, OptionalObject); break;
-	case 5: return (bTargetsPlayerState1 ? HatTrickMessage : OtherHatTrickMessage); break;
 	case 6: return BuildEmphasisText(Switch, RelatedPlayerState_1, RelatedPlayerState_2, OptionalObject); break;
 	case 7: return BuildEmphasisText(Switch, RelatedPlayerState_1, RelatedPlayerState_2, OptionalObject); break;
 	}

@@ -5,6 +5,21 @@
 #include "UTCarriedObject.h"
 #include "UTGhostFlag.generated.h"
 
+USTRUCT()
+struct FGhostMaster
+{
+	GENERATED_USTRUCT_BODY()
+
+		UPROPERTY(BlueprintReadOnly)
+		AUTCarriedObject* MyCarriedObject;
+
+	UPROPERTY()
+		FVector_NetQuantize FlagLocation;
+
+	UPROPERTY()
+		FVector_NetQuantize MidPoints[NUM_MIDPOINTS];
+};
+
 UCLASS(meta = (ChildCanTick))
 class UNREALTOURNAMENT_API AUTGhostFlag : public AActor
 {
@@ -13,11 +28,8 @@ class UNREALTOURNAMENT_API AUTGhostFlag : public AActor
 	UPROPERTY(VisibleDefaultsOnly, BlueprintReadOnly, Category = Pickup)
 	UParticleSystemComponent* TimerEffect;
 
-	UPROPERTY(ReplicatedUsing=OnSetCarriedObject, BlueprintReadOnly, Category = Flag)
-	AUTCarriedObject* MyCarriedObject;
-
-	UPROPERTY(ReplicatedUsing=OnSetMidPoint)
-	FVector MidPoints[3];
+	UPROPERTY(BlueprintReadOnly, ReplicatedUsing = OnSetCarriedObject)
+		FGhostMaster GhostMaster;
 
 	UPROPERTY()
 	class AUTFlagReturnTrail* Trail;
@@ -34,11 +46,7 @@ class UNREALTOURNAMENT_API AUTGhostFlag : public AActor
 	UFUNCTION()
 	virtual void OnSetCarriedObject();
 
-	UFUNCTION()
-	virtual void OnSetMidPoint();
-
 	virtual void SetCarriedObject(AUTCarriedObject* NewCarriedObject, const FFlagTrailPos NewPosition);
 	virtual void Tick(float DeltaTime) override;
 	virtual void Destroyed() override;
-	virtual void OnRep_ReplicatedMovement() override;
 };

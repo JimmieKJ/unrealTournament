@@ -3,6 +3,8 @@
 #include "UTProfileSettings.h"
 #include "UTPlayerInput.h"
 #include "GameFramework/InputSettings.h"
+#include "Runtime/JsonUtilities/Public/JsonUtilities.h"
+
 
 UUTProfileSettings::UUTProfileSettings(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -80,15 +82,16 @@ void UUTProfileSettings::ResetProfile(EProfileResetType::Type SectionToReset)
 	if (SectionToReset == EProfileResetType::All || SectionToReset == EProfileResetType::Input)
 	{
 		bEnableMouseSmoothing = DefaultInputSettings ? DefaultInputSettings->bEnableMouseSmoothing : true;
-		MouseAcceleration = DefaultUTPlayerInput ? DefaultUTPlayerInput->Acceleration : 0;
-		MouseAccelerationPower = DefaultUTPlayerInput ? DefaultUTPlayerInput->AccelerationPower : 0;
-		MouseAccelerationMax = DefaultUTPlayerInput ? DefaultUTPlayerInput->AccelerationMax : 0;
-		DoubleClickTime = DefaultInputSettings ? DefaultInputSettings->DoubleClickTime : 0.3f;
+		MouseAcceleration = 0.00005f;
+		MouseAccelerationPower = 0.0f;
+		MouseAccelerationMax = 1.0f;
+		DoubleClickTime = 0.3f;
 
-		MouseSensitivity = DefaultUTPlayerInput ? DefaultUTPlayerInput->GetMouseSensitivity() : 1.0f;
+		MouseSensitivity = 0.07f;
 
-		MaxDodgeClickTimeValue = 0.2;
-		MaxDodgeTapTimeValue = 0.2;
+		MaxDodgeClickTimeValue = 0.25;
+		bDisableDoubleTapDodge = false;
+		MaxDodgeTapTimeValue = 0.3;
 		bSingleTapWallDodge = true;
 		bSingleTapAfterJump = true;
 		bAllowSlideFromRun = true;
@@ -97,46 +100,7 @@ void UUTProfileSettings::ResetProfile(EProfileResetType::Type SectionToReset)
 	}
 	if (SectionToReset == EProfileResetType::All || SectionToReset == EProfileResetType::Binds)
 	{
-		/**
-		 *	Pull all of the input binds from DefaultInput.ini.  
-		 **/
-
-		CustomBinds.Empty();
-		if (DefaultUTPlayerInput)
-		{
-			for (int32 i = 0; i < DefaultUTPlayerInput->CustomBinds.Num(); i++)
-			{
-				CustomBinds.Add(DefaultUTPlayerInput->CustomBinds[i]);
-			}
-		}
-
-		ActionMappings.Empty();
-		AxisMappings.Empty();
-		AxisConfig.Empty();
-
-		if (DefaultInputSettings)
-		{			
-			for (int32 i = 0; i < DefaultInputSettings->ActionMappings.Num(); i++)
-			{
-				ActionMappings.Add(DefaultInputSettings->ActionMappings[i]);
-			}
-			
-			for (int32 i = 0; i < DefaultInputSettings->AxisMappings.Num(); i++)
-			{
-				AxisMappings.Add(DefaultInputSettings->AxisMappings[i]);
-			}
-			
-			for (int32 i = 0; i < DefaultInputSettings->AxisConfig.Num(); i++)
-			{
-				AxisConfig.Add(DefaultInputSettings->AxisConfig[i]);
-				if (AxisConfig[i].AxisKeyName == EKeys::MouseY && AxisConfig[i].AxisProperties.bInvert)
-				{
-					bInvertMouse = true;
-				}
-			}
-		}
-
-		ConsoleKey = EKeys::Tilde;
+		GetDefaultGameActions(GameActions);
 	}
 
 	if (SectionToReset == EProfileResetType::All || SectionToReset == EProfileResetType::Social)
@@ -179,192 +143,393 @@ void UUTProfileSettings::ResetProfile(EProfileResetType::Type SectionToReset)
 		WeaponCustomizations.Add(EpicWeaponCustomizationTags::Enforcer, FWeaponCustomizationInfo(EpicWeaponCustomizationTags::Enforcer, 2, 2.0f, DefaultWeaponCrosshairs::Cross5, FLinearColor::White, 1.0f));
 		WeaponCustomizations.Add(EpicWeaponCustomizationTags::Translocator, FWeaponCustomizationInfo(EpicWeaponCustomizationTags::Translocator, 0, 1.0f, DefaultWeaponCrosshairs::Cross3, FLinearColor::White, 1.0f));
 		WeaponCustomizations.Add(EpicWeaponCustomizationTags::ImpactHammer, FWeaponCustomizationInfo(EpicWeaponCustomizationTags::ImpactHammer, 1, 1.0f, DefaultWeaponCrosshairs::Bracket1, FLinearColor::White, 1.0f));
+
+		bAutoWeaponSwitch = true;
+		bCustomWeaponCrosshairs = false;
+		bSingleCustomWeaponCrosshair = false;
+
+		WeaponWheelMapping.Empty();
+		WeaponWheelMapping.Add(8);
+		WeaponWheelMapping.Add(5);
+		WeaponWheelMapping.Add(4);
+		WeaponWheelMapping.Add(3);
+		WeaponWheelMapping.Add(7);
+		WeaponWheelMapping.Add(2);
+		WeaponWheelMapping.Add(9);
+		WeaponWheelMapping.Add(6);
+
+		SingleCustomWeaponCrosshair.CrosshairTag = DefaultWeaponCrosshairs::Dot;
+		SingleCustomWeaponCrosshair.CrosshairColorOverride = FLinearColor::White;
+		SingleCustomWeaponCrosshair.CrosshairScaleOverride = 1.0f;
 	}
 }
 
-
-void UUTProfileSettings::VersionFixup()
+void UUTProfileSettings::GetDefaultGameActions(TArray<FKeyConfigurationInfo>& outGameActions)
 {
-	// Place any hacks needed to fix or update the profile here.  NOTE: you should no longer need to hack in changes for
-	// input.  VerifyInputRules() will attempt to make sure any new input binds are brought in to the profile as well as
-	// check for double bindings.
+	outGameActions.Empty();
+	FKeyConfigurationInfo Key;
 
+	// Move
+
+	Key = FKeyConfigurationInfo("MoveForward", EControlCategory::Movement, EKeys::W, EKeys::Up, EKeys::Gamepad_LeftY, NSLOCTEXT("Keybinds","MoveForward","Move Forward"));
+	Key.AddAxisMapping("MoveForward", 1.0f);
+	Key.AddActionMapping("TapForward");
+	outGameActions.Add(Key);
+
+	Key = FKeyConfigurationInfo("MoveBackward", EControlCategory::Movement, EKeys::S, EKeys::Down, EKeys::Invalid, NSLOCTEXT("Keybinds", "MoveBackward", "Move Backwards"));
+	Key.AddAxisMapping("MoveBackward", 1.0f);
+	Key.AddActionMapping("TapBack");
+	outGameActions.Add(Key);
+
+	Key = FKeyConfigurationInfo("MoveLeft", EControlCategory::Movement, EKeys::A, EKeys::PageUp, EKeys::Invalid, NSLOCTEXT("Keybinds", "MoveLeft", "Strafe Left"));
+	Key.AddAxisMapping("MoveLeft", 1.0f);
+	Key.AddActionMapping("TapLeft");
+	outGameActions.Add(Key);
+
+	Key = FKeyConfigurationInfo("MoveRight", EControlCategory::Movement, EKeys::D, EKeys::PageDown, EKeys::Gamepad_LeftX,NSLOCTEXT("Keybinds", "MoveRight", "Strafe Right"));
+	Key.AddAxisMapping("MoveRight", 1.0f);
+	Key.AddActionMapping("TapRight");
+	outGameActions.Add(Key);
+
+	// Turn
+
+	Key = FKeyConfigurationInfo("TurnLeft", EControlCategory::Movement, EKeys::Left, EKeys::Invalid, EKeys::Invalid, NSLOCTEXT("Keybinds", "TurnLeft", "Turn Left"));
+	Key.AddAxisMapping("TurnRate", -1.0f);
+	outGameActions.Add(Key);
+
+	Key = FKeyConfigurationInfo("TurnRight", EControlCategory::Movement, EKeys::Right, EKeys::Invalid, EKeys::Gamepad_RightX, NSLOCTEXT("Keybinds", "TurnRight", "Turn Right"));
+	Key.AddAxisMapping("TurnRate", 1.0f);
+	outGameActions.Add(Key);
+
+	// Actions
+
+	Key = FKeyConfigurationInfo("Jump", EControlCategory::Movement, EKeys::SpaceBar, EKeys::Invalid, EKeys::Gamepad_FaceButton_Bottom, NSLOCTEXT("Keybinds", "Jump", "Jump"));
+	Key.AddAxisMapping("MoveUp", 1.0f);
+	Key.AddActionMapping("Jump");
+	outGameActions.Add(Key);
+
+	Key = FKeyConfigurationInfo("Crouch", EControlCategory::Movement, EKeys::LeftControl, EKeys::C, EKeys::Gamepad_LeftThumbstick, NSLOCTEXT("Keybinds", "Crouch", "Crouch"));
+	Key.AddAxisMapping("MoveUp", -1.0f);
+	Key.AddActionMapping("Crouch");
+	outGameActions.Add(Key);
+
+	Key = FKeyConfigurationInfo("Slide", EControlCategory::Movement, EKeys::LeftShift, EKeys::Invalid, EKeys::Invalid, NSLOCTEXT("Keybinds", "Slide", "Slide"));
+	Key.AddActionMapping("Slide");
+	outGameActions.Add(Key);
+
+	Key = FKeyConfigurationInfo("SingleTapDodge", EControlCategory::Movement, EKeys::V, EKeys::Invalid, EKeys::Gamepad_DPad_Down, NSLOCTEXT("Keybinds", "SingleTapDodge", "One Tap Dodge"));
+	Key.AddActionMapping("SingleTapDodge");
+	outGameActions.Add(Key);
+
+	// Combat
+
+	Key = FKeyConfigurationInfo("Fire", EControlCategory::Combat, EKeys::LeftMouseButton, EKeys::Invalid, EKeys::Gamepad_RightTrigger, NSLOCTEXT("Keybinds", "Fire", "Fire"));
+	Key.AddActionMapping("StartFire");
+	Key.AddActionMapping("StopFire");
+	outGameActions.Add(Key);
+
+	Key = FKeyConfigurationInfo("AltFire", EControlCategory::Combat, EKeys::RightMouseButton, EKeys::Invalid, EKeys::Gamepad_LeftTrigger, NSLOCTEXT("Keybinds", "AltFire", "Alt Fire"));
+	Key.AddActionMapping("StartAltFire");
+	Key.AddActionMapping("StopAltFire");
+	outGameActions.Add(Key);
+
+	Key = FKeyConfigurationInfo("NextWeapon", EControlCategory::Combat, EKeys::MouseScrollUp, EKeys::Invalid, EKeys::Gamepad_LeftShoulder, NSLOCTEXT("Keybinds", "NextWeapon", "Next Weapon"));
+	Key.AddActionMapping("NextWeapon");
+	outGameActions.Add(Key);
+
+	Key = FKeyConfigurationInfo("PrevWeapon", EControlCategory::Combat, EKeys::MouseScrollDown, EKeys::Invalid, EKeys::Gamepad_RightShoulder, NSLOCTEXT("Keybinds", "PrevWeapon", "Previous Weapon"));
+	Key.AddActionMapping("PrevWeapon");
+	outGameActions.Add(Key);
+
+	Key = FKeyConfigurationInfo("BestWeapon", EControlCategory::Combat, EKeys::Enter, EKeys::Invalid, EKeys::Invalid, NSLOCTEXT("Keybinds", "BestWeapon", "Best Weapon"));
+	Key.AddActionMapping("BestWeapon");
+	outGameActions.Add(Key);
+
+	Key = FKeyConfigurationInfo("ThrowWeapon", EControlCategory::Combat, EKeys::M, EKeys::Invalid, EKeys::Invalid, NSLOCTEXT("Keybinds", "ThrowWeapon", "Throw Weapon"));
+	Key.AddActionMapping("ThrowWeapon");
+	outGameActions.Add(Key);
+
+	Key = FKeyConfigurationInfo("ActivateSpecial", EControlCategory::Combat, EKeys::Q, EKeys::Invalid, EKeys::Invalid, NSLOCTEXT("Keybinds", "ActivateSepcial", "Activate Powerup / Toggle Translocator"));
+	Key.AddCustomBinding("ActivateSpecial");
+	outGameActions.Add(Key);
+
+	Key = FKeyConfigurationInfo("SelectTrans", EControlCategory::Combat, EKeys::Invalid, EKeys::Invalid, EKeys::Invalid, NSLOCTEXT("Keybinds", "SelectTrans", "Select Translocator"));
+	Key.AddCustomBinding("SelectTranslocator");
+	outGameActions.Add(Key);
+
+	Key = FKeyConfigurationInfo("ToggleWepaonWheel", EControlCategory::Combat, EKeys::Invalid, EKeys::Invalid, EKeys::Gamepad_DPad_Up, NSLOCTEXT("Keybinds", "ToggleWeaponWheel", "Show Weapon Wheel"));
+	Key.AddActionMapping("ToggleWeaponWheel");
+	outGameActions.Add(Key);
+
+	// Weapon
+
+	Key = FKeyConfigurationInfo("SwitchWeapon1", EControlCategory::Weapon, EKeys::One, EKeys::Invalid, EKeys::Invalid, NSLOCTEXT("Keybinds", "SwitchWeapon1", "Select Weapon Group 1"));
+	Key.AddCustomBinding("SwitchWeapon 1");
+	outGameActions.Add(Key);
+
+	Key = FKeyConfigurationInfo("SwitchWeapon2", EControlCategory::Weapon, EKeys::Two, EKeys::Invalid, EKeys::Invalid, NSLOCTEXT("Keybinds", "SwitchWeapon2", "Select Weapon Group 2"));
+	Key.AddCustomBinding("SwitchWeapon 2");
+	outGameActions.Add(Key);
+
+	Key = FKeyConfigurationInfo("SwitchWeapon3", EControlCategory::Weapon, EKeys::Three, EKeys::Invalid, EKeys::Invalid, NSLOCTEXT("Keybinds", "SwitchWeapon3", "Select Weapon Group 3"));
+	Key.AddCustomBinding("SwitchWeapon 3");
+	outGameActions.Add(Key);
+
+	Key = FKeyConfigurationInfo("SwitchWeapon4", EControlCategory::Weapon, EKeys::Four, EKeys::Invalid, EKeys::Invalid, NSLOCTEXT("Keybinds", "SwitchWeapon4", "Select Weapon Group 4"));
+	Key.AddCustomBinding("SwitchWeapon 4");
+	outGameActions.Add(Key);
+
+	Key = FKeyConfigurationInfo("SwitchWeapon5", EControlCategory::Weapon, EKeys::Five, EKeys::Invalid, EKeys::Invalid, NSLOCTEXT("Keybinds", "SwitchWeapon5", "Select Weapon Group 5"));
+	Key.AddCustomBinding("SwitchWeapon 5");
+	outGameActions.Add(Key);
+
+	Key = FKeyConfigurationInfo("SwitchWeapon6", EControlCategory::Weapon, EKeys::Six, EKeys::Invalid, EKeys::Invalid, NSLOCTEXT("Keybinds", "SwitchWeapon6", "Select Weapon Group 6"));
+	Key.AddCustomBinding("SwitchWeapon 6");
+	outGameActions.Add(Key);
+
+	Key = FKeyConfigurationInfo("SwitchWeapon7", EControlCategory::Weapon, EKeys::Seven, EKeys::Invalid, EKeys::Invalid, NSLOCTEXT("Keybinds", "SwitchWeapon7", "Select Weapon Group 7"));
+	Key.AddCustomBinding("SwitchWeapon 7");
+	outGameActions.Add(Key);
+
+	Key = FKeyConfigurationInfo("SwitchWeapon8", EControlCategory::Weapon, EKeys::Eight, EKeys::Invalid, EKeys::Invalid, NSLOCTEXT("Keybinds", "SwitchWeapon8", "Select Weapon Group 8"));
+	Key.AddCustomBinding("SwitchWeapon 8");
+	outGameActions.Add(Key);
+
+	Key = FKeyConfigurationInfo("SwitchWeapon9", EControlCategory::Weapon, EKeys::Nine, EKeys::Invalid, EKeys::Invalid, NSLOCTEXT("Keybinds", "SwitchWeapon9", "Select Weapon Group 9"));
+	Key.AddCustomBinding("SwitchWeapon 9");
+	outGameActions.Add(Key);
+
+	Key = FKeyConfigurationInfo("SwitchWeapon0", EControlCategory::Weapon, EKeys::Zero, EKeys::Invalid, EKeys::Invalid, NSLOCTEXT("Keybinds", "SwitchWeapon0", "Select Weapon Group 0"));
+	Key.AddCustomBinding("SwitchWeapon 0");
+	outGameActions.Add(Key);
+
+	// Taunts
+
+	Key = FKeyConfigurationInfo("Taunt1", EControlCategory::Taunts, EKeys::J, EKeys::Invalid, EKeys::Gamepad_DPad_Left, NSLOCTEXT("Keybinds", "Taunt1", "Taunt #1"));
+	Key.AddActionMapping("PlayTaunt");
+	outGameActions.Add(Key);
+
+	Key = FKeyConfigurationInfo("Taunt2", EControlCategory::Taunts, EKeys::K, EKeys::Invalid, EKeys::Gamepad_DPad_Right, NSLOCTEXT("Keybinds", "Taunt2", "Taunt #2"));
+	Key.AddActionMapping("PlayTaunt2");
+	outGameActions.Add(Key);
+
+	// UI
+
+	Key = FKeyConfigurationInfo("ShowMenu", EControlCategory::UI, EKeys::Escape, EKeys::Invalid, EKeys::Gamepad_Special_Right, NSLOCTEXT("Keybinds", "ShowMenu", "Show Menu"));
+	Key.AddActionMapping("ShowMenu");
+	outGameActions.Add(Key);
+
+	Key = FKeyConfigurationInfo("ShowScores", EControlCategory::UI, EKeys::Tab, EKeys::Invalid, EKeys::Gamepad_Special_Left, NSLOCTEXT("Keybinds", "ShowScores", "Show Scores"));
+	Key.AddActionMapping("ShowScores");
+	outGameActions.Add(Key);
+
+	Key = FKeyConfigurationInfo("ShowConsole", EControlCategory::UI, EKeys::Tilde, EKeys::Invalid, EKeys::Invalid, NSLOCTEXT("Keybinds", "ShowConsole", "Show Console"));
+	Key.AddActionMapping("Console");
+	outGameActions.Add(Key);
+
+	Key = FKeyConfigurationInfo("Talk", EControlCategory::UI, EKeys::T, EKeys::Invalid, EKeys::Invalid, NSLOCTEXT("Keybinds", "Talk", "Talk"));
+	Key.AddActionMapping("Talk");
+	outGameActions.Add(Key);
+
+	Key = FKeyConfigurationInfo("TeamTalk", EControlCategory::UI, EKeys::Y, EKeys::Invalid, EKeys::Invalid, NSLOCTEXT("Keybinds", "TeamTalk", "Team Talk"));
+	Key.AddActionMapping("TeamTalk");
+	outGameActions.Add(Key);
+
+	Key = FKeyConfigurationInfo("BuyMenu", EControlCategory::UI, EKeys::B, EKeys::Invalid, EKeys::Gamepad_FaceButton_Left, NSLOCTEXT("Keybinds", "BuyMenu", "Show Buy Menu"));
+	Key.AddActionMapping("ShowBuyMenu");
+	outGameActions.Add(Key);
+
+	Key = FKeyConfigurationInfo("ComsMenu", EControlCategory::UI, EKeys::F, EKeys::Invalid, EKeys::Gamepad_FaceButton_Right, NSLOCTEXT("Keybinds", "ShowComsMenu", "Show Coms Menu"));
+	Key.AddCustomBinding("ToggleComMenu");
+	outGameActions.Add(Key);
+
+	// Misc
+
+	Key = FKeyConfigurationInfo("FeignDeath", EControlCategory::Misc, EKeys::H, EKeys::Invalid, EKeys::Invalid, NSLOCTEXT("Keybinds", "FeignDeath", "Feign Death"));
+	Key.AddCustomBinding("FeignDeath");
+	outGameActions.Add(Key);
+
+	Key = FKeyConfigurationInfo("DropCarriedObject", EControlCategory::Misc, EKeys::G, EKeys::Invalid, EKeys::Invalid, NSLOCTEXT("Keybinds", "DropCarriedObject", "Drop Carried Object"));
+	Key.AddActionMapping("DropCarriedObject");
+	outGameActions.Add(Key);
+
+	Key = FKeyConfigurationInfo("RequestRally", EControlCategory::Misc, EKeys::E, EKeys::Invalid, EKeys::Gamepad_FaceButton_Top, NSLOCTEXT("Keybinds", "RequestRally", "Request Rally"));
+	Key.AddActionMapping("RequestRally");
+	outGameActions.Add(Key);
+
+/*
+	Key = FKeyConfigurationInfo("PushToTalk", EControlCategory::Misc, EKeys::CapsLock, EKeys::Invalid, NSLOCTEXT("Keybinds", "PushToTalk", "Push to Talk"));
+	Key.AddCustomBinding("PushToTalk");
+	outGameActions.Add(Key);
+*/
 }
 
-bool UUTProfileSettings::VerifyInputRules()
-{
-	bool bCustomBindsChanged = false;
 
-	UUTPlayerInput* DefaultUTPlayerInput = UUTPlayerInput::StaticClass()->GetDefaultObject<UUTPlayerInput>();
-	if (DefaultUTPlayerInput)
+bool UUTProfileSettings::ValidateGameActions()
+{
+	bool bNeedsResaving = false;
+	TArray<FKeyConfigurationInfo> DefaultGameActions;
+	GetDefaultGameActions(DefaultGameActions);
+
+	// This is a special hackey fix up.  The ini system doesn't make it that easy to remove entries from
+	// inis and this can be trouble with input.  So we clear out the various input mappings that may correspond with
+	// the GameActions.
+
+	if (SettingsRevisionNum < 32)
 	{
-		// Verify that the custom binds is correct.  First we remove any custom binds in the profile that are no longer in the DefaultObject.
-
-		int32 BindIndex = 0;
-		while (BindIndex < CustomBinds.Num())
+		UInputSettings* InputSettings = UInputSettings::StaticClass()->GetDefaultObject<UInputSettings>();
+		UUTPlayerInput* UTPlayerInput = UUTPlayerInput::StaticClass()->GetDefaultObject<UUTPlayerInput>();
+		for (int32 i = 0; i < DefaultGameActions.Num(); i++)
 		{
-			bool bFound = false;
-			for (int32 i = 0; i < DefaultUTPlayerInput->CustomBinds.Num(); i++)
+			FKeyConfigurationInfo* Action = &DefaultGameActions[i];
+
+			if (InputSettings != nullptr)
 			{
-				if (DefaultUTPlayerInput->CustomBinds[i].Command.Equals(CustomBinds[BindIndex].Command,ESearchCase::IgnoreCase))
+
+				for (int32 j = 0; j < Action->ActionMappings.Num(); j++)
 				{
-					bFound = true;
-					break;
+					FName ActionName = Action->ActionMappings[j].ActionName;
+					int32 k = 0;
+					while (k < InputSettings->ActionMappings.Num())
+					{
+						if (InputSettings->ActionMappings[k].ActionName == ActionName )
+						{
+							InputSettings->ActionMappings.RemoveAt(k,1);
+						}
+						else
+						{
+							k++;
+						}
+					}
+				}
+
+				for (int32 j = 0; j < Action->CustomBindings.Num(); j++)
+				{
+					FString Command = Action->CustomBindings[j].Command;
+					int32 k = 0;
+					while (k < InputSettings->ActionMappings.Num())
+					{
+						FString ActionName = InputSettings->ActionMappings[k].ActionName.ToString();
+						// NOTE: StartActivePowerup and ToggleComMenu were once placed in the wrong group.
+						if (ActionName.Equals(Command, ESearchCase::IgnoreCase) 
+							|| ActionName.Equals(TEXT("StartActivatePowerup"),ESearchCase::IgnoreCase)		
+							|| ActionName.Equals(TEXT("ToggleComMenu"),ESearchCase::IgnoreCase))
+						{
+							InputSettings->ActionMappings.RemoveAt(k,1);
+						}
+						else
+						{
+							k++;
+						}
+					}
+				}
+
+				for (int32 j = 0; j < Action->AxisMappings.Num(); j++)
+				{
+					FName AxisName = Action->AxisMappings[j].AxisName;
+					int32 k = 0;
+					while (k < InputSettings->AxisMappings.Num())
+					{
+						if (InputSettings->AxisMappings[k].AxisName == AxisName)
+						{
+							InputSettings->AxisMappings.RemoveAt(k,1);
+						}
+						else
+						{
+							k++;
+						}
+					}
 				}
 			}
-		
-			if (!bFound)
+
+			if (UTPlayerInput != nullptr)
 			{
-				CustomBinds.RemoveAt(BindIndex);
-				bCustomBindsChanged = true;
-			}
-			else
-			{
-				BindIndex++;
+				for (int32 j = 0; j < Action->CustomBindings.Num(); j++)
+				{
+					FString Command = Action->CustomBindings[j].Command;
+					int32 k = 0;
+					while (k < UTPlayerInput->CustomBinds.Num())
+					{
+						FString Command = UTPlayerInput->CustomBinds[k].Command;
+						// NOTE: StartActivePowerup and ToggleComMenu were once placed in the wrong group.
+						if (Command.Equals(Command, ESearchCase::IgnoreCase) 
+							|| Command.Equals(TEXT("StartActivatePowerup"),ESearchCase::IgnoreCase)		
+							|| Command.Equals(TEXT("ToggleComMenu"),ESearchCase::IgnoreCase))
+						{
+							UTPlayerInput->CustomBinds.RemoveAt(k,1);
+						}
+						else
+						{
+							k++;
+						}
+					}
+				}
 			}
 		}
 
-		// Now add in any ini binds that are missing from the custom binds array
-		
-		for (int32 i = 0; i < DefaultUTPlayerInput->CustomBinds.Num(); i++)
-		{
-			bool bFound = false;
-			for (int32 j = 0; j < CustomBinds.Num(); j++)
-			{
-				if (DefaultUTPlayerInput->CustomBinds[i].Command.Equals(CustomBinds[j].Command, ESearchCase::IgnoreCase))
-				{
-					bFound = true;
-					break;
-				}
-			}
-
-			if (!bFound)
-			{
-				CustomBinds.Add(DefaultUTPlayerInput->CustomBinds[i]);
-				bCustomBindsChanged = true;
-			}
-		}
-
-		// Search for double key binds.
+		if (InputSettings != nullptr) InputSettings->SaveConfig();
+		if (UTPlayerInput != nullptr) UTPlayerInput->SaveConfig();
 	}
-	return bCustomBindsChanged;
+		
+
+	// Remove any GameActions that no longer exist in the default list.
+	int32 Action = GameActions.Num()-1;
+	while (Action >= 0)
+	{
+		bool bFound = false;
+		for (int32 i=0; i < DefaultGameActions.Num(); i++)
+		{
+			if (GameActions[Action].GameActionTag == DefaultGameActions[i].GameActionTag)
+			{
+				bFound = true;
+				break;
+			}
+		}
+
+		if (!bFound)
+		{
+			GameActions.RemoveAt(Action,1);
+			bNeedsResaving = true;
+		}
+		Action--;
+	}
+
+	// Now reverse it, add any are missing
+
+	for (int32 i = 0; i < DefaultGameActions.Num(); i++)
+	{
+		bool bFound = false;
+		for (int32 j = 0; j < GameActions.Num(); j++)
+		{
+			if (DefaultGameActions[i].GameActionTag == GameActions[j].GameActionTag)
+			{
+				bFound = true;
+				break;
+			}
+		}
+
+		if (!bFound)
+		{
+			GameActions.Add(DefaultGameActions[i]);
+			bNeedsResaving = true;
+		}
+	}
+
+	return bNeedsResaving;
+}
+
+bool UUTProfileSettings::VersionFixup()
+{
+	// HACK - We aren't supporting weapon skins right now since they are disabled in netplay in editor builds.  So force clear them here just in
+	// case there was stale data.
+	WeaponSkins.Empty();
+	return ValidateGameActions();
 }
 
 void UUTProfileSettings::ApplyAllSettings(UUTLocalPlayer* ProfilePlayer)
 {
 	ProfilePlayer->bSuppressToastsInGame = bSuppressToastsInGame;
 	ProfilePlayer->SetNickname(PlayerName);
-
-	// Get all settings from the Player Controller
-	AUTPlayerController* PC = Cast<AUTPlayerController>(ProfilePlayer->PlayerController);
-	if (PC == NULL)
-	{
-		PC = AUTPlayerController::StaticClass()->GetDefaultObject<AUTPlayerController>();
-	}
-
-	if (PC != NULL)
-	{
-		PC->MaxDodgeClickTime = MaxDodgeClickTimeValue;
-		PC->MaxDodgeTapTime = MaxDodgeTapTimeValue;
-		PC->bSingleTapWallDodge = bSingleTapWallDodge;
-		PC->bSingleTapAfterJump = bSingleTapAfterJump;
-		PC->bAutoWeaponSwitch = bAutoWeaponSwitch;
-		PC->bCrouchTriggersSlide = bAllowSlideFromRun;
-		PC->bHearsTaunts = bHearsTaunts;
-		PC->WeaponBobGlobalScaling = WeaponBob;
-		PC->EyeOffsetGlobalScaling = ViewBob;
-		PC->SetWeaponHand(WeaponHand);
-		PC->FFAPlayerColor = FFAPlayerColor;
-		PC->ConfigDefaultFOV = PlayerFOV;
-
-		PC->SaveConfig();
-		// Get any settings from UTPlayerInput
-		UUTPlayerInput* UTPlayerInput = Cast<UUTPlayerInput>(PC->PlayerInput);
-		if (UTPlayerInput == NULL)
-		{
-			UTPlayerInput = UUTPlayerInput::StaticClass()->GetDefaultObject<UUTPlayerInput>();
-
-			UTPlayerInput->AccelerationPower = MouseAccelerationPower;
-			UTPlayerInput->Acceleration = MouseAcceleration;
-			UTPlayerInput->AccelerationMax = MouseAccelerationMax;
-		}
-		if (UTPlayerInput && CustomBinds.Num() > 0)
-		{
-			UTPlayerInput->CustomBinds.Empty();
-			for (int32 i = 0; i < CustomBinds.Num(); i++)
-			{
-				UTPlayerInput->CustomBinds.Add(CustomBinds[i]);
-			}
-			//UTPlayerInput->SetMouseSensitivity(MouseSensitivity);
-			UTPlayerInput->SaveConfig();
-		}
-
-		AUTCharacter* C = Cast<AUTCharacter>(PC->GetPawn());
-		if (C != NULL)
-		{
-			C->NotifyTeamChanged();
-		}
-	}
-
-	// Save all settings to the UInputSettings object
-	UInputSettings* DefaultInputSettingsObject = UInputSettings::StaticClass()->GetDefaultObject<UInputSettings>();
-	if (DefaultInputSettingsObject)
-	{
-		if (ActionMappings.Num() > 0)
-		{
-			DefaultInputSettingsObject->ActionMappings.Empty();
-			for (int32 i = 0; i < ActionMappings.Num(); i++)
-			{
-				DefaultInputSettingsObject->ActionMappings.Add(ActionMappings[i]);
-			}
-		}
-
-		if (AxisConfig.Num() > 0)
-		{
-			DefaultInputSettingsObject->AxisConfig.Empty();
-			for (int32 i = 0; i < AxisConfig.Num(); i++)
-			{
-				DefaultInputSettingsObject->AxisConfig.Add(AxisConfig[i]);
-				if (bInvertMouse && AxisConfig[i].AxisKeyName == EKeys::MouseY)
-				{
-					AxisConfig[i].AxisProperties.bInvert = true;
-				}
-			}
-		}
-
-		if (AxisMappings.Num() > 0)
-		{
-			DefaultInputSettingsObject->AxisMappings.Empty();
-			for (int32 i = 0; i < AxisMappings.Num(); i++)
-			{
-				DefaultInputSettingsObject->AxisMappings.Add(AxisMappings[i]);
-			}
-		}
-
-		DefaultInputSettingsObject->bEnableMouseSmoothing = bEnableMouseSmoothing;
-		DefaultInputSettingsObject->DoubleClickTime = DoubleClickTime;
-		DefaultInputSettingsObject->ConsoleKeys.Empty();
-		DefaultInputSettingsObject->ConsoleKeys.Add(ConsoleKey);
-		DefaultInputSettingsObject->SaveConfig();
-	}
-
-	if (ProfilePlayer->PlayerController != NULL && ProfilePlayer->PlayerController->PlayerInput != NULL)
-	{
-		// make sure default object mirrors live object
-		ProfilePlayer->PlayerController->PlayerInput->GetClass()->GetDefaultObject()->ReloadConfig();
-
-		UUTPlayerInput* UTPlayerInput = Cast<UUTPlayerInput>(ProfilePlayer->PlayerController->PlayerInput);
-		if (UTPlayerInput != NULL)
-		{
-			UTPlayerInput->UTForceRebuildingKeyMaps(true);
-		}
-		else
-		{
-			ProfilePlayer->PlayerController->PlayerInput->ForceRebuildingKeyMaps(true);
-		}
-	}
-	UUTPlayerInput::StaticClass()->GetDefaultObject<UUTPlayerInput>()->ForceRebuildingKeyMaps(true);
-
 	ProfilePlayer->SetCharacterPath(CharacterPath);
 	ProfilePlayer->SetHatPath(HatPath);
 	ProfilePlayer->SetLeaderHatPath(LeaderHatPath);
@@ -373,6 +538,9 @@ void UUTProfileSettings::ApplyAllSettings(UUTLocalPlayer* ProfilePlayer)
 	ProfilePlayer->SetTaunt2Path(Taunt2Path);
 	ProfilePlayer->SetHatVariant(HatVariant);
 	ProfilePlayer->SetEyewearVariant(EyewearVariant);
+
+	ApplyInputSettings(ProfilePlayer);
+
 }
 
 void UUTProfileSettings::GetWeaponGroup(AUTWeapon* Weapon, int32& WeaponGroup, int32& GroupPriority)
@@ -393,6 +561,21 @@ void UUTProfileSettings::GetWeaponCustomization(FName WeaponCustomizationTag, FW
 	if (WeaponCustomizations.Contains(WeaponCustomizationTag))
 	{
 		outWeaponCustomizationInfo= WeaponCustomizations[WeaponCustomizationTag];
+		if (bCustomWeaponCrosshairs)
+		{
+			if (bSingleCustomWeaponCrosshair)
+			{
+				outWeaponCustomizationInfo.CrosshairTag = SingleCustomWeaponCrosshair.CrosshairTag;
+				outWeaponCustomizationInfo.CrosshairColorOverride = SingleCustomWeaponCrosshair.CrosshairColorOverride;
+				outWeaponCustomizationInfo.CrosshairScaleOverride = SingleCustomWeaponCrosshair.CrosshairScaleOverride;
+			}
+		}
+		else
+		{
+			outWeaponCustomizationInfo.CrosshairTag = WeaponCustomizations[WeaponCustomizationTag].DefaultCrosshairTag;
+			outWeaponCustomizationInfo.CrosshairColorOverride = FLinearColor::White;
+			outWeaponCustomizationInfo.CrosshairScaleOverride = 1.0f;
+		}
 	}
 	else
 	{
@@ -413,3 +596,286 @@ FString UUTProfileSettings::GetWeaponSkinClassname(AUTWeapon* Weapon)
 	}
 	return TEXT("");
 }
+
+void UUTProfileSettings::ApplyInputSettings(UUTLocalPlayer* ProfilePlayer)
+{
+	AUTBasePlayerController* BasePlayerController = Cast<AUTBasePlayerController>(ProfilePlayer->PlayerController);
+	if (BasePlayerController == nullptr)
+	{
+		BasePlayerController = AUTBasePlayerController::StaticClass()->GetDefaultObject<AUTBasePlayerController>();
+	}
+
+	UUTPlayerInput* PlayerInput = Cast<UUTPlayerInput>(BasePlayerController->PlayerInput);
+	if (PlayerInput == nullptr)
+	{
+		PlayerInput = UUTPlayerInput::StaticClass()->GetDefaultObject<UUTPlayerInput>();
+	}
+
+	// First step, remove all of the mappings associated with our GameActions.
+
+	for (int32 i = 0; i < GameActions.Num(); i++)
+	{
+		for (int32 B=0; B < GameActions[i].ActionMappings.Num(); B++)
+		{
+			int32 P = PlayerInput->ActionMappings.Num() - 1;
+			while ( P >= 0 )
+			{
+				if (PlayerInput->ActionMappings[P].ActionName == GameActions[i].ActionMappings[B].ActionName
+					&& PlayerInput->ActionMappings[P].bShift == GameActions[i].ActionMappings[B].bShift
+					&& PlayerInput->ActionMappings[P].bCtrl == GameActions[i].ActionMappings[B].bCtrl
+					&& PlayerInput->ActionMappings[P].bAlt == GameActions[i].ActionMappings[B].bAlt
+					&& PlayerInput->ActionMappings[P].bCmd == GameActions[i].ActionMappings[B].bCmd)
+				{
+					PlayerInput->ActionMappings.RemoveAt(P,1);
+				}
+				P--;
+			}
+		}
+
+		for (int32 B=0; B < GameActions[i].AxisMappings.Num(); B++)
+		{
+			int32 P = PlayerInput->AxisMappings.Num() - 1;
+			while ( P >= 0 )
+			{
+				if (PlayerInput->AxisMappings[P].AxisName == GameActions[i].AxisMappings[B].AxisName)
+				{
+					PlayerInput->AxisMappings.RemoveAt(P,1);
+				}
+				P--;
+			}
+		}
+
+		for (int32 B=0; B < GameActions[i].CustomBindings.Num(); B++)
+		{
+			int32 P = PlayerInput->CustomBinds.Num() - 1;
+			while ( P >= 0 )
+			{
+				if (PlayerInput->CustomBinds[P].Command == GameActions[i].CustomBindings[B].Command)
+				{
+					PlayerInput->CustomBinds.RemoveAt(P,1);
+				}
+				P--;
+			}
+		}
+
+		// Not yet...
+		for (int32 B=0; B < GameActions[i].SpectatorBindings.Num(); B++)
+		{
+		}
+	}
+
+	// Next Add our actions back in.
+	for (int32 i = 0; i < GameActions.Num(); i++)
+	{
+		// Special handling for the console key
+		if ( GameActions[i].GameActionTag == FName(TEXT("ShowConsole")) )
+		{
+			// Save all settings to the UInputSettings object
+			UInputSettings* DefaultInputSettingsObject = UInputSettings::StaticClass()->GetDefaultObject<UInputSettings>();
+			if (DefaultInputSettingsObject)
+			{
+				DefaultInputSettingsObject->ConsoleKeys.Empty();
+				if (GameActions[i].PrimaryKey != FKey()) DefaultInputSettingsObject->ConsoleKeys.Add(GameActions[i].PrimaryKey);
+				if (GameActions[i].SecondaryKey != FKey()) DefaultInputSettingsObject->ConsoleKeys.Add(GameActions[i].SecondaryKey);
+			}
+		}
+		else
+		{
+			for (int32 K = 0; K < 3; K++)
+			{
+				FKey Key = FKey();
+				switch (K)
+				{
+					case 0 : Key = GameActions[i].PrimaryKey; break;
+					case 1 : Key = GameActions[i].SecondaryKey; break;
+					case 2 : Key = GameActions[i].GamepadKey; break;
+				}
+
+				if (Key != FKey())
+				{
+					for (int32 B=0; B < GameActions[i].ActionMappings.Num(); B++)
+					{
+						PlayerInput->ActionMappings.Add( FInputActionKeyMapping(
+							GameActions[i].ActionMappings[B].ActionName,
+							Key,
+							GameActions[i].ActionMappings[B].bShift,
+							GameActions[i].ActionMappings[B].bCtrl,
+							GameActions[i].ActionMappings[B].bAlt,
+							GameActions[i].ActionMappings[B].bCmd));
+					}
+
+					for (int32 B=0; B < GameActions[i].AxisMappings.Num(); B++)
+					{
+						PlayerInput->AddAxisMapping( FInputAxisKeyMapping(
+								GameActions[i].AxisMappings[B].AxisName,
+								Key,
+								GameActions[i].AxisMappings[B].Scale));
+					}
+
+					for (int32 B=0; B < GameActions[i].CustomBindings.Num(); B++)
+					{
+						PlayerInput->CustomBinds.Add(FCustomKeyBinding(Key.GetFName(), GameActions[i].CustomBindings[B].EventType, GameActions[i].CustomBindings[B].Command));
+					}
+
+					// Not yet...
+					for (int32 B=0; B < GameActions[i].SpectatorBindings.Num(); B++)
+					{
+					}
+				}
+			}
+		}
+	}
+
+	for (TObjectIterator<UUTPlayerInput> It(RF_NoFlags); It; ++It)
+	{
+		PlayerInput->SetMouseSensitivity(MouseSensitivity);
+		PlayerInput->AccelerationPower = MouseAccelerationPower;
+		PlayerInput->Acceleration = MouseAcceleration;
+		PlayerInput->AccelerationMax = MouseAccelerationMax;
+
+		//Invert mouse
+		for (FInputAxisConfigEntry& Entry : PlayerInput->AxisConfig)
+		{
+			if (Entry.AxisKeyName == EKeys::MouseX || Entry.AxisKeyName == EKeys::MouseY)
+			{
+				Entry.AxisProperties.Sensitivity = MouseSensitivity;
+			}
+
+			if (Entry.AxisKeyName == EKeys::MouseY)
+			{
+				Entry.AxisProperties.bInvert = bInvertMouse;
+			}
+		}
+	}
+
+	UInputSettings* InputSettings = UInputSettings::StaticClass()->GetDefaultObject<UInputSettings>();
+	if (InputSettings)
+	{
+		//Mouse Smooth
+		InputSettings->bEnableMouseSmoothing = bEnableMouseSmoothing;
+		InputSettings->SaveConfig();
+	}
+
+	PlayerInput->ForceRebuildingKeyMaps(false);
+
+	AUTPlayerController* PlayerController = Cast<AUTPlayerController>(BasePlayerController);
+	if (PlayerController != nullptr)
+	{
+		PlayerController->UpdateWeaponGroupKeys();
+		PlayerController->UpdateInventoryKeys();
+		if (PlayerController->MyUTHUD != nullptr)
+		{
+			PlayerController->MyUTHUD->UpdateKeyMappings(true);
+		}
+		PlayerController->MaxDodgeClickTime = bDisableDoubleTapDodge ? 0.0f : MaxDodgeClickTimeValue;
+		PlayerController->MaxDodgeTapTime = MaxDodgeTapTimeValue;
+		PlayerController->bSingleTapWallDodge = bSingleTapWallDodge;
+		PlayerController->bSingleTapAfterJump = bSingleTapAfterJump;
+		PlayerController->bCrouchTriggersSlide = bAllowSlideFromRun;
+		PlayerController->bHearsTaunts = bHearsTaunts;
+		PlayerController->WeaponBobGlobalScaling = WeaponBob;
+		PlayerController->EyeOffsetGlobalScaling = ViewBob;
+		PlayerController->SetWeaponHand(WeaponHand);
+		PlayerController->FFAPlayerColor = FFAPlayerColor;
+		PlayerController->ConfigDefaultFOV = PlayerFOV;
+
+		AUTCharacter* Character = Cast<AUTCharacter>(PlayerController->GetPawn());
+		if (Character != NULL)
+		{
+			Character->NotifyTeamChanged();
+		}
+	}
+
+	// Save all settings to the UInputSettings object
+	UInputSettings* DefaultInputSettingsObject = UInputSettings::StaticClass()->GetDefaultObject<UInputSettings>();
+	if (DefaultInputSettingsObject)
+	{
+		DefaultInputSettingsObject->bEnableMouseSmoothing = bEnableMouseSmoothing;
+		DefaultInputSettingsObject->DoubleClickTime = DoubleClickTime;
+	}
+
+}
+
+const FKeyConfigurationInfo* UUTProfileSettings::FindGameAction(FName SearchTag)
+{
+	return FindGameAction(SearchTag.ToString());
+}
+const FKeyConfigurationInfo* UUTProfileSettings::FindGameAction(const FString& SearchTag)
+{
+	for (int32 i = 0 ; i < GameActions.Num(); i++)
+	{
+		if ( GameActions[i].GameActionTag.ToString().Equals(SearchTag, ESearchCase::IgnoreCase) )
+		{
+			return &(GameActions[i]);
+		}
+	}
+
+	return nullptr;
+}
+
+void UUTProfileSettings::ExportKeyBinds()
+{
+	FKeyConfigurationImportExport ExportData;
+	for (int32 i = 0 ; i < GameActions.Num(); i++)
+	{
+		ExportData.GameActions.Add(FKeyConfigurationImportExportObject(GameActions[i].GameActionTag, GameActions[i].PrimaryKey, GameActions[i].SecondaryKey, GameActions[i].GamepadKey));
+	}
+
+	FString FilePath = FPaths::GameSavedDir() + TEXT("keybinds.json");
+	FString jsonText;
+	if (FJsonObjectConverter::UStructToJsonObjectString(FKeyConfigurationImportExport::StaticStruct(), &ExportData, jsonText,0,0))
+	{
+		FFileHelper::SaveStringToFile(jsonText, *FilePath);
+		UE_LOG(UT,Log,TEXT("Exported binds to %s"), *FilePath);
+	}
+	else
+	{
+		UE_LOG(UT,Log,TEXT("Could not export binds"));
+	}
+
+}
+
+void UUTProfileSettings::ImportKeyBinds()
+{
+	FKeyConfigurationImportExport ImportData;
+
+	FString FilePath = FPaths::GameSavedDir() + TEXT("keybinds.json");
+	FString jsonText;
+
+	if ( FFileHelper::LoadFileToString(jsonText, *FilePath) )
+	{
+		if (FJsonObjectConverter::JsonObjectStringToUStruct(jsonText, &ImportData, 0,0))
+		{
+			for (int32 i=0; i < ImportData.GameActions.Num(); i++)
+			{
+				for (int32 j=0; j < GameActions.Num(); j++)
+				{
+					if (GameActions[j].GameActionTag == ImportData.GameActions[i].GameActionTag)
+					{
+						GameActions[j].PrimaryKey   = ImportData.GameActions[i].PrimaryKey;
+						GameActions[j].SecondaryKey = ImportData.GameActions[i].SecondaryKey;
+						GameActions[j].GamepadKey = ImportData.GameActions[i].GamepadKey;
+					}
+					else
+					{
+						if (ImportData.GameActions[i].PrimaryKey == GameActions[j].PrimaryKey) ImportData.GameActions[i].PrimaryKey = FKey();
+						if (ImportData.GameActions[i].SecondaryKey == GameActions[j].SecondaryKey) ImportData.GameActions[i].SecondaryKey= FKey();
+						if (ImportData.GameActions[i].GamepadKey == GameActions[j].GamepadKey) ImportData.GameActions[i].GamepadKey= FKey();
+					
+					}
+				
+				}
+			}
+		}
+		else
+		{
+			UE_LOG(UT,Log,TEXT("Error parsing %s"), *FilePath);			
+		}
+	}
+	else
+	{
+		UE_LOG(UT,Log,TEXT("Could not load %s"), *FilePath);
+	}
+
+}
+

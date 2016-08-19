@@ -452,7 +452,7 @@ public:
 	virtual bool HasHudWidget(TSubclassOf<UUTHUDWidget> NewWidgetClass);
 
 	/** Find and return requested key mapping. */
-	virtual FInputActionKeyMapping FindKeyMappingTo(FName ActionName);
+	FText FindKeyMappingTo(FName ActionName);
 
 	/** Update displayed key bindings on HUD */
 	virtual void UpdateKeyMappings(bool bForceUpdate);
@@ -465,6 +465,9 @@ public:
 
 	UPROPERTY()
 		FText BoostLabel;
+
+	UPROPERTY()
+		FText ShowScoresLabel;
 
 protected:
 	// Helper function to take a JSON object and try to convert it to the FVector2D.  
@@ -527,10 +530,6 @@ public:
 	/**Returns the necessary input mode for the hud this tick*/
 	UFUNCTION(BlueprintNativeEvent)
 	EInputMode::Type GetInputMode() const;
-
-	/**If true, crosshairs can be unique per weapon*/
-	UPROPERTY(globalconfig)
-	bool bCustomWeaponCrosshairs;
 
 	// Holds a list of all loaded crosshairs.
 	UPROPERTY()

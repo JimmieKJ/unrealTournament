@@ -7,11 +7,11 @@
 UUTCTFGameMessage::UUTCTFGameMessage(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
 {
+	Lifetime = 3.f;
 	MessageArea = FName(TEXT("Announcements"));
 	MessageSlot = FName(TEXT("GameMessages"));
 	ReturnMessage = NSLOCTEXT("CTFGameMessage","ReturnMessage","{Player1Name} returned the {OptionalTeam} Flag!");
 	ReturnedMessage = NSLOCTEXT("CTFGameMessage","ReturnedMessage","The {OptionalTeam} Flag was returned!");
-	CaptureMessage = NSLOCTEXT("CTFGameMessage","CaptureMessage","{Player1Name} scores for {OptionalTeam}!");
 	DroppedMessage = NSLOCTEXT("CTFGameMessage","DroppedMessage","{Player1Name} dropped the {OptionalTeam} Flag!");
 	HasMessage = NSLOCTEXT("CTFGameMessage","HasMessage","{Player1Name} took the {OptionalTeam} Flag!");
 	KilledMessage = NSLOCTEXT("CTFGameMessage","KilledMessage","{Player1Name} killed the {OptionalTeam} flag carrier!");
@@ -22,6 +22,8 @@ UUTCTFGameMessage::UUTCTFGameMessage(const FObjectInitializer& ObjectInitializer
 	NoReturnMessage = NSLOCTEXT("CTFGameMessage", "NoPickupFlag", "You can't pick up this flag.");
 	LastLifeMessage = NSLOCTEXT("CTFGameMessage", "LastLife", "This is your last life");
 	DefaultPowerupMessage = NSLOCTEXT("CTFGameMessage", "DefaultPowerupMessage", "{Player1Name} used their powerup!");
+	CaptureMessagePrefix = NSLOCTEXT("CTFGameMessage", "CaptureMessagePrefix", "");
+	CaptureMessagePostfix = NSLOCTEXT("CTFGameMessage", "CaptureMessagePostfix", " scores for {OptionalTeam}!");
 
 	bIsStatusAnnouncement = true;
 	bIsPartiallyUnique = true;
@@ -32,20 +34,42 @@ FLinearColor UUTCTFGameMessage::GetMessageColor_Implementation(int32 MessageInde
 	return FLinearColor::White;
 }
 
+void UUTCTFGameMessage::GetEmphasisText(FText& PrefixText, FText& EmphasisText, FText& PostfixText, FLinearColor& EmphasisColor, int32 Switch, class APlayerState* RelatedPlayerState_1, class APlayerState* RelatedPlayerState_2, class UObject* OptionalObject) const
+{
+	if ((Switch == 2) || (Switch == 8) || (Switch == 9))
+	{
+		PrefixText = CaptureMessagePrefix;
+		PostfixText = CaptureMessagePostfix;
+		EmphasisText = RelatedPlayerState_1 ? FText::FromString(RelatedPlayerState_1->PlayerName) : FText::GetEmpty();
+		AUTPlayerState* PS = Cast<AUTPlayerState>(RelatedPlayerState_1);
+		EmphasisColor = (PS && PS->Team) ? PS->Team->TeamColor : FLinearColor::Red;
+
+		FFormatNamedArguments Args;
+		GetArgs(Args, Switch, false, RelatedPlayerState_1, RelatedPlayerState_2, OptionalObject);
+		PrefixText = FText::Format(PrefixText, Args);
+		PostfixText = FText::Format(PostfixText, Args);
+		EmphasisText = FText::Format(EmphasisText, Args);
+
+		return;
+	}
+
+	Super::GetEmphasisText(PrefixText, EmphasisText, PostfixText, EmphasisColor, Switch, RelatedPlayerState_1, RelatedPlayerState_2, OptionalObject);
+}
+
 FText UUTCTFGameMessage::GetText(int32 Switch, bool bTargetsPlayerState1, APlayerState* RelatedPlayerState_1, APlayerState* RelatedPlayerState_2, UObject* OptionalObject) const
 {
 	switch(Switch)
 	{
 		case 0 : return ReturnMessage; break;
 		case 1 : return ReturnedMessage; break;
-		case 2 : return CaptureMessage; break;
+		case 2: return BuildEmphasisText(Switch, RelatedPlayerState_1, RelatedPlayerState_2, OptionalObject); break;
 		case 3 : return RelatedPlayerState_1 ? DroppedMessage : FText::GetEmpty(); break;
 		case 4 : return HasMessage; break;
 		case 5 : return KilledMessage; break;
 		case 6 : return HasAdvantageMessage; break;
 		case 7 : return LosingAdvantageMessage; break;
-		case 8 : return CaptureMessage; break;
-		case 9 : return CaptureMessage; break;
+		case 8: return BuildEmphasisText(Switch, RelatedPlayerState_1, RelatedPlayerState_2, OptionalObject); break;
+		case 9: return BuildEmphasisText(Switch, RelatedPlayerState_1, RelatedPlayerState_2, OptionalObject); break;
 		case 11: return HalftimeMessage; break;
 		case 12: return OvertimeMessage; break;
 		case 13: return NoReturnMessage; break;
@@ -184,6 +208,10 @@ FString UUTCTFGameMessage::GetAnnouncementUMGClassname(int32 Switch, const UObje
 
 float UUTCTFGameMessage::GetLifeTime(int32 Switch) const
 {
+	if ((Switch == 2) || (Switch == 8) || (Switch == 9))
+	{
+		return 4.f;
+	}
 	if (Switch == 255) return 20.0f;
 	return Super::GetLifeTime(Switch);
 }

@@ -405,18 +405,21 @@ TSharedRef<class SWidget> SUTPlayerInfoDialog::BuildCustomButtonBar()
 		SAssignNew(FriendPanel, SHorizontalBox)
 	];
 
-	CustomBox->AddSlot()
-	.Padding(10.0f,0.0f,10.0f,0.0f)
-	[
-		SAssignNew(KickButton, SButton)
-		.HAlign(HAlign_Center)
-		.ButtonStyle(SUWindowsStyle::Get(), "UT.BottomMenu.Button")
-		.ContentPadding(FMargin(5.0f, 5.0f, 5.0f, 5.0f))
-		.Text(NSLOCTEXT("SUTPlayerInfoDialog","KickVote","Vote to Kick"))
-		.TextStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button.SmallTextStyle")
-		.Visibility(this, &SUTPlayerInfoDialog::VoteKickVis)
-		.OnClicked(this, &SUTPlayerInfoDialog::KickVote)
-	];
+	if (!PlayerOwner->PlayerController->PlayerState->bOnlySpectator)
+	{
+		CustomBox->AddSlot()
+		.Padding(10.0f,0.0f,10.0f,0.0f)
+		[
+			SAssignNew(KickButton, SButton)
+			.HAlign(HAlign_Center)
+			.ButtonStyle(SUWindowsStyle::Get(), "UT.BottomMenu.Button")
+			.ContentPadding(FMargin(5.0f, 5.0f, 5.0f, 5.0f))
+			.Text(NSLOCTEXT("SUTPlayerInfoDialog","KickVote","Vote to Kick"))
+			.TextStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button.SmallTextStyle")
+			.Visibility(this, &SUTPlayerInfoDialog::VoteKickVis)
+			.OnClicked(this, &SUTPlayerInfoDialog::KickVote)
+		];
+	}
 
 	return CustomBox.ToSharedRef();
 }

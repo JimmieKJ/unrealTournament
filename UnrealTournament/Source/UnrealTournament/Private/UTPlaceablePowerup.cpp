@@ -77,6 +77,11 @@ void AUTPlaceablePowerup::SpawnPowerup()
 
 		//Force replicate to on since the actor we are spawning might not normally be replicated
 		NewlySpawnedActor->SetReplicates(true);
+
+		if (bAttachToOwner)
+		{
+			NewlySpawnedActor->AttachRootComponentToActor(UTOwner, NAME_None, EAttachLocation::SnapToTarget, true);
+		}
 	}
 
 	//Remove itself if we are out of boosts

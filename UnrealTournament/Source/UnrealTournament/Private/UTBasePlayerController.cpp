@@ -79,19 +79,30 @@ void AUTBasePlayerController::InitInputSystem()
 
 void AUTBasePlayerController::SetupInputComponent()
 {
+
+	UUTProfileSettings* ProfileSettings = GetProfileSettings();
+	if (ProfileSettings != nullptr) ProfileSettings->ApplyInputSettings(Cast<UUTLocalPlayer>(Player));
+
 	Super::SetupInputComponent();
 	InputComponent->BindAction("ShowMenu", IE_Released, this, &AUTBasePlayerController::execShowMenu);
+
+
+
 }
 
 void AUTBasePlayerController::SetName(const FString& S)
 {
 	if (!S.IsEmpty())
 	{
-		UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(Player);
-		if (LP != NULL)
+		UUTLocalPlayer* LocalPlayer = Cast<UUTLocalPlayer>(Player);
+		if (LocalPlayer != NULL)
 		{
-			LP->SetNickname(S);
-			LP->SaveProfileSettings();
+			LocalPlayer->SetNickname(S);
+			UUTProfileSettings* ProfileSettings = GetProfileSettings();
+			if (ProfileSettings != nullptr)
+			{
+				LocalPlayer->SaveProfileSettings();
+			}
 		}
 	}
 }
@@ -1086,13 +1097,7 @@ void AUTBasePlayerController::ClientWaitForMovieToFinish_Implementation()
 
 void AUTBasePlayerController::ClientEnableNetworkVoice_Implementation(bool bEnable)
 {
-	UUTProfileSettings* ProfileSettings = NULL;
-
-	if (Cast<UUTLocalPlayer>(Player))
-	{
-		ProfileSettings = Cast<UUTLocalPlayer>(Player)->GetProfileSettings();
-	}
-
+	UUTProfileSettings* ProfileSettings = GetProfileSettings();
 	ToggleSpeaking(ProfileSettings ? !ProfileSettings->bPushToTalk : bEnable);
 }
 
@@ -1111,6 +1116,33 @@ void AUTBasePlayerController::StopVOIPTalking()
 	if (ProfileSettings && ProfileSettings->bPushToTalk)
 	{
 		ToggleSpeaking(false);
+	}
+}
+
+bool AUTBasePlayerController::AreMenusOpen()
+{
+#if !UE_SERVER
+	UUTLocalPlayer* LocalPlayer = Cast<UUTLocalPlayer>(Player);
+	return (LocalPlayer && LocalPlayer->AreMenusOpen());
+#else
+	return false;
+#endif
+}
+
+void AUTBasePlayerController::ExportKeyBinds()
+{
+	UUTProfileSettings* ProfileSettings = GetProfileSettings();
+	if (ProfileSettings && ProfileSettings->bPushToTalk)
+	{
+		ProfileSettings->ExportKeyBinds();
+	}
+}
+void AUTBasePlayerController::ImportKeyBinds()
+{
+	UUTProfileSettings* ProfileSettings = GetProfileSettings();
+	if (ProfileSettings && ProfileSettings->bPushToTalk)
+	{
+		ProfileSettings->ImportKeyBinds();
 	}
 }
 

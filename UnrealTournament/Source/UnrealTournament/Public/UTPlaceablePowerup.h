@@ -23,6 +23,10 @@ class UNREALTOURNAMENT_API AUTPlaceablePowerup : public AUTInventory
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Powerup)
 		TSubclassOf<AActor> PowerupToSpawn;
 
+	/*If we should attach the spawned actor to our UT owner after spawning it*/
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Powerup)
+		bool bAttachToOwner;
+
 	/*Handles spawning a SpawnedPowerup item.*/
 	virtual void SpawnPowerup();
 

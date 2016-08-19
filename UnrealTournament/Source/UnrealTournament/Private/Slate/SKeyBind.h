@@ -3,6 +3,9 @@
 
 #include "SlateBasics.h"
 #include "Base/SUTDialogBase.h"
+#include "../SUTStyle.h"
+#include "../SUTUtils.h"
+
 
 
 
@@ -43,7 +46,7 @@ public:
 		SButton::Construct(SButton::FArguments()
 			.ButtonStyle(InArgs._ButtonStyle)
 			.TextStyle(InArgs._TextStyle)
-			.HAlign(InArgs._HAlign)
+			.HAlign(HAlign_Fill)
 			.VAlign(InArgs._VAlign)
 			.ContentPadding(InArgs._ContentPadding)
 			.DesiredSizeScale(InArgs._DesiredSizeScale)
@@ -55,11 +58,39 @@ public:
 		DefaultKey = InArgs._DefaultKey;
 		OnKeyBindingChanged = InArgs._OnKeyBindingChanged;
 
+		NonDefaultKeyColor = FLinearColor(0.0f, 0.0f, 0.24f, 1.0f);
+#if !UE_SERVER
 		ChildSlot
 			[
-				SAssignNew(KeyText, STextBlock)
-				.TextStyle(InArgs._TextStyle)
+				SNew(SOverlay)
+				+SOverlay::Slot()
+				[
+					SNew(SVerticalBox)
+					+SVerticalBox::Slot().HAlign(HAlign_Center)
+					[
+						SAssignNew(KeyText, STextBlock)
+						.TextStyle(InArgs._TextStyle)
+					]
+				]
+				+SOverlay::Slot().HAlign(HAlign_Right)
+				[
+					SAssignNew(ClearButton, SButton)
+					.OnClicked(this, &SKeyBind::ClearClicked)
+					.ButtonStyle(SUTStyle::Get(),"UT.Button.Clear")
+					.Visibility(EVisibility::Collapsed)
+					.ToolTip(SUTUtils::CreateTooltip(NSLOCTEXT("SKeyBind","ClearButtonTT","Clear out the current key.")))
+				]
+				+ SOverlay::Slot().HAlign(HAlign_Left)
+				[
+					SAssignNew(AbortButton, SButton)
+					.OnClicked(this, &SKeyBind::AbortClicked)
+					.ButtonStyle(SUTStyle::Get(), "UT.Button.Abort")
+					.Visibility(EVisibility::Collapsed)
+					.ToolTip(SUTUtils::CreateTooltip(NSLOCTEXT("SKeyBind", "AbortButtonTT", "Abort setting the key and keep it the same.")))
+				]
+
 			];
+#endif
 		if (InArgs._Key.IsValid())
 		{
 			Key = InArgs._Key;
@@ -68,31 +99,79 @@ public:
 		bWaitingForKey = false;
 	}
 
+	virtual FKey GetKey()
+	{
+		return *Key;
+	}
+
 	virtual void SetKey(FKey NewKey, bool bCanReset = true, bool bNotify = true)
 	{
 		if (Key.IsValid() )
 		{
-			FKey CurrentKey = *Key;
+			bWaitingForKey = false;
+			//FSlateApplication::Get().GetPlatformApplication().Get()->Cursor->Show(true);
+			FSlateApplication::Get().ClearKeyboardFocus(EKeyboardFocusCause::SetDirectly);
+			FSlateApplication::Get().GetPlatformApplication().Get()->Cursor->Lock(nullptr);
+
+			AbortButton->SetVisibility(EVisibility::Collapsed);
+
 			if (NewKey == *Key && bCanReset)
 			{
-				NewKey = FKey();
+				KeyText->SetText(*Key == FKey() ? FString() : Key->ToString());
+				KeyText->SetColorAndOpacity(*Key == DefaultKey ? FLinearColor::Black : NonDefaultKeyColor);
+
+				ClearButton->SetVisibility(EVisibility::Visible);
+				return;
 			}
+
+			FKey PreviousKey = *Key;
 			*Key = NewKey;
+
 			KeyText->SetText(NewKey == FKey() ? FString() : NewKey.ToString());
-			KeyText->SetColorAndOpacity( NewKey == DefaultKey ? FLinearColor::Black : FLinearColor::White);
-			bWaitingForKey = false;
-			FSlateApplication::Get().GetPlatformApplication().Get()->Cursor->Show(true);
-			FSlateApplication::Get().ClearKeyboardFocus(EKeyboardFocusCause::SetDirectly);
+			KeyText->SetColorAndOpacity( NewKey == DefaultKey ? FLinearColor::Black : NonDefaultKeyColor);
 			
 			if( bNotify )
 			{
-				OnKeyBindingChanged.ExecuteIfBound( CurrentKey , NewKey );
+				OnKeyBindingChanged.ExecuteIfBound( PreviousKey, *Key);
 			}
 		}
 	}
 protected:
 
+	FReply ClearClicked()
+	{
+		FKey CurrentKey = *Key;
+		*Key = FKey();
+		KeyText->SetText(FString());
+		bWaitingForKey = false;
+		//FSlateApplication::Get().GetPlatformApplication().Get()->Cursor->Show(true);
+		FSlateApplication::Get().GetPlatformApplication().Get()->Cursor->Lock(nullptr);
+		FSlateApplication::Get().ClearKeyboardFocus(EKeyboardFocusCause::SetDirectly);
+		ClearButton->SetVisibility(EVisibility::Collapsed);
+		AbortButton->SetVisibility(EVisibility::Collapsed);
+		return FReply::Handled();
+	}
+
+	FReply AbortClicked()
+	{
+		bWaitingForKey = false;
+		FSlateApplication::Get().ClearKeyboardFocus(EKeyboardFocusCause::SetDirectly);
+		FSlateApplication::Get().GetPlatformApplication().Get()->Cursor->Lock(nullptr);
+
+		KeyText->SetText(*Key == FKey() ? FString() : Key->ToString());
+		KeyText->SetColorAndOpacity(*Key== DefaultKey ? FLinearColor::Black : NonDefaultKeyColor);
+
+		ClearButton->SetVisibility(*Key != FKey() ? EVisibility::Visible : EVisibility::Collapsed);
+		AbortButton->SetVisibility(EVisibility::Collapsed);
+		return FReply::Handled();
+	}
+
 	virtual FReply OnKeyDown(const FGeometry& MyGeometry, const FKeyEvent& InKeyEvent) override
+	{
+		return bWaitingForKey ? FReply::Handled() : FReply::Unhandled();
+	}
+
+	virtual FReply OnKeyUp(const FGeometry& MyGeometry, const FKeyEvent& InKeyEvent) override
 	{
 		if (bWaitingForKey)
 		{
@@ -106,6 +185,7 @@ protected:
 	{
 		if (bWaitingForKey)
 		{
+			ClearButton->SetVisibility(EVisibility::Visible);
 			SetKey(MouseEvent.GetEffectingButton());
 			return FReply::Handled();
 		}
@@ -117,14 +197,43 @@ protected:
 			WaitingMousePos.Y = (Rect.Top + Rect.Bottom) * 0.5f;
 			FSlateApplication::Get().GetPlatformApplication().Get()->Cursor->SetPosition(WaitingMousePos.X, WaitingMousePos.Y);
 
+			RECT ClipRect;
+			ClipRect.left = FMath::RoundToInt(Rect.Left);
+			ClipRect.top = FMath::RoundToInt(Rect.Top);
+			ClipRect.right = FMath::TruncToInt(Rect.Right);
+			ClipRect.bottom = FMath::TruncToInt(Rect.Bottom);
+
+			FSlateApplication::Get().GetPlatformApplication().Get()->Cursor->Lock(&ClipRect);
+
+			ClearButton->SetVisibility(EVisibility::Collapsed);
+			AbortButton->SetVisibility(EVisibility::Visible);
+
 			KeyText->SetText(NSLOCTEXT("SKeyBind", "PressAnyKey", "** Press Any Button **"));
 			KeyText->SetColorAndOpacity(FLinearColor(FColor(0,0,255,255)));
 			bWaitingForKey = true;
-			FSlateApplication::Get().GetPlatformApplication().Get()->Cursor->Show(false);
 			return FReply::Handled();
 		}
 		return FReply::Unhandled();
 	}
+
+	virtual void OnMouseEnter(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent) override
+	{
+		if (ClearButton.IsValid() && *Key != FKey() && !bWaitingForKey)
+		{
+			ClearButton->SetVisibility(EVisibility::Visible);
+		}
+		SButton::OnMouseEnter(MyGeometry, MouseEvent);
+	}
+
+	virtual void OnMouseLeave(const FPointerEvent& MouseEvent) override
+	{
+		if (ClearButton.IsValid())
+		{
+			ClearButton->SetVisibility(EVisibility::Collapsed);
+		}
+		SButton::OnMouseLeave(MouseEvent);
+	}
+
 
 	virtual FReply OnMouseWheel(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent) override
 	{
@@ -141,7 +250,6 @@ protected:
 		//Make sure the mouse pointer doesnt leave the button
 		if (bWaitingForKey)
 		{
-			FSlateApplication::Get().GetPlatformApplication().Get()->Cursor->SetPosition(WaitingMousePos.X, WaitingMousePos.Y);
 		}
 		return SButton::OnPaint(Args, AllottedGeometry, MyClippingRect, OutDrawElements, LayerId, InWidgetStyle, bParentEnabled);
 	}
@@ -156,7 +264,10 @@ private:
 	TSharedPtr<FKey> Key;
 	FKey DefaultKey;
 	TSharedPtr<STextBlock> KeyText;
+	TSharedPtr<SButton> ClearButton;
+	TSharedPtr<SButton> AbortButton;
 	FVector2D WaitingMousePos;
 	bool bWaitingForKey;
+	FLinearColor NonDefaultKeyColor;
 };
 

@@ -39,10 +39,10 @@ public:
 	 *  it is, quickly exists.  Otherwise it passes the call to DrawCrosshair which is blueprint implementable.
 	 **/
 	UFUNCTION()
-	void NativeDrawCrosshair(UCanvas* Canvas, AUTWeapon* Weapon, float DeltaTime, const FWeaponCustomizationInfo& CustomizationsToApply);
+	void NativeDrawCrosshair(AUTHUD* TargetHUD, UCanvas* Canvas, AUTWeapon* Weapon, float DeltaTime, const FWeaponCustomizationInfo& CustomizationsToApply);
 
 	UFUNCTION(BlueprintNativeEvent)
-	void DrawCrosshair(UCanvas* Canvas, AUTWeapon* Weapon, float DeltaTime, const FWeaponCustomizationInfo& CustomizationsToApply);
+	void DrawCrosshair(AUTHUD* TargetHUD, UCanvas* Canvas, AUTWeapon* Weapon, float DeltaTime, const FWeaponCustomizationInfo& CustomizationsToApply);
 
 	// Holds the name of the UMG class to instance when using this crosshair
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Crosshair)
