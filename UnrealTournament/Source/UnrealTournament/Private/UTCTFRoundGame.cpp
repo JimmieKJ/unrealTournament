@@ -181,7 +181,7 @@ void AUTCTFRoundGame::GiveDefaultInventory(APawn* PlayerPawn)
 	}
 }
 
-void AUTCTFRoundGame::BroadcastScoreUpdate(APlayerState* ScoringPlayer, AUTTeamInfo* ScoringTeam, int32 OldScore)
+void AUTCTFRoundGame::BroadcastCTFScore(APlayerState* ScoringPlayer, AUTTeamInfo* ScoringTeam, int32 OldScore)
 {
 	int32 BonusType = 100 + BronzeScore;
 	if (ScoringTeam->RoundBonus > GoldBonusTime)
@@ -194,7 +194,7 @@ void AUTCTFRoundGame::BroadcastScoreUpdate(APlayerState* ScoringPlayer, AUTTeamI
 	}
 
 	BroadcastLocalized(this, UUTCTFRewardMessage::StaticClass(), BonusType, ScoringPlayer, NULL, ScoringTeam);
-	BroadcastLocalized(this, UUTCTFMajorMessage::StaticClass(), 2, ScoringPlayer, NULL, ScoringTeam);
+	BroadcastLocalized(this, UUTCTFGameMessage::StaticClass(), 2, ScoringPlayer, NULL, ScoringTeam);
 }
 
 void AUTCTFRoundGame::DiscardInventory(APawn* Other, AController* Killer)
