@@ -134,7 +134,7 @@ bool AUTRepulsorBubble::ShouldInteractWithActor(AActor* OtherActor)
 {
 	bool bIsOnSameTeam = false;
 
-	if ( (Instigator == nullptr))
+	if (Instigator == nullptr)
 	{
 		return false;
 	}
