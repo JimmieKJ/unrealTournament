@@ -997,7 +997,10 @@ void UUTLocalPlayer::OnLoginComplete(int32 LocalUserNum, bool bWasSuccessful, co
 		}
 
 		//Begin QoS eval to find where we just logged in from.
-		FQosInterface::Get()->BeginQosEvaluation(UTPC->GetWorld(), FUTAnalytics::GetProviderPtr(), nullptr);
+		if (UTPC && UTPC->GetWorld() && FUTAnalytics::GetProviderPtr().IsValid())
+		{
+			FQosInterface::Get()->BeginQosEvaluation(UTPC->GetWorld(), FUTAnalytics::GetProviderPtr(), nullptr);
+		}
 	}
 
 	// We have enough credentials to auto-login.  So try it, but silently fail if we cant.
