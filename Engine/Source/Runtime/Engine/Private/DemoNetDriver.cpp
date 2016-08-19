@@ -2211,6 +2211,19 @@ void UDemoNetDriver::LoadCheckpoint( FArchive* GotoCheckpointArchive, int64 Goto
 
 	bIsLoadingCheckpoint = true;
 
+	struct FPreservedNetworkGUIDEntry
+	{
+		FPreservedNetworkGUIDEntry(const FNetworkGUID InNetGUID, const AActor* const InActor)
+			: NetGUID(InNetGUID), Actor(InActor) {}
+
+		FNetworkGUID NetGUID;
+		const AActor* Actor;
+	};
+
+	// Store GUIDs for the spectator controller and any of its owned actors, so we can find them when we process the checkpoint.
+	// For the spectator controller, this allows the state and position to persist.
+	TArray<FPreservedNetworkGUIDEntry> NetGUIDsToPreserve;
+
 #if 1
 	// Destroy all non startup actors. They will get restored with the checkpoint
 	for ( FActorIterator It( GetWorld() ); It; ++It )
@@ -2227,13 +2240,17 @@ void UDemoNetDriver::LoadCheckpoint( FArchive* GotoCheckpointArchive, int64 Goto
 		
 		if ( SpectatorController != nullptr )
 		{
-			if ( *It == SpectatorController || *It == SpectatorController->GetSpectatorPawn() )
+			if (*It == SpectatorController || *It == SpectatorController->GetSpectatorPawn() || It->GetOwner() == SpectatorController)
 			{
-				continue;
-			}
+				// If an non-startup actor that we don't destroy has an entry in the GuidCache, preserve that entry so
+				// that the object will be re-used after loading the checkpoint. Otherwise, a new copy
+				// of the object will be created each time a checkpoint is loaded, causing a leak.
+				const FNetworkGUID FoundGUID = GuidCache->NetGUIDLookup.FindRef(*It);
 
-			if ( It->GetOwner() == SpectatorController && *It != SpectatorController->PlayerState )
-			{
+				if (FoundGUID.IsValid())
+				{
+					NetGUIDsToPreserve.Emplace(FoundGUID, *It);
+				}
 				continue;
 			}
 		}
@@ -2294,23 +2311,26 @@ void UDemoNetDriver::LoadCheckpoint( FArchive* GotoCheckpointArchive, int64 Goto
 	// Create fake control channel
 	ServerConnection->CreateChannel( CHTYPE_Control, 1 );
 
-	// Remember the spectator network guid, so we can persist the spectator player across the checkpoint
-	// (so the state and position persists)
-	const FNetworkGUID SpectatorGUID = GuidCache->NetGUIDLookup.FindRef( SpectatorController );
+	// Catch a rare case where the spectator controller is null, but a valid GUID is
+	// found on the GuidCache. The weak pointers in the NetGUIDLookup map are probably
+	// going null, and we want catch these cases and investigate further.
+	ensure(GuidCache->NetGUIDLookup.FindRef(SpectatorController).IsValid() == (SpectatorController != nullptr));
 
 	// Clean package map to prepare to restore it to the checkpoint state
 	GuidCache->ObjectLookup.Empty();
 	GuidCache->NetGUIDLookup.Empty();
-
-	// Restore the spectator controller packagemap entry (so we find it when we process the checkpoint)
-	if ( SpectatorGUID.IsValid() )
+	
+	// Restore preserved packagemap entries
+	for (const FPreservedNetworkGUIDEntry& PreservedEntry : NetGUIDsToPreserve)
 	{
-		FNetGuidCacheObject& CacheObject = GuidCache->ObjectLookup.FindOrAdd( SpectatorGUID );
+		check(PreservedEntry.NetGUID.IsValid());
 
-		CacheObject.Object = SpectatorController;
-		check( CacheObject.Object != NULL );
+		FNetGuidCacheObject& CacheObject = GuidCache->ObjectLookup.FindOrAdd(PreservedEntry.NetGUID);
+
+		CacheObject.Object = PreservedEntry.Actor;
+		check(CacheObject.Object != NULL);
 		CacheObject.bNoLoad = true;
-		GuidCache->NetGUIDLookup.Add( SpectatorController, SpectatorGUID );
+		GuidCache->NetGUIDLookup.Add(PreservedEntry.Actor, PreservedEntry.NetGUID);
 	}
 
 	if ( GotoCheckpointArchive->TotalSize() == 0 || GotoCheckpointArchive->TotalSize() == INDEX_NONE )
