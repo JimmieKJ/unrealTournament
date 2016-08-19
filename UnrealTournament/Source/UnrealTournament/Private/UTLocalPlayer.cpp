@@ -1651,12 +1651,6 @@ void UUTLocalPlayer::OnReadUserFileComplete(bool bWasSuccessful, const FUniqueNe
 		PlayerNickname = GetAccountDisplayName().ToString();
 		SaveConfig();
 		SaveProfileSettings();
-
-#if !UE_SERVER
-		FText WelcomeMessage = FText::Format(NSLOCTEXT("UTLocalPlayer","Welcome","Your player name is set to '{0}'. Would you like to change it?"), GetAccountDisplayName());
-		ShowMessage(NSLOCTEXT("UTLocalPlayer", "WelcomeTitle", "Welcome to Unreal Tournament"), WelcomeMessage, UTDIALOG_BUTTON_YES + UTDIALOG_BUTTON_NO, FDialogResultDelegate::CreateUObject(this, &UUTLocalPlayer::WelcomeDialogResult),FVector2D(0.35,0.25));
-		// We couldn't load our profile or it was invalid or we choose to clear it so save it out.
-#endif
 	}
 	else if (FileName == GetProgressionFilename())
 	{
