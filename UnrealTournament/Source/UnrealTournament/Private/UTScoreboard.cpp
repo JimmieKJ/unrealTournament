@@ -127,26 +127,8 @@ void UUTScoreboard::Draw_Implementation(float RenderDelta)
 		}
 		if (bToggledMinimap)
 		{
-			if (MinimapBinding.ActionName != "ShowScores")
-			{
-				UInputSettings* InputSettings = UInputSettings::StaticClass()->GetDefaultObject<UInputSettings>();
-				if (InputSettings)
-				{
-					for (int32 inputIndex = 0; inputIndex < InputSettings->ActionMappings.Num(); ++inputIndex)
-					{
-						FInputActionKeyMapping& Action = InputSettings->ActionMappings[inputIndex];
-						if (Action.ActionName == "ShowScores")
-						{
-							if ((MinimapBinding.ActionName != "ShowScores") || (MinimapBinding.Key.GetDisplayName().ToString().Len() > Action.Key.GetDisplayName().ToString().Len()))
-							{
-								MinimapBinding = Action;
-							}
-						}
-					}
-				}
-			}
 			FFormatNamedArguments Args;
-			Args.Add("key", MinimapBinding.Key.GetDisplayName());
+			Args.Add("key", UTHUDOwner->ShowScoresLabel);
 			FText MinimapMessage = FText::Format(MinimapToggleText, Args);
 			DrawText(MinimapMessage, MinimapCenter.X*Canvas->ClipX - 0.5f*MapSize, MinimapCenter.Y*Canvas->ClipY + 0.5f*MapSize, UTHUDOwner->TinyFont, RenderScale, 1.f, FLinearColor::White, ETextHorzPos::Left, ETextVertPos::Center);
 		}
