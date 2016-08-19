@@ -581,11 +581,17 @@ void FUTAnalytics::FireEvent_PlayerContextLocationPerMinute(AUTPlayerController*
 			
 			if (FQosInterface::Get()->GetRegionId().IsEmpty() || (FQosInterface::Get()->GetRegionId() == "None"))
 			{
-				ParamArray.Add(FAnalyticsEventAttribute(GetGenericParamName(EGenericAnalyticParam::RegionId), TEXT("Unknown")));
-			
-				if (FUTAnalytics::IsAvailable())
+				UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(UTPC->GetLocalPlayer());
+				if (LP)
 				{
-					FQosInterface::Get()->BeginQosEvaluation(UTPC->GetWorld(), FUTAnalytics::GetProviderPtr(), nullptr);
+					if (LP->IsLoggedIn())
+					{
+						ParamArray.Add(FAnalyticsEventAttribute(GetGenericParamName(EGenericAnalyticParam::RegionId), TEXT("Unknown")));
+					}
+					else
+					{
+						ParamArray.Add(FAnalyticsEventAttribute(GetGenericParamName(EGenericAnalyticParam::RegionId), TEXT("LoggedOut")));
+					}
 				}
 			}
 			else
@@ -595,7 +601,7 @@ void FUTAnalytics::FireEvent_PlayerContextLocationPerMinute(AUTPlayerController*
 
 			AnalyticsProvider->RecordEvent(GetGenericParamName(EGenericAnalyticParam::PlayerContextLocationPerMinute), ParamArray);
 		
-			UE_LOG(UT, Warning, TEXT("Sending PlayerContext Location Per Minute Event"));
+			UE_LOG(UT, Log, TEXT("Sending PlayerContext Location Per Minute Event"));
 		}
 	}
 }
