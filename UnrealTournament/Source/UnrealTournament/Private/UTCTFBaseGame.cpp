@@ -17,6 +17,7 @@
 #include "StatNames.h"
 #include "Engine/DemoNetDriver.h"
 #include "UTCTFScoreboard.h"
+#include "UTAssistMessage.h"
 
 AUTCTFBaseGame::AUTCTFBaseGame(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -244,7 +245,7 @@ void AUTCTFBaseGame::ScoreObject_Implementation(AUTCarriedObject* GameObject, AU
 			AddCaptureEventToReplay(Holder, Holder->Team);
 			if (Holder->FlagCaptures == 3)
 			{
-				BroadcastLocalized(this, UUTCTFRewardMessage::StaticClass(), 5, Holder, NULL, Holder->Team);
+				BroadcastLocalized(this, UUTAssistMessage::StaticClass(), 5, Holder, NULL, Holder->Team);
 			}
 
 			for (FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator)
@@ -260,7 +261,7 @@ void AUTCTFBaseGame::ScoreObject_Implementation(AUTCarriedObject* GameObject, AU
 					AUTPlayerState* PS = Cast<AUTPlayerState>((*Iterator)->PlayerState);
 					if (PS && PS->bNeedsAssistAnnouncement)
 					{
-						PC->SendPersonalMessage(UUTCTFRewardMessage::StaticClass(), 2, PS, Holder, NULL);
+						PC->SendPersonalMessage(UUTAssistMessage::StaticClass(), 2, PS, Holder, NULL);
 						PS->bNeedsAssistAnnouncement = false;
 					}
 				}
