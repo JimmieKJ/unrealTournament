@@ -39,7 +39,7 @@ void UUTSecurityCameraComponent::TickComponent(float DeltaTime, ELevelTick TickT
 		static FName NAME_LineOfSight = FName(TEXT("LineOfSight"));
 		FCollisionQueryParams CollisionParams(NAME_LineOfSight, true, GetOwner());
 		FVector CameraLoc = K2_GetComponentLocation();
-		if (DetectedFlag)
+		if (DetectedFlag && (DetectedFlag->GetDetectingCamera() == this))
 		{
 			// verify if still visible
 			if (((DetectedFlag->GetActorLocation() - CameraLoc).SizeSquared() > DetectionRadius * DetectionRadius) || GetWorld()->LineTraceTestByChannel(CameraLoc, DetectedFlag->GetActorLocation() + FVector(0.f, 0.f,60.f), COLLISION_TRACE_WEAPONNOCHARACTER, CollisionParams))
