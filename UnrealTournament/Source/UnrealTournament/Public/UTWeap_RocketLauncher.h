@@ -50,6 +50,10 @@ class UNREALTOURNAMENT_API AUTWeap_RocketLauncher : public AUTWeapon
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = RocketLauncher)
 	TArray<UAnimMontage*> LoadingAnimation;
 
+	/**Empty loading animations per NumLoadedRockets (RL running out of ammo)*/
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = RocketLauncher)
+		TArray<UAnimMontage*> EmptyLoadingAnimation;
+
 	/**The sounds to play when loading each rocket*/
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = RocketLauncher)
 	TArray<USoundBase*> LoadingSounds;
