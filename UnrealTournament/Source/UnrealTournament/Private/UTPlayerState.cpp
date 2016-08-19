@@ -3333,7 +3333,8 @@ void AUTPlayerState::GetBadgeFromELO(AUTBaseGameMode* DefaultGameMode, bool bRan
 					break;
 				}
 			}
-			SubLevel = FMath::Clamp(i, 2, NumMatches/3);
+			int32 MaxLevel = (NumMatches < 10) ? NumMatches / 2 : 8;
+			SubLevel = FMath::Clamp(i, 2, MaxLevel);
 			return;
 		}
 	}
@@ -3351,15 +3352,15 @@ void AUTPlayerState::GetBadgeFromELO(AUTBaseGameMode* DefaultGameMode, bool bRan
 		BadgeLevel = 1;
 		SubLevel = i;
 	}
-	else if (EloRating < 2000)
+	else if (EloRating < 1900)
 	{
 		BadgeLevel = 2;
-		SubLevel = FMath::Clamp((float(EloRating) - 1500.f) / 55.6f, 0.f, 8.f);
+		SubLevel = FMath::Clamp((float(EloRating) - 1540.f) / 40.f, 0.f, 8.f);
 	}
 	else
 	{
 		BadgeLevel = 3;
-		SubLevel = FMath::Clamp((float(EloRating) - 2000.f) / 40.f, 0.f, 8.f);
+		SubLevel = FMath::Clamp((float(EloRating) - 1900.f) / 50.f, 0.f, 8.f);
 	}
 }
 
