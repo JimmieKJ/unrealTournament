@@ -402,7 +402,7 @@ TSharedRef<SWidget> SUTMenuBase::BuildDefaultRightMenuBar()
 		];
 
 		RightMenuBar->AddSlot()
-		.Padding(0.0f,0.0f,5.0f,0.0f)
+		.Padding(70.0f,0.0f,5.0f,0.0f)
 		.AutoWidth()
 		[
 			SNew(SUTButton)
