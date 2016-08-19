@@ -10,6 +10,7 @@
 AUTServerBeaconLobbyClient::AUTServerBeaconLobbyClient(const class FObjectInitializer& PCIP) :
 Super(PCIP)
 {
+	bRelevantForNetworkReplays = false;
 }
 
 void AUTServerBeaconLobbyClient::InitLobbyBeacon(FURL LobbyURL, uint32 LobbyInstanceID, FGuid InstanceGUID, FString AccessKey)
