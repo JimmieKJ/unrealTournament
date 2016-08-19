@@ -4307,9 +4307,9 @@ bool AUTPlayerController::ServerRegisterBanVote_Validate(AUTPlayerState* BadGuy)
 void AUTPlayerController::ServerRegisterBanVote_Implementation(AUTPlayerState* BadGuy)
 {
 	AUTGameState* GameState = GetWorld()->GetGameState<AUTGameState>();
-	if (GameState && UTPlayerState && BadGuy)
+	if (GameState && UTPlayerState && BadGuy && !UTPlayerState->bOnlySpectator)
 	{
-		GameState->VoteForTempBan(BadGuy, UTPlayerState);	
+		GameState->VoteForTempBan(BadGuy, UTPlayerState);
 	}
 }
 
