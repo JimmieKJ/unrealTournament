@@ -1744,6 +1744,12 @@ FReply SUTWeaponConfigDialog::OnButtonClick(uint16 ButtonID)
 		ProfileSettings->WeaponHand = NewHand;
 		ProfileSettings->WeaponSkins.Empty();
 
+		AUTPlayerController* UTPlayerController = Cast<AUTPlayerController>(PlayerOwner->PlayerController);
+		if (UTPlayerController != nullptr)
+		{
+			UTPlayerController->SetWeaponHand(ProfileSettings->WeaponHand);
+		}
+
 		for(int32 i = 0; i < AllWeapons.Num(); i++)
 		{
 			FName WeaponCustomizationTag = AllWeapons[i].WeaponCustomizationInfo->WeaponCustomizationTag;
