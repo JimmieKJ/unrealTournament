@@ -51,7 +51,7 @@ void AUTTeamGameMode::InitGame(const FString& MapName, const FString& Options, F
 {
 	Super::InitGame(MapName, Options, ErrorMessage);
 
-	bBalanceTeams = !bOfflineChallenge && EvalBoolOptions(UGameplayStatics::ParseOption(Options, TEXT("BalanceTeams")), bBalanceTeams);
+	bBalanceTeams = !bDevServer && !bOfflineChallenge && EvalBoolOptions(UGameplayStatics::ParseOption(Options, TEXT("BalanceTeams")), bBalanceTeams);
 
 	if (bAllowURLTeamCountOverride)
 	{
