@@ -129,6 +129,7 @@ void SUTPlayerSettingsDialog::Construct(const FArguments& InArgs)
 	FVector2D ResolutionScale(ViewportSize.X / 1280.0f, ViewportSize.Y / 720.0f);
 
 	UUTGameUserSettings* Settings = Cast<UUTGameUserSettings>(GEngine->GetGameUserSettings());
+	UUTProfileSettings* ProfileSettings = PlayerOwner->GetProfileSettings();
 	
 	{
 		HatList.Add(MakeShareable(new FString(TEXT("No Hat"))));
@@ -257,7 +258,7 @@ void SUTPlayerSettingsDialog::Construct(const FArguments& InArgs)
 	FMargin ValueColumnPadding = FMargin(0, 4);
 	const float NameColumnForcedSizing = 250.f;
 	
-	float FOVSliderSetting = (GetDefault<AUTPlayerController>()->ConfigDefaultFOV - FOV_CONFIG_MIN) / (FOV_CONFIG_MAX - FOV_CONFIG_MIN);
+	float FOVSliderSetting = ((ProfileSettings ? ProfileSettings->PlayerFOV : 100)- FOV_CONFIG_MIN) / (FOV_CONFIG_MAX - FOV_CONFIG_MIN);
 
 	if (DialogContent.IsValid())
 	{
@@ -975,6 +976,7 @@ FReply SUTPlayerSettingsDialog::OKClick()
 		ProfileSettings->WeaponBob = WeaponBobScaling->GetValue() * BOB_SCALING_FACTOR;
 		ProfileSettings->ViewBob = ViewBobScaling->GetValue() * BOB_SCALING_FACTOR;
 		ProfileSettings->FFAPlayerColor = SelectedPlayerColor;
+		ProfileSettings->PlayerFOV = NewFOV;
 	}
 
 	// If we have a valid PC then tell the PC to set it's name
