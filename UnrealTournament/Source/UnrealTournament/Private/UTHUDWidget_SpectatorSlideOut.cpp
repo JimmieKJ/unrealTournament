@@ -203,13 +203,15 @@ void UUTHUDWidget_SpectatorSlideOut::Draw_Implementation(float DeltaTime)
 		if (CTFGameState && (CTFGameState->FlagBases.Num() > 1))
 		{
 			// show flag binds
-			if (CTFGameState->FlagBases[0] && CTFGameState->FlagBases[0]->MyFlag && (bOnlySpectator || UTGameState->OnSameTeam(UTHUDOwner->UTPlayerOwner, CTFGameState->FlagBases[0]->MyFlag)))
+			AUTCarriedObject* RedFlag = CTFGameState->FlagBases[0] ? CTFGameState->FlagBases[0]->MyFlag : nullptr;
+			if (RedFlag && !RedFlag->IsPendingKillPending() && (bOnlySpectator || UTGameState->OnSameTeam(UTHUDOwner->UTPlayerOwner, RedFlag)))
 			{
-				DrawFlag("ViewFlag 0", "Red", CTFGameState->FlagBases[0]->MyFlag, DeltaTime, XOffset + CamTypeButtonStart*Size.X, DrawOffset);
+				DrawFlag("ViewFlag 0", "Red", RedFlag, DeltaTime, XOffset + CamTypeButtonStart*Size.X, DrawOffset);
 			}
-			if (CTFGameState->FlagBases[1] && CTFGameState->FlagBases[1]->MyFlag && (bOnlySpectator || UTGameState->OnSameTeam(UTHUDOwner->UTPlayerOwner, CTFGameState->FlagBases[1]->MyFlag)))
+			AUTCarriedObject* BlueFlag = CTFGameState->FlagBases[1] ? CTFGameState->FlagBases[1]->MyFlag : nullptr;
+			if (BlueFlag && !BlueFlag->IsPendingKillPending() && (bOnlySpectator || UTGameState->OnSameTeam(UTHUDOwner->UTPlayerOwner, BlueFlag)))
 			{
-				DrawFlag("ViewFlag 1", "Blue", CTFGameState->FlagBases[1]->MyFlag, DeltaTime, XOffset + CamTypeButtonStart*Size.X + 0.37f * Size.X, DrawOffset);
+				DrawFlag("ViewFlag 1", "Blue", BlueFlag, DeltaTime, XOffset + CamTypeButtonStart*Size.X + 0.37f * Size.X, DrawOffset);
 			}
 			DrawOffset += 1.2f*CellHeight;
 		}
