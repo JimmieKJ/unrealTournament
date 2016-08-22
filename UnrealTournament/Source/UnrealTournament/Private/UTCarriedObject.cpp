@@ -170,6 +170,11 @@ void AUTCarriedObject::DetachFrom(USkeletalMeshComponent* AttachToMesh)
 
 void AUTCarriedObject::ClientUpdateAttachment(bool bNowAttached)
 {
+	if (HolderTrail)
+	{
+		HolderTrail->DeactivateSystem();
+		HolderTrail = nullptr;
+	}
 	if (bNowAttached)
 	{
 		if (bDisplayHolderTrail && (GetNetMode() != NM_DedicatedServer) && RootComponent && RootComponent->AttachParent)
@@ -200,11 +205,6 @@ void AUTCarriedObject::ClientUpdateAttachment(bool bNowAttached)
 	}
 	else
 	{
-		if (HolderTrail)
-		{
-			HolderTrail->DeactivateSystem();
-			HolderTrail = nullptr;
-		}
 		Collision->bShouldUpdatePhysicsVolume = true;
 	}
 }
