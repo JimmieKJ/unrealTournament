@@ -102,6 +102,7 @@ AUTCharacter::AUTCharacter(const class FObjectInitializer& ObjectInitializer)
 	HeadHeight = 8.0f;
 	HeadBone = FName(TEXT("head"));
 	UnfeignCount = 0;
+	bAlwaysRelevant = true;
 
 	BobTime = 0.f;
 	WeaponBobMagnitude = FVector(0.f, 0.8f, 0.4f);
