@@ -121,6 +121,7 @@ AUTGameMode::AUTGameMode(const class FObjectInitializer& ObjectInitializer)
 	GameDifficulty = 3.f;
 	StartPlayTime = 10000000.f;
 	bRequireReady = false;
+	bRemovePawnsAtStart = true;
 
 	DefaultPlayerName = FText::FromString(TEXT("Player"));
 	MapPrefix = TEXT("DM");
@@ -148,7 +149,7 @@ AUTGameMode::AUTGameMode(const class FObjectInitializer& ObjectInitializer)
 	bAllowAllArmorPickups = true;
 
 	bPlayersStartWithArmor = true;
-	StartingArmorObject = FStringAssetReference(TEXT("/Game/RestrictedAssets/Pickups/Armor/Armor_ThighPads.Armor_ThighPads_C"));
+	StartingArmorObject = FStringAssetReference(TEXT("Blueprint'/Game/RestrictedAssets/Pickups/Armor/Armor_Starting.Armor_Starting_C'"));
 }
 
 float AUTGameMode::OverrideRespawnTime(TSubclassOf<AUTInventory> InventoryType)
@@ -1735,7 +1736,10 @@ void AUTGameMode::RemoveAllPawns()
 
 void AUTGameMode::HandleMatchHasStarted()
 {
-	RemoveAllPawns();
+	if (bRemovePawnsAtStart && (GetNetMode() != NM_Standalone) && !GetWorld()->IsPlayInEditor())
+	{
+		RemoveAllPawns();
+	}
 
 	// reset things, relevant for any kind of warmup mode and to make sure placed Actors like pickups are in their initial state no matter how much time has passed in pregame
 	for (FActorIterator It(GetWorld()); It; ++It)

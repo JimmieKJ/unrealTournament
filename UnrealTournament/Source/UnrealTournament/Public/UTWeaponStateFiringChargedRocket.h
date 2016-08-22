@@ -154,7 +154,7 @@ class UNREALTOURNAMENT_API UUTWeaponStateFiringChargedRocket : public UUTWeaponS
 			}
 			else
 			{
-				GetOuterAUTWeapon()->GetWorldTimerManager().SetTimer(FireLoadedRocketHandle, this, &UUTWeaponStateFiringChargedRocket::FireLoadedRocket, RocketLauncher->BurstInterval, false);
+				GetOuterAUTWeapon()->GetWorldTimerManager().SetTimer(FireLoadedRocketHandle, this, &UUTWeaponStateFiringChargedRocket::FireLoadedRocket, (RocketLauncher->CurrentRocketFireMode == 0) ? RocketLauncher->BurstInterval : RocketLauncher->GrenadeBurstInterval, false);
 			}
 		}
 		else

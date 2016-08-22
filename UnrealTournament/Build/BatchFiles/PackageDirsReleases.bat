@@ -12,12 +12,12 @@ GOTO ZIPUP
 
 :ZIPUP
 
-xcopy RunUT-Shipping.bat \\isi-shares\Builds_UnrealTournament\++depot+UE4-UT-Releases-CL-%BUILDCL%\WindowsNoEditor
-xcopy RunUT-Shipping32.bat \\isi-shares\Builds_UnrealTournament\++depot+UE4-UT-Releases-CL-%BUILDCL%\WindowsNoEditor
-xcopy RunUT-Test.bat \\isi-shares\Builds_UnrealTournament\++depot+UE4-UT-Releases-CL-%BUILDCL%\WindowsNoEditor
-xcopy RunUT-Test32.bat \\isi-shares\Builds_UnrealTournament\++depot+UE4-UT-Releases-CL-%BUILDCL%\WindowsNoEditor
+xcopy RunUT-Shipping.bat \\isi-02.epicgames.net\Builds_UnrealTournament\++depot+UE4-UT-Releases-CL-%BUILDCL%\WindowsNoEditor
+xcopy RunUT-Shipping32.bat \\isi-02.epicgames.net\Builds_UnrealTournament\++depot+UE4-UT-Releases-CL-%BUILDCL%\WindowsNoEditor
+xcopy RunUT-Test.bat \\isi-02.epicgames.net\Builds_UnrealTournament\++depot+UE4-UT-Releases-CL-%BUILDCL%\WindowsNoEditor
+xcopy RunUT-Test32.bat \\isi-02.epicgames.net\Builds_UnrealTournament\++depot+UE4-UT-Releases-CL-%BUILDCL%\WindowsNoEditor
 
-pushd \\isi-shares\Builds_UnrealTournament\++depot+UE4-UT-Releases-CL-%BUILDCL%
+pushd \\isi-02.epicgames.net\Builds_UnrealTournament\++depot+UE4-UT-Releases-CL-%BUILDCL%
 
 "C:\Program Files (x86)\wxChecksums\wxcksums" --create=LinuxServer\%BUILDCL%.sfv LinuxServer\
 

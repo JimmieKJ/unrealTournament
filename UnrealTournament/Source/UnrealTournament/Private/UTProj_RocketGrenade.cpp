@@ -16,10 +16,10 @@ AUTProj_RocketGrenade::AUTProj_RocketGrenade(const class FObjectInitializer& Obj
 	MaxBouncedRotationRate = 1080.0f;
 
 	InitialLifeSpan = 0.0f;
-	FuseTime = 2.5f;
-	RandomFuseMod = 0.5;
+	FuseTime = 2.0f;
+	RandomFuseMod = 0.5f;
 
-	MaxRandomBounce = 5.0f;
+	MaxRandomBounce = 3.0f;
 
 	RotationRate = FRotator(FMath::RandRange(-MaxRotationRate, MaxRotationRate), 
 							FMath::RandRange(-MaxRotationRate, MaxRotationRate), 

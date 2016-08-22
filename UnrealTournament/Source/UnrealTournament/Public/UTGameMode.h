@@ -429,6 +429,11 @@ public:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Game")
 		TSubclassOf<class AUTArmor> StartingArmorClass;
 
+	/** If true remove any pawns in the level when match starts, (normally true to clean up after warm up). 
+	    Pawns will not be removed if in standalone or PIE. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Game")
+		bool bRemovePawnsAtStart;
+
 	/** assign squad to player - note that humans can have a squad for bots to follow their lead
 	 * this method should always result in a valid squad being assigned
 	 */
