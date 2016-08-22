@@ -970,7 +970,7 @@ TSharedRef<SWidget> SUTSystemSettingsDialog::BuildAudioTab()
 			NSLOCTEXT("SUTSystemSettingsDialog", "StingerSoundVolume_Tooltip", "Controls the volume music stingers for important match events."))
 		+ AddGeneralSliderWithLabelWidget(SoundVolumes[EUTSoundClass::SFX], SoundVolumesLabels[EUTSoundClass::SFX], &SUTSystemSettingsDialog::OnSoundVolumeChangedSFX, NSLOCTEXT("SUTSystemSettingsDialog", "SFXVolume", "Effects Volume").ToString(), UserSettings->GetSoundClassVolume(EUTSoundClass::SFX))
 	+ AddGeneralSliderWithLabelWidget(SoundVolumes[EUTSoundClass::Voice], SoundVolumesLabels[EUTSoundClass::Voice], &SUTSystemSettingsDialog::OnSoundVolumeChangedVoice, NSLOCTEXT("SUTSystemSettingsDialog", "VoiceVolume", "Announcer Volume").ToString(), UserSettings->GetSoundClassVolume(EUTSoundClass::Voice))
-	+ AddGeneralSliderWithLabelWidget(SoundVolumes[EUTSoundClass::VOIP], SoundVolumesLabels[EUTSoundClass::VOIP], &SUTSystemSettingsDialog::OnSoundVolumeChangedVOIP, NSLOCTEXT("SUTSystemSettingsDialog", "VOIPVolume", "Voice over IP Volume").ToString(), UserSettings->GetSoundClassVolume(EUTSoundClass::VOIP) * 0.5f)
+//	+ AddGeneralSliderWithLabelWidget(SoundVolumes[EUTSoundClass::VOIP], SoundVolumesLabels[EUTSoundClass::VOIP], &SUTSystemSettingsDialog::OnSoundVolumeChangedVOIP, NSLOCTEXT("SUTSystemSettingsDialog", "VOIPVolume", "Voice over IP Volume").ToString(), UserSettings->GetSoundClassVolume(EUTSoundClass::VOIP) * 0.5f)
 
 	+ SVerticalBox::Slot()
 	.AutoHeight()
