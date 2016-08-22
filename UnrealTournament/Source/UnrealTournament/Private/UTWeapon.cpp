@@ -2117,9 +2117,18 @@ void AUTWeapon::UpdateOverlaysShared(AActor* WeaponActor, AUTCharacter* InOwner,
 				InOverlayMesh->AttachTo(InMesh, NAME_None, EAttachLocation::SnapToTarget);
 				InOverlayMesh->SetWorldScale3D(InMesh->GetComponentScale());
 			}
-			for (int32 i = 0; i < InOverlayMesh->GetNumMaterials(); i++)
+			// if it's just particles and no material, hide the overlay mesh so it doesn't render, but we'll still use it as the attach point for the particles
+			if (TopOverlay.Material != nullptr)
 			{
-				InOverlayMesh->SetMaterial(i, TopOverlay.Material);
+				InOverlayMesh->SetHiddenInGame(false);
+				for (int32 i = 0; i < InOverlayMesh->GetNumMaterials(); i++)
+				{
+					InOverlayMesh->SetMaterial(i, TopOverlay.Material);
+				}
+			}
+			else
+			{
+				InOverlayMesh->SetHiddenInGame(true);
 			}
 			if (TopOverlay.Particles != NULL)
 			{
