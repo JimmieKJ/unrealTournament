@@ -123,6 +123,10 @@ class UNREALTOURNAMENT_API AUTWeap_RocketLauncher : public AUTWeapon
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = RocketLauncher)
 	float BurstInterval;
 
+	/** Burst grenade firing interval */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = RocketLauncher)
+		float GrenadeBurstInterval;
+
 	/** Lead rocket in burst */
 	UPROPERTY(BlueprintReadOnly)
 	class AUTProj_Rocket* LeadRocket;
