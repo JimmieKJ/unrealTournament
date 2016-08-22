@@ -1736,7 +1736,7 @@ void AUTGameMode::RemoveAllPawns()
 
 void AUTGameMode::HandleMatchHasStarted()
 {
-	if (bRemovePawnsAtStart)
+	if (bRemovePawnsAtStart && (GetNetMode() != NM_Standalone) && !GetWorld()->IsPlayInEditor())
 	{
 		RemoveAllPawns();
 	}

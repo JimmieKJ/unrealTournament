@@ -429,7 +429,8 @@ public:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Game")
 		TSubclassOf<class AUTArmor> StartingArmorClass;
 
-	/** IF true remove any pawns in the level when match start (normally true to clean up after warm up). */
+	/** If true remove any pawns in the level when match starts, (normally true to clean up after warm up). 
+	    Pawns will not be removed if in standalone or PIE. */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Game")
 		bool bRemovePawnsAtStart;
 
