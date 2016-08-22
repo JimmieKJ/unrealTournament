@@ -2992,7 +2992,7 @@ bool AUTGameMode::ReadyToStartMatch_Implementation()
 				{
 					// don't start if people are warming up unless game is full
 					UTGameState->PlayersNeeded = FMath::Min(GameSession->MaxPlayers, QuickPlayersToStart) - NumPlayers - NumBots;
-					if (!bCasterControl)
+					if (!bCasterControl && (UTGameState->PlayersNeeded > 0))
 					{
 						ReadyCount -= 1;
 					}
