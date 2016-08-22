@@ -3822,7 +3822,7 @@ float AUTPlayerController::GetWeaponAutoSwitchPriority(AUTWeapon* InWeapon)
 
 int32 AUTPlayerController::GetWeaponGroup(AUTWeapon* InWeapon)
 {
-	if (Cast<UUTLocalPlayer>(Player))
+	if (Cast<UUTLocalPlayer>(Player) && InWeapon != nullptr)
 	{
 		UUTProfileSettings* ProfileSettings = GetProfileSettings();
 		if (ProfileSettings)
