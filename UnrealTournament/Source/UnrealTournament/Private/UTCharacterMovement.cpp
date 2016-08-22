@@ -1740,6 +1740,11 @@ void UUTCharacterMovement::PhysSwimming(float deltaTime, int32 Iterations)
 			Acceleration = Acceleration - (VelDir | Acceleration)*VelDir; 
 		}
 	}
+	if (bWantsWallSlide)
+	{
+		// make sure upwards acceleration if jump key is pressed
+		Acceleration.Z = FMath::Max(Acceleration.Z, 100.f);
+	}
 
 	ApplyWaterCurrent(deltaTime);
 	if (!GetPhysicsVolume()->bWaterVolume && IsSwimming())
