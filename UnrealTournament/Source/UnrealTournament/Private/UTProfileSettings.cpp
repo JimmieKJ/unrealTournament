@@ -585,7 +585,14 @@ void UUTProfileSettings::GetWeaponCustomization(FName WeaponCustomizationTag, FW
 
 void UUTProfileSettings::GetWeaponCustomizationForWeapon(AUTWeapon* Weapon, FWeaponCustomizationInfo& outWeaponCustomizationInfo)
 {
-	GetWeaponCustomization(Weapon->WeaponCustomizationTag, outWeaponCustomizationInfo);
+	if (Weapon != nullptr)
+	{
+		GetWeaponCustomization(Weapon->WeaponCustomizationTag, outWeaponCustomizationInfo);
+	}
+	else
+	{
+		outWeaponCustomizationInfo = FWeaponCustomizationInfo();
+	}
 }
 
 FString UUTProfileSettings::GetWeaponSkinClassname(AUTWeapon* Weapon)
