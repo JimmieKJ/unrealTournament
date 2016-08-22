@@ -23,7 +23,6 @@ void UUTAnnouncer::PostInitProperties()
 
 	if (!IsTemplate())
 	{
-		UE_LOG(UT, Warning, TEXT("%s PostInitProperties"), *GetName());
 		AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
 		if (GS != NULL)
 		{
@@ -169,10 +168,10 @@ void UUTAnnouncer::PlayNextAnnouncement()
 		}
 		else if (SoundName != NAME_None)
 		{
-			if ((StatusCachedAudio.Num() == 0) && (RewardCachedAudio.Num() == 0))
+/*			if ((StatusCachedAudio.Num() == 0) && (RewardCachedAudio.Num() == 0))
 			{
 				UE_LOG(UT, Warning, TEXT("Play announcement %s with no cached audio"), *SoundName.ToString());
-			}
+			}*/
 			USoundBase** CachePtr = Next.MessageClass.GetDefaultObject()->bIsStatusAnnouncement ? StatusCachedAudio.Find(SoundName) : RewardCachedAudio.Find(SoundName);
 			// note that we store a NULL in the map for sounds known to not exist
 			if (CachePtr == NULL || (*CachePtr) != NULL)

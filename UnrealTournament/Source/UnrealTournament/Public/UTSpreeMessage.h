@@ -150,7 +150,6 @@ class UNREALTOURNAMENT_API UUTSpreeMessage : public UUTLocalMessage
 
 	virtual void PrecacheAnnouncements_Implementation(class UUTAnnouncer* Announcer) const
 	{
-		UE_LOG(UT, Warning, TEXT("PRECACHE SPREES"));
 		for (int32 i = 0; i < AnnouncementNames.Num(); i++)
 		{
 			Announcer->PrecacheAnnouncement(AnnouncementNames[i]);
