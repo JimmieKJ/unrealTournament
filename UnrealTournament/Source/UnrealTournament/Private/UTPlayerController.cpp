@@ -3584,11 +3584,6 @@ void AUTPlayerController::ReceivedPlayer()
 				FUTAnalytics::GetProvider().RecordEvent(TEXT("PlayerConnect"), TEXT("Server"), ServerInfo);
 			}
 		}
-		
-		if (FUTAnalytics::IsAvailable())
-		{
-			FQosInterface::Get()->BeginQosEvaluation(GetWorld(), FUTAnalytics::GetProviderPtr(), nullptr);
-		}
 
 		// Send over the country flag....
 		UUTProfileSettings* Settings = GetProfileSettings();
