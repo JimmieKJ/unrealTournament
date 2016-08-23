@@ -1483,6 +1483,8 @@ void UUTLocalPlayer::ClearProfileWarnResults(TSharedPtr<SCompoundWidget> Widget,
 		if (OnlineUserCloudInterface.IsValid() && UserID.IsValid())
 		{
 			OnlineUserCloudInterface->DeleteUserFile(*UserID, GetProfileFilename(), true, true);
+			FString Path = FPaths::GameSavedDir() + GetProfileFilename() + TEXT(".local");
+			FPlatformFileManager::Get().GetPlatformFile().DeleteFile(*Path);
 		}
 	}
 }

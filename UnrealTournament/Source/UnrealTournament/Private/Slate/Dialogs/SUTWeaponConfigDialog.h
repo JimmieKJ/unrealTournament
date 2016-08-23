@@ -250,5 +250,7 @@ protected:
 	bool bRequiresSave;
 
 
+	FReply OnResetClick();
+
 };
 #endif
