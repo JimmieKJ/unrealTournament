@@ -292,13 +292,31 @@ void UUTScoreboard::DrawPlayerScores(float RenderDelta, float& YOffset)
 
 FLinearColor UUTScoreboard::GetPlayerColorFor(AUTPlayerState* InPS) const
 {
+	return FLinearColor::White;
+}
+
+FLinearColor UUTScoreboard::GetPlayerBackgroundColorFor(AUTPlayerState* InPS) const
+{
 	if (UTHUDOwner->UTPlayerOwner->UTPlayerState == InPS)
 	{
-		return FLinearColor(0.0f, 0.92f, 1.0f, 1.0f);
+		return FLinearColor::Gray;
 	}
 	else
 	{
-		return FLinearColor::White;
+		return FLinearColor::Black;
+	}
+}
+
+FLinearColor UUTScoreboard::GetPlayerHighlightColorFor(AUTPlayerState* InPS) const
+{
+	//RedTeam
+	if (InPS->GetTeamNum() == 0)
+	{
+		return FLinearColor::Red;
+	}
+	else // Blue, or unknown team
+	{
+		return FLinearColor::Blue;
 	}
 }
 
@@ -337,7 +355,7 @@ void UUTScoreboard::DrawPlayer(int32 Index, AUTPlayerState* PlayerState, float R
 	}
 	
 	// Draw the background border.
-	FLinearColor BarColor = FLinearColor::Black;
+	FLinearColor BarColor = GetPlayerBackgroundColorFor(PlayerState);
 	float FinalBarOpacity = BarOpacity;
 	if (bIsUnderCursor) 
 	{
@@ -346,7 +364,7 @@ void UUTScoreboard::DrawPlayer(int32 Index, AUTPlayerState* PlayerState, float R
 	}
 	if (PlayerState == SelectedPlayer) 
 	{
-		BarColor = FLinearColor(0.0,0.3,0.3,1.0);
+		BarColor = FLinearColor(0.0, 0.3, 0.3, 1.0);
 		FinalBarOpacity = 0.75f;
 	}
 
@@ -384,8 +402,19 @@ void UUTScoreboard::DrawPlayer(int32 Index, AUTPlayerState* PlayerState, float R
 		DrawTexture(NewFlagAtlas, XOffset + (ScaledCellWidth * FlagX), YOffset + 14.f*RenderScale, FlagUV.UL*RenderScale, FlagUV.VL*RenderScale, FlagUV.U, FlagUV.V, 36, 26, 1.0, FLinearColor::White, FVector2D(0.0f, 0.5f));
 	}
 
-	// Draw the Text
-	FVector2D NameSize = DrawText(FText::FromString(PlayerState->PlayerName), XOffset + (ScaledCellWidth * ColumnHeaderPlayerX), YOffset + ColumnY, NameFont, FMath::Min(RenderScale, MaxNameWidth/FMath::Max(NameXL, 1.f)), 1.0f, DrawColor, ETextHorzPos::Left, ETextVertPos::Center);
+	FVector2D NameSize;
+
+	TSharedRef<const FUniqueNetId> UserId = MakeShareable(new FUniqueNetIdString(*PlayerState->StatsID));
+	FText EpicAccountName = UTGameState->GetEpicAccountNameForAccount(UserId);
+	const bool bNameMatchesAccount = (EpicAccountName.ToString() == PlayerState->PlayerName);
+	if (bNameMatchesAccount)
+	{
+		NameSize = DrawText(FText::FromString(PlayerState->PlayerName), XOffset + (ScaledCellWidth * ColumnHeaderPlayerX), YOffset + ColumnY, NameFont, false, FVector2D(0.f, 0.f), FLinearColor::Black, true, GetPlayerHighlightColorFor(PlayerState), FMath::Min(RenderScale, MaxNameWidth / FMath::Max(NameXL, 1.f)), 1.0f, DrawColor, FLinearColor(0.0f,0.0f,0.0f,0.0f), ETextHorzPos::Left, ETextVertPos::Center);
+	}
+	else
+	{
+		NameSize = DrawText(FText::FromString(PlayerState->PlayerName), XOffset + (ScaledCellWidth * ColumnHeaderPlayerX), YOffset + ColumnY, NameFont, FMath::Min(RenderScale, MaxNameWidth / FMath::Max(NameXL, 1.f)), 1.0f, DrawColor, ETextHorzPos::Left, ETextVertPos::Center);
+	}
 
 	if (PlayerState->bIsFriend)
 	{
