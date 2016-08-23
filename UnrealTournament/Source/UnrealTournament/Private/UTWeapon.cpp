@@ -302,28 +302,29 @@ void AUTWeapon::ClientGivenTo_Internal(bool bAutoActivate)
 	Super::ClientGivenTo_Internal(bAutoActivate);
 
 	AUTPlayerController* UTPlayerController = Cast<AUTPlayerController>(UTOwner->Controller);
-
-
-	// assign GroupSlot if required
-	int32 MaxGroupSlot = 0;
-	bool bDuplicateSlot = false;
-	int32 MyGroup = UTPlayerController->GetWeaponGroup(this);
-	for (TInventoryIterator<AUTWeapon> It(UTOwner); It; ++It)
+	if (UTPlayerController != nullptr)
 	{
-		if (*It != this && UTPlayerController->GetWeaponGroup(*It) == MyGroup)
+		// assign GroupSlot if required
+		int32 MaxGroupSlot = 0;
+		bool bDuplicateSlot = false;
+		int32 MyGroup = UTPlayerController->GetWeaponGroup(this);
+		for (TInventoryIterator<AUTWeapon> It(UTOwner); It; ++It)
 		{
-			MaxGroupSlot = FMath::Max<int32>(MaxGroupSlot, It->GroupSlot);
-			bDuplicateSlot = true;
+			if (*It != this && UTPlayerController->GetWeaponGroup(*It) == MyGroup)
+			{
+				MaxGroupSlot = FMath::Max<int32>(MaxGroupSlot, It->GroupSlot);
+				bDuplicateSlot = true;
+			}
 		}
-	}
-	if (bDuplicateSlot)
-	{
-		GroupSlot = MaxGroupSlot + 1;
-	}
+		if (bDuplicateSlot)
+		{
+			GroupSlot = MaxGroupSlot + 1;
+		}
 
-	if (bAutoActivate && UTPlayerController != NULL)
-	{
-		UTPlayerController->CheckAutoWeaponSwitch(this);
+		if (bAutoActivate)
+		{
+			UTPlayerController->CheckAutoWeaponSwitch(this);
+		}
 	}
 }
 
