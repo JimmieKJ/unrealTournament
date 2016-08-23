@@ -280,6 +280,11 @@ void AUTInventory::InitializeDroppedPickup(AUTDroppedPickup* Pickup)
 	Pickup->SetInventory(this);
 }
 
+void AUTInventory::OnViewTargetChange_Implementation(AUTPlayerController* NewViewTarget)
+{
+
+}
+
 bool AUTInventory::StackPickup_Implementation(AUTInventory* ContainedInv)
 {
 	return false;

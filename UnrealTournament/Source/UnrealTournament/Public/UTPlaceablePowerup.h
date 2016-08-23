@@ -1,10 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
+#include "UTTimedPowerup.h"
 #include "UTPlaceablePowerup.generated.h"
 
 UCLASS(Blueprintable, Abstract)
-class UNREALTOURNAMENT_API AUTPlaceablePowerup : public AUTInventory
+class UNREALTOURNAMENT_API AUTPlaceablePowerup : public AUTTimedPowerup
 {
 	GENERATED_UCLASS_BODY()
 
@@ -34,23 +35,14 @@ class UNREALTOURNAMENT_API AUTPlaceablePowerup : public AUTInventory
 
 	virtual void GivenTo(AUTCharacter* NewOwner, bool bAutoActivate) override;
 
+	virtual void DrawInventoryHUD_Implementation(UUTHUDWidget* Widget, FVector2D Pos, FVector2D Size) override;
+
 public:
 	/** Returns the HUD text to display for this item. */
-	virtual FText GetHUDText() const override
-	{ 
-		if (UTOwner && UTOwner->PlayerState)
-		{
-			AUTPlayerState* UTPS = Cast<AUTPlayerState>(UTOwner->PlayerState);
-			if (UTPS)
-			{
-				return FText::AsNumber(UTPS->GetRemainingBoosts());
-			}
-		}
+	virtual FText GetHUDText() const override;
 
-		return FText::GetEmpty();
-	}
-
-	virtual void DrawInventoryHUD_Implementation(UUTHUDWidget* Widget, FVector2D Pos, FVector2D Size) override;
+	/** Returns the value of this TimedPowerup. Used by the HUD for some display purposes */
+	virtual int32 GetHUDValue() const override;
 
 private:
 	/** Holds all the power ups this Inventory item has spawned. */

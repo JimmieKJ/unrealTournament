@@ -5,6 +5,7 @@
 
 #include "Net/UnrealNetwork.h"
 #include "UTCharacter.h"
+#include "UTPlaceablePowerup.h"
 #include "UTProjectile.h"
 #include "UTProjectileMovementComponent.h"
 
@@ -56,6 +57,20 @@ void AUTRepulsorBubble::PostInitializeComponents()
 	}
 }
 
+void AUTRepulsorBubble::OnViewTargetChange(AUTPlayerController* NewViewTarget)
+{
+	if (NewViewTarget && (NewViewTarget == Cast<AUTPlayerController>(Instigator)))
+	{
+		//We are spectating the owner of this bubble so fade out the center so we can see too
+		MID_Bubble->SetScalarParameterValue(FName("CenterFade"), 1.0f);
+	}
+	else
+	{
+		//Un fade the center of the bubble
+		MID_Bubble->SetScalarParameterValue(FName("CenterFade"), 0.0f);
+	}
+}
+
 void AUTRepulsorBubble::BeginPlay()
 {
 	Super::BeginPlay();
@@ -72,13 +87,28 @@ void AUTRepulsorBubble::BeginPlay()
 		}
 	}
 
-	if (Instigator && GEngine)
+	if (Instigator && GEngine && GEngine->GetFirstLocalPlayerController(GetWorld()))
 	{
-		if (Instigator->GetController())
+		//if we instigated this object, or are viewing the player who instigated it, we want to fade out the center so we can see
+		if ((Instigator->GetController() == GEngine->GetFirstLocalPlayerController(GetWorld())) ||
+			(Cast<APawn>(GEngine->GetFirstLocalPlayerController(GetWorld())->GetViewTarget()) == Instigator))
 		{
-			//If we instigated this object then we want to fully fade out the center, so that we can see through the repulsor effects.
-			//Other players should have no center fade effect
-			MID_Bubble->SetScalarParameterValue(FName("CenterFade"), Instigator->GetController() == GEngine->GetFirstLocalPlayerController(GetWorld()) ? 1.0f : 0.0f);
+			MID_Bubble->SetScalarParameterValue(FName("CenterFade"), 1.0f);
+		}
+		else
+		{
+			MID_Bubble->SetScalarParameterValue(FName("CenterFade"), 0.0f);
+		}
+	}
+
+	//Set remaining time on parent item to reflect starting health
+	AUTCharacter* UTChar = Cast<AUTCharacter>(Instigator);
+	if (UTChar)
+	{
+		AUTPlaceablePowerup* ParentItem = Cast<AUTPlaceablePowerup>(UTChar->FindInventoryType(ParentInventoryItemClass));
+		if (ParentItem)
+		{
+			ParentItem->TimeRemaining = Health;
 		}
 	}
 }
@@ -250,6 +280,19 @@ float AUTRepulsorBubble::TakeDamage(float Damage, AActor* DamageCauser)
 		{
 			Destroy();
 		}
+		else
+		{
+			//Set remaining time on parent item to reflect new health
+			AUTCharacter* UTChar = Cast<AUTCharacter>(Instigator);
+			if (UTChar)
+			{
+				AUTPlaceablePowerup* ParentItem = Cast<AUTPlaceablePowerup>(UTChar->FindInventoryType(ParentInventoryItemClass));
+				if (ParentItem)
+				{
+					ParentItem->TimeRemaining = Health;
+				}
+			}
+		}
 
 		return Damage;
 	}
@@ -309,6 +352,17 @@ void AUTRepulsorBubble::OnRep_Health()
 		{
 			OnHitScanBlocked();
 			break;
+		}
+	}
+
+	//Set remaining time on parent item to reflect new health
+	AUTCharacter* UTChar = Cast<AUTCharacter>(Instigator);
+	if (UTChar)
+	{
+		AUTPlaceablePowerup* ParentItem = Cast<AUTPlaceablePowerup>(UTChar->FindInventoryType(ParentInventoryItemClass));
+		if (ParentItem)
+		{
+			ParentItem->TimeRemaining = Health;
 		}
 	}
 }

@@ -18,6 +18,8 @@ AUTTimedPowerup::AUTTimedPowerup(const FObjectInitializer& ObjectInitializer)
 	PrimaryActorTick.bCanEverTick = true;
 	PrimaryActorTick.bStartWithTickEnabled = true;
 	PrimaryActorTick.bAllowTickOnDedicatedServer = true;
+
+	bTimerPaused = false;
 }
 
 void AUTTimedPowerup::GivenTo(AUTCharacter* NewOwner, bool bAutoActivate)
@@ -121,7 +123,7 @@ void AUTTimedPowerup::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
-	if (TimeRemaining > 0.0f)
+	if (TimeRemaining > 0.0f && !bTimerPaused)
 	{
 		float TickMultiplier = (GetUTOwner() != NULL) ? 1.f : DroppedTickRate;
 		TimeRemaining -= (DeltaTime * TickMultiplier);
@@ -169,6 +171,7 @@ void AUTTimedPowerup::GetLifetimeReplicatedProps(TArray<FLifetimeProperty> & Out
 
 	// this is for spectators, owner gets this via RPC for better accuracy
 	DOREPLIFETIME_CONDITION(AUTTimedPowerup, TimeRemaining, COND_SkipOwner);
+	DOREPLIFETIME(AUTTimedPowerup, bTimerPaused);
 }
 
 // Allows inventory items to decide if a widget should be allowed to render them.

@@ -6150,6 +6150,12 @@ void AUTCharacter::BecomeViewTarget(APlayerController* PC)
 	{
 		BehindViewChange(UTPC, UTPC->IsBehindView());
 	}
+	
+	//Inform all inventory that the view target has changed
+	for (TInventoryIterator<AUTInventory> It(this); It; ++It)
+	{
+		It->OnViewTargetChange(Cast<AUTPlayerController>(PC));
+	}
 }
 void AUTCharacter::EndViewTarget(APlayerController* PC)
 {

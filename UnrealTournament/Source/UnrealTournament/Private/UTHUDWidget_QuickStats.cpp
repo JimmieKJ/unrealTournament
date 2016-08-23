@@ -236,7 +236,7 @@ void UUTHUDWidget_QuickStats::PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCa
 		PowerupInfo.Value = 0;
 		if (CurrentPowerup != nullptr)
 		{
-			PowerupInfo.Value = int32(CurrentPowerup->TimeRemaining);
+			PowerupInfo.Value = int32(CurrentPowerup->GetHUDValue());
 
 			PowerupIcon.Atlas = CurrentPowerup->HUDIcon.Texture;
 			PowerupIcon.UVs.U = CurrentPowerup->HUDIcon.U;
@@ -287,7 +287,7 @@ void UUTHUDWidget_QuickStats::PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCa
 				AUTTimedPowerup* TimedPowerup = Cast<AUTTimedPowerup>(ActiveBoost);
 				if (TimedPowerup)
 				{
-					BoostProvidedPowerupInfo.Value = static_cast<int>(TimedPowerup->TimeRemaining);
+					BoostProvidedPowerupInfo.Value = TimedPowerup->GetHUDValue();
 				}
 
 				AUTWeapon* WeaponPowerup = Cast<AUTWeapon>(ActiveBoost);
@@ -296,11 +296,7 @@ void UUTHUDWidget_QuickStats::PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCa
 					BoostProvidedPowerupInfo.Value = WeaponPowerup->Ammo;
 				}
 
-				AUTPlaceablePowerup* PlaceablePowerup = Cast<AUTPlaceablePowerup>(ActiveBoost);
-				if (PlaceablePowerup)
-				{
-					BoostProvidedPowerupInfo.Value = UTPlayerState->GetRemainingBoosts();
-				}
+
 			}
 			else
 			{

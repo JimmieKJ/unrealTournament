@@ -14,9 +14,12 @@ class UNREALTOURNAMENT_API AUTTimedPowerup : public AUTInventory
 	UPROPERTY(Replicated, EditDefaultsOnly, BlueprintReadWrite, Category = Powerup)
 	float TimeRemaining;
 
+	UPROPERTY(Replicated, EditAnywhere, BlueprintReadWrite, Category = Powerup)
+	bool bTimerPaused;
+
 	/** How long this powerup lasts if it is the triggered version. */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Powerup)
-		float TriggeredTime;
+	float TriggeredTime;
 
 	/** Rate powerup time remaining ticks down when powerup has been dropped */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Powerup)
@@ -100,6 +103,12 @@ public:
 	virtual FText GetHUDText() const override
 	{ 
 		return FText::AsNumber(int32(TimeRemaining)); 
+	}
+
+	/** Returns the value of this TimedPowerup. Used by the HUD for some display purposes */
+	virtual int32 GetHUDValue() const
+	{
+		return int32(TimeRemaining);
 	}
 
 	virtual bool HUDShouldRender_Implementation(UUTHUDWidget* TargetWidget) override;

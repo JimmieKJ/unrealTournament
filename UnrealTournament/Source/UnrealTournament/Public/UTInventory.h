@@ -80,6 +80,10 @@ public:
 	/** Initialized dropped pickup holding this inventory item. */
 	virtual void InitializeDroppedPickup(class AUTDroppedPickup* Pickup);
 
+	/** Called when our local player has a new view target */
+	UFUNCTION(BlueprintNativeEvent)
+	void OnViewTargetChange(AUTPlayerController* NewViewTarget);
+
 	/** return a component that can be instanced to be applied to pickups */
 	UFUNCTION(BlueprintNativeEvent)
 	UMeshComponent* GetPickupMeshTemplate(FVector& OverrideScale) const;
