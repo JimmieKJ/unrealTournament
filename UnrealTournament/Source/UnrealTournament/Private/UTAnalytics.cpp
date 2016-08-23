@@ -139,11 +139,15 @@ void FUTAnalytics::InitializeAnalyticParameterNames()
 	AddGenericParamName(TotalUnplayableTimeInMs);
 	AddGenericParamName(ServerUnplayableCondition);
 
+	AddGenericParamName(WeaponName);
+	AddGenericParamName(NumKills);
+	AddGenericParamName(UTServerWeaponKills);
+
+	AddGenericParamName(UTFPSCharts);
+	AddGenericParamName(UTServerFPSCharts);
+
 	AddGenericParamName(Team);
 	AddGenericParamName(MaxRequiredTextureSize);
-
-	AddGenericParamName(UTServerFPSCharts);
-	AddGenericParamName(UTFPSCharts);
 }
 
 void FUTAnalytics::Shutdown()
@@ -553,6 +557,34 @@ void FUTAnalytics::FireEvent_ServerUnplayableCondition(AUTGameMode* UTGM, double
 #endif //WITH_QOSREPORTER
 			}
 		}
+	}
+}
+
+/*
+* @EventName UTServerWeaponKills
+*
+* @Trigger Fires every game
+*
+* @Type Sent by the server
+*
+* @Comments
+*/
+void FUTAnalytics::FireEvent_UTServerWeaponKills(AUTGameMode* UTGM, TMap<TSubclassOf<UDamageType>, int32>* KillsArray)
+{
+	const TSharedPtr<IAnalyticsProvider>& AnalyticsProvider = GetProviderPtr();
+	if (AnalyticsProvider.IsValid() && UTGM && KillsArray)
+	{
+		TArray<FAnalyticsEventAttribute> ParamArray;
+		SetMatchInitialParameters(UTGM, ParamArray, true);
+		SetServerInitialParameters(ParamArray);
+
+		for (auto& KillElement : *KillsArray)
+		{
+			ParamArray.Add(FAnalyticsEventAttribute(GetGenericParamName(EGenericAnalyticParam::WeaponName), *KillElement.Key->GetName()));
+			ParamArray.Add(FAnalyticsEventAttribute(GetGenericParamName(EGenericAnalyticParam::NumKills), KillElement.Value));
+		}
+
+		AnalyticsProvider->RecordEvent(GetGenericParamName(EGenericAnalyticParam::UTServerWeaponKills), ParamArray);
 	}
 }
 

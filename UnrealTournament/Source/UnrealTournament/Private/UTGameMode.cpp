@@ -1813,6 +1813,9 @@ void AUTGameMode::EndMatch()
 		UE_LOG(UT, Log, TEXT("%s -> %d"), *KillElement.Key->GetName(), KillElement.Value);
 	}
 #endif
+	
+	//Log weapon kills in analytics
+	FUTAnalytics::FireEvent_UTServerWeaponKills(this, &EnemyKillsByDamageType);
 
 	UTGameState->UpdateMatchHighlights();
 

@@ -28,6 +28,10 @@ namespace EGenericAnalyticParam
 		TotalUnplayableTimeInMs,
 		ServerUnplayableCondition,
 
+		WeaponName,
+		NumKills,
+		UTServerWeaponKills,
+
 		UTFPSCharts,
 		UTServerFPSCharts,
 
