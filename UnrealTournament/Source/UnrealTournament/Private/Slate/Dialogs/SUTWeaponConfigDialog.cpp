@@ -326,8 +326,19 @@ TSharedRef<class SWidget> SUTWeaponConfigDialog::BuildCustomButtonBar()
 			.Text(NSLOCTEXT("SUTWeaponConfigDialog", "WeaponWheel", "CONFIGURE WEAPON WHEEL"))
 			.TextStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button.SmallTextStyle")
 			.OnClicked(this, &SUTWeaponConfigDialog::OnConfigureWheelClick)
-		];
-		
+		]
+
+	+ SHorizontalBox::Slot().AutoWidth().Padding(0.0f, 0.0f, 10.0f, 0.0f)
+	[
+		SNew(SButton)
+		.HAlign(HAlign_Center)
+		.ButtonStyle(SUWindowsStyle::Get(), "UT.BottomMenu.Button")
+		.ContentPadding(FMargin(5.0f, 5.0f, 5.0f, 5.0f))
+		.Text(NSLOCTEXT("SUTWeaponConfigDialog", "ResetToDefaults", "RESET TO DEFAULTS"))
+		.TextStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button.SmallTextStyle")
+		.OnClicked(this, &SUTWeaponConfigDialog::OnResetClick)
+	];
+
 }
 
 void SUTWeaponConfigDialog::AddReferencedObjects(FReferenceCollector& Collector)
@@ -1793,5 +1804,16 @@ void SUTWeaponConfigDialog::WheelConfigDialogClosed(TSharedPtr<SCompoundWidget> 
 	if (ButtonID == UTDIALOG_BUTTON_OK) bRequiresSave = true;
 }
 
+
+FReply SUTWeaponConfigDialog::OnResetClick()
+{
+	UUTProfileSettings* ProfileSettings = PlayerOwner->GetProfileSettings();
+	ProfileSettings->ResetProfile(EProfileResetType::Weapons);
+	PlayerOwner->SaveProfileSettings();
+
+	GetPlayerOwner()->CloseDialog(SharedThis(this));
+	PlayerOwner->OpenDialog(SNew(SUTWeaponConfigDialog).PlayerOwner(PlayerOwner));
+	return FReply::Handled();
+}
 
 #endif
