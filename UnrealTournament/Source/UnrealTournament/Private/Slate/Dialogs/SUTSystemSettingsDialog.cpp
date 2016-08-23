@@ -1261,10 +1261,13 @@ FReply SUTSystemSettingsDialog::OKClick()
 	// sound settings
 	for (int32 i = 0; i < ARRAY_COUNT(SoundVolumes); i++)
 	{
-		UserSettings->SetSoundClassVolume(EUTSoundClass::Type(i), SoundVolumes[i]->GetValue());
+		if (SoundVolumes[i].IsValid())
+		{
+			UserSettings->SetSoundClassVolume(EUTSoundClass::Type(i), SoundVolumes[i]->GetValue());
+		}
 	}
 
-	UserSettings->SetSoundClassVolume(EUTSoundClass::VOIP, SoundVolumes[EUTSoundClass::VOIP]->GetValue() * 2.0f);
+	//UserSettings->SetSoundClassVolume(EUTSoundClass::VOIP, SoundVolumes[EUTSoundClass::VOIP]->GetValue() * 2.0f);
 
 	// engine scalability
 	UserSettings->ScalabilityQuality = Scalability::GetQualityLevels(); // sets in UserSettings what was already applied
