@@ -149,7 +149,7 @@ AUTGameMode::AUTGameMode(const class FObjectInitializer& ObjectInitializer)
 	bAllowAllArmorPickups = true;
 
 	bPlayersStartWithArmor = true;
-	StartingArmorObject = FStringAssetReference(TEXT("Blueprint'/Game/RestrictedAssets/Pickups/Armor/Armor_Starting.Armor_Starting_C'"));
+	StartingArmorObject = FStringAssetReference(TEXT("/Game/RestrictedAssets/Blueprints/Armor_Starting.Armor_Starting_C"));
 }
 
 float AUTGameMode::OverrideRespawnTime(TSubclassOf<AUTInventory> InventoryType)
