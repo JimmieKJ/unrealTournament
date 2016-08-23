@@ -274,24 +274,23 @@ float AUTRepulsorBubble::TakeDamage(float Damage, AActor* DamageCauser)
 			OnHitScanBlocked();
 		}
 
-		Health -= Damage;
+		//Set remaining time on parent item to reflect new health
+		AUTCharacter* UTChar = Cast<AUTCharacter>(Instigator);
+		if (UTChar)
+		{
+			AUTPlaceablePowerup* ParentItem = Cast<AUTPlaceablePowerup>(UTChar->FindInventoryType(ParentInventoryItemClass));
+			if (ParentItem)
+			{
+				ParentItem->TimeRemaining -= Damage;
+				Health = ParentItem->TimeRemaining;
 
-		if (Health <= 0.f)
+				ParentItem->ClientSetTimeRemaining(Health);
+			}
+		}
+
+		if (Health < 0)
 		{
 			Destroy();
-		}
-		else
-		{
-			//Set remaining time on parent item to reflect new health
-			AUTCharacter* UTChar = Cast<AUTCharacter>(Instigator);
-			if (UTChar)
-			{
-				AUTPlaceablePowerup* ParentItem = Cast<AUTPlaceablePowerup>(UTChar->FindInventoryType(ParentInventoryItemClass));
-				if (ParentItem)
-				{
-					ParentItem->TimeRemaining = Health;
-				}
-			}
 		}
 
 		return Damage;
@@ -352,17 +351,6 @@ void AUTRepulsorBubble::OnRep_Health()
 		{
 			OnHitScanBlocked();
 			break;
-		}
-	}
-
-	//Set remaining time on parent item to reflect new health
-	AUTCharacter* UTChar = Cast<AUTCharacter>(Instigator);
-	if (UTChar)
-	{
-		AUTPlaceablePowerup* ParentItem = Cast<AUTPlaceablePowerup>(UTChar->FindInventoryType(ParentInventoryItemClass));
-		if (ParentItem)
-		{
-			ParentItem->TimeRemaining = Health;
 		}
 	}
 }
