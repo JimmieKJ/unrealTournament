@@ -505,7 +505,7 @@ void AUTHUD::NotifyMatchStateChange()
 		}
 		else if (GS->GetMatchState() == MatchState::PlayerIntro)
 		{
-			if (UTPlayerOwner->UTPlayerState->bIsWarmingUp)
+			if (UTPlayerOwner->UTPlayerState && UTPlayerOwner->UTPlayerState->bIsWarmingUp)
 			{
 				UTPlayerOwner->ClientReceiveLocalizedMessage(UUTGameMessage::StaticClass(), 16, nullptr, nullptr, nullptr);
 			}
