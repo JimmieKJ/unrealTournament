@@ -1143,7 +1143,7 @@ void AUTPlayerController::SwitchWeaponGroup(int32 Group)
 		for (TInventoryIterator<AUTWeapon> It(UTCharacter); It; ++It)
 		{
 			AUTWeapon* Weap = *It;
-			if (Weap != UTCharacter->GetWeapon() && Weap->HasAnyAmmo())
+			if (Weap != UTCharacter->GetWeapon() && Weap->HasAnyAmmo() && Weap != CurrWeapon)
 			{
 				int32 WeapGroup = GetWeaponGroup(Weap);
 				if (WeapGroup == Group)
@@ -4163,6 +4163,13 @@ void AUTPlayerController::ClientPumpkinPickedUp_Implementation(float GainedAmoun
 
 void AUTPlayerController::DebugTest(FString TestCommand)
 {
+
+	for (TInventoryIterator<AUTWeapon> It(UTCharacter); It; ++It)
+	{
+		AUTWeapon* Weap = *It;
+		UE_LOG(UT,Log,TEXT("Weapon %s = %i / %i "), *Weap->DisplayName.ToString(), GetWeaponGroup(Weap), Weap->GroupSlot);
+	}
+
 	Super::DebugTest(TestCommand);
 
 }
