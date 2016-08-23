@@ -141,6 +141,9 @@ void FUTAnalytics::InitializeAnalyticParameterNames()
 
 	AddGenericParamName(Team);
 	AddGenericParamName(MaxRequiredTextureSize);
+
+	AddGenericParamName(UTServerFPSCharts);
+	AddGenericParamName(UTFPSCharts);
 }
 
 void FUTAnalytics::Shutdown()
