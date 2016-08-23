@@ -146,7 +146,31 @@ FReply SUTPartyInviteWidget::AcceptInvite()
 			{
 				GameAndPartyService->AcceptGameInvite(User);
 			}
+			else
+			{
+				UE_LOG(UT, Warning, TEXT("Invalid inviting user %s"), *LastInviteUniqueID);
+				TArray< TSharedPtr< IFriendItem > > OutFriendsList;
+				if (FriendsService->GetFilteredFriendsList(OutFriendsList))
+				{
+					for (auto& Friend : OutFriendsList)
+					{
+						UE_LOG(UT, Warning, TEXT("%s %s"), *Friend->GetOnlineUser()->GetDisplayName(), *Friend->GetUniqueID()->ToString());
+					}
+				}
+				else
+				{
+					UE_LOG(UT, Warning, TEXT("No friends downloaded, so invitation accept failed"));
+				}
+			}
 		}
+		else
+		{
+			UE_LOG(UT, Warning, TEXT("Game and Party Services not available"));
+		}
+	}
+	else
+	{
+		UE_LOG(UT, Warning, TEXT("No invite available"));
 	}
 #endif
 	LastInviteTime = 0;
