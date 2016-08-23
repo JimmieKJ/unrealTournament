@@ -208,10 +208,12 @@ namespace UnrealTournamentGame.Automation
 						Deployment2Command("deployment_create", AwsArgsNa1, "true", 1);
 						Deployment2Command("deployment_create", AwsArgsEu1, "true", 1);
 						Deployment2Command("deployment_create", AwsNaHub1, "true", 1);
+						Deployment2Command("deployment_create", AwsEuHub1, "true", 1);
 
 						Deployment2Command("deployment_create", AwsArgsNa1, "get_pending", MaxRetries);
 						Deployment2Command("deployment_create", AwsArgsEu1, "get_pending", MaxRetries);
 						Deployment2Command("deployment_create", AwsNaHub1, "get_pending", MaxRetries);
+						Deployment2Command("deployment_create", AwsEuHub1, "get_pending", MaxRetries);
 						break;
 					default:
 						Deployment2Command("deployment_create", AwsArgsNa1, "true", 1);
