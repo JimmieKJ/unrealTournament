@@ -771,6 +771,9 @@ FReply SUTControlSettingsDialog::OKClick()
 		ProfileSettings->MaxDodgeClickTimeValue = MaxDodgeClickTimeValue;
 		ProfileSettings->MaxDodgeTapTimeValue = MaxDodgeTapTimeValue;
 
+		ProfileSettings->bSingleTapWallDodge = SingleTapWallDodge->IsChecked();
+		ProfileSettings->bSingleTapAfterJump = SingleTapAfterJump->IsChecked();
+
 		ProfileSettings->ApplyInputSettings(PlayerOwner.Get());
 	}
 
