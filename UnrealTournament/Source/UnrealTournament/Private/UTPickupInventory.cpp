@@ -361,40 +361,44 @@ void AUTPickupInventory::PlaySpawnVoiceLine()
 		return;
 	}
 
-	// find player to announce this pickup 
-	AUTPlayerState* Speaker = nullptr;
-	bool bHasPlayedForRed = false;
-	bool bHasPlayedForBlue = false;
+	AUTGameMode* GM = GetWorld()->GetAuthGameMode<AUTGameMode>();
+	if (GM && GM->bAllowPickupAnnouncements)
+	{
+		// find player to announce this pickup 
+		AUTPlayerState* Speaker = nullptr;
+		bool bHasPlayedForRed = false;
+		bool bHasPlayedForBlue = false;
 
-	// maybe don't announce for one team
-	AUTCTFGameState* CTFGameState = GetWorld()->GetGameState<AUTCTFGameState>();
-	if (CTFGameState)
-	{
-		bHasPlayedForRed = CTFGameState->bRedToCap ? !bNotifySpawnForOffense : !bNotifySpawnForDefense;
-		bHasPlayedForBlue = CTFGameState->bRedToCap ? !bNotifySpawnForDefense : !bNotifySpawnForOffense;
-		if (bHasPlayedForRed && bHasPlayedForBlue)
+		// maybe don't announce for one team
+		AUTCTFGameState* CTFGameState = GetWorld()->GetGameState<AUTCTFGameState>();
+		if (CTFGameState)
 		{
-			return;
-		}
-	}
-	for (FConstControllerIterator Iterator = GetWorld()->GetControllerIterator(); Iterator; ++Iterator)
-	{
-		AUTPlayerState* UTPS = Cast<AUTPlayerState>((*Iterator)->PlayerState);
-		if (UTPS && UTPS->Team)
-		{
-			if (!bHasPlayedForRed && (UTPS->Team->TeamIndex == 0))
-			{
-				UTPS->AnnounceStatus(InventoryType.GetDefaultObject()->PickupAnnouncementName, 0);
-				bHasPlayedForRed = true;
-			}
-			else if (!bHasPlayedForBlue && (UTPS->Team->TeamIndex == 1))
-			{
-				UTPS->AnnounceStatus(InventoryType.GetDefaultObject()->PickupAnnouncementName, 0);
-				bHasPlayedForBlue = true;
-			}
+			bHasPlayedForRed = CTFGameState->bRedToCap ? !bNotifySpawnForOffense : !bNotifySpawnForDefense;
+			bHasPlayedForBlue = CTFGameState->bRedToCap ? !bNotifySpawnForDefense : !bNotifySpawnForOffense;
 			if (bHasPlayedForRed && bHasPlayedForBlue)
 			{
-				break;
+				return;
+			}
+		}
+		for (FConstControllerIterator Iterator = GetWorld()->GetControllerIterator(); Iterator; ++Iterator)
+		{
+			AUTPlayerState* UTPS = Cast<AUTPlayerState>((*Iterator)->PlayerState);
+			if (UTPS && UTPS->Team)
+			{
+				if (!bHasPlayedForRed && (UTPS->Team->TeamIndex == 0))
+				{
+					UTPS->AnnounceStatus(InventoryType.GetDefaultObject()->PickupAnnouncementName, 0);
+					bHasPlayedForRed = true;
+				}
+				else if (!bHasPlayedForBlue && (UTPS->Team->TeamIndex == 1))
+				{
+					UTPS->AnnounceStatus(InventoryType.GetDefaultObject()->PickupAnnouncementName, 0);
+					bHasPlayedForBlue = true;
+				}
+				if (bHasPlayedForRed && bHasPlayedForBlue)
+				{
+					break;
+				}
 			}
 		}
 	}
