@@ -615,7 +615,7 @@ void UUTHUDWidget_SpectatorSlideOut::DrawPlayer(int32 Index, AUTPlayerState* Pla
 		if (Character && (Character->Health > 0))
 		{
 			float FlagOffset = -0.05f;
-			if (Character->GetWeaponOverlayFlags() != 0)
+			if (bFriendlySpectator && (Character->GetWeaponOverlayFlags() != 0))
 			{
 				// @TODO FIXMESTEVE - support actual overlays for different powerups - save related class when setting up overlays in GameState, so have easy mapping. 
 				// For now just assume UDamage
