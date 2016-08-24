@@ -2012,6 +2012,13 @@ void UUTLocalPlayer::ReadSpecificELOFromBackend(const FString& MatchRatingType)
 				NewRating = Showdown_ELO;
 				ShowdownMatchesPlayed = Response.NumGamesPlayed;
 			}
+			else if (MatchRatingType == NAME_FlagRunSkillRating.ToString())
+			{
+				OldRating = FlagRun_ELO;
+				FlagRun_ELO = Response.Rating;
+				NewRating = FlagRun_ELO;
+				FlagRunMatchesPlayed = Response.NumGamesPlayed;
+			}
 			else if (MatchRatingType == NAME_RankedDuelSkillRating.ToString())
 			{
 				OldRating = RankedDuel_ELO;
@@ -2303,6 +2310,7 @@ void UUTLocalPlayer::ReadMMRFromBackend()
 	MatchRatingTypes.Add(TEXT("DMSkillRating"));
 	MatchRatingTypes.Add(TEXT("CTFSkillRating"));
 	MatchRatingTypes.Add(TEXT("ShowdownSkillRating"));
+	MatchRatingTypes.Add(TEXT("FlagRunSkillRating"));
 	MatchRatingTypes.Add(TEXT("RankedDuelSkillRating"));
 	MatchRatingTypes.Add(TEXT("RankedCTFSkillRating"));
 	MatchRatingTypes.Add(TEXT("RankedShowdownSkillRating"));
@@ -2351,6 +2359,11 @@ void UUTLocalPlayer::ReadMMRFromBackend()
 				{
 					WeakLocalPlayer->Showdown_ELO = Response.Ratings[i];
 					WeakLocalPlayer->ShowdownMatchesPlayed = Response.NumGamesPlayed[i];
+				}
+				else if (Response.RatingTypes[i] == NAME_FlagRunSkillRating.ToString())
+				{
+					WeakLocalPlayer->FlagRun_ELO = Response.Ratings[i];
+					WeakLocalPlayer->FlagRunMatchesPlayed = Response.NumGamesPlayed[i];
 				}
 				else if (Response.RatingTypes[i] == NAME_RankedDuelSkillRating.ToString())
 				{

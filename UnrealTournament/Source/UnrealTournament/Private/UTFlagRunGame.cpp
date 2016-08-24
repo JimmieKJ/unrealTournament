@@ -619,3 +619,29 @@ void AUTFlagRunGame::CheatScore()
 	Super::CheatScore();
 }
 
+void AUTFlagRunGame::UpdateSkillRating()
+{
+	ReportRankedMatchResults(NAME_FlagRunSkillRating.ToString());
+}
+
+uint8 AUTFlagRunGame::GetNumMatchesFor(AUTPlayerState* PS, bool bRankedSession) const
+{
+	return PS ? PS->FlagRunMatchesPlayed : 0;
+}
+
+int32 AUTFlagRunGame::GetEloFor(AUTPlayerState* PS, bool bRankedSession) const
+{
+	return PS ? PS->FlagRunRank : Super::GetEloFor(PS, bRankedSession);
+}
+
+void AUTFlagRunGame::SetEloFor(AUTPlayerState* PS, bool bRankedSession, int32 NewEloValue, bool bIncrementMatchCount)
+{
+	if (PS)
+	{
+		PS->FlagRunRank = NewEloValue;
+		if (bIncrementMatchCount && (PS->FlagRunMatchesPlayed < 255))
+		{
+			PS->FlagRunMatchesPlayed++;
+		}
+	}
+}

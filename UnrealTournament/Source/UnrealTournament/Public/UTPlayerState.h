@@ -719,11 +719,6 @@ private:
 	bool bReadStatsFromCloud;
 	bool bSuccessfullyReadStatsFromCloud;
 	bool bWroteStatsToCloud;
-	int32 DuelSkillRatingThisMatch;
-	int32 CTFSkillRatingThisMatch;
-	int32 TDMSkillRatingThisMatch;
-	int32 DMSkillRatingThisMatch;
-	int32 ShowdownSkillRatingThisMatch;
 	IOnlineIdentityPtr OnlineIdentityInterface;
 	IOnlineUserCloudPtr OnlineUserCloudInterface;
 	FOnReadUserFileCompleteDelegate OnReadUserFileCompleteDelegate;
@@ -760,6 +755,8 @@ public:
 	UPROPERTY(Replicated)
 	int32 ShowdownRank;
 	UPROPERTY(Replicated)
+	int32 FlagRunRank;
+	UPROPERTY(Replicated)
 	int32 RankedDuelRank;
 	UPROPERTY(Replicated)
 	int32 RankedCTFRank;
@@ -777,6 +774,8 @@ public:
 	uint8 DMMatchesPlayed;
 	UPROPERTY(Replicated)
 	uint8 ShowdownMatchesPlayed;
+	UPROPERTY(Replicated)
+	uint8 FlagRunMatchesPlayed;
 	UPROPERTY(Replicated)
 	uint8 RankedDuelMatchesPlayed;
 	UPROPERTY(Replicated)

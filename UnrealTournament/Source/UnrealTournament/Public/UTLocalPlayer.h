@@ -549,6 +549,7 @@ private:
 	int32 FFA_ELO;	// The Player's current FFA ELO rank
 	int32 CTF_ELO;	// The Player's current CTF ELO rank
 	int32 Showdown_ELO;
+	int32 FlagRun_ELO;
 	int32 RankedDuel_ELO;
 	int32 RankedCTF_ELO;
 	int32 RankedShowdown_ELO;
@@ -556,6 +557,7 @@ private:
 	int32 TDMMatchesPlayed;	// The # of matches this player has played.
 	int32 FFAMatchesPlayed;	// The # of matches this player has played.
 	int32 CTFMatchesPlayed;	// The # of matches this player has played.
+	int32 FlagRunMatchesPlayed;
 	int32 ShowdownMatchesPlayed;	// The # of matches this player has played.
 	int32 RankedDuelMatchesPlayed;	// The # of matches this player has played.
 	int32 RankedCTFMatchesPlayed;	// The # of matches this player has played.
@@ -586,6 +588,7 @@ public:
 	inline virtual int32 GetRankDM() { return FFA_ELO; }
 	inline virtual int32 GetRankCTF() { return CTF_ELO; }
 	inline virtual int32 GetRankShowdown() { return Showdown_ELO; }
+	inline virtual int32 GetRankFlagRun() { return FlagRun_ELO; }
 	inline virtual int32 GetRankRankedShowdown() { return RankedShowdown_ELO; }
 
 	virtual int32 DuelEloMatches() { return DuelMatchesPlayed; }
@@ -593,6 +596,7 @@ public:
 	virtual int32 TDMEloMatches() { return TDMMatchesPlayed; }
 	virtual int32 DMEloMatches() { return FFAMatchesPlayed; }
 	virtual int32 ShowdownEloMatches() { return ShowdownMatchesPlayed; }
+	virtual int32 FlagRunEloMatches() { return FlagRunMatchesPlayed; }
 	virtual int32 RankedShowdownEloMatches() { return RankedShowdownMatchesPlayed; }
 
 	virtual bool GetLeagueProgress(const FString& LeagueName, FRankedLeagueProgress& LeagueProgress);

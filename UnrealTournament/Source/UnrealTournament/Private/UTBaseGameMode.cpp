@@ -527,6 +527,10 @@ int32 AUTBaseGameMode::GetEloFor(AUTPlayerState* PS, bool bRankedSession) const
 		{
 			MaxElo = FMath::Max(MaxElo, PS->CTFRank);
 		}
+		if (PS->FlagRunMatchesPlayed >= 10)
+		{
+			MaxElo = FMath::Max(MaxElo, PS->FlagRunRank);
+		}
 	}
 	else
 	{

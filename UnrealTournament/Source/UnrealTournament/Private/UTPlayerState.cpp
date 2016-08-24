@@ -30,6 +30,7 @@
 #include "UTLobbyGameMode.h"
 #include "UTTeamDMGameMode.h"
 #include "UTCTFBaseGame.h"
+#include "UTFlagRunGame.h"
 #include "UTHUDWidget_NetInfo.h"
 #include "UTMcpUtils.h"
 
@@ -143,6 +144,7 @@ void AUTPlayerState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & Ou
 	DOREPLIFETIME(AUTPlayerState, TDMMatchesPlayed);
 	DOREPLIFETIME(AUTPlayerState, DMMatchesPlayed);
 	DOREPLIFETIME(AUTPlayerState, ShowdownMatchesPlayed);
+	DOREPLIFETIME(AUTPlayerState, FlagRunMatchesPlayed);
 	DOREPLIFETIME(AUTPlayerState, RankedShowdownMatchesPlayed);
 
 	DOREPLIFETIME(AUTPlayerState, bHasVoted);
@@ -1423,6 +1425,7 @@ void AUTPlayerState::ReadMMRFromBackend()
 	MatchRatingTypes.Add(TEXT("DMSkillRating"));
 	MatchRatingTypes.Add(TEXT("CTFSkillRating"));
 	MatchRatingTypes.Add(TEXT("ShowdownSkillRating"));
+	MatchRatingTypes.Add(TEXT("FlagRunSkillRating"));
 	MatchRatingTypes.Add(TEXT("RankedDuelSkillRating"));
 	MatchRatingTypes.Add(TEXT("RankedCTFSkillRating"));
 	MatchRatingTypes.Add(TEXT("RankedShowdownSkillRating"));
@@ -1447,18 +1450,20 @@ void AUTPlayerState::ReadMMRFromBackend()
 			WeakPlayerState->DMRank = Response.Ratings[2];
 			WeakPlayerState->CTFRank = Response.Ratings[3];
 			WeakPlayerState->ShowdownRank = Response.Ratings[4];
-			WeakPlayerState->RankedDuelRank = Response.Ratings[5];
-			WeakPlayerState->RankedCTFRank = Response.Ratings[6];
-			WeakPlayerState->RankedShowdownRank = Response.Ratings[7];
+			WeakPlayerState->FlagRunRank = Response.Ratings[5];
+			WeakPlayerState->RankedDuelRank = Response.Ratings[6];
+			WeakPlayerState->RankedCTFRank = Response.Ratings[7];
+			WeakPlayerState->RankedShowdownRank = Response.Ratings[8];
 
 			WeakPlayerState->DuelMatchesPlayed = FMath::Min(255, Response.NumGamesPlayed[0]);
 			WeakPlayerState->TDMMatchesPlayed = FMath::Min(255, Response.NumGamesPlayed[1]);
 			WeakPlayerState->DMMatchesPlayed = FMath::Min(255, Response.NumGamesPlayed[2]);
 			WeakPlayerState->CTFMatchesPlayed = FMath::Min(255, Response.NumGamesPlayed[3]);
 			WeakPlayerState->ShowdownMatchesPlayed = FMath::Min(255, Response.NumGamesPlayed[4]);
-			WeakPlayerState->RankedDuelMatchesPlayed = FMath::Min(255, Response.NumGamesPlayed[5]);
-			WeakPlayerState->RankedCTFMatchesPlayed = FMath::Min(255, Response.NumGamesPlayed[6]);
-			WeakPlayerState->RankedShowdownMatchesPlayed = FMath::Min(255, Response.NumGamesPlayed[7]);
+			WeakPlayerState->FlagRunMatchesPlayed = FMath::Min(255, Response.NumGamesPlayed[5]);
+			WeakPlayerState->RankedDuelMatchesPlayed = FMath::Min(255, Response.NumGamesPlayed[6]);
+			WeakPlayerState->RankedCTFMatchesPlayed = FMath::Min(255, Response.NumGamesPlayed[7]);
+			WeakPlayerState->RankedShowdownMatchesPlayed = FMath::Min(255, Response.NumGamesPlayed[8]);
 			
 			AUTBaseGameMode* BaseGame = WeakPlayerState->GetWorld()->GetAuthGameMode<AUTBaseGameMode>();
 			if (BaseGame)
@@ -2346,6 +2351,12 @@ TSharedRef<SWidget> AUTPlayerState::BuildRankInfo()
 	.AutoHeight()
 	[
 		BuildRank(AUTShowdownGame::StaticClass()->GetDefaultObject<AUTGameMode>(), false, NSLOCTEXT("Generic", "ShowdownRank", "Showdown Rank :"))
+	];
+	VBox->AddSlot()
+	.Padding(10.0f, 0.0f, 10.0f, 5.0f)
+	.AutoHeight()
+	[
+		BuildRank(AUTFlagRunGame::StaticClass()->GetDefaultObject<AUTGameMode>(), false, NSLOCTEXT("Generic", "FlagRunRank", "Flag Run Rank :"))
 	];
 	VBox->AddSlot()
 	.Padding(10.0f, 0.0f, 10.0f, 5.0f)
@@ -3412,6 +3423,8 @@ void AUTPlayerState::MakeJsonReport(TSharedPtr<FJsonObject> JsonObject)
 	JsonObject->SetNumberField(TEXT("No_DM_Matches_Played"), DMMatchesPlayed);
 	JsonObject->SetNumberField(TEXT("ShowdownRank"), ShowdownRank);
 	JsonObject->SetNumberField(TEXT("No_Showdowns"), ShowdownMatchesPlayed);
+	JsonObject->SetNumberField(TEXT("FlagRunRank"), FlagRunRank);
+	JsonObject->SetNumberField(TEXT("No_FlagRun_Matches_Played"), FlagRunMatchesPlayed);
 }
 
 bool AUTPlayerState::ServerSetLoadoutPack_Validate(const FName& NewLoadoutPackTag) { return true; }

@@ -25,6 +25,7 @@ const FName NAME_TDMSkillRating(TEXT("TDMSkillRating"));
 const FName NAME_DMSkillRating(TEXT("DMSkillRating"));
 const FName NAME_CTFSkillRating(TEXT("CTFSkillRating"));
 const FName NAME_ShowdownSkillRating(TEXT("ShowdownSkillRating"));
+const FName NAME_FlagRunSkillRating(TEXT("FlagRunSkillRating"));
 const FName NAME_RankedDuelSkillRating(TEXT("RankedDuelSkillRating"));
 const FName NAME_RankedCTFSkillRating(TEXT("RankedCTFSkillRating"));
 const FName NAME_RankedShowdownSkillRating(TEXT("RankedShowdownSkillRating"));

@@ -784,12 +784,12 @@ void SUTPlayerInfoDialog::UpdatePlayerStateInReplays()
 {
 	if (TargetPlayerState.IsValid() && TargetPlayerState->IsOwnedByReplayController())
 	{
-		UpdatePlayerStateRankingStatsFromLocalPlayer(PlayerOwner->GetRankDuel(), PlayerOwner->GetRankCTF(), PlayerOwner->GetRankTDM(), PlayerOwner->GetRankDM(), PlayerOwner->GetRankShowdown(), PlayerOwner->GetTotalChallengeStars(), FMath::Min(255, PlayerOwner->DuelEloMatches()), FMath::Min(255, PlayerOwner->CTFEloMatches()), FMath::Min(255, PlayerOwner->TDMEloMatches()), FMath::Min(255, PlayerOwner->DMEloMatches()), FMath::Min(255, PlayerOwner->ShowdownEloMatches()));
+		UpdatePlayerStateRankingStatsFromLocalPlayer(PlayerOwner->GetRankDuel(), PlayerOwner->GetRankCTF(), PlayerOwner->GetRankTDM(), PlayerOwner->GetRankDM(), PlayerOwner->GetRankShowdown(), PlayerOwner->GetRankFlagRun(), PlayerOwner->GetTotalChallengeStars(), FMath::Min(255, PlayerOwner->DuelEloMatches()), FMath::Min(255, PlayerOwner->CTFEloMatches()), FMath::Min(255, PlayerOwner->TDMEloMatches()), FMath::Min(255, PlayerOwner->DMEloMatches()), FMath::Min(255, PlayerOwner->ShowdownEloMatches()), FMath::Min(255, PlayerOwner->FlagRunEloMatches()));
 		UpdatePlayerCharacterPreviewInReplays();
 	}
 }
 
-void SUTPlayerInfoDialog::UpdatePlayerStateRankingStatsFromLocalPlayer(int32 NewDuelRank, int32 NewCTFRank, int32 NewTDMRank, int32 NewDMRank, int32 NewShowdownRank, int32 TotalStars, uint8 DuelMatchesPlayed, uint8 CTFMatchesPlayed, uint8 TDMMatchesPlayed, uint8 DMMatchesPlayed, uint8 ShowdownMatchesPlayed)
+void SUTPlayerInfoDialog::UpdatePlayerStateRankingStatsFromLocalPlayer(int32 NewDuelRank, int32 NewCTFRank, int32 NewTDMRank, int32 NewDMRank, int32 NewShowdownRank, int32 NewFlagRunRank, int32 TotalStars, uint8 DuelMatchesPlayed, uint8 CTFMatchesPlayed, uint8 TDMMatchesPlayed, uint8 DMMatchesPlayed, uint8 ShowdownMatchesPlayed, uint8 FlagRunMatchesPlayed)
 {
 	if (TargetPlayerState.IsValid())
 	{
@@ -797,12 +797,14 @@ void SUTPlayerInfoDialog::UpdatePlayerStateRankingStatsFromLocalPlayer(int32 New
 		TargetPlayerState->CTFRank = NewCTFRank;
 		TargetPlayerState->TDMRank = NewTDMRank;
 		TargetPlayerState->DMRank = NewDMRank;
+		TargetPlayerState->FlagRunRank = NewFlagRunRank;
 		TargetPlayerState->ShowdownRank = NewShowdownRank;
 		TargetPlayerState->TotalChallengeStars = TotalStars;
 		TargetPlayerState->DuelMatchesPlayed = DuelMatchesPlayed;
 		TargetPlayerState->CTFMatchesPlayed = CTFMatchesPlayed;
 		TargetPlayerState->TDMMatchesPlayed = TDMMatchesPlayed;
 		TargetPlayerState->DMMatchesPlayed = DMMatchesPlayed;
+		TargetPlayerState->FlagRunMatchesPlayed = FlagRunMatchesPlayed;
 		TargetPlayerState->ShowdownMatchesPlayed = ShowdownMatchesPlayed;
 	}
 }

@@ -40,5 +40,11 @@ public:
 	virtual void HandleMatchIntermission() override;
 	virtual void CheatScore() override;
 	virtual void DefaultTimer() override;
+
+	virtual void UpdateSkillRating() override;
+
+	virtual uint8 GetNumMatchesFor(AUTPlayerState* PS, bool bRankedSession) const override;
+	virtual int32 GetEloFor(AUTPlayerState* PS, bool bRankedSession) const override;
+	virtual void SetEloFor(AUTPlayerState* PS, bool bRankedSession, int32 NewELoValue, bool bIncrementMatchCount) override;
 };
 
