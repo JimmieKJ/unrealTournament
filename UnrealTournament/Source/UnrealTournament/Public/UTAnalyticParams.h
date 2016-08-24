@@ -37,6 +37,7 @@ namespace EGenericAnalyticParam
 
 		Team,
 		MaxRequiredTextureSize,
+		QuickMatch,
 
 		NUM_GENERIC_PARAMS
 	};
