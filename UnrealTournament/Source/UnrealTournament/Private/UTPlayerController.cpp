@@ -821,7 +821,7 @@ void AUTPlayerController::SwitchToBestWeapon()
 		{
 			if (It->HasAnyAmmo())
 			{
-				float TestPriority = It->AutoSwitchPriority;
+				float TestPriority = GetWeaponAutoSwitchPriority(*It);
 				if (TestPriority > BestPriority)
 				{
 					BestWeapon = *It;
@@ -1102,7 +1102,8 @@ void AUTPlayerController::CheckAutoWeaponSwitch(AUTWeapon* TestWeapon)
 		UUTProfileSettings* ProfileSettings = GetProfileSettings();
 
 		bool bAutoWeaponSwitch = ProfileSettings ? ProfileSettings->bAutoWeaponSwitch : true;
-		if (CurWeapon == NULL || (bAutoWeaponSwitch && !UTCharacter->IsPendingFire(CurWeapon->GetCurrentFireMode()) && TestWeapon->AutoSwitchPriority > CurWeapon->AutoSwitchPriority))
+
+		if (CurWeapon == NULL || (bAutoWeaponSwitch && !UTCharacter->IsPendingFire(CurWeapon->GetCurrentFireMode()) && GetWeaponAutoSwitchPriority(TestWeapon) > GetWeaponAutoSwitchPriority(CurWeapon)) )
 		{
 			UTCharacter->SwitchWeapon(TestWeapon);
 		}
