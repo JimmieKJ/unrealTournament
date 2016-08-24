@@ -48,6 +48,11 @@ TSharedPtr<IAnalyticsProvider> FUTAnalytics::GetProviderPtr()
  
 void FUTAnalytics::Initialize()
 {
+	if (IsRunningCommandlet())
+	{
+		return;
+	}
+
 	checkf(!bIsInitialized, TEXT("FUTAnalytics::Initialize called more than once."));
 
 	// Setup some default engine analytics if there is nothing custom bound
