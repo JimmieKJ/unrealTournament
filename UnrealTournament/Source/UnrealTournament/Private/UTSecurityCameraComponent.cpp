@@ -4,6 +4,7 @@
 #include "UTSecurityCameraComponent.h"
 #include "UTCharacter.h"
 #include "UTCarriedObject.h"
+#include "UTRepulsorBubble.h"
 
 UUTSecurityCameraComponent::UUTSecurityCameraComponent()
 {
@@ -38,6 +39,17 @@ void UUTSecurityCameraComponent::TickComponent(float DeltaTime, ELevelTick TickT
 	{
 		static FName NAME_LineOfSight = FName(TEXT("LineOfSight"));
 		FCollisionQueryParams CollisionParams(NAME_LineOfSight, true, GetOwner());
+
+		//Add all Repulsor bubbles to ignore actors.
+		for (FActorIterator It(GetWorld()); It; ++It)
+		{
+			AUTRepulsorBubble* Repulsor = Cast<AUTRepulsorBubble>(*It);
+			if (Repulsor)
+			{
+				CollisionParams.AddIgnoredActor(Repulsor);
+			}
+		}
+
 		FVector CameraLoc = K2_GetComponentLocation();
 		if (DetectedFlag && (DetectedFlag->GetDetectingCamera() == this))
 		{
