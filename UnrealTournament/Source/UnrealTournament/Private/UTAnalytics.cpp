@@ -148,6 +148,8 @@ void FUTAnalytics::InitializeAnalyticParameterNames()
 
 	AddGenericParamName(Team);
 	AddGenericParamName(MaxRequiredTextureSize);
+
+	AddGenericParamName(QuickMatch);
 }
 
 void FUTAnalytics::Shutdown()
@@ -566,6 +568,21 @@ void FUTAnalytics::FireEvent_ServerUnplayableCondition(AUTGameMode* UTGM, double
 * @Trigger Fires every game
 *
 * @Type Sent by the server
+* @EventParam MatchTime int32 The match time when this event fired
+* @EventParam MapName string The name of the played map
+* @EventParam Hostname string Machine network name (hostname), can also be used to identify VM in the cloud
+* @EventParam SystemId string Unique Id of an operating system install (essentially means "machine id" unless the OS is reinstalled between runs)
+* @EventParam InstanceId string Unique Id of a single server instance (stays the same between matches for the whole lifetime of the server)
+* @EventParam EngineVersion string Engine version string
+* @EventParam MachinePhysicalRAMInGB int32 Total physical memory on the machine in GB
+* @EventParam NumLogicalCoresAvailable int32 Number of logical cores available to the process on the machine
+* @EventParam NumPhysicalCoresAvailable int32 Number of physical cores available to the process on the machine
+* @EventParam MachineCPUSignature int32 CPU signature (CPUID with EAX=1, i.e. family, model, stepping combined).
+* @EventParam MachineCPUBrandName string CPU brand string.
+* @EventParam NumClients int32 Instantaneous number of clients
+*
+* @EventParam WeaponName string the name of the weapon that got the kills
+* @EventParam NumKills int32 the number of kills the weapon got
 *
 * @Comments
 */

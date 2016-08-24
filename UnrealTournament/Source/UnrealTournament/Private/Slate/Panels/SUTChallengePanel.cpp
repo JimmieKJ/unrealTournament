@@ -1049,6 +1049,19 @@ void SUTChallengePanel::WarningResult(TSharedPtr<SCompoundWidget> Widget, uint16
 	}
 }
 
+//Special markup for Analytics event so they show up properly in grafana. Should be eventually moved to UTAnalytics.
+/*
+* @EventName StartChallenge
+*
+* @Trigger Fires when starting a challenge
+*
+* @Type Sent by the client
+*
+* @EventParam Challenge string Name of the challenge started
+* @EventParam Difficulty int32 value representing the difficulty of the challenge 
+*
+* @Comments
+*/
 void SUTChallengePanel::StartChallenge(int32 Difficulty)
 {
 

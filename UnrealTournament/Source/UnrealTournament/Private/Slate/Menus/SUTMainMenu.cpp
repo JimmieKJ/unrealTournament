@@ -650,6 +650,20 @@ void SUTMainMenu::StartGameWarningComplete(TSharedPtr<SCompoundWidget> Dialog, u
 	}
 }
 
+
+
+//Special markup for Analytics event so they show up properly in grafana. Should be eventually moved to UTAnalytics.
+/*
+* @EventName MenuStartGame
+*
+* @Trigger Fires when game is started in the main menu
+*
+* @Type Sent by the client
+*
+* @EventParam StartGameMode string Listen or Standalone based on if this is a LAN game
+*
+* @Comments
+*/
 void SUTMainMenu::StartGame(bool bLanGame)
 {
 	// Kill any existing Dedicated servers

@@ -3568,6 +3568,16 @@ void AUTPlayerController::ServerEmote_Implementation(int32 EmoteIndex)
 	}
 }
 
+//Special markup for Analytics event so they show up properly in grafana. Should be eventually moved to UTAnalytics.
+/*
+* @EventName PlayerConnect
+*
+* @Trigger Sent when the client or server receives a player
+*
+* @Type Sent by the Client and Server
+*
+* @Comments
+*/
 void AUTPlayerController::ReceivedPlayer()
 {
 	Super::ReceivedPlayer();
@@ -3619,6 +3629,20 @@ bool AUTPlayerController::ServerReceiveCountryFlag_Validate(FName NewCountryFlag
 {
 	return true;
 }
+
+//Special markup for Analytics event so they show up properly in grafana. Should be eventually moved to UTAnalytics.
+/*
+* @EventName FlagChange
+*
+* @Trigger Sent when a user changes their country flag
+*
+* @Type Sent by the Client
+*
+* @EventParam CountryFlag string New Country
+* @EventParam UserId string UniqueId of the user that changed their flag
+*
+* @Comments
+*/
 void AUTPlayerController::ServerReceiveCountryFlag_Implementation(FName NewCountryFlag)
 {
 	if (UTPlayerState != NULL)

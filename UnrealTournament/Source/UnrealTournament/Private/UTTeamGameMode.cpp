@@ -839,6 +839,19 @@ void AUTTeamGameMode::PlayEndOfMatchMessage()
 	}
 }
 
+//Special markup for Analytics event so they show up properly in grafana. Should be eventually moved to UTAnalytics.
+/*
+* @EventName EndTeamMatch
+*
+* @Trigger Sent at the end of a game
+*
+* @Type Sent by the server
+*
+* @EventParam Reason string Reason the game ended
+* @EventParam TeamCount int32 number of teams in the game
+*
+* @Comments
+*/
 void AUTTeamGameMode::SendEndOfGameStats(FName Reason)
 {
 	if (FUTAnalytics::IsAvailable())

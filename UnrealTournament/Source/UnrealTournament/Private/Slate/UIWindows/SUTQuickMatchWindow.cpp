@@ -898,6 +898,34 @@ void SUTQuickMatchWindow::RequestQuickPlayResults(AUTServerBeaconClient* Beacon,
 
 }
 
+//Special markup for Analytics event so they show up properly in grafana. Should be eventually moved to UTAnalytics.
+/*  
+* @EventName Quickmatch
+*
+* @Trigger Fires every time a quick match match happens or is canceled
+*
+* @Type Sent by the client
+*
+* @EventParam PlayerId
+* @EventParam QuickmatchType
+
+* @EventParam RankCheck
+
+* @EventParam NumHubsConsidered
+* @EventParam NumInstancesConsidered
+* @EventParam NumRejectedForRank
+* @EventParam NumRejectedForGameType
+* @EventParam NumRejectedForJoinable
+* @EventParam NumPingFailures
+* @EventParam NumInstancesSpooled
+* @EventParam NumAttemptedJoins
+* @EventParam FinalResult
+
+* @EventParam Duration
+* @EventParam QuickMatch
+
+* @Comments
+*/
 void SUTQuickMatchWindow::OnClosed()
 {
 	for (int32 i=0; i < FinalList.Num(); i++)

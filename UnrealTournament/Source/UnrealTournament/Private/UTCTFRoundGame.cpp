@@ -550,6 +550,19 @@ void AUTCTFRoundGame::StopRCTFReplayRecording()
 	}
 }
 
+
+//Special markup for Analytics event so they show up properly in grafana. Should be eventually moved to UTAnalytics.
+/*
+* @EventName RCTFRoundResult
+*
+* @Trigger Sent when a round ends in an RCTF game through a capture of a flag
+*
+* @Type Sent by the Server
+*
+* @EventParam FlagCapScore int32 Points that the cap gave
+*
+* @Comments
+*/
 void AUTCTFRoundGame::ScoreObject_Implementation(AUTCarriedObject* GameObject, AUTCharacter* HolderPawn, AUTPlayerState* Holder, FName Reason)
 {
 	for (int32 i = 0; i < Teams.Num(); i++)
@@ -1247,6 +1260,18 @@ void AUTCTFRoundGame::ScoreBlueAlternateWin()
 	}
 }
 
+//Special markup for Analytics event so they show up properly in grafana. Should be eventually moved to UTAnalytics.
+/*
+* @EventName RCTFRoundResult
+*
+* @Trigger Sent when a round ends in an RCTF game through Score Alternate Win
+*
+* @Type Sent by the Server
+*
+* @EventParam FlagCapScore int32 Always 0, just shows that someone caped flag
+*
+* @Comments
+*/
 void AUTCTFRoundGame::ScoreAlternateWin(int32 WinningTeamIndex, uint8 Reason)
 {
 	FindAndMarkHighScorer();

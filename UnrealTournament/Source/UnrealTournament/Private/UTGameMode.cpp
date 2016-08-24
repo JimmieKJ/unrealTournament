@@ -1623,6 +1623,50 @@ void AUTGameMode::AdjustLeaderHatFor(AUTCharacter* UTChar)
 	UTChar->LeaderHatStatusChanged();
 }
 
+//Special markup for Analytics event so they show up properly in grafana. Should be eventually moved to UTAnalytics.
+/*
+* @EventName NewMatch
+*
+* @Trigger Sent when a player begins a new match
+*
+* @Type Sent by the Server
+*
+* @EventParam MapName string Name of the Map started
+* @EventParam GameName string Name of the game mode
+* @EventParam GoalScore int32 Goal that the match ends on
+* @EventParam TimeLimit int32 Time that the match ends on
+* @EventParam CustomContent string Custom content used, or 0 if none
+
+* @Comments
+*/
+
+//Special markup for Analytics event so they show up properly in grafana. Should be eventually moved to UTAnalytics.
+/*
+* @EventName NewOfflineChallengeMatch
+*
+* @Trigger Sent when a player begins a new offline challenge
+*
+* @Type Sent by the Server
+*
+* @EventParam OfflineChallenge bool Is the challenge online or off
+* @EventParam ChallengeDifficulty int32 Difficulty of challenge
+* @EventParam ChallengeTag string Name of the Challenge Tag
+*
+* @Comments
+*/
+
+//Special markup for Analytics event so they show up properly in grafana. Should be eventually moved to UTAnalytics.
+/*
+* @EventName CustomContent
+*
+* @Trigger Sent when a player begins a match with custom content that is a standalone client
+*
+* @Type Sent by the Server
+*
+* @EventParam CustomContent string Checksum maps of all the custom content used
+*
+* @Comments
+*/
 void AUTGameMode::StartMatch()
 {
 	if (HasMatchStarted())
@@ -1852,6 +1896,19 @@ void AUTGameMode::UpdateSkillRating()
 
 }
 
+//Special markup for Analytics event so they show up properly in grafana. Should be eventually moved to UTAnalytics.
+/*
+* @EventName EndFFAMatch
+*
+* @Trigger Sent when a player logs out of a match
+*
+* @Type Sent by the Server
+*
+* @EventParam WinnerName Who won this match
+* @EventParam Reason Reason the player won
+*
+* @Comments
+*/
 void AUTGameMode::SendEndOfGameStats(FName Reason)
 {
 	if (FUTAnalytics::IsAvailable())
@@ -3339,6 +3396,27 @@ void AUTGameMode::SwitchToCastingGuide(AUTPlayerController* NewCaster)
 	}
 }
 
+//Special markup for Analytics event so they show up properly in grafana. Should be eventually moved to UTAnalytics.
+/*
+* @EventName PlayerLogoutStat
+*
+* @Trigger Sent when a player logs out of a match
+*
+* @Type Sent by the Server
+*
+* @EventParam ID string Stats ID for this player
+* @EventParam PlayerName string Player name
+* @EventParam TimeOnline float How long this player was in game
+* @EventParam Kills int32 Amount of kills
+* @EventParam Deaths int32 Amount of Deaths
+* @EventParam Score int32 Score
+* @EventParam GameName string Name of this game mode
+* @EventParam PlayerXP int64 Players total XP
+* @EventParam PlayerLevel int32 Player's level
+* @EventParam PlayerStars int32 Number of Stars a player has earned 
+*
+* @Comments
+*/
 void AUTGameMode::SendLogoutAnalytics(AUTPlayerState* PS)
 {
 	if ((PS != nullptr) && !PS->bSentLogoutAnalytics && FUTAnalytics::IsAvailable())

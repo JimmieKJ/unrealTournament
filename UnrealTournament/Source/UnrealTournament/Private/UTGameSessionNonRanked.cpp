@@ -393,6 +393,20 @@ void AUTGameSessionNonRanked::OnUpdateSessionComplete(FName SessionName, bool bW
 	}
 }
 
+//Special markup for Analytics event so they show up properly in grafana. Should be eventually moved to UTAnalytics.
+/*
+* @EventName AdminBan
+*
+* @Trigger Sent when a player is banned from a server by an admin
+*
+* @Type Sent by the Server
+*
+* @EventParam UserName string Current User Name In Use
+* @EventParam UniqueId string Unique ID 
+* @EventParam Reason string Reason for the ban
+*
+* @Comments
+*/
 bool AUTGameSessionNonRanked::BanPlayer(class APlayerController* BannedPlayer, const FText& BanReason)
 {
 	APlayerState* PS = BannedPlayer->PlayerState;

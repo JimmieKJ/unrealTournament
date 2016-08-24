@@ -300,6 +300,21 @@ FText UUTLocalPlayer::GetAccountSummary() const
 	return FText::GetEmpty();
 }
 
+//Special markup for Analytics event so they show up properly in grafana. Should be eventually moved to UTAnalytics.
+/*
+* @EventName SystemInfo
+*
+* @Trigger Sent when a player joins a map
+*
+* @Type Sent by the Client
+*
+* @EventParam OSMajor string Major OS Version
+* @EventParam OSMinor string Minor OS Version
+* @EventParam CPUVendor string CPU Vendor
+* @EventParam CPUBrand string CPU Brand
+*
+* @Comments
+*/
 void UUTLocalPlayer::PlayerAdded(class UGameViewportClient* InViewportClient, int32 InControllerID)
 {
 #if !UE_SERVER
@@ -1539,6 +1554,21 @@ void UUTLocalPlayer::OnDeleteUserFileComplete(bool bWasSuccessful, const FUnique
 }
 
 
+//Special markup for Analytics event so they show up properly in grafana. Should be eventually moved to UTAnalytics.
+/*
+* @EventName CloudProfileLoaded
+*
+* @Trigger Sent when a player's profile is loaded from MCP
+*
+* @Type Sent by the Client
+*
+* @EventParam PlayerID Unique ID of the player
+* @EventParam HatPath string hat used
+* @EventParam LeaderHatPath string leader hat used
+* @EventParam LocalXP int64 Profile saved amount of XP
+*
+* @Comments
+*/
 void UUTLocalPlayer::OnReadUserFileComplete(bool bWasSuccessful, const FUniqueNetId& InUserId, const FString& FileName)
 {
 	if (FileName == GetProfileFilename())
@@ -2482,6 +2512,19 @@ FString UUTLocalPlayer::GetHatPath() const
 	return (CurrentProfileSettings != NULL) ? CurrentProfileSettings->HatPath : GetDefaultURLOption(TEXT("Hat"));
 }
 
+//Special markup for Analytics event so they show up properly in grafana. Should be eventually moved to UTAnalytics.
+/*
+* @EventName HatChanged
+*
+* @Trigger Sent when a player changes their hat cosmetic
+*
+* @Type Sent by the Client
+*
+* @EventParam PlayerID Unique ID of the player
+* @EventParam HatPath string New hat used
+*
+* @Comments
+*/
 void UUTLocalPlayer::SetHatPath(const FString& NewHatPath)
 {
 	if (CurrentProfileSettings != NULL)
@@ -2511,6 +2554,19 @@ FString UUTLocalPlayer::GetLeaderHatPath() const
 	return (CurrentProfileSettings != NULL) ? CurrentProfileSettings->LeaderHatPath : GetDefaultURLOption(TEXT("LeaderHat"));
 }
 
+//Special markup for Analytics event so they show up properly in grafana. Should be eventually moved to UTAnalytics.
+/*
+* @EventName LeaderHatChanged
+*
+* @Trigger Sent when a player changes their leader hat
+*
+* @Type Sent by the Client
+*
+* @EventParam PlayerID Unique ID of the player
+* @EventParam LeaderHatPath string New Leader hat used
+*
+* @Comments
+*/
 void UUTLocalPlayer::SetLeaderHatPath(const FString& NewLeaderHatPath)
 {
 	if (CurrentProfileSettings != NULL)
@@ -2540,6 +2596,20 @@ FString UUTLocalPlayer::GetEyewearPath() const
 	return (CurrentProfileSettings != NULL) ? CurrentProfileSettings->EyewearPath : GetDefaultURLOption(TEXT("Eyewear"));
 }
 
+
+//Special markup for Analytics event so they show up properly in grafana. Should be eventually moved to UTAnalytics.
+/*
+* @EventName CharacterChanged
+*
+* @Trigger Sent when a player changes their eyewear
+*
+* @Type Sent by the Client
+*
+* @EventParam PlayerID Unique ID of the player
+* @EventParam EyewearPath string New eye wear used
+*
+* @Comments
+*/
 void UUTLocalPlayer::SetEyewearPath(const FString& NewEyewearPath)
 {
 	if (CurrentProfileSettings != NULL)
@@ -2570,6 +2640,20 @@ FString UUTLocalPlayer::GetCharacterPath() const
 	return (CurrentProfileSettings != NULL) ? CurrentProfileSettings->CharacterPath : GetDefaultURLOption(TEXT("Character"));
 }
 
+
+//Special markup for Analytics event so they show up properly in grafana. Should be eventually moved to UTAnalytics.
+/*
+* @EventName CharacterChanged
+*
+* @Trigger Sent when a player changes their character
+*
+* @Type Sent by the Client
+*
+* @EventParam PlayerID Unique ID of the player
+* @EventParam CharacterPath string New Character Used
+*
+* @Comments
+*/
 void UUTLocalPlayer::SetCharacterPath(const FString& NewCharacterPath)
 {
 	AUTPlayerState* PS = Cast<AUTPlayerState>((PlayerController != NULL) ? PlayerController->PlayerState : NULL);
@@ -4506,6 +4590,21 @@ void UUTLocalPlayer::AwardAchievement(FName AchievementName)
 	}
 }
 
+//Special markup for Analytics event so they show up properly in grafana. Should be eventually moved to UTAnalytics.
+/*
+* @EventName ChallengeComplete
+*
+* @Trigger Sent when a player completes a challenge
+*
+* @Type Sent by the Client
+*
+* @EventParam ChallengeTag string Challenge Tag name
+* @EventParam Stars int32 Stars this challenge is worth
+* @EventParam TotalStars int32 Total earned stars
+*
+* @Comments
+*/
+
 void UUTLocalPlayer::ChallengeCompleted(FName ChallengeTag, int32 Stars)
 {
 	EarnedStars = 0;
@@ -5049,6 +5148,18 @@ void UUTLocalPlayer::UpdateSharedProfiles(const FUTProfilesLoaded& Callback)
 	UpdateSharedProfiles();
 }
 
+//Special markup for Analytics event so they show up properly in grafana. Should be eventually moved to UTAnalytics.
+/*
+* @EventName XPProgress
+*
+* @Trigger Sent when a player gains XP
+*
+* @Type Sent by the Client
+*
+* @EventParam XP int64 New XP amount
+*
+* @Comments
+*/
 void UUTLocalPlayer::HandleProfileNotification(const FOnlineNotification& Notification)
 {
 	if (Notification.TypeStr == TEXT("XPProgress"))
