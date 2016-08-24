@@ -355,6 +355,7 @@ namespace UnrealTournamentGame.Automation
 				"epic_game_buildstr_base64=" + System.Convert.ToBase64String(BuildStringBytes) + "&" +
 				"epic_game_cpu_budget=" + LocalCpuBudget +"&" +
 				"epic_game_ram_budget=" + RamBudget + "&" +
+				"epic_game_environment=" + AppName.ToString() + "&" +
 				"epic_instance_size=" + InstanceSize.ToString() + "&" +
 				"epic_instance_min=" + InstanceSizeMin.ToString() + "&" +
 				"epic_instance_max=" + InstanceSizeMax.ToString() + "&" +
@@ -449,6 +450,7 @@ namespace UnrealTournamentGame.Automation
 				"epic_game_cpu_budget=" + LocalCpuBudget +"&" +
 				"epic_game_ram_budget=" + RamBudget + "&" +
 				"epic_game_buildstr_base64=" + System.Convert.ToBase64String(BuildStringBytes) + "&" +
+				"epic_game_environment=" + LocalAppName.ToString() + "&" +
 				"epic_instance_size=" + InstanceSize.ToString() + "&" +
 				"epic_instance_min=" + InstanceSizeMin.ToString() + "&" +
 				"epic_instance_max=" + InstanceSizeMax.ToString() + "&" +
