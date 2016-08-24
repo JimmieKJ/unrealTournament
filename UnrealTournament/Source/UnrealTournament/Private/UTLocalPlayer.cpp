@@ -926,12 +926,6 @@ void UUTLocalPlayer::OnLoginComplete(int32 LocalUserNum, bool bWasSuccessful, co
 			{
 				CommunityRole = EUnrealRoles::Gamer;
 			}
-			
-			if (CommunityRole == EUnrealRoles::Developer)
-			{
-				EpicFlagCheck();			
-			}
-
 
 			LastEpicIDLogin = PendingLoginUserName;
 			LastEpicRememberMeToken = RememberMeToken;
@@ -946,7 +940,6 @@ void UUTLocalPlayer::OnLoginComplete(int32 LocalUserNum, bool bWasSuccessful, co
 
 		PendingLoginUserName = TEXT("");
 
-		LoadProfileSettings();
 		FText WelcomeToast = FText::Format(NSLOCTEXT("MCP","MCPWelcomeBack","Welcome back {0}"), FText::FromString(*GetOnlinePlayerNickname()));
 		ShowToast(WelcomeToast);
 		
@@ -1234,6 +1227,9 @@ void UUTLocalPlayer::OnEnumerateUserFilesComplete(bool bWasSuccessful, const FUn
 				UTEngine->CloudContentChecksums.Add(FPaths::GetBaseFilename(UserFiles[i].FileName), Hash);
 			}
 		}		
+
+		LoadProfileSettings();
+
 	}
 }
 
