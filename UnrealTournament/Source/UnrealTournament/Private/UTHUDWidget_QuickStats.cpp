@@ -432,15 +432,8 @@ bool UUTHUDWidget_QuickStats::CheckStatForUpdate(float DeltaTime, FStatInfo& Sta
 	return false;
 }
 
-FVector2D UUTHUDWidget_QuickStats::GetBoostLocation()
-{
-	return Layouts[CurrentLayoutIndex].bFollowRotation ? CalcRotOffset(Layouts[CurrentLayoutIndex].BoostProvidedPowerupOffset, DrawAngle) : Layouts[CurrentLayoutIndex].BoostProvidedPowerupOffset;
-}
-
-
 void UUTHUDWidget_QuickStats::Draw_Implementation(float DeltaTime)
 {
-
 	RenderDelta = DeltaTime;
 
 	bool bFollowRotation = Layouts[CurrentLayoutIndex].bFollowRotation;
@@ -450,7 +443,8 @@ void UUTHUDWidget_QuickStats::Draw_Implementation(float DeltaTime)
 
 	if (FlagInfo.Value > 0)
 	{
-		DrawStat(bFollowRotation ? CalcRotOffset(Layouts[CurrentLayoutIndex].FlagOffset, DrawAngle) : Layouts[CurrentLayoutIndex].FlagOffset, FlagInfo, FlagIcon);
+		FVector2D FlagOffset = UTHUDOwner->GetQuickStatsHidden() ? Layouts[CurrentLayoutIndex].AmmoOffset : Layouts[CurrentLayoutIndex].FlagOffset;
+		DrawStat(bFollowRotation ? CalcRotOffset(FlagOffset, DrawAngle) : FlagOffset, FlagInfo, FlagIcon);
 	}
 
 	if (BootsInfo.Value > 0)
@@ -465,7 +459,8 @@ void UUTHUDWidget_QuickStats::Draw_Implementation(float DeltaTime)
 
 	if (BoostProvidedPowerupInfo.Value > 0)
 	{
-		DrawStat(GetBoostLocation(), BoostProvidedPowerupInfo, BoostIcon );
+		FVector2D BoostOffset = UTHUDOwner->GetQuickStatsHidden() ? Layouts[CurrentLayoutIndex].ArmorOffset : Layouts[CurrentLayoutIndex].BoostProvidedPowerupOffset;
+		DrawStat(bFollowRotation ? CalcRotOffset(BoostOffset, DrawAngle) : BoostOffset, BoostProvidedPowerupInfo, BootsIcon);
 	}
 
 	// draw health/armor pips

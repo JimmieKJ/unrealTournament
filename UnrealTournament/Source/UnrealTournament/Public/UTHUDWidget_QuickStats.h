@@ -379,8 +379,4 @@ private:
 
 	float RenderDelta;
 	TArray<float> RallyAnimTimers;
-
-public:
-	FVector2D GetBoostLocation();
-
 };
