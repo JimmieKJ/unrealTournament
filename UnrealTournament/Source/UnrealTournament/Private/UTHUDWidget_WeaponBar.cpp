@@ -35,6 +35,7 @@ UUTHUDWidget_WeaponBar::UUTHUDWidget_WeaponBar(const class FObjectInitializer& O
 
 	ActiveBackgroundUVs = FTextureUVs(13,958, 112, 46);
 	InactiveBackgroundUVs = FTextureUVs(129,958, 112, 46);
+	SelectedBackgroundUVs = FTextureUVs(247,958, 112, 46);
 
 	CellBackground.Atlas = WeaponIconAtlas.Object;
 	CellBackground.RenderColor = FLinearColor(0.0f, 0.0f, 0.0f, 1.0f);
@@ -327,12 +328,14 @@ void UUTHUDWidget_WeaponBar::Draw_Implementation(float DeltaTime)
 			{
 				bIsCurrentWeapon = true;
 				CellBackground.RenderOpacity =  SelectedOpacity;
+				CellBackground.UVs = SelectedBackgroundUVs;
 			}
 			else
 			{
 				CellBackground.RenderOpacity = ActiveOpacity;
+				CellBackground.UVs = ActiveBackgroundUVs;
 			}
-			CellBackground.UVs = ActiveBackgroundUVs;
+			 
 		}
 		else
 		{
@@ -350,7 +353,7 @@ void UUTHUDWidget_WeaponBar::Draw_Implementation(float DeltaTime)
 			Opacity = 1.0f;
 			CurrentWeaponPositionMod = bVerticalLayout ? FVector2D(-10.0f, 0.0f) : FVector2D(0.0f, -10.0f);
 			CurrentWeaponSizeMod = bVerticalLayout ? FVector2D(10.0f, 0.0f) : FVector2D(0.0f, 10.0f);
-			CellBackground.RenderColor = FLinearColor(0.25f,0.25f,0.25f,1.0f);
+			CellBackground.RenderColor = FLinearColor(0.25f,0.25f,0.05f,1.0f);
 		
 		}
 		else
