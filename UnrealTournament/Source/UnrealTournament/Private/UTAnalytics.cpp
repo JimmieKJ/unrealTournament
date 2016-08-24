@@ -148,8 +148,6 @@ void FUTAnalytics::InitializeAnalyticParameterNames()
 
 	AddGenericParamName(Team);
 	AddGenericParamName(MaxRequiredTextureSize);
-
-	AddGenericParamName(QuickMatch);
 }
 
 void FUTAnalytics::Shutdown()
