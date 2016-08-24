@@ -208,28 +208,15 @@ bool AUTCTFRoundGame::SkipPlacement(AUTCharacter* UTChar)
 	return false; // (UTChar && FlagScorer && (UTChar->PlayerState == FlagScorer));
 }
 
-void AUTCTFRoundGame::HandleMatchIntermission()
+void AUTCTFRoundGame::RemoveLosers(int32 LoserTeam, int32 FlagTeam)
 {
-	// view defender base, with last team to score around it
-	int32 TeamToWatch = IntermissionTeamToView(nullptr);
-
-	if ((CTFGameState == NULL) || (TeamToWatch >= CTFGameState->FlagBases.Num()) || (CTFGameState->FlagBases[TeamToWatch] == NULL))
-	{
-		return;
-	}
-	for (AUTCTFFlagBase* Base : CTFGameState->FlagBases)
-	{
-		Base->ClearDefenseEffect();
-	}
-
 	// place losing team around attacker base, away from camera
-	int32 AttackerIndex = bRedToCap ? 0 : 1;
-	if ((Teams.Num() > 1 - TeamToWatch) && (CTFGameState->FlagBases.Num() > AttackerIndex) && (CTFGameState->FlagBases[AttackerIndex] != nullptr) && (Teams[1 - TeamToWatch] != nullptr))
+	if ((Teams.Num() > LoserTeam) && (CTFGameState->FlagBases.Num() > FlagTeam) && (CTFGameState->FlagBases[FlagTeam] != nullptr) && (Teams[LoserTeam] != nullptr))
 	{
-		TArray<AController*> Members = Teams[1 - TeamToWatch]->GetTeamMembers();
+		TArray<AController*> Members = Teams[LoserTeam]->GetTeamMembers();
 		FVector PlacementOffset = FVector(200.f, 0.f, 0.f);
 		float StartAngle = 0.f;
-		FVector FlagLoc = CTFGameState->FlagBases[AttackerIndex]->GetActorLocation();
+		FVector FlagLoc = CTFGameState->FlagBases[FlagTeam]->GetActorLocation();
 		float AngleSlices = 360.0f / 8;
 		int32 PlacementCounter = 0;
 		for (AController* C : Members)
@@ -247,14 +234,28 @@ void AUTCTFRoundGame::HandleMatchIntermission()
 				PlacementLoc.Z += UTChar->GetCapsuleComponent()->GetUnscaledCapsuleHalfHeight() * 1.1f;
 				PlacementCounter++;
 				UTChar->bIsTranslocating = true; // hack to get rid of teleport effect
-				if (UTChar->TeleportTo(PlacementLoc, UTChar->GetActorRotation()))
-				{
-					break;
-				}
+				UTChar->TeleportTo(PlacementLoc, UTChar->GetActorRotation(), false, true);
 				UTChar->bIsTranslocating = false;
 			}
 		}
 	}
+}
+
+void AUTCTFRoundGame::HandleMatchIntermission()
+{
+	// view defender base, with last team to score around it
+	int32 TeamToWatch = IntermissionTeamToView(nullptr);
+
+	if ((CTFGameState == NULL) || (TeamToWatch >= CTFGameState->FlagBases.Num()) || (CTFGameState->FlagBases[TeamToWatch] == NULL))
+	{
+		return;
+	}
+	for (AUTCTFFlagBase* Base : CTFGameState->FlagBases)
+	{
+		Base->ClearDefenseEffect();
+	}
+
+	RemoveLosers(1 - TeamToWatch, bRedToCap ? 0 : 1);
 
 	// place winners around defender base
 	PlacePlayersAroundFlagBase(TeamToWatch, bRedToCap ? 1 : 0);
@@ -493,7 +494,7 @@ void AUTCTFRoundGame::EndTeamGame(AUTTeamInfo* Winner, FName Reason)
 
 	// SETENDGAMEFOCUS
 	EndMatch();
-	PlacePlayersAroundFlagBase(1 - Winner->TeamIndex, bRedToCap ? 0 : 1);
+	RemoveLosers(1 - Winner->TeamIndex, bRedToCap ? 0 : 1);
 	PlacePlayersAroundFlagBase(Winner->TeamIndex, bRedToCap ? 1 : 0);
 	AUTCTFFlagBase* WinningBase = CTFGameState->FlagBases[bRedToCap ? 1 : 0];
 	for (FConstControllerIterator Iterator = GetWorld()->GetControllerIterator(); Iterator; ++Iterator)
