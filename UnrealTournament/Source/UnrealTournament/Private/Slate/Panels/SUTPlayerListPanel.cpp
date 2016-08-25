@@ -366,9 +366,12 @@ void SUTPlayerListPanel::GetMenuContent(FString SearchTag, TArray<FMenuOptionDat
 
 	if (OwnerPlayerState && OwnerPlayerState->bIsRconAdmin)
 	{
-		MenuOptions.Add(FMenuOptionData());
-		MenuOptions.Add(FMenuOptionData(NSLOCTEXT("PlayerListSubMenu","ServerKick","Admin Kick"), EPlayerListContentCommand::ServerKick));
-		MenuOptions.Add(FMenuOptionData(NSLOCTEXT("PlayerListSubMenu","ServerBan","Admin Ban"), EPlayerListContentCommand::ServerBan));
+		if ( TrackedPlayers[Idx]->PlayerState.Get() != PlayerOwner->PlayerController->PlayerState)
+		{
+			MenuOptions.Add(FMenuOptionData());
+			MenuOptions.Add(FMenuOptionData(NSLOCTEXT("PlayerListSubMenu","ServerKick","Admin Kick"), EPlayerListContentCommand::ServerKick));
+			MenuOptions.Add(FMenuOptionData(NSLOCTEXT("PlayerListSubMenu","ServerBan","Admin Ban"), EPlayerListContentCommand::ServerBan));
+		}
 	}
 
 	if (TrackedPlayers[Idx]->PlayerState.Get() != PlayerOwner->PlayerController->PlayerState )
