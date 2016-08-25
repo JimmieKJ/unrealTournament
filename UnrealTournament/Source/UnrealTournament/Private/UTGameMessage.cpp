@@ -30,7 +30,7 @@ UUTGameMessage::UUTGameMessage(const class FObjectInitializer& ObjectInitializer
 
 int32 UUTGameMessage::GetFontSizeIndex(int32 MessageIndex) const
 {
-	return ((MessageIndex == 0) || (MessageIndex == 1) || (MessageIndex == 7) || (MessageIndex == 9) || (MessageIndex == 10)) ? 2 : 1;
+	return ((MessageIndex == 0) || (MessageIndex == 1) || (MessageIndex == 7) || (MessageIndex == 9) || (MessageIndex == 10) || (MessageIndex == 16)) ? 2 : 1;
 }
 
 float UUTGameMessage::GetScaleInSize_Implementation(int32 MessageIndex) const
@@ -44,7 +44,7 @@ float UUTGameMessage::GetScaleInSize_Implementation(int32 MessageIndex) const
 
 FLinearColor UUTGameMessage::GetMessageColor_Implementation(int32 MessageIndex) const
 {
-	return ((MessageIndex == 9) || (MessageIndex == 10)) ? FLinearColor::White : FLinearColor::Yellow;
+	return FLinearColor::White;
 }
 
 float UUTGameMessage::GetLifeTime(int32 MessageIndex) const
