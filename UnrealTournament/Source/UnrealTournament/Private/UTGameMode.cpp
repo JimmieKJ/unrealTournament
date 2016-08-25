@@ -2929,7 +2929,7 @@ bool AUTGameMode::ReadyToStartMatch_Implementation()
 				LockSession();
 			}
 
-			bool bMaxWaitComplete = (MaxWaitForPlayers > 0) && (GetNetMode() != NM_Standalone) && (ElapsedWaitTime > MaxWaitForPlayers);
+			bool bMaxWaitComplete = (MaxReadyWaitTime > 0) && (GetNetMode() != NM_Standalone) && (ElapsedWaitTime > MaxReadyWaitTime);
 			if (bMaxWaitComplete)
 			{
 				if (ExpectedPlayerCount == 0 || ExpectedPlayerCount == NumPlayers)
@@ -2956,7 +2956,7 @@ bool AUTGameMode::ReadyToStartMatch_Implementation()
 						RankedGameSession->Restart();
 					}
 				}
-		}
+			}
 		}
 		else
 		{
