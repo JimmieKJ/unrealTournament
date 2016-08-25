@@ -122,7 +122,7 @@ void UUTProfileSettings::ResetProfile(EProfileResetType::Type SectionToReset)
 		ReplayCustomMotionBlurAmount = 0.0f;
 		ReplayCustomMotionBlurMax = 0.0f;
 		
-		MatchmakingRegion = TEXT("NA");
+		MatchmakingRegion = TEXT("");
 		bPushToTalk = true;
 		bHearsTaunts = DefaultUTPlayerController ? DefaultUTPlayerController->bHearsTaunts : true;
 	}
