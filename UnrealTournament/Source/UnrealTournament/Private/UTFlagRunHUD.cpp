@@ -8,6 +8,7 @@
 #include "Slate/UIWindows/SUTPowerupSelectWindow.h"
 #include "UTFlagRunScoreboard.h"
 #include "UTFlagRunMessage.h"
+#include "UTCTFRoleMessage.h"
 
 AUTFlagRunHUD::AUTFlagRunHUD(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -21,7 +22,7 @@ AUTFlagRunHUD::AUTFlagRunHUD(const FObjectInitializer& ObjectInitializer)
 	PlayerStartIcon.VL = 64;
 	PlayerStartIcon.Texture = PlayerStartTextureObject.Object;
 
-	TimeToDelayMenuOpenForIntermission = 8.0f;
+	TimeToDelayMenuOpenForIntermission = 12.0f;
 }
 
 void AUTFlagRunHUD::NotifyMatchStateChange()
@@ -224,6 +225,13 @@ void AUTFlagRunHUD::OpenPowerupSelectMenu()
 	AUTPlayerState* UTPS = Cast<AUTPlayerState>(UTPlayerOwner->PlayerState);
 	if (UTPS)
 	{
+		// say offense/defense and select your powerup
+		AUTCTFGameState* GS = GetWorld()->GetGameState<AUTCTFGameState>();
+		if (GS && UTPS->Team)
+		{
+			UTPlayerOwner->ClientReceiveLocalizedMessage(UUTCTFRoleMessage::StaticClass(), (GS->bRedToCap == (UTPS->Team->TeamIndex == 0)) ? 2 : 1);
+		}
+		UTPlayerOwner->ClientReceiveLocalizedMessage(UUTCTFRoleMessage::StaticClass(), 3);
 		UTPS->bIsPowerupSelectWindowOpen = true;
 		bAlreadyForcedWindowOpening = true;
 	}
