@@ -177,7 +177,7 @@ void AUTCTFRoundGameState::DefaultTimer()
 void AUTCTFRoundGameState::UpdateTimeMessage()
 {
 	// bonus time countdowns
-	if (RemainingTime <= GoldBonusThreshold + 5)
+	if (RemainingTime <= GoldBonusThreshold + 7)
 	{
 		if (RemainingTime > GoldBonusThreshold)
 		{
@@ -190,7 +190,7 @@ void AUTCTFRoundGameState::UpdateTimeMessage()
 				}
 			}
 		}
-		else if ((RemainingTime <= SilverBonusThreshold + 5) && (RemainingTime > SilverBonusThreshold))
+		else if ((RemainingTime <= SilverBonusThreshold + 7) && (RemainingTime > SilverBonusThreshold))
 		{
 			for (FLocalPlayerIterator It(GEngine, GetWorld()); It; ++It)
 			{
