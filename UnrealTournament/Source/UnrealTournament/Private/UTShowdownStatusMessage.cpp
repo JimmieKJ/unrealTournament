@@ -6,7 +6,7 @@
 
 UUTShowdownStatusMessage::UUTShowdownStatusMessage(const class FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
 {
-	bIsStatusAnnouncement = false;
+	bIsStatusAnnouncement = true;
 	bIsPartiallyUnique = true;
 	MessageArea = FName(TEXT("Announcements"));
 	MessageSlot = FName(TEXT("VictimMessage")); 
@@ -16,7 +16,15 @@ UUTShowdownStatusMessage::UUTShowdownStatusMessage(const class FObjectInitialize
 	LivesRemainingPrefix = NSLOCTEXT("CTFGameMessage", "LivesRemainingPrefix", "");
 	LivesRemainingPostfix = NSLOCTEXT("CTFGameMessage", "LivesRemainingPostfix", " lives remaining.");
 	AnnouncementDelay = 0.5f;
+
+	LivesRemaining.Add(NAME_None);
+	LivesRemaining.Add(FName(TEXT("TwoLivesRemain")));
+	LivesRemaining.Add(FName(TEXT("ThreeLivesRemain")));
+	LivesRemaining.Add(FName(TEXT("FourLivesRemain")));
+	LivesRemaining.Add(FName(TEXT("FiveLivesRemain")));
 }
+
+FName LivesRemaining[5];
 
 void UUTShowdownStatusMessage::GetEmphasisText(FText& PrefixText, FText& EmphasisText, FText& PostfixText, FLinearColor& EmphasisColor, int32 Switch, class APlayerState* RelatedPlayerState_1, class APlayerState* RelatedPlayerState_2, class UObject* OptionalObject) const
 {
@@ -55,6 +63,11 @@ bool UUTShowdownStatusMessage::ShouldPlayAnnouncement(const FClientReceiveData& 
 
 FName UUTShowdownStatusMessage::GetAnnouncementName_Implementation(int32 Switch, const UObject* OptionalObject, const class APlayerState* RelatedPlayerState_1, const class APlayerState* RelatedPlayerState_2) const
 {
+	if ((Switch > 30) && (Switch-31 < LivesRemaining.Num()))
+	{
+		UE_LOG(UT, Warning, TEXT("Switch %d result %s"), Switch, *LivesRemaining[Switch - 31].ToString());
+		return LivesRemaining[Switch - 31];
+	}
 	switch (Switch)
 	{
 	case 5:
@@ -67,4 +80,8 @@ FName UUTShowdownStatusMessage::GetAnnouncementName_Implementation(int32 Switch,
 void UUTShowdownStatusMessage::PrecacheAnnouncements_Implementation(UUTAnnouncer* Announcer) const
 {
 	Announcer->PrecacheAnnouncement(FinalLife);
+	for (int32 i = 0; i < LivesRemaining.Num(); i++)
+	{
+		Announcer->PrecacheAnnouncement(LivesRemaining[i]);
+	}
 }

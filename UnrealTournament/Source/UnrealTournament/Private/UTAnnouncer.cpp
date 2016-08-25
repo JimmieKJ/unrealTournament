@@ -14,7 +14,7 @@ UUTAnnouncer::UUTAnnouncer(const FObjectInitializer& ObjectInitializer)
 	static ConstructorHelpers::FObjectFinder<USoundClass> SoundClassFinder(TEXT("SoundClass'/Game/RestrictedAssets/Audio/SoundClassesAndMixes/Announcer.Announcer'"));
 	AnnouncementComp->SoundClassOverride = SoundClassFinder.Object;
 
-	Spacing = 0.2f;
+	Spacing = 0.15f;
 }
 
 void UUTAnnouncer::PostInitProperties()

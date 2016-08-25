@@ -127,6 +127,23 @@ void UUTFlagRunMessage::GetEmphasisText(FText& PrefixText, FText& EmphasisText, 
 	PostfixText = FText::Format(PostfixText, Args);
 }
 
+FName UUTFlagRunMessage::GetAnnouncementName_Implementation(int32 Switch, const UObject* OptionalObject, const class APlayerState* RelatedPlayerState_1, const class APlayerState* RelatedPlayerState_2) const
+{
+	switch (Switch)
+	{
+	case 1: return TEXT("DefendersMustDefendForChance"); break;
+	case 2: /* DefendersMustHold */; break;
+	case 3: /* DefendersMustHold; BonusType = SilverBonusText */;  break;
+	case 4: return TEXT("AttackersMustScore1ForChance"); break;
+	case 5: return TEXT("AttackersMustScore2ForChance"); break;
+	case 6: return TEXT("AttackersMustScore3ForChance"); break;
+	case 7: /*UnhandledCondition */; break;
+	case 8: return TEXT("AttackersMustScore1ToWin"); break;
+	case 9: return TEXT("AttackersMustScore2ToWin"); break;
+	case 10: return TEXT("AttackersMustScore3ToWin"); break;
+	}
+	return NAME_None;
+}
 
 FText UUTFlagRunMessage::GetText(int32 Switch, bool bTargetsPlayerState1, APlayerState* RelatedPlayerState_1, APlayerState* RelatedPlayerState_2, UObject* OptionalObject) const
 {

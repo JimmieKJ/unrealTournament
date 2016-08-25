@@ -33,6 +33,7 @@
 #include "UTAnalytics.h"
 #include "Runtime/Analytics/Analytics/Public/Analytics.h"
 #include "Runtime/Analytics/Analytics/Public/Interfaces/IAnalyticsProvider.h"
+#include "UTFlagRunGameMessage.h"
 
 AUTCTFRoundGame::AUTCTFRoundGame(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -50,7 +51,7 @@ AUTCTFRoundGame::AUTCTFRoundGame(const FObjectInitializer& ObjectInitializer)
 	bCarryOwnFlag = true;
 	bNoFlagReturn = true;
 	bFirstRoundInitialized = false;
-	FlagPickupDelay = 10;
+	FlagPickupDelay = 1;
 	HUDClass = AUTFlagRunHUD::StaticClass();
 	GameStateClass = AUTCTFRoundGameState::StaticClass();
 	SquadType = AUTAsymCTFSquadAI::StaticClass();
@@ -743,6 +744,7 @@ void AUTCTFRoundGame::InitFlags()
 			{
 				if (IsTeamOnOffense(Flag->GetTeamNum()))
 				{
+					Flag->MessageClass = UUTFlagRunGameMessage::StaticClass();
 					Flag->SetActorHiddenInGame(false);
 					Flag->bEnemyCanPickup = !bCarryOwnFlag;
 					Flag->bFriendlyCanPickup = bCarryOwnFlag;
@@ -1235,6 +1237,10 @@ void AUTCTFRoundGame::ScoreKill_Implementation(AController* Killer, AController*
 		if (OtherPS->RemainingLives > 0)
 		{
 			OtherPS->RespawnWaitTime = FMath::Max(1.f, float(RemainingDefenders));
+			if (UTGameState && UTGameState->GetRemainingTime() > 210)
+			{
+				OtherPS->RespawnWaitTime = FMath::Min(OtherPS->RespawnWaitTime, 2.f);
+			}
 			OtherPS->OnRespawnWaitReceived();
 		}
 	}
