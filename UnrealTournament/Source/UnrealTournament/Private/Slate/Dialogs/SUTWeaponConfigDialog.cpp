@@ -1138,6 +1138,8 @@ void SUTWeaponConfigDialog::DragPreview(const FGeometry& MyGeometry, const FPoin
 void SUTWeaponConfigDialog::ZoomPreview(float WheelDelta)
 {
 	PreviewCameraFreeLookOffset.X += (WheelDelta > 0.0f) ? 10.0f : -10.0f;
+	PreviewCameraFreeLookOffset.X = FMath::Clamp<float>(PreviewCameraFreeLookOffset.X, -96.0f, 96.0f);
+
 	TimeSinceLastCameraAdjustment = 0;
 }
 
