@@ -539,7 +539,8 @@ void AUTPickupInventory::AnnouncePickup(AUTCharacter* P)
 	{
 		Cast<APlayerController>(P->GetController())->ClientReceiveLocalizedMessage(UUTPickupMessage::StaticClass(), 0, P->PlayerState, NULL, InventoryType);
 	}
-	if (InventoryType && (InventoryType.GetDefaultObject()->PickupAnnouncementName != NAME_None))
+	AUTGameMode* GM = GetWorld()->GetAuthGameMode<AUTGameMode>();
+	if (GM && GM->bAllowPickupAnnouncements && InventoryType && (InventoryType.GetDefaultObject()->PickupAnnouncementName != NAME_None))
 	{
 		AUTPlayerState* PS = Cast<AUTPlayerState>(P->PlayerState);
 		if (PS)
