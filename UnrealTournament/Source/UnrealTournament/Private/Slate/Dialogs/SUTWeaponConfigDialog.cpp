@@ -1085,9 +1085,22 @@ void SUTWeaponConfigDialog::CalcCrosshairIndex()
 	FName CrosshairTag = AllWeapons[CurrentWeaponIndex].WeaponCustomizationInfo->DefaultCrosshairTag;
 	if (bCustomWeaponCrosshairs)
 	{
-		CrosshairTag = bSingleCustomWeaponCrosshair
-			? SingleCustomWeaponCrosshair.CrosshairTag
-			: AllWeapons[CurrentWeaponIndex].WeaponCustomizationInfo->CrosshairTag;
+		if (bSingleCustomWeaponCrosshair)
+		{
+			CrosshairTag = SingleCustomWeaponCrosshair.CrosshairTag;
+			if (ColorPicker.IsValid())
+			{
+				ColorPicker->UTSetNewTargetColorRGB(SingleCustomWeaponCrosshair.CrosshairColorOverride);
+			}
+		}
+		else
+		{
+			CrosshairTag = AllWeapons[CurrentWeaponIndex].WeaponCustomizationInfo->CrosshairTag;
+			if (ColorPicker.IsValid() && AllWeapons.IsValidIndex(CurrentWeaponIndex) && AllWeapons[CurrentWeaponIndex].WeaponCustomizationInfo)
+			{
+				ColorPicker->UTSetNewTargetColorRGB(AllWeapons[CurrentWeaponIndex].WeaponCustomizationInfo->CrosshairColorOverride);
+			}
+		}
 	}
 
 	CurrentCrosshairIndex = 0;
