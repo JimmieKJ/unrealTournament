@@ -47,6 +47,26 @@ void AUTProj_Rocket::Tick(float DeltaTime)
 	}
 }
 
+void AUTProj_Rocket::OnRep_Instigator()
+{
+	Super::OnRep_Instigator();
+	if (Instigator != nullptr)
+	{
+		TArray<UStaticMeshComponent*> MeshComponents;
+		GetComponents<UStaticMeshComponent>(MeshComponents);
+		if (MeshComponents[0])
+		{
+			static FName NAME_GunGlowsColor(TEXT("Gun_Glows_Color"));
+			UMaterialInstanceDynamic* MeshMI = MeshComponents[0]->CreateAndSetMaterialInstanceDynamic(1);
+			if (MeshMI != nullptr)
+			{
+				AUTCharacter* UTChar = Cast<AUTCharacter>(Instigator);
+				MeshMI->SetVectorParameterValue(NAME_GunGlowsColor, UTChar ? UTChar->GetTeamColor() : FVector(1.f, 0.3f, 0.f));
+			}
+		}
+	}
+}
+
 void AUTProj_Rocket::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& OutLifetimeProps) const
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
