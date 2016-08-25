@@ -44,6 +44,7 @@ UUTCharacterVoice::UUTCharacterVoice(const FObjectInitializer& ObjectInitializer
 	StatusOffsets.Add(GameVolumeSpeechType::GV_Temple, KEY_CALLOUTS + 1300);
 	StatusOffsets.Add(GameVolumeSpeechType::GV_Cave, KEY_CALLOUTS + 1400);
 	StatusOffsets.Add(GameVolumeSpeechType::GV_BaseCamp, KEY_CALLOUTS + 1500);
+	StatusOffsets.Add(GameVolumeSpeechType::GV_Sniper, KEY_CALLOUTS + 1600);
 
 	StatusOffsets.Add(StatusMessage::EnemyRally, KEY_CALLOUTS + 5000);
 	StatusOffsets.Add(StatusMessage::FindFC, KEY_CALLOUTS + 5001);
@@ -310,6 +311,10 @@ FCharacterSpeech UUTCharacterVoice::GetCharacterSpeech(int32 Switch) const
 			else if (Switch / 100 == GetStatusIndex(GameVolumeSpeechType::GV_BaseCamp) / 100)
 			{
 				return GetGVLine(BaseCampLines, Switch - GetStatusIndex(GameVolumeSpeechType::GV_BaseCamp));
+			}
+			else if (Switch / 100 == GetStatusIndex(GameVolumeSpeechType::GV_Sniper) / 100)
+			{
+				return GetGVLine(SniperLines, Switch - GetStatusIndex(GameVolumeSpeechType::GV_Sniper));
 			}
 			else if (Switch / 100 == GetStatusIndex(PickupSpeechType::UDamagePickup) / 100)
 			{

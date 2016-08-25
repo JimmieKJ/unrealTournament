@@ -182,6 +182,9 @@ class UNREALTOURNAMENT_API UUTCharacterVoice : public UUTLocalMessage
 		FGameVolumeSpeech BaseCampLines;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Voice)
+		FGameVolumeSpeech SniperLines;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Voice)
 		FCharacterSpeech RedeemerPickupLine;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Voice)

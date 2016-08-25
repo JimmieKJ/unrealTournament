@@ -83,6 +83,7 @@ namespace GameVolumeSpeechType
 	const FName GV_Temple = FName(TEXT("GV_Temple"));
 	const FName GV_Cave = FName(TEXT("GV_Cave"));
 	const FName GV_BaseCamp = FName(TEXT("GV_BaseCamp"));
+	const FName GV_Sniper = FName(TEXT("GV_Sniper"));
 }
 
 namespace PickupSpeechType
