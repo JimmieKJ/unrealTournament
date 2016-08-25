@@ -61,6 +61,7 @@ void AUTMenuGameMode::PostInitializeComponents()
 void AUTMenuGameMode::GenericPlayerInitialization(AController* C)
 {
 	Super::GenericPlayerInitialization(C);
+
 	AUTBasePlayerController* PC = Cast<AUTBasePlayerController>(C);
 	if (PC != NULL)
 	{
@@ -83,6 +84,7 @@ void AUTMenuGameMode::GenericPlayerInitialization(AController* C)
 		}
 #endif
 	}
+
 }
 
 void AUTMenuGameMode::RestartPlayer(AController* aPlayer)
