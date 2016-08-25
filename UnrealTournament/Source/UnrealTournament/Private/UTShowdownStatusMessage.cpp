@@ -12,7 +12,7 @@ UUTShowdownStatusMessage::UUTShowdownStatusMessage(const class FObjectInitialize
 	MessageSlot = FName(TEXT("VictimMessage")); 
 
 	FinalLifeMsg = NSLOCTEXT("ShowdownRewardMessage", "FinalLifeMsg", "FINAL LIFE!");
-	FinalLife = FName(TEXT("RZE_FinalLife"));
+	FinalLife = FName(TEXT("FinalLife"));
 	LivesRemainingPrefix = NSLOCTEXT("CTFGameMessage", "LivesRemainingPrefix", "");
 	LivesRemainingPostfix = NSLOCTEXT("CTFGameMessage", "LivesRemainingPostfix", " lives remaining.");
 	AnnouncementDelay = 0.5f;
@@ -65,7 +65,6 @@ FName UUTShowdownStatusMessage::GetAnnouncementName_Implementation(int32 Switch,
 {
 	if ((Switch > 30) && (Switch-31 < LivesRemaining.Num()))
 	{
-		UE_LOG(UT, Warning, TEXT("Switch %d result %s"), Switch, *LivesRemaining[Switch - 31].ToString());
 		return LivesRemaining[Switch - 31];
 	}
 	switch (Switch)

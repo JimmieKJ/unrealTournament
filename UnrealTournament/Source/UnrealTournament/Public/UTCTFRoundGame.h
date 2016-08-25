@@ -161,6 +161,7 @@ class UNREALTOURNAMENT_API AUTCTFRoundGame : public AUTCTFBaseGame
 	virtual int32 PickCheatWinTeam() override;
 	virtual void AdjustLeaderHatFor(AUTCharacter* UTChar) override;
 	virtual bool SkipPlacement(AUTCharacter* UTChar) override;
+	virtual void HandleCountdownToBegin() override;
 
 	virtual void EndTeamGame(AUTTeamInfo* Winner, FName Reason);
 

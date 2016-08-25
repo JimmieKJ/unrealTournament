@@ -20,6 +20,15 @@ class UNREALTOURNAMENT_API UUTCountDownMessage : public UUTLocalMessage
 		FText SilverBonusMessage;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Message)
+		FText RoundPrefix;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Message)
+		FText RoundPostfix;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Message)
+		TArray<FName> RoundName;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Message)
 		USoundBase* TimeWarningSound;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Message)
@@ -43,6 +52,10 @@ class UNREALTOURNAMENT_API UUTCountDownMessage : public UUTLocalMessage
 			{
 				return SilverBonusName;
 			}
+			else if ((Switch < 2001+RoundName.Num()) && (Switch > 2000))
+			{
+				return RoundName[Switch - 2001];
+			}
 			return NAME_None;
 		}
 		return FName(*FString::Printf(TEXT("CD%i"), Switch));
@@ -54,5 +67,6 @@ class UNREALTOURNAMENT_API UUTCountDownMessage : public UUTLocalMessage
 	virtual float GetLifeTime(int32 Switch) const override;
 	virtual void GetEmphasisText(FText& PrefixText, FText& EmphasisText, FText& PostfixText, FLinearColor& EmphasisColor, int32 Switch, class APlayerState* RelatedPlayerState_1, class APlayerState* RelatedPlayerState_2, class UObject* OptionalObject) const override;
 	virtual void ClientReceive(const FClientReceiveData& ClientData) const override;
+	virtual bool IsOptionalSpoken(int32 MessageIndex) const override;
 };
 

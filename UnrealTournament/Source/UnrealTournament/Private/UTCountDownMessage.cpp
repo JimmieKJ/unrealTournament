@@ -17,13 +17,26 @@ UUTCountDownMessage::UUTCountDownMessage(const class FObjectInitializer& ObjectI
 	CountDownText = NSLOCTEXT("UTTimerMessage","MatBeginCountdown","{Count}");
 	GoldBonusMessage = NSLOCTEXT("CTFGameMessage", "GoldBonusMessage", "\u2605 \u2605 \u2605 ends in ");
 	SilverBonusMessage = NSLOCTEXT("CTFGameMessage", "SilverBonusMessage", "\u2605 \u2605 ends in ");
+	RoundPrefix = NSLOCTEXT("CTFGameMessage", "RoundPrefix", "Round ");
+	RoundPostfix = FText::GetEmpty();
 	GoldBonusName = TEXT("ThreeStarsEnding");
 	SilverBonusName = TEXT("TwoStarsEnding");
+	RoundName.Add(TEXT("Round1"));
+	RoundName.Add(TEXT("Round2"));
+	RoundName.Add(TEXT("Round3"));
+	RoundName.Add(TEXT("Round4"));
+	RoundName.Add(TEXT("Round5"));
+	RoundName.Add(TEXT("Round6"));
 	static ConstructorHelpers::FObjectFinder<USoundBase> TimeWarningSoundFinder(TEXT("SoundWave'/Game/RestrictedAssets/Audio/Gameplay/A_Powerup_Invulnerability_Warning.A_Powerup_Invulnerability_Warning'"));
 	TimeWarningSound = TimeWarningSoundFinder.Object;
 
 	static ConstructorHelpers::FObjectFinder<USoundBase> TimeEndingSoundFinder(TEXT("SoundWave'/Game/RestrictedAssets/Audio/Gameplay/A_Powerup_Invulnerability_End.A_Powerup_Invulnerability_End'"));
 	TimeEndingSound = TimeEndingSoundFinder.Object;
+}
+
+bool UUTCountDownMessage::IsOptionalSpoken(int32 MessageIndex) const
+{
+	return (MessageIndex <= 2000) || (MessageIndex >=3000);
 }
 
 void UUTCountDownMessage::ClientReceive(const FClientReceiveData& ClientData) const 
@@ -70,7 +83,7 @@ void UUTCountDownMessage::GetArgs(FFormatNamedArguments& Args, int32 Switch, boo
 
 void UUTCountDownMessage::GetEmphasisText(FText& PrefixText, FText& EmphasisText, FText& PostfixText, FLinearColor& EmphasisColor, int32 Switch, class APlayerState* RelatedPlayerState_1, class APlayerState* RelatedPlayerState_2, class UObject* OptionalObject) const
 {
-	if (Switch < 1000)
+	if (Switch <= 2000)
 	{
 		Super::GetEmphasisText(PrefixText, EmphasisText, PostfixText, EmphasisColor, Switch, RelatedPlayerState_1, RelatedPlayerState_2, OptionalObject);
 		return;
@@ -84,6 +97,11 @@ void UUTCountDownMessage::GetEmphasisText(FText& PrefixText, FText& EmphasisText
 	{
 		PrefixText = SilverBonusMessage;
 		PostfixText = FText::GetEmpty();
+	}
+	else if (Switch > 2000)
+	{
+		PrefixText = RoundPrefix;
+		PostfixText = RoundPostfix;
 	}
 	while (Switch >= 1000)
 	{
@@ -101,7 +119,7 @@ FText UUTCountDownMessage::GetText(int32 Switch, bool bTargetsPlayerState1,class
 	{
 		return BuildEmphasisText(Switch, RelatedPlayerState_1, RelatedPlayerState_2, OptionalObject);
 	}
-	return GetDefault<UUTCountDownMessage>(GetClass())->CountDownText;
+	return CountDownText;
 }
 
 void UUTCountDownMessage::PrecacheAnnouncements_Implementation(UUTAnnouncer* Announcer) const
@@ -112,4 +130,8 @@ void UUTCountDownMessage::PrecacheAnnouncements_Implementation(UUTAnnouncer* Ann
 	}
 	Announcer->PrecacheAnnouncement(GoldBonusName);
 	Announcer->PrecacheAnnouncement(SilverBonusName);
+	for (int32 i = 0; i < 6; i++)
+	{
+		Announcer->PrecacheAnnouncement(RoundName[i]);
+	}
 }

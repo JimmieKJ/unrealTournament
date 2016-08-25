@@ -173,6 +173,7 @@ void UUTCTFMajorMessage::PrecacheAnnouncements_Implementation(UUTAnnouncer* Anno
 {
 	Announcer->PrecacheAnnouncement(GetTeamAnnouncement(11, 0));
 	Announcer->PrecacheAnnouncement(GetTeamAnnouncement(12, 0));
+	Announcer->PrecacheAnnouncement(GetTeamAnnouncement(21, 0));
 }
 
 FName UUTCTFMajorMessage::GetTeamAnnouncement(int32 Switch, uint8 TeamNum) const
@@ -181,6 +182,7 @@ FName UUTCTFMajorMessage::GetTeamAnnouncement(int32 Switch, uint8 TeamNum) const
 	{
 	case 11: return TEXT("HalfTime"); break;
 	case 12: return TEXT("OverTime"); break;
+	case 21: return TEXT("FlagCanBePickedUp"); break;
 	}
 	return NAME_None;
 }

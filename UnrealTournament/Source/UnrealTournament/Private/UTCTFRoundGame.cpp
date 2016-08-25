@@ -51,7 +51,7 @@ AUTCTFRoundGame::AUTCTFRoundGame(const FObjectInitializer& ObjectInitializer)
 	bCarryOwnFlag = true;
 	bNoFlagReturn = true;
 	bFirstRoundInitialized = false;
-	FlagPickupDelay = 1;
+	FlagPickupDelay = 10;
 	HUDClass = AUTFlagRunHUD::StaticClass();
 	GameStateClass = AUTCTFRoundGameState::StaticClass();
 	SquadType = AUTAsymCTFSquadAI::StaticClass();
@@ -1353,11 +1353,25 @@ void AUTCTFRoundGame::ScoreAlternateWin(int32 WinningTeamIndex, uint8 Reason)
 	}
 }
 
+void AUTCTFRoundGame::HandleCountdownToBegin()
+{
+	if (CTFGameState)
+	{
+		BroadcastLocalized(this, UUTCountDownMessage::StaticClass(), CTFGameState->CTFRound + 2001, NULL, NULL, NULL);
+	}
+	FTimerHandle TempHandle;
+	GetWorldTimerManager().SetTimer(TempHandle, this, &AUTGameMode::BeginGame, 3.f*GetActorTimeDilation(), false);
+}
+
 void AUTCTFRoundGame::CheckGameTime()
 {
 	AUTCTFRoundGameState* RCTFGameState = Cast<AUTCTFRoundGameState>(CTFGameState);
 	if (CTFGameState->IsMatchIntermission())
 	{
+		if (RCTFGameState && (RCTFGameState->IntermissionTime == 3))
+		{
+			BroadcastLocalized(this, UUTCountDownMessage::StaticClass(), RCTFGameState->CTFRound + 2001, NULL, NULL, NULL);
+		}
 		if (RCTFGameState && (RCTFGameState->IntermissionTime <= 0))
 		{
 			SetMatchState(MatchState::MatchExitingIntermission);
