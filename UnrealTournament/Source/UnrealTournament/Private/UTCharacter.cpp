@@ -609,31 +609,25 @@ bool AUTCharacter::BlockedHeadShot(FVector HitLocation, FVector ShotDirection, f
 	{
 		if (It->bCallDamageEvents && It->PreventHeadShot(HitLocation, ShotDirection, WeaponHeadScaling, bConsumeArmor))
 		{
-			HeadArmorFlashCount++;
-			LastHeadArmorFlashTime = GetWorld()->GetTimeSeconds();
-			if (GetNetMode() == NM_Standalone)
-			{
-				OnRepHeadArmorFlashCount();
-			}
-			HeadShotBlocked();
-			if (ShotInstigator)
-			{
-				ShotInstigator->HeadShotBlocked();
-			}
 			return true;
 		}
 	}
-	if ((GetArmorAmount() > 0) && bIsWearingHelmet)
-	{
-		bIsWearingHelmet = false;
-		HeadShotBlocked();
-		if (ShotInstigator)
-		{
-			ShotInstigator->HeadShotBlocked();
-		}
-		return true;
-	}
 	return false;
+}
+
+void AUTCharacter::NotifyBlockedHeadShot(AUTCharacter* ShotInstigator)
+{
+	HeadArmorFlashCount++;
+	LastHeadArmorFlashTime = GetWorld()->GetTimeSeconds();
+	if (GetNetMode() == NM_Standalone)
+	{
+		OnRepHeadArmorFlashCount();
+	}
+	HeadShotBlocked();
+	if (ShotInstigator)
+	{
+		ShotInstigator->HeadShotBlocked();
+	}
 }
 
 void AUTCharacter::OnRepHeadArmorFlashCount()
@@ -3084,7 +3078,6 @@ void AUTCharacter::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& O
 	DOREPLIFETIME_CONDITION(AUTCharacter, WalkMovementReductionTime, COND_OwnerOnly);
 	DOREPLIFETIME_CONDITION(AUTCharacter, bInvisible, COND_None);
 	DOREPLIFETIME_CONDITION(AUTCharacter, HeadArmorFlashCount, COND_Custom);
-	DOREPLIFETIME_CONDITION(AUTCharacter, bIsWearingHelmet, COND_SkipOwner);
 	DOREPLIFETIME_CONDITION(AUTCharacter, bIsSwitchingWeapon, COND_None);
 	DOREPLIFETIME_CONDITION(AUTCharacter, AmbientSoundPitch, COND_None);
 	DOREPLIFETIME_CONDITION(AUTCharacter, CosmeticFlashCount, COND_Custom);
@@ -4922,11 +4915,7 @@ void AUTCharacter::GiveArmor(AUTArmor* ArmorClass)
 			return;
 		}
 	}
-	if (ArmorClass->ArmorType == ArmorTypeName::Helmet)
-	{
-		bIsWearingHelmet = true;
-	}
-	// make sure helmet is subclass
+
 	ArmorType = ArmorClass;
 	ArmorAmount = FMath::Max(FMath::Max(ArmorAmount, ArmorClass->ArmorAmount), FMath::Min(100, ArmorAmount + ArmorClass->ArmorAmount));
 	UpdateArmorOverlay();
@@ -4935,10 +4924,6 @@ void AUTCharacter::GiveArmor(AUTArmor* ArmorClass)
 void AUTCharacter::RemoveArmor(int32 Amount)
 {
 	ArmorAmount = FMath::Max(0, ArmorAmount - Amount);
-	if (ArmorAmount == 0)
-	{
-		bIsWearingHelmet = false;
-	}
 	UpdateArmorOverlay();
 }
 

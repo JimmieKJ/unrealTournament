@@ -169,7 +169,7 @@ namespace ArmorTypeName
 	const FName ShieldBelt = FName(TEXT("ShieldBelt"));
 	const FName ThighPads = FName(TEXT("ThighPads"));
 	const FName FlakVest = FName(TEXT("FlakVest"));
-	const FName Helmet = FName(TEXT("Helmet"));
+	const FName SmallArmor = FName(TEXT("SmallArmor"));
 }
 
 namespace ChatDestinations

@@ -179,10 +179,6 @@ void UUTHUDWidget_QuickStats::PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCa
 	
 		ArmorInfo.OverlayTextures.Empty();
 		ArmorInfo.bUseOverlayTexture = true;
-		if (CharOwner && CharOwner->bIsWearingHelmet)
-		{
-			ArmorInfo.OverlayTextures.Add(HelmetIcon);
-		}
 
 		if (bArmorVisible != ArmorInfo.bVisible)
 		{

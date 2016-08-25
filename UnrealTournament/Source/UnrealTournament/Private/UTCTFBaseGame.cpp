@@ -621,15 +621,15 @@ void AUTCTFBaseGame::BuildScoreInfo(AUTPlayerState* PlayerState, TSharedPtr<clas
 	NewPlayerInfoLine(BotLeftPane, NSLOCTEXT("AUTGameMode", "KegPickups", "Keg Pickups"), MakeShareable(new TAttributeStat(PlayerState, NAME_KegCount)), StatList);
 	BotLeftPane->AddSlot().AutoHeight()[SNew(SBox).HeightOverride(30.0f)];
 	NewPlayerInfoLine(BotLeftPane, NSLOCTEXT("AUTGameMode", "BeltPickups", "Shield Belt Pickups"), MakeShareable(new TAttributeStat(PlayerState, NAME_ShieldBeltCount)), StatList);
-	NewPlayerInfoLine(BotLeftPane, NSLOCTEXT("AUTGameMode", "VestPickups", "Armor Vest Pickups"), MakeShareable(new TAttributeStat(PlayerState, NAME_ArmorVestCount)), StatList);
-	NewPlayerInfoLine(BotLeftPane, NSLOCTEXT("AUTGameMode", "PadPickups", "Thigh Pad Pickups"), MakeShareable(new TAttributeStat(PlayerState, NAME_ArmorPadsCount)), StatList);
+	NewPlayerInfoLine(BotLeftPane, NSLOCTEXT("AUTGameMode", "LargeArmorPickups", "Large Armor Pickups"), MakeShareable(new TAttributeStat(PlayerState, NAME_ArmorVestCount)), StatList);
+	NewPlayerInfoLine(BotLeftPane, NSLOCTEXT("AUTGameMode", "MediumArmorPickups", "Medium Armor Pickups"), MakeShareable(new TAttributeStat(PlayerState, NAME_ArmorPadsCount)), StatList);
 
 	NewPlayerInfoLine(BotRightPane, NSLOCTEXT("AUTGameMode", "UDamage", "UDamage Control"), MakeShareable(new TAttributeStat(PlayerState, NAME_UDamageTime, nullptr, ToTime)), StatList);
 	NewPlayerInfoLine(BotRightPane, NSLOCTEXT("AUTGameMode", "Berserk", "Berserk Control"), MakeShareable(new TAttributeStat(PlayerState, NAME_BerserkTime, nullptr, ToTime)), StatList);
 	NewPlayerInfoLine(BotRightPane, NSLOCTEXT("AUTGameMode", "Invisibility", "Invisibility Control"), MakeShareable(new TAttributeStat(PlayerState, NAME_InvisibilityTime, nullptr, ToTime)), StatList);
 
 	BotRightPane->AddSlot().AutoHeight()[SNew(SBox).HeightOverride(60.0f)];
-	NewPlayerInfoLine(BotRightPane, NSLOCTEXT("AUTGameMode", "HelmetPickups", "Helmet Pickups"), MakeShareable(new TAttributeStat(PlayerState, NAME_HelmetCount)), StatList);
+	NewPlayerInfoLine(BotRightPane, NSLOCTEXT("AUTGameMode", "SmallArmorPickups", "Small Armor Pickups"), MakeShareable(new TAttributeStat(PlayerState, NAME_HelmetCount)), StatList);
 	NewPlayerInfoLine(BotRightPane, NSLOCTEXT("AUTGameMode", "JumpBootJumps", "JumpBoot Jumps"), MakeShareable(new TAttributeStat(PlayerState, NAME_BootJumps)), StatList);
 
 	NewPlayerInfoLine(TopRightPane, NSLOCTEXT("AUTCTFGameMode", "FlagCaps", "Flag Captures"), MakeShareable(new TAttributeStat(PlayerState, NAME_None, [](const AUTPlayerState* PS, const TAttributeStat* Stat) -> float { return PS->FlagCaptures; })), StatList);

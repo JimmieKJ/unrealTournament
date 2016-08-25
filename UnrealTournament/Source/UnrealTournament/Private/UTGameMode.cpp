@@ -4238,9 +4238,9 @@ void AUTGameMode::BuildScoreInfo(AUTPlayerState* PlayerState, TSharedPtr<class S
 	}, TwoDecimal)), StatList);
 
 	NewPlayerInfoLine(RightPane, NSLOCTEXT("AUTGameMode", "BeltPickups", "Shield Belt Pickups"), MakeShareable(new TAttributeStat(PlayerState, NAME_ShieldBeltCount)), StatList);
-	NewPlayerInfoLine(RightPane, NSLOCTEXT("AUTGameMode", "VestPickups", "Armor Vest Pickups"), MakeShareable(new TAttributeStat(PlayerState, NAME_ArmorVestCount)), StatList);
-	NewPlayerInfoLine(RightPane, NSLOCTEXT("AUTGameMode", "PadPickups", "Thigh Pad Pickups"), MakeShareable(new TAttributeStat(PlayerState, NAME_ArmorPadsCount)), StatList);
-	NewPlayerInfoLine(RightPane, NSLOCTEXT("AUTGameMode", "HelmetPickups", "Helmet Pickups"), MakeShareable(new TAttributeStat(PlayerState, NAME_HelmetCount)), StatList);
+	NewPlayerInfoLine(RightPane, NSLOCTEXT("AUTGameMode", "LargeArmorPickups", "Large Armor Pickups"), MakeShareable(new TAttributeStat(PlayerState, NAME_ArmorVestCount)), StatList);
+	NewPlayerInfoLine(RightPane, NSLOCTEXT("AUTGameMode", "MediumArmorPickups", "Medium Armor Pickups"), MakeShareable(new TAttributeStat(PlayerState, NAME_ArmorPadsCount)), StatList);
+	NewPlayerInfoLine(RightPane, NSLOCTEXT("AUTGameMode", "SmallArmorPickups", "Small Armor Pickups"), MakeShareable(new TAttributeStat(PlayerState, NAME_HelmetCount)), StatList);
 	NewPlayerInfoLine(RightPane, NSLOCTEXT("AUTGameMode", "JumpBootJumps", "JumpBoot Jumps"), MakeShareable(new TAttributeStat(PlayerState, NAME_BootJumps)), StatList);
 
 	LeftPane->AddSlot().AutoHeight()[SNew(SBox).HeightOverride(40.0f)];

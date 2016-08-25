@@ -150,9 +150,11 @@ void AUTWeap_Sniper::FireInstantHit(bool bDealDamage, FHitResult* OutHit)
 		int32 Damage = InstantHitInfo[CurrentFireMode].Damage;
 		TSubclassOf<UDamageType> DamageType = InstantHitInfo[CurrentFireMode].DamageType;
 
+		bool bIsHeadShot = false;
 		AUTCharacter* C = Cast<AUTCharacter>(Hit.Actor.Get());
 		if (C != NULL && (!C->UTCharacterMovement || !C->UTCharacterMovement->bIsFloorSliding) && C->IsHeadShot(Hit.Location, FireDir, GetHeadshotScale(), UTOwner, PredictionTime))
 		{
+			bIsHeadShot = true;
 			if (C->BlockedHeadShot(Hit.Location, FireDir, GetHeadshotScale(), true, UTOwner))
 			{
 				Damage = BlockedHeadshotDamage;
@@ -172,6 +174,10 @@ void AUTWeap_Sniper::FireInstantHit(bool bDealDamage, FHitResult* OutHit)
 		}
 		Hit.Actor->TakeDamage(Damage, FUTPointDamageEvent(Damage, Hit, FireDir, DamageType, FireDir * InstantHitInfo[CurrentFireMode].Momentum), UTOwner->Controller, this);
 
+		if (bIsHeadShot && C && (C->Health > 0))
+		{
+			C->NotifyBlockedHeadShot(UTOwner);
+		}
 		if ((Role == ROLE_Authority) && PS && (HitsStatsName != NAME_None))
 		{
 			PS->ModifyStatsValue(HitsStatsName, 1);

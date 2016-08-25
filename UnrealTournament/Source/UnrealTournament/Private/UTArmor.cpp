@@ -16,7 +16,7 @@ bool AUTArmor::AllowPickupBy(AUTCharacter* Other) const
 {
 	if (Other && !Other->IsRagdoll())
 	{
-		if ((Other->GetArmorAmount() < FMath::Max(100,ArmorAmount)) || (ArmorType == ArmorTypeName::Helmet))
+		if (Other->GetArmorAmount() < FMath::Max(100,ArmorAmount))
 		{
 			return true;
 		}

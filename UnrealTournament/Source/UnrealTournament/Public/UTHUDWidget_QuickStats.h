@@ -309,9 +309,6 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Icons")
 	FHUDRenderObject_Texture RallyFlagIcon;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Icons")
-	FHUDRenderObject_Texture HelmetIcon;
-
 	// NOTE: This icon will be generated from the data in the actual powerup
 	UPROPERTY()
 	FHUDRenderObject_Texture PowerupIcon;
