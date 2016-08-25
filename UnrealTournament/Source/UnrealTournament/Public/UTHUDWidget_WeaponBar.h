@@ -188,6 +188,7 @@ protected:
 
 	FTextureUVs ActiveBackgroundUVs;
 	FTextureUVs InactiveBackgroundUVs;
+	FTextureUVs SelectedBackgroundUVs;
 
 	TArray<FWeaponBarCell> Cells;
 
