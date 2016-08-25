@@ -340,7 +340,7 @@ void UUTHUDWidget_QuickStats::PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCa
 		bool bPlayerCanRally = UTHUDOwner->UTPlayerOwner->CanPerformRally();
 		AUTCTFGameState* GameState = GetWorld()->GetGameState<AUTCTFGameState>();
 		bool bShowTimer = !bPlayerCanRally && !UTPlayerState->CarriedObject && UTPlayerState->Team && GameState && GameState->bAttackersCanRally && ((UTPlayerState->Team->TeamIndex == 0) == GameState->bRedToCap) && (UTPlayerState->CarriedObject == nullptr) && CharOwner && CharOwner->bCanRally && (UTPlayerState->RemainingRallyDelay > 0);
-
+		bShowTimer = bShowTimer && (GameState->GetRemainingTime() < 270);
 		if (UTPlayerState->CarriedObject != nullptr || bPlayerCanRally || bShowTimer)
 		{
 			FlagInfo.bCustomIconUnderlay = false;
