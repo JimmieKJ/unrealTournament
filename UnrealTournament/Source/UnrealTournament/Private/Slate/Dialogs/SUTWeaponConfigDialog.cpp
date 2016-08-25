@@ -1452,7 +1452,7 @@ FText SUTWeaponConfigDialog::GetVariantTitle() const
 
 FText SUTWeaponConfigDialog::GetVariantCount() const
 {
-	return FText::Format(NSLOCTEXT("SUTWeaponConfigDialog", "VariantCountFormat", "{0} of {1}"), FText::AsNumber(CurrentWeaponPreviewIndex + 1), FText::AsNumber(bShowingCrosshairs ? AllCrosshairs.Num() : WeaponPreviewActors.Num()));
+	return FText::Format(NSLOCTEXT("SUTWeaponConfigDialog", "VariantCountFormat", "{0} of {1}"), FText::AsNumber(bShowingCrosshairs ? CurrentCrosshairIndex + 1 : CurrentWeaponPreviewIndex + 1), FText::AsNumber(bShowingCrosshairs ? AllCrosshairs.Num() : WeaponPreviewActors.Num()));
 }
 
 FReply SUTWeaponConfigDialog::HandleNextPrevious(int32 Step)
