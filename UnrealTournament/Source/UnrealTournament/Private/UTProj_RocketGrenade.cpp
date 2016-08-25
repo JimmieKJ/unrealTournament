@@ -16,7 +16,7 @@ AUTProj_RocketGrenade::AUTProj_RocketGrenade(const class FObjectInitializer& Obj
 	MaxBouncedRotationRate = 1080.0f;
 
 	InitialLifeSpan = 0.0f;
-	FuseTime = 2.0f;
+	FuseTime = 1.5f;
 	RandomFuseMod = 0.5f;
 
 	MaxRandomBounce = 3.0f;
@@ -81,7 +81,7 @@ void AUTProj_RocketGrenade::OnBounce(const struct FHitResult& ImpactResult, cons
 	//Random bounce direction
 	FRotator RandRot = GetRandomRotator(MaxRandomBounce);
 	ProjectileMovement->Velocity = RandRot.RotateVector(ProjectileMovement->Velocity);
-
+	ProjectileMovement->Bounciness = 0.3f;
 	Super::OnBounce(ImpactResult, ImpactVelocity);
 }
 
