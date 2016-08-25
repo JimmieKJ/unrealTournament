@@ -127,9 +127,9 @@ UUTCharacterMovement::UUTCharacterMovement(const class FObjectInitializer& Objec
 	bUseFlatBaseForFloorChecks = true;
 
 	EasyImpactImpulse = 1100.f;
-	EasyImpactDamage = 25;
+	EasyImpactDamage = 30;
 	FullImpactImpulse = 1600.f;
-	FullImpactDamage = 40;
+	FullImpactDamage = 50;
 	ImpactMaxHorizontalVelocity = 1500.f;
 	ImpactMaxVerticalFactor = 1.f;
 	MaxUndampedImpulse = 2000.f;
