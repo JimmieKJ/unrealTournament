@@ -1160,8 +1160,8 @@ void UUTLocalPlayer::ShowRankedReconnectDialog(const FString& UniqueID)
 		if ((FDateTime::Now() - LastRankedMatchTime).GetHours() < 1)
 		{
 			// Ask player if they want to try to rejoin last ranked game
-			ShowMessage(NSLOCTEXT("UTLocalPlayer", "RankedReconnectTitle", "Reconnect To Ranked Match?"),
-				NSLOCTEXT("UTLocalPlayer", "RankedReconnect", "Would you like to reconnect to the last ranked match?"),
+			ShowMessage(NSLOCTEXT("UTLocalPlayer", "RankedReconnectTitle", "Reconnect To Last Match?"),
+				NSLOCTEXT("UTLocalPlayer", "RankedReconnect", "Would you like to reconnect to the last match?"),
 				UTDIALOG_BUTTON_YES + UTDIALOG_BUTTON_NO,
 				FDialogResultDelegate::CreateUObject(this, &UUTLocalPlayer::RankedReconnectResult));
 		}
@@ -5321,7 +5321,7 @@ void UUTLocalPlayer::StartMatchmaking(int32 PlaylistId)
 		MatchmakingParams.ControllerId = GetControllerId();
 		MatchmakingParams.StartWith = EMatchmakingStartLocation::Game;
 		MatchmakingParams.PlaylistId = PlaylistId;
-		MatchmakingParams.MinimumEloRangeBeforeHosting = 100;
+
 		if (GetProfileSettings() && !GetProfileSettings()->MatchmakingRegion.IsEmpty())
 		{
 			MatchmakingParams.DatacenterId = GetProfileSettings()->MatchmakingRegion;
@@ -5354,8 +5354,16 @@ void UUTLocalPlayer::StartMatchmaking(int32 PlaylistId)
 					{
 						PersistentParty->SetPlayersNeeded((TeamSize * TeamCount) - PersistentParty->GetPartySize());
 					}
+
+					MatchmakingParams.bRanked = UTGameInstance->GetPlaylistManager()->IsPlaylistRanked(PlaylistId);
 				}
 			}
+		}
+
+		MatchmakingParams.MinimumEloRangeBeforeHosting = 100;
+		if (!MatchmakingParams.bRanked)
+		{
+			MatchmakingParams.EloRange = 100;
 		}
 
 		bool bSuccessfullyStarted = Matchmaking->FindGatheringSession(MatchmakingParams);

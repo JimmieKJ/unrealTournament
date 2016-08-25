@@ -3553,6 +3553,10 @@ TSubclassOf<AGameSession> AUTGameMode::GetGameSessionClass() const
 	{
 		return AUTGameSessionRanked::StaticClass();
 	}
+	if (bIsQuickMatch)
+	{
+		return AUTGameSessionRanked::StaticClass();
+	}
 
 	return AUTGameSessionNonRanked::StaticClass();
 }

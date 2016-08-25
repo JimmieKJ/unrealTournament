@@ -34,6 +34,19 @@ bool UUTPlaylistManager::GetPlaylistName(int32 PlaylistId, FString& OutPlaylistN
 
 }
 
+bool UUTPlaylistManager::IsPlaylistRanked(int32 PlaylistId)
+{
+	for (const FPlaylistItem& PlaylistEntry : Playlist)
+	{
+		if (PlaylistEntry.PlaylistId == PlaylistId)
+		{
+			return PlaylistEntry.bRanked;
+		}
+	}
+
+	return false;
+}
+
 bool UUTPlaylistManager::GetTeamEloRatingForPlaylist(int32 PlaylistId, FString& TeamEloRating)
 {
 	for (const FPlaylistItem& PlaylistEntry : Playlist)
@@ -57,7 +70,16 @@ bool UUTPlaylistManager::GetURLForPlaylist(int32 PlaylistId, FString& URL)
 			URL = PlaylistEntry.MapNames[FMath::RandRange(0, PlaylistEntry.MapNames.Num() - 1)];
 			URL += TEXT("?game=") + PlaylistEntry.GameMode;
 			URL += PlaylistEntry.ExtraCommandline;
-			URL += TEXT("?Ranked=1");
+			
+			if (PlaylistEntry.bRanked)
+			{
+				URL += TEXT("?Ranked=1");
+			}
+			else
+			{
+				URL += TEXT("?QuickMatch=1");
+			}
+
 			return true;
 		}
 	}

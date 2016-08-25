@@ -49,7 +49,7 @@ void UMatchmakingContext::Finalize()
 	}
 }
 
-void UMatchmakingContext::OnMatchmakingStartedInternal()
+void UMatchmakingContext::OnMatchmakingStartedInternal(bool bRanked)
 {
 	OnMatchmakingStarted.Broadcast();
 

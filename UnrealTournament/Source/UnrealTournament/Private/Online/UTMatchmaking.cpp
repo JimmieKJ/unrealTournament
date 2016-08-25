@@ -490,7 +490,7 @@ bool UUTMatchmaking::FindGatheringSession(const FMatchmakingParams& InParams)
 
 			Matchmaking = MatchmakingGather;
 
-			OnMatchmakingStarted().Broadcast();
+			OnMatchmakingStarted().Broadcast(InParams.bRanked);
 			bResult = true;
 
 #if 0
@@ -534,7 +534,7 @@ bool UUTMatchmaking::FindSessionAsClient(const FMatchmakingParams& InParams)
 
 			Matchmaking = MatchmakingSingleSession;
 
-			OnMatchmakingStarted().Broadcast();
+			OnMatchmakingStarted().Broadcast(InParams.bRanked);
 			bResult = true;
 
 			// FindSessionAsClient intentionally does not cache matchmaking params, as it is intended to go to a very specific session
@@ -805,6 +805,11 @@ void UUTMatchmaking::OnReservationFull()
 {
 	UE_LOG(LogOnline, Log, TEXT("OnReservationFull"));
 
+	TravelPartyToServer();
+}
+
+void UUTMatchmaking::TravelPartyToServer()
+{
 	TravelToServer();
 	
 	UUTGameInstance* UTGameInstance = GetUTGameInstance();
@@ -881,6 +886,11 @@ void UUTMatchmaking::OnReconnectResponseReceived(EPartyReservationResult::Type R
 
 		// Cache the search result, it will be used when notified that it is alright to proceed to the lobby
 		CachedSearchResult = SearchResult;
+
+		if (!IsRankedMatchmaking())
+		{
+			TravelPartyToServer();
+		}
 	}
 	else if (ReservationResponse == EPartyReservationResult::ReservationRequestCanceled)
 	{
@@ -910,6 +920,16 @@ int32 UUTMatchmaking::GetMatchmakingTeamElo()
 	}
 
 	return 0;
+}
+
+bool UUTMatchmaking::IsRankedMatchmaking()
+{
+	if (Matchmaking)
+	{
+		return Matchmaking->GetMatchmakingParams().bRanked;
+	}
+
+	return false;
 }
 
 void UUTMatchmaking::TravelToServer()

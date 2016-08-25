@@ -51,7 +51,7 @@ class BLUEPRINTCONTEXT_API UMatchmakingContext : public UBlueprintContextBase
 	/**
 	 * Handle matchmaking started delegates
 	 */
-	void OnMatchmakingStartedInternal();
+	void OnMatchmakingStartedInternal(bool bRanked);
 
 	/**
 	 * Handle when matchmaking state changes

@@ -105,13 +105,13 @@ FText SUTMatchmakingDialog::GetRegionText() const
 			UUTPartyGameState* PartyState = Party->GetUTPersistentParty();
 			if (PartyState)
 			{
+				FString MatchMakingRegion = PartyState->GetMatchmakingRegion();
 				if (PartyState->GetPartyProgression() == EUTPartyState::QuickMatching)
 				{
-					return NSLOCTEXT("Generic", "QuickMatching", "Quick Matching");
+					return FText::Format(NSLOCTEXT("Generic", "QuickMatching", "Quick Matching in Region: {0}"), FText::FromString(MatchMakingRegion));
 				}
 				else
 				{
-					FString MatchMakingRegion = PartyState->GetMatchmakingRegion();
 					return FText::Format(NSLOCTEXT("Generic", "Region", "Region: {0}"), FText::FromString(MatchMakingRegion));
 				}
 			}
@@ -126,6 +126,7 @@ FText SUTMatchmakingDialog::GetMatchmakingText() const
 	UUTGameInstance* GameInstance = Cast<UUTGameInstance>(GetPlayerOwner()->GetGameInstance());
 	if (GameInstance)
 	{
+		UUTMatchmaking* Matchmaking = GameInstance->GetMatchmaking();
 		UUTParty* Party = GameInstance->GetParties();
 		if (Party)
 		{
@@ -135,12 +136,18 @@ FText SUTMatchmakingDialog::GetMatchmakingText() const
 				switch (PartyState->GetPartyProgression())
 				{
 				case EUTPartyState::PostMatchmaking:
-					return FText::Format(NSLOCTEXT("Generic", "WaitingOnOtherPlayers", "Server Found. Waiting For {0} Players To Join..."), FText::AsNumber(PartyState->GetMatchmakingPlayersNeeded()));
+					if (Matchmaking && Matchmaking->IsRankedMatchmaking())
+					{
+						return FText::Format(NSLOCTEXT("Generic", "WaitingOnOtherPlayers", "Server Found. Waiting For {0} Players To Join..."), FText::AsNumber(PartyState->GetMatchmakingPlayersNeeded()));
+					}
+					else
+					{
+						return NSLOCTEXT("Generic", "QMJoiningServer", "Server Found. Joining shortly...");
+					}
 				}
 			}
 		}
 
-		UUTMatchmaking* Matchmaking = GameInstance->GetMatchmaking();
 		if (Matchmaking)
 		{
 			int32 MatchmakingTeamElo = Matchmaking->GetMatchmakingTeamElo();
