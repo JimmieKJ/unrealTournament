@@ -489,7 +489,7 @@ TSharedRef<SWidget> SUTHUDSettingsDialog::BuildWeaponBarTab()
 
 		+AddIntOption(NAME_HUDWidgetWeaponbarInactiveOpacity, NSLOCTEXT("HUDSETTINGS", "WeaponBarOpacityLabel", "General Opacity:"),NSLOCTEXT("SUTHUDSettingsDialog", "HUDWeaponBarOpaictyTT", "Adjusts how transparent the Weapon Bar should be.  NOTE this is applied in addition to the normal transparency setting."), NSLOCTEXT("SUTHUDSettingsDialog", "Percent", "%"), int32(ProfileSettings->HUDWidgetWeaponbarInactiveOpacity * 100.0f), 0, 100)
 		+AddIntOption(NAME_HUDWidgetWeaponBarScaleOverride, NSLOCTEXT("HUDSETTINGS", "WeaponBarScaleLabel", "Scale:"), NSLOCTEXT("SUTHUDSettingsDialog", "HUDWeaponBarScaleTT", "Adjusts how big or small the Weapon Bar should be."), NSLOCTEXT("SUTHUDSettingsDialog", "Percent", "%"), (ProfileSettings->HUDWidgetWeaponBarScaleOverride * 100.0f), 25, 300)
-		+AddIntOption(NAME_HUDWidgetWeaponBarInactiveIconOpacity, NSLOCTEXT("HUDSETTINGS", "WeaponBarIconOpacityLabel", "Icon/Label Opacity:"), NSLOCTEXT("SUTHUDSettingsDialog", "HUDWeaponBarIconOpacityTT", "Adjusts how transparent the icons on the Weapon Bar should be."), NSLOCTEXT("SUTHUDSettingsDialog", "Percent", "%"), int32(ProfileSettings->HUDWidgetWeaponBarInactiveIconOpacity * 100.0f), 0, 100)
+		//+AddIntOption(NAME_HUDWidgetWeaponBarInactiveIconOpacity, NSLOCTEXT("HUDSETTINGS", "WeaponBarIconOpacityLabel", "Icon/Label Opacity:"), NSLOCTEXT("SUTHUDSettingsDialog", "HUDWeaponBarIconOpacityTT", "Adjusts how transparent the icons on the Weapon Bar should be."), NSLOCTEXT("SUTHUDSettingsDialog", "Percent", "%"), int32(ProfileSettings->HUDWidgetWeaponBarInactiveIconOpacity * 100.0f), 0, 100)
 		+AddIntOption(NAME_HUDWidgetWeaponBarEmptyOpacity, NSLOCTEXT("HUDSETTINGS", "WeaponBarEmptyOpacityLabel", "Empty Slot Opacity:"), NSLOCTEXT("SUTHUDSettingsDialog", "HUDWeaponBarEmptyOpacityTT", "Adjusts how transparent an empty Weapon Bar slot should be."), NSLOCTEXT("SUTHUDSettingsDialog", "Percent", "%"), int32(ProfileSettings->HUDWidgetWeaponBarEmptyOpacity * 100.0f), 0, 100)
 
 		// Spacer....
@@ -641,7 +641,7 @@ void SUTHUDSettingsDialog::ApplySettings()
 		//ProfileSettings->HUDWidgetSlateOpacity = float(SettingsInfos[NAME_HUDWidgetSlateOpacity]->GetActualValue_int32()) / 100.0f;
 		ProfileSettings->HUDWidgetWeaponbarInactiveOpacity = float(SettingsInfos[NAME_HUDWidgetWeaponbarInactiveOpacity]->GetActualValue_int32()) / 100.0f;
 		ProfileSettings->HUDWidgetWeaponBarScaleOverride = float(SettingsInfos[NAME_HUDWidgetWeaponBarScaleOverride]->GetActualValue_int32()) / 100.0f;
-		ProfileSettings->HUDWidgetWeaponBarInactiveIconOpacity = float(SettingsInfos[NAME_HUDWidgetWeaponBarInactiveIconOpacity]->GetActualValue_int32()) / 100.0f;
+		ProfileSettings->HUDWidgetWeaponBarInactiveIconOpacity = 1.0f; // float(SettingsInfos[NAME_HUDWidgetWeaponBarInactiveIconOpacity]->GetActualValue_int32()) / 100.0f;
 		ProfileSettings->HUDWidgetWeaponBarEmptyOpacity = float(SettingsInfos[NAME_HUDWidgetWeaponBarEmptyOpacity]->GetActualValue_int32()) / 100.0f;
 		ProfileSettings->HUDWidgetScaleOverride = float(SettingsInfos[NAME_HUDWidgetScaleOverride]->GetActualValue_int32()) / 100.0f;
 		ProfileSettings->HUDMessageScaleOverride = float(SettingsInfos[NAME_HUDMessageScaleOverride]->GetActualValue_int32()) / 100.0f;
