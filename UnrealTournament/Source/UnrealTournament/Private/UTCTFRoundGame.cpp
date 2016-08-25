@@ -114,6 +114,7 @@ int32 AUTCTFRoundGame::GetFlagCapScore()
 
 void AUTCTFRoundGame::CreateGameURLOptions(TArray<TSharedPtr<TAttributePropertyBase>>& MenuProps)
 {
+	MenuProps.Empty();
 	MenuProps.Add(MakeShareable(new TAttributeProperty<int32>(this, &BotFillCount, TEXT("BotFill"))));
 	MenuProps.Add(MakeShareable(new TAttributePropertyBool(this, &bBalanceTeams, TEXT("BalanceTeams"))));
 	MenuProps.Add(MakeShareable(new TAttributeProperty<int32>(this, &OffenseKillsNeededForPowerUp, TEXT("OffKillsForPowerup"))));

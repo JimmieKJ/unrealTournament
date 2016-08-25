@@ -109,6 +109,7 @@ void AUTDuelGame::GetGameURLOptions(const TArray<TSharedPtr<TAttributePropertyBa
 
 void AUTDuelGame::CreateGameURLOptions(TArray<TSharedPtr<TAttributePropertyBase>>& MenuProps)
 {
+	MenuProps.Empty();
 	MenuProps.Add(MakeShareable(new TAttributeProperty<int32>(this, &TimeLimit, TEXT("TimeLimit"))));
 	MenuProps.Add(MakeShareable(new TAttributeProperty<int32>(this, &GoalScore, TEXT("GoalScore"))));
 }
