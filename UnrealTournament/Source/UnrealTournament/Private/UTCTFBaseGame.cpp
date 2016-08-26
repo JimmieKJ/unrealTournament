@@ -483,6 +483,20 @@ bool AUTCTFBaseGame::SkipPlacement(AUTCharacter* UTChar)
 	return false;
 }
 
+void AUTCTFBaseGame::RestartPlayer(AController* aPlayer)
+{
+	if ((!IsMatchInProgress() && bPlacingPlayersAtIntermission) || (GetMatchState() == MatchState::MatchIntermission))
+	{
+		// placing players during intermission
+		if (bPlacingPlayersAtIntermission)
+		{
+			AGameMode::RestartPlayer(aPlayer);
+		}
+		return;
+	}
+	Super::RestartPlayer(aPlayer);
+}
+
 void AUTCTFBaseGame::PlacePlayersAroundFlagBase(int32 TeamNum, int32 FlagTeamNum)
 {
 	if ((CTFGameState == NULL) || (FlagTeamNum >= CTFGameState->FlagBases.Num()) || (CTFGameState->FlagBases[FlagTeamNum] == NULL))

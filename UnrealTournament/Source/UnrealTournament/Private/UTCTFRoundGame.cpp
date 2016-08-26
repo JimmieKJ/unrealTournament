@@ -987,12 +987,12 @@ bool AUTCTFRoundGame::ChangeTeam(AController* Player, uint8 NewTeamIndex, bool b
 
 void AUTCTFRoundGame::RestartPlayer(AController* aPlayer)
 {
-	if (GetMatchState() == MatchState::MatchIntermission)
+	if ((!IsMatchInProgress() && bPlacingPlayersAtIntermission) || (GetMatchState() == MatchState::MatchIntermission))
 	{
 		// placing players during intermission
 		if (bPlacingPlayersAtIntermission)
 		{
-			Super::RestartPlayer(aPlayer);
+			AGameMode::RestartPlayer(aPlayer);
 		}
 		return;
 	}

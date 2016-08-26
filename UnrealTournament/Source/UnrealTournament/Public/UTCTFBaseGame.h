@@ -80,6 +80,7 @@ class UNREALTOURNAMENT_API AUTCTFBaseGame : public AUTTeamGameMode
 	virtual void HandleExitingIntermission();
 	virtual void CheckGameTime() override;
 	virtual void HandleFlagCapture(AUTCharacter* HolderPawn, AUTPlayerState* Holder);
+	virtual void RestartPlayer(AController* aPlayer) override;
 
 	virtual uint8 GetNumMatchesFor(AUTPlayerState* PS, bool bRankedSession) const override;
 	virtual int32 GetEloFor(AUTPlayerState* PS, bool bRankedSession) const override;
