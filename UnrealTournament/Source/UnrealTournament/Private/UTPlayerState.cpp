@@ -2148,29 +2148,22 @@ TSharedRef<SWidget> AUTPlayerState::BuildLeagueInfoPane(const FString& LeagueTyp
 	if (LP)
 	{
 		FRankedLeagueProgress LeagueProgress;
+		FMMREntry MMREntry;
+		LP->GetMMREntry(LeagueType, MMREntry);
 		LP->GetLeagueProgress(LeagueType, LeagueProgress);
 		if (LeagueProgress.LeaguePlacementMatches < 10)
 		{
-			FText PlacementText = FText::Format(NSLOCTEXT("Generic", "ShowdownNeedPlacement", "{0} Matches Until Placement"), FText::AsNumber(10 - LeagueProgress.LeaguePlacementMatches));
-
 			VBox->AddSlot()
 			.Padding(10.0f, 0.0f, 10.0f, 5.0f)
 			.AutoHeight()
-			[				
-				SNew(SHorizontalBox)
-				+ SHorizontalBox::Slot()
-				.HAlign(HAlign_Left)
-				.VAlign(VAlign_Center)
-				.AutoWidth()
-				[
-					SNew(SBox)
-					[
-						SNew(STextBlock)
-						.Text(PlacementText)
-						.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.White")
-						.ColorAndOpacity(FLinearColor::Gray)
-					]
-				]
+			[
+				BuildLeagueDataRow(NSLOCTEXT("Generic", "3v3ShowdownMatchesUntil", "Matches Until Placement :"), FText::AsNumber(10 - LeagueProgress.LeaguePlacementMatches))
+			];
+			VBox->AddSlot()
+			.Padding(10.0f, 0.0f, 10.0f, 5.0f)
+			.AutoHeight()
+			[
+				BuildLeagueDataRow(NSLOCTEXT("Generic", "3v3ShowdownMMR", "MMR :"), FText::AsNumber(MMREntry.MMR))
 			];
 		}
 		else
@@ -2193,14 +2186,14 @@ TSharedRef<SWidget> AUTPlayerState::BuildLeagueInfoPane(const FString& LeagueTyp
 			.Padding(10.0f, 0.0f, 10.0f, 5.0f)
 			.AutoHeight()
 			[
-				BuildLeagueDataRow(NSLOCTEXT("Generic", "3v3ShowdownMMR", "MMR :"), FText::AsNumber(LP->GetRankRankedShowdown()))
+				BuildLeagueDataRow(NSLOCTEXT("Generic", "3v3ShowdownMMR", "MMR :"), FText::AsNumber(MMREntry.MMR))
 			];
 			
 			VBox->AddSlot()
 			.Padding(10.0f, 0.0f, 10.0f, 5.0f)
 			.AutoHeight()
 			[
-				BuildLeagueDataRow(NSLOCTEXT("Generic", "3v3ShowdownNumMatches", "Matches played :"), FText::AsNumber(LP->RankedShowdownEloMatches()))
+				BuildLeagueDataRow(NSLOCTEXT("Generic", "3v3ShowdownNumMatches", "Matches played :"), FText::AsNumber(MMREntry.MatchesPlayed))
 			];
 
 			if (LeagueProgress.bLeaguePromotionSeries)

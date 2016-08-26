@@ -14,6 +14,7 @@
 #include "Engine/UserInterfaceSettings.h"
 #include "UTHUDWidget_ReplayTimeSlider.h"
 #include "UTPlayerInput.h"
+#include "StatNames.h"
 
 #if !UE_SERVER
 
@@ -784,7 +785,35 @@ void SUTPlayerInfoDialog::UpdatePlayerStateInReplays()
 {
 	if (TargetPlayerState.IsValid() && TargetPlayerState->IsOwnedByReplayController())
 	{
-		UpdatePlayerStateRankingStatsFromLocalPlayer(PlayerOwner->GetRankDuel(), PlayerOwner->GetRankCTF(), PlayerOwner->GetRankTDM(), PlayerOwner->GetRankDM(), PlayerOwner->GetRankShowdown(), PlayerOwner->GetRankFlagRun(), PlayerOwner->GetTotalChallengeStars(), FMath::Min(255, PlayerOwner->DuelEloMatches()), FMath::Min(255, PlayerOwner->CTFEloMatches()), FMath::Min(255, PlayerOwner->TDMEloMatches()), FMath::Min(255, PlayerOwner->DMEloMatches()), FMath::Min(255, PlayerOwner->ShowdownEloMatches()), FMath::Min(255, PlayerOwner->FlagRunEloMatches()));
+		FMMREntry DuelMMR;
+		FMMREntry CTFMMR;
+		FMMREntry TDMMMR;
+		FMMREntry DMMMR;
+		FMMREntry ShowdownMMR;
+		FMMREntry FlagRunMMR;
+
+		PlayerOwner->GetMMREntry(NAME_SkillRating.ToString(), DuelMMR);
+		PlayerOwner->GetMMREntry(NAME_CTFSkillRating.ToString(), CTFMMR);
+		PlayerOwner->GetMMREntry(NAME_TDMSkillRating.ToString(), TDMMMR);
+		PlayerOwner->GetMMREntry(NAME_DMSkillRating.ToString(), DMMMR);
+		PlayerOwner->GetMMREntry(NAME_ShowdownSkillRating.ToString(), ShowdownMMR);
+		PlayerOwner->GetMMREntry(NAME_FlagRunSkillRating.ToString(), FlagRunMMR);
+
+		UpdatePlayerStateRankingStatsFromLocalPlayer(
+			DuelMMR.MMR,
+			CTFMMR.MMR,
+			TDMMMR.MMR,
+			DMMMR.MMR,
+			ShowdownMMR.MMR,
+			FlagRunMMR.MMR,
+			PlayerOwner->GetTotalChallengeStars(), 
+			FMath::Min(255, DuelMMR.MatchesPlayed),
+			FMath::Min(255, CTFMMR.MatchesPlayed),
+			FMath::Min(255, TDMMMR.MatchesPlayed),
+			FMath::Min(255, DMMMR.MatchesPlayed),
+			FMath::Min(255, ShowdownMMR.MatchesPlayed),
+			FMath::Min(255, FlagRunMMR.MatchesPlayed));
+
 		UpdatePlayerCharacterPreviewInReplays();
 	}
 }

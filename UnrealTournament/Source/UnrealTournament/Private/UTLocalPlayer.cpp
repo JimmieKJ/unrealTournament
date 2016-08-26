@@ -1121,6 +1121,9 @@ void UUTLocalPlayer::OnLoginStatusChanged(int32 LocalUserNum, ELoginStatus::Type
 	{
 		EnumerateTitleFiles();
 
+		LeagueRecords.Empty();
+		MMREntries.Empty();
+
 		ReadMMRFromBackend();
 		UpdatePresence(LastPresenceUpdate, bLastAllowInvites,bLastAllowInvites,bLastAllowInvites,false);
 		ReadCloudFileListing();
@@ -1971,70 +1974,27 @@ void UUTLocalPlayer::ReadSpecificELOFromBackend(const FString& MatchRatingType)
 			int32 NewRating = 0;
 			
 			bool bRankedSession = false;
-			if (MatchRatingType == NAME_SkillRating.ToString())
+
+			FMMREntry NewMMREntry;
+			FMMREntry OldMMREntry;
+			GetMMREntry(MatchRatingType, OldMMREntry);
+			OldRating = OldMMREntry.MMR;
+			NewRating = Response.Rating;
+
+			NewMMREntry.MMR = Response.Rating;
+			NewMMREntry.MatchesPlayed = Response.NumGamesPlayed;
+			UpdateMMREntry(MatchRatingType, NewMMREntry);
+
+			if (MatchRatingType == NAME_RankedDuelSkillRating.ToString())
 			{
-				OldRating = DUEL_ELO;
-				DUEL_ELO = Response.Rating;
-				NewRating = DUEL_ELO;
-				DuelMatchesPlayed = Response.NumGamesPlayed;
-			}
-			else if (MatchRatingType == NAME_TDMSkillRating.ToString())
-			{
-				OldRating = TDM_ELO;
-				TDM_ELO = Response.Rating;
-				NewRating = TDM_ELO;
-				TDMMatchesPlayed = Response.NumGamesPlayed;
-			}
-			else if (MatchRatingType == NAME_DMSkillRating.ToString())
-			{
-				OldRating = FFA_ELO;
-				FFA_ELO = Response.Rating;
-				NewRating = FFA_ELO;
-				FFAMatchesPlayed = Response.NumGamesPlayed;
-			}
-			else if (MatchRatingType == NAME_CTFSkillRating.ToString())
-			{
-				OldRating = CTF_ELO;
-				CTF_ELO = Response.Rating;
-				NewRating = CTF_ELO;
-				CTFMatchesPlayed = Response.NumGamesPlayed;
-			}
-			else if (MatchRatingType == NAME_ShowdownSkillRating.ToString())
-			{
-				OldRating = Showdown_ELO;
-				Showdown_ELO = Response.Rating;
-				NewRating = Showdown_ELO;
-				ShowdownMatchesPlayed = Response.NumGamesPlayed;
-			}
-			else if (MatchRatingType == NAME_FlagRunSkillRating.ToString())
-			{
-				OldRating = FlagRun_ELO;
-				FlagRun_ELO = Response.Rating;
-				NewRating = FlagRun_ELO;
-				FlagRunMatchesPlayed = Response.NumGamesPlayed;
-			}
-			else if (MatchRatingType == NAME_RankedDuelSkillRating.ToString())
-			{
-				OldRating = RankedDuel_ELO;
-				RankedDuel_ELO = Response.Rating;
-				NewRating = RankedDuel_ELO;
-				RankedDuelMatchesPlayed = Response.NumGamesPlayed;
 				bRankedSession = true;
 			}
 			else if (MatchRatingType == NAME_RankedCTFSkillRating.ToString())
 			{
-				OldRating = RankedCTF_ELO;
-				RankedCTF_ELO = Response.Rating;
-				NewRating = RankedCTF_ELO;
-				RankedCTFMatchesPlayed = Response.NumGamesPlayed;
 				bRankedSession = true;
 			}
 			else if (MatchRatingType == NAME_RankedShowdownSkillRating.ToString())
 			{
-				OldRating = RankedShowdown_ELO;
-				RankedShowdown_ELO = Response.Rating;
-				NewRating = RankedShowdown_ELO;
-				RankedShowdownMatchesPlayed = Response.NumGamesPlayed;
 				bRankedSession = true;
 			}
 
@@ -2329,51 +2289,10 @@ void UUTLocalPlayer::ReadMMRFromBackend()
 				UE_LOG(UT, Display, TEXT("%s MMR read %d, %d matches"), *Response.RatingTypes[i], Response.Ratings[i], Response.NumGamesPlayed[i]);
 
 				bool bRankedSession = false;
-				if (Response.RatingTypes[i] == NAME_SkillRating.ToString())
-				{
-					WeakLocalPlayer->DUEL_ELO = Response.Ratings[i];
-					WeakLocalPlayer->DuelMatchesPlayed = Response.NumGamesPlayed[i];
-				}
-				else if (Response.RatingTypes[i] == NAME_TDMSkillRating.ToString())
-				{
-					WeakLocalPlayer->TDM_ELO = Response.Ratings[i];
-					WeakLocalPlayer->TDMMatchesPlayed = Response.NumGamesPlayed[i];
-				}
-				else if (Response.RatingTypes[i] == NAME_DMSkillRating.ToString())
-				{
-					WeakLocalPlayer->FFA_ELO = Response.Ratings[i];
-					WeakLocalPlayer->FFAMatchesPlayed = Response.NumGamesPlayed[i];
-				}
-				else if (Response.RatingTypes[i] == NAME_CTFSkillRating.ToString())
-				{
-					WeakLocalPlayer->CTF_ELO = Response.Ratings[i];
-					WeakLocalPlayer->CTFMatchesPlayed = Response.NumGamesPlayed[i];
-				}
-				else if (Response.RatingTypes[i] == NAME_ShowdownSkillRating.ToString())
-				{
-					WeakLocalPlayer->Showdown_ELO = Response.Ratings[i];
-					WeakLocalPlayer->ShowdownMatchesPlayed = Response.NumGamesPlayed[i];
-				}
-				else if (Response.RatingTypes[i] == NAME_FlagRunSkillRating.ToString())
-				{
-					WeakLocalPlayer->FlagRun_ELO = Response.Ratings[i];
-					WeakLocalPlayer->FlagRunMatchesPlayed = Response.NumGamesPlayed[i];
-				}
-				else if (Response.RatingTypes[i] == NAME_RankedDuelSkillRating.ToString())
-				{
-					WeakLocalPlayer->RankedDuel_ELO = Response.Ratings[i];
-					WeakLocalPlayer->RankedDuelMatchesPlayed = Response.NumGamesPlayed[i];
-				}
-				else if (Response.RatingTypes[i] == NAME_RankedCTFSkillRating.ToString())
-				{
-					WeakLocalPlayer->RankedCTF_ELO = Response.Ratings[i];
-					WeakLocalPlayer->RankedCTFMatchesPlayed = Response.NumGamesPlayed[i];
-				}
-				else if (Response.RatingTypes[i] == NAME_RankedShowdownSkillRating.ToString())
-				{
-					WeakLocalPlayer->RankedShowdown_ELO = Response.Ratings[i];
-					WeakLocalPlayer->RankedShowdownMatchesPlayed = Response.NumGamesPlayed[i];
-				}
+				FMMREntry MMREntry;
+				MMREntry.MMR = Response.Ratings[i];
+				MMREntry.MatchesPlayed = Response.NumGamesPlayed[i];
+				WeakLocalPlayer->UpdateMMREntry(Response.RatingTypes[i], MMREntry);
 			}
 
 			// We're in the menus, just fill out the player state for the player card right now
@@ -2382,19 +2301,46 @@ void UUTLocalPlayer::ReadMMRFromBackend()
 				AUTPlayerState* UTPS = Cast<AUTPlayerState>(WeakLocalPlayer->PlayerController->PlayerState);
 				if (UTPS)
 				{
-					UTPS->DuelRank = WeakLocalPlayer->DUEL_ELO;
-					UTPS->TDMRank = WeakLocalPlayer->TDM_ELO;
-					UTPS->DMRank = WeakLocalPlayer->FFA_ELO;
-					UTPS->CTFRank = WeakLocalPlayer->CTF_ELO;
-					UTPS->ShowdownRank = WeakLocalPlayer->Showdown_ELO;
-					UTPS->RankedShowdownRank = WeakLocalPlayer->RankedShowdown_ELO;
 
-					UTPS->DuelMatchesPlayed = FMath::Min(255, WeakLocalPlayer->DuelMatchesPlayed);
-					UTPS->TDMMatchesPlayed = FMath::Min(255, WeakLocalPlayer->TDMMatchesPlayed);
-					UTPS->DMMatchesPlayed = FMath::Min(255, WeakLocalPlayer->FFAMatchesPlayed);
-					UTPS->CTFMatchesPlayed = FMath::Min(255, WeakLocalPlayer->CTFMatchesPlayed);
-					UTPS->ShowdownMatchesPlayed = FMath::Min(255, WeakLocalPlayer->ShowdownMatchesPlayed);
-					UTPS->RankedShowdownMatchesPlayed = FMath::Min(255, WeakLocalPlayer->RankedShowdownMatchesPlayed);
+					FMMREntry DuelMMR;
+					FMMREntry CTFMMR;
+					FMMREntry TDMMMR;
+					FMMREntry DMMMR;
+					FMMREntry ShowdownMMR;
+					FMMREntry FlagRunMMR;
+					FMMREntry RankedShowdownMMR;
+					FMMREntry RankedCTFMMR;
+					FMMREntry RankedDuelMMR;
+
+					WeakLocalPlayer->GetMMREntry(NAME_SkillRating.ToString(), DuelMMR);
+					WeakLocalPlayer->GetMMREntry(NAME_CTFSkillRating.ToString(), CTFMMR);
+					WeakLocalPlayer->GetMMREntry(NAME_TDMSkillRating.ToString(), TDMMMR);
+					WeakLocalPlayer->GetMMREntry(NAME_DMSkillRating.ToString(), DMMMR);
+					WeakLocalPlayer->GetMMREntry(NAME_ShowdownSkillRating.ToString(), ShowdownMMR);
+					WeakLocalPlayer->GetMMREntry(NAME_FlagRunSkillRating.ToString(), FlagRunMMR);
+					WeakLocalPlayer->GetMMREntry(NAME_RankedShowdownSkillRating.ToString(), RankedShowdownMMR);
+					WeakLocalPlayer->GetMMREntry(NAME_RankedCTFSkillRating.ToString(), RankedCTFMMR);
+					WeakLocalPlayer->GetMMREntry(NAME_RankedDuelSkillRating.ToString(), RankedDuelMMR);
+
+					UTPS->DuelRank = DuelMMR.MMR;
+					UTPS->TDMRank = TDMMMR.MMR;
+					UTPS->DMRank = DMMMR.MMR;
+					UTPS->CTFRank = CTFMMR.MMR;
+					UTPS->ShowdownRank = ShowdownMMR.MMR;
+					UTPS->FlagRunRank = FlagRunMMR.MMR;
+					UTPS->RankedShowdownRank = RankedShowdownMMR.MMR;
+					UTPS->RankedCTFRank = RankedCTFMMR.MMR;
+					UTPS->RankedDuelRank = RankedDuelMMR.MMR;
+
+					UTPS->DuelMatchesPlayed = FMath::Min(255, DuelMMR.MatchesPlayed);
+					UTPS->TDMMatchesPlayed = FMath::Min(255, TDMMMR.MatchesPlayed);
+					UTPS->DMMatchesPlayed = FMath::Min(255, DMMMR.MatchesPlayed);
+					UTPS->CTFMatchesPlayed = FMath::Min(255, CTFMMR.MatchesPlayed);
+					UTPS->ShowdownMatchesPlayed = FMath::Min(255, ShowdownMMR.MatchesPlayed);
+					UTPS->FlagRunMatchesPlayed = FMath::Min(255, FlagRunMMR.MatchesPlayed);
+					UTPS->RankedShowdownMatchesPlayed = FMath::Min(255, RankedShowdownMMR.MatchesPlayed);
+					UTPS->RankedCTFMatchesPlayed = FMath::Min(255, RankedCTFMMR.MatchesPlayed);
+					UTPS->RankedDuelMatchesPlayed = FMath::Min(255, RankedDuelMMR.MatchesPlayed);
 				}
 			}
 		}
@@ -5651,6 +5597,29 @@ void UUTLocalPlayer::OnPlayerTalkingStateChanged(TSharedRef<const FUniqueNetId> 
 				}
 			}
 		}
+	}
+}
+
+bool UUTLocalPlayer::GetMMREntry(const FString& RatingName, FMMREntry& OutMMRRating)
+{
+	if (MMREntries.Contains(RatingName))
+	{
+		OutMMRRating = MMREntries[RatingName];
+		return true;
+	}
+
+	return false;
+}
+
+void UUTLocalPlayer::UpdateMMREntry(const FString& RatingName, const FMMREntry& InMMRRating)
+{
+	if (MMREntries.Contains(RatingName))
+	{
+		MMREntries[RatingName] = InMMRRating;
+	}
+	else
+	{
+		MMREntries.Add(RatingName, InMMRRating);
 	}
 }
 
