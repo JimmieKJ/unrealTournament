@@ -147,7 +147,7 @@ void AUTCTFGameState::Tick(float DeltaTime)
 							{
 								AlreadyRallied++;
 							}
-							else if ((PS->NextRallyTime < GetWorld()->GetTimeSeconds() + 7.f) && (!PS->GetUTCharacter() || (PS->GetUTCharacter()->bCanRally && ((PS->GetUTCharacter()->GetActorLocation() - Flag->HoldingPawn->GetActorLocation()).Size() > 2500.f))))
+							else if ((PS->NextRallyTime < GetWorld()->GetTimeSeconds() + 4.f) && (!PS->GetUTCharacter() || (PS->GetUTCharacter()->bCanRally && ((PS->GetUTCharacter()->GetActorLocation() - Flag->HoldingPawn->GetActorLocation()).Size() > 3500.f))))
 							{
 								RemainingToRally++;
 							}
