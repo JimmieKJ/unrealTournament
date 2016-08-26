@@ -234,13 +234,13 @@ UUTChallengeManager::UUTChallengeManager(const FObjectInitializer& ObjectInitial
 	Challenges.Add(NAME_ChallengeUnderlandBounce,
 		FUTChallengeInfo(NAME_ChallengeUnderlandBounce, TEXT("Lets Bounce in Underland"), TEXT("/Game/RestrictedAssets/Maps/DM-Underland"),
 			TEXT("?Game=DM?Mutator=LetsBounce"),
-			TEXT("Lets Bounce!"),
+			TEXT("Lets Bounce Deathmatch!"),
 			0, 4, NAME_EasyFFATeam, NAME_MediumFFATeam, NAME_HardFFATeam, NAME_ChallengeSlateBadgeName_Underland_FFA, NAME_REWARD_BlueStars));
 
 	Challenges.Add(NAME_ChallengeChillBounce,
 		FUTChallengeInfo(NAME_ChallengeChillBounce, TEXT("Lets Bounce with Big Head in Chill"), TEXT("/Game/RestrictedAssets/Maps/DM-Chill"),
 			TEXT("?Game=DM?Mutator=LetsBounce,BigHead"),
-			TEXT("Lets Bounce with Big Head!"),
+			TEXT("Lets Bounce with Big Head Deathmatch!"),
 			0, 5, NAME_EasyFFATeam, NAME_MediumFFATeam, NAME_HardFFATeam, NAME_ChallengeSlateBadgeName_Chill_FFA, NAME_REWARD_BlueStars));
 
 	RewardCaptions.Add(NAME_REWARD_HalloweenStars, NSLOCTEXT("ChallengeManage","HalloweenStarsCaption","You have earned {0} spooky stars!"));
