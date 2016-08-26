@@ -391,11 +391,11 @@ void AUTFlagRunGame::CompleteRallyRequest(AUTPlayerController* RequestingPC)
 		float RallyDelay = 10.f;
 		// rally to flag carrier
 		AUTCTFFlag* Flag = Cast<AUTCTFFlag>(GS->FlagBases[GS->bRedToCap ? 0 : 1]->GetCarriedObject());
-		AUTCharacter* FlagCarrier = Flag ? Flag->HoldingPawn : nullptr;
-		if (FlagCarrier == nullptr)
+		if (Flag == nullptr)
 		{
 			return;
 		}
+		AUTCharacter* FlagCarrier = Flag->HoldingPawn;
 		ECollisionChannel SavedObjectType = UTCharacter->GetCapsuleComponent()->GetCollisionObjectType();
 		UTCharacter->GetCapsuleComponent()->SetCollisionObjectType(COLLISION_TELEPORTING_OBJECT);
 		float Offset = 4.f * Radius;
@@ -407,7 +407,7 @@ void AUTFlagRunGame::CompleteRallyRequest(AUTPlayerController* RequestingPC)
 		}
 		else
 		{
-			float RecentPosDist = (FlagCarrier->GetActorLocation() - Flag->RecentPosition[0]).Size();
+			float RecentPosDist = FlagCarrier ? (FlagCarrier->GetActorLocation() - Flag->RecentPosition[0]).Size() : 100.f;
 			if ((RecentPosDist < 400.f) && (RecentPosDist > 50.f) && GetWorld()->FindTeleportSpot(UTCharacter, Flag->RecentPosition[0], WarpRotation))
 			{
 				WarpLocation = Flag->RecentPosition[0];
@@ -415,7 +415,11 @@ void AUTFlagRunGame::CompleteRallyRequest(AUTPlayerController* RequestingPC)
 			else
 			{
 				FVector CarrierLocation = RequestingPC->RallyLocation;
-				WarpLocation = CarrierLocation + FVector(0.f, 0.f, HalfHeight) + 100.f*(FlagCarrier->GetVelocity().IsNearlyZero() ? FlagCarrier->GetActorRotation().Vector() : -1.f *  FlagCarrier->GetVelocity().GetSafeNormal());
+				WarpLocation = CarrierLocation + FVector(0.f, 0.f, HalfHeight);
+				if (FlagCarrier)
+				{
+					WarpLocation += 100.f*(FlagCarrier->GetVelocity().IsNearlyZero() ? FlagCarrier->GetActorRotation().Vector() : -1.f *  FlagCarrier->GetVelocity().GetSafeNormal());
+				}
 				if (GetWorld()->SweepSingleByChannel(Hit, CarrierLocation, WarpLocation, FQuat::Identity, UTCharacter->GetCapsuleComponent()->GetCollisionObjectType(), FCollisionShape::MakeCapsule(Radius, HalfHeight), FCollisionQueryParams(FName(TEXT("Translocation")), false, UTCharacter), UTCharacter->GetCapsuleComponent()->GetCollisionResponseToChannels()))
 				{
 					WarpLocation = Hit.Location;
@@ -446,7 +450,7 @@ void AUTFlagRunGame::CompleteRallyRequest(AUTPlayerController* RequestingPC)
 			return;
 		}
 		UTCharacter->GetCapsuleComponent()->SetCollisionObjectType(SavedObjectType);
-		FRotator DesiredRotation = (FlagCarrier->GetActorLocation() - WarpLocation).Rotation();
+		FRotator DesiredRotation = FlagCarrier ? (FlagCarrier->GetActorLocation() - WarpLocation).Rotation() : (Flag->GetActorLocation() - WarpLocation).Rotation();
 		WarpRotation.Yaw = DesiredRotation.Yaw;
 		RallyDelay = 20.f;
 
