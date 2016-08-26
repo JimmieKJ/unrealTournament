@@ -3363,12 +3363,12 @@ void UUTLocalPlayer::StartQuickMatch(FString QuickMatchType)
 		}
 		if (GetWorld()->GetTimeSeconds() < QuickMatchLimitTime)
 		{
-			MessageBox(NSLOCTEXT("Generic","CantStartQuickMatchTitle","Please Wait"), NSLOCTEXT("Generic","CantStartQuickMatchText","You need to wait for at least 1 minute before you can attempt to quickmatch again."));
+			MessageBox(NSLOCTEXT("Generic","CantStartQuickMatchTitle","Please Wait"), NSLOCTEXT("Generic","CantStartQuickMatchText","You need to wait for at least 1 minute before you can attempt to quickplay again."));
 			return;
 		}
 		if ( ServerBrowserWidget.IsValid() && ServerBrowserWidget->IsRefreshing())
 		{
-			MessageBox(NSLOCTEXT("Generic","RequestInProgressTitle","Busy"), NSLOCTEXT("Generic","RequestInProgressText","A server list request is already in progress.  Please wait for it to finish before attempting to quickmatch."));
+			MessageBox(NSLOCTEXT("Generic","RequestInProgressTitle","Busy"), NSLOCTEXT("Generic","RequestInProgressText","A server list request is already in progress.  Please wait for it to finish before attempting to quickplay."));
 			return;
 		}
 
