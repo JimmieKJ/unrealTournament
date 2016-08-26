@@ -547,7 +547,7 @@ void AUTLobbyGameState::LaunchGameInstance(AUTLobbyMatchInfo* MatchOwner, FStrin
 		FString EpicAppValue;
 		if (FParse::Value(FCommandLine::Get(), TEXT("EpicApp="), EpicAppValue))
 		{
-			Options += TEXT(" -EpicApp") + EpicAppValue;
+			Options += TEXT(" -EpicApp=") + EpicAppValue;
 		}
 
 		UE_LOG(UT,Verbose,TEXT("Launching %s with Params %s"), *ExecPath, *Options);
