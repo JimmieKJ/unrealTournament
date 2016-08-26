@@ -54,6 +54,7 @@ void UUTAnnouncer::PlayAnnouncement(TSubclassOf<UUTLocalMessage> MessageClass, i
 			// if we should cancel the current announcement, then play the new one over top of it
 			if (CurrentAnnouncement.MessageClass != NULL && MessageClass.GetDefaultObject()->InterruptAnnouncement(Switch, OptionalObject, CurrentAnnouncement.MessageClass, CurrentAnnouncement.Switch, CurrentAnnouncement.OptionalObject))
 			{
+				//UE_LOG(UT, Warning, TEXT("%s %d interrupting %s %d"), *MessageClass->GetName(), Switch, *CurrentAnnouncement.MessageClass->GetName(), CurrentAnnouncement.Switch);
 				QueuedAnnouncements.Insert(NewAnnouncement, 0);
 				StartNextAnnouncement(false);
 			}
@@ -71,11 +72,13 @@ void UUTAnnouncer::PlayAnnouncement(TSubclassOf<UUTLocalMessage> MessageClass, i
 					}
 					if (MessageClass.GetDefaultObject()->InterruptAnnouncement(Switch, OptionalObject, QueuedAnnouncements[i].MessageClass, QueuedAnnouncements[i].Switch, QueuedAnnouncements[i].OptionalObject))
 					{
+						//UE_LOG(UT, Warning, TEXT("%s %d interrupting %s %d"), *MessageClass->GetName(), Switch, *QueuedAnnouncements[i].MessageClass->GetName(), QueuedAnnouncements[i].Switch);
 						QueuedAnnouncements.RemoveAt(i);
 						InsertIndex = FMath::Min(InsertIndex, QueuedAnnouncements.Num());
 					}
 					else if (MessageClass.GetDefaultObject()->CancelByAnnouncement(Switch, OptionalObject, QueuedAnnouncements[i].MessageClass, QueuedAnnouncements[i].Switch, QueuedAnnouncements[i].OptionalObject))
 					{
+						//UE_LOG(UT, Warning, TEXT("%s %d cancelled by %s %d"), *MessageClass->GetName(), Switch, *QueuedAnnouncements[i].MessageClass->GetName(), QueuedAnnouncements[i].Switch);
 						bCancelThisAnnouncement = true;
 					}
 				}
@@ -130,11 +133,13 @@ void UUTAnnouncer::StartNextAnnouncement(bool bUseSpacing)
 
 void UUTAnnouncer::PlayNextAnnouncement()
 {
+	//UE_LOG(UT, Warning, TEXT("%s PlayNextAnnouncement"), *GetName());
 	GetWorld()->GetTimerManager().ClearTimer(PlayNextAnnouncementHandle);
 	if (QueuedAnnouncements.Num() > 0)
 	{
 		if (AnnouncementComp->IsPlaying())
 		{
+			//UE_LOG(UT, Warning, TEXT("%s Interrupt announcement %s"), *GetName(), *AnnouncementComp->Sound->GetName());
 			// disable the delegate while interrupting to avoid recursion
 			AnnouncementComp->OnAudioFinished.RemoveDynamic(this, &UUTAnnouncer::AnnouncementFinished);
 			AnnouncementComp->Stop();
@@ -230,6 +235,7 @@ void UUTAnnouncer::PlayNextAnnouncement()
 			AnnouncementComp->Sound = Audio;
 			AnnouncementComp->Play();
 			CurrentAnnouncement = Next;
+			//UE_LOG(UT, Warning, TEXT("%s Play announcement %s"), *GetName(), *AnnouncementComp->Sound->GetName());
 		}
 		else
 		{

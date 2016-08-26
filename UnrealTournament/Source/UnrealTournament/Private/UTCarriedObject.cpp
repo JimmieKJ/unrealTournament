@@ -757,7 +757,7 @@ void AUTCarriedObject::SendHome()
 			if ((GetWorld()->GetTimeSeconds() - LastDroppedMessageTime > AutoReturnTime - 2.f) && GameState && !GameState->IsMatchIntermission() && !GameState->HasMatchEnded())
 			{
 				LastDroppedMessageTime = GetWorld()->GetTimeSeconds();
-				SendGameMessage(3, NULL, NULL);
+				SendGameMessage((Team && (Team->TeamIndex == 0)) ? 0 : 1, NULL, NULL);
 			}
 			OnObjectStateChanged();
 			ForceNetUpdate();
