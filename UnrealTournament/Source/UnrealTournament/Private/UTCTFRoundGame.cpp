@@ -57,6 +57,7 @@ AUTCTFRoundGame::AUTCTFRoundGame(const FObjectInitializer& ObjectInitializer)
 	SquadType = AUTAsymCTFSquadAI::StaticClass();
 	NumRounds = 6;
 	bHideInUI = true;
+	bAllowBoosts = false;
 
 	bAttackerLivesLimited = false;
 	bDefenderLivesLimited = true;
@@ -140,7 +141,7 @@ void AUTCTFRoundGame::InitGame(const FString& MapName, const FString& Options, F
 		RepulsorClass = Cast<UClass>(StaticLoadObject(UClass::StaticClass(), NULL, *RepulsorObject.ToStringReference().ToString(), NULL, LOAD_NoWarn));
 	}
 
-	// key options are ?RoundLives=xx?Dash=xx?Asymm=xx?PerPlayerLives=xx?OffKillsForPowerup=xx?DefKillsForPowerup=xx?AllowPrototypePowerups=xx?DelayRally=xxx
+	// key options are ?RoundLives=xx?Dash=xx?Asymm=xx?PerPlayerLives=xx?OffKillsForPowerup=xx?DefKillsForPowerup=xx?AllowPrototypePowerups=xx?DelayRally=xxx?Boost=xx
 	RoundLives = FMath::Max(1, UGameplayStatics::GetIntOption(Options, TEXT("RoundLives"), RoundLives));
 
 	FString InOpt = UGameplayStatics::ParseOption(Options, TEXT("OwnFlag"));
@@ -165,6 +166,14 @@ void AUTCTFRoundGame::InitGame(const FString& MapName, const FString& Options, F
 
 	InOpt = UGameplayStatics::ParseOption(Options, TEXT("DelayRally"));
 	bDelayedRally = EvalBoolOptions(InOpt, bDelayedRally);
+
+	InOpt = UGameplayStatics::ParseOption(Options, TEXT("Boost"));
+	bAllowBoosts = EvalBoolOptions(InOpt, bAllowBoosts);
+	if (!bAllowBoosts)
+	{
+		OffenseKillsNeededForPowerUp = 1000;
+		DefenseKillsNeededForPowerUp = 1000;
+	}
 }
 
 void AUTCTFRoundGame::GiveDefaultInventory(APawn* PlayerPawn)
@@ -931,7 +940,7 @@ bool AUTCTFRoundGame::ChangeTeam(AController* Player, uint8 NewTeamIndex, bool b
 	if (bResult && (GetMatchState() == MatchState::InProgress))
 	{
 		// If a player doesn't have a valid selected boost powerup, lets go ahead and give them the 1st one available in the Powerup List
-		if (PS && UTGameState)
+		if (PS && UTGameState && bAllowBoosts)
 		{
 			if (!PS->BoostClass || !UTGameState->IsSelectedBoostValid(PS))
 			{
@@ -1000,6 +1009,11 @@ void AUTCTFRoundGame::RestartPlayer(AController* aPlayer)
 	AUTPlayerController* PC = Cast<AUTPlayerController>(aPlayer);
 	if (bPerPlayerLives && PS && PS->Team && HasMatchStarted())
 	{
+		if (IsPlayerOnLifeLimitedTeam(PS) && (PS->RemainingLives == 0))
+		{
+			// failsafe for player that leaves match before RemainingLives are set and then rejoins
+			PS->SetOutOfLives(true);
+		}
 		if (PS->bOutOfLives)
 		{
 			if (PC != NULL)
@@ -1483,6 +1497,10 @@ void AUTCTFRoundGame::UpdatePowerupUnlockProgress(AUTPlayerState* VictimPS, AUTP
 
 void AUTCTFRoundGame::GrantPowerupToTeam(int TeamIndex, AUTPlayerState* PlayerToHighlight)
 {
+	if (!bAllowBoosts)
+	{
+		return;
+	}
 	for (int32 i = 0; i < UTGameState->PlayerArray.Num(); i++)
 	{
 		AUTPlayerState* PS = Cast<AUTPlayerState>(UTGameState->PlayerArray[i]);

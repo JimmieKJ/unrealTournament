@@ -70,6 +70,9 @@ class UNREALTOURNAMENT_API AUTCTFRoundGameState : public AUTCTFGameState
 	UPROPERTY()
 		FText SilverBonusTimedText;
 
+	UPROPERTY(Replicated)
+		bool bAllowBoosts;
+
 	UFUNCTION()
 	void OnBonusLevelChanged();
 

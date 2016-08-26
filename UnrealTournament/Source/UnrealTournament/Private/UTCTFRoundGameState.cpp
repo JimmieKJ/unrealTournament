@@ -36,6 +36,7 @@ void AUTCTFRoundGameState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty 
 	DOREPLIFETIME(AUTCTFRoundGameState, DefenseKillsNeededForPowerup);
 	DOREPLIFETIME(AUTCTFRoundGameState, bIsDefenseAbleToGainPowerup);
 	DOREPLIFETIME(AUTCTFRoundGameState, bIsOffenseAbleToGainPowerup);
+	DOREPLIFETIME(AUTCTFRoundGameState, bAllowBoosts);
 	DOREPLIFETIME(AUTCTFRoundGameState, bUsePrototypePowerupSelect);
 	DOREPLIFETIME(AUTCTFRoundGameState, BonusLevel);
 	DOREPLIFETIME(AUTCTFRoundGameState, GoldBonusThreshold);
@@ -53,6 +54,7 @@ void AUTCTFRoundGameState::BeginPlay()
 	if (GetWorld() && GetWorld()->GetAuthGameMode<AUTCTFRoundGame>())
 	{
 		bUsePrototypePowerupSelect = GetWorld()->GetAuthGameMode<AUTCTFRoundGame>()->bAllowPrototypePowerups;
+		bAllowBoosts = GetWorld()->GetAuthGameMode<AUTCTFRoundGame>()->bAllowBoosts;
 	}
 
 	UpdateSelectablePowerups();
@@ -61,6 +63,12 @@ void AUTCTFRoundGameState::BeginPlay()
 
 void AUTCTFRoundGameState::UpdateSelectablePowerups()
 {
+	if (!bAllowBoosts)
+	{
+		OffenseSelectablePowerups.Empty();
+		DefenseSelectablePowerups.Empty();
+		return;
+	}
 	const int32 RedTeamIndex = 0;
 	const int32 BlueTeamIndex = 1;
 	const bool bIsRedTeamOffense = IsTeamOnDefenseNextRound(RedTeamIndex);
@@ -311,7 +319,18 @@ FText AUTCTFRoundGameState::GetGameStatusText(bool bForScoreboard)
 
 FString AUTCTFRoundGameState::GetPowerupSelectWidgetPath(int32 TeamNumber)
 {
-	if (bUsePrototypePowerupSelect)
+	if (!bAllowBoosts)
+	{
+		if (IsTeamOnDefenseNextRound(TeamNumber))
+		{
+			return TEXT("/Game/RestrictedAssets/Blueprints/BP_PowerupSelector_EmptyDefense.BP_PowerupSelector_EmptyDefense_C");
+		}
+		else
+		{
+			return TEXT("/Game/RestrictedAssets/Blueprints/BP_PowerupSelector_EmptyOffense.BP_PowerupSelector_EmptyOffense_C");
+		}
+	}
+	else if (bUsePrototypePowerupSelect)
 	{
 		if (IsTeamOnDefenseNextRound(TeamNumber))
 		{
@@ -373,4 +392,4 @@ bool AUTCTFRoundGameState::InOrder(AUTPlayerState* P1, AUTPlayerState* P2)
 	}
 	return true;
 }
-
+ 

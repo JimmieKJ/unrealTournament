@@ -226,12 +226,15 @@ void AUTFlagRunHUD::OpenPowerupSelectMenu()
 	if (UTPS)
 	{
 		// say offense/defense and select your powerup
-		AUTCTFGameState* GS = GetWorld()->GetGameState<AUTCTFGameState>();
+		AUTCTFRoundGameState* GS = GetWorld()->GetGameState<AUTCTFRoundGameState>();
 		if (GS && UTPS->Team)
 		{
 			UTPlayerOwner->ClientReceiveLocalizedMessage(UUTCTFRoleMessage::StaticClass(), (GS->bRedToCap == (UTPS->Team->TeamIndex == 0)) ? 2 : 1);
 		}
-		UTPlayerOwner->ClientReceiveLocalizedMessage(UUTCTFRoleMessage::StaticClass(), 3);
+		if (GS && GS->bAllowBoosts)
+		{
+			UTPlayerOwner->ClientReceiveLocalizedMessage(UUTCTFRoleMessage::StaticClass(), 3);
+		}
 		UTPS->bIsPowerupSelectWindowOpen = true;
 		bAlreadyForcedWindowOpening = true;
 	}

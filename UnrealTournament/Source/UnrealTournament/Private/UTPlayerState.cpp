@@ -33,6 +33,7 @@
 #include "UTFlagRunGame.h"
 #include "UTHUDWidget_NetInfo.h"
 #include "UTMcpUtils.h"
+#include "UTCTFRoundGame.h"
 
 /** disables load warnings for dedicated server where invalid client input can cause unpreventable logspam, but enables on clients so developers can make sure their stuff is working */
 static inline ELoadFlags GetCosmeticLoadFlags()
@@ -3521,6 +3522,12 @@ void AUTPlayerState::OnUnlockList()
 bool AUTPlayerState::ServerSetBoostItem_Validate(int PowerupIndex) { return true; }
 void AUTPlayerState::ServerSetBoostItem_Implementation(int PowerupIndex)
 {
+	AUTCTFRoundGame* FlagRunGame = GetWorld()->GetAuthGameMode<AUTCTFRoundGame>();
+	if (FlagRunGame && !FlagRunGame->bAllowBoosts)
+	{
+		BoostClass = nullptr;
+		return;
+	}
 	AUTGameState* UTGameState = GetWorld()->GetGameState<AUTGameState>();
 	if (UTGameState)
 	{

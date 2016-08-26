@@ -196,6 +196,9 @@ class UNREALTOURNAMENT_API AUTCTFRoundGame : public AUTCTFBaseGame
 	UPROPERTY()
 		bool bAllowPrototypePowerups;
 
+	UPROPERTY()
+		bool bAllowBoosts;
+
 	virtual void PostLogin(APlayerController* NewPlayer) override;
 
 protected:
