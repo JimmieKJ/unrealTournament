@@ -12,10 +12,10 @@ FName UUTFlagRunGameMessage::GetTeamAnnouncement(int32 Switch, uint8 TeamNum, co
 {
 	switch (Switch)
 	{
-	case 0: TEXT("FlagDown"); break;
-	case 1: TEXT("FlagDown"); break;
-	case 2: return TeamNum == 0 ? TEXT("RedTeamScores") : TEXT("BlueTeamScores"); break;
-	case 3: TEXT("FlagDropped"); break;
+	case 0: return TEXT("FlagDown"); break;
+	case 1: return TEXT("FlagDown"); break;
+	case 2: return (TeamNum == 0) ? TEXT("RedTeamScores") : TEXT("BlueTeamScores"); break;
+	case 3: return TEXT("FlagDropped"); break;
 	case 4:
 		if (RelatedPlayerState_1 && Cast<AUTPlayerController>(RelatedPlayerState_1->GetOwner()))
 		{
@@ -28,5 +28,5 @@ FName UUTFlagRunGameMessage::GetTeamAnnouncement(int32 Switch, uint8 TeamNum, co
 
 float UUTFlagRunGameMessage::GetAnnouncementSpacing_Implementation(int32 Switch, const UObject* OptionalObject) const
 {
-	return 0.05f;
+	return 0.f;
 }
