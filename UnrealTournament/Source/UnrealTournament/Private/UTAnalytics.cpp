@@ -600,8 +600,7 @@ void FUTAnalytics::FireEvent_UTServerWeaponKills(AUTGameMode* UTGM, TMap<TSubcla
 
 		for (auto& KillElement : *KillsArray)
 		{
-			ParamArray.Add(FAnalyticsEventAttribute(GetGenericParamName(EGenericAnalyticParam::WeaponName), *KillElement.Key->GetName()));
-			ParamArray.Add(FAnalyticsEventAttribute(GetGenericParamName(EGenericAnalyticParam::NumKills), KillElement.Value));
+			ParamArray.Add(FAnalyticsEventAttribute(*KillElement.Key->GetName(), KillElement.Value));
 		}
 
 		AnalyticsProvider->RecordEvent(GetGenericParamName(EGenericAnalyticParam::UTServerWeaponKills), ParamArray);
