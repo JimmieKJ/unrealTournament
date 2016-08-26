@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "UTResetInterface.h"
+
 #include "UTWorldSettings.generated.h"
 
 class AUTPickupWeapon;
@@ -95,7 +97,7 @@ struct FTimedLightParameter
 };
 
 UCLASS()
-class UNREALTOURNAMENT_API AUTWorldSettings : public AWorldSettings
+class UNREALTOURNAMENT_API AUTWorldSettings : public AWorldSettings, public IUTResetInterface
 {
 	GENERATED_UCLASS_BODY()
 
@@ -167,6 +169,8 @@ public:
 	virtual void ExpireImpactEffects();
 
 	virtual void FadeImpactEffects(float DeltaTime);
+
+	virtual void Reset_Implementation() override;
 
 	UPROPERTY()
 	float ImpactEffectFadeTime;

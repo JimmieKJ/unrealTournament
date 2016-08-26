@@ -890,6 +890,12 @@ void AUTGameState::HandleMatchHasStarted()
 	StartFPSCharts();
 
 	Super::HandleMatchHasStarted();
+
+	AUTWorldSettings* WS = Cast<AUTWorldSettings>(GetWorld()->GetWorldSettings());
+	if (WS != nullptr)
+	{
+		IUTResetInterface::Execute_Reset(WS);
+	}
 }
 
 void AUTGameState::HandleMatchHasEnded()

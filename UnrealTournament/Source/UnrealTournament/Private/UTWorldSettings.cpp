@@ -119,6 +119,19 @@ void AUTWorldSettings::EndPlay(const EEndPlayReason::Type EndPlayReason)
 	GetWorldTimerManager().ClearAllTimersForObject(this);
 }
 
+void AUTWorldSettings::Reset_Implementation()
+{
+	for (int32 i = 0; i < FadingEffects.Num(); i++)
+	{
+		if (FadingEffects[i].EffectComp != nullptr)
+		{
+			FadingEffects[i].EffectComp->DetachFromParent();
+			FadingEffects[i].EffectComp->DestroyComponent();
+		}
+	}
+	FadingEffects.Empty();
+}
+
 void AUTWorldSettings::AddImpactEffect(USceneComponent* NewEffect, float LifeScaling)
 {
 	bool bNeedsTiming = true;
