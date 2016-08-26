@@ -90,8 +90,8 @@ class UNREALTOURNAMENT_API AUTWeap_LinkGun : public AUTWeapon
 	virtual void DebugSetLinkGunLinks(int32 newLinks);
 
 	/** Target being link pulled. */
-	UPROPERTY()
-		AActor* PulseTarget;
+	UPROPERTY(BlueprintReadOnly)
+	AActor* PulseTarget;
 
 	/** Location of beam end for link pull attempt. */
 	UPROPERTY()
