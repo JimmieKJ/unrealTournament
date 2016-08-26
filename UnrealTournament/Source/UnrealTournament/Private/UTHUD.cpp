@@ -629,6 +629,23 @@ void AUTHUD::DrawHUD()
 			}
 		}
 
+		if (DamageScreenMID != nullptr)
+		{
+			float Intensity = 0.0f;
+			for (const FDamageHudIndicator& Indicator : DamageIndicators)
+			{
+				if (Indicator.FadeTime > 0.0f && Indicator.DamageAmount > 0.0f)
+				{
+					Intensity = FMath::Max<float>(Intensity, FMath::Min<float>(1.0f, Indicator.FadeTime / DAMAGE_FADE_DURATION));
+				}
+			}
+			if (Intensity > 0.0f)
+			{
+				DamageScreenMID->SetScalarParameterValue(NAME_Intensity, Intensity);
+				DrawMaterial(DamageScreenMID, 0.0f, 0.0f, Canvas->ClipX, Canvas->ClipY, 0.0f, 0.0f, 1.0f, 1.0f);
+			}
+		}
+
 		UpdateKeyMappings(false);
 		for (int32 WidgetIndex = 0; WidgetIndex < HudWidgets.Num(); WidgetIndex++)
 		{
@@ -710,23 +727,6 @@ void AUTHUD::DrawHUD()
 						}
 					}
 				}
-			}
-		}
-
-		if (DamageScreenMID != nullptr)
-		{
-			float Intensity = 0.0f;
-			for (const FDamageHudIndicator& Indicator : DamageIndicators)
-			{
-				if (Indicator.FadeTime > 0.0f && Indicator.DamageAmount > 0.0f)
-				{
-					Intensity = FMath::Max<float>(Intensity, FMath::Min<float>(1.0f, Indicator.FadeTime / DAMAGE_FADE_DURATION));
-				}
-			}
-			if (Intensity > 0.0f)
-			{
-				DamageScreenMID->SetScalarParameterValue(NAME_Intensity, Intensity);
-				DrawMaterial(DamageScreenMID, 0.0f, 0.0f, Canvas->ClipX, Canvas->ClipY, 0.0f, 0.0f, 1.0f, 1.0f);
 			}
 		}
 
