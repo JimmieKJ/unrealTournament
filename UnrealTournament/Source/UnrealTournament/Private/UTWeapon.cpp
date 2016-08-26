@@ -450,6 +450,10 @@ void AUTWeapon::ServerStartFire_Implementation(uint8 FireModeNum, uint8 FireEven
 {
 	if (UTOwner && !UTOwner->IsFiringDisabled())
 	{
+		if (CurrentState == InactiveState && !UTOwner->IsLocallyControlled())
+		{
+			UTOwner->ClientVerifyWeapon();
+		}
 		FireZOffsetTime = 0.f;
 		BeginFiringSequence(FireModeNum, bClientFired);
 	}
@@ -464,6 +468,10 @@ void AUTWeapon::ServerStartFireOffset_Implementation(uint8 FireModeNum, uint8 Fi
 {
 	if (UTOwner && !UTOwner->IsFiringDisabled())
 	{
+		if (CurrentState == InactiveState && !UTOwner->IsLocallyControlled())
+		{
+			UTOwner->ClientVerifyWeapon();
+		}
 		FireZOffset = ZOffset - 127;
 		FireZOffsetTime = GetWorld()->GetTimeSeconds();
 		BeginFiringSequence(FireModeNum, bClientFired);

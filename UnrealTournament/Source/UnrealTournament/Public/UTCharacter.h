@@ -1779,6 +1779,13 @@ protected:
 	UFUNCTION(Server, Reliable, WithValidation)
 	virtual void ServerSwitchWeapon(AUTWeapon* NewWeapon);
 
+	/** error checking for weapon switch to handle edge cases */
+	UFUNCTION(Server, Reliable, WithValidation)
+	virtual void ServerVerifyWeapon(AUTWeapon* NewWeapon);
+public:
+	UFUNCTION(Client, Reliable)
+	virtual void ClientVerifyWeapon();
+
 protected:
 	UFUNCTION(Client, Reliable)
 	virtual void ClientSwitchWeapon(AUTWeapon* NewWeapon);

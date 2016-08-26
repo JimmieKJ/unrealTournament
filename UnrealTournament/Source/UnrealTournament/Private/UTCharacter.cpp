@@ -2759,8 +2759,11 @@ void AUTCharacter::SwitchWeapon(AUTWeapon* NewWeapon)
 		}
 		else
 		{
+			if (Role < ROLE_Authority)
+			{
+				ServerSwitchWeapon(NewWeapon);
+			}
 			LocalSwitchWeapon(NewWeapon);
-			ServerSwitchWeapon(NewWeapon);
 		}
 	}
 }
@@ -2824,11 +2827,11 @@ void AUTCharacter::LocalSwitchWeapon(AUTWeapon* NewWeapon)
 
 void AUTCharacter::ClientSwitchWeapon_Implementation(AUTWeapon* NewWeapon)
 {
-	LocalSwitchWeapon(NewWeapon);
 	if (Role < ROLE_Authority)
 	{
 		ServerSwitchWeapon(NewWeapon);
 	}
+	LocalSwitchWeapon(NewWeapon);
 }
 
 void AUTCharacter::ServerSwitchWeapon_Implementation(AUTWeapon* NewWeapon)
@@ -2841,6 +2844,33 @@ void AUTCharacter::ServerSwitchWeapon_Implementation(AUTWeapon* NewWeapon)
 bool AUTCharacter::ServerSwitchWeapon_Validate(AUTWeapon* NewWeapon)
 {
 	return true;
+}
+
+void AUTCharacter::ServerVerifyWeapon_Implementation(AUTWeapon* NewWeapon)
+{
+	if (Role == ROLE_Authority && !IsLocallyControlled() && NewWeapon != nullptr && Weapon != NewWeapon && PendingWeapon != NewWeapon)
+	{
+		UE_LOG(UT, Warning, TEXT("%s (%s) weapon mismatch: server %s, client %s"), *GetName(), (PlayerState != nullptr) ? *PlayerState->PlayerName : TEXT("None"), *GetNameSafe((PendingWeapon != nullptr) ? PendingWeapon : Weapon), *GetNameSafe(NewWeapon));
+		LocalSwitchWeapon(NewWeapon);
+		if (Weapon != NewWeapon && PendingWeapon != NewWeapon)
+		{
+			UE_LOG(UT, Warning, TEXT(" - weapon client wanted was invalid"));
+			ClientSwitchWeapon((PendingWeapon != nullptr) ? PendingWeapon : Weapon);
+		}
+	}
+}
+bool AUTCharacter::ServerVerifyWeapon_Validate(AUTWeapon* NewWeapon)
+{
+	return true;
+}
+
+void AUTCharacter::ClientVerifyWeapon_Implementation()
+{
+	// if there is a pending weapon then the verification will happen when WeaponChanged() is called
+	if (PendingWeapon == NULL)
+	{
+		ServerVerifyWeapon(Weapon);
+	}
 }
 
 void AUTCharacter::WeaponChanged(float OverflowTime)
@@ -2867,6 +2897,11 @@ void AUTCharacter::WeaponChanged(float OverflowTime)
 		WeaponClass = NULL;
 		WeaponAttachmentClass = NULL;
 		UpdateWeaponAttachment();
+	}
+
+	if (Role < ROLE_Authority)
+	{
+		ServerVerifyWeapon(Weapon);
 	}
 
 	if (GhostComponent->bGhostRecording && Weapon != nullptr)
