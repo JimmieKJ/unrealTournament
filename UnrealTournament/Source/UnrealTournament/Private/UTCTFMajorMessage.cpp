@@ -24,6 +24,7 @@ UUTCTFMajorMessage::UUTCTFMajorMessage(const FObjectInitializer& ObjectInitializ
 	bIsStatusAnnouncement = true;
 	bIsPartiallyUnique = true;
 	ScaleInSize = 3.f;
+	RallyCompleteName = TEXT("RallyComplete");
 
 	static ConstructorHelpers::FObjectFinder<USoundBase> FlagWarningSoundFinder(TEXT("SoundWave'/Game/RestrictedAssets/Audio/Stingers/FlagUp_stereo.FlagUp_stereo'"));
 	FlagWarningSound = FlagWarningSoundFinder.Object;
@@ -183,6 +184,7 @@ FName UUTCTFMajorMessage::GetTeamAnnouncement(int32 Switch, uint8 TeamNum) const
 	case 11: return TEXT("HalfTime"); break;
 	case 12: return TEXT("OverTime"); break;
 	case 21: return TEXT("FlagCanBePickedUp"); break;
+	case 25: return RallyCompleteName; break;
 	}
 	return NAME_None;
 }
