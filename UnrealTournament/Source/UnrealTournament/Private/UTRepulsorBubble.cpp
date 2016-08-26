@@ -45,6 +45,7 @@ void AUTRepulsorBubble::PostInitializeComponents()
 	if (UTOwner)
 	{
 		TeamNum = UTOwner->GetTeamNum();
+		SetOwner(UTOwner);
 	}
 
 	CollisionComp->SetWorldScale3D(FVector(MaxRepulsorSize,MaxRepulsorSize,MaxRepulsorSize));
