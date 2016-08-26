@@ -64,7 +64,7 @@ void UUTMatchmakingGather::FindGatheringSession()
 		MMPass->OnNoSearchResultsFound().BindUObject(this, &ThisClass::OnNoGatheringSessionsFound);
 		MMPass->OnCancelledSearchComplete().BindUObject(this, &ThisClass::OnGatheringSearchCancelled);
 
-		TSharedPtr<FUTOnlineSessionSearchBase> NewSearchSettings = MakeShareable(new FUTOnlineSessionSearchGather(CurrentParams.PlaylistId, CurrentParams.TeamElo, false, false, CurrentParams.SessionIdToSkip));
+		TSharedPtr<FUTOnlineSessionSearchBase> NewSearchSettings = MakeShareable(new FUTOnlineSessionSearchGather(CurrentParams.PlaylistId, CurrentParams.TeamElo, CurrentParams.bRanked, false, false, CurrentParams.SessionIdToSkip));
 		
 		// Order here is important (prefer level match over "closer to full" match for now)
 		NewSearchSettings->QuerySettings.Set(SETTING_NEEDS, CurrentParams.PartySize, EOnlineComparisonOp::GreaterThanEquals);
@@ -93,7 +93,7 @@ void UUTMatchmakingGather::StartGatheringSession()
 	UE_LOG(LogOnlineGame, Log, TEXT("StartGatheringSession"));
 	bool bResult = false;
 
-	FEmptyServerReservation ReservationData(CurrentParams.PlaylistId, CurrentParams.TeamElo);
+	FEmptyServerReservation ReservationData(CurrentParams.PlaylistId, CurrentParams.TeamElo, CurrentParams.bRanked);
 
 	if (ReservationData.IsValid())
 	{

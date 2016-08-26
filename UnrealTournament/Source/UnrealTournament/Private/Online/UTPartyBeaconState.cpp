@@ -53,6 +53,21 @@ struct FSortTeamSizeLargestToSmallest
 	}
 };
 
+struct FSortTeamSizeSmallestToLargest
+{
+	bool operator()(const FTeamBalanceInfo& A, const FTeamBalanceInfo& B) const
+	{
+		if (A.TeamSize == B.TeamSize)
+		{
+			return FMath::Rand() % 2 ? true : false;
+		}
+		else
+		{
+			return A.TeamSize < B.TeamSize;
+		}
+	}
+};
+
 int32 UUTPartyBeaconState::GetTeamAssignment(const FPartyReservation& Party)
 {
 	if (NumTeams > 1)
@@ -70,7 +85,7 @@ int32 UUTPartyBeaconState::GetTeamAssignment(const FPartyReservation& Party)
 		// Grab one from our list of choices
 		if (PotentialTeamChoices.Num() > 0)
 		{
-			if (1)
+			if (ReservationData.bRanked)
 			{
 				// Choose largest team
 				PotentialTeamChoices.Sort(FSortTeamSizeLargestToSmallest());
@@ -78,9 +93,9 @@ int32 UUTPartyBeaconState::GetTeamAssignment(const FPartyReservation& Party)
 			}
 			else
 			{
-				// Random choice from set of choices
-				int32 TeamIndex = FMath::Rand() % PotentialTeamChoices.Num();
-				return PotentialTeamChoices[TeamIndex].TeamIdx;
+				// Choose smallest team
+				PotentialTeamChoices.Sort(FSortTeamSizeSmallestToLargest());
+				return PotentialTeamChoices[0].TeamIdx;
 			}
 		}
 		else

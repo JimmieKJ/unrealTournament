@@ -42,8 +42,8 @@ FUTOnlineSessionSettingsDedicatedEmpty::FUTOnlineSessionSettingsDedicatedEmpty(b
 	Set(SETTING_GAMEMODE, GameModeStr, EOnlineDataAdvertisementType::ViaOnlineService);
 }
 
-FUTOnlineSessionSearchGather::FUTOnlineSessionSearchGather(int32 InPlaylistId, int32 InTeamElo, bool bSearchingLAN, bool bSearchingPresence, FString InServerToSkip) :
-	FUTOnlineSessionSearchBase(InPlaylistId, InTeamElo, bSearchingLAN, bSearchingPresence)
+FUTOnlineSessionSearchGather::FUTOnlineSessionSearchGather(int32 InPlaylistId, int32 InTeamElo, bool bInRanked, bool bSearchingLAN, bool bSearchingPresence, FString InServerToSkip) :
+	FUTOnlineSessionSearchBase(InPlaylistId, InTeamElo, bInRanked, bSearchingLAN, bSearchingPresence)
 {
 	MaxSearchResults = 20;
 	ServerToSkip = InServerToSkip;
@@ -76,7 +76,7 @@ FUTOnlineSessionSearchEmptyDedicated::FUTOnlineSessionSearchEmptyDedicated()
 }
 	
 FUTOnlineSessionSearchEmptyDedicated::FUTOnlineSessionSearchEmptyDedicated(const FEmptyServerReservation& InReservationData, bool bSearchingLAN, bool bSearchingPresence) :
-	FUTOnlineSessionSearchBase(INDEX_NONE, InReservationData.TeamElo, bSearchingLAN, bSearchingPresence)
+	FUTOnlineSessionSearchBase(INDEX_NONE, InReservationData.TeamElo, InReservationData.bRanked, bSearchingLAN, bSearchingPresence)
 {
 	MaxSearchResults = 20;
 
@@ -91,6 +91,7 @@ FUTOnlineSessionSearchEmptyDedicated::FUTOnlineSessionSearchEmptyDedicated(const
 
 	PlaylistId = InReservationData.PlaylistId;
 	TeamElo = InReservationData.TeamElo;
+	bRanked = InReservationData.bRanked;
 }
 
 FUTOnlineSessionSearchBase::FUTOnlineSessionSearchBase()
@@ -98,12 +99,13 @@ FUTOnlineSessionSearchBase::FUTOnlineSessionSearchBase()
 	bIsLanQuery = false;
 }
 
-FUTOnlineSessionSearchBase::FUTOnlineSessionSearchBase(int32 InPlaylistId, int32 InTeamElo, bool bSearchingLAN, bool bSearchingPresence)
+FUTOnlineSessionSearchBase::FUTOnlineSessionSearchBase(int32 InPlaylistId, int32 InTeamElo, bool bInRanked, bool bSearchingLAN, bool bSearchingPresence)
 {
 	bIsLanQuery = bSearchingLAN;
 
 	PlaylistId = InPlaylistId;
 	TeamElo = InTeamElo;
+	bRanked = bInRanked;
 
 	QuerySettings.Set(SEARCH_MINSLOTSAVAILABLE, 1, EOnlineComparisonOp::Equals);
 

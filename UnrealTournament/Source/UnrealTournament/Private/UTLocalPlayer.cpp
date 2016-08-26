@@ -3303,35 +3303,31 @@ void UUTLocalPlayer::StartQuickMatch(FString QuickMatchType)
 {
 	if (IsLoggedIn() && OnlineSessionInterface.IsValid())
 	{
-		if (QuickMatchDialog.IsValid())
-		{
-			return;
-		}
-		if (GetWorld()->GetTimeSeconds() < QuickMatchLimitTime)
-		{
-			MessageBox(NSLOCTEXT("Generic","CantStartQuickMatchTitle","Please Wait"), NSLOCTEXT("Generic","CantStartQuickMatchText","You need to wait for at least 1 minute before you can attempt to quickplay again."));
-			return;
-		}
 		if ( ServerBrowserWidget.IsValid() && ServerBrowserWidget->IsRefreshing())
 		{
 			MessageBox(NSLOCTEXT("Generic","RequestInProgressTitle","Busy"), NSLOCTEXT("Generic","RequestInProgressText","A server list request is already in progress.  Please wait for it to finish before attempting to quickplay."));
 			return;
 		}
 
-		CurrentQuickMatchType = QuickMatchType;
-
-		if (OnlineSessionInterface.IsValid())
+		int32 NewPlaylistId = 0;
+		if (QuickMatchType == EEpicDefaultRuleTags::Deathmatch)
 		{
-			OnlineSessionInterface->CancelFindSessions();				
+			NewPlaylistId = 4;
+		}
+		else if (QuickMatchType == EEpicDefaultRuleTags::CTF)
+		{
+			NewPlaylistId = 3;
+		}
+		else if (QuickMatchType == EEpicDefaultRuleTags::SHOWDOWN)
+		{
+			NewPlaylistId = 5;
+		}
+		else
+		{
+			return;
 		}
 
-		SAssignNew(QuickMatchDialog, SUTQuickMatchWindow, this)
-			.QuickMatchType(QuickMatchType);
-		if (QuickMatchDialog.IsValid())
-		{
-			OpenWindow(QuickMatchDialog);
-			QuickMatchDialog->TellSlateIWantKeyboardFocus();
-		}
+		StartMatchmaking(NewPlaylistId);
 	}
 	else
 	{

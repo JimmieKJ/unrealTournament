@@ -929,6 +929,11 @@ bool UUTMatchmaking::IsRankedMatchmaking()
 		return Matchmaking->GetMatchmakingParams().bRanked;
 	}
 
+	if (CachedMatchmakingSearchParams.IsValid())
+	{
+		return CachedMatchmakingSearchParams.GetMatchmakingParams().bRanked;
+	}
+
 	return false;
 }
 

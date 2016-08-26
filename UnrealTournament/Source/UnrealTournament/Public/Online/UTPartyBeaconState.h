@@ -12,12 +12,14 @@ struct FEmptyServerReservation
 	FEmptyServerReservation() :
 		PlaylistId(INDEX_NONE),
 		TeamElo(1500),
+		bRanked(false),
 		bMakePrivate(false)
 	{}
 
-	FEmptyServerReservation(int32 InPlaylistId, int32 InTeamElo) :
+	FEmptyServerReservation(int32 InPlaylistId, int32 InTeamElo, bool bInRanked) :
 		PlaylistId(InPlaylistId),
 		TeamElo(InTeamElo),
+		bRanked(false),
 		bMakePrivate(false)
 	{}
 
@@ -35,6 +37,8 @@ struct FEmptyServerReservation
 	/** Elo to advertise to play */
 	UPROPERTY()
 	int32 TeamElo;
+	UPROPERTY()
+	bool bRanked;
 	/** Should the server be created private */
 	UPROPERTY()
 	bool bMakePrivate;

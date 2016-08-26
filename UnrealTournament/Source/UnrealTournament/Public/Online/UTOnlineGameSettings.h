@@ -74,17 +74,21 @@ protected:
 	/** Elo of game requested */
 	int32 TeamElo;
 
+	bool bRanked;
+
 	FUTOnlineSessionSearchBase();
 
 public:
 
-	FUTOnlineSessionSearchBase(int32 InPlaylistId, int32 InTeamElo, bool bSearchingLAN = false, bool bSearchingPresence = false);
+	FUTOnlineSessionSearchBase(int32 InPlaylistId, int32 InTeamElo, bool bRanked, bool bSearchingLAN = false, bool bSearchingPresence = false);
 	virtual ~FUTOnlineSessionSearchBase() {}
 
 	/** @return the playlist id query param */
 	int32 GetPlaylistId() const { return PlaylistId; }
 
 	int32 GetTeamElo() const { return TeamElo; }
+
+	bool GetRanked() const { return bRanked; }
 };
 
 /**
@@ -93,7 +97,7 @@ public:
 class UNREALTOURNAMENT_API FUTOnlineSessionSearchGather : public FUTOnlineSessionSearchBase
 {
 public:
-	FUTOnlineSessionSearchGather(int32 InPlaylistId = INDEX_NONE, int32 InTeamElo = 0, bool bSearchingLAN = false, bool bSearchingPresence = false, FString InServerToSkip = FString());
+	FUTOnlineSessionSearchGather(int32 InPlaylistId = INDEX_NONE, int32 InTeamElo = 0, bool bRanked = false, bool bSearchingLAN = false, bool bSearchingPresence = false, FString InServerToSkip = FString());
 	virtual ~FUTOnlineSessionSearchGather() {}
 
 	// FOnlineSessionSearch Interface begin
