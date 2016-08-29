@@ -1543,7 +1543,7 @@ void AUTGameMode::DiscardInventory(APawn* Other, AController* Killer)
 		{
 			if (UTC->GetWeapon()->ShouldDropOnDeath())
 			{
-				if (UTC->GetWeapon()->bShouldAnnounceDrops && (UTC->GetWeapon()->PickupAnnouncementName != NAME_None))
+				if (UTC->GetWeapon()->bShouldAnnounceDrops && (UTC->GetWeapon()->PickupAnnouncementName != NAME_None) && bAllowPickupAnnouncements && IsMatchInProgress())
 				{
 					AUTPlayerState* UTPS = Cast<AUTPlayerState>(Other->PlayerState);
 					if (UTPS)
@@ -1569,7 +1569,7 @@ void AUTGameMode::DiscardInventory(APawn* Other, AController* Killer)
 			if (It->bAlwaysDropOnDeath)
 			{
 				UTC->TossInventory(*It, FVector(FMath::FRandRange(0.0f, 200.0f), FMath::FRandRange(-400.0f, 400.0f), FMath::FRandRange(0.0f, 200.0f)));
-				if (It->bShouldAnnounceDrops && (It->PickupAnnouncementName != NAME_None))
+				if (It->bShouldAnnounceDrops && (It->PickupAnnouncementName != NAME_None) && bAllowPickupAnnouncements && IsMatchInProgress())
 				{
 					AUTPlayerState* UTPS = Cast<AUTPlayerState>(Other->PlayerState);
 					if (UTPS)
