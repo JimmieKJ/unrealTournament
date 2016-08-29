@@ -335,33 +335,14 @@ void AUTFlagRunGame::HandleRallyRequest(AUTPlayerController* RequestingPC)
 				RequestingPC->RallyLocation = BestRecentPosition;
 				if (bDelayedRally)
 				{
+					UTCharacter->bTriggerRallyEffect = true;
+					UTCharacter->OnTriggerRallyEffect();
 					RequestingPC->BeginRallyTo(FlagCarrier, RequestingPC->RallyLocation, 1.2f);
 					if (UTCharacter->UTCharacterMovement)
 					{
-						if (UTCharacter->RallyAnimation)
-						{
-							// Play first person taunt
-							UAnimMontage* RallyMontage = UTCharacter->RallyAnimation->GetDefaultObject<AUTTaunt>()->FirstPersonTauntMontage;
-							UAnimInstance* FPAnimInstance = UTCharacter->FirstPersonMesh ? UTCharacter->FirstPersonMesh->GetAnimInstance() : nullptr;
-							if (FPAnimInstance && RallyMontage)
-							{
-								FPAnimInstance->Montage_Play(RallyMontage, 2.f);
-							}
-						}
 						UTCharacter->UTCharacterMovement->StopMovementImmediately();
 						UTCharacter->UTCharacterMovement->DisableMovement();
 						UTCharacter->DisallowWeaponFiring(true);
-						TSubclassOf<AUTReplicatedEmitter> PickedEffect = UTCharacter->RallyEffect[0];
-						int32 TeamNum = UTCharacter->GetTeamNum();
-						if (TeamNum < UTCharacter->RallyEffect.Num() && UTCharacter->RallyEffect[TeamNum] != NULL)
-						{
-							PickedEffect = UTCharacter->RallyEffect[TeamNum];
-						}
-
-						FActorSpawnParameters Params;
-						Params.Owner = UTCharacter;
-						Params.Instigator = UTCharacter;
-						GetWorld()->SpawnActor<AUTReplicatedEmitter>(PickedEffect, UTCharacter->GetActorLocation() - FVector(0.f, 0.f, UTCharacter->GetCapsuleComponent()->GetUnscaledCapsuleHalfHeight()), UTCharacter->GetActorRotation(), Params);
 					}
 				}
 				else
@@ -385,6 +366,7 @@ void AUTFlagRunGame::CompleteRallyRequest(AUTPlayerController* RequestingPC)
 	{
 		return;
 	}
+	UTCharacter->bTriggerRallyEffect = false;
 	if (UTCharacter->UTCharacterMovement)
 	{
 		UTCharacter->UTCharacterMovement->SetDefaultMovementMode();

@@ -1191,6 +1191,12 @@ public:
 	UPROPERTY(EditAnywhere, Category = "Effects")
 		TSubclassOf<AUTTaunt>  RallyAnimation;
 
+	UPROPERTY(ReplicatedUsing=OnTriggerRallyEffect, BlueprintReadWrite)
+		bool bTriggerRallyEffect;
+
+	UFUNCTION()
+	virtual void OnTriggerRallyEffect();
+
 	/** particle component for normal ground footstep */
 	UPROPERTY(EditAnywhere, Category = "Effects")
 		UParticleSystem* GroundFootstepEffect;

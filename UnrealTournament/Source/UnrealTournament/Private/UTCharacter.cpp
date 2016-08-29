@@ -3103,6 +3103,8 @@ void AUTCharacter::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& O
 	DOREPLIFETIME_CONDITION(AUTCharacter, WeaponClass, COND_SkipOwner);
 	DOREPLIFETIME_CONDITION(AUTCharacter, WeaponAttachmentClass, COND_SkipOwner);
 	DOREPLIFETIME_CONDITION(AUTCharacter, bApplyWallSlide, COND_SkipOwner);
+	DOREPLIFETIME_CONDITION(AUTCharacter, bTriggerRallyEffect, COND_None);
+
 	DOREPLIFETIME_CONDITION(AUTCharacter, HolsteredWeaponAttachmentClass, COND_SkipOwner);
 	DOREPLIFETIME_CONDITION(AUTCharacter, DamageScaling, COND_None);
 	DOREPLIFETIME_CONDITION(AUTCharacter, FireRateMultiplier, COND_OwnerOnly);
@@ -5595,6 +5597,30 @@ EAllowedSpecialMoveAnims AUTCharacter::AllowedSpecialMoveAnims()
 	*/
 
 	return EASM_Any;
+}
+
+void AUTCharacter::OnTriggerRallyEffect()
+{
+	if (bTriggerRallyEffect && (GetNetMode() != NM_DedicatedServer))
+	{
+		GetMesh()->bPauseAnims = false;
+		if (RallyAnimation != nullptr)
+		{
+			PlayTauntByClass(RallyAnimation, 2.f);
+		}
+		TSubclassOf<AUTReplicatedEmitter> PickedEffect = RallyEffect[0];
+		int32 TeamNum = GetTeamNum();
+		if (TeamNum <RallyEffect.Num() && RallyEffect[TeamNum] != NULL)
+		{
+			PickedEffect = RallyEffect[TeamNum];
+		}
+
+		FActorSpawnParameters Params;
+		Params.Owner = this;
+		Params.Instigator = this;
+		GetWorld()->SpawnActor<AUTReplicatedEmitter>(PickedEffect, GetActorLocation() - FVector(0.f, 0.f, GetCapsuleComponent()->GetUnscaledCapsuleHalfHeight()), GetActorRotation(), Params);
+
+	}
 }
 
 float AUTCharacter::GetRemoteViewPitch()
