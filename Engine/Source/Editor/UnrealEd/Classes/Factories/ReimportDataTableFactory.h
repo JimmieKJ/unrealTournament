@@ -4,7 +4,7 @@
 #include "ReimportDataTableFactory.generated.h"
 
 UCLASS()
-class UReimportDataTableFactory : public UCSVImportFactory, public FReimportHandler
+class UNREALED_API UReimportDataTableFactory : public UCSVImportFactory, public FReimportHandler
 {
 	GENERATED_UCLASS_BODY()
 

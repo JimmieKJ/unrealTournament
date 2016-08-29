@@ -38,6 +38,8 @@ public:
 		BUILDTYPE_Paths,
 		/** LODs are being built */
 		BUILDTYPE_LODs, 
+		/** Texture streaming data is being built */
+		BUILDTYPE_TextureStreaming, 
 	};
 
 	/** The various issues that can occur. */

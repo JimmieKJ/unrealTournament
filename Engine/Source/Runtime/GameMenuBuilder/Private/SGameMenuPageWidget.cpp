@@ -257,12 +257,12 @@ void SGameMenuPageWidget::Construct(const FArguments& InArgs)
 
 EVisibility SGameMenuPageWidget::GetSubMenuVisiblity() const
 {
-	EVisibility Visibility = EVisibility::Collapsed;
+	EVisibility MenuVisibility = EVisibility::Collapsed;
 	if ( (MenuStyle->LayoutType != GameMenuLayoutType::Single) && ( bMenuHiding == false ) )
 	{
-		Visibility = NextMenu.IsValid() ? EVisibility::Visible : EVisibility::Collapsed;
+		MenuVisibility = NextMenu.IsValid() ? EVisibility::Visible : EVisibility::Collapsed;
 	}
-	return Visibility;
+	return MenuVisibility;
 }
 
 EVisibility SGameMenuPageWidget::GetSlateVisibility() const

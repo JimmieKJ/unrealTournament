@@ -265,7 +265,7 @@ class GAMEPLAYDEBUGGER_API UGameplayDebuggingComponent : public UPrimitiveCompon
 	bool ShouldReplicateData(EAIDebugDrawDataView::Type InView) const { return ReplicateViewDataCounters[InView] > 0 /*true*/; }
 	
 #if !ENABLE_OLD_GAMEPLAY_DEBUGGER
-	DEPRECATED_FORGAME(4.12, "GameplayDebuggingComponent class is now deprecated, please check GameplayDebugger.h for details.")
+	DEPRECATED_FORGAME(4.13, "GameplayDebuggingComponent class is now deprecated, please check GameplayDebugger.h for details.")
 #endif // !ENABLE_OLD_GAMEPLAY_DEBUGGER
 	virtual void CollectDataToReplicate(bool bCollectExtendedData);
 

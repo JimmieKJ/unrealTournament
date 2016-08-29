@@ -89,6 +89,15 @@ public:
 	 */
 	virtual void UnbindPossessableObjects(const FGuid& ObjectId) PURE_VIRTUAL(UMovieSceneSequence::UnbindPossessableObjects,);
 
+	/**
+	 * Create a spawnable object template from the specified source object
+	 *
+	 * @param InSourceObject The source object to copy
+	 * @param ObjectName The name of the object
+	 * @return A new object template of the specified name
+	 */
+	virtual UObject* MakeSpawnableTemplateFromInstance(UObject& InSourceObject, FName ObjectName) { return nullptr; }
+
 public:
 
 #if WITH_EDITOR

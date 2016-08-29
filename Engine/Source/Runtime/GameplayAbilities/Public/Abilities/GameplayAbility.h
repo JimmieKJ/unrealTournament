@@ -267,17 +267,12 @@ public:
 	// --------------------------------------
 	//	IGameplayTaskOwnerInterface
 	// --------------------------------------	
-	/** setup additional properties if given task is an AbilityTask */
-	virtual void OnTaskInitialized(UGameplayTask& Task) override;
-	/** Called by an ability task, originating from this ability, when it starts */
-	virtual void OnTaskActivated(UGameplayTask& Task) override;
-
-	/** Called by an ability task, originating from this ability, when it ends */
-	virtual void OnTaskDeactivated(UGameplayTask& Task) override;
-
 	virtual UGameplayTasksComponent* GetGameplayTasksComponent(const UGameplayTask& Task) const override;
-	virtual AActor* GetOwnerActor(const UGameplayTask* Task) const override;
-	virtual AActor* GetAvatarActor(const UGameplayTask* Task) const override;
+	virtual AActor* GetGameplayTaskOwner(const UGameplayTask* Task) const override;
+	virtual AActor* GetGameplayTaskAvatar(const UGameplayTask* Task) const override;
+	virtual void OnGameplayTaskInitialized(UGameplayTask& Task) override;
+	virtual void OnGameplayTaskActivated(UGameplayTask& Task) override;
+	virtual void OnGameplayTaskDeactivated(UGameplayTask& Task) override;
 
 	// --------------------------------------
 	//	Input
@@ -299,6 +294,9 @@ public:
 
 	/** Destroys instanced-per-execution abilities. Instance-per-actor abilities should 'reset'. Any active ability state tasks receive the 'OnAbilityStateInterrupted' event. Non instance abilities - what can we do? */
 	virtual void CancelAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, bool bReplicateCancelAbility);
+
+	/** Returns true if an an ability should be activated */
+	virtual bool ShouldActivateAbility(ENetRole Role) const;
 
 protected:
 

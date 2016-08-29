@@ -29,14 +29,14 @@ namespace Algo
 	* @return the result of summing all the elements of Input
 	*/
 	template <typename T, typename A, typename OpT>
-	FORCEINLINE T Accumulate(const A& Input, T init, OpT Op)
+	FORCEINLINE T Accumulate(const A& Input, T Init, OpT Op)
 	{
-		T result = init;
-		for (auto&& i : Input)
+		T Result = MoveTemp(Init);
+		for (auto&& InputElem : Input)
 		{
-			result = Op(result, i);
+			Result = Op(MoveTemp(Result), InputElem);
 		}
-		return result;
+		return Result;
 	}
 
 	/**
@@ -48,9 +48,9 @@ namespace Algo
 	 * @return the result of summing all the elements of Input
 	 */
 	template <typename T, typename A>
-	FORCEINLINE T Accumulate(const A& Input, T init)
+	FORCEINLINE T Accumulate(const A& Input, T Init)
 	{
-		return Accumulate(Input, init, TPlus<>());
+		return Accumulate(Input, MoveTemp(Init), TPlus<>());
 	}
 
 	/**
@@ -64,14 +64,14 @@ namespace Algo
 	* @return the result of mapping and then summing all the elements of Input
 	*/
 	template <typename T, typename A, typename MapT, typename OpT>
-	FORCEINLINE T TransformAccumulate(const A& Input, MapT MapOp, T init, OpT Op)
+	FORCEINLINE T TransformAccumulate(const A& Input, MapT MapOp, T Init, OpT Op)
 	{
-		T result = init;
-		for (auto&& i : Input)
+		T Result = MoveTemp(Init);
+		for (auto&& InputElem : Input)
 		{
-			result = Op(result, MapOp(i));
+			Result = Op(MoveTemp(Result), MapOp(InputElem));
 		}
-		return result;
+		return Result;
 	}
 
 	/**
@@ -84,8 +84,8 @@ namespace Algo
 	* @return the result of mapping and then summing all the elements of Input
 	*/
 	template <typename T, typename A, typename MapT>
-	FORCEINLINE T TransformAccumulate(const A& Input, MapT MapOp, T init)
+	FORCEINLINE T TransformAccumulate(const A& Input, MapT MapOp, T Init)
 	{
-		return TransformAccumulate(Input, MapOp, init, TPlus<>());
+		return TransformAccumulate(Input, MapOp, MoveTemp(Init), TPlus<>());
 	}
 }

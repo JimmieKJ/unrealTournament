@@ -120,10 +120,10 @@ void UUTHUDWidget_SCTFStatus::DrawSpawnIndicator(AUTCTFGameState* GameState, FVe
 	float Edge = CircleTemplate.GetWidth()* WorldRenderScale;
 	FVector WorldPosition = SFlagBase->GetActorLocation() + FVector(0.f, 0.f, 256.0f);
 	bool bDrawEdgeArrow = false;
-	FVector ScreenPosition = GetAdjustedScreenPosition(WorldPosition, PlayerViewPoint, ViewDir, Dist, Edge, bDrawEdgeArrow, 0);
+	FVector DrawScreenPosition = GetAdjustedScreenPosition(WorldPosition, PlayerViewPoint, ViewDir, Dist, Edge, bDrawEdgeArrow, 0);
 
-	ScreenPosition.X -= RenderPosition.X;
-	ScreenPosition.Y -= RenderPosition.Y;
+	DrawScreenPosition.X -= RenderPosition.X;
+	DrawScreenPosition.Y -= RenderPosition.Y;
 	float ViewDist = (PlayerViewPoint - WorldPosition).Size();
 
 	FlagIconTemplate.RenderOpacity = 1.0f;
@@ -137,7 +137,7 @@ void UUTHUDWidget_SCTFStatus::DrawSpawnIndicator(AUTCTFGameState* GameState, FVe
 	AUTSCTFGameState* SCTFGameState = Cast<AUTSCTFGameState>(GameState);
 	if (SCTFGameState)
 	{
-		DrawText(FText::AsNumber(SCTFGameState->FlagSpawnTimer), ScreenPosition.X, ScreenPosition.Y, UTHUDOwner->TinyFont, true, FVector2D(1.f, 1.f), FLinearColor::Black, false, FLinearColor::Black, 1.5f*InWorldFlagScale, 0.5f + 0.5f, FLinearColor::White, FLinearColor(0.f, 0.f, 0.f, 0.f), ETextHorzPos::Center, ETextVertPos::Center);
+		DrawText(FText::AsNumber(SCTFGameState->FlagSpawnTimer), DrawScreenPosition.X, DrawScreenPosition.Y, UTHUDOwner->TinyFont, true, FVector2D(1.f, 1.f), FLinearColor::Black, false, FLinearColor::Black, 1.5f*InWorldFlagScale, 0.5f + 0.5f, FLinearColor::White, FLinearColor(0.f, 0.f, 0.f, 0.f), ETextHorzPos::Center, ETextVertPos::Center);
 	}
 }
 

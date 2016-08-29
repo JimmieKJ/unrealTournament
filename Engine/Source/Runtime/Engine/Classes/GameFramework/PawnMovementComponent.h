@@ -78,10 +78,12 @@ public:
 protected:
 
 	/** Pawn that owns this component. */
-	UPROPERTY()
+	UPROPERTY(Transient, DuplicateTransient)
 	class APawn* PawnOwner;
 
 public:
+
+	virtual void Serialize(FArchive& Ar) override;
 
 	// DEPRECATED FUNCTIONS
 

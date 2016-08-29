@@ -11,8 +11,16 @@ class AGameplayDebuggerCategoryReplicator;
 struct FGameplayDebuggerCategoryInfo
 {
 	IGameplayDebugger::FOnGetCategory MakeInstanceDelegate;
+	EGameplayDebuggerCategoryState DefaultCategoryState;
 	EGameplayDebuggerCategoryState CategoryState;
 	int32 SlotIdx;
+};
+
+struct FGameplayDebuggerExtensionInfo
+{
+	IGameplayDebugger::FOnGetExtension MakeInstanceDelegate;
+	uint32 bDefaultEnabled : 1;
+	uint32 bEnabled : 1;
 };
 
 class FGameplayDebuggerAddonManager
@@ -44,6 +52,9 @@ public:
 	/** creates new extension objects for all known types */
 	void CreateExtensions(AGameplayDebuggerCategoryReplicator& Replicator, TArray<TSharedRef<FGameplayDebuggerExtension> >& ExtensionObjects);
 
+	/** refresh category and extension data from config */
+	void UpdateFromConfig();
+
 	/** get slot-Id map */
 	const TArray<TArray<int32> >& GetSlotMap() const { return SlotMap; }
 
@@ -64,7 +75,7 @@ public:
 
 private:
 	/** map of all known extensions indexed by their names */
-	TMap<FName, IGameplayDebugger::FOnGetExtension> ExtensionMap;
+	TMap<FName, FGameplayDebuggerExtensionInfo> ExtensionMap;
 
 	/** map of all known categories indexed by their names */
 	TMap<FName, FGameplayDebuggerCategoryInfo> CategoryMap;

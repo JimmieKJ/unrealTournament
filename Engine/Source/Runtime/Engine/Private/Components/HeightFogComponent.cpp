@@ -29,7 +29,7 @@ void UExponentialHeightFogComponent::AddFogIfNeeded()
 	if (ShouldComponentAddToScene() && ShouldRender() && IsRegistered() && FogDensity * 1000 > DELTA && FogMaxOpacity > DELTA
 		&& (GetOuter() == NULL || !GetOuter()->HasAnyFlags(RF_ClassDefaultObject)))
 	{
-		World->Scene->AddExponentialHeightFog(this);
+		GetWorld()->Scene->AddExponentialHeightFog(this);
 	}
 }
 
@@ -41,7 +41,7 @@ void UExponentialHeightFogComponent::CreateRenderState_Concurrent()
 
 void UExponentialHeightFogComponent::SendRenderTransform_Concurrent()
 {
-	World->Scene->RemoveExponentialHeightFog(this);
+	GetWorld()->Scene->RemoveExponentialHeightFog(this);
 	AddFogIfNeeded();
 	Super::SendRenderTransform_Concurrent();
 }
@@ -49,7 +49,7 @@ void UExponentialHeightFogComponent::SendRenderTransform_Concurrent()
 void UExponentialHeightFogComponent::DestroyRenderState_Concurrent()
 {
 	Super::DestroyRenderState_Concurrent();
-	World->Scene->RemoveExponentialHeightFog(this);
+	GetWorld()->Scene->RemoveExponentialHeightFog(this);
 }
 
 #if WITH_EDITOR
@@ -176,7 +176,7 @@ AExponentialHeightFog::AExponentialHeightFog(const FObjectInitializer& ObjectIni
 		GetSpriteComponent()->RelativeScale3D = FVector(0.5f, 0.5f, 0.5f);
 		GetSpriteComponent()->SpriteInfo.Category = ConstructorStatics.ID_Fog;
 		GetSpriteComponent()->SpriteInfo.DisplayName = ConstructorStatics.NAME_Fog;
-		GetSpriteComponent()->AttachParent = Component;
+		GetSpriteComponent()->SetupAttachment(Component);
 	}
 #endif // WITH_EDITORONLY_DATA
 }

@@ -72,10 +72,10 @@ class UInterpData : public UObject
 	//~ End UObject Interface
 
 	/** Search through all InterpGroups in this InterpData to find a group whose GroupName matches the given name. Returns INDEX_NONE if group not found. */
-	int32 FindGroupByName( FName GroupName );
+	ENGINE_API int32 FindGroupByName( FName GroupName );
 
 	/** Search through all InterpGroups in this InterpData to find a group whose GroupName matches the given name. Returns INDEX_NONE if not group found. */
-	int32 FindGroupByName( const FString& InGroupName );
+	ENGINE_API int32 FindGroupByName( const FString& InGroupName );
 
 	/** Search through all groups to find all tracks of the given class. */
 	ENGINE_API void FindTracksByClass(UClass* TrackClass, TArray<class UInterpTrack*>& OutputTracks);

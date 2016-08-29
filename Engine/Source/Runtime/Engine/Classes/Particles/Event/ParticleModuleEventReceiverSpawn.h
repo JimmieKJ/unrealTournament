@@ -43,6 +43,19 @@ class UParticleModuleEventReceiverSpawn : public UParticleModuleEventReceiverBas
 	UPROPERTY(EditAnywhere, Category=Velocity)
 	struct FRawDistributionVector InheritVelocityScale;
 
+	/**
+	*	Array of physical materials that can be used to allow or ban a specific set of materials when receiving collision events.
+	*/
+	UPROPERTY(EditAnywhere, Category = Collision)
+	TArray<UPhysicalMaterial*> PhysicalMaterials;
+
+	/**
+	*	When true, the PhysicalMaterials list is used to ban specified materials for collision events but allow all others.
+	*	When false, the PhysicalMaterials list is used to allow only specified materials for collision events and ban all others.
+	*/
+	UPROPERTY(EditAnywhere, Category = Collision)
+	uint32 bBanPhysicalMaterials : 1;
+
 	/** Initializes the default values for this property */
 	void InitializeDefaults();
 

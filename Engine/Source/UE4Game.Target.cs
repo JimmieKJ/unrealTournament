@@ -26,10 +26,10 @@ public class UE4GameTarget : TargetRules
 	{
 		OutExtraModuleNames.Add("UE4Game");
 		// this is important - for some reason achievements etc intertwined with the onlinesubsystem and they saved without using a fake OSS. :/
-		if (Target.Platform == UnrealTargetPlatform.HTML5)
-		{
-			OutExtraModuleNames.Add("OnlineSubsystemNull");
-		}
+		//if (Target.Platform == UnrealTargetPlatform.HTML5)
+		//{
+		//	OutExtraModuleNames.Add("OnlineSubsystemNull");
+		//}
 	}
 
 	public override void SetupGlobalEnvironment(
@@ -64,7 +64,7 @@ public class UE4GameTarget : TargetRules
 		switch(HostPlatform)
 		{
 			case UnrealTargetPlatform.Mac:
-				Platforms = new List<UnrealTargetPlatform> { HostPlatform, UnrealTargetPlatform.IOS };
+				Platforms = new List<UnrealTargetPlatform> { HostPlatform, UnrealTargetPlatform.IOS, UnrealTargetPlatform.TVOS };
 				break;
 
 			case UnrealTargetPlatform.Linux:
@@ -72,7 +72,7 @@ public class UE4GameTarget : TargetRules
 				break;
 
 			case UnrealTargetPlatform.Win64:
-				Platforms = new List<UnrealTargetPlatform> { HostPlatform, UnrealTargetPlatform.Win32, UnrealTargetPlatform.IOS, UnrealTargetPlatform.XboxOne, UnrealTargetPlatform.PS4, UnrealTargetPlatform.Android, UnrealTargetPlatform.Linux, UnrealTargetPlatform.HTML5 };
+				Platforms = new List<UnrealTargetPlatform> { HostPlatform, UnrealTargetPlatform.Win32, UnrealTargetPlatform.IOS, UnrealTargetPlatform.TVOS, UnrealTargetPlatform.XboxOne, UnrealTargetPlatform.PS4, UnrealTargetPlatform.Android, UnrealTargetPlatform.Linux, UnrealTargetPlatform.HTML5 };
 				break;
 
 			default:
@@ -91,7 +91,7 @@ public class UE4GameTarget : TargetRules
 		List<UnrealTargetConfiguration> Platforms = new List<UnrealTargetConfiguration>();
 		if(HostPlatform == UnrealTargetPlatform.Mac)
 		{
-			if(Platform == UnrealTargetPlatform.Mac || Platform == UnrealTargetPlatform.IOS)
+			if(Platform == UnrealTargetPlatform.Mac || Platform == UnrealTargetPlatform.IOS || Platform == UnrealTargetPlatform.TVOS)
 			{
 				Platforms.Add(UnrealTargetConfiguration.Development);
 				Platforms.Add(UnrealTargetConfiguration.Shipping);

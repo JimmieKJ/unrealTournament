@@ -3,4 +3,7 @@
 #pragma once
 
 #include "UnrealEd.h"
+#include "Core.h"
+#include "SlateBasics.h"
+#include "EditorStyle.h"
 #include "IMergeActorsModule.h"

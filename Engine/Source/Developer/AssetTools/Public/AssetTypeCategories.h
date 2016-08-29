@@ -22,9 +22,10 @@ namespace EAssetTypeCategories
 		Misc = 1 << 6,
 		Gameplay = 1 << 7,
 		Blueprint = 1 << 8,
+		Media = 1 << 9,
 
 		// Items below this will be allocated at runtime via RegisterAdvancedAssetCategory
-		FirstUser = 1 << 9,
+		FirstUser = 1 << 10,
 		LastUser = 1 << 31,
 		// Last allowed value is 1 << 31
 	};

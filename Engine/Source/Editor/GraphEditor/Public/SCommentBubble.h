@@ -71,6 +71,9 @@ class GRAPHEDITOR_API SCommentBubble : public SCompoundWidget
 	virtual void Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime ) override;
 	//~ End SWidget Interface
 
+	/** Updates the comment Visibility */
+	void TickVisibility(const double InCurrentTime, const float InDeltaTime);
+
 	/** Returns the offset from the SNode center slot */
 	FVector2D GetOffset() const;
 
@@ -89,11 +92,17 @@ class GRAPHEDITOR_API SCommentBubble : public SCompoundWidget
 	/** Called to display/hide the comment bubble */
 	void OnCommentBubbleToggle( ECheckBoxState State );
 
+	/** Directly sets the bubble's visibility, without assuming it was from a user action (no undo transaction, or OnToggled callback)*/
+	void SetCommentBubbleVisibility(bool bVisible);
+
 	/** Called when a node's comment bubble pinned state is changed */
 	void OnPinStateToggle( ECheckBoxState State ) const;
 
 	/** Called to update the bubble widget layout */
 	void UpdateBubble();
+
+	/** Returns if the text block currently has keyboard focus*/
+	bool TextBlockHasKeyboardFocus() const;
 
 protected:
 

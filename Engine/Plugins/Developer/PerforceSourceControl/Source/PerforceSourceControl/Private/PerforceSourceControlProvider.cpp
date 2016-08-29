@@ -19,7 +19,6 @@ static FName ProviderName("Perforce");
 /** Init of connection with source control server */
 void FPerforceSourceControlProvider::Init(bool bForceConnection)
 {
-	LoadSSLLibraries();
 	ParseCommandLineSettings(bForceConnection);
 }
 
@@ -37,8 +36,6 @@ void FPerforceSourceControlProvider::Close()
 	StateCache.Empty();
 
 	bServerAvailable = false;
-
-	UnloadSSLLibraries();
 }
 
 TSharedRef<FPerforceSourceControlState, ESPMode::ThreadSafe> FPerforceSourceControlProvider::GetStateInternal(const FString& Filename)
@@ -351,17 +348,22 @@ void FPerforceSourceControlProvider::Tick()
 			// dump any messages to output log
 			OutputCommandMessages(Command);
 
-			// run the completion delegate if we have one bound
-			ECommandResult::Type Result = ECommandResult::Failed;
-			if(Command.bCommandSuccessful)
+			// If the command was cancelled while trying to connect, the operation complete delegate will already
+			// have been called. Otherwise, now we have to call it.
+			if (!Command.bCancelledWhileTryingToConnect)
 			{
-				Result = ECommandResult::Succeeded;
+				// run the completion delegate if we have one bound
+				ECommandResult::Type Result = ECommandResult::Failed;
+				if (Command.bCancelled)
+				{
+					Result = ECommandResult::Cancelled;
+				}
+				else if (Command.bCommandSuccessful)
+				{
+					Result = ECommandResult::Succeeded;
+				}
+				Command.OperationCompleteDelegate.ExecuteIfBound(Command.Operation, Result);
 			}
-			else if(Command.bCancelled)
-			{
-				Result = ECommandResult::Cancelled;
-			}
-			Command.OperationCompleteDelegate.ExecuteIfBound(Command.Operation, Result);
 
 			//commands that are left in the array during a tick need to be deleted
 			if(Command.bAutoDelete)
@@ -372,6 +374,21 @@ void FPerforceSourceControlProvider::Tick()
 
 			// only do one command per tick loop, as we dont want concurrent modification 
 			// of the command queue (which can happen in the completion delegate)
+			break;
+		}
+		// If a cancel is detected before the server has connected, abort immediately.
+		else if (Command.bCancelled && !Command.bConnectionWasSuccessful)
+		{
+			// Mark command as having been cancelled while trying to connect
+			Command.CancelWhileTryingToConnect();
+
+			// If this was a synchronous command, set it free so that it will be deleted automatically
+			// when its (still running) thread finally finishes
+			Command.bAutoDelete = true;
+
+			// run the completion delegate if we have one bound
+			Command.OperationCompleteDelegate.ExecuteIfBound(Command.Operation, ECommandResult::Cancelled);
+
 			break;
 		}
 	}
@@ -469,8 +486,8 @@ ECommandResult::Type FPerforceSourceControlProvider::ExecuteSynchronousCommand(F
 	// Perform the command asynchronously
 	IssueCommand( InCommand, false );
 
-	// Wait until the queue is empty. Only at this point is our command guaranteed to be removed from the queue
-	while(CommandQueue.Num() > 0)
+	// Wait until the command has been processed
+	while (!InCommand.bCancelledWhileTryingToConnect && CommandQueue.Contains(&InCommand))
 	{
 		// Tick the command queue and update progress.
 		Tick();
@@ -481,13 +498,13 @@ ECommandResult::Type FPerforceSourceControlProvider::ExecuteSynchronousCommand(F
 		FPlatformProcess::Sleep(0.01f);
 	}
 
-	if(InCommand.bCommandSuccessful)
-	{
-		Result = ECommandResult::Succeeded;
-	}
-	else if(InCommand.bCancelled)
+	if (InCommand.bCancelled)
 	{
 		Result = ECommandResult::Cancelled;
+	}
+	else if (InCommand.bCommandSuccessful)
+	{
+		Result = ECommandResult::Succeeded;
 	}
 
 	// If the command failed, inform the user that they need to try again
@@ -496,9 +513,11 @@ ECommandResult::Type FPerforceSourceControlProvider::ExecuteSynchronousCommand(F
 		FMessageDialog::Open( EAppMsgType::Ok, LOCTEXT("Perforce_ServerUnresponsive", "Perforce server is unresponsive. Please check your connection and try again.") );
 	}
 
-	// Delete the command now
-	check(!InCommand.bAutoDelete);
-	delete &InCommand;
+	// Delete the command now if not marked as auto-delete
+	if (!InCommand.bAutoDelete)
+	{
+		delete &InCommand;
+	}
 
 	return Result;
 }
@@ -526,49 +545,6 @@ ECommandResult::Type FPerforceSourceControlProvider::IssueCommand(FPerforceSourc
 
 		return Result;
 	}
-}
-
-void FPerforceSourceControlProvider::LoadSSLLibraries()
-{
-#if PLATFORM_WINDOWS
-#if PLATFORM_64BITS
-
-#if _MSC_VER >= 1900
-	const FString VSVersion = TEXT("VS2015/");
-#elif _MSC_VER >= 1800
-	const FString VSVersion = TEXT("VS2013/");
-#else
-	#error "Unsupported Visual Studio version."
-#endif
-
-	const FString PlatformString = TEXT("Win64");
-	const FString RootOpenSSLPath = FPaths::EngineDir() / TEXT("Binaries/ThirdParty/OpenSSL/") / PlatformString / VSVersion;
-
-	FString DLLToLoad = RootOpenSSLPath + TEXT("libeay32.dll");
-	Module_libeay32 = LoadLibraryW(*DLLToLoad);
-	verifyf(Module_libeay32, TEXT("Failed to load DLL %s"), *DLLToLoad);
-	DLLToLoad = RootOpenSSLPath + TEXT("ssleay32.dll");
-	Module_ssleay32 = LoadLibraryW(*DLLToLoad);
-	verifyf(Module_ssleay32, TEXT("Failed to load DLL %s"), *DLLToLoad);
-#endif
-#endif
-}
-
-void FPerforceSourceControlProvider::UnloadSSLLibraries()
-{
-#if PLATFORM_WINDOWS
-	if(Module_libeay32)
-	{
-		FreeLibrary(Module_libeay32);
-		Module_libeay32 = NULL;
-	}
-
-	if(Module_ssleay32)
-	{
-		FreeLibrary(Module_ssleay32);
-		Module_ssleay32 = NULL;
-	}
-#endif
 }
 
 #undef LOCTEXT_NAMESPACE

@@ -72,26 +72,26 @@ void UUTRadialMenu_WeaponWheel::DrawMenu(FVector2D ScreenCenter, float RenderDel
 			{
 				bool bCurrent = CurrentSegment == i && !ShouldCancel();
 				float Angle = GetMidSegmentAngle(i);
-				FVector2D ScreenPosition = Rotate(CenterPoint, Angle);
+				FVector2D DrawScreenPosition = Rotate(CenterPoint, Angle);
 				SegmentTemplate.RenderScale = bCurrent ? 1.2f : 1.0f; 
-				RenderObj_TextureAtWithRotation(SegmentTemplate, ScreenPosition, Angle);	
+				RenderObj_TextureAtWithRotation(SegmentTemplate, DrawScreenPosition, Angle);
 				if (bCurrent)
 				{
 					HighlightedSegmentTemplate.RenderScale = bCurrent ? 1.2f : 1.0f; 
-					RenderObj_TextureAtWithRotation(HighlightedSegmentTemplate, ScreenPosition, Angle);	
+					RenderObj_TextureAtWithRotation(HighlightedSegmentTemplate, DrawScreenPosition, Angle);
 				}
 
-				FVector2D RenderPosition = Rotate(FVector2D(0.0f,-250.0f), Angle);
+				FVector2D IconRenderPosition = Rotate(FVector2D(0.0f,-250.0f), Angle);
 				WeaponIconTemplate.UVs = WeaponList[i]->WeaponBarSelectedUVs;
 				WeaponIconTemplate.RenderOffset = FVector2D(0.5f,0.5f);
 
 				// Draw it in black a little bigger
 				WeaponIconTemplate.RenderColor = FLinearColor::Black;
-				RenderObj_TextureAt(WeaponIconTemplate, RenderPosition.X, RenderPosition.Y, WeaponIconTemplate.UVs.UL * 1.55f, WeaponIconTemplate.UVs.VL * 1.05f);
+				RenderObj_TextureAt(WeaponIconTemplate, IconRenderPosition.X, IconRenderPosition.Y, WeaponIconTemplate.UVs.UL * 1.55f, WeaponIconTemplate.UVs.VL * 1.05f);
 			
 				// Draw it colorized
 				WeaponIconTemplate.RenderColor = WeaponList[i]->IconColor;
-				RenderObj_TextureAt(WeaponIconTemplate, RenderPosition.X, RenderPosition.Y, WeaponIconTemplate.UVs.UL * 1.5f, WeaponIconTemplate.UVs.VL * 1.0f);
+				RenderObj_TextureAt(WeaponIconTemplate, IconRenderPosition.X, IconRenderPosition.Y, WeaponIconTemplate.UVs.UL * 1.5f, WeaponIconTemplate.UVs.VL * 1.0f);
 			}
 		}
 

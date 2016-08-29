@@ -176,9 +176,17 @@ namespace UnrealGameSync
 				List<PerforceFileRecord> Files;
 				if(PerforceClient.FindFiles(PerforceUtils.GetClientOrDepotDirectoryName(NewSelectedClientFileName) + "/Source/*Editor.Target.cs", out Files, Log) && Files.Count >= 1)
 				{
-					string DepotPath = Files[0].DepotPath;
-					NewProjectEditorTarget = Path.GetFileNameWithoutExtension(Path.GetFileNameWithoutExtension(DepotPath.Substring(DepotPath.LastIndexOf('/') + 1)));
-					Log.WriteLine("Using {0} as editor target name (from {1})", NewProjectEditorTarget, Files[0]);
+					PerforceFileRecord File = Files.FirstOrDefault(x => x.Action == null || !x.Action.Contains("delete"));
+					if(File == null)
+					{
+						Log.WriteLine("Couldn't find any non-deleted editor targets for this project.");
+					}
+					else
+					{
+						string DepotPath = File.DepotPath;
+						NewProjectEditorTarget = Path.GetFileNameWithoutExtension(Path.GetFileNameWithoutExtension(DepotPath.Substring(DepotPath.LastIndexOf('/') + 1)));
+						Log.WriteLine("Using {0} as editor target name (from {1})", NewProjectEditorTarget, Files[0]);
+					}
 				}
 				else
 				{
@@ -195,7 +203,13 @@ namespace UnrealGameSync
 					ErrorMessage = String.Format("Unexpected client path; expected '{0}' to begin with '{1}'", NewSelectedClientFileName, ExpectedPrefix);
 					return false;
 				}
-				NewSelectedProjectIdentifier = String.Format("{0}/{1}", StreamName, NewSelectedClientFileName.Substring(ExpectedPrefix.Length));
+				string StreamPrefix;
+				if(!TryGetStreamPrefix(PerforceClient, StreamName, Log, out StreamPrefix))
+				{
+					ErrorMessage = String.Format("Failed to get stream info for {0}", StreamName);
+					return false;
+				}
+				NewSelectedProjectIdentifier = String.Format("{0}/{1}", StreamPrefix, NewSelectedClientFileName.Substring(ExpectedPrefix.Length));
 			}
 			else
 			{
@@ -230,6 +244,26 @@ namespace UnrealGameSync
 			// Succeeed!
 			ErrorMessage = null;
 			return true;
+		}
+
+		bool TryGetStreamPrefix(PerforceConnection Perforce, string StreamName, TextWriter Log, out string StreamPrefix)
+		{ 
+			string CurrentStreamName = StreamName;
+			for(;;)
+			{
+				PerforceSpec StreamSpec;
+				if(!Perforce.TryGetStreamSpec(CurrentStreamName, out StreamSpec, Log))
+				{
+					StreamPrefix = null;
+					return false;
+				}
+				if(StreamSpec.GetField("Type") != "virtual")
+				{
+					StreamPrefix = CurrentStreamName;
+					return true;
+				}
+				CurrentStreamName = StreamSpec.GetField("Parent");
+			}
 		}
 	}
 }

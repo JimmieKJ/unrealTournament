@@ -124,9 +124,12 @@ void SPropertyEditorAsset::Construct( const FArguments& InArgs, const TSharedPtr
 			TArray<FString> CustomClassFilterNames;
 			ClassFilterString.ParseIntoArray(CustomClassFilterNames, TEXT(","), true);
 
-			for (auto It = CustomClassFilterNames.CreateConstIterator(); It; ++It)
+			for (auto It = CustomClassFilterNames.CreateIterator(); It; ++It)
 			{
-				const FString& ClassName = *It;
+				FString& ClassName = *It;
+				// User can potentially list class names with leading or trailing whitespace
+				ClassName.Trim();
+				ClassName.TrimTrailing();
 
 				UClass* Class = FindObject<UClass>(ANY_PACKAGE, *ClassName);
 
@@ -201,7 +204,7 @@ void SPropertyEditorAsset::Construct( const FArguments& InArgs, const TSharedPtr
 				if (Obj->HasAllFlags(RF_ClassDefaultObject))
 				{
 					IsEnabledAttribute.Set(false);
-					TooltipAttribute.Set(LOCTEXT("VariableHasDisableEditOnTemplate", "Editing this value in a Class Default Object is not allowed"));
+					TooltipAttribute.Set(LOCTEXT("VariableHasDisableEditOnTemplateTooltip", "Editing this value in a Class Default Object is not allowed"));
 					break;
 				}
 
@@ -459,7 +462,7 @@ void SPropertyEditorAsset::OnMenuOpenChanged(bool bOpen)
 
 bool SPropertyEditorAsset::IsFilteredActor( const AActor* const Actor ) const
 {
-	return Actor->IsA( ObjectClass );
+	return Actor->IsA( ObjectClass ) && !Actor->IsChildActor();
 }
 
 void SPropertyEditorAsset::CloseComboButton()
@@ -515,69 +518,31 @@ FText SPropertyEditorAsset::OnGetToolTip() const
 	FObjectOrAssetData Value; 
 	FPropertyAccess::Result Result = GetValue( Value );
 
-	FText ToolTip = FText::GetEmpty();
+	FText ToolTipText = FText::GetEmpty();
 
 	if( Result == FPropertyAccess::Success )
 	{
 		if(Value.Object != NULL && !bIsActor )
 		{
 			// Display the package name which is a valid path to the object without redundant information
-			ToolTip = FText::FromString(Value.Object->GetOutermost()->GetName());
+			ToolTipText = FText::FromString(Value.Object->GetOutermost()->GetName());
 		}
 		else if( Value.AssetData.IsValid() )
 		{
-			ToolTip = FText::FromName(Value.AssetData.PackageName);
+			ToolTipText = FText::FromName(Value.AssetData.PackageName);
 		}
 	}
 	else if( Result == FPropertyAccess::MultipleValues )
 	{
-		ToolTip = LOCTEXT("MultipleValues", "Multiple Values");
+		ToolTipText = LOCTEXT("MultipleValues", "Multiple Values");
 	}
 
-	if( ToolTip.IsEmpty() )
+	if( ToolTipText.IsEmpty() )
 	{
-		ToolTip = FText::FromString(ObjectPath.Get());
+		ToolTipText = FText::FromString(ObjectPath.Get());
 	}
 
-	return ToolTip;
-}
-
-bool SPropertyEditorAsset::HasEngineOuterObject() const
-{
-	if (PropertyEditor.IsValid())
-	{
-		// Determine whether any outer object is an Engine asset
-		TArray<UObject*> OuterObjects;
-		PropertyEditor->GetPropertyHandle()->GetOuterObjects(OuterObjects);
-		for (UObject* OuterObject : OuterObjects)
-		{
-			const FAssetData AssetData(OuterObject);
-			const FString AssetPath = AssetData.ObjectPath.ToString();
-			if (FPackageName::IsEnginePackageName(AssetPath))
-			{
-				return true;
-			}
-		}
-	}
-
-	return false;
-}
-
-bool SPropertyEditorAsset::CanAssetBeAssigned(const FAssetData& AssetData) const
-{
-	// Prevent Engine assets being assigned non-Engine asset properties
-	const bool bHasEngineOuterObject = HasEngineOuterObject();
-	const FString AssetPath = AssetData.ObjectPath.ToString();
-	if (bHasEngineOuterObject && !FPackageName::IsEnginePackageName(AssetPath) && PropertyEditor->GetPropertyHandle()->GetPropertyClass() != ULazyObjectProperty::StaticClass())
-	{
-		FMessageDialog::Open(EAppMsgType::Ok, FText::Format(
-			LOCTEXT("ObjectAssignmentToEngineFailed", "Cannot assign a Project object {0} to an Engine property."),
-			FText::FromString(AssetPath)));
-
-		return false;
-	}
-
-	return true;
+	return ToolTipText;
 }
 
 void SPropertyEditorAsset::SetValue( const FAssetData& AssetData )
@@ -590,10 +555,7 @@ void SPropertyEditorAsset::SetValue( const FAssetData& AssetData )
 	{
 		if(PropertyEditor.IsValid())
 		{
-			if (CanAssetBeAssigned(AssetData))
-			{
-				PropertyEditor->GetPropertyHandle()->SetValue(AssetData);
-			}
+			PropertyEditor->GetPropertyHandle()->SetValue(AssetData);
 		}
 
 		OnSetObject.ExecuteIfBound(AssetData);
@@ -603,7 +565,7 @@ void SPropertyEditorAsset::SetValue( const FAssetData& AssetData )
 FPropertyAccess::Result SPropertyEditorAsset::GetValue( FObjectOrAssetData& OutValue ) const
 {
 	// Potentially accessing the value while garbage collecting or saving the package could trigger a crash.
-	// so we fail to get the value when that is occuring.
+	// so we fail to get the value when that is occurring.
 	if ( GIsSavingPackage || IsGarbageCollecting() )
 	{
 		return FPropertyAccess::Fail;
@@ -639,6 +601,14 @@ FPropertyAccess::Result SPropertyEditorAsset::GetValue( FObjectOrAssetData& OutV
 			}
 		}
 
+#if !UE_BUILD_SHIPPING
+		if (Object && !Object->IsValidLowLevel())
+		{
+			const UProperty* Property = PropertyEditor->GetProperty();
+			UE_LOG(LogPropertyNode, Fatal, TEXT("Property \"%s\" (%s) contains invalid data."), *Property->GetName(), *Property->GetCPPType());
+		}
+#endif
+
 		OutValue = FObjectOrAssetData( Object );
 	}
 	else
@@ -651,6 +621,14 @@ FPropertyAccess::Result SPropertyEditorAsset::GetValue( FObjectOrAssetData& OutV
 
 		if (Object != NULL)
 		{
+#if !UE_BUILD_SHIPPING
+			if (!Object->IsValidLowLevel())
+			{
+				const UProperty* Property = PropertyEditor->GetProperty();
+				UE_LOG(LogPropertyNode, Fatal, TEXT("Property \"%s\" (%s) contains invalid data."), *Property->GetName(), *Property->GetCPPType());
+			}
+#endif
+
 			OutValue = FObjectOrAssetData(Object);
 		}
 		else
@@ -778,30 +756,28 @@ FText SPropertyEditorAsset::GetOnBrowseToolTip() const
 
 void SPropertyEditorAsset::OnUse()
 {
-	// Load selected assets
-	FEditorDelegates::LoadSelectedAssetsIfNeeded.Broadcast();
-
-	// try to get a selected object of our class
-	UObject* Selection = NULL;
-	if (ObjectClass && ObjectClass->IsChildOf(AActor::StaticClass()))
+	// Use the property editor path if it is valid and there is no custom filtering required
+	if(PropertyEditor.IsValid() && !OnShouldFilterAsset.IsBound() && CustomClassFilters.Num() == 0)
 	{
-		Selection = GEditor->GetSelectedActors()->GetTop(ObjectClass);
-	}
-	else if (ObjectClass)
-	{
-		// Get the first material selected
-		Selection = GEditor->GetSelectedObjects()->GetTop(ObjectClass);
-	}
-
-	if (PropertyEditor.IsValid())
-	{
-		if (Selection && CanAssetBeAssigned(Selection))
-		{
-			PropertyEditor->GetPropertyHandle()->SetObjectValueFromSelection();
-		}
+		PropertyEditor->GetPropertyHandle()->SetObjectValueFromSelection();
 	}
 	else
 	{
+		// Load selected assets
+		FEditorDelegates::LoadSelectedAssetsIfNeeded.Broadcast();
+
+		// try to get a selected object of our class
+		UObject* Selection = NULL;
+		if( ObjectClass && ObjectClass->IsChildOf( AActor::StaticClass() ) )
+		{
+			Selection = GEditor->GetSelectedActors()->GetTop( ObjectClass );
+		}
+		else if( ObjectClass )
+		{
+			// Get the first material selected
+			Selection = GEditor->GetSelectedObjects()->GetTop( ObjectClass );
+		}
+
 		// Check against custom asset filter
 		if (Selection != NULL
 			&& OnShouldFilterAsset.IsBound()

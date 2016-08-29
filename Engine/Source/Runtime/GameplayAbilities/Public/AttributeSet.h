@@ -10,12 +10,41 @@ class UAbilitySystemComponent;
 struct FGameplayAbilityActorInfo;
 
 USTRUCT(BlueprintType)
+struct GAMEPLAYABILITIES_API FGameplayAttributeData
+{
+	GENERATED_BODY()
+	FGameplayAttributeData()
+		: BaseValue(0.f)
+		, CurrentValue(0.f)
+	{}
+
+	FGameplayAttributeData(float DefaultValue)
+		: BaseValue(DefaultValue)
+		, CurrentValue(DefaultValue)
+	{}
+
+	float GetCurrentValue() const;
+	virtual void SetCurrentValue(float NewValue);
+
+	float GetBaseValue() const;
+	virtual void SetBaseValue(float NewValue);
+
+protected:
+	UPROPERTY(BlueprintReadOnly, Category = "Attribute")
+	float BaseValue;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Attribute")
+	float CurrentValue;
+};
+
+USTRUCT(BlueprintType)
 struct GAMEPLAYABILITIES_API FGameplayAttribute
 {
 	GENERATED_USTRUCT_BODY()
 
 	FGameplayAttribute()
 		: Attribute(nullptr)
+		, AttributeOwner(nullptr)
 	{
 	}
 
@@ -29,6 +58,16 @@ struct GAMEPLAYABILITIES_API FGameplayAttribute
 	void SetUProperty(UProperty *NewProperty)
 	{
 		Attribute = NewProperty;
+		if (NewProperty)
+		{
+			AttributeOwner = Attribute->GetOwnerStruct();
+			Attribute->GetName(AttributeName);
+		}
+		else
+		{
+			AttributeOwner = nullptr;
+			AttributeName.Empty();
+		}
 	}
 
 	UProperty* GetUProperty() const
@@ -44,10 +83,16 @@ struct GAMEPLAYABILITIES_API FGameplayAttribute
 
 	bool IsSystemAttribute() const;
 
+	/** Returns true if the variable associated with Property is of type FGameplayAttributeData or one of its subclasses */
+	static bool IsGameplayAttributeDataProperty(const UProperty* Property);
+
 	void SetNumericValueChecked(float NewValue, class UAttributeSet* Dest) const;
 
 	float GetNumericValue(const UAttributeSet* Src) const;
 	float GetNumericValueChecked(const UAttributeSet* Src) const;
+
+	FGameplayAttributeData* GetGameplayAttributeData(UAttributeSet* Src) const;
+	FGameplayAttributeData* GetGameplayAttributeDataChecked(UAttributeSet* Src) const;
 	
 	/** Equality/Inequality operators */
 	bool operator==(const FGameplayAttribute& Other) const;
@@ -64,11 +109,28 @@ struct GAMEPLAYABILITIES_API FGameplayAttribute
 		return *GetNameSafe(Attribute);
 	}
 
+	void PostSerialize(const FArchive& Ar);
+
 private:
 	friend class FAttributePropertyDetails;
 
 	UPROPERTY(Category=GameplayAttribute, EditAnywhere)
 	UProperty*	Attribute;
+
+	UPROPERTY(Category = GameplayAttribute, VisibleAnywhere)
+	FString AttributeName;
+
+	UPROPERTY(Category = GameplayAttribute, VisibleAnywhere)
+	UStruct* AttributeOwner;
+};
+
+template<>
+struct TStructOpsTypeTraits< FGameplayAttribute > : public TStructOpsTypeTraitsBase
+{
+	enum
+	{
+		WithPostSerialize = true,
+	};
 };
 
 UCLASS(DefaultToInstanced, Blueprintable)
@@ -336,30 +398,40 @@ public:
  *		modifies MaxMoveSpeed should do so with a non-instant GameplayEffect.
  *	-"Default" is currently the hardcoded, fallback GroupName. If InitAttributeSetDefaults is called without a valid GroupName, we will fallback to default.
  *
- *
  */
-
 struct GAMEPLAYABILITIES_API FAttributeSetInitter
 {
-	void PreloadAttributeSetData(UCurveTable* CurveData);
+	virtual ~FAttributeSetInitter() {}
 
-	void InitAttributeSetDefaults(UAbilitySystemComponent* AbilitySystemComponent, FName GroupName, int32 Level, bool bInitialInit) const;
-	void ApplyAttributeDefault(UAbilitySystemComponent* AbilitySystemComponent, FGameplayAttribute& InAttribute, FName GroupName, int32 Level) const;
+	virtual void PreloadAttributeSetData(const TArray<UCurveTable*>& CurveData) = 0;
+	virtual void InitAttributeSetDefaults(UAbilitySystemComponent* AbilitySystemComponent, FName GroupName, int32 Level, bool bInitialInit) const = 0;
+	virtual void ApplyAttributeDefault(UAbilitySystemComponent* AbilitySystemComponent, FGameplayAttribute& InAttribute, FName GroupName, int32 Level) const = 0;
+};
+
+/** Explicit implementation of attribute set initter, relying on the existence and usage of discrete levels for data look-up (that is, CurveTable->Eval is not possible) */
+struct GAMEPLAYABILITIES_API FAttributeSetInitterDiscreteLevels : public FAttributeSetInitter
+{
+	virtual void PreloadAttributeSetData(const TArray<UCurveTable*>& CurveData) override;
+
+	virtual void InitAttributeSetDefaults(UAbilitySystemComponent* AbilitySystemComponent, FName GroupName, int32 Level, bool bInitialInit) const override;
+	virtual void ApplyAttributeDefault(UAbilitySystemComponent* AbilitySystemComponent, FGameplayAttribute& InAttribute, FName GroupName, int32 Level) const override;
 private:
+
+	bool IsSupportedProperty(UProperty* Property) const;
 
 	struct FAttributeDefaultValueList
 	{
-		void AddPair(UNumericProperty* InProperty, float InValue)
+		void AddPair(UProperty* InProperty, float InValue)
 		{
 			List.Add(FOffsetValuePair(InProperty, InValue));
 		}
 
 		struct FOffsetValuePair
 		{
-			FOffsetValuePair(UNumericProperty* InProperty, float InValue)
+			FOffsetValuePair(UProperty* InProperty, float InValue)
 			: Property(InProperty), Value(InValue) { }
 
-			UNumericProperty*	Property;
+			UProperty*	Property;
 			float		Value;
 		};
 
@@ -371,12 +443,12 @@ private:
 		TMap<TSubclassOf<UAttributeSet>, FAttributeDefaultValueList> DataMap;
 	};
 
-	struct FAttributeSetDefaulsCollection
+	struct FAttributeSetDefaultsCollection
 	{
 		TArray<FAttributeSetDefaults>		LevelData;
 	};
 
-	TMap<FName, FAttributeSetDefaulsCollection>	Defaults;
+	TMap<FName, FAttributeSetDefaultsCollection>	Defaults;
 };
 
 /**

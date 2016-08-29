@@ -30,7 +30,9 @@ void FNullDynamicRHI::Init()
 	check(!GIsRHIInitialized);
 
 	// do not do this at least on dedicated server; clients with -NullRHI may need additional consideration
-    if (WITH_EDITOR || !IsRunningDedicatedServer())
+#if !WITH_EDITOR
+	if (!IsRunningDedicatedServer())
+#endif
 	{
 		// Notify all initialized FRenderResources that there's a valid RHI device to create their RHI resources for now.
 		for(TLinkedList<FRenderResource*>::TIterator ResourceIt(FRenderResource::GetResourceList());ResourceIt;ResourceIt.Next())
@@ -59,10 +61,18 @@ void FNullDynamicRHI::Shutdown()
  */
 void* FNullDynamicRHI::GetStaticBuffer()
 {
-    checkf(WITH_EDITOR || !IsRunningDedicatedServer(), TEXT("NullRHI should never allocate memory on the server. Change the caller to avoid doing allocs in when FApp::ShouldUseNullRHI() is true."));
+#if !WITH_EDITOR
+	static bool bLogOnce = false;
+
+	if (!bLogOnce && (IsRunningDedicatedServer()))
+	{
+		UE_LOG(LogRHI, Log, TEXT("NullRHI preferably does not allocate memory on the server. Try to change the caller to avoid doing allocs in when FApp::ShouldUseNullRHI() is true."));
+		bLogOnce = true;
+	}
+#endif
 
 	static void* Buffer = nullptr;
-	if ((WITH_EDITOR || !IsRunningDedicatedServer()) && !Buffer)
+	if (!Buffer)
 	{
 		// allocate an 64 meg buffer, should be big enough for any texture/surface
 		Buffer = FMemory::Malloc(64 * 1024 * 1024);

@@ -19,7 +19,7 @@ void FAnimNode_RefPose::Evaluate(FPoseContext& Output)
 
 	case EIT_Additive:
 	default:
-		Output.ResetToIdentity();
+		Output.ResetToAdditiveIdentity();
 		break;
 	}
 }

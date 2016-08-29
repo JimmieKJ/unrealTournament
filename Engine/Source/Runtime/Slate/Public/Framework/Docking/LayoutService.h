@@ -2,6 +2,7 @@
 
 #pragma once
 
+#include "TabManager.h"
 
 struct SLATE_API FLayoutSaveRestore
 {

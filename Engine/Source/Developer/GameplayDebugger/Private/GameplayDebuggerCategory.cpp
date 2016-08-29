@@ -8,8 +8,8 @@ FGameplayDebuggerCategory::FGameplayDebuggerCategory() :
 	bShowUpdateTimer(false),
 	bShowCategoryName(true),
 	bShowOnlyWithDebugActor(true),
-	bIsLocal(true),
-	bHasAuthority(false),
+	bIsLocal(false),
+	bHasAuthority(true),
 	bIsEnabled(true),
 	CategoryId(INDEX_NONE),
 	LastCollectDataTime(-FLT_MAX)

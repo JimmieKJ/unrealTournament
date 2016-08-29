@@ -3,6 +3,7 @@
 
 #include "MetalRHIPrivate.h"
 #include "MetalProfiler.h"
+#include "MetalCommandBuffer.h"
 
 FMetalStructuredBuffer::FMetalStructuredBuffer(uint32 Stride, uint32 Size, FResourceArrayInterface* ResourceArray, uint32 Usage)
 	: FRHIStructuredBuffer(Stride, Size, Usage)
@@ -11,7 +12,7 @@ FMetalStructuredBuffer::FMetalStructuredBuffer(uint32 Stride, uint32 Size, FReso
 {
 	check((Size % Stride) == 0);
 
-	MTLStorageMode Mode = (GetUsage() & BUF_Volatile) ? MTLStorageModeShared : BUFFER_STORAGE_MODE;
+	MTLStorageMode Mode = BUFFER_STORAGE_MODE;
 	FMetalPooledBuffer Buf = GetMetalDeviceContext().CreatePooledBuffer(FMetalPooledBufferArgs(GetMetalDeviceContext().GetDevice(), Size, Mode));
 	Buffer = [Buf.Buffer retain];
 
@@ -22,12 +23,14 @@ FMetalStructuredBuffer::FMetalStructuredBuffer(uint32 Stride, uint32 Size, FReso
  		FMemory::Memcpy(LockedMemory, ResourceArray->GetResourceData(), Size);
 		ResourceArray->Discard();
 	}
+	INC_MEMORY_STAT_BY(STAT_MetalWastedPooledBufferMem, Buffer.length - GetSize());
 
-	TRACK_OBJECT(Buffer);
+	TRACK_OBJECT(STAT_MetalBufferCount, Buffer);
 }
 
 FMetalStructuredBuffer::~FMetalStructuredBuffer()
 {
+	DEC_MEMORY_STAT_BY(STAT_MetalWastedPooledBufferMem, Buffer.length - GetSize());
 	SafeReleasePooledBuffer(Buffer);
 	[Buffer release];
 }
@@ -40,7 +43,7 @@ void* FMetalStructuredBuffer::Lock(EResourceLockMode LockMode, uint32 Offset, ui
 	if (GetUsage() & BUF_AnyDynamic && LockMode == RLM_WriteOnly)
 	{
 		id<MTLBuffer> OldBuffer = Buffer;
-		MTLStorageMode Mode = (GetUsage() & BUF_Volatile) ? MTLStorageModeShared : BUFFER_STORAGE_MODE;
+		MTLStorageMode Mode = BUFFER_STORAGE_MODE;
 		FMetalPooledBuffer Buf = GetMetalDeviceContext().CreatePooledBuffer(FMetalPooledBufferArgs(GetMetalDeviceContext().GetDevice(), GetSize(), Mode));
 		Buffer = [Buf.Buffer retain];
 		GetMetalDeviceContext().ReleasePooledBuffer(OldBuffer);
@@ -59,6 +62,7 @@ void* FMetalStructuredBuffer::Lock(EResourceLockMode LockMode, uint32 Offset, ui
 		
 		// Synchronise the buffer with the CPU
 		id<MTLBlitCommandEncoder> Blitter = GetMetalDeviceContext().GetBlitContext();
+		METAL_DEBUG_COMMAND_BUFFER_BLIT_LOG((&GetMetalDeviceContext()), @"SynchronizeResource(StructuredBuffer %p)", this);
 		[Blitter synchronizeResource:Buffer];
 		
 		//kick the current command buffer.

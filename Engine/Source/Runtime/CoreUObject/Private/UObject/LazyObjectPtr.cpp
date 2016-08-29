@@ -80,7 +80,6 @@ FUniqueObjectGuid FUniqueObjectGuid::GetOrCreateIDForObject(const class UObject 
 
 FThreadSafeCounter FUniqueObjectGuid::CurrentAnnotationTag(1);
 
-
 /*-----------------------------------------------------------------------------------------------------------
 	FLazyObjectPtr
 -------------------------------------------------------------------------------------------------------------*/
@@ -120,7 +119,7 @@ void FLazyObjectPtr::PossiblySerializeObjectGuid(UObject *Object, FArchive& Ar)
 			FUniqueObjectGuid Guid;
 			Ar << Guid;
 
-			// Don't try and resolve GUIDs when loading a package for diff'ing
+			// Don't try and resolve GUIDs when loading a package for diffing
 			const UPackage* Package = Object->GetOutermost();
 			const bool bLoadedForDiff = (Package && Package->HasAnyPackageFlags(PKG_ForDiffing));
 			if (!bLoadedForDiff && (!(Ar.GetPortFlags() & PPF_Duplicate) || (Ar.GetPortFlags() & PPF_DuplicateForPIE)))
@@ -129,10 +128,20 @@ void FLazyObjectPtr::PossiblySerializeObjectGuid(UObject *Object, FArchive& Ar)
 				UObject* OtherObject = Guid.ResolveObject();
 				if (OtherObject != Object) // on undo/redo, the object (potentially) already exists
 				{
-					if (OtherObject != NULL)
+					bool Duplicate = OtherObject != NULL;
+					bool Reassigning = FParse::Param(FCommandLine::Get(), TEXT("AssignNewMapGuids"));
+
+					if (Duplicate || Reassigning)
 					{
 						// IsGame returns true for GIsPlayInEditorWorld
-						UE_CLOG(!(FApp::IsGame() && Package && Package->ContainsMap()), LogUObjectGlobals, Warning, TEXT("Guid referenced by %s is already used by %s, which should never happen in the editor but could happen at runtime with duplicate level loading or PIE"), !!Object ? *Object->GetFullName() : TEXT("NULL"), *OtherObject->GetFullName());
+						if (!Reassigning)
+						{
+							UE_CLOG(!(FApp::IsGame() && Package && Package->ContainsMap()), LogUObjectGlobals, Warning, TEXT("Guid referenced by %s is already used by %s, which should never happen in the editor but could happen at runtime with duplicate level loading or PIE"), !!Object ? *Object->GetFullName() : TEXT("NULL"), *OtherObject->GetFullName());
+						}
+						else
+						{
+							UE_LOG(LogUObjectGlobals, Warning, TEXT("Assigning new Guid to %s"), *Object->GetFullName());
+						}
 						// This guid is in use, which should never happen in the editor but could happen at runtime with duplicate level loading or PIE. If so give it an invalid GUID and don't add to the annotation map.
 						Guid = FGuid();
 					}

@@ -16,11 +16,11 @@ struct FMovieSceneSpawnable;
 /** Struct used for defining a new spawnable type */
 struct FNewSpawnable
 {
-	FNewSpawnable() : Blueprint(nullptr) {}
-	FNewSpawnable(UBlueprint* InBlueprint, FString InName) : Blueprint(InBlueprint), Name(MoveTemp(InName)) {}
+	FNewSpawnable() : ObjectTemplate(nullptr) {}
+	FNewSpawnable(UObject* InObjectTemplate, FString InName) : ObjectTemplate(InObjectTemplate), Name(MoveTemp(InName)) {}
 
-	/** The blueprint that defines the spawnable */
-	UBlueprint* Blueprint;
+	/** The archetype object template that defines the spawnable */
+	UObject* ObjectTemplate;
 
 	/** The desired name of the new spawnable */
 	FString Name;

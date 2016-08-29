@@ -107,6 +107,17 @@ void FGameplayDebuggerCategory_Abilities::DrawData(APlayerController* OwnerPC, F
 {
 	CanvasContext.Printf(TEXT("Owned Tags: {yellow}%s"), *DataPack.OwnedTags);
 
+	AActor* LocalDebugActor = FindLocalDebugActor();
+	UAbilitySystemComponent* AbilityComp = LocalDebugActor ? LocalDebugActor->FindComponentByClass<UAbilitySystemComponent>() : nullptr;
+	if (AbilityComp)
+	{
+		static FGameplayTagContainer OwnerTags;
+		OwnerTags.Reset();
+		AbilityComp->GetOwnedGameplayTags(OwnerTags);
+
+		CanvasContext.Printf(TEXT("Local Tags: {cyan}%s"), *OwnerTags.ToStringSimple());
+	}
+
 	CanvasContext.Printf(TEXT("Gameplay Effects: {yellow}%d"), DataPack.GameplayEffects.Num());
 	for (int32 Idx = 0; Idx < DataPack.GameplayEffects.Num(); Idx++)
 	{

@@ -33,7 +33,7 @@ void FBackendHelperAnim::CreateAnimClassData(FEmitterLocalContext& Context)
 				, FEmitDefaultValueHelper::EPropertyAccessOperator::Pointer);
 		}
 
-		Context.AddLine(FString::Printf(TEXT("InDynamicClass->AnimClassImplementation = %s;"), *LocalNativeName));
+		Context.AddLine(FString::Printf(TEXT("InDynamicClass->%s = %s;"), GET_MEMBER_NAME_STRING_CHECKED(UDynamicClass, AnimClassImplementation), *LocalNativeName));
 	}
 }
 

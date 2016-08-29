@@ -42,6 +42,7 @@ public:
 	FName				RulesetVariation;		// Name of variation within a ProcBuilding Ruleset for this face
 	FName				ItemName;				// Item name.
 	int32					iLink;					// iBspSurf, or brush fpoly index of first identical polygon, or MAX_uint16.
+	int32					iLinkSurf;
 	int32					iBrushPoly;				// Index of editor solid's polygon this originated from.
 	uint32				SmoothingMask;			// A mask used to determine which smoothing groups this polygon is in.  SmoothingMask & (1 << GroupNumber)
 	float				LightMapScale;			// The number of units/shadowmap texel on this surface.

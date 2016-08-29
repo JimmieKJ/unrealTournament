@@ -32,7 +32,7 @@ class UInterpGroupDirector : public UInterpGroup
 	ENGINE_API class UInterpTrackColorScale* GetColorScaleTrack();
 
 	/** @return this director group's Audio Master track, if it has one */
-	class UInterpTrackAudioMaster* GetAudioMasterTrack();
+	ENGINE_API class UInterpTrackAudioMaster* GetAudioMasterTrack();
 };
 
 

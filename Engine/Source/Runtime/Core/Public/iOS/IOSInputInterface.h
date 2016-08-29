@@ -9,6 +9,12 @@
 #endif
 #import <GameController/GameController.h>
 
+
+#define KEYCODE_ENTER 1000
+#define KEYCODE_BACKSPACE 1001
+#define KEYCODE_ESCAPE 1002
+
+
 enum TouchType
 {
 	TouchBegan,
@@ -49,6 +55,7 @@ public:
 	void SendControllerEvents();
 
 	static void QueueTouchInput(const TArray<TouchInput>& InTouchEvents);
+	static void QueueKeyInput(int32 Key, int32 Char);
 
 	//~ Begin Exec Interface
 	virtual bool Exec(UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Ar) override;
@@ -87,10 +94,11 @@ private:
 	void CalibrateMotion(uint32 PlayerIndex);
 
 private:
-	void ProcessTouches(uint32 ControllerId);
+	void ProcessTouchesAndKeys(uint32 ControllerId);
 
 
 	static TArray<TouchInput> TouchInputStack;
+	static TArray<int32> KeyInputStack;
 
 	// protects the input stack used on 2 threads
 	static FCriticalSection CriticalSection;

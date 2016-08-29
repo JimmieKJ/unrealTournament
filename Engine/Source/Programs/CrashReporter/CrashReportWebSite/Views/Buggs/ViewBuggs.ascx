@@ -1,7 +1,8 @@
 ﻿<%-- // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved. --%>
 
 <%@ Control Language="C#" Inherits="System.Web.Mvc.ViewUserControl<BuggsViewModel>" %>
-<%@ Import Namespace="Tools.CrashReporter.CrashReportWebSite.Models" %>
+<%@ Import Namespace="Tools.CrashReporter.CrashReportWebSite.DataModels" %>
+<%@ Import Namespace="Tools.CrashReporter.CrashReportWebSite.ViewModels" %>
 
 <table id ='CrashesTable'>
 	<tr id="SelectBar"> 
@@ -55,44 +56,42 @@
 	</tr>
 	<%
 		using( FAutoScopedLogTimer LogTimer = new FAutoScopedLogTimer( this.GetType().ToString() ) )
-		{ 
-			try
-			{
-				foreach( Bugg CurrentBugg in Model.Results )
-				{
-					using( FScopedLogTimer LogTimer2 = new FScopedLogTimer( "CurrentBugg" + "(" + CurrentBugg.Id + ")" ) )
-					{ 
-						string BuggRowColor = "grey";
-						string BuggColorDescription = "Incoming CrashGroup";
+		{
+            foreach( Bugg CurrentBugg in Model.Results )
+            {
+                using( FScopedLogTimer LogTimer2 = new FScopedLogTimer( "CurrentBugg" + "(" + CurrentBugg.Id + ")" ) )
+                { 
+					string BuggRowColor = "grey";
+					string BuggColorDescription = "Incoming CrashGroup";
 
-						if( string.IsNullOrWhiteSpace( CurrentBugg.FixedChangeList ) && string.IsNullOrWhiteSpace( CurrentBugg.Jira ) )
-						{
-							BuggRowColor = "#FFFF88"; // yellow
-							BuggColorDescription = "This CrashGroup has not been fixed or assigned a JIRA";
-						}
+                    if (string.IsNullOrWhiteSpace(CurrentBugg.FixedChangeList) && string.IsNullOrWhiteSpace(CurrentBugg.TTPID))
+					{
+						BuggRowColor = "#FFFF88"; // yellow
+						BuggColorDescription = "This CrashGroup has not been fixed or assigned a JIRA";
+					}
 
-						if (!string.IsNullOrWhiteSpace( CurrentBugg.Jira ) && string.IsNullOrWhiteSpace( CurrentBugg.FixedChangeList ))
-						{
-							BuggRowColor = "#D01F3C"; // red
-							BuggColorDescription = "This CrashGroup has  been assigned a JIRA: " + CurrentBugg.Jira + " but has not been fixed.";
-						}
+					if (!string.IsNullOrWhiteSpace( CurrentBugg.TTPID ) && string.IsNullOrWhiteSpace( CurrentBugg.FixedChangeList ))
+					{
+						BuggRowColor = "#D01F3C"; // red
+                        BuggColorDescription = "This CrashGroup has  been assigned a JIRA: " + CurrentBugg.TTPID + " but has not been fixed.";
+					}
 
-						if( CurrentBugg.Status == "Coder" )
-						{
-							BuggRowColor = "#D01F3C"; // red
-							BuggColorDescription = "This CrashGroup status has been set to Coder";
-						}
-						if( CurrentBugg.Status == "Tester" )
-						{
-							BuggRowColor = "#5C87B2"; // blue
-							BuggColorDescription = "This CrashGroup status has been set to Tester";
-						}
-						if( !string.IsNullOrWhiteSpace( CurrentBugg.FixedChangeList ) )
-						{
-							// Green
-							BuggRowColor = "#008C00"; //green
-							BuggColorDescription = "This CrashGroup has been fixed in CL# " + CurrentBugg.FixedChangeList;
-						}
+					if( CurrentBugg.Status == "Coder" )
+					{
+						BuggRowColor = "#D01F3C"; // red
+						BuggColorDescription = "This CrashGroup status has been set to Coder";
+					}
+					if( CurrentBugg.Status == "Tester" )
+					{
+						BuggRowColor = "#5C87B2"; // blue
+						BuggColorDescription = "This CrashGroup status has been set to Tester";
+					}
+					if( !string.IsNullOrWhiteSpace( CurrentBugg.FixedChangeList ) )
+					{
+						// Green
+						BuggRowColor = "#008C00"; //green
+						BuggColorDescription = "This CrashGroup has been fixed in CL# " + CurrentBugg.FixedChangeList;
+					}
 	%>
 
 		<tr class='BuggRow'>
@@ -104,15 +103,13 @@
 			<td><%=CurrentBugg.TimeOfLastCrash%></td>
 			<td><%=CurrentBugg.TimeOfFirstCrash%></td>
 			<td><%=CurrentBugg.NumberOfCrashes%> </td>
-
-			
 			<td><%=CurrentBugg.NumberOfUniqueMachines%></td>
 			
 			<td class="CallStack">
 				<div>
 					<div id='Div1' class='TrimmedCallStackBox'>
-								<%
-						var FunctionCalls = CurrentBugg.GetFunctionCalls();
+					<%
+						var FunctionCalls = CurrentBugg.FunctionCalls;
 						int i = 0;
 						foreach( string FunctionCall in FunctionCalls )
 						{
@@ -126,12 +123,12 @@
 								</span>
 								<br />
 								<%
-												i++;
-												if( i > 3 )
-												{
-													break;
-												}
-											} %>
+									i++;
+									if( i > 3 )
+									{
+										break;
+									}
+								} %>
 					</div>
 					<a class='FullCallStackTrigger'><span class='FullCallStackTriggerText'>Full Callstack</span>
 						<div id='<%=CurrentBugg.Id %>-FullCallStackBox' class='FullCallStackBox'>
@@ -149,17 +146,10 @@
 			<td><%=CurrentBugg.GetCrashTypeAsString()%></td>
 			<td><%=CurrentBugg.Status%></td>
 			<td><%=CurrentBugg.FixedChangeList%></td>
-			<td> <span><a href="https://jira.ol.epicgames.net/browse/<%=CurrentBugg.Jira%>" target="_blank"><%=CurrentBugg.Jira%></a></span>  </td>
+			<td> <span><a href="https://jira.ol.epicgames.net/browse/<%=CurrentBugg.TTPID%>" target="_blank"><%=CurrentBugg.TTPID%></a></span>  </td>
 		</tr>
-	<%				}
-				}
+	<%			}
 			}
-			catch
-			{%>
-				<tr>
-					<td colspan="9">No Results Found. Please try adjusting your search. Or contact support.</td>
-				</tr>
-		<%	} 
 		}
 		%>
 </table>

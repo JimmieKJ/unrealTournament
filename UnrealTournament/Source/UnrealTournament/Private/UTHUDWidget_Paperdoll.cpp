@@ -21,7 +21,7 @@ UUTHUDWidget_Paperdoll::UUTHUDWidget_Paperdoll(const class FObjectInitializer& O
 	ScreenPosition=FVector2D(0.5f, 1.0f);
 	Origin=FVector2D(0.5f,1.0f);
 	bAnimating = false;
-	FVector2D DrawOffset = FVector2D(0.0f, 0.0f);
+	DrawOffset = FVector2D(0.0f, 0.0f);
 
 	RallyAnimTimers.Add(RALLY_ANIMATION_TIME * 0.25);
 	RallyAnimTimers.Add(RALLY_ANIMATION_TIME * 0.5);
@@ -41,13 +41,13 @@ void UUTHUDWidget_Paperdoll::InitializeWidget(AUTHUD* Hud)
 bool UUTHUDWidget_Paperdoll::ShouldDraw_Implementation(bool bShowScores)
 {
 	AUTGameState* GS = UTHUDOwner->GetWorld()->GetGameState<AUTGameState>();
-	bool bHidden = false;
+	bool bIsHidden = false;
 	if (UTHUDOwner)
 	{
-		bHidden = !UTHUDOwner->GetQuickStatsHidden();
+		bIsHidden = !UTHUDOwner->GetQuickStatsHidden();
 	}
 
-	return ( !bHidden && (GS == NULL || !GS->HasMatchEnded()) && Super::ShouldDraw_Implementation(bShowScores) );
+	return ( !bIsHidden && (GS == NULL || !GS->HasMatchEnded()) && Super::ShouldDraw_Implementation(bShowScores) );
 }
 
 void UUTHUDWidget_Paperdoll::PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCanvas* InCanvas, FVector2D InCanvasCenter)
@@ -64,8 +64,8 @@ void UUTHUDWidget_Paperdoll::PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCan
 		}
 	}
 
-	AUTGameState* UTGameState = InUTHUDOwner->GetWorld()->GetGameState<AUTGameState>();
-	if (UTGameState)
+	AUTGameState* UTGS = InUTHUDOwner->GetWorld()->GetGameState<AUTGameState>();
+	if (UTGS)
 	{
 		HealthBackground.bUseTeamColors = false;	//UTGameState->bTeamGame;	
 		ArmorBackground.bUseTeamColors = false;		//UTGameState->bTeamGame;	
@@ -236,10 +236,10 @@ void UUTHUDWidget_Paperdoll::DrawRallyIcon(float DeltaTime)
 	{
 		RallyAnimTimers[i] += DeltaTime;
 		if (RallyAnimTimers[i] > RALLY_ANIMATION_TIME) RallyAnimTimers[i] = 0;
-		float Position = (RallyAnimTimers[i] / RALLY_ANIMATION_TIME);
+		float DrawPosition = (RallyAnimTimers[i] / RALLY_ANIMATION_TIME);
 	
-		float XPos = FMath::InterpEaseOut<float>(64.0f, 0.0f, Position, 2.0f);
-		FlagIcon.RenderOpacity = FMath::InterpEaseOut<float>(1.0f, 0.0f, Position, 2.0f);
+		float XPos = FMath::InterpEaseOut<float>(64.0f, 0.0f, DrawPosition, 2.0f);
+		FlagIcon.RenderOpacity = FMath::InterpEaseOut<float>(1.0f, 0.0f, DrawPosition, 2.0f);
 		RenderObj_Texture(FlagIcon,FVector2D(XPos, 0.0f));
 		RenderObj_Texture(FlagIcon,FVector2D(XPos * -1, 0.0f));
 	}

@@ -151,7 +151,7 @@ bool FSocketSubsystemWindows::GetLocalAdapterAddresses( TArray<TSharedPtr<FInter
 {
 	ULONG Flags = GAA_FLAG_INCLUDE_PREFIX | GAA_FLAG_SKIP_MULTICAST | GAA_FLAG_SKIP_DNS_SERVER | GAA_FLAG_SKIP_FRIENDLY_NAME;
 	ULONG Result;
-	ULONG Size;
+	ULONG Size = 0;
 
 	// determine the required size of the address list buffer
 	Result = GetAdaptersAddresses(AF_INET, Flags, NULL, NULL, &Size);

@@ -46,12 +46,11 @@ bool FMetalQueryBuffer::Wait(uint64 Millis)
 				[CommandBuffer waitUntilCompleted];
 				check(CommandBuffer.status >= MTLCommandBufferStatusCommitted && CommandBuffer.status <= MTLCommandBufferStatusError);
 			}
-#if !UE_BUILD_SHIPPING
 			if(CommandBuffer.status == MTLCommandBufferStatusError)
 			{
-				UE_LOG(LogMetal, Error, TEXT("Command buffer %p failed!"), CommandBuffer);
+				FMetalCommandList::HandleMetalCommandBufferFailure(CommandBuffer);
 			}
-#endif
+
 			bCompleted = CommandBuffer.status >= MTLCommandBufferStatusCompleted;
 			[CommandBuffer release];
 			CommandBuffer = nil;
@@ -110,11 +109,14 @@ void FMetalRenderQuery::Begin(FMetalContext* Context)
 		Result = 0;
 		bAvailable = false;
 		
-	#if PLATFORM_MAC
-		Context->GetCommandEncoder().SetVisibilityResultMode(MTLVisibilityResultModeCounting, Buffer.Offset);
-	#else
-		Context->GetCommandEncoder().SetVisibilityResultMode(MTLVisibilityResultModeBoolean, Buffer.Offset);
-	#endif
+		if ((GMaxRHIFeatureLevel >= ERHIFeatureLevel::SM4) && GetMetalDeviceContext().SupportsFeature(EMetalFeaturesCountingQueries))
+		{
+			Context->GetCommandEncoder().SetVisibilityResultMode(MTLVisibilityResultModeCounting, Buffer.Offset);
+		}
+		else
+		{
+			Context->GetCommandEncoder().SetVisibilityResultMode(MTLVisibilityResultModeBoolean, Buffer.Offset);
+		}
 	}
 }
 

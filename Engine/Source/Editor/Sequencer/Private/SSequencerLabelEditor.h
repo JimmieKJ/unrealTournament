@@ -18,9 +18,9 @@ public:
 	 * Construct this widget.
 	 *
 	 * @param InArgs The construction arguments.
-	 * @param InObjectId The unique identifier of the object whose labels are being edited.
+	 * @param InObjectIds The unique identifier of the objects whose labels are being edited.
 	 */
-	void Construct(const FArguments& InArgs, FSequencer& InSequencer, const FGuid& InObjectId);
+	void Construct(const FArguments& InArgs, FSequencer& InSequencer, const TArray<FGuid>& InObjectIds);
 
 protected:
 
@@ -74,8 +74,8 @@ private:
 	/** Holds the list view for filtered track labels. */
 	TSharedPtr<SListView<TSharedPtr<FString>>> LabelListView;
 
-	/** The identifier of the object being edited. */
-	FGuid ObjectId;
+	/** The identifiers of the objects being edited. */
+	TArray<FGuid> ObjectIds;
 
 	/** The sequencer object. */
 	FSequencer* Sequencer;

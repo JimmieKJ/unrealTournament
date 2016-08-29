@@ -10,12 +10,12 @@
 #include "Engine/Channel.h"
 #include "Engine/Player.h"
 #include "Engine/NetDriver.h"
+#include "GameFramework/OnlineReplStructs.h"
 #include "Runtime/PacketHandlers/PacketHandler/Public/PacketHandler.h"
 
 #include "NetConnection.generated.h"
 
 class FObjectReplicator;
-class FUniqueNetId;
 struct FNetworkObjectInfo;
 
 /*-----------------------------------------------------------------------------
@@ -25,7 +25,7 @@ enum { RELIABLE_BUFFER = 256 }; // Power of 2 >= 1.
 enum { MAX_PACKETID = 16384 };  // Power of 2 >= 1, covering guaranteed loss/misorder time.
 enum { MAX_CHSEQUENCE = 1024 }; // Power of 2 >RELIABLE_BUFFER, covering loss/misorder time.
 enum { MAX_BUNCH_HEADER_BITS = 64 };
-enum { MAX_PACKET_HEADER_BITS = 16 };
+enum { MAX_PACKET_HEADER_BITS = 15 }; // = FMath::CeilLogTwo(MAX_PACKETID) + 1 (IsAck)
 enum { MAX_PACKET_TRAILER_BITS = 1 };
 
 class UNetDriver;
@@ -229,8 +229,9 @@ public:
 
 	/** Whether this channel needs to byte swap all data or not */
 	bool			bNeedsByteSwapping;
-	/** Net id of remote player on this connection. Only valid on client connections. */
-	TSharedPtr<const FUniqueNetId> PlayerId;
+	/** Net id of remote player on this connection. Only valid on client connections (server side).*/
+	UPROPERTY()
+	FUniqueNetIdRepl PlayerId;
 
 	// Negotiated parameters.
 	int32			PacketOverhead;			// Bytes overhead per packet sent.
@@ -254,7 +255,7 @@ public:
 	double			LastGoodPacketRealtime;	// Last real time a packet was considered valid
 	double			LastSendTime;			// Last time a packet was sent, for keepalives.
 	double			LastTickTime;			// Last time of polling.
-	int32			QueuedBytes;			// Bytes assumed to be queued up.
+	int32			QueuedBits;			// Bits assumed to be queued up.
 	int32			TickCount;				// Count of ticks.
 	/** The last time an ack was received */
 	float			LastRecvAckTime;
@@ -286,8 +287,12 @@ public:
 	int32			CountedFrames;
 	/** bytes sent/received on this connection (accumulated during a StatPeriod) */
 	int32 InBytes, OutBytes;
+	/** packets sent/received on this connection (accumulated during a StatPeriod) */
+	int32 InPackets, OutPackets;
 	/** bytes sent/received on this connection (per second) - these are from previous StatPeriod interval */
 	int32 InBytesPerSecond, OutBytesPerSecond;
+	/** packets sent/received on this connection (per second) - these are from previous StatPeriod interval */
+	int32 InPacketsPerSecond, OutPacketsPerSecond;
 	/** packets lost on this connection */
 	int32 InPacketsLost, OutPacketsLost;
 
@@ -310,16 +315,20 @@ public:
 	int32				PendingOutRec	[ MAX_CHANNELS ];	// Outgoing reliable unacked data from previous (now destroyed) channel in this slot.  This contains the first chsequence not acked
 	TArray<int32> QueuedAcks, ResendAcks;
 
+	// Network version
+	uint32				EngineNetworkProtocolVersion;
+	uint32				GameNetworkProtocolVersion;
+
 	// Log tracking
 	double			LogCallLastTime;
 	int32			LogCallCount;
 	int32			LogSustainedCount;
 
 	/** @todo document */
-	TMap<TWeakObjectPtr<AActor>,class UActorChannel*> ActorChannels;
+	TMap<TWeakObjectPtr<AActor>, UActorChannel*, FDefaultSetAllocator, TWeakObjectPtrMapKeyFuncs<TWeakObjectPtr<AActor>, UActorChannel*>> ActorChannels;
 
 	/** This holds a list of actor channels that want to fully shutdown, but need to continue processing bunches before doing so */
-	TMap<FNetworkGUID,class UActorChannel*> KeepProcessingActorChannelBunchesMap;
+	TMap<FNetworkGUID, TArray<class UActorChannel*>> KeepProcessingActorChannelBunchesMap;
 
 	/** Actors that have gone dormant on this connection	
 	 *  The only way to get on this list is when the actor channel closes. UActorChannel::Close.
@@ -367,6 +376,15 @@ public:
 	/** Copies the settings from the net driver to our local copy */
 	void UpdatePacketSimulationSettings(void);
 #endif
+
+	/** 
+	 * If true, will resend everything this connection has ever sent, since the connection has been open.
+	 *	This functionality is used during replay checkpoints for example, so we can re-use the existing connection and channels to record
+	 *	a version of each actor and capture all properties that have changed since the actor has been alive...
+	 *	This will also act as if it needs to re-open all the channels, etc.
+	 *   NOTE - This doesn't force all exports to happen again though, it will only export new stuff, so keep that in mind.
+	 */
+	bool bResendAllDataSinceOpen;
 
 	/**
 	 * Called to determine if a voice packet should be replicated to this
@@ -643,7 +661,7 @@ public:
 	 */
 	ENGINE_API class UVoiceChannel* GetVoiceChannel();
 
-	void FlushDormancy(class AActor* Actor);
+	ENGINE_API virtual void FlushDormancy(class AActor* Actor);
 
 	/** Wrapper for validating an objects dormancy state, and to prepare the object for replication again */
 	void FlushDormancyForObject( UObject* Object );
@@ -674,6 +692,8 @@ public:
 	/** Removes a channel from the ticking list directly */
 	void StopTickingChannel(UChannel* Channel) { ChannelsToTick.Remove(Channel); }
 
+	FORCEINLINE FHistogram GetNetHistogram() const { return NetConnectionHistogram; }
+
 protected:
 
 	void CleanupDormantActorState();
@@ -687,6 +707,9 @@ private:
 	 */
 	UPROPERTY()
 	TArray<UChannel*> ChannelsToTick;
+
+	/** Histogram of the received packet time */
+	FHistogram NetConnectionHistogram;
 };
 
 

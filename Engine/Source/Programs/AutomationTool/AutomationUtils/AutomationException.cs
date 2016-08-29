@@ -66,6 +66,8 @@ namespace AutomationTool
     public class AutomationException : System.Exception
 	{
         public ExitCode ErrorCode = ExitCode.Error_Unknown;
+        public string LogFileName = "";
+        public int ErrorNumber;
 
 		public AutomationException()
 		{
@@ -75,6 +77,13 @@ namespace AutomationTool
 			:base(Msg)
 		{
 		}
+
+        public AutomationException(string LogFilename, int ErrorNumber, string Format, params object[] Args)
+            :base(string.Format(Format,Args))
+        {
+            this.LogFileName = LogFilename;
+            this.ErrorNumber = ErrorNumber;
+        }
 
         public AutomationException(ExitCode ErrorCode, string Msg)
             : base(Msg)
@@ -107,5 +116,6 @@ namespace AutomationTool
         {
             this.ErrorCode = ErrorCode;
         }
+
     }
 }

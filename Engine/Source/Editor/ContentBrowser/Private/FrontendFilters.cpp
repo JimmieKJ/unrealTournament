@@ -357,10 +357,10 @@ public:
 		}
 
 		// Generic handling for anything in the asset meta-data
-		const FString* const MetaDataValue = AssetPtr->TagsAndValues.Find(InKey);
-		if (MetaDataValue)
+		FString MetaDataValue;
+		if (AssetPtr->GetTagValue(InKey, MetaDataValue))
 		{
-			return TextFilterUtils::TestComplexExpression(*MetaDataValue, InValue, InComparisonOperation, InTextComparisonMode);
+			return TextFilterUtils::TestComplexExpression(MetaDataValue, InValue, InComparisonOperation, InTextComparisonMode);
 		}
 
 		return false;
@@ -596,8 +596,8 @@ void FFrontendFilter_Modified::OnPackageDirtyStateUpdated(UPackage* Package)
 
 bool FFrontendFilter_ReplicatedBlueprint::PassesFilter(FAssetFilterType InItem) const
 {
-	FString TagValue = InItem.TagsAndValues.FindRef("NumReplicatedProperties");
-	return !TagValue.IsEmpty() && (FCString::Atoi(*TagValue) > 0);
+	const int32 NumReplicatedProperties = InItem.GetTagValueRef<int32>("NumReplicatedProperties");
+	return NumReplicatedProperties > 0;
 }
 
 /////////////////////////////////////////
@@ -634,9 +634,10 @@ FText FFrontendFilter_ArbitraryComparisonOperation::GetToolTipText() const
 
 bool FFrontendFilter_ArbitraryComparisonOperation::PassesFilter(FAssetFilterType InItem) const
 {
-	if (const FString* pTagValue = InItem.TagsAndValues.Find(TagName))
+	FString TagValue;
+	if (InItem.GetTagValue(TagName, TagValue))
 	{
-		return TextFilterUtils::TestComplexExpression(*pTagValue, TargetTagValue, ComparisonOp, ETextFilterTextComparisonMode::Exact);
+		return TextFilterUtils::TestComplexExpression(TagValue, TargetTagValue, ComparisonOp, ETextFilterTextComparisonMode::Exact);
 	}
 	else
 	{

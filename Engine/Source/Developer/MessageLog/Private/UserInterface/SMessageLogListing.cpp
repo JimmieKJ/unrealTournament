@@ -150,9 +150,12 @@ void SMessageLogListing::Construct( const FArguments& InArgs, const TSharedRef< 
 	// Register with the the view object so that it will notify if any data changes
 	MessageLogListingViewModel->OnDataChanged().AddSP( this, &SMessageLogListing::OnChanged );
 	MessageLogListingViewModel->OnSelectionChanged().AddSP( this, &SMessageLogListing::OnSelectionChanged );
+
+#if !PLATFORM_WINDOWS || !defined(__clang__) // FIXME // @todo clang: this causes an LLVM codegen crash that doesn't go away even with optimizations disabled
 	UICommandList->MapAction( FGenericCommands::Get().Copy,
 		FExecuteAction::CreateSP( this, &SMessageLogListing::CopySelectedToClipboard ),
 		FCanExecuteAction() );
+#endif
 }
 
 

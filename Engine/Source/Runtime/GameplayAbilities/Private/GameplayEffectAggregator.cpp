@@ -36,6 +36,12 @@ bool FAggregatorMod::Qualifies(const FAggregatorEvaluateParameters& Parameters) 
 	return bSourceMet && bTargetMet && bSourceFilterMet && bTargetFilterMet;
 }
 
+FAggregator::~FAggregator()
+{
+	int32 NumRemoved = FScopedAggregatorOnDirtyBatch::DirtyAggregators.Remove(this);
+	ensure(NumRemoved == 0);
+}
+
 float FAggregator::Evaluate(const FAggregatorEvaluateParameters& Parameters) const
 {
 	return EvaluateWithBase(BaseValue, Parameters);
@@ -102,7 +108,7 @@ float FAggregator::EvaluateBonus(const FAggregatorEvaluateParameters& Parameters
 float FAggregator::EvaluateContribution(const FAggregatorEvaluateParameters& Parameters, FActiveGameplayEffectHandle ActiveHandle) const
 {
 	FAggregator Temp;
-	Temp.BaseValue = BaseValue;
+	Temp.BaseValue = GetBaseValue();
 
 	if (ActiveHandle.IsValid())
 	{
@@ -217,7 +223,7 @@ void FAggregator::RemoveAggregatorMod(FActiveGameplayEffectHandle ActiveHandle)
 
 void FAggregator::UpdateAggregatorMod(FActiveGameplayEffectHandle ActiveHandle, const FGameplayAttribute& Attribute, const FGameplayEffectSpec& Spec, bool bWasLocalyGenerated, FActiveGameplayEffectHandle InHandle)
 {
-	// remove the mods but dont mark it as dirty until we re-add the aggregators, we are doing this so the UAttributeSets stats only know about the delta change.
+	// remove the mods but don't mark it as dirty until we re-add the aggregators, we are doing this so the UAttributeSets stats only know about the delta change.
 	InternalRemoveAggregatorMod(ActiveHandle);
 
 	// Now re-add ALL of our mods

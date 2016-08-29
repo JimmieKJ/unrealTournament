@@ -5,8 +5,14 @@
 #include "LevelSequenceObject.h"
 #include "MovieScene.h"
 #include "MovieSceneCommonHelpers.h"
-#include "Engine/Blueprint.h"
 
+DEFINE_LOG_CATEGORY_STATIC(LogLevelSequence, Log, All);
+
+static TAutoConsoleVariable<int32> CVarFixedFrameIntervalPlayback(
+	TEXT("LevelSequence.DefaultFixedFrameIntervalPlayback"),
+	0,
+	TEXT("When non-zero, all newly created level sequences will default to fixed frame interval playback."),
+	ECVF_Default);
 
 ULevelSequence::ULevelSequence(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -18,25 +24,73 @@ void ULevelSequence::Initialize()
 {
 	// @todo sequencer: gmp: fix me
 	MovieScene = NewObject<UMovieScene>(this, NAME_None, RF_Transactional);
+
+	const bool bForceFixedPlayback = CVarFixedFrameIntervalPlayback.GetValueOnGameThread() != 0;
+
+	MovieScene->SetForceFixedFrameIntervalPlayback( bForceFixedPlayback );
+	MovieScene->SetFixedFrameInterval( 1 / 30.0f );
 }
 
-bool ULevelSequence::Rename(const TCHAR* NewName, UObject* NewOuter, ERenameFlags Flags)
+UObject* ULevelSequence::MakeSpawnableTemplateFromInstance(UObject& InSourceObject, FName ObjectName)
 {
-#if WITH_EDITOR
-	if (Super::Rename(NewName, NewOuter, Flags))
-	{
-		ForEachObjectWithOuter(MovieScene, [&](UObject* Object){
-			if (auto* Blueprint = Cast<UBlueprint>(Object))
-			{
-				Blueprint->RenameGeneratedClasses(nullptr, MovieScene, Flags);
-			}
-		}, false);
+	UObject* NewInstance = NewObject<UObject>(MovieScene, InSourceObject.GetClass(), ObjectName);
 
-		return true;
+	UEngine::FCopyPropertiesForUnrelatedObjectsParams CopyParams;
+	CopyParams.bNotifyObjectReplacement = false;
+	UEngine::CopyPropertiesForUnrelatedObjects(&InSourceObject, NewInstance, CopyParams);
+
+	AActor* Actor = CastChecked<AActor>(NewInstance);
+	if (Actor->GetAttachParentActor() != nullptr)
+	{
+		// We don't support spawnables and attachments right now
+		// @todo: map to attach track?
+		Actor->DetachFromActor(FDetachmentTransformRules(FAttachmentTransformRules(EAttachmentRule::KeepRelative, false), false));
 	}
-#endif	//#if WITH_EDITOR
-	
-	return false;
+
+	return NewInstance;
+}
+
+void ULevelSequence::PostLoad()
+{
+	Super::PostLoad();
+
+#if WITH_EDITOR
+	TSet<FGuid> InvalidSpawnables;
+
+	for (int32 Index = 0; Index < MovieScene->GetSpawnableCount(); ++Index)
+	{
+		FMovieSceneSpawnable& Spawnable = MovieScene->GetSpawnable(Index);
+		if (!Spawnable.GetObjectTemplate())
+		{
+			if (Spawnable.GeneratedClass_DEPRECATED && Spawnable.GeneratedClass_DEPRECATED->ClassGeneratedBy)
+			{
+				const FName TemplateName = MakeUniqueObjectName(MovieScene, UObject::StaticClass(), Spawnable.GeneratedClass_DEPRECATED->ClassGeneratedBy->GetFName());
+
+				UObject* NewTemplate = NewObject<UObject>(MovieScene, Spawnable.GeneratedClass_DEPRECATED, TemplateName);
+				if (NewTemplate)
+				{
+					Spawnable.CopyObjectTemplate(*NewTemplate, *this);
+				}
+			}
+		}
+
+		if (!Spawnable.GetObjectTemplate())
+		{
+			InvalidSpawnables.Add(Spawnable.GetGuid());
+			UE_LOG(LogLevelSequence, Warning, TEXT("Discarding spawnable with ID '%s' since its generated class could not produce to a template actor"), *Spawnable.GetGuid().ToString());
+		}
+	}
+
+	for (FGuid& ID : InvalidSpawnables)
+	{
+		MovieScene->RemoveSpawnable(ID);
+	}
+#endif
+
+	if ( MovieScene->GetFixedFrameInterval() == 0 )
+	{
+		MovieScene->SetFixedFrameInterval( 1 / 30.0f );
+	}
 }
 
 void ULevelSequence::ConvertPersistentBindingsToDefault(UObject* FixupContext)
@@ -85,7 +139,7 @@ UObject* ULevelSequence::FindPossessableObject(const FGuid& ObjectId, UObject* C
 
 FGuid ULevelSequence::FindPossessableObjectId(UObject& Object) const
 {
-	return FGuid();
+	return ObjectReferences.FindBindingId(&Object, Object.GetWorld());
 }
 
 UMovieScene* ULevelSequence::GetMovieScene() const

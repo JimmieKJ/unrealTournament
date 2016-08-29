@@ -7,7 +7,7 @@
 #pragma once
 #include "DialogueVoiceFactory.generated.h"
 
-UCLASS(hidecategories=Object)
+UCLASS(MinimalAPI, hidecategories=Object)
 class UDialogueVoiceFactory : public UFactory
 {
 	GENERATED_UCLASS_BODY()
@@ -16,6 +16,3 @@ class UDialogueVoiceFactory : public UFactory
 	virtual UObject* FactoryCreateNew(UClass* Class,UObject* InParent,FName Name,EObjectFlags Flags,UObject* Context,FFeedbackContext* Warn) override;
 	//~ Begin UFactory Interface	
 };
-
-
-

@@ -2,13 +2,13 @@
 
 #pragma once
 
-class UGameplayCueSet;
-class AGameplayCueNotify_Actor;
-
 #include "GameplayTags.h"
 #include "GameplayEffect.h"
 #include "ObjectKey.h"
 #include "GameplayCue_Types.generated.h"
+
+class UGameplayCueSet;
+class AGameplayCueNotify_Actor;
 
 UENUM()
 enum class EGameplayCuePayloadType : uint8
@@ -64,8 +64,7 @@ struct FPreallocationInfo
 	UPROPERTY(transient)
 	TArray<AGameplayCueNotify_Actor*>	ClassesNeedingPreallocation;
 
-	UPROPERTY(transient)
-	UWorld* OwningWorld;
+	FObjectKey OwningWorldKey;
 };
 
 /** Struct that is used by the gameplaycue manager to tie an instanced gameplaycue to the calling gamecode. Usually this is just the target actor, but can also be unique per instigator/sourceobject */

@@ -59,6 +59,12 @@ class ENGINE_API ULightComponent : public ULightComponentBase
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, interp, Category = Light, meta = (UIMin = "1700.0", UIMax = "12000.0"))
 	float Temperature;
 	
+	UPROPERTY(EditAnywhere, Category = Performance)
+	float MaxDrawDistance;
+
+	UPROPERTY(EditAnywhere, Category = Performance)
+	float MaxDistanceFadeRange;
+
 	/** false: use white (D65) as illuminant. */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Light, meta=(DisplayName = "Use Temperature"))
 	uint32 bUseTemperature : 1;
@@ -90,6 +96,10 @@ class ENGINE_API ULightComponent : public ULightComponentBase
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Light, AdvancedDisplay, meta=(UIMin = "0.0", UIMax = "1.0", DisplayName = "Shadow Filter Sharpen"))
 	float ShadowSharpen;
 	
+	/** Length of screen space ray trace for sharp contact shadows. Zero is disabled. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Light, AdvancedDisplay, meta = (UIMin = "0.0", UIMax = "1.0"))
+	float ContactShadowLength;
+
 	UPROPERTY()
 	uint32 InverseSquaredFalloff_DEPRECATED:1;
 

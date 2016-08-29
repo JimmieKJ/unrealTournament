@@ -46,9 +46,14 @@ public:
 
 	virtual bool SupportsFeature( ETargetPlatformFeatures Feature ) const override
 	{
-		if (Feature == ETargetPlatformFeatures::Packaging)
+		switch (Feature)
 		{
+		case ETargetPlatformFeatures::Packaging:
 			return true;
+		case ETargetPlatformFeatures::MobileRendering:
+			return true;
+		case ETargetPlatformFeatures::DeferredRendering:
+			return false;
 		}
 
 		return TTargetPlatformBase<FHTML5PlatformProperties>::SupportsFeature(Feature);

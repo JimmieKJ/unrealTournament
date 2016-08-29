@@ -42,6 +42,10 @@ class UAnimGraphNode_AnimDynamics : public UAnimGraphNode_SkeletalControlBase
 	UPROPERTY(EditAnywhere, Category = Preview)
 	bool bShowPlanarLimit;
 
+	/** Show spherical limits in the viewport (preview live only) */
+	UPROPERTY(EditAnywhere, Category = Preview)
+	bool bShowSphericalLimit;
+
 	/** If planar limits are enabled and the collision mode isn't CoM, draw sphere collision sizes */
 	UPROPERTY(EditAnywhere, Category = Preview)
 	bool bShowCollisionSpheres;

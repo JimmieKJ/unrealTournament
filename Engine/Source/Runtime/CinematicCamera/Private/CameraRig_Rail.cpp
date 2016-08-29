@@ -22,12 +22,12 @@ ACameraRig_Rail::ACameraRig_Rail(const FObjectInitializer& ObjectInitializer)
 	RootComponent = TransformComponent;
 
 	RailSplineComponent = CreateDefaultSubobject<USplineComponent>(TEXT("RailSplineComponent"));
-	RailSplineComponent->AttachParent = TransformComponent;
+	RailSplineComponent->SetupAttachment(TransformComponent);
 
 	RailCameraMount = CreateDefaultSubobject<USceneComponent>(TEXT("RailCameraMount"));
-	RailCameraMount->AttachParent = RailSplineComponent;
+	RailCameraMount->SetupAttachment(RailSplineComponent);
 
-	if (!IsRunningCommandlet() && !IsRunningDedicatedServer())
+	if (!IsRunningDedicatedServer())
 	{
 		static ConstructorHelpers::FObjectFinder<UStaticMesh> RailMesh(TEXT("/Engine/EditorMeshes/Camera/SM_RailRig_Track.SM_RailRig_Track"));
 		PreviewRailStaticMesh = RailMesh.Object;
@@ -44,7 +44,7 @@ ACameraRig_Rail::ACameraRig_Rail(const FObjectInitializer& ObjectInitializer)
 			PreviewMesh_Mount->CastShadow = false;
 			PreviewMesh_Mount->PostPhysicsComponentTick.bCanEverTick = false;
 
-			PreviewMesh_Mount->AttachParent = RailCameraMount;
+			PreviewMesh_Mount->SetupAttachment(RailCameraMount);
 		}
 	}
 }
@@ -63,7 +63,7 @@ USplineMeshComponent* ACameraRig_Rail::CreateSplinePreviewSegment()
 		Segment->CastShadow = false;
 		Segment->PostPhysicsComponentTick.bCanEverTick = false;
 	 
-		Segment->AttachParent = TransformComponent;
+		Segment->SetupAttachment(TransformComponent);
 		Segment->RegisterComponent();
 	}
 
@@ -72,48 +72,60 @@ USplineMeshComponent* ACameraRig_Rail::CreateSplinePreviewSegment()
 
 void ACameraRig_Rail::UpdatePreviewMeshes()
 {
-	if (PreviewRailStaticMesh)
+	if (RailSplineComponent)
 	{
-		int32 const NumSplinePoints = RailSplineComponent->GetNumberOfSplinePoints();
-		int32 const NumNeededPreviewMeshes = NumSplinePoints - 1;
-
-		// make sure our preview mesh array is correctly sized and populated
+		if (PreviewRailStaticMesh)
 		{
-			int32 const NumExistingPreviewMeshes = PreviewRailMeshSegments.Num();
-			if (NumExistingPreviewMeshes > NumNeededPreviewMeshes)
-			{
-				// we have too many meshes, remove some
-				int32 const NumToRemove = NumExistingPreviewMeshes - NumNeededPreviewMeshes;
-				for (int Idx = 0; Idx < NumToRemove; ++Idx)
-				{
-					USplineMeshComponent* const ElementToRemove = PreviewRailMeshSegments.Pop();
-					ElementToRemove->UnregisterComponent();
-				}
-			}
-			else if (NumExistingPreviewMeshes < NumNeededPreviewMeshes)
-			{
-				int32 const NumToAdd = NumNeededPreviewMeshes - NumExistingPreviewMeshes;
+			int32 const NumSplinePoints = RailSplineComponent->GetNumberOfSplinePoints();
+			int32 const NumNeededPreviewMeshes = NumSplinePoints - 1;
 
-				for (int32 Idx = 0; Idx < NumToAdd; ++Idx)
+			// make sure our preview mesh array is correctly sized and populated
+			{
+				int32 const NumExistingPreviewMeshes = PreviewRailMeshSegments.Num();
+				if (NumExistingPreviewMeshes > NumNeededPreviewMeshes)
 				{
-					USplineMeshComponent* PreviewMesh = CreateSplinePreviewSegment();
-					PreviewRailMeshSegments.Add(PreviewMesh);
+					// we have too many meshes, remove some
+					int32 const NumToRemove = NumExistingPreviewMeshes - NumNeededPreviewMeshes;
+					for (int Idx = 0; Idx < NumToRemove; ++Idx)
+					{
+						USplineMeshComponent* const ElementToRemove = PreviewRailMeshSegments.Pop();
+						ElementToRemove->UnregisterComponent();
+					}
+				}
+				else if (NumExistingPreviewMeshes < NumNeededPreviewMeshes)
+				{
+					int32 const NumToAdd = NumNeededPreviewMeshes - NumExistingPreviewMeshes;
+
+					for (int32 Idx = 0; Idx < NumToAdd; ++Idx)
+					{
+						USplineMeshComponent* PreviewMesh = CreateSplinePreviewSegment();
+						PreviewRailMeshSegments.Add(PreviewMesh);
+					}
+				}
+				check(PreviewRailMeshSegments.Num() == NumNeededPreviewMeshes);
+			}
+
+			for (int PtIdx = 0; PtIdx < NumSplinePoints - 1; ++PtIdx)
+			{
+				FVector StartLoc, StartTangent, EndLoc, EndTangent;
+				RailSplineComponent->GetLocationAndTangentAtSplinePoint(PtIdx, StartLoc, StartTangent, ESplineCoordinateSpace::Local);
+				RailSplineComponent->GetLocationAndTangentAtSplinePoint(PtIdx + 1, EndLoc, EndTangent, ESplineCoordinateSpace::Local);
+
+				USplineMeshComponent* const SplineMeshComp = PreviewRailMeshSegments[PtIdx];
+				if (SplineMeshComp)
+				{
+					SplineMeshComp->SetForwardAxis(ESplineMeshAxis::Z);
+					SplineMeshComp->SetStartAndEnd(StartLoc, StartTangent, EndLoc, EndTangent, true);
 				}
 			}
-			check(PreviewRailMeshSegments.Num() == NumNeededPreviewMeshes);
 		}
 
-		for (int PtIdx = 0; PtIdx < NumSplinePoints - 1; ++PtIdx)
+		// make visualization of the mount follow the contour of the rail
+		if (PreviewMesh_Mount)
 		{
-			FVector StartLoc, StartTangent, EndLoc, EndTangent;
-			RailSplineComponent->GetLocationAndTangentAtSplinePoint(PtIdx, StartLoc, StartTangent, ESplineCoordinateSpace::Local);
-			RailSplineComponent->GetLocationAndTangentAtSplinePoint(PtIdx + 1, EndLoc, EndTangent, ESplineCoordinateSpace::Local);
-
-			USplineMeshComponent* const SplineMeshComp = PreviewRailMeshSegments[PtIdx];
-			SplineMeshComp->SetStartScale(FVector2D(0.1f, 0.1f), false);
-			SplineMeshComp->SetEndScale(FVector2D(0.1f, 0.1f), false);
-			SplineMeshComp->SetForwardAxis(ESplineMeshAxis::Z);
-			SplineMeshComp->SetStartAndEnd(StartLoc, StartTangent, EndLoc, EndTangent, true);
+			float const SplineLen = RailSplineComponent->GetSplineLength();
+			FQuat const RailRot = RailSplineComponent->GetQuaternionAtDistanceAlongSpline(CurrentPositionOnRail*SplineLen, ESplineCoordinateSpace::World);
+			PreviewMesh_Mount->SetWorldRotation(RailRot);
 		}
 	}
 }
@@ -122,7 +134,8 @@ void ACameraRig_Rail::UpdateRailComponents()
 {
 	if (RailSplineComponent && RailCameraMount)
 	{
-		FVector const MountPos = RailSplineComponent->GetLocationAtDistanceAlongSpline(CurrentPositionOnRail, ESplineCoordinateSpace::World);
+		float const SplineLen = RailSplineComponent->GetSplineLength();
+		FVector const MountPos = RailSplineComponent->GetLocationAtDistanceAlongSpline(CurrentPositionOnRail*SplineLen, ESplineCoordinateSpace::World);
 		RailCameraMount->SetWorldLocation(MountPos);
 	}
 
@@ -145,13 +158,6 @@ void ACameraRig_Rail::PostEditChangeProperty(FPropertyChangedEvent& PropertyChan
 {
 	Super::PostEditChangeProperty(PropertyChangedEvent);
 	UpdateRailComponents();
-
-	if (RailSplineComponent)
-	{
-		// clamp position to spline limits
-		float const SplineLen = RailSplineComponent->GetSplineLength();
-		CurrentPositionOnRail = FMath::Clamp(CurrentPositionOnRail, 0.f, SplineLen);
-	}
 }
 #endif
 

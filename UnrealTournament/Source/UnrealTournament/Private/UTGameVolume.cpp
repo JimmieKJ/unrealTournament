@@ -86,7 +86,7 @@ void AUTGameVolume::ActorEnteredVolume(class AActor* Other)
 				}
 				if (AssociatedTeleporter)
 				{
-					AssociatedTeleporter->OnOverlapBegin(P);
+					AssociatedTeleporter->OnOverlapBegin(this, P);
 				}
 			}
 			else if (P->GetCarriedObject())

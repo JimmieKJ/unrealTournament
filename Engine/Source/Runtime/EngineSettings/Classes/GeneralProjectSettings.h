@@ -58,4 +58,20 @@ class ENGINESETTINGS_API UGeneralProjectSettings
 	/** The project's title as displayed on the window title bar (can include the tokens {GameName}, {PlatformArchitecture}, or {RHIName}, which will be replaced with the specified text) */
 	UPROPERTY(config, EditAnywhere, Category=Displayed)
 	FText ProjectDisplayedTitle;
+
+	/** Additional data to be displayed on the window title bar in non-shipping configurations (can include the tokens {GameName}, {PlatformArchitecture}, or {RHIName}, which will be replaced with the specified text) */
+	UPROPERTY(config, EditAnywhere, Category=Displayed)
+	FText ProjectDebugTitleInfo;
+
+	/** Should the game's window preserve its aspect ratio when resized by user. */
+	UPROPERTY(config, EditAnywhere, Category = Settings)
+	bool bShouldWindowPreserveAspectRatio;
+
+	/** Should the game use a borderless Slate window instead of a window with system title bar and border */
+	UPROPERTY(config, EditAnywhere, Category = Settings)
+	bool bUseBorderlessWindow;
+
+	/** Should the game attempt to start in VR, regardless of whether -vr was set on the commandline */
+	UPROPERTY(config, EditAnywhere, Category = Settings)
+	bool bStartInVR;
 };

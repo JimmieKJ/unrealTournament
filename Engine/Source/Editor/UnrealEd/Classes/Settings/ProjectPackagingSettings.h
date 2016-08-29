@@ -126,6 +126,10 @@ public:
 	UPROPERTY(config, EditAnywhere, Category=Packaging)
 	bool IncludePrerequisites;
 
+	/** A directory containing prerequisite packages that should be staged in the executable directory. Can be relative to $(EngineDir) or $(ProjectDir) */
+	UPROPERTY(config, EditAnywhere, Category = Packaging, AdvancedDisplay)
+	FDirectoryPath ApplocalPrerequisitesDirectory;
+
 	/**
 	 * Specifies whether to include the crash reporter in the packaged project. 
 	 * This is included by default for Blueprint based projects, but can optionally be disabled.
@@ -163,6 +167,13 @@ public:
 	 */
 	UPROPERTY(config, EditAnywhere, Category=Packaging, AdvancedDisplay, meta=(DisplayName="Create compressed cooked packages"))
 	bool bCompressed;
+
+	/**
+	* Encrypt ini files inside of the pak file
+	*/
+	UPROPERTY(config, EditAnywhere, Category = Packaging, AdvancedDisplay, meta = (DisplayName = "Encrypt ini files inside pak files"))
+	bool bEncryptIniFiles;
+
 	
 	/**
 	* Skip editor content
@@ -173,7 +184,7 @@ public:
 	/**
 	 * List of maps to include when no other map list is specified on commandline
 	 */
-	UPROPERTY(config, EditAnywhere, Category=Packaging, AdvancedDisplay, meta=(DisplayName="List of maps to include in a packaged build", RelativeToGameContentDir))
+	UPROPERTY(config, EditAnywhere, Category = Packaging, AdvancedDisplay, meta = (DisplayName = "List of maps to include in a packaged build", RelativeToGameContentDir, LongPackageName))
 	TArray<FFilePath> MapsToCook;	
 
 	/**

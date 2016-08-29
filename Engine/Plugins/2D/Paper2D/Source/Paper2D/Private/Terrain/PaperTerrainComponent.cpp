@@ -243,11 +243,11 @@ FTransform UPaperTerrainComponent::GetTransformAtDistance(float InDistance) cons
 	const float SplineLength = AssociatedSpline->GetSplineLength();
 	InDistance = FMath::Clamp<float>(InDistance, 0.0f, SplineLength);
 
-	const float Param = AssociatedSpline->SplineReparamTable.Eval(InDistance, 0.0f);
-	const FVector Position3D = AssociatedSpline->SplineInfo.Eval(Param, FVector::ZeroVector);
+	const float Param = AssociatedSpline->SplineCurves.ReparamTable.Eval(InDistance, 0.0f);
+	const FVector Position3D = AssociatedSpline->SplineCurves.Position.Eval(Param, FVector::ZeroVector);
 
-	const FVector Tangent = AssociatedSpline->SplineInfo.EvalDerivative(Param, FVector(1.0f, 0.0f, 0.0f)).GetSafeNormal();
-	const FVector NormalEst = AssociatedSpline->SplineInfo.EvalSecondDerivative(Param, FVector(0.0f, 1.0f, 0.0f)).GetSafeNormal();
+	const FVector Tangent = AssociatedSpline->SplineCurves.Position.EvalDerivative(Param, FVector(1.0f, 0.0f, 0.0f)).GetSafeNormal();
+	const FVector NormalEst = AssociatedSpline->SplineCurves.Position.EvalSecondDerivative(Param, FVector(0.0f, 1.0f, 0.0f)).GetSafeNormal();
 	const FVector Bitangent = FVector::CrossProduct(Tangent, NormalEst);
 	const FVector Normal = FVector::CrossProduct(Bitangent, Tangent);
 	const FVector Floop = FVector::CrossProduct(PaperAxisZ, Tangent);
@@ -362,7 +362,7 @@ void UPaperTerrainComponent::ConstrainSplinePointsToXZ()
 	if (AssociatedSpline != nullptr)
 	{
 		bool bSplineChanged = false;
-		auto& Points = AssociatedSpline->SplineInfo.Points;
+		auto& Points = AssociatedSpline->SplineCurves.Position.Points;
 		int32 NumPoints = Points.Num();
 		for (int PointIndex = 0; PointIndex < NumPoints; ++PointIndex)
 		{
@@ -412,7 +412,7 @@ void UPaperTerrainComponent::OnSplineEdited()
 
 		FRandomStream RandomStream(RandomSeed);
 
-		const FInterpCurveVector& SplineInfo = AssociatedSpline->SplineInfo;
+		const FInterpCurveVector& SplineInfo = AssociatedSpline->SplineCurves.Position;
 
 		float SplineLength = AssociatedSpline->GetSplineLength();
 
@@ -614,8 +614,8 @@ void UPaperTerrainComponent::OnSplineEdited()
 				float CurrentTime = 0.0f;
 				while (CurrentTime < SplineLength)
 				{
-					const float Param = AssociatedSpline->SplineReparamTable.Eval(CurrentTime, 0.0f);
-					const FVector Position3D = AssociatedSpline->SplineInfo.Eval(Param, FVector::ZeroVector);
+					const float Param = AssociatedSpline->SplineCurves.ReparamTable.Eval(CurrentTime, 0.0f);
+					const FVector Position3D = AssociatedSpline->SplineCurves.Position.Eval(Param, FVector::ZeroVector);
 					const FVector2D Position2D = FVector2D(FVector::DotProduct(Position3D, PaperAxisX), FVector::DotProduct(Position3D, PaperAxisY));
 
 					SplineBounds += Position2D;

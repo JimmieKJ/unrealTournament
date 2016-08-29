@@ -4,8 +4,7 @@
 	TileRendering.h: Simple tile rendering implementation.
 =============================================================================*/
 
-#ifndef _INC_TILERENDERING
-#define _INC_TILERENDERING
+#pragma once
 
 class FTileRenderer
 {
@@ -29,4 +28,3 @@ private:
 	FTileRenderer() {}
 };
 
-#endif

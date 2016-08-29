@@ -5,6 +5,11 @@
 #include "HAL/Platform.h"
 #include "HAL/PlatformMisc.h"
 #include "Misc/CoreMiscDefines.h"
+#if HACK_HEADER_GENERATOR
+	#include "Templates/IsValidVariadicFunctionArg.h"
+	#include "Templates/AndOr.h"
+#endif
+#include "LogVerbosity.h"
 
 class FText;
 class FString;
@@ -169,64 +174,6 @@ template<class T> const T*	CheckVA(const T* p)		{ return p; }
 
 #endif // PLATFORM_WINDOWS
 
-/** 
- * Enum that defines the verbosity levels of the logging system.
- * Also defines some non-verbosity levels that are hacks that allow
- * breaking on a given log line or setting the color.
-**/
-namespace ELogVerbosity
-{
-	enum Type
-	{
-		/** Not used */
-		NoLogging		= 0,
-
-		/** Always prints s fatal error to console (and log file) and crashes (even if logging is disabled) */
-		Fatal,
-
-		/** 
-		 * Prints an error to console (and log file). 
-		 * Commandlets and the editor collect and report errors. Error messages result in commandlet failure.
-		 */
-		Error,
-
-		/** 
-		 * Prints a warning to console (and log file).
-		 * Commandlets and the editor collect and report warnings. Warnings can be treated as an error.
-		 */
-		Warning,
-
-		/** Prints a message to console (and log file) */
-		Display,
-
-		/** Prints a message to a log file (does not print to console) */
-		Log,
-
-		/** 
-		 * Prints a verbose message to a log file (if Verbose logging is enabled for the given category, 
-		 * usually used for detailed logging) 
-		 */
-		Verbose,
-
-		/** 
-		 * Prints a verbose message to a log file (if VeryVerbose logging is enabled, 
-		 * usually used for detailed logging that would otherwise spam output) 
-		 */
-		VeryVerbose,
-
-		// Log masks and special Enum values
-
-		All				= VeryVerbose,
-		NumVerbosity,
-		VerbosityMask	= 0xf,
-		SetColor		= 0x40, // not actually a verbosity, used to set the color of an output device 
-		BreakOnLog		= 0x80
-	};
-}
-static_assert(ELogVerbosity::NumVerbosity - 1 < ELogVerbosity::VerbosityMask, "Bad verbosity mask.");
-static_assert(!(ELogVerbosity::VerbosityMask & ELogVerbosity::BreakOnLog), "Bad verbosity mask.");
-static_assert((ELogVerbosity::VerbosityMask | ELogVerbosity::BreakOnLog) < 256, "Bad verbosity mask."); // we use a byte for storage
-
 /**
  * Enum that defines how the log times are to be displayed.
  */
@@ -293,7 +240,10 @@ public:
 #endif
 
 	// static helpers
+	DEPRECATED(4.12, "Please use FOutputDeviceHelper::VerbosityToString.")
 	static const TCHAR* VerbosityToString(ELogVerbosity::Type Verbosity);
+
+	DEPRECATED(4.12, "Please use FOutputDeviceHelper::FormatLogLine.")
 	static FString FormatLogLine(ELogVerbosity::Type Verbosity, const class FName& Category, const TCHAR* Message = nullptr, ELogTimes::Type LogTime = ELogTimes::None, const double Time = -1.0);
 
 
@@ -328,6 +278,21 @@ public:
 	}
 	FORCEINLINE bool GetAutoEmitLineTerminator() const	{	return bAutoEmitLineTerminator;	}
 
+	/** 
+	 * Dumps the contents of this output device's buffer to an archive (supported by output device that have a memory buffer) 
+	 * @param Ar Archive to dump the buffer to
+	 */
+	virtual void Dump(class FArchive& Ar)
+	{
+	}
+
+	/**
+	* @return whether this output device is a memory-only device
+	*/
+	virtual bool IsMemoryOnly() const
+	{
+		return false;
+	}
 
 	/**
 	 * @return whether this output device can be used on any thread.
@@ -389,14 +354,14 @@ struct CORE_API FMsg
  **/
 struct CORE_API FDebug
 {
-	/** Conditionally emits a special UAT marker. */
-	static void ConditionallyEmitBeginCrashUATMarker();
-
-	/** Conditionally emits a special UAT marker. */
-	static void ConditionallyEmitEndCrashUATMarker();
+	/** Outputs a callstack message, separating out each line into a separate log call by modifying the buffer in-place */
+	static void OutputMultiLineCallstack(const ANSICHAR* File, int32 Line, const FName& LogName, const TCHAR* Heading, TCHAR* Message, ELogVerbosity::Type Verbosity);
 
 	/** Logs final assert message and exits the program. */
 	static void VARARGS AssertFailed(const ANSICHAR* Expr, const ANSICHAR* File, int32 Line, const TCHAR* Format = TEXT(""), ...);
+
+	/** Records the calling of AssertFailed() */
+	static bool bHasAsserted;
 
 #if DO_CHECK || DO_GUARD_SLOW
 	/** Failed assertion handler.  Warning: May be called at library startup time. */
@@ -464,14 +429,30 @@ struct CORE_API FMessageDialog
  **/
 struct CORE_API FError
 {
-	/** low level fater error handler. */
+	/** low level fatal error handler. */
 	static void VARARGS LowLevelFatal(const ANSICHAR* File, int32 Line, const TCHAR* Format=TEXT(""), ... );
 
-	/** @name Exception handling */
-	//@{
-	/** For throwing string-exceptions which safely propagate through guard/unguard. */
-	VARARG_DECL( static void VARARGS, static void, VARARG_NONE, Throwf, VARARG_NONE, const TCHAR*, VARARG_NONE, VARARG_NONE );
-	//@}
+#if HACK_HEADER_GENERATOR
+	/**
+	 * Throws a printf-formatted exception as a const TCHAR*.
+	 */
+	template <typename... Types>
+	FUNCTION_NO_RETURN_START
+	static void VARARGS Throwf(const TCHAR* Fmt, Types... Args)
+	FUNCTION_NO_RETURN_END
+	{
+		static_assert(TAnd<TIsValidVariadicFunctionArg<Types>...>::Value, "Invalid argument(s) passed to FError::Throwf");
+
+		ThrowfImpl(Fmt, Args...);
+	}
+#endif
+
+private:
+#if HACK_HEADER_GENERATOR
+	FUNCTION_NO_RETURN_START
+	static void VARARGS ThrowfImpl(const TCHAR* Fmt, ...)
+	FUNCTION_NO_RETURN_END;
+#endif
 };
 
 

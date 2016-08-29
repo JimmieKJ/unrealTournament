@@ -1,5 +1,6 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
+#include "RealtimeProfilerPrivatePCH.h"
 #include "SlateBasics.h"
 #include "RealtimeProfiler.h"
 #include "SRealtimeProfilerFrame.h"

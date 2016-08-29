@@ -71,18 +71,19 @@ public:
 
 		UEdGraphPin* InputPin = Node->FindPinChecked(SetFieldsInStructHelper::StructRefPinName());
 		UEdGraphPin* InputPinNet = FEdGraphUtilities::GetNetFromPin(InputPin);
-		FBPTerminal** InputTerm = Context.NetMap.Find(InputPinNet);
-
-		if (InputTerm == nullptr)
+		FBPTerminal** InputTermRef = Context.NetMap.Find(InputPinNet);
+		
+		if (InputTermRef == nullptr)
 		{
 			CompilerContext.MessageLog.Error(*LOCTEXT("MakeStruct_NoTerm_Error", "Failed to generate a term for the @@ pin; was it a struct reference that was left unset?").ToString(), InputPin);
 		}
 		else
 		{
-			if ((*InputTerm)->bPassedByReference) //InputPinNet->PinType.bIsReference)
+			FBPTerminal* InputTerm = *InputTermRef;
+			if (InputTerm->bPassedByReference) //InputPinNet->PinType.bIsReference)
 			{
 				// Forward the net to the output pin because it's being passed by-ref and this pin is a by-ref pin
-				Context.NetMap.Add(ReturnStructNet, *InputTerm);
+				Context.NetMap.Add(ReturnStructNet, InputTerm);
 			}
 		}
 	}
@@ -133,7 +134,6 @@ void UK2Node_SetFieldsInStruct::AllocateDefaultPins()
 		UEdGraphPin* InPin = CreatePin(EGPD_Input, Schema->PC_Struct, TEXT(""), StructType, false, true, SetFieldsInStructHelper::StructRefPinName());
 
 		UEdGraphPin* OutPin = CreatePin(EGPD_Output, Schema->PC_Struct, TEXT(""), StructType, false, true, SetFieldsInStructHelper::StructOutPinName());
-		ByRefMatchupPins.Add(InPin, OutPin);
 
 		// Input pin will forward the ref to the output, if the input value is not a reference connection, a copy is made and modified instead and provided as a reference until the function is called again.
 		InPin->AssignByRefPassThroughConnection(OutPin);
@@ -181,9 +181,9 @@ FText UK2Node_SetFieldsInStruct::GetTooltipText() const
 	return CachedTooltip;
 }
 
-FName UK2Node_SetFieldsInStruct::GetPaletteIcon(FLinearColor& OutColor) const
-{ 
-	return UK2Node_Variable::GetPaletteIcon(OutColor);
+FSlateIcon UK2Node_SetFieldsInStruct::GetIconAndTint(FLinearColor& OutColor) const
+{
+	return UK2Node_Variable::GetIconAndTint(OutColor);
 }
 
 void UK2Node_SetFieldsInStruct::ValidateNodeDuringCompilation(FCompilerResultsLog& MessageLog) const

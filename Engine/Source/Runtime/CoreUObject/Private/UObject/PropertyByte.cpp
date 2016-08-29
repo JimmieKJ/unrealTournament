@@ -1,6 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "CoreUObjectPrivate.h"
+#include "PropertyTag.h"
 
 /*-----------------------------------------------------------------------------
 	UByteProperty.
@@ -71,7 +72,7 @@ void UByteProperty::Serialize( FArchive& Ar )
 {
 	Super::Serialize( Ar );
 	Ar << Enum;
-	if (Enum != NULL)
+	if (Enum != nullptr)
 	{
 		Ar.Preload(Enum);
 	}
@@ -86,6 +87,13 @@ FString UByteProperty::GetCPPType( FString* ExtendedTypeText/*=NULL*/, uint32 CP
 {
 	if (Enum)
 	{
+		const bool bEnumClassForm = Enum->GetCppForm() == UEnum::ECppForm::EnumClass;
+		const bool bNonNativeEnum = Enum->GetClass() != UEnum::StaticClass(); // cannot use RF_Native flag, because in UHT the flag is not set
+		const bool bRawParam = (CPPExportFlags & CPPF_ArgumentOrReturnValue)
+			&& (((PropertyFlags & CPF_ReturnParm) || !(PropertyFlags & CPF_OutParm))
+				|| bEnumClassForm || bNonNativeEnum);
+		const bool bConvertedCode = (CPPExportFlags & CPPF_BlueprintCppBackend) && (bEnumClassForm || bNonNativeEnum);
+
 		FString FullyQualifiedEnumName;
 		if (!Enum->CppType.IsEmpty())
 		{
@@ -95,15 +103,17 @@ FString UByteProperty::GetCPPType( FString* ExtendedTypeText/*=NULL*/, uint32 CP
 		{
 			// This would give the wrong result if it's a namespaced type and the CppType hasn't
 			// been set, but we do this here in case existing code relies on it... somehow.
-			FullyQualifiedEnumName = Enum->GetName();
+			if ((CPPExportFlags & CPPF_BlueprintCppBackend) && bNonNativeEnum)
+			{
+				ensure(Enum->CppType.IsEmpty());
+				FullyQualifiedEnumName = ::UnicodeToCPPIdentifier(Enum->GetName(), false, TEXT("E__"));
+			}
+			else
+			{
+				FullyQualifiedEnumName = Enum->GetName();
+			}
 		}
 		 
-		const bool bEnumClassForm = Enum->GetCppForm() == UEnum::ECppForm::EnumClass;
-		const bool bNonNativeEnum = Enum->GetClass() != UEnum::StaticClass(); // cannot use RF_Native flag, because in UHT the flag is not set
-		const bool bRawParam = (CPPExportFlags & CPPF_ArgumentOrReturnValue) 
-			&& (((PropertyFlags & CPF_ReturnParm) || !(PropertyFlags & CPF_OutParm)) 
-			|| bEnumClassForm || bNonNativeEnum);
-		const bool bConvertedCode = (CPPExportFlags & CPPF_BlueprintCppBackend) && (bEnumClassForm || bNonNativeEnum);
 		if (bRawParam || bConvertedCode)
 		{
 			return FullyQualifiedEnumName;
@@ -116,6 +126,142 @@ FString UByteProperty::GetCPPType( FString* ExtendedTypeText/*=NULL*/, uint32 CP
 	return Super::GetCPPType(ExtendedTypeText, CPPExportFlags);
 }
 
+template <typename OldIntType>
+struct TConvertIntToEnumProperty
+{
+	static void Convert(FArchive& Ar, UByteProperty* Property, UEnum* Enum, void* Obj, const FPropertyTag& Tag)
+	{
+		OldIntType OldValue;
+		Ar << OldValue;
+
+		uint8 NewValue = OldValue;
+		if (OldValue > (OldIntType)TNumericLimits<uint8>::Max() || !Enum->IsValidEnumValue(NewValue))
+		{
+			UE_LOG(
+				LogClass,
+				Warning,
+				TEXT("Failed to find valid enum value '%d' for enum type '%s' when converting property '%s' during property loading - setting to '%s'"),
+				OldValue,
+				*Enum->GetName(),
+				*Property->GetName(),
+				*Enum->GetNameByValue(Enum->GetMaxEnumValue()).ToString()
+				);
+
+			NewValue = Enum->GetMaxEnumValue();
+		}
+
+		Property->SetPropertyValue_InContainer(Obj, NewValue, Tag.ArrayIndex);
+	}
+};
+
+bool UByteProperty::ConvertFromType(const FPropertyTag& Tag, FArchive& Ar, uint8* Data, UStruct* DefaultsStruct, bool& bOutAdvanceProperty)
+{
+	bOutAdvanceProperty = true;
+
+	if (Tag.Type == NAME_ByteProperty  && ((Tag.EnumName == NAME_None) != (Enum == nullptr)))
+	{
+		// a byte property gained or lost an enum
+		// attempt to convert it
+		uint8 PreviousValue;
+		if (Tag.EnumName == NAME_None)
+		{
+			// simply pretend the property still doesn't have an enum and serialize the single byte
+			Ar << PreviousValue;
+		}
+		else
+		{
+			// attempt to find the old enum and get the byte value from the serialized enum name
+			PreviousValue = ReadEnumAsUint8(Ar, DefaultsStruct, Tag);
+		}
+
+		// now copy the value into the object's address space
+		SetPropertyValue_InContainer(Data, PreviousValue, Tag.ArrayIndex);
+	}
+	else if (Tag.Type == NAME_Int8Property)
+	{
+		if (Enum)
+		{
+			TConvertIntToEnumProperty<int8>::Convert(Ar, this, Enum, Data, Tag);
+		}
+		else
+		{
+			ConvertFromInt<int8>(Ar, Data, Tag);
+		}
+	}
+	else if (Tag.Type == NAME_Int16Property)
+	{
+		if (Enum)
+		{
+			TConvertIntToEnumProperty<int16>::Convert(Ar, this, Enum, Data, Tag);
+		}
+		else
+		{
+			ConvertFromInt<int16>(Ar, Data, Tag);
+		}
+	}
+	else if (Tag.Type == NAME_IntProperty)
+	{
+		if (Enum)
+		{
+			TConvertIntToEnumProperty<int32>::Convert(Ar, this, Enum, Data, Tag);
+		}
+		else
+		{
+			ConvertFromInt<int32>(Ar, Data, Tag);
+		}
+	}
+	else if (Tag.Type == NAME_Int64Property)
+	{
+		if (Enum)
+		{
+			TConvertIntToEnumProperty<int64>::Convert(Ar, this, Enum, Data, Tag);
+		}
+		else
+		{
+			ConvertFromInt<int64>(Ar, Data, Tag);
+		}
+	}
+	else if (Tag.Type == NAME_UInt16Property)
+	{
+		if (Enum)
+		{
+			TConvertIntToEnumProperty<uint16>::Convert(Ar, this, Enum, Data, Tag);
+		}
+		else
+		{
+			ConvertFromInt<uint16>(Ar, Data, Tag);
+		}
+	}
+	else if (Tag.Type == NAME_UInt32Property)
+	{
+		if (Enum)
+		{
+			TConvertIntToEnumProperty<uint32>::Convert(Ar, this, Enum, Data, Tag);
+		}
+		else
+		{
+			ConvertFromInt<uint32>(Ar, Data, Tag);
+		}
+	}
+	else if (Tag.Type == NAME_UInt64Property)
+	{
+		if (Enum)
+		{
+			TConvertIntToEnumProperty<uint64>::Convert(Ar, this, Enum, Data, Tag);
+		}
+		else
+		{
+			ConvertFromInt<uint64>(Ar, Data, Tag);
+		}
+	}
+	else
+	{
+		bOutAdvanceProperty = false;
+	}
+
+	return bOutAdvanceProperty;
+}
+
 void UByteProperty::ExportTextItem( FString& ValueStr, const void* PropertyValue, const void* DefaultValue, UObject* Parent, int32 PortFlags, UObject* ExportRootScope ) const
 {
 	if (0 != (PortFlags & PPF_ExportCpp))
@@ -125,15 +271,18 @@ void UByteProperty::ExportTextItem( FString& ValueStr, const void* PropertyValue
 			const int32 ActualValue = *(const uint8*)PropertyValue;
 			const int32 MaxValue = Enum->GetMaxEnumValue();
 			const int32 GoodValue = Enum->IsValidEnumValue(ActualValue) ? ActualValue : MaxValue;
+			const bool bNonNativeEnum = Enum->GetClass() != UEnum::StaticClass();
+			ensure(!bNonNativeEnum || Enum->CppType.IsEmpty());
+			const FString FullyQualifiedEnumName = bNonNativeEnum ? ::UnicodeToCPPIdentifier(Enum->GetName(), false, TEXT("E__"))
+				: (Enum->CppType.IsEmpty() ? Enum->GetName() : Enum->CppType);
 			if (GoodValue == MaxValue)
 			{
 				// not all native enums have Max value declared
-				const FString FullyQualifiedEnumName = Enum->CppType.IsEmpty() ? Enum->GetName() : Enum->CppType;
 				ValueStr += FString::Printf(TEXT("(%s)(%d)"), *FullyQualifiedEnumName, ActualValue);
 			}
 			else
 			{
-				ValueStr += FString::Printf(TEXT("%s::%s"), *Enum->GetName(),
+				ValueStr += FString::Printf(TEXT("%s::%s"), *FullyQualifiedEnumName,
 					*Enum->GetEnumName(Enum->GetIndexByValue(GoodValue)));
 			}
 		}
@@ -174,9 +323,9 @@ void UByteProperty::ExportTextItem( FString& ValueStr, const void* PropertyValue
 }
 const TCHAR* UByteProperty::ImportText_Internal( const TCHAR* InBuffer, void* Data, int32 PortFlags, UObject* Parent, FOutputDevice* ErrorText ) const
 {
-	FString Temp;
 	if( Enum && (PortFlags & PPF_ConsoleVariable) == 0 )
 	{
+		FString Temp;
 		const TCHAR* Buffer = UPropertyHelpers::ReadToken( InBuffer, Temp, true );
 		if( Buffer != NULL )
 		{
@@ -188,6 +337,27 @@ const TCHAR* UByteProperty::ImportText_Internal( const TCHAR* InBuffer, void* Da
 			}
 		}
 	}
+	
+	// Interpret "True" and "False" as 1 and 0. This is mostly for importing a property that was exported as a bool and is imported as a non-enum byte.
+	if (!Enum)
+	{
+		FString Temp;
+		const TCHAR* Buffer = UPropertyHelpers::ReadToken(InBuffer, Temp);
+		if (Buffer)
+		{
+			if (Temp == TEXT("True") || Temp == *(GTrue.ToString()))
+			{
+				SetIntPropertyValue(Data, 1ull);
+				return Buffer;
+			}
+			else if (Temp == TEXT("False") || Temp == *(GFalse.ToString()))
+			{
+				SetIntPropertyValue(Data, 0ull);
+				return Buffer;
+			}
+		}
+	}
+
 	return Super::ImportText_Internal( InBuffer, Data, PortFlags, Parent, ErrorText );
 }
 

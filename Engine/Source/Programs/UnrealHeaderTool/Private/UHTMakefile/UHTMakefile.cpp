@@ -237,6 +237,12 @@ void FUHTMakefile::SetupProxies()
 		MapPropertyProxies.Add(FMapPropertyArchiveProxy(*this, MapProperty));
 	}
 
+	SetPropertyProxies.Empty(SetProperties.Num());
+	for (USetProperty* SetProperty : SetProperties)
+	{
+		SetPropertyProxies.Add(FSetPropertyArchiveProxy(*this, SetProperty));
+	}
+
 	ArrayPropertyProxies.Empty(ArrayProperties.Num());
 	for (UArrayProperty* ArrayProperty : ArrayProperties)
 	{
@@ -403,6 +409,7 @@ int32 FUHTMakefile::GetPropertyCount() const
 		+ InterfaceProperties.Num()
 		+ StructProperties.Num()
 		+ MapProperties.Num()
+		+ SetProperties.Num()
 		+ ArrayProperties.Num();
 }
 
@@ -435,6 +442,7 @@ int32 FUHTMakefile::GetPropertyProxiesCount() const
 		+ InterfacePropertyProxies.Num()
 		+ StructPropertyProxies.Num()
 		+ MapPropertyProxies.Num()
+		+ SetPropertyProxies.Num()
 		+ ArrayPropertyProxies.Num();
 }
 
@@ -760,6 +768,9 @@ void FUHTMakefile::CreateObject(ESerializedObjectType ObjectType, int32 Index)
 	case ESerializedObjectType::EMapProperty:
 		CreateMapProperty(Index);
 		break;
+	case ESerializedObjectType::ESetProperty:
+		CreateSetProperty(Index);
+		break;
 	case ESerializedObjectType::EArrayProperty:
 		CreateArrayProperty(Index);
 		break;
@@ -923,6 +934,9 @@ void FUHTMakefile::ResolveObject(ESerializedObjectType ObjectType, int32 Index)
 		break;
 	case ESerializedObjectType::EMapProperty:
 		ResolveMapProperty(Index);
+		break;
+	case ESerializedObjectType::ESetProperty:
+		ResolveSetProperty(Index);
 		break;
 	case ESerializedObjectType::EArrayProperty:
 		ResolveArrayProperty(Index);
@@ -1532,6 +1546,13 @@ int32 FUHTMakefile::GetPropertyIndex(const UProperty* Property) const
 	}
 	Result += MapProperties.Num();
 
+	CurrentIndex = SetPropertyIndexes.Find(Cast<USetProperty>(Property));
+	if (CurrentIndex)
+	{
+		return Result + *CurrentIndex;
+	}
+	Result += SetProperties.Num();
+
 	CurrentIndex = ArrayPropertyIndexes.Find(Cast<UArrayProperty>(Property));
 	if (CurrentIndex)
 	{
@@ -1710,6 +1731,12 @@ UProperty* FUHTMakefile::GetPropertyByIndex(int32 Index) const
 		return MapProperties[Index];
 	}
 	Index -= MapPropertyProxies.Num();
+
+	if (SetProperties.IsValidIndex(Index) && SetPropertyProxies.IsValidIndex(Index))
+	{
+		return SetProperties[Index];
+	}
+	Index -= SetPropertyProxies.Num();
 
 	if (ArrayProperties.IsValidIndex(Index) && ArrayPropertyProxies.IsValidIndex(Index))
 	{
@@ -2161,6 +2188,11 @@ void FUHTMakefile::SetupAndSaveReferencedNames(FArchive& Ar)
 		FMapPropertyArchiveProxy::AddReferencedNames(MapProperty, *this);
 	}
 
+	for (USetProperty* SetProperty : SetProperties)
+	{
+		FSetPropertyArchiveProxy::AddReferencedNames(SetProperty, *this);
+	}
+
 	for (UArrayProperty* ArrayProperty : ArrayProperties)
 	{
 		FArrayPropertyArchiveProxy::AddReferencedNames(ArrayProperty, *this);
@@ -2290,6 +2322,7 @@ FArchive& operator<<(FArchive& Ar, FUHTMakefile& UHTMakefile)
 	Ar << UHTMakefile.InterfacePropertyProxies;
 	Ar << UHTMakefile.StructPropertyProxies;
 	Ar << UHTMakefile.MapPropertyProxies;
+	Ar << UHTMakefile.SetPropertyProxies;
 	Ar << UHTMakefile.ArrayPropertyProxies;
 	Ar << UHTMakefile.DelegateFunctionProxies;
 	Ar << UHTMakefile.FunctionProxies;

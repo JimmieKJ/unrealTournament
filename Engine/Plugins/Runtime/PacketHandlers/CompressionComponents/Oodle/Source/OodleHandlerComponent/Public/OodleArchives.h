@@ -213,9 +213,10 @@ public:
 	 * @param DataInfo		The FOodleCompressedData struct, describing the location of the data, and info necessary for decompressing
 	 * @param OutData		Outputs the newly decompressed/allocated data, to a pointer (NOTE: Initialize the pointer to nullptr)
 	 * @param OutDataBytes	Outputs the size of OutData
+	 * @param bOutDataSlack	Adds some memory slack to OutData (@todo #JohnB: Remove after Oodle update, and after checking with Luigi)
 	 * @return				Whether or not decompression was successful
 	 */
-	bool SerializeOodleDecompressData(FOodleCompressedData& DataInfo, uint8*& OutData, uint32& OutDataBytes);
+	bool SerializeOodleDecompressData(FOodleCompressedData& DataInfo, uint8*& OutData, uint32& OutDataBytes, bool bOutDataSlack=false);
 
 
 	/**

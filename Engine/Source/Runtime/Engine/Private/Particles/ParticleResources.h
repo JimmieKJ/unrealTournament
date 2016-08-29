@@ -52,7 +52,7 @@ public:
 };
 
 /** Global particle index buffer. */
-extern TGlobalResource<FParticleIndexBuffer> GParticleIndexBuffer;
+ENGINE_API extern TGlobalResource<FParticleIndexBuffer> GParticleIndexBuffer;
 extern TGlobalResource<FSixTriangleParticleIndexBuffer> GSixTriangleParticleIndexBuffer;
 
 typedef FShaderResourceViewRHIParamRef FParticleShaderParamRef;

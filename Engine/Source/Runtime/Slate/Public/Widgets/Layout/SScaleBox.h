@@ -4,7 +4,7 @@
 
 #include "SScaleBox.generated.h"
 
-UENUM()
+UENUM(BlueprintType)
 namespace EStretchDirection
 {
 	enum Type
@@ -18,7 +18,7 @@ namespace EStretchDirection
 	};
 }
 
-UENUM()
+UENUM(BlueprintType)
 namespace EStretch
 {
 	enum Type
@@ -49,6 +49,8 @@ namespace EStretch
 		 * or exceed the size of the area.  Will result in clipping the longer side.
 		 */
 		ScaleToFill,
+		/** Scales the content according to the size of the safe zone currently applied to the viewport. */
+		ScaleBySafeZone,
 		/** Scales the content by the scale specified by the user. */
 		UserSpecified
 	};
@@ -105,6 +107,7 @@ public:
 	
 	// SWidget interface
 	virtual void OnArrangeChildren(const FGeometry& AllottedGeometry, FArrangedChildren& ArrangedChildren) const override;
+	virtual FVector2D ComputeDesiredSize(float InScale) const override;
 	virtual int32 OnPaint(const FPaintArgs& Args, const FGeometry& AllottedGeometry, const FSlateRect& MyClippingRect, FSlateWindowElementList& OutDrawElements, int32 LayerId, const FWidgetStyle& InWidgetStyle, bool bParentEnabled) const override;
 	// End SWidget of interface
 
@@ -132,6 +135,8 @@ public:
 protected:
 	virtual float GetRelativeLayoutScale(const FSlotBase& Child) const override;
 
+	float GetLayoutScale() const;
+	void RefreshSafeZoneScale();
 private:
 	/** The allowed direction of stretching of the content */
 	TAttribute<EStretchDirection::Type> StretchDirection;
@@ -144,4 +149,7 @@ private:
 
 	/** Optional bool to ignore the inherited scale */
 	TAttribute<bool> IgnoreInheritedScale;
+
+	/** Computed scale when scaled by safe zone padding */
+	float SafeZoneScale;
 };

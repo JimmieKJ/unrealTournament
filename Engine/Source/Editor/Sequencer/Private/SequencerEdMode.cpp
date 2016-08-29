@@ -113,7 +113,7 @@ void GetLocationAtTime(UMovieScene3DTransformSection* TransformSection, float Ke
 	TransformSection->EvalRotation(KeyTime, KeyRot);
 }
 
-void DrawTransformTrack(const FSceneView* View, FPrimitiveDrawInterface* PDI, UMovieScene3DTransformTrack* TransformTrack, const TArray<TWeakObjectPtr<UObject>>& BoundObjects)
+void DrawTransformTrack(const FSceneView* View, FPrimitiveDrawInterface* PDI, UMovieScene3DTransformTrack* TransformTrack, const TArray<TWeakObjectPtr<UObject>>& BoundObjects, const bool& bIsSelected)
 {
 	const bool bHitTesting = PDI->IsHitTesting();
 	FLinearColor TrackColor = FLinearColor::Yellow; //@todo - customizable per track
@@ -122,6 +122,16 @@ void DrawTransformTrack(const FSceneView* View, FPrimitiveDrawInterface* PDI, UM
 	{
 		UMovieSceneSection* Section = TransformTrack->GetAllSections()[SectionIndex];
 		UMovieScene3DTransformSection* TransformSection = Cast<UMovieScene3DTransformSection>(Section);
+
+		if (TransformSection->GetShow3DTrajectory() == EShow3DTrajectory::EST_Never)
+		{
+			continue;
+		}
+
+		if (TransformSection->GetShow3DTrajectory() == EShow3DTrajectory::EST_OnlyWhenSelected && !bIsSelected)
+		{
+			continue;
+		}
 
 		FRichCurve& TransXCurve = TransformSection->GetTranslationCurve(EAxis::X);
 		FRichCurve& TransYCurve = TransformSection->GetTranslationCurve(EAxis::Y);
@@ -339,34 +349,43 @@ void FSequencerEdMode::DrawTracks3D(const FSceneView* View, FPrimitiveDrawInterf
 {
 	TSet<TSharedRef<FSequencerDisplayNode> > ObjectBindingNodes;
 
-	// Look for the object binding nodes from the nodes with selected keys or sections
-	for (auto OutlinerNode : Sequencer->GetSelection().GetNodesWithSelectedKeysOrSections())
+	// Map between object binding nodes and selection
+	TMap<TSharedRef<FSequencerDisplayNode>, bool > ObjectBindingNodesSelectionMap;
+
+	for (auto ObjectBinding : Sequencer->GetNodeTree()->GetObjectBindingMap() )
 	{
-		TSharedRef<FSequencerDisplayNode> ObjectBindingNode = OutlinerNode;
-		if (SequencerHelpers::FindObjectBindingNode(OutlinerNode, ObjectBindingNode))
+		if (ObjectBinding.Value.IsValid())
 		{
-			ObjectBindingNodes.Add(ObjectBindingNode);
+			TSharedRef<FSequencerObjectBindingNode> ObjectBindingNode = ObjectBinding.Value.ToSharedRef();
+
+			TSet<TSharedRef<FSequencerDisplayNode> > DescendantNodes;
+			SequencerHelpers::GetDescendantNodes(ObjectBindingNode, DescendantNodes);
+
+			bool bSelected = false;
+			for (auto DescendantNode : DescendantNodes)
+			{
+				if (Sequencer->GetSelection().IsSelected(ObjectBindingNode) || 
+					Sequencer->GetSelection().IsSelected(DescendantNode) || 
+					Sequencer->GetSelection().NodeHasSelectedKeysOrSections(DescendantNode))
+				{
+					bSelected = true;
+					break;
+				}
+			}
+
+			ObjectBindingNodesSelectionMap.Add(ObjectBindingNode, bSelected);
 		}
 	}
 
-	// And also look for the nodes that are directly selected
-	for (auto OutlinerNode : Sequencer->GetSelection().GetSelectedOutlinerNodes())
-	{
-		TSharedRef<FSequencerDisplayNode> ObjectBindingNode = OutlinerNode;
-		if (SequencerHelpers::FindObjectBindingNode(OutlinerNode, ObjectBindingNode))
-		{
-			ObjectBindingNodes.Add(ObjectBindingNode);
-		}
-	}
 
 	// Gather up the transform track nodes from the object binding nodes
 
-	for (auto ObjectBindingNode : ObjectBindingNodes)
+	for (auto ObjectBindingNode : ObjectBindingNodesSelectionMap)
 	{
 		TSet<TSharedRef<FSequencerDisplayNode> > AllNodes;
-		SequencerHelpers::GetDescendantNodes(ObjectBindingNode, AllNodes);
+		SequencerHelpers::GetDescendantNodes(ObjectBindingNode.Key, AllNodes);
 
-		FGuid ObjectBinding = StaticCastSharedRef<FSequencerObjectBindingNode>(ObjectBindingNode)->GetObjectBinding();
+		FGuid ObjectBinding = StaticCastSharedRef<FSequencerObjectBindingNode>(ObjectBindingNode.Key)->GetObjectBinding();
 
 		TArray<TWeakObjectPtr<UObject>> BoundObjects;
 		Sequencer->GetRuntimeObjects(Sequencer->GetFocusedMovieSceneSequenceInstance(), ObjectBinding, BoundObjects);
@@ -380,7 +399,7 @@ void FSequencerEdMode::DrawTracks3D(const FSceneView* View, FPrimitiveDrawInterf
 				UMovieScene3DTransformTrack* TransformTrack = Cast<UMovieScene3DTransformTrack>(TrackNodeTrack);
 				if (TransformTrack != nullptr)
 				{
-					DrawTransformTrack(View, PDI, TransformTrack, BoundObjects);
+					DrawTransformTrack(View, PDI, TransformTrack, BoundObjects, ObjectBindingNode.Value);
 				}
 			}
 		}

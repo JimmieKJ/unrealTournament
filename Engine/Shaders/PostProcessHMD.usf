@@ -62,9 +62,9 @@ void MainVS(in float2 Position : ATTRIBUTE0, in float2 TexCoord0 : ATTRIBUTE1, i
 
 void MainVS(in float2 Position : ATTRIBUTE0, in float2 TexCoord0 : ATTRIBUTE1, in float2 TexCoord1 : ATTRIBUTE2, 
             in float2 TexCoord2 : ATTRIBUTE3, in float VignetteFactor : ATTRIBUTE4, in float TimewarpFactor : ATTRIBUTE5,
-
+			
 			out float4 OutPosition : SV_Position, out float4 OutVignetteColor : COLOR0, 
-			out float2 OutTexCoord0 : TEXCOORD0, out float2 OutTexCoord1 : TEXCOORD1, out float2 OutTexCoord2 : TEXCOORD2)
+			out float4 OutTexCoord0 : TEXCOORD0, out float4 OutTexCoord1 : TEXCOORD1, out float4 OutTexCoord2 : TEXCOORD2)
 {
 	OutPosition.xy = Position.xy;
 	OutPosition.z = 0.5;
@@ -72,21 +72,36 @@ void MainVS(in float2 Position : ATTRIBUTE0, in float2 TexCoord0 : ATTRIBUTE1, i
 
     // Vertex inputs are in TanEyeAngle space for the R,G,B channels (i.e. after chromatic aberration and distortion).
     // Scale them into the correct [0-1],[0-1] UV lookup space (depending on eye)
-	OutTexCoord0 = TexCoord0 * EyeToSrcUVScale + EyeToSrcUVOffset;
-	OutTexCoord1 = TexCoord1 * EyeToSrcUVScale + EyeToSrcUVOffset;
-	OutTexCoord2 = TexCoord2 * EyeToSrcUVScale + EyeToSrcUVOffset;
+	float2 ScaledTexCoord0 = TexCoord0 * EyeToSrcUVScale + EyeToSrcUVOffset;
+	float2 ScaledTexCoord1 = TexCoord1 * EyeToSrcUVScale + EyeToSrcUVOffset;
+	float2 ScaledTexCoord2 = TexCoord2 * EyeToSrcUVScale + EyeToSrcUVOffset;
+	OutTexCoord0 = float4(ScaledTexCoord0.x, ScaledTexCoord0.y, TexCoord0.x, TexCoord0.y);
+	OutTexCoord1 = float4(ScaledTexCoord1.x, ScaledTexCoord1.y, TexCoord1.x, TexCoord1.y);
+	OutTexCoord2 = float4(ScaledTexCoord2.x, ScaledTexCoord2.y, TexCoord2.x, TexCoord2.y);
 	OutVignetteColor = VignetteFactor; // Used for vignette fade.
 }
 #endif
 
 void MainPS(in float4 Position : SV_Position, in float4 Color : COLOR0,
-			in float2 TexCoord0 : TEXCOORD0, in float2 TexCoord1 : TEXCOORD1, in float2 TexCoord2 : TEXCOORD2, 
+			in float4 TexCoord0 : TEXCOORD0, in float4 TexCoord1 : TEXCOORD1, in float4 TexCoord2 : TEXCOORD2, 
 			
 			out float4 OutColor : SV_Target0)
 {
-	float ResultR = Texture2DSample(PostprocessInput0, PostprocessInput0Sampler, TexCoord0).r;
-	float ResultG = Texture2DSample(PostprocessInput0, PostprocessInput0Sampler, TexCoord1).g;
-	float ResultB = Texture2DSample(PostprocessInput0, PostprocessInput0Sampler, TexCoord2).b;
+	// Only testing 1 channel for optimization
+#if PIXELSHADER // Fix ES2 error since VS and PS are in the same file
+#if METAL_PROFILE || METAL_MRT_PROFILE || METAL_SM4_PROFILE || METAL_SM5_PROFILE // Fix Mac issue with bvec2
+	const float2 OOBCoords = TexCoord1.zw - saturate(TexCoord1.zw);
+	if( dot(OOBCoords, OOBCoords) != 0.0 )
+#else
+	if( any(TexCoord1.zw - saturate(TexCoord1.zw)) )
+#endif
+	{
+		discard;
+	}
+#endif
+	float ResultR = Texture2DSample(PostprocessInput0, PostprocessInput0Sampler, TexCoord0.xy).r;
+	float ResultG = Texture2DSample(PostprocessInput0, PostprocessInput0Sampler, TexCoord1.xy).g;
+	float ResultB = Texture2DSample(PostprocessInput0, PostprocessInput0Sampler, TexCoord2.xy).b;
 	OutColor = float4(ResultR * Color.r, ResultG * Color.g, ResultB * Color.b, 1.0);
 }
 

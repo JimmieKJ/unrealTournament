@@ -1522,6 +1522,7 @@ namespace MachObjectHandling
 			public CertFieldOp()
 			{
 				OpVal = kOpCertField;
+				MatchOp.MatchOp = kMatchEqual;
 			}
 
 			public override void ReadData(ReadingContext SR)
@@ -1577,6 +1578,7 @@ namespace MachObjectHandling
 			public CertGenericOp()
 			{
 				OpVal = kOpCertGeneric;
+				MatchOp.MatchOp = kMatchExists;
 			}
 
 			public override void ReadData(ReadingContext SR)
@@ -1694,22 +1696,15 @@ namespace MachObjectHandling
 				CertificateName = SigningCert.FriendlyName;
 			}
 
-			if (OldReq != null)
-			{
-				Expression = OldReq;
-			}
-			else
-			{
-				// create expression
-				Expression = new AndOp();
-				(Expression as AndOp).Op1 = new IdentOp();
-				((Expression as AndOp).Op1 as IdentOp).BundleIdentifier = BundleIdentifier;
-				(Expression as AndOp).Op2 = new AndOp();
-				((Expression as AndOp).Op2 as AndOp).Op1 = new ExpressionOp(kOpGenericAnchor);
-				((Expression as AndOp).Op2 as AndOp).Op2 = new AndOp();
-				(((Expression as AndOp).Op2 as AndOp).Op2 as AndOp).Op1 = new CertFieldOp();
-				(((Expression as AndOp).Op2 as AndOp).Op2 as AndOp).Op2 = new CertGenericOp();
-			}
+			// always use the new  requirements when initializing from cert
+			Expression = new AndOp();
+			(Expression as AndOp).Op1 = new IdentOp();
+			((Expression as AndOp).Op1 as IdentOp).BundleIdentifier = BundleIdentifier;
+			(Expression as AndOp).Op2 = new AndOp();
+			((Expression as AndOp).Op2 as AndOp).Op1 = new ExpressionOp(kOpGenericAnchor);
+			((Expression as AndOp).Op2 as AndOp).Op2 = new AndOp();
+			(((Expression as AndOp).Op2 as AndOp).Op2 as AndOp).Op1 = new CertFieldOp();
+			(((Expression as AndOp).Op2 as AndOp).Op2 as AndOp).Op2 = new CertGenericOp();
 		}
 
 		protected override void PackageData(WritingContext SW)

@@ -71,6 +71,7 @@
 #include "MapBuilder.h"					// Builder template for maps.
 #include "List.h"						// Dynamic list definitions.
 #include "ResourceArray.h"				// Resource array definitions.
+#include "DynamicRHIResourceArray.h"	// Default to the dynamically bound RHI.
 #include "RefCounting.h"				// Reference counting definitions.
 #include "ScriptDelegates.h"
 #include "Delegate.h"					// C++ delegate system
@@ -84,6 +85,7 @@
 #include "RandomStream.h"				// Random stream definitions.
 #include "OutputDevices.h"				// Output devices
 #include "CoreStats.h"
+#include "TimeGuard.h"
 #include "MemStack.h"					// Stack based memory management.
 #include "AsyncWork.h"					// Async threaded work
 #include "Archive.h"					// Utility archive classes

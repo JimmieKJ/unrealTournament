@@ -108,14 +108,17 @@ struct FVertexFactoryInterpolantsVSToPS
 #endif
 	
 #if USE_PARTICLE_NODES
-	/** Particle world position. */
-	float3 ParticlePosition	: PARTICLE_POSITION;
+	/** Particle position in camera-centered translated world space */
+	float3 ParticleTranslatedWorldPosition	: PARTICLE_POSITION;
 
 	/** The velocity of the particle, XYZ: direction, W: speed. */
 	float4 ParticleVelocity	: PARTICLE_VELOCITY;
 
 	/** Relative alive time of the particle */
 	float ParticleTime : PARTICLE_TIME;
+#if NEEDS_PARTICLE_TRANSFORM
+	float4 LocalToWorld[4] : PARTICLE_TRANSFORM;
+#endif
 #endif
 
 #if INSTANCED_STEREO
@@ -147,11 +150,15 @@ struct FVertexFactoryIntermediates
 	/** The velocity of the particle, XYZ: direction, W: speed. */
 	float4 ParticleVelocity;
 
-	/** Particle (non-translated) world space position. */
-	float3 ParticleWorldPosition;
+	/** Particle position in camera-centered translated world space. */
+	float3 ParticleTranslatedWorldPosition;
 	
 	/** Relative time. */
 	float RelativeTime;
+
+#if NEEDS_PARTICLE_TRANSFORM
+	float4 LocalToWorld[4];
+#endif
 };
 
 float4x4 GetParticleTransform(FVertexFactoryInput Input)
@@ -248,10 +255,16 @@ FMaterialPixelParameters GetMaterialPixelParameters(FVertexFactoryInterpolantsVS
 #endif //USE_DYNAMIC_PARAMETERS
 
 #if USE_PARTICLE_NODES
-	Result.Particle.PositionAndSize.xyz = Interpolants.ParticlePosition.xyz;
-	Result.Particle.PositionAndSize.w = 1;
+	Result.Particle.TranslatedWorldPositionAndSize.xyz = Interpolants.ParticleTranslatedWorldPosition.xyz;
+	Result.Particle.TranslatedWorldPositionAndSize.w = 1;
 	Result.Particle.Velocity = Interpolants.ParticleVelocity;
 	Result.Particle.RelativeTime = Interpolants.ParticleTime;
+#if NEEDS_PARTICLE_TRANSFORM
+	Result.Particle.LocalToWorld[0] = Interpolants.LocalToWorld[0];
+	Result.Particle.LocalToWorld[1] = Interpolants.LocalToWorld[1];
+	Result.Particle.LocalToWorld[2] = Interpolants.LocalToWorld[2];
+	Result.Particle.LocalToWorld[3] = Interpolants.LocalToWorld[3];
+#endif
 #endif
 
 	Result.Particle.MotionBlurFade = 1.0f;
@@ -268,8 +281,8 @@ FMaterialVertexParameters GetMaterialVertexParameters(FVertexFactoryInput Input,
 	Result.WorldPosition = WorldPosition;
 	Result.VertexColor = Intermediates.VertexColor;
 
-	Result.Particle.PositionAndSize.xyz = Intermediates.ParticleWorldPosition.xyz;
-	Result.Particle.PositionAndSize.w = 1;
+	Result.Particle.TranslatedWorldPositionAndSize.xyz = Intermediates.ParticleTranslatedWorldPosition.xyz;
+	Result.Particle.TranslatedWorldPositionAndSize.w = 1;
 	Result.Particle.Velocity = Intermediates.ParticleVelocity;
 	Result.Particle.RelativeTime = Intermediates.RelativeTime;
 
@@ -279,6 +292,12 @@ FMaterialVertexParameters GetMaterialVertexParameters(FVertexFactoryInput Input,
 
 	float4x4 Transform = GetParticleTransform(Input);
 	Result.InstanceLocalToWorld = Transform;
+#if NEEDS_PARTICLE_TRANSFORM
+	Result.Particle.LocalToWorld[0] = Transform[0];
+	Result.Particle.LocalToWorld[1] = Transform[1];
+	Result.Particle.LocalToWorld[2] = Transform[2];
+	Result.Particle.LocalToWorld[3] = Transform[3];
+#endif
 
 	Result.TangentToWorld = mul(TangentToLocal, (float3x3)Transform ); 
 
@@ -334,14 +353,21 @@ FVertexFactoryIntermediates GetVertexFactoryIntermediates(FVertexFactoryInput In
 	// Swizzle vertex color.
 	Intermediates.VertexColor = Input.VertexColor FCOLOR_COMPONENT_SWIZZLE;
 
-	// World position.
+	// World position and localtoworld transform.
 #if PARTICLE_MESH_INSTANCED
 	float3 ParticleWorldPosition = float3( Input.Transform1.w, Input.Transform2.w, Input.Transform3.w);
+	float4x4 LocalToWorldMat = float4x4(Input.Transform1, Input.Transform2, Input.Transform3, float4(0.0f, 0.0f, 0.0f, 1.0f));
+#if NEEDS_PARTICLE_TRANSFORM
+	Intermediates.LocalToWorld[0] = LocalToWorldMat[0];
+	Intermediates.LocalToWorld[1] = LocalToWorldMat[1];
+	Intermediates.LocalToWorld[2] = LocalToWorldMat[2];
+	Intermediates.LocalToWorld[3] = LocalToWorldMat[3];
+#endif
 #else
 	float3 ParticleWorldPosition = float3( Transform1.w, Transform2.w, Transform3.w);
 #endif
 
-	Intermediates.ParticleWorldPosition = ParticleWorldPosition;
+	Intermediates.ParticleTranslatedWorldPosition = ParticleWorldPosition + ResolvedView.PreViewTranslation.xyz;
 
 #if PARTICLE_MESH_INSTANCED
 	Intermediates.ParticleColor = Input.ParticleColor;
@@ -376,7 +402,7 @@ FVertexFactoryIntermediates GetVertexFactoryIntermediates(FVertexFactoryInput In
 	#endif
 #endif	//USE_DYNAMIC_PARAMETERS
 
-	Intermediates.ParticleWorldPosition = ParticleWorldPosition.xyz;
+	Intermediates.ParticleTranslatedWorldPosition = ParticleWorldPosition.xyz + ResolvedView.PreViewTranslation.xyz;
 
 #if PARTICLE_MESH_INSTANCED
 	Intermediates.ParticleVelocity = Input.ParticleVelocity;
@@ -399,10 +425,11 @@ FVertexFactoryIntermediates GetVertexFactoryIntermediates(FVertexFactoryInput In
 float3x3 VertexFactoryGetTangentToLocal( FVertexFactoryInput Input, FVertexFactoryIntermediates Intermediates )
 {
 	float3x3 Result=0;	
+	float3 TangentX = TangentBias(Input.TangentX);
 	float4 TangentZ = TangentBias(Input.TangentZ);
 
 	// pass-thru the tangent
-	Result[0] = TangentBias(Input.TangentX);
+	Result[0] = TangentX;
 	// pass-thru the normal
 	Result[2] = TangentZ.xyz;	
 
@@ -500,9 +527,12 @@ FVertexFactoryInterpolantsVSToPS VertexFactoryGetInterpolantsVSToPS(FVertexFacto
 #endif	//USE_DYNAMIC_PARAMETERS
 
 #if USE_PARTICLE_NODES
-	Interpolants.ParticlePosition = Intermediates.ParticleWorldPosition;
+	Interpolants.ParticleTranslatedWorldPosition = Intermediates.ParticleTranslatedWorldPosition;
 	Interpolants.ParticleVelocity = Intermediates.ParticleVelocity;
 	Interpolants.ParticleTime = Intermediates.RelativeTime;
+#if NEEDS_PARTICLE_TRANSFORM
+	Interpolants.LocalToWorld = Intermediates.LocalToWorld;
+#endif
 #endif
 
 #if INSTANCED_STEREO

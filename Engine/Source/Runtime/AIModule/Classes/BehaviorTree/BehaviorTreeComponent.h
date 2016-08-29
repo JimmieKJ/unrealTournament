@@ -60,11 +60,17 @@ struct FBTPendingExecutionInfo
 	/** if set, request can't be executed */
 	uint32 bLocked : 1;
 
-	FBTPendingExecutionInfo() : NextTask(NULL), bOutOfNodes(false), bLocked(false) {}
+	/** if set, active task is in the middle of Abort call */
+	uint32 bAborting : 1;
+
+	FBTPendingExecutionInfo() : NextTask(NULL), bOutOfNodes(false), bLocked(false), bAborting(false) {}
 	bool IsSet() const { return (NextTask || bOutOfNodes) && !bLocked; }
 
 	void Lock() { bLocked = true; }
 	void Unlock() { bLocked = false; }
+
+	void OnAbortStart() { bAborting = true; }
+	void OnAbortProcessed() { bAborting = false; }
 };
 
 struct FBTTreeStartInfo
@@ -185,12 +191,18 @@ public:
 	/** @return true if ExecutionRequest is switching to higher priority node */
 	bool IsRestartPending() const;
 
+	/** @return true if waiting for abort to finish */
+	bool IsAbortPending() const;
+
 	/** @return true if active node is one of child nodes of given one */
 	bool IsExecutingBranch(const UBTNode* Node, int32 ChildIndex = -1) const;
 
 	/** @return true if aux node is currently active */
 	bool IsAuxNodeActive(const UBTAuxiliaryNode* AuxNode) const;
 	bool IsAuxNodeActive(const UBTAuxiliaryNode* AuxNodeTemplate, int32 InstanceIdx) const;
+
+	/** Returns true if InstanceStack contains any BT runtime instances */
+	bool IsInstanceStackEmpty() const { return (InstanceStack.Num() == 0); }
 
 	/** @return status of speficied task */
 	EBTTaskStatus::Type GetTaskStatus(const UBTTaskNode* TaskNode) const;
@@ -391,4 +403,9 @@ FORCEINLINE uint16 UBehaviorTreeComponent::GetActiveInstanceIdx() const
 FORCEINLINE bool UBehaviorTreeComponent::IsRestartPending() const
 {
 	return ExecutionRequest.ExecuteNode && !ExecutionRequest.bTryNextChild;
+}
+
+FORCEINLINE bool UBehaviorTreeComponent::IsAbortPending() const
+{
+	return bWaitingForAbortingTasks || PendingExecution.IsSet();
 }

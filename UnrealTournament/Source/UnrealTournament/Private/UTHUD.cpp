@@ -719,7 +719,7 @@ void AUTHUD::DrawHUD()
 						A->GetOverlappingActors(PickupClaims, APawn::StaticClass());
 						if (PickupClaims.Num() <= 1)
 						{
-							Canvas->DrawColor = WhiteColor;
+							Canvas->DrawColor = FColor::White;
 							FVector2D Size(256.0f, 64.0f);
 							FVector2D Pos((Canvas->SizeX - Size.X) * 0.5f, Canvas->SizeY * 0.4f - Size.Y * 0.5f);
 							Canvas->K2_DrawBox(Pos, Size, 4.0f);

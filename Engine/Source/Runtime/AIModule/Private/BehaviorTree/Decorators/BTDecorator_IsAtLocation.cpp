@@ -36,7 +36,7 @@ bool UBTDecorator_IsAtLocation::CalculateRawConditionValue(UBehaviorTreeComponen
 			AActor* TargetActor = Cast<AActor>(KeyValue);
 			if (TargetActor)
 			{
-				bHasReached = PathFollowingComponent->HasReached(*TargetActor, AcceptableRadius, /*bExactSpot=*/false, bUseNavAgentGoalLocation);
+				bHasReached = PathFollowingComponent->HasReached(*TargetActor, EPathFollowingReachMode::OverlapAgentAndGoal, AcceptableRadius, bUseNavAgentGoalLocation);
 			}
 		}
 		else if (BlackboardKey.SelectedKeyType == UBlackboardKeyType_Vector::StaticClass())
@@ -44,7 +44,7 @@ bool UBTDecorator_IsAtLocation::CalculateRawConditionValue(UBehaviorTreeComponen
 			const FVector TargetLocation = MyBlackboard->GetValue<UBlackboardKeyType_Vector>(BlackboardKey.GetSelectedKeyID());
 			if (FAISystem::IsValidLocation(TargetLocation))
 			{
-				bHasReached = PathFollowingComponent->HasReached(TargetLocation, AcceptableRadius);
+				bHasReached = PathFollowingComponent->HasReached(TargetLocation, EPathFollowingReachMode::OverlapAgent, AcceptableRadius);
 			}
 		}
 	}

@@ -147,6 +147,11 @@ void FMacWindow::Initialize( FMacApplication* const Application, const TSharedRe
 
 			ReshapeWindow( X, Y, SizeX, SizeY );
 
+			if (Definition->ShouldPreserveAspectRatio)
+			{
+				[WindowHandle setContentAspectRatio:NSMakeSize((float)SizeX / (float)SizeY, 1.0f)];
+			}
+
 			if (Definition->IsRegularWindow)
 			{
 				[NSApp addWindowsItem:WindowHandle title:Definition->Title.GetNSString() filename:NO];
@@ -243,7 +248,11 @@ void FMacWindow::ReshapeWindow( int32 X, int32 Y, int32 Width, int32 Height )
 					{
 						[WindowHandle setFrame: [WindowHandle screen].frame display:YES];
 					}
-					
+					else if (Definition->ShouldPreserveAspectRatio)
+					{
+						[WindowHandle setContentAspectRatio:NSMakeSize((float)Width / (float)Height, 1.0f)];
+					}
+
 					WindowHandle->bZoomed = [WindowHandle isZoomed];
 				}, UE4ResizeEventMode, true);
 			}

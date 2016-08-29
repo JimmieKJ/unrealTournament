@@ -584,6 +584,12 @@ bool SActorDetails::IsPropertyReadOnly(const FPropertyAndParent& PropertyAndPare
 
 bool SActorDetails::IsPropertyEditingEnabled() const
 {
+	FLevelEditorModule& LevelEditor = FModuleManager::GetModuleChecked<FLevelEditorModule>("LevelEditor");
+	if (!LevelEditor.AreObjectsEditable(DetailsView->GetSelectedObjects()))
+	{
+		return false;
+	}
+
 	bool bIsEditable = true;
 	const TArray<FSCSEditorTreeNodePtrType> SelectedNodes = SCSEditor->GetSelectedNodes();
 	for (const auto& Node : SelectedNodes)

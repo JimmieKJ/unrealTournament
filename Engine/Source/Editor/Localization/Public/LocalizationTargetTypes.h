@@ -247,6 +247,21 @@ struct FLocalizationExportingSettings
 };
 
 USTRUCT()
+struct FLocalizationCompilationSettings
+{
+	GENERATED_BODY()
+
+	FLocalizationCompilationSettings()
+		: SkipSourceCheck(false)
+	{
+	}
+
+	/* Should we skip the source check when compiling translations? This will allow translations whose source no longer matches the active source to still be used by the game at runtime. */
+	UPROPERTY(config, EditAnywhere, Category="Source")
+	bool SkipSourceCheck;
+};
+
+USTRUCT()
 struct FLocalizationImportDialogueSettings
 {
 	GENERATED_BODY()
@@ -363,6 +378,10 @@ struct FLocalizationTargetSettings
 	/* Settings for exporting translations. */
 	UPROPERTY(config, EditAnywhere, Category = "Export Text", meta=(ShowOnlyInnerProperties))
 	FLocalizationExportingSettings ExportSettings;
+
+	/* Settings for compiling translations. */
+	UPROPERTY(config, EditAnywhere, Category = "Compile Text", meta=(ShowOnlyInnerProperties))
+	FLocalizationCompilationSettings CompileSettings;
 
 	/* Settings for importing dialogue from WAV files. */
 	UPROPERTY(config, EditAnywhere, Category = "Import Dialogue", meta=(ShowOnlyInnerProperties))

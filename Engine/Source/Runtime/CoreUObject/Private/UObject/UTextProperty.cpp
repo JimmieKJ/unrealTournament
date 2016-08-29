@@ -3,6 +3,67 @@
 #include "CoreUObjectPrivate.h"
 #include "UObject/UTextProperty.h"
 #include "PropertyHelper.h"
+#include "PropertyTag.h"
+#include "TextPackageNamespaceUtil.h"
+
+bool UTextProperty::ConvertFromType(const FPropertyTag& Tag, FArchive& Ar, uint8* Data, UStruct* DefaultsStruct, bool& bOutAdvanceProperty)
+{
+	// Convert serialized string to text.
+	if (Tag.Type==NAME_StrProperty) 
+	{ 
+		FString str;
+		Ar << str;
+		FText Text = FText::FromString(str);
+		Text.TextData->PersistText();
+		Text.Flags |= ETextFlag::ConvertedProperty;
+		SetPropertyValue_InContainer(Data, Text, Tag.ArrayIndex);
+		bOutAdvanceProperty = true;
+	}
+
+	// Convert serialized name to text.
+	else if (Tag.Type==NAME_NameProperty) 
+	{ 
+		FName Name;  
+		Ar << Name;
+		FText Text = FText::FromName(Name);
+		Text.Flags |= ETextFlag::ConvertedProperty;
+		SetPropertyValue_InContainer(Data, Text, Tag.ArrayIndex);
+		bOutAdvanceProperty = true;
+	}
+	else
+	{
+		bOutAdvanceProperty = false;
+	}
+
+	return bOutAdvanceProperty;
+}
+
+bool UTextProperty::Identical_Implementation(const FText& ValueA, const FText& ValueB, uint32 PortFlags)
+{
+	if (ValueA.IsCultureInvariant() != ValueB.IsCultureInvariant() || ValueA.IsTransient() != ValueB.IsTransient())
+	{
+		//A culture variant text is never equal to a culture invariant text
+		//A transient text is never equal to a non-transient text
+		return false;
+	}
+
+	if (ValueA.IsCultureInvariant() == ValueB.IsCultureInvariant() || ValueA.IsTransient() == ValueB.IsTransient())
+	{
+		//Culture invariant text don't have a namespace/key so we compare the source string
+		//Transient text don't have a namespace/key or source so we compare the display string
+		return FTextInspector::GetDisplayString(ValueA) == FTextInspector::GetDisplayString(ValueB);
+	}
+
+	if (GIsEditor)
+	{
+		return FTextInspector::GetSourceString(ValueA)->Compare(*FTextInspector::GetSourceString(ValueB), ESearchCase::CaseSensitive) == 0;
+	}
+	else
+	{
+		return	FTextInspector::GetNamespace(ValueA) == FTextInspector::GetNamespace(ValueB) &&
+			FTextInspector::GetKey(ValueA) == FTextInspector::GetKey(ValueB);
+	}
+}
 
 bool UTextProperty::Identical( const void* A, const void* B, uint32 PortFlags ) const
 {
@@ -10,30 +71,7 @@ bool UTextProperty::Identical( const void* A, const void* B, uint32 PortFlags ) 
 	if ( B )
 	{
 		const TCppType ValueB = GetPropertyValue(B);
-
-		if ( ValueA.IsCultureInvariant() != ValueB.IsCultureInvariant() || ValueA.IsTransient() != ValueB.IsTransient() )
-		{
-			//A culture variant text is never equal to a culture invariant text
-			//A transient text is never equal to a non-transient text
-			return false;
-		}
-		
-		if ( ValueA.IsCultureInvariant() == ValueB.IsCultureInvariant() || ValueA.IsTransient() == ValueB.IsTransient() )
-		{
-			//Culture invariant text don't have a namespace/key so we compare the source string
-			//Transient text don't have a namespace/key or source so we compare the display string
-			return FTextInspector::GetDisplayString(ValueA) == FTextInspector::GetDisplayString(ValueB);
-		}
-
-		if (GIsEditor)
-		{
-			return FTextInspector::GetSourceString(ValueA)->Compare(*FTextInspector::GetSourceString(ValueB), ESearchCase::CaseSensitive) == 0;
-		}
-		else
-		{
-			return	FTextInspector::GetNamespace(ValueA)	==	FTextInspector::GetNamespace(ValueB) &&
-					FTextInspector::GetKey(ValueA)			==	FTextInspector::GetKey(ValueB);
-		}
+		return Identical_Implementation(ValueA, ValueB, PortFlags);
 	}
 
 	return FTextInspector::GetDisplayString(ValueA).IsEmpty();
@@ -76,8 +114,16 @@ const TCHAR* UTextProperty::ImportText_Internal( const TCHAR* Buffer, void* Data
 {
 	FText* TextPtr = GetPropertyValuePtr(Data);
 
+	FString PackageNamespace;
+#if USE_STABLE_LOCALIZATION_KEYS
+	if (GIsEditor && !(PortFlags & PPF_DuplicateForPIE))
+	{
+		PackageNamespace = TextNamespaceUtil::EnsurePackageNamespace(Parent);
+	}
+#endif // USE_STABLE_LOCALIZATION_KEYS
+
 	int32 NumCharsRead = 0;
-	if (FTextStringHelper::ReadFromString(Buffer, *TextPtr, nullptr, &NumCharsRead, !!(PortFlags & PPF_Delimited)))
+	if (FTextStringHelper::ReadFromString(Buffer, *TextPtr, nullptr, *PackageNamespace, &NumCharsRead, !!(PortFlags & PPF_Delimited)))
 	{
 		Buffer += NumCharsRead;
 		return Buffer;

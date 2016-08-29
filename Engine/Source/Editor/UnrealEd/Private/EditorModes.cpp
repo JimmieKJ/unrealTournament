@@ -43,6 +43,8 @@ const FEditorModeID FBuiltinEditorModes::EM_Level(TEXT("EM_Level"));
 const FEditorModeID FBuiltinEditorModes::EM_StreamingLevel(TEXT("EM_StreamingLevel"));
 const FEditorModeID FBuiltinEditorModes::EM_Physics(TEXT("EM_Physics"));
 const FEditorModeID FBuiltinEditorModes::EM_ActorPicker(TEXT("EM_ActorPicker"));
+const FEditorModeID FBuiltinEditorModes::EM_SceneDepthPicker(TEXT("EM_SceneDepthPicker"));
+
 
 /*------------------------------------------------------------------------------
 	Default.

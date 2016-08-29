@@ -31,7 +31,7 @@ FOutputDeviceAndroidDebug::FOutputDeviceAndroidDebug()
 
 void FOutputDeviceAndroidDebug::Serialize( const TCHAR* Msg, ELogVerbosity::Type Verbosity, const class FName& Category )
 {
-	FPlatformMisc::LowLevelOutputDebugString(*FOutputDevice::FormatLogLine(Verbosity, Category, Msg, GPrintLogTimes));
+	FPlatformMisc::LowLevelOutputDebugString(*FOutputDeviceHelper::FormatLogLine(Verbosity, Category, Msg, GPrintLogTimes));
 }
 
 //////////////////////////////////
@@ -43,7 +43,7 @@ FOutputDeviceAndroidError::FOutputDeviceAndroidError()
 
 void FOutputDeviceAndroidError::Serialize( const TCHAR* Msg, ELogVerbosity::Type Verbosity, const class FName& Category )
 {
-	FPlatformMisc::LowLevelOutputDebugString(*FOutputDevice::FormatLogLine(Verbosity, Category, Msg, GPrintLogTimes));
+	FPlatformMisc::LowLevelOutputDebugString(*FOutputDeviceHelper::FormatLogLine(Verbosity, Category, Msg, GPrintLogTimes));
 	if (GIsGuarded)
 	{
 		FPlatformMisc::DebugBreak();

@@ -20,7 +20,7 @@ ADocumentationActor::ADocumentationActor(const FObjectInitializer& ObjectInitial
 	{
 		static ConstructorHelpers::FObjectFinder<UMaterial> MaterialAsset(TEXT("/Engine/EditorMaterials/HelpActorMaterial"));
 		Billboard->AddElement(MaterialAsset.Object, nullptr, false, 32.0f, 32.0f, nullptr);
-		Billboard->AttachParent = RootComponent;
+		Billboard->SetupAttachment(RootComponent);
 	}
 #endif //WITH_EDITORONLY_DATA
 }

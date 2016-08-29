@@ -39,7 +39,7 @@ void CSGenerateVplLists_LightDirectional(uint3 DTid : SV_DispatchThreadID)
 	float4 normalBiasTex = gRsmNormalTex.Load( int3(DTid.xy,0) );
 
 	float3 normal		 = normalize( normalBiasTex.xyz * 2.0f - 1.0f );
-	float3 flux			 = gRsmFluxTex.Load( int3(DTid.xy,0) );
+	float3 flux			 = gRsmFluxTex.Load( int3(DTid.xy,0) ).xyz;
 	float depth			 = gRsmDepthTex.Load( int3(DTid.xy,0) ).x;
 
 	float primitiveBiasMultiplier = normalBiasTex.w * 32.0f;
@@ -54,5 +54,5 @@ void CSGenerateVplLists_LightDirectional(uint3 DTid : SV_DispatchThreadID)
 
 	worldPos += normal * LpvWrite.VplInjectionBias * primitiveBiasMultiplier;
 
-	AddToVplList( worldPos, flux*LpvWrite.mLightColour, normal, false );
+	AddToVplList( worldPos, flux*LpvWrite.mLightColour.rgb, normal, false );
 }

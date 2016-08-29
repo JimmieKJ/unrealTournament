@@ -10,7 +10,10 @@
 #include "CorePrivatePCH.h"
 #include "LoadTimeTracker.h"
 
-#if ENABLE_LOADTIME_TRACKING
+FLoadTimeTracker::FLoadTimeTracker()
+{
+	ResetRawLoadTimes();
+}
 
 void FLoadTimeTracker::ReportScopeTime(double ScopeTime, const FName ScopeLabel)
 {
@@ -20,11 +23,11 @@ void FLoadTimeTracker::ReportScopeTime(double ScopeTime, const FName ScopeLabel)
 }
 
 
-void FLoadTimeTracker::DumpLoadTimes()
+void FLoadTimeTracker::DumpHighLevelLoadTimes() const
 {
 	double TotalTime = 0.0;
 	UE_LOG(LogLoad, Log, TEXT("------------- Load times -------------"));
-	for(auto Itr = TimeInfo.CreateIterator(); Itr; ++Itr)
+	for(auto Itr = TimeInfo.CreateConstIterator(); Itr; ++Itr)
 	{
 		const FString KeyName = Itr.Key().ToString();
 		const TArray<double>& LoadTimes = Itr.Value();
@@ -52,20 +55,143 @@ void FLoadTimeTracker::DumpLoadTimes()
 	UE_LOG(LogLoad, Log, TEXT("Total Load times: %f"), TotalTime);
 }
 
-void FLoadTimeTracker::ResetLoadTimes()
+void FLoadTimeTracker::ResetHighLevelLoadTimes()
 {
-	static bool bActuallyReset = !FParse::Param(FCommandLine::Get(), TEXT("-NoLoadTrackClear"));
+	static bool bActuallyReset = !FParse::Param(FCommandLine::Get(), TEXT("NoLoadTrackClear"));
 	if(bActuallyReset)
 	{
 		TimeInfo.Reset();
 	}
 }
 
-static FAutoConsoleCommand LoadTimerDumpCmd(
-	TEXT("LoadTimes.DumpTracking"),
-	TEXT("Dump high level load times being tracked"),
-	FConsoleCommandDelegate::CreateStatic(&FLoadTimeTracker::DumpLoadTimesStatic)
-	);
+void FLoadTimeTracker::DumpRawLoadTimes() const
+{
+#if ENABLE_LOADTIME_RAW_TIMINGS
+	UE_LOG(LogStreaming, Display, TEXT("-------------------------------------------------"));
+	UE_LOG(LogStreaming, Display, TEXT("Async Loading Stats"));
+	UE_LOG(LogStreaming, Display, TEXT("-------------------------------------------------"));
+	UE_LOG(LogStreaming, Display, TEXT("AsyncLoadingTime: %f"), AsyncLoadingTime);
+	UE_LOG(LogStreaming, Display, TEXT("CreateAsyncPackagesFromQueueTime: %f"), CreateAsyncPackagesFromQueueTime);
+	UE_LOG(LogStreaming, Display, TEXT("ProcessAsyncLoadingTime: %f"), ProcessAsyncLoadingTime);
+	UE_LOG(LogStreaming, Display, TEXT("ProcessLoadedPackagesTime: %f"), ProcessLoadedPackagesTime);
+	//UE_LOG(LogStreaming, Display, TEXT("SerializeTaggedPropertiesTime: %f"), SerializeTaggedPropertiesTime);
+	UE_LOG(LogStreaming, Display, TEXT("CreateLinkerTime: %f"), CreateLinkerTime);
+	UE_LOG(LogStreaming, Display, TEXT("FinishLinkerTime: %f"), FinishLinkerTime);
+	UE_LOG(LogStreaming, Display, TEXT("CreateImportsTime: %f"), CreateImportsTime);
+	UE_LOG(LogStreaming, Display, TEXT("CreateExportsTime: %f"), CreateExportsTime);
+	UE_LOG(LogStreaming, Display, TEXT("PreLoadObjectsTime: %f"), PreLoadObjectsTime);
+	UE_LOG(LogStreaming, Display, TEXT("PostLoadObjectsTime: %f"), PostLoadObjectsTime);
+	UE_LOG(LogStreaming, Display, TEXT("PostLoadDeferredObjectsTime: %f"), PostLoadDeferredObjectsTime);
+	UE_LOG(LogStreaming, Display, TEXT("FinishObjectsTime: %f"), FinishObjectsTime);
+	UE_LOG(LogStreaming, Display, TEXT("MaterialPostLoad: %f"), MaterialPostLoad);
+	UE_LOG(LogStreaming, Display, TEXT("MaterialInstancePostLoad: %f"), MaterialInstancePostLoad);
+	UE_LOG(LogStreaming, Display, TEXT("SerializeInlineShaderMaps: %f"), SerializeInlineShaderMaps);
+	UE_LOG(LogStreaming, Display, TEXT("MaterialSerializeTime: %f"), MaterialSerializeTime);
+	UE_LOG(LogStreaming, Display, TEXT("MaterialInstanceSerializeTime: %f"), MaterialInstanceSerializeTime);
+	UE_LOG(LogStreaming, Display, TEXT(""));
+	UE_LOG(LogStreaming, Display, TEXT("LinkerLoad_CreateLoader: %f"), LinkerLoad_CreateLoader);
+	UE_LOG(LogStreaming, Display, TEXT("LinkerLoad_SerializePackageFileSummary: %f"), LinkerLoad_SerializePackageFileSummary);
+	UE_LOG(LogStreaming, Display, TEXT("LinkerLoad_SerializeNameMap: %f"), LinkerLoad_SerializeNameMap);
+	UE_LOG(LogStreaming, Display, TEXT("\tProcessingEntries: %f"), LinkerLoad_SerializeNameMap_ProcessingEntries);
+	UE_LOG(LogStreaming, Display, TEXT("LinkerLoad_SerializeGatherableTextDataMap: %f"), LinkerLoad_SerializeGatherableTextDataMap);
+	UE_LOG(LogStreaming, Display, TEXT("LinkerLoad_SerializeImportMap: %f"), LinkerLoad_SerializeImportMap);
+	UE_LOG(LogStreaming, Display, TEXT("LinkerLoad_SerializeExportMap: %f"), LinkerLoad_SerializeExportMap);
+	UE_LOG(LogStreaming, Display, TEXT("LinkerLoad_StartTextureAllocation: %f"), LinkerLoad_StartTextureAllocation);
+	UE_LOG(LogStreaming, Display, TEXT("LinkerLoad_FixupImportMap: %f"), LinkerLoad_FixupImportMap);
+	UE_LOG(LogStreaming, Display, TEXT("LinkerLoad_RemapImports: %f"), LinkerLoad_RemapImports);
+	UE_LOG(LogStreaming, Display, TEXT("LinkerLoad_FixupExportMap: %f"), LinkerLoad_FixupExportMap);
+	UE_LOG(LogStreaming, Display, TEXT("LinkerLoad_SerializeDependsMap: %f"), LinkerLoad_SerializeDependsMap);
+	UE_LOG(LogStreaming, Display, TEXT("LinkerLoad_CreateExportHash: %f"), LinkerLoad_CreateExportHash);
+	UE_LOG(LogStreaming, Display, TEXT("LinkerLoad_FindExistingExports: %f"), LinkerLoad_FindExistingExports);
+	UE_LOG(LogStreaming, Display, TEXT("LinkerLoad_FinalizeCreation: %f"), LinkerLoad_FinalizeCreation);
+
+	UE_LOG(LogStreaming, Display, TEXT("Package_FinishLinker: %f"), Package_FinishLinker);
+	UE_LOG(LogStreaming, Display, TEXT("Package_LoadImports: %f"), Package_LoadImports);
+	UE_LOG(LogStreaming, Display, TEXT("Package_CreateImports: %f"), Package_CreateImports);
+	UE_LOG(LogStreaming, Display, TEXT("Package_CreateLinker: %f"), Package_CreateLinker);
+	UE_LOG(LogStreaming, Display, TEXT("Package_FinishTextureAllocations: %f"), Package_FinishTextureAllocations);
+	UE_LOG(LogStreaming, Display, TEXT("Package_CreateExports: %f"), Package_CreateExports);
+	UE_LOG(LogStreaming, Display, TEXT("Package_PreLoadObjects: %f"), Package_PreLoadObjects);
+	UE_LOG(LogStreaming, Display, TEXT("Package_PostLoadObjects: %f"), Package_PostLoadObjects);
+	UE_LOG(LogStreaming, Display, TEXT("Package_Tick: %f"), Package_Tick);
+	UE_LOG(LogStreaming, Display, TEXT("Package_CreateAsyncPackagesFromQueue: %f"), Package_CreateAsyncPackagesFromQueue);
+
+	UE_LOG(LogStreaming, Display, TEXT("TickAsyncLoading_ProcessLoadedPackages: %f"), TickAsyncLoading_ProcessLoadedPackages);
+
+	UE_LOG(LogStreaming, Display, TEXT("Package_Temp1: %f"), Package_Temp1);
+	UE_LOG(LogStreaming, Display, TEXT("Package_Temp2: %f"), Package_Temp2);
+	UE_LOG(LogStreaming, Display, TEXT("Package_Temp3: %f"), Package_Temp3);
+	UE_LOG(LogStreaming, Display, TEXT("Package_Temp4: %f"), Package_Temp4);
+
+
+	UE_LOG(LogStreaming, Display, TEXT("-------------------------------------------------"));
 
 #endif
 
+}
+
+void FLoadTimeTracker::ResetRawLoadTimes()
+{
+#if ENABLE_LOADTIME_RAW_TIMINGS
+	CreateAsyncPackagesFromQueueTime = 0.0;
+	ProcessAsyncLoadingTime = 0.0;
+	ProcessLoadedPackagesTime = 0.0;
+	SerializeTaggedPropertiesTime = 0.0;
+	CreateLinkerTime = 0.0;
+	FinishLinkerTime = 0.0;
+	CreateImportsTime = 0.0;
+	CreateExportsTime = 0.0;
+	PreLoadObjectsTime = 0.0;
+	PostLoadObjectsTime = 0.0;
+	PostLoadDeferredObjectsTime = 0.0;
+	FinishObjectsTime = 0.0;
+	MaterialPostLoad = 0.0;
+	MaterialInstancePostLoad = 0.0;
+	SerializeInlineShaderMaps = 0.0;
+	MaterialSerializeTime = 0.0;
+	MaterialInstanceSerializeTime = 0.0;
+	AsyncLoadingTime = 0.0;
+	LinkerLoad_CreateLoader = 0.0;
+	LinkerLoad_SerializePackageFileSummary = 0.0;
+	LinkerLoad_SerializeNameMap = 0.0;
+	LinkerLoad_SerializeGatherableTextDataMap = 0.0;
+	LinkerLoad_SerializeImportMap = 0.0;
+	LinkerLoad_SerializeExportMap = 0.0;
+	LinkerLoad_StartTextureAllocation = 0.0;
+	LinkerLoad_FixupImportMap = 0.0;
+	LinkerLoad_RemapImports = 0.0;
+	LinkerLoad_FixupExportMap = 0.0;
+	LinkerLoad_SerializeDependsMap = 0.0;
+	LinkerLoad_CreateExportHash = 0.0;
+	LinkerLoad_FindExistingExports = 0.0;
+	LinkerLoad_FinalizeCreation = 0.0;
+
+	Package_FinishLinker = 0.0;
+	Package_LoadImports = 0.0;
+	Package_CreateImports = 0.0;
+	Package_CreateLinker = 0.0;
+	Package_FinishTextureAllocations = 0.0;
+	Package_CreateExports = 0.0;
+	Package_PreLoadObjects = 0.0;
+	Package_PostLoadObjects = 0.0;
+	Package_Tick = 0.0;
+	Package_CreateAsyncPackagesFromQueue = 0.0;
+
+	Package_Temp1 = 0.0;
+	Package_Temp2 = 0.0;
+	Package_Temp3 = 0.0;
+	Package_Temp4 = 0.0;
+
+	TickAsyncLoading_ProcessLoadedPackages = 0.0;
+
+	LinkerLoad_SerializeNameMap_ProcessingEntries = 0.0;
+
+#endif
+
+}
+
+static FAutoConsoleCommand LoadTimerDumpCmd(
+	TEXT("LoadTimes.DumpTracking"),
+	TEXT("Dump high level load times being tracked"),
+	FConsoleCommandDelegate::CreateStatic(&FLoadTimeTracker::DumpHighLevelLoadTimesStatic)
+	);

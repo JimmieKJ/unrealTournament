@@ -24,9 +24,14 @@ namespace BuildPatchServices
 #endif
 	}
 
-	double FStatsCollector::CyclesToSeconds(const uint64 Cycles)
+	double FStatsCollector::CyclesToSeconds(uint64 Cycles)
 	{
 		return FPlatformTime::GetSecondsPerCycle() * Cycles;
+	}
+
+	uint64 FStatsCollector::SecondsToCycles(double Seconds)
+	{
+		return Seconds / FPlatformTime::GetSecondsPerCycle();
 	}
 
 	void FStatsCollector::AccumulateTimeBegin(uint64& TempValue)

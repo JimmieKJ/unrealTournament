@@ -19,15 +19,20 @@ struct FSearchEntry
 	static FSearchEntry* MakeCategoryEntry(const FString & InTitle);
 };
 
-enum class ESearchEngine
+UENUM()
+enum class ESearchEngine : uint8
 {
 	Google,
 	Bing
 };
 
-class FSuperSearchModule : public IModuleInterface
+class SSuperSearchBox;
+
+class SUPERSEARCH_API FSuperSearchModule : public IModuleInterface
 {
 public:
+	FSuperSearchModule();
+
 	/* 
 	 * Delegate for search text changing.
 	 * @param Search string
@@ -40,11 +45,26 @@ public:
 	 */	
 	DECLARE_MULTICAST_DELEGATE_OneParam(FActOnSuperSearchEntry, TSharedPtr<FSearchEntry> );
 
-	///* 
-	// * Delegate for search engine changing.
-	// * @param Search entry clicked.
-	// */
-	//DECLARE_MULTICAST_DELEGATE_OneParam(FOnSearchEngineChanged, ESearchEngine);
+	/**
+	* Singleton-like access to this module's interface.  This is just for convenience!
+	* Beware of calling this during the shutdown phase, though.  Your module might have been unloaded already.
+	*
+	* @return Returns singleton instance, loading the module on demand if needed
+	*/
+	static inline FSuperSearchModule& Get()
+	{
+		return FModuleManager::LoadModuleChecked< FSuperSearchModule >("SuperSearch");
+	}
+
+	/**
+	* Checks to see if this module is loaded and ready.  It is only valid to call Get() if IsAvailable() returns true.
+	*
+	* @return True if the module is loaded and ready to use
+	*/
+	static inline bool IsAvailable()
+	{
+		return FModuleManager::Get().IsModuleLoaded("SuperSearch");
+	}
 
 	virtual void StartupModule();
 	virtual void ShutdownModule();
@@ -61,17 +81,17 @@ public:
 		return OnActOnSearchEntry;
 	}
 
-	//// Get the search engine changed delegate
-	//FOnSearchEngineChanged& GetSearchEngineChanged()
-	//{
-	//	return OnSearchEngineChanged;
-	//}
+	void SetSearchEngine(ESearchEngine SearchEngine);
 	
 	/** Generates a SuperSearch box widget.  Remember, this widget will become invalid if the SuperSearch DLL is unloaded on the fly. */
-	virtual TSharedRef< SWidget > MakeSearchBox(TSharedPtr< SEditableTextBox >& OutExposedEditableTextBox, const FString& ConfigFilename, const TOptional<const FSearchBoxStyle*> InStyle = TOptional<const FSearchBoxStyle*>(), const TOptional<const FComboBoxStyle*> InSearchEngineStyle = TOptional<const FComboBoxStyle*>()) const;
+	virtual TSharedRef< SWidget > MakeSearchBox(TSharedPtr< SEditableTextBox >& OutExposedEditableTextBox, const TOptional<const FSearchBoxStyle*> InStyle = TOptional<const FSearchBoxStyle*>()) const;
+
 private:
 	
 	FSuperSearchTextChanged	OnSearchTextChanged;	
 	FActOnSuperSearchEntry OnActOnSearchEntry;
-	//FOnSearchEngineChanged OnSearchEngineChanged;
+
+	ESearchEngine SearchEngine;
+
+	mutable TArray< TWeakPtr<SSuperSearchBox> > SuperSearchBoxes;
 };

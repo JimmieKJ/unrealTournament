@@ -2,7 +2,11 @@
 
 #pragma once
 
+class ISequencer;
+class FMovieSceneSequenceInstance;
+class IMovieScenePlayer;
 class UMovieSceneSection;
+class UMovieScene;
 
 DECLARE_DELEGATE_TwoParams(FOnEnumSelectionChanged, int32 /*Selection*/, ESelectInfo::Type /*SelectionType*/);
 
@@ -34,7 +38,7 @@ public:
 	 * @param ShotPrefix The parsed shot prefix
 	 * @param ShotNumber The parsed shot number
 	 * @param TakeNumber The parsed take number
-	 * &return Whether the shot name was parsed successfully
+	 * @return Whether the shot name was parsed successfully
 	 */
 	static bool ParseShotName(const FString& ShotName, FString& ShotPrefix, uint32& ShotNumber, uint32& TakeNumber);
 
@@ -47,6 +51,15 @@ public:
 	 * @return The composed shot name
 	 */
 	static FString ComposeShotName(const FString& ShotPrefix, uint32 ShotNumber, uint32 TakeNumber);
+
+	/**
+	 * Generate a new shot package
+	 *
+	 * @param SequenceMovieScene The sequence movie scene for the new shot
+	 * @param NewShotName The new shot name
+	 * @return The new shot path
+	 */
+	static FString GenerateNewShotPath(UMovieScene* SequenceMovieScene, FString& NewShotName);
 
 	/**
 	 * Generate a new shot name
@@ -85,4 +98,34 @@ public:
 	 * @return The new widget
 	 */
 	static TSharedRef<SWidget> MakeEnumComboBox(const UEnum* Enum, TAttribute<int32> CurrentValue, FOnEnumSelectionChanged OnSelectionChanged, TAttribute<TOptional<uint8>> InIntermediateValue);
+
+
+	/**
+	 * Show Import EDL Dialog
+	 *
+	 * @param InMovieScene The movie scene to import the edl into
+	 * @param InFrameRate The frame rate to import the EDL at
+	 * @param InOpenDirectory Optional directory path to open from. If none given, a dialog will pop up to prompt the user
+	 * @return Whether the import was successful
+	 */
+	static bool ShowImportEDLDialog(UMovieScene* InMovieScene, float InFrameRate, FString InOpenDirectory = TEXT(""));
+
+	/**
+	 * Show Export EDL Dialog
+	 *
+	 * @param InMovieScene The movie scene with the cinematic shot track and audio tracks to export
+	 * @param InFrameRate The frame rate to export the EDL at
+	 * @param InSaveDirectory Optional directory path to save to. If none given, a dialog will pop up to prompt the user
+	 * @return Whether the export was successful
+	 */
+	static bool ShowExportEDLDialog(const UMovieScene* InMovieScene, float InFrameRate, FString InSaveDirectory = TEXT(""));
+
+	/**
+	 * Import FBX
+	 *
+	 * @param InMovieScene The movie scene to import the fbx into
+	 * @param InObjectBindingNameMap The object binding to name map to map import fbx animation onto
+	 * @return Whether the import was successful
+	 */
+	static bool ImportFBX(UMovieScene* InMovieScene, FMovieSceneSequenceInstance& InSequence, ISequencer& InSequencer, const TMap<FGuid, FString>& InObjectBindingNameMap);
 };

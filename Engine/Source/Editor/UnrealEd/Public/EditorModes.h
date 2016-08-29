@@ -75,6 +75,9 @@ public:
 	/** Actor picker mode, used to interactively pick actors in the viewport */
 	const static FEditorModeID EM_ActorPicker;
 
+	/** Actor picker mode, used to interactively pick actors in the viewport */
+	const static FEditorModeID EM_SceneDepthPicker;
+
 private:
 	FBuiltinEditorModes() {}
 };

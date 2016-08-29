@@ -19,8 +19,8 @@ public:
 	* @param MetaData the metadata string to validate
 	*/
 	bool IsImportTypeMetaDataValid(EFBXImportType& ImportType, FString& MetaData);
-
-	/** Called if the mesh mode (static / skeletal) changes */
+	
+	/** Called if the mesh mode (static / skeletal / SubDSurface) changes */
 	void MeshImportModeChanged();
 
 	/** Called if the import mesh option for skeletal meshes is changed */

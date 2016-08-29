@@ -1,73 +1,55 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
-
-#if WITH_BUILDPATCHGENERATION
-
 #include "BuildPatchServicesPrivatePCH.h"
 
 #include "ManifestBuilder.h"
 #include "BuildStreamer.h"
 
+DECLARE_LOG_CATEGORY_EXTERN(LogManifestBuilder, Log, All);
+DEFINE_LOG_CATEGORY(LogManifestBuilder);
+
 namespace BuildPatchServices
 {
-	class FFileManifestBuilder
+	struct FFileBlock
 	{
-	public:
-		FFileManifestBuilder();
-		~FFileManifestBuilder();
+		FGuid ChunkGuid;
+		uint64 FileOffset;
+		uint64 ChunkOffset;
+		uint64 Size;
 
-		uint64 CurrentDataPos;
-
-		FFileSpan FileSpan;
-
-		FFileManifestData* FileManifest;
+		FFileBlock(FGuid InChunkGuid, uint64 InFileOffset, uint64 InChunkOffset, uint64 InSize)
+			: ChunkGuid(InChunkGuid)
+			, FileOffset(InFileOffset)
+			, ChunkOffset(InChunkOffset)
+			, Size(InSize)
+		{}
 	};
 
-	FFileManifestBuilder::FFileManifestBuilder()
-		: CurrentDataPos(0)
-		, FileManifest(nullptr)
-	{
-
-	}
-
-	FFileManifestBuilder::~FFileManifestBuilder()
-	{
-
-	}
-
-	class FManifestBuilderImpl
-		: public FManifestBuilder
+	class FManifestBuilder
+		: public IManifestBuilder
 	{
 	public:
-		FManifestBuilderImpl(const FManifestDetails& Details, const FBuildStreamerRef& BuildStreamer);
-		virtual ~FManifestBuilderImpl();
+		FManifestBuilder(const FManifestDetails& Details);
+		virtual ~FManifestBuilder();
 
-		virtual void AddDataScanner(FDataScannerRef Scanner) override;
-		virtual void SaveToFile(const FString& Filename) override;
-	private:
-		void BuildManifest();
-		FDataScannerPtr GetNextScanner();
+		virtual void AddChunkMatch(const FGuid& ChunkGuid, const FBlockStructure& Structure) override;
+		virtual bool FinalizeData(const TArray<FFileSpan>& FileSpans, TArray<FChunkInfoData> ChunkInfo) override;
+		virtual bool SaveToFile(const FString& Filename) override;
 
 	private:
-		FBuildStreamerRef BuildStreamer;
+		TArray<FChunkPartData> GetChunkPartsForFile(uint64 StartIdx, uint64 Size, TSet<FGuid>& ReferencedChunks);
+
 		FBuildPatchAppManifestRef Manifest;
 		TMap<FString, FFileAttributes> FileAttributesMap;
-		FCriticalSection DataScannersCS;
-		TArray<FDataScannerRef> DataScanners;
-		FThreadSafeBool EndOfData;
-		TFuture<void> Future;
-		FEvent* CheckForWork;
+		FBlockStructure BuildStructureAdded;
 
-		FFileManifestBuilder FileBuilder;
+		TMap<FGuid, TArray<FBlockStructure>> AllMatches;
 	};
 
-	FManifestBuilderImpl::FManifestBuilderImpl(const FManifestDetails& InDetails, const FBuildStreamerRef& InBuildStreamer)
-		: BuildStreamer(InBuildStreamer)
-		, Manifest(MakeShareable(new FBuildPatchAppManifest()))
+	FManifestBuilder::FManifestBuilder(const FManifestDetails& InDetails)
+		: Manifest(MakeShareable(new FBuildPatchAppManifest()))
 		, FileAttributesMap(InDetails.FileAttributesMap)
-		, EndOfData(false)
-		, CheckForWork(FPlatformProcess::GetSynchEventFromPool(true))
 	{
-		Manifest->Data->bIsFileData = InDetails.bIsFileData;
+		Manifest->Data->bIsFileData = false;
 		Manifest->Data->AppID = InDetails.AppId;
 		Manifest->Data->AppName = InDetails.AppName;
 		Manifest->Data->BuildVersion = InDetails.BuildVersion;
@@ -93,258 +75,159 @@ namespace BuildPatchServices
 				Manifest->SetCustomField(CustomField.Key, CustomField.Value.GetValue<FString>());
 			}
 		}
-		TFunction<void()> Task = [this]() { BuildManifest(); };
-		Future = Async(EAsyncExecution::Thread, MoveTemp(Task));
 	}
 
-	FManifestBuilderImpl::~FManifestBuilderImpl()
+	FManifestBuilder::~FManifestBuilder()
 	{
-		EndOfData = true;
-		CheckForWork->Trigger();
-		Future.Wait();
-		FPlatformProcess::ReturnSynchEventToPool(CheckForWork);
-		CheckForWork = nullptr;
 	}
 
-	void FManifestBuilderImpl::AddDataScanner(FDataScannerRef Scanner)
+	void FManifestBuilder::AddChunkMatch(const FGuid& ChunkGuid, const FBlockStructure& Structure)
 	{
-		DataScannersCS.Lock();
-		DataScanners.Add(MoveTemp(Scanner));
-		DataScannersCS.Unlock();
-		CheckForWork->Trigger();
+		// Make sure there is no intersection as that is not allowed.
+		check(BuildStructureAdded.Intersect(Structure).GetHead() == nullptr);
+		// Track full build matched.
+		BuildStructureAdded.Add(Structure);
+		// Add match to map. One chunk can have multiple matches.
+		AllMatches.FindOrAdd(ChunkGuid).Add(Structure);
 	}
 
-	void FManifestBuilderImpl::SaveToFile(const FString& Filename)
+	bool FManifestBuilder::FinalizeData(const TArray<FFileSpan>& FileSpans, TArray<FChunkInfoData> ChunkInfo)
 	{
-		// Wait for builder to complete
-		EndOfData = true;
-		CheckForWork->Trigger();
-		Future.Wait();
-
-		Manifest->Data->ManifestFileVersion = EBuildPatchAppManifestVersion::GetLatestJsonVersion();
-		Manifest->SaveToFile(Filename, false);
-	}
-
-	void FManifestBuilderImpl::BuildManifest()
-	{
-		TMap<FGuid, FChunkInfo> ChunkInfoLookup;
-		bool Running = true;
-		while (Running)
+		// Keep track of referenced chunks so we can trim the list down.
+		TSet<FGuid> ReferencedChunks;
+		// For each file create it's manifest.
+		for (const FFileSpan& FileSpan : FileSpans)
 		{
-			FDataScannerPtr NextScanner = GetNextScanner();
-			if (NextScanner.IsValid())
+			FFileAttributes FileAttributes = FileAttributesMap.FindRef(FileSpan.Filename);
+			Manifest->Data->FileManifestList.AddDefaulted();
+			FFileManifestData& FileManifest = Manifest->Data->FileManifestList.Last();
+			FileManifest.Filename = FileSpan.Filename;
+			FMemory::Memcpy(FileManifest.FileHash.Hash, FileSpan.SHAHash.Hash, FSHA1::DigestSize);
+			FileManifest.InstallTags = FileAttributes.InstallTags.Array();
+			FileManifest.bIsUnixExecutable = FileAttributes.bUnixExecutable || FileSpan.IsUnixExecutable;
+			FileManifest.SymlinkTarget = FileSpan.SymlinkTarget;
+			FileManifest.bIsReadOnly = FileAttributes.bReadOnly;
+			FileManifest.bIsCompressed = FileAttributes.bCompressed;
+			FileManifest.FileChunkParts = GetChunkPartsForFile(FileSpan.StartIdx, FileSpan.Size, ReferencedChunks);
+			FileManifest.Init();
+			check(FileManifest.GetFileSize() == FileSpan.Size);
+		}
+		UE_LOG(LogManifestBuilder, Verbose, TEXT("Manifest references %d chunks."), ReferencedChunks.Num());
+
+		// Setup chunk list, removing all that were not referenced.
+		Manifest->Data->ChunkList = MoveTemp(ChunkInfo);
+		int32 TotalChunkListNum = Manifest->Data->ChunkList.Num();
+		Manifest->Data->ChunkList.RemoveAll([&](FChunkInfoData& Candidate){ return ReferencedChunks.Contains(Candidate.Guid) == false; });
+		UE_LOG(LogManifestBuilder, Verbose, TEXT("Chunk info list trimmed from %d to %d."), TotalChunkListNum, Manifest->Data->ChunkList.Num());
+
+		// Init the manifest, and we are done.
+		Manifest->InitLookups();
+
+		// Sanity check all chunk info was provided
+		bool bHasAllInfo = true;
+		for (const FGuid& ReferencedChunk : ReferencedChunks)
+		{
+			uint64 ChunkHash;
+			if(Manifest->GetChunkHash(ReferencedChunk, ChunkHash) == false)
 			{
-				FDataScanResult ScanResult = NextScanner->GetResultWhenComplete();
-				ChunkInfoLookup.Append(ScanResult.ChunkInfo);
+				UE_LOG(LogManifestBuilder, Error, TEXT("Generated manifest is missing ChunkInfo for chunk %s."), *ReferencedChunk.ToString());
+				bHasAllInfo = false;
+			}
+		}
+		if (bHasAllInfo == false)
+		{
+			return false;
+		}
 
-				// Always reverse for now
-				if (ScanResult.DataStructure.Num() > 0)
+		// Some sanity checks for build integrity.
+		if (BuildStructureAdded.GetHead() == nullptr || BuildStructureAdded.GetHead()->GetNext() != nullptr)
+		{
+			UE_LOG(LogManifestBuilder, Error, TEXT("Build structure added was not whole or complete."));
+			return false;
+		}
+		if (BuildStructureAdded.GetHead()->GetSize() != Manifest->GetBuildSize())
+		{
+			UE_LOG(LogManifestBuilder, Error, TEXT("Generated manifest build size did not equal build structure added."));
+			return false;
+		}
+
+		// Everything seems fine.
+		return true;
+	}
+
+	bool FManifestBuilder::SaveToFile(const FString& Filename)
+	{
+		// Previous validation from FinaliseData, but this time we assert if fail as the error should have been picked up.
+		checkf(BuildStructureAdded.GetHead() != nullptr && BuildStructureAdded.GetHead()->GetNext() == nullptr, TEXT("Build integrity check failed. No structure was added."));
+		checkf(BuildStructureAdded.GetHead()->GetSize() == Manifest->GetBuildSize(), TEXT("Build integrity check failed. Structure added is not the same size as the manifest data setup; did you call FinalizeData?"));
+
+		// Currently we only save out in JSON format
+		Manifest->Data->ManifestFileVersion = EBuildPatchAppManifestVersion::GetLatestJsonVersion();
+		return Manifest->SaveToFile(Filename, false);
+	}
+
+	TArray<FChunkPartData> FManifestBuilder::GetChunkPartsForFile(uint64 FileStart, uint64 FileSize, TSet<FGuid>& ReferencedChunks)
+	{
+		TArray<FChunkPartData> FileChunkParts;
+		// Collect all matching blocks.
+		TArray<FFileBlock> MatchingBlocks;
+		uint64 FileEnd = FileStart + FileSize;
+		uint64 SizeCountCheck = 0;
+		for (const TPair<FGuid, TArray<FBlockStructure>>& Match : AllMatches)
+		{
+			for (const FBlockStructure& BlockStructure : Match.Value)
+			{
+				const FBlockEntry* BlockEntry = BlockStructure.GetHead();
+				uint64 ChunkOffset = 0;
+				while (BlockEntry != nullptr)
 				{
-					FChunkPart& ChunkPart = ScanResult.DataStructure[0];
-					if (ChunkPart.DataOffset != FileBuilder.CurrentDataPos)
+					uint64 BlockEnd = BlockEntry->GetOffset() + BlockEntry->GetSize();
+					if (BlockEntry->GetOffset() < FileEnd && BlockEnd > FileStart)
 					{
-						check(ChunkPart.DataOffset < FileBuilder.CurrentDataPos); // Missing data!
-
-						bool FoundPosition = false;
-						uint64 DataCount = 0;
-						for (int32 FileIdx = 0; FileIdx < Manifest->Data->FileManifestList.Num() && !FoundPosition; ++FileIdx)
-						{
-							FFileManifestData& FileManifest = Manifest->Data->FileManifestList[FileIdx];
-							FileManifest.Init();
-							uint64 FileStartIdx = DataCount;
-							uint64 FileEndIdx = FileStartIdx + FileManifest.GetFileSize();
-							if (FileEndIdx > ChunkPart.DataOffset)
-							{
-								for (int32 ChunkIdx = 0; ChunkIdx < FileManifest.FileChunkParts.Num() && !FoundPosition; ++ChunkIdx)
-								{
-									FChunkPartData& ChunkPartData = FileManifest.FileChunkParts[ChunkIdx];
-									uint64 ChunkPartEndIdx = DataCount + ChunkPartData.Size;
-									if (ChunkPartEndIdx < ChunkPart.DataOffset)
-									{
-										DataCount += ChunkPartData.Size;
-									}
-									else if (ChunkPartEndIdx > ChunkPart.DataOffset)
-									{
-										ChunkPartData.Size = ChunkPart.DataOffset - DataCount;
-										FileBuilder.CurrentDataPos = DataCount + ChunkPartData.Size;
-										FileManifest.FileChunkParts.SetNum(ChunkIdx + 1, false);
-										FileManifest.FileChunkParts.Emplace();
-										Manifest->Data->FileManifestList.SetNum(FileIdx + 1, false);
-										FileBuilder.FileManifest = &Manifest->Data->FileManifestList.Last();
-										bool FoundFile = BuildStreamer->GetFileSpan(FileStartIdx, FileBuilder.FileSpan);
-										check(FoundFile); // Incorrect positional tracking
-										FoundPosition = true;
-									}
-									else
-									{
-										FileBuilder.CurrentDataPos = DataCount + ChunkPartData.Size;
-										FileManifest.FileChunkParts.SetNum(ChunkIdx + 1, false);
-										FileManifest.FileChunkParts.Emplace();
-										Manifest->Data->FileManifestList.SetNum(FileIdx + 1, false);
-										FileBuilder.FileManifest = &Manifest->Data->FileManifestList.Last();
-										bool FoundFile = BuildStreamer->GetFileSpan(FileStartIdx, FileBuilder.FileSpan);
-										check(FoundFile); // Incorrect positional tracking
-										FoundPosition = true;
-									}
-								}
-							}
-							else if (FileEndIdx < ChunkPart.DataOffset)
-							{
-								DataCount += FileManifest.GetFileSize();
-							}
-							else
-							{
-								FileBuilder.FileManifest = nullptr;
-								FileBuilder.CurrentDataPos = DataCount + FileManifest.GetFileSize();
-								Manifest->Data->FileManifestList.SetNum(FileIdx + 1, false);
-								FoundPosition = true;
-							}
-						}
-
-						check(ChunkPart.DataOffset == FileBuilder.CurrentDataPos);
-						check(FileBuilder.FileManifest == nullptr || FileBuilder.FileSpan.Filename == Manifest->Data->FileManifestList.Last().Filename);
-					}
-				}
-
-				for (int32 idx = 0; idx < ScanResult.DataStructure.Num(); ++idx)
-				{
-					FChunkPart& ChunkPart = ScanResult.DataStructure[idx];
-					// Starting new file?
-					if (FileBuilder.FileManifest == nullptr)
-					{
-						Manifest->Data->FileManifestList.Emplace();
-						FileBuilder.FileManifest = &Manifest->Data->FileManifestList.Last();
-
-						bool FoundFile = BuildStreamer->GetFileSpan(FileBuilder.CurrentDataPos, FileBuilder.FileSpan);
-						check(FoundFile); // Incorrect positional tracking
-
-						FileBuilder.FileManifest->Filename = FileBuilder.FileSpan.Filename;
-						FileBuilder.FileManifest->FileChunkParts.Emplace();
-					}
-
-					FChunkPartData& FileChunkPartData = FileBuilder.FileManifest->FileChunkParts.Last();
-					FileChunkPartData.Guid = ChunkPart.ChunkGuid;
-					FileChunkPartData.Offset = (FileBuilder.CurrentDataPos - ChunkPart.DataOffset) + ChunkPart.ChunkOffset;
-
-					// Process data into file manifests
-					int64 FileDataLeft = (FileBuilder.FileSpan.StartIdx + FileBuilder.FileSpan.Size) - FileBuilder.CurrentDataPos;
-					int64 ChunkDataLeft = (ChunkPart.DataOffset + ChunkPart.PartSize) - FileBuilder.CurrentDataPos;
-					check(FileDataLeft > 0);
-					check(ChunkDataLeft > 0);
-
-					if (ChunkDataLeft >= FileDataLeft)
-					{
-						FileBuilder.CurrentDataPos += FileDataLeft;
-						FileChunkPartData.Size = FileDataLeft;
+						uint64 IntersectStart = FMath::Max<uint64>(BlockEntry->GetOffset(), FileStart);
+						uint64 IntersectEnd = FMath::Min<uint64>(BlockEnd, FileEnd);
+						uint64 IntersectSize = IntersectEnd - IntersectStart;
+						ChunkOffset += IntersectStart - BlockEntry->GetOffset();
+						check(IntersectSize > 0);
+						SizeCountCheck += IntersectSize;
+						MatchingBlocks.Emplace(Match.Key, IntersectStart, ChunkOffset, IntersectSize);
+						ReferencedChunks.Add(Match.Key);
+						ChunkOffset += BlockEntry->GetSize() - (IntersectStart - BlockEntry->GetOffset());
 					}
 					else
 					{
-						FileBuilder.CurrentDataPos += ChunkDataLeft;
-						FileChunkPartData.Size = ChunkDataLeft;
+						ChunkOffset += BlockEntry->GetSize();
 					}
-
-					FileDataLeft = (FileBuilder.FileSpan.StartIdx + FileBuilder.FileSpan.Size) - FileBuilder.CurrentDataPos;
-					ChunkDataLeft = (ChunkPart.DataOffset + ChunkPart.PartSize) - FileBuilder.CurrentDataPos;
-					check(FileDataLeft == 0 || ChunkDataLeft == 0);
-					// End of file?
-					if (FileDataLeft == 0)
-					{
-						// Fill out rest of data??
-						FFileSpan FileSpan;
-						bool FoundFile = BuildStreamer->GetFileSpan(FileBuilder.FileSpan.StartIdx, FileSpan);
-						check(FoundFile); // Incorrect positional tracking
-						check(FileSpan.Filename == FileBuilder.FileManifest->Filename);
-						FMemory::Memcpy(FileBuilder.FileManifest->FileHash.Hash, FileSpan.SHAHash.Hash, FSHA1::DigestSize);
-						FFileAttributes Attributes = FileAttributesMap.FindRef(FileSpan.Filename);
-						FileBuilder.FileManifest->bIsUnixExecutable = Attributes.bUnixExecutable || FileSpan.IsUnixExecutable;
-						FileBuilder.FileManifest->SymlinkTarget = FileSpan.SymlinkTarget;
-						FileBuilder.FileManifest->bIsReadOnly = Attributes.bReadOnly;
-						FileBuilder.FileManifest->bIsCompressed = Attributes.bCompressed;
-						FileBuilder.FileManifest->InstallTags = Attributes.InstallTags.Array();
-						FileBuilder.FileManifest->Init();
-						check(FileBuilder.FileManifest->GetFileSize() == FileBuilder.FileSpan.Size);
-						FileBuilder.FileManifest = nullptr;
-					}
-					else if (ChunkDataLeft == 0)
-					{
-						FileBuilder.FileManifest->FileChunkParts.Emplace();
-					}
-
-					// Continue with this chunk?
-					if (ChunkDataLeft > 0)
-					{
-						--idx;
-					}
-				}
-			}
-			else
-			{
-				if (EndOfData)
-				{
-					Running = false;
-				}
-				else
-				{
-					CheckForWork->Wait();
-					CheckForWork->Reset();
+					BlockEntry = BlockEntry->GetNext();
 				}
 			}
 		}
+		check(SizeCountCheck == FileSize);
 
-		// Fill out chunk list from only chunks that remain referenced
-		TSet<FGuid> ReferencedChunks;
-		for (const auto& FileManifest : Manifest->Data->FileManifestList)
+		// Sort the matches by file position.
+		struct FFileBlockSort
 		{
-			for (const auto& ChunkPart : FileManifest.FileChunkParts)
+			FORCEINLINE bool operator()(const FFileBlock& A, const FFileBlock& B) const
 			{
-				if (ReferencedChunks.Contains(ChunkPart.Guid) == false)
-				{
-					auto& ChunkInfo = ChunkInfoLookup[ChunkPart.Guid];
-					ReferencedChunks.Add(ChunkPart.Guid);
-					Manifest->Data->ChunkList.Emplace();
-					auto& ChunkInfoData = Manifest->Data->ChunkList.Last();
-					ChunkInfoData.Guid = ChunkPart.Guid;
-					ChunkInfoData.Hash = ChunkInfo.Hash;
-					FMemory::Memcpy(ChunkInfoData.ShaHash.Hash, ChunkInfo.ShaHash.Hash, FSHA1::DigestSize);
-					ChunkInfoData.FileSize = ChunkInfo.ChunkFileSize;
-					ChunkInfoData.GroupNumber = FCrc::MemCrc32(&ChunkPart.Guid, sizeof(FGuid)) % 100;
-				}
+				return A.FileOffset < B.FileOffset;
 			}
-		}
+		};
+		MatchingBlocks.Sort(FFileBlockSort());
 
-		// Get empty files
-		FSHA1 EmptyHasher;
-		EmptyHasher.Final();
-		const TArray< FString >& EmptyFileList = BuildStreamer->GetEmptyFiles();
-		for (const auto& EmptyFile : EmptyFileList)
+		// Add the info to the return array.
+		for (const FFileBlock& MatchingBlock : MatchingBlocks)
 		{
-			Manifest->Data->FileManifestList.Emplace();
-			FFileManifestData& EmptyFileManifest = Manifest->Data->FileManifestList.Last();
-			EmptyFileManifest.Filename = EmptyFile;
-			EmptyHasher.GetHash(EmptyFileManifest.FileHash.Hash);
+			FileChunkParts.AddDefaulted();
+			FChunkPartData& ChunkPart = FileChunkParts.Last();
+			ChunkPart.Guid = MatchingBlock.ChunkGuid;
+			ChunkPart.Offset = MatchingBlock.ChunkOffset;
+			ChunkPart.Size = MatchingBlock.Size;
 		}
-
-		// Fill out lookups
-		Manifest->InitLookups();
+		return FileChunkParts;
 	}
 
-	FDataScannerPtr FManifestBuilderImpl::GetNextScanner()
+	IManifestBuilderRef FManifestBuilderFactory::Create(const FManifestDetails& Details)
 	{
-		FDataScannerPtr Result;
-		DataScannersCS.Lock();
-		if (DataScanners.Num() > 0)
-		{
-			Result = DataScanners[0];
-			DataScanners.RemoveAt(0);
-		}
-		DataScannersCS.Unlock();
-		return Result;
-	}
-
-	FManifestBuilderRef FManifestBuilderFactory::Create(const FManifestDetails& Details, const FBuildStreamerRef& BuildStreamer)
-	{
-		return MakeShareable(new FManifestBuilderImpl(Details, BuildStreamer));
+		return MakeShareable(new FManifestBuilder(Details));
 	}
 }
-
-#endif

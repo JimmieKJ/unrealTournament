@@ -7,8 +7,63 @@
 #include "EnginePrivate.h"
 #include "PrecomputedLightVolume.h"
 #include "TargetPlatform.h"
+#include "RenderingObjectVersion.h"
 
-FArchive& operator<<(FArchive& Ar, FVolumeLightingSample& Sample)
+template<> TVolumeLightingSample<2>::TVolumeLightingSample(const TVolumeLightingSample<2>& Other)
+{
+	Position = Other.Position;
+	Radius = Other.Radius;
+	Lighting = Other.Lighting;
+	PackedSkyBentNormal = Other.PackedSkyBentNormal;
+	DirectionalLightShadowing = Other.DirectionalLightShadowing;	
+}
+template<> TVolumeLightingSample<3>::TVolumeLightingSample(const TVolumeLightingSample<2>& Other)
+{
+	Position = Other.Position;
+	Radius = Other.Radius;	
+	PackedSkyBentNormal = Other.PackedSkyBentNormal;
+	DirectionalLightShadowing = Other.DirectionalLightShadowing;
+
+	for (int i = 0; i < 4; ++i)
+	{
+		Lighting.R.V[i] = Other.Lighting.R.V[i];
+		Lighting.G.V[i] = Other.Lighting.G.V[i];
+		Lighting.B.V[i] = Other.Lighting.B.V[i];
+	}
+	for (int i = 4; i < 9; ++i)
+	{
+		Lighting.R.V[i] = 0.0f;
+		Lighting.G.V[i] = 0.0f;
+		Lighting.B.V[i] = 0.0f;
+	}
+}
+
+template<> TVolumeLightingSample<2>::TVolumeLightingSample(const TVolumeLightingSample<3>& Other)
+{
+	Position = Other.Position;
+	Radius = Other.Radius;
+	PackedSkyBentNormal = Other.PackedSkyBentNormal;
+	DirectionalLightShadowing = Other.DirectionalLightShadowing;
+
+	for (int i = 0; i < 4; ++i)
+	{
+		Lighting.R.V[i] = Other.Lighting.R.V[i];
+		Lighting.G.V[i] = Other.Lighting.G.V[i];
+		Lighting.B.V[i] = Other.Lighting.B.V[i];
+	}
+}
+
+template<> TVolumeLightingSample<3>::TVolumeLightingSample(const TVolumeLightingSample<3>& Other)
+{
+	Position = Other.Position;
+	Radius = Other.Radius;
+	Lighting = Other.Lighting;
+	PackedSkyBentNormal = Other.PackedSkyBentNormal;
+	DirectionalLightShadowing = Other.DirectionalLightShadowing;
+}
+
+
+FArchive& operator<<(FArchive& Ar, TVolumeLightingSample<2>& Sample)
 {
 	Ar << Sample.Position;
 	Ar << Sample.Radius;
@@ -24,6 +79,17 @@ FArchive& operator<<(FArchive& Ar, FVolumeLightingSample& Sample)
 		Ar << Sample.DirectionalLightShadowing;
 	}
 	
+	return Ar;
+}
+
+FArchive& operator<<(FArchive& Ar, TVolumeLightingSample<3>& Sample)
+{
+	// Less version check since TVolumeLightingSample<3> require a more recent version. 
+	Ar << Sample.Position;
+	Ar << Sample.Radius;
+	Ar << Sample.Lighting;
+	Ar << Sample.PackedSkyBentNormal;
+	Ar << Sample.DirectionalLightShadowing;
 	return Ar;
 }
 
@@ -44,8 +110,40 @@ FPrecomputedLightVolume::~FPrecomputedLightVolume()
 	}
 }
 
+static void LoadVolumeLightSamples(FArchive& Ar, int32 ArchiveNumSHSamples, TArray<FVolumeLightingSample>& Samples)
+{
+	// If it's the same number as what is currently compiled
+	if (ArchiveNumSHSamples == NUM_INDIRECT_LIGHTING_SH_COEFFICIENTS)
+	{
+		Ar << Samples;		
+	}
+	else if (ArchiveNumSHSamples == 9)
+	{
+		TArray< TVolumeLightingSample<3> > DummySamples;
+		Ar << DummySamples;
+		for (TVolumeLightingSample<3>& LoadedSample : DummySamples)
+		{
+			Samples.Add(FVolumeLightingSample(LoadedSample));
+		}
+	}
+	else
+	{
+		checkf(ArchiveNumSHSamples == 4, TEXT("NumSHSamples: %i"), ArchiveNumSHSamples);
+
+		TArray< TVolumeLightingSample<2> > DummySamples;
+		Ar << DummySamples;
+
+		for (TVolumeLightingSample<2>& LoadedSample : DummySamples)
+		{
+			Samples.Add(FVolumeLightingSample(LoadedSample));
+		}
+	}	
+}
+
 FArchive& operator<<(FArchive& Ar,FPrecomputedLightVolume& Volume)
 {
+	Ar.UsingCustomVersion(FRenderingObjectVersion::GUID);
+
 	if (Ar.IsCountingMemory())
 	{
 		const int32 AllocatedBytes = Volume.GetAllocatedBytes();
@@ -61,10 +159,18 @@ FArchive& operator<<(FArchive& Ar,FPrecomputedLightVolume& Volume)
 			float SampleSpacing = 0.0f;
 			Ar << SampleSpacing;
 			Volume.Initialize(Bounds);
-			TArray<FVolumeLightingSample> HighQualitySamples;
-			// Deserialize samples as an array, and add them to the octree
-			Ar << HighQualitySamples;
 
+			// Before adding support for SH3, it was always using SH2
+			int32 NumSHSamples = 4; 			
+			if (Ar.CustomVer(FRenderingObjectVersion::GUID) >= FRenderingObjectVersion::IndirectLightingCache3BandSupport)
+			{
+				Ar << NumSHSamples;
+			}
+
+			TArray<FVolumeLightingSample> HighQualitySamples;
+			LoadVolumeLightSamples(Ar, NumSHSamples, HighQualitySamples);
+
+			// Deserialize samples as an array, and add them to the octree
 			if (FPlatformProperties::SupportsHighQualityLightmaps() 
 				&& (GIsEditor || AllowHighQualityLightmaps(GMaxRHIFeatureLevel)))
 			{
@@ -78,7 +184,7 @@ FArchive& operator<<(FArchive& Ar,FPrecomputedLightVolume& Volume)
 
 			if (Ar.UE4Ver() >= VER_UE4_VOLUME_SAMPLE_LOW_QUALITY_SUPPORT)
 			{
-				Ar << LowQualitySamples;
+				LoadVolumeLightSamples(Ar, NumSHSamples, LowQualitySamples);
 			}
 
 			if (FPlatformProperties::SupportsLowQualityLightmaps() 
@@ -101,6 +207,9 @@ FArchive& operator<<(FArchive& Ar,FPrecomputedLightVolume& Volume)
 			Ar << Volume.Bounds;
 			float SampleSpacing = 0.0f;
 			Ar << SampleSpacing;
+
+			int32 NumSHSamples = NUM_INDIRECT_LIGHTING_SH_COEFFICIENTS; 
+			Ar << NumSHSamples;
 
 			TArray<FVolumeLightingSample> HighQualitySamples;
 
@@ -243,7 +352,7 @@ void FPrecomputedLightVolume::InterpolateIncidentRadiancePoint(
 		const FVector& WorldPosition, 
 		float& AccumulatedWeight,
 		float& AccumulatedDirectionalLightShadowing,
-		FSHVectorRGB2& AccumulatedIncidentRadiance,
+		FSHVectorRGB3& AccumulatedIncidentRadiance,
 		FVector& SkyBentNormal) const
 {
 	// This could be called on a NULL volume for a newly created level. This is now checked at the call site, but this check provides extra safety
@@ -286,11 +395,8 @@ void FPrecomputedLightVolume::InterpolateIncidentRadianceBlock(
 	const FIntVector& DestCellDimensions,
 	const FIntVector& DestCellPosition,
 	TArray<float>& AccumulatedWeights,
-	TArray<FSHVectorRGB2>& AccumulatedIncidentRadiance,
-	FVector& AccumulatedCenterSkyBentNormal,
-	float& AccumulatedCenterDirectionalLightShadowing,
-	float& AccumulatedCenterWeight) const
-{
+	TArray<FSHVectorRGB2>& AccumulatedIncidentRadiance) const
+{	
 	// This could be called on a NULL volume for a newly created level. This is now checked at the callsite, but this check provides extra safety
 	checkf(this, TEXT("FPrecomputedLightVolume::InterpolateIncidentRadianceBlock() is called on a null volume. Fix the call site."));
 
@@ -341,16 +447,9 @@ void FPrecomputedLightVolume::InterpolateIncidentRadianceBlock(
 							// The weight goes to 0 when Position is on the bounding radius of the sample, so the interpolated result is continuous.
 							// The sample's radius size is a factor so that smaller samples contribute more than larger, low detail ones.
 							const float SampleWeight = DistanceSquared * WeightMultiplier + WeightBase;
-							// Accumulate weighted results and the total weight for normalization later
-							AccumulatedIncidentRadiance[LinearIndex] += VolumeSample.Lighting * SampleWeight;
-							AccumulatedWeights[LinearIndex] += SampleWeight;
-
-							if (LinearIndex == CenterIndex)
-							{
-								AccumulatedCenterSkyBentNormal += VolumeSample.GetSkyBentNormalUnpacked() * SampleWeight;
-								AccumulatedCenterDirectionalLightShadowing += VolumeSample.DirectionalLightShadowing * SampleWeight;
-								AccumulatedCenterWeight += SampleWeight;
-							}
+							// Accumulate weighted results and the total weight for normalization later													
+							AccumulatedIncidentRadiance[LinearIndex] += TSHVectorRGB<2>(VolumeSample.Lighting) * SampleWeight;
+							AccumulatedWeights[LinearIndex] += SampleWeight;							
 						}
 
 						TranslationFromSample.X += QuerySteps.X;

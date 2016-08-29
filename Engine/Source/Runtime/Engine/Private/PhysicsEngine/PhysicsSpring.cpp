@@ -86,7 +86,7 @@ FVector UPhysicsSpringComponent::ComputeNewSpringCompressionAndForce(const FVect
 void UPhysicsSpringComponent::UpdateAttachedPosition() const
 {
 	const FVector EndPosition = GetSpringCurrentEndPoint();
-	for (USceneComponent* ChildComponent : AttachChildren)
+	for (USceneComponent* ChildComponent : GetAttachChildren())
 	{
 		ChildComponent->SetWorldLocation(EndPosition);
 	}
@@ -96,9 +96,9 @@ void UPhysicsSpringComponent::TickComponent(float DeltaTime, enum ELevelTick Tic
 {
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
 
-	if (UPrimitiveComponent* BasePrimComp = Cast<UPrimitiveComponent>(AttachParent))
+	if (UPrimitiveComponent* BasePrimComp = Cast<UPrimitiveComponent>(GetAttachParent()))
 	{
-		if (bIsActive && AttachParent)
+		if (bIsActive)
 		{
 			const FVector SpringStart = ComponentToWorld.GetLocation();
 			const FVector SpringDesiredEnd = SpringPositionFromLength(SpringLengthAtRest);
@@ -113,7 +113,7 @@ void UPhysicsSpringComponent::TickComponent(float DeltaTime, enum ELevelTick Tic
 				float NewSpringCompression;
 				const FVector WorldForce = ComputeNewSpringCompressionAndForce(CurrentEndPoint, DeltaTime, NewSpringCompression);
 				
-				BasePrimComp->AddForceAtLocation(WorldForce*Mass, SpringStart, AttachSocketName);
+				BasePrimComp->AddForceAtLocation(WorldForce*Mass, SpringStart, GetAttachSocketName());
 				SpringCompression = NewSpringCompression;
 			}
 

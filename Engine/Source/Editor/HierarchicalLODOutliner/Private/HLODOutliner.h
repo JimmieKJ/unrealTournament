@@ -16,6 +16,7 @@ class UDrawSphereComponent;
 class IDetailsView;
 class ALODActor;
 class AActor;
+class IHierarchicalLODUtilities;
 
 namespace HLODOutliner
 {
@@ -462,6 +463,9 @@ namespace HLODOutliner
 		/** Array of LODActors/Cluster per LOD level*/
 		TArray<TArray<ALODActor*>> LODLevelActors;
 		/** Array of TransitionScreenSizes for each LOD Level*/
-		TArray<float> LODLevelTransitionScreenSizes;		
+		TArray<float> LODLevelTransitionScreenSizes;
+
+		/** Cached pointer to HLOD utilities */
+		IHierarchicalLODUtilities* HierarchicalLODUtilities;
 	};
 };

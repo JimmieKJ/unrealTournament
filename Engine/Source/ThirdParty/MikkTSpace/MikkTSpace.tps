@@ -1,8 +1,8 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <TpsData xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
   <Name>MikkTSpace</Name>
-  <Location>//depot/UE4/Engine/Source/ThirdParty/MikkTSpace/</Location>
-  <Date>2014-12-23T15:35:53.4437541-05:00</Date>
+  <Location>/Engine/Source/ThirdParty/MikkTSpace/</Location>
+  <Date>2016-06-07T18:58:11.381967-04:00</Date>
   <Function>Compute tangent bases for meshes.</Function>
   <Justification>Higher quality tangents that match DCC tools / existing pipelines</Justification>
   <Platforms>
@@ -15,11 +15,15 @@
     <Product>UE4</Product>
   </Products>
   <TpsType>Source Code</TpsType>
-  <Eula />
-  <RedistributeTo />
+  <Eula>http://wiki.blender.org/index.php/Dev:Shading/Tangent_Space_Normal_Maps</Eula>
+  <RedistributeTo>
+    <EndUserGroup>Licensees</EndUserGroup>
+    <EndUserGroup>Git</EndUserGroup>
+    <EndUserGroup>P4</EndUserGroup>
+  </RedistributeTo>
   <Redistribute>false</Redistribute>
   <IsSourceAvailable>false</IsSourceAvailable>
   <NoticeType>None</NoticeType>
   <Notification />
-  <LicenseFolder />
+  <LicenseFolder>None</LicenseFolder>
 </TpsData>

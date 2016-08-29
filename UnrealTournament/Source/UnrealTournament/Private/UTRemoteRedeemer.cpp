@@ -34,7 +34,7 @@ AUTRemoteRedeemer::AUTRemoteRedeemer(const class FObjectInitializer& ObjectIniti
 		CapsuleComp->bTraceComplexOnMove = true;
 		CapsuleComp->InitCapsuleSize(16.f, 70.0f);
 		CapsuleComp->SetRelativeRotation(FRotator(90.f, 90.f, 90.f));
-		CapsuleComp->AttachParent = RootComponent;
+		CapsuleComp->SetupAttachment(RootComponent);
 	}
 
 	// Use a ProjectileMovementComponent to govern this projectile's movement
@@ -180,7 +180,7 @@ void AUTRemoteRedeemer::OnStop(const FHitResult& Hit)
 	}
 }
 
-void AUTRemoteRedeemer::OnOverlapBegin(AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
+void AUTRemoteRedeemer::OnOverlapBegin(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
 {
 	if (Role == ROLE_Authority && Driver != OtherActor && !Cast<APhysicsVolume>(OtherActor))
 	{
@@ -703,7 +703,7 @@ float AUTRemoteRedeemer::TakeDamage(float Damage, const FDamageEvent& DamageEven
 				float ActualDamage = float(ResultDamage); // engine hooks want float
 				// generic damage notifications sent for any damage
 				ReceiveAnyDamage(ActualDamage, DamageTypeCDO, EventInstigator, DamageCauser);
-				OnTakeAnyDamage.Broadcast(ActualDamage, DamageTypeCDO, EventInstigator, DamageCauser);
+				OnTakeAnyDamage.Broadcast(this, ActualDamage, DamageTypeCDO, EventInstigator, DamageCauser);
 				if (EventInstigator != NULL)
 				{
 					EventInstigator->InstigatedAnyDamage(ActualDamage, DamageTypeCDO, this, DamageCauser);

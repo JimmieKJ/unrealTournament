@@ -98,7 +98,10 @@ namespace UnrealGameSync
 			Tags.TryGetValue("depotFile", out DepotPath);
 			Tags.TryGetValue("clientFile", out ClientPath);
 			Tags.TryGetValue("path", out Path);
-			Tags.TryGetValue("action", out Action);
+			if(!Tags.TryGetValue("action", out Action))
+			{
+				Tags.TryGetValue("headAction", out Action);
+			}
 			IsMapped = Tags.ContainsKey("isMapped");
 			Unmap = Tags.ContainsKey("unmap");
 
@@ -402,6 +405,22 @@ namespace UnrealGameSync
 		{
 			List<string> Lines;
 			if(!RunCommand(String.Format("client -o {0}", ClientName), out Lines, CommandOptions.None, Log))
+			{
+				Spec = null;
+				return false;
+			}
+			if(!PerforceSpec.TryParse(Lines, out Spec, Log))
+			{
+				Spec = null;
+				return false;
+			}
+			return true;
+		}
+
+		public bool TryGetStreamSpec(string StreamName, out PerforceSpec Spec, TextWriter Log)
+		{
+			List<string> Lines;
+			if(!RunCommand(String.Format("stream -o {0}", StreamName), out Lines, CommandOptions.None, Log))
 			{
 				Spec = null;
 				return false;

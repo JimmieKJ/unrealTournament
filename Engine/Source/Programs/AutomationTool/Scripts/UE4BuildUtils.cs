@@ -24,7 +24,7 @@ public class UE4BuildUtils : CommandUtils
 				UprojectPath = null,
 				TargetName = "BuildPatchTool",
 				Platform = InPlatform,
-				Config = UnrealBuildTool.UnrealTargetConfiguration.Development,
+				Config = UnrealBuildTool.UnrealTargetConfiguration.Shipping,
 			});
 	}
 

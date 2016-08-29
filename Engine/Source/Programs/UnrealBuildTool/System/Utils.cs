@@ -13,7 +13,6 @@ using System.Runtime.InteropServices;
 using System.Linq;
 using System.Management;
 using Tools.DotNETCommon.CaselessDictionary;
-using Tools.DotNETCommon.HarvestEnvVars;
 using System.Web.Script.Serialization;
 
 namespace UnrealBuildTool
@@ -28,11 +27,22 @@ namespace UnrealBuildTool
 		public int MinorVersion;
 		public int PatchVersion;
 		public int Changelist;
+		public int CompatibleChangelist;
 		public int IsLicenseeVersion;
 		public string BranchName;
 
 		/// <summary>
-		/// Try to read the Build/Build.version file from disk
+		/// Try to read a version file from disk
+		/// </summary>
+		/// <param name="Version">The version information</param>
+		/// <returns>True if the version was read sucessfully, false otherwise</returns>
+		public static bool TryRead(out BuildVersion Version)
+		{
+			return TryRead(GetDefaultFileName(), out Version);
+		}
+
+		/// <summary>
+		/// Try to read a version file from disk
 		/// </summary>
 		/// <param name="Version">The version information</param>
 		/// <returns>True if the version was read sucessfully, false otherwise</returns>
@@ -45,6 +55,15 @@ namespace UnrealBuildTool
 				return false;
 			}
 			return TryParse(Object, out Version);
+		}
+
+		/// <summary>
+		/// Get the default path to the build.version file on disk
+		/// </summary>
+		/// <returns>Path to the Build.version file</returns>
+		public static string GetDefaultFileName()
+		{
+			return FileReference.Combine(UnrealBuildTool.EngineDirectory, "Build", "Build.version").FullName;
 		}
 
 		/// <summary>
@@ -63,6 +82,13 @@ namespace UnrealBuildTool
 			}
 
 			Object.TryGetIntegerField("Changelist", out NewVersion.Changelist);
+			if(NewVersion.Changelist != 0)
+			{
+				if(!Object.TryGetIntegerField("CompatibleChangelist", out NewVersion.CompatibleChangelist))
+				{
+					NewVersion.CompatibleChangelist = NewVersion.Changelist;
+				}
+			}
 			Object.TryGetIntegerField("IsLicenseeVersion", out NewVersion.IsLicenseeVersion);
 			Object.TryGetStringField("BranchName", out NewVersion.BranchName);
 
@@ -76,12 +102,29 @@ namespace UnrealBuildTool
 		/// <param name="Object">The object to read from</param>
 		/// <param name="Version">The resulting version field</param>
 		/// <returns>True if the build version could be read, false otherwise</returns>
-		public void Write(JsonWriter Writer)
+		public void Write(string FileName)
+		{
+			using (JsonWriter Writer = new JsonWriter(FileName))
+			{
+				Writer.WriteObjectStart();
+				WriteProperties(Writer);
+				Writer.WriteObjectEnd();
+			}
+		}
+
+		/// <summary>
+		/// Exports this object as Json
+		/// </summary>
+		/// <param name="Object">The object to read from</param>
+		/// <param name="Version">The resulting version field</param>
+		/// <returns>True if the build version could be read, false otherwise</returns>
+		public void WriteProperties(JsonWriter Writer)
 		{
 			Writer.WriteValue("MajorVersion", MajorVersion);
 			Writer.WriteValue("MinorVersion", MinorVersion);
 			Writer.WriteValue("PatchVersion", PatchVersion);
 			Writer.WriteValue("Changelist", Changelist);
+			Writer.WriteValue("CompatibleChangelist", CompatibleChangelist);
 			Writer.WriteValue("IsLicenseeVersion", IsLicenseeVersion);
 			Writer.WriteValue("BranchName", BranchName);
 		}
@@ -291,33 +334,7 @@ namespace UnrealBuildTool
 		}
 
 		/// <summary>
-		/// Sets the environment variables from the passed in batch file
-		/// </summary>
-		/// <param name="BatchFileName">Name of the batch file to parse</param>
-		/// <param name="Parameters"> Optional command-line parameters to pass to the batch file when running it</param>
-		public static void SetEnvironmentVariablesFromBatchFile(string BatchFileName, string Parameters = "")
-		{
-			// @todo ubtmake: Experiment with changing this to run asynchronously at startup, and only blocking if accessed before the .bat file finishes
-			CaselessDictionary<string> EnvVars;
-			try
-			{
-				EnvVars = HarvestEnvVars.HarvestEnvVarsFromBatchFile(BatchFileName, Parameters, HarvestEnvVars.EPathOverride.User);
-			}
-			catch (Exception Ex)
-			{
-				throw new BuildException(Ex, "Failed to harvest environment variables");
-			}
-
-			foreach (KeyValuePair<string, string> EnvVar in EnvVars)
-			{
-				Environment.SetEnvironmentVariable(EnvVar.Key, EnvVar.Value);
-			}
-		}
-
-
-		/// <summary>
 		/// Try to launch a local process, and produce a friendly error message if it fails.
-		/// /
 		/// </summary>
 		public static int RunLocalProcess(Process LocalProcess)
 		{
@@ -887,7 +904,9 @@ namespace UnrealBuildTool
 		}
 
 		/// <summary>
-		/// Returns the User Settings Directory path. This matches FPlatformProcess::UserSettingsDir()
+		/// Returns the User Settings Directory path. This matches FPlatformProcess::UserSettingsDir().
+		/// NOTE: This function may return null. Some accounts (eg. the SYSTEM account on Windows) do not have a personal folder, and Jenkins
+		/// runs using this account by default.
 		/// </summary>
 		public static DirectoryReference GetUserSettingDirectory()
 		{
@@ -901,7 +920,16 @@ namespace UnrealBuildTool
 			}
 			else
 			{
-				return new DirectoryReference(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData));
+				// Not all user accounts have a local application data directory (eg. SYSTEM, used by Jenkins for builds).
+				string DirectoryName = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+				if(String.IsNullOrEmpty(DirectoryName))
+				{
+					return null;
+				}
+				else
+				{
+					return new DirectoryReference(DirectoryName);
+				}
 			}
 		}
 
@@ -1185,7 +1213,7 @@ namespace UnrealBuildTool
 		{
 			return string.Format("{0}{1}{2}{3}",
 					Timer != null ? String.Format("[{0:hh\\:mm\\:ss\\.fff}] ", Timer.Elapsed) : "",
-					bLogSources ? string.Format("{0}: ", string.IsNullOrEmpty(CustomSource) ? GetSource(StackFramesToSkip) : CustomSource) : "",
+					bLogSources ? string.Format("{0}", CustomSource == null ? GetSource(StackFramesToSkip) + ": ": CustomSource == string.Empty ? "" : CustomSource + ": ") : "",
 					bLogSeverity ? GetSeverityPrefix(Verbosity) : "",
 				// If there are no extra args, don't try to format the string, in case it has any format control characters in it (our LOCTEXT strings tend to).
 					Args.Length > 0 ? string.Format(Format, Args) : Format);

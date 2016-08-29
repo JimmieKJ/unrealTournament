@@ -249,8 +249,8 @@ void FSkelMeshReductionSettingsLayout::GenerateChildContent(IDetailChildrenBuild
 		.ValueContent()
 			[
 				SNew(SCheckBox)
-				.IsChecked(this, &FSkelMeshReductionSettingsLayout::ShouldRecalculateNormals)
-				.OnCheckStateChanged(this, &FSkelMeshReductionSettingsLayout::OnRecalculateNormalsChanged)
+				.IsChecked(this, &FSkelMeshReductionSettingsLayout::ShouldRecomputeTangents)
+				.OnCheckStateChanged(this, &FSkelMeshReductionSettingsLayout::OnRecomputeTangentsChanged)
 			];
 	}
 
@@ -377,7 +377,7 @@ float FSkelMeshReductionSettingsLayout::GetWeldingThreshold() const
 	return ReductionSettings.WeldingThreshold;
 }
 
-ECheckBoxState FSkelMeshReductionSettingsLayout::ShouldRecalculateNormals() const
+ECheckBoxState FSkelMeshReductionSettingsLayout::ShouldRecomputeTangents() const
 {
 	return ReductionSettings.bRecalcNormals ? ECheckBoxState::Checked : ECheckBoxState::Unchecked;
 }
@@ -413,7 +413,7 @@ void FSkelMeshReductionSettingsLayout::OnWeldingThresholdChanged(float NewValue)
 	ReductionSettings.WeldingThreshold = NewValue;
 }
 
-void FSkelMeshReductionSettingsLayout::OnRecalculateNormalsChanged(ECheckBoxState NewValue)
+void FSkelMeshReductionSettingsLayout::OnRecomputeTangentsChanged(ECheckBoxState NewValue)
 {
 	ReductionSettings.bRecalcNormals = NewValue == ECheckBoxState::Checked;
 }
@@ -1132,6 +1132,20 @@ TSharedRef<SWidget> FPersonaMeshDetails::OnGenerateCustomMaterialWidgetsForMater
 
 		+SVerticalBox::Slot()
 		.Padding(0,2,0,0)
+		[
+			SNew(SCheckBox)
+			.IsChecked(this, &FPersonaMeshDetails::IsRecomputeTangentEnabled, MaterialIndex)
+			.OnCheckStateChanged(this, &FPersonaMeshDetails::OnRecomputeTangentChanged, MaterialIndex)
+			[
+				SNew(STextBlock)
+				.Font(FEditorStyle::GetFontStyle("StaticMeshEditor.NormalFont"))
+				.Text(LOCTEXT("RecomputeTangent_Title", "Recompute Tangent"))
+				.ToolTipText(LOCTEXT("RecomputeTangent_Tooltip", "This feature only works if you enable skin cache (r.SkinCache.Mode) and recompute tangent console variable(r.SkinCache.RecomputeTangents). Please note that skin cache is an experimental feature and only works if you have compute shaders."))
+			]
+		]
+
+		+SVerticalBox::Slot()
+		.Padding(0,2,0,0)
 		.AutoHeight()
 		[
 			SNew(SHorizontalBox)
@@ -1314,6 +1328,51 @@ void FPersonaMeshDetails::OnShadowCastingChanged(ECheckBoxState NewState, int32 
 	}
 }
 
+
+ECheckBoxState FPersonaMeshDetails::IsRecomputeTangentEnabled(int32 MaterialIndex) const
+{
+	ECheckBoxState State = ECheckBoxState::Unchecked;
+	const USkeletalMesh* Mesh = SkeletalMeshPtr.Get();
+	if (Mesh && MaterialIndex < Mesh->Materials.Num())
+	{
+		State = Mesh->Materials[MaterialIndex].bRecomputeTangent ? ECheckBoxState::Checked : ECheckBoxState::Unchecked;
+	}
+
+	return State;
+}
+
+void FPersonaMeshDetails::OnRecomputeTangentChanged(ECheckBoxState NewState, int32 MaterialIndex)
+{
+	USkeletalMesh* Mesh = SkeletalMeshPtr.Get();
+
+	if (Mesh)
+	{
+		if (NewState == ECheckBoxState::Checked)
+		{
+			const FScopedTransaction Transaction(LOCTEXT("SetRecomputeTangentFlag", "Set Recompute Tangent For Material"));
+			Mesh->Modify();
+			Mesh->Materials[MaterialIndex].bRecomputeTangent = true;
+		}
+		else if (NewState == ECheckBoxState::Unchecked)
+		{
+			const FScopedTransaction Transaction(LOCTEXT("ClearRecomputeTangentFlag", "Clear Recompute Tangent For Material"));
+			Mesh->Modify();
+			Mesh->Materials[MaterialIndex].bRecomputeTangent = false;
+		}
+		for (TObjectIterator<USkinnedMeshComponent> It; It; ++It)
+		{
+			USkinnedMeshComponent* MeshComponent = *It;
+			if (MeshComponent &&
+				!MeshComponent->IsTemplate() &&
+				MeshComponent->SkeletalMesh == Mesh)
+			{
+				MeshComponent->UpdateRecomputeTangent(MaterialIndex);
+				MeshComponent->MarkRenderStateDirty();
+			}
+		}
+		PersonaPtr->RefreshViewport();
+	}
+}
 int32 FPersonaMeshDetails::GetMaterialIndex(int32 LODIndex, int32 SectionIndex)
 {
 	USkeletalMesh* SkelMesh = PersonaPtr->GetMesh();
@@ -2054,8 +2113,8 @@ void FPersonaMeshDetails::UpdateComboBoxStrings()
 			int32 ClothSection = LODModel.Sections[SecIdx].CorrespondClothSectionIndex;
 			if (ClothSection >= 0)
 			{
-				FSkelMeshChunk& Chunk = LODModel.Chunks[LODModel.Sections[ClothSection].ChunkIndex];
-				SectionAssetSubmeshIndices[SecIdx] = FClothAssetSubmeshIndex(Chunk.CorrespondClothAssetIndex, Chunk.ClothAssetSubmeshIndex);
+				FSkelMeshSection& Section = LODModel.Sections[ClothSection];
+				SectionAssetSubmeshIndices[SecIdx] = FClothAssetSubmeshIndex(Section.CorrespondClothAssetIndex, Section.ClothAssetSubmeshIndex);
 			}
 		}
 
@@ -2141,8 +2200,8 @@ void FPersonaMeshDetails::UpdateComboBoxStrings()
 				// Material index is Slot index
 				int32 SlotIdx = LODModel.Sections[SectionIdx].MaterialIndex;
 				check(SlotIdx < SectionAssetSubmeshIndices.Num());
-				FSkelMeshChunk& Chunk = LODModel.Chunks[LODModel.Sections[ClothSection].ChunkIndex];
-				SectionAssetSubmeshIndices[SlotIdx] = FClothAssetSubmeshIndex(Chunk.CorrespondClothAssetIndex, Chunk.ClothAssetSubmeshIndex);
+				FSkelMeshSection& Section = LODModel.Sections[ClothSection];
+				SectionAssetSubmeshIndices[SlotIdx] = FClothAssetSubmeshIndex(Section.CorrespondClothAssetIndex, Section.ClothAssetSubmeshIndex);
 			}
 		}
 

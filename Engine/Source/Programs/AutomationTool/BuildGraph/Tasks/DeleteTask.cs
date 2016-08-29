@@ -5,6 +5,7 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using System.Xml;
 using UnrealBuildTool;
 
 namespace BuildGraph.Tasks
@@ -15,25 +16,20 @@ namespace BuildGraph.Tasks
 	public class DeleteTaskParameters
 	{
 		/// <summary>
-		/// The directory to delete from
-		/// </summary>
-		[TaskParameter]
-		public string Dir;
-
-		/// <summary>
 		/// List of file specifications separated by semicolons (eg. *.cpp;Engine/.../*.bat), or the name of a tag set
 		/// </summary>
-		[TaskParameter(Optional = true)]
+		[TaskParameter(ValidationType = TaskParameterValidationType.FileSpec)]
 		public string Files;
 
 		/// <summary>
-		/// Whether to delete empty directories after deleting the files
+		/// Whether to delete empty directories after deleting the files. Defaults to true.
 		/// </summary>
+		[TaskParameter(Optional = true)]
 		public bool DeleteEmptyDirectories = true;
 	}
 
 	/// <summary>
-	/// Task which copies files from one directory to another
+	/// Delete a set of files.
 	/// </summary>
 	[TaskElement("Delete", typeof(DeleteTaskParameters))]
 	public class DeleteTask : CustomTask
@@ -61,20 +57,8 @@ namespace BuildGraph.Tasks
 		/// <returns>True if the task succeeded</returns>
 		public override bool Execute(JobContext Job, HashSet<FileReference> BuildProducts, Dictionary<string, HashSet<FileReference>> TagNameToFileSet)
 		{
-			DirectoryReference BaseDirectory = ResolveDirectory(Parameters.Dir);
-
-			// Find all the referenced files
-			IEnumerable<FileReference> Files;
-			if(Parameters.Files == null)
-			{
-				Files = BaseDirectory.EnumerateFileReferences("*", System.IO.SearchOption.AllDirectories);
-			}
-			else
-			{
-				Files = ResolveFilespec(BaseDirectory, Parameters.Files, TagNameToFileSet);
-			}
-
-			// Delete them all
+			// Find all the referenced files and delete them
+			HashSet<FileReference> Files = ResolveFilespec(CommandUtils.RootDirectory, Parameters.Files, TagNameToFileSet);
 			foreach(FileReference File in Files)
 			{
 				InternalUtils.SafeDeleteFile(File.FullName, true);
@@ -93,7 +77,7 @@ namespace BuildGraph.Tasks
 				// Recurse back up from each of those directories to the root folder
 				foreach(DirectoryReference ParentDirectory in ParentDirectories)
 				{
-					for(DirectoryReference CurrentDirectory = ParentDirectory; CurrentDirectory != BaseDirectory; CurrentDirectory = CurrentDirectory.ParentDirectory)
+					for(DirectoryReference CurrentDirectory = ParentDirectory; CurrentDirectory != CommandUtils.RootDirectory; CurrentDirectory = CurrentDirectory.ParentDirectory)
 					{
 						if(!TryDeleteEmptyDirectory(CurrentDirectory))
 						{
@@ -101,9 +85,6 @@ namespace BuildGraph.Tasks
 						}
 					}
 				}
-
-				// Try to delete the base directory
-				TryDeleteEmptyDirectory(BaseDirectory);
 			}
 			return true;
 		}
@@ -111,7 +92,7 @@ namespace BuildGraph.Tasks
 		/// <summary>
 		/// Deletes a directory, if it's empty
 		/// </summary>
-		/// <param name="Directory">The directory to check</param>
+		/// <param name="CandidateDirectory">The directory to check</param>
 		/// <returns>True if the directory was deleted, false if not</returns>
 		static bool TryDeleteEmptyDirectory(DirectoryReference CandidateDirectory)
 		{
@@ -132,6 +113,32 @@ namespace BuildGraph.Tasks
 				CommandUtils.LogWarning("Couldn't delete directory {0} ({1})", CandidateDirectory.FullName, Ex.Message);
 				return false;
 			}
+		}
+
+		/// <summary>
+		/// Output this task out to an XML writer.
+		/// </summary>
+		public override void Write(XmlWriter Writer)
+		{
+			Write(Writer, Parameters);
+		}
+
+		/// <summary>
+		/// Find all the tags which are used as inputs to this task
+		/// </summary>
+		/// <returns>The tag names which are read by this task</returns>
+		public override IEnumerable<string> FindConsumedTagNames()
+		{
+			return FindTagNamesFromFilespec(Parameters.Files);
+		}
+
+		/// <summary>
+		/// Find all the tags which are modified by this task
+		/// </summary>
+		/// <returns>The tag names which are modified by this task</returns>
+		public override IEnumerable<string> FindProducedTagNames()
+		{
+			yield break;
 		}
 	}
 }

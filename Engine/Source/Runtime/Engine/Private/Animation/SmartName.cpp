@@ -2,46 +2,57 @@
 
 #include "EnginePrivate.h"
 #include "Animation/SmartName.h"
-
+#include "FrameworkObjectVersion.h"
+////////////////////////////////////////////////////////////////////////
+//
+// FSmartNameMapping
+//
+///////////////////////////////////////////////////////////////////////
 FSmartNameMapping::FSmartNameMapping()
 : NextUid(0)
 {}
 
-bool FSmartNameMapping::AddOrFindName(FName Name, UID& OutUid)
+bool FSmartNameMapping::AddOrFindName(FName Name, UID& OutUid, FGuid& OutGuid)
 {
 	check(Name.IsValid());
 
 	// Check for UID overflow
-	if(NextUid == MaxUID && FreeList.Num() == 0)
+	const UID* ExistingUid = UidMap.FindKey(Name);
+	const FGuid* ExistingGuid = GuidMap.Find(Name);
+
+	// make sure they both exists and same 
+	check(!!ExistingUid == !!ExistingGuid);
+	if(ExistingUid)
 	{
-		// No UIDs left
-		UE_LOG(LogAnimation, Error, TEXT("No more UIDs left in skeleton smartname container, consider changing UID type to longer type."));
+		// Already present in the list
+		OutUid = *ExistingUid;
+		OutGuid = *ExistingGuid;
 		return false;
 	}
-	else
+
+	// make sure we didn't reach till end
+	OutGuid = FGuid::NewGuid();
+	return AddName(Name, OutUid, OutGuid);
+}
+
+bool FSmartNameMapping::AddName(FName Name, UID& OutUid, const FGuid& InGuid)
+{
+	check(Name.IsValid());
+	if (GuidMap.Find(Name) == nullptr && GuidMap.FindKey(InGuid) == nullptr)
 	{
-		const UID* ExistingUid = UidMap.FindKey(Name);
+		// make sure we didn't reach till end
+		check(NextUid != MaxUID);
 
-		if(ExistingUid)
-		{
-			// Already present in the list
-			OutUid = *ExistingUid;
-			return false;
-		}
-
-		if(FreeList.Num() > 0)
-		{
-			// We've got some UIDs that are unused < NextUid. Use them first
-			OutUid = FreeList.Pop();
-		}
-		else
-		{
-			OutUid = NextUid++;
-		}
+		OutUid = NextUid;
 		UidMap.Add(OutUid, Name);
+		GuidMap.Add(Name, InGuid);
+
+		++NextUid;
 
 		return true;
 	}
+
+	return false;
 }
 
 bool FSmartNameMapping::GetName(const UID& Uid, FName& OutName) const
@@ -55,11 +66,32 @@ bool FSmartNameMapping::GetName(const UID& Uid, FName& OutName) const
 	return false;
 }
 
+bool FSmartNameMapping::GetNameByGuid(const FGuid& Guid, FName& OutName) const
+{
+	const FName* FoundName = GuidMap.FindKey(Guid);
+	if (FoundName)
+	{
+		OutName = *FoundName;
+		return true;
+	}
+
+	return false;
+}
+
 bool FSmartNameMapping::Rename(const UID& Uid, FName NewName)
 {
 	FName* ExistingName = UidMap.Find(Uid);
 	if(ExistingName)
 	{
+		FGuid* Guid = GuidMap.Find(*ExistingName);
+		check(Guid);
+
+		// re add new value
+		GuidMap.Remove(*ExistingName);
+		GuidMap.Add(NewName, *Guid);
+
+		check(GuidMap.Num() == UidMap.Num());
+
 		*ExistingName = NewName;
 		return true;
 	}
@@ -68,59 +100,59 @@ bool FSmartNameMapping::Rename(const UID& Uid, FName NewName)
 
 bool FSmartNameMapping::Remove(const UID& Uid)
 {
-	bool bRemoved = UidMap.Remove(Uid) != 0;
-
-	if(bRemoved)
+	FName* ExistingName = UidMap.Find(Uid);
+	if (ExistingName)
 	{
-		// The provided UID has been cleared. If it is at the end of the mapping decrement next id,
-		// otherwise add to the freelist
-		if(Uid == NextUid - 1)
-		{
-			--NextUid;
-		}
-		else
-		{
-			FreeList.Add(Uid);
-		}
+		FGuid* Guid = GuidMap.Find(*ExistingName);
+		check(Guid);
+
+		// re add new value
+		GuidMap.Remove(*ExistingName);
+		UidMap.Remove(Uid);
+
+		check(GuidMap.Num() == UidMap.Num());
+
+		return true;
 	}
 
-	return bRemoved;
+	return false;
 }
 
 void FSmartNameMapping::Serialize(FArchive& Ar)
 {
-	if(Ar.UE4Ver() >= VER_UE4_SKELETON_ADD_SMARTNAMES)
+	Ar.UsingCustomVersion(FFrameworkObjectVersion::GUID);
+	if (Ar.CustomVer(FFrameworkObjectVersion::GUID) >= FFrameworkObjectVersion::SmartNameRefactor)
+	{
+		Ar << GuidMap;
+
+		if (Ar.ArIsLoading)
+		{
+			NextUid = 0;
+			//fill up uidmap
+			UidMap.Empty(GuidMap.Num());
+			for (const TPair<FName, FGuid>& GuidPair : GuidMap)
+			{
+				UidMap.Add(NextUid, GuidPair.Key);
+				++NextUid;
+			}
+		}
+	}
+	else if(Ar.UE4Ver() >= VER_UE4_SKELETON_ADD_SMARTNAMES)
 	{
 		Ar << NextUid;
 		Ar << UidMap;
 
-		if(Ar.ArIsLoading)
+		TMap<UID, FName> NewUidMap;
+		// convert to GuidMap
+		NextUid = 0;
+		GuidMap.Empty(UidMap.Num());
+		for (TPair<UID, FName>& UidPair : UidMap)
 		{
-			// Sort the Uid Map
-			UidMap.KeySort([](const UID& A, const UID& B)
-			{
-				return A < B;
-			});
-
-			// Build freelist as necessary
-			UID ExpectedID = 0;
-			UID Last = 0;
-			for(TPair<UID, FName>& Pair : UidMap)
-			{
-				UID CurrentUid = Pair.Key;
-				while(CurrentUid != ExpectedID)
-				{
-					FreeList.Add(ExpectedID++);
-				}
-
-				Last = CurrentUid;
-				++ExpectedID;
-			}
-
-			// In the case of multipled queued deletions previously,
-			// fix up the next UID to match the last used key we found.
-			NextUid = Last + 1;
+			GuidMap.Add(UidPair.Value, FGuid::NewGuid());
+			NewUidMap.Add(NextUid++, UidPair.Value);
 		}
+
+		UidMap = NewUidMap;
 	}
 }
 
@@ -161,6 +193,60 @@ FArchive& operator<<(FArchive& Ar, FSmartNameMapping& Elem)
 	return Ar;
 }
 
+#if WITH_EDITOR
+bool FSmartNameMapping::FindOrAddSmartName(FName Name, FSmartName& OutName)
+{
+	FSmartNameMapping::UID NewUID;
+	FGuid NewGuid;
+	bool bNewlyAdded = AddOrFindName(Name, NewUID, NewGuid);
+	OutName = FSmartName(Name, NewUID, NewGuid);
+
+	return bNewlyAdded;
+}
+
+bool FSmartNameMapping::AddSmartName(FSmartName& OutName)
+{
+	return AddName(OutName.DisplayName, OutName.UID, OutName.Guid);
+}
+#endif // WITH_EDITOR
+
+bool FSmartNameMapping::FindSmartName(FName Name, FSmartName& OutName) const
+{
+	const FSmartNameMapping::UID* ExistingUID = FindUID(Name);
+	if (ExistingUID)
+	{
+#if WITH_EDITOR
+		const FGuid* ExistingGuid = GuidMap.Find(Name);
+		OutName = FSmartName(Name, *ExistingUID, *ExistingGuid);
+#else
+		OutName = FSmartName(Name, *ExistingUID);
+#endif // WITH_EDITOR
+		return true;
+	}
+
+	return false;
+}
+
+bool FSmartNameMapping::FindSmartNameByUID(FSmartNameMapping::UID UID, FSmartName& OutName) const
+{
+	FName ExistingName;
+	if (GetName(UID, ExistingName))
+	{
+		OutName.DisplayName = ExistingName;
+#if WITH_EDITORONLY_DATA
+		OutName.Guid = *GuidMap.Find(ExistingName);
+#endif // WITH_EDITORONLY_DATA
+		OutName.UID = UID;
+		return true;
+	}
+
+	return false;
+}
+////////////////////////////////////////////////////////////////////////
+//
+// FSmartNameContainer
+//
+///////////////////////////////////////////////////////////////////////
 void FSmartNameContainer::AddContainer(FName NewContainerName)
 {
 	if(!NameMappings.Find(NewContainerName))
@@ -179,7 +265,28 @@ void FSmartNameContainer::Serialize(FArchive& Ar)
 	Ar << NameMappings;
 }
 
-FSmartNameMapping* FSmartNameContainer::GetContainerInternal(FName ContainerName)
+FSmartNameMapping* FSmartNameContainer::GetContainerInternal(const FName& ContainerName)
 {
 	return NameMappings.Find(ContainerName);
+}
+
+////////////////////////////////////////////////////////////////////////
+//
+// FSmartName
+//
+///////////////////////////////////////////////////////////////////////
+bool FSmartName::Serialize(FArchive& Ar)
+{
+	Ar << DisplayName;
+	Ar << UID;
+
+	// only save if it's editor build and not cooking
+#if WITH_EDITORONLY_DATA
+	if (!Ar.IsSaving() || !Ar.IsCooking())
+	{
+		Ar << Guid;
+	}
+#endif // WITH_EDITORONLY_DATA
+
+	return true;
 }

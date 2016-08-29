@@ -16,7 +16,7 @@ AUTProj_BioGrenade::AUTProj_BioGrenade(const FObjectInitializer& OI)
 		ProximitySphere->OnComponentBeginOverlap.AddDynamic(this, &AUTProj_BioGrenade::ProximityOverlapBegin);
 		ProximitySphere->bTraceComplexOnMove = false;
 		ProximitySphere->bReceivesDecals = false;
-		ProximitySphere->AttachParent = RootComponent;
+		ProximitySphere->SetupAttachment(RootComponent);
 	}
 
 	TimeBeforeFuseStarts = 2.0f;
@@ -92,7 +92,7 @@ void AUTProj_BioGrenade::OnStop(const FHitResult& Hit)
 	// intentionally blank
 }
 
-void AUTProj_BioGrenade::ProximityOverlapBegin(AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
+void AUTProj_BioGrenade::ProximityOverlapBegin(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
 {
 	if (OtherActor != NULL && OtherActor != Instigator && !bBeginFuseWarning && GetWorld()->TimeSeconds - CreationTime >= ProximityDelay)
 	{

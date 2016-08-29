@@ -24,7 +24,7 @@ AUTGhostFlag::AUTGhostFlag(const FObjectInitializer& ObjectInitializer)
 	if (TimerEffect != NULL)
 	{
 		TimerEffect->SetHiddenInGame(true);
-		TimerEffect->AttachParent = RootComponent;
+		TimerEffect->SetupAttachment(RootComponent);
 		TimerEffect->LDMaxDrawDistance = 4000.0f;
 		TimerEffect->RelativeLocation.Z = 40.0f;
 		TimerEffect->Mobility = EComponentMobility::Movable;

@@ -12,9 +12,9 @@
 #include "CrashDescription.h"
 #include "EngineBuildSettings.h"
 
-// TODO Chris.Wood: switch these when backend migrates to DR
-#define PRIMARY_UPLOAD_RECEIVER 1
-#define PRIMARY_UPLOAD_DATAROUTER 0
+// Switched off CRR upload - Jun 2016
+#define PRIMARY_UPLOAD_RECEIVER 0
+#define PRIMARY_UPLOAD_DATAROUTER 1
 
 #define LOCTEXT_NAMESPACE "CrashReportClient"
 
@@ -127,7 +127,7 @@ bool FCrashUploadBase::CompressData(const TArray<FString>& InPendingFiles, FComp
 	UE_LOG(CrashReportClientLog, Log, TEXT("CompressAndSendData have %d pending files"), InPendingFiles.Num());
 
 	// Compress all files into one archive.
-	const int32 BufferSize = 16 * 1024 * 1024;
+	const int32 BufferSize = 32 * 1024 * 1024;
 
 	TArray<uint8> UncompressedData;
 	UncompressedData.Reserve(BufferSize);
@@ -235,11 +235,13 @@ bool FCrashUploadBase::CompressData(const TArray<FString>& InPendingFiles, FComp
 		MemoryHeaderWriter << *OptionalHeader;
 	}
 
-	uint8* CompressedDataRaw = new uint8[BufferSize];
+	int UncompressedSize = UncompressedData.Num();
+
+	uint8* CompressedDataRaw = new uint8[UncompressedSize];
 
 	OutCompressedData.FileCount = CurrentFileIndex;
-	OutCompressedData.CompressedSize = BufferSize;
-	OutCompressedData.UncompressedSize = UncompressedData.Num();
+	OutCompressedData.CompressedSize = UncompressedSize;
+	OutCompressedData.UncompressedSize = UncompressedSize;
 	const bool bResult = FCompression::CompressMemory(COMPRESS_ZLIB, CompressedDataRaw, OutCompressedData.CompressedSize, UncompressedData.GetData(), OutCompressedData.UncompressedSize);
 	if (bResult)
 	{
@@ -330,13 +332,10 @@ void FCrashUploadBase::SetCurrentState(EUploadState::Type InState)
 
 void FCrashUploadBase::AddReportToFailedList() const
 {
-	if (PendingFiles.Num() == 0)
+	if (PendingFiles.Num() > 0)
 	{
-		// No files so don't bother
-		return;
+		FailedReportDirectories.AddUnique(ErrorReport.GetReportDirectory());
 	}
-
-	FailedReportDirectories.AddUnique(PendingReportDirectories[PendingReportDirectoryIndex]);
 }
 
 // FCrashUploadToReceiver //////////////////////////////////////////////////////
@@ -351,7 +350,7 @@ FCrashUploadToReceiver::FCrashUploadToReceiver(const FString& InReceiverAddress)
 	}
 	else
 	{
-		SetCurrentState(EUploadState::UploadError);
+		SetCurrentState(EUploadState::Disabled);
 	}
 }
 
@@ -707,7 +706,7 @@ FCrashUploadToDataRouter::FCrashUploadToDataRouter(const FString& InDataRouterUr
 	}
 	else
 	{
-		SetCurrentState(EUploadState::UploadError);
+		SetCurrentState(EUploadState::Disabled);
 	}
 }
 

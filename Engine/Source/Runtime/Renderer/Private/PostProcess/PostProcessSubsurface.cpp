@@ -41,6 +41,17 @@ static TAutoConsoleVariable<int32> CVarSSSSampleSet(
 	TEXT(" 2: high quality (13*2+1) (default)"),
 	ECVF_RenderThreadSafe  | ECVF_Scalability);
 
+static TAutoConsoleVariable<int32> CVarCheckerboardSubsurfaceProfileRendering(
+	TEXT("r.SSS.Checkerboard"),
+	1,
+	TEXT("Enables or disables checkerboard rendering for subsurface profile rendering.\n")
+	TEXT("This is necessary if SceneColor does not include a floating point alpha channel (e.g 32-bit formats)\n")
+	TEXT(" 0: Disabled (high quality) \n")
+	TEXT(" 1: Enabled (low quality). Surface lighting will be at reduced resolution.\n")
+	TEXT(" 2: Automatic. Non-checkerboard lighting will be applied if we have a suitable rendertarget format\n"),
+	ECVF_RenderThreadSafe
+	);
+
 // -------------------------------------------------------------
 
 float GetSubsurfaceRadiusScale()
@@ -50,6 +61,33 @@ float GetSubsurfaceRadiusScale()
 	float Ret = CVar->GetValueOnRenderThread();
 
 	return FMath::Max(0.0f, Ret);
+}
+
+// -------------------------------------------------------------
+
+const bool FRCPassPostProcessSubsurface::RequiresCheckerboardSubsurfaceRendering(EPixelFormat SceneColorFormat)
+{
+	int CVarValue = CVarCheckerboardSubsurfaceProfileRendering.GetValueOnRenderThread();
+	if (CVarValue == 0)
+	{
+		return false;
+	}
+	else if ( CVarValue == 1 )
+	{
+		return true;
+	}
+	else if (CVarValue == 2)
+	{
+		switch (SceneColorFormat)
+		{
+		case PF_A32B32G32R32F:
+		case PF_FloatRGBA:
+			return false;
+		default:
+			return true;
+		}
+	}
+	return true;
 }
 
 // -------------------------------------------------------------
@@ -259,27 +297,7 @@ void FRCPassPostProcessSubsurfaceVisualize::Process(FRenderingCompositePassConte
 		EDRF_UseTriangleOptimization);
 
 	{
-		// this is a helper class for FCanvas to be able to get screen size
-		class FRenderTargetTemp : public FRenderTarget
-		{
-		public:
-			const FSceneView& View;
-			const FTexture2DRHIRef Texture;
-
-			FRenderTargetTemp(const FSceneView& InView, const FTexture2DRHIRef InTexture)
-				: View(InView), Texture(InTexture)
-			{
-			}
-			virtual FIntPoint GetSizeXY() const
-			{
-				return View.ViewRect.Size();
-			};
-			virtual const FTexture2DRHIRef& GetRenderTargetTexture() const
-			{
-				return Texture;
-			}
-		} TempRenderTarget(View, (const FTexture2DRHIRef&)DestRenderTarget.TargetableTexture);
-
+		FRenderTargetTemp TempRenderTarget(View, (const FTexture2DRHIRef&)DestRenderTarget.TargetableTexture);
 		FCanvas Canvas(&TempRenderTarget, NULL, ViewFamily.CurrentRealTime, ViewFamily.CurrentWorldTime, ViewFamily.DeltaWorldTime, Context.GetFeatureLevel());
 
 		float X = 30;
@@ -327,7 +345,7 @@ FPooledRenderTargetDesc FRCPassPostProcessSubsurfaceVisualize::ComputeOutputDesc
  * Encapsulates the post processing subsurface scattering pixel shader.
  * @param HalfRes 0:to full res, 1:to half res
  */
-template <uint32 HalfRes>
+template <uint32 HalfRes, uint32 Checkerboard>
 class FPostProcessSubsurfaceSetupPS : public FGlobalShader
 {
 	DECLARE_SHADER_TYPE(FPostProcessSubsurfaceSetupPS , Global);
@@ -343,6 +361,7 @@ class FPostProcessSubsurfaceSetupPS : public FGlobalShader
 		OutEnvironment.SetDefine(TEXT("HALF_RES"), HalfRes);
 		OutEnvironment.SetDefine(TEXT("SUBSURFACE_RADIUS_SCALE"), SUBSURFACE_RADIUS_SCALE);
 		OutEnvironment.SetDefine(TEXT("SUBSURFACE_KERNEL_SIZE"), SUBSURFACE_KERNEL_SIZE);
+		OutEnvironment.SetDefine(TEXT("SUBSURFACE_PROFILE_CHECKERBOARD"), Checkerboard);
 	}
 
 	/** Default constructor. */
@@ -394,17 +413,19 @@ public:
 };
 
 // #define avoids a lot of code duplication
-#define VARIATION1(A) typedef FPostProcessSubsurfaceSetupPS<A> FPostProcessSubsurfaceSetupPS##A; \
-	IMPLEMENT_SHADER_TYPE2(FPostProcessSubsurfaceSetupPS##A, SF_Pixel);
+#define VARIATION1(A)	VARIATION2(A,0)	VARIATION2(A,1)
+#define VARIATION2(A,B) typedef FPostProcessSubsurfaceSetupPS<A,B> FPostProcessSubsurfaceSetupPS##A##B; \
+	IMPLEMENT_SHADER_TYPE2(FPostProcessSubsurfaceSetupPS##A##B, SF_Pixel);
 	VARIATION1(0) VARIATION1(1)
 #undef VARIATION1
+#undef VARIATION2
 
 
-template <uint32 HalfRes>
+template <uint32 HalfRes, uint32 Checkerboard>
 void SetSubsurfaceSetupShader(const FRenderingCompositePassContext& Context)
 {
 	TShaderMapRef<FPostProcessVS> VertexShader(Context.GetShaderMap());
-	TShaderMapRef<FPostProcessSubsurfaceSetupPS<HalfRes> > PixelShader(Context.GetShaderMap());
+	TShaderMapRef<FPostProcessSubsurfaceSetupPS<HalfRes, Checkerboard> > PixelShader(Context.GetShaderMap());
 
 	static FGlobalBoundShaderState BoundShaderState;
 
@@ -434,6 +455,8 @@ void FRCPassPostProcessSubsurfaceSetup::Process(FRenderingCompositePassContext& 
 		return;
 	}
 
+	FSceneRenderTargets& SceneContext = FSceneRenderTargets::Get(Context.RHICmdList);
+	const bool bCheckerboard = FRCPassPostProcessSubsurface::RequiresCheckerboardSubsurfaceRendering( SceneContext.GetSceneColorFormat() );
 	const FSceneView& View = Context.View;
 	const FSceneViewFamily& ViewFamily = *(View.Family);
 
@@ -463,11 +486,25 @@ void FRCPassPostProcessSubsurfaceSetup::Process(FRenderingCompositePassContext& 
 
 	if(bHalfRes)
 	{
-		SetSubsurfaceSetupShader<1>(Context);
+		if (bCheckerboard)
+		{
+			SetSubsurfaceSetupShader<1, 1>(Context);
+		}
+		else
+		{
+			SetSubsurfaceSetupShader<1,0>(Context);
+		}
 	}
 	else
 	{
-		SetSubsurfaceSetupShader<0>(Context);
+		if (bCheckerboard)
+		{
+			SetSubsurfaceSetupShader<0, 1>(Context);
+		}
+		else
+		{
+			SetSubsurfaceSetupShader<0, 0>(Context);
+		}
 	}
 
 	// Draw a quad mapping scene color to the view's render target
@@ -728,7 +765,7 @@ FPooledRenderTargetDesc FRCPassPostProcessSubsurface::ComputeOutputDesc(EPassOut
 /** Encapsulates the post processing subsurface recombine pixel shader. */
 // @param RecombineMode 0:fullres, 1: halfres, 2:no scattering, just reconstruct the lighting (needed for scalability)
 // @param RecombineQuality 0:low..1:high
-template <uint32 RecombineMode, uint32 RecombineQuality>
+template <uint32 RecombineMode, uint32 RecombineQuality, uint32 Checkerboard>
 class TPostProcessSubsurfaceRecombinePS : public FGlobalShader
 {
 	DECLARE_SHADER_TYPE(TPostProcessSubsurfaceRecombinePS, Global);
@@ -746,6 +783,7 @@ class TPostProcessSubsurfaceRecombinePS : public FGlobalShader
 		OutEnvironment.SetDefine(TEXT("RECOMBINE_SUBSURFACESCATTER"), (uint32)(RecombineMode != 2));
 		OutEnvironment.SetDefine(TEXT("SUBSURFACE_RADIUS_SCALE"), SUBSURFACE_RADIUS_SCALE);
 		OutEnvironment.SetDefine(TEXT("SUBSURFACE_KERNEL_SIZE"), SUBSURFACE_KERNEL_SIZE);
+		OutEnvironment.SetDefine(TEXT("SUBSURFACE_PROFILE_CHECKERBOARD"), Checkerboard);
 	}
 
 	/** Default constructor. */
@@ -795,19 +833,21 @@ public:
 };
 
 // #define avoids a lot of code duplication
-#define VARIATION1(A)		VARIATION2(A,0)			VARIATION2(A,1)
-#define VARIATION2(A, B) typedef TPostProcessSubsurfaceRecombinePS<A, B> TPostProcessSubsurfaceRecombinePS##A##B; \
-	IMPLEMENT_SHADER_TYPE2(TPostProcessSubsurfaceRecombinePS##A##B, SF_Pixel);
-	VARIATION1(0) VARIATION1(1) VARIATION1(2)
+#define VARIATION1(A)		VARIATION2(A,0)			VARIATION2(A,1)		
+#define VARIATION2(A, B)	VARIATION3(A,B,0)		VARIATION3(A,B,1)
+#define VARIATION3(A, B, C) typedef TPostProcessSubsurfaceRecombinePS<A, B, C> TPostProcessSubsurfaceRecombinePS##A##B##C; \
+	IMPLEMENT_SHADER_TYPE2(TPostProcessSubsurfaceRecombinePS##A##B##C, SF_Pixel);
+VARIATION1(0) VARIATION1(1) VARIATION1(2)
 #undef VARIATION1
 #undef VARIATION2
+#undef VARIATION3
 
 // @param RecombineMode 0:fullres, 1: halfres, 2:no scattering, just reconstruct the lighting (needed for scalability)
 // @param RecombineQuality 0:low..1:high
-template <uint32 RecombineMode, uint32 RecombineQuality>
+template <uint32 RecombineMode, uint32 RecombineQuality, uint32 Checkerboard>
 void SetSubsurfaceRecombineShader(const FRenderingCompositePassContext& Context, TShaderMapRef<FPostProcessVS> &VertexShader)
 {
-	TShaderMapRef<TPostProcessSubsurfaceRecombinePS<RecombineMode, RecombineQuality> > PixelShader(Context.GetShaderMap());
+	TShaderMapRef<TPostProcessSubsurfaceRecombinePS<RecombineMode, RecombineQuality, Checkerboard> > PixelShader(Context.GetShaderMap());
 
 	static FGlobalBoundShaderState BoundShaderState;
 
@@ -862,13 +902,14 @@ void FRCPassPostProcessSubsurfaceRecombine::Process(FRenderingCompositePassConte
 	TShaderMapRef<FPostProcessVS> VertexShader(Context.GetShaderMap());
 
 	uint32 QualityCVar = CVarSSSQuality.GetValueOnRenderThread();
+	const bool bCheckerboard = FRCPassPostProcessSubsurface::RequiresCheckerboardSubsurfaceRendering( SceneContext.GetSceneColorFormat() );
 
 	// 0:low / 1:high
 	uint32 RecombineQuality = 0;
 	{
 		if(QualityCVar == -1)
 		{
-			RecombineQuality = (View.FinalPostProcessSettings.AntiAliasingMethod == AAM_TemporalAA) ? 0 : 1;
+			RecombineQuality = (View.AntiAliasingMethod == AAM_TemporalAA) ? 0 : 1;
 		}
 		else if(QualityCVar == 1)
 		{
@@ -888,24 +929,50 @@ void FRCPassPostProcessSubsurfaceRecombine::Process(FRenderingCompositePassConte
 	SCOPED_DRAW_EVENTF(Context.RHICmdList, SubsurfacePassRecombine, TEXT("SubsurfacePassRecombine Mode:%d Quality:%d"), RecombineMode, RecombineQuality);
 
 	{
-		if(RecombineQuality == 0)
+		if (bCheckerboard)
 		{
-			switch(RecombineMode)
+			if (RecombineQuality == 0)
 			{
-				case 0: SetSubsurfaceRecombineShader<0, 0>(Context, VertexShader); break;
-				case 1: SetSubsurfaceRecombineShader<1, 0>(Context, VertexShader); break;
-				case 2: SetSubsurfaceRecombineShader<2, 0>(Context, VertexShader); break;
+				switch (RecombineMode)
+				{
+				case 0: SetSubsurfaceRecombineShader<0, 0, 1>(Context, VertexShader); break;
+				case 1: SetSubsurfaceRecombineShader<1, 0, 1>(Context, VertexShader); break;
+				case 2: SetSubsurfaceRecombineShader<2, 0, 1>(Context, VertexShader); break;
 				default: check(0);
+				}
+			}
+			else
+			{
+				switch (RecombineMode)
+				{
+				case 0: SetSubsurfaceRecombineShader<0, 1, 1>(Context, VertexShader); break;
+				case 1: SetSubsurfaceRecombineShader<1, 1, 1>(Context, VertexShader); break;
+				case 2: SetSubsurfaceRecombineShader<2, 1, 1>(Context, VertexShader); break;
+				default: check(0);
+				}
 			}
 		}
 		else
 		{
-			switch(RecombineMode)
+			if (RecombineQuality == 0)
 			{
-				case 0: SetSubsurfaceRecombineShader<0, 1>(Context, VertexShader); break;
-				case 1: SetSubsurfaceRecombineShader<1, 1>(Context, VertexShader); break;
-				case 2: SetSubsurfaceRecombineShader<2, 1>(Context, VertexShader); break;
+				switch (RecombineMode)
+				{
+				case 0: SetSubsurfaceRecombineShader<0, 0, 0>(Context, VertexShader); break;
+				case 1: SetSubsurfaceRecombineShader<1, 0, 0>(Context, VertexShader); break;
+				case 2: SetSubsurfaceRecombineShader<2, 0, 0>(Context, VertexShader); break;
 				default: check(0);
+				}
+			}
+			else
+			{
+				switch (RecombineMode)
+				{
+				case 0: SetSubsurfaceRecombineShader<0, 1, 0>(Context, VertexShader); break;
+				case 1: SetSubsurfaceRecombineShader<1, 1, 0>(Context, VertexShader); break;
+				case 2: SetSubsurfaceRecombineShader<2, 1, 0>(Context, VertexShader); break;
+				default: check(0);
+				}
 			}
 		}
 	}
@@ -941,3 +1008,4 @@ FPooledRenderTargetDesc FRCPassPostProcessSubsurfaceRecombine::ComputeOutputDesc
 	// we replace the HDR SceneColor with this one
 	return Ret;
 }
+

@@ -16,6 +16,8 @@ void SGraphNodeAnimationResult::Construct(const FArguments& InArgs, UAnimGraphNo
 	this->SetCursor(EMouseCursor::CardinalCross);
 
 	this->UpdateGraphNode();
+
+	SAnimationGraphNode::Construct(SAnimationGraphNode::FArguments(), InNode);
 }
 
 TSharedRef<SWidget> SGraphNodeAnimationResult::CreateNodeContentArea()

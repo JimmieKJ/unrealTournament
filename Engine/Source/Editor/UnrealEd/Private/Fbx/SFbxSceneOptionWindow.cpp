@@ -451,8 +451,8 @@ TSharedRef<SDockTab> SFbxSceneOptionWindow::SpawnSkeletalMeshReimportTab(const F
 								.AutoWidth()
 								[
 									SNew(SButton)
-									.Text(LOCTEXT("FbxOptionWindow_SM_CreateOverride", "Create Override"))
-									.ToolTipText(LOCTEXT("FbxOptionWindow_SM_CreateOverrideTooltip", "Create Override to specify custom import options for some Skeletal meshes.\nTo assign options use context menu on Skeletal meshes."))
+									.Text(LOCTEXT("FbxOptionWindow_SKM_CreateOverride", "Create Override"))
+									.ToolTipText(LOCTEXT("FbxOptionWindow_SKM_CreateOverrideTooltip", "Create Override to specify custom import options for some Skeletal meshes.\nTo assign options use context menu on Skeletal meshes."))
 									.OnClicked(SkeletalMeshReimportListView.Get(), &SFbxSceneSkeletalMeshReimportListView::OnCreateOverrideOptions)
 								]
 								+ SHorizontalBox::Slot()
@@ -582,11 +582,28 @@ FText SFbxSceneOptionWindow::GetMaterialBasePath() const
 	return FText::FromString(MaterialBasePath);
 }
 
+bool IsMaterialBasePathValid(FString MaterialBasePath)
+{
+	bool bInvalidMaterialPath = (MaterialBasePath.Contains(TEXT("//"), ESearchCase::CaseSensitive)) ||
+								(MaterialBasePath.Len() < 2) ||
+								!MaterialBasePath.StartsWith(TEXT("/")) ||
+								!MaterialBasePath.EndsWith(TEXT("/")
+								);
+	return !bInvalidMaterialPath;
+}
+
 void SFbxSceneOptionWindow::OnMaterialBasePathCommited(const FText& InText, ETextCommit::Type InCommitType)
 {
 	MaterialBasePath = InText.ToString();
+
+	bool bMaterialPathValid = IsMaterialBasePathValid(MaterialBasePath);
 	//Commit only if all the rules are respected
-	if (MaterialBasePath.StartsWith(TEXT("/")) && MaterialBasePath.EndsWith(TEXT("/")))
+	if (MaterialBasePath.Len() == 0)
+	{
+		GlobalImportSettings->MaterialBasePath = NAME_None;
+		MaterialsTabListView->UpdateMaterialBasePath();
+	}
+	else if (bMaterialPathValid)
 	{
 		GlobalImportSettings->MaterialBasePath = FName(*MaterialBasePath);
 		MaterialsTabListView->UpdateMaterialBasePath();
@@ -626,7 +643,7 @@ FReply SFbxSceneOptionWindow::OnMaterialBasePathBrowse()
 
 FSlateColor SFbxSceneOptionWindow::GetMaterialBasePathTextColor() const
 {
-	if (MaterialBasePath.IsEmpty() || (MaterialBasePath.StartsWith(TEXT("/")) && MaterialBasePath.EndsWith(TEXT("/"))))
+	if (MaterialBasePath.IsEmpty() || IsMaterialBasePathValid(MaterialBasePath))
 	{
 		return FSlateColor::UseForeground();
 	}

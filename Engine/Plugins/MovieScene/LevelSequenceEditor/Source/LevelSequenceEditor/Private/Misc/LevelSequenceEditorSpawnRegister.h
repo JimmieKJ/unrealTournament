@@ -29,10 +29,7 @@ public:
 
 public:
 
-	void SetSequencer(const TSharedPtr<ISequencer>& Sequencer)
-	{
-		WeakSequencer = Sequencer;
-	}
+	void SetSequencer(const TSharedPtr<ISequencer>& Sequencer);
 
 public:
 
@@ -44,33 +41,43 @@ public:
 	virtual TValueOrError<FNewSpawnable, FText> CreateNewSpawnableType(UObject& SourceObject, UMovieScene& OwnerMovieScene) override;
 #endif
 
-protected:
-
-	/** Populate a map of properties that are keyed on a particular object. */
-	void PopulateKeyedPropertyMap(AActor& SpawnedObject, TMap<UObject*, TSet<UProperty*>>& OutKeyedPropertyMap);
-
 private:
 
 	/** Called when the editor selection has changed. */
 	void HandleActorSelectionChanged(const TArray<UObject*>& NewSelection, bool bForceRefresh);
 
-	/** Called when a property on a spawned object changes. */
-	void HandleAnyPropertyChanged(UObject& SpawnedObject);
+	/** Called before sequencer attempts to save the movie scene(s) it's editing */
+	void OnPreSaveMovieScene(ISequencer& InSequencer);
+
+	/** Called when a new movie scene sequence instance has been activated */
+	void OnSequenceInstanceActivated(FMovieSceneSequenceInstance& ActiveInstance);
+
+	/** Saves the default state for the specified spawnable, if an instance for it currently exists */
+	void SaveDefaultSpawnableState(const FGuid& BindingId, FMovieSceneSequenceInstance& SequenceInstance);
+
+	/** Check whether the specified objects are editable on the details panel. Called from the level editor */
+	bool AreObjectsEditable(const TArray<TWeakObjectPtr<UObject>>& InObjects) const;
+	
+	/** Called from the editor when a blueprint object replacement has occurred */
+	void OnObjectsReplaced(const TMap<UObject*, UObject*>& OldToNewInstanceMap);
 
 private:
 
 	/** Handles for delegates that we've bound to. */
-	FDelegateHandle OnActorMovedHandle, OnActorSelectionChangedHandle;
+	FDelegateHandle OnActorSelectionChangedHandle, OnAreObjectsEditableHandle;
 
 	/** Set of spawn register keys for objects that should be selected if they are spawned. */
 	TSet<FMovieSceneSpawnRegisterKey> SelectedSpawnedObjects;
 
 	/** Set of currently spawned objects */
-	TSet<FObjectKey> SpawnedObjects;
+	TMap<FGuid, TSet<FObjectKey>> SpawnedObjects;
 
 	/** True if we should clear the above selection cache when the editor selection has been changed. */
 	bool bShouldClearSelectionCache;
 
 	/** Weak pointer to the active sequencer. */
 	TWeakPtr<ISequencer> WeakSequencer;
+
+	/** Identifier for the current active level sequence */
+	FGuid ActiveSequence;
 };

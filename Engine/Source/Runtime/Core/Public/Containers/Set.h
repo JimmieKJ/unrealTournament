@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include <initializer_list>
+
 #include "Containers/SparseArray.h"
 #include "Misc/StructBuilder.h"
 #include "Templates/Sorting.h"
@@ -267,6 +269,13 @@ private:
 	}
 
 public:
+	/** Initializer list constructor. */
+	TSet(std::initializer_list<ElementType> InitList)
+		: HashSize(0)
+	{
+		Append(InitList);
+	}
+
 	/** Move constructor. */
 	TSet(TSet&& Other)
 		: HashSize(0)
@@ -319,6 +328,14 @@ public:
 		return *this;
 	}
 
+	/** Initializer list assignment operator */
+	TSet& operator=(std::initializer_list<ElementType> InitList)
+	{
+		Reset();
+		Append(InitList);
+		return *this;
+	}
+
 	/**
 	 * Removes all elements from the set, potentially leaving space allocated for an expected number of elements about to be added.
 	 * @param ExpectedNumElements - The number of elements about to be added to the set.
@@ -363,6 +380,15 @@ public:
 	FORCEINLINE void Compact()
 	{
 		if (Elements.Compact())
+		{
+			Rehash();
+		}
+	}
+
+	/** Compacts the allocated elements into a contiguous range. Does not change the iteration order of the elements. */
+	FORCEINLINE void CompactStable()
+	{
+		if (Elements.CompactStable())
 		{
 			Rehash();
 		}
@@ -503,7 +529,7 @@ public:
 	void Append(const TArray<ElementType, ArrayAllocator>& InElements)
 	{
 		Reserve(Elements.Num() + InElements.Num());
-		for (auto& Element : InElements)
+		for (const ElementType& Element : InElements)
 		{
 			Add(Element);
 		}
@@ -513,7 +539,7 @@ public:
 	void Append(TArray<ElementType, ArrayAllocator>&& InElements)
 	{
 		Reserve(Elements.Num() + InElements.Num());
-		for (auto& Element : InElements)
+		for (ElementType& Element : InElements)
 		{
 			Add(MoveTemp(Element));
 		}
@@ -528,7 +554,7 @@ public:
 	void Append(const TSet<ElementType, KeyFuncs, OtherAllocator>& OtherSet)
 	{
 		Reserve(Elements.Num() + OtherSet.Num());
-		for (auto& Element : OtherSet)
+		for (const ElementType& Element : OtherSet)
 		{
 			Add(Element);
 		}
@@ -538,11 +564,20 @@ public:
 	void Append(TSet<ElementType, KeyFuncs, OtherAllocator>&& OtherSet)
 	{
 		Reserve(Elements.Num() + OtherSet.Num());
-		for (auto& Element : OtherSet)
+		for (ElementType& Element : OtherSet)
 		{
 			Add(MoveTemp(Element));
 		}
 		OtherSet.Reset();
+	}
+
+	void Append(std::initializer_list<ElementType> InitList)
+	{
+		Reserve(Elements.Num() + (int32)InitList.size());
+		for (const ElementType& Element : InitList)
+		{
+			Add(Element);
+		}
 	}
 
 	/**
@@ -1034,7 +1069,7 @@ private:
 		}
 
 		/** conversion to "bool" returning true if the iterator is valid. */
-		FORCEINLINE_EXPLICIT_OPERATOR_BOOL() const
+		FORCEINLINE explicit operator bool() const
 		{ 
 			return !!ElementIt; 
 		}
@@ -1108,10 +1143,8 @@ private:
 			return *this;
 		}
 
-		SAFE_BOOL_OPERATORS(TBaseKeyIterator<bConst>)
-
 		/** conversion to "bool" returning true if the iterator is valid. */
-		FORCEINLINE_EXPLICIT_OPERATOR_BOOL() const
+		FORCEINLINE explicit operator bool() const
 		{ 
 			return Id.IsValidId(); 
 		}

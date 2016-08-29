@@ -3,10 +3,15 @@
 #pragma once
 
 #include "ISequenceRecorder.h"
+#include "MovieSceneAnimationSectionRecorder.h"
+#include "MovieScene3DTransformSectionRecorder.h"
+#include "MovieSceneMultiPropertyRecorder.h"
 
 struct FSequenceRecorder
 {
 public:
+	static FName MovieScenePropertyRecorderFactoryName;
+
 	/** Singleton accessor */
 	static FSequenceRecorder& Get();
 
@@ -73,6 +78,24 @@ public:
 	/** Handle actors being de-spawned */
 	void HandleActorDespawned(AActor* Actor);
 
+	/** Get the built-in animation factory (as this uses special case handling) */
+	const FMovieSceneAnimationSectionRecorderFactory& GetAnimationRecorderFactory() const
+	{
+		return AnimationSectionRecorderFactory;
+	}
+
+	/** Get the built-in transform factory (as this uses special case handling) */
+	const FMovieScene3DTransformSectionRecorderFactory& GetTransformRecorderFactory() const
+	{
+		return TransformSectionRecorderFactory;
+	}
+
+	/** Get the name of the next sequence we are targeting */
+	const FString& GetNextSequenceName() const { return NextSequenceName; }
+
+	/** Refresh the name of the next sequence we will be recording */
+	void RefreshNextSequence();
+
 private:
 	/** Starts recording a sequence, possibly delayed */
 	bool StartRecordingInternal(UWorld* World);
@@ -104,6 +127,8 @@ private:
 
 	bool bQueuedRecordingsDirty;
 
+	bool bWasImmersive;
+
 	/** The delay we are currently waiting for */
 	float CurrentDelay;
 
@@ -128,6 +153,18 @@ private:
 	/** Cached sequence name to record to */
 	FString SequenceName;
 
+	/** The next sequence we will be targeting. Name can change depending on assets being deleted, moved, renamed etc. */
+	FString NextSequenceName;
+
 	/** Cached sequence path to record to */
 	FString PathToRecordTo;
+
+	/** Built-in animation recorder factory */
+	FMovieSceneAnimationSectionRecorderFactory AnimationSectionRecorderFactory;
+
+	/** Built-in transform recorder factory */
+	FMovieScene3DTransformSectionRecorderFactory TransformSectionRecorderFactory;
+
+	/** Built in multi-property recorder */
+	FMovieSceneMultiPropertyRecorderFactory MultiPropertySectionRecorder;
 };

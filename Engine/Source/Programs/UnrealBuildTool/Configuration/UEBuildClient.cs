@@ -22,7 +22,7 @@ namespace UnrealBuildTool
 		{
 			if (ShouldCompileMonolithic())
 			{
-				if (!UnrealBuildTool.IsDesktopPlatform(Platform) || Platform == UnrealTargetPlatform.WinRT || Platform == UnrealTargetPlatform.WinRT_ARM)
+				if (!UnrealBuildTool.IsDesktopPlatform(Platform))
 				{
 					// We are compiling for a console...
 					// We want the output to go into the <GAME>\Binaries folder

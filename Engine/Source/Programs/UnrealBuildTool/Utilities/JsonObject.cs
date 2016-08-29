@@ -164,6 +164,27 @@ namespace UnrealBuildTool
 			return true;
 		}
 
+		public double GetDoubleField(string FieldName)
+		{
+			double DoubleValue;
+			if (!TryGetDoubleField(FieldName, out DoubleValue))
+			{
+				throw new JsonParseException("Missing or invalid '{0}' field", FieldName);
+			}
+			return DoubleValue;
+		}
+
+		public bool TryGetDoubleField(string FieldName, out double Result)
+		{
+			object RawValue;
+			if (!RawObject.TryGetValue(FieldName, out RawValue) || !double.TryParse(RawValue.ToString(), out Result))
+			{
+				Result = 0.0;
+				return false;
+			}
+			return true;
+		}
+
 		public T GetEnumField<T>(string FieldName) where T : struct
 		{
 			T EnumValue;
@@ -324,17 +345,28 @@ namespace UnrealBuildTool
 		{
 			WriteCommaNewline();
 
-			Writer.Write("{0}\"{1}\"", Indent, Value);
+			Writer.Write(Indent);
+			WriteEscapedString(Value);
 
 			bRequiresComma = true;
 		}
 
 		public void WriteValue(string Name, string Value)
 		{
-			WriteValueInternal(Name, '"' + (Value ?? "").Replace("\\", "\\\\") + '"');
+			WriteCommaNewline();
+
+			Writer.Write("{0}\"{1}\" : ", Indent, Name);
+			WriteEscapedString(Value);
+
+			bRequiresComma = true;
 		}
 
 		public void WriteValue(string Name, int Value)
+		{
+			WriteValueInternal(Name, Value.ToString());
+		}
+
+		public void WriteValue(string Name, double Value)
 		{
 			WriteValueInternal(Name, Value.ToString());
 		}
@@ -363,6 +395,53 @@ namespace UnrealBuildTool
 			Writer.Write("{0}\"{1}\" : {2}", Indent, Name, Value);
 
 			bRequiresComma = true;
+		}
+
+		void WriteEscapedString(string Value)
+		{
+			// Escape any characters which may not appear in a JSON string (see http://www.json.org).
+			Writer.Write("\"");
+			if(Value != null)
+			{
+				for(int Idx = 0; Idx < Value.Length; Idx++)
+				{
+					switch(Value[Idx])
+					{
+						case '\"':
+							Writer.Write("\\\"");
+							break;
+						case '\\':
+							Writer.Write("\\\\");
+							break;
+						case '\b':
+							Writer.Write("\\b");
+							break;
+						case '\f':
+							Writer.Write("\\f");
+							break;
+						case '\n':
+							Writer.Write("\\n");
+							break;
+						case '\r':
+							Writer.Write("\\r");
+							break;
+						case '\t':
+							Writer.Write("\\t");
+							break;
+						default:
+							if(Char.IsControl(Value[Idx]))
+							{
+								Writer.Write("\\u{0:X4}", (int)Value[Idx]);
+							}
+							else
+							{
+								Writer.Write(Value[Idx]);
+							}
+							break;
+					}
+				}
+			}
+			Writer.Write("\"");
 		}
 	}
 }

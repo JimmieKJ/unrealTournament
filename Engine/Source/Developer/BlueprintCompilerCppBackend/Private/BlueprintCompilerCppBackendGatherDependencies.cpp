@@ -172,6 +172,24 @@ struct FFindHeadersToInclude : public FGatherConvertedClassDependenciesHelperBas
 				}
 			}
 		}
+
+		// Include classes of native subobjects
+		if (BPGC)
+		{
+			UClass* NativeSuperClass = BPGC->GetSuperClass();
+			for (; NativeSuperClass && !NativeSuperClass->HasAnyClassFlags(CLASS_Native); NativeSuperClass = NativeSuperClass->GetSuperClass())
+			{}
+			UObject* NativeCDO = NativeSuperClass ? NativeSuperClass->GetDefaultObject(false) : nullptr;
+			if (NativeCDO)
+			{
+				TArray<UObject*> DefaultSubobjects;
+				NativeCDO->GetDefaultSubobjects(DefaultSubobjects);
+				for (UObject* DefaultSubobject : DefaultSubobjects)
+				{
+					IncludeTheHeaderInBody(DefaultSubobject ? DefaultSubobject->GetClass() : nullptr);
+				}
+			}
+		}
 	}
 
 	virtual void HandleObjectReference(UObject*& InObject, const UObject* InReferencingObject, const UProperty* InReferencingProperty) override
@@ -262,8 +280,9 @@ FGatherConvertedClassDependencies::FGatherConvertedClassDependencies(UStruct* In
 	static const FBoolConfigValueHelper DontNativizeDataOnlyBP(TEXT("BlueprintNativizationSettings"), TEXT("bDontNativizeDataOnlyBP"));
 	if (DontNativizeDataOnlyBP)
 	{
-		auto RemoveFieldsFromDataOnlyBP = [](TSet<UField*>& FieldSet)
+		auto RemoveFieldsFromDataOnlyBP = [&](TSet<UField*>& FieldSet)
 		{
+			TSet<UField*> FieldsToAdd;
 			for (auto Iter = FieldSet.CreateIterator(); Iter; ++Iter)
 			{
 				UClass* CurrentClass = (*Iter) ? (*Iter)->GetOwnerClass() : nullptr;
@@ -271,14 +290,40 @@ FGatherConvertedClassDependencies::FGatherConvertedClassDependencies(UStruct* In
 				if (CurrentBP && FBlueprintEditorUtils::IsDataOnlyBlueprint(CurrentBP))
 				{
 					Iter.RemoveCurrent();
+					FieldsToAdd.Add(GetFirstNativeOrConvertedClass(CurrentClass, true));
 				}
 			}
+
+			FieldSet.Append(FieldsToAdd);
 		};
 		RemoveFieldsFromDataOnlyBP(IncludeInHeader);
 		RemoveFieldsFromDataOnlyBP(DeclareInHeader);
 		RemoveFieldsFromDataOnlyBP(IncludeInBody);
 	}
 }
+
+UClass* FGatherConvertedClassDependencies::GetFirstNativeOrConvertedClass(UClass* InClass, bool bExcludeBPDataOnly) const
+{
+	check(InClass);
+	for (UClass* ItClass = InClass; ItClass; ItClass = ItClass->GetSuperClass())
+	{
+		UBlueprintGeneratedClass* BPGC = Cast<UBlueprintGeneratedClass>(ItClass);
+		if (ItClass->HasAnyClassFlags(CLASS_Native) || WillClassBeConverted(BPGC))
+		{
+			if (bExcludeBPDataOnly)
+			{
+				UBlueprint* BP = BPGC ? Cast<UBlueprint>(BPGC->ClassGeneratedBy) : nullptr;
+				if (BP && FBlueprintEditorUtils::IsDataOnlyBlueprint(BP))
+				{
+					continue;
+				}
+			}
+			return ItClass;
+		}
+	}
+	check(false);
+	return nullptr;
+};
 
 UClass* FGatherConvertedClassDependencies::FindOriginalClass(const UClass* InClass) const
 {
@@ -337,30 +382,19 @@ void FGatherConvertedClassDependencies::DependenciesForHeader()
 
 	for (auto Obj : ObjectsToCheck)
 	{
-		auto Property = Cast<const UProperty>(Obj);
-		auto OwnerProperty = IsValid(Property) ? Property->GetOwnerProperty() : nullptr;
+		const UProperty* Property = Cast<const UProperty>(Obj);
+		if (const UArrayProperty* ArrayProperty = Cast<UArrayProperty>(Property))
+		{
+			Property = ArrayProperty->Inner;
+		}
+		const UProperty* OwnerProperty = IsValid(Property) ? Property->GetOwnerProperty() : nullptr;
 		const bool bIsParam = OwnerProperty && (0 != (OwnerProperty->PropertyFlags & CPF_Parm)) && OwnerProperty->IsIn(OriginalStruct);
 		const bool bIsMemberVariable = OwnerProperty && (OwnerProperty->GetOuter() == OriginalStruct);
 		if (bIsParam || bIsMemberVariable)
 		{
 			if (auto ObjectProperty = Cast<const UObjectPropertyBase>(Property))
 			{
-				auto GetFirstNativeOrConvertedClass = [](FGatherConvertedClassDependencies& Dependencies, UClass* InClass) -> UClass*
-				{
-					check(InClass);
-					for (UClass* ItClass = InClass; ItClass; ItClass = ItClass->GetSuperClass())
-					{
-						auto BPGC = Cast<UBlueprintGeneratedClass>(ItClass);
-						if (ItClass->HasAnyClassFlags(CLASS_Native) || Dependencies.WillClassBeConverted(BPGC))
-						{
-							return ItClass;
-						}
-					}
-					check(false);
-					return nullptr;
-				};
-
-				DeclareInHeader.Add(GetFirstNativeOrConvertedClass(*this, ObjectProperty->PropertyClass));
+				DeclareInHeader.Add(GetFirstNativeOrConvertedClass(ObjectProperty->PropertyClass));
 			}
 			else if (auto InterfaceProperty = Cast<const UInterfaceProperty>(Property))
 			{
@@ -368,11 +402,18 @@ void FGatherConvertedClassDependencies::DependenciesForHeader()
 			}
 			else if (auto DelegateProperty = Cast<const UDelegateProperty>(Property))
 			{
-				IncludeInHeader.Add(DelegateProperty->SignatureFunction ? DelegateProperty->SignatureFunction->GetOwnerClass() : nullptr);
+				IncludeInHeader.Add(DelegateProperty->SignatureFunction ? DelegateProperty->SignatureFunction->GetOwnerStruct() : nullptr);
 			}
+			/* MC Delegate signatures are recreated in local scope anyway.
 			else if (auto MulticastDelegateProperty = Cast<const UMulticastDelegateProperty>(Property))
 			{
 				IncludeInHeader.Add(MulticastDelegateProperty->SignatureFunction ? MulticastDelegateProperty->SignatureFunction->GetOwnerClass() : nullptr);
+			}
+			*/
+			else if (const UByteProperty* ByteProperty = Cast<const UByteProperty>(Property))
+			{ 
+				// HeaderReferenceFinder.FindReferences(Obj); cannot find this enum..
+				IncludeInHeader.Add(ByteProperty->Enum);
 			}
 			else
 			{
@@ -402,10 +443,24 @@ void FGatherConvertedClassDependencies::DependenciesForHeader()
 		}
 	}
 
+	// DEFAULT VALUES FROM UDS:
+	UUserDefinedStruct* UDS = Cast<UUserDefinedStruct>(OriginalStruct);
+	if (UDS)
+	{
+		FStructOnScope StructOnScope(UDS);
+		UDS->InitializeDefaultValue(StructOnScope.GetStructMemory());
+		for (TFieldIterator<UObjectPropertyBase> PropertyIt(UDS); PropertyIt; ++PropertyIt)
+		{
+			UObject* DefaultValueObject = ((UObjectPropertyBase*)*PropertyIt)->GetObjectPropertyValue_InContainer(StructOnScope.GetStructMemory());
+			UField* ObjAsField = Cast<UField>(DefaultValueObject);
+			UField* FieldForHeader = ObjAsField ? ObjAsField : (DefaultValueObject ? DefaultValueObject->GetClass() : nullptr);
+			IncludeInHeader.Add(FieldForHeader);
+		}
+	}
 
+	// REMOVE UNNECESSARY HEADERS
 	UClass* AsBPGC = Cast<UBlueprintGeneratedClass>(OriginalStruct);
 	UClass* OriginalClassFromOriginalPackage = AsBPGC ? FindOriginalClass(AsBPGC) : nullptr;
-
 	const UPackage* OriginalStructPackage = OriginalStruct ? OriginalStruct->GetOutermost() : nullptr;
 	for (auto Iter = IncludeInHeader.CreateIterator(); Iter; ++Iter)
 	{

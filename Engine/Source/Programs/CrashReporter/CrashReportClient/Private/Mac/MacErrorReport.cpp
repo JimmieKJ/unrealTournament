@@ -63,32 +63,37 @@ FString FMacErrorReport::FindCrashedAppPath() const
 	return "";
 }
 
-FString FMacErrorReport::FindMostRecentErrorReport()
+void FMacErrorReport::FindMostRecentErrorReports(TArray<FString>& ErrorReportPaths, const FTimespan& MaxCrashReportAge)
 {
 	auto& PlatformFile = FPlatformFileManager::Get().GetPlatformFile();
 
-	auto DirectoryModifiedTime = FDateTime::MinValue();
-	FString RecentReportDirectory;
-	auto ReportFinder = MakeDirectoryVisitor([&](const TCHAR* FilenameOrDirectory, bool bIsDirectory) {
+	FDateTime MinCreationTime = FDateTime::UtcNow() - MaxCrashReportAge;
+	auto ReportFinder = MakeDirectoryVisitor([&](const TCHAR* FilenameOrDirectory, bool bIsDirectory)
+	{
 		if (bIsDirectory)
 		{
 			auto TimeStamp = PlatformFile.GetTimeStamp(FilenameOrDirectory);
-			if (TimeStamp > DirectoryModifiedTime)
+			if (TimeStamp > MinCreationTime)
 			{
-				RecentReportDirectory = FilenameOrDirectory;
-				DirectoryModifiedTime = TimeStamp;
+				ErrorReportPaths.Add(FilenameOrDirectory);
 			}
 		}
 		return true;
 	});
 
 	FString AllReportsDirectory = FPaths::GameAgnosticSavedDir() / TEXT("Crashes");
-	
+
 	PlatformFile.IterateDirectory(
 		*AllReportsDirectory,
 		ReportFinder);
 
-	return RecentReportDirectory;
+	ErrorReportPaths.Sort([&](const FString& L, const FString& R)
+	{
+		auto TimeStampL = PlatformFile.GetTimeStamp(*L);
+		auto TimeStampR = PlatformFile.GetTimeStamp(*R);
+
+		return TimeStampL > TimeStampR;
+	});
 }
 
 FText FMacErrorReport::DiagnoseReport() const

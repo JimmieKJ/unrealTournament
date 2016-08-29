@@ -25,6 +25,7 @@ AGameplayCueNotify_Actor::AGameplayCueNotify_Actor(const FObjectInitializer& Obj
 	bHasHandledOnActiveEvent = false;
 	bHasHandledWhileActiveEvent = false;
 	bInRecycleQueue = false;
+	bAutoAttachToOwner = false;
 }
 
 #if WITH_EDITOR
@@ -65,6 +66,7 @@ void AGameplayCueNotify_Actor::Serialize(FArchive& Ar)
 void AGameplayCueNotify_Actor::BeginPlay()
 {
 	Super::BeginPlay();
+	AttachToOwnerIfNecessary();
 }
 
 void AGameplayCueNotify_Actor::SetOwner( AActor* InNewOwner )
@@ -76,6 +78,18 @@ void AGameplayCueNotify_Actor::SetOwner( AActor* InNewOwner )
 	if (AActor* NewOwner = GetOwner())
 	{
 		NewOwner->OnDestroyed.AddDynamic(this, &AGameplayCueNotify_Actor::OnOwnerDestroyed);
+		AttachToOwnerIfNecessary();
+	}
+}
+
+void AGameplayCueNotify_Actor::AttachToOwnerIfNecessary()
+{
+	if (AActor* MyOwner = GetOwner())
+	{
+		if (bAutoAttachToOwner)
+		{
+			AttachToActor(MyOwner, FAttachmentTransformRules::SnapToTargetNotIncludingScale);
+		}
 	}
 }
 
@@ -194,7 +208,7 @@ void AGameplayCueNotify_Actor::HandleGameplayCue(AActor* MyTarget, EGameplayCueE
 	}
 }
 
-void AGameplayCueNotify_Actor::OnOwnerDestroyed()
+void AGameplayCueNotify_Actor::OnOwnerDestroyed(AActor* DestroyedActor)
 {
 	if (bInRecycleQueue)
 	{
@@ -228,18 +242,22 @@ bool AGameplayCueNotify_Actor::OnRemove_Implementation(AActor* MyTarget, const F
 
 void AGameplayCueNotify_Actor::GameplayCueFinishedCallback()
 {
-	if (FinishTimerHandle.IsValid())
+	UWorld* MyWorld = GetWorld();
+	if (MyWorld) // Teardown cases in PIE may cause the world to be invalid
 	{
-		GetWorld()->GetTimerManager().ClearTimer(FinishTimerHandle);
-		FinishTimerHandle.Invalidate();
-	}
+		if (FinishTimerHandle.IsValid())
+		{
+			MyWorld->GetTimerManager().ClearTimer(FinishTimerHandle);
+			FinishTimerHandle.Invalidate();
+		}
 
-	// Make sure OnRemoved has been called at least once if WhileActive was called (for possible cleanup)
-	if (bHasHandledWhileActiveEvent && !bHasHandledOnRemoveEvent)
-	{
-		// Force onremove to be called with null parameters
-		bHasHandledOnRemoveEvent = true;
-		OnRemove(nullptr, FGameplayCueParameters());
+		// Make sure OnRemoved has been called at least once if WhileActive was called (for possible cleanup)
+		if (bHasHandledWhileActiveEvent && !bHasHandledOnRemoveEvent)
+		{
+			// Force onremove to be called with null parameters
+			bHasHandledOnRemoveEvent = true;
+			OnRemove(nullptr, FGameplayCueParameters());
+		}
 	}
 	
 	UAbilitySystemGlobals::Get().GetGameplayCueManager()->NotifyGameplayCueActorFinished(this);
@@ -252,14 +270,50 @@ bool AGameplayCueNotify_Actor::GameplayCuePendingRemove()
 
 bool AGameplayCueNotify_Actor::Recycle()
 {
+	
+
 	bHasHandledOnActiveEvent = false;
 	bHasHandledWhileActiveEvent = false;
 	bHasHandledOnRemoveEvent = false;
 	ClearOwnerDestroyedDelegate();
 	if (FinishTimerHandle.IsValid())
 	{
-		GetWorld()->GetTimerManager().ClearTimer(FinishTimerHandle);
 		FinishTimerHandle.Invalidate();
 	}
-	return false;
+
+	// End timeline components
+	TInlineComponentArray<UTimelineComponent*> TimelineComponents(this);
+	for (UTimelineComponent* Timeline : TimelineComponents)
+	{
+		if (Timeline)
+		{
+			Timeline->SetPlaybackPosition(0.f, false, false);
+			Timeline->Stop();
+		}
+	}
+
+	UWorld* MyWorld = GetWorld();
+	if (MyWorld)
+	{
+		// Note, ::Recycle is called on CDOs too, so that even "new" GCs start off in a recycled state.
+		// So, its ok if there is no valid world here, just skip the stuff that has to do with worlds.
+
+		// End latent actions
+		MyWorld->GetLatentActionManager().RemoveActionsForObject(this);
+
+		// End all timers
+		MyWorld->GetTimerManager().ClearAllTimersForObject(this);
+	}
+
+	// Clear owner, hide, detach from parent
+	SetOwner(nullptr);
+	SetActorHiddenInGame(true);
+	DetachRootComponentFromParent();
+
+	return true;
+}
+
+void AGameplayCueNotify_Actor::ReuseAfterRecycle()
+{
+	SetActorHiddenInGame(false);
 }

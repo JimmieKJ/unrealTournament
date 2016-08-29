@@ -24,13 +24,14 @@ public:
 	virtual void Shutdown() override {}
 	virtual void PassLoadingScreenWindowBackToGame() const override {}
 	virtual void SetupLoadingScreen(const FLoadingScreenAttributes& InLoadingScreenAttributes) override {}
-	virtual bool PlayMovie() override { return false;}
+	virtual bool PlayMovie() override { return false; }
 	virtual void StopMovie() override {}
 	virtual void WaitForMovieToFinish() override {}
 	virtual bool IsLoadingFinished() const override {return true;}
 	virtual bool IsMovieCurrentlyPlaying() const override  {return false;}
 	virtual bool LoadingScreenIsPrepared() const override {return false;}
 	virtual void SetupLoadingScreenFromIni() override {}
+	virtual FOnPrepareLoadingScreen& OnPrepareLoadingScreen() override { return OnPrepareLoadingScreenDelegate; }
 	virtual FOnMoviePlaybackFinished& OnMoviePlaybackFinished() override { return OnMoviePlaybackFinishedDelegate; }
 	virtual void SetSlateOverlayWidget(TSharedPtr<SWidget> NewOverlayWidget) override { }
 	virtual bool WillAutoCompleteWhenLoadFinishes() override { return false; }
@@ -44,5 +45,9 @@ private:
 private:
 	/** Singleton handle */
 	static TSharedPtr<FNullGameMoviePlayer> MoviePlayer;
+	
+	/** Called before a movie is queued up to play to configure the movie player accordingly. */
+	FOnPrepareLoadingScreen OnPrepareLoadingScreenDelegate;
+
 	FOnMoviePlaybackFinished OnMoviePlaybackFinishedDelegate;
 };

@@ -71,6 +71,12 @@ FTextBlockStyle::FTextBlockStyle()
 
 const FName FTextBlockStyle::TypeName( TEXT("FTextBlockStyle") );
 
+void FTextBlockStyle::GetResources(TArray< const FSlateBrush* >& OutBrushes) const
+{
+	OutBrushes.Add(&HighlightShape);
+	OutBrushes.Add(&UnderlineBrush);
+}
+
 const FTextBlockStyle& FTextBlockStyle::GetDefault()
 {
 	static TSharedPtr< FTextBlockStyle > Default;
@@ -372,6 +378,7 @@ const FSearchBoxStyle& FSearchBoxStyle::GetDefault()
 }
 
 FSliderStyle::FSliderStyle()
+	: BarThickness(2.0f)
 {
 }
 

@@ -45,6 +45,20 @@ namespace physx
 	struct PxFilterData;
 }
 
+
+/**
+ * Default number of inlined elements used in TInlinePxShapeArray.
+ * Increase if for instance character meshes use more than this number of physics bodies and are involved in many queries.
+ */
+enum { NumInlinedPxShapeElements = 32 };
+
+/** Array that is intended for use when fetching shapes from a rigid body. */
+typedef TArray<physx::PxShape*, TInlineAllocator<NumInlinedPxShapeElements>> FInlinePxShapeArray;
+
+/** Helper to fill FInlinePxShapeArray from a PxRigidActor. Returns number of shapes added. */
+ENGINE_API int32 FillInlinePxShapeArray(FInlinePxShapeArray& Array, const physx::PxRigidActor& RigidActor);
+
+
 #endif // WITH_PHYSX
 
 UENUM(BlueprintType)
@@ -97,6 +111,12 @@ struct ENGINE_API FCollisionResponse
 	void SetCollisionResponseContainer(const FCollisionResponseContainer& InResponseToChannels);
 	void SetResponsesArray(const TArray<FResponseChannel>& InChannelResponses);
 	void UpdateResponseContainerFromArray();
+
+	bool operator==(const FCollisionResponse& Other) const;
+	bool operator!=(const FCollisionResponse& Other) const
+	{
+		return !(*this == Other);
+	}
 
 private:
 
@@ -623,6 +643,9 @@ public:
 	 * Takes a welded body and unwelds it. This function does not create the new body, it only removes the old one */
 	void UnWeld(FBodyInstance* Body);
 
+	/** Finds all children that are technically welded to us (for example kinematics are welded but not as far as physx is concerned) and apply the actual physics engine weld on them*/
+	void ApplyWeldOnChildren();
+
 	/**
 	 * After adding/removing shapes call this function to update mass distribution etc... */
 	void PostShapeChange();
@@ -995,11 +1018,24 @@ public:
 	/**
 	 * Get distance to the body surface if available
 	 * It is only valid if BodyShape is convex
-	 * If point is inside or shape is not convex, it will return 0.f
+	 * If point is inside distance it will be 0
+	 * Returns false if geometry is not supported
 	 *
 	 * @param Point				Point in world space
+	 * @param OutDistanceSquared How far from the instance the point is. 0 if inside the shape
 	 * @param OutPointOnBody	Point on the surface of body closest to Point
+	 * @return true if a distance to the body was found and OutDistanceSquared has been populated
 	 */
+	bool GetSquaredDistanceToBody(const FVector& Point, float& OutDistanceSquared, FVector& OutPointOnBody) const;
+
+	/**
+	* Get the square of the distance to the body surface if available
+	* It is only valid if BodyShape is convex
+	* If point is inside or shape is not convex, it will return 0.f
+	*
+	* @param Point				Point in world space
+	* @param OutPointOnBody	Point on the surface of body closest to Point
+	*/
 	float GetDistanceToBody(const FVector& Point, FVector& OutPointOnBody) const;
 
 	/** 
@@ -1051,6 +1087,9 @@ private:
 	 * for example, they would like to re-define CollisionEnabled or ObjectType or ResponseChannels
 	 */
 	void InvalidateCollisionProfileName();
+
+	/** Moves welded bodies within a rigid body (updates their shapes) */
+	void SetWeldedBodyTransform(FBodyInstance* TheirBody, const FTransform& NewTransform);
 		
 	/**
 	 * Return true if the collision profile name is valid
@@ -1060,13 +1099,17 @@ private:
 	template<typename AllocatorType>
 	bool OverlapTestForBodiesImpl(const FVector& Position, const FQuat& Rotation, const TArray<FBodyInstance*, AllocatorType>& Bodies) const;
 
+	friend class UPhysicsAsset;
 	friend class UCollisionProfile;
 	friend class FBodyInstanceCustomization;
+	friend struct FUpdateCollisionResponseHelper;
+	friend class FBodySetupDetails;
 	
 	friend struct FInitBodiesHelper<true>;
 	friend struct FInitBodiesHelper<false>;
 	friend class FDerivedDataPhysXBinarySerializer;
 	friend class FBodyInstanceCustomizationHelper;
+	friend class FFoliageTypeCustomizationHelpers;
 
 #if WITH_BOX2D
 
@@ -1110,10 +1153,10 @@ private:
 	/**
 	 * Type of collision enabled.
 	 * 
-	 *	No Collision      : No collision is performed against this body.
-	 *	Query Only        : This body is used only for collision queries (raycasts, sweeps, and overlaps).
-	 *	Physics Only      : This body is used only for physics collision.
-	 *	Collision Enabled : This body interacts with all collision (Query and Physics).
+	 *	No Collision      : Will not create any representation in the physics engine. Cannot be used for spatial queries (raycasts, sweeps, overlaps) or simulation (rigid body, constraints). Best performance possible (especially for moving objects)
+	 *	Query Only        : Only used for spatial queries (raycasts, sweeps, and overlaps). Cannot be used for simulation (rigid body, constraints). Useful for character movement and things that do not need physical simulation. Performance gains by keeping data out of simulation tree.
+	 *	Physics Only      : Only used only for physics simulation (rigid body, constraints). Cannot be used for spatial queries (raycasts, sweeps, overlaps). Useful for jiggly bits on characters that do not need per bone detection. Performance gains by keeping data out of query tree
+	 *	Collision Enabled : Can be used for both spatial queries (raycasts, sweeps, overlaps) and simulation (rigid body, constraints).
 	 */
 	UPROPERTY(EditAnywhere, Category=Custom)
 	TEnumAsByte<ECollisionEnabled::Type> CollisionEnabled;

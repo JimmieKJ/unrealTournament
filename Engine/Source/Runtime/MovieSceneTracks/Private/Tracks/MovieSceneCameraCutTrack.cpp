@@ -26,14 +26,36 @@ void UMovieSceneCameraCutTrack::AddNewCameraCut(FGuid CameraHandle, float StartT
 {
 	Modify();
 
-	UMovieSceneCameraCutSection* NewSection = NewObject<UMovieSceneCameraCutSection>(this, NAME_None, RF_Transactional);
+
+	float NewSectionEndTime = FindEndTimeForCameraCut(StartTime);
+
+	// If there's an existing section, just swap the camera guid
+	UMovieSceneCameraCutSection* ExistingSection = nullptr;
+	for (auto Section : Sections)
 	{
-		NewSection->SetStartTime(StartTime);
-		NewSection->SetEndTime(FindEndTimeForCameraCut(StartTime));
-		NewSection->SetCameraGuid(CameraHandle);
+		if (Section->GetStartTime() == StartTime && Section->GetEndTime() == NewSectionEndTime)
+		{
+			ExistingSection = Cast<UMovieSceneCameraCutSection>(Section);
+			break;
+		}
 	}
 
-	Sections.Add(NewSection);
+	UMovieSceneCameraCutSection* NewSection = ExistingSection;
+	if (ExistingSection != nullptr)
+	{
+		ExistingSection->SetCameraGuid(CameraHandle);
+	}
+	else
+	{
+		NewSection = NewObject<UMovieSceneCameraCutSection>(this, NAME_None, RF_Transactional);
+		{
+			NewSection->SetStartTime(StartTime);
+			NewSection->SetEndTime(FindEndTimeForCameraCut(StartTime));
+			NewSection->SetCameraGuid(CameraHandle);
+		}
+
+		Sections.Add(NewSection);
+	}
 
 	// When a new CameraCut is added, sort all CameraCuts to ensure they are in the correct order
 	MovieSceneHelpers::SortConsecutiveSections(Sections);

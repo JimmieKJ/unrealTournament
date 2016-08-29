@@ -19,6 +19,7 @@ public class SlateReflector : ModuleRules
 				"Slate",
 				"SlateCore",
 				"Json",
+				"AssetRegistry",
 			}
 		);
 

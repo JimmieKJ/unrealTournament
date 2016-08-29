@@ -24,8 +24,8 @@ struct FPlatformOpenGLContext;
 #ifndef OPENGL_ES2
 #define OPENGL_ES2	0
 #endif
-#ifndef OPENGL_ES31
-#define OPENGL_ES31	0
+#ifndef OPENGL_ESDEFERRED
+#define OPENGL_ESDEFERRED	0
 #endif
 #ifndef OPENGL_GL3
 #define OPENGL_GL3	0
@@ -83,6 +83,7 @@ public:
 	static FORCEINLINE bool SupportsDepthStencilReadSurface()			{ return true; }
 	static FORCEINLINE bool SupportsFloatReadSurface()					{ return true; }
 	static FORCEINLINE bool SupportsMultipleRenderTargets()				{ return true; }
+	static FORCEINLINE bool SupportsWideMRT()							{ return true; }
 	static FORCEINLINE bool SupportsMultisampledTextures()				{ return true; }
 	static FORCEINLINE bool SupportsFences()							{ return true; }
 	static FORCEINLINE bool SupportsPolygonMode()						{ return true; }
@@ -115,6 +116,7 @@ public:
 	static FORCEINLINE bool SupportsShaderDepthStencilFetch()			{ return false; }
 	static FORCEINLINE bool SupportsVertexArrayBGRA()					{ return true; }
 	static FORCEINLINE bool SupportsBGRA8888()							{ return true; }
+	static FORCEINLINE bool SupportsBGRA8888RenderTarget()				{ return true; }
 	static FORCEINLINE bool SupportsSRGB()								{ return true; }
 	static FORCEINLINE bool SupportsRGBA8()								{ return true; }
 	static FORCEINLINE bool SupportsDXT()								{ return true; }
@@ -153,8 +155,9 @@ public:
 	static FORCEINLINE bool SupportsSeparateShaderObjects()				{ return false; }
 	static FORCEINLINE bool NeedsVertexAttribRemapTable()				{ return false; }
 	static FORCEINLINE bool SupportsHDR32bppEncodeModeIntrinsic()		{ return false; }
-
-
+	static FORCEINLINE bool SupportsRGB10A2()							{ return true; }
+	static FORCEINLINE bool SupportsProgramBinary()						{ return false; }
+	
 	static FORCEINLINE GLenum GetDepthFormat()							{ return GL_DEPTH_COMPONENT16; }
 	static FORCEINLINE GLenum GetShadowDepthFormat()					{ return GL_DEPTH_COMPONENT16; }
 	static FORCEINLINE GLenum GetVertexHalfFloatFormat()				{ return GL_HALF_FLOAT; }
@@ -330,6 +333,10 @@ public:
 	static FORCEINLINE void MakeTextureHandleResident(GLuint64 TextureHandle) UGL_REQUIRED_VOID
 	static FORCEINLINE void MakeTextureHandleNonResident(GLuint64 TextureHandle) UGL_REQUIRED_VOID
 	static FORCEINLINE void UniformHandleui64(GLint Location, GLuint64 Value) UGL_REQUIRED_VOID
+
+	static FORCEINLINE void GetProgramBinary(GLuint Program, GLsizei BufSize, GLsizei *Length, GLenum *BinaryFormat, void *Binary) UGL_OPTIONAL_VOID
+	static FORCEINLINE void ProgramBinary(GLuint Program, GLenum BinaryFormat, void *Binary, GLsizei Length) UGL_OPTIONAL_VOID
+
 
 	static FPlatformOpenGLDevice*	CreateDevice() UGL_REQUIRED(NULL)
 	static FPlatformOpenGLContext*	CreateContext( FPlatformOpenGLDevice* Device, void* WindowHandle ) UGL_REQUIRED(NULL)

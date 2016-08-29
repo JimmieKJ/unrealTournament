@@ -517,6 +517,22 @@ void UParticleModuleLocationEmitter::Spawn(FParticleEmitterInstance* Owner, int3
 					// If the ScreenAlignment of the source emitter is PSA_Velocity, 
 					// and that of the local is not, then the rotation will NOT be correct!
 					Particle.Rotation		+= pkParticle->Rotation * InheritSourceRotationScale;
+
+					// for mesh emitters only: get the mesh rotation payloads for both emitters and update the rotations accordingly; if the offset is 0, the module
+					// doesn't exist, so we can't transfer rotation; if the offsets exist, the payload should never be nullptr.
+					//
+					const int32 MeshRotationOffset = Owner->GetMeshRotationOffset();
+					const int32 SrcMeshRotationOffset = LocationEmitterInst->GetMeshRotationOffset();
+					if (MeshRotationOffset && SrcMeshRotationOffset)
+					{
+						FMeshRotationPayloadData* DestPayloadData = (FMeshRotationPayloadData*)((uint8*)&Particle + MeshRotationOffset);
+						FMeshRotationPayloadData* SrcPayloadData = (FMeshRotationPayloadData*)((uint8*)pkParticle + SrcMeshRotationOffset);
+
+						ensure(DestPayloadData != nullptr && SrcPayloadData != nullptr);
+
+						DestPayloadData->Rotation += SrcPayloadData->Rotation;
+						DestPayloadData->InitialOrientation += SrcPayloadData->InitialOrientation;
+					}
 				}
 			}
 		}
@@ -1466,6 +1482,89 @@ UParticleModuleLocationBoneSocket::UParticleModuleLocationBoneSocket(const FObje
 	SourceType = BONESOCKETSOURCE_Sockets;
 	SkelMeshActorParamName = ConstructorStatics.NAME_BoneSocketActor;
 	bOrientMeshEmitters = true;
+	SourceIndexMode = EBoneSocketSourceIndexMode::Direct;
+	NumPreSelectedIndices = 10;
+	InheritVelocityScale = 1.0f;
+}
+
+int32 UParticleModuleLocationBoneSocket::SelectNextSpawnIndex(FModuleLocationBoneSocketInstancePayload* InstancePayload, USkeletalMeshComponent* SourceComponent)
+{
+	check(InstancePayload && SourceComponent);
+
+	int32 SourceIndex = -1;
+	int32 MaxIndex = GetMaxSourceIndex(InstancePayload, SourceComponent);
+		
+	//If we're selecting from a pre generated list then always select sequentially, randomness will be introduced when generating the list.
+	if (SelectionMethod == BONESOCKETSEL_Sequential || SourceIndexMode == EBoneSocketSourceIndexMode::PreSelectedIndices)
+	{
+		// Simply select the next socket
+		SourceIndex = InstancePayload->LastSelectedIndex++;
+		if (InstancePayload->LastSelectedIndex >= MaxIndex)
+		{
+			InstancePayload->LastSelectedIndex = 0;
+		}
+	}
+	else if (SelectionMethod == BONESOCKETSEL_Random)
+	{
+		// Note: This can select the same socket over and over...
+		SourceIndex = FMath::TruncToInt(FMath::SRand() * ((float)MaxIndex - 0.5f));
+		InstancePayload->LastSelectedIndex = SourceIndex;
+	}
+
+	if (SourceIndex == -1)
+	{
+		return INDEX_NONE;
+	}
+	if (SourceIndex >= MaxIndex)
+	{
+		return INDEX_NONE;
+	}
+		
+	return SourceIndex;
+}
+
+void UParticleModuleLocationBoneSocket::RegeneratePreSelectedIndices(FModuleLocationBoneSocketInstancePayload* InstancePayload, USkeletalMeshComponent* SourceComponent)
+{
+	if (SourceIndexMode == EBoneSocketSourceIndexMode::PreSelectedIndices)
+	{
+		int32 MaxIndex = SourceType == BONESOCKETSOURCE_Sockets ? SourceComponent->SkeletalMesh->NumSockets() : SourceComponent->GetNumBones();
+		for (int32 i = 0; i < NumPreSelectedIndices; ++i)
+		{
+			//Should we provide sequential selection here? Does that make sense for the pre selected list?
+			InstancePayload->PreSelectedBoneSocketIndices[i] = FMath::TruncToInt(FMath::SRand() * ((float)MaxIndex - 0.5f));
+		}
+
+		if (InheritingBoneVelocity())
+		{
+			//Init the bone locations so the next tick we get correct velocities.
+			UpdatePrevBoneLocationsAndVelocities(InstancePayload, SourceComponent, 0.0f);
+		}
+	}
+}
+
+void UParticleModuleLocationBoneSocket::SetSourceIndexMode()
+{
+	if (SourceLocations.Num() > 0)
+	{
+		SourceIndexMode = EBoneSocketSourceIndexMode::SourceLocations;
+	}
+	else
+	{
+		if (InheritingBoneVelocity())
+		{
+			SourceIndexMode = EBoneSocketSourceIndexMode::PreSelectedIndices;
+		}
+		else
+		{
+			SourceIndexMode = EBoneSocketSourceIndexMode::Direct;
+		}
+	}
+}
+
+void UParticleModuleLocationBoneSocket::PostLoad()
+{
+	Super::PostLoad();
+	SetSourceIndexMode();
 }
 
 void UParticleModuleLocationBoneSocket::Spawn(FParticleEmitterInstance* Owner, int32 Offset, float SpawnTime, FBaseParticle* ParticleBase)
@@ -1484,6 +1583,7 @@ void UParticleModuleLocationBoneSocket::Spawn(FParticleEmitterInstance* Owner, i
 		if (SkeletalMeshComponent != NULL)
 		{
 			InstancePayload->SourceComponent = SkeletalMeshComponent;
+			RegeneratePreSelectedIndices(InstancePayload, SkeletalMeshComponent);
 		}
 		else
 		{
@@ -1498,30 +1598,8 @@ void UParticleModuleLocationBoneSocket::Spawn(FParticleEmitterInstance* Owner, i
 	}
 	USkeletalMeshComponent* SourceComponent = InstancePayload->SourceComponent.Get();
 
-	// Determine the bone/socket to spawn at
-	int32 SourceIndex = -1;
-	if (SelectionMethod == BONESOCKETSEL_Sequential)
-	{
-		// Simply select the next socket
-		SourceIndex = InstancePayload->LastSelectedIndex++;
-		if (InstancePayload->LastSelectedIndex >= SourceLocations.Num())
-		{
-			InstancePayload->LastSelectedIndex = 0;
-		}
-	}
-	else if (SelectionMethod == BONESOCKETSEL_Random)
-	{
-		// Note: This can select the same socket over and over...
-		SourceIndex = FMath::TruncToInt(FMath::SRand() * (SourceLocations.Num() - 1));
-		InstancePayload->LastSelectedIndex = SourceIndex;
-	}
-
-	if (SourceIndex == -1)
-	{
-		// Failed to select a socket?
-		return;
-	}
-	if (SourceIndex >= SourceLocations.Num())
+	int32 SourceIndex = SelectNextSpawnIndex(InstancePayload, SourceComponent);
+	if (SourceIndex == INDEX_NONE)
 	{
 		return;
 	}
@@ -1531,21 +1609,17 @@ void UParticleModuleLocationBoneSocket::Spawn(FParticleEmitterInstance* Owner, i
 	const int32 MeshRotationOffset = Owner->GetMeshRotationOffset();
 	const bool bMeshRotationActive = MeshRotationOffset > 0 && Owner->IsMeshRotationActive();
 	FQuat* SourceRotation = (bMeshRotationActive) ? NULL : &RotationQuat;
-	if (GetParticleLocation(Owner, SourceComponent, SourceIndex, SourceLocation, SourceRotation) == true)
+	if (GetParticleLocation(InstancePayload, Owner, SourceComponent, SourceIndex, SourceLocation, SourceRotation) == true)
 	{
 		SPAWN_INIT
 		{
 			FModuleLocationBoneSocketParticlePayload* ParticlePayload = (FModuleLocationBoneSocketParticlePayload*)((uint8*)&Particle + Offset);
 			ParticlePayload->SourceIndex = SourceIndex;
 			Particle.Location = SourceLocation;
-			if(bInheritBoneVelocity)
+			if (InheritingBoneVelocity())
 			{
 				// Set the base velocity for this particle.
-				int32 BoneIndex = SourceComponent->GetBoneIndex(SourceLocations[SourceIndex].BoneSocketName);
-				if (BoneIndex != INDEX_NONE)
-				{
-					Particle.BaseVelocity = InstancePayload->BoneSocketVelocities[SourceIndex];
-				}
+				Particle.BaseVelocity = FMath::Lerp(Particle.BaseVelocity, InstancePayload->BoneSocketVelocities[SourceIndex], InheritVelocityScale);
 			}
 			if (bMeshRotationActive)
 			{
@@ -1560,6 +1634,32 @@ void UParticleModuleLocationBoneSocket::Spawn(FParticleEmitterInstance* Owner, i
 	}
 }
 
+void UParticleModuleLocationBoneSocket::UpdatePrevBoneLocationsAndVelocities(FModuleLocationBoneSocketInstancePayload* InstancePayload, USkeletalMeshComponent* SourceComponent, float DeltaTime)
+{
+	const float InvDeltaTime = (DeltaTime > 0.0f) ? 1.0f / DeltaTime : 0.0f;
+
+	// Calculate velocities to be used when spawning particles later this frame
+	int32 MaxIndex = GetMaxSourceIndex(InstancePayload, SourceComponent);
+	FMatrix WorldBoneTM;
+	FVector Offset;
+	for (int32 SourceIndex = 0; SourceIndex < MaxIndex; ++SourceIndex)
+	{
+		if (GetBoneInfoForSourceIndex(InstancePayload, SourceComponent, SourceIndex, WorldBoneTM, Offset) && SourceIndex < InstancePayload->BoneSocketVelocities.Num())
+		{
+			// Calculate the velocity
+			const FVector CurrLocation = WorldBoneTM.GetOrigin();
+			const FVector Diff = CurrLocation - InstancePayload->PrevFrameBoneSocketPositions[SourceIndex];
+			InstancePayload->BoneSocketVelocities[SourceIndex] = Diff * InvDeltaTime;
+			InstancePayload->PrevFrameBoneSocketPositions[SourceIndex] = CurrLocation;
+		}
+		else
+		{
+			InstancePayload->BoneSocketVelocities[SourceIndex] = FVector::ZeroVector;
+			InstancePayload->PrevFrameBoneSocketPositions[SourceIndex] = SourceComponent->GetComponentLocation();
+		}
+	}
+}
+
 void UParticleModuleLocationBoneSocket::Update(FParticleEmitterInstance* Owner, int32 Offset, float DeltaTime)
 {
 	FModuleLocationBoneSocketInstancePayload* InstancePayload = 
@@ -1570,23 +1670,9 @@ void UParticleModuleLocationBoneSocket::Update(FParticleEmitterInstance* Owner, 
 	}
 
 	USkeletalMeshComponent* SourceComponent = InstancePayload->SourceComponent.Get();
-
-	if(bInheritBoneVelocity)
+	if (InheritingBoneVelocity())
 	{
-		const float InvDeltaTime = (DeltaTime > 0.0f) ? 1.0f / DeltaTime : 0.0f;
-
-		// Calculate velocities to be used when spawning particles later this frame
-		for(int32 SourceIndex = 0; SourceIndex < SourceLocations.Num(); ++SourceIndex)
-		{
-			int32 BoneIndex = SourceComponent->GetBoneIndex(SourceLocations[SourceIndex].BoneSocketName);
-			if (BoneIndex != INDEX_NONE && SourceIndex < InstancePayload->BoneSocketVelocities.Num())
-			{
-				// Calculate the velocity
-				const FMatrix WorldBoneTM = SourceComponent->GetBoneMatrix(BoneIndex);
-				const FVector Diff = WorldBoneTM.GetOrigin() - InstancePayload->PrevFrameBoneSocketPositions[SourceIndex];
-				InstancePayload->BoneSocketVelocities[SourceIndex] = Diff * InvDeltaTime;
-			}
-		}
+		UpdatePrevBoneLocationsAndVelocities(InstancePayload, SourceComponent, DeltaTime);
 	}
 
 	if (bUpdatePositionEachFrame == false)
@@ -1608,10 +1694,11 @@ void UParticleModuleLocationBoneSocket::Update(FParticleEmitterInstance* Owner, 
 	FQuat* SourceRotation = (bMeshRotationActive) ? NULL : &RotationQuat;
 	const FTransform& OwnerTM = Owner->Component->GetAsyncComponentToWorld();
 
+	//TODO: we have bone locations stored already if we're inheriting bone velocity, see if we can use those.
 	BEGIN_UPDATE_LOOP;
 	{
 		FModuleLocationBoneSocketParticlePayload* ParticlePayload = (FModuleLocationBoneSocketParticlePayload*)((uint8*)&Particle + Offset);
-		if (GetParticleLocation(Owner, SourceComponent, ParticlePayload->SourceIndex, SourceLocation, SourceRotation) == true)
+		if (GetParticleLocation(InstancePayload, Owner, SourceComponent, ParticlePayload->SourceIndex, SourceLocation, SourceRotation) == true)
 		{
 			Particle.Location = SourceLocation;
 			if (bMeshRotationActive)
@@ -1642,59 +1729,47 @@ void UParticleModuleLocationBoneSocket::FinalUpdate(FParticleEmitterInstance* Ow
 
 	USkeletalMeshComponent* SourceComponent = InstancePayload->SourceComponent.Get();
 
-	if(bInheritBoneVelocity)
-	{
-		// Store bone positions to be used to calculate velocity on the next frame
-		for(int32 SourceIndex = 0; SourceIndex < SourceLocations.Num(); ++SourceIndex)
-		{
-			int32 BoneIndex = InstancePayload->SourceComponent->GetBoneIndex(SourceLocations[SourceIndex].BoneSocketName);
-			if (BoneIndex != INDEX_NONE && InstancePayload->PrevFrameBoneSocketPositions.Num() > SourceIndex)
-			{
-				const FMatrix WorldBoneTM = SourceComponent->GetBoneMatrix(BoneIndex);
-				InstancePayload->PrevFrameBoneSocketPositions[SourceIndex] = WorldBoneTM.GetOrigin();
-			}
-		}
-	}
-
 	// Particle Data will not exist for GPU sprite emitters.
-	if(Owner->ParticleData == NULL)
+	if(Owner->ParticleData)
 	{
-		return;
-	}
-
-	bool bHaveDeadParticles = false;
-	BEGIN_UPDATE_LOOP;
-	{
-		FModuleLocationBoneSocketParticlePayload* ParticlePayload = (FModuleLocationBoneSocketParticlePayload*)((uint8*)&Particle + Offset);
 		if (SourceType == BONESOCKETSOURCE_Sockets)
 		{
-			if (SourceComponent && SourceComponent->SkeletalMesh)
+			bool bHaveDeadParticles = false;
+			BEGIN_UPDATE_LOOP;
 			{
-				USkeletalMeshSocket const* Socket = SourceComponent->SkeletalMesh->FindSocket(SourceLocations[ParticlePayload->SourceIndex].BoneSocketName);
-				if (Socket)
+				FModuleLocationBoneSocketParticlePayload* ParticlePayload = (FModuleLocationBoneSocketParticlePayload*)((uint8*)&Particle + Offset);
+				if (SourceComponent && SourceComponent->SkeletalMesh)
 				{
-					//@todo. Can we make this faster???
-					int32 BoneIndex = SourceComponent->GetBoneIndex(Socket->BoneName);
-					if (BoneIndex != INDEX_NONE)
+					USkeletalMeshSocket* Socket;
+					FVector SocketOffset;
+					if (GetSocketInfoForSourceIndex(InstancePayload, SourceComponent, ParticlePayload->SourceIndex, Socket, SocketOffset))
 					{
-						if ((SourceComponent->IsBoneHidden(BoneIndex)) || 
-							(SourceComponent->GetBoneTransform(BoneIndex).GetScale3D() == FVector::ZeroVector))
+						//@todo. Can we make this faster??? Pre-find the bone index for each socket! Depending on SourceIndexMode can be done either on init or per bone, not per particle!
+						int32 BoneIndex = SourceComponent->GetBoneIndex(Socket->BoneName);
+						if (BoneIndex != INDEX_NONE)
 						{
-							// Kill it
-							Particle.RelativeTime = 1.1f;
-							bHaveDeadParticles = true;
+							if ((SourceComponent->IsBoneHidden(BoneIndex)) || 
+								(SourceComponent->GetBoneTransform(BoneIndex).GetScale3D() == FVector::ZeroVector))
+							{
+								// Kill it
+								Particle.RelativeTime = 1.1f;
+								bHaveDeadParticles = true;
+							}
 						}
 					}
 				}
 			}
+			END_UPDATE_LOOP;
+	
+			if (bHaveDeadParticles == true)
+			{
+				Owner->KillParticles();
+			}
 		}
 	}
-	END_UPDATE_LOOP;
 
-	if (bHaveDeadParticles == true)
-	{
-		Owner->KillParticles();
-	}
+	//Select a new set of bones to spawn from next frame.
+	RegeneratePreSelectedIndices(InstancePayload, SourceComponent);
 }
 
 uint32 UParticleModuleLocationBoneSocket::RequiredBytes(UParticleModuleTypeDataBase* TypeData)
@@ -1708,11 +1783,14 @@ uint32 UParticleModuleLocationBoneSocket::RequiredBytesPerInstance()
     // The size of these arrays are fixed to SourceLocations.Num(). FModuleLocationBoneSocketInstancePayload contains
     // an interface to access each array which are setup in PrepPerInstanceBlock to the respective offset into the instance buffer.
 
-	const uint32 ArraySize = SourceLocations.Num();
+	SetSourceIndexMode();
 
-	// Size to allocate for PrevFrameBoneSocketPositions and BoneSocketVelocity arrays
-	const uint32 BoneArraySize = ArraySize * sizeof(FVector) * 2;
-
+	//Have to take the max of all variants as lots of code assumes all LODs use the same memory and prep it the same way :(
+	int32 ArraySize = FMath::Max(SourceLocations.Num(), NumPreSelectedIndices);
+	int32 ElemSize = (sizeof(FVector)* 2) + sizeof(int32);
+	
+	int32 BoneArraySize = ArraySize * ElemSize;
+	
 	return sizeof(FModuleLocationBoneSocketInstancePayload) + BoneArraySize;
 }
 
@@ -1722,10 +1800,14 @@ uint32 UParticleModuleLocationBoneSocket::PrepPerInstanceBlock(FParticleEmitterI
 	if (Payload)
 	{
 		FMemory::Memzero(Payload, sizeof(FModuleLocationBoneSocketInstancePayload));
-		Payload->InitArrayProxies(SourceLocations.Num());
-		return 0;
-	}
 
+		int32 ArraySize = FMath::Max(SourceLocations.Num(), NumPreSelectedIndices);
+	
+		if (ArraySize > 0)
+		{
+			Payload->InitArrayProxies(ArraySize);
+		}
+	}
 	return 0xffffffff;
 }
 
@@ -1753,6 +1835,14 @@ void UParticleModuleLocationBoneSocket::AutoPopulateInstanceProperties(UParticle
 }
 
 #if WITH_EDITOR
+void UParticleModuleLocationBoneSocket::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
+{
+	Super::PostEditChangeProperty(PropertyChangedEvent);
+
+	FParticleResetContext ResetContext;
+	ResetContext.AddTemplate(this);
+}
+
 int32 UParticleModuleLocationBoneSocket::GetNumberOfCustomMenuOptions() const
 {
 	return 1;
@@ -1837,6 +1927,31 @@ bool UParticleModuleLocationBoneSocket::PerformCustomMenuEntry(int32 InEntryInde
 }
 #endif
 
+int32 UParticleModuleLocationBoneSocket::GetMaxSourceIndex(FModuleLocationBoneSocketInstancePayload* Payload, USkeletalMeshComponent* SourceComponent)const
+{
+	check(Payload);
+	switch (SourceIndexMode)
+	{
+		case EBoneSocketSourceIndexMode::SourceLocations:
+		{
+			return SourceLocations.Num();
+		}
+		break;
+		case EBoneSocketSourceIndexMode::PreSelectedIndices:
+		{
+			return NumPreSelectedIndices;
+		}
+		break;
+		case EBoneSocketSourceIndexMode::Direct:
+		{
+			return SourceType == BONESOCKETSOURCE_Sockets ? SourceComponent->SkeletalMesh->NumSockets() : SourceComponent->GetNumBones();
+		}
+		break;
+	}
+
+	return 0;
+}
+
 USkeletalMeshComponent* UParticleModuleLocationBoneSocket::GetSkeletalMeshComponentSource(FParticleEmitterInstance* Owner)
 {
 	if (Owner == NULL)
@@ -1877,7 +1992,83 @@ USkeletalMeshComponent* UParticleModuleLocationBoneSocket::GetSkeletalMeshCompon
 	return NULL;
 }
 
-bool UParticleModuleLocationBoneSocket::GetParticleLocation(FParticleEmitterInstance* Owner, 
+bool UParticleModuleLocationBoneSocket::GetSocketInfoForSourceIndex(FModuleLocationBoneSocketInstancePayload* InstancePayload, USkeletalMeshComponent* SourceComponent, int32 SourceIndex, USkeletalMeshSocket*& OutSocket, FVector& OutOffset)const
+{
+	check(SourceType == BONESOCKETSOURCE_Sockets);
+
+	switch (SourceIndexMode)
+	{
+		case EBoneSocketSourceIndexMode::SourceLocations:
+		{
+			OutSocket = SourceComponent->SkeletalMesh->FindSocket(SourceLocations[SourceIndex].BoneSocketName);
+			OutOffset = SourceLocations[SourceIndex].Offset + UniversalOffset;
+		}
+		break;
+		case EBoneSocketSourceIndexMode::PreSelectedIndices:
+		{
+			OutSocket = SourceComponent->SkeletalMesh->GetSocketByIndex(InstancePayload->PreSelectedBoneSocketIndices[SourceIndex]);
+			OutOffset = UniversalOffset;
+		}
+		break;
+		case EBoneSocketSourceIndexMode::Direct:
+		{
+			OutSocket = SourceComponent->SkeletalMesh->GetSocketByIndex(SourceIndex);
+			OutOffset = UniversalOffset;
+		}
+		break;
+	}
+	return OutSocket != nullptr;
+}
+
+bool UParticleModuleLocationBoneSocket::GetBoneInfoForSourceIndex(FModuleLocationBoneSocketInstancePayload* InstancePayload, USkeletalMeshComponent* SourceComponent, int32 SourceIndex, FMatrix& OutBoneMatrix, FVector& OutOffset)const
+{
+	int32 BoneIndex = INDEX_NONE;
+	FVector Offset;
+	if (SourceType == BONESOCKETSOURCE_Sockets)
+	{
+		USkeletalMeshSocket* Socket = nullptr;
+		if (GetSocketInfoForSourceIndex(InstancePayload, SourceComponent, SourceIndex, Socket, Offset))
+		{
+			BoneIndex = SourceComponent->GetBoneIndex(Socket->BoneName);
+			return false;
+		}
+	}
+	else
+	{
+		switch (SourceIndexMode)
+		{
+			case EBoneSocketSourceIndexMode::SourceLocations:
+			{
+				BoneIndex = SourceComponent->GetBoneIndex(SourceLocations[SourceIndex].BoneSocketName);
+				Offset = SourceLocations[SourceIndex].Offset + UniversalOffset;
+			}
+			break;
+			case EBoneSocketSourceIndexMode::PreSelectedIndices:
+			{
+				BoneIndex = InstancePayload->PreSelectedBoneSocketIndices[SourceIndex];
+				Offset = UniversalOffset;
+			}
+			break;
+			case EBoneSocketSourceIndexMode::Direct:
+			{
+				BoneIndex = SourceIndex;
+				Offset = UniversalOffset;
+			}
+			break;
+		}
+	}
+
+	if (BoneIndex != INDEX_NONE)
+	{
+		OutBoneMatrix = SourceComponent->GetBoneMatrix(BoneIndex);
+		OutOffset = Offset;
+		return true;
+	}
+
+	return false;
+}
+
+bool UParticleModuleLocationBoneSocket::GetParticleLocation(FModuleLocationBoneSocketInstancePayload* InstancePayload, FParticleEmitterInstance* Owner,
 	USkeletalMeshComponent* InSkelMeshComponent, int32 InBoneSocketIndex, 
 	FVector& OutPosition, FQuat* OutRotation)
 {
@@ -1887,10 +2078,10 @@ bool UParticleModuleLocationBoneSocket::GetParticleLocation(FParticleEmitterInst
 	{
 		if (InSkelMeshComponent->SkeletalMesh)
 		{
-			USkeletalMeshSocket const* Socket = InSkelMeshComponent->SkeletalMesh->FindSocket(SourceLocations[InBoneSocketIndex].BoneSocketName);
-			if (Socket)
+			USkeletalMeshSocket* Socket;
+			FVector SocketOffset;
+			if (GetSocketInfoForSourceIndex(InstancePayload, InSkelMeshComponent, InBoneSocketIndex, Socket, SocketOffset))
 			{
-				FVector SocketOffset = SourceLocations[InBoneSocketIndex].Offset + UniversalOffset;
 				FRotator SocketRotator(0,0,0);
 				FMatrix SocketMatrix;
  				if (Socket->GetSocketMatrixWithOffset(SocketMatrix, InSkelMeshComponent, SocketOffset, SocketRotator) == false)
@@ -1916,11 +2107,10 @@ bool UParticleModuleLocationBoneSocket::GetParticleLocation(FParticleEmitterInst
 	}
 	else	//BONESOCKETSOURCE_Bones
 	{
-		int32 BoneIndex = InSkelMeshComponent->GetBoneIndex(SourceLocations[InBoneSocketIndex].BoneSocketName);
-		if (BoneIndex != INDEX_NONE)
+		FVector SocketOffset;
+		FMatrix WorldBoneTM;
+		if (GetBoneInfoForSourceIndex(InstancePayload, InSkelMeshComponent, InBoneSocketIndex, WorldBoneTM, SocketOffset))
 		{
-			FVector SocketOffset = SourceLocations[InBoneSocketIndex].Offset + UniversalOffset;
-			FMatrix WorldBoneTM = InSkelMeshComponent->GetBoneMatrix(BoneIndex);
 			FTranslationMatrix OffsetMatrix(SocketOffset);
 			FMatrix ResultMatrix = OffsetMatrix * WorldBoneTM;
 			OutPosition = ResultMatrix.GetOrigin();
@@ -2631,93 +2821,59 @@ bool UParticleModuleLocationSkelVertSurface::VertInfluencedByActiveBone(FParticl
 			(FModuleLocationVertSurfaceInstancePayload*)(Owner->GetModuleInstanceData(this));
 
 		// Find the chunk and vertex within that chunk, and skinning type, for this vertex.
-		int32 ChunkIndex;
+		int32 SectionIndex;
 		int32 VertIndex;
-		bool bSoftVertex;
 		bool bHasExtraBoneInfluences;
-		Model.GetChunkAndSkinType(InVertexIndex, ChunkIndex, VertIndex, bSoftVertex, bHasExtraBoneInfluences);
+		Model.GetSectionFromVertexIndex(InVertexIndex, SectionIndex, VertIndex, bHasExtraBoneInfluences);
 
-		check(ChunkIndex < Model.Chunks.Num());
+		check(SectionIndex < Model.Sections.Num());
+
+		FSkelMeshSection& Section = Model.Sections[SectionIndex];
 
 		if (ValidMaterialIndices.Num() > 0)
 		{
-			for (int32 SectIdx = 0; SectIdx < Model.Sections.Num(); SectIdx++)
+			// Does the material match one of the valid ones
+			bool bFound = false;
+			for (int32 ValidIdx = 0; ValidIdx < ValidMaterialIndices.Num(); ValidIdx++)
 			{
-				FSkelMeshSection& Section = Model.Sections[SectIdx];
-				if (Section.ChunkIndex == ChunkIndex)
+				if (ValidMaterialIndices[ValidIdx] == Section.MaterialIndex)
 				{
-					// Does the material match one of the valid ones
-					bool bFound = false;
-					for (int32 ValidIdx = 0; ValidIdx < ValidMaterialIndices.Num(); ValidIdx++)
-					{
-						if (ValidMaterialIndices[ValidIdx] == Section.MaterialIndex)
-						{
-							bFound = true;
-							break;
-						}
-					}
-
-					if (!bFound)
-					{
-						// Material wasn't in the valid list...
-						return false;
-					}
+					bFound = true;
+					break;
 				}
+			}
+
+			if (!bFound)
+			{
+				// Material wasn't in the valid list...
+				return false;
 			}
 		}
 
-		const FSkelMeshChunk& Chunk = Model.Chunks[ChunkIndex];
-
 		return Model.VertexBufferGPUSkin.HasExtraBoneInfluences()
-			? VertInfluencedByActiveBoneTyped<true>(bSoftVertex, Model, Chunk, VertIndex, InSkelMeshComponent, InstancePayload, OutBoneIndex)
-			: VertInfluencedByActiveBoneTyped<false>(bSoftVertex, Model, Chunk, VertIndex, InSkelMeshComponent, InstancePayload, OutBoneIndex);
+			? VertInfluencedByActiveBoneTyped<true>(Model, Section, VertIndex, InSkelMeshComponent, InstancePayload, OutBoneIndex)
+			: VertInfluencedByActiveBoneTyped<false>(Model, Section, VertIndex, InSkelMeshComponent, InstancePayload, OutBoneIndex);
 	}
 	return false;
 }
 
 template<bool bExtraBoneInfluencesT>
-bool UParticleModuleLocationSkelVertSurface::VertInfluencedByActiveBoneTyped(bool bSoftVertex, FStaticLODModel& Model, const FSkelMeshChunk& Chunk, int32 VertIndex, USkeletalMeshComponent* InSkelMeshComponent, FModuleLocationVertSurfaceInstancePayload* InstancePayload, int32* OutBoneIndex)
+bool UParticleModuleLocationSkelVertSurface::VertInfluencedByActiveBoneTyped(FStaticLODModel& Model, const FSkelMeshSection& Section, int32 VertIndex, USkeletalMeshComponent* InSkelMeshComponent, FModuleLocationVertSurfaceInstancePayload* InstancePayload, int32* OutBoneIndex)
 {
 	const TArray<int32>& MasterBoneMap = InSkelMeshComponent->GetMasterBoneMap();
 	// Do soft skinning for this vertex.
-	if(bSoftVertex)
-	{
-		const TGPUSkinVertexBase<bExtraBoneInfluencesT>* SrcSoftVertex = Model.VertexBufferGPUSkin.GetVertexPtr<bExtraBoneInfluencesT>(Chunk.GetSoftVertexBufferIndex()+VertIndex);
+	const TGPUSkinVertexBase<bExtraBoneInfluencesT>* SrcSoftVertex = Model.VertexBufferGPUSkin.GetVertexPtr<bExtraBoneInfluencesT>(Section.GetVertexBufferIndex()+VertIndex);
 
 #if !PLATFORM_LITTLE_ENDIAN
-		// uint8[] elements in LOD.VertexBufferGPUSkin have been swapped for VET_UBYTE4 vertex stream use
-		for(int32 InfluenceIndex = MAX_INFLUENCES-1;InfluenceIndex >=  MAX_INFLUENCES-Chunk.MaxBoneInfluences;InfluenceIndex--)
+	// uint8[] elements in LOD.VertexBufferGPUSkin have been swapped for VET_UBYTE4 vertex stream use
+	for(int32 InfluenceIndex = MAX_INFLUENCES-1;InfluenceIndex >=  MAX_INFLUENCES- Section.MaxBoneInfluences;InfluenceIndex--)
 #else
-		for(int32 InfluenceIndex = 0;InfluenceIndex < Chunk.MaxBoneInfluences;InfluenceIndex++)
+	for(int32 InfluenceIndex = 0;InfluenceIndex < Section.MaxBoneInfluences;InfluenceIndex++)
 #endif
-		{
-			int32 BoneIndex = Chunk.BoneMap[SrcSoftVertex->InfluenceBones[InfluenceIndex]];
-			if(InSkelMeshComponent->MasterPoseComponent.IsValid())
-			{		
-				check(MasterBoneMap.Num() == InSkelMeshComponent->SkeletalMesh->RefSkeleton.GetNum());
-				BoneIndex = MasterBoneMap[BoneIndex];
-			}
-
-			if(!InstancePayload->NumValidAssociatedBoneIndices || InstancePayload->ValidAssociatedBoneIndices.Contains(BoneIndex))
-			{
-				if(OutBoneIndex)
-				{
-					*OutBoneIndex = BoneIndex;
-				}
-
-				return true;
-			}
-		}
-	}
-	// Do rigid (one-influence) skinning for this vertex.
-	else
 	{
-		const int32 RigidInfluenceIndex = SkinningTools::GetRigidInfluenceIndex();
-		const TGPUSkinVertexBase<bExtraBoneInfluencesT>* SrcRigidVertex = Model.VertexBufferGPUSkin.GetVertexPtr<bExtraBoneInfluencesT>(Chunk.GetRigidVertexBufferIndex()+VertIndex);
-
-		int32 BoneIndex = Chunk.BoneMap[SrcRigidVertex->InfluenceBones[RigidInfluenceIndex]];
+		int32 BoneIndex = Section.BoneMap[SrcSoftVertex->InfluenceBones[InfluenceIndex]];
 		if(InSkelMeshComponent->MasterPoseComponent.IsValid())
-		{
+		{		
 			check(MasterBoneMap.Num() == InSkelMeshComponent->SkeletalMesh->RefSkeleton.GetNum());
 			BoneIndex = MasterBoneMap[BoneIndex];
 		}
@@ -2728,9 +2884,11 @@ bool UParticleModuleLocationSkelVertSurface::VertInfluencedByActiveBoneTyped(boo
 			{
 				*OutBoneIndex = BoneIndex;
 			}
+
 			return true;
 		}
 	}
+
 
 	return false;
 }

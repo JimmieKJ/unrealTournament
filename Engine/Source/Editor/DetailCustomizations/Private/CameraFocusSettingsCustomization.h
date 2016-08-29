@@ -20,4 +20,6 @@ private:
 	EVisibility IsSpotSettingGroupVisible() const;
 	EVisibility IsTrackingSettingGroupVisible() const;
 	EVisibility IsGeneralSettingGroupVisible() const;
+
+	void OnSceneDepthLocationSelected(FVector PickedSceneLoc);
 };

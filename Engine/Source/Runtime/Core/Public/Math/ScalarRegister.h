@@ -238,18 +238,3 @@ FORCEINLINE ScalarRegister ScalarReciprocal(const ScalarRegister& A)
 #define NonOneAnimWeight(A) ((A) < 1.0f - ZERO_ANIMWEIGHT_THRESH)
 
 #endif
-
-/**
-* Include the current implementation of a FTransform, depending on the vector processing mode
-*/
-
-#if ENABLE_VECTORIZED_FBONEATOM
-#include "BoneAtomVectorized.h"
-#elif ENABLE_VECTORIZED_TRANSFORM
-#include "TransformVectorized.h"
-#else
-#include "Transform.h"
-#endif
-
-#include "UnrealMatrix.h"
-

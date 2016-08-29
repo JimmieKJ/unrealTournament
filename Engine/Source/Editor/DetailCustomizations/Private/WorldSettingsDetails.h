@@ -105,13 +105,16 @@ private:
 	void HandleNewCurrentLevel();
 
 	/** Handler for light map list view widget creation */
-	TSharedRef<ITableRow> MakeLightMapListViewWidget(TSharedPtr<FLightmapItem> AssetItem, const TSharedRef<STableViewBase>& OwnerTable);
+	TSharedRef<SWidget> MakeLightMapList(TSharedPtr<FLightmapItem> AssetItem);
 
 	/** Handler for context menus */
-	TSharedPtr<SWidget> OnGetLightMapContextMenuContent();
+	TSharedPtr<SWidget> OnGetLightMapContextMenuContent(TSharedPtr<FLightmapItem> Lightmap);
+
+	/** Handler for right clicking an item */
+	FReply OnMouseButtonUp( const FGeometry& MyGeometry, const FPointerEvent& MouseEvent, TWeakPtr<FLightmapItem> Lightmap);
 
 	/** Handler for double clicking an item */
-	void OnLightMapListMouseButtonDoubleClick(TSharedPtr<FLightmapItem> SelectedLightmap);
+	FReply OnLightMapListMouseButtonDoubleClick(const FGeometry& MyGeom, const FPointerEvent& PointerEvent, TWeakPtr<FLightmapItem> SelectedLightmap);
 
 	/** Handler for when "View" is selected in the light map list */
 	void ExecuteViewLightmap(FString SelectedLightmapPath);
@@ -125,7 +128,6 @@ private:
 	FSimpleDelegate OnRegenerateChildren;
 
 	/** The list view showing light maps in this world */
-	TSharedPtr<SListView<TSharedPtr<FLightmapItem>>> LightmapListView;
 	TArray<TSharedPtr<FLightmapItem>> LightmapItems;
 	TSharedPtr<class FAssetThumbnailPool> ThumbnailPool;
 };

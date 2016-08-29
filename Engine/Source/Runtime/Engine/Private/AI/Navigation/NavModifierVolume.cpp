@@ -4,6 +4,7 @@
 #include "AI/NavigationModifier.h"
 #include "AI/Navigation/NavModifierVolume.h"
 #include "AI/Navigation/NavAreas/NavArea_Null.h"
+#include "AI/NavigationOctree.h"
 
 //----------------------------------------------------------------------//
 // ANavModifierVolume

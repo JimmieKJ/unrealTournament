@@ -49,7 +49,7 @@ public:
 	UClass* Class;
 
 	/** The pin that this search result refers to */
-	TWeakObjectPtr<UEdGraphPin> Pin;
+	FEdGraphPinReference Pin;
 
 	/** The graph node that this search result refers to (if not by asset registry or UK2Node) */
 	TWeakObjectPtr<UEdGraphNode> GraphNode;

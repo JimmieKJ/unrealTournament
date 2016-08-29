@@ -6,6 +6,8 @@ using System.Linq;
 using System;
 using System.Data.Linq;
 using System.Diagnostics;
+using System.Web.UI.WebControls;
+using Tools.CrashReporter.CrashReportWebSite.DataModels;
 using Tools.DotNETCommon;
 using System.Web;
 
@@ -133,6 +135,9 @@ namespace Tools.CrashReporter.CrashReportWebSite.Models
 		/// <summary>Platforms in JIRA</summary>
 		List<object> ToJiraPlatforms = null;
 
+        /// <summary>Branches in jira summary fortnite</summary>
+        List<object> ToBranchName = null;
+
 		List<string> ToJiraDescriptions = new List<string>();
 
 		List<string> ToJiraFunctionCalls = null;
@@ -182,7 +187,7 @@ namespace Tools.CrashReporter.CrashReportWebSite.Models
 						this.AffectedVersions.Add( Crash.BuildVersion );
 					}
 					// Depot || Stream
-					if (!string.IsNullOrEmpty( Crash.Branch ) && ( Crash.Branch.StartsWith( "UE4" ) || Crash.Branch.StartsWith( "//UE4" ) ))
+					if (!string.IsNullOrEmpty( Crash.Branch ))
 					{
 						this.BranchesFoundIn.Add( Crash.Branch );
 					}
@@ -219,8 +224,7 @@ namespace Tools.CrashReporter.CrashReportWebSite.Models
 			{
 				this.BuildVersion = this.AffectedVersions.Last();	// Latest Version Affected
 			}
-
-
+            
 			foreach( var AffectedBuild in this.AffectedVersions )
 			{
 				var Subs = AffectedBuild.Split( ".".ToCharArray(), StringSplitOptions.RemoveEmptyEntries );
@@ -245,7 +249,7 @@ namespace Tools.CrashReporter.CrashReportWebSite.Models
 			this.LatestOSAffected = LatestOSAffected;			// Latest Environment Affected
 
 			// ToJiraSummary
-			var FunctionCalls = CrashesForBugg.First().GetCallStack().GetFunctionCallsForJira();
+			var FunctionCalls = new CallStackContainer(CrashesForBugg.First()).GetFunctionCallsForJira();
 			if( FunctionCalls.Count > 0 )
 			{
 				this.ToJiraSummary = FunctionCalls[0];
@@ -275,7 +279,7 @@ namespace Tools.CrashReporter.CrashReportWebSite.Models
 				if( !string.IsNullOrEmpty(BranchName) )
 				{
 					// Stream
-					if (BranchName.StartsWith( "//UE4" ))
+					if (BranchName.StartsWith( "//" ))
 					{
 						this.ToJiraBranches.Add( BranchName );
 					}
@@ -289,14 +293,25 @@ namespace Tools.CrashReporter.CrashReportWebSite.Models
 
 			// ToJiraPlatforms
 			this.ToJiraPlatforms = new List<object>();
-			foreach( var BranchName in this.AffectedPlatforms )
+			foreach( var platform in this.AffectedPlatforms )
 			{
-				bool bValid = JC.GetNameToPlatform().ContainsKey( BranchName );
+                bool bValid = JC.GetNameToPlatform().ContainsKey(platform);
 				if( bValid )
 				{
-					this.ToJiraPlatforms.Add( JC.GetNameToPlatform()[BranchName] );
+                    this.ToJiraPlatforms.Add(JC.GetNameToPlatform()[platform]);
 				}
 			}
+
+            // ToJiraPlatforms
+            this.ToBranchName = new List<object>();
+            foreach (var BranchName in this.BranchesFoundIn)
+            {
+                bool bValid = JC.GetNameToBranch().ContainsKey(BranchName);
+                if (bValid)
+                {
+                    this.ToBranchName.Add(JC.GetNameToBranch()[BranchName]);
+                }
+            }   
 		}
 
 		/// <summary>
@@ -304,48 +319,109 @@ namespace Tools.CrashReporter.CrashReportWebSite.Models
 		/// </summary>
 		public void CopyToJira()
 		{
-			var JC = JiraConnection.Get();
-			if( JC.CanBeUsed() && string.IsNullOrEmpty( this.Jira ) )
+            var jc = JiraConnection.Get();
+		    Dictionary<string, object> issueFields;
+
+            if (BranchesFoundIn.Any(data => data.ToLower().Contains("//fort")))
+            {
+                issueFields = CreateFortniteIssue(jc);
+            }
+            //else if (BranchesFoundIn.Any(data => data.ToLower().Contains("//orion")))
+            //{
+            //    issueFields = CreateOrionIssue();
+            //}
+            else
+		    {
+                issueFields = CreateGeneralIssue(jc);
+		    }
+            
+			if(jc.CanBeUsed() && string.IsNullOrEmpty( this.Jira ))
 			{
-				Dictionary<string, object> Fields = new Dictionary<string, object>();
-				Fields.Add( "project", new Dictionary<string, object> { { "id", 11205 } } );	// UE
-				Fields.Add( "summary", "[CrashReport] " + ToJiraSummary );						// Call Stack, Line 1
-				Fields.Add( "description", string.Join( "\r\n", ToJiraDescriptions ) );			// Description
-				Fields.Add( "issuetype", new Dictionary<string, object> { { "id", "1" } } );	// Bug
-				Fields.Add( "labels", new string[] { "crash", "liveissue" } );					// <label>crash, live issue</label>
-				Fields.Add( "customfield_11500", ToJiraFirstCLAffected );						// Changelist # / Found Changelist
-				Fields.Add( "environment", LatestOSAffected );									// Platform
-
-				// Components
-				var SupportComponent = JC.GetNameToComponents()["Support"];
-				Fields.Add( "components", new object[] { SupportComponent } );
-
-				// ToJiraVersions			
-				Fields.Add( "versions", ToJiraVersions );
-
-				// ToJiraBranches
-				Fields.Add( "customfield_12402", ToJiraBranches.ToList() );						// NewBranchFoundIn
-
-				// ToJiraPlatforms
-				Fields.Add( "customfield_11203", ToJiraPlatforms );
-
-				// Callstack customfield_11807
-				string JiraCallstack = "{noformat}" + string.Join( "\r\n", ToJiraFunctionCalls ) + "{noformat}";
-				Fields.Add( "customfield_11807", JiraCallstack );								// Callstack
-
-				string BuggLink = "http://crashreporter/Buggs/Show/" + Id;
-				Fields.Add( "customfield_11205", BuggLink );									// Additional Info URL / Link to Crash/Bugg
-
-				string Key = JC.AddJiraTicket( Fields );
+				// Additional Info URL / Link to Crash/Bugg
+                string Key = jc.AddJiraTicket(issueFields);
 				if( !string.IsNullOrEmpty( Key ) )
 				{
 					Jira = Key;
-					BuggRepository Buggs = new BuggRepository();
-					Buggs.SetJIRAForBuggAndCrashes( Key, Id );
+					var buggs = new BuggRepository();
+					buggs.SetJIRAForBuggAndCrashes( Key, Id );
 				}
-
 			}
 		}
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <returns></returns>
+        public Dictionary<string, object> CreateGeneralIssue(JiraConnection jc)
+	    {
+            var fields = new Dictionary<string, object>();
+
+            fields.Add("project", new Dictionary<string, object> { { "id", 11205 } });	    // UE
+            
+            fields.Add("summary", "[CrashReport] " + ToJiraSummary);						// Call Stack, Line 1
+            fields.Add("description", string.Join("\r\n", ToJiraDescriptions));			    // Description
+            fields.Add("issuetype", new Dictionary<string, object> { { "id", "1" } });	    // Bug
+            fields.Add("labels", new string[] { "crash", "liveissue" });					// <label>crash, live issue</label>
+            fields.Add("customfield_11500", ToJiraFirstCLAffected);						    // Changelist # / Found Changelist
+            fields.Add("environment", LatestOSAffected);		    						// Platform
+
+            // Components
+            var SupportComponent = jc.GetNameToComponents()["Support"];
+            fields.Add("components", new object[] { SupportComponent });
+
+            // ToJiraVersions			
+            fields.Add("versions", ToJiraVersions);
+
+            // ToJiraBranches
+            fields.Add("customfield_12402", ToJiraBranches.ToList());						// NewBranchFoundIn
+
+            // ToJiraPlatforms
+            fields.Add("customfield_11203", ToJiraPlatforms);
+
+            // Callstack customfield_11807
+            string JiraCallstack = "{noformat}" + string.Join("\r\n", ToJiraFunctionCalls) + "{noformat}";
+            fields.Add("customfield_11807", JiraCallstack);								// Callstack
+
+            string BuggLink = "http://crashreporter/Buggs/Show/" + Id;
+            fields.Add("customfield_11205", BuggLink);
+            return fields;
+	    }
+
+	    /// <summary>
+	    /// 
+	    /// </summary>
+	    /// <param name="jc"></param>
+	    /// <returns></returns>
+	    public Dictionary<string, object> CreateFortniteIssue(JiraConnection jc)
+	    {
+	        var fields = new Dictionary<string, object>();
+
+	        fields.Add("summary", "[CrashReport] " + ToJiraSummary); // Call Stack, Line 1
+	        fields.Add("description", string.Join("\r\n", ToJiraDescriptions)); // Description
+	        fields.Add("project", new Dictionary<string, object> {{"id", 10600}});
+	        fields.Add("issuetype", new Dictionary<string, object> {{"id", "1"}}); // Bug
+	        //branch found in - required = false
+	        fields.Add("customfield_11201", ToBranchName.ToList());
+
+	        //found CL = required = false
+	        //fields.Add("customfield_11500", th );
+
+	        //Platforms - required = false
+	        fields.Add("customfield_11203", new List<object>(){new Dictionary<string, object>() {{"self", "https://jira.ol.epicgames.net/rest/api/2/customFieldOption/11425"},{"value","PC"}}});
+            
+            //repro rate required = false
+            //fields.Add("customfield_11900", this.Buggs_Crashes.Count);
+
+            // ToJiraVersions	
+            fields.Add("assignee", new Dictionary<string, object>{{"name", "fortnite.coretech"}});// assignee
+
+            // Callstack customfield_11807
+            string JiraCallstack = "{noformat}" + string.Join("\r\n", ToJiraFunctionCalls) + "{noformat}";
+            fields.Add("customfield_11807", JiraCallstack);         // Callstack
+            
+	        return fields;
+	    } 
+
 
 		/// <summary> Creates a previews of the bugg, for verifying JIRA's fields. </summary>
 		public string ToTooltip()
@@ -417,7 +493,7 @@ namespace Tools.CrashReporter.CrashReportWebSite.Models
 				var CrashList =
 				(
 						from BuggCrash in CrashRepo.Context.Buggs_Crashes
-						where BuggCrash.BuggId == Id && BuggCrash.Crash.TimeOfCrash > DateTime.UtcNow.AddMonths(-6)
+                        where BuggCrash.BuggId == Id && BuggCrash.Crash.TimeOfCrash > DateTime.UtcNow.AddMonths(-6)
 						select BuggCrash.Crash
 				).OrderByDescending( c => c.TimeOfCrash ).ToList();
 				return CrashList;
@@ -533,6 +609,7 @@ namespace Tools.CrashReporter.CrashReportWebSite.Models
 		{
 			try
 			{
+                //\\epicgames.net\Root\Projects\Paragon\QA_CrashReports
 				bool bHasCrashContext = HasCrashContextFile();
 				if (bHasCrashContext)
 				{
@@ -540,7 +617,28 @@ namespace Tools.CrashReporter.CrashReportWebSite.Models
 					bool bTest = CrashContext != null && !string.IsNullOrEmpty( CrashContext.PrimaryCrashProperties.FullCrashDumpLocation );
 					if(bTest)
 					{
-						bUseFullMinidumpPath = true;// System.IO.Directory.Exists( CrashContext.PrimaryCrashProperties.FullCrashDumpLocation ); Doesn't work, probably due to some permissions.
+						bUseFullMinidumpPath = true;
+
+                        //Some temporary code to redirect to the new file location for fulldumps for paragon.
+                        //Consider removing this once fulldumps stop appearing in the old location.
+                        if (CrashContext.PrimaryCrashProperties.FullCrashDumpLocation.ToLower()
+                                .Contains("\\\\epicgames.net\\root\\dept\\gameqa\\paragon\\paragon_launchercrashdumps"))
+                        {
+                            //Files from old versions of the client may end up in the old location. Check for files there first.
+                            if(!System.IO.Directory.Exists( CrashContext.PrimaryCrashProperties.FullCrashDumpLocation ))
+                            {
+                                var suffix =
+                                CrashContext.PrimaryCrashProperties.FullCrashDumpLocation.Substring("\\\\epicgames.net\\root\\dept\\gameqa\\paragon\\paragon_launchercrashdumps".Length);
+                                CrashContext.PrimaryCrashProperties.FullCrashDumpLocation = String.Format("\\\\epicgames.net\\Root\\Projects\\Paragon\\QA_CrashReports{0}", suffix);
+
+                                //If the file doesn't exist in the new location either then don't use the full minidump path.
+                                bUseFullMinidumpPath =
+                                    System.IO.Directory.Exists(CrashContext.PrimaryCrashProperties.FullCrashDumpLocation);
+                            }
+                        }
+
+                        //End of temporary code.
+
 						FLogger.Global.WriteEvent( "ReadCrashContextIfAvailable " + CrashContext.PrimaryCrashProperties.FullCrashDumpLocation + " is " + bUseFullMinidumpPath );
 					}
 				}
@@ -595,7 +693,8 @@ namespace Tools.CrashReporter.CrashReportWebSite.Models
 		/// </summary>
 		public string GetDumpTitle()
 		{
-			var Title = UseFullMinidumpPath() ? "Copy the link and open in the explorer" : "";
+			var Title = UseFullMinidumpPath() ? 
+                "Copy the link and open in the explorer" : "";
 			return Title;
 		}
 
@@ -716,7 +815,6 @@ namespace Tools.CrashReporter.CrashReportWebSite.Models
 			return Crashes.GetCallStack( this );
 		}
 
-
 		/// <summary>
 		/// Build a callstack pattern for a crash to ease bucketing of crashes into Buggs.
 		/// </summary>
@@ -727,42 +825,41 @@ namespace Tools.CrashReporter.CrashReportWebSite.Models
 				List<string> PatternList = new List<string>();
 				var FunctionCalls = Context.FunctionCalls;
 
-				// Get an array of callstack items
+				// Get an array of call stack items
 				CallStackContainer CallStack = GetCallStack();
 
 				if( Pattern == null )
 				{
-					// Set the module based on the modules in the callstack
+					// Set the module based on the modules in the call stack
 					Module = CallStack.GetModuleName();
 					try
 					{
 						foreach (CallStackEntry Entry in CallStack.CallStackEntries.Take( CallStackContainer.MaxLinesToParse ))
 						{
-							FunctionCall CurrentFunctionCall = new FunctionCall();
+						    FunctionCall currentFunctionCall;
 
-							if( FunctionCalls.Where( f => f.Call == Entry.FunctionName ).Count() > 0 )
+							if( FunctionCalls.Any( f => f.Call == Entry.FunctionName ) )
 							{
-								CurrentFunctionCall = FunctionCalls.Where( f => f.Call == Entry.FunctionName ).First();
+								currentFunctionCall = FunctionCalls.First( f => f.Call == Entry.FunctionName );
 							}
 							else
 							{
-								CurrentFunctionCall = new FunctionCall();
-								CurrentFunctionCall.Call = Entry.FunctionName;
-								FunctionCalls.InsertOnSubmit( CurrentFunctionCall );
+								currentFunctionCall = new FunctionCall();
+								currentFunctionCall.Call = Entry.FunctionName;
+								FunctionCalls.InsertOnSubmit( currentFunctionCall );
 							}
 
-							Context.SubmitChanges();
-
-							PatternList.Add( CurrentFunctionCall.Id.ToString() );
+                            Context.SubmitChanges();
+							PatternList.Add( currentFunctionCall.Id.ToString() );
 						}
 
 						Pattern = string.Join( "+", PatternList );
-
+                        
 						Context.SubmitChanges();
 					}
 					catch( Exception Ex )
 					{
-						FLogger.Global.WriteException( "BuildPattern: " + Ex.ToString() );
+						FLogger.Global.WriteException( "BuildPattern exception: " + Ex.Message.ToString() );
 					}
 				}
 			}

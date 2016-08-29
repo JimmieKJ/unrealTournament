@@ -1,14 +1,14 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <TpsData xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
   <Name>OpenSubDiv 3.0</Name>
-  <Location>//depot/UE4/Engine/Source/ThirdParty/OpenSubdiv/</Location>
-  <Date>2015-09-04T20:04:40.0754156-04:00</Date>
+  <Location>/Engine/Source/ThirdParty/OpenSubdiv/</Location>
+  <Date>2016-06-13T16:26:06.7714692-04:00</Date>
   <Function>OpenSubdiv is a set of open source libraries that implement high-performance subdivision surface (subdiv) evaluation on massively parallel CPU and GPU architectures.</Function>
   <Justification>Will provide as a reference and starting point for Geometry 2.0.</Justification>
   <Platforms>
     <Platform>PC</Platform>
-    <Platform>Linux</Platform>
     <Platform>Mac</Platform>
+    <Platform>Linux</Platform>
   </Platforms>
   <Products>
     <Product>UDK4</Product>
@@ -102,5 +102,5 @@ You may add Your own copyright statement to Your modifications and may provide a
 9. Accepting Warranty or Additional Liability. While redistributing the Work or Derivative Works thereof, You may choose to offer, and charge a fee for, acceptance of support, warranty, indemnity, or other liability obligations and/or rights consistent with this License. However, in accepting such obligations, You may act only on Your own behalf and on Your sole responsibility, not on behalf of any other Contributor, and only if You agree to indemnify, defend, and hold each Contributor harmless for any liability incurred by, or claims asserted against, such Contributor by reason of your accepting any such warranty or additional liability.
 
 END OF TERMS AND CONDITIONS</Notification>
-  <LicenseFolder />
+  <LicenseFolder>/Engine/Source/ThirdParty/Licenses/OpenSubDiv_3.0_LICENSE.txt</LicenseFolder>
 </TpsData>

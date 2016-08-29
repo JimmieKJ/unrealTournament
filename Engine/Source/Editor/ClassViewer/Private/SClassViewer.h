@@ -8,6 +8,7 @@
 // SClassViewer
 
 class FClassViewerNode;
+class FTextFilterExpressionEvaluator;
 
 class SClassViewer : public SCompoundWidget
 {
@@ -170,8 +171,8 @@ private:
 	/** The items to be displayed in the tree. */
 	TArray< TSharedPtr< FClassViewerNode > > RootTreeItems;
 
-	/** Split and sanitized list of filter search terms.  Cached for faster search performance. */
-	TArray< FString > FilterSearchTerms;
+	/** Compiled filter search terms. */
+	TSharedPtr<FTextFilterExpressionEvaluator> TextFilterPtr;
 
 	/** Holds the Slate Tree widget which holds the classes for the Class Viewer. */
 	TSharedPtr<STreeView<TSharedPtr< FClassViewerNode > >> ClassTree;

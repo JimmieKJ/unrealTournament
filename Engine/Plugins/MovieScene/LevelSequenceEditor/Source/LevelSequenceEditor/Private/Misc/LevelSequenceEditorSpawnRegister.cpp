@@ -5,8 +5,6 @@
 #include "ISequencerObjectChangeListener.h"
 #include "Editor/LevelEditor/Public/LevelEditor.h"
 #include "MovieScene.h"
-#include "Kismet2/KismetEditorUtilities.h"
-#include "Kismet2/BlueprintEditorUtils.h"
 #include "AssetSelection.h"
 
 #define LOCTEXT_NAMESPACE "LevelSequenceEditorSpawnRegister"
@@ -21,22 +19,34 @@ FLevelSequenceEditorSpawnRegister::FLevelSequenceEditorSpawnRegister()
 	FLevelEditorModule& LevelEditor = FModuleManager::GetModuleChecked<FLevelEditorModule>("LevelEditor");
 	OnActorSelectionChangedHandle = LevelEditor.OnActorSelectionChanged().AddRaw(this, &FLevelSequenceEditorSpawnRegister::HandleActorSelectionChanged);
 
-	OnActorMovedHandle = GEditor->OnActorMoved().AddLambda([=](AActor* Actor){
-		if (SpawnedObjects.Contains(Actor))
-		{
-			HandleAnyPropertyChanged(*Actor);
-		}
-	});
+	FAreObjectsEditable AreObjectsEditable = FAreObjectsEditable::CreateRaw(this, &FLevelSequenceEditorSpawnRegister::AreObjectsEditable);
+	OnAreObjectsEditableHandle = AreObjectsEditable.GetHandle();
+	LevelEditor.AddEditableObjectPredicate(AreObjectsEditable);
+
+#if WITH_EDITOR
+	GEditor->OnObjectsReplaced().AddRaw(this, &FLevelSequenceEditorSpawnRegister::OnObjectsReplaced);
+#endif
 }
 
 
 FLevelSequenceEditorSpawnRegister::~FLevelSequenceEditorSpawnRegister()
 {
-	GEditor->OnActorMoved().Remove(OnActorMovedHandle);
 	if (FLevelEditorModule* LevelEditor = FModuleManager::GetModulePtr<FLevelEditorModule>("LevelEditor"))
 	{
 		LevelEditor->OnActorSelectionChanged().Remove(OnActorSelectionChangedHandle);
+		LevelEditor->RemoveEditableObjectPredicate(OnAreObjectsEditableHandle);
 	}
+
+	TSharedPtr<ISequencer> Sequencer = WeakSequencer.Pin();
+	if (Sequencer.IsValid())
+	{
+		Sequencer->OnPreSave().RemoveAll(this);
+		Sequencer->OnActivateSequence().RemoveAll(this);
+	}
+
+#if WITH_EDITOR
+	GEditor->OnObjectsReplaced().RemoveAll(this);
+#endif
 }
 
 
@@ -46,25 +56,17 @@ FLevelSequenceEditorSpawnRegister::~FLevelSequenceEditorSpawnRegister()
 UObject* FLevelSequenceEditorSpawnRegister::SpawnObject(const FGuid& BindingId, FMovieSceneSequenceInstance& SequenceInstance, IMovieScenePlayer& Player)
 {
 	TGuardValue<bool> Guard(bShouldClearSelectionCache, false);
-	UObject* NewObject = FLevelSequenceSpawnRegister::SpawnObject(BindingId, SequenceInstance, Player);
+	AActor* NewObject = Cast<AActor>(FLevelSequenceSpawnRegister::SpawnObject(BindingId, SequenceInstance, Player));
 	
 	if (NewObject)
 	{
-		SpawnedObjects.Add(NewObject);
+		// Cache the spawned object, and editable state first
+		SpawnedObjects.FindOrAdd(SequenceInstance.GetInstanceId()).Add(NewObject);
 
-		// Add an object listener for the spawned object to propagate changes back onto the spawnable default
-		TSharedPtr<ISequencer> Sequencer = WeakSequencer.Pin();
-		AActor* Actor = Cast<AActor>(NewObject);
-
-		if (Sequencer.IsValid() && Actor)
+		// Select the actor if we think it should be selected
+		if (SelectedSpawnedObjects.Contains(FMovieSceneSpawnRegisterKey(BindingId, SequenceInstance)))
 		{
-			Sequencer->GetObjectChangeListener().GetOnAnyPropertyChanged(*NewObject).AddSP(this, &FLevelSequenceEditorSpawnRegister::HandleAnyPropertyChanged);
-
-			// Select the actor if we think it should be selected
-			if (Actor && SelectedSpawnedObjects.Contains(FMovieSceneSpawnRegisterKey(BindingId, SequenceInstance)))
-			{
-				GEditor->SelectActor(Actor, true /*bSelected*/, true /*bNotify*/);
-			}
+			GEditor->SelectActor(NewObject, true /*bSelected*/, true /*bNotify*/);
 		}
 	}
 
@@ -75,6 +77,14 @@ UObject* FLevelSequenceEditorSpawnRegister::SpawnObject(const FGuid& BindingId, 
 void FLevelSequenceEditorSpawnRegister::PreDestroyObject(UObject& Object, const FGuid& BindingId, FMovieSceneSequenceInstance& SequenceInstance)
 {
 	TGuardValue<bool> Guard(bShouldClearSelectionCache, false);
+	
+	TSharedPtr<ISequencer> Sequencer = WeakSequencer.Pin();
+
+	// We only save default state for the currently focussed movie scene sequence instance
+	if (Sequencer.IsValid() && &Sequencer->GetFocusedMovieSceneSequenceInstance().Get() == &SequenceInstance)
+	{
+		SaveDefaultSpawnableState(BindingId, SequenceInstance);
+	}
 
 	// Cache its selection state
 	AActor* Actor = Cast<AActor>(&Object);
@@ -83,32 +93,78 @@ void FLevelSequenceEditorSpawnRegister::PreDestroyObject(UObject& Object, const 
 		SelectedSpawnedObjects.Add(FMovieSceneSpawnRegisterKey(BindingId, SequenceInstance));
 		GEditor->SelectActor(Actor, false /*bSelected*/, true /*bNotify*/);
 	}
-			
-	SpawnedObjects.Remove(&Object);
-
-	// Remove our object listener
-	TSharedPtr<ISequencer> Sequencer = WeakSequencer.Pin();
-	if (Sequencer.IsValid())
+	
+	// Remove the spawned object (and anything that's null) from our cache
+	TSet<FObjectKey>* ExistingObjects = SpawnedObjects.Find(SequenceInstance.GetInstanceId());
+	if (ExistingObjects)
 	{
-		Sequencer->GetObjectChangeListener().ReportObjectDestroyed(Object);
+		ExistingObjects->Remove(FObjectKey(&Object));
+		if (ExistingObjects->Num() == 0)
+		{
+			SpawnedObjects.Remove(SequenceInstance.GetInstanceId());
+		}
 	}
 
 	FLevelSequenceSpawnRegister::PreDestroyObject(Object, BindingId, SequenceInstance);
 }
 
+void FLevelSequenceEditorSpawnRegister::SaveDefaultSpawnableState(const FGuid& BindingId, FMovieSceneSequenceInstance& SequenceInstance)
+{
+	TSharedPtr<ISequencer> Sequencer = WeakSequencer.Pin();
+	if (!Sequencer.IsValid())
+	{
+		return;
+	}
+
+	UObject* Object = SequenceInstance.FindObject(BindingId, *Sequencer);
+	if (!Object)
+	{
+		return;
+	}
+
+	// Find the spawnable definition
+	FMovieSceneSpawnable* Spawnable = SequenceInstance.GetSequence()->GetMovieScene()->FindSpawnable(BindingId);
+	if (Spawnable)
+	{
+		SequenceInstance.RestoreSpecificState(BindingId, *Sequencer);
+		Spawnable->CopyObjectTemplate(*Object, *SequenceInstance.GetSequence());
+	}
+}
+
+void FLevelSequenceEditorSpawnRegister::OnPreSaveMovieScene(ISequencer& InSequencer)
+{
+	// We're about to save the movie scene(s), so we need to save default spawnable state for the currently focused movie scene sequence instance
+
+	TSharedPtr<FMovieSceneSequenceInstance> Instance = InSequencer.GetFocusedMovieSceneSequenceInstance();
+	UMovieSceneSequence* Sequence = Instance->GetSequence();
+	UMovieScene* MovieScene = Sequence ? Sequence->GetMovieScene() : nullptr;
+	if (!MovieScene)
+	{
+		return;
+	}
+
+	for (int32 SpawnableIndex = 0; SpawnableIndex < MovieScene->GetSpawnableCount(); ++SpawnableIndex)
+	{
+		FMovieSceneSpawnable& Spawnable = MovieScene->GetSpawnable(SpawnableIndex);
+		SaveDefaultSpawnableState(Spawnable.GetGuid(), *Instance);
+	}
+}
+
+void FLevelSequenceEditorSpawnRegister::OnSequenceInstanceActivated(FMovieSceneSequenceInstance& ActiveInstance)
+{
+	ActiveSequence = ActiveInstance.GetInstanceId();
+}
 
 /* FLevelSequenceEditorSpawnRegister implementation
  *****************************************************************************/
 
-void FLevelSequenceEditorSpawnRegister::PopulateKeyedPropertyMap(AActor& SpawnedObject, TMap<UObject*, TSet<UProperty*>>& OutKeyedPropertyMap)
+void FLevelSequenceEditorSpawnRegister::SetSequencer(const TSharedPtr<ISequencer>& Sequencer)
 {
-	TSharedPtr<ISequencer> Sequencer = WeakSequencer.Pin();
-	Sequencer->GetAllKeyedProperties(SpawnedObject, OutKeyedPropertyMap.FindOrAdd(&SpawnedObject));
+	WeakSequencer = Sequencer;
+	Sequencer->OnPreSave().AddRaw(this, &FLevelSequenceEditorSpawnRegister::OnPreSaveMovieScene);
+	Sequencer->OnActivateSequence().AddRaw(this, &FLevelSequenceEditorSpawnRegister::OnSequenceInstanceActivated);
 
-	for (UActorComponent* Component : SpawnedObject.GetComponents())
-	{
-		Sequencer->GetAllKeyedProperties(*Component, OutKeyedPropertyMap.FindOrAdd(Component));
-	}
+	ActiveSequence = Sequencer->GetFocusedMovieSceneSequenceInstance()->GetInstanceId();
 }
 
 
@@ -123,63 +179,69 @@ void FLevelSequenceEditorSpawnRegister::HandleActorSelectionChanged(const TArray
 	}
 }
 
-
-void FLevelSequenceEditorSpawnRegister::HandleAnyPropertyChanged(UObject& SpawnedObject)
+bool FLevelSequenceEditorSpawnRegister::AreObjectsEditable(const TArray<TWeakObjectPtr<UObject>>& InObjects) const
 {
-	using namespace EditorUtilities;
+	// Check that none of the objects specified are (or belong to) a spawned actor
+	for (const TWeakObjectPtr<UObject>& WeakObject : InObjects)
+	{
+		UObject* Object = WeakObject.Get();
+		if (!Object)
+		{
+			continue;
+		}
 
-	AActor* Actor = CastChecked<AActor>(&SpawnedObject);
-	if (!Actor)
+		AActor* SourceActor = Cast<AActor>(Object);
+		if (!SourceActor)
+		{
+			UActorComponent* ActorComponent = Cast<UActorComponent>(Object);
+			if (ActorComponent)
+			{
+				SourceActor = ActorComponent->GetOwner();
+			}
+		}
+
+		if (!SourceActor)
+		{
+			continue;
+		}
+
+		FObjectKey ThisObject(SourceActor);
+		for (auto& Pair : SpawnedObjects)
+		{
+			if (Pair.Key != ActiveSequence && Pair.Value.Contains(ThisObject))
+			{
+				return false;
+			}
+		}
+	}
+	return true;
+}
+
+void FLevelSequenceEditorSpawnRegister::OnObjectsReplaced(const TMap<UObject*, UObject*>& OldToNewInstanceMap)
+{
+	TSharedPtr<ISequencer> Sequencer = WeakSequencer.Pin();
+	if (!Sequencer.IsValid())
 	{
 		return;
 	}
 
-	TMap<UObject*, TSet<UProperty*>> ObjectToKeyedProperties;
-	PopulateKeyedPropertyMap(*Actor, ObjectToKeyedProperties);
-
-	// Copy any changed actor properties onto the default actor, provided they are not keyed
-	FCopyOptions Options(ECopyOptions::PropagateChangesToArchetypeInstances);
-
-	// Set up a property filter so only stuff that is not keyed gets copied onto the default
-	Options.PropertyFilter = [&](const UProperty& Property, const UObject& Object) -> bool {
-		const TSet<UProperty*>* ExcludedProperties = ObjectToKeyedProperties.Find(const_cast<UObject*>(&Object));
-
-		return !ExcludedProperties || !ExcludedProperties->Contains(const_cast<UProperty*>(&Property));
-	};
-
-	// Now copy the actor properties
-	AActor* DefaultActor = Actor->GetClass()->GetDefaultObject<AActor>();
-	EditorUtilities::CopyActorProperties(Actor, DefaultActor, Options);
-
-	// The above function call explicitly doesn't copy the root component transform (so the default actor is always at 0,0,0)
-	// But in sequencer, we want the object to have a default transform if it doesn't have a transform track
-	static FName RelativeLocation = GET_MEMBER_NAME_CHECKED(USceneComponent, RelativeLocation);
-	static FName RelativeRotation = GET_MEMBER_NAME_CHECKED(USceneComponent, RelativeRotation);
-	static FName RelativeScale3D = GET_MEMBER_NAME_CHECKED(USceneComponent, RelativeScale3D);
-
-	bool bHasKeyedTransform = false;
-	for (UProperty* Property : *ObjectToKeyedProperties.Find(Actor))
+	for (auto& Pair : Register)
 	{
-		FName PropertyName = Property->GetFName();
-		bHasKeyedTransform = PropertyName == RelativeLocation || PropertyName == RelativeRotation || PropertyName == RelativeScale3D;
-		if (bHasKeyedTransform)
+		TWeakObjectPtr<>& WeakObject = Pair.Value.Object;
+		UObject* SpawnedObject = WeakObject.Get();
+		if (UObject* NewObject = OldToNewInstanceMap.FindRef(SpawnedObject))
 		{
-			break;
+			WeakObject = NewObject;
+			// It's a spawnable, so ensure it's transient
+			NewObject->SetFlags(RF_Transient);
+			TSharedPtr<FMovieSceneSequenceInstance> Instance = Pair.Key.SequenceInstance.Pin();
+			if (Instance.IsValid())
+			{
+				Instance->OnObjectSpawned(Pair.Key.BindingId, *NewObject, *Sequencer);
+			}
 		}
 	}
-
-	// Set the default transform if it's not keyed
-	USceneComponent* RootComponent = Actor->GetRootComponent();
-	USceneComponent* DefaultRootComponent = DefaultActor->GetRootComponent();
-
-	if (!bHasKeyedTransform && RootComponent && DefaultRootComponent)
-	{
-		DefaultRootComponent->RelativeLocation = RootComponent->RelativeLocation;
-		DefaultRootComponent->RelativeRotation = RootComponent->RelativeRotation;
-		DefaultRootComponent->RelativeScale3D = RootComponent->RelativeScale3D;
-	}
 }
-
 
 #if WITH_EDITOR
 
@@ -187,7 +249,7 @@ TValueOrError<FNewSpawnable, FText> FLevelSequenceEditorSpawnRegister::CreateNew
 {
 	FNewSpawnable NewSpawnable(nullptr, FName::NameToDisplayString(SourceObject.GetName(), false));
 
-	const FName BlueprintName = MakeUniqueObjectName(&OwnerMovieScene, UBlueprint::StaticClass(), SourceObject.GetFName());
+	const FName TemplateName = MakeUniqueObjectName(&OwnerMovieScene, UObject::StaticClass(), SourceObject.GetFName());
 
 	// First off, deal with creating a spawnable from a class
 	if (UClass* InClass = Cast<UClass>(&SourceObject))
@@ -198,41 +260,20 @@ TValueOrError<FNewSpawnable, FText> FLevelSequenceEditorSpawnRegister::CreateNew
 			return MakeError(ErrorText);
 		}
 
-		NewSpawnable.Blueprint = FKismetEditorUtilities::CreateBlueprint( InClass, &OwnerMovieScene, BlueprintName, EBlueprintType::BPTYPE_Normal, UBlueprint::StaticClass(), UBlueprintGeneratedClass::StaticClass() );
+		NewSpawnable.ObjectTemplate = NewObject<UObject>(&OwnerMovieScene, InClass, TemplateName);
 	}
 
 	// Deal with creating a spawnable from an instance of an actor
 	else if (AActor* Actor = Cast<AActor>(&SourceObject))
 	{
-		using namespace EditorUtilities;
-
-		UBlueprint* ActorBlueprint = Cast<UBlueprint>(Actor->GetClass()->ClassGeneratedBy);
-		if (ActorBlueprint)
-		{
-			// Create a new blueprint out of this actor's parent blueprint
-			NewSpawnable.Blueprint = FKismetEditorUtilities::CreateBlueprint(ActorBlueprint->GeneratedClass, &OwnerMovieScene, BlueprintName, EBlueprintType::BPTYPE_Normal, UBlueprint::StaticClass(), UBlueprintGeneratedClass::StaticClass());
-		}
-		else
-		{
-			NewSpawnable.Blueprint = FKismetEditorUtilities::CreateBlueprint(Actor->GetClass(), &OwnerMovieScene, BlueprintName, EBlueprintType::BPTYPE_Normal, UBlueprint::StaticClass(), UBlueprintGeneratedClass::StaticClass(), FName("CreateFromActor"));
-		}
-
-		// Use the actor name
+		NewSpawnable.ObjectTemplate = StaticDuplicateObject(Actor, &OwnerMovieScene, TemplateName, RF_AllFlags & ~RF_Transactional);
 		NewSpawnable.Name = Actor->GetActorLabel();
 	}
 
 	// If it's a blueprint, we need some special handling
 	else if (UBlueprint* SourceBlueprint = Cast<UBlueprint>(&SourceObject))
 	{
-		UClass* SourceParentClass = SourceBlueprint->GeneratedClass;
-
-		if (!FKismetEditorUtilities::CanCreateBlueprintOfClass(SourceParentClass))
-		{
-			FText ErrorText = FText::Format(LOCTEXT("UnableToAddSpawnableBlueprint", "Unable to add spawnable for class of type '{0}' since it is not a valid blueprint parent class."), FText::FromString(SourceParentClass->GetName()));
-			return MakeError(ErrorText);
-		}
-
-		NewSpawnable.Blueprint = FKismetEditorUtilities::CreateBlueprint(SourceParentClass, &OwnerMovieScene, BlueprintName, EBlueprintType::BPTYPE_Normal, UBlueprint::StaticClass(), UBlueprintGeneratedClass::StaticClass());
+		NewSpawnable.ObjectTemplate = NewObject<UObject>(&OwnerMovieScene, SourceBlueprint->GeneratedClass, TemplateName);
 	}
 
 	// At this point we have to assume it's an asset
@@ -246,17 +287,32 @@ TValueOrError<FNewSpawnable, FText> FLevelSequenceEditorSpawnRegister::CreateNew
 			return MakeError(ErrorText);
 		}
 
-		NewSpawnable.Blueprint = FactoryToUse->CreateBlueprint( &SourceObject, &OwnerMovieScene, BlueprintName );
+		FText ErrorText;
+		if (!FactoryToUse->CanCreateActorFrom(FAssetData(&SourceObject), ErrorText))
+		{
+			if (!ErrorText.IsEmpty())
+			{
+				return MakeError(FText::Format(LOCTEXT("CannotCreateActorFromAsset_Ex", "Unable to create spawnable from  asset '{0}'. {1}."), FText::FromString(SourceObject.GetName()), ErrorText));
+			}
+			else
+			{
+				return MakeError(FText::Format(LOCTEXT("CannotCreateActorFromAsset", "Unable to create spawnable from  asset '{0}'."), FText::FromString(SourceObject.GetName())));
+			}
+		}
+
+		AActor* Instance = FactoryToUse->CreateActor(&SourceObject, GWorld->PersistentLevel, FTransform(), RF_NoFlags, TemplateName );
+
+		NewSpawnable.ObjectTemplate = StaticDuplicateObject(Instance, &OwnerMovieScene, TemplateName);
+
+		GWorld->DestroyActor(Instance);
 	}
 
-
-	if (!NewSpawnable.Blueprint)
+	if (!NewSpawnable.ObjectTemplate || !NewSpawnable.ObjectTemplate->IsA<AActor>())
 	{
 		FText ErrorText = FText::Format(LOCTEXT("UnknownClassError", "Unable to create a new spawnable object from {0}."), FText::FromString(SourceObject.GetName()));
 		return MakeError(ErrorText);
 	}
 
-	FKismetEditorUtilities::CompileBlueprint(NewSpawnable.Blueprint);
 	return MakeValue(NewSpawnable);
 }
 

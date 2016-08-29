@@ -463,7 +463,9 @@ HackyBreakAll:
 					}
 				}
 			}
-		}
+
+            SubselectHistogramBar(null);
+        }
 
 		static public bool ProcessKeys( Keys KeyData )
 		{

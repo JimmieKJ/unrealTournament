@@ -9,6 +9,8 @@
 #include "UTDmgType_Fell.h"
 #include "UTDmgType_Drown.h"
 #include "Particles/ParticleSystemComponent.h"
+#include "Animation/AnimMontage.h"
+#include "Animation/AnimInstance.h"
 #include "UTTeamGameMode.h"
 #include "UTDmgType_Telefragged.h"
 #include "UTDmgType_BlockedTelefrag.h"
@@ -38,6 +40,8 @@
 #include "UTGameVolume.h"
 #include "UTGameMode.h"
 
+#include "PhysicsEngine/ConstraintInstance.h"
+
 static FName NAME_HatSocket(TEXT("HatSocket"));
 
 UUTMovementBaseInterface::UUTMovementBaseInterface(const FObjectInitializer& ObjectInitializer)
@@ -60,7 +64,7 @@ AUTCharacter::AUTCharacter(const class FObjectInitializer& ObjectInitializer)
 
 	// Create a CameraComponent	
 	CharacterCameraComponent = ObjectInitializer.CreateDefaultSubobject<UCameraComponent>(this, TEXT("FirstPersonCamera"));
-	CharacterCameraComponent->AttachParent = GetCapsuleComponent();
+	CharacterCameraComponent->SetupAttachment(GetCapsuleComponent());
 	DefaultBaseEyeHeight = 83.f;
 	BaseEyeHeight = DefaultBaseEyeHeight;
 	CrouchedEyeHeight = 45.f;
@@ -72,7 +76,7 @@ AUTCharacter::AUTCharacter(const class FObjectInitializer& ObjectInitializer)
 	// Create a mesh component that will be used when being viewed from a '1st person' view (when controlling this pawn)
 	FirstPersonMesh = ObjectInitializer.CreateDefaultSubobject<USkeletalMeshComponent>(this, TEXT("CharacterMesh1P"));
 	FirstPersonMesh->SetOnlyOwnerSee(true);
-	FirstPersonMesh->AttachParent = CharacterCameraComponent;
+	FirstPersonMesh->SetupAttachment(CharacterCameraComponent);
 	FirstPersonMesh->MeshComponentUpdateFlag = EMeshComponentUpdateFlag::OnlyTickPoseWhenRendered;
 	FirstPersonMesh->bCastDynamicShadow = false;
 	FirstPersonMesh->CastShadow = false;
@@ -642,7 +646,7 @@ void AUTCharacter::OnRepHeadArmorFlashCount()
 		PSC->SetTemplate(HeadArmorHitEffect);
 		PSC->bOverrideLODMethod = false;
 		PSC->RegisterComponent();
-		PSC->AttachTo(GetMesh(), NAME_HatSocket);
+		PSC->AttachToComponent(GetMesh(), FAttachmentTransformRules::KeepRelativeTransform, NAME_HatSocket);
 		PSC->ActivateSystem(true);
 	}
 }
@@ -828,7 +832,7 @@ float AUTCharacter::TakeDamage(float Damage, const FDamageEvent& DamageEvent, AC
 					float ActualDamage = float(ResultDamage); // engine hooks want float
 					// generic damage notifications sent for any damage
 					ReceiveAnyDamage(ActualDamage, DamageTypeCDO, EventInstigator, DamageCauser);
-					OnTakeAnyDamage.Broadcast(ActualDamage, DamageTypeCDO, EventInstigator, DamageCauser);
+					OnTakeAnyDamage.Broadcast(this, ActualDamage, DamageTypeCDO, EventInstigator, DamageCauser);
 					if (EventInstigator != NULL)
 					{
 						EventInstigator->InstigatedAnyDamage(ActualDamage, DamageTypeCDO, this, DamageCauser);
@@ -842,7 +846,7 @@ float AUTCharacter::TakeDamage(float Damage, const FDamageEvent& DamageEvent, AC
 						if (ActualDamage != 0.f)
 						{
 							ReceivePointDamage(ActualDamage, DamageTypeCDO, PointDamageEvent->HitInfo.ImpactPoint, PointDamageEvent->HitInfo.ImpactNormal, PointDamageEvent->HitInfo.Component.Get(), PointDamageEvent->HitInfo.BoneName, PointDamageEvent->ShotDirection, EventInstigator, DamageCauser);
-							OnTakePointDamage.Broadcast(ActualDamage, EventInstigator, PointDamageEvent->HitInfo.ImpactPoint, PointDamageEvent->HitInfo.Component.Get(), PointDamageEvent->HitInfo.BoneName, PointDamageEvent->ShotDirection, DamageTypeCDO, DamageCauser);
+							OnTakePointDamage.Broadcast(this, ActualDamage, EventInstigator, PointDamageEvent->HitInfo.ImpactPoint, PointDamageEvent->HitInfo.Component.Get(), PointDamageEvent->HitInfo.BoneName, PointDamageEvent->ShotDirection, DamageTypeCDO, DamageCauser);
 						}
 					}
 					else if (DamageEvent.IsOfType(FRadialDamageEvent::ClassID))
@@ -1173,7 +1177,7 @@ void AUTCharacter::PlayTakeHitEffects_Implementation()
 					PSC->SetTemplate(Blood);
 					PSC->bOverrideLODMethod = false;
 					PSC->RegisterComponentWithWorld(GetWorld());
-					PSC->AttachTo(GetMesh());
+					PSC->AttachToComponent(GetMesh(), FAttachmentTransformRules::KeepRelativeTransform);
 					PSC->SetAbsolute(true, true, true);
 					PSC->SetWorldLocationAndRotation(LastTakeHitInfo.RelHitLocation + GetActorLocation(), LastTakeHitInfo.RelHitLocation.Rotation());
 					PSC->SetRelativeScale3D(bPlayedArmorEffect ? FVector(0.7f) : FVector(1.f));
@@ -1222,7 +1226,7 @@ void AUTCharacter::SpawnBloodDecal(const FVector& TraceStart, const FVector& Tra
 					if (Hit.Component.Get() != NULL && Hit.Component->Mobility == EComponentMobility::Movable)
 					{
 						Decal->SetAbsolute(false, false, true);
-						Decal->AttachTo(Hit.Component.Get());
+						Decal->AttachToComponent(Hit.Component.Get(), FAttachmentTransformRules::KeepRelativeTransform);
 					}
 					else
 					{
@@ -1459,6 +1463,7 @@ bool AUTCharacter::Died(AController* EventInstigator, const FDamageEvent& Damage
 				DyingGameController->ClientPlayKillcam(EventInstigator, KillcamFocus);
 			}
 
+
 			return true;
 		}
 	}
@@ -1495,6 +1500,7 @@ void AUTCharacter::StartRagdoll()
 	// Prevent re-entry
 	if (!bStartingRagdoll)
 	{
+		// Prevent re-entry
 		TGuardValue<bool> RagdollGuard(bStartingRagdoll, true);
 
 		// turn off any taccom when dead
@@ -1510,26 +1516,30 @@ void AUTCharacter::StartRagdoll()
 
 		if (!GetMesh()->ShouldTickPose())
 		{
-			GetMesh()->TickAnimation(0.0f, false);
-			GetMesh()->RefreshBoneTransforms();
-			GetMesh()->UpdateComponentToWorld();
+			UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
+			if (AnimInstance == nullptr || !AnimInstance->IsPostUpdatingAnimation())
+			{
+				GetMesh()->TickAnimation(0.0f, false);
+				GetMesh()->RefreshBoneTransforms();
+				GetMesh()->UpdateComponentToWorld();
+			}
 		}
 		GetCharacterMovement()->ApplyAccumulatedForces(0.0f);
 		GetMesh()->MeshComponentUpdateFlag = EMeshComponentUpdateFlag::AlwaysTickPoseAndRefreshBones;
 		GetMesh()->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
 		GetMesh()->SetAllBodiesNotifyRigidBodyCollision(true); // note that both the component and the body instance need this set for it to apply
-		GetMesh()->UpdateKinematicBonesToAnim(GetMesh()->GetSpaceBases(), ETeleportType::TeleportPhysics, true);
+		GetMesh()->UpdateKinematicBonesToAnim(GetMesh()->GetComponentSpaceTransforms(), ETeleportType::TeleportPhysics, true);
 		GetMesh()->SetSimulatePhysics(true);
 		GetMesh()->RefreshBoneTransforms();
 		GetMesh()->SetAllBodiesPhysicsBlendWeight(1.0f);
-		GetMesh()->DetachFromParent(true);
+		GetMesh()->DetachFromComponent(FDetachmentTransformRules::KeepWorldTransform);
 		RootComponent = GetMesh();
 		GetMesh()->bGenerateOverlapEvents = true;
 		GetMesh()->bShouldUpdatePhysicsVolume = true;
 		GetMesh()->RegisterClothTick(true);
 		GetCapsuleComponent()->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-		GetCapsuleComponent()->DetachFromParent(false);
-		GetCapsuleComponent()->AttachTo(GetMesh(), NAME_None, EAttachLocation::KeepWorldPosition);
+		GetCapsuleComponent()->DetachFromComponent(FDetachmentTransformRules::KeepRelativeTransform);
+		GetCapsuleComponent()->AttachToComponent(GetMesh(), FAttachmentTransformRules::KeepWorldTransform);
 
 		if (bDeferredReplicatedMovement)
 		{
@@ -1570,7 +1580,7 @@ void AUTCharacter::StopRagdoll()
 	UTCharacterMovement->Velocity = GetMesh()->GetComponentVelocity();
 	UTCharacterMovement->PendingLaunchVelocity = FVector::ZeroVector;
 
-	GetCapsuleComponent()->DetachFromParent(true);
+	GetCapsuleComponent()->DetachFromComponent(FDetachmentTransformRules::KeepWorldTransform);
 	FRotator FixedRotation = GetCapsuleComponent()->RelativeRotation;
 	FixedRotation.Pitch = FixedRotation.Roll = 0.0f;
 	if (Controller != NULL)
@@ -2106,7 +2116,7 @@ void AUTCharacter::AmbientSoundUpdated()
 			AmbientSoundComp = NewObject<UAudioComponent>(this);
 			AmbientSoundComp->bAutoDestroy = false;
 			AmbientSoundComp->bAutoActivate = false;
-			AmbientSoundComp->AttachTo(RootComponent);
+			AmbientSoundComp->SetupAttachment(RootComponent);
 			AmbientSoundComp->RegisterComponent();
 		}
 		if (AmbientSoundComp->Sound != AmbientSound)
@@ -2191,7 +2201,7 @@ void AUTCharacter::LocalAmbientSoundUpdated()
 			LocalAmbientSoundComp->bAutoDestroy = false;
 			LocalAmbientSoundComp->bAutoActivate = false;
 		//	LocalAmbientSoundComp->bAllowSpatialization = false;
-			LocalAmbientSoundComp->AttachTo(RootComponent);
+			LocalAmbientSoundComp->SetupAttachment(RootComponent);
 			LocalAmbientSoundComp->RegisterComponent();
 		}
 		if (LocalAmbientSoundComp->Sound != LocalAmbientSound)
@@ -2244,7 +2254,7 @@ void AUTCharacter::StatusAmbientSoundUpdated()
 			StatusAmbientSoundComp->bAutoDestroy = false;
 			StatusAmbientSoundComp->bAutoActivate = false;
 			//	StatusAmbientSoundComp->bAllowSpatialization = false;
-			StatusAmbientSoundComp->AttachTo(RootComponent);
+			StatusAmbientSoundComp->SetupAttachment(RootComponent);
 			StatusAmbientSoundComp->RegisterComponent();
 		}
 		if (StatusAmbientSoundComp->Sound != StatusAmbientSound)
@@ -2981,14 +2991,14 @@ void AUTCharacter::SetSkinForWeapon(UUTWeaponSkin* WeaponSkin)
 	}
 }
 
-void AUTCharacter::UpdateWeaponSkinPrefFromProfile(AUTWeapon* Weapon)
+void AUTCharacter::UpdateWeaponSkinPrefFromProfile(AUTWeapon* InWeapon)
 {
-	if (Weapon != nullptr && IsLocallyControlled())
+	if (InWeapon != nullptr && IsLocallyControlled())
 	{
 		AUTPlayerState* PS = Cast<AUTPlayerState>(PlayerState);
 		if (PS)
 		{
-			PS->UpdateWeaponSkinPrefFromProfile(Weapon);
+			PS->UpdateWeaponSkinPrefFromProfile(InWeapon);
 		}
 	}
 }
@@ -3776,7 +3786,7 @@ void AUTCharacter::CheckRagdollFallingDamage(const FHitResult& Hit)
 	}
 }
 
-void AUTCharacter::OnRagdollCollision(AActor* OtherActor, UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit)
+void AUTCharacter::OnRagdollCollision(UPrimitiveComponent* HitComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit)
 {
 	if (IsDead())
 	{
@@ -3891,9 +3901,9 @@ void AUTCharacter::UpdateCharOverlays()
 	{
 		if (OverlayMesh != NULL && OverlayMesh->IsRegistered())
 		{
-			OverlayMesh->DetachFromParent();
+			OverlayMesh->DetachFromComponent(FDetachmentTransformRules::KeepRelativeTransform);
 			OverlayMesh->UnregisterComponent();
-			TArray<USceneComponent*> ChildrenCopy = OverlayMesh->AttachChildren;
+			const TArray<USceneComponent*> ChildrenCopy = OverlayMesh->GetAttachChildren();
 			for (USceneComponent* Child : ChildrenCopy)
 			{
 				UParticleSystemComponent* PSC = Cast<UParticleSystemComponent>(Child);
@@ -3901,7 +3911,7 @@ void AUTCharacter::UpdateCharOverlays()
 				{
 					PSC->bAutoDestroy = true;
 					PSC->DeactivateSystem();
-					PSC->DetachFromParent(true);
+					PSC->DetachFromComponent(FDetachmentTransformRules::KeepWorldTransform);
 				}
 				else
 				{
@@ -3924,7 +3934,8 @@ void AUTCharacter::UpdateCharOverlays()
 		if (OverlayMesh == NULL)
 		{
 			OverlayMesh = DuplicateObject<USkeletalMeshComponent>(GetMesh(), this);
-			OverlayMesh->AttachParent = NULL; // this gets copied but we don't want it to be
+			OverlayMesh->DetachFromComponent(FDetachmentTransformRules::KeepWorldTransform); // AttachParent gets copied but we don't want it to be
+			
 			{
 				// TODO: scary that these get copied, need an engine solution and/or safe way to duplicate objects during gameplay
 				OverlayMesh->PrimaryComponentTick = OverlayMesh->GetClass()->GetDefaultObject<USkeletalMeshComponent>()->PrimaryComponentTick;
@@ -3943,7 +3954,7 @@ void AUTCharacter::UpdateCharOverlays()
 		if (!OverlayMesh->IsRegistered())
 		{
 			OverlayMesh->RegisterComponent();
-			OverlayMesh->AttachTo(GetMesh(), NAME_None, EAttachLocation::SnapToTarget);
+			OverlayMesh->AttachToComponent(GetMesh(), FAttachmentTransformRules::SnapToTargetNotIncludingScale);
 			OverlayMesh->SetRelativeScale3D(FVector(1.0f, 1.0f, 1.0f));
 			OverlayMesh->LastRenderTime = GetMesh()->LastRenderTime;
 		}
@@ -3965,7 +3976,7 @@ void AUTCharacter::UpdateCharOverlays()
 		if (FirstOverlay.Particles != NULL)
 		{
 			UParticleSystemComponent* PSC = NULL;
-			for (USceneComponent* Child : OverlayMesh->AttachChildren)
+			for (USceneComponent* Child : OverlayMesh->GetAttachChildren())
 			{
 				PSC = Cast<UParticleSystemComponent>(Child);
 				if (PSC != NULL)
@@ -3978,12 +3989,12 @@ void AUTCharacter::UpdateCharOverlays()
 				PSC = NewObject<UParticleSystemComponent>(OverlayMesh);
 				PSC->RegisterComponent();
 			}
-			PSC->AttachTo(OverlayMesh, FirstOverlay.ParticleAttachPoint);
+			PSC->AttachToComponent(OverlayMesh, FAttachmentTransformRules::KeepRelativeTransform, FirstOverlay.ParticleAttachPoint);
 			PSC->SetTemplate(FirstOverlay.Particles);
 		}
 		else
 		{
-			for (USceneComponent* Child : OverlayMesh->AttachChildren)
+			for (USceneComponent* Child : OverlayMesh->GetAttachChildren())
 			{
 				UParticleSystemComponent* PSC = Cast<UParticleSystemComponent>(Child);
 				if (PSC != NULL)
@@ -3992,7 +4003,7 @@ void AUTCharacter::UpdateCharOverlays()
 					{
 						PSC->bAutoDestroy = true;
 						PSC->DeactivateSystem();
-						PSC->DetachFromParent(true);
+						PSC->DetachFromComponent(FDetachmentTransformRules::KeepWorldTransform);
 					}
 					else
 					{
@@ -4364,7 +4375,7 @@ void AUTCharacter::Tick(float DeltaTime)
 			// disable physics and make sure mesh is in the proper position
 			GetMesh()->SetSimulatePhysics(false);
 			GetMesh()->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-			GetMesh()->AttachTo(GetCapsuleComponent(), NAME_None, EAttachLocation::SnapToTarget);
+			GetMesh()->AttachToComponent(GetCapsuleComponent(), FAttachmentTransformRules::SnapToTargetIncludingScale);
 			GetMesh()->SetRelativeLocation(GetClass()->GetDefaultObject<AUTCharacter>()->GetMesh()->RelativeLocation);
 			GetMesh()->SetRelativeRotation(GetClass()->GetDefaultObject<AUTCharacter>()->GetMesh()->RelativeRotation);
 			GetMesh()->SetRelativeScale3D(GetClass()->GetDefaultObject<AUTCharacter>()->GetMesh()->RelativeScale3D);
@@ -4835,14 +4846,14 @@ void AUTCharacter::ApplyCharacterData(TSubclassOf<AUTCharacterContent> CharType)
 		// reapply any temporary override effects
 		if (OverlayMesh != NULL)
 		{
-			OverlayMesh->DetachFromParent();
+			OverlayMesh->DetachFromComponent(FDetachmentTransformRules::KeepRelativeTransform);
 			OverlayMesh->UnregisterComponent();
 			OverlayMesh = NULL;
 			UpdateCharOverlays();
 		}
 		if (CustomDepthMesh != NULL)
 		{
-			CustomDepthMesh->DetachFromParent();
+			CustomDepthMesh->DetachFromComponent(FDetachmentTransformRules::KeepRelativeTransform);
 			CustomDepthMesh->UnregisterComponent();
 			CustomDepthMesh = NULL;
 			UpdateOutline();
@@ -5154,7 +5165,7 @@ bool AUTCharacter::CanBlockTelefrags()
 	return (GetArmorAmount() > 100);
 }
 
-void AUTCharacter::OnOverlapBegin(AActor* OtherActor)
+void AUTCharacter::OnOverlapBegin(AActor* OverlappedActor, AActor* OtherActor)
 {
 	if (Role == ROLE_Authority && OtherActor != this && GetCapsuleComponent()->GetCollisionObjectType() == COLLISION_TELEPORTING_OBJECT) // need to make sure this ISN'T reflexive, only teleporting Pawn should be checking for telefrags
 	{
@@ -5327,7 +5338,9 @@ void AUTCharacter::SetHatClass(TSubclassOf<AUTHat> HatClass)
 		Hat = GetWorld()->SpawnActor<AUTHat>(HatClass, GetActorLocation(), GetActorRotation(), Params);
 		if (Hat != nullptr)
 		{
-			Hat->AttachRootComponentTo(GetMesh(), NAME_HatSocket, EAttachLocation::SnapToTarget, true);
+			FAttachmentTransformRules HatAttachRules = FAttachmentTransformRules::SnapToTargetIncludingScale;
+			HatAttachRules.bWeldSimulatedBodies = true;
+			Hat->AttachToComponent(GetMesh(), HatAttachRules, NAME_HatSocket);
 			// SnapToTarget doesn't actually snap scale, so do that manually
 			Hat->GetRootComponent()->SetWorldScale3D(Cast<USceneComponent>(Hat->GetRootComponent()->GetArchetype())->RelativeScale3D * GetMesh()->GetSocketTransform(NAME_HatSocket).GetScale3D());
 			Hat->OnVariantSelected(HatVariant);
@@ -5372,7 +5385,9 @@ void AUTCharacter::SetEyewearClass(TSubclassOf<AUTEyewear> EyewearClass)
 		if (Eyewear != NULL)
 		{
 			static FName NAME_GlassesSocket(TEXT("GlassesSocket"));
-			Eyewear->AttachRootComponentTo(GetMesh(), NAME_GlassesSocket, EAttachLocation::SnapToTarget, true);
+			FAttachmentTransformRules EyewearAttachRules = FAttachmentTransformRules::SnapToTargetIncludingScale;
+			EyewearAttachRules.bWeldSimulatedBodies = true;
+			Eyewear->AttachToComponent(GetMesh(), EyewearAttachRules, NAME_GlassesSocket);
 			// SnapToTarget doesn't actually snap scale, so do that manually
 			Eyewear->GetRootComponent()->SetWorldScale3D(Cast<USceneComponent>(Eyewear->GetRootComponent()->GetArchetype())->RelativeScale3D * GetMesh()->GetSocketTransform(NAME_GlassesSocket).GetScale3D());
 			Eyewear->OnVariantSelected(EyewearVariant);
@@ -5621,7 +5636,7 @@ void AUTCharacter::UTUpdateSimulatedPosition(const FVector & NewLocation, const 
 				float PredictionTime = PC ? PC->GetPredictionTime() : 0.f;
 				if ((PredictionTime > 0.f) && (PC->GetViewTarget() != this))
 				{
-					GetCharacterMovement()->SimulateMovement(PredictionTime);
+					Cast<UUTCharacterMovement>(GetCharacterMovement())->UTSimulateMovement(PredictionTime);
 				}
 			}
 		}
@@ -5756,9 +5771,20 @@ bool AUTCharacter::GatherUTMovement()
 	else if (RootComponent != NULL)
 	{
 		// If we are attached, don't replicate absolute position
-		if (RootComponent->AttachParent != NULL)
+		if (RootComponent->GetAttachParent() != NULL)
 		{
-			return false;
+			// Networking for attachments assumes the RootComponent of the AttachParent actor. 
+			// If that's not the case, we can't update this, as the client wouldn't be able to resolve the Component and would detach as a result.
+			if (GetAttachmentReplication().AttachParent != NULL)
+			{
+				// POLGE TODO: Find an alternative way to set these as this is now private
+				/*
+				AttachmentReplication.LocationOffset = RootComponent->RelativeLocation;
+				AttachmentReplication.RotationOffset = RootComponent->RelativeRotation;
+				*/
+			
+
+			return false;}
 		}
 		else
 		{
@@ -6041,7 +6067,7 @@ void AUTCharacter::LeaderHatStatusChanged_Implementation()
 			LeaderHat = GetWorld()->SpawnActor<AUTHatLeader>(LeaderHatClass, GetActorLocation(), GetActorRotation(), Params);
 			if (LeaderHat != nullptr)
 			{
-				LeaderHat->AttachRootComponentTo(GetMesh(), NAME_HatSocket, EAttachLocation::SnapToTarget, true);
+				LeaderHat->AttachToComponent(GetMesh(), FAttachmentTransformRules::SnapToTargetIncludingScale, NAME_HatSocket);
 				// SnapToTarget doesn't actually snap scale, so do that manually
 				LeaderHat->GetRootComponent()->SetWorldScale3D(Cast<USceneComponent>(LeaderHat->GetRootComponent()->GetArchetype())->RelativeScale3D * GetMesh()->GetSocketTransform(NAME_HatSocket).GetScale3D());
 				LeaderHat->OnVariantSelected(HatVariant);

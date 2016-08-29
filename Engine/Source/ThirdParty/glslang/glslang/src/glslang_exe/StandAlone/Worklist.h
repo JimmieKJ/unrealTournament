@@ -35,6 +35,7 @@
 #ifndef WORKLIST_H_INCLUDED
 #define WORKLIST_H_INCLUDED
 
+//#Epic
 #include "glslang/OSDependent/osinclude.h"
 #include <string>
 #include <list>

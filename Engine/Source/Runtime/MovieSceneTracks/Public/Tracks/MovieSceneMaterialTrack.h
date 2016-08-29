@@ -14,8 +14,8 @@ class UMovieSceneSection;
 /**
  * Handles manipulation of material parameters in a movie scene.
  */
-UCLASS(MinimalAPI)
-class UMovieSceneMaterialTrack
+UCLASS()
+class MOVIESCENETRACKS_API UMovieSceneMaterialTrack
 	: public UMovieSceneNameableTrack
 {
 	GENERATED_UCLASS_BODY()
@@ -41,7 +41,7 @@ public:
 	 * @param Time The time to add the new key.
 	 * @param The value for the new key.
 	 */
-	void MOVIESCENETRACKS_API AddScalarParameterKey(FName ParameterName, float Position, float Value);
+	void AddScalarParameterKey(FName ParameterName, float Position, float Value);
 
 	/**
 	* Adds a color parameter key to the track.
@@ -49,7 +49,7 @@ public:
 	* @param Time The time to add the new key.
 	* @param The value for the new key.
 	*/
-	void MOVIESCENETRACKS_API AddColorParameterKey(FName ParameterName, float Position, FLinearColor Value);
+	void AddColorParameterKey(FName ParameterName, float Position, FLinearColor Value);
 
 	/**
 	 * Gets the animated values for this track.
@@ -81,6 +81,7 @@ public:
 	// UMovieSceneTrack interface
 
 	virtual TSharedPtr<IMovieSceneTrackInstance> CreateInstance() override;
+	virtual FName GetTrackName() const { return FName( *FString::FromInt(MaterialIndex) ); }
 
 #if WITH_EDITORONLY_DATA
 	virtual FText GetDefaultDisplayName() const override;

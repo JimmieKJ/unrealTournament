@@ -408,6 +408,21 @@ bool FEditorViewportSnapping::SnapDragLocationToNearestVertex( const FVector& Ba
 
 TSharedPtr<FEditorViewportSnapping> FSnappingUtils::EditorViewportSnapper;
 
+bool FSnappingUtils::IsSnapToGridEnabled()
+{
+	return EditorViewportSnapper->IsSnapToGridEnabled();
+}
+
+bool FSnappingUtils::IsRotationSnapEnabled()
+{
+	return EditorViewportSnapper->IsSnapRotationEnabled();
+}
+
+bool FSnappingUtils::IsScaleSnapEnabled()
+{
+	return EditorViewportSnapper->IsSnapScaleEnabled();
+}
+
 bool FSnappingUtils::IsSnapToActorEnabled()
 {
 	return EditorViewportSnapper->IsSnapToActorEnabled();

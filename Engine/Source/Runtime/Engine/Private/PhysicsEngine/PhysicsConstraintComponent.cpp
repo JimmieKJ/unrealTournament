@@ -5,6 +5,8 @@
 #include "MessageLog.h"
 #include "UObjectToken.h"
 #include "PhysicsEngine/PhysicsConstraintTemplate.h"
+#include "PhysicsEngine/PhysicsConstraintComponent.h"
+#include "PhysicsEngine/ConstraintUtils.h"
 #include "PhysicsEngine/PhysicsAsset.h"
 
 #define LOCTEXT_NAMESPACE "ConstraintComponent"
@@ -69,20 +71,49 @@ UPrimitiveComponent* UPhysicsConstraintComponent::GetComponentInternal(EConstrai
 			{
 				PrimComp = Cast<UPrimitiveComponent>(Actor->GetRootComponent());
 			}
-			// Name specified, see if we can find that property..
+			// Name specified, see if we can find that component..
 			else
 			{
-				UObjectPropertyBase* ObjProp = FindField<UObjectPropertyBase>(Actor->GetClass(), ComponentName);
-				if(ObjProp != NULL)
+				for(UActorComponent* Comp : Actor->GetComponents())
 				{
-					// .. and return the component that is there
-					PrimComp = Cast<UPrimitiveComponent>(ObjProp->GetObjectPropertyValue_InContainer(Actor));
+					if(Comp->GetFName() == ComponentName)
+					{
+						PrimComp = Cast<UPrimitiveComponent>(Comp);
+						break;
+					}
 				}
 			}
 		}	
 	}
 
 	return PrimComp;
+}
+
+//Helps to find bone index if bone specified, otherwise find bone index of root body
+int32 GetBoneIndexHelper(FName InBoneName, const USkeletalMeshComponent& SkelComp, int32* BodyIndex = nullptr)
+{
+	FName BoneName = InBoneName;
+	const UPhysicsAsset* PhysAsset = SkelComp.GetPhysicsAsset();
+	
+	if(BoneName == NAME_None)
+	{
+		//Didn't specify bone name so just use root body
+		if (PhysAsset)
+		{			
+			const int32 RootBodyIndex = SkelComp.FindRootBodyIndex();
+			if (PhysAsset->SkeletalBodySetups.IsValidIndex(RootBodyIndex))
+			{
+				BoneName = PhysAsset->SkeletalBodySetups[RootBodyIndex]->BoneName;
+			}
+		}
+	}
+
+	if(BodyIndex)
+	{
+		*BodyIndex = PhysAsset ? PhysAsset->FindBodyIndex(BoneName) : INDEX_NONE;
+	}
+
+	return SkelComp.GetBoneIndex(BoneName);
 }
 
 FTransform UPhysicsConstraintComponent::GetBodyTransformInternal(EConstraintFrame::Type Frame, FName InBoneName) const
@@ -97,14 +128,20 @@ FTransform UPhysicsConstraintComponent::GetBodyTransformInternal(EConstraintFram
 	FTransform ResultTM = PrimComp->ComponentToWorld;
 		
 	// Skeletal case
-	USkeletalMeshComponent* SkelComp = Cast<USkeletalMeshComponent>(PrimComp);
-	if(SkelComp != NULL)
+	if(const USkeletalMeshComponent* SkelComp = Cast<USkeletalMeshComponent>(PrimComp))
 	{
-		int32 BoneIndex = SkelComp->GetBoneIndex(InBoneName);
-		if(BoneIndex != INDEX_NONE)
-		{	
+		const int32 BoneIndex = GetBoneIndexHelper(InBoneName, *SkelComp);
+		if (BoneIndex != INDEX_NONE)
+		{
 			ResultTM = SkelComp->GetBoneTransform(BoneIndex);
 		}
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+		else
+		{
+			FMessageLog("PIE").Warning(FText::Format(LOCTEXT("BadBoneNameToConstraint", "Couldn't find bone {0} for ConstraintComponent {1}."),
+				FText::FromName(InBoneName), FText::FromString(GetPathNameSafe(this))));
+		}
+#endif // !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 	}
 
 	return ResultTM;
@@ -117,19 +154,24 @@ FBox UPhysicsConstraintComponent::GetBodyBoxInternal(EConstraintFrame::Type Fram
 	UPrimitiveComponent* PrimComp  = GetComponentInternal(Frame);
 
 	// Skeletal case
-	USkeletalMeshComponent* SkelComp = Cast<USkeletalMeshComponent>(PrimComp);
-	if(SkelComp != NULL)
+	if(const USkeletalMeshComponent* SkelComp = Cast<USkeletalMeshComponent>(PrimComp))
 	{
-		UPhysicsAsset * const PhysicsAsset = SkelComp->GetPhysicsAsset();
-		if (PhysicsAsset)
+		if (const UPhysicsAsset* PhysicsAsset = SkelComp->GetPhysicsAsset())
 		{
-			int32 BoneIndex = SkelComp->GetBoneIndex(InBoneName);
-			int32 BodyIndex = PhysicsAsset->FindBodyIndex(InBoneName);
+			int32 BodyIndex;
+			const int32 BoneIndex = GetBoneIndexHelper(InBoneName, *SkelComp, &BodyIndex);
 			if(BoneIndex != INDEX_NONE && BodyIndex != INDEX_NONE)
 			{	
 				const FTransform BoneTransform = SkelComp->GetBoneTransform(BoneIndex);
-				ResultBox = PhysicsAsset->BodySetup[BodyIndex]->AggGeom.CalcAABB(BoneTransform);
+				ResultBox = PhysicsAsset->SkeletalBodySetups[BodyIndex]->AggGeom.CalcAABB(BoneTransform);
 			}
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+			else
+			{
+				FMessageLog("PIE").Warning(FText::Format(LOCTEXT("BadBoneNameToConstraint2", "Couldn't find bone {0} for ConstraintComponent {1}."),
+					FText::FromName(InBoneName), FText::FromString(GetPathNameSafe(this))));
+			}
+#endif // !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 		}
 	}
 	else if(PrimComp != NULL)
@@ -183,6 +225,12 @@ FBodyInstance* UPhysicsConstraintComponent::GetBodyInstance(EConstraintFrame::Ty
 }
 
 
+/** Wrapper that calls our constraint broken delegate */
+void UPhysicsConstraintComponent::OnConstraintBrokenWrapper(int32 ConstraintIndex)
+{
+	OnConstraintBroken.Broadcast(ConstraintIndex);
+}
+
 void UPhysicsConstraintComponent::InitComponentConstraint()
 {
 	// First we convert world space position of constraint into local space frames
@@ -191,7 +239,8 @@ void UPhysicsConstraintComponent::InitComponentConstraint()
 	// Then we init the constraint
 	FBodyInstance* Body1 = GetBodyInstance(EConstraintFrame::Frame1);
 	FBodyInstance* Body2 = GetBodyInstance(EConstraintFrame::Frame2);
-	ConstraintInstance.InitConstraint(this, Body1, Body2, GetConstraintScale());
+
+	ConstraintInstance.InitConstraint(Body1, Body2, GetConstraintScale(), this, FOnConstraintBroken::CreateUObject(this, &UPhysicsConstraintComponent::OnConstraintBrokenWrapper));
 }
 
 void UPhysicsConstraintComponent::TermComponentConstraint()
@@ -313,12 +362,15 @@ void UPhysicsConstraintComponent::PostLoad()
 		{
 			float AverageMass = TotalMass / NumDynamic;
 
-			ConstraintInstance.LinearLimitStiffness /= AverageMass;
-			ConstraintInstance.SwingLimitStiffness /= AverageMass;
-			ConstraintInstance.TwistLimitStiffness /= AverageMass;
-			ConstraintInstance.LinearLimitDamping /= AverageMass;
-			ConstraintInstance.SwingLimitDamping /= AverageMass;
-			ConstraintInstance.TwistLimitDamping /= AverageMass;
+#if WITH_EDITORONLY_DATA
+			ConstraintInstance.ProfileInstance.LinearLimit.Stiffness /= AverageMass;
+			ConstraintInstance.SwingLimitStiffness_DEPRECATED /= AverageMass;
+			ConstraintInstance.TwistLimitStiffness_DEPRECATED /= AverageMass;
+			ConstraintInstance.LinearLimitDamping_DEPRECATED /= AverageMass;
+			ConstraintInstance.SwingLimitDamping_DEPRECATED /= AverageMass;
+			ConstraintInstance.TwistLimitDamping_DEPRECATED /= AverageMass;
+			
+#endif
 		}
 
 	}
@@ -461,11 +513,11 @@ void UPhysicsConstraintComponent::UpdateSpriteTexture()
 {
 	if (SpriteComponent)
 	{
-		if (ConstraintInstance.IsHinge())
+		if (ConstraintUtils::IsHinge(ConstraintInstance))
 		{
 			SpriteComponent->SetSprite(LoadObject<UTexture2D>(NULL, TEXT("/Engine/EditorResources/S_KHinge.S_KHinge")));
 		}
-		else if (ConstraintInstance.IsPrismatic())
+		else if (ConstraintUtils::IsPrismatic(ConstraintInstance))
 		{
 			SpriteComponent->SetSprite(LoadObject<UTexture2D>(NULL, TEXT("/Engine/EditorResources/S_KPrismatic.S_KPrismatic")));
 		}

@@ -185,9 +185,11 @@ void FAnimNode_BoneDrivenController::EvaluateComponentSpaceInternal(FComponentSp
 	{
 		//	Morph target and Material parameter curves
 		USkeleton* Skeleton = Context.AnimInstanceProxy->GetSkeleton();
-		FSmartNameMapping::UID NameUID;
-		Skeleton->AddSmartNameAndModify(USkeleton::AnimCurveMappingName, ParameterName, NameUID);
-		Context.Curve.Set(NameUID, FinalDriverValue, (DestinationMode == EDrivenDestinationMode::MorphTarget) ? EAnimCurveFlags::ACF_DrivesMorphTarget : EAnimCurveFlags::ACF_DrivesMaterial);
+		FSmartNameMapping::UID NameUID = Skeleton->GetUIDByName(USkeleton::AnimCurveMappingName, ParameterName);
+		if (NameUID != FSmartNameMapping::MaxUID)
+		{
+			Context.Curve.Set(NameUID, FinalDriverValue, (DestinationMode == EDrivenDestinationMode::MorphTarget) ? EAnimCurveFlags::ACF_DriveMorphTarget : EAnimCurveFlags::ACF_DriveMaterial);
+		}
 	}
 }
 
@@ -230,8 +232,8 @@ const float FAnimNode_BoneDrivenController::ExtractSourceValue(const FTransform 
 		// Apply the fixed function remapping/clamping
 		if (bUseRange)
 		{
-			const float Alpha = FMath::Clamp(FMath::GetRangePct(RangeMin, RangeMax, FinalDriverValue), 0.0f, 1.0f);
-			FinalDriverValue = FMath::Lerp(RemappedMin, RemappedMax, Alpha);
+			const float ClampedAlpha = FMath::Clamp(FMath::GetRangePct(RangeMin, RangeMax, FinalDriverValue), 0.0f, 1.0f);
+			FinalDriverValue = FMath::Lerp(RemappedMin, RemappedMax, ClampedAlpha);
 		}
 
 		FinalDriverValue *= Multiplier;

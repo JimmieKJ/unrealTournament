@@ -23,7 +23,6 @@ namespace UnrealBuildTool.Rules
 					"RenderCore",
 					"ShaderCore",
 					"RHI",
-					"OnlineSubsystemUtils"	// @todo livestream: We need to move the useful features into engine and eliminate this module
 				}
 			);
 		}

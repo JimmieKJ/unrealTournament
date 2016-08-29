@@ -25,7 +25,7 @@
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Development|AnyCPU' ">
     <DebugType>pdbonly</DebugType>
-    <Optimize>true</Optimize>
+    <Optimize>false</Optimize>
     <OutputPath>..\..\..\..\Binaries\DotNET\AutomationScripts\</OutputPath>
     <DefineConstants>TRACE</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
@@ -63,17 +63,23 @@
     <Compile Include="BlameKeyword.Automation.cs" />
     <Compile Include="BuildCommonTools.Automation.cs" />
     <Compile Include="BuildCookRun.Automation.cs" />
+    <Compile Include="BuildDerivedDataCache.Automation.cs" />
     <Compile Include="BuildDocumentation.Automation.cs" />
+    <Compile Include="BuildForUGS.Automation.cs" />
     <Compile Include="BuildPluginCommand.Automation.cs" />
     <Compile Include="BuildProjectCommand.Automation.cs" />
+    <Compile Include="BuildTargetCommand.Automation.cs" />
     <Compile Include="BuildThirdPartyLibs.Automation.cs" />
     <Compile Include="CodeSurgery.Automation.cs" />
     <Compile Include="CookCommand.Automation.cs" />
+    <Compile Include="CookTargetCommand.Automation.cs" />
     <Compile Include="CopyBuildToStagingDirectory.Automation.cs" />
     <Compile Include="CopyUAT.Automation.cs" />
     <Compile Include="DeployCommand.Automation.cs" />
     <Compile Include="FixupRedirects.Automation.cs" />
     <Compile Include="GenerateDSYM.Automation.cs" />
+    <Compile Include="InstalledBuild.cs" />
+    <Compile Include="ListThirdPartySoftware.Automation.cs" />
     <Compile Include="RebuildLightMapsCommand.Automation.cs" />
     <Compile Include="RocketBuild.Automation.cs" />
     <Compile Include="IPhonePackager.Automation.cs" />
@@ -86,6 +92,8 @@
     <Compile Include="PackageCommand.Automation.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="RunProjectCommand.Automation.cs" />
+    <Compile Include="StageTargetCommand.Automation.cs" />
+    <Compile Include="StreamCopyDescription.Automation.cs" />
     <Compile Include="Tests.Automation.cs" />
     <Compile Include="TestSnippet.Automation.cs" />
     <Compile Include="UE4BuildUtils.cs" />

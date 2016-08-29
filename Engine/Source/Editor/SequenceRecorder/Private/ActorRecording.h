@@ -4,31 +4,10 @@
 
 #include "Animation/AnimationRecordingSettings.h"
 #include "Components/SkinnedMeshComponent.h"
+#include "ActorRecordingSettings.h"
+#include "ObjectKey.h"
 
 #include "ActorRecording.generated.h"
-
-USTRUCT()
-struct FActorRecordingSettings
-{
-	GENERATED_BODY()
-
-	FActorRecordingSettings()
-		: bRecordTransforms(false)
-		, bRecordVisibility(true)
-	{}
-
-public:
-	/** 
-	 * Whether to record actor transforms. This can be useful if you want the actors to end up in specific locations after the sequence. 
-	 * By default we rely on animations to provide transforms, but this can be changed using the "Record In World Space" animation setting.
-	 */
-	UPROPERTY(EditAnywhere, Category = "Actor Recording")
-	bool bRecordTransforms;
-
-	/** Whether to record actor visibility. */
-	UPROPERTY(EditAnywhere, Category = "Actor Recording")
-	bool bRecordVisibility;
-};
 
 UCLASS(MinimalAPI, Transient)
 class UActorRecording : public UObject
@@ -54,8 +33,20 @@ public:
 	/** Simulate a de-spawned actor */
 	void InvalidateObjectToRecord();
 
+	/** Get the Guid that identifies our spawnable in a recorded sequence */
+	const FGuid& GetSpawnableGuid() const
+	{
+		return Guid;
+	}
+
+	/** Get the actor to record. This finds the corresponding actor in the Simulation / PIE world. */
+	AActor* GetActorToRecord() const;
+
+	/** Set the actor to record */
+	void SetActorToRecord(AActor* InActor);
+
 private:
-	/** Check component valididty for recording */
+	/** Check component validity for recording */
 	bool ValidComponent(USceneComponent* SceneComponent) const;
 
 	/** Adds us to a folder for better sequence organization */
@@ -65,7 +56,7 @@ private:
 	void StartRecordingActorProperties(ULevelSequence* CurrentSequence, float CurrentSequenceTime);
 
 	/** Start recording component properties to a sequence */
-	TSharedPtr<class FMovieSceneAnimationPropertyRecorder> StartRecordingComponentProperties(const FName& BindingName, USceneComponent* SceneComponent, UObject* BindingContext, ULevelSequence* CurrentSequence, float CurrentSequenceTime);
+	TSharedPtr<class FMovieSceneAnimationSectionRecorder> StartRecordingComponentProperties(const FName& BindingName, USceneComponent* SceneComponent, UObject* BindingContext, ULevelSequence* CurrentSequence, float CurrentSequenceTime, const FAnimationRecordingSettings& InAnimationSettings);
 
 	/** Start recording components that are added at runtime */
 	void StartRecordingNewComponents(ULevelSequence* CurrentSequence, float CurrentSequenceTime);
@@ -76,11 +67,13 @@ private:
 	/** Sync up tracked components with the actor */
 	void SyncTrackedComponents(bool bIncludeNonCDO = true);
 
-public:
-	/** The actor we want to record */
-	UPROPERTY(EditAnywhere, Category = "Actor Recording")
-	TLazyObjectPtr<AActor> ActorToRecord;
+	/** Ensure that we are recording any parents required for the specified component, and sort the specified array */
+	void ProcessNewComponentArray(TInlineComponentArray<USceneComponent*>& ProspectiveComponents) const;
 
+	/** UObject interface */
+	virtual void PostEditChangeProperty(struct FPropertyChangedEvent& PropertyChangedEvent) override;
+
+public:
 	UPROPERTY(EditAnywhere, Category = "Actor Recording")
 	FActorRecordingSettings ActorSettings;
 
@@ -96,25 +89,29 @@ public:
 	UPROPERTY(EditAnywhere, Category = "Animation Recording")
 	FAnimationRecordingSettings AnimationSettings;
 
-	/** Guid that identifies our spawnable in a recorded sequence */
-	FGuid Guid;
+	/** Whether to record to 'possessable' (i.e. level-owned) or 'spawnable' (i.e. sequence-owned) actors. Defaults to the global setting. */
+	UPROPERTY(EditAnywhere, AdvancedDisplay, Category = "Animation Recording")
+	bool bRecordToPossessable;
 
-	/** Whether this actor recording was triggered from an acotr spawn */
+	/** Whether this actor recording was triggered from an actor spawn */
 	bool bWasSpawnedPostRecord;
 
 private:
-	/** Used to store/restore update flag when recording */
-	EMeshComponentUpdateFlag::Type MeshComponentUpdateFlag;
+	/** The actor we want to record */
+	UPROPERTY(EditAnywhere, Category = "Actor Recording")
+	TLazyObjectPtr<AActor> ActorToRecord;
 
-	/** Used to store/restore URO when recording */
-	bool bEnableUpdateRateOptimizations;
-
-	/** This actor's current set of property recorders */
-	TArray<TSharedPtr<class IMovieScenePropertyRecorder>> PropertyRecorders;
+	/** This actor's current set of section recorders */
+	TArray<TSharedPtr<class IMovieSceneSectionRecorder>> SectionRecorders;
 
 	/** Track components to check if any have changed */
 	TArray<TWeakObjectPtr<USceneComponent>> TrackedComponents;
 
+	TMap<FObjectKey, TWeakObjectPtr<USceneComponent>> DuplicatedDynamicComponents;
+
 	/** Flag to track whether we created new components */
 	bool bNewComponentAddedWhileRecording;
+
+	/** Guid that identifies our spawnable in a recorded sequence */
+	FGuid Guid;
 };

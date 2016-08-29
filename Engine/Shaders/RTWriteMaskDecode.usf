@@ -1,0 +1,24 @@
+#if PS4_PROFILE
+	#include "Common.usf"
+	#include "FastMath.usf"
+	#include "PS4/RTWriteMaskProcessing.usf"
+#else
+
+	[numthreads(THREADGROUP_SIZEX, THREADGROUP_SIZEY, 1)]
+	void RTWriteMaskCombineMain(
+		uint3 GroupId : SV_GroupID,
+		uint3 DispatchThreadId : SV_DispatchThreadID,
+		uint3 GroupThreadId : SV_GroupThreadID,
+		uint GroupIndex : SV_GroupIndex ) 
+	{
+	}
+
+	[numthreads(THREADGROUP_SIZEX, THREADGROUP_SIZEY, 1)]
+	void RTWriteMaskDecodeSingleMain(
+		uint3 GroupId : SV_GroupID,
+		uint3 DispatchThreadId : SV_DispatchThreadID,
+		uint3 GroupThreadId : SV_GroupThreadID,
+		uint GroupIndex : SV_GroupIndex ) 
+	{
+	}
+#endif

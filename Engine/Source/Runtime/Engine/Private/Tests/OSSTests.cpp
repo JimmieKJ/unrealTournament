@@ -81,6 +81,16 @@ bool FIOSFriendsTest::RunTest(const FString& Parameters)
 	return true;
 }
 
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FOculusFriendsTest, "System.OSS.Oculus.Test Friends", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+
+bool FOculusFriendsTest::RunTest(const FString& Parameters)
+{
+	ADD_LATENT_AUTOMATION_COMMAND(FEngineWaitLatentCommand(3.0));
+	ADD_LATENT_AUTOMATION_COMMAND(FExecStringLatentCommand(TEXT("online sub=oculus test friends")));
+
+	return true;
+}
+
 /*
 
 /////////////Currently crashing//////////////
@@ -224,6 +234,16 @@ bool FIOSIdentityTest::RunTest(const FString& Parameters)
 {
 	ADD_LATENT_AUTOMATION_COMMAND(FEngineWaitLatentCommand(3.0));
 	ADD_LATENT_AUTOMATION_COMMAND(FExecStringLatentCommand(TEXT("online sub=ios test identity ")));
+
+	return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FOculusIdentityTest, "System.OSS.Oculus.Test Identity", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+
+bool FOculusIdentityTest::RunTest(const FString& Parameters)
+{
+	ADD_LATENT_AUTOMATION_COMMAND(FEngineWaitLatentCommand(3.0));
+	ADD_LATENT_AUTOMATION_COMMAND(FExecStringLatentCommand(TEXT("online sub=oculus test identity ")));
 
 	return true;
 }

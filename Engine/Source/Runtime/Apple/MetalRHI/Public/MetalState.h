@@ -70,4 +70,5 @@ private:
 	// this tracks blend settings (in a bit flag) into a unique key that uses few bits, for PipelineState MRT setup
 	static TMap<uint32, uint8> BlendSettingsToUniqueKeyMap;
 	static uint8 NextKey;
+	static FCriticalSection Mutex;
 };

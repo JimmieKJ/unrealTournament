@@ -126,7 +126,8 @@ FMeshEditAppMode::FMeshEditAppMode(TSharedPtr<FPersona> InPersona)
 					->Split
 					(
 						FTabManager::NewStack()
-						->AddTab( FPersonaTabs::MorphTargetsID, ETabState::OpenedTab )
+						->AddTab(FPersonaTabs::AdvancedPreviewSceneSettingsID, ETabState::OpenedTab)
+						->AddTab( FPersonaTabs::MorphTargetsID, ETabState::OpenedTab )						
 					)
 				)
 			)

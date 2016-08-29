@@ -210,18 +210,9 @@ void UK2Node_FunctionResult::PostPlacedNewNode()
 {
 	Super::PostPlacedNewNode();
 
-	// If the entry is editable, so is the result
-	TArray<UK2Node_FunctionEntry*> AllEntryNodes;
-	if (auto Graph = GetGraph())
-	{
-		Graph->GetNodesOfClass(AllEntryNodes);
-
-		if (AllEntryNodes.Num() > 0)
-		{
-			bIsEditable = AllEntryNodes[0]->bIsEditable;
-		}
-	}
-
+	// adhere to the function's inherited signature (if there is one)
+	SyncWithEntryNode();
+	// reflect any user added outputs (tracked by pre-existing result nodes)
 	SyncWithPrimaryResultNode();
 }
 
@@ -229,19 +220,71 @@ void UK2Node_FunctionResult::PostPasteNode()
 {
 	Super::PostPasteNode();
 
-	// If the entry is editable, so is the result
-	TArray<UK2Node_FunctionEntry*> AllEntryNodes;
-	if (auto Graph = GetGraph())
-	{
-		Graph->GetNodesOfClass(AllEntryNodes);
+	// adhere to the function's inherited signature (if there is one)
+	SyncWithEntryNode();
+	// reflect any user added outputs (tracked by pre-existing result nodes)
+	SyncWithPrimaryResultNode();
+}
 
-		if (AllEntryNodes.Num() > 0)
+bool UK2Node_FunctionResult::CanUserDeleteNode() const
+{
+	bool bCanDelete = true;
+	if (!bIsEditable)
+	{
+		if (UEdGraph* Graph = GetGraph())
 		{
-			bIsEditable = AllEntryNodes[0]->bIsEditable;
+			bCanDelete = false;
+			for (UEdGraphNode* Node : Graph->Nodes)
+			{
+				UK2Node_FunctionResult* ResultNode = Cast<UK2Node_FunctionResult>(Node);
+				if (ResultNode && ResultNode != this)
+				{
+					bCanDelete = true;
+					break;
+				}
+			}
+		}
+	}
+	return bCanDelete;
+}
+
+void UK2Node_FunctionResult::SyncWithEntryNode()
+{
+	bool bWasSignatureMismatched = false;
+	if (UEdGraph* Graph = GetGraph())
+	{
+		for (UEdGraphNode* Node : Graph->Nodes)
+		{
+			if (UK2Node_FunctionEntry* EntryNode = Cast<UK2Node_FunctionEntry>(Node))
+			{
+				bWasSignatureMismatched = (EntryNode->SignatureClass != SignatureClass) || 
+					(EntryNode->SignatureName != SignatureName) || (!EntryNode->bIsEditable && UserDefinedPins.Num() > 0);
+
+				// If the entry is editable, so is the result
+				bIsEditable    = EntryNode->bIsEditable;
+				SignatureClass = EntryNode->SignatureClass;
+				SignatureName  = EntryNode->SignatureName;
+				break;
+			}
 		}
 	}
 
-	SyncWithPrimaryResultNode();
+	if (bWasSignatureMismatched)
+	{
+		// to handle pasting of a result node from one function into another;
+		// if the new function is not editable (like for one that is overidden), 
+		// then we shouldn't have userdefined pins
+		if (!bIsEditable)
+		{
+			// iterate backwards so we can remove items from the list as we go
+			for (int32 UserPinIndex = UserDefinedPins.Num() - 1; UserPinIndex >= 0; --UserPinIndex)
+			{
+				RemoveUserDefinedPin(UserDefinedPins[UserPinIndex]);
+			}
+		}
+		
+		ReconstructNode();
+	}
 }
 
 void UK2Node_FunctionResult::SyncWithPrimaryResultNode()
@@ -259,27 +302,61 @@ void UK2Node_FunctionResult::SyncWithPrimaryResultNode()
 
 	if (PrimaryNode)
 	{
-		TArray< TSharedPtr<FUserPinInfo> > UDPinsCopy = UserDefinedPins;
-		for (auto UDPin : UDPinsCopy)
-		{
-			RemoveUserDefinedPin(UDPin);
-		}
-		UserDefinedPins.Empty();
-
 		SignatureClass = PrimaryNode->SignatureClass;
 		SignatureName = PrimaryNode->SignatureName;
 		bIsEditable = PrimaryNode->bIsEditable;
 
-		for (auto UDPin : PrimaryNode->UserDefinedPins)
+		// Temporary array that will contain our list of Old Pins that are no longer part of the return signature
+		TArray< TSharedPtr<FUserPinInfo> > OldPins = UserDefinedPins;
+
+		// Temporary array that will contain our list of Signature Pins that need to be added
+		TArray< TSharedPtr<FUserPinInfo> > SignaturePins = PrimaryNode->UserDefinedPins;
+
+		for (int OldIndex = OldPins.Num() - 1; OldIndex >= 0; --OldIndex)
 		{
-			if (UDPin.IsValid())
+			TSharedPtr<FUserPinInfo> OldPin = OldPins[OldIndex];
+
+			if (!OldPin.IsValid())
 			{
-				TSharedPtr<FUserPinInfo> NewPinInfo = MakeShareable(new FUserPinInfo());
-				NewPinInfo->PinName = UDPin->PinName;
-				NewPinInfo->PinType = UDPin->PinType;
-				NewPinInfo->DesiredPinDirection = UDPin->DesiredPinDirection;
-				UserDefinedPins.Add(NewPinInfo);
+				OldPins.RemoveAt(OldIndex);
 			}
+			else
+			{
+				for (int SignatureIndex = SignaturePins.Num() - 1; SignatureIndex >= 0; --SignatureIndex)
+				{
+					TSharedPtr<FUserPinInfo> SignaturePin = SignaturePins[SignatureIndex];
+					if (!SignaturePin.IsValid())
+					{
+						SignaturePins.RemoveAt(SignatureIndex);
+					}
+					else if (OldPin->PinName == SignaturePin->PinName &&
+						OldPin->PinType == SignaturePin->PinType &&
+						OldPin->DesiredPinDirection == SignaturePin->DesiredPinDirection)
+					{
+						// We have a match between our Signature pins and our Old Pins,
+						// so we can leave the old pin as is by removing it from both temporary lists.
+						OldPins.RemoveAt(OldIndex);
+						SignaturePins.RemoveAt(SignatureIndex);
+						break;
+					}
+				}
+			}
+		}
+
+		// Remove old pins that are not part of the primary node signature
+		for (TSharedPtr<FUserPinInfo> OldPinToRemove : OldPins)
+		{
+			RemoveUserDefinedPin(OldPinToRemove);
+		}
+
+		// Add pins that don't exist yet but are part of the primary node signature
+		for (TSharedPtr<FUserPinInfo> SignaturePinToAdd : SignaturePins)
+		{
+			TSharedPtr<FUserPinInfo> NewPinInfo = MakeShareable(new FUserPinInfo());
+			NewPinInfo->PinName = SignaturePinToAdd->PinName;
+			NewPinInfo->PinType = SignaturePinToAdd->PinType;
+			NewPinInfo->DesiredPinDirection = SignaturePinToAdd->DesiredPinDirection;
+			UserDefinedPins.Add(NewPinInfo);
 		}
 
 		ReconstructNode();

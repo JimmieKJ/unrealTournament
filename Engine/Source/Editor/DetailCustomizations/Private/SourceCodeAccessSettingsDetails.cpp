@@ -34,7 +34,7 @@ void FSourceCodeAccessSettingsDetails::CustomizeDetails( IDetailLayoutBuilder& D
 	}
 
 	IDetailCategoryBuilder& AccessorCategory = DetailLayout.EditCategory( "Accessor" );
-	AccessorCategory.AddCustomRow( LOCTEXT("PreferredAccessor", "Preferred Accessor") )
+	AccessorCategory.AddCustomRow( LOCTEXT("PreferredAccessorFilterString", "Source Code Editor") )
 	.NameContent()
 	[
 		PreferredProviderPropertyHandle->CreatePropertyNameWidget()

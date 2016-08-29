@@ -84,9 +84,6 @@ private:
 
 	TSharedPtr< STreeView< TSharedPtr<FCultureEntry> > > TreeView;
 
-	/* The provided cultures array. */
-	TArray<FCulturePtr> Cultures;
-
 	/* The top level culture entries for all possible stock cultures. */
 	TArray< TSharedPtr<FCultureEntry> > StockEntries;
 

@@ -50,6 +50,9 @@
       <Link>Properties\MetaData.cs</Link>
     </Compile>
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="Tasks\AgeStoreTask.cs" />
+    <Compile Include="Tasks\SrcSrvTask.cs" />
+    <Compile Include="Tasks\SymStoreTask.cs" />
     <Compile Include="WinPlatform.Automation.cs" />
   </ItemGroup>
   <ItemGroup>
@@ -62,6 +65,10 @@
       <Project>{2c96a7f2-b1a3-4258-8e0a-e588ff41a53e}</Project>
       <Name>AutomationUtils.Automation</Name>
       <Private>False</Private>
+    </ProjectReference>
+    <ProjectReference Include="..\BuildGraph\BuildGraph.Automation.csproj">
+      <Project>{a002361e-37f9-4124-af82-cf0d393cb928}</Project>
+      <Name>BuildGraph.Automation</Name>
     </ProjectReference>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />

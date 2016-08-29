@@ -6,6 +6,13 @@
 class IEditableTextProperty
 {
 public:
+	enum class ETextPropertyEditAction : uint8
+	{
+		EditedNamespace,
+		EditedKey,
+		EditedSource,
+	};
+
 	virtual ~IEditableTextProperty() {}
 
 	/** Are the text properties being edited marked as multi-line? */
@@ -32,14 +39,22 @@ public:
 	/** Set the text at the given index (check against GetNumTexts) */
 	virtual void SetText(const int32 InIndex, const FText& InText) = 0;
 
-	/** Called prior to editing the value of the texts associated with the property being edited */
-	virtual void PreEdit() = 0;
-
-	/** Called after editing the value of the texts associated with the property being edited */
-	virtual void PostEdit() = 0;
+#if USE_STABLE_LOCALIZATION_KEYS
+	/** Get the stable text ID for the given index (check against GetNumTexts) */
+	virtual void GetStableTextId(const int32 InIndex, const ETextPropertyEditAction InEditAction, const FString& InTextSource, const FString& InProposedNamespace, const FString& InProposedKey, FString& OutStableNamespace, FString& OutStableKey) const = 0;
+#endif // USE_STABLE_LOCALIZATION_KEYS
 
 	/** Request a refresh of the property UI (eg, due to a size change) */
 	virtual void RequestRefresh() = 0;
+
+protected:
+#if USE_STABLE_LOCALIZATION_KEYS
+	/** Get the localization ID we should use for the given object, and the given text instance */
+	EDITORWIDGETS_API static void StaticStableTextId(UObject* InObject, const ETextPropertyEditAction InEditAction, const FString& InTextSource, const FString& InProposedNamespace, const FString& InProposedKey, FString& OutStableNamespace, FString& OutStableKey);
+
+	/** Get the localization ID we should use for the given package, and the given text instance */
+	EDITORWIDGETS_API static void StaticStableTextId(UPackage* InPackage, const ETextPropertyEditAction InEditAction, const FString& InTextSource, const FString& InProposedNamespace, const FString& InProposedKey, FString& OutStableNamespace, FString& OutStableKey);
+#endif // USE_STABLE_LOCALIZATION_KEYS
 };
 
 /** A widget that can be used for editing FText instances */
@@ -80,15 +95,31 @@ private:
 	void GetDesiredWidth(float& OutMinDesiredWidth, float& OutMaxDesiredWidth);
 	bool CanEdit() const;
 	bool IsReadOnly() const;
+	bool IsIdentityReadOnly() const;
 	FText GetToolTipText() const;
 
 	FText GetTextValue() const;
 	void OnTextCommitted(const FText& NewText, ETextCommit::Type CommitInfo);
 
 	FText GetNamespaceValue() const;
+	void OnNamespaceChanged(const FText& NewText);
 	void OnNamespaceCommitted(const FText& NewText, ETextCommit::Type CommitInfo);
 
 	FText GetKeyValue() const;
+#if USE_STABLE_LOCALIZATION_KEYS
+	void OnKeyChanged(const FText& NewText);
+	void OnKeyCommitted(const FText& NewText, ETextCommit::Type CommitInfo);
+
+	FText GetPackageValue() const;
+#endif // USE_STABLE_LOCALIZATION_KEYS
+
+	ECheckBoxState GetLocalizableCheckState(bool bActiveState) const;
+
+	void HandleLocalizableCheckStateChanged(ECheckBoxState InCheckboxState, bool bActiveState);
+
+	EVisibility GetTextWarningImageVisibility() const;
+
+	bool IsValidIdentity(const FText& InIdentity, FText* OutReason = nullptr, const FText* InErrorCtx = nullptr) const;
 
 	TSharedPtr<IEditableTextProperty> EditableTextProperty;
 
@@ -97,6 +128,10 @@ private:
 	TSharedPtr<SMultiLineEditableTextBox> MultiLineWidget;
 
 	TSharedPtr<SEditableTextBox> SingleLineWidget;
+
+	TSharedPtr<SEditableTextBox> NamespaceEditableTextBox;
+
+	TSharedPtr<SEditableTextBox> KeyEditableTextBox;
 
 	TOptional<float> PreviousHeight;
 

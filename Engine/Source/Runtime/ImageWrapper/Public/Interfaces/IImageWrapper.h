@@ -51,6 +51,14 @@ namespace ERGBFormat
 	};
 };
 
+namespace ImageCompression
+{
+	enum CompressionQuality
+	{
+		Default			= 0,
+		Uncompressed	= 1,
+	};
+};
 
 /** Type definition for shared pointers to instances of IImageWrapper. */
 typedef TSharedPtr<class IImageWrapper> IImageWrapperPtr;

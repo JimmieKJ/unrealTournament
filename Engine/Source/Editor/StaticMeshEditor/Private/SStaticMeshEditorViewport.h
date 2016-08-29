@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include "PreviewScene.h"
+#include "AdvancedPreviewScene.h"
 #include "SEditorViewport.h"
 #include "Editor/UnrealEd/Public/SCommonEditorViewportToolbarBase.h"
 
@@ -18,6 +18,7 @@ public:
 	SLATE_END_ARGS()
 
 	void Construct(const FArguments& InArgs);
+	SStaticMeshEditorViewport();
 	~SStaticMeshEditorViewport();
 	
 	// FGCObject interface
@@ -88,6 +89,8 @@ public:
 	virtual void OnFloatingButtonClicked() override;
 	// End of ICommonEditorViewportToolbarInfoProvider interface
 
+	/** Returns the preview scene being renderd in the viewport */
+	FAdvancedPreviewScene& GetPreviewScene() { return PreviewScene; }
 protected:
 	/** SEditorViewport interface */
 	virtual TSharedRef<FEditorViewportClient> MakeEditorViewportClient() override;
@@ -126,7 +129,7 @@ private:
 	TWeakPtr<IStaticMeshEditor> StaticMeshEditorPtr;
 
 	/** The scene for this viewport. */
-	FPreviewScene PreviewScene;
+	FAdvancedPreviewScene PreviewScene;
 
 	/** Editor viewport client */
 	TSharedPtr<class FStaticMeshEditorViewportClient> EditorViewportClient;

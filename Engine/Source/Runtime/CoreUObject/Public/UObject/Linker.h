@@ -280,6 +280,11 @@ struct FObjectExport : public FObjectResource
 	*/
 	bool			bDynamicClass;
 
+	/**
+	* Export was filtered out on load
+	*/
+	bool			bWasFiltered;
+
 	/** If this object is a top level package (which must have been forced into the export table via OBJECTMARK_ForceTagExp)
 	 * this is the GUID for the original package file
 	 * Serialized
@@ -1197,14 +1202,13 @@ public:
 	 */
 	bool FilterExport(const FObjectExport& Export)
 	{
-		if (Export.bExportLoadFailed)
+		if (Export.bExportLoadFailed || Export.bWasFiltered)
 		{
 			return true;
 		}
 #if WITH_EDITOR
 		if (!Export.bNotForEditorGame)
 		{
-			ensure(true);
 			return false;
 		}
 #endif
@@ -1261,6 +1265,9 @@ struct FDependencyRef
 /**
  * Handles loading Unreal package files, including reading UObject data from disk.
  */
+#if USE_NEW_ASYNC_IO
+	class FArchiveAsync2;
+#endif
 class FLinkerLoad : public FLinker, public FArchiveUObject
 {
 	// Friends.
@@ -1306,16 +1313,25 @@ public:
 	bool					bHaveImportsBeenVerified;
 	/** Indicates that this linker was created for a dynamic class package and will not use Loader */
 	bool					bDynamicClassLinker;
-	/** Hash table for exports.																								*/
-	int32						ExportHash[256];
-#if WITH_EDITOR
-	/** Bulk data that does not need to be loaded when the linker is loaded.												*/
-	TArray<FUntypedBulkData*> BulkDataLoaders;
-#endif // WITH_EDITOR
+#if USE_NEW_ASYNC_IO
+	/** True if Loader is FArchiveAsync2  */
+	bool					bLoaderIsFArchiveAsync2;
+	FORCEINLINE FArchiveAsync2* GetFArchiveAsync2Loader()
+	{
+		return bLoaderIsFArchiveAsync2 ? (FArchiveAsync2*)Loader : nullptr;
+	}
+#endif
 	/** The archive that actually reads the raw data from disk.																*/
 	FArchive*				Loader;
 	/** The async package associated with this linker */
 	struct FAsyncPackage* AsyncRoot;
+#if WITH_EDITOR
+	/** Bulk data that does not need to be loaded when the linker is loaded.												*/
+	TArray<FUntypedBulkData*> BulkDataLoaders;
+#endif // WITH_EDITOR
+
+	/** Hash table for exports.																								*/
+	int32						ExportHash[256];
 
 	/** OldClassName to NewClassName for ImportMap */
 	static TMap<FName, FName> ObjectNameRedirects;
@@ -1375,10 +1391,12 @@ private:
 	int32						NameMapIndex;
 	/** Current index into gatherable text data map, used by async linker creation for spreading out serializing text entries.	*/
 	int32						GatherableTextDataMapIndex;
-	/** Current index into import map, used by async linker creation for spreading out serializing importmap entries.			*/	
+	/** Current index into import map, used by async linker creation for spreading out serializing importmap entries.			*/
 	int32						ImportMapIndex;
 	/** Current index into export map, used by async linker creation for spreading out serializing exportmap entries.			*/
 	int32						ExportMapIndex;
+	/** Current index into export map, used by async linker creation for spreading out serializing exportmap entries.			*/
+	int32						FirstNotLoadedExportMapIndex;
 	/** Current index into depends map, used by async linker creation for spreading out serializing dependsmap entries.			*/
 	int32						DependsMapIndex;
 	/** Current index into export hash map, used by async linker creation for spreading out hashing exports.					*/
@@ -1537,7 +1555,7 @@ public:
 	 *
 	 * @return	new FLinkerLoad object for Parent/ Filename
 	 */
-	COREUOBJECT_API static FLinkerLoad* CreateLinker( UPackage* Parent, const TCHAR* Filename, uint32 LoadFlags );
+	COREUOBJECT_API static FLinkerLoad* CreateLinker( UPackage* Parent, const TCHAR* Filename, uint32 LoadFlags);
 
 	void Verify();
 
@@ -1799,7 +1817,7 @@ private:
 	 * @return	false if precache operation is still pending, true otherwise
 	 */
 	virtual bool Precache( int64 PrecacheOffset, int64 PrecacheSize ) override;
-	
+
 #if WITH_EDITOR
 	/**
 	 * Attaches/ associates the passed in bulk data object with the linker.
@@ -1842,6 +1860,7 @@ private:
 	// this fixes the warning : 'ULinkerSave::Serialize' hides overloaded virtual function
 	using FLinker::Serialize;
 	virtual void Serialize( void* V, int64 Length ) override;
+	using FArchiveUObject::operator<<; // For visibility of the overloads we don't override
 	virtual FArchive& operator<<( UObject*& Object ) override;
 	virtual FArchive& operator<<( FLazyObjectPtr& LazyObjectPtr) override;
 	virtual FArchive& operator<<( FAssetPtr& AssetPtr) override;
@@ -2258,6 +2277,7 @@ public:
 	FPackageIndex MapObject(const UObject* Object) const;
 
 	// FArchive interface.
+	using FArchiveUObject::operator<<; // For visibility of the overloads we don't override
 	FArchive& operator<<( FName& InName );
 	FArchive& operator<<( UObject*& Obj );
 	FArchive& operator<<( FLazyObjectPtr& LazyObjectPtr );
@@ -2349,13 +2369,9 @@ COREUOBJECT_API void DeleteLoaders();
 /** Queues linker for deletion */
 COREUOBJECT_API void DeleteLoader(FLinkerLoad* Loader);
 
-/**
- * Dissociates all linker import and forced export object references. This currently needs to 
- * happen as the referred objects might be destroyed at any time.
- */
-void DissociateImportsAndForcedExports();
+COREUOBJECT_API FLinkerLoad* GetPackageLinker(UPackage* InOuter, const TCHAR* InLongPackageName, uint32 LoadFlags, UPackageMap* Sandbox, FGuid* CompatibleGuid);
+COREUOBJECT_API FString GetPrestreamPackageLinkerName(const TCHAR* InLongPackageName, bool bExistSkip = true);
 
-COREUOBJECT_API FLinkerLoad* GetPackageLinker( UPackage* InOuter, const TCHAR* InLongPackageName, uint32 LoadFlags, UPackageMap* Sandbox, FGuid* CompatibleGuid );
 
 /**
  * 

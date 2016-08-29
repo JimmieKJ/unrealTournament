@@ -161,7 +161,7 @@ public:
 		}
 	}
 
-	/* Set new viewer loation */
+	/* Set new viewer location */
 	virtual void SetViewLocation(const FVector2D& Location, float ZoomAmount)
 	{
 		if (Implementation.IsValid())
@@ -240,11 +240,11 @@ public:
 	};
 
 	/*Set the pin visibility mode*/
-	virtual void SetPinVisibility(EPinVisibility Visibility)
+	virtual void SetPinVisibility(EPinVisibility InVisibility)
 	{
 		if (Implementation.IsValid())
 		{
-			Implementation->SetPinVisibility(Visibility);
+			Implementation->SetPinVisibility(InVisibility);
 		}
 	}
 

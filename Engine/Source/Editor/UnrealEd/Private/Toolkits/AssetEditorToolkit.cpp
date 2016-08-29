@@ -8,7 +8,7 @@
 #include "Toolkits/GlobalEditorCommonCommands.h"
 #include "Editor/MainFrame/Public/MainFrame.h"
 #include "Editor/WorkspaceMenuStructure/Public/WorkspaceMenuStructureModule.h"
-#include "ClassIconFinder.h"
+#include "SlateIconFinder.h"
 #include "CollectionManagerModule.h"
 #include "IUserFeedbackModule.h"
 #include "IDocumentation.h"
@@ -26,7 +26,8 @@ TWeakPtr< IToolkitHost > FAssetEditorToolkit::PreviousWorldCentricToolkitHostFor
 const FName FAssetEditorToolkit::ToolbarTabId( TEXT( "AssetEditorToolkit_Toolbar" ) );
 
 FAssetEditorToolkit::FAssetEditorToolkit()
-	: bCheckDirtyOnAssetSave(false)
+	: GCEditingObjects(*this)
+	, bCheckDirtyOnAssetSave(false)
 	, bIsToolbarFocusable(false)
 {
 	WorkspaceMenuCategory = FWorkspaceItem::NewGroup(LOCTEXT("WorkspaceMenu_BaseAssetEditor", "Asset Editor"));
@@ -154,9 +155,8 @@ void FAssetEditorToolkit::InitAssetEditor( const EToolkitMode::Type Mode, const 
 		}
 
 #if PLATFORM_MAC
-		FSuperSearchModule& SuperSearchModule = FModuleManager::LoadModuleChecked< FSuperSearchModule >(TEXT("SuperSearch"));
 		TSharedPtr< SEditableTextBox > ExposedEditableTextBox;
-		TSharedRef<SWidget> SuperSearchWidget = SuperSearchModule.MakeSearchBox(ExposedEditableTextBox, GEditorSettingsIni);
+		TSharedRef<SWidget> SuperSearchWidget = FSuperSearchModule::Get().MakeSearchBox(ExposedEditableTextBox);
 #endif
 
 		IUserFeedbackModule& UserFeedback = FModuleManager::LoadModuleChecked<IUserFeedbackModule>(TEXT("UserFeedback"));
@@ -601,7 +601,7 @@ const FSlateBrush* FAssetEditorToolkit::GetDefaultTabIcon() const
 
 	for (auto ObjectIt = EditingObjects.CreateConstIterator(); ObjectIt; ++ObjectIt)
 	{
-		const FSlateBrush* ThisAssetBrush = FClassIconFinder::FindIconForClass((*ObjectIt)->GetClass());
+		const FSlateBrush* ThisAssetBrush = FSlateIconFinder::FindIconBrushForClass((*ObjectIt)->GetClass());
 		
 		if (!IconBrush)
 		{
@@ -1084,6 +1084,12 @@ void FAssetEditorToolkit::AddToolbarWidget(TSharedRef<SWidget> Widget)
 void FAssetEditorToolkit::RemoveAllToolbarWidgets()
 {
 	ToolbarWidgets.Empty();
+}
+
+
+void FAssetEditorToolkit::FGCEditingObjects::AddReferencedObjects(FReferenceCollector& Collector)
+{
+	Collector.AddReferencedObjects(OwnerToolkit.EditingObjects);
 }
 
 

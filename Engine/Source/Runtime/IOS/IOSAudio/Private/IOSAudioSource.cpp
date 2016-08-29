@@ -245,7 +245,7 @@ void FIOSAudioSoundSource::Update(void)
 
 	AudioUnitParameterValue Volume = 0.0f;
 
-	if (!AudioDevice->bIsDeviceMuted)
+	if (!AudioDevice->IsAudioDeviceMuted())
 	{
 		Volume = WaveInstance->Volume * WaveInstance->VolumeMultiplier;
 	}
@@ -257,7 +257,7 @@ void FIOSAudioSoundSource::Update(void)
 	}
 
 	// Apply global multiplier to disable sound when not the foreground app
-	Volume *= AudioDevice->PlatformAudioHeadroom;
+	Volume *= AudioDevice->GetPlatformAudioHeadroom();
 	Volume = FMath::Clamp(Volume, 0.0f, 1.0f);
 
 	// Convert to dB

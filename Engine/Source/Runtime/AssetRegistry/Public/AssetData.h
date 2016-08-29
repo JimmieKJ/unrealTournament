@@ -241,6 +241,14 @@ public:
 		return Package;
 	}
 
+	/** Try and get the value associated with the given tag as a type converted value */
+	template <typename ValueType>
+	bool GetTagValue(const FName InTagName, ValueType& OutTagValue) const;
+
+	/** Try and get the value associated with the given tag as a type converted value, or an empty value if it doesn't exist */
+	template <typename ValueType>
+	ValueType GetTagValueRef(const FName InTagName) const;
+
 	/** Returns true if the asset is loaded */
 	bool IsAssetLoaded() const
 	{
@@ -332,4 +340,121 @@ public:
 
 		return Ar;
 	}
+
+private:
+	bool GetTagValueStringImpl(const FName InTagName, FString& OutTagValue) const
+	{
+		if (const FString* FoundValue = TagsAndValues.Find(InTagName))
+		{
+			bool bIsHandled = false;
+			if (FTextStringHelper::IsComplexText(**FoundValue))
+			{
+				FText TmpText;
+				if (FTextStringHelper::ReadFromString(**FoundValue, TmpText))
+				{
+					bIsHandled = true;
+					OutTagValue = TmpText.ToString();
+				}
+			}
+
+			if (!bIsHandled)
+			{
+				OutTagValue = *FoundValue;
+			}
+
+			return true;
+		}
+
+		return false;
+	}
+
+	bool GetTagValueTextImpl(const FName InTagName, FText& OutTagValue) const
+	{
+		if (const FString* FoundValue = TagsAndValues.Find(InTagName))
+		{
+			if (!FTextStringHelper::ReadFromString(**FoundValue, OutTagValue))
+			{
+				OutTagValue = FText::FromString(*FoundValue);
+			}
+			return true;
+		}
+		return false;
+	}
+
+	bool GetTagValueNameImpl(const FName InTagName, FName& OutTagValue) const
+	{
+		FString StrValue;
+		if (GetTagValueStringImpl(InTagName, StrValue))
+		{
+			OutTagValue = *StrValue;
+			return true;
+		}
+		return false;
+	}
 };
+
+template <typename ValueType>
+inline bool FAssetData::GetTagValue(const FName InTagName, ValueType& OutTagValue) const
+{
+	if (const FString* FoundValue = TagsAndValues.Find(InTagName))
+	{
+		FMemory::Memzero(&OutTagValue, sizeof(ValueType));
+		LexicalConversion::FromString(OutTagValue, **FoundValue);
+		return true;
+	}
+	return false;
+}
+
+template <>
+inline bool FAssetData::GetTagValue<FString>(const FName InTagName, FString& OutTagValue) const
+{
+	return GetTagValueStringImpl(InTagName, OutTagValue);
+}
+
+template <>
+inline bool FAssetData::GetTagValue<FText>(const FName InTagName, FText& OutTagValue) const
+{
+	return GetTagValueTextImpl(InTagName, OutTagValue);
+}
+
+template <>
+inline bool FAssetData::GetTagValue<FName>(const FName InTagName, FName& OutTagValue) const
+{
+	return GetTagValueNameImpl(InTagName, OutTagValue);
+}
+
+template <typename ValueType>
+inline ValueType FAssetData::GetTagValueRef(const FName InTagName) const
+{
+	ValueType TmpValue;
+	FMemory::Memzero(&TmpValue, sizeof(ValueType));
+	if (const FString* FoundValue = TagsAndValues.Find(InTagName))
+	{
+		LexicalConversion::FromString(TmpValue, **FoundValue);
+	}
+	return TmpValue;
+}
+
+template <>
+inline FString FAssetData::GetTagValueRef<FString>(const FName InTagName) const
+{
+	FString TmpValue;
+	GetTagValueStringImpl(InTagName, TmpValue);
+	return TmpValue;
+}
+
+template <>
+inline FText FAssetData::GetTagValueRef<FText>(const FName InTagName) const
+{
+	FText TmpValue;
+	GetTagValueTextImpl(InTagName, TmpValue);
+	return TmpValue;
+}
+
+template <>
+inline FName FAssetData::GetTagValueRef<FName>(const FName InTagName) const
+{
+	FName TmpValue;
+	GetTagValueNameImpl(InTagName, TmpValue);
+	return TmpValue;
+}

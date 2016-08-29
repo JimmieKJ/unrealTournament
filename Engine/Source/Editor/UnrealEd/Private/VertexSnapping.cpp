@@ -173,8 +173,7 @@ public:
 		: ComponentToWorldIT( InSkinnedMeshComp->ComponentToWorld.ToInverseMatrixWithScale().GetTransposed() )
 		, SkinnedMeshComponent( InSkinnedMeshComp )
 		, LODModel( InSkinnedMeshComp->GetSkeletalMeshResource()->LODModels[0] )
-		, CurrentChunkIndex( 0 )
-		, RigidVertexIndex( 0 )
+		, CurrentSectionIndex( 0 )
 		, SoftVertexIndex( 0 )
 	{
 		
@@ -183,51 +182,30 @@ public:
 	/** FVertexIterator interface */
 	virtual FVector Position() override
 	{
-		const FSkelMeshChunk& Chunk = LODModel.Chunks[CurrentChunkIndex];
-
-		if( Chunk.RigidVertices.IsValidIndex( RigidVertexIndex ) )
-		{
-			return SkinnedMeshComponent->ComponentToWorld.TransformPosition( Chunk.RigidVertices[RigidVertexIndex].Position );
-		}
-		else
-		{
-			return SkinnedMeshComponent->ComponentToWorld.TransformPosition( Chunk.SoftVertices[SoftVertexIndex].Position );
-		}
+		const FSkelMeshSection& Section = LODModel.Sections[CurrentSectionIndex];
+		return SkinnedMeshComponent->ComponentToWorld.TransformPosition(Section.SoftVertices[SoftVertexIndex].Position );
 	}
 
 	virtual FVector Normal() override
 	{
-		const FSkelMeshChunk& Chunk = LODModel.Chunks[CurrentChunkIndex];
-
-		if( Chunk.RigidVertices.IsValidIndex( RigidVertexIndex ) )
-		{
-			return ComponentToWorldIT.TransformVector( Chunk.RigidVertices[RigidVertexIndex].TangentZ );
-		}
-		else
-		{
-			return ComponentToWorldIT.TransformVector( Chunk.SoftVertices[SoftVertexIndex].TangentZ );
-		}
+		const FSkelMeshSection& Section = LODModel.Sections[CurrentSectionIndex];
+		return ComponentToWorldIT.TransformVector(Section.SoftVertices[SoftVertexIndex].TangentZ );
 	}
 
 protected:
 	virtual void Advance() override
 	{
 		// First advance the rigid vertex in the current chunk
-		const FSkelMeshChunk& Chunk = LODModel.Chunks[CurrentChunkIndex];
+		const FSkelMeshSection& Section = LODModel.Sections[CurrentSectionIndex];
 
-		if( Chunk.RigidVertices.IsValidIndex( RigidVertexIndex + 1 ) )
-		{
-			++RigidVertexIndex;
-		}
-		else if( Chunk.SoftVertices.IsValidIndex( SoftVertexIndex + 1 ) )
+		if(Section.SoftVertices.IsValidIndex( SoftVertexIndex + 1 ) )
 		{
 			++SoftVertexIndex;
 		}
 		else
 		{
-			// out of rigid and soft verts in this chunk.  Advance chunks
-			++CurrentChunkIndex;
-			RigidVertexIndex = 0;
+			// out of soft verts in this section.  Advance sections
+			++CurrentSectionIndex;
 			SoftVertexIndex = 0;
 		}
 	}
@@ -235,10 +213,10 @@ protected:
 	virtual bool HasMoreVertices() override
 	{
 		bool bHasMoreVerts = false;
-		if( LODModel.Chunks.IsValidIndex(CurrentChunkIndex) )
+		if (LODModel.Sections.IsValidIndex(CurrentSectionIndex))
 		{
-			const FSkelMeshChunk& Chunk = LODModel.Chunks[CurrentChunkIndex];
-			bHasMoreVerts = Chunk.RigidVertices.IsValidIndex( RigidVertexIndex ) || Chunk.SoftVertices.IsValidIndex( SoftVertexIndex );
+			const FSkelMeshSection& Section = LODModel.Sections[CurrentSectionIndex];
+			bHasMoreVerts = Section.SoftVertices.IsValidIndex( SoftVertexIndex );
 		}
 	
 		return bHasMoreVerts;
@@ -251,10 +229,8 @@ private:
 	USkinnedMeshComponent* SkinnedMeshComponent;
 	/** Skeletal mesh render data */
 	FStaticLODModel& LODModel;
-	/** Current chunk the iterator is on */
-	uint32 CurrentChunkIndex;
-	/** Current rigid vertex index the iterator is on */
-	uint32 RigidVertexIndex;
+	/** Current section the iterator is on */
+	uint32 CurrentSectionIndex;
 	/** Current Soft vertex index the iterator is on */
 	uint32 SoftVertexIndex; 
 };

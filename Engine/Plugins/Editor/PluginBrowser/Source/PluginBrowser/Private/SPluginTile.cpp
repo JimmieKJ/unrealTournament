@@ -13,6 +13,9 @@
 #include "PluginBrowserModule.h"
 #include "ISourceControlModule.h"
 #include "PropertyEditorModule.h"
+#include "IUATHelperModule.h"
+#include "IMainFrameModule.h"
+#include "DesktopPlatformModule.h"
 
 #define LOCTEXT_NAMESPACE "PluginListTile"
 
@@ -312,14 +315,24 @@ void SPluginTile::RecreateWidgets()
 														SNew(SHorizontalBox)
 
 														+ SHorizontalBox::Slot()
-															.AutoWidth()
-															.Padding(PaddingAmount)
-															[
-																SNew(SHyperlink)
-																	.Visibility(this, &SPluginTile::GetAuthoringButtonsVisibility)	
-																	.OnNavigate(this, &SPluginTile::OnEditPlugin)
-																	.Text(LOCTEXT("EditPlugin", "Edit..."))
-															]
+														.AutoWidth()
+														.Padding(PaddingAmount)
+														[
+															SNew(SHyperlink)
+															.Visibility(this, &SPluginTile::GetAuthoringButtonsVisibility)	
+															.OnNavigate(this, &SPluginTile::OnEditPlugin)
+															.Text(LOCTEXT("EditPlugin", "Edit..."))
+														]
+
+														+ SHorizontalBox::Slot()
+														.AutoWidth()
+														.Padding(PaddingAmount)
+														[
+															SNew(SHyperlink)
+															.Visibility(this, &SPluginTile::GetAuthoringButtonsVisibility)
+															.OnNavigate(this, &SPluginTile::OnPackagePlugin)
+															.Text(LOCTEXT("PackagePlugin", "Package..."))
+														]
 													]
 
 												// support link
@@ -521,6 +534,43 @@ FReply SPluginTile::OnEditPluginFinished(UPluginMetadataObject* MetadataObject)
 		}
 	}
 	return FReply::Handled();
+}
+
+void SPluginTile::OnPackagePlugin()
+{
+	void* ParentWindowWindowHandle = nullptr;
+	IMainFrameModule& MainFrameModule = FModuleManager::LoadModuleChecked<IMainFrameModule>(TEXT("MainFrame"));
+	const TSharedPtr<SWindow>& MainFrameParentWindow = MainFrameModule.GetParentWindow();
+	if ( MainFrameParentWindow.IsValid() && MainFrameParentWindow->GetNativeWindow().IsValid() )
+	{
+		ParentWindowWindowHandle = MainFrameParentWindow->GetNativeWindow()->GetOSWindowHandle();
+	}
+
+	FString DefaultDirectory;
+	FString OutputDirectory;
+
+	if ( !FDesktopPlatformModule::Get()->OpenDirectoryDialog(ParentWindowWindowHandle, LOCTEXT("PackagePluginDialogTitle", "Package Plugin...").ToString(), DefaultDirectory, OutputDirectory) )
+	{
+		return;
+	}
+
+	// Ensure path is full rather than relative (for macs)
+	FString DescriptorFilename = Plugin->GetDescriptorFileName();
+	FString DescriptorFullPath = FPaths::ConvertRelativePathToFull(DescriptorFilename);
+	FString CommandLine = FString::Printf(TEXT("BuildPlugin -Rocket -Plugin=\"%s\" -Package=\"%s\""), *DescriptorFullPath, *OutputDirectory);
+
+#if PLATFORM_WINDOWS
+	FText PlatformName = LOCTEXT("PlatformName_Windows", "Windows");
+#elif PLATFORM_MAC
+	FText PlatformName = LOCTEXT("PlatformName_Mac", "Mac");
+#elif PLATFORM_LINUX
+	FText PlatformName = LOCTEXT("PlatformName_Linux", "Linux");
+#else
+	FText PlatformName = LOCTEXT("PlatformName_Other", "Other OS");
+#endif
+
+	IUATHelperModule::Get().CreateUatTask(CommandLine, PlatformName, LOCTEXT("PackagePluginTaskName", "Packaging Plugin"),
+		LOCTEXT("PackagePluginTaskShortName", "Package Plugin Task"), FEditorStyle::GetBrush(TEXT("MainFrame.CookContent")));
 }
 
 #undef LOCTEXT_NAMESPACE

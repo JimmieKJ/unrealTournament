@@ -57,8 +57,10 @@ public:
 		LocalChainState = ChainState;
 
 		// set this before the thread starts so that way we know what's going on
+		FString TaskName(TEXT("FLauncherTask"));
+		TaskName.AppendInt(TaskCounter.Increment());
 		Status = ELauncherTaskStatus::Busy;
-		Thread = FRunnableThread::Create(this, TEXT("FLauncherTask"));
+		Thread = FRunnableThread::Create(this, *TaskName);
 	}
 
 	/**
@@ -332,4 +334,7 @@ protected:
 
 	// result
 	int32 Result;
+
+	// task counter, used to generate unique thread names for each task
+	static FThreadSafeCounter TaskCounter;
 };

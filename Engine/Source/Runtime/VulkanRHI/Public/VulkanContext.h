@@ -8,8 +8,8 @@
 
 #include "VulkanResources.h"
 
-struct FVulkanDevice;
-struct FVulkanCommandBufferManager;
+class FVulkanDevice;
+class FVulkanCommandBufferManager;
 
 class FVulkanCommandListContext : public IRHICommandContext
 {
@@ -17,7 +17,7 @@ public:
 	FVulkanCommandListContext(FVulkanDynamicRHI* InRHI, FVulkanDevice* InDevice, bool bInIsImmediate);
 	virtual ~FVulkanCommandListContext();
 
-	bool IsImmediate() const
+	inline bool IsImmediate() const
 	{
 		return bIsImmediate;
 	}
@@ -25,6 +25,7 @@ public:
 	virtual void RHISetStreamSource(uint32 StreamIndex, FVertexBufferRHIParamRef VertexBuffer, uint32 Stride, uint32 Offset) final override;
 	virtual void RHISetRasterizerState(FRasterizerStateRHIParamRef NewState) final override;
 	virtual void RHISetViewport(uint32 MinX, uint32 MinY, float MinZ, uint32 MaxX, uint32 MaxY, float MaxZ) final override;
+	virtual void RHISetStereoViewport(uint32 LeftMinX, uint32 RightMinX, uint32 MinY, float MinZ, uint32 LeftMaxX, uint32 RightMaxX, uint32 MaxY, float MaxZ) final override;
 	virtual void RHISetScissorRect(bool bEnable, uint32 MinX, uint32 MinY, uint32 MaxX, uint32 MaxY) final override;
 	virtual void RHISetBoundShaderState(FBoundShaderStateRHIParamRef BoundShaderState) final override;
 	virtual void RHISetShaderTexture(FVertexShaderRHIParamRef VertexShader, uint32 TextureIndex, FTextureRHIParamRef NewTexture) final override;
@@ -87,6 +88,7 @@ public:
 	virtual void RHISetMultipleViewports(uint32 Count, const FViewportBounds* Data) final override;
 	virtual void RHIClearUAV(FUnorderedAccessViewRHIParamRef UnorderedAccessViewRHI, const uint32* Values) final override;
 	virtual void RHICopyToResolveTarget(FTextureRHIParamRef SourceTexture, FTextureRHIParamRef DestTexture, bool bKeepOriginalSurface, const FResolveParams& ResolveParams) final override;
+	virtual void RHITransitionResources(EResourceTransitionAccess TransitionType, FTextureRHIParamRef* InRenderTargets, int32 NumTextures) final override;
 
 	// Render time measurement
 	virtual void RHIBeginRenderQuery(FRenderQueryRHIParamRef RenderQuery) final override;
@@ -106,19 +108,24 @@ public:
 	virtual void RHIBeginScene() final override;
 	virtual void RHIEndScene() final override;
 
-	/** Start AsyncCompute command stream recording (no effect if not supported) */
-	virtual void RHIBeginAsyncComputeJob_DrawThread(EAsyncComputePriority Priority) final override {}
-
-	/** End AsyncCompute command stream recording (no effect if not supported) */
-	virtual void RHIEndAsyncComputeJob_DrawThread(uint32 FenceIndex) final override {}
-
-	/** Wait for AsyncCompute command stream to finish (no effect if not supported) */
-	virtual void RHIGraphicsWaitOnAsyncComputeJob(uint32 FenceIndex) final override {}
-
 	inline FVulkanCommandBufferManager* GetCommandBufferManager()
 	{
 		return CommandBufferManager;
 	}
+
+	inline VulkanRHI::FTempFrameAllocationBuffer& GetTempFrameAllocationBuffer()
+	{
+		return TempFrameAllocationBuffer;
+	}
+
+	inline FVulkanPendingState& GetPendingState()
+	{
+		check(PendingState);
+		return *PendingState;
+	}
+
+	// OutSets must have been previously pre-allocated
+	FVulkanDescriptorPool* AllocateDescriptorSets(const VkDescriptorSetAllocateInfo& DescriptorSetAllocateInfo, VkDescriptorSet* OutSets);
 
 protected:
 	FVulkanDynamicRHI* RHI;
@@ -128,21 +135,29 @@ protected:
 	void SetShaderUniformBuffer(EShaderFrequency Stage, const FVulkanUniformBuffer* UniformBuffer, int32 BindingIndex);
 
 	/** Some locally global variables to track the pending primitive information uised in RHIEnd*UP functions */
-	FVulkanDynamicLockInfo PendingDrawPrimitiveUPVertexData;
+	VulkanRHI::FTempFrameAllocationBuffer::FTempAllocInfo PendingDrawPrimUPVertexAllocInfo;
 	uint32 PendingNumVertices;
 	uint32 PendingVertexDataStride;
 
-	FVulkanDynamicLockInfo PendingDrawPrimitiveUPIndexData;
+	VulkanRHI::FTempFrameAllocationBuffer::FTempAllocInfo PendingDrawPrimUPIndexAllocInfo;
 	VkIndexType PendingPrimitiveIndexType;
 	uint32 PendingPrimitiveType;
 	uint32 PendingNumPrimitives;
 	uint32 PendingMinVertexIndex;
 	uint32 PendingIndexDataStride;
 
-	class FVulkanDynamicVertexBuffer* DynamicVB;
-	class FVulkanDynamicIndexBuffer* DynamicIB;
+	VulkanRHI::FTempFrameAllocationBuffer TempFrameAllocationBuffer;
 
 	TArray<FString> EventStack;
 
 	FVulkanCommandBufferManager* CommandBufferManager;
+
+	TArray<FVulkanDescriptorPool*> DescriptorPools;
+
+	//#todo-rco: Temp!
+	FVulkanPendingState* PendingState;
+
+	void SubmitCurrentCommands();
+
+	void InternalClearMRT(FVulkanCmdBuffer* CmdBuffer, bool bClearColor, int32 NumClearColors, const FLinearColor* ColorArray, bool bClearDepth, float Depth, bool bClearStencil, uint32 Stencil, FIntRect ExcludeRect);
 };

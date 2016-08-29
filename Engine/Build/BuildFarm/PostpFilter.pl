@@ -20,7 +20,7 @@ while(<>)
 	s/^AutomationTool: ([A-Za-z0-9-]+: )/$1/;
 	
 	# remove the gubp function or prefix
-	s/^([A-Za-z0-9.-]+): // if !/^AutomationTool\\.AutomationException:/;
+	s/^([A-Za-z0-9.-]+): // if !/^AutomationTool\\.AutomationException:/ && !/^error:/ && !/^warning:/;
 
 	# if it was the editor, also strip any additional timestamp
 	if($1 && $1 =~ /^UE4Editor/)

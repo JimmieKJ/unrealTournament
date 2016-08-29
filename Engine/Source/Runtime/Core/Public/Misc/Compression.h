@@ -4,6 +4,8 @@
 
 #include "HAL/Platform.h"
 
+class ITargetPlatform;
+
 /**
  * Flags controlling [de]compression
  */
@@ -32,6 +34,9 @@ enum ECompressionFlags
 /** mask out compression type */
 #define COMPRESSION_FLAGS_OPTIONS_MASK	0xF0
 
+/** Default compressor bit window for Zlib */
+#define DEFAULT_ZLIB_BIT_WINDOW		15
+
 
 /**
  * Chunk size serialization code splits data into. The loading value CANNOT be changed without resaving all
@@ -58,9 +63,10 @@ struct FCompression
 	 *
 	 * @param	Flags						Flags to control what method to use and optionally control memory vs speed
 	 * @param	UncompressedSize			Size of uncompressed data in bytes
+	 * @param	BitWindow					Bit window to use in compression
 	 * @return The maximum possible bytes needed for compression of data buffer of size UncompressedSize
 	 */
-	CORE_API static int32 CompressMemoryBound( ECompressionFlags Flags, int32 UncompressedSize );
+	CORE_API static int32 CompressMemoryBound( ECompressionFlags Flags, int32 UncompressedSize, int32 BitWindow = DEFAULT_ZLIB_BIT_WINDOW );
 
 	/**
 	 * Thread-safe abstract compression routine. Compresses memory from uncompressed buffer and writes it to compressed
@@ -71,9 +77,10 @@ struct FCompression
 	 * @param	CompressedSize	[in/out]	Size of CompressedBuffer, at exit will be size of compressed data
 	 * @param	UncompressedBuffer			Buffer containing uncompressed data
 	 * @param	UncompressedSize			Size of uncompressed data in bytes
+	 * @param	BitWindow					Bit window to use in compression
 	 * @return true if compression succeeds, false if it fails because CompressedBuffer was too small or other reasons
 	 */
-	CORE_API static bool CompressMemory( ECompressionFlags Flags, void* CompressedBuffer, int32& CompressedSize, const void* UncompressedBuffer, int32 UncompressedSize );
+	CORE_API static bool CompressMemory( ECompressionFlags Flags, void* CompressedBuffer, int32& CompressedSize, const void* UncompressedBuffer, int32 UncompressedSize, int32 BitWindow = DEFAULT_ZLIB_BIT_WINDOW );
 
 	/**
 	 * Thread-safe abstract decompression routine. Uncompresses memory from compressed buffer and writes it to uncompressed
@@ -87,7 +94,7 @@ struct FCompression
 	 * @param	bIsSourcePadded		Whether the source memory is padded with a full cache line at the end
 	 * @return true if compression succeeds, false if it fails because CompressedBuffer was too small or other reasons
 	 */
-	CORE_API static bool UncompressMemory( ECompressionFlags Flags, void* UncompressedBuffer, int32 UncompressedSize, const void* CompressedBuffer, int32 CompressedSize, bool bIsSourcePadded = false );
+	CORE_API static bool UncompressMemory( ECompressionFlags Flags, void* UncompressedBuffer, int32 UncompressedSize, const void* CompressedBuffer, int32 CompressedSize, bool bIsSourcePadded = false, int32 BitWindow = DEFAULT_ZLIB_BIT_WINDOW );
 };
 
 

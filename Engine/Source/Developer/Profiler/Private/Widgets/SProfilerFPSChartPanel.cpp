@@ -101,6 +101,11 @@ public:
 		];
 	}
 	END_SLATE_FUNCTION_BUILD_OPTIMIZATION
+		
+	void SetFPSAnalyzer(const TSharedPtr<FFPSAnalyzer>& InAnalyzer)
+	{
+		FPSAnalyzer = InAnalyzer;
+	}
 
 protected:
 	FText HandleSampleCount() const
@@ -168,6 +173,16 @@ protected:
 	TSharedPtr<FFPSAnalyzer> FPSAnalyzer;
 };
 
+SProfilerFPSChartPanel::~SProfilerFPSChartPanel()
+{
+	// Remove ourselves from the profiler manager.
+	auto ProfilerManager = FProfilerManager::Get();
+	if (ProfilerManager.IsValid())
+	{
+		ProfilerManager->OnViewModeChanged().RemoveAll(this);
+	}
+}
+
 BEGIN_SLATE_FUNCTION_BUILD_OPTIMIZATION
 void SProfilerFPSChartPanel::Construct( const FArguments& InArgs )
 {
@@ -182,19 +197,37 @@ void SProfilerFPSChartPanel::Construct( const FArguments& InArgs )
 			+SHorizontalBox::Slot()
 			.FillWidth(1.0f)
 			[
-				SNew(SHistogram)
+				SAssignNew(Histogram, SHistogram)
 				.Description(FHistogramDescription(InArgs._FPSAnalyzer.ToSharedRef(), 5, 0, 90, true))
 			]
 
 			+SHorizontalBox::Slot()
 			.AutoWidth()
 			[
-				SNew( SProfilerFPSStatisticsPanel )
+				SAssignNew(StatisticsPanel, SProfilerFPSStatisticsPanel)
 				.FPSAnalyzer( InArgs._FPSAnalyzer )
 			]
 		]	
 	];
+
+	auto ProfilerManager = FProfilerManager::Get();
+	if (ProfilerManager.IsValid())
+	{
+		ProfilerManager->OnViewModeChanged().AddSP(this, &SProfilerFPSChartPanel::ProfilerManager_OnViewModeChanged);
+	}
 }
 END_SLATE_FUNCTION_BUILD_OPTIMIZATION
+
+void SProfilerFPSChartPanel::ProfilerManager_OnViewModeChanged(EProfilerViewMode::Type NewViewMode)
+{
+	auto ProfilerManager = FProfilerManager::Get();
+	if (ProfilerManager.IsValid())
+	{
+		const FProfilerSessionPtr ProfilerSession = ProfilerManager->GetProfilerSession();
+
+		Histogram->SetFPSAnalyzer(ProfilerSession->FPSAnalyzer);
+		StatisticsPanel->SetFPSAnalyzer(ProfilerSession->FPSAnalyzer);
+	}
+}
 
 #undef LOCTEXT_NAMESPACE

@@ -50,9 +50,6 @@ private:
 	/** Level editor that we're associated with */
 	TWeakPtr<class ILevelEditor> LevelEditor;
 
-	/** Toolkit area widget */
-	TSharedPtr<class SToolkitDisplay> ToolkitArea;
-
 	/** Inline content area for editor modes */
 	TSharedPtr<SBorder> InlineContentHolder;
 

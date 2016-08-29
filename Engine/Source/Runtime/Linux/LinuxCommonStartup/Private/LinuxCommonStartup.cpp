@@ -164,7 +164,7 @@ int CommonLinuxMain(int argc, char *argv[], int (*RealMain)(const TCHAR * Comman
 	if (UE_BUILD_SHIPPING)
 	{
 		// only printed in shipping
-		printf("%s %d %d %d %d\n", StringCast<ANSICHAR>(*FEngineVersion::Current().ToString()).Get(), GEngineMinNetVersion, GEngineNegotiationVersion, GPackageFileUE4Version, GPackageFileLicenseeUE4Version);
+		printf("%s %d %d\n", StringCast<ANSICHAR>(*FEngineVersion::Current().ToString()).Get(), GPackageFileUE4Version, GPackageFileLicenseeUE4Version);
 	}
 
 	int ErrorLevel = 0;

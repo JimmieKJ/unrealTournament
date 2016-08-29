@@ -63,7 +63,7 @@ bool FCoreAudioDevice::InitializeHardware()
 
 	InverseTransform = FMatrix::Identity;
 
-	for (int32 Index = 0; Index < CORE_AUDIO_MAX_CHANNELS + 1; ++Index)
+	for (int32 Index = 0; Index < CORE_AUDIO_MAX_CHANNELS; ++Index)
 	{
 		AudioChannels[Index] = nullptr;
 	}
@@ -139,7 +139,15 @@ bool FCoreAudioDevice::InitializeHardware()
 		Status = AUGraphNodeInfo( AudioUnitGraph, Mixer3DNode, NULL, &Mixer3DUnit );
 		if( Status == noErr )
 		{
-			Status = AudioUnitInitialize( Mixer3DUnit );
+			// Set number of buses for input
+			uint32 NumBuses = CORE_AUDIO_MAX_CHANNELS;
+			Size = sizeof( NumBuses );
+
+			Status = AudioUnitSetProperty( Mixer3DUnit, kAudioUnitProperty_ElementCount, kAudioUnitScope_Input, 0, &NumBuses, Size );
+			if( Status == noErr )
+			{
+				Status = AudioUnitInitialize( Mixer3DUnit );
+			}
 		}
 	}
 	
@@ -309,20 +317,28 @@ void FCoreAudioDevice::UpdateHardware()
 {
 	// Caches the matrix used to transform a sounds position into local space so we can just look
 	// at the Y component after normalization to determine spatialization.
-	const FVector Up = Listeners[0].GetUp();
-	const FVector Right = Listeners[0].GetFront();
-	InverseTransform = FMatrix(Up, Right, Up ^ Right, Listeners[0].Transform.GetTranslation()).InverseFast();
-	
+	const FListener& Listener = GetListeners()[0];
+	const FVector Up = Listener.GetUp();
+	const FVector Right = Listener.GetFront();
+	InverseTransform = FMatrix(Up, Right, Up ^ Right, Listener.Transform.GetTranslation()).InverseFast();
+
+	UpdateAUGraph();
+}
+
+void FCoreAudioDevice::UpdateAUGraph()
+{
 	if (AudioUnitGraph && bNeedsUpdate)
 	{
 		SAFE_CA_CALL(AUGraphUpdate( AudioUnitGraph, NULL ));
 		bNeedsUpdate = false;
-		
-		for(AudioConverterRef CoreAudioConverter : CovertersToDispose)
+		SourcesAttached.Empty();
+		SourcesDetached.Empty();
+
+		for (AudioConverterRef CoreAudioConverter : ConvertersToDispose)
 		{
 			AudioConverterDispose( CoreAudioConverter );
 		}
-		CovertersToDispose.Empty();
+		ConvertersToDispose.Empty();
 	}
 }
 

@@ -94,6 +94,8 @@ FActorPositionTraceResult FActorPositioning::TraceWorldForPosition(const UWorld&
 	TArray<FHitResult> Hits;
 
 	FCollisionQueryParams Param(TEXT("DragDropTrace"), true);
+	Param.bTraceAsyncScene = true;
+	
 	if (IgnoreActors)
 	{
 		Param.AddIgnoredActors(*IgnoreActors);
@@ -203,7 +205,8 @@ FTransform FActorPositioning::GetSurfaceAlignedTransform(const FPositioningData&
 	}
 
 	// Choose the largest location offset of the various options (global viewport settings, collision, factory offset)
-	const float SnapOffsetExtent = GetDefault<ULevelEditorViewportSettings>()->SnapToSurface.SnapOffsetExtent;
+	const ULevelEditorViewportSettings* ViewportSettings = GetDefault<ULevelEditorViewportSettings>();
+	const float SnapOffsetExtent = (ViewportSettings->SnapToSurface.bEnabled) ? (ViewportSettings->SnapToSurface.SnapOffsetExtent) : (0.0f);
 	const float CollisionOffsetExtent = FVector::BoxPushOut(Data.SurfaceNormal, Data.PlacementExtent);
 
 	FVector LocationOffset = Data.SurfaceNormal * FMath::Max(SnapOffsetExtent, CollisionOffsetExtent);

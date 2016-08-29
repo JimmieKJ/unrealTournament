@@ -2,10 +2,10 @@
 
 #include "UnrealTournament.h"
 
-#include "Runtime/Analytics/Analytics/Public/Analytics.h"
-#include "Runtime/Analytics/Analytics/Public/Interfaces/IAnalyticsProvider.h"
 #include "UTAnalytics.h"
 #include "UTAnalyticsBlueprintLibrary.h"
+#include "AnalyticsEventAttribute.h"
+#include "IAnalyticsProvider.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogUTAnalyticsBPLib, Display, All);
 

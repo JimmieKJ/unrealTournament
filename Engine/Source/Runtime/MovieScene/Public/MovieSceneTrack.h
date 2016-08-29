@@ -2,12 +2,24 @@
 
 #pragma once
 
+#include "EnumClassFlags.h"
 #include "MovieSceneTrack.generated.h"
 
 
 class UMovieSceneSection;
 class FMovieSceneSequenceInstance;
 
+/** Flags used to perform cook-time optimization of movie scene data */
+enum class ECookOptimizationFlags
+{
+	/** Perform no cook optimization */
+	None 			= 0,
+	/** Remove this track since its of no consequence to runtime */
+	RemoveTrack		= 1 << 0,
+	/** Remove this track's object since its of no consequence to runtime */
+	RemoveObject	= 1 << 1,
+};
+ENUM_CLASS_FLAGS(ECookOptimizationFlags)
 
 /**
  * Base class for a track in a Movie Scene
@@ -112,7 +124,18 @@ public:
 	 */
 	virtual void RemoveSection(UMovieSceneSection& Section) PURE_VIRTUAL(UMovieSceneSection::RemoveSection,);
 
+#if WITH_EDITOR
+
+	/**
+	 * Called when this track's movie scene is being cooked to determine if/how this track should be cooked.
+	 * @return ECookOptimizationFlags detailing how to optimize this track
+	 */
+	virtual ECookOptimizationFlags GetCookOptimizationFlags() const { return ECookOptimizationFlags::None; }
+
+#endif
+
 #if WITH_EDITORONLY_DATA
+
 	/**
 	 * Get the track's display name.
 	 *

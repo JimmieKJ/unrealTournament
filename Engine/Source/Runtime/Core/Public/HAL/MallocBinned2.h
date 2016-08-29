@@ -167,10 +167,10 @@ class CORE_API FMallocBinned2 final : public FMalloc
 			MaxHashBuckets        = AddressLimit >> HashKeyShift;
 		}
 
-		FORCEINLINE void GetHashBucketAndPoolIndices(const void* InPtr, UPTRINT& OutBucketIndex, uint32& OutPoolIndex) const
+		FORCEINLINE void GetHashBucketAndPoolIndices(const void* InPtr, uint32& OutBucketIndex, UPTRINT& OutBucketCollision, uint32& OutPoolIndex) const
 		{
-			OutBucketIndex = (UPTRINT)InPtr >> HashKeyShift;
-			OutBucketIndex &= (MaxHashBuckets - 1);
+			OutBucketCollision = (UPTRINT)InPtr >> HashKeyShift;
+			OutBucketIndex = uint32(OutBucketCollision & (MaxHashBuckets - 1));
 			OutPoolIndex   = ((UPTRINT)InPtr >> PtrToPoolPageBitShift) & PoolMask;
 		}
 

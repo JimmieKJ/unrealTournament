@@ -72,13 +72,7 @@ void UMaterialGraphNode::RecreateAndLinkNode()
 		Pin->Modify();
 		Pin->BreakAllPinLinks();
 
-#if 0
-		UEdGraphNode::ReturnPinToPool(Pin);
-#else
-		Pin->Rename(NULL, GetTransientPackage(), REN_None);
-		Pin->RemoveFromRoot();
-		Pin->MarkPendingKill();
-#endif
+		UEdGraphNode::DestroyPin(Pin);
 	}
 	Pins.Empty();
 
@@ -463,15 +457,15 @@ void UMaterialGraphNode::CreateInputPins()
 		}
 		else if ( !FCString::Stricmp( *InputName, TEXT("AGreaterThanB") ) )
 		{
-			InputName = TEXT("A>=B");
+			InputName = TEXT("A > B");
 		}
 		else if ( !FCString::Stricmp( *InputName, TEXT("AEqualsB") ) )
 		{
-			InputName = TEXT("A==B");
+			InputName = TEXT("A == B");
 		}
 		else if ( !FCString::Stricmp( *InputName, TEXT("ALessThanB") ) )
 		{
-			InputName = TEXT("A<B");
+			InputName = TEXT("A < B");
 		}
 		else if ( !FCString::Stricmp( *InputName, TEXT("MipLevel") ) )
 		{

@@ -10,6 +10,8 @@
 #include "Components/DestructibleComponent.h"
 #include "Components/LineBatchComponent.h"
 #include "PhysicalMaterials/PhysicalMaterial.h"
+#include "PhysicsEngine/PhysicsSettings.h"
+#include "PhysicsEngine/BodySetup.h"
 
 // Used to place overlaps into a TMap when deduplicating them
 struct FOverlapKey
@@ -25,7 +27,7 @@ struct FOverlapKey
 
 	friend bool operator==(const FOverlapKey& X, const FOverlapKey& Y)
 	{
-		return (X.Component == Y.Component) && (X.ComponentIndex == Y.ComponentIndex);
+		return (X.ComponentIndex == Y.ComponentIndex) && (X.Component == Y.Component);
 	}
 };
 
@@ -41,10 +43,10 @@ extern TAutoConsoleVariable<int32> CVarShowInitialOverlaps;
 // Sentinel for invalid query results.
 static const PxQueryHit InvalidQueryHit;
 
-static bool IsInvalidFaceIndex(PxU32 faceIndex)
+FORCEINLINE_DEBUGGABLE bool IsInvalidFaceIndex(PxU32 faceIndex)
 {
-	checkf(InvalidQueryHit.faceIndex == 0xFFFFffff, TEXT("Engine code needs fixing: PhysX invalid face index sentinel has changed or is not part of default PxQueryHit!"));
-	return (faceIndex == InvalidQueryHit.faceIndex);
+	checkfSlow(InvalidQueryHit.faceIndex == 0xFFFFffff, TEXT("Engine code needs fixing: PhysX invalid face index sentinel has changed or is not part of default PxQueryHit!"));
+	return (faceIndex == 0xFFFFffff);
 }
 
 // Forward declare, I don't want to move the entire function right now or we lose change history.
@@ -53,6 +55,7 @@ static bool ConvertOverlappedShapeToImpactHit(const UWorld* World, const PxLocat
 DECLARE_CYCLE_STAT(TEXT("ConvertQueryHit"), STAT_ConvertQueryImpactHit, STATGROUP_Collision);
 DECLARE_CYCLE_STAT(TEXT("ConvertOverlapToHit"), STAT_CollisionConvertOverlapToHit, STATGROUP_Collision);
 DECLARE_CYCLE_STAT(TEXT("ConvertOverlap"), STAT_CollisionConvertOverlap, STATGROUP_Collision);
+DECLARE_CYCLE_STAT(TEXT("SetHitResultFromShapeAndFaceIndex"), STAT_CollisionSetHitResultFromShapeAndFaceIndex, STATGROUP_Collision);
 
 #define ENABLE_CHECK_HIT_NORMAL  (!(UE_BUILD_SHIPPING || UE_BUILD_TEST))
 
@@ -348,6 +351,7 @@ static FVector FindGeomOpposingNormal(PxGeometryType::Enum QueryGeomType, const 
 /** Set info in the HitResult (Actor, Component, PhysMaterial, BoneName, Item) based on the supplied shape and face index */
 static void SetHitResultFromShapeAndFaceIndex(const PxShape* PShape,  const PxRigidActor* PActor, const uint32 FaceIndex, FHitResult& OutResult, bool bReturnPhysMat)
 {
+	SCOPE_CYCLE_COUNTER(STAT_CollisionSetHitResultFromShapeAndFaceIndex);
 	const FBodyInstance* BodyInst = FPhysxUserData::Get<FBodyInstance>(PActor->userData);
 	FDestructibleChunkInfo* ChunkInfo = FPhysxUserData::Get<FDestructibleChunkInfo>(PShape->userData);
 	UPrimitiveComponent* PrimComp = FPhysxUserData::Get<UPrimitiveComponent>(PShape->userData);
@@ -468,6 +472,14 @@ EConvertQueryResult ConvertQueryImpactHit(const UWorld* World, const PxLocationH
 	const bool bUsePxPoint = ((PHit.flags & PxHitFlag::ePOSITION) && !bInitialOverlap);
 	if (bUsePxPoint && !PHit.position.isFinite())
 	{
+#if ENABLE_NAN_DIAGNOSTIC
+		SetHitResultFromShapeAndFaceIndex(PHit.shape, PHit.actor, PHit.faceIndex, OutResult, bReturnPhysMat);
+		UE_LOG(LogCore, Error, TEXT("ConvertQueryImpactHit() NaN details:\n>> Actor:%s (%s)\n>> Component:%s\n>> Item:%d\n>> BoneName:%s\n>> Time:%f\n>> Distance:%f\n>> Location:%s\n>> bIsBlocking:%d\n>> bStartPenetrating:%d"),
+			*GetNameSafe(OutResult.GetActor()), OutResult.Actor.IsValid() ? *OutResult.GetActor()->GetPathName() : TEXT("no path"),
+			*GetNameSafe(OutResult.GetComponent()), OutResult.Item, *OutResult.BoneName.ToString(),
+			OutResult.Time, OutResult.Distance, *OutResult.Location.ToString(), OutResult.bBlockingHit ? 1 : 0, OutResult.bStartPenetrating ? 1 : 0);
+#endif // ENABLE_NAN_DIAGNOSTIC
+
 		OutResult.Reset();
 		logOrEnsureNanError(TEXT("ConvertQueryImpactHit() received NaN/Inf for position: %.2f %.2f %.2f"), PHit.position.x, PHit.position.y, PHit.position.z);
 		return EConvertQueryResult::Invalid;
@@ -479,6 +491,14 @@ EConvertQueryResult ConvertQueryImpactHit(const UWorld* World, const PxLocationH
 	const bool bUsePxNormal = ((PHit.flags & PxHitFlag::eNORMAL) && !bInitialOverlap);
 	if (bUsePxNormal && !PHit.normal.isFinite())
 	{
+#if ENABLE_NAN_DIAGNOSTIC
+		SetHitResultFromShapeAndFaceIndex(PHit.shape, PHit.actor, PHit.faceIndex, OutResult, bReturnPhysMat);
+		UE_LOG(LogCore, Error, TEXT("ConvertQueryImpactHit() NaN details:\n>> Actor:%s (%s)\n>> Component:%s\n>> Item:%d\n>> BoneName:%s\n>> Time:%f\n>> Distance:%f\n>> Location:%s\n>> bIsBlocking:%d\n>> bStartPenetrating:%d"),
+			*GetNameSafe(OutResult.GetActor()), OutResult.Actor.IsValid() ? *OutResult.GetActor()->GetPathName() : TEXT("no path"),
+			*GetNameSafe(OutResult.GetComponent()), OutResult.Item, *OutResult.BoneName.ToString(),
+			OutResult.Time, OutResult.Distance, *OutResult.Location.ToString(), OutResult.bBlockingHit ? 1 : 0, OutResult.bStartPenetrating ? 1 : 0);
+#endif // ENABLE_NAN_DIAGNOSTIC
+
 		OutResult.Reset();
 		logOrEnsureNanError(TEXT("ConvertQueryImpactHit() received NaN/Inf for normal: %.2f %.2f %.2f"), PHit.normal.x, PHit.normal.y, PHit.normal.z);
 		return EConvertQueryResult::Invalid;
@@ -510,7 +530,9 @@ EConvertQueryResult ConvertQueryImpactHit(const UWorld* World, const PxLocationH
 	// Fill in Actor, Component, material, etc.
 	SetHitResultFromShapeAndFaceIndex(PHit.shape, PHit.actor, PHit.faceIndex, OutResult, bReturnPhysMat);
 
-	if( PHit.shape->getGeometryType() == PxGeometryType::eHEIGHTFIELD)
+	PxGeometryType::Enum PGeomType = PHit.shape->getGeometryType();
+
+	if(PGeomType == PxGeometryType::eHEIGHTFIELD)
 	{
 		// Lookup physical material for heightfields
 		if (bReturnPhysMat && PHit.faceIndex != InvalidQueryHit.faceIndex)
@@ -522,7 +544,7 @@ EConvertQueryResult ConvertQueryImpactHit(const UWorld* World, const PxLocationH
 			}
 		}
 	}
-	else if (bReturnFaceIndex && PHit.shape->getGeometryType() == PxGeometryType::eTRIANGLEMESH)
+	else if (bReturnFaceIndex && PGeomType == PxGeometryType::eTRIANGLEMESH)
 	{
 		PxTriangleMeshGeometry PTriMeshGeom;
 		if(	PHit.shape->getTriangleMeshGeometry(PTriMeshGeom) && 
@@ -541,6 +563,10 @@ EConvertQueryResult ConvertQueryImpactHit(const UWorld* World, const PxLocationH
 
 EConvertQueryResult ConvertRaycastResults(bool& OutHasValidBlockingHit, const UWorld* World, int32 NumHits, PxRaycastHit* Hits, float CheckLength, const PxFilterData& QueryFilter, TArray<FHitResult>& OutHits, const FVector& StartLoc, const FVector& EndLoc, bool bReturnFaceIndex, bool bReturnPhysMat)
 {
+#if PLATFORM_LINUX	// to narrow down OR-24947
+	_Pragma("clang optimize off");
+#endif // PLATFORM_LINUX
+
 	OutHits.Reserve(OutHits.Num() + NumHits);
 	EConvertQueryResult ConvertResult = EConvertQueryResult::Valid;
 	bool bHadBlockingHit = false;
@@ -548,7 +574,7 @@ EConvertQueryResult ConvertRaycastResults(bool& OutHasValidBlockingHit, const UW
 	PxTransform PStartTM(U2PVector(StartLoc));
 	for(int32 i=0; i<NumHits; i++)
 	{
-		FHitResult& NewResult = OutHits[OutHits.AddDefaulted()];
+		FHitResult& NewResult = OutHits[OutHits.Emplace()];
 		const PxRaycastHit& PHit = Hits[i];
 
 		if (ConvertQueryImpactHit(World, PHit, NewResult, CheckLength, QueryFilter, StartLoc, EndLoc, NULL, PStartTM, bReturnFaceIndex, bReturnPhysMat) == EConvertQueryResult::Valid)
@@ -567,6 +593,10 @@ EConvertQueryResult ConvertRaycastResults(bool& OutHasValidBlockingHit, const UW
 	OutHits.Sort( FCompareFHitResultTime() );
 	OutHasValidBlockingHit = bHadBlockingHit;
 	return ConvertResult;
+
+#if PLATFORM_LINUX	// to narrow down OR-24947
+	_Pragma("clang optimize on");
+#endif // PLATFORM_LINUX
 }
 
 EConvertQueryResult AddSweepResults(bool& OutHasValidBlockingHit, const UWorld* World, int32 NumHits, const PxSweepHit* Hits, float CheckLength, const PxFilterData& QueryFilter, TArray<FHitResult>& OutHits, const FVector& StartLoc, const FVector& EndLoc, const PxGeometry& Geom, const PxTransform& QueryTM, float MaxDistance, bool bReturnFaceIndex, bool bReturnPhysMat)
@@ -647,7 +677,7 @@ FVector FindBestOverlappingNormal(const UWorld* World, const PxGeometry& Geom, c
 		}
 
 #if DRAW_OVERLAPPING_TRIS
-		if (bCanDrawOverlaps && (World->PersistentLineBatcher->BatchedLines.Num() < 2048))
+		if (bCanDrawOverlaps && World && World->PersistentLineBatcher && World->PersistentLineBatcher->BatchedLines.Num() < 2048)
 		{
 			static const float LineThickness = 0.9f;
 			static const float NormalThickness = 0.75f;
@@ -992,15 +1022,17 @@ void ConvertQueryOverlap(const PxShape* PShape, const PxRigidActor* PActor, FOve
 {
 	const bool bBlock = IsBlocking(PShape, QueryFilter);
 
-	FBodyInstance* BodyInst = FPhysxUserData::Get<FBodyInstance>(PActor->userData);
-	FDestructibleChunkInfo* ChunkInfo = FPhysxUserData::Get<FDestructibleChunkInfo>(PActor->userData);
+	const FBodyInstance* BodyInst = FPhysxUserData::Get<FBodyInstance>(PActor->userData);
+	const FDestructibleChunkInfo* ChunkInfo = FPhysxUserData::Get<FDestructibleChunkInfo>(PActor->userData);
 
 	// Grab actor/component
-	UPrimitiveComponent* OwnerComponent = nullptr;
+	const UPrimitiveComponent* OwnerComponent = nullptr;
 
 	// Try body instance
 	if (BodyInst)
 	{
+        BodyInst = BodyInst->GetOriginalBodyInstance(PShape);
+
 		OwnerComponent = BodyInst->OwnerComponent.Get(); // cache weak pointer object, avoid multiple derefs below.
 		if (OwnerComponent)
 		{
@@ -1037,10 +1069,10 @@ static void AddUniqueOverlap(TArray<FOverlapResult>& OutOverlaps, const FOverlap
 	{
 		FOverlapResult& Overlap = OutOverlaps[TestIdx];
 
-		if(Overlap.Component == NewOverlap.Component && Overlap.ItemIndex == NewOverlap.ItemIndex)
+		if (Overlap.ItemIndex == NewOverlap.ItemIndex && Overlap.Component == NewOverlap.Component)
 		{
 			// These should be the same if the component matches!
-			check(Overlap.Actor == NewOverlap.Actor);
+			checkSlow(Overlap.Actor == NewOverlap.Actor);
 
 			// If we had a non-blocking overlap with this component, but now we have a blocking one, use that one instead!
 			if(!Overlap.bBlockingHit && NewOverlap.bBlockingHit)
@@ -1065,8 +1097,8 @@ bool IsBlocking(const PxShape* PShape, const PxFilterData& QueryFilter)
 	return bBlock;
 }
 
-/** Min number of overlaps required before using a TMap for deduplication */
-int32 GNumOverlapsRequiredForTMap = 2;
+/** Min number of overlaps required to start using a TMap for deduplication */
+int32 GNumOverlapsRequiredForTMap = 3;
 
 static FAutoConsoleVariableRef GTestOverlapSpeed(
 	TEXT("Engine.MinNumOverlapsToUseTMap"),
@@ -1078,14 +1110,15 @@ bool ConvertOverlapResults(int32 NumOverlaps, PxOverlapHit* POverlapResults, con
 {
 	SCOPE_CYCLE_COUNTER(STAT_CollisionConvertOverlap);
 
-	OutOverlaps.Reserve(OutOverlaps.Num() + NumOverlaps);
+	const int32 ExpectedSize = OutOverlaps.Num() + NumOverlaps;
+	OutOverlaps.Reserve(ExpectedSize);
 	bool bBlockingFound = false;
 
-	if (OutOverlaps.Max() >= GNumOverlapsRequiredForTMap)
+	if (ExpectedSize >= GNumOverlapsRequiredForTMap)
 	{
 		// Map from an overlap to the position in the result array (the index has one added to it so 0 can be a sentinel)
-		TMap<FOverlapKey, int32> OverlapMap;
-		OverlapMap.Reserve(OutOverlaps.Max());
+		TMap<FOverlapKey, int32, TInlineSetAllocator<64>> OverlapMap;
+		OverlapMap.Reserve(ExpectedSize);
 
 		// Fill in the map with existing hits
 		for (int32 ExistingIndex = 0; ExistingIndex < OutOverlaps.Num(); ++ExistingIndex)

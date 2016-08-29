@@ -15,6 +15,7 @@ class WEBBROWSERWIDGET_API UWebBrowser : public UWidget
 	GENERATED_UCLASS_BODY()
 
 public:
+	DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnUrlChanged, const FText&, Text);
 
 	/**
 	 * Load the specified URL
@@ -34,10 +35,30 @@ public:
 	void LoadString(FString Contents, FString DummyURL);
 
 	/**
+	* Executes a JavaScript string in the context of the web page
+	*
+	* @param ScriptText JavaScript string to execute
+	*/
+	UFUNCTION(BlueprintCallable, Category = "Web Browser")
+	void ExecuteJavascript(const FString& ScriptText);
+
+	/**
 	 * Get the current title of the web page
 	 */
 	UFUNCTION(BlueprintCallable, Category="Web Browser")
 	FText GetTitleText() const;
+
+	/**
+	* Gets the currently loaded URL.
+	*
+	* @return The URL, or empty string if no document is loaded.
+	*/
+	UFUNCTION(BlueprintCallable, Category = "Web Browser")
+	FString GetUrl() const;
+
+	/** Called when the Url changes. */
+	UPROPERTY(BlueprintAssignable, Category = "Web Browser|Event")
+	FOnUrlChanged OnUrlChanged;
 
 public:
 
@@ -67,4 +88,6 @@ protected:
 	// UWidget interface
 	virtual TSharedRef<SWidget> RebuildWidget() override;
 	// End of UWidget interface
+
+	void HandleOnUrlChanged(const FText& Text);
 };

@@ -10,6 +10,7 @@
 #include "EdGraphUtilities.h"
 #include "Kismet2/Kismet2NameValidators.h"
 #include "AnimStateNodeBase.h"
+#include "FrameworkObjectVersion.h"
 /////////////////////////////////////////////////////
 // FAnimStateNodeNameValidator
 
@@ -91,6 +92,37 @@ TSharedPtr<class INameValidatorInterface> UAnimStateNodeBase::MakeNameValidator(
 FString UAnimStateNodeBase::GetDocumentationLink() const
 {
 	return TEXT("Shared/GraphNodes/AnimationStateMachine");
+}
+
+void UAnimStateNodeBase::Serialize(FArchive& Ar)
+{
+	Super::Serialize(Ar);
+	Ar.UsingCustomVersion(FFrameworkObjectVersion::GUID);
+}
+
+void UAnimStateNodeBase::PostLoad()
+{
+	Super::PostLoad();
+
+	const int32 CustomVersion = GetLinkerCustomVersion(FFrameworkObjectVersion::GUID);
+
+	if(CustomVersion < FFrameworkObjectVersion::FixNonTransactionalPins)
+	{
+		int32 BrokenPinCount = 0;
+		for(UEdGraphPin_Deprecated* Pin : DeprecatedPins)
+		{
+			if(!Pin->HasAnyFlags(RF_Transactional))
+			{
+				++BrokenPinCount;
+				Pin->SetFlags(Pin->GetFlags() | RF_Transactional);
+			}
+		}
+
+		if(BrokenPinCount > 0)
+		{
+			UE_LOG(LogAnimation, Log, TEXT("Fixed %d non-transactional pins in %s"), BrokenPinCount, *GetName());
+		}
+	}
 }
 
 UAnimBlueprint* UAnimStateNodeBase::GetAnimBlueprint() const

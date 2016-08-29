@@ -35,8 +35,6 @@
 #include "LandscapeComponent.h"
 #include "LandscapeHeightfieldCollisionComponent.h"
 #include "ComponentReregisterContext.h"
-#include "JsonInternationalizationArchiveSerializer.h"
-#include "JsonInternationalizationManifestSerializer.h"
 #include "Engine/DestructibleMesh.h"
 #include "NotificationManager.h"
 #include "SNotificationList.h"
@@ -513,126 +511,6 @@ bool UUnrealEdEngine::HandleBuildPathsCommand( const TCHAR* Str, FOutputDevice& 
 	return FEditorBuildUtils::EditorBuild(InWorld, FBuildOptions::BuildAIPaths);
 }
 
-bool UUnrealEdEngine::HandleUpdateLandscapeEditorDataCommand( const TCHAR* Str, FOutputDevice& Ar, UWorld* InWorld )
-{
-	const bool bShowWarnings = (FString(Str) == TEXT("-warnings"));
-	
-	if (InWorld->GetWorldSettings())
-	{
-		ULandscapeInfo::RecreateLandscapeInfo(InWorld, bShowWarnings);
-				
-		// for removing 
-		TMap<ULandscapeInfo*, ALandscapeGizmoActiveActor*> GizmoMap;
-		for (TActorIterator<ALandscapeGizmoActiveActor> It(InWorld); It; ++It)
-		{
-			ALandscapeGizmoActiveActor* Gizmo = *It;
-			if (Gizmo->TargetLandscapeInfo)
-			{
-				if (!GizmoMap.FindRef(Gizmo->TargetLandscapeInfo))
-				{
-					GizmoMap.Add(Gizmo->TargetLandscapeInfo, Gizmo);
-				}
-				else
-				{
-					Gizmo->Destroy(); 
-				}
-			}
-		}
-
-		// Fixed up for Landscape fix match case
-		auto& LandscapeInfoMap = GetLandscapeInfoMap(InWorld);
-
-		for (auto It = LandscapeInfoMap.Map.CreateIterator(); It; ++It)
-		{
-			ULandscapeInfo* LandscapeInfo = It.Value();
-			if (LandscapeInfo)
-			{
-				bool bHasPhysicalMaterial = false;
-				for (int32 i = 0; i < LandscapeInfo->Layers.Num(); ++i)
-				{
-					if (LandscapeInfo->Layers[i].LayerInfoObj && LandscapeInfo->Layers[i].LayerInfoObj->PhysMaterial)
-					{
-						bHasPhysicalMaterial = true;
-						break;
-					}
-				}
-				TSet<ALandscapeProxy*> SelectProxies;
-				for (auto LandscapeComponentIt = LandscapeInfo->XYtoComponentMap.CreateIterator(); LandscapeComponentIt; ++LandscapeComponentIt )
-				{
-					ULandscapeComponent* Comp = LandscapeComponentIt.Value();
-					if (Comp)
-					{
-						// Fix level inconsistency for landscape component and collision component
-						ULandscapeHeightfieldCollisionComponent* Collision = Comp->CollisionComponent.Get();
-						if (Collision != nullptr)
-						{
-							if (Comp->GetLandscapeProxy()->GetLevel() != Collision->GetLandscapeProxy()->GetLevel())
-							{
-								ALandscapeProxy* FromProxy = Collision->GetLandscapeProxy();
-								ALandscapeProxy* DestProxy = Comp->GetLandscapeProxy();
-								// From MoveToLevelTool
-								FromProxy->CollisionComponents.Remove(Collision);
-								Collision->UnregisterComponent();
-								Collision->DetachFromParent(true);
-								Collision->Rename(NULL, DestProxy);
-								DestProxy->CollisionComponents.Add(Collision);
-								Collision->AttachTo( DestProxy->GetRootComponent(), NAME_None, EAttachLocation::KeepWorldPosition );
-								SelectProxies.Add(FromProxy);
-								SelectProxies.Add(DestProxy);
-							}
-
-							// Fix Dominant Layer Data
-							if (bHasPhysicalMaterial && Collision->DominantLayerData.GetBulkDataSize() == 0)
-							{
-								Comp->UpdateCollisionLayerData();
-							}
-						}
-					}
-				}
-
-				for(TSet<ALandscapeProxy*>::TIterator ProxyIt(SelectProxies);ProxyIt;++ProxyIt)
-				{
-					(*ProxyIt)->MarkPackageDirty();
-				}
-			}
-		}
-
-		// Fix proxies relative transformations to LandscapeActor
-		for (auto It = LandscapeInfoMap.Map.CreateIterator(); It; ++It)
-		{
-			ULandscapeInfo* Info = It.Value();
-			Info->FixupProxiesWeightmaps();
-			// make sure relative proxy transformations are correct	
-			Info->FixupProxiesTransform();
-		}
-	}
-	return true;
-}
-
-bool UUnrealEdEngine::HandleUpdateLandscapeMICCommand( const TCHAR* Str, FOutputDevice& Ar, UWorld* InWorld )
-{
-	UWorld* World = GetEditorWorldContext().World();
-
-	if (World && World->GetWorldSettings())
-	{
-		for (auto It = GetLandscapeInfoMap(World).Map.CreateIterator(); It; ++It)
-		{
-			ULandscapeInfo* Info = It.Value();
-			for (auto LandscapeComponentIt = Info->XYtoComponentMap.CreateIterator(); LandscapeComponentIt; ++LandscapeComponentIt )
-			{
-				ULandscapeComponent* Comp = LandscapeComponentIt.Value();
-				if( Comp )
-				{
-					Comp->UpdateMaterialInstances();
-
-					FComponentReregisterContext ReregisterContext(Comp);
-				}
-			}
-		}
-	}
-	return true;
-}
-
 bool UUnrealEdEngine::HandleRecreateLandscapeCollisionCommand(const TCHAR* Str, FOutputDevice& Ar, UWorld* InWorld)
 {
 	if (!PlayWorld && InWorld && InWorld->GetWorldSettings())
@@ -824,18 +702,6 @@ bool UUnrealEdEngine::Exec( UWorld* InWorld, const TCHAR* Stream, FOutputDevice&
 		HandleBuildPathsCommand( Str, Ar, InWorld );
 	}
 #if WITH_EDITOR
-	else if (FParse::Command(&Str, TEXT("UpdateLandscapeEditorData")))
-	{
-		// InWorld above is the PIE world if PIE is active, but this is specifically an editor command
-		UWorld* World = GetEditorWorldContext().World();
-		return HandleUpdateLandscapeEditorDataCommand(Str, Ar, World);
-	}
-	else if (FParse::Command(&Str, TEXT("UpdateLandscapeMIC")))
-	{
-		// InWorld above is the PIE world if PIE is active, but this is specifically an editor command
-		UWorld* World = GetEditorWorldContext().World();
-		return HandleUpdateLandscapeMICCommand(Str, Ar, World);
-	}
 	else if (FParse::Command(&Str, TEXT("RecreateLandscapeCollision")))
 	{
 		// InWorld above is the PIE world if PIE is active, but this is specifically an editor command
@@ -1436,9 +1302,9 @@ bool UUnrealEdEngine::IsUserInteracting()
 	return bUserIsInteracting;
 }
 
-void UUnrealEdEngine::AttemptModifiedPackageNotification()
+void UUnrealEdEngine::ShowPackageNotification()
 {
-	if( bNeedToPromptForCheckout && !FApp::IsUnattended() )
+	if( !FApp::IsUnattended() )
 	{
 		// Defer prompting for checkout if we cant prompt because of the following:
 		// The user is interacting with something,
@@ -1466,7 +1332,7 @@ void UUnrealEdEngine::AttemptModifiedPackageNotification()
 			{
 				static void OpenCheckOutDialog()
 				{
-					GUnrealEd->PromptToCheckoutModifiedPackages();
+					GUnrealEd->PromptToCheckoutModifiedPackages(true);
 				}
 			};
 
@@ -1476,19 +1342,31 @@ void UUnrealEdEngine::AttemptModifiedPackageNotification()
 			}
 			else
 			{
-				FNotificationInfo ErrorNotification(NSLOCTEXT("SourceControl", "CheckOutNotification", "Files need check-out!"));
-				ErrorNotification.bFireAndForget = true;
-				ErrorNotification.Hyperlink = FSimpleDelegate::CreateStatic(&Local::OpenCheckOutDialog);
-				ErrorNotification.HyperlinkText = NSLOCTEXT("SourceControl", "CheckOutHyperlinkText", "Check-Out");
-				ErrorNotification.ExpireDuration = 10.0f; // Need this message to last a little longer than normal since the user will probably want to click the hyperlink to check out files
-				ErrorNotification.bUseThrobber = true;
+				int32 NumPackagesToCheckOut = GetNumDirtyPackagesThatNeedCheckout();
 
-				// For adding notifications.
-				FSlateNotificationManager::Get().AddNotification(ErrorNotification);
+				FFormatNamedArguments Args;
+				Args.Add(TEXT("NumFiles"), NumPackagesToCheckOut);
+
+				FText ErrorText = FText::Format(NSLOCTEXT("SourceControl", "CheckOutNotification", "{NumFiles} files need check-out!"), Args);
+
+				if (!CheckOutNotificationWeakPtr.IsValid())
+				{
+					FNotificationInfo ErrorNotification(ErrorText);
+					ErrorNotification.bFireAndForget = true;;
+					ErrorNotification.Hyperlink = FSimpleDelegate::CreateStatic(&Local::OpenCheckOutDialog);
+					ErrorNotification.HyperlinkText = NSLOCTEXT("SourceControl", "CheckOutHyperlinkText", "Check-Out");
+					ErrorNotification.ExpireDuration = 10.0f; // Need this message to last a little longer than normal since the user will probably want to click the hyperlink to check out files
+					ErrorNotification.bUseThrobber = true;
+
+					// For adding notifications.
+					CheckOutNotificationWeakPtr = FSlateNotificationManager::Get().AddNotification(ErrorNotification);
+				}
+				else
+				{
+					CheckOutNotificationWeakPtr.Pin()->SetText(ErrorText);
+					CheckOutNotificationWeakPtr.Pin()->ExpireAndFadeout();
+				}
 			}
-
-			// No longer have a pending prompt.
-			bNeedToPromptForCheckout = false;
 		}
 	}
 }
@@ -1578,29 +1456,42 @@ void UUnrealEdEngine::PromptToCheckoutModifiedPackages( bool bPromptAll )
 	FEditorFileUtils::PromptToCheckoutPackages( bCheckDirty, PackagesToCheckout, NULL, NULL, bPromptingAfterModify );
 }
 
-
-bool UUnrealEdEngine::DoDirtyPackagesNeedCheckout() const
+int32 UUnrealEdEngine::InternalGetNumDirtyPackagesThatNeedCheckout(bool bCheckIfAny) const
 {
-	bool bPackagesNeedCheckout = false;
-	if( ISourceControlModule::Get().IsEnabled() )
+	int32 PackageCount = 0;
+		
+	if (ISourceControlModule::Get().IsEnabled())
 	{
 		ISourceControlProvider& SourceControlProvider = ISourceControlModule::Get().GetProvider();
-		for( TMap<TWeakObjectPtr<UPackage>,uint8>::TConstIterator It(PackageToNotifyState); It; ++It )
+		for (TMap<TWeakObjectPtr<UPackage>, uint8>::TConstIterator It(PackageToNotifyState); It; ++It)
 		{
 			const UPackage* Package = It.Key().Get();
-			if ( Package != NULL )
+			if (Package != NULL)
 			{
 				FSourceControlStatePtr SourceControlState = SourceControlProvider.GetState(Package, EStateCacheUsage::Use);
-				if( SourceControlState.IsValid() && ( SourceControlState->CanCheckout() || !SourceControlState->IsCurrent() || SourceControlState->IsCheckedOutOther() ) )
+				if (SourceControlState.IsValid() && (SourceControlState->CanCheckout() || !SourceControlState->IsCurrent() || SourceControlState->IsCheckedOutOther()))
 				{
-					bPackagesNeedCheckout = true;
-					break;
+					++PackageCount;
+					if (bCheckIfAny)
+					{
+						break;
+					}
 				}
 			}
 		}
 	}
-	
-	return bPackagesNeedCheckout;
+
+	return PackageCount;
+}
+
+int32 UUnrealEdEngine::GetNumDirtyPackagesThatNeedCheckout() const
+{
+	return InternalGetNumDirtyPackagesThatNeedCheckout(false);
+}
+
+bool UUnrealEdEngine::DoDirtyPackagesNeedCheckout() const
+{
+	return InternalGetNumDirtyPackagesThatNeedCheckout(true) > 0;
 }
 
 bool UUnrealEdEngine::Exec_Edit( UWorld* InWorld, const TCHAR* Str, FOutputDevice& Ar )
@@ -2870,6 +2761,8 @@ bool UUnrealEdEngine::Exec_Actor( UWorld* InWorld, const TCHAR* Str, FOutputDevi
 				// Get the filename from dialog
 				FString FileName = SaveFilenames[0];
 				FEditorDirectories::Get().SetLastDirectory(ELastDirectory::GENERIC_EXPORT, FPaths::GetPath(FileName)); // Save path as default for next time.
+
+				INodeNameAdapter NodeNameAdapter;
 				UnFbx::FFbxExporter* Exporter = UnFbx::FFbxExporter::GetInstance();
 				Exporter->CreateDocument();
 				for ( FSelectionIterator It( GetSelectedActorIterator() ) ; It ; ++It )
@@ -2879,15 +2772,15 @@ bool UUnrealEdEngine::Exec_Actor( UWorld* InWorld, const TCHAR* Str, FOutputDevi
 					{
 						if (Actor->IsA(AStaticMeshActor::StaticClass()))
 						{
-							Exporter->ExportStaticMesh(Actor, CastChecked<AStaticMeshActor>(Actor)->GetStaticMeshComponent(), NULL);
+							Exporter->ExportStaticMesh(Actor, CastChecked<AStaticMeshActor>(Actor)->GetStaticMeshComponent(), NodeNameAdapter);
 						}
 						else if (Actor->IsA(ASkeletalMeshActor::StaticClass()))
 						{
-							Exporter->ExportSkeletalMesh(Actor, CastChecked<ASkeletalMeshActor>(Actor)->GetSkeletalMeshComponent());
+							Exporter->ExportSkeletalMesh(Actor, CastChecked<ASkeletalMeshActor>(Actor)->GetSkeletalMeshComponent(), NodeNameAdapter);
 						}
 						else if (Actor->IsA(ABrush::StaticClass()))
 						{
-							Exporter->ExportBrush( CastChecked<ABrush>(Actor), NULL, true );
+							Exporter->ExportBrush( CastChecked<ABrush>(Actor), NULL, true, NodeNameAdapter );
 						}
 					}
 				}

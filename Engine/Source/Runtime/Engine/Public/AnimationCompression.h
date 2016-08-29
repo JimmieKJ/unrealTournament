@@ -4,8 +4,7 @@
 	AnimationCompression.h: Skeletal mesh animation compression.
 =============================================================================*/ 
 
-#ifndef __ANIMATIONCOMPRESSION_H__
-#define __ANIMATIONCOMPRESSION_H__
+#pragma once
 
 #include "FloatPacker.h"
 #include "Animation/AnimSequence.h"
@@ -1057,5 +1056,3 @@ inline float FAnimationCompression_PerTrackUtils::DecompressFixed16<0>(uint16 Va
 {
 	return ((int32)Value - 32767) * 3.0518509475997192297128208258309e-5f;
 }
-
-#endif // __ANIMATIONCOMPRESSION_H__

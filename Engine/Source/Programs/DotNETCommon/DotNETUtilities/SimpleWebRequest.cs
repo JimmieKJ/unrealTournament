@@ -25,9 +25,10 @@ namespace Tools.DotNETCommon.SimpleWebRequest
 		/// </summary>
 		/// <param name="WebRequestString">The URL and parameters of the web request.</param>
 		/// <param name="Payload">The Xml data to attached to request, or null.</param>
+		/// <param name="Timeout">Timeout in millisec</param>
 		/// <returns>A valid HttpWebRequest, or null for any failure.</returns>
 		/// <remarks>This uses the POST method with default credentials and a content type of 'text/xml'.</remarks>
-		static public HttpWebRequest CreateWebRequest( string WebRequestString, string Payload )
+		static public HttpWebRequest CreateWebRequest(string WebRequestString, string Payload, int Timeout = 100000)
 		{
 			HttpWebRequest Request = null;
 			try
@@ -36,6 +37,7 @@ namespace Tools.DotNETCommon.SimpleWebRequest
 				Request.Method = "POST";
 				Request.UseDefaultCredentials = true;
 				Request.SendChunked = false;
+				Request.Timeout = Timeout;
 
 				if( Payload != null )
 				{
@@ -105,15 +107,16 @@ namespace Tools.DotNETCommon.SimpleWebRequest
 		/// </summary>
 		/// <param name="WebRequestString">The URL of the request with parameters.</param>
 		/// <param name="Payload">The Xml payload of the request (can be null).</param>
+		/// <param name="Timeout">Timeout in millisec</param>
 		/// <returns>A string returned from the web request, or an empty string if there was any error.</returns>
 		/// <remarks>This calls CreateWebRequest and GetWebResponse internally.</remarks>
-		static public string GetWebServiceResponse( string WebRequestString, string Payload )
+		static public string GetWebServiceResponse( string WebRequestString, string Payload, int Timeout = 100000)
 		{
 			string ResponseString = "";
 
 			if( WebRequestString != null )
 			{
-				HttpWebRequest Request = CreateWebRequest( WebRequestString, Payload );
+				HttpWebRequest Request = CreateWebRequest(WebRequestString, Payload, Timeout);
 				if( Request != null )
 				{
 					ResponseString = GetWebResponse( Request );

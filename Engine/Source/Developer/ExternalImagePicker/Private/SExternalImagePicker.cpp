@@ -14,7 +14,14 @@ void SExternalImagePicker::Construct(const FArguments& InArgs)
 {
 	TargetImagePath = InArgs._TargetImagePath;
 	DefaultImagePath = InArgs._DefaultImagePath;
-	Extension = FPaths::GetExtension(InArgs._TargetImagePath).ToUpper();
+	Extensions = InArgs._Extensions;
+
+	FString TargetImagePathExtension = FPaths::GetExtension(TargetImagePath);
+	if (!Extensions.Contains(TargetImagePathExtension))
+	{
+		Extensions.Add(TargetImagePathExtension);
+	}
+
 	OnExternalImagePicked = InArgs._OnExternalImagePicked;
 	OnGetPickerPath = InArgs._OnGetPickerPath;
 	MaxDisplayedImageDimensions = InArgs._MaxDisplayedImageDimensions;
@@ -97,7 +104,7 @@ void SExternalImagePicker::Construct(const FArguments& InArgs)
 			];
 	}
 
-	ApplyImage();
+	ApplyFirstValidImage();
 }
 
 const FSlateBrush* SExternalImagePicker::GetImage() const
@@ -150,6 +157,33 @@ FOptionalSize SExternalImagePicker::GetImageWidth() const
 FOptionalSize SExternalImagePicker::GetImageHeight() const
 {
 	return GetConstrainedImageSize().Y;
+}
+
+void SExternalImagePicker::ApplyImageWithExtenstion(const FString& Extension)
+{
+	//Remove the target image path's old extension
+	TargetImagePath = FPaths::GetPath(TargetImagePath) / FPaths::GetBaseFilename(TargetImagePath) + TEXT(".");
+	TargetImagePath.Append(Extension);
+
+	ApplyImage();
+}
+
+void SExternalImagePicker::ApplyFirstValidImage()
+{
+	FString NewTargetImagePathNoExtension = FPaths::GetPath(TargetImagePath) / FPaths::GetBaseFilename(TargetImagePath) + TEXT(".");
+
+	for (FString Ex : Extensions)
+	{
+		FString NewTargetImagePath = NewTargetImagePathNoExtension + Ex;
+
+		if (FPlatformFileManager::Get().GetPlatformFile().FileExists(*NewTargetImagePath))
+		{
+			TargetImagePath = NewTargetImagePath;
+			break;
+		}
+	}
+
+	ApplyImage();
 }
 
 void SExternalImagePicker::ApplyImage()
@@ -278,21 +312,37 @@ FReply SExternalImagePicker::OnPickFile()
 	IDesktopPlatform* DesktopPlatform = FDesktopPlatformModule::Get();
 	if ( DesktopPlatform )
 	{
+		FText Title;
+		FString TitleExtensions;
+		FString AssociatedExtensions;
+		if (Extensions.Num() > 1)
+		{
+			Title = LOCTEXT("Image", "Image");
+			TitleExtensions = TEXT("*.") + FString::Join(Extensions, TEXT(", *."));
+			AssociatedExtensions = TitleExtensions.Replace(TEXT(", "), TEXT(";"));
+		}
+		else
+		{
+			Title = FText::FromString(Extensions[0]);
+			TitleExtensions = TEXT("*.") + Extensions[0];
+			AssociatedExtensions = TitleExtensions;
+		}
+
 		TArray<FString> OutFiles;
-		const FString Filter = FString::Printf(TEXT("%s files (*.%s)|*.%s"), *Extension, *Extension, *Extension);
+		const FString Filter = FString::Printf(TEXT("%s files (%s)|%s"), *Title.ToString(), *TitleExtensions, *AssociatedExtensions);
 		const FString DefaultPath = OnGetPickerPath.IsBound() ? OnGetPickerPath.Execute() : FPaths::GetPath(FPaths::GetProjectFilePath());
 
 		TSharedPtr<SWindow> ParentWindow = FSlateApplication::Get().FindWidgetWindow(AsShared());
 		void* ParentWindowHandle = (ParentWindow.IsValid() && ParentWindow->GetNativeWindow().IsValid()) ? ParentWindow->GetNativeWindow()->GetOSWindowHandle() : nullptr;
 
-		if (DesktopPlatform->OpenFileDialog(ParentWindowHandle, FText::Format(LOCTEXT("ImagePickerDialogTitle", "Choose a {0} file"), FText::FromString(Extension)).ToString(), DefaultPath, TEXT(""), Filter, EFileDialogFlags::None, OutFiles))
+		if (DesktopPlatform->OpenFileDialog(ParentWindowHandle, FText::Format(LOCTEXT("ImagePickerDialogTitle", "Choose a {0} file"), Title).ToString(), DefaultPath, TEXT(""), Filter, EFileDialogFlags::None, OutFiles))
 		{
 			check(OutFiles.Num() == 1);
 
 			FString SourceImagePath = FPaths::ConvertRelativePathToFull(OutFiles[0]);
 			if (SourceImagePath != TargetImagePath && OnExternalImagePicked.Execute(SourceImagePath, TargetImagePath))
 			{
-				ApplyImage();
+				ApplyImageWithExtenstion(FPaths::GetExtension(SourceImagePath));
 			}
 		}
 	}

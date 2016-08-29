@@ -4,8 +4,7 @@
 	CoreUObjectPrivate.h: Unreal core private header file.
 =============================================================================*/
 
-#ifndef COREUOBJECT_PRIVATE_H
-#define COREUOBJECT_PRIVATE_H
+#pragma once
 
 #include "Core.h"
 
@@ -13,10 +12,21 @@
 #include "ScriptInterface.h"			// Script interface definitions.
 #include "Script.h"						// Script constants and forward declarations.
 #include "ObjectBase.h"					// Object base class.
+#include "UObjectAllocator.h"
+#include "UObjectGlobals.h"
+#include "UObjectMarks.h"
+#include "UObjectBase.h"
+#include "UObjectBaseUtility.h"
+#include "UObjectArray.h"
+#include "UObjectHash.h"
+#include "WeakObjectPtr.h"
+#include "Object.h"
+#include "UObjectIterator.h"
 #include "CoreNet.h"					// Core networking.
 #include "ArchiveUObjectBase.h"			// UObject-related Archive classes.
 #include "GarbageCollection.h"			// Realtime garbage collection helpers
 #include "Class.h"						// Class definition.
+#include "StructOnScope.h"
 #include "Casts.h"                      // Cast templates
 #include "LazyObjectPtr.h"				// Object pointer types
 #include "AssetPtr.h"					// Object pointer types
@@ -36,5 +46,3 @@
 #include "WorldCompositionUtility.h"
 #include "StringClassReference.h"
 #include "Blueprint/BlueprintSupport.h"
-
-#endif // COREUOBJECT_PRIVATE_H

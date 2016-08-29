@@ -33,6 +33,7 @@ class FHarfBuzzFontFactory
 {
 public:
 	FHarfBuzzFontFactory(FFreeTypeGlyphCache* InFTGlyphCache, FFreeTypeAdvanceCache* InFTAdvanceCache, FFreeTypeKerningPairCache* InFTKerningPairCache);
+	~FHarfBuzzFontFactory();
 
 #if WITH_HARFBUZZ
 	/** Create a HarfBuzz font from the given face - must be destroyed with hb_font_destroy when done */
@@ -43,4 +44,8 @@ private:
 	FFreeTypeGlyphCache* FTGlyphCache;
 	FFreeTypeAdvanceCache* FTAdvanceCache;
 	FFreeTypeKerningPairCache* FTKerningPairCache;
+
+#if WITH_HARFBUZZ
+	hb_font_funcs_t* CustomHarfBuzzFuncs;
+#endif // WITH_HARFBUZZ
 };

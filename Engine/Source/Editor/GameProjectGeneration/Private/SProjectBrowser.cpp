@@ -11,6 +11,9 @@
 #include "PlatformInfo.h"
 #include "SSearchBox.h"
 #include "Settings/EditorSettings.h"
+#include "AnalyticsEventAttribute.h"
+#include "EngineAnalytics.h"
+#include "IAnalyticsProvider.h"
 
 #define LOCTEXT_NAMESPACE "ProjectBrowser"
 
@@ -628,7 +631,7 @@ TSharedPtr<SWidget> SProjectBrowser::OnGetContextMenuContent() const
 
 	FFormatNamedArguments Args;
 	Args.Add(TEXT("FileManagerName"), FPlatformMisc::GetFileManagerName());
-	const FText ExploreToText = FText::Format(NSLOCTEXT("GenericPlatform", "ShowInFileManager", "Show In {FileManagerName}"), Args);
+	const FText ExploreToText = FText::Format(NSLOCTEXT("GenericPlatform", "ShowInFileManager", "Show in {FileManagerName}"), Args);
 
 	MenuBuilder.AddMenuEntry(
 		ExploreToText,

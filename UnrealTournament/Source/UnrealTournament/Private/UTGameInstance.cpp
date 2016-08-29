@@ -76,11 +76,10 @@ void UUTGameInstance::Init()
 
 bool UUTGameInstance::PerfExecCmd(const FString& ExecCmd, FOutputDevice& Ar)
 {
-
-	FWorldContext* WorldContext = GetWorldContext();
-	if (WorldContext)
+	FWorldContext* CurrentWorldContext = GetWorldContext();
+	if (CurrentWorldContext)
 	{
-		UWorld* World = WorldContext->World();
+		UWorld* World = CurrentWorldContext->World();
 		if (World)
 		{
 			if (GEngine->Exec(World, *ExecCmd, Ar))

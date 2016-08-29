@@ -174,9 +174,9 @@ TSharedPtr<SWidget> SSkeletonBlendProfiles::GetContextMenu() const
 			Action.ExecuteAction = FExecuteAction::CreateSP(this, &SSkeletonBlendProfiles::OnRequestNewBlendProfile);
 
 			const FText Label = LOCTEXT("Menu_NewProfileLabel", "Create New...");
-			const FText ToolTip = LOCTEXT("Menu_NewProfileToolTip", "Create a new blend profile in the current skeleton.");
+			const FText ToolTipText = LOCTEXT("Menu_NewProfileToolTip", "Create a new blend profile in the current skeleton.");
 
-			MenuBuilder.AddMenuEntry(Label, ToolTip, FSlateIcon(), Action);
+			MenuBuilder.AddMenuEntry(Label, ToolTipText, FSlateIcon(), Action);
 		}
 	}
 	MenuBuilder.EndSection();
@@ -189,9 +189,9 @@ TSharedPtr<SWidget> SSkeletonBlendProfiles::GetContextMenu() const
 			Action.CanExecuteAction = FCanExecuteAction::CreateSP(this, &SSkeletonBlendProfiles::MenuCanDelete);
 
 			const FText Label = LOCTEXT("Menu_DeleteProfileLabel", "Delete");
-			const FText ToolTip = LOCTEXT("Menu_DeleteProfileToolTip", "Delete selected blend profiles.");
+			const FText ToolTipText = LOCTEXT("Menu_DeleteProfileToolTip", "Delete selected blend profiles.");
 
-			MenuBuilder.AddMenuEntry(Label, ToolTip, FSlateIcon(), Action);
+			MenuBuilder.AddMenuEntry(Label, ToolTipText, FSlateIcon(), Action);
 		}
 
 		{
@@ -200,9 +200,9 @@ TSharedPtr<SWidget> SSkeletonBlendProfiles::GetContextMenu() const
 			Action.CanExecuteAction = FCanExecuteAction::CreateSP(this, &SSkeletonBlendProfiles::MenuCanRename);
 
 			const FText Label = LOCTEXT("Menu_RenameProfileLabel", "Rename");
-			const FText ToolTip = LOCTEXT("Menu_RenameProfileToolTip", "Rename selected profile.");
+			const FText ToolTipText = LOCTEXT("Menu_RenameProfileToolTip", "Rename selected profile.");
 
-			MenuBuilder.AddMenuEntry(Label, ToolTip, FSlateIcon(), Action);
+			MenuBuilder.AddMenuEntry(Label, ToolTipText, FSlateIcon(), Action);
 		}
 	}
 	MenuBuilder.EndSection();

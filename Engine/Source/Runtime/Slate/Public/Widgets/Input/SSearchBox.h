@@ -58,6 +58,9 @@ public:
 		/** Whether the SearchBox should delay notifying listeners of text changed events until the user is done typing */
 		SLATE_ATTRIBUTE( bool, DelayChangeNotificationsWhileTyping )
 
+		/** Callback delegate to have first chance handling of the OnKeyDown event */
+		SLATE_EVENT(FOnKeyDown, OnKeyDownHandler)
+
 	SLATE_END_ARGS()
 
 	void Construct( const FArguments& InArgs );
@@ -73,7 +76,7 @@ private:
 private:
 
 	/** Fires the text changed delegate on a delay */
-	EActiveTimerReturnType TriggerOnTextChanged( double InCurrentTime, float InDeltaTime );
+	EActiveTimerReturnType TriggerOnTextChanged( double InCurrentTime, float InDeltaTime, FText NewText );
 
 	/** @return should we show the X to clear search? */
 	EVisibility GetXVisibility() const;
@@ -110,10 +113,6 @@ private:
 
 	/** Fonts that specify how to render search text when inactive, and active */
 	FSlateFontInfo ActiveFont, InactiveFont;
-
-	FText LastPendingTextChangedValue;
-
-	bool bIsActiveTimerRegistered : 1;
 };
 
 

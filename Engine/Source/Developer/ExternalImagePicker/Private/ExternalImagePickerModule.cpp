@@ -19,7 +19,8 @@ public:
 			.OnGetPickerPath(InConfiguration.OnGetPickerPath)
 			.MaxDisplayedImageDimensions(InConfiguration.MaxDisplayedImageDimensions)
 			.RequiresSpecificSize(InConfiguration.bRequiresSpecificSize)
-			.RequiredImageDimensions(InConfiguration.RequiredImageDimensions);
+			.RequiredImageDimensions(InConfiguration.RequiredImageDimensions)
+			.Extensions(InConfiguration.FileExtensions);
 	}
 };
 

@@ -61,6 +61,12 @@ TSharedRef<FTrackNodeDragDropOp> FTrackNodeDragDropOp::New(TSharedRef<STrackNode
 	return Operation;
 }
 
+TSharedPtr<SWidget> FTrackNodeDragDropOp::GetDefaultDecorator() const
+{
+	return OriginalTrackNode.Pin();
+}
+
+
 //////////////////////////////////////////////////////////////////////////
 // STrackNode
 void STrackNode::Construct(const FArguments& InArgs)

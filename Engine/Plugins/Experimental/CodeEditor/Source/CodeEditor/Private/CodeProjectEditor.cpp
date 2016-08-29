@@ -182,16 +182,16 @@ FCodeProjectEditor::FCodeProjectEditor()
 {
 }
 
-void FCodeProjectEditor::RegisterTabSpawners(const TSharedRef<class FTabManager>& TabManager)
+void FCodeProjectEditor::RegisterTabSpawners(const TSharedRef<class FTabManager>& InTabManager)
 {
-	DocumentManager->SetTabManager(TabManager);
+	DocumentManager->SetTabManager(InTabManager);
 
-	FWorkflowCentricApplication::RegisterTabSpawners(TabManager);
+	FWorkflowCentricApplication::RegisterTabSpawners(InTabManager);
 }
 
-void FCodeProjectEditor::RegisterToolbarTab(const TSharedRef<class FTabManager>& TabManager)
+void FCodeProjectEditor::RegisterToolbarTab(const TSharedRef<class FTabManager>& InTabManager)
 {
-	FAssetEditorToolkit::RegisterTabSpawners(TabManager);
+	FAssetEditorToolkit::RegisterTabSpawners(InTabManager);
 }
 
 void FCodeProjectEditor::InitCodeEditor(const EToolkitMode::Type Mode, const TSharedPtr< class IToolkitHost >& InitToolkitHost, class UCodeProject* CodeProject)
@@ -259,12 +259,12 @@ FName FCodeProjectEditor::GetToolkitFName() const
 
 FText FCodeProjectEditor::GetBaseToolkitName() const
 {
-	return LOCTEXT( "AppLabel", "Code Editor" );
+	return LOCTEXT("AppLabel", "Code Editor");
 }
 
 FText FCodeProjectEditor::GetToolkitName() const
 {
-	return LOCTEXT("CodeAppLabel", "Code Editor");
+	return LOCTEXT("CodeAppToolkitName", "Code Editor");
 }
 
 FText FCodeProjectEditor::GetToolkitToolTipText() const

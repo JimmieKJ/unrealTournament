@@ -4,8 +4,7 @@
 	TriangleRendering.h: Simple triangle rendering implementation.
 =============================================================================*/
 
-#ifndef _INC_TRIANGLERENDERING
-#define _INC_TRIANGLERENDERING
+#pragma once
 
 class FTriangleRenderer
 {
@@ -27,4 +26,3 @@ private:
 	FTriangleRenderer() {}
 };
 
-#endif

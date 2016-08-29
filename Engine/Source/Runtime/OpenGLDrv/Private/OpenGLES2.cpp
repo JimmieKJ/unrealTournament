@@ -40,6 +40,9 @@ bool FOpenGLES2::bSupportsRGBA8 = false;
 /** GL_APPLE_texture_format_BGRA8888 */
 bool FOpenGLES2::bSupportsBGRA8888 = false;
 
+/** Whether BGRA supported as color attachment */
+bool FOpenGLES2::bSupportsBGRA8888RenderTarget = false;
+
 /** GL_EXT_discard_framebuffer */
 bool FOpenGLES2::bSupportsDiscardFrameBuffer = false;
 
@@ -139,8 +142,20 @@ bool FOpenGLES2::bRequiresTexture2DPrecisionHack = false;
 /* This is to avoid a bug in Adreno drivers that define GL_EXT_shader_framebuffer_fetch even when device does not support this extension  */
 bool FOpenGLES2::bRequiresShaderFramebufferFetchUndef = false;
 
+/* This is to avoid a bug in Adreno drivers that define GL_ARM_shader_framebuffer_fetch_depth_stencil even when device does not support this extension  */
+bool FOpenGLES2::bRequiresARMShaderFramebufferFetchDepthStencilUndef = false;
+
 /* Indicates shader compiler hack checks are being tested */
 bool FOpenGLES2::bIsCheckingShaderCompilerHacks = false;
+
+/** GL_OES_vertex_type_10_10_10_2 */
+bool FOpenGLES2::bSupportsRGB10A2 = false;
+
+/** GL_OES_program_binary extension */
+bool FOpenGLES2::bSupportsProgramBinary = false;
+
+/* Indicates shader compiler hack checks are being tested */
+bool FOpenGLES2::bIsLimitingShaderCompileCount = false;
 
 bool FOpenGLES2::SupportsDisjointTimeQueries()
 {
@@ -196,6 +211,7 @@ void FOpenGLES2::ProcessExtensions( const FString& ExtensionsString )
 	bTimerQueryCanBeDisjoint = !ExtensionsString.Contains(TEXT("GL_NV_timer_query"));
 	bSupportsRGBA8 = ExtensionsString.Contains(TEXT("GL_OES_rgb8_rgba8"));
 	bSupportsBGRA8888 = ExtensionsString.Contains(TEXT("GL_APPLE_texture_format_BGRA8888")) || ExtensionsString.Contains(TEXT("GL_IMG_texture_format_BGRA8888")) || ExtensionsString.Contains(TEXT("GL_EXT_texture_format_BGRA8888"));
+	bSupportsBGRA8888RenderTarget = bSupportsBGRA8888;
 	bSupportsVertexHalfFloat = ExtensionsString.Contains(TEXT("GL_OES_vertex_half_float"));
 	bSupportsTextureFloat = ExtensionsString.Contains(TEXT("GL_OES_texture_float"));
 	bSupportsTextureHalfFloat = ExtensionsString.Contains(TEXT("GL_OES_texture_half_float"));
@@ -221,6 +237,8 @@ void FOpenGLES2::ProcessExtensions( const FString& ExtensionsString )
 	bSupportsCopyTextureLevels = bSupportsTextureStorageEXT && ExtensionsString.Contains(TEXT("GL_APPLE_copy_texture_levels"));
 	bSupportsTextureNPOT = ExtensionsString.Contains(TEXT("GL_OES_texture_npot")) || ExtensionsString.Contains(TEXT("GL_ARB_texture_non_power_of_two"));
 	bSupportsStandardDerivativesExtension = ExtensionsString.Contains(TEXT("GL_OES_standard_derivatives"));
+	bSupportsRGB10A2 = ExtensionsString.Contains(TEXT("GL_OES_vertex_type_10_10_10_2"));
+	bSupportsProgramBinary = ExtensionsString.Contains(TEXT("GL_OES_get_program_binary"));
 	if (!bSupportsStandardDerivativesExtension)
 	{
 		UE_LOG(LogRHI, Warning, TEXT("GL_OES_standard_derivatives not supported. There may be rendering errors if materials depend on dFdx, dFdy, or fwidth."));

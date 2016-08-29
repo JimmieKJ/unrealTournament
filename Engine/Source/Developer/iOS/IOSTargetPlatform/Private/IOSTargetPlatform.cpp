@@ -31,7 +31,7 @@ FIOSTargetPlatform::FIOSTargetPlatform(bool bInIsTVOS)
 	// initialize the connected device detector
 	DeviceHelper.OnDeviceConnected().AddRaw(this, &FIOSTargetPlatform::HandleDeviceConnected);
 	DeviceHelper.OnDeviceDisconnected().AddRaw(this, &FIOSTargetPlatform::HandleDeviceDisconnected);
-	DeviceHelper.Initialize();
+	DeviceHelper.Initialize(bIsTVOS);
 }
 
 
@@ -84,24 +84,41 @@ ITargetDevicePtr FIOSTargetPlatform::GetDevice( const FTargetDeviceId& DeviceId 
 
 bool FIOSTargetPlatform::IsSdkInstalled(bool bProjectHasCode, FString& OutTutorialPath) const
 {
-	bool biOSSDKInstalled = true; // @todo How do we check that the iOS SDK is installed when building from Windows? Is that even possible?
 #if PLATFORM_MAC
 	OutTutorialPath = FString("Shared/Tutorials/InstallingXCodeTutorial");
-	biOSSDKInstalled = IFileManager::Get().DirectoryExists(TEXT("/Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform"));
+	bool biOSSDKInstalled = IFileManager::Get().DirectoryExists(TEXT("/Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform"));
 #else
-	{
-		HKEY hKey;
-		LRESULT lRes = RegOpenKeyEx(HKEY_LOCAL_MACHINE, TEXT("SOFTWARE\\Wow6432Node\\Apple Inc.\\Apple Mobile Device Support\\Shared"), 0, KEY_READ, &hKey);
-		TCHAR dllPath[256];
-		unsigned long pathSize = 256;
-		if (lRes != ERROR_SUCCESS || RegQueryValueEx(hKey, TEXT("iTunesMobileDeviceDLL"), 0, NULL, (BYTE*)dllPath, &pathSize) != ERROR_SUCCESS || IFileManager::Get().FileSize(*FString(dllPath)) == INDEX_NONE)
+	OutTutorialPath = FString("/Engine/Tutorial/Mobile/InstallingiTunesTutorial.InstallingiTunesTutorial");
+
+	// On windows we check if itunes is installed - Perhaps someday make this its own check instead of piggy packing on the SDK check which will create a unintuitive error message when it fails
+
+	// The logic here is to assume the correct Apple dll does not exist and then check the various locations it could be in, setting this to true when it is found
+	// Code is structured for clarity not performance
+	// See Engine\Source\Programs\IOS\MobileDeviceInterface\MobileDevice.cs for reference
+	bool biOSSDKInstalled = false; 
+
+	HKEY hKey;
+	TCHAR dllPath[256];
+	unsigned long pathSize = 256;
+	
+	// Add future version checks here
+
+	// Check for iTunes 12
+	if(!biOSSDKInstalled
+		&& RegOpenKeyEx(HKEY_LOCAL_MACHINE, TEXT("SOFTWARE\\Wow6432Node\\Apple Inc.\\Apple Mobile Device Support\\Shared"), 0, KEY_READ, &hKey) == ERROR_SUCCESS
+		&& RegQueryValueEx(hKey, TEXT("MobileDeviceDLL"), 0, NULL, (BYTE*)dllPath, &pathSize) == ERROR_SUCCESS
+		&&  IFileManager::Get().FileSize(*FString(dllPath)) != INDEX_NONE)
 		{
-			if (RegQueryValueEx(hKey, TEXT("MobileDeviceDLL"), 0, NULL, (BYTE*)dllPath, &pathSize) != ERROR_SUCCESS || IFileManager::Get().FileSize(*FString(dllPath)) == INDEX_NONE)
+		biOSSDKInstalled = true;
+	}
+	
+	// Check for iTunes 11
+	if(!biOSSDKInstalled
+		&& RegOpenKeyEx(HKEY_LOCAL_MACHINE, TEXT("SOFTWARE\\Wow6432Node\\Apple Inc.\\Apple Mobile Device Support\\Shared"), 0, KEY_READ, &hKey) == ERROR_SUCCESS
+		&& RegQueryValueEx(hKey, TEXT("iTunesMobileDeviceDLL"), 0, NULL, (BYTE*)dllPath, &pathSize) == ERROR_SUCCESS
+		&&  IFileManager::Get().FileSize(*FString(dllPath)) != INDEX_NONE)
 			{
-				OutTutorialPath = FString("/Engine/Tutorial/Mobile/InstallingiTunesTutorial.InstallingiTunesTutorial");
-				biOSSDKInstalled = false;
-			}
-		}
+		biOSSDKInstalled = true;
 	}
 
 #endif
@@ -154,6 +171,12 @@ int32 FIOSTargetPlatform::CheckRequirements(const FString& ProjectPath, bool bPr
 #else
 	FString CmdExe = FPaths::ConvertRelativePathToFull(FPaths::EngineDir() / TEXT("Binaries/DotNet/IOS/IPhonePackager.exe"));
 	FString CommandLine = FString::Printf(TEXT("Validate Engine -project \"%s\" -bundlename \"%s\""), *ProjectPath, *(BundleIdentifier));
+	FString RemoteServerName;
+	GConfig->GetString(TEXT("/Script/IOSRuntimeSettings.IOSRuntimeSettings"), TEXT("RemoteServerName"), RemoteServerName, GEngineIni);
+	if (RemoteServerName.Len() == 0)
+	{
+		bReadyToBuild |= ETargetPlatformReadyStatus::RemoveServerNameEmpty;
+	}
 #endif
 	TSharedPtr<FMonitoredProcess> IPPProcess = MakeShareable(new FMonitoredProcess(CmdExe, CommandLine, true));
 	OutputMessage = TEXT("");
@@ -358,12 +381,15 @@ bool FIOSTargetPlatform::SupportsFeature( ETargetPlatformFeatures Feature ) cons
 	{
 		case ETargetPlatformFeatures::Packaging:
 			return true;
-			
+
+		case ETargetPlatformFeatures::MobileRendering:
 		case ETargetPlatformFeatures::LowQualityLightmaps:
 			return SupportsES2() || SupportsMetal();
 			
+		case ETargetPlatformFeatures::DeferredRendering:
 		case ETargetPlatformFeatures::HighQualityLightmaps:
 			return SupportsMetalMRT();
+
 		default:
 			break;
 	}

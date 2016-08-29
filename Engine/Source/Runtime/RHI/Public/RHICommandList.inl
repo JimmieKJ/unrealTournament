@@ -4,8 +4,7 @@
 	RHICommandList.inl: RHI Command List inline definitions.
 =============================================================================*/
 
-#ifndef __RHICOMMANDLIST_INL__
-#define __RHICOMMANDLIST_INL__
+#pragma once
 
 FORCEINLINE_DEBUGGABLE void FRHICommandListBase::Flush()
 {
@@ -146,4 +145,3 @@ private:
 	uint32 CmdListNumCommands;
 };
 
-#endif	// __RHICOMMANDLIST_INL__

@@ -113,6 +113,7 @@ void FPawnActionStack::PopAction(UPawnAction& ActionToPop)
 
 		while (ActionBeingRemoved != StopAction)
 		{
+			checkSlow(ActionBeingRemoved);
 			UPawnAction* NextAction = ActionBeingRemoved->ParentAction;
 
 			if (ActionBeingRemoved->IsBeingAborted() == false && ActionBeingRemoved->IsFinished() == false)

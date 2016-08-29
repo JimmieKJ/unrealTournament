@@ -2,12 +2,7 @@
 
 #pragma once
 
-#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
-	#define USE_DELEGATE_TRYGETBOUNDFUNCTIONNAME 1
-#else
-	#define USE_DELEGATE_TRYGETBOUNDFUNCTIONNAME 0
-#endif
-
+#include "DelegateSettings.h"
 #include "SharedPointer.h"
 #include "WeakObjectPtrTemplates.h"
 #include "IDelegateInstance.h"
@@ -165,41 +160,31 @@
  */
 
 
-#define USE_VARIADIC_DELEGATES PLATFORM_COMPILER_HAS_VARIADIC_TEMPLATES
-
 // This suffix is appended to all header exported delegates
 #define HEADER_GENERATED_DELEGATE_SIGNATURE_SUFFIX TEXT("__DelegateSignature")
 
 /** Helper macro that enables passing comma-separated arguments as a single macro parameter */
 #define FUNC_CONCAT( ... ) __VA_ARGS__
 
-#if USE_VARIADIC_DELEGATES
-	#define FUNC_DECLARE_DELEGATE_BASE(Prefix, Suffix, ...) Prefix<__VA_ARGS__>
-	#define FUNC_DECLARE_DYNAMIC_DELEGATE_BASE(TWeakPtr, Prefix, Suffix, ...) FUNC_DECLARE_DELEGATE_BASE(Prefix, Suffix, TWeakPtr, __VA_ARGS__)
-#else
-	#define FUNC_DECLARE_DELEGATE_BASE(Prefix, Suffix, ...) Prefix##_##Suffix<__VA_ARGS__>
-	#define FUNC_DECLARE_DYNAMIC_DELEGATE_BASE(TWeakPtr, Prefix, Suffix, ...) FUNC_DECLARE_DELEGATE_BASE(Prefix, Suffix, __VA_ARGS__, TWeakPtr)
-#endif
-
 /** Declare the user's delegate object */
 // NOTE: The last parameter is variadic and is used as the 'template args' for this delegate's classes (__VA_ARGS__)
-#define FUNC_DECLARE_DELEGATE( Suffix, DelegateName, ... ) \
-	typedef FUNC_DECLARE_DELEGATE_BASE(TBaseDelegate, Suffix, __VA_ARGS__) DelegateName;
+#define FUNC_DECLARE_DELEGATE( DelegateName, ... ) \
+	typedef TBaseDelegate<__VA_ARGS__> DelegateName;
 
 /** Declare the user's multicast delegate object */
 // NOTE: The last parameter is variadic and is used as the 'template args' for this delegate's classes (__VA_ARGS__)
-#define FUNC_DECLARE_MULTICAST_DELEGATE( Suffix, MulticastDelegateName, ... ) \
-	typedef FUNC_DECLARE_DELEGATE_BASE(TMulticastDelegate, Suffix, __VA_ARGS__) MulticastDelegateName;
+#define FUNC_DECLARE_MULTICAST_DELEGATE( MulticastDelegateName, ... ) \
+	typedef TMulticastDelegate<__VA_ARGS__> MulticastDelegateName;
 
-#define FUNC_DECLARE_EVENT( OwningType, EventName, Suffix, ... ) \
-	class EventName : public FUNC_DECLARE_DELEGATE_BASE(TBaseMulticastDelegate, Suffix, __VA_ARGS__) \
+#define FUNC_DECLARE_EVENT( OwningType, EventName, ... ) \
+	class EventName : public TBaseMulticastDelegate<__VA_ARGS__> \
 	{ \
 		friend class OwningType; \
 	};
 
 /** Declare user's dynamic delegate, with wrapper proxy method for executing the delegate */
-#define FUNC_DECLARE_DYNAMIC_DELEGATE( TWeakPtr, Suffix, DynamicDelegateName, ExecFunction, FuncParamList, FuncParamPassThru, ... ) \
-	class DynamicDelegateName : public FUNC_DECLARE_DYNAMIC_DELEGATE_BASE(TWeakPtr, TBaseDynamicDelegate, Suffix, __VA_ARGS__) \
+#define FUNC_DECLARE_DYNAMIC_DELEGATE( TWeakPtr, DynamicDelegateName, ExecFunction, FuncParamList, FuncParamPassThru, ... ) \
+	class DynamicDelegateName : public TBaseDynamicDelegate<TWeakPtr, __VA_ARGS__> \
 	{ \
 	public: \
 		/** Default constructor */ \
@@ -209,7 +194,7 @@
 		\
 		/** Construction from an FScriptDelegate must be explicit.  This is really only used by UObject system internals. */ \
 		explicit DynamicDelegateName( const TScriptDelegate<>& InScriptDelegate ) \
-			: FUNC_DECLARE_DYNAMIC_DELEGATE_BASE(TWeakPtr, TBaseDynamicDelegate, Suffix, __VA_ARGS__)( InScriptDelegate ) \
+			: TBaseDynamicDelegate<TWeakPtr, __VA_ARGS__>( InScriptDelegate ) \
 		{ \
 		} \
 		\
@@ -232,8 +217,8 @@
 		} \
 	};
 
-#define FUNC_DECLARE_DYNAMIC_DELEGATE_RETVAL(TWeakPtr, Suffix, DynamicDelegateName, ExecFunction, RetValType, FuncParamList, FuncParamPassThru, ...) \
-	class DynamicDelegateName : public FUNC_DECLARE_DYNAMIC_DELEGATE_BASE(TWeakPtr, TBaseDynamicDelegate, Suffix, __VA_ARGS__) \
+#define FUNC_DECLARE_DYNAMIC_DELEGATE_RETVAL(TWeakPtr, DynamicDelegateName, ExecFunction, RetValType, FuncParamList, FuncParamPassThru, ...) \
+	class DynamicDelegateName : public TBaseDynamicDelegate<TWeakPtr, __VA_ARGS__> \
 	{ \
 	public: \
 		/** Default constructor */ \
@@ -243,7 +228,7 @@
 		\
 		/** Construction from an FScriptDelegate must be explicit.  This is really only used by UObject system internals. */ \
 		explicit DynamicDelegateName( const TScriptDelegate<>& InScriptDelegate ) \
-			: FUNC_DECLARE_DYNAMIC_DELEGATE_BASE(TWeakPtr, TBaseDynamicDelegate, Suffix, __VA_ARGS__)( InScriptDelegate ) \
+			: TBaseDynamicDelegate<TWeakPtr, __VA_ARGS__>( InScriptDelegate ) \
 		{ \
 		} \
 		\
@@ -258,8 +243,8 @@
 
 
 /** Declare user's dynamic multi-cast delegate, with wrapper proxy method for executing the delegate */
-#define FUNC_DECLARE_DYNAMIC_MULTICAST_DELEGATE(TWeakPtr, Suffix, DynamicMulticastDelegateName, ExecFunction, FuncParamList, FuncParamPassThru, ...) \
-class DynamicMulticastDelegateName : public FUNC_DECLARE_DYNAMIC_DELEGATE_BASE(TWeakPtr, TBaseDynamicMulticastDelegate, Suffix, __VA_ARGS__) \
+#define FUNC_DECLARE_DYNAMIC_MULTICAST_DELEGATE(TWeakPtr, DynamicMulticastDelegateName, ExecFunction, FuncParamList, FuncParamPassThru, ...) \
+class DynamicMulticastDelegateName : public TBaseDynamicMulticastDelegate<TWeakPtr, __VA_ARGS__> \
 	{ \
 	public: \
 		/** Default constructor */ \
@@ -269,7 +254,7 @@ class DynamicMulticastDelegateName : public FUNC_DECLARE_DYNAMIC_DELEGATE_BASE(T
 		\
 		/** Construction from an FMulticastScriptDelegate must be explicit.  This is really only used by UObject system internals. */ \
 		explicit DynamicMulticastDelegateName( const TMulticastScriptDelegate<>& InMulticastScriptDelegate ) \
-			: FUNC_DECLARE_DYNAMIC_DELEGATE_BASE(TWeakPtr, TBaseDynamicMulticastDelegate, Suffix, __VA_ARGS__)( InMulticastScriptDelegate ) \
+			: TBaseDynamicMulticastDelegate<TWeakPtr, __VA_ARGS__>( InMulticastScriptDelegate ) \
 		{ \
 		} \
 		\
@@ -433,14 +418,10 @@ namespace UE4Delegates_Private
 #define FUNC_INCLUDING_INLINE_IMPL
 
 #ifndef UE_BUILD_DOCS
-	#if USE_VARIADIC_DELEGATES
-		#include "DelegateInstanceInterface_Variadics.h"
-		#include "DelegateInstancesImpl_Variadics.inl"
-		#include "DelegateSignatureImpl_Variadics.inl"
-		#include "DelegateCombinations_Variadics.h"
-	#else
-		#include "DelegateCombinations.h"
-	#endif
+	#include "DelegateInstanceInterface.h"
+	#include "DelegateInstancesImpl.h"
+	#include "DelegateSignatureImpl.inl"
+	#include "DelegateCombinations.h"
 #endif
 
 // No longer allowed to include DelegateSignatureImpl.inl

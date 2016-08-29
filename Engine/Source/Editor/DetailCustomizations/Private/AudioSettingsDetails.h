@@ -11,4 +11,8 @@ public:
 private:
 	/** IDetailCustomization interface */
 	virtual void CustomizeDetails(IDetailLayoutBuilder& DetailBuilder) override;
+
+	FText GetExampleDialogueFilename() const;
+
+	TSharedPtr<IPropertyHandle> DialogueFilenameFormatProperty;
 };

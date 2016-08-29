@@ -8,6 +8,8 @@
 #include "BuildPatchServicesPrivatePCH.h"
 #include "Async.h"
 
+using namespace BuildPatchConstants;
+
 #define EXTRA_DOWNLOAD_LOGGING 0
 
 int32 NUM_DOWNLOAD_THREADS = 8;
@@ -115,31 +117,39 @@ private:
 
 /* FBuildPatchDownloader implementation
 *****************************************************************************/
-FBuildPatchDownloader::FBuildPatchDownloader(const FString& InSaveDirectory, const FString& InCloudDirectory, const FBuildPatchAppManifestRef& InInstallManifest, FBuildPatchProgress* InBuildProgress)
+FBuildPatchDownloader::FBuildPatchDownloader(const FString& InSaveDirectory, const TArray<FString>& InCloudDirectories, const FBuildPatchAppManifestRef& InInstallManifest, FBuildPatchProgress* InBuildProgress)
 	: MaxRetryCount(LoadRetryCount())
 	, RetryDelayTimes(LoadRetryTimes())
 	, HealthPercentages(LoadHealthPercentages())
 	, DisconnectedDelay(LoadDisconnectDelay())
-	, SaveDirectory( InSaveDirectory )
-	, CloudDirectory( InCloudDirectory )
-	, InstallManifest( InInstallManifest )
-	, Thread( NULL )
-	, bIsRunning( false )
-	, bIsInited( false )
-	, bIsIdle( false )
+	, SaveDirectory(InSaveDirectory)
+	, CloudDirectories(InCloudDirectories)
+	, InstallManifest(InInstallManifest)
+	, Thread(nullptr)
+	, bIsRunning(false)
+	, bIsInited(false)
+	, bIsIdle(false)
 	, bIsDisconnected(false)
-	, bWaitingForJobs( true )
+	, bWaitingForJobs(true)
 	, ChunkSuccessRate(1.0f)
+	, CyclesAtLastHealthState(0)
+	, DownloadHealth(EBuildPatchDownloadHealth::Excellent)
 	, CyclesAtLastData(0)
-	, DataToDownloadTotalBytes( 0 )
-	, BuildProgress( InBuildProgress )
+	, DataToDownloadTotalBytes(0)
+	, BuildProgress(InBuildProgress)
 {
+	// Must be given at least one cloud directory
+	check(CloudDirectories.Num());
+
+	// Initialise health states to zero time
+	HealthStateTimes.AddZeroed((int32)EBuildPatchDownloadHealth::NUM_Values);
+
 	// config overrides to control downloads
 	GConfig->GetInt(TEXT("Portal.BuildPatch"), TEXT("ChunkDownloads"), NUM_DOWNLOAD_THREADS, GEngineIni);
 	NUM_DOWNLOAD_THREADS = FMath::Clamp<int32>(NUM_DOWNLOAD_THREADS, 1, 100);
 
 	// Start thread!
-	const TCHAR* ThreadName = TEXT( "ChunkDownloaderThread" );
+	const TCHAR* ThreadName = TEXT("ChunkDownloaderThread");
 	Thread = FRunnableThread::Create(this, ThreadName);
 }
 
@@ -198,6 +208,11 @@ TArray<float> FBuildPatchDownloader::LoadHealthPercentages() const
 	return MoveTemp(HealthPercentagesConfig);
 }
 
+const FString& FBuildPatchDownloader::GetCloudDirectory(int32 RetryNum) const
+{
+	return CloudDirectories[RetryNum % CloudDirectories.Num()];
+}
+
 TArray<float> FBuildPatchDownloader::LoadRetryTimes() const
 {
 	// Get config for retry times
@@ -239,8 +254,8 @@ bool FBuildPatchDownloader::Init()
 
 uint32 FBuildPatchDownloader::Run()
 {
-	SetRunning( true );
-	SetInited( true );
+	SetRunning(true);
+	SetInited(true);
 
 	// Cache is chunk data
 	const bool bIsChunkData = !InstallManifest->IsFileDataManifest();
@@ -250,6 +265,9 @@ uint32 FBuildPatchDownloader::Run()
 	FMeanChunkTime MeanChunkTime;
 	FChunkSuccessRate SuccessRateTracker;
 	TArray< FGuid > InFlightKeys;
+
+	// To time the health states, we need to start the timers on first download
+	bool bDownloadsStarted = false;
 
 	// While there is the possibility of more chunks to download
 	while ( ShouldBeRunning() && !FBuildPatchInstallError::HasFatalError() )
@@ -299,6 +317,7 @@ uint32 FBuildPatchDownloader::Run()
 					{
 						FBuildPatchAnalytics::RecordChunkDownloadError( InFlightJob.DownloadUrl, FPlatformMisc::GetLastError(), TEXT( "Uncompress Fail" ) );
 						GWarn->Logf( TEXT( "BuildPatchServices: ERROR: Failed to uncompress chunk data %s" ), *InFlightJob.DownloadUrl );
+						NumBadDownloads.Increment();
 					}
 					// Verify the data in memory
 					else if( FBuildPatchUtils::VerifyChunkFile( InFlightJob.DataArray ) )
@@ -330,14 +349,15 @@ uint32 FBuildPatchDownloader::Run()
 						{
 							bSuccess = false;
 							FBuildPatchAnalytics::RecordChunkDownloadError( InFlightJob.DownloadUrl, FPlatformMisc::GetLastError(), TEXT( "SaveToDisk Fail" ) );
-							GWarn->Logf( TEXT( "BuildPatchServices: ERROR: Failed to save file data %s" ), *FileDataPath );
+							GWarn->Logf(TEXT("BuildPatchServices: ERROR: Failed to save file data %s"), *FileDataPath);
 						}
 					}
 					else
 					{
 						bSuccess = false;
 						FBuildPatchAnalytics::RecordChunkDownloadError( InFlightJob.DownloadUrl, InFlightJob.ResponseCode, TEXT( "Verify Fail" ) );
-						GWarn->Logf( TEXT( "BuildPatchServices: ERROR: Verify failed on chunk %s" ), *InFlightJob.DownloadUrl );
+						GWarn->Logf(TEXT("BuildPatchServices: ERROR: Verify failed on chunk %s"), *InFlightJob.DownloadUrl);
+						NumBadDownloads.Increment();
 					}
 				}
 				else
@@ -345,6 +365,7 @@ uint32 FBuildPatchDownloader::Run()
 					bSuccess = false;
 					FBuildPatchAnalytics::RecordChunkDownloadError( InFlightJob.DownloadUrl, InFlightJob.ResponseCode, TEXT( "Download Fail" ) );
 					GWarn->Logf(TEXT("BuildPatchServices: ERROR: %d Failed to download chunk %s"), InFlightJob.RetryCount.GetValue(), *InFlightJob.DownloadUrl);
+					NumFailedDownloads.Increment();
 				}
 				
 				// Handle failed
@@ -362,9 +383,7 @@ uint32 FBuildPatchDownloader::Run()
 					else
 					{
 						// Out of retries, fail
-						FString ErrorString = TEXT("Failed to download chunk. No more retries allowed for ");
-						ErrorString += InFlightJob.Guid.ToString();
-						FBuildPatchInstallError::SetFatalError(EBuildPatchInstallError::DownloadError, ErrorString);
+						FBuildPatchInstallError::SetFatalError(EBuildPatchInstallError::DownloadError, DownloadErrorCodes::OutOfRetries);
 					}
 				}
 
@@ -403,7 +422,12 @@ uint32 FBuildPatchDownloader::Run()
 		SetIsDisconnected(bAllDownloadsRetrying && SecondsSinceData > DisconnectedDelay);
 
 		// Pause
-		BuildProgress->WaitWhilePaused();
+		if (BuildProgress->GetPauseState())
+		{
+			uint64 PausedForCycles = FStatsCollector::SecondsToCycles(BuildProgress->WaitWhilePaused());
+			// Skew timers
+			FPlatformAtomics::InterlockedAdd(&CyclesAtLastHealthState, PausedForCycles);
+		}
 
 		// Check if there were any errors while paused, like canceling
 		if( FBuildPatchInstallError::HasFatalError() )
@@ -421,8 +445,20 @@ uint32 FBuildPatchDownloader::Run()
 		}
 		SetIdle( false );
 
+		// First download init
+		if (bDownloadsStarted == false)
+		{
+			bDownloadsStarted = true;
+			// Set timer
+			FPlatformAtomics::InterlockedExchange(&CyclesAtLastHealthState, FStatsCollector::GetCycles());
+			UpdateDownloadHealth();
+		}
+
 		// Make the filename and download url
-		FString DownloadUrl = FBuildPatchUtils::GetDataFilename(InstallManifest, CloudDirectory, NextGuid);
+		InFlightDownloadsLock.Lock();
+		int32 RetryNum = InFlightDownloads[NextGuid].RetryCount.GetValue();
+		InFlightDownloadsLock.Unlock();
+		FString DownloadUrl = FBuildPatchUtils::GetDataFilename(InstallManifest, GetCloudDirectory(RetryNum), NextGuid);
 		const bool bIsHTTPRequest = DownloadUrl.Contains( TEXT( "http" ), ESearchCase::IgnoreCase );
 
 		// Start the download
@@ -491,8 +527,12 @@ uint32 FBuildPatchDownloader::Run()
 	}
 	InFlightDownloadsLock.Unlock();
 
-	SetIdle( true );
-	SetRunning( false );
+	SetIdle(true);
+	SetRunning(false);
+	if (bDownloadsStarted)
+	{
+		UpdateDownloadHealth(true);
+	}
 	return 0;
 }
 
@@ -615,33 +655,35 @@ int32 FBuildPatchDownloader::GetByteDownloadCountReset()
 	return ByteDownloadCount.Reset();
 }
 
+float FBuildPatchDownloader::GetDownloadSuccessRate()
+{
+	FScopeLock Lock(&FlagsLock);
+	return ChunkSuccessRate;
+}
+
 EBuildPatchDownloadHealth FBuildPatchDownloader::GetDownloadHealth()
 {
 	FScopeLock Lock(&FlagsLock);
-
-	if (bIsDisconnected)
-	{
-		return EBuildPatchDownloadHealth::Disconnected;
-	}
-	else if (ChunkSuccessRate >= HealthPercentages[(int32)EBuildPatchDownloadHealth::Excellent])
-	{
-		return EBuildPatchDownloadHealth::Excellent;
-	}
-	else if (ChunkSuccessRate >= HealthPercentages[(int32)EBuildPatchDownloadHealth::Good])
-	{
-		return EBuildPatchDownloadHealth::Good;
-	}
-	else if (ChunkSuccessRate >= HealthPercentages[(int32)EBuildPatchDownloadHealth::OK])
-	{
-		return EBuildPatchDownloadHealth::OK;
-	}
-	else
-	{
-		return EBuildPatchDownloadHealth::Poor;
-	}
+	return DownloadHealth;
 }
 
-void FBuildPatchDownloader::IncrementByteDownloadCount( const int32& NumBytes )
+TArray<float> FBuildPatchDownloader::GetDownloadHealthTimers()
+{
+	FScopeLock Lock(&FlagsLock);
+	return HealthStateTimes;
+}
+
+int32 FBuildPatchDownloader::GetNumFailedDownloads()
+{
+	return NumFailedDownloads.GetValue();
+}
+
+int32 FBuildPatchDownloader::GetNumBadDownloads()
+{
+	return NumBadDownloads.GetValue();
+}
+
+void FBuildPatchDownloader::IncrementByteDownloadCount(const int32& NumBytes)
 {
 	ByteDownloadCount.Add( NumBytes );
 	if (NumBytes > 0)
@@ -672,12 +714,47 @@ void FBuildPatchDownloader::SetIsDisconnected(bool bInIsDisconnected)
 {
 	FScopeLock Lock(&FlagsLock);
 	bIsDisconnected = bInIsDisconnected;
+	UpdateDownloadHealth();
 }
 
-void FBuildPatchDownloader::SetSuccessRate(double InSuccessRate)
+void FBuildPatchDownloader::SetSuccessRate(float InSuccessRate)
 {
 	FScopeLock Lock(&FlagsLock);
 	ChunkSuccessRate = InSuccessRate;
+	UpdateDownloadHealth();
+}
+
+void FBuildPatchDownloader::UpdateDownloadHealth(bool bFlushTimer)
+{
+	FScopeLock Lock(&FlagsLock);
+	EBuildPatchDownloadHealth PreviousHealth = DownloadHealth;
+	if (bIsDisconnected)
+	{
+		DownloadHealth = EBuildPatchDownloadHealth::Disconnected;
+	}
+	else if (ChunkSuccessRate >= HealthPercentages[(int32)EBuildPatchDownloadHealth::Excellent])
+	{
+		DownloadHealth = EBuildPatchDownloadHealth::Excellent;
+	}
+	else if (ChunkSuccessRate >= HealthPercentages[(int32)EBuildPatchDownloadHealth::Good])
+	{
+		DownloadHealth = EBuildPatchDownloadHealth::Good;
+	}
+	else if (ChunkSuccessRate >= HealthPercentages[(int32)EBuildPatchDownloadHealth::OK])
+	{
+		DownloadHealth = EBuildPatchDownloadHealth::OK;
+	}
+	else
+	{
+		DownloadHealth = EBuildPatchDownloadHealth::Poor;
+	}
+	if (PreviousHealth != DownloadHealth || bFlushTimer)
+	{
+		// Update time in state
+		uint64 CyclesNow = FStatsCollector::GetCycles();
+		HealthStateTimes[(int32)PreviousHealth] += FStatsCollector::CyclesToSeconds(CyclesNow - CyclesAtLastHealthState);
+		FPlatformAtomics::InterlockedExchange(&CyclesAtLastHealthState, CyclesNow);
+	}
 }
 
 bool FBuildPatchDownloader::ShouldBeRunning()
@@ -858,11 +935,11 @@ float FBuildPatchDownloader::GetRetryDelay(int32 RetryCount)
 *****************************************************************************/
 TSharedPtr< FBuildPatchDownloader, ESPMode::ThreadSafe > FBuildPatchDownloader::SingletonInstance = NULL;
 
-void FBuildPatchDownloader::Create(const FString& SaveDirectory, const FString& CloudDirectory, const FBuildPatchAppManifestRef& InstallManifest, FBuildPatchProgress* BuildProgress)
+void FBuildPatchDownloader::Create(const FString& SaveDirectory, const TArray<FString>& CloudDirectories, const FBuildPatchAppManifestRef& InstallManifest, FBuildPatchProgress* BuildProgress)
 {
 	// We won't allow misuse of these functions
 	check( !SingletonInstance.IsValid() );
-	SingletonInstance = MakeShareable(new FBuildPatchDownloader(SaveDirectory, CloudDirectory, InstallManifest, BuildProgress));
+	SingletonInstance = MakeShareable(new FBuildPatchDownloader(SaveDirectory, CloudDirectories, InstallManifest, BuildProgress));
 }
 
 FBuildPatchDownloader& FBuildPatchDownloader::Get()

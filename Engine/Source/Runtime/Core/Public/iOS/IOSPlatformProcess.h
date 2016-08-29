@@ -6,6 +6,7 @@
 
 #pragma once
 #include "GenericPlatform/GenericPlatformProcess.h"
+#import "IOSAsyncTask.h"
 
 /** Dummy process handle for platforms that use generic implementation. */
 struct FProcHandle : public TProcHandle<void*, nullptr>
@@ -32,26 +33,17 @@ struct CORE_API FIOSPlatformProcess : public FGenericPlatformProcess
 	static FRunnableThread* CreateRunnableThread();
 	static void LaunchURL( const TCHAR* URL, const TCHAR* Parms, FString* Error );
 	static bool CanLaunchURL(const TCHAR* URL);
+	static FString GetGameBundleId();
 	static void SetRealTimeMode();
-	static void SetupGameOrRenderThread(bool bIsRenderThread);
+	static void SetupGameThread();
+	static void SetupRenderThread();
 	static void SetThreadAffinityMask(uint64 AffinityMask);
 	static const TCHAR* ExecutableName(bool bRemoveExtension = true);
+
+private:
+	static void SetupThread(int Priority);
 };
 
 typedef FIOSPlatformProcess FPlatformProcess;
-
-class CORE_API FIOSPlatformAffinity : public FGenericPlatformAffinity
-{
-public:
-	static const uint64 GetMainGameMask();
-	static const uint64 GetRenderingThreadMask();
-	static const uint64 GetRTHeartBeatMask();
-	static const uint64 GetPoolThreadMask();
-	static const uint64 GetTaskGraphThreadMask();
-	static const uint64 GetStatsThreadMask();
-	static const uint64 GetNoAffinityMask();
-};
-
-typedef FIOSPlatformAffinity FPlatformAffinity;
 
 typedef FSystemWideCriticalSectionNotImplemented FSystemWideCriticalSection;

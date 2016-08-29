@@ -3,6 +3,7 @@
 #include "UTWeaponState.h"
 #include "UTWeaponStateFiring.h"
 #include "UTWeaponStateFiringSpinUp.h"
+#include "Animation/AnimInstance.h"
 
 UUTWeaponStateFiringSpinUp::UUTWeaponStateFiringSpinUp(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)

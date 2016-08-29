@@ -12,7 +12,7 @@ AUTPickupCoin::AUTPickupCoin(const FObjectInitializer& ObjectInitializer)
 
 	Collision->InitCapsuleSize(48, 48.0f);
 	UStaticMeshComponent* StaticMesh = ObjectInitializer.CreateDefaultSubobject<UStaticMeshComponent>(this, FName(TEXT("Mesh")));
-	StaticMesh->AttachParent = RootComponent;
+	StaticMesh->SetupAttachment(RootComponent);
 	StaticMesh->AlwaysLoadOnClient = true;
 	StaticMesh->AlwaysLoadOnServer = true;
 	StaticMesh->bCastDynamicShadow = true;

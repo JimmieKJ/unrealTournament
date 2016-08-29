@@ -26,6 +26,10 @@ public:
 	UPROPERTY()
 	int32 RootAnimNodeIndex;
 	
+	// Indices for each of the saved pose nodes that require updating, in the order they need to get updates.
+	UPROPERTY()
+	TArray<int32> OrderedSavedPoseIndices;
+
 	UPROPERTY()
 	UStructProperty* RootAnimNodeProperty;
 
@@ -49,6 +53,8 @@ public:
 
 	virtual UStructProperty* GetRootAnimNodeProperty() const override { return RootAnimNodeProperty; }
 
+	virtual const TArray<int32>& GetOrderedSavedPoseNodeIndices() const override { return OrderedSavedPoseIndices; }
+
 	virtual const TArray<UStructProperty*>& GetAnimNodeProperties() const override { return AnimNodeProperties; }
 
 	virtual const TArray<FName>& GetSyncGroupNames() const override { return SyncGroupNames; }
@@ -64,6 +70,7 @@ public:
 		AnimNotifies = AnimClass->GetAnimNotifies();
 		RootAnimNodeIndex = AnimClass->GetRootAnimNodeIndex();
 		RootAnimNodeProperty = AnimClass->GetRootAnimNodeProperty();
+		OrderedSavedPoseIndices = AnimClass->GetOrderedSavedPoseNodeIndices();
 		AnimNodeProperties = AnimClass->GetAnimNodeProperties();
 		SyncGroupNames = AnimClass->GetSyncGroupNames();
 	}

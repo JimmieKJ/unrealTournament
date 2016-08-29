@@ -32,6 +32,16 @@ FSlateTexture2DRHIRef::~FSlateTexture2DRHIRef()
 
 }
 
+void FSlateTexture2DRHIRef::Cleanup()
+{
+	BeginReleaseResource(this);
+	BeginCleanup(this);
+}
+
+void FSlateTexture2DRHIRef::FinishCleanup()
+{
+	delete this;
+}
 
 void FSlateTexture2DRHIRef::InitDynamicRHI()
 {
@@ -201,21 +211,26 @@ void FSlateTexture2DRHIRef::UpdateTextureThreadSafeRaw(uint32 InWidth, uint32 In
 	{
 		// No cheap way to avoid having to copy the Buffer, as we cannot guarantee it will not be touched before the rendering thread is done with it.
 		FSlateTextureData* BulkData = new FSlateTextureData( (uint8*)Buffer, InWidth, InHeight, 4 );
-
-		// Update the texture RHI
-		ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER(
-			FSlateTexture2DRHIRef_UpdateTextureRaw,
-			FSlateTexture2DRHIRef*, ThisTexture, this,
-			FSlateTextureData*, BulkData, BulkData,
-			{
-				if (ThisTexture->GetWidth() != BulkData->GetWidth() || ThisTexture->GetHeight() != BulkData->GetHeight())
-				{
-					ThisTexture->Resize(BulkData->GetWidth(), BulkData->GetHeight());
-				}
-				ThisTexture->UpdateTexture(BulkData->GetRawBytes());
-				delete BulkData;
-			});
+		UpdateTextureThreadSafeWithTextureData(BulkData);
 	}
+}
+
+void FSlateTexture2DRHIRef::UpdateTextureThreadSafeWithTextureData(FSlateTextureData* BulkData)
+{
+	check(IsInGameThread());
+	// Update the texture RHI
+	ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER(
+		FSlateTexture2DRHIRef_UpdateTextureThreadSafeWithTextureData,
+		FSlateTexture2DRHIRef*, ThisTexture, this,
+		FSlateTextureData*, BulkData, BulkData,
+		{
+			if (ThisTexture->GetWidth() != BulkData->GetWidth() || ThisTexture->GetHeight() != BulkData->GetHeight())
+			{
+				ThisTexture->Resize(BulkData->GetWidth(), BulkData->GetHeight());
+			}
+			ThisTexture->UpdateTexture(BulkData->GetRawBytes());
+			delete BulkData;
+		});
 }
 
 void FSlateRenderTargetRHI::SetRHIRef( FTexture2DRHIRef InRenderTargetTexture, uint32 InWidth, uint32 InHeight )

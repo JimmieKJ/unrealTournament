@@ -13,6 +13,7 @@ UGameplayTask::UGameplayTask(const FObjectInitializer& ObjectInitializer)
 	bIsSimulating = false;
 	bOwnedByTasksComponent = false;
 	bClaimRequiredResources = true;
+	bOwnerFinished = false;
 	TaskState = EGameplayTaskState::Uninitialized;
 	ResourceOverlapPolicy = ETaskResourceOverlapPolicy::StartOnTop;
 	Priority = FGameplayTasks::DefaultPriority;
@@ -69,11 +70,6 @@ void UGameplayTask::InitTask(IGameplayTaskOwnerInterface& InTaskOwner, uint8 InP
 {
 	Priority = InPriority;
 	TaskOwner = InTaskOwner;
-	UGameplayTasksComponent* GTComponent = InTaskOwner.GetGameplayTasksComponent(*this);
-	TasksComponent = GTComponent;
-
-	bOwnedByTasksComponent = (TaskOwner == GTComponent);
-	
 	TaskState = EGameplayTaskState::AwaitingActivation;
 
 	if (bClaimRequiredResources)
@@ -81,10 +77,17 @@ void UGameplayTask::InitTask(IGameplayTaskOwnerInterface& InTaskOwner, uint8 InP
 		ClaimedResources.AddSet(RequiredResources);
 	}
 
-	InTaskOwner.OnTaskInitialized(*this);
-	if (bOwnedByTasksComponent == false && GTComponent != nullptr)
+	// call owner.OnGameplayTaskInitialized before accessing owner.GetGameplayTasksComponent, this is required for child tasks
+	InTaskOwner.OnGameplayTaskInitialized(*this);
+
+	UGameplayTasksComponent* GTComponent = InTaskOwner.GetGameplayTasksComponent(*this);
+	TasksComponent = GTComponent;
+	bOwnedByTasksComponent = (TaskOwner == GTComponent);
+
+	// make sure that task component knows about new task
+	if (GTComponent && !bOwnedByTasksComponent)
 	{
-		GTComponent->OnTaskInitialized(*this);
+		GTComponent->OnGameplayTaskInitialized(*this);
 	}
 }
 
@@ -108,11 +111,11 @@ AActor* UGameplayTask::GetOwnerActor() const
 {
 	if (TaskOwner.IsValid())
 	{
-		return TaskOwner->GetOwnerActor(this);		
+		return TaskOwner->GetGameplayTaskOwner(this);		
 	}
 	else if (TasksComponent.IsValid())
 	{
-		return TasksComponent->GetOwnerActor(this);
+		return TasksComponent->GetGameplayTaskOwner(this);
 	}
 
 	return nullptr;
@@ -122,11 +125,11 @@ AActor* UGameplayTask::GetAvatarActor() const
 {
 	if (TaskOwner.IsValid())
 	{
-		return TaskOwner->GetAvatarActor(this);
+		return TaskOwner->GetGameplayTaskAvatar(this);
 	}
 	else if (TasksComponent.IsValid())
 	{
-		return TasksComponent->GetAvatarActor(this);
+		return TasksComponent->GetGameplayTaskAvatar(this);
 	}
 
 	return nullptr;
@@ -140,6 +143,7 @@ void UGameplayTask::TaskOwnerEnded()
 
 	if (TaskState != EGameplayTaskState::Finished && !IsPendingKill())
 	{
+		bOwnerFinished = true;
 		OnDestroy(true);
 	}
 }
@@ -177,22 +181,14 @@ void UGameplayTask::ExternalCancel()
 	EndTask();
 }
 
-void UGameplayTask::OnDestroy(bool bOwnerFinished)
+void UGameplayTask::OnDestroy(bool bInOwnerFinished)
 {
 	ensure(TaskState != EGameplayTaskState::Finished && !IsPendingKill());
-
 	TaskState = EGameplayTaskState::Finished;
 
-	// First of all notify the TaskComponent
 	if (TasksComponent.IsValid())
 	{
-		TasksComponent->OnTaskDeactivated(*this);
-	}
-
-	// Remove ourselves from the owner's task list, if the owner isn't ending
-	if (bOwnedByTasksComponent == false && bOwnerFinished == false && TaskOwner.IsValid() == true)
-	{
-		TaskOwner->OnTaskDeactivated(*this);
+		TasksComponent->OnGameplayTaskDeactivated(*this);
 	}
 
 	MarkPendingKill();
@@ -264,12 +260,7 @@ void UGameplayTask::PerformActivation()
 
 	Activate();
 
-	TasksComponent->OnTaskActivated(*this);
-
-	if (bOwnedByTasksComponent == false && TaskOwner.IsValid())
-	{
-		TaskOwner->OnTaskActivated(*this);
-	}
+	TasksComponent->OnGameplayTaskActivated(*this);
 }
 
 void UGameplayTask::Activate()
@@ -287,12 +278,7 @@ void UGameplayTask::Pause()
 
 	TaskState = EGameplayTaskState::Paused;
 
-	TasksComponent->OnTaskDeactivated(*this);
-
-	if (bOwnedByTasksComponent == false && TaskOwner.IsValid())
-	{
-		TaskOwner->OnTaskDeactivated(*this);
-	}
+	TasksComponent->OnGameplayTaskDeactivated(*this);
 }
 
 void UGameplayTask::Resume()
@@ -303,12 +289,7 @@ void UGameplayTask::Resume()
 
 	TaskState = EGameplayTaskState::Active;
 
-	TasksComponent->OnTaskActivated(*this);
-
-	if (bOwnedByTasksComponent == false && TaskOwner.IsValid())
-	{
-		TaskOwner->OnTaskActivated(*this);
-	}
+	TasksComponent->OnGameplayTaskActivated(*this);
 }
 
 //----------------------------------------------------------------------//
@@ -380,9 +361,17 @@ void UGameplayTask::PauseInTaskQueue()
 //----------------------------------------------------------------------//
 FString UGameplayTask::GenerateDebugDescription() const
 {
-	return RequiresPriorityOrResourceManagement() == false ? GetName()
-		: FString::Printf(TEXT("%s: P:%d %s")
-			, *GetName(), int32(Priority), *RequiredResources.GetDebugDescription());
+	if (RequiresPriorityOrResourceManagement())
+	{
+		UObject* OwnerOb = Cast<UObject>(GetTaskOwner());
+		return FString::Printf(TEXT("%s:%s Pri:%d Owner:%s Res:%s"),
+			*GetName(), InstanceName != NAME_None ? *InstanceName.ToString() : TEXT("-"),
+			(int32)Priority,
+			*GetNameSafe(OwnerOb),
+			*RequiredResources.GetDebugDescription());
+	}
+
+	return GetName();
 }
 
 FString UGameplayTask::GetTaskStateName() const
@@ -393,3 +382,53 @@ FString UGameplayTask::GetTaskStateName() const
 }
 
 #endif // !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+
+//////////////////////////////////////////////////////////////////////////
+// Child tasks
+
+UGameplayTasksComponent* UGameplayTask::GetGameplayTasksComponent(const UGameplayTask& Task) const
+{
+	return ((&Task == ChildTask) || (&Task == this)) ? GetGameplayTasksComponent() : nullptr;
+}
+
+AActor* UGameplayTask::GetGameplayTaskOwner(const UGameplayTask* Task) const
+{
+	return ((Task == ChildTask) || (Task == this)) ? UGameplayTask::GetOwnerActor() : nullptr;
+}
+
+AActor* UGameplayTask::GetGameplayTaskAvatar(const UGameplayTask* Task) const
+{
+	return ((Task == ChildTask) || (Task == this)) ? UGameplayTask::GetAvatarActor() : nullptr;
+}
+
+uint8 UGameplayTask::GetGameplayTaskDefaultPriority() const
+{
+	return GetPriority();
+}
+
+void UGameplayTask::OnGameplayTaskDeactivated(UGameplayTask& Task)
+{
+	// cleanup after deactivation
+	if (&Task == ChildTask)
+	{
+		UE_VLOG(GetGameplayTasksComponent(), LogGameplayTasks, Verbose, TEXT("%s> Child task deactivated: %s (state: %s)"), *GetName(), *Task.GetName(), *Task.GetTaskStateName());
+		if (Task.IsFinished())
+		{
+			ChildTask = nullptr;
+		}
+	}
+}
+
+void UGameplayTask::OnGameplayTaskInitialized(UGameplayTask& Task)
+{
+	UE_VLOG(GetGameplayTasksComponent(), LogGameplayTasks, Verbose, TEXT("%s> Child task initialized: %s"), *GetName(), *Task.GetName());
+
+	// only one child task is allowed
+	if (ChildTask)
+	{
+		UE_VLOG(GetGameplayTasksComponent(), LogGameplayTasks, Verbose, TEXT(">> terminating previous child task: %s"), *ChildTask->GetName());
+		ChildTask->EndTask();
+	}
+
+	ChildTask = &Task;
+}

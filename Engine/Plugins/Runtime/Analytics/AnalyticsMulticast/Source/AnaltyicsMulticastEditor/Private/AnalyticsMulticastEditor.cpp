@@ -4,6 +4,7 @@
 
 #include "AnalyticsMulticastEditor.h"
 #include "AnalyticsMulticastSettings.h"
+#include "Analytics.h"
 
 IMPLEMENT_MODULE( FAnalyticsMulticastEditorModule, AnalyticsMulticastEditor );
 

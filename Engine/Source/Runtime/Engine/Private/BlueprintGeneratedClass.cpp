@@ -109,6 +109,8 @@ void UBlueprintGeneratedClass::PostLoad()
 			}
 		}
 	}
+
+	AssembleReferenceTokenStream(true);
 }
 
 void UBlueprintGeneratedClass::GetRequiredPreloadDependencies(TArray<UObject*>& DependenciesOut)
@@ -227,6 +229,12 @@ void UBlueprintGeneratedClass::ConditionalRecompileClass(TArray<UObject*>* ObjLo
 				// Make sure that nodes are up to date, so that we get any updated blueprint signatures
 				FBlueprintEditorUtils::RefreshExternalBlueprintDependencyNodes(GeneratingBP);
 
+				// Normal blueprints get their status reset by RecompileBlueprintBytecode, but macros will not:
+				if ((GeneratingBP->Status != BS_Error) && (GeneratingBP->BlueprintType == EBlueprintType::BPTYPE_MacroLibrary))
+				{
+					GeneratingBP->Status = BS_UpToDate;
+				}
+
 				if (Package != nullptr && Package->IsDirty() && !bStartedWithUnsavedChanges)
 				{
 					Package->SetDirtyFlag(false);
@@ -266,7 +274,7 @@ void UBlueprintGeneratedClass::SerializeDefaultObject(UObject* Object, FArchive&
 {
 	Super::SerializeDefaultObject(Object, Ar);
 
-	if (Ar.IsLoading() && !Ar.IsObjectReferenceCollector() && ClassDefaultObject)
+	if (Ar.IsLoading() && !Ar.IsObjectReferenceCollector() && Object == ClassDefaultObject)
 	{
 		// On load, build the custom property list used in post-construct initialization logic. Note that in the editor, this will be refreshed during compile-on-load.
 		// @TODO - Potentially make this serializable (or cooked data) to eliminate the slight load time cost we'll incur below to generate this list in a cooked build. For now, it's not serialized since the raw UProperty references cannot be saved out.
@@ -274,7 +282,18 @@ void UBlueprintGeneratedClass::SerializeDefaultObject(UObject* Object, FArchive&
 	}
 }
 
-void UBlueprintGeneratedClass::BuildCustomPropertyListForPostConstruction(FCustomPropertyListNode*& InPropertyList, UStruct* InStruct, const uint8* DataPtr, const uint8* DefaultDataPtr)
+void UBlueprintGeneratedClass::PostLoadDefaultObject(UObject* Object)
+{
+	Super::PostLoadDefaultObject(Object);
+
+	if (Object == ClassDefaultObject)
+	{
+		// Rebuild the custom property list used in post-construct initialization logic. Note that PostLoad() may have altered some serialized properties.
+		UpdateCustomPropertyListForPostConstruction();
+	}
+}
+
+bool UBlueprintGeneratedClass::BuildCustomPropertyListForPostConstruction(FCustomPropertyListNode*& InPropertyList, UStruct* InStruct, const uint8* DataPtr, const uint8* DefaultDataPtr)
 {
 	const UClass* OwnerClass = Cast<UClass>(InStruct);
 	FCustomPropertyListNode** CurrentNodePtr = &InPropertyList;
@@ -299,10 +318,7 @@ void UBlueprintGeneratedClass::BuildCustomPropertyListForPostConstruction(FCusto
 					*CurrentNodePtr = new(CustomPropertyListForPostConstruction) FCustomPropertyListNode(Property, Idx);
 
 					// Recursively gather up all struct fields that differ and assign to the current node's sub property list.
-					BuildCustomPropertyListForPostConstruction((*CurrentNodePtr)->SubPropertyList, StructProperty->Struct, PropertyValue, DefaultPropertyValue);
-
-					// This will be non-NULL if the above found at least one struct field that differs from the native CDO.
-					if ((*CurrentNodePtr)->SubPropertyList)
+					if (BuildCustomPropertyListForPostConstruction((*CurrentNodePtr)->SubPropertyList, StructProperty->Struct, PropertyValue, DefaultPropertyValue))
 					{
 						// Advance to the next node in the list.
 						CurrentNodePtr = &(*CurrentNodePtr)->PropertyListNext;
@@ -310,6 +326,26 @@ void UBlueprintGeneratedClass::BuildCustomPropertyListForPostConstruction(FCusto
 					else
 					{
 						// Remove the node for the struct property since it does not differ from the native CDO.
+						CustomPropertyListForPostConstruction.RemoveAt(CustomPropertyListForPostConstruction.Num() - 1);
+
+						// Clear the current node ptr since the array will have freed up the memory it referenced.
+						*CurrentNodePtr = nullptr;
+					}
+				}
+				else if (UArrayProperty* ArrayProperty = Cast<UArrayProperty>(Property))
+				{
+					// Create a new node for the array property.
+					*CurrentNodePtr = new(CustomPropertyListForPostConstruction) FCustomPropertyListNode(Property, Idx);
+
+					// Recursively gather up all array item indices that differ and assign to the current node's sub property list.
+					if (BuildCustomArrayPropertyListForPostConstruction(ArrayProperty, (*CurrentNodePtr)->SubPropertyList, PropertyValue, DefaultPropertyValue))
+					{
+						// Advance to the next node in the list.
+						CurrentNodePtr = &(*CurrentNodePtr)->PropertyListNext;
+					}
+					else
+					{
+						// Remove the node for the array property since it does not differ from the native CDO.
 						CustomPropertyListForPostConstruction.RemoveAt(CustomPropertyListForPostConstruction.Num() - 1);
 
 						// Clear the current node ptr since the array will have freed up the memory it referenced.
@@ -327,6 +363,104 @@ void UBlueprintGeneratedClass::BuildCustomPropertyListForPostConstruction(FCusto
 			}
 		}
 	}
+
+	// This will be non-NULL if the above found at least one property value that differs from the native CDO.
+	return (InPropertyList != nullptr);
+}
+
+bool UBlueprintGeneratedClass::BuildCustomArrayPropertyListForPostConstruction(UArrayProperty* ArrayProperty, FCustomPropertyListNode*& InPropertyList, const uint8* DataPtr, const uint8* DefaultDataPtr, int32 StartIndex)
+{
+	FCustomPropertyListNode** CurrentArrayNodePtr = &InPropertyList;
+
+	FScriptArrayHelper ArrayValueHelper(ArrayProperty, DataPtr);
+	FScriptArrayHelper DefaultArrayValueHelper(ArrayProperty, DefaultDataPtr);
+
+	for (int32 ArrayValueIndex = StartIndex; ArrayValueIndex < ArrayValueHelper.Num(); ++ArrayValueIndex)
+	{
+		const int32 DefaultArrayValueIndex = ArrayValueIndex - StartIndex;
+		if (DefaultArrayValueIndex < DefaultArrayValueHelper.Num())
+		{
+			const uint8* ArrayPropertyValue = ArrayValueHelper.GetRawPtr(ArrayValueIndex);
+			const uint8* DefaultArrayPropertyValue = DefaultArrayValueHelper.GetRawPtr(DefaultArrayValueIndex);
+
+			if (UStructProperty* InnerStructProperty = Cast<UStructProperty>(ArrayProperty->Inner))
+			{
+				// Create a new node for the item value at this index.
+				*CurrentArrayNodePtr = new(CustomPropertyListForPostConstruction) FCustomPropertyListNode(ArrayProperty, ArrayValueIndex);
+
+				// Recursively gather up all struct fields that differ and assign to the array item value node's sub property list.
+				if (BuildCustomPropertyListForPostConstruction((*CurrentArrayNodePtr)->SubPropertyList, InnerStructProperty->Struct, ArrayPropertyValue, DefaultArrayPropertyValue))
+				{
+					// Advance to the next node in the list.
+					CurrentArrayNodePtr = &(*CurrentArrayNodePtr)->PropertyListNext;
+				}
+				else
+				{
+					// Remove the node for the struct property since it does not differ from the native CDO.
+					CustomPropertyListForPostConstruction.RemoveAt(CustomPropertyListForPostConstruction.Num() - 1);
+
+					// Clear the current array item node ptr
+					*CurrentArrayNodePtr = nullptr;
+				}
+			}
+			else if (UArrayProperty* InnerArrayProperty = Cast<UArrayProperty>(ArrayProperty->Inner))
+			{
+				// Create a new node for the item value at this index.
+				*CurrentArrayNodePtr = new(CustomPropertyListForPostConstruction) FCustomPropertyListNode(ArrayProperty, ArrayValueIndex);
+
+				// Recursively gather up all array item indices that differ and assign to the array item value node's sub property list.
+				if (BuildCustomArrayPropertyListForPostConstruction(InnerArrayProperty, (*CurrentArrayNodePtr)->SubPropertyList, ArrayPropertyValue, DefaultArrayPropertyValue))
+				{
+					// Advance to the next node in the list.
+					CurrentArrayNodePtr = &(*CurrentArrayNodePtr)->PropertyListNext;
+				}
+				else
+				{
+					// Remove the node for the array property since it does not differ from the native CDO.
+					CustomPropertyListForPostConstruction.RemoveAt(CustomPropertyListForPostConstruction.Num() - 1);
+
+					// Clear the current array item node ptr
+					*CurrentArrayNodePtr = nullptr;
+				}
+			}
+			else if (!ArrayProperty->Inner->Identical(ArrayPropertyValue, DefaultArrayPropertyValue))
+			{
+				// Create a new node, link it into the chain and add it into the array.
+				*CurrentArrayNodePtr = new(CustomPropertyListForPostConstruction) FCustomPropertyListNode(ArrayProperty, ArrayValueIndex);
+
+				// Advance to the next array item node ptr.
+				CurrentArrayNodePtr = &(*CurrentArrayNodePtr)->PropertyListNext;
+			}
+		}
+		else
+		{
+			// Create a temp default array as a placeholder to compare against the remaining elements in the value.
+			FScriptArray TempDefaultArray;
+			const int32 Count = ArrayValueHelper.Num() - DefaultArrayValueHelper.Num();
+			TempDefaultArray.Add(Count, ArrayProperty->Inner->ElementSize);
+			uint8 *Dest = (uint8*)TempDefaultArray.GetData();
+			if (ArrayProperty->Inner->PropertyFlags & CPF_ZeroConstructor)
+			{
+				FMemory::Memzero(Dest, Count * ArrayProperty->Inner->ElementSize);
+			}
+			else
+			{
+				for (int32 i = 0; i < Count; i++, Dest += ArrayProperty->Inner->ElementSize)
+				{
+					ArrayProperty->Inner->InitializeValue(Dest);
+				}
+			}
+
+			// Recursively fill out the property list for the remainder of the elements in the value that extend beyond the size of the default value.
+			BuildCustomArrayPropertyListForPostConstruction(ArrayProperty, *CurrentArrayNodePtr, DataPtr, (uint8*)&TempDefaultArray, ArrayValueIndex);
+
+			// Don't need to record anything else.
+			break;
+		}
+	}
+
+	// Return true if the above found at least one array element that differs from the native CDO, or otherwise if the array sizes are different.
+	return (InPropertyList != nullptr || ArrayValueHelper.Num() != DefaultArrayValueHelper.Num());
 }
 
 void UBlueprintGeneratedClass::UpdateCustomPropertyListForPostConstruction()
@@ -743,14 +877,23 @@ uint8* UBlueprintGeneratedClass::GetPersistentUberGraphFrame(UObject* Obj, UFunc
 	return ParentClass->GetPersistentUberGraphFrame(Obj, FuncToCheck);
 }
 
-void UBlueprintGeneratedClass::CreatePersistentUberGraphFrame(UObject* Obj, bool bCreateOnlyIfEmpty, bool bSkipSuperClass) const
+void UBlueprintGeneratedClass::CreatePersistentUberGraphFrame(UObject* Obj, bool bCreateOnlyIfEmpty, bool bSkipSuperClass, UClass* OldClass) const
 {
 	ensure(!UberGraphFramePointerProperty == !UberGraphFunction);
 	if (Obj && UsePersistentUberGraphFrame() && UberGraphFramePointerProperty && UberGraphFunction)
 	{
 		auto PointerToUberGraphFrame = UberGraphFramePointerProperty->ContainerPtrToValuePtr<FPointerToUberGraphFrame>(Obj);
 		check(PointerToUberGraphFrame);
-		check(bCreateOnlyIfEmpty || !PointerToUberGraphFrame->RawPointer);
+
+		if ( !ensureMsgf(bCreateOnlyIfEmpty || !PointerToUberGraphFrame->RawPointer
+			, TEXT("Attempting to recreate an object's UberGraphFrame when the previous one was not properly destroyed (transitioning '%s' from '%s' to '%s'). We'll attempt to free the frame memory, but cannot clean up its properties (this may result in leaks and undesired side effects).")
+			, *Obj->GetPathName()
+			, (OldClass == nullptr) ? TEXT("<NULL>") : *OldClass->GetName()
+			, *GetName()) )
+		{
+			FMemory::Free(PointerToUberGraphFrame->RawPointer);
+			PointerToUberGraphFrame->RawPointer = nullptr;
+		}
 		
 		if (!PointerToUberGraphFrame->RawPointer)
 		{
@@ -856,6 +999,8 @@ void UBlueprintGeneratedClass::Link(FArchive& Ar, bool bRelinkExistingProperties
 		}
 		checkSlow(UberGraphFramePointerProperty);
 	}
+
+	AssembleReferenceTokenStream(true);
 }
 
 void UBlueprintGeneratedClass::PurgeClass(bool bRecompilingOnLoad)
@@ -917,11 +1062,7 @@ void UBlueprintGeneratedClass::AddReferencedObjectsInUbergraphFrame(UObject* InT
 	checkSlow(InThis);
 	for (UClass* CurrentClass = InThis->GetClass(); CurrentClass; CurrentClass = CurrentClass->GetSuperClass())
 	{
-		if (CurrentClass->HasAnyClassFlags(CLASS_NewerVersionExists))
-		{
-			break;
-		}
-		else if (auto BPGC = Cast<UBlueprintGeneratedClass>(CurrentClass))
+		if (auto BPGC = Cast<UBlueprintGeneratedClass>(CurrentClass))
 		{
 			if (BPGC->UberGraphFramePointerProperty)
 			{
@@ -1033,9 +1174,41 @@ void FBlueprintCookedComponentInstancingData::BuildCachedPropertyList(FCustomPro
 		{
 			BuildCachedPropertyList(&NewNode->SubPropertyList, StructProperty->Struct, CurrentSourceIdx);
 		}
+		else if (const UArrayProperty* ArrayProperty = Cast<UArrayProperty>(Property))
+		{
+			// If this is an array property, recursively build a sub-property list.
+			BuildCachedArrayPropertyList(ArrayProperty, &NewNode->SubPropertyList, CurrentSourceIdx);
+		}
 
 		// Advance current location to the next linked node.
 		CurrentNode = &NewNode->PropertyListNext;
+	}
+}
+
+void FBlueprintCookedComponentInstancingData::BuildCachedArrayPropertyList(const UArrayProperty* ArrayProperty, FCustomPropertyListNode** ArraySubPropertyNode, int32* CurrentSourceIdx) const
+{
+	// Build the array property's sub-property list. An empty name field signals the end of the changed array property list.
+	while (*CurrentSourceIdx < ChangedPropertyList.Num() &&
+		(ChangedPropertyList[*CurrentSourceIdx].PropertyName == NAME_None
+			|| ChangedPropertyList[*CurrentSourceIdx].PropertyName == ArrayProperty->GetFName()))
+	{
+		const FBlueprintComponentChangedPropertyInfo& ChangedArrayPropertyInfo = ChangedPropertyList[(*CurrentSourceIdx)++];
+		UProperty* InnerProperty = ChangedArrayPropertyInfo.PropertyName != NAME_None ? ArrayProperty->Inner : nullptr;
+
+		*ArraySubPropertyNode = new(CachedPropertyListForSerialization) FCustomPropertyListNode(InnerProperty, ChangedArrayPropertyInfo.ArrayIndex);
+
+		// If this is a UStruct property, recursively build a sub-property list.
+		if (const UStructProperty* InnerStructProperty = Cast<UStructProperty>(InnerProperty))
+		{
+			BuildCachedPropertyList(&(*ArraySubPropertyNode)->SubPropertyList, InnerStructProperty->Struct, CurrentSourceIdx);
+		}
+		else if (const UArrayProperty* InnerArrayProperty = Cast<UArrayProperty>(InnerProperty))
+		{
+			// If this is an array property, recursively build a sub-property list.
+			BuildCachedArrayPropertyList(InnerArrayProperty, &(*ArraySubPropertyNode)->SubPropertyList, CurrentSourceIdx);
+		}
+
+		ArraySubPropertyNode = &(*ArraySubPropertyNode)->PropertyListNext;
 	}
 }
 

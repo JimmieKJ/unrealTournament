@@ -4,6 +4,7 @@ using System;
 using System.Collections.Generic;
 using System.Text;
 using System.IO;
+using System.Linq;
 
 namespace UnrealBuildTool
 {
@@ -291,7 +292,6 @@ namespace UnrealBuildTool
 					{
 						// Full path to a folder outside of project
 						FullPath = CurPath;
-						System.Console.WriteLine("FullPath starting with /: " + FullPath);
 					}
 					else
 					{
@@ -302,7 +302,7 @@ namespace UnrealBuildTool
 
 					}
 
-					if (!IncludeDirectories.Contains(FullPath) && !FullPath.Contains("FortniteGame/") && Directory.Exists(FullPath))
+					if (!FullPath.Contains("FortniteGame/") && !FullPath.Contains("ThirdParty/"))
 					{
 						SystemIncludeDirectories.Add(String.Format("{0}", FullPath));
 						IncludeIndex++;
@@ -328,13 +328,23 @@ namespace UnrealBuildTool
 						FullPath = Path.Combine(UnrealEngineRootPath, FullPath);
 					}
 
-					if (!SystemIncludeDirectories.Contains(FullPath) && !FullPath.Contains("FortniteGame/") && !FullPath.Contains("Intermediate/") && Directory.Exists(FullPath)) // @todo: skipping Fortnite header paths to shorten clang command line for building UE4XcodeHelper
+					if (!FullPath.Contains("FortniteGame/") && !FullPath.Contains("ThirdParty/")) // @todo: skipping Fortnite header paths to shorten clang command line for building UE4XcodeHelper
 					{
 						SystemIncludeDirectories.Add(String.Format("{0}", FullPath));
 						IncludeIndex++;
 					}
 				}
 			}
+
+			// Remove duplicate paths from include dir and system include dir list
+			List<string> Tmp = new List<string>();
+			List<string> Stmp = new List<string>();
+
+			Tmp = IncludeDirectories.Distinct().ToList();
+			Stmp = SystemIncludeDirectories.Distinct().ToList();
+
+			IncludeDirectories = Tmp.ToList();
+			SystemIncludeDirectories = Stmp.ToList();
 
 			foreach (var CurPath in IncludeDirectories)
 			{
@@ -351,11 +361,36 @@ namespace UnrealBuildTool
 		}
 
 		/// <summary>
+		/// Splits the definition text into macro name and value (if any).
+		/// </summary>
+		/// <param name="Definition">Definition text</param>
+		/// <param name="Key">Out: The definition name</param>
+		/// <param name="Value">Out: The definition value or null if it has none</param>
+		/// <returns>Pair representing macro name and value.</returns>
+		private void SplitDefinitionAndValue(string Definition, out String Key, out String Value)
+		{
+			int EqualsIndex = Definition.IndexOf('=');
+			if (EqualsIndex >= 0)
+			{
+				Key = Definition.Substring(0, EqualsIndex);
+				Value = Definition.Substring(EqualsIndex + 1);
+			}
+			else
+			{
+				Key = Definition;
+				Value = "";
+			}
+		}
+
+		/// <summary>
 		/// Write the defines section to the .kdev4/$ProjectName.kdev4 project file.
 		/// </summary>
 		/// <param name="FileContent">File content.</param>
 		private void WriteDefineSection(ref StringBuilder FileContent)
 		{
+			String Key = "";
+			String Value = "";
+
 			List<string> DefineHolder = new List<string>();
 
 			foreach (var CurProject in GeneratedProjectFiles)
@@ -369,16 +404,27 @@ namespace UnrealBuildTool
 
 				foreach (var CurDefine in KDevelopProject.IntelliSensePreprocessorDefinitions)
 				{
-					if (!DefineHolder.Contains(CurDefine))
+					SplitDefinitionAndValue(CurDefine, out Key, out Value);
+					if (string.IsNullOrEmpty(Value))
 					{
-						DefineHolder.Add(CurDefine);
+						DefineHolder.Add (String.Format ("{0} \\\n", Key));
+					}
+					else
+					{
+						DefineHolder.Add(String.Format("{0}={1} \\\n", Key, Value));
 					}
 				}
 			}
 
+
+			// Remove duplicates if they are present.
+			List<string> Tmp = new List<string>();
+			Tmp = DefineHolder.Distinct().ToList();
+			DefineHolder = Tmp.ToList();
+
 			foreach (var Def in DefineHolder)
 			{
-				FileContent.Append(Def + "\n");
+				FileContent.Append(Def);
 			}
 
 			FileContent.Append("\n\n");

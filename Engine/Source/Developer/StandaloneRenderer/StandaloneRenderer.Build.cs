@@ -40,5 +40,7 @@ public class StandaloneRenderer : ModuleRules
 			// weak for IOS8 support since CAMetalLayer is in QuartzCore
 			PublicWeakFrameworks.AddRange(new string[] { "QuartzCore" });
 		}
+
+		RuntimeDependencies.Add("$(EngineDir)/Shaders/StandaloneRenderer/...", StagedFileType.NonUFS);
 	}
 }

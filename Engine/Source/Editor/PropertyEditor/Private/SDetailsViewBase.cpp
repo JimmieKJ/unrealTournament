@@ -17,6 +17,8 @@
 #include "SPropertyEditorEditInline.h"
 #include "ObjectEditorUtils.h"
 #include "SColorPicker.h"
+#include "DetailPropertyRow.h"
+#include "SSearchBox.h"
 
 
 SDetailsViewBase::~SDetailsViewBase()
@@ -35,7 +37,7 @@ void SDetailsViewBase::OnGetChildrenForDetailTree(TSharedRef<IDetailTreeNode> In
 
 TSharedRef<ITableRow> SDetailsViewBase::OnGenerateRowForDetailTree(TSharedRef<IDetailTreeNode> InTreeNode, const TSharedRef<STableViewBase>& OwnerTable)
 {
-	return InTreeNode->GenerateNodeWidget(OwnerTable, ColumnSizeData, PropertyUtilities.ToSharedRef());
+	return InTreeNode->GenerateNodeWidget(OwnerTable, ColumnSizeData, PropertyUtilities.ToSharedRef(), DetailsViewArgs.bAllowFavoriteSystem);
 }
 
 void SDetailsViewBase::SetRootExpansionStates(const bool bExpand, const bool bRecurse)
@@ -185,7 +187,15 @@ void SDetailsViewBase::RerunCurrentFilter()
 
 EVisibility SDetailsViewBase::GetTreeVisibility() const
 {
-	return DetailLayout.IsValid() && DetailLayout->HasDetails() ? EVisibility::Visible : EVisibility::Collapsed;
+	for(const FDetailLayoutData& Data : DetailLayouts)
+	{
+		if(Data.DetailLayout.IsValid() && Data.DetailLayout->HasDetails())
+		{
+			return EVisibility::Visible;
+		}
+	}
+
+	return EVisibility::Collapsed;
 }
 
 /** Returns the image used for the icon on the filter button */
@@ -278,6 +288,328 @@ void SDetailsViewBase::SetColorPropertyFromColorPicker(FLinearColor NewColor)
 	}
 }
 
+/**
+* Determines whether or not a property should be visible in the default generated detail layout
+*
+* @param PropertyNode	The property node to check
+* @param ParentNode	The parent property node to check
+* @return true if the property should be visible
+*/
+static bool IsVisibleStandaloneProperty(const FPropertyNode& PropertyNode, const FPropertyNode& ParentNode)
+{
+	const UProperty* Property = PropertyNode.GetProperty();
+	const UArrayProperty* ParentArrayProperty = Cast<const UArrayProperty>(ParentNode.GetProperty());
+	bool bIsVisibleStandalone = false;
+	if(Property)
+	{
+		if(Property->IsA(UObjectPropertyBase::StaticClass()))
+		{
+			// Do not add this child node to the current map if its a single object property in a category (serves no purpose for UI)
+			bIsVisibleStandalone = !ParentArrayProperty && (PropertyNode.GetNumChildNodes() == 0 || PropertyNode.GetNumChildNodes() > 1);
+		}
+		else if(Property->IsA(UArrayProperty::StaticClass()) || (Property->ArrayDim > 1 && PropertyNode.GetArrayIndex() == INDEX_NONE))
+		{
+			// Base array properties are always visible
+			bIsVisibleStandalone = true;
+		}
+		else
+		{
+			bIsVisibleStandalone = true;
+		}
+
+	}
+
+	return bIsVisibleStandalone;
+}
+
+void SDetailsViewBase::UpdatePropertyMaps()
+{
+	RootTreeNodes.Empty();
+
+	for(FDetailLayoutData& LayoutData : DetailLayouts)
+	{
+		// Check uniqueness.  It is critical that detail layouts can be destroyed
+		// We need to be able to create a new detail layout and properly clean up the old one in the process
+		check(!LayoutData.DetailLayout.IsValid() || LayoutData.DetailLayout.IsUnique());
+
+		// All the current customization instances need to be deleted when it is safe
+		CustomizationClassInstancesPendingDelete.Append(LayoutData.CustomizationClassInstances);
+	}
+
+	FRootPropertyNodeList& RootPropertyNodes = GetRootNodes();
+	
+	DetailLayouts.Empty(RootPropertyNodes.Num());
+
+	// There should be one detail layout for each root node
+	DetailLayouts.AddDefaulted(RootPropertyNodes.Num());
+
+	for(int32 RootNodeIndex = 0; RootNodeIndex < RootPropertyNodes.Num(); ++RootNodeIndex)
+	{
+		FDetailLayoutData& LayoutData = DetailLayouts[RootNodeIndex];
+		UpdateSinglePropertyMap(RootPropertyNodes[RootNodeIndex], LayoutData);
+	}
+}
+
+void SDetailsViewBase::UpdateSinglePropertyMap(TSharedPtr<FComplexPropertyNode>& InRootPropertyNode, FDetailLayoutData& LayoutData)
+{
+	// Reset everything
+	LayoutData.ClassToPropertyMap.Empty();
+
+	TSharedPtr<FDetailLayoutBuilderImpl> DetailLayout = MakeShareable(new FDetailLayoutBuilderImpl(InRootPropertyNode, LayoutData.ClassToPropertyMap, PropertyUtilities.ToSharedRef(), SharedThis(this)));
+	LayoutData.DetailLayout = DetailLayout;
+
+	TSharedPtr<FComplexPropertyNode> RootPropertyNode = InRootPropertyNode;
+	check(RootPropertyNode.IsValid());
+
+	bool const bEnableFavoriteSystem = GIsRequestingExit ? false : (GetDefault<UEditorExperimentalSettings>()->bEnableFavoriteSystem && DetailsViewArgs.bAllowFavoriteSystem);
+
+	// Currently object property nodes do not provide any useful information other than being a container for its children.  We do not draw anything for them.
+	// When we encounter object property nodes, add their children instead of adding them to the tree.
+	UpdateSinglePropertyMapRecursive(*RootPropertyNode, LayoutData, NAME_None, RootPropertyNode.Get(), bEnableFavoriteSystem, false);
+
+	CustomUpdatePropertyMap(LayoutData.DetailLayout);
+
+	// Ask for custom detail layouts, unless disabled. One reason for disabling custom layouts is that the custom layouts
+	// inhibit our ability to find a single property's tree node. This is problematic for the diff and merge tools, that need
+	// to display and highlight each changed property for the user. We could whitelist 'good' customizations here if 
+	// we can make them work with the diff/merge tools.
+	if(!bDisableCustomDetailLayouts)
+	{
+		QueryCustomDetailLayout(LayoutData);
+	}
+
+	LayoutData.DetailLayout->GenerateDetailLayout();
+}
+
+void SDetailsViewBase::UpdateSinglePropertyMapRecursive(FPropertyNode& InNode, FDetailLayoutData& LayoutData, FName CurCategory, FComplexPropertyNode* CurObjectNode, bool bEnableFavoriteSystem, bool bUpdateFavoriteSystemOnly)
+{
+	FDetailLayoutBuilderImpl& DetailLayout = *LayoutData.DetailLayout;
+
+	UProperty* ParentProperty = InNode.GetProperty();
+	UStructProperty* ParentStructProp = Cast<UStructProperty>(ParentProperty);
+	for(int32 ChildIndex = 0; ChildIndex < InNode.GetNumChildNodes(); ++ChildIndex)
+	{
+		//Use the original value for each child
+		bool LocalUpdateFavoriteSystemOnly = bUpdateFavoriteSystemOnly;
+
+		TSharedPtr<FPropertyNode> ChildNodePtr = InNode.GetChildNode(ChildIndex);
+		FPropertyNode& ChildNode = *ChildNodePtr;
+		UProperty* Property = ChildNode.GetProperty();
+
+		{
+			FObjectPropertyNode* ObjNode = ChildNode.AsObjectNode();
+			FCategoryPropertyNode* CategoryNode = ChildNode.AsCategoryNode();
+			if(ObjNode)
+			{
+				// Currently object property nodes do not provide any useful information other than being a container for its children.  We do not draw anything for them.
+				// When we encounter object property nodes, add their children instead of adding them to the tree.
+				UpdateSinglePropertyMapRecursive(ChildNode, LayoutData, CurCategory, ObjNode, bEnableFavoriteSystem, LocalUpdateFavoriteSystemOnly);
+			}
+			else if(CategoryNode)
+			{
+				if(!LocalUpdateFavoriteSystemOnly)
+				{
+					FName InstanceName = NAME_None;
+					FName CategoryName = CurCategory;
+					FString CategoryDelimiterString;
+					CategoryDelimiterString.AppendChar(FPropertyNodeConstants::CategoryDelimiterChar);
+					if(CurCategory != NAME_None && CategoryNode->GetCategoryName().ToString().Contains(CategoryDelimiterString))
+					{
+						// This property is child of another property so add it to the parent detail category
+						FDetailCategoryImpl& CategoryImpl = DetailLayout.DefaultCategory(CategoryName);
+						CategoryImpl.AddPropertyNode(ChildNodePtr.ToSharedRef(), InstanceName);
+					}
+				}
+
+				// For category nodes, we just set the current category and recurse through the children
+				UpdateSinglePropertyMapRecursive(ChildNode, LayoutData, CategoryNode->GetCategoryName(), CurObjectNode, bEnableFavoriteSystem, LocalUpdateFavoriteSystemOnly);
+			}
+			else
+			{
+				// Whether or not the property can be visible in the default detail layout
+				bool bVisibleByDefault = IsVisibleStandaloneProperty(ChildNode, InNode);
+
+				// Whether or not the property is a struct
+				UStructProperty* StructProperty = Cast<UStructProperty>(Property);
+
+				bool bIsStruct = StructProperty != NULL;
+
+				static FName ShowOnlyInners("ShowOnlyInnerProperties");
+
+				bool bIsChildOfCustomizedStruct = false;
+				bool bIsCustomizedStruct = false;
+
+				const UStruct* Struct = StructProperty ? StructProperty->Struct : NULL;
+				const UStruct* ParentStruct = ParentStructProp ? ParentStructProp->Struct : NULL;
+				if(Struct || ParentStruct)
+				{
+					FPropertyEditorModule& ParentPlugin = FModuleManager::GetModuleChecked<FPropertyEditorModule>("PropertyEditor");
+					if(Struct)
+					{
+						bIsCustomizedStruct = ParentPlugin.IsCustomizedStruct(Struct, SharedThis(this));
+					}
+
+					if(ParentStruct)
+					{
+						bIsChildOfCustomizedStruct = ParentPlugin.IsCustomizedStruct(ParentStruct, SharedThis(this));
+					}
+				}
+
+				// Whether or not to push out struct properties to their own categories or show them inside an expandable struct 
+				bool bPushOutStructProps = bIsStruct && !bIsCustomizedStruct && !ParentStructProp && Property->HasMetaData(ShowOnlyInners);
+
+				// Is the property edit inline new 
+				const bool bIsEditInlineNew = SPropertyEditorEditInline::Supports(&ChildNode, ChildNode.GetArrayIndex());
+
+				// Is this a property of an array
+				bool bIsChildOfArray = PropertyEditorHelpers::IsChildOfArray(ChildNode);
+
+				// Edit inline new properties should be visible by default
+				bVisibleByDefault |= bIsEditInlineNew;
+
+				// Children of arrays are not visible directly,
+				bVisibleByDefault &= !bIsChildOfArray;
+
+				FPropertyAndParent PropertyAndParent(*Property, ParentProperty);
+				const bool bIsUserVisible = IsPropertyVisible(PropertyAndParent);
+
+				// Inners of customized in structs should not be taken into consideration for customizing.  They are not designed to be individually customized when their parent is already customized
+				if(!bIsChildOfCustomizedStruct && !LocalUpdateFavoriteSystemOnly)
+				{
+					// Add any object classes with properties so we can ask them for custom property layouts later
+					LayoutData.ClassesWithProperties.Add(Property->GetOwnerStruct());
+				}
+
+				// If there is no outer object then the class is the object root and there is only one instance
+				FName InstanceName = NAME_None;
+				if(CurObjectNode && CurObjectNode->GetParentNode())
+				{
+					InstanceName = CurObjectNode->GetParentNode()->GetProperty()->GetFName();
+				}
+				else if(ParentStructProp)
+				{
+					InstanceName = ParentStructProp->GetFName();
+				}
+
+				// Do not add children of customized in struct properties or arrays
+				if(!bIsChildOfCustomizedStruct && !bIsChildOfArray && !LocalUpdateFavoriteSystemOnly)
+				{
+					// Get the class property map
+					FClassInstanceToPropertyMap& ClassInstanceMap = LayoutData.ClassToPropertyMap.FindOrAdd(Property->GetOwnerStruct()->GetFName());
+
+					FPropertyNodeMap& PropertyNodeMap = ClassInstanceMap.FindOrAdd(InstanceName);
+
+					if(!PropertyNodeMap.ParentProperty)
+					{
+						PropertyNodeMap.ParentProperty = CurObjectNode;
+					}
+					else
+					{
+						ensure(PropertyNodeMap.ParentProperty == CurObjectNode);
+					}
+
+					checkSlow(!PropertyNodeMap.Contains(Property->GetFName()));
+
+					PropertyNodeMap.Add(Property->GetFName(), ChildNodePtr);
+				}
+				bool bCanDisplayFavorite = false;
+				if(bVisibleByDefault && bIsUserVisible && !bPushOutStructProps)
+				{
+					FName CategoryName = CurCategory;
+					// For properties inside a struct, add them to their own category unless they just take the name of the parent struct.  
+					// In that case push them to the parent category
+					FName PropertyCatagoryName = FObjectEditorUtils::GetCategoryFName(Property);
+					if(!ParentStructProp || (PropertyCatagoryName != ParentStructProp->Struct->GetFName()))
+					{
+						CategoryName = PropertyCatagoryName;
+					}
+
+					if(!LocalUpdateFavoriteSystemOnly)
+					{
+						if(IsPropertyReadOnly(PropertyAndParent))
+						{
+							ChildNode.SetNodeFlags(EPropertyNodeFlags::IsReadOnly, true);
+						}
+
+						// Add a property to the default category
+						FDetailCategoryImpl& CategoryImpl = DetailLayout.DefaultCategory(CategoryName);
+						CategoryImpl.AddPropertyNode(ChildNodePtr.ToSharedRef(), InstanceName);
+					}
+
+					bCanDisplayFavorite = true;
+					if(bEnableFavoriteSystem)
+					{
+						if(bIsCustomizedStruct)
+						{
+							bCanDisplayFavorite = false;
+							//CustomizedStruct child are not categorize since they are under an object but we have to put them in favorite category if the user want to favorite them
+							LocalUpdateFavoriteSystemOnly = true;
+						}
+						else if(ChildNodePtr->IsFavorite())
+						{
+							//Find or create the favorite category, we have to duplicate favorite property row under this category
+							FString CategoryFavoritesName = TEXT("Favorites");
+							FName CatFavName = *CategoryFavoritesName;
+							FDetailCategoryImpl& CategoryFavImpl = DetailLayout.DefaultCategory(CatFavName);
+							CategoryFavImpl.SetSortOrder(0);
+							CategoryFavImpl.SetCategoryAsSpecialFavorite();
+
+							//Add the property to the favorite
+							FObjectPropertyNode *RootObjectParent = ChildNodePtr->FindRootObjectItemParent();
+							FName RootInstanceName = NAME_None;
+							if(RootObjectParent != nullptr)
+							{
+								RootInstanceName = RootObjectParent->GetObjectBaseClass()->GetFName();
+							}
+
+							if(LocalUpdateFavoriteSystemOnly)
+							{
+								if(IsPropertyReadOnly(PropertyAndParent))
+								{
+									ChildNode.SetNodeFlags(EPropertyNodeFlags::IsReadOnly, true);
+								}
+								else
+								{
+									//If the parent has a condition that is not met, make the child as readonly
+									FDetailLayoutCustomization ParentTmpCustomization;
+									ParentTmpCustomization.PropertyRow = MakeShareable(new FDetailPropertyRow(InNode.AsShared(), CategoryFavImpl.AsShared()));
+									if(ParentTmpCustomization.PropertyRow->GetPropertyEditor()->IsPropertyEditingEnabled() == false)
+									{
+										ChildNode.SetNodeFlags(EPropertyNodeFlags::IsReadOnly, true);
+									}
+								}
+							}
+
+							//Duplicate the row
+							CategoryFavImpl.AddPropertyNode(ChildNodePtr.ToSharedRef(), RootInstanceName);
+						}
+
+						if(bIsStruct)
+						{
+							LocalUpdateFavoriteSystemOnly = true;
+						}
+					}
+				}
+				ChildNodePtr->SetCanDisplayFavorite(bCanDisplayFavorite);
+
+				bool bRecurseIntoChildren =
+					!bIsChildOfCustomizedStruct // Don't recurse into built in struct children, we already know what they are and how to display them
+					&&  !bIsCustomizedStruct // Don't recurse into customized structs
+					&&	!bIsChildOfArray // Do not recurse into arrays, the children are drawn by the array property parent
+					&&	!bIsEditInlineNew // Edit inline new children are not supported for customization yet
+					&&	bIsUserVisible // Properties must be allowed to be visible by a user if they are not then their children are not visible either
+					&& (!bIsStruct || bPushOutStructProps); //  Only recurse into struct properties if they are going to be displayed as standalone properties in categories instead of inside an expandable area inside a category
+
+				if(bRecurseIntoChildren || LocalUpdateFavoriteSystemOnly)
+				{
+					// Built in struct properties or children of arras 
+					UpdateSinglePropertyMapRecursive(ChildNode, LayoutData, CurCategory, CurObjectNode, bEnableFavoriteSystem, LocalUpdateFavoriteSystemOnly);
+				}
+			}
+		}
+	}
+}
+
 void SDetailsViewBase::OnColorPickerWindowClosed(const TSharedRef<SWindow>& Window)
 {
 	const TSharedPtr< FPropertyNode > PinnedColorPropertyNode = ColorPropertyNode.Pin();
@@ -342,6 +674,11 @@ TSharedPtr<IDetailPropertyExtensionHandler> SDetailsViewBase::GetExtensionHandle
 void SDetailsViewBase::SetGenericLayoutDetailsDelegate(FOnGetDetailCustomizationInstance OnGetGenericDetails)
 {
 	GenericLayoutDelegate = OnGetGenericDetails;
+}
+
+void SDetailsViewBase::RefreshRootObjectVisibility()
+{
+	RerunCurrentFilter();
 }
 
 TSharedPtr<FAssetThumbnailPool> SDetailsViewBase::GetThumbnailPool() const
@@ -489,15 +826,15 @@ void SDetailsViewBase::FilterView(const FString& InFilterText)
 	UpdateFilteredDetails();
 }
 
-void SDetailsViewBase::QueryLayoutForClass(FDetailLayoutBuilderImpl& CustomDetailLayout, UStruct* Class)
+void SDetailsViewBase::QueryLayoutForClass(FDetailLayoutData& LayoutData, UStruct* Class)
 {
-	CustomDetailLayout.SetCurrentCustomizationClass(CastChecked<UClass>(Class), NAME_None);
+	LayoutData.DetailLayout->SetCurrentCustomizationClass(Class, NAME_None);
 
 	FPropertyEditorModule& ParentPlugin = FModuleManager::GetModuleChecked<FPropertyEditorModule>("PropertyEditor");
 	FCustomDetailLayoutNameMap& GlobalCustomLayoutNameMap = ParentPlugin.ClassNameToDetailLayoutNameMap;
 
 	// Check the instanced map first
-	FDetailLayoutCallback* Callback = InstancedClassToDetailLayoutMap.Find(TWeakObjectPtr<UStruct>(Class));
+	FDetailLayoutCallback* Callback = InstancedClassToDetailLayoutMap.Find(Class);
 
 	if (!Callback)
 	{
@@ -511,26 +848,23 @@ void SDetailsViewBase::QueryLayoutForClass(FDetailLayoutBuilderImpl& CustomDetai
 		TSharedRef<IDetailCustomization> CustomizationInstance = Callback->DetailLayoutDelegate.Execute();
 
 		// Ask for details immediately
-		CustomizationInstance->CustomizeDetails(CustomDetailLayout);
+		CustomizationInstance->CustomizeDetails(*LayoutData.DetailLayout);
 
 		// Save the instance from destruction until we refresh
-		CustomizationClassInstances.Add(CustomizationInstance);
+		LayoutData.CustomizationClassInstances.Add(CustomizationInstance);
 	}
 }
 
-void SDetailsViewBase::QueryCustomDetailLayout(FDetailLayoutBuilderImpl& CustomDetailLayout)
+void SDetailsViewBase::QueryCustomDetailLayout(FDetailLayoutData& LayoutData)
 {
 	FPropertyEditorModule& ParentPlugin = FModuleManager::GetModuleChecked<FPropertyEditorModule>("PropertyEditor");
 
 	// Get the registered classes that customize details
 	FCustomDetailLayoutNameMap& GlobalCustomLayoutNameMap = ParentPlugin.ClassNameToDetailLayoutNameMap;
 
-	UStruct* BaseStruct = GetBaseStruct();
+	UStruct* BaseStruct = LayoutData.DetailLayout->GetRootNode()->GetBaseStructure();
 
-	// All the current customization instances need to be deleted when it is safe
-	CustomizationClassInstancesPendingDelete = CustomizationClassInstances;
-
-	CustomizationClassInstances.Empty();
+	LayoutData.CustomizationClassInstances.Empty();
 
 	//Ask for generic details not specific to an object being viewed 
 	if (GenericLayoutDelegate.IsBound())
@@ -539,10 +873,10 @@ void SDetailsViewBase::QueryCustomDetailLayout(FDetailLayoutBuilderImpl& CustomD
 		TSharedRef<IDetailCustomization> CustomizationInstance = GenericLayoutDelegate.Execute();
 
 		// Ask for details immediately
-		CustomizationInstance->CustomizeDetails(CustomDetailLayout);
+		CustomizationInstance->CustomizeDetails(*LayoutData.DetailLayout);
 
 		// Save the instance from destruction until we refresh
-		CustomizationClassInstances.Add(CustomizationInstance);
+		LayoutData.CustomizationClassInstances.Add(CustomizationInstance);
 	}
 
 
@@ -557,23 +891,29 @@ void SDetailsViewBase::QueryCustomDetailLayout(FDetailLayoutBuilderImpl& CustomD
 
 	TMap< TWeakObjectPtr<UStruct>, FDetailLayoutCallback*> FinalCallbackMap;
 
-	for (auto ClassIt = ClassesWithProperties.CreateConstIterator(); ClassIt; ++ClassIt)
+	for (auto ClassIt = LayoutData.ClassesWithProperties.CreateConstIterator(); ClassIt; ++ClassIt)
 	{
+		// Must be a class
+		UClass* Class = Cast<UClass>(ClassIt->Get());
+		if (!Class)
+		{
+			continue;
+		}
+
 		// Check the instanced map first
-		FDetailLayoutCallback* Callback = InstancedClassToDetailLayoutMap.Find(*ClassIt);
+		FDetailLayoutCallback* Callback = InstancedClassToDetailLayoutMap.Find(Class);
 
 		if (!Callback)
 		{
 			// callback wasn't found in the per instance map, try the global instances instead
-			Callback = GlobalCustomLayoutNameMap.Find((*ClassIt)->GetFName());
+			Callback = GlobalCustomLayoutNameMap.Find(Class->GetFName());
 		}
 
 		if (Callback)
 		{
-			FinalCallbackMap.Add(*ClassIt, Callback);
+			FinalCallbackMap.Add(Class, Callback);
 		}
 	}
-
 
 	FinalCallbackMap.ValueSort(FCompareFDetailLayoutCallback());
 
@@ -590,11 +930,11 @@ void SDetailsViewBase::QueryCustomDetailLayout(FDetailLayoutBuilderImpl& CustomD
 			{
 				UStruct* Class = WeakClass.Get();
 
-				FClassInstanceToPropertyMap& InstancedPropertyMap = ClassToPropertyMap.FindChecked(Class->GetFName());
+				FClassInstanceToPropertyMap& InstancedPropertyMap = LayoutData.ClassToPropertyMap.FindChecked(Class->GetFName());
 				for (FClassInstanceToPropertyMap::TIterator InstanceIt(InstancedPropertyMap); InstanceIt; ++InstanceIt)
 				{
 					FName Key = InstanceIt.Key();
-					CustomDetailLayout.SetCurrentCustomizationClass(Class, Key);
+					LayoutData.DetailLayout->SetCurrentCustomizationClass(Class, Key);
 
 					const FOnGetDetailCustomizationInstance& DetailDelegate = LayoutIt.Value()->DetailLayoutDelegate;
 
@@ -606,10 +946,10 @@ void SDetailsViewBase::QueryCustomDetailLayout(FDetailLayoutBuilderImpl& CustomD
 						TSharedRef<IDetailCustomization> CustomizationInstance = DetailDelegate.Execute();
 
 						// Ask for details immediately
-						CustomizationInstance->CustomizeDetails(CustomDetailLayout);
+						CustomizationInstance->CustomizeDetails(*LayoutData.DetailLayout);
 
 						// Save the instance from destruction until we refresh
-						CustomizationClassInstances.Add(CustomizationInstance);
+						LayoutData.CustomizationClassInstances.Add(CustomizationInstance);
 					}
 				}
 			}
@@ -621,29 +961,29 @@ void SDetailsViewBase::QueryCustomDetailLayout(FDetailLayoutBuilderImpl& CustomD
 	if (BaseStruct && !QueriedClasses.Contains(BaseStruct))
 	{
 		ParentClassesToQuery.Add(BaseStruct);
-		ClassesWithProperties.Add(BaseStruct);
+		LayoutData.ClassesWithProperties.Add(BaseStruct);
 	}
 
 	// Find base classes of queried classes that were not queried and add them to the query list
 	// this supports cases where a parent class has no properties but still wants to add customization
-	for (auto QueriedClassIt = ClassesWithProperties.CreateConstIterator(); QueriedClassIt; ++QueriedClassIt)
+	for (auto QueriedClassIt = LayoutData.ClassesWithProperties.CreateConstIterator(); QueriedClassIt; ++QueriedClassIt)
 	{
 		UStruct* ParentStruct = (*QueriedClassIt)->GetSuperStruct();
 
-		while (ParentStruct && ParentStruct->IsA(UClass::StaticClass()) && !QueriedClasses.Contains(ParentStruct) && !ClassesWithProperties.Contains(ParentStruct))
+		while (ParentStruct && ParentStruct->IsA(UClass::StaticClass()) && !QueriedClasses.Contains(ParentStruct) && !LayoutData.ClassesWithProperties.Contains(ParentStruct))
 		{
 			ParentClassesToQuery.Add(ParentStruct);
 			ParentStruct = ParentStruct->GetSuperStruct();
-
 		}
 	}
 
 	// Query extra base classes
 	for (auto ParentIt = ParentClassesToQuery.CreateConstIterator(); ParentIt; ++ParentIt)
 	{
-		if (Cast<UClass>(*ParentIt))
+		UClass* ParentClass = Cast<UClass>(*ParentIt);
+		if (ParentClass)
 		{
-			QueryLayoutForClass(CustomDetailLayout, *ParentIt);
+			QueryLayoutForClass(LayoutData, ParentClass);
 		}
 	}
 }
@@ -688,26 +1028,33 @@ void SDetailsViewBase::Tick( const FGeometry& AllottedGeometry, const double InC
 			PendingKillNode.Reset();
 		}
 	}
-	RootNodesPendingKill.Reset();
+	RootNodesPendingKill.Empty();
 
 	// Empty all the customization instances that need to be deleted
 	CustomizationClassInstancesPendingDelete.Empty();
 
-	auto RootPropertyNode = GetRootNode();
-	check(RootPropertyNode.IsValid());
+	FRootPropertyNodeList& RootPropertyNodes = GetRootNodes();
 
-	// Purge any objects that are marked pending kill from the object list
-	if (auto ObjectRoot = RootPropertyNode->AsObjectNode())
+	for(TSharedPtr<FComplexPropertyNode>& RootPropertyNode : RootPropertyNodes)
 	{
-		ObjectRoot->PurgeKilledObjects();
+		check(RootPropertyNode.IsValid());
+
+		// Purge any objects that are marked pending kill from the object list
+		if(auto ObjectRoot = RootPropertyNode->AsObjectNode())
+		{
+			ObjectRoot->PurgeKilledObjects();
+		}
+
+		if(DeferredActions.Num() > 0)
+		{		
+			// Any deferred actions are likely to cause the node  tree to be at least partially rebuilt
+			// Save the expansion state of existing nodes so we can expand them later
+			SaveExpandedItems(RootPropertyNode.ToSharedRef());
+		}
 	}
 
 	if (DeferredActions.Num() > 0)
 	{
-		// Any deferred actions are likely to cause the node  tree to be at least partially rebuilt
-		// Save the expansion state of existing nodes so we can expand them later
-		SaveExpandedItems( RootPropertyNode.ToSharedRef() );
-
 		// Execute any deferred actions
 		for (int32 ActionIndex = 0; ActionIndex < DeferredActions.Num(); ++ActionIndex)
 		{
@@ -717,39 +1064,52 @@ void SDetailsViewBase::Tick( const FGeometry& AllottedGeometry, const double InC
 	}
 
 	TSharedPtr<FComplexPropertyNode> LastRootPendingKill;
-	if ( RootNodesPendingKill.Num() > 0 )
+	if (RootNodesPendingKill.Num() > 0 )
 	{
 		LastRootPendingKill = RootNodesPendingKill.Last();
 	}
 
-	if ( RootPropertyNode == LastRootPendingKill )
-	{ 
-		// Reaquire the root property node.  It may have been changed by the deferred actions if something like a blueprint editor forcefully resets a details panel during a posteditchange
-		RootPropertyNode = GetRootNode();
-
-		RestoreExpandedItems( RootPropertyNode.ToSharedRef() );
-	}
-
-
 	bool bValidateExternalNodes = true;
-	FPropertyNode::DataValidationResult Result = RootPropertyNode->EnsureDataIsValid();
-	if (Result == FPropertyNode::PropertiesChanged || Result == FPropertyNode::EditInlineNewValueChanged)
-	{
-		RestoreExpandedItems( RootPropertyNode.ToSharedRef() );
-		UpdatePropertyMap();
-		UpdateFilteredDetails();
-	}
-	else if (Result == FPropertyNode::ArraySizeChanged)
-	{
-		RestoreExpandedItems( RootPropertyNode.ToSharedRef() );
-		UpdateFilteredDetails();
-	}
-	else if (Result == FPropertyNode::ObjectInvalid)
-	{
+
+	int32 FoundIndex = RootPropertyNodes.Find(LastRootPendingKill);
+	if (FoundIndex != INDEX_NONE)
+	{ 
+		// Reaquire the root property nodes.  It may have been changed by the deferred actions if something like a blueprint editor forcefully resets a details panel during a posteditchange
 		ForceRefresh();
 
 		// All objects are being reset, no need to validate external nodes
 		bValidateExternalNodes = false;
+	}
+	else
+	{
+		for(TSharedPtr<FComplexPropertyNode>& RootPropertyNode : RootPropertyNodes)
+		{
+			if(RootPropertyNode == LastRootPendingKill)
+			{
+				RestoreExpandedItems(RootPropertyNode.ToSharedRef());
+			}
+
+			EPropertyDataValidationResult Result = RootPropertyNode->EnsureDataIsValid();
+			if(Result == EPropertyDataValidationResult::PropertiesChanged || Result == EPropertyDataValidationResult::EditInlineNewValueChanged)
+			{
+				RestoreExpandedItems(RootPropertyNode.ToSharedRef());
+				UpdatePropertyMaps();
+				UpdateFilteredDetails();
+			}
+			else if(Result == EPropertyDataValidationResult::ArraySizeChanged)
+			{
+				RestoreExpandedItems(RootPropertyNode.ToSharedRef());
+				UpdateFilteredDetails();
+			}
+			else if(Result == EPropertyDataValidationResult::ObjectInvalid)
+			{
+				ForceRefresh();
+				break;
+
+				// All objects are being reset, no need to validate external nodes
+				bValidateExternalNodes = false;
+			}
+		}
 	}
 
 	if (bValidateExternalNodes)
@@ -760,17 +1120,17 @@ void SDetailsViewBase::Tick( const FGeometry& AllottedGeometry, const double InC
 
 			if (PropertyNode.IsValid())
 			{
-				Result = PropertyNode->EnsureDataIsValid();
-				if (Result == FPropertyNode::PropertiesChanged || Result == FPropertyNode::EditInlineNewValueChanged)
+				EPropertyDataValidationResult Result = PropertyNode->EnsureDataIsValid();
+				if (Result == EPropertyDataValidationResult::PropertiesChanged || Result == EPropertyDataValidationResult::EditInlineNewValueChanged)
 				{
 					RestoreExpandedItems(PropertyNode.ToSharedRef());
-					UpdatePropertyMap();
+					UpdatePropertyMaps();
 					UpdateFilteredDetails();
 					// Note this will invalidate all the external root nodes so there is no need to continue
 					ExternalRootPropertyNodes.Empty();
 					break;
 				}
-				else if (Result == FPropertyNode::ArraySizeChanged)
+				else if (Result == EPropertyDataValidationResult::ArraySizeChanged)
 				{
 					RestoreExpandedItems(PropertyNode.ToSharedRef());
 					UpdateFilteredDetails();
@@ -785,9 +1145,12 @@ void SDetailsViewBase::Tick( const FGeometry& AllottedGeometry, const double InC
 		}
 	}
 
-	if (DetailLayout.IsValid())
+	for(FDetailLayoutData& LayoutData : DetailLayouts)
 	{
-		DetailLayout->Tick(InDeltaTime);
+		if(LayoutData.DetailLayout.IsValid())
+		{
+			LayoutData.DetailLayout->Tick(InDeltaTime);
+		}
 	}
 
 	if (!ColorPropertyNode.IsValid() && bHasOpenColorPicker)
@@ -907,7 +1270,7 @@ void SDetailsViewBase::SaveExpandedItems( TSharedRef<FPropertyNode> StartNode )
 		}
 	}
 
-	if (DetailLayout.IsValid() && BestBaseStruct)
+	if (DetailLayouts.Num() > 0 && BestBaseStruct)
 	{
 		bool bShouldSave = !ExpandedCustomItemsString.IsEmpty();
 		if (!bShouldSave)
@@ -956,255 +1319,68 @@ void SDetailsViewBase::RestoreExpandedItems(TSharedRef<FPropertyNode> InitialSta
 
 void SDetailsViewBase::UpdateFilteredDetails()
 {
-	auto RootPropertyNode = GetRootNode();
-	if (RootPropertyNode.IsValid())
+	RootTreeNodes.Reset();
+
+	FDetailNodeList InitialRootNodeList;
+	
+	NumVisbleTopLevelObjectNodes = 0;
+	FRootPropertyNodeList& RootPropertyNodes = GetRootNodes();
+
+	for(int32 RootNodeIndex = 0; RootNodeIndex < RootPropertyNodes.Num(); ++RootNodeIndex)
 	{
-		RootPropertyNode->FilterNodes(CurrentFilter.FilterStrings);
-		RootPropertyNode->ProcessSeenFlags(true);
-
-		for (int32 NodeIndex = 0; NodeIndex < ExternalRootPropertyNodes.Num(); ++NodeIndex)
+		TSharedPtr<FComplexPropertyNode>& RootPropertyNode = RootPropertyNodes[RootNodeIndex];
+		if(RootPropertyNode.IsValid())
 		{
-			TSharedPtr<FPropertyNode> PropertyNode = ExternalRootPropertyNodes[NodeIndex].Pin();
+			RootPropertyNode->FilterNodes(CurrentFilter.FilterStrings);
+			RootPropertyNode->ProcessSeenFlags(true);
 
-			if (PropertyNode.IsValid())
+			for(int32 NodeIndex = 0; NodeIndex < ExternalRootPropertyNodes.Num(); ++NodeIndex)
 			{
-				PropertyNode->FilterNodes(CurrentFilter.FilterStrings);
-				PropertyNode->ProcessSeenFlags(true);
+				TSharedPtr<FPropertyNode> PropertyNode = ExternalRootPropertyNodes[NodeIndex].Pin();
+
+				if(PropertyNode.IsValid())
+				{
+					PropertyNode->FilterNodes(CurrentFilter.FilterStrings);
+					PropertyNode->ProcessSeenFlags(true);
+				}
 			}
-		}
 
-		if (DetailLayout.IsValid())
+			TSharedPtr<FDetailLayoutBuilderImpl>& DetailLayout = DetailLayouts[RootNodeIndex].DetailLayout;
+			if(DetailLayout.IsValid())
+			{
+				DetailLayout->FilterDetailLayout(CurrentFilter);
+			}
+
+			FDetailNodeList& LayoutRoots = DetailLayout->GetRootTreeNodes();
+			if(LayoutRoots.Num() > 0)
+			{
+				// A top level object nodes has a non-filtered away root so add one to the total number we have
+				++NumVisbleTopLevelObjectNodes;
+
+				InitialRootNodeList.Append(LayoutRoots);
+			}
+		
+		}
+	}
+
+
+	// for multiple top level object we need to do a secondary pass on top level object nodes after we have determined if there is any nodes visible at all.  If there are then we ask the details panel if it wants to show childen
+	for(TSharedRef<class IDetailTreeNode> RootNode : InitialRootNodeList)
+	{
+		if(RootNode->ShouldShowOnlyChildren())
 		{
-			DetailLayout->FilterDetailLayout(CurrentFilter);
+			RootNode->GetChildren(RootTreeNodes);
 		}
-
-		RootTreeNodes = DetailLayout->GetRootTreeNodes();
+		else
+		{
+			RootTreeNodes.Add(RootNode);
+		}
 	}
 
 	RefreshTree();
 }
 
-/**
-* Determines whether or not a property should be visible in the default generated detail layout
-*
-* @param PropertyNode	The property node to check
-* @param ParentNode	The parent property node to check
-* @return true if the property should be visible
-*/
-static bool IsVisibleStandaloneProperty(const FPropertyNode& PropertyNode, const FPropertyNode& ParentNode)
-{
-	const UProperty* Property = PropertyNode.GetProperty();
-	const UArrayProperty* ParentArrayProperty = Cast<const UArrayProperty>(ParentNode.GetProperty());
-	bool bIsVisibleStandalone = false;
-	if (Property)
-	{
-		if (Property->IsA(UObjectPropertyBase::StaticClass()))
-		{
-			// Do not add this child node to the current map if its a single object property in a category (serves no purpose for UI)
-			bIsVisibleStandalone = !ParentArrayProperty && (PropertyNode.GetNumChildNodes() == 0 || PropertyNode.GetNumChildNodes() > 1);
-		}
-		else if (Property->IsA(UArrayProperty::StaticClass()) || (Property->ArrayDim > 1 && PropertyNode.GetArrayIndex() == INDEX_NONE))
-		{
-			// Base array properties are always visible
-			bIsVisibleStandalone = true;
-		}
-		else
-		{
-			bIsVisibleStandalone = true;
-		}
 
-	}
-
-	return bIsVisibleStandalone;
-}
-
-void SDetailsViewBase::UpdatePropertyMapRecursive(FPropertyNode& InNode, FDetailLayoutBuilderImpl& InDetailLayout, FName CurCategory, FComplexPropertyNode* CurObjectNode)
-{
-	UProperty* ParentProperty = InNode.GetProperty();
-	UStructProperty* ParentStructProp = Cast<UStructProperty>(ParentProperty);
-
-	for (int32 ChildIndex = 0; ChildIndex < InNode.GetNumChildNodes(); ++ChildIndex)
-	{
-		TSharedPtr<FPropertyNode> ChildNodePtr = InNode.GetChildNode(ChildIndex);
-		FPropertyNode& ChildNode = *ChildNodePtr;
-		UProperty* Property = ChildNode.GetProperty();
-
-		{
-			FObjectPropertyNode* ObjNode = ChildNode.AsObjectNode();
-			FCategoryPropertyNode* CategoryNode = ChildNode.AsCategoryNode();
-			if (ObjNode)
-			{
-				// Currently object property nodes do not provide any useful information other than being a container for its children.  We do not draw anything for them.
-				// When we encounter object property nodes, add their children instead of adding them to the tree.
-				UpdatePropertyMapRecursive(ChildNode, InDetailLayout, CurCategory, ObjNode);
-			}
-			else if (CategoryNode)
-			{
-				// For category nodes, we just set the current category and recurse through the children
-				UpdatePropertyMapRecursive(ChildNode, InDetailLayout, CategoryNode->GetCategoryName(), CurObjectNode);
-			}
-			else
-			{
-				// Whether or not the property can be visible in the default detail layout
-				bool bVisibleByDefault = IsVisibleStandaloneProperty(ChildNode, InNode);
-
-				// Whether or not the property is a struct
-				UStructProperty* StructProperty = Cast<UStructProperty>(Property);
-
-				bool bIsStruct = StructProperty != NULL;
-
-				static FName ShowOnlyInners("ShowOnlyInnerProperties");
-
-				bool bIsChildOfCustomizedStruct = false;
-				bool bIsCustomizedStruct = false;
-
-				const UStruct* Struct = StructProperty ? StructProperty->Struct : NULL;
-				const UStruct* ParentStruct = ParentStructProp ? ParentStructProp->Struct : NULL;
-				if (Struct || ParentStruct)
-				{
-					FPropertyEditorModule& ParentPlugin = FModuleManager::GetModuleChecked<FPropertyEditorModule>("PropertyEditor");
-					if (Struct)
-					{
-						bIsCustomizedStruct = ParentPlugin.IsCustomizedStruct(Struct, SharedThis( this ) );
-					}
-
-					if (ParentStruct)
-					{
-						bIsChildOfCustomizedStruct = ParentPlugin.IsCustomizedStruct(ParentStruct, SharedThis( this ) );
-					}
-				}
-
-				// Whether or not to push out struct properties to their own categories or show them inside an expandable struct 
-				bool bPushOutStructProps = bIsStruct && !bIsCustomizedStruct && !ParentStructProp && Property->HasMetaData(ShowOnlyInners);
-
-				// Is the property edit inline new 
-				const bool bIsEditInlineNew = SPropertyEditorEditInline::Supports(&ChildNode, ChildNode.GetArrayIndex());
-
-				// Is this a property of an array
-				bool bIsChildOfArray = PropertyEditorHelpers::IsChildOfArray(ChildNode);
-
-				// Edit inline new properties should be visible by default
-				bVisibleByDefault |= bIsEditInlineNew;
-
-				// Children of arrays are not visible directly,
-				bVisibleByDefault &= !bIsChildOfArray;
-
-				FPropertyAndParent PropertyAndParent(*Property, ParentProperty);
-				const bool bIsUserVisible = IsPropertyVisible(PropertyAndParent);
-
-				// Inners of customized in structs should not be taken into consideration for customizing.  They are not designed to be individually customized when their parent is already customized
-				if (!bIsChildOfCustomizedStruct)
-				{
-					// Add any object classes with properties so we can ask them for custom property layouts later
-					ClassesWithProperties.Add(Property->GetOwnerStruct());
-				}
-
-				// If there is no outer object then the class is the object root and there is only one instance
-				FName InstanceName = NAME_None;
-				if (CurObjectNode && CurObjectNode->GetParentNode())
-				{
-					InstanceName = CurObjectNode->GetParentNode()->GetProperty()->GetFName();
-				}
-				else if (ParentStructProp)
-				{
-					InstanceName = ParentStructProp->GetFName();
-				}
-
-				// Do not add children of customized in struct properties or arrays
-				if (!bIsChildOfCustomizedStruct && !bIsChildOfArray)
-				{
-					// Get the class property map
-					FClassInstanceToPropertyMap& ClassInstanceMap = ClassToPropertyMap.FindOrAdd(Property->GetOwnerStruct()->GetFName());
-
-					FPropertyNodeMap& PropertyNodeMap = ClassInstanceMap.FindOrAdd(InstanceName);
-
-					if (!PropertyNodeMap.ParentProperty)
-					{
-						PropertyNodeMap.ParentProperty = CurObjectNode;
-					}
-					else
-					{
-						ensure(PropertyNodeMap.ParentProperty == CurObjectNode);
-					}
-
-					checkSlow(!PropertyNodeMap.Contains(Property->GetFName()));
-
-					PropertyNodeMap.Add(Property->GetFName(), ChildNodePtr);
-				}
-
-				if (bVisibleByDefault && bIsUserVisible && !bPushOutStructProps)
-				{
-					FName CategoryName = CurCategory;
-
-					// For properties inside a struct, add them to their own category unless they just take the name of the parent struct.  
-					// In that case push them to the parent category
-					FName PropertyCatagoryName = FObjectEditorUtils::GetCategoryFName(Property);
-					if (!ParentStructProp || (PropertyCatagoryName != ParentStructProp->Struct->GetFName()))
-					{
-						CategoryName = PropertyCatagoryName;
-					}
-
-					if (IsPropertyReadOnly(PropertyAndParent))
-					{
-						ChildNode.SetNodeFlags(EPropertyNodeFlags::IsReadOnly, true);
-					}
-
-					// Add a property to the default category
-					FDetailCategoryImpl& CategoryImpl = InDetailLayout.DefaultCategory(CategoryName);
-					CategoryImpl.AddPropertyNode(ChildNodePtr.ToSharedRef(), InstanceName);
-				}
-
-				bool bRecurseIntoChildren =
-					!bIsChildOfCustomizedStruct // Don't recurse into built in struct children, we already know what they are and how to display them
-					&&  !bIsCustomizedStruct // Don't recurse into customized structs
-					&&	!bIsChildOfArray // Do not recurse into arrays, the children are drawn by the array property parent
-					&&	!bIsEditInlineNew // Edit inline new children are not supported for customization yet
-					&&	bIsUserVisible // Properties must be allowed to be visible by a user if they are not then their children are not visible either
-					&& (!bIsStruct || bPushOutStructProps); //  Only recurse into struct properties if they are going to be displayed as standalone properties in categories instead of inside an expandable area inside a category
-
-				if (bRecurseIntoChildren)
-				{
-					// Built in struct properties or children of arras 
-					UpdatePropertyMapRecursive(ChildNode, InDetailLayout, CurCategory, CurObjectNode);
-				}
-			}
-		}
-	}
-}
-
-void SDetailsViewBase::UpdatePropertyMap()
-{
-	// Reset everything
-	ClassToPropertyMap.Empty();
-	ClassesWithProperties.Empty();
-
-	// We need to be able to create a new detail layout and properly clean up the old one in the process
-	check(!DetailLayout.IsValid() || DetailLayout.IsUnique());
-
-	RootTreeNodes.Empty();
-
-	DetailLayout = MakeShareable(new FDetailLayoutBuilderImpl(ClassToPropertyMap, PropertyUtilities.ToSharedRef(), SharedThis(this)));
-
-
-	auto RootPropertyNode = GetRootNode();
-	check(RootPropertyNode.IsValid());
-	// Currently object property nodes do not provide any useful information other than being a container for its children.  We do not draw anything for them.
-	// When we encounter object property nodes, add their children instead of adding them to the tree.
-	UpdatePropertyMapRecursive(*RootPropertyNode, *DetailLayout, NAME_None, RootPropertyNode.Get());
-
-	CustomUpdatePropertyMap();
-
-	// Ask for custom detail layouts, unless disabled. One reason for disabling custom layouts is that the custom layouts
-	// inhibit our ability to find a single property's tree node. This is problematic for the diff and merge tools, that need
-	// to display and highlight each changed property for the user. We could whitelist 'good' customizations here if 
-	// we can make them work with the diff/merge tools.
-	if( !bDisableCustomDetailLayouts )
-	{
-		QueryCustomDetailLayout(*DetailLayout);
-	}
-	
-	DetailLayout->GenerateDetailLayout();
-}
 
 void SDetailsViewBase::RegisterInstancedCustomPropertyLayoutInternal(UStruct* Class, FOnGetDetailCustomizationInstance DetailLayoutDelegate)
 {

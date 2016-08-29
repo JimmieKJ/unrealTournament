@@ -18,7 +18,7 @@ FTileSetEditorViewportClient::FTileSetEditorViewportClient(UPaperTileSet* InTile
 {
 }
 
-void FTileSetEditorViewportClient::Draw(FViewport* Viewport, FCanvas* Canvas)
+void FTileSetEditorViewportClient::Draw(FViewport* InViewport, FCanvas* Canvas)
 {
 	// Clear the viewport
 	Canvas->Clear(GetBackgroundColor());
@@ -103,7 +103,7 @@ void FTileSetEditorViewportClient::Draw(FViewport* Viewport, FCanvas* Canvas)
 	}
 
 	// Overlay the selection rectangles
-	DrawSelectionRectangles(Viewport, Canvas);
+	DrawSelectionRectangles(InViewport, Canvas);
 
 	if (bHasValidPaintRectangle)
 	{
@@ -127,7 +127,7 @@ void FTileSetEditorViewportClient::Draw(FViewport* Viewport, FCanvas* Canvas)
 		int32 YL;
 		StringSize(GEngine->GetLargeFont(), XL, YL, *TileIndexString);
 		const float DrawX = 4.0f;
-		const float DrawY = FMath::FloorToFloat(Viewport->GetSizeXY().Y - YL - 4.0f);
+		const float DrawY = FMath::FloorToFloat(InViewport->GetSizeXY().Y - YL - 4.0f);
 		Canvas->DrawShadowedString(DrawX, DrawY, *TileIndexString, GEngine->GetLargeFont(), FLinearColor::White);
 	}
 }

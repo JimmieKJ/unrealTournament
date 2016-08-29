@@ -133,7 +133,7 @@ public:
 
 			// Walk up the tree to find the node closest to the root that doesn't have any used children
 			int32 ParentNodeIndex = FindParentNode(FoundNodeIndex);
-			ParentNodeIndex = IsNodeUsed(ParentNodeIndex) ? INDEX_NONE : ParentNodeIndex;
+			ParentNodeIndex = (ParentNodeIndex != INDEX_NONE && IsNodeUsed(ParentNodeIndex)) ? INDEX_NONE : ParentNodeIndex;
 			int32 LastParentNodeIndex = ParentNodeIndex;
 			while (ParentNodeIndex != INDEX_NONE 
 				&& !IsNodeUsed(Nodes[ParentNodeIndex].ChildA) 

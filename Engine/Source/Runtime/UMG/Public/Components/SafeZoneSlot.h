@@ -16,6 +16,9 @@ public:
 	bool bIsTitleSafe;
 
 	UPROPERTY( EditAnywhere, BlueprintReadOnly, Category = SafeZone )
+	FMargin SafeAreaScale;
+
+	UPROPERTY( EditAnywhere, BlueprintReadOnly, Category = SafeZone )
 	TEnumAsByte< EHorizontalAlignment > HAlign;
 
 	UPROPERTY( EditAnywhere, BlueprintReadOnly, Category = SafeZone )

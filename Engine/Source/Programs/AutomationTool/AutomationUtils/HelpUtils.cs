@@ -144,7 +144,10 @@ namespace AutomationTool
 				HelpMessage += "Parameters: " + Environment.NewLine;
 				HelpMessage += Environment.NewLine;
 
-				HelpMessage += FormatParams(Params, 4, 24);
+				foreach(string Line in FormatParams(Params, 4, 24))
+				{
+					HelpMessage += Line + Environment.NewLine;
+				}
 			}
 
 			Log(HelpMessage);
@@ -163,7 +166,7 @@ namespace AutomationTool
 		/// <param name="Indent">Indent from the left hand side</param>
 		/// <param name="DefaultRightPadding">The minimum padding from the start of the param name to the start of the description (resizes with larger param names)</param>
 		/// <returns></returns>
-		static string FormatParams(List<string> Params, int Indent, int DefaultRightPadding)
+		public static IEnumerable<string> FormatParams(IEnumerable<string> Params, int Indent, int DefaultRightPadding)
 		{
 			Dictionary<string, string> ParamDict = new Dictionary<string, string>(StringComparer.InvariantCultureIgnoreCase);
 
@@ -215,8 +218,16 @@ namespace AutomationTool
 				}
 			}
 
-			// results string
-			string FormattedParams = string.Empty;
+			// Get the window width, using a default value if there's no console attached to this process.
+			int WindowWidth;
+			try
+			{
+				WindowWidth = Console.WindowWidth;
+			}
+			catch
+			{
+				WindowWidth = 240;
+			}
 
 			// Build the formatted params
 			foreach (var ParamName in ParamDict.Keys)
@@ -225,21 +236,16 @@ namespace AutomationTool
 				string ParamString = IndentString + ParamName.PadRight(RightPadding);
 
 				// Build the description line by line, adding the same amount of intending each time. 
-				foreach (var DescriptionLine in WordWrap(ParamDict[ParamName], Console.WindowWidth - ParamString.Length))
+				foreach (var DescriptionLine in WordWrap(ParamDict[ParamName], WindowWidth - ParamString.Length))
 				{
 					// Formatting as following:
 					// <Indent>-param<Right Padding>Description<New line>
-					FormattedParams += ParamString + DescriptionLine + Environment.NewLine;
+					yield return ParamString + DescriptionLine;
 
 					// we replace the param string on subsequent lines with white space of the same length
 					ParamString = string.Empty.PadRight(IndentString.Length + RightPadding);
 				}
-
-				// new line after each param/desc combo
-				FormattedParams += Environment.NewLine;
 			}
-
-			return FormattedParams;
 		}
 
 		/// <summary>

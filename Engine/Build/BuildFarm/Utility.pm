@@ -66,16 +66,27 @@ sub p4_command
 					print "$error_text";
 					next;
 				}
+				if($additional_options->{'errors_as_warnings'})
+				{
+					s/^error:/warning:/;
+				}
 				$has_errors = 1;
 			}
 			print "$_";
 		}
 	}
 	
-	close P4 or fail("Failed to run $command_line");
-	
-	fail("Error executing P4.") if $has_errors;
-	fail("P4 terminated with exit code $?") if $?;
+	if($additional_options->{'errors_as_warnings'})
+	{
+		close P4;
+	}
+	else
+	{
+		close P4 or fail("Failed to run $command_line");
+
+		fail("Error executing P4.") if $has_errors;
+		fail("P4 terminated with exit code $?") if $?;
+	}
 	
 	@filtered_output;
 }
@@ -101,7 +112,9 @@ sub p4_command_with_input
 # Run a P4 command with -ztag, and parse the output into an array of hashes.
 sub p4_tagged_command
 {
-	my @output = p4_command("-ztag $_[0]");
+	my ($command, $additional_options) = @_;
+
+	my @output = p4_command("-ztag $command", $additional_options);
 	
 	my @objects;
 	my %current_object = ();
@@ -196,6 +209,7 @@ sub p4_get_local_path
 {
 	my ($workspace, $client_or_depot_path) = @_;
 	my @records = p4_tagged_command("-c$workspace->{'name'} where \"$client_or_depot_path\"");
+	@records = grep { !exists $_->{'unmap'} } @records;
 	fail("p4 where for $client_or_depot_path returned multiple records") if $#records > 0;
 	($#records == 0)? $records[0]->{'path'} : undef;
 }
@@ -513,25 +527,37 @@ sub find_node_definition
 	undef;
 }
 
-# finds the definition for a particular trigger from a job definition
-sub find_trigger_definition
+# finds the definition for a particular report from a job definition
+sub find_report_definition
 {
-	my ($job_definition, $trigger_name) = @_;
+	my ($job_definition, $report_name) = @_;
 	foreach my $trigger (@{$job_definition->{'Triggers'}})
 	{
-		return $trigger if $trigger->{'Name'} eq $trigger_name;
+		return $trigger if $trigger->{'Name'} eq $report_name;
+	}
+	foreach my $report (@{$job_definition->{'Reports'}})
+	{
+		return $report if $report->{'Name'} eq $report_name;
 	}
 	undef;
 }
 
-# gets outcome for a trigger
-sub get_trigger_jobsteps
+# finds the definition for a particular report from a job definition
+sub find_badge_definition
 {
-	my ($job, $trigger_definition) = @_;
+	my ($job_definition, $badge_name) = @_;
+	foreach my $badge_definition (@{$job_definition->{'Badges'}})
+	{
+		return $badge_definition if $badge_definition->{'Name'} eq $badge_name;
+	}
+	undef;
+}
 
-	# read all the trigger dependencies
-	my $dependency_names = [ split /;/, $trigger_definition->{'AllDependencies'} ];
-	
+# gets the jobsteps that a trigger or report is dependent on
+sub get_dependency_jobsteps
+{
+	my ($job, $dependency_names) = @_;
+
 	# parse out all the jobsteps
 	my $dependency_name_to_jobstep = { map { $_ => undef } @{$dependency_names} };
 	foreach my $jobstep_node ($job->{'source_xpath'}->findnodes("//jobStep"))
@@ -722,6 +748,16 @@ sub parse_sql_time
 	/^(\d+)-(\d+)-(\d+)T(\d+):(\d+):(\d+\.\d+)Z$/ && timegm($6, $5, $4, $3, $2 - 1, $1);
 }
 
+# format a date/time string
+sub format_date_time
+{
+	my ($datetime) = @_;
+	
+	my ($time_seconds, $time_minutes, $time_hours, $date_day, $date_month, $date_year, $date_dow) = localtime($datetime);
+
+	sprintf "%d/%d/%d %d:%02d%s", $date_year + 1900, $date_month + 1, $date_day, (($time_hours + 11) % 12) + 1, $time_minutes, ($time_hours < 12)? "am" : "pm";
+}
+
 # format a time string in a simple manner relative to the current date (eg. omitting the date if today, referring to yesterday, omitting the year if this year).
 sub format_recent_time
 {
@@ -748,7 +784,7 @@ sub format_recent_time
 	}
 	else
 	{
-		"$date_month/$date_day/".($date_year + 1900)." at $time_string";
+		($date_month + 1)."/$date_day/".($date_year + 1900)." at $time_string";
 	}
 }
 
@@ -832,6 +868,24 @@ sub quote_argument
 		}
 	}
 	$argument;
+}
+
+# extracts the name portion of a standard build job, formatted as "Branch - CL - Name (#x)".
+sub get_base_job_name
+{
+	my ($name) = (@_);
+
+	$_ = $name;
+	if(s/^.+? - //)
+	{
+		if(s/^.+? - //)
+		{
+			s/\s+\(#\d+\)$//;
+			$name = $_;
+		}
+	}
+
+	$name;
 }
 
 # runs a .NET application

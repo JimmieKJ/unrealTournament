@@ -48,7 +48,12 @@ groupshared uint TileReflectionCaptureIndices[MAX_CAPTURES];
 groupshared uint SortedTileReflectionCaptureIndices[MAX_CAPTURES];
 
 #if !ATOMIC_REDUCTION
-groupshared float TileZ[THREADGROUP_TOTALSIZE];
+	#if THREADGROUP_TOTALSIZE < 107
+		#define TILE_Z_SIZE 107
+	#else
+		#define TILE_Z_SIZE THREADGROUP_TOTALSIZE
+	#endif
+groupshared float TileZ[TILE_Z_SIZE];
 #endif
 
 void ComputeTileMinMax(uint ThreadIndex, float SceneDepth, out float MinTileZ, out float MaxTileZ, out float MinTileZ2, out float MaxTileZ2)
@@ -194,6 +199,7 @@ void DoTileCulling(uint3 GroupId, uint ThreadIndex, float MinTileZ, float MaxTil
 	float4 ViewPos2 = mul(float4(ScreenPos1.x, ScreenPos0.y, ScreenPos1.z, 1), View.ClipToView);	ViewPos2.xyz /= ViewPos2.w;
 	float4 ViewPos3 = mul(float4(ScreenPos1.x, ScreenPos1.y, ScreenPos1.z, 1), View.ClipToView);	ViewPos3.xyz /= ViewPos3.w;
 	// front point
+	// Warning: this assumes a point at the near depth, which is not a valid assumption, will cause culling artifacts
 	float4 ViewPos4 = mul(float4(ScreenPos0.xy, ScreenPos0.z, 1), View.ClipToView);	ViewPos4.xyz /= ViewPos4.w;
 
 	float3 TileBoxMin = min(ViewPos4.xyz, min(ViewPos0.xyz, ViewPos3.xyz));
@@ -409,30 +415,31 @@ float CountOverlap( float3 WorldPosition )
 	return Overlap;
 }
 
-void GatherRadiance(inout float4 Color, float3 WorldPosition, float3 RayDirection, float Roughness, float2 ScreenPosition, float IndirectIrradiance, uint ShadingModelID)
+float3 GatherRadiance(float CompositeAlpha, float3 WorldPosition, float3 RayDirection, float Roughness, float2 ScreenPosition, float IndirectIrradiance, float NoV, uint ShadingModelID)
 {
 	// Indirect occlusion from DFAO, which should be applied to reflection captures and skylight specular, but not SSR
 	float IndirectSpecularOcclusion = 1.0f;
+	float3 ExtraIndirectSpecular = 0;
 
 #if SUPPORT_DFAO_INDIRECT_OCCLUSION
 	float2 ScreenUV = ScreenPosition * View.ScreenPositionScaleBias.xy + View.ScreenPositionScaleBias.wz;
 	float IndirectDiffuseOcclusion;
-	GetDistanceFieldAOSpecularOcclusion(ScreenUV, RayDirection, Roughness, ShadingModelID == SHADINGMODELID_TWOSIDED_FOLIAGE, IndirectSpecularOcclusion, IndirectDiffuseOcclusion);
+	GetDistanceFieldAOSpecularOcclusion(ScreenUV, RayDirection, Roughness, ShadingModelID == SHADINGMODELID_TWOSIDED_FOLIAGE, IndirectSpecularOcclusion, IndirectDiffuseOcclusion, ExtraIndirectSpecular);
 	// Apply DFAO to IndirectIrradiance before mixing with indirect specular
 	IndirectIrradiance *= IndirectDiffuseOcclusion;
-	
 #endif
 
-	float Mip = ComputeReflectionCaptureMipFromRoughness( Roughness );
-
+	float Mip = ComputeReflectionCaptureMipFromRoughness(Roughness, View.ReflectionCubemapMaxMip);
 	uint NumCapturesAffectingTile = TileNumReflectionCaptures;
+	float4 ImageBasedReflections = float4(0, 0, 0, CompositeAlpha);
+	float2 CompositedAverageBrightness = float2(0.0f, 1.0f);
 
 	// Accumulate reflections from captures affecting this tile, applying largest captures first so that the smallest ones display on top
 	LOOP
 	for (uint TileCaptureIndex = 0; TileCaptureIndex < NumCapturesAffectingTile; TileCaptureIndex++) 
 	{
 		BRANCH
-		if( Color.a < 0.001 )
+		if (ImageBasedReflections.a < 0.001)
 		{
 			break;
 		}
@@ -445,93 +452,41 @@ void GatherRadiance(inout float4 Color, float3 WorldPosition, float3 RayDirectio
 			
 		float4 CapturePositionAndRadius = ReflectionCapture.PositionAndRadius[CaptureIndex];
 		float4 CaptureProperties = ReflectionCapture.CaptureProperties[CaptureIndex];
+
 		float3 CaptureVector = WorldPosition - CapturePositionAndRadius.xyz;
-		float CaptureVectorLength = length(CaptureVector);
+		float CaptureVectorLength = sqrt(dot(CaptureVector, CaptureVector));		
+		float NormalizedDistanceToCapture = saturate(CaptureVectorLength / CapturePositionAndRadius.w);
 
 		BRANCH
 		if (CaptureVectorLength < CapturePositionAndRadius.w)
 		{
-			float NormalizedDistanceToCapture = saturate(CaptureVectorLength / CapturePositionAndRadius.w);
 			float3 ProjectedCaptureVector = RayDirection;
+			float4 CaptureOffsetAndAverageBrightness = ReflectionCapture.CaptureOffsetAndAverageBrightness[CaptureIndex];
 
 			// Fade out based on distance to capture
 			float DistanceAlpha = 0;
 			
 			#define PROJECT_ONTO_SHAPE 1
 			#if PROJECT_ONTO_SHAPE
-
-#if HAS_BOX_CAPTURES
-
-#	if HAS_SPHERE_CAPTURES
-				// Box
-				BRANCH if (CaptureProperties.b > 0)
-#	endif //HAS_SPHERE_CAPTURES
-				{
-					// Transform the ray into the local space of the box, where it is an AABB with mins at -1 and maxs at 1
-					float3 LocalRayStart		= mul(float4(WorldPosition, 1), ReflectionCapture.BoxTransform[CaptureIndex]).xyz;
-					float3 LocalRayDirection	= mul(float4(RayDirection,  0), ReflectionCapture.BoxTransform[CaptureIndex]).xyz;
-
-					float3 InvRayDir = rcp(LocalRayDirection);
-	
-					//find the ray intersection with each of the 3 planes defined by the minimum extrema.
-					float3 FirstPlaneIntersections = -InvRayDir - LocalRayStart * InvRayDir;
-					//find the ray intersection with each of the 3 planes defined by the maximum extrema.
-					float3 SecondPlaneIntersections = InvRayDir - LocalRayStart * InvRayDir;
-					//get the furthest of these intersections along the ray
-					float3 FurthestPlaneIntersections = max(FirstPlaneIntersections, SecondPlaneIntersections);
-
-					//clamp the intersections to be between RayOrigin and RayEnd on the ray
-					float Intersection = min(FurthestPlaneIntersections.x, min(FurthestPlaneIntersections.y, FurthestPlaneIntersections.z));
-
-					// Compute the reprojected vector
-					float3 IntersectPosition = WorldPosition + Intersection * RayDirection;
-					ProjectedCaptureVector = IntersectPosition - CapturePositionAndRadius.xyz;
-
-					// Compute the distance from the receiving pixel to the box for masking
-					// Apply local to world scale to take scale into account without transforming back to world space
-					// Shrink the box by the transition distance (BoxScales.w) so that the fade happens inside the box influence area
-					float4 BoxScales = ReflectionCapture.BoxScales[CaptureIndex];
-					float BoxDistance = ComputeDistanceFromBoxToPoint(-(BoxScales.xyz - .5f * BoxScales.w), BoxScales.xyz - .5f * BoxScales.w, LocalRayStart * BoxScales.xyz);
-
-					// Setup a fade based on receiver distance to the box, hides the box influence shape
-					DistanceAlpha = 1.0 - smoothstep(0, .7f * BoxScales.w, BoxDistance);
-				}
-#endif //HAS_BOX_CAPTURES
-
-#if HAS_SPHERE_CAPTURES
-				// Sphere
-#	if HAS_BOX_CAPTURES
-				else
-#	endif //HAS_BOX_CAPTURES
-				{
-					float ProjectionSphereRadius = CapturePositionAndRadius.w;
-					float SphereRadiusSquared = ProjectionSphereRadius * ProjectionSphereRadius;
-
-					float3 LocalPosition = WorldPosition - CapturePositionAndRadius.xyz;
-					float LocalPositionSqr = dot(LocalPosition, LocalPosition);
-
-					// Find the intersection between the ray along the reflection vector and the capture's sphere
-					float3 QuadraticCoef;
-					QuadraticCoef.x = 1;
-					QuadraticCoef.y = dot(RayDirection, LocalPosition);
-					QuadraticCoef.z = LocalPositionSqr - SphereRadiusSquared;
-
-					float Determinant = QuadraticCoef.y * QuadraticCoef.y - QuadraticCoef.z;
-
-					// Only continue if the ray intersects the sphere
-					//if (Determinant >= 0)
+				#if HAS_BOX_CAPTURES
+					#if HAS_SPHERE_CAPTURES
+					// Box
+					BRANCH if (CaptureProperties.b > 0)
+					#endif
 					{
-						float FarIntersection = sqrt(Determinant) - QuadraticCoef.y;
-
-						ProjectedCaptureVector = LocalPosition + FarIntersection * RayDirection;
-						// Note: some compilers don't handle smoothstep min > max (this was 1, .6)
-						//DistanceAlpha = 1.0 - smoothstep(.6, 1, NormalizedDistanceToCapture);
-
-						float x = saturate( 2.5 * NormalizedDistanceToCapture - 1.5 );
-						DistanceAlpha = 1 - x*x*(3 - 2*x);
+						ProjectedCaptureVector = GetLookupVectorForBoxCapture(RayDirection, WorldPosition, CapturePositionAndRadius, ReflectionCapture.BoxTransform[CaptureIndex], ReflectionCapture.BoxScales[CaptureIndex], CaptureOffsetAndAverageBrightness.xyz, DistanceAlpha);
 					}
-				}
-#endif //HAS_SPHERE_CAPTURES
+				#endif
+
+				#if HAS_SPHERE_CAPTURES
+					// Sphere
+					#if HAS_BOX_CAPTURES
+					else
+					#endif
+					{
+						ProjectedCaptureVector = GetLookupVectorForSphereCapture(RayDirection, WorldPosition, CapturePositionAndRadius, NormalizedDistanceToCapture, CaptureOffsetAndAverageBrightness.xyz, DistanceAlpha);
+					}
+				#endif
 			#else 
 				DistanceAlpha = 1.0;
 			#endif //PROJECT_ONTO_SHAPE
@@ -539,44 +494,54 @@ void GatherRadiance(inout float4 Color, float3 WorldPosition, float3 RayDirectio
 			float CaptureArrayIndex = CaptureProperties.g;
 
 			{
-				float4 Sample = ReflectionEnvironmentColorTexture.SampleLevel( ReflectionEnvironmentColorSampler, float4( ProjectedCaptureVector, CaptureArrayIndex ), Mip );
-
-				#if USE_LIGHTMAPS
-					// We have high frequency directional data but low frequency spatial data in the envmap.
-					// We have high frequency spatial data but low frequency directional data in the lightmap.
-					// So, we combine the two for the best of both. This is done by removing the low spatial frequencies from the envmap and replacing them with the lightmap data.
-					// This is only done with luma so as to not get odd color shifting.
-					// Note: make sure this matches the lightmap mixing done for translucency (BasePassPixelShader.usf)
-					Sample.rgb *= IndirectIrradiance;
-				#endif
+				float4 Sample = ReflectionEnvironmentColorTexture.SampleLevel(ReflectionEnvironmentColorSampler, float4(ProjectedCaptureVector, CaptureArrayIndex), Mip);
 
 				Sample.rgb *= CaptureProperties.r;
 				Sample *= DistanceAlpha;
 
 				// Under operator (back to front)
-				Color.rgb += Sample.rgb * Color.a * IndirectSpecularOcclusion;
-				Color.a *= 1 - Sample.a;
+				ImageBasedReflections.rgb += Sample.rgb * ImageBasedReflections.a * IndirectSpecularOcclusion;
+				ImageBasedReflections.a *= 1 - Sample.a;
+
+				float AverageBrightness = CaptureOffsetAndAverageBrightness.w;
+				CompositedAverageBrightness.x += AverageBrightness * DistanceAlpha * CompositedAverageBrightness.y;
+				CompositedAverageBrightness.y *= 1 - DistanceAlpha;
 			}
 		}
 	}
 
 #if HAS_SKYLIGHT
-	BRANCH
-	if( SkyLightParameters.y > 0 && Color.a >= 0.001 )
+
+	BRANCH  
+	if (SkyLightParameters.y > 0)
 	{
+		float SkyAverageBrightness = 1.0f;
+		float3 SkyLighting = GetSkyLightReflectionSupportingBlend(RayDirection, Roughness, SkyAverageBrightness);
+
 		// Normalize for static skylight types which mix with lightmaps
 		bool bNormalize = SkyLightParameters.z < 1 && USE_LIGHTMAPS;
-		float3 SkyLighting = GetSkyLightReflectionSupportingBlend( RayDirection, Roughness, bNormalize );
 
 		FLATTEN
 		if (bNormalize)
 		{
-			SkyLighting *= IndirectIrradiance;
+			ImageBasedReflections.rgb += ImageBasedReflections.a * SkyLighting * IndirectSpecularOcclusion;
+			CompositedAverageBrightness.x += SkyAverageBrightness * CompositedAverageBrightness.y;
 		}
-
-		Color.rgb += Color.a * SkyLighting * IndirectSpecularOcclusion;
+		else
+		{
+			ExtraIndirectSpecular += SkyLighting * IndirectSpecularOcclusion;
+		}
 	}
 #endif
+
+#if USE_LIGHTMAPS
+	// Note: make sure this matches the lightmap mixing done for translucency (BasePassPixelShader.usf)
+	ImageBasedReflections.rgb *= ComputeMixingWeight(IndirectIrradiance, CompositedAverageBrightness.x, Roughness);
+#endif
+
+	ImageBasedReflections.rgb += ImageBasedReflections.a * ExtraIndirectSpecular;
+
+	return ImageBasedReflections.rgb;
 }
 
 
@@ -635,59 +600,78 @@ void ReflectionEnvironmentTiledDeferredMain(
 
 	BRANCH
 	if( GBuffer.ShadingModelID != SHADINGMODELID_UNLIT && GBuffer.ShadingModelID != SHADINGMODELID_HAIR )
-	{
+	{		
+		float3 N = GBuffer.WorldNormal;
+		float3 V = -CameraToPixel;
+		float3 R = 2 * dot( V, N ) * N - V;
+		float NoV = saturate( dot( N, V ) );
+
+		// Point lobe in off-specular peak direction
+		R = GetOffSpecularPeakReflectionDir(N, R, GBuffer.Roughness);
+
+#if 1
+		// Note: this texture may also contain planar reflections
+		float4 SSR = ScreenSpaceReflections.Load( int3(PixelPos, 0) );
+		Color.rgb = SSR.rgb;
+		Color.a = 1 - SSR.a;
+#endif
+
+		if( GBuffer.ShadingModelID == SHADINGMODELID_CLEAR_COAT )
+		{
+			const float ClearCoat = GBuffer.CustomData.x;
+			Color = lerp( Color, float4(0,0,0,1), ClearCoat );
+
+#if CLEAR_COAT_BOTTOM_NORMAL
+			const float2 oct1 = ((float2(GBuffer.CustomData.a, GBuffer.CustomData.z) * 2) - (256.0/255.0)) + UnitVectorToOctahedron(GBuffer.WorldNormal);
+			const float3 ClearCoatUnderNormal = OctahedronToUnitVector(oct1);
+
+			const float3 BottomEffectiveNormal = ClearCoatUnderNormal;			
+			R = 2 * dot( V, ClearCoatUnderNormal ) * ClearCoatUnderNormal - V;
+#endif
+		}
+
+		float AO = ScreenSpaceData.AmbientOcclusion;
+		float RoughnessSq = GBuffer.Roughness * GBuffer.Roughness;
+		float SpecularOcclusion = GetSpecularOcclusion(NoV, RoughnessSq, AO);
+		Color.a *= SpecularOcclusion;
+
+		//bottom for clearcoat or the only reflection.
+		Color.rgb += GatherRadiance(Color.a, WorldPosition, R, GBuffer.Roughness, ScreenPosition, IndirectIrradiance, NoV, GBuffer.ShadingModelID);
+
+		BRANCH
 		if( GBuffer.ShadingModelID == SHADINGMODELID_CLEAR_COAT )
 		{
 			const float ClearCoat			= GBuffer.CustomData.x;
 			const float ClearCoatRoughness	= GBuffer.CustomData.y;
 
-			GBuffer.Roughness = lerp( GBuffer.Roughness, ClearCoatRoughness, ClearCoat );
-			GBuffer.SpecularColor = lerp( GBuffer.SpecularColor, 0.04, ClearCoat );
+			// TODO EnvBRDF should have a mask param
+			float2 AB = PreIntegratedGF.SampleLevel( PreIntegratedGFSampler, float2( NoV, GBuffer.Roughness ), 0 ).rg;
+			Color.rgb *= GBuffer.SpecularColor * AB.x + AB.y * saturate( 50 * GBuffer.SpecularColor.g ) * (1 - ClearCoat);
+		
+			// F_Schlick
+			float F0 = 0.04;
+			float Fc = Pow5( 1 - NoV );
+			float F = Fc + (1 - Fc) * F0;
+			F *= ClearCoat;
+			
+			float LayerAttenuation = (1 - F);		
+			Color.rgb *= LayerAttenuation;
+			Color.a = F;
+		
+			
+			Color.rgb += SSR.rgb * F;
+			Color.a *= 1 - SSR.a;
+			
+			Color.a *= SpecularOcclusion;
+
+			float3 TopLayerR = 2 * dot( V, N ) * N - V;
+			Color.rgb += GatherRadiance(Color.a, WorldPosition, TopLayerR, ClearCoatRoughness, ScreenPosition, IndirectIrradiance, NoV, GBuffer.ShadingModelID);
 		}
-
-		float3 N = GBuffer.WorldNormal;
-		float3 V = -CameraToPixel;
-		float3 R = 2 * dot( V, N ) * N - V;
-
-		float NoV = saturate( dot( N, V ) );
-
-		// Point lobe in off-specular peak direction
-		float a = Square( GBuffer.Roughness );
-		R = lerp( N, R, (1 - a) * ( sqrt(1 - a) + a ) );
-
-	#if 1//APPLY_SSR
-		float4 SSR = ScreenSpaceReflections.Load( int3(PixelPos, 0) );
-		Color.rgb = SSR.rgb;
-		Color.a = 1 - SSR.a;
-	#endif
-	
-		float AO = ScreenSpaceData.AmbientOcclusion;
-		float SpecularOcclusion = saturate( pow( NoV + AO, a ) - 1 + AO );
-
-		Color.a *= SpecularOcclusion;
-
-		GatherRadiance(Color, WorldPosition, R, GBuffer.Roughness, ScreenPosition, IndirectIrradiance, GBuffer.ShadingModelID);
-
-		Color.rgb *= EnvBRDF( GBuffer.SpecularColor, GBuffer.Roughness, NoV );
+		else
+		{
+			Color.rgb *= EnvBRDF( GBuffer.SpecularColor, GBuffer.Roughness, NoV );
+		}
 	}
-
-#if 0
-	{
-		float3 N = GBuffer.WorldNormal;
-		float3 V = -CameraToPixel;
-		float3 L = Frame.DirectionalLightDirection;
-		float NoL = saturate( dot( N, L ) );
-
-		Color.rgb += Frame.DirectionalLightColor.rgb * SurfaceShading( GBuffer, GBuffer.Roughness, 1, L, V, N, 1, uint2(0,0) );
-
-		float3 SurfaceLighting = SurfaceShading( GBuffer, GBuffer.Roughness, 1, L, V, N, 1, uint2(0,0) ) * NoL;
-		float3 SubsurfaceLighting = SubsurfaceShading( GBuffer, L, V, N, 1, uint2(0,0) );
-		//float3 SurfaceLighting = StandardShading( GBuffer, GBuffer.Roughness, 1, L, V, N, 1 ) * NoL;
-		//float3 SubsurfaceLighting = 0;
-
-		Color.rgb += Frame.DirectionalLightColor.rgb * ( SurfaceLighting + SubsurfaceLighting );
-	}
-#endif
 
 	// Only write to the buffer for threads inside the view
 	BRANCH

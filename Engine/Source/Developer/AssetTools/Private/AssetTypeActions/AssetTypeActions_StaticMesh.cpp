@@ -141,7 +141,7 @@ void FAssetTypeActions_StaticMesh::GetLODMenu(class FMenuBuilder& MenuBuilder, T
 		)
 		);
 
-	FText PasteLabel = FText(LOCTEXT("StaticMesh_PasteLODWithName", "Paste LOD"));
+	FText PasteLabel = FText(LOCTEXT("StaticMesh_PasteLOD", "Paste LOD"));
 	if (LODCopyMesh.IsValid())
 	{
 		PasteLabel = FText::Format(LOCTEXT("StaticMesh_PasteLODWithName", "Paste LOD from {0}"), FText::FromString(LODCopyMesh->GetName()));

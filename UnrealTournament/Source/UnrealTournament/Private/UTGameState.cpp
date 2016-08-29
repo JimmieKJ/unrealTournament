@@ -941,7 +941,7 @@ void AUTGameState::StopFPSCharts()
 		}
 
 		GEngine->StopFPSChart();
-		GEngine->DumpFPSChartAnalytics(MapName, ParamArray);
+		GEngine->DumpFPSChartAnalytics(MapName, ParamArray, true);
 	
 		if (GetNetMode() == NM_Client)
 		{
@@ -1019,14 +1019,14 @@ bool AUTGameState::HasMatchStarted() const
 
 bool AUTGameState::IsMatchInProgress() const
 {
-	FName MatchState = GetMatchState();
-	return (MatchState == MatchState::InProgress || MatchState == MatchState::MatchIsInOvertime);
+	FName CurrentMatchState = GetMatchState();
+	return (CurrentMatchState == MatchState::InProgress || CurrentMatchState == MatchState::MatchIsInOvertime);
 }
 
 bool AUTGameState::IsMatchInOvertime() const
 {
-	FName MatchState = GetMatchState();
-	return (MatchState == MatchState::MatchEnteringOvertime || MatchState == MatchState::MatchIsInOvertime);
+	FName CurrentMatchState = GetMatchState();
+	return (CurrentMatchState == MatchState::MatchEnteringOvertime || CurrentMatchState == MatchState::MatchIsInOvertime);
 }
 
 bool AUTGameState::IsMatchIntermission() const
@@ -1389,7 +1389,7 @@ void AUTGameState::AdjustLoadoutCost(TSubclassOf<AUTInventory> ItemClass, float 
 	}
 }
 
-bool AUTGameState::IsTempBanned(const TSharedPtr<const FUniqueNetId>& UniqueId)
+bool AUTGameState::IsTempBanned(const FUniqueNetIdRepl& UniqueId)
 {
 	for (int32 i=0; i< TempBans.Num(); i++)
 	{
@@ -1569,7 +1569,9 @@ AUTReplicatedMapInfo* AUTGameState::CreateMapInfo(const FAssetData& MapAsset)
 		FText LocDesc = FText::GetEmpty();
 		if (Description != nullptr)
 		{
-			FTextStringHelper::ReadFromString(**Description, LocDesc);
+			// PLK - This class got removed
+			//FTextStringHelper::ReadFromString(**Description, LocDesc);
+			LocDesc = FText::FromString(*Description);
 		}
 
 		MapInfo->MapPackageName = MapAsset.PackageName.ToString();

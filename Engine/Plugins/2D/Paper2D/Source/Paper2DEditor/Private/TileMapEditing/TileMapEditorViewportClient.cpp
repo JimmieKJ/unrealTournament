@@ -118,9 +118,9 @@ void FTileMapEditorViewportClient::Draw(const FSceneView* View, FPrimitiveDrawIn
 	}
 }
 
-void FTileMapEditorViewportClient::DrawCanvas(FViewport& Viewport, FSceneView& View, FCanvas& Canvas)
+void FTileMapEditorViewportClient::DrawCanvas(FViewport& InViewport, FSceneView& View, FCanvas& Canvas)
 {
-	FEditorViewportClient::DrawCanvas(Viewport, View, Canvas);
+	FEditorViewportClient::DrawCanvas(InViewport, View, Canvas);
 
 	const bool bIsHitTesting = Canvas.IsHitTesting();
 	if (!bIsHitTesting)
@@ -143,7 +143,7 @@ void FTileMapEditorViewportClient::DrawCanvas(FViewport& Viewport, FSceneView& V
 			// Show baked collision stats
 			if (TileMap->BodySetup != nullptr)
 			{
-				FSpriteGeometryEditMode::DrawCollisionStats(Viewport, View, Canvas, TileMap->BodySetup, /*inout*/ YPos);
+				FSpriteGeometryEditMode::DrawCollisionStats(InViewport, View, Canvas, TileMap->BodySetup, /*inout*/ YPos);
 			}
 			else
 			{
@@ -189,6 +189,7 @@ void FTileMapEditorViewportClient::DrawCanvas(FViewport& Viewport, FSceneView& V
 					case EBlendMode::BLEND_Translucent:
 					case EBlendMode::BLEND_Additive:
 					case EBlendMode::BLEND_Modulate:
+					case EBlendMode::BLEND_AlphaComposite:
 						MaterialType = Translucent;
 						break;
 					case EBlendMode::BLEND_Masked:
@@ -207,7 +208,7 @@ void FTileMapEditorViewportClient::DrawCanvas(FViewport& Viewport, FSceneView& V
 		}
 
 		// Draw the render bounds
-		DrawBoundsAsText(Viewport, View, Canvas, /*inout*/ YPos);
+		DrawBoundsAsText(InViewport, View, Canvas, /*inout*/ YPos);
 	}
 }
 

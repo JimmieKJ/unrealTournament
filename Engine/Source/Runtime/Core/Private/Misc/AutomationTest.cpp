@@ -6,6 +6,53 @@
 
 DEFINE_LOG_CATEGORY_STATIC(LogAutomationTest, Warning, All);
 
+FString FAutomationTestInfo::GetTestAsString() const
+{
+	return FString::Printf(TEXT("%s,%s,%i,%d,%s,%s,%i,%s,%s"), *DisplayName, *TestName, TestFlags, NumParticipantsRequired, *TestParameter, *SourceFile, SourceFileLine, *AssetPath, *OpenCommand);
+}
+
+void FAutomationTestInfo::ParseStringInfo(const FString& InTestInfo)
+{
+	//Split New Test Name into string array
+	TArray<FString> Pieces;
+	InTestInfo.ParseIntoArray(Pieces, TEXT(","), false);
+
+	// We should always have at least 3 parameters
+	check(Pieces.Num() >= 3);
+
+	DisplayName = Pieces[0];
+	TestName = Pieces[1];
+	TestFlags = uint8(FCString::Atoi(*Pieces[2]));
+
+	NumParticipantsRequired = FCString::Atoi(*Pieces[3]);
+
+	// Optional Parameters
+	if ( Pieces.Num() >= 5 )
+	{
+		TestParameter = Pieces[4];
+	}
+
+	if ( Pieces.Num() >= 6 )
+	{
+		SourceFile = Pieces[5];
+	}
+
+	if ( Pieces.Num() >= 7 )
+	{
+		SourceFileLine = FCString::Atoi(*Pieces[6]);
+	}
+
+	if ( Pieces.Num() >= 8 )
+	{
+		AssetPath = Pieces[7];
+	}
+
+	if ( Pieces.Num() >= 9 )
+	{
+		OpenCommand = Pieces[8];
+	}
+}
+
 
 void FAutomationTestFramework::FAutomationTestFeedbackContext::Serialize( const TCHAR* V, ELogVerbosity::Type Verbosity, const class FName& Category )
 {
@@ -27,7 +74,7 @@ void FAutomationTestFramework::FAutomationTestFeedbackContext::Serialize( const 
 			// If warnings should be treated as errors, log the warnings as such in the current unit test
 			if ( TreatWarningsAsErrors )
 			{
-				CurTest->AddError( FString( V ) );
+				CurTest->AddError(FString(V), 2);
 			}
 			else
 			{
@@ -37,7 +84,7 @@ void FAutomationTestFramework::FAutomationTestFeedbackContext::Serialize( const 
 		// Errors
 		else if ( Verbosity == ELogVerbosity::Error )
 		{
-			CurTest->AddError( FString( V ) );
+			CurTest->AddError(FString(V), 2);
 		}
 		// Log items
 		else
@@ -563,9 +610,9 @@ void FAutomationTestFramework::DumpAutomationTestExecutionInfo( const TMap<FStri
 		{
 			SET_WARN_COLOR(COLOR_RED);
 			CLEAR_WARN_COLOR();
-			for ( TArray<FString>::TConstIterator ErrorIter( CurExecutionInfo.Errors ); ErrorIter; ++ErrorIter )
+			for ( TArray<FAutomationEvent>::TConstIterator ErrorIter( CurExecutionInfo.Errors ); ErrorIter; ++ErrorIter )
 			{
-				UE_LOG(LogAutomationTest, Error, TEXT("%s"), **ErrorIter);
+				UE_LOG(LogAutomationTest, Error, TEXT("%s"), *(*ErrorIter).Message);
 			}
 		}
 
@@ -675,7 +722,6 @@ void FAutomationTestFramework::AddAnalyticsItemToCurrentTest( const FString& Ana
 	}
 }
 
-
 FAutomationTestFramework::FAutomationTestFramework()
 :	CachedContext( NULL )
 ,	RequestedTestFilter(EAutomationTestFlags::SmokeFilter)
@@ -697,17 +743,43 @@ FAutomationTestFramework::~FAutomationTestFramework()
 }
 
 
+FString FAutomationEvent::ToString() const
+{
+	FString ComplexString;
+
+	if ( !Filename.IsEmpty() && LineNumber > 0 )
+	{
+		ComplexString += Filename;
+		ComplexString += TEXT("(");
+		ComplexString += FString::FromInt(LineNumber);
+		ComplexString += TEXT("): ");
+	}
+
+	if ( !Context.IsEmpty() )
+	{
+		ComplexString += Context;
+		ComplexString += TEXT(": ");
+	}
+
+	ComplexString += Message;
+
+	return ComplexString;
+}
+
+
 void FAutomationTestBase::ClearExecutionInfo()
 {
 	ExecutionInfo.Clear();
 }
 
 
-void FAutomationTestBase::AddError( const FString& InError )
+void FAutomationTestBase::AddError(const FString& InError, int32 StackOffset)
 {
 	if( !bSuppressLogs )
 	{
-		ExecutionInfo.Errors.Add( InError );
+		TArray<FProgramCounterSymbolInfo> Stack = FPlatformStackWalk::GetStack(StackOffset + 1, 1);
+
+		ExecutionInfo.Errors.Add(FAutomationEvent(InError, ExecutionInfo.Context, Stack[0].Filename, Stack[0].LineNumber));
 	}
 }
 
@@ -774,7 +846,17 @@ void FAutomationTestBase::GenerateTestNames(TArray<FAutomationTestInfo>& TestInf
 		}
 
 		// Add the test info to our collection
-		FAutomationTestInfo NewTestInfo( CompleteBeautifiedNames, CompleteTestName, GetTestFlags(), GetRequiredDeviceNum(), ParameterNames[ParameterIndex] );
+		FAutomationTestInfo NewTestInfo(
+			CompleteBeautifiedNames,
+			CompleteTestName,
+			GetTestFlags(),
+			GetRequiredDeviceNum(),
+			ParameterNames[ParameterIndex],
+			GetTestSourceFileName(),
+			GetTestSourceFileLine(),
+			GetTestAssetPath(ParameterNames[ParameterIndex]),
+			GetTestOpenCommand(ParameterNames[ParameterIndex])
+		);
 		
 		TestInfo.Add( NewTestInfo );
 	}

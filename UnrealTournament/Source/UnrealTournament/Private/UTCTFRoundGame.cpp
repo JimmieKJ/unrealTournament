@@ -238,7 +238,7 @@ void AUTCTFRoundGame::RemoveLosers(int32 LoserTeam, int32 FlagTeam)
 				AUTPlayerState* PS = Cast<AUTPlayerState>(UTChar->PlayerState);
 				if (PS && PS->CarriedObject && PS->CarriedObject->HolderTrail)
 				{
-					PS->CarriedObject->HolderTrail->DetachFromParent();
+					PS->CarriedObject->HolderTrail->DetachFromComponent(FDetachmentTransformRules::KeepWorldTransform);
 				}
 				FRotator AdjustmentAngle(0, StartAngle + AngleSlices * PlacementCounter, 0);
 				FVector PlacementLoc = FlagLoc + AdjustmentAngle.RotateVector(PlacementOffset);
@@ -1036,7 +1036,6 @@ void AUTCTFRoundGame::RestartPlayer(AController* aPlayer)
 		{
 			if ((PS->RemainingLives > 0) && IsMatchInProgress() && (GetMatchState() != MatchState::MatchIntermission))
 			{
-				AUTPlayerController* PC = Cast<AUTPlayerController>(aPlayer);
 				if (PS->RemainingLives == 1)
 				{
 					if (PC)

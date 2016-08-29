@@ -62,6 +62,9 @@ template<>
 jobject FJavaClassObject::CallMethod<jobject>(FJavaClassMethod Method, ...);
 
 template<>
+jobjectArray FJavaClassObject::CallMethod<jobjectArray>(FJavaClassMethod Method, ...);
+
+template<>
 int64 FJavaClassObject::CallMethod<int64>(FJavaClassMethod Method, ...);
 
 template<>

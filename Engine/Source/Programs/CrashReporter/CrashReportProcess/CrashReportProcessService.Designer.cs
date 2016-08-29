@@ -22,14 +22,23 @@ namespace Tools.CrashReporter.CrashReportProcess
 				// If the process has started, all three disposable objects will be valid
 				// I would just call OnStop, but the code analysis tool doesn't look inside
 				// it and thinks the members aren't being Disposed.
-				if (Processor != null)
+				if (Processors.Count > 0)
 				{
 					// Clean up the directory watcher and crash processor threads
-					Processor.Dispose();
-					Processor = null;
+					foreach (var Processor in Processors)
+					{
+						Processor.Dispose();
+					}
+					Processors.Clear();
 
 					Watcher.Dispose();
 					Watcher = null;
+
+					StatusReporter.Dispose();
+					StatusReporter = null;
+
+					Slack.Dispose();
+					Slack = null;
 
 					// Flush the log to disk
 					Log.Dispose();

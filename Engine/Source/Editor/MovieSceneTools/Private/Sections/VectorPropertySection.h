@@ -2,26 +2,31 @@
 
 #pragma once
 
-#include "FloatCurveKeyArea.h"
+#include "PropertySection.h"
+
+
+class FFloatCurveKeyArea;
+class UMovieSceneSection;
 
 
 /**
  * An implementation of vector property sections.
  */
-class FVectorPropertySection : public FPropertySection
+class FVectorPropertySection
+	: public FPropertySection
 {
 public:
 
 	FVectorPropertySection(UMovieSceneSection& InSectionObject, const FText& SectionName)
-		: FPropertySection( InSectionObject, SectionName )
+		: FPropertySection(InSectionObject, SectionName)
 	{ }
 
 public:
 
-	// FPropertySectionInterface
+	//~ FPropertySectionInterface
 
-	virtual void GenerateSectionLayout( class ISectionLayoutBuilder& LayoutBuilder ) const override;
-	virtual void SetIntermediateValue( FPropertyChangedParams PropertyChangedParams ) override;
+	virtual void GenerateSectionLayout(class ISectionLayoutBuilder& LayoutBuilder) const override;
+	virtual void SetIntermediateValue(FPropertyChangedParams PropertyChangedParams) override;
 	virtual void ClearIntermediateValue() override;
 
 private:

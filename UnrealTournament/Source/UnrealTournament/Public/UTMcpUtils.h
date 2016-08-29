@@ -3,7 +3,6 @@
 #pragma once 
 
 #include "Runtime/Online/HTTP/Public/Http.h"
-#include "Runtime/Online/OnlineSubsystem/Public/OnlineError.h"
 
 #include "UTMcpUtils.generated.h"
 
@@ -19,7 +18,6 @@ public:
 	UPROPERTY()
 	int32 NumSamples;
 };
-
 USTRUCT()
 struct FEstimatedWaitTimeInfo
 {
@@ -310,7 +308,7 @@ private:
 	TSharedRef<FOnlineHttpRequest> CreateRequest(const FString& Verb, const FString& Path) const;
 
 	/** Generic send http request */
-	void SendRequest(const TSharedRef<class IHttpRequest>& Request, const TFunction<bool(const FHttpResponsePtr& HttpResponse)>& OnComplete);
+	void SendRequest(TSharedRef<class FOnlineHttpRequest>& Request, const TFunction<bool(const FHttpResponsePtr& HttpResponse)>& OnComplete);
 
 	/**
 	 * Delegate fired when Http Requests complete (generic)

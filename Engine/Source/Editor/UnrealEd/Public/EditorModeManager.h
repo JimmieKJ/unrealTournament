@@ -16,16 +16,32 @@ public:
 
 	/**
 	 * Set the default editor mode for these tools
+	 * 
+	 * @param	DefaultModeID		The mode ID for the new default mode
 	 */
-	void SetDefaultMode(FEditorModeID DefaultID);
+	void SetDefaultMode( const FEditorModeID DefaultModeID );
 
 	/**
-	 * Activates the default mode defined by this class
+	 * Adds a new default mode to this tool's list of default modes.  You can have multiple default modes, but they all must be compatible with each other.
+	 * 
+	 * @param	DefaultModeID		The mode ID for the new default mode
+	 */
+	void AddDefaultMode( const FEditorModeID DefaultModeID );
+
+	/**
+	 * Removes a default mode
+	 * 
+	 * @param	DefaultModeID		The mode ID for the default mode to remove
+	 */
+	void RemoveDefaultMode( const FEditorModeID DefaultModeID );
+
+	/**
+	 * Activates the default modes defined by this class.  Note that there can be more than one default mode, and this call will activate them all in sequence.
 	 */
 	void ActivateDefaultMode();
 
 	/** 
-	 * Returns true if the default editor mode is active 
+	 * Returns true if the default modes are active.  Note that there can be more than one default mode, and this will only return true if all default modes are active.
 	 */
 	bool IsDefaultModeActive() const;
 
@@ -384,6 +400,10 @@ public:
 	 */ 
 	virtual UWorld* GetWorld() const;
 
+	/**
+	 * Whether or not the current selection has a scene component selected
+ 	 */
+	bool SelectionHasSceneComponent() const;
 protected:
 	/** 
 	 * Delegate handlers
@@ -391,8 +411,8 @@ protected:
 	void OnEditorSelectionChanged(UObject* NewSelection);
 	void OnEditorSelectNone();
 
-	/** The mode ID to use as a default */
-	FEditorModeID DefaultID;
+	/** List of default modes for this tool.  These must all be compatible with each other. */
+	TArray<FEditorModeID> DefaultModeIDs;
 
 	/** A list of active editor modes. */
 	TArray< TSharedPtr<FEdMode> > Modes;
@@ -415,6 +435,8 @@ protected:
 	/** if true, the viewports will hide all UI overlays */
 	bool bHideViewportUI;
 
+	/** if true the current selection has a scene component */
+	bool bSelectionHasSceneComponent;
 private:
 
 	/** The coordinate system the widget is operating within. */

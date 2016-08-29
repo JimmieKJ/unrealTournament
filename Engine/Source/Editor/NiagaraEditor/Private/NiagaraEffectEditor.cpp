@@ -18,51 +18,51 @@ const FName FNiagaraEffectEditor::DevEmitterEditorTabID(TEXT("NiagaraEffectEdito
 const FName FNiagaraEffectEditor::CurveEditorTabID(TEXT("NiagaraEffectEditor_CurveEditor"));
 const FName FNiagaraEffectEditor::SequencerTabID(TEXT("NiagaraEffectEditor_Sequencer"));
 
-void FNiagaraEffectEditor::RegisterTabSpawners(const TSharedRef<class FTabManager>& TabManager)
+void FNiagaraEffectEditor::RegisterTabSpawners(const TSharedRef<class FTabManager>& InTabManager)
 {
-	WorkspaceMenuCategory = TabManager->AddLocalWorkspaceMenuCategory(LOCTEXT("WorkspaceMenu_NiagaraEffectEditor", "Niagara Effect"));
+	WorkspaceMenuCategory = InTabManager->AddLocalWorkspaceMenuCategory(LOCTEXT("WorkspaceMenu_NiagaraEffectEditor", "Niagara Effect"));
 
-	FAssetEditorToolkit::RegisterTabSpawners(TabManager);
+	FAssetEditorToolkit::RegisterTabSpawners(InTabManager);
 
-	TabManager->RegisterTabSpawner(ViewportTabID, FOnSpawnTab::CreateSP(this, &FNiagaraEffectEditor::SpawnTab_Viewport))
+	InTabManager->RegisterTabSpawner(ViewportTabID, FOnSpawnTab::CreateSP(this, &FNiagaraEffectEditor::SpawnTab_Viewport))
 		.SetDisplayName(LOCTEXT("Preview", "Preview"))
 		.SetGroup(WorkspaceMenuCategory.ToSharedRef())
 		.SetIcon(FSlateIcon(FEditorStyle::GetStyleSetName(), "LevelEditor.Tabs.Viewports"));
 
-	TabManager->RegisterTabSpawner(EmitterEditorTabID, FOnSpawnTab::CreateSP(this, &FNiagaraEffectEditor::SpawnTab_EmitterList))
+	InTabManager->RegisterTabSpawner(EmitterEditorTabID, FOnSpawnTab::CreateSP(this, &FNiagaraEffectEditor::SpawnTab_EmitterList))
 		.SetDisplayName(LOCTEXT("Emitters", "Emitters"))
 		.SetGroup(WorkspaceMenuCategory.ToSharedRef());
 
-	TabManager->RegisterTabSpawner(DevEmitterEditorTabID, FOnSpawnTab::CreateSP(this, &FNiagaraEffectEditor::SpawnTab_DevEmitterList))
+	InTabManager->RegisterTabSpawner(DevEmitterEditorTabID, FOnSpawnTab::CreateSP(this, &FNiagaraEffectEditor::SpawnTab_DevEmitterList))
 		.SetDisplayName(LOCTEXT("DevEmitters", "Emitters_Dev"))
 		.SetGroup(WorkspaceMenuCategory.ToSharedRef());
 
-	TabManager->RegisterTabSpawner(CurveEditorTabID, FOnSpawnTab::CreateSP(this, &FNiagaraEffectEditor::SpawnTab_CurveEd))
+	InTabManager->RegisterTabSpawner(CurveEditorTabID, FOnSpawnTab::CreateSP(this, &FNiagaraEffectEditor::SpawnTab_CurveEd))
 		.SetDisplayName(LOCTEXT("Curves", "Curves"))
 		.SetGroup(WorkspaceMenuCategory.ToSharedRef());
 
-	TabManager->RegisterTabSpawner(SequencerTabID, FOnSpawnTab::CreateSP(this, &FNiagaraEffectEditor::SpawnTab_Sequencer))
+	InTabManager->RegisterTabSpawner(SequencerTabID, FOnSpawnTab::CreateSP(this, &FNiagaraEffectEditor::SpawnTab_Sequencer))
 		.SetDisplayName(LOCTEXT("Timeline", "Timeline"))
 		.SetGroup(WorkspaceMenuCategory.ToSharedRef());
 
 
-	TabManager->RegisterTabSpawner(UpdateTabId, FOnSpawnTab::CreateSP(this, &FNiagaraEffectEditor::SpawnTab))
+	InTabManager->RegisterTabSpawner(UpdateTabId, FOnSpawnTab::CreateSP(this, &FNiagaraEffectEditor::SpawnTab))
 		.SetDisplayName(LOCTEXT("NiagaraEffect", "Niagara Effect"))
 		.SetGroup( WorkspaceMenuCategory.ToSharedRef() );
 
 
 }
 
-void FNiagaraEffectEditor::UnregisterTabSpawners(const TSharedRef<class FTabManager>& TabManager)
+void FNiagaraEffectEditor::UnregisterTabSpawners(const TSharedRef<class FTabManager>& InTabManager)
 {
-	FAssetEditorToolkit::UnregisterTabSpawners(TabManager);
+	FAssetEditorToolkit::UnregisterTabSpawners(InTabManager);
 
-	TabManager->UnregisterTabSpawner(UpdateTabId);
-	TabManager->UnregisterTabSpawner(ViewportTabID);
-	TabManager->UnregisterTabSpawner(EmitterEditorTabID);
-	TabManager->UnregisterTabSpawner(DevEmitterEditorTabID);
-	TabManager->UnregisterTabSpawner(CurveEditorTabID);
-	TabManager->UnregisterTabSpawner(SequencerTabID);
+	InTabManager->UnregisterTabSpawner(UpdateTabId);
+	InTabManager->UnregisterTabSpawner(ViewportTabID);
+	InTabManager->UnregisterTabSpawner(EmitterEditorTabID);
+	InTabManager->UnregisterTabSpawner(DevEmitterEditorTabID);
+	InTabManager->UnregisterTabSpawner(CurveEditorTabID);
+	InTabManager->UnregisterTabSpawner(SequencerTabID);
 }
 
 
@@ -85,11 +85,9 @@ void FNiagaraEffectEditor::InitNiagaraEffectEditor(const EToolkitMode::Type Mode
 
 	if (!Sequencer.IsValid())
 	{
-		MovieScene = NewObject<UMovieScene>(InEffect, FName("Niagara Effect MovieScene"));
-		MovieScene->AddToRoot();
-		auto NewAnimation = NewObject<UNiagaraSequence>(MovieScene);
-		MovieScene->SetPlaybackRange(InTime, OutTime);
-		NewAnimation->MovieScene = MovieScene;
+		NiagaraSequence = NewObject<UNiagaraSequence>(InEffect);
+		NiagaraSequence->MovieScene = NewObject<UMovieScene>(NiagaraSequence, FName("Niagara Effect MovieScene"));
+		NiagaraSequence->MovieScene->SetPlaybackRange(InTime, OutTime);
 
 		FSequencerViewParams ViewParams(TEXT("NiagaraSequencerSettings"));
 		{
@@ -99,7 +97,7 @@ void FNiagaraEffectEditor::InitNiagaraEffectEditor(const EToolkitMode::Type Mode
 		FSequencerInitParams SequencerInitParams;
 		{
 			SequencerInitParams.ViewParams = ViewParams;
-			SequencerInitParams.RootSequence = NewAnimation;
+			SequencerInitParams.RootSequence = NiagaraSequence;
 			SequencerInitParams.bEditWithinLevelEditor = false;
 			SequencerInitParams.ToolkitHost = nullptr;
 		}
@@ -110,7 +108,7 @@ void FNiagaraEffectEditor::InitNiagaraEffectEditor(const EToolkitMode::Type Mode
 
 		for (TSharedPtr<FNiagaraSimulation> Emitter : EffectInstance->GetEmitters())
 		{
-			UEmitterMovieSceneTrack *Track = MovieScene->AddMasterTrack<UEmitterMovieSceneTrack>();
+			UEmitterMovieSceneTrack *Track = NiagaraSequence->MovieScene->AddMasterTrack<UEmitterMovieSceneTrack>();
 			Track->SetEmitter(Emitter);
 		}
 	}
@@ -442,24 +440,16 @@ FReply FNiagaraEffectEditor::OnDeleteEmitterClicked(TSharedPtr<FNiagaraSimulatio
 
 FReply FNiagaraEffectEditor::OnEmitterSelected(TSharedPtr<FNiagaraSimulation> SelectedItem, ESelectInfo::Type SelType)
 {
- 	if (SelectedItem.Get() != nullptr)
-	{
-		if (UNiagaraEmitterProperties* PinnedProps = SelectedItem->GetProperties().Get())
-		{
-			if (PinnedProps->UpdateScriptProps.ExternalConstants.GetNumDataObjectConstants() > 0)
-			{
-				FNiagaraVariableInfo VarInfo;
-				UNiagaraDataObject* DataObj;
-				PinnedProps->UpdateScriptProps.ExternalConstants.GetDataObjectConstant(0, DataObj, VarInfo);
-
-				if (UNiagaraCurveDataObject* CurvObj = Cast<UNiagaraCurveDataObject>(DataObj))
-				{
-					TimeLine.Get()->SetCurve(CurvObj->GetCurveObject());
-				}
-			}
-		}
-	}
 	return FReply::Handled();
+}
+
+
+void FNiagaraEffectEditor::AddReferencedObjects( FReferenceCollector& Collector )
+{
+	if ( NiagaraSequence != nullptr )
+	{
+		Collector.AddReferencedObject( NiagaraSequence );
+	}
 }
 
 

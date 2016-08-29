@@ -11,7 +11,7 @@
 int32 CountManifestEntries( const FInternationalizationManifest& Manifest )
 {
 	int32 EntryCounter = 0;
-	for( auto Iter = Manifest.GetEntriesByContextIdIterator(); Iter; ++Iter, ++EntryCounter );
+	for( auto Iter = Manifest.GetEntriesByKeyIterator(); Iter; ++Iter, ++EntryCounter );
 	return EntryCounter;
 }
 
@@ -52,15 +52,15 @@ bool FLocContextTest::RunTest( const FString& Parameters )
 	// Set InfoMetadataA
 	InfoMetadataA->SetStringField( TEXT("VoiceActorDirection"), TEXT("Go big or go home!") );
 
-	// Test FContext
+	// Test FManifestContext
 	{
-		FContext ContextA;
+		FManifestContext ContextA;
 		ContextA.Key			= TEXT("KeyA");
 		ContextA.SourceLocation = TEXT("SourceLocationA");
 		ContextA.InfoMetadataObj = MakeShareable( new FLocMetadataObject(*InfoMetadataA) );
 		ContextA.KeyMetadataObj = MakeShareable( new FLocMetadataObject(*KeyMetadataA) );
 
-		FContext ContextB;
+		FManifestContext ContextB;
 		ContextB.Key			= TEXT("KeyB");
 		ContextB.SourceLocation = TEXT("SourceLocationB");
 		ContextB.InfoMetadataObj = MakeShareable( new FLocMetadataObject(*InfoMetadataB) );
@@ -69,16 +69,16 @@ bool FLocContextTest::RunTest( const FString& Parameters )
 
 		// Test copy ctor
 		{
-			FContext ContextAClone = ContextA;
+			FManifestContext ContextAClone = ContextA;
 
 			if( ContextAClone.InfoMetadataObj == ContextA.InfoMetadataObj )
 			{
-				AddError(TEXT("FContext InfoMetadataObj and its Clone are not unique objects."));
+				AddError(TEXT("FManifestContext InfoMetadataObj and its Clone are not unique objects."));
 			}
 
 			if( ContextAClone.KeyMetadataObj == ContextA.KeyMetadataObj )
 			{
-				AddError(TEXT("FContext KeyMetadataObj and its Clone are not unique objects."));
+				AddError(TEXT("FManifestContext KeyMetadataObj and its Clone are not unique objects."));
 			}
 
 			TestEqual( TEXT("ContextAClone.Key == ContextA.Key"), ContextAClone.Key, ContextA.Key );
@@ -94,17 +94,16 @@ bool FLocContextTest::RunTest( const FString& Parameters )
 
 		// Test assignment operator
 		{
-			FContext ContextAClone;
-			ContextAClone = ContextA;
+			FManifestContext ContextAClone = ContextA;
 
 			if( ContextAClone.InfoMetadataObj == ContextA.InfoMetadataObj )
 			{
-				AddError(TEXT("FContext InfoMetadataObj and its Clone are not unique objects."));
+				AddError(TEXT("FManifestContext InfoMetadataObj and its Clone are not unique objects."));
 			}
 
 			if( ContextAClone.KeyMetadataObj == ContextA.KeyMetadataObj )
 			{
-				AddError(TEXT("FContext KeyMetadataObj and its Clone are not unique objects."));
+				AddError(TEXT("FManifestContext KeyMetadataObj and its Clone are not unique objects."));
 			}
 
 			TestEqual( TEXT("ContextAClone.Key == ContextA.Key"), ContextAClone.Key, ContextA.Key );
@@ -120,7 +119,7 @@ bool FLocContextTest::RunTest( const FString& Parameters )
 		// Test comparison operator
 		{
 			// Key and KeyMetadataObj members should be the only items that are taken into account when comparing
-			FContext ContextAClone = ContextA;
+			FManifestContext ContextAClone = ContextA;
 			TestEqual( TEXT("ContextAClone == ContextA"), ContextAClone, ContextA );
 
 			// Arbitrarily change all the non-important members
@@ -150,8 +149,8 @@ bool FLocContextTest::RunTest( const FString& Parameters )
 			TestNotEqual( TEXT("ContextAClone != ContextA"), ContextAClone, ContextA );
 
 			// Context with valid but empty KeyMetadataObject should be equivalent to Context with null KeyMetadataObject
-			FContext ContextEmptyA;
-			FContext ContextEmptyB;
+			FManifestContext ContextEmptyA;
+			FManifestContext ContextEmptyB;
 			ContextEmptyB.KeyMetadataObj = MakeShareable( new FLocMetadataObject );
 			TestEqual( TEXT("ContextEmptyA == ContextEmptyB"), ContextEmptyA, ContextEmptyB );
 		}
@@ -160,7 +159,7 @@ bool FLocContextTest::RunTest( const FString& Parameters )
 		{
 			TestTrue( TEXT("ContextA < ContextB"), ContextA < ContextB );
 
-			FContext ContextAClone = ContextA;
+			FManifestContext ContextAClone = ContextA;
 
 			// Differences in Key
 			TestFalse( TEXT("ContextA < ContextAClone"), ContextA < ContextAClone );
@@ -187,8 +186,8 @@ bool FLocContextTest::RunTest( const FString& Parameters )
 			ContextAClone.KeyMetadataObj->SetStringField( TEXT("TargetPlurality"), TEXT("A") ) ;
 			TestTrue( TEXT("ContextAClone < ContextA"), ContextAClone < ContextA );
 
-			FContext ContextEmptyA;
-			FContext ContextEmptyB;
+			FManifestContext ContextEmptyA;
+			FManifestContext ContextEmptyB;
 			TestFalse( TEXT("ContextEmptyA < ContextEmptyB"), ContextEmptyA < ContextEmptyB );
 			ContextEmptyB.KeyMetadataObj = MakeShareable( new FLocMetadataObject );
 			TestFalse( TEXT("ContextEmptyA < ContextEmptyB"), ContextEmptyA < ContextEmptyB );
@@ -393,13 +392,13 @@ bool FManifestTest::RunTest( const FString& Parameters )
 
 	// Test FInternationalizationManifest
 	{
-		FContext ContextA;
+		FManifestContext ContextA;
 		ContextA.Key			= TEXT("KeyA");
 		ContextA.SourceLocation = TEXT("SourceLocationA");
 		ContextA.InfoMetadataObj = MakeShareable( new FLocMetadataObject(*InfoMetadataA) );
 		ContextA.KeyMetadataObj = MakeShareable( new FLocMetadataObject(*KeyMetadataA) );
 
-		FContext ContextB;
+		FManifestContext ContextB;
 		ContextB.Key			= TEXT("KeyB");
 		ContextB.SourceLocation = TEXT("SourceLocationB");
 		ContextB.InfoMetadataObj = MakeShareable( new FLocMetadataObject(*InfoMetadataB) );
@@ -790,7 +789,7 @@ bool FManifestTest::RunTest( const FString& Parameters )
 			// Reports success and our entry count does not change.  bIsOptional is not a key and is not used during lookup.  When
 			//  we AddSource, we find an existing matching entry so AddSource returns true but no new entry is added.  The original
 			//  entry's bIsOptional value is not updated.
-			FContext ContextConflictingOptionalFlag = ContextA;
+			FManifestContext ContextConflictingOptionalFlag = ContextA;
 			ContextConflictingOptionalFlag.bIsOptional = !ContextA.bIsOptional;
 
 			TestManifest.AddSource( TestNamespace, Source, ContextA );
@@ -815,7 +814,7 @@ bool FManifestTest::RunTest( const FString& Parameters )
 		{
 			FInternationalizationManifest TestManifest;
 
-			FContext ContextC;
+			FManifestContext ContextC;
 			ContextC.Key			= TEXT("KeyC");
 			ContextC.SourceLocation = TEXT("SourceLocationC");
 			ContextC.InfoMetadataObj = MakeShareable( new FLocMetadataObject(*InfoMetadataB) );
@@ -856,7 +855,7 @@ bool FManifestTest::RunTest( const FString& Parameters )
 		{
 			FInternationalizationManifest TestManifest;
 
-			FContext ContextC;
+			FManifestContext ContextC;
 			ContextC.Key			= TEXT("KeyC");
 			ContextC.SourceLocation = TEXT("SourceLocationC");
 			ContextC.InfoMetadataObj = MakeShareable( new FLocMetadataObject(*InfoMetadataB) );

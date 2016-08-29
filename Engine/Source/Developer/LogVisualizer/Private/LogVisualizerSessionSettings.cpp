@@ -11,7 +11,7 @@
 
 ULogVisualizerSessionSettings::ULogVisualizerSessionSettings(const FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
 {
-	bEnableGraphsVisualization = true;
+	bEnableGraphsVisualization = false;
 }
 
 #if WITH_EDITOR

@@ -156,3 +156,13 @@ FString UBlueprintGameplayTagLibrary::GetDebugStringFromGameplayTagContainer(con
 {
 	return TagContainer.ToStringSimple();
 }
+
+FString UBlueprintGameplayTagLibrary::GetDebugStringFromGameplayTag(const FGameplayTag& GameplayTag)
+{
+	return GameplayTag.ToString();
+}
+
+bool UBlueprintGameplayTagLibrary::IsGameplayTagValid(const FGameplayTag& TagContainer)
+{
+	return TagContainer.IsValid();
+}

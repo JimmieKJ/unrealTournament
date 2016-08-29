@@ -4,8 +4,9 @@
 	UObjectBase.h: Unreal UObject base class
 =============================================================================*/
 
-#ifndef __UOBJECTBASE_H__
-#define __UOBJECTBASE_H__
+#pragma once
+
+#include "UObjectGlobals.h"
 
 DECLARE_DWORD_COUNTER_STAT_EXTERN(TEXT("STAT_UObjectsStatGroupTester"), STAT_UObjectsStatGroupTester, STATGROUP_UObjects, COREUOBJECT_API);
 
@@ -25,7 +26,7 @@ class COREUOBJECT_API UObjectBase
 		);
 protected:
 	UObjectBase() :
-		 Name(NoInit)  // screwy, but the name was already set and we don't want to set it again
+		 NamePrivate(NoInit)  // screwy, but the name was already set and we don't want to set it again
 	{
 	}
 	/**
@@ -110,15 +111,15 @@ public:
 	}
 	FORCEINLINE UClass* GetClass() const
 	{
-		return Class;
+		return ClassPrivate;
 	}
 	FORCEINLINE UObject* GetOuter() const
 	{
-		return Outer;
+		return OuterPrivate;
 	}
 	FORCEINLINE FName GetFName() const
 	{
-		return Name;
+		return NamePrivate;
 	}
 
 	/** 
@@ -216,13 +217,13 @@ private:
 	int32								InternalIndex;
 
 	/** Class the object belongs to. */
-	UClass*							Class;
+	UClass*							ClassPrivate;
 
 	/** Name of this object */
-	FName							Name;
+	FName							NamePrivate;
 
 	/** Object this object resides in. */
-	UObject*						Outer;
+	UObject*						OuterPrivate;
 
 
 	/** Stat id of this object, 0 if nobody asked for it yet */
@@ -309,17 +310,17 @@ struct TClassCompiledInDefer : public FFieldCompiledInInfo
 /**
  * Stashes the singleton function that builds a compiled in class. Later, this is executed.
  */
-COREUOBJECT_API void UObjectCompiledInDefer(class UClass *(*InRegister)(), class UClass *(*InStaticClass)(), const TCHAR* Name, bool bDynamic, const TCHAR* DynamicPathName);
+COREUOBJECT_API void UObjectCompiledInDefer(class UClass *(*InRegister)(), class UClass *(*InStaticClass)(), const TCHAR* Name, bool bDynamic, const TCHAR* DynamicPathName, void (*InInitSearchableValues)(TMap<FName, FName>&));
 
 struct FCompiledInDefer
 {
-	FCompiledInDefer(class UClass *(*InRegister)(), class UClass *(*InStaticClass)(), const TCHAR* Name, bool bDynamic, const TCHAR* DynamicPackageName = nullptr, const TCHAR* DynamicPathName = nullptr)
+	FCompiledInDefer(class UClass *(*InRegister)(), class UClass *(*InStaticClass)(), const TCHAR* Name, bool bDynamic, const TCHAR* DynamicPackageName = nullptr, const TCHAR* DynamicPathName = nullptr, void (*InInitSearchableValues)(TMap<FName, FName>&) = nullptr)
 	{
 		if (bDynamic)
 		{
 			GetConvertedDynamicPackageNameToTypeName().Add(FName(DynamicPackageName), FName(Name));
 		}
-		UObjectCompiledInDefer(InRegister, InStaticClass, Name, bDynamic, DynamicPathName);
+		UObjectCompiledInDefer(InRegister, InStaticClass, Name, bDynamic, DynamicPathName, InInitSearchableValues);
 	}
 };
 
@@ -370,9 +371,6 @@ COREUOBJECT_API class UEnum *GetStaticEnum(class UEnum *(*InRegister)(), UObject
 COREUOBJECT_API class UScriptStruct* FindExistingStructIfHotReloadOrDynamic(UObject* Outer, const TCHAR* StructName, SIZE_T Size, uint32 Crc, bool bIsDynamic);
 COREUOBJECT_API class UEnum* FindExistingEnumIfHotReloadOrDynamic(UObject* Outer, const TCHAR* EnumName, SIZE_T Size, uint32 Crc, bool bIsDynamic);
 
-/** @return	True if there are any newly-loaded UObjects that are waiting to be registered by calling ProcessNewlyLoadedUObjects() */
-COREUOBJECT_API bool AnyNewlyLoadedUObjects();
-
 /** Must be called after a module has been loaded that contains UObject classes */
 COREUOBJECT_API void ProcessNewlyLoadedUObjects();
 
@@ -390,6 +388,4 @@ void UObjectBaseInit();
  * Final phase of UObject shutdown
  */
 void UObjectBaseShutdown();
-
-#endif	// __UOBJECTBASE_H__
 

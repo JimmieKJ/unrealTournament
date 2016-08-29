@@ -92,6 +92,11 @@ public:
 	 */
 	const TSharedPtr<FSequencerDisplayNode>& GetHoveredNode() const;
 
+	/*
+	 * Get the object binding map from guid to object binding nodes
+	 */
+	const TMap< FGuid, TSharedPtr<FSequencerObjectBindingNode> > GetObjectBindingMap() const { return ObjectBindingMap; }
+
 private:
 	/**
 	 * Finds or adds a type editor for the track
@@ -118,7 +123,7 @@ private:
 	 * Creates the tree of folder nodes and populates it with object and track nodes. 
 	 */
 	void CreateAndPopulateFolderNodes( TArray<TSharedRef<FSequencerTrackNode>>& MasterTrackNodes, TArray<TSharedRef<FSequencerObjectBindingNode>>& ObjectNodes,
-		TArray<UMovieSceneFolder*>& MovieSceneFolders, TArray<TSharedRef<FSequencerDisplayNode>>& GroupedNodes );
+		TArray<UMovieSceneFolder*>& MovieSceneFolders, TArray<TSharedRef<FSequencerDisplayNode>>& FolderAndObjectNodes, TArray<TSharedRef<FSequencerDisplayNode>>& MasterTrackNodesNotInFolders );
 
 private:
 	/** Tools for building movie scene section layouts.  One tool for each track */

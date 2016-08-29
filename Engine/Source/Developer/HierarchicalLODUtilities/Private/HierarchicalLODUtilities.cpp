@@ -14,6 +14,11 @@
 #include "StaticMeshResources.h"
 #include "HierarchicalLODVolume.h"
 
+#include "IProjectManager.h"
+#include "MessageLog.h"
+#include "UObjectToken.h"
+#include "MapErrors.h"
+
 #include "Editor.h"
 #include "Editor/EditorEngine.h"
 #include "BSPOps.h"
@@ -30,14 +35,9 @@
 #include "HierarchicalLODUtilities.h"
 #include "HierarchicalLODProxyProcessor.h"
 
+DEFINE_LOG_CATEGORY_STATIC(LogHierarchicalLODUtilities, Verbose, All);
+
 #define LOCTEXT_NAMESPACE "HierarchicalLODUtils"
-
-IMPLEMENT_MODULE(FHierarchicalLODUtilities, HierarchicalLODUtilities);
-
-void FHierarchicalLODUtilities::StartupModule()
-{
-	ProxyProcessor = nullptr;
-}
 
 void FHierarchicalLODUtilities::ExtractStaticMeshComponentsFromLODActor(AActor* Actor, TArray<UStaticMeshComponent*>& InOutComponents)
 {
@@ -126,7 +126,7 @@ UPackage* FHierarchicalLODUtilities::CreateOrRetrieveLevelHLODPackage(ULevel* In
 	return HLODPackage;	
 }
 
-bool FHierarchicalLODUtilities::BuildStaticMeshForLODActor(ALODActor* LODActor, UPackage* AssetsOuter, const FHierarchicalSimplification& LODSetup, const uint32 LODIndex)
+bool FHierarchicalLODUtilities::BuildStaticMeshForLODActor(ALODActor* LODActor, UPackage* AssetsOuter, const FHierarchicalSimplification& LODSetup)
 {
 	if (AssetsOuter && LODActor)
 	{
@@ -135,6 +135,7 @@ bool FHierarchicalLODUtilities::BuildStaticMeshForLODActor(ALODActor* LODActor, 
 			return false;
 		}
 
+		UE_LOG(LogHierarchicalLODUtilities, Log, TEXT("Building Proxy Mesh for Cluster %s"), *LODActor->GetName());
 		const FScopedTransaction Transaction(LOCTEXT("UndoAction_BuildProxyMesh", "Building Proxy Mesh for Cluster"));
 		LODActor->Modify();		
 
@@ -189,7 +190,7 @@ bool FHierarchicalLODUtilities::BuildStaticMeshForLODActor(ALODActor* LODActor, 
 				TArray<AActor*> Actors;
 				ExtractSubActorsFromLODActor(LODActor, Actors);
 
-				FHierarchicalLODUtilities& Module = FModuleManager::LoadModuleChecked<FHierarchicalLODUtilities>("HierarchicalLODUtilities");
+				FHierarchicalLODUtilitiesModule& Module = FModuleManager::LoadModuleChecked<FHierarchicalLODUtilitiesModule>("HierarchicalLODUtilities");
 				FHierarchicalLODProxyProcessor* Processor = Module.GetProxyProcessor();
 
 				FHierarchicalSimplification OverrideLODSetup = LODSetup;
@@ -222,7 +223,7 @@ bool FHierarchicalLODUtilities::BuildStaticMeshForLODActor(ALODActor* LODActor, 
 					MergeSettings.MaterialSettings = LODActor->MaterialSettings;
 				}
 
-				MeshUtilities.MergeStaticMeshComponents(AllComponents, FirstActor->GetWorld(), MergeSettings, AssetsOuter, PackageName, LODIndex, OutAssets, OutProxyLocation, LODSetup.TransitionScreenSize, true);
+				MeshUtilities.MergeStaticMeshComponents(AllComponents, FirstActor->GetWorld(), MergeSettings, AssetsOuter, PackageName, OutAssets, OutProxyLocation, LODSetup.TransitionScreenSize, true);
 				
 				// set staticmesh
 				for (auto& Asset : OutAssets)
@@ -239,15 +240,29 @@ bool FHierarchicalLODUtilities::BuildStaticMeshForLODActor(ALODActor* LODActor, 
 				LODActor->SetActorLocation(OutProxyLocation);
 				LODActor->SubObjects = OutAssets;
 
+				// Check resulting mesh and give a warning if it exceeds the vertex / triangle cap for certain platforms
+				FProjectStatus ProjectStatus;
+				if (IProjectManager::Get().QueryStatusForCurrentProject(ProjectStatus) && (ProjectStatus.IsTargetPlatformSupported(TEXT("Android")) || ProjectStatus.IsTargetPlatformSupported(TEXT("IOS"))))
+				{
+					if (MainMesh->RenderData.IsValid() && MainMesh->RenderData->LODResources.Num() && MainMesh->RenderData->LODResources[0].IndexBuffer.Is32Bit())
+					{
+						FMessageLog("HLODResults").Warning()							
+							->AddToken(FUObjectToken::Create(LODActor))
+							->AddToken(FTextToken::Create(LOCTEXT("HLODError_MeshNotBuildTwo", " Mesh has more that 65535 vertices, incompatible with mobile; forcing 16-bit (will probably cause rendering issues).")));
+					}
+				}
+
 				// At the moment this assumes a fixed field of view of 90 degrees (horizontal and vertical axi)
 				static const float FOVRad = 90.0f * (float)PI / 360.0f;
 				static const FMatrix ProjectionMatrix = FPerspectiveMatrix(FOVRad, 1920, 1080, 0.01f);
 				FBoxSphereBounds Bounds = LODActor->GetStaticMeshComponent()->CalcBounds(FTransform());
-				LODActor->LODDrawDistance = FHierarchicalLODUtilities::CalculateDrawDistanceFromScreenSize(Bounds.SphereRadius, LODSetup.TransitionScreenSize, ProjectionMatrix);
+				LODActor->LODDrawDistance = CalculateDrawDistanceFromScreenSize(Bounds.SphereRadius, LODSetup.TransitionScreenSize, ProjectionMatrix);
 				LODActor->UpdateSubActorLODParents();
 
 				// Freshly build so mark not dirty
 				LODActor->SetIsDirty(false);
+
+
 
 				return true;
 			}
@@ -370,7 +385,7 @@ void FHierarchicalLODUtilities::DestroyCluster(ALODActor* InActor)
 
 	World->DestroyActor(InActor);
 
-	if (ParentLOD != nullptr && !ParentLOD->HasValidSubActors())
+	if (ParentLOD != nullptr && !ParentLOD->HasAnySubActors())
 	{
 		DestroyCluster(ParentLOD);
 	}
@@ -413,6 +428,7 @@ ALODActor* FHierarchicalLODUtilities::CreateNewClusterActor(UWorld* InWorld, con
 	NewActor->LODLevel = InLODLevel + 1;
 	NewActor->LODDrawDistance = 0.0f;
 	NewActor->SetStaticMesh(nullptr);
+	NewActor->PostEditChange();
 
 	return NewActor;
 }
@@ -428,7 +444,7 @@ ALODActor* FHierarchicalLODUtilities::CreateNewClusterFromActors(UWorld* InWorld
 	InWorld->Modify();
 
 	// Create the cluster
-	ALODActor* NewCluster = FHierarchicalLODUtilities::CreateNewClusterActor(InWorld, InLODLevel, WorldSettings);
+	ALODActor* NewCluster = CreateNewClusterActor(InWorld, InLODLevel, WorldSettings);
 	checkf(NewCluster != nullptr, TEXT("Failed to create a new cluster"));
 
 	// Add InActors to new cluster
@@ -437,7 +453,7 @@ ALODActor* FHierarchicalLODUtilities::CreateNewClusterFromActors(UWorld* InWorld
 		checkf(Actor != nullptr, TEXT("Invalid actor in InActors"));
 		
 		// Check if Actor is currently part of a different cluster
-		ALODActor* ParentActor = FHierarchicalLODUtilities::GetParentLODActor(Actor);
+		ALODActor* ParentActor = GetParentLODActor(Actor);
 		if (ParentActor != nullptr)
 		{
 			// If so remove it first
@@ -445,9 +461,9 @@ ALODActor* FHierarchicalLODUtilities::CreateNewClusterFromActors(UWorld* InWorld
 			ParentActor->RemoveSubActor(Actor);
 
 			// If the parent cluster is now empty (invalid) destroy it
-			if (!ParentActor->HasValidSubActors())
+			if (!ParentActor->HasAnySubActors())
 			{
-				FHierarchicalLODUtilities::DestroyCluster(ParentActor);
+				DestroyCluster(ParentActor);
 			}
 		}
 
@@ -467,7 +483,7 @@ const bool FHierarchicalLODUtilities::RemoveActorFromCluster(AActor* InActor)
 	
 	bool bSucces = false;
 
-	ALODActor* ParentActor = FHierarchicalLODUtilities::GetParentLODActor(InActor);
+	ALODActor* ParentActor = GetParentLODActor(InActor);
 	if (ParentActor != nullptr)
 	{
 		const FScopedTransaction Transaction(LOCTEXT("UndoAction_RemoveActorFromCluster", "Remove Actor From Cluster"));
@@ -476,7 +492,7 @@ const bool FHierarchicalLODUtilities::RemoveActorFromCluster(AActor* InActor)
 
 		bSucces = ParentActor->RemoveSubActor(InActor);
 
-		if (!ParentActor->HasValidSubActors())
+		if (!ParentActor->HasAnySubActors())
 		{
 			DestroyCluster(ParentActor);
 		}
@@ -528,10 +544,10 @@ const bool FHierarchicalLODUtilities::MergeClusters(ALODActor* TargetCluster, AL
 	while (SourceCluster->SubActors.Num())
 	{
 		AActor* SubActor = SourceCluster->SubActors.Last();
-		FHierarchicalLODUtilities::AddActorToCluster(SubActor, TargetCluster);		
+		AddActorToCluster(SubActor, TargetCluster);		
 	}
 
-	if (!SourceCluster->HasValidSubActors())
+	if (!SourceCluster->HasAnySubActors())
 	{
 		DestroyCluster(SourceCluster);
 	}
@@ -619,7 +635,7 @@ const bool FHierarchicalLODUtilities::AreActorsClustered(const TArray<AActor*>& 
 	bool bClustered = true;
 	for (AActor* Actor : InActors)
 	{
-		bClustered &= (FHierarchicalLODUtilities::GetParentLODActor(Actor) != nullptr);
+		bClustered &= (GetParentLODActor(Actor) != nullptr);
 
 		if (!bClustered)
 		{
@@ -632,7 +648,7 @@ const bool FHierarchicalLODUtilities::AreActorsClustered(const TArray<AActor*>& 
 
 const bool FHierarchicalLODUtilities::IsActorClustered(const AActor* InActor)
 {
-	bool bClustered = (FHierarchicalLODUtilities::GetParentLODActor(InActor) != nullptr);	
+	bool bClustered = (GetParentLODActor(InActor) != nullptr);	
 	return bClustered;
 }
 
@@ -641,7 +657,7 @@ void FHierarchicalLODUtilities::ExcludeActorFromClusterGeneration(AActor* InActo
 	const FScopedTransaction Transaction(LOCTEXT("UndoAction_ExcludeActorFromClusterGeneration", "Exclude Actor From Cluster Generation"));
 	InActor->Modify();
 	InActor->bEnableAutoLODGeneration = false;
-	FHierarchicalLODUtilities::RemoveActorFromCluster(InActor);
+	RemoveActorFromCluster(InActor);
 }
 
 void FHierarchicalLODUtilities::DestroyLODActor(ALODActor* InActor)
@@ -651,15 +667,15 @@ void FHierarchicalLODUtilities::DestroyLODActor(ALODActor* InActor)
 	World->Modify();
 	InActor->Modify();
 	
-	ALODActor* ParentActor = FHierarchicalLODUtilities::GetParentLODActor(InActor);
+	ALODActor* ParentActor = GetParentLODActor(InActor);
 
-	FHierarchicalLODUtilities::DestroyCluster(InActor);
+	DestroyCluster(InActor);
 	World->DestroyActor(InActor);
 
-	if (ParentActor && !ParentActor->HasValidSubActors())
+	if (ParentActor && !ParentActor->HasAnySubActors())
 	{
 		ParentActor->Modify();
-		FHierarchicalLODUtilities::DestroyLODActor(ParentActor);
+		DestroyLODActor(ParentActor);
 	}
 }
 
@@ -672,7 +688,7 @@ void FHierarchicalLODUtilities::ExtractStaticMeshActorsFromLODActor(ALODActor* L
 			TArray<AActor*> ChildActors;
 			if (ChildActor->IsA<ALODActor>())
 			{
-				FHierarchicalLODUtilities::ExtractStaticMeshActorsFromLODActor(Cast<ALODActor>(ChildActor), ChildActors);
+				ExtractStaticMeshActorsFromLODActor(Cast<ALODActor>(ChildActor), ChildActors);
 			}
 
 			ChildActors.Push(ChildActor);
@@ -763,25 +779,16 @@ AHierarchicalLODVolume* FHierarchicalLODUtilities::CreateVolumeForLODActor(ALODA
 	return Volume;
 }
 
-FHierarchicalLODProxyProcessor* FHierarchicalLODUtilities::GetProxyProcessor()
+void FHierarchicalLODUtilities::HandleActorModified(AActor* InActor)
 {
-	if (ProxyProcessor == nullptr)
+	ALODActor* ParentActor = GetParentLODActor(InActor);
+
+	if (ParentActor != nullptr )
 	{
-		ProxyProcessor = new FHierarchicalLODProxyProcessor();
+		// So something in the actor changed that require use to flag the cluster as dirty
+		ParentActor->Modify();
+		ParentActor->SetIsDirty(true);
 	}
-
-	return ProxyProcessor;
 }
-
-void FHierarchicalLODUtilities::ShutdownModule()
-{
-	if (ProxyProcessor)
-	{
-		delete ProxyProcessor;
-	}
-
-	ProxyProcessor = nullptr;
-}
-
 
 #undef LOCTEXT_NAMESPACE

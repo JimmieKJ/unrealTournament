@@ -344,6 +344,10 @@ UCameraAnimInst* APlayerCameraManager::PlayCameraAnim(UCameraAnim* Anim, float R
 		UCameraAnimInst* const Inst = AllocCameraAnimInst();
 		if (Inst)
 		{
+			if (!Anim->bRelativeToInitialFOV)
+			{
+				Inst->InitialFOV = ViewTarget.POV.FOV;
+			}
 			Inst->LastCameraLoc = FVector::ZeroVector;		// clear LastCameraLoc
 			Inst->Play(Anim, AnimCameraActor, Rate, Scale, BlendInTime, BlendOutTime, bLoop, bRandomStartTime, Duration);
 			Inst->SetPlaySpace(PlaySpace, UserPlaySpaceRot);
@@ -544,7 +548,7 @@ void APlayerCameraManager::ApplyAudioFade()
 		{
 			if (FAudioDevice* AudioDevice = World->GetAudioDevice())
 			{
-				AudioDevice->TransientMasterVolume = 1.0f - FadeAmount;
+				AudioDevice->SetTransientMasterVolume(1.0f - FadeAmount);
 			}
 		}
 	}
@@ -559,7 +563,7 @@ void APlayerCameraManager::StopAudioFade()
 		{
 			if (FAudioDevice* AudioDevice = World->GetAudioDevice())
 			{
-				AudioDevice->TransientMasterVolume = 1.0f;
+				AudioDevice->SetTransientMasterVolume(1.0f);
 			}
 		}
 	}
@@ -592,13 +596,12 @@ UCameraModifier* APlayerCameraManager::FindCameraModifierByClass(TSubclassOf<UCa
 	return nullptr;
 }
 
-
 bool APlayerCameraManager::AddCameraModifierToList(UCameraModifier* NewModifier)
 {
 	if (NewModifier)
 	{
 		// Look through current modifier list and find slot for this priority
-		int32 BestIdx = 0;
+		int32 BestIdx = ModifierList.Num();
 		for (int32 ModifierIdx = 0; ModifierIdx < ModifierList.Num(); ModifierIdx++)
 		{
 			UCameraModifier* const M = ModifierList[ModifierIdx];
@@ -619,12 +622,12 @@ bool APlayerCameraManager::AddCameraModifierToList(UCameraModifier* NewModifier)
 						return false;
 					}
 
+					// Update best index
+					BestIdx = ModifierIdx;
+
 					break;
 				}
 			}
-
-			// Update best index
-			BestIdx = ModifierIdx;
 		}
 
 		// Insert self into best index
@@ -817,7 +820,7 @@ void APlayerCameraManager::UpdateCamera(float DeltaTime)
 	{
 		DoUpdateCamera(DeltaTime);
 
-		if (GetNetMode() == NM_Client && bShouldSendClientSideCameraUpdate)
+		if (bShouldSendClientSideCameraUpdate && IsNetMode(NM_Client))
 		{
 			SCOPE_CYCLE_COUNTER(STAT_ServerUpdateCamera);
 
@@ -1082,15 +1085,17 @@ AEmitterCameraLensEffectBase* APlayerCameraManager::AddCameraLensEffect(TSubclas
 			SpawnInfo.Instigator = Instigator;
 			SpawnInfo.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
 			SpawnInfo.ObjectFlags |= RF_Transient;	// We never want to save these into a map
-			LensEffect = GetWorld()->SpawnActor<AEmitterCameraLensEffectBase>(LensEffectEmitterClass, SpawnInfo);
+			
+			AEmitterCameraLensEffectBase const* const EmitterCDO = LensEffectEmitterClass->GetDefaultObject<AEmitterCameraLensEffectBase>();
+			FVector CamLoc;
+			FRotator CamRot;
+			GetCameraViewPoint(CamLoc, CamRot);
+			FTransform SpawnTransform = AEmitterCameraLensEffectBase::GetAttachedEmitterTransform(EmitterCDO, CamLoc, CamRot, GetFOVAngle());
+			
+			LensEffect = GetWorld()->SpawnActor<AEmitterCameraLensEffectBase>(LensEffectEmitterClass, SpawnTransform, SpawnInfo);
 			if (LensEffect != NULL)
 			{
-				FVector CamLoc;
-				FRotator CamRot;
-				GetCameraViewPoint(CamLoc, CamRot);
 				LensEffect->RegisterCamera(this);
-				LensEffect->UpdateLocation(CamLoc, CamRot, GetFOVAngle());
-
 				CameraLensEffects.Add(LensEffect);
 			}
 		}
@@ -1277,6 +1282,8 @@ bool FTViewTarget::Equal(const FTViewTarget& OtherTarget) const
 
 void FTViewTarget::CheckViewTarget(APlayerController* OwningController)
 {
+	check(OwningController);
+
 	if (Target == NULL)
 	{
 		Target = OwningController;
@@ -1340,7 +1347,6 @@ void FTViewTarget::CheckViewTarget(APlayerController* OwningController)
 
 	if ((Target == NULL) || Target->IsPendingKill())
 	{
-		check(OwningController);
 		if (OwningController->GetPawn() && !OwningController->GetPawn()->IsPendingKillPending() )
 		{
 			OwningController->PlayerCameraManager->AssignViewTarget(OwningController->GetPawn(), *this);

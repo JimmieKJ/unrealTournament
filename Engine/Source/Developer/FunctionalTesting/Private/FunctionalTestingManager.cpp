@@ -110,13 +110,14 @@ bool UFunctionalTestingManager::RunAllFunctionalTests(UObject* WorldContext, boo
 		for (TActorIterator<APhasedAutomationActorBase> It(WorldContext->GetWorld()); It; ++It)
 		{
 			APhasedAutomationActorBase* PAA = (*It);
-			Manager->OnTestsComplete.AddDynamic(PAA, &APhasedAutomationActorBase::OnFunctionalTestingComplete);
+			Manager->OnTestsComplete.AddDynamic(PAA, &APhasedAutomationActorBase::OnFunctionalTestingComplete); 
+			Manager->OnTestsBegin.AddDynamic(PAA, &APhasedAutomationActorBase::OnFunctionalTestingBegin); 
 		}
 
 		for (TActorIterator<AFunctionalTest> It(WorldContext->GetWorld()); It; ++It)
 		{
 			AFunctionalTest* Test = (*It);
-			if (Test != NULL && Test->bIsEnabled == true)
+			if (Test != nullptr && Test->IsEnabled() == true)
 			{
 				Manager->AllTests.Add(Test);
 			}
@@ -127,6 +128,9 @@ bool UFunctionalTestingManager::RunAllFunctionalTests(UObject* WorldContext, boo
 		if (Manager->AllTests.Num() > 0)
 		{
 			Manager->TestsLeft = Manager->AllTests;
+			
+			Manager->OnTestsBegin.Broadcast();
+
 			Manager->TriggerFirstValidTest();
 		}
 	}
@@ -143,7 +147,7 @@ bool UFunctionalTestingManager::RunAllFunctionalTests(UObject* WorldContext, boo
 void UFunctionalTestingManager::TriggerFirstValidTest()
 {
 	UWorld* World = GetWorld();
-	bIsRunning = World != NULL && World->GetNavigationSystem() != NULL;
+	bIsRunning = World != nullptr && World->GetNavigationSystem() != nullptr;
 
 	if (bInitialDelayApplied == true && (bWaitForNavigationBuildFinish == false || UNavigationSystem::IsNavigationBeingBuilt(World) == false) && World->AreActorsInitialized())
 	{
@@ -207,14 +211,14 @@ void UFunctionalTestingManager::OnTestDone(AFunctionalTest* FTest)
 
 void UFunctionalTestingManager::NotifyTestDone(AFunctionalTest* FTest)
 {
-	if (FTest->IsSuccessful() == false)
-	{
-		if (GatheredFailedTestsReproString.IsEmpty() == false)
-		{
-			GatheredFailedTestsReproString += FFunctionalTesting::ReproStringTestSeparator;
-		}
-		GatheredFailedTestsReproString += FTest->GetReproString();
-	}
+	//if (FTest->IsSuccessful() == false)
+	//{
+	//	if (GatheredFailedTestsReproString.IsEmpty() == false)
+	//	{
+	//		GatheredFailedTestsReproString += FFunctionalTesting::ReproStringTestSeparator;
+	//	}
+	//	GatheredFailedTestsReproString += FTest->GetReproString();
+	//}
 
 	if (FTest->OnWantsReRunCheck() == false && FTest->WantsToRunAgain() == false)
 	{
@@ -252,10 +256,13 @@ void UFunctionalTestingManager::NotifyTestDone(AFunctionalTest* FTest)
 
 void UFunctionalTestingManager::AllTestsDone()
 {
-	if (GatheredFailedTestsReproString.IsEmpty() == false)
-	{
-		UE_LOG(LogFunctionalTest, Log, TEXT("Repro String : %s"), *GatheredFailedTestsReproString);
-	}
+	//TODO AUTOMATION Should we revive this?  There's no good way at the moment to know if the test -actually-
+	// failed, because warnings and such could actually fail the test.
+
+	//if (GatheredFailedTestsReproString.IsEmpty() == false)
+	//{
+	//	UE_LOG(LogFunctionalTest, Log, TEXT("Repro String : %s"), *GatheredFailedTestsReproString);
+	//}
 
 	if (bLooped == true)
 	{
@@ -264,7 +271,7 @@ void UFunctionalTestingManager::AllTestsDone()
 		// reset
 		ensure(TestReproStrings.Num() == 0);
 		SetReproString(StartingReproString);
-		GatheredFailedTestsReproString = TEXT("");
+		//GatheredFailedTestsReproString = TEXT("");
 		TestsLeft = AllTests;
 
 		UE_LOG(LogFunctionalTest, Log, TEXT("----- Starting iteration %d -----"), CurrentIteration);
@@ -295,7 +302,9 @@ bool UFunctionalTestingManager::RunFirstValidTest()
 		while (TestReproStrings.Num() > 0)
 		{
 			TArray<FString> TestParams;
-			const FString SingleTestReproString = TestReproStrings.Pop(/*bAllowShrinking=*/false);
+			const FString SingleTestReproString = TestReproStrings[0];
+			TestReproStrings.RemoveAt(0);
+
 			SingleTestReproString.ParseIntoArray(TestParams, TEXT("#"), /*InCullEmpty=*/true);
 			
 			if (TestParams.Num() == 0)
@@ -303,6 +312,7 @@ bool UFunctionalTestingManager::RunFirstValidTest()
 				UE_LOG(LogFunctionalTest, Warning, TEXT("Unable to parse \'%s\'"), *SingleTestReproString);
 				continue;
 			}
+
 			// first param is the test name. Look for it		
 			const FString TestName = TestParams[0];
 			TestParams.RemoveAt(0, 1, /*bAllowShrinking=*/false);
@@ -310,7 +320,7 @@ bool UFunctionalTestingManager::RunFirstValidTest()
 			if (TestToRun)
 			{
 				TestToRun->TestFinishedObserver = TestFinishedObserver;
-				if (TestToRun->StartTest(TestParams))
+				if (TestToRun->RunTest(TestParams))
 				{
 					bTestSuccessfullyTriggered = true;
 					break;
@@ -334,9 +344,9 @@ bool UFunctionalTestingManager::RunFirstValidTest()
 			bool bRemove = TestsLeft[Index] == NULL;
 			if (TestsLeft[Index] != NULL)
 			{
-				ensure(TestsLeft[Index]->bIsEnabled);
+				ensure(TestsLeft[Index]->IsEnabled());
 				TestsLeft[Index]->TestFinishedObserver = TestFinishedObserver;
-				if (TestsLeft[Index]->StartTest())
+				if (TestsLeft[Index]->RunTest())
 				{
 					if (TestsLeft[Index]->IsRunning() == true)
 					{

@@ -158,35 +158,27 @@ namespace UnrealBuildTool
 		{
 			DateTime StartTime = DateTime.Now;
 
-			List<string> DirectoriesToSearch = new List<string>();
+			List<DirectoryReference> DirectoriesToSearch = new List<DirectoryReference>();
 
 			// Find all the .uprojectdirs files contained in the root folder and add their entries to the search array
-			string RootDirectory = Path.Combine(Path.GetDirectoryName(Assembly.GetExecutingAssembly().GetOriginalLocation()), "..", "..", "..");
 			string EngineSourceDirectory = Path.GetFullPath(Path.Combine(RootDirectory, "Engine", "Source"));
 
-			foreach (string File in Directory.EnumerateFiles(RootDirectory, "*.uprojectdirs", SearchOption.TopDirectoryOnly))
+			foreach (FileReference ProjectDirsFile in UnrealBuildTool.RootDirectory.EnumerateFileReferences("*.uprojectdirs", SearchOption.TopDirectoryOnly))
 			{
-				string FilePath = Path.GetFullPath(File);
-				Log.TraceVerbose("\tFound uprojectdirs file {0}", FilePath);
-
-				using (StreamReader Reader = new StreamReader(FilePath))
+				Log.TraceVerbose("\tFound uprojectdirs file {0}", ProjectDirsFile.FullName);
+				foreach(string Line in File.ReadAllLines(ProjectDirsFile.FullName))
 				{
-					string LineRead;
-					while ((LineRead = Reader.ReadLine()) != null)
+					string TrimLine = Line.Trim();
+					if(!TrimLine.StartsWith(";"))
 					{
-						string ProjDirEntry = LineRead.Trim();
-						if (String.IsNullOrEmpty(ProjDirEntry) == false)
+						DirectoryReference BaseProjectDir = DirectoryReference.Combine(UnrealBuildTool.RootDirectory, TrimLine);
+						if(BaseProjectDir.IsUnderDirectory(UnrealBuildTool.RootDirectory))
 						{
-							if (ProjDirEntry.StartsWith(";"))
-							{
-								// Commented out line... skip it
-								continue;
-							}
-							else
-							{
-								string DirPath = Path.GetFullPath(Path.Combine(RootDirectory, ProjDirEntry));
-								DirectoriesToSearch.Add(DirPath);
-							}
+							DirectoriesToSearch.Add(BaseProjectDir);
+						}
+						else
+						{
+							Log.TraceWarning("Project search path '{0}' is not under root directory, ignoring.", TrimLine);
 						}
 					}
 				}
@@ -194,19 +186,18 @@ namespace UnrealBuildTool
 
 			Log.TraceVerbose("\tFound {0} directories to search", DirectoriesToSearch.Count);
 
-			foreach (string DirToSearch in DirectoriesToSearch)
+			foreach (DirectoryReference DirToSearch in DirectoriesToSearch)
 			{
-				Log.TraceVerbose("\t\tSearching {0}", DirToSearch);
-				if (Directory.Exists(DirToSearch))
+				Log.TraceVerbose("\t\tSearching {0}", DirToSearch.FullName);
+				if (DirToSearch.Exists())
 				{
-					foreach (string SubDir in Directory.EnumerateDirectories(DirToSearch, "*", SearchOption.TopDirectoryOnly))
+					foreach (DirectoryReference SubDir in DirToSearch.EnumerateDirectoryReferences("*", SearchOption.TopDirectoryOnly))
 					{
-						Log.TraceVerbose("\t\t\tFound subdir {0}", SubDir);
-						string[] SubDirFiles = Directory.GetFiles(SubDir, "*.uproject", SearchOption.TopDirectoryOnly);
-						foreach (string UProjFile in SubDirFiles)
+						Log.TraceVerbose("\t\t\tFound subdir {0}", SubDir.FullName);
+						foreach(FileReference UProjFile in SubDir.EnumerateFileReferences("*.uproject", SearchOption.TopDirectoryOnly))
 						{
-							Log.TraceVerbose("\t\t\t\t{0}", UProjFile);
-							AddProject(new FileReference(UProjFile));
+							Log.TraceVerbose("\t\t\t\t{0}", UProjFile.FullName);
+							AddProject(UProjFile);
 						}
 					}
 				}
@@ -319,6 +310,46 @@ namespace UnrealBuildTool
 				}
 			}
 			return bEnabled;
+		}
+
+		/// <summary>
+		/// Determine if a plugin is enabled for a given project
+		/// </summary>
+		/// <param name="Project">The project to check</param>
+		/// <param name="Plugin">Information about the plugin</param>
+		/// <param name="Platform">The target platform</param>
+		/// <returns>True if the plugin should be enabled for this project</returns>
+		public static bool IsPluginDescriptorRequiredForProject(PluginInfo Plugin, ProjectDescriptor Project, UnrealTargetPlatform Platform, TargetRules.TargetType TargetType, bool bBuildDeveloperTools, bool bBuildEditor)
+		{
+			// Check if it's referenced by name from the project descriptor. If it is, we'll need the plugin to be included with the project regardless of whether it has
+			// any platform-specific modules or content, just so the runtime can make the call.
+			if (Project != null && Project.Plugins != null)
+			{
+				foreach (PluginReferenceDescriptor PluginReference in Project.Plugins)
+				{
+					if (String.Compare(PluginReference.Name, Plugin.Name, true) == 0)
+					{
+						return PluginReference.IsEnabledForPlatform(Platform) && PluginReference.IsEnabledForTarget(TargetType);
+					}
+				}
+			}
+
+			// If the plugin contains content, it should be included for all platforms
+			if(Plugin.Descriptor.bCanContainContent)
+			{
+				return true;
+			}
+
+			// Check if the plugin has any modules for the given target
+			foreach (ModuleDescriptor Module in Plugin.Descriptor.Modules)
+			{
+				if(Module.IsCompiledInConfiguration(Platform, TargetType, bBuildDeveloperTools, bBuildEditor))
+				{
+					return true;
+				}
+			}
+
+			return false;
 		}
 	}
 }

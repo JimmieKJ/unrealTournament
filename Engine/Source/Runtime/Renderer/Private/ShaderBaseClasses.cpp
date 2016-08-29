@@ -6,6 +6,7 @@
 
 #include "RendererPrivate.h"
 #include "ScenePrivate.h"
+#include "ParameterCollection.h"
 
 /** If true, cached uniform expressions are allowed. */
 int32 FMaterialShader::bAllowCachedUniformExpressions = true;
@@ -67,8 +68,8 @@ FMaterialShader::FMaterialShader(const FMaterialShaderType::CompiledShaderInitia
 	}
 
 	DeferredParameters.Bind(Initializer.ParameterMap);
-	LightAttenuation.Bind(Initializer.ParameterMap, TEXT("LightAttenuationTexture"));
-	LightAttenuationSampler.Bind(Initializer.ParameterMap, TEXT("LightAttenuationTextureSampler"));
+	SceneColorCopyTexture.Bind(Initializer.ParameterMap, TEXT("SceneColorCopyTexture"));
+	SceneColorCopyTextureSampler.Bind(Initializer.ParameterMap, TEXT("SceneColorCopyTextureSampler"));
 	EyeAdaptation.Bind(Initializer.ParameterMap, TEXT("EyeAdaptation"));
 
 }
@@ -76,7 +77,14 @@ FMaterialShader::FMaterialShader(const FMaterialShaderType::CompiledShaderInitia
 FUniformBufferRHIParamRef FMaterialShader::GetParameterCollectionBuffer(const FGuid& Id, const FSceneInterface* SceneInterface) const
 {
 	const FScene* Scene = (const FScene*)SceneInterface;
-	return Scene ? Scene->GetParameterCollectionBuffer(Id) : FUniformBufferRHIParamRef();
+	FUniformBufferRHIParamRef UniformBuffer = Scene ? Scene->GetParameterCollectionBuffer(Id) : FUniformBufferRHIParamRef();
+
+	if (!UniformBuffer)
+	{
+		UniformBuffer = GDefaultMaterialParameterCollectionInstances.FindChecked(Id)->GetUniformBuffer();
+	}
+
+	return UniformBuffer;
 }
 
 template<typename ShaderRHIParamRef>
@@ -86,11 +94,11 @@ void FMaterialShader::SetParameters(
 	const FMaterialRenderProxy* MaterialRenderProxy,
 	const FMaterial& Material,
 	const FSceneView& View,
+	const TUniformBufferRef<FViewUniformShaderParameters>& ViewUniformBuffer,
 	bool bDeferredPass,
-	ESceneRenderTargetsMode::Type TextureMode,
-	const bool bIsInstancedStereo)
+	ESceneRenderTargetsMode::Type TextureMode)
 {
-	SetParameters(RHICmdList, ShaderRHI, View);
+	SetViewParameters(RHICmdList, ShaderRHI, View, ViewUniformBuffer);
 
 	// If the material has cached uniform expressions for selection or hover
 	// and that is being overridden by show flags in the editor, recache
@@ -177,7 +185,7 @@ void FMaterialShader::SetParameters(
 		{
 			UE_LOG(
 				LogShaders,
-				Fatal,	// TEMP workaround only!!!!
+				Fatal,	
 				TEXT("%s shader uniform expression set mismatch for material %s/%s.\n")
 				TEXT("Shader compilation info:                %s\n")
 				TEXT("Material render proxy compilation info: %s\n")
@@ -311,13 +319,13 @@ void FMaterialShader::SetParameters(
 	if (FeatureLevel >= ERHIFeatureLevel::SM4)
 	{
 		// for copied scene color
-		if(LightAttenuation.IsBound())
+		if(SceneColorCopyTexture.IsBound())
 		{
 			SetTextureParameter(
 				RHICmdList,
 				ShaderRHI,
-				LightAttenuation,
-				LightAttenuationSampler,
+				SceneColorCopyTexture,
+				SceneColorCopyTextureSampler,
 				TStaticSamplerState<SF_Bilinear,AM_Clamp,AM_Clamp,AM_Clamp>::GetRHI(),
 				FSceneRenderTargets::Get(RHICmdList).GetLightAttenuationTexture());
 		}
@@ -346,9 +354,9 @@ void FMaterialShader::SetParameters(
 		const FMaterialRenderProxy* MaterialRenderProxy,\
 		const FMaterial& Material,						\
 		const FSceneView& View,							\
+		const TUniformBufferRef<FViewUniformShaderParameters>& ViewUniformBuffer, \
 		bool bDeferredPass,								\
-		ESceneRenderTargetsMode::Type TextureMode,		\
-		const bool bIsInstancedStereo					\
+		ESceneRenderTargetsMode::Type TextureMode		\
 	);
 
 IMPLEMENT_MATERIAL_SHADER_SetParameters( FVertexShaderRHIParamRef );
@@ -366,8 +374,8 @@ bool FMaterialShader::Serialize(FArchive& Ar)
 	Ar << MaterialUniformBuffer;
 	Ar << ParameterCollectionUniformBuffers;
 	Ar << DeferredParameters;
-	Ar << LightAttenuation;
-	Ar << LightAttenuationSampler;
+	Ar << SceneColorCopyTexture;
+	Ar << SceneColorCopyTextureSampler;
 	Ar << DebugUniformExpressionSet;
 	if (Ar.IsLoading())
 	{
@@ -401,10 +409,12 @@ bool FMaterialShader::Serialize(FArchive& Ar)
 FTextureRHIRef& FMaterialShader::GetEyeAdaptation(FRHICommandList& RHICmdList, const FSceneView& View)
 {
 	IPooledRenderTarget* EyeAdaptationRT = NULL;
-	if( View.bIsViewInfo )
+	if (View.bIsViewInfo)
 	{
 		const FViewInfo& ViewInfo = static_cast<const FViewInfo&>(View);
-		EyeAdaptationRT = ViewInfo.GetEyeAdaptation(RHICmdList);
+		if (ViewInfo.HasValidEyeAdaptation()) {
+			EyeAdaptationRT = ViewInfo.GetEyeAdaptation(RHICmdList);
+		}
 	}
 
 	if( EyeAdaptationRT )

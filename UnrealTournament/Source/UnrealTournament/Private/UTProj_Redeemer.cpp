@@ -19,7 +19,7 @@ AUTProj_Redeemer::AUTProj_Redeemer(const class FObjectInitializer& ObjectInitial
 		CapsuleComp->bTraceComplexOnMove = true;
 		CapsuleComp->InitCapsuleSize(16.f, 70.0f);
 		CapsuleComp->SetRelativeRotation(FRotator(90.f, 90.f, 90.f));
-		CapsuleComp->AttachParent = RootComponent;
+		CapsuleComp->SetupAttachment(RootComponent);
 	}
 
 	// Movement

@@ -260,7 +260,11 @@
 		}
 		case EX_InstrumentationEvent:
 		{
-			iCode += sizeof(int32);
+			if (Script[iCode] == EScriptInstrumentation::InlineEvent)
+			{
+				iCode += sizeof(FScriptName);
+			}
+			iCode += sizeof(uint8);
 			break;
 		}
 		case EX_Return:
@@ -314,6 +318,16 @@
 		case EX_IntConst:
 		{
 			XFER(int32);
+			break;
+		}
+		case EX_Int64Const:
+		{
+			XFER(int64);
+			break;
+		}
+		case EX_UInt64Const:
+		{
+			XFER(uint64);
 			break;
 		}
 		case EX_SkipOffsetConst:

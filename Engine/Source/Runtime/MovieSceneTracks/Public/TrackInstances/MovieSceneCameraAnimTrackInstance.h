@@ -12,6 +12,8 @@ struct FMovieSceneCameraAnimSectionInstanceData
 	TWeakObjectPtr<UCameraAnimInst> CameraAnimInst;
 	FTransform AdditiveOffset;		// AdditiveCamToBaseCam
 	float AdditiveFOVOffset;
+	float PostProcessingBlendWeight;
+	FPostProcessSettings PostProcessingSettings;
 };
 
 /**
@@ -43,7 +45,7 @@ private:
 
 	TWeakObjectPtr<ACameraActor> TempCameraActor;
 
-	ACameraActor* GetTempCameraActor();
+	ACameraActor* GetTempCameraActor(IMovieScenePlayer& InMovieScenePlayer);
 
 	TMap<UMovieSceneCameraAnimSection*, FMovieSceneCameraAnimSectionInstanceData> SectionInstanceDataMap;
 };

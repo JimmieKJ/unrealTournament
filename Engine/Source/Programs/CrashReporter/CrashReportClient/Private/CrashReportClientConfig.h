@@ -48,12 +48,17 @@ struct FCrashReportClientConfig
 	/** Initialization constructor. */
 	FCrashReportClientConfig();
 
-	FString GetReceiverAddress() const
+	const FString& GetVersion() const
+	{
+		return CrashReportClientVersion;
+	}
+
+	const FString& GetReceiverAddress() const
 	{
 		return CrashReportReceiverIP;
 	}
 
-	FString GetDataRouterURL() const
+	const FString& GetDataRouterURL() const
 	{
 		return DataRouterUrl;
 	}
@@ -86,6 +91,9 @@ struct FCrashReportClientConfig
 	void SetAllowToBeContacted( bool bNewValue );
 	void SetSendLogFile( bool bNewValue );
 
+	/** Set config values that are determined by the crashing application saving a config file to the crash folder */
+	void SetProjectConfigOverrides(const FConfigFile& InConfigFile);
+
 	/**
 	 * @return location for full crash dump for the specified branch.
 	 */
@@ -97,6 +105,9 @@ protected:
 
 	/** Reads FFullCrashDumpEntry config entries. */
 	void ReadFullCrashDumpConfigurations();
+
+	/** Client version (two digit licensee built e.g. "1.0" - three digits for Epic builds e.g. "1.0.0") */
+	FString CrashReportClientVersion;
 
 	/** IP address of crash report receiver. */
 	FString CrashReportReceiverIP;

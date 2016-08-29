@@ -20,7 +20,7 @@ void STranslationWidgetPicker::Construct(const FArguments& InArgs)
 	FName StyleSet = FEditorStyle::GetStyleSetName();
 	FName StyleName = "Toolbar";
 
-	FText ToolTip = LOCTEXT("TranslationPickerTooltip", "Open the Translation Picker");
+	FText ToolTipText = LOCTEXT("TranslationPickerTooltip", "Open the Translation Picker");
 
 	// Create the content for our button
 	TSharedRef< SWidget > ButtonContent =
@@ -66,7 +66,7 @@ void STranslationWidgetPicker::Construct(const FArguments& InArgs)
 			.IsFocusable(false)
 
 			// Pass along the block's tool-tip string
-			.ToolTip(SNew(SToolTip).Text(ToolTip))
+			.ToolTip(SNew(SToolTip).Text(ToolTipText))
 			[
 				ButtonContent
 			]

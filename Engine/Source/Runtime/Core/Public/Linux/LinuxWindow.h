@@ -76,9 +76,6 @@ public:
 	/** Debugging function - dumps window info to log */
 	void LogInfo();
 
-	/**	Sets the window region to specified dimensions */
-	void AdjustWindowRegion( int32 Width, int32 Height );
-
 	bool IsNativeMoving() const;
 	bool BeginNativeMove();
 	void AfterNativeMove();

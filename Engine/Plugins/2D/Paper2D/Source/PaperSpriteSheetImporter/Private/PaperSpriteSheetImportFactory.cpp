@@ -51,11 +51,11 @@ UObject* UPaperSpriteSheetImportFactory::FactoryCreateText(UClass* InClass, UObj
 
 	FAssetToolsModule& AssetToolsModule = FModuleManager::GetModuleChecked<FAssetToolsModule>("AssetTools");
 
-	const FString CurrentFilename = UFactory::GetCurrentFilename();
+	const FString FactoryCurrentFilename = UFactory::GetCurrentFilename();
 	FString CurrentSourcePath;
 	FString FilenameNoExtension;
 	FString UnusedExtension;
-	FPaths::Split(CurrentFilename, CurrentSourcePath, FilenameNoExtension, UnusedExtension);
+	FPaths::Split(FactoryCurrentFilename, CurrentSourcePath, FilenameNoExtension, UnusedExtension);
 
 	
 
@@ -71,7 +71,7 @@ UObject* UPaperSpriteSheetImportFactory::FactoryCreateText(UClass* InClass, UObj
 		UPaperSpriteSheet* SpriteSheet = NewObject<UPaperSpriteSheet>(InParent, InName, Flags);
 		if (Importer.PerformImport(LongPackagePath, Flags, SpriteSheet))
 		{
-			SpriteSheet->AssetImportData->Update(CurrentFilename);
+			SpriteSheet->AssetImportData->Update(FactoryCurrentFilename);
 
 			Result = SpriteSheet;
 		}

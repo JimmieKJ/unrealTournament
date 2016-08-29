@@ -71,6 +71,8 @@
 	// NOTE: We use a double operator not here to avoid issues with passing certain class objects directly into __analysis_assume (which may cause a bogus compiler warning)
 	#define CA_ASSUME( Expr ) __analysis_assume( !!( Expr ) )
 
+	// Does a simple 'if (Condition)', but disables warnings about using constants in the condition.  Helps with some macro expansions.
+	#define CA_CONSTANT_IF(Condition) __pragma(warning(push)) __pragma(warning(disable:6326)) if (Condition) __pragma(warning(pop))
 
 
 	//

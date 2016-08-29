@@ -6,7 +6,7 @@
 #include "TriggerVolume.generated.h"
 
 UCLASS()
-class ATriggerVolume : public AVolume
+class ENGINE_API ATriggerVolume : public AVolume
 {
 	GENERATED_UCLASS_BODY()
 

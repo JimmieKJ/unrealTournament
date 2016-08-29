@@ -89,15 +89,37 @@ void FActorFolders::Housekeeping()
 void FActorFolders::OnLevelActorListChanged()
 {
 	Housekeeping();
-	check(GWorld);
-	RebuildFolderListForWorld(*GWorld);
+
+	check(GEngine);
+
+	UWorld* World = nullptr;
+	for (const FWorldContext& Context : GEngine->GetWorldContexts())
+	{
+		UWorld* ThisWorld = Context.World();
+		if (!ThisWorld)
+		{
+			continue;
+		}
+		else if (Context.WorldType == EWorldType::PIE)
+		{
+			World = ThisWorld;
+			break;
+		}
+		else if (Context.WorldType == EWorldType::Editor)
+		{
+			World = ThisWorld;
+		}
+	}
+
+	if (World)
+	{
+		RebuildFolderListForWorld(*World);
+	}
 }
 
 void FActorFolders::OnMapChange(uint32 MapChangeFlags)
 {
-	Housekeeping();
-	check(GWorld);
-	RebuildFolderListForWorld(*GWorld);
+	OnLevelActorListChanged();
 }
 
 void FActorFolders::OnWorldSaved(uint32 SaveFlags, UWorld* World, bool bSuccess)

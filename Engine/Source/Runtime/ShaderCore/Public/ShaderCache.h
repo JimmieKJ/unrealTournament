@@ -181,31 +181,60 @@ struct SHADERCORE_API FShaderRenderTargetKey
  *	- Tracking of RHI draw states so that each bound-shader-state can be predrawn (r.UseShaderDrawLog 0/1).
  *	- Predrawing of tracked RHI draw states to eliminate first-use hitches (r.UseShaderPredraw 0/1).
  *	- Control over time spent predrawing each frame to distribute over many frames if required (r.PredrawBatchTime Time (ms), -1 for all).
+ *  - Accumulation of all shader byte code into a single cache file (r.UseShaderBinaryCache 0/1).
+ *  - Asynchronous precompilation of shader code during gameplay (r.UseAsyncShaderPrecompilation 0/1).
+ *  - The target maximum frame time to maintain when r.UseAsyncShaderPrecompilation is enabled (r.TargetPrecompileFrameTime Time (ms), -1 to precompile all shaders at once).
+ *  - An option to temporarily accelerate predrawing when in a non-interactive mode such as a load screen (r.AccelPredrawBatchTime Time (ms), 0 to use r.PredrawBatchTime).
+ *  - An option to accelerate asynchronous precompilation when in a non-interactive mode such as a load screen (r.AccelTargetPrecompileFrameTime Time (ms), 0 to use r.TargetPrecompileFrameTime).
+ *  - A maximum amount of time to spend loading the shaders at launch before moving on to asynchrous precompilation (r.InitialShaderLoadTime Time (ms), -1 to load synchronously).
  *
  * The cache should be populated by enabling r.UseShaderCaching & r.UseShaderDrawLog on a development machine. 
  * Users/players should then consume the cache by enabling r.UseShaderCaching & r.UseShaderPredraw. 
  * Draw logging (r.UseShaderDrawLog) adds noticeable fixed overhead so should be avoided if possible. 
+ * The binary shader cache can either be accumulated during play through or (currently Mac targets only) during cooking by specifying the shader platforms to cache in the CachedShaderFormats array within the /Script/MacTargetPlatform.MacTargetSettings settings group of Engine.ini. 
+ * For OpenGL the binary cache contains enough data about shader pipelines to construct fully linked GL programs or GL program pipelines (depending on availability of GL_ARB_separate_shader_objects) but not enough for pipeline construction on any other RHI. 
+ * This can help reduce the amount of hitching on OpenGL without first playing through the game, though this is still advisable for maximum effect.
  * Since the caching is done via shader hashes it is also advisable to only use this as a final optimisation tool 
  * when content is largely complete as changes to shader hashes will result in unusued entries accumulating in the cache, 
  * increasing cache size without reducing hitches.
  * 
  * Cache locations:
- *  - While populating: <Game>/Saved/ShaderCache.ushadercache
- *  - For distribution: <Game>/Content/ShaderCache.ushadercache
+ *  - While populating: <Game>/Saved/DrawCache.ushadercache, <Game>/Saved/ByteCodeCache.ushadercode
+ *  - For distribution: <Game>/Content/DrawCache.ushadercache, <Game>/Content/ByteCodeCache.ushadercode
  * The code will first try and load the writeable cache, then fallback to the distribution cache if needed.
  * 
+ * To Integrate Into A Project;
+ *  - Enable r.UseShaderCaching & r.UseShaderPredraw in the project configuration for all users.
+ *  - If possible enable r.UseShaderDrawLog only for internal builds & ensure that shader draw states are recorded during final QA for each release. When not feasible (e.g. an extremely large and/or streaming game) enable for all users.
+ *  - Test whether this setup is sufficient to reduce hitching to an acceptable level - the additional optimisations require more work and have significant side-effects.
+ *  - If the above is insufficient then also enable r.UseShaderBinaryCache and configure the CachedShaderFormats to ensure population of the binary cache (currently Mac only).
+ *  - All shader code will now be loaded at startup and all predraw operations will occur on the first frame, so if the loading times are too extreme also set r.PredrawBatchTime to a value greater than 0 in ms to spend predrawing each frame.
+ *  - You may also wish to specify a larger value for r.AccelPredrawBatchTime that can be applied when showing loading screens or other non-interactive content. 
+ *  - To inform the shader cache that it may accelerate predrawing at the expense of game frame rate call FShaderCache::BeginAcceleratedBatching and when it is necessary to return to the less expensive predraw batching call FShaderCache::EndAcceleratedBatching.
+ *  - A call to FShaderCache::FlushOutstandingBatches will cause all remaining shaders to be processed in the next frame.
+ *  - If the project still takes too long to load initially then enable r.UseAsyncShaderPrecompilation and set r.InitialShaderLoadTime to a value > 0, the longer this is the less work that must be done while the game is running.
+ *  - You can tweak the desired target frame time while asynchronously precompiling shaders by modifying the value of r.TargetPrecompileFrameTime.
+ *  - As with predraw batching a more aggressive value can be specified for precompilation by setting r.AccelTargetPrecompileFrameTime to a larger value and then calling FShaderCache::BeginAcceleratedBatching/FShaderCache::EndAcceleratedBatching.
+ *  - With r.UseAsyncShaderPrecompilation enabled a call to FShaderCache::FlushOutstandingBatches will also flush any outstanding compilation requests.
+ *
  * Handling Updates/Invalidation:
  * When the cache needs to be updated & writable caches invalidated the game should specify a new GameVersion.
  * Call FShaderCache::SetGameVersion before initialisating the RHI (which initialises the cache), which will cause 
  * the contents of caches from previous version to be ignored. At present you cannot carry over cache entries from a previous version.
  *
  * Region/Stream Batching:
- * For streaming games, or where the cache becomes very large, calls to FShaderCache::SetStreamingKey should be added with unique values for
+ * For streaming games, or where the cache becomes very large, calls to FShaderCache::LogStreamingKey should be added with unique values for
  * the currently relevant game regions/streaming levels (as required). Logged draw states will be linked to the active streaming key.
  * This limits predrawing to only those draw states required by the active streaming key on subsequent runs.
  * 
+ * Limitations:
+ * The shader cache consumes considerable memory, especially when binary shader caching is enabled. It is not recommended that binary caching be enabled for memory constrained platforms.
+ * At present only Mac support has received significant testing, other platforms may work but there may be unanticipated issues in the current version.
+ * The binary shader cache can only be generated during cooking for Mac target platforms at present.
+ *
  * Supported RHIs:
  * - OpenGLDrv
+ * - MetalRHI
  */
 class SHADERCORE_API FShaderCache : public FTickableObjectRenderThread
 {

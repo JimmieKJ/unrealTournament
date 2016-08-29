@@ -84,6 +84,7 @@ private:
 #endif
 
 	mutable FGeometry CachedAllottedGeometry;
+	mutable FVector2D CachedWindowToDesktopTransform;
 	mutable FSlateRect CachedClippingRect;
 
 	FSimpleSlot EmptyChildSlot;

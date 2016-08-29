@@ -6,7 +6,7 @@
 #include "MaterialEditorActions.h"
 #include "SMaterialEditorViewport.h"
 
-#define LOCTEXT_NAMESPACE ""
+#define LOCTEXT_NAMESPACE "MaterialEditorCommands"
 
 void FMaterialEditorCommands::RegisterCommands()
 {

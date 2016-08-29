@@ -102,7 +102,7 @@ FText FWindowsErrorReport::DiagnoseReport() const
 	return FText();
 }
 
-static bool TryGetDirectoryCreationTime(const FString& InDirectoryName, FDateTime& OutCreationTime)
+static bool TryGetDirectoryCreationTimeUtc(const FString& InDirectoryName, FDateTime& OutCreationTime)
 {
 	FString DirectoryName(InDirectoryName);
 	FPaths::MakePlatformFilename(DirectoryName);
@@ -125,38 +125,46 @@ static bool TryGetDirectoryCreationTime(const FString& InDirectoryName, FDateTim
 	return true;
 }
 
-FString FWindowsErrorReport::FindMostRecentErrorReport()
+void FWindowsErrorReport::FindMostRecentErrorReports(TArray<FString>& ErrorReportPaths, const FTimespan& MaxCrashReportAge)
 {
 	auto& PlatformFile = FPlatformFileManager::Get().GetPlatformFile();
 
-	auto DirectoryCreationTime = FDateTime::MinValue();
-	FString ReportDirectory;
+	FDateTime MinCreationTime = FDateTime::UtcNow() - MaxCrashReportAge;
 	auto ReportFinder = MakeDirectoryVisitor([&](const TCHAR* FilenameOrDirectory, bool bIsDirectory) 
 	{
 		if (bIsDirectory)
 		{
 			FDateTime CreationTime;
-			if(TryGetDirectoryCreationTime(FilenameOrDirectory, CreationTime) && CreationTime > DirectoryCreationTime && FCString::Strstr( FilenameOrDirectory, TEXT("UE4-") ) )
+			if (TryGetDirectoryCreationTimeUtc(FilenameOrDirectory, CreationTime) && CreationTime > MinCreationTime && FCString::Strstr(FilenameOrDirectory, TEXT("UE4-")))
 			{
-				ReportDirectory = FilenameOrDirectory;
-				DirectoryCreationTime = CreationTime;
+				ErrorReportPaths.Add(FilenameOrDirectory);
 			}
 		}
 		return true;
 	});
 
-	TCHAR LocalAppDataPath[MAX_PATH];
-	SHGetFolderPath(0, CSIDL_LOCAL_APPDATA, NULL, 0, LocalAppDataPath);
-	PlatformFile.IterateDirectory( *(FString(LocalAppDataPath) / TEXT("Microsoft/Windows/WER/ReportQueue")), ReportFinder);
+	{
+		TCHAR LocalAppDataPath[MAX_PATH];
+		SHGetFolderPath(0, CSIDL_LOCAL_APPDATA, NULL, 0, LocalAppDataPath);
+		PlatformFile.IterateDirectory(*(FString(LocalAppDataPath) / TEXT("Microsoft/Windows/WER/ReportQueue")), ReportFinder);
+	}
 
-	if (ReportDirectory.Len() == 0)
+	if (ErrorReportPaths.Num() == 0)
 	{
 		TCHAR LocalAppDataPath[MAX_PATH];
 		SHGetFolderPath( 0, CSIDL_COMMON_APPDATA, NULL, 0, LocalAppDataPath );
 		PlatformFile.IterateDirectory( *(FString( LocalAppDataPath ) / TEXT( "Microsoft/Windows/WER/ReportQueue" )), ReportFinder );
 	}
 
-	return ReportDirectory;
+	ErrorReportPaths.Sort([](const FString& L, const FString& R)
+	{
+		FDateTime CreationTimeL;
+		TryGetDirectoryCreationTimeUtc(L, CreationTimeL);
+		FDateTime CreationTimeR;
+		TryGetDirectoryCreationTimeUtc(R, CreationTimeR);
+
+		return CreationTimeL > CreationTimeR;
+	});
 }
 
 #undef LOCTEXT_NAMESPACE

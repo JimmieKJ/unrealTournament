@@ -25,12 +25,14 @@ class ABrush;
 class UModel;
 class APhysicsVolume;
 class UTexture2D;
+class AController;
 class APlayerController;
 class AMatineeActor;
 class AWorldSettings;
 class ACameraActor;
 class FUniqueNetId;
 class FWorldInGamePerformanceTrackers;
+struct FUniqueNetIdRepl;
 
 template<typename,typename> class TOctree;
 
@@ -528,7 +530,7 @@ class ENGINE_API UWorld : public UObject, public FNetworkNotify
 
 	// Group actors currently "active"
 	UPROPERTY(transient)
-	TArray<class AActor*> ActiveGroupActors;
+	TArray<AActor*> ActiveGroupActors;
 
 	/** Information for thumbnail rendering */
 	UPROPERTY(VisibleAnywhere, Instanced, Category=Thumbnail)
@@ -659,6 +661,16 @@ private:
 	UPROPERTY(Transient)
 	TArray<class UMaterialParameterCollectionInstance*> ParameterCollectionInstances;
 
+	/** 
+	 * Canvas object used for drawing to render targets from blueprint functions eg DrawMaterialToRenderTarget.
+	 * This is cached as UCanvas creation takes >100ms.
+	 */
+	UPROPERTY(Transient)
+	UCanvas* CanvasForRenderingToTarget;
+
+	UPROPERTY(Transient)
+	UCanvas* CanvasForDrawMaterialToRenderTarget;
+
 public:
 	/** Set the pointer to the Navgation system. */
 	void SetNavigationSystem( UNavigationSystem* InNavigationSystem);
@@ -687,7 +699,7 @@ public:
 	/** A static map that is populated before loading a world from a package. This is so UWorld can look up its WorldType in ::PostLoad */
 	static TMap<FName, EWorldType::Type> WorldTypePreLoadMap;
 
-	/** Map of blueprints that are bieng debugged and the object instance they are debugging. */
+	/** Map of blueprints that are being debugged and the object instance they are debugging. */
 	typedef TMap<TWeakObjectPtr<class UBlueprint>, TWeakObjectPtr<UObject> > FBlueprintToDebuggedObjectMap;
 
 	/** Return the array of objects currently bieng debugged. */
@@ -702,6 +714,17 @@ public:
 	void ChangeFeatureLevel(ERHIFeatureLevel::Type InFeatureLevel, bool bShowSlowProgressDialog = true);
 
 #endif // WITH_EDITOR
+
+	/**
+	 * Sets whether or not this world is ticked by the engine, but use it at your own risk! This could
+	 * have unintended consequences if used carelessly. That said, for worlds that are not interactive
+	 * and not rendering, it can save the cost of ticking them. This should probably never be used
+	 * for a primary game world.
+	 */
+	void SetShouldTick(const bool bInShouldTick) { bShouldTick = bInShouldTick; }
+
+	/** Returns whether or not this world is currently ticking. See SetShouldTick. */
+	bool ShouldTick() const { return bShouldTick; }
 
 private:
 
@@ -737,6 +760,9 @@ private:
 
 	/** Whether the render scene for this World should be created with HitProxies or not */
 	bool bRequiresHitProxies;
+
+	/** Whether to do any ticking at all for this world. */
+	bool bShouldTick;
 
 	/** a delegate that broadcasts a notification whenever an actor is spawned */
 	FOnActorSpawned OnActorSpawned;
@@ -898,6 +924,11 @@ public:
 	 *  You need Physics Scene if you'd like to trace. This flag changed ticking */
 	bool										bShouldSimulatePhysics;
 
+#if !UE_BUILD_SHIPPING
+	/** If TRUE, 'hidden' components will still create render proxy, so can draw info (see USceneComponent::ShouldRender) */
+	bool										bCreateRenderStateForHiddenComponents;
+#endif // !UE_BUILD_SHIPPING
+
 #if WITH_EDITOR
 	/** this is special flag to enable collision by default for components that are not Volume
 	 * currently only used by editor level viewport world, and do not use this for in-game scene
@@ -911,8 +942,9 @@ public:
 	/** An array of post processing volumes, sorted in ascending order of priority.					*/
 	TArray< IInterface_PostProcessVolume * > PostProcessVolumes;
 
-	/** Pointer to the higest priority audio volumes, each volume has a reference to the next lower priority volume creating a linked list of prioritized audio volumes in descending order */
-	TAutoWeakObjectPtr<class AAudioVolume> HighestPriorityAudioVolume;
+	/** Set of AudioVolumes sorted by  */
+	// TODO: Make this be property UPROPERTY(Transient)
+	TSet<class AAudioVolume*> AudioVolumes;
 
 	/** Handle to the active audio device for this world. */
 	uint32 AudioDeviceHandle;
@@ -973,6 +1005,12 @@ public:
 	 * have lighting rebuilt.
 	 **/
 	uint32 NumLightingUnbuiltObjects;
+
+	/** Num of components missing valid texture streaming data. Updated in map check. */
+	int32 NumTextureStreamingUnbuiltComponents;
+
+	/** Num of resources that have changed since the last texture streaming build. Updated in map check. */
+	int32 NumTextureStreamingDirtyResources;
 
 	/** frame rate is below DesiredFrameRate, so drop high detail actors */
 	uint32 bDropDetail:1;
@@ -1991,6 +2029,10 @@ public:
 	/** Updates this world's scene with the list of instances, and optionally updates each instance's uniform buffer. */
 	void UpdateParameterCollectionInstances(bool bUpdateInstanceUniformBuffers);
 
+	/** Gets the canvas object for rendering to a render target.  Will allocate one if needed. */
+	UCanvas* GetCanvasForRenderingToTarget();
+	UCanvas* GetCanvasForDrawMaterialToRenderTarget();
+
 	/** Struct containing a collection of optional parameters for initialization of a World. */
 	struct InitializationValues
 	{
@@ -2506,7 +2548,8 @@ public:
 	 * @return the PlayerController that was spawned (may fail and return NULL)
 	 */
 	APlayerController* SpawnPlayActor(class UPlayer* Player, ENetRole RemoteRole, const FURL& InURL, const TSharedPtr<const FUniqueNetId>& UniqueId, FString& Error, uint8 InNetPlayerIndex = 0);
-
+	APlayerController* SpawnPlayActor(class UPlayer* Player, ENetRole RemoteRole, const FURL& InURL, const FUniqueNetIdRepl& UniqueId, FString& Error, uint8 InNetPlayerIndex = 0);
+	
 	/** Try to find an acceptable position to place TestActor as close to possible to PlaceLocation.  Expects PlaceLocation to be a valid location inside the level. */
 	bool FindTeleportSpot( AActor* TestActor, FVector& PlaceLocation, FRotator PlaceRotation );
 
@@ -2557,13 +2600,30 @@ public:
 	 * @param NetDriverName the name of the net driver being asked for
 	 * @return a pointer to the net driver or NULL if the named driver is not found
 	 */
-	UNetDriver* GetNetDriver() const
+	FORCEINLINE_DEBUGGABLE UNetDriver* GetNetDriver() const
 	{
 		return NetDriver;
 	}
 
-	/** Returns the net mode this world is running under */
+	/**
+	 * Returns the net mode this world is running under.
+	 * @see IsNetMode()
+	 */
 	ENetMode GetNetMode() const;
+
+	/**
+	* Test whether net mode is the given mode.
+	* In optimized non-editor builds this can be more efficient than GetNetMode()
+	* because it can check the static build flags without considering PIE.
+	*/
+	bool IsNetMode(ENetMode Mode) const;
+
+private:
+
+	/** Private version without inlining that does *not* check Dedicated server build flags (which should already have been done). */
+	ENetMode InternalGetNetMode() const;
+
+public:
 
 #if WITH_EDITOR
 	/** Attempts to derive the net mode from PlayInSettings for PIE*/
@@ -2637,6 +2697,9 @@ public:
 	 */
 	class AAudioVolume* GetAudioSettings( const FVector& ViewLocation, struct FReverbSettings* OutReverbSettings, struct FInteriorSettings* OutInteriorSettings );
 
+	/** Returns the audio device handle for this world.*/
+	uint32 GetAudioDeviceHandle() const { return AudioDeviceHandle; }
+
 	/** Sets the audio device handle to the active audio device for this world.*/
 	void SetAudioDeviceHandle(const uint32 InAudioDeviceHandle);
 
@@ -2699,6 +2762,8 @@ public:
 	 * @param LevelsToRefresh A TArray<ULevelStreaming*> containing pointers to the levels to refresh
 	 */
 	void RefreshStreamingLevels( const TArray<class ULevelStreaming*>& InLevelsToRefresh );
+
+	void IssueEditorLoadWarnings();
 
 #endif
 
@@ -2981,4 +3046,32 @@ FORCEINLINE_DEBUGGABLE bool UWorld::ComponentSweepMulti(TArray<struct FHitResult
 	return ComponentSweepMulti(OutHits, PrimComp, Start, End, Rot.Quaternion(), Params);
 }
 
+FORCEINLINE_DEBUGGABLE ENetMode UWorld::GetNetMode() const
+{
+	// IsRunningDedicatedServer() is a compile-time check in optimized non-editor builds.
+	if (IsRunningDedicatedServer())
+	{
+		return NM_DedicatedServer;
+	}
+
+	return InternalGetNetMode();
+}
+
+FORCEINLINE_DEBUGGABLE bool UWorld::IsNetMode(ENetMode Mode) const
+{
+#if UE_EDITOR
+	// Editor builds are special because of PIE, which can run a dedicated server without the app running with -server.
+	return GetNetMode() == Mode;
+#else
+	// IsRunningDedicatedServer() is a compile-time check in optimized non-editor builds.
+	if (Mode == NM_DedicatedServer)
+	{
+		return IsRunningDedicatedServer();
+	}
+	else
+	{
+		return !IsRunningDedicatedServer() && (InternalGetNetMode() == Mode);
+	}
+#endif
+}
 

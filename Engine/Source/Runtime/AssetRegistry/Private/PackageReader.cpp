@@ -17,25 +17,34 @@ FPackageReader::~FPackageReader()
 	}
 }
 
-bool FPackageReader::OpenPackageFile(const FString& InPackageFilename)
+bool FPackageReader::OpenPackageFile(const FString& InPackageFilename, EOpenPackageResult* OutErrorCode)
 {
 	PackageFilename = InPackageFilename;
 	Loader = IFileManager::Get().CreateFileReader(*PackageFilename);
-	return OpenPackageFile();
+	return OpenPackageFile(OutErrorCode);
 }
 
-bool FPackageReader::OpenPackageFile(FArchive* InLoader)
+bool FPackageReader::OpenPackageFile(FArchive* InLoader, EOpenPackageResult* OutErrorCode)
 {
 	Loader = InLoader;
 	PackageFilename = Loader->GetArchiveName();
-	return OpenPackageFile();
+	return OpenPackageFile(OutErrorCode);
 }
 
-bool FPackageReader::OpenPackageFile()
+bool FPackageReader::OpenPackageFile(EOpenPackageResult* OutErrorCode)
 {
+	auto SetPackageErrorCode = [&](const EOpenPackageResult InErrorCode)
+	{
+		if (OutErrorCode)
+		{
+			*OutErrorCode = InErrorCode;
+		}
+	};
+
 	if( Loader == NULL )
 	{
 		// Couldn't open the file
+		SetPackageErrorCode(EOpenPackageResult::NoLoader);
 		return false;
 	}
 
@@ -48,18 +57,21 @@ bool FPackageReader::OpenPackageFile()
 	if( PackageFileSummary.Tag != PACKAGE_FILE_TAG )
 	{
 		// Unrecognized or malformed package file
+		SetPackageErrorCode(EOpenPackageResult::MalformedTag);
 		return false;
 	}
 
 	// Don't read packages that are too old
 	if( PackageFileSummary.GetFileVersionUE4() < VER_UE4_OLDEST_LOADABLE_PACKAGE )
 	{
+		SetPackageErrorCode(EOpenPackageResult::VersionTooOld);
 		return false;
 	}
 
 	// Don't read packages that were saved with an package version newer than the current one.
 	if( (PackageFileSummary.GetFileVersionUE4() > GPackageFileUE4Version) || (PackageFileSummary.GetFileVersionLicenseeUE4() > GPackageFileLicenseeUE4Version) )
 	{
+		SetPackageErrorCode(EOpenPackageResult::VersionTooNew);
 		return false;
 	}
 
@@ -69,8 +81,14 @@ bool FPackageReader::OpenPackageFile()
 	for (const FCustomVersion& SerializedCustomVersion : PackageCustomVersions)
 	{
 		auto* LatestVersion = LatestCustomVersions.GetVersion(SerializedCustomVersion.Key);
-		if (!LatestVersion || SerializedCustomVersion.Version > LatestVersion->Version)
+		if (!LatestVersion)
 		{
+			SetPackageErrorCode(EOpenPackageResult::CustomVersionMissing);
+			return false;
+		}
+		else if (SerializedCustomVersion.Version > LatestVersion->Version)
+		{
+			SetPackageErrorCode(EOpenPackageResult::VersionTooNew);
 			return false;
 		}
 	}
@@ -78,6 +96,9 @@ bool FPackageReader::OpenPackageFile()
 	// check if this is a compressed package and decompress header 
 	if ( !!(PackageFileSummary.PackageFlags & PKG_StoreCompressed) )
 	{
+#if USE_NEW_ASYNC_IO
+		check(!"Package level compression cannot be used with the async io scheme.");
+#else
 		check(PackageFileSummary.CompressedChunks.Num() > 0);
 
 		int64 CurPos = Loader->Tell();
@@ -93,6 +114,7 @@ bool FPackageReader::OpenPackageFile()
 		}
 		
 		Seek(Loader->Tell());
+#endif
 	}
 
 	//make sure the filereader gets the correct version number (it defaults to latest version)
@@ -107,6 +129,7 @@ bool FPackageReader::OpenPackageFile()
 	SetCustomVersions(PackageFileSummaryVersions);
 	Loader->SetCustomVersions(PackageFileSummaryVersions);
 
+	SetPackageErrorCode(EOpenPackageResult::Success);
 	return true;
 }
 
@@ -307,7 +330,7 @@ bool FPackageReader::ReadAssetRegistryDataIfCookedPackage(TArray<FAssetData*>& A
 						ObjectClassName = ClassImport.ObjectName;
 					}
 
-					new(AssetDataList) FAssetData(FName(*PackageName), FName(*PackagePath), FName(*GroupNames), Export.ObjectName, ObjectClassName, Tags, ChunkIDs, GetPackageFlags());
+					AssetDataList.Add(new FAssetData(FName(*PackageName), FName(*PackagePath), FName(*GroupNames), Export.ObjectName, ObjectClassName, Tags, ChunkIDs, GetPackageFlags()));
 					bFoundAtLeastOneAsset = true;
 				}
 			}

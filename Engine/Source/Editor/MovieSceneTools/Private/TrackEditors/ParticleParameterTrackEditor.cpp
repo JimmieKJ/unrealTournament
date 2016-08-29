@@ -73,7 +73,9 @@ TSharedRef<SWidget> FParticleParameterTrackEditor::OnGetAddParameterMenuContent(
 {
 	FMenuBuilder AddParameterMenuBuilder( true, nullptr );
 
-	AEmitter* Emitter = Cast<AEmitter>( GetSequencer()->GetFocusedMovieSceneSequenceInstance()->FindObject( ObjectBinding, *GetSequencer() ) );
+	TSharedPtr<ISequencer> SequencerPtr = GetSequencer();
+	AEmitter* Emitter = SequencerPtr.IsValid() ? Cast<AEmitter>( SequencerPtr->FindSpawnedObjectOrTemplate( ObjectBinding ) ) : nullptr;
+
 	if ( Emitter != nullptr )
 	{
 		UParticleSystemComponent* ParticleSystemComponent = Emitter->GetParticleSystemComponent();
@@ -131,7 +133,7 @@ bool FParticleParameterTrackEditor::CanAddParticleParameterTrack( FGuid ObjectBi
 void FParticleParameterTrackEditor::AddParticleParameterTrack( FGuid ObjectBinding )
 {
 	FindOrCreateTrackForObject( ObjectBinding, UMovieSceneParticleParameterTrack::StaticClass(), TrackName, true);
-	NotifyMovieSceneDataChanged();
+	GetSequencer()->NotifyMovieSceneDataChanged( EMovieSceneDataChangeType::MovieSceneStructureItemAdded );
 }
 
 
@@ -155,7 +157,7 @@ void FParticleParameterTrackEditor::AddScalarParameter( FGuid ObjectBinding, UMo
 			ParticleParameterTrack->AddScalarParameterKey( ParameterName, KeyTime, Value );
 		}
 	}
-	NotifyMovieSceneDataChanged();
+	GetSequencer()->NotifyMovieSceneDataChanged( EMovieSceneDataChangeType::MovieSceneStructureItemAdded );
 }
 
 
@@ -179,7 +181,7 @@ void FParticleParameterTrackEditor::AddVectorParameter( FGuid ObjectBinding, UMo
 			ParticleParameterTrack->AddVectorParameterKey( ParameterName, KeyTime, Value );
 		}
 	}
-	NotifyMovieSceneDataChanged();
+	GetSequencer()->NotifyMovieSceneDataChanged( EMovieSceneDataChangeType::MovieSceneStructureItemAdded );
 }
 
 
@@ -203,7 +205,7 @@ void FParticleParameterTrackEditor::AddColorParameter( FGuid ObjectBinding, UMov
 			ParticleParameterTrack->AddColorParameterKey( ParameterName, KeyTime, Value );
 		}
 	}
-	NotifyMovieSceneDataChanged();
+	GetSequencer()->NotifyMovieSceneDataChanged( EMovieSceneDataChangeType::MovieSceneStructureItemAdded );
 }
 
 

@@ -635,6 +635,7 @@ public:
 		: _SCSEditor( NULL )
 		, _OnGenerateRow()
 		, _OnGetChildren()
+		, _OnSetExpansionRecursive()
 		, _TreeItemsSource( static_cast< TArray<FSCSEditorTreeNodePtrType>* >(NULL) ) //@todo Slate Syntax: Initializing from NULL without a cast
 		, _ItemHeight(16)
 		, _OnContextMenuOpening()
@@ -653,6 +654,8 @@ public:
 		SLATE_EVENT( FOnItemScrolledIntoView, OnItemScrolledIntoView )
 
 		SLATE_EVENT( FOnGetChildren, OnGetChildren )
+
+		SLATE_EVENT( FOnSetExpansionRecursive, OnSetExpansionRecursive )
 
 		SLATE_ARGUMENT( TArray<FSCSEditorTreeNodePtrType>* , TreeItemsSource )
 
@@ -908,6 +911,9 @@ public:
 
 	/** Try to handle a drag-drop operation */
 	FReply TryHandleAssetDragDropOperation(const FDragDropEvent& DragDropEvent);
+
+	/** Handler for recursively expanding/collapsing items */
+	void SetItemExpansionRecursive(FSCSEditorTreeNodePtrType Model, bool bInExpansionState);
 
 protected:
 	FString GetSelectedClassText() const;

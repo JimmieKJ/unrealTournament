@@ -1,6 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "CoreUObjectPrivate.h"
+#include "EditorObjectVersion.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogMetaData, Log, All);
 
@@ -28,6 +29,15 @@ void FMetaDataUtilities::DumpMetaData(UMetaData* Object)
 			{
 				UE_LOG(LogMetaData, Log, TEXT("%s: %s=%s"), *It.Key().Get()->GetPathName(), *MetaDataIt.Key().ToString(), *MetaDataIt.Value());
 			}
+		}
+	}
+
+	for (TMap<FName, FString>::TIterator MetaDataIt(Object->RootMetaDataMap); MetaDataIt; ++MetaDataIt)
+	{
+		FName Key = MetaDataIt.Key();
+		if (Key != FName(TEXT("ToolTip")))
+		{
+			UE_LOG(LogMetaData, Log, TEXT("Root: %s=%s"), *MetaDataIt.Key().ToString(), *MetaDataIt.Value());
 		}
 	}
 }
@@ -102,6 +112,8 @@ void UMetaData::Serialize(FArchive& Ar)
 {
 	Super::Serialize(Ar);
 
+	Ar.UsingCustomVersion(FEditorObjectVersion::GUID);
+
 	if( Ar.IsSaving() )
 	{
 		// Remove entries belonging to destructed objects
@@ -117,6 +129,7 @@ void UMetaData::Serialize(FArchive& Ar)
 	if (!Ar.IsLoading())
 	{
 		Ar << ObjectMetaDataMap;
+		Ar << RootMetaDataMap;
 	}
 	else
 	{
@@ -139,6 +152,26 @@ void UMetaData::Serialize(FArchive& Ar)
 			}
 		}
 
+		if (Ar.CustomVer(FEditorObjectVersion::GUID) >= FEditorObjectVersion::RootMetaDataSupport)
+		{
+			TMap<FName, FString> TempMap;
+			Ar << TempMap;
+
+			const bool bLoadFromLinker = (NULL != Ar.GetLinker());
+			if (bLoadFromLinker && HasAnyFlags(RF_LoadCompleted))
+			{
+				UE_LOG(LogMetaData, Verbose, TEXT("Root metadata was already loaded by linker. %s"), *GetFullName());
+			}
+			else
+			{
+				if (bLoadFromLinker && RootMetaDataMap.Num())
+				{
+					UE_LOG(LogMetaData, Verbose, TEXT("Metadata: Some root values, filled while serialization, may be lost. %s"), *GetFullName());
+				}
+				Swap(RootMetaDataMap, TempMap);
+			}
+		}
+
 		// Run redirects on loaded keys
 		InitializeRedirectMap();
 
@@ -158,6 +191,21 @@ void UMetaData::Serialize(FArchive& Ar)
 
 					UE_LOG(LogMetaData, Verbose, TEXT("Remapping old metadata key '%s' to new key '%s' on object '%s'."), *OldKey.ToString(), *NewKey.ToString(), *ObjectIt.Key().Get()->GetPathName());
 				}
+			}
+		}
+
+		for (TMap<FName, FString>::TIterator PairIt(RootMetaDataMap); PairIt; ++PairIt)
+		{
+			const FName OldKey = PairIt.Key();
+			const FName NewKey = KeyRedirectMap.FindRef(OldKey);
+			if (NewKey != NAME_None)
+			{
+				const FString Value = PairIt.Value();
+
+				PairIt.RemoveCurrent();
+				RootMetaDataMap.Add(NewKey, Value);
+
+				UE_LOG(LogMetaData, Verbose, TEXT("Remapping old metadata key '%s' to new key '%s' on root."), *OldKey.ToString(), *NewKey.ToString());
 			}
 		}
 	}
@@ -408,11 +456,6 @@ bool UMetaData::NeedsLoadForClient() const
 	return false; 
 }
 
-bool UMetaData::NeedsLoadForServer() const
-{ 
-	return false; 
-}
-
 bool UMetaData::NeedsLoadForEditorGame() const
 {
 	return true;
@@ -438,8 +481,8 @@ void UMetaData::InitializeRedirectMap()
 						FName OldKey = NAME_None;
 						FName NewKey = NAME_None;
 
-						FParse::Value(*It.Value(), TEXT("OldKey="), OldKey);
-						FParse::Value(*It.Value(), TEXT("NewKey="), NewKey);
+						FParse::Value(*It.Value().GetValue(), TEXT("OldKey="), OldKey);
+						FParse::Value(*It.Value().GetValue(), TEXT("NewKey="), NewKey);
 
 						check(OldKey != NewKey);
 						check(OldKey != NAME_None);

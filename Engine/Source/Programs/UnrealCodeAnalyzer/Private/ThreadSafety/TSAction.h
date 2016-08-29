@@ -6,7 +6,6 @@
 namespace UnrealCodeAnalyzer
 {
 	class FTSConsumer;
-	class clang::SourceManager;
 
 	class FTSAction : public clang::ASTFrontendAction
 	{

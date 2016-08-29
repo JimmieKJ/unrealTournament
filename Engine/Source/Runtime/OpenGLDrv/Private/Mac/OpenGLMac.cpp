@@ -18,9 +18,6 @@
  OpenGL static variables.
  ------------------------------------------------------------------------------*/
 
-// As of 10.11.0 Apple fixed radr://16754329 AMD Cards don't always perform FRAMEBUFFER_SRGB if the draw FBO has mixed sRGB & non-SRGB colour attachments
-bool FMacOpenGL::bUseSRGBFramebuffer = false;
-
 // @todo: remove once Apple fixes radr://15553950, TTP# 315197
 static int32 GMacFlushTexStorage = true;
 static int32 GMacMustFlushTexStorage = false;
@@ -512,6 +509,11 @@ bool PlatformBlitToViewport(FPlatformOpenGLDevice* Device, const FOpenGLViewport
 				uint32 Num = FMath::Min(TexturesToDelete.Num(), GMacMaxTexturesToDeletePerFrame);
 				glDeleteTextures(Num, TexturesToDelete.GetData());
 				TexturesToDelete.RemoveAt(0, Num, false);
+			}
+			
+			if (Context->RendererIndex > 0)
+			{
+				FPlatformMisc::UpdateDriverMonitorStatistics(Context->RendererIndex);
 			}
 		}
 	}
@@ -1193,7 +1195,22 @@ void FMacOpenGL::ProcessExtensions(const FString& ExtensionsString)
 	// SSOs require structs in geometry shaders - which only work in 10.10.0 and later
 	bSupportsSeparateShaderObjects &= (FMacPlatformMisc::MacOSXVersionCompare(10,10,0) >= 0);
 	
-	bUseSRGBFramebuffer = (!IsRHIDeviceAMD() || FMacPlatformMisc::MacOSXVersionCompare(10,11,0) >= 0);
+	FString GLVersion( ANSI_TO_TCHAR((const ANSICHAR*)glGetString(GL_VERSION)));
+	FString GLRenderer( ANSI_TO_TCHAR((const ANSICHAR*)glGetString(GL_RENDERER)));
+	
+	FFormatNamedArguments Args;
+	Args.Add(TEXT("AdapterName"), FText::FromString(GLRenderer));
+	Args.Add(TEXT("OpenGLVersion"), FText::FromString(GLVersion));
+	
+	FText LocalizedMsg;
+	if (FOpenGL::GetMajorVersion() < 4)
+	{
+		LocalizedMsg = FText::Format(NSLOCTEXT("MessageDialog", "UnsupportedMacOpenGLGraphicsCard","The current graphics card {AdapterName} is not supported because it only supports OpenGL {OpenGLVersion} but Unreal Engine 4 requires OpenGL 4.1 or later. Unreal Engine 4 may not render correctly and may run at substantially reduced performance on the current graphics card."),Args);
+		
+		FPlatformMisc::MessageBoxExt(EAppMsgType::Ok,
+									 *LocalizedMsg.ToString(),
+									 *NSLOCTEXT("MessageDialog", "TitleVideoCardDriverIssue", "WARNING: Known issues with graphics driver").ToString());
+	}
 }
 
 void FMacOpenGL::MacQueryTimestampCounter(GLuint QueryID)

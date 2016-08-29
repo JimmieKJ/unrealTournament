@@ -9,6 +9,7 @@
 
 FExrImageWrapper::FExrImageWrapper()
 	: FImageWrapperBase()
+	, bUseCompression(true)
 {
 }
 
@@ -275,26 +276,19 @@ const char* FExrImageWrapper::GetRawChannelName(int ChannelIndex) const
 	return ChannelNames[ChannelIndex];
 }
 
+template <typename Imf::PixelType OutputFormat>
+struct TExrImageOutputChannelType;
+
+template <> struct TExrImageOutputChannelType<Imf::HALF>  { typedef FFloat16 Type; };
+template <> struct TExrImageOutputChannelType<Imf::FLOAT> { typedef float Type; };
+
 template <Imf::PixelType OutputFormat, typename sourcetype>
 void FExrImageWrapper::WriteFrameBufferChannel(Imf::FrameBuffer& ImfFrameBuffer, const char* ChannelName, const sourcetype* SrcData, TArray<uint8>& ChannelBuffer)
 {
 	const int32 OutputPixelSize = ((OutputFormat == Imf::HALF) ? 2 : 4);
 	ChannelBuffer.AddUninitialized(Width*Height*OutputPixelSize);
 	uint32 SrcChannels = GetNumChannelsFromFormat(RawFormat);
-	switch (OutputFormat)
-	{
-		case Imf::HALF:
-		{
-			ExtractAndConvertChannel(SrcData, SrcChannels, Width, Height, (FFloat16*)&ChannelBuffer[0]);
-		}
-		break;
-		case Imf::FLOAT:
-		{
-			ExtractAndConvertChannel(SrcData, SrcChannels, Width, Height, (float*)&ChannelBuffer[0]);
-		}
-		break;
-	}
-
+	ExtractAndConvertChannel(SrcData, SrcChannels, Width, Height, (typename TExrImageOutputChannelType<OutputFormat>::Type*)&ChannelBuffer[0]);
 	Imf::Slice FrameChannel = Imf::Slice(OutputFormat, (char*)&ChannelBuffer[0], OutputPixelSize, Width*OutputPixelSize);
 	ImfFrameBuffer.insert(ChannelName, FrameChannel);
 }
@@ -309,15 +303,16 @@ void FExrImageWrapper::CompressRaw(const sourcetype* SrcData, bool bIgnoreAlpha)
 		NumWriteComponents = 3;
 	}
 
-	Imf::Header Header(Width, Height);
-
+	Imf::Compression Comp = bUseCompression ? Imf::Compression::ZIP_COMPRESSION : Imf::Compression::NO_COMPRESSION;
+	Imf::Header Header(Width, Height, 1, Imath::V2f(0, 0), 1, Imf::LineOrder::INCREASING_Y, Comp);
+	
 	for (uint32 Channel = 0; Channel < NumWriteComponents; Channel++)
 	{
 		Header.channels().insert(GetRawChannelName(Channel), Imf::Channel(OutputFormat));
 	}
 
 	FMemFileOut MemFile("");
-	const int32 OutputPixelSize = ((OutputFormat == Imf::HALF) ? 2 : 4);
+	const int32 OutputPixelSize = ((OutputFormat == Imf::HALF && bUseCompression) ? 2 : 4);
 	MemFile.Data.AddUninitialized(Width * Height * NumWriteComponents * OutputPixelSize);
 
 	Imf::FrameBuffer ImfFrameBuffer;
@@ -347,6 +342,8 @@ void FExrImageWrapper::Compress( int32 Quality )
 	check(RawBitDepth == 8 || RawBitDepth == 16 || RawBitDepth == 32);
 
 	const int32 MaxComponents = 4;
+
+	bUseCompression = (Quality != ImageCompression::CompressionQuality::Uncompressed);
 
 	switch (RawBitDepth)
 	{

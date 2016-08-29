@@ -13,15 +13,12 @@ FSlateStyleSet::FSlateStyleSet(const FName& InStyleSetName)
 
 FSlateStyleSet::~FSlateStyleSet()
 {
-	if (!GIsRequestingExit)
+	// Delete all allocated brush resources.
+	for ( TMap< FName, FSlateBrush* >::TIterator It(BrushResources); It; ++It )
 	{
-		// Delete all allocated brush resources.
-		for ( TMap< FName, FSlateBrush* >::TIterator It(BrushResources); It; ++It )
+		if (!It.Value()->HasUObject())
 		{
-			if (!It.Value()->HasUObject())
-			{
-				delete It.Value();
-			}
+			delete It.Value();
 		}
 	}
 }

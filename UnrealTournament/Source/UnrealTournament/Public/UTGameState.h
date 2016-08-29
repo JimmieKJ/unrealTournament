@@ -422,10 +422,10 @@ public:
 
 public:
 	// These IDs are banned for the remainder of the match
-	TArray<TSharedPtr<const FUniqueNetId>> TempBans;
+	TArray<FUniqueNetIdRepl> TempBans;
 
 	// Returns true if this player has been temp banned from this server/instance
-	bool IsTempBanned(const TSharedPtr<const FUniqueNetId>& UniqueId);
+	bool IsTempBanned(const FUniqueNetIdRepl& UniqueId);
 
 	// Registers a vote for temp banning a player.  If the player goes above the threashhold, they will be banned for the remainder of the match
 	void VoteForTempBan(AUTPlayerState* BadGuy, AUTPlayerState* Voter);

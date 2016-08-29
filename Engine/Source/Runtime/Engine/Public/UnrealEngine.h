@@ -59,7 +59,7 @@ public:
 };
 
 //	PlayerControllerIterators
-//	This is the safest, most effecient way to iterate over player controllers.
+//	This is the safest, most efficient way to iterate over player controllers.
 //
 //	Examples:
 //
@@ -122,7 +122,7 @@ protected:
 	void AdvanceCurrent()
 	{
 		// Look at current Iter
-		Current = Cast<T>(*Iter);
+		Current = Iter ? Cast<T>(*Iter) : nullptr;
 
 		// Advance if we have to
 		while(Iter && (!Current || (LocalOnly && !Current->IsLocalController())))
@@ -410,8 +410,6 @@ struct FCachedSystemScalabilityCVars
 	int32 MaxShadowResolution;
 	float ViewDistanceScale;
 	float ViewDistanceScaleSquared;
-	// 0:off, 1:on, -1:unknown
-	int32 SimpleDynamicLighting;
 
 	FCachedSystemScalabilityCVars();
 

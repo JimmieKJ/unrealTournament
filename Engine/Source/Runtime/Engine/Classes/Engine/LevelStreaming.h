@@ -123,7 +123,7 @@ public:
 	uint32 bShouldBeLoaded:1;
 
 	/** Whether the level should be visible if it is loaded																		*/
-	UPROPERTY(Category=LevelStreaming, BlueprintReadWrite)
+	UPROPERTY(EditAnywhere, Category=LevelStreaming, BlueprintReadWrite)
 	uint32 bShouldBeVisible:1;
 
 	/** Whether we want to force a blocking load																				*/
@@ -277,7 +277,7 @@ public:
 
 	/** Returns the Level Script Actor of the level if the level is loaded and valid */
 	UFUNCTION(BlueprintPure, meta = (BlueprintInternalUseOnly = "true"))
-	ALevelScriptActor* GetLevelScriptActor();
+	ENGINE_API ALevelScriptActor* GetLevelScriptActor();
 
 	//~==============================================================================================
 	// Delegates

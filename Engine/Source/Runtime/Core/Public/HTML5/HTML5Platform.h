@@ -31,10 +31,9 @@ typedef FHTML5Types FPlatformTypes;
 #define PLATFORM_USE_LS_SPEC_FOR_WIDECHAR			1
 #if PLATFORM_HTML5_WIN32
 #define PLATFORM_HAS_BSD_TIME						0
-#define PLATFORM_COMPILER_HAS_DEFAULTED_FUNCTIONS	0
-#define PLATFORM_COMPILER_HAS_VARIADIC_TEMPLATES	0
-#define PLATFORM_COMPILER_HAS_EXPLICIT_OPERATORS	0
-#define PLATFORM_COMPILER_HAS_DEFAULT_FUNCTION_TEMPLATE_ARGUMENTS	0
+#if _MSC_VER < 1900
+	#define PLATFORM_COMPILER_HAS_DEFAULTED_FUNCTIONS	0
+#endif
 #define PLATFORM_USES_MICROSOFT_LIBC_FUNCTIONS		1
 #define PLATFORM_MAX_FILEPATH_LENGTH				MAX_PATH
 #define PLATFORM_HAS_BSD_SOCKETS					0
@@ -59,11 +58,13 @@ typedef FHTML5Types FPlatformTypes;
 #define FORCEINLINE _forceinline
 #define FORCENOINLINE __declspec(noinline)	/* Force code to NOT be inline */
 #define CONSTEXPR    
-#define FUNCTION_CHECK_RETURN(...) __declspec("SAL_checkReturn") __VA_ARGS__	/* Wrap a function signature in this to warn that callers should not ignore the return value. */
+#define FUNCTION_CHECK_RETURN_START __declspec("SAL_checkReturn")	/* Warn that callers should not ignore the return value. */
+#define FUNCTION_NO_RETURN_START __declspec(noreturn)				/* Indicate that the function never returns. */
 #else
-#define FORCEINLINE		inline __attribute__((__always_inline__))		/* Force code to be inline */
-#define FORCENOINLINE	__attribute__((noinline))			/* Force code to NOT be inline */
-#define FUNCTION_CHECK_RETURN(...) __VA_ARGS__ __attribute__ ((warn_unused_result))	/* Wrap a function signature in this to warn that callers should not ignore the return value. */
+#define FORCEINLINE		inline __attribute__((__always_inline__))					/* Force code to be inline */
+#define FORCENOINLINE	__attribute__((noinline))									/* Force code to NOT be inline */
+#define FUNCTION_CHECK_RETURN_END __attribute__ ((warn_unused_result))	/* Warn that callers should not ignore the return value. */
+#define FUNCTION_NO_RETURN_END __attribute__ ((noreturn))				/* Indicate that the function never returns. */
 #endif
 
 // Optimization macros

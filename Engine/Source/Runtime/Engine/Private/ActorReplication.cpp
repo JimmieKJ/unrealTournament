@@ -79,6 +79,45 @@ float AActor::GetNetPriority(const FVector& ViewPos, const FVector& ViewDir, AAc
 	return NetPriority * Time;
 }
 
+float AActor::GetReplayPriority(const FVector& ViewPos, const FVector& ViewDir, class AActor* Viewer, AActor* ViewTarget, UActorChannel* const InChannel, float Time)
+{
+	if (ViewTarget && (this == ViewTarget || Instigator == ViewTarget))
+	{
+		// If we're the view target or owned by the view target, use a high priority
+		Time *= 10.0f;
+	}
+	else if (!bHidden && GetRootComponent() != NULL)
+	{
+		// If this actor has a location, adjust priority based on location
+		FVector Dir = GetActorLocation() - ViewPos;
+		float DistSq = Dir.SizeSquared();
+
+		// Adjust priority based on distance
+		if (DistSq < CLOSEPROXIMITYSQUARED)
+		{
+			Time *= 4.0f;
+		}
+		else if (DistSq < NEARSIGHTTHRESHOLDSQUARED)
+		{
+			Time *= 3.0f;
+		}
+		else if (DistSq < MEDSIGHTTHRESHOLDSQUARED)
+		{
+			Time *= 2.4f;
+		}
+		else if (DistSq < FARSIGHTTHRESHOLD)
+		{
+			Time *= 0.8f;
+		}
+		else
+		{
+			Time *= 0.2f;
+		}
+	}
+
+	return Time;
+}
+
 bool AActor::GetNetDormancy(const FVector& ViewPos, const FVector& ViewDir, AActor* Viewer, AActor* ViewTarget, UActorChannel* InChannel, float Time, bool bLowBandwidth)
 {
 	// For now, per peer dormancy is not supported

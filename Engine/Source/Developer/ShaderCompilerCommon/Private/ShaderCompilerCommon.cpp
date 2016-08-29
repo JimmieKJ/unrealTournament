@@ -1,6 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 // .
 
+#include "ShaderCompilerCommonPrivatePCH.h"
 #include "ShaderCompilerCommon.h"
 #include "ModuleManager.h"
 #include "CrossCompilerCommon.h"
@@ -56,6 +57,8 @@ enum EHlslCompileFlag
 	HLSLCC_FixAtomicReferences = 0x800,
 	// Packs global uniforms & flattens structures, and makes each packed array its own uniform buffer
 	HLSLCC_PackUniformsIntoUniformBuffers = 0x1000 | HLSLCC_PackUniforms,
+	// Set default precision to highp in a pixel shader (default is mediump on ES2 platforms)
+	HLSLCC_UseFullPrecisionInPS = 0x2000,
 };
 
 int16 GetNumUniformBuffersUsed(const FShaderCompilerResourceTable& InSRT)
@@ -323,6 +326,57 @@ bool RemoveUniformBuffersFromSource(FString& SourceCode)
 }
 
 
+FString CreateShaderCompilerWorkerDirectCommandLine(const FShaderCompilerInput& Input)
+{
+	FString Text(TEXT("-directcompile -format="));
+	Text += Input.ShaderFormat.GetPlainNameString();
+	Text += TEXT(" -entry=");
+	Text += Input.EntryPointName;
+	switch (Input.Target.Frequency)
+	{
+	case SF_Vertex:		Text += TEXT(" -vs"); break;
+	case SF_Hull:		Text += TEXT(" -hs"); break;
+	case SF_Domain:		Text += TEXT(" -ds"); break;
+	case SF_Geometry:	Text += TEXT(" -gs"); break;
+	case SF_Pixel:		Text += TEXT(" -ps"); break;
+	case SF_Compute:	Text += TEXT(" -cs"); break;
+	default: ensure(0); break;
+	}
+	if (Input.bCompilingForShaderPipeline)
+	{
+		Text += TEXT(" -pipeline");
+	}
+	if (Input.bIncludeUsedOutputs)
+	{
+		Text += TEXT(" -usedoutputs=");
+		for (int32 Index = 0; Index < Input.UsedOutputs.Num(); ++Index)
+		{
+			if (Index != 0)
+			{
+				Text += TEXT("+");
+			}
+			Text += Input.UsedOutputs[Index];
+		}
+	}
+
+	Text += TEXT(" ");
+	Text += Input.DumpDebugInfoPath / Input.SourceFilename + TEXT(".usf");
+
+	uint64 CFlags = 0;
+	for (int32 Index = 0; Index < Input.Environment.CompilerFlags.Num(); ++Index)
+	{
+		CFlags = CFlags | ((uint64)1 << (uint64)Input.Environment.CompilerFlags[Index]);
+	}
+	if (CFlags)
+	{
+		Text += TEXT(" -cflags=");
+		Text += FString::Printf(TEXT("%llu"), CFlags);
+	}
+	
+	return Text;
+}
+
+
 namespace CrossCompiler
 {
 	FString CreateBatchFileContents(const FString& ShaderFile, const FString& OutputFile, uint32 Frequency, const FString& EntryPoint, const FString& VersionSwitch, uint32 CCFlags, const FString& ExtraArguments)
@@ -350,7 +404,8 @@ namespace CrossCompiler
 		CCTCmdLine += ((CCFlags & HLSLCC_ExpandSubexpressions) == HLSLCC_ExpandSubexpressions) ? TEXT(" -xpxpr") : TEXT("");
 		CCTCmdLine += ((CCFlags & HLSLCC_SeparateShaderObjects) == HLSLCC_SeparateShaderObjects) ? TEXT(" -separateshaders") : TEXT("");
 		CCTCmdLine += ((CCFlags & HLSLCC_PackUniformsIntoUniformBuffers) == HLSLCC_PackUniformsIntoUniformBuffers) ? TEXT(" -packintoubs") : TEXT("");
-		CCTCmdLine += ((CCFlags & HLSLCC_FixAtomicReferences) == HLSLCC_PackUniformsIntoUniformBuffers) ? TEXT(" -fixatomics") : TEXT("");
+		CCTCmdLine += ((CCFlags & HLSLCC_FixAtomicReferences) == HLSLCC_FixAtomicReferences) ? TEXT(" -fixatomics") : TEXT("");
+		CCTCmdLine += ((CCFlags & HLSLCC_UseFullPrecisionInPS) == HLSLCC_UseFullPrecisionInPS) ? TEXT(" -usefullprecision") : TEXT("");
 		FString BatchFile;
 		if (PLATFORM_MAC)
 		{

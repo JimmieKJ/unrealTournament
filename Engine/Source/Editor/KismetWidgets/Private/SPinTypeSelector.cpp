@@ -97,8 +97,7 @@ void SPinTypeSelector::Construct(const FArguments& InArgs, FGetPinTypeTree GetPi
 	GetPinTypeTree = GetPinTypeTreeFunc;
 
 	Schema = (UEdGraphSchema_K2*)(InArgs._Schema);
-	bAllowExec = InArgs._bAllowExec;
-	bAllowWildcard = InArgs._bAllowWildcard;
+	TypeTreeFilter = InArgs._TypeTreeFilter;
 	TreeViewWidth = InArgs._TreeViewWidth;
 	TreeViewHeight = InArgs._TreeViewHeight;
 
@@ -191,8 +190,9 @@ void SPinTypeSelector::Construct(const FArguments& InArgs, FGetPinTypeTree GetPi
 
 FText SPinTypeSelector::GetTypeDescription() const
 {
+	const FString& PinSubCategory = TargetPinType.Get().PinSubCategory;
 	const UObject* PinSubCategoryObject = TargetPinType.Get().PinSubCategoryObject.Get();
-	if (PinSubCategoryObject)
+	if (PinSubCategory != UEdGraphSchema_K2::PSC_Bitmask && PinSubCategoryObject)
 	{
 		if (auto Field = Cast<const UField>(PinSubCategoryObject))
 		{
@@ -386,7 +386,7 @@ TSharedRef< SWidget > SPinTypeSelector::GetAllowedObjectTypes(FPinTypeTreeItem I
 
 	FFormatNamedArguments Args;
 
-	if(PinType.PinSubCategoryObject.IsValid())
+	if(PinType.PinSubCategory != UEdGraphSchema_K2::PSC_Bitmask && PinType.PinSubCategoryObject.IsValid())
 	{
 		Args.Add(TEXT("TypeName"), InItem->GetDescription());
 	}
@@ -534,7 +534,7 @@ void SPinTypeSelector::GetTypeChildren(FPinTypeTreeItem InItem, TArray<FPinTypeT
 
 TSharedRef<SWidget>	SPinTypeSelector::GetMenuContent()
 {
-	GetPinTypeTree.Execute(TypeTreeRoot, bAllowExec, bAllowWildcard);
+	GetPinTypeTree.Execute(TypeTreeRoot, TypeTreeFilter);
 
 	// Remove read-only root items if they have no children; there will be no subtree to select non read-only items from in that case
 	int32 RootItemIndex = 0;

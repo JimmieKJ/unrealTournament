@@ -25,6 +25,8 @@
 
 #include "LandscapeRender.h"
 #include "LandscapeLayerInfoObject.h"
+#include "Materials/MaterialExpressionLandscapeVisibilityMask.h"
+#include "LandscapeEdit.h"
 
 #define LOCTEXT_NAMESPACE "LandscapeEditor.TargetLayers"
 
@@ -48,7 +50,16 @@ void FLandscapeEditorDetailCustomization_TargetLayers::CustomizeDetails(IDetailL
 	IDetailCategoryBuilder& TargetsCategory = DetailBuilder.EditCategory("Target Layers");
 
 	TargetsCategory.AddProperty(PropertyHandle_PaintingRestriction)
-		.Visibility(TAttribute<EVisibility>::Create(TAttribute<EVisibility>::FGetter::CreateStatic(&FLandscapeEditorDetailCustomization_TargetLayers::GetVisibility_PaintingRestriction)));
+	.Visibility(TAttribute<EVisibility>::Create(TAttribute<EVisibility>::FGetter::CreateStatic(&FLandscapeEditorDetailCustomization_TargetLayers::GetVisibility_PaintingRestriction)));
+
+	TargetsCategory.AddCustomRow(FText())
+	.Visibility(TAttribute<EVisibility>::Create(TAttribute<EVisibility>::FGetter::CreateStatic(&FLandscapeEditorDetailCustomization_TargetLayers::GetVisibility_VisibilityTip)))
+	[
+		SNew(SErrorText)
+		.Font(DetailBuilder.GetDetailFontBold())
+		.AutoWrapText(true)
+		.ErrorText(LOCTEXT("Visibility_Tip","Note: You must add a \"Landscape Visibility Mask\" node to your material before you can paint visibility."))
+	];
 
 	TargetsCategory.AddCustomBuilder(MakeShareable(new FLandscapeEditorCustomNodeBuilder_TargetLayers(DetailBuilder.GetThumbnailPool().ToSharedRef())));
 }
@@ -92,6 +103,34 @@ bool FLandscapeEditorDetailCustomization_TargetLayers::ShouldShowPaintingRestric
 EVisibility FLandscapeEditorDetailCustomization_TargetLayers::GetVisibility_PaintingRestriction()
 {
 	return ShouldShowPaintingRestriction() ? EVisibility::Visible : EVisibility::Collapsed;
+}
+
+bool FLandscapeEditorDetailCustomization_TargetLayers::ShouldShowVisibilityTip()
+{
+	FEdModeLandscape* LandscapeEdMode = GetEditorMode();
+	if (LandscapeEdMode && LandscapeEdMode->CurrentToolTarget.LandscapeInfo.IsValid())
+	{
+		if (LandscapeEdMode->CurrentToolTarget.TargetType == ELandscapeToolTargetType::Visibility)
+		{
+			ALandscapeProxy* Proxy = LandscapeEdMode->CurrentToolTarget.LandscapeInfo->GetLandscapeProxy();
+			UMaterialInterface* HoleMaterial = Proxy->GetLandscapeHoleMaterial();
+			if (!HoleMaterial)
+			{
+				HoleMaterial = Proxy->GetLandscapeMaterial();
+			}
+			if (!HoleMaterial->GetMaterial()->HasAnyExpressionsInMaterialAndFunctionsOfType<UMaterialExpressionLandscapeVisibilityMask>())
+			{
+				return true;
+			}
+		}
+	}
+
+	return false;
+}
+
+EVisibility FLandscapeEditorDetailCustomization_TargetLayers::GetVisibility_VisibilityTip()
+{
+	return ShouldShowVisibilityTip() ? EVisibility::Visible : EVisibility::Collapsed;
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -460,6 +499,27 @@ TSharedPtr<SWidget> FLandscapeEditorCustomNodeBuilder_TargetLayers::OnTargetLaye
 				FUIAction ReImportAction = FUIAction(FExecuteAction::CreateStatic(&FLandscapeEditorCustomNodeBuilder_TargetLayers::OnReimportLayer, Target));
 				MenuBuilder.AddMenuEntry(FText::Format(LOCTEXT("LayerContextMenu.ReImport", "Reimport from {0}"), FText::FromString(ReimportPath)), FText(), FSlateIcon(), ReImportAction);
 			}
+
+			if (Target->TargetType == ELandscapeToolTargetType::Weightmap)
+			{
+				MenuBuilder.AddMenuSeparator();
+
+				// Fill
+				FUIAction FillAction = FUIAction(FExecuteAction::CreateStatic(&FLandscapeEditorCustomNodeBuilder_TargetLayers::OnFillLayer, Target));
+				MenuBuilder.AddMenuEntry(LOCTEXT("LayerContextMenu.Fill", "Fill Layer"), LOCTEXT("LayerContextMenu.Fill_Tooltip", "Fills this layer to 100% across the entire landscape. If this is a weight-blended (normal) layer, all other weight-blended layers will be cleared."), FSlateIcon(), FillAction);
+
+				// Clear
+				FUIAction ClearAction = FUIAction(FExecuteAction::CreateStatic(&FLandscapeEditorCustomNodeBuilder_TargetLayers::OnClearLayer, Target));
+				MenuBuilder.AddMenuEntry(LOCTEXT("LayerContextMenu.Clear", "Clear Layer"), LOCTEXT("LayerContextMenu.Clear_Tooltip", "Clears this layer to 0% across the entire landscape. If this is a weight-blended (normal) layer, other weight-blended layers will be adjusted to compensate."), FSlateIcon(), ClearAction);
+			}
+			else if (Target->TargetType == ELandscapeToolTargetType::Visibility)
+			{
+				MenuBuilder.AddMenuSeparator();
+
+				// Clear
+				FUIAction ClearAction = FUIAction(FExecuteAction::CreateStatic(&FLandscapeEditorCustomNodeBuilder_TargetLayers::OnClearLayer, Target));
+				MenuBuilder.AddMenuEntry(LOCTEXT("LayerContextMenu.ClearHoles", "Remove all Holes"), FText(), FSlateIcon(), ClearAction);
+			}
 		}
 		MenuBuilder.EndSection();
 
@@ -486,19 +546,21 @@ void FLandscapeEditorCustomNodeBuilder_TargetLayers::OnExportLayer(const TShared
 		// Prompt for filename
 		FString SaveDialogTitle;
 		FString DefaultFileName;
-		FString FileTypes;
+		const TCHAR* FileTypes = nullptr;
+
+		ILandscapeEditorModule& LandscapeEditorModule = FModuleManager::GetModuleChecked<ILandscapeEditorModule>("LandscapeEditor");
 
 		if (Target->TargetType == ELandscapeToolTargetType::Heightmap)
 		{
 			SaveDialogTitle = *LOCTEXT("ExportHeightmap", "Export Landscape Heightmap").ToString();
 			DefaultFileName = TEXT("Heightmap.png");
-			FileTypes = TEXT("Heightmap png files|*.png|Heightmap .raw files|*.raw|Heightmap .r16 files|*.r16|All files|*.*");
+			FileTypes = LandscapeEditorModule.GetHeightmapExportDialogTypeString();
 		}
 		else //if (Target->TargetType == ELandscapeToolTargetType::Weightmap)
 		{
 			SaveDialogTitle = *FText::Format(LOCTEXT("ExportLayer", "Export Landscape Layer: {0}"), FText::FromName(LayerInfoObj->LayerName)).ToString();
 			DefaultFileName = *FString::Printf(TEXT("%s.png"), *(LayerInfoObj->LayerName.ToString()));
-			FileTypes = TEXT("Layer png files|*.png|Layer .raw files|*.raw|Layer .r8 files|*.r8|All files|*.*");
+			FileTypes = LandscapeEditorModule.GetWeightmapExportDialogTypeString();
 		}
 
 		// Prompt the user for the filenames
@@ -508,7 +570,7 @@ void FLandscapeEditorCustomNodeBuilder_TargetLayers::OnExportLayer(const TShared
 			*SaveDialogTitle,
 			*LandscapeEdMode->UISettings->LastImportPath,
 			*DefaultFileName,
-			*FileTypes,
+			FileTypes,
 			EFileDialogFlags::None,
 			SaveFilenames
 			);
@@ -550,19 +612,21 @@ void FLandscapeEditorCustomNodeBuilder_TargetLayers::OnImportLayer(const TShared
 		// Prompt for filename
 		FString OpenDialogTitle;
 		FString DefaultFileName;
-		FString FileTypes;
+		const TCHAR* FileTypes = nullptr;
+
+		ILandscapeEditorModule& LandscapeEditorModule = FModuleManager::GetModuleChecked<ILandscapeEditorModule>("LandscapeEditor");
 
 		if (Target->TargetType == ELandscapeToolTargetType::Heightmap)
 		{
 			OpenDialogTitle = *LOCTEXT("ImportHeightmap", "Import Landscape Heightmap").ToString();
 			DefaultFileName = TEXT("Heightmap.png");
-			FileTypes = TEXT("All Heightmap files|*.png;*.raw;*.r16|Heightmap png files|*.png|Heightmap .raw/.r16 files|*.raw;*.r16|All files|*.*");
+			FileTypes = LandscapeEditorModule.GetHeightmapImportDialogTypeString();
 		}
 		else //if (Target->TargetType == ELandscapeToolTargetType::Weightmap)
 		{
 			OpenDialogTitle = *FText::Format(LOCTEXT("ImportLayer", "Import Landscape Layer: {0}"), FText::FromName(LayerInfoObj->LayerName)).ToString();
 			DefaultFileName = *FString::Printf(TEXT("%s.png"), *(LayerInfoObj->LayerName.ToString()));
-			FileTypes = TEXT("All Layer files|*.png;*.raw;*.r8|Layer png files|*.png|Layer .raw/.r8 files|*.raw;*.r8|All files|*.*");
+			FileTypes = LandscapeEditorModule.GetWeightmapImportDialogTypeString();
 		}
 
 		// Prompt the user for the filenames
@@ -572,7 +636,7 @@ void FLandscapeEditorCustomNodeBuilder_TargetLayers::OnImportLayer(const TShared
 			*OpenDialogTitle,
 			*LandscapeEdMode->UISettings->LastImportPath,
 			*DefaultFileName,
-			*FileTypes,
+			FileTypes,
 			EFileDialogFlags::None,
 			OpenFilenames
 			);
@@ -599,12 +663,33 @@ void FLandscapeEditorCustomNodeBuilder_TargetLayers::OnReimportLayer(const TShar
 	}
 }
 
+void FLandscapeEditorCustomNodeBuilder_TargetLayers::OnFillLayer(const TSharedRef<FLandscapeTargetListInfo> Target)
+{
+	FScopedTransaction Transaction(LOCTEXT("Undo_FillLayer", "Filling Landscape Layer"));
+	if (Target->LandscapeInfo.IsValid() && Target->LayerInfoObj.IsValid())
+	{
+		FLandscapeEditDataInterface LandscapeEdit(Target->LandscapeInfo.Get());
+		LandscapeEdit.FillLayer(Target->LayerInfoObj.Get());
+	}
+}
+
+
+void FLandscapeEditorCustomNodeBuilder_TargetLayers::OnClearLayer(const TSharedRef<FLandscapeTargetListInfo> Target)
+{
+	FScopedTransaction Transaction(LOCTEXT("Undo_ClearLayer", "Clearing Landscape Layer"));
+	if (Target->LandscapeInfo.IsValid() && Target->LayerInfoObj.IsValid())
+	{
+		FLandscapeEditDataInterface LandscapeEdit(Target->LandscapeInfo.Get());
+		LandscapeEdit.DeleteLayer(Target->LayerInfoObj.Get());
+	}
+}
+
 bool FLandscapeEditorCustomNodeBuilder_TargetLayers::ShouldFilterLayerInfo(const FAssetData& AssetData, FName LayerName)
 {
-	const FString* const LayerNameMetaData = AssetData.TagsAndValues.Find("LayerName");
-	if (LayerNameMetaData && !LayerNameMetaData->IsEmpty())
+	const FName LayerNameMetaData = AssetData.GetTagValueRef<FName>("LayerName");
+	if (!LayerNameMetaData.IsNone())
 	{
-		return FName(**LayerNameMetaData) != LayerName;
+		return LayerNameMetaData != LayerName;
 	}
 
 	ULandscapeLayerInfoObject* LayerInfo = CastChecked<ULandscapeLayerInfoObject>(AssetData.GetAsset());
@@ -980,17 +1065,17 @@ FReply SLandscapeEditorSelectableBorder::OnMouseButtonUp(const FGeometry& MyGeom
 const FSlateBrush* SLandscapeEditorSelectableBorder::GetBorder() const
 {
 	const bool bIsSelected = IsSelected.Get();
-	const bool bIsHovered = IsHovered() && OnSelected.IsBound();
+	const bool bHovered = IsHovered() && OnSelected.IsBound();
 
 	if (bIsSelected)
 	{
-		return bIsHovered
+		return bHovered
 			? FEditorStyle::GetBrush("LandscapeEditor.TargetList", ".RowSelectedHovered")
 			: FEditorStyle::GetBrush("LandscapeEditor.TargetList", ".RowSelected");
 	}
 	else
 	{
-		return bIsHovered
+		return bHovered
 			? FEditorStyle::GetBrush("LandscapeEditor.TargetList", ".RowBackgroundHovered")
 			: FEditorStyle::GetBrush("LandscapeEditor.TargetList", ".RowBackground");
 	}

@@ -439,7 +439,7 @@ void FBSPOps::SplitPolyList
 	// Add the splitter poly to the Bsp with either a new BspSurf or an existing one.
 	if( RebuildSimplePolys )
 	{
-		SplitPoly->iLink = Model->Surfs.Num();
+		SplitPoly->iLinkSurf = Model->Surfs.Num();
 	}
 
 	int32 iOurNode	= bspAddNode(Model,iParent,NodePlace,0,SplitPoly);
@@ -470,7 +470,7 @@ void FBSPOps::SplitPolyList
 			case SP_Coplanar:
 	            if( RebuildSimplePolys )
 				{
-					EdPoly->iLink = Model->Surfs.Num()-1;
+					EdPoly->iLinkSurf = Model->Surfs.Num()-1;
 				}
 				iPlaneNode = bspAddNode( Model, iPlaneNode, NODE_Plane, 0, EdPoly );
 				break;
@@ -1071,7 +1071,7 @@ int32	FBSPOps::bspAddNode( UModel* Model, int32 iParent, ENodePlace NodePlace, u
 		}
 	}
 	FBspSurf* Surf = NULL;
-	if( EdPoly->iLink == Model->Surfs.Num() )
+	if( EdPoly->iLinkSurf == Model->Surfs.Num() )
 	{
 		int32 NewIndex = Model->Surfs.AddZeroed();
 		Surf = &Model->Surfs[NewIndex];
@@ -1102,9 +1102,9 @@ int32	FBSPOps::bspAddNode( UModel* Model, int32 iParent, ENodePlace NodePlace, u
 	}
 	else
 	{
-		check(EdPoly->iLink!=INDEX_NONE);
-		check(EdPoly->iLink<Model->Surfs.Num());
-		Surf = &Model->Surfs[EdPoly->iLink];
+		check(EdPoly->iLinkSurf!=INDEX_NONE);
+		check(EdPoly->iLinkSurf<Model->Surfs.Num());
+		Surf = &Model->Surfs[EdPoly->iLinkSurf];
 	}
 
 	// Set NodeFlags.
@@ -1148,7 +1148,7 @@ int32	FBSPOps::bspAddNode( UModel* Model, int32 iParent, ENodePlace NodePlace, u
 			Parent = &Model->Nodes[iParent];
 
 		// Set node properties.
-		Node.iSurf       	 = EdPoly->iLink;
+		Node.iSurf       	 = EdPoly->iLinkSurf;
 		Node.NodeFlags   	 = NodeFlags;
 		Node.iCollisionBound = INDEX_NONE;
 		Node.Plane           = FPlane( EdPoly->Vertices[0], EdPoly->Normal );

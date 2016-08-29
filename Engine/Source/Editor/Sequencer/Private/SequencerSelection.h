@@ -16,6 +16,8 @@ public:
 
 	DECLARE_MULTICAST_DELEGATE(FOnSelectionChanged)
 
+	DECLARE_MULTICAST_DELEGATE(FOnSelectionChangedObjectGuids)
+
 public:
 
 	FSequencerSelection();
@@ -98,6 +100,12 @@ public:
 	/** Gets a multicast delegate which is called when the outliner node with selected keys or sections changes. */
 	FOnSelectionChanged& GetOnNodesWithSelectedKeysOrSectionsChanged();
 
+	/** Gets a multicast delegate with an array of FGuid of bound objects which is called when the outliner node selection changes. */
+	FOnSelectionChangedObjectGuids& GetOnOutlinerNodeSelectionChangedObjectGuids();
+
+	/** Helper function to get an array of FGuid of bound objects on return */
+	TArray<FGuid> GetBoundObjectsGuids();
+
 	/** Suspend the broadcast of selection change notifications.  */
 	void SuspendBroadcast();
 
@@ -125,6 +133,8 @@ private:
 	FOnSelectionChanged OnSectionSelectionChanged;
 	FOnSelectionChanged OnOutlinerNodeSelectionChanged;
 	FOnSelectionChanged OnNodesWithSelectedKeysOrSectionsChanged;
+
+	FOnSelectionChangedObjectGuids OnOutlinerNodeSelectionChangedObjectGuids;
 
 	/** The number of times the broadcasting of selection change notifications has been suspended. */
 	int32 SuspendBroadcastCount;

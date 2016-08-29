@@ -3,6 +3,7 @@
 #include "EnginePrivate.h"
 // @todo AIModule circular dependency
 #include "AI/Navigation/NavFilters/NavigationQueryFilter.h"
+#include "AI/Navigation/NavAreas/NavArea.h"
 
 //----------------------------------------------------------------------//
 // FNavigationQueryFilter
@@ -113,26 +114,46 @@ UNavigationQueryFilter::UNavigationQueryFilter(const FObjectInitializer& ObjectI
 {
 	IncludeFlags.Packed = 0xffff;
 	ExcludeFlags.Packed = 0;
+	bInstantiateForQuerier = false;
+	bIsMetaFilter = false;
 }
 
-FSharedConstNavQueryFilter UNavigationQueryFilter::GetQueryFilter(const ANavigationData& NavData) const
+FSharedConstNavQueryFilter UNavigationQueryFilter::GetQueryFilter(const ANavigationData& NavData, const UObject* Querier) const
 {
-	FSharedConstNavQueryFilter SharedFilter = NavData.GetQueryFilter(GetClass());
+	if (bIsMetaFilter && Querier != nullptr)
+	{
+		TSubclassOf<UNavigationQueryFilter> SimpleFilterClass = GetSimpleFilterForAgent(*Querier);
+		if (*SimpleFilterClass)
+		{
+			const UNavigationQueryFilter* DefFilterOb = SimpleFilterClass.GetDefaultObject();
+			check(DefFilterOb);
+			if (DefFilterOb->bIsMetaFilter == false)
+			{
+				return DefFilterOb->GetQueryFilter(NavData, nullptr);
+			}
+		}
+	}
+	
+	// the default, simple filter implementation
+	FSharedConstNavQueryFilter SharedFilter = bInstantiateForQuerier ? nullptr : NavData.GetQueryFilter(GetClass());
 	if (!SharedFilter.IsValid())
 	{
 		FNavigationQueryFilter* NavFilter = new FNavigationQueryFilter();
 		NavFilter->SetFilterImplementation(NavData.GetDefaultQueryFilterImpl());
 
-		InitializeFilter(NavData, *NavFilter);
+		InitializeFilter(NavData, Querier, *NavFilter);
 
 		SharedFilter = MakeShareable(NavFilter);
-		const_cast<ANavigationData&>(NavData).StoreQueryFilter(GetClass(), SharedFilter);
+		if (!bInstantiateForQuerier)
+		{
+			const_cast<ANavigationData&>(NavData).StoreQueryFilter(GetClass(), SharedFilter);
+		}
 	}
 
 	return SharedFilter;
 }
 
-void UNavigationQueryFilter::InitializeFilter(const ANavigationData& NavData, FNavigationQueryFilter& Filter) const
+void UNavigationQueryFilter::InitializeFilter(const ANavigationData& NavData, const UObject* Querier, FNavigationQueryFilter& Filter) const
 {
 	// apply overrides
 	for (int32 i = 0; i < Areas.Num(); i++)
@@ -172,10 +193,23 @@ FSharedConstNavQueryFilter UNavigationQueryFilter::GetQueryFilter(const ANavigat
 {
 	if (FilterClass)
 	{
-		UNavigationQueryFilter* DefFilterOb = FilterClass.GetDefaultObject();
+		const UNavigationQueryFilter* DefFilterOb = FilterClass.GetDefaultObject();
 		// no way we have not default object here
 		check(DefFilterOb);
-		return DefFilterOb->GetQueryFilter(NavData);
+		return DefFilterOb->GetQueryFilter(NavData, nullptr);
+	}
+
+	return nullptr;
+}
+
+FSharedConstNavQueryFilter UNavigationQueryFilter::GetQueryFilter(const ANavigationData& NavData, const UObject* Querier, TSubclassOf<UNavigationQueryFilter> FilterClass)
+{
+	if (FilterClass)
+	{
+		const UNavigationQueryFilter* DefFilterOb = FilterClass.GetDefaultObject();
+		// no way we have not default object here
+		check(DefFilterOb);
+		return DefFilterOb->GetQueryFilter(NavData, Querier);
 	}
 
 	return nullptr;

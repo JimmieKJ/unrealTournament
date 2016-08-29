@@ -44,6 +44,10 @@ public:
 	UPROPERTY(EditAnywhere, Category="Child Layout", meta=(InlineEditConditionToggle))
 	uint32 bOverride_MaxDesiredHeight : 1;
 
+	/**  */
+	UPROPERTY(EditAnywhere, Category="Child Layout", meta=(InlineEditConditionToggle))
+	uint32 bOverride_MaxAspectRatio : 1;
+
 
 	/** When specified, ignore the content's desired size and report the WidthOverride as the Box's desired width. */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Child Layout", meta=( editcondition="bOverride_WidthOverride" ))
@@ -68,6 +72,10 @@ public:
 	/** When specified, will report the MaxDesiredHeight if smaller than the content's desired height. */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Child Layout", meta=( editcondition="bOverride_MaxDesiredHeight" ))
 	float MaxDesiredHeight;
+
+	/** */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Child Layout", meta=( editcondition="bOverride_MaxAspectRatio" ))
+	float MaxAspectRatio;
 
 public:
 		
@@ -112,6 +120,12 @@ public:
 
 	UFUNCTION(BlueprintCallable, Category="Layout|Size Box")
 	void ClearMaxDesiredHeight();
+
+	UFUNCTION(BlueprintCallable, Category="Layout|Size Box")
+	void SetMaxAspectRatio(float InMaxAspectRatio);
+
+	UFUNCTION(BlueprintCallable, Category="Layout|Size Box")
+	void ClearMaxAspectRatio();
 
 public:
 

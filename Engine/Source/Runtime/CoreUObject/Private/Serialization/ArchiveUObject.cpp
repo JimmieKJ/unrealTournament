@@ -13,7 +13,7 @@ DEFINE_LOG_CATEGORY_STATIC(LogArchiveUObject, Log, All);
  * don't need to bother serializing lazy object pointers.  However, serialization is required if you
  * want to load and save your object.
  */
-FArchive& FArchiveUObject::operator<<( class FLazyObjectPtr& LazyObjectPtr )
+FArchive& FArchiveUObject::operator<<(class FLazyObjectPtr& LazyObjectPtr)
 {
 	FArchive& Ar = *this;
 	// We never serialize our reference while the garbage collector is harvesting references
@@ -21,14 +21,17 @@ FArchive& FArchiveUObject::operator<<( class FLazyObjectPtr& LazyObjectPtr )
 	// collected.  That would defeat the whole purpose of a weak object pointer!
 	// However, when modifying both kinds of references we want to serialize and writeback the updated value.
 	// We only want to write the modified value during reference fixup if the data is loaded
-	if( !IsObjectReferenceCollector() || IsModifyingWeakAndStrongReferences() )
+	if (!IsObjectReferenceCollector() || IsModifyingWeakAndStrongReferences())
 	{
+		// when transacting objects are serialized and restored out-of-order, resulting in *temporary* bad references
+		const bool bEvenIfPendingKill = Ar.IsTransacting();
+
 		// Downcast from UObjectBase to UObject
-		UObject* Object = static_cast< UObject* >( LazyObjectPtr.Get() );
+		UObject* Object = static_cast<UObject*>(LazyObjectPtr.Get(bEvenIfPendingKill));
 
 		Ar << Object;
 
-		if( IsLoading() || (Object && IsModifyingWeakAndStrongReferences()) )
+		if (IsLoading() || (Object && IsModifyingWeakAndStrongReferences()))
 		{
 			LazyObjectPtr = Object;
 		}
@@ -104,11 +107,11 @@ FArchive& FObjectAndNameAsStringProxyArchive::operator<<(class UObject*& Obj)
 		FString LoadedString;
 		InnerArchive << LoadedString;
 		// look up the object by fully qualified pathname
-		Obj = FindObject<UObject>(NULL, *LoadedString, false);
+		Obj = FindObject<UObject>(nullptr, *LoadedString, false);
 		// If we couldn't find it, and we want to load it, do that
-		if((Obj == NULL) && bLoadIfFindFails)
+		if(Obj && bLoadIfFindFails)
 		{
-			Obj = LoadObject<UObject>(NULL, *LoadedString);
+			Obj = LoadObject<UObject>(nullptr, *LoadedString);
 		}
 	}
 	else
@@ -137,7 +140,7 @@ void FSerializedPropertyScope::PopEditorOnlyProperty()
 }
 #endif
 
-void FArchiveReplaceObjectRefBase::SerializeObject(UObject* ObjectToSerialzie)
+void FArchiveReplaceObjectRefBase::SerializeObject(UObject* ObjectToSerialize)
 {
 	// Simple FReferenceCollector proxy for FArchiveReplaceObjectRefBase
 	class FReplaceObjectRefCollector : public FReferenceCollector
@@ -177,23 +180,23 @@ void FArchiveReplaceObjectRefBase::SerializeObject(UObject* ObjectToSerialzie)
 	// default objects may be serialized during script compilation while the script
 	// and C++ versions of a class are not in sync), so use SerializeTaggedProperties()
 	// rather than the native Serialize() function
-	UClass* ObjectClass = ObjectToSerialzie->GetClass();
-	if (ObjectToSerialzie->HasAnyFlags(RF_ClassDefaultObject))
+	UClass* ObjectClass = ObjectToSerialize->GetClass();
+	if (ObjectToSerialize->HasAnyFlags(RF_ClassDefaultObject))
 	{		
 		StartSerializingDefaults();
 		if (!WantBinaryPropertySerialization() && (IsLoading() || IsSaving()))
 		{
-			ObjectClass->SerializeTaggedProperties(*this, (uint8*)ObjectToSerialzie, ObjectClass, NULL);
+			ObjectClass->SerializeTaggedProperties(*this, (uint8*)ObjectToSerialize, ObjectClass, nullptr);
 		}
 		else
 		{
-			ObjectClass->SerializeBin(*this, ObjectToSerialzie);
+			ObjectClass->SerializeBin(*this, ObjectToSerialize);
 		}
 		StopSerializingDefaults();
 	}
 	else
 	{
-		ObjectToSerialzie->Serialize(*this);
+		ObjectToSerialize->Serialize(*this);
 	}
-	ObjectClass->CallAddReferencedObjects(ObjectToSerialzie, ReplaceRefCollector);
+	ObjectClass->CallAddReferencedObjects(ObjectToSerialize, ReplaceRefCollector);
 }

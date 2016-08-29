@@ -2,7 +2,7 @@
 
 #pragma once
 
-struct FEnginePerformanceTargets
+struct ENGINE_API FEnginePerformanceTargets
 {
 public:
 	// The target threshold for frame time in miliseconds (*cosmetic only* and used for fps/stat display, should not be used in scalability code)

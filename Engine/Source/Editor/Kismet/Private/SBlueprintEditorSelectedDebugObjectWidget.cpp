@@ -272,12 +272,17 @@ void SBlueprintEditorSelectedDebugObjectWidget::GenerateDebugWorldNames(bool bRe
 			break;
 
 		case NM_Client:
-			FWorldContext &PieContext = GEngine->GetWorldContextFromWorldChecked(TestWorld);
-			WorldName = FString::Printf(TEXT("%s %d"), *NSLOCTEXT("BlueprintEditor", "DebugWorldClient", "Client").ToString(), PieContext.PIEInstance - 1);
+			if (FWorldContext* PieContext = GEngine->GetWorldContextFromWorld(TestWorld))
+			{
+				WorldName = FString::Printf(TEXT("%s %d"), *NSLOCTEXT("BlueprintEditor", "DebugWorldClient", "Client").ToString(), PieContext->PIEInstance - 1);
+			}
 			break;
 		};
 
-		DebugWorldNames.Add(MakeShareable(new FString(WorldName)));
+		if (!WorldName.IsEmpty())
+		{
+			DebugWorldNames.Add( MakeShareable(new FString(WorldName)) );
+		}
 	}
 
 	// Attempt to restore the old selection

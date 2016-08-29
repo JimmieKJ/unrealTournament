@@ -10,7 +10,7 @@
 FItemPropertyNode::FItemPropertyNode(void)
 	: FPropertyNode()
 {
-
+	bCanDisplayFavorite = false;
 }
 
 FItemPropertyNode::~FItemPropertyNode(void)
@@ -96,7 +96,7 @@ void FItemPropertyNode::InitExpansionFlags (void)
 	if(	Cast<UStructProperty>(MyProperty)
 		||	( Cast<UArrayProperty>(MyProperty) && GetReadAddress(false,Addresses) )
 		||  HasNodeFlags(EPropertyNodeFlags::EditInline)
-		||	( Property->ArrayDim > 1 && ArrayIndex == -1 ) )
+		||	( MyProperty->ArrayDim > 1 && ArrayIndex == -1 ) )
 	{
 		SetNodeFlags(EPropertyNodeFlags::CanBeExpanded, true);
 	}
@@ -107,33 +107,33 @@ void FItemPropertyNode::InitExpansionFlags (void)
 void FItemPropertyNode::InitChildNodes()
 {
 	//NOTE - this is only turned off as to not invalidate child object nodes.
-	UProperty* Property = GetProperty();
-	UStructProperty* StructProperty = Cast<UStructProperty>(Property);
-	UArrayProperty* ArrayProperty = Cast<UArrayProperty>(Property);
-	UObjectPropertyBase* ObjectProperty = Cast<UObjectPropertyBase>(Property);
+	UProperty* MyProperty = GetProperty();
+	UStructProperty* StructProperty = Cast<UStructProperty>(MyProperty);
+	UArrayProperty* ArrayProperty = Cast<UArrayProperty>(MyProperty);
+	UObjectPropertyBase* ObjectProperty = Cast<UObjectPropertyBase>(MyProperty);
 
 	const bool bShouldShowHiddenProperties = !!HasNodeFlags(EPropertyNodeFlags::ShouldShowHiddenProperties);
 	const bool bShouldShowDisableEditOnInstance = !!HasNodeFlags(EPropertyNodeFlags::ShouldShowDisableEditOnInstance);
 
-	if( Property->ArrayDim > 1 && ArrayIndex == -1 )
+	if( MyProperty->ArrayDim > 1 && ArrayIndex == -1 )
 	{
 		// Do not add array children which are defined by an enum but the enum at the array index is hidden
 		// This only applies to static arrays
 		static const FName NAME_ArraySizeEnum("ArraySizeEnum");
 		UEnum* ArraySizeEnum = NULL; 
-		if (Property->HasMetaData(NAME_ArraySizeEnum))
+		if (MyProperty->HasMetaData(NAME_ArraySizeEnum))
 		{
-			ArraySizeEnum	= FindObject<UEnum>(NULL, *Property->GetMetaData(NAME_ArraySizeEnum));
+			ArraySizeEnum	= FindObject<UEnum>(NULL, *MyProperty->GetMetaData(NAME_ArraySizeEnum));
 		}
 
 		// Expand array.
-		for( int32 ArrayIndex = 0 ; ArrayIndex < Property->ArrayDim ; ArrayIndex++ )
+		for( int32 Index = 0 ; Index < MyProperty->ArrayDim ; Index++ )
 		{
 			bool bShouldBeHidden = false;
 			if( ArraySizeEnum )
 			{
 				// The enum at this array index is hidden
-				bShouldBeHidden = ArraySizeEnum->HasMetaData(TEXT("Hidden"), ArrayIndex );
+				bShouldBeHidden = ArraySizeEnum->HasMetaData(TEXT("Hidden"), Index );
 			}
 
 			if( !bShouldBeHidden )
@@ -141,9 +141,9 @@ void FItemPropertyNode::InitChildNodes()
 				TSharedPtr<FItemPropertyNode> NewItemNode( new FItemPropertyNode);
 				FPropertyNodeInitParams InitParams;
 				InitParams.ParentNode = SharedThis(this);
-				InitParams.Property = Property;
-				InitParams.ArrayOffset = ArrayIndex*Property->ElementSize;
-				InitParams.ArrayIndex = ArrayIndex;
+				InitParams.Property = MyProperty;
+				InitParams.ArrayOffset = Index*MyProperty->ElementSize;
+				InitParams.ArrayIndex = Index;
 				InitParams.bAllowChildren = true;
 				InitParams.bForceHiddenPropertyVisibility = bShouldShowHiddenProperties;
 				InitParams.bCreateDisableEditOnInstanceNodes = bShouldShowDisableEditOnInstance;
@@ -164,15 +164,15 @@ void FItemPropertyNode::InitChildNodes()
 
 		if( Array )
 		{
-			for( int32 ArrayIndex = 0 ; ArrayIndex < FScriptArrayHelper::Num(Array) ; ArrayIndex++ )
+			for( int32 Index = 0 ; Index < FScriptArrayHelper::Num(Array) ; Index++ )
 			{
 				TSharedPtr<FItemPropertyNode> NewItemNode( new FItemPropertyNode );
 
 				FPropertyNodeInitParams InitParams;
 				InitParams.ParentNode = SharedThis(this);
 				InitParams.Property = ArrayProperty->Inner;
-				InitParams.ArrayOffset = ArrayIndex*ArrayProperty->Inner->ElementSize;
-				InitParams.ArrayIndex = ArrayIndex;
+				InitParams.ArrayOffset = Index*ArrayProperty->Inner->ElementSize;
+				InitParams.ArrayIndex = Index;
 				InitParams.bAllowChildren = true;
 				InitParams.bForceHiddenPropertyVisibility = bShouldShowHiddenProperties;
 				InitParams.bCreateDisableEditOnInstanceNodes = bShouldShowDisableEditOnInstance;
@@ -223,7 +223,7 @@ void FItemPropertyNode::InitChildNodes()
 			}
 		}
 	}
-	else if( ObjectProperty || Property->IsA(UInterfaceProperty::StaticClass()))
+	else if( ObjectProperty || MyProperty->IsA(UInterfaceProperty::StaticClass()))
 	{
 		uint8* ReadValue = NULL;
 
@@ -260,7 +260,7 @@ void FItemPropertyNode::InitChildNodes()
 
 				FPropertyNodeInitParams InitParams;
 				InitParams.ParentNode = SharedThis(this);
-				InitParams.Property = Property;
+				InitParams.Property = MyProperty;
 				InitParams.ArrayOffset = 0;
 				InitParams.ArrayIndex = INDEX_NONE;
 				InitParams.bAllowChildren = true;
@@ -272,6 +272,56 @@ void FItemPropertyNode::InitChildNodes()
 			}
 		}
 	}
+}
+
+void FItemPropertyNode::SetFavorite(bool FavoriteValue)
+{
+	const FObjectPropertyNode* CurrentObjectNode = FindObjectItemParent();
+	if (CurrentObjectNode == nullptr || CurrentObjectNode->GetNumObjects() <= 0)
+		return;
+	const UClass *ObjectClass = CurrentObjectNode->GetObjectBaseClass();
+	if (ObjectClass == nullptr)
+		return;
+	FString FullPropertyPath = ObjectClass->GetName() + TEXT(":") + PropertyPath;
+	if (FavoriteValue)
+	{
+		GConfig->SetBool(TEXT("DetailPropertyFavorites"), *FullPropertyPath, FavoriteValue, GEditorPerProjectIni);
+	}
+	else
+	{
+		GConfig->RemoveKey(TEXT("DetailPropertyFavorites"), *FullPropertyPath, GEditorPerProjectIni);
+	}
+}
+
+bool FItemPropertyNode::IsFavorite() const
+{
+	const FObjectPropertyNode* CurrentObjectNode = FindObjectItemParent();
+	if (CurrentObjectNode == nullptr ||CurrentObjectNode->GetNumObjects() <= 0)
+		return false;
+	const UClass *ObjectClass = CurrentObjectNode->GetObjectBaseClass();
+	if (ObjectClass == nullptr)
+		return false;
+	FString FullPropertyPath = ObjectClass->GetName() + TEXT(":") + PropertyPath;
+	bool FavoritesPropertyValue = false;
+	if (!GConfig->GetBool(TEXT("DetailPropertyFavorites"), *FullPropertyPath, FavoritesPropertyValue, GEditorPerProjectIni))
+		return false;
+	return FavoritesPropertyValue;
+}
+
+/**
+* Set the permission to display the favorite icon
+*/
+void FItemPropertyNode::SetCanDisplayFavorite(bool CanDisplayFavoriteIcon)
+{
+	bCanDisplayFavorite = CanDisplayFavoriteIcon;
+}
+
+/**
+* Set the permission to display the favorite icon
+*/
+bool FItemPropertyNode::CanDisplayFavorite() const
+{
+	return bCanDisplayFavorite;
 }
 
 void FItemPropertyNode::SetDisplayNameOverride( const FText& InDisplayNameOverride )

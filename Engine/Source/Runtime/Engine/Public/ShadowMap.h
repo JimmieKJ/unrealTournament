@@ -307,7 +307,7 @@ public:
 	 * @param	InPaddingType - the method for padding the shadowmap.
 	 * @param	ShadowmapFlags - flags that determine how the shadowmap is stored (e.g. streamed or not)
 	 */
-	static TRefCountPtr<FShadowMap2D> AllocateInstancedShadowMap(UInstancedStaticMeshComponent* Component, TArray<TMap<ULightComponent*, TUniquePtr<FShadowMapData2D>>> InstancedShadowMapData,
+	static TRefCountPtr<FShadowMap2D> AllocateInstancedShadowMap(UInstancedStaticMeshComponent* Component, TArray<TMap<ULightComponent*, TUniquePtr<FShadowMapData2D>>>&& InstancedShadowMapData,
 		const FBoxSphereBounds& Bounds, ELightMapPaddingType PaddingType, EShadowMapFlags ShadowmapFlags);
 
 	FShadowMap2D();
@@ -331,6 +331,7 @@ public:
 	virtual FShadowMap2D* GetShadowMap2D() { return this; }
 	virtual const FShadowMap2D* GetShadowMap2D() const { return this; }
 
+#if WITH_EDITOR
 	/** Call to enable/disable status update of LightMap encoding */
 	static void SetStatusUpdate(bool bInEnable)
 	{
@@ -341,6 +342,7 @@ public:
 	{
 		return bUpdateStatus;
 	}
+#endif
 
 protected:
 
@@ -359,8 +361,10 @@ protected:
 	/** Stores the inverse of the penumbra size, normalized.  Stores 1 to interpret the shadowmap as a shadow factor directly, instead of as a distance field. */
 	FVector4 InvUniformPenumbraSize;
 
+#if WITH_EDITOR
 	/** If true, update the status when encoding light maps */
 	static bool bUpdateStatus;
+#endif
 };
 
 

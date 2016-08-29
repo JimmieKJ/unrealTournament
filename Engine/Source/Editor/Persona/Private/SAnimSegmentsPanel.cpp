@@ -74,6 +74,8 @@ void SAnimSegmentsPanel::Construct(const FArguments& InArgs)
 		TrackWidgets.Add(AnimSegmentTrack);
 	}
 
+	DefaultNodeColor = InArgs._NodeColor;
+
 	// Generate Nodes and map them to tracks
 	for ( int32 SegmentIdx=0; SegmentIdx < AnimTrack->AnimSegments.Num(); SegmentIdx++ )
 	{
@@ -81,7 +83,7 @@ void SAnimSegmentsPanel::Construct(const FArguments& InArgs)
 			SNew(STrackNode)
 			.ViewInputMax(this->ViewInputMax)
 			.ViewInputMin(this->ViewInputMin)
-			.NodeColor(InArgs._NodeColor)
+			.NodeColor(this, &SAnimSegmentsPanel::GetNodeColor, SegmentIdx)
 			.SelectedNodeColor(SelectedColor)
 			.DataLength(this, &SAnimSegmentsPanel::GetSegmentLength, SegmentIdx)
 			.DataStartPos(this, &SAnimSegmentsPanel::GetSegmentStartPos, SegmentIdx)
@@ -99,6 +101,18 @@ void SAnimSegmentsPanel::Construct(const FArguments& InArgs)
 bool SAnimSegmentsPanel::ValidIndex(int32 AnimSegmentIndex) const
 {
 	return (AnimTrack && AnimTrack->AnimSegments.IsValidIndex(AnimSegmentIndex));
+}
+
+FLinearColor	SAnimSegmentsPanel::GetNodeColor(int32 AnimSegmentIndex) const
+{
+	static const FLinearColor DisabledColor(64, 64, 64);
+
+	if (ValidIndex(AnimSegmentIndex) && AnimTrack->AnimSegments[AnimSegmentIndex].IsValid())
+	{
+		return DefaultNodeColor.Get();
+	}
+
+	return DisabledColor;
 }
 
 float SAnimSegmentsPanel::GetSegmentLength(int32 AnimSegmentIndex) const
@@ -126,7 +140,13 @@ FString	SAnimSegmentsPanel::GetAnimSegmentName(int32 AnimSegmentIndex) const
 		UAnimSequenceBase* AnimReference = AnimTrack->AnimSegments[AnimSegmentIndex].AnimReference;
 		if(AnimReference)
 		{
-			return AnimReference->GetName();
+			FString AssetName = AnimReference->GetName();
+			if (AnimTrack->AnimSegments[AnimSegmentIndex].IsValid() == false)
+			{
+				AssetName += TEXT("(ERROR)");
+			}
+
+			return AssetName;
 		}
 	}
 	return FString();
@@ -143,7 +163,16 @@ FText SAnimSegmentsPanel::GetAnimSegmentDetailedInfo(int32 AnimSegmentIndex) con
 			static const FNumberFormattingOptions FormatOptions = FNumberFormattingOptions()
 				.SetMinimumFractionalDigits(2)
 				.SetMaximumFractionalDigits(2);
-			return FText::Format(LOCTEXT("AnimSegmentPanel_GetAnimSegmentDetailedInfoFmt", "{0} {1}"), FText::FromString(Anim->GetName()), FText::AsNumber(AnimSegment.GetLength(), &FormatOptions) );
+
+			if (AnimTrack->AnimSegments[AnimSegmentIndex].IsValid())
+			{
+				return FText::Format(LOCTEXT("AnimSegmentPanel_GetAnimSegmentDetailedInfoFmt", "{0} {1}"), FText::FromString(Anim->GetName()), FText::AsNumber(AnimSegment.GetLength(), &FormatOptions)); 
+			}
+			else
+			{
+				return FText::Format(LOCTEXT("AnimSegmentPanel_GetAnimSegmentDetailedInfoFmt_Error_RecursiveReference", "{0} {1} - ERROR: Recursive Reference Found"), FText::FromString(Anim->GetName()), FText::AsNumber(AnimSegment.GetLength(), &FormatOptions));  
+			}
+			
 		}
 	}
 	return FText::GetEmpty();
@@ -186,33 +215,31 @@ void SAnimSegmentsPanel::SummonSegmentNodeContextMenu(FMenuBuilder& MenuBuilder,
 	MenuBuilder.EndSection();
 }
 
-void SAnimSegmentsPanel::AddAnimSegment( UAnimSequence *NewSequence, float NewStartPos )
+void SAnimSegmentsPanel::AddAnimSegment( UAnimSequenceBase* NewSequenceBase, float NewStartPos )
 {
-	if(AnimTrack != NULL && NewSequence != NULL)
-	{
-		if(DoesAnimTypeMatchTrack(NewSequence))
-		{
-			const FScopedTransaction Transaction( LOCTEXT("AnimSegmentPanel_AddSegment", "Add Segment") );
-			OnPreAnimUpdateDelegate.Execute();
+	const FScopedTransaction Transaction( LOCTEXT("AnimSegmentPanel_AddSegment", "Add Segment") );
+	OnPreAnimUpdateDelegate.Execute();
 
-			FAnimSegment NewSegment;
-			NewSegment.AnimReference = NewSequence;
-			NewSegment.AnimStartTime = 0.f;
-			NewSegment.AnimEndTime = NewSequence->SequenceLength;
-			NewSegment.AnimPlayRate = 1.f;
-			NewSegment.LoopingCount = 1;
-			NewSegment.StartPos = NewStartPos;
+	FAnimSegment NewSegment;
+	NewSegment.AnimReference = NewSequenceBase;
+	NewSegment.AnimStartTime = 0.f;
+	NewSegment.AnimEndTime = NewSequenceBase->SequenceLength;
+	NewSegment.AnimPlayRate = 1.f;
+	NewSegment.LoopingCount = 1;
+	NewSegment.StartPos = NewStartPos;
 
-			AnimTrack->AnimSegments.Add(NewSegment);
-			OnPostAnimUpdateDelegate.Execute();
-		}
-	}
+	AnimTrack->AnimSegments.Add(NewSegment);
+	OnPostAnimUpdateDelegate.Execute();
 }
 
-bool SAnimSegmentsPanel::DoesAnimTypeMatchTrack(UAnimSequence* NewSequence)
+bool SAnimSegmentsPanel::IsValidToAdd(UAnimSequenceBase* NewSequenceBase) const
 {
-	auto TrackType = AnimTrack->GetTrackAdditiveType();
-	return (TrackType == -1) || (TrackType == NewSequence->AdditiveAnimType);
+	if (AnimTrack == NULL || NewSequenceBase == NULL)
+	{
+		return false;
+	}
+
+	return (AnimTrack->IsValidToAdd(NewSequenceBase));
 }
 
 void SAnimSegmentsPanel::RemoveAnimSegment(int32 AnimSegmentIndex)
@@ -234,8 +261,8 @@ void SAnimSegmentsPanel::OnTrackDragDrop( TSharedPtr<FDragDropOperation> DragDro
 	if (DragDropOp.IsValid() && DragDropOp->IsOfType<FAssetDragDropOp>())
 	{
 		TSharedPtr<FAssetDragDropOp> AssetOp = StaticCastSharedPtr<FAssetDragDropOp>(DragDropOp);
-		UAnimSequence *DroppedSequence = FAssetData::GetFirstAsset<UAnimSequence>(AssetOp->AssetData);
-		if (DroppedSequence != NULL)
+		UAnimSequenceBase* DroppedSequence = FAssetData::GetFirstAsset<UAnimSequenceBase>(AssetOp->AssetData);
+		if (IsValidToAdd(DroppedSequence))
 		{
 			AddAnimSegment(DroppedSequence, DataPos);
 		}

@@ -34,6 +34,18 @@ bool UHeadMountedDisplayFunctionLibrary::EnableHMD(bool bEnable)
 	return false;
 }
 
+FName UHeadMountedDisplayFunctionLibrary::GetHMDDeviceName()
+{
+	FName DeviceName(NAME_None);
+
+	if (GEngine->HMDDevice.IsValid())
+	{
+		DeviceName = GEngine->HMDDevice->GetDeviceName();
+	}
+
+	return DeviceName;
+}
+
 void UHeadMountedDisplayFunctionLibrary::GetOrientationAndPosition(FRotator& DeviceRotation, FVector& DevicePosition)
 {
 	if(GEngine->HMDDevice.IsValid() && GEngine->HMDDevice->IsHeadTrackingAllowed())
@@ -63,23 +75,39 @@ bool UHeadMountedDisplayFunctionLibrary::HasValidTrackingPosition()
 	return false;
 }
 
-void UHeadMountedDisplayFunctionLibrary::GetPositionalTrackingCameraParameters(FVector& CameraOrigin, FRotator& CameraRotation, float& HFOV, float& VFOV, float& CameraDistance, float& NearPlane, float&FarPlane)
+int32 UHeadMountedDisplayFunctionLibrary::GetNumOfTrackingSensors()
 {
-	if (GEngine->HMDDevice.IsValid() && GEngine->HMDDevice->IsHeadTrackingAllowed() && GEngine->HMDDevice->DoesSupportPositionalTracking())
+	if (GEngine->HMDDevice.IsValid())
 	{
-		FQuat CameraOrientation;
-		GEngine->HMDDevice->GetPositionalTrackingCameraProperties(CameraOrigin, CameraOrientation, HFOV, VFOV, CameraDistance, NearPlane, FarPlane);
-		CameraRotation = CameraOrientation.Rotator();
+		return GEngine->HMDDevice->GetNumOfTrackingSensors();
+	}
+	return 0;
+}
+
+void UHeadMountedDisplayFunctionLibrary::GetPositionalTrackingCameraParameters(FVector& CameraOrigin, FRotator& CameraRotation, float& HFOV, float& VFOV, float& CameraDistance, float& NearPlane, float& FarPlane)
+{
+	bool isActive;
+	GetTrackingSensorParameters(CameraOrigin, CameraRotation, HFOV, VFOV, CameraDistance, NearPlane, FarPlane, isActive, 0);
+}
+
+void UHeadMountedDisplayFunctionLibrary::GetTrackingSensorParameters(FVector& Origin, FRotator& Rotation, float& HFOV, float& VFOV, float& Distance, float& NearPlane, float& FarPlane, bool& IsActive, int32 Index)
+{
+	IsActive = false;
+	if (Index >= 0 && GEngine->HMDDevice.IsValid() && GEngine->HMDDevice->IsHeadTrackingAllowed() && GEngine->HMDDevice->DoesSupportPositionalTracking())
+	{
+		FQuat Orientation;
+		IsActive = GEngine->HMDDevice->GetTrackingSensorProperties((uint8)Index, Origin, Orientation, HFOV, VFOV, Distance, NearPlane, FarPlane);
+		Rotation = Orientation.Rotator();
 	}
 	else
 	{
 		// No HMD, zero the values
-		CameraOrigin = FVector::ZeroVector;
-		CameraRotation = FRotator::ZeroRotator;
+		Origin = FVector::ZeroVector;
+		Rotation = FRotator::ZeroRotator;
 		HFOV = VFOV = 0.f;
 		NearPlane = 0.f;
 		FarPlane = 0.f;
-		CameraDistance = 0.f;
+		Distance = 0.f;
 	}
 }
 
@@ -203,6 +231,13 @@ TEnumAsByte<EHMDTrackingOrigin::Type> UHeadMountedDisplayFunctionLibrary::GetTra
 
 void UHeadMountedDisplayFunctionLibrary::GetVRFocusState(bool& bUseFocus, bool& bHasFocus)
 {
-	bUseFocus = GEngine->HMDDevice->DoesAppUseVRFocus();
-	bHasFocus = GEngine->HMDDevice->DoesAppHaveVRFocus();
+	if (GEngine->HMDDevice.IsValid())
+	{
+		bUseFocus = GEngine->HMDDevice->DoesAppUseVRFocus();
+		bHasFocus = GEngine->HMDDevice->DoesAppHaveVRFocus();
+	}
+	else
+	{
+		bUseFocus = bHasFocus = false;
+	}
 }

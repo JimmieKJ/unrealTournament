@@ -13,16 +13,16 @@
 FVulkanDevice::FVulkanDevice(VkPhysicalDevice InGpu)
 	: Gpu(InGpu)
 	, Device(VK_NULL_HANDLE)
-	, DescriptorPool(nullptr)
+	, ResourceHeapManager(this)
+	, DeferredDeletionQueue(this)
 	, DefaultSampler(VK_NULL_HANDLE)
 	, Queue(nullptr)
-	, PendingState(nullptr)
-	, VBIBRingBuffer(nullptr)
 	, ImmediateContext(nullptr)
 	, UBRingBuffer(nullptr)
 #if VULKAN_ENABLE_DRAW_MARKERS
-	, VkCmdDbgMarkerBegin(nullptr)
-	, VkCmdDbgMarkerEnd(nullptr)
+	, CmdDbgMarkerBegin(nullptr)
+	, CmdDbgMarkerEnd(nullptr)
+	, DebugMarkerSetObjectName(nullptr)
 #endif
 	, FrameCounter(0)
 #if VULKAN_ENABLE_PIPELINE_CACHE
@@ -45,15 +45,19 @@ FVulkanDevice::~FVulkanDevice()
 	}
 }
 
-void FVulkanDevice::InitDevice()
+void FVulkanDevice::CreateDevice()
 {
+	check(Device == VK_NULL_HANDLE);
+
+	// Setup extension and layer info
 	VkDeviceCreateInfo DeviceInfo;
 	FMemory::Memzero(DeviceInfo);
 	DeviceInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
 
+	bool bDebugMarkersFound = false;
 	TArray<const ANSICHAR*> DeviceExtensions;
 	TArray<const ANSICHAR*> ValidationLayers;
-	GetDeviceExtensions(DeviceExtensions, ValidationLayers);
+	GetDeviceExtensions(DeviceExtensions, ValidationLayers, bDebugMarkersFound);
 
 	DeviceInfo.enabledExtensionCount = DeviceExtensions.Num();
 	DeviceInfo.ppEnabledExtensionNames = DeviceExtensions.GetData();
@@ -61,36 +65,30 @@ void FVulkanDevice::InitDevice()
 	DeviceInfo.enabledLayerCount = ValidationLayers.Num();
 	DeviceInfo.ppEnabledLayerNames = (DeviceInfo.enabledLayerCount > 0) ? ValidationLayers.GetData() : nullptr;
 
-	TArray<VkDeviceQueueCreateInfo> QueueInfos;
-	QueueInfos.AddZeroed(QueueProps.Num());
-	int32 GfxQueueIndex = -1;
-	UE_LOG(LogVulkanRHI, Display, TEXT("Found %d Queues"), QueueProps.Num());
-	TArray<float> QueuePriorities;
-	for (int32 Index = 0; Index < QueueProps.Num(); ++Index)
+	// Setup Queue info
+	TArray<VkDeviceQueueCreateInfo> QueueFamilyInfos;
+	QueueFamilyInfos.AddZeroed(QueueFamilyProps.Num());
+	int32 GfxQueueFamilyIndex = -1;
+	UE_LOG(LogVulkanRHI, Display, TEXT("Found %d Queue Families"), QueueFamilyProps.Num());
+	uint32 NumPriorities = 0;
+	for (int32 FamilyIndex = 0; FamilyIndex < QueueFamilyProps.Num(); ++FamilyIndex)
 	{
-		const VkQueueFamilyProperties& CurrProps = QueueProps[Index];
-		VkDeviceQueueCreateInfo& CurrQueue = QueueInfos[Index];
+		const VkQueueFamilyProperties& CurrProps = QueueFamilyProps[FamilyIndex];
+		VkDeviceQueueCreateInfo& CurrQueue = QueueFamilyInfos[FamilyIndex];
 		CurrQueue.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
-		CurrQueue.pNext = NULL;
-		CurrQueue.queueFamilyIndex = Index;
+		CurrQueue.queueFamilyIndex = FamilyIndex;
 		CurrQueue.queueCount = CurrProps.queueCount;
-		int32 StartIndex = QueuePriorities.Num();
-		QueuePriorities.AddUninitialized(CurrProps.queueCount);
-		for (int32 QueueIndex = 0; QueueIndex < (int32)CurrProps.queueCount; ++QueueIndex)
-		{
-			QueuePriorities[QueueIndex + StartIndex] = 1.0f;
-		}
-		CurrQueue.pQueuePriorities = QueuePriorities.GetData() + StartIndex;
+		NumPriorities += CurrProps.queueCount;
 
 		if ((CurrProps.queueFlags & VK_QUEUE_GRAPHICS_BIT) == VK_QUEUE_GRAPHICS_BIT)
 		{
-			if (GfxQueueIndex == -1)
+			if (GfxQueueFamilyIndex == -1)
 			{
-				GfxQueueIndex = Index;
+				GfxQueueFamilyIndex = FamilyIndex;
 			}
 			else
 			{
-				//#todo-rco: Support for multi-gpu/choose the best gpu!
+				//#todo-rco: Support for multi-queue/choose the best queue!
 			}
 		}
 
@@ -116,166 +114,196 @@ void FVulkanDevice::InitDevice()
 
 				return Info;
 			};
-		UE_LOG(LogVulkanRHI, Display, TEXT("Queue %d: %s"), Index, *GetQueueInfoString());
+		UE_LOG(LogVulkanRHI, Display, TEXT("Queue Family %d: %d queues%s"), FamilyIndex, CurrProps.queueCount, *GetQueueInfoString());
 	}
 
-	DeviceInfo.queueCreateInfoCount = QueueProps.Num();
-	DeviceInfo.pQueueCreateInfos = QueueInfos.GetData();
-
-	VERIFYVULKANRESULT(vkCreateDevice(Gpu, &DeviceInfo, nullptr, &Device));
-
-	MemoryManager.SetDevice(this->Device);
-
-	// Map formats
+	TArray<float> QueuePriorities;
+	QueuePriorities.AddUninitialized(NumPriorities);
+	float* CurrentPriority = QueuePriorities.GetData();
+	for (int32 Index = 0; Index < QueueFamilyProps.Num(); ++Index)
 	{
-		for (uint32 Index = 0; Index < VK_FORMAT_RANGE_SIZE; ++Index)
+		const VkQueueFamilyProperties& CurrProps = QueueFamilyProps[Index];
+		VkDeviceQueueCreateInfo& CurrQueue = QueueFamilyInfos[Index];
+		CurrQueue.pQueuePriorities = CurrentPriority;
+		for (int32 QueueIndex = 0; QueueIndex < (int32)CurrProps.queueCount; ++QueueIndex)
 		{
-			const VkFormat Format = (VkFormat)Index;
-			FMemory::Memzero(FormatProperties[Index]);
-			vkGetPhysicalDeviceFormatProperties(Gpu, Format, &FormatProperties[Index]);
+			*CurrentPriority++ = 1.0f;
 		}
-
-		static_assert(sizeof(VkFormat) <= sizeof(GPixelFormats[0].PlatformFormat), "PlatformFormat must be increased!");
-
-		// Initialize the platform pixel format map.
-		for (int32 Index = 0; Index < PF_MAX; ++Index)
-		{
-			GPixelFormats[Index].PlatformFormat = VK_FORMAT_UNDEFINED;
-			GPixelFormats[Index].Supported = false;
-
-			// Set default component mapping
-			VkComponentMapping& ComponentMapping = PixelFormatComponentMapping[Index];
-			ComponentMapping.r = VK_COMPONENT_SWIZZLE_R;
-			ComponentMapping.g = VK_COMPONENT_SWIZZLE_G;
-			ComponentMapping.b = VK_COMPONENT_SWIZZLE_B;
-			ComponentMapping.a = VK_COMPONENT_SWIZZLE_A;
-		}
-
-		// Default formats
-		MapFormatSupport(PF_B8G8R8A8,		VK_FORMAT_B8G8R8A8_UNORM);
-		SetComponentMapping(PF_B8G8R8A8, VK_COMPONENT_SWIZZLE_R, VK_COMPONENT_SWIZZLE_G, VK_COMPONENT_SWIZZLE_B, VK_COMPONENT_SWIZZLE_A);
-
-		MapFormatSupport(PF_G8,				VK_FORMAT_R8_UNORM);
-		SetComponentMapping(PF_G8, VK_COMPONENT_SWIZZLE_R, VK_COMPONENT_SWIZZLE_ZERO, VK_COMPONENT_SWIZZLE_ZERO, VK_COMPONENT_SWIZZLE_ZERO);
-
-		MapFormatSupport(PF_FloatRGB, VK_FORMAT_B10G11R11_UFLOAT_PACK32);
-		SetComponentMapping(PF_FloatRGB, VK_COMPONENT_SWIZZLE_R, VK_COMPONENT_SWIZZLE_G, VK_COMPONENT_SWIZZLE_B, VK_COMPONENT_SWIZZLE_ZERO);
-
-		MapFormatSupport(PF_FloatRGBA,		VK_FORMAT_R16G16B16A16_SFLOAT,	8);
-		SetComponentMapping(PF_FloatRGBA, VK_COMPONENT_SWIZZLE_R, VK_COMPONENT_SWIZZLE_G, VK_COMPONENT_SWIZZLE_B, VK_COMPONENT_SWIZZLE_A);
-
-		MapFormatSupport(PF_DepthStencil,	VK_FORMAT_D24_UNORM_S8_UINT);
-		if (!GPixelFormats[PF_DepthStencil].Supported)
-		{
-			MapFormatSupport(PF_DepthStencil, VK_FORMAT_D32_SFLOAT_S8_UINT);
-		}
-		SetComponentMapping(PF_DepthStencil, VK_COMPONENT_SWIZZLE_R, VK_COMPONENT_SWIZZLE_ZERO, VK_COMPONENT_SWIZZLE_ZERO, VK_COMPONENT_SWIZZLE_ZERO);
-
-		MapFormatSupport(PF_ShadowDepth,	VK_FORMAT_D16_UNORM);
-		SetComponentMapping(PF_ShadowDepth, VK_COMPONENT_SWIZZLE_R, VK_COMPONENT_SWIZZLE_ZERO, VK_COMPONENT_SWIZZLE_ZERO, VK_COMPONENT_SWIZZLE_ZERO);
-
-		// Requirement for GPU particles
-		MapFormatSupport(PF_G32R32F,		VK_FORMAT_R32G32_SFLOAT, 8);
-		SetComponentMapping(PF_G32R32F, VK_COMPONENT_SWIZZLE_G, VK_COMPONENT_SWIZZLE_R, VK_COMPONENT_SWIZZLE_ZERO, VK_COMPONENT_SWIZZLE_ZERO);
-
-		MapFormatSupport(PF_A32B32G32R32F,	VK_FORMAT_R32G32B32A32_SFLOAT, 16);
-		SetComponentMapping(PF_A32B32G32R32F, VK_COMPONENT_SWIZZLE_R, VK_COMPONENT_SWIZZLE_G, VK_COMPONENT_SWIZZLE_B, VK_COMPONENT_SWIZZLE_A);
-
-		MapFormatSupport(PF_G16R16F,		VK_FORMAT_R16G16_SFLOAT);
-		SetComponentMapping(PF_G16R16F, VK_COMPONENT_SWIZZLE_G, VK_COMPONENT_SWIZZLE_R, VK_COMPONENT_SWIZZLE_ZERO, VK_COMPONENT_SWIZZLE_ZERO);
-
-		MapFormatSupport(PF_R32_UINT,		VK_FORMAT_R32_UINT);
-		SetComponentMapping(PF_R32_UINT, VK_COMPONENT_SWIZZLE_R, VK_COMPONENT_SWIZZLE_ZERO, VK_COMPONENT_SWIZZLE_ZERO, VK_COMPONENT_SWIZZLE_ZERO);
-		
-		#if PLATFORM_ANDROID
-			MapFormatSupport(PF_D24,			VK_FORMAT_X8_D24_UNORM_PACK32);			
-		#elif PLATFORM_DESKTOP
-			MapFormatSupport(PF_D24,			VK_FORMAT_D24_UNORM_S8_UINT);	// VK_FORMAT_D24_UNORM_X8 seems to be unsupported
-			if (!GPixelFormats[PF_D24].Supported)
-			{
-				MapFormatSupport(PF_D24, VK_FORMAT_D32_SFLOAT_S8_UINT);
-				if (!GPixelFormats[PF_D24].Supported)
-				{
-					MapFormatSupport(PF_D24, VK_FORMAT_D32_SFLOAT);
-					if (!GPixelFormats[PF_D24].Supported)
-					{
-						MapFormatSupport(PF_D24, VK_FORMAT_D16_UNORM_S8_UINT);
-						if (!GPixelFormats[PF_D24].Supported)
-						{
-							MapFormatSupport(PF_D24, VK_FORMAT_D16_UNORM);
-						}
-					}
-				}
-			}
-		#else
-			#error Unsupported Vulkan platform
-		#endif
-		SetComponentMapping(PF_D24, VK_COMPONENT_SWIZZLE_R, VK_COMPONENT_SWIZZLE_ZERO, VK_COMPONENT_SWIZZLE_ZERO, VK_COMPONENT_SWIZZLE_ZERO);
-		
-		MapFormatSupport(PF_R16F,			VK_FORMAT_R16_SFLOAT);
-		SetComponentMapping(PF_R16F, VK_COMPONENT_SWIZZLE_R, VK_COMPONENT_SWIZZLE_ZERO, VK_COMPONENT_SWIZZLE_ZERO, VK_COMPONENT_SWIZZLE_ZERO);
-
-		MapFormatSupport(PF_FloatR11G11B10,	VK_FORMAT_B10G11R11_UFLOAT_PACK32, 4);
-		SetComponentMapping(PF_FloatR11G11B10, VK_COMPONENT_SWIZZLE_R, VK_COMPONENT_SWIZZLE_G, VK_COMPONENT_SWIZZLE_B, VK_COMPONENT_SWIZZLE_ZERO);
-
-		MapFormatSupport(PF_A2B10G10R10,	VK_FORMAT_A2B10G10R10_UNORM_PACK32, 4);
-		SetComponentMapping(PF_A2B10G10R10, VK_COMPONENT_SWIZZLE_R, VK_COMPONENT_SWIZZLE_G, VK_COMPONENT_SWIZZLE_B, VK_COMPONENT_SWIZZLE_A);
-
-		MapFormatSupport(PF_A8,				VK_FORMAT_R8_UNORM);
-		SetComponentMapping(PF_A8, VK_COMPONENT_SWIZZLE_ZERO, VK_COMPONENT_SWIZZLE_ZERO, VK_COMPONENT_SWIZZLE_ZERO, VK_COMPONENT_SWIZZLE_R);
-
-		MapFormatSupport(PF_R8G8B8A8,		VK_FORMAT_R8G8B8A8_UNORM);
-		SetComponentMapping(PF_R8G8B8A8, VK_COMPONENT_SWIZZLE_R, VK_COMPONENT_SWIZZLE_G, VK_COMPONENT_SWIZZLE_B, VK_COMPONENT_SWIZZLE_A);
-
-		MapFormatSupport(PF_R8G8,			VK_FORMAT_R8G8_UNORM);
-		SetComponentMapping(PF_R8G8, VK_COMPONENT_SWIZZLE_R, VK_COMPONENT_SWIZZLE_G, VK_COMPONENT_SWIZZLE_ZERO, VK_COMPONENT_SWIZZLE_ZERO);
-
-		MapFormatSupport(PF_R32_FLOAT,		VK_FORMAT_R32_SFLOAT);
-		SetComponentMapping(PF_R32_FLOAT, VK_COMPONENT_SWIZZLE_R, VK_COMPONENT_SWIZZLE_ZERO, VK_COMPONENT_SWIZZLE_ZERO, VK_COMPONENT_SWIZZLE_ZERO);
-
-		#if PLATFORM_DESKTOP
-			MapFormatSupport(PF_DXT1,			VK_FORMAT_BC1_RGB_UNORM_BLOCK);	// Also what OpenGL expects (RGBA instead RGB, but not SRGB)
-			SetComponentMapping(PF_DXT1, VK_COMPONENT_SWIZZLE_R, VK_COMPONENT_SWIZZLE_G, VK_COMPONENT_SWIZZLE_B, VK_COMPONENT_SWIZZLE_ONE);
-
-			MapFormatSupport(PF_DXT3,			VK_FORMAT_BC2_UNORM_BLOCK);
-			SetComponentMapping(PF_DXT3, VK_COMPONENT_SWIZZLE_R, VK_COMPONENT_SWIZZLE_G, VK_COMPONENT_SWIZZLE_B, VK_COMPONENT_SWIZZLE_A);
-
-			MapFormatSupport(PF_DXT5,			VK_FORMAT_BC3_UNORM_BLOCK);
-			SetComponentMapping(PF_DXT5, VK_COMPONENT_SWIZZLE_R, VK_COMPONENT_SWIZZLE_G, VK_COMPONENT_SWIZZLE_B, VK_COMPONENT_SWIZZLE_A);
-
-			MapFormatSupport(PF_BC5,			VK_FORMAT_BC5_UNORM_BLOCK);
-			SetComponentMapping(PF_BC5, VK_COMPONENT_SWIZZLE_R, VK_COMPONENT_SWIZZLE_G, VK_COMPONENT_SWIZZLE_B, VK_COMPONENT_SWIZZLE_A);
-		#elif PLATFORM_ANDROID
-			MapFormatSupport(PF_ASTC_4x4,		VK_FORMAT_ASTC_4x4_UNORM_BLOCK);
-			SetComponentMapping(PF_ASTC_4x4, VK_COMPONENT_SWIZZLE_R, VK_COMPONENT_SWIZZLE_G, VK_COMPONENT_SWIZZLE_B, VK_COMPONENT_SWIZZLE_A);
-
-			MapFormatSupport(PF_ASTC_6x6,		VK_FORMAT_ASTC_6x6_UNORM_BLOCK);
-			SetComponentMapping(PF_ASTC_6x6, VK_COMPONENT_SWIZZLE_R, VK_COMPONENT_SWIZZLE_G, VK_COMPONENT_SWIZZLE_B, VK_COMPONENT_SWIZZLE_A);
-
-			MapFormatSupport(PF_ASTC_8x8,		VK_FORMAT_ASTC_8x8_UNORM_BLOCK);
-			SetComponentMapping(PF_ASTC_8x8, VK_COMPONENT_SWIZZLE_R, VK_COMPONENT_SWIZZLE_G, VK_COMPONENT_SWIZZLE_B, VK_COMPONENT_SWIZZLE_A);
-
-			MapFormatSupport(PF_ASTC_10x10,		VK_FORMAT_ASTC_10x10_UNORM_BLOCK);
-			SetComponentMapping(PF_ASTC_10x10, VK_COMPONENT_SWIZZLE_R, VK_COMPONENT_SWIZZLE_G, VK_COMPONENT_SWIZZLE_B, VK_COMPONENT_SWIZZLE_A);
-
-			MapFormatSupport(PF_ASTC_12x12,		VK_FORMAT_ASTC_12x12_UNORM_BLOCK);
-			SetComponentMapping(PF_ASTC_12x12, VK_COMPONENT_SWIZZLE_R, VK_COMPONENT_SWIZZLE_G, VK_COMPONENT_SWIZZLE_B, VK_COMPONENT_SWIZZLE_A);
-
-			MapFormatSupport(PF_ETC2_RGB,		VK_FORMAT_ETC2_R8G8B8_UNORM_BLOCK);
-			SetComponentMapping(PF_ETC2_RGB, VK_COMPONENT_SWIZZLE_R, VK_COMPONENT_SWIZZLE_G, VK_COMPONENT_SWIZZLE_B, VK_COMPONENT_SWIZZLE_ONE);
-
-			MapFormatSupport(PF_ETC2_RGBA,		VK_FORMAT_ETC2_R8G8B8A8_UNORM_BLOCK);
-			SetComponentMapping(PF_ETC2_RGBA, VK_COMPONENT_SWIZZLE_R, VK_COMPONENT_SWIZZLE_G, VK_COMPONENT_SWIZZLE_B, VK_COMPONENT_SWIZZLE_A);
-		#endif
 	}
+
+	DeviceInfo.queueCreateInfoCount = QueueFamilyProps.Num();
+	DeviceInfo.pQueueCreateInfos = QueueFamilyInfos.GetData();
+
+	DeviceInfo.pEnabledFeatures = &Features;
+
+	// Create the device
+	VERIFYVULKANRESULT(VulkanRHI::vkCreateDevice(Gpu, &DeviceInfo, nullptr, &Device));
 
 	// Create Graphics Queue, here we submit command buffers for execution
-	Queue = new FVulkanQueue(this, GfxQueueIndex);
+	Queue = new FVulkanQueue(this, GfxQueueFamilyIndex, 0);
 
+#if VULKAN_ENABLE_DRAW_MARKERS
+	if (bDebugMarkersFound)
 	{
-		FSamplerStateInitializerRHI Default(SF_Point);
-		DefaultSampler = new FVulkanSamplerState(Default, *this);
+		CmdDbgMarkerBegin = (PFN_vkCmdDebugMarkerBeginEXT)(void*)VulkanRHI::vkGetDeviceProcAddr(Device, "vkCmdDebugMarkerBeginEXT");
+		CmdDbgMarkerEnd = (PFN_vkCmdDebugMarkerEndEXT)(void*)VulkanRHI::vkGetDeviceProcAddr(Device, "vkCmdDebugMarkerEndEXT");
+
+		// We're running under RenderDoc or other trace tool, so enable capturing mode
+		GDynamicRHI->EnableIdealGPUCaptureOptions(true);
 	}
+#endif
+}
+
+void FVulkanDevice::SetupFormats()
+{
+	for (uint32 Index = 0; Index < VK_FORMAT_RANGE_SIZE; ++Index)
+	{
+		const VkFormat Format = (VkFormat)Index;
+		FMemory::Memzero(FormatProperties[Index]);
+		VulkanRHI::vkGetPhysicalDeviceFormatProperties(Gpu, Format, &FormatProperties[Index]);
+	}
+
+	static_assert(sizeof(VkFormat) <= sizeof(GPixelFormats[0].PlatformFormat), "PlatformFormat must be increased!");
+
+	// Initialize the platform pixel format map.
+	for (int32 Index = 0; Index < PF_MAX; ++Index)
+	{
+		GPixelFormats[Index].PlatformFormat = VK_FORMAT_UNDEFINED;
+		GPixelFormats[Index].Supported = false;
+
+		// Set default component mapping
+		VkComponentMapping& ComponentMapping = PixelFormatComponentMapping[Index];
+		ComponentMapping.r = VK_COMPONENT_SWIZZLE_R;
+		ComponentMapping.g = VK_COMPONENT_SWIZZLE_G;
+		ComponentMapping.b = VK_COMPONENT_SWIZZLE_B;
+		ComponentMapping.a = VK_COMPONENT_SWIZZLE_A;
+	}
+
+	// Default formats
+	MapFormatSupport(PF_B8G8R8A8, VK_FORMAT_B8G8R8A8_UNORM);
+	SetComponentMapping(PF_B8G8R8A8, VK_COMPONENT_SWIZZLE_R, VK_COMPONENT_SWIZZLE_G, VK_COMPONENT_SWIZZLE_B, VK_COMPONENT_SWIZZLE_A);
+
+	MapFormatSupport(PF_G8, VK_FORMAT_R8_UNORM);
+	SetComponentMapping(PF_G8, VK_COMPONENT_SWIZZLE_R, VK_COMPONENT_SWIZZLE_ZERO, VK_COMPONENT_SWIZZLE_ZERO, VK_COMPONENT_SWIZZLE_ZERO);
+
+	MapFormatSupport(PF_FloatRGB, VK_FORMAT_B10G11R11_UFLOAT_PACK32);
+	SetComponentMapping(PF_FloatRGB, VK_COMPONENT_SWIZZLE_R, VK_COMPONENT_SWIZZLE_G, VK_COMPONENT_SWIZZLE_B, VK_COMPONENT_SWIZZLE_ZERO);
+
+	MapFormatSupport(PF_FloatRGBA, VK_FORMAT_R16G16B16A16_SFLOAT, 8);
+	SetComponentMapping(PF_FloatRGBA, VK_COMPONENT_SWIZZLE_R, VK_COMPONENT_SWIZZLE_G, VK_COMPONENT_SWIZZLE_B, VK_COMPONENT_SWIZZLE_A);
+
+	MapFormatSupport(PF_DepthStencil, VK_FORMAT_D24_UNORM_S8_UINT);
+	if (!GPixelFormats[PF_DepthStencil].Supported)
+	{
+		MapFormatSupport(PF_DepthStencil, VK_FORMAT_D32_SFLOAT_S8_UINT);
+	}
+	SetComponentMapping(PF_DepthStencil, VK_COMPONENT_SWIZZLE_R, VK_COMPONENT_SWIZZLE_IDENTITY, VK_COMPONENT_SWIZZLE_IDENTITY, VK_COMPONENT_SWIZZLE_IDENTITY);
+
+	MapFormatSupport(PF_ShadowDepth, VK_FORMAT_D16_UNORM);
+	SetComponentMapping(PF_ShadowDepth, VK_COMPONENT_SWIZZLE_R, VK_COMPONENT_SWIZZLE_IDENTITY, VK_COMPONENT_SWIZZLE_IDENTITY, VK_COMPONENT_SWIZZLE_IDENTITY);
+
+	// Requirement for GPU particles
+	MapFormatSupport(PF_G32R32F, VK_FORMAT_R32G32_SFLOAT, 8);
+	SetComponentMapping(PF_G32R32F, VK_COMPONENT_SWIZZLE_G, VK_COMPONENT_SWIZZLE_R, VK_COMPONENT_SWIZZLE_ZERO, VK_COMPONENT_SWIZZLE_ZERO);
+
+	MapFormatSupport(PF_A32B32G32R32F, VK_FORMAT_R32G32B32A32_SFLOAT, 16);
+	SetComponentMapping(PF_A32B32G32R32F, VK_COMPONENT_SWIZZLE_R, VK_COMPONENT_SWIZZLE_G, VK_COMPONENT_SWIZZLE_B, VK_COMPONENT_SWIZZLE_A);
+
+	MapFormatSupport(PF_G16R16F, VK_FORMAT_R16G16_SFLOAT);
+	SetComponentMapping(PF_G16R16F, VK_COMPONENT_SWIZZLE_G, VK_COMPONENT_SWIZZLE_R, VK_COMPONENT_SWIZZLE_ZERO, VK_COMPONENT_SWIZZLE_ZERO);
+
+	MapFormatSupport(PF_R32_UINT, VK_FORMAT_R32_UINT);
+	SetComponentMapping(PF_R32_UINT, VK_COMPONENT_SWIZZLE_R, VK_COMPONENT_SWIZZLE_ZERO, VK_COMPONENT_SWIZZLE_ZERO, VK_COMPONENT_SWIZZLE_ZERO);
+
+	MapFormatSupport(PF_R8_UINT, VK_FORMAT_R8_UINT);
+	SetComponentMapping(PF_R8_UINT, VK_COMPONENT_SWIZZLE_R, VK_COMPONENT_SWIZZLE_ZERO, VK_COMPONENT_SWIZZLE_ZERO, VK_COMPONENT_SWIZZLE_ZERO);
+
+#if PLATFORM_ANDROID
+	MapFormatSupport(PF_D24, VK_FORMAT_X8_D24_UNORM_PACK32);
+#elif PLATFORM_DESKTOP
+	MapFormatSupport(PF_D24, VK_FORMAT_D24_UNORM_S8_UINT);	// VK_FORMAT_D24_UNORM_X8 seems to be unsupported
+	if (!GPixelFormats[PF_D24].Supported)
+	{
+		MapFormatSupport(PF_D24, VK_FORMAT_D32_SFLOAT_S8_UINT);
+		if (!GPixelFormats[PF_D24].Supported)
+		{
+			MapFormatSupport(PF_D24, VK_FORMAT_D32_SFLOAT);
+			if (!GPixelFormats[PF_D24].Supported)
+			{
+				MapFormatSupport(PF_D24, VK_FORMAT_D16_UNORM_S8_UINT);
+				if (!GPixelFormats[PF_D24].Supported)
+				{
+					MapFormatSupport(PF_D24, VK_FORMAT_D16_UNORM);
+				}
+			}
+		}
+	}
+#else
+#error Unsupported Vulkan platform
+#endif
+	SetComponentMapping(PF_D24, VK_COMPONENT_SWIZZLE_R, VK_COMPONENT_SWIZZLE_ZERO, VK_COMPONENT_SWIZZLE_ZERO, VK_COMPONENT_SWIZZLE_ZERO);
+
+	MapFormatSupport(PF_R16F, VK_FORMAT_R16_SFLOAT);
+	SetComponentMapping(PF_R16F, VK_COMPONENT_SWIZZLE_R, VK_COMPONENT_SWIZZLE_ZERO, VK_COMPONENT_SWIZZLE_ZERO, VK_COMPONENT_SWIZZLE_ZERO);
+
+	MapFormatSupport(PF_FloatR11G11B10, VK_FORMAT_B10G11R11_UFLOAT_PACK32, 4);
+	SetComponentMapping(PF_FloatR11G11B10, VK_COMPONENT_SWIZZLE_R, VK_COMPONENT_SWIZZLE_G, VK_COMPONENT_SWIZZLE_B, VK_COMPONENT_SWIZZLE_ZERO);
+
+	MapFormatSupport(PF_A2B10G10R10, VK_FORMAT_A2B10G10R10_UNORM_PACK32, 4);
+	SetComponentMapping(PF_A2B10G10R10, VK_COMPONENT_SWIZZLE_R, VK_COMPONENT_SWIZZLE_G, VK_COMPONENT_SWIZZLE_B, VK_COMPONENT_SWIZZLE_A);
+
+	MapFormatSupport(PF_A8, VK_FORMAT_R8_UNORM);
+	SetComponentMapping(PF_A8, VK_COMPONENT_SWIZZLE_ZERO, VK_COMPONENT_SWIZZLE_ZERO, VK_COMPONENT_SWIZZLE_ZERO, VK_COMPONENT_SWIZZLE_R);
+
+	MapFormatSupport(PF_R8G8B8A8, VK_FORMAT_R8G8B8A8_UNORM);
+	SetComponentMapping(PF_R8G8B8A8, VK_COMPONENT_SWIZZLE_R, VK_COMPONENT_SWIZZLE_G, VK_COMPONENT_SWIZZLE_B, VK_COMPONENT_SWIZZLE_A);
+
+	MapFormatSupport(PF_R8G8, VK_FORMAT_R8G8_UNORM);
+	SetComponentMapping(PF_R8G8, VK_COMPONENT_SWIZZLE_R, VK_COMPONENT_SWIZZLE_G, VK_COMPONENT_SWIZZLE_ZERO, VK_COMPONENT_SWIZZLE_ZERO);
+
+	MapFormatSupport(PF_R32_FLOAT, VK_FORMAT_R32_SFLOAT);
+	SetComponentMapping(PF_R32_FLOAT, VK_COMPONENT_SWIZZLE_R, VK_COMPONENT_SWIZZLE_ZERO, VK_COMPONENT_SWIZZLE_ZERO, VK_COMPONENT_SWIZZLE_ZERO);
+
+#if PLATFORM_DESKTOP
+	MapFormatSupport(PF_DXT1, VK_FORMAT_BC1_RGB_UNORM_BLOCK);	// Also what OpenGL expects (RGBA instead RGB, but not SRGB)
+	SetComponentMapping(PF_DXT1, VK_COMPONENT_SWIZZLE_R, VK_COMPONENT_SWIZZLE_G, VK_COMPONENT_SWIZZLE_B, VK_COMPONENT_SWIZZLE_ONE);
+
+	MapFormatSupport(PF_DXT3, VK_FORMAT_BC2_UNORM_BLOCK);
+	SetComponentMapping(PF_DXT3, VK_COMPONENT_SWIZZLE_R, VK_COMPONENT_SWIZZLE_G, VK_COMPONENT_SWIZZLE_B, VK_COMPONENT_SWIZZLE_A);
+
+	MapFormatSupport(PF_DXT5, VK_FORMAT_BC3_UNORM_BLOCK);
+	SetComponentMapping(PF_DXT5, VK_COMPONENT_SWIZZLE_R, VK_COMPONENT_SWIZZLE_G, VK_COMPONENT_SWIZZLE_B, VK_COMPONENT_SWIZZLE_A);
+
+	MapFormatSupport(PF_BC5, VK_FORMAT_BC5_UNORM_BLOCK);
+	SetComponentMapping(PF_BC5, VK_COMPONENT_SWIZZLE_R, VK_COMPONENT_SWIZZLE_G, VK_COMPONENT_SWIZZLE_B, VK_COMPONENT_SWIZZLE_A);
+
+	MapFormatSupport(PF_BC6H, VK_FORMAT_BC6H_UFLOAT_BLOCK);
+	SetComponentMapping(PF_BC6H, VK_COMPONENT_SWIZZLE_R, VK_COMPONENT_SWIZZLE_G, VK_COMPONENT_SWIZZLE_B, VK_COMPONENT_SWIZZLE_A);
+
+	MapFormatSupport(PF_BC7, VK_FORMAT_BC7_UNORM_BLOCK);
+	SetComponentMapping(PF_BC7, VK_COMPONENT_SWIZZLE_R, VK_COMPONENT_SWIZZLE_G, VK_COMPONENT_SWIZZLE_B, VK_COMPONENT_SWIZZLE_A);
+#elif PLATFORM_ANDROID
+	MapFormatSupport(PF_ASTC_4x4, VK_FORMAT_ASTC_4x4_UNORM_BLOCK);
+	SetComponentMapping(PF_ASTC_4x4, VK_COMPONENT_SWIZZLE_R, VK_COMPONENT_SWIZZLE_G, VK_COMPONENT_SWIZZLE_B, VK_COMPONENT_SWIZZLE_A);
+
+	MapFormatSupport(PF_ASTC_6x6, VK_FORMAT_ASTC_6x6_UNORM_BLOCK);
+	SetComponentMapping(PF_ASTC_6x6, VK_COMPONENT_SWIZZLE_R, VK_COMPONENT_SWIZZLE_G, VK_COMPONENT_SWIZZLE_B, VK_COMPONENT_SWIZZLE_A);
+
+	MapFormatSupport(PF_ASTC_8x8, VK_FORMAT_ASTC_8x8_UNORM_BLOCK);
+	SetComponentMapping(PF_ASTC_8x8, VK_COMPONENT_SWIZZLE_R, VK_COMPONENT_SWIZZLE_G, VK_COMPONENT_SWIZZLE_B, VK_COMPONENT_SWIZZLE_A);
+
+	MapFormatSupport(PF_ASTC_10x10, VK_FORMAT_ASTC_10x10_UNORM_BLOCK);
+	SetComponentMapping(PF_ASTC_10x10, VK_COMPONENT_SWIZZLE_R, VK_COMPONENT_SWIZZLE_G, VK_COMPONENT_SWIZZLE_B, VK_COMPONENT_SWIZZLE_A);
+
+	MapFormatSupport(PF_ASTC_12x12, VK_FORMAT_ASTC_12x12_UNORM_BLOCK);
+	SetComponentMapping(PF_ASTC_12x12, VK_COMPONENT_SWIZZLE_R, VK_COMPONENT_SWIZZLE_G, VK_COMPONENT_SWIZZLE_B, VK_COMPONENT_SWIZZLE_A);
+
+	MapFormatSupport(PF_ETC2_RGB, VK_FORMAT_ETC2_R8G8B8_UNORM_BLOCK);
+	SetComponentMapping(PF_ETC2_RGB, VK_COMPONENT_SWIZZLE_R, VK_COMPONENT_SWIZZLE_G, VK_COMPONENT_SWIZZLE_B, VK_COMPONENT_SWIZZLE_ONE);
+
+	MapFormatSupport(PF_ETC2_RGBA, VK_FORMAT_ETC2_R8G8B8A8_UNORM_BLOCK);
+	SetComponentMapping(PF_ETC2_RGBA, VK_COMPONENT_SWIZZLE_R, VK_COMPONENT_SWIZZLE_G, VK_COMPONENT_SWIZZLE_B, VK_COMPONENT_SWIZZLE_A);
+#endif
 }
 
 void FVulkanDevice::MapFormatSupport(EPixelFormat UEFormat, VkFormat VulkanFormat)
@@ -311,7 +339,7 @@ void FVulkanDevice::MapFormatSupport(EPixelFormat UEFormat, VkFormat VulkanForma
 bool FVulkanDevice::QueryGPU(int32 DeviceIndex)
 {
 	bool bDiscrete = false;
-	vkGetPhysicalDeviceProperties(Gpu, &GpuProps);
+	VulkanRHI::vkGetPhysicalDeviceProperties(Gpu, &GpuProps);
 
 	auto GetDeviceTypeString = [&]()
 	{
@@ -347,39 +375,35 @@ bool FVulkanDevice::QueryGPU(int32 DeviceIndex)
 	UE_LOG(LogVulkanRHI, Display, TEXT("Max Descriptor Sets Bound %d Timestamps %d"), GpuProps.limits.maxBoundDescriptorSets, GpuProps.limits.timestampComputeAndGraphics);
 
 	uint32 QueueCount = 0;
-	vkGetPhysicalDeviceQueueFamilyProperties(Gpu, &QueueCount, nullptr);
+	VulkanRHI::vkGetPhysicalDeviceQueueFamilyProperties(Gpu, &QueueCount, nullptr);
 	check(QueueCount >= 1);
 
-	QueueProps.AddUninitialized(QueueCount);
-	vkGetPhysicalDeviceQueueFamilyProperties(Gpu, &QueueCount, QueueProps.GetData());
+	QueueFamilyProps.AddUninitialized(QueueCount);
+	VulkanRHI::vkGetPhysicalDeviceQueueFamilyProperties(Gpu, &QueueCount, QueueFamilyProps.GetData());
 
 	return bDiscrete;
 }
 
 void FVulkanDevice::InitGPU(int32 DeviceIndex)
 {
-	vkGetPhysicalDeviceFeatures(Gpu, &Features);
+	// Query features
+	VulkanRHI::vkGetPhysicalDeviceFeatures(Gpu, &Features);
 
 	UE_LOG(LogVulkanRHI, Display, TEXT("Geometry %d Tessellation %d"), Features.geometryShader, Features.tessellationShader);
+
+	CreateDevice();
+
+	SetupFormats();
+
 	MemoryManager.Init(this);
-#if VULKAN_USE_BUFFER_HEAPS
-	ResourceAllocationManager.Init(this);
-#endif
 
-	InitDevice();
+	ResourceHeapManager.Init();
 
-	DescriptorPool = new FVulkanDescriptorPool(this);
-
-#if VULKAN_USE_FENCE_MANAGER
 	FenceManager.Init(this);
-#endif
 
-#if VULKAN_USE_NEW_STAGING_BUFFERS
 	StagingManager.Init(this, Queue);
-#endif
 
 	// allocate ring buffer memory
-	VBIBRingBuffer = new FVulkanRingBuffer(this, VULKAN_VBIB_RING_BUFFER_SIZE, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_UNIFORM_TEXEL_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_TEXEL_BUFFER_BIT);
 	UBRingBuffer = new FVulkanRingBuffer(this, VULKAN_UB_RING_BUFFER_SIZE, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT);
 
 #if VULKAN_ENABLE_PIPELINE_CACHE
@@ -411,18 +435,22 @@ void FVulkanDevice::InitGPU(int32 DeviceIndex)
 
 	ImmediateContext = new FVulkanCommandListContext((FVulkanDynamicRHI*)GDynamicRHI, this, true);
 
-	// Create Pending state, contains pipeline states such as current shader and etc..
-	PendingState = new FVulkanPendingState(this);
+	// Setup default resource
+	{
+		FSamplerStateInitializerRHI Default(SF_Point);
+		DefaultSampler = new FVulkanSamplerState(Default, *this);
+	}
+}
 
-#if VULKAN_ENABLE_DRAW_MARKERS
-	VkCmdDbgMarkerBegin = (PFN_vkCmdDbgMarkerBegin)(void*)vkGetDeviceProcAddr(Device, "vkCmdDbgMarkerBegin");
-	VkCmdDbgMarkerEnd = (PFN_vkCmdDbgMarkerEnd)(void*)vkGetDeviceProcAddr(Device, "vkCmdDbgMarkerEnd");
-#endif
+void FVulkanDevice::PrepareForDestroy()
+{
+	WaitUntilIdle();
 }
 
 void FVulkanDevice::Destroy()
 {
-	WaitUntilIdle();
+	delete ImmediateContext;
+	ImmediateContext = nullptr;
 
 	if (TimestampQueryPool[0])
 	{
@@ -434,13 +462,7 @@ void FVulkanDevice::Destroy()
 		}
 	}
 
-	delete PendingState;
-
-	delete VBIBRingBuffer;
 	delete UBRingBuffer;
-
-	delete ImmediateContext;
-	ImmediateContext = nullptr;
 
 #if VULKAN_ENABLE_PIPELINE_CACHE
 	delete PipelineStateCache;
@@ -449,42 +471,53 @@ void FVulkanDevice::Destroy()
 	delete DefaultSampler;
 	DefaultSampler = nullptr;
 
-	delete DescriptorPool;
-
-#if VULKAN_USE_NEW_STAGING_BUFFERS
 	StagingManager.Deinit();
-#endif
-#if VULKAN_USE_BUFFER_HEAPS
-	ResourceAllocationManager.Deinit();
-#endif
+
+	ResourceHeapManager.Deinit();
 
 	delete Queue;
 
-#if VULKAN_USE_FENCE_MANAGER
 	FenceManager.Deinit();
-#endif
 
 	MemoryManager.Deinit();
 
-	vkDestroyDevice(Device, nullptr);
+	DeferredDeletionQueue.Clear();
+
+	VulkanRHI::vkDestroyDevice(Device, nullptr);
 	Device = VK_NULL_HANDLE;
 }
 
 void FVulkanDevice::WaitUntilIdle()
 {
-	VERIFYVULKANRESULT(vkDeviceWaitIdle(Device));
-}
-
-void FVulkanDevice::EndCommandBufferBlock(FVulkanCmdBuffer* CmdBuffer)
-{
-	check(CmdBuffer);
-	GetQueue()->SubmitBlocking(CmdBuffer);
+	VERIFYVULKANRESULT(VulkanRHI::vkDeviceWaitIdle(Device));
 }
 
 bool FVulkanDevice::IsFormatSupported(VkFormat Format) const
 {
-	const VkFormatProperties& Prop = FormatProperties[Format];
-	return (Prop.bufferFeatures != 0) || (Prop.linearTilingFeatures != 0) || (Prop.optimalTilingFeatures != 0);
+	auto ArePropertiesSupported = [](const VkFormatProperties& Prop) -> bool
+	{
+		return (Prop.bufferFeatures != 0) || (Prop.linearTilingFeatures != 0) || (Prop.optimalTilingFeatures != 0);
+	};
+
+	if (Format >= 0 && Format < VK_FORMAT_RANGE_SIZE)
+	{
+		const VkFormatProperties& Prop = FormatProperties[Format];
+		return ArePropertiesSupported(Prop);
+	}
+
+	// Check for extension formats
+	const VkFormatProperties* FoundProperties = ExtensionFormatProperties.Find(Format);
+	if (FoundProperties)
+	{
+		return ArePropertiesSupported(*FoundProperties);
+	}
+
+	// Add it for faster caching next time
+	VkFormatProperties& NewProperties = ExtensionFormatProperties.Add(Format);
+	FMemory::Memzero(NewProperties);
+	VulkanRHI::vkGetPhysicalDeviceFormatProperties(Gpu, Format, &NewProperties);
+
+	return ArePropertiesSupported(NewProperties);
 }
 
 const VkComponentMapping& FVulkanDevice::GetFormatComponentMapping(EPixelFormat UEFormat) const
@@ -493,23 +526,8 @@ const VkComponentMapping& FVulkanDevice::GetFormatComponentMapping(EPixelFormat 
 	return PixelFormatComponentMapping[UEFormat];
 }
 
-void FVulkanDevice::BindSRV(FVulkanShaderResourceView* SRV, uint32 TextureIndex, EShaderFrequency Stage)
+void FVulkanDevice::NotifyDeletedRenderTarget(const FVulkanTextureBase* Texture)
 {
-	FVulkanPendingState& State = GetPendingState();
-	FVulkanBoundShaderState& ShaderState = State.GetBoundShaderState();
-
-	// @todo vulkan: Is this actually important to test? Other RHIs haven't checked this, we'd have to add the shader param to handle this
-	// check(&ShaderState.GetShader(SF_Vertex) == ResourceCast(VertexShaderRHI));
-
-	if (SRV)
-	{
-		// make sure any dynamically backed SRV points to current memory
-		SRV->UpdateView(this);
-		checkf(SRV->BufferView != VK_NULL_HANDLE, TEXT("Empty SRV"));
-		ShaderState.SetBufferViewState(Stage, TextureIndex, SRV->BufferView);
-	}
-	else
-	{
-		ShaderState.SetBufferViewState(Stage, TextureIndex, nullptr);
-	}
+	//#todo-rco: Loop through all contexts!
+	GetImmediateContext().GetPendingState().NotifyDeletedRenderTarget(Texture);
 }

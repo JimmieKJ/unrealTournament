@@ -3,7 +3,11 @@
 #pragma once
 
 #include "RigidBodyIndexPair.h"
+#include "PhysicalAnimationComponent.h"
+#include "PhysicsEngine/BodySetup.h"
 #include "PhysicsAsset.generated.h"
+
+class USkeletalBodySetup;
 
 /**
  * PhysicsAsset contains a set of rigid bodies and constraints that make up a single ragdoll.
@@ -31,17 +35,30 @@ class UPhysicsAsset : public UObject
 	UPROPERTY()
 	TAssetPtr<class USkeletalMesh> PreviewSkeletalMesh;
 
+	UPROPERTY(EditAnywhere, Category = Profiles, meta=(DisableCopyPaste))
+	TArray<FName> PhysicalAnimationProfiles;
+
+	UPROPERTY(EditAnywhere, Category = Profiles, meta=(DisableCopyPaste))
+	TArray<FName> ConstraintProfiles;
+
+	UPROPERTY(transient)
+	FName CurrentPhysicalAnimationProfileName;
+
+	UPROPERTY(transient)
+	FName CurrentConstraintProfileName;
+
 #endif // WITH_EDITORONLY_DATA
-	/** 
-	 *	Array of BodySetup objects. Stores information about collision shape etc. for each body.
-	 *	Does not include body position - those are taken from mesh.
-	 */
-	UPROPERTY(instanced)
-	TArray<class UBodySetup*> BodySetup;
 
 	/** Index of bodies that are marked bConsiderForBounds */
 	UPROPERTY()
 	TArray<int32> BoundsBodies;
+
+	/**
+	*	Array of SkeletalBodySetup objects. Stores information about collision shape etc. for each body.
+	*	Does not include body position - those are taken from mesh.
+	*/
+	UPROPERTY(instanced)
+	TArray<USkeletalBodySetup*> SkeletalBodySetups;
 
 	/** 
 	 *	Array of RB_ConstraintSetup objects. 
@@ -51,6 +68,13 @@ class UPhysicsAsset : public UObject
 	TArray<class UPhysicsConstraintTemplate*> ConstraintSetup;
 
 public:
+
+	/**
+	* If true, bodies of the physics asset will be put into the asynchronous physics scene. If false, they will be put into the synchronous physics scene.
+	*/
+	UPROPERTY(EditAnywhere, AdvancedDisplay, Category = Physics)
+	uint8 bUseAsyncScene:1;
+
 	/** This caches the BodySetup Index by BodyName to speed up FindBodyIndex */
 	TMap<FName, int32>					BodySetupIndexMap;
 
@@ -68,6 +92,20 @@ public:
 	virtual SIZE_T GetResourceSize(EResourceSizeMode::Type Mode) override;
 #if WITH_EDITOR
 	virtual void PostEditUndo() override;
+
+	ENGINE_API const TArray<FName>& GetPhysicalAnimationProfileNames() const
+	{
+		return PhysicalAnimationProfiles;
+	}
+
+	ENGINE_API const TArray<FName>& GetConstraintProfileNames() const
+	{
+		return ConstraintProfiles;
+	}
+
+	virtual void PreEditChange(UProperty* PropertyThatWillChange) override;
+	virtual void PostEditChangeProperty(struct FPropertyChangedEvent& PropertyChangedEvent) override;
+
 #endif
 	//~ End UObject Interface
 
@@ -97,7 +135,7 @@ public:
 	void GetCollisionMesh(int32 ViewIndex, FMeshElementCollector& Collector, const USkeletalMesh* SkelMesh, const TArray<FTransform>& SpaceBases, const FTransform& LocalToWorld, const FVector& Scale3D);
 
 	// @todo document
-	void DrawConstraints(class FPrimitiveDrawInterface* PDI, const USkeletalMesh* SkelMesh, const TArray<FTransform>& SpaceBases, const FTransform& LocalToWorld, float Scale);
+	void DrawConstraints(int32 ViewIndex, FMeshElementCollector& Collector, const USkeletalMesh* SkelMesh, const TArray<FTransform>& SpaceBases, const FTransform& LocalToWorld, float Scale);
 
 
 	// @todo document
@@ -122,7 +160,78 @@ public:
 	 * @param	Constraints		Returns the found constraints
 	 **/
 	ENGINE_API void BodyFindConstraints(int32 BodyIndex, TArray<int32>& Constraints);
+
+private:
+
+#if WITH_EDITORONLY_DATA
+	/** Editor only arrays that are used for rename operations in pre/post edit change*/
+	TArray<FName> PrePhysicalAnimationProfiles;
+	TArray<FName> PreConstraintProfiles;
+#endif
+
+
+	UPROPERTY(instanced)
+	TArray<class UBodySetup*> BodySetup_DEPRECATED;
 };
 
-#define		RB_MinSizeToLockDOF				(0.1)
-#define		RB_MinAngleToLockDOF			(5.0)
+USTRUCT()
+struct FPhysicalAnimationProfile
+{
+	GENERATED_BODY()
+	
+	/** Profile name used to identify set of physical animation parameters */
+	UPROPERTY()
+	FName ProfileName;
+
+	/** Physical animation parameters used to drive animation */
+	UPROPERTY(EditAnywhere, Category = PhysicalAnimation)
+	FPhysicalAnimationData PhysicalAnimationData;
+};
+
+UCLASS(MinimalAPI)
+class USkeletalBodySetup : public UBodySetup
+{
+	GENERATED_BODY()
+public:
+	const FPhysicalAnimationProfile* FindPhysicalAnimationProfile(const FName ProfileName) const
+	{
+		return PhysicalAnimationData.FindByPredicate([ProfileName](const FPhysicalAnimationProfile& Profile){ return ProfileName == Profile.ProfileName; });
+	}
+
+	FPhysicalAnimationProfile* FindPhysicalAnimationProfile(const FName ProfileName)
+	{
+		return PhysicalAnimationData.FindByPredicate([ProfileName](const FPhysicalAnimationProfile& Profile) { return ProfileName == Profile.ProfileName; });
+	}
+
+	const TArray<FPhysicalAnimationProfile>& GetPhysicalAnimationProfiles() const
+	{
+		return PhysicalAnimationData;
+	}
+
+#if WITH_EDITOR
+	virtual void PostEditChangeProperty(struct FPropertyChangedEvent& PropertyChangedEvent);
+	ENGINE_API FName GetCurrentPhysicalAnimationProfileName() const;
+	
+	/** Creates a new physical animation profile entry */
+	ENGINE_API void AddPhysicalAnimationProfile(FName ProfileName);
+
+	/** Removes physical animation profile */
+	ENGINE_API void RemovePhysicalAnimationProfile(FName ProfileName);
+
+	ENGINE_API void UpdatePhysicalAnimationProfiles(const TArray<FName>& Profiles);
+
+	ENGINE_API void DuplicatePhysicalAnimationProfile(FName DuplicateFromName, FName DuplicateToName);
+
+	ENGINE_API void RenamePhysicalAnimationProfile(FName CurrentName, FName NewName);
+#endif
+
+#if WITH_EDITORONLY_DATA
+	//dummy place for customization inside phat. Profiles are ordered dynamically and we need a static place for detail customization
+	UPROPERTY(EditAnywhere, Category = PhysicalAnimation)
+	FPhysicalAnimationProfile CurrentPhysicalAnimationProfile;
+#endif
+
+private:
+	UPROPERTY()
+	TArray<FPhysicalAnimationProfile> PhysicalAnimationData;
+};

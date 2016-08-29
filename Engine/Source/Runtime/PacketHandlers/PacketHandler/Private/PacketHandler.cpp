@@ -6,15 +6,6 @@
 #include "HandlerComponentFactory.h"
 #include "ReliabilityHandlerComponent.h"
 
-
-// @todo #JohnB: Currently, when HandlerComponent's are not byte-aligned, they waste a lot of bits (up to a byte),
-//					so it would be good to optimize this in the future, while avoiding overcomplicating the code.
-//
-//					One possibility for optimization, which will work well with Oodle, is having a hard-coded bit alignment,
-//					and then trimming all trailing zero's from the packet, then padding-up zeros up to the bit alignment, upon receive.
-//					This may require using a bit, to signal that padding is needed post-receive. May overcomplicate the code though.
-
-
 // @todo #JohnB: There is quite a lot of inefficient copying of packet data going on.
 //					Redo the whole packet parsing/modification pipeline.
 
@@ -38,7 +29,7 @@ PacketHandler::PacketHandler()
 	, OutgoingPacket()
 	, IncomingPacket()
 	, HandlerComponents()
-	, PacketBitAlignment(0)
+	, MaxPacketBits(0)
 	, State(Handler::State::Uninitialized)
 	, BufferedPackets()
 	, QueuedPackets()
@@ -61,9 +52,10 @@ void PacketHandler::Tick(float DeltaTime)
 	}
 }
 
-void PacketHandler::Initialize(Handler::Mode InMode, bool bConnectionlessOnly/*=false*/)
+void PacketHandler::Initialize(Handler::Mode InMode, uint32 InMaxPacketBits, bool bConnectionlessOnly/*=false*/)
 {
 	Mode = InMode;
+	MaxPacketBits = InMaxPacketBits;
 
 	// @todo #JohnB: Redo this, so you don't load from the .ini at all, have it hardcoded elsewhere - do not want this in shipping.
 
@@ -104,19 +96,10 @@ void PacketHandler::InitializeComponents()
 		{
 			CurComponent.Initialize();
 		}
-
-		if (CurComponent.DoesResetBitAlignment())
-		{
-			PacketBitAlignment = CurComponent.GetBitAlignment();
-		}
-		else
-		{
-			PacketBitAlignment = (PacketBitAlignment + CurComponent.GetBitAlignment()) % 8;
-		}
 	}
 
-	// Called early, to ensure that all handlers report a valid packet overhead (triggers an assert if not)
-	GetTotalPacketOverheadBits();
+	// Called early, to ensure that all handlers report a valid reserved packet bits value (triggers an assert if not)
+	GetTotalReservedPacketBits();
 }
 
 void PacketHandler::AddHandler(TSharedPtr<HandlerComponent> NewHandler, bool bDeferInitialize/*=false*/)
@@ -256,7 +239,101 @@ TSharedPtr<HandlerComponent> PacketHandler::AddHandler(FString ComponentStr, boo
 	return ReturnVal;
 }
 
-const ProcessedPacket PacketHandler::Outgoing(uint8* Packet, int32 CountBits)
+void PacketHandler::IncomingHigh(FBitReader& Reader)
+{
+	// @todo #JohnB
+}
+
+void PacketHandler::OutgoingHigh(FBitWriter& Writer)
+{
+	// @todo #JohnB
+}
+
+const ProcessedPacket PacketHandler::Incoming_Internal(uint8* Packet, int32 CountBytes, bool bConnectionless, FString Address)
+{
+	// @todo #JohnB: Try to optimize this function more, seeing as it will be a common codepath DoS attacks pass through
+
+	// @todo #JohnB: Clean up returns.
+
+	int32 CountBits = CountBytes * 8;
+	bool bError = false;
+
+	if (HandlerComponents.Num() > 0)
+	{
+		uint8 LastByte = Packet[CountBytes - 1];
+
+		if (LastByte != 0)
+		{
+			CountBits--;
+
+			while (!(LastByte & 0x80))
+			{
+				LastByte *= 2;
+				CountBits--;
+			}
+		}
+		else
+		{
+			bError = true;
+
+#if !UE_BUILD_SHIPPING
+			UE_LOG(PacketHandlerLog, Error, TEXT("PacketHandler parsing packet with zero's in last byte."));
+#endif
+		}
+	}
+
+
+	if (!bError)
+	{
+		FBitReader ProcessedPacketReader(Packet, CountBits);
+
+		if (State == Handler::State::Uninitialized)
+		{
+			UpdateInitialState();
+		}
+
+
+		for (int32 i=HandlerComponents.Num() - 1; i>=0; --i)
+		{
+			HandlerComponent& CurComponent = *HandlerComponents[i];
+
+			if (CurComponent.IsActive() && !ProcessedPacketReader.IsError() && ProcessedPacketReader.GetBitsLeft() > 0)
+			{
+				// Realign the packet, so the packet data starts at position 0, if necessary
+				if (ProcessedPacketReader.GetPosBits() != 0 && !CurComponent.CanReadUnaligned())
+				{
+					RealignPacket(ProcessedPacketReader);
+				}
+
+				if (bConnectionless)
+				{
+					CurComponent.IncomingConnectionless(Address, ProcessedPacketReader);
+				}
+				else
+				{
+					CurComponent.Incoming(ProcessedPacketReader);
+				}
+			}
+		}
+
+		if (!ProcessedPacketReader.IsError())
+		{
+			ReplaceIncomingPacket(ProcessedPacketReader);
+
+			return ProcessedPacket(IncomingPacket.GetData(), IncomingPacket.GetBitsLeft());
+		}
+		else
+		{
+			return ProcessedPacket();
+		}
+	}
+	else
+	{
+		return ProcessedPacket();
+	}
+}
+
+const ProcessedPacket PacketHandler::Outgoing_Internal(uint8* Packet, int32 CountBits, bool bConnectionless, FString Address)
 {
 	if (!bRawSend)
 	{
@@ -271,141 +348,82 @@ const ProcessedPacket PacketHandler::Outgoing(uint8* Packet, int32 CountBits)
 		if (State == Handler::State::Initialized)
 		{
 			OutgoingPacket.SerializeBits(Packet, CountBits);
+
+
+			if (!bConnectionless)
+			{
+				// Queue packet for resending before handling
+				if (CountBits > 0 && ReliabilityComponent.IsValid())
+				{
+					ReliabilityComponent->QueuePacketForResending(Packet, CountBits);
+				}
+			}
+
+			for (int32 i=0; i<HandlerComponents.Num() && !OutgoingPacket.IsError(); ++i)
+			{
+				HandlerComponent& CurComponent = *HandlerComponents[i];
+
+				if (CurComponent.IsActive())
+				{
+					if (OutgoingPacket.GetNumBits() <= CurComponent.MaxOutgoingBits)
+					{
+						if (bConnectionless)
+						{
+							CurComponent.OutgoingConnectionless(Address, OutgoingPacket);
+						}
+						else
+						{
+							CurComponent.Outgoing(OutgoingPacket);
+						}
+					}
+					else
+					{
+						OutgoingPacket.SetError();
+
+						UE_LOG(PacketHandlerLog, Error, TEXT("Packet exceeded HandlerComponents 'MaxOutgoingBits' value: %i vs %i"),
+								OutgoingPacket.GetNumBits(), CurComponent.MaxOutgoingBits);
+
+						break;
+					}
+				}
+			}
+
+			// Add a termination bit, the same as the UNetConnection code does, if appropriate
+			if (HandlerComponents.Num() > 0)
+			{
+				OutgoingPacket.WriteBit(1);
+			}
 		}
 		// Buffer any packets being sent from game code until processors are initialized
 		else if (State == Handler::State::InitializingComponents && CountBits > 0)
 		{
-			BufferedPackets.Add(new BufferedPacket(Packet, CountBits));
+			if (bConnectionless)
+			{
+				BufferedConnectionlessPackets.Add(new BufferedPacket(Address, Packet, CountBits));
+			}
+			else
+			{
+				BufferedPackets.Add(new BufferedPacket(Packet, CountBits));
+			}
 
 			Packet = nullptr;
 			CountBits = 0;
 		}
 
-
-		// Queue packet for resending before handling
-		if (CountBits > 0 && ReliabilityComponent.IsValid())
+		// @todo #JohnB: Tidy up return code
+		if (!OutgoingPacket.IsError())
 		{
-			ReliabilityComponent->QueuePacketForResending(Packet, CountBits);
+			return ProcessedPacket(OutgoingPacket.GetData(), OutgoingPacket.GetNumBits());
 		}
-
-		for (int32 i=0; i<HandlerComponents.Num(); ++i)
+		else
 		{
-			if (HandlerComponents[i]->IsActive())
-			{
-				HandlerComponents[i]->Outgoing(OutgoingPacket);
-			}
+			return ProcessedPacket(Packet, CountBits);
 		}
-
-		return ProcessedPacket(OutgoingPacket.GetData(), OutgoingPacket.GetNumBits());
 	}
 	else
 	{
 		return ProcessedPacket(Packet, CountBits);
 	}
-}
-
-const ProcessedPacket PacketHandler::Incoming(uint8* Packet, int32 CountBytes)
-{
-	int32 BitAlignment = (PacketBitAlignment > 0) ? PacketBitAlignment : 8;
-	int32 CountBits = (CountBytes > 0 ? ((CountBytes - 1) * 8) + BitAlignment : 0);
-	FBitReader ProcessedPacketReader(Packet, CountBits);
-
-	if (State == Handler::State::Uninitialized)
-	{
-		UpdateInitialState();
-	}
-
-	// Handle
-	for (int32 i=HandlerComponents.Num() - 1; i>=0; --i)
-	{
-		HandlerComponent& CurComponent = *HandlerComponents[i];
-
-		if (CurComponent.IsActive() && ProcessedPacketReader.GetBitsLeft() > 0)
-		{
-			// Realign the packet, so the packet data starts at position 0, if necessary
-			if (ProcessedPacketReader.GetPosBits() != 0 && !CurComponent.CanReadUnaligned())
-			{
-				RealignPacket(ProcessedPacketReader);
-			}
-
-			CurComponent.Incoming(ProcessedPacketReader);
-		}
-	}
-
-	ReplaceIncomingPacket(ProcessedPacketReader);
-
-	return ProcessedPacket(IncomingPacket.GetData(), IncomingPacket.GetBitsLeft());
-}
-
-const ProcessedPacket PacketHandler::IncomingConnectionless(FString Address, uint8* Packet, int32 CountBytes)
-{
-	// @todo #JohnB: Try to optimize this function more, seeing as it will be a common codepath DoS attacks pass through
-
-	int32 BitAlignment = (PacketBitAlignment > 0) ? PacketBitAlignment : 8;
-	int32 CountBits = (CountBytes > 0 ? ((CountBytes - 1) * 8) + BitAlignment : 0);
-	FBitReader ProcessedPacketReader(Packet, CountBits);
-
-	if (State == Handler::State::Uninitialized)
-	{
-		UpdateInitialState();
-	}
-
-
-	for (int32 i=HandlerComponents.Num() - 1; i>=0; --i)
-	{
-		HandlerComponent& CurComponent = *HandlerComponents[i];
-
-		if (CurComponent.IsActive() && ProcessedPacketReader.GetBitsLeft() > 0)
-		{
-			// Realign the packet, so the packet data starts at position 0, if necessary
-			if (ProcessedPacketReader.GetPosBits() != 0 && !CurComponent.CanReadUnaligned())
-			{
-				RealignPacket(ProcessedPacketReader);
-			}
-
-			CurComponent.IncomingConnectionless(Address, ProcessedPacketReader);
-		}
-	}
-
-	ReplaceIncomingPacket(ProcessedPacketReader);
-
-	return ProcessedPacket(IncomingPacket.GetData(), IncomingPacket.GetBitsLeft());
-}
-
-const ProcessedPacket PacketHandler::OutgoingConnectionless(FString Address, uint8* Packet, int32 CountBits)
-{
-	OutgoingPacket.Reset();
-
-	if (State == Handler::State::Uninitialized)
-	{
-		UpdateInitialState();
-	}
-
-
-	if (State == Handler::State::Initialized)
-	{
-		OutgoingPacket.SerializeBits(Packet, CountBits);
-	}
-	// Buffer any packets being sent from game code until processors are initialized
-	else if (State == Handler::State::InitializingComponents && CountBits > 0)
-	{
-		BufferedConnectionlessPackets.Add(new BufferedPacket(Address, Packet, CountBits));
-
-		Packet = nullptr;
-		CountBits = 0;
-	}
-
-
-	// Handle
-	for (int32 i=0; i<HandlerComponents.Num(); ++i)
-	{
-		if (HandlerComponents[i]->IsActive())
-		{
-			HandlerComponents[i]->OutgoingConnectionless(Address, OutgoingPacket);
-		}
-	}
-
-	return ProcessedPacket(OutgoingPacket.GetData(), OutgoingPacket.GetNumBits());
 }
 
 void PacketHandler::ReplaceIncomingPacket(FBitReader& ReplacementPacket)
@@ -514,7 +532,6 @@ void PacketHandler::HandlerInitialized()
 
 	BufferedConnectionlessPackets.Empty();
 
-
 	SetState(Handler::State::Initialized);
 }
 
@@ -558,30 +575,37 @@ void PacketHandler::QueuePacketForSending(BufferedPacket* PacketToQueue)
 	// @todo #JohnB: Deprecate?
 }
 
-int32 PacketHandler::GetTotalPacketOverheadBits()
+int32 PacketHandler::GetTotalReservedPacketBits()
 {
 	int32 ReturnVal = 0;
+	uint32 CurMaxOutgoingBits = MaxPacketBits;
 
-	for (int32 i=0; i<HandlerComponents.Num(); i++)
+	for (int32 i=HandlerComponents.Num()-1; i>=0; i--)
 	{
-		int32 CurOverhead = HandlerComponents[i]->GetPacketOverheadBits();
+		HandlerComponent* CurComponent = HandlerComponents[i].Get();
+		int32 CurReservedBits = CurComponent->GetReservedPacketBits();
 
-		// Specifying the packet overhead is mandatory, even if no overhead (as accidentally forgetting, leads to hard to trace issues).
-		if (CurOverhead == -1)
+		// Specifying the reserved packet bits is mandatory, even if zero (as accidentally forgetting, leads to hard to trace issues).
+		if (CurReservedBits == -1)
 		{
-			LowLevelFatalError(TEXT("Handler returned invalid 'GetPacketOverhead' value."));
+			LowLevelFatalError(TEXT("Handler returned invalid 'GetReservedPacketBits' value."));
 			continue;
 		}
 
-		ReturnVal += CurOverhead;
+
+		// Set the maximum Outgoing packet size for the HandlerComponent
+		CurComponent->MaxOutgoingBits = CurMaxOutgoingBits;
+		CurMaxOutgoingBits -= CurReservedBits;
+
+		ReturnVal += CurReservedBits;
 	}
 
-	// @todo #JohnB: Fix byte alignment notes in NetConnection.cpp, then remove this code
-#if 1
-	// Byte-align the result
-	ReturnVal = FMath::DivideAndRoundUp(ReturnVal, 8) * 8;
-#endif
 
+	// Reserve space for the termination bit
+	if (HandlerComponents.Num() > 0)
+	{
+		ReturnVal++;
+	}
 
 	return ReturnVal;
 }
@@ -594,6 +618,7 @@ int32 PacketHandler::GetTotalPacketOverheadBits()
 HandlerComponent::HandlerComponent()
 	: Handler(nullptr)
 	, State(Handler::Component::State::UnInitialized)
+	, MaxOutgoingBits(0)
 	, bActive(false)
 	, bInitialized(false)
 {

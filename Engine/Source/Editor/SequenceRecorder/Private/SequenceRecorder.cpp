@@ -14,11 +14,17 @@
 #include "NotificationManager.h"
 #include "DrawDebugHelpers.h"
 #include "LevelSequenceActor.h"
+#include "Runtime/Core/Public/Features/IModularFeatures.h"
+#include "Tracks/MovieSceneAudioTrack.h"
+#include "Sections/MovieSceneAudioSection.h"
+#include "ILevelViewport.h"
+#include "Animation/AnimSequence.h"
 
 #define LOCTEXT_NAMESPACE "SequenceRecorder"
 
 FSequenceRecorder::FSequenceRecorder()
 	: bQueuedRecordingsDirty(false)
+	, bWasImmersive(false)
 	, CurrentDelay(0.0f)
 	, CurrentTime(0.0f)
 {
@@ -31,10 +37,22 @@ void FSequenceRecorder::Initialize()
 	CountdownTexture->AddToRoot();
 	RecordingIndicatorTexture = LoadObject<UTexture2D>(nullptr, TEXT("/Engine/EditorResources/SequenceRecorder/RecordingIndicator.RecordingIndicator"), nullptr, LOAD_None, nullptr);
 	RecordingIndicatorTexture->AddToRoot();
+
+	// register built-in recorders
+	IModularFeatures::Get().RegisterModularFeature("MovieSceneSectionRecorderFactory", &AnimationSectionRecorderFactory);
+	IModularFeatures::Get().RegisterModularFeature("MovieSceneSectionRecorderFactory", &TransformSectionRecorderFactory);
+	IModularFeatures::Get().RegisterModularFeature("MovieSceneSectionRecorderFactory", &MultiPropertySectionRecorder);
+
+	RefreshNextSequence();
 }
 
 void FSequenceRecorder::Shutdown()
 {
+	// unregister built-in recorders
+	IModularFeatures::Get().UnregisterModularFeature("MovieSceneSectionRecorderFactory", &AnimationSectionRecorderFactory);
+	IModularFeatures::Get().UnregisterModularFeature("MovieSceneSectionRecorderFactory", &TransformSectionRecorderFactory);
+	IModularFeatures::Get().UnregisterModularFeature("MovieSceneSectionRecorderFactory", &MultiPropertySectionRecorder);
+
 	if(CountdownTexture.IsValid())
 	{
 		CountdownTexture->RemoveFromRoot();
@@ -58,7 +76,7 @@ bool FSequenceRecorder::IsRecordingQueued(AActor* Actor) const
 {
 	for (UActorRecording* QueuedRecording : QueuedRecordings)
 	{
-		if (QueuedRecording->ActorToRecord == Actor)
+		if (QueuedRecording->GetActorToRecord() == Actor)
 		{
 			return true;
 		}
@@ -71,7 +89,7 @@ UActorRecording* FSequenceRecorder::FindRecording(AActor* Actor) const
 {
 	for (UActorRecording* QueuedRecording : QueuedRecordings)
 	{
-		if (QueuedRecording->ActorToRecord == Actor)
+		if (QueuedRecording->GetActorToRecord() == Actor)
 		{
 			return QueuedRecording;
 		}
@@ -102,13 +120,16 @@ UActorRecording* FSequenceRecorder::AddNewQueuedRecording(AActor* Actor, UAnimSe
 
 	UActorRecording* ActorRecording = NewObject<UActorRecording>();
 	ActorRecording->AddToRoot();
-	ActorRecording->ActorToRecord = Actor;
+	ActorRecording->SetActorToRecord(Actor);
 	ActorRecording->TargetAnimation = AnimSequence;
 	ActorRecording->AnimationSettings.Length = Length;
 
 	// We always record in world space as we need animations to record root motion
 	ActorRecording->AnimationSettings.bRecordInWorldSpace = true;
-	ActorRecording->ActorSettings.bRecordTransforms = true;
+
+	UMovieScene3DTransformSectionRecorderSettings* TransformSettings = ActorRecording->ActorSettings.GetSettingsObject<UMovieScene3DTransformSectionRecorderSettings>();
+	check(TransformSettings);
+	TransformSettings->bRecordTransforms = true;
 
 	// auto-save assets in non-editor runtime
 	if(GEditor == nullptr)
@@ -127,7 +148,7 @@ void FSequenceRecorder::RemoveQueuedRecording(AActor* Actor)
 {
 	for (UActorRecording* QueuedRecording : QueuedRecordings)
 	{
-		if (QueuedRecording->ActorToRecord == Actor)
+		if (QueuedRecording->GetActorToRecord() == Actor)
 		{
 			QueuedRecording->RemoveFromRoot();
 			QueuedRecordings.Remove(QueuedRecording);
@@ -262,7 +283,7 @@ void FSequenceRecorder::Tick(float DeltaSeconds)
 		auto RemoveDeadActorPredicate = 
 			[&](UActorRecording* Recording)
 			{
-				if(!Recording->ActorToRecord.IsValid())
+				if(!Recording->GetActorToRecord())
 				{
 					DeadRecordings.Add(Recording);
 					return true;
@@ -321,28 +342,70 @@ void FSequenceRecorder::DrawDebug(UCanvas* InCanvas, APlayerController* InPlayer
 
 	if(bCountingDown || IsRecording())
 	{
-		FText Text;
+		FText LabelText;
 		if(IsRecording())
 		{
-			Text = FText::Format(LOCTEXT("RecordingIndicator", "Recording Sequence: {0}\nTime: {1}"), FText::FromName(CurrentSequence.Get()->GetFName()), FText::AsNumber(CurrentTime));
+			LabelText = FText::Format(LOCTEXT("RecordingIndicatorFormat", "{0}"), FText::FromName(CurrentSequence.Get()->GetFName()));
 		}
 		else
 		{
-			Text = LOCTEXT("RecordingIndicator", "Sequence Recording Pending");
+			LabelText = FText::Format(LOCTEXT("RecordingIndicatorPending", "Pending recording: {0}"), FText::FromString(NextSequenceName));
 		}
 
+
+		float TimeAccumulator = CurrentTime;
+		float Hours = FMath::FloorToFloat(TimeAccumulator / (60.0f * 60.0f));
+		TimeAccumulator -= Hours * 60.0f * 60.0f;
+		float Minutes = FMath::FloorToFloat(TimeAccumulator / 60.0f);
+		TimeAccumulator -= Minutes * 60.0f;
+		float Seconds = FMath::FloorToFloat(TimeAccumulator);
+		TimeAccumulator -= Seconds;
+		float Frames = FMath::FloorToFloat(TimeAccumulator * GetDefault<USequenceRecorderSettings>()->DefaultAnimationSettings.SampleRate);
+
+		FNumberFormattingOptions Options;
+		Options.MinimumIntegralDigits = 2;
+		Options.MaximumIntegralDigits = 2;
+
+		FFormatNamedArguments NamedArgs;
+		NamedArgs.Add(TEXT("Hours"), FText::AsNumber((int32)Hours, &Options));
+		NamedArgs.Add(TEXT("Minutes"), FText::AsNumber((int32)Minutes, &Options));
+		NamedArgs.Add(TEXT("Seconds"), FText::AsNumber((int32)Seconds, &Options));
+		NamedArgs.Add(TEXT("Frames"), FText::AsNumber((int32)Frames, &Options));
+		FText TimeText = FText::Format(LOCTEXT("RecordingTimerFormat", "{Hours}:{Minutes}:{Seconds}:{Frames}"), NamedArgs);
+
 		const FVector2D IconSize(32.0f, 32.0f);
-		const FVector2D Offset(32.0f, 64.0f);
+		const FVector2D Offset(8.0f, 32.0f);
 
 		InCanvas->SetDrawColor(FColor::White);
 
-		FVector2D IconPosition(Offset.X, Offset.Y * 2.0f);
+		FVector2D IconPosition(Offset.X, InCanvas->SizeY - (Offset.Y + IconSize.Y));
 		FCanvasIcon Icon = UCanvas::MakeIcon(RecordingIndicatorTexture.Get(), FMath::FloorToFloat(NumFrames - CurrentDelay) * IconSize.X, 0.0f, IconSize.X, IconSize.Y);
 		InCanvas->DrawIcon(Icon, IconPosition.X, IconPosition.Y);
 
-		FFontRenderInfo Info;
-		Info.bEnableShadow = true;
-		InCanvas->DrawText(GEngine->GetMediumFont(), Text, IconPosition.X + IconSize.X + 4.0f, IconPosition.Y + 2.0f, 1.0f, 1.0f, Info);
+		const float TextScale = 1.2f;
+		float TextPositionY = 0.0f;
+		// draw label
+		{
+			float XSize, YSize;
+			InCanvas->TextSize(GEngine->GetLargeFont(), LabelText.ToString(), XSize, YSize, TextScale, TextScale);
+
+			TextPositionY = (IconPosition.Y + (IconSize.Y * 0.5f)) - (YSize * 0.5f);
+
+			FFontRenderInfo Info;
+			Info.bEnableShadow = true;
+			InCanvas->DrawText(GEngine->GetLargeFont(), LabelText, IconPosition.X + IconSize.X + 4.0f, TextPositionY, TextScale, TextScale, Info);
+		}
+		// draw time
+		{
+			float XSize, YSize;
+			InCanvas->TextSize(GEngine->GetLargeFont(), TimeText.ToString(), XSize, YSize, TextScale, TextScale);
+
+			FVector2D TimePosition(InCanvas->SizeX - (Offset.X + XSize), TextPositionY);
+
+			FFontRenderInfo Info;
+			Info.bEnableShadow = true;
+			InCanvas->DrawText(GEngine->GetLargeFont(), TimeText, TimePosition.X, TimePosition.Y, TextScale, TextScale, Info);
+		}
 	}
 }
 
@@ -372,6 +435,26 @@ bool FSequenceRecorder::StartRecording(const FOnRecordingStarted& OnRecordingSta
 	}
 
 	CurrentTime = 0.0f;
+
+	if (Settings->bImmersiveMode)
+	{
+		FLevelEditorModule& LevelEditorModule = FModuleManager::Get().LoadModuleChecked<FLevelEditorModule>("LevelEditor");
+		TSharedPtr< ILevelViewport > ActiveLevelViewport = LevelEditorModule.GetFirstActiveViewport();
+
+		if( ActiveLevelViewport.IsValid() )
+		{
+			bWasImmersive = ActiveLevelViewport->IsImmersive();
+
+			if (!ActiveLevelViewport->IsImmersive())
+			{
+				const bool bWantImmersive = true;
+				const bool bAllowAnimation = false;
+				ActiveLevelViewport->MakeImmersive( bWantImmersive, bAllowAnimation );
+			}
+		}
+	}
+
+	RefreshNextSequence();
 
 	if(Settings->RecordingDelay > 0.0f)
 	{
@@ -412,9 +495,9 @@ bool FSequenceRecorder::StartRecordingInternal(UWorld* World)
 	UWorld* ActorWorld = nullptr;
 	if(Settings->bRecordWorldSettingsActor)
 	{
-		if(World != nullptr || (QueuedRecordings.Num() > 0 && QueuedRecordings[0]->ActorToRecord.IsValid()))
+		if(World != nullptr || (QueuedRecordings.Num() > 0 && QueuedRecordings[0]->GetActorToRecord() != nullptr))
 		{
-			ActorWorld = World != nullptr ? World : QueuedRecordings[0]->ActorToRecord->GetWorld();
+			ActorWorld = World != nullptr ? World : QueuedRecordings[0]->GetActorToRecord()->GetWorld();
 			if(ActorWorld)
 			{
 				AWorldSettings* WorldSettings = ActorWorld->GetWorldSettings();
@@ -455,15 +538,17 @@ bool FSequenceRecorder::StartRecordingInternal(UWorld* World)
 				CurrentSequence = LevelSequence;
 
 				FAssetRegistryModule::AssetCreated(LevelSequence);
+
+				RefreshNextSequence();
 			}
 		}
 
 		// register for spawning delegate in the world(s) of recorded actors
 		for(UActorRecording* Recording : QueuedRecordings)
 		{
-			if(Recording->ActorToRecord.IsValid())
+			if(Recording->GetActorToRecord() != nullptr)
 			{
-				UWorld* ActorToRecordWorld = Recording->ActorToRecord->GetWorld();
+				UWorld* ActorToRecordWorld = Recording->GetActorToRecord()->GetWorld();
 				if(ActorToRecordWorld != nullptr)
 				{
 					FDelegateHandle* FoundHandle = ActorSpawningDelegateHandles.Find(ActorToRecordWorld);
@@ -540,6 +625,23 @@ void FSequenceRecorder::HandleEndPIE(bool bSimulating)
 
 bool FSequenceRecorder::StopRecording()
 {
+	const USequenceRecorderSettings* Settings = GetDefault<USequenceRecorderSettings>();
+
+	if (Settings->bImmersiveMode)
+	{
+		FLevelEditorModule& LevelEditorModule = FModuleManager::Get().LoadModuleChecked<FLevelEditorModule>("LevelEditor");
+		TSharedPtr< ILevelViewport > ActiveLevelViewport = LevelEditorModule.GetFirstActiveViewport();
+
+		if( ActiveLevelViewport.IsValid() )
+		{
+			if (ActiveLevelViewport->IsImmersive() != bWasImmersive)
+			{
+				const bool bAllowAnimation = false;
+				ActiveLevelViewport->MakeImmersive(bWasImmersive, bAllowAnimation);
+			}
+		}
+	}
+
 	FScopedSlowTask SlowTask((float)(QueuedRecordings.Num() + DeadRecordings.Num()), LOCTEXT("ProcessingRecording", "Processing Recording"));
 	SlowTask.MakeDialog(false, true);
 
@@ -577,7 +679,6 @@ bool FSequenceRecorder::StopRecording()
 
 	DeadRecordings.Empty();
 
-	const USequenceRecorderSettings* Settings = GetDefault<USequenceRecorderSettings>();
 	if(Settings->bCreateLevelSequence)
 	{
 		if(CurrentSequence.IsValid())
@@ -686,7 +787,7 @@ bool FSequenceRecorder::IsActorValidForRecording(AActor* Actor)
 
 		for(UActorRecording* Recording : QueuedRecordings)
 		{
-			if(AActor* OtherActor = Recording->ActorToRecord.Get())
+			if(AActor* OtherActor = Recording->GetActorToRecord())
 			{
 				if(OtherActor != Actor)
 				{
@@ -705,7 +806,7 @@ bool FSequenceRecorder::IsActorValidForRecording(AActor* Actor)
 	// check class if any
 	for(const TSubclassOf<AActor>& ActorClass : Settings->ActorFilter.ActorClassesToRecord)
 	{
-		if(Actor->IsA(*ActorClass))
+		if(*ActorClass != nullptr && Actor->IsA(*ActorClass))
 		{
 			return true;
 		}
@@ -732,7 +833,7 @@ void FSequenceRecorder::HandleActorDespawned(AActor* Actor)
 		for(int32 Index = 0; Index < QueuedRecordings.Num(); ++Index)
 		{
 			UActorRecording* Recording = QueuedRecordings[Index];
-			if(Recording->ActorToRecord.Get() == Actor)
+			if(Recording->GetActorToRecord() == Actor)
 			{
 				Recording->InvalidateObjectToRecord();
 				DeadRecordings.Add(Recording);
@@ -741,6 +842,14 @@ void FSequenceRecorder::HandleActorDespawned(AActor* Actor)
 			}
 		}
 	}
+}
+
+void FSequenceRecorder::RefreshNextSequence()
+{
+	// Cache the name of the next sequence we will try to record to
+	const USequenceRecorderSettings* Settings = GetDefault<USequenceRecorderSettings>();
+	SequenceName = Settings->SequenceName.Len() > 0 ? Settings->SequenceName : TEXT("RecordedSequence");
+	NextSequenceName = SequenceRecorderUtils::MakeNewAssetName<ULevelSequence>(Settings->SequenceRecordingBasePath.Path, SequenceName);
 }
 
 #undef LOCTEXT_NAMESPACE

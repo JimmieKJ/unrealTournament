@@ -6,9 +6,23 @@
 #include "Materials/MaterialParameterCollection.h"
 #include "Materials/MaterialExpressionCollectionParameter.h"
 
+TMap<FGuid, FMaterialParameterCollectionInstanceResource*> GDefaultMaterialParameterCollectionInstances;
+
 UMaterialParameterCollection::UMaterialParameterCollection(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
-{}
+{
+	DefaultResource = NULL;
+}
+
+void UMaterialParameterCollection::PostInitProperties()
+{
+	Super::PostInitProperties();
+
+	if (!HasAnyFlags(RF_ClassDefaultObject))
+	{
+		DefaultResource = new FMaterialParameterCollectionInstanceResource();
+	}
+}
 
 void UMaterialParameterCollection::PostLoad()
 {
@@ -27,6 +41,26 @@ void UMaterialParameterCollection::PostLoad()
 		UWorld* CurrentWorld = *It;
 		CurrentWorld->AddParameterCollectionInstance(this, true);
 	}
+
+	UpdateDefaultResource();
+}
+
+void UMaterialParameterCollection::BeginDestroy()
+{
+	if (DefaultResource)
+	{
+		ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(
+			FRemoveDefaultResourceCommand,
+			FGuid,Id,StateId,
+		{
+			GDefaultMaterialParameterCollectionInstances.Remove(Id);
+		});
+
+		DefaultResource->GameThread_Destroy();
+		DefaultResource = NULL;
+	}
+
+	Super::BeginDestroy();
 }
 
 #if WITH_EDITOR
@@ -73,7 +107,7 @@ FName CreateUniqueName(TArray<ParameterType>& Parameters, int32 RenameParameterI
 }
 
 template<typename ParameterType>
-void SanatizeParameters(TArray<ParameterType>& Parameters)
+void SanitizeParameters(TArray<ParameterType>& Parameters)
 {
 	for (int32 i = 0; i < Parameters.Num() - 1; ++i)
 	{
@@ -105,8 +139,8 @@ void UMaterialParameterCollection::PreEditChange(class FEditPropertyChain& Prope
 
 void UMaterialParameterCollection::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
 {
-	SanatizeParameters(ScalarParameters);
-	SanatizeParameters(VectorParameters);
+	SanitizeParameters(ScalarParameters);
+	SanitizeParameters(VectorParameters);
 
 	// If the array counts have changed, an element has been added or removed, and we need to update the uniform buffer layout,
 	// Which also requires recompiling any referencing materials
@@ -219,6 +253,8 @@ void UMaterialParameterCollection::PostEditChangeProperty(FPropertyChangedEvent&
 		UWorld* CurrentWorld = *It;
 		CurrentWorld->UpdateParameterCollectionInstances(true);
 	}
+
+	UpdateDefaultResource();
 
 	PreviousScalarParameters.Empty();
 	PreviousVectorParameters.Empty();
@@ -384,6 +420,50 @@ void UMaterialParameterCollection::CreateBufferStruct()
 		Members,
 		false
 		);
+}
+
+void UMaterialParameterCollection::GetDefaultParameterData(TArray<FVector4>& ParameterData) const
+{
+	// The memory layout created here must match the index assignment in UMaterialParameterCollection::GetParameterIndex
+
+	ParameterData.Empty(FMath::DivideAndRoundUp(ScalarParameters.Num(), 4) + VectorParameters.Num());
+
+	for (int32 ParameterIndex = 0; ParameterIndex < ScalarParameters.Num(); ParameterIndex++)
+	{
+		const FCollectionScalarParameter& Parameter = ScalarParameters[ParameterIndex];
+
+		// Add a new vector for each packed vector
+		if (ParameterIndex % 4 == 0)
+		{
+			ParameterData.Add(FVector4(0, 0, 0, 0));
+		}
+
+		FVector4& CurrentVector = ParameterData.Last();
+		// Pack into the appropriate component of this packed vector
+		CurrentVector[ParameterIndex % 4] = Parameter.DefaultValue;
+	}
+
+	for (int32 ParameterIndex = 0; ParameterIndex < VectorParameters.Num(); ParameterIndex++)
+	{
+		const FCollectionVectorParameter& Parameter = VectorParameters[ParameterIndex];
+		ParameterData.Add(Parameter.DefaultValue);
+	}
+}
+
+void UMaterialParameterCollection::UpdateDefaultResource()
+{
+	// Propagate the new values to the rendering thread
+	TArray<FVector4> ParameterData;
+	GetDefaultParameterData(ParameterData);
+	DefaultResource->GameThread_UpdateContents(StateId, ParameterData);
+
+	ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER(
+		FUpdateDefaultResourceCommand,
+		FGuid,Id,StateId,
+		FMaterialParameterCollectionInstanceResource*,Resource,DefaultResource,
+	{
+		GDefaultMaterialParameterCollectionInstances.Add(Id, Resource);
+	});
 }
 
 UMaterialParameterCollectionInstance::UMaterialParameterCollectionInstance(const FObjectInitializer& ObjectInitializer)

@@ -4,8 +4,20 @@
 #include "MovieScene.h"
 #include "WidgetAnimation.h"
 #include "Engine/InputDelegateBinding.h"
+#include "TextReferenceCollector.h"
 
 #define LOCTEXT_NAMESPACE "UMG"
+
+#if WITH_EDITORONLY_DATA
+namespace
+{
+	void CollectWidgetBlueprintGeneratedClassTextReferences(UObject* Object, FArchive& Ar)
+	{
+		// In an editor build, both UWidgetBlueprint and UWidgetBlueprintGeneratedClass reference an identical WidgetTree.
+		// So we ignore the UWidgetBlueprintGeneratedClass when looking for persistent text references since it will be overwritten by the UWidgetBlueprint version.
+	}
+}
+#endif
 
 /////////////////////////////////////////////////////
 // UWidgetBlueprintGeneratedClass
@@ -13,6 +25,9 @@
 UWidgetBlueprintGeneratedClass::UWidgetBlueprintGeneratedClass(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
+#if WITH_EDITORONLY_DATA
+	{ static const FAutoRegisterTextReferenceCollectorCallback AutomaticRegistrationOfTextReferenceCollector(UWidgetBlueprintGeneratedClass::StaticClass(), &CollectWidgetBlueprintGeneratedClassTextReferences); }
+#endif
 }
 
 void UWidgetBlueprintGeneratedClass::InitializeWidgetStatic(UUserWidget* UserWidget
@@ -21,19 +36,24 @@ void UWidgetBlueprintGeneratedClass::InitializeWidgetStatic(UUserWidget* UserWid
 	, bool InCanEverPaint
 	, UWidgetTree* InWidgetTree
 	, const TArray< UWidgetAnimation* >& InAnimations
-	, const TArray< FDelegateRuntimeBinding >& InBindings
-	, UWidgetTree* InDesignerWidgetTree)
+	, const TArray< FDelegateRuntimeBinding >& InBindings)
 {
 	check(InClass);
 
 	UserWidget->bCanEverTick = InCanEverTick;
 	UserWidget->bCanEverPaint = InCanEverPaint;
 
-#if WITH_EDITORONLY_DATA
-	UWidgetTree* ClonedTree = DuplicateObject<UWidgetTree>(InDesignerWidgetTree ? InDesignerWidgetTree : InWidgetTree, UserWidget);
-#else
-	UWidgetTree* ClonedTree = DuplicateObject<UWidgetTree>(InWidgetTree, UserWidget);
-#endif
+	UWidgetTree* ClonedTree = UserWidget->WidgetTree;
+
+	// Normally the ClonedTree should be null - we do in the case of design time with the widget, actually
+	// clone the widget tree directly from the WidgetBlueprint so that the rebuilt preview matches the newest
+	// widget tree, without a full blueprint compile being required.  In that case, the WidgetTree on the UserWidget
+	// will have already been initialized to some value.  When that's the case, we'll avoid duplicating it from the class
+	// similar to how we use to use the DesignerWidgetTree.
+	if ( ClonedTree == nullptr )
+	{
+		ClonedTree = DuplicateObject<UWidgetTree>(InWidgetTree, UserWidget);
+	}
 
 	UserWidget->WidgetGeneratedByClass = InClass;
 
@@ -43,8 +63,6 @@ void UWidgetBlueprintGeneratedClass::InitializeWidgetStatic(UUserWidget* UserWid
 
 	if (ClonedTree)
 	{
-		ClonedTree->SetFlags(RF_Transactional);
-
 		UserWidget->WidgetTree = ClonedTree;
 
 		UClass* WidgetBlueprintClass = UserWidget->GetClass();
@@ -147,13 +165,7 @@ void UWidgetBlueprintGeneratedClass::InitializeWidgetStatic(UUserWidget* UserWid
 
 void UWidgetBlueprintGeneratedClass::InitializeWidget(UUserWidget* UserWidget) const
 {
-	InitializeWidgetStatic(UserWidget, this, bCanEverTick, bCanEverPaint, WidgetTree, Animations, Bindings, 
-#if WITH_EDITOR
-		DesignerWidgetTree
-#else // WITH_EDITOR
-		nullptr
-#endif  // WITH_EDITOR
-		);
+	InitializeWidgetStatic(UserWidget, this, bCanEverTick, bCanEverPaint, WidgetTree, Animations, Bindings);
 }
 
 void UWidgetBlueprintGeneratedClass::PostLoad()

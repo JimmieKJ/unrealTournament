@@ -6,12 +6,6 @@
 #include "Runtime/Core/Public/Features/IModularFeatures.h"
 #include "Developer/MessageLog/Public/MessageLogModule.h"
 
-#if WITH_EDITOR
-	//#include "Settings/EditorLoadingSavingSettings.h"
-	//#include "Runtime/Engine/Public/EngineAnalytics.h"
-	//#include "Runtime/Analytics/Analytics/Public/Interfaces/IAnalyticsProvider.h"
-#endif
-
 DEFINE_LOG_CATEGORY(LogLocalizationService);
 
 #define LOCTEXT_NAMESPACE "LocalizationService"

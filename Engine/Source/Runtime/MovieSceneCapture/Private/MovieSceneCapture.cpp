@@ -6,6 +6,9 @@
 #include "HighResScreenshot.h"
 #include "BufferVisualizationData.h"
 #include "SceneViewExtension.h"
+#include "JsonObjectConverter.h"
+#include "RemoteConfigIni.h"
+#include "SceneViewport.h"
 
 #if WITH_EDITOR
 #include "ImageWrapper.h"
@@ -36,6 +39,7 @@ FMovieSceneCaptureSettings::FMovieSceneCaptureSettings()
 	GameModeOverride = nullptr;
 	OutputFormat = TEXT("{world}");
 	FrameRate = 24;
+	ZeroPadFrameNumbers = 4;
 	bEnableTextureStreaming = false;
 	bCinematicMode = true;
 	bAllowMovement = false;
@@ -55,8 +59,8 @@ UMovieSceneCapture::UMovieSceneCapture(const FObjectInitializer& Initializer)
 		InheritedCommandLineArguments.Append(Switch);
 		InheritedCommandLineArguments.AppendChar(' ');
 	}
-
-	AdditionalCommandLineArguments += TEXT("-NoLoadingScreen -NOSCREENMESSAGES -ForceRes");
+	
+	AdditionalCommandLineArguments += TEXT("-NOSCREENMESSAGES");
 
 	Handle = FUniqueMovieSceneCaptureHandle();
 
@@ -68,21 +72,29 @@ UMovieSceneCapture::UMovieSceneCapture(const FObjectInitializer& Initializer)
 
 void UMovieSceneCapture::PostInitProperties()
 {
-	if (!HasAnyFlags(RF_ClassDefaultObject))
-	{
-		if (ProtocolSettings)
-		{
-			ProtocolSettings->OnReleaseConfig(Settings);
-		}
-		ProtocolSettings = IMovieSceneCaptureModule::Get().GetProtocolRegistry().FactorySettingsType(CaptureType, this);
-		if (ProtocolSettings)
-		{
-			ProtocolSettings->LoadConfig();
-			ProtocolSettings->OnLoadConfig(Settings);
-		}
-	}
+	InitializeSettings();
 
 	Super::PostInitProperties();
+}
+
+void UMovieSceneCapture::InitializeSettings()
+{
+	if (HasAnyFlags(RF_ClassDefaultObject))
+	{
+		return;
+	}
+
+	if (ProtocolSettings)
+	{
+		ProtocolSettings->OnReleaseConfig(Settings);
+	}
+	
+	ProtocolSettings = IMovieSceneCaptureModule::Get().GetProtocolRegistry().FactorySettingsType(CaptureType, this);
+	if (ProtocolSettings)
+	{
+		ProtocolSettings->LoadConfig();
+		ProtocolSettings->OnLoadConfig(Settings);
+	}
 }
 
 void UMovieSceneCapture::Initialize(TSharedPtr<FSceneViewport> InSceneViewport, int32 PIEInstance)
@@ -125,6 +137,7 @@ void UMovieSceneCapture::Initialize(TSharedPtr<FSceneViewport> InSceneViewport, 
 		if( FParse::Value( FCommandLine::Get(), TEXT( "-MovieFormat=" ), FormatOverride ) )
 		{
 			CaptureType = *FormatOverride;
+			InitializeSettings();
 		}
 
 		int32 FrameRateOverride;
@@ -146,7 +159,9 @@ void UMovieSceneCapture::Initialize(TSharedPtr<FSceneViewport> InSceneViewport, 
 	FormatMappings.Add(TEXT("fps"), FString::Printf(TEXT("%d"), Settings.FrameRate));
 	FormatMappings.Add(TEXT("width"), FString::Printf(TEXT("%d"), CachedMetrics.Width));
 	FormatMappings.Add(TEXT("height"), FString::Printf(TEXT("%d"), CachedMetrics.Height));
-	FormatMappings.Add(TEXT("world"), GWorld->GetName());
+	FormatMappings.Add(TEXT("world"), InSceneViewport->GetClient()->GetWorld()->GetName());
+
+	FrameNumberFormat = FString::Printf(TEXT("%%0%dd"), Settings.ZeroPadFrameNumbers);
 
 	if (!HasAnyFlags(RF_ClassDefaultObject))
 	{
@@ -246,52 +261,58 @@ void UMovieSceneCapture::Finalize()
 
 FString UMovieSceneCapture::ResolveFileFormat(const FString& Format, const FFrameMetrics& FrameMetrics) const
 {
-	FormatMappings.Add(TEXT("frame"), FString::Printf(TEXT("%04d"), Settings.bUseRelativeFrameNumbers ? FrameMetrics.FrameNumber : FrameMetrics.FrameNumber + FrameNumberOffset));
-	
+	TMap<FString, FStringFormatArg> AllArgs = FormatMappings;
+
+	AllArgs.Add(TEXT("frame"), FString::Printf(*FrameNumberFormat, Settings.bUseRelativeFrameNumbers ? FrameMetrics.FrameNumber : FrameMetrics.FrameNumber + FrameNumberOffset));
+
+	AddFormatMappings(AllArgs, FrameMetrics);
+
 	if (CaptureProtocol.IsValid())
 	{
-		CaptureProtocol->AddFormatMappings(FormatMappings);
+		CaptureProtocol->AddFormatMappings(AllArgs);
 	}
-	return FString::Format(*Format, FormatMappings);
+	return FString::Format(*Format, AllArgs);
 }
 
-FString UMovieSceneCapture::GenerateFilename(const FFrameMetrics& FrameMetrics, const TCHAR* Extension) const
+void UMovieSceneCapture::EnsureFileWritable(const FString& File) const
 {
-	FString OutputDirectory = ResolveFileFormat(Settings.OutputDirectory.Path, FrameMetrics);
+	FString Directory = FPaths::GetPath(File);
 
-	if (!IFileManager::Get().DirectoryExists(*OutputDirectory))
+	if (!IFileManager::Get().DirectoryExists(*Directory))
 	{
-		IFileManager::Get().MakeDirectory(*OutputDirectory);
+		IFileManager::Get().MakeDirectory(*Directory);
 	}
-
-	const FString BaseFilename = OutputDirectory / ResolveFileFormat(Settings.OutputFormat, FrameMetrics);
-
-	FString ThisTry = BaseFilename + Extension;
 
 	if (Settings.bOverwriteExisting)
 	{
 		// Try and delete it first
-		while (IFileManager::Get().FileSize(*ThisTry) != -1 && !FPlatformFileManager::Get().GetPlatformFile().DeleteFile(*ThisTry))
+		while (IFileManager::Get().FileSize(*File) != -1 && !FPlatformFileManager::Get().GetPlatformFile().DeleteFile(*File))
 		{
 			// popup a message box
-			FText MessageText = FText::Format(LOCTEXT("UnableToRemoveFile_Format", "The destination file '{0}' could not be deleted because it's in use by another application.\n\nPlease close this application before continuing."), FText::FromString(ThisTry));
+			FText MessageText = FText::Format(LOCTEXT("UnableToRemoveFile_Format", "The destination file '{0}' could not be deleted because it's in use by another application.\n\nPlease close this application before continuing."), FText::FromString(File));
 			FPlatformMisc::MessageBoxExt(EAppMsgType::Ok, *MessageText.ToString(), *LOCTEXT("UnableToRemoveFile", "Unable to remove file").ToString());
 		}
-		return ThisTry;
 	}
+}
 
-	if (IFileManager::Get().FileSize(*ThisTry) == -1)
+FString UMovieSceneCapture::GenerateFilename(const FFrameMetrics& FrameMetrics, const TCHAR* Extension) const
+{
+	const FString BaseFilename = ResolveFileFormat(Settings.OutputDirectory.Path, FrameMetrics) / ResolveFileFormat(Settings.OutputFormat, FrameMetrics);
+
+	FString ThisTry = BaseFilename + Extension;
+
+	if (CaptureProtocol->CanWriteToFile(*ThisTry, Settings.bOverwriteExisting))
 	{
 		return ThisTry;
 	}
 
-	int32 DuplicateIndex = 1;
+	int32 DuplicateIndex = 2;
 	for (;;)
 	{
 		ThisTry = BaseFilename + FString::Printf(TEXT("_(%d)"), DuplicateIndex) + Extension;
 
 		// If the file doesn't exist, we can use that, else, increment the index and try again
-		if (IFileManager::Get().FileSize(*ThisTry) == -1)
+		if (CaptureProtocol->CanWriteToFile(*ThisTry, Settings.bOverwriteExisting))
 		{
 			return ThisTry;
 		}
@@ -302,6 +323,86 @@ FString UMovieSceneCapture::GenerateFilename(const FFrameMetrics& FrameMetrics, 
 	return ThisTry;
 }
 
+void UMovieSceneCapture::LoadFromConfig()
+{
+	LoadConfig();
+	ProtocolSettings->LoadConfig();
+
+	FString JsonString;
+	FString Section = GetClass()->GetPathName() + TEXT("_Json");
+
+	if (GConfig->GetString( *Section, TEXT("Data"), JsonString, GEditorSettingsIni))
+	{
+		FString UnescapedString = FRemoteConfig::ReplaceIniSpecialCharWithChar(JsonString).ReplaceEscapedCharWithChar();
+
+		TSharedPtr<FJsonObject> RootObject;
+		TSharedRef<TJsonReader<> > JsonReader = TJsonReaderFactory<>::Create(UnescapedString);
+		if (FJsonSerializer::Deserialize(JsonReader, RootObject) && RootObject.IsValid())
+		{
+			DeserializeAdditionalJson(*RootObject);
+		}
+	}
+}
+
+void UMovieSceneCapture::SaveToConfig()
+{
+	TSharedRef<FJsonObject> Json = MakeShareable(new FJsonObject);
+	SerializeAdditionalJson(*Json);
+
+	FString JsonString;
+	TSharedRef<TJsonWriter<> > JsonWriter = TJsonWriterFactory<>::Create(&JsonString, 0);
+	if (FJsonSerializer::Serialize( Json, JsonWriter ))
+	{
+		FString Section = GetClass()->GetPathName() + TEXT("_Json");
+
+		FString EscapedJson = FRemoteConfig::ReplaceIniCharWithSpecialChar(JsonString).ReplaceCharWithEscapedChar();
+
+		GConfig->SetString( *Section, TEXT("Data"), *EscapedJson, GEditorSettingsIni);
+		GConfig->Flush(false, GEditorSettingsIni);
+	}
+
+	SaveConfig();
+	ProtocolSettings->SaveConfig();
+}
+
+void UMovieSceneCapture::SerializeJson(FJsonObject& Object)
+{
+	if (ProtocolSettings)
+	{
+		Object.SetField(TEXT("ProtocolType"), MakeShareable(new FJsonValueString(ProtocolSettings->GetClass()->GetPathName())));
+		TSharedRef<FJsonObject> ProtocolDataObject = MakeShareable(new FJsonObject);
+		if (FJsonObjectConverter::UStructToJsonObject(ProtocolSettings->GetClass(), ProtocolSettings, ProtocolDataObject, 0, 0))
+		{
+			Object.SetField(TEXT("ProtocolData"), MakeShareable(new FJsonValueObject(ProtocolDataObject)));
+		}
+	}
+
+	SerializeAdditionalJson(Object);
+}
+
+void UMovieSceneCapture::DeserializeJson(const FJsonObject& Object)
+{
+	TSharedPtr<FJsonValue> ProtocolTypeField = Object.TryGetField(TEXT("ProtocolType"));
+	if (ProtocolTypeField.IsValid())
+	{
+		UClass* ProtocolTypeClass = FindObject<UClass>(nullptr, *ProtocolTypeField->AsString());
+		if (ProtocolTypeClass)
+		{
+			ProtocolSettings = NewObject<UMovieSceneCaptureProtocolSettings>(this, ProtocolTypeClass);
+			if (ProtocolSettings)
+			{
+				TSharedPtr<FJsonValue> ProtocolDataField = Object.TryGetField(TEXT("ProtocolData"));
+				if (ProtocolDataField.IsValid())
+				{
+					FJsonObjectConverter::JsonAttributesToUStruct(ProtocolDataField->AsObject()->Values, ProtocolTypeClass, ProtocolSettings, 0, 0);
+				}
+			}
+		}
+	}
+
+	DeserializeAdditionalJson(Object);
+}
+
 #if WITH_EDITOR
 void UMovieSceneCapture::PostEditChangeProperty( struct FPropertyChangedEvent& PropertyChangedEvent)
 {
@@ -309,17 +410,7 @@ void UMovieSceneCapture::PostEditChangeProperty( struct FPropertyChangedEvent& P
 
 	if (PropertyName == GET_MEMBER_NAME_CHECKED(UMovieSceneCapture, CaptureType))
 	{
-		if (ProtocolSettings)
-		{
-			ProtocolSettings->OnReleaseConfig(Settings);
-		}
-
-		ProtocolSettings = IMovieSceneCaptureModule::Get().GetProtocolRegistry().FactorySettingsType(CaptureType, this);
-		if (ProtocolSettings)
-		{
-			ProtocolSettings->LoadConfig();
-			ProtocolSettings->OnLoadConfig(Settings);
-		}
+		InitializeSettings();
 	}
 
 	Super::PostEditChangeProperty(PropertyChangedEvent);

@@ -63,9 +63,6 @@ private:
 
 	FEdMode* EditorMode;
 
-	/** Toolkit area widget */
-	TSharedPtr<class SToolkitDisplay> ToolkitArea;
-
 	/** Inline content area for editor modes */
 	TSharedPtr<SBorder> InlineContentHolder;
 };

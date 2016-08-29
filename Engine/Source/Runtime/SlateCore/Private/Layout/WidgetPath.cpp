@@ -331,12 +331,12 @@ bool FWeakWidgetPath::ContainsWidget( const TSharedRef< const SWidget >& SomeWid
 	return false;
 }
 
-/**
- * @param MoveDirection      Direction in which to move the focus.
- * 
- * @return The new focus path.
- */
 FWidgetPath FWeakWidgetPath::ToNextFocusedPath(EUINavigation NavigationType)
+{
+	return ToNextFocusedPath(NavigationType, FNavigationReply::Escape(), FArrangedWidget::NullWidget);
+}
+
+FWidgetPath FWeakWidgetPath::ToNextFocusedPath(EUINavigation NavigationType, const FNavigationReply& NavigationReply, const FArrangedWidget& RuleWidget)
 {
 	check(NavigationType == EUINavigation::Next || NavigationType == EUINavigation::Previous);
 
@@ -348,10 +348,16 @@ FWidgetPath FWeakWidgetPath::ToNextFocusedPath(EUINavigation NavigationType)
 	// Attempt to move the focus starting at the leafmost widget and bubbling up to the root (i.e. the window)
 	for (int32 FocusNodeIndex=NewFocusPath.Widgets.Num()-1; !bMovedFocus && FocusNodeIndex >= 0; --FocusNodeIndex)
 	{
+		// We've reached the stop boundary and not yet moved focus, so don't advance.
+		if ( NavigationReply.GetBoundaryRule() == EUINavigationRule::Stop && RuleWidget.Widget == NewFocusPath.Widgets[FocusNodeIndex].Widget )
+		{
+			break;
+		}
+
+		//TODO Slate Navigation Handle Wrap.
+
 		bMovedFocus = NewFocusPath.MoveFocus(FocusNodeIndex, NavigationType);
 	}
 
 	return NewFocusPath;
 }
-
-

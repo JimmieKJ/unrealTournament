@@ -34,7 +34,7 @@ public:
 };
 
 UCLASS()
-class AAbstractNavData : public ANavigationData
+class ENGINE_API AAbstractNavData : public ANavigationData
 {
 	GENERATED_UCLASS_BODY()
 

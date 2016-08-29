@@ -3,6 +3,7 @@
 #pragma once
 #include "Misc/CoreMisc.h"
 #include "EngineDefines.h"
+#include "Engine/EngineTypes.h"
 #include "Engine/World.h"
 #include "AI/AISystemBase.h"
 #include "AISystem.generated.h"
@@ -67,6 +68,9 @@ public:
 	/** if set, GameplayDebuggerPlugin will be loaded on module's startup */
 	UPROPERTY(globalconfig, EditDefaultsOnly, Category = "AISystem")
 	bool bEnableDebuggerPlugin;
+
+	UPROPERTY(globalconfig, EditAnywhere, Category = "PerceptionSystem")
+	TEnumAsByte<ECollisionChannel> DefaultSightCollisionChannel;
 
 protected:
 	/** Behavior tree manager used by game */
@@ -176,8 +180,7 @@ public:
 			return Tmp;
 		}
 
-		SAFE_BOOL_OPERATORS(FBlackboardDataToComponentsIterator);
-		FORCEINLINE_EXPLICIT_OPERATOR_BOOL() const { return CurrentIteratorIndex < Iterators.Num() && (bool)GetCurrentIteratorRef(); }
+		FORCEINLINE explicit operator bool() const { return CurrentIteratorIndex < Iterators.Num() && (bool)GetCurrentIteratorRef(); }
 		FORCEINLINE bool operator !() const { return !(bool)*this; }
 
 		FORCEINLINE UBlackboardData* Key() const { return GetCurrentIteratorRef().Key().Get(); }

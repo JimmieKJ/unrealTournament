@@ -4,7 +4,7 @@
 #include "TouchInterfaceFactory.generated.h"
 
 UCLASS(hidecategories=Object)
-class UTouchInterfaceFactory : public UFactory
+class UNREALED_API UTouchInterfaceFactory : public UFactory
 {
 	GENERATED_UCLASS_BODY()
 

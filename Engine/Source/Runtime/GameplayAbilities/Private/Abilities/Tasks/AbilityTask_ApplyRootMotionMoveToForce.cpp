@@ -18,11 +18,11 @@ UAbilityTask_ApplyRootMotionMoveToForce::UAbilityTask_ApplyRootMotionMoveToForce
 	MovementComponent = nullptr;
 	bRestrictSpeedToExpected = false;
 	PathOffsetCurve = nullptr;
-	VelocityOnFinishMode = EOrionRootMotionFinishVelocityMode::MaintainLastRootMotionVelocity;
+	VelocityOnFinishMode = ERootMotionFinishVelocityMode::MaintainLastRootMotionVelocity;
 	SetVelocityOnFinish = FVector::ZeroVector;
 }
 
-UAbilityTask_ApplyRootMotionMoveToForce* UAbilityTask_ApplyRootMotionMoveToForce::ApplyRootMotionMoveToForce(UObject* WorldContextObject, FName TaskInstanceName, FVector TargetLocation, float Duration, bool bSetNewMovementMode, EMovementMode MovementMode, bool bRestrictSpeedToExpected, UCurveVector* PathOffsetCurve, EOrionRootMotionFinishVelocityMode VelocityOnFinishMode, FVector SetVelocityOnFinish)
+UAbilityTask_ApplyRootMotionMoveToForce* UAbilityTask_ApplyRootMotionMoveToForce::ApplyRootMotionMoveToForce(UObject* WorldContextObject, FName TaskInstanceName, FVector TargetLocation, float Duration, bool bSetNewMovementMode, EMovementMode MovementMode, bool bRestrictSpeedToExpected, UCurveVector* PathOffsetCurve, ERootMotionFinishVelocityMode VelocityOnFinishMode, FVector SetVelocityOnFinish)
 {
 	auto MyTask = NewAbilityTask<UAbilityTask_ApplyRootMotionMoveToForce>(WorldContextObject, TaskInstanceName);
 
@@ -175,10 +175,10 @@ void UAbilityTask_ApplyRootMotionMoveToForce::OnDestroy(bool AbilityIsEnding)
 
 		if (bSetNewMovementMode)
 		{
-			MovementComponent->SetMovementMode(EMovementMode::MOVE_Falling);
+			MovementComponent->SetMovementMode(NewMovementMode);
 		}
 
-		if (VelocityOnFinishMode == EOrionRootMotionFinishVelocityMode::SetVelocity)
+		if (VelocityOnFinishMode == ERootMotionFinishVelocityMode::SetVelocity)
 		{
 			FVector EndVelocity;
 			ACharacter* Character = MovementComponent->GetCharacterOwner();

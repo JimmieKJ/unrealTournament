@@ -36,27 +36,28 @@ namespace AutomationTool
 		}
 
 		/// <summary>
-		/// Builds a Visual Studio solution with MsDevEnv. Automatically creates a logfile. When 
-		/// no LogName is specified, the executable name is used as logfile base name.
+		/// Builds a Visual Studio solution with MsBuild (using msbuild.exe rather than devenv.com can help circumvent issues with expired Visual Studio licenses).
+		/// Automatically creates a logfile. When no LogName is specified, the executable name is used as logfile base name.
 		/// </summary>
 		/// <param name="Env">BuildEnvironment to use.</param>
 		/// <param name="SolutionFile">Path to the solution file</param>
 		/// <param name="BuildConfig">Configuration to build.</param>
+		/// <param name="BuildPlatform">Platform to build.</param>
 		/// <param name="LogName">Optional logfile name.</param>
-		public static void BuildSolution(CommandEnvironment Env, string SolutionFile, string BuildConfig = "Development", string LogName = null)
+		public static void BuildSolution(CommandEnvironment Env, string SolutionFile, string BuildConfig, string BuildPlatform, string LogName = null)
 		{
 			if (!FileExists(SolutionFile))
 			{
 				throw new AutomationException(String.Format("Unabled to build Solution {0}. Solution file not found.", SolutionFile));
 			}
-			if (String.IsNullOrEmpty(Env.MsDevExe))
+			if (String.IsNullOrEmpty(Env.MsBuildExe))
 			{
-				throw new AutomationException(String.Format("Unabled to build Solution {0}. devenv.com not found.", SolutionFile));
+				throw new AutomationException("Unable to find msbuild.exe at: \"{0}\"", Env.MsBuildExe);
 			}
-			string CmdLine = String.Format("\"{0}\" /build \"{1}\"", SolutionFile, BuildConfig);
-			using(TelemetryStopwatch CompileStopwatch = new TelemetryStopwatch("Compile.{0}.{1}.{2}", Path.GetFileName(SolutionFile), "WinC#", BuildConfig))
+			string CmdLine = String.Format("\"{0}\" /m /t:Build /p:Configuration=\"{1}\" /p:Platform=\"{2}\" /verbosity:minimal /nologo", SolutionFile, BuildConfig, BuildPlatform);
+			using (TelemetryStopwatch CompileStopwatch = new TelemetryStopwatch("Compile.{0}.{1}.{2}", Path.GetFileName(SolutionFile), "WinC#", BuildConfig))
 			{
-				RunAndLog(Env, Env.MsDevExe, CmdLine, LogName);
+				RunAndLog(Env, Env.MsBuildExe, CmdLine, LogName);
 			}
 		}
 
@@ -79,7 +80,7 @@ namespace AutomationTool
 				throw new AutomationException(String.Format("Unabled to build Project {0}. Project file not found.", ProjectFile));
 			}
 
-			string CmdLine = String.Format(@"/verbosity:minimal /target:Rebuild /property:Configuration={0} /property:Platform=AnyCPU", BuildConfig);
+			string CmdLine = String.Format(@"/verbosity:minimal /nologo /target:Rebuild /property:Configuration={0} /property:Platform=AnyCPU", BuildConfig);
 			MsBuild(Env, ProjectFile, CmdLine, LogName);
 		}
 
@@ -96,7 +97,7 @@ namespace AutomationTool
                     CommandUtils.CombinePaths(Filename).ToLower().Contains(CommandUtils.CombinePaths("Binaries", "Mac").ToLower()) ||
                     CommandUtils.CombinePaths(Filename).ToLower().Contains(CommandUtils.CombinePaths("Binaries", "IOS").ToLower()) ||
 					CommandUtils.CombinePaths(Filename).ToLower().Contains(CommandUtils.CombinePaths("Binaries", "ThirdParty").ToLower()) ||
-					CommandUtils.CombinePaths(Filename).ToLower().Contains(".app/Contents/MacOS".ToLower())
+					CommandUtils.CombinePaths(PathSeparator.Slash, Filename).ToLower().Contains(".app/Contents/MacOS".ToLower())
                 ) && (Path.GetExtension(Filename) == "" || Path.GetExtension(Filename) == "."));
         }
 

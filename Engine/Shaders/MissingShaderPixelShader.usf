@@ -18,12 +18,12 @@ void Main(
 	)
 {
 #if INSTANCED_STEREO
-	ResolvedView = ResolveView(DebugInputs.EyeIndex);
+	ResolvedView = ResolveView(GetEyeIndex(DebugInputs.PackedEyeIndex));
 #else
 	ResolvedView = ResolveView();
 #endif
 
-	int2 CheckBoardCoord = DebugInputs.TexCoord0.xy * 64;
+	int2 CheckBoardCoord = DebugInputs.TexCoord01.xy * 64;
 	float CheckBoard = (CheckBoardCoord.x + CheckBoardCoord.y) % 2;
 
 	float3 Result = float3(CheckBoard, CheckBoard, CheckBoard);

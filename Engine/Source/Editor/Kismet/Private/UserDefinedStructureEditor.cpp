@@ -87,17 +87,19 @@ public:
 	{
 		StructData = MakeShareable(new FStructOnScope(UserDefinedStruct.Get()));
 		FStructureEditorUtils::Fill_MakeStructureDefaultValue(UserDefinedStruct.Get(), StructData->GetStructMemory());
+		StructData->SetPackage(UserDefinedStruct->GetOutermost());
 
 		FPropertyEditorModule& PropertyModule = FModuleManager::LoadModuleChecked<FPropertyEditorModule>("PropertyEditor");
 		FDetailsViewArgs ViewArgs;
 		ViewArgs.bAllowSearch = false;
 		ViewArgs.bHideSelectionTip = false;
 		ViewArgs.bShowActorLabel = false;
+		ViewArgs.NameAreaSettings = FDetailsViewArgs::HideNameArea;
 		ViewArgs.NotifyHook = this;
 
 		DetailsView = PropertyModule.CreateDetailView(ViewArgs);
-		TWeakPtr< FStructureDefaultValueView > WeakThis = SharedThis(this);
-		FOnGetDetailCustomizationInstance LayoutStructDetails = FOnGetDetailCustomizationInstance::CreateStatic(&FDefaultValueDetails::MakeInstance, WeakThis, StructData);
+		TWeakPtr< FStructureDefaultValueView > LocalWeakThis = SharedThis(this);
+		FOnGetDetailCustomizationInstance LayoutStructDetails = FOnGetDetailCustomizationInstance::CreateStatic(&FDefaultValueDetails::MakeInstance, LocalWeakThis, StructData);
 		DetailsView->RegisterInstancedCustomPropertyLayout(UUserDefinedStruct::StaticClass(), LayoutStructDetails);
 		DetailsView->SetObject(UserDefinedStruct.Get());
 	}
@@ -118,16 +120,25 @@ public:
 
 	virtual void PreChange(const class UUserDefinedStruct* Struct, FStructureEditorUtils::EStructureEditorChangeInfo Info) override
 	{
-		StructData->Destroy();
-		DetailsView->SetObject(nullptr);
-		DetailsView->OnFinishedChangingProperties().Clear();
+		// No need to destroy the struct data if only the default values are changing
+		if (Info != FStructureEditorUtils::DefaultValueChanged)
+		{
+			StructData->Destroy();
+			DetailsView->SetObject(nullptr);
+			DetailsView->OnFinishedChangingProperties().Clear();
+		}
 	}
 
 	virtual void PostChange(const class UUserDefinedStruct* Struct, FStructureEditorUtils::EStructureEditorChangeInfo Info) override
 	{
-		StructData->Initialize(UserDefinedStruct.Get());
+		// If change is due to default value, then struct data was not destroyed (see PreChange) and therefore does not need to be re-initialized
+		if (Info != FStructureEditorUtils::DefaultValueChanged)
+		{
+			StructData->Initialize(UserDefinedStruct.Get());
+			DetailsView->SetObject(UserDefinedStruct.Get());
+		}
+
 		FStructureEditorUtils::Fill_MakeStructureDefaultValue(UserDefinedStruct.Get(), StructData->GetStructMemory());
-		DetailsView->SetObject(UserDefinedStruct.Get());
 	}
 
 	// FNotifyHook interface
@@ -170,29 +181,31 @@ void FDefaultValueDetails::OnFinishedChangingProperties(const FPropertyChangedEv
 
 		check(PropertyChangedEvent.MemberProperty && OwnerStruct);
 
-		ensure(OwnerStruct == UserDefinedStruct.Get());
-		const UProperty* DirectProperty = PropertyChangedEvent.MemberProperty;
-		while (DirectProperty && !Cast<const UUserDefinedStruct>(DirectProperty->GetOuter()))
+		if ( ensure(OwnerStruct == UserDefinedStruct.Get()) )
 		{
-			DirectProperty = Cast<const UProperty>(DirectProperty->GetOuter());
-		}
-		ensure(nullptr != DirectProperty);
-
-		if (DirectProperty)
-		{
-			FString DefaultValueString;
-			bool bDefaultValueSet = false;
+			const UProperty* DirectProperty = PropertyChangedEvent.MemberProperty;
+			while (DirectProperty && !Cast<const UUserDefinedStruct>(DirectProperty->GetOuter()))
 			{
-				if (StructData.IsValid() && StructData->IsValid())
-				{
-					bDefaultValueSet = FBlueprintEditorUtils::PropertyValueToString(DirectProperty, StructData->GetStructMemory(), DefaultValueString);
-				}
+				DirectProperty = Cast<const UProperty>(DirectProperty->GetOuter());
 			}
+			ensure(nullptr != DirectProperty);
 
-			const FGuid VarGuid = FStructureEditorUtils::GetGuidForProperty(DirectProperty);
-			if (bDefaultValueSet && VarGuid.IsValid())
+			if (DirectProperty)
 			{
-				FStructureEditorUtils::ChangeVariableDefaultValue(UserDefinedStruct.Get(), VarGuid, DefaultValueString);
+				FString DefaultValueString;
+				bool bDefaultValueSet = false;
+				{
+					if (StructData.IsValid() && StructData->IsValid())
+					{
+						bDefaultValueSet = FBlueprintEditorUtils::PropertyValueToString(DirectProperty, StructData->GetStructMemory(), DefaultValueString);
+					}
+				}
+
+				const FGuid VarGuid = FStructureEditorUtils::GetGuidForProperty(DirectProperty);
+				if (bDefaultValueSet && VarGuid.IsValid())
+				{
+					FStructureEditorUtils::ChangeVariableDefaultValue(UserDefinedStruct.Get(), VarGuid, DefaultValueString);
+				}
 			}
 		}
 	}
@@ -246,23 +259,23 @@ private:
 const FName FUserDefinedStructureEditor::MemberVariablesTabId( TEXT( "UserDefinedStruct_MemberVariablesEditor" ) );
 const FName FUserDefinedStructureEditor::UserDefinedStructureEditorAppIdentifier( TEXT( "UserDefinedStructEditorApp" ) );
 
-void FUserDefinedStructureEditor::RegisterTabSpawners(const TSharedRef<class FTabManager>& TabManager)
+void FUserDefinedStructureEditor::RegisterTabSpawners(const TSharedRef<class FTabManager>& InTabManager)
 {
-	WorkspaceMenuCategory = TabManager->AddLocalWorkspaceMenuCategory(LOCTEXT("WorkspaceMenu_UserDefinedStructureEditor", "User-Defined Structure Editor"));
+	WorkspaceMenuCategory = InTabManager->AddLocalWorkspaceMenuCategory(LOCTEXT("WorkspaceMenu_UserDefinedStructureEditor", "User-Defined Structure Editor"));
 
-	FAssetEditorToolkit::RegisterTabSpawners(TabManager);
+	FAssetEditorToolkit::RegisterTabSpawners(InTabManager);
 
-	TabManager->RegisterTabSpawner( MemberVariablesTabId, FOnSpawnTab::CreateSP(this, &FUserDefinedStructureEditor::SpawnStructureTab) )
+	InTabManager->RegisterTabSpawner( MemberVariablesTabId, FOnSpawnTab::CreateSP(this, &FUserDefinedStructureEditor::SpawnStructureTab) )
 		.SetDisplayName( LOCTEXT("MemberVariablesEditor", "Member Variables") )
 		.SetGroup(WorkspaceMenuCategory.ToSharedRef())
 		.SetIcon(FSlateIcon(FEditorStyle::GetStyleSetName(), "Kismet.Tabs.Variables"));
 }
 
-void FUserDefinedStructureEditor::UnregisterTabSpawners(const TSharedRef<class FTabManager>& TabManager)
+void FUserDefinedStructureEditor::UnregisterTabSpawners(const TSharedRef<class FTabManager>& InTabManager)
 {
-	FAssetEditorToolkit::UnregisterTabSpawners(TabManager);
+	FAssetEditorToolkit::UnregisterTabSpawners(InTabManager);
 
-	TabManager->UnregisterTabSpawner( MemberVariablesTabId );
+	InTabManager->UnregisterTabSpawner( MemberVariablesTabId );
 }
 
 void FUserDefinedStructureEditor::InitEditor(const EToolkitMode::Type Mode, const TSharedPtr< class IToolkitHost >& InitToolkitHost, UUserDefinedStruct* Struct)
@@ -341,10 +354,10 @@ TSharedRef<SDockTab> FUserDefinedStructureEditor::SpawnStructureTab(const FSpawn
 	check( Args.GetTabId() == MemberVariablesTabId );
 
 	UUserDefinedStruct* EditedStruct = NULL;
-	const auto EditingObjects = GetEditingObjects();
-	if (EditingObjects.Num())
+	const TArray<UObject*>& EditingObjs = GetEditingObjects();
+	if (EditingObjs.Num())
 	{
-		EditedStruct = Cast<UUserDefinedStruct>(EditingObjects[ 0 ]);
+		EditedStruct = Cast<UUserDefinedStruct>(EditingObjs[ 0 ]);
 	}
 
 	auto Box = SNew(SHorizontalBox);
@@ -359,6 +372,7 @@ TSharedRef<SDockTab> FUserDefinedStructureEditor::SpawnStructureTab(const FSpawn
 		PropertyView->RegisterInstancedCustomPropertyLayout(UUserDefinedStruct::StaticClass(), LayoutStructDetails);
 		PropertyView->SetObject(EditedStruct);
 		Box->AddSlot()
+		.VAlign(EVerticalAlignment::VAlign_Top)
 		[
 			PropertyView.ToSharedRef()
 		];
@@ -376,6 +390,7 @@ TSharedRef<SDockTab> FUserDefinedStructureEditor::SpawnStructureTab(const FSpawn
 		{
 			Box->AddSlot()
 			.VAlign(EVerticalAlignment::VAlign_Top)
+			.Padding(2.0f, 0.0f, 0.0f, 0.0f)
 			[
 				DefaultValueWidget.ToSharedRef()
 			];
@@ -585,9 +600,10 @@ public:
 		if(StructureDetailsSP.IsValid())
 		{
 			FStructureEditorUtils::ChangeVariableType(StructureDetailsSP->GetUserDefinedStruct(), FieldGuid, PinType);
-			if (StructureLayout.IsValid())
+			auto StructureLayoutPin = StructureLayout.Pin();
+			if (StructureLayoutPin.IsValid())
 			{
-				StructureLayout.Pin()->OnPinTypeSelected(PinType);
+				StructureLayoutPin->OnPinTypeSelected(PinType);
 			}
 		}
 	}
@@ -767,13 +783,13 @@ public:
 		}
 	}
 
-	void GetFilteredVariableTypeTree( TArray< TSharedPtr<UEdGraphSchema_K2::FPinTypeTreeInfo> >& TypeTree, bool bAllowExec, bool bAllowWildcard ) const
+	void GetFilteredVariableTypeTree( TArray< TSharedPtr<UEdGraphSchema_K2::FPinTypeTreeInfo> >& TypeTree, ETypeTreeFilter TypeTreeFilter) const
 	{
 		auto K2Schema = GetDefault<UEdGraphSchema_K2>();
 		auto StructureDetailsSP = StructureDetails.Pin();
 		if(StructureDetailsSP.IsValid() && K2Schema)
 		{
-			K2Schema->GetVariableTypeTree(TypeTree, bAllowExec, bAllowWildcard);
+			K2Schema->GetVariableTypeTree(TypeTree, TypeTreeFilter);
 			const auto Parent = StructureDetailsSP->GetUserDefinedStruct();
 			// THE TREE HAS ONLY 2 LEVELS
 			for (auto PinTypePtr : TypeTree)
@@ -849,8 +865,7 @@ public:
 				.OnPinTypePreChanged(this, &FUserDefinedStructureFieldLayout::OnPrePinInfoChange)
 				.OnPinTypeChanged(this, &FUserDefinedStructureFieldLayout::PinInfoChanged)
 				.Schema(K2Schema)
-				.bAllowExec(false)
-				.bAllowWildcard(false)
+				.TypeTreeFilter(ETypeTreeFilter::None)
 				.Font( IDetailLayoutBuilder::GetDetailFont() )
 			]
 			+ SHorizontalBox::Slot()

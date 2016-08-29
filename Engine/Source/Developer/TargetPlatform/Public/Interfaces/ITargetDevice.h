@@ -286,6 +286,15 @@ public:
 	virtual bool IsDefault() const = 0;
 
 	/**
+	* Checks whether this device is authorized to be used with this computer.
+	*
+	* This is true for most platforms by default, but may be false for mobile platforms
+	*
+	* @return true if this this device is authorized for launch
+	*/
+	virtual bool IsAuthorized() const { return true;  }
+
+	/**
 	 * Launches a previously deployed build.
 	 *
 	 * @param AppId The identifier of the application to launch (as returned by the Deploy() method).

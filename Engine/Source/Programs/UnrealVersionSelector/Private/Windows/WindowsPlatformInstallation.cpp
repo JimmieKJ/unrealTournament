@@ -116,8 +116,8 @@ private:
 
 		for(int32 Idx =  0; Idx < SortedIdentifiers.Num(); Idx++)
 		{
-			const FString &Identifier = SortedIdentifiers[Idx];
-			FString Description = GetInstallationDescription(Identifier, Installations[Identifier]);
+			const FString &SortedIdentifier = SortedIdentifiers[Idx];
+			FString Description = GetInstallationDescription(SortedIdentifier, Installations[SortedIdentifier]);
 			SendDlgItemMessage(hWnd, IDC_BUILDLIST, CB_ADDSTRING, 0, (LPARAM)*Description);
 		}
 

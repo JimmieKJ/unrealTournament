@@ -1,10 +1,29 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "MovieSceneToolsPrivatePCH.h"
+#include "MovieScene.h"
 #include "MovieSceneSection.h"
+#include "MovieSceneAudioTrack.h"
+#include "MovieSceneFloatSection.h"
+#include "MovieSceneFloatTrack.h"
+#include "MovieScene3DTransformSection.h"
+#include "MovieScene3DTransformTrack.h"
 #include "MovieSceneCinematicShotSection.h"
+#include "MovieSceneCinematicShotTrack.h"
 #include "LevelSequence.h"
 #include "AssetRegistryModule.h"
+#include "CoreMisc.h"
+#include "DesktopPlatformModule.h"
+#include "IDesktopPlatform.h"
+#include "Editor/MainFrame/Public/MainFrame.h"
+#include "SlateBasics.h"
+#include "SlateExtras.h"
+#include "INotificationWidget.h"
+#include "MovieSceneCaptureHelpers.h"
+#include "FbxImporter.h"
+#include "MatineeImportTools.h"
+#include "MovieSceneToolHelpers.h"
+#include "MovieSceneToolsProjectSettings.h"
 
 
 /* MovieSceneToolHelpers
@@ -133,6 +152,77 @@ FString MovieSceneToolHelpers::ComposeShotName(const FString& ShotPrefix, uint32
 		ShotName += FString::Printf(*TakeFormat, TakeNumber);
 	}
 	return ShotName;
+}
+
+bool IsPackageNameUnique(const TArray<FAssetData>& ObjectList, FString& NewPackageName)
+{
+	for (auto AssetObject : ObjectList)
+	{
+		if (AssetObject.PackageName.ToString() == NewPackageName)
+		{
+			return false;
+		}
+	}
+	return true;
+}
+
+FString MovieSceneToolHelpers::GenerateNewShotPath(UMovieScene* SequenceMovieScene, FString& NewShotName)
+{
+	const UMovieSceneToolsProjectSettings* ProjectSettings = GetDefault<UMovieSceneToolsProjectSettings>();
+
+	FAssetRegistryModule& AssetRegistryModule = FModuleManager::LoadModuleChecked<FAssetRegistryModule>(TEXT("AssetRegistry"));
+
+	TArray<FAssetData> ObjectList;
+	AssetRegistryModule.Get().GetAssetsByClass(ULevelSequence::StaticClass()->GetFName(), ObjectList);
+
+	UObject* SequenceAsset = SequenceMovieScene->GetOuter();
+	UPackage* SequencePackage = SequenceAsset->GetOutermost();
+	FString SequencePackageName = SequencePackage->GetName(); // ie. /Game/cine/max/master
+	int LastSlashPos = SequencePackageName.Find(TEXT("/"), ESearchCase::IgnoreCase, ESearchDir::FromEnd);
+	FString SequencePath = SequencePackageName.Left(LastSlashPos);
+
+	FString NewShotPrefix;
+	uint32 NewShotNumber = INDEX_NONE;
+	uint32 NewTakeNumber = INDEX_NONE;
+	ParseShotName(NewShotName, NewShotPrefix, NewShotNumber, NewTakeNumber);
+
+	FString NewShotDirectory = ComposeShotName(NewShotPrefix, NewShotNumber, INDEX_NONE);
+	FString NewShotPath = SequencePath;
+
+	FString ShotDirectory = ProjectSettings->ShotDirectory;
+	if (!ShotDirectory.IsEmpty())
+	{
+		NewShotPath /= ShotDirectory;
+	}
+	NewShotPath /= NewShotDirectory; // put this in the shot directory, ie. /Game/cine/max/shots/shot0010
+
+	// Make sure this shot path is unique
+	FString NewPackageName = NewShotPath;
+	NewPackageName /= NewShotName; // ie. /Game/cine/max/shots/shot0010/shot0010_001
+	if (!IsPackageNameUnique(ObjectList, NewPackageName))
+	{
+		while (1)
+		{
+			NewShotNumber += ProjectSettings->ShotIncrement;
+			NewShotName = ComposeShotName(NewShotPrefix, NewShotNumber, NewTakeNumber);
+			NewShotDirectory = ComposeShotName(NewShotPrefix, NewShotNumber, INDEX_NONE);
+			NewShotPath = SequencePath;
+			if (!ShotDirectory.IsEmpty())
+			{
+				NewShotPath /= ShotDirectory;
+			}
+			NewShotPath /= NewShotDirectory;
+
+			NewPackageName = NewShotPath;
+			NewPackageName /= NewShotName;
+			if (IsPackageNameUnique(ObjectList, NewPackageName))
+			{
+				break;
+			}
+		}
+	}
+
+	return NewShotPath;
 }
 
 
@@ -422,4 +512,391 @@ TSharedRef<SWidget> MovieSceneToolHelpers::MakeEnumComboBox(const UEnum* InEnum,
 		.CurrentValue(InCurrentValue)
 		.OnEnumSelectionChanged(InOnSelectionChanged)
 		.IntermediateValue(InIntermediateValue);
+}
+
+bool MovieSceneToolHelpers::ShowImportEDLDialog(UMovieScene* InMovieScene, float InFrameRate, FString InOpenDirectory)
+{
+	TArray<FString> OpenFilenames;
+	IDesktopPlatform* DesktopPlatform = FDesktopPlatformModule::Get();
+	bool bOpen = false;
+	if (DesktopPlatform)
+	{
+		void* ParentWindowWindowHandle = NULL;
+
+		IMainFrameModule& MainFrameModule = FModuleManager::LoadModuleChecked<IMainFrameModule>(TEXT("MainFrame"));
+		const TSharedPtr<SWindow>& MainFrameParentWindow = MainFrameModule.GetParentWindow();
+		if ( MainFrameParentWindow.IsValid() && MainFrameParentWindow->GetNativeWindow().IsValid() )
+		{
+			ParentWindowWindowHandle = MainFrameParentWindow->GetNativeWindow()->GetOSWindowHandle();
+		}
+
+		FString ExtensionStr;
+		ExtensionStr += TEXT("CMX 3600 EDL (*.edl)|*.edl|");
+
+		bOpen = DesktopPlatform->OpenFileDialog(
+			ParentWindowWindowHandle,
+			NSLOCTEXT("UnrealEd", "MovieSceneToolHelpersImportEDL", "Import EDL from...").ToString(), 
+			InOpenDirectory,
+			TEXT(""), 
+			*ExtensionStr,
+			EFileDialogFlags::None,
+			OpenFilenames
+			);
+	}
+	if (!bOpen)
+	{
+		return false;
+	}
+
+	if (!OpenFilenames.Num())
+	{
+		return false;
+	}
+
+	const FScopedTransaction Transaction( NSLOCTEXT( "MovieSceneTools", "ImportEDL", "Import EDL" ) );
+
+	return MovieSceneCaptureHelpers::ImportEDL(InMovieScene, InFrameRate, OpenFilenames[0]);
+}
+
+bool MovieSceneToolHelpers::ShowExportEDLDialog(const UMovieScene* InMovieScene, float InFrameRate, FString InSaveDirectory)
+{
+	TArray<FString> SaveFilenames;
+	FString SequenceName = InMovieScene->GetOuter()->GetName();
+
+	// Pop open a dialog to request the location of the edl
+	IDesktopPlatform* DesktopPlatform = FDesktopPlatformModule::Get();
+	bool bSave = false;
+	if (DesktopPlatform)
+	{
+		void* ParentWindowWindowHandle = NULL;
+
+		IMainFrameModule& MainFrameModule = FModuleManager::LoadModuleChecked<IMainFrameModule>(TEXT("MainFrame"));
+		const TSharedPtr<SWindow>& MainFrameParentWindow = MainFrameModule.GetParentWindow();
+		if ( MainFrameParentWindow.IsValid() && MainFrameParentWindow->GetNativeWindow().IsValid() )
+		{
+			ParentWindowWindowHandle = MainFrameParentWindow->GetNativeWindow()->GetOSWindowHandle();
+		}
+
+		FString ExtensionStr;
+		ExtensionStr += TEXT("CMX 3600 EDL (*.edl)|*.edl|");
+		ExtensionStr += TEXT("RV (*.rv)|*.rv|");
+
+		bSave = DesktopPlatform->SaveFileDialog(
+			ParentWindowWindowHandle,
+			NSLOCTEXT("UnrealEd", "MovieSceneToolHelpersExportEDL", "Export EDL to...").ToString(), 
+			InSaveDirectory,
+			SequenceName + TEXT(".edl"), 
+			*ExtensionStr,
+			EFileDialogFlags::None,
+			SaveFilenames
+			);
+	}
+	if (!bSave)
+	{
+		return false;
+	}
+
+	if (!SaveFilenames.Num())
+	{
+		return false;
+	}
+
+	if (MovieSceneCaptureHelpers::ExportEDL(InMovieScene, InFrameRate, SaveFilenames[0]))
+	{
+		const FString AbsoluteFilename = FPaths::ConvertRelativePathToFull(SaveFilenames[0]);
+		const FString SaveDirectory = FPaths::GetPath(AbsoluteFilename);
+
+		FNotificationInfo NotificationInfo(NSLOCTEXT("MovieSceneTools", "EDLExportFinished", "EDL Export finished"));
+		NotificationInfo.ExpireDuration = 5.f;
+		NotificationInfo.Hyperlink = FSimpleDelegate::CreateStatic( [](FString InDirectory) { FPlatformProcess::ExploreFolder( *InDirectory ); }, SaveDirectory);
+		NotificationInfo.HyperlinkText = NSLOCTEXT("MovieSceneTools", "OpenEDLExportFolder", "Open EDL Export Folder...");
+		FSlateNotificationManager::Get().AddNotification(NotificationInfo);
+		
+		return true;
+	}
+
+	return false;
+}
+
+bool ImportFBXProperty(FString NodeName, FString AnimatedPropertyName, FGuid ObjectBinding, UnFbx::FFbxCurvesAPI& CurveAPI, UMovieScene* InMovieScene, FMovieSceneSequenceInstance& InSequence, ISequencer& InSequencer)
+{
+	const UMovieSceneToolsProjectSettings* ProjectSettings = GetDefault<UMovieSceneToolsProjectSettings>();
+
+	for (auto FbxSetting : ProjectSettings->FbxSettings)
+	{
+		if (FCString::Strcmp(*FbxSetting.FbxPropertyName.ToUpper(), *AnimatedPropertyName.ToUpper()) != 0)
+		{
+			continue;
+		}
+					
+		UObject* FoundObject = InSequence.FindObject(ObjectBinding, InSequencer);
+		if (!FoundObject)
+		{
+			continue;
+		}
+		
+		UObject* PropertyOwner = FoundObject;
+		if (!FbxSetting.PropertyPath.ComponentName.IsEmpty())
+		{
+			PropertyOwner = FindObjectFast<UObject>(FoundObject, *FbxSetting.PropertyPath.ComponentName);
+		}
+
+		if (!PropertyOwner)
+		{
+			continue;
+		}
+	
+		FGuid PropertyOwnerGuid = InSequence.FindObjectId(*PropertyOwner);
+		if (!PropertyOwnerGuid.IsValid())
+		{
+			PropertyOwnerGuid = InSequencer.GetHandleToObject(PropertyOwner);
+		}
+
+		if (PropertyOwnerGuid.IsValid())
+		{
+			UMovieSceneFloatTrack* FloatTrack = InMovieScene->FindTrack<UMovieSceneFloatTrack>(PropertyOwnerGuid, *FbxSetting.PropertyPath.PropertyName);
+			if (!FloatTrack)
+			{
+				FString PropertyPath = FbxSetting.PropertyPath.ComponentName + TEXT(".") + FbxSetting.PropertyPath.PropertyName;
+				InMovieScene->Modify();
+				FloatTrack = InMovieScene->AddTrack<UMovieSceneFloatTrack>(PropertyOwnerGuid);
+				FloatTrack->SetPropertyNameAndPath(*FbxSetting.PropertyPath.PropertyName, PropertyPath);
+			}
+
+			if (FloatTrack)
+			{			
+				bool bSectionAdded = false;
+				UMovieSceneFloatSection* FloatSection = Cast<UMovieSceneFloatSection>(FloatTrack->FindOrAddSection(0.f, bSectionAdded));
+				if (!FloatSection)
+				{
+					continue;
+				}
+
+				if (bSectionAdded)
+				{
+					FloatSection->SetIsInfinite(true);
+				}
+
+				float MinTime = FLT_MAX;
+				float MaxTime = -FLT_MAX;
+
+				const int32 ChannelIndex = 0;
+				const int32 CompositeIndex = 0;
+				FInterpCurveFloat CurveHandle;
+				const bool bNegative = false;
+				CurveAPI.GetCurveData(NodeName, AnimatedPropertyName, ChannelIndex, CompositeIndex, CurveHandle, bNegative);
+
+				FRichCurve& FloatCurve = FloatSection->GetFloatCurve();
+				FloatCurve.Reset();
+				for (int32 KeyIndex = 0; KeyIndex < CurveHandle.Points.Num(); ++KeyIndex)
+				{
+					MinTime = FMath::Min(MinTime, CurveHandle.Points[KeyIndex].InVal);
+					MaxTime = FMath::Max(MaxTime, CurveHandle.Points[KeyIndex].InVal);
+					FMatineeImportTools::SetOrAddKey(FloatCurve, CurveHandle.Points[KeyIndex].InVal, CurveHandle.Points[KeyIndex].OutVal, CurveHandle.Points[KeyIndex].ArriveTangent, CurveHandle.Points[KeyIndex].LeaveTangent, CurveHandle.Points[KeyIndex].InterpMode);
+				}
+
+				FloatCurve.RemoveRedundantKeys(KINDA_SMALL_NUMBER);
+				FloatCurve.AutoSetTangents();
+
+				FloatSection->SetStartTime(MinTime);
+				FloatSection->SetEndTime(MaxTime);
+				return true;
+			}
+		}
+	}
+	return false;
+}
+
+bool ImportFBXTransform(FString NodeName, FGuid ObjectBinding, UnFbx::FFbxCurvesAPI& CurveAPI, UMovieScene* InMovieScene)
+{
+	// Look for transforms explicitly
+	FInterpCurveFloat Translation[3];
+	FInterpCurveFloat EulerRotation[3];
+	FInterpCurveFloat Scale[3];
+	CurveAPI.GetConvertedTransformCurveData(NodeName, Translation[0], Translation[1], Translation[2], EulerRotation[0], EulerRotation[1], EulerRotation[2], Scale[0], Scale[1], Scale[2]);
+
+	if (Translation[0].Points.Num() == 0 &&  Translation[1].Points.Num() == 0 && Translation[2].Points.Num() == 0 &&
+		EulerRotation[0].Points.Num() == 0 && EulerRotation[1].Points.Num() == 0 && EulerRotation[2].Points.Num() == 0 &&
+		Scale[0].Points.Num() == 0 && Scale[1].Points.Num() && Scale[2].Points.Num())
+	{
+		return false;
+	}
+
+	UMovieScene3DTransformTrack* TransformTrack = InMovieScene->FindTrack<UMovieScene3DTransformTrack>(ObjectBinding); 
+	if (!TransformTrack)
+	{
+		InMovieScene->Modify();
+		TransformTrack = InMovieScene->AddTrack<UMovieScene3DTransformTrack>(ObjectBinding);
+	}
+
+	bool bSectionAdded = false;
+	UMovieScene3DTransformSection* TransformSection = Cast<UMovieScene3DTransformSection>(TransformTrack->FindOrAddSection(0.f, bSectionAdded));
+	if (!TransformSection)
+	{
+		return false;
+	}
+
+	if (bSectionAdded)
+	{
+		TransformSection->SetIsInfinite(true);
+	}
+
+	float MinTime = FLT_MAX;
+	float MaxTime = -FLT_MAX;
+
+	const int NumCurves = 3; // Trans, Rot, Scale
+	for (int32 CurveIndex = 0; CurveIndex < NumCurves; ++CurveIndex)
+	{
+		for (int32 ChannelIndex = 0; ChannelIndex < 3; ++ChannelIndex)
+		{
+			EAxis::Type ChannelAxis = EAxis::X;
+			if (ChannelIndex == 1)
+			{
+				ChannelAxis = EAxis::Y;
+			}
+			else if (ChannelIndex == 2)
+			{
+				ChannelAxis = EAxis::Z;
+			}
+	
+			FInterpCurveFloat* CurveFloat = nullptr;
+			FRichCurve* ChannelCurve = nullptr;
+				
+			if (CurveIndex == 0)
+			{
+				CurveFloat = &Translation[ChannelIndex];
+				ChannelCurve = &TransformSection->GetTranslationCurve(ChannelAxis);
+			}
+			else if (CurveIndex == 1)
+			{
+				CurveFloat = &EulerRotation[ChannelIndex];
+				ChannelCurve = &TransformSection->GetRotationCurve(ChannelAxis);
+			}
+			else if (CurveIndex == 2)
+			{
+				CurveFloat = &Scale[ChannelIndex];
+				ChannelCurve = &TransformSection->GetScaleCurve(ChannelAxis);
+			}
+
+			if (ChannelCurve != nullptr && CurveFloat != nullptr)
+			{
+				ChannelCurve->Reset();
+				
+				for (int32 KeyIndex = 0; KeyIndex < CurveFloat->Points.Num(); ++KeyIndex)
+				{
+					MinTime = FMath::Min(MinTime, CurveFloat->Points[KeyIndex].InVal);
+					MaxTime = FMath::Max(MaxTime, CurveFloat->Points[KeyIndex].InVal);
+					FMatineeImportTools::SetOrAddKey(*ChannelCurve, CurveFloat->Points[KeyIndex].InVal, CurveFloat->Points[KeyIndex].OutVal, CurveFloat->Points[KeyIndex].ArriveTangent, CurveFloat->Points[KeyIndex].LeaveTangent, CurveFloat->Points[KeyIndex].InterpMode);
+				}
+
+				ChannelCurve->RemoveRedundantKeys(KINDA_SMALL_NUMBER);
+				ChannelCurve->AutoSetTangents();
+			}
+		}
+	}
+		
+	TransformSection->SetStartTime(MinTime);
+	TransformSection->SetEndTime(MaxTime);
+	return true;
+}
+
+bool ImportFBXNode(FString NodeName, UnFbx::FFbxCurvesAPI& CurveAPI, UMovieScene* InMovieScene, FMovieSceneSequenceInstance& InSequence, ISequencer& InSequencer, const TMap<FGuid, FString>& InObjectBindingMap)
+{
+	// Find the matching object binding to apply this animation to. Defaults to the first.
+	FGuid ObjectBinding;
+	for (auto It = InObjectBindingMap.CreateConstIterator(); It; ++It)
+	{
+		if (InObjectBindingMap.Num() == 1 || FCString::Strcmp(*It.Value().ToUpper(), *NodeName.ToUpper()) == 0)
+		{
+			ObjectBinding = It.Key();
+			break;
+		}
+	}
+
+	if (!ObjectBinding.IsValid())
+	{
+		//@todo output warning
+		return false;
+	}
+
+	// Look for animated float properties
+	TArray<FString> AnimatedPropertyNames;
+	CurveAPI.GetNodeAnimatedPropertyNameArray(NodeName, AnimatedPropertyNames);
+		
+	for (auto AnimatedPropertyName : AnimatedPropertyNames)
+	{
+		ImportFBXProperty(NodeName, AnimatedPropertyName, ObjectBinding, CurveAPI, InMovieScene, InSequence, InSequencer);
+	}
+	
+	ImportFBXTransform(NodeName, ObjectBinding, CurveAPI, InMovieScene);
+
+	return true;
+}
+
+bool MovieSceneToolHelpers::ImportFBX(UMovieScene* InMovieScene, FMovieSceneSequenceInstance& InSequence, ISequencer& InSequencer, const TMap<FGuid, FString>& InObjectBindingMap)
+{
+	TArray<FString> OpenFilenames;
+	IDesktopPlatform* DesktopPlatform = FDesktopPlatformModule::Get();
+	bool bOpen = false;
+	if (DesktopPlatform)
+	{
+		void* ParentWindowWindowHandle = NULL;
+
+		IMainFrameModule& MainFrameModule = FModuleManager::LoadModuleChecked<IMainFrameModule>(TEXT("MainFrame"));
+		const TSharedPtr<SWindow>& MainFrameParentWindow = MainFrameModule.GetParentWindow();
+		if ( MainFrameParentWindow.IsValid() && MainFrameParentWindow->GetNativeWindow().IsValid() )
+		{
+			ParentWindowWindowHandle = MainFrameParentWindow->GetNativeWindow()->GetOSWindowHandle();
+		}
+
+		FString ExtensionStr;
+		ExtensionStr += TEXT("FBX (*.fbx)|*.fbx|");
+
+		bOpen = DesktopPlatform->OpenFileDialog(
+			ParentWindowWindowHandle,
+			NSLOCTEXT("UnrealEd", "MovieSceneToolHelpersImportFBX", "Import FBX from...").ToString(), 
+			FEditorDirectories::Get().GetLastDirectory(ELastDirectory::FBX),
+			TEXT(""), 
+			*ExtensionStr,
+			EFileDialogFlags::None,
+			OpenFilenames
+			);
+	}
+	if (!bOpen)
+	{
+		return false;
+	}
+
+	if (!OpenFilenames.Num())
+	{
+		return false;
+	}
+
+	FString ImportFilename = OpenFilenames[0];
+	FEditorDirectories::Get().SetLastDirectory( ELastDirectory::FBX, FPaths::GetPath( ImportFilename ) ); // Save path as default for next time.
+	
+	UnFbx::FFbxImporter* FbxImporter = UnFbx::FFbxImporter::GetInstance();
+
+	const FString FileExtension = FPaths::GetExtension(ImportFilename);
+	if (!FbxImporter->ImportFromFile(*ImportFilename, FileExtension, true))
+	{
+		// Log the error message and fail the import.
+		FbxImporter->ReleaseScene();
+		return false;
+	}
+
+	const FScopedTransaction Transaction( NSLOCTEXT( "MovieSceneTools", "ImportFBX", "Import FBX" ) );
+
+	UnFbx::FFbxCurvesAPI CurveAPI;
+	FbxImporter->PopulateAnimatedCurveData(CurveAPI);
+	TArray<FString> AnimatedNodeNames;
+	CurveAPI.GetAnimatedNodeNameArray(AnimatedNodeNames);
+
+	for (FString NodeName : AnimatedNodeNames)
+	{
+		ImportFBXNode(NodeName, CurveAPI, InMovieScene, InSequence, InSequencer, InObjectBindingMap);
+	}
+
+	FbxImporter->ReleaseScene();
+	return true;
 }

@@ -9,6 +9,8 @@
 #include "AssetRegistryModule.h"
 #include "IIntroTutorials.h"
 #include "EditorTutorial.h"
+#include "EngineAnalytics.h"
+#include "IAnalyticsProvider.h"
 #endif
 
 #include "SSearchBox.h"
@@ -50,10 +52,8 @@ void SSuperSearchBox::Construct( const FArguments& InArgs )
 {
 	// Allow style to be optionally overridden, but fallback to SSearchBox default if not specified
 	const FSearchBoxStyle* InStyle = InArgs._Style.IsSet() ? InArgs._Style.GetValue() : &FCoreStyle::Get().GetWidgetStyle<FSearchBoxStyle>("SearchBox");
-	const FComboBoxStyle* InSearchEngineStyle = InArgs._SearchEngineComboBoxStyle.IsSet() ? InArgs._SearchEngineComboBoxStyle.GetValue() : &FCoreStyle::Get().GetWidgetStyle<FComboBoxStyle>("ComboBox");
 
 	CurrentSearchEngine = InArgs._SearchEngine;
-	SearchEngineChanged = InArgs._OnSearchEngineChanged;
 
 	ChildSlot
 	[
@@ -62,20 +62,6 @@ void SSuperSearchBox::Construct( const FArguments& InArgs )
 		.Method( EPopupMethod::UseCurrentWindow )
 		[
 			SNew(SHorizontalBox)
-			+ SHorizontalBox::Slot()
-			.AutoWidth()
-			[
-				SNew(SComboBox< TSharedPtr<ESearchEngine> >)
-				.ComboBoxStyle(InSearchEngineStyle)
-				.OptionsSource(&SearchEngines)
-				.OnGenerateWidget(this, &SSuperSearchBox::GenerateSearchEngineItem)
-				.OnSelectionChanged(this, &SSuperSearchBox::HandleSearchEngineChanged)
-				.ContentPadding(FMargin(4.0f, 1.0f))
-				[
-					SNew(STextBlock)
-					.Text(this, &SSuperSearchBox::GetSelectedSearchEngineText)
-				]
-			]
 
 			+ SHorizontalBox::Slot()
 			[
@@ -111,39 +97,9 @@ void SSuperSearchBox::Construct( const FArguments& InArgs )
 }
 END_SLATE_FUNCTION_BUILD_OPTIMIZATION
 
-TSharedRef<SWidget> SSuperSearchBox::GenerateSearchEngineItem(TSharedPtr<ESearchEngine> SearchEngine)
+void SSuperSearchBox::SetSearchEngine(ESearchEngine SearchEngine)
 {
-	return SNew(STextBlock)
-		.Text(GetSearchEngineText(*SearchEngine));
-}
-
-void SSuperSearchBox::HandleSearchEngineChanged(TSharedPtr<ESearchEngine> InSearchEngine, ESelectInfo::Type)
-{
-	CurrentSearchEngine = *InSearchEngine;
-
-	SearchEngineChanged.Execute(CurrentSearchEngine);
-
-	//Broadcast to anyone registered
-	//FSuperSearchModule& SuperSearchModule = FModuleManager::LoadModuleChecked< FSuperSearchModule >(TEXT("SuperSearch"));
-//	SuperSearchModule.GetSearchEngineChanged().Broadcast(CurrentSearchEngine);
-}
-
-FText SSuperSearchBox::GetSelectedSearchEngineText() const
-{
-	return GetSearchEngineText(CurrentSearchEngine);
-}
-
-FText SSuperSearchBox::GetSearchEngineText(ESearchEngine Type) const
-{
-	switch ( Type )
-	{
-	case ESearchEngine::Google:
-		return LOCTEXT("Google", "Google");
-	case ESearchEngine::Bing:
-		return LOCTEXT("Bing", "Bing");
-	}
-
-	return FText::GetEmpty();
+	CurrentSearchEngine = SearchEngine;
 }
 
 int32 GetNumRealSuggestions(const TArray< TSharedPtr<FSearchEntry> > & Suggestions)
@@ -436,26 +392,23 @@ void SSuperSearchBox::OnTextChanged(const FText& InText)
 
 			for (const FAssetData& Asset : AssetData)
 			{
-				const FString* SearchTag = Asset.TagsAndValues.Find("SearchTags");
-				const FString* ResultTitle = Asset.TagsAndValues.Find("Title");
-				if( ResultTitle)
+				const FString ResultTitle = Asset.GetTagValueRef<FString>("Title");
+				if (ResultTitle.Contains(InText.ToString()))
 				{
-					if (ResultTitle->Contains(InText.ToString()))
-					{
-						FSearchEntry SearchEntry;
-						SearchEntry.Title = *ResultTitle;
-						SearchEntry.URL = "";
-						SearchEntry.bCategory = false;
-						SearchEntry.AssetData = Asset;
-						TutorialResults.Add(SearchEntry);
-					}
+					FSearchEntry SearchEntry;
+					SearchEntry.Title = ResultTitle;
+					SearchEntry.URL = "";
+					SearchEntry.bCategory = false;
+					SearchEntry.AssetData = Asset;
+					TutorialResults.Add(SearchEntry);
 				}
 
 				// If the asset has search tags, search them
-				if ((SearchTag) && (SearchTag->IsEmpty()== false))
+				const FString SearchTag = Asset.GetTagValueRef<FString>("SearchTags");
+				if (!SearchTag.IsEmpty())
 				{
 					TArray<FString> SearchTags;			
-					SearchTag->ParseIntoArray(SearchTags,TEXT(","));
+					SearchTag.ParseIntoArray(SearchTags,TEXT(","));
 					//trim any xs spaces off the strings.
 					for (int32 iTag = 0; iTag < SearchTags.Num() ; iTag++)
 					{
@@ -465,7 +418,7 @@ void SSuperSearchBox::OnTextChanged(const FText& InText)
 					if (SearchTags.Find(InText.ToString()) != INDEX_NONE)
 					{
 						FSearchEntry SearchEntry;
-						SearchEntry.Title = *ResultTitle;
+						SearchEntry.Title = ResultTitle;
 						SearchEntry.URL = "";
 						SearchEntry.bCategory = false;
 						SearchEntry.AssetData = Asset;
@@ -479,7 +432,6 @@ void SSuperSearchBox::OnTextChanged(const FText& InText)
 	else
 	{
 		ClearSuggestions();
-		SuggestionBox->SetIsOpen(false);
 	}
 }
 
@@ -764,9 +716,6 @@ void SSuperSearchBox::MarkActiveSuggestion()
 void SSuperSearchBox::ClearSuggestions()
 {
 	SelectedSuggestion = INDEX_NONE;
-	SuggestionBox->SetIsOpen(false);
-	SelectedSuggestion = INDEX_NONE;
-	SuggestionBox->SetIsOpen(false);
 	Suggestions.Empty();
 }
 

@@ -407,8 +407,15 @@ public:
 
 	/**
 	 * Get a bitmask representing the visibility of each FMeshBatch element.
+	 * FMeshBatch.bRequiresPerElementVisibility must be set for this to be called.
 	 */
-	virtual uint64 GetStaticBatchElementVisibility( const class FSceneView& View, const struct FMeshBatch* Batch ) const { return 1; }
+	virtual uint64 GetStaticBatchElementVisibility(const class FSceneView& View, const struct FMeshBatch* Batch) const { return 1; }
+
+	/**
+	  * Get a bitmask representing the visibility of each FMeshBatch element for the shadow depths of a given light.
+	  * FMeshBatch.bRequiresPerElementVisibility must be set for this to be called.
+	  */
+	virtual uint64 GetStaticBatchElementShadowVisibility(const class FSceneView& View, const class FLightSceneProxy* LightSceneProxy, const struct FMeshBatch* Batch) const { return GetStaticBatchElementVisibility(View, Batch); }
 
 protected:
 

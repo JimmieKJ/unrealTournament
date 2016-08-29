@@ -91,6 +91,9 @@ bool FWorldTileInfo::Read(const FString& InPackageFileName, FWorldTileInfo& OutI
 	{
 		if (!!(FileSummary.PackageFlags & PKG_StoreCompressed))
 		{
+#if USE_NEW_ASYNC_IO
+			check(!"Package level compression cannot be used with the async io scheme.");
+#else
 			check(FileSummary.CompressedChunks.Num() > 0);
 			if (!FileReader->SetCompressionMap(&FileSummary.CompressedChunks, (ECompressionFlags)FileSummary.CompressionFlags))
 			{
@@ -98,6 +101,7 @@ bool FWorldTileInfo::Read(const FString& InPackageFileName, FWorldTileInfo& OutI
 				check(!FileReader->IsError());
 				verify(FileReader->SetCompressionMap(&FileSummary.CompressedChunks, (ECompressionFlags)FileSummary.CompressionFlags));
 			}
+#endif // USE_NEW_ASYNC_IO
 		}
 				
 		// Seek the the part of the file where the structure lives

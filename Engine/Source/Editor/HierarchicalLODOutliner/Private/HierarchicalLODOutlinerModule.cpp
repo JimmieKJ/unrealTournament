@@ -4,6 +4,7 @@
 #include "HierarchicalLODOutlinerModule.h"
 #include "HLODOutliner.h"
 #include "HierarchicalLODUtilities.h"
+#include "HierarchicalLODUtilitiesModule.h"
 
 void FHierarchicalLODOutlinerModule::StartupModule()
 {
@@ -62,7 +63,9 @@ void FHierarchicalLODOutlinerModule::OnHLODLevelsArrayChangedEvent()
 		else if (HierarchicalLODSetup.Num() < NumHLODLevels)
 		{
 			// HLOD Level was removed, now remove all LODActors for this level
-			FHierarchicalLODUtilities::DeleteLODActorsInHLODLevel(CurrentWorld, NumHLODLevels - 1);
+			FHierarchicalLODUtilitiesModule& Module = FModuleManager::LoadModuleChecked<FHierarchicalLODUtilitiesModule>("HierarchicalLODUtilities");
+			IHierarchicalLODUtilities* Utilities = Module.GetUtilities();
+			Utilities->DeleteLODActorsInHLODLevel(CurrentWorld, NumHLODLevels - 1);
 		}
 	}
 }

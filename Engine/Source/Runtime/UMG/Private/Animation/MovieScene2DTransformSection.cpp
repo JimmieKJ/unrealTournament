@@ -36,14 +36,19 @@ void UMovieScene2DTransformSection::DilateSection( float DilationFactor, float O
 }
 
 
-void UMovieScene2DTransformSection::GetKeyHandles(TSet<FKeyHandle>& KeyHandles) const
+void UMovieScene2DTransformSection::GetKeyHandles(TSet<FKeyHandle>& OutKeyHandles, TRange<float> TimeRange) const
 {
+	if (!TimeRange.Overlaps(GetRange()))
+	{
+		return;
+	}
+
 	for (auto It(Rotation.GetKeyHandleIterator()); It; ++It)
 	{
 		float Time = Rotation.GetKeyTime(It.Key());
-		if (IsTimeWithinSection(Time))
+		if (TimeRange.Contains(Time))
 		{
-			KeyHandles.Add(It.Key());
+			OutKeyHandles.Add(It.Key());
 		}
 	}
 
@@ -52,30 +57,78 @@ void UMovieScene2DTransformSection::GetKeyHandles(TSet<FKeyHandle>& KeyHandles) 
 		for (auto It(Translation[Axis].GetKeyHandleIterator()); It; ++It)
 		{
 			float Time = Translation[Axis].GetKeyTime(It.Key());
-			if (IsTimeWithinSection(Time))
+			if (TimeRange.Contains(Time))
 			{
-				KeyHandles.Add(It.Key());
+				OutKeyHandles.Add(It.Key());
 			}
 		}
 		for (auto It(Scale[Axis].GetKeyHandleIterator()); It; ++It)
 		{
 			float Time = Scale[Axis].GetKeyTime(It.Key());
-			if (IsTimeWithinSection(Time))
+			if (TimeRange.Contains(Time))
 			{
-				KeyHandles.Add(It.Key());
+				OutKeyHandles.Add(It.Key());
 			}
 		}
 		for (auto It(Shear[Axis].GetKeyHandleIterator()); It; ++It)
 		{
 			float Time = Shear[Axis].GetKeyTime(It.Key());
-			if (IsTimeWithinSection(Time))
+			if (TimeRange.Contains(Time))
 			{
-				KeyHandles.Add(It.Key());
+				OutKeyHandles.Add(It.Key());
 			}
 		}
 	}
 }
 
+TOptional<float> UMovieScene2DTransformSection::GetKeyTime( FKeyHandle KeyHandle ) const
+{
+	if ( Rotation.IsKeyHandleValid( KeyHandle ) )
+	{
+		return TOptional<float>( Rotation.GetKeyTime( KeyHandle ) );
+	}
+	if ( Translation[0].IsKeyHandleValid( KeyHandle ) )
+	{
+		return TOptional<float>( Translation[0].GetKeyTime( KeyHandle ) );
+	}
+	if ( Translation[1].IsKeyHandleValid( KeyHandle ) )
+	{
+		return TOptional<float>( Translation[1].GetKeyTime( KeyHandle ) );
+	}
+	if ( Scale[0].IsKeyHandleValid( KeyHandle ) )
+	{
+		return TOptional<float>( Scale[0].GetKeyTime( KeyHandle ) );
+	}
+	if ( Scale[1].IsKeyHandleValid( KeyHandle ) )
+	{
+		return TOptional<float>( Scale[1].GetKeyTime( KeyHandle ) );
+	}
+	return TOptional<float>();
+}
+
+void UMovieScene2DTransformSection::SetKeyTime( FKeyHandle KeyHandle, float Time )
+{
+	if( Rotation.IsKeyHandleValid( KeyHandle ) )
+	{
+		Rotation.SetKeyTime( KeyHandle, Time );
+	}
+	else if( Translation[0].IsKeyHandleValid( KeyHandle ) )
+	{
+		Translation[0].SetKeyTime( KeyHandle, Time );
+	}
+	else if( Translation[1].IsKeyHandleValid( KeyHandle ) )
+	{
+		Translation[1].SetKeyTime( KeyHandle, Time );
+	}
+	else if( Scale[0].IsKeyHandleValid( KeyHandle ) )
+	{
+		Scale[0].SetKeyTime( KeyHandle, Time );
+	}
+	else if( Scale[1].IsKeyHandleValid( KeyHandle ) )
+	{
+		Scale[1].SetKeyTime( KeyHandle, Time );
+	}
+}
 
 /**
  * Chooses an appropriate curve from an axis and a set of curves

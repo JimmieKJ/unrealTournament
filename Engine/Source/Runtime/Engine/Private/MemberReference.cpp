@@ -214,8 +214,8 @@ void FMemberReference::InitFieldRedirectMap()
 					FString OldFieldPathString;
 					FString NewFieldPathString;
 
-					FParse::Value( *It.Value(), TEXT("OldFieldName="), OldFieldPathString );
-					FParse::Value( *It.Value(), TEXT("NewFieldName="), NewFieldPathString );
+					FParse::Value( *It.Value().GetValue(), TEXT("OldFieldName="), OldFieldPathString );
+					FParse::Value( *It.Value().GetValue(), TEXT("NewFieldName="), NewFieldPathString );
 
 					// Handle both cases of just a field being renamed (just one FName), as well as a class and field name (ClassName.FieldName)
 					FFieldRemapInfo OldFieldRemap;
@@ -268,13 +268,13 @@ void FMemberReference::InitFieldRedirectMap()
 					FString NewParamValues;
 					FString CustomValueMapping;
 
-					FParse::Value( *It.Value(), TEXT("NodeName="), NodeName );
-					FParse::Value( *It.Value(), TEXT("NodeTitle="), NodeTitle );
-					FParse::Value( *It.Value(), TEXT("OldParamName="), OldParam );
-					FParse::Value( *It.Value(), TEXT("NewParamName="), NewParam );
-					FParse::Value( *It.Value(), TEXT("OldParamValues="), OldParamValues );
-					FParse::Value( *It.Value(), TEXT("NewParamValues="), NewParamValues );
-					FParse::Value( *It.Value(), TEXT("CustomValueMapping="), CustomValueMapping );
+					FParse::Value( *It.Value().GetValue(), TEXT("NodeName="), NodeName );
+					FParse::Value( *It.Value().GetValue(), TEXT("NodeTitle="), NodeTitle );
+					FParse::Value( *It.Value().GetValue(), TEXT("OldParamName="), OldParam );
+					FParse::Value( *It.Value().GetValue(), TEXT("NewParamName="), NewParam );
+					FParse::Value( *It.Value().GetValue(), TEXT("OldParamValues="), OldParamValues );
+					FParse::Value( *It.Value().GetValue(), TEXT("NewParamValues="), NewParamValues );
+					FParse::Value( *It.Value().GetValue(), TEXT("CustomValueMapping="), CustomValueMapping );
 
 					FParamRemapInfo ParamRemap;
 					ParamRemap.NewParam = NewParam;

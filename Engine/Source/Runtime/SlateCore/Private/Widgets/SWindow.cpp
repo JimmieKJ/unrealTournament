@@ -12,6 +12,27 @@ namespace SWindowDefs
 	static const int32 CornerRadius = 6;
 }
 
+FOverlayPopupLayer::FOverlayPopupLayer(const TSharedRef<SWindow>& InitHostWindow, const TSharedRef<SWidget>& InitPopupContent, TSharedPtr<SOverlay> InitOverlay)
+	: FPopupLayer(InitHostWindow, InitPopupContent)
+	, HostWindow(InitHostWindow)
+	, Overlay(InitOverlay)
+{
+	Overlay->AddSlot()
+	[
+		InitPopupContent
+	];
+}
+
+void FOverlayPopupLayer::Remove()
+{
+	Overlay->RemoveSlot(GetContent());
+}
+
+FSlateRect FOverlayPopupLayer::GetAbsoluteClientRect()
+{
+	return HostWindow->GetClientRectInScreen();
+}
+
 
 /**
  * An internal overlay used by Slate to support in-window pop ups and tooltips.
@@ -176,6 +197,7 @@ private:
 	TWeakPtr<SWindow> OwnerWindow;
 };
 
+
 FVector2D SWindow::GetWindowSizeFromClientSize(FVector2D InClientSize)
 {
 	// If this is a regular non-OS window, we need to compensate for the border and title bar area that we will add
@@ -219,8 +241,10 @@ void SWindow::Construct(const FArguments& InArgs)
 	this->bHasMinimizeButton = InArgs._SupportsMinimize;
 	this->bHasMaximizeButton = InArgs._SupportsMaximize;
 	this->bHasSizingFrame = !InArgs._IsPopupWindow && InArgs._SizingRule == ESizingRule::UserSized;
+	this->bShouldPreserveAspectRatio = InArgs._ShouldPreserveAspectRatio;
 	this->LayoutBorder = InArgs._LayoutBorder;
 	this->UserResizeBorder = InArgs._UserResizeBorder;
+	this->bVirtualWindow = false;
 	this->SizeLimits = FWindowSizeLimits()
 		.SetMinWidth(InArgs._MinWidth)
 		.SetMinHeight(InArgs._MinHeight)
@@ -318,6 +342,10 @@ void SWindow::Construct(const FArguments& InArgs)
 		const FVector2D DisplayTopLeft( AutoCenterRect.Left, AutoCenterRect.Top );
 		const FVector2D DisplaySize( AutoCenterRect.Right - AutoCenterRect.Left, AutoCenterRect.Bottom - AutoCenterRect.Top );
 		WindowPosition = DisplayTopLeft + ( DisplaySize - WindowSize ) * 0.5f;
+
+		// Don't allow the window to center to outside of the work area
+		WindowPosition.X = FMath::Max(WindowPosition.X, AutoCenterRect.Left);
+		WindowPosition.Y = FMath::Max(WindowPosition.Y, AutoCenterRect.Top);
 	}
 
 #if PLATFORM_HTML5 
@@ -519,7 +547,7 @@ void SWindow::ConstructWindowInternals()
 			]
 		];
 	}
-	else if( bHasOSWindowBorder )
+	else if ( bHasOSWindowBorder || bVirtualWindow )
 	{
 		this->ChildSlot
 		[
@@ -677,7 +705,7 @@ FSlateRect SWindow::GetNonMaximizedRectInScreen() const
 	int Width = 0;
 	int Height = 0;
 	
-	if ( NativeWindow->GetRestoredDimensions(X, Y, Width, Height) )
+	if ( NativeWindow.IsValid() && NativeWindow->GetRestoredDimensions(X, Y, Width, Height) )
 	{
 		return FSlateRect( X, Y, X+Width, Y+Height );
 	}
@@ -689,11 +717,21 @@ FSlateRect SWindow::GetNonMaximizedRectInScreen() const
 
 FSlateRect SWindow::GetRectInScreen() const
 { 
+	if ( bVirtualWindow )
+	{
+		return FSlateRect(0, 0, Size.X, Size.Y);
+	}
+
 	return FSlateRect( ScreenPosition, ScreenPosition + Size );
 }
 
 FSlateRect SWindow::GetClientRectInScreen() const
 {
+	if ( bVirtualWindow )
+	{
+		return FSlateRect(0, 0, Size.X, Size.Y);
+	}
+
 	if (HasOSWindowBorder())
 	{
 		return GetRectInScreen();
@@ -1046,6 +1084,16 @@ void SWindow::RemoveOverlaySlot( const TSharedRef<SWidget>& InContent )
 	}
 }
 
+TSharedPtr<FPopupLayer> SWindow::OnVisualizePopup(const TSharedRef<SWidget>& PopupContent)
+{
+	if ( WindowOverlay.IsValid() )
+	{
+		return MakeShareable(new FOverlayPopupLayer(SharedThis(this), PopupContent, WindowOverlay));
+	}
+
+	return TSharedPtr<FPopupLayer>();
+}
+
 /** Return a new slot in the popup layer. Assumes that the window has a popup layer. */
 FPopupLayerSlot& SWindow::AddPopupLayerSlot()
 {
@@ -1111,10 +1159,11 @@ void SWindow::RequestDestroyWindow()
 /** Warning: use Request Destroy Window whenever possible!  This method destroys the window immediately! */
 void SWindow::DestroyWindowImmediately()
 {
-	check( NativeWindow.IsValid() );
-
-	// Destroy the native window
-	NativeWindow->Destroy();
+	if ( NativeWindow.IsValid() )
+	{
+		// Destroy the native window
+		NativeWindow->Destroy();
+	}
 }
 
 /** Calls the OnWindowClosed delegate when this window is about to be closed */
@@ -1123,7 +1172,7 @@ void SWindow::NotifyWindowBeingDestroyed()
 	OnWindowClosed.ExecuteIfBound( SharedThis( this ) );
 
 	// Logging to track down window shutdown issues with movie loading threads. Too spammy in editor builds with all the windows
-#if !WITH_EDITOR
+#if !WITH_EDITOR && !IS_PROGRAM
 	UE_LOG(LogSlate, Log, TEXT("Window '%s' being destroyed"), *GetTitle().ToString() );
 #endif
 }
@@ -1199,12 +1248,22 @@ bool SWindow::IsVisible() const
 
 bool SWindow::IsWindowMaximized() const
 {
-	return NativeWindow->IsMaximized();
+	if ( NativeWindow.IsValid() )
+	{
+		return NativeWindow->IsMaximized();
+	}
+
+	return false;
 }
 
 bool SWindow::IsWindowMinimized() const
 {
-	return NativeWindow->IsMinimized();
+	if ( NativeWindow.IsValid() )
+	{
+		return NativeWindow->IsMinimized();
+	}
+
+	return false;
 }
 
 
@@ -1577,8 +1636,11 @@ bool PointWithinSlateRect(const FVector2D& Point, const FSlateRect& Rect)
 
 EWindowZone::Type SWindow::GetCurrentWindowZone(FVector2D LocalMousePosition)
 {
+	const bool bIsFullscreenMode = GetWindowMode() == EWindowMode::WindowedFullscreen || GetWindowMode() == EWindowMode::Fullscreen;
+	const bool bIsBorderlessGameWindow = Type == EWindowType::GameWindow && !bHasOSWindowBorder;
+
 	// Don't allow position/resizing of window while in fullscreen mode by ignoring Title Bar/Border Zones
-	if ( GetWindowMode() == EWindowMode::WindowedFullscreen || GetWindowMode() == EWindowMode::Fullscreen )
+	if ( bIsFullscreenMode && !bIsBorderlessGameWindow )
 	{
 		return EWindowZone::ClientArea;
 	}
@@ -1587,7 +1649,7 @@ EWindowZone::Type SWindow::GetCurrentWindowZone(FVector2D LocalMousePosition)
 	{
 		int32 Row = 1;
 		int32 Col = 1;
-		if (SizingRule == ESizingRule::UserSized)
+		if (SizingRule == ESizingRule::UserSized && !bIsFullscreenMode)
 		{
 			if (LocalMousePosition.X < (UserResizeBorder.Left + 5))
 			{
@@ -1683,6 +1745,7 @@ SWindow::SWindow()
 	, bHasMaximizeButton( false )
 	, bHasSizingFrame( false )
 	, bIsModalWindow( false )
+	, bShouldPreserveAspectRatio( false )
 	, InitialDesiredScreenPosition( FVector2D::ZeroVector )
 	, InitialDesiredSize( FVector2D::ZeroVector )
 	, ScreenPosition( FVector2D::ZeroVector )
@@ -1705,10 +1768,18 @@ SWindow::SWindow()
 int32 SWindow::PaintWindow( const FPaintArgs& Args, const FGeometry& AllottedGeometry, const FSlateRect& MyClippingRect, FSlateWindowElementList& OutDrawElements, int32 LayerId, const FWidgetStyle& InWidgetStyle, bool bParentEnabled ) const
 {
 	LayerId = Paint(Args, AllottedGeometry, MyClippingRect, OutDrawElements, LayerId, InWidgetStyle, bParentEnabled);
-	LayerId = OutDrawElements.PaintDeferred( LayerId );
+	//LayerId = OutDrawElements.PaintDeferred( LayerId );
 	return LayerId;
 }
 
+int32 SWindow::OnPaint(const FPaintArgs& Args, const FGeometry& AllottedGeometry, const FSlateRect& MyClippingRect, FSlateWindowElementList& OutDrawElements, int32 LayerId, const FWidgetStyle& InWidgetStyle, bool bParentEnabled) const
+{
+	OutDrawElements.BeginDeferredGroup();
+	int32 MaxLayer = SCompoundWidget::OnPaint(Args, AllottedGeometry, MyClippingRect, OutDrawElements, LayerId, InWidgetStyle, bParentEnabled);
+	OutDrawElements.EndDeferredGroup();
+
+	return MaxLayer;
+}
 
 FOptionalSize SWindow::GetTitleBarSize() const
 {
@@ -1756,7 +1827,7 @@ void SWindow::SetWindowMode( EWindowMode::Type NewWindowMode )
 
 		NativeWindow->SetWindowMode( NewWindowMode );
 	
-		const FVector2D vp = (NewWindowMode == EWindowMode::WindowedMirror) ? GetSizeInScreen() : GetViewportSize();
+		const FVector2D vp = IsMirrorWindow() ? GetSizeInScreen() : GetViewportSize();
 		FSlateApplicationBase::Get().GetRenderer()->UpdateFullscreenState(SharedThis(this), vp.X, vp.Y);
 
 		if( TitleArea.IsValid() )

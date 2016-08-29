@@ -8,15 +8,7 @@
 
 
 /**
- *	A self contained handler of a GameplayCue. These are similiar to AnimNotifies in implementation.
- *	Instanced GameplayCueNotify which runs arbitrary blueprint code. (TODO: This should be the NON-instanced version!)
- *	
- *	
- *	TODO/Fixme:
- *		-Unsure: Leave K2_HandleGameplayCue in as generic function?
- *		-OnExecute/Active/Remove are more clear, easy to use. Make it harder to share info between events.
- *	
- *	
+ *	A non instantiated UObject that acts as a handler for a GameplayCue. These are useful for one-off "burst" effects.
  */
 
 UCLASS(Blueprintable, meta = (ShowWorldContextPin), hidecategories = (Replication))

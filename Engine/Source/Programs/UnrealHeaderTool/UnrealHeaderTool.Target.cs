@@ -69,5 +69,7 @@ public class UnrealHeaderToolTarget : TargetRules
 		OutLinkEnvironmentConfiguration.bIsBuildingConsoleApplication = true;
 
 		OutCPPEnvironmentConfiguration.Definitions.Add("HACK_HEADER_GENERATOR=1");
+
+		OutCPPEnvironmentConfiguration.Definitions.Add("USE_LOCALIZED_PACKAGE_CACHE=0");
 	}
 }

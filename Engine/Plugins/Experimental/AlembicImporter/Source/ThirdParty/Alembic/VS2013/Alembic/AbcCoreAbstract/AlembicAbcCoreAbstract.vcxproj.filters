@@ -1,0 +1,144 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <ClCompile Include="..\..\..\alembic-1.5.0\Alembic\AbcCoreAbstract\Foundation.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\alembic-1.5.0\Alembic\AbcCoreAbstract\TimeSampling.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\alembic-1.5.0\Alembic\AbcCoreAbstract\TimeSamplingType.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\alembic-1.5.0\Alembic\AbcCoreAbstract\ArraySample.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\alembic-1.5.0\Alembic\AbcCoreAbstract\ReadArraySampleCache.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\alembic-1.5.0\Alembic\AbcCoreAbstract\ScalarSample.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\alembic-1.5.0\Alembic\AbcCoreAbstract\BasePropertyWriter.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\alembic-1.5.0\Alembic\AbcCoreAbstract\ScalarPropertyWriter.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\alembic-1.5.0\Alembic\AbcCoreAbstract\ArrayPropertyWriter.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\alembic-1.5.0\Alembic\AbcCoreAbstract\CompoundPropertyWriter.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\alembic-1.5.0\Alembic\AbcCoreAbstract\ObjectWriter.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\alembic-1.5.0\Alembic\AbcCoreAbstract\ArchiveWriter.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\alembic-1.5.0\Alembic\AbcCoreAbstract\BasePropertyReader.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\alembic-1.5.0\Alembic\AbcCoreAbstract\ScalarPropertyReader.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\alembic-1.5.0\Alembic\AbcCoreAbstract\ArrayPropertyReader.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\alembic-1.5.0\Alembic\AbcCoreAbstract\CompoundPropertyReader.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\alembic-1.5.0\Alembic\AbcCoreAbstract\ObjectReader.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\alembic-1.5.0\Alembic\AbcCoreAbstract\ArchiveReader.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\..\..\alembic-1.5.0\Alembic\AbcCoreAbstract\All.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\alembic-1.5.0\Alembic\AbcCoreAbstract\ForwardDeclarations.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\alembic-1.5.0\Alembic\AbcCoreAbstract\ArraySample.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\alembic-1.5.0\Alembic\AbcCoreAbstract\ArraySampleKey.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\alembic-1.5.0\Alembic\AbcCoreAbstract\ReadArraySampleCache.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\alembic-1.5.0\Alembic\AbcCoreAbstract\ScalarSample.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\alembic-1.5.0\Alembic\AbcCoreAbstract\DataType.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\alembic-1.5.0\Alembic\AbcCoreAbstract\Foundation.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\alembic-1.5.0\Alembic\AbcCoreAbstract\MetaData.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\alembic-1.5.0\Alembic\AbcCoreAbstract\ObjectHeader.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\alembic-1.5.0\Alembic\AbcCoreAbstract\PropertyHeader.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\alembic-1.5.0\Alembic\AbcCoreAbstract\TimeSampling.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\alembic-1.5.0\Alembic\AbcCoreAbstract\TimeSamplingType.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\alembic-1.5.0\Alembic\AbcCoreAbstract\BasePropertyWriter.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\alembic-1.5.0\Alembic\AbcCoreAbstract\ScalarPropertyWriter.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\alembic-1.5.0\Alembic\AbcCoreAbstract\ArrayPropertyWriter.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\alembic-1.5.0\Alembic\AbcCoreAbstract\CompoundPropertyWriter.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\alembic-1.5.0\Alembic\AbcCoreAbstract\ObjectWriter.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\alembic-1.5.0\Alembic\AbcCoreAbstract\ArchiveWriter.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\alembic-1.5.0\Alembic\AbcCoreAbstract\BasePropertyReader.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\alembic-1.5.0\Alembic\AbcCoreAbstract\ScalarPropertyReader.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\alembic-1.5.0\Alembic\AbcCoreAbstract\ArrayPropertyReader.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\alembic-1.5.0\Alembic\AbcCoreAbstract\CompoundPropertyReader.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\alembic-1.5.0\Alembic\AbcCoreAbstract\ObjectReader.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\alembic-1.5.0\Alembic\AbcCoreAbstract\ArchiveReader.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="Source Files">
+      <UniqueIdentifier>{89392D1A-7575-4D02-955C-57341018A270}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files">
+      <UniqueIdentifier>{1833F73C-2966-4E61-8211-B6B7A2BB807B}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+</Project>

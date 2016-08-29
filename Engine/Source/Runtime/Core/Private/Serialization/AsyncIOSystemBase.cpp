@@ -498,19 +498,21 @@ int32 FAsyncIOSystemBase::CancelRequests( uint64* RequestIndices, int32 NumIndic
 		for( int32 TheRequestIndex=0; TheRequestIndex<NumIndices; TheRequestIndex++ )
 		{
 			// Look for matching request index in queue.
-			const FAsyncIORequest& IORequest = OutstandingRequests[OutstandingIndex];
-			if( IORequest.RequestIndex == RequestIndices[TheRequestIndex] )
+			FAsyncIORequest& IORequest = OutstandingRequests[OutstandingIndex];
+			if (IORequest.RequestIndex == RequestIndices[TheRequestIndex] && !IORequest.bIsDestroyHandleRequest)
 			{
 				INC_DWORD_STAT( STAT_AsyncIO_CanceledReadCount );
 				INC_DWORD_STAT_BY( STAT_AsyncIO_CanceledReadSize, IORequest.Size );
 				DEC_DWORD_STAT( STAT_AsyncIO_OutstandingReadCount );
 				DEC_DWORD_STAT_BY( STAT_AsyncIO_OutstandingReadSize, IORequest.Size );				
 				// Decrement thread-safe counter to indicate that request has been "completed".
-				IORequest.Counter->Decrement();
-				// IORequest variable no longer valid after removal.
-				OutstandingRequests.RemoveAt( OutstandingIndex );
+				if (IORequest.Counter)
+				{
+					IORequest.Counter->Decrement();
+					IORequest.Counter = nullptr;
+				}
+				IORequest.bIsDestroyHandleRequest = true; // delete the file handle on the next tick (unless there is another request)
 				RequestsCanceled++;
-				// Break out of loop as we've modified OutstandingRequests AND it no longer is valid.
 				break;
 			}
 		}
@@ -649,31 +651,57 @@ void FAsyncIOSystemBase::Tick()
 {
 	// Create file handles.
 	{
-		TArray<FString> FileNamesToCacheHandles; 
+		TSet<FString> FileNamesToCacheHandles; 
+		TSet<FString> FileNamesToUnCacheHandles;
 		// Only enter critical section for copying existing array over. We don't operate on the 
 		// real array as creating file handles might take a while and we don't want to have other
 		// threads stalling on submission of requests.
 		{
 			FScopeLock ScopeLock( CriticalSection );
 
+			if (OutstandingRequests.Num() > 1000 || NameHashToHandleMap.Num() > 1000)
+			{
+				static double LastTime = 0.0;
+				if (FPlatformTime::Seconds() - LastTime > 1.0)
+				{
+					LastTime = FPlatformTime::Seconds();
+					UE_LOG(LogStreaming, Error, TEXT("FAsyncIOSystemBase::Tick queue is overflowing %d requests and %d files."), OutstandingRequests.Num(), NameHashToHandleMap.Num());
+				}
+			}
+
 			for( int32 RequestIdx=0; RequestIdx<OutstandingRequests.Num(); RequestIdx++ )
 			{
 				// Early outs avoid unnecessary work and string copies with implicit allocator churn.
 				FAsyncIORequest& OutstandingRequest = OutstandingRequests[RequestIdx];
-				if( OutstandingRequest.bHasAlreadyRequestedHandleToBeCached == false
-				&&	OutstandingRequest.bIsDestroyHandleRequest == false 
-				&&	FindCachedFileHandle( OutstandingRequest.FileNameHash ) == NULL )
+				if (OutstandingRequest.bIsDestroyHandleRequest)
 				{
-					new(FileNamesToCacheHandles)FString(*OutstandingRequest.FileName);
+					FileNamesToUnCacheHandles.Emplace(*OutstandingRequest.FileName);
+					OutstandingRequests.RemoveAt(RequestIdx--);
+				}
+				else if (!OutstandingRequest.bHasAlreadyRequestedHandleToBeCached)
+				{
+					FileNamesToCacheHandles.Emplace(*OutstandingRequest.FileName);
 					OutstandingRequest.bHasAlreadyRequestedHandleToBeCached = true;
 				}
 			}
 		}
 		// Create file handles for requests down the pipe. This is done here so we can later on
 		// use the handles to figure out the sort keys.
-		for( int32 FileNameIndex=0; FileNameIndex<FileNamesToCacheHandles.Num(); FileNameIndex++ )
+		for (auto& Filename : FileNamesToCacheHandles)
 		{
-			GetCachedFileHandle( FileNamesToCacheHandles[FileNameIndex] );
+			GetCachedFileHandle(Filename);
+			FileNamesToUnCacheHandles.Remove(Filename);
+		}
+		for (auto& Filename : FileNamesToUnCacheHandles)
+		{
+			unsigned int Hash = FCrc::StrCrc32<TCHAR>(*Filename.ToLower());
+			IFileHandle* FileHandle = FindCachedFileHandle(Hash);
+			if (FileHandle)
+			{
+				// destroy and remove the handle
+				delete FileHandle;
+				NameHashToHandleMap.Remove(Hash);
+			}
 		}
 	}
 

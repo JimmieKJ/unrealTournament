@@ -1297,7 +1297,7 @@ void SBlendSpaceEditorBase::ShowPreview_OnIsCheckedChanged( ECheckBoxState NewVa
 
 	if ( Component != NULL )
 	{
-		Component->EnablePreview( bPreviewEnabled, BlendSpace, NULL );
+		Component->EnablePreview( bPreviewEnabled, BlendSpace );
 
 		BlendSpaceWidget->bPreviewOn = bPreviewEnabled;
 

@@ -13,7 +13,7 @@ bool FEmptyDynamicRHIModule::IsSupported()
 	return true;
 }
 
-FDynamicRHI* FEmptyDynamicRHIModule::CreateRHI()
+FDynamicRHI* FEmptyDynamicRHIModule::CreateRHI(ERHIFeatureLevel::Type RequestedFeatureLevel)
 {
 	return new FEmptyDynamicRHI();
 }

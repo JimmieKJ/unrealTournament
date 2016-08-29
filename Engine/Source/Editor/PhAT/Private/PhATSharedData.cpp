@@ -1,5 +1,6 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
+#include "PhATPrivatePCH.h"
 #include "PhATModule.h"
 #include "PhysicsPublic.h"
 #include "EditorSupportDelegates.h"
@@ -12,6 +13,7 @@
 #include "Engine/CollisionProfile.h"
 #include "PhysicsEngine/PhysicsConstraintTemplate.h"
 #include "PhysicsEngine/PhysicsHandleComponent.h"
+#include "PhysicsEngine/PhysicsAsset.h"
 #include "Vehicles/WheeledVehicleMovementComponent.h"
 #include "Engine/StaticMesh.h"
 
@@ -75,6 +77,7 @@ FPhATSharedData::~FPhATSharedData()
 void FPhATSharedData::Initialize()
 {
 	EditorSkelComp = NULL;
+	PhysicalAnimationComponent = nullptr;
 
 	USkeletalMesh * PreviewMesh =  NULL; 
 	FStringAssetReference PreviewMeshStringRef = PhysicsAsset->PreviewSkeletalMesh.ToStringReference();
@@ -104,6 +107,9 @@ void FPhATSharedData::Initialize()
 	// Create SkeletalMeshComponent for rendering skeletal mesh
 	EditorSkelComp = NewObject<UPhATEdSkeletalMeshComponent>();
 	EditorSkelComp->SharedData = this;
+
+	PhysicalAnimationComponent = NewObject<UPhysicalAnimationComponent>();
+	PhysicalAnimationComponent->SetSkeletalMeshComponent(EditorSkelComp);
 	
 	// first disable collision first to avoid creating physics body
 	EditorSkelComp->SetCollisionProfileName(UCollisionProfile::BlockAll_ProfileName);
@@ -119,13 +125,14 @@ void FPhATSharedData::Initialize()
 
 	PreviewScene.AddComponent(EditorSkelComp, FTransform::Identity);
 	PreviewScene.AddComponent(EditorFloorComp, FTransform::Identity);
+	PreviewScene.AddComponent(PhysicalAnimationComponent, FTransform::Identity);
 
 	// Look for body setups with no shapes (how does this happen?).
 	// If we find one- just bang on a default box.
 	bool bFoundEmptyShape = false;
-	for (int32 i = 0; i <PhysicsAsset->BodySetup.Num(); ++i)
+	for (int32 i = 0; i <PhysicsAsset->SkeletalBodySetups.Num(); ++i)
 	{
-		UBodySetup* BodySetup = PhysicsAsset->BodySetup[i];
+		UBodySetup* BodySetup = PhysicsAsset->SkeletalBodySetups[i];
 		if (BodySetup->AggGeom.GetElementCount() == 0)
 		{
 			FKBoxElem BoxElem;
@@ -161,9 +168,9 @@ void FPhATSharedData::Initialize()
 	// If so, put up a warning.
 	TArray<int32> MissingBodyIndices;
 	FString BoneNames;
-	for (int32 i = 0; i <PhysicsAsset->BodySetup.Num(); ++i)
+	for (int32 i = 0; i <PhysicsAsset->SkeletalBodySetups.Num(); ++i)
 	{
-		FName BoneName = PhysicsAsset->BodySetup[i]->BoneName;
+		FName BoneName = PhysicsAsset->SkeletalBodySetups[i]->BoneName;
 		int32 BoneIndex = EditorSkelMesh->RefSkeleton.FindBoneIndex(BoneName);
 		if (BoneIndex == INDEX_NONE)
 		{
@@ -184,7 +191,7 @@ void FPhATSharedData::Initialize()
 			PhysicsAsset->SetFlags(RF_Transactional);
 			PhysicsAsset->Modify();
 
-			// Iterate backwards, as PhysicsAsset->BodySetup is a TArray and UE4 containers don't support remove_if()
+			// Iterate backwards, as PhysicsAsset->SkeletalBodySetups is a TArray and UE4 containers don't support remove_if()
 			for ( int32 i = MissingBodyIndices.Num() - 1; i >= 0; --i )
 			{
 				DeleteBody( MissingBodyIndices[i] );
@@ -249,7 +256,7 @@ void FPhATSharedData::Mirror()
 		{
 			MirrorInfos.AddUninitialized();
 			FMirrorInfo & MirrorInfo = MirrorInfos[MirrorInfos.Num() - 1];
-			MirrorInfo.BoneName = PhysicsAsset->BodySetup[Selection.Index]->BoneName;
+			MirrorInfo.BoneName = PhysicsAsset->SkeletalBodySetups[Selection.Index]->BoneName;
 			MirrorInfo.BodyIndex = Selection.Index;
 			MirrorInfo.ConstraintIndex = PhysicsAsset->FindConstraintIndex(MirrorInfo.BoneName);
 		}
@@ -273,13 +280,13 @@ void FPhATSharedData::Mirror()
 		int32 MirrorBoneIndex = PhysicsAsset->FindMirroredBone(EditorSkelMesh, BoneIndex);
 		if (MirrorBoneIndex != INDEX_NONE)
 		{
-			UBodySetup * SrcBody = PhysicsAsset->BodySetup[MirrorInfo.BodyIndex];
+			UBodySetup * SrcBody = PhysicsAsset->SkeletalBodySetups[MirrorInfo.BodyIndex];
 			const FScopedTransaction Transaction(NSLOCTEXT("PhAT", "MirrorBody", "MirrorBody"));
 			MakeNewBody(MirrorBoneIndex, false);
 
 			int32 MirrorBodyIndex = PhysicsAsset->FindControllingBodyIndex(EditorSkelMesh, MirrorBoneIndex);
 
-			UBodySetup * DestBody = PhysicsAsset->BodySetup[MirrorBodyIndex];
+			UBodySetup * DestBody = PhysicsAsset->SkeletalBodySetups[MirrorBodyIndex];
 			DestBody->Modify();
 			DestBody->CopyBodyPropertiesFrom(SrcBody);
 			FQuat ArtistMirrorConvention(0,0,1,0);   // how Epic Maya artists rig the right and left orientation differently.  todo: perhaps move to cvar 
@@ -417,7 +424,7 @@ void FPhATSharedData::SetSelectedBodyAnyPrim(int32 BodyIndex, bool bGroupSelect 
 		return;
 	}
 	
-	UBodySetup* BodySetup = PhysicsAsset->BodySetup[BodyIndex];
+	UBodySetup* BodySetup = PhysicsAsset->SkeletalBodySetups[BodyIndex];
 	check(BodySetup);
 
 	if (BodySetup->AggGeom.SphereElems.Num() > 0)
@@ -489,13 +496,13 @@ void FPhATSharedData::SetSelectedBody(const FSelection* Body, bool bGroupSelect 
 	else
 	{
 
-		check(GetSelectedBody() && GetSelectedBody()->Index >= 0 && GetSelectedBody()->Index < PhysicsAsset->BodySetup.Num());
+		check(GetSelectedBody() && GetSelectedBody()->Index >= 0 && GetSelectedBody()->Index < PhysicsAsset->SkeletalBodySetups.Num());
 
 		// Set properties dialog to display selected bone (or bone instance) info.
 		TArray<UObject*> Objs;
 		for(int i=0; i<SelectedBodies.Num(); ++i)
 		{
-			Objs.Add(PhysicsAsset->BodySetup[SelectedBodies[i].Index]);
+			Objs.Add(PhysicsAsset->SkeletalBodySetups[SelectedBodies[i].Index]);
 		}
 		
 		GroupSelectionChangedEvent.Broadcast(Objs);
@@ -538,9 +545,9 @@ void FPhATSharedData::SetSelectedBodiesFromConstraints()
 		UPhysicsConstraintTemplate* ConstraintTemplate = PhysicsAsset->ConstraintSetup[Selection.Index];
 		FConstraintInstance & DefaultInstance = ConstraintTemplate->DefaultInstance;
 
-		for (int32 BodyIdx = 0; BodyIdx < PhysicsAsset->BodySetup.Num(); ++BodyIdx)
+		for (int32 BodyIdx = 0; BodyIdx < PhysicsAsset->SkeletalBodySetups.Num(); ++BodyIdx)
 		{
-			UBodySetup* BodySetup = PhysicsAsset->BodySetup[BodyIdx];
+			UBodySetup* BodySetup = PhysicsAsset->SkeletalBodySetups[BodyIdx];
 			if (DefaultInstance.JointName == BodySetup->BoneName && BodySetup->AggGeom.GetElementCount() > 0)
 			{
 				FSelection NewSelection(BodyIdx, KPT_Unknown, 0);
@@ -570,7 +577,7 @@ void FPhATSharedData::SetSelectedConstraintsFromBodies()
 	SetSelectedConstraint(INDEX_NONE, false);
 	for (const FSelection& Selection : SelectedBodies)
 	{
-		UBodySetup* BodySetup = PhysicsAsset->BodySetup[Selection.Index];
+		UBodySetup* BodySetup = PhysicsAsset->SkeletalBodySetups[Selection.Index];
 		for(int32 ConstraintIdx = 0; ConstraintIdx < PhysicsAsset->ConstraintSetup.Num(); ++ConstraintIdx)
 		{
 			const UPhysicsConstraintTemplate* ConstraintTemplate = PhysicsAsset->ConstraintSetup[ConstraintIdx]; 
@@ -589,10 +596,10 @@ void FPhATSharedData::UpdateNoCollisionBodies()
 	NoCollisionBodies.Empty();
 
 	// Query disable table with selected body and every other body.
-	for (int32 i = 0; i <PhysicsAsset->BodySetup.Num(); ++i)
+	for (int32 i = 0; i <PhysicsAsset->SkeletalBodySetups.Num(); ++i)
 	{
 		// Add any bodies with bNoCollision
-		if (PhysicsAsset->BodySetup[i]->DefaultInstance.GetCollisionEnabled() == ECollisionEnabled::NoCollision)
+		if (PhysicsAsset->SkeletalBodySetups[i]->DefaultInstance.GetCollisionEnabled() == ECollisionEnabled::NoCollision)
 		{
 			NoCollisionBodies.Add(i);
 		}
@@ -601,7 +608,7 @@ void FPhATSharedData::UpdateNoCollisionBodies()
 			// Add this body if it has disabled collision with selected.
 			FRigidBodyIndexPair Key(i, GetSelectedBody()->Index);
 
-			if (PhysicsAsset->BodySetup[GetSelectedBody()->Index]->DefaultInstance.GetCollisionEnabled() == ECollisionEnabled::NoCollision ||
+			if (PhysicsAsset->SkeletalBodySetups[GetSelectedBody()->Index]->DefaultInstance.GetCollisionEnabled() == ECollisionEnabled::NoCollision ||
 				PhysicsAsset->CollisionDisableTable.Find(Key))
 			{
 				NoCollisionBodies.Add(i);
@@ -717,7 +724,7 @@ void FPhATSharedData::CopyBody()
 {
 	check(SelectedBodies.Num() == 1);
 
-	CopiedBodySetup = PhysicsAsset->BodySetup[GetSelectedBody()->Index];
+	CopiedBodySetup = PhysicsAsset->SkeletalBodySetups[GetSelectedBody()->Index];
 }
 
 void FPhATSharedData::PasteBodyProperties()
@@ -741,14 +748,14 @@ void FPhATSharedData::PasteBodyProperties()
 		// Copy setup/instance properties - based on what we are viewing.
 		if (!bShowInstanceProps)
 		{
-			UBodySetup* ToBodySetup = PhysicsAsset->BodySetup[SelectedBodies[i].Index];
+			UBodySetup* ToBodySetup = PhysicsAsset->SkeletalBodySetups[SelectedBodies[i].Index];
 			UBodySetup* FromBodySetup = CopiedBodySetup;
 			ToBodySetup->Modify();
 			ToBodySetup->CopyBodyPropertiesFrom(FromBodySetup);
 		}
 		else
 		{
-			FBodyInstance* ToBodyInstance = &PhysicsAsset->BodySetup[SelectedBodies[i].Index]->DefaultInstance;
+			FBodyInstance* ToBodyInstance = &PhysicsAsset->SkeletalBodySetups[SelectedBodies[i].Index]->DefaultInstance;
 			FBodyInstance* FromBodyInstance = &CopiedBodySetup->DefaultInstance;
 			ToBodyInstance->CopyBodyInstancePropertiesFrom(FromBodyInstance);
 		}
@@ -804,11 +811,11 @@ bool FPhATSharedData::WeldSelectedBodies(bool bWeld /* = true */)
 	const FSelection& Body0 = SelectedBodies[BodyIndex0];
 	const FSelection& Body1 = SelectedBodies[BodyIndex1];
 
-	FName Bone0Name = PhysicsAsset->BodySetup[Body0.Index]->BoneName;
+	FName Bone0Name = PhysicsAsset->SkeletalBodySetups[Body0.Index]->BoneName;
 	int32 Bone0Index = EditorSkelMesh->RefSkeleton.FindBoneIndex(Bone0Name);
 	check(Bone0Index != INDEX_NONE);
 
-	FName Bone1Name = PhysicsAsset->BodySetup[Body1.Index]->BoneName;
+	FName Bone1Name = PhysicsAsset->SkeletalBodySetups[Body1.Index]->BoneName;
 	int32 Bone1Index = EditorSkelMesh->RefSkeleton.FindBoneIndex(Bone1Name);
 	check(Bone1Index != INDEX_NONE);
 
@@ -832,7 +839,7 @@ bool FPhATSharedData::WeldSelectedBodies(bool bWeld /* = true */)
 		ChildPrimitiveType = Body1.PrimitiveType;
 		ParentPrimitiveIndex = Body0.PrimitiveIndex;
 		//Child geoms get appended so just add it. This is kind of a hack but this whole indexing scheme needs to be rewritten anyway
-		ChildPrimitiveIndex = Body1.PrimitiveIndex + PhysicsAsset->BodySetup[Body0.Index]->AggGeom.GetElementCount(ChildPrimitiveType);
+		ChildPrimitiveIndex = Body1.PrimitiveIndex + PhysicsAsset->SkeletalBodySetups[Body0.Index]->AggGeom.GetElementCount(ChildPrimitiveType);
 
 		bCanWeld = true;
 	}else if(PhysicsAsset->FindControllingBodyIndex(EditorSkelMesh, Bone0ParentIndex) == Body1.Index)
@@ -844,7 +851,7 @@ bool FPhATSharedData::WeldSelectedBodies(bool bWeld /* = true */)
 		ChildPrimitiveType = Body0.PrimitiveType;
 		ParentPrimitiveIndex = Body1.PrimitiveIndex;
 		//Child geoms get appended so just add it. This is kind of a hack but this whole indexing scheme needs to be rewritten anyway
-		ChildPrimitiveIndex = Body0.PrimitiveIndex + PhysicsAsset->BodySetup[Body1.Index]->AggGeom.GetElementCount(ChildPrimitiveType);
+		ChildPrimitiveIndex = Body0.PrimitiveIndex + PhysicsAsset->SkeletalBodySetups[Body1.Index]->AggGeom.GetElementCount(ChildPrimitiveType);
 
 		bCanWeld = true;
 	}
@@ -865,8 +872,8 @@ bool FPhATSharedData::WeldSelectedBodies(bool bWeld /* = true */)
 		PhysicsAsset->Modify();
 
 		// .. the parent and child bodies..
-		PhysicsAsset->BodySetup[ParentBodyIndex]->Modify();
-		PhysicsAsset->BodySetup[ChildBodyIndex]->Modify();
+		PhysicsAsset->SkeletalBodySetups[ParentBodyIndex]->Modify();
+		PhysicsAsset->SkeletalBodySetups[ChildBodyIndex]->Modify();
 
 		// .. and any constraints of the 'child' body..
 		TArray<int32>	Constraints;
@@ -906,8 +913,8 @@ void FPhATSharedData::InitConstraintSetup(UPhysicsConstraintTemplate* Constraint
 
 	ConstraintSetup->Modify(false);
 
-	UBodySetup* ChildBodySetup = PhysicsAsset->BodySetup[ ChildBodyIndex ];
-	UBodySetup* ParentBodySetup = PhysicsAsset->BodySetup[ ParentBodyIndex ];
+	UBodySetup* ChildBodySetup = PhysicsAsset->SkeletalBodySetups[ ChildBodyIndex ];
+	UBodySetup* ParentBodySetup = PhysicsAsset->SkeletalBodySetups[ ParentBodyIndex ];
 	check(ChildBodySetup && ParentBodySetup);
 
 	const int32 ChildBoneIndex = EditorSkelMesh->RefSkeleton.FindBoneIndex(ChildBodySetup->BoneName);
@@ -931,8 +938,8 @@ void FPhATSharedData::InitConstraintSetup(UPhysicsConstraintTemplate* Constraint
 
 	ConstraintSetup->DefaultInstance.ConstraintBone2 = ParentBodySetup->BoneName;
 	ConstraintSetup->DefaultInstance.Pos2 = RelTM.GetOrigin();
-	ConstraintSetup->DefaultInstance.PriAxis2 = RelTM.GetScaledAxis( EAxis::X );
-	ConstraintSetup->DefaultInstance.SecAxis2 = RelTM.GetScaledAxis( EAxis::Y );
+	ConstraintSetup->DefaultInstance.PriAxis2 = RelTM.GetUnitAxis( EAxis::X );
+	ConstraintSetup->DefaultInstance.SecAxis2 = RelTM.GetUnitAxis( EAxis::Y );
 
 	// Disable collision between constrained bodies by default.
 	SetCollisionBetween(ChildBodyIndex, ParentBodyIndex, false);
@@ -956,7 +963,7 @@ void FPhATSharedData::MakeNewBody(int32 NewBoneIndex, bool bAutoSelect)
 
 	// Create the physics body.
 	NewBodyIndex = FPhysicsAssetUtils::CreateNewBody(PhysicsAsset, NewBoneName);
-	UBodySetup* BodySetup = PhysicsAsset->BodySetup[ NewBodyIndex ];
+	UBodySetup* BodySetup = PhysicsAsset->SkeletalBodySetups[ NewBodyIndex ];
 	check(BodySetup->BoneName == NewBoneName);
 	
 	BodySetup->Modify();
@@ -988,7 +995,7 @@ void FPhATSharedData::MakeNewBody(int32 NewBoneIndex, bool bAutoSelect)
 			// If the child bone is physical, it may require fixing up in regards to constraints
 			if (ChildBodyIndex != INDEX_NONE)
 			{
-				UBodySetup* ChildBody = PhysicsAsset->BodySetup[ ChildBodyIndex ];
+				UBodySetup* ChildBody = PhysicsAsset->SkeletalBodySetups[ ChildBodyIndex ];
 				check(ChildBody);
 
 				int32 ConstraintIndex = PhysicsAsset->FindConstraintIndex(ChildBody->BoneName);
@@ -1133,21 +1140,21 @@ void FPhATSharedData::CycleCurrentConstraintActive()
 		UPhysicsConstraintTemplate* ConstraintTemplate = PhysicsAsset->ConstraintSetup[GetSelectedConstraint()->Index];
 		FConstraintInstance & DefaultInstance = ConstraintTemplate->DefaultInstance;
 
-		if(DefaultInstance.AngularSwing1Motion != ACM_Limited && DefaultInstance.AngularSwing2Motion != ACM_Limited)
+		if(DefaultInstance.GetAngularSwing1Motion() != ACM_Limited && DefaultInstance.GetAngularSwing2Motion() != ACM_Limited)
 		{
-			DefaultInstance.AngularSwing1Motion = ACM_Limited;
-			DefaultInstance.AngularSwing2Motion = ACM_Locked;
-			DefaultInstance.AngularTwistMotion = ACM_Locked;
-		}else if(DefaultInstance.AngularSwing2Motion != ACM_Limited && DefaultInstance.AngularTwistMotion != ACM_Limited)
+			DefaultInstance.SetAngularSwing1Motion(ACM_Limited);
+			DefaultInstance.SetAngularSwing2Motion(ACM_Locked);
+			DefaultInstance.SetAngularTwistMotion(ACM_Locked);
+		}else if(DefaultInstance.GetAngularSwing2Motion() != ACM_Limited && DefaultInstance.GetAngularTwistMotion() != ACM_Limited)
 		{
-			DefaultInstance.AngularSwing1Motion = ACM_Locked;
-			DefaultInstance.AngularSwing2Motion = ACM_Limited;
-			DefaultInstance.AngularTwistMotion = ACM_Locked;
+			DefaultInstance.SetAngularSwing1Motion(ACM_Locked);
+			DefaultInstance.SetAngularSwing2Motion(ACM_Limited);
+			DefaultInstance.SetAngularTwistMotion(ACM_Locked);
 		}else
 		{
-			DefaultInstance.AngularSwing1Motion = ACM_Locked;
-			DefaultInstance.AngularSwing2Motion = ACM_Locked;
-			DefaultInstance.AngularTwistMotion = ACM_Limited;
+			DefaultInstance.SetAngularSwing1Motion(ACM_Locked);
+			DefaultInstance.SetAngularSwing2Motion(ACM_Locked);
+			DefaultInstance.SetAngularTwistMotion(ACM_Limited);
 		}
 		
 	}
@@ -1162,13 +1169,13 @@ void FPhATSharedData::ToggleConstraint(EPhATConstraintType Constraint)
 
 		if(Constraint == PCT_Swing1)
 		{
-			DefaultInstance.AngularSwing1Motion = DefaultInstance.AngularSwing1Motion == ACM_Limited ? ACM_Locked : ACM_Limited;
+			DefaultInstance.SetAngularSwing1Motion(DefaultInstance.GetAngularSwing1Motion() == ACM_Limited ? ACM_Locked : ACM_Limited);
 		}else if(Constraint == PCT_Swing2)
 		{
-			DefaultInstance.AngularSwing2Motion = DefaultInstance.AngularSwing2Motion == ACM_Limited ? ACM_Locked : ACM_Limited;
+			DefaultInstance.SetAngularSwing2Motion(DefaultInstance.GetAngularSwing2Motion() == ACM_Limited ? ACM_Locked : ACM_Limited);
 		}else
 		{
-			DefaultInstance.AngularTwistMotion = DefaultInstance.AngularTwistMotion == ACM_Limited ? ACM_Locked : ACM_Limited;
+			DefaultInstance.SetAngularTwistMotion(DefaultInstance.GetAngularTwistMotion() == ACM_Limited ? ACM_Locked : ACM_Limited);
 		}
 		
 	}
@@ -1182,7 +1189,7 @@ void FPhATSharedData::DeleteBody(int32 DelBodyIndex, bool bRefreshComponent)
 	PhysicsAsset->Modify();
 
 	// .. the body..
-	UBodySetup * BodySetup = PhysicsAsset->BodySetup[DelBodyIndex];
+	UBodySetup * BodySetup = PhysicsAsset->SkeletalBodySetups[DelBodyIndex];
 	BodySetup->Modify();	
 
 	// .. and any constraints to the body.
@@ -1199,7 +1206,7 @@ void FPhATSharedData::DeleteBody(int32 DelBodyIndex, bool bRefreshComponent)
 	{
 		int32 ParentBodyIndex = PhysicsAsset->FindParentBodyIndex(EditorSkelMesh, BoneIndex);
 
-		UBodySetup * ParentBody = ParentBodyIndex != INDEX_NONE ? PhysicsAsset->BodySetup[ParentBodyIndex] : NULL;
+		UBodySetup * ParentBody = ParentBodyIndex != INDEX_NONE ? PhysicsAsset->SkeletalBodySetups[ParentBodyIndex] : NULL;
 
 		for (const int32 ConstraintIndex : Constraints)
 		{
@@ -1211,7 +1218,7 @@ void FPhATSharedData::DeleteBody(int32 DelBodyIndex, bool bRefreshComponent)
 				//for all constraints that contain a nearest child of this body, create a copy of the constraint between the child and parent
 				for (const int32 BodyBelowIndex : NearestBodiesBelow)
 				{
-					UBodySetup * BodyBelow = PhysicsAsset->BodySetup[BodyBelowIndex];
+					UBodySetup * BodyBelow = PhysicsAsset->SkeletalBodySetups[BodyBelowIndex];
 
 					if (Constraint->DefaultInstance.ConstraintBone1 == BodyBelow->BoneName)
 					{
@@ -1259,7 +1266,7 @@ void FPhATSharedData::DeleteCurrentPrim()
 	TArray<UBodySetup*> BodySetups;
 	for(int32 i=0; i<SelectedBodies.Num(); ++i)
 	{
-		UBodySetup* BodySetup = PhysicsAsset->BodySetup[SelectedBodies[i].Index];
+		UBodySetup* BodySetup = PhysicsAsset->SkeletalBodySetups[SelectedBodies[i].Index];
 		BodySelectionMap.FindOrAdd(BodySetup).Add(SelectedBodies[i]);
 	}
 
@@ -1466,7 +1473,7 @@ void FPhATSharedData::ToggleInstanceProperties()
 	{
 		if (GetSelectedBody())
 		{
-			UBodySetup* BodySetup = PhysicsAsset->BodySetup[GetSelectedBody()->Index];
+			UBodySetup* BodySetup = PhysicsAsset->SkeletalBodySetups[GetSelectedBody()->Index];
 
 			// Set properties dialog to display selected bone (or bone instance) info.
 			SelectionChangedEvent.Broadcast(BodySetup, GetSelectedBody());
@@ -1477,7 +1484,7 @@ void FPhATSharedData::ToggleInstanceProperties()
 void FPhATSharedData::ToggleSimulation()
 {
 	// don't start simulation if there are no bodies or if we are manipulating a body
-	if (PhysicsAsset->BodySetup.Num() == 0 || bManipulating)
+	if (PhysicsAsset->SkeletalBodySetups.Num() == 0 || bManipulating)
 	{
 		return;  
 	}
@@ -1498,6 +1505,7 @@ void FPhATSharedData::EnableSimulation(bool bEnableSimulation)
 		EditorSkelComp->SetSimulatePhysics(true);
 		EditorSkelComp->SetPhysicsBlendWeight(EditorSimOptions->PhysicsBlend);
 		EditorSkelComp->InitArticulated(PreviewScene.GetWorld()->GetPhysicsScene());
+		PhysicalAnimationComponent->SetSkeletalMeshComponent(EditorSkelComp);
 
 		// Make it start simulating
 		EditorSkelComp->WakeAllRigidBodies();
@@ -1509,6 +1517,7 @@ void FPhATSharedData::EnableSimulation(bool bEnableSimulation)
 	{
 		// Stop any animation and clear node when stopping simulation.
 		EditorSkelComp->SetAnimation(NULL);
+		PhysicalAnimationComponent->SetSkeletalMeshComponent(nullptr);
 
 		// Turn off/remove the physics instance for this thing, and move back to start location.
 		EditorSkelComp->TermArticulated();
@@ -1568,14 +1577,14 @@ void FPhATSharedData::PostUndo()
 	for (int32 BodyIndex = 0; BodyIndex < SelectedBodies.Num() && bInvalidSelection == false; ++BodyIndex)
 	{
 		const FSelection& Selection = SelectedBodies[BodyIndex];
-		if (PhysicsAsset->BodySetup.Num() <= Selection.Index)
+		if (PhysicsAsset->SkeletalBodySetups.Num() <= Selection.Index)
 		{
 			bInvalidSelection = true;
 		}
 		else
 		{
 			
-			if (UBodySetup * BodySetup = PhysicsAsset->BodySetup[Selection.Index])
+			if (UBodySetup * BodySetup = PhysicsAsset->SkeletalBodySetups[Selection.Index])
 			{
 				switch (Selection.PrimitiveType)
 				{

@@ -136,12 +136,12 @@ FReply STransformHandle::OnMouseMove(const FGeometry& MyGeometry, const FPointer
 		ETransformMode::Type TransformMode = Designer->GetTransformMode();
 		if ( TransformMode == ETransformMode::Render )
 		{
-			FWidgetTransform RenderTransform = Preview->RenderTransform;
+			FWidgetTransform PreviewRenderTransform = Preview->RenderTransform;
 
 			static const FName RenderTransformName(TEXT("RenderTransform"));
 
-			FObjectEditorUtils::SetPropertyValue<UWidget, FWidgetTransform>(Preview, RenderTransformName, RenderTransform);
-			FObjectEditorUtils::SetPropertyValue<UWidget, FWidgetTransform>(Template, RenderTransformName, RenderTransform);
+			FObjectEditorUtils::SetPropertyValue<UWidget, FWidgetTransform>(Preview, RenderTransformName, PreviewRenderTransform);
+			FObjectEditorUtils::SetPropertyValue<UWidget, FWidgetTransform>(Template, RenderTransformName, PreviewRenderTransform);
 		}
 	}
 

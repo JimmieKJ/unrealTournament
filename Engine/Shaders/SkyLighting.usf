@@ -74,38 +74,47 @@ void SkyLightDiffusePS(
 		
 		float ScalarFactors = lerp(SkyVisibility, 1, OcclusionTintAndMinOcclusion.w);
 
+		float3 DiffuseColor = GBuffer.DiffuseColor;
+
+		BRANCH 
 		if (ShadingModelId == SHADINGMODELID_TWOSIDED_FOLIAGE)
 		{
-			float3 SubsurfaceLookup = GetSkySHDiffuse(-GBuffer.WorldNormal) * Frame.SkyLightColor.rgb;
+			float3 SubsurfaceLookup = GetSkySHDiffuse(-GBuffer.WorldNormal) * View.SkyLightColor.rgb;
 			float3 SubsurfaceColor = ExtractSubsurfaceColor(GBuffer);
 			Lighting += ScalarFactors * SubsurfaceLookup * SubsurfaceColor;
 		}
 
-		float3 DiffuseColor = GBuffer.DiffuseColor;
+		if (ShadingModelId == SHADINGMODELID_SUBSURFACE || ShadingModelId == SHADINGMODELID_PREINTEGRATED_SKIN)
+		{
+			float3 SubsurfaceColor = ExtractSubsurfaceColor(GBuffer);
+			// Add subsurface energy to diffuse
+			DiffuseColor += SubsurfaceColor;
+		}
 
-		BRANCH if( GBuffer.ShadingModelID == SHADINGMODELID_HAIR )
+		BRANCH 
+		if (ShadingModelId == SHADINGMODELID_HAIR)
 		{
 			float3 N = GBuffer.WorldNormal;
 			float3 V = -normalize(mul(float4(UVAndScreenPos.zw, 1, 0), View.ScreenToWorld).xyz);
-			float3 L = normalize( V - N * dot(V,N) );
+			float3 L = normalize(V - N * dot(V,N));
 			SkyLightingNormal = L;
 			DiffuseColor = PI * HairShading( GBuffer, L, V, N, 1, 0, 0.2, uint2(0,0) );
 		}
 
-		BRANCH if( GBuffer.ShadingModelID == SHADINGMODELID_CLOTH )
+		if (ShadingModelId == SHADINGMODELID_CLOTH)
 		{
-			DiffuseColor +=  GBuffer.CustomData.rgb * GBuffer.CustomData.a;
+			DiffuseColor += GBuffer.CustomData.rgb * GBuffer.CustomData.a;
 		}
 
 		// Compute the preconvolved incoming lighting with the bent normal direction
-		float3 DiffuseLookup = GetSkySHDiffuse(SkyLightingNormal) * Frame.SkyLightColor.rgb;
+		float3 DiffuseLookup = GetSkySHDiffuse(SkyLightingNormal) * View.SkyLightColor.rgb;
 
 		// darken by DirectionalOcclusion feature from LightPropagationVolume (could be optimized if the feature is not used)
 		float DirectionalOcclusion = ScreenSpaceData.DirectionalOcclusion.r;
 		DiffuseLookup *= DirectionalOcclusion;
 
 		// Apply AO to the sky diffuse and account for darkening due to the geometry term
-		Lighting += (ScalarFactors * DotProductFactor) * DiffuseLookup * DiffuseColor + (1 - SkyVisibility) * OcclusionTintAndMinOcclusion.xyz;
+		Lighting += ((ScalarFactors * DotProductFactor) * DiffuseLookup + (1 - SkyVisibility) * OcclusionTintAndMinOcclusion.xyz) * DiffuseColor;
 
 		Lighting += DiffuseIrradiance * GBuffer.DiffuseColor * (GBuffer.GBufferAO * ScreenSpaceData.AmbientOcclusion);
 
@@ -121,7 +130,9 @@ void SkyLightDiffusePS(
 	{
 		FLightAccumulator LightAccumulator = (FLightAccumulator)0;
 
-		LightAccumulator_Add(LightAccumulator, Lighting, 0, 1.0f);
+		const bool bNeedsSeparateSubsurfaceLightAccumulation = ShadingModelId == SHADINGMODELID_SUBSURFACE_PROFILE;
+
+		LightAccumulator_Add(LightAccumulator, Lighting, 0, 1.0f, bNeedsSeparateSubsurfaceLightAccumulation);
 		OutColor = LightAccumulator_GetResult(LightAccumulator);
 	}
 }

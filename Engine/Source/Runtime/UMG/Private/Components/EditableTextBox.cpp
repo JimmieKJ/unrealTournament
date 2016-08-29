@@ -120,6 +120,16 @@ void UEditableTextBox::ClearError()
 	}
 }
 
+bool UEditableTextBox::HasError() const
+{
+	if ( MyEditableTextBlock.IsValid() )
+	{
+		return MyEditableTextBlock->HasError();
+	}
+
+	return false;
+}
+
 void UEditableTextBox::HandleOnTextChanged(const FText& InText)
 {
 	Text = InText;

@@ -7,6 +7,8 @@
 #include "NotificationManager.h"
 #include "SNotificationList.h"
 #include "GenericCommands.h"
+#include "IAnalyticsProvider.h"
+#include "EngineAnalytics.h"
 
 DEFINE_LOG_CATEGORY(LogMainFrame);
 #define LOCTEXT_NAMESPACE "FMainFrameModule"
@@ -41,7 +43,7 @@ const FText StaticGetApplicationTitle( const bool bIncludeGameName )
 /* IMainFrameModule implementation
  *****************************************************************************/
 
-void FMainFrameModule::CreateDefaultMainFrame( const bool bStartImmersivePIE )
+void FMainFrameModule::CreateDefaultMainFrame( const bool bStartImmersive, const bool bStartPIE )
 {
 	if (!IsWindowInitialized())
 	{
@@ -74,6 +76,12 @@ void FMainFrameModule::CreateDefaultMainFrame( const bool bStartImmersivePIE )
 		}
 		else
 		{
+			if( bStartImmersive )
+			{
+				// Start maximized if we are in immersive mode
+				DefaultWindowLocation.InitiallyMaximized = true;
+			}
+
 			const bool bIncludeGameName = true;
 			WindowTitle = GetApplicationTitle( bIncludeGameName );
 		}
@@ -194,7 +202,7 @@ void FMainFrameModule::CreateDefaultMainFrame( const bool bStartImmersivePIE )
 		MainFrameHandler->OnMainFrameGenerated( MainTab, RootWindow );
 		
 		// Show the window!
-		MainFrameHandler->ShowMainFrameWindow( RootWindow, bStartImmersivePIE );
+		MainFrameHandler->ShowMainFrameWindow( RootWindow, bStartImmersive, bStartPIE );
 		
 		MRUFavoritesList = new FMainMRUFavoritesList;
 		MRUFavoritesList->ReadFromINI();
@@ -504,7 +512,7 @@ TSharedRef<SWidget> FMainFrameModule::MakeDeveloperTools() const
 					SNew(SBox)
 					.Padding( FMargin( 4.0f, 0.0f, 0.0f, 0.0f ) )
 					[
-						bUseSuperSearch ? SuperSearchModule.MakeSearchBox( ExposedEditableTextBox, GEditorSettingsIni ) : OutputLogModule.MakeConsoleInputBox( ExposedEditableTextBox )
+						bUseSuperSearch ? SuperSearchModule.MakeSearchBox( ExposedEditableTextBox ) : OutputLogModule.MakeConsoleInputBox( ExposedEditableTextBox )
 					]
 				]
 			// Editor live streaming toggle button
@@ -851,7 +859,7 @@ void FMainFrameModule::HandleCodeAccessorLaunched( const bool WasSuccessful )
 }
 
 
-void FMainFrameModule::HandleCodeAccessorLaunching( )
+void FMainFrameModule::HandleCodeAccessorLaunching()
 {
 	if (CodeAccessorNotificationPtr.IsValid())
 	{
@@ -870,7 +878,7 @@ void FMainFrameModule::HandleCodeAccessorLaunching( )
 
 void FMainFrameModule::HandleCodeAccessorOpenFileFailed(const FString& Filename)
 {
-	auto* Info = new FNotificationInfo(FText::Format(LOCTEXT("FileNotFound", "Could not find code file ({Filename})"), FText::FromString(Filename)));
+	auto* Info = new FNotificationInfo(FText::Format(LOCTEXT("FileNotFound", "Could not find code file, {0}"), FText::FromString(Filename)));
 	Info->ExpireDuration = 3.0f;
 	FSlateNotificationManager::Get().QueueNotification(Info);
 }

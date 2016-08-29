@@ -167,7 +167,7 @@ bool CreateFromSkeletalMeshInternal(UPhysicsAsset* PhysicsAsset, USkeletalMesh* 
 		{
 			// Go ahead and make this bone physical.
 			int32 NewBodyIndex = CreateNewBody(PhysicsAsset, BoneName);
-			UBodySetup* bs = PhysicsAsset->BodySetup[NewBodyIndex];
+			UBodySetup* bs = PhysicsAsset->SkeletalBodySetups[NewBodyIndex];
 			check(bs->BoneName == BoneName);
 
 			// Fill in collision info for this bone.
@@ -183,9 +183,9 @@ bool CreateFromSkeletalMeshInternal(UPhysicsAsset* PhysicsAsset, USkeletalMesh* 
 				FMatrix RelTM = SkelMesh->GetRefPoseMatrix(i);
 
 				// set angular constraint mode
-				CS->DefaultInstance.AngularSwing1Motion = Params.AngularConstraintMode;
-				CS->DefaultInstance.AngularSwing2Motion = Params.AngularConstraintMode;
-				CS->DefaultInstance.AngularTwistMotion = Params.AngularConstraintMode;
+				CS->DefaultInstance.SetAngularSwing1Motion(Params.AngularConstraintMode);
+				CS->DefaultInstance.SetAngularSwing2Motion(Params.AngularConstraintMode);
+				CS->DefaultInstance.SetAngularTwistMotion(Params.AngularConstraintMode);
 
 				// Place joint at origin of child
 				CS->DefaultInstance.ConstraintBone1 = BoneName;
@@ -211,7 +211,7 @@ bool CreateFromSkeletalMeshInternal(UPhysicsAsset* PhysicsAsset, USkeletalMesh* 
 		}
 	}
 
-	return PhysicsAsset->BodySetup.Num() > 0;
+	return PhysicsAsset->SkeletalBodySetups.Num() > 0;
 }
 
 bool CreateFromSkeletalMesh(UPhysicsAsset* PhysicsAsset, USkeletalMesh* SkelMesh, FPhysAssetCreateParams& Params, FText& OutErrorMessage)
@@ -464,9 +464,8 @@ bool CreateCollisionFromBone( UBodySetup* bs, USkeletalMesh* skelMesh, int32 Bon
 	else if (Params.GeomType == EFG_MultiConvexHull)
 	{
 		// Just feed in all of the verts which are affected by this bone
-		int32 ChunkIndex;
+		int32 SectionIndex;
 		int32 VertIndex;
-		bool bSoftVertex;
 		bool bHasExtraInfluences;
 
 		// Storage for the hull generation
@@ -476,16 +475,21 @@ bool CreateCollisionFromBone( UBodySetup* bs, USkeletalMesh* skelMesh, int32 Bon
 
 		// Get the static LOD from the skeletal mesh and loop through the chunks		
 		FStaticLODModel& LODModel = skelMesh->GetSourceModel();
-		TArray<uint32> indexBufferInOrder;
-		LODModel.MultiSizeIndexContainer.GetIndexBuffer( indexBufferInOrder );
-		uint32 indexBufferSize = indexBufferInOrder.Num();
-		uint32 currentIndex = 0;
+		TArray<uint32> IndexBufferInOrder;
+		LODModel.MultiSizeIndexContainer.GetIndexBuffer(IndexBufferInOrder);
+		uint32 IndexBufferSize = IndexBufferInOrder.Num();
+		uint32 CurrentIndex = 0;
 
 		// Add all of the verts and indices to a list I can loop over
-		for ( uint32 index = 0; index < indexBufferSize; index++ )
+		for ( uint32 Index = 0; Index < IndexBufferSize; Index++ )
 		{
-			LODModel.GetChunkAndSkinType(indexBufferInOrder[index], ChunkIndex, VertIndex, bSoftVertex, bHasExtraInfluences);
-			const FSkelMeshChunk& Chunk = LODModel.Chunks[ChunkIndex];
+			LODModel.GetSectionFromVertexIndex(IndexBufferInOrder[Index], SectionIndex, VertIndex, bHasExtraInfluences);
+			const FSkelMeshSection& Section = LODModel.Sections[SectionIndex];
+			const FSoftSkinVertex& SoftVert = Section.SoftVertices[VertIndex];
+
+			uint8 VertBone = 0;
+			bool bSoftVertex = !SoftVert.GetRigidWeightBone(VertBone);
+
 			if ( bSoftVertex )
 			{
 				// We dont want to support soft verts, only rigid
@@ -496,9 +500,8 @@ bool CreateCollisionFromBone( UBodySetup* bs, USkeletalMesh* skelMesh, int32 Bon
 			}
 
 			// Using the same code in GetSkinnedVertexPosition
-			const FRigidSkinVertex& RigidVert = Chunk.RigidVertices[VertIndex];
-			const int LocalBoneIndex = Chunk.BoneMap[RigidVert.Bone];
-			const FVector& VertPosition = skelMesh->RefBasesInvMatrix[LocalBoneIndex].TransformPosition(RigidVert.Position);
+			const int LocalBoneIndex = Section.BoneMap[VertBone];
+			const FVector& VertPosition = skelMesh->RefBasesInvMatrix[LocalBoneIndex].TransformPosition(SoftVert.Position);
 
 			if ( LocalBoneIndex == BoneIndex )
 			{
@@ -508,8 +511,8 @@ bool CreateCollisionFromBone( UBodySetup* bs, USkeletalMesh* skelMesh, int32 Bon
 				}
 				else
 				{
-					Indices.Add( currentIndex );
-					IndexMap.Add( VertIndex, currentIndex++ );
+					Indices.Add( CurrentIndex );
+					IndexMap.Add( VertIndex, CurrentIndex++ );
 					Verts.Add( VertPosition );					
 				}
 			}
@@ -556,13 +559,13 @@ void WeldBodies(UPhysicsAsset* PhysAsset, int32 BaseBodyIndex, int32 AddBodyInde
 		return;
 	}
 
-	UBodySetup* Body1 = PhysAsset->BodySetup[BaseBodyIndex];
+	UBodySetup* Body1 = PhysAsset->SkeletalBodySetups[BaseBodyIndex];
 	int32 Bone1Index = SkelComp->SkeletalMesh->RefSkeleton.FindBoneIndex(Body1->BoneName);
 	check(Bone1Index != INDEX_NONE);
 	FTransform Bone1TM = SkelComp->GetBoneTransform(Bone1Index);
 	Bone1TM.RemoveScaling();
 
-	UBodySetup* Body2 = PhysAsset->BodySetup[AddBodyIndex];
+	UBodySetup* Body2 = PhysAsset->SkeletalBodySetups[AddBodyIndex];
 	int32 Bone2Index = SkelComp->SkeletalMesh->RefSkeleton.FindBoneIndex(Body2->BoneName);
 	check(Bone2Index != INDEX_NONE);
 	FTransform Bone2TM = SkelComp->GetBoneTransform(Bone2Index);
@@ -607,7 +610,7 @@ void WeldBodies(UPhysicsAsset* PhysAsset, int32 BaseBodyIndex, int32 AddBodyInde
 	// We need to update the collision disable table to shift any pairs that included body2 to include body1 instead.
 	// We remove any pairs that include body2 & body1.
 
-	for(int32 i=0; i<PhysAsset->BodySetup.Num(); i++)
+	for(int32 i=0; i<PhysAsset->SkeletalBodySetups.Num(); i++)
 	{
 		if(i == AddBodyIndex) 
 			continue;
@@ -723,13 +726,13 @@ int32 CreateNewBody(UPhysicsAsset* PhysAsset, FName InBodyName)
 		return BodyIndex; // if we already have one for this name - just return that.
 	}
 
-	UBodySetup* NewBodySetup = NewObject<UBodySetup>(PhysAsset, NAME_None, RF_Transactional);
+	USkeletalBodySetup* NewBodySetup = NewObject<USkeletalBodySetup>(PhysAsset, NAME_None, RF_Transactional);
 	// make default to be use complex as simple 
 	NewBodySetup->CollisionTraceFlag = CTF_UseSimpleAsComplex;
 	// newly created bodies default to simulating
 	NewBodySetup->PhysicsType = PhysType_Default;
 
-	int32 BodySetupIndex = PhysAsset->BodySetup.Add( NewBodySetup );
+	int32 BodySetupIndex = PhysAsset->SkeletalBodySetups.Add( NewBodySetup );
 	NewBodySetup->BoneName = InBodyName;
 
 	PhysAsset->UpdateBodySetupIndexMap();
@@ -748,7 +751,7 @@ void DestroyBody(UPhysicsAsset* PhysAsset, int32 bodyIndex)
 	// All elements which refer to a body with index >bodyIndex are adjusted. 
 
 	TMap<FRigidBodyIndexPair,bool> NewCDT;
-	for(int32 i=1; i<PhysAsset->BodySetup.Num(); i++)
+	for(int32 i=1; i<PhysAsset->SkeletalBodySetups.Num(); i++)
 	{
 		for(int32 j=0; j<i; j++)
 		{
@@ -783,7 +786,7 @@ void DestroyBody(UPhysicsAsset* PhysAsset, int32 bodyIndex)
 	}
 
 	// Remove pointer from array. Actual objects will be garbage collected.
-	PhysAsset->BodySetup.RemoveAt(bodyIndex);
+	PhysAsset->SkeletalBodySetups.RemoveAt(bodyIndex);
 
 	PhysAsset->UpdateBodySetupIndexMap();
 	// Update body indices.

@@ -8,6 +8,10 @@
 #include "Material.usf"
 #include "VertexFactory.usf"
 
+#if OUTPUT_PIXEL_DEPTH_OFFSET
+bool bApplyDepthOffset;
+#endif
+
 void Main(
 #if !MATERIALBLENDING_SOLID || OUTPUT_PIXEL_DEPTH_OFFSET
 	FVertexFactoryInterpolantsVSToPS FactoryInterpolants,
@@ -19,13 +23,12 @@ void Main(
 	out float4 OutColor : SV_Target0
 	)
 {
-#if INSTANCED_STEREO
-	ResolvedView = ResolveView(GetEyeIndex(FactoryInterpolants.PackedEyeIndex));
-#else
-	ResolvedView = ResolveView();
-#endif
-
 #if !MATERIALBLENDING_SOLID || OUTPUT_PIXEL_DEPTH_OFFSET
+	#if INSTANCED_STEREO
+		ResolvedView = ResolveView(GetEyeIndex(FactoryInterpolants.PackedEyeIndex));
+	#else
+		ResolvedView = ResolveView();
+	#endif
 
 	FMaterialPixelParameters MaterialParameters = GetMaterialPixelParameters(FactoryInterpolants, SvPosition);
 	FPixelMaterialInputs PixelMaterialInputs;
@@ -33,6 +36,7 @@ void Main(
 
 	#if OUTPUT_PIXEL_DEPTH_OFFSET
 	ApplyPixelDepthOffsetToMaterialParameters(MaterialParameters, PixelMaterialInputs, OutDepth);
+	OutDepth = bApplyDepthOffset ? OutDepth : SvPosition.z;
 	#endif
 
 	GetMaterialCoverageAndClipping(MaterialParameters, PixelMaterialInputs);

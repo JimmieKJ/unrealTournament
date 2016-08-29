@@ -2,7 +2,11 @@
 
 #pragma once
 
-#include "ByteKeyArea.h"
+#include "PropertySection.h"
+
+
+class FByteKeyArea;
+class UMovieSceneSection;
 
 
 /**

@@ -34,6 +34,8 @@ public:
 		Set("LevelSequenceEditor.PossessNewActor.Small", new IMAGE_BRUSH("Icon_Actor_To_Sequencer_16x", Icon16x16));
 		Set("LevelSequenceEditor.CreateNewLevelSequenceInLevel", new IMAGE_BRUSH("CreateNewLevelSequenceInLevel_16x", Icon16x16));
 		Set("LevelSequenceEditor.CreateNewLevelSequenceInLevel.Small", new IMAGE_BRUSH("CreateNewLevelSequenceInLevel_16x", Icon16x16));
+		Set("LevelSequenceEditor.CreateNewMasterSequenceInLevel", new IMAGE_BRUSH("CreateNewMasterSequenceInLevel_16x", Icon16x16));
+		Set("LevelSequenceEditor.CreateNewMasterSequenceInLevel.Small", new IMAGE_BRUSH("CreateNewMasterSequenceInLevel_16x", Icon16x16));
 		
 		Set("LevelSequenceEditor.CinematicViewportPlayMarker", new IMAGE_BRUSH("CinematicViewportPlayMarker", FVector2D(11, 6)));
 		Set("LevelSequenceEditor.CinematicViewportRangeStart", new BORDER_BRUSH("CinematicViewportRangeStart", FMargin(1.f,.3f,0.f,.6f)));

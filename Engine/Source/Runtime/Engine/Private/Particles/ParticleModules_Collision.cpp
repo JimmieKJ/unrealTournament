@@ -151,6 +151,14 @@ void UParticleModuleCollision::Spawn(FParticleEmitterInstance* Owner, int32 Offs
 	}
 }
 
+static float GParticleCollisionIgnoreInvisibleTime = .1f;
+static FAutoConsoleVariableRef ParticleCollisionIgnoreInvisibleTime(
+	TEXT("fx.ParticleCollisionIgnoreInvisibleTime"),
+	GParticleCollisionIgnoreInvisibleTime,
+	TEXT("The time a particle system component has to be invisible for to have all collision ignored. \n"),
+	ECVF_Default
+	);
+
 void UParticleModuleCollision::Update(FParticleEmitterInstance* Owner, int32 Offset, float DeltaTime)
 {
 	SCOPE_CYCLE_COUNTER(STAT_ParticleCollisionTime);
@@ -198,7 +206,7 @@ void UParticleModuleCollision::Update(FParticleEmitterInstance* Owner, int32 Off
 
 		// LOD collision based on visibility
 		// This is at the 'emitter instance' level as it will be true or false for the whole instance...
-		if (bCollideOnlyIfVisible && ((World->TimeSeconds - Owner->Component->LastRenderTime) > 0.1f))
+		if (bCollideOnlyIfVisible && ((World->TimeSeconds - Owner->Component->LastRenderTime) > GParticleCollisionIgnoreInvisibleTime))
 		{
 			// no collision if not recently rendered
 			bIgnoreAllCollision = true;
@@ -468,7 +476,7 @@ void UParticleModuleCollision::Update(FParticleEmitterInstance* Owner, int32 Off
 					{
 						Size = OwnerTM.TransformVector(Size);
 					}
-					Particle.Location = Hit.Location + (Size / 2.0f);
+					Particle.Location = Hit.Location;
 					if (LODLevel->RequiredModule->bUseLocalSpace == true)
 					{
 						// We need to transform the location back relative to the PSys.

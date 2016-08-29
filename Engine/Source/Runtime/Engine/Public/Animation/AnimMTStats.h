@@ -7,5 +7,5 @@ DO_ANIMSTAT_PROCESSING(EvaluateAnimInstance);
 DO_ANIMSTAT_PROCESSING(DecompressAnimationPose);
 DO_ANIMSTAT_PROCESSING(BlendPosesInGraph);
 DO_ANIMSTAT_PROCESSING(EvaluateAnimStateMachine);
-DO_ANIMSTAT_PROCESSING(FillSpaceBases);
+DO_ANIMSTAT_PROCESSING(FillComponentSpaceTransforms);
 DO_ANIMSTAT_PROCESSING(ProxyUpdateAnimation);

@@ -3,6 +3,7 @@
 
 #include "UTWeaponAttachment.h"
 #include "Particles/ParticleSystemComponent.h"
+#include "Animation/AnimInstance.h"
 #include "UTWeapAttachment_RocketLauncher.generated.h"
 
 UCLASS(CustomConstructor)
@@ -19,7 +20,7 @@ class UNREALTOURNAMENT_API AUTWeapAttachment_RocketLauncher : public AUTWeaponAt
 	: Super(ObjectInitializer)
 	{
 		RocketLoadLights = ObjectInitializer.CreateOptionalDefaultSubobject<UParticleSystemComponent>(this, FName(TEXT("RocketLoadLights")));
-		RocketLoadLights->AttachParent = Mesh;
+		RocketLoadLights->SetupAttachment(Mesh);
 	}
 
 	virtual void FiringExtraUpdated() override

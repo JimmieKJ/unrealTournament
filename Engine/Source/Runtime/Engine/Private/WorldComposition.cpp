@@ -532,7 +532,7 @@ void UWorldComposition::GetDistanceVisibleLevels(
 
 		bool bIsVisible = false;
 
-		if (OwningWorld->GetNetMode() == NM_DedicatedServer) 
+		if (OwningWorld->IsNetMode(NM_DedicatedServer))
 		{
 			// Dedicated server always loads all distance dependent tiles
 			bIsVisible = true;

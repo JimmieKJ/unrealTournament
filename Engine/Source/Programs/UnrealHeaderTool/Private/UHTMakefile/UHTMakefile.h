@@ -811,6 +811,24 @@ public:
 		MapPropertyProxies[Index].Resolve(MapProperties[Index], *this);
 	}
 
+	void AddSetProperty(FUnrealSourceFile* UnrealSourceFile, USetProperty* SetProperty)
+	{
+		int32 Index = SetProperties.Add(SetProperty);
+		GetHeaderDescriptor(UnrealSourceFile).AddEntry(AddObject(ESerializedObjectType::ESetProperty, Index));
+		SetPropertyIndexes.Add(SetProperty, Index);
+	}
+	void CreateSetProperty(int32 Index)
+	{
+		checkSlow(Index == SetProperties.Num());
+		USetProperty* SetProperty = SetPropertyProxies[Index].CreateSetProperty(*this);
+		Index = SetProperties.Add(SetProperty);
+		SetPropertyIndexes.Add(SetProperty, Index);
+	}
+	void ResolveSetProperty(int32 Index)
+	{
+		SetPropertyProxies[Index].Resolve(SetProperties[Index], *this);
+	}
+
 	void AddArrayProperty(FUnrealSourceFile* UnrealSourceFile, UArrayProperty* ArrayProperty)
 	{
 		int32 Index = ArrayProperties.Add(ArrayProperty);
@@ -1564,6 +1582,10 @@ private:
 	TArray<FMapPropertyArchiveProxy> MapPropertyProxies;
 	TArray<UMapProperty*> MapProperties;
 	TMap<UMapProperty*, int32> MapPropertyIndexes;
+
+	TArray<FSetPropertyArchiveProxy> SetPropertyProxies;
+	TArray<USetProperty*> SetProperties;
+	TMap<USetProperty*, int32> SetPropertyIndexes;
 
 	TArray<FArrayPropertyArchiveProxy> ArrayPropertyProxies;
 	TArray<UArrayProperty*> ArrayProperties;

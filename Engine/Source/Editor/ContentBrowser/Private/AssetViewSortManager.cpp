@@ -182,19 +182,21 @@ protected:
 	FORCEINLINE virtual bool Compare(const TSharedPtr<FAssetViewItem>& A, const TSharedPtr<FAssetViewItem>& B) const override
 	{
 		// Depending if we're sorting ascending or descending it's quicker to flip the compares incase tags are missing
-		const FString* Value1 = bAscending ? StaticCastSharedPtr<FAssetViewAsset>(A)->Data.TagsAndValues.Find(Tag) : StaticCastSharedPtr<FAssetViewAsset>(B)->Data.TagsAndValues.Find(Tag);
-		if (!Value1)
+		FString Value1;
+		const bool bFoundValue1 = bAscending ? StaticCastSharedPtr<FAssetViewAsset>(A)->Data.GetTagValue(Tag, Value1) : StaticCastSharedPtr<FAssetViewAsset>(B)->Data.GetTagValue(Tag, Value1);
+		if (!bFoundValue1)
 		{
 			return true;
 		}
 
-		const FString* Value2 = bAscending ? StaticCastSharedPtr<FAssetViewAsset>(B)->Data.TagsAndValues.Find(Tag) : StaticCastSharedPtr<FAssetViewAsset>(A)->Data.TagsAndValues.Find(Tag);
-		if (!Value2)
+		FString Value2;
+		const bool bFoundValue2 = bAscending ? StaticCastSharedPtr<FAssetViewAsset>(B)->Data.GetTagValue(Tag, Value2) : StaticCastSharedPtr<FAssetViewAsset>(A)->Data.GetTagValue(Tag, Value2);
+		if (!bFoundValue2)
 		{
 			return false;
 		}
 
-		const int32 Result = Value1->Compare(*Value2, ESearchCase::IgnoreCase);
+		const int32 Result = Value1.Compare(Value2, ESearchCase::IgnoreCase);
 		if (Result < 0)
 		{
 			return true;
@@ -217,25 +219,25 @@ protected:
 	FORCEINLINE virtual bool Compare(const TSharedPtr<FAssetViewItem>& A, const TSharedPtr<FAssetViewItem>& B) const override
 	{
 		// Depending if we're sorting ascending or descending it's quicker to flip the compares incase tags are missing
-		const FString* Value1 = bAscending ? StaticCastSharedPtr<FAssetViewAsset>(A)->Data.TagsAndValues.Find(Tag) : StaticCastSharedPtr<FAssetViewAsset>(B)->Data.TagsAndValues.Find(Tag);
-		if (!Value1)
+		float Value1 = 0.0f;
+		const bool bFoundValue1 = bAscending ? StaticCastSharedPtr<FAssetViewAsset>(A)->Data.GetTagValue(Tag, Value1) : StaticCastSharedPtr<FAssetViewAsset>(B)->Data.GetTagValue(Tag, Value1);
+		if (!bFoundValue1)
 		{
 			return true;
 		}
 
-		const FString* Value2 = bAscending ? StaticCastSharedPtr<FAssetViewAsset>(B)->Data.TagsAndValues.Find(Tag) : StaticCastSharedPtr<FAssetViewAsset>(A)->Data.TagsAndValues.Find(Tag);
-		if (!Value2)
+		float Value2 = 0.0f;
+		const bool bFoundValue2 = bAscending ? StaticCastSharedPtr<FAssetViewAsset>(B)->Data.GetTagValue(Tag, Value2) : StaticCastSharedPtr<FAssetViewAsset>(A)->Data.GetTagValue(Tag, Value2);
+		if (!bFoundValue2)
 		{
 			return false;
 		}
 
-		const float Num1 = FCString::Atof(**Value1);
-		const float Num2 = FCString::Atof(**Value2);
-		if (Num1 < Num2)
+		if (Value1 < Value2)
 		{
 			return true;
 		}
-		else if (Num1 > Num2)
+		else if (Value1 > Value2)
 		{
 			return false;
 		}
@@ -253,14 +255,16 @@ protected:
 	FORCEINLINE virtual bool Compare(const TSharedPtr<FAssetViewItem>& A, const TSharedPtr<FAssetViewItem>& B) const override
 	{
 		// Depending if we're sorting ascending or descending it's quicker to flip the compares incase tags are missing
-		const FString* Value1 = bAscending ? StaticCastSharedPtr<FAssetViewAsset>(A)->Data.TagsAndValues.Find(Tag) : StaticCastSharedPtr<FAssetViewAsset>(B)->Data.TagsAndValues.Find(Tag);
-		if (!Value1)
+		FString Value1;
+		const bool bHasFoundValue1 = bAscending ? StaticCastSharedPtr<FAssetViewAsset>(A)->Data.GetTagValue(Tag, Value1) : StaticCastSharedPtr<FAssetViewAsset>(B)->Data.GetTagValue(Tag, Value1);
+		if (!bHasFoundValue1)
 		{
 			return true;
 		}
 
-		const FString* Value2 = bAscending ? StaticCastSharedPtr<FAssetViewAsset>(B)->Data.TagsAndValues.Find(Tag) : StaticCastSharedPtr<FAssetViewAsset>(A)->Data.TagsAndValues.Find(Tag);
-		if (!Value2)
+		FString Value2;
+		const bool bHasFoundValue2 = bAscending ? StaticCastSharedPtr<FAssetViewAsset>(B)->Data.GetTagValue(Tag, Value2) : StaticCastSharedPtr<FAssetViewAsset>(A)->Data.GetTagValue(Tag, Value2);
+		if (!bHasFoundValue2)
 		{
 			return false;
 		}
@@ -268,7 +272,7 @@ protected:
 		float Num1 = 1.f;
 		{
 			TArray<FString> Tokens1;
-			Value1->ParseIntoArray(Tokens1, TEXT("x"), true);
+			Value1.ParseIntoArray(Tokens1, TEXT("x"), true);
 			for (auto TokenIt1 = Tokens1.CreateConstIterator(); TokenIt1; ++TokenIt1)
 			{
 				Num1 *= FCString::Atof(**TokenIt1);
@@ -277,7 +281,7 @@ protected:
 		float Num2 = 1.f;
 		{
 			TArray<FString> Tokens2;
-			Value2->ParseIntoArray(Tokens2, TEXT("x"), true);
+			Value2.ParseIntoArray(Tokens2, TEXT("x"), true);
 			for (auto TokenIt2 = Tokens2.CreateConstIterator(); TokenIt2; ++TokenIt2)
 			{
 				Num2 *= FCString::Atof(**TokenIt2);

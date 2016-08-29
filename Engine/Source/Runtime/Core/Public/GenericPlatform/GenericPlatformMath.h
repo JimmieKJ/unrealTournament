@@ -279,10 +279,12 @@ struct FGenericPlatformMath
 		return InvSqrt( F );
 	}
 
+	/** Return true if value is NaN (not a number). */
 	static FORCEINLINE bool IsNaN( float A ) 
 	{
 		return ((*(uint32*)&A) & 0x7FFFFFFF) > 0x7F800000;
 	}
+	/** Return true if value is finite (not NaN and not Infinity). */
 	static FORCEINLINE bool IsFinite( float A )
 	{
 		return ((*(uint32*)&A) & 0x7F800000) != 0x7F800000;

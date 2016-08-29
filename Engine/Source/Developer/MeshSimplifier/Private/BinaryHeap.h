@@ -157,6 +157,8 @@ void FBinaryHeap< KeyType >::ResizeIndexes( uint32 NewIndexSize )
 
 	if( IndexSize != 0 )
 	{
+		check( NewIndexSize >= IndexSize );
+
 		for( uint32 i = 0; i < IndexSize; i++ )
 		{
 			NewKeys[i] = Keys[i];

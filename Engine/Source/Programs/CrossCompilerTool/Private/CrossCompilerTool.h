@@ -29,6 +29,7 @@ namespace CCT
 		bool bUseNew;
 		bool bList;
 		bool bPreprocessOnly;
+		bool bTestRemoveUnused;
 		bool bPackIntoUBs;
 		bool bUseDX11Clip;
 		bool bFlattenUBs;
@@ -38,6 +39,7 @@ namespace CCT
 		bool bExpandExpressions;
 		bool bFixAtomics;
 		bool bSeparateShaders;
+		bool bUseFullPrecisionInPS;
 
 		FRunInfo();
 		bool Setup(const FString& InOptions, const TArray<FString>& InSwitches);

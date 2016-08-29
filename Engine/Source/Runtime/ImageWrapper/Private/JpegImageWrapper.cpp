@@ -13,10 +13,12 @@
 #endif
 #endif
 
+PRAGMA_DISABLE_SHADOW_VARIABLE_WARNINGS
 #include "jpgd.h"
 #include "jpgd.cpp"
 #include "jpge.h"
 #include "jpge.cpp"
+PRAGMA_ENABLE_SHADOW_VARIABLE_WARNINGS
 
 #ifdef __clang__
 #pragma clang diagnostic pop

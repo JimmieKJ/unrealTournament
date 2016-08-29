@@ -69,22 +69,22 @@ void UInternationalizationConditioningCommandlet::FLocalizationFile::CompareToCo
 			for ( FConfigSection::TIterator It(MySection); It; ++It )
 			{
 				const FName Propname = It.Key();
-				const FString& PropValue = It.Value();
+				const FString& PropValue = It.Value().GetValue();
 
 				FString EscapedPropValue = PropValue.ReplaceQuotesWithEscapedQuotes();
 
 				// Find this key in the counterpart loc file
-				FString* OtherValue = OtherSection->Find(Propname);
+				FConfigValue* OtherValue = OtherSection->Find(Propname);
 				if ( OtherValue != NULL )
 				{
-					FString EscapedOtherValue = *OtherValue->ReplaceQuotesWithEscapedQuotes();
+					FString EscapedOtherValue = OtherValue->GetValue().ReplaceQuotesWithEscapedQuotes();
 
 					// If the counterpart has the same value as we do or is empty, the value is untranslated
-					if( OtherValue->IsEmpty() )
+					if( OtherValue->GetValue().IsEmpty() )
 					{
 						// If the entry is empty we do nothing for the time being.
 					}
-					else if ( PropValue == *OtherValue )
+					else if ( PropValue == OtherValue->GetValue() )
 					{
 						new(IdenticalProperties) FLocalizationFileEntry( Other->GetFilename(), LocSectionName, Propname.ToString(), EscapedPropValue, EscapedPropValue );
 					}
@@ -337,17 +337,12 @@ bool UInternationalizationConditioningCommandlet::ProcessManifest( const FString
 
 	// First we want to see if there is an existing manifest.  If so we will load it up and add our entries there
 	TSharedRef< FInternationalizationManifest > InternationalizationManifest = MakeShareable( new FInternationalizationManifest );
-	FJsonInternationalizationManifestSerializer ManifestSerializer;
 
 	FString ExistingManifestFileName = DestinationPath / ManifestName;
 
 	if( FPaths::FileExists(ExistingManifestFileName) )
 	{
-		TSharedPtr< FJsonObject > ExistingManifestJsonObject = ReadJSONTextFile( ExistingManifestFileName );
-		if( ExistingManifestJsonObject.IsValid() )
-		{
-			ManifestSerializer.DeserializeManifest( ExistingManifestJsonObject.ToSharedRef(), InternationalizationManifest );
-		}
+		FJsonInternationalizationManifestSerializer::DeserializeManifestFromFile( ExistingManifestFileName, InternationalizationManifest );
 	}
 
 	// Now we add our properties to the manifest. 
@@ -357,7 +352,7 @@ bool UInternationalizationConditioningCommandlet::ProcessManifest( const FString
 
 		// We use the file(package) name and the namespace for the manifest namespace so we avoid potential collisions when multiple ini files have entries where the KEY and namespace are the same but the source text is different
 		FString NewNamespace = Prop.Namespace;
-		FContext PropContext;
+		FManifestContext PropContext;
 		PropContext.Key = Prop.Key;
 		PropContext.SourceLocation = NewNamespace;
 		FLocItem Source( Prop.SourceText );
@@ -368,14 +363,19 @@ bool UInternationalizationConditioningCommandlet::ProcessManifest( const FString
 		}
 	}
 
-	TSharedRef<FJsonObject> FinalManifestJsonObj = MakeShareable( new FJsonObject );
-	ManifestSerializer.SerializeManifest( InternationalizationManifest, FinalManifestJsonObj );
-
 	FString DestinationManifestFileName = DestinationPath / ManifestName;
-	WriteJSONToTextFile( FinalManifestJsonObj, DestinationManifestFileName, SourceControlInfo );
+	const bool bDidWriteManifest = FLocalizedAssetSCCUtil::SaveFileWithSCC(SourceControlInfo, DestinationManifestFileName, [&InternationalizationManifest](const FString& InSaveFileName) -> bool
+	{
+		return FJsonInternationalizationManifestSerializer::SerializeManifestToFile(InternationalizationManifest, InSaveFileName);
+	});
+
+	if (!bDidWriteManifest)
+	{
+		UE_LOG(LogInternationalizationConditioningCommandlet, Error, TEXT("Could not save file %s"), *DestinationManifestFileName);
+		return false;
+	}
 
 	LocPairs.Empty();
-
 
 	return true;
 }
@@ -449,7 +449,6 @@ bool UInternationalizationConditioningCommandlet::ProcessArchive( const FString&
 		}
 
 		TSharedRef< FInternationalizationArchive > InternationalizationArchive = MakeShareable( new FInternationalizationArchive );
-		FJsonInternationalizationArchiveSerializer ArchiveSerializer;
 
 		const FString DestinationArchiveFileName = DestinationPath / TargetSubfolder / ArchiveName;
 
@@ -460,11 +459,7 @@ bool UInternationalizationConditioningCommandlet::ProcessArchive( const FString&
 
 			if( FPaths::FileExists(ExistingArchiveFileName) )
 			{
-				TSharedPtr< FJsonObject > ExistingArchiveJsonObject = ReadJSONTextFile( ExistingArchiveFileName );
-				if( ExistingArchiveJsonObject.IsValid() )
-				{
-					ArchiveSerializer.DeserializeArchive( ExistingArchiveJsonObject.ToSharedRef(), InternationalizationArchive );
-				}
+				FJsonInternationalizationArchiveSerializer::DeserializeArchiveFromFile( ExistingArchiveFileName, InternationalizationArchive, nullptr, nullptr );
 			}
 		}
 
@@ -472,13 +467,14 @@ bool UInternationalizationConditioningCommandlet::ProcessArchive( const FString&
 		{
 			FLocalizationFileEntry& Prop = ArchiveProperties[PropIndex];
 			FString NewNamespace = Prop.Namespace;
+			FString NewKey = Prop.Key;
 
 			FLocItem Source( Prop.SourceText );
 			FLocItem Translation( Prop.TranslatedText );
 
-			if( !InternationalizationArchive->AddEntry( NewNamespace, Source, Translation, NULL, false ) )
+			if( !InternationalizationArchive->AddEntry( NewNamespace, NewKey, Source, Translation, NULL, false ) )
 			{
-				TSharedPtr<FArchiveEntry> ExistingConflictEntry = InternationalizationArchive->FindEntryBySource( NewNamespace, Source, NULL );
+				TSharedPtr<FArchiveEntry> ExistingConflictEntry = InternationalizationArchive->FindEntryByKey( NewNamespace, NewKey, NULL );
 
 				if( !ExistingConflictEntry.IsValid() )
 				{
@@ -502,10 +498,12 @@ bool UInternationalizationConditioningCommandlet::ProcessArchive( const FString&
 			}
 		}
 
-		TSharedRef<FJsonObject> FinalArchiveJsonObj = MakeShareable( new FJsonObject );
-		ArchiveSerializer.SerializeArchive( InternationalizationArchive, FinalArchiveJsonObj );
+		const bool bDidWriteArchive = FLocalizedAssetSCCUtil::SaveFileWithSCC(SourceControlInfo, DestinationArchiveFileName, [&InternationalizationArchive](const FString& InSaveFileName) -> bool
+		{
+			return FJsonInternationalizationArchiveSerializer::SerializeArchiveToFile(InternationalizationArchive, InSaveFileName);
+		});
 
-		if( !WriteJSONToTextFile( FinalArchiveJsonObj, DestinationArchiveFileName, SourceControlInfo ) )
+		if (!bDidWriteArchive)
 		{
 			UE_LOG(LogInternationalizationConditioningCommandlet, Error, TEXT("Could not save file %s"), *DestinationArchiveFileName);
 			return false;

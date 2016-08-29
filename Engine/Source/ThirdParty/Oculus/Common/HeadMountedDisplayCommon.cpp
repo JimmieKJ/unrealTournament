@@ -1,7 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "HMDPrivatePCH.h"
+#include "Engine.h"
 #include "HeadMountedDisplayCommon.h"
+
+#if OCULUS_STRESS_TESTS_ENABLED
+#include "OculusStressTests.h"
+#endif
 
 FHMDSettings::FHMDSettings() :
 	SavedScrPerc(100.f)
@@ -14,7 +18,6 @@ FHMDSettings::FHMDSettings() :
 	, VFOVInRadians(FMath::DegreesToRadians(90.f))
 	, NearClippingPlane(0)
 	, FarClippingPlane(0)
-	, MirrorWindowSize(0, 0)
 	, BaseOffset(0, 0, 0)
 	, BaseOrientation(FQuat::Identity)
 	, PositionOffset(FVector::ZeroVector)
@@ -70,7 +73,7 @@ float FHMDSettings::GetActualScreenPercentage() const
 
 FHMDGameFrame::FHMDGameFrame() :
 	FrameNumber(0),
-	WorldToMetersScale(100.f)
+	WorldToMetersScaleWhileInFrame(100.f)
 {
 	LastHmdOrientation = FQuat::Identity;
 	LastHmdPosition = FVector::ZeroVector;
@@ -86,6 +89,26 @@ TSharedPtr<FHMDGameFrame, ESPMode::ThreadSafe> FHMDGameFrame::Clone() const
 	TSharedPtr<FHMDGameFrame, ESPMode::ThreadSafe> NewFrame = MakeShareable(new FHMDGameFrame(*this));
 	return NewFrame;
 }
+
+
+float FHMDGameFrame::GetWorldToMetersScale() const
+{
+	if( Flags.bOutOfFrame && IsInGameThread() && GWorld != nullptr )
+	{
+		// We're not currently rendering a frame, so just use whatever world to meters the main world is using.
+		// This can happen when we're polling input in the main engine loop, before ticking any worlds.
+		return GWorld->GetWorldSettings()->WorldToMeters;
+	}
+
+	return WorldToMetersScaleWhileInFrame;
+}
+
+
+void FHMDGameFrame::SetWorldToMetersScale( const float NewWorldToMetersScale )
+{
+	WorldToMetersScaleWhileInFrame = NewWorldToMetersScale;
+}
+
 
 //////////////////////////////////////////////////////////////////////////
 FHMDViewExtension::FHMDViewExtension(FHeadMountedDisplay* InDelegate)
@@ -143,6 +166,19 @@ FHeadMountedDisplay::FHeadMountedDisplay()
 	NumberOfCubesInOneSide = 0;
 	CenterOffsetInMeters = FVector::ZeroVector; // offset from the center of 'sea of cubes'
 #endif
+
+	CurrentFrameNumber.Set(1);
+
+#if OCULUS_STRESS_TESTS_ENABLED
+	StressTester = nullptr;
+#endif // #if OCULUS_STRESS_TESTS_ENABLED
+}
+
+FHeadMountedDisplay::~FHeadMountedDisplay()
+{
+#if OCULUS_STRESS_TESTS_ENABLED
+	delete StressTester;
+#endif // #if OCULUS_STRESS_TESTS_ENABLED
 }
 
 bool FHeadMountedDisplay::IsInitialized() const
@@ -177,14 +213,14 @@ TSharedPtr<FHMDSettings, ESPMode::ThreadSafe> FHeadMountedDisplay::CreateNewSett
 
 FHMDGameFrame* FHeadMountedDisplay::GetCurrentFrame() const
 {
-	//UE_LOG(LogHMD, Log, TEXT("Getting current frame, frame number %d"), int(GFrameCounter));
+	//UE_LOG(LogHMD, Log, TEXT("Getting current frame, frame number %d"), int(CurrentFrameNumber.GetValue()));
 	if (!Frame.IsValid())
 	{
 		//UE_LOG(LogHMD, Log, TEXT("		----- frame is null!!!"));
 		return nullptr;
 	}
 
-	check(IsInGameThread());
+	check(!IsInActualRenderingThread());
 	// A special case, when the game frame is over but rendering hasn't started yet
 	if (Frame->Flags.bOutOfFrame && RenderFrame.IsValid() && RenderFrame->Flags.bOutOfFrame)
 	{
@@ -194,7 +230,7 @@ FHMDGameFrame* FHeadMountedDisplay::GetCurrentFrame() const
 	// Technically speaking, we should return the frame only if frame counters are equal.
 	// However, there are some calls UE makes from outside of the frame (for example, when 
 	// switching to/from fullscreen), thus, returning the previous frame in this case.
-	if (Frame->FrameNumber == GFrameCounter || Frame->Flags.bOutOfFrame)
+	if (Frame->FrameNumber == CurrentFrameNumber.GetValue() || Frame->Flags.bOutOfFrame)
 	{
 		//UE_LOG(LogHMD, Log, TEXT("		+++++ game frame, %d"), Frame->FrameNumber);
 		return Frame.Get();
@@ -207,7 +243,14 @@ bool FHeadMountedDisplay::OnStartGameFrame(FWorldContext& WorldContext)
 {
 	check(IsInGameThread());
 
-	if (!WorldContext.World() || !WorldContext.World()->IsGameWorld())
+#if OCULUS_STRESS_TESTS_ENABLED
+	if (StressTester)
+	{
+		StressTester->TickCPU_GameThread(this);
+	}
+#endif // #if OCULUS_STRESS_TESTS_ENABLED
+
+	if( !WorldContext.World() || ( !( GEnableVREditorHacks && WorldContext.WorldType == EWorldType::Editor ) && !WorldContext.World()->IsGameWorld() ) )	// @todo vreditor: (Also see OnEndGameFrame()) Kind of a hack here so we can use VR in editor viewports.  We need to consider when running GameWorld viewports inside the editor with VR.
 	{
 		// ignore all non-game worlds
 		return false;
@@ -217,14 +260,31 @@ bool FHeadMountedDisplay::OnStartGameFrame(FWorldContext& WorldContext)
 	Flags.bFrameStarted = true;
 
 	bool bStereoEnabled = Settings->Flags.bStereoEnabled;
-	bool bStereoDesired = (Settings->Flags.bHMDEnabled && (bStereoEnabled || Flags.bNeedEnableStereo)) && (!Flags.bNeedDisableStereo && (!Settings->Flags.bStereoEnabled || IsHMDActive()));
+	bool bStereoDesired = bStereoEnabled;
+
+	if(Flags.bNeedEnableStereo)
+	{
+		bStereoDesired = true;
+	}
+
+	if(bStereoDesired && (Flags.bNeedDisableStereo || !Settings->Flags.bHMDEnabled))
+	{
+		bStereoDesired = false;
+	}
+
+	bool bStereoDesiredAndIsConnected = bStereoDesired;
+
+	if(bStereoDesired && !(bStereoEnabled ? IsHMDActive() : IsHMDConnected()))
+	{
+		bStereoDesiredAndIsConnected = false;
+	}
 
 	Flags.bNeedEnableStereo = false;
 	Flags.bNeedDisableStereo = false;
 
-	if(bStereoEnabled != bStereoDesired)
+	if(bStereoEnabled != bStereoDesiredAndIsConnected)
 	{
-		bStereoEnabled = DoEnableStereo(bStereoDesired, Flags.bEnableStereoToHmd);
+		bStereoEnabled = DoEnableStereo(bStereoDesiredAndIsConnected);
 	}
 
 	// Keep trying to enable stereo until we succeed
@@ -258,16 +318,16 @@ bool FHeadMountedDisplay::OnStartGameFrame(FWorldContext& WorldContext)
 	auto CurrentFrame = CreateNewGameFrame();
 	Frame = CurrentFrame;
 
-	CurrentFrame->FrameNumber = GFrameCounter;
+	CurrentFrame->FrameNumber = (uint32)CurrentFrameNumber.Increment();
 	CurrentFrame->Flags.bOutOfFrame = false;
 
 	if (Settings->Flags.bWorldToMetersOverride)
 	{
-		CurrentFrame->WorldToMetersScale = Settings->WorldToMetersScale;
+		CurrentFrame->SetWorldToMetersScale( Settings->WorldToMetersScale );
 	}
 	else
 	{
-		CurrentFrame->WorldToMetersScale = WorldContext.World()->GetWorldSettings()->WorldToMeters;
+		CurrentFrame->SetWorldToMetersScale( WorldContext.World()->GetWorldSettings()->WorldToMeters );
 	}
 
 	if (Settings->Flags.bCameraScale3DOverride)
@@ -290,7 +350,7 @@ bool FHeadMountedDisplay::OnEndGameFrame(FWorldContext& WorldContext)
 
 	FHMDGameFrame* const CurrentGameFrame = Frame.Get();
 
-	if (!WorldContext.World() || !WorldContext.World()->IsGameWorld() || !CurrentGameFrame)
+	if( !WorldContext.World() || ( !( GEnableVREditorHacks && WorldContext.WorldType == EWorldType::Editor ) && !WorldContext.World()->IsGameWorld() ) || !CurrentGameFrame )
 	{
 		// ignore all non-game worlds
 		return false;
@@ -307,9 +367,9 @@ bool FHeadMountedDisplay::OnEndGameFrame(FWorldContext& WorldContext)
 	//@todo hmd	check(CurrentRenderFrame->FrameNumber != CurrentGameFrame->FrameNumber);
 
 	// make sure end frame matches the start
-	check(GFrameCounter == CurrentGameFrame->FrameNumber);
+	check(CurrentFrameNumber.GetValue() == CurrentGameFrame->FrameNumber);
 
-	if (GFrameCounter == CurrentGameFrame->FrameNumber)
+	if (CurrentFrameNumber.GetValue() == CurrentGameFrame->FrameNumber)
 	{
 		RenderFrame = Frame;
 	}
@@ -318,6 +378,39 @@ bool FHeadMountedDisplay::OnEndGameFrame(FWorldContext& WorldContext)
 		RenderFrame.Reset();
 	}
 	return true;
+}
+
+void FHeadMountedDisplay::CreateAndInitNewGameFrame(const AWorldSettings* WorldSettings)
+{
+	TSharedPtr<FHMDGameFrame, ESPMode::ThreadSafe> CurrentFrame = CreateNewGameFrame();
+	CurrentFrame->Settings = GetSettings()->Clone();
+	Frame = CurrentFrame;
+
+	CurrentFrame->FrameNumber = CurrentFrameNumber.GetValue();
+	CurrentFrame->Flags.bOutOfFrame = false;
+
+	if (Settings->Flags.bWorldToMetersOverride)
+	{
+		CurrentFrame->SetWorldToMetersScale(Settings->WorldToMetersScale);
+	}
+	else if (WorldSettings)
+	{
+		check(WorldSettings);
+		CurrentFrame->SetWorldToMetersScale(WorldSettings->WorldToMeters);
+	}
+	else
+	{
+		CurrentFrame->SetWorldToMetersScale(100.f);
+	}
+
+	if (Settings->Flags.bCameraScale3DOverride)
+	{
+		CurrentFrame->CameraScale3D = Settings->CameraScale3D;
+	}
+	else
+	{
+		CurrentFrame->CameraScale3D = FVector(1.0f, 1.0f, 1.0f);
+	}
 }
 
 bool FHeadMountedDisplay::IsHMDEnabled() const
@@ -344,10 +437,6 @@ bool FHeadMountedDisplay::HasValidTrackingPosition()
 	return false;
 }
 
-void FHeadMountedDisplay::GetPositionalTrackingCameraProperties(FVector& OutOrigin, FQuat& OutOrientation, float& OutHFOV, float& OutVFOV, float& OutCameraDistance, float& OutNearPlane, float& OutFarPlane) const
-{
-}
-
 void FHeadMountedDisplay::RebaseObjectOrientationAndPosition(FVector& OutPosition, FQuat& OutOrientation) const
 {
 }
@@ -355,8 +444,12 @@ void FHeadMountedDisplay::RebaseObjectOrientationAndPosition(FVector& OutPositio
 bool FHeadMountedDisplay::IsInLowPersistenceMode() const
 {
 	const auto frame = GetCurrentFrame();
-	const auto FrameSettings = frame->Settings;
-	return frame && FrameSettings->Flags.bLowPersistenceMode;
+	if (frame)
+	{
+		const auto FrameSettings = frame->Settings;
+		return FrameSettings->Flags.bLowPersistenceMode;
+	}
+	return false;
 }
 
 void FHeadMountedDisplay::EnableLowPersistenceMode(bool Enable)
@@ -391,12 +484,6 @@ bool FHeadMountedDisplay::IsChromaAbCorrectionEnabled() const
 	return (frame && frame->Settings->Flags.bChromaAbCorrectionEnabled);
 }
 
-void FHeadMountedDisplay::OnScreenModeChange(EWindowMode::Type WindowMode)
-{
-	EnableStereo(WindowMode != EWindowMode::Windowed);
-	UpdateStereoRenderingParams();
-}
-
 bool FHeadMountedDisplay::IsPositionalTrackingEnabled() const
 {
 	const auto frame = GetCurrentFrame();
@@ -412,7 +499,7 @@ bool FHeadMountedDisplay::EnablePositionalTracking(bool enable)
 bool FHeadMountedDisplay::EnableStereo(bool bStereo)
 {
 	Settings->Flags.bStereoEnforced = false;
-	return DoEnableStereo(bStereo, true);
+	return DoEnableStereo(bStereo);
 }
 
 bool FHeadMountedDisplay::IsStereoEnabled() const
@@ -420,7 +507,7 @@ bool FHeadMountedDisplay::IsStereoEnabled() const
 	if (IsInGameThread())
 	{
 		const auto frame = GetCurrentFrame();
-		if (frame)
+		if (frame && frame->Settings.IsValid())
 		{
 			return (frame->Settings->IsStereoEnabled());
 		}
@@ -554,7 +641,6 @@ bool FHeadMountedDisplay::Exec(UWorld* InWorld, const TCHAR* Cmd, FOutputDevice&
 				{
 					Ar.Logf(TEXT("HMD is disabled. Use 'hmd enable' to re-enable it."));
 				}
-				Flags.bEnableStereoToHmd = hmd;
 				EnableStereo(true);
 				Settings->Flags.bStereoEnforced = true;
 				return true;
@@ -762,17 +848,17 @@ bool FHeadMountedDisplay::Exec(UWorld* InWorld, const TCHAR* Cmd, FOutputDevice&
 		{
 			if (FParse::Command(&Cmd, TEXT("OFF")))
 			{
-				Settings->Flags.bDrawTrackingCameraFrustum = false;
+				Settings->Flags.bDrawSensorFrustum = false;
 				return true;
 			}
 			if (FParse::Command(&Cmd, TEXT("ON")))
 			{
-				Settings->Flags.bDrawTrackingCameraFrustum = true;
+				Settings->Flags.bDrawSensorFrustum = true;
 				return true;
 			}
 			else
 			{
-				Settings->Flags.bDrawTrackingCameraFrustum = !Settings->Flags.bDrawTrackingCameraFrustum;
+				Settings->Flags.bDrawSensorFrustum = !Settings->Flags.bDrawSensorFrustum;
 				return true;
 			}
 		}
@@ -804,6 +890,65 @@ bool FHeadMountedDisplay::Exec(UWorld* InWorld, const TCHAR* Cmd, FOutputDevice&
 			Settings->PositionOffset.Z = FCString::Atof(*StrZ);
 		}
 	}
+#if OCULUS_STRESS_TESTS_ENABLED
+	else if (FParse::Command(&Cmd, TEXT("STRESS")))
+	{
+		if (!StressTester)
+		{
+			StressTester = new FOculusStressTester;
+		}
+		if (FParse::Command(&Cmd, TEXT("GPU")))
+		{
+			StressTester->SetStressMode(FOculusStressTester::STM_GPU | StressTester->GetStressMode());
+			FString ValueStr = FParse::Token(Cmd, 0);
+			if (!ValueStr.IsEmpty())
+			{
+				const int gpuMult = FCString::Atoi(*ValueStr);
+				StressTester->SetGPULoadMultiplier(gpuMult);
+			}
+			ValueStr = FParse::Token(Cmd, 0);
+			if (!ValueStr.IsEmpty())
+			{
+				const float gpuTimeLimit = FCString::Atof(*ValueStr);
+				StressTester->SetGPUsTimeLimitInSeconds(gpuTimeLimit);
+			}
+		}
+		else if (FParse::Command(&Cmd, TEXT("CPU")))
+		{
+			StressTester->SetStressMode(FOculusStressTester::STM_CPUSpin | StressTester->GetStressMode());
+
+			// Specify CPU spin off delta per frame in seconds
+			FString ValueStr = FParse::Token(Cmd, 0);
+			if (!ValueStr.IsEmpty())
+			{
+				const float cpuLimit = FCString::Atof(*ValueStr);
+				StressTester->SetCPUSpinOffPerFrameInSeconds(cpuLimit);
+			}
+			ValueStr = FParse::Token(Cmd, 0);
+			if (!ValueStr.IsEmpty())
+			{
+				const float cpuTimeLimit = FCString::Atof(*ValueStr);
+				StressTester->SetCPUsTimeLimitInSeconds(cpuTimeLimit);
+			}
+		}
+		else if (FParse::Command(&Cmd, TEXT("PD")))
+		{
+			StressTester->SetStressMode(FOculusStressTester::STM_EyeBufferRealloc | StressTester->GetStressMode());
+			FString ValueStr = FParse::Token(Cmd, 0);
+			if (!ValueStr.IsEmpty())
+			{
+				const float timeLimit = FCString::Atof(*ValueStr);
+				StressTester->SetPDsTimeLimitInSeconds(timeLimit);
+			}
+		}
+		else if (FParse::Command(&Cmd, TEXT("RESET")))
+		{
+			StressTester->SetStressMode(0);
+		}
+
+		return true;
+	}
+#endif // #if OCULUS_STRESS_TESTS_ENABLED
 #endif //!UE_BUILD_SHIPPING
 	else if (FParse::Command(&Cmd, TEXT("HMDPOS")))
 	{
@@ -817,6 +962,24 @@ bool FHeadMountedDisplay::Exec(UWorld* InWorld, const TCHAR* Cmd, FOutputDevice&
 			}
 			Settings->Flags.bHeadTrackingEnforced = false;
 			ResetOrientationAndPosition(yaw);
+			return true;
+		}
+		else if (FParse::Command(&Cmd, TEXT("RESETPOS")))
+		{
+			Settings->Flags.bHeadTrackingEnforced = false;
+			ResetPosition();
+			return true;
+		}
+		else if (FParse::Command(&Cmd, TEXT("RESETROT")))
+		{
+			FString YawStr = FParse::Token(Cmd, 0);
+			float yaw = 0.f;
+			if (!YawStr.IsEmpty())
+			{
+				yaw = FCString::Atof(*YawStr);
+			}
+			Settings->Flags.bHeadTrackingEnforced = false;
+			ResetOrientation(yaw);
 			return true;
 		}
 		else if (FParse::Command(&Cmd, TEXT("ON")) || FParse::Command(&Cmd, TEXT("ENABLE")))
@@ -935,7 +1098,7 @@ void FHeadMountedDisplay::SetScreenPercentage(float InScreenPercentage)
 
 float FHeadMountedDisplay::GetScreenPercentage() const
 {
-	return (Settings->Flags.bOverrideScreenPercentage) ? Settings->ScreenPercentage : 0.0f;
+	return Settings->GetActualScreenPercentage();
 }
 
 void FHeadMountedDisplay::ResetControlRotation() const
@@ -959,7 +1122,7 @@ void FHeadMountedDisplay::GetCurrentHMDPose(FQuat& CurrentOrientation, FVector& 
 	bool bUseOrienationForPlayerCamera, bool bUsePositionForPlayerCamera, const FVector& PositionScale)
 {
 	// only supposed to be used from the game thread
-	check(IsInGameThread());
+	check(!IsInActualRenderingThread());
 	auto frame = GetCurrentFrame();
 	if (!frame)
 	{
@@ -998,8 +1161,8 @@ FVector FHeadMountedDisplay::GetNeckPosition(const FQuat& CurrentOrientation, co
 		return FVector::ZeroVector;
 	}
 	FVector UnrotatedPos = CurrentOrientation.Inverse().RotateVector(CurrentPosition);
-	UnrotatedPos.X -= frame->Settings->NeckToEyeInMeters.X * frame->WorldToMetersScale;
-	UnrotatedPos.Z -= frame->Settings->NeckToEyeInMeters.Y * frame->WorldToMetersScale;
+	UnrotatedPos.X -= frame->Settings->NeckToEyeInMeters.X * frame->GetWorldToMetersScale();
+	UnrotatedPos.Z -= frame->Settings->NeckToEyeInMeters.Y * frame->GetWorldToMetersScale();
 	return UnrotatedPos;
 }
 
@@ -1010,7 +1173,7 @@ void FHeadMountedDisplay::ApplyHmdRotation(APlayerController* PC, FRotator& View
 	{
 		return;
 	}
-	if (!frame->Settings->Flags.bPlayerControllerFollowsHmd)
+	if( !frame->Settings->Flags.bPlayerControllerFollowsHmd )
 	{
 		return;
 	}
@@ -1097,75 +1260,79 @@ void FHeadMountedDisplay::DrawDebugTrackingCameraFrustum(UWorld* World, const FR
 	FVector origin;
 	FQuat orient;
 	float hfovDeg, vfovDeg, nearPlane, farPlane, cameraDist;
-	GetPositionalTrackingCameraProperties(origin, orient, hfovDeg, vfovDeg, cameraDist, nearPlane, farPlane);
-
-	FVector HeadPosition;
-	FQuat HeadOrient;
-	GetCurrentPose(HeadOrient, HeadPosition, false, false);
-	const FQuat DeltaControlOrientation = ViewRotation.Quaternion() * HeadOrient.Inverse();
-
-	orient = DeltaControlOrientation * orient;
-	if (frame->Flags.bPositionChanged && !frame->Flags.bPlayerControllerFollowsHmd)
+	uint32 nSensors = GetNumOfTrackingSensors();
+	for (uint8 sensorIndex = 0; sensorIndex < nSensors; ++sensorIndex)
 	{
-		origin = origin - HeadPosition;
+		GetTrackingSensorProperties(sensorIndex, origin, orient, hfovDeg, vfovDeg, cameraDist, nearPlane, farPlane);
+
+		FVector HeadPosition;
+		FQuat HeadOrient;
+		GetCurrentPose(HeadOrient, HeadPosition, false, false);
+		const FQuat DeltaControlOrientation = ViewRotation.Quaternion() * HeadOrient.Inverse();
+
+		orient = DeltaControlOrientation * orient;
+		if (frame->Flags.bPositionChanged && !frame->Flags.bPlayerControllerFollowsHmd)
+		{
+			origin = origin - HeadPosition;
+		}
+		origin = DeltaControlOrientation.RotateVector(origin);
+
+		// Level line
+		//DrawDebugLine(World, ViewLocation, FVector(ViewLocation.X + 1000, ViewLocation.Y, ViewLocation.Z), FColor::Blue);
+
+		const float hfov = FMath::DegreesToRadians(hfovDeg * 0.5f);
+		const float vfov = FMath::DegreesToRadians(vfovDeg * 0.5f);
+		FVector coneTop(0, 0, 0);
+		FVector coneBase1(-farPlane, farPlane * FMath::Tan(hfov), farPlane * FMath::Tan(vfov));
+		FVector coneBase2(-farPlane, -farPlane * FMath::Tan(hfov), farPlane * FMath::Tan(vfov));
+		FVector coneBase3(-farPlane, -farPlane * FMath::Tan(hfov), -farPlane * FMath::Tan(vfov));
+		FVector coneBase4(-farPlane, farPlane * FMath::Tan(hfov), -farPlane * FMath::Tan(vfov));
+		FMatrix m(FMatrix::Identity);
+		m = orient * m;
+		m *= FScaleMatrix(frame->CameraScale3D);
+		m *= FTranslationMatrix(origin);
+		m *= FTranslationMatrix(ViewLocation); // to location of pawn
+		coneTop = m.TransformPosition(coneTop);
+		coneBase1 = m.TransformPosition(coneBase1);
+		coneBase2 = m.TransformPosition(coneBase2);
+		coneBase3 = m.TransformPosition(coneBase3);
+		coneBase4 = m.TransformPosition(coneBase4);
+
+		// draw a point at the camera pos
+		DrawDebugPoint(World, coneTop, 5, c);
+
+		// draw main pyramid, from top to base
+		DrawDebugLine(World, coneTop, coneBase1, c);
+		DrawDebugLine(World, coneTop, coneBase2, c);
+		DrawDebugLine(World, coneTop, coneBase3, c);
+		DrawDebugLine(World, coneTop, coneBase4, c);
+
+		// draw base (far plane)				  
+		DrawDebugLine(World, coneBase1, coneBase2, c);
+		DrawDebugLine(World, coneBase2, coneBase3, c);
+		DrawDebugLine(World, coneBase3, coneBase4, c);
+		DrawDebugLine(World, coneBase4, coneBase1, c);
+
+		// draw near plane
+		FVector coneNear1(-nearPlane, nearPlane * FMath::Tan(hfov), nearPlane * FMath::Tan(vfov));
+		FVector coneNear2(-nearPlane, -nearPlane * FMath::Tan(hfov), nearPlane * FMath::Tan(vfov));
+		FVector coneNear3(-nearPlane, -nearPlane * FMath::Tan(hfov), -nearPlane * FMath::Tan(vfov));
+		FVector coneNear4(-nearPlane, nearPlane * FMath::Tan(hfov), -nearPlane * FMath::Tan(vfov));
+		coneNear1 = m.TransformPosition(coneNear1);
+		coneNear2 = m.TransformPosition(coneNear2);
+		coneNear3 = m.TransformPosition(coneNear3);
+		coneNear4 = m.TransformPosition(coneNear4);
+		DrawDebugLine(World, coneNear1, coneNear2, c);
+		DrawDebugLine(World, coneNear2, coneNear3, c);
+		DrawDebugLine(World, coneNear3, coneNear4, c);
+		DrawDebugLine(World, coneNear4, coneNear1, c);
+
+		// center line
+		FVector centerLine(-cameraDist, 0, 0);
+		centerLine = m.TransformPosition(centerLine);
+		DrawDebugLine(World, coneTop, centerLine, FColor::Yellow);
+		DrawDebugPoint(World, centerLine, 5, FColor::Yellow);
 	}
-	origin = DeltaControlOrientation.RotateVector(origin);
-
-	// Level line
-	//DrawDebugLine(World, ViewLocation, FVector(ViewLocation.X + 1000, ViewLocation.Y, ViewLocation.Z), FColor::Blue);
-
-	const float hfov = FMath::DegreesToRadians(hfovDeg * 0.5f);
-	const float vfov = FMath::DegreesToRadians(vfovDeg * 0.5f);
-	FVector coneTop(0, 0, 0);
-	FVector coneBase1(-farPlane, farPlane * FMath::Tan(hfov), farPlane * FMath::Tan(vfov));
-	FVector coneBase2(-farPlane, -farPlane * FMath::Tan(hfov), farPlane * FMath::Tan(vfov));
-	FVector coneBase3(-farPlane, -farPlane * FMath::Tan(hfov), -farPlane * FMath::Tan(vfov));
-	FVector coneBase4(-farPlane, farPlane * FMath::Tan(hfov), -farPlane * FMath::Tan(vfov));
-	FMatrix m(FMatrix::Identity);
-	m = orient * m;
-	m *= FScaleMatrix(frame->CameraScale3D);
-	m *= FTranslationMatrix(origin);
-	m *= FTranslationMatrix(ViewLocation); // to location of pawn
-	coneTop = m.TransformPosition(coneTop);
-	coneBase1 = m.TransformPosition(coneBase1);
-	coneBase2 = m.TransformPosition(coneBase2);
-	coneBase3 = m.TransformPosition(coneBase3);
-	coneBase4 = m.TransformPosition(coneBase4);
-
-	// draw a point at the camera pos
-	DrawDebugPoint(World, coneTop, 5, c);
-
-	// draw main pyramid, from top to base
-	DrawDebugLine(World, coneTop, coneBase1, c);
-	DrawDebugLine(World, coneTop, coneBase2, c);
-	DrawDebugLine(World, coneTop, coneBase3, c);
-	DrawDebugLine(World, coneTop, coneBase4, c);
-
-	// draw base (far plane)				  
-	DrawDebugLine(World, coneBase1, coneBase2, c);
-	DrawDebugLine(World, coneBase2, coneBase3, c);
-	DrawDebugLine(World, coneBase3, coneBase4, c);
-	DrawDebugLine(World, coneBase4, coneBase1, c);
-
-	// draw near plane
-	FVector coneNear1(-nearPlane, nearPlane * FMath::Tan(hfov), nearPlane * FMath::Tan(vfov));
-	FVector coneNear2(-nearPlane, -nearPlane * FMath::Tan(hfov), nearPlane * FMath::Tan(vfov));
-	FVector coneNear3(-nearPlane, -nearPlane * FMath::Tan(hfov), -nearPlane * FMath::Tan(vfov));
-	FVector coneNear4(-nearPlane, nearPlane * FMath::Tan(hfov), -nearPlane * FMath::Tan(vfov));
-	coneNear1 = m.TransformPosition(coneNear1);
-	coneNear2 = m.TransformPosition(coneNear2);
-	coneNear3 = m.TransformPosition(coneNear3);
-	coneNear4 = m.TransformPosition(coneNear4);
-	DrawDebugLine(World, coneNear1, coneNear2, c);
-	DrawDebugLine(World, coneNear2, coneNear3, c);
-	DrawDebugLine(World, coneNear3, coneNear4, c);
-	DrawDebugLine(World, coneNear4, coneNear1, c);
-
-	// center line
-	FVector centerLine(-cameraDist, 0, 0);
-	centerLine = m.TransformPosition(centerLine);
-	DrawDebugLine(World, coneTop, centerLine, FColor::Yellow);
-	DrawDebugPoint(World, centerLine, 5, FColor::Yellow);
 }
 
 void FHeadMountedDisplay::DrawSeaOfCubes(UWorld* World, FVector ViewLocation)
@@ -1220,7 +1387,7 @@ void FHeadMountedDisplay::DrawSeaOfCubes(UWorld* World, FVector ViewLocation)
 		const FVector SeaOfCubesOrigin = ViewLocation + (CenterOffsetInMeters * frame->Settings->WorldToMetersScale);
 
 		UInstancedStaticMeshComponent* ISMComponent = NewObject<UInstancedStaticMeshComponent>();
-		ISMComponent->AttachTo(SeaOfCubesActor->GetStaticMeshComponent());
+		ISMComponent->SetupAttachment(SeaOfCubesActor->GetStaticMeshComponent());
 		ISMComponent->SetStaticMesh(BoxMesh);
 		ISMComponent->SetMaterial(0, BoxMat);
 		ISMComponent->SetCollisionEnabled(ECollisionEnabled::NoCollision);
@@ -1254,16 +1421,35 @@ void FHeadMountedDisplay::DrawSeaOfCubes(UWorld* World, FVector ViewLocation)
 }
 #endif // #if !UE_BUILD_SHIPPING
 
-uint32 FHeadMountedDisplay::CreateLayer(UTexture2D* InTexture, int32 InPrioirity, bool bInHeadLocked)
+static FHMDLayerManager::LayerOriginType ConvertLayerType(IStereoLayers::ELayerType InLayerType)
+{
+	switch (InLayerType)
+	{
+	case IStereoLayers::WorldLocked:
+		return FHMDLayerManager::Layer_WorldLocked;
+	case IStereoLayers::TrackerLocked:
+		return FHMDLayerManager::Layer_TorsoLocked;
+	case IStereoLayers::FaceLocked:
+		return FHMDLayerManager::Layer_HeadLocked;
+	default:
+		return FHMDLayerManager::Layer_UnknownOrigin;
+	};
+}
+
+uint32 FHeadMountedDisplay::CreateLayer(const IStereoLayers::FLayerDesc& InLayerDesc)
 {
 	FHMDLayerManager* pLayerMgr = GetLayerManager();
 	if (pLayerMgr)
 	{
-		if (InTexture)
+		if (InLayerDesc.Texture)
 		{
-			uint32 id;
-			TSharedPtr<FHMDLayerDesc> layer = pLayerMgr->AddLayer(FHMDLayerDesc::Quad, InPrioirity, bInHeadLocked, id);
-			layer->SetTexture(InTexture);
+			FScopeLock ScopeLock(&pLayerMgr->LayersLock);
+			uint32 id = 0;
+			pLayerMgr->AddLayer(FHMDLayerDesc::Quad, InLayerDesc.Priority, ConvertLayerType(InLayerDesc.Type), id);
+			if (id != 0)
+			{
+				SetLayerDesc(id, InLayerDesc);
+			}
 			return id;
 		}
 		else
@@ -1287,58 +1473,115 @@ void FHeadMountedDisplay::DestroyLayer(uint32 LayerId)
 	}
 }
 
-void FHeadMountedDisplay::SetTransform(uint32 LayerId, const FTransform& InTransform)
+void FHeadMountedDisplay::SetLayerDesc(uint32 LayerId, const IStereoLayers::FLayerDesc& InLayerDesc)
 {
-	if (LayerId > 0)
+	if (LayerId == 0)
 	{
-		FHMDLayerManager* pLayerMgr = GetLayerManager();
-		if (pLayerMgr)
+		return;
+	}
+
+	FHMDLayerManager* pLayerMgr = GetLayerManager();
+	if (!pLayerMgr)
+	{
+		return;
+	}
+
+	const FHMDLayerDesc* pLayer = pLayerMgr->GetLayerDesc(LayerId);
+	if (pLayer && pLayer->GetType() == FHMDLayerDesc::Quad)
+	{
+		FVector2D NewQuadSize = InLayerDesc.QuadSize;
+		if (InLayerDesc.Flags & IStereoLayers::LAYER_FLAG_QUAD_PRESERVE_TEX_RATIO && InLayerDesc.Texture.IsValid())
 		{
-			const FHMDLayerDesc* pLayer = pLayerMgr->GetLayerDesc(LayerId);
-			if (pLayer && pLayer->GetType() == FHMDLayerDesc::Quad)
+			FRHITexture2D* Texture2D = InLayerDesc.Texture->GetTexture2D();
+			if (Texture2D)
 			{
-				FHMDLayerDesc Layer = *pLayer;
-				Layer.SetTransform(InTransform);
-				pLayerMgr->UpdateLayer(Layer);
+				const float TexRatio = (Texture2D->GetSizeY() == 0) ? 1280.0f/720.0f : (float)Texture2D->GetSizeX() / (float)Texture2D->GetSizeY();
+				NewQuadSize.Y = (TexRatio) ? NewQuadSize.X / TexRatio : NewQuadSize.Y;
 			}
 		}
+
+		FHMDLayerDesc Layer = *pLayer;
+		Layer.SetFlags(InLayerDesc.Flags);
+		Layer.SetLockedToHead(InLayerDesc.Type == IStereoLayers::ELayerType::FaceLocked);
+		Layer.SetLockedToTorso(InLayerDesc.Type == IStereoLayers::ELayerType::TrackerLocked);
+		Layer.SetTexture(InLayerDesc.Texture);
+		Layer.SetQuadSize(NewQuadSize);
+		Layer.SetTransform(InLayerDesc.Transform);
+		Layer.ResetChangedFlags();
+		Layer.SetTextureViewport(InLayerDesc.UVRect);
+		pLayerMgr->UpdateLayer(Layer);
 	}
 }
 
-void FHeadMountedDisplay::SetQuadSize(uint32 LayerId, const FVector2D& InSize)
+bool FHeadMountedDisplay::GetLayerDesc(uint32 LayerId, IStereoLayers::FLayerDesc& OutLayerDesc)
 {
-	if (LayerId > 0)
+	if (LayerId == 0)
 	{
-		FHMDLayerManager* pLayerMgr = GetLayerManager();
-		if (pLayerMgr)
-		{
-			const FHMDLayerDesc* pLayer = pLayerMgr->GetLayerDesc(LayerId);
-			if (pLayer && pLayer->GetType() == FHMDLayerDesc::Quad)
-			{
-				FHMDLayerDesc Layer = *pLayer;
-				Layer.SetQuadSize(InSize);
-				pLayerMgr->UpdateLayer(Layer);
-			}
-		}
+		return false;
 	}
+
+	const FHMDLayerManager* pLayerMgr = GetLayerManager();
+	if (!pLayerMgr)
+	{
+		return false;
+	}
+
+	const FHMDLayerDesc* pLayer = pLayerMgr->GetLayerDesc(LayerId);
+	if (!pLayer || pLayer->GetType() != FHMDLayerDesc::Quad)
+	{
+		return false;
+	}
+
+	FHMDLayerDesc Layer = *pLayer;
+	OutLayerDesc.Priority = Layer.GetPriority();
+	OutLayerDesc.QuadSize = Layer.GetQuadSize();
+	OutLayerDesc.Texture = Layer.GetTexture();
+	OutLayerDesc.Transform = Layer.GetTransform();
+	OutLayerDesc.UVRect = Layer.GetTextureViewport();
+
+	if (Layer.IsHeadLocked())
+	{
+		OutLayerDesc.Type = IStereoLayers::FaceLocked;
+	}
+	else if (Layer.IsTorsoLocked())
+	{
+		OutLayerDesc.Type = IStereoLayers::TrackerLocked;
+	}
+	else
+	{
+		OutLayerDesc.Type = IStereoLayers::WorldLocked;
+	}
+
+	return true;
 }
 
-void FHeadMountedDisplay::SetTextureViewport(uint32 LayerId, const FBox2D& UVRect)
+void FHeadMountedDisplay::MarkTextureForUpdate(uint32 LayerId)
 {
-	if (LayerId > 0)
+	if (LayerId == 0)
 	{
-		FHMDLayerManager* pLayerMgr = GetLayerManager();
-		if (pLayerMgr)
-		{
-			const FHMDLayerDesc* pLayer = pLayerMgr->GetLayerDesc(LayerId);
-			if (pLayer && pLayer->GetType() == FHMDLayerDesc::Quad)
-			{
-				FHMDLayerDesc Layer = *pLayer;
-				Layer.SetTextureViewport(UVRect);
-				pLayerMgr->UpdateLayer(Layer);
-			}
-		}
+		return;
 	}
+
+	const FHMDLayerManager* pLayerMgr = GetLayerManager();
+	if (!pLayerMgr)
+	{
+		return;
+	}
+
+	const FHMDLayerDesc* pLayer = pLayerMgr->GetLayerDesc(LayerId);
+	if (!pLayer)
+	{
+		return;
+	}
+
+	pLayer->MarkTextureChanged();
+}
+
+void FHeadMountedDisplay::QuantizeBufferSize(int32& InOutBufferSizeX, int32& InOutBufferSizeY, uint32 DividableBy)
+{
+	const uint32 Mask = ~(DividableBy - 1);
+	InOutBufferSizeX = (InOutBufferSizeX + DividableBy - 1) & Mask;
+	InOutBufferSizeY = (InOutBufferSizeY + DividableBy - 1) & Mask;
 }
 
 /************************************************************************/
@@ -1347,6 +1590,8 @@ void FHeadMountedDisplay::SetTextureViewport(uint32 LayerId, const FBox2D& UVRec
 FHMDLayerDesc::FHMDLayerDesc(class FHMDLayerManager& InLayerMgr, ELayerTypeMask InType, uint32 InPriority, uint32 InID) :
 	LayerManager(InLayerMgr)
 	, Id(InID | InType)
+	, Texture(nullptr)
+	, Flags(0)
 	, TextureUV(ForceInit)
 	, QuadSize(FVector2D::ZeroVector)
 	, Priority(InPriority & IdMask)
@@ -1371,19 +1616,29 @@ void FHMDLayerDesc::SetTransform(const FTransform& InTrn)
 
 void FHMDLayerDesc::SetQuadSize(const FVector2D& InSize)
 {
+	if (QuadSize == InSize)
+	{
+		return;
+	}
+
 	QuadSize = InSize;
 	bTransformHasChanged = true;
 	LayerManager.SetDirty();
 }
 
-void FHMDLayerDesc::SetTexture(UTexture* InTexture)
+void FHMDLayerDesc::SetTexture(FTextureRHIRef InTexture)
 {
+	if (Texture == InTexture)
+	{
+		return;
+	}
+
 	Texture = InTexture;
 	bTextureHasChanged = true;
 	LayerManager.SetDirty();
 }
 
-void FHMDLayerDesc::SetTextureSet(FTextureSetProxyParamRef InTextureSet)
+void FHMDLayerDesc::SetTextureSet(const FTextureSetProxyPtr& InTextureSet)
 {
 	TextureSet = InTextureSet;
 	bTextureHasChanged = true;
@@ -1392,8 +1647,29 @@ void FHMDLayerDesc::SetTextureSet(FTextureSetProxyParamRef InTextureSet)
 
 void FHMDLayerDesc::SetTextureViewport(const FBox2D& InUVRect)
 {
+	if (!InUVRect.bIsValid)
+	{
+		return;
+	}
+
+	if (TextureUV == InUVRect && TextureUV.bIsValid)
+	{
+		return;
+	}
+
 	TextureUV = InUVRect;
 	bTransformHasChanged = true;
+	LayerManager.SetDirty();
+}
+
+void FHMDLayerDesc::SetPriority(uint32 InPriority)
+{
+	if (Priority == InPriority)
+	{
+		return;
+	}
+
+	Priority = InPriority;
 	LayerManager.SetDirty();
 }
 
@@ -1427,8 +1703,15 @@ FHMDLayerDesc& FHMDLayerDesc::operator=(const FHMDLayerDesc& InSrc)
 		QuadSize = InSrc.QuadSize;
 		Transform = InSrc.Transform;
 	}
+	Flags = InSrc.Flags;
 	LayerManager.SetDirty();
 	return *this;
+}
+
+void FHMDLayerDesc::ResetChangedFlags()
+{
+	bTextureCopyPending |= !!bTextureHasChanged;
+	bTextureHasChanged = bTransformHasChanged = bNewLayer = bAlreadyAdded = false;
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -1467,12 +1750,50 @@ FHMDLayerManager::~FHMDLayerManager()
 {
 }
 
-TSharedPtr<FHMDLayerDesc> 
-FHMDLayerManager::AddLayer(FHMDLayerDesc::ELayerTypeMask InType, uint32 InPriority, bool bInHeadLocked, uint32& OutLayerId)
+void FHMDLayerManager::Startup()
 {
-	TSharedPtr<FHMDLayerDesc> NewLayerDesc = MakeShareable(new FHMDLayerDesc(*this, InType, InPriority, CurrentId++));
+}
 
-	NewLayerDesc->bHeadLocked = bInHeadLocked;
+void FHMDLayerManager::Shutdown()
+{
+	{
+		FScopeLock ScopeLock(&LayersLock);
+		RemoveAllLayers();
+
+		LayersToRender.SetNum(0);
+
+		CurrentId = 0;
+		bLayersChanged = false;
+	}
+}
+
+uint32 FHMDLayerManager::GetTotalNumberOfLayers() const
+{
+	return EyeLayers.Num() + QuadLayers.Num() + DebugLayers.Num();
+}
+
+TSharedPtr<FHMDLayerDesc> 
+FHMDLayerManager::AddLayer(FHMDLayerDesc::ELayerTypeMask InType, uint32 InPriority, LayerOriginType InLayerOriginType, uint32& OutLayerId)
+{
+	if (GetTotalNumberOfLayers() >= GetTotalNumberOfLayersSupported())
+	{
+		return nullptr;
+	}
+	TSharedPtr<FHMDLayerDesc> NewLayerDesc = MakeShareable(new FHMDLayerDesc(*this, InType, InPriority, ++CurrentId));
+
+	switch (InLayerOriginType)
+	{
+	case Layer_HeadLocked:
+		NewLayerDesc->bHeadLocked = true;
+		break;
+
+	case Layer_TorsoLocked:
+		NewLayerDesc->bTorsoLocked = true;
+		break;
+
+	default: // default is WorldLocked
+		break;
+	}
 
 	OutLayerId = NewLayerDesc->GetId();
 
@@ -1486,13 +1807,25 @@ FHMDLayerManager::AddLayer(FHMDLayerDesc::ELayerTypeMask InType, uint32 InPriori
 
 void FHMDLayerManager::RemoveLayer(uint32 LayerId)
 {
-	FScopeLock ScopeLock(&LayersLock);
-	TArray<TSharedPtr<FHMDLayerDesc> >& Layers = GetLayersArrayById(LayerId);
-	uint32 idx = FindLayerIndex(Layers, LayerId);
-	if (idx != ~0u)
+	if (LayerId != 0)
 	{
-		Layers.RemoveAt(idx);
+		FScopeLock ScopeLock(&LayersLock);
+		TArray<TSharedPtr<FHMDLayerDesc> >& Layers = GetLayersArrayById(LayerId);
+		uint32 idx = FindLayerIndex(Layers, LayerId);
+		if (idx != ~0u)
+		{
+			Layers.RemoveAt(idx);
+		}
+		bLayersChanged = true;
 	}
+}
+
+void FHMDLayerManager::RemoveAllLayers()
+{
+	FScopeLock ScopeLock(&LayersLock);
+	EyeLayers.SetNum(0);
+	QuadLayers.SetNum(0);
+	DebugLayers.SetNum(0);
 	bLayersChanged = true;
 }
 
@@ -1516,7 +1849,7 @@ const TArray<TSharedPtr<FHMDLayerDesc> >& FHMDLayerManager::GetLayersArrayById(u
 		return DebugLayers;
 		break;
 	default:
-		check(0);
+		checkf(0, TEXT("Invalid layer type %d (id = 0x%X)"), int(LayerId & FHMDLayerDesc::TypeMask), LayerId);
 	}
 	return EyeLayers;
 }
@@ -1535,7 +1868,7 @@ TArray<TSharedPtr<FHMDLayerDesc> >& FHMDLayerManager::GetLayersArrayById(uint32 
 		return DebugLayers;
 		break;
 	default:
-		check(0);
+		checkf(0, TEXT("Invalid layer type %d (id = 0x%X)"), int(LayerId & FHMDLayerDesc::TypeMask), LayerId);
 	}
 	return EyeLayers;
 }
@@ -1555,11 +1888,14 @@ uint32 FHMDLayerManager::FindLayerIndex(const TArray<TSharedPtr<FHMDLayerDesc> >
 
 TSharedPtr<FHMDLayerDesc> FHMDLayerManager::FindLayer_NoLock(uint32 LayerId) const
 {
-	const TArray<TSharedPtr<FHMDLayerDesc> >& Layers = GetLayersArrayById(LayerId);
-	uint32 idx = FindLayerIndex(Layers, LayerId);
-	if (idx != ~0u)
+	if (LayerId != 0)
 	{
-		return Layers[idx];
+		const TArray<TSharedPtr<FHMDLayerDesc> >& Layers = GetLayersArrayById(LayerId);
+		uint32 idx = FindLayerIndex(Layers, LayerId);
+		if (idx != ~0u)
+		{
+			return Layers[idx];
+		}
 	}
 	return nullptr;
 }
@@ -1567,12 +1903,15 @@ TSharedPtr<FHMDLayerDesc> FHMDLayerManager::FindLayer_NoLock(uint32 LayerId) con
 void FHMDLayerManager::UpdateLayer(const FHMDLayerDesc& InLayerDesc)
 {
 	FScopeLock ScopeLock(&LayersLock);
-	TArray<TSharedPtr<FHMDLayerDesc> >& Layers = GetLayersArrayById(InLayerDesc.GetId());
-	uint32 idx = FindLayerIndex(Layers, InLayerDesc.GetId());
-	if (idx != ~0u)
+	if (InLayerDesc.Id != 0)
 	{
-		*Layers[idx].Get() = InLayerDesc;
-		SetDirty();
+		TArray<TSharedPtr<FHMDLayerDesc> >& Layers = GetLayersArrayById(InLayerDesc.GetId());
+		uint32 idx = FindLayerIndex(Layers, InLayerDesc.GetId());
+		if (idx != ~0u)
+		{
+			*Layers[idx].Get() = InLayerDesc;
+			SetDirty();
+		}
 	}
 }
 
@@ -1582,7 +1921,7 @@ TSharedPtr<FHMDRenderLayer> FHMDLayerManager::CreateRenderLayer_RenderThread(FHM
 	return NewLayer;
 }
 
-const FHMDRenderLayer* FHMDLayerManager::GetRenderLayer_RenderThread_NoLock(uint32 LayerId) const
+FHMDRenderLayer* FHMDLayerManager::GetRenderLayer_RenderThread_NoLock(uint32 LayerId)
 {
 	for (uint32 i = 0, n = LayersToRender.Num(); i < n; ++i)
 	{
@@ -1595,7 +1934,30 @@ const FHMDRenderLayer* FHMDLayerManager::GetRenderLayer_RenderThread_NoLock(uint
 	return nullptr;
 }
 
-void FHMDLayerManager::PreSubmitUpdate_RenderThread(FRHICommandListImmediate& RHICmdList, const FHMDGameFrame* CurrentFrame)
+void FHMDLayerManager::ReleaseTextureSetsInArray_RenderThread_NoLock(TArray<TSharedPtr<FHMDLayerDesc> >& Layers)
+{
+	for (int32 i = 0; i < Layers.Num(); ++i)
+	{
+		if (Layers[i].IsValid())
+		{
+			FTextureSetProxyPtr TexSet = Layers[i]->GetTextureSet();
+			if (TexSet.IsValid())
+			{
+				TexSet->ReleaseResources();
+			}
+			Layers[i]->SetTextureSet(nullptr);
+		}
+	}
+}
+
+void FHMDLayerManager::ReleaseTextureSets_RenderThread_NoLock()
+{
+	ReleaseTextureSetsInArray_RenderThread_NoLock(EyeLayers);
+	ReleaseTextureSetsInArray_RenderThread_NoLock(QuadLayers);
+	ReleaseTextureSetsInArray_RenderThread_NoLock(DebugLayers);
+}
+
+void FHMDLayerManager::PreSubmitUpdate_RenderThread(FRHICommandListImmediate& RHICmdList, const FHMDGameFrame* CurrentFrame, bool ShowFlagsRendering)
 {
 	check(IsInRenderingThread());
 

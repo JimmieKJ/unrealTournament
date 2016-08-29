@@ -63,7 +63,7 @@ FText UEndUserSettings::GetAdditionalInfoUrlLabel() const
 
 void UEndUserSettings::SetSendAnonymousUsageDataToEpic(bool bEnable)
 {
-	if (bSendAnonymousUsageDataToEpic == bEnable)
+	if (bSendAnonymousUsageDataToEpic != bEnable)
 	{
 		bSendAnonymousUsageDataToEpic = bEnable;
 		OnSendAnonymousUsageDataToEpicChanged();

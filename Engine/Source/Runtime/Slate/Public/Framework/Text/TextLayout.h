@@ -38,6 +38,19 @@ namespace ETextJustify
 }
 
 /** 
+ * The different methods that can be used if a word is too long to be broken by the default line-break iterator.
+ */
+UENUM( BlueprintType )
+enum class ETextWrappingPolicy : uint8
+{
+	/** No fallback, just use the given line-break iterator */
+	DefaultWrapping = 0,
+
+	/** Fallback to per-character wrapping if a word is too long */
+	AllowPerCharacterWrapping,
+};
+
+/** 
  * The different directions that text can flow within a paragraph of text.
  * @note If you change this enum, make sure and update CVarDefaultTextFlowDirection and GetDefaultTextFlowDirection.
  */
@@ -201,7 +214,7 @@ public:
 #endif
 	};
 
-	class FRunModel
+	class SLATE_API FRunModel
 	{
 	public:
 
@@ -255,7 +268,7 @@ public:
 		};
 	};
 
-	struct FLineModel
+	struct SLATE_API FLineModel
 	{
 	public:
 
@@ -295,7 +308,7 @@ public:
 	};
 
 	/** A mapping between the offsets into the text as a flat string (with line-breaks), and the internal lines used within a text layout */
-	struct FTextOffsetLocations
+	struct SLATE_API FTextOffsetLocations
 	{
 	friend class FTextLayout;
 
@@ -339,6 +352,9 @@ public:
 
 	FORCEINLINE float GetWrappingWidth() const { return WrappingWidth; }
 	void SetWrappingWidth( float Value );
+
+	FORCEINLINE ETextWrappingPolicy GetWrappingPolicy() const { return WrappingPolicy; }
+	void SetWrappingPolicy(ETextWrappingPolicy Value);
 
 	FORCEINLINE float GetLineHeightPercentage() const { return LineHeightPercentage; }
 	void SetLineHeightPercentage( float Value );
@@ -403,6 +419,11 @@ public:
 	void AddRunRenderer( const FTextRunRenderer& Renderer );
 
 	/**
+	* Removes a single run renderer to the existing set of renderers.
+	*/
+	void RemoveRunRenderer( const FTextRunRenderer& Renderer );
+
+	/**
 	* Clears all line highlights
 	*/
 	void ClearLineHighlights();
@@ -416,6 +437,11 @@ public:
 	* Adds a single line highlight to the existing set of highlights.
 	*/
 	void AddLineHighlight( const FTextLineHighlight& Highlight );
+
+	/**
+	* Removes a single line highlight to the existing set of highlights.
+	*/
+	void RemoveLineHighlight( const FTextLineHighlight& Highlight );
 
 	/**
 	* Updates the TextLayout's if any changes have occurred since the last update.
@@ -633,6 +659,9 @@ protected:
 	/** The width that the text should be wrap at. If 0 or negative no wrapping occurs. */
 	float WrappingWidth;
 
+	/** The wrapping policy used by this text layout. */
+	ETextWrappingPolicy WrappingPolicy;
+
 	/** The size of the margins to put about the text. This is an unscaled value. */
 	FMargin Margin;
 
@@ -654,8 +683,11 @@ protected:
 	/** The iterator to use to detect appropriate soft-wrapping points for lines */
 	TSharedPtr<IBreakIterator> LineBreakIterator;
 
+	/** The iterator to use to detect grapheme cluster boundaries */
+	TSharedRef<IBreakIterator> GraphemeBreakIterator;
+
 	/** The iterator to use to detect word boundaries */
-	TSharedPtr<IBreakIterator> WordBreakIterator;
+	TSharedRef<IBreakIterator> WordBreakIterator;
 
 	/** Unicode BiDi text detection */
 	TUniquePtr<TextBiDi::ITextBiDi> TextBiDiDetection;

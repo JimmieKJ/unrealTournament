@@ -121,6 +121,9 @@ public:
 	{
 		OutSection = TEXT("/Script/IOSRuntimeSettings.IOSRuntimeSettings");
 		InBoolKeys.Add(TEXT("bGeneratedSYMFile"));
+		InBoolKeys.Add(TEXT("bGeneratedSYMBundle"));
+		InBoolKeys.Add(TEXT("bGenerateXCArchive"));
+		InBoolKeys.Add(TEXT("bShipForBitcode"));
 		if (bIsTVOS)
 		{
 			InStringKeys.Add(TEXT("MinimumTVOSVersion"));

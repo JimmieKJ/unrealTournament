@@ -48,6 +48,7 @@ public:
 					.OnClicked(this, &SKeyNavigationButtons::OnPreviousKeyClicked)
 					.ForegroundColor( FSlateColor::UseForeground() )
 					.ContentPadding(0)
+					.IsFocusable(false)
 					[
 						SNew(STextBlock)
 						.Font(FEditorStyle::Get().GetFontStyle("FontAwesome.7"))
@@ -71,6 +72,7 @@ public:
 					.OnClicked(this, &SKeyNavigationButtons::OnAddKeyClicked)
 					.ForegroundColor( FSlateColor::UseForeground() )
 					.ContentPadding(0)
+					.IsFocusable(false)
 					[
 						SNew(STextBlock)
 						.Font(FEditorStyle::Get().GetFontStyle("FontAwesome.7"))
@@ -94,6 +96,7 @@ public:
 					.OnClicked(this, &SKeyNavigationButtons::OnNextKeyClicked)
 					.ContentPadding(0)
 					.ForegroundColor( FSlateColor::UseForeground() )
+					.IsFocusable(false)
 					[
 						SNew(STextBlock)
 						.Font(FEditorStyle::Get().GetFontStyle("FontAwesome.7"))

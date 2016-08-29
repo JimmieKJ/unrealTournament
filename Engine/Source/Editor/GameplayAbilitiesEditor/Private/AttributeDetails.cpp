@@ -168,14 +168,13 @@ void FAttributePropertyDetails::OnChangeProperty(TSharedPtr<FString> ItemSelecte
 			UProperty *Property = FindField<UProperty>(FoundClass, *PropertyName);
 			if (Property)
 			{
-				const UObject* ObjPtr = Property;
-				MyProperty->SetValue(ObjPtr);
+				MyProperty->SetValue(Property);
 				
 				return;
 			}
 		}
 
-		const UObject* nullObj = nullptr;
+		UObject* nullObj = nullptr;
 		MyProperty->SetValue(nullObj);
 	}
 
@@ -184,11 +183,9 @@ void FAttributePropertyDetails::OnChangeProperty(TSharedPtr<FString> ItemSelecte
 
 void FAttributePropertyDetails::OnAttributeChanged(UProperty* SelectedAttribute)
 {
-	const UObject* ObjPtr = SelectedAttribute;
-
 	if (MyProperty.IsValid())
 	{
-		MyProperty->SetValue(ObjPtr);
+		MyProperty->SetValue(SelectedAttribute);
 	}
 }
 
@@ -276,11 +273,10 @@ void FAttributeDetails::OnChangeProperty(TSharedPtr<FString> ItemSelected, ESele
 
 	for( TFieldIterator<UProperty> It(UAttributeSet::StaticClass(), EFieldIteratorFlags::ExcludeSuper) ; It ; ++It )
 	{
-		const UProperty *Property = *It;
+		UProperty* Property = *It;
 		if (PropertyName == Property->GetName())
 		{
-			const UObject *ObjPtr = Property;
-			MyProperty->SetValue(ObjPtr);
+			MyProperty->SetValue(Property);
 			return;
 		}
 	}

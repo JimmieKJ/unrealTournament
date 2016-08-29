@@ -185,6 +185,11 @@ public:
 		return TestsRefreshedDelegate;
 	}
 
+	virtual FOnAutomationControllerTestsComplete& OnTestsComplete() override
+	{
+		return TestsCompleteDelegate;
+	}
+
 	virtual FOnAutomationControllerReset& OnControllerReset() override
 	{
 		return ControllerResetDelegate;
@@ -194,11 +199,6 @@ public:
 	virtual bool IsDeviceGroupFlagSet( EAutomationDeviceGroupTypes::Type InDeviceGroup ) const override;
 	virtual void ToggleDeviceGroupFlag( EAutomationDeviceGroupTypes::Type InDeviceGroup ) override;
 	virtual void UpdateDeviceGroups() override;
-
-	virtual void SetTestsCompleteCallback(const FOnAutomationControllerTestsComplete& NewCallback) override
-	{
-		TestsCompleteDelegate = NewCallback;
-	}
 
 	virtual void TrackReportHistory(const bool bShouldTrack, const int32 NumReportsToTrack) override;
 	virtual const bool IsTrackingHistory() const override;

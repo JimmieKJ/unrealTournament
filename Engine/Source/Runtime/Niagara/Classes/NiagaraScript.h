@@ -20,6 +20,8 @@ enum class EUnusedAttributeBehaviour : uint8
 	None,
 	/** The memory for the attribute is set to NIAGARA_INVALID_MEMORY. */
 	MarkInvalid, 
+	/** The attribute is passed through without double buffering */
+	PassThrough,
 };
 
 USTRUCT()

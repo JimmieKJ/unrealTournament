@@ -15,10 +15,12 @@ struct FKSphereElem : public FKShapeElem
 	UPROPERTY()
 	FMatrix TM_DEPRECATED;
 
-	UPROPERTY(Category=KSphereElem, VisibleAnywhere)
+	/** Position of the sphere's origin */
+	UPROPERTY(Category=Sphere, EditAnywhere)
 	FVector Center;
 
-	UPROPERTY(Category=KSphereElem, VisibleAnywhere)
+	/** Radius of the sphere */
+	UPROPERTY(Category=Sphere, EditAnywhere)
 	float Radius;
 
 	FKSphereElem() 

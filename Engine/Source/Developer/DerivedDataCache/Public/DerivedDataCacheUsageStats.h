@@ -2,10 +2,6 @@
 #pragma once
 #include "CookStats.h"
 
-#if ENABLE_COOK_STATS
-#include "ThreadingBase.h"
-#endif
-
 /**
  * Usage stats for the derived data cache nodes. At the end of the app or commandlet, the DDC
  * can be asked to gather usage stats for each of the nodes in the DDC graph, which are accumulated
@@ -56,154 +52,34 @@ class FDerivedDataCacheUsageStats
 {
 #if ENABLE_COOK_STATS
 public:
-	/** 
-	 * Struct to hold stats for a Get/Put/Exists call. 
-	 * The sub-structs and stuff look intimidating, but it is to unify the concept
-	 * of accumulating any stat on the game or other thread, using raw int64 on the 
-	 * main thread, and thread safe accumulators on other threads.
-	 * 
-	 * Each call type that will be tracked will track call counts, call cycles, and bytes processed,
-	 * grouped by hits and misses. Some stats will by definition be zero (ie, no Miss will ever track non-zero bytes processed)
-	 * but it limits the branching in the tracking code.
-	 */
-	struct CallStats
-	{
-		/** One group of accumulators for hits and misses. */
-		enum class EHitOrMiss : uint8
-		{
-			Hit,
-			Miss,
-			MaxValue,
-		};
-
-		/** Each hit or miss will contain these accumulator stats. */
-		enum class EStatType : uint8
-		{
-			Counter,
-			Cycles,
-			Bytes,
-			MaxValue,
-		};
-
-		/** Contains a pair of accumulators, one for the game thread, one for the other threads. */
-		struct GameAndOtherThreadAccumulator
-		{
-			/** Accumulates a stat. Uses thread safe primitives for non-game thread accumulation. */
-			void Accumulate(int64 Value, bool bIsInGameThread)
-			{
-				if (bIsInGameThread)
-				{
-					GameThread += Value;
-				}
-				else if (Value != 0)
-				{
-					OtherThread.Add(Value);
-				}
-			}
-			/** Access the accumulated values (exposed for more uniform access methds to each accumulator). */
-			int64 GetAccumulatedValue(bool bIsInGameThread) const
-			{
-				return bIsInGameThread ? GameThread : OtherThread.GetValue();
-			}
-
-			int64 GameThread = 0l;
-			FThreadSafeCounter64 OtherThread;
-		};
-
-		/** Make it easier to update an accumulator by providing strongly typed access to the 2D array. */
-		void Accumulate(EHitOrMiss HitOrMiss, EStatType StatType, int64 Value, bool bIsInGameThread)
-		{
-			Accumulators[(uint8)HitOrMiss][(uint8)StatType].Accumulate(Value, bIsInGameThread);
-		}
-
-		/** Make it easier to access an accumulator using a uniform, stronly typed interface. */
-		int64 GetAccumulatedValue(EHitOrMiss HitOrMiss, EStatType StatType, bool bIsInGameThread) const
-		{
-			return Accumulators[(uint8)HitOrMiss][(uint8)StatType].GetAccumulatedValue(bIsInGameThread);
-		}
-	
-	private:
-		/** The actual accumulators. All access should be from the above public functions. */
-		GameAndOtherThreadAccumulator Accumulators[(uint8)EHitOrMiss::MaxValue][(uint8)EStatType::MaxValue];
-	};
-
-	/**
-	 * used to accumulated cycles to the thread-safe counter.
-	 * Will also accumulate hit/miss stats in the dtor as well.
-	 * If AddHit is not called, it will assume a hit. If AddMiss is called, it will convert any previous hit call to a miss.
-	 */
-	class FScopedStatsCounter
-	{
-	public:
-		/** Starts the time, tracks the underlying stat it will update. */
-		explicit FScopedStatsCounter(CallStats& InStats)
-			: Stats(InStats)
-			, StartTime(FPlatformTime::Seconds())
-			, bIsInGameThread(IsInGameThread())
-		{
-		}
-		/** Ends the timer. Flushes the stats to the underlying stats object. */
-		~FScopedStatsCounter()
-		{
-			// Can't safely use FPlatformTime::Cycles() because we might be timing long durations.
-			const int64 CyclesUsed = int64((FPlatformTime::Seconds() - StartTime) / FPlatformTime::GetSecondsPerCycle());
-			if (bTrackHitOrMissCount)
-			{
-				Stats.Accumulate(HitOrMiss, CallStats::EStatType::Counter, 1l, bIsInGameThread);
-			}
-			Stats.Accumulate(HitOrMiss, CallStats::EStatType::Cycles, CyclesUsed, bIsInGameThread);
-			Stats.Accumulate(HitOrMiss, CallStats::EStatType::Bytes, BytesProcessed, bIsInGameThread);
-		}
-		
-		/** Call to indicate a Get or Put "cache hit". Exists calls by definition don't have hits or misses. */
-		void AddHit(int64 InBytesProcessed)
-		{
-			HitOrMiss = CallStats::EHitOrMiss::Hit;
-			BytesProcessed += InBytesProcessed;
-		}
-
-		/** Call to indicate a Get or Put "cache miss". This is optional, as a Miss is assumed by the timer. Exists calls by definition don't have hits or misses. */
-		void AddMiss()
-		{
-			HitOrMiss = CallStats::EHitOrMiss::Miss;
-			BytesProcessed = 0;
-		}
-		/** Used in rare case of async nodes to track sync work without necessarily adding a hit/miss, since we won't know until the async task runs, but we want to track cycles used. */
-		void UntrackHitOrMiss()
-		{
-			bTrackHitOrMissCount = false;
-		}
-
-	private:
-		CallStats& Stats;
-		double StartTime;
-		int64 BytesProcessed = 0;
-		bool bIsInGameThread;
-		bool bTrackHitOrMissCount = true;
-		CallStats::EHitOrMiss HitOrMiss = CallStats::EHitOrMiss::Miss;
-	};
-
 	/** Call this at the top of the CachedDataProbablyExists override. auto Timer = TimeProbablyExists(); */
-	FScopedStatsCounter TimeProbablyExists()
+	FCookStats::FScopedStatsCounter TimeProbablyExists()
 	{
-		return FScopedStatsCounter(ExistsStats);
+		return FCookStats::FScopedStatsCounter(ExistsStats);
 	}
 
 	/** Call this at the top of the GetCachedData override. auto Timer = TimeGet(); Use AddHit on the returned type to track a cache hit. */
-	FScopedStatsCounter TimeGet()
+	FCookStats::FScopedStatsCounter TimeGet()
 	{
-		return FScopedStatsCounter(GetStats);
+		return FCookStats::FScopedStatsCounter(GetStats);
 	}
 
 	/** Call this at the top of the PutCachedData override. auto Timer = TimePut(); Use AddHit on the returned type to track a cache hit. */
-	FScopedStatsCounter TimePut()
+	FCookStats::FScopedStatsCounter TimePut()
 	{
-		return FScopedStatsCounter(PutStats);
+		return FCookStats::FScopedStatsCounter(PutStats);
+	}
+
+	void LogStats(FCookStatsManager::AddStatFuncRef AddStat, const FString& StatName, const FString& NodeName) const
+	{
+		GetStats.LogStats(AddStat, StatName, NodeName, TEXT("Get"));
+		PutStats.LogStats(AddStat, StatName, NodeName, TEXT("Put"));
+		ExistsStats.LogStats(AddStat, StatName, NodeName, TEXT("Exists"));
 	}
 
 	// expose these publicly for low level access. These should really never be accessed directly except when finished accumulating them.
-	CallStats GetStats;
-	CallStats PutStats;
-	CallStats ExistsStats;
+	FCookStats::CallStats GetStats;
+	FCookStats::CallStats PutStats;
+	FCookStats::CallStats ExistsStats;
 #endif
 };

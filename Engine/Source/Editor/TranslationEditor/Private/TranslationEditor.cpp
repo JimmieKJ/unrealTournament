@@ -64,56 +64,56 @@ void FTranslationEditor::Initialize()
 	TranslationColumn->SetOnFontSizeValueCommitted(FOnInt32ValueCommitted::CreateSP(this, &FTranslationEditor::OnTranslationTargetFontSizeCommitt));
 }
 
-void FTranslationEditor::RegisterTabSpawners(const TSharedRef<class FTabManager>& TabManager)
+void FTranslationEditor::RegisterTabSpawners(const TSharedRef<class FTabManager>& InTabManager)
 {
-	WorkspaceMenuCategory = TabManager->AddLocalWorkspaceMenuCategory(LOCTEXT("WorkspaceMenu_TranslationEditor", "Translation Editor"));
+	WorkspaceMenuCategory = InTabManager->AddLocalWorkspaceMenuCategory(LOCTEXT("WorkspaceMenu_TranslationEditor", "Translation Editor"));
 	auto WorkspaceMenuCategoryRef = WorkspaceMenuCategory.ToSharedRef();
 
-	FAssetEditorToolkit::RegisterTabSpawners(TabManager);
+	FAssetEditorToolkit::RegisterTabSpawners(InTabManager);
 
-	TabManager->RegisterTabSpawner( UntranslatedTabId, FOnSpawnTab::CreateSP(this, &FTranslationEditor::SpawnTab_Untranslated) )
+	InTabManager->RegisterTabSpawner( UntranslatedTabId, FOnSpawnTab::CreateSP(this, &FTranslationEditor::SpawnTab_Untranslated) )
 		.SetDisplayName( LOCTEXT("UntranslatedTab", "Untranslated") )
 		.SetGroup( WorkspaceMenuCategoryRef );
 
-	TabManager->RegisterTabSpawner( ReviewTabId, FOnSpawnTab::CreateSP(this, &FTranslationEditor::SpawnTab_Review) )
+	InTabManager->RegisterTabSpawner( ReviewTabId, FOnSpawnTab::CreateSP(this, &FTranslationEditor::SpawnTab_Review) )
 		.SetDisplayName( LOCTEXT("ReviewTab", "Needs Review") )
 		.SetGroup( WorkspaceMenuCategoryRef );
 
-	TabManager->RegisterTabSpawner( CompletedTabId, FOnSpawnTab::CreateSP(this, &FTranslationEditor::SpawnTab_Completed) )
+	InTabManager->RegisterTabSpawner( CompletedTabId, FOnSpawnTab::CreateSP(this, &FTranslationEditor::SpawnTab_Completed) )
 		.SetDisplayName( LOCTEXT("CompletedTab", "Completed") )
 		.SetGroup( WorkspaceMenuCategoryRef );
 
-	TabManager->RegisterTabSpawner( PreviewTabId, FOnSpawnTab::CreateSP(this, &FTranslationEditor::SpawnTab_Preview) )
+	InTabManager->RegisterTabSpawner( PreviewTabId, FOnSpawnTab::CreateSP(this, &FTranslationEditor::SpawnTab_Preview) )
 		.SetDisplayName( LOCTEXT("PreviewTab", "Preview") )
 		.SetGroup( WorkspaceMenuCategoryRef );
 
-	TabManager->RegisterTabSpawner( ContextTabId, FOnSpawnTab::CreateSP(this, &FTranslationEditor::SpawnTab_Context) )
+	InTabManager->RegisterTabSpawner( ContextTabId, FOnSpawnTab::CreateSP(this, &FTranslationEditor::SpawnTab_Context) )
 		.SetDisplayName( LOCTEXT("ContextTab", "Context") )
 		.SetGroup( WorkspaceMenuCategoryRef );
 
-	TabManager->RegisterTabSpawner( HistoryTabId, FOnSpawnTab::CreateSP(this, &FTranslationEditor::SpawnTab_History) )
+	InTabManager->RegisterTabSpawner( HistoryTabId, FOnSpawnTab::CreateSP(this, &FTranslationEditor::SpawnTab_History) )
 		.SetDisplayName( LOCTEXT("HistoryTab", "History") )
 		.SetGroup( WorkspaceMenuCategoryRef );
 
-	TabManager->RegisterTabSpawner( SearchTabId, FOnSpawnTab::CreateSP(this, &FTranslationEditor::SpawnTab_Search) )
+	InTabManager->RegisterTabSpawner( SearchTabId, FOnSpawnTab::CreateSP(this, &FTranslationEditor::SpawnTab_Search) )
 		.SetDisplayName(LOCTEXT("SearchTab", "Search"))
 		.SetGroup( WorkspaceMenuCategoryRef );
 
-	TabManager->RegisterTabSpawner( ChangedOnImportTabId, FOnSpawnTab::CreateSP(this, &FTranslationEditor::SpawnTab_ChangedOnImport) )
+	InTabManager->RegisterTabSpawner( ChangedOnImportTabId, FOnSpawnTab::CreateSP(this, &FTranslationEditor::SpawnTab_ChangedOnImport) )
 		.SetDisplayName(LOCTEXT("ChangedOnImportTab", "Changed On Import"))
 		.SetGroup( WorkspaceMenuCategoryRef );
 }
 
-void FTranslationEditor::UnregisterTabSpawners(const TSharedRef<class FTabManager>& TabManager)
+void FTranslationEditor::UnregisterTabSpawners(const TSharedRef<class FTabManager>& InTabManager)
 {
-	TabManager->UnregisterTabSpawner( UntranslatedTabId );
-	TabManager->UnregisterTabSpawner( ReviewTabId );
-	TabManager->UnregisterTabSpawner( CompletedTabId );
-	TabManager->UnregisterTabSpawner( PreviewTabId );
-	TabManager->UnregisterTabSpawner( ContextTabId );
-	TabManager->UnregisterTabSpawner(HistoryTabId);
-	TabManager->UnregisterTabSpawner(SearchTabId);
-	TabManager->UnregisterTabSpawner(ChangedOnImportTabId);
+	InTabManager->UnregisterTabSpawner( UntranslatedTabId );
+	InTabManager->UnregisterTabSpawner( ReviewTabId );
+	InTabManager->UnregisterTabSpawner( CompletedTabId );
+	InTabManager->UnregisterTabSpawner( PreviewTabId );
+	InTabManager->UnregisterTabSpawner( ContextTabId );
+	InTabManager->UnregisterTabSpawner(HistoryTabId);
+	InTabManager->UnregisterTabSpawner(SearchTabId);
+	InTabManager->UnregisterTabSpawner(ChangedOnImportTabId);
 }
 
 void FTranslationEditor::InitTranslationEditor( const EToolkitMode::Type Mode, const TSharedPtr< class IToolkitHost >& InitToolkitHost )

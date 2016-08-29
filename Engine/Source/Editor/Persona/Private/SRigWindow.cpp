@@ -15,6 +15,9 @@
 #include "SSearchBox.h"
 #include "SInlineEditableTextBlock.h"
 #include "SRigPicker.h"
+#include "AnimationRuntime.h"
+#include "BoneMappingHelper.h"
+#include "SSkeletonWidget.h"
 
 #define LOCTEXT_NAMESPACE "SRigWindow"
 
@@ -138,8 +141,7 @@ TSharedRef< SWidget > SBoneMappingListRow::GenerateWidgetForColumn( const FName&
 
 				+SHorizontalBox::Slot()
 				[
-					SNew(SBoneSelectionWidget)
-					.Skeleton(Item->Skeleton)
+					SNew(SBoneSelectionWidget, Item->Skeleton)
 					.Tooltip(FText::Format(LOCTEXT("BoneSelectinWidget", "Select Bone for node {0}"), FText::FromString(Item->GetDisplayName())))
 					.OnBoneSelectionChanged(this, &SBoneMappingListRow::OnBoneSelectionChanged)
 					.OnGetSelectedBone(this, &SBoneMappingListRow::GetSelectedBone)
@@ -193,7 +195,7 @@ FName SBoneMappingListRow::GetSelectedBone() const
 void SRigWindow::Construct(const FArguments& InArgs)
 {
 	PersonaPtr = InArgs._Persona;
-	Skeleton = NULL;
+	Skeleton = nullptr;
 	bDisplayAdvanced = false;
 
 	if ( PersonaPtr.IsValid() )
@@ -245,9 +247,55 @@ void SRigWindow::Construct(const FArguments& InArgs)
 					.Text(this,&SRigWindow::GetAssetName)
 				]
 			]
+		]
+
+		+ SVerticalBox::Slot()
+		.AutoHeight()
+		.HAlign(HAlign_Center)
+		.VAlign(VAlign_Center)
+		.Padding(5, 5)
+		[
+			SNew(SHorizontalBox)
+
+			+ SHorizontalBox::Slot()
+			.HAlign(HAlign_Right)
+			.Padding(5, 0)
+			[
+				SNew(SButton)
+				.OnClicked(FOnClicked::CreateSP(this, &SRigWindow::OnAutoMapping))
+				.HAlign(HAlign_Center)
+				.VAlign(VAlign_Center)
+				.Text(LOCTEXT("AutoMapping_Title", "Auto  Mapping"))
+				.ToolTipText(LOCTEXT("AutoMapping_Tooltip", "Automatically map the best matching bones"))
+			]
 
 			+SHorizontalBox::Slot()
 			.HAlign(HAlign_Right)
+			.Padding(5, 0)
+			[
+				SNew(SButton)
+				.OnClicked(FOnClicked::CreateSP(this, &SRigWindow::OnClearMapping))
+				.HAlign(HAlign_Center)
+				.VAlign(VAlign_Center)
+				.Text(LOCTEXT("ClearMapping_Title", "Clear Mapping"))
+				.ToolTipText(LOCTEXT("ClearMapping_Tooltip", "Clear currently mapping bones"))
+			]
+
+// 			+ SHorizontalBox::Slot()
+// 			.HAlign(HAlign_Right)
+// 			.Padding(5, 0)
+// 			[
+// 				SNew(SButton)
+// 				.OnClicked(FOnClicked::CreateSP(this, &SRigWindow::OnToggleView))
+// 				.HAlign(HAlign_Center)
+// 				.VAlign(VAlign_Center)
+// 				.Text(LOCTEXT("HierarchyView_Title", "Show Hierarchy"))
+// 				.ToolTipText(LOCTEXT("HierarchyView_Tooltip", "Show Hierarchy View"))
+// 			]
+
+			+SHorizontalBox::Slot()
+			.HAlign(HAlign_Right)
+			.Padding(5, 0)
 			[
 				SNew(SButton)
 				.OnClicked(FOnClicked::CreateSP(this, &SRigWindow::OnToggleAdvanced))
@@ -391,9 +439,9 @@ bool SRigWindow::ShouldFilterAsset(const class FAssetData& AssetData)
 	return (AssetData.GetAsset() == GetRigObject());
 }
 
-UObject* SRigWindow::GetRigObject() const
+URig* SRigWindow::GetRigObject() const
 {
-	return (Skeleton)? Skeleton->GetRig() : NULL;
+	return (Skeleton)? Skeleton->GetRig() : nullptr;
 }
 
 SRigWindow::~SRigWindow()
@@ -459,13 +507,126 @@ void SRigWindow::CloseComboButton()
 
 FText SRigWindow::GetAssetName() const
 {
-	UObject* Rig = GetRigObject();
+	URig* Rig = GetRigObject();
 	if (Rig)
 	{
 		return FText::FromString(Rig->GetName());
 	}
 
 	return LOCTEXT("None", "None");
+}
+
+bool SRigWindow::OnTargetSkeletonSelected(USkeleton* SelectedSkeleton, URig*  Rig) const
+{
+	if (SelectedSkeleton)
+	{
+		// make sure the skeleton contains all the rig node names
+		const FReferenceSkeleton& RefSkeleton = SelectedSkeleton->GetReferenceSkeleton();
+
+		if (RefSkeleton.GetNum() > 0)
+		{
+			const TArray<FNode> RigNodes = Rig->GetNodes();
+			int32 BoneMatched = 0;
+
+			for (const auto& RigNode : RigNodes)
+			{
+				if (RefSkeleton.FindBoneIndex(RigNode.Name) != INDEX_NONE)
+				{
+					++BoneMatched;
+				}
+			}
+
+			float BoneMatchedPercentage = BoneMatched / RefSkeleton.GetNum();
+			if (BoneMatchedPercentage > 0.5f)
+			{
+				Rig->SetSourceReferenceSkeleton(RefSkeleton);
+
+				return true;
+			}
+		}
+	}
+
+	return false;
+}
+
+bool SRigWindow::SelectSourceReferenceSkeleton(URig* Rig) const
+{
+	TSharedRef<SWindow> WidgetWindow = SNew(SWindow)
+		.Title(LOCTEXT("SelectSourceSkeletonForRig", "Select Source Skeleton for the Rig"))
+		.ClientSize(FVector2D(500, 600));
+
+	TSharedRef<SSkeletonSelectorWindow> SkeletonSelectorWindow = SNew(SSkeletonSelectorWindow).WidgetWindow(WidgetWindow);
+
+	WidgetWindow->SetContent(SkeletonSelectorWindow);
+
+	GEditor->EditorAddModalWindow(WidgetWindow);
+	USkeleton* RigSkeleton = SkeletonSelectorWindow->GetSelectedSkeleton();
+	if (RigSkeleton)
+	{
+		return OnTargetSkeletonSelected(RigSkeleton, Rig);
+	}
+
+	return false;
+}
+
+
+FReply SRigWindow::OnAutoMapping()
+{
+	URig* Rig = GetRigObject();
+	if (Rig)
+	{
+		if (!Rig->IsSourceReferenceSkeletonAvailable())
+		{
+			//ask if they want to set up source skeleton
+			EAppReturnType::Type Response = FMessageDialog::Open(EAppMsgType::YesNo, LOCTEXT("TheRigNeedsSkeleton", 
+				"In order to attempt to auto-map bones, the rig should have the source skeleton. However, the current rig is missing the source skeleton. Would you like to choose one? It's best to select the skeleton this rig is from."));
+
+			if (Response == EAppReturnType::No)
+			{
+				return FReply::Handled();
+			}
+
+			if (!SelectSourceReferenceSkeleton(Rig))
+			{
+				return FReply::Handled();
+			}
+		}
+
+		FReferenceSkeleton RigReferenceSkeleton = Rig->GetSourceReferenceSkeleton();
+		FBoneMappingHelper Helper(RigReferenceSkeleton, Skeleton->GetReferenceSkeleton());
+		TMap<FName, FName> BestMatches;
+		Helper.TryMatch(BestMatches);
+
+		for (const TPair<FName, FName>& BestCandidate : BestMatches)
+		{
+			Skeleton->SetRigBoneMapping(BestCandidate.Key, BestCandidate.Value);
+		}
+
+		BoneMappingListView->RequestListRefresh();
+	}
+
+	return FReply::Handled();
+}
+
+FReply SRigWindow::OnClearMapping()
+{
+	URig* Rig = GetRigObject();
+	if (Rig)
+	{
+		const TArray<FNode> Nodes = Rig->GetNodes();
+		for (const auto& Node : Nodes)
+		{
+			Skeleton->SetRigBoneMapping(Node.Name, NAME_None);
+		}
+
+		BoneMappingListView->RequestListRefresh();
+	}
+	return FReply::Handled();
+}
+
+FReply SRigWindow::OnToggleView()
+{
+	return FReply::Handled();
 }
 
 #undef LOCTEXT_NAMESPACE

@@ -72,6 +72,8 @@ bool FTextureRenderTargetResource::IsSupportedFormat( EPixelFormat Format )
 	case PF_A16B16G16R16:
 	case PF_FloatRGB:
 	case PF_FloatRGBA: // for exporting materials to .obj/.mtl
+	case PF_A2B10G10R10: //Pixel inspector for normal buffer
+	case PF_DepthStencil: //Pixel inspector for depth and stencil buffer
 		return true;
 	default:
 		return false;

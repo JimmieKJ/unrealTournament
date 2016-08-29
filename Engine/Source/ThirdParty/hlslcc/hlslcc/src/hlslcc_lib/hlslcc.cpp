@@ -71,7 +71,7 @@ static const int VersionTable[HCT_InvalidTarget] =
 	310,
 	430,
 	150,
-	430,
+	310,
 };
 
 /**
@@ -110,6 +110,7 @@ FHlslCrossCompilerContext::~FHlslCrossCompilerContext()
 	{
 		if (ParseState)
 		{
+			delete ParseState->symbols;
 			ParseState->~_mesa_glsl_parse_state();
 		}
 
@@ -126,7 +127,6 @@ bool FHlslCrossCompilerContext::Init(
 {
 	const bool bIsES2 = (CompileTarget == HCT_FeatureLevelES2);
 	const bool bIsES3_1 = (CompileTarget == HCT_FeatureLevelES3_1);
-	const bool bIsES = bIsES2 || bIsES3_1;
 
 	if (ShaderFrequency < HSF_VertexShader || ShaderFrequency > HSF_ComputeShader ||
 		CompileTarget < HCT_FeatureLevelSM4 || CompileTarget >= HCT_InvalidTarget)
@@ -170,10 +170,10 @@ bool FHlslCrossCompilerContext::Init(
 	ParseState->error = 0;
 	ParseState->adjust_clip_space_dx11_to_opengl = (Flags & HLSLCC_DX11ClipSpace) != 0;
 	ParseState->bFlattenUniformBuffers = bFlattenUniformBuffers;
-	ParseState->bGenerateES = bIsES;
-	ParseState->bGenerateLayoutLocations = (CompileTarget == HCT_FeatureLevelSM5) || (CompileTarget == HCT_FeatureLevelES3_1Ext) || bSeparateShaderObjects;
+	ParseState->bGenerateES = bIsES2;
+	ParseState->bGenerateLayoutLocations = (CompileTarget == HCT_FeatureLevelSM5) || (CompileTarget == HCT_FeatureLevelES3_1Ext) || (CompileTarget == HCT_FeatureLevelES3_1) || bSeparateShaderObjects;
 	ParseState->bSeparateShaderObjects = bSeparateShaderObjects;
-
+	glsl_type::SetTransientContext(MemContext);
 	return true;
 }
 
@@ -215,7 +215,7 @@ bool FHlslCrossCompilerContext::RunFrontend(const char** InOutShaderSource)
 		printf( "## End AST dump\n");
 		printf( "###########################################################################\n");
 	}
-	ir = new(MemContext)exec_list();
+	ir = new(MemContext) exec_list();
 	_mesa_ast_to_hir(ir, ParseState);
 	//TIMER(ast_to_hir);
 	//IRDump(ir);

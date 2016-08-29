@@ -6,7 +6,7 @@
 /**
  * Import data and options used when importing a static mesh from fbx
  */
-UCLASS()
+UCLASS(MinimalAPI)
 class UFbxSkeletalMeshImportData : public UFbxMeshImportData
 {
 	GENERATED_UCLASS_BODY()

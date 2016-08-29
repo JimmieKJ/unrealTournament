@@ -19,10 +19,15 @@ struct FAutoCompleteCommand
 	UPROPERTY(config, EditAnywhere, Category=Command)
 	FString Desc;
 
+	FColor Color;
+
+	FAutoCompleteCommand()
+		: Color(180, 180, 180)
+	{}
+
 	bool operator<(const FAutoCompleteCommand& rhs) const
 	{
-		// sort them in opposite order for game console UI rendering (bottom up)
-		return Command >= rhs.Command;
+		return Command < rhs.Command;
 	}
 
 	// for game console 
@@ -69,4 +74,32 @@ class ENGINESETTINGS_API UConsoleSettings
 	/** List of relative paths (e.g. Content/Maps) to search for map names for auto-complete usage. Specified in BaseInput.ini. */
 	UPROPERTY(config, EditAnywhere, Category=AutoComplete)
 	TArray<FString> AutoCompleteMapPaths;
+
+	/** Amount of transparency of the console background. */
+	UPROPERTY(config, EditAnywhere, Category=Colors, meta=(UIMin="0", UIMax="100", ClampMin="0", ClampMax="100"))
+	float BackgroundOpacityPercentage;
+
+	/** Whether we legacy bottom-to-top ordering or regular top-to-bottom ordering */
+	UPROPERTY(config, EditAnywhere, Category = AutoComplete)
+	bool bOrderTopToBottom;
+
+	/** The color used for text input. */
+	UPROPERTY(config, EditAnywhere, Category=Colors)
+	FColor InputColor;
+
+	/** The color used for the previously typed commands history. */
+	UPROPERTY(config, EditAnywhere, Category=Colors)
+	FColor HistoryColor;
+
+	/** The autocomplete color used for executable commands. */
+	UPROPERTY(config, EditAnywhere, Category=Colors)
+	FColor AutoCompleteCommandColor;
+
+	/** The autocomplete color used for mutable CVars. */
+	UPROPERTY(config, EditAnywhere, Category=Colors)
+	FColor AutoCompleteCVarColor;
+
+	/** The autocomplete color used for command descriptions and read-only CVars. */
+	UPROPERTY(config, EditAnywhere, Category=Colors)
+	FColor AutoCompleteFadedColor;
 };

@@ -210,11 +210,14 @@ void FAutomationWorkerModule::ReportTestComplete()
 			Message->ExecutionCount = ExecutionCount;
 			Message->Success = bSuccess;
 			Message->Duration = ExecutionInfo.Duration;
-			Message->Errors = ExecutionInfo.Errors;
+			for ( auto& Error : ExecutionInfo.Errors )
+			{
+				Message->Errors.Add(FAutomationWorkerEvent(Error));
+			}
 			Message->Warnings = ExecutionInfo.Warnings;
 			Message->Logs = ExecutionInfo.LogItems;
-			MessageEndpoint->Send(Message, TestRequesterAddress);
 
+			// sending though the endpoint will free Message memory, so analytics need to be sent first
 			if (bSendAnalytics)
 			{
 				if (!FAutomationAnalytics::IsInitialized())
@@ -224,6 +227,8 @@ void FAutomationWorkerModule::ReportTestComplete()
 				FAutomationAnalytics::FireEvent_AutomationTestResults(Message, BeautifiedTestName);
 				SendAnalyticsEvents(ExecutionInfo.AnalyticsItems);
 			}
+
+			MessageEndpoint->Send(Message, TestRequesterAddress);
 		}
 
 
@@ -420,9 +425,8 @@ void FAutomationWorkerModule::HandleScreenShotCapturedWithName(int32 Width, int3
 		{
 			//Save locally
 			const bool bTree = true;
-			const FString FileName = FPaths::RootDir() + ScreenShotName;
-			IFileManager::Get().MakeDirectory( *FPaths::GetPath(FileName), bTree );
-			FFileHelper::SaveArrayToFile( CompressedBitmap, *FileName );
+			IFileManager::Get().MakeDirectory(*FPaths::GetPath(ScreenShotName), bTree);
+			FFileHelper::SaveArrayToFile(CompressedBitmap, *ScreenShotName);
 		}
 	}
 

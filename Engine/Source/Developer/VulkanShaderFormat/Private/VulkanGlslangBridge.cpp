@@ -1,8 +1,18 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
-// 
-
+// Updated to SDK 1.0.21.1
 
 #include "VulkanShaderFormat.h"
+
+#if _MSC_VER == 1800
+	#pragma warning(push)
+	#pragma warning(disable:4510) // warning C4510: 'glslang::TShader::Includer::IncludeResult' : default constructor could not be generated
+	#pragma warning(disable:4610) // error C4610: struct 'glslang::TShader::Includer::IncludeResult' can never be instantiated - user defined constructor required
+#endif // _MSC_VER == 1800
+#if _MSC_VER >= 1800
+	#pragma warning(push)
+	#pragma warning(disable: 6031) // warning C6031: Return value ignored: 'snprintf'.
+	#pragma warning(disable: 6340) // warning C6340: Mismatch on sign: 'const unsigned int' passed as _Param_(4) when some signed type is required in call to 'snprintf'.
+#endif
 
 #include "glslang/Include/ShHandle.h"
 #include "glslang/Include/revision.h"
@@ -11,6 +21,13 @@
 #include "SPIRV/GLSL.std.450.h"
 #include "SPIRV/doc.h"
 #include "SPIRV/disassemble.h"
+
+#if _MSC_VER >= 1800
+	#pragma warning(pop)
+#endif
+#if _MSC_VER == 1800
+	#pragma warning(pop)
+#endif // _MSC_VER == 1800
 
 #include "hlslcc.h"
 
@@ -208,7 +225,7 @@ bool GenerateSpirv(const ANSICHAR* Source, FCompilerInfo& CompilerInfo, FString&
 		{
 			// Binary SpirV
 			FString SpirvFile = DumpDebugInfoPath / (TEXT("Output.spv"));
-			glslang::OutputSpv(Spirv, TCHAR_TO_ANSI(*SpirvFile));
+			glslang::OutputSpvBin(Spirv, TCHAR_TO_ANSI(*SpirvFile));
 
 			// Text spirv
 			FString SpirvTextFile = DumpDebugInfoPath / (TEXT("Output.spvasm"));

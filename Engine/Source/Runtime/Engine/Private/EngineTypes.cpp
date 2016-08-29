@@ -3,6 +3,13 @@
 #include "EnginePrivate.h"
 #include "PhysicalMaterials/PhysicalMaterial.h"
 
+FAttachmentTransformRules FAttachmentTransformRules::KeepRelativeTransform(EAttachmentRule::KeepRelative, false);
+FAttachmentTransformRules FAttachmentTransformRules::KeepWorldTransform(EAttachmentRule::KeepWorld, false);
+FAttachmentTransformRules FAttachmentTransformRules::SnapToTargetNotIncludingScale(EAttachmentRule::SnapToTarget, EAttachmentRule::SnapToTarget, EAttachmentRule::KeepWorld, false);
+FAttachmentTransformRules FAttachmentTransformRules::SnapToTargetIncludingScale(EAttachmentRule::SnapToTarget, false);
+
+FDetachmentTransformRules FDetachmentTransformRules::KeepRelativeTransform(EDetachmentRule::KeepRelative, true);
+FDetachmentTransformRules FDetachmentTransformRules::KeepWorldTransform(EDetachmentRule::KeepWorld, true);
 
 void FMeshProxySettings::PostLoadDeprecated()
 {
@@ -44,6 +51,8 @@ void FMeshProxySettings::PostLoadDeprecated()
 		MaterialSettings.MetallicConstant = Material_DEPRECATED.MetallicConstant;
 		MaterialSettings.SpecularConstant = Material_DEPRECATED.SpecularConstant;
 	}
+
+	MaterialSettings.MaterialMergeType = EMaterialMergeType::MaterialMergeType_Simplygon;
 }
 
 
@@ -52,7 +61,7 @@ void FMeshMergingSettings::PostLoadDeprecated()
 	FMeshMergingSettings DefaultObject;
 	if (bImportVertexColors_DEPRECATED != DefaultObject.bImportVertexColors_DEPRECATED)
 	{
-		bBakeVertexData = bImportVertexColors_DEPRECATED;
+		bBakeVertexDataToMesh = bImportVertexColors_DEPRECATED;
 	}
 
 	if (bExportNormalMap_DEPRECATED != DefaultObject.bExportNormalMap_DEPRECATED)
@@ -76,6 +85,16 @@ void FMeshMergingSettings::PostLoadDeprecated()
 	{
 		MaterialSettings.TextureSize.X = MergedMaterialAtlasResolution_DEPRECATED;
 		MaterialSettings.TextureSize.Y = MergedMaterialAtlasResolution_DEPRECATED;
+	}
+	if (bCalculateCorrectLODModel_DEPRECATED != DefaultObject.bCalculateCorrectLODModel_DEPRECATED)
+	{
+		LODSelectionType = EMeshLODSelectionType::CalculateLOD;
+	}
+
+	if (ExportSpecificLOD_DEPRECATED != DefaultObject.ExportSpecificLOD_DEPRECATED)
+	{
+		SpecificLOD = ExportSpecificLOD_DEPRECATED;
+		LODSelectionType = EMeshLODSelectionType::SpecificLOD;
 	}
 }
 

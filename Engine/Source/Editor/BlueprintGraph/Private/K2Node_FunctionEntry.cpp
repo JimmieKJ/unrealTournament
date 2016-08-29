@@ -47,6 +47,61 @@ public:
 		UK2Node_FunctionEntry* EntryNode = CastChecked<UK2Node_FunctionEntry>(Node);
 
 		UFunction* Function = FindField<UFunction>(EntryNode->SignatureClass, EntryNode->SignatureName);
+		// if this function has a predefined signature (like for inherited/overridden 
+		// functions), then we want to make sure to account for the output 
+		// parameters - this is normally handled by the FunctionResult node, but 
+		// we're not guaranteed that one is connected to the entry node 
+		if (Function && Function->HasAnyFunctionFlags(FUNC_HasOutParms))
+		{
+			const UEdGraphSchema_K2* K2Schema = GetDefault<UEdGraphSchema_K2>();
+
+			for (TFieldIterator<UProperty> ParamIt(Function, EFieldIteratorFlags::ExcludeSuper); ParamIt; ++ParamIt)
+			{
+				UProperty* ParamProperty = *ParamIt;
+
+				// mirrored from UK2Node_FunctionResult::CreatePinsForFunctionEntryExit()
+				const bool bIsFunctionInput = !ParamProperty->HasAnyPropertyFlags(CPF_OutParm) || ParamProperty->HasAnyPropertyFlags(CPF_ReferenceParm);
+				if (bIsFunctionInput)
+				{
+					// 
+					continue;
+				}
+
+				FEdGraphPinType ParamType;
+				if (K2Schema->ConvertPropertyToPinType(ParamProperty, ParamType))
+				{
+					FString ParamName = ParamProperty->GetName();
+
+					bool bTermExists = false;
+					// check to see if this terminal already exists (most 
+					// likely added by a FunctionResult node) - if so, then 
+					// we don't need to add it ourselves
+					for (const FBPTerminal& ResultTerm : Context.Results)
+					{
+						if (ResultTerm.Name == ParamName && ResultTerm.Type == ParamType)
+						{
+							bTermExists = true;
+							break;
+						}
+					}
+
+					if (!bTermExists)
+					{
+						// create a terminal that represents a output param 
+						// for this function; if there is a FunctionResult 
+						// node wired into our function graph, know that it
+						// will first check to see if this already exists 
+						// for it to use (rather than creating one of its own)
+						FBPTerminal* ResultTerm = new (Context.Results) FBPTerminal();
+						ResultTerm->Name = ParamName;
+
+						ResultTerm->Type = ParamType;
+						ResultTerm->bPassedByReference = ParamType.bIsReference;
+						ResultTerm->SetContextTypeStruct(ParamType.PinCategory == UEdGraphSchema_K2::PC_Struct && Cast<UScriptStruct>(ParamType.PinSubCategoryObject.Get()));
+					}
+				}
+			}
+		}
 
 		for (UEdGraphPin* Pin : Node->Pins)
 		{
@@ -201,7 +256,7 @@ void UK2Node_FunctionEntry::RemoveOutputPin(UEdGraphPin* PinToRemove)
 	UK2Node_FunctionEntry* OwningSeq = Cast<UK2Node_FunctionEntry>( PinToRemove->GetOwningNode() );
 	if (OwningSeq)
 	{
-		PinToRemove->BreakAllPinLinks();
+		PinToRemove->MarkPendingKill();
 		OwningSeq->Pins.Remove(PinToRemove);
 	}
 }
@@ -333,6 +388,17 @@ void UK2Node_FunctionEntry::ExpandNode(class FKismetCompilerContext& CompilerCon
 
 		// Find the associated UFunction
 		UFunction* Function = FindField<UFunction>(CompilerContext.Blueprint->SkeletonGeneratedClass, *OriginalNode->GetOuter()->GetName());
+
+		// When regenerating on load, we may need to import text on certain properties to force load the assets
+		TSharedPtr<FStructOnScope> LocalVarData;
+		if (Function && CompilerContext.Blueprint->bIsRegeneratingOnLoad)
+		{
+			if (Function->GetStructureSize() > 0 || !ensure(Function->PropertyLink == nullptr))
+			{
+				LocalVarData = MakeShareable(new FStructOnScope(Function));
+			}
+		}
+
 		for (TFieldIterator<UProperty> It(Function); It; ++It)
 		{
 			if (const UProperty* Property = *It)
@@ -400,6 +466,16 @@ void UK2Node_FunctionEntry::ExpandNode(class FKismetCompilerContext& CompilerCon
 							}
 							else
 							{
+								if (CompilerContext.Blueprint->bIsRegeneratingOnLoad)
+								{
+									// When regenerating on load, we want to force load assets referenced by local variables.
+									// This functionality is already handled when generating Terms in the Kismet Compiler for Arrays and Structs, so we do not have to worry about them.
+									if (LocalVar.VarType.PinCategory == Schema->PC_Object || LocalVar.VarType.PinCategory == Schema->PC_Class || LocalVar.VarType.PinCategory == Schema->PC_Interface)
+									{
+										FBlueprintEditorUtils::PropertyValueFromString(Property, LocalVar.DefaultValue, LocalVarData->GetStructMemory());
+									}
+								}
+
 								// Set the default value
 								Schema->TrySetDefaultValue(*SetPin, LocalVar.DefaultValue);
 							}

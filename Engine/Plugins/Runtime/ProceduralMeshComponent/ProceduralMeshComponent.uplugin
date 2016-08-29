@@ -24,6 +24,11 @@
 			[
 				"HTML5"
 			]
+		},
+		{
+			"Name" : "ProceduralMeshComponentEditor",
+			"Type" : "Editor",
+			"LoadingPhase" : "Default"
 		}
 	]
 }

@@ -7,12 +7,15 @@
 #include "Sound/SoundWave.h"
 #include "Sound/SoundNodeAttenuation.h"
 #include "SubtitleManager.h"
+#include "AudioThread.h"
 
 
 FActiveSound::FActiveSound()
-	: Sound(nullptr)
-	, World(nullptr)
-	, AudioComponent(nullptr)
+	: World(nullptr)
+	, WorldID(0)
+	, Sound(nullptr)
+	, AudioComponentID(0)
+	, OwnerID(0)
 	, AudioDevice(nullptr)
 	, ConcurrencyGroupID(0)
 	, ConcurrencyGeneration(0)
@@ -39,14 +42,16 @@ FActiveSound::FActiveSound()
 	, bCenterChannelOnly(false)
 	, bIsPreviewSound(false)
 	, bGotInteriorSettings(false)
+	, bApplyInteriorVolumes(false)
 #if !(NO_LOGGING || UE_BUILD_SHIPPING || UE_BUILD_TEST)
 	, bWarnedAboutOrphanedLooping(false)
 #endif
 	, bEnableLowPassFilter(false)
 	, bOcclusionAsyncTrace(true)
+	, bIsAudible(true)
+	, UserIndex(0)
 	, bIsOccluded(false)
 	, bAsyncOcclusionPending(false)
-	, UserIndex(0)
 	, PlaybackTime(0.f)
 	, RequestedStartTime(0.f)
 	, CurrentAdjustVolumeMultiplier(1.f)
@@ -68,13 +73,12 @@ FActiveSound::FActiveSound()
 	, LastOcclusionCheckTime(0.f)
 	, MaxDistance(WORLD_MAX)
 	, LastLocation(FVector::ZeroVector)
-	, LastAudioVolume(nullptr)
+	, AudioVolumeID(0)
 	, LastUpdateTime(0.f)
 	, SourceInteriorVolume(1.f)
 	, SourceInteriorLPF(MAX_FILTER_FREQUENCY)
 	, CurrentInteriorVolume(1.f)
 	, CurrentInteriorLPF(MAX_FILTER_FREQUENCY)
-	, bIsAudible(true)
 	, ClosestListenerPtr(nullptr)
 {
 }
@@ -90,7 +94,6 @@ FArchive& operator<<( FArchive& Ar, FActiveSound* ActiveSound )
 	if( !Ar.IsLoading() && !Ar.IsSaving() )
 	{
 		Ar << ActiveSound->Sound;
-		Ar << ActiveSound->LastAudioVolume;
 		Ar << ActiveSound->WaveInstances;
 		Ar << ActiveSound->SoundNodeOffsetMap;
 	}
@@ -110,8 +113,74 @@ void FActiveSound::AddReferencedObjects( FReferenceCollector& Collector)
 	}
 
 	Collector.AddReferencedObject(Sound);
-	Collector.AddReferencedObject(LastAudioVolume);
 	Collector.AddReferencedObject(SoundClassOverride);
+	Collector.AddReferencedObject(ConcurrencySettings);
+
+	for (FAudioComponentParam& Param : InstanceParameters)
+	{
+		if (Param.SoundWaveParam)
+		{
+			Collector.AddReferencedObject(Param.SoundWaveParam);
+		}
+	}
+}
+
+void FActiveSound::SetWorld(UWorld* InWorld)
+{
+	check(IsInGameThread());
+
+	World = InWorld;
+	WorldID = (InWorld ? InWorld->GetUniqueID() : 0);
+}
+
+void FActiveSound::SetSound(USoundBase* InSound)
+{
+	check(IsInGameThread());
+
+	Sound = InSound;
+	bApplyInteriorVolumes = (SoundClassOverride && SoundClassOverride->Properties.bApplyAmbientVolumes)
+							|| (Sound && Sound->ShouldApplyInteriorVolumes());
+}
+
+void FActiveSound::SetSoundClass(USoundClass* SoundClass)
+{
+	check(IsInGameThread());
+
+	SoundClassOverride = SoundClass;
+	bApplyInteriorVolumes = (SoundClassOverride && SoundClassOverride->Properties.bApplyAmbientVolumes)
+							|| (Sound && Sound->ShouldApplyInteriorVolumes());
+}
+
+void FActiveSound::SetAudioComponent(UAudioComponent* Component)
+{
+	check(IsInGameThread());
+
+	AActor* Owner = Component->GetOwner();
+
+	AudioComponentID = Component->GetAudioComponentID();
+	AudioComponentName = Component->GetFName();
+
+	if (Owner)
+	{
+		OwnerID = Owner->GetUniqueID();
+		OwnerName = Owner->GetFName();
+	}
+	else
+	{
+		OwnerID = 0;
+		OwnerName = NAME_None;
+	}
+
+	}
+
+FString FActiveSound::GetAudioComponentName() const
+{
+	return (AudioComponentID > 0 ? AudioComponentName.ToString() : TEXT("NO COMPONENT"));
+}
+
+FString FActiveSound::GetOwnerName() const
+{
+	return (OwnerID > 0 ? OwnerName.ToString() : TEXT("None"));
 }
 
 USoundClass* FActiveSound::GetSoundClass() const
@@ -121,31 +190,16 @@ USoundClass* FActiveSound::GetSoundClass() const
 		return SoundClassOverride;
 	}
 	else if (Sound)
-	{
+		{
 		return Sound->GetSoundClass();
-	}
+		}
 
-	return NULL;
-}
+	return nullptr;
+	}
 
 int32 FActiveSound::FindClosestListener( const TArray<FListener>& InListeners ) const
 {
 	return FAudioDevice::FindClosestListenerIndex(Transform, InListeners);
-}
-
-uint32 FActiveSound::TryGetOwnerID() const
-{
-	// Only have an owner of the active sound if the audio component is valid and if the audio component has an owner.
-	if (UAudioComponent* AudioComponentPtr = AudioComponent.Get())
-	{
-		AActor* Owner = AudioComponentPtr->GetOwner();
-		if (Owner)
-		{
-			return Owner->GetUniqueID();
-		}
-	}
-
-	return 0;
 }
 
 const FSoundConcurrencySettings* FActiveSound::GetSoundConcurrencySettingsToApply() const
@@ -194,20 +248,22 @@ void FActiveSound::UpdateWaveInstances( TArray<FWaveInstance*> &InWaveInstances,
 
 	int32 ClosestListenerIndex = 0;
 
-	if (AudioDevice->Listeners.Num() > 1)
+	const TArray<FListener>& Listeners = AudioDevice->GetListeners();
+
+	if (Listeners.Num() > 1)
 	{
 		SCOPE_CYCLE_COUNTER( STAT_AudioFindNearestLocation );
-		ClosestListenerIndex = FindClosestListener(AudioDevice->Listeners);
+		ClosestListenerIndex = FindClosestListener(Listeners);
 	}
 
 	// Cache the closest listener ptr 
-	ClosestListenerPtr = &AudioDevice->Listeners[ClosestListenerIndex];
+	ClosestListenerPtr = &Listeners[ClosestListenerIndex];
 
 	// The apparent max distance factors the actual max distance of the sound scaled with the distance scale due to focus effects
 	float ApparentMaxDistance = MaxDistance * FocusDistanceScale;
 
 	// Update whether or not his sound is out of range
-	bIsAudible = AudioDevice->LocationIsAudible(Transform.GetTranslation(), *ClosestListenerPtr, ApparentMaxDistance);
+	bIsAudible = AudioDevice->LocationIsAudible(Transform.GetTranslation(), ClosestListenerPtr->Transform, ApparentMaxDistance);
 
 	FSoundParseParameters ParseParams;
 	ParseParams.Transform = Transform;
@@ -220,7 +276,7 @@ void FActiveSound::UpdateWaveInstances( TArray<FWaveInstance*> &InWaveInstances,
 	UpdateAdjustVolumeMultiplier(DeltaTime);
 
 	// If the sound is a preview sound, then ignore the transient master volume and application volume
-	float MasterVolume = AudioDevice->TransientMasterVolume; 
+	float MasterVolume = AudioDevice->GetTransientMasterVolume(); 
 	float ApplicationVolume = FApp::GetVolumeMultiplier();
 	if (bIsPreviewSound)
 	{
@@ -236,7 +292,7 @@ void FActiveSound::UpdateWaveInstances( TArray<FWaveInstance*> &InWaveInstances,
 	ParseParams.LowPassFilterFrequency = LowPassFilterFrequency;
 	ParseParams.SoundClass = GetSoundClass();
 
-	if (ParseParams.SoundClass && ParseParams.SoundClass->Properties.bApplyAmbientVolumes)
+	if (bApplyInteriorVolumes)
 	{
 		// Additional inside/outside processing for ambient sounds
 		// If we aren't in a world there is no interior volumes to be handled.
@@ -250,13 +306,6 @@ void FActiveSound::UpdateWaveInstances( TArray<FWaveInstance*> &InWaveInstances,
 		LastLocation = ParseParams.Transform.GetTranslation();
 	}
 
-	// if the closest listener is not the primary one, transform CurrentLocation
-	if (ClosestListenerIndex != 0)
-	{
-		const FListener& Listener = AudioDevice->Listeners[0];
-		ParseParams.Transform = ParseParams.Transform * ClosestListenerPtr->Transform.Inverse() * Listener.Transform;
-	}
-
 	TArray<FWaveInstance*> ThisSoundsWaveInstances;
 
 	// Recurse nodes, have SoundWave's create new wave instances and update bFinished unless we finished fading out.
@@ -266,6 +315,13 @@ void FActiveSound::UpdateWaveInstances( TArray<FWaveInstance*> &InWaveInstances,
 		if (bHasAttenuationSettings)
 		{
 			ApplyAttenuation(ParseParams, *ClosestListenerPtr);
+		}
+
+		// if the closest listener is not the primary one, transform the sound transform so it's panned relative to primary listener position
+		if (ClosestListenerIndex != 0)
+		{
+			const FListener& Listener = Listeners[0];
+			ParseParams.Transform = ParseParams.Transform * ClosestListenerPtr->Transform.Inverse() * Listener.Transform;
 		}
 
 		Sound->Parse(AudioDevice, 0, *this, ParseParams, ThisSoundsWaveInstances);
@@ -312,20 +368,24 @@ void FActiveSound::Stop()
 		FWaveInstance*& WaveInstance = WaveInstanceIt.Value();
 
 		// Stop the owning sound source
-		FSoundSource* Source = AudioDevice->WaveInstanceSourceMap.FindRef( WaveInstance );
+		FSoundSource* Source = AudioDevice->GetSoundSource(WaveInstance);
 		if( Source )
 		{
 			Source->Stop();
 		}
 
-		// TODO - Audio Threading. This call would be a task back to game thread
-		// Dequeue subtitles for this sounds
-		FSubtitleManager::GetSubtitleManager()->KillSubtitles( ( PTRINT )WaveInstance );
+		// Dequeue subtitles for this sounds on the game thread
+		DECLARE_CYCLE_STAT(TEXT("FGameThreadAudioTask.KillSubtitles"), STAT_AudioKillSubtitles, STATGROUP_TaskGraphTasks);
+		const PTRINT WaveInstanceID = (PTRINT)WaveInstance;
+		FAudioThread::RunCommandOnGameThread([WaveInstanceID]()
+		{
+			FSubtitleManager::GetSubtitleManager()->KillSubtitles(WaveInstanceID);
+		}, GET_STATID(STAT_AudioKillSubtitles));
 
 		delete WaveInstance;
 
 		// Null the entry out temporarily as later Stop calls could try to access this structure
-		WaveInstance = NULL;
+		WaveInstance = nullptr;
 	}
 	WaveInstances.Empty();
 
@@ -335,7 +395,7 @@ void FActiveSound::Stop()
 FWaveInstance* FActiveSound::FindWaveInstance( const UPTRINT WaveInstanceHash )
 {
 	FWaveInstance** WaveInstance = WaveInstances.Find(WaveInstanceHash);
-	return (WaveInstance ? *WaveInstance : NULL);
+	return (WaveInstance ? *WaveInstance : nullptr);
 }
 
 void FActiveSound::UpdateAdjustVolumeMultiplier(const float DeltaTime)
@@ -408,33 +468,40 @@ void FActiveSound::CheckOcclusion(const FVector ListenerLocation, const FVector 
 		LastOcclusionCheckTime = WorldTime;
 		static FName NAME_SoundOcclusion = FName(TEXT("SoundOcclusion"));
 
-		// Make sure we ignore the sound's actor geometry
-		AActor* IgnoreActor = nullptr;
-		if (UAudioComponent* AudioComponentPtr = GetAudioComponent())
+		FCollisionQueryParams Params(NAME_SoundOcclusion, AttenuationSettingsPtr->bUseComplexCollisionForOcclusion);
+		if (OwnerID > 0)
 		{
-			IgnoreActor = AudioComponentPtr->GetOwner();
+			Params.AddIgnoredActor(OwnerID);
 		}
-
-		FCollisionQueryParams Params(NAME_SoundOcclusion, AttenuationSettingsPtr->bUseComplexCollisionForOcclusion, IgnoreActor);
 
 		if (bOcclusionAsyncTrace)
 		{
-			// Check if we've not already bound our trace delegate
-			if (!bIsTraceDelegateBound)
+			ECollisionChannel OcclusionTraceChannel = AttenuationSettingsPtr->OcclusionTraceChannel;
+
+			// If the audio thread is running, then only do a sync trace
+			if (FAudioThread::IsAudioThreadRunning())
 			{
-				bIsTraceDelegateBound = true;
-
-				// Bind our async occlusion trace delegate (so next update we'll have it bound)
-				OcclusionTraceDelegate.BindRaw(this, &FActiveSound::OcclusionTraceDone);
-
-				// Only do async occlusion trace if we've already made one. The first trace must be synchronous to avoid issues with sounds starting playing as occluded
-				bIsOccluded = WorldPtr->LineTraceTestByChannel(SoundLocation, ListenerLocation, ECC_Visibility, Params);
+				bIsOccluded = WorldPtr->LineTraceTestByChannel(SoundLocation, ListenerLocation, OcclusionTraceChannel, Params);
 			}
-			// don't need to do anyother async trace if we've already got one pending
-			else if (!bAsyncOcclusionPending)
+			else
 			{
-				bAsyncOcclusionPending = true;
-				WorldPtr->AsyncLineTraceByChannel(EAsyncTraceType::Test, SoundLocation, ListenerLocation, ECC_Visibility, Params, FCollisionResponseParams::DefaultResponseParam, &OcclusionTraceDelegate);
+				// Check if we've not already bound our trace delegate
+				if (!bIsTraceDelegateBound)
+				{
+					bIsTraceDelegateBound = true;
+
+					// Bind our async occlusion trace delegate (so next update we'll have it bound)
+					OcclusionTraceDelegate.BindRaw(this, &FActiveSound::OcclusionTraceDone);
+
+					// Only do async occlusion trace if we've already made one. The first trace must be synchronous to avoid issues with sounds starting playing as occluded
+					bIsOccluded = WorldPtr->LineTraceTestByChannel(SoundLocation, ListenerLocation, OcclusionTraceChannel, Params);
+				}
+				// don't need to do another async trace if we've already got one pending
+				else if (!bAsyncOcclusionPending)
+				{
+					bAsyncOcclusionPending = true;
+					WorldPtr->AsyncLineTraceByChannel(EAsyncTraceType::Test, SoundLocation, ListenerLocation, OcclusionTraceChannel, Params, FCollisionResponseParams::DefaultResponseParam, &OcclusionTraceDelegate);
+				}
 			}
 		}
 	}
@@ -451,28 +518,15 @@ const TCHAR* GetAWaveName(TMap<UPTRINT, struct FWaveInstance*> WaveInstances)
 
 void FActiveSound::HandleInteriorVolumes( const FListener& Listener, FSoundParseParameters& ParseParams )
 {
-	UWorld* WorldPtr = World.Get();
-	if (WorldPtr == nullptr)
-	{
-		return;
-	}
-
 	// Get the settings of the ambient sound
-	FInteriorSettings Ambient;
-	class AAudioVolume* AudioVolume;
+	if (!bGotInteriorSettings || (ParseParams.Transform.GetTranslation() - LastLocation).SizeSquared() > KINDA_SMALL_NUMBER)
+	{
+		FAudioDevice::FAudioVolumeSettings AudioVolumeSettings;
+		AudioDevice->GetAudioVolumeSettings(WorldID, ParseParams.Transform.GetTranslation(), AudioVolumeSettings);
 
-	if (!bGotInteriorSettings || (GIsEditor && !WorldPtr->IsGameWorld()) || (ParseParams.Transform.GetTranslation() - LastLocation).SizeSquared() > KINDA_SMALL_NUMBER)
-	{
-		AudioVolume = WorldPtr->GetAudioSettings(ParseParams.Transform.GetTranslation(), NULL, &Ambient);
-		LastInteriorSettings = Ambient;
-		LastAudioVolume = AudioVolume;
+		InteriorSettings = AudioVolumeSettings.InteriorSettings;
+		AudioVolumeID = AudioVolumeSettings.AudioVolumeID;
 		bGotInteriorSettings = true;
-	}
-	else
-	{
-		// use previous settings as we haven't moved
-		Ambient = LastInteriorSettings;
-		AudioVolume = LastAudioVolume;
 	}
 
 	// Check to see if we've moved to a new audio volume
@@ -483,11 +537,11 @@ void FActiveSound::HandleInteriorVolumes( const FListener& Listener, FSoundParse
 		LastUpdateTime = FApp::GetCurrentTime();
 	}
 
-	if (Listener.Volume == AudioVolume || !bAllowSpatialization)
+	if (Listener.AudioVolumeID == AudioVolumeID || !bAllowSpatialization)
 	{
 		// Ambient and listener in same ambient zone
 		CurrentInteriorVolume = FMath::Lerp(SourceInteriorVolume, 1.0f, Listener.InteriorVolumeInterp);
-		ParseParams.VolumeMultiplier *= CurrentInteriorVolume;
+		ParseParams.InteriorVolumeMultiplier = CurrentInteriorVolume;
 
 		CurrentInteriorLPF = FMath::Lerp(SourceInteriorLPF, MAX_FILTER_FREQUENCY, Listener.InteriorLPFInterp);
 		ParseParams.AmbientZoneFilterFrequency = CurrentInteriorLPF;
@@ -495,26 +549,23 @@ void FActiveSound::HandleInteriorVolumes( const FListener& Listener, FSoundParse
 	else
 	{
 		// Ambient and listener in different ambient zone
-		if( Ambient.bIsWorldSettings )
+		if( InteriorSettings.bIsWorldSettings )
 		{
 			// The ambient sound is 'outside' - use the listener's exterior volume
 			CurrentInteriorVolume = FMath::Lerp(SourceInteriorVolume, Listener.InteriorSettings.ExteriorVolume, Listener.ExteriorVolumeInterp);
-			ParseParams.VolumeMultiplier *= CurrentInteriorVolume;
+			ParseParams.InteriorVolumeMultiplier = CurrentInteriorVolume;
 
 			CurrentInteriorLPF = FMath::Lerp(SourceInteriorLPF, Listener.InteriorSettings.ExteriorLPF, Listener.ExteriorLPFInterp);
 			ParseParams.AmbientZoneFilterFrequency = CurrentInteriorLPF;
-
-			UE_LOG(LogAudio, Verbose, TEXT( "Ambient in diff volume, ambient outside. Volume *= %g LPF *= %g (%s)" ),
-				CurrentInteriorVolume, CurrentInteriorLPF, ( WaveInstances.Num() > 0 ) ? GetAWaveName(WaveInstances) : TEXT( "NULL" ) );
 		}
 		else
 		{
 			// The ambient sound is 'inside' - use the ambient sound's interior volume multiplied with the listeners exterior volume
-			CurrentInteriorVolume = FMath::Lerp(SourceInteriorVolume, Ambient.InteriorVolume, Listener.InteriorVolumeInterp);
+			CurrentInteriorVolume = FMath::Lerp(SourceInteriorVolume, InteriorSettings.InteriorVolume, Listener.InteriorVolumeInterp);
 			CurrentInteriorVolume *= FMath::Lerp(SourceInteriorVolume, Listener.InteriorSettings.ExteriorVolume, Listener.ExteriorVolumeInterp);
-			ParseParams.VolumeMultiplier *= CurrentInteriorVolume;
+			ParseParams.InteriorVolumeMultiplier = CurrentInteriorVolume;
 
-			float AmbientLPFValue = FMath::Lerp(SourceInteriorLPF, Ambient.InteriorLPF, Listener.InteriorLPFInterp);
+			float AmbientLPFValue = FMath::Lerp(SourceInteriorLPF, InteriorSettings.InteriorLPF, Listener.InteriorLPFInterp);
 			float ListenerLPFValue = FMath::Lerp(SourceInteriorLPF, Listener.InteriorSettings.ExteriorLPF, Listener.ExteriorLPFInterp);
 
 			// The current interior LPF value is the less of the LPF due to ambient zone and LPF due to listener settings
@@ -528,9 +579,6 @@ void FActiveSound::HandleInteriorVolumes( const FListener& Listener, FSoundParse
 				CurrentInteriorLPF = ListenerLPFValue;
 				ParseParams.AmbientZoneFilterFrequency = ListenerLPFValue;
 			}
-
-			UE_LOG(LogAudio, Verbose, TEXT( "Ambient in diff volume, ambient inside. Volume *= %g LPF *= %g (%s)" ),
-				CurrentInteriorVolume, CurrentInteriorLPF, ( WaveInstances.Num() > 0 ) ? GetAWaveName(WaveInstances) : TEXT( "NULL" ) );
 		}
 	}
 }
@@ -563,9 +611,8 @@ bool FActiveSound::GetFloatParameter( const FName InName, float& OutFloat ) cons
 	// Always fail if we pass in no name.
 	if( InName != NAME_None )
 	{
-		for( int32 Index = 0; Index < InstanceParameters.Num(); ++Index )
+		for( const FAudioComponentParam& P : InstanceParameters )
 		{
-			const FAudioComponentParam& P = InstanceParameters[Index];
 			if( P.ParamName == InName )
 			{
 				OutFloat = P.FloatParam;
@@ -582,9 +629,8 @@ void FActiveSound::SetFloatParameter( const FName InName, const float InFloat )
 	if( InName != NAME_None )
 	{
 		// First see if an entry for this name already exists
-		for( int32 Index = 0; Index < InstanceParameters.Num(); ++Index )
+		for( FAudioComponentParam& P : InstanceParameters )
 		{
-			FAudioComponentParam& P = InstanceParameters[Index];
 			if( P.ParamName == InName )
 			{
 				P.FloatParam = InFloat;
@@ -593,7 +639,7 @@ void FActiveSound::SetFloatParameter( const FName InName, const float InFloat )
 		}
 
 		// We didn't find one, so create a new one.
-		const int32 NewParamIndex = InstanceParameters.AddZeroed();
+		const int32 NewParamIndex = InstanceParameters.AddDefaulted();
 		InstanceParameters[ NewParamIndex ].ParamName = InName;
 		InstanceParameters[ NewParamIndex ].FloatParam = InFloat;
 	}
@@ -604,9 +650,8 @@ bool FActiveSound::GetWaveParameter( const FName InName, USoundWave*& OutWave ) 
 	// Always fail if we pass in no name.
 	if( InName != NAME_None )
 	{
-		for( int32 Index = 0; Index < InstanceParameters.Num(); ++Index )
+		for( const FAudioComponentParam& P : InstanceParameters )
 		{
-			const FAudioComponentParam& P = InstanceParameters[Index];
 			if( P.ParamName == InName )
 			{
 				OutWave = P.SoundWaveParam;
@@ -618,14 +663,13 @@ bool FActiveSound::GetWaveParameter( const FName InName, USoundWave*& OutWave ) 
 	return false;
 }
 
-void FActiveSound::SetWaveParameter( FName InName, USoundWave* InWave )
+void FActiveSound::SetWaveParameter( const FName InName, USoundWave* InWave )
 {
 	if( InName != NAME_None )
 	{
 		// First see if an entry for this name already exists
-		for( int32 Index = 0; Index < InstanceParameters.Num(); ++Index )
+		for( FAudioComponentParam& P : InstanceParameters )
 		{
-			FAudioComponentParam& P = InstanceParameters[Index];
 			if( P.ParamName == InName )
 			{
 				P.SoundWaveParam = InWave;
@@ -634,7 +678,7 @@ void FActiveSound::SetWaveParameter( FName InName, USoundWave* InWave )
 		}
 
 		// We didn't find one, so create a new one.
-		const int32 NewParamIndex = InstanceParameters.AddZeroed();
+		const int32 NewParamIndex = InstanceParameters.AddDefaulted();
 		InstanceParameters[ NewParamIndex ].ParamName = InName;
 		InstanceParameters[ NewParamIndex ].SoundWaveParam = InWave;
 	}
@@ -645,9 +689,8 @@ bool FActiveSound::GetBoolParameter( const FName InName, bool& OutBool ) const
 	// Always fail if we pass in no name.
 	if( InName != NAME_None )
 	{
-		for( int32 Index = 0; Index < InstanceParameters.Num(); ++Index )
+		for( const FAudioComponentParam& P : InstanceParameters )
 		{
-			const FAudioComponentParam& P = InstanceParameters[Index];
 			if( P.ParamName == InName )
 			{
 				OutBool = P.BoolParam;
@@ -659,14 +702,13 @@ bool FActiveSound::GetBoolParameter( const FName InName, bool& OutBool ) const
 	return false;
 }
 
-void FActiveSound::SetBoolParameter( FName InName, const bool InBool )
+void FActiveSound::SetBoolParameter( const FName InName, const bool InBool )
 {
 	if( InName != NAME_None )
 	{
 		// First see if an entry for this name already exists
-		for( int32 Index = 0; Index < InstanceParameters.Num(); ++Index )
+		for( FAudioComponentParam& P : InstanceParameters )
 		{
-			FAudioComponentParam& P = InstanceParameters[Index];
 			if( P.ParamName == InName )
 			{
 				P.BoolParam = InBool;
@@ -675,7 +717,7 @@ void FActiveSound::SetBoolParameter( FName InName, const bool InBool )
 		}
 
 		// We didn't find one, so create a new one.
-		const int32 NewParamIndex = InstanceParameters.AddZeroed();
+		const int32 NewParamIndex = InstanceParameters.AddDefaulted();
 		InstanceParameters[ NewParamIndex ].ParamName = InName;
 		InstanceParameters[ NewParamIndex ].BoolParam = InBool;
 	}
@@ -686,9 +728,8 @@ int32 FActiveSound::GetIntParameter( const FName InName, int32& OutInt ) const
 	// Always fail if we pass in no name.
 	if( InName != NAME_None )
 	{
-		for( int32 Index = 0; Index < InstanceParameters.Num(); ++Index )
+		for( const FAudioComponentParam& P : InstanceParameters )
 		{
-			const FAudioComponentParam& P = InstanceParameters[Index];
 			if( P.ParamName == InName )
 			{
 				OutInt = P.IntParam;
@@ -700,14 +741,13 @@ int32 FActiveSound::GetIntParameter( const FName InName, int32& OutInt ) const
 	return false;
 }
 
-void FActiveSound::SetIntParameter( FName InName, const int32 InInt )
+void FActiveSound::SetIntParameter( const FName InName, const int32 InInt )
 {
 	if( InName != NAME_None )
 	{
 		// First see if an entry for this name already exists
-		for( int32 Index = 0; Index < InstanceParameters.Num(); ++Index )
+		for( FAudioComponentParam& P : InstanceParameters )
 		{
-			FAudioComponentParam& P = InstanceParameters[Index];
 			if( P.ParamName == InName )
 			{
 				P.IntParam = InInt;
@@ -716,7 +756,7 @@ void FActiveSound::SetIntParameter( FName InName, const int32 InInt )
 		}
 
 		// We didn't find one, so create a new one.
-		const int32 NewParamIndex = InstanceParameters.AddZeroed();
+		const int32 NewParamIndex = InstanceParameters.AddDefaulted();
 		InstanceParameters[ NewParamIndex ].ParamName = InName;
 		InstanceParameters[ NewParamIndex ].IntParam = InInt;
 	}
@@ -727,9 +767,8 @@ void FActiveSound::SetSoundParameter(const FAudioComponentParam& Param)
 	if (Param.ParamName != NAME_None)
 	{
 		// First see if an entry for this name already exists
-		for (int32 Index = 0; Index < InstanceParameters.Num(); ++Index)
+		for( FAudioComponentParam& P : InstanceParameters )
 		{
-			FAudioComponentParam& P = InstanceParameters[Index];
 			if (P.ParamName == Param.ParamName)
 			{
 				P = Param;
@@ -738,8 +777,7 @@ void FActiveSound::SetSoundParameter(const FAudioComponentParam& Param)
 		}
 
 		// We didn't find one, so create a new one.
-		const int32 NewParamIndex = InstanceParameters.AddZeroed();
-		InstanceParameters[NewParamIndex] = Param;
+		const int32 NewParamIndex = InstanceParameters.Add(Param);
 	}
 }
 
@@ -781,7 +819,7 @@ void FActiveSound::ApplyAttenuation(FSoundParseParameters& ParseParams, const FL
 	FAttenuationListenerData ListenerData;
 
 	// Get the current focus factor
-	const float FocusFactor = AudioDevice->GetFocusFactor(ListenerData, Sound, SoundTransform, *Settings, &Listener);
+	const float FocusFactor = AudioDevice->GetFocusFactor(ListenerData, Sound, SoundTransform, *Settings, &Listener.Transform);
 
 	// Reset distance and priority scale to 1.0 in case changed in editor
 	FocusDistanceScale = 1.0f;
@@ -791,16 +829,18 @@ void FActiveSound::ApplyAttenuation(FSoundParseParameters& ParseParams, const FL
 	check(Sound);
 	if (Settings->bSpatialize && Settings->bEnableListenerFocus && !Sound->bIgnoreFocus)
 	{
+		const FGlobalFocusSettings& FocusSettings = AudioDevice->GetGlobalFocusSettings();
+
 		// Get the volume scale to apply the volume calculation based on the focus factor
-		const float FocusVolumeAttenuation = Settings->GetFocusAttenuation(AudioDevice->GlobalFocusSettings, FocusFactor);
+		const float FocusVolumeAttenuation = Settings->GetFocusAttenuation(FocusSettings, FocusFactor);
 		Volume *= FocusVolumeAttenuation;
 
 		// Scale the volume-weighted priority scale value we use for sorting this sound for voice-stealing
-		FocusPriorityScale = Settings->GetFocusPriorityScale(AudioDevice->GlobalFocusSettings, FocusFactor);
+		FocusPriorityScale = Settings->GetFocusPriorityScale(FocusSettings, FocusFactor);
 		ParseParams.Priority *= FocusPriorityScale;
 
 		// Get the distance scale to use when computing distance-calculations for 3d attenuation
-		FocusDistanceScale = Settings->GetFocusDistanceScale(AudioDevice->GlobalFocusSettings, FocusFactor);
+		FocusDistanceScale = Settings->GetFocusDistanceScale(FocusSettings, FocusFactor);
 	}
 
 	// Attenuate the volume based on the model
@@ -811,7 +851,7 @@ void FActiveSound::ApplyAttenuation(FSoundParseParameters& ParseParams, const FL
 			case EAttenuationShape::Sphere:
 			{
 				// Update attenuation data in-case it hasn't been updated
-				AudioDevice->GetAttenuationListenerData(ListenerData, SoundTransform, *Settings, &Listener);
+				AudioDevice->GetAttenuationListenerData(ListenerData, SoundTransform, *Settings, &Listener.Transform);
 				Volume *= Settings->AttenuationEval(ListenerData.AttenuationDistance, Settings->FalloffDistance, FocusDistanceScale);
 				break;
 			}
@@ -833,7 +873,7 @@ void FActiveSound::ApplyAttenuation(FSoundParseParameters& ParseParams, const FL
 		}
 	}
 
-	// Only due occlusion traces if the sound is audible
+	// Only do occlusion traces if the sound is audible
 	if (Settings->bEnableOcclusion && Volume > 0.0f && !AudioDevice->IsAudioDeviceMuted())
 	{
 		check(ClosestListenerPtr);
@@ -849,7 +889,7 @@ void FActiveSound::ApplyAttenuation(FSoundParseParameters& ParseParams, const FL
 	// Attenuate with the low pass filter if necessary
 	if (Settings->bAttenuateWithLPF)
 	{
-		AudioDevice->GetAttenuationListenerData(ListenerData, SoundTransform, *Settings, &Listener);
+		AudioDevice->GetAttenuationListenerData(ListenerData, SoundTransform, *Settings, &Listener.Transform);
 
 		// Attenuate with the low pass filter if necessary
 		FVector2D InputRange(Settings->LPFRadiusMin, Settings->LPFRadiusMax);

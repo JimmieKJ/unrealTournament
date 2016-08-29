@@ -1,6 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "MediaPlayerEditorPrivatePCH.h"
+#include "MediaPlayerEditorPCH.h"
+#include "MediaSoundWaveActions.h"
 
 
 #define LOCTEXT_NAMESPACE "AssetTypeActions"

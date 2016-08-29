@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "LockFreeList.h"
+#include "Array.h"
 
 #define MEM_TIME(st)
 
@@ -69,9 +71,6 @@ typedef int32 BINNED_STAT_TYPE;
 #	define BINNED_ADD_STATCOUNTER(counter, value)
 #	define BINNED_PEAK_STATCOUNTER(PeakCounter, CompareVal)
 #endif
-
-#include "LockFreeList.h"
-#include "Array.h"
 
 /** Malloc binned allocator specific stats. */
 DECLARE_MEMORY_STAT_EXTERN(TEXT("Binned Os Current"),		STAT_Binned_OsCurrent,STATGROUP_MemoryAllocator, CORE_API);

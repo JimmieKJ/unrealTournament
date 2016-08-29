@@ -1,6 +1,6 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "PhATModule.h"
+#include "PhATPrivatePCH.h"
 #include "PhAT.h"
 #include "PreviewScene.h"
 #include "Editor/UnrealEd/Public/SViewportToolBar.h"
@@ -23,6 +23,11 @@ SPhATPreviewViewport::~SPhATPreviewViewport()
 void SPhATPreviewViewport::SetViewportType(ELevelViewportType ViewType)
 {
 	EditorViewportClient->SetViewportType(ViewType);
+}
+
+void SPhATPreviewViewport::RotateViewportType()
+{
+	EditorViewportClient->RotateViewportType();
 }
 
 void SPhATPreviewViewport::Construct(const FArguments& InArgs)

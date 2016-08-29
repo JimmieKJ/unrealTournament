@@ -2,6 +2,8 @@
 
 #include "HardwareSurveyPrivatePCH.h"
 #include "IHardwareSurveyModule.h"
+#include "AnalyticsEventAttribute.h"
+#include "IAnalyticsProvider.h"
 
 /**
  * Implements the HardwareSurvey module.

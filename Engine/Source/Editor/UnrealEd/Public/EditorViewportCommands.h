@@ -41,6 +41,9 @@ public:
 	/** Changes the viewport to back view */
 	TSharedPtr< FUICommandInfo > Back;
 
+	/** Rotate through viewport view options */
+	TSharedPtr< FUICommandInfo > Next;
+
 	/** Changes the viewport to wireframe */
 	TSharedPtr< FUICommandInfo > WireframeMode;
 
@@ -71,23 +74,20 @@ public:
 	/** Changes the viewport to shader complexity with quad overdraw mode */
 	TSharedPtr< FUICommandInfo > ShaderComplexityWithQuadOverdrawMode;
 
-	/** Changes the viewport to wanted mips accuracy mode */
-	TSharedPtr< FUICommandInfo > WantedMipsAccuracyMode;
+	/** Changes the viewport to primitive distance accuracy mode */
+	TSharedPtr< FUICommandInfo > TexStreamAccPrimitiveDistanceMode;
 
-	/** Changes the viewport to texel factor accuracy mode */
-	TSharedPtr< FUICommandInfo > TexelFactorAccuracyMode;
+	/** Changes the viewport to mesh texture coord size accuracy mode */
+	TSharedPtr< FUICommandInfo > TexStreamAccMeshTexCoordSizeMode;
 
-	/** Changes the viewport to texcoord scale accuracy mode */
-	TSharedPtr< FUICommandInfo > TexCoordScaleAccuracyMode;
+	/** Changes the viewport to material texture coordinate scales accuracy mode */
+	TSharedPtr< FUICommandInfo > TexStreamAccMaterialTexCoordScalesMode;
 
 	/** Changes the viewport to stationary light overlap mode */
 	TSharedPtr< FUICommandInfo > StationaryLightOverlapMode;
 
 	/** Changes the viewport to lightmap density mode */
 	TSharedPtr< FUICommandInfo > LightmapDensityMode;
-
-	/** Changes the viewport to vertex densities mode */
-	TSharedPtr< FUICommandInfo > VertexDensitiesMode;
 
 	/** Shows the group menu item for LOD and HLOD coloration modes */
 	TSharedPtr< FUICommandInfo > GroupLODColorationMode;

@@ -226,3 +226,8 @@ bool FJsonValue::CompareEqual( const FJsonValue& Lhs, const FJsonValue& Rhs )
 		return false;
 	}
 }
+
+void FJsonValue::ErrorMessage(const FString& InType) const
+{
+	UE_LOG(LogJson, Error, TEXT("Json Value of type '%s' used as a '%s'."), *GetType(), *InType);
+}

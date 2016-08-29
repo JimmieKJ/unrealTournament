@@ -44,8 +44,7 @@ class SWidgetStack : public SVerticalBox
 	virtual FVector2D ComputeDesiredSize(float) const override
 	{
 		const float Lerp = SizeCurve.GetLerp();
-		FVector2D DesiredSize = ComputeTotalSize() * Lerp + StartSizeOffset * (1.f-Lerp);
-		return DesiredSize;
+		return ComputeTotalSize() * Lerp + StartSizeOffset * (1.f-Lerp);
 	}
 
 	virtual void OnArrangeChildren( const FGeometry& AllottedGeometry, FArrangedChildren& ArrangedChildren ) const override
@@ -238,7 +237,7 @@ public:
 	{
 		auto Size = SCompoundWidget::ComputeDesiredSize(LayoutScale);
 		// The width is determined by the top row, plus some padding
-		Size.X = TopRow->GetDesiredSize().X + 2*20;
+		Size.X = TopRow->GetDesiredSize().X + 100;
 		return Size;
 	}
 	/** Construct this widget */

@@ -5,8 +5,6 @@
 #include "UTTeamPlayerStart.h"
 #include "SlateBasics.h"
 #include "UTAnalytics.h"
-#include "Runtime/Analytics/Analytics/Public/Analytics.h"
-#include "Runtime/Analytics/Analytics/Public/Interfaces/IAnalyticsProvider.h"
 #include "UTGameMessage.h"
 #include "UTCTFGameMessage.h"
 #include "UTCTFMajorMessage.h"
@@ -17,6 +15,8 @@
 #include "StatNames.h"
 #include "UTGameSessionRanked.h"
 #include "UTBotCharacter.h"
+#include "AnalyticsEventAttribute.h"
+#include "IAnalyticsProvider.h"
 
 UUTTeamInterface::UUTTeamInterface(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -111,9 +111,9 @@ void AUTTeamGameMode::AnnounceMatchStart()
 	}
 }
 
-APlayerController* AUTTeamGameMode::Login(class UPlayer* NewPlayer, ENetRole RemoteRole, const FString& Portal, const FString& Options, const TSharedPtr<const FUniqueNetId>& UniqueId, FString& ErrorMessage)
+APlayerController* AUTTeamGameMode::Login(class UPlayer* NewPlayer, ENetRole InRemoteRole, const FString& Portal, const FString& Options, const FUniqueNetIdRepl& UniqueId, FString& ErrorMessage)
 {
-	APlayerController* PC = Super::Login(NewPlayer, RemoteRole, Portal, Options, UniqueId, ErrorMessage);
+	APlayerController* PC = Super::Login(NewPlayer, InRemoteRole, Portal, Options, UniqueId, ErrorMessage);
 
 	if (PC != NULL && !PC->PlayerState->bOnlySpectator)
 	{
@@ -268,9 +268,9 @@ bool AUTTeamGameMode::MovePlayerToTeam(AController* Player, AUTPlayerState* PS, 
 		// Clear the player's gameplay mute list.
 
 		APlayerController* PlayerController = Cast<APlayerController>(Player);
-		AUTGameState* UTGameState = GetWorld()->GetGameState<AUTGameState>();
+		AUTGameState* MyGameState = GetWorld()->GetGameState<AUTGameState>();
 
-		if (PlayerController && UTGameState)
+		if (PlayerController && MyGameState)
 		{
 			for (FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator)
 			{
@@ -280,7 +280,7 @@ bool AUTTeamGameMode::MovePlayerToTeam(AController* Player, AUTPlayerState* PS, 
 					TSharedPtr<const FUniqueNetId> Id = NextPlayer->PlayerState->UniqueId.GetUniqueNetId();
 					bool bIsMuted = Id.IsValid() && PlayerController->IsPlayerMuted(Id.ToSharedRef().Get());
 
-					bool bOnSameTeam = UTGameState->OnSameTeam(PlayerController, NextPlayer);
+					bool bOnSameTeam = MyGameState->OnSameTeam(PlayerController, NextPlayer);
 					if (bIsMuted && bOnSameTeam) 
 					{
 						PlayerController->GameplayUnmutePlayer(NextPlayer->PlayerState->UniqueId);

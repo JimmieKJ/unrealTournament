@@ -31,11 +31,26 @@ const UObject* FObjectPropertyNode::GetUObject(int32 InIndex) const
 	return Objects[InIndex].Get();
 }
 
+UPackage* FObjectPropertyNode::GetUPackage(int32 InIndex)
+{
+	UObject* Obj = GetUObject(InIndex);
+	if (Obj)
+	{
+		TWeakObjectPtr<UPackage>* Package = ObjectToPackageMapping.Find(Obj);
+		return Package ? Package->Get() : Obj->GetOutermost();
+	}
+	return nullptr;
+}
+
+const UPackage* FObjectPropertyNode::GetUPackage(int32 InIndex) const
+{
+	return const_cast<FObjectPropertyNode*>(this)->GetUPackage(InIndex);
+}
 
 // Adds a new object to the list.
 void FObjectPropertyNode::AddObject( UObject* InObject )
 {
-	Objects.AddUnique( InObject );
+	Objects.Add( InObject );
 }
 
 // Removes an object from the list.
@@ -53,6 +68,16 @@ void FObjectPropertyNode::RemoveObject( UObject* InObject )
 void FObjectPropertyNode::RemoveAllObjects()
 {
 	Objects.Empty();
+}
+
+void FObjectPropertyNode::SetObjectPackageOverrides(const TMap<TWeakObjectPtr<UObject>, TWeakObjectPtr<UPackage>>& InMapping)
+{
+	ObjectToPackageMapping = InMapping;
+}
+
+void FObjectPropertyNode::ClearObjectPackageOverrides()
+{
+	ObjectToPackageMapping.Empty();
 }
 
 // Purges any objects marked pending kill from the object list
@@ -90,7 +115,7 @@ void FObjectPropertyNode::Finalize()
 
 bool FObjectPropertyNode::GetReadAddressUncached(FPropertyNode& InNode,
 											   bool InRequiresSingleSelection,
-											   FReadAddressListData& OutAddresses,
+											   FReadAddressListData* OutAddresses,
 											   bool bComparePropertyContents,
 											   bool bObjectForceCompare,
 											   bool bArrayPropertiesCanDifferInSize) const
@@ -125,19 +150,19 @@ bool FObjectPropertyNode::GetReadAddressUncached(FPropertyNode& InNode,
 
 	if( Cast<UArrayProperty>(InItemProperty->GetOuter()) )
 	{
-		FPropertyNode* ParentNode = InNode.GetParentNode();
-		check(ParentNode);
+		FPropertyNode* ParentPropertyNode = InNode.GetParentNode();
+		check(ParentPropertyNode);
 		const UObject* TempObject = GetUObject(0);
 		if( TempObject )
 		{
-			uint8* BaseAddr = ParentNode->GetValueBaseAddress( (uint8*)TempObject );
+			uint8* BaseAddr = ParentPropertyNode->GetValueBaseAddress( (uint8*)TempObject );
 			if( BaseAddr )
 			{
 				const int32 Num = FScriptArrayHelper::Num(BaseAddr);
 				for( int32 ObjIndex = 1 ; ObjIndex < GetNumObjects(); ObjIndex++ )
 				{
 					TempObject = GetUObject(ObjIndex);
-					BaseAddr = ParentNode->GetValueBaseAddress( (uint8*)TempObject );
+					BaseAddr = ParentPropertyNode->GetValueBaseAddress( (uint8*)TempObject );
 
 					if( BaseAddr && Num != FScriptArrayHelper::Num( BaseAddr ) )
 					{
@@ -213,13 +238,16 @@ bool FObjectPropertyNode::GetReadAddressUncached(FPropertyNode& InNode,
 		}
 	}
 
-	// Write addresses to the output.
-	for ( int32 ObjIndex = 0 ; ObjIndex < GetNumObjects(); ++ObjIndex )
+	if(OutAddresses != nullptr)
 	{
-		const UObject* TempObject = GetUObject(ObjIndex);
-		if( TempObject )
+		// Write addresses to the output.
+		for(int32 ObjIndex = 0; ObjIndex < GetNumObjects(); ++ObjIndex)
 		{
-			OutAddresses.Add( TempObject, InNode.GetValueBaseAddress( (uint8*)(TempObject) ) );
+			const UObject* TempObject = GetUObject(ObjIndex);
+			if(TempObject)
+			{
+				OutAddresses->Add(TempObject, InNode.GetValueBaseAddress((uint8*)(TempObject)));
+			}
 		}
 	}
 

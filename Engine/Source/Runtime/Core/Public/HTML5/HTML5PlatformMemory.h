@@ -24,7 +24,7 @@ struct CORE_API FHTML5PlatformMemory : public FGenericPlatformMemory
 	static FPlatformMemoryStats GetStats();
 	static FMalloc* BaseAllocator();
 	static void* BinnedAllocFromOS( SIZE_T Size );
-	static void BinnedFreeToOS( void* Ptr );
+	static void BinnedFreeToOS( void* Ptr, SIZE_T Size );
 	//~ End FGenericPlatformMemory Interface
 };
 

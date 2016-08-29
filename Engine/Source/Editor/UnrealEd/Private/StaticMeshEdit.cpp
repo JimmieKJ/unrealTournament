@@ -885,6 +885,9 @@ ExistingStaticMeshData* SaveExistingStaticMeshData(UStaticMesh* ExistingMesh, bo
 		int32 TotalMaterialIndex=0;
 		for(int32 i=0; i<ExistingMesh->SourceModels.Num(); i++)
 		{
+			//If the last import was exceeding the maximum number of LOD the source model will contain more LOD so just break the loop
+			if (i >= ExistingMesh->RenderData->LODResources.Num())
+				break;
 			FStaticMeshLODResources& LOD = ExistingMesh->RenderData->LODResources[i];
 			int32 NumSections = LOD.Sections.Num();
 			for(int32 SectionIndex = 0; SectionIndex < NumSections; ++SectionIndex)
@@ -976,17 +979,20 @@ void RestoreExistingMeshData(struct ExistingStaticMeshData* ExistingMeshDataPtr,
 			SrcModel->ScreenSize = ExistingMeshDataPtr->ExistingLODData[i].ExistingScreenSize;
 		}
 
-		// Restore the section info		
-		for (int32 i = 0; i < NewMesh->RenderData->LODResources.Num(); i++)
+		// Restore the section info
+		if (ExistingMeshDataPtr->ExistingSectionInfoMap.Map.Num() > 0)
 		{
-			FStaticMeshLODResources& LOD = NewMesh->RenderData->LODResources[i];
-			int32 NumSections = LOD.Sections.Num();
-			for (int32 SectionIndex = 0; SectionIndex < NumSections; ++SectionIndex)
+			for (int32 i = 0; i < NewMesh->RenderData->LODResources.Num(); i++)
 			{
-				FMeshSectionInfo OldSectionInfo = ExistingMeshDataPtr->ExistingSectionInfoMap.Get(i, SectionIndex);
-				if(NewMesh->Materials.IsValidIndex(OldSectionInfo.MaterialIndex))
+				FStaticMeshLODResources& LOD = NewMesh->RenderData->LODResources[i];
+				int32 NumSections = LOD.Sections.Num();
+				for (int32 SectionIndex = 0; SectionIndex < NumSections; ++SectionIndex)
 				{
-					NewMesh->SectionInfoMap.Set(i, SectionIndex, OldSectionInfo);
+					FMeshSectionInfo OldSectionInfo = ExistingMeshDataPtr->ExistingSectionInfoMap.Get(i, SectionIndex);
+					if (NewMesh->Materials.IsValidIndex(OldSectionInfo.MaterialIndex))
+					{
+						NewMesh->SectionInfoMap.Set(i, SectionIndex, OldSectionInfo);
+					}
 				}
 			}
 		}
@@ -1031,11 +1037,7 @@ void RestoreExistingMeshData(struct ExistingStaticMeshData* ExistingMeshDataPtr,
 			else
 			{
 				// New collision geometry, but we still want the original settings
-				NewMesh->BodySetup->PhysicsType = ExistingMeshDataPtr->ExistingBodySetup->PhysicsType;
-				NewMesh->BodySetup->bDoubleSidedGeometry = ExistingMeshDataPtr->ExistingBodySetup->bDoubleSidedGeometry;
-				NewMesh->BodySetup->BoneName = ExistingMeshDataPtr->ExistingBodySetup->BoneName;
-				NewMesh->BodySetup->PhysMaterial = ExistingMeshDataPtr->ExistingBodySetup->PhysMaterial;
-				NewMesh->BodySetup->CollisionTraceFlag = ExistingMeshDataPtr->ExistingBodySetup->CollisionTraceFlag;
+				NewMesh->BodySetup->CopyBodySetupProperty(ExistingMeshDataPtr->ExistingBodySetup);
 			}
 		}
 

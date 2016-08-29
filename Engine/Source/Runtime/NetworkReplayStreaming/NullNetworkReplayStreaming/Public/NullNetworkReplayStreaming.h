@@ -7,11 +7,11 @@
 #include "Engine.h"
 #include "ModuleManager.h"
 #include "UniquePtr.h"
-#include "OnlineJsonSerializer.h"
+#include "Json.h"
 #include "Tickable.h"
 
 /* Class to hold metadata about an entire replay */
-class FNullReplayInfo : public FOnlineJsonSerializable
+class FNullReplayInfo : public FJsonSerializable
 {
 public:
 	FNullReplayInfo() : LengthInMS(0), NetworkVersion(0), Changelist(0), DemoFileLastOffset(0), bIsValid(false) {}
@@ -23,14 +23,14 @@ public:
 	int32		DemoFileLastOffset;
 	bool		bIsValid;
 
-	// FOnlineJsonSerializable
-	BEGIN_ONLINE_JSON_SERIALIZER
-		ONLINE_JSON_SERIALIZE( "LengthInMS",		LengthInMS );
-		ONLINE_JSON_SERIALIZE( "NetworkVersion",	NetworkVersion );
-		ONLINE_JSON_SERIALIZE( "Changelist",		Changelist );
-		ONLINE_JSON_SERIALIZE( "FriendlyName",		FriendlyName );
-		ONLINE_JSON_SERIALIZE( "DemoFileLastOffset",	DemoFileLastOffset );
-	END_ONLINE_JSON_SERIALIZER
+	// FJsonSerializable
+	BEGIN_JSON_SERIALIZER
+		JSON_SERIALIZE( "LengthInMS",		LengthInMS );
+		JSON_SERIALIZE( "NetworkVersion",	NetworkVersion );
+		JSON_SERIALIZE( "Changelist",		Changelist );
+		JSON_SERIALIZE( "FriendlyName",		FriendlyName );
+		JSON_SERIALIZE( "DemoFileLastOffset",	DemoFileLastOffset );
+	END_JSON_SERIALIZER
 };
 
 /** Default streamer that goes straight to the HD */
@@ -52,7 +52,6 @@ public:
 	virtual void FlushCheckpoint( const uint32 TimeInMS ) override;
 	virtual void GotoCheckpointIndex( const int32 CheckpointIndex, const FOnCheckpointReadyDelegate& Delegate ) override;
 	virtual void GotoTimeInMS( const uint32 TimeInMS, const FOnCheckpointReadyDelegate& Delegate ) override;
-	virtual FArchive* GetMetadataArchive() override;
 	virtual void UpdateTotalDemoTime( uint32 TimeInMS ) override;
 	virtual uint32 GetTotalDemoTime() const override { return ReplayInfo.LengthInMS; }
 	virtual bool IsDataAvailable() const override;
@@ -74,6 +73,7 @@ public:
 	virtual void SearchEvents(const FString& EventGroup, const FOnEnumerateStreamsComplete& Delegate) override;
 	virtual void KeepReplay( const FString& ReplayName, const bool bKeep ) override {}
 	virtual FString	GetReplayID() const override { return TEXT( "" ); }
+	virtual void SetTimeBufferHintSeconds(const float InTimeBufferHintSeconds) override {}
 
 	/** FTickableObjectBase implementation */
 	virtual void Tick(float DeltaSeconds) override;
@@ -100,9 +100,6 @@ private:
 
 	/** Handle to the archive that will read/write network packets */
 	TUniquePtr<FArchive> FileAr;
-
-	/* Handle to the archive that will read/write metadata */
-	TUniquePtr<FArchive> MetadataFileAr;
 
 	/* Handle to the archive that will read/write checkpoint files */
 	TUniquePtr<FArchive> CheckpointAr;

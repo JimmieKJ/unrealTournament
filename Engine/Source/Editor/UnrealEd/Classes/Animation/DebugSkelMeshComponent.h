@@ -82,6 +82,10 @@ class UDebugSkelMeshComponent : public USkeletalMeshComponent
 	UPROPERTY(transient)
 	uint32 bDrawBinormals:1;
 
+	/** CPU skinning rendering - only for previewing in Persona */
+	UPROPERTY(transient)
+	uint32 bCPUSkinning : 1;
+
 	/** Socket hit points viewing */
 	UPROPERTY(transient)
 	uint32 bDrawSockets:1;
@@ -202,7 +206,7 @@ class UDebugSkelMeshComponent : public USkeletalMeshComponent
 
 	// @todo anim : you still need to give asset, so that we know which one to disable
 	// we can disable per asset, so that if some other window disabled before me, I don't accidently turn it off
-	UNREALED_API void EnablePreview(bool bEnable, class UAnimationAsset * PreviewAsset, UVertexAnimation* PreviewVertexAnim);
+	UNREALED_API void EnablePreview(bool bEnable, class UAnimationAsset * PreviewAsset);
 
 	/**
 	 * Update material information depending on color render mode 

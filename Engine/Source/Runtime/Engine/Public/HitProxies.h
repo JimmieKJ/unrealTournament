@@ -76,6 +76,10 @@ class FHitProxyId
 	friend class HHitProxy;
 public:
 
+	/** A special hit proxy ID that can be used to omit rendering a primitive to the hit proxy buffer entirely.  This is useful when
+	    rendering translucent primitives that you never want to obscure selection of objects behind them*/
+	ENGINE_API static const FHitProxyId InvisibleHitProxyId;
+
 	/** Default constructor. */
 	FHitProxyId(): Index(INDEX_NONE) {}
 
@@ -97,6 +101,11 @@ public:
 	friend bool operator==(FHitProxyId X, FHitProxyId Y)
 	{
 		return X.Index == Y.Index;
+	}
+
+	friend bool operator!=(FHitProxyId X, FHitProxyId Y)
+	{
+		return X.Index != Y.Index;
 	}
 
 private:

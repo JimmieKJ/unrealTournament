@@ -18,11 +18,7 @@ class BLUEPRINTGRAPH_API UK2Node_GetDataTableRow : public UK2Node
 	virtual void PinDefaultValueChanged(UEdGraphPin* Pin) override;
 	virtual FText GetTooltipText() const override;
 	virtual void ExpandNode(class FKismetCompilerContext& CompilerContext, UEdGraph* SourceGraph) override;
-	virtual FName GetPaletteIcon(FLinearColor& OutColor) const override
-    {
-        OutColor = GetNodeTitleColor();
-        return TEXT("Kismet.AllClasses.FunctionIcon");
-    }
+	virtual FSlateIcon GetIconAndTint(FLinearColor& OutColor) const override;
 	//~ End UEdGraphNode Interface.
 
 	//~ Begin UK2Node Interface

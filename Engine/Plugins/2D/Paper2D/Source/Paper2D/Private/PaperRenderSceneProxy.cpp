@@ -382,13 +382,6 @@ void FPaperRenderSceneProxy::GetDynamicMeshElements(const TArray<const FSceneVie
 
 FVertexFactory* FPaperRenderSceneProxy::GetPaperSpriteVertexFactory() const
 {
-	static bool bInitAxes = false;
-	if (!bInitAxes)
-	{
-		bInitAxes = true;
-		FPaperSpriteVertex::SetTangentsFromPaperAxes();
-	}
-
 	static TGlobalResource<FPaperSpriteVertexFactoryDummy> GPaperSpriteVertexFactory;
 	return &GPaperSpriteVertexFactory;
 }

@@ -19,5 +19,5 @@ FMovieSceneEventTrackInstance::FMovieSceneEventTrackInstance(UMovieSceneEventTra
 
 void FMovieSceneEventTrackInstance::Update(EMovieSceneUpdateData& UpdateData, const TArray<TWeakObjectPtr<UObject>>& RuntimeObjects, IMovieScenePlayer& Player, FMovieSceneSequenceInstance& SequenceInstance)
 {
-	EventTrack->TriggerEvents(UpdateData.Position, UpdateData.LastPosition, Player.GetEventContext());
+	EventTrack->TriggerEvents(UpdateData.Position, UpdateData.LastPosition, Player);
 }

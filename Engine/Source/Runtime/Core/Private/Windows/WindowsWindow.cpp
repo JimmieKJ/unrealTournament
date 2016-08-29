@@ -3,6 +3,7 @@
 #include "CorePrivatePCH.h"
 #include "WindowsWindow.h"
 #include "WindowsApplication.h"
+#include "HAL/ThreadHeartBeat.h"
 
 #include "AllowWindowsPlatformTypes.h"
 #if WINVER > 0x502	// Windows Vista or better required for DWM
@@ -53,10 +54,12 @@ void FWindowsWindow::Initialize( FWindowsApplication* const Application, const T
 	const float WidthInitial = Definition->WidthDesiredOnScreen;
 	const float HeightInitial = Definition->HeightDesiredOnScreen;
 
-	int32 X = FMath::TruncToInt( XInitialRect );
-	int32 Y = FMath::TruncToInt( YInitialRect );
+	int32 ClientX = FMath::TruncToInt( XInitialRect );
+	int32 ClientY = FMath::TruncToInt( YInitialRect );
 	int32 ClientWidth = FMath::TruncToInt( WidthInitial );
 	int32 ClientHeight = FMath::TruncToInt( HeightInitial );
+	int32 WindowX = ClientX;
+	int32 WindowY = ClientY;
 	int32 WindowWidth = ClientWidth;
 	int32 WindowHeight = ClientHeight;
 	const bool bApplicationSupportsPerPixelBlending =
@@ -138,16 +141,19 @@ void FWindowsWindow::Initialize( FWindowsApplication* const Application, const T
 			WindowStyle |= WS_POPUP | WS_BORDER;
 		}
 
-		// Note SizeX and SizeY should be the size of the client area.  We need to get the actual window size by adjusting the client size to account for standard windows border around the window
-		RECT WindowRect = { 0, 0, ClientWidth, ClientWidth };
-		::AdjustWindowRectEx(&WindowRect,WindowStyle,0,WindowExStyle);
+		// X,Y, Width, Height defines the top-left pixel of the client area on the screen
+		// This adjusts a zero rect to give us the size of the border
+		RECT BorderRect = { 0, 0, 0, 0 };
+		::AdjustWindowRectEx(&BorderRect, WindowStyle, false, WindowExStyle);
 
-		X += WindowRect.left;
-		Y += WindowRect.top;
-		WindowWidth = WindowRect.right - WindowRect.left;
-		WindowHeight = WindowRect.bottom - WindowRect.top;
+		// Border rect size is negative - see MoveWindowTo
+		WindowX += BorderRect.left;
+		WindowY += BorderRect.top;
+
+		// Inflate the window size by the OS border
+		WindowWidth += BorderRect.right - BorderRect.left;
+		WindowHeight += BorderRect.bottom - BorderRect.top;
 	}
-
 
 	// Creating the Window
 	HWnd = CreateWindowEx(
@@ -155,7 +161,8 @@ void FWindowsWindow::Initialize( FWindowsApplication* const Application, const T
 		AppWindowClass,
 		*Definition->Title,
 		WindowStyle,
-		X, Y, WindowWidth, WindowHeight,
+		WindowX, WindowY, 
+		WindowWidth, WindowHeight,
 		( InParent.IsValid() ) ? static_cast<HWND>( InParent->HWnd ) : NULL,
 		NULL, InHInstance, NULL);
 
@@ -166,10 +173,12 @@ void FWindowsWindow::Initialize( FWindowsApplication* const Application, const T
 	// in the initial creation of the window. Slate should only pass client area dimensions.
 	// Reshape window may resize the window if the non-client area is encroaching on our
 	// desired client area space.
-	ReshapeWindow( X, Y, ClientWidth, ClientHeight );
+	ReshapeWindow( ClientX, ClientY, ClientWidth, ClientHeight );
 
 	if( HWnd == NULL )
 	{
+		FSlowHeartBeatScope SuspendHeartBeat;
+
 		// @todo Error message should be localized!
 		MessageBox(NULL, TEXT("Window Creation Failed!"), TEXT("Error!"), MB_ICONEXCLAMATION | MB_OK);
 		checkf(0, TEXT("Window Creation Failed (%d)"), ::GetLastError() );
@@ -238,6 +247,7 @@ FWindowsWindow::FWindowsWindow()
 	: HWnd(NULL)
 	, WindowMode( EWindowMode::Windowed )
 	, OLEReferenceCount(0)
+	, AspectRatio(1.0f)
 	, bIsVisible( false )
 {
 	FMemory::Memzero(PreFullscreenWindowPlacement);
@@ -284,12 +294,27 @@ HRGN FWindowsWindow::MakeWindowRegionObject() const
 	{
 		if (IsMaximized())
 		{
-			int32 WindowBorderSize = GetWindowBorderSize();
-			Region = CreateRectRgn( WindowBorderSize, WindowBorderSize, RegionWidth - WindowBorderSize, RegionHeight - WindowBorderSize );
+			if (GetDefinition().Type == EWindowType::GameWindow && !GetDefinition().HasOSWindowBorder)
+			{
+				// Windows caches the cxWindowBorders size at window creation. Even if borders are removed or resized Windows will continue to use this value when evaluating regions
+				// and sizing windows. When maximized this means that our window position will be offset from the screen origin by (-cxWindowBorders,-cxWindowBorders). We want to
+				// display only the region within the maximized screen area, so offset our upper left and lower right by cxWindowBorders.
+				WINDOWINFO WindowInfo;
+				FMemory::Memzero(WindowInfo);
+				WindowInfo.cbSize = sizeof(WindowInfo);
+				::GetWindowInfo(HWnd, &WindowInfo);
+
+				Region = CreateRectRgn(WindowInfo.cxWindowBorders, WindowInfo.cxWindowBorders, RegionWidth + WindowInfo.cxWindowBorders, RegionHeight + WindowInfo.cxWindowBorders);
+			}
+			else
+			{
+				int32 WindowBorderSize = GetWindowBorderSize();
+				Region = CreateRectRgn(WindowBorderSize, WindowBorderSize, RegionWidth - WindowBorderSize, RegionHeight - WindowBorderSize);
+			}
 		}
 		else
 		{
-			const bool bUseCornerRadius  = 
+			const bool bUseCornerRadius  = WindowMode == EWindowMode::Windowed &&
 #if ALPHA_BLENDED_WINDOWS
 				// Corner radii cause DWM window composition blending to fail, so we always set regions to full size rectangles
 				Definition->TransparencySupport != EWindowTransparency::PerPixel &&
@@ -342,16 +367,22 @@ void FWindowsWindow::ReshapeWindow( int32 NewX, int32 NewY, int32 NewWidth, int3
 	WindowInfo.cbSize = sizeof( WindowInfo );
 	::GetWindowInfo( HWnd, &WindowInfo );
 
-	// X,Y, Width, Height defines the pixel left of the client area on the screen
-	RECT ClientRect = { 0, 0, NewWidth, NewHeight };
-	RECT WindowRect = { 0, 0, NewWidth, NewHeight };
+	AspectRatio = (float)NewWidth / (float)NewHeight;
+
+	// X,Y, Width, Height defines the top-left pixel of the client area on the screen
 	if( Definition->HasOSWindowBorder )
 	{
-		// Note SizeX and SizeY should be the size of the client area.  We need to get the actual window size by adjusting the client size to account for standard windows border around the window
-		::AdjustWindowRectEx(&WindowRect,WindowInfo.dwStyle,0,WindowInfo.dwExStyle);
+		// This adjusts a zero rect to give us the size of the border
+		RECT BorderRect = { 0, 0, 0, 0 };
+		::AdjustWindowRectEx(&BorderRect, WindowInfo.dwStyle, false, WindowInfo.dwExStyle);
 
-		NewWidth = WindowRect.right - WindowRect.left;
-		NewHeight = WindowRect.bottom - WindowRect.top;
+		// Border rect size is negative - see MoveWindowTo
+		NewX += BorderRect.left;
+		NewY += BorderRect.top;
+
+		// Inflate the window size by the OS border
+		NewWidth += BorderRect.right - BorderRect.left;
+		NewHeight += BorderRect.bottom - BorderRect.top;
 	}
 
 	// the window position is the requested position
@@ -413,24 +444,25 @@ bool FWindowsWindow::GetFullScreenInfo( int32& X, int32& Y, int32& Width, int32&
 	return true;
 }
 
-/** Native windows should implement MoveWindowTo by relocating the platform-specific window to (X,Y). */
+/** Native windows should implement MoveWindowTo by relocating the client area of the platform-specific window to (X,Y). */
 void FWindowsWindow::MoveWindowTo( int32 X, int32 Y )
 {
-	RECT WindowRect;
-	::GetWindowRect(HWnd, &WindowRect);
+	// Slate gives the window position as relative to the client area of a window, so we may need to compensate for the OS border
+	if (Definition->HasOSWindowBorder)
+	{
+		const LONG WindowStyle = ::GetWindowLong(HWnd, GWL_STYLE);
+		const LONG WindowExStyle = ::GetWindowLong(HWnd, GWL_EXSTYLE);
 
-	POINT ClientPoint;
-	ClientPoint.x = 0;
-	ClientPoint.y = 0;
-	::ClientToScreen( HWnd, &ClientPoint );
+		// This adjusts a zero rect to give us the size of the border
+		RECT BorderRect = { 0, 0, 0, 0 };
+		::AdjustWindowRectEx(&BorderRect, WindowStyle, false, WindowExStyle);
 
-	const int32 XMoveDistance = X - ClientPoint.x;
-	const int32 YMoveDistance = Y - ClientPoint.y;
+		// Border rect size is negative
+		X += BorderRect.left;
+		Y += BorderRect.top;
+	}
 
-	X = WindowRect.left + XMoveDistance;
-	Y = WindowRect.top + YMoveDistance;
-
-	::MoveWindow( HWnd, X, Y, WindowRect.right - WindowRect.left, WindowRect.bottom - WindowRect.top, true );
+	::SetWindowPos(HWnd, nullptr, X, Y, 0, 0, SWP_NOACTIVATE | SWP_NOSIZE | SWP_NOZORDER);
 }
 
 /** Native windows should implement BringToFront by making this window the top-most window (i.e. focused).
@@ -538,12 +570,6 @@ void FWindowsWindow::Hide()
 /** Toggle native window between fullscreen and normal mode */
 void FWindowsWindow::SetWindowMode( EWindowMode::Type NewWindowMode )
 {
-	if (NewWindowMode == EWindowMode::WindowedMirror)
-	{
-		// treat WindowedMirror as a regular Windowed mode here
-		NewWindowMode = EWindowMode::Windowed;
-	}
-
 	if (NewWindowMode != WindowMode)
 	{
 		WindowMode = NewWindowMode;
@@ -584,11 +610,21 @@ void FWindowsWindow::SetWindowMode( EWindowMode::Type NewWindowMode )
 		// If we're not in fullscreen, make it so
 		if (NewWindowMode == EWindowMode::WindowedFullscreen || NewWindowMode == EWindowMode::Fullscreen)
 		{
+			const bool bIsBorderlessGameWindow = Definition->Type == EWindowType::GameWindow && !Definition->HasOSWindowBorder;
+
 			::GetWindowPlacement(HWnd, &PreFullscreenWindowPlacement);
 
 			// Setup Win32 flags for fullscreen window
-			WindowStyle &= ~WindowedModeStyle;
-			WindowStyle |= FullscreenModeStyle;
+			if (bIsBorderlessGameWindow && !bTrueFullscreen)
+			{
+				WindowStyle &= ~FullscreenModeStyle;
+				WindowStyle |= WindowedModeStyle;
+			}
+			else
+			{
+				WindowStyle &= ~WindowedModeStyle;
+				WindowStyle |= FullscreenModeStyle;
+			}
 
 			SetWindowLong(HWnd, GWL_STYLE, WindowStyle);
 			::SetWindowPos(HWnd, nullptr, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_FRAMECHANGED);
@@ -746,6 +782,12 @@ void FWindowsWindow::Enable( bool bEnable )
 	::EnableWindow( HWnd, bEnable );
 }
 
+/** @return True if the window is enabled */
+bool FWindowsWindow::IsEnabled()
+{
+	return !!::IsWindowEnabled( HWnd );
+}
+
 /** @return true if native window exists underneath the coordinates */
 bool FWindowsWindow::IsPointInWindow( int32 X, int32 Y ) const
 {
@@ -760,6 +802,14 @@ bool FWindowsWindow::IsPointInWindow( int32 X, int32 Y ) const
 
 int32 FWindowsWindow::GetWindowBorderSize() const
 {
+	if (GetDefinition().Type == EWindowType::GameWindow && !GetDefinition().HasOSWindowBorder)
+	{
+		// Our borderless game windows actually have a thick border to allow sizing, which we draw over to simulate
+		// a borderless window. We return zero here so that the game will correctly behave as if this is truly a
+		// borderless window.
+		return 0;
+	}
+
 	WINDOWINFO WindowInfo;
 	FMemory::Memzero( WindowInfo );
 	WindowInfo.cbSize = sizeof( WindowInfo );
@@ -863,18 +913,18 @@ FDragDropOLEData DecipherOLEData(IDataObject* DataObjectPointer)
 	if (bHaveUnicodeText && S_OK == DataObjectPointer->GetData(&FormatEtc_UNICODE, &StorageMedium))
 	{
 		FOLEResourceGuard ResourceGuard(StorageMedium);
-		OLEData.Type = FDragDropOLEData::Text;
+		OLEData.Type |= FDragDropOLEData::Text;
 		OLEData.OperationText = static_cast<TCHAR*>(ResourceGuard.DataPointer);
 	}
-	else if (bHaveAnsiText && S_OK == DataObjectPointer->GetData(&FormatEtc_Ansii, &StorageMedium))
+	if (bHaveAnsiText && S_OK == DataObjectPointer->GetData(&FormatEtc_Ansii, &StorageMedium))
 	{
 		FOLEResourceGuard ResourceGuard(StorageMedium);
-		OLEData.Type = FDragDropOLEData::Text;
+		OLEData.Type |= FDragDropOLEData::Text;
 		OLEData.OperationText = static_cast<ANSICHAR*>(ResourceGuard.DataPointer);
 	}
-	else if (bHaveFiles && S_OK == DataObjectPointer->GetData(&FormatEtc_File, &StorageMedium))
+	if (bHaveFiles && S_OK == DataObjectPointer->GetData(&FormatEtc_File, &StorageMedium))
 	{
-		OLEData.Type = FDragDropOLEData::Files;
+		OLEData.Type |= FDragDropOLEData::Files;
 
 		FOLEResourceGuard ResourceGuard(StorageMedium);
 		const DROPFILES* DropFiles = static_cast<DROPFILES*>(ResourceGuard.DataPointer);

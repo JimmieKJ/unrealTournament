@@ -4,3 +4,5 @@
 #include "LandscapeEditorModule.h"
 #include "LandscapeEdMode.h"
 #include "LandscapeEditorObject.h"
+#include "Landscape.h"
+#include "LandscapeStreamingProxy.h"

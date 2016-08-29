@@ -239,7 +239,6 @@ inline void TransitionSetRenderTargetsHelper(FRHICommandList& RHICmdList, FTextu
 
 inline void TransitionSetRenderTargetsHelper(FRHICommandList& RHICmdList, uint32 NumRenderTargets, const FTextureRHIParamRef* NewRenderTargetsRHI, const FTextureRHIParamRef NewDepthStencilTargetRHI, FExclusiveDepthStencil DepthStencilAccess)
 {
-	FRHIRenderTargetView RTVs[MaxSimultaneousRenderTargets];
 	FTextureRHIParamRef Transitions[MaxSimultaneousRenderTargets + 1];
 	int32 TransitionIndex = 0;
 	for (uint32 Index = 0; Index < NumRenderTargets; Index++)

@@ -21,7 +21,7 @@ APaperCharacter::APaperCharacter(const FObjectInitializer& ObjectInitializer)
 		Sprite->bOwnerNoSee = false;
 		Sprite->bAffectDynamicIndirectLighting = true;
 		Sprite->PrimaryComponentTick.TickGroup = TG_PrePhysics;
-		Sprite->AttachParent = GetCapsuleComponent();
+		Sprite->SetupAttachment(GetCapsuleComponent());
 		static FName CollisionProfileName(TEXT("CharacterMesh"));
 		Sprite->SetCollisionProfileName(CollisionProfileName);
 		Sprite->bGenerateOverlapEvents = false;

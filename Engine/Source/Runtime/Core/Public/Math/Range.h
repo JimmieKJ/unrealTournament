@@ -56,7 +56,7 @@ public:
 	 *
 	 * @param A The element in the range.
 	 */
-	explicit TRange( const ElementType& A )
+	explicit TRange(const ElementType& A)
 		: LowerBound(BoundsType::Inclusive(A))
 		, UpperBound(BoundsType::Inclusive(A))
 	{ }
@@ -69,7 +69,7 @@ public:
 	 * @param A The range's lower bound value (inclusive).
 	 * @param B The range's upper bound value (exclusive).
 	 */
-	explicit TRange( const ElementType& A, const ElementType& B )
+	explicit TRange(const ElementType& A, const ElementType& B)
 		: LowerBound(BoundsType::Inclusive(A))
 		, UpperBound(BoundsType::Exclusive(B))
 	{ }
@@ -80,7 +80,7 @@ public:
 	 * @param InLowerBound The range's lower bound.
 	 * @param InUpperBound The range's upper bound.
 	 */
-	explicit TRange( const BoundsType& InLowerBound, const BoundsType& InUpperBound )
+	explicit TRange(const BoundsType& InLowerBound, const BoundsType& InUpperBound)
 		: LowerBound(InLowerBound)
 		, UpperBound(InUpperBound)
 	{ }
@@ -93,7 +93,7 @@ public:
 	 * @param Other The range to compare with.
 	 * @return true if the ranges are equal, false otherwise.
 	 */
-	bool operator==( const TRange& Other ) const
+	bool operator==(const TRange& Other) const
 	{
 		if (IsEmpty() && Other.IsEmpty())
 		{
@@ -109,7 +109,7 @@ public:
 	 * @param Other The range to compare with.
 	 * @return true if the ranges are not equal, false otherwise.
 	 */
-	bool operator!=( const TRange& Other ) const
+	bool operator!=(const TRange& Other) const
 	{
 		if (IsEmpty() && Other.IsEmpty())
 		{
@@ -131,7 +131,7 @@ public:
 	 * @param Other The other range.
 	 * @return true if this range adjoins the other, false otherwise.
 	 */
-	bool Adjoins( const TRange& Other ) const
+	bool Adjoins(const TRange& Other) const
 	{
 		if (IsEmpty() || Other.IsEmpty())
 		{
@@ -163,7 +163,7 @@ public:
 	 * @param Y The second range.
 	 * @return true if this range conjoins the two ranges, false otherwise.
 	 */
-	bool Conjoins( const TRange& X, const TRange& Y ) const
+	bool Conjoins(const TRange& X, const TRange& Y) const
 	{
 		if (X.Overlaps(Y))
 		{
@@ -179,7 +179,7 @@ public:
 	 * @param Element The element to check.
 	 * @return true if the range contains the element, false otherwise.
 	 */
-	bool Contains( const ElementType& Element ) const
+	bool Contains(const ElementType& Element) const
 	{
 		return ((BoundsType::MinLower(LowerBound, Element) == LowerBound) &&
 				(BoundsType::MaxUpper(UpperBound, Element) == UpperBound));
@@ -191,7 +191,7 @@ public:
 	 * @param Other The range to check.
 	 * @return true if the range contains the other range, false otherwise.
 	 */
-	bool Contains( const TRange& Other ) const
+	bool Contains(const TRange& Other) const
 	{
 		return ((BoundsType::MinLower(LowerBound, Other.LowerBound) == LowerBound) &&
 				(BoundsType::MaxUpper(UpperBound, Other.UpperBound) == UpperBound));
@@ -205,7 +205,7 @@ public:
 	 * @param Other The other range.
 	 * @return true if the ranges are contiguous, false otherwise.
 	 */
-	bool Contiguous( const TRange& Other ) const
+	bool Contiguous(const TRange& Other) const
 	{
 		return (Overlaps(Other) || Adjoins(Other));
 	}
@@ -320,7 +320,7 @@ public:
 	 * @param Other The other range.
 	 * @return true if the ranges overlap, false otherwise.
 	 */
-	bool Overlaps( const TRange& Other ) const
+	bool Overlaps(const TRange& Other) const
 	{
 		if (IsEmpty() || Other.IsEmpty())
 		{
@@ -379,7 +379,7 @@ public:
 	 *
 	 * @param Element The element at which to split the range.
 	 */
-	TArray<TRange> Split( const ElementType& Element ) const
+	TArray<TRange> Split(const ElementType& Element) const
 	{
 		TArray<TRange> Result;
 		
@@ -406,7 +406,7 @@ public:
 	 * @return Between 0 and 2 remaining ranges.
 	 * @see Hull, Intersection, Union
 	 */
-	static FORCEINLINE TArray<TRange> Difference( const TRange& X, const TRange& Y )
+	static FORCEINLINE TArray<TRange> Difference(const TRange& X, const TRange& Y)
 	{
 		TArray<TRange> Result;
 
@@ -453,7 +453,7 @@ public:
 	 * @return The hull.
 	 * @see Difference, Intersection, Union
 	 */
-	static FORCEINLINE TRange Hull( const TRange& X, const TRange& Y )
+	static FORCEINLINE TRange Hull(const TRange& X, const TRange& Y)
 	{
 		if (X.IsEmpty())
 		{
@@ -475,7 +475,7 @@ public:
 	 * @return The hull.
 	 * @see Difference, Intersection, Union
 	 */
-	static FORCEINLINE TRange Hull( const TArray<TRange>& Ranges )
+	static FORCEINLINE TRange Hull(const TArray<TRange>& Ranges)
 	{
 		if (Ranges.Num() == 0)
 		{
@@ -502,7 +502,7 @@ public:
 	 * @return The intersection, or an empty range if the ranges do not overlap.
 	 * @see Difference, Hull, Union
 	 */
-	static FORCEINLINE TRange Intersection( const TRange& X, const TRange& Y )
+	static FORCEINLINE TRange Intersection(const TRange& X, const TRange& Y)
 	{
 		if (X.IsEmpty())
 		{
@@ -524,7 +524,7 @@ public:
 	 * @return The intersection.
 	 * @see Difference, Hull, Union
 	 */
-	static FORCEINLINE TRange Intersection( const TArray<TRange>& Ranges )
+	static FORCEINLINE TRange Intersection(const TArray<TRange>& Ranges)
 	{
 		if (Ranges.Num() == 0)
 		{
@@ -551,7 +551,7 @@ public:
 	 * @return The union, or both ranges if the two ranges are not contiguous, or no ranges if both ranges are empty.
 	 * @see Difference, Hull, Intersection
 	 */
-	static FORCEINLINE TArray<TRange> Union( const TRange& X, const TRange& Y )
+	static FORCEINLINE TArray<TRange> Union(const TRange& X, const TRange& Y)
 	{
 		TArray<TRange> OutRanges;
 
@@ -593,7 +593,7 @@ public:
 	 * @param Value The value.
 	 * @return A new range.
 	 */
-	static FORCEINLINE TRange AtLeast( const ElementType& Value )
+	static FORCEINLINE TRange AtLeast(const ElementType& Value)
 	{
 		return TRange(BoundsType::Inclusive(Value), BoundsType::Open());
 	}
@@ -604,7 +604,7 @@ public:
 	 * @param Value The value.
 	 * @return A new range.
 	 */
-	static FORCEINLINE TRange AtMost( const ElementType& Value )
+	static FORCEINLINE TRange AtMost(const ElementType& Value)
 	{
 		return TRange(BoundsType::Open(), BoundsType::Inclusive(Value));
 	}
@@ -615,7 +615,7 @@ public:
 	 * @param Value The value.
 	 * @return A new range.
 	 */
-	static FORCEINLINE TRange GreaterThan( const ElementType& Value )
+	static FORCEINLINE TRange GreaterThan(const ElementType& Value)
 	{
 		return TRange(BoundsType::Exclusive(Value), BoundsType::Open());
 	}
@@ -626,7 +626,7 @@ public:
 	 * @param Value The value.
 	 * @return A new range.
 	 */
-	static FORCEINLINE TRange LessThan( const ElementType& Value )
+	static FORCEINLINE TRange LessThan(const ElementType& Value)
 	{
 		return TRange(BoundsType::Open(), BoundsType::Exclusive(Value));
 	}
@@ -640,7 +640,7 @@ public:
 	 * @param Range The range to serialize.
 	 * @return The archive.
 	 */
-	friend class FArchive& operator<<( class FArchive& Ar, TRange& Range )
+	friend class FArchive& operator<<(class FArchive& Ar, TRange& Range)
 	{
 		return Ar << Range.LowerBound << Range.UpperBound;
 	}
@@ -651,17 +651,17 @@ public:
 	 * @param Range The range to get the hash for.
 	 * @return Hash value.
 	 */
-	friend uint32 GetTypeHash( const TRange& Range )
+	friend uint32 GetTypeHash(const TRange& Range)
 	{
 		return (GetTypeHash(Range.LowerBound) + 23 * GetTypeHash(Range.UpperBound));
 	}
 
 private:
 
-	// Holds the range's lower bound.
+	/** Holds the range's lower bound. */
 	BoundsType LowerBound;
 
-	// Holds the range's upper bound.
+	/** Holds the range's upper bound. */
 	BoundsType UpperBound;
 };
 
@@ -681,34 +681,34 @@ private:
 		{ \
 		} \
 		 \
-		Name( const Super& Rhs ) \
-			: Super( Rhs ) \
+		Name(const Super& Rhs) \
+			: Super(Rhs) \
 		{ \
 		} \
 		 \
-		explicit Name( const ElementType& A ) \
-			: Super( A ) \
+		explicit Name(const ElementType& A) \
+			: Super(A) \
 		{ \
 		} \
 		 \
-		explicit Name( const ElementType& A, const ElementType& B ) \
-			: Super( A, B ) \
+		explicit Name(const ElementType& A, const ElementType& B) \
+			: Super(A, B) \
 		{ \
 		} \
 		 \
-		explicit Name( const TRangeBound<ElementType>& InLowerBound, const TRangeBound<ElementType>& InUpperBound ) \
-			: Super( InLowerBound, InUpperBound ) \
+		explicit Name(const TRangeBound<ElementType>& InLowerBound, const TRangeBound<ElementType>& InUpperBound) \
+			: Super(InLowerBound, InUpperBound) \
 		{ \
 		} \
 		 \
-		TArray<Name> Split( const ElementType& Element ) const \
+		TArray<Name> Split(const ElementType& Element) const \
 		{ \
-			return TArray<Name>( Super::Split( Element ) ); \
+			return TArray<Name>(Super::Split(Element)); \
 		} \
 		 \
-		static FORCEINLINE TArray<Name> Difference( const Name& X, const Name& Y ) \
+		static FORCEINLINE TArray<Name> Difference(const Name& X, const Name& Y) \
 		{ \
-			return TArray<Name>( Super::Difference( X, Y ) ); \
+			return TArray<Name>(Super::Difference(X, Y)); \
 		} \
 		 \
 		static FORCEINLINE Name Empty() \
@@ -716,29 +716,29 @@ private:
 			return Super::Empty(); \
 		} \
 		 \
-		static FORCEINLINE Name Hull( const Name& X, const Name& Y ) \
+		static FORCEINLINE Name Hull(const Name& X, const Name& Y) \
 		{ \
-			return Super::Hull( X, Y ); \
+			return Super::Hull(X, Y); \
 		} \
 		 \
-		static FORCEINLINE Name Hull( const TArray<Name>& Ranges ) \
+		static FORCEINLINE Name Hull(const TArray<Name>& Ranges) \
 		{ \
-			return Super::Hull( reinterpret_cast<const TArray<Super>&>( Ranges ) ); \
+			return Super::Hull(reinterpret_cast<const TArray<Super>&>(Ranges)); \
 		} \
 		 \
-		static FORCEINLINE Name Intersection( const Name& X, const Name& Y ) \
+		static FORCEINLINE Name Intersection(const Name& X, const Name& Y) \
 		{ \
-			return Super::Intersection( X, Y ); \
+			return Super::Intersection(X, Y); \
 		} \
 		 \
-		static FORCEINLINE Name Intersection( const TArray<Name>& Ranges ) \
+		static FORCEINLINE Name Intersection(const TArray<Name>& Ranges) \
 		{ \
-			return Super::Intersection( reinterpret_cast<const TArray<Super>&>( Ranges ) ); \
+			return Super::Intersection(reinterpret_cast<const TArray<Super>&>(Ranges)); \
 		} \
 		 \
-		static FORCEINLINE TArray<Name> Union( const Name& X, const Name& Y ) \
+		static FORCEINLINE TArray<Name> Union(const Name& X, const Name& Y) \
 		{ \
-			return TArray<Name>( Super::Union( X, Y ) ); \
+			return TArray<Name>(Super::Union(X, Y)); \
 		} \
 		 \
 		static FORCEINLINE Name All() \
@@ -746,24 +746,24 @@ private:
 			return Super::All(); \
 		} \
 		 \
-		static FORCEINLINE Name AtLeast( const ElementType& Value ) \
+		static FORCEINLINE Name AtLeast(const ElementType& Value) \
 		{ \
-			return Super::AtLeast( Value ); \
+			return Super::AtLeast(Value); \
 		} \
 		 \
-		static FORCEINLINE Name AtMost( const ElementType& Value ) \
+		static FORCEINLINE Name AtMost(const ElementType& Value) \
 		{ \
-			return Super::AtMost( Value ); \
+			return Super::AtMost(Value); \
 		} \
 		 \
-		static FORCEINLINE TRange GreaterThan( const ElementType& Value ) \
+		static FORCEINLINE TRange GreaterThan(const ElementType& Value) \
 		{ \
-			return Super::GreaterThan( Value ); \
+			return Super::GreaterThan(Value); \
 		} \
 		 \
-		static FORCEINLINE TRange LessThan( const ElementType& Value ) \
+		static FORCEINLINE TRange LessThan(const ElementType& Value) \
 		{ \
-			return Super::LessThan( Value ); \
+			return Super::LessThan(Value); \
 		} \
 	}; \
 	 \

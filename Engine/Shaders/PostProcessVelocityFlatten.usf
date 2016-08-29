@@ -173,7 +173,7 @@ void VelocityGatherCS(
 			int2 Offset = int2(x,y);
 			int2 SampleIndex = PixelPos + Offset;
 			
-			bool2 bInsideViewport = 0 <= SampleIndex && SampleIndex < ViewportRect.zw;
+			bool2 bInsideViewport = 0 <= SampleIndex && SampleIndex < (int2)ViewportRect.zw;
 			if( !all( bInsideViewport ) )
 				continue;
 

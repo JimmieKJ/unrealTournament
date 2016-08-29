@@ -56,23 +56,23 @@ private:
 	FDataTableEditorRowListViewDataPtr Item;
 };
 
-void FDataTableEditor::RegisterTabSpawners(const TSharedRef<class FTabManager>& TabManager)
+void FDataTableEditor::RegisterTabSpawners(const TSharedRef<class FTabManager>& InTabManager)
 {
-	WorkspaceMenuCategory = TabManager->AddLocalWorkspaceMenuCategory(LOCTEXT("WorkspaceMenu_Data Table Editor", "Data Table Editor"));
+	WorkspaceMenuCategory = InTabManager->AddLocalWorkspaceMenuCategory(LOCTEXT("WorkspaceMenu_Data Table Editor", "Data Table Editor"));
 
-	TabManager->RegisterTabSpawner( DataTableTabId, FOnSpawnTab::CreateSP(this, &FDataTableEditor::SpawnTab_DataTable) )
+	InTabManager->RegisterTabSpawner( DataTableTabId, FOnSpawnTab::CreateSP(this, &FDataTableEditor::SpawnTab_DataTable) )
 		.SetDisplayName( LOCTEXT("DataTableTab", "Data Table") )
 		.SetGroup( WorkspaceMenuCategory.ToSharedRef() );
 
-	TabManager->RegisterTabSpawner(RowEditorTabId, FOnSpawnTab::CreateSP(this, &FDataTableEditor::SpawnTab_RowEditor))
+	InTabManager->RegisterTabSpawner(RowEditorTabId, FOnSpawnTab::CreateSP(this, &FDataTableEditor::SpawnTab_RowEditor))
 		.SetDisplayName(LOCTEXT("RowEditorTab", "Row Editor"))
 		.SetGroup(WorkspaceMenuCategory.ToSharedRef());
 }
 
-void FDataTableEditor::UnregisterTabSpawners(const TSharedRef<class FTabManager>& TabManager)
+void FDataTableEditor::UnregisterTabSpawners(const TSharedRef<class FTabManager>& InTabManager)
 {
-	TabManager->UnregisterTabSpawner( DataTableTabId );
-	TabManager->UnregisterTabSpawner(RowEditorTabId);
+	InTabManager->UnregisterTabSpawner( DataTableTabId );
+	InTabManager->UnregisterTabSpawner(RowEditorTabId);
 }
 
 FDataTableEditor::FDataTableEditor()
@@ -146,8 +146,7 @@ void FDataTableEditor::HandlePostChange()
 	// We need to cache and restore the selection here as RefreshCachedDataTable will re-create the list view items
 	const FName CachedSelection = HighlightedRowName;
 	HighlightedRowName = NAME_None;
-	RefreshCachedDataTable();
-	RestoreCachedSelection(CachedSelection, true/*bUpdateEvenIfValid*/);
+	RefreshCachedDataTable(CachedSelection, true/*bUpdateEvenIfValid*/);
 }
 
 void FDataTableEditor::InitDataTableEditor( const EToolkitMode::Type Mode, const TSharedPtr< class IToolkitHost >& InitToolkitHost, UDataTable* Table )
@@ -397,7 +396,7 @@ void FDataTableEditor::OnFilterTextChanged(const FText& InFilterText)
 	UpdateVisibleRows();
 }
 
-void FDataTableEditor::RefreshCachedDataTable()
+void FDataTableEditor::RefreshCachedDataTable(const FName InCachedSelection, const bool bUpdateEvenIfValid)
 {
 	const UDataTable* Table = GetDataTable();
 	FDataTableEditorUtils::CacheDataTableForEditing(Table, AvailableColumns, AvailableRows);
@@ -459,10 +458,10 @@ void FDataTableEditor::RefreshCachedDataTable()
 			);
 	}
 
-	UpdateVisibleRows();
+	UpdateVisibleRows(InCachedSelection, bUpdateEvenIfValid);
 }
 
-void FDataTableEditor::UpdateVisibleRows()
+void FDataTableEditor::UpdateVisibleRows(const FName InCachedSelection, const bool bUpdateEvenIfValid)
 {
 	if (ActiveFilterText.IsEmptyOrWhitespace())
 	{
@@ -503,7 +502,7 @@ void FDataTableEditor::UpdateVisibleRows()
 	RowNamesListView->RequestListRefresh();
 	CellsListView->RequestListRefresh();
 
-	RestoreCachedSelection(HighlightedRowName);
+	RestoreCachedSelection(InCachedSelection, bUpdateEvenIfValid);
 }
 
 void FDataTableEditor::RestoreCachedSelection(const FName InCachedSelection, const bool bUpdateEvenIfValid)
@@ -521,7 +520,7 @@ void FDataTableEditor::RestoreCachedSelection(const FName InCachedSelection, con
 	// Apply the new selection (if required)
 	if (!bSelectedRowIsValid)
 	{
-		SetHighlightedRow((VisibleRows.Num() > 1) ? VisibleRows[0]->RowId : NAME_None);
+		SetHighlightedRow((VisibleRows.Num() > 0) ? VisibleRows[0]->RowId : NAME_None);
 		CallbackOnRowHighlighted.ExecuteIfBound(HighlightedRowName);
 	}
 	else if (bUpdateEvenIfValid)

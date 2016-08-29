@@ -8,7 +8,7 @@
 enum
 {
 	HLSLCC_VersionMajor = 0,
-	HLSLCC_VersionMinor = 64,
+	HLSLCC_VersionMinor = 65,
 };
 
 /**
@@ -58,6 +58,8 @@ enum EHlslCompileFlag
 	HLSLCC_FixAtomicReferences = 0x800,
 	// Packs global uniforms & flattens structures, and makes each packed array its own uniform buffer
 	HLSLCC_PackUniformsIntoUniformBuffers = 0x1000 | HLSLCC_PackUniforms,
+	// Set default precision to highp in a pixel shader (default is mediump on ES2 platforms)
+	HLSLCC_UseFullPrecisionInPS = 0x2000,
 };
 
 /**

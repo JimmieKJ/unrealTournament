@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using System.Xml;
 using UnrealBuildTool;
 
 namespace AutomationTool.Tasks
@@ -14,42 +15,39 @@ namespace AutomationTool.Tasks
 	public class TagTaskParameters
 	{
 		/// <summary>
-		/// Set the base directory to match relative patterns against
+		/// Set the base directory to resolve relative paths and patterns against. If set, any absolute patterns (eg. /Engine/Build/...) are taken to be relative to this path. If not, they are taken to be truly absolute.
 		/// </summary>
-		[TaskParameter(Optional = true)]
+		[TaskParameter(Optional = true, ValidationType = TaskParameterValidationType.DirectoryName)]
 		public string BaseDir;
 
 		/// <summary>
-		/// Patterns to filter the list of files by. May include tag names or patterns that apply to the base directory. Defaults to all files if not specified.
+		/// Set of files to work from, including wildcards and tag names, separated by semicolons. Resolved relative to BaseDir if set, otherwise to the branch root directory.
 		/// </summary>
-		[TaskParameter(Optional = true)]
+		[TaskParameter(ValidationType = TaskParameterValidationType.FileSpec)]
+		public string Files;
+
+		/// <summary>
+		/// Patterns to filter the list of files by, including tag names or wildcards. May include patterns that apply to the base directory if set. Defaults to all files if not specified.
+		/// </summary>
+		[TaskParameter(Optional = true, ValidationType = TaskParameterValidationType.FileSpec)]
 		public string Filter;
 
 		/// <summary>
 		/// Set of patterns to exclude from the matched list. May include tag names of patterns that apply to the base directory.
 		/// </summary>
-		[TaskParameter(Optional = true)]
+		[TaskParameter(Optional = true, ValidationType = TaskParameterValidationType.FileSpec)]
 		public string Except;
-
-		/// <summary>
-		/// Set of source files. Typically a tag name, but paths and wildcards may also be used. This list is expanded prior to applying the 'Files' and 'Except' filters, 
-		/// which is slower than just searching against a base directory.
-		/// </summary>
-		[TaskParameter(Optional = true)]
-		public string From;
 
 		/// <summary>
 		/// Name of the tag to apply
 		/// </summary>
-		[TaskParameter(ValidationType = TaskParameterValidationType.Tag)]
+		[TaskParameter(ValidationType = TaskParameterValidationType.TagList)]
 		public string With;
 	}
 
 	/// <summary>
-	/// Task which applies a tag to a given set of files. Filtering is performed using the following method:
-	/// * A set of files is enumerated from the tags and file specifications given by the "Files" parameter
-	/// * Any files not matched by the "Filter" parameter are removed.
-	/// * Any files matched by the "Except" parameter are removed.
+	/// Applies a tag to a given set of files. The list of files is found by enumerating the tags and file specifications given by the 'Files' 
+	/// parameter. From this list, any files not matched by the 'Filter' parameter are removed, followed by any files matched by the 'Except' parameter.
 	/// </summary>
 	[TaskElement("Tag", typeof(TagTaskParameters))]
 	class TagTask : CustomTask
@@ -63,7 +61,6 @@ namespace AutomationTool.Tasks
 		/// Constructor
 		/// </summary>
 		/// <param name="InParameters">Parameters to select which files to match</param>
-		/// <param name="Type"></param>
 		public TagTask(TagTaskParameters InParameters)
 		{
 			Parameters = InParameters;
@@ -81,38 +78,24 @@ namespace AutomationTool.Tasks
 			// Get the base directory
 			DirectoryReference BaseDir = ResolveDirectory(Parameters.BaseDir);
 
+			// Parse all the exclude rules
+			List<string> ExcludeRules = ParseRules(BaseDir, Parameters.Except ?? "", TagNameToFileSet);
+
 			// Resolve the input list
-			HashSet<FileReference> Files;
-			HashSet<DirectoryReference> Directories;
-			if(Parameters.From == null)
+			HashSet<FileReference> Files = ResolveFilespecWithExcludePatterns(BaseDir, Parameters.Files, ExcludeRules, TagNameToFileSet);
+
+			// Limit to matches against the 'Filter' parameter, if set
+			if(Parameters.Filter != null)
 			{
-				Directories = new HashSet<DirectoryReference>{ CommandUtils.RootDirectory };
-				Files = new HashSet<FileReference>();
-			}
-			else
-			{
-				Directories = new HashSet<DirectoryReference>();
-				Files = ResolveFilespec(CommandUtils.RootDirectory, Parameters.From, Directories, TagNameToFileSet);
+				FileFilter Filter = new FileFilter();
+				Filter.AddRules(ParseRules(BaseDir, Parameters.Filter, TagNameToFileSet));
+				Files.RemoveWhere(x => !Filter.Matches(x.FullName));
 			}
 
-			// Create the filter
-			FileFilter Filter = new FileFilter();
-			AddRules(Filter, FileFilterType.Include, BaseDir, Parameters.Filter ?? "...", TagNameToFileSet);
-			AddRules(Filter, FileFilterType.Exclude, BaseDir, Parameters.Except ?? "", TagNameToFileSet);
-
-			// Apply the filter to the list of files, then to the directories
-			HashSet<FileReference> MatchingFiles = FindOrAddTagSet(TagNameToFileSet, Parameters.With);
-			foreach(DirectoryReference Directory in Directories)
+			// Apply the tag to all the matching files
+			foreach(string TagName in FindTagNamesFromList(Parameters.With))
 			{
-				List<FileReference> FoundFiles = Filter.ApplyToDirectory(Directory, Directory.FullName, true);
-				MatchingFiles.UnionWith(FoundFiles);
-			}
-			foreach(FileReference File in Files)
-			{
-				if(Filter.Matches(File.FullName))
-				{
-					MatchingFiles.Add(File);
-				}
+				FindOrAddTagSet(TagNameToFileSet, TagName).UnionWith(Files);
 			}
 			return true;
 		}
@@ -120,23 +103,26 @@ namespace AutomationTool.Tasks
 		/// <summary>
 		/// Add rules matching a given set of patterns to a file filter. Patterns are added as absolute paths from the root.
 		/// </summary>
-		/// <param name="Filter">The filter to add to</param>
-		/// <param name="RuleType">The type of rule to add; whether to include or exclude files matching these patterns.</param>
 		/// <param name="BaseDir">The base directory for relative paths.</param>
 		/// <param name="DelimitedPatterns">List of patterns to add, separated by semicolons.</param>
 		/// <param name="TagNameToFileSet">Mapping of tag name to a set of files.</param>
-		void AddRules(FileFilter Filter, FileFilterType RuleType, DirectoryReference BaseDir, string DelimitedPatterns, Dictionary<string, HashSet<FileReference>> TagNameToFileSet)
+		/// <returns>List of rules, suitable for adding to a FileFilter object</returns>
+		List<string> ParseRules(DirectoryReference BaseDir, string DelimitedPatterns, Dictionary<string, HashSet<FileReference>> TagNameToFileSet)
 		{
-			string[] Patterns = SplitDelimitedList(DelimitedPatterns);
+			// Split up the list of patterns
+			List<string> Patterns = SplitDelimitedList(DelimitedPatterns);
+
+			// Parse them into a list of rules
+			List<string> Rules = new List<string>();
 			foreach(string Pattern in Patterns)
 			{
 				if(Pattern.StartsWith("#"))
 				{
 					// Add the files in a specific set to the filter
-					HashSet<FileReference> Files = FindOrAddTagSet(TagNameToFileSet, Pattern.Substring(1));
+					HashSet<FileReference> Files = FindOrAddTagSet(TagNameToFileSet, Pattern);
 					foreach(FileReference File in Files)
 					{
-						Filter.AddRule(File.FullName, RuleType);
+						Rules.Add(File.FullName);
 					}
 				}
 				else
@@ -144,22 +130,68 @@ namespace AutomationTool.Tasks
 					// Parse a wildcard filter
 					if(Pattern.StartsWith("..."))
 					{
-						Filter.AddRule(Pattern, RuleType);
+						Rules.Add(Pattern);
 					}
-					else if(!Pattern.Contains("/") && RuleType == FileFilterType.Exclude)
+					else if(!Pattern.Contains("/"))
 					{
-						Filter.AddRule(".../" + Pattern, RuleType);
+						Rules.Add(".../" + Pattern);
 					}
 					else if(!Pattern.StartsWith("/"))
 					{
-						Filter.AddRule(BaseDir.FullName + "/" + Pattern, RuleType);
+						Rules.Add(BaseDir.FullName + "/" + Pattern);
 					}
 					else
 					{
-						Filter.AddRule(BaseDir.FullName + Pattern, RuleType);
+						Rules.Add(BaseDir.FullName + Pattern);
 					}
 				}
 			}
+			return Rules;
+		}
+
+		/// <summary>
+		/// Output this task out to an XML writer.
+		/// </summary>
+		public override void Write(XmlWriter Writer)
+		{
+			Write(Writer, Parameters);
+		}
+
+		/// <summary>
+		/// Find all the tags which are modified by this task
+		/// </summary>
+		/// <returns>The tag names which are read by this task</returns>
+		public override IEnumerable<string> FindConsumedTagNames()
+		{
+			foreach(string TagName in FindTagNamesFromFilespec(Parameters.Files))
+			{
+				yield return TagName;
+			}
+
+			if(!String.IsNullOrEmpty(Parameters.Filter))
+			{
+				foreach(string TagName in FindTagNamesFromFilespec(Parameters.Filter))
+				{
+					yield return TagName;
+				}
+			}
+
+			if(!String.IsNullOrEmpty(Parameters.Except))
+			{
+				foreach(string TagName in FindTagNamesFromFilespec(Parameters.Except))
+				{
+					yield return TagName;
+				}
+			}
+		}
+
+		/// <summary>
+		/// Find all the referenced tags from tasks in this task
+		/// </summary>
+		/// <returns>The tag names which are modified by this task</returns>
+		public override IEnumerable<string> FindProducedTagNames()
+		{
+			return FindTagNamesFromList(Parameters.With);
 		}
 	}
 }

@@ -1158,7 +1158,7 @@ void FUntypedBulkData::SerializeBulkData( FArchive& Ar, void* Data )
 		// Serialize data compressed.
 		if( BulkDataFlags & BULKDATA_SerializeCompressed )
 		{
-			Ar.SerializeCompressed( Data, GetBulkDataSize(), GetDecompressionFlags());
+			Ar.SerializeCompressed( Data, GetBulkDataSize(), GetDecompressionFlags(), false, !!(BulkDataFlags&BULKDATA_SerializeCompressedBitWindow) );
 		}
 		// Uncompressed/ regular serialization.
 		else
@@ -1185,7 +1185,7 @@ void FUntypedBulkData::SerializeBulkData( FArchive& Ar, void* Data )
 				SerializedData.AddUninitialized( GetBulkDataSize() );
 
 				// Serialize data with passed in archive and compress.
-				Ar.SerializeCompressed( SerializedData.GetData(), SerializedData.Num(), GetDecompressionFlags());
+				Ar.SerializeCompressed( SerializedData.GetData(), SerializedData.Num(), GetDecompressionFlags(), false, !!(BulkDataFlags&BULKDATA_SerializeCompressedBitWindow) );
 				
 				// Initialize memory reader with uncompressed data array and propagate forced byte swapping
 				FMemoryReader MemoryReader( SerializedData, true );
@@ -1205,7 +1205,7 @@ void FUntypedBulkData::SerializeBulkData( FArchive& Ar, void* Data )
 				SerializeElements(MemoryWriter, Data);
 
 				// Serialize data with passed in archive and compress.
-				Ar.SerializeCompressed( SerializedData.GetData(), SerializedData.Num(), GetDecompressionFlags() );
+				Ar.SerializeCompressed( SerializedData.GetData(), SerializedData.Num(), GetDecompressionFlags(), false, !!(BulkDataFlags&BULKDATA_SerializeCompressedBitWindow) );
 			}
 		}
 		// Uncompressed/ regular serialization.
@@ -1256,7 +1256,7 @@ void FUntypedBulkData::WaitForAsyncLoading()
 	DECLARE_SCOPE_CYCLE_COUNTER(TEXT("FUntypedBulkData::WaitForAsyncLoading"), STAT_UBD_WaitForAsyncLoading, STATGROUP_Memory);
 	while (!SerializeFuture.WaitFor(FTimespan(0, 0, 0, 0, 1000)))
 	{
-		UE_LOG(LogSerialization, Warning, TEXT("Waiting for %s bulk data (%lld) to be loaded longer than 1000ms"), *Filename, GetBulkDataSize());
+		UE_LOG(LogSerialization, Warning, TEXT("Waiting for %s bulk data (%d) to be loaded longer than 1000ms"), *Filename, GetBulkDataSize());
 	}
 	check(BulkDataAsync);
 }

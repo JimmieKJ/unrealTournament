@@ -1,7 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
-#include "stdafx.h"
+#include "LightmassPCH.h"
 #include "LightingSystem.h"
 #include "Raster.h"
 #include "MonteCarlo.h"
@@ -30,11 +30,14 @@ struct FVolumeLightingProximityOctreeSemantics
 };
 
 /** Constructs an SH environment from this lighting sample. */
-void FVolumeLightingSample::ToSHVector(FSHVectorRGB2& SHVector) const
+void FVolumeLightingSample::ToSHVector(FSHVectorRGB3& SHVector) const
 {
-	SHVector.R = FSHVector2(HighQualityCoefficients[0][0], HighQualityCoefficients[1][0], HighQualityCoefficients[2][0], HighQualityCoefficients[3][0]);
-	SHVector.G = FSHVector2(HighQualityCoefficients[0][1], HighQualityCoefficients[1][1], HighQualityCoefficients[2][1], HighQualityCoefficients[3][1]);
-	SHVector.B = FSHVector2(HighQualityCoefficients[0][2], HighQualityCoefficients[1][2], HighQualityCoefficients[2][2], HighQualityCoefficients[3][2]);
+	for (int32 CoefficientIndex = 0; CoefficientIndex < LM_NUM_SH_COEFFICIENTS; CoefficientIndex++)
+	{
+		SHVector.R.V[CoefficientIndex] = HighQualityCoefficients[CoefficientIndex][0];
+		SHVector.G.V[CoefficientIndex] = HighQualityCoefficients[CoefficientIndex][1];
+		SHVector.B.V[CoefficientIndex] = HighQualityCoefficients[CoefficientIndex][2];
+	}
 }
 
 /** Returns true if there is an existing sample in VolumeOctree within SearchDistance of Position. */
@@ -293,8 +296,22 @@ void FStaticLightingSystem::BeginCalculateVolumeSamples()
 			const FStaticLightingMapping* CurrentMapping = AllMappings[MappingIndex];
 			const FStaticLightingTextureMapping* TextureMapping = CurrentMapping->GetTextureMapping();
 			const FStaticLightingMesh* CurrentMesh = CurrentMapping->Mesh;
+
+			const uint32 GeoMeshLODIndex = CurrentMesh->GetLODIndices() & 0xFFFF;
+			const uint32 GeoHLODTreeIndex = (CurrentMesh->GetLODIndices() & 0xFFFF0000) >> 16;
+			const uint32 GeoHLODRange = CurrentMesh->GetHLODRange();
+			const uint32 GeoHLODRangeStart = GeoHLODRange & 0xFFFF;
+			const uint32 GeoHLODRangeEnd = (GeoHLODRange & 0xFFFF0000) >> 16;
+
+			bool bMeshBelongsToLOD0 = GeoMeshLODIndex == 0;
+
+			if (GeoHLODTreeIndex > 0)
+			{
+				bMeshBelongsToLOD0 = GeoHLODRangeStart == GeoHLODRangeEnd;
+			}
+
 			// Only place samples on shadow casting meshes.
-			if (CurrentMesh->LightingFlags & GI_INSTANCE_CASTSHADOW)
+			if ((CurrentMesh->LightingFlags & GI_INSTANCE_CASTSHADOW) && bMeshBelongsToLOD0)
 			{
 				// Create a new LevelId array if necessary
 				if (!VolumeLightingSamples.Find(CurrentMesh->LevelGuid))
@@ -526,12 +543,12 @@ void FStaticLightingSystem::ProcessVolumeSamplesTask(const FVolumeSamplesTaskDes
 			&& (!PhotonMappingSettings.bUsePhotonMapping || PhotonMappingSettings.bUseFinalGathering))
 		{
 			const bool bDebugSamples = false;
-			CalculateVolumeSampleIncidentRadiance(UniformHemisphereSamples, MaxUnoccludedLength, CurrentSample, RandomStream, MappingContext, bDebugSamples);
+			CalculateVolumeSampleIncidentRadiance(UniformHemisphereSamples, UniformHemisphereSampleUniforms, MaxUnoccludedLength, CurrentSample, RandomStream, MappingContext, bDebugSamples);
 		}
 #if ALLOW_LIGHTMAP_SAMPLE_DEBUGGING
 		if (Scene.DebugMapping && DynamicObjectSettings.bVisualizeVolumeLightSamples)
 		{
-			FSHVectorRGB2 IncidentRadiance;
+			FSHVectorRGB3 IncidentRadiance;
 			CurrentSample.ToSHVector(IncidentRadiance);
 			VolumeLightingDebugOutput.VolumeLightingSamples.Add(FDebugVolumeLightingSample(CurrentSample.PositionAndRadius, IncidentRadiance.CalcIntegral() / FSHVector2::ConstantBasisIntegral));
 		}
@@ -548,7 +565,6 @@ void FStaticLightingSystem::ProcessVolumeSamplesTask(const FVolumeSamplesTaskDes
 FGatheredLightSample FStaticLightingSystem::InterpolatePrecomputedVolumeIncidentRadiance(const FStaticLightingVertex& Vertex, float SampleRadius, FCoherentRayCache& RayCache, bool bDebugThisTexel) const
 {
 	FGatheredLightSample IncidentRadiance;
-	FSHVectorRGB2 TotalIncidentRadiance;
 	float TotalWeight = 0.0f;
 
 	if (bDebugThisTexel)

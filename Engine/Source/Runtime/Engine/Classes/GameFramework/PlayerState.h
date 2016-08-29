@@ -178,11 +178,6 @@ public:
 	/** Create duplicate PlayerState (for saving Inactive PlayerState)	*/
 	virtual class APlayerState* Duplicate();
 
-	virtual void OverrideWith(class APlayerState* PlayerState);
-
-	/** Copy properties which need to be saved in inactive PlayerState */
-	virtual void CopyProperties(class APlayerState* PlayerState);
-
 	/** Called on the server when the owning player has disconnected, by default this method destroys this player state */
 	virtual void OnDeactivated();
 
@@ -194,6 +189,34 @@ public:
 
 	/** return true if PlayerState is primary (ie. non-splitscreen) player */
 	virtual bool IsPrimaryPlayer() const;
+
+	/** calls OverrideWith and triggers OnOverrideWith for BP extension */
+	void DispatchOverrideWith(APlayerState* PlayerState);
+
+	void DispatchCopyProperties(APlayerState* PlayerState);
+
+protected:
+
+	virtual void OverrideWith(APlayerState* PlayerState);
+
+	/** Copy properties which need to be saved in inactive PlayerState */
+	virtual void CopyProperties(APlayerState* PlayerState);
+
+	/*
+	* Can be implemented in Blueprint Child to move more properties from old to new PlayerState when reconnecting
+	*
+	* @param OldPlayerState		Old PlayerState, which we use to fill the new one with
+	*/
+	UFUNCTION(BlueprintImplementableEvent, Category = PlayerState, meta = (DisplayName = "OverrideWith"))
+	void ReceiveOverrideWith(APlayerState* OldPlayerState);
+
+	/*
+	* Can be implemented in Blueprint Child to move more properties from old to new PlayerState when traveling to a new level
+	*
+	* @param NewPlayerState		New PlayerState, which we fill with the current properties
+	*/
+	UFUNCTION(BlueprintImplementableEvent, Category = PlayerState, meta = (DisplayName = "CopyProperties"))
+	void ReceiveCopyProperties(APlayerState* NewPlayerState);
 
 private:
 	// Hidden functions that don't make sense to use on this class.

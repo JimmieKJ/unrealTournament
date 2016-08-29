@@ -7,6 +7,7 @@
 #include "DetailLayoutBuilder.h"
 #include "DetailCategoryBuilder.h"
 #include "PropertyHandle.h"
+#include "ObjectEditorUtils.h"
 
 void FFoliageTypeCustomizationHelpers::ModifyFoliagePropertyRow(IDetailPropertyRow* PropertyRow, const TAttribute<EVisibility>& InVisibility, const TAttribute<bool>& InEnabled)
 {
@@ -21,6 +22,17 @@ void FFoliageTypeCustomizationHelpers::ModifyFoliagePropertyRow(IDetailPropertyR
 			PropertyRow->IsEnabled(InEnabled);
 		}
 	}
+}
+
+void FFoliageTypeCustomizationHelpers::AddBodyInstanceProperties(IDetailLayoutBuilder& LayoutBuilder)
+{
+	static const FName PhysicsName("Physics");
+	IDetailCategoryBuilder& PhysicsCategory = LayoutBuilder.EditCategory(PhysicsName);
+
+	TSharedRef<IPropertyHandle> BodyInstanceHandle = LayoutBuilder.GetProperty(GET_MEMBER_NAME_CHECKED(UPrimitiveComponent, BodyInstance));
+
+	PhysicsCategory.AddProperty(BodyInstanceHandle->GetChildHandle(GET_MEMBER_NAME_CHECKED(FBodyInstance, WalkableSlopeOverride)));
+	PhysicsCategory.AddProperty(BodyInstanceHandle->GetChildHandle(GET_MEMBER_NAME_CHECKED(FBodyInstance, PhysMaterialOverride)));
 }
 
 void FFoliageTypeCustomizationHelpers::HideFoliageCategory(IDetailLayoutBuilder& DetailLayoutBuilder, FName CategoryName)

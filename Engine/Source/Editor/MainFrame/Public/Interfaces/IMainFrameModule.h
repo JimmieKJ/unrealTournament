@@ -14,9 +14,10 @@ public:
 	/**
 	 * Creates the default editor main frame
 	 *
-	 * @param bStartImmersivePIE True if we should force a viewport into immersive mode PIE session when created
+	 * @param bStartImmersive True to force a main frame viewport into immersive mode
+	 * @param bStartPIE True to start a PIE session right away
 	 */
-	virtual void CreateDefaultMainFrame( const bool bStartImmersivePIE ) = 0;
+	virtual void CreateDefaultMainFrame( const bool bStartImmersive, const bool bStartPIE ) = 0;
 
 	/**
 	 * Generates a menu that includes application global commands, such as "Save All", "Exit", etc.  If you're building

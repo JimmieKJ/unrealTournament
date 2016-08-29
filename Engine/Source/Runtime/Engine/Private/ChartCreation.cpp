@@ -12,6 +12,9 @@
 #include "AnalyticsEventAttribute.h"
 #include "GameFramework/GameUserSettings.h"
 #include "Performance/EnginePerformanceTargets.h"
+#if USE_SERVER_PERF_COUNTERS
+	#include "PerfCountersModule.h"
+#endif
 
 DEFINE_LOG_CATEGORY_STATIC(LogChartCreation, Log, All);
 
@@ -34,6 +37,13 @@ static TAutoConsoleVariable<int32> GFPSChartExcludeIdleTime(
 	TEXT("Should we exclude idle time (i.e. one which we spent sleeping) when doing a FPS chart?\n")
 	TEXT(" default: 0"));
 
+// Should we explore to the folder that contains the .log / etc... when a dump is finished?  This can be disabled for automated testing
+static TAutoConsoleVariable<int32> GFPSChartOpenFolderOnDump(
+	TEXT("t.FPSChart.OpenFolderOnDump"),
+	1,
+	TEXT("Should we explore to the folder that contains the .log / etc... when a dump is finished?  This can be disabled for automated testing\n")
+	TEXT(" default: 1"));
+
 float GMaximumFrameTimeToConsiderForHitchesAndBinning = 1.0f;
 
 static FAutoConsoleVariableRef GMaximumFrameTimeToConsiderForHitchesAndBinningCVar(
@@ -45,7 +55,8 @@ static FAutoConsoleVariableRef GMaximumFrameTimeToConsiderForHitchesAndBinningCV
 // NOTE:  if you add any new stats make certain to update the StartFPSChart()
 
 /** Enables capturing the fps chart data */
-bool GEnableDataCapture = false;
+bool GDataCaptureStarted = false;
+bool GDataCapturePaused = false;
 
 /** Start date/time of capture */
 FString GCaptureStartTime;
@@ -53,10 +64,13 @@ FString GCaptureStartTime;
 /** User label set when starting the chart. */
 FString GFPSChartLabel;
 
-/** Start time of current FPS chart. */
+/** Time accumulated in FPS chart. */
+double GFPSAccumulatedChartTime = 0;
+
+/** Start time of current FPS chart */
 double GFPSChartStartTime = 0;
 
-/** Stop time of current FPS chart (so we don't depend on time when Dump.. is called) */
+/** Stop time of current FPS chart */
 double GFPSChartStopTime = 0;
 
 /** FPS chart information. Time spent for each bucket and count. */
@@ -142,7 +156,11 @@ protected:
 	FString CPUVendor;
 	FString CPUBrand;
 
-	FString PrimaryGPUBrand;
+	// The primary GPU for the desktop (may not be the one we ended up using, e.g., in an optimus laptop)
+	FString DesktopGPUBrand;
+
+	// The actual GPU adapter we initialized
+	FString ActualGPUBrand;
 
 protected:
 	virtual void PrintToEndpoint(const FString& Text) = 0;
@@ -171,10 +189,10 @@ protected:
 			RangeName = FString::Printf(TEXT("%0.2fs - %0.2fs"), HitchThresholdInSeconds, PrevHitchThresholdInSeconds);
 		}
 
-		PrintToEndpoint(FString::Printf(TEXT("Bucket: %s  Count: %i "), *RangeName, GHitchChart[BucketIndex].HitchCount));
+		PrintToEndpoint(FString::Printf(TEXT("Bucket: %s  Count: %i  Time: %.2f"), *RangeName, GHitchChart[BucketIndex].HitchCount, GHitchChart[BucketIndex].FrameTimeSpentInBucket));
 	}
 
-	virtual void HandleHitchSummary(int32 TotalHitchCount, int32 TotalGameThreadBoundHitches, int32 TotalRenderThreadBoundHitches, int32 TotalGPUBoundHitches)
+	virtual void HandleHitchSummary(int32 TotalHitchCount, int32 TotalGameThreadBoundHitches, int32 TotalRenderThreadBoundHitches, int32 TotalGPUBoundHitches, double TotalTimeSpentInHitchBuckets)
 	{
 		const int32 HitchBucketCount = STAT_FPSChart_LastHitchBucketStat - STAT_FPSChart_FirstHitchStat;
 		PrintToEndpoint(FString::Printf(TEXT("Total hitch count (at least %ims):  %i"), GHitchThresholds[HitchBucketCount - 1], TotalHitchCount));
@@ -182,6 +200,9 @@ protected:
 		PrintToEndpoint(FString::Printf(TEXT("Hitch frames bound by render thread:  %i  (%0.1f percent)"), TotalRenderThreadBoundHitches, TotalHitchCount > 0 ? ((float)TotalRenderThreadBoundHitches / (float)TotalHitchCount * 0.0f) : 0.0f));
 		PrintToEndpoint(FString::Printf(TEXT("Hitch frames bound by GPU:  %i  (%0.1f percent)"), TotalGPUBoundHitches, TotalHitchCount > 0 ? ((float)TotalGPUBoundHitches / (float)TotalHitchCount * 100.0f) : 0.0f));
 		PrintToEndpoint(FString::Printf(TEXT("Hitches / min:  %.2f"), AvgHitchesPerMinute));
+		PrintToEndpoint(FString::Printf(TEXT("Time spent in hitch buckets:  %.2f s"), TotalTimeSpentInHitchBuckets));
+		PrintToEndpoint(FString::Printf(TEXT("Avg. hitch frame length:  %.2f s"), TotalTimeSpentInHitchBuckets / TotalTime));
+
 	}
 
 	virtual void HandleFPSThreshold(int32 TargetFPS, int32 NumFramesBelow, float PctTimeAbove, float PctMissedFrames)
@@ -195,12 +216,19 @@ protected:
 	{
 		PrintToEndpoint(FString::Printf(TEXT("--- Begin : FPS chart dump for level '%s'"), *MapName));
 
-		PrintToEndpoint(FString::Printf(TEXT("Dumping FPS chart at %s using build %s in config %s built from changelist %i"), *FDateTime::Now().ToString(), *FEngineVersion::Current().ToString(), EBuildConfigurations::ToString(FApp::GetBuildConfiguration()), GetChangeListNumberForPerfTesting()));
+		PrintToEndpoint(FString::Printf(TEXT("Dumping FPS chart at %s using build %s in config %s built from changelist %i"), *FDateTime::Now().ToString(), FApp::GetBuildVersion(), EBuildConfigurations::ToString(FApp::GetBuildConfiguration()), GetChangeListNumberForPerfTesting()));
 
 		PrintToEndpoint(TEXT("Machine info:"));
 		PrintToEndpoint(FString::Printf(TEXT("\tOS: %s %s"), *OSMajor, *OSMinor));
 		PrintToEndpoint(FString::Printf(TEXT("\tCPU: %s %s"), *CPUVendor, *CPUBrand));
-		PrintToEndpoint(FString::Printf(TEXT("\tGPU: %s"), *PrimaryGPUBrand));
+
+		FString CompositeGPUString = FString::Printf(TEXT("\tGPU: %s"), *ActualGPUBrand);
+		if (ActualGPUBrand != DesktopGPUBrand)
+		{
+			CompositeGPUString += FString::Printf(TEXT(" (desktop adapter %s)"), *DesktopGPUBrand);
+		}
+		PrintToEndpoint(CompositeGPUString);
+
 		PrintToEndpoint(FString::Printf(TEXT("\tResolution Quality: %.2f"), ScalabilityQuality.ResolutionQuality));
 		PrintToEndpoint(FString::Printf(TEXT("\tView Distance Quality: %d"), ScalabilityQuality.ViewDistanceQuality));
 		PrintToEndpoint(FString::Printf(TEXT("\tAnti-Aliasing Quality: %d"), ScalabilityQuality.AntiAliasingQuality));
@@ -208,6 +236,7 @@ protected:
 		PrintToEndpoint(FString::Printf(TEXT("\tPost-Process Quality: %d"), ScalabilityQuality.PostProcessQuality));
 		PrintToEndpoint(FString::Printf(TEXT("\tTexture Quality: %d"), ScalabilityQuality.TextureQuality));
 		PrintToEndpoint(FString::Printf(TEXT("\tEffects Quality: %d"), ScalabilityQuality.EffectsQuality));
+		PrintToEndpoint(FString::Printf(TEXT("\tFoliage Quality: %d"), ScalabilityQuality.FoliageQuality));
 
 		PrintToEndpoint(FString::Printf(TEXT("%i frames collected over %4.2f seconds, disregarding %4.2f seconds for a %4.2f FPS average"),
 			NumFrames,
@@ -278,7 +307,8 @@ void FDumpFPSChartToEndpoint::DumpChart(float InTotalTime, float InDeltaTime, in
 	// Get CPU/GPU info
 	CPUVendor = FPlatformMisc::GetCPUVendor().Trim().TrimTrailing();
 	CPUBrand = FPlatformMisc::GetCPUBrand().Trim().TrimTrailing();
-	PrimaryGPUBrand = FPlatformMisc::GetPrimaryGPUBrand().Trim().TrimTrailing();
+	DesktopGPUBrand = FPlatformMisc::GetPrimaryGPUBrand().Trim().TrimTrailing();
+	ActualGPUBrand = GRHIAdapterName.Trim().TrimTrailing();
 
 	// Get settings info
 	UGameUserSettings* UserSettingsObj = GEngine->GetGameUserSettings();
@@ -348,19 +378,23 @@ void FDumpFPSChartToEndpoint::DumpChart(float InTotalTime, float InDeltaTime, in
 		int32 TotalGameThreadBoundHitches = 0;
 		int32 TotalRenderThreadBoundHitches = 0;
 		int32 TotalGPUBoundHitches = 0;
+		double TotalTimeSpentInHitchBuckets = 0.0;
+
 		for (int32 BucketIndex = 0; BucketIndex < ARRAY_COUNT(GHitchChart); ++BucketIndex)
 		{
 			HandleHitchBucket(BucketIndex);
 
+			const FHitchChartEntry& ChartEntry = GHitchChart[BucketIndex];
 			// Count up the total number of hitches
-			TotalHitchCount += GHitchChart[BucketIndex].HitchCount;
-			TotalGameThreadBoundHitches += GHitchChart[BucketIndex].GameThreadBoundHitchCount;
-			TotalRenderThreadBoundHitches += GHitchChart[BucketIndex].RenderThreadBoundHitchCount;
-			TotalGPUBoundHitches += GHitchChart[BucketIndex].GPUBoundHitchCount;
+			TotalHitchCount += ChartEntry.HitchCount;
+			TotalGameThreadBoundHitches += ChartEntry.GameThreadBoundHitchCount;
+			TotalRenderThreadBoundHitches += ChartEntry.RenderThreadBoundHitchCount;
+			TotalGPUBoundHitches += ChartEntry.GPUBoundHitchCount;
+			TotalTimeSpentInHitchBuckets += ChartEntry.FrameTimeSpentInBucket;
 		}
 
 		AvgHitchesPerMinute = TotalHitchCount / (TotalTime / 60.0f);
-		HandleHitchSummary(TotalHitchCount, TotalGameThreadBoundHitches, TotalRenderThreadBoundHitches, TotalGPUBoundHitches);
+		HandleHitchSummary(TotalHitchCount, TotalGameThreadBoundHitches, TotalRenderThreadBoundHitches, TotalGPUBoundHitches, TotalTimeSpentInHitchBuckets);
 
 		PrintToEndpoint(TEXT("--- End"));
 	}
@@ -389,33 +423,57 @@ protected:
 
 	virtual void HandleHitchBucket(int32 BucketIndex) override
 	{
-		FString ParamName;
+		FString ParamNameBase;
 		if (BucketIndex == 0)
 		{
-			ParamName = FString::Printf(TEXT("Hitch_%i_Plus_HitchCount"), GHitchThresholds[BucketIndex]);
+			ParamNameBase = FString::Printf(TEXT("Hitch_%i_Plus_Hitch"), GHitchThresholds[BucketIndex]);
 		}
 		else
 		{
-			ParamName = FString::Printf(TEXT("Hitch_%i_%i_HitchCount"), GHitchThresholds[BucketIndex], GHitchThresholds[BucketIndex - 1]);
+			ParamNameBase = FString::Printf(TEXT("Hitch_%i_%i_Hitch"), GHitchThresholds[BucketIndex], GHitchThresholds[BucketIndex - 1]);
 		}
 
-		ParamArray.Add(FAnalyticsEventAttribute(ParamName, GHitchChart[BucketIndex].HitchCount));
+		ParamArray.Add(FAnalyticsEventAttribute(ParamNameBase + TEXT("Count"), GHitchChart[BucketIndex].HitchCount));
+		ParamArray.Add(FAnalyticsEventAttribute(ParamNameBase + TEXT("Time"), GHitchChart[BucketIndex].FrameTimeSpentInBucket));
 	}
 
-	virtual void HandleHitchSummary(int32 TotalHitchCount, int32 TotalGameThreadBoundHitches, int32 TotalRenderThreadBoundHitches, int32 TotalGPUBoundHitches) override
+	virtual void HandleHitchSummary(int32 TotalHitchCount, int32 TotalGameThreadBoundHitches, int32 TotalRenderThreadBoundHitches, int32 TotalGPUBoundHitches, double TotalTimeSpentInHitchBuckets) override
 	{
 		// Add hitch totals to the param array
 		ParamArray.Add(FAnalyticsEventAttribute(TEXT("TotalHitches"), TotalHitchCount));
 		ParamArray.Add(FAnalyticsEventAttribute(TEXT("TotalGameBoundHitches"), TotalGameThreadBoundHitches));
 		ParamArray.Add(FAnalyticsEventAttribute(TEXT("TotalRenderBoundHitches"), TotalRenderThreadBoundHitches));
 		ParamArray.Add(FAnalyticsEventAttribute(TEXT("TotalGPUBoundHitches"), TotalGPUBoundHitches));
+		ParamArray.Add(FAnalyticsEventAttribute(TEXT("TotalTimeInHitchFrames"), TotalTimeSpentInHitchBuckets));
+		ParamArray.Add(FAnalyticsEventAttribute(TEXT("HitchesPerMinute"), AvgHitchesPerMinute));
+
+		// Determine how much time was spent 'above and beyond' regular frame time in frames that landed in hitch buckets
+		const float EngineTargetMS = FEnginePerformanceTargets::GetTargetFrameTimeThresholdMS();
+		const float HitchThresholdMS = FEnginePerformanceTargets::GetHitchFrameTimeThresholdMS();
+
+		const float AcceptableFramePortionMS = (HitchThresholdMS > EngineTargetMS) ? EngineTargetMS : 0.0f;
+		
+		const float MSToSeconds = 1.0f / 1000.0f;
+		const double RegularFramePortionForHitchFrames = AcceptableFramePortionMS * MSToSeconds * TotalHitchCount;
+
+		ensure(RegularFramePortionForHitchFrames < TotalTimeSpentInHitchBuckets);
+		const double TimeSpentHitching = TotalTimeSpentInHitchBuckets - RegularFramePortionForHitchFrames;
+
+		ParamArray.Add(FAnalyticsEventAttribute(TEXT("PercentSpentHitching"), 100.0f * TimeSpentHitching / TotalTime));
 	}
 
 	virtual void HandleFPSThreshold(int32 TargetFPS, int32 NumFramesBelow, float PctTimeAbove, float PctMissedFrames) override
 	{
-		const FString ParamName = FString::Printf(TEXT("PercentAbove%d"), TargetFPS);
-		const FString ParamValue = FString::Printf(TEXT("%4.2f"), PctTimeAbove);
-		ParamArray.Add(FAnalyticsEventAttribute(ParamName, ParamValue));
+		{
+			const FString ParamName = FString::Printf(TEXT("PercentAbove%d"), TargetFPS);
+			const FString ParamValue = FString::Printf(TEXT("%4.2f"), PctTimeAbove);
+			ParamArray.Add(FAnalyticsEventAttribute(ParamName, ParamValue));
+		}
+		{
+			const FString ParamName = FString::Printf(TEXT("MVP%d"), TargetFPS);
+			const FString ParamValue = FString::Printf(TEXT("%4.2f"), PctMissedFrames);
+			ParamArray.Add(FAnalyticsEventAttribute(ParamName, ParamValue));
+		}
 	}
 
 	virtual void HandleBasicStats() override
@@ -428,7 +486,9 @@ protected:
 		ParamArray.Add(FAnalyticsEventAttribute(TEXT("Platform"), FString::Printf(TEXT("%s"), ANSI_TO_TCHAR(FPlatformProperties::PlatformName()))));
 		ParamArray.Add(FAnalyticsEventAttribute(TEXT("OS"), FString::Printf(TEXT("%s %s"), *OSMajor, *OSMinor)));
 		ParamArray.Add(FAnalyticsEventAttribute(TEXT("CPU"), FString::Printf(TEXT("%s %s"), *CPUVendor, *CPUBrand)));
-		ParamArray.Add(FAnalyticsEventAttribute(TEXT("GPU"), PrimaryGPUBrand));
+		ParamArray.Add(FAnalyticsEventAttribute(TEXT("DesktopGPU"), DesktopGPUBrand));
+		ParamArray.Add(FAnalyticsEventAttribute(TEXT("GPUAdapter"), ActualGPUBrand));
+
 		ParamArray.Add(FAnalyticsEventAttribute(TEXT("ResolutionQuality"), ScalabilityQuality.ResolutionQuality));
 		ParamArray.Add(FAnalyticsEventAttribute(TEXT("ViewDistanceQuality"), ScalabilityQuality.ViewDistanceQuality));
 		ParamArray.Add(FAnalyticsEventAttribute(TEXT("AntiAliasingQuality"), ScalabilityQuality.AntiAliasingQuality));
@@ -436,6 +496,7 @@ protected:
 		ParamArray.Add(FAnalyticsEventAttribute(TEXT("PostProcessQuality"), ScalabilityQuality.PostProcessQuality));
 		ParamArray.Add(FAnalyticsEventAttribute(TEXT("TextureQuality"), ScalabilityQuality.TextureQuality));
 		ParamArray.Add(FAnalyticsEventAttribute(TEXT("FXQuality"), ScalabilityQuality.EffectsQuality));
+		ParamArray.Add(FAnalyticsEventAttribute(TEXT("FoliageQuality"), ScalabilityQuality.FoliageQuality));
 
 		ParamArray.Add(FAnalyticsEventAttribute(TEXT("AvgFPS"), FString::Printf(TEXT("%4.2f"), AvgFPS)));
 		ParamArray.Add(FAnalyticsEventAttribute(TEXT("TimeDisregarded"), FString::Printf(TEXT("%4.2f"), TimeDisregarded)));
@@ -524,7 +585,7 @@ protected:
 		FPSChartRow = FPSChartRow.Replace(*SrcToken, *DstToken, ESearchCase::CaseSensitive);
 	}
 
-	virtual void HandleHitchSummary(int32 TotalHitchCount, int32 TotalGameThreadBoundHitches, int32 TotalRenderThreadBoundHitches, int32 TotalGPUBoundHitches) override
+	virtual void HandleHitchSummary(int32 TotalHitchCount, int32 TotalGameThreadBoundHitches, int32 TotalRenderThreadBoundHitches, int32 TotalGPUBoundHitches, double TotalTimeSpentInHitchBuckets) override
 	{
 		FPSChartRow = FPSChartRow.Replace(TEXT("TOKEN_HITCH_TOTAL"), *FString::Printf(TEXT("%i"), TotalHitchCount), ESearchCase::CaseSensitive);
 		FPSChartRow = FPSChartRow.Replace(TEXT("TOKEN_HITCH_GAME_BOUND_COUNT"), *FString::Printf(TEXT("%i"), TotalGameThreadBoundHitches), ESearchCase::CaseSensitive);
@@ -557,7 +618,7 @@ protected:
 
 		FPSChartRow = FPSChartRow.Replace(TEXT("TOKEN_OS"), *FString::Printf(TEXT("%s %s"), *OSMajor, *OSMinor), ESearchCase::CaseSensitive);
 		FPSChartRow = FPSChartRow.Replace(TEXT("TOKEN_CPU"), *FString::Printf(TEXT("%s %s"), *CPUVendor, *CPUBrand), ESearchCase::CaseSensitive);
-		FPSChartRow = FPSChartRow.Replace(TEXT("TOKEN_GPU"), *FString::Printf(TEXT("%s"), *PrimaryGPUBrand), ESearchCase::CaseSensitive);
+		FPSChartRow = FPSChartRow.Replace(TEXT("TOKEN_GPU"), *FString::Printf(TEXT("%s"), *ActualGPUBrand), ESearchCase::CaseSensitive);
 		FPSChartRow = FPSChartRow.Replace(TEXT("TOKEN_SETTINGS_RES"), *FString::Printf(TEXT("%.2f"), ScalabilityQuality.ResolutionQuality), ESearchCase::CaseSensitive);
 		FPSChartRow = FPSChartRow.Replace(TEXT("TOKEN_SETTINGS_VD"), *FString::Printf(TEXT("%d"), ScalabilityQuality.ViewDistanceQuality), ESearchCase::CaseSensitive);
 		FPSChartRow = FPSChartRow.Replace(TEXT("TOKEN_SETTINGS_AA"), *FString::Printf(TEXT("%d"), ScalabilityQuality.AntiAliasingQuality), ESearchCase::CaseSensitive);
@@ -565,6 +626,7 @@ protected:
 		FPSChartRow = FPSChartRow.Replace(TEXT("TOKEN_SETTINGS_PP"), *FString::Printf(TEXT("%d"), ScalabilityQuality.PostProcessQuality), ESearchCase::CaseSensitive);
 		FPSChartRow = FPSChartRow.Replace(TEXT("TOKEN_SETTINGS_TEX"), *FString::Printf(TEXT("%d"), ScalabilityQuality.TextureQuality), ESearchCase::CaseSensitive);
 		FPSChartRow = FPSChartRow.Replace(TEXT("TOKEN_SETTINGS_FX"), *FString::Printf(TEXT("%d"), ScalabilityQuality.EffectsQuality), ESearchCase::CaseSensitive);
+		FPSChartRow = FPSChartRow.Replace(TEXT("TOKEN_SETTINGS_FLG"), *FString::Printf(TEXT("%d"), ScalabilityQuality.FoliageQuality), ESearchCase::CaseSensitive);
 
 		FPSChartRow = FPSChartRow.Replace(TEXT("TOKEN_AVG_FPS"), *FString::Printf(TEXT("%4.2f"), AvgFPS), ESearchCase::CaseSensitive);
 		FPSChartRow = FPSChartRow.Replace(TEXT("TOKEN_TIME_DISREGARDED"), *FString::Printf(TEXT("%4.2f"), TimeDisregarded), ESearchCase::CaseSensitive);
@@ -646,7 +708,7 @@ void UEngine::TickFPSChart( float DeltaSeconds )
 	const float MSToSeconds = 1.0f / 1000.0f;
 
 	// early out if we aren't doing any of the captures
-	if (!GEnableDataCapture)
+	if (!GDataCaptureStarted || GDataCapturePaused)
 	{
 		return;
 	}
@@ -657,6 +719,26 @@ void UEngine::TickFPSChart( float DeltaSeconds )
 		DeltaSeconds = CurrentTime - GLastTimeChartCreationTicked;
 	}
 	GLastTimeChartCreationTicked = CurrentTime;
+
+	GFPSAccumulatedChartTime += DeltaSeconds;
+
+#if USE_SERVER_PERF_COUNTERS
+	IPerfCounters* PerfCounters = IPerfCountersModule::Get().GetPerformanceCounters();
+	if (LIKELY(PerfCounters))
+	{
+		FHistogram* MatchHistogram = PerfCounters->PerformanceHistograms().Find(IPerfCounters::Histograms::FrameTime);
+		if (LIKELY(MatchHistogram))
+		{
+			MatchHistogram->AddMeasurement(DeltaSeconds * 1000.0);
+		}
+
+		FHistogram* PeriodicHistogram = PerfCounters->PerformanceHistograms().Find(IPerfCounters::Histograms::FrameTimePeriodic);
+		if (LIKELY(PeriodicHistogram))
+		{
+			PeriodicHistogram->AddMeasurement(DeltaSeconds * 1000.0);
+		}
+	}
+#endif // USE_SERVER_PERF_COUNTERS
 
 	// subtract idle time (FPS chart is ticked after UpdateTimeAndHandleMaxTickRate(), so we know time we spent sleeping this frame)
 	if (GFPSChartExcludeIdleTime.GetValueOnGameThread() != 0)
@@ -670,6 +752,17 @@ void UEngine::TickFPSChart( float DeltaSeconds )
 		{
 			UE_LOG(LogChartCreation, Warning, TEXT("Idle time for this frame (%f) is larger than delta between FPSChart ticks (%f)"), ThisFrameIdleTime, DeltaSeconds);
 		}
+
+#if USE_SERVER_PERF_COUNTERS
+		if (LIKELY(PerfCounters))
+		{
+			FHistogram* NoSleepHistogram = PerfCounters->PerformanceHistograms().Find(IPerfCounters::Histograms::FrameTimeWithoutSleep);
+			if (LIKELY(NoSleepHistogram))
+			{
+				NoSleepHistogram->AddMeasurement(DeltaSeconds * 1000.0);
+			}
+		}
+#endif // USE_SERVER_PERF_COUNTERS
 	}
 
 	// now gather some stats on what this frame was bound by (game, render, gpu)
@@ -871,25 +964,29 @@ void UEngine::TickFPSChart( float DeltaSeconds )
 						const float HitchThresholdInSeconds = ( float )GHitchThresholds[ CurBucketIndex ] * MSToSeconds;
 						if (DeltaSeconds >= HitchThresholdInSeconds)
 						{
+							FHitchChartEntry& HitchChartEntry = GHitchChart[CurBucketIndex];
+							
 							// Increment the hitch count for this bucket
-							++GHitchChart[ CurBucketIndex ].HitchCount;
+							++HitchChartEntry.HitchCount;
 
+							// Add the time spent to this bucket
+							HitchChartEntry.FrameTimeSpentInBucket += DeltaSeconds;
 						
 							// Check to see what we were limited by this frame
 							if (GGameThreadTime >= (MaxThreadTimeValue - EpsilonCycles))
 							{
 								// Bound by game thread
-								++GHitchChart[ CurBucketIndex ].GameThreadBoundHitchCount;
+								++HitchChartEntry.GameThreadBoundHitchCount;
 							}
 							else if (LocalRenderThreadTime >= (MaxThreadTimeValue - EpsilonCycles))
 							{
 								// Bound by render thread
-								++GHitchChart[ CurBucketIndex ].RenderThreadBoundHitchCount;
+								++HitchChartEntry.RenderThreadBoundHitchCount;
 							}
 							else if( PossibleGPUTime == MaxThreadTimeValue )
 							{
 								// Bound by GPU
-								++GHitchChart[ CurBucketIndex ].GPUBoundHitchCount;
+								++HitchChartEntry.GPUBoundHitchCount;
 							}
 
 
@@ -913,19 +1010,16 @@ void UEngine::StartFPSChart(const FString& Label, bool bRecordPerFrameTimes)
 	GFPSChartLabel = Label;
 	GFPSChartRecordPerFrameTimes = bRecordPerFrameTimes;
 
-	for( int32 BucketIndex=0; BucketIndex<ARRAY_COUNT(GFPSChart); BucketIndex++ )
+	for (int32 BucketIndex = 0; BucketIndex < ARRAY_COUNT(GFPSChart); BucketIndex++)
 	{
-		GFPSChart[BucketIndex].Count = 0;
-		GFPSChart[BucketIndex].CummulativeTime = 0;
+		GFPSChart[BucketIndex] = FFPSChartEntry();
 	}
 	GFPSChartStartTime = FPlatformTime::Seconds();
+	GFPSAccumulatedChartTime = 0;
 
-	for( int32 BucketIndex = 0; BucketIndex < ARRAY_COUNT( GHitchChart ); ++BucketIndex )
+	for (int32 BucketIndex = 0; BucketIndex < ARRAY_COUNT(GHitchChart); ++BucketIndex)
 	{
-		GHitchChart[ BucketIndex ].HitchCount = 0;
-		GHitchChart[ BucketIndex ].GameThreadBoundHitchCount = 0;
-		GHitchChart[ BucketIndex ].RenderThreadBoundHitchCount = 0;
-		GHitchChart[ BucketIndex ].GPUBoundHitchCount = 0;
+		GHitchChart[BucketIndex] = FHitchChartEntry();
 	}
 
 #if ALLOW_DEBUG_FILES
@@ -960,7 +1054,8 @@ void UEngine::StartFPSChart(const FString& Label, bool bRecordPerFrameTimes)
 	GTotalFramesBoundTime_RenderThread = 0;
 	GTotalFramesBoundTime_GPU = 0;
 
-	GEnableDataCapture = true;
+	GDataCaptureStarted = true;
+	GDataCapturePaused = false;
 
 	GLastTimeChartCreationTicked = 0;
 	GLastHitchTime = 0;
@@ -968,13 +1063,51 @@ void UEngine::StartFPSChart(const FString& Label, bool bRecordPerFrameTimes)
 
 	GCaptureStartTime = FDateTime::Now().ToString();
 
+#if USE_SERVER_PERF_COUNTERS
+	IPerfCounters* PerfCounters = IPerfCountersModule::Get().GetPerformanceCounters();
+	if (LIKELY(PerfCounters))
+	{
+		// remove existing histograms
+		PerfCounters->PerformanceHistograms().Reset();
+
+		// create named histograms
+		FHistogram NewHitchTrackingHistogram;
+		NewHitchTrackingHistogram.InitHitchTracking();
+
+		PerfCounters->PerformanceHistograms().Add(IPerfCounters::Histograms::FrameTime, NewHitchTrackingHistogram);
+		PerfCounters->PerformanceHistograms().Add(IPerfCounters::Histograms::FrameTimePeriodic, NewHitchTrackingHistogram);		
+		PerfCounters->PerformanceHistograms().Add(IPerfCounters::Histograms::FrameTimeWithoutSleep, NewHitchTrackingHistogram);
+		PerfCounters->PerformanceHistograms().Add(IPerfCounters::Histograms::ServerReplicateActorsTime, NewHitchTrackingHistogram);
+		PerfCounters->PerformanceHistograms().Add(IPerfCounters::Histograms::SleepTime, NewHitchTrackingHistogram);
+	}
+#endif // USE_SERVER_PERF_COUNTERS
+
 	UE_LOG(LogChartCreation, Log, TEXT("Started creating FPS charts at %f seconds"), GFPSChartStartTime);
+}
+
+
+void UEngine::PauseFPSChart(bool bPause)
+{
+	if (!GDataCaptureStarted)
+	{
+		UE_LOG(LogChartCreation, Warning, TEXT("PauseFPSChart called before StartFPSChart"));
+		return;
+	}
+
+	if (bPause == GDataCapturePaused)
+	{
+		UE_LOG(LogChartCreation, Warning, TEXT("PauseFPSChart(%d) called but pause state is already %d"), bPause, GDataCapturePaused);
+		return;
+	}
+
+	GDataCapturePaused = bPause;
+	GLastTimeChartCreationTicked = FPlatformTime::Seconds();
 }
 
 void UEngine::StopFPSChart()
 {
 	GFPSChartStopTime = FPlatformTime::Seconds();
-	GEnableDataCapture = false;
+	GDataCaptureStarted = false;
 
 	UE_LOG(LogChartCreation, Log, TEXT("Stopped creating FPS charts at %f seconds"), GFPSChartStopTime);
 }
@@ -1123,65 +1256,263 @@ void UEngine::DumpFPSChartToStatsLog( float TotalTime, float DeltaTime, int32 Nu
 		UE_LOG( LogProfilingDebugging, Warning, TEXT( "FPS Chart (logfile) saved to %s" ), *AbsolutePath );
 
 #if	PLATFORM_DESKTOP
-		FPlatformProcess::ExploreFolder( *AbsolutePath );
+		if (GFPSChartOpenFolderOnDump.GetValueOnGameThread())
+		{
+			FPlatformProcess::ExploreFolder(*AbsolutePath);
+		}
 #endif // PLATFORM_DESKTOP
 	}
 #endif // ALLOW_DEBUG_FILES
 }
 
+#if ALLOW_DEBUG_FILES
+
+const TCHAR* GFPSChartPreamble =
+L"<HTML>\n"
+L"   <HEAD>\n"
+L"    <TITLE>FPS Chart</TITLE>\n"
+L"\n"
+L"    <META HTTP-EQUIV=\"CONTENT-TYPE\" CONTENT=\"TEXT/HTML; CHARSET=UTF-8\">\n"
+L"    <LINK TITLE=\"default style\" REL=\"STYLESHEET\" HREF=\"../../Engine/Stats/ChartStyle.css\" TYPE=\"text/css\">\n"
+L"    <LINK TITLE=\"default style\" REL=\"STYLESHEET\" HREF=\"../../Engine/Stats/FPSStyle.css\" TYPE=\"text/css\">\n"
+L"\n"
+L"  </HEAD>\n"
+L"</HEAD>\n"
+L"<BODY>\n"
+L"\n"
+L"<DIV CLASS=\"ChartStyle\">\n"
+L"\n"
+L"<TABLE BORDER=\"0\" CELLSPACING=\"0\" CELLPADDING=\"0\" BGCOLOR=\"#808080\">\n"
+L"<TR><TD>\n"
+L"<TABLE WIDTH=\"4000\" HEIGHT=\"100%\" BORDER=\"0\" CELLSPACING=\"1\" CELLPADDING=\"3\" BGCOLOR=\"#808080\">\n"
+L"\n"
+L"<TR CLASS=\"rowHeader\">\n"
+L"<TD CLASS=\"rowHeadermapname\"><DIV CLASS=\"rowHeaderValue\">mapname</DIV></TD>\n"
+L"<TD CLASS=\"rowHeaderChangelist\"><DIV CLASS=\"rowHeaderValue\">changelist</DIV></TD>\n"
+L"<TD CLASS=\"rowHeaderDateStamp\"><DIV CLASS=\"rowHeaderValue\">datestamp</DIV></TD>\n"
+L"<TD CLASS=\"rowHeaderOS\"><DIV CLASS=\"rowHeaderValue\">OS</DIV></TD>\n"
+L"<TD CLASS=\"rowHeaderCPU\"><DIV CLASS=\"rowHeaderValue\">CPU</DIV></TD>\n"
+L"<TD CLASS=\"rowHeaderGPU\"><DIV CLASS=\"rowHeaderValue\">GPU</DIV></TD>\n"
+L"<TD CLASS=\"rowHeaderSettingsRes\"><DIV CLASS=\"rowHeaderValue\">Res Qual</DIV></TD>\n"
+L"<TD CLASS=\"rowHeaderSettingsVD\"><DIV CLASS=\"rowHeaderValue\">View Dist Qual</DIV></TD>\n"
+L"<TD CLASS=\"rowHeaderSettingsAA\"><DIV CLASS=\"rowHeaderValue\">AA Qual</DIV></TD>\n"
+L"<TD CLASS=\"rowHeaderSettingsShadow\"><DIV CLASS=\"rowHeaderValue\">Shadow Qual</DIV></TD>\n"
+L"<TD CLASS=\"rowHeaderSettingsPP\"><DIV CLASS=\"rowHeaderValue\">PP Qual</DIV></TD>\n"
+L"<TD CLASS=\"rowHeaderSettingsTex\"><DIV CLASS=\"rowHeaderValue\">Tex Qual</DIV></TD>\n"
+L"<TD CLASS=\"rowHeaderSettingsFX\"><DIV CLASS=\"rowHeaderValue\">FX Qual</DIV></TD>\n"
+L"\n"
+L"<TD CLASS=\"columnSeparator\"><DIV>&nbsp;</DIV></TD>\n"
+L"\n"
+L"<TD CLASS=\"rowHeaderSummary\"><DIV>avg FPS</DIV></TD>\n"
+L"<TD CLASS=\"rowHeaderSummary\"><DIV>% over 30 FPS</DIV></TD>\n"
+L"<TD CLASS=\"rowHeaderSummary\"><DIV>% over 60 FPS</DIV></TD>\n"
+L"<TD CLASS=\"rowHeaderSummary\"><DIV>% over 120 FPS</DIV></TD>\n"
+L"\n"
+L"<TD CLASS=\"rowHeaderSummary\"><DIV>Hitches/Min</DIV></TD>\n"
+L"<TD CLASS=\"rowHeaderSummary\"><DIV>% Missed VSync 30</DIV></TD>\n"
+L"<TD CLASS=\"rowHeaderSummary\"><DIV>% Missed VSync 60</DIV></TD>\n"
+L"<TD CLASS=\"rowHeaderSummary\"><DIV>% Missed VSync 120</DIV></TD>\n"
+L"\n"
+L"<TD CLASS=\"columnSeparator\"><DIV>&nbsp;</DIV></TD>\n"
+L"\n"
+L"<TD CLASS=\"rowHeaderSummary\"><DIV>avg GPU time</DIV></TD>\n"
+L"<TD CLASS=\"rowHeaderSummary\"><DIV>avg RT time</DIV></TD>\n"
+L"<TD CLASS=\"rowHeaderSummary\"><DIV>avg GT time</DIV></TD>\n"
+L"<TD CLASS=\"columnSeparator\"><DIV>&nbsp;</DIV></TD>\n"
+L"\n"
+L"<TD CLASS=\"rowEntrySummary\"><DIV>Game Thread Bound By Percent</DIV></TD>\n"
+L"<TD CLASS=\"rowEntrySummary\"><DIV>Render Thread Bound By Percent</DIV></TD>\n"
+L"<TD CLASS=\"rowEntrySummary\"><DIV>GPU Bound By Percent</DIV></TD>\n"
+L"\n"
+L"<TD CLASS=\"columnSeparator\"><DIV>&nbsp;</DIV></TD>\n"
+L"\n"
+L"<TD><DIV CLASS=\"rowHeaderValue\">0 - 5</DIV></TD>\n"
+L"<TD><DIV CLASS=\"rowHeaderValue\">5 - 10</DIV></TD>\n"
+L"<TD><DIV CLASS=\"rowHeaderValue\">10 - 15</DIV></TD>\n"
+L"<TD><DIV CLASS=\"rowHeaderValue\">15 - 20</DIV></TD>\n"
+L"<TD><DIV CLASS=\"rowHeaderValue\">20 - 25</DIV></TD>\n"
+L"<TD><DIV CLASS=\"rowHeaderValue\">25 - 30</DIV></TD>\n"
+L"<TD><DIV CLASS=\"rowHeaderValue\">30 - 40</DIV></TD>\n"
+L"<TD><DIV CLASS=\"rowHeaderValue\">40 - 50</DIV></TD>\n"
+L"<TD><DIV CLASS=\"rowHeaderValue\">50 - 60</DIV></TD>\n"
+L"<TD><DIV CLASS=\"rowHeaderValue\">60 - 70</DIV></TD>\n"
+L"<TD><DIV CLASS=\"rowHeaderValue\">70 - 80</DIV></TD>\n"
+L"<TD><DIV CLASS=\"rowHeaderValue\">80 - 90</DIV></TD>\n"
+L"<TD><DIV CLASS=\"rowHeaderValue\">90 - 100</DIV></TD>\n"
+L"<TD><DIV CLASS=\"rowHeaderValue\">100 - 110</DIV></TD>\n"
+L"<TD><DIV CLASS=\"rowHeaderValue\">110 - 120</DIV></TD>\n"
+L"<TD><DIV CLASS=\"rowHeaderValue\">120 - INF</DIV></TD>\n"
+L"<TD CLASS=\"columnSeparator\"><DIV>&nbsp;</DIV></TD>\n"
+L"\n"
+L"<TD CLASS=\"rowHeaderTimes\"><DIV>time</DIV></TD>\n"
+L"<TD CLASS=\"rowHeaderTimes\"><DIV>frame count</DIV></TD>\n"
+L"<TD CLASS=\"rowHeaderTimes\"<DIV>time disregarded</DIV></TD>\n"
+L"\n"
+L"<TD CLASS=\"columnSeparator\"><DIV>&nbsp;</DIV></TD>\n"
+L"<TD><DIV CLASS=\"rowHeaderTimes\">Total Hitches</DIV></TD>\n"
+L"<TD><DIV CLASS=\"rowHeaderTimes\">Game Thread Bound Hitch Frames</DIV></TD>\n"
+L"<TD><DIV CLASS=\"rowHeaderTimes\">Render Thread Bound Hitch Frames</DIV></TD>\n"
+L"<TD><DIV CLASS=\"rowHeaderTimes\">GPU Bound Hitch Frames</DIV></TD>\n"
+L"\n"
+L"<TD CLASS=\"columnSeparator\"><DIV>&nbsp;</DIV></TD>\n"
+L"<TD><DIV CLASS=\"rowHeaderValue\">5.0 - INF</DIV></TD>\n"
+L"<TD><DIV CLASS=\"rowHeaderValue\">2.5 - 5.0</DIV></TD>\n"
+L"<TD><DIV CLASS=\"rowHeaderValue\">2.0 - 2.5</DIV></TD>\n"
+L"<TD><DIV CLASS=\"rowHeaderValue\">1.5 - 2.0</DIV></TD>\n"
+L"<TD><DIV CLASS=\"rowHeaderValue\">1.0 - 1.5</DIV></TD>\n"
+L"<TD><DIV CLASS=\"rowHeaderValue\">0.75 - 1.00</DIV></TD>\n"
+L"<TD><DIV CLASS=\"rowHeaderValue\">0.50 - 0.75</DIV></TD>\n"
+L"<TD><DIV CLASS=\"rowHeaderValue\">0.30 - 0.50</DIV></TD>\n"
+L"<TD><DIV CLASS=\"rowHeaderValue\">0.20 - 0.30</DIV></TD>\n"
+L"<TD><DIV CLASS=\"rowHeaderValue\">0.15 - 0.20</DIV></TD>\n"
+L"<TD><DIV CLASS=\"rowHeaderValue\">0.10 - 0.15</DIV></TD>\n"
+L"<TD><DIV CLASS=\"rowHeaderValue\">0.06 - 0.10</DIV></TD>\n"
+L"<TD><DIV CLASS=\"rowHeaderValue\">0.03 - 0.06</DIV></TD>\n"
+L"\n"
+L"</TR>\n"
+L"\n"
+L"<UE4></UE4>";
+
+const TCHAR* GFPSChartPostamble =
+L"</TABLE>\n"
+L"</TD></TR></TABLE>\n"
+L"\n"
+L"</DIV> <!-- <DIV CLASS=\"ChartStyle\"> -->\n"
+L"\n"
+L"</BODY>\n"
+L"</HTML>\n"
+L"";
+
+const TCHAR* GFPSChartRow =
+L"<TR CLASS=\"dataRow\">\n"
+L"<TD CLASS=\"rowEntryMapName\"><DIV>TOKEN_MAPNAME</DIV></TD>\n"
+L"<TD CLASS=\"rowEntryChangelist\"><DIV>TOKEN_CHANGELIST</DIV></TD>\n"
+L"<TD CLASS=\"rowEntryDateStamp\"><DIV>TOKEN_DATESTAMP</DIV></TD>\n"
+L"<TD CLASS=\"rowEntryOS\"><DIV>TOKEN_OS</DIV></TD>\n"
+L"<TD CLASS=\"rowEntryCPU\"><DIV>TOKEN_CPU</DIV></TD>\n"
+L"<TD CLASS=\"rowEntryGPU\"><DIV>TOKEN_GPU</DIV></TD>\n"
+L"<TD CLASS=\"rowEntrySettingsRes\"><DIV>TOKEN_SETTINGS_RES</DIV></TD>\n"
+L"<TD CLASS=\"rowEntrySettingsVD\"><DIV>TOKEN_SETTINGS_VD</DIV></TD>\n"
+L"<TD CLASS=\"rowEntrySettingsAA\"><DIV>TOKEN_SETTINGS_AA</DIV></TD>\n"
+L"<TD CLASS=\"rowEntrySettingsShadow\"><DIV>TOKEN_SETTINGS_SHADOW</DIV></TD>\n"
+L"<TD CLASS=\"rowEntrySettingsPP\"><DIV>TOKEN_SETTINGS_PP</DIV></TD>\n"
+L"<TD CLASS=\"rowEntrySettingsTex\"><DIV>TOKEN_SETTINGS_TEX</DIV></TD>\n"
+L"<TD CLASS=\"rowEntrySettingsFX\"><DIV>TOKEN_SETTINGS_FX</DIV></TD>\n"
+L"<TD CLASS=\"columnSeparator\"><DIV>&nbsp;</DIV></TD>\n"
+L"\n"
+L"<TD CLASS=\"rowEntrySummary\"><DIV>TOKEN_AVG_FPS</DIV></TD>\n"
+L"<TD CLASS=\"rowEntrySummary\"><DIV>TOKEN_PCT_ABOVE_30</DIV></TD>\n"
+L"<TD CLASS=\"rowEntrySummary\"><DIV>TOKEN_PCT_ABOVE_60</DIV></TD>\n"
+L"<TD CLASS=\"rowEntrySummary\"><DIV>TOKEN_PCT_ABOVE_120</DIV></TD>\n"
+L"\n"
+L"<TD CLASS=\"rowEntrySummary\"><DIV>TOKEN_HITCHES_PER_MIN</DIV></TD>\n"
+L"<TD CLASS=\"rowEntrySummary\"><DIV>TOKEN_MVP_30</DIV></TD>\n"
+L"<TD CLASS=\"rowEntrySummary\"><DIV>TOKEN_MVP_60</DIV></TD>\n"
+L"<TD CLASS=\"rowEntrySummary\"><DIV>TOKEN_MVP_120</DIV></TD>\n"
+L"\n"
+L"<TD CLASS=\"columnSeparator\"><DIV>&nbsp;</DIV></TD>\n"
+L"\n"
+L"<TD CLASS=\"rowEntrySummary\"><DIV>TOKEN_AVG_GPUTIME</DIV></TD>\n"
+L"<TD CLASS=\"rowEntrySummary\"><DIV>TOKEN_AVG_RENDTIME</DIV></TD>\n"
+L"<TD CLASS=\"rowEntrySummary\"><DIV>TOKEN_AVG_GAMETIME</DIV></TD>\n"
+L"\n"
+L"<TD CLASS=\"columnSeparator\"><DIV>&nbsp;</DIV></TD>\n"
+L"\n"
+L"<TD CLASS=\"rowEntrySummary\"><DIV>TOKEN_BOUND_GAME_THREAD_PERCENT</DIV></TD>\n"
+L"<TD CLASS=\"rowEntrySummary\"><DIV>TOKEN_BOUND_RENDER_THREAD_PERCENT</DIV></TD>\n"
+L"<TD CLASS=\"rowEntrySummary\"><DIV>TOKEN_BOUND_GPU_PERCENT</DIV></TD>\n"
+L"\n"
+L"<TD CLASS=\"columnSeparator\"><DIV>&nbsp;</DIV></TD>\n"
+L"\n"
+L"<TD><DIV CLASS=\"value\">TOKEN_0_5</DIV></TD>\n"
+L"<TD><DIV CLASS=\"value\">TOKEN_5_10</DIV></TD>\n"
+L"<TD><DIV CLASS=\"value\">TOKEN_10_15</DIV></TD>\n"
+L"<TD><DIV CLASS=\"value\">TOKEN_15_20</DIV></TD>\n"
+L"<TD><DIV CLASS=\"value\">TOKEN_20_25</DIV></TD>\n"
+L"<TD><DIV CLASS=\"value\">TOKEN_25_30</DIV></TD>\n"
+L"<TD><DIV CLASS=\"value\">TOKEN_30_40</DIV></TD>\n"
+L"<TD><DIV CLASS=\"value\">TOKEN_40_50</DIV></TD>\n"
+L"<TD><DIV CLASS=\"value\">TOKEN_50_60</DIV></TD>\n"
+L"<TD><DIV CLASS=\"value\">TOKEN_60_70</DIV></TD>\n"
+L"<TD><DIV CLASS=\"value\">TOKEN_70_80</DIV></TD>\n"
+L"<TD><DIV CLASS=\"value\">TOKEN_80_90</DIV></TD>\n"
+L"<TD><DIV CLASS=\"value\">TOKEN_90_100</DIV></TD>\n"
+L"<TD><DIV CLASS=\"value\">TOKEN_100_110</DIV></TD>\n"
+L"<TD><DIV CLASS=\"value\">TOKEN_110_120</DIV></TD>\n"
+L"<TD><DIV CLASS=\"value\">TOKEN_120_999</DIV></TD>\n"
+L"<TD CLASS=\"columnSeparator\"><DIV>&nbsp;</DIV></TD>\n"
+L"\n"
+L"\n"
+L"<TD CLASS=\"rowEntryTimes\"><DIV>TOKEN_TIME</DIV></TD>\n"
+L"<TD CLASS=\"rowEntryTimes\"><DIV>TOKEN_FRAMECOUNT</DIV></TD>\n"
+L"<TD CLASS=\"rowEntryTimes\"><DIV>TOKEN_TIME_DISREGARDED</DIV></TD>\n"
+L"\n"
+L"\n"
+L"<TD CLASS=\"columnSeparator\"><DIV>&nbsp;</DIV></TD>\n"
+L"<TD><DIV CLASS=\"value\">TOKEN_HITCH_TOTAL</DIV></TD>\n"
+L"<TD><DIV CLASS=\"value\">TOKEN_HITCH_GAME_BOUND_COUNT</DIV></TD>\n"
+L"<TD><DIV CLASS=\"value\">TOKEN_HITCH_RENDER_BOUND_COUNT</DIV></TD>\n"
+L"<TD><DIV CLASS=\"value\">TOKEN_HITCH_GPU_BOUND_COUNT</DIV></TD>\n"
+L"\n"
+L"<TD CLASS=\"columnSeparator\"><DIV>&nbsp;</DIV></TD>\n"
+L"<TD><DIV CLASS=\"value\">TOKEN_HITCH_5000_PLUS</DIV></TD>\n"
+L"<TD><DIV CLASS=\"value\">TOKEN_HITCH_2500_5000</DIV></TD>\n"
+L"<TD><DIV CLASS=\"value\">TOKEN_HITCH_2000_2500</DIV></TD>\n"
+L"<TD><DIV CLASS=\"value\">TOKEN_HITCH_1500_2000</DIV></TD>\n"
+L"<TD><DIV CLASS=\"value\">TOKEN_HITCH_1000_1500</DIV></TD>\n"
+L"<TD><DIV CLASS=\"value\">TOKEN_HITCH_750_1000</DIV></TD>\n"
+L"<TD><DIV CLASS=\"value\">TOKEN_HITCH_500_750</DIV></TD>\n"
+L"<TD><DIV CLASS=\"value\">TOKEN_HITCH_300_500</DIV></TD>\n"
+L"<TD><DIV CLASS=\"value\">TOKEN_HITCH_200_300</DIV></TD>\n"
+L"<TD><DIV CLASS=\"value\">TOKEN_HITCH_150_200</DIV></TD>\n"
+L"<TD><DIV CLASS=\"value\">TOKEN_HITCH_100_150</DIV></TD>\n"
+L"<TD><DIV CLASS=\"value\">TOKEN_HITCH_60_100</DIV></TD>\n"
+L"<TD><DIV CLASS=\"value\">TOKEN_HITCH_30_60</DIV></TD>\n"
+L"\n"
+L"</TR>";
+
+#endif
+
 void UEngine::DumpFPSChartToHTML( float TotalTime, float DeltaTime, int32 NumFrames, const FString& InMapName )
 {
 #if ALLOW_DEBUG_FILES
 	// Load the HTML building blocks from the Engine\Stats folder.
-	FString FPSChartPreamble;
-	FString FPSChartPostamble;
-	FString FPSChartRow;
-	bool bAreAllHTMLPartsLoaded = true;
+	FString FPSChartPreamble(GFPSChartPreamble);
+	FString FPSChartPostamble(GFPSChartPostamble);
+	FString FPSChartRow(GFPSChartRow);
 
-	bAreAllHTMLPartsLoaded = bAreAllHTMLPartsLoaded && FFileHelper::LoadFileToString( FPSChartPreamble,	*(FPaths::EngineContentDir() + TEXT("Stats/FPSChart_Preamble.html")	) );
-	bAreAllHTMLPartsLoaded = bAreAllHTMLPartsLoaded && FFileHelper::LoadFileToString( FPSChartPostamble,	*(FPaths::EngineContentDir() + TEXT("Stats/FPSChart_Postamble.html")	) );
-	bAreAllHTMLPartsLoaded = bAreAllHTMLPartsLoaded && FFileHelper::LoadFileToString( FPSChartRow,		*(FPaths::EngineContentDir() + TEXT("Stats/FPSChart_Row.html")			) );
+	FDumpFPSChartToHTMLEndpoint HTMLEndpoint(FPSChartRow);
+	HTMLEndpoint.DumpChart(TotalTime, DeltaTime, NumFrames, InMapName);
 
-	// Successfully loaded all HTML templates.
-	if( bAreAllHTMLPartsLoaded )
+	const FString OutputDir = CreateOutputDirectory();
+
+	// Create FPS chart filename.
+	const FString ChartType = GetFPSChartType();
+
+	const FString& FPSChartFilename = OutputDir / CreateFileNameForChart( ChartType, *InMapName, TEXT( ".html" ) );
+	FString FPSChart;
+
+	// See whether file already exists and load it into string if it does.
+	if( FFileHelper::LoadFileToString( FPSChart, *FPSChartFilename ) )
 	{
-		FDumpFPSChartToHTMLEndpoint HTMLEndpoint(FPSChartRow);
-		HTMLEndpoint.DumpChart(TotalTime, DeltaTime, NumFrames, InMapName);
+		// Split string where we want to insert current row.
+		const FString HeaderSeparator = TEXT("<UE4></UE4>");
+		FString FPSChartBeforeCurrentRow, FPSChartAfterCurrentRow;
+		FPSChart.Split( *HeaderSeparator, &FPSChartBeforeCurrentRow, &FPSChartAfterCurrentRow );
 
-		const FString OutputDir = CreateOutputDirectory();
-
-		// Create FPS chart filename.
-		const FString ChartType = GetFPSChartType();
-
-		const FString& FPSChartFilename = OutputDir / CreateFileNameForChart( ChartType, *InMapName, TEXT( ".html" ) );
-		FString FPSChart;
-
-		// See whether file already exists and load it into string if it does.
-		if( FFileHelper::LoadFileToString( FPSChart, *FPSChartFilename ) )
-		{
-			// Split string where we want to insert current row.
-			const FString HeaderSeparator = TEXT("<UE4></UE4>");
-			FString FPSChartBeforeCurrentRow, FPSChartAfterCurrentRow;
-			FPSChart.Split( *HeaderSeparator, &FPSChartBeforeCurrentRow, &FPSChartAfterCurrentRow );
-
-			// Assemble FPS chart by inserting current row at the top.
-			FPSChart = FPSChartPreamble + FPSChartRow + FPSChartAfterCurrentRow;
-		}
-		// Assemble from scratch.
-		else
-		{
-			FPSChart = FPSChartPreamble + FPSChartRow + FPSChartPostamble;
-		}
-
-		// Save the resulting file back to disk.
-		FFileHelper::SaveStringToFile( FPSChart, *FPSChartFilename );
-
-		UE_LOG( LogProfilingDebugging, Warning, TEXT( "FPS Chart (HTML) saved to %s" ), *IFileManager::Get().ConvertToAbsolutePathForExternalAppForRead( *FPSChartFilename ) );
+		// Assemble FPS chart by inserting current row at the top.
+		FPSChart = FPSChartPreamble + FPSChartRow + FPSChartAfterCurrentRow;
 	}
+	// Assemble from scratch.
 	else
 	{
-		UE_LOG(LogChartCreation, Log, TEXT("Missing FPS chart template files."));
+		FPSChart = FPSChartPreamble + FPSChartRow + FPSChartPostamble;
 	}
+
+	// Save the resulting file back to disk.
+	FFileHelper::SaveStringToFile( FPSChart, *FPSChartFilename );
+
+	UE_LOG( LogProfilingDebugging, Warning, TEXT( "FPS Chart (HTML) saved to %s" ), *IFileManager::Get().ConvertToAbsolutePathForExternalAppForRead( *FPSChartFilename ) );
 #endif // ALLOW_DEBUG_FILES
 }
 
@@ -1195,7 +1526,7 @@ void UEngine::DumpFPSChart( const FString& InMapName, bool bForceDump )
 {
 	// Iterate over all buckets, gathering total frame count and cumulative time.
 	float TotalTime = 0;
-	const float DeltaTime = GFPSChartStopTime - GFPSChartStartTime;
+	const float DeltaTime = GFPSAccumulatedChartTime; 
 	int32 NumFrames = 0;
 	for( int32 BucketIndex=0; BucketIndex<ARRAY_COUNT(GFPSChart); BucketIndex++ )
 	{
@@ -1203,19 +1534,9 @@ void UEngine::DumpFPSChart( const FString& InMapName, bool bForceDump )
 		TotalTime += GFPSChart[BucketIndex].CummulativeTime;
 	}
 
-	bool bFPSChartIsActive = bForceDump;
+	const bool bFPSChartIsActive = bForceDump;
 
-	bool bMemoryChartIsActive = false;
-	if( FParse::Param( FCommandLine::Get(), TEXT("CaptureMemoryChartInfo") ) || FParse::Param( FCommandLine::Get(), TEXT("gCMCI") ) )
-	{
-		bMemoryChartIsActive = true;
-	}
-
-	if( ( bFPSChartIsActive == true )
-		&& ( TotalTime > 0.f ) 
-		&& ( NumFrames > 0 )
-		&& ( bMemoryChartIsActive == false ) // we do not want to dump out FPS stats if we have been gathering mem stats as that will probably throw off the stats
-		)
+	if (bFPSChartIsActive && (TotalTime > 0.f) && (NumFrames > 0))
 	{
 		// Log chart info to the log.
 		DumpFPSChartToLog( TotalTime, DeltaTime, NumFrames, InMapName );
@@ -1232,16 +1553,11 @@ void UEngine::DumpFPSChart( const FString& InMapName, bool bForceDump )
 	}
 }
 
-/**
-* Dumps the FPS chart information to the passed in archive for analytics.
-*
-* @param	InMapName	Name of the map (Or Global)
-*/
-void UEngine::DumpFPSChartAnalytics(const FString& InMapName, TArray<FAnalyticsEventAttribute>& InParamArray)
+void UEngine::DumpFPSChartAnalytics(const FString& InMapName, TArray<FAnalyticsEventAttribute>& InParamArray, bool bIncludeClientHWInfo)
 {
 	// Iterate over all buckets, gathering total frame count and cumulative time.
 	float TotalTime = 0;
-	const float DeltaTime = GFPSChartStopTime - GFPSChartStartTime;
+	const float DeltaTime = GFPSAccumulatedChartTime;
 	int32 NumFrames = 0;
 	for (int32 BucketIndex = 0; BucketIndex < ARRAY_COUNT(GFPSChart); BucketIndex++)
 	{
@@ -1249,19 +1565,91 @@ void UEngine::DumpFPSChartAnalytics(const FString& InMapName, TArray<FAnalyticsE
 		TotalTime += GFPSChart[BucketIndex].CummulativeTime;
 	}
 
-	bool bMemoryChartIsActive = false;
-	if (FParse::Param(FCommandLine::Get(), TEXT("CaptureMemoryChartInfo")) || FParse::Param(FCommandLine::Get(), TEXT("gCMI")))
-	{
-		bMemoryChartIsActive = true;
-	}
-
-	if (TotalTime > 0.f
-		&& NumFrames > 0
-		&& bMemoryChartIsActive == false)
+	if ((TotalTime > 0.f) && (NumFrames > 0))
 	{
 		if (FApp::IsGame())
 		{
+			// Dump all the basic stats
 			DumpFPSChartToAnalyticsParams(TotalTime, DeltaTime, NumFrames, InMapName, InParamArray);
+
+			if (bIncludeClientHWInfo)
+			{
+				// Dump some extra non-chart-based stats
+
+				// Get the system memory stats
+				FPlatformMemoryStats Stats = FPlatformMemory::GetStats();
+				InParamArray.Add(FAnalyticsEventAttribute(TEXT("TotalPhysical"), static_cast<uint64>(Stats.TotalPhysical)));
+				InParamArray.Add(FAnalyticsEventAttribute(TEXT("TotalVirtual"), static_cast<uint64>(Stats.TotalVirtual)));
+
+				// Get the texture memory stats
+				FTextureMemoryStats TexMemStats;
+				RHIGetTextureMemoryStats(TexMemStats);
+				const int32 DedicatedVRAM = FMath::DivideAndRoundUp(TexMemStats.DedicatedVideoMemory, (int64)(1024 * 1024));
+				const int32 DedicatedSystem = FMath::DivideAndRoundUp(TexMemStats.DedicatedSystemMemory, (int64)(1024 * 1024));
+				const int32 DedicatedShared = FMath::DivideAndRoundUp(TexMemStats.SharedSystemMemory, (int64)(1024 * 1024));
+				InParamArray.Add(FAnalyticsEventAttribute(TEXT("VRAM"), DedicatedVRAM));
+				InParamArray.Add(FAnalyticsEventAttribute(TEXT("VSYS"), DedicatedSystem));
+				InParamArray.Add(FAnalyticsEventAttribute(TEXT("VSHR"), DedicatedShared));
+
+				// Get the benchmark results and resolution/display settings to phone home
+				const UGameUserSettings* UserSettingsObj = GEngine->GetGameUserSettings();
+				check(UserSettingsObj);
+
+				// Additional CPU information
+				InParamArray.Add(FAnalyticsEventAttribute(TEXT("CPU_NumCoresP"), FPlatformMisc::NumberOfCores()));
+				InParamArray.Add(FAnalyticsEventAttribute(TEXT("CPU_NumCoresL"), FPlatformMisc::NumberOfCoresIncludingHyperthreads()));
+
+				// True adapter / driver version / etc... information
+				InParamArray.Add(FAnalyticsEventAttribute(TEXT("GPUVendorID"), GRHIVendorId));
+				InParamArray.Add(FAnalyticsEventAttribute(TEXT("GPUDeviceID"), GRHIDeviceId));
+				InParamArray.Add(FAnalyticsEventAttribute(TEXT("GPURevisionID"), GRHIDeviceRevision));
+				InParamArray.Add(FAnalyticsEventAttribute(TEXT("GPUDriverVerI"), GRHIAdapterInternalDriverVersion.Trim().TrimTrailing()));
+				InParamArray.Add(FAnalyticsEventAttribute(TEXT("GPUDriverVerU"), GRHIAdapterUserDriverVersion.Trim().TrimTrailing()));
+
+				// Benchmark results
+				InParamArray.Add(FAnalyticsEventAttribute(TEXT("CPUBM"), UserSettingsObj->GetLastCPUBenchmarkResult()));
+				InParamArray.Add(FAnalyticsEventAttribute(TEXT("GPUBM"), UserSettingsObj->GetLastGPUBenchmarkResult()));
+				
+				{
+					int32 StepIndex = 0;
+					for (float StepValue : UserSettingsObj->GetLastCPUBenchmarkSteps())
+					{
+						const FString StepName = FString::Printf(TEXT("CPUBM_%d"), StepIndex);
+						InParamArray.Add(FAnalyticsEventAttribute(StepName, StepValue));
+						++StepIndex;
+					}
+				}
+				{
+					int32 StepIndex = 0;
+					for (float StepValue : UserSettingsObj->GetLastGPUBenchmarkSteps())
+					{
+						const FString StepName = FString::Printf(TEXT("GPUBM_%d"), StepIndex);
+						InParamArray.Add(FAnalyticsEventAttribute(StepName, StepValue));
+						++StepIndex;
+					}
+				}
+
+				// Screen percentage (3D render resolution)
+				//@TODO: Change to use actual cvar (r.screenpercentage), right now this is just a dupe of ResolutionQuality above
+				InParamArray.Add(FAnalyticsEventAttribute(TEXT("ScreenPct"), UserSettingsObj->ScalabilityQuality.ResolutionQuality)); 
+
+				// Window mode and window/monitor resolution
+				const EWindowMode::Type FullscreenMode = UserSettingsObj->GetLastConfirmedFullscreenMode();
+				InParamArray.Add(FAnalyticsEventAttribute(TEXT("WindowMode"), (int32)FullscreenMode));
+
+				if (ensure(GameViewport && GameViewport->Viewport))
+				{
+					const FIntPoint ViewportSize = GameViewport->Viewport->GetSizeXY();
+					InParamArray.Add(FAnalyticsEventAttribute(TEXT("SizeX"), ViewportSize.X));
+					InParamArray.Add(FAnalyticsEventAttribute(TEXT("SizeY"), ViewportSize.Y));
+				}
+
+				const int32 VSyncValue = UserSettingsObj->IsVSyncEnabled() ? 1 : 0;
+				InParamArray.Add(FAnalyticsEventAttribute(TEXT("VSync"), (int32)VSyncValue));
+
+				const float FrameRateLimit = UserSettingsObj->GetFrameRateLimit();
+				InParamArray.Add(FAnalyticsEventAttribute(TEXT("FrameRateLimit"), FrameRateLimit));
+			}
 		}
 	}
 }

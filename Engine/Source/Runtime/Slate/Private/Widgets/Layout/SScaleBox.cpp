@@ -12,6 +12,8 @@
 void SScaleBox::Construct( const SScaleBox::FArguments& InArgs )
 {
 	Stretch = InArgs._Stretch;
+	RefreshSafeZoneScale();
+
 	StretchDirection = InArgs._StretchDirection;
 	UserSpecifiedScale = InArgs._UserSpecifiedScale;
 	IgnoreInheritedScale = InArgs._IgnoreInheritedScale;
@@ -60,6 +62,9 @@ void SScaleBox::OnArrangeChildren( const FGeometry& AllottedGeometry, FArrangedC
 				break;
 			case EStretch::ScaleToFill:
 				FinalScale = FMath::Max(AreaSize.X / SlotWidgetDesiredSize.X, AreaSize.Y / SlotWidgetDesiredSize.Y);
+				break;
+			case EStretch::ScaleBySafeZone:
+				FinalScale = SafeZoneScale;
 				break;
 			case EStretch::UserSpecified:
 				FinalScale = UserSpecifiedScale.Get(1.0f);
@@ -110,7 +115,7 @@ void SScaleBox::OnArrangeChildren( const FGeometry& AllottedGeometry, FArrangedC
 			}
 		}
 
-		if ( CurrentStretch != EStretch::UserSpecified )
+		if ( CurrentStretch != EStretch::UserSpecified && CurrentStretch != EStretch::ScaleBySafeZone )
 		{
 			// We need to run another pre-pass now that we know the final scale.
 			// This will allow things that don't scale linearly (such as text) to update their size and layout correctly.
@@ -157,6 +162,7 @@ void SScaleBox::SetStretchDirection(EStretchDirection::Type InStretchDirection)
 void SScaleBox::SetStretch(EStretch::Type InStretch)
 {
 	Stretch = InStretch;
+	RefreshSafeZoneScale();
 }
 
 void SScaleBox::SetUserSpecifiedScale(float InUserSpecifiedScale)
@@ -169,12 +175,25 @@ void SScaleBox::SetIgnoreInheritedScale(bool InIgnoreInheritedScale)
 	IgnoreInheritedScale = InIgnoreInheritedScale;
 }
 
+FVector2D SScaleBox::ComputeDesiredSize(float InScale) const
+{
+	const float LayoutScale = GetLayoutScale();
+	return LayoutScale * SCompoundWidget::ComputeDesiredSize(InScale);
+}
+
 float SScaleBox::GetRelativeLayoutScale(const FSlotBase& Child) const
+{
+	return GetLayoutScale();
+}
+
+float SScaleBox::GetLayoutScale() const
 {
 	const EStretch::Type CurrentStretch = Stretch.Get();
 
-	switch ( CurrentStretch )
+	switch (CurrentStretch)
 	{
+	case EStretch::ScaleBySafeZone:
+		return SafeZoneScale;
 	case EStretch::UserSpecified:
 		return UserSpecifiedScale.Get(1.0f);
 	default:
@@ -183,4 +202,31 @@ float SScaleBox::GetRelativeLayoutScale(const FSlotBase& Child) const
 		// We workaround this by forcibly pre-passing our child content a second time once we know its final scale in OnArrangeChildren.
 		return 1.0f;
 	}
+}
+
+void SScaleBox::RefreshSafeZoneScale()
+{
+	float ScaleDownBy = 0.f;
+
+	if (Stretch.Get() == EStretch::ScaleBySafeZone)
+	{
+		TSharedPtr<SViewport> GameViewport = FSlateApplication::Get().GetGameViewport();
+		if (GameViewport.IsValid())
+		{
+			TSharedPtr<ISlateViewport> ViewportInterface = GameViewport->GetViewportInterface().Pin();
+			if (ViewportInterface.IsValid())
+			{
+				FIntPoint ViewportSize = ViewportInterface->GetSize();
+
+				FDisplayMetrics Metrics;
+				FSlateApplication::Get().GetDisplayMetrics(Metrics);
+
+				// Safe zones are uniform, so the axis we check is irrelevant
+				ScaleDownBy = (Metrics.TitleSafePaddingSize.X * 2.f) / (float)ViewportSize.X;
+			}
+		}
+		
+	}
+
+	SafeZoneScale = 1.f - ScaleDownBy;
 }

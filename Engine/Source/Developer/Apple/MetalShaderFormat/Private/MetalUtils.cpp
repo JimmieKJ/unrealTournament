@@ -1,9 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "MetalShaderFormat.h"
-
 #include "Core.h"
 
+#include "MetalShaderFormat.h"
 #include "MetalUtils.h"
 #include "MetalBackend.h"
 
@@ -35,7 +34,7 @@ static int GetIndexSuffix(const char* Prefix, int PrefixLength, const char* Sema
 	{
 		Semantic += PrefixLength;
 		int Index = 0;
-		if (isdigit(*Semantic))
+		if (isdigit((unsigned char)*Semantic))
 		{
 			Index = (*Semantic) - '0';
 
@@ -44,7 +43,7 @@ static int GetIndexSuffix(const char* Prefix, int PrefixLength, const char* Sema
 			{
 				return Index;
 			}
-			else if (isdigit(*Semantic))
+			else if (isdigit((unsigned char)*Semantic))
 			{
 				Index = Index * 10 + (*Semantic) - '0';
 				++Semantic;
@@ -192,15 +191,17 @@ namespace MetalUtils
 		{"SV_InstanceID", glsl_type::uint_type, "IN_InstanceID", ir_var_in, "[[ instance_id ]]"},
 		{"SV_Position", glsl_type::vec4_type, "Position", ir_var_out, "[[ position ]]"},
 		{"SV_RenderTargetArrayIndex", glsl_type::uint_type, "OUT_Layer", ir_var_out, "[[ render_target_array_index ]]"},
-		{"SV_ClipDistance0", glsl_type::float_type, "ClipDistance0", ir_var_out, "[[ clip_distance ]]"},
+        {"SV_ClipDistance", glsl_type::float_type, "ClipDistance0", ir_var_out, "[[ clip_distance ]]"},
+        {"SV_ClipDistance0", glsl_type::float_type, "ClipDistance0", ir_var_out, "[[ clip_distance ]]"},
 		//#todo-rco: Values 1..7 are not really defined well in the Metal Language Doc...
-		//{"SV_ClipDistance1", glsl_type::float_type, "ClipDistance1", ir_var_out, "[[ clip_distance ]]"},
-		//{"SV_ClipDistance2", glsl_type::float_type, "ClipDistance2", ir_var_out, "[[ clip_distance ]]"},
-		//{"SV_ClipDistance3", glsl_type::float_type, "ClipDistance3", ir_var_out, "[[ clip_distance ]]"},
-		//{"SV_ClipDistance4", glsl_type::float_type, "ClipDistance4", ir_var_out, "[[ clip_distance ]]"},
-		//{"SV_ClipDistance5", glsl_type::float_type, "ClipDistance5", ir_var_out, "[[ clip_distance ]]"},
-		//{"SV_ClipDistance6", glsl_type::float_type, "ClipDistance6", ir_var_out, "[[ clip_distance ]]"},
-		//{"SV_ClipDistance7", glsl_type::float_type, "ClipDistance7", ir_var_out, "[[ clip_distance ]]"},
+		//#todo-marksatt: Perhaps not, but this is a semantic marker not a 'slot' so I think we can just use 0-8.
+        {"SV_ClipDistance1", glsl_type::float_type, "ClipDistance1", ir_var_out, "[[ clip_distance ]]"},
+		{"SV_ClipDistance2", glsl_type::float_type, "ClipDistance2", ir_var_out, "[[ clip_distance ]]"},
+		{"SV_ClipDistance3", glsl_type::float_type, "ClipDistance3", ir_var_out, "[[ clip_distance ]]"},
+		{"SV_ClipDistance4", glsl_type::float_type, "ClipDistance4", ir_var_out, "[[ clip_distance ]]"},
+		{"SV_ClipDistance5", glsl_type::float_type, "ClipDistance5", ir_var_out, "[[ clip_distance ]]"},
+		{"SV_ClipDistance6", glsl_type::float_type, "ClipDistance6", ir_var_out, "[[ clip_distance ]]"},
+		{"SV_ClipDistance7", glsl_type::float_type, "ClipDistance7", ir_var_out, "[[ clip_distance ]]"},
 		{NULL, NULL, NULL, ir_var_auto, nullptr}
 	};
 
@@ -1027,9 +1028,17 @@ void FMetalCodeBackend::MovePackedUniformsToMain(exec_list* ir, _mesa_glsl_parse
 		if (Var)
 		{
 			check(Var->mode == ir_var_uniform || Var->mode == ir_var_out || Var->mode == ir_var_in || Var->mode == ir_var_shared);
-			OutBuffers.Buffers.Add(Var);
+			if (!Var->type->is_sampler() || Var->type->sampler_buffer)
+            {
+                OutBuffers.Buffers.Add(Var);
+            }
+            else
+            {
+                OutBuffers.Textures.Add(Var);
+            }
 		}
 	}
+    
 	OutBuffers.SortBuffers();
 
 	// And move them to main
@@ -1041,7 +1050,18 @@ void FMetalCodeBackend::MovePackedUniformsToMain(exec_list* ir, _mesa_glsl_parse
 			Var->remove();
 			MainSig->parameters.push_tail(Var);
 		}
-	}
+    }
+    
+    // And move them to main
+    for (auto Iter : OutBuffers.Textures)
+    {
+        auto* Var = (ir_variable*)Iter;
+        if (Var)
+        {
+            Var->remove();
+            MainSig->parameters.push_tail(Var);
+        }
+    }
 	//IRDump(ir, state);
 }
 
@@ -1394,10 +1414,12 @@ static ir_rvalue* GenShaderOutputSemantic(
 	exec_list* DeclInstructions,
 	const glsl_type** DestVariableType)
 {
+	check(Semantic);
+
 	FSystemValue* SystemValues = SystemValueTable[Frequency];
 	ir_variable* Variable = NULL;
 
-	if (Semantic && FCStringAnsi::Strnicmp(Semantic, "SV_", 3) == 0)
+	if (FCStringAnsi::Strnicmp(Semantic, "SV_", 3) == 0)
 	{
 		for (int i = 0; SystemValues[i].Semantic != NULL; ++i)
 		{
@@ -2261,6 +2283,8 @@ struct FMetalBreakPrecisionChangesVisitor : public ir_rvalue_visitor
 		auto* RValue = *RValuePtr;
 		auto* Expression = RValue->as_expression();
 		auto* Constant = RValue->as_constant();
+		auto* DeRef = RValue->as_dereference();
+		auto* DeRefImage = RValue->as_dereference_image();
 		if (Expression)
 		{
 			switch (Expression->operation)
@@ -2279,6 +2303,20 @@ struct FMetalBreakPrecisionChangesVisitor : public ir_rvalue_visitor
 			if (Constant->type->base_type == GLSL_TYPE_HALF)
 			{
 				bGenerateNewVar = true;
+			}
+		}
+		else if (DeRefImage)
+		{
+			auto* Var = DeRef->variable_referenced();
+			if (!in_assignee && Var && Var->type && Var->type->is_image())
+			{
+				// RW indices have to be unsigned
+				if (DeRefImage->image_index->type && DeRefImage->image_index->type->base_type == GLSL_TYPE_INT)
+				{
+					auto* NewType = glsl_type::get_instance(GLSL_TYPE_UINT, DeRefImage->image_index->type->vector_elements, DeRefImage->image_index->type->matrix_columns);
+					auto* NewExpression = new(State) ir_expression(ir_unop_i2u, NewType, DeRefImage->image_index);
+					DeRefImage->image_index = NewExpression;
+				}
 			}
 		}
 
@@ -2408,7 +2446,12 @@ void FMetalCodeBackend::RemovePackedVarReferences(exec_list* ir, _mesa_glsl_pars
 	FDeReferencePackedVarsVisitor Visitor(State);
 	Visitor.run(ir);
 
-	auto* Main = Visitor.Replaced.empty() ? nullptr : GetMainFunction(ir);
+	if (Visitor.Replaced.empty())
+	{
+		return;
+	}
+
+	ir_function_signature* Main = GetMainFunction(ir);
 	for (auto& OuterPair : Visitor.Replaced)
 	{
 		auto* NewVar = OuterPair.second;

@@ -4,15 +4,14 @@
 LandscapeEdit.h: Classes for the editor to access to Landscape data
 =============================================================================*/
 
-#ifndef _LANDSCAPEEDIT_H
-#define _LANDSCAPEEDIT_H
+#pragma once
 
 #define MAX_LANDSCAPE_LOD_DISTANCE_FACTOR 10.f
 
 #if WITH_EDITOR
 
 #include "LandscapeProxy.h" // for ELandscapeLayerPaintingRestriction
-#include "FixedSizeArrayView.h"
+#include "Containers/ArrayView.h"
 
 struct FLandscapeTextureDataInfo
 {
@@ -61,11 +60,41 @@ private:
 	TArray<FMipInfo> MipInfo;
 };
 
-struct LANDSCAPE_API FLandscapeEditDataInterface
+struct LANDSCAPE_API FLandscapeTextureDataInterface
 {
-	// tors
+	// tor
+	virtual ~FLandscapeTextureDataInterface();
+
+	// Texture data access
+	FLandscapeTextureDataInfo* GetTextureDataInfo(UTexture2D* Texture);
+
+	// Flush texture updates
+	void Flush();
+
+	// Texture bulk operations for weightmap reallocation
+	void CopyTextureChannel(UTexture2D* Dest, int32 DestChannel, UTexture2D* Src, int32 SrcChannel);
+	void ZeroTextureChannel(UTexture2D* Dest, int32 DestChannel);
+	void CopyTextureFromHeightmap(UTexture2D* Dest, int32 DestChannel, ULandscapeComponent* Comp, int32 SrcChannel);
+	void CopyTextureFromWeightmap(UTexture2D* Dest, int32 DestChannel, ULandscapeComponent* Comp, ULandscapeLayerInfoObject* LayerInfo);
+
+	template<typename TData>
+	void SetTextureValueTempl(UTexture2D* Dest, TData Value);
+	void ZeroTexture(UTexture2D* Dest);
+	void SetTextureValue(UTexture2D* Dest, FColor Value);
+
+	template<typename TData>
+	bool EqualTextureValueTempl(UTexture2D* Src, TData Value);
+	bool EqualTextureValue(UTexture2D* Src, FColor Value);
+
+private:
+	TMap<UTexture2D*, FLandscapeTextureDataInfo*> TextureDataMap;
+};
+
+
+struct LANDSCAPE_API FLandscapeEditDataInterface : public FLandscapeTextureDataInterface
+{
+	// tor
 	FLandscapeEditDataInterface(ULandscapeInfo* InLandscape);
-	virtual ~FLandscapeEditDataInterface();
 
 	// Misc
 	bool GetComponentsInRegion(int32 X1, int32 Y1, int32 X2, int32 Y2, TSet<ULandscapeComponent*>* OutComponents = NULL);
@@ -119,6 +148,8 @@ struct LANDSCAPE_API FLandscapeEditDataInterface
 	void SetAlphaData(const TSet<ULandscapeLayerInfoObject*>& DirtyLayerInfos, const int32 X1, const int32 Y1, const int32 X2, const int32 Y2, const uint8* Data, int32 Stride, ELandscapeLayerPaintingRestriction PaintingRestriction = ELandscapeLayerPaintingRestriction::None);
 	// Delete a layer and re-normalize other layers
 	void DeleteLayer(ULandscapeLayerInfoObject* LayerInfo);
+	// Fill a layer and re-normalize other layers
+	void FillLayer(ULandscapeLayerInfoObject* LayerInfo);
 	// Replace/merge a layer
 	void ReplaceLayer(ULandscapeLayerInfoObject* FromLayerInfo, ULandscapeLayerInfoObject* ToLayerInfo);
 
@@ -154,27 +185,6 @@ struct LANDSCAPE_API FLandscapeEditDataInterface
 	void GetXYOffsetDataFast(const int32 X1, const int32 Y1, const int32 X2, const int32 Y2, FVector* Data, int32 Stride);
 	void GetXYOffsetDataFast(const int32 X1, const int32 Y1, const int32 X2, const int32 Y2, TMap<FIntPoint, FVector>& SparseData);
 
-	// Texture data access
-	FLandscapeTextureDataInfo* GetTextureDataInfo(UTexture2D* Texture);
-
-	// Flush texture updates
-	void Flush();
-
-	// Texture bulk operations for weightmap reallocation
-	void CopyTextureChannel(UTexture2D* Dest, int32 DestChannel, UTexture2D* Src, int32 SrcChannel);
-	void ZeroTextureChannel(UTexture2D* Dest, int32 DestChannel);
-	void CopyTextureFromHeightmap(UTexture2D* Dest, int32 DestChannel, ULandscapeComponent* Comp, int32 SrcChannel);
-	void CopyTextureFromWeightmap(UTexture2D* Dest, int32 DestChannel, ULandscapeComponent* Comp, ULandscapeLayerInfoObject* LayerInfo);
-
-	template<typename TData>
-	void SetTextureValueTempl(UTexture2D* Dest, TData Value);
-	void ZeroTexture(UTexture2D* Dest);
-	void SetTextureValue(UTexture2D* Dest, FColor Value);
-
-	template<typename TData>
-	bool EqualTextureValueTempl(UTexture2D* Src, TData Value);
-	bool EqualTextureValue(UTexture2D* Src, FColor Value);
-
 	template<typename T>
 	static void ShrinkData(TArray<T>& Data, int32 OldMinX, int32 OldMinY, int32 OldMaxX, int32 OldMaxY, int32 NewMinX, int32 NewMinY, int32 NewMaxX, int32 NewMaxY);
 
@@ -184,7 +194,6 @@ private:
 	int32 ComponentNumSubsections;
 	FVector DrawScale;
 
-	TMap<UTexture2D*, FLandscapeTextureDataInfo*> TextureDataMap;
 	ULandscapeInfo* LandscapeInfo;
 
 	// Only for Missing Data interpolation... only internal usage
@@ -200,10 +209,10 @@ private:
 	                          int32 ComponentIndexY, int32 SubIndexY, int32 SubY);
 
 	// counts the total influence of each weight-blended layer on this component
-	inline TMap<const ULandscapeLayerInfoObject*, uint32> CountWeightBlendedLayerInfluence(int32 ComponentIndexX, int32 ComponentIndexY, TOptional<TFixedSizeArrayView<const uint8* const>> LayerDataPtrs);
+	inline TMap<const ULandscapeLayerInfoObject*, uint32> CountWeightBlendedLayerInfluence(int32 ComponentIndexX, int32 ComponentIndexY, TOptional<TArrayView<const uint8* const>> LayerDataPtrs);
 
 	// chooses a replacement layer to use when erasing from 100% influence on a texel
-	const ULandscapeLayerInfoObject* ChooseReplacementLayer(const ULandscapeLayerInfoObject* LayerInfo, int32 ComponentIndexX, int32 SubIndexX, int32 SubX, int32 ComponentIndexY, int32 SubIndexY, int32 SubY, TMap<FIntPoint, TMap<const ULandscapeLayerInfoObject*, uint32>>& LayerInfluenceCache, TFixedSizeArrayView<const uint8* const> LayerDataPtrs);
+	const ULandscapeLayerInfoObject* ChooseReplacementLayer(const ULandscapeLayerInfoObject* LayerInfo, int32 ComponentIndexX, int32 SubIndexX, int32 SubX, int32 ComponentIndexY, int32 SubIndexY, int32 SubY, TMap<FIntPoint, TMap<const ULandscapeLayerInfoObject*, uint32>>& LayerInfluenceCache, TArrayView<const uint8* const> LayerDataPtrs);
 };
 
 template<typename T>
@@ -235,4 +244,3 @@ void FLandscapeEditDataInterface::ShrinkData(TArray<T>& Data, int32 OldMinX, int
 
 #endif
 
-#endif // _LANDSCAPEEDIT_H

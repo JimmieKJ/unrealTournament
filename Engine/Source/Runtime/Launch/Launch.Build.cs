@@ -12,7 +12,6 @@ public class Launch : ModuleRules
 		PrivateIncludePathModuleNames.AddRange(
 			new string[] {
 				"AutomationController",
-				"OnlineSubsystem",
 				"TaskGraph",
 			}
 		);
@@ -115,9 +114,9 @@ public class Launch : ModuleRules
 			PublicDependencyModuleNames.Add("SessionServices");
 			PrivateIncludePaths.Add("Developer/DerivedDataCache/Public");
 
-			// LaunchEngineLoop.cpp does a LoadModule() on OnlineSubsystem and OnlineSubsystemUtils when compiled WITH_ENGINE, so they must be marked as dependencies so that they get compiled and cleaned
-			DynamicallyLoadedModuleNames.Add("OnlineSubsystem");
-			DynamicallyLoadedModuleNames.Add("OnlineSubsystemUtils");
+            // LaunchEngineLoop.cpp will still attempt to load XMPP but not all projects require it so it will silently fail unless referenced by the project's build.cs file.
+            // DynamicallyLoadedModuleNames.Add("XMPP");
+            DynamicallyLoadedModuleNames.Add("HTTP");
 		}
 
 		if (Target.Configuration != UnrealTargetConfiguration.Shipping)
@@ -178,6 +177,7 @@ public class Launch : ModuleRules
 			PrivateDependencyModuleNames.Add("OpenGLDrv");
 			PrivateDependencyModuleNames.Add("IOSAudio");
 			DynamicallyLoadedModuleNames.Add("IOSRuntimeSettings");
+			DynamicallyLoadedModuleNames.Add("IOSLocalNotification");
 			PublicFrameworks.Add("OpenGLES");
 			// this is weak for IOS8 support for CAMetalLayer that is in QuartzCore
 			PublicWeakFrameworks.Add("QuartzCore");

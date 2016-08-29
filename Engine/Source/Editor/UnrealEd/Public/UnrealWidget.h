@@ -2,8 +2,6 @@
 
 #pragma once
 
-#include "Editor.h"
-
 
 class FPrimitiveDrawInterface;
 class FEditorModeTools;

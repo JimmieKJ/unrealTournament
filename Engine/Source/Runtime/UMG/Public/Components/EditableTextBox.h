@@ -141,6 +141,9 @@ public:
 	UFUNCTION(BlueprintCallable, Category="Widget")
 	void ClearError();
 
+	UFUNCTION(BlueprintCallable, Category = "Widget")
+	bool HasError() const;
+
 	//~ Begin UWidget Interface
 	virtual void SynchronizeProperties() override;
 	//~ End UWidget Interface

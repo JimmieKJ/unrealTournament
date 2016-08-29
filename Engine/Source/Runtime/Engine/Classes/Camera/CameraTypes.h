@@ -4,6 +4,7 @@
 
 #include "Engine/Scene.h"
 #include "Engine/EngineTypes.h"
+#include "EngineDefines.h"
 #include "CameraTypes.generated.h"
 
 //@TODO: Document

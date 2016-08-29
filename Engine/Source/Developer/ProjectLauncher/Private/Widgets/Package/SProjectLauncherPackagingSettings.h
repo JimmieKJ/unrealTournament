@@ -31,10 +31,30 @@ public:
 	 */
 	void Construct( const FArguments& InArgs, const FProjectLauncherModelRef& InModel );
 
+	// Changes the directory path to the correct packaging mode version
+	void UpdateDirectoryPathText();
+
 private:
+
+
+	void HandleForDistributionCheckBoxCheckStateChanged(ECheckBoxState NewState);
+	ECheckBoxState HandleForDistributionCheckBoxIsChecked() const;
+
+	// Callback for getting the content text of the 'Directory' label.
+	FText HandleDirectoryTitleText() const;
+	FText HandleDirectoryPathText() const;
 
 	// Callback for changing the selected profile in the profile manager.
 	void HandleProfileManagerProfileSelected( const ILauncherProfilePtr& SelectedProfile, const ILauncherProfilePtr& PreviousProfile );
+
+	FReply HandleBrowseButtonClicked();
+
+	/** Handles entering in a command */
+	bool IsEditable() const;
+
+	void OnTextCommitted(const FText& InText, ETextCommit::Type CommitInfo);
+
+	void OnTextChanged(const FText& InText);
 
 private:
 
@@ -42,5 +62,5 @@ private:
 	FProjectLauncherModelPtr Model;
 
 	// Holds the repository path text box.
-	TSharedPtr<SEditableTextBox> RepositoryPathTextBox;
+	TSharedPtr<SEditableTextBox> DirectoryPathTextBox;
 };

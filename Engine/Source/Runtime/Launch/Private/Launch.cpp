@@ -4,6 +4,7 @@
 #include "PhysicsPublic.h"
 #include "ExceptionHandling.h"
 #include "ModuleManager.h"
+#include "LoadTimeTracker.h"
 
 
 IMPLEMENT_MODULE(FDefaultModuleImpl, Launch);
@@ -71,6 +72,9 @@ void LaunchStaticShutdownAfterError()
 	TermGamePhys();
 }
 
+#if WITH_EDITOR
+extern UNREALED_API FSecondsCounterData BlueprintCompileAndLoadTimerData;
+#endif
 
 /**
  * Static guarded main function. Rolled into own function so we can have error handling for debug/ release builds depending
@@ -82,6 +86,9 @@ int32 GuardedMain( const TCHAR* CmdLine, HINSTANCE hInInstance, HINSTANCE hPrevI
 int32 GuardedMain( const TCHAR* CmdLine )
 #endif
 {
+	// Super early init code. DO NOT MOVE THIS ANYWHERE ELSE!
+	FCoreDelegates::GetPreMainInitDelegate().Broadcast();
+
 	// make sure GEngineLoop::Exit() is always called.
 	struct EngineLoopCleanupGuard 
 	{ 
@@ -137,7 +144,14 @@ int32 GuardedMain( const TCHAR* CmdLine )
 		}
 	}
 
-	UE_LOG(LogLoad, Log, TEXT("Full Startup: %.2f seconds (BP compile: %.2f seconds)"), FPlatformTime::Seconds() - GStartTime, GBlueprintCompileTime);
+	double EngineInitializationTime = FPlatformTime::Seconds() - GStartTime;
+	UE_LOG(LogLoad, Log, TEXT("(Engine Initialization) Total time: %.2f seconds"), EngineInitializationTime);
+
+#if WITH_EDITOR
+	UE_LOG(LogLoad, Log, TEXT("(Engine Initialization) Total Blueprint compile time: %.2f seconds"), BlueprintCompileAndLoadTimerData.GetTime());
+#endif
+
+	ACCUM_LOADTIME(TEXT("EngineInitialization"), EngineInitializationTime);
 
 	while( !GIsRequestingExit )
 	{

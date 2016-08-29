@@ -3,6 +3,8 @@
 
 #pragma once
 
+#include "SlateD3DConstantBuffer.h"
+
 class FSlateD3DShaderParameter
 {
 public:

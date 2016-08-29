@@ -109,7 +109,7 @@ void AUTProj_TransDisk::OnRep_TransState()
 	}
 }
 
-void AUTProj_TransDisk::OnBlockingHit(AActor* OtherActor, UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit)
+void AUTProj_TransDisk::OnBlockingHit(UPrimitiveComponent* HitComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit)
 {
 	if (TransState == TLS_InAir && Cast<AUTLift>(OtherActor) != NULL && Hit.Normal.Z > Hit.Normal.Size2D())
 	{
@@ -159,8 +159,8 @@ UParticleSystemComponent* AUTProj_TransDisk::SpawnOffsetEffect(UParticleSystem *
 	PSC->bAutoActivate = false;
 	PSC->SetTemplate(Effect);
 	PSC->bOverrideLODMethod = false;
+	PSC->SetupAttachment(GetRootComponent());
 	PSC->RegisterComponent();
-	PSC->AttachTo(GetRootComponent());
 	PSC->SetRelativeLocationAndRotation(Offset, FRotator(0.f));
 	PSC->ActivateSystem(true);
 	return PSC;
@@ -357,7 +357,7 @@ void AUTProj_TransDisk::OnStop(const FHitResult& Hit)
 	AUTLift* Lift = Cast<AUTLift>(Hit.Actor.Get());
 	if (Lift && Lift->GetEncroachComponent())
 	{
-		AttachRootComponentTo(Lift->GetEncroachComponent(), NAME_None, EAttachLocation::KeepWorldPosition);
+		AttachToComponent(Lift->GetEncroachComponent(), FAttachmentTransformRules::KeepWorldTransform);
 	}
 }
 

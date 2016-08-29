@@ -119,6 +119,9 @@ public:
 	/** Get whether source control allows this file to be edited */
 	virtual bool CanEdit() const = 0;
 
+	/** Get whether source control allows this file to be deleted. */
+	virtual bool CanDelete() const = 0;
+
 	/** Get whether we know anything about this files source control state */
 	virtual bool IsUnknown() const = 0;
 

@@ -4,8 +4,7 @@
 	HModel.h: HModel definition.
 =============================================================================*/
 
-#ifndef _INC_HMODEL
-#define _INC_HMODEL
+#pragma once
 
 class UModelComponent;
 
@@ -51,4 +50,3 @@ private:
 	UModel* Model;
 };
 
-#endif

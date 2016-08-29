@@ -184,6 +184,11 @@ public:
 		return TWeakObjectPtrBase::IsStale(bIncludingIfPendingKill, bThreadsafeTest);
 	}
 
+	FORCEINLINE bool HasSameIndexAndSerialNumber(const TWeakObjectPtr& Other) const
+	{
+		return static_cast<const TWeakObjectPtrBase&>(*this).HasSameIndexAndSerialNumber(static_cast<const TWeakObjectPtrBase&>(Other));
+	}
+
 	/** Hash function. */
 	FORCEINLINE friend uint32 GetTypeHash(const TWeakObjectPtr& WeakObjectPtr)
 	{
@@ -293,6 +298,27 @@ FORCENOINLINE bool operator!=(TYPE_OF_NULLPTR, const TWeakObjectPtr<RhsT, OtherT
 template<class T> struct TIsPODType<TWeakObjectPtr<T> > { enum { Value = true }; };
 template<class T> struct TIsZeroConstructType<TWeakObjectPtr<T> > { enum { Value = true }; };
 template<class T> struct TIsWeakPointerType<TWeakObjectPtr<T> > { enum { Value = true }; };
+
+
+/**
+ * MapKeyFuncs for TWeakObjectPtrs which allow the key to become stale without invalidating the map.
+ */
+template <typename KeyType, typename ValueType, bool bInAllowDuplicateKeys = false>
+struct TWeakObjectPtrMapKeyFuncs : public TDefaultMapKeyFuncs<KeyType, ValueType, bInAllowDuplicateKeys>
+{
+	typedef typename TDefaultMapKeyFuncs<KeyType, ValueType, bInAllowDuplicateKeys>::KeyInitType KeyInitType;
+
+	static FORCEINLINE bool Matches(KeyInitType A, KeyInitType B)
+	{
+		return A.HasSameIndexAndSerialNumber(B);
+	}
+
+	static FORCEINLINE uint32 GetKeyHash(KeyInitType Key)
+	{
+		return GetTypeHash(Key);
+	}
+};
+
 
 /**
   * Automatic version of the weak object pointer

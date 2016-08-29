@@ -158,18 +158,18 @@ void FMatineeViewportClient::AddKeysFromHitProxy( HHitProxy* HitProxy, TArray<FI
 	}
 }
 
-bool FMatineeViewportClient::InputKey(FViewport* Viewport, int32 ControllerId, FKey Key, EInputEvent Event,float /*AmountDepressed*/,bool /*Gamepad*/)
+bool FMatineeViewportClient::InputKey(FViewport* InViewport, int32 ControllerId, FKey Key, EInputEvent Event,float /*AmountDepressed*/,bool /*Gamepad*/)
 {
 	UpdateAndApplyCursorVisibility();
 
-	const bool bCtrlDown = Viewport->KeyState(EKeys::LeftControl) || Viewport->KeyState(EKeys::RightControl);
-	const bool bShiftDown = Viewport->KeyState(EKeys::LeftShift) || Viewport->KeyState(EKeys::RightShift);
-	const bool bAltDown = Viewport->KeyState(EKeys::LeftAlt) || Viewport->KeyState(EKeys::RightAlt);
-	const bool bCmdDown = Viewport->KeyState(EKeys::LeftCommand) || Viewport->KeyState(EKeys::RightCommand);
-	const bool bCapsDown = Viewport->KeyState(EKeys::CapsLock);
+	const bool bCtrlDown = InViewport->KeyState(EKeys::LeftControl) || InViewport->KeyState(EKeys::RightControl);
+	const bool bShiftDown = InViewport->KeyState(EKeys::LeftShift) || InViewport->KeyState(EKeys::RightShift);
+	const bool bAltDown = InViewport->KeyState(EKeys::LeftAlt) || InViewport->KeyState(EKeys::RightAlt);
+	const bool bCmdDown = InViewport->KeyState(EKeys::LeftCommand) || InViewport->KeyState(EKeys::RightCommand);
+	const bool bCapsDown = InViewport->KeyState(EKeys::CapsLock);
 
-	const int32 HitX = Viewport->GetMouseX();
-	const int32 HitY = Viewport->GetMouseY();
+	const int32 HitX = InViewport->GetMouseX();
+	const int32 HitY = InViewport->GetMouseY();
 
 	bool bClickedTrackViewport = false;
 
@@ -181,7 +181,7 @@ bool FMatineeViewportClient::InputKey(FViewport* Viewport, int32 ControllerId, F
 			{
 				if(DragObject == NULL)
 				{
-					HHitProxy*	HitResult = Viewport->GetHitProxy(HitX,HitY);
+					HHitProxy*	HitResult = InViewport->GetHitProxy(HitX,HitY);
 
 					if(HitResult)
 					{
@@ -601,7 +601,7 @@ bool FMatineeViewportClient::InputKey(FViewport* Viewport, int32 ControllerId, F
 						}
 					}
 
-					Viewport->LockMouseToViewport(true);
+					InViewport->LockMouseToViewport(true);
 
 					bMouseDown = true;
 					OldMouseX = HitX;
@@ -612,9 +612,9 @@ bool FMatineeViewportClient::InputKey(FViewport* Viewport, int32 ControllerId, F
 			break;
 		case IE_DoubleClick:
 			{
-				Viewport->InvalidateHitProxy();
+				InViewport->InvalidateHitProxy();
 
-				HHitProxy*	HitResult = Viewport->GetHitProxy(HitX,HitY);
+				HHitProxy*	HitResult = InViewport->GetHitProxy(HitX,HitY);
 
 				if(HitResult)
 				{
@@ -632,14 +632,14 @@ bool FMatineeViewportClient::InputKey(FViewport* Viewport, int32 ControllerId, F
 			break;
 		case IE_Released:
 			{
-				Viewport->InvalidateHitProxy();
+				InViewport->InvalidateHitProxy();
 
 				if(bBoxSelecting)
 				{
-					const int32 MinX = FMath::Min(BoxStartX, BoxEndX);
-					const int32 MinY = FMath::Min(BoxStartY, BoxEndY);
-					const int32 MaxX = FMath::Max(BoxStartX, BoxEndX);
-					const int32 MaxY = FMath::Max(BoxStartY, BoxEndY);
+					const int32 MinX = FMath::Max(0, FMath::Min(BoxStartX, BoxEndX));
+					const int32 MinY = FMath::Max(0, FMath::Min(BoxStartY, BoxEndY));
+					const int32 MaxX = FMath::Min(Viewport->GetSizeXY().X - 1, FMath::Max(BoxStartX, BoxEndX));
+					const int32 MaxY = FMath::Min(Viewport->GetSizeXY().Y - 1, FMath::Max(BoxStartY, BoxEndY));
 					const int32 TestSizeX = MaxX - MinX + 1;
 					const int32 TestSizeY = MaxY - MinY + 1;
 
@@ -648,7 +648,7 @@ bool FMatineeViewportClient::InputKey(FViewport* Viewport, int32 ControllerId, F
 
 					// We read back the hit proxy map for the required region.
 					TArray<HHitProxy*> ProxyMap;
-					Viewport->GetHitProxyMap(FIntRect(MinX, MinY, MaxX + 1, MaxY + 1), ProxyMap);
+					InViewport->GetHitProxyMap(FIntRect(MinX, MinY, MaxX + 1, MaxY + 1), ProxyMap);
 
 					TArray<FInterpEdSelKey>	NewSelection;
 
@@ -679,7 +679,7 @@ bool FMatineeViewportClient::InputKey(FViewport* Viewport, int32 ControllerId, F
 				}
 				else if(DragObject)
 				{
-					HHitProxy*	HitResult = Viewport->GetHitProxy(HitX,HitY);
+					HHitProxy*	HitResult = InViewport->GetHitProxy(HitX,HitY);
 
 					if(HitResult)
 					{
@@ -698,7 +698,7 @@ bool FMatineeViewportClient::InputKey(FViewport* Viewport, int32 ControllerId, F
 				}
 				else if(DistanceDragged < 4)
 				{
-					HHitProxy*	HitResult = Viewport->GetHitProxy(HitX,HitY);
+					HHitProxy*	HitResult = InViewport->GetHitProxy(HitX,HitY);
 
 					// If mouse didn't really move since last time, and we released over empty space, deselect everything.
 					if(!HitResult)
@@ -767,7 +767,7 @@ bool FMatineeViewportClient::InputKey(FViewport* Viewport, int32 ControllerId, F
 					bGrabbingMarker = false;
 				}
 
-				Viewport->LockMouseToViewport(false);
+				InViewport->LockMouseToViewport(false);
 
 				DistanceDragged = 0;
 
@@ -786,16 +786,16 @@ bool FMatineeViewportClient::InputKey(FViewport* Viewport, int32 ControllerId, F
 		{
 		case IE_Pressed:
 			{
-				HHitProxy*	HitResult = Viewport->GetHitProxy(HitX,HitY);
+				HHitProxy*	HitResult = InViewport->GetHitProxy(HitX,HitY);
 
 				if(HitResult)
 				{
 					// User right-click somewhere in the track editor
-					TSharedPtr<SWidget> Menu = InterpEd->CreateContextMenu( Viewport, HitResult, bIsDirectorTrackWindow );
+					TSharedPtr<SWidget> Menu = InterpEd->CreateContextMenu( InViewport, HitResult, bIsDirectorTrackWindow );
 					if (Menu.IsValid())
 					{
 						// Redraw the viewport so the user can see which object was right clicked on
-						Viewport->Draw();
+						InViewport->Draw();
 						FlushRenderingCommands();
 
 						TSharedPtr< SWindow > Parent = FSlateApplication::Get().GetActiveTopLevelWindow(); 
@@ -815,7 +815,7 @@ bool FMatineeViewportClient::InputKey(FViewport* Viewport, int32 ControllerId, F
 
 		case IE_Released:
 			{
-				Viewport->InvalidateHitProxy();
+				InViewport->InvalidateHitProxy();
 			}
 			break;
 		}
@@ -838,15 +838,15 @@ bool FMatineeViewportClient::InputKey(FViewport* Viewport, int32 ControllerId, F
 	}
 
 	// Handle viewport screenshot.
-	InputTakeScreenshot( Viewport, Key, Event );
+	InputTakeScreenshot( InViewport, Key, Event );
 
 	return true;
 }
 
 // X and Y here are the new screen position of the cursor.
-void FMatineeViewportClient::MouseMove(FViewport* Viewport, int32 X, int32 Y)
+void FMatineeViewportClient::MouseMove(FViewport* InViewport, int32 X, int32 Y)
 {
-	bool bCtrlDown = Viewport->KeyState(EKeys::LeftControl) || Viewport->KeyState(EKeys::RightControl);
+	bool bCtrlDown = InViewport->KeyState(EKeys::LeftControl) || InViewport->KeyState(EKeys::RightControl);
 
 	int32 DeltaX = OldMouseX - X;
 	int32 DeltaY = OldMouseY - Y;
@@ -960,25 +960,25 @@ void FMatineeViewportClient::MouseMove(FViewport* Viewport, int32 X, int32 Y)
 	}
 }
 
-bool FMatineeViewportClient::InputAxis(FViewport* Viewport, int32 ControllerId, FKey Key, float Delta, float DeltaTime, int32 NumSamples, bool bGamepad)
+bool FMatineeViewportClient::InputAxis(FViewport* InViewport, int32 ControllerId, FKey Key, float Delta, float DeltaTime, int32 NumSamples, bool bGamepad)
 {
 	if ( Key == EKeys::MouseX || Key == EKeys::MouseY )
 	{
-		int32 X = Viewport->GetMouseX();
-		int32 Y = Viewport->GetMouseY();
-		MouseMove(Viewport, X, Y);
+		int32 X = InViewport->GetMouseX();
+		int32 Y = InViewport->GetMouseY();
+		MouseMove(InViewport, X, Y);
 		return true;
 	}
 	return false;
 }
 
-EMouseCursor::Type FMatineeViewportClient::GetCursor(FViewport* Viewport,int32 X,int32 Y)
+EMouseCursor::Type FMatineeViewportClient::GetCursor(FViewport* InViewport,int32 X,int32 Y)
 {
 	EMouseCursor::Type Result = EMouseCursor::Crosshairs;
 
-	if(DragObject==NULL)
+	if(DragObject==nullptr)
 	{
-		HHitProxy*	HitProxy = Viewport->GetHitProxy(X,Y);
+		HHitProxy*	HitProxy = InViewport->GetHitProxy(X,Y);
 		
 		if(HitProxy)
 		{

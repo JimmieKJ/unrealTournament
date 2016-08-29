@@ -90,8 +90,11 @@ public:
 	/** Removes a widget that was previously overlaid on to this viewport */
 	virtual void RemoveOverlayWidget(TSharedRef<SWidget> OverlaidWidget) = 0;
 
+	/** Returns the SLevelViewport widget (const). This is NOT the actual SViewport widget, just a wrapper that contains one. */
+	virtual TSharedRef< const SWidget > AsWidget() const = 0;
+
 	/** Returns the SLevelViewport widget. This is NOT the actual SViewport widget, just a wrapper that contains one. */
-	virtual TSharedRef< const SWidget > AsWidget() = 0;
+	virtual TSharedRef< SWidget > AsWidget() = 0;
 
 	/** Returns the SViewport widget contained within the SLevelViewport. This is the actual viewport widget that renders the level. */
 	virtual TWeakPtr< class SViewport > GetViewportWidget() = 0;

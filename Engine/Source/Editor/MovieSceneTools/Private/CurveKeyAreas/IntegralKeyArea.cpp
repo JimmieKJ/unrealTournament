@@ -27,6 +27,10 @@ TArray<FKeyHandle> FIntegralCurveKeyAreaBase::AddKeyUnique(float Time, EMovieSce
 		EvaluateAndAddKey(Time, TimeToCopyFrom, CurrentKey);
 		AddedKeyHandles.Add(CurrentKey);
 	}
+	else
+	{
+		SetKeyValue(Time);
+	}
 
 	return AddedKeyHandles;
 }

@@ -13,13 +13,18 @@ public:
 	virtual ~FCrashUploadBase();
 
 	/**
-	* Has BeginUpload been called?
-	*/
+	 * Is this uploader enabled or disabled?
+	 */
+	bool IsEnabled() const { return State != EUploadState::Disabled; }
+
+	/**
+	 * Has BeginUpload been called?
+	 */
 	bool IsUploadCalled() const { return bUploadCalled; }
 
 	/**
-	* Provide progress or error information for the UI
-	*/
+	 * Provide progress or error information for the UI
+	 */
 	const FText& GetStatusText() const { return UploadStateText; }
 
 	/**
@@ -62,6 +67,7 @@ protected:
 			ServerNotAvailable,
 			UploadError,
 			Cancelled,
+			Disabled,
 
 			FirstCompletedState = Finished,
 		};

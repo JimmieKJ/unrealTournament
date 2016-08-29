@@ -503,7 +503,7 @@ bool FFeaturePackContentSource::ExtractListOfAdditionalFiles(const FString& InCo
 		{
 			if (FilePair.Key.ToString().Contains("Files"))
 			{
-				AdditionalFilesMap.Add(FilePair.Value);
+				AdditionalFilesMap.Add(FilePair.Value.GetValue());
 			}
 		}
 		BuildListOfAdditionalFiles(AdditionalFilesMap,InFileList,bContainsSource);

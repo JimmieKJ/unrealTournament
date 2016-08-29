@@ -34,6 +34,8 @@ public:
 
 	bool IsPropertyEditingEnabled() const;
 
+	void ForceRefresh();
+
 	void RequestRefresh();
 
 	bool SupportsEditConditionToggle() const;

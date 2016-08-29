@@ -7,6 +7,8 @@
 #include "BlueprintNodeSpawner.h"
 #include "BlueprintActionDatabaseRegistrar.h"
 #include "Animation/AnimationSettings.h"
+#include "Animation/AimOffsetBlendSpace.h"
+#include "Animation/AimOffsetBlendSpace1D.h"
 
 /////////////////////////////////////////////////////
 // UAnimGraphNode_RotationOffsetBlendSpace
@@ -120,6 +122,14 @@ FBlueprintNodeSignature UAnimGraphNode_RotationOffsetBlendSpace::GetSignature() 
 	return NodeSignature;
 }
 
+void UAnimGraphNode_RotationOffsetBlendSpace::SetAnimationAsset(UAnimationAsset* Asset)
+{
+	if (UBlendSpaceBase* BlendSpace = Cast<UBlendSpaceBase>(Asset))
+	{
+		Node.BlendSpace = BlendSpace;
+	}
+}
+
 void UAnimGraphNode_RotationOffsetBlendSpace::ValidateAnimNodeDuringCompilation(class USkeleton* ForSkeleton, class FCompilerResultsLog& MessageLog)
 {
 	if (Node.BlendSpace == NULL)
@@ -163,17 +173,17 @@ void UAnimGraphNode_RotationOffsetBlendSpace::GetContextMenuActions(const FGraph
 	}
 }
 
-void UAnimGraphNode_RotationOffsetBlendSpace::GetAllAnimationSequencesReferred(TArray<UAnimationAsset*>& ComplexAnims, TArray<UAnimSequence*>& AnimationSequences) const
+void UAnimGraphNode_RotationOffsetBlendSpace::GetAllAnimationSequencesReferred(TArray<UAnimationAsset*>& AnimationAssets) const
 {
 	if(Node.BlendSpace)
 	{
-		HandleAnimReferenceCollection(Node.BlendSpace, ComplexAnims, AnimationSequences);
+		HandleAnimReferenceCollection(Node.BlendSpace, AnimationAssets);
 	}
 }
 
-void UAnimGraphNode_RotationOffsetBlendSpace::ReplaceReferredAnimations(const TMap<UAnimationAsset*, UAnimationAsset*>& ComplexAnimsMap, const TMap<UAnimSequence*, UAnimSequence*>& AnimSequenceMap)
+void UAnimGraphNode_RotationOffsetBlendSpace::ReplaceReferredAnimations(const TMap<UAnimationAsset*, UAnimationAsset*>& AnimAssetReplacementMap)
 {
-	HandleAnimReferenceReplacement(Node.BlendSpace, ComplexAnimsMap, AnimSequenceMap);
+	HandleAnimReferenceReplacement(Node.BlendSpace, AnimAssetReplacementMap);
 }
 
 #undef LOCTEXT_NAMESPACE

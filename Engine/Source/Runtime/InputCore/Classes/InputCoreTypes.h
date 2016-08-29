@@ -13,7 +13,17 @@ enum class EControllerHand : uint8
 {
 	Left,
 	Right,
-	Pad
+	Pad,
+	ExternalCamera,
+	Special_1,
+	Special_2,
+	Special_3,
+	Special_4,
+	Special_5,
+	Special_6,
+	Special_7,
+	Special_8,
+	Special_9
 };
 
 USTRUCT(BlueprintType)

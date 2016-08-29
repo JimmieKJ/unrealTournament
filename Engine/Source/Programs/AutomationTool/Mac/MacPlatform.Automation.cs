@@ -14,7 +14,7 @@ public class MacPlatform : Platform
 	{
 	}
 
-	public override string GetCookPlatform(bool bDedicatedServer, bool bIsClientOnly, string CookFlavor)
+	public override string GetCookPlatform(bool bDedicatedServer, bool bIsClientOnly)
 	{
 		const string NoEditorCookPlatform = "MacNoEditor";
 		const string ServerCookPlatform = "MacServer";
@@ -64,11 +64,11 @@ public class MacPlatform : Platform
 
 	public override void GetFilesToDeployOrStage(ProjectParams Params, DeploymentContext SC)
 	{
-        // Stage all the build products
-        foreach (StageTarget Target in SC.StageTargets)
-        {
-            SC.StageBuildProductsFromReceipt(Target.Receipt, Target.RequireFilesExist, Params.bTreatNonShippingBinariesAsDebugFiles);
-        }
+		// Stage all the build products
+		foreach (StageTarget Target in SC.StageTargets)
+		{
+			SC.StageBuildProductsFromReceipt(Target.Receipt, Target.RequireFilesExist, Params.bTreatNonShippingBinariesAsDebugFiles);
+		}
 
 		if (SC.bStageCrashReporter)
 		{
@@ -76,11 +76,32 @@ public class MacPlatform : Platform
 			StageAppBundle(SC, StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "Engine/Binaries", SC.PlatformDir, "CrashReportClient.app"), CrashReportClientPath);
 		}
 
+		// Find the app bundle path
+		List<string> Exes = GetExecutableNames(SC);
+		foreach (var Exe in Exes)
+		{
+			string AppBundlePath = "";
+			if (Exe.StartsWith(CombinePaths(SC.RuntimeProjectRootDir, "Binaries", SC.PlatformDir)))
+			{
+				AppBundlePath = CombinePaths(SC.ShortProjectName, "Binaries", SC.PlatformDir, Path.GetFileNameWithoutExtension(Exe) + ".app");
+			}
+			else if (Exe.StartsWith(CombinePaths(SC.RuntimeRootDir, "Engine/Binaries", SC.PlatformDir)))
+			{
+				AppBundlePath = CombinePaths("Engine/Binaries", SC.PlatformDir, Path.GetFileNameWithoutExtension(Exe) + ".app");
+			}
+
+			// Copy the custom icon
+			if (!string.IsNullOrEmpty(AppBundlePath))
+			{
+				SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.ProjectRoot, "Build/Mac"), "Application.icns", false, null, CombinePaths(AppBundlePath, "Contents/Resources"), true);
+			}
+		}
+
 		// Copy the splash screen, Mac specific
 		SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.ProjectRoot, "Content/Splash"), "Splash.bmp", false, null, null, true);
 
 		// CEF3 files
-		if(Params.bUsesCEF3)
+		if (Params.bUsesCEF3)
 		{
 			SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "Engine/Binaries/ThirdParty/CEF3/Mac/"), "*", true, null, null, true);
 			string UnrealCEFSubProcessPath = CombinePaths("Engine/Binaries", SC.PlatformDir, "UnrealCEFSubProcess.app");
@@ -88,12 +109,12 @@ public class MacPlatform : Platform
 		}
 
 		// Stage the bootstrap executable
-		if(!Params.NoBootstrapExe)
+		if (!Params.NoBootstrapExe)
 		{
-			foreach(StageTarget Target in SC.StageTargets)
+			foreach (StageTarget Target in SC.StageTargets)
 			{
 				BuildProduct Executable = Target.Receipt.BuildProducts.FirstOrDefault(x => x.Type == BuildProductType.Executable);
-				if(Executable != null)
+				if (Executable != null)
 				{
 					// only create bootstraps for executables
 					if (SC.NonUFSStagingFiles.ContainsKey(Executable.Path) && Executable.Path.Replace("\\", "/").Contains("/" + TargetPlatformType.ToString() + "/"))
@@ -105,11 +126,11 @@ public class MacPlatform : Platform
 						}
 
 						string BootstrapExeName;
-						if(SC.StageTargetConfigurations.Count > 1)
+						if (SC.StageTargetConfigurations.Count > 1)
 						{
 							BootstrapExeName = Path.GetFileName(Executable.Path) + ".app";
 						}
-						else if(Params.IsCodeBasedProject)
+						else if (Params.IsCodeBasedProject)
 						{
 							BootstrapExeName = Target.Receipt.TargetName + ".app";
 						}
@@ -297,10 +318,18 @@ public class MacPlatform : Platform
 				if (File.Exists(CustomIconSrcPath))
 				{
 					File.Delete(DefaultIconPath);
+					if (File.Exists(CustomIconDestPath))
+					{
+						File.Delete(CustomIconDestPath);
+					}
 					File.Move(CustomIconSrcPath, CustomIconDestPath);
 				}
 				else if (File.Exists(DefaultIconPath))
 				{
+					if (File.Exists(CustomIconDestPath))
+					{
+						File.Delete(CustomIconDestPath);
+					}
 					File.Move(DefaultIconPath, CustomIconDestPath);
 				}
 
@@ -379,17 +408,22 @@ public class MacPlatform : Platform
 		{
 			// Sign everything we built
 			List<string> FilesToSign = GetExecutableNames(SC);
+			Log("RuntimeProjectRootDir: " + SC.RuntimeProjectRootDir);
 			foreach (var Exe in FilesToSign)
 			{
+				Log("Signing: " + Exe);
 				string AppBundlePath = "";
 				if (Exe.StartsWith(CombinePaths(SC.RuntimeProjectRootDir, "Binaries", SC.PlatformDir)))
 				{
+					Log("Starts with Binaries");
 					AppBundlePath = CombinePaths(SC.RuntimeProjectRootDir, "Binaries", SC.PlatformDir, Path.GetFileNameWithoutExtension(Exe) + ".app");
 				}
 				else if (Exe.StartsWith(CombinePaths(SC.RuntimeRootDir, "Engine/Binaries", SC.PlatformDir)))
 				{
+					Log("Starts with Engine/Binaries");
 					AppBundlePath = CombinePaths("Engine/Binaries", SC.PlatformDir, Path.GetFileNameWithoutExtension(Exe) + ".app");
 				}
+				Log("Signing: " + AppBundlePath);
 				CodeSign.SignMacFileOrFolder(AppBundlePath);
 			}
 

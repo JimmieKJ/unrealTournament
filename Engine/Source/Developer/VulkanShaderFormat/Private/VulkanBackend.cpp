@@ -1,5 +1,5 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
-// 
+// .
 
 // This code is largely based on that in ir_print_glsl_visitor.cpp from
 // glsl-optimizer.
@@ -36,6 +36,7 @@
 #include "hlslcc_private.h"
 #include "VulkanBackend.h"
 #include "compiler.h"
+#include "ShaderCompilerCommon.h"
 
 #include "VulkanConfiguration.h"
 
@@ -49,6 +50,7 @@ PRAGMA_ENABLE_SHADOW_VARIABLE_WARNINGS
 #include "IRDump.h"
 //@todo-rco: Remove STL!
 #include <sstream>
+#include <vector>
 //#define OPTIMIZE_ANON_STRUCTURES_OUT
 // We can't optimize them out presently, because apparently Windows Radeon
 // OpenGL driver chokes on valid GLSL code then.
@@ -57,9 +59,7 @@ PRAGMA_ENABLE_SHADOW_VARIABLE_WARNINGS
 #define _strdup strdup
 #endif
 
-static bool GDefaultPrecisionIsHalf = true;
-
-static inline std::string FixHlslName(const glsl_type* Type)
+static inline std::string FixHlslName(const glsl_type* Type, bool bUseTextureInsteadOfSampler = false)
 {
 	check(Type->is_image() || Type->is_vector() || Type->is_numeric() || Type->is_void() || Type->is_sampler() || Type->is_scalar());
 	std::string Name = Type->name;
@@ -114,6 +114,25 @@ static inline std::string FixHlslName(const glsl_type* Type)
 	else if (Type == glsl_type::half4x4_type)
 	{
 		return "mat4";
+	}
+	else if (Type->is_sampler() && !Type->sampler_buffer && bUseTextureInsteadOfSampler)
+	{
+		if (!FCStringAnsi::Strcmp(Type->HlslName, "texturecube"))
+		{
+			return "textureCube";
+		}
+		else if (!FCStringAnsi::Strcmp(Type->HlslName, "texture2d"))
+		{
+			return "texture2D";
+		}
+		else if (!FCStringAnsi::Strcmp(Type->HlslName, "texture3d"))
+		{
+			return "texture3D";
+		}
+		else
+		{
+			return Type->HlslName;
+		}
 	}
 
 	return Name;
@@ -359,7 +378,7 @@ static void InsertRange(TCBDMARangeMap& CBAllRanges, unsigned SourceCB, unsigned
 	SDMARange Range = { SourceCB, SourceOffset, Size, DestCBIndex, DestCBPrecision, DestOffset };
 
 	TDMARangeList& CBRanges = CBAllRanges[SourceDestCBKey];
-	//printf("* InsertRange: %08x\t%d:%d - %d:%c:%d:%d\n", SourceDestCBKey, SourceCB, SourceOffset, DestCBIndex, DestCBPrecision, DestOffset, Size);
+//printf("* InsertRange: %08x\t%u:%u - %u:%c:%u:%u\n", SourceDestCBKey, SourceCB, SourceOffset, DestCBIndex, DestCBPrecision, DestOffset, Size);
 	if (CBRanges.empty())
 	{
 		CBRanges.push_back(Range);
@@ -450,7 +469,7 @@ static void DumpSortedRanges(TDMARangeList& SortedRanges)
 	printf("**********************************\n");
 	for (auto& o : SortedRanges)
 	{
-		printf("\t%d:%d - %d:%c:%d:%d\n", o.SourceCB, o.SourceOffset, o.DestCBIndex, o.DestCBPrecision, o.DestOffset, o.Size);
+		printf("\t%u:%u - %u:%c:%u:%u\n", o.SourceCB, o.SourceOffset, o.DestCBIndex, o.DestCBPrecision, o.DestOffset, o.Size);
 	}
 }
 
@@ -465,7 +484,7 @@ static bool UsesUEIntrinsic(exec_list* Instructions, const char * UEIntrinsic)
 
 		virtual ir_visitor_status visit_enter(ir_call* IR) override
 		{
-			if (IR->use_builtin && !strcmp(IR->callee_name(), UEIntrinsic))
+			if (IR->use_builtin && !FCStringAnsi::Strcmp(IR->callee_name(), UEIntrinsic))
 			{
 				bFound = true;
 				return visit_stop;
@@ -499,7 +518,7 @@ static inline EDescriptorSetStage GetDescriptorSetForStage(_mesa_glsl_parser_tar
 /**
 * IR visitor used to generate GLSL. Based on ir_print_visitor.
 */
-class vulkan_ir_gen_glsl_visitor : public ir_visitor
+class FGenerateVulkanVisitor : public ir_visitor
 {
 	/** Track which multi-dimensional arrays are used. */
 	struct md_array_entry : public exec_node
@@ -554,8 +573,9 @@ class vulkan_ir_gen_glsl_visitor : public ir_visitor
 	bool bIsES31;
 	EHlslCompileTarget Target;
 	_mesa_glsl_parser_targets ShaderTarget;
-
+	FVulkanLanguageSpec* LanguageSpec;
 	bool bGenerateLayoutLocations;
+	bool bDefaultPrecisionIsHalf;
 
 	FVulkanBindingTable& BindingTable;
 
@@ -587,6 +607,8 @@ class vulkan_ir_gen_glsl_visitor : public ir_visitor
 
 	// Found dFdx or dFdy
 	bool bUsesDXDY;
+
+	std::vector<std::string> SamplerStateNames;
 
 	/**
 	* Return true if the type is a multi-dimensional array. Also, track the
@@ -682,7 +704,7 @@ class vulkan_ir_gen_glsl_visitor : public ir_visitor
 			ralloc_asprintf_append(buffer, "_mdarr_");
 			do
 			{
-				ralloc_asprintf_append(buffer, "%d_", t->length);
+				ralloc_asprintf_append(buffer, "%u_", t->length);
 				t = t->fields.array;
 			} while (t->base_type == GLSL_TYPE_ARRAY);
 			print_base_type(t);
@@ -709,13 +731,13 @@ class vulkan_ir_gen_glsl_visitor : public ir_visitor
 			print_base_type(t->inner_type);
 		}
 		else if ((t->base_type == GLSL_TYPE_STRUCT)
-			&& (strncmp("gl_", t->name, 3) != 0))
+			&& (FCStringAnsi::Strncmp("gl_", t->name, 3) != 0))
 		{
 			ralloc_asprintf_append(buffer, "%s", t->name);
 		}
 		else
 		{
-			std::string Name = FixHlslName(t);
+			std::string Name = FixHlslName(t, LanguageSpec->AllowsSharingSamplers());
 			ralloc_asprintf_append(buffer, "%s", Name.c_str());
 		}
 	}
@@ -792,11 +814,11 @@ class vulkan_ir_gen_glsl_visitor : public ir_visitor
 	{
 		if (type->is_sampler() || type->is_image())
 		{
-			if (GDefaultPrecisionIsHalf && type->inner_type->base_type == GLSL_TYPE_FLOAT)
+			if (bDefaultPrecisionIsHalf && type->inner_type->base_type == GLSL_TYPE_FLOAT)
 			{
 				return GLSL_PRECISION_HIGHP;
 			}
-			else if (!GDefaultPrecisionIsHalf && type->inner_type->base_type == GLSL_TYPE_HALF)
+			else if (!bDefaultPrecisionIsHalf && type->inner_type->base_type == GLSL_TYPE_HALF)
 			{
 				return GLSL_PRECISION_MEDIUMP;
 			}
@@ -805,11 +827,11 @@ class vulkan_ir_gen_glsl_visitor : public ir_visitor
 				return GLSL_PRECISION_HIGHP;
 			}
 		}
-		else if (GDefaultPrecisionIsHalf && (type->base_type == GLSL_TYPE_FLOAT || (type->is_array() && type->element_type()->base_type == GLSL_TYPE_FLOAT)))
+		else if (bDefaultPrecisionIsHalf && (type->base_type == GLSL_TYPE_FLOAT || (type->is_array() && type->element_type()->base_type == GLSL_TYPE_FLOAT)))
 		{
 			return GLSL_PRECISION_HIGHP;
 		}
-		else if (!GDefaultPrecisionIsHalf && (type->base_type == GLSL_TYPE_HALF || (type->is_array() && type->element_type()->base_type == GLSL_TYPE_HALF)))
+		else if (!bDefaultPrecisionIsHalf && (type->base_type == GLSL_TYPE_HALF || (type->is_array() && type->element_type()->base_type == GLSL_TYPE_HALF)))
 		{
 			return GLSL_PRECISION_MEDIUMP;
 		}
@@ -820,18 +842,18 @@ class vulkan_ir_gen_glsl_visitor : public ir_visitor
 		return GLSL_PRECISION_DEFAULT;
 	}
 
-	void AppendPrecisionModifier(char** inBuffer, EPrecisionModifier PrecisionModifier)
+	const char* GetPrecisionModifierName(EPrecisionModifier PrecisionModifier)
 	{
 		switch (PrecisionModifier)
 		{
 		case GLSL_PRECISION_LOWP:
-			ralloc_asprintf_append(inBuffer, "lowp ");
+			return "lowp";
 			break;
 		case GLSL_PRECISION_MEDIUMP:
-			ralloc_asprintf_append(inBuffer, "mediump ");
+			return "mediump";
 			break;
 		case GLSL_PRECISION_HIGHP:
-			ralloc_asprintf_append(inBuffer, "highp ");
+			return "highp";
 			break;
 		case GLSL_PRECISION_DEFAULT:
 			break;
@@ -839,6 +861,12 @@ class vulkan_ir_gen_glsl_visitor : public ir_visitor
 			// we missed a type
 			check(false);
 		}
+		return "";
+	}
+
+	inline void AppendPrecisionModifier(char** inBuffer, EPrecisionModifier PrecisionModifier)
+	{
+		ralloc_asprintf_append(inBuffer, "%s ", GetPrecisionModifierName(PrecisionModifier));
 	}
 
 	/**
@@ -910,8 +938,8 @@ class vulkan_ir_gen_glsl_visitor : public ir_visitor
 			}
 		}
 
-		if (var->name && strncmp(var->name, "gl_", 3) == 0 &&
-			var->centroid == 0 && var->interpolation == 0 &&
+		if (var->name && FCStringAnsi::Strncmp(var->name, "gl_", 3) == 0 &&
+			var->centroid == 0 && (var->interpolation == ir_interp_qualifier_none || var->interpolation == ir_interp_qualifier_flat) &&
 			var->invariant == 0 && var->origin_upper_left == 0 &&
 			var->pixel_center_integer == 0)
 		{
@@ -964,29 +992,15 @@ class vulkan_ir_gen_glsl_visitor : public ir_visitor
 					check(inner_type->length == 1);
 					const glsl_struct_field* field = &inner_type->fields.structure[0];
 
-					#if VULKAN_HLSLCC_GEN_GLSL_IN_OUT_WITHOUT_STRUCTURES
-						ralloc_asprintf_append(
-							buffer,
-							"layout(location=%d) %s",
-							var->location,				// location number
-							mode_str[var->mode]			// in / out
-							);
+					ralloc_asprintf_append(
+						buffer,
+						"layout(location=%d) %s",
+						var->location,				// location number
+						mode_str[var->mode]			// in / out
+						);
 
-						// Append type to the buffer string
-						print_type_pre(field->type); // float, vec2, vec3 and etc..
-					#else
-						ralloc_asprintf_append(
-							buffer,
-							"layout(location=%d) %s struct { ",
-							var->location,
-							mode_str[var->mode]);
-						ralloc_asprintf_append(buffer, " ");
-						check(strcmp(field->name, "Data") == 0);
-						print_type_pre(field->type);
-						ralloc_asprintf_append(buffer, " Data");
-						print_type_post(field->type);
-						ralloc_asprintf_append(buffer, "; }");
-					#endif
+					// Append type to the buffer string
+					print_type_pre(field->type); // float, vec2, vec3 and etc..
 				}
 				else
 				{
@@ -1010,7 +1024,7 @@ class vulkan_ir_gen_glsl_visitor : public ir_visitor
 					check(inner_type->is_record());
 					check(inner_type->length == 1);
 					const glsl_struct_field* field = &inner_type->fields.structure[0];
-					check(strcmp(field->name, "Data") == 0);
+					check(FCStringAnsi::Strcmp(field->name, "Data") == 0);
 
 					ralloc_asprintf_append(buffer, " { %s", interp_str[var->interpolation]);
 
@@ -1072,21 +1086,25 @@ class vulkan_ir_gen_glsl_visitor : public ir_visitor
 			}
 			else
 			{
-
 				char* layout = nullptr;
 
+				uint32 Interpolation = var->interpolation;
 				if (var->type->is_sampler())
 				{
 					layout = ralloc_asprintf(nullptr,
 						"layout(set=%d, binding=%d) ",
 						GetDescriptorSetForStage(ShaderTarget),
-						BindingTable.RegisterBinding(var->name, "s", var->type->sampler_buffer ? FVulkanBindingTable::TYPE_SAMPLER_BUFFER : FVulkanBindingTable::TYPE_SAMPLER));
+						BindingTable.RegisterBinding(var->name, "s", var->type->sampler_buffer ? FVulkanBindingTable::TYPE_SAMPLER_BUFFER : FVulkanBindingTable::TYPE_COMBINED_IMAGE_SAMPLER));
 				}
-
-				if (bGenerateLayoutLocations && var->explicit_location)
+				else if (bGenerateLayoutLocations && var->explicit_location)
 				{
 					check(layout_bits == 0);
 					layout = ralloc_asprintf(nullptr, "layout(location=%d) ", var->location);
+					if (ShaderTarget == fragment_shader && var->type->is_integer() && var->mode == ir_var_in)
+					{
+						// Flat
+						Interpolation = 2;
+					}
 				}
 
 				ralloc_asprintf_append(
@@ -1097,7 +1115,7 @@ class vulkan_ir_gen_glsl_visitor : public ir_visitor
 					invariant_str[var->invariant],
 					patch_constant_str[var->is_patch_constant],
 					mode_str[var->mode],
-					interp_str[var->interpolation]
+					interp_str[Interpolation]
 					);
 
 				if (bEmitPrecision)
@@ -1135,7 +1153,6 @@ class vulkan_ir_gen_glsl_visitor : public ir_visitor
 		// this is for the case of a variable that is declared, but not later dereferenced (which can happen
 		// when debugging HLSLCC and running without optimization
 		AddTypeToUsedStructs(var->type);
-
 	}
 
 	virtual void visit(ir_function_signature *sig)
@@ -1339,7 +1356,36 @@ class vulkan_ir_gen_glsl_visitor : public ir_visitor
 			offset_str[tex->offset != 0],
 			EXT_str[(int)bEmitEXT]
 			);
-		tex->sampler->accept(this);
+
+		if (LanguageSpec->AllowsSharingSamplers() && !tex->sampler->type->sampler_buffer && tex->op != ir_txf)
+		{
+			uint32 SSIndex = AddUniqueSamplerState(tex->SamplerStateName);
+			char PackedName[256];
+			FCStringAnsi::Sprintf(PackedName, "%sz%u", glsl_variable_tag_from_parser_target(ShaderTarget), SSIndex);
+			BindingTable.RegisterBinding(PackedName, "z", FVulkanBindingTable::TYPE_SAMPLER);
+
+			auto GetSamplerSuffix = [](int32 Dim)
+			{
+				switch (Dim)
+				{
+				case GLSL_SAMPLER_DIM_1D: return "1D";
+				case GLSL_SAMPLER_DIM_2D: return "2D";
+				case GLSL_SAMPLER_DIM_3D: return "3D";
+				case GLSL_SAMPLER_DIM_CUBE: return "Cube";
+				//case GLSL_SAMPLER_DIM_RECT: return "Rect";
+				//case GLSL_SAMPLER_DIM_BUF: return "Buf";
+				default: return "INVALID";
+				}
+			};
+
+			ralloc_asprintf_append(buffer, "sampler%s(", GetSamplerSuffix(tex->sampler->type->sampler_dimensionality));
+			tex->sampler->accept(this);
+			ralloc_asprintf_append(buffer, ", %s)", PackedName);
+		}
+		else
+		{
+			tex->sampler->accept(this);
+		}
 
 		// Emit coordinates.
 		if ((op == ir_txs && tex->lod_info.lod) || op == ir_txm)
@@ -2234,7 +2280,7 @@ class vulkan_ir_gen_glsl_visitor : public ir_visitor
 
 					if (type->base_type == GLSL_TYPE_STRUCT &&
 						type->name &&
-						!strcmp(var->name, block->name) &&
+						!FCStringAnsi::Strcmp(var->name, block->name) &&
 						!strncmp(type->name, "anon_struct_", 12))
 					{
 						hash_table_remove(used_structures, type);
@@ -2324,7 +2370,7 @@ class vulkan_ir_gen_glsl_visitor : public ir_visitor
 				int32 Binding = BindingTable.RegisterBinding(block_name, var_name, Type);
 				ralloc_asprintf_append(
 					buffer,
-					"layout(set=%d, binding = %d, std140) uniform %s\n{\n",
+					"layout(set=%d, binding=%d, std140) uniform %s\n{\n",
 					GetDescriptorSetForStage(ShaderTarget),
 					Binding,
 					block_name);
@@ -2339,7 +2385,7 @@ class vulkan_ir_gen_glsl_visitor : public ir_visitor
 
 					if (type->base_type == GLSL_TYPE_STRUCT &&
 						type->name &&
-						!strcmp(var->name, block->name) &&
+						!FCStringAnsi::Strcmp(var->name, block->name) &&
 						!strncmp(type->name, "anon_struct_", 12))
 					{
 						for (unsigned j = 0; j < type->length; j++)
@@ -2643,12 +2689,12 @@ class vulkan_ir_gen_glsl_visitor : public ir_visitor
 
 				if (bGroupFlattenedUBs)
 				{
-					ralloc_asprintf_append(buffer, "%d:%d-%d:%c:%d:%d", IterList->SourceCB, IterList->SourceOffset, IterList->DestCBIndex, IterList->DestCBPrecision, IterList->DestOffset, IterList->Size);
+					ralloc_asprintf_append(buffer, "%u:%u-%u:%c:%u:%u", IterList->SourceCB, IterList->SourceOffset, IterList->DestCBIndex, IterList->DestCBPrecision, IterList->DestOffset, IterList->Size);
 				}
 				else
 				{
 					check(IterList->DestCBIndex == 0);
-					ralloc_asprintf_append(buffer, "%d:%d-%c:%d:%d", IterList->SourceCB, IterList->SourceOffset, IterList->DestCBPrecision, IterList->DestOffset, IterList->Size);
+					ralloc_asprintf_append(buffer, "%u:%u-%c:%u:%u", IterList->SourceCB, IterList->SourceOffset, IterList->DestCBPrecision, IterList->DestOffset, IterList->Size);
 				}
 			}
 		}
@@ -2685,7 +2731,7 @@ class vulkan_ir_gen_glsl_visitor : public ir_visitor
 		{
 			ir_variable* var = ((extern_var*)iter.get())->var;
 			const glsl_type* type = var->type;
-			if (!strcmp(var->name, "gl_in"))
+			if (!FCStringAnsi::Strcmp(var->name, "gl_in"))
 			{
 				// Ignore it, as we can't properly frame this information in current format, and it's not used anyway for geometry shaders
 				continue;
@@ -2704,6 +2750,7 @@ class vulkan_ir_gen_glsl_visitor : public ir_visitor
 					type = type->fields.structure->type;
 				}
 			}
+			check(type);
 			bool is_array = type->is_array();
 			int array_size = is_array ? type->length : 0;
 			if (is_array)
@@ -2811,6 +2858,16 @@ class vulkan_ir_gen_glsl_visitor : public ir_visitor
 				ralloc_asprintf_append(buffer, "\n");
 			}
 		}
+
+		if (!SamplerStateNames.empty())
+		{
+			ralloc_asprintf_append(buffer, "// @SamplerStates: ");
+			for (uint32 Index = 0; Index < SamplerStateNames.size(); ++Index)
+			{
+				ralloc_asprintf_append(buffer, "%s%d:%s", Index > 0 ? "," : "", Index, SamplerStateNames[Index].c_str());
+			}
+			ralloc_asprintf_append(buffer, "\n");
+		}
 	}
 
 	/**
@@ -2899,9 +2956,9 @@ class vulkan_ir_gen_glsl_visitor : public ir_visitor
 	{
 		if (bUsesES2TextureLODExtension)
 		{
-			ralloc_asprintf_append(buffer, "#ifndef DONTEMITEXTENSIONSHADERTEXTURELODENABLE\n");
-			ralloc_asprintf_append(buffer, "#extension GL_EXT_shader_texture_lod : enable\n");
-			ralloc_asprintf_append(buffer, "#endif\n");
+			//ralloc_asprintf_append(buffer, "#ifndef DONTEMITEXTENSIONSHADERTEXTURELODENABLE\n");
+			//ralloc_asprintf_append(buffer, "#extension GL_EXT_shader_texture_lod : enable\n");
+			//ralloc_asprintf_append(buffer, "#endif\n");
 		}
 
 		if (state->bSeparateShaderObjects && !state->bGenerateES &&
@@ -2953,14 +3010,22 @@ class vulkan_ir_gen_glsl_visitor : public ir_visitor
 public:
 
 	/** Constructor. */
-	vulkan_ir_gen_glsl_visitor(EHlslCompileTarget InTarget,
+	FGenerateVulkanVisitor(EHlslCompileTarget InTarget,
 							FVulkanBindingTable& InBindingTable,
 							_mesa_glsl_parser_targets InShaderTarget,
-							bool bInGenerateLayoutLocations)
+							FVulkanLanguageSpec* InLanguageSpec,
+							bool bInGenerateLayoutLocations,
+							bool bInDefaultPrecisionIsHalf)
 		: early_depth_stencil(false)
+		, wg_size_x(0)
+		, wg_size_y(0)
+		, wg_size_z(0)
 		, Target(InTarget)
 		, ShaderTarget(InShaderTarget)
+		, LanguageSpec(InLanguageSpec)
 		, bGenerateLayoutLocations(bInGenerateLayoutLocations)
+		, bDefaultPrecisionIsHalf(bInDefaultPrecisionIsHalf)
+		, BindingTable(InBindingTable)
 		, buffer(0)
 		, indentation(0)
 		, scope_depth(0)
@@ -2971,7 +3036,6 @@ public:
 		, loop_count(0)
 		, bUsesES2TextureLODExtension(false)
 		, bUsesDXDY(false)
-		, BindingTable(InBindingTable)
 	{
 		printable_names = hash_table_ctor(32, hash_table_pointer_hash, hash_table_pointer_compare);
 		used_structures = hash_table_ctor(32, hash_table_pointer_hash, hash_table_pointer_compare);
@@ -2983,12 +3047,26 @@ public:
 	}
 
 	/** Destructor. */
-	virtual ~vulkan_ir_gen_glsl_visitor()
+	virtual ~FGenerateVulkanVisitor()
 	{
 		hash_table_dtor(printable_names);
 		hash_table_dtor(used_structures);
 		hash_table_dtor(used_uniform_blocks);
 	}
+
+	int32 AddUniqueSamplerState(const std::string& Name)
+	{
+		for (uint32 Index = 0; Index < SamplerStateNames.size(); ++Index)
+		{
+			if (SamplerStateNames[Index] == Name)
+			{
+				return (int32)Index;
+			}
+		}
+
+		SamplerStateNames.push_back(Name);
+		return SamplerStateNames.size() - 1;
+	};
 
 	/**
 	* Executes the visitor on the provided ir.
@@ -3005,29 +3083,19 @@ public:
 		{
 			// TODO: Improve this...
 
-			const char* DefaultPrecision = GDefaultPrecisionIsHalf ? "mediump" : "highp";
+			const char* DefaultPrecision = bDefaultPrecisionIsHalf ? "mediump" : "highp";
 			ralloc_asprintf_append(buffer, "precision %s float;\n", DefaultPrecision);
 			ralloc_asprintf_append(buffer, "precision %s int;\n", DefaultPrecision);
-			ralloc_asprintf_append(buffer, "\n#ifndef DONTEMITSAMPLERDEFAULTPRECISION\n");
+			//ralloc_asprintf_append(buffer, "\n#ifndef DONTEMITSAMPLERDEFAULTPRECISION\n");
+			ralloc_asprintf_append(buffer, "precision %s sampler;\n", DefaultPrecision);
 			ralloc_asprintf_append(buffer, "precision %s sampler2D;\n", DefaultPrecision);
-			ralloc_asprintf_append(buffer, "precision %s samplerCube;\n\n", DefaultPrecision);
-			ralloc_asprintf_append(buffer, "#endif\n");
-
-			// SGX540 compiler can get upset with some operations that mix highp and mediump.
-			// this results in a shader compile fail with output "compile failed."
-			// Although the actual cause of the failure hasnt been determined this code appears to prevent
-			// compile failure for cases so far seen.
-			ralloc_asprintf_append(buffer, "\n#ifdef TEXCOORDPRECISIONWORKAROUND\n");
-			ralloc_asprintf_append(buffer, "vec4 texture2DTexCoordPrecisionWorkaround(sampler2D p, vec2 tcoord)\n");
-			ralloc_asprintf_append(buffer, "{\n");
-			ralloc_asprintf_append(buffer, "	return texture2D(p, tcoord);\n");
-			ralloc_asprintf_append(buffer, "}\n");
-			ralloc_asprintf_append(buffer, "#define texture2D texture2DTexCoordPrecisionWorkaround\n");
-			ralloc_asprintf_append(buffer, "#endif\n");
+			ralloc_asprintf_append(buffer, "precision %s samplerCube;\n", DefaultPrecision);
+			//ralloc_asprintf_append(buffer, "#endif\n");
 		}
 
 		// FramebufferFetchES2 'intrinsic'
-		bool bUsesFramebufferFetchES2 = UsesUEIntrinsic(ir, FRAMEBUFFER_FETCH_ES2);
+		bool bUsesFramebufferFetchES2 = false;//UsesUEIntrinsic(ir, FRAMEBUFFER_FETCH_ES2);
+		/*
 		if (bUsesFramebufferFetchES2)
 		{
 			ralloc_asprintf_append(buffer, "\n#ifdef GL_EXT_shader_framebuffer_fetch\n");
@@ -3040,8 +3108,9 @@ public:
 			ralloc_asprintf_append(buffer, "	#endif\n");
 			ralloc_asprintf_append(buffer, "#endif\n\n");
 		}
-
-		bool bUsesDepthbufferFetchES2 = UsesUEIntrinsic(ir, DEPTHBUFFER_FETCH_ES2);
+		*/
+		bool bUsesDepthbufferFetchES2 = false;//UsesUEIntrinsic(ir, DEPTHBUFFER_FETCH_ES2);
+		/*
 		if (bUsesDepthbufferFetchES2)
 		{
 			ralloc_asprintf_append(buffer, "\n#ifdef GL_ARM_shader_framebuffer_fetch_depth_stencil\n");
@@ -3050,7 +3119,7 @@ public:
 			ralloc_asprintf_append(buffer, "float DepthbufferFetchES2(float OptionalDepth, float C1, float C2) { return OptionalDepth; }\n");
 			ralloc_asprintf_append(buffer, "#endif\n\n");
 		}
-		
+		*/
 		foreach_iter(exec_list_iterator, iter, *ir)
 		{
 			ir_instruction *inst = (ir_instruction *)iter.get();
@@ -3075,7 +3144,7 @@ public:
 			check(state->outputstream_type>0);
 			geometry_layouts = ralloc_asprintf(
 				mem_ctx,
-				"\nlayout(%s) in;\nlayout(%s, max_vertices = %d) out;\n\n",
+				"\nlayout(%s) in;\nlayout(%s, max_vertices = %u) out;\n\n",
 				GeometryInputStrings[state->geometryinput],
 				OutputStreamTypeStrings[state->outputstream_type],
 				state->maxvertexcount);
@@ -3146,6 +3215,55 @@ public:
 				break;
 			}
 		}
+
+		// Here since the code_buffer must have been populated beforehand
+		if (LanguageSpec->AllowsSharingSamplers())
+		{
+			auto FindPrecision = [&](int32 Index)
+			{
+				for (auto& Pair : state->TextureToSamplerMap)
+				{
+					for (auto& Entry : Pair.second)
+					{
+						if (Entry == SamplerStateNames[Index])
+						{
+							for (auto& PackedEntry : state->GlobalPackedArraysMap['s'])
+							{
+								if (!FCStringAnsi::Strcmp(Pair.first.c_str(), PackedEntry.Name.c_str()))
+								{
+									foreach_iter(exec_list_iterator, iter, sampler_variables)
+									{
+										ir_variable* var = ((extern_var*)iter.get())->var;
+										if (!FCStringAnsi::Strcmp(var->name, PackedEntry.CB_PackedSampler.c_str()))
+										{
+											return GetPrecisionModifierName(GetPrecisionModifier(var->type));
+										}
+									}
+								}
+							}
+						}
+					}
+				}
+
+				return "";
+			};
+
+			const auto& Bindings = BindingTable.GetBindings();
+			for (int32 Index = 0; Index < Bindings.Num(); ++Index)
+			{
+				if (Bindings[Index].Type == FVulkanBindingTable::TYPE_SAMPLER)
+				{
+					int32 Binding = atoi(Bindings[Index].Name + 2);
+					const char* Precision = FindPrecision(Binding);
+
+					ralloc_asprintf_append(buffer, "layout(set=%d, binding=%d) uniform %s sampler %sz%d;\n",
+						GetDescriptorSetForStage(ShaderTarget), Index,
+						Precision,
+						glsl_variable_tag_from_parser_target(ShaderTarget), Binding);
+				}
+			}
+		}
+
 		buffer = 0;
 
 		static const char* vulkan_required_extensions =
@@ -3184,7 +3302,12 @@ public:
 struct FBreakPrecisionChangesVisitor : public ir_rvalue_visitor
 {
 	_mesa_glsl_parse_state* State;
-	FBreakPrecisionChangesVisitor(_mesa_glsl_parse_state* InState) : State(InState) {}
+	const bool bDefaultPrecisionIsHalf;
+
+	FBreakPrecisionChangesVisitor(_mesa_glsl_parse_state* InState, bool bInDefaultPrecisionIsHalf) 
+		: State(InState)
+		, bDefaultPrecisionIsHalf(bInDefaultPrecisionIsHalf)
+	{}
 
 	virtual void handle_rvalue(ir_rvalue** RValuePtr) override
 	{
@@ -3198,20 +3321,20 @@ struct FBreakPrecisionChangesVisitor : public ir_rvalue_visitor
 		auto* Constant = RValue->as_constant();
 		if (Expression)
 		{
-			if (GDefaultPrecisionIsHalf)
+			if (bDefaultPrecisionIsHalf)
 			{
 				switch (Expression->operation)
 				{
 				case ir_unop_i2f:
 				case ir_unop_b2f:
 				case ir_unop_u2f:
-					bGenerateNewVar = GDefaultPrecisionIsHalf;
+					bGenerateNewVar = bDefaultPrecisionIsHalf;
 					break;
 
 				case ir_unop_i2h:
 				case ir_unop_b2h:
 				case ir_unop_u2h:
-					bGenerateNewVar = !GDefaultPrecisionIsHalf;
+					bGenerateNewVar = !bDefaultPrecisionIsHalf;
 					break;
 
 				case ir_unop_h2f:
@@ -3227,8 +3350,8 @@ struct FBreakPrecisionChangesVisitor : public ir_rvalue_visitor
 		else if (Constant)
 		{
 			/*
-			if ((GDefaultPrecisionIsHalf && Constant->type->base_type == GLSL_TYPE_HALF) ||
-			(!GDefaultPrecisionIsHalf && Constant->type->base_type == GLSL_TYPE_FLOAT))
+			if ((bDefaultPrecisionIsHalf && Constant->type->base_type == GLSL_TYPE_HALF) ||
+			(!bDefaultPrecisionIsHalf && Constant->type->base_type == GLSL_TYPE_FLOAT))
 			{
 			bGenerateNewVar = true;
 			}
@@ -3245,7 +3368,7 @@ struct FBreakPrecisionChangesVisitor : public ir_rvalue_visitor
 	}
 };
 
-void vulkan_ir_gen_glsl_visitor::AddTypeToUsedStructs(const glsl_type* type)
+void FGenerateVulkanVisitor::AddTypeToUsedStructs(const glsl_type* type)
 {
 	if (type->base_type == GLSL_TYPE_STRUCT)
 	{
@@ -3279,7 +3402,9 @@ char* FVulkanCodeBackend::GenerateCode(exec_list* ir, _mesa_glsl_parse_state* st
 
 	FixIntrinsics(state, ir);
 
-	FBreakPrecisionChangesVisitor BreakPrecisionChangesVisitor(state);
+	const bool bDefaultPrecisionIsHalf = ((HlslCompileFlags & HLSLCC_UseFullPrecisionInPS) == 0);
+
+	FBreakPrecisionChangesVisitor BreakPrecisionChangesVisitor(state, bDefaultPrecisionIsHalf);
 	BreakPrecisionChangesVisitor.run(ir);
 
 	const bool bGroupFlattenedUBs = ((HlslCompileFlags & HLSLCC_GroupFlattenedUniformBuffers) == HLSLCC_GroupFlattenedUniformBuffers);
@@ -3287,7 +3412,7 @@ char* FVulkanCodeBackend::GenerateCode(exec_list* ir, _mesa_glsl_parse_state* st
 	const bool bCanHaveUBs = true;//(HlslCompileFlags & HLSLCC_FlattenUniformBuffers) != HLSLCC_FlattenUniformBuffers;
 
 	// Setup root visitor
-	vulkan_ir_gen_glsl_visitor visitor(Target, BindingTable, state->target, bGenerateLayoutLocations);
+	FGenerateVulkanVisitor visitor(Target, BindingTable, state->target, (FVulkanLanguageSpec*)state->LanguageSpec, bGenerateLayoutLocations, bDefaultPrecisionIsHalf);
 
 	const char* code = visitor.run(ir, state, bGroupFlattenedUBs, bCanHaveUBs);
 
@@ -3324,7 +3449,7 @@ struct SPromoteSampleLevelES2 : public ir_hierarchical_visitor
 				// http://www.khronos.org/registry/gles/extensions/EXT/EXT_shader_texture_lod.txt
 				// Compat work will be required for devices which do not support it.
 				/*
-				_mesa_glsl_warning(ParseState, "%s(%d, %d) Converting SampleLevel() to Sample()\n", IR->SourceLocation.SourceFile.c_str(), IR->SourceLocation.Line, IR->SourceLocation.Column);
+				_mesa_glsl_warning(ParseState, "%s(%u, %u) Converting SampleLevel() to Sample()\n", IR->SourceLocation.SourceFile.c_str(), IR->SourceLocation.Line, IR->SourceLocation.Column);
 				IR->op = ir_tex;
 				*/
 			}
@@ -3844,77 +3969,39 @@ static ir_rvalue* GenShaderInputSemantic(
 	}
 	else if (SemanticArrayIndex == 0)
 	{
-		#if VULKAN_HLSLCC_GEN_GLSL_IN_OUT_WITHOUT_STRUCTURES
-			// This code-section replaces "layout(location=0) in struct { vec4 Data; } in_ATTRIBUTE0;" pattern to
-			// "layout(location=0) in vec4 in_ATTRIBUTE0;".
+		// This code-section replaces "layout(location=0) in struct { vec4 Data; } in_ATTRIBUTE0;" pattern to
+		// "layout(location=0) in vec4 in_ATTRIBUTE0;".
 
-			if (/*Frequency == HSF_GeometryShader && */SemanticArraySize != 0)
-			{
-				Type = glsl_type::get_array_instance(Type, SemanticArraySize);
-			}
+		if (/*Frequency == HSF_GeometryShader && */SemanticArraySize != 0)
+		{
+			Type = glsl_type::get_array_instance(Type, SemanticArraySize);
+		}
 
-			// Regular attribute
-			Variable = new(ParseState)ir_variable(
-				Type,
-				ralloc_asprintf(ParseState, "in_%s", Semantic),
-				ir_var_in
-				);
-			Variable->read_only = true;
-			Variable->centroid = InputQualifier.Fields.bCentroid;
-			Variable->interpolation = InputQualifier.Fields.InterpolationMode;
-			Variable->is_patch_constant = InputQualifier.Fields.bIsPatchConstant;
+		// Regular attribute
+		Variable = new(ParseState)ir_variable(
+			Type,
+			ralloc_asprintf(ParseState, "in_%s", Semantic),
+			ir_var_in
+			);
+		Variable->read_only = true;
+		Variable->centroid = InputQualifier.Fields.bCentroid;
+		Variable->interpolation = InputQualifier.Fields.InterpolationMode;
+		Variable->is_patch_constant = InputQualifier.Fields.bIsPatchConstant;
 
-			if (ParseState->bGenerateLayoutLocations && !InputQualifier.Fields.bIsPatchConstant)
-			{
-				ConfigureInOutVariableLayout(Frequency, ParseState, Semantic, Variable, ir_var_in);
-			}
+		if (ParseState->bGenerateLayoutLocations && !InputQualifier.Fields.bIsPatchConstant)
+		{
+			ConfigureInOutVariableLayout(Frequency, ParseState, Semantic, Variable, ir_var_in);
+		}
 
-			DeclInstructions->push_tail(Variable);
-			ParseState->symbols->add_variable(Variable);
+		DeclInstructions->push_tail(Variable);
+		ParseState->symbols->add_variable(Variable);
 
-			ir_dereference* VariableDeref = new(ParseState)ir_dereference_variable(Variable);
-			if (SemanticArraySize > 0)
-			{
-				// Deref inside array first
-				VariableDeref = new(ParseState) ir_dereference_array(VariableDeref, new(ParseState) ir_constant((unsigned)SemanticArrayIndex));
-			}
-
-		#else
-			glsl_struct_field *StructField = ralloc_array(ParseState, glsl_struct_field, 1);
-			memset(StructField, 0, sizeof(glsl_struct_field));
-			StructField[0].type = Type;
-			StructField[0].name = ralloc_strdup(ParseState, "Data");
-
-			const glsl_type* VariableType = glsl_type::get_record_instance(StructField, 1, ralloc_strdup(ParseState, Semantic));
-			if (SemanticArraySize)
-			{
-				// Pack it into an array too
-				VariableType = glsl_type::get_array_instance(VariableType, SemanticArraySize);
-			}
-
-			Variable = new(ParseState)ir_variable(VariableType, ralloc_asprintf(ParseState, "in_%s", Semantic), ir_var_in);
-			Variable->read_only = true;
-			Variable->is_interface_block = true;
-			Variable->centroid = InputQualifier.Fields.bCentroid;
-			Variable->interpolation = InputQualifier.Fields.InterpolationMode;
-			Variable->is_patch_constant = InputQualifier.Fields.bIsPatchConstant;
-			DeclInstructions->push_tail(Variable);
-			ParseState->symbols->add_variable(Variable);
-
-			if (ParseState->bGenerateLayoutLocations && !Variable->is_patch_constant)
-			{
-				ConfigureInOutVariableLayout(Frequency, ParseState, Semantic, Variable, ir_var_in);
-			}
-
-			ir_rvalue* VariableDeref = new(ParseState)ir_dereference_variable(Variable);
-			if (SemanticArraySize)
-			{
-				// Deref inside array first
-				VariableDeref = new(ParseState)ir_dereference_array(VariableDeref, new(ParseState)ir_constant((unsigned)SemanticArrayIndex)
-					);
-			}
-			VariableDeref = new(ParseState)ir_dereference_record(VariableDeref, ralloc_strdup(ParseState, "Data"));
-		#endif
+		ir_dereference* VariableDeref = new(ParseState)ir_dereference_variable(Variable);
+		if (SemanticArraySize > 0)
+		{
+			// Deref inside array first
+			VariableDeref = new(ParseState) ir_dereference_array(VariableDeref, new(ParseState) ir_constant((unsigned)SemanticArrayIndex));
+		}
 
 		return VariableDeref;
 	}
@@ -3952,10 +4039,12 @@ static ir_rvalue* GenShaderOutputSemantic(
 	bool& ApplyClampPowerOfTwo
 	)
 {
+	check(Semantic);
+
 	FSystemValue* SystemValues = SystemValueTable[Frequency];
 	ir_variable* Variable = NULL;
 
-	if (Semantic && FCStringAnsi::Strnicmp(Semantic, "SV_", 3) == 0)
+	if (FCStringAnsi::Strnicmp(Semantic, "SV_", 3) == 0)
 	{
 		for (int i = 0; SystemValues[i].Semantic != NULL; ++i)
 		{
@@ -4088,69 +4177,29 @@ static ir_rvalue* GenShaderOutputSemantic(
 
 	*DestVariableType = Type;
 
-	#if VULKAN_HLSLCC_GEN_GLSL_IN_OUT_WITHOUT_STRUCTURES
 	// This code-section replacces "layout(location=0) out struct { vec4 Data; } out_TEXCOORD0;" pattern to
-		// "layout(location=0) out vec4 out_TEXCOORD0;".
+	// "layout(location=0) out vec4 out_TEXCOORD0;".
 
-		// Regular attribute
-		Variable = new(ParseState)ir_variable(
-			Type,
-			ralloc_asprintf(ParseState, "%s_%s", "out", Semantic),
-			ir_var_out
-			);
-		Variable->read_only = true;
-		Variable->centroid = OutputQualifier.Fields.bCentroid;
-		Variable->interpolation = OutputQualifier.Fields.InterpolationMode;
-		Variable->is_patch_constant = OutputQualifier.Fields.bIsPatchConstant;
+	// Regular attribute
+	Variable = new(ParseState)ir_variable(
+		Type,
+		ralloc_asprintf(ParseState, "%s_%s", "out", Semantic),
+		ir_var_out
+		);
+	Variable->read_only = true;
+	Variable->centroid = OutputQualifier.Fields.bCentroid;
+	Variable->interpolation = OutputQualifier.Fields.InterpolationMode;
+	Variable->is_patch_constant = OutputQualifier.Fields.bIsPatchConstant;
 
-		if (ParseState->bGenerateLayoutLocations && !OutputQualifier.Fields.bIsPatchConstant)
-		{
-			ConfigureInOutVariableLayout(Frequency, ParseState, Semantic, Variable, ir_var_out);
-		}
+	if (ParseState->bGenerateLayoutLocations && !OutputQualifier.Fields.bIsPatchConstant)
+	{
+		ConfigureInOutVariableLayout(Frequency, ParseState, Semantic, Variable, ir_var_out);
+	}
 
-		DeclInstructions->push_tail(Variable);
-		ParseState->symbols->add_variable(Variable);
+	DeclInstructions->push_tail(Variable);
+	ParseState->symbols->add_variable(Variable);
 
-		ir_dereference_variable* VariableDeref = new(ParseState)ir_dereference_variable(Variable);
-	#else
-		// Create variable
-		glsl_struct_field *StructField = ralloc_array(ParseState, glsl_struct_field, 1);
-
-		memset(StructField, 0, sizeof(glsl_struct_field));
-		StructField[0].type = Type;
-		StructField[0].name = ralloc_strdup(ParseState, "Data");
-
-		const glsl_type* VariableType = glsl_type::get_record_instance(StructField, 1, ralloc_strdup(ParseState, Semantic));
-
-		if (Frequency == HSF_HullShader && !OutputQualifier.Fields.bIsPatchConstant)
-		{
-			VariableType = glsl_type::get_array_instance(VariableType, ParseState->tessellation.outputcontrolpoints);
-		}
-		Variable = new(ParseState)ir_variable(VariableType, ralloc_asprintf(ParseState, "out_%s", Semantic), ir_var_out);
-
-		Variable->centroid = OutputQualifier.Fields.bCentroid;
-		Variable->interpolation = OutputQualifier.Fields.InterpolationMode;
-		Variable->is_interface_block = true;
-		Variable->is_patch_constant = OutputQualifier.Fields.bIsPatchConstant;
-
-		if (ParseState->bGenerateLayoutLocations && !Variable->is_patch_constant)
-		{
-			ConfigureInOutVariableLayout(Frequency, ParseState, Semantic, Variable, ir_var_out);
-		}
-
-		DeclInstructions->push_tail(Variable);
-		ParseState->symbols->add_variable(Variable);
-
-		ir_rvalue* VariableDeref = new(ParseState)ir_dereference_variable(Variable);
-
-		if (Frequency == HSF_HullShader && !OutputQualifier.Fields.bIsPatchConstant)
-		{
-			VariableDeref = new(ParseState)ir_dereference_array(VariableDeref, new(ParseState)ir_dereference_variable(ParseState->symbols->get_variable("gl_InvocationID")));
-		}
-
-		VariableDeref = new(ParseState)ir_dereference_record(VariableDeref, ralloc_strdup(ParseState, "Data"));
-	#endif
-
+	ir_dereference_variable* VariableDeref = new(ParseState)ir_dereference_variable(Variable);
 	return VariableDeref;
 }
 
@@ -4200,7 +4249,7 @@ static void GenShaderInputForVariable(
 
 			if (InputSemantic && !FieldSemantic)
 			{
-				Semantic = ralloc_asprintf(ParseState, "%s%d", InputSemantic, i);
+				Semantic = ralloc_asprintf(ParseState, "%s%u", InputSemantic, i);
 				_mesa_glsl_warning(ParseState, "  creating semantic '%s' for struct field '%s'", Semantic, InputType->fields.structure[i].name);
 			}
 			else if (!InputSemantic && FieldSemantic)
@@ -4273,7 +4322,7 @@ static void GenShaderInputForVariable(
 			GenShaderInputForVariable(
 				Frequency,
 				ParseState,
-				ralloc_asprintf(ParseState, "%s%d", Semantic, BaseIndex + i),
+				ralloc_asprintf(ParseState, "%s%u", Semantic, BaseIndex + i),
 				InputQualifier,
 				ArrayDeref,
 				DeclInstructions,
@@ -4311,7 +4360,7 @@ static void GenShaderInputForVariable(
 					)
 					);
 
-				#if VULKAN_INVERT_VERTEX_SHADER_Y_AXIS
+				{
 					// TempVariable.y = -TempVariable.y;
 					PreCallInstructions->push_tail(
 						new(ParseState)ir_assignment(
@@ -4322,24 +4371,7 @@ static void GenShaderInputForVariable(
 						NULL)
 						)
 						);
-				#endif
-				
-				#if VULKAN_GLSL_TO_VULKAN_DEPTH
-					// TempVariable.z = ( TempVariable.z + TempVariable.w ) / 2.0;
-					PreCallInstructions->push_tail(
-						new(ParseState)ir_assignment(
-						new(ParseState)ir_swizzle(TempVariableDeref->clone(ParseState, NULL), 2, 0, 0, 0, 1),
-						new(ParseState)ir_expression(ir_binop_div,
-						new(ParseState)ir_expression(ir_binop_add,
-						new(ParseState)ir_swizzle(TempVariableDeref->clone(ParseState, NULL), 2, 0, 0, 0, 1),
-						new(ParseState)ir_swizzle(TempVariableDeref->clone(ParseState, NULL), 3, 0, 0, 0, 1)
-						),
-						new(ParseState)ir_constant(2.0f)
-						)
-						)
-						);
-					SrcValue = TempVariableDeref->clone(ParseState, NULL);
-				#endif
+				}
 			}
 
 			apply_type_conversion(InputType, SrcValue, PreCallInstructions, ParseState, true, &loc);
@@ -4512,7 +4544,7 @@ static void GenShaderOutputForVariable(
 
 			if (OutputSemantic && !FieldSemantic)
 			{
-				Semantic = ralloc_asprintf(ParseState, "%s%d", OutputSemantic, i);
+				Semantic = ralloc_asprintf(ParseState, "%s%u", OutputSemantic, i);
 				_mesa_glsl_warning(ParseState, "  creating semantic '%s' for struct field '%s'", Semantic, OutputType->fields.structure[i].name);
 			}
 			else if (!OutputSemantic && FieldSemantic)
@@ -4584,7 +4616,7 @@ static void GenShaderOutputForVariable(
 				GenShaderOutputForVariable(
 					Frequency,
 					ParseState,
-					ralloc_asprintf(ParseState, "%s%d", Semantic, BaseIndex + i),
+					ralloc_asprintf(ParseState, "%s%u", Semantic, BaseIndex + i),
 					OutputQualifier,
 					ArrayDeref,
 					DeclInstructions,
@@ -4615,7 +4647,6 @@ static void GenShaderOutputForVariable(
 
 			if (ParseState->adjust_clip_space_dx11_to_opengl && ApplyClipSpaceAdjustment)
 			{
-				#if VULKAN_INVERT_VERTEX_SHADER_Y_AXIS
 				// Src.y = -Src.y;
 				PostCallInstructions->push_tail(
 					new(ParseState)ir_assignment(
@@ -4626,40 +4657,6 @@ static void GenShaderOutputForVariable(
 					NULL)
 					)
 					);
-				#endif
-				
-				#if VULKAN_DX11_TO_GLSL_DEPTH
-					// Src.z = ( 2.0 * Src.z ) - Src.w;
-					PostCallInstructions->push_tail(
-						new(ParseState)ir_assignment(
-						new(ParseState)ir_swizzle(Src->clone(ParseState, NULL), 2, 0, 0, 0, 1),
-						new(ParseState)ir_expression(ir_binop_sub,
-						new(ParseState)ir_expression(ir_binop_mul,
-						new(ParseState)ir_constant(2.0f),
-						new(ParseState)ir_swizzle(Src->clone(ParseState, NULL), 2, 0, 0, 0, 1)
-						),
-						new(ParseState)ir_swizzle(Src->clone(ParseState, NULL), 3, 0, 0, 0, 1)
-						)
-						)
-						);
-				#endif
-
-				#if VULKAN_GLSL_TO_VULKAN_DEPTH
-					// GLSL -> Vulkan
-					// Src.z = ( Src.z + Src.w ) / 2.0;
-					PostCallInstructions->push_tail(
-						new(ParseState)ir_assignment(
-						new(ParseState)ir_swizzle(Src->clone(ParseState, NULL), 2, 0, 0, 0, 1),
-						new(ParseState)ir_expression(ir_binop_div,
-						new(ParseState)ir_expression(ir_binop_add,
-						new(ParseState)ir_swizzle(Src->clone(ParseState, NULL), 2, 0, 0, 0, 1),
-						new(ParseState)ir_swizzle(Src->clone(ParseState, NULL), 3, 0, 0, 0, 1)
-						),
-						new(ParseState)ir_constant(2.0f)
-						)
-						)
-						);
-				#endif
 			}
 
 			// GLSL doesn't support pow2 partitioning, so we treate pow2 as integer partitioning and
@@ -4800,7 +4797,7 @@ static void GenerateAppendFunctionBody(
 /*
 	for (uint32 i = 0; i < output_type->length; i++)
 	{
-		if (output_type->fields.structure[i].semantic && (strcmp(output_type->fields.structure[i].semantic, "SV_RenderTargetArrayIndex") == 0))
+		if (output_type->fields.structure[i].semantic && (FCStringAnsi::Strcmp(output_type->fields.structure[i].semantic, "SV_RenderTargetArrayIndex") == 0))
 		{
 			indexof_RenderTargetArrayIndex = i;
 			break;
@@ -4919,7 +4916,7 @@ bool FVulkanCodeBackend::GenerateMain(
 					{
 						// Replace SV_RenderTargetArrayIndex in
 						// input structure semantic with custom semantic.
-						if (Variable->semantic && (strcmp(Variable->semantic, "SV_RenderTargetArrayIndex") == 0))
+						if (Variable->semantic && (FCStringAnsi::Strcmp(Variable->semantic, "SV_RenderTargetArrayIndex") == 0))
 						{
 							//							_mesa_glsl_warning(ParseState, "Replacing semantic of variable '%s' with our custom one", Variable->name);
 							Variable->semantic = ralloc_strdup(Variable, CUSTOM_LAYER_INDEX_SEMANTIC);
@@ -4932,7 +4929,7 @@ bool FVulkanCodeBackend::GenerateMain(
 /*
 							for (uint32 i = 0; i < output_type->length; i++)
 							{
-								if (Variable->type->fields.structure[i].semantic && (strcmp(Variable->type->fields.structure[i].semantic, "SV_RenderTargetArrayIndex") == 0))
+								if (Variable->type->fields.structure[i].semantic && (FCStringAnsi::Strcmp(Variable->type->fields.structure[i].semantic, "SV_RenderTargetArrayIndex") == 0))
 								{
 									indexof_RenderTargetArrayIndex = i;
 									break;
@@ -5088,7 +5085,7 @@ bool FVulkanCodeBackend::GenerateMain(
 				{
 					ir_instruction *ir = (ir_instruction *)Iter.get();
 					ir_function *Function = ir->as_function();
-					if (Function && strcmp(Function->name, "barrier") == 0)
+					if (Function && FCStringAnsi::Strcmp(Function->name, "barrier") == 0)
 					{
 						check(Function->signatures.get_head() == Function->signatures.get_tail());
 						exec_list VoidParameter;
@@ -5206,7 +5203,7 @@ ir_function_signature*  FVulkanCodeBackend::FindPatchConstantFunction(exec_list*
 	{
 		ir_instruction *ir = (ir_instruction *)Iter.get();
 		ir_function *Function = ir->as_function();
-		if (Function && strcmp(Function->name, ParseState->tessellation.patchconstantfunc) == 0)
+		if (Function && FCStringAnsi::Strcmp(Function->name, ParseState->tessellation.patchconstantfunc) == 0)
 		{
 			int NumSigs = 0;
 			foreach_iter(exec_list_iterator, SigIter, *Function)
@@ -5333,7 +5330,7 @@ void FVulkanCodeBackend::GenShaderPatchConstantFunctionInputs(_mesa_glsl_parse_s
 			continue;
 		}
 
-		if (0 != strcmp(OutputPatchArrayIndex->var->name, "gl_InvocationID"))
+		if (0 != FCStringAnsi::Strcmp(OutputPatchArrayIndex->var->name, "gl_InvocationID"))
 		{
 			continue;
 		}
@@ -5410,14 +5407,15 @@ void FVulkanCodeBackend::GenShaderPatchConstantFunctionInputs(_mesa_glsl_parse_s
 
 void FVulkanLanguageSpec::SetupLanguageIntrinsics(_mesa_glsl_parse_state* State, exec_list* ir)
 {
+/*
 	if (bIsES2)
 	{
 		make_intrinsic_genType(ir, State, FRAMEBUFFER_FETCH_ES2, ir_invalid_opcode, IR_INTRINSIC_FLOAT, 0, 4, 4);
 		make_intrinsic_genType(ir, State, DEPTHBUFFER_FETCH_ES2, ir_invalid_opcode, IR_INTRINSIC_ALL_FLOATING, 3, 1, 1);
 		make_intrinsic_genType(ir, State, GET_HDR_32BPP_HDR_ENCODE_MODE_ES2, ir_invalid_opcode, IR_INTRINSIC_ALL_FLOATING, 0);
 	}
-
-	if (State->language_version >= 310)
+*/
+	//if (State->language_version >= 310)
 	{
 		/**
 		* Create GLSL functions that are left out of the symbol table
@@ -5509,7 +5507,7 @@ FVulkanBindingTable::FBinding::FBinding(const char* InName, int32 InIndex, EBind
 	FMemory::Memcpy(Name, InName, NewNameLength);
 
 	// Validate Sampler type, s == PACKED_TYPENAME_SAMPLER
-	check((Type == TYPE_SAMPLER || Type == TYPE_SAMPLER_BUFFER) ? SubType == 's' : true);
+	check((Type == TYPE_COMBINED_IMAGE_SAMPLER || Type == TYPE_SAMPLER_BUFFER) ? SubType == 's' : true);
 
 	check(Type == TYPE_PACKED_UNIFORM_BUFFER ?
 		( SubType == 'h' || SubType == 'm' || SubType == 'l' || SubType == 'i' || SubType == 'u' ) : true);
@@ -5535,7 +5533,7 @@ int32 FVulkanBindingTable::RegisterBinding(const char* InName, const char* Block
 
 	for (int32 Index = 0; Index < Bindings.Num(); ++Index)
 	{
-		if (strcmp(Bindings[Index].Name, InName) == 0)
+		if (FCStringAnsi::Strcmp(Bindings[Index].Name, InName) == 0)
 		{
 			return Index;
 		}
@@ -5551,7 +5549,7 @@ int32 FVulkanBindingTable::FindBinding(const char* InName) const
 {
 	for (int32 Index = 0; Index < Bindings.Num(); ++Index)
 	{
-		if (strcmp(Bindings[Index].Name, InName) == 0)
+		if (FCStringAnsi::Strcmp(Bindings[Index].Name, InName) == 0)
 		{
 			return Index;
 		}

@@ -18,9 +18,11 @@ PRAGMA_DISABLE_SHADOW_VARIABLE_WARNINGS
 
 #elif defined (_MSC_VER)
 
+#pragma warning(push)
 #pragma warning(disable: 4510)
 #pragma warning(disable: 4610)
 #pragma warning(disable: 4996)
+#pragma warning(disable: 6011)
 
 #endif
 
@@ -64,9 +66,7 @@ PRAGMA_POP
 
 #elif defined (_MSC_VER)
 
-#pragma warning(default: 4510)
-#pragma warning(default: 4610)
-#pragma warning(default: 4996)
+#pragma warning(pop)
 
 #endif
 

@@ -3,7 +3,6 @@
 #include "UnrealEd.h"
 
 // FPreviewScene derived helpers for rendering
-#include "ThumbnailHelpers.h"
 #include "EngineModule.h"
 #include "RendererInterface.h"
 #include "Engine/SimpleConstructionScript.h"
@@ -12,16 +11,10 @@
 UBlueprintThumbnailRenderer::UBlueprintThumbnailRenderer(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
-	ThumbnailScene = nullptr;
 }
 
 bool UBlueprintThumbnailRenderer::CanVisualizeAsset(UObject* Object)
 {
-	if (ThumbnailScene == nullptr)
-	{
-		ThumbnailScene = new FBlueprintThumbnailScene();
-	}
-
 	UBlueprint* Blueprint = Cast<UBlueprint>(Object);
 
 	// Only visualize actor based blueprints
@@ -35,7 +28,7 @@ bool UBlueprintThumbnailRenderer::CanVisualizeAsset(UObject* Object)
 
 		for (auto CompIt = Components.CreateConstIterator(); CompIt; ++CompIt)
 		{
-			if (ThumbnailScene->IsValidComponentForVisualization(*CompIt))
+			if (FBlueprintThumbnailScene::IsValidComponentForVisualization(*CompIt))
 			{
 				return true;
 			}
@@ -53,7 +46,7 @@ bool UBlueprintThumbnailRenderer::CanVisualizeAsset(UObject* Object)
 			{
 				for (USCS_Node* Node : BlueprintToHarvestComponents->SimpleConstructionScript->GetAllNodes())
 				{
-					if (ThumbnailScene->IsValidComponentForVisualization(Node->ComponentTemplate))
+					if (FBlueprintThumbnailScene::IsValidComponentForVisualization(Node->ComponentTemplate))
 					{
 						return true;
 					}
@@ -83,12 +76,9 @@ bool UBlueprintThumbnailRenderer::CanVisualizeAsset(UObject* Object)
 void UBlueprintThumbnailRenderer::Draw(UObject* Object, int32 X, int32 Y, uint32 Width, uint32 Height, FRenderTarget* RenderTarget, FCanvas* Canvas)
 {
 	UBlueprint* Blueprint = Cast<UBlueprint>(Object);
-	if (Blueprint != nullptr)
+	if (Blueprint && Blueprint->GeneratedClass)
 	{
-		if ( ThumbnailScene == nullptr )
-		{
-			ThumbnailScene = new FBlueprintThumbnailScene();
-		}
+		TSharedRef<FBlueprintThumbnailScene> ThumbnailScene = ThumbnailScenes.EnsureThumbnailScene(Blueprint->GeneratedClass);
 
 		ThumbnailScene->SetBlueprint(Blueprint);
 		FSceneViewFamilyContext ViewFamily( FSceneViewFamily::ConstructionValues( RenderTarget, ThumbnailScene->GetScene(), FEngineShowFlags(ESFIM_Game) )
@@ -99,25 +89,24 @@ void UBlueprintThumbnailRenderer::Draw(UObject* Object, int32 X, int32 Y, uint32
 
 		ThumbnailScene->GetView(&ViewFamily, X, Y, Width, Height);
 		GetRendererModule().BeginRenderingViewFamily(Canvas,&ViewFamily);
-		ThumbnailScene->SetBlueprint(nullptr);
 	}
 }
 
 void UBlueprintThumbnailRenderer::BeginDestroy()
 {
-	if ( ThumbnailScene != nullptr )
-	{
-		delete ThumbnailScene;
-		ThumbnailScene = nullptr;
-	}
+	ThumbnailScenes.Clear();
 
 	Super::BeginDestroy();
 }
 
 void UBlueprintThumbnailRenderer::BlueprintChanged(class UBlueprint* Blueprint)
 {
-	if ( ThumbnailScene != nullptr )
+	if (Blueprint && Blueprint->GeneratedClass)
 	{
-		ThumbnailScene->BlueprintChanged(Blueprint);
+		TSharedPtr<FBlueprintThumbnailScene> ThumbnailScene = ThumbnailScenes.FindThumbnailScene(Blueprint->GeneratedClass);
+		if (ThumbnailScene.IsValid())
+		{
+			ThumbnailScene->BlueprintChanged(Blueprint);
+		}
 	}
 }

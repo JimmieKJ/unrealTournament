@@ -4,6 +4,14 @@
 
 
 /**
+ * Declares a delegate to be invoked when a launcher profile manager has been initialized.
+ *
+ * The first parameter is the profile manager.
+ */
+DECLARE_MULTICAST_DELEGATE_OneParam(FOnLauncherProfileManagerInitialized, ILauncherProfileManager&);
+
+
+/**
  * Interface for launcher tools modules.
  */
 class ILauncherServicesModule
@@ -57,4 +65,10 @@ public:
 
 	/** Virtual destructor. */
 	virtual ~ILauncherServicesModule( ) { }
+
+public:
+	/**
+	 * Delegate that is invoked when a profile manager is initialized.
+	 */
+	LAUNCHERSERVICES_API static FOnLauncherProfileManagerInitialized ProfileManagerInitializedDelegate;
 };

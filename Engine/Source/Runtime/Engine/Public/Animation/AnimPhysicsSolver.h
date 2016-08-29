@@ -460,7 +460,7 @@ public:
 	*  @param NumPreIterations Number of times to iterate the limits before performing the integration
 	*  @param NumPostIterations Number of times to iterae the limits after performing the integration
 	*/
-	static void PhysicsUpdate(float DeltaTime, TArray<FAnimPhysRigidBody*>& Bodies, TArray<FAnimPhysLinearLimit>& LinearLimits, TArray<FAnimPhysAngularLimit>& AngularLimits, TArray<FAnimPhysSpring>& Springs, int32 NumPreIterations = 8, int32 NumPostIterations = 2);
+	static void PhysicsUpdate(float DeltaTime, TArray<FAnimPhysRigidBody*>& Bodies, TArray<FAnimPhysLinearLimit>& LinearLimits, TArray<FAnimPhysAngularLimit>& AngularLimits, TArray<FAnimPhysSpring>& Springs, const FVector& GravityDirection, const FVector& ExternalForce, int32 NumPreIterations = 8, int32 NumPostIterations = 2);
 
 	//////////////////////////////////////////////////////////////////////////
 	// Constraint functions
@@ -508,8 +508,9 @@ public:
 	 *  @param TwistAxis The axis to regard as the twist axis
 	 *  @param JointLimitMin Minimum limits along each axis (twist axis ignored)
 	 *  @param JointLimitMax Maximum limits along each axis (twist axis ignored)
+	 *  @param InJointBias Bias towards second body's forces (1.0f = 100%)
 	 */
-	static void ConstrainAngularRange(float DeltaTime, TArray<FAnimPhysAngularLimit>& LimitContainer, FAnimPhysRigidBody *FirstBody, FAnimPhysRigidBody *SecondBody, const FQuat& JointFrame, AnimPhysTwistAxis TwistAxis, const FVector& JointLimitMin, const FVector& JointLimitMax);
+	static void ConstrainAngularRange(float DeltaTime, TArray<FAnimPhysAngularLimit>& LimitContainer, FAnimPhysRigidBody *FirstBody, FAnimPhysRigidBody *SecondBody, const FQuat& JointFrame, AnimPhysTwistAxis TwistAxis, const FVector& JointLimitMin, const FVector& JointLimitMax, float InJointBias);
 
 	/** Constraints the rotation between two bodies into a cone
 	 *  @param LimitContainer Container to add limits to
@@ -518,8 +519,9 @@ public:
 	 *  @param SecondBody Second body in the constraint
 	 *  @param Normal1 Normal for the second side of the constraint
 	 *  @param LimitAngle Angle to limit the cone to
+	 *  @param InJointBias Bias towards second body's forces (1.0f = 100%)
 	 */
-	static void ConstrainConeAngle(float DeltaTime, TArray<FAnimPhysAngularLimit>& LimitContainer, FAnimPhysRigidBody* FirstBody, const FVector& Normal0, FAnimPhysRigidBody* SecondBody, const FVector& Normal1, float LimitAngle);  // a hinge is a cone with 0 limitangle
+	static void ConstrainConeAngle(float DeltaTime, TArray<FAnimPhysAngularLimit>& LimitContainer, FAnimPhysRigidBody* FirstBody, const FVector& Normal0, FAnimPhysRigidBody* SecondBody, const FVector& Normal1, float LimitAngle, float InJointBias);  // a hinge is a cone with 0 limitangle
 
 	/** Constrains the position of a body to one side of a plane placed at PlaneTransform (plane normal is Z axis)
 	*  @param LimitContainer Container to add limits to
@@ -527,6 +529,12 @@ public:
 	*  @param PlaneTransform Transform of the plane, with the normal facing along the Z axis of the orientation
 	*/
 	static void ConstrainPlanar(float DeltaTime, TArray<FAnimPhysLinearLimit>& LimitContainer, FAnimPhysRigidBody* Body, const FTransform& PlaneTransform);
+
+	/** Constrains the position of a body within the requested sphere */
+	static void ConstrainSphericalInner(float DeltaTime, TArray<FAnimPhysLinearLimit>& LimitContainer, FAnimPhysRigidBody* Body, const FTransform& SphereTransform, float SphereRadius);
+
+	/** Constrains the position of a body outside of the requested sphere */
+	static void ConstrainSphericalOuter(float DeltaTime, TArray<FAnimPhysLinearLimit>& LimitContainer, FAnimPhysRigidBody* Body, const FTransform& SphereTransform, float SphereRadius);
 
 	//////////////////////////////////////////////////////////////////////////
 	// Spring creation methods
@@ -552,7 +560,7 @@ private:
 	/** Initialize the velocity for a given body
 	 *  @param InBody Body to initialize
 	 */
-	static void InitializeBodyVelocity(float DeltaTime, FAnimPhysRigidBody *InBody);
+	static void InitializeBodyVelocity(float DeltaTime, FAnimPhysRigidBody *InBody, const FVector& GravityDirection);
 
 	/** Using calculated linear and angular momentum, integrate the position and orientation of a body
 	 *  @param InBody Body to integrate
@@ -574,5 +582,5 @@ private:
 	 *  @param InJointLimitMin Minimum limits for the joint (twist axis ignored, always locked)
 	 *  @param InJointLimitMax Maximum limits for the joint (twist axis ignored, always locked)
 	 */
-	static void ConstrainAngularRangeInternal(float DeltaTime, TArray<FAnimPhysAngularLimit>& LimitContainer, FAnimPhysRigidBody *FirstBody, const FQuat& JointFrame0, FAnimPhysRigidBody *SecondBody, const FQuat& JointFrame1, AnimPhysTwistAxis TwistAxis, const FVector& InJointLimitMin, const FVector& InJointLimitMax);
+	static void ConstrainAngularRangeInternal(float DeltaTime, TArray<FAnimPhysAngularLimit>& LimitContainer, FAnimPhysRigidBody *FirstBody, const FQuat& JointFrame0, FAnimPhysRigidBody *SecondBody, const FQuat& JointFrame1, AnimPhysTwistAxis TwistAxis, const FVector& InJointLimitMin, const FVector& InJointLimitMax, float InJointBias);
 };

@@ -80,8 +80,10 @@ class FSteamController : public IInputDevice
 
 public:
 
-	FSteamController(const TSharedRef< FGenericApplicationMessageHandler >& InMessageHandler)
-		: MessageHandler(InMessageHandler)
+	FSteamController(const TSharedRef< FGenericApplicationMessageHandler >& InMessageHandler) :
+		MessageHandler(InMessageHandler), 
+		bSteamAPIInitialized(false), 
+		bSteamControllerInitialized(false)
 	{
 		// Attempt to load the Steam Library
 		if (!LoadSteamModule())
@@ -90,20 +92,20 @@ public:
 		}
 
 		// Initialize the API, so we can start calling SteamController functions
-		bool bAPIInitialized = SteamAPI_Init();
+		bSteamAPIInitialized = SteamAPI_Init();
 
 			// [RCL] 2015-01-23 FIXME: move to some other code than constructor so we can handle failures more gracefully
-		if (bAPIInitialized && (SteamController() != nullptr))
+		if (bSteamAPIInitialized && (SteamController() != nullptr))
 		{
 			FString PluginsDir = FPaths::EnginePluginsDir();
 			FString ContentDir = FPaths::Combine(*PluginsDir, TEXT("Runtime"), TEXT("Steam"), TEXT("SteamController"), TEXT("Content"));
 			FString VdfPath = FPaths::ConvertRelativePathToFull(FPaths::Combine(*ContentDir, TEXT("Controller.vdf")));
 
-			bool bInited = SteamController()->Init(TCHAR_TO_ANSI(*VdfPath));
-			UE_LOG(LogSteamController, Log, TEXT("SteamController %s initialized with vdf file '%s'."), bInited ? TEXT("could not be") : TEXT("has been"), *VdfPath);
+			bSteamControllerInitialized = SteamController()->Init(TCHAR_TO_ANSI(*VdfPath));
+			UE_LOG(LogSteamController, Log, TEXT("SteamController %s initialized with vdf file '%s'."), bSteamAPIInitialized ? TEXT("could not be") : TEXT("has been"), *VdfPath);
 
 			// [RCL] 2014-05-05 FIXME: disable when could not init?
-			if (bInited)
+			if (bSteamControllerInitialized)
 			{
 				FMemory::Memzero(ControllerStates, sizeof(ControllerStates));
 			}
@@ -142,7 +144,7 @@ public:
 		Buttons[22] = FGamepadKeyNames::RightStickLeft;
 		Buttons[23] = FGamepadKeyNames::RightStickRight;
 		Buttons[24] = SteamControllerKeyNames::BackLeft;
-		Buttons[25] = SteamControllerKeyNames::BackLeft;
+		Buttons[25] = SteamControllerKeyNames::BackRight;
 	}
 
 	virtual ~FSteamController()
@@ -300,8 +302,14 @@ public:
 
 	void UpdateVibration(int32 ControllerId)
 	{
-		const FControllerState& ControllerState = ControllerStates[ControllerId];
+		// make sure there is a valid device for this controller
 		ISteamController* const Controller = SteamController();
+		if (Controller == nullptr || IsGamepadAttached() == false)
+		{
+			return;
+		}
+
+		const FControllerState& ControllerState = ControllerStates[ControllerId];
 
 		// Map the float values from [0,1] to be more reasonable values for the SteamController.  The docs say that [100,2000] are reasonable values
  		const float LeftIntensity = FMath::Clamp(ControllerState.VibeValues.LeftLarge * 2000.f, 0.f, 2000.f);
@@ -325,6 +333,11 @@ public:
 	virtual bool Exec( UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Ar ) override
 	{
 		return false;
+	}
+
+	virtual bool IsGamepadAttached() const override
+	{
+		return (bSteamAPIInitialized && bSteamControllerInitialized);
 	}
 
 private:
@@ -372,6 +385,12 @@ private:
 
 	/** handler to send all messages to */
 	TSharedRef<FGenericApplicationMessageHandler> MessageHandler;
+
+	/** SteamAPI initialized **/
+	bool bSteamAPIInitialized;
+
+	/** SteamController initialized **/
+	bool bSteamControllerInitialized;
 };
 
 #endif // WITH_STEAM_CONTROLLER

@@ -112,6 +112,12 @@ FLinearColor UK2Node_IfThenElse::GetNodeTitleColor() const
 	return GetDefault<UGraphEditorSettings>()->ExecBranchNodeTitleColor;
 }
 
+FSlateIcon UK2Node_IfThenElse::GetIconAndTint(FLinearColor& OutColor) const
+{
+	static FSlateIcon Icon("EditorStyle", "GraphEditor.Branch_16x");
+	return Icon;
+}
+
 FText UK2Node_IfThenElse::GetTooltipText() const
 {
 	return LOCTEXT("BrancStatement_Tooltip", "Branch Statement\nIf Condition is true, execution goes to True, otherwise it goes to False");

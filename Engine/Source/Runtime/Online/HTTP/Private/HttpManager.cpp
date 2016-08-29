@@ -3,6 +3,8 @@
 #include "HttpPrivatePCH.h"
 #include "HttpManager.h"
 
+#include "HttpThread.h"
+
 // FHttpManager
 
 FCriticalSection FHttpManager::RequestLock;
@@ -11,12 +13,26 @@ FHttpManager::FHttpManager()
 	:	FTickerObjectBase(0.0f)
 	,	DeferredDestroyDelay(10.0f)
 {
-	
 }
 
 FHttpManager::~FHttpManager()
 {
-	
+	if (Thread)
+	{
+		Thread->StopThread();
+		delete Thread;
+	}
+}
+
+void FHttpManager::Initialize()
+{
+	Thread = CreateHttpThread();
+	Thread->StartThread();
+}
+
+FHttpThread* FHttpManager::CreateHttpThread()
+{
+	return new FHttpThread();
 }
 
 void FHttpManager::Flush(bool bShutdown)
@@ -25,12 +41,17 @@ void FHttpManager::Flush(bool bShutdown)
 
 	if (bShutdown)
 	{
+		if (Requests.Num())
+		{
+			UE_LOG(LogHttp, Display, TEXT("Http module shutting down, but needs to wait on %d outstanding Http requests:"), Requests.Num());
+		}
 		// Clear delegates since they may point to deleted instances
 		for (TArray<TSharedRef<IHttpRequest>>::TIterator It(Requests); It; ++It)
 		{
 			TSharedRef<IHttpRequest> Request = *It;
 			Request->OnProcessRequestComplete().Unbind();
 			Request->OnRequestProgress().Unbind();
+			UE_LOG(LogHttp, Display, TEXT("	verb=[%s] url=[%s] status=%s"), *Request->GetVerb(), *Request->GetURL(), EHttpRequestStatus::ToString(Request->GetStatus()));
 		}
 	}
 
@@ -41,7 +62,11 @@ void FHttpManager::Flush(bool bShutdown)
 		const double AppTime = FPlatformTime::Seconds();
 		Tick(AppTime - LastTime);
 		LastTime = AppTime;
-		FPlatformProcess::Sleep(0.5f);
+		if (Requests.Num() > 0)
+		{
+			UE_LOG(LogHttp, Display, TEXT("Sleeping 0.5s to wait for %d outstanding Http requests."), Requests.Num());
+			FPlatformProcess::Sleep(0.5f);
+		}
 	}
 }
 
@@ -65,6 +90,19 @@ bool FHttpManager::Tick(float DeltaSeconds)
 			PendingDestroyRequests.RemoveAt(Idx--);
 		}		
 	}
+
+	TArray<IHttpThreadedRequest*> CompletedThreadedRequests;
+	Thread->GetCompletedRequests(CompletedThreadedRequests);
+
+	// Finish and remove any completed requests
+	for (IHttpThreadedRequest* CompletedRequest : CompletedThreadedRequests)
+	{
+		// Keep track of requests that have been removed to be destroyed later
+		PendingDestroyRequests.AddUnique(FRequestPendingDestroy(DeferredDestroyDelay,CompletedRequest->AsShared()));
+
+		CompletedRequest->FinishRequest();
+		Requests.Remove(CompletedRequest->AsShared());
+	}
 	// keep ticking
 	return true;
 }
@@ -86,12 +124,26 @@ void FHttpManager::RemoveRequest(const TSharedRef<IHttpRequest>& Request)
 	Requests.Remove(Request);
 }
 
+void FHttpManager::AddThreadedRequest(const TSharedRef<IHttpThreadedRequest>& Request)
+{
+	{
+		FScopeLock ScopeLock(&RequestLock);
+		Requests.Add(Request);
+	}
+	Thread->AddRequest(&Request.Get());
+}
+
+void FHttpManager::CancelThreadedRequest(const TSharedRef<IHttpThreadedRequest>& Request)
+{
+	Thread->CancelRequest(&Request.Get());
+}
+
 bool FHttpManager::IsValidRequest(const IHttpRequest* RequestPtr) const
 {
 	FScopeLock ScopeLock(&RequestLock);
 
 	bool bResult = false;
-	for (auto& Request : Requests)
+	for (const TSharedRef<IHttpRequest>& Request : Requests)
 	{
 		if (&Request.Get() == RequestPtr)
 		{
@@ -108,7 +160,7 @@ void FHttpManager::DumpRequests(FOutputDevice& Ar) const
 	FScopeLock ScopeLock(&RequestLock);
 	
 	Ar.Logf(TEXT("------- (%d) Http Requests"), Requests.Num());
-	for (auto& Request : Requests)
+	for (const TSharedRef<IHttpRequest>& Request : Requests)
 	{
 		Ar.Logf(TEXT("	verb=[%s] url=[%s] status=%s"),
 			*Request->GetVerb(), *Request->GetURL(), EHttpRequestStatus::ToString(Request->GetStatus()));

@@ -8,6 +8,8 @@
 #include "IRichTextMarkupParser.h"
 #include "IRichTextMarkupWriter.h"
 
+class FSlateTextUnderlineLineHighlighter;
+
 /**
  * Get/set the raw text to/from a text layout as rich text
  */
@@ -40,12 +42,17 @@ protected:
 
 	TSharedPtr< ITextDecorator > TryGetDecorator(const FString& Line, const FTextRunParseResults& TextRun) const;
 
-	virtual void AppendRunsForText(const FTextRunParseResults& TextRun, 
+	virtual void AppendRunsForText(
+		const int32 LineIndex,
+		const FTextRunParseResults& TextRun, 
 		const FString& ProcessedString, 
 		const FTextBlockStyle& DefaultTextStyle,
 		const TSharedRef<FString>& InOutModelText, 
 		FTextLayout& TargetTextLayout,
-		TArray<TSharedRef<IRun>>& Runs);
+		TArray<TSharedRef<IRun>>& Runs,
+		TArray<FTextLineHighlight>& LineHighlights,
+		TMap<const FTextBlockStyle*, TSharedPtr<FSlateTextUnderlineLineHighlighter>>& CachedUnderlineHighlighters
+		);
 
 	/** The parser used to resolve any markup used in the provided string. */
 	TSharedPtr< IRichTextMarkupParser > Parser;

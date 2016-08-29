@@ -28,9 +28,13 @@ void SAutomationGraphicalResultBox::Construct( const FArguments& InArgs, const I
 
 	ClearResults();
 
-	AutomationController->SetTestsCompleteCallback(FOnAutomationControllerTestsComplete::CreateRaw(this, &SAutomationGraphicalResultBox::OnFillResults));
+	AutomationController->OnTestsComplete().AddRaw(this, &SAutomationGraphicalResultBox::OnFillResults);
 }
 
+SAutomationGraphicalResultBox::~SAutomationGraphicalResultBox()
+{
+	AutomationController->OnTestsComplete().RemoveAll(this);
+}
 
 void SAutomationGraphicalResultBox::ClearResults()
 {

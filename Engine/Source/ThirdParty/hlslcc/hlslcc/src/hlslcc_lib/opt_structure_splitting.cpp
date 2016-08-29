@@ -345,8 +345,7 @@ ir_structure_splitting_visitor::visit_leave(ir_assignment *ir)
 	return visit_continue;
 }
 
-bool
-do_structure_splitting(exec_list *instructions)
+bool do_structure_splitting(exec_list *instructions, _mesa_glsl_parse_state * state)
 {
 	ir_structure_reference_visitor refs;
 
@@ -396,7 +395,7 @@ do_structure_splitting(exec_list *instructions)
 				type->fields.structure[i].name);
 
 			entry->components[i] =
-				new(entry->mem_ctx) ir_variable(type->fields.structure[i].type,
+				new(state) ir_variable(type->fields.structure[i].type,
 				name,
 				ir_var_temporary);
 			entry->var->insert_before(entry->components[i]);

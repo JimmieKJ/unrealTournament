@@ -80,6 +80,9 @@ public:
 
 	/** Paste sockets from clipboard */
 	TSharedPtr< FUICommandInfo > PasteSockets;
+
+	/** Paste sockets from clipboard */
+	TSharedPtr< FUICommandInfo > PasteSocketsToSelectedBone;
 };
 
 #endif // __SkeletonTreeCommands_h_

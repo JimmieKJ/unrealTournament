@@ -436,15 +436,15 @@ void SBlueprintSubPalette::ForceRefreshActionList()
 //------------------------------------------------------------------------------
 TSharedRef<SVerticalBox> SBlueprintSubPalette::ConstructHeadingWidget(FSlateBrush const* const Icon, FText const& TitleText, FText const& ToolTipText)
 {
-	TSharedPtr<SToolTip> ToolTip;
-	SAssignNew(ToolTip, SToolTip).Text(ToolTipText);
+	TSharedPtr<SToolTip> ToolTipWidget;
+	SAssignNew(ToolTipWidget, SToolTip).Text(ToolTipText);
 
 	static FTextBlockStyle TitleStyle = FTextBlockStyle()
 		.SetFont(FSlateFontInfo(FPaths::EngineContentDir() / TEXT("Slate/Fonts/Roboto-Bold.ttf"), 10))
 		.SetColorAndOpacity(FLinearColor(0.4f, 0.4f, 0.4f));
 
 	return SNew(SVerticalBox)
-		.ToolTip(ToolTip)
+		.ToolTip(ToolTipWidget)
 		// so we still get tooltip text for an empty SHorizontalBox
 		.Visibility(EVisibility::Visible) 
 		+ SVerticalBox::Slot()

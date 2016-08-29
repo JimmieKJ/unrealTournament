@@ -6,6 +6,34 @@
 
 #include "EditorProjectSettings.generated.h"
 
+/** UENUM to define the specific set of allowable unit types */
+UENUM()
+enum class EUnitDisplay : uint8
+{
+	None,
+	Metric,
+	Imperial,
+	Invalid
+};
+
+/** UENUM to define the specific set of allowable default units */
+UENUM()
+enum class EDefaultLocationUnit : uint8
+{
+	Micrometers,
+	Millimeters,
+	Centimeters,
+	Meters,
+	Kilometers,
+
+	Inches,
+	Feet,
+	Yards,
+	Miles,
+		
+	Invalid
+};
+
 /**
  * Editor project appearance settings. Stored in default config, per-project
  */
@@ -50,36 +78,8 @@ private:
 public:
 	/** Deprecated properties that didn't live very long */
 
-	/** UENUM to define the specific set of allowable unit types */
-	UENUM()
-	enum class EUnitDisplay : uint8
-	{
-		None,
-		Metric,
-		Imperial,
-		Invalid
-	};
-
 	UPROPERTY(config)
 	EUnitDisplay UnitDisplay_DEPRECATED;
-
-	/** UENUM to define the specific set of allowable default units */
-	UENUM()
-	enum class EDefaultLocationUnit : uint8
-	{
-		Micrometers,
-		Millimeters,
-		Centimeters,
-		Meters,
-		Kilometers,
-
-		Inches,
-		Feet,
-		Yards,
-		Miles,
-		
-		Invalid
-	};
 
 	UPROPERTY(config)
 	EDefaultLocationUnit DefaultInputUnits_DEPRECATED;

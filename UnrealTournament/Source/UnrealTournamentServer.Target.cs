@@ -2,9 +2,15 @@
 
 using UnrealBuildTool;
 using System.Collections.Generic;
+using System.IO;
 
 public class UnrealTournamentServerTarget : TargetRules
 {
+    bool IsLicenseeBuild()
+    {
+        return !Directory.Exists("Runtime/NotForLicensees");
+    }
+
     public UnrealTournamentServerTarget(TargetInfo Target)
 	{
         Type = TargetType.Server;
@@ -12,6 +18,7 @@ public class UnrealTournamentServerTarget : TargetRules
 
         // Turn on shipping logging
         UEBuildConfiguration.bUseLoggingInShipping = true;
+        UEBuildConfiguration.bUseChecksInShipping = true;
         UEBuildConfiguration.bCompileBox2D = false;
 	}
 
@@ -26,7 +33,7 @@ public class UnrealTournamentServerTarget : TargetRules
 		)
 	{
         OutExtraModuleNames.Add("UnrealTournament");
-        if (UEBuildConfiguration.bCompileMcpOSS == true)
+        if (!IsLicenseeBuild())
         {
             OutExtraModuleNames.Add("OnlineSubsystemMcp");
         }

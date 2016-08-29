@@ -96,7 +96,7 @@ class SAssetMenuEntry : public SCompoundWidget
 					ActorTypeDisplayName = MenuItem.FactoryToUse->GetDisplayName();
 				}
 
-				IconBrush = FClassIconFinder::FindIconForClass( MenuItem.FactoryToUse->GetClass() );
+				IconBrush = FSlateIconFinder::FindIconBrushForClass(MenuItem.FactoryToUse->GetClass());
 			}
 
 			if ( DefaultActor != NULL && ( MenuItem.FactoryToUse != NULL || !IsClass ) )
@@ -231,10 +231,10 @@ static void FillAssetAddReplaceActorMenu( FMenuBuilder& MenuBuilder, const FAsse
 		FText Label = MenuItem.FactoryToUse->DisplayName;
 		FText ToolTip = MenuItem.FactoryToUse->DisplayName;
 
-		FName Icon = *FString::Printf( TEXT("ClassIcon.%s"), *MenuItem.FactoryToUse->GetClass()->GetName() );
-		if ( !FEditorStyle::GetOptionalBrush(Icon, nullptr, nullptr) )
+		FSlateIcon Icon = FSlateIconFinder::FindIcon(*FString::Printf(TEXT("ClassIcon.%s"), *MenuItem.FactoryToUse->GetClass()->GetName()));
+		if ( !Icon.IsSet() )
 		{
-			Icon = FClassIconFinder::FindIconNameForActor( DefaultActor ) ;
+			Icon = FClassIconFinder::FindSlateIconForActor(DefaultActor);
 		}
 
 		FUIAction Action;
@@ -247,7 +247,7 @@ static void FillAssetAddReplaceActorMenu( FMenuBuilder& MenuBuilder, const FAsse
 			Action = FUIAction( FExecuteAction::CreateStatic( &FLevelEditorActionCallbacks::AddActor_Clicked, MenuItem.FactoryToUse,  MenuItem.AssetData, CreateMode == EActorCreateMode::Placement ) );
 		}
 
-		MenuBuilder.AddMenuEntry( Label, ToolTip, FSlateIcon(FEditorStyle::GetStyleSetName(), Icon), Action );
+		MenuBuilder.AddMenuEntry( Label, ToolTip, Icon, Action );
 	}
 }
 

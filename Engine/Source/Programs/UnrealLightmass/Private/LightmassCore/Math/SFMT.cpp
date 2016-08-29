@@ -7,7 +7,7 @@
 	And flatten a few header files into this self contained file.
 =============================================================================*/
 
-#include "stdafx.h"
+#include "LightmassPCH.h"
 
 /** 
  * @file  SFMT.c

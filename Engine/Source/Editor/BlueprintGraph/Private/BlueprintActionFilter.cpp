@@ -405,7 +405,20 @@ UClass* BlueprintActionFilterImpl::GetAuthoritativeBlueprintClass(UBlueprint con
 	UClass* AuthoritativeClass = BpClass;
 	if (BpClass != nullptr)
 	{
-		AuthoritativeClass = BpClass->GetAuthoritativeClass();
+		if (ensureMsgf(!BpClass->GetClass()->IsChildOf<UBlueprintGeneratedClass>() || BpClass->ClassGeneratedBy
+			, TEXT("Ambiguous Blueprint: '%s'; with skeleton: %s (%s), class: %s (%s), and parent: %s (%s) - authoratative class: %s (%s)")
+			, *Blueprint->GetPathName()
+			, Blueprint->SkeletonGeneratedClass ? *Blueprint->SkeletonGeneratedClass->GetName() : TEXT("[NULL]")
+			, Blueprint->SkeletonGeneratedClass ? *Blueprint->SkeletonGeneratedClass->GetClass()->GetName() : TEXT("N/A")
+			, Blueprint->GeneratedClass ? *Blueprint->GeneratedClass->GetName() : TEXT("[NULL]")
+			, Blueprint->GeneratedClass ? *Blueprint->GeneratedClass->GetClass()->GetName() : TEXT("N/A")
+			, Blueprint->ParentClass ? *Blueprint->ParentClass->GetName() : TEXT("[NULL]")
+			, Blueprint->ParentClass ? *Blueprint->ParentClass->GetClass()->GetName() : TEXT("N/A")
+			, BpClass ? *BpClass->GetName() : TEXT("[NULL]")
+			, BpClass ? *BpClass->GetClass()->GetName() : TEXT("N/A")) )
+		{
+			AuthoritativeClass = BpClass->GetAuthoritativeClass();
+		}		
 	}
 	return AuthoritativeClass;
 }
@@ -580,7 +593,15 @@ static bool BlueprintActionFilterImpl::IsEventUnimplementable(FBlueprintActionFi
 			for (UBlueprint const* Blueprint : FilterContext.Blueprints)
 			{
 				UClass const* BpClass = GetAuthoritativeBlueprintClass(Blueprint);
-				check(BpClass != nullptr);
+				if (!ensureMsgf(BpClass != nullptr
+					, TEXT("Unable to resolve IsEventUnimplementable() - Blueprint (%s) missing an authoratative class (skel: %s, generated: %s, parent: %s)")
+					, *Blueprint->GetName()
+					, Blueprint->SkeletonGeneratedClass ? *Blueprint->SkeletonGeneratedClass->GetName() : TEXT("[NULL]")
+					, Blueprint->GeneratedClass ? *Blueprint->GeneratedClass->GetName() : TEXT("[NULL]")
+					, Blueprint->ParentClass ? *Blueprint->ParentClass->GetName() : TEXT("[NULL]")) )
+				{
+					continue;
+				}
 
 				// if this function belongs directly to this blueprint, then it is
 				// already implemented here (this action however is valid for sub-
@@ -671,7 +692,15 @@ static bool BlueprintActionFilterImpl::IsFieldInaccessible(FBlueprintActionFilte
 			for (UBlueprint const* Blueprint : FilterContext.Blueprints)
 			{
 				UClass const* BpClass = GetAuthoritativeBlueprintClass(Blueprint);
-				check(BpClass != nullptr);
+				if (!ensureMsgf(BpClass != nullptr
+					, TEXT("Unable to resolve IsFieldInaccessible() - Blueprint (%s) missing an authoratative class (skel: %s, generated: %s, parent: %s)")
+					, *Blueprint->GetName()
+					, Blueprint->SkeletonGeneratedClass ? *Blueprint->SkeletonGeneratedClass->GetName() : TEXT("[NULL]")
+					, Blueprint->GeneratedClass ? *Blueprint->GeneratedClass->GetName() : TEXT("[NULL]")
+					, Blueprint->ParentClass ? *Blueprint->ParentClass->GetName() : TEXT("[NULL]")))
+				{
+					continue;
+				}
 			
 				// private functions are only accessible from the class they belong to
 				if (bIsPrivate && !IsClassOfType(BpClass, ActionOwner, /*bNeedsExactMatch =*/true))

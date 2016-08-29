@@ -34,6 +34,26 @@ public:
 	void SetDisplayNameOverride( const FText& InDisplayNameOverride ) override;
 
 	/**
+	* @return true if the property is mark as a favorite
+	*/
+	virtual void SetFavorite(bool FavoriteValue) override;
+
+	/**
+	* @return true if the property is mark as a favorite
+	*/
+	virtual bool IsFavorite() const override;
+
+	/**
+	* Set the permission to display the favorite icon
+	*/
+	virtual void SetCanDisplayFavorite(bool CanDisplayFavoriteIcon) override;
+
+	/**
+	* Set the permission to display the favorite icon
+	*/
+	virtual bool CanDisplayFavorite() const override;
+
+	/**
 	 * @return The formatted display name for the property in this node                                                              
 	 */
 	virtual FText GetDisplayName() const override;
@@ -64,4 +84,9 @@ private:
 	FText DisplayNameOverride;
 	/** Tooltip override to use instead of the property tooltip */
 	FText ToolTipOverride;
+
+	/**
+	* Option to know if we can display the favorite icon in the property editor
+	*/
+	bool bCanDisplayFavorite;
 };

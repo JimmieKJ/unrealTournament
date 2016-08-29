@@ -372,8 +372,7 @@ void FLocalizationTargetSetDetailCustomization::RebuildTargetsList()
 			const int32 NativeCultureIndex = NewTarget->Settings.SupportedCulturesStatistics.Add( FCultureStatistics(FInternationalization::Get().GetCurrentCulture()->GetName()) );
 			NewTarget->Settings.NativeCultureIndex = NativeCultureIndex;
 
-			const UObject* SetValue = NewTarget;
-			TargetObjectPropertyHandle->SetValue(SetValue);
+			TargetObjectPropertyHandle->SetValue(NewTarget);
 
 			NewEntryIndexToBeInitialized = INDEX_NONE;
 		}

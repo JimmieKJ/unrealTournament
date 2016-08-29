@@ -184,6 +184,7 @@ UParticleModuleVectorFieldLocal::UParticleModuleVectorFieldLocal(const FObjectIn
 
 	Intensity = 1.0;
 	Tightness = 0.0;
+	bUseFixDT = true;
 }
 
 void UParticleModuleVectorFieldLocal::CompileModule(FParticleEmitterBuildInfo& EmitterInfo)
@@ -198,6 +199,7 @@ void UParticleModuleVectorFieldLocal::CompileModule(FParticleEmitterBuildInfo& E
 	EmitterInfo.bLocalVectorFieldTileX = bTileX;
 	EmitterInfo.bLocalVectorFieldTileY = bTileY;
 	EmitterInfo.bLocalVectorFieldTileZ = bTileZ;
+	EmitterInfo.bLocalVectorFieldUseFixDT = bUseFixDT;
 }
 
 /*------------------------------------------------------------------------------

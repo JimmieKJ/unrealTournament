@@ -2,8 +2,7 @@
 
 #pragma once
 
-#include "Runtime/Analytics/Analytics/Public/Interfaces/IAnalyticsProvider.h"
-#include "Runtime/Engine/Public/EngineAnalytics.h"
+struct FAnalyticsEventAttribute;
 
 namespace EAnalyticsErrorCodes
 {

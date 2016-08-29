@@ -24,7 +24,7 @@ public class UnrealCEFSubProcessTarget : TargetRules
 		return true;
 	}
 
-    public override bool ShouldCompileMonolithic(UnrealTargetPlatform InPlatform, UnrealTargetConfiguration InConfiguration)
+	public override bool ShouldCompileMonolithic(UnrealTargetPlatform InPlatform, UnrealTargetConfiguration InConfiguration)
 	{
 		return true;
 	}

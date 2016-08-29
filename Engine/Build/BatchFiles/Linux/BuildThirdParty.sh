@@ -153,14 +153,30 @@ BuildHLSLCC()
   CLANG_TO_USE=`which clang`
   set -e
   if [ ! -f "$CLANG_TO_USE" ]; then
-    CLANG_TO_USE=clang-3.5 # this version should be installed by Setup.sh
+    if [ -e "/etc/os-release" ]; then
+      source /etc/os-release
+      if [[ "$ID_LIKE" == "debian" && "$VERSION_ID" == "16.04" ]]; then
+        CLANG_TO_USE=clang-3.8 # this version should be installed by Setup.sh on 16.04
+      fi
+    fi
+    if [ ! -f "$CLANG_TO_USE" ]; then
+      CLANG_TO_USE=clang-3.5 # this version should be installed by Setup.sh on < 16.04
+    fi
   fi
 
   set +e
   CLANGXX_TO_USE=`which clang++`
   set -e
   if [ ! -f "$CLANGXX_TO_USE" ]; then
-    CLANGXX_TO_USE=clang++-3.5 # this version should be installed by Setup.sh
+    if [ -e "/etc/os-release" ]; then
+      source /etc/os-release
+      if [[ "$ID_LIKE" == "debian" && "$VERSION_ID" == "16.04" ]]; then
+        CLANGXX_TO_USE=clang++-3.8 # this version should be installed by Setup.sh on 16.04
+      fi
+    fi
+    if [ ! -f "$CLANG_TO_USE" ]; then
+      CLANGXX_TO_USE=clang++-3.5 # this version should be installed by Setup.sh on < 16.04
+    fi
   fi
 
   make $MAKE_ARGS CC=$CLANG_TO_USE CXX=$CLANGXX_TO_USE clean

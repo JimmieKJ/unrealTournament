@@ -6,19 +6,18 @@
 				Garbage Collector.
 =============================================================================*/
 
-#ifndef _OBJECTSERIALIZER_H_
-#define _OBJECTSERIALIZER_H_
+#pragma once
 
 #include "ObjectBase.h"
 
-class FGCObject;
+class COREUOBJECT_API FGCObject;
 
 /**
  * This nested class is used to provide a UObject interface between non
  * UObject classes and the UObject system. It handles forwarding all
  * calls of AddReferencedObjects() to objects/ classes that register with it.
  */
-class UGCObjectReferencer : public UObject
+class COREUOBJECT_API UGCObjectReferencer : public UObject
 {
 	/**
 	 * This is the list of objects that are referenced
@@ -26,7 +25,7 @@ class UGCObjectReferencer : public UObject
 	TArray<FGCObject*> ReferencedObjects;
 
 public:
-	DECLARE_CASTED_CLASS_INTRINSIC_WITH_API(UGCObjectReferencer, UObject, CLASS_Transient, TEXT("/Script/CoreUObject"), CASTCLASS_None, COREUOBJECT_API);
+	DECLARE_CASTED_CLASS_INTRINSIC_WITH_API(UGCObjectReferencer, UObject, CLASS_Transient, TEXT("/Script/CoreUObject"), CASTCLASS_None, NO_API);
 
 	/**
 	 * Adds an object to the referencer list
@@ -140,4 +139,3 @@ public:
 	virtual void AddReferencedObjects( FReferenceCollector& Collector ) = 0;
 };
 
-#endif

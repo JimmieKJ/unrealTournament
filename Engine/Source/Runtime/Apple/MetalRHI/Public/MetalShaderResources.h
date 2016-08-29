@@ -139,6 +139,9 @@ struct FMetalCodeHeader
 	FMetalShaderBindings Bindings;
 	TArray<CrossCompiler::FUniformBufferCopyInfo> UniformBuffersCopyInfo;
 	FString ShaderName;
+	FString ShaderCode;
+	FString ShaderPath;
+	int32 SideTable;
 
 	uint8 NumThreadsX;
 	uint8 NumThreadsY;
@@ -173,6 +176,10 @@ inline FArchive& operator<<(FArchive& Ar, FMetalCodeHeader& Header)
 	}
 	
 	Ar << Header.ShaderName;
+	Ar << Header.ShaderCode;
+	Ar << Header.ShaderPath;
+	
+	Ar << Header.SideTable;
 
 	Ar << Header.NumThreadsX;
 	Ar << Header.NumThreadsY;

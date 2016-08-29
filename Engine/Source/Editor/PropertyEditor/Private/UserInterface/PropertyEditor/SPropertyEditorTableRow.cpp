@@ -59,7 +59,7 @@ TSharedRef<SWidget> SPropertyEditorTableRow::GenerateWidgetForColumn( const FNam
 
 TSharedRef< SWidget > SPropertyEditorTableRow::ConstructNameColumnWidget()
 {
-	TSharedRef< SHorizontalBox > Box =
+	TSharedRef< SHorizontalBox > NameColumnWidget =
 		SNew(SHorizontalBox)
 		+SHorizontalBox::Slot()
 		.AutoWidth()
@@ -82,7 +82,7 @@ TSharedRef< SWidget > SPropertyEditorTableRow::ConstructNameColumnWidget()
 			.OnDoubleClicked( this, &SPropertyEditorTableRow::OnNameDoubleClicked )
 		];
 
-		return Box;
+		return NameColumnWidget;
 }
 
 

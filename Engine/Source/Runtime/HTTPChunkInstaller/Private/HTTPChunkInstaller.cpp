@@ -610,7 +610,7 @@ void FHTTPChunkInstall::BeginChunkInstall(uint32 ChunkID,IBuildManifestPtr Chunk
 {
 	check(ChunkManifest->GetCustomField("ChunkID").IsValid());
 	InstallingChunkID = ChunkID;
-	check(ChunkID > 0 && ChunkID < 100);
+	check(ChunkID > 0);
 	InstallingChunkManifest = ChunkManifest;
 	IPlatformFile& PlatformFile = FPlatformFileManager::Get().GetPlatformFile();
 	auto PatchField = ChunkManifest->GetCustomField("bIsPatch");

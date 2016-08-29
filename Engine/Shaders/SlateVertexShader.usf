@@ -24,6 +24,8 @@ VertexToPixelInterpolants Main(
 	VertexToPixelInterpolants VOut = (VertexToPixelInterpolants)0;
 
 	float4 WorldPosition = float4(InPosition.xy,0,1);
+	// save off the original input position value, Line AA will require this
+	VOut.OriginalPosition = WorldPosition;
 
 #if (!(ES2_PROFILE || ES3_1_PROFILE)) || USE_MATERIALS
 	InColor.rgb = sRGBToLinear(InColor.rgb);
@@ -102,14 +104,12 @@ VertexToPixelInterpolants Main(
 
 #endif // USE_MATERIALS
 
-	
-
 	VOut.Position = mul(WorldPosition, ViewProjection);
 
-#if ES2_PROFILE && COMPILER_GLSL_ES2
+#if (ES2_PROFILE && COMPILER_GLSL_ES2) || (ES3_1_PROFILE && COMPILER_GLSL_ES3_1)
 	// @todo-mobile: Fix this in the projection matrix
 	VOut.Position.y *= SwitchVerticalAxisMultiplier;
-#endif //ES2_PROFILE && COMPILER_GLSL_ES2
+#endif //(ES2_PROFILE && COMPILER_GLSL_ES2) || (ES3_1_PROFILE && COMPILER_GLSL_ES3_1)
 
 	return VOut;
 }

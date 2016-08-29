@@ -19,13 +19,15 @@
 		{
 			"Name" : "WebBrowserWidget",
 			"Type" : "Runtime",
-			"LoadingPhase" : "Default",
+			"LoadingPhase" : "PreDefault",
 			"WhitelistPlatforms" :
 			[
 				"Win64",
 				"Win32",
 				"Mac",
-				"Android"
+				"Android",
+				"IOS",
+				"PS4"
 			]
 		}
 	]

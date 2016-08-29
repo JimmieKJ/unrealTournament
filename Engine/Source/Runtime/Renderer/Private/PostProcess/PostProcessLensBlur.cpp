@@ -129,21 +129,21 @@ public:
 
 			if(GEngine->DefaultBokehTexture)
 			{
-				FTextureResource* Resource = GEngine->DefaultBokehTexture->Resource;
+				FTextureResource* BokehTextureResource = GEngine->DefaultBokehTexture->Resource;
 
-				if(Resource && Resource->TextureRHI)
+				if(BokehTextureResource && BokehTextureResource->TextureRHI)
 				{
-					TextureRHI = Resource->TextureRHI;
+					TextureRHI = BokehTextureResource->TextureRHI;
 				}
 			}
 
 			if(Context.View.FinalPostProcessSettings.LensFlareBokehShape)
 			{
-				FTextureResource* Resource = Context.View.FinalPostProcessSettings.LensFlareBokehShape->Resource;
+				FTextureResource* BokehTextureResource = Context.View.FinalPostProcessSettings.LensFlareBokehShape->Resource;
 
-				if(Resource && Resource->TextureRHI)
+				if(BokehTextureResource && BokehTextureResource->TextureRHI)
 				{
-					TextureRHI = Resource->TextureRHI;
+					TextureRHI = BokehTextureResource->TextureRHI;
 				}
 			}
 

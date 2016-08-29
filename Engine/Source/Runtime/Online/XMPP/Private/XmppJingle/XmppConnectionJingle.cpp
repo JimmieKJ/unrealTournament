@@ -420,28 +420,28 @@ const FString& FXmppConnectionJingle::GetPubSubDomain() const
 	}
 }
 
-TSharedPtr<class IXmppPresence> FXmppConnectionJingle::Presence()
+IXmppPresencePtr FXmppConnectionJingle::Presence()
 {
 	return PresenceJingle;
 }
 
-TSharedPtr<class IXmppPubSub> FXmppConnectionJingle::PubSub()
+IXmppPubSubPtr FXmppConnectionJingle::PubSub()
 {
 	//@todo samz - not implemented
 	return NULL;
 }
 
-TSharedPtr<class IXmppMessages> FXmppConnectionJingle::Messages()
+IXmppMessagesPtr FXmppConnectionJingle::Messages()
 {
 	return MessagesJingle;
 }
 
-TSharedPtr<class IXmppMultiUserChat> FXmppConnectionJingle::MultiUserChat()
+IXmppMultiUserChatPtr FXmppConnectionJingle::MultiUserChat()
 {
 	return MultiUserChatJingle;
 }
 
-TSharedPtr<class IXmppChat> FXmppConnectionJingle::PrivateChat()
+IXmppChatPtr FXmppConnectionJingle::PrivateChat()
 {
 	return ChatJingle;
 }
@@ -464,15 +464,6 @@ bool FXmppConnectionJingle::Tick(float DeltaTime)
 			if (LocalLastLoginState == ELoginProgress::ProcessingLogin)
 			{
 				OnLoginComplete().Broadcast(GetUserJid(), true, FString());
-
-				// send/obtain initial presence
-				if (Presence().IsValid())
-				{
-					FXmppUserPresence InitialPresence = Presence()->GetPresence();
-					InitialPresence.bIsAvailable = true;
-					InitialPresence.Status = EXmppPresenceStatus::Offline;
-					Presence()->UpdatePresence(InitialPresence);
-				}
 			}
 			OnLoginChanged().Broadcast(GetUserJid(), EXmppLoginStatus::LoggedIn);
 		}

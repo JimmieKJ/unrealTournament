@@ -1,0 +1,197 @@
+/*=============================================================================
+	LightGridInjection.usf
+=============================================================================*/
+
+#include "Common.usf"
+#include "Definitions.usf"
+
+Buffer<float4> ForwardLocalLightBuffer;
+
+RWBuffer<uint> RWNumCulledLightsGrid;
+RWBuffer<uint> RWCulledLightDataGrid;
+
+RWBuffer<uint> RWNextCulledLightLink;
+RWBuffer<uint> RWStartOffsetGrid;
+RWBuffer<uint> RWCulledLightLinks;
+
+float ComputeDepthFromZSlice(uint ZSlice)
+{
+	return (exp2(ZSlice / ForwardGlobalLightData.LightGridZParams.z) - ForwardGlobalLightData.LightGridZParams.y) / ForwardGlobalLightData.LightGridZParams.x;
+}
+
+void ComputeCellViewAABB(uint3 GridCoordinate, out float3 ViewTileMin, out float3 ViewTileMax)
+{
+	float2 TileSize = 2.0f / (float2)ForwardGlobalLightData.CulledGridSize.xy;
+	float2 UnitPlaneMin = -1;
+
+	float2 UnitPlaneTileMin = (GridCoordinate.xy * TileSize + UnitPlaneMin) * float2(1, -1);
+	float2 UnitPlaneTileMax = ((GridCoordinate.xy + 1) * TileSize + UnitPlaneMin) * float2(1, -1);
+
+	float MinTileZ = ComputeDepthFromZSlice(GridCoordinate.z);
+	float MaxTileZ = ComputeDepthFromZSlice(GridCoordinate.z + 1);
+
+	float MinTileDeviceZ = ConvertToDeviceZ(MinTileZ);
+	float4 MinDepthCorner0 = mul(float4(UnitPlaneTileMin.x, UnitPlaneTileMin.y, MinTileDeviceZ, 1), View.ClipToView);
+	float4 MinDepthCorner1 = mul(float4(UnitPlaneTileMax.x, UnitPlaneTileMax.y, MinTileDeviceZ, 1), View.ClipToView);
+	float4 MinDepthCorner2 = mul(float4(UnitPlaneTileMin.x, UnitPlaneTileMax.y, MinTileDeviceZ, 1), View.ClipToView);
+	float4 MinDepthCorner3 = mul(float4(UnitPlaneTileMax.x, UnitPlaneTileMin.y, MinTileDeviceZ, 1), View.ClipToView);
+
+	float MaxTileDeviceZ = ConvertToDeviceZ(MaxTileZ);
+	float4 MaxDepthCorner0 = mul(float4(UnitPlaneTileMin.x, UnitPlaneTileMin.y, MaxTileDeviceZ, 1), View.ClipToView);
+	float4 MaxDepthCorner1 = mul(float4(UnitPlaneTileMax.x, UnitPlaneTileMax.y, MaxTileDeviceZ, 1), View.ClipToView);
+	float4 MaxDepthCorner2 = mul(float4(UnitPlaneTileMin.x, UnitPlaneTileMax.y, MaxTileDeviceZ, 1), View.ClipToView);
+	float4 MaxDepthCorner3 = mul(float4(UnitPlaneTileMax.x, UnitPlaneTileMin.y, MaxTileDeviceZ, 1), View.ClipToView);
+
+	//@todo - derive min and max from quadrant
+	ViewTileMin.xy = min(MinDepthCorner0.xy / MinDepthCorner0.w, MinDepthCorner1.xy / MinDepthCorner1.w);
+	ViewTileMin.xy = min(ViewTileMin.xy, MinDepthCorner2.xy / MinDepthCorner2.w);
+	ViewTileMin.xy = min(ViewTileMin.xy, MinDepthCorner3.xy / MinDepthCorner3.w);
+	ViewTileMin.xy = min(ViewTileMin.xy, MaxDepthCorner0.xy / MaxDepthCorner0.w);
+	ViewTileMin.xy = min(ViewTileMin.xy, MaxDepthCorner1.xy / MaxDepthCorner1.w);
+	ViewTileMin.xy = min(ViewTileMin.xy, MaxDepthCorner2.xy / MaxDepthCorner2.w);
+	ViewTileMin.xy = min(ViewTileMin.xy, MaxDepthCorner3.xy / MaxDepthCorner3.w);
+
+	ViewTileMax.xy = max(MinDepthCorner0.xy / MinDepthCorner0.w, MinDepthCorner1.xy / MinDepthCorner1.w);
+	ViewTileMax.xy = max(ViewTileMax.xy, MinDepthCorner2.xy / MinDepthCorner2.w);
+	ViewTileMax.xy = max(ViewTileMax.xy, MinDepthCorner3.xy / MinDepthCorner3.w);
+	ViewTileMax.xy = max(ViewTileMax.xy, MaxDepthCorner0.xy / MaxDepthCorner0.w);
+	ViewTileMax.xy = max(ViewTileMax.xy, MaxDepthCorner1.xy / MaxDepthCorner1.w);
+	ViewTileMax.xy = max(ViewTileMax.xy, MaxDepthCorner2.xy / MaxDepthCorner2.w);
+	ViewTileMax.xy = max(ViewTileMax.xy, MaxDepthCorner3.xy / MaxDepthCorner3.w);
+
+	ViewTileMin.z = MinTileZ;
+	ViewTileMax.z = MaxTileZ;
+}
+
+[numthreads(THREADGROUP_SIZE, THREADGROUP_SIZE, THREADGROUP_SIZE)]
+void LightGridInjectionCS(
+	uint3 GroupId : SV_GroupID,
+	uint3 DispatchThreadId : SV_DispatchThreadID,
+	uint3 GroupThreadId : SV_GroupThreadID)
+{
+	uint3 GridCoordinate = DispatchThreadId;
+
+	if (all(GridCoordinate < ForwardGlobalLightData.CulledGridSize))
+	{
+		uint GridIndex = (GridCoordinate.z * ForwardGlobalLightData.CulledGridSize.y + GridCoordinate.y) * ForwardGlobalLightData.CulledGridSize.x + GridCoordinate.x;
+
+#define CULL_LIGHTS 1
+	#if CULL_LIGHTS
+		float3 ViewTileMin;
+		float3 ViewTileMax;
+		ComputeCellViewAABB(GridCoordinate, ViewTileMin, ViewTileMax);
+
+		float3 ViewTileCenter = .5f * (ViewTileMin + ViewTileMax);
+		float3 ViewTileExtent = ViewTileMax - ViewTileCenter;
+		uint NumAvailableLinks = ForwardGlobalLightData.CulledGridSize.x * ForwardGlobalLightData.CulledGridSize.y * ForwardGlobalLightData.CulledGridSize.z * ForwardGlobalLightData.MaxCulledLightsPerCell;
+
+		LOOP
+		for (uint LocalLightIndex = 0; LocalLightIndex < ForwardGlobalLightData.NumLocalLights; LocalLightIndex++)
+		{
+			uint LocalLightBaseIndex = LocalLightIndex * LOCAL_LIGHT_DATA_STRIDE;
+			float4 LightPositionAndInvRadius = ForwardLocalLightBuffer[LocalLightBaseIndex + 0];
+			float LightRadius = 1.0f / LightPositionAndInvRadius.w;
+
+			#define REFINE_SPOTLIGHT_BOUNDS 1
+			#if REFINE_SPOTLIGHT_BOUNDS
+				float CosOuterCone = ForwardLocalLightBuffer[LocalLightBaseIndex + 3].x;
+			
+				if (CosOuterCone > -2.0f)
+				{
+					float3 LightDirection = ForwardLocalLightBuffer[LocalLightBaseIndex + 2].xyz;
+					LightPositionAndInvRadius.xyz -= .5f * LightDirection * LightRadius;
+					// Use the law of cosines to find the distance to the furthest edge of the spotlight cone from a position that is halfway down the spotlight direction
+					LightRadius = sqrt(1.25f * LightRadius * LightRadius - LightRadius * LightRadius * CosOuterCone);
+				}
+			#endif
+
+			float3 ViewSpaceLightPosition = mul(float4(LightPositionAndInvRadius.xyz + View.PreViewTranslation.xyz, 1), View.TranslatedWorldToView).xyz;
+
+			float BoxDistanceSq = ComputeSquaredDistanceFromBoxToPoint(ViewTileCenter, ViewTileExtent, ViewSpaceLightPosition);
+
+			if (BoxDistanceSq < LightRadius * LightRadius)
+			{
+				#if USE_LINKED_CULL_LIST
+					uint NextLink;
+					InterlockedAdd(RWNextCulledLightLink[0], 1U, NextLink);
+
+					if (NextLink < NumAvailableLinks)
+					{
+						uint PreviousLink;
+						InterlockedExchange(RWStartOffsetGrid[GridIndex], NextLink, PreviousLink);
+						RWCulledLightLinks[NextLink * LIGHT_LINK_STRIDE + 0] = LocalLightIndex;
+						RWCulledLightLinks[NextLink * LIGHT_LINK_STRIDE + 1] = PreviousLink;
+					}
+
+				#else
+					uint CulledLightIndex;
+					InterlockedAdd(RWNumCulledLightsGrid[GridIndex * NUM_CULLED_LIGHTS_GRID_STRIDE + 0], 1U, CulledLightIndex);
+					RWNumCulledLightsGrid[GridIndex * NUM_CULLED_LIGHTS_GRID_STRIDE + 1] = GridIndex * ForwardGlobalLightData.MaxCulledLightsPerCell;
+
+					if (CulledLightIndex < ForwardGlobalLightData.MaxCulledLightsPerCell)
+					{
+						RWCulledLightDataGrid[GridIndex * ForwardGlobalLightData.MaxCulledLightsPerCell + CulledLightIndex] = LocalLightIndex;
+					}
+				#endif
+			}
+		}
+
+#else
+
+		LOOP
+		for (uint LocalLightIndex = 0; LocalLightIndex < ForwardGlobalLightData.NumLocalLights; LocalLightIndex++)
+		{
+			if (LocalLightIndex < ForwardGlobalLightData.MaxCulledLightsPerCell)
+			{
+				RWCulledLightDataGrid[GridIndex * ForwardGlobalLightData.MaxCulledLightsPerCell + LocalLightIndex] = LocalLightIndex;
+			}
+		}
+
+		RWNumCulledLightsGrid[GridIndex * NUM_CULLED_LIGHTS_GRID_STRIDE + 0] = ForwardGlobalLightData.NumLocalLights;
+		RWNumCulledLightsGrid[GridIndex * NUM_CULLED_LIGHTS_GRID_STRIDE + 1] = GridIndex;
+#endif
+	}
+}
+
+RWBuffer<uint> RWNextCulledLightData;
+Buffer<uint> StartOffsetGrid;
+Buffer<uint> CulledLightLinks;
+
+[numthreads(THREADGROUP_SIZE, THREADGROUP_SIZE, THREADGROUP_SIZE)]
+void LightGridCompactCS(
+	uint3 GroupId : SV_GroupID,
+	uint3 DispatchThreadId : SV_DispatchThreadID,
+	uint3 GroupThreadId : SV_GroupThreadID)
+{
+	uint3 GridCoordinate = DispatchThreadId;
+
+	if (all(GridCoordinate < ForwardGlobalLightData.CulledGridSize))
+	{
+		uint GridIndex = (GridCoordinate.z * ForwardGlobalLightData.CulledGridSize.y + GridCoordinate.y) * ForwardGlobalLightData.CulledGridSize.x + GridCoordinate.x;
+
+		uint NumCulledLights = 0;
+		uint StartLinkOffset = StartOffsetGrid[GridIndex];
+		uint LinkOffset = StartLinkOffset;
+
+		while (LinkOffset != 0xFFFFFFFF)
+		{
+			NumCulledLights++;
+			LinkOffset = CulledLightLinks[LinkOffset * LIGHT_LINK_STRIDE + 1];
+		}
+
+		uint CulledLightDataStart;
+		InterlockedAdd(RWNextCulledLightData[0], NumCulledLights, CulledLightDataStart);
+		RWNumCulledLightsGrid[GridIndex * NUM_CULLED_LIGHTS_GRID_STRIDE + 0] = NumCulledLights;
+		RWNumCulledLightsGrid[GridIndex * NUM_CULLED_LIGHTS_GRID_STRIDE + 1] = CulledLightDataStart;
+
+		LinkOffset = StartLinkOffset;
+		uint CulledLightIndex = 0;
+
+		while (LinkOffset != 0xFFFFFFFF)
+		{
+			RWCulledLightDataGrid[CulledLightDataStart + CulledLightIndex] = CulledLightLinks[LinkOffset * LIGHT_LINK_STRIDE + 0];
+			CulledLightIndex++;
+			LinkOffset = CulledLightLinks[LinkOffset * LIGHT_LINK_STRIDE + 1];
+		}
+	}
+}

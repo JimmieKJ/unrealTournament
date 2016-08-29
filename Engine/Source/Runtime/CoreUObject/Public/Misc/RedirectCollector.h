@@ -43,16 +43,18 @@ struct FRedirection
  */
 class COREUOBJECT_API FRedirectCollector
 {
-public:
+private:
 	
 	/** Helper struct for string asset reference tracking */
 	struct FPackagePropertyPair
 	{
 		FPackagePropertyPair() : bReferencedByEditorOnlyProperty(false) {}
-		FPackagePropertyPair(const FString& InPackage, const FString& InProperty)
+
+		FPackagePropertyPair(const FName& InPackage, const FName& InProperty)
 		: Package(InPackage)
 		, Property(InProperty)
 		, bReferencedByEditorOnlyProperty(false)
+		//, PackageCache(NAME_None)
 		{}
 
 		bool operator==(const FPackagePropertyPair& Other) const
@@ -61,10 +63,53 @@ public:
 				Property == Other.Property;
 		}
 
-		FString Package;
-		FString Property;
+		const FName& GetCachedPackageName() const
+		{
+			return Package;
+			/*if (PackageCache == NAME_None)
+			{
+				PackageCache = FName(*Package);
+			}
+			return PackageCache;*/
+		}
+
+
+		void SetPackage(const FName& InPackage)
+		{
+			Package = InPackage;
+		}
+		void SetProperty(const FName& InProperty)
+		{
+			Property = InProperty;
+		}
+		
+		void SetReferencedByEditorOnlyProperty(bool InReferencedByEditorOnlyProperty)
+		{
+			bReferencedByEditorOnlyProperty = InReferencedByEditorOnlyProperty;
+		}
+
+		const FName& GetPackage() const
+		{
+			return Package;
+		}
+		const FName& GetProperty() const
+		{
+			return Property;
+		}
+
+		bool GetReferencedByEditorOnlyProperty() const
+		{
+			return bReferencedByEditorOnlyProperty;
+		}
+
+	private:
+		FName Package;
+		FName Property;
 		bool bReferencedByEditorOnlyProperty;
+		// mutable FName PackageCache;
 	};
+
+public:
 
 	/**
 	 * Responds to FCoreDelegates::RedirectorFollowed. Records all followed redirections
@@ -94,14 +139,33 @@ public:
 	 */
 	void ResolveStringAssetReference(FString FilterPackage = FString());
 
+	/**
+	 * Do we have any references to resolve.
+	 * @return true if we have references to resolve
+	 */
+	bool HasAnyStringAssetReferencesToResolve() const
+	{
+		return StringAssetReferences.Num() > 0;
+	}
+
+	const TArray<FRedirection>& GetRedirections() const
+	{
+		return Redirections;
+	}
+
+	void LogTimers() const;
+
+public:
 	/** If not an empty string, only fixup redirects in this package */
 	FString FileToFixup;
 
 	/** A gathered list of all non-script referenced redirections */
 	TArray<FRedirection> Redirections;
 
+private:
+
 	/** A gathered list string asset references , with the key being the string reference (GetPathName()) and the value equal to the package with the reference */
-	TMultiMap<FString, FPackagePropertyPair> StringAssetReferences;
+	TMultiMap<FName, FPackagePropertyPair> StringAssetReferences;
 
 	/** When saving, apply this remapping to all string asset references */
 	TMap<FString, FString> StringAssetRemap;

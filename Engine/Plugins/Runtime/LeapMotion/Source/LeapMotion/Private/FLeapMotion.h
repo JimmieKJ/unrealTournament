@@ -2,7 +2,6 @@
 
 #pragma once
 
-#include "LeapMotionPrivatePCH.h"
 #include "../Public/ILeapMotion.h"
 
 /**

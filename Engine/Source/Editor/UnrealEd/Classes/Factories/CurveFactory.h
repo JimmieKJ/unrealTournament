@@ -8,7 +8,7 @@
  * Factory that creates curve assets, prompting to pick the kind of curve at creation time
  */
 
-UCLASS()
+UCLASS(MinimalAPI)
 class UCurveFactory : public UFactory
 {
 	GENERATED_UCLASS_BODY()
@@ -27,7 +27,7 @@ class UCurveFactory : public UFactory
  * Factory that creates float curve assets
  */
 
-UCLASS()
+UCLASS(MinimalAPI)
 class UCurveFloatFactory : public UCurveFactory
 {
 	GENERATED_UCLASS_BODY()
@@ -42,7 +42,7 @@ class UCurveFloatFactory : public UCurveFactory
  * Factory that creates linear color curve assets
  */
 
-UCLASS()
+UCLASS(MinimalAPI)
 class UCurveLinearColorFactory : public UCurveFactory
 {
 	GENERATED_UCLASS_BODY()
@@ -57,7 +57,7 @@ class UCurveLinearColorFactory : public UCurveFactory
  * Factory that creates vector curve assets
  */
 
-UCLASS()
+UCLASS(MinimalAPI)
 class UCurveVectorFactory : public UCurveFactory
 {
 	GENERATED_UCLASS_BODY()

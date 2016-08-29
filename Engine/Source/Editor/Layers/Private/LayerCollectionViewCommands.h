@@ -2,7 +2,7 @@
 
 #pragma once
 
-#define LOCTEXT_NAMESPACE ""
+#define LOCTEXT_NAMESPACE "LayersViewCommands"
 
 /**
  * The set of commands supported by the LayersView

@@ -29,8 +29,8 @@ public:
 	*/
 	virtual FRuntimeAssetCacheInterface& GetRuntimeAssetCache() override
 	{
-		static FRuntimeAssetCache RuntimeAssetCache;
-		return RuntimeAssetCache;
+		static FRuntimeAssetCache StaticRuntimeAssetCache;
+		return StaticRuntimeAssetCache;
 	}
 
 	void StartupModule() override

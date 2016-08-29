@@ -2,10 +2,6 @@
 
 #pragma once
 
-#if WITH_PHYSX
-#include "../PhysicsEngine/PhysXSupport.h"
-#endif
-
 /** 
  * Set of flags stored in the PhysX FilterData
  *

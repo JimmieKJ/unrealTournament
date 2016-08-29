@@ -269,10 +269,10 @@ void BuildTileConesMain(
 {
     uint ThreadIndex = GroupThreadId.y * THREADGROUP_SIZEX + GroupThreadId.x;
 
-	float2 BaseLevelScreenUV = (DispatchThreadId.xy + float2(.5f, .5f)) * DOWNSAMPLE_FACTOR * Frame.BufferSizeAndInvSize.zw;
+	float2 BaseLevelScreenUV = (DispatchThreadId.xy + float2(.5f, .5f)) * DOWNSAMPLE_FACTOR * View.BufferSizeAndInvSize.zw;
 	float SceneDepth = GetDownsampledDepth(BaseLevelScreenUV);
 
-	//float2 ScreenUV = (DispatchThreadId.xy * DOWNSAMPLE_FACTOR + Frame.ViewRectMin.xy + float2(.5f, .5f)) * Frame.BufferSizeAndInvSize.zw;
+	//float2 ScreenUV = (DispatchThreadId.xy * DOWNSAMPLE_FACTOR + View.ViewRectMin.xy + float2(.5f, .5f)) * View.BufferSizeAndInvSize.zw;
 	//float SceneDepth = CalcSceneDepth(ScreenUV);
 
 	// Initialize per-tile variables
@@ -343,7 +343,7 @@ void BuildTileConesMain(
 			float ConeExpandDistance = 0;
 
 			float VertexPullbackLength = ConeExpandDistance / TileConeAngleTan;
-			float DistanceToNearPlane = length(TileConeAxis / TileConeAxis.z * Frame.NearPlane);
+			float DistanceToNearPlane = length(TileConeAxis / TileConeAxis.z * View.NearPlane);
 			// 1 / cos(AngleBetweenTileCenterAndViewForward)
 			float InvCosTileAngle = 1.0f / TileConeAxis.z;
 			float ConeAxisDistanceMultiply = InvCosTileAngle;
@@ -386,7 +386,7 @@ void DistanceFieldAOBuildTileListMain(
     uint3 GroupThreadId : SV_GroupThreadID) 
 {
     uint ThreadIndex = GroupThreadId.y * THREADGROUP_SIZEX + GroupThreadId.x;
-	float2 ScreenUV = (DispatchThreadId.xy * DOWNSAMPLE_FACTOR + Frame.ViewRectMin.xy + float2(.5f, .5f)) * Frame.BufferSizeAndInvSize.zw;
+	float2 ScreenUV = (DispatchThreadId.xy * DOWNSAMPLE_FACTOR + View.ViewRectMin.xy + float2(.5f, .5f)) * View.BufferSizeAndInvSize.zw;
 	float SceneDepth = CalcSceneDepth(ScreenUV);
 
 	// Initialize per-tile variables
@@ -454,7 +454,7 @@ void DistanceFieldAOBuildTileListMain(
 		float ConeExpandDistance = 0;
 
 		float VertexPullbackLength = ConeExpandDistance / TileConeAngleTan;
-		float DistanceToNearPlane = length(TileConeAxis / TileConeAxis.z * Frame.NearPlane);
+		float DistanceToNearPlane = length(TileConeAxis / TileConeAxis.z * View.NearPlane);
 		// 1 / cos(AngleBetweenTileCenterAndViewForward)
 		float InvCosTileAngle = 1.0f / TileConeAxis.z;
 		float ConeAxisDistanceMultiply = InvCosTileAngle;
@@ -640,7 +640,7 @@ void PopulateCacheCS(
 
 	GroupMemoryBarrierWithGroupSync();
 
-	float2 ScreenUV = (DispatchThreadId.xy * CurrentLevelDownsampleFactor + Frame.ViewRectMin.xy + float2(.5f, .5f)) * Frame.BufferSizeAndInvSize.zw;
+	float2 ScreenUV = (DispatchThreadId.xy * CurrentLevelDownsampleFactor + View.ViewRectMin.xy + float2(.5f, .5f)) * View.BufferSizeAndInvSize.zw;
 	float2 ScreenPosition = (ScreenUV.xy - View.ScreenPositionScaleBias.wz) / View.ScreenPositionScaleBias.xy;
 	float2 DownsampledScreenUV = (DispatchThreadId.xy + float2(.5f, .5f)) / AOBufferSize;
 

@@ -164,10 +164,11 @@ protected:
 	 * @param	StructPropertyHandle	Property handle to the containing struct
 	 * @param	ProxyValue				The value we will be editing in the proxy data.
 	 * @param	Label					A label to use for this value.
+	 * @param	bRotationInDegrees		Whether this is to be used for a rotation value (configures sliders appropriately).
 	 * @return the newly created widget.
 	 */
 	template<typename ProxyType, typename NumericType>
-	TSharedRef<SWidget> MakeNumericProxyWidget(TSharedRef<IPropertyHandle>& StructPropertyHandle, TSharedRef< TProxyProperty<ProxyType, NumericType> >& ProxyValue, const FText& Label, const FLinearColor& LabelColor = FCoreStyle::Get().GetColor("DefaultForeground"), const FLinearColor& LabelBackgroundColor = FCoreStyle::Get().GetColor("InvertedForeground"));
+	TSharedRef<SWidget> MakeNumericProxyWidget(TSharedRef<IPropertyHandle>& StructPropertyHandle, TSharedRef< TProxyProperty<ProxyType, NumericType> >& ProxyValue, const FText& Label, bool bRotationInDegrees = false, const FLinearColor& LabelColor = FCoreStyle::Get().GetColor("DefaultForeground"), const FLinearColor& LabelBackgroundColor = FCoreStyle::Get().GetColor("InvertedForeground"));
 
 private:
 	/**
@@ -240,6 +241,11 @@ public:
 	virtual void CustomizeChildren(TSharedRef<class IPropertyHandle> StructPropertyHandle, class IDetailChildrenBuilder& StructBuilder, IPropertyTypeCustomizationUtils& StructCustomizationUtils) override;
 
 protected:
+	/** Customization utility functions */
+	void CustomizeLocation(TSharedRef<class IPropertyHandle> StructPropertyHandle, FDetailWidgetRow& Row);
+	void CustomizeRotation(TSharedRef<class IPropertyHandle> StructPropertyHandle, FDetailWidgetRow& Row);
+	void CustomizeScale(TSharedRef<class IPropertyHandle> StructPropertyHandle, FDetailWidgetRow& Row);
+
 	/** FMathStructCustomization interface */
 	virtual void MakeHeaderRow(TSharedRef<class IPropertyHandle>& InStructPropertyHandle, FDetailWidgetRow& Row) override;
 
@@ -287,6 +293,26 @@ class FTransformStructCustomization : public FMatrixStructCustomization
 {
 public:
 	static TSharedRef<IPropertyTypeCustomization> MakeInstance();
+
+protected:
+	/** FMathStructProxyCustomization interface */
+	virtual bool CacheValues(TWeakPtr<IPropertyHandle> PropertyHandlePtr) const override;
+	virtual bool FlushValues(TWeakPtr<IPropertyHandle> PropertyHandlePtr) const override;
+};
+
+/**
+ * Proxy struct customization that displays an FQuat as an euler rotation
+ */
+class FQuatStructCustomization : public FMatrixStructCustomization
+{
+public:
+	static TSharedRef<IPropertyTypeCustomization> MakeInstance();
+
+	/** IPropertyTypeCustomization interface */
+	virtual void CustomizeChildren(TSharedRef<class IPropertyHandle> StructPropertyHandle, class IDetailChildrenBuilder& StructBuilder, IPropertyTypeCustomizationUtils& StructCustomizationUtils) override;
+
+	/** FMathStructCustomization interface */
+	virtual void MakeHeaderRow(TSharedRef<class IPropertyHandle>& InStructPropertyHandle, FDetailWidgetRow& Row) override;
 
 protected:
 	/** FMathStructProxyCustomization interface */

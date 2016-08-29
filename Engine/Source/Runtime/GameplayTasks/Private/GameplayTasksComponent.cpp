@@ -2,6 +2,7 @@
 
 #include "GameplayTasksPrivatePCH.h"
 #include "GameplayTasksComponent.h"
+#include "GameplayTaskResource.h"
 #include "GameplayTask.h"
 #include "MessageLog.h"
 
@@ -18,6 +19,27 @@ namespace
 	}
 }
 
+UGameplayTasksComponent::FEventLock::FEventLock(UGameplayTasksComponent* InOwner) : Owner(InOwner)
+{
+	if (Owner)
+	{
+		Owner->EventLockCounter++;
+	}
+}
+
+UGameplayTasksComponent::FEventLock::~FEventLock()
+{
+	if (Owner)
+	{
+		Owner->EventLockCounter--;
+
+		if (Owner->TaskEvents.Num() && Owner->CanProcessEvents())
+		{
+			Owner->ProcessTaskEvents();
+		}
+	}
+}
+
 UGameplayTasksComponent::UGameplayTasksComponent(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
@@ -26,11 +48,15 @@ UGameplayTasksComponent::UGameplayTasksComponent(const FObjectInitializer& Objec
 	PrimaryComponentTick.bCanEverTick = true;
 
 	bReplicates = true;
+	bInEventProcessingInProgress = false;
 	TopActivePriority = 0;
 }
 	
-void UGameplayTasksComponent::OnTaskActivated(UGameplayTask& Task)
+void UGameplayTasksComponent::OnGameplayTaskActivated(UGameplayTask& Task)
 {
+	// process events after finishing all operations
+	FEventLock ScopeEventLock(this);
+
 	if (Task.IsTickingTask())
 	{
 		check(TickingTasks.Contains(&Task) == false);
@@ -47,10 +73,32 @@ void UGameplayTasksComponent::OnTaskActivated(UGameplayTask& Task)
 		check(SimulatedTasks.Contains(&Task) == false);
 		SimulatedTasks.Add(&Task);
 	}
+
+	IGameplayTaskOwnerInterface* TaskOwner = Task.GetTaskOwner();
+	if (!Task.IsOwnedByTasksComponent() && TaskOwner)
+	{
+		TaskOwner->OnGameplayTaskActivated(Task);
+	}
 }
 
-void UGameplayTasksComponent::OnTaskDeactivated(UGameplayTask& Task)
+void UGameplayTasksComponent::OnGameplayTaskDeactivated(UGameplayTask& Task)
 {
+	// process events after finishing all operations
+	FEventLock ScopeEventLock(this);
+	const bool bIsFinished = (Task.GetState() == EGameplayTaskState::Finished);
+
+	if (Task.GetChildTask() && bIsFinished)
+	{
+		if (Task.HasOwnerFinished())
+		{
+			Task.GetChildTask()->TaskOwnerEnded();
+		}
+		else
+		{
+			Task.GetChildTask()->EndTask();
+		}
+	}
+
 	if (Task.IsTickingTask())
 	{
 		// If we are removing our last ticking task, set this component as inactive so it stops ticking
@@ -62,13 +110,19 @@ void UGameplayTasksComponent::OnTaskDeactivated(UGameplayTask& Task)
 		SimulatedTasks.RemoveSingleSwap(&Task);
 	}
 
-	UpdateShouldTick();
-
 	// Resource-using task
-	if (Task.RequiresPriorityOrResourceManagement() == true && Task.GetState() == EGameplayTaskState::Finished)
+	if (Task.RequiresPriorityOrResourceManagement() && bIsFinished)
 	{
 		OnTaskEnded(Task);
 	}
+
+	IGameplayTaskOwnerInterface* TaskOwner = Task.GetTaskOwner();
+	if (!Task.IsOwnedByTasksComponent() && !Task.HasOwnerFinished() && TaskOwner)
+	{
+		TaskOwner->OnGameplayTaskDeactivated(Task);
+	}
+
+	UpdateShouldTick();
 }
 
 void UGameplayTasksComponent::OnTaskEnded(UGameplayTask& Task)
@@ -191,11 +245,6 @@ void UGameplayTasksComponent::UpdateShouldTick()
 	}
 }
 
-AActor* UGameplayTasksComponent::GetAvatarActor(const UGameplayTask* Task) const
-{
-	return GetOwner();
-}
-
 //----------------------------------------------------------------------//
 // Priority and resources handling
 //----------------------------------------------------------------------//
@@ -207,7 +256,7 @@ void UGameplayTasksComponent::AddTaskReadyForActivation(UGameplayTask& NewTask)
 	
 	TaskEvents.Add(FGameplayTaskEventData(EGameplayTaskEvent::Add, NewTask));
 	// trigger the actual processing only if it was the first event added to the list
-	if (TaskEvents.Num() == 1)
+	if (TaskEvents.Num() == 1 && CanProcessEvents())
 	{
 		ProcessTaskEvents();
 	}
@@ -219,136 +268,159 @@ void UGameplayTasksComponent::RemoveResourceConsumingTask(UGameplayTask& Task)
 
 	TaskEvents.Add(FGameplayTaskEventData(EGameplayTaskEvent::Remove, Task));
 	// trigger the actual processing only if it was the first event added to the list
-	if (TaskEvents.Num() == 1)
+	if (TaskEvents.Num() == 1 && CanProcessEvents())
 	{
 		ProcessTaskEvents();
 	}
 }
 
-void UGameplayTasksComponent::EndAllResourceConsumingTasksOwnedBy(const IGameplayTaskOwnerInterface& TaskOwner)// , bool bNotifyOwner)
+void UGameplayTasksComponent::EndAllResourceConsumingTasksOwnedBy(const IGameplayTaskOwnerInterface& TaskOwner)
 {
-	for (int32 TaskIndex = TaskPriorityQueue.Num() - 1; TaskIndex >= 0; --TaskIndex)
+	FEventLock ScopeEventLock(this);
+
+	for (int32 Idx = 0; Idx < TaskPriorityQueue.Num(); Idx++)
 	{
-		if (TaskPriorityQueue[TaskIndex] == nullptr)
+		if (TaskPriorityQueue[Idx] && TaskPriorityQueue[Idx]->GetTaskOwner() == &TaskOwner)
 		{
-			TaskPriorityQueue.RemoveAt(TaskIndex, 1, /*bAllowShrinking=*/false);
+			// finish task, remove event will be processed after all locks are cleared
+			TaskPriorityQueue[Idx]->TaskOwnerEnded();
 		}
-		else if (TaskPriorityQueue[TaskIndex]->GetTaskOwner() == &TaskOwner)
+	}
+}
+
+bool UGameplayTasksComponent::FindAllResourceConsumingTasksOwnedBy(const IGameplayTaskOwnerInterface& TaskOwner, TArray<UGameplayTask*>& FoundTasks) const
+{
+	int32 NumFound = 0;
+	for (int32 TaskIndex = 0; TaskIndex < TaskPriorityQueue.Num(); TaskIndex++)
+	{
+		if (TaskPriorityQueue[TaskIndex] && TaskPriorityQueue[TaskIndex]->GetTaskOwner() == &TaskOwner)
 		{
-			UGameplayTask* Task = TaskPriorityQueue[TaskIndex];
-			TaskPriorityQueue.RemoveAt(TaskIndex, 1, /*bAllowShrinking=*/false);
-			Task->TaskOwnerEnded();
+			FoundTasks.Add(TaskPriorityQueue[TaskIndex]);
+			NumFound++;
 		}
 	}
 
-	UpdateTaskActivationFromIndex(0, FGameplayResourceSet(), FGameplayResourceSet());
+	return (NumFound > 0);
+}
+
+UGameplayTask* UGameplayTasksComponent::FindResourceConsumingTaskByName(const FName TaskInstanceName) const
+{
+	for (int32 TaskIndex = 0; TaskIndex < TaskPriorityQueue.Num(); TaskIndex++)
+	{
+		if (TaskPriorityQueue[TaskIndex] && TaskPriorityQueue[TaskIndex]->GetInstanceName() == TaskInstanceName)
+		{
+			return TaskPriorityQueue[TaskIndex];
+		}
+	}
+
+	return nullptr;
+}
+
+bool UGameplayTasksComponent::HasActiveTasks(UClass* TaskClass) const
+{
+	for (int32 Idx = 0; Idx < TaskPriorityQueue.Num(); Idx++)
+	{
+		if (TaskPriorityQueue[Idx] && TaskPriorityQueue[Idx]->IsA(TaskClass))
+		{
+			return true;
+		}
+	}
+
+	for (int32 Idx = 0; Idx < TickingTasks.Num(); Idx++)
+	{
+		if (TickingTasks[Idx] && TickingTasks[Idx]->IsA(TaskClass))
+		{
+			return true;
+		}
+	}
+
+	return false;
 }
 
 void UGameplayTasksComponent::ProcessTaskEvents()
 {
-	static const int32 ErronousIterationsLimit = 100;
+	static const int32 MaxIterations = 16;
+	bInEventProcessingInProgress = true;
 
-	// note that this function allows called functions to add new elements to 
-	// TaskEvents array that the main loop is iterating over. It's a feature
-	for (int32 EventIndex = 0; EventIndex < TaskEvents.Num(); ++EventIndex)
+	int32 IterCounter = 0;
+	while (TaskEvents.Num() > 0)
 	{
-		UE_VLOG(this, LogGameplayTasks, Verbose, TEXT("UGameplayTasksComponent::ProcessTaskEvents: %s event %s")
-			, *TaskEvents[EventIndex].RelatedTask.GetName(), GetGameplayTaskEventName(TaskEvents[EventIndex].Event));
-
-		if (TaskEvents[EventIndex].RelatedTask.IsPendingKill())
+		IterCounter++;
+		if (IterCounter > MaxIterations)
 		{
-			UE_VLOG(this, LogGameplayTasks, Verbose, TEXT("%s is PendingKill"), *TaskEvents[EventIndex].RelatedTask.GetName());
-			// we should ignore it, but just in case run the removal code.
-			RemoveTaskFromPriorityQueue(TaskEvents[EventIndex].RelatedTask);
-			continue;
+			UE_VLOG(this, LogGameplayTasks, Error, TEXT("UGameplayTasksComponent::ProcessTaskEvents has exceeded allowes number of iterations. Check your GameplayTasks for logic loops!"));
+			TaskEvents.Reset();
+			break;
 		}
 
-		switch (TaskEvents[EventIndex].Event)
+		for (int32 EventIndex = 0; EventIndex < TaskEvents.Num(); ++EventIndex)
 		{
-		case EGameplayTaskEvent::Add:
-			if (TaskEvents[EventIndex].RelatedTask.TaskState != EGameplayTaskState::Finished)
+			UE_VLOG(this, LogGameplayTasks, Verbose, TEXT("UGameplayTasksComponent::ProcessTaskEvents: %s event %s")
+				, *TaskEvents[EventIndex].RelatedTask.GetName(), GetGameplayTaskEventName(TaskEvents[EventIndex].Event));
+
+			if (TaskEvents[EventIndex].RelatedTask.IsPendingKill())
 			{
-				AddTaskToPriorityQueue(TaskEvents[EventIndex].RelatedTask);
+				UE_VLOG(this, LogGameplayTasks, Verbose, TEXT("%s is PendingKill"), *TaskEvents[EventIndex].RelatedTask.GetName());
+				// we should ignore it, but just in case run the removal code.
+				RemoveTaskFromPriorityQueue(TaskEvents[EventIndex].RelatedTask);
+				continue;
 			}
-			else
+
+			switch (TaskEvents[EventIndex].Event)
 			{
-				UE_VLOG(this, LogGameplayTasks, Error, TEXT("UGameplayTasksComponent::ProcessTaskEvents trying to add a finished task to priority queue!"));
+			case EGameplayTaskEvent::Add:
+				if (TaskEvents[EventIndex].RelatedTask.TaskState != EGameplayTaskState::Finished)
+				{
+					AddTaskToPriorityQueue(TaskEvents[EventIndex].RelatedTask);
+				}
+				else
+				{
+					UE_VLOG(this, LogGameplayTasks, Error, TEXT("UGameplayTasksComponent::ProcessTaskEvents trying to add a finished task to priority queue!"));
+				}
+				break;
+			case EGameplayTaskEvent::Remove:
+				RemoveTaskFromPriorityQueue(TaskEvents[EventIndex].RelatedTask);
+				break;
+			default:
+				checkNoEntry();
+				break;
 			}
-			break;
-		case EGameplayTaskEvent::Remove:
-			RemoveTaskFromPriorityQueue(TaskEvents[EventIndex].RelatedTask);
-			break;
-		default:
-			checkNoEntry();
-			break;
 		}
 
-		if (EventIndex >= ErronousIterationsLimit)
-		{
-			UE_VLOG(this, LogGameplayTasks, Error, TEXT("UGameplayTasksComponent::ProcessTaskEvents has exceeded warning-level of iterations. Check your GameplayTasks for logic loops!"));
-		}
+		TaskEvents.Reset();
+		UpdateTaskActivations();
+
+		// task activation changes may create new events, loop over to check it
 	}
 
-	TaskEvents.Reset();
+	bInEventProcessingInProgress = false;
 }
 
 void UGameplayTasksComponent::AddTaskToPriorityQueue(UGameplayTask& NewTask)
 {
-	// The generic idea is as follows:
-	// 1. Find insertion/removal point X
-	//		While looking for it add up all ResourcesUsedByActiveUpToX and ResourcesRequiredUpToX
-	//		ResourcesUsedByActiveUpToX - resources required by ACTIVE tasks
-	//		ResourcesRequiredUpToX - resources required by both active and inactive tasks on the way to X
-	// 2. Insert Task at X
-	// 3. Starting from X proceed down the queue
-	//	a. If ConsideredTask.Resources overlaps with ResourcesRequiredUpToX then PAUSE it
-	//	b. Else, ACTIVATE ConsideredTask and add ConsideredTask.Resources to ResourcesUsedByActiveUpToX
-	//	c. Add ConsideredTask.Resources to ResourcesRequiredUpToX
-	// 4. Set this->CurrentlyUsedResources to ResourcesUsedByActiveUpToX
-	//
-	// Points 3-4 are implemented as a separate function, UpdateTaskActivationFromIndex,
-	// since it's a common code between adding and removing tasks
-	
-	const bool bStartOnTopOfSamePriority = NewTask.GetResourceOverlapPolicy() == ETaskResourceOverlapPolicy::StartOnTop;
-
-	FGameplayResourceSet ResourcesClaimedUpToX;
-	FGameplayResourceSet ResourcesBlockedUpToIndex;
+	const bool bStartOnTopOfSamePriority = (NewTask.GetResourceOverlapPolicy() == ETaskResourceOverlapPolicy::StartOnTop);
 	int32 InsertionPoint = INDEX_NONE;
 	
-	if (TaskPriorityQueue.Num() > 0)
+	for (int32 Idx = 0; Idx < TaskPriorityQueue.Num(); ++Idx)
 	{
-		for (int32 TaskIndex = 0; TaskIndex < TaskPriorityQueue.Num(); ++TaskIndex)
+		if (TaskPriorityQueue[Idx] == nullptr)
 		{
-			ensure(TaskPriorityQueue[TaskIndex]);
-			if (TaskPriorityQueue[TaskIndex] == nullptr)
-			{
-				continue;
-			}
+			continue;
+		}
 
-			if ((bStartOnTopOfSamePriority && TaskPriorityQueue[TaskIndex]->GetPriority() <= NewTask.GetPriority())
-				|| (!bStartOnTopOfSamePriority && TaskPriorityQueue[TaskIndex]->GetPriority() < NewTask.GetPriority()))
-			{
-				TaskPriorityQueue.Insert(&NewTask, TaskIndex);
-				InsertionPoint = TaskIndex;
-				break;
-			}
-
-			const FGameplayResourceSet ClaimedResources = TaskPriorityQueue[TaskIndex]->GetClaimedResources();
-			if (TaskPriorityQueue[TaskIndex]->IsActive())
-			{
-				ResourcesClaimedUpToX.AddSet(ClaimedResources);
-			}
-			ResourcesBlockedUpToIndex.AddSet(ClaimedResources);
+		if ((bStartOnTopOfSamePriority && TaskPriorityQueue[Idx]->GetPriority() <= NewTask.GetPriority())
+			|| (!bStartOnTopOfSamePriority && TaskPriorityQueue[Idx]->GetPriority() < NewTask.GetPriority()))
+		{
+			TaskPriorityQueue.Insert(&NewTask, Idx);
+			InsertionPoint = Idx;
+			break;
 		}
 	}
 	
 	if (InsertionPoint == INDEX_NONE)
 	{
 		TaskPriorityQueue.Add(&NewTask);
-		InsertionPoint = TaskPriorityQueue.Num() - 1;
 	}
-
-	UpdateTaskActivationFromIndex(InsertionPoint, ResourcesClaimedUpToX, ResourcesBlockedUpToIndex);
 }
 
 void UGameplayTasksComponent::RemoveTaskFromPriorityQueue(UGameplayTask& Task)
@@ -356,47 +428,7 @@ void UGameplayTasksComponent::RemoveTaskFromPriorityQueue(UGameplayTask& Task)
 	const int32 RemovedTaskIndex = TaskPriorityQueue.Find(&Task);
 	if (RemovedTaskIndex != INDEX_NONE)
 	{
-		if (TaskPriorityQueue.Num() > 1)
-		{
-			// sum up resources up to TaskIndex
-			FGameplayResourceSet ResourcesClaimedUpToX;
-			FGameplayResourceSet ResourcesBlockedUpToIndex;
-			for (int32 TaskIndex = 0; TaskIndex < RemovedTaskIndex; ++TaskIndex)
-			{
-				ensure(TaskPriorityQueue[TaskIndex]);
-				if (TaskPriorityQueue[TaskIndex] == nullptr)
-				{
-					continue;
-				}
-
-				const FGameplayResourceSet ClaimedResources = TaskPriorityQueue[TaskIndex]->GetClaimedResources();
-				if (TaskPriorityQueue[TaskIndex]->IsActive())
-				{
-					ResourcesClaimedUpToX.AddSet(ClaimedResources);
-				}				
-				ResourcesBlockedUpToIndex.AddSet(ClaimedResources);
-			}
-
-			// don't forget to actually remove the task from the queue
-			TaskPriorityQueue.RemoveAt(RemovedTaskIndex, 1, /*bAllowShrinking=*/false);
-
-			// if it wasn't the last item then proceed as usual
-			if (RemovedTaskIndex < TaskPriorityQueue.Num())
-			{
-				UpdateTaskActivationFromIndex(RemovedTaskIndex, ResourcesClaimedUpToX, ResourcesBlockedUpToIndex);
-			}
-			else
-			{
-				// no need to do extra processing. This was the last task, so 
-				// ResourcesUsedByActiveUpToX is the CurrentlyUsedResources
-				SetCurrentlyClaimedResources(ResourcesClaimedUpToX);
-			}
-		}
-		else
-		{
-			TaskPriorityQueue.Pop(/*bAllowShrinking=*/false);
-			SetCurrentlyClaimedResources(FGameplayResourceSet());
-		}
+		TaskPriorityQueue.RemoveAt(RemovedTaskIndex, 1, /*bAllowShrinking=*/false);
 	}
 	else
 	{
@@ -405,37 +437,59 @@ void UGameplayTasksComponent::RemoveTaskFromPriorityQueue(UGameplayTask& Task)
 	}
 }
 
-void UGameplayTasksComponent::UpdateTaskActivationFromIndex(int32 StartingIndex, FGameplayResourceSet ResourcesClaimedUpToIndex, FGameplayResourceSet ResourcesBlockedUpToIndex)
+void UGameplayTasksComponent::UpdateTaskActivations()
 {
+	FGameplayResourceSet ResourcesClaimed;
+	bool bHasNulls = false;
+
 	if (TaskPriorityQueue.Num() > 0)
 	{
-		check(TaskPriorityQueue.IsValidIndex(StartingIndex));
+		TArray<UGameplayTask*> ActivationList;
+		ActivationList.Reserve(TaskPriorityQueue.Num());
 
-		TArray<UGameplayTask*> TaskPriorityQueueCopy = TaskPriorityQueue;
-		for (int32 TaskIndex = StartingIndex; TaskIndex < TaskPriorityQueueCopy.Num(); ++TaskIndex)
+		FGameplayResourceSet ResourcesBlocked;
+		for (int32 TaskIndex = 0; TaskIndex < TaskPriorityQueue.Num(); ++TaskIndex)
 		{
-			ensure(TaskPriorityQueueCopy[TaskIndex]);
-			if (TaskPriorityQueueCopy[TaskIndex] == nullptr)
+			if (ensure(TaskPriorityQueue[TaskIndex]))
 			{
-				continue;
-			}
+				const FGameplayResourceSet RequiredResources = TaskPriorityQueue[TaskIndex]->GetRequiredResources();
+				const FGameplayResourceSet ClaimedResources = TaskPriorityQueue[TaskIndex]->GetClaimedResources();
+				if (RequiredResources.GetOverlap(ResourcesBlocked).IsEmpty())
+				{
+					// postpone activations, it's some tasks (like MoveTo) require pausing old ones first
+					ActivationList.Add(TaskPriorityQueue[TaskIndex]);
+					ResourcesClaimed.AddSet(ClaimedResources);
+				}
+				else
+				{
+					TaskPriorityQueue[TaskIndex]->PauseInTaskQueue();
+				}
 
-			const FGameplayResourceSet RequiredResources = TaskPriorityQueueCopy[TaskIndex]->GetRequiredResources();
-			const FGameplayResourceSet ClaimedResources = TaskPriorityQueueCopy[TaskIndex]->GetClaimedResources();
-			if (RequiredResources.GetOverlap(ResourcesBlockedUpToIndex).IsEmpty())
-			{
-				TaskPriorityQueueCopy[TaskIndex]->ActivateInTaskQueue();
-				ResourcesClaimedUpToIndex.AddSet(ClaimedResources);
+				ResourcesBlocked.AddSet(ClaimedResources);
 			}
 			else
 			{
-				TaskPriorityQueueCopy[TaskIndex]->PauseInTaskQueue();
+				bHasNulls = true;
 			}
-			ResourcesBlockedUpToIndex.AddSet(ClaimedResources);
+		}
+
+		for (int32 Idx = 0; Idx < ActivationList.Num(); Idx++)
+		{
+			// check if task wasn't already finished as a result of activating previous elements of this list
+			if (ActivationList[Idx] && !ActivationList[Idx]->IsFinished())
+			{
+				ActivationList[Idx]->ActivateInTaskQueue();
+			}
 		}
 	}
 	
-	SetCurrentlyClaimedResources(ResourcesClaimedUpToIndex);
+	SetCurrentlyClaimedResources(ResourcesClaimed);
+
+	// remove all null entries after processing activation changes
+	if (bHasNulls)
+	{
+		TaskPriorityQueue.RemoveAll([](UGameplayTask* Task) { return Task == nullptr; });
+	}
 }
 
 void UGameplayTasksComponent::SetCurrentlyClaimedResources(FGameplayResourceSet NewClaimedSet)
@@ -452,7 +506,7 @@ void UGameplayTasksComponent::SetCurrentlyClaimedResources(FGameplayResourceSet 
 //----------------------------------------------------------------------//
 // debugging
 //----------------------------------------------------------------------//
-#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST) && ENABLE_VISUAL_LOG
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 FString UGameplayTasksComponent::GetTickingTasksDescription() const
 {
 	FString TasksDescription;
@@ -486,7 +540,24 @@ FString UGameplayTasksComponent::GetTasksPriorityQueueDescription() const
 	}
 	return TasksDescription;
 }
+
+FString UGameplayTasksComponent::GetTaskStateName(EGameplayTaskState Value)
+{
+	static const UEnum* Enum = FindObject<UEnum>(ANY_PACKAGE, TEXT("EGameplayTaskState"));
+	check(Enum);
+	return Enum->GetEnumName(int32(Value));
+}
 #endif // !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+
+FConstGameplayTaskIterator UGameplayTasksComponent::GetTickingTaskIterator() const
+{
+	return TickingTasks.CreateConstIterator();
+}
+
+FConstGameplayTaskIterator UGameplayTasksComponent::GetPriorityQueueIterator() const
+{
+	return TaskPriorityQueue.CreateConstIterator();
+}
 
 #if ENABLE_VISUAL_LOG
 void UGameplayTasksComponent::DescribeSelfToVisLog(FVisualLogEntry* Snapshot) const
@@ -506,13 +577,6 @@ void UGameplayTasksComponent::DescribeSelfToVisLog(FVisualLogEntry* Snapshot) co
 	StatusCategory.Add(PriorityQueueName, GetTasksPriorityQueueDescription());
 
 	Snapshot->Status.Add(StatusCategory);
-}
-
-FString UGameplayTasksComponent::GetTaskStateName(EGameplayTaskState Value)
-{
-	static const UEnum* Enum = FindObject<UEnum>(ANY_PACKAGE, TEXT("EGameplayTaskState"));
-	check(Enum);
-	return Enum->GetEnumName(int32(Value));
 }
 #endif // ENABLE_VISUAL_LOG
 
@@ -625,10 +689,25 @@ EGameplayTaskRunResult UGameplayTasksComponent::K2_RunGameplayTask(TScriptInterf
 //----------------------------------------------------------------------//
 FString FGameplayResourceSet::GetDebugDescription() const
 {
-	static const int32 FlagsCount = sizeof(FFlagContainer)* 8;
-	TCHAR Description[FlagsCount + 1];
+	static const int32 FlagsCount = sizeof(FFlagContainer) * 8;
 	FFlagContainer FlagsCopy = Flags;
 	int32 FlagIndex = 0;
+
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+	FString Description;
+	for (; FlagIndex < FlagsCount && FlagsCopy != 0; ++FlagIndex)
+	{
+		if (FlagsCopy & (1 << FlagIndex))
+		{
+			Description += UGameplayTaskResource::GetDebugDescription(FlagIndex);
+			Description += TEXT(' ');
+		}
+
+		FlagsCopy &= ~(1 << FlagIndex);
+	}
+	return Description;
+#else
+	TCHAR Description[FlagsCount + 1];
 	for (; FlagIndex < FlagsCount && FlagsCopy != 0; ++FlagIndex)
 	{
 		Description[FlagIndex] = (FlagsCopy & (1 << FlagIndex)) ? TCHAR('1') : TCHAR('0');
@@ -636,6 +715,7 @@ FString FGameplayResourceSet::GetDebugDescription() const
 	}
 	Description[FlagIndex] = TCHAR('\0');
 	return FString(Description);
+#endif // !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 }
 
 #undef LOCTEXT_NAMESPACE

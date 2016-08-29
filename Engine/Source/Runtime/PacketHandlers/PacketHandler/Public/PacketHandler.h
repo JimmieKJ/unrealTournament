@@ -6,6 +6,7 @@
 
 DECLARE_LOG_CATEGORY_EXTERN(PacketHandlerLog, Log, All);
 
+
 class HandlerComponent;
 class ReliabilityHandlerComponent;
 
@@ -163,16 +164,17 @@ public:
 	 * Handles initialization of manager
 	 *
 	 * @param Mode					The mode the manager should be initialized in
+	 * @param InMaxPacketBits		The maximum supported packet size
 	 * @param bConnectionlessOnly	Whether or not this is a connectionless-only manager (ignores .ini components)
 	 */
-	virtual void Initialize(Handler::Mode Mode, bool bConnectionlessOnly=false);
+	void Initialize(Handler::Mode Mode, uint32 InMaxPacketBits, bool bConnectionlessOnly=false);
 
 	/**
 	 * Triggers initialization of HandlerComponents.
 	 */
-	virtual void InitializeComponents();
+	void InitializeComponents();
 
-	virtual void Tick(float DeltaTime);
+	void Tick(float DeltaTime);
 
 	/**
 	 * Adds a HandlerComponent to the pipeline, prior to initialization (none can be added after initialization)
@@ -180,7 +182,7 @@ public:
 	 * @param NewHandler		The HandlerComponent to add
 	 * @param bDeferInitialize	Whether or not to defer triggering Initialize (for batch-adds - code calling this, triggers it instead)
 	 */
-	virtual void AddHandler(TSharedPtr<HandlerComponent> NewHandler, bool bDeferInitialize=false);
+	void AddHandler(TSharedPtr<HandlerComponent> NewHandler, bool bDeferInitialize=false);
 
 	/**
 	 * As above, but initializes from a string specifying the component module, and (optionally) additional options
@@ -188,26 +190,67 @@ public:
 	 * @param ComponentStr		The handler component to load
 	 * @param bDeferInitialize	Whether or not to defer triggering Initialize (for batch-adds - code calling this, triggers it instead)
 	 */
-	virtual TSharedPtr<HandlerComponent> AddHandler(FString ComponentStr, bool bDeferInitialize=false);
+	TSharedPtr<HandlerComponent> AddHandler(FString ComponentStr, bool bDeferInitialize=false);
+
+
+	// @todo #JohnB: Add runtime-calculated arrays for each packet pipeline type, to reduce redundant iterations,
+	//				(there are 3x iterations now, 1 for each packet pipeline type), and to ignore inactive HandlerComponent's
+
+	// @todo #JohnB: The reserved packet bits needs to be handled differently for the 'High' functions, as they use SendBuffer,
+	//					which normally is reduced in size by reserved packet bits.
 
 
 	/**
-	 * Processes incoming UNetConnection packets, through all HandlerComponents, and returns the final packet for local handling
+	 * @todo #JohnB: Work in progress, don't use yet.
+	 *
+	 * Processes incoming packets at the UNetConnection level, after uncapping the packet into an FBitReader.
+	 *
+	 * Use this for simple data additions to packets, and for maximum compatibility with other HandlerComponent's.
+	 *
+	 * @param Reader	The FBitReader for the incoming packet
+	 */
+	void IncomingHigh(FBitReader& Reader);
+
+	/**
+	 * @todo #JohnB: Work in progress, don't use yet.
+	 *
+	 * Processes outgoing packets at the UNetConnection level, after game data is written, and just before the packet is capped.
+	 *
+	 * Use this for simple data additions to packets, and for maximum compatibility with other HandlerComponent's.
+	 *
+	 * @param Writer	The FBitWriter for the outgoing packet
+	 */
+	void OutgoingHigh(FBitWriter& Writer);
+
+	/**
+	 * Processes incoming packets at the PacketHandler level, before any UNetConnection processing takes place on the packet.
+	 *
+	 * Use this for more complex changes to packets, such as compression/encryption,
+	 * but be aware that compatibility problems with other HandlerComponent's are more likely.
 	 *
 	 * @param Packet		The packet data to be processed
 	 * @param CountBytes	The size of the packet data in bytes
 	 * @return				Returns the final packet
 	 */
-	virtual const ProcessedPacket Incoming(uint8* Packet, int32 CountBytes);
+	FORCEINLINE const ProcessedPacket Incoming(uint8* Packet, int32 CountBytes)
+	{
+		return Incoming_Internal(Packet, CountBytes);
+	}
 
 	/**
-	 * Processes outgoing UNetConnection packets, through all HandlerComponents, and returns the final packet for sending
+	 * Processes outgoing packets at the PacketHandler level, after all UNetConnection processing.
+	 *
+	 * Use this for more complex changes to packets, such as compression/encryption,
+	 * but be aware that compatibility problems with other HandlerComponent's are more likely.
 	 *
 	 * @param Packet		The packet data to be processed
 	 * @param CountBits		The size of the packet data in bits
 	 * @return				Returns the final packet
 	 */
-	virtual const ProcessedPacket Outgoing(uint8* Packet, int32 CountBits);
+	FORCEINLINE const ProcessedPacket Outgoing(uint8* Packet, int32 CountBits)
+	{
+		return Outgoing_Internal(Packet, CountBits);
+	}
 
 	/**
 	 * Processes incoming packets without a UNetConnection, in the same manner as 'Incoming' above
@@ -219,7 +262,10 @@ public:
 	 * @param CountBytes	The size of the packet data in bytes
 	 * @return				Returns the final packet
 	 */
-	virtual const ProcessedPacket IncomingConnectionless(FString Address, uint8* Packet, int32 CountBytes);
+	FORCEINLINE const ProcessedPacket IncomingConnectionless(FString Address, uint8* Packet, int32 CountBytes)
+	{
+		return Incoming_Internal(Packet, CountBytes, true, Address);
+	}
 
 	/**
 	 * Processes outgoing packets without a UNetConnection, in the same manner as 'Outgoing' above
@@ -230,7 +276,38 @@ public:
 	 * @param CountBits		The size of the packet data in bits
 	 * @return				Returns the final packet
 	 */
-	virtual const ProcessedPacket OutgoingConnectionless(FString Address, uint8* Packet, int32 CountBits);
+	FORCEINLINE const ProcessedPacket OutgoingConnectionless(FString Address, uint8* Packet, int32 CountBits)
+	{
+		return Outgoing_Internal(Packet, CountBits, true, Address);
+	}
+
+
+protected:
+	/**
+	 * Internal handling for Incoming/IncomingConnectionless
+	 *
+	 * @param Packet			The packet data to be processed
+	 * @param CountBytes		The size of the packet data in bytes
+	 * @param bConnectionless	Whether or not this should be processed as a connectionless packet
+	 * @param Address			The address the packet was received from (format is abstract, determined by active net driver)
+	 * @return					Returns the final packet
+	 */
+	const ProcessedPacket Incoming_Internal(uint8* Packet, int32 CountBytes, bool bConnectionless=false,
+													FString Address=TEXT(""));
+
+	/**
+	 * Internal handling for Outgoing/OutgoingConnectionless
+	 *
+	 * @param Packet			The packet data to be processed
+	 * @param CountBits			The size of the packet data in bits
+	 * @param bConnectionless	Whether or not this should be sent as a connectionless packet
+	 * @param Address			The address the packet is being sent to (format is abstract, determined by active net driver)
+	 * @return					Returns the final packet
+	 */
+	const ProcessedPacket Outgoing_Internal(uint8* Packet, int32 CountBits, bool bConnectionless=false,
+													FString Address=TEXT(""));
+
+public:
 
 
 	/**
@@ -261,11 +338,11 @@ public:
 	BufferedPacket* GetQueuedConnectionlessPacket();
 
 	/**
-	 * Gets the combined packet/protocol overhead from all handlers, for reserving space in the parent connections packets
+	 * Gets the combined reserved packet/protocol bits from all handlers, for reserving space in the parent connections packets
 	 *
-	 * @return	The combined packet/protocol overhead
+	 * @return	The combined reserved packet/protocol bits
 	 */
-	int32 GetTotalPacketOverheadBits();
+	int32 GetTotalReservedPacketBits();
 
 
 	/**
@@ -285,11 +362,6 @@ public:
 	FORCEINLINE bool GetRawSend()
 	{
 		return bRawSend;
-	}
-
-	FORCEINLINE uint8 GetPacketBitAlignment()
-	{
-		return PacketBitAlignment;
 	}
 
 
@@ -341,15 +413,19 @@ private:
 	/** Used for unpacking incoming packets */
 	FBitReader IncomingPacket;
 
+
 	/** The HandlerComponent pipeline, for processing incoming/outgoing packets */
 	TArray<TSharedPtr<HandlerComponent>> HandlerComponents;
 
-	/** The overall packet bit alignment (0-7), for all HandlerComponents - used to determine the bit-size of incoming packets/ */
-	uint8 PacketBitAlignment;
+
+	/** The maximum supported packet size (reflects UNetConnection::MaxPacket) */
+	uint32 MaxPacketBits;
+
 
 	/** State of the handler */
 	Handler::State State;
 	
+
 	/** Packets that are buffered while HandlerComponents are being initialized */
 	TArray<BufferedPacket*> BufferedPackets;
 
@@ -375,6 +451,8 @@ private:
  */
 class PACKETHANDLER_API HandlerComponent
 {
+	friend class PacketHandler;
+
 public:
 	/**
 	 * Base constructor
@@ -472,35 +550,14 @@ public:
 	virtual void SetActive(bool Active);
 
 	/**
-	 * Returns the amount of packet/protocol overhead expected from this component.
+	 * Returns the amount of reserved packet/protocol bits expected from this component.
 	 *
-	 * IMPORTANT: This MUST be accurate, and should represent the worst-case overhead expected from the component.
+	 * IMPORTANT: This MUST be accurate, and should represent the worst-case number of reserved bits expected from the component.
 	 *				If this is inaccurate, packets will randomly fail to send, in rare cases which are extremely hard to trace.
 	 *
-	 * @return	The worst-case packet overhead for the component
+	 * @return	The worst-case reserved packet bits for the component
 	 */
-	virtual int32 GetPacketOverheadBits() PURE_VIRTUAL(Handler::Component::GetPacketOverheadBits, return -1;);
-
-	/**
-	 * Determines the bit alignment (0-7) of this component, so the PacketHandler can determine the bit-size of incoming packets,
-	 * when they are not byte-aligned.
-	 *
-	 * NOTE: The return value must be static, determined at compile time. It must not change at runtime.
-	 *
-	 * @return	Returns the bit alignment of this component
-	 */
-	virtual uint8 GetBitAlignment() PURE_VIRTUAL(Handler::Component::GetBitAlignment, return 0;);
-
-	/**
-	 * Whether or not the changes this component makes to the packet, resets all bit alignment changes to the packet,
-	 * from previous components in the chain (with the new packet alignment, matching this components bit alignment).
-	 *
-	 * NOTE: The return value must be static, determined at compile time. It must not change at runtime.
-	 *
-	 * @return	Returns whether or not this component resets packet bit alignment.
-	 */
-	virtual bool DoesResetBitAlignment() PURE_VIRTUAL(Handler::Component::DoesResetBitAlignment, return false;);
-
+	virtual int32 GetReservedPacketBits() PURE_VIRTUAL(Handler::Component::GetReservedPacketBits, return -1;);
 
 protected:
 	/**
@@ -523,6 +580,9 @@ public:
 protected:
 	/** The state of this handler */
 	Handler::Component::State State;
+
+	/** Maximum number of Outgoing packet bits supported (automatically calculated to factor in other HandlerComponent reserved bits) */
+	uint32 MaxOutgoingBits;
 
 private:
 	/** Whether this handler is active, which dictates whether it will receive incoming and outgoing packets. */

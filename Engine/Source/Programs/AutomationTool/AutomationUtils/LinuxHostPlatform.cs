@@ -110,10 +110,16 @@ namespace AutomationTool
 			// @todo: add mono support
 		}
 
+		private readonly HashSet<string> UnsupportedModules = new HashSet<string>
+		{
+			"IOS", "TVOS", "PS4", "XBoxOne"
+		};
+
 		public override bool IsScriptModuleSupported(string ModuleName)
 		{
-			// @todo: add more unsupported modules here
-			return true;
+			bool bSupported = !UnsupportedModules.Contains(ModuleName);
+			Log.TraceLog("IsScriptModuleSupported({0}) = {1}", ModuleName, bSupported);
+			return bSupported;
 		}
 
 		public override string UBTProjectName

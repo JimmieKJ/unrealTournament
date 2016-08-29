@@ -3,6 +3,7 @@
 
 #include "MetalRHIPrivate.h"
 #include "ShaderCache.h"
+#include "MetalCommandBuffer.h"
 
 FMetalShaderResourceView::~FMetalShaderResourceView()
 {
@@ -25,35 +26,6 @@ FMetalShaderResourceView::~FMetalShaderResourceView()
 	FShaderCache::RemoveSRV(this);
 	SourceVertexBuffer = NULL;
 	SourceTexture = NULL;
-}
-
-void FMetalUnorderedAccessView::Set(FMetalContext* Context, uint32 ResourceIndex)
-{
-	// figure out which one of the resources we need to set
-	FMetalStructuredBuffer* StructuredBuffer = SourceStructuredBuffer.GetReference();
-	FMetalVertexBuffer* VertexBuffer = SourceVertexBuffer.GetReference();
-	FRHITexture* Texture = SourceTexture.GetReference();
-	if (StructuredBuffer)
-	{
-		Context->GetCommandEncoder().SetShaderBuffer(SF_Compute, StructuredBuffer->Buffer, 0, ResourceIndex);
-	}
-	else if (VertexBuffer)
-	{
-		Context->GetCommandEncoder().SetShaderBuffer(SF_Compute, VertexBuffer->Buffer, 0, ResourceIndex);
-	}
-	else if (Texture)
-	{
-		FMetalSurface* Surface = GetMetalSurfaceFromRHITexture(Texture);
-		if (Surface != nullptr)
-		{
-			Context->GetCommandEncoder().SetShaderTexture(SF_Compute, Surface->Texture, ResourceIndex);
-		}
-		else
-		{
-			Context->GetCommandEncoder().SetShaderTexture(SF_Compute, nil, ResourceIndex);
-		}
-	}
-
 }
 
 FUnorderedAccessViewRHIRef FMetalDynamicRHI::RHICreateUnorderedAccessView_RenderThread(class FRHICommandListImmediate& RHICmdList, FStructuredBufferRHIParamRef StructuredBuffer, bool bUseUAVCounter, bool bAppendBuffer)
@@ -189,6 +161,16 @@ FShaderResourceViewRHIRef FMetalDynamicRHI::RHICreateShaderResourceView_RenderTh
 	}
 }
 
+FShaderResourceViewRHIRef FMetalDynamicRHI::CreateShaderResourceView_RenderThread(class FRHICommandListImmediate& RHICmdList, FVertexBufferRHIParamRef VertexBuffer, uint32 Stride, uint8 Format)
+{
+	return GDynamicRHI->RHICreateShaderResourceView(VertexBuffer, Stride, Format);
+}
+
+FShaderResourceViewRHIRef FMetalDynamicRHI::CreateShaderResourceView_RenderThread(class FRHICommandListImmediate& RHICmdList, FIndexBufferRHIParamRef Buffer)
+{
+	return GDynamicRHI->RHICreateShaderResourceView(Buffer);
+}
+
 FShaderResourceViewRHIRef FMetalDynamicRHI::RHICreateShaderResourceView_RenderThread(class FRHICommandListImmediate& RHICmdList, FVertexBufferRHIParamRef VertexBuffer, uint32 Stride, uint8 Format)
 {
 	return GDynamicRHI->RHICreateShaderResourceView(VertexBuffer, Stride, Format);
@@ -231,9 +213,17 @@ FShaderResourceViewRHIRef FMetalDynamicRHI::RHICreateShaderResourceView(FVertexB
 
 FShaderResourceViewRHIRef FMetalDynamicRHI::RHICreateShaderResourceView(FIndexBufferRHIParamRef BufferRHI)
 {
-	UE_LOG(LogRHI, Fatal, TEXT("Metal RHI doesn't support RHICreateShaderResourceView with FIndexBufferRHIParamRef yet!"));
+	FMetalIndexBuffer* Buffer = ResourceCast(BufferRHI);
 	
-	return FShaderResourceViewRHIRef();
+	FMetalShaderResourceView* SRV = new FMetalShaderResourceView;
+	SRV->SourceVertexBuffer = nullptr;
+	SRV->SourceIndexBuffer = Buffer;
+	SRV->TextureView = nullptr;
+	
+	UE_LOG(LogRHI, Warning, TEXT("FShaderCache doesn't support RHICreateShaderResourceView with FIndexBufferRHIParamRef yet!"));
+	//FShaderCache::LogSRV(SRV, VertexBufferRHI, Stride, Format);
+	
+	return SRV;
 }
 
 FShaderResourceViewRHIRef FMetalDynamicRHI::RHICreateShaderResourceView(FTexture2DRHIParamRef Texture2DRHI, uint8 MipLevel)
@@ -322,9 +312,11 @@ void FMetalRHICommandContext::RHIClearUAV(FUnorderedAccessViewRHIParamRef Unorde
 	FMetalUnorderedAccessView* UnorderedAccessView = ResourceCast(UnorderedAccessViewRHI);
 	if (UnorderedAccessView->SourceStructuredBuffer)
 	{
+		UE_LOG(LogRHI, Fatal,TEXT("Metal RHI doesn't support RHIClearUAV with FStructuredBufferRHIParamRef yet!"));
 	}
 	else if (UnorderedAccessView->SourceTexture)
 	{
+		UE_LOG(LogRHI, Fatal,TEXT("Metal RHI doesn't support RHIClearUAV with FRHITexture yet!"));
 	}
 	else
 	{
@@ -332,9 +324,53 @@ void FMetalRHICommandContext::RHIClearUAV(FUnorderedAccessViewRHIParamRef Unorde
 		
 		// Fill the buffer via a blit encoder - I hope that is sufficient.
 		id<MTLBlitCommandEncoder> Blitter = Context->GetBlitContext();
+		METAL_DEBUG_COMMAND_BUFFER_BLIT_LOG(Context, @"RHIClearUAV(UAV %p, %d)", UnorderedAccessViewRHI, Values[0]);
 		[Blitter fillBuffer:UnorderedAccessView->SourceVertexBuffer->Buffer range:NSMakeRange(0, UnorderedAccessView->SourceVertexBuffer->GetSize()) value:Values[0]];
 		
 		// If there are problems you may need to add calls to restore the render command encoder at this point
 		// but we don't generally want to do that.
+	}
+}
+
+FComputeFenceRHIRef FMetalDynamicRHI::RHICreateComputeFence(const FName& Name)
+{
+	return new FMetalComputeFence(Name);
+}
+
+void FMetalComputeFence::Wait()
+{
+	if (GSupportsEfficientAsyncCompute)
+	{
+		check(!CommandBuffer || CommandBuffer.status > MTLCommandBufferStatusEnqueued);
+	}
+}
+
+void FMetalRHICommandContext::RHITransitionResources(EResourceTransitionAccess TransitionType, EResourceTransitionPipeline TransitionPipeline, FUnorderedAccessViewRHIParamRef* InUAVs, int32 NumUAVs, FComputeFenceRHIParamRef WriteComputeFence)
+{
+	if (WriteComputeFence)
+	{
+		FMetalComputeFence* Fence = ResourceCast(WriteComputeFence);
+		if (Context->GetCurrentCommandBuffer())
+		{
+			Fence->Write(Context->GetCurrentCommandBuffer());
+			if (GSupportsEfficientAsyncCompute)
+			{
+				RHISubmitCommandsHint();
+			}
+		}
+		else
+		{
+			Fence->WriteFence();
+		}
+	}
+}
+
+void FMetalRHICommandContext::RHIWaitComputeFence(FComputeFenceRHIParamRef InFence)
+{
+	if (InFence)
+	{
+		checkf(InFence->GetWriteEnqueued(), TEXT("ComputeFence: %s waited on before being written. This will hang the GPU."), *InFence->GetName().ToString());
+		FMetalComputeFence* Fence = ResourceCast(InFence);
+		Fence->Wait();
 	}
 }

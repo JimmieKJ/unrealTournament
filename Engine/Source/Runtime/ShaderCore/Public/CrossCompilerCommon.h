@@ -37,6 +37,22 @@ namespace CrossCompiler
 		PACKED_TYPEINDEX_MAX		= 5,
 	};
 
+	static FORCEINLINE uint8 ShaderStageIndexToTypeName(uint8 ShaderStage)
+	{
+		switch (ShaderStage)
+		{
+		case SHADER_STAGE_VERTEX:	return 'v';
+		case SHADER_STAGE_PIXEL:	return 'p';
+		case SHADER_STAGE_GEOMETRY:	return 'g';
+		case SHADER_STAGE_HULL:		return 'h';
+		case SHADER_STAGE_DOMAIN:	return 'd';
+		case SHADER_STAGE_COMPUTE:	return 'c';
+		default: break;
+		}
+		check(0);
+		return 0;
+	}
+
 	static FORCEINLINE uint8 PackedTypeIndexToTypeName(uint8 ArrayType)
 	{
 		switch (ArrayType)

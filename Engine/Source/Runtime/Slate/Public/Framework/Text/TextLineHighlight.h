@@ -14,6 +14,22 @@ struct SLATE_API FTextLineHighlight
 
 	}
 
+	bool operator==(const FTextLineHighlight& Other) const
+	{
+		return LineIndex == Other.LineIndex
+			&& Range == Other.Range
+			&& ZOrder == Other.ZOrder
+			&& Highlighter == Other.Highlighter;
+	}
+
+	bool operator!=(const FTextLineHighlight& Other) const
+	{
+		return LineIndex != Other.LineIndex
+			|| Range != Other.Range
+			|| ZOrder != Other.ZOrder
+			|| Highlighter != Other.Highlighter;
+	}
+
 	int32 LineIndex;
 	FTextRange Range;
 	int32 ZOrder;

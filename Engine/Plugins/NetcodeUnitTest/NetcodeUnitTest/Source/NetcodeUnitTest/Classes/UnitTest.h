@@ -348,7 +348,7 @@ public:
 	 * This covers logs from within the unit test, and (for UClientUnitTest) from processing net packets related to this unit test.
 	 *
 	 * NOTE: The parameters are the same as the unprocessed log 'serialize' parameters, to convert to a string, use:
-	 * FOutputDevice::FormatLogLine(Verbosity, Category, Data, GPrintLogTimes)
+	 * FOutputDeviceHelper::FormatLogLine(Verbosity, Category, Data, GPrintLogTimes)
 	 *
 	 * NOTE: Verbosity ELogVerbosity::SetColor is a special category, whose log messages can be ignored.
 	 *

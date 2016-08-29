@@ -70,8 +70,15 @@ protected:
 	/** Don't call GC */
 	bool bSkipGarbageCollection;
 
-	/** Cached value, true if reinstancing a skeleton class or not */
-	bool bIsReinstancingSkeleton;
+	/** Cached value, mostly used to determine if we're explicitly targeting the skeleton class or not */
+	enum EReinstClassType
+	{
+		RCT_Unknown,
+		RCT_BpSkeleton,
+		RCT_BpGenerated,
+		RCT_Native,
+	};
+	EReinstClassType ReinstClassType;
 
 	uint32 ClassToReinstanceDefaultValuesCRC;
 
@@ -143,6 +150,8 @@ protected:
 
 	void CompileChildren();
 
+	bool IsReinstancingSkeleton() const { return (ReinstClassType == RCT_BpSkeleton); }
+
 	/** Default constructor, can only be used by derived classes */
 	FBlueprintCompileReinstancer()
 		: ClassToReinstance(NULL)
@@ -150,7 +159,7 @@ protected:
 		, OriginalCDO(NULL)
 		, bHasReinstanced(false)
 		, bSkipGarbageCollection(false)
-		, bIsReinstancingSkeleton(false)
+		, ReinstClassType(RCT_Unknown)
 		, ClassToReinstanceDefaultValuesCRC(0)
 		, bIsRootReinstancer(false)
 	{}

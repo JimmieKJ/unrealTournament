@@ -35,6 +35,12 @@ struct FLightmassMaterialCompiler : public FProxyMaterialCompiler
 		return SF_Pixel;
 	}
 
+	virtual EMaterialShadingModel GetMaterialShadingModel() const override
+	{ 
+		// not used by Lightmass
+		return MSM_MAX;
+	}
+
 	virtual int32 ParticleMacroUV() override
 	{
 		return Compiler->ParticleMacroUV();
@@ -250,6 +256,10 @@ public:
 			{
 				return true;
 			}
+			else if(FCString::Stristr(ShaderType->GetName(), TEXT("Simple")))
+			{
+				return true;
+			}
 			else if(FCString::Stristr(ShaderType->GetName(), TEXT("BasePassPSFNoLightMapPolicy")))
 			{
 				return true;
@@ -372,7 +382,7 @@ public:
 						return Compiler->Saturate(Compiler->ForceCast(MaterialInterface->CompileProperty(Compiler, DiffuseInput),MCT_Float3,true,true));
 					}
 				}
-				else if ((BlendMode == BLEND_Translucent) || (BlendMode == BLEND_Additive))
+				else if ((BlendMode == BLEND_Translucent) || (BlendMode == BLEND_Additive || (BlendMode == BLEND_AlphaComposite)))
 				{
 					int32 ColoredOpacity = -1;
 					if (ShadingModel == MSM_Unlit)
@@ -449,7 +459,7 @@ public:
 		}
 		return false;
 	}
-	virtual bool IsUsedWithDeferredDecal() const override
+	virtual bool IsDeferredDecal() const override
 	{
 		return Material && Material->MaterialDomain == MD_DeferredDecal;
 	}
@@ -595,7 +605,8 @@ public:
 			else
 			if ((BlendMode == BLEND_Modulate) ||
 				(BlendMode == BLEND_Translucent) || 
-				(BlendMode == BLEND_Additive))
+				(BlendMode == BLEND_Additive) ||
+				(BlendMode == BLEND_AlphaComposite))
 			{
 				bool bColorInputIsNULL = false;
 				if (ShadingModel == MSM_Unlit)
@@ -607,7 +618,8 @@ public:
 					bColorInputIsNULL = !IsMaterialInputConnected(Material, MP_DiffuseColor);
 				}
 				if (BlendMode == BLEND_Translucent
-					|| BlendMode == BLEND_Additive)
+					|| BlendMode == BLEND_Additive
+					|| BlendMode == BLEND_AlphaComposite)
 				{
 					bExpressionIsNULL = bColorInputIsNULL && !IsMaterialInputConnected(Material, PropertyToCompile);
 				}
@@ -717,6 +729,7 @@ public:
 			break;
 		case BLEND_Translucent:
 		case BLEND_Additive:
+		case BLEND_AlphaComposite:
 			{
 				switch (InMaterialProperty)
 				{

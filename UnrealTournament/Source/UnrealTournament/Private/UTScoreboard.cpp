@@ -573,14 +573,14 @@ void UUTScoreboard::DrawServerPanel(float RenderDelta, float YOffset)
 	}
 }
 
-int32 UUTScoreboard::SelectionHitTest(FVector2D Position)
+int32 UUTScoreboard::SelectionHitTest(FVector2D InPosition)
 {
 	if (bIsInteractive)
 	{
 		for (int32 i = 0; i < SelectionStack.Num(); i++)
 		{
-			if (Position.X >= SelectionStack[i].ScoreBounds.X && Position.X <= SelectionStack[i].ScoreBounds.Z &&
-				  Position.Y >= SelectionStack[i].ScoreBounds.Y && Position.Y <= SelectionStack[i].ScoreBounds.W && SelectionStack[i].ScoreOwner.IsValid())
+			if (InPosition.X >= SelectionStack[i].ScoreBounds.X && InPosition.X <= SelectionStack[i].ScoreBounds.Z &&
+				InPosition.Y >= SelectionStack[i].ScoreBounds.Y && InPosition.Y <= SelectionStack[i].ScoreBounds.W && SelectionStack[i].ScoreOwner.IsValid())
 			{
 				return i;
 			}
@@ -824,7 +824,7 @@ void UUTScoreboard::GetContextMenuItems_Implementation(TArray<FScoreboardContext
 {
 }
 
-bool UUTScoreboard::HandleContextCommand_Implementation(uint8 ContextId, AUTPlayerState* SelectedPlayer)
+bool UUTScoreboard::HandleContextCommand_Implementation(uint8 ContextId, AUTPlayerState* InSelectedPlayer)
 {
 	return false;
 }

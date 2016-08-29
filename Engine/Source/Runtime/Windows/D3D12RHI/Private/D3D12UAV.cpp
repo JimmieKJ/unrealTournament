@@ -13,7 +13,7 @@ FUnorderedAccessViewRHIRef FD3D12DynamicRHI::RHICreateUnorderedAccessView(FStruc
 	const bool bStructuredBuffer = !bByteAccessBuffer;
 	check(bByteAccessBuffer != bStructuredBuffer); // You can't have a structured buffer that allows raw views
 
-	D3D12_UNORDERED_ACCESS_VIEW_DESC UAVDesc ={};
+	D3D12_UNORDERED_ACCESS_VIEW_DESC UAVDesc = {};
 	UAVDesc.ViewDimension = D3D12_UAV_DIMENSION_BUFFER;
 	UAVDesc.Format = DXGI_FORMAT_UNKNOWN;
 
@@ -58,7 +58,7 @@ FUnorderedAccessViewRHIRef FD3D12DynamicRHI::RHICreateUnorderedAccessView(FTextu
 {
 	FD3D12TextureBase* Texture = GetD3D12TextureFromRHITexture(TextureRHI);
 
-	D3D12_UNORDERED_ACCESS_VIEW_DESC UAVDesc ={};
+	D3D12_UNORDERED_ACCESS_VIEW_DESC UAVDesc = {};
 
 	const DXGI_FORMAT PlatformResourceFormat = (DXGI_FORMAT)GPixelFormats[TextureRHI->GetFormat()].PlatformFormat;
 	UAVDesc.Format = FindShaderResourceDXGIFormat(PlatformResourceFormat, false);
@@ -110,7 +110,7 @@ FUnorderedAccessViewRHIRef FD3D12DynamicRHI::RHICreateUnorderedAccessView(FVerte
 	const uint32 BufferUsage = VertexBuffer->GetUsage();
 	const bool bByteAccessBuffer = (BufferUsage & BUF_ByteAddressBuffer) != 0;
 
-	D3D12_UNORDERED_ACCESS_VIEW_DESC UAVDesc ={};
+	D3D12_UNORDERED_ACCESS_VIEW_DESC UAVDesc = {};
 	UAVDesc.ViewDimension = D3D12_UAV_DIMENSION_BUFFER;
 	UAVDesc.Format = FindUnorderedAccessDXGIFormat((DXGI_FORMAT)GPixelFormats[Format].PlatformFormat);
 	UAVDesc.Buffer.FirstElement = pResourceLocation->GetOffset();
@@ -148,7 +148,7 @@ FShaderResourceViewRHIRef FD3D12DynamicRHI::RHICreateShaderResourceView(FStructu
 	const bool bByteAccessBuffer = (BufferUsage & BUF_ByteAddressBuffer) != 0;
 
 	// Create a Shader Resource View
-	D3D12_SHADER_RESOURCE_VIEW_DESC SRVDesc ={};
+	D3D12_SHADER_RESOURCE_VIEW_DESC SRVDesc = {};
 	SRVDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
 
 	// BufferDesc.StructureByteStride  is not getting patched through the D3D resource DESC structs, so use the RHI version as a hack
@@ -182,7 +182,7 @@ FShaderResourceViewRHIRef FD3D12DynamicRHI::RHICreateShaderResourceView(FVertexB
 
 	FD3D12Resource* pResource = VertexBuffer->ResourceLocation->GetResource();
 
-	D3D12_SHADER_RESOURCE_VIEW_DESC SRVDesc ={};
+	D3D12_SHADER_RESOURCE_VIEW_DESC SRVDesc = {};
 	SRVDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
 	SRVDesc.ViewDimension = D3D12_SRV_DIMENSION_BUFFER;
 	if (VertexBuffer->GetUsage() & BUF_ByteAddressBuffer)
@@ -218,7 +218,7 @@ FShaderResourceViewRHIRef FD3D12DynamicRHI::RHICreateShaderResourceView(FVertexB
 FShaderResourceViewRHIRef FD3D12DynamicRHI::RHICreateShaderResourceView(FIndexBufferRHIParamRef BufferRHI)
 {
 	UE_LOG(LogRHI, Fatal, TEXT("D3D12 RHI doesn't support RHICreateShaderResourceView with FIndexBufferRHIParamRef yet!"));
-	
+
 	return FShaderResourceViewRHIRef();
 }
 
@@ -237,10 +237,15 @@ void FD3D12CommandContext::RHIClearUAV(FUnorderedAccessViewRHIParamRef Unordered
 	D3D12_GPU_DESCRIPTOR_HANDLE GPUHandle = StateCache.GetDescriptorCache()->GetCurrentViewHeap()->GetGPUSlotHandle(ReservedSlot);
 	GetParentDevice()->GetDevice()->CopyDescriptorsSimple(1, DestSlot, CPUHandle, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 	FD3D12DynamicRHI::TransitionResource(CommandListHandle, UnorderedAccessView, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+	CommandListHandle.FlushResourceBarriers();
 	numClears++;
 	CommandListHandle->ClearUnorderedAccessViewUint(GPUHandle, CPUHandle, UnorderedAccessView->GetResource()->GetResource(), Values, 0, nullptr);
+	CommandListHandle.UpdateResidency(UnorderedAccessView->GetResource());
 
-	OwningRHI.RegisterGPUWork(1);
+	if (IsDefaultContext())
+	{
+		OwningRHI.RegisterGPUWork(1);
+	}
 }
 
 FUnorderedAccessViewRHIRef FD3D12DynamicRHI::RHICreateUnorderedAccessView_RenderThread(FRHICommandListImmediate& RHICmdList, FStructuredBufferRHIParamRef StructuredBufferRHI, bool bUseUAVCounter, bool bAppendBuffer)

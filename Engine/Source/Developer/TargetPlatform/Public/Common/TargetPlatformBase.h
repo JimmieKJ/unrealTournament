@@ -233,6 +233,11 @@ public:
 		// do nothing in the base class
 	}
 
+	virtual int32 GetCompressionBitWindow() const override
+	{
+		return DEFAULT_ZLIB_BIT_WINDOW;
+	}
+
 protected:
 
 	FTargetPlatformBase(const PlatformInfo::FPlatformInfo *const InPlatformInfo)
@@ -350,12 +355,15 @@ public:
 		case ETargetPlatformFeatures::TextureStreaming:
 			return TPlatformProperties::SupportsTextureStreaming();
 
-		case ETargetPlatformFeatures::VertexShaderTextureSampling:
-			return TPlatformProperties::SupportsVertexShaderTextureSampling();
-
 		case ETargetPlatformFeatures::SdkConnectDisconnect:
 		case ETargetPlatformFeatures::UserCredentials:
 			break;
+
+		case ETargetPlatformFeatures::MobileRendering:
+			return false;
+		case ETargetPlatformFeatures::DeferredRendering:
+			return true;
+
 		case ETargetPlatformFeatures::ShouldUseCompressedCookedPackages:
 			return false;
 		}

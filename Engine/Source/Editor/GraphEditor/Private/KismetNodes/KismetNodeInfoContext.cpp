@@ -83,16 +83,16 @@ FKismetNodeInfoContext::FKismetNodeInfoContext(UEdGraph* SourceGraph)
 		}
 
 		// Covert the watched pin array into a set
-		for (auto WatchedPinIt = SourceBlueprint->PinWatches.CreateConstIterator(); WatchedPinIt; ++WatchedPinIt)
+		for (auto WatchedPinIt = SourceBlueprint->WatchedPins.CreateConstIterator(); WatchedPinIt; ++WatchedPinIt)
 		{
-			UEdGraphPin* WatchedPin = *WatchedPinIt;
+			UEdGraphPin* WatchedPin = WatchedPinIt->Get();
 			if (!ensure(WatchedPin))
 			{
 				continue;
 			}
 
 			UEdGraphNode* OwningNode = Cast<UEdGraphNode>(WatchedPin->GetOuter());
-			if (!ensure(OwningNode != NULL)) // shouldn't happen, but just in case a dead pin was added to the PinWatches array
+			if (!ensure(OwningNode != NULL)) // shouldn't happen, but just in case a dead pin was added to the WatchedPins array
 			{
 				continue;
 			}

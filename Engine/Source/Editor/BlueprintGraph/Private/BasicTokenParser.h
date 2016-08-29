@@ -314,26 +314,6 @@ protected:
 	bool RequireSemi();
 
 	//--------------------------------------
-	// Character queries
-	//--------------------------------------
-
-	/**
-	 * Tests if a character is an end-of-line character.
-	 * 
-	 * @param  c	The character to test.
-	 * @return True if c is an end-of-line character, false otherwise.
-	 */
-	static bool IsEOL(TCHAR c);
-
-	/**
-	 * Tests if a character is a whitespace character.
-	 * 
-	 * @param  c	The character to test.
-	 * @return True if c is an whitespace character, false otherwise.
-	 */
-	static bool IsWhitespace(TCHAR c);
-
-	//--------------------------------------
 	// Error state 
 	//--------------------------------------
 
@@ -359,7 +339,7 @@ public:
 			: State(NoError) 
 		{}
 
-		/** Will take the current error and throw it using FError::Throwf() */
+		/** Will take the current error and logs it, optionally fatally */
 		void Throw(bool bLogFatal) const;
 
 		/** Should match up with EErrorType, but is extensible by subclasses 

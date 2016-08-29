@@ -56,16 +56,16 @@ void UNamedSlot::SynchronizeProperties()
 	Super::SynchronizeProperties();
 }
 
-void UNamedSlot::OnSlotAdded(UPanelSlot* Slot)
+void UNamedSlot::OnSlotAdded(UPanelSlot* InSlot)
 {
 	// Add the child to the live slot if it already exists
-	if ( MyBox.IsValid() && Slot->Content )
+	if ( MyBox.IsValid() && InSlot->Content )
 	{
-		MyBox->SetContent(Slot->Content->TakeWidget());
+		MyBox->SetContent(InSlot->Content->TakeWidget());
 	}
 }
 
-void UNamedSlot::OnSlotRemoved(UPanelSlot* Slot)
+void UNamedSlot::OnSlotRemoved(UPanelSlot* InSlot)
 {
 	// Remove the widget from the live slot if it exists.
 	if ( MyBox.IsValid() )

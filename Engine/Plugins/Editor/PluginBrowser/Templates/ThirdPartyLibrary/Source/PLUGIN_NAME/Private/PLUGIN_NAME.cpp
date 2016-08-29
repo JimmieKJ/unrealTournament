@@ -17,8 +17,10 @@ void FPLUGIN_NAMEModule::StartupModule()
 
 	// Add on the relative location of the third party dll and load it
 	FString LibraryPath;
-#ifdef PLATFORM_WINDOWS
+#if PLATFORM_WINDOWS
 	LibraryPath = FPaths::Combine(*BaseDir, TEXT("Binaries/ThirdParty/PLUGIN_NAMELibrary/Win64/ExampleLibrary.dll"));
+#elif PLATFORM_MAC
+    LibraryPath = FPaths::Combine(*BaseDir, TEXT("Source/ThirdParty/PLUGIN_NAMELibrary/Mac/Release/libExampleLibrary.dylib"));
 #endif // PLATFORM_WINDOWS
 
 	ExampleLibraryHandle = !LibraryPath.IsEmpty() ? FPlatformProcess::GetDllHandle(*LibraryPath) : nullptr;

@@ -3,6 +3,7 @@
 #include "UnrealTournament.h"
 #include "UTCharacterMovement.h"
 #include "GameFramework/GameNetworkManager.h"
+#include "Animation/AnimMontage.h"
 
 //======================================================
 // Networking Support
@@ -130,7 +131,7 @@ void UUTCharacterMovement::SmoothClientPosition(float DeltaSeconds)
 	}
 
 	SmoothClientPosition_Interpolate(DeltaSeconds);
-	if (IsMovingOnGround() && NetworkSmoothingMode != ENetworkSmoothingMode::Replay)
+	if (IsMovingOnGround()/* && NetworkSmoothingMode != ENetworkSmoothingMode::Replay*/)
 	{
 		FNetworkPredictionData_Client_Character* ClientData = GetPredictionData_Client_Character();
 		if (ClientData)

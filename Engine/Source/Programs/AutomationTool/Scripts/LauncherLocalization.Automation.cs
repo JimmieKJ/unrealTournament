@@ -18,6 +18,7 @@ class LauncherLocalization : BuildCommand
 		{
 			UE4Build.BuildAgenda Agenda = new UE4Build.BuildAgenda();
 			Agenda.AddTarget("UE4Editor", HostPlatform.Current.HostEditorPlatform, UnrealTargetConfiguration.Development);
+			Agenda.AddTarget("ShaderCompileWorker", HostPlatform.Current.HostEditorPlatform, UnrealTargetConfiguration.Development);
 
 			UE4Build Builder = new UE4Build(this);
 			Builder.Build(Agenda, InDeleteBuildProducts: true, InUpdateVersionFiles: true, InForceNoXGE: true);
@@ -131,7 +132,13 @@ class LauncherLocalization : BuildCommand
 	{
 		foreach (var culture in cultures)
 		{
-			var cultureDirectory = new DirectoryInfo(Path.Combine(destination.FullName, culture));
+            string finalCulture = culture;
+            if (culture == "es-ES")
+            {
+                finalCulture = "es";
+            }
+
+            var cultureDirectory = new DirectoryInfo(Path.Combine(destination.FullName, finalCulture));
 			if (!cultureDirectory.Exists)
 			{
 				cultureDirectory.Create();
@@ -141,23 +148,23 @@ class LauncherLocalization : BuildCommand
 			{
 				var exportFile = new FileInfo(Path.Combine(cultureDirectory.FullName, file.Filename));
 
-				var exportTranslationState = file.ExportTranslation(culture, memoryStream).Result;
+                var exportTranslationState = file.ExportTranslation(finalCulture, memoryStream).Result;
 				if (exportTranslationState == UploadedFile.ExportTranslationState.Success)
 				{
 					memoryStream.Position = 0;
 					using (Stream fileStream = File.OpenWrite(exportFile.FullName))
 					{
 						memoryStream.CopyTo(fileStream);
-						Console.WriteLine("[SUCCESS] Exporting: " + exportFile.FullName + " Locale: " + culture);
+                        Console.WriteLine("[SUCCESS] Exporting: " + exportFile.FullName + " Locale: " + finalCulture);
 					}
 				}
 				else if (exportTranslationState == UploadedFile.ExportTranslationState.NoContent)
 				{
-					Console.WriteLine("[WARNING] Exporting: " + exportFile.FullName + " Locale: " + culture + " has no translations!");
+                    Console.WriteLine("[WARNING] Exporting: " + exportFile.FullName + " Locale: " + finalCulture + " has no translations!");
 				}
 				else
 				{
-					Console.WriteLine("[FAILED] Exporting: " + exportFile.FullName + " Locale: " + culture);
+                    Console.WriteLine("[FAILED] Exporting: " + exportFile.FullName + " Locale: " + finalCulture);
 				}
 			}
 		}
@@ -169,6 +176,12 @@ class LauncherLocalization : BuildCommand
 		{
 			DirectoryInfo parentDirectory = Directory.GetParent(file);
 			string localeName = parentDirectory.Name;
+
+            if (localeName == "es")
+            {
+                localeName = "es-ES";
+            }
+
 			string currentFile = file;
 
 			using (var fileStream = File.OpenRead(currentFile))

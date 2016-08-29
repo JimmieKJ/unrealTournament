@@ -7,11 +7,17 @@
 
 FMovieSceneSequenceInstance::FMovieSceneSequenceInstance(const UMovieSceneSequence& InMovieSceneSequence)
 	: MovieSceneSequence( &InMovieSceneSequence )
+#if WITH_EDITOR
+	, InstanceId(FGuid::NewGuid())
+#endif
 {
 	TimeRange = MovieSceneSequence->GetMovieScene()->GetPlaybackRange();
 }
 
 FMovieSceneSequenceInstance::FMovieSceneSequenceInstance(const UMovieSceneTrack& InMovieSceneTrack)
+#if WITH_EDITOR
+	: InstanceId(FGuid::NewGuid())
+#endif
 {
 	TimeRange = CastChecked<UMovieScene>(InMovieSceneTrack.GetOuter())->GetPlaybackRange();
 }
@@ -155,6 +161,20 @@ void FMovieSceneSequenceInstance::RestoreState(class IMovieScenePlayer& Player)
 	}
 }
 
+void FMovieSceneSequenceInstance::RestoreSpecificState(const FGuid& ObjectGuid, IMovieScenePlayer& Player)
+{
+	FMovieSceneObjectBindingInstance* ObjectBindingInstance = ObjectBindingInstances.Find(ObjectGuid);
+	if (!ObjectBindingInstance)
+	{
+		return;
+	}
+
+	for (auto& Pair : ObjectBindingInstance->TrackInstances)
+	{
+		Pair.Value->RestoreState(ObjectBindingInstance->RuntimeObjects, Player, *this);
+	}
+}
+
 void FMovieSceneSequenceInstance::Update( EMovieSceneUpdateData& UpdateData, class IMovieScenePlayer& Player )
 {
 	if(MovieSceneSequence.IsValid())
@@ -219,7 +239,8 @@ void FMovieSceneSequenceInstance::UpdatePassSingle( EMovieSceneUpdateData& Updat
 		// update each master track
 		for( FMovieSceneInstanceMap::TIterator It( MasterTrackInstances ); It; ++It )
 		{		
-			if (It.Value()->HasUpdatePasses() & UpdateData.UpdatePass && It.Value() != CameraCutTrackInstance)
+			if (It.Value()->HasUpdatePasses() & UpdateData.UpdatePass && It.Value() != CameraCutTrackInstance &&
+				( UpdateData.bSubSceneDeactivate == false || It.Value()->RequiresUpdateForSubSceneDeactivate () ))
 			{
 				It.Value()->Update( UpdateData, NoObjects, Player, *this);
 			}
@@ -233,7 +254,8 @@ void FMovieSceneSequenceInstance::UpdatePassSingle( EMovieSceneUpdateData& Updat
 		
 			for( FMovieSceneInstanceMap::TIterator It = ObjectBindingInstance.TrackInstances.CreateIterator(); It; ++It )
 			{
-				if (It.Value()->HasUpdatePasses() & UpdateData.UpdatePass && It.Value() != CameraCutTrackInstance)
+				if (It.Value()->HasUpdatePasses() & UpdateData.UpdatePass && It.Value() != CameraCutTrackInstance &&
+					( UpdateData.bSubSceneDeactivate == false || It.Value()->RequiresUpdateForSubSceneDeactivate() ) )
 				{
 					It.Value()->Update( UpdateData, ObjectBindingInstance.RuntimeObjects, Player, *this );
 				}
@@ -243,7 +265,8 @@ void FMovieSceneSequenceInstance::UpdatePassSingle( EMovieSceneUpdateData& Updat
 		// update camera cut track last to make sure spawnable cameras are there, and to override sub-shots
 		if (CameraCutTrackInstance.IsValid())
 		{
-			if (CameraCutTrackInstance->HasUpdatePasses() & UpdateData.UpdatePass)
+			if (CameraCutTrackInstance->HasUpdatePasses() & UpdateData.UpdatePass &&
+				( UpdateData.bSubSceneDeactivate == false || CameraCutTrackInstance->RequiresUpdateForSubSceneDeactivate() ) )
 			{
 				CameraCutTrackInstance->Update(UpdateData, NoObjects, Player, *this );
 			}

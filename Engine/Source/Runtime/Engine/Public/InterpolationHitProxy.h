@@ -4,8 +4,7 @@
 	InterpolationHitProxy.h
 =============================================================================*/
 
-#ifndef _INC_INTERPOLATIONHITPROXY
-#define _INC_INTERPOLATIONHITPROXY
+#pragma once
 
 #include "Interpolation.h"
 
@@ -98,5 +97,3 @@ struct HInterpTrackKeyHandleProxy : public HHitProxy
 };
 
 
-
-#endif

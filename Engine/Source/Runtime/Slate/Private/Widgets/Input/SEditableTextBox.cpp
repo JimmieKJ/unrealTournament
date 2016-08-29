@@ -40,6 +40,7 @@ void SEditableTextBox::Construct( const FArguments& InArgs )
 			[
 				SAssignNew(PaddingBox, SBox)
 				.Padding( Padding )
+				.VAlign(VAlign_Center)
 				[
 					SAssignNew( EditableText, SEditableText )
 					.Text( InArgs._Text )
@@ -196,6 +197,11 @@ void SEditableTextBox::ClearSelection()
 FText SEditableTextBox::GetSelectedText() const
 {
 	return EditableText->GetSelectedText();
+}
+
+bool SEditableTextBox::HasError() const
+{
+	return ErrorReporting.IsValid() && ErrorReporting->HasError();
 }
 
 const FSlateBrush* SEditableTextBox::GetBorderImage() const

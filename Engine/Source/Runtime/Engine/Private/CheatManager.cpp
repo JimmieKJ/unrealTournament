@@ -4,9 +4,11 @@
 #include "UnrealNetwork.h"
 #include "SlateBasics.h"
 #include "NavDataGenerator.h"
-#include "OnlineSubsystemUtils.h"
+#include "Net/OnlineEngineInterface.h"
 #include "VisualLogger/VisualLogger.h"
+#include "AI/Navigation/RecastNavMesh.h"
 #include "GameFramework/Character.h"
+#include "Engine/Console.h"
 
 #if !UE_BUILD_SHIPPING
 #include "ISlateReflectorModule.h"
@@ -187,9 +189,9 @@ void UCheatManager::God()
 	}
 }
 
-void UCheatManager::Slomo( float T )
+void UCheatManager::Slomo(float NewTimeDilation)
 {
-	GetOuterAPlayerController()->GetWorldSettings()->TimeDilation = FMath::Clamp(T, 0.0001f, 20.0f);
+	GetOuterAPlayerController()->GetWorldSettings()->SetTimeDilation(NewTimeDilation);
 }
 
 void UCheatManager::DamageTarget(float DamageAmount)
@@ -300,6 +302,7 @@ void UCheatManager::DestroyAllPawnsExceptTarget()
 		for (TActorIterator<APawn> It(GetWorld(), APawn::StaticClass()); It; ++It)
 		{
 			APawn* Pawn = *It;
+			checkSlow(Pawn);
 			if (!Pawn->IsPendingKill())
 			{
 				if ((Pawn != HitPawnTarget) && Cast<APlayerController>(Pawn->Controller) == NULL)
@@ -338,7 +341,7 @@ void UCheatManager::DestroyPawns(TSubclassOf<APawn> aClass)
 
 void UCheatManager::Summon( const FString& ClassName )
 {
-	UE_LOG(LogCheatManager, Log,  TEXT("Fabricate %s"), *ClassName );
+	UE_LOG(LogCheatManager, Log, TEXT("Fabricate %s"), *ClassName );
 
 	bool bIsValidClassName = true;
 	FString FailureReason;
@@ -614,7 +617,7 @@ void UCheatManager::DisableDebugCamera()
 
 void UCheatManager::InitCheatManager() 
 {
-	// Empty
+	ReceiveInitCheatManager(); //BP Initialization event
 }
 
 void UCheatManager::BeginDestroy()
@@ -927,30 +930,6 @@ void UCheatManager::TestCollisionDistance()
 	}
 }
 
-void UCheatManager::WidgetReflector()
-{
-#if !UE_BUILD_SHIPPING
-	static const FName SlateReflectorModuleName("SlateReflector");
-	FModuleManager::LoadModuleChecked<ISlateReflectorModule>(SlateReflectorModuleName).DisplayWidgetReflector();
-#endif // #if !UE_BUILD_SHIPPING
-}
-
-void UCheatManager::TextureAtlasVisualizer()
-{
-#if !UE_BUILD_SHIPPING
-	static const FName SlateReflectorModuleName("SlateReflector");
-	FModuleManager::LoadModuleChecked<ISlateReflectorModule>(SlateReflectorModuleName).DisplayTextureAtlasVisualizer();
-#endif // #if !UE_BUILD_SHIPPING
-}
-
-void UCheatManager::FontAtlasVisualizer()
-{
-#if !UE_BUILD_SHIPPING
-	static const FName SlateReflectorModuleName("SlateReflector");
-	FModuleManager::LoadModuleChecked<ISlateReflectorModule>(SlateReflectorModuleName).DisplayFontAtlasVisualizer();
-#endif // #if !UE_BUILD_SHIPPING
-}
-
 void UCheatManager::RebuildNavigation()
 {
 	UNavigationSystem* NavSys = UNavigationSystem::GetCurrent(GetWorld());
@@ -975,29 +954,17 @@ void UCheatManager::SetNavDrawDistance(float DrawDistance)
 
 void UCheatManager::DumpOnlineSessionState()
 {
-	IOnlineSessionPtr SessionInt = Online::GetSessionInterface(GetWorld());
-	if (SessionInt.IsValid())
-	{
-		SessionInt->DumpSessionState();
-	}
+	UOnlineEngineInterface::Get()->DumpSessionState(GetWorld());
 }
 
 void UCheatManager::DumpPartyState()
 {
-	IOnlinePartyPtr PartyInt = Online::GetPartyInterface(GetWorld());
-	if (PartyInt.IsValid())
-	{
-		PartyInt->DumpPartyState();
-	}
+	UOnlineEngineInterface::Get()->DumpPartyState(GetWorld());
 }
 
 void UCheatManager::DumpChatState()
 {
-	IOnlineChatPtr ChatInt = Online::GetChatInterface(GetWorld());
-	if (ChatInt.IsValid())
-	{
-		ChatInt->DumpChatState();
-	}
+	UOnlineEngineInterface::Get()->DumpChatState(GetWorld());
 }
 
 void UCheatManager::DumpVoiceMutingState()
@@ -1007,11 +974,7 @@ void UCheatManager::DumpVoiceMutingState()
 	UE_LOG(LogCheatManager, Display, TEXT(""));
 
 	// Log the online view of the voice state
-	IOnlineVoicePtr VoiceInt = Online::GetVoiceInterface(GetWorld());
-	if (VoiceInt.IsValid())
-	{
-		UE_LOG(LogCheatManager, Display, TEXT("\n%s"), *VoiceInt->GetVoiceDebugState());
-	}
+	UOnlineEngineInterface::Get()->DumpVoiceState(GetWorld());
 
 	// For each player list their gameplay mutes and system wide mutes
 	UE_LOG(LogCheatManager, Display, TEXT("\n%s"), *DumpMutelistState(GetWorld()));
@@ -1064,15 +1027,21 @@ void UCheatManager::BugItWorker( FVector TheLocation, FRotator TheRotation )
 {
 	UE_LOG(LogCheatManager, Log,  TEXT("BugItGo to: %s %s"), *TheLocation.ToString(), *TheRotation.ToString() );
 
+	// ghost so we can go anywhere
 	Ghost();
 
 	APlayerController* const MyPlayerController = GetOuterAPlayerController();
-	if (MyPlayerController->GetPawn())
+	APawn* const MyPawn = MyPlayerController->GetPawn();
+	if (MyPawn)
 	{
-		MyPlayerController->GetPawn()->TeleportTo( TheLocation, TheRotation );
-		MyPlayerController->GetPawn()->FaceRotation( TheRotation, 0.0f );
+		MyPawn->TeleportTo(TheLocation, TheRotation);
+		MyPawn->FaceRotation(TheRotation, 0.0f);
 	}
 	MyPlayerController->SetControlRotation(TheRotation);
+
+	// ghost again in case teleporting changed the movememt mode
+	Ghost();
+	GetOuterAPlayerController()->ClientMessage(TEXT("BugItGo: Ghost mode is ON"));
 }
 
 
@@ -1176,6 +1145,41 @@ void UCheatManager::InvertMouse()
 	}
 }
 
+void UCheatManager::CheatScript(FString ScriptName)
+{
+	APlayerController* const PlayerController = GetOuterAPlayerController();
+	ULocalPlayer* const LocalPlayer = PlayerController ? Cast<ULocalPlayer>(PlayerController->Player) : nullptr;
+
+	if (LocalPlayer)
+	{
+		// Run commands from the ini
+		FConfigSection const* const CommandsToRun = GConfig->GetSectionPrivate(*FString::Printf(TEXT("CheatScript.%s"), *ScriptName), 0, 1, GGameIni);
+
+		if (CommandsToRun)
+		{
+			for (FConfigSectionMap::TConstIterator It(*CommandsToRun); It; ++It)
+			{
+				// show user what commands ran
+				if (LocalPlayer->ViewportClient && LocalPlayer->ViewportClient->ViewportConsole)
+				{
+					FString const S = FString::Printf(TEXT("> %s"), *It.Value().GetValue());
+					LocalPlayer->ViewportClient->ViewportConsole->OutputText(S);
+				}
+
+				LocalPlayer->Exec(GetWorld(), *It.Value().GetValue(), *GLog);
+			}
+		}
+		else
+		{
+			UE_LOG(LogCheatManager, Warning, TEXT("Can't find section 'CheatScript.%s' in DefaultGame.ini"), *ScriptName);
+		}
+	}
+	else
+	{
+		UE_LOG(LogCheatManager, Warning, TEXT("Can't find local player!"));
+	}
+}
+
 void UCheatManager::LogOutBugItGoToLogFile( const FString& InScreenShotDesc, const FString& InGoString, const FString& InLocString )
 {
 #if ALLOW_DEBUG_FILES
@@ -1190,14 +1194,14 @@ void UCheatManager::LogOutBugItGoToLogFile( const FString& InScreenShotDesc, con
 	const FString DescPlusExtension = FString::Printf( TEXT("%s%i.txt"), *InScreenShotDesc, GScreenshotBitmapIndex );
 	const FString TxtFileName = CreateProfileFilename( DescPlusExtension, false );
 
-	//FString::Printf( TEXT("BugIt%s-%s%05i"), *FEngineVersion::Current().ToString(), *InScreenShotDesc, GScreenshotBitmapIndex+1 ) + TEXT( ".txt" );
+	//FString::Printf( TEXT("BugIt%s-%s%05i"), FApp::GetBuildVersion(), *InScreenShotDesc, GScreenshotBitmapIndex+1 ) + TEXT( ".txt" );
 	const FString FullFileName = OutputDir + TxtFileName;
 
 	FOutputDeviceFile OutputFile(*FullFileName);
 	//FArchive* OutputFile = IFileManager::Get().CreateDebugFileWriter( *(FullFileName), FILEWRITE_Append );
 
 
-	OutputFile.Logf( TEXT("Dumping BugIt data chart at %s using build %s built from changelist %i"), *FDateTime::Now().ToString(), *FEngineVersion::Current().ToString(), GetChangeListNumberForPerfTesting() );
+	OutputFile.Logf( TEXT("Dumping BugIt data chart at %s using build %s built from changelist %i"), *FDateTime::Now().ToString(), FApp::GetBuildVersion(), GetChangeListNumberForPerfTesting() );
 
 	const FString MapNameStr = GetWorld()->GetMapName();
 
@@ -1219,5 +1223,6 @@ void UCheatManager::LogOutBugItGoToLogFile( const FString& InScreenShotDesc, con
 	SendDataToPCViaUnrealConsole( TEXT("UE_PROFILER!BUGIT:"), *(FullFileName) );
 #endif // ALLOW_DEBUG_FILES
 }
+
 
 #undef LOCTEXT_NAMESPACE

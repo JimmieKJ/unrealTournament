@@ -568,24 +568,24 @@ void AUTCTFGameMode::CreateConfigWidgets(TSharedPtr<class SVerticalBox> MenuSpac
 }
 
 #endif
-int32 AUTCTFGameMode::GetComSwitch(FName CommandTag, AActor* ContextActor, AUTPlayerController* Instigator, UWorld* World)
+int32 AUTCTFGameMode::GetComSwitch(FName CommandTag, AActor* ContextActor, AUTPlayerController* InInstigator, UWorld* World)
 {
 	if (World == nullptr) return INDEX_NONE;
 
 	AUTCTFGameState* UTCTFGameState = World->GetGameState<AUTCTFGameState>();
 
-	if (Instigator == nullptr || UTCTFGameState == nullptr) 
+	if (InInstigator == nullptr || UTCTFGameState == nullptr)
 	{
-		return Super::GetComSwitch(CommandTag, ContextActor, Instigator, World);
+		return Super::GetComSwitch(CommandTag, ContextActor, InInstigator, World);
 	}
 
-	AUTPlayerState* UTPlayerState = Cast<AUTPlayerState>(Instigator->PlayerState);
+	AUTPlayerState* UTPlayerState = Cast<AUTPlayerState>(InInstigator->PlayerState);
 	AUTCharacter* ContextCharacter = ContextActor != nullptr ? Cast<AUTCharacter>(ContextActor) : nullptr;
 	AUTPlayerState* ContextPlayerState = ContextCharacter != nullptr ? Cast<AUTPlayerState>(ContextCharacter->PlayerState) : nullptr;
 
 	if (ContextCharacter)
 	{
-		bool bContextOnSameTeam = ContextCharacter != nullptr ? World->GetGameState<AUTGameState>()->OnSameTeam(Instigator, ContextCharacter) : false;
+		bool bContextOnSameTeam = ContextCharacter != nullptr ? World->GetGameState<AUTGameState>()->OnSameTeam(InInstigator, ContextCharacter) : false;
 		bool bContextIsFlagCarrier = ContextPlayerState != nullptr && ContextPlayerState->CarriedObject != nullptr;
 
 		if (bContextIsFlagCarrier)
@@ -625,7 +625,7 @@ int32 AUTCTFGameMode::GetComSwitch(FName CommandTag, AActor* ContextActor, AUTPl
 		}
 	}
 
-	AUTCharacter* InstCharacter = Cast<AUTCharacter>(Instigator->GetCharacter());
+	AUTCharacter* InstCharacter = Cast<AUTCharacter>(InInstigator->GetCharacter());
 	if (InstCharacter != nullptr && !InstCharacter->IsDead())
 	{
 		// We aren't dead, look to see if we have the flag...
@@ -647,13 +647,13 @@ int32 AUTCTFGameMode::GetComSwitch(FName CommandTag, AActor* ContextActor, AUTPl
 		}
 	}
 
-	uint8 EnemyTeamNum = 1 - Instigator->GetTeamNum();
+	uint8 EnemyTeamNum = 1 - InInstigator->GetTeamNum();
 
 	if (CommandTag == CommandTags::Intent)
 	{
 		// If my flag is out
 
-		if (UTCTFGameState->GetFlagState(Instigator->GetTeamNum()) != CarriedObjectState::Home)
+		if (UTCTFGameState->GetFlagState(InInstigator->GetTeamNum()) != CarriedObjectState::Home)
 		{
 			return GET_FLAG_BACK_SWITCH_INDEX;
 		}
@@ -683,5 +683,5 @@ int32 AUTCTFGameMode::GetComSwitch(FName CommandTag, AActor* ContextActor, AUTPl
 		return UNDER_HEAVY_ATTACK_SWITCH_INDEX;  
 	}
 
-	return Super::GetComSwitch(CommandTag, ContextActor, Instigator, World);
+	return Super::GetComSwitch(CommandTag, ContextActor, InInstigator, World);
 }

@@ -40,6 +40,7 @@ struct GAMEPLAYABILITIES_API FAggregator : public TSharedFromThis<FAggregator>
 	DECLARE_MULTICAST_DELEGATE_OneParam(FOnAggregatorDirty, FAggregator*);
 
 	FAggregator(float InBaseValue=0.f) : NetUpdateID(0), BaseValue(InBaseValue), IsBroadcastingDirty(false), NumPredictiveMods(0) { }
+	~FAggregator();
 
 	/** Simple accessor to base value */
 	float GetBaseValue() const;

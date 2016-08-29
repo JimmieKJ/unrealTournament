@@ -56,8 +56,16 @@ private:
 class CORE_API FMemStackBase
 {
 public:
+#if ( PLATFORM_WINDOWS && defined(__clang__) )
+	FMemStackBase()			// @todo clang: parameterless constructor is needed to prevent an ICE in clang
+		: FMemStackBase(1)	// https://llvm.org/bugs/show_bug.cgi?id=28137
+	{
+	}
 
+	FMemStackBase(int32 InMinMarksToAlloc)
+#else
 	FMemStackBase(int32 InMinMarksToAlloc = 1)
+#endif
 		: Top(nullptr)
 		, End(nullptr)
 		, TopChunk(nullptr)

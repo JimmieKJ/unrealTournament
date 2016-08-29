@@ -61,4 +61,7 @@ protected:
 
 	// 1 if this buffer is locked, 0 otherwise.
 	volatile int32 Locked;
+
+public:
+	FVector2D ViewOffset;
 };

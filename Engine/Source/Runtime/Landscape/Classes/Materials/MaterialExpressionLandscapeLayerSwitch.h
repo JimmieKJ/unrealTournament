@@ -6,7 +6,7 @@
 #include "MaterialExpressionLandscapeLayerSwitch.generated.h"
 
 UCLASS(collapsecategories, hidecategories=Object)
-class UMaterialExpressionLandscapeLayerSwitch : public UMaterialExpression
+class LANDSCAPE_API UMaterialExpressionLandscapeLayerSwitch : public UMaterialExpression
 {
 	GENERATED_UCLASS_BODY()
 
@@ -46,7 +46,7 @@ public:
 #endif
 	//~ End UMaterialExpression Interface
 
-	LANDSCAPE_API virtual FGuid& GetParameterExpressionId() override;
+	virtual FGuid& GetParameterExpressionId() override;
 
 	void GetAllParameterNames(TArray<FName> &OutParameterNames, TArray<FGuid> &OutParameterIds) const;
 

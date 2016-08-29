@@ -197,6 +197,9 @@ public:
 	/** Should we clear the keyboard focus when the user commits text to this widget? */
 	virtual bool ShouldClearKeyboardFocusOnCommit() const = 0;
 
+	/** Should we select all text when the user commits text to this widget? */
+	virtual bool ShouldSelectAllTextOnCommit() const = 0;
+
 	/** Are we currently able to insert a carriage return? (some widgets have modifier keys that need to be pressed) */
 	virtual bool CanInsertCarriageReturn() const = 0;
 

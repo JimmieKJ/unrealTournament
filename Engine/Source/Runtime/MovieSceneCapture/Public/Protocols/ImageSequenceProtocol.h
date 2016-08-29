@@ -27,7 +27,7 @@ UCLASS(config=EditorPerProjectUserSettings, DisplayName="Image Encoding")
 class MOVIESCENECAPTURE_API UImageCaptureSettings : public UFrameGrabberProtocolSettings
 {
 public:
-	UImageCaptureSettings(const FObjectInitializer& Init) : UFrameGrabberProtocolSettings(Init), CompressionQuality(75) {}
+	UImageCaptureSettings(const FObjectInitializer& Init) : UFrameGrabberProtocolSettings(Init), CompressionQuality(100) {}
 
 	GENERATED_BODY()
 
@@ -85,7 +85,7 @@ struct MOVIESCENECAPTURE_API FImageSequenceProtocol : FFrameGrabberProtocol
 
 	/** ~FFrameGrabberProtocol implementation */
 	virtual bool Initialize(const FCaptureProtocolInitSettings& InSettings, const ICaptureProtocolHost& Host) override;
-	virtual FFramePayloadPtr GetFramePayload(const FFrameMetrics& FrameMetrics, const ICaptureProtocolHost& Host) const;
+	virtual FFramePayloadPtr GetFramePayload(const FFrameMetrics& FrameMetrics, const ICaptureProtocolHost& Host);
 	virtual void ProcessFrame(FCapturedFrameData Frame);
 	virtual void AddFormatMappings(TMap<FString, FStringFormatArg>& FormatMappings) const override;
 	virtual void Finalize() override;

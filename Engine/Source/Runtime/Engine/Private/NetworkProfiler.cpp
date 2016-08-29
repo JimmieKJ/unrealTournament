@@ -609,6 +609,12 @@ void FNetworkProfiler::TrackSessionChange( bool bShouldContinueTracking, const F
 			FileWriter = IFileManager::Get().CreateFileWriter( *FinalFileName, FILEWRITE_EvenIfReadOnly );
 			check( FileWriter );
 			
+			// Reset the arrays and maps so that they will match up for the new profile.
+			NameToNameTableIndexMap.Reset();
+			NameArray.Reset();
+			AddressTableIndexMap.Reset();
+			AddressArray.Reset();
+
 			CurrentHeader.Reset(InURL);
 
 			// Serialize a header of the proper size, overwritten when session ends.

@@ -23,10 +23,10 @@ class UMovieSceneSkeletalAnimationTrack
 public:
 
 	/** Adds a new animation to this track */
-	virtual void AddNewAnimation(float KeyTime, class UAnimSequence* AnimSequence);
+	virtual void AddNewAnimation(float KeyTime, class UAnimSequenceBase* AnimSequence);
 
-	/** Gets the animation section at a certain time, or NULL if there is none */
-	UMovieSceneSection* GetAnimSectionAtTime(float Time);
+	/** Gets the animation sections at a certain time */
+	TArray<UMovieSceneSection*> GetAnimSectionsAtTime(float Time);
 
 public:
 

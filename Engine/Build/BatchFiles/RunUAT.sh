@@ -48,7 +48,7 @@ fi
 
 if [ "$(uname)" = "Darwin" ]; then
 	# Setup Mono
-	source "`dirname "$0"`/Mac/SetupMono.sh" "`dirname "$0"`/Mac"
+	source "$SCRIPT_DIR/Mac/SetupMono.sh" "$SCRIPT_DIR/Mac"
 fi
 
 if [ "$UATCompileArg" = "-compile" ]; then

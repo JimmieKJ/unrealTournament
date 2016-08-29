@@ -30,10 +30,10 @@ public:
 
 		bDisplayShowAdvancedMessage = bInDisplayShowAdvancedMessage;
 
-		TSharedPtr<SWidget> Content;
+		TSharedPtr<SWidget> ContentWidget;
 		if( bIsTopNode )
 		{
-			Content =
+			ContentWidget =
 				SNew( SBorder )
 				.BorderImage( FEditorStyle::GetBrush("DetailsView.CategoryMiddle") )
 				.Padding( FMargin( 0.0f, 3.0f, SDetailTableRowBase::ScrollbarPaddingSize, 0.0f ) )
@@ -44,7 +44,7 @@ public:
 		}
 		else if( InArgs._ShouldShowAdvancedButton )
 		{
-			Content = 
+			ContentWidget = 
 				SNew( SBorder )
 				.BorderImage( FEditorStyle::GetBrush("DetailsView.AdvancedDropdownBorder") )
 				.Padding( FMargin( 0.0f, 3.0f, SDetailTableRowBase::ScrollbarPaddingSize, 0.0f ) )
@@ -123,7 +123,7 @@ public:
 
 			SplitterArea = SNew(SSpacer);
 
-			Content =
+			ContentWidget =
 				SNew( SBorder )
 				.BorderImage( FEditorStyle::GetBrush("DetailsView.CategoryBottom") )
 				.Padding( FMargin( 0.0f, 0.0f, SDetailTableRowBase::ScrollbarPaddingSize, 2.0f ) )
@@ -134,7 +134,7 @@ public:
 		
 		ChildSlot
 		[
-			Content.ToSharedRef()
+			ContentWidget.ToSharedRef()
 		];
 
 		STableRow< TSharedPtr< IDetailTreeNode > >::ConstructInternal(
@@ -180,7 +180,7 @@ private:
 };
 
 
-TSharedRef< ITableRow > FAdvancedDropdownNode::GenerateNodeWidget( const TSharedRef<STableViewBase>& OwnerTable, const FDetailColumnSizeData& ColumnSizeData, const TSharedRef<IPropertyUtilities>& PropertyUtilities )
+TSharedRef< ITableRow > FAdvancedDropdownNode::GenerateNodeWidget( const TSharedRef<STableViewBase>& OwnerTable, const FDetailColumnSizeData& ColumnSizeData, const TSharedRef<IPropertyUtilities>& PropertyUtilities, bool bAllowFavoriteSystem)
 {
 	return 
 		SNew( SAdvancedDropdownRow, OwnerTable, bIsTopNode, bDisplayShowAdvancedMessage, bShowSplitter )

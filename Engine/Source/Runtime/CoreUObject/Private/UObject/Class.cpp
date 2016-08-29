@@ -10,6 +10,7 @@
 #include "LinkerPlaceholderClass.h"
 #include "LinkerPlaceholderFunction.h"
 #include "StructScriptLoader.h"
+#include "LoadTimeTracker.h"
 
 // This flag enables some expensive class tree validation that is meant to catch mutations of 
 // the class tree outside of SetSuperStruct. It has been disabled because loading blueprints 
@@ -31,17 +32,6 @@ FThreadSafeBool& InternalSafeGetTokenStreamDirtyFlag()
 {
 	static FThreadSafeBool TokenStreamDirty(true);
 	return TokenStreamDirty;
-}
-
-bool SetTokenStreamMaybeDirty(bool bDirty)
-{
-	bool bResult = InternalSafeGetTokenStreamDirtyFlag().AtomicSet(bDirty);
-	return bResult;
-}
-
-bool IsTokenStreamDirty()
-{
-	return InternalSafeGetTokenStreamDirtyFlag();
 }
 
 /**
@@ -144,11 +134,6 @@ void UField::Serialize( FArchive& Ar )
 {
 	Super::Serialize( Ar );
 	Ar << Next;
-	if (Ar.IsLoading())
-	{
-		// Make sure that after loading new assets we will check for new classes and generate their token stream.
-		SetTokenStreamMaybeDirty(true);
-	}
 }
 
 void UField::AddCppProperty( UProperty* Property )
@@ -591,7 +576,11 @@ void UStruct::Link(FArchive& Ar, bool bRelinkExistingProperties)
 					if (StructProp != NULL && StructProp->Struct == this)
 					{
 						//we won't support this, too complicated
+					#if HACK_HEADER_GENERATOR
 						FError::Throwf(TEXT("'Struct recursion via arrays is unsupported for properties."));
+					#else
+						UE_LOG(LogClass, Fatal, TEXT("'Struct recursion via arrays is unsupported for properties."));
+					#endif
 					}
 				}
 			}
@@ -840,22 +829,30 @@ void UStruct::InitTaggedPropertyRedirectsMap()
 {
 	if( GConfig )
 	{
-		FConfigSection* PackageRedirects = GConfig->GetSectionPrivate( TEXT("/Script/Engine.Engine"), false, true, GEngineIni );
-		for( FConfigSection::TIterator It(*PackageRedirects); It; ++It )
+		// Go over all configs so that plugins/etc have a chance to register TaggedPropertyRedirects
+		for (const auto& ConfigPair : *GConfig)
 		{
-			if( It.Key() == TEXT("TaggedPropertyRedirects") )
+			const FString& ConfigFilename = ConfigPair.Key;
+
+			if (FConfigSection* PackageRedirects = GConfig->GetSectionPrivate( TEXT("/Script/Engine.Engine"), false, true, ConfigFilename ))
 			{
-				FName ClassName = NAME_None;
-				FName OldPropertyName = NAME_None;
-				FName NewPropertyName = NAME_None;
+				for( FConfigSection::TIterator It(*PackageRedirects); It; ++It )
+				{
+					if( It.Key() == TEXT("TaggedPropertyRedirects") )
+					{
+						FName ClassName = NAME_None;
+						FName OldPropertyName = NAME_None;
+						FName NewPropertyName = NAME_None;
 
-				FParse::Value( *It.Value(), TEXT("ClassName="), ClassName );
-				FParse::Value( *It.Value(), TEXT("OldPropertyName="), OldPropertyName );
-				FParse::Value( *It.Value(), TEXT("NewPropertyName="), NewPropertyName );
+						FParse::Value( *It.Value().GetValue(), TEXT("ClassName="), ClassName );
+						FParse::Value( *It.Value().GetValue(), TEXT("OldPropertyName="), OldPropertyName );
+						FParse::Value( *It.Value().GetValue(), TEXT("NewPropertyName="), NewPropertyName );
 
-				check(ClassName != NAME_None && OldPropertyName != NAME_None && NewPropertyName != NAME_None );
-				TaggedPropertyRedirects.FindOrAdd(ClassName).Add(OldPropertyName, NewPropertyName);
-			}			
+						check(ClassName != NAME_None && OldPropertyName != NAME_None && NewPropertyName != NAME_None );
+						TaggedPropertyRedirects.FindOrAdd(ClassName).Add(OldPropertyName, NewPropertyName);
+					}
+				}
+			}
 		}
 	}
 	else
@@ -866,10 +863,8 @@ void UStruct::InitTaggedPropertyRedirectsMap()
 
 void UStruct::SerializeTaggedProperties(FArchive& Ar, uint8* Data, UStruct* DefaultsStruct, uint8* Defaults, const UObject* BreakRecursionIfFullyLoad) const
 {
-	check(Ar.IsLoading() || Ar.IsSaving());
-
-	UClass* DefaultsClass = dynamic_cast<UClass*>(DefaultsStruct);
-	UScriptStruct* DefaultsScriptStruct = dynamic_cast<UScriptStruct*>(DefaultsStruct);
+	//SCOPED_LOADTIMER(SerializeTaggedPropertiesTime);
+	
 	// Determine if this struct supports optional property guid's (UBlueprintGeneratedClasses Only)
 	const bool bArePropertyGuidsAvailable = (Ar.UE4Ver() >= VER_UE4_PROPERTY_GUID_IN_PROPERTY_TAG) && !FPlatformProperties::RequiresCookedData() && ArePropertyGuidsAvailable();
 
@@ -881,7 +876,7 @@ void UStruct::SerializeTaggedProperties(FArchive& Ar, uint8* Data, UStruct* Defa
 		// and makes it an O(n) when properties are saved in the same order as they are loaded (default case). In the 
 		// case that a property was reordered the code falls back to a slower search.
 		UProperty*	Property			= PropertyLink;
-		bool		AdvanceProperty		= 0;
+		bool		bAdvanceProperty	= false;
 		int32		RemainingArrayDim	= Property ? Property->ArrayDim : 0;
 
 		// Load all stored properties, potentially skipping unknown ones.
@@ -900,18 +895,8 @@ void UStruct::SerializeTaggedProperties(FArchive& Ar, uint8* Data, UStruct* Defa
 				break;
 			}
 
-			auto CanSerializeFromStructWithDifferentName = [](const FArchive& InAr, const FPropertyTag& PropertyTag, const UStructProperty* StructProperty)
-			{
-				if (InAr.UE4Ver() < VER_UE4_STRUCT_GUID_IN_PROPERTY_TAG)
-				{
-					// Old Implementation
-					return StructProperty && !StructProperty->UseBinaryOrNativeSerialization(InAr);
-				}
-				return PropertyTag.StructGuid.IsValid() && StructProperty && StructProperty->Struct && (PropertyTag.StructGuid == StructProperty->Struct->GetCustomGuid());
-			};
-
 			// Move to the next property to be serialized
-			if( AdvanceProperty && --RemainingArrayDim <= 0 )
+			if( bAdvanceProperty && --RemainingArrayDim <= 0 )
 			{
 				Property = Property->PropertyLinkNext;
 				// Skip over properties that don't need to be serialized.
@@ -919,7 +904,7 @@ void UStruct::SerializeTaggedProperties(FArchive& Ar, uint8* Data, UStruct* Defa
 				{
 					Property = Property->PropertyLinkNext;
 				}
-				AdvanceProperty		= 0;
+				bAdvanceProperty		= 0;
 				RemainingArrayDim	= Property ? Property->ArrayDim : 0;
 			}
 			
@@ -934,7 +919,7 @@ void UStruct::SerializeTaggedProperties(FArchive& Ar, uint8* Data, UStruct* Defa
 				}
 			}
 			// If this property is not the one we expect (e.g. skipped as it matches the default value), do the brute force search.
-			if( Property == NULL || Property->GetFName() != Tag.Name )
+			if( Property == nullptr || Property->GetFName() != Tag.Name )
 			{
 				// No need to check redirects on platforms where everything is cooked. Always check for save games
 				if (!FPlatformProperties::RequiresCookedData() || Ar.IsSaveGame())
@@ -966,7 +951,7 @@ void UStruct::SerializeTaggedProperties(FArchive& Ar, uint8* Data, UStruct* Defa
 								}
 							}
 							// If theres another class name to check get it, otherwise flag the end.
-							if( SuperClass != NULL )
+							if( SuperClass != nullptr )
 							{
 								EachName = SuperClass->GetFName();
 								SuperClass = SuperClass->GetSuperStruct();
@@ -989,7 +974,7 @@ void UStruct::SerializeTaggedProperties(FArchive& Ar, uint8* Data, UStruct* Defa
 					}
 				}
 				// ... and then search from the beginning till we reach the current property if it's not found.
-				if( Property == NULL )
+				if( Property == nullptr )
 				{
 					for( Property = PropertyLink; Property && Property != CurrentProperty; Property = Property->PropertyLinkNext )
 					{
@@ -1002,7 +987,7 @@ void UStruct::SerializeTaggedProperties(FArchive& Ar, uint8* Data, UStruct* Defa
 					if( Property == CurrentProperty )
 					{
 						// Property wasn't found.
-						Property = NULL;
+						Property = nullptr;
 					}
 				}
 
@@ -1014,15 +999,23 @@ void UStruct::SerializeTaggedProperties(FArchive& Ar, uint8* Data, UStruct* Defa
 				Property = CustomFindProperty(Tag.Name);
 			}
 #endif // WITH_EDITOR
+
+			FName PropID = Property ? Property->GetID() : NAME_None;
+			FName ArrayInnerID = NAME_None;
+
 			// Check if this is a struct property and we have a redirector
-			if (Tag.Type==NAME_StructProperty && Property != NULL && Tag.Type == Property->GetID())
+			// No need to check redirects on platforms where everything is cooked. Always check for save games
+			if (!FPlatformProperties::RequiresCookedData() || Ar.IsSaveGame())
+			{
+			if (Tag.Type == NAME_StructProperty && PropID == NAME_StructProperty)
 			{
 				FName* NewName = FLinkerLoad::StructNameRedirects.Find(Tag.StructName);
 				FName StructName = CastChecked<UStructProperty>(Property)->Struct->GetFName();
-				if (NewName != NULL && *NewName == StructName)
+					if (NewName != nullptr && *NewName == StructName)
 				{
 					Tag.StructName = *NewName;
 				}
+			}
 			}
 
 			const int64 StartOfProperty = Ar.Tell();
@@ -1043,343 +1036,31 @@ void UStruct::SerializeTaggedProperties(FArchive& Ar, uint8* Data, UStruct* Defa
 			// check for valid array index
 			else if( Tag.ArrayIndex >= Property->ArrayDim || Tag.ArrayIndex < 0 )
 			{
-				UE_LOG(LogClass, Warning, TEXT("Array bounds in %s of %s: %i/%i for package:  %s"), *Tag.Name.ToString(), *GetName(), Tag.ArrayIndex, Property->ArrayDim, *Ar.GetArchiveName() );
+				UE_LOG(LogClass, Warning, TEXT("Array bound exceeded (var %s=%d, exceeds %s [0-%d] in package:  %s"), 
+					*Tag.Name.ToString(), Tag.ArrayIndex, *GetName(), Property->ArrayDim-1, *Ar.GetArchiveName());
+			}
+
+			else if( !Property->ShouldSerializeValue(Ar) )
+			{
+				UE_CLOG((Ar.IsPersistent() && FPlatformProperties::RequiresCookedData()), LogClass, Warning, TEXT("Skipping saved property %s of %s since it is no longer serializable for asset:  %s. (Maybe resave asset?)"), *Tag.Name.ToString(), *GetName(), *Ar.GetArchiveName() );
 			}
 
 			// Convert properties from old type to new type automatically if types are compatible
 			// If you add an entry to this, you will also need to add an entry to the array case below
 			// For converting to a struct, you can just implement SerializeFromMismatchedTag on the struct
-
-			else if( Tag.Type==NAME_StrProperty && dynamic_cast<UNameProperty*>(Property) )
+			else if (Property->ConvertFromType(Tag, Ar, Data, DefaultsStruct, bAdvanceProperty))
 			{
-				FString str;
-				Ar << str;
-				CastChecked<UNameProperty>(Property)->SetPropertyValue_InContainer(Data, FName(*str), Tag.ArrayIndex);
-				AdvanceProperty = true;
-				continue; 
-			}
-			else if( Tag.Type==NAME_StrProperty && dynamic_cast<UTextProperty*>(Property) ) // Convert serialized string to text.
-			{ 
-				FString str;
-				Ar << str;
-				FText Text = FText::FromString(str);
-				Text.TextData->PersistText();
-				Text.Flags |= ETextFlag::ConvertedProperty;
-				CastChecked<UTextProperty>(Property)->SetPropertyValue_InContainer(Data, Text, Tag.ArrayIndex);
-				AdvanceProperty = true;
-				continue; 
-			}
-			else if( Tag.Type==NAME_TextProperty && dynamic_cast<UStrProperty*>(Property) ) // Convert serialized text to string.
-			{ 
-				FText Text;  
-				Ar << Text;
-				FString String = FTextInspector::GetSourceString(Text) ? *FTextInspector::GetSourceString(Text) : TEXT("");
-				CastChecked<UStrProperty>(Property)->SetPropertyValue_InContainer(Data, String, Tag.ArrayIndex);
-				AdvanceProperty = true;
-				continue; 
-			}
-			else if( Tag.Type==NAME_NameProperty && dynamic_cast<UTextProperty*>(Property) ) // Convert serialized name to text.
-			{ 
-				FName Name;  
-				Ar << Name;
-				FText Text = FText::FromName(Name);
-				Text.Flags |= ETextFlag::ConvertedProperty;
-				CastChecked<UTextProperty>(Property)->SetPropertyValue_InContainer(Data, Text, Tag.ArrayIndex);
-				AdvanceProperty = true;
-				continue; 
-			}
-			else if( Tag.Type==NAME_TextProperty && dynamic_cast<UNameProperty*>(Property) ) // Convert serialized text to name.
-			{ 
-				FText Text;  
-				Ar << Text;
-				FName Name = FName(*Text.ToString());
-				CastChecked<UNameProperty>(Property)->SetPropertyValue_InContainer(Data, Name, Tag.ArrayIndex);
-				AdvanceProperty = true;
-				continue; 
-			}
-			else if ( Tag.Type == NAME_ByteProperty && Property->GetID() == NAME_IntProperty )
-			{
-				// this property's data was saved as a uint8, but the property has been changed to an int32.  Since there is no loss of data
-				// possible, we can auto-convert to the right type.
-				uint8 PreviousValue;
-
-				// de-serialize the previous value
-				// if the byte property had an enum, it's serialized differently so we need to account for that
-				if (Tag.EnumName != NAME_None)
+				if (bAdvanceProperty)
 				{
-					//@warning: mirrors loading code in UByteProperty::SerializeItem()
-					FName EnumName;
-					Ar << EnumName;
-					UEnum* Enum = FindField<UEnum>((DefaultsClass != NULL) ? DefaultsClass : DefaultsStruct->GetTypedOuter<UClass>(), Tag.EnumName);
-					if (Enum == NULL)
-					{
-						Enum = FindObject<UEnum>(ANY_PACKAGE, *Tag.EnumName.ToString(), true);
-					}
-					if (Enum == NULL)
-					{
-						UE_LOG(LogClass, Warning, TEXT("Failed to find enum '%s' when converting property '%s' to int during property loading"), *Tag.EnumName.ToString(), *Tag.Name.ToString());
-						PreviousValue = 0;
-					}
-					else
-					{
-						Ar.Preload(Enum);
-						PreviousValue = Enum->GetValueByName(EnumName);
-						if (!Enum->IsValidEnumValue(PreviousValue))
-						{
-							PreviousValue = Enum->GetMaxEnumValue();
-						}
-					}
-				}
-				else
-				{
-					Ar << PreviousValue;
-				}
-
-				// now copy the value into the object's address spaace
-				CastChecked<UIntProperty>(Property)->SetPropertyValue_InContainer(Data, PreviousValue, Tag.ArrayIndex);
-				AdvanceProperty = true;
-				continue;
-			}
-			else if ((Tag.Type == NAME_AssetObjectProperty || Tag.Type == NAME_AssetSubclassOfProperty) && (Property->GetID() == NAME_ObjectProperty || Property->GetID() == NAME_ClassProperty))
-			{
-				// This property used to be a TAssetPtr<Foo> but is now a raw UObjectProperty Foo*, we can convert without loss of data
-				FAssetPtr PreviousValue;
-				Ar << PreviousValue;
-
-				// now copy the value into the object's address space
-				UObject* PreviousValueObj = PreviousValue.Get();
-				CastChecked<UObjectProperty>(Property)->SetPropertyValue_InContainer(Data, PreviousValueObj, Tag.ArrayIndex);
-
-				AdvanceProperty = true;
-				continue;
-			}
-			else if ((Tag.Type == NAME_ObjectProperty || Tag.Type == NAME_ClassProperty) && (Property->GetID() == NAME_AssetObjectProperty || Property->GetID() == NAME_AssetSubclassOfProperty))
-			{
-				// This property used to be a raw UObjectProperty Foo* but is now a TAssetPtr<Foo>
-				UObject* PreviousValue = NULL;
-				Ar << PreviousValue;
-
-				// now copy the value into the object's address space
-				FAssetPtr PreviousValueAssetPtr(PreviousValue);
-				CastChecked<UAssetObjectProperty>(Property)->SetPropertyValue_InContainer(Data, PreviousValueAssetPtr, Tag.ArrayIndex);
-
-				AdvanceProperty = true;
-				continue;
-			}
-			else if (Tag.Type == NAME_IntProperty && Property->GetID() == NAME_BoolProperty)
-			{
-				// Property was saved as an int32, but has been changed to a bool (bitfield)
-				int32 IntValue;
-				Ar << IntValue;
-
-				if( IntValue != 0 )
-				{
-#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
-					if(IntValue != 1)
-					{
-						UE_LOG(LogClass, Log, TEXT("Loading int32 property (%s) that is now a uint32 - value '%d', expecting 0 or 1. Value set to true."), *Property->GetPathName(), IntValue);
-					}
-#endif
-					CastChecked<UBoolProperty>(Property)->SetPropertyValue_InContainer(Data, true, Tag.ArrayIndex);
-				}
-				else
-				{
-					CastChecked<UBoolProperty>(Property)->SetPropertyValue_InContainer(Data, false, Tag.ArrayIndex);
-				}
-
-				AdvanceProperty = true;
-				continue; 
-			}
-			else if( dynamic_cast<UStructProperty*>(Property) && static_cast<UStructProperty*>(Property)->Struct && (Tag.Type != Property->GetID() || (Tag.Type == NAME_StructProperty && Tag.StructName != static_cast<UStructProperty*>(Property)->Struct->GetFName())) && (static_cast<UStructProperty*>(Property)->Struct->StructFlags & STRUCT_SerializeFromMismatchedTag))
-			{
-				UScriptStruct::ICppStructOps* CppStructOps = static_cast<UStructProperty*>(Property)->Struct->GetCppStructOps();
-				check(CppStructOps && CppStructOps->HasSerializeFromMismatchedTag()); // else should not have STRUCT_SerializeFromMismatchedTag
-				void* DestAddress = Property->ContainerPtrToValuePtr<void>(Data, Tag.ArrayIndex);  
-				if (CppStructOps->SerializeFromMismatchedTag(Tag, Ar, DestAddress))
-				{
-					AdvanceProperty = true;
 					continue;
 				}
-				else
-				{
-					UE_LOG(LogClass, Warning, TEXT("SerializeFromMismatchedTag failed: Type mismatch in %s of %s - Previous (%s) Current(%s) for package:  %s"), *Tag.Name.ToString(), *GetName(), *Tag.Type.ToString(), *Property->GetID().ToString(), *Ar.GetArchiveName() );
-				}
 			}
-			else if (Tag.Type == NAME_StructProperty && Property->GetID() == NAME_AssetObjectProperty)
+
+			else if (Tag.Type != PropID)
 			{
-				// This property used to be a FStringAssetReference but is now a TAssetPtr<Foo>
-				FStringAssetReference PreviousValue;
-				// explicitly call Serialize to ensure that the various delegates needed for cooking are fired
-				PreviousValue.Serialize(Ar);
-
-				// now copy the value into the object's address space
-				FAssetPtr PreviousValueAssetPtr;
-				PreviousValueAssetPtr = PreviousValue;
-				CastChecked<UAssetObjectProperty>(Property)->SetPropertyValue_InContainer(Data, PreviousValueAssetPtr, Tag.ArrayIndex);
-
-				AdvanceProperty = true;
-				continue;
-			}
-			else if( Tag.Type!=Property->GetID() )
-			{
-				UE_LOG(LogClass, Warning, TEXT("Type mismatch in %s of %s - Previous (%s) Current(%s) for package:  %s"), *Tag.Name.ToString(), *GetName(), *Tag.Type.ToString(), *Property->GetID().ToString(), *Ar.GetArchiveName() );
-			}
-			else if( Tag.Type == NAME_ArrayProperty && Tag.InnerType != NAME_None && Tag.InnerType != CastChecked<UArrayProperty>(Property)->Inner->GetID() )
-			{
-				UArrayProperty* ArrayProperty = static_cast<UArrayProperty*>(Property);
-				void* ArrayPropertyData = ArrayProperty->ContainerPtrToValuePtr<void>(Data);
-
-				int32 ElementCount = 0;
-				Ar << ElementCount;
-
-				FScriptArrayHelper ScriptArrayHelper(ArrayProperty, ArrayPropertyData);
-				ScriptArrayHelper.EmptyAndAddValues(ElementCount);
-
-				// Convert properties from old type to new type automatically if types are compatible (array case)
-
-				if (Tag.InnerType == NAME_StrProperty && dynamic_cast<UTextProperty*>(ArrayProperty->Inner)) // Convert serialized string to text.
-				{ 
-					for(int32 i = 0; i < ElementCount; ++i)
-					{
-						FString str;
-						Ar << str;
-						FText Text = FText::FromString(str);
-						Text.TextData->PersistText();
-						Text.Flags |= ETextFlag::ConvertedProperty;
-						CastChecked<UTextProperty>(ArrayProperty->Inner)->SetPropertyValue(ScriptArrayHelper.GetRawPtr(i), Text);
-						AdvanceProperty = true;
-					}
-					continue;
+					UE_LOG(LogClass, Warning, TEXT("Type mismatch in %s of %s - Previous (%s) Current(%s) for package:  %s"), *Tag.Name.ToString(), *GetName(), *Tag.Type.ToString(), *PropID.ToString(), *Ar.GetArchiveName() );
 				}
-				else if( Tag.InnerType==NAME_TextProperty && dynamic_cast<UStrProperty*>(ArrayProperty->Inner) ) // Convert serialized text to string.
-				{ 
-					for(int32 i = 0; i < ElementCount; ++i)
-					{
-						FText Text;  
-						Ar << Text;
-						FString String = FTextInspector::GetSourceString(Text) ? *FTextInspector::GetSourceString(Text) : TEXT("");
-						static_cast<UStrProperty*>(ArrayProperty->Inner)->SetPropertyValue(ScriptArrayHelper.GetRawPtr(i), String);
-						AdvanceProperty = true;
-					}
-					continue; 
-				}
-				else if (Tag.InnerType == NAME_NameProperty && dynamic_cast<UTextProperty*>(ArrayProperty->Inner)) // Convert serialized name to text.
-				{ 
-					for(int32 i = 0; i < ElementCount; ++i)
-					{
-						FName Name;
-						Ar << Name;
-						FText Text = FText::FromName(Name);
-						Text.TextData->PersistText();
-						Text.Flags |= ETextFlag::ConvertedProperty;
-						CastChecked<UTextProperty>(ArrayProperty->Inner)->SetPropertyValue(ScriptArrayHelper.GetRawPtr(i), Text);
-						AdvanceProperty = true;
-					}
-					continue;
-				}
-				else if( Tag.InnerType==NAME_TextProperty && dynamic_cast<UNameProperty*>(ArrayProperty->Inner) ) // Convert serialized text to name.
-				{ 
-					for(int32 i = 0; i < ElementCount; ++i)
-					{
-						FText Text;  
-						Ar << Text;
-						FName Name = FTextInspector::GetSourceString(Text) ? FName(**FTextInspector::GetSourceString(Text)) : NAME_None;
-						static_cast<UNameProperty*>(ArrayProperty->Inner)->SetPropertyValue(ScriptArrayHelper.GetRawPtr(i), Name);
-						AdvanceProperty = true;
-					}
-					continue; 
-				}
-				else if ((Tag.InnerType == NAME_AssetObjectProperty || Tag.InnerType == NAME_AssetSubclassOfProperty) && (ArrayProperty->Inner->GetID() == NAME_ObjectProperty || ArrayProperty->Inner->GetID() == NAME_ClassProperty))
-				{
-					for (int32 i = 0; i < ElementCount; ++i)
-					{
-						// This property used to be a TAssetPtr<Foo> but is now a raw UObjectProperty Foo*, we can convert without loss of data
-						FAssetPtr PreviousValue;
-						Ar << PreviousValue;
 
-						// now copy the value into the object's address space
-						UObject* PreviousValueObj = PreviousValue.Get();
-						CastChecked<UObjectProperty>(ArrayProperty->Inner)->SetPropertyValue(ScriptArrayHelper.GetRawPtr(i), PreviousValueObj);
-
-						AdvanceProperty = true;
-					}
-					continue;
-				}
-				else if ((Tag.InnerType == NAME_ObjectProperty || Tag.InnerType == NAME_ClassProperty) && (ArrayProperty->Inner->GetID() == NAME_AssetObjectProperty || ArrayProperty->Inner->GetID() == NAME_AssetSubclassOfProperty))
-				{
-					for (int32 i = 0; i < ElementCount; ++i)
-					{
-						// This property used to be a raw UObjectProperty Foo* but is now a TAssetPtr<Foo>
-						UObject* PreviousValue = NULL;
-						Ar << PreviousValue;
-
-						// now copy the value into the object's address space
-						FAssetPtr PreviousValueAssetPtr(PreviousValue);
-						CastChecked<UAssetObjectProperty>(ArrayProperty->Inner)->SetPropertyValue(ScriptArrayHelper.GetRawPtr(i), PreviousValueAssetPtr);
-
-						AdvanceProperty = true;
-					}
-					continue;
-				}
-				// TODO: Implement SerializeFromMismatchedTag handling for arrays of structs
-				else
-				{
-					UE_LOG(LogClass, Warning, TEXT("Array Inner Type mismatch in %s of %s - Previous (%s) Current(%s) for package:  %s"), *Tag.Name.ToString(), *GetName(), *Tag.InnerType.ToString(), *CastChecked<UArrayProperty>(Property)->Inner->GetID().ToString(), *Ar.GetArchiveName() );
-				}
-			}
-			else if( Tag.Type==NAME_StructProperty && Tag.StructName!=CastChecked<UStructProperty>(Property)->Struct->GetFName() 
-				&& !CanSerializeFromStructWithDifferentName(Ar, Tag, CastChecked<UStructProperty>(Property)))
-			{
-				UE_LOG(LogClass, Warning, TEXT("Property %s of %s has a struct type mismatch (tag %s != prop %s) in package:  %s. If that struct got renamed, add an entry to ActiveStructRedirects."),
-					*Tag.Name.ToString(), *GetName(), *Tag.StructName.ToString(), *CastChecked<UStructProperty>(Property)->Struct->GetName(), *Ar.GetArchiveName() );
-			}
-			else if( !Property->ShouldSerializeValue(Ar) )
-			{
-				UE_CLOG((Ar.IsPersistent() && FPlatformProperties::RequiresCookedData()), LogClass, Warning, TEXT("Skipping saved property %s of %s since it is no longer serializable for asset:  %s. (Maybe resave asset?)"), *Tag.Name.ToString(), *GetName(), *Ar.GetArchiveName() );
-			}
-			else if ( Tag.Type == NAME_ByteProperty && ( (Tag.EnumName == NAME_None && ExactCast<UByteProperty>(Property)->Enum != NULL) || 
-														(Tag.EnumName != NAME_None && ExactCast<UByteProperty>(Property)->Enum == NULL) ))
-			{
-				// a byte property gained or lost an enum
-				// attempt to convert it
-				uint8 PreviousValue;
-				if (Tag.EnumName == NAME_None)
-				{
-					// simply pretend the property still doesn't have an enum and serialize the single byte
-					Ar << PreviousValue;
-				}
-				else
-				{
-					// attempt to find the old enum and get the byte value from the serialized enum name
-					//@warning: mirrors loading code in UByteProperty::SerializeItem()
-					FName EnumName;
-					Ar << EnumName;
-					UEnum* Enum = FindField<UEnum>((DefaultsClass != NULL) ? DefaultsClass : DefaultsStruct->GetTypedOuter<UClass>(), Tag.EnumName);
-					if (Enum == NULL)
-					{
-						Enum = FindObject<UEnum>(ANY_PACKAGE, *Tag.EnumName.ToString(), true);
-					}
-					if (Enum == NULL)
-					{
-						UE_LOG(LogClass, Warning, TEXT("Failed to find enum '%s' when converting property '%s' to byte during property loading"), *Tag.EnumName.ToString(), *Tag.Name.ToString());
-						PreviousValue = 0;
-					}
-					else
-					{
-						Ar.Preload(Enum);
-						PreviousValue = Enum->GetValueByName(EnumName);
-						if (!Enum->IsValidEnumValue(PreviousValue))
-						{
-							PreviousValue = Enum->GetMaxEnumValue();
-						}
-					}
-				}
-				
-				// now copy the value into the object's address spaace
-				CastChecked<UByteProperty>(Property)->SetPropertyValue_InContainer(Data, PreviousValue, Tag.ArrayIndex);
-				AdvanceProperty = true;
-				continue;
-			}
 			else
 			{
 				uint8* DestAddress = Property->ContainerPtrToValuePtr<uint8>(Data, Tag.ArrayIndex);  
@@ -1388,14 +1069,14 @@ void UStruct::SerializeTaggedProperties(FArchive& Ar, uint8* Data, UStruct* Defa
 				// This property is ok.			
 				Tag.SerializeTaggedProperty(Ar, Property, DestAddress, DefaultsFromParent);
 
-				AdvanceProperty = true;
+				bAdvanceProperty = true;
 				if (!Ar.IsCriticalError())
 				{
 					continue;
 				}
 			}
 
-			AdvanceProperty = false;
+			bAdvanceProperty = false;
 
 			// Skip unknown or bad property.
 			const int64 RemainingSize = Tag.Size - (Ar.Tell() - StartOfProperty);
@@ -1408,6 +1089,10 @@ void UStruct::SerializeTaggedProperties(FArchive& Ar, uint8* Data, UStruct* Defa
 	}
 	else
 	{
+		check(Ar.IsSaving());
+
+		UScriptStruct* DefaultsScriptStruct = dynamic_cast<UScriptStruct*>(DefaultsStruct);
+
 		/** If true, it means that we want to serialize all properties of this struct if any properties differ from defaults */
 		bool bUseAtomicSerialization = false;
 		if (DefaultsScriptStruct)
@@ -1940,7 +1625,7 @@ static TMap<FName,UScriptStruct::ICppStructOps*>& GetDeferredCppStructOps()
 	{
 		~TMapWithAutoCleanup()
 		{
-			for (PairSetType::TConstIterator It(Pairs); It; ++It)
+			for (ElementSetType::TConstIterator It(Pairs); It; ++It)
 			{
 				delete It->Value;
 			}
@@ -2477,7 +2162,11 @@ void UScriptStruct::InitializeStruct(void* InDest, int32 ArrayDim) const
 		{
 			for (int32 ArrayIndex = 0; ArrayIndex < ArrayDim; ArrayIndex++)
 			{
-				TheCppStructOps->Construct(Dest + ArrayIndex * Stride);
+				void* PropertyDest = Dest + ArrayIndex * Stride;
+				checkf(IsAligned(PropertyDest, TheCppStructOps->GetAlignment()),
+					TEXT("Destination address for property does not match requirement of %d byte alignment"), 
+					TheCppStructOps->GetAlignment());
+				TheCppStructOps->Construct(PropertyDest);
 			}
 		}
 
@@ -2869,22 +2558,26 @@ public:
 			{
 				Prefix = Context->GetContext() + TEXT(" : ");
 			}
-			FString Format = Prefix + FOutputDevice::FormatLogLine(Verbosity, Category, V);
+			FString Format = Prefix + FOutputDeviceHelper::FormatLogLine(Verbosity, Category, V);
 
 			if(Verbosity == ELogVerbosity::Error)
 			{
-				Errors.Add(Format);
+				AddError(Format);
 			}
 			else
 			{
-				Warnings.Add(Format);
+				AddWarning(Format);
 			}
 		}
 
-		if( GLogConsole )
-			GLogConsole->Serialize( V, Verbosity, Category );
-		if( !GLog->IsRedirectingTo( this ) )
-			GLog->Serialize( V, Verbosity, Category );
+		if (GLogConsole)
+		{
+			GLogConsole->Serialize(V, Verbosity, Category);
+		}
+		if (!GLog->IsRedirectingTo(this))
+		{
+			GLog->Serialize(V, Verbosity, Category);
+		}
 	}
 
 	FContextSupplier* GetContext() const
@@ -3786,8 +3479,6 @@ UObject* UClass::GetArchetypeForCDO() const
 
 void UClass::PurgeClass(bool bRecompilingOnLoad)
 {
-	SetTokenStreamMaybeDirty(true);
-
 	ClassConstructor = nullptr;
 #if WITH_HOT_RELOAD_CTORS
 	ClassVTableHelperCtorCaller = nullptr;
@@ -3898,7 +3589,6 @@ UClass::UClass(const FObjectInitializer& ObjectInitializer)
 ,	ClassDefaultObject(NULL)
 {
 	// If you add properties here, please update the other constructors and PurgeClass()
-	SetTokenStreamMaybeDirty(true);
 }
 
 /**
@@ -3914,8 +3604,6 @@ UClass::UClass(const FObjectInitializer& ObjectInitializer, UClass* InBaseClass)
 ,	bCooked(false)
 ,	ClassDefaultObject(NULL)
 {
-	SetTokenStreamMaybeDirty(true);
-
 	// If you add properties here, please update the other constructors and PurgeClass()
 
 	UClass* ParentClass = GetSuperClass();
@@ -3979,8 +3667,6 @@ UClass::UClass
 	// complains about this operation, but AFAIK it is safe (and we've been doing it a long time)
 	// so the warning has been disabled for now:
 	*(const TCHAR**)&ClassConfigName = InConfigName; //-V580
-
-	SetTokenStreamMaybeDirty(true);
 }
 
 #if WITH_HOT_RELOAD
@@ -3999,8 +3685,6 @@ bool UClass::HotReloadPrivateStaticClass(
 	class UClass* TClass_WithinClass_StaticClass
 	)
 {
-	SetTokenStreamMaybeDirty(true);
-
 	if (InSize != PropertiesSize)
 	{
 		UClass::GetDefaultPropertiesFeedbackContext().Logf(ELogVerbosity::Warning, TEXT("Property size mismatch. Will not update class %s (was %d, new %d)."), *GetName(), PropertiesSize, InSize);
@@ -4224,6 +3908,30 @@ UFunction* UClass::FindFunctionByName(FName InName, EIncludeSuperFlag::Type Incl
 	}
 
 	return Result;
+}
+
+void UClass::AssembleReferenceTokenStreams()
+{
+	// Iterate over all class objects and force the default objects to be created. Additionally also
+	// assembles the token reference stream at this point. This is required for class objects that are
+	// not taken into account for garbage collection but have instances that are.
+	for (FRawObjectIterator It(false); It; ++It) // GetDefaultObject can create a new class, that need to be handled as well, so we cannot use TObjectIterator
+	{
+		if (UClass* Class = Cast<UClass>((UObject*)(It->Object)))
+		{
+			// Force the default object to be created (except when we're in the middle of exit purge -
+			// this may happen if we exited PreInit early because of error).
+			if (!GExitPurge)
+			{
+				Class->GetDefaultObject(); // Force the default object to be constructed if it isn't already
+			}
+			// Assemble reference token stream for garbage collection/ RTGC.
+			if (!Class->HasAnyClassFlags(CLASS_TokenStreamAssembled))
+			{
+				Class->AssembleReferenceTokenStream();
+			}
+		}
+	}
 }
 
 const FString UClass::GetConfigName() const
@@ -4648,8 +4356,9 @@ void UFunction::Bind()
 	{
 		// Find the function in the class's native function lookup table.
 		FName Name = GetFName();
-		if (auto* Found = OwnerClass->NativeFunctionLookupTable.FindByPredicate([=](const FNativeFunctionLookup& NativeFunctionLookup){ return Name == NativeFunctionLookup.Name; }))
-			{
+		FNativeFunctionLookup* Found = OwnerClass->NativeFunctionLookupTable.FindByPredicate([=](const FNativeFunctionLookup& NativeFunctionLookup){ return Name == NativeFunctionLookup.Name; });
+		if (Found)
+		{
 			Func = Found->Pointer;
 		}
 #if USE_COMPILED_IN_NATIVES
@@ -4682,7 +4391,7 @@ bool FStructUtils::ArePropertiesTheSame(const UProperty* A, const UProperty* B, 
 		return true;
 	}
 
-	if (!A != !B) //one of properties is null
+	if (!A || !B) //one of properties is null
 	{
 		return false;
 	}
@@ -4972,12 +4681,6 @@ void UDynamicClass::AddReferencedObjects(UObject* InThis, FReferenceCollector& C
 	Super::AddReferencedObjects(This, Collector);
 }
 
-void UDynamicClass::PostLoad()
-{
-	Super::PostLoad();
-	GetDefaultObject(true);
-}
-
 void UDynamicClass::PurgeClass(bool bRecompilingOnLoad)
 {
 	Super::PurgeClass(bRecompilingOnLoad);
@@ -4991,6 +4694,20 @@ void UDynamicClass::PurgeClass(bool bRecompilingOnLoad)
 	Timelines.Empty();
 
 	AnimClassImplementation = nullptr;
+}
+
+UObject* UDynamicClass::FindArchetype(UClass* ArchetypeClass, const FName ArchetypeName) const
+{
+	UDynamicClass* ThisClass = const_cast<UDynamicClass*>(this);
+	UObject* Archetype = static_cast<UObject*>(FindObjectWithOuter(ThisClass, ArchetypeClass, ArchetypeName));
+	const UClass* SuperClass = GetSuperClass();
+	return Archetype ? Archetype :
+		(SuperClass ? SuperClass->FindArchetype(ArchetypeClass, ArchetypeName) : nullptr);
+}
+
+UStructProperty* UDynamicClass::FindStructPropertyChecked(const TCHAR* PropertyName) const
+{
+	return FindFieldChecked<UStructProperty>(this, PropertyName);
 }
 
 IMPLEMENT_CORE_INTRINSIC_CLASS(UDynamicClass, UClass,

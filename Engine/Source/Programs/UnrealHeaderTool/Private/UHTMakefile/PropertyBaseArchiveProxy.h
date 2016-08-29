@@ -57,34 +57,34 @@ inline FArchive& operator<<(FArchive& Ar, EArrayType::Type& ArrayType)
 	return Ar;
 }
 
-inline FArchive& operator<<(FArchive& Ar, ERefQualifier::Type& ArrayType)
+inline FArchive& operator<<(FArchive& Ar, ERefQualifier::Type& RefQualifier)
 {
 	if (Ar.IsLoading())
 	{
 		int32 Value;
 		Ar << Value;
-		ArrayType = (ERefQualifier::Type)Value;
+		RefQualifier = (ERefQualifier::Type)Value;
 	}
 	else if (Ar.IsSaving())
 	{
-		int32 Value = (int32)ArrayType;
+		int32 Value = (int32)RefQualifier;
 		Ar << Value;
 	}
 
 	return Ar;
 }
 
-inline FArchive& operator<<(FArchive& Ar, EPointerType::Type& ArrayType)
+inline FArchive& operator<<(FArchive& Ar, EPointerType::Type& PointerType)
 {
 	if (Ar.IsLoading())
 	{
 		int32 Value;
 		Ar << Value;
-		ArrayType = (EPointerType::Type)Value;
+		PointerType = (EPointerType::Type)Value;
 	}
 	else if (Ar.IsSaving())
 	{
-		int32 Value = (int32)ArrayType;
+		int32 Value = (int32)PointerType;
 		Ar << Value;
 	}
 

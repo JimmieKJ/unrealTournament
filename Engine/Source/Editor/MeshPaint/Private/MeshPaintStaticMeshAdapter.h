@@ -37,6 +37,7 @@ protected:
 	virtual void BuildOctree();
 
 	void OnPostMeshBuild(UStaticMesh* StaticMesh);
+	void OnStaticMeshChanged(UStaticMeshComponent* StaticMeshComponent);
 
 	/** Triangle for use in Octree for mesh paint optimization */
 	struct FMeshTriangle
@@ -92,8 +93,7 @@ protected:
 	struct FStaticMeshReferencers
 	{
 		FStaticMeshReferencers()
-			: NumReferencers(0)
-			, RestoreBodySetup(nullptr)
+			: RestoreBodySetup(nullptr)
 		{}
 
 		struct FReferencersInfo
@@ -107,7 +107,6 @@ protected:
 			ECollisionEnabled::Type CachedCollisionType;
 		};
 
-		int32 NumReferencers;
 		TArray<FReferencersInfo> Referencers;
 		UBodySetup* RestoreBodySetup;
 	};

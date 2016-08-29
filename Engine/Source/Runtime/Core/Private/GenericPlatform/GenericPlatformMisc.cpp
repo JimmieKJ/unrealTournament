@@ -4,6 +4,7 @@
 #include "MallocAnsi.h"
 #include "GenericApplication.h"
 #include "GenericPlatformChunkInstall.h"
+#include "GenericPlatformCompression.h"
 #include "HAL/FileManagerGeneric.h"
 #include "ModuleManager.h"
 #include "VarargsHelper.h"
@@ -16,7 +17,16 @@
 #include "UProjectInfo.h"
 
 #if UE_ENABLE_ICU
+#if defined(_MSC_VER) && USING_CODE_ANALYSIS
+	#pragma warning(push)
+	#pragma warning(disable:28251)
+	#pragma warning(disable:28252)
+	#pragma warning(disable:28253)
+#endif
 	#include <unicode/locid.h>
+#if defined(_MSC_VER) && USING_CODE_ANALYSIS
+	#pragma warning(pop)
+#endif
 #endif
 
 DEFINE_LOG_CATEGORY_STATIC(LogGenericPlatformMisc, Log, All);
@@ -241,6 +251,11 @@ FString FGenericPlatformMisc::GetCPUBrand()
 	return FString( TEXT( "GenericCPUBrand" ) );
 }
 
+uint32 FGenericPlatformMisc::GetCPUInfo()
+{
+	// Not implemented cross-platform. Each platform may or may not choose to implement this.
+	return 0;
+}
 
 FString FGenericPlatformMisc::GetPrimaryGPUBrand()
 {
@@ -307,8 +322,8 @@ bool FGenericPlatformMisc::SetStoredValue(const FString& InStoreId, const FStrin
 
 	FConfigSection& Section = ConfigFile.FindOrAdd(InSectionName);
 
-	FString& KeyValue = Section.FindOrAdd(*InKeyName);
-	KeyValue = InValue;
+	FConfigValue& KeyValue = Section.FindOrAdd(*InKeyName);
+	KeyValue = FConfigValue(InValue);
 
 	ConfigFile.Dirty = true;
 	return ConfigFile.Write(ConfigPath);
@@ -329,10 +344,10 @@ bool FGenericPlatformMisc::GetStoredValue(const FString& InStoreId, const FStrin
 	const FConfigSection* const Section = ConfigFile.Find(InSectionName);
 	if(Section)
 	{
-		const FString* const KeyValue = Section->Find(*InKeyName);
+		const FConfigValue* const KeyValue = Section->Find(*InKeyName);
 		if(KeyValue)
 		{
-			OutValue = *KeyValue;
+			OutValue = KeyValue->GetValue();
 			return true;
 		}
 	}
@@ -605,6 +620,12 @@ const TCHAR* FGenericPlatformMisc::GetNullRHIShaderFormat()
 IPlatformChunkInstall* FGenericPlatformMisc::GetPlatformChunkInstall()
 {
 	static FGenericPlatformChunkInstall Singleton;
+	return &Singleton;
+}
+
+IPlatformCompression* FGenericPlatformMisc::GetPlatformCompression()
+{
+	static FGenericPlatformCompression Singleton;
 	return &Singleton;
 }
 
@@ -898,6 +919,11 @@ int32 FGenericPlatformMisc::NumberOfWorkerThreadsToSpawn()
 	int32 MaxWorkerThreadsWanted = (IsRunningGame() || IsRunningDedicatedServer() || IsRunningClientOnly()) ? MaxGameThreads : MaxThreads;
 	// need to spawn at least one worker thread (see FTaskGraphImplementation)
 	return FMath::Max(FMath::Min(NumberOfCores - 1, MaxWorkerThreadsWanted), 1);
+}
+
+int32 FGenericPlatformMisc::NumberOfIOWorkerThreadsToSpawn()
+{
+	return 4;
 }
 
 void FGenericPlatformMisc::GetValidTargetPlatforms(class TArray<class FString>& TargetPlatformNames)

@@ -4,6 +4,7 @@
 
 #include "FlurryEditor.h"
 #include "FlurrySettings.h"
+#include "Analytics.h"
 
 IMPLEMENT_MODULE( FFlurryEditorModule, FlurryEditorModule );
 

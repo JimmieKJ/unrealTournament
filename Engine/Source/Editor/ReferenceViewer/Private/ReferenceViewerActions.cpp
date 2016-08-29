@@ -6,7 +6,7 @@
 //////////////////////////////////////////////////////////////////////////
 // FReferenceViewerActions
 
-#define LOCTEXT_NAMESPACE ""
+#define LOCTEXT_NAMESPACE "ReferenceViewerActions"
 
 void FReferenceViewerActions::RegisterCommands()
 {

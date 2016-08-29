@@ -2,11 +2,6 @@
 
 #include "UnrealEd.h"
 #include "TextLocalizationResourceGenerator.h"
-#include "Json.h"
-#include "InternationalizationManifest.h"
-#include "InternationalizationArchive.h"
-#include "JsonInternationalizationManifestSerializer.h"
-#include "JsonInternationalizationArchiveSerializer.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogGenerateTextLocalizationResourceCommandlet, Log, All);
 
@@ -67,6 +62,14 @@ int32 UGenerateTextLocalizationResourceCommandlet::Main(const FString& Params)
 		return -1;
 	}
 
+	// Get archive name.
+	FString ArchiveName;
+	if (!GetStringFromConfig(*SectionName, TEXT("ArchiveName"), ArchiveName, GatherTextConfigPath))
+	{
+		UE_LOG(LogGenerateTextLocalizationResourceCommandlet, Error, TEXT("No archive name specified."));
+		return -1;
+	}
+
 	// Get cultures to generate.
 	FString NativeCultureName;
 	if( !( GetStringFromConfig( *SectionName, TEXT("NativeCulture"), NativeCultureName, GatherTextConfigPath ) ) )
@@ -109,68 +112,52 @@ int32 UGenerateTextLocalizationResourceCommandlet::Main(const FString& Params)
 		return -1;
 	}
 
-	// Read the manifest file from the source path.
-	FString ManifestFilePath = (SourcePath / ManifestName);
-	ManifestFilePath = FPaths::ConvertRelativePathToFull(ManifestFilePath);
-	TSharedPtr<FJsonObject> ManifestJSONObject = ReadJSONTextFile(ManifestFilePath);
-	if( !(ManifestJSONObject.IsValid()) )
+	// Get whether to skip the source check.
+	bool bSkipSourceCheck = false;
+	if (!GetBoolFromConfig(*SectionName, TEXT("bSkipSourceCheck"), bSkipSourceCheck, GatherTextConfigPath))
 	{
-		UE_LOG(LogGenerateTextLocalizationResourceCommandlet, Error, TEXT("No manifest found at %s."), *ManifestFilePath);
-		return -1;
+		bSkipSourceCheck = false;
 	}
-	TSharedRef<FInternationalizationManifest> InternationalizationManifest = MakeShareable( new FInternationalizationManifest );
+
+	// Load the manifest and all archives
+	FLocTextHelper LocTextHelper(SourcePath, ManifestName, ArchiveName, NativeCultureName, CulturesToGenerate, MakeShareable(new FLocFileSCCNotifies(SourceControlInfo)));
 	{
-		FJsonInternationalizationManifestSerializer ManifestSerializer;
-		ManifestSerializer.DeserializeManifest(ManifestJSONObject.ToSharedRef(), InternationalizationManifest);
+		FText LoadError;
+		if (!LocTextHelper.LoadAll(ELocTextHelperLoadFlags::LoadOrCreate, &LoadError))
+		{
+			UE_LOG(LogGenerateTextLocalizationResourceCommandlet, Error, TEXT("%s"), *LoadError.ToString());
+			return false;
+		}
 	}
 
 	// For each culture:
-	for(int32 Culture = 0; Culture < CulturesToGenerate.Num(); Culture++)
+	for (const FString& CultureName : CulturesToGenerate)
 	{
-		const FString CultureName = *(CulturesToGenerate[Culture]);
-		const FString CulturePath = SourcePath / CultureName;
-
 		// Write resource.
 		const FString TextLocalizationResourcePath = DestinationPath / CultureName / ResourceName;
 
-		const bool DidFileExist = FPaths::FileExists(TextLocalizationResourcePath);
-		if (DidFileExist)
+		const bool bLocResFileSaved = FLocalizedAssetSCCUtil::SaveFileWithSCC(SourceControlInfo, TextLocalizationResourcePath, [&LocTextHelper, &CultureName, &bSkipSourceCheck](const FString& InSaveFileName) -> bool
 		{
-			if( SourceControlInfo.IsValid() )
+			bool bSaved = false;
+
+			TAutoPtr<FArchive> TextLocalizationResourceArchive(IFileManager::Get().CreateFileWriter(*InSaveFileName));
+			if (TextLocalizationResourceArchive)
 			{
-				FText SCCErrorText;
-				if (!SourceControlInfo->CheckOutFile(TextLocalizationResourcePath, SCCErrorText))
+				bSaved = FTextLocalizationResourceGenerator::Generate(LocTextHelper, CultureName, bSkipSourceCheck, *TextLocalizationResourceArchive);
+				if (!bSaved)
 				{
-					UE_LOG(LogGenerateTextLocalizationResourceCommandlet, Error, TEXT("Check out of file %s failed: %s"), *TextLocalizationResourcePath, *SCCErrorText.ToString());
-					return -1;
+					IFileManager::Get().Delete(*InSaveFileName);
 				}
+				TextLocalizationResourceArchive->Close();
 			}
-		}
 
-		TAutoPtr<FArchive> TextLocalizationResourceArchive(IFileManager::Get().CreateFileWriter(*TextLocalizationResourcePath));
-		if (TextLocalizationResourceArchive)
+			return bSaved;
+		});
+
+		if (!bLocResFileSaved)
 		{
-			FJsonInternationalizationArchiveSerializer ArchiveSerializer;
-
-			if( !(FTextLocalizationResourceGenerator::Generate(SourcePath, InternationalizationManifest, NativeCultureName, CultureName, TextLocalizationResourceArchive, ArchiveSerializer)) )
-			{
-				IFileManager::Get().Delete( *TextLocalizationResourcePath );
-			}
-			TextLocalizationResourceArchive->Close();
-		}
-
-		if (!DidFileExist)
-		{
-			// Checkout on a new file will cause it to be added
-			if( SourceControlInfo.IsValid() )
-			{
-				FText SCCErrorText;
-				if (!SourceControlInfo->CheckOutFile(TextLocalizationResourcePath, SCCErrorText))
-				{
-					UE_LOG(LogGenerateTextLocalizationResourceCommandlet, Error, TEXT("Check out of file %s failed: %s"), *TextLocalizationResourcePath, *SCCErrorText.ToString());
-					return -1;
-				}
-			}
+			UE_LOG(LogGenerateTextLocalizationResourceCommandlet, Error, TEXT("Could not write file %s"), *TextLocalizationResourcePath);
+			return false;
 		}
 	}
 

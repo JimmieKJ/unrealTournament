@@ -17,7 +17,7 @@ void FAnalyticsIOSFlurry::ShutdownModule()
 	FAnalyticsProviderFlurry::Destroy();
 }
 
-TSharedPtr<IAnalyticsProvider> FAnalyticsIOSFlurry::CreateAnalyticsProvider(const FAnalytics::FProviderConfigurationDelegate& GetConfigValue) const
+TSharedPtr<IAnalyticsProvider> FAnalyticsIOSFlurry::CreateAnalyticsProvider(const FAnalyticsProviderConfigurationDelegate& GetConfigValue) const
 {
 	if (GetConfigValue.IsBound())
 	{

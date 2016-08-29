@@ -158,7 +158,7 @@ void FFolderDropTarget::OnDrop(FDragDropPayload& DraggedObjects, UWorld& World, 
 				{
 					OldParentActor->Modify();
 				}
-				RootComp->DetachFromParent(true);
+				RootComp->DetachFromComponent(FDetachmentTransformRules::KeepWorldTransform);
 			}
 		}
 	}
@@ -262,7 +262,7 @@ void FFolderTreeItem::Delete()
 		FName ParentPath;
 	};
 
-	const FScopedTransaction Transaction( LOCTEXT("DeleteFolder", "Delete Folder") );
+	const FScopedTransaction Transaction( LOCTEXT("DeleteFolderTransaction", "Delete Folder") );
 
 	FResetActorFolders ResetFolders(GetParentPath(Path));
 	for (auto& Child : GetChildren())

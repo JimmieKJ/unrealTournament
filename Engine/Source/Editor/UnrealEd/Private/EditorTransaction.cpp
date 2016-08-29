@@ -139,29 +139,47 @@ void FTransaction::FObjectRecord::SerializeContents( FArchive& Ar, int32 InOper 
 
 void FTransaction::FObjectRecord::Restore( FTransaction* Owner )
 {
+	// only used by FMatineeTransaction:
 	if( !bRestored )
 	{
 		bRestored = true;
-		TArray<uint8> FlipData;
-		TArray<FPersistentObjectRef> FlipReferencedObjects;
-		TArray<FName> FlipReferencedNames;
-		TSharedPtr<ITransactionObjectAnnotation> FlipObjectAnnotation;
-		if( Owner->bFlip )
-		{
-			FlipObjectAnnotation = Object->GetTransactionAnnotation();
-			FWriter Writer( FlipData, FlipReferencedObjects, FlipReferencedNames, bWantsBinarySerialization );
-			SerializeContents( Writer, -Oper );
-		}
+		check(!Owner->bFlip);
 		FTransaction::FObjectRecord::FReader Reader( Owner, Data, ReferencedObjects, ReferencedNames, bWantsBinarySerialization );
 		SerializeContents( Reader, Oper );
-		if( Owner->bFlip )
-		{
-			Exchange( ObjectAnnotation, FlipObjectAnnotation );
-			Exchange( Data, FlipData );
-			Exchange( ReferencedObjects, FlipReferencedObjects );
-			Exchange( ReferencedNames, FlipReferencedNames );
-			Oper *= -1;
-		}
+	}
+}
+
+void FTransaction::FObjectRecord::Save(FTransaction* Owner)
+{
+	// common undo/redo path, before applying undo/redo buffer we save current state:
+	check(Owner->bFlip);
+	if (!bRestored)
+	{
+		FlipData.Empty();
+		FlipReferencedObjects.Empty();
+		FlipReferencedNames.Empty();
+		FlipObjectAnnotation = TSharedPtr<ITransactionObjectAnnotation>();
+
+		FlipObjectAnnotation = Object->GetTransactionAnnotation();
+		FWriter Writer(FlipData, FlipReferencedObjects, FlipReferencedNames, bWantsBinarySerialization);
+		SerializeContents(Writer, -Oper);
+	}
+}
+
+void FTransaction::FObjectRecord::Load(FTransaction* Owner)
+{
+	// common undo/redo path, we apply the saved state and then swap it for the state we cached in ::Save above
+	check(Owner->bFlip);
+	if (!bRestored)
+	{
+		bRestored = true;
+		FTransaction::FObjectRecord::FReader Reader(Owner, Data, ReferencedObjects, ReferencedNames, bWantsBinarySerialization);
+		SerializeContents(Reader, Oper);
+		Exchange(ObjectAnnotation, FlipObjectAnnotation);
+		Exchange(Data, FlipData);
+		Exchange(ReferencedObjects, FlipReferencedObjects);
+		Exchange(ReferencedNames, FlipReferencedNames);
+		Oper *= -1;
 	}
 }
 
@@ -183,6 +201,15 @@ bool FTransaction::ContainsPieObject() const
 	return false;
 }
 
+bool FTransaction::IsObjectTransacting(const UObject* Object) const
+{
+	// This function is meaningless when called outside of a transaction context. Without this
+	// ensure clients will commonly introduced bugs by having some logic that runs during
+	// the transacting and some logic that does not, yielding assymetrical results.
+	ensure(GIsTransacting);
+	ensure(ChangedObjects.Num() != 0);
+	return ChangedObjects.Contains(Object);
+}
 
 void FTransaction::RemoveRecords( int32 Count /* = 1  */ )
 {
@@ -390,24 +417,41 @@ void FTransaction::Apply()
 	const int32 End   = Inc==1 ? Records.Num() :              -1;
 
 	// Init objects.
-	TMap<UObject*, TSharedPtr<ITransactionObjectAnnotation>> ChangedObjects;
 	for( int32 i=Start; i!=End; i+=Inc )
 	{
 		FObjectRecord& Record = Records[i];
 		Record.bRestored = false;
 
 		UObject* Object = Record.Object.Get();
-		if (!ChangedObjects.Contains(Object))
+		if (Object)
 		{
-			Object->CheckDefaultSubobjects();
-			Object->PreEditUndo();
-		}
+			if (!ChangedObjects.Contains(Object))
+			{
+				Object->CheckDefaultSubobjects();
+				Object->PreEditUndo();
+			}
 
-		ChangedObjects.Add(Object, Record.ObjectAnnotation);
+			ChangedObjects.Add(Object, Record.ObjectAnnotation);
+		}
 	}
-	for( int32 i=Start; i!=End; i+=Inc )
+
+	if (bFlip)
 	{
-		Records[i].Restore( this );
+		for (int32 i = Start; i != End; i += Inc)
+		{
+			Records[i].Save(this);
+		}
+		for (int32 i = Start; i != End; i += Inc)
+		{
+			Records[i].Load(this);
+		}
+	}
+	else
+	{
+		for (int32 i = Start; i != End; i += Inc)
+		{
+			Records[i].Restore(this);
+		}
 	}
 
 	// An Actor's components must always get its PostEditUndo before the owning Actor so do a quick sort
@@ -463,6 +507,8 @@ void FTransaction::Apply()
 		UObject* ChangedObject = ChangedObjectIt.Key;
 		ChangedObject->CheckDefaultSubobjects();
 	}
+
+	ChangedObjects.Empty();
 }
 
 SIZE_T FTransaction::DataSize() const
@@ -802,6 +848,7 @@ bool UTransBuffer::Undo(bool bCanRedo)
 	{
 		FTransaction& Transaction = UndoBuffer[ UndoBuffer.Num() - ++UndoCount ];
 		UE_LOG(LogEditorTransaction, Log,  TEXT("Undo %s"), *Transaction.GetTitle().ToString() );
+		CurrentTransaction = &Transaction;
 
 		BeforeRedoUndoDelegate.Broadcast(Transaction.GetContext());
 		Transaction.Apply();
@@ -812,6 +859,8 @@ bool UTransBuffer::Undo(bool bCanRedo)
 			UndoBuffer.RemoveAt(UndoBuffer.Num() - UndoCount, UndoCount);
 			UndoCount = 0;
 		}
+
+		CurrentTransaction = nullptr;
 	}
 	GIsTransacting = false;
 
@@ -836,10 +885,13 @@ bool UTransBuffer::Redo()
 	{
 		FTransaction& Transaction = UndoBuffer[ UndoBuffer.Num() - UndoCount-- ];
 		UE_LOG(LogEditorTransaction, Log,  TEXT("Redo %s"), *Transaction.GetTitle().ToString() );
+		CurrentTransaction = &Transaction;
 
 		BeforeRedoUndoDelegate.Broadcast(Transaction.GetContext());
 		Transaction.Apply();
 		RedoDelegate.Broadcast(Transaction.GetContext(), true);
+
+		CurrentTransaction = nullptr;
 	}
 	GIsTransacting = false;
 
@@ -856,11 +908,6 @@ bool UTransBuffer::EnableObjectSerialization()
 bool UTransBuffer::DisableObjectSerialization()
 {
 	return ++DisallowObjectSerialization == 0;
-}
-
-ITransaction* UTransBuffer::CreateInternalTransaction()
-{
-	return new FTransaction( TEXT("Internal") );
 }
 
 
@@ -914,6 +961,17 @@ bool UTransBuffer::IsObjectInTransationBuffer( const UObject* Object ) const
 		}
 		
 		TransactionObjects.Reset();
+	}
+
+	return false;
+}
+
+bool UTransBuffer::IsObjectTransacting(const UObject* Object) const
+{
+	// We can't provide a truly meaningful answer to this question when not transacting:
+	if (ensure(CurrentTransaction))
+	{
+		return CurrentTransaction->IsObjectTransacting(Object);
 	}
 
 	return false;

@@ -250,6 +250,7 @@ void FPaperAtlasGenerator::HandleAssetChangedEvent(UPaperSpriteAtlas* Atlas)
 				SpriteBeingBuilt->Modify();
 				SpriteBeingBuilt->BakedSourceTexture = Cast<UTexture2D>(RemappedAtlasTextures[Slot.AtlasIndex]);
 				SpriteBeingBuilt->BakedSourceUV = FVector2D(Slot.X + Atlas->Padding, Slot.Y + Atlas->Padding);
+				SpriteBeingBuilt->BakedSourceDimension = SpriteBeingBuilt->GetSourceSize();
 				SpriteBeingBuilt->RebuildRenderData();
 
 				// Propagate changes to sprites in scene

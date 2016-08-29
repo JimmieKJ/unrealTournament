@@ -12,12 +12,18 @@
 #include "AnimationGraphSchema.h"
 #include "K2Node_TransitionRuleGetter.h"
 #include "AnimStateNode.h"
+#include "Animation/AimOffsetBlendSpace.h"
+#include "Animation/AimOffsetBlendSpace1D.h"
+#include "AnimGraphNode_AssetPlayerBase.h"
 #include "AnimGraphNode_BlendSpacePlayer.h"
 #include "AnimGraphNode_ComponentToLocalSpace.h"
 #include "AnimGraphNode_LocalToComponentSpace.h"
 #include "AnimGraphNode_Root.h"
 #include "AnimGraphNode_RotationOffsetBlendSpace.h"
 #include "AnimGraphNode_SequencePlayer.h"
+#include "AnimGraphNode_PoseBlendNode.h"
+#include "AnimGraphNode_PoseByName.h"
+#include "AnimGraphCommands.h"
 
 #define LOCTEXT_NAMESPACE "AnimationGraphSchema"
 
@@ -247,42 +253,18 @@ void UAnimationGraphSchema::SpawnNodeFromAsset(UAnimationAsset* Asset, const FVe
 	{
 		FEdGraphSchemaAction_K2NewNode Action;
 
-		if (UAnimSequence* Sequence = Cast<UAnimSequence>(Asset))
+		UClass* NewNodeClass = GetNodeClassForAsset(Asset->GetClass());
+		
+		if (NewNodeClass)
 		{
-			UAnimGraphNode_SequencePlayer* PlayerNode = NewObject<UAnimGraphNode_SequencePlayer>();
-			PlayerNode->Node.Sequence = Sequence;
-			Action.NodeTemplate = PlayerNode;
-		}
-		else if (UBlendSpaceBase* BlendSpace = Cast<UBlendSpaceBase>(Asset))
-		{
-			if (IsAimOffsetBlendSpace(BlendSpace))
-			{
-				UAnimGraphNode_RotationOffsetBlendSpace* PlayerNode = NewObject<UAnimGraphNode_RotationOffsetBlendSpace>();
-				PlayerNode->Node.BlendSpace = BlendSpace;
+			check(NewNodeClass->IsChildOf(UAnimGraphNode_AssetPlayerBase::StaticClass()));
 
-				Action.NodeTemplate = PlayerNode;
-			}
-			else
-			{
-				UAnimGraphNode_BlendSpacePlayer* PlayerNode = NewObject<UAnimGraphNode_BlendSpacePlayer>();
-				PlayerNode->Node.BlendSpace = BlendSpace;
+			UAnimGraphNode_AssetPlayerBase* NewNode = NewObject<UAnimGraphNode_AssetPlayerBase>(GetTransientPackage(), NewNodeClass);
+			NewNode->SetAnimationAsset(Asset);
+			Action.NodeTemplate = NewNode;
 
-				Action.NodeTemplate = PlayerNode;
-			}
+			Action.PerformAction(Graph, PinIfAvailable, GraphPosition);
 		}
-		else if (UAnimComposite* Composite = Cast<UAnimComposite>(Asset))
-		{
-			UAnimGraphNode_SequencePlayer* PlayerNode = NewObject<UAnimGraphNode_SequencePlayer>();
-			PlayerNode->Node.Sequence = Composite;
-			Action.NodeTemplate = PlayerNode;
-		}
-		else
-		{
-			//unknown type
-			return;
-		}
-
-		Action.PerformAction(Graph, PinIfAvailable, GraphPosition);
 	}
 }
 
@@ -315,6 +297,22 @@ void UAnimationGraphSchema::UpdateNodeWithAsset(UK2Node* K2Node, UAnimationAsset
 				{
 					// Skeleton matches, and it's a blendspace player; replace the existing blendspace with the dragged one
 					BlendSpacePlayerNode->Node.BlendSpace = BlendSpace;
+				}
+			}
+		}
+		else if (UPoseAsset* PoseAsset = Cast<UPoseAsset>(Asset))
+		{
+			if (UAnimGraphNode_PoseBlendNode* PoseBlendNode = Cast<UAnimGraphNode_PoseBlendNode>(K2Node))
+			{
+				// Skeleton matches, and it's a blendspace player; replace the existing blendspace with the dragged one
+				PoseBlendNode->Node.PoseAsset = PoseAsset;
+			}
+			else
+			{
+				if (UAnimGraphNode_PoseByName* PoseByNameNode = Cast<UAnimGraphNode_PoseByName>(K2Node))
+				{
+					// Skeleton matches, and it's a blendspace player; replace the existing blendspace with the dragged one
+					PoseByNameNode->Node.PoseAsset = PoseAsset;
 				}
 			}
 		}
@@ -378,6 +376,11 @@ void UAnimationGraphSchema::GetAssetsNodeHoverMessage(const TArray<FAssetData>& 
 		{
 			PlayerNodeUnderCursor = Cast<const UAnimGraphNode_BlendSpacePlayer>(HoverNode);
 		}
+	}
+	else if (Asset->IsA(UPoseAsset::StaticClass()))
+	{
+		UPoseAsset* PoseAsset = CastChecked<UPoseAsset>(Asset);
+		PlayerNodeUnderCursor = Cast<const UAnimGraphNode_PoseBlendNode>(HoverNode);
 	}
 
 	// this one only should happen when there is an Anim Blueprint
@@ -448,6 +451,16 @@ void UAnimationGraphSchema::GetAssetsGraphHoverMessage(const TArray<FAssetData>&
 void UAnimationGraphSchema::GetContextMenuActions(const UEdGraph* CurrentGraph, const UEdGraphNode* InGraphNode, const UEdGraphPin* InGraphPin, FMenuBuilder* MenuBuilder, bool bIsDebugging) const
 {
 	Super::GetContextMenuActions(CurrentGraph, InGraphNode, InGraphPin, MenuBuilder, bIsDebugging);
+
+	if (const UAnimGraphNode_Base* AnimGraphNode = Cast<const UAnimGraphNode_Base>(InGraphNode))
+	{
+		MenuBuilder->BeginSection("AnimGraphSchemaNodeActions", LOCTEXT("AnimNodeActionsMenuHeader", "Anim Node Actions"));
+		{
+			// Node contextual actions
+			MenuBuilder->AddMenuEntry(FAnimGraphCommands::Get().TogglePoseWatch);
+		}
+		MenuBuilder->EndSection();
+	}
 }
 
 FText UAnimationGraphSchema::GetPinDisplayName(const UEdGraphPin* Pin) const 

@@ -3,14 +3,11 @@
 #include "PersonaPrivatePCH.h"
 #include "AnimViewportShowCommands.h"
 
-#define LOCTEXT_NAMESPACE ""
+#define LOCTEXT_NAMESPACE "AnimViewportShowCommands"
 
 void FAnimViewportShowCommands::RegisterCommands()
 {
 	UI_COMMAND( ToggleGrid, "Grid", "Display Grid", EUserInterfaceActionType::ToggleButton, FInputChord() );
-
-	UI_COMMAND( ToggleFloor, "Floor", "Display Floor", EUserInterfaceActionType::ToggleButton, FInputChord() );
-	UI_COMMAND( ToggleSky, "Sky", "Display Sky", EUserInterfaceActionType::ToggleButton, FInputChord() );
 
 	UI_COMMAND( AutoAlignFloorToMesh, "Auto Align Floor To Mesh", "Auto aligns floor to mesh bounds", EUserInterfaceActionType::ToggleButton, FInputChord() );
 	UI_COMMAND( MuteAudio, "Mute Audio", "Mutes audio from the preview", EUserInterfaceActionType::ToggleButton, FInputChord() );
@@ -23,7 +20,6 @@ void FAnimViewportShowCommands::RegisterCommands()
 	UI_COMMAND( ShowPreviewMesh, "Mesh", "Show the preview mesh", EUserInterfaceActionType::ToggleButton, FInputChord() );
 	UI_COMMAND( ShowMorphTargets, "MorphTargets", "Display Applied Morph Targets of the mesh", EUserInterfaceActionType::ToggleButton, FInputChord() );
 
-	UI_COMMAND( ShowBones, "Bones", "Display Skeleton in viewport", EUserInterfaceActionType::ToggleButton, FInputChord() );
 	UI_COMMAND( ShowBoneNames, "Bone Names", "Display Bone Names in Viewport", EUserInterfaceActionType::ToggleButton, FInputChord() );
 
 	// below 3 menus are radio button styles
@@ -40,8 +36,12 @@ void FAnimViewportShowCommands::RegisterCommands()
 	UI_COMMAND( ShowBakedAnimation, "Baked Animation", "Display Skeleton In Baked Raw Animation if you have Track Curves Modified.", EUserInterfaceActionType::ToggleButton, FInputChord() );
 	UI_COMMAND( ShowSockets, "Sockets", "Display socket hitpoints", EUserInterfaceActionType::ToggleButton, FInputChord() );
 
+	UI_COMMAND( ShowBoneDrawNone, "None", "Hides bone selection", EUserInterfaceActionType::RadioButton, FInputChord());
+	UI_COMMAND( ShowBoneDrawSelected, "Selected Only", "Shows only the selected bone", EUserInterfaceActionType::RadioButton, FInputChord());
+	UI_COMMAND( ShowBoneDrawAll, "All Hierarchy", "Shows all hierarchy joints", EUserInterfaceActionType::RadioButton, FInputChord());
+
 	UI_COMMAND( ShowLocalAxesNone, "None", "Hides all local hierarchy axis", EUserInterfaceActionType::RadioButton, FInputChord() );
-	UI_COMMAND( ShowLocalAxesSelected, "Selected Hierarchy", "Shows only the local bone axis of the selected bones", EUserInterfaceActionType::RadioButton, FInputChord() );
+	UI_COMMAND( ShowLocalAxesSelected, "Selected Only", "Shows only the local bone axis of the selected bones", EUserInterfaceActionType::RadioButton, FInputChord() );
 	UI_COMMAND( ShowLocalAxesAll, "All", "Shows all local hierarchy axes", EUserInterfaceActionType::RadioButton, FInputChord() );
 
 #if WITH_APEX_CLOTHING

@@ -9,6 +9,7 @@
 #include "LandscapeRender.h"
 #include "Landscape.h"
 #include "LandscapeHeightfieldCollisionComponent.h"
+#include "LandscapeMaterialInstanceConstant.h"
 
 #include "LevelUtils.h"
 #include "Materials/MaterialInstanceDynamic.h"
@@ -56,10 +57,9 @@ protected:
 	/** Protected so that only subclasses can create instances of this class. */
 	FLandscapeBrushCircle(FEdModeLandscape* InEdMode, UMaterialInterface* InBrushMaterial)
 		: LastMousePosition(0, 0)
-		, BrushMaterial(nullptr)
+		, BrushMaterial(LandscapeTool::CreateMaterialInstance(InBrushMaterial))
 		, EdMode(InEdMode)
 	{
-		BrushMaterial = InBrushMaterial; //UMaterialInstanceDynamic::Create(InBrushMaterial, nullptr);
 	}
 
 public:
@@ -73,16 +73,34 @@ public:
 		// Allow any currently unused material instances to be GC'd
 		BrushMaterialFreeInstances.Empty();
 
+		Collector.AddReferencedObjects(BrushMaterialComponents);
 		Collector.AddReferencedObjects(BrushMaterialInstanceMap);
+
+		// If a user tool removes any components then we will have bad (null) entries in our TSet/TMap, remove them
+		// We can't just call .Remove(nullptr) because the entries were hashed as non-null values so a hash lookup of nullptr won't find them
+		for (auto It = BrushMaterialComponents.CreateIterator(); It; ++It)
+		{
+			if (*It == nullptr)
+			{
+				It.RemoveCurrent();
+			}
+		}
+		for (auto It = BrushMaterialInstanceMap.CreateIterator(); It; ++It)
+		{
+			if (It->Key == nullptr || It->Value == nullptr)
+			{
+				It.RemoveCurrent();
+			}
+		}
 	}
 
 	virtual void LeaveBrush() override
 	{
-		for (TSet<ULandscapeComponent*>::TIterator It(BrushMaterialComponents); It; ++It)
+		for (ULandscapeComponent* Component : BrushMaterialComponents)
 		{
-			if ((*It) != nullptr && (*It)->EditToolRenderData != nullptr)
+			if (Component && Component->EditToolRenderData)
 			{
-				(*It)->EditToolRenderData->Update(nullptr);
+				Component->EditToolRenderData->Update(nullptr);
 			}
 		}
 		TArray<UMaterialInstanceDynamic*> BrushMaterialInstances;
@@ -126,19 +144,11 @@ public:
 		TSet<ULandscapeComponent*> RemovedComponents = BrushMaterialComponents.Difference(NewComponents);
 		for (ULandscapeComponent* RemovedComponent : RemovedComponents)
 		{
-			if (RemovedComponent == nullptr)
-			{
-				// can occur if a component was removed by a user tool
-				BrushMaterialInstanceMap.Remove(nullptr);
-			}
-			else
-			{
-				BrushMaterialFreeInstances.Push(BrushMaterialInstanceMap.FindAndRemoveChecked(RemovedComponent));
+			BrushMaterialFreeInstances.Push(BrushMaterialInstanceMap.FindAndRemoveChecked(RemovedComponent));
 
-				if (ensure(RemovedComponent->EditToolRenderData != nullptr))
-				{
-					RemovedComponent->EditToolRenderData->Update(nullptr);
-				}
+			if (ensure(RemovedComponent->EditToolRenderData != nullptr))
+			{
+				RemovedComponent->EditToolRenderData->Update(nullptr);
 			}
 		}
 
@@ -339,7 +349,7 @@ class FLandscapeBrushComponent : public FLandscapeBrush
 
 protected:
 	FVector2D LastMousePosition;
-	UMaterial* BrushMaterial;
+	UMaterialInterface* BrushMaterial;
 public:
 	FEdModeLandscape* EdMode;
 
@@ -347,7 +357,8 @@ public:
 		: BrushMaterial(nullptr)
 		, EdMode(InEdMode)
 	{
-		BrushMaterial = LoadObject<UMaterial>(nullptr, TEXT("/Engine/EditorLandscapeResources/SelectBrushMaterial.SelectBrushMaterial"), nullptr, LOAD_None, nullptr);
+		UMaterial* BaseBrushMaterial = LoadObject<UMaterial>(nullptr, TEXT("/Engine/EditorLandscapeResources/SelectBrushMaterial.SelectBrushMaterial"));
+		BrushMaterial = LandscapeTool::CreateMaterialInstance(BaseBrushMaterial);
 	}
 
 	// FGCObject interface
@@ -541,8 +552,8 @@ public:
 		: BrushMaterial(nullptr)
 		, EdMode(InEdMode)
 	{
-		UMaterialInstanceConstant* GizmoMaterial = LoadObject<UMaterialInstanceConstant>(nullptr, TEXT("/Engine/EditorLandscapeResources/MaskBrushMaterial_Gizmo.MaskBrushMaterial_Gizmo"), nullptr, LOAD_None, nullptr);
-		BrushMaterial = UMaterialInstanceDynamic::Create(GizmoMaterial, nullptr);
+		UMaterialInterface* GizmoMaterial = LoadObject<UMaterialInstanceConstant>(nullptr, TEXT("/Engine/EditorLandscapeResources/MaskBrushMaterial_Gizmo.MaskBrushMaterial_Gizmo"));
+		BrushMaterial = UMaterialInstanceDynamic::Create(LandscapeTool::CreateMaterialInstance(GizmoMaterial), nullptr);
 	}
 
 	// FGCObject interface

@@ -96,6 +96,14 @@ struct FActorPriority
 	FActorPriority(class UNetConnection* InConnection, struct FActorDestructionInfo * DestructInfo, const TArray<struct FNetViewer>& Viewers );
 };
 
+struct FCompareFActorPriority
+{
+	FORCEINLINE bool operator()( const FActorPriority& A, const FActorPriority& B ) const
+	{
+		return B.Priority < A.Priority;
+	}
+};
+
 struct FActorDestructionInfo
 {
 	TWeakObjectPtr<UObject>		ObjOuter;
@@ -277,13 +285,8 @@ public:
 	double						StatUpdateTime;
 	/** Interval between gathering stats */
 	float						StatPeriod;
-
-	/** Collect net stats even if not FThreadStats::IsCollectingData(). */
-	bool bCollectNetStats;
-
 	/** Time of last netdriver cleanup pass */
 	double						LastCleanupTime;
-
 	/** Used to determine if checking for standby cheats should occur */
 	bool						bIsStandbyCheckingEnabled;
 	/** Used to determine whether we've already caught a cheat or not */
@@ -338,7 +341,9 @@ public:
 	/** Creates if necessary, and returns a FRepLayout that maps to the passed in UStruct */
 	TSharedPtr<FRepLayout>		GetStructRepLayout( UStruct * Struct );
 
-	TSet< TWeakPtr< FObjectReplicator > > UnmappedReplicators;
+	TMap< FNetworkGUID, TSet< FObjectReplicator* > >	GuidToReplicatorMap;
+	int32												TotalTrackedGuidMemoryBytes;
+	TSet< FObjectReplicator* >							UnmappedReplicators;
 
 	/** Handles to various registered delegates */
 	FDelegateHandle TickDispatchDelegateHandle;

@@ -45,7 +45,7 @@ void SGameplayTagGraphPin::ParseDefaultValueData()
 {
 	FString TagString = GraphPinObj->GetDefaultAsString();
 
-	UK2Node_CallFunction* CallFuncNode = Cast<UK2Node_CallFunction>(GraphPinObj->GetOuter());
+	UK2Node_CallFunction* CallFuncNode = Cast<UK2Node_CallFunction>(GraphPinObj->GetOwningNode());
 	
 	FilterString.Empty();
 	if (CallFuncNode)
@@ -74,15 +74,15 @@ void SGameplayTagGraphPin::ParseDefaultValueData()
 
 	if (!TagString.IsEmpty())
 	{
-		FGameplayTag Tag = IGameplayTagsModule::Get().GetGameplayTagsManager().RequestGameplayTag(FName(*TagString));
-		TagContainer->AddTag(Tag);
+		FGameplayTag GameplayTag = IGameplayTagsModule::Get().GetGameplayTagsManager().RequestGameplayTag(FName(*TagString));
+		TagContainer->AddTag(GameplayTag);
 	}
 }
 
 TSharedRef<SWidget> SGameplayTagGraphPin::GetListContent()
 {
 	EditableContainers.Empty();
-	EditableContainers.Add( SGameplayTagWidget::FEditableGameplayTagContainerDatum( GraphPinObj, TagContainer.Get() ) );
+	EditableContainers.Add( SGameplayTagWidget::FEditableGameplayTagContainerDatum( GraphPinObj->GetOwningNode(), TagContainer.Get() ) );
 
 	return SNew( SVerticalBox )
 		+SVerticalBox::Slot()

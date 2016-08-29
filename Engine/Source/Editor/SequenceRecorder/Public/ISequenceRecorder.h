@@ -3,6 +3,7 @@
 #pragma once
 
 #include "ModuleInterface.h"
+#include "Containers/ArrayView.h"
 
 DECLARE_DELEGATE_OneParam(FOnRecordingStarted, class UMovieSceneSequence* /*Sequence*/);
 
@@ -30,15 +31,28 @@ public:
 
 	/**
 	 * Start a recording, possibly with some delay (specified by the sequence recording settings).
-	 * @param	World				The world we use to record actors
-	 * @param	ActorNameToRecord	The name of the actor to record (fuzzy-matched, precise name not required).
+	 * @param	ActorsToRecord		Actors to record.
 	 * @param	OnRecordingStarted	Delegate fired when recording has commenced.
 	 * @param	OnRecordingFinished	Delegate fired when recording has finished.
 	 * @param	PathToRecordTo		Optional path to a sequence to record to. If none is specified we use the defaults in the settings.
 	 * @param	SequenceName		Optional name of a sequence to record to. If none is specified we use the defaults in the settings.
 	 * @return true if recording was successfully started
 	*/
-	virtual bool StartRecording(UWorld* World, const FString& ActorNameToRecord, const FOnRecordingStarted& OnRecordingStarted, const FOnRecordingFinished& OnRecordingFinished, const FString& PathToRecordTo = FString(), const FString& SequenceName = FString()) = 0;
+	virtual bool StartRecording(TArrayView<AActor* const> ActorsToRecord, const FOnRecordingStarted& OnRecordingStarted, const FOnRecordingFinished& OnRecordingFinished, const FString& PathToRecordTo = FString(), const FString& SequenceName = FString()) = 0;
+
+	/**
+	 * Start a recording, possibly with some delay (specified by the sequence recording settings).
+	 * @param	ActorToRecord		Actor to record.
+	 * @param	OnRecordingStarted	Delegate fired when recording has commenced.
+	 * @param	OnRecordingFinished	Delegate fired when recording has finished.
+	 * @param	PathToRecordTo		Optional path to a sequence to record to. If none is specified we use the defaults in the settings.
+	 * @param	SequenceName		Optional name of a sequence to record to. If none is specified we use the defaults in the settings.
+	 * @return true if recording was successfully started
+	*/
+	bool StartRecording(AActor* ActorToRecord, const FOnRecordingStarted& OnRecordingStarted, const FOnRecordingFinished& OnRecordingFinished, const FString& PathToRecordTo = FString(), const FString& SequenceName = FString())
+	{
+		return StartRecording(MakeArrayView(&ActorToRecord, 1), OnRecordingStarted, OnRecordingFinished, PathToRecordTo, SequenceName);
+	}
 
 	/**
 	 * Notify we should start recording an actor - usually used for 'actor pooling' implementations
@@ -53,4 +67,11 @@ public:
 	 * @param	Actor	The actor that was 'de-spawned'
 	 */
 	virtual void NotifyActorStopRecording(AActor* Actor) = 0;
+
+	/**
+	 * Get the spawnable Guid in the currently recording movie scene for the specified actor.
+	 * @param	Actor	The Actor to check
+	 * @return the spawnable Guid
+	 */
+	virtual FGuid GetRecordingGuid(AActor* Actor) const = 0;
 };

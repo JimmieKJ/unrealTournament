@@ -1,6 +1,6 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "stdafx.h"
+#include "LightmassPCH.h"
 #include "Exporter.h"
 #include "LightmassSwarm.h"
 #include "CPUSolver.h"
@@ -21,69 +21,6 @@
 
 namespace Lightmass
 {
-	 
-FGatheredLightSample FGatheredLightSample::AmbientLight(const FLinearColor& Color)
-{
-	FGatheredLightSample Result;
-	Result.SHVector.AddAmbient(Color);
-
-	// Compute SHCorrection as if all the lighting was coming in along the normal
-	FVector4 TangentDirection(0, 0, 1);
-	FSHVector2 SH = FSHVector2::SHBasisFunction( TangentDirection );
-	Result.SHCorrection = Color.GetLuminance() * ( 0.282095f * SH.V[0] + 0.325735f * SH.V[2] );
-	Result.IncidentLighting = Color;
-
-	checkSlow(Result.SHCorrection >= 0 && Result.IncidentLighting.GetMin() >= 0);
-
-	return Result;
-}
-
-FGatheredLightSample FGatheredLightSample::PointLightWorldSpace(const FLinearColor& Color, const FVector4& TangentDirection, const FVector4& WorldDirection)
-{
-	FGatheredLightSample Result;
-
-	if (TangentDirection.Z >= 0.0f)
-	{
-		Result.SHVector.AddIncomingRadiance(Color, 1, WorldDirection);
-
-		FSHVector2 SH = FSHVector2::SHBasisFunction( TangentDirection );
-		// Evaluate lighting along the smoothed vertex normal direction, so that later we can guarantee an SH intensity of 1 along the normal
-		// These scaling coefficients are SHBasisFunction and CalcDiffuseTransferSH baked down
-		// 0.325735f = 0.488603f from SHBasisFunction * 2/3 from CalcDiffuseTransferSH
-		// Only using V[2] which is the tangent space Z
-		Result.SHCorrection = Color.GetLuminance() * ( 0.282095f * SH.V[0] + 0.325735f * SH.V[2] );
-		Result.IncidentLighting = Color * FMath::Max(0.0f, TangentDirection.Z);
-
-		checkSlow(Result.SHCorrection >= 0 && Result.IncidentLighting.GetMin() >= 0);
-	}
-
-	return Result;
-}
-
-void FGatheredLightSample::AddWeighted(const FGatheredLightSample& OtherSample,float Weight)
-{
-	SHVector += OtherSample.SHVector * Weight;
-	SHCorrection += OtherSample.SHCorrection * Weight;
-	IncidentLighting += OtherSample.IncidentLighting * Weight;
-	SkyOcclusion += OtherSample.SkyOcclusion * Weight;
-	AOMaterialMask += OtherSample.AOMaterialMask * Weight;
-
-}
-
-void FGatheredLightSample::ApplyOcclusion(float Occlusion)
-{
-	SHVector *= Occlusion;
-	SHCorrection *= Occlusion;
-	IncidentLighting *= Occlusion;
-}
-
-bool FGatheredLightSample::AreFloatsValid() const
-{
-	return SHVector.AreFloatsValid()
-		&& FMath::IsFinite(SHCorrection) && !FMath::IsNaN(SHCorrection)
-		&& FLinearColorUtils::AreFloatsValid(IncidentLighting);
-}
-
 static void ConvertToLightSampleHelper(const FGatheredLightSample& InGatheredLightSample, float OutCoefficients[2][3])
 {
 	// SHCorrection is SHVector sampled with the normal
@@ -148,18 +85,6 @@ FLightMapData2D* FGatheredLightMapData2D::ConvertToLightmap2D(bool bDebugThisMap
 		(*ConvertedLightMap)(SampleIndex, 0) = Data[SampleIndex].ConvertToLightSample(bDebugThisSample);
 	}
 	return ConvertedLightMap;
-}
-
-void FFinalGatherSample::AddWeighted(const FFinalGatherSample& OtherSample, float Weight)
-{
-	FGatheredLightSample::AddWeighted(OtherSample, Weight);
-	Occlusion += OtherSample.Occlusion * Weight;
-	StationarySkyLighting = StationarySkyLighting + OtherSample.StationarySkyLighting * Weight;
-}
-
-bool FFinalGatherSample::AreFloatsValid() const
-{
-	return FGatheredLightSample::AreFloatsValid() && FMath::IsFinite(Occlusion) && !FMath::IsNaN(Occlusion);
 }
 
 FStaticLightingMappingContext::FStaticLightingMappingContext(const FStaticLightingMesh* InSubjectMesh, FStaticLightingSystem& InSystem) :
@@ -1904,139 +1829,6 @@ public:
 	TArray<FStoredLightingSample> EnvironmentSamples;
 };
 
-void FStaticLightingSystem::CalculateApproximateDirectLighting(
-	const FStaticLightingVertex& Vertex,
-	float SampleRadius,
-	float LightSampleFraction,
-	bool bCompositeAllLights,
-	bool bCalculateForIndirectLighting,
-	bool bDebugThisSample,
-	FStaticLightingMappingContext& MappingContext,
-	FGatheredLightSample& OutStaticDirectLighting,
-	FGatheredLightSample& OutToggleableDirectLighting,
-	float& OutToggleableDirectionalLightShadowing) const
-{
-	if (bDebugThisSample)
-	{
-		int asdf = 0;
-	}
-
-	for (int32 LightIndex = 0; LightIndex < Lights.Num(); LightIndex++)
-	{
-		const FLight* Light = Lights[LightIndex];
-
-		if (Light->AffectsBounds(FBoxSphereBounds(FSphere(Vertex.WorldPosition, SampleRadius))))
-		{
-			const FLinearColor LightIntensity = Light->GetDirectIntensity(Vertex.WorldPosition, bCalculateForIndirectLighting);
-			FLinearColor Transmission = FLinearColor::Black;
-
-			if ((Light->LightFlags & GI_LIGHT_CASTSHADOWS) && (Light->LightFlags & GI_LIGHT_CASTSTATICSHADOWS))
-			{
-				int32 UnShadowedRays = 0;
-				FLinearColor UnnormalizedTransmission = FLinearColor::Black;
-
-				const TArray<FLightSurfaceSample>& LightSurfaceSamples = Light->GetCachedSurfaceSamples(0, false);
-				const int32 NumSamplesToTrace = FMath::Max(FMath::TruncToInt(LightSurfaceSamples.Num() * LightSampleFraction), 1);
-
-				for (int32 RayIndex = 0; RayIndex < NumSamplesToTrace; RayIndex++)
-				{
-					FLightSurfaceSample CurrentSample = LightSurfaceSamples[RayIndex];
-					// Allow the light to modify the surface position for this receiving position
-					Light->ValidateSurfaceSample(Vertex.WorldPosition, CurrentSample);
-
-					// Construct a line segment between the light and the volume point.
-					const FVector4 LightVector = CurrentSample.Position - Vertex.WorldPosition;
-
-					FVector4 NormalForOffset = Vertex.WorldTangentZ;
-			
-					const FVector4 StartOffset = LightVector.GetSafeNormal() * SceneConstants.VisibilityRayOffsetDistance
-						+ NormalForOffset * SampleRadius * SceneConstants.VisibilityNormalOffsetSampleRadiusScale;
-
-					const FLightRay LightRay(
-						// Offset the start of the ray by some fraction along the direction of the ray and some fraction along the vertex normal.
-						Vertex.WorldPosition 
-							+ StartOffset,
-						Vertex.WorldPosition + LightVector,
-						NULL,
-						Light
-						);
-
-					// Check the line segment for intersection with the static lighting meshes.
-					FLightRayIntersection Intersection;
-					//@todo - change this back to request boolean visibility once transmission is supported with boolean visibility ray intersections
-					AggregateMesh->IntersectLightRay(LightRay, true, true, true, MappingContext.RayCache, Intersection);
-
-#if ALLOW_LIGHTMAP_SAMPLE_DEBUGGING
-					if (bDebugThisSample)
-					{
-						FDebugStaticLightingRay DebugRay(LightRay.Start, LightRay.End, Intersection.bIntersects);
-						if (Intersection.bIntersects)
-						{
-							DebugRay.End = Intersection.IntersectionVertex.WorldPosition;
-						}
-						DebugOutput.ShadowRays.Add(DebugRay);
-					}
-#endif
-
-					if (!Intersection.bIntersects)
-					{
-						UnnormalizedTransmission += Intersection.Transmission;
-						UnShadowedRays++;
-					}
-				}
-
-				if (UnShadowedRays > 0)
-				{
-					Transmission = UnnormalizedTransmission / UnShadowedRays;
-				}
-			}
-			else
-			{
-				// Shadow casting disabled on this light
-				Transmission = FLinearColor::White;
-			}
-
-			if (bDebugThisSample)
-			{
-				int asdf = 0;
-			}
-
-			{
-				// Calculate the direction from the vertex to the light.
-				const FVector4 WorldLightVector = Light->GetDirectLightingDirection(Vertex.WorldPosition, Vertex.WorldTangentZ);
-
-				// Transform the light vector to tangent space.
-				const FVector4 TangentLightVector = 
-					FVector4(
-					Dot3(WorldLightVector, Vertex.WorldTangentX),
-					Dot3(WorldLightVector, Vertex.WorldTangentY),
-					Dot3(WorldLightVector, Vertex.WorldTangentZ),
-					0
-					).GetSafeNormal();
-
-				// Compute the incident lighting of the light on the vertex.
-				const FLinearColor FinalIntensity = LightIntensity * Transmission;
-
-				// Compute the light-map sample for the front-face of the vertex.
-				FGatheredLightSample Lighting = FGatheredLightSample::PointLightWorldSpace(FinalIntensity, TangentLightVector, WorldLightVector.GetSafeNormal());
-
-				if (Light->UseStaticLighting() || bCompositeAllLights)
-				{
-					OutStaticDirectLighting = OutStaticDirectLighting + Lighting;
-				}
-				else if (Light->GetDirectionalLight() != NULL)
-				{
-					OutToggleableDirectionalLightShadowing = Transmission.GetLuminance();
-				}
-				else
-				{
-					OutToggleableDirectLighting = OutToggleableDirectLighting + Lighting;
-				}
-			}
-		}
-	}
-}
-
 void FStaticLightingSystem::CalculateStaticShadowDepthMap(FGuid LightGuid)
 {
 	const FLight* Light = Scene.FindLightByGuid(LightGuid);
@@ -2517,7 +2309,7 @@ FGatheredLightSample FStaticLightingSystem::CalculatePointLighting(
 		const FLinearColor LightIntensity = InLightIntensity * InTransmission;
 
 		// Compute the light-map sample for the front-face of the vertex.
-		FGatheredLightSample FrontFaceSample = FGatheredLightSample::PointLightWorldSpace(LightIntensity, TangentLightVector, WorldLightVector.GetSafeNormal());
+		FGatheredLightSample FrontFaceSample = FGatheredLightSampleUtil::PointLightWorldSpace<2>(LightIntensity, TangentLightVector, WorldLightVector.GetSafeNormal());
 
 		if (Mapping->Mesh->UsesTwoSidedLighting(ElementIndex))
 		{
@@ -2528,7 +2320,7 @@ FGatheredLightSample FStaticLightingSystem::CalculatePointLighting(
 					Dot3(WorldLightVector, -Vertex.WorldTangentZ),
 					0
 					).GetSafeNormal();
-			const FGatheredLightSample BackFaceSample = FGatheredLightSample::PointLightWorldSpace(LightIntensity, BackFaceTangentLightVector, -WorldLightVector.GetSafeNormal());
+			const FGatheredLightSample BackFaceSample = FGatheredLightSampleUtil::PointLightWorldSpace<2>(LightIntensity, BackFaceTangentLightVector, -WorldLightVector.GetSafeNormal());
 			// Average front and back face lighting
 			return (FrontFaceSample + BackFaceSample) * .5f;
 		}
@@ -2556,12 +2348,12 @@ FGatheredLightSample FStaticLightingSystem::GetVisualizedMaterialAttribute(const
 			{
 				Emissive = Intersection.Mesh->EvaluateEmissive(Intersection.IntersectionVertex.TextureCoordinates[0], Intersection.ElementIndex);
 			}
-			MaterialSample = FGatheredLightSample::AmbientLight(Emissive);
+			MaterialSample = FGatheredLightSampleUtil::AmbientLight<2>(Emissive);
 		}
 		else if (MaterialSettings.ViewMaterialAttribute == VMA_Diffuse)
 		{
 			const FLinearColor Diffuse = Intersection.Mesh->EvaluateDiffuse(Intersection.IntersectionVertex.TextureCoordinates[0], Intersection.ElementIndex);
-			MaterialSample = FGatheredLightSample::AmbientLight(Diffuse);
+			MaterialSample = FGatheredLightSampleUtil::AmbientLight<2>(Diffuse);
 		}
 		else if (MaterialSettings.ViewMaterialAttribute == VMA_Normal)
 		{
@@ -2573,19 +2365,19 @@ FGatheredLightSample FStaticLightingSystem::GetVisualizedMaterialAttribute(const
 			NormalColor.B = Normal.Z * 0.5f + 0.5f;
 			NormalColor.A = 1.0f;
 
-			MaterialSample = FGatheredLightSample::AmbientLight(NormalColor);
+			MaterialSample = FGatheredLightSampleUtil::AmbientLight<2>(NormalColor);
 		}
 	}
 	else if (MaterialSettings.ViewMaterialAttribute != VMA_Transmission)
 	{
 		// The ray didn't intersect an opaque surface and we're not visualizing transmission
-		MaterialSample = FGatheredLightSample::AmbientLight(FLinearColor::Black);
+		MaterialSample = FGatheredLightSampleUtil::AmbientLight<2>(FLinearColor::Black);
 	}
 
 	if (MaterialSettings.ViewMaterialAttribute == VMA_Transmission)
 	{
 		// Visualizing transmission, replace the light sample with the transmission picked up along the ray
-		MaterialSample = FGatheredLightSample::AmbientLight(Intersection.Transmission);
+		MaterialSample = FGatheredLightSampleUtil::AmbientLight<2>(Intersection.Transmission);
 	}
 	return MaterialSample;
 }

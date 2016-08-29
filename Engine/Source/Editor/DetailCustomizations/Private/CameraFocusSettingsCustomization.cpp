@@ -9,7 +9,6 @@
 
 static FName NAME_Category(TEXT("Category"));
 static FString ManualFocusSettingsString(TEXT("Manual Focus Settings"));
-static FString SpotFocusSettingsString(TEXT("Spot Focus Settings"));
 static FString TrackingFocusSettingsString(TEXT("Tracking Focus Settings"));
 static FString GeneralFocusSettingsString(TEXT("Focus Settings"));
 
@@ -60,10 +59,6 @@ void FCameraFocusSettingsCustomization::CustomizeChildren(TSharedRef<IPropertyHa
 		{
 			PropertyRow.Visibility(TAttribute<EVisibility>(this, &FCameraFocusSettingsCustomization::IsManualSettingGroupVisible));
 		}
-		else if (Category == SpotFocusSettingsString)
-		{
-			PropertyRow.Visibility(TAttribute<EVisibility>(this, &FCameraFocusSettingsCustomization::IsSpotSettingGroupVisible));
-		}
 		else if (Category == TrackingFocusSettingsString)
 		{
 			PropertyRow.Visibility(TAttribute<EVisibility>(this, &FCameraFocusSettingsCustomization::IsTrackingSettingGroupVisible));
@@ -71,6 +66,75 @@ void FCameraFocusSettingsCustomization::CustomizeChildren(TSharedRef<IPropertyHa
 		else if (Category == GeneralFocusSettingsString)
 		{
 			PropertyRow.Visibility(TAttribute<EVisibility>(this, &FCameraFocusSettingsCustomization::IsGeneralSettingGroupVisible));
+		}
+
+		// special customization to show scene depth picker widget
+		if (Iter.Value() == ManualFocusDistanceHandle)
+		{
+			TSharedPtr<SWidget> NameWidget;
+			TSharedPtr<SWidget> ValueWidget;
+			FDetailWidgetRow Row;
+			PropertyRow.GetDefaultWidgets(NameWidget, ValueWidget, Row);
+
+			PropertyRow.CustomWidget(/*bShowChildren*/ true)
+			.NameContent()
+			[
+				NameWidget.ToSharedRef()
+			]
+			.ValueContent()
+			[
+				SNew(SHorizontalBox)
+				+ SHorizontalBox::Slot()
+				.VAlign(VAlign_Center)
+				[
+					ValueWidget.ToSharedRef()
+				]
+				+ SHorizontalBox::Slot()
+				.Padding(2.0f, 0.0f)
+				.AutoWidth()
+				.VAlign(VAlign_Center)
+				[
+					PropertyCustomizationHelpers::MakeSceneDepthPicker(FOnSceneDepthLocationSelected::CreateSP(this, &FCameraFocusSettingsCustomization::OnSceneDepthLocationSelected))
+				]
+			];
+		}
+	}
+
+}
+
+void FCameraFocusSettingsCustomization::OnSceneDepthLocationSelected(FVector PickedSceneLoc)
+{
+	if (PickedSceneLoc != FVector::ZeroVector)
+	{
+		// find the camera component and set it relative to that
+		UCameraComponent* OuterCameraComponent = nullptr;
+		{
+			TArray<UObject*> OuterObjects;
+			ManualFocusDistanceHandle->GetOuterObjects(OuterObjects);
+			for (UObject* Obj : OuterObjects)
+			{
+				UCameraComponent* const CamComp = dynamic_cast<UCameraComponent*>(Obj);
+				if (CamComp)
+				{
+					OuterCameraComponent = CamComp;
+					break;
+				}
+			}
+		}
+
+		if (OuterCameraComponent)
+		{
+			FVector const CamToPickedLoc = PickedSceneLoc - OuterCameraComponent->GetComponentLocation();
+			FVector const CamForward = OuterCameraComponent->GetComponentRotation().Vector();
+
+			// if picked behind camera, don't set it
+			if ((CamToPickedLoc | CamForward) > 0.f)
+			{
+				float const FinalSceneDepth = CamToPickedLoc.ProjectOnToNormal(CamForward).Size();
+
+				const FScopedTransaction Transaction(LOCTEXT("PickedSceneDepth", "Pick Scene Depth"));
+				ensure(ManualFocusDistanceHandle->SetValue(FinalSceneDepth, EPropertyValueSetFlags::NotTransactable) == FPropertyAccess::Result::Success);
+			}
 		}
 	}
 }
@@ -81,20 +145,6 @@ EVisibility FCameraFocusSettingsCustomization::IsManualSettingGroupVisible() con
 	FocusMethodHandle->GetValue(FocusMethodNumber);
 	ECameraFocusMethod const FocusMethod = static_cast<ECameraFocusMethod>(FocusMethodNumber);
 	if (FocusMethod == ECameraFocusMethod::Manual)
-	{
-		// if focus method is set to none, all non-none setting groups are collapsed
-		return EVisibility::Visible;
-	}
-
-	return EVisibility::Collapsed;
-}
-
-EVisibility FCameraFocusSettingsCustomization::IsSpotSettingGroupVisible() const
-{
-	uint8 FocusMethodNumber;
-	FocusMethodHandle->GetValue(FocusMethodNumber);
-	ECameraFocusMethod const FocusMethod = static_cast<ECameraFocusMethod>(FocusMethodNumber);
-	if (FocusMethod == ECameraFocusMethod::Spot)
 	{
 		// if focus method is set to none, all non-none setting groups are collapsed
 		return EVisibility::Visible;

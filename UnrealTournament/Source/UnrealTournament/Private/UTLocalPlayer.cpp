@@ -42,8 +42,6 @@
 #include "SUTDownloadAllDialog.h"
 #include "SUTSpectatorWindow.h"
 #include "UTAnalytics.h"
-#include "Runtime/Analytics/Analytics/Public/Analytics.h"
-#include "Runtime/Analytics/Analytics/Public/Interfaces/IAnalyticsProvider.h"
 #include "Base64.h"
 #include "UTGameEngine.h"
 #include "Engine/DemoNetDriver.h"
@@ -76,6 +74,8 @@
 #include "WidgetBlueprintLibrary.h"
 #include "BlueprintContextLibrary.h"
 #include "MatchmakingContext.h"
+#include "AnalyticsEventAttribute.h"
+#include "IAnalyticsProvider.h"
 #include "UTKillcamPlayback.h"
 #include "UTDemoNetDriver.h"
 #include "UTAnalytics.h"
@@ -949,6 +949,8 @@ void UUTLocalPlayer::OnLoginComplete(int32 LocalUserNum, bool bWasSuccessful, co
 		ISocialModule::Get().GetFriendsAndChatManager()->Login(OnlineSubsystem, LoginOptions);
 		ISocialModule::Get().GetFriendsAndChatManager()->SetAnalyticsProvider(FUTAnalytics::GetProviderPtr());
 
+		// PLK TODO: Find which API replaces this
+		/*
 		if (!ISocialModule::Get().GetFriendsAndChatManager()->GetNotificationService()->OnJoinGame().IsBoundToObject(this))
  		{
 			ISocialModule::Get().GetFriendsAndChatManager()->GetNotificationService()->OnJoinGame().AddUObject(this, &UUTLocalPlayer::HandleFriendsJoinGame);
@@ -957,6 +959,7 @@ void UUTLocalPlayer::OnLoginComplete(int32 LocalUserNum, bool bWasSuccessful, co
 		{
 			ISocialModule::Get().GetFriendsAndChatManager()->AllowFriendsJoinGame().BindUObject(this, &UUTLocalPlayer::AllowFriendsJoinGame);
 		}
+		*/
 		if (!ISocialModule::Get().GetFriendsAndChatManager()->GetNotificationService()->OnNotificationsAvailable().IsBoundToObject(this))
  		{
  			ISocialModule::Get().GetFriendsAndChatManager()->GetNotificationService()->OnNotificationsAvailable().AddUObject(this, &UUTLocalPlayer::HandleFriendsNotificationAvail);
@@ -3629,11 +3632,11 @@ void UUTLocalPlayer::ShowDLCWarning()
 	bool bNeedsToShowWarning = !bHasShownDLCWarning;
 
 	// Look at the trust level of the current session
-	IOnlineSubsystem* OnlineSubsystem = IOnlineSubsystem::Get();
-	if (OnlineSubsystem) 
+	IOnlineSubsystem* OnlineSub = IOnlineSubsystem::Get();
+	if (OnlineSub)
 	{
-		IOnlineSessionPtr OnlineSessionInterface = OnlineSubsystem->GetSessionInterface();
-		FOnlineSessionSettings* Settings = OnlineSessionInterface->GetSessionSettings(TEXT("Game"));
+		IOnlineSessionPtr SessionInterface = OnlineSub->GetSessionInterface();
+		FOnlineSessionSettings* Settings = SessionInterface->GetSessionSettings(TEXT("Game"));
 
 		if (Settings != nullptr)
 		{
@@ -4757,7 +4760,7 @@ void UUTLocalPlayer::OnReadTitleFileComplete(bool bWasSuccessful, const FString&
 					}
 				}
 
-				if (MCPPulledData.CurrentVersionNumber > GEngineNetVersion)
+				if ((uint32)MCPPulledData.CurrentVersionNumber >  FNetworkVersion::GetNetworkCompatibleChangelist())
 				{
 #if !UE_SERVER
 					ShowMessage(NSLOCTEXT("UTLocalPlayer", "NeedtoUpdateTitle", "New Version Available"), NSLOCTEXT("UTLocalPlayer", "NeedtoUpdateMsg", "There is a newer version of game available.  Would you like to open the launcher and upgrade now?"), UTDIALOG_BUTTON_YES + UTDIALOG_BUTTON_NO, FDialogResultDelegate::CreateUObject(this, &UUTLocalPlayer::OnUpgradeResults),FVector2D(0.25,0.25));					

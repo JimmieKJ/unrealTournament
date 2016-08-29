@@ -35,6 +35,7 @@
 #include "EngineUtils.h"
 #include "DeviceProfiles/DeviceProfileManager.h"
 #include "Engine/TextureLODSettings.h"
+#include "Animation/AnimSequence.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogEditorExporters, Log, All);
 
@@ -471,7 +472,7 @@ bool ULevelExporterT3D::ExportText( const FExportObjectInnerContext* Context, UO
 				ExportRootScope = nullptr;
 
 				Ar.Logf( TEXT("%sEnd Actor\r\n"), FCString::Spc(TextIndent) );
-				Actor->AttachRootComponentToActor(ParentActor, SocketName, EAttachLocation::KeepWorldPosition);
+				Actor->AttachToActor(ParentActor, FAttachmentTransformRules::KeepWorldTransform, SocketName);
 
 				// Restore dynamic delegate bindings.
 				UBlueprintGeneratedClass::BindDynamicDelegates(Actor->GetClass(), Actor);
@@ -874,91 +875,88 @@ static void AddActorToOBJs(AActor* Actor, TArray<FOBJGeom*>& Objects, TSet<UMate
 	for( int32 j=0; j<StaticMeshComponents.Num(); j++ )
 	{
 		// If its a static mesh component, with a static mesh
-
 		StaticMeshComponent = StaticMeshComponents[j];
 		if( StaticMeshComponent->IsRegistered() && StaticMeshComponent->StaticMesh
 			&& StaticMeshComponent->StaticMesh->HasValidRenderData() )
 		{
 			LocalToWorld = StaticMeshComponent->ComponentToWorld.ToMatrixWithScale();
 			StaticMesh = StaticMeshComponent->StaticMesh;
-			break;
-		}
-	}
-
-	if( StaticMeshComponent && StaticMesh )
-	{
-		// make room for the faces
-		FOBJGeom* OBJGeom = new FOBJGeom( Actor->GetName() );
-		
-		FStaticMeshLODResources* RenderData = &StaticMesh->RenderData->LODResources[0];
-		FIndexArrayView Indices = RenderData->IndexBuffer.GetArrayView();
-		uint32 NumIndices = Indices.Num();
-
-		// 3 indices for each triangle
-		check(NumIndices % 3 == 0);
-		uint32 TriangleCount = NumIndices / 3;
-		OBJGeom->Faces.AddUninitialized(TriangleCount);
-		
-		uint32 VertexCount = RenderData->PositionVertexBuffer.GetNumVertices();
-		OBJGeom->VertexData.AddUninitialized(VertexCount);
-		FOBJVertex* VerticesOut = OBJGeom->VertexData.GetData();
-
-		check(VertexCount == RenderData->VertexBuffer.GetNumVertices());
-
-		FMatrix LocalToWorldInverseTranspose = LocalToWorld.InverseFast().GetTransposed();
-		for(uint32 i = 0; i < VertexCount; i++)
-		{
-			// Vertices
-			VerticesOut[i].Vert = LocalToWorld.TransformPosition( RenderData->PositionVertexBuffer.VertexPosition(i) );
-			// UVs from channel 0
-			VerticesOut[i].UV = RenderData->VertexBuffer.GetVertexUV(i, 0);
-			// Normal
-			VerticesOut[i].Normal = LocalToWorldInverseTranspose.TransformVector(RenderData->VertexBuffer.VertexTangentZ(i));
-		}
-
-		bool bFlipCullMode = LocalToWorld.RotDeterminant() < 0.0f;
-
-		uint32 CurrentTriangleId = 0;
-		for(int32 SectionIndex = 0;SectionIndex < RenderData->Sections.Num(); ++SectionIndex)
-		{
-			FStaticMeshSection& Section = RenderData->Sections[SectionIndex];
-			UMaterialInterface* Material = 0;
-
-			// Get the material for this triangle by first looking at the material overrides array and if that is NULL by looking at the material array in the original static mesh
-			if(StaticMeshComponent)
+			if (StaticMesh)
 			{
-				Material = StaticMeshComponent->GetMaterial(Section.MaterialIndex);
-			}
+				// make room for the faces
+				FOBJGeom* OBJGeom = new FOBJGeom(StaticMeshComponents.Num() > 1 ? StaticMesh->GetName() : Actor->GetName());
 
-			// cache the set of needed materials if desired
-			if(Materials && Material)
-			{
-				Materials->Add(Material);
-			}
+				FStaticMeshLODResources* RenderData = &StaticMesh->RenderData->LODResources[0];
+				FIndexArrayView Indices = RenderData->IndexBuffer.GetArrayView();
+				uint32 NumIndices = Indices.Num();
 
-			for(uint32 i = 0; i < Section.NumTriangles; i++)
-			{
-				FOBJFace& OBJFace = OBJGeom->Faces[CurrentTriangleId++];
+				// 3 indices for each triangle
+				check(NumIndices % 3 == 0);
+				uint32 TriangleCount = NumIndices / 3;
+				OBJGeom->Faces.AddUninitialized(TriangleCount);
 
-				uint32 a = Indices[Section.FirstIndex + i * 3 + 0];
-				uint32 b = Indices[Section.FirstIndex + i * 3 + 1];
-				uint32 c = Indices[Section.FirstIndex + i * 3 + 2];
+				uint32 VertexCount = RenderData->PositionVertexBuffer.GetNumVertices();
+				OBJGeom->VertexData.AddUninitialized(VertexCount);
+				FOBJVertex* VerticesOut = OBJGeom->VertexData.GetData();
 
-				if(bFlipCullMode)
+				check(VertexCount == RenderData->VertexBuffer.GetNumVertices());
+
+				FMatrix LocalToWorldInverseTranspose = LocalToWorld.InverseFast().GetTransposed();
+				for (uint32 i = 0; i < VertexCount; i++)
 				{
-					Swap(a, c);
+					// Vertices
+					VerticesOut[i].Vert = LocalToWorld.TransformPosition(RenderData->PositionVertexBuffer.VertexPosition(i));
+					// UVs from channel 0
+					VerticesOut[i].UV = RenderData->VertexBuffer.GetVertexUV(i, 0);
+					// Normal
+					VerticesOut[i].Normal = LocalToWorldInverseTranspose.TransformVector(RenderData->VertexBuffer.VertexTangentZ(i));
 				}
 
-				OBJFace.VertexIndex[0] = a;
-				OBJFace.VertexIndex[1] = b; 
-				OBJFace.VertexIndex[2] = c;
+				bool bFlipCullMode = LocalToWorld.RotDeterminant() < 0.0f;
 
-				// Material
-				OBJFace.Material = Material;
+				uint32 CurrentTriangleId = 0;
+				for (int32 SectionIndex = 0; SectionIndex < RenderData->Sections.Num(); ++SectionIndex)
+				{
+					FStaticMeshSection& Section = RenderData->Sections[SectionIndex];
+					UMaterialInterface* Material = 0;
+
+					// Get the material for this triangle by first looking at the material overrides array and if that is NULL by looking at the material array in the original static mesh
+					if (StaticMeshComponent)
+					{
+						Material = StaticMeshComponent->GetMaterial(Section.MaterialIndex);
+					}
+
+					// cache the set of needed materials if desired
+					if (Materials && Material)
+					{
+						Materials->Add(Material);
+					}
+
+					for (uint32 i = 0; i < Section.NumTriangles; i++)
+					{
+						FOBJFace& OBJFace = OBJGeom->Faces[CurrentTriangleId++];
+
+						uint32 a = Indices[Section.FirstIndex + i * 3 + 0];
+						uint32 b = Indices[Section.FirstIndex + i * 3 + 1];
+						uint32 c = Indices[Section.FirstIndex + i * 3 + 2];
+
+						if (bFlipCullMode)
+						{
+							Swap(a, c);
+						}
+
+						OBJFace.VertexIndex[0] = a;
+						OBJFace.VertexIndex[1] = b;
+						OBJFace.VertexIndex[2] = c;
+
+						// Material
+						OBJFace.Material = Material;
+					}
+				}
+
+				Objects.Add(OBJGeom);
 			}
 		}
-
-		Objects.Add( OBJGeom );	
 	}
 }
 
@@ -1010,6 +1008,9 @@ void ExportOBJs(FOutputDevice& FileAr, FStringOutputDevice* MemAr, FFeedbackCont
 {
 	// write to the memory archive if it exists, otherwise use the FileAr
 	FOutputDevice& Ar = MemAr ? *MemAr : FileAr;
+
+	//Make sure we don't corrupt the obj file with terminator line
+	FileAr.SetAutoEmitLineTerminator(false);
 
 	// export extra material info if we added any
 	if (Materials)
@@ -1452,7 +1453,9 @@ bool ULevelExporterFBX::ExportBinary( UObject* Object, const TCHAR* Type, FArchi
 			Exporter->ExportBSP( World->GetModel(), true );
 		}
 
-		Exporter->ExportLevelMesh( Level, NULL, bSelectedOnly );
+		INodeNameAdapter NodeNameAdapter;
+
+		Exporter->ExportLevelMesh( Level, bSelectedOnly, NodeNameAdapter );
 
 		// Export streaming levels and actors
 		for( int32 CurLevelIndex = 0; CurLevelIndex < World->GetNumLevels(); ++CurLevelIndex )
@@ -1460,7 +1463,7 @@ bool ULevelExporterFBX::ExportBinary( UObject* Object, const TCHAR* Type, FArchi
 			ULevel* CurLevel = World->GetLevel( CurLevelIndex );
 			if( CurLevel != NULL && CurLevel != Level )
 			{
-				Exporter->ExportLevelMesh( CurLevel, NULL, bSelectedOnly );
+				Exporter->ExportLevelMesh( CurLevel, bSelectedOnly, NodeNameAdapter );
 			}
 		}
 	}

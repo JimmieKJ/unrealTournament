@@ -287,8 +287,10 @@ void FColorStructCustomization::OnColorPickerCancelled(FLinearColor OriginalColo
 		}
 	}
 
-	StructPropertyHandle->SetPerObjectValues(PerObjectColors);
-	PerObjectColors.Empty();
+	if (PerObjectColors.Num() > 0)
+	{
+		StructPropertyHandle->SetPerObjectValues(PerObjectColors);
+	}
 }
 
 
@@ -387,7 +389,15 @@ FReply FColorStructCustomization::OnMouseButtonDownColorBlock(const FGeometry& M
 		return FReply::Unhandled();
 	}
 	
-	CreateColorPicker(true /*bUseAlpha*/);
+	bool CanShowColorPicker = true;
+	if (StructPropertyHandle.IsValid() && StructPropertyHandle->GetProperty() != nullptr)
+	{
+		CanShowColorPicker = !(StructPropertyHandle->GetProperty()->HasAllPropertyFlags(CPF_EditConst));
+	}
+	if (CanShowColorPicker)
+	{
+		CreateColorPicker(true /*bUseAlpha*/);
+	}
 
 	return FReply::Handled();
 }

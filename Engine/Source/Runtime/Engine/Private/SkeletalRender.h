@@ -7,9 +7,9 @@
 #pragma once
 
 // smallest blend weight for vertex anims
-extern const float MinVertexAnimBlendWeight;
+extern const float MinMorphTargetBlendWeight;
 // largest blend weight for vertex anims
-extern const float MaxVertexAnimBlendWeight;
+extern const float MaxMorphTargetBlendWeight;
 
 /** 
 * Stores the data for updating instanced weights

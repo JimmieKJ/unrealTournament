@@ -2660,7 +2660,13 @@ void UK2Node_MathExpression::ClearExpression()
 		}
 	}
 	
-	CachedMessageLog = MakeShareable(new FCompilerResultsLog);
+	// passing true to FCompilerResultsLog's constructor would make this the
+	// primary compiler log (it is not) - the idea being that upon destruction 
+	// the primary log prints a summary; well, since this isn't destructed at 
+	// the end of compilation, and it blocks the full compiler log from 
+	// becoming the "CurrentEventTarget", we pass false - we append logs 
+	// collected by this one to the full compiler log later on anyways (so they won't be missed)
+	CachedMessageLog = MakeShareable(new FCompilerResultsLog(/*bIsCompatibleWithEvents =*/false));
 	
 	Expression.Empty();
 }

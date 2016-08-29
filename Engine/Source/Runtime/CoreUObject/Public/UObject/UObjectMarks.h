@@ -4,8 +4,7 @@
 	UObjectMark.h: Unreal object marks
 =============================================================================*/
 
-#ifndef __UOBJECTMARKS_H__
-#define __UOBJECTMARKS_H__
+#pragma once
 
 /** 
  * Object marks are bits associated with UObject. Marks are:
@@ -119,6 +118,4 @@ COREUOBJECT_API void GetObjectsWithAllMarks(TArray<UObject *>& Results, EObjectM
  * @param	Marks		Logical OR of OBJECTMARK_'s to test
  */
 COREUOBJECT_API void GetObjectsWithAnyMarks(TArray<UObject *>& Results, EObjectMark Marks);
-
-#endif	// __UOBJECTMARKS_H__
 

@@ -42,8 +42,8 @@ private:
 	// The directory created in staging to construct install files to
 	FString InstallStagingDir;
 
-	// The base path for the data cloud
-	FString CloudDirectory;
+	// The base paths for the data clouds
+	TArray<FString> CloudDirectories;
 
 	// The backup directory
 	FString BackupDirectory;
@@ -156,6 +156,7 @@ public:
 	virtual bool IsResumable() override;
 	virtual bool HasError() override;
 	virtual EBuildPatchInstallError GetErrorType() override;
+	virtual FString GetErrorCode() override;
 	//@todo this is deprecated and shouldn't be used anymore [6/4/2014 justin.sargent]
 	virtual FText GetPercentageText() override;
 	//@todo this is deprecated and shouldn't be used anymore [6/4/2014 justin.sargent]
@@ -163,7 +164,7 @@ public:
 	virtual double GetDownloadSpeed() const override;
 	virtual int64 GetInitialDownloadSize() const override;
 	virtual int64 GetTotalDownloaded() const override;
-	virtual FText GetStatusText(bool ShortError = false) override;
+	virtual FText GetStatusText() override;
 	virtual float GetUpdateProgress() override;
 	virtual FBuildInstallStats GetBuildStatistics() override;
 	virtual EBuildPatchDownloadHealth GetDownloadHealth() const override;

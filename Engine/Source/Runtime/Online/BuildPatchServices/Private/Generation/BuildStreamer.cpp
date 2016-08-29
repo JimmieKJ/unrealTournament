@@ -1,12 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
-
-#if WITH_BUILDPATCHGENERATION
-
 #include "BuildPatchServicesPrivatePCH.h"
-
 #include "BuildStreamer.h"
 #include "Core/RingBuffer.h"
 #include "StatsCollector.h"
+
+DECLARE_LOG_CATEGORY_EXTERN(LogBuildStreamer, Log, All);
+DEFINE_LOG_CATEGORY(LogBuildStreamer);
 
 namespace BuildPatchServices
 {
@@ -74,6 +73,8 @@ namespace BuildPatchServices
 		virtual TArray<FString> GetEmptyFiles() const override;
 		virtual bool IsEndOfBuild() const override;
 		virtual bool IsEndOfData() const override;
+		virtual uint64 GetBuildSize() const override;
+		virtual TArray<FFileSpan> GetAllFiles() const override;
 
 	private:
 		void ReadData();
@@ -91,6 +92,7 @@ namespace BuildPatchServices
 		mutable FCriticalSection FilesCS;
 		TMap<uint64, FFileSpan> Files;
 		TSet<FString> EmptyFiles;
+		mutable FSHA1 EmptyHasher; // FSHA1 is not const correct.
 		TFuture<void> Future;
 		FThreadSafeBool bShouldAbort;
 	};
@@ -187,6 +189,7 @@ namespace BuildPatchServices
 		, FileManager(InFileManager)
 		, bShouldAbort(false)
 	{
+		EmptyHasher.Final();
 		TFunction<void()> Task = [this]() { ReadData(); };
 		Future = Async(EAsyncExecution::Thread, MoveTemp(Task));
 	}
@@ -229,17 +232,37 @@ namespace BuildPatchServices
 		return DataStream.IsEndOfStream() && DataStream.UsedSpace() == 0;
 	}
 
+	uint64 FBuildStreamerImpl::GetBuildSize() const
+	{
+		check(DataStream.IsEndOfStream());
+		return DataStream.TotalDataPushed();
+	}
+
+	TArray<FFileSpan> FBuildStreamerImpl::GetAllFiles() const
+	{
+		TArray<FFileSpan> AllFiles;
+		check(DataStream.IsEndOfStream());
+		FScopeLock ScopeLock(&FilesCS);
+		Files.GenerateValueArray(AllFiles);
+		for(const FString& EmptyFile : EmptyFiles)
+		{
+			FFileSpan FileSpan(EmptyFile, 0, 0, false, TEXT(""));
+			EmptyHasher.GetHash(FileSpan.SHAHash.Hash);
+			AllFiles.Add(MoveTemp(FileSpan));
+		}
+		return AllFiles;
+	}
+
 	void FBuildStreamerImpl::ReadData()
 	{
 		// Stats
-		auto* StatFileOpenTime = StatsCollector->CreateStat(TEXT("Stream: Open Time"), EStatFormat::Timer);
-		auto* StatFileReadTime = StatsCollector->CreateStat(TEXT("Stream: Read Time"), EStatFormat::Timer);
-		auto* StatFileHashTime = StatsCollector->CreateStat(TEXT("Stream: Hash Time"), EStatFormat::Timer);
-		auto* StatDataEnqueueTime = StatsCollector->CreateStat(TEXT("Stream: Enqueue Time"), EStatFormat::Timer);
-		auto* StatDataAccessSpeed = StatsCollector->CreateStat(TEXT("Stream: Data Access Speed"), EStatFormat::DataSpeed);
-		auto* StatPotentialThroughput = StatsCollector->CreateStat(TEXT("Stream: Potential Throughput"), EStatFormat::DataSpeed);
-		auto* StatThroughput = StatsCollector->CreateStat(TEXT("Stream: Throughput"), EStatFormat::DataSpeed);
-		auto* StatTotalDataRead = StatsCollector->CreateStat(TEXT("Stream: Total Data Read"), EStatFormat::DataSize);
+		auto* StatFileOpenTime = StatsCollector->CreateStat(TEXT("Build Stream: Open Time"), EStatFormat::Timer);
+		auto* StatFileReadTime = StatsCollector->CreateStat(TEXT("Build Stream: Read Time"), EStatFormat::Timer);
+		auto* StatFileHashTime = StatsCollector->CreateStat(TEXT("Build Stream: Hash Time"), EStatFormat::Timer);
+		auto* StatDataEnqueueTime = StatsCollector->CreateStat(TEXT("Build Stream: Enqueue Time"), EStatFormat::Timer);
+		auto* StatDataAccessSpeed = StatsCollector->CreateStat(TEXT("Build Stream: Data Access Speed"), EStatFormat::DataSpeed);
+		auto* StatPotentialThroughput = StatsCollector->CreateStat(TEXT("Build Stream: Potential Throughput"), EStatFormat::DataSpeed);
+		auto* StatTotalDataRead = StatsCollector->CreateStat(TEXT("Build Stream: Total Data Read"), EStatFormat::DataSize);
 		uint64 TempValue;
 
 		// Clear the build stream
@@ -251,7 +274,7 @@ namespace BuildPatchServices
 		FileManager->FindFilesRecursive(AllFiles, *BuildRoot, TEXT("*.*"), true, false);
 		uint32 FileEnumerationEnd = FStatsCollector::GetCycles();
 		uint32 FileEnumerationTime = FileEnumerationEnd - FileEnumerationStart;
-		GLog->Logf(TEXT("FBuildStreamReader: Enumerated %d files in %s"), AllFiles.Num(), *FPlatformTime::PrettyTime(FStatsCollector::CyclesToSeconds(FileEnumerationTime)));
+		UE_LOG(LogBuildStreamer, Log, TEXT("Enumerated %d files in %s"), AllFiles.Num(), *FPlatformTime::PrettyTime(FStatsCollector::CyclesToSeconds(FileEnumerationTime)));
 
 		// Remove the files that appear in the ignore list
 		AllFiles.Sort();
@@ -263,7 +286,6 @@ namespace BuildPatchServices
 		// Allocate our file read buffer
 		uint8* FileReadBuffer = new uint8[BuildPatchServices::FileBufferSize];
 
-		uint64 StartTime = FStatsCollector::GetCycles();
 		for (auto& SourceFile : AllFiles)
 		{
 			if (bShouldAbort)
@@ -277,62 +299,51 @@ namespace BuildPatchServices
 			bool bIsUnixExe = IsUnixExecutable(*SourceFile);
 			FString SymlinkTarget = GetSymlinkTarget(*SourceFile);
 			FStatsCollector::AccumulateTimeEnd(StatFileOpenTime, TempValue);
-			const bool bBuildFileOpenSuccess = FileReader != nullptr;
-			if (bBuildFileOpenSuccess)
+			// Not being able to load a required file from the build would be fatal, hard fault.
+			checkf(FileReader != nullptr, TEXT("Could not open file from build! %s"), *SourceFile);
+			// Make SourceFile the format we want it in and start a new file.
+			FPaths::MakePathRelativeTo(SourceFile, *(BuildRoot + TEXT("/")));
+			int64 FileSize = FileReader->TotalSize();
+			// Process files that have bytes.
+			if (FileSize > 0)
 			{
-				// Make SourceFile the format we want it in and start a new file
-				FPaths::MakePathRelativeTo(SourceFile, *(BuildRoot + TEXT("/")));
-				int64 FileSize = FileReader->TotalSize();
-				// Process files that have bytes
-				if (FileSize > 0)
+				FileHash.Reset();
+				uint64 FileStartIdx = DataStream.TotalDataPushed();
+				AddFile(FFileSpan(SourceFile, FileSize, FileStartIdx, bIsUnixExe, SymlinkTarget));
+				while (!FileReader->AtEnd() && !bShouldAbort)
 				{
-					FileHash.Reset();
-					uint64 FileStartIdx = DataStream.TotalDataPushed();
-					AddFile(FFileSpan(SourceFile, FileSize, FileStartIdx, bIsUnixExe, SymlinkTarget));
-					while (!FileReader->AtEnd() && !bShouldAbort)
-					{
-						// Read data file
-						const int64 SizeLeft = FileSize - FileReader->Tell();
-						const uint32 ReadLen = FMath::Min< int64 >(BuildPatchServices::FileBufferSize, SizeLeft);
-						FStatsCollector::AccumulateTimeBegin(TempValue);
-						FileReader->Serialize(FileReadBuffer, ReadLen);
-						FStatsCollector::AccumulateTimeEnd(StatFileReadTime, TempValue);
-						FStatsCollector::Accumulate(StatTotalDataRead, ReadLen);
+					// Read data file
+					const int64 SizeLeft = FileSize - FileReader->Tell();
+					const uint32 ReadLen = FMath::Min< int64 >(BuildPatchServices::FileBufferSize, SizeLeft);
+					FStatsCollector::AccumulateTimeBegin(TempValue);
+					FileReader->Serialize(FileReadBuffer, ReadLen);
+					FStatsCollector::AccumulateTimeEnd(StatFileReadTime, TempValue);
+					FStatsCollector::Accumulate(StatTotalDataRead, ReadLen);
 
-						// Hash data file
-						FStatsCollector::AccumulateTimeBegin(TempValue);
-						FileHash.Update(FileReadBuffer, ReadLen);
-						FStatsCollector::AccumulateTimeEnd(StatFileHashTime, TempValue);
+					// Hash data file
+					FStatsCollector::AccumulateTimeBegin(TempValue);
+					FileHash.Update(FileReadBuffer, ReadLen);
+					FStatsCollector::AccumulateTimeEnd(StatFileHashTime, TempValue);
 
-						// Copy into data stream
-						FStatsCollector::AccumulateTimeBegin(TempValue);
-						DataStream.EnqueueData(FileReadBuffer, ReadLen);
-						FStatsCollector::AccumulateTimeEnd(StatDataEnqueueTime, TempValue);
+					// Copy into data stream
+					FStatsCollector::AccumulateTimeBegin(TempValue);
+					DataStream.EnqueueData(FileReadBuffer, ReadLen);
+					FStatsCollector::AccumulateTimeEnd(StatDataEnqueueTime, TempValue);
 
-						// Calculate other stats
-						FStatsCollector::Set(StatDataAccessSpeed, *StatTotalDataRead / FStatsCollector::CyclesToSeconds(*StatFileOpenTime + *StatFileReadTime));
-						FStatsCollector::Set(StatPotentialThroughput, *StatTotalDataRead / FStatsCollector::CyclesToSeconds(*StatFileOpenTime + *StatFileReadTime + *StatFileHashTime));
-						FStatsCollector::Set(StatThroughput, *StatTotalDataRead / FStatsCollector::CyclesToSeconds(FStatsCollector::GetCycles() - StartTime));
-					}
-					FileHash.Final();
-					SetFileHash(FileStartIdx, FileHash);
+					// Calculate other stats
+					FStatsCollector::Set(StatDataAccessSpeed, *StatTotalDataRead / FStatsCollector::CyclesToSeconds(*StatFileOpenTime + *StatFileReadTime));
+					FStatsCollector::Set(StatPotentialThroughput, *StatTotalDataRead / FStatsCollector::CyclesToSeconds(*StatFileOpenTime + *StatFileReadTime + *StatFileHashTime));
 				}
-				// Special case zero byte files
-				else if (FileSize == 0)
-				{
-					AddEmptyFile(SourceFile);
-				}
-				FileReader->Close();
-				delete FileReader;
+				FileHash.Final();
+				SetFileHash(FileStartIdx, FileHash);
 			}
-			else
+			// Special case zero byte files.
+			else if (FileSize == 0)
 			{
-				// Not being able to load a required file from the build would be fatal, hard fault.
-				GLog->Logf(TEXT("FBuildStreamReader: Could not open file from build! %s"), *SourceFile);
-				GLog->PanicFlushThreadedLogs();
-				// Use bool variable for easier to understand assert message
-				check(bBuildFileOpenSuccess);
+				AddEmptyFile(SourceFile);
 			}
+			FileReader->Close();
+			delete FileReader;
 		}
 
 		// Mark end of build
@@ -373,13 +384,13 @@ namespace BuildPatchServices
 				const bool bRemove = IgnoreList.Contains(RemovalCandidate);
 				if (bRemove)
 				{
-					GLog->Logf(TEXT("    - %s"), *RemovalCandidate);
+					UE_LOG(LogBuildStreamer, Log, TEXT("    - %s"), *RemovalCandidate);
 				}
 				return bRemove;
 			}
 		};
 
-		GLog->Logf(TEXT("Stripping ignorable files"));
+		UE_LOG(LogBuildStreamer, Log, TEXT("Stripping ignorable files"));
 		const int32 OriginalNumFiles = AllFiles.Num();
 		FString IgnoreFileList = TEXT("");
 		FFileHelper::LoadFileToString(IgnoreFileList, *IgnoreListFile);
@@ -411,7 +422,7 @@ namespace BuildPatchServices
 		AllFiles.RemoveAll(FileFilter);
 
 		const int32 NewNumFiles = AllFiles.Num();
-		GLog->Logf(TEXT("Stripped %d ignorable file(s)"), (OriginalNumFiles - NewNumFiles));
+		UE_LOG(LogBuildStreamer, Log, TEXT("Stripped %d ignorable file(s)"), (OriginalNumFiles - NewNumFiles));
 	}
 
 	FBuildStreamerRef FBuildStreamerFactory::Create(const FString& BuildRoot, const FString& IgnoreListFile, const FStatsCollectorRef& StatsCollector, IFileManager* FileManager)
@@ -419,5 +430,3 @@ namespace BuildPatchServices
 		return MakeShareable(new FBuildStreamerImpl(BuildRoot, IgnoreListFile, StatsCollector, FileManager));
 	}
 }
-
-#endif

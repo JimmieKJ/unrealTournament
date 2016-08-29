@@ -2,6 +2,7 @@
 
 #pragma once
 
+#include "Core.h"
 #include "hlslcc.h"
 
 enum class EVulkanShaderVersion

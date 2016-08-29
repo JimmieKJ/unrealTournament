@@ -95,8 +95,57 @@ TMetalBaseShader<BaseResourceType, ShaderType>::TMetalBaseShader(const TArray<ui
 //	if (!Resource)
 	{
 		id<MTLLibrary> Library;
+		
+		GlslCodeNSString = @"OFFLINE";
+		
+		bool bOfflineCompile = (OfflineCompiledFlag > 0);
+		
+		if (bOfflineCompile && (Header.ShaderCode.Len() > 0))
+		{
+			NSString* ShaderSource = Header.ShaderCode.GetNSString();
+			
+			GlslCodeNSString = ShaderSource;
+			[GlslCodeNSString retain];
+			
+			// For debug/dev/test builds we can use the stored code for debugging - but shipping builds shouldn't have this as it is inappropriate.
+#if !UE_BUILD_SHIPPING
+			// For iOS/tvOS we must use runtime compilation to make the shaders debuggable, but
+			bool bSavedSource = false;
+			
+#if PLATFORM_MAC
+			// on Mac if we have a path for the shader we can access the shader code
+			if (Header.ShaderPath.Len() > 0)
+			{
+				if (IFileManager::Get().MakeDirectory(*FPaths::GetPath(Header.ShaderPath), true))
+				{
+					bSavedSource = FFileHelper::SaveStringToFile(FString(ShaderSource), *Header.ShaderPath);
+				}
+				
+				static bool bAttemptedAuth = false;
+				if (!bSavedSource && !bAttemptedAuth)
+				{
+					bAttemptedAuth = true;
+					
+					if (IFileManager::Get().MakeDirectory(*FPaths::GetPath(Header.ShaderPath), true))
+					{
+						bSavedSource = FFileHelper::SaveStringToFile(FString(ShaderSource), *Header.ShaderPath);
+					}
+					
+					if (!bSavedSource)
+					{
+						FPlatformMisc::MessageBoxExt(EAppMsgType::Ok,
+													*NSLOCTEXT("MetalRHI", "ShaderDebugAuthFail", "Could not access directory required for debugging optimised Metal shaders. Falling back to slower runtime compilation of shaders for debugging.").ToString(), TEXT("Error"));
+					}
+				}
+			}
+#endif
+			// Switch the compile mode so we get debuggable shaders even if we failed to save - if we didn't want
+			// shader debugging we wouldn't have included the code...
+			bOfflineCompile = bSavedSource;
+#endif
+		}
 
-		if (OfflineCompiledFlag)
+		if (bOfflineCompile)
 		{
 			// allow GCD to copy the data into its own buffer
 			//		dispatch_data_t GCDBuffer = dispatch_data_create(InShaderCode.GetTypedData() + CodeOffset, ShaderCode.GetActualShaderCodeSize() - CodeOffset, nil, DISPATCH_DATA_DESTRUCTOR_DEFAULT);
@@ -113,15 +162,14 @@ TMetalBaseShader<BaseResourceType, ShaderType>::TMetalBaseShader(const TArray<ui
 				NSLog(@"Failed to create library: %@", Error);
 			}
 			
-			GlslCodeNSString = @"OFFLINE";
 			dispatch_release(GCDBuffer);
 		}
 		else
 		{
 			NSError* Error;
-			NSString* ShaderSource = [NSString stringWithUTF8String:SourceCode];
+			NSString* ShaderSource = ((OfflineCompiledFlag == 0) ? [NSString stringWithUTF8String:SourceCode] : GlslCodeNSString);
 
-			if(Header.ShaderName.Len())
+			if(Header.ShaderName.Len() && (OfflineCompiledFlag == 0))
 			{
 				ShaderSource = [NSString stringWithFormat:@"// %@\n%@", Header.ShaderName.GetNSString(), ShaderSource];
 			}
@@ -150,25 +198,19 @@ TMetalBaseShader<BaseResourceType, ShaderType>::TMetalBaseShader(const TArray<ui
                 NSLog(@"*********** Error\n%@", ShaderSource);
 			}
 
-			GlslCode.Empty(CodeLength + 1);
-			GlslCode.AddUninitialized(CodeLength + 1);
-			FMemory::Memcpy(GlslCode.GetData(), SourceCode, CodeLength + 1);
-			GlslCodeString = (ANSICHAR*)GlslCode.GetData();
 			GlslCodeNSString = ShaderSource;
-
-#if !UE_BUILD_SHIPPING
 			[GlslCodeNSString retain];
-			TRACK_OBJECT(GlslCodeNSString);
-#endif
 		}
 
 		// assume there's only one function called 'Main', and use that to get the function from the library
 		Function = [Library newFunctionWithName:@"Main"];
 		[Library release];
+		TRACK_OBJECT(STAT_MetalFunctionCount, Function);
 
 //		Resource = Resource;
 		Bindings = Header.Bindings;
 		UniformBuffersCopyInfo = Header.UniformBuffersCopyInfo;
+		SideTableBinding = Header.SideTable;
 
 		//@todo: Find better way...
 		if (ShaderType == SF_Compute)
@@ -185,9 +227,8 @@ TMetalBaseShader<BaseResourceType, ShaderType>::TMetalBaseShader(const TArray<ui
 template<typename BaseResourceType, int32 ShaderType>
 TMetalBaseShader<BaseResourceType, ShaderType>::~TMetalBaseShader()
 {
-	UNTRACK_OBJECT(Function);
+	UNTRACK_OBJECT(STAT_MetalFunctionCount, Function);
 	[Function release];
-	UNTRACK_OBJECT(GlslCodeNSString);
 	[GlslCodeNSString release];
 }
 
@@ -207,8 +248,13 @@ FMetalComputeShader::FMetalComputeShader(const TArray<uint8>& InCode)
         
         UE_LOG(LogRHI, Fatal, TEXT("Failed to create compute kernel: %s"), *FString([Error description]));
 	}
+	TRACK_OBJECT(STAT_MetalComputePipelineStateCount, Kernel);
 }
 
+FMetalComputeShader::~FMetalComputeShader()
+{
+	UNTRACK_OBJECT(STAT_MetalComputePipelineStateCount, Kernel);
+}
 
 FVertexShaderRHIRef FMetalDynamicRHI::RHICreateVertexShader(const TArray<uint8>& Code)
 {
@@ -319,42 +365,65 @@ FMetalBoundShaderState::~FMetalBoundShaderState()
 #if METAL_SUPPORTS_PARALLEL_RHI_EXECUTE
 	CacheLink.RemoveFromCache();
 #endif
-	
-	// free all of the pipeline state objects we have made
-	for (auto It = PipelineStates.CreateIterator(); It; ++It)
-	{
-		TRACK_OBJECT(It.Value());
-		[It.Value() release];
-	}
 }
 
-void FMetalBoundShaderState::PrepareToDraw(FMetalContext* Context, const FMetalRenderPipelineDesc& RenderPipelineDesc)
+void FMetalBoundShaderState::PrepareToDraw(FMetalContext* Context, FMetalHashedVertexDescriptor const& VertexDesc, const FMetalRenderPipelineDesc& RenderPipelineDesc, MTLRenderPipelineReflection** Reflection)
 {
 	// generate a key for the current statez
-	FMetalRenderPipelineHash Hash = RenderPipelineDesc.GetHash();
+	FMetalRenderPipelineHash PipelineHash = RenderPipelineDesc.GetHash();
 	
+	if(GUseRHIThread)
+	{
+		PipelineMutex.Lock();
+	}
 	
 	// have we made a matching state object yet?
-	id<MTLRenderPipelineState> PipelineState = PipelineStates.FindRef(Hash);
+    id<MTLRenderPipelineState> PipelineState = nil;
+	TMap<FMetalHashedVertexDescriptor, id<MTLRenderPipelineState>>& Dict = PipelineStates.FindOrAdd(PipelineHash);
+	PipelineState = Dict.FindRef(VertexDesc);
+	
+	if(GUseRHIThread)
+	{
+		PipelineMutex.Unlock();
+	}
 	
 	// make one if not
 	if (PipelineState == nil)
 	{
-		PipelineState = RenderPipelineDesc.CreatePipelineStateForBoundShaderState(this);
+		PipelineState = RenderPipelineDesc.CreatePipelineStateForBoundShaderState(this, VertexDesc, Reflection);
 		check(PipelineState);
-		PipelineStates.Add(Hash, PipelineState);
+		check(!Reflection || *Reflection);
+		
+		if(GUseRHIThread)
+		{
+			PipelineMutex.Lock();
+		}
+		
+		Dict.Add(VertexDesc, PipelineState);
+		
+		if(GUseRHIThread)
+		{
+			PipelineMutex.Unlock();
+		}
 		
 #if !UE_BUILD_SHIPPING
 		if (GFrameCounter > 3)
 		{
 #if PLATFORM_MAC
-			NSLog(@"Created a hitchy pipeline state for hash %llx%llx (this = %p)", (uint64)Hash, (uint64)(Hash >> 64), this);
+			NSLog(@"Created a hitchy pipeline state for hash %llx%llx vertex desc: %llx (this = %p)", (uint64)PipelineHash, (uint64)(PipelineHash >> 64), (uint64)VertexDesc.VertexDescHash, this);
 #else
-			NSLog(@"Created a hitchy pipeline state for hash %llx (this = %p)", (uint64)Hash, this);
+			NSLog(@"Created a hitchy pipeline state for hash %llx vertex desc: %llx (this = %p)", (uint64)PipelineHash, (uint64)VertexDesc.VertexDescHash, this);
 #endif
 		}
 #endif
 	}
+#if !UE_BUILD_SHIPPING
+	else if(Reflection)
+	{
+		*Reflection = RenderPipelineDesc.GetReflectionData(this, VertexDesc);
+		check(*Reflection);
+	}
+#endif
 	
 	// set it now
 	Context->GetCommandEncoder().SetRenderPipelineState(PipelineState);

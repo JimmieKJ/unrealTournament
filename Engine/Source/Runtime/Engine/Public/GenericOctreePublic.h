@@ -4,8 +4,7 @@
 	GenericOctreePublic.h: Generic octree definition.
 =============================================================================*/
 
-#ifndef __GENERIC_OCTREE_PUBLIC_H__
-#define __GENERIC_OCTREE_PUBLIC_H__
+#pragma once
 
 /** 
  *	An identifier for an element in the octree. 
@@ -49,5 +48,3 @@ private:
 		return ElementIndex;
 	}
 };
-
-#endif // __GENERIC_OCTREE_PUBLIC_H__

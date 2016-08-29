@@ -26,7 +26,7 @@ public:
 
 public:
 
-	// IMFAsyncCallback interface
+	//~ IMFAsyncCallback interface
 
 	STDMETHODIMP_(ULONG) AddRef();
 	STDMETHODIMP GetParameters(unsigned long*, unsigned long*);
@@ -36,7 +36,7 @@ public:
 
 public:
 
-	// IMFByteStream interface
+	//~ IMFByteStream interface
 
 	STDMETHODIMP BeginRead(BYTE* pb, ULONG cb, IMFAsyncCallback* pCallback, IUnknown* punkState);
 	STDMETHODIMP BeginWrite(const BYTE* pb, ULONG cb, IMFAsyncCallback* pCallback, IUnknown* punkState);

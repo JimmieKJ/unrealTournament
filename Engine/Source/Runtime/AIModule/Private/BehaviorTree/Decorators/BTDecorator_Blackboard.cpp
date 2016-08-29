@@ -67,13 +67,16 @@ EBlackboardNotificationResult UBTDecorator_Blackboard::OnBlackboardKeyValueChang
 	{
 		const bool bIsExecutingBranch = BehaviorComp->IsExecutingBranch(this, GetChildIndex());
 		const bool bPass = (EvaluateOnBlackboard(Blackboard) != IsInversed());
+		const bool bAbortPending = BehaviorComp->IsAbortPending();
 
-		UE_VLOG(BehaviorComp, LogBehaviorTree, Verbose, TEXT("%s, OnBlackboardChange[%s] pass:%d executing:%d => %s"),
+		UE_VLOG(BehaviorComp, LogBehaviorTree, Verbose, TEXT("%s, OnBlackboardChange[%s] pass:%d executingBranch:%d abortPending:%d => %s"),
 			*UBehaviorTreeTypes::DescribeNodeHelper(this),
-			*Blackboard.GetKeyName(ChangedKeyID).ToString(), bPass, bIsExecutingBranch,
-			(bIsExecutingBranch && !bPass) || (!bIsExecutingBranch && bPass) ? TEXT("restart") : TEXT("skip"));
+			*Blackboard.GetKeyName(ChangedKeyID).ToString(),
+			bPass ? 1 : 0,
+			bIsExecutingBranch ? 1 : 0,
+			bAbortPending ? 1 : 0,
+			(bAbortPending || (bIsExecutingBranch && !bPass) || (!bIsExecutingBranch && bPass)) ? TEXT("restart") : TEXT("skip"));
 
-		// this is basically a XOR, but written down this way for readability's sake
 		if ((bIsExecutingBranch && !bPass) || (!bIsExecutingBranch && bPass))
 		{
 			BehaviorComp->RequestExecution(this);
@@ -87,7 +90,7 @@ EBlackboardNotificationResult UBTDecorator_Blackboard::OnBlackboardKeyValueChang
 			const UBTCompositeNode* BranchRoot = GetParentNode()->Children[GetChildIndex()].ChildComposite;
 			BehaviorComp->UnregisterAuxNodesInBranch(BranchRoot);
 		}
-		else if (bIsExecutingBranch && bPass && NotifyObserver == EBTBlackboardRestart::ValueChange)
+		else if (bIsExecutingBranch && bPass && (NotifyObserver == EBTBlackboardRestart::ValueChange || bAbortPending))
 		{
 			UE_VLOG(BehaviorComp, LogBehaviorTree, Verbose, TEXT("%s, OnBlackboardChange[%s] => restart"),
 				*UBehaviorTreeTypes::DescribeNodeHelper(this),

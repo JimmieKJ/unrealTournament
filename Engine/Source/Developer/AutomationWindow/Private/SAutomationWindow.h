@@ -2,6 +2,10 @@
 
 #pragma once
 
+#if WITH_EDITOR
+#include "IAssetRegistry.h"
+#endif
+
 
 /** Columns for the test tree view */
 namespace AutomationTestWindowConstants
@@ -30,8 +34,7 @@ namespace EAutomationTestBackgroundStyle
 /**
  * Implements the main UI Window for hosting all automation tests.
  */
-class SAutomationWindow
-	: public SCompoundWidget
+class SAutomationWindow : public SCompoundWidget
 {
 	/**
 	 * The automation text filter - used for updating the automation report list
@@ -81,6 +84,12 @@ public:
 	* @return true if the tests aren't running.
 	*/
 	bool IsAutomationControllerIdle() const;
+
+	// Save the currently selected tests and expanded items so they can be reapplied later
+	static TArray<FString> SaveExpandedTestNames(TSet<TSharedPtr<IAutomationReport>> ExpandedItems);
+
+	// Expanded the given item if its name is in the array of strings given.
+	static void ExpandItemsInList(TSharedPtr<SAutomationTestTreeView<TSharedPtr<IAutomationReport>>> InTestTable, TSharedPtr<IAutomationReport> InReport, TArray<FString> ItemsToExpand);
 
 protected:
 
@@ -200,9 +209,15 @@ private:
 
 	/** Gets children tests for a node in the hierarchy */
 	void OnGetChildren(TSharedPtr<IAutomationReport> InItem, TArray<TSharedPtr<IAutomationReport> >& OutItems);
+
+	/** Callback for a test expansion changing recursively */
+	void OnTestExpansionRecursive(TSharedPtr<IAutomationReport> InTreeNode, bool bInIsItemExpanded);
 	
 	/** Callback for a new test being selected */
 	void OnTestSelectionChanged(TSharedPtr<IAutomationReport> Selection, ESelectInfo::Type SelectInfo);
+
+	/** Update the test log. */
+	void UpdateTestLog(TSharedPtr<IAutomationReport> Selection);
 	
 	/** Called when the header checkbox's state is changed. Will go through all the Unit Tests available and change the state of their checkbox. */
 	void HeaderCheckboxStateChange(ECheckBoxState InCheckboxState);	/** Creates table row for each visible automation test */
@@ -383,11 +398,16 @@ private:
 	bool IsAutomationRunButtonEnabled() const;
 
 	/**
- 	 * Set whether tests are available to run.
+	 * Set whether tests are available to run.
 	 *
 	 * @param The Automation controller state.
 	 */
 	void OnTestAvailableCallback( EAutomationControllerModuleState::Type InAutomationControllerState );
+
+	/**
+	 * Called when tests complete.
+	 */
+	void OnTestsCompleteCallback();
 
 	/** Copies the selected log messages to the clipboard. */
 	void CopyLog();
@@ -399,6 +419,19 @@ private:
 	 * @return the context window.
 	 */
 	TSharedPtr<SWidget> HandleAutomationListContextMenuOpening( );
+
+	// Added button for running the currently open level test.
+	void RunSelectedTests();
+
+	void FindTestReportsForCurrentEditorLevel(TArray<TSharedPtr<IAutomationReport>>& OutLevelReports);
+
+	bool CanExecuteRunLevelTest();
+
+	void OnRunLevelTest();
+
+	void ScrollToTest(TSharedPtr<IAutomationReport> InReport);
+
+	bool ExpandToTest(TSharedPtr<IAutomationReport> InRoot, TSharedPtr<IAutomationReport> InReport);
 #endif
 
 	/** Handles the new preset button being clicked. */
@@ -487,6 +520,10 @@ private:
 	{
 		return bIsRequestingTests ? EVisibility::Visible : EVisibility::Hidden;
 	}
+
+#if WITH_EDITOR
+	void OnAssetRegistryFileLoadProgress(const IAssetRegistry::FFileLoadProgressUpdateData& ProgressUpdateData);
+#endif
 
 private:
 
@@ -583,4 +620,9 @@ private:
 
 	/** The number of history elements we are tracking in this session */
 	int32 NumHistoryElementsToTrack;
+
+	TArray<FString> SavedEnabledTests;
+	TArray<FString> SavedExpandedItems;
+	// Saves the last selected test so that it can be unbinded from refreshing the log
+	TWeakPtr<IAutomationReport> PreviousSelection;
 };

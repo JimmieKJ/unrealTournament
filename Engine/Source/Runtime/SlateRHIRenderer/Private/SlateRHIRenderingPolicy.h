@@ -3,9 +3,9 @@
 
 #pragma once
 
-class FSlateRHIResourceManager;
-
 #include "RenderingPolicy.h"
+
+class FSlateRHIResourceManager;
 
 class FSlateRHIRenderingPolicy : public FSlateRenderingPolicy
 {
@@ -16,8 +16,6 @@ public:
 	void UpdateVertexAndIndexBuffers(FRHICommandListImmediate& RHICmdList, FSlateBatchData& BatchData, const TSharedRef<FSlateRenderDataHandle, ESPMode::ThreadSafe>& RenderHandle);
 
 	void ReleaseCachingResourcesFor(FRHICommandListImmediate& RHICmdList, const ILayoutCache* Cacher);
-
-	void SetDefaultBlendMode(const FBlendStateInitializerRHI& BlendState);
 
 	virtual void DrawElements(FRHICommandListImmediate& RHICmdList, class FSlateBackBuffer& BackBuffer, const FMatrix& ViewProjectionMatrix, const TArray<FSlateRenderBatch>& RenderBatches, bool bAllowSwtichVerticalAxis=true);
 
@@ -58,8 +56,6 @@ private:
 	TSharedRef<FSlateRHIResourceManager> ResourceManager;
 
 	bool bGammaCorrect;
-
-	FBlendStateRHIRef BlendMode;
 
 	TOptional<int32> InitialBufferSizeOverride;
 };

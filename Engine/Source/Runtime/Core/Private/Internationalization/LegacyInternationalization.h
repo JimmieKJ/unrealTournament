@@ -11,6 +11,8 @@ public:
 	bool Initialize();
 	void Terminate();
 
+	void LoadAllCultureData();
+
 	bool IsCultureRemapped(const FString& Name, FString* OutMappedCulture);
 	bool IsCultureDisabled(const FString& Name);
 

@@ -1,14 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "LauncherCheckPrivatePCH.h"
-#include "GenericPlatformHttp.h"
 
 #if WITH_LAUNCHERCHECK
 
+#include "GenericPlatformHttp.h"
 #include "IDesktopPlatform.h"
 #include "DesktopPlatformModule.h"
-
-#endif
 
 /**
  * Log categories for LauncherCheck module
@@ -23,6 +21,15 @@ class FLauncherCheckModule
 {
 public:
 
+	/*
+	* Check to see if this module should perform any checks or not
+	* @return true, if it should
+	*/
+	bool IsEnabled() const
+	{
+		return FParse::Param(FCommandLine::Get(), TEXT("NoEpicPortal")) == false;
+	}
+
 	// ILauncherCheckModule interface
 
 	virtual bool WasRanFromLauncher() const override
@@ -32,43 +39,26 @@ public:
 		return !IsEnabled() || FParse::Param(FCommandLine::Get(), TEXT("EpicPortal"));
 	}
 
-	virtual bool RunLauncher() const override
+	virtual bool RunLauncher(ELauncherAction Action) const override
 	{
-#if WITH_LAUNCHERCHECK
 		IDesktopPlatform* DesktopPlatform = FDesktopPlatformModule::Get();
-
 		if (DesktopPlatform != nullptr)
 		{
-			static const TCHAR* Delims[] = { TEXT("/") };
-			static const int32 NumDelims = ARRAY_COUNT(Delims);
-
-			// Get the path to the executable, and encode it ('cos spaces, colons, etc break things)
-			FString ExePath = FPlatformProcess::BaseDir();
-
-			// Make sure it's not relative and the slashes are the right way
-			ExePath = FPaths::ConvertRelativePathToFull(ExePath);
-			ExePath.ReplaceInline(TEXT("\\"), TEXT("/"));
-
-			// Encode the path 'cos symbols like ':',' ' etc are bad
-			FString EncodedExePath;
-			TArray<FString> ExeFolders;
-			ExePath.ParseIntoArray(ExeFolders, Delims, NumDelims);
-			for (const FString& ExeFolder : ExeFolders)
-			{
-				EncodedExePath /= FGenericPlatformHttp::UrlEncode(ExeFolder);
-			}
-
-			// Make sure it ends in a slash
-			EncodedExePath /= TEXT("");
-
 			// Construct a url to tell the launcher of this app and what we want to do with it
 			FOpenLauncherOptions LauncherOptions;
 			LauncherOptions.LauncherRelativeUrl = TEXT("apps");
-			LauncherOptions.LauncherRelativeUrl /= EncodedExePath;
-			LauncherOptions.LauncherRelativeUrl += TEXT("?action=launch");
+			LauncherOptions.LauncherRelativeUrl /= GetEncodedExePath();
+			switch (Action)
+			{
+			case ELauncherAction::AppLaunch:
+				LauncherOptions.LauncherRelativeUrl += TEXT("?action=launch");
+				break;
+			case ELauncherAction::AppUpdateCheck:
+				LauncherOptions.LauncherRelativeUrl += TEXT("?action=updatecheck");
+				break;
+			};
 			return DesktopPlatform->OpenLauncher(LauncherOptions);
 		}
-#endif // WITH_LAUNCHERCHECK
 		return false;
 	}
 
@@ -84,21 +74,56 @@ public:
 	{
 	}
 
-	/*
-	 * Check to see if this module should perform any checks or not
-	 * @return true, if it should
+private:
+
+	/**
+	 * Return url encoded full path of currently running exe
 	 */
-	bool IsEnabled() const
+	FString GetEncodedExePath() const
 	{
-#if WITH_LAUNCHERCHECK
-		// Check for the presence of a specific param that's passed from the Launcher to the game
-		// when we want to disabled the module
-		return !FParse::Param(FCommandLine::Get(), TEXT("NoEpicPortal"));
-#else
-		return false;
-#endif
+		FString EncodedExePath;
+
+		static const TCHAR* Delims[] = { TEXT("/") };
+		static const int32 NumDelims = ARRAY_COUNT(Delims);
+
+		// Get the path to the executable, and encode it ('cos spaces, colons, etc break things)
+		FString ExePath = FPlatformProcess::BaseDir();
+
+		// Make sure it's not relative and the slashes are the right way
+		ExePath = FPaths::ConvertRelativePathToFull(ExePath);
+		ExePath.ReplaceInline(TEXT("\\"), TEXT("/"));
+
+		// Encode the path 'cos symbols like ':',' ' etc are bad
+		TArray<FString> ExeFolders;
+		ExePath.ParseIntoArray(ExeFolders, Delims, NumDelims);
+		for (const FString& ExeFolder : ExeFolders)
+		{
+			EncodedExePath /= FGenericPlatformHttp::UrlEncode(ExeFolder);
+		}
+		// Make sure it ends in a slash
+		EncodedExePath /= TEXT("");
+
+		return EncodedExePath;
 	}
 };
 
 
+#else
+
+class FLauncherCheckModule
+	: public ILauncherCheckModule
+{
+public:
+
+	virtual bool WasRanFromLauncher() const override { return true; }
+
+	virtual bool RunLauncher(ELauncherAction Action) const override { return false; }
+
+};
+
+
+#endif // WITH_LAUNCHERCHECK
+
 IMPLEMENT_MODULE(FLauncherCheckModule, LauncherCheck );
+
+

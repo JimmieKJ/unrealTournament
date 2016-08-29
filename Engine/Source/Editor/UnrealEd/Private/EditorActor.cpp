@@ -781,9 +781,9 @@ bool UUnrealEdEngine::edactDeleteSelected( UWorld* InWorld, bool bVerifyDeletion
 				int32 Result = FMessageDialog::Open( MessageType, ConfirmDelete );
 				if ( Result == EAppReturnType::YesAll )
 				{
-					bRequestedDeleteAllByLevel = bReferencedByLevelScript;
-					bRequestedDeleteAllByActor = bReferencedByActor;
-					bRequestedDeleteAllByLODActor = bReferencedByLODActor;
+					bRequestedDeleteAllByLevel |= bReferencedByLevelScript;
+					bRequestedDeleteAllByActor |= bReferencedByActor;
+					bRequestedDeleteAllByLODActor |= bReferencedByLODActor;
 				}
 				else if ( Result == EAppReturnType::NoAll )
 				{
@@ -828,6 +828,7 @@ bool UUnrealEdEngine::edactDeleteSelected( UWorld* InWorld, bool bVerifyDeletion
 			ULevel* BrushLevel = Actor->GetLevel();
 			if (BrushLevel && !Brush->IsVolumeBrush() )
 			{
+				BrushLevel->Model->Modify();
 				LevelsToRebuildBSP.Add( BrushLevel );
 				// Rebuilding bsp will also take care of navigation
 				LevelsToRebuildNavigation.Remove( BrushLevel );
@@ -874,7 +875,6 @@ bool UUnrealEdEngine::edactDeleteSelected( UWorld* InWorld, bool bVerifyDeletion
 	// Remove all references to destroyed actors once at the end, instead of once for each Actor destroyed..
 	CollectGarbage( GARBAGE_COLLECTION_KEEPFLAGS );
 
-	NoteSelectionChange();
 	// If any brush actors were modified, update the Bsp in the appropriate levels
 	if (LevelsToRebuildBSP.Num())
 	{
@@ -885,6 +885,8 @@ bool UUnrealEdEngine::edactDeleteSelected( UWorld* InWorld, bool bVerifyDeletion
 			GEditor->RebuildLevel(*Level);
 		}
 	}
+
+	NoteSelectionChange();
 
 	if( LevelsToRebuildNavigation.Num() )
 	{
@@ -1892,7 +1894,7 @@ void UUnrealEdEngine::edactSelectMatchingStaticMesh( bool bAllClasses )
 {
 	TArray<FStaticMeshActor> StaticMeshActors;
 
-	TArray<UWorld*> WorldList;
+	TArray<UWorld*> SelectedWorlds;
 	// Make a list of selected actors with static meshes.
 	for ( FSelectionIterator It( GetSelectedActorIterator() ) ; It ; ++It )
 	{
@@ -1905,24 +1907,24 @@ void UUnrealEdEngine::edactSelectMatchingStaticMesh( bool bAllClasses )
 			if ( ActorInfo.IsStaticMeshActor() )
 			{
 				StaticMeshActors.Add( ActorInfo );
-				WorldList.AddUnique( Actor->GetWorld() );	
+				SelectedWorlds.AddUnique( Actor->GetWorld() );	
 			}				
 		}
 	}
-	if( WorldList.Num() == 0 )
+	if( SelectedWorlds.Num() == 0 )
 	{
 		UE_LOG(LogEditorActor, Log, TEXT("No worlds found in edactSelectMatchingStaticMesh") );
 		return;
 	}
 	// Make sure we have only 1 valid world 
-	check(WorldList.Num() == 1);
+	check(SelectedWorlds.Num() == 1);
 	USelection* SelectedActors = GetSelectedActors();
 	SelectedActors->BeginBatchSelectOperation();
 	SelectedActors->Modify();
 
 	// Loop through all non-hidden actors in visible levels, selecting those that have one of the
 	// static meshes in the list.
-	for( FActorIterator It(WorldList[0]); It; ++It )
+	for( FActorIterator It(SelectedWorlds[0]); It; ++It )
 	{
 		AActor* Actor = *It;
 		if ( !Actor->IsHiddenEd() )
@@ -1962,7 +1964,7 @@ void UUnrealEdEngine::edactSelectMatchingSkeletalMesh(bool bAllClasses)
 	bool bSelectSkelMeshActors = false;
 	bool bSelectPawns = false;
 
-	TArray<UWorld*> WorldList;
+	TArray<UWorld*> SelectedWorlds;
 	// Make a list of skeletal meshes of selected actors, and note what classes we have selected.
 	for ( FSelectionIterator It( GetSelectedActorIterator() ) ; It ; ++It )
 	{
@@ -1975,7 +1977,7 @@ void UUnrealEdEngine::edactSelectMatchingSkeletalMesh(bool bAllClasses)
 		{
 			bSelectSkelMeshActors = true;
 			SelectedMeshes.AddUnique(SkelMeshActor->GetSkeletalMeshComponent()->SkeletalMesh);
-			WorldList.AddUnique(Actor->GetWorld());			
+			SelectedWorlds.AddUnique(Actor->GetWorld());			
 		}
 
 		// Look for Pawn
@@ -1987,17 +1989,17 @@ void UUnrealEdEngine::edactSelectMatchingSkeletalMesh(bool bAllClasses)
 			{
 				bSelectPawns = true;
 				SelectedMeshes.AddUnique(PawnSkeletalMesh->SkeletalMesh);
-				WorldList.AddUnique(Actor->GetWorld());
+				SelectedWorlds.AddUnique(Actor->GetWorld());
 			}
 		}
 	}
-	if( WorldList.Num() == 0 )
+	if( SelectedWorlds.Num() == 0 )
 	{
 		UE_LOG(LogEditorActor, Log, TEXT("No worlds found in edactSelectMatchingSkeletalMesh") );
 		return;
 	}
 	// Make sure we have only 1 valid world 
-	check( WorldList.Num() == 1 );
+	check( SelectedWorlds.Num() == 1 );
 	// If desired, select all class types
 	if(bAllClasses)
 	{
@@ -2010,7 +2012,7 @@ void UUnrealEdEngine::edactSelectMatchingSkeletalMesh(bool bAllClasses)
 	SelectedActors->Modify();
 
 	// Loop through all non-hidden actors in visible levels, selecting those that have one of the skeletal meshes in the list.
-	for( FActorIterator It(WorldList[0]); It; ++It )
+	for( FActorIterator It(SelectedWorlds[0]); It; ++It )
 	{
 		AActor* Actor = *It;
 		if ( !Actor->IsHiddenEd() )
@@ -2058,7 +2060,7 @@ void UUnrealEdEngine::edactSelectMatchingMaterial()
 	// Set for fast lookup of used materials.
 	TSet<UMaterialInterface*> MaterialsInSelection;
 
-	TArray<UWorld*> WorldList;
+	TArray<UWorld*> SelectedWorlds;
 	// For each selected actor, find all the materials used by this actor.
 	for ( FSelectionIterator ActorItr( GetSelectedActorIterator() ) ; ActorItr ; ++ActorItr )
 	{
@@ -2076,18 +2078,18 @@ void UUnrealEdEngine::edactSelectMatchingMaterial()
 				TArray<UMaterialInterface*> UsedMaterials;
 				CurrentComponent->GetUsedMaterials( UsedMaterials );
 				MaterialsInSelection.Append( UsedMaterials );
-				WorldList.AddUnique( CurrentActor->GetWorld() );
+				SelectedWorlds.AddUnique( CurrentActor->GetWorld() );
 			}
 		}
 	}
 
-	if( WorldList.Num() == 0 )
+	if( SelectedWorlds.Num() == 0 )
 	{
 		UE_LOG(LogEditorActor, Log, TEXT("No worlds found in edactSelectMatchingMaterial") );
 		return;
 	}
 	// Make sure we have only 1 valid world 
-	check( WorldList.Num() == 1 );
+	check( SelectedWorlds.Num() == 1 );
 
 	USelection* SelectedActors = GetSelectedActors();
 	SelectedActors->BeginBatchSelectOperation();
@@ -2095,7 +2097,7 @@ void UUnrealEdEngine::edactSelectMatchingMaterial()
 
 	// Now go over every actor and see if any of the actors are using any of the materials that 
 	// we found above.
-	for( FActorIterator ActorIt(WorldList[0]); ActorIt; ++ActorIt )
+	for( FActorIterator ActorIt(SelectedWorlds[0]); ActorIt; ++ActorIt )
 	{
 		AActor* Actor = *ActorIt;
 
@@ -2139,7 +2141,7 @@ void UUnrealEdEngine::edactSelectMatchingEmitter()
 {
 	TArray<UParticleSystem*> SelectedParticleSystemTemplates;
 
-	TArray<UWorld*> WorldList;
+	TArray<UWorld*> SelectedWorlds;
 	// Check all of the currently selected actors to find the relevant particle system templates to use to match
 	for ( FSelectionIterator SelectedIterator( GetSelectedActorIterator() ) ; SelectedIterator ; ++SelectedIterator )
 	{
@@ -2151,23 +2153,23 @@ void UUnrealEdEngine::edactSelectMatchingEmitter()
 		if ( Emitter && Emitter->GetParticleSystemComponent() && Emitter->GetParticleSystemComponent()->Template )
 		{
 			SelectedParticleSystemTemplates.AddUnique( Emitter->GetParticleSystemComponent()->Template );
-			WorldList.AddUnique( Actor->GetWorld() );
+			SelectedWorlds.AddUnique( Actor->GetWorld() );
 		}
 	}
 
-	if( WorldList.Num() == 0 )
+	if( SelectedWorlds.Num() == 0 )
 	{
 		UE_LOG(LogEditorActor, Log, TEXT("No worlds found in edactSelectMatchingEmitter") );
 		return;
 	}
 	// Make sure we have only 1 valid world 
-	check( WorldList.Num() == 1 );
+	check( SelectedWorlds.Num() == 1 );
 
 	USelection* SelectedActors = GetSelectedActors();
 	SelectedActors->BeginBatchSelectOperation();
 	SelectedActors->Modify();
 	// Iterate over all of the non-hidden actors, selecting those who have a particle system template that matches one from the previously-found list
-	for( TActorIterator<AEmitter> ActorIterator(WorldList[0]); ActorIterator; ++ActorIterator )
+	for( TActorIterator<AEmitter> ActorIterator(SelectedWorlds[0]); ActorIterator; ++ActorIterator )
 	{
 		AEmitter* ActorAsEmitter = *ActorIterator;
 		if ( !ActorAsEmitter->IsHiddenEd() )

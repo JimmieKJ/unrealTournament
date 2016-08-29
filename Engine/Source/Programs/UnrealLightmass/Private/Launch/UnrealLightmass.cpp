@@ -3,7 +3,7 @@
 // UnrealLightmass.cpp : Defines the entry point for the console application.
 //
 
-#include "stdafx.h"
+#include "LightmassPCH.h"
 #include "CPUSolver.h"
 #include "UnitTest.h"
 #include "LightmassSwarm.h"

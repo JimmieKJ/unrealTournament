@@ -269,6 +269,9 @@ public:
 #endif //WITH_EDITOR
 
 	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
+	
+	UFUNCTION(BlueprintCallable, Category = "Cinematic")
+	void EnableGroupByName(FString GroupName, bool bEnable);
 
 	/** Event triggered when the matinee is played for whatever reason */
 	UPROPERTY(BlueprintAssignable, Category = "Cinematic")

@@ -190,10 +190,10 @@ void UPawnAction::SetOwnerComponent(UPawnActionsComponent* Component)
 
 void UPawnAction::SetInstigator(UObject* const InInstigator)
 { 
-	if (Instigator != NULL && Instigator != InInstigator)
+	if (Instigator && Instigator != InInstigator)
 	{
 		UE_VLOG(GetPawn(), LogPawnAction, Warning, TEXT("%s> setting Instigator to %s when already has instigator set to %s")
-			, *GetName(), *Instigator->GetName(), *InInstigator->GetName());
+			, *GetName(), *Instigator->GetName(), InInstigator ? *InInstigator->GetName() : TEXT("<null>"));
 	}
 	Instigator = InInstigator; 
 }

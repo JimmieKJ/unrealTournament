@@ -424,7 +424,7 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// List of files which this module depends on at runtime. These files will be staged along with the target.
 		/// </summary>
-		public List<RuntimeDependency> RuntimeDependencies = new List<RuntimeDependency>();
+		public RuntimeDependencyList RuntimeDependencies = new RuntimeDependencyList();
 
 		/// <summary>
 		/// List of additional properties to be added to the build receipt
@@ -655,6 +655,11 @@ namespace UnrealBuildTool
 		/// in ModuleHostType.
 		/// </summary>
 		public List<string> AdditionalPlugins = new List<string>();
+
+		/// <summary>
+		/// Path to the set of pak signing keys to embed in the executable
+		/// </summary>
+		public string PakSigningKeysFile = "";
 
 		/// <summary>
 		/// Is the given type a 'game' type (Game/Editor/Server) wrt building?
@@ -1621,13 +1626,22 @@ namespace UnrealBuildTool
 		/// <returns></returns>
 		public IEnumerable<PluginInfo> EnumeratePlugins()
 		{
+			return global::UnrealBuildTool.Plugins.FilterPlugins(EnumeratePluginsInternal());
+		}
+
+		/// <summary>
+		/// Enumerates all the plugins that are available
+		/// </summary>
+		/// <returns></returns>
+		protected IEnumerable<PluginInfo> EnumeratePluginsInternal()
+		{
 			if (Parent == null)
 			{
 				return Plugins;
 			}
 			else
 			{
-				return Plugins.Concat(Parent.EnumeratePlugins());
+				return Plugins.Concat(Parent.EnumeratePluginsInternal());
 			}
 		}
 
@@ -2009,5 +2023,11 @@ namespace UnrealBuildTool
 			}
 			return null;
 		}
-	}
+
+        [Obsolete("GetModuleFilename is deprecated, use the ModuleDirectory property on any ModuleRules instead to get a path to your module.", true)]
+        public static string GetModuleFilename(string TypeName)
+        {
+            throw new NotImplementedException("GetModuleFilename is deprecated, use the ModuleDirectory property on any ModuleRules instead to get a path to your module.");
+        }
+    }
 }

@@ -131,7 +131,7 @@ public:
 };
 
 UCLASS(Abstract, meta = (ExposedAsyncProxy))
-class GAMEPLAYTASKS_API UGameplayTask : public UObject
+class GAMEPLAYTASKS_API UGameplayTask : public UObject, public IGameplayTaskOwnerInterface
 {
 	GENERATED_BODY()
 
@@ -213,15 +213,18 @@ public:
 	FORCEINLINE bool IsSimulatedTask() const { return (bSimulatedTask != 0); }
 	FORCEINLINE bool IsSimulating() const { return (bIsSimulating != 0); }
 	FORCEINLINE bool IsPausable() const { return (bIsPausable != 0); }
+	FORCEINLINE bool HasOwnerFinished() const {	return (bOwnerFinished != 0); }
 	FORCEINLINE uint8 GetPriority() const { return Priority; }
 	FORCEINLINE bool RequiresPriorityOrResourceManagement() const { return bCaresAboutPriority == true || RequiredResources.IsEmpty() == false || ClaimedResources.IsEmpty() == false; }
-	FORCEINLINE FGameplayResourceSet GetRequiredResources() { return RequiredResources; }
-	FORCEINLINE FGameplayResourceSet GetClaimedResources() { return ClaimedResources; }
+	FORCEINLINE FGameplayResourceSet GetRequiredResources() const { return RequiredResources; }
+	FORCEINLINE FGameplayResourceSet GetClaimedResources() const { return ClaimedResources; }
 	
 	FORCEINLINE EGameplayTaskState GetState() const { return TaskState; }
 	FORCEINLINE bool IsActive() const { return (TaskState == EGameplayTaskState::Active); }
+	FORCEINLINE bool IsPaused() const { return (TaskState == EGameplayTaskState::Paused); }
 	FORCEINLINE bool IsFinished() const { return (TaskState == EGameplayTaskState::Finished); }
 	
+	UGameplayTask* GetChildTask() const { return ChildTask; }
 	IGameplayTaskOwnerInterface* GetTaskOwner() const { return TaskOwner.IsValid() ? &(*TaskOwner) : nullptr; }
 	UGameplayTasksComponent* GetGameplayTasksComponent() { return TasksComponent.Get(); }
 	UGameplayTasksComponent* GetGameplayTasksComponent() const { return TasksComponent.Get(); }
@@ -267,7 +270,7 @@ protected:
 	 *	IMPORTANT! When overriding this function make sure to call Super::OnDestroy(bOwnerFinished) as the last thing,
 	 *		since the function internally marks the task as "Pending Kill", and this may interfere with internal BP mechanics
 	 */
-	virtual void OnDestroy(bool bOwnerFinished);
+	virtual void OnDestroy(bool bInOwnerFinished);
 
 	static IGameplayTaskOwnerInterface* ConvertToTaskOwner(UObject& OwnerObject);
 	static IGameplayTaskOwnerInterface* ConvertToTaskOwner(AActor& OwnerActor);
@@ -275,6 +278,15 @@ protected:
 	// protected by design. Not meant to be called outside from GameplayTaskComponent mechanics
 	virtual void Pause();
 	virtual void Resume();
+
+	// IGameplayTaskOwnerInterface BEGIN
+	virtual UGameplayTasksComponent* GetGameplayTasksComponent(const UGameplayTask& Task) const override;
+	virtual AActor* GetGameplayTaskOwner(const UGameplayTask* Task) const override;
+	virtual AActor* GetGameplayTaskAvatar(const UGameplayTask* Task) const override;
+	virtual uint8 GetGameplayTaskDefaultPriority() const override;
+	virtual void OnGameplayTaskInitialized(UGameplayTask& Task) override;
+	virtual void OnGameplayTaskDeactivated(UGameplayTask& Task) override;
+	// IGameplayTaskOwnerInterface END
 
 private:
 	friend UGameplayTasksComponent;
@@ -316,6 +328,8 @@ protected:
 
 	uint32 bClaimRequiredResources : 1;
 	
+	uint32 bOwnerFinished : 1;
+
 	/** Abstract "resource" IDs this task needs available to be able to get activated. */
 	FGameplayResourceSet RequiredResources;
 
@@ -328,6 +342,10 @@ protected:
 	TWeakInterfacePtr<IGameplayTaskOwnerInterface> TaskOwner;
 
 	TWeakObjectPtr<UGameplayTasksComponent>	TasksComponent;
+
+	/** child task instance */
+	UPROPERTY()
+	UGameplayTask* ChildTask;
 
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 	mutable FString DebugDescription;
@@ -357,7 +375,7 @@ T* UGameplayTask::NewTask(IGameplayTaskOwnerInterface& TaskOwner, FName Instance
 {
 	T* MyObj = NewObject<T>();
 	MyObj->InstanceName = InstanceName;
-	MyObj->InitTask(TaskOwner, TaskOwner.GetDefaultPriority());
+	MyObj->InitTask(TaskOwner, TaskOwner.GetGameplayTaskDefaultPriority());
 	return MyObj;
 }
 

@@ -541,7 +541,7 @@ public:
 			if (ENOENT != errno)
 			{
 				int ErrNo = errno;
-				UE_LOG(LogLinuxPlatformFile, Warning, TEXT( "open('%s', O_RDONLY | O_CLOEXEC) failed: errno=%d (%s)" ), *Filename, ErrNo, ANSI_TO_TCHAR(strerror(ErrNo)));
+				UE_LOG(LogLinuxPlatformFile, Warning, TEXT( "open('%s', O_RDONLY | O_CLOEXEC) failed: errno=%d (%s)" ), *Filename, ErrNo, UTF8_TO_TCHAR(strerror(ErrNo)));
 			}
 			else
 			{
@@ -844,7 +844,7 @@ IFileHandle* FLinuxPlatformFile::OpenWrite(const TCHAR* Filename, bool bAppend, 
 			{
 				int ErrNo = errno;
 				UE_LOG(LogLinuxPlatformFile, Warning, TEXT( "ftruncate() failed for '%s': errno=%d (%s)" ),
-															Filename, ErrNo, ANSI_TO_TCHAR(strerror(ErrNo)));
+															Filename, ErrNo, UTF8_TO_TCHAR(strerror(ErrNo)));
 				close(Handle);
 				return nullptr;
 			}
@@ -864,7 +864,7 @@ IFileHandle* FLinuxPlatformFile::OpenWrite(const TCHAR* Filename, bool bAppend, 
 	}
 
 	int ErrNo = errno;
-	UE_LOG(LogLinuxPlatformFile, Warning, TEXT( "open('%s', Flags=0x%08X) failed: errno=%d (%s)" ), *NormalizeFilename(Filename), Flags, ErrNo, ANSI_TO_TCHAR(strerror(ErrNo)));
+	UE_LOG(LogLinuxPlatformFile, Warning, TEXT( "open('%s', Flags=0x%08X) failed: errno=%d (%s)" ), *NormalizeFilename(Filename), Flags, ErrNo, UTF8_TO_TCHAR(strerror(ErrNo)));
 	return nullptr;
 }
 
@@ -1034,7 +1034,7 @@ bool FLinuxPlatformFile::CreateDirectoriesFromPath(const TCHAR* Path)
 				{
 					int ErrNo = errno;
 					UE_LOG(LogLinuxPlatformFile, Warning, TEXT( "create dir('%s') failed: errno=%d (%s)" ),
-																DirPath, ErrNo, ANSI_TO_TCHAR(strerror(ErrNo)));
+																DirPath, ErrNo, UTF8_TO_TCHAR(strerror(ErrNo)));
 					FMemory::Free(DirPath);
 					FMemory::Free(SubPath);
 					return false;

@@ -12,7 +12,7 @@ public class WorkspaceMenuStructure : ModuleRules
 			new string[] {
 				"Core",
 				"EditorStyle",
-				"Slate",
+				"SlateCore",
 			}
 		);
 	}

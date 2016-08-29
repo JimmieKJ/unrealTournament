@@ -58,6 +58,8 @@ struct FBuffers
 	TIRVarSet AtomicVariables;
 
 	TArray<class ir_instruction*> Buffers;
+    
+    TArray<class ir_instruction*> Textures;
 
 	// Information about textures & samplers; we need to have unique samplerstate indices, as one they can be used independent of each other
 	TArray<FCustomStdString> UniqueSamplerStates;
@@ -89,12 +91,23 @@ struct FBuffers
 			{
 				if (Var->type->is_image())
 				{
-					//return (bIsDesktop ? 126 : 30) - i;
 					return 30 - i;
 				}
 				return i;
 			}
-		}
+        }
+        
+        for (int i = 0, n = Textures.Num(); i < n; ++i)
+        {
+            if (Textures[i] == Var)
+            {
+                if (Var->type->is_image())
+                {
+                    return (bIsDesktop ? 126 : 30) - i;
+                }
+                return i;
+            }
+        }
 
 		return -1;
 	}
@@ -108,12 +121,24 @@ struct FBuffers
 			{
 				if (Var->type->is_image())
 				{
-					//return (bIsDesktop ? 126 : 30) - i;
 					return 30 - i;
 				}
 				return i;
 			}
 		}
+        
+        for (int i = 0, n = Textures.Num(); i < n; ++i)
+        {
+            auto* Var = Textures[i] ? Textures[i]->as_variable() : nullptr;
+            if (Var && Var->name && Var->name == Name)
+            {
+                if (Var->type->is_image())
+                {
+                    return (bIsDesktop ? 126 : 30) - i;
+                }
+                return i;
+            }
+        }
 
 		return -1;
 	}

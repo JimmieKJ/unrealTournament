@@ -677,9 +677,6 @@ void FReferenceFinder::HandleObjectReference( UObject*& InObject, const UObject*
 	}
 }
 
-bool SetTokenStreamMaybeDirty(bool bDirty);
-bool IsTokenStreamDirty();
-
 /**
  * Implementation of parallel realtime garbage collector using recursive subdivision
  *
@@ -701,7 +698,6 @@ public:
 	 * Marks all objects that don't have KeepFlags and EInternalObjectFlags::GarbageCollectionKeepFlags as unreachable
 	 * This function is a template to speed up the case where we don't need to assemble the token stream (saves about 6ms on PS4)
 	 */
-	template <bool bAssembleTokenStream>
 	void MarkObjectsAsUnreachable(TArray<UObject*>& ObjectsToSerialize, const EObjectFlags KeepFlags)
 	{
 		const EInternalObjectFlags FastKeepFlags = EInternalObjectFlags::GarbageCollectionKeepFlags;
@@ -759,20 +755,6 @@ public:
 					ObjectItem->SetFlags(EInternalObjectFlags::Unreachable | EInternalObjectFlags::NoStrongReference);
 				}
 			}
-
-			if (bAssembleTokenStream)
-			{
-				// Compile will strip this out when we don't need to update the token stream since this is a template.
-				// Otherwise the GC will suffer a big performance hit.
-				if (UClass* Class = dynamic_cast<UClass*>(Object))
-				{
-					if (!Class->HasAnyClassFlags(CLASS_TokenStreamAssembled))
-					{
-						Class->AssembleReferenceTokenStream();
-						check(Class->HasAnyClassFlags(CLASS_TokenStreamAssembled));
-					}
-				}
-			}
 		}
 	}
 
@@ -799,15 +781,7 @@ public:
 			ObjectsToSerialize.Add(FGCObject::GGCObjectReferencer);
 		}
 
-		if (!IsTokenStreamDirty())
-		{
-			MarkObjectsAsUnreachable<false>(ObjectsToSerialize, KeepFlags);
-		}
-		else
-		{
-			SetTokenStreamMaybeDirty(false);
-			MarkObjectsAsUnreachable<true>(ObjectsToSerialize, KeepFlags);
-		}
+		MarkObjectsAsUnreachable(ObjectsToSerialize, KeepFlags);
 
 		{
 			FGCReferenceProcessor ReferenceProcessor;
@@ -1096,7 +1070,12 @@ typedef void (*EditorPostReachabilityAnalysisCallbackType)();
 COREUOBJECT_API EditorPostReachabilityAnalysisCallbackType EditorPostReachabilityAnalysisCallback = NULL;
 
 // Allow parallel GC to be overridden to single threaded via console command.
-static int32 GAllowParallelGC = (!PLATFORM_MAC || !WITH_EDITORONLY_DATA) ? 1 : 0;
+#if !PLATFORM_MAC || !WITH_EDITORONLY_DATA
+	static int32 GAllowParallelGC = 1;
+#else
+	static int32 GAllowParallelGC = 0;
+#endif
+
 static FAutoConsoleVariableRef CVarAllowParallelGC(
 	TEXT("gc.AllowParallelGC"),
 	GAllowParallelGC,
@@ -1135,6 +1114,8 @@ bool VerifyClusterAssumptions(UObject* ClusterRootObject);
  */
 void CollectGarbageInternal(EObjectFlags KeepFlags, bool bPerformFullPurge)
 {
+	SCOPE_TIME_GUARD(TEXT("Collect Garbage"));
+
 	CheckImageIntegrityAtRuntime();
 
 	DECLARE_SCOPE_CYCLE_COUNTER( TEXT( "CollectGarbageInternal" ), STAT_CollectGarbageInternal, STATGROUP_GC );
@@ -1178,11 +1159,11 @@ void CollectGarbageInternal(EObjectFlags KeepFlags, bool bPerformFullPurge)
 	if ((UObjectArray.DisregardForGCEnabled() || GUObjectClusters.Num()) && GShouldVerifyGCAssumptions)
 	{
 		DECLARE_SCOPE_CYCLE_COUNTER( TEXT( "CollectGarbageInternal.VerifyGCAssumptions" ), STAT_CollectGarbageInternal_VerifyGCAssumptions, STATGROUP_GC );
+		bool bShouldAssert = false;
 
 		// Verify that objects marked to be disregarded for GC are not referencing objects that are not part of the root set.
 		for (FRawObjectIterator It(false); It; ++It)
 		{
-			bool bShouldAssert = false;
 			FUObjectItem* ObjectItem = *It;
 			UObject* Object = (UObject*)ObjectItem->Object;
 			// Don't require UGCObjectReferencer's references to adhere to the assumptions.
@@ -1219,11 +1200,11 @@ void CollectGarbageInternal(EObjectFlags KeepFlags, bool bPerformFullPurge)
 					bShouldAssert = true;
 				}
 			}
-			// Assert if we encountered any objects breaking implicit assumptions.
-			if( bShouldAssert )
-			{
-				UE_LOG(LogGarbage, Fatal,TEXT("Encountered object(s) breaking Disregard for GC assumption. Please check log for details."));
-			}
+		}
+		// Assert if we encountered any objects breaking implicit assumptions.
+		if (bShouldAssert)
+		{
+			UE_LOG(LogGarbage, Fatal, TEXT("Encountered object(s) breaking Disregard for GC assumption. Please check log for details."));
 		}
 	}
 #endif
@@ -1469,6 +1450,18 @@ bool UMapProperty::ContainsObjectReference() const
 }
 
 /**
+* Returns true if this property, or in the case of e.g. array or struct properties any sub- property, contains a
+* UObject reference.
+*
+* @return true if property (or sub- properties) contain a UObject reference, false otherwise
+*/
+bool USetProperty::ContainsObjectReference() const
+{
+	check(ElementProp);
+	return ElementProp->ContainsObjectReference();
+}
+
+/**
  * Returns true if this property, or in the case of e.g. array or struct properties any sub- property, contains a
  * UObject reference.
  *
@@ -1526,6 +1519,13 @@ bool UMapProperty::ContainsWeakObjectReference() const
 	check(KeyProp);
 	check(ValueProp);
 	return KeyProp->ContainsWeakObjectReference() || ValueProp->ContainsWeakObjectReference();
+}
+
+// Returns true if this property contains a weak UObject reference.
+bool USetProperty::ContainsWeakObjectReference() const
+{
+	check(ElementProp);
+	return ElementProp->ContainsWeakObjectReference();
 }
 
 // Returns true if this property contains a weak UObject reference.
@@ -1690,6 +1690,19 @@ void UMapProperty::EmitReferenceInfo(UClass& OwnerClass, int32 BaseOffset)
 	}
 }
 
+/**
+* Emits tokens used by realtime garbage collection code to passed in OwnerClass' ReferenceTokenStream. The offset emitted is relative
+* to the passed in BaseOffset which is used by e.g. arrays of structs.
+*/
+void USetProperty::EmitReferenceInfo(UClass& OwnerClass, int32 BaseOffset)
+{
+	if (ContainsObjectReference())
+	{
+		OwnerClass.EmitObjectReference(BaseOffset + GetOffset_ForGC(), GetFName(), GCRT_AddTSetReferencedObjects);
+		OwnerClass.ReferenceTokenStream.EmitPointer((const void*)this);
+	}
+}
+
 
 /**
  * Emits tokens used by realtime garbage collection code to passed in ReferenceTokenStream. The offset emitted is relative
@@ -1791,15 +1804,19 @@ void UClass::EmitFixedArrayEnd()
 	ReferenceTokenStream.EmitReturn();
 }
 
-/**
- * Assembles the token stream for realtime garbage collection by combining the per class only
- * token stream for each class in the class hierarchy. This is only done once and duplicate
- * work is avoided by using an object flag.
- */
-void UClass::AssembleReferenceTokenStream()
+void UClass::AssembleReferenceTokenStream(bool bForce)
 {
-	if (!HasAnyClassFlags(CLASS_TokenStreamAssembled))
+	if (!HasAnyClassFlags(CLASS_TokenStreamAssembled) || bForce)
 	{
+		if (bForce)
+		{
+			ReferenceTokenStream.Empty();
+#if !(UE_BUILD_TEST || UE_BUILD_SHIPPING)
+			DebugTokenMap.Empty();
+#endif
+			ClassFlags &= ~CLASS_TokenStreamAssembled;
+		}
+
 		// Iterate over properties defined in this class
 		for( TFieldIterator<UProperty> It(this,EFieldIteratorFlags::ExcludeSuper); It; ++It)
 		{
@@ -1909,6 +1926,7 @@ void FGCReferenceTokenStream::ReplaceOrAddAddReferencedObjectsCall(void (*AddRef
 				return;
 			}
 		case GCRT_AddTMapReferencedObjects:
+		case GCRT_AddTSetReferencedObjects:
 			{
 				// Skip pointer
 				TokenIndex += GNumTokensPerPointer;

@@ -1,8 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 //
 
-#include "ShaderFormatOpenGL.h"
 #include "Core.h"
+#include "ShaderFormatOpenGL.h"
 #include "ModuleInterface.h"
 #include "ModuleManager.h"
 #include "TargetPlatform.h"   
@@ -19,22 +19,24 @@ static FName NAME_GLSL_150_ES2_NOUB(TEXT("GLSL_150_ES2_NOUB"));
 static FName NAME_GLSL_150_ES3_1(TEXT("GLSL_150_ES31"));
 static FName NAME_GLSL_ES2_IOS(TEXT("GLSL_ES2_IOS"));
 static FName NAME_GLSL_310_ES_EXT(TEXT("GLSL_310_ES_EXT"));
+static FName NAME_GLSL_ES3_1_ANDROID(TEXT("GLSL_ES3_1_ANDROID"));
  
 class FShaderFormatGLSL : public IShaderFormat
 {
-	enum 
+	enum
 	{
 		/** Version for shader format, this becomes part of the DDC key. */
 		UE_SHADER_GLSL_150_VER = 60,
 		UE_SHADER_GLSL_150_MAC_VER = 60,
-		UE_SHADER_GLSL_430_VER = 60,
+		UE_SHADER_GLSL_430_VER = 61,
 		UE_SHADER_GLSL_ES2_VER = 60,
 		UE_SHADER_GLSL_150ES2_VER = 60,
 		UE_SHADER_GLSL_150ES2NOUB_VER = 60,
 		UE_SHADER_GLSL_150ES3_1_VER = 60,
-		UE_SHADER_GLSL_ES2_VER_WEBGL  = 60,
-		UE_SHADER_GLSL_ES2_IOS_VER  = 60,
-		UE_SHADER_GLSL_310_ES_EXT_VER = 60,
+		UE_SHADER_GLSL_ES2_VER_WEBGL = 60,
+		UE_SHADER_GLSL_ES2_IOS_VER = 60,
+		UE_SHADER_GLSL_310_ES_EXT_VER = 61,
+		UE_SHADER_GLSL_ES3_1_ANDROID_VER = 60,
 	}; 
 
 	void CheckFormat(FName Format) const
@@ -48,7 +50,8 @@ class FShaderFormatGLSL : public IShaderFormat
 				Format == NAME_GLSL_150_ES3_1 ||
                 Format == NAME_GLSL_ES2_WEBGL ||
 				Format == NAME_GLSL_ES2_IOS ||
-				Format == NAME_GLSL_310_ES_EXT
+				Format == NAME_GLSL_310_ES_EXT ||
+				Format == NAME_GLSL_ES3_1_ANDROID
 			);
 	}
 
@@ -97,6 +100,10 @@ public:
 		{
 			GLSLVersion = UE_SHADER_GLSL_310_ES_EXT_VER;
 		}
+		else if (Format == NAME_GLSL_ES3_1_ANDROID)
+		{
+			GLSLVersion = UE_SHADER_GLSL_ES3_1_ANDROID_VER;
+		}
 		else
 		{
 			check(0);
@@ -116,6 +123,7 @@ public:
 		OutFormats.Add(NAME_GLSL_ES2_IOS);
 		OutFormats.Add(NAME_GLSL_310_ES_EXT);
 		OutFormats.Add(NAME_GLSL_150_ES2_NOUB);
+		OutFormats.Add(NAME_GLSL_ES3_1_ANDROID);
 	}
 	virtual void CompileShader(FName Format, const struct FShaderCompilerInput& Input, struct FShaderCompilerOutput& Output,const FString& WorkingDirectory) const override
 	{
@@ -187,6 +195,10 @@ public:
 		else if (Format == NAME_GLSL_310_ES_EXT)
 		{
 			CompileShader_Windows_OGL(Input, Output, WorkingDirectory, GLSL_310_ES_EXT);
+		}
+		else if (Format == NAME_GLSL_ES3_1_ANDROID)
+		{
+			CompileShader_Windows_OGL(Input, Output, WorkingDirectory, GLSL_ES3_1_ANDROID);
 		}
 		else
 		{

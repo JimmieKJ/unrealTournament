@@ -1,2 +1,0 @@
-Microsoft Visual Studio Redistributable Files
-This software uses certain redistributable software components provided by Microsoft.  By accepting the terms of this agreement you agree to indemnify, defend, and hold harmless Microsoft from any claims including attorneys’ fees, related to the distribution or use of this program.

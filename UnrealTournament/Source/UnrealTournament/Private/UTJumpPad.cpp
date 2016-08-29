@@ -22,11 +22,11 @@ AUTJumpPad::AUTJumpPad(const FObjectInitializer& ObjectInitializer)
 
 	// Setup the mesh
 	Mesh = ObjectInitializer.CreateDefaultSubobject<UStaticMeshComponent>(this, TEXT("JumpPadMesh"));
-	Mesh->AttachParent = RootComponent;
+	Mesh->SetupAttachment(RootComponent);
 
 	TriggerBox = ObjectInitializer.CreateDefaultSubobject<UBoxComponent>(this, TEXT("TriggerBox"));
 	TriggerBox->SetCollisionProfileName(TEXT("Trigger"));
-	TriggerBox->AttachParent = RootComponent;
+	TriggerBox->SetupAttachment(RootComponent);
 	TriggerBox->OnComponentBeginOverlap.AddDynamic(this, &AUTJumpPad::TriggerBeginOverlap);
 
 	JumpSound = nullptr;
@@ -37,7 +37,7 @@ AUTJumpPad::AUTJumpPad(const FObjectInitializer& ObjectInitializer)
 #if WITH_EDITORONLY_DATA
 	JumpPadComp = ObjectInitializer.CreateDefaultSubobject<UUTJumpPadRenderingComponent>(this, TEXT("JumpPadComp"));
 	JumpPadComp->PostPhysicsComponentTick.bCanEverTick = false;
-	JumpPadComp->AttachParent = RootComponent;
+	JumpPadComp->SetupAttachment(RootComponent);
 #endif // WITH_EDITORONLY_DATA
 }
 
@@ -162,7 +162,7 @@ void AUTJumpPad::Launch_Implementation(AActor* Actor)
 	}
 }
 
-void AUTJumpPad::TriggerBeginOverlap(AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
+void AUTJumpPad::TriggerBeginOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
 {
 	// Add the actor to be launched if it hasn't already
 	if (!PendingJumpActors.Contains(OtherActor) && CanLaunch(OtherActor))

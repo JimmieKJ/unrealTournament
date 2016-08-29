@@ -6,6 +6,7 @@
 #include "RenderingCommon.h"
 #include "Slate/SlateTextures.h"
 #include "MoviePlayer.h"
+#include "Runtime/HeadMountedDisplay/Public/IHeadMountedDisplayModule.h"
 
 #pragma comment(lib, "shlwapi")
 #pragma comment(lib, "mf")
@@ -426,6 +427,18 @@ FIntPoint FVideoPlayer::AddStreamToTopology(IMFTopology* Topology, IMFPresentati
 		{
 			HResult = MFCreateAudioRendererActivate(&SinkActivate);
 			check(SUCCEEDED(HResult));
+
+			// Allow HMD, if present, to override audio output device
+			if (IHeadMountedDisplayModule::IsAvailable())
+			{
+				FString AudioOutputDevice = IHeadMountedDisplayModule::Get().GetAudioOutputDevice();
+
+				if(!AudioOutputDevice.IsEmpty())
+				{
+					HResult = SinkActivate->SetString(MF_AUDIO_RENDERER_ATTRIBUTE_ENDPOINT_ID, *AudioOutputDevice);
+					check(SUCCEEDED(HResult));
+				}
+			}
 		}
 		else if (MajorType == MFMediaType_Video)
 		{
@@ -450,14 +463,14 @@ FIntPoint FVideoPlayer::AddStreamToTopology(IMFTopology* Topology, IMFPresentati
 			HResult = MFCreateSampleGrabberSinkActivate(InputType, SampleGrabberCallback, &SinkActivate);
 		
 			check(SUCCEEDED(HResult));
-			InputType->Release();
+			SAFE_RELEASE(InputType);
 
-			OutputType->Release();
+			SAFE_RELEASE(OutputType);
 
 			OutDimensions = FIntPoint(Width, Height);
 		}
 
-		Handler->Release();
+		SAFE_RELEASE(Handler);
 	}
 	
 	IMFTopologyNode* SourceNode = NULL;
@@ -491,9 +504,9 @@ FIntPoint FVideoPlayer::AddStreamToTopology(IMFTopology* Topology, IMFPresentati
 	HResult = SourceNode->ConnectOutput(0, OutputNode, 0);
 	check(SUCCEEDED(HResult));
 
-	SourceNode->Release();
-	OutputNode->Release();
-	SinkActivate->Release();
+	SAFE_RELEASE(SourceNode);
+	SAFE_RELEASE(OutputNode);
+	SAFE_RELEASE(SinkActivate);
 
 	return OutDimensions;
 }

@@ -128,12 +128,28 @@ namespace Rocket
 				BranchConfig.AddNode(new GatherRocketNode(BranchConfig, HostPlatform, TargetPlatforms, LocalOutputDir));
 
 				// Add a node for GitHub promotions
-				if(HostPlatform == UnrealTargetPlatform.Win64)
+				if(HostPlatform == UnrealTargetPlatform.Win64 && !BranchConfig.JobInfo.IsPreflight)
 				{
 					string GitConfigRelativePath = "Engine/Build/Git/UnrealBot.ini";
 					if(CommandUtils.FileExists(CommandUtils.CombinePaths(CommandUtils.CmdEnv.LocalRoot, GitConfigRelativePath)))
 					{
-						BranchConfig.AddNode(new LabelGitHubPromotion(HostPlatform, BranchConfig.HostPlatforms));
+						string BranchName = null;
+						if (BranchConfig.BranchName == "//UE4/Main")
+						{
+							BranchName = "Main";
+						}
+						else if (BranchConfig.BranchName.StartsWith("//UE4/Release-4."))
+						{
+							int MinorVersion;
+							if(int.TryParse(BranchConfig.BranchName.Substring(BranchConfig.BranchName.IndexOf('.') + 1), out MinorVersion))
+							{
+								BranchName = "4." + MinorVersion.ToString();
+							}
+						}
+						if (BranchName != null)
+						{
+							BranchConfig.AddNode(new RunGithubPromotion(HostPlatform, BranchConfig.HostPlatforms, BranchName, CommandUtils.P4Env.Changelist));
+						}
 					}
 				}
 
@@ -141,7 +157,7 @@ namespace Rocket
 				string PublishedEngineDir;
 				if (ShouldDoSeriousThingsLikeP4CheckinAndPostToMCP(BranchConfig))
 				{
-					PublishedEngineDir = CommandUtils.CombinePaths(CommandUtils.RootBuildStorageDirectory(), "Rocket", "Automated", GetBuildLabel(), CommandUtils.GetGenericPlatformName(HostPlatform));
+					PublishedEngineDir = CommandUtils.CombinePaths(CommandUtils.RootBuildStorageDirectory(), "Rocket", "Automated", "Engine", GetBuildLabel(), CommandUtils.GetGenericPlatformName(HostPlatform));
 				}
 				else
 				{
@@ -194,7 +210,11 @@ namespace Rocket
 				{
 					TargetPlatforms.Add(UnrealTargetPlatform.IOS);
 				}
-				if(HostPlatform == UnrealTargetPlatform.Win64)
+				if (HostPlatform == UnrealTargetPlatform.Win64 || HostPlatform == UnrealTargetPlatform.Mac)
+				{
+					TargetPlatforms.Add(UnrealTargetPlatform.TVOS);
+				}
+				if (HostPlatform == UnrealTargetPlatform.Win64)
 				{
 					TargetPlatforms.Add(UnrealTargetPlatform.Linux);
 				}
@@ -230,18 +250,18 @@ namespace Rocket
 		{
 			// Always include the editor platform for cooking
 			List<string> CookPlatforms = new List<string>();
-			CookPlatforms.Add(Platform.Platforms[HostPlatform].GetEditorCookPlatform());
+            CookPlatforms.Add(Platform.GetPlatform(HostPlatform).GetEditorCookPlatform());
 
 			// Add all the target platforms
 			foreach(UnrealTargetPlatform TargetPlatform in TargetPlatforms)
 			{
 				if(TargetPlatform == UnrealTargetPlatform.Android)
 				{
-					CookPlatforms.Add(Platform.Platforms[TargetPlatform].GetCookPlatform(false, false, "ATC"));
+                    CookPlatforms.Add(Platform.GetPlatform(TargetPlatform, "ATC").GetCookPlatform(false, false));
 				}
 				else
 				{
-					CookPlatforms.Add(Platform.Platforms[TargetPlatform].GetCookPlatform(false, false, ""));
+                    CookPlatforms.Add(Platform.GetPlatform(TargetPlatform).GetCookPlatform(false, false));
 				}
 			}
 			return CommandUtils.CombineCommandletParams(CookPlatforms.Distinct().ToArray());
@@ -266,6 +286,10 @@ namespace Rocket
 			{
 				return UnrealTargetPlatform.Mac;
 			}
+			if (TargetPlatform == UnrealTargetPlatform.TVOS && HostPlatform == UnrealTargetPlatform.Win64 && HostPlatforms.Contains(UnrealTargetPlatform.Mac))
+			{
+				return UnrealTargetPlatform.Mac;
+			}
 			return HostPlatform;
 		}
 
@@ -276,6 +300,10 @@ namespace Rocket
 				return false;
 			}
 			if(HostPlatform == UnrealTargetPlatform.Win64 && TargetPlatform == UnrealTargetPlatform.IOS)
+			{
+				return false;
+			}
+			if (HostPlatform == UnrealTargetPlatform.Win64 && TargetPlatform == UnrealTargetPlatform.TVOS)
 			{
 				return false;
 			}
@@ -326,10 +354,15 @@ namespace Rocket
         }
     }
 
-	public class LabelGitHubPromotion : GUBP.HostPlatformNode
+	public class RunGithubPromotion : GUBP.HostPlatformNode
 	{
-		public LabelGitHubPromotion(UnrealTargetPlatform HostPlatform, List<UnrealTargetPlatform> ForHostPlatforms) : base(HostPlatform)
+		string BranchName;
+		int Changelist;
+
+		public RunGithubPromotion(UnrealTargetPlatform HostPlatform, List<UnrealTargetPlatform> ForHostPlatforms, string InBranchName, int InChangelist) : base(HostPlatform)
 		{
+			BranchName = InBranchName;
+			Changelist = InChangelist;
 			foreach(UnrealTargetPlatform ForHostPlatform in ForHostPlatforms)
 			{
 				AddPseudodependency(GUBP.RootEditorNode.StaticGetFullName(ForHostPlatform));
@@ -340,7 +373,7 @@ namespace Rocket
 
 		public static string StaticGetFullName(UnrealTargetPlatform HostPlatform)
 		{
-			return "LabelGitHubPromotion" + StaticGetHostPlatformSuffix(HostPlatform);
+			return "RunGithubPromotion" + StaticGetHostPlatformSuffix(HostPlatform);
 		}
 
 		public override string GetFullName()
@@ -356,9 +389,9 @@ namespace Rocket
 		public override void DoBuild(GUBP bp)
 		{
 			// Label everything in the branch at this changelist
-			if(CommandUtils.AllowSubmit)
+			if(CommandUtils.IsBuildMachine)
 			{
-				CommandUtils.P4.MakeDownstreamLabel(CommandUtils.P4Env, "GitHub-Promotion", null);
+				CommandUtils.Run("ectool.exe", String.Format("runProcedure GitHub --procedureName \"Run Promotion\" --actualParameter \"Branch={0}\" --actualParameter \"CL={1}\"", BranchName, Changelist), Options: CommandUtils.ERunOptions.None);
 			}
 
 			// Create a dummy build product
@@ -1192,16 +1225,41 @@ namespace Rocket
 				IniLines.Add("");
 			}
 			
-			// Write information about platforms installed in a Rocket build
-			IniLines.Add("[InstalledPlatforms]");
+			// Create list of platform configurations installed in a Rocket build
+			List<InstalledPlatformInfo.InstalledPlatformConfiguration> InstalledConfigs = new List<InstalledPlatformInfo.InstalledPlatformConfiguration>();
+
 			foreach (UnrealTargetPlatform CodeTargetPlatform in CodeTargetPlatforms)
 			{
+				// Build a list of precompiled architecture combinations for this platform if any
+				string[] Arches;
+				string[] GPUArches;
+				List<string> AllArchNames;
+				bool bFoundArches = GUBP.GamePlatformMonolithicsNode.PrecompiledArchitectures.TryGetValue(CodeTargetPlatform, out Arches);
+				bool bFoundGPUArches = GUBP.GamePlatformMonolithicsNode.PrecompiledGPUArchitectures.TryGetValue(CodeTargetPlatform, out GPUArches);
+
+				if (bFoundArches && Arches.Length > 0
+				 && bFoundGPUArches && GPUArches.Length > 0)
+				{
+					AllArchNames = (from Arch in Arches
+									from GPUArch in GPUArches
+									select "-" + Arch + "-" + GPUArch).ToList();
+				}
+				else if (bFoundArches && Arches.Length > 0)
+				{
+					AllArchNames = new List<string>(Arches);
+				}
+				else
+				{
+					AllArchNames = new List<string>();
+				}
+
 				// Bit of a hack to mark these platforms as available in any type of project
 				EProjectType ProjectType = EProjectType.Content;
 				if (HostPlatform == UnrealTargetPlatform.Mac)
 				{
 					if (CodeTargetPlatform == UnrealTargetPlatform.Mac
 					 || CodeTargetPlatform == UnrealTargetPlatform.IOS
+					 || CodeTargetPlatform == UnrealTargetPlatform.TVOS
 					 || CodeTargetPlatform == UnrealTargetPlatform.Linux
 					 || CodeTargetPlatform == UnrealTargetPlatform.Android
 					 || CodeTargetPlatform == UnrealTargetPlatform.HTML5)
@@ -1238,11 +1296,25 @@ namespace Rocket
 					{
 						// Strip the output folder so that this can be used on any machine
 						ReceiptFileName = new FileReference(ReceiptFileName).MakeRelativeTo(new DirectoryReference(OutputDir));
-						IniLines.Add(string.Format("+InstalledPlatformConfigurations=(PlatformName=\"{0}\", Configuration=\"{1}\", RequiredFile=\"{2}\", ProjectType=\"{3}\", bCanBeDisplayed={4})",
-													CodeTargetPlatform.ToString(), CodeTargetConfiguration.ToString(), ReceiptFileName, ProjectType.ToString(), bCanBeDisplayed.ToString()));
+
+						// If we have precompiled architectures for this platform then add an entry for each of these -
+						// there isn't a receipt for each architecture like some other platforms
+						if (AllArchNames.Count > 0)
+						{
+							foreach (string Arch in AllArchNames)
+							{
+								InstalledConfigs.Add(new InstalledPlatformInfo.InstalledPlatformConfiguration(CodeTargetConfiguration, CodeTargetPlatform, TargetRules.TargetType.Game, Arch, ReceiptFileName, ProjectType, bCanBeDisplayed));
+							}
+						}
+						else
+						{
+							InstalledConfigs.Add(new InstalledPlatformInfo.InstalledPlatformConfiguration(CodeTargetConfiguration, CodeTargetPlatform, TargetRules.TargetType.Game, Architecture, ReceiptFileName, ProjectType, bCanBeDisplayed));
+						}
 					}
 				}
 			}
+
+			UnrealBuildTool.InstalledPlatformInfo.WriteConfigFileEntries(InstalledConfigs, ref IniLines);
 
 			// Write Rocket specific Analytics settings
 			IniLines.Add("");

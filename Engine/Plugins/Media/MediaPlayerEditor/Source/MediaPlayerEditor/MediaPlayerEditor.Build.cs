@@ -22,8 +22,9 @@ public class MediaPlayerEditor : ModuleRules
                 "MediaPlayerEditor/Private/Customizations",
 				"MediaPlayerEditor/Private/Factories",
 				"MediaPlayerEditor/Private/Models",
-				"MediaPlayerEditor/Private/Styles",
-				"MediaPlayerEditor/Private/Widgets",
+				"MediaPlayerEditor/Private/Shared",
+                "MediaPlayerEditor/Private/Toolkits",
+                "MediaPlayerEditor/Private/Widgets",
 			}
 		);
 
@@ -32,8 +33,10 @@ public class MediaPlayerEditor : ModuleRules
 				"ContentBrowser",
 				"Core",
 				"CoreUObject",
+                "DesktopPlatform",
                 "DesktopWidgets",
 				"EditorStyle",
+                "EditorWidgets",
 				"Engine",
 				"InputCore",
 				"MediaAssets",

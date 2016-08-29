@@ -202,15 +202,15 @@ void FTextureRenderTargetCubeResource::InitDynamicRHI()
 {
 	if(Owner->SizeX > 0)
 	{
-		bool bSRGB = true;
+		bool bIsSRGB = true;
 		// if render target gamma used was 1.0 then disable SRGB for the static texture
 		if(FMath::Abs(GetDisplayGamma() - 1.0f) < KINDA_SMALL_NUMBER)
 		{
-			bSRGB = false;
+			bIsSRGB = false;
 		}
 
 		// Create the RHI texture. Only one mip is used and the texture is targetable for resolve.
-		uint32 TexCreateFlags = bSRGB ? TexCreate_SRGB : 0;
+		uint32 TexCreateFlags = bIsSRGB ? TexCreate_SRGB : 0;
 		{
 			FRHIResourceCreateInfo CreateInfo;
 			RHICreateTargetableShaderResourceCube(

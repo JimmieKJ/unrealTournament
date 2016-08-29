@@ -35,6 +35,9 @@ struct FPhysAssetCreateParams
 	UNREALED_API void Initialize();
 };
 
+class UPhysicsAsset;
+class UPhysicsConstraintTemplate;
+
 /** Collection of functions to create and setup PhysicsAssets */
 namespace FPhysicsAssetUtils
 {

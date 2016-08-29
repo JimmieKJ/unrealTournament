@@ -42,15 +42,22 @@ void FAnimNode_LookAt::GatherDebugData(FNodeDebugData& DebugData)
 {
 	FString DebugLine = DebugData.GetNodeName(this);
 
-	DebugLine += "(";
-	AddDebugNodeData(DebugLine);
-	if (LookAtBone.BoneIndex != INDEX_NONE)
+	if (bEnableDebug)
 	{
-		DebugLine += FString::Printf(TEXT(" Target: %s, Look At Bone: %s, Location : %s)"), *BoneToModify.BoneName.ToString(), *LookAtBone.BoneName.ToString(), *CurrentLookAtLocation.ToString());
+		DebugLine += "(";
+		AddDebugNodeData(DebugLine);
+		if (LookAtBone.BoneIndex != INDEX_NONE)
+		{
+			DebugLine += FString::Printf(TEXT(" Target: %s, Look At Bone: %s, Location : %s)"), *BoneToModify.BoneName.ToString(), *LookAtBone.BoneName.ToString(), *CurrentLookAtLocation.ToString());
+		}
+		else
+		{
+			DebugLine += FString::Printf(TEXT(" Target: %s, Look At Location : %s, Location : %s)"), *BoneToModify.BoneName.ToString(), *LookAtLocation.ToString(), *CurrentLookAtLocation.ToString());
+		}
 	}
 	else
 	{
-		DebugLine += FString::Printf(TEXT(" Target: %s, Look At Location : %s, Location : %s)"), *BoneToModify.BoneName.ToString(), *LookAtLocation.ToString(), *CurrentLookAtLocation.ToString());
+		DebugLine += FString::Printf(TEXT("Target: %s"), *BoneToModify.BoneName.ToString());
 	}
 
 	DebugData.AddDebugItem(DebugLine);
@@ -58,12 +65,12 @@ void FAnimNode_LookAt::GatherDebugData(FNodeDebugData& DebugData)
 	ComponentPose.GatherDebugData(DebugData);
 }
 
-void DrawDebugData(UWorld* World, const FTransform& TransformVector, const FVector& StartLoc, const FVector& TargetLoc, FColor Color)
+void DrawDebugData(FPrimitiveDrawInterface* PDI, const FTransform& TransformVector, const FVector& StartLoc, const FVector& TargetLoc, FColor Color)
 {
 	FVector Start = TransformVector.TransformPosition(StartLoc);
 	FVector End = TransformVector.TransformPosition(TargetLoc);
 
-	DrawDebugLine(World, Start, End, Color);
+	PDI->DrawLine(Start, End, Color, SDPG_Foreground);
 }
 
 void FAnimNode_LookAt::EvaluateBoneTransforms(USkeletalMeshComponent* SkelComp, FCSPose<FCompactPose>& MeshBases, TArray<FBoneTransform>& OutBoneTransforms)
@@ -133,14 +140,15 @@ void FAnimNode_LookAt::EvaluateBoneTransforms(USkeletalMeshComponent* SkelComp, 
 		CurrentLookAtLocation = CurrentTargetLocation;
 	}
 
+#if WITH_EDITOR
 	if (bEnableDebug)
 	{
-		UWorld* World = SkelComp->GetWorld();
-
-		DrawDebugData(World, SkelComp->GetComponentToWorld(), ComponentBoneTransform.GetLocation(), PreviousTargetLocation, FColor(0, 255, 0));
-		DrawDebugData(World, SkelComp->GetComponentToWorld(), ComponentBoneTransform.GetLocation(), CurrentTargetLocation, FColor(255, 0, 0));
-		DrawDebugData(World, SkelComp->GetComponentToWorld(), ComponentBoneTransform.GetLocation(), CurrentLookAtLocation, FColor(0, 0, 255));
+		CachedComponentBoneLocation = ComponentBoneTransform.GetLocation();
+		CachedPreviousTargetLocation = PreviousTargetLocation;
+		CachedCurrentTargetLocation = CurrentTargetLocation;
+		CachedCurrentLookAtLocation = CurrentLookAtLocation;
 	}
+#endif
 
 	// lookat vector
 	FVector LookAtVector = GetAlignVector(ComponentBoneTransform, LookAtAxis);
@@ -206,7 +214,28 @@ bool FAnimNode_LookAt::IsValidToEvaluate(const USkeleton* Skeleton, const FBoneC
 		(LookAtBone.BoneName == NAME_None || LookAtBone.BoneIndex != INDEX_NONE) );
 }
 
-void FAnimNode_LookAt::InitializeBoneReferences(const FBoneContainer& RequiredBones) 
+void FAnimNode_LookAt::ConditionalDebugDraw(FPrimitiveDrawInterface* PDI, USkeletalMeshComponent* MeshComp)
+{
+#if WITH_EDITOR
+	if(bEnableDebug)
+	{
+		if(UWorld* World = MeshComp->GetWorld())
+		{
+			if(CachedPreviousTargetLocation != FVector::ZeroVector)
+			{
+				DrawDebugData(PDI, FTransform::Identity, CachedComponentBoneLocation, CachedPreviousTargetLocation, FColor(0, 255, 0));
+			}
+
+			DrawDebugData(PDI, FTransform::Identity, CachedComponentBoneLocation, CachedCurrentTargetLocation, FColor(255, 0, 0));
+			DrawDebugData(PDI, FTransform::Identity, CachedComponentBoneLocation, CachedCurrentLookAtLocation, FColor(0, 0, 255));
+
+			DrawWireStar(PDI, CachedCurrentTargetLocation, 5.0f, FLinearColor(1, 0, 0), SDPG_Foreground);
+		}
+	}
+#endif
+}
+
+void FAnimNode_LookAt::InitializeBoneReferences(const FBoneContainer& RequiredBones)
 {
 	BoneToModify.Initialize(RequiredBones);
 	LookAtBone.Initialize(RequiredBones);

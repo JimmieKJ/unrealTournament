@@ -12,7 +12,9 @@ namespace UnrealBuildTool.Rules
 					"Core",
 					"CoreUObject",
 				}
-			); 
+			);
+
+            Definitions.Add("WITH_PORTAL_SERVICES=1");
 		}
 	}
 }

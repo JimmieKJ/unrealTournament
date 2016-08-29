@@ -110,8 +110,10 @@ UActorComponent* USCS_Node::ExecuteNodeOnActor(AActor* Actor, USceneComponent* P
 		USceneComponent* NewSceneComp = Cast<USceneComponent>(NewActorComp);
 		if (NewSceneComp != nullptr)
 		{
-			// If NULL is passed in, we are the root, so set transform and assign as RootComponent on Actor
-			if (ParentComponent == nullptr || (ParentComponent && ParentComponent->IsPendingKill()))
+			// If NULL is passed in, we are the root, so set transform and assign as RootComponent on Actor, similarly if the 
+			// NewSceneComp is the ParentComponent then we are the root component. This happens when the root component is recycled
+			// by StaticAllocateObject.
+			if (ParentComponent == nullptr || (ParentComponent && ParentComponent->IsPendingKill()) || ParentComponent == NewSceneComp)
 			{
 				FTransform WorldTransform = *RootTransform;
 				if(bIsDefaultTransform)
@@ -125,7 +127,7 @@ UActorComponent* USCS_Node::ExecuteNodeOnActor(AActor* Actor, USceneComponent* P
 			// Otherwise, attach to parent component passed in
 			else
 			{
-				NewSceneComp->AttachTo(ParentComponent, AttachToName);
+				NewSceneComp->SetupAttachment(ParentComponent, AttachToName);
 			}
 		}
 
@@ -343,7 +345,7 @@ void USCS_Node::NameWasModified()
 	if(ComponentTemplate != nullptr)
 	{
 		// Ensure that the template name stays in sync with the variable name; otherwise, new SCS nodes for the same component type will recycle the subobject rather than create a new instance.
-		ComponentTemplate->Rename(*(VariableName.ToString() + TEXT("_GEN_VARIABLE")), nullptr, REN_DontCreateRedirectors);
+		ComponentTemplate->Rename(*(VariableName.ToString() + TEXT("_GEN_VARIABLE")), nullptr, REN_DontCreateRedirectors|REN_ForceNoResetLoaders);
 	}
 
 	OnNameChangedExternal.ExecuteIfBound(VariableName);

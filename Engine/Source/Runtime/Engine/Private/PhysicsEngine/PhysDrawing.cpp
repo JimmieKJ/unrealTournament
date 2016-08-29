@@ -425,10 +425,22 @@ void FKConvexElem::DrawElemWire(FPrimitiveDrawInterface* PDI, const FTransform& 
 #endif // WITH_PHYSX
 }
 
-void FKConvexElem::AddCachedSolidConvexGeom(TArray<FDynamicMeshVertex>& VertexBuffer, TArray<int32>& IndexBuffer, const float Scale, const FColor VertexColor, const bool bIsMirrored) const
+void FKConvexElem::AddCachedSolidConvexGeom(TArray<FDynamicMeshVertex>& VertexBuffer, TArray<int32>& IndexBuffer, const FColor VertexColor) const
 {
 #if WITH_PHYSX
-	const PxConvexMesh* ConvexMeshToUse = bIsMirrored ? ConvexMeshNegX : ConvexMesh;
+	// We always want to generate 'non-mirrored geometry', so if all we have is flipped, we have to un-flip it in this function
+	bool bIsMirrored = false;
+	const PxConvexMesh* ConvexMeshToUse = nullptr; 
+	if (ConvexMesh != nullptr)
+	{
+		ConvexMeshToUse = ConvexMesh;
+	}
+	else if (ConvexMeshNegX != nullptr)
+	{
+		ConvexMeshToUse = ConvexMeshNegX;
+		bIsMirrored = true;
+	}
+
 	if(ConvexMeshToUse)
 	{
 		int32 StartVertOffset = VertexBuffer.Num();
@@ -437,6 +449,8 @@ void FKConvexElem::AddCachedSolidConvexGeom(TArray<FDynamicMeshVertex>& VertexBu
 		const PxVec3* PVertices = ConvexMeshToUse->getVertices();
 		const PxU8* PIndexBuffer = ConvexMeshToUse->getIndexBuffer();
 		PxU32 NbPolygons = ConvexMeshToUse->getNbPolygons();
+
+		FVector Scale3D = bIsMirrored ? FVector(-1, 1, 1) : FVector(1, 1, 1);
 
 		for(PxU32 i=0;i<NbPolygons;i++)
 		{
@@ -457,7 +471,7 @@ void FKConvexElem::AddCachedSolidConvexGeom(TArray<FDynamicMeshVertex>& VertexBu
 				int32 VertIndex = indices[j];
 
 				FDynamicMeshVertex Vert1;
-				Vert1.Position = Transform.TransformPosition( P2UVector(PVertices[VertIndex]) * Scale); // Apply element transform to get geom in component space
+				Vert1.Position = Transform.TransformPosition( P2UVector(PVertices[VertIndex]) * Scale3D ); // Apply element transform to get geom in component space
 				Vert1.Color = VertexColor;
 				Vert1.SetTangents(
 					TangentX,
@@ -472,8 +486,17 @@ void FKConvexElem::AddCachedSolidConvexGeom(TArray<FDynamicMeshVertex>& VertexBu
 			for(PxU32 j=0;j<nbTris;j++)
 			{
 				IndexBuffer.Add(StartVertOffset+0);
-				IndexBuffer.Add(StartVertOffset+j+2);
-				IndexBuffer.Add(StartVertOffset+j+1);
+
+				if (bIsMirrored)
+				{
+					IndexBuffer.Add(StartVertOffset + j + 1);
+					IndexBuffer.Add(StartVertOffset + j + 2);
+				}
+				else
+				{
+					IndexBuffer.Add(StartVertOffset + j + 2);
+					IndexBuffer.Add(StartVertOffset + j + 1);
+				}
 			}
 
 			StartVertOffset += Data.mNbVerts;
@@ -593,8 +616,6 @@ void FKAggregateGeom::GetAggGeom(const FTransform& Transform, const FColor Color
 	{
 		if(bDrawSolid)
 		{
-			const bool bIsMirrored = (Scale3D.X * Scale3D.Y * Scale3D.Z < 0.0f);
-
 			// Cache collision vertex/index buffer
 			if(!RenderInfo)
 			{
@@ -607,7 +628,7 @@ void FKAggregateGeom::GetAggGeom(const FTransform& Transform, const FColor Color
 				for(int32 i=0; i<ConvexElems.Num(); i++)
 				{
 					// Get vertices/triangles from this hull.
-					ConvexElems[i].AddCachedSolidConvexGeom(ThisGeom.RenderInfo->VertexBuffer->Vertices, ThisGeom.RenderInfo->IndexBuffer->Indices, 1.0f, FColor::White, bIsMirrored);
+					ConvexElems[i].AddCachedSolidConvexGeom(ThisGeom.RenderInfo->VertexBuffer->Vertices, ThisGeom.RenderInfo->IndexBuffer->Indices, FColor::White);
 				}
 
 				// Only continue if we actually got some valid geometry
@@ -626,7 +647,7 @@ void FKAggregateGeom::GetAggGeom(const FTransform& Transform, const FColor Color
 			if(RenderInfo->HasValidGeometry())
 			{
 				// Calculate transform
-				FTransform LocalToWorld = FTransform( FQuat::Identity, FVector::ZeroVector, bIsMirrored ? (Scale3D * FVector(-1, 1, 1)) : Scale3D ) * ParentTM;
+				FTransform LocalToWorld = FTransform(FQuat::Identity, FVector::ZeroVector, Scale3D) * ParentTM;
 
 				// Draw the mesh.
 				FMeshBatch& Mesh = Collector.AllocateMesh();
@@ -720,30 +741,30 @@ FTransform GetSkelBoneTransform(int32 BoneIndex, const TArray<FTransform>& Space
 
 void UPhysicsAsset::GetCollisionMesh(int32 ViewIndex, FMeshElementCollector& Collector, const USkeletalMesh* SkelMesh, const TArray<FTransform>& SpaceBases, const FTransform& LocalToWorld, const FVector& Scale3D)
 {
-	for( int32 i=0; i<BodySetup.Num(); i++)
+	for( int32 i=0; i<SkeletalBodySetups.Num(); i++)
 	{
-		int32 BoneIndex = SkelMesh->RefSkeleton.FindBoneIndex( BodySetup[i]->BoneName );
+		int32 BoneIndex = SkelMesh->RefSkeleton.FindBoneIndex( SkeletalBodySetups[i]->BoneName );
 		
-		FColor* BoneColor = (FColor*)( &BodySetup[i] );
+		FColor* BoneColor = (FColor*)( &SkeletalBodySetups[i] );
 
 		FTransform BoneTransform = GetSkelBoneTransform(BoneIndex, SpaceBases, LocalToWorld);
 		BoneTransform.SetScale3D(Scale3D);
-		BodySetup[i]->CreatePhysicsMeshes();
-		BodySetup[i]->AggGeom.GetAggGeom(BoneTransform, *BoneColor, NULL, false, false, false, ViewIndex, Collector);
+		SkeletalBodySetups[i]->CreatePhysicsMeshes();
+		SkeletalBodySetups[i]->AggGeom.GetAggGeom(BoneTransform, *BoneColor, NULL, false, false, false, ViewIndex, Collector);
 	}
 }
 
-void UPhysicsAsset::DrawConstraints(FPrimitiveDrawInterface* PDI, const USkeletalMesh* SkelMesh, const TArray<FTransform>& SpaceBases, const FTransform& LocalToWorld, float Scale)
+void UPhysicsAsset::DrawConstraints(int32 ViewIndex, FMeshElementCollector& Collector, const USkeletalMesh* SkelMesh, const TArray<FTransform>& SpaceBases, const FTransform& LocalToWorld, float Scale)
 {
-	for( int32 i=0; i<ConstraintSetup.Num(); i++ )
+	for (int32 i = 0; i < ConstraintSetup.Num(); i++)
 	{
 		FConstraintInstance& Instance = ConstraintSetup[i]->DefaultInstance;
 
 		// Get each constraint frame in world space.
 		FTransform Con1Frame = FTransform::Identity;
 		int32 Bone1Index = SkelMesh->RefSkeleton.FindBoneIndex(Instance.ConstraintBone1);
-		if(Bone1Index != INDEX_NONE)
-		{	
+		if (Bone1Index != INDEX_NONE)
+		{
 			FTransform Body1TM = GetSkelBoneTransform(Bone1Index, SpaceBases, LocalToWorld);
 			Body1TM.RemoveScaling();
 			Con1Frame = Instance.GetRefFrame(EConstraintFrame::Frame1) * Body1TM;
@@ -751,15 +772,15 @@ void UPhysicsAsset::DrawConstraints(FPrimitiveDrawInterface* PDI, const USkeleta
 
 		FTransform Con2Frame = FTransform::Identity;
 		int32 Bone2Index = SkelMesh->RefSkeleton.FindBoneIndex(Instance.ConstraintBone2);
-		if(Bone2Index != INDEX_NONE)
-		{	
+		if (Bone2Index != INDEX_NONE)
+		{
 			FTransform Body2TM = GetSkelBoneTransform(Bone2Index, SpaceBases, LocalToWorld);
 			Body2TM.RemoveScaling();
-			Con2Frame = Instance.GetRefFrame(EConstraintFrame::Frame1) * Body2TM;
+			Con2Frame = Instance.GetRefFrame(EConstraintFrame::Frame2) * Body2TM;
 		}
 
 
-		Instance.DrawConstraint(PDI, Scale, 1.f, true, true, Con1Frame, Con2Frame, false);
+		Instance.DrawConstraint(ViewIndex, Collector, Scale, 1.f, true, true, Con1Frame, Con2Frame, false);
 	}
 }
 static void DrawLinearLimit(FPrimitiveDrawInterface* PDI, const FVector& Origin, const FVector& Axis, const FVector& Orth, float LinearLimitRadius, bool bLinearLimited, float DrawScale)
@@ -823,21 +844,41 @@ float HelpBuildAngle(float LimitAngle, EAngularConstraintMotion LimitType)
 }
 
 
-void FConstraintInstance::DrawConstraint(	FPrimitiveDrawInterface* PDI, 
-											float Scale, float LimitDrawScale, bool bDrawLimits, bool bDrawSelected,
-											const FTransform& Con1Frame, const FTransform& Con2Frame, bool bDrawAsPoint ) const
+FPrimitiveDrawInterface* FConstraintInstance::FPDIOrCollector::GetPDI() const
 {
-	// Do nothing unless we are in the interactive editor, otherwise limit materials are not loaded
-	if (!GIsEditor || IsRunningCommandlet())
+	return PDI ? PDI : Collector->GetPDI(ViewIndex);
+}
+
+void FConstraintInstance::FPDIOrCollector::DrawCylinder(const FVector& Start, const FVector& End, float Thickness, FMaterialRenderProxy* MaterialProxy, ESceneDepthPriorityGroup DepthPriority) const
+{
+	if (HasCollector())
 	{
-		return;
+		GetCylinderMesh(Start, End, Thickness, 4, MaterialProxy, DepthPriority, ViewIndex, *Collector);
 	}
+	else
+	{
+		::DrawCylinder(PDI, Start, End, Thickness, 4, MaterialProxy, DepthPriority);
+	}
+}
+
+void FConstraintInstance::DrawConstraintImp(const FPDIOrCollector& PDIOrCollector, float Scale, float LimitDrawScale, bool bDrawLimits, bool bDrawSelected, const FTransform& Con1Frame, const FTransform& Con2Frame, bool bDrawAsPoint) const
+{
+	// Do nothing if we're shipping
+#if UE_BUILD_SHIPPING
+	return;
+#endif
+
+	const ESceneDepthPriorityGroup Layer = ESceneDepthPriorityGroup::SDPG_Foreground;
+	FPrimitiveDrawInterface* PDI = PDIOrCollector.GetPDI();
 
 	check((GEngine->ConstraintLimitMaterialX != nullptr) && (GEngine->ConstraintLimitMaterialY != nullptr) && (GEngine->ConstraintLimitMaterialZ != nullptr));
 
 	static UMaterialInterface * LimitMaterialX = GEngine->ConstraintLimitMaterialX;
+	static UMaterialInterface * LimitMaterialXAxis = GEngine->ConstraintLimitMaterialXAxis;
 	static UMaterialInterface * LimitMaterialY = GEngine->ConstraintLimitMaterialY;
+	static UMaterialInterface * LimitMaterialYAxis = GEngine->ConstraintLimitMaterialYAxis;
 	static UMaterialInterface * LimitMaterialZ = GEngine->ConstraintLimitMaterialZ;
+	static UMaterialInterface * LimitMaterialZAxis = GEngine->ConstraintLimitMaterialZAxis;
 	
 	FVector Con1Pos = Con1Frame.GetTranslation();
 	FVector Con2Pos = Con2Frame.GetTranslation();
@@ -850,85 +891,136 @@ void FConstraintInstance::DrawConstraint(	FPrimitiveDrawInterface* PDI,
 	{
 		if(bDrawSelected)
 		{
-			PDI->DrawPoint( Con1Frame.GetTranslation(), JointRed, 3.f, SDPG_World );
-			PDI->DrawPoint( Con2Frame.GetTranslation(), JointBlue, 3.f, SDPG_World );
+			PDI->DrawPoint( Con1Frame.GetTranslation(), JointRed, 3.f, Layer );
+			PDI->DrawPoint( Con2Frame.GetTranslation(), JointBlue, 3.f, Layer );
 		}
 		else
 		{
-			PDI->DrawPoint( Con1Frame.GetTranslation(), JointUnselectedColor, 3.f, SDPG_World );
-			PDI->DrawPoint( Con2Frame.GetTranslation(), JointUnselectedColor, 3.f, SDPG_World );
+			PDI->DrawPoint( Con1Frame.GetTranslation(), JointUnselectedColor, 3.f, Layer );
+			PDI->DrawPoint( Con2Frame.GetTranslation(), JointUnselectedColor, 3.f, Layer );
 		}
 
 		// do nothing else in this mode.
 		return;
 	}
 
+	if (bDrawLimits)
+	{
+
+		//////////////////////////////////////////////////////////////////////////
+		// ANGULAR DRAWING
+
+		//Draw limits first as they are transparent and need to be under coordinate axes
+		const bool bLockSwing1 = GetAngularSwing1Motion() == ACM_Locked;
+		const bool bLockSwing2 = GetAngularSwing2Motion() == ACM_Locked;
+		const bool bLockAllSwing = bLockSwing1 && bLockSwing2;
+
+		// If swing is limited (but not locked) - draw the limit cone.
+		if (!bLockAllSwing)
+		{
+			if (ProfileInstance.ConeLimit.Swing1Motion == ACM_Free && ProfileInstance.ConeLimit.Swing2Motion == ACM_Free)
+			{
+				if (PDIOrCollector.HasCollector())
+				{
+					GetSphereMesh(Con1Pos, FVector(Length*0.9f), DrawConeLimitSides, DrawConeLimitSides, LimitMaterialX->GetRenderProxy(false), Layer, false, PDIOrCollector.ViewIndex, *PDIOrCollector.Collector);
+				}
+				else
+				{
+					DrawSphere(PDI, Con1Pos, FVector(Length * 0.9f), DrawConeLimitSides, DrawConeLimitSides, LimitMaterialX->GetRenderProxy(false), Layer);
+				}
+			}
+			else
+			{
+				FTransform ConeLimitTM = Con2Frame;
+				ConeLimitTM.SetTranslation(Con1Frame.GetTranslation());
+
+				const float Swing1Ang = HelpBuildAngle(GetAngularSwing1Limit(), GetAngularSwing1Motion());
+				const float Swing2Ang = HelpBuildAngle(GetAngularSwing2Limit(), GetAngularSwing2Motion());
+				FMatrix ConeToWorld = FScaleMatrix(FVector(Length * 0.9f)) * ConeLimitTM.ToMatrixWithScale();
+
+				if (PDIOrCollector.HasCollector())
+				{
+					GetConeMesh(ConeToWorld, FMath::RadiansToDegrees(Swing1Ang), FMath::RadiansToDegrees(Swing2Ang), DrawConeLimitSides, LimitMaterialX->GetRenderProxy(false), Layer, PDIOrCollector.ViewIndex, *PDIOrCollector.Collector);
+				}
+				else
+				{
+					DrawCone(PDI, ConeToWorld, Swing1Ang, Swing2Ang, DrawConeLimitSides, false, JointLimitColor, LimitMaterialX->GetRenderProxy(false), Layer);
+				}
+			}
+		}
+
+		//twist
+		if (GetAngularTwistMotion() != ACM_Locked)
+		{
+			FMatrix ConeToWorld = HelpBuildFan(Con1Frame, Con2Frame, EAxis::Y, EAxis::X, Length);
+			float Limit = HelpBuildAngle(GetAngularTwistLimit(), GetAngularTwistMotion());
+			if (PDIOrCollector.HasCollector())
+			{
+				GetConeMesh(ConeToWorld, FMath::RadiansToDegrees(Limit), 0, DrawConeLimitSides, LimitMaterialY->GetRenderProxy(false), Layer, PDIOrCollector.ViewIndex, *PDIOrCollector.Collector);
+			}
+			else
+			{
+				DrawCone(PDI, ConeToWorld, Limit, 0, DrawConeLimitSides, false, JointLimitColor, LimitMaterialY->GetRenderProxy(false), Layer);
+			}
+		}
+	}
+
+
+	//////////////////////////////////////////////////////////////////////////
+	// COORDINATE AXES
 	FVector Position = Con1Frame.GetTranslation();
 
-	PDI->DrawLine(Position, Position + Length * Con1Frame.GetScaledAxis(EAxis::X), JointRed, SDPG_World, Thickness);
-	PDI->DrawLine(Position, Position + Length * Con1Frame.GetScaledAxis(EAxis::Y), JointGreen, SDPG_World, Thickness);
-	PDI->DrawLine(Position, Position + Length * Con1Frame.GetScaledAxis(EAxis::Z), JointBlue, SDPG_World, Thickness);
+	PDIOrCollector.DrawCylinder(Position, Position + Length * Con1Frame.GetScaledAxis(EAxis::X), Thickness, LimitMaterialXAxis->GetRenderProxy(false), Layer);
+	PDIOrCollector.DrawCylinder(Position, Position + Length * Con1Frame.GetScaledAxis(EAxis::Y), Thickness, LimitMaterialYAxis->GetRenderProxy(false), Layer);
+	PDIOrCollector.DrawCylinder(Position, Position + Length * Con1Frame.GetScaledAxis(EAxis::Z), Thickness, LimitMaterialZAxis->GetRenderProxy(false), Layer);
+
+	PDIOrCollector.DrawCylinder(Position, Position + Length * Con2Frame.GetScaledAxis(EAxis::X), Thickness, LimitMaterialXAxis->GetRenderProxy(false), Layer);
+	PDIOrCollector.DrawCylinder(Position, Position + Length * Con2Frame.GetScaledAxis(EAxis::Y), Thickness, LimitMaterialYAxis->GetRenderProxy(false), Layer);
+	PDIOrCollector.DrawCylinder(Position, Position + Length * Con2Frame.GetScaledAxis(EAxis::Z), Thickness, LimitMaterialZAxis->GetRenderProxy(false), Layer);
+
+
+	//Draw arrow on twist axist
+	{
+		FTransform ConeLimitTM = Con2Frame;
+		ConeLimitTM.SetTranslation(Con1Frame.GetTranslation() + Length*1.05*Con2Frame.GetScaledAxis(EAxis::X));
+
+		const float Swing1Ang = PI / 4;
+		const float Swing2Ang = PI / 4;
+		FMatrix ConeToWorld = FScaleMatrix(FVector(Length * -0.1f)) * ConeLimitTM.ToMatrixWithScale();
+
+		if (PDIOrCollector.HasCollector())
+		{
+			GetConeMesh(ConeToWorld, FMath::RadiansToDegrees(Swing1Ang), FMath::RadiansToDegrees(Swing2Ang), DrawConeLimitSides, LimitMaterialXAxis->GetRenderProxy(false), Layer, PDIOrCollector.ViewIndex, *PDIOrCollector.Collector);
+		}
+		else
+		{
+			DrawCone(PDI, ConeToWorld, Swing1Ang, Swing2Ang, DrawConeLimitSides, false, JointLimitColor, LimitMaterialXAxis->GetRenderProxy(false), Layer);
+		}
+	}
 
 	//////////////////////////////////////////////////////////////////////////
 	// LINEAR DRAWING
 
-	bool bLinearXLocked = (LinearXMotion == LCM_Locked) || (LinearXMotion == LCM_Limited && LinearLimitSize < RB_MinSizeToLockDOF);
-	bool bLinearYLocked = (LinearYMotion == LCM_Locked) || (LinearYMotion == LCM_Limited && LinearLimitSize < RB_MinSizeToLockDOF);
-	bool bLinearZLocked = (LinearZMotion == LCM_Locked) || (LinearZMotion == LCM_Limited && LinearLimitSize < RB_MinSizeToLockDOF);
+	//TODO: Move this all into a draw function on linear constraint
+	bool bLinearXLocked = (GetLinearXMotion() == LCM_Locked) || (GetLinearXMotion() == LCM_Limited && GetLinearLimit() < RB_MinSizeToLockDOF);
+	bool bLinearYLocked = (GetLinearYMotion() == LCM_Locked) || (GetLinearYMotion() == LCM_Limited && GetLinearLimit() < RB_MinSizeToLockDOF);
+	bool bLinearZLocked = (GetLinearZMotion() == LCM_Locked) || (GetLinearZMotion() == LCM_Limited && GetLinearLimit() < RB_MinSizeToLockDOF);
 
 	if(!bLinearXLocked)
 	{
-		bool bLinearXLimited = ( LinearXMotion == LCM_Limited && LinearLimitSize >= RB_MinSizeToLockDOF );
-		DrawLinearLimit(PDI, Con2Frame.GetTranslation(), Con2Frame.GetScaledAxis( EAxis::X ), Con2Frame.GetScaledAxis( EAxis::Z ), LinearLimitSize, bLinearXLimited, LimitDrawScale);
+		bool bLinearXLimited = ( GetLinearXMotion() == LCM_Limited && GetLinearLimit() >= RB_MinSizeToLockDOF );
+		DrawLinearLimit(PDI, Con2Frame.GetTranslation(), Con2Frame.GetScaledAxis( EAxis::X ), Con2Frame.GetScaledAxis( EAxis::Z ), GetLinearLimit(), bLinearXLimited, LimitDrawScale);
 	}
 
 	if(!bLinearYLocked)
 	{
-		bool bLinearYLimited = ( LinearYMotion == LCM_Limited && LinearLimitSize >= RB_MinSizeToLockDOF );
-		DrawLinearLimit(PDI, Con2Frame.GetTranslation(), Con2Frame.GetScaledAxis( EAxis::Y ), Con2Frame.GetScaledAxis( EAxis::Z ), LinearLimitSize, bLinearYLimited, LimitDrawScale);
+		bool bLinearYLimited = ( GetLinearYMotion() == LCM_Limited && GetLinearLimit() >= RB_MinSizeToLockDOF );
+		DrawLinearLimit(PDI, Con2Frame.GetTranslation(), Con2Frame.GetScaledAxis( EAxis::Y ), Con2Frame.GetScaledAxis( EAxis::Z ), GetLinearLimit(), bLinearYLimited, LimitDrawScale);
 	}
 
 	if(!bLinearZLocked)
 	{
-		bool bLinearZLimited = ( LinearZMotion == LCM_Limited && LinearLimitSize >= RB_MinSizeToLockDOF );
-		DrawLinearLimit(PDI, Con2Frame.GetTranslation(), Con2Frame.GetScaledAxis( EAxis::Z ), Con2Frame.GetScaledAxis( EAxis::X ), LinearLimitSize, bLinearZLimited, LimitDrawScale);
-	}
-
-
-	if(!bDrawLimits)
-		return;
-
-
-	//////////////////////////////////////////////////////////////////////////
-	// ANGULAR DRAWING
-
-	bool bLockTwist = AngularTwistMotion == ACM_Locked; 
-	bool bLockSwing1 = AngularSwing1Motion == ACM_Locked; 
-	bool bLockSwing2 = AngularSwing2Motion == ACM_Locked; 
-	bool bLockAllSwing = bLockSwing1 && bLockSwing2;
-
-	bool bDrawnAxisLine = false;
-	FVector RefLineStart = Con1Frame.GetTranslation() + (Length * Con1Frame.GetScaledAxis(EAxis::X));
-	FVector RefLineEnd = Con1Frame.GetTranslation() + (Length * Con1Frame.GetScaledAxis(EAxis::X));
-
-	//swing1
-	{
-		FMatrix ConeToWorld = HelpBuildFan(Con1Frame, Con2Frame, EAxis::X, EAxis::Z, Length);
-		float Limit = HelpBuildAngle(Swing1LimitAngle, AngularSwing1Motion);
-		DrawCone(PDI, ConeToWorld, Limit, 0, DrawConeLimitSides, false, JointLimitColor, LimitMaterialX->GetRenderProxy(false), SDPG_World);
-	}
-
-	//swing2
-	{
-		FMatrix ConeToWorld = HelpBuildFan(Con1Frame, Con2Frame, EAxis::Z, EAxis::Y, Length);
-		float Limit = HelpBuildAngle(Swing2LimitAngle, AngularSwing2Motion);
-		DrawCone(PDI, ConeToWorld, Limit, 0, DrawConeLimitSides, false, JointLimitColor, LimitMaterialZ->GetRenderProxy(false), SDPG_World);
-	}
-
-	//twist
-	{
-		FMatrix ConeToWorld = HelpBuildFan(Con1Frame, Con2Frame, EAxis::Y, EAxis::X, Length);
-		float Limit = HelpBuildAngle(TwistLimitAngle, AngularTwistMotion);
-		DrawCone(PDI, ConeToWorld, Limit, 0, DrawConeLimitSides, false, JointLimitColor, LimitMaterialY->GetRenderProxy(false), SDPG_World);
+		bool bLinearZLimited = ( GetLinearZMotion() == LCM_Limited && GetLinearLimit() >= RB_MinSizeToLockDOF );
+		DrawLinearLimit(PDI, Con2Frame.GetTranslation(), Con2Frame.GetScaledAxis( EAxis::Z ), Con2Frame.GetScaledAxis( EAxis::X ), GetLinearLimit(), bLinearZLimited, LimitDrawScale);
 	}
 }

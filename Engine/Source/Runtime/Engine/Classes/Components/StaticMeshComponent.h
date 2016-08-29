@@ -14,6 +14,7 @@ class FStaticMeshStaticLightingMesh;
 class ULightComponent;
 struct FEngineShowFlags;
 struct FConvexVolume;
+struct FStreamingTextureBuildInfo;
 
 /** Cached vertex information at the time the mesh was painted. */
 USTRUCT()
@@ -184,15 +185,11 @@ class ENGINE_API UStaticMeshComponent : public UMeshComponent
 	UPROPERTY(transient)
 	uint32 bForceNavigationObstacle : 1;
 
-	/** Use the collision profile specified in the StaticMesh asset.*/
-	UPROPERTY()
-	uint32 bUseDefaultCollision : 1;
-
 	/** If true, mesh painting is disallowed on this instance. Set if vertex colors are overridden in a construction script. */
 	UPROPERTY(EditAnywhere, AdvancedDisplay, BlueprintReadWrite, Category=Rendering)
 	uint32 bDisallowMeshPaintPerInstance : 1;
 
-#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+#if !(UE_BUILD_SHIPPING)
 	/** Option to draw mesh collision in wireframe */
 	uint32 bDrawMeshCollisionWireframe : 1;
 #endif
@@ -237,14 +234,28 @@ class ENGINE_API UStaticMeshComponent : public UMeshComponent
 	UPROPERTY(transient)
 	TArray<struct FStaticMeshComponentLODInfo> LODData;
 
-	/** The streaming info for each LOD / Section. Needs to be persistent in order to be accessible when loading cooked maps. */
-	UPROPERTY()
-	TArray<FStreamingTexturePrimitiveInfo> StreamingTextureInfos;
+	/** The list of texture, bounds and scales. As computed in the texture streaming build process. */
+	UPROPERTY(NonTransactional)
+	TArray<FStreamingTextureBuildInfo> StreamingTextureData;
+
+	/** Use the collision profile specified in the StaticMesh asset.*/
+	UPROPERTY(EditAnywhere, Category = Collision)
+	bool bUseDefaultCollision;
 
 #if WITH_EDITORONLY_DATA
+	/** 
+	 * Temporary section data used in the texture streaming build. 
+	 * Stays persistent to allow texture streaming accuracy view mode to inspect it.
+	 * The shared ptr is used to allow a safe way for the proxy to access it without duplicating it.
+	 */
+	TSharedPtr<TArray<FStreamingSectionBuildInfo>, ESPMode::NotThreadSafe> StreamingSectionData;
+
 	/** Derived data key of the static mesh, used to determine if an update from the source static mesh is required. */
 	UPROPERTY()
 	FString StaticMeshDerivedDataKey;
+
+	UPROPERTY()
+	bool bStreamingTextureDataValid;
 #endif
 
 	/** The Lightmass settings for this object. */
@@ -280,7 +291,7 @@ public:
 	virtual void PreEditUndo() override;
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
 #endif // WITH_EDITOR
-	virtual void PreSave() override;
+	virtual void PreSave(const class ITargetPlatform* TargetPlatform) override;
 	virtual void PostLoad() override;
 	virtual bool AreNativePropertiesIdenticalTo( UObject* Other ) const override;
 	virtual FString GetDetailedInfoInternal() const override;
@@ -327,9 +338,49 @@ public:
 		return LightmassSettings.bShadowIndirectOnly;
 	}
 	virtual ELightMapInteractionType GetStaticLightingType() const override;
-	void UpdateStreamingTextureInfos(bool bForce = false);
-	virtual bool GetStreamingTextureFactors(float& OutWorldTexelFactor, float& OutWorldLightmapFactor, FBoxSphereBounds& OutBounds, int32 LODIndex, int32 ElementIndex) const;
-	virtual void GetStreamingTextureInfo(TArray<FStreamingTexturePrimitiveInfo>& OutStreamingTextures) const override;
+
+	/**
+	* Return whether this primitive should have data for texture streaming. Used to optimize the texture streaming build.
+	*
+	* @return	true if a rebuild is required.
+	*/
+	virtual bool RequiresStreamingTextureData() const override;
+
+	/**
+	* Return whether this primitive has (good) section data for texture streaming. Used in the texture streaming build and accuracy viewmodes.
+	*
+	* @param bCheckTexCoordScales - If true, section data must contains texcoord scales to be valid.
+	*
+	* @return - true if streaming section data is valid.
+	*/
+	virtual bool HasStreamingSectionData(bool bCheckTexCoordScales) const override;
+	/**
+	* Return whether this primitive has (good) built data for texture streaming. Used for the "Texture Streaming Needs Rebuilt" check.
+	*
+	* @return	true if all texture streaming data is valid.
+	*/
+	virtual bool HasStreamingTextureData() const override;
+
+	/**
+	*	Update the precomputed streaming debug data of this component.
+	*
+	*	@param	TexCoordScales				The texcoord scales for each texture register of each relevant materials.
+	*/
+	virtual void UpdateStreamingSectionData(const FTexCoordScaleMap& TexCoordScales) override;
+
+	/**
+	 *	Update the precomputed streaming data of this component.
+	 *
+	 *	@param	LevelTextures	[in,out]	The list of textures referred by all component of a level. The array index maps to UTexture2D::LevelIndex.
+	 *	@param	TexCoordScales	[in]		The texcoord scales for each texture register of each relevant materials.
+	 *	@param	QualityLevel	[in]		The quality level being used in the texture streaming build.
+	 *	@param	FeatureLevel	[in]		The feature level being used in the texture streaming build.
+	 */
+	virtual void UpdateStreamingTextureData(TArray<UTexture2D*>& LevelTextures, const FTexCoordScaleMap& TexCoordScales, EMaterialQualityLevel::Type QualityLevel, ERHIFeatureLevel::Type FeatureLevel) override;
+
+	virtual bool GetStreamingTextureFactors(float& OutWorldTexelFactor, float& OutWorldLightmapFactor) const;
+	virtual void GetStreamingTextureInfo(FStreamingTextureLevelContext& LevelContext, TArray<FStreamingTexturePrimitiveInfo>& OutStreamingTextures) const override;
+
 	virtual class UBodySetup* GetBodySetup() override;
 	virtual bool CanEditSimulatePhysics() override;
 	virtual FPrimitiveSceneProxy* CreateSceneProxy() override;
@@ -413,11 +464,9 @@ public:
 	/**
 	 * Determines whether any of the component's LODs require override vertex color fixups
 	 *
-	 * @param	OutLODIndices	Indices of the LODs requiring fixup, if any
-	 *
 	 * @return	true if any LODs require override vertex color fixups
 	 */
-	bool RequiresOverrideVertexColorsFixup( TArray<int32>& OutLODIndices );
+	bool RequiresOverrideVertexColorsFixup();
 
 	/**
 	 * Update the vertex override colors if necessary (i.e. vertices from source mesh have changed from override colors)
@@ -465,7 +514,7 @@ private:
 	void InitResources();
 
 	/** Update the vertex override colors */
-	void PrivateFixupOverrideColors( const TArray<int32>& LODsToUpdate );
+	void PrivateFixupOverrideColors();
 
 protected:
 
@@ -517,6 +566,14 @@ public:
 
 	/** Unregister this component's render data with the scene for SpeedTree wind */
 	void RemoveSpeedTreeWind();
+
+#if WITH_EDITOR
+	/** Called when the static mesh changes  */
+	DECLARE_EVENT_OneParam(UStaticMeshComponent, FOnStaticMeshChanged, UStaticMeshComponent*);
+	virtual FOnStaticMeshChanged& OnStaticMeshChanged() { return OnStaticMeshChangedEvent; }
+private:
+	FOnStaticMeshChanged OnStaticMeshChangedEvent;
+#endif
 };
 
 

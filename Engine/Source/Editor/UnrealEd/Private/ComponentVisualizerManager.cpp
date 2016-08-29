@@ -3,10 +3,10 @@
 #include "UnrealEd.h"
 #include "ComponentVisualizerManager.h"
 #include "ILevelEditor.h"
-#include "ILevelViewport.h"
+#include "SLevelViewport.h"
 
 /** Handle a click on the specified editor viewport client */
-bool FComponentVisualizerManager::HandleClick(FLevelEditorViewportClient* InViewportClient, HHitProxy* HitProxy, const FViewportClick& Click)
+bool FComponentVisualizerManager::HandleClick(FEditorViewportClient* InViewportClient, HHitProxy* HitProxy, const FViewportClick& Click)
 {
 	bool bHandled = HandleProxyForComponentVis(InViewportClient, HitProxy, Click);
 	if (bHandled && Click.GetKey() == EKeys::RightMouseButton)
@@ -14,12 +14,11 @@ bool FComponentVisualizerManager::HandleClick(FLevelEditorViewportClient* InView
 		TSharedPtr<SWidget> MenuWidget = GenerateContextMenuForComponentVis();
 		if (MenuWidget.IsValid())
 		{
-			auto ParentLevelEditor = InViewportClient->ParentLevelEditor.Pin();
-			if (ParentLevelEditor.IsValid() && ParentLevelEditor->GetActiveViewportInterface().IsValid() )
+			TSharedPtr<SEditorViewport> ViewportWidget = InViewportClient->GetEditorViewportWidget();
+			if (ViewportWidget.IsValid())
 			{
-				TSharedPtr<SWidget> MenuParent = ParentLevelEditor->GetActiveViewportInterface()->GetViewportWidget().Pin();
 				FSlateApplication::Get().PushMenu(
-					MenuParent.ToSharedRef(),
+					ViewportWidget.ToSharedRef(),
 					FWidgetPath(),
 					MenuWidget.ToSharedRef(),
 					FSlateApplication::Get().GetCursorPos(),
@@ -33,9 +32,9 @@ bool FComponentVisualizerManager::HandleClick(FLevelEditorViewportClient* InView
 	return false;
 }
 
-bool FComponentVisualizerManager::HandleProxyForComponentVis(FLevelEditorViewportClient* InViewportClient, HHitProxy* HitProxy, const FViewportClick& Click)
+bool FComponentVisualizerManager::HandleProxyForComponentVis(FEditorViewportClient* InViewportClient, HHitProxy* HitProxy, const FViewportClick& Click)
 {
-	if (HitProxy->IsA(HComponentVisProxy::StaticGetType()))
+	if (HitProxy && HitProxy->IsA(HComponentVisProxy::StaticGetType()))
 	{
 		HComponentVisProxy* VisProxy = (HComponentVisProxy*)HitProxy;
 		const UActorComponent* ClickedComponent = VisProxy->Component.Get();
@@ -146,4 +145,18 @@ TSharedPtr<SWidget> FComponentVisualizerManager::GenerateContextMenuForComponent
 	}
 
 	return TSharedPtr<SWidget>();
+}
+
+
+bool FComponentVisualizerManager::IsActive() const
+{
+	TSharedPtr<FComponentVisualizer> EditedVisualizer = EditedVisualizerPtr.Pin();
+	return EditedVisualizer.IsValid();
+}
+
+
+bool FComponentVisualizerManager::IsVisualizingArchetype() const
+{
+	TSharedPtr<FComponentVisualizer> EditedVisualizer = EditedVisualizerPtr.Pin();
+	return EditedVisualizer.IsValid() && EditedVisualizer->IsVisualizingArchetype();
 }

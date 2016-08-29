@@ -128,10 +128,10 @@ public partial class Project : CommandUtils
 		{
 			if (Params.ServerTargetPlatforms.Count > 0)
 			{
-				UnrealTargetPlatform ServerPlatform = Params.ServerTargetPlatforms[0];
+				TargetPlatformDescriptor ServerPlatformDesc = Params.ServerTargetPlatforms[0];
 				ServerProcess = RunDedicatedServer(Params, ServerLogFile, Params.RunCommandline);
 				// With dedicated server, the client connects to local host to load a map.
-				if (ServerPlatform == UnrealTargetPlatform.Linux)
+				if (ServerPlatformDesc.Type == UnrealTargetPlatform.Linux)
 				{
 					Params.MapToRun = Params.ServerDeviceAddress;
 				}
@@ -785,7 +785,7 @@ public partial class Project : CommandUtils
 					TempCmdLine += "-allowcaching ";
 				}
 			}
-			else if (Params.UsePak(SC.StageTargetPlatform) || Params.SignedPak)
+			else if (Params.UsePak(SC.StageTargetPlatform))
 			{
 				if (Params.SignedPak)
 				{
@@ -817,6 +817,10 @@ public partial class Project : CommandUtils
 			{
 				TempCmdLine += "-game " + Params.MapToRun + " ";
 			}
+            else
+            {
+                TempCmdLine += Params.MapToRun + " ";
+            }
 		}
 		if (Params.LogWindow)
 		{
@@ -882,7 +886,12 @@ public partial class Project : CommandUtils
 		if (SC.StageTargetPlatform.LaunchViaUFE)
 		{
 			ClientCmdLine = "-run=Launch ";
-			ClientCmdLine += "-Device=" + Params.Device + " ";
+            ClientCmdLine += "-Device=" + Params.Devices[0];
+            for (int DeviceIndex = 1; DeviceIndex < Params.Devices.Count; DeviceIndex++)
+            {
+                ClientCmdLine += "+" + Params.Devices[DeviceIndex];
+            }
+            ClientCmdLine += " ";
 			ClientCmdLine += "-Exe=\"" + ClientApp + "\" ";
 			ClientCmdLine += "-Targetplatform=" + Params.ClientTargetPlatforms[0].ToString() + " ";
 			ClientCmdLine += "-Params=\"" + TempCmdLine + "\"";
@@ -923,7 +932,7 @@ public partial class Project : CommandUtils
 	private static ProcessResult RunDedicatedServer(ProjectParams Params, string ServerLogFile, string AdditionalCommandLine)
 	{
 		ProjectParams ServerParams = new ProjectParams(Params);
-		ServerParams.Device = Params.ServerDevice;
+		ServerParams.Devices = new ParamList<string>(Params.ServerDevice);
 
 		if (ServerParams.ServerTargetPlatforms.Count == 0)
 		{
@@ -947,16 +956,16 @@ public partial class Project : CommandUtils
 		}
 		var Args = ServerParams.Cook ? "" : (SC.ProjectArgForCommandLines + " ");
 		Console.WriteLine(Params.ServerDeviceAddress);
-		UnrealTargetPlatform ServerPlatform = ServerParams.ServerTargetPlatforms[0];
-		if (ServerParams.Cook && ServerPlatform == UnrealTargetPlatform.Linux && !String.IsNullOrEmpty(ServerParams.ServerDeviceAddress))
+		TargetPlatformDescriptor ServerPlatformDesc = ServerParams.ServerTargetPlatforms[0];
+		if (ServerParams.Cook && ServerPlatformDesc.Type == UnrealTargetPlatform.Linux && !String.IsNullOrEmpty(ServerParams.ServerDeviceAddress))
 		{
 			ServerApp = @"C:\Windows\system32\cmd.exe";
 
 			string plinkPath = CombinePaths(Environment.GetEnvironmentVariable("LINUX_ROOT"), "bin/PLINK.exe ");
-			string exePath = CombinePaths(SC.ShortProjectName, "Binaries", ServerPlatform.ToString(), SC.ShortProjectName + "Server");
+			string exePath = CombinePaths(SC.ShortProjectName, "Binaries", ServerPlatformDesc.Type.ToString(), SC.ShortProjectName + "Server");
 			if (ServerParams.ServerConfigsToBuild[0] != UnrealTargetConfiguration.Development)
 			{
-				exePath += "-" + ServerPlatform.ToString() + "-" + ServerParams.ServerConfigsToBuild[0].ToString();
+				exePath += "-" + ServerPlatformDesc.Type.ToString() + "-" + ServerParams.ServerConfigsToBuild[0].ToString();
 			}
 			exePath = CombinePaths("LinuxServer", exePath.ToLower()).Replace("\\", "/");
 			Args = String.Format("/k {0} -batch -ssh -t -i {1} {2}@{3} {4} {5} {6} -server -Messaging", plinkPath, ServerParams.DevicePassword, ServerParams.DeviceUsername, ServerParams.ServerDeviceAddress, exePath, Args, ServerParams.MapToRun);
@@ -975,7 +984,7 @@ public partial class Project : CommandUtils
 			Args += String.Format("{0} -server -abslog={1}  -unattended -FORCELOGFLUSH -log -Messaging -nomcp", Map, CommandUtils.MakePathSafeToUseWithCommandLine(ServerLogFile));
 		}
 
-		if (ServerParams.UsePak(SC.StageTargetPlatform) || ServerParams.SignedPak)
+		if (ServerParams.UsePak(SC.StageTargetPlatform))
 		{
 			if (ServerParams.SignedPak)
 			{
@@ -994,7 +1003,7 @@ public partial class Project : CommandUtils
 		Args += " " + AdditionalCommandLine;
 
 
-		if (ServerParams.Cook && ServerPlatform == UnrealTargetPlatform.Linux && !String.IsNullOrEmpty(ServerParams.ServerDeviceAddress))
+		if (ServerParams.Cook && ServerPlatformDesc.Type == UnrealTargetPlatform.Linux && !String.IsNullOrEmpty(ServerParams.ServerDeviceAddress))
 		{
 			Args += String.Format(" 2>&1 > {0}", ServerLogFile);
 		}

@@ -50,6 +50,7 @@ public:
 	FSocketBSD(SOCKET InSocket, ESocketType InSocketType, const FString& InSocketDescription, ISocketSubsystem * InSubsystem) 
 		: FSocket(InSocketType, InSocketDescription)
 		, Socket(InSocket)
+		, LastActivityTime(0)
 		, SocketSubsystem(InSubsystem)
 	{ }
 

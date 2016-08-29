@@ -111,4 +111,11 @@ public:
 		check(UsedMalloc);
 		return UsedMalloc->GetDescriptiveName(); 
 	}
+
+	virtual void Trim() override
+	{
+		FScopeLock ScopeLock(&SynchronizationObject);
+		check(UsedMalloc);
+		UsedMalloc->Trim();
+	}
 };

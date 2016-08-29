@@ -9,8 +9,9 @@
 #include "BoundShaderStateCache.h"
 #include "CrossCompilerCommon.h"
 
-struct FVulkanShaderVarying
+class FVulkanShaderVarying
 {
+public:
 	FVulkanShaderVarying():
 		Location(0),
 		Components(0)
@@ -60,8 +61,9 @@ static void ClearBindings(CrossCompiler::FShaderBindings& Bindings)
 	Bindings.bHasRegularUniformBuffers = 0;
 }
 
-struct FVulkanShaderSerializedBindings : public CrossCompiler::FShaderBindings
+class FVulkanShaderSerializedBindings : public CrossCompiler::FShaderBindings
 {
+public:
 	FVulkanShaderSerializedBindings():
 		bFlattenUB(false)
 	{
@@ -71,10 +73,12 @@ struct FVulkanShaderSerializedBindings : public CrossCompiler::FShaderBindings
 
 	enum EBindingType : uint16
 	{
-		TYPE_SAMPLER,
+		TYPE_COMBINED_IMAGE_SAMPLER,
 		TYPE_SAMPLER_BUFFER,
 		TYPE_UNIFORM_BUFFER,
 		TYPE_PACKED_UNIFORM_BUFFER,
+		//TYPE_SAMPLER,
+		//TYPE_IMAGE,
 
 		TYPE_MAX,
 	};
@@ -175,9 +179,10 @@ inline FArchive& operator<<(FArchive& Ar, FVulkanCodeHeader& Header)
 }
 
 
-struct FVulkanShaderBindingTable
+class FVulkanShaderBindingTable
 {
-	TArray<uint32> SamplerBindingIndices;
+public:
+	TArray<uint32> CombinedSamplerBindingIndices;
 	//#todo-rco: FIX! SamplerBuffers share numbering with Samplers
 	TArray<uint32> SamplerBufferBindingIndices;
 	TArray<uint32> UniformBufferBindingIndices;
@@ -196,7 +201,7 @@ struct FVulkanShaderBindingTable
 
 inline FArchive& operator<<(FArchive& Ar, FVulkanShaderBindingTable& BindingTable)
 {
-	Ar << BindingTable.SamplerBindingIndices;
+	Ar << BindingTable.CombinedSamplerBindingIndices;
 	Ar << BindingTable.SamplerBufferBindingIndices;
 	Ar << BindingTable.UniformBufferBindingIndices;
 	for (int32 Index = 0; Index < CrossCompiler::PACKED_TYPEINDEX_MAX; ++Index)

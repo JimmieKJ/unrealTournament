@@ -10,7 +10,11 @@
 #include "IWebBrowserAdapter.h"
 
 #if PLATFORM_ANDROID
-#	include "Android/AndroidPlatformWebBrowser.h"
+#include "Android/AndroidPlatformWebBrowser.h"
+#elif PLATFORM_IOS
+#include "IOS/IOSPlatformWebBrowser.h"
+#elif PLATFORM_PS4
+#include "PS4/PS4PlatformWebBrowser.h"
 #endif
 
 #define LOCTEXT_NAMESPACE "WebBrowser"
@@ -54,6 +58,17 @@ SWebBrowserView::~SWebBrowserView()
 			BrowserWindow->OnBeforePopup().Unbind();
 		}
 	}
+
+	if (SlateParentWindowSetupTickHandle.IsValid())
+	{
+		FTicker::GetCoreTicker().RemoveTicker(SlateParentWindowSetupTickHandle);
+		SlateParentWindowSetupTickHandle.Reset();
+	}
+
+	if (SlateParentWindow.IsValid())
+	{
+		SlateParentWindow->GetOnWindowDeactivatedEvent().RemoveAll(this);
+	}
 }
 
 void SWebBrowserView::Construct(const FArguments& InArgs, const TSharedPtr<IWebBrowserWindow>& InWebBrowserWindow)
@@ -80,17 +95,20 @@ void SWebBrowserView::Construct(const FArguments& InArgs, const TSharedPtr<IWebB
 		static bool AllowCEF = !FParse::Param(FCommandLine::Get(), TEXT("nocef"));
 		if (AllowCEF)
 		{
-		BrowserWindow = IWebBrowserModule::Get().GetSingleton()->CreateBrowserWindow(
-			nullptr,
-			InArgs._InitialURL,
-			InArgs._SupportsTransparency,
-			InArgs._SupportsThumbMouseButtonNavigation,
-			InArgs._ContentsToLoad,
-			InArgs._ShowErrorMessage,
-			InArgs._BackgroundColor
-			);		
+			FCreateBrowserWindowSettings Settings;
+			Settings.InitialURL = InArgs._InitialURL;
+			Settings.bUseTransparency = InArgs._SupportsTransparency;
+			Settings.bThumbMouseButtonNavigation = InArgs._SupportsThumbMouseButtonNavigation;
+			Settings.ContentsToLoad = InArgs._ContentsToLoad;
+			Settings.bShowErrorMessage = InArgs._ShowErrorMessage;
+			Settings.BackgroundColor = InArgs._BackgroundColor;
+			Settings.Context = InArgs._ContextSettings;
+
+			BrowserWindow = IWebBrowserModule::Get().GetSingleton()->CreateBrowserWindow(Settings);		
 		}
 	}
+
+	SlateParentWindow = InArgs._ParentWindow;
 
 #if WITH_CEF3
 	ChildSlot
@@ -105,8 +123,8 @@ void SWebBrowserView::Construct(const FArguments& InArgs, const TSharedPtr<IWebB
 
 	if (BrowserWindow.IsValid())
 	{
-#if PLATFORM_ANDROID
-		// The inner widget creation is handled by the WebBrowserWindow implementation on android.
+#if PLATFORM_ANDROID || PLATFORM_IOS || PLATFORM_PS4
+		// The inner widget creation is handled by the WebBrowserWindow implementation on mobile.
 		const auto& BrowserWidgetRef = static_cast<FWebBrowserWindow*>(BrowserWindow.Get())->CreateWidget();
 		ChildSlot
 		[
@@ -166,10 +184,29 @@ void SWebBrowserView::Construct(const FArguments& InArgs, const TSharedPtr<IWebB
 #if WITH_CEF3
 		BrowserWidget->SetViewportInterface(BrowserViewport.ToSharedRef());
 #endif
+		SetupParentWindowHandlers();
+		// If we could not obtain the parent window during widget construction, we'll defer and keep trying.
+		if (!SlateParentWindow.IsValid())
+		{
+			SlateParentWindowSetupTickHandle = FTicker::GetCoreTicker().AddTicker(FTickerDelegate::CreateLambda([this](float) -> bool
+			{
+				this->SetupParentWindowHandlers();
+				bool ContinueTick = !SlateParentWindow.IsValid();
+				return ContinueTick;
+			}));
+		}
 	}
 	else
 	{
 		OnLoadError.ExecuteIfBound();
+	}
+}
+
+void SWebBrowserView::HandleWindowDeactivated()
+{
+	if (BrowserViewport.IsValid())
+	{
+		BrowserViewport->OnFocusLost(FFocusEvent());
 	}
 }
 
@@ -291,6 +328,19 @@ void SWebBrowserView::GoForward()
 bool SWebBrowserView::IsInitialized() const
 {
 	return BrowserWindow.IsValid() &&  BrowserWindow->IsInitialized();
+}
+
+void SWebBrowserView::SetupParentWindowHandlers()
+{
+	if (!SlateParentWindow.IsValid())
+	{
+		SlateParentWindow = FSlateApplication::Get().FindWidgetWindow(SharedThis(this));
+	}
+
+	if (SlateParentWindow.IsValid() && BrowserWindow.IsValid())
+	{
+		SlateParentWindow->GetOnWindowDeactivatedEvent().AddSP(this, &SWebBrowserView::HandleWindowDeactivated);
+	}
 }
 
 void SWebBrowserView::HandleBrowserWindowDocumentStateChanged(EWebBrowserDocumentState NewState)

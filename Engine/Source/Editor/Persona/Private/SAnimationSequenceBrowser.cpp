@@ -3,7 +3,6 @@
 
 #include "PersonaPrivatePCH.h"
 
-#include "Animation/VertexAnim/VertexAnimation.h"
 #include "SAnimationSequenceBrowser.h"
 #include "Persona.h"
 #include "AssetRegistryModule.h"
@@ -34,7 +33,7 @@ public:
 	// IFilter implementation
 	virtual bool PassesFilter(FAssetFilterType InItem) const override
 	{
-		const FString TagValue = InItem.TagsAndValues.FindRef(GET_MEMBER_NAME_CHECKED(UAnimSequence, AdditiveAnimType));
+		const FString TagValue = InItem.GetTagValueRef<FString>(GET_MEMBER_NAME_CHECKED(UAnimSequence, AdditiveAnimType));
 		return !TagValue.IsEmpty() && !TagValue.Equals(TEXT("AAT_None"));
 	}
 };
@@ -84,14 +83,6 @@ void SAnimationSequenceBrowser::OnRequestOpenAsset(const FAssetData& AssetData, 
 				}
 				Persona->OpenNewDocumentTab(Asset);
 				Persona->SetPreviewAnimationAsset(Asset);
-			}
-			else if(UVertexAnimation* VertexAnim = Cast<UVertexAnimation>(RawAsset))
-			{
-				if(!bFromHistory)
-				{
-					AddAssetToHistory(AssetData);
-				}
-				Persona->SetPreviewVertexAnim(VertexAnim);
 			}
 		}
 	}
@@ -419,7 +410,6 @@ void SAnimationSequenceBrowser::Construct(const FArguments& InArgs)
 	FAssetPickerConfig Config;
 	Config.Filter.bRecursiveClasses = true;
 	Config.Filter.ClassNames.Add(UAnimationAsset::StaticClass()->GetFName());
-	Config.Filter.ClassNames.Add(UVertexAnimation::StaticClass()->GetFName()); //@TODO: Is currently ignored due to the skeleton check
 	Config.InitialAssetViewType = EAssetViewType::Column;
 	Config.bAddFilterUI = true;
 	Config.bShowPathInColumnView = true;
@@ -810,7 +800,7 @@ TSharedRef<SToolTip> SAnimationSequenceBrowser::CreateCustomAssetToolTip(FAssetD
 		];
 
 	TSharedPtr<SHorizontalBox> ContentBox = nullptr;
-	TSharedRef<SToolTip> ToolTip = SNew(SToolTip)
+	TSharedRef<SToolTip> ToolTipWidget = SNew(SToolTip)
 	.TextMargin(1)
 	.BorderImage(FEditorStyle::GetBrush("ContentBrowser.TileViewTooltip.ToolTipBorder"))
 	[
@@ -880,7 +870,7 @@ TSharedRef<SToolTip> SAnimationSequenceBrowser::CreateCustomAssetToolTip(FAssetD
 		]
 	];
 
-	return ToolTip;
+	return ToolTipWidget;
 }
 
 void SAnimationSequenceBrowser::CreateAssetTooltipResources()
@@ -916,7 +906,6 @@ void SAnimationSequenceBrowser::CreateAssetTooltipResources()
 	const UDestructableMeshEditorSettings* Options = GetDefault<UDestructableMeshEditorSettings>();
 
 	PreviewScene.SetLightDirection(Options->AnimPreviewLightingDirection);
-	PreviewScene.GetScene()->UpdateDynamicSkyLight(Options->AnimPreviewSkyBrightness * FLinearColor(Options->AnimPreviewSkyColor), Options->AnimPreviewSkyBrightness * FLinearColor(Options->AnimPreviewFloorColor));
 	PreviewScene.SetLightColor(Options->AnimPreviewDirectionalColor);
 	PreviewScene.SetLightBrightness(Options->AnimPreviewLightBrightness);
 }
@@ -942,14 +931,15 @@ bool SAnimationSequenceBrowser::OnVisualizeAssetToolTip(const TSharedPtr<SWidget
 				PreviewComponent->SetSkeletalMesh(MeshToUse);
 			}
 
-			PreviewComponent->EnablePreview(true, Asset, nullptr);
+			PreviewComponent->EnablePreview(true, Asset);
 			PreviewComponent->PreviewInstance->PlayAnim(true);
 
+			FBoxSphereBounds MeshImportedBounds = MeshToUse->GetImportedBounds();
 			float HalfFov = FMath::DegreesToRadians(ViewportClient->ViewFOV) / 2.0f;
-			float TargetDist = MeshToUse->Bounds.SphereRadius / FMath::Tan(HalfFov);
+			float TargetDist = MeshImportedBounds.SphereRadius / FMath::Tan(HalfFov);
 
 			ViewportClient->SetViewRotation(FRotator(0.0f, -45.0f, 0.0f));
-			ViewportClient->SetViewLocationForOrbiting(FVector(0.0f, 0.0f, MeshToUse->Bounds.BoxExtent.Z / 2.0f), TargetDist);
+			ViewportClient->SetViewLocationForOrbiting(FVector(0.0f, 0.0f, MeshImportedBounds.BoxExtent.Z / 2.0f), TargetDist);
 
 			ViewportWidget->SetVisibility(EVisibility::Visible);
 			

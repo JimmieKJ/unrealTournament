@@ -53,6 +53,7 @@ UClientUnitTest::UClientUnitTest(const FObjectInitializer& ObjectInitializer)
 	, UnitNotify(NULL)
 	, UnitNetDriver(NULL)
 	, UnitConn(NULL)
+	, bTriggerredInitialConnect(false)
 	, UnitPC(NULL)
 	, bUnitPawnSetup(false)
 	, UnitNUTActor(NULL)
@@ -469,7 +470,7 @@ void UClientUnitTest::NotifyProcessLog(TWeakPtr<FUnitTestProcess> InProcess, con
 	// each time there is a server log event, that indicates progress in starting up
 	if (!!(UnitTestFlags & EUnitTestFlags::LaunchServer) && ServerHandle.IsValid() && InProcess.HasSameObject(ServerHandle.Pin().Get()))
 	{
-		if (UnitConn == NULL || UnitConn->State == EConnectionState::USOCK_Pending)
+		if (!bTriggerredInitialConnect && (UnitConn == NULL || UnitConn->State == EConnectionState::USOCK_Pending))
 		{
 			if (ServerReadyLogs->ContainsByPredicate(SearchInLogLine))
 			{
@@ -495,6 +496,8 @@ void UClientUnitTest::NotifyProcessLog(TWeakPtr<FUnitTestProcess> InProcess, con
 						UNIT_STATUS_LOG(ELogType::StatusVerbose, TEXT("%s"), *LogMsg);
 
 						ConnectFakeClient();
+
+						bTriggerredInitialConnect = true;
 					}
 				}
 
@@ -1131,6 +1134,7 @@ bool UClientUnitTest::ExecuteUnitTest()
 		// No longer immediately setup the fake client, wait for the server to fully startup first (monitoring its log output)
 #if 0
 		bSuccess = ConnectFakeClient();
+		bTriggerredInitialConnect = true;
 #else
 		bSuccess = true;
 #endif
@@ -1167,6 +1171,8 @@ void UClientUnitTest::CleanupUnitTest()
 bool UClientUnitTest::ConnectFakeClient(FUniqueNetIdRepl* InNetID/*=NULL*/)
 {
 	bool bSuccess = false;
+
+	bTriggerredInitialConnect = true;
 
 	if (UnitWorld == NULL)
 	{
@@ -1594,6 +1600,7 @@ void UClientUnitTest::UnitTick(float DeltaTime)
 			{
 				ConnectFakeClient();
 
+				bTriggerredInitialConnect = true;
 				bBlockingFakeClientDelay = false;
 				NextBlockingTimeout = FPlatformTime::Seconds() + 10.0;
 			}

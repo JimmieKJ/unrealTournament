@@ -454,7 +454,7 @@ public:
 		return &LastRenderTime;
 	}
 
-	void SetName(FName& InName)
+	void SetName(const FName& InName)
 	{
 		TextureName = InName;
 	}
@@ -630,7 +630,6 @@ public:
 	virtual FRHITextureReference* GetTextureReference() override { return this; }
 	inline FRHITexture* GetReferencedTexture() const { return ReferencedTexture.GetReference(); }
 
-protected:
 	void SetReferencedTexture(FRHITexture* InTexture)
 	{
 		ReferencedTexture = InTexture;

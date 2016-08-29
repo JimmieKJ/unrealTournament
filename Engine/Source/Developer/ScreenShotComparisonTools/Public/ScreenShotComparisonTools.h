@@ -15,11 +15,7 @@
 #include "IFilter.h"
 #include "TextFilter.h"
 #include "FilterCollection.h"
-
-/**
-* The screen shot filter collection - used for updating the screen shot list
-*/
-typedef TFilterCollection< const TSharedPtr< class IScreenShotData >& > ScreenShotFilterCollection;
+#include "ScreenShotFilterCollection.h"
 
 /* Interfaces
  *****************************************************************************/

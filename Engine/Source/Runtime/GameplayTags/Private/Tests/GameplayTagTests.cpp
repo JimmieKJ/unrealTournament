@@ -4,9 +4,10 @@
 
 #if WITH_DEV_AUTOMATION_TESTS
 
+#if WITH_EDITOR
+
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FGameplayTagTest, "System.GameplayTags.GameplayTag", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
 
-#if WITH_EDITOR
 static UDataTable* CreateGameplayDataTable()
 {
 	FString CSV(TEXT(",Tag,CategoryText,\r\n0,GameplayTagTest.Test1\r\n1,GameplayTagTest.Test2"));
@@ -22,7 +23,6 @@ static UDataTable* CreateGameplayDataTable()
 	}
 	return DataTable;
 }
-#endif //WITH_EDITOR 
 
 bool GameplayTagTest_SimpleTest()
 {
@@ -33,7 +33,6 @@ bool GameplayTagTest_SimpleTest()
 
 bool FGameplayTagTest::RunTest(const FString& Parameters)
 {
-#if WITH_EDITOR
 	// Create Test Data 
 	UDataTable* DataTable = CreateGameplayDataTable();
 
@@ -45,9 +44,8 @@ bool FGameplayTagTest::RunTest(const FString& Parameters)
 	// Add more tests here... 
 
 	return bSuccess;
-#else
-	return true;
-#endif //WITH_EDITOR
 }
+
+#endif //WITH_EDITOR 
 
 #endif //WITH_DEV_AUTOMATION_TESTS

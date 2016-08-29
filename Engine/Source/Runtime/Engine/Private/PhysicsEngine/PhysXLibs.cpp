@@ -35,174 +35,69 @@
 void LoadPhysXModules()
 {
 
+
 #if PLATFORM_WINDOWS
 	FString PhysXBinariesRoot = FPaths::EngineDir() / TEXT("Binaries/ThirdParty/PhysX/PhysX-3.3/");
 	FString APEXBinariesRoot = FPaths::EngineDir() / TEXT("Binaries/ThirdParty/PhysX/APEX-1.3/");
 
+	#if _MSC_VER >= 1900
+		FString VSDirectory(TEXT("VS2015/"));
+	#elif _MSC_VER >= 1800
+		FString VSDirectory(TEXT("VS2013/"));
+	#else
+		#error "Unrecognized Visual Studio version."
+	#endif
+
 	#if PLATFORM_64BITS
+		FString RootPhysXPath(PhysXBinariesRoot + TEXT("Win64/") + VSDirectory);
+		FString RootAPEXPath(APEXBinariesRoot + TEXT("Win64/") + VSDirectory);
+		FString ArchName(TEXT("_x64"));
+		FString ArchBits(TEXT("64"));
+	#else
+		FString RootPhysXPath(PhysXBinariesRoot + TEXT("Win32/") + VSDirectory);
+		FString RootAPEXPath(APEXBinariesRoot + TEXT("Win32/") + VSDirectory);
+		FString ArchName(TEXT("_x86"));
+		FString ArchBits(TEXT("32"));
+	#endif
 
-		#if _MSC_VER >= 1900
-			FString RootPhysXPath(PhysXBinariesRoot + TEXT("Win64/VS2015/"));
-			FString RootAPEXPath(APEXBinariesRoot + TEXT("Win64/VS2015/"));
-		#elif _MSC_VER >= 1800
-			FString RootPhysXPath(PhysXBinariesRoot + TEXT("Win64/VS2013/"));
-			FString RootAPEXPath(APEXBinariesRoot + TEXT("Win64/VS2013/"));
-		#else
-			#error "Unrecognized Visual Studio version."
-		#endif
+#ifdef UE_PHYSX_SUFFIX
+	FString PhysXSuffix(TEXT(PREPROCESSOR_TO_STRING(UE_PHYSX_SUFFIX)) + ArchName + TEXT(".dll"));
+#else
+	FString PhysXSuffix(ArchName + TEXT(".dll"));
+#endif
 
-		#if UE_BUILD_DEBUG && !defined(NDEBUG)	// Use !defined(NDEBUG) to check to see if we actually are linking with Debug third party libraries (bDebugBuildsActuallyUseDebugCRT)
+#ifdef UE_APEX_SUFFIX
+	FString APEXSuffix(TEXT(PREPROCESSOR_TO_STRING(UE_APEX_SUFFIX)) + ArchName + TEXT(".dll"));
+#else
+	FString APEXSuffix(ArchName + TEXT(".dll"));
+#endif
 
-			PhysX3CommonHandle = LoadLibraryW(*(RootPhysXPath + "PhysX3CommonDEBUG_x64.dll"));
-			nvToolsExtHandle = LoadLibraryW(*(RootPhysXPath + "nvToolsExt64_1.dll"));
-			PhysX3Handle = LoadLibraryW(*(RootPhysXPath + "PhysX3DEBUG_x64.dll"));
-			#if WITH_PHYSICS_COOKING || WITH_RUNTIME_PHYSICS_COOKING
-				PhysX3CookingHandle = LoadLibraryW(*(RootPhysXPath + "PhysX3CookingDEBUG_x64.dll"));
-			#endif
-			#if WITH_APEX
-				APEXFrameworkHandle = LoadLibraryW(*(RootAPEXPath + "APEXFrameworkDEBUG_x64.dll"));
-				APEX_DestructibleHandle = LoadLibraryW(*(RootAPEXPath + "APEX_DestructibleDEBUG_x64.dll"));
-				APEX_LegacyHandle = LoadLibraryW(*(RootAPEXPath + "APEX_LegacyDEBUG_x64.dll"));
-				#if WITH_APEX_CLOTHING
-					APEX_ClothingHandle = LoadLibraryW(*(RootAPEXPath + "APEX_ClothingDEBUG_x64.dll"));				
-				#endif //WITH_APEX_CLOTHING
+	auto LoadPhysicsLibrary([](const FString& Path) -> HMODULE
+	{
+		HMODULE Handle = LoadLibraryW(*Path);
+		if (Handle == nullptr)
+		{
+			UE_LOG(LogPhysics, Fatal, TEXT("Failed to load module '%s'."), *Path);
+		}
+		return Handle;
+	});
 
-			#endif	//WITH_APEX
-
-		#elif WITH_PHYSX_RELEASE
-
-			PhysX3CommonHandle = LoadLibraryW(*(RootPhysXPath + "PhysX3Common_x64.dll"));
-			nvToolsExtHandle = LoadLibraryW(*(RootPhysXPath + "nvToolsExt64_1.dll"));
-			PhysX3Handle = LoadLibraryW(*(RootPhysXPath + "PhysX3_x64.dll"));
-			#if WITH_PHYSICS_COOKING || WITH_RUNTIME_PHYSICS_COOKING
-				PhysX3CookingHandle = LoadLibraryW(*(RootPhysXPath + "PhysX3Cooking_x64.dll"));
-			#endif
-			#if WITH_APEX
-				APEXFrameworkHandle = LoadLibraryW(*(RootAPEXPath + "APEXFramework_x64.dll"));
-				APEX_DestructibleHandle = LoadLibraryW(*(RootAPEXPath + "APEX_Destructible_x64.dll"));
-				APEX_LegacyHandle = LoadLibraryW(*(RootAPEXPath + "APEX_Legacy_x64.dll"));
-				#if WITH_APEX_CLOTHING
-					APEX_ClothingHandle = LoadLibraryW(*(RootAPEXPath + "APEX_Clothing_x64.dll"));
-				#endif //WITH_APEX_CLOTHING
-			#endif	//WITH_APEX
-
-		#elif WITH_PHYSX_CHECKED
-
-					PhysX3CommonHandle = LoadLibraryW(*(RootPhysXPath + "PhysX3CommonCHECKED_x64.dll"));
-					nvToolsExtHandle = LoadLibraryW(*(RootPhysXPath + "nvToolsExt64_1.dll"));
-					PhysX3Handle = LoadLibraryW(*(RootPhysXPath + "PhysX3CHECKED_x64.dll"));
-		#if WITH_PHYSICS_COOKING || WITH_RUNTIME_PHYSICS_COOKING
-					PhysX3CookingHandle = LoadLibraryW(*(RootPhysXPath + "PhysX3CookingCHECKED_x64.dll"));
-		#endif
-		#if WITH_APEX
-					APEXFrameworkHandle = LoadLibraryW(*(RootAPEXPath + "APEXFrameworkCHECKED_x64.dll"));
-					APEX_DestructibleHandle = LoadLibraryW(*(RootAPEXPath + "APEX_DestructibleCHECKED_x64.dll"));
-					APEX_LegacyHandle = LoadLibraryW(*(RootAPEXPath + "APEX_LegacyCHECKED_x64.dll"));
+	PhysX3CommonHandle = LoadPhysicsLibrary(RootPhysXPath + "PhysX3Common" + PhysXSuffix);
+	nvToolsExtHandle = LoadPhysicsLibrary(RootPhysXPath + "nvToolsExt" + ArchBits + "_1.dll");
+	PhysX3Handle = LoadPhysicsLibrary(RootPhysXPath + "PhysX3" + PhysXSuffix);
+	#if WITH_PHYSICS_COOKING || WITH_RUNTIME_PHYSICS_COOKING
+		PhysX3CookingHandle = LoadPhysicsLibrary(RootPhysXPath + "PhysX3Cooking" + PhysXSuffix);
+	#endif
+	#if WITH_APEX
+		APEXFrameworkHandle = LoadPhysicsLibrary(RootAPEXPath + "APEXFramework" + APEXSuffix);
+		APEX_DestructibleHandle = LoadPhysicsLibrary(RootAPEXPath + "APEX_Destructible" + APEXSuffix);
+		#if WITH_APEX_LEGACY
+			APEX_LegacyHandle = LoadPhysicsLibrary(RootAPEXPath + "APEX_Legacy" + APEXSuffix);
+		#endif //WITH_APEX_LEGACY
 		#if WITH_APEX_CLOTHING
-					APEX_ClothingHandle = LoadLibraryW(*(RootAPEXPath + "APEX_ClothingCHECKED_x64.dll"));
+			APEX_ClothingHandle = LoadPhysicsLibrary(RootAPEXPath + "APEX_Clothing" + APEXSuffix);
 		#endif //WITH_APEX_CLOTHING
-		#endif	//WITH_APEX
-
-		#else	//UE_BUILD_DEBUG
-		
-			PhysX3CommonHandle = LoadLibraryW(*(RootPhysXPath + "PhysX3CommonPROFILE_x64.dll"));
-			nvToolsExtHandle = LoadLibraryW(*(RootPhysXPath + "nvToolsExt64_1.dll"));
-			PhysX3Handle = LoadLibraryW(*(RootPhysXPath + "PhysX3PROFILE_x64.dll"));
-			#if WITH_PHYSICS_COOKING || WITH_RUNTIME_PHYSICS_COOKING
-				PhysX3CookingHandle = LoadLibraryW(*(RootPhysXPath + "PhysX3CookingPROFILE_x64.dll"));
-			#endif
-			#if WITH_APEX
-				APEXFrameworkHandle = LoadLibraryW(*(RootAPEXPath + "APEXFrameworkPROFILE_x64.dll"));
-				APEX_DestructibleHandle = LoadLibraryW(*(RootAPEXPath + "APEX_DestructiblePROFILE_x64.dll"));
-				APEX_LegacyHandle = LoadLibraryW(*(RootAPEXPath + "APEX_LegacyPROFILE_x64.dll"));
-				#if WITH_APEX_CLOTHING
-					APEX_ClothingHandle = LoadLibraryW(*(RootAPEXPath + "APEX_ClothingPROFILE_x64.dll"));				
-				#endif //WITH_APEX_CLOTHING
-			#endif	//WITH_APEX
-
-		#endif	//UE_BUILD_DEBUG
-	#else	//!PLATFORM_64BITS
-
-		#if _MSC_VER >= 1900
-			FString RootPhysXPath(PhysXBinariesRoot + TEXT("Win32/VS2015/"));
-			FString RootAPEXPath(APEXBinariesRoot + TEXT("Win32/VS2015/"));
-		#elif _MSC_VER >= 1800
-			FString RootPhysXPath(PhysXBinariesRoot + TEXT("Win32/VS2013/"));
-			FString RootAPEXPath(APEXBinariesRoot + TEXT("Win32/VS2013/"));
-		#else
-			#error "Unrecognized Visual Studio version."
-		#endif
-
-		#if UE_BUILD_DEBUG && !defined(NDEBUG)	// Use !defined(NDEBUG) to check to see if we actually are linking with Debug third party libraries (bDebugBuildsActuallyUseDebugCRT)
-
-			PhysX3CommonHandle = LoadLibraryW(*(RootPhysXPath + "PhysX3CommonDEBUG_x86.dll"));
-			nvToolsExtHandle = LoadLibraryW(*(RootPhysXPath + "nvToolsExt32_1.dll"));
-			PhysX3Handle = LoadLibraryW(*(RootPhysXPath + "PhysX3DEBUG_x86.dll"));
-			#if WITH_PHYSICS_COOKING || WITH_RUNTIME_PHYSICS_COOKING
-				PhysX3CookingHandle = LoadLibraryW(*(RootPhysXPath + "PhysX3CookingDEBUG_x86.dll"));
-			#endif
-			#if WITH_APEX
-				APEXFrameworkHandle = LoadLibraryW(*(RootAPEXPath + "APEXFrameworkDEBUG_x86.dll"));
-				APEX_DestructibleHandle = LoadLibraryW(*(RootAPEXPath + "APEX_DestructibleDEBUG_x86.dll"));
-				APEX_LegacyHandle = LoadLibraryW(*(RootAPEXPath + "APEX_LegacyDEBUG_x86.dll"));
-				#if WITH_APEX_CLOTHING
-					APEX_ClothingHandle = LoadLibraryW(*(RootAPEXPath + "APEX_ClothingDEBUG_x86.dll"));
-				#endif //WITH_APEX_CLOTHING
-			#endif	//WITH_APEX
-
-		#elif WITH_PHYSX_RELEASE
-
-			PhysX3CommonHandle = LoadLibraryW(*(RootPhysXPath + "PhysX3Common_x86.dll"));
-			nvToolsExtHandle = LoadLibraryW(*(RootPhysXPath + "nvToolsExt32_1.dll"));
-			PhysX3Handle = LoadLibraryW(*(RootPhysXPath + "PhysX3_x86.dll"));
-			#if WITH_PHYSICS_COOKING || WITH_RUNTIME_PHYSICS_COOKING
-				PhysX3CookingHandle = LoadLibraryW(*(RootPhysXPath + "PhysX3Cooking_x86.dll"));
-			#endif
-			#if WITH_APEX
-				APEXFrameworkHandle = LoadLibraryW(*(RootAPEXPath + "APEXFramework_x86.dll"));
-				APEX_DestructibleHandle = LoadLibraryW(*(RootAPEXPath + "APEX_Destructible_x86.dll"));
-				APEX_LegacyHandle = LoadLibraryW(*(RootAPEXPath + "APEX_Legacy_x86.dll"));
-				#if WITH_APEX_CLOTHING
-					APEX_ClothingHandle = LoadLibraryW(*(RootAPEXPath + "APEX_Clothing_x86.dll"));
-				#endif //WITH_APEX_CLOTHING
-			#endif	//WITH_APEX
-
-		#elif WITH_PHYSX_CHECKED
-
-					PhysX3CommonHandle = LoadLibraryW(*(RootPhysXPath + "PhysX3CommonCHECKED_x86.dll"));
-					nvToolsExtHandle = LoadLibraryW(*(RootPhysXPath + "nvToolsExt32_1.dll"));
-					PhysX3Handle = LoadLibraryW(*(RootPhysXPath + "PhysX3CHECKED_x86.dll"));
-		#if WITH_PHYSICS_COOKING || WITH_RUNTIME_PHYSICS_COOKING
-					PhysX3CookingHandle = LoadLibraryW(*(RootPhysXPath + "PhysX3CookingCHECKED_x86.dll"));
-		#endif
-		#if WITH_APEX
-					APEXFrameworkHandle = LoadLibraryW(*(RootAPEXPath + "APEXFrameworkCHECKED_x86.dll"));
-					APEX_DestructibleHandle = LoadLibraryW(*(RootAPEXPath + "APEX_DestructibleCHECKED_x86.dll"));
-					APEX_LegacyHandle = LoadLibraryW(*(RootAPEXPath + "APEX_LegacyCHECKED_x86.dll"));
-		#if WITH_APEX_CLOTHING
-					APEX_ClothingHandle = LoadLibraryW(*(RootAPEXPath + "APEX_ClothingCHECKED_x86.dll"));
-		#endif //WITH_APEX_CLOTHING
-		#endif	//WITH_APEX
-
-		#else	//UE_BUILD_DEBUG
-
-			PhysX3CommonHandle = LoadLibraryW(*(RootPhysXPath + "PhysX3CommonPROFILE_x86.dll"));
-			nvToolsExtHandle = LoadLibraryW(*(RootPhysXPath + "nvToolsExt32_1.dll"));
-			PhysX3Handle = LoadLibraryW(*(RootPhysXPath + "PhysX3PROFILE_x86.dll"));
-			#if WITH_PHYSICS_COOKING || WITH_RUNTIME_PHYSICS_COOKING
-				PhysX3CookingHandle = LoadLibraryW(*(RootPhysXPath + "PhysX3CookingPROFILE_x86.dll"));
-			#endif
-			#if WITH_APEX
-					APEXFrameworkHandle = LoadLibraryW(*(RootAPEXPath + "APEXFrameworkPROFILE_x86.dll"));
-					APEX_DestructibleHandle = LoadLibraryW(*(RootAPEXPath + "APEX_DestructiblePROFILE_x86.dll"));
-					APEX_LegacyHandle = LoadLibraryW(*(RootAPEXPath + "APEX_LegacyPROFILE_x86.dll"));
-					#if WITH_APEX_CLOTHING
-						APEX_ClothingHandle = LoadLibraryW(*(RootAPEXPath + "APEX_ClothingPROFILE_x86.dll"));
-					#endif //WITH_APEX_CLOTHING
-			#endif	//WITH_APEX
-
-		#endif	//UE_BUILD_DEBUG
-	#endif	//PLATFORM_64BITS
+	#endif	//WITH_APEX
 #endif	//PLATFORM_WINDOWS
 }
 

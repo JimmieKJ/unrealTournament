@@ -132,6 +132,9 @@ private:
 	TSharedPtr<SWidget> OnTreeRightClick();
 	void OnAssetSelectedFromStaticMeshAssetPicker(const FAssetData& AssetData);
 
+	/** Call back for when bone/body properties are changed */
+	void OnFinishedChangingProperties(const FPropertyChangedEvent& PropertyChangedEvent);
+
 	/** SContentReference uses this to set the current animation */
 	void AnimationSelectionChanged(UObject* Object);
 
@@ -144,8 +147,7 @@ private:
 	/** Constraint editing helper methods */
 	void SnapConstraintToBone(int32 ConstraintIndex, const FTransform& WParentFrame);
 	void CreateOrConvertConstraint(EPhATConstraintType ConstraintType);
-	void SetConstraintsBelowSelectedMotorised(bool bMotorised);
-
+	
 	/** Collision editing helper methods */
 	void AddNewPrimitive(EKCollisionPrimitiveType PrimitiveType, bool bCopySelected = false);
 	void SetBodiesBelowSelectedPhysicsType( EPhysicsType InPhysicsType, bool bMarkAsDirty);
@@ -224,9 +226,6 @@ private:
 	bool IsBodyPhysicsType( EPhysicsType InPhysicsType );
 	void OnDeleteBody();
 	void OnDeleteAllBodiesBelow();
-	void OnToggleMotor();
-	void OnEnableMotorsBelow();
-	void OnDisableMotorsBelow();
 	void OnLockSelection();
 	void OnDeleteSelection();
 	void OnCycleConstraintOrientation();
@@ -236,6 +235,8 @@ private:
 	void OnToggleTwist();
 	
 	void Mirror();
+
+	void EditPhysicalAnimations();
 
 	//menu commands
 	void OnSelectAll();
@@ -262,6 +263,9 @@ private:
 	/** Properties Tab */
 	TSharedPtr<class IDetailsView> Properties;
 
+	/** Physics asset properties tab */
+	TSharedPtr<class IDetailsView> PhysAssetProperties;
+
 	/** Bone Hierarchy Tree View */
 	TSharedPtr< STreeView<FTreeElemPtr> > Hierarchy;
 	TSharedPtr<SBorder> HierarchyControl;
@@ -274,6 +278,8 @@ private:
 
 	/** Data and methods shared across multiple classes */
 	TSharedPtr<FPhATSharedData> SharedData;
+
+	TSharedPtr<STextComboBox> PhysicalAnimationComboBox;
 
 	/** Toolbar extender - used repeatedly as the body/constraints mode will remove/add this when changed */
 	TSharedPtr<FExtender> ToolbarExtender;
@@ -289,6 +295,9 @@ private:
 
 	/** True if we want to only simulate from selected body/constraint down*/
 	bool SelectedSimulation;
+
+	/** Holds the array of strings the UI needs to show physical animation profiles for the editing physics asset*/
+	TArray<TSharedPtr<FString>> PhysicalAnimationProfiles;
 
 	/** Determines which simulation mode wer're currently in */
 	EPhATSimulationMode SimulationMode;

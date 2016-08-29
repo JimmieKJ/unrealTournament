@@ -55,8 +55,3 @@ FDialogueWaveParameter::FDialogueWaveParameter()
 {
 
 }
-
-UDialogueTypes::UDialogueTypes(const FObjectInitializer& ObjectInitializer)
-	: Super(ObjectInitializer)
-{
-}

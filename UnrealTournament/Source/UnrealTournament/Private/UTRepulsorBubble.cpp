@@ -27,7 +27,7 @@ AUTRepulsorBubble::AUTRepulsorBubble(const class FObjectInitializer& ObjectIniti
 	BubbleMesh = ObjectInitializer.CreateOptionalDefaultSubobject<UStaticMeshComponent>(this, TEXT("BubbleMesh"));
 	if (BubbleMesh != NULL)
 	{
-		BubbleMesh->AttachTo(CollisionComp);
+		BubbleMesh->SetupAttachment(CollisionComp);
 	}
 
 	bAlwaysRelevant = true;
@@ -123,7 +123,7 @@ void AUTRepulsorBubble::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > &
 	DOREPLIFETIME(AUTRepulsorBubble, LastHitByType);
 }
 
-void AUTRepulsorBubble::OnOverlapBegin(AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
+void AUTRepulsorBubble::OnOverlapBegin(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
 {
 	FHitResult Hit;
 

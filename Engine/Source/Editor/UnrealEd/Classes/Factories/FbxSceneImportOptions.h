@@ -6,9 +6,9 @@
 UENUM()
 enum EFBXSceneOptionsCreateHierarchyType
 {
-	FBXSOCHT_CreateLevelActors UMETA(DisplayName = "Create Level Actors"),
-	FBXSOCHT_CreateActorComponents UMETA(DisplayName = "Create one Actor with Components"),
-	FBXSOCHT_CreateBlueprint UMETA(DisplayName = "Create one Blueprint asset"),
+	FBXSOCHT_CreateLevelActors UMETA(DisplayName = "Create Level Actors", ToolTip = "Create an actor for every node in the fbx hierarchy. No reimport of the hierarchy."),
+	FBXSOCHT_CreateActorComponents UMETA(DisplayName = "Create one Actor with Components", ToolTip = "Create one actor and a component for every node in the fbx hierarchy. No reimport of the hierarchy."),
+	FBXSOCHT_CreateBlueprint UMETA(DisplayName = "Create one Blueprint asset", ToolTip = "Create one blueprint and a component for every node in the fbx hierarchy. Hierarchy can be reimport."),
 	FBXSOCHT_MAX
 };
 //	Fbx_AddToBlueprint UMETA(DisplayName = "Add to an existing Blueprint asset"),
@@ -67,8 +67,8 @@ class UFbxSceneImportOptions : public UObject
 	UPROPERTY(EditAnywhere, config, category = Meshes)
 	uint32 bImportSkeletalMeshLODs : 1;
 
-	/** If importing textures is enabled, this option will cause normal map Y (Green) values to be inverted */
-	UPROPERTY(EditAnywhere, config, category = Material)
+	/** If enabled, this option will cause normal map Y (Green) values to be inverted when importing textures */
+	UPROPERTY(EditAnywhere, config, category = Texture)
 	uint32 bInvertNormalMaps : 1;
 };
 

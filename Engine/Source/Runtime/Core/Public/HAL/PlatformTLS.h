@@ -15,8 +15,6 @@
 #include "Apple/ApplePlatformTLS.h"
 #elif PLATFORM_ANDROID
 #include "Android/AndroidTLS.h"
-#elif PLATFORM_WINRT
-#include "WinRT/WinRTTLS.h"
 #elif PLATFORM_HTML5
 #include "HTML5/HTML5PlatformTLS.h"
 #elif PLATFORM_LINUX

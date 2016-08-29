@@ -16,6 +16,7 @@ namespace UnrealBuildTool.Rules
 				new string[] {
 					"Core",
 					"RenderCore",
+					"RHI",
 				}
 			);
 
@@ -37,6 +38,7 @@ namespace UnrealBuildTool.Rules
 				new string[] {
 					"CoreMedia",
 					"AVFoundation",
+					"AudioToolbox",
 					"QuartzCore"
 				}
 			);

@@ -18,15 +18,29 @@ public:
 	virtual FText GetDisplayName() const override;
 	virtual void SetDisplayName( const FText& NewDisplayName ) override;
 	virtual const FSlateBrush* GetIconBrush() const override;
+	virtual FSlateColor GetIconColor() const override;
 	virtual bool CanDrag() const override;
 	virtual TOptional<EItemDropZone> CanDrop( FSequencerDisplayNodeDragDropOp& DragDropOp, EItemDropZone ItemDropZone ) const override;
 	virtual void Drop( const TArray<TSharedRef<FSequencerDisplayNode>>& DraggedNodes, EItemDropZone ItemDropZone ) override;
+	virtual void BuildContextMenu(FMenuBuilder& MenuBuilder);
 
 	/** Adds a child node to this folder node. */
 	void AddChildNode( TSharedRef<FSequencerDisplayNode> ChildNode );
 
 	/** Gets the folder data for this display node. */
 	UMovieSceneFolder& GetFolder() const;
+
+	/** Callback to set the folder color */
+	void SetFolderColor();
+
+	/** Callback for the color being picked from the color picker */
+	void OnColorPickerPicked(FLinearColor NewFolderColor);
+
+	/** Callback for the color picker being closed */
+	void OnColorPickerClosed(const TSharedRef<SWindow>& Window);
+
+	/** Callback for the color picker being cancelled */
+	void OnColorPickerCancelled(FLinearColor NewFolderColor);
 
 private:
 

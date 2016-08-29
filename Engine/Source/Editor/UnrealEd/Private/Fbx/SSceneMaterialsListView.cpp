@@ -300,8 +300,8 @@ void SFbxSceneMaterialsListView::UpdateMaterialBasePath()
 
 TSharedPtr<SWidget> SFbxSceneMaterialsListView::OnOpenContextMenu()
 {
-	TArray<FbxMaterialInfoPtr> SelectedItems;
-	int32 SelectCount = GetSelectedItems(SelectedItems);
+	TArray<FbxMaterialInfoPtr> SelectedFbxMaterialInfos;
+	int32 SelectCount = GetSelectedItems(SelectedFbxMaterialInfos);
 	// Build up the menu for a selection
 	const bool bCloseAfterSelection = true;
 	FMenuBuilder MenuBuilder(bCloseAfterSelection, TSharedPtr<FUICommandList>());
@@ -362,9 +362,9 @@ void SFbxSceneMaterialsListView::RemoveSelectionFromImport()
 
 void SFbxSceneMaterialsListView::SetSelectionImportState(bool MarkForImport)
 {
-	TArray<FbxMaterialInfoPtr> SelectedItems;
-	GetSelectedItems(SelectedItems);
-	for (FbxMaterialInfoPtr Item : SelectedItems)
+	TArray<FbxMaterialInfoPtr> SelectedFbxMaterialInfos;
+	GetSelectedItems(SelectedFbxMaterialInfos);
+	for (FbxMaterialInfoPtr Item : SelectedFbxMaterialInfos)
 	{
 		Item->bImportAttribute = MarkForImport;
 	}
@@ -373,10 +373,10 @@ void SFbxSceneMaterialsListView::SetSelectionImportState(bool MarkForImport)
 void SFbxSceneMaterialsListView::OnSelectionChanged(FbxMaterialInfoPtr Item, ESelectInfo::Type SelectionType)
 {
 	//Change the texture list
-	TArray<FbxMaterialInfoPtr> SelectedItems;
-	GetSelectedItems(SelectedItems);
+	TArray<FbxMaterialInfoPtr> SelectedFbxMaterialInfos;
+	GetSelectedItems(SelectedFbxMaterialInfos);
 	TexturesArray->Reset();
-	for (FbxMaterialInfoPtr SelectItem : SelectedItems)
+	for (FbxMaterialInfoPtr SelectItem : SelectedFbxMaterialInfos)
 	{
 		TexturesArray->Append(SelectItem->Textures);
 	}
@@ -392,8 +392,8 @@ void SFbxSceneMaterialsListView::OnToggleSelectAll(ECheckBoxState CheckType)
 
 void SFbxSceneMaterialsListView::AssignMaterialAssetData(const FAssetData& AssetData)
 {
-	TArray<FbxMaterialInfoPtr> SelectedItems;
-	int32 SelectCount = GetSelectedItems(SelectedItems);
+	TArray<FbxMaterialInfoPtr> SelectedFbxMaterialInfos;
+	int32 SelectCount = GetSelectedItems(SelectedFbxMaterialInfos);
 	if (SelectCount != 1)
 	{
 		FSlateApplication::Get().DismissAllMenus();
@@ -406,7 +406,7 @@ void SFbxSceneMaterialsListView::AssignMaterialAssetData(const FAssetData& Asset
 	{
 		if (!ContentObject->HasAnyFlags(RF_Transient) && !ContentObject->IsPendingKill())
 		{
-			for (FbxMaterialInfoPtr ItemPtr : SelectedItems)
+			for (FbxMaterialInfoPtr ItemPtr : SelectedFbxMaterialInfos)
 			{
 				//Override the MeshInfo with the new asset path
 				ItemPtr->SetOverridePath(true);
@@ -420,13 +420,13 @@ void SFbxSceneMaterialsListView::AssignMaterialAssetData(const FAssetData& Asset
 
 void SFbxSceneMaterialsListView::AssignMaterialToExisting()
 {
-	TArray<FbxMaterialInfoPtr> SelectedItems;
-	int32 SelectCount = GetSelectedItems(SelectedItems);
+	TArray<FbxMaterialInfoPtr> SelectedFbxMaterialInfos;
+	int32 SelectCount = GetSelectedItems(SelectedFbxMaterialInfos);
 	if (SelectCount != 1)
 		return;
 	FContentBrowserModule& ContentBrowserModule = FModuleManager::LoadModuleChecked<FContentBrowserModule>("ContentBrowser");
 
-	for (FbxMaterialInfoPtr ItemPtr : SelectedItems)
+	for (FbxMaterialInfoPtr ItemPtr : SelectedFbxMaterialInfos)
 	{
 		FOpenAssetDialogConfig SelectAssetConfig;
 		SelectAssetConfig.DialogTitleOverride = LOCTEXT("FbxChooseMaterialAssetContentPath", "Choose a material asset");
@@ -454,10 +454,10 @@ void SFbxSceneMaterialsListView::AssignMaterialToExisting()
 
 void SFbxSceneMaterialsListView::ResetAssignMaterial()
 {
-	TArray<FbxMaterialInfoPtr> SelectedItems;
-	int32 SelectCount = GetSelectedItems(SelectedItems);
+	TArray<FbxMaterialInfoPtr> SelectedFbxMaterialInfos;
+	int32 SelectCount = GetSelectedItems(SelectedFbxMaterialInfos);
 
-	for (FbxMaterialInfoPtr ItemPtr : SelectedItems)
+	for (FbxMaterialInfoPtr ItemPtr : SelectedFbxMaterialInfos)
 	{
 		if (ItemPtr->bOverridePath)
 		{

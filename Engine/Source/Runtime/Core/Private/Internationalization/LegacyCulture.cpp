@@ -5,7 +5,20 @@
 #if !UE_ENABLE_ICU
 #include "LegacyCulture.h"
 
-FCulture::FLegacyCultureImplementation::FLegacyCultureImplementation(const FText& InDisplayName, const FString& InEnglishName, const int InKeyboardLayoutId, const int InLCID, const FString& InName, const FString& InNativeName, const FString& InUnrealLegacyThreeLetterISOLanguageName, const FString& InThreeLetterISOLanguageName, const FString& InTwoLetterISOLanguageName)
+FCulture::FLegacyCultureImplementation::FLegacyCultureImplementation(
+	const FText& InDisplayName, 
+	const FString& InEnglishName, 
+	const int InKeyboardLayoutId, 
+	const int InLCID, 
+	const FString& InName, 
+	const FString& InNativeName, 
+	const FString& InUnrealLegacyThreeLetterISOLanguageName, 
+	const FString& InThreeLetterISOLanguageName, 
+	const FString& InTwoLetterISOLanguageName,
+	const FDecimalNumberFormattingRules& InDecimalNumberFormattingRules,
+	const FDecimalNumberFormattingRules& InPercentFormattingRules,
+	const FDecimalNumberFormattingRules& InBaseCurrencyFormattingRules
+	)
 	: DisplayName(InDisplayName)
 	, EnglishName(InEnglishName)
 	, KeyboardLayoutId(InKeyboardLayoutId)
@@ -15,6 +28,9 @@ FCulture::FLegacyCultureImplementation::FLegacyCultureImplementation(const FText
 	, UnrealLegacyThreeLetterISOLanguageName( InUnrealLegacyThreeLetterISOLanguageName )
 	, ThreeLetterISOLanguageName( InThreeLetterISOLanguageName )
 	, TwoLetterISOLanguageName( InTwoLetterISOLanguageName )
+	, DecimalNumberFormattingRules( InDecimalNumberFormattingRules )
+	, PercentFormattingRules( InPercentFormattingRules )
+	, BaseCurrencyFormattingRules( InBaseCurrencyFormattingRules )
 { 
 }
 
@@ -89,4 +105,101 @@ FString FCulture::FLegacyCultureImplementation::GetTwoLetterISOLanguageName() co
 {
 	return TwoLetterISOLanguageName;
 }
+
+const FDecimalNumberFormattingRules& FCulture::FLegacyCultureImplementation::GetDecimalNumberFormattingRules()
+{
+	return DecimalNumberFormattingRules;
+}
+
+const FDecimalNumberFormattingRules& FCulture::FLegacyCultureImplementation::GetPercentFormattingRules()
+{
+	return PercentFormattingRules;
+}
+
+const FDecimalNumberFormattingRules& FCulture::FLegacyCultureImplementation::GetCurrencyFormattingRules(const FString& InCurrencyCode)
+{
+	const bool bUseDefaultFormattingRules = InCurrencyCode.IsEmpty();
+
+	if (bUseDefaultFormattingRules)
+	{
+		return BaseCurrencyFormattingRules;
+	}
+	else
+	{
+		FScopeLock MapLock(&UEAlternateCurrencyFormattingRulesCS);
+
+		auto FoundUEAlternateCurrencyFormattingRules = UEAlternateCurrencyFormattingRules.FindRef(InCurrencyCode);
+		if (FoundUEAlternateCurrencyFormattingRules.IsValid())
+		{
+			return *FoundUEAlternateCurrencyFormattingRules;
+		}
+	}
+
+	FDecimalNumberFormattingRules NewUECurrencyFormattingRules = BaseCurrencyFormattingRules;
+	NewUECurrencyFormattingRules.NegativePrefixString.ReplaceInline(TEXT("$"), *InCurrencyCode, ESearchCase::CaseSensitive);
+	NewUECurrencyFormattingRules.NegativeSuffixString.ReplaceInline(TEXT("$"), *InCurrencyCode, ESearchCase::CaseSensitive);
+	NewUECurrencyFormattingRules.PositivePrefixString.ReplaceInline(TEXT("$"), *InCurrencyCode, ESearchCase::CaseSensitive);
+	NewUECurrencyFormattingRules.PositiveSuffixString.ReplaceInline(TEXT("$"), *InCurrencyCode, ESearchCase::CaseSensitive);
+
+	{
+		FScopeLock MapLock(&UEAlternateCurrencyFormattingRulesCS);
+
+		// Find again in case another thread beat us to it
+		auto FoundUEAlternateCurrencyFormattingRules = UEAlternateCurrencyFormattingRules.FindRef(InCurrencyCode);
+		if (FoundUEAlternateCurrencyFormattingRules.IsValid())
+		{
+			return *FoundUEAlternateCurrencyFormattingRules;
+		}
+
+		FoundUEAlternateCurrencyFormattingRules = MakeShareable(new FDecimalNumberFormattingRules(NewUECurrencyFormattingRules));
+		UEAlternateCurrencyFormattingRules.Add(InCurrencyCode, FoundUEAlternateCurrencyFormattingRules);
+		return *FoundUEAlternateCurrencyFormattingRules;
+	}
+}
+
+namespace
+{
+
+template <typename T>
+ETextPluralForm GetDefaultPluralForm(T Val, const ETextPluralType PluralType)
+{
+	if (PluralType == ETextPluralType::Cardinal)
+	{
+		return (Val == 1) ? ETextPluralForm::One : ETextPluralForm::Other;
+	}
+	else
+	{
+		check(PluralType == ETextPluralType::Ordinal);
+
+		if (Val % 10 == 1 && Val % 100 != 11)
+		{
+			return ETextPluralForm::One;
+		}
+		if (Val % 10 == 2 && Val % 100 != 12)
+		{
+			return ETextPluralForm::Two;
+		}
+		if (Val % 10 == 3 && Val % 100 != 13)
+		{
+			return ETextPluralForm::Few;
+		}
+	}
+
+	return ETextPluralForm::Other;
+}
+
+}
+
+ETextPluralForm FCulture::FLegacyCultureImplementation::GetPluralForm(int32 Val, const ETextPluralType PluralType)
+{
+	checkf(Val >= 0, TEXT("GetPluralFormImpl requires a positive value"));
+	return GetDefaultPluralForm(Val, PluralType);
+}
+
+ETextPluralForm FCulture::FLegacyCultureImplementation::GetPluralForm(double Val, const ETextPluralType PluralType)
+{
+	checkf(!FMath::IsNegativeDouble(Val), TEXT("GetPluralFormImpl requires a positive value"));
+	return GetDefaultPluralForm((int64)Val, PluralType);
+}
+
 #endif

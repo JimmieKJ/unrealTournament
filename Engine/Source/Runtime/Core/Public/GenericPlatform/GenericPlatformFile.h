@@ -12,6 +12,28 @@ class FArchive;
 class FString;
 struct FDateTime;
 
+#define USE_NEW_ASYNC_IO (0)
+
+#if USE_NEW_ASYNC_IO
+class IAsyncReadFileHandle;
+#endif // USE_NEW_ASYNC_IO
+
+/**
+* Enum for async IO priorities.
+*/
+enum EAsyncIOPriority
+{
+	AIOP_MIN = 0,
+	AIOP_Precache = AIOP_MIN, 
+	AIOP_Low,
+	AIOP_BelowNormal,
+	AIOP_Normal,
+	AIOP_High,
+	AIOP_CriticalPath,
+	AIOP_MAX = AIOP_CriticalPath,
+	AIOP_NUM
+};
+
 /** 
  * File handle interface. 
 **/
@@ -178,6 +200,14 @@ public:
 		}
 	}
 
+	virtual void		BypassSecurity(bool bInBypass)
+	{
+		if (GetLowerLevel() != nullptr)
+		{
+			GetLowerLevel()->BypassSecurity(bInBypass);
+		}
+	}
+
 	/** Gets the platform file wrapped by this file. */
 	virtual IPlatformFile* GetLowerLevel() = 0;
 		/** Gets this platform file type name. */
@@ -271,6 +301,15 @@ public:
 	/////////// Utility Functions. These have a default implementation that uses the pure virtual operations.
 	/////////// Generally, these do not need to be implemented per platform.
 	/////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+#if USE_NEW_ASYNC_IO
+	/** Open a file for async reading. This call does not hit the disk or block.
+	*
+	* @param Filename file to be opened
+	* @return Close the file by delete'ing the handle. A non-null return value does not mean the file exists, since that may not be determined yet.
+	*/
+	virtual IAsyncReadFileHandle* OpenAsyncRead(const TCHAR* Filename);
+#endif // USE_NEW_ASYNC_IO
 
 	virtual void GetTimeStampPair(const TCHAR* PathA, const TCHAR* PathB, FDateTime& OutTimeStampA, FDateTime& OutTimeStampB);
 

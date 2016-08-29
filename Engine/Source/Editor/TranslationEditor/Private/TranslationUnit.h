@@ -58,6 +58,10 @@ public:
 	UPROPERTY(Category=Translation, VisibleAnywhere)
 	FString Namespace;
 
+	/** The localization key for this translation */
+	UPROPERTY(Category=Translation, VisibleAnywhere)
+	FString Key;
+
 	/** Original text from the source language */
 	UPROPERTY(Category=Translation, VisibleAnywhere)
 	FString Source;

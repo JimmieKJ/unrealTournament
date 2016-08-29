@@ -1,6 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "EnginePrivate.h"
+#include "UObject/UObjectThreadContext.h"
 #include "Engine/CanvasRenderTarget2D.h"
 
 UCanvasRenderTarget2D::UCanvasRenderTarget2D( const FObjectInitializer& ObjectInitializer )
@@ -8,15 +9,17 @@ UCanvasRenderTarget2D::UCanvasRenderTarget2D( const FObjectInitializer& ObjectIn
 	  World( nullptr )
 {
 	bNeedsTwoCopies = false;
+	bShouldClearRenderTargetOnReceiveUpdate = true;
 }
+
 
 void UCanvasRenderTarget2D::UpdateResource()
 {
 	// Call parent implementation
 	Super::UpdateResource();
-	
-	// Don't allocate canvas object for CRT2D CDO
-	if(IsTemplate())
+
+	// Don't allocate canvas object for CRT2D CDO; also, we can't update it during PostLoad!
+	if (IsTemplate() || FUObjectThreadContext::Get().IsRoutingPostLoad)
 	{
 		return;
 	}
@@ -59,19 +62,19 @@ void UCanvasRenderTarget2D::RepaintCanvas()
 
 	// Update the resource immediately to remove it from the deferred resource update list. This prevents the texture
 	// from being cleared each frame.
-	UpdateResourceImmediate();
+	UpdateResourceImmediate(bShouldClearRenderTargetOnReceiveUpdate);
 
 	// Enqueue the rendering command to set up the rendering canvas.
 	ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER
 		(
-		CanvasRenderTargetMakeCurrentCommand,
-		FTextureRenderTarget2DResource*,
-		TextureRenderTarget,
-		(FTextureRenderTarget2DResource*)GameThread_GetRenderTargetResource(),
-		{
-		SetRenderTarget(RHICmdList, TextureRenderTarget->GetRenderTargetTexture(), FTexture2DRHIRef(), true);
-		RHICmdList.SetViewport(0, 0, 0.0f, TextureRenderTarget->GetSizeXY().X, TextureRenderTarget->GetSizeXY().Y, 1.0f);
-	}
+			CanvasRenderTargetMakeCurrentCommand,
+			FTextureRenderTarget2DResource*,
+			TextureRenderTarget,
+			(FTextureRenderTarget2DResource*)GameThread_GetRenderTargetResource(),
+			{
+				SetRenderTarget(RHICmdList, TextureRenderTarget->GetRenderTargetTexture(), FTexture2DRHIRef(), true);
+	RHICmdList.SetViewport(0, 0, 0.0f, TextureRenderTarget->GetSizeXY().X, TextureRenderTarget->GetSizeXY().Y, 1.0f);
+			}
 	);
 
 	// Create the FCanvas which does the actual rendering.
@@ -95,13 +98,13 @@ void UCanvasRenderTarget2D::RepaintCanvas()
 	// so that the texture is updated and available for rendering.
 	ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER
 		(
-		CanvasRenderTargetResolveCommand,
-		FTextureRenderTargetResource*,
-		RenderTargetResource,
-		GameThread_GetRenderTargetResource(),
-		{
-		RHICmdList.CopyToResolveTarget(RenderTargetResource->GetRenderTargetTexture(), RenderTargetResource->TextureRHI, true, FResolveParams());
-	}
+			CanvasRenderTargetResolveCommand,
+			FTextureRenderTargetResource*,
+			RenderTargetResource,
+			GameThread_GetRenderTargetResource(),
+			{
+				RHICmdList.CopyToResolveTarget(RenderTargetResource->GetRenderTargetTexture(), RenderTargetResource->TextureRHI, true, FResolveParams());
+			}
 	);
 }
 

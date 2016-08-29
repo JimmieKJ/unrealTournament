@@ -43,7 +43,7 @@ protected:
 	UObject* RecursiveImportNode(void* FFbxImporter, void* Node, UObject* InParent, FName InName, EObjectFlags Flags, int32& Index, int32 Total, TArray<UObject*>& OutNewAssets);
 
 	// @todo document
-	UObject* ImportANode(void* VoidFbxImporter, void* VoidNode, UObject* InParent, FName InName, EObjectFlags Flags, int32& NodeIndex, int32 Total = 0, UObject* InMesh = NULL, int LODIndex = 0);
+	UObject* ImportANode(void* VoidFbxImporter, TArray<void*> VoidNodes, UObject* InParent, FName InName, EObjectFlags Flags, int32& NodeIndex, int32 Total = 0, UObject* InMesh = NULL, int LODIndex = 0);
 
 	bool bShowOption;
 	bool bDetectImportTypeOnImport;

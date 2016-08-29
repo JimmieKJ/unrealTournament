@@ -15,6 +15,7 @@ class FString;
 class FText;
 class GenericApplication;
 class IPlatformChunkInstall;
+class IPlatformCompression;
 class UWorld;
 
 
@@ -307,6 +308,22 @@ struct CORE_API FGenericPlatformMisc
 	*/
 	static FString GetCPUVendor();
 
+	/**
+	 * On x86(-64) platforms, uses cpuid instruction to get the CPU signature
+	 *
+	 * @return	CPU info bitfield
+	 *
+	 *			Bits 0-3	Stepping ID
+	 *			Bits 4-7	Model
+	 *			Bits 8-11	Family
+	 *			Bits 12-13	Processor type (Intel) / Reserved (AMD)
+	 *			Bits 14-15	Reserved
+	 *			Bits 16-19	Extended model
+	 *			Bits 20-27	Extended family
+	 *			Bits 28-31	Reserved
+	 */
+	static uint32 GetCPUInfo();
+
 	/** 
 	 * Uses cpuid instruction to get the CPU brand string
 	 *
@@ -593,6 +610,28 @@ public:
 	}
 
 	/**
+	* Checks if platform wants to allow an audio thread on current device (note: does not imply it will, only if okay given other criteria met)
+	*
+	* @return true if allowed, false if shouldn't use a separate audio thread
+	*/
+	static bool AllowAudioThread()
+	{
+		// allow if not overridden
+		return true;
+	}
+
+	/**
+	 * Checks if platform wants to allow the thread heartbeat hang detection
+	 *
+	 * @return true if allows, false if shouldn't allow thread heartbeat hang detection
+	 */
+	static bool AllowThreadHeartBeat()
+	{
+		// allow if not overridden
+		return true;
+	}
+
+	/**
 	 * return the number of hardware CPU cores
 	 */
 	static int32 NumberOfCores()
@@ -609,6 +648,11 @@ public:
 	 * Return the number of worker threads we should spawn, based on number of cores
 	 */
 	static int32 NumberOfWorkerThreadsToSpawn();
+
+	/**
+	* Return the number of worker threads we should spawn to service IO, NOT based on number of cores
+	*/
+	static int32 NumberOfIOWorkerThreadsToSpawn();
 
 	/**
 	 * Return the platform specific async IO system, or nullptr if the standard one should be used.
@@ -685,6 +729,13 @@ public:
 	 * @return	Returns the platform specific chunk based install implementation
 	 */
 	static IPlatformChunkInstall* GetPlatformChunkInstall();
+
+	/**
+	 * Returns the platform specific compression interface
+	 *
+	 * @return Returns the platform specific compression interface
+	 */
+	static IPlatformCompression* GetPlatformCompression();
 
 	/**
 	 * Has the OS execute a command and path pair (such as launch a browser)

@@ -6,7 +6,7 @@
 #include "Ticker.h"
 #include "IHttpRequest.h"
 
-class IAnalyticsProvider;
+class IAnalyticsProviderET;
 
 /**
  * Struct used for configuring an FHttpServiceTracker instance.
@@ -85,7 +85,7 @@ private:
 	/** Mapping of a service endpoint to summary metrics about it. */
 	TMap<FName, EndpointMetrics> EndpointMetricsMap;
 	/** The analytics provider we will user to send the summary metrics. */
-	TSharedPtr<IAnalyticsProvider> AnalyticsProvider;
+	TSharedPtr<IAnalyticsProviderET> AnalyticsProvider;
 	/** The interval used to summarize enpoint metrics. */
 	const float FlushIntervalSec;
 	/** Tracks the next system time when we will flush. */

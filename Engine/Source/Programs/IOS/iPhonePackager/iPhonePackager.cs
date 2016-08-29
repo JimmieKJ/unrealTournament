@@ -293,7 +293,32 @@ namespace iPhonePackager
 						{
 							if (Arguments.Length > ArgIndex + 1)
 							{
-								Config.OverrideBundleName = Arguments [++ArgIndex];
+								string projectName = "[PROJECT_NAME]";
+								string bundleId = Arguments[++ArgIndex];
+
+								// Check for an illegal bundle id
+								for (int i = 0; i < bundleId.Length; ++i)
+								{
+									char c = bundleId[i];
+
+									if (c == '[') 
+									{
+										if (bundleId.IndexOf(projectName, i) != i) 
+										{
+											Error("Illegal character in bundle ID");
+											return false;
+										}
+										i += projectName.Length;
+									}
+									else if ((c < '0' || c > '9') && (c < 'a' || c > 'z') && (c < 'A' || c > 'Z') && c != '.' && c != '-')
+									{
+										Error("Illegal character in bundle ID");
+										return false;
+									}
+								}
+
+								// Save the verified bundle id
+								Config.OverrideBundleName = bundleId;
 							}
 							else
 							{

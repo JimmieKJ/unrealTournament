@@ -267,6 +267,7 @@ void UEnvironmentQueryGraph::UpdateVersion_NestedNodes()
 		UEnvironmentQueryGraphNode_Option* OptionNode = Cast<UEnvironmentQueryGraphNode_Option>(Nodes[Idx]);
 		if (OptionNode && OptionNode->Pins.IsValidIndex(1))
 		{
+			OptionNode->Pins[1]->MarkPendingKill();
 			OptionNode->Pins.RemoveAt(1);
 		}
 	}

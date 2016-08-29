@@ -252,7 +252,7 @@ private:
 	uint32 Canary;
 
 	/** Initialize the shader RHI resources. */
-	void InitializeShaderRHI();
+	SHADERCORE_API void InitializeShaderRHI();
 
 	/** Tracks loaded shader resources by id. */
 	static TMap<FShaderResourceId, FShaderResource*> ShaderResourceIdMap;
@@ -610,6 +610,9 @@ public:
 
 	void SetResource(FShaderResource* InResource);
 
+	/** Called from the main thread to register and set the serialized resource */
+	void RegisterSerializedResource();
+
 	// FDeferredCleanupInterface implementation.
 	virtual void FinishCleanup();
 
@@ -699,18 +702,15 @@ protected:
 	TArray<FShaderUniformBufferParameter*> UniformBufferParameters;
 
 private:
-	
-	/** Locks the type's shader id map so that no other thread can add or remove shaders while we're deregistering. */
-	void LockShaderIdMap();
-
-	/** Unlocks the shader type's id map. */
-	void UnlockShaderIdMap();
 
 	/** 
 	 * Hash of the compiled output from this shader and the resulting parameter map.  
 	 * This is used to find a matching resource.
 	 */
 	FSHAHash OutputHash;
+
+	/** Pointer to the shader resource that has been serialized from disk, to be registered on the main thread later. */
+	FShaderResource* SerializedResource;
 
 	/** Reference to the shader resource, which stores the compiled bytecode and the RHI shader resource. */
 	TRefCountPtr<FShaderResource> Resource;
@@ -758,6 +758,13 @@ public:
 class SHADERCORE_API FShaderType
 {
 public:
+	enum class EShaderTypeForDynamicCast : uint32
+	{
+		Global,
+		Material,
+		MeshMaterial
+	};
+
 	typedef class FShader* (*ConstructSerializedType)();
 	typedef void (*GetStreamOutElementsType)(FStreamOutElementList& ElementList, TArray<uint32>& StreamStrides, int32& RasterizedStream);
 
@@ -784,6 +791,7 @@ public:
 
 	/** Minimal initialization constructor. */
 	FShaderType(
+		EShaderTypeForDynamicCast InShaderTypeForDynamicCast,
 		const TCHAR* InName,
 		const TCHAR* InSourceFilename,
 		const TCHAR* InFunctionName,
@@ -815,13 +823,31 @@ public:
 	}
 
 	// Dynamic casts.
-	virtual FGlobalShaderType* GetGlobalShaderType() { return nullptr; }
-	virtual const FGlobalShaderType* GetGlobalShaderType() const { return nullptr; }
-	virtual FMaterialShaderType* GetMaterialShaderType() { return nullptr; }
-	virtual const FMaterialShaderType* GetMaterialShaderType() const { return nullptr; }
-	virtual FMeshMaterialShaderType* GetMeshMaterialShaderType() { return nullptr; }
-	virtual const FMeshMaterialShaderType* GetMeshMaterialShaderType() const { return nullptr; }
-	
+	FORCEINLINE FGlobalShaderType* GetGlobalShaderType() 
+	{ 
+		return (ShaderTypeForDynamicCast == EShaderTypeForDynamicCast::Global) ? reinterpret_cast<FGlobalShaderType*>(this) : nullptr;
+	}
+	FORCEINLINE const FGlobalShaderType* GetGlobalShaderType() const
+	{
+		return (ShaderTypeForDynamicCast == EShaderTypeForDynamicCast::Global) ? reinterpret_cast<const FGlobalShaderType*>(this) : nullptr;
+	}
+	FORCEINLINE FMaterialShaderType* GetMaterialShaderType()
+	{
+		return (ShaderTypeForDynamicCast == EShaderTypeForDynamicCast::Material) ? reinterpret_cast<FMaterialShaderType*>(this) : nullptr;
+	}
+	FORCEINLINE const FMaterialShaderType* GetMaterialShaderType() const
+	{
+		return (ShaderTypeForDynamicCast == EShaderTypeForDynamicCast::Material) ? reinterpret_cast<const FMaterialShaderType*>(this) : nullptr;
+	}
+	FORCEINLINE FMeshMaterialShaderType* GetMeshMaterialShaderType()
+	{
+		return (ShaderTypeForDynamicCast == EShaderTypeForDynamicCast::MeshMaterial) ? reinterpret_cast<FMeshMaterialShaderType*>(this) : nullptr;
+	}
+	FORCEINLINE const FMeshMaterialShaderType* GetMeshMaterialShaderType() const
+	{
+		return (ShaderTypeForDynamicCast == EShaderTypeForDynamicCast::MeshMaterial) ? reinterpret_cast<const FMeshMaterialShaderType*>(this) : nullptr;
+	}
+
 	// Accessors.
 	inline EShaderFrequency GetFrequency() const
 	{ 
@@ -873,25 +899,14 @@ public:
 
 	void AddToShaderIdMap(FShaderId Id, FShader* Shader)
 	{
-		FScopeLock MapLock(&ShaderIdMapCritical);
+		check(IsInGameThread());
 		ShaderIdMap.Add(Id, Shader);
-	}
-
-	/** Locks the ShaderIdMap before deregistration */
-	inline void LockShaderIdMap()
-	{
-		ShaderIdMapCritical.Lock();
 	}
 
 	inline void RemoveFromShaderIdMap(FShaderId Id)
 	{
+		check(IsInGameThread());
 		ShaderIdMap.Remove(Id);
-	}
-
-	/** Unlocks the ShaderIdMap after deregistration has completed */
-	inline void UnlockShaderIdMap()
-	{
-		ShaderIdMapCritical.Unlock();
 	}
 
 	bool LimitShaderResourceToThisType() const
@@ -905,6 +920,7 @@ public:
 	}
 
 private:
+	EShaderTypeForDynamicCast ShaderTypeForDynamicCast;
 	uint32 HashIndex;
 	const TCHAR* Name;
 	FName TypeName;
@@ -917,7 +933,6 @@ private:
 
 	/** A map from shader ID to shader.  A shader will be removed from it when deleted, so this doesn't need to use a TRefCountPtr. */
 	TMap<FShaderId,FShader*> ShaderIdMap;
-	FCriticalSection ShaderIdMapCritical;
 
 	TLinkedList<FShaderType*> GlobalListLink;
 
@@ -1356,14 +1371,41 @@ inline bool operator<(const FShaderPipeline& Lhs, const FShaderPipeline& Rhs)
 template<typename ShaderMetaType>
 class TShaderMap
 {
+	/** Container for serialized shader pipeline stages to be registered on the game thread */
+	struct FSerializedShaderPipeline
+	{
+		const FShaderPipelineType* ShaderPipelineType;
+		TArray< TRefCountPtr<FShader> > ShaderStages;
+		FSerializedShaderPipeline()
+			: ShaderPipelineType(nullptr)
+		{
+		}
+	};
+
+	/** List of serialzied shaders to be processed and registered on the game thread */
+	TArray<FShader*> SerializedShaders;
+	/** List of serialzied shader pipeline stages to be processed and registered on the game thread */
+	TArray<FSerializedShaderPipeline*> SerializedShaderPipelines;
+	/** Flag that makes sure this shader map isn't used until all shaders have been registerd */
+	bool bHasBeenRegistered;
+
 public:
 	/** Default constructor. */
-	TShaderMap() {}
+	TShaderMap()
+		: bHasBeenRegistered(true)
+	{}
+
+	/** Destructor ensures pipelines cleared up. */
+	virtual ~TShaderMap()
+	{
+		EmptyShaderPipelines();
+	}
 
 	/** Finds the shader with the given type.  Asserts on failure. */
 	template<typename ShaderType>
 	ShaderType* GetShader() const
 	{
+		check(bHasBeenRegistered);
 		const TRefCountPtr<FShader>* ShaderRef = Shaders.Find(&ShaderType::StaticType);
 		checkf(ShaderRef != NULL && *ShaderRef != nullptr, TEXT("Failed to find shader type %s"), ShaderType::StaticType.GetName());
 		return (ShaderType*)((*ShaderRef)->GetShaderChecked());
@@ -1372,6 +1414,7 @@ public:
 	/** Finds the shader with the given type.  May return NULL. */
 	FShader* GetShader(FShaderType* ShaderType) const
 	{
+		check(bHasBeenRegistered);
 		const TRefCountPtr<FShader>* ShaderRef = Shaders.Find(ShaderType);
 		return ShaderRef ? (*ShaderRef)->GetShaderChecked() : nullptr;
 	}
@@ -1379,12 +1422,14 @@ public:
 	/** Finds the shader with the given type. */
 	bool HasShader(FShaderType* Type) const
 	{
+		check(bHasBeenRegistered);
 		const TRefCountPtr<FShader>* ShaderRef = Shaders.Find(Type);
 		return ShaderRef != nullptr && *ShaderRef != nullptr;
 	}
 
 	inline const TMap<FShaderType*,TRefCountPtr<FShader> >& GetShaders() const
 	{
+		check(bHasBeenRegistered);
 		return Shaders;
 	}
 
@@ -1420,6 +1465,7 @@ public:
 	/** Builds a list of the shaders in a shader map. */
 	void GetShaderList(TMap<FShaderId, FShader*>& OutShaders) const
 	{
+		check(bHasBeenRegistered);
 		for(TMap<FShaderType*,TRefCountPtr<FShader> >::TConstIterator ShaderIt(Shaders);ShaderIt;++ShaderIt)
 		{
 			if(ShaderIt.Value())
@@ -1432,6 +1478,7 @@ public:
 	/** Builds a list of the shader pipelines in a shader map. */
 	void GetShaderPipelineList(TArray<FShaderPipeline*>& OutShaderPipelines, FShaderPipeline::EFilter Filter) const
 	{
+		check(bHasBeenRegistered);
 		for (auto Pair : ShaderPipelines)
 		{
 			FShaderPipeline* Pipeline = Pair.Value;
@@ -1449,6 +1496,7 @@ public:
 
 	uint32 GetMaxTextureSamplersShaderMap() const
 	{
+		check(bHasBeenRegistered);
 		uint32 MaxTextureSamplers = 0;
 
 		for (TMap<FShaderType*,TRefCountPtr<FShader> >::TConstIterator ShaderIt(Shaders);ShaderIt;++ShaderIt)
@@ -1522,19 +1570,6 @@ public:
 			Shader = Type->ConstructForDeserialization();
 			check(Shader != nullptr);
 			Shader->SerializeBase(Ar, bInlineShaderResource);
-
-			TRefCountPtr<FShader> ExistingShader = Type->FindShaderById(Shader->GetId());
-
-			if (ExistingShader.IsValid())
-			{
-				delete Shader;
-				Shader = ExistingShader.GetReference();
-			}
-			else
-			{
-				// Register the shader now that it is valid, so that it can be reused
-				Shader->Register();
-			}
 		}
 		else
 		{
@@ -1605,9 +1640,14 @@ public:
 
 		if (Ar.IsLoading())
 		{
+			// Mark as unregistered - about to load new shaders that need to be registered later 
+			// on the game thread.
+			bHasBeenRegistered = false;
+
 			int32 NumShaders = 0;
 			Ar << NumShaders;
 
+			SerializedShaders.Reserve(NumShaders);
 			for (int32 ShaderIndex = 0; ShaderIndex < NumShaders; ShaderIndex++)
 			{
 				FShaderType* Type = nullptr;
@@ -1616,7 +1656,7 @@ public:
 				FShader* Shader = SerializeShaderForLoad(Type, Ar, bHandleShaderKeyChanges, bInlineShaderResource);
 				if (Shader)
 				{
-					AddShader(Shader->GetType(), Shader);
+					SerializedShaders.Add(Shader);
 				}
 			}
 
@@ -1644,46 +1684,93 @@ public:
 				// ShaderPipelineType can be nullptr if the pipeline existed but now is gone!
 				if (ShaderPipelineType && ShaderStages.Num() == ShaderPipelineType->GetStages().Num())
 				{
-					FShaderPipeline* ShaderPipeline = new FShaderPipeline(ShaderPipelineType, ShaderStages);
-					AddShaderPipeline(ShaderPipelineType, ShaderPipeline);
+					FSerializedShaderPipeline* SerializedPipeline = new FSerializedShaderPipeline();
+					SerializedPipeline->ShaderPipelineType = ShaderPipelineType;
+					SerializedPipeline->ShaderStages = MoveTemp(ShaderStages);
+					SerializedShaderPipelines.Add(SerializedPipeline);
 				}
 			}
 		}
 	}
 
+	/** Registered all shaders that have been serialized (maybe) on another thread */
+	virtual void RegisterSerializedShaders()
+	{
+		bHasBeenRegistered = true;
+		check(IsInGameThread());
+		for (FShader* Shader : SerializedShaders)
+		{
+			Shader->RegisterSerializedResource();
+
+			FShaderType* Type = Shader->GetType();
+			TRefCountPtr<FShader> ExistingShader = Type->FindShaderById(Shader->GetId());
+
+			if (ExistingShader.IsValid())
+			{
+				delete Shader;
+				Shader = ExistingShader.GetReference();
+			}
+			else
+			{
+				// Register the shader now that it is valid, so that it can be reused
+				Shader->Register();
+			}
+			AddShader(Shader->GetType(), Shader);
+		}
+		SerializedShaders.Empty();
+
+		for (FSerializedShaderPipeline* SerializedPipeline : SerializedShaderPipelines)
+		{
+			for (TRefCountPtr<FShader> Shader : SerializedPipeline->ShaderStages)
+			{
+				Shader->RegisterSerializedResource();
+			}
+			FShaderPipeline* ShaderPipeline = new FShaderPipeline(SerializedPipeline->ShaderPipelineType, SerializedPipeline->ShaderStages);
+			AddShaderPipeline(SerializedPipeline->ShaderPipelineType, ShaderPipeline);
+
+			delete SerializedPipeline;
+		}
+		SerializedShaderPipelines.Empty();
+	}
+
 	/** @return true if the map is empty */
 	inline bool IsEmpty() const
 	{
+		check(bHasBeenRegistered);
 		return Shaders.Num() == 0;
 	}
 
 	/** @return The number of shaders in the map. */
 	inline uint32 GetNumShaders() const
 	{
+		check(bHasBeenRegistered);
 		return Shaders.Num();
 	}
 
 	/** @return The number of shader pipelines in the map. */
 	inline uint32 GetNumShaderPipelines() const
 	{
+		check(bHasBeenRegistered);
 		return ShaderPipelines.Num();
 	}
 
-	/** clears out all shaders held in the map */
+	/** clears out all shaders and deletes shader pipelines held in the map */
 	void Empty()
 	{
 		Shaders.Empty();
-		ShaderPipelines.Empty();
+		EmptyShaderPipelines();
 	}
 
 	inline FShaderPipeline* GetShaderPipeline(const FShaderPipelineType* PipelineType)
 	{
+		check(bHasBeenRegistered);
 		FShaderPipeline** Found = ShaderPipelines.Find(PipelineType);
 		return Found ? *Found : nullptr;
 	}
 
 	inline FShaderPipeline* GetShaderPipeline(const FShaderPipelineType* PipelineType) const
 	{
+		check(bHasBeenRegistered);
 		FShaderPipeline* const* Found = ShaderPipelines.Find(PipelineType);
 		return Found ? *Found : nullptr;
 	}
@@ -1691,11 +1778,13 @@ public:
 	// Returns nullptr if not found
 	inline bool HasShaderPipeline(const FShaderPipelineType* PipelineType) const
 	{
+		check(bHasBeenRegistered);
 		return (GetShaderPipeline(PipelineType) != nullptr);
 	}
 
 	inline void AddShaderPipeline(const FShaderPipelineType* Type, FShaderPipeline* ShaderPipeline)
 	{
+		check(bHasBeenRegistered);
 		check(Type);
 		check(!ShaderPipeline || ShaderPipeline->PipelineType == Type);
 		ShaderPipelines.Add(Type, ShaderPipeline);
@@ -1703,6 +1792,7 @@ public:
 
 	uint32 GetMaxNumInstructionsForShader(const FShaderType* ShaderType) const
 	{
+		check(bHasBeenRegistered);
 		uint32 MaxNumInstructions = 0;
 		auto* FoundShader = Shaders.Find(ShaderType);
 		if (FoundShader && *FoundShader)
@@ -1724,6 +1814,19 @@ public:
 	}
 
 protected:
+	inline void EmptyShaderPipelines()
+	{
+		for (auto& Pair : ShaderPipelines)
+		{
+			if (FShaderPipeline* Pipeline = Pair.Value)
+			{
+				delete Pipeline;
+				Pipeline = nullptr;
+			}
+		}
+		ShaderPipelines.Empty();
+	}
+
 	TMap<FShaderType*, TRefCountPtr<FShader> > Shaders;
 	TMap<const FShaderPipelineType*, FShaderPipeline*> ShaderPipelines;
 };

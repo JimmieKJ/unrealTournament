@@ -556,7 +556,7 @@ void FDesktopPlatformMac::EnumerateEngineInstallations(TMap<FString, FString> &O
 	TArray<FName> KeysToRemove;
 	for (auto It : Section)
 	{
-		const FString& EngineDir = It.Value;
+		const FString& EngineDir = It.Value.GetValue();
 		if (EngineDir.Contains("Unreal Engine.app/Contents/") || EngineDir.Contains("Epic Games Launcher.app/Contents/") || EngineDir.Contains("/Users/Shared/UnrealEngine/Launcher") || !IFileManager::Get().DirectoryExists(*EngineDir))
 		{
 			KeysToRemove.Add(It.Key);

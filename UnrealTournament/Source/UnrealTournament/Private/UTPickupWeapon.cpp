@@ -73,14 +73,15 @@ void AUTPickupWeapon::InventoryTypeUpdated_Implementation()
 	if (GhostMesh != NULL && Mesh != NULL)
 	{
 		GhostDepthMesh = DuplicateObject<UMeshComponent>(Mesh, this);
-		GhostDepthMesh->AttachParent = NULL;
-		GhostDepthMesh->AttachChildren.Empty();
+		GhostDepthMesh->DetachFromComponent(FDetachmentTransformRules::KeepWorldTransform);
+		//PLK - HOPEFULLY THIS ISN't BROKEN DUE TO THE PRIVATIZATION OF ATTACHCHILDREN
+		//GhostDepthMesh->AttachChildren.Empty();
 		GhostDepthMesh->SetRenderCustomDepth(true);
 		GhostDepthMesh->SetRenderInMainPass(false);
 		GhostDepthMesh->CastShadow = false;
 		GhostDepthMesh->RegisterComponent();
 		GhostDepthMesh->bShouldUpdatePhysicsVolume = false;
-		GhostDepthMesh->AttachTo(Mesh, NAME_None, EAttachLocation::SnapToTargetIncludingScale);
+		GhostDepthMesh->AttachToComponent(Mesh, FAttachmentTransformRules::SnapToTargetIncludingScale);
 		if (GhostDepthMesh->bAbsoluteScale) // SnapToTarget doesn't handle absolute...
 		{
 			GhostDepthMesh->SetWorldScale3D(Mesh->GetComponentScale());

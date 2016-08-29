@@ -47,6 +47,24 @@ typedef TMap<FName, FClassInstanceToPropertyMap> FClassToPropertyMap;
 
 typedef STreeView< TSharedRef<class IDetailTreeNode> > SDetailTree;
 
+typedef TArray<TSharedPtr<FComplexPropertyNode>> FRootPropertyNodeList;
+
+struct FDetailLayoutData
+{
+	TSharedPtr<FDetailLayoutBuilderImpl> DetailLayout;
+
+	FClassToPropertyMap ClassToPropertyMap;
+
+	/** A  unique classes being viewed */
+	TSet< TWeakObjectPtr<UStruct> > ClassesWithProperties;
+
+	/** Customization class instances currently active in this view */
+	TArray< TSharedPtr<IDetailCustomization> > CustomizationClassInstances;
+
+};
+
+typedef TArray<FDetailLayoutData> FDetailLayoutList;
+
 /** Represents a filter which controls the visibility of items in the details view */
 struct FDetailFilter
 {
@@ -90,8 +108,11 @@ public:
 		, bIsLocked(false)
 		, bHasOpenColorPicker(false)
 		, bDisableCustomDetailLayouts( false )
+		, NumVisbleTopLevelObjectNodes(0)
 	{
 	}
+
+	virtual ~SDetailsViewBase();
 
 	/**
 	* @return true of the details view can be updated from editor selection
@@ -100,6 +121,17 @@ public:
 	{
 		return DetailsViewArgs.bUpdatesFromSelection;
 	}
+
+	virtual bool HasActiveSearch() const override
+	{
+		return CurrentFilter.FilterStrings.Num() > 0;
+	}
+
+	virtual int32 GetNumVisibleTopLevelObjects() const override
+	{
+		return NumVisbleTopLevelObjectNodes;
+	}
+
 
 	/** @return The identifier for this details view, or NAME_None is this view is anonymous */
 	virtual FName GetIdentifier() const override
@@ -120,53 +152,41 @@ public:
 	virtual void ShowAllAdvancedProperties() override;
 	virtual void SetOnDisplayedPropertiesChanged(FOnDisplayedPropertiesChanged InOnDisplayedPropertiesChangedDelegate) override;
 	virtual void SetDisableCustomDetailLayouts( bool bInDisableCustomDetailLayouts ) override { bDisableCustomDetailLayouts = bInDisableCustomDetailLayouts; }
-	virtual void RerunCurrentFilter() override;
+	virtual void SetIsPropertyVisibleDelegate(FIsPropertyVisible InIsPropertyVisible) override;
+	virtual void SetIsPropertyReadOnlyDelegate(FIsPropertyReadOnly InIsPropertyReadOnly) override;
+	virtual void SetIsPropertyEditingEnabledDelegate(FIsPropertyEditingEnabled IsPropertyEditingEnabled) override;
+	virtual bool IsPropertyEditingEnabled() const override;
+	virtual void SetKeyframeHandler(TSharedPtr<class IDetailKeyframeHandler> InKeyframeHandler) override;
+	virtual TSharedPtr<IDetailKeyframeHandler> GetKeyframeHandler() override;
+	virtual void SetExtensionHandler(TSharedPtr<class IDetailPropertyExtensionHandler> InExtensionHandler) override;
+	virtual TSharedPtr<IDetailPropertyExtensionHandler> GetExtensionHandler() override;
+	virtual bool IsPropertyVisible(const struct FPropertyAndParent& PropertyAndParent) const override;
+	virtual bool IsPropertyReadOnly(const struct FPropertyAndParent& PropertyAndParent) const override;
+	virtual void SetGenericLayoutDetailsDelegate(FOnGetDetailCustomizationInstance OnGetGenericDetails) override;
+	virtual bool IsLocked() const override { return bIsLocked; }
+	virtual void RefreshRootObjectVisibility() override;
+	virtual FOnFinishedChangingProperties& OnFinishedChangingProperties() override { return OnFinishedChangingPropertiesDelegate; }
 
-	virtual FOnFinishedChangingProperties& OnFinishedChangingProperties() override
-	{ 
-		return OnFinishedChangingPropertiesDelegate; 
-	}
+	/** IDetailsViewPrivate interface */
+	virtual void RerunCurrentFilter() override;
+	void SetNodeExpansionState(TSharedRef<IDetailTreeNode> InTreeNode, bool bIsItemExpanded, bool bRecursive) override;
+	void SaveCustomExpansionState(const FString& NodePath, bool bIsExpanded) override;
+	bool GetCustomSavedExpansionState(const FString& NodePath) const override;
+	virtual void NotifyFinishedChangingProperties(const FPropertyChangedEvent& PropertyChangedEvent) override;
+	void RefreshTree() override;
+	TSharedPtr<class FAssetThumbnailPool> GetThumbnailPool() const override;
+	TSharedPtr<IPropertyUtilities> GetPropertyUtilities() override;
+	void CreateColorPickerWindow(const TSharedRef< class FPropertyEditor >& PropertyEditor, bool bUseAlpha) override;
+	virtual FNotifyHook* GetNotifyHook() const override { return DetailsViewArgs.NotifyHook; }
 
 	virtual bool IsConnected() const = 0;
+
+	virtual FRootPropertyNodeList& GetRootNodes() = 0;
 
 	/**
 	 * Called when the open color picker window associated with this details view is closed
 	 */
 	void OnColorPickerWindowClosed(const TSharedRef<SWindow>& Window);
-
-	/**
-	 * Returns true if the details view is locked and cant have its observed objects changed 
-	 */
-	virtual bool IsLocked() const override
-	{
-		return bIsLocked;
-	}
-
-	/**
-	 * Sets a delegate which is called to determine whether a specific property should be visible
-	 */
-	virtual void SetIsPropertyVisibleDelegate(FIsPropertyVisible InIsPropertyVisible) override;
-
-	/**
-	 * Sets a delegate to call to determine if a specific property should be read-only in this instance of the details view
-	 */ 
-	virtual void SetIsPropertyReadOnlyDelegate( FIsPropertyReadOnly InIsPropertyReadOnly ) override;
-
-	/**
-	 * Sets a delegate to call to determine if the properties  editing is enabled
-	 */ 
-	virtual void SetIsPropertyEditingEnabledDelegate(FIsPropertyEditingEnabled IsPropertyEditingEnabled) override;
-
-	/**
-	 * @return true if property editing is enabled (based on the FIsPropertyEditingEnabled delegate)
-	 */
-	virtual bool IsPropertyEditingEnabled() const override;
-
-	virtual void SetKeyframeHandler( TSharedPtr<class IDetailKeyframeHandler> InKeyframeHandler ) override;
-	virtual TSharedPtr<IDetailKeyframeHandler> GetKeyframeHandler() override;
-
-	virtual void SetExtensionHandler(TSharedPtr<class IDetailPropertyExtensionHandler> InExtensionHandler) override;
-	virtual TSharedPtr<IDetailPropertyExtensionHandler> GetExtensionHandler() override;
 
 	/**
 	 * Requests that an item in the tree be expanded or collapsed
@@ -175,15 +195,6 @@ public:
 	 * @param bExpand	true if the item should be expanded, false otherwise
 	 */
 	void RequestItemExpanded(TSharedRef<IDetailTreeNode> TreeNode, bool bExpand) override;
-
-	/**
-	 * Sets the expansion state for a node and optionally all of its children
-	 *
-	 * @param InTreeNode		The node to change expansion state on
-	 * @param bIsItemExpanded	The new expansion state
-	 * @param bRecursive		Whether or not to apply the expansion change to any children
-	 */
-	void SetNodeExpansionState(TSharedRef<IDetailTreeNode> InTreeNode, bool bIsItemExpanded, bool bRecursive) override;
 
 	/**
 	 * Sets the expansion state all root nodes and optionally all of their children
@@ -196,38 +207,12 @@ public:
 	/**
 	 * Queries a layout for a specific class
 	 */
-	void QueryLayoutForClass(FDetailLayoutBuilderImpl& CustomDetailLayout, UStruct* Class);
+	void QueryLayoutForClass(FDetailLayoutData& LayoutData, UStruct* Class);
 
 	/**
 	 * Calls a delegate for each registered class that has properties visible to get any custom detail layouts
 	 */
-	void QueryCustomDetailLayout(class FDetailLayoutBuilderImpl& CustomDetailLayout);
-
-	/**
-	 * Refreshes the detail's treeview
-	 */
-	void RefreshTree() override;
-
-	/**
-	 * Saves the expansion state of a tree node
-	 *
-	 * @param NodePath	The path to the detail node to save
-	 * @param bIsExpanded	true if the node is expanded, false otherwise
-	 */
-	void SaveCustomExpansionState(const FString& NodePath, bool bIsExpanded) override;
-
-	/**
-	 * Gets the saved expansion state of a tree node in this category	
-	 *
-	 * @param NodePath	The path to the detail node to get
-	 * @return true if the node should be expanded, false otherwise
-	 */	
-	bool GetCustomSavedExpansionState(const FString& NodePath) const override;
-
-	/**
-	 * Called when properties have finished changing (after PostEditChange is called)
-	 */
-	virtual void NotifyFinishedChangingProperties(const FPropertyChangedEvent& PropertyChangedEvent) override;
+	void QueryCustomDetailLayout(FDetailLayoutData& LayoutData);
 
 	/** Column width accessibility */
 	float OnGetLeftColumnWidth() const { return 1.0f - ColumnWidth; }
@@ -235,42 +220,10 @@ public:
 	void OnSetColumnWidth(float InWidth) { ColumnWidth = InWidth; }
 
 	/**
-	 * @return True if the property is visible
-	 */
-	virtual bool IsPropertyVisible( const struct FPropertyAndParent& PropertyAndParent ) const override;
-
-	/**
-	 * @return True if the property is visible
-	 */
-	virtual bool IsPropertyReadOnly( const struct FPropertyAndParent& PropertyAndParent ) const override;
-
-	/**
-	* Sets a delegate which is regardless of the objects being viewed to lay out generic details not specific to any object
-	*/
-	virtual void SetGenericLayoutDetailsDelegate(FOnGetDetailCustomizationInstance OnGetGenericDetails) override;
-
-	/**
 	 * Adds an action to execute next tick
 	 */
 	virtual void EnqueueDeferredAction(FSimpleDelegate& DeferredAction) override;
 
-	/**
-	 * @return The thumbnail pool that should be used for thumbnails being rendered in this view
-	 */
-	TSharedPtr<class FAssetThumbnailPool> GetThumbnailPool() const override;
-
-	/**
-	 * Returns the property utilities for this view
-	 */
-	TSharedPtr<IPropertyUtilities> GetPropertyUtilities() override;
-
-	/** Returns the notify hook to use when properties change */
-	virtual FNotifyHook* GetNotifyHook() const override
-	{ 
-		return DetailsViewArgs.NotifyHook; 
-	}
-
-	virtual ~SDetailsViewBase();
 
 	// SWidget interface
 	virtual bool SupportsKeyboardFocus() const override;
@@ -286,15 +239,6 @@ public:
 	*/
 	void RestoreExpandedItems(TSharedRef<FPropertyNode> StartNode);
 
-	virtual TSharedPtr<FComplexPropertyNode> GetRootNode() = 0;
-
-	/**
-	 * Creates the color picker window for this property view.
-	 *
-	 * @param PropertyEditor				The slate property node to edit.
-	 * @param bUseAlpha			Whether or not alpha is supported
-	 */
-	void CreateColorPickerWindow(const TSharedRef< class FPropertyEditor >& PropertyEditor, bool bUseAlpha) override;
 
 protected:
 	/**
@@ -303,8 +247,9 @@ protected:
 	void SetColorPropertyFromColorPicker(FLinearColor NewColor);
 
 	/** Updates the property map for access when customizing the details view.  Generates default layout for properties */
-	void UpdatePropertyMap();
-	virtual void CustomUpdatePropertyMap() {}
+	void UpdatePropertyMaps();
+	void UpdateSinglePropertyMap(TSharedPtr<FComplexPropertyNode>& InRootPropertyNode, FDetailLayoutData& LayoutData);
+
 	/** 
 	 * Recursively updates children of property nodes. Generates default layout for properties 
 	 * 
@@ -312,8 +257,9 @@ protected:
 	 * @param The detail layout builder that will be used for customization of this property map
 	 * @param CurCategory The current category name
 	 */
-	void UpdatePropertyMapRecursive( FPropertyNode& InNode, FDetailLayoutBuilderImpl& DetailLayout, FName CurCategory, FComplexPropertyNode* CurObjectNode );
+	void UpdateSinglePropertyMapRecursive( FPropertyNode& InNode, FDetailLayoutData& LayoutData, FName CurCategory, FComplexPropertyNode* CurObjectNode, bool bEnableFavoriteSystem, bool bUpdateFavoriteSystemOnly);
 
+	virtual void CustomUpdatePropertyMap(TSharedPtr<FDetailLayoutBuilderImpl>& InDetailLayout) {}
 
 	/** Called to get the visibility of the tree view */
 	EVisibility GetTreeVisibility() const;
@@ -411,20 +357,14 @@ protected:
 protected:
 	/** The user defined args for the details view */
 	FDetailsViewArgs DetailsViewArgs;
-	/** A mapping of class (or struct) to properties in that struct (only top level, non-deeply nested properties appear in this map) */
-	FClassToPropertyMap ClassToPropertyMap;
-	/** A mapping unique classes being viewed to their variable names (for multiple of the same type being viewed)*/
-	TSet< TWeakObjectPtr<UStruct> > ClassesWithProperties;
 	/** A mapping of classes to detail layout delegates, called when querying for custom detail layouts in this instance of the details view only*/
 	FCustomDetailLayoutMap InstancedClassToDetailLayoutMap;
-	/** The current detail layout based on selection */
-	TSharedPtr<class FDetailLayoutBuilderImpl> DetailLayout;
+	/** The current detail layout based on objects in this details panel.  There is one layout for each top level object node.*/
+	FDetailLayoutList DetailLayouts;
 	/** Row for searching and view options */
 	TSharedPtr<SHorizontalBox>  FilterRow;
 	/** Search box */
-	TSharedPtr<SWidget> SearchBox;
-	/** Customization class instances currently active in this view */
-	TArray< TSharedPtr<IDetailCustomization> > CustomizationClassInstances;
+	TSharedPtr<SSearchBox> SearchBox;
 	/** Customization instances that need to be destroyed when safe to do so */
 	TArray< TSharedPtr<IDetailCustomization> > CustomizationClassInstancesPendingDelete;
 	/** Map of nodes that are requesting an automatic expansion/collapse due to being filtered */
@@ -434,7 +374,7 @@ protected:
 	/** Tree view */
 	TSharedPtr<SDetailTree> DetailTree;
 	/** Root tree nodes visible in the tree */
-	TArray< TSharedRef<IDetailTreeNode> > RootTreeNodes;
+	FDetailNodeList RootTreeNodes;
 	/** Delegate executed to determine if a property should be visible */
 	FIsPropertyVisible IsPropertyVisibleDelegate;
 	/** Delegate executed to determine if a property should be read-only */
@@ -452,7 +392,7 @@ protected:
 	/** True if this property view is currently locked (I.E The objects being observed are not changed automatically due to user selection)*/
 	bool bIsLocked;
 	/** The property node that the color picker is currently editing. */
-	TWeakPtr< FPropertyNode > ColorPropertyNode;
+	TWeakPtr<FPropertyNode> ColorPropertyNode;
 	/** Whether or not this instance of the details view opened a color picker and it is not closed yet */
 	bool bHasOpenColorPicker;
 	/** Settings for this view */
@@ -469,7 +409,7 @@ protected:
 	TArray<FSimpleDelegate> DeferredActions;
 
 	/** Root tree nodes that needs to be destroyed when safe */
-	TArray<TSharedPtr<FComplexPropertyNode>> RootNodesPendingKill;
+	FRootPropertyNodeList RootNodesPendingKill;
 
 	/** The handler for the keyframe UI, determines if the key framing UI should be displayed. */
 	TSharedPtr<IDetailKeyframeHandler> KeyframeHandler;
@@ -488,4 +428,6 @@ protected:
 
 	/** True if we want to skip generation of custom layouts for displayed object */
 	bool bDisableCustomDetailLayouts;
+
+	int32 NumVisbleTopLevelObjectNodes;
 };

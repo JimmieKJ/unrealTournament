@@ -51,7 +51,7 @@ TSharedRef<ITableRow> FPListNodeBoolean::GenerateWidget(const TSharedRef<STableV
 }
 
 /** Generate a widget for the specified column name */
-TSharedRef<SWidget> FPListNodeBoolean::GenerateWidgetForColumn(const FName& ColumnName, int32 Depth, ITableRow* RowPtr)
+TSharedRef<SWidget> FPListNodeBoolean::GenerateWidgetForColumn(const FName& ColumnName, int32 InDepth, ITableRow* RowPtr)
 {
 	if(ColumnName == "PListKeyColumn")
 	{
@@ -65,7 +65,7 @@ TSharedRef<SWidget> FPListNodeBoolean::GenerateWidgetForColumn(const FName& Colu
 			+ SHorizontalBox::Slot()
 			[
 				SNew(SSpacer)
-				.Size(FVector2D(20 * Depth, 0))
+				.Size(FVector2D(20 * InDepth, 0))
 			]
 
 			// Editable key value

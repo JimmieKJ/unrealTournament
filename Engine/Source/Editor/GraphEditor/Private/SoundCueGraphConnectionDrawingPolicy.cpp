@@ -25,13 +25,13 @@ FSoundCueGraphConnectionDrawingPolicy::FSoundCueGraphConnectionDrawingPolicy(int
 	ArrowRadius = FVector2D::ZeroVector;
 }
 
-void FSoundCueGraphConnectionDrawingPolicy::Draw(TMap<TSharedRef<SWidget>, FArrangedWidget>& PinGeometries, FArrangedChildren& ArrangedNodes)
+void FSoundCueGraphConnectionDrawingPolicy::Draw(TMap<TSharedRef<SWidget>, FArrangedWidget>& InPinGeometries, FArrangedChildren& ArrangedNodes)
 {
 	// Build the execution roadmap (also populates execution times)
 	BuildAudioFlowRoadmap();
 
 	// Draw everything
-	FConnectionDrawingPolicy::Draw(PinGeometries, ArrangedNodes);
+	FConnectionDrawingPolicy::Draw(InPinGeometries, ArrangedNodes);
 }
 
 void FSoundCueGraphConnectionDrawingPolicy::BuildAudioFlowRoadmap()
@@ -51,14 +51,14 @@ void FSoundCueGraphConnectionDrawingPolicy::BuildAudioFlowRoadmap()
 			const int32 FirstActiveIndex = AudioDevice->GetSortedActiveWaveInstances(WaveInstances, ESortedActiveWaveGetType::QueryOnly);
 
 			// Run through the active instances and cull out anything that isn't related to this graph
-			if (FirstActiveIndex > 0 && WaveInstances.IsValidIndex(FirstActiveIndex))
+			if (FirstActiveIndex > 0)
 			{
 				WaveInstances.RemoveAt(0, FirstActiveIndex + 1);
 			}
 
 			for (int32 WaveIndex = WaveInstances.Num() - 1; WaveIndex >= 0 ; --WaveIndex)
 			{
-				UAudioComponent* WaveInstanceAudioComponent = WaveInstances[WaveIndex]->ActiveSound->GetAudioComponent();
+				UAudioComponent* WaveInstanceAudioComponent = UAudioComponent::GetAudioComponentFromID(WaveInstances[WaveIndex]->ActiveSound->GetAudioComponentID());
 				if (WaveInstanceAudioComponent != PreviewAudioComponent)
 				{
 					WaveInstances.RemoveAtSwap(WaveIndex);

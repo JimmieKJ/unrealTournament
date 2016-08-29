@@ -58,6 +58,12 @@ void UK2Node_GetEnumeratorName::ValidateNodeDuringCompilation(class FCompilerRes
 	}
 }
 
+FSlateIcon UK2Node_GetEnumeratorName::GetIconAndTint(FLinearColor& OutColor) const
+{
+	static FSlateIcon Icon("EditorStyle", "GraphEditor.Enum_16x");
+	return Icon;
+}
+
 void UK2Node_GetEnumeratorName::EarlyValidation(class FCompilerResultsLog& MessageLog) const
 {
 	const UEnum* Enum = GetEnum();

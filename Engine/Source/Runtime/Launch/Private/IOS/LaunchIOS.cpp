@@ -10,6 +10,8 @@
 #include "AudioDevice.h"
 #include "GenericPlatformChunkInstall.h"
 #include "IOSAudioDevice.h"
+#include "LocalNotification.h"
+#include "ModuleManager.h"
 
 
 FEngineLoop GEngineLoop;
@@ -146,6 +148,12 @@ void FAppEntry::PlatformInit()
 
 	// set the GL context to this thread
 	[AppDelegate.IOSView MakeCurrent];
+
+	// Set GSystemResolution now that we have the size.
+	FDisplayMetrics DisplayMetrics;
+	FDisplayMetrics::GetDisplayMetrics(DisplayMetrics);
+	FSystemResolution::RequestResolutionChange(DisplayMetrics.PrimaryDisplayWidth, DisplayMetrics.PrimaryDisplayHeight, EWindowMode::Fullscreen);
+	IConsoleManager::Get().CallAllConsoleVariableSinks();
 }
 
 void FAppEntry::Init()
@@ -163,6 +171,32 @@ void FAppEntry::Init()
 	GCommandSystem.Init();
 
 	GLog->SetCurrentThreadAsMasterThread();
+	
+	// Send the launch local notification to the local notification service now that the engine module system has been initialized
+	if(gAppLaunchedWithLocalNotification)
+	{
+		ILocalNotificationService* notificationService = NULL;
+
+		// Get the module name from the .ini file
+		FString ModuleName;
+		GConfig->GetString(TEXT("LocalNotification"), TEXT("DefaultPlatformService"), ModuleName, GEngineIni);
+
+		if (ModuleName.Len() > 0)
+		{			
+			// load the module by name retrieved from the .ini
+			ILocalNotificationModule* module = FModuleManager::LoadModulePtr<ILocalNotificationModule>(*ModuleName);
+
+			// does the module exist?
+			if (module != nullptr)
+			{
+				notificationService = module->GetLocalNotificationService();
+				if(notificationService != NULL)
+				{
+					notificationService->SetLaunchNotification(gLaunchLocalNotificationActivationEvent, gLaunchLocalNotificationFireDate);
+				}
+			}
+		}
+	}
 
 	// start up the engine
 	GEngineLoop.Init();
@@ -201,6 +235,10 @@ void FAppEntry::Shutdown()
     // kill the engine
     GEngineLoop.Exit();
 }
+
+bool	FAppEntry::gAppLaunchedWithLocalNotification;
+FString	FAppEntry::gLaunchLocalNotificationActivationEvent;
+int32	FAppEntry::gLaunchLocalNotificationFireDate;
 
 FString GSavedCommandLine;
 

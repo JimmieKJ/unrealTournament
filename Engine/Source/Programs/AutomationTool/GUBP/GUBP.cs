@@ -97,7 +97,7 @@ public partial class GUBP : BuildCommand
         bool bSaveSharedTempStorage = P4Enabled && (IsBuildMachine || GlobalCommandLine.UseLocalBuildStorage);
 
         // Get the branch hacker options.
-        string BranchName = P4Enabled ? P4Env.BuildRootP4 : ParseParamValue("BranchName", "");
+        string BranchName = ParseParamValue("BranchName", P4Enabled ? P4Env.BuildRootP4 : "");
         GUBPBranchHacker.BranchOptions BranchOptions = GetBranchOptions(BranchName);
 
 		foreach (var Kind in BranchOptions.MonolithicsToRemove)
@@ -498,6 +498,45 @@ public partial class GUBP : BuildCommand
 
 		Log("");
 		Log("***************************************************************");
+    }
+
+    public int GetLastSucceededCL(string NodeName)
+    {
+        if (P4Enabled)
+        {
+            bool bNewEC = ParseParam("NewEC");
+            bool bFakeEC = ParseParam("FakeEC");
+
+            bool bSaveSharedTempStorage = P4Enabled && (IsBuildMachine || GlobalCommandLine.UseLocalBuildStorage);
+
+            // Get the branch hacker options.
+            string BranchName = P4Enabled ? P4Env.BuildRootP4 : ParseParamValue("BranchName", "");
+            GUBPBranchHacker.BranchOptions BranchOptions = GetBranchOptions(BranchName);
+
+            string BranchNameForTempStorage = P4Enabled ? P4Env.BuildRootEscaped : "NoP4";
+            string RootNameForTempStorage = BranchOptions.RootNameForTempStorage ?? "UE4";
+            string PreflightSuffix = GetPreflightSuffix();
+            int ChangeNumber = P4Enabled ? ParseParamInt("CL", P4Env.Changelist) : 0;
+            string BuildFolder = string.Format("{0}{1}", ChangeNumber, PreflightSuffix);
+
+            string TempStorageDir;
+            if (bNewEC)
+            {
+                TempStorageDir = ParseParamValue("TempStorageDir");
+            }
+            else
+            {
+                TempStorageDir = GetTempStorageDir(bSaveSharedTempStorage, bFakeEC, BranchNameForTempStorage, RootNameForTempStorage, BuildFolder);
+            }
+
+            NodeHistory History = FindNodeHistory(NodeName, P4Env.Changelist, TempStorageDir);
+            if (History != null)
+            {
+                return History.LastSucceeded;
+            }
+        }
+
+        return -1;
     }
 
     void PrintNodes(GUBP bp, List<BuildNode> Nodes, IEnumerable<AggregateNode> Aggregates, List<TriggerNode> UnfinishedTriggers, int TimeQuantum)
@@ -1485,7 +1524,7 @@ public partial class GUBP : BuildCommand
             {
                 if (BuildProductToNodeMap.ContainsKey(Product))
                 {
-                    throw new AutomationException("Overlapping build product: {0} and {1} both produce {2}", BuildProductToNodeMap[Product].ToString(), NodeToDo.Name, Product);
+                    throw new AutomationException("Overlapping build product: {0} and {1} both produce {2}", BuildProductToNodeMap[Product].Name, NodeToDo.Name, Product);
                 }
                 BuildProductToNodeMap.Add(Product, NodeToDo);
             }

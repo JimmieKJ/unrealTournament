@@ -275,9 +275,9 @@ void AUTGameSessionRanked::CleanUpOnlineSubsystem()
 	Super::CleanUpOnlineSubsystem();
 }
 
-void AUTGameSessionRanked::OnDestroySessionComplete(FName SessionName, bool bWasSuccessful)
+void AUTGameSessionRanked::OnDestroySessionComplete(FName InSessionName, bool bWasSuccessful)
 {
-	if (SessionName == GameSessionName)
+	if (InSessionName == GameSessionName)
 	{
 		IOnlineSubsystem* OnlineSub = IOnlineSubsystem::Get();
 		if (OnlineSub)
@@ -288,7 +288,7 @@ void AUTGameSessionRanked::OnDestroySessionComplete(FName SessionName, bool bWas
 
 		if (!bWasSuccessful)
 		{
-			UE_LOG(LogOnlineGame, Warning, TEXT("Failed to destroy previous game session %s"), *SessionName.ToString());
+			UE_LOG(LogOnlineGame, Warning, TEXT("Failed to destroy previous game session %s"), *InSessionName.ToString());
 		}
 
 		FTimerHandle TempHandle;
@@ -296,11 +296,11 @@ void AUTGameSessionRanked::OnDestroySessionComplete(FName SessionName, bool bWas
 	}
 }
 
-void AUTGameSessionRanked::OnCreateSessionComplete(FName SessionName, bool bWasSuccessful)
+void AUTGameSessionRanked::OnCreateSessionComplete(FName InSessionName, bool bWasSuccessful)
 {
-	if (SessionName == GameSessionName)
+	if (InSessionName == GameSessionName)
 	{
-		UE_LOG(LogOnlineGame, Verbose, TEXT("OnCreateSessionComplete %s bSuccess: %d"), *SessionName.ToString(), bWasSuccessful);
+		UE_LOG(LogOnlineGame, Verbose, TEXT("OnCreateSessionComplete %s bSuccess: %d"), *InSessionName.ToString(), bWasSuccessful);
 
 		IOnlineSubsystem* OnlineSub = IOnlineSubsystem::Get();
 		if (OnlineSub)
@@ -493,14 +493,14 @@ void AUTGameSessionRanked::OnServerConfigurationRequest(const FUniqueNetIdRepl& 
 	{
 		int32 TeamCount = UT_DEFAULT_MAX_TEAM_COUNT;
 		int32 TeamSize = UT_DEFAULT_MAX_TEAM_SIZE;
-		int32 MaxPartySize = UT_DEFAULT_PARTY_SIZE;
+		int32 PlaylistMaxPartySize = UT_DEFAULT_PARTY_SIZE;
 
 		// Get the playlist configuration for team/reservation sizes
 		if (ReservationData.PlaylistId > INDEX_NONE)
 		{
 			UUTGameInstance* UTGameInstance = Cast<UUTGameInstance>(GetGameInstance());
 			if (UTGameInstance && UTGameInstance->GetPlaylistManager() && 
-				UTGameInstance->GetPlaylistManager()->GetMaxTeamInfoForPlaylist(ReservationData.PlaylistId, TeamCount, TeamSize, MaxPartySize))
+				UTGameInstance->GetPlaylistManager()->GetMaxTeamInfoForPlaylist(ReservationData.PlaylistId, TeamCount, TeamSize, PlaylistMaxPartySize))
 			{
 				MaxPlayers = TeamCount * TeamSize;
 				ReservationBeaconHost->ReconfigureTeamAndPlayerCount(TeamCount, TeamSize, MaxPlayers);
@@ -543,7 +543,7 @@ void AUTGameSessionRanked::OnServerConfigurationRequest(const FUniqueNetIdRepl& 
 	}
 }
 
-void AUTGameSessionRanked::SetPlayerNeedsSize(FName SessionName, int32 NeedsSize, bool bUpdateSession)
+void AUTGameSessionRanked::SetPlayerNeedsSize(FName InSessionName, int32 NeedsSize, bool bUpdateSession)
 {
 	IOnlineSubsystem* OnlineSub = IOnlineSubsystem::Get();
 	if (OnlineSub)
@@ -551,16 +551,16 @@ void AUTGameSessionRanked::SetPlayerNeedsSize(FName SessionName, int32 NeedsSize
 		IOnlineSessionPtr SessionInt = OnlineSub->GetSessionInterface();
 		if (SessionInt.IsValid())
 		{
-			FOnlineSessionSettings* SessionSettings = SessionInt->GetSessionSettings(SessionName);
+			FOnlineSessionSettings* SessionSettings = SessionInt->GetSessionSettings(InSessionName);
 			if (SessionSettings)
 			{
-				UE_LOG(LogOnlineGame, Verbose, TEXT("Setting %s player need size to %d"), *SessionName.ToString(), NeedsSize);
-				if (GetPlayerNeedsSize(SessionName) != NeedsSize)
+				UE_LOG(LogOnlineGame, Verbose, TEXT("Setting %s player need size to %d"), *InSessionName.ToString(), NeedsSize);
+				if (GetPlayerNeedsSize(InSessionName) != NeedsSize)
 				{
 					// Two values to overcome query limitation
 					SessionSettings->Set(SETTING_NEEDS, NeedsSize, EOnlineDataAdvertisementType::ViaOnlineService);
 					SessionSettings->Set(SETTING_NEEDSSORT, NeedsSize, EOnlineDataAdvertisementType::ViaOnlineService);
-					SessionInt->UpdateSession(SessionName, *SessionSettings, bUpdateSession);
+					SessionInt->UpdateSession(InSessionName, *SessionSettings, bUpdateSession);
 				}
 				else
 				{
@@ -571,7 +571,7 @@ void AUTGameSessionRanked::SetPlayerNeedsSize(FName SessionName, int32 NeedsSize
 	}
 }
 
-int32 AUTGameSessionRanked::GetPlayerNeedsSize(FName SessionName)
+int32 AUTGameSessionRanked::GetPlayerNeedsSize(FName InSessionName)
 {
 	int32 CurrentNeedsSize = 0;
 
@@ -581,7 +581,7 @@ int32 AUTGameSessionRanked::GetPlayerNeedsSize(FName SessionName)
 		IOnlineSessionPtr SessionInt = OnlineSub->GetSessionInterface();
 		if (SessionInt.IsValid())
 		{
-			FOnlineSessionSettings* SessionSettings = SessionInt->GetSessionSettings(SessionName);
+			FOnlineSessionSettings* SessionSettings = SessionInt->GetSessionSettings(InSessionName);
 			if (SessionSettings)
 			{
 				SessionSettings->Get(SETTING_NEEDS, CurrentNeedsSize);
@@ -844,7 +844,7 @@ bool AUTGameSessionRanked::GetGameSessionSettings(const FOnlineSessionSettings* 
 	return bFound;
 }
 
-void AUTGameSessionRanked::UpdateSession(FName SessionName, FOnlineSessionSettings& SessionSettings)
+void AUTGameSessionRanked::UpdateSession(FName InSessionName, FOnlineSessionSettings& SessionSettings)
 {
 	IOnlineSubsystem* OnlineSub = IOnlineSubsystem::Get();
 	if (OnlineSub)
@@ -853,7 +853,7 @@ void AUTGameSessionRanked::UpdateSession(FName SessionName, FOnlineSessionSettin
 		if (SessionInt.IsValid())
 		{
 			OnUpdateSessionCompleteDelegateHandle = SessionInt->AddOnUpdateSessionCompleteDelegate_Handle(OnUpdateSessionCompleteDelegate);
-			SessionInt->UpdateSession(SessionName, SessionSettings, true);
+			SessionInt->UpdateSession(InSessionName, SessionSettings, true);
 		}
 	}
 }

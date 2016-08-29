@@ -35,7 +35,7 @@ void FAssetTypeActions_GeometryCache::OpenAssetEditor(const TArray<UObject*>& In
 
 uint32 FAssetTypeActions_GeometryCache::GetCategories()
 {
-	return EAssetTypeCategories::Basic;
+	return EAssetTypeCategories::Animation;
 }
 
 class UThumbnailInfo* FAssetTypeActions_GeometryCache::GetThumbnailInfo(UObject* Asset) const

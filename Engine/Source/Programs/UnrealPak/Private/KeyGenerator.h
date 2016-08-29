@@ -33,3 +33,5 @@ bool GenerateKeys(const TCHAR* KeyFilename);
 bool SaveKeysToFile(const FKeyPair& Keys, const TCHAR* KeyFilename);
 
 bool ReadKeysFromFile(const TCHAR* KeyFilename, FKeyPair& OutKeys);
+
+bool TestKeys(FKeyPair& Pair);

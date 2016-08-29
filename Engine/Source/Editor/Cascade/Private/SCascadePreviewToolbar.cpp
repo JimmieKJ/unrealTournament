@@ -70,6 +70,7 @@ TSharedRef<SWidget> SCascadePreviewViewportToolBar::GenerateViewMenu() const
 				Menu.AddMenuEntry(FCascadeCommands::Get().View_ParticleTimes);
 				Menu.AddMenuEntry(FCascadeCommands::Get().View_ParticleMemory);
 				Menu.AddMenuEntry(FCascadeCommands::Get().View_SystemCompleted);
+				Menu.AddMenuEntry(FCascadeCommands::Get().View_EmitterTickTimes);
 			}
 			Menu.EndSection();
 		}

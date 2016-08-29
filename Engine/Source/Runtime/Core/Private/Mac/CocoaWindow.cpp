@@ -212,7 +212,7 @@ NSString* NSPerformDragOperation = @"NSPerformDragOperation";
 		self.PreFullScreenRect.size = [self openGLFrame].size;
 		
 		// Use the current default fullscreen mode when switching via the OS button
-		auto CVar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.FullScreenMode"));
+		static auto CVar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.FullScreenMode"));
 		check(CVar);
 		self.TargetWindowMode = CVar->GetValueOnAnyThread() == 0 ? EWindowMode::Fullscreen : EWindowMode::WindowedFullscreen;
 		

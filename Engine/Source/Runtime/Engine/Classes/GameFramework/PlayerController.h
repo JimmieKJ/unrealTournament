@@ -77,16 +77,20 @@ struct ENGINE_API FInputModeUIOnly : public FInputModeDataBase
 	FInputModeUIOnly& SetWidgetToFocus(TSharedPtr<SWidget> InWidgetToFocus) { WidgetToFocus = InWidgetToFocus; return *this; }
 
 	/** Whether to lock the mouse to the viewport */
-	FInputModeUIOnly& SetLockMouseToViewport(bool InLockMouseToViewport) { bLockMouseToViewport = InLockMouseToViewport; return *this; }
+	DEPRECATED(4.13, "Mouse locking behavior is now controlled by an enum. Please use SetLockMouseToViewportBehavior(...) instead.")
+	FInputModeUIOnly& SetLockMouseToViewport(bool InLockMouseToViewport) { return SetLockMouseToViewportBehavior( InLockMouseToViewport ? EMouseLockMode::LockOnCapture : EMouseLockMode::DoNotLock ); }
+
+	/** Sets the mouse locking behavior of the viewport */
+	FInputModeUIOnly& SetLockMouseToViewportBehavior(EMouseLockMode InMouseLockMode) { MouseLockMode = InMouseLockMode; return *this; }
 
 	FInputModeUIOnly()
 		: WidgetToFocus()
-		, bLockMouseToViewport(false)
+		, MouseLockMode(EMouseLockMode::DoNotLock)
 	{}
 
 protected:
 	TSharedPtr<SWidget> WidgetToFocus;
-	bool bLockMouseToViewport;
+	EMouseLockMode MouseLockMode;
 
 	virtual void ApplyInputMode(FReply& SlateOperations, class UGameViewportClient& GameViewportClient) const override;
 };
@@ -98,21 +102,25 @@ struct ENGINE_API FInputModeGameAndUI : public FInputModeDataBase
 	FInputModeGameAndUI& SetWidgetToFocus(TSharedPtr<SWidget> InWidgetToFocus) { WidgetToFocus = InWidgetToFocus; return *this; }
 
 	/** Whether to lock the mouse to the viewport */
-	FInputModeGameAndUI& SetLockMouseToViewport(bool InLockMouseToViewport) { bLockMouseToViewport = InLockMouseToViewport; return *this; }
+	DEPRECATED(4.13, "Mouse locking behavior is now controlled by an enum. Please use SetLockMouseToViewportBehavior(...) instead.")
+	FInputModeGameAndUI& SetLockMouseToViewport(bool InLockMouseToViewport) { return SetLockMouseToViewportBehavior( InLockMouseToViewport ? EMouseLockMode::LockOnCapture : EMouseLockMode::DoNotLock ); }
+
+	/** Sets the mouse locking behavior of the viewport */
+	FInputModeGameAndUI& SetLockMouseToViewportBehavior(EMouseLockMode InMouseLockMode) { MouseLockMode = InMouseLockMode; return *this; }
 
 	/** Whether to hide the cursor during temporary mouse capture caused by a mouse down */
 	FInputModeGameAndUI& SetHideCursorDuringCapture(bool InHideCursorDuringCapture) { bHideCursorDuringCapture = InHideCursorDuringCapture; return *this; }
 
 	FInputModeGameAndUI()
 		: WidgetToFocus()
-		, bLockMouseToViewport(false)
+		, MouseLockMode(EMouseLockMode::DoNotLock)
 		, bHideCursorDuringCapture(true)
 	{}
 
 protected:
 
 	TSharedPtr<SWidget> WidgetToFocus;
-	bool bLockMouseToViewport;
+	EMouseLockMode MouseLockMode;
 	bool bHideCursorDuringCapture;
 
 	virtual void ApplyInputMode(FReply& SlateOperations, class UGameViewportClient& GameViewportClient) const override;
@@ -205,6 +213,10 @@ class ENGINE_API APlayerController : public AController
 	/**  Smoothed version of TargetViewRotation to remove jerkiness from intermittent replication updates. */
 	FRotator BlendedTargetViewRotation;
 
+	/** Interp speed for blending remote view rotation for smoother client updates */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=PlayerController)
+	float SmoothTargetViewRotationSpeed;
+
 	/** The actors which the camera shouldn't see - e.g. used to hide actors which the camera penetrates */
 	UPROPERTY()
 	TArray<class AActor*> HiddenActors;
@@ -226,11 +238,11 @@ class ENGINE_API APlayerController : public AController
 	int32 ClientCap;
 	
 	/** Object that manages "cheat" commands.  Not instantiated in shipping builds. */
-	UPROPERTY(transient)
+	UPROPERTY(transient, BlueprintReadOnly, Category=PlayerController)
 	class UCheatManager* CheatManager;
 	
 	/** class of my CheatManager. */
-	UPROPERTY()
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category=PlayerController)
 	TSubclassOf<class UCheatManager> CheatClass;
 
 	/** Object that manages player input. */
@@ -427,39 +439,8 @@ public:
 	  */
 	virtual void SetCinematicMode( bool bInCinematicMode, bool bAffectsMovement, bool bAffectsTurning);
 
-	/**
-	  * Locks or unlocks movement input, consecutive calls stack up and require the same amount of calls to undo, or can all be undone using ResetIgnoreMoveInput.
-	  * @param bNewMoveInput	If true, move input is ignored. If false, input is not ignored.
-	  */
-	UFUNCTION(BlueprintCallable, Category="Input")
-	virtual void SetIgnoreMoveInput( bool bNewMoveInput );
-
-	/** Stops ignoring move input by resetting the ignore move input state. */
-	UFUNCTION(BlueprintCallable, Category = "Input", meta = (Keywords = "ClearIgnoreMoveInput"))
-	virtual void ResetIgnoreMoveInput();
-
-	/** Returns true if movement input is ignored. */
-	UFUNCTION(BlueprintCallable, Category="Input")
-	virtual bool IsMoveInputIgnored() const;
-
-	/**
-	  * Locks or unlocks look input, consecutive calls stack up and require the same amount of calls to undo, or can all be undone using ResetIgnoreLookInput.
-	  * @param bNewLookInput	If true, look input is ignored. If false, input is not ignored.
-	  */
-	UFUNCTION(BlueprintCallable, Category="Input")
-	virtual void SetIgnoreLookInput( bool bNewLookInput );
-	
-	/** Stops ignoring look input by resetting the ignore look input state. */
-	UFUNCTION(BlueprintCallable, Category = "Input", meta = (Keywords = "ClearIgnoreLookInput"))
-	virtual void ResetIgnoreLookInput();
-
-	/** Returns true if look input is ignored. */
-	UFUNCTION(BlueprintCallable, Category="Input")
-	virtual bool IsLookInputIgnored() const;
-
-	/** reset move and look input ignore flags to defaults */
-	UFUNCTION(BlueprintCallable, Category="Input")
-	virtual void ResetIgnoreInputFlags();
+	/** Reset move and look input ignore flags to defaults */
+	virtual void ResetIgnoreInputFlags() override;
 
 	bool GetHitResultAtScreenPosition(const FVector2D ScreenPosition, const ECollisionChannel TraceChannel, const FCollisionQueryParams& CollisionQueryParams, FHitResult& HitResult) const;
 	bool GetHitResultAtScreenPosition(const FVector2D ScreenPosition, const ECollisionChannel TraceChannel, bool bTraceComplex, FHitResult& HitResult) const;
@@ -891,7 +872,7 @@ public:
 	* @param	Scale					Scale between 0.0 and 1.0 on the intensity of playback
 	*/
 	UFUNCTION(BlueprintCallable, Category = "Game|Feedback")
-	void PlayHapticEffect(class UHapticFeedbackEffect* HapticEffect, TEnumAsByte<EControllerHand> Hand, float Scale = 1.f);
+	void PlayHapticEffect(class UHapticFeedbackEffect_Base* HapticEffect, TEnumAsByte<EControllerHand> Hand, float Scale = 1.f,  bool bLoop = false);
 
 	/**
 	* Stops a playing haptic feedback curve
@@ -1196,12 +1177,6 @@ protected:
 	/** Whether we fully tick when the game is paused, if our tick function is allowed to do so. If false, we do a minimal update during the tick. */
 	uint32 bShouldPerformFullTickWhenPaused:1;
 
-	/** Ignores movement input. Stacked state storage, Use accessor function IgnoreMoveInput() */
-	uint8 IgnoreMoveInput;
-
-	/** Ignores look input. Stacked state storage, use accessor function IgnoreLookInput(). */
-	uint8 IgnoreLookInput;
-
 	/** The virtual touch interface */
 	TSharedPtr<class SVirtualJoystick> VirtualJoystick;
 
@@ -1283,6 +1258,7 @@ public:
 	virtual void PostInitializeComponents() override;
 	virtual void EnableInput(class APlayerController* PlayerController) override;
 	virtual void DisableInput(class APlayerController* PlayerController) override;
+	virtual void BeginPlay() override;
 	//~ End AActor Interface
 
 	//~ Begin AController Interface
@@ -1374,6 +1350,7 @@ protected:
 	virtual void ProcessPlayerInput(const float DeltaTime, const bool bGamePaused);
 	virtual void BuildInputStack(TArray<UInputComponent*>& InputStack);
 	void ProcessForceFeedbackAndHaptics(const float DeltaTime, const bool bGamePaused);
+	virtual bool IsInViewportClient(UGameViewportClient* ViewportClient) const;
 
 	/** Allows the PlayerController to set up custom input bindings. */
 	virtual void SetupInputComponent();
@@ -1650,8 +1627,5 @@ public:
 	/** The value of SeamlessTravelCount, upon the last call to GameMode::HandleSeamlessTravelPlayer; used to detect seamless travel */
 	UPROPERTY()
 	uint16		LastCompletedSeamlessTravelCount;
-
-	UFUNCTION(exec)
-	virtual void ToggleVoiceLoopback(bool bEnabled);	
 
 };

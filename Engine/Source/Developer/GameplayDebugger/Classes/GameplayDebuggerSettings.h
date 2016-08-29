@@ -69,7 +69,6 @@ public:
 
 #if ADD_LEVEL_EDITOR_EXTENSIONS
 	/** Experimental setting to extend viewport menu in Simulate, to have quick access to GameplayDebugger settings. */
-	UPROPERTY(EditAnywhere, config, Category = "GameplayDebugger")
 	bool bExtendViewportMenu;
 #endif
 

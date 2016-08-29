@@ -50,7 +50,7 @@ struct SLATECORE_API FSlateFontInfo
 	FName TypefaceFontName;
 
 	/** The size of the font */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=SlateStyleRules)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=SlateStyleRules, meta=(UIMin=1, UIMax=1000, ClampMin=1, ClampMax=1000))
 	int32 Size;
 
 private:

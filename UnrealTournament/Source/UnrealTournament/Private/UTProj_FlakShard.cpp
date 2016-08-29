@@ -12,7 +12,7 @@ AUTProj_FlakShard::AUTProj_FlakShard(const class FObjectInitializer& ObjectIniti
 	if (Mesh != NULL)
 	{
 		Mesh->SetCollisionProfileName(FName(TEXT("NoCollision")));
-		Mesh->AttachParent = RootComponent;
+		Mesh->SetupAttachment(RootComponent);
 		Mesh->bReceivesDecals = false;
 		Mesh->bUseAsOccluder = false;
 	}
@@ -20,7 +20,7 @@ AUTProj_FlakShard::AUTProj_FlakShard(const class FObjectInitializer& ObjectIniti
 	Trail = ObjectInitializer.CreateOptionalDefaultSubobject<UParticleSystemComponent>(this, FName(TEXT("Trail")));
 	if (Trail != NULL)
 	{
-		Trail->AttachParent = RootComponent;
+		Trail->SetupAttachment(RootComponent);
 	}
 
 	HeatFadeTime = 1.0f;
@@ -82,7 +82,7 @@ void AUTProj_FlakShard::BeginPlay()
 				NewMesh->SetStaticMesh(ShardMesh->StaticMesh);
 				NewMesh->SetMaterial(0, ShardMesh->GetMaterial(0));
 				NewMesh->RegisterComponentWithWorld(GetWorld());
-				NewMesh->AttachTo(CollisionComp);
+				NewMesh->AttachToComponent(CollisionComp, FAttachmentTransformRules::KeepWorldTransform);
 				NewMesh->SetRelativeLocation(ShardOffset);
 				NewMesh->SetRelativeScale3D(ShardMesh->RelativeScale3D);
 				NewMesh->bGenerateOverlapEvents = false;
@@ -181,7 +181,7 @@ void AUTProj_FlakShard::RemoveSatelliteShards()
 	{
 		if (SatelliteShards[i])
 		{
-			SatelliteShards[i]->DetachFromParent();
+			SatelliteShards[i]->DetachFromComponent(FDetachmentTransformRules::KeepWorldTransform);
 			SatelliteShards[i]->SetHiddenInGame(true);
 		}
 	}

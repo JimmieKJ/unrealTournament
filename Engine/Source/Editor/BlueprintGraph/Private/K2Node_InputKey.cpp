@@ -192,9 +192,9 @@ FText UK2Node_InputKey::GetTooltipText() const
 	return CachedTooltip;
 }
 
-FName UK2Node_InputKey::GetPaletteIcon(FLinearColor& OutColor) const
+FSlateIcon UK2Node_InputKey::GetIconAndTint(FLinearColor& OutColor) const
 {
-	return EKeys::GetMenuCategoryPaletteIcon(InputKey.GetMenuCategory());
+	return FSlateIcon("EditorStyle", EKeys::GetMenuCategoryPaletteIcon(InputKey.GetMenuCategory()));
 }
 
 bool UK2Node_InputKey::IsCompatibleWithGraph(UEdGraph const* Graph) const
@@ -283,7 +283,7 @@ void UK2Node_InputKey::ExpandNode(FKismetCompilerContext& CompilerContext, UEdGr
 		{			
 			UEdGraphPin *EachPin = (*PinIt).Pin;
 			// Create the input touch event
-			UK2Node_InputKeyEvent* InputKeyEvent = CompilerContext.SpawnIntermediateNode<UK2Node_InputKeyEvent>(this, SourceGraph);
+			UK2Node_InputKeyEvent* InputKeyEvent = CompilerContext.SpawnIntermediateEventNode<UK2Node_InputKeyEvent>(this, EachPin, SourceGraph);
 			const FName ModifierName = GetModifierName();
 			if ( ModifierName != NAME_None )
 			{
@@ -328,7 +328,7 @@ void UK2Node_InputKey::ExpandNode(FKismetCompilerContext& CompilerContext, UEdGr
 	
 		if (InputKeyPin->LinkedTo.Num() > 0)
 		{
-			UK2Node_InputKeyEvent* InputKeyEvent = CompilerContext.SpawnIntermediateNode<UK2Node_InputKeyEvent>(this, SourceGraph);
+			UK2Node_InputKeyEvent* InputKeyEvent = CompilerContext.SpawnIntermediateEventNode<UK2Node_InputKeyEvent>(this, InputKeyPin, SourceGraph);
 			const FName ModifierName = GetModifierName();
 			if ( ModifierName != NAME_None )
 			{

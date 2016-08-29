@@ -5,6 +5,7 @@
 #include "Navigation/CrowdManager.h"
 #include "AI/Navigation/NavLinkCustomInterface.h"
 #include "AI/Navigation/AbstractNavData.h"
+#include "Navigation/MetaNavMeshPath.h"
 #include "GameFramework/CharacterMovementComponent.h"
 
 
@@ -33,10 +34,6 @@ UCrowdFollowingComponent::UCrowdFollowingComponent(const FObjectInitializer& Obj
 	PathOptimizationRange = 1000.0f;	// approx: radius * 30.0f
 	AvoidanceQuality = ECrowdAvoidanceQuality::Low;
 	AvoidanceRangeMultiplier = 1.0f;
-
-	AvoidanceGroup.SetFlagsDirectly(1);
-	GroupsToAvoid.SetFlagsDirectly(MAX_uint32);
-	GroupsToIgnore.SetFlagsDirectly(0);
 }
 
 FVector UCrowdFollowingComponent::GetCrowdAgentLocation() const
@@ -247,9 +244,9 @@ void UCrowdFollowingComponent::SetCrowdRotateToVelocity(bool bEnable)
 
 void UCrowdFollowingComponent::SetAvoidanceGroup(int32 GroupFlags, bool bUpdateAgent)
 {
-	if (AvoidanceGroup.Packed != GroupFlags)
+	if (CharacterMovement && CharacterMovement->GetAvoidanceGroupMask() != GroupFlags)
 	{
-		AvoidanceGroup.SetFlagsDirectly(GroupFlags);
+		CharacterMovement->SetAvoidanceGroup(GroupFlags);
 
 		if (bUpdateAgent)
 		{
@@ -260,9 +257,9 @@ void UCrowdFollowingComponent::SetAvoidanceGroup(int32 GroupFlags, bool bUpdateA
 
 void UCrowdFollowingComponent::SetGroupsToAvoid(int32 GroupFlags, bool bUpdateAgent)
 {
-	if (GroupsToAvoid.Packed != GroupFlags)
+	if (CharacterMovement && CharacterMovement->GetGroupsToAvoidMask() != GroupFlags)
 	{
-		GroupsToAvoid.SetFlagsDirectly(GroupFlags);
+		CharacterMovement->SetGroupsToAvoid(GroupFlags);
 
 		if (bUpdateAgent)
 		{
@@ -273,15 +270,30 @@ void UCrowdFollowingComponent::SetGroupsToAvoid(int32 GroupFlags, bool bUpdateAg
 
 void UCrowdFollowingComponent::SetGroupsToIgnore(int32 GroupFlags, bool bUpdateAgent)
 {
-	if (GroupsToIgnore.Packed != GroupFlags)
+	if (CharacterMovement && CharacterMovement->GetGroupsToIgnoreMask() != GroupFlags)
 	{
-		GroupsToIgnore.SetFlagsDirectly(GroupFlags);
+		CharacterMovement->SetGroupsToIgnore(GroupFlags);
 
 		if (bUpdateAgent)
 		{
 			UpdateCrowdAgentParams();
 		}
 	}
+}
+
+int32 UCrowdFollowingComponent::GetAvoidanceGroup() const
+{
+	return CharacterMovement ? CharacterMovement->GetAvoidanceGroupMask() : 0;
+}
+
+int32 UCrowdFollowingComponent::GetGroupsToAvoid() const
+{
+	return CharacterMovement ? CharacterMovement->GetGroupsToAvoidMask() : 0;
+}
+
+int32 UCrowdFollowingComponent::GetGroupsToIgnore() const
+{
+	return CharacterMovement ? CharacterMovement->GetGroupsToIgnoreMask() : 0;
 }
 
 void UCrowdFollowingComponent::SuspendCrowdSteering(bool bSuspend)
@@ -471,7 +483,7 @@ void UCrowdFollowingComponent::BeginDestroy()
 	Cleanup();
 }
 
-void UCrowdFollowingComponent::AbortMove(const FString& Reason, FAIRequestID RequestID, bool bResetVelocity, bool bSilent, uint8 MessageFlags)
+void UCrowdFollowingComponent::AbortMove(const UObject& Instigator, FPathFollowingResultFlags::Type AbortFlags, FAIRequestID RequestID, EPathFollowingVelocityMode VelocityMode)
 {
 	if (IsCrowdSimulationEnabled() && (Status != EPathFollowingStatus::Idle) && RequestID.IsEquivalent(GetCurrentRequestId()))
 	{
@@ -482,10 +494,10 @@ void UCrowdFollowingComponent::AbortMove(const FString& Reason, FAIRequestID Req
 		}
 	}
 
-	Super::AbortMove(Reason, RequestID, bResetVelocity, bSilent, MessageFlags);
+	Super::AbortMove(Instigator, AbortFlags, RequestID, VelocityMode);
 }
 
-void UCrowdFollowingComponent::PauseMove(FAIRequestID RequestID, bool bResetVelocity)
+void UCrowdFollowingComponent::PauseMove(FAIRequestID RequestID, EPathFollowingVelocityMode VelocityMode)
 {
 	if (IsCrowdSimulationEnabled() && (Status != EPathFollowingStatus::Paused) && RequestID.IsEquivalent(GetCurrentRequestId()))
 	{
@@ -496,7 +508,7 @@ void UCrowdFollowingComponent::PauseMove(FAIRequestID RequestID, bool bResetVelo
 		}
 	}
 
-	Super::PauseMove(RequestID, bResetVelocity);
+	Super::PauseMove(RequestID, VelocityMode);
 }
 
 void UCrowdFollowingComponent::ResumeMove(FAIRequestID RequestID)
@@ -564,7 +576,7 @@ void UCrowdFollowingComponent::FinishUsingCustomLink(INavLinkCustomInterface* Cu
 	}
 }
 
-void UCrowdFollowingComponent::OnPathFinished(EPathFollowingResult::Type Result)
+void UCrowdFollowingComponent::OnPathFinished(const FPathFollowingResult& Result)
 {
 	UCrowdManager* CrowdManager = UCrowdManager::GetCurrent(GetWorld());
 	if (IsCrowdSimulationEnabled() && CrowdManager)
@@ -837,7 +849,7 @@ void UCrowdFollowingComponent::UpdatePathSegment()
 
 	if (!Path.IsValid() || MovementComp == NULL)
 	{
-		AbortMove(TEXT("no path"), FAIRequestID::CurrentRequest, true, false, EPathFollowingMessage::NoPath);
+		OnPathFinished(FPathFollowingResult(EPathFollowingResult::Aborted, FPathFollowingResultFlags::InvalidPath));
 		return;
 	}
 
@@ -845,23 +857,23 @@ void UCrowdFollowingComponent::UpdatePathSegment()
 	{
 		if (!Path->IsWaitingForRepath())
 		{
-			AbortMove(TEXT("no path"), FAIRequestID::CurrentRequest, true, false, EPathFollowingMessage::NoPath);
+			OnPathFinished(FPathFollowingResult(EPathFollowingResult::Aborted, FPathFollowingResultFlags::InvalidPath));
 		}
 		return;
 	}
 
 	// if agent has control over its movement, check finish conditions
+	const FVector CurrentLocation = MovementComp->GetActorFeetLocation();
 	const bool bCanReachTarget = MovementComp->CanStopPathFollowing();
 	if (bCanReachTarget && Status == EPathFollowingStatus::Moving)
 	{
-		const FVector CurrentLocation = MovementComp->GetActorFeetLocation();
 		const FVector GoalLocation = GetCurrentTargetLocation();
 
 		if (bCollidedWithGoal)
 		{
 			// check if collided with goal actor
 			OnSegmentFinished();
-			OnPathFinished(EPathFollowingResult::Success);
+			OnPathFinished(FPathFollowingResult(EPathFollowingResult::Success, FPathFollowingResultFlags::None));
 		}
 		else if (bFinalPathPart)
 		{
@@ -872,10 +884,10 @@ void UCrowdFollowingComponent::UpdatePathSegment()
 
 			// can't use HasReachedDestination here, because it will use last path point
 			// which is not set correctly for partial paths without string pulling
-			if (bMovedTooFar || HasReachedInternal(GoalLocation, 0.0f, 0.0f, CurrentLocation, AcceptanceRadius, bStopOnOverlap ? MinAgentRadiusPct : 0.0f))
+			if (bMovedTooFar || HasReachedInternal(GoalLocation, 0.0f, 0.0f, CurrentLocation, AcceptanceRadius, bReachTestIncludesAgentRadius ? MinAgentRadiusPct : 0.0f))
 			{
 				UE_VLOG(GetOwner(), LogCrowdFollowing, Log, TEXT("Last path segment finished due to \'%s\'"), bMovedTooFar ? TEXT("Missing Last Point") : TEXT("Reaching Destination"));
-				OnPathFinished(EPathFollowingResult::Success);
+				OnPathFinished(FPathFollowingResult(EPathFollowingResult::Success, FPathFollowingResultFlags::None));
 			}
 		}
 		else
@@ -891,13 +903,20 @@ void UCrowdFollowingComponent::UpdatePathSegment()
 		}
 	}
 
-	// gather location samples to detect if moving agent is blocked
 	if (bCanReachTarget && Status == EPathFollowingStatus::Moving)
 	{
+		// check waypoint switch condition in meta paths
+		FMetaNavMeshPath* MetaNavPath = bIsUsingMetaPath ? Path->CastPath<FMetaNavMeshPath>() : nullptr;
+		if (MetaNavPath && Status == EPathFollowingStatus::Moving)
+		{
+			MetaNavPath->ConditionalMoveToNextSection(CurrentLocation, EMetaPathUpdateReason::MoveTick);
+		}
+
+		// gather location samples to detect if moving agent is blocked
 		const bool bHasNewSample = UpdateBlockDetection();
 		if (bHasNewSample && IsBlocked())
 		{
-			OnPathFinished(EPathFollowingResult::Blocked);
+			OnPathFinished(FPathFollowingResult(EPathFollowingResult::Blocked, FPathFollowingResultFlags::None));
 		}
 	}
 }

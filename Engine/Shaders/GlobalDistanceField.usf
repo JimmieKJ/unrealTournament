@@ -9,6 +9,7 @@
 #include "DistanceFieldLightingShared.usf"
 #include "DistanceFieldAOShared.usf"
 #include "GlobalDistanceFieldShared.usf"
+#include "HeightfieldLightingShared.usf"
 
 RWBuffer<float4> RWCulledObjectBounds;
 RWBuffer<float4> RWCulledObjectData;
@@ -295,5 +296,58 @@ void CompositeObjectDistanceFieldsCS(
 		float3 GlobalUV = ComputeGlobalUV(WorldPosition, ClipmapIndex);
 		uint3 WriteCoordinate = (uint3)(frac(GlobalUV) * GlobalVolumeDimension);
 		RWGlobalDistanceFieldTexture[WriteCoordinate] = MinDistance;
+	}
+}
+
+#ifndef COMPOSITE_HEIGHTFIELDS_THREADGROUP_SIZE
+#define COMPOSITE_HEIGHTFIELDS_THREADGROUP_SIZE 1
+#endif
+
+[numthreads(COMPOSITE_HEIGHTFIELDS_THREADGROUP_SIZE, COMPOSITE_HEIGHTFIELDS_THREADGROUP_SIZE, 1)]
+void CompositeHeightfieldsIntoGlobalDistanceFieldCS(
+	uint3 GroupId : SV_GroupID,
+	uint3 DispatchThreadId : SV_DispatchThreadID,
+	uint3 GroupThreadId : SV_GroupThreadID)
+{
+	float GlobalVolumeExtent = GlobalVolumeCenterAndExtent[ClipmapIndex].w;
+	// We only dispatch one depth layer, so the z value is incorrect
+	float3 LookupWorldPosition = UpdateRegionVolumeMin + (DispatchThreadId.xyz + .5f) * VolumeTexelSize * GlobalVolumeExtent * 2;
+
+	// Search through all heightfields to find the one that encompases this UV
+	LOOP
+	for (uint HeightfieldIndex = 0; HeightfieldIndex < NumHeightfields; HeightfieldIndex++)
+	{
+		float3 LocalPosition = mul(float4(LookupWorldPosition, 1), GetWorldToLocal(HeightfieldIndex)).xyz;
+		float4 MinMaxHeightfieldUV;
+		float2 HeightfieldUV = GetHeightfieldUV(HeightfieldIndex, LocalPosition.xy, MinMaxHeightfieldUV);
+
+		BRANCH
+		if (all(HeightfieldUV > MinMaxHeightfieldUV.xy) && all(HeightfieldUV < MinMaxHeightfieldUV.zw))
+		{
+			float3 WorldHeightfieldNormal;
+			float3 WorldHeightfieldShadingPosition = GetHeightfieldWorldPositionAndNormal(HeightfieldIndex, LocalPosition.xy, HeightfieldUV, WorldHeightfieldNormal);
+
+			if (all(DispatchThreadId.xy < UpdateRegionSize.xy))
+			{
+				// Compute distance for all Z values of the update region
+				LOOP
+				for (uint ZIndex = 0; ZIndex < UpdateRegionSize.z; ZIndex++)
+				{
+					float3 WorldPosition;
+					WorldPosition.xy = LookupWorldPosition.xy;
+					WorldPosition.z = UpdateRegionVolumeMin.z + (ZIndex + .5f) * VolumeTexelSize.z * GlobalVolumeExtent * 2;
+
+					// Project the vertical height vector onto the normal of the heightfield directly below the point we are computing the distance field for, use the perpendicular distance
+					float DistanceToHeightfieldPlane = dot(WorldHeightfieldNormal, WorldPosition - WorldHeightfieldShadingPosition);
+					float MinDistance = clamp(DistanceToHeightfieldPlane, -AOGlobalMaxSphereQueryRadius, AOGlobalMaxSphereQueryRadius);
+
+					float3 GlobalUV = ComputeGlobalUV(WorldPosition, ClipmapIndex);
+					uint3 WriteCoordinate = (uint3)(frac(GlobalUV) * GlobalVolumeDimension);
+					RWGlobalDistanceFieldTexture[WriteCoordinate] = min(MinDistance, RWGlobalDistanceFieldTexture[WriteCoordinate]);
+				}
+			}
+
+			break;
+		}
 	}
 }

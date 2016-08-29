@@ -1,7 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-
 #pragma once
+
+#include "Components/PrimitiveComponent.h"
+#include "PrimitiveSceneProxy.h"
 #include "SplineComponent.generated.h"
 
 
@@ -31,31 +33,117 @@ namespace ESplineCoordinateSpace
 	};
 }
 
+USTRUCT()
+struct FSplineCurves
+{
+	GENERATED_BODY()
+
+	/** Spline built from position data. */
+	UPROPERTY()
+	FInterpCurveVector Position;
+
+	/** Spline built from rotation data. */
+	UPROPERTY()
+	FInterpCurveQuat Rotation;
+
+	/** Spline built from scale data. */
+	UPROPERTY()
+	FInterpCurveVector Scale;
+
+	/** Input: distance along curve, output: parameter that puts you there. */
+	UPROPERTY()
+	FInterpCurveFloat ReparamTable;
+
+	bool operator==(const FSplineCurves& Other) const
+	{
+		return Position == Other.Position && Rotation == Other.Rotation && Scale == Other.Scale;
+	}
+
+	bool operator!=(const FSplineCurves& Other) const
+	{
+		return !(*this == Other);
+	}
+};
+
+USTRUCT(BlueprintType)
+struct FSplinePoint
+{
+	GENERATED_BODY()
+
+	UPROPERTY(EditAnywhere, Category = SplinePoint)
+	float InputKey;
+
+	UPROPERTY(EditAnywhere, Category = SplinePoint)
+	FVector Position;
+
+	UPROPERTY(EditAnywhere, Category = SplinePoint)
+	FVector ArriveTangent;
+
+	UPROPERTY(EditAnywhere, Category = SplinePoint)
+	FVector LeaveTangent;
+
+	UPROPERTY(EditAnywhere, Category = SplinePoint)
+	FRotator Rotation;
+
+	UPROPERTY(EditAnywhere, Category = SplinePoint)
+	FVector Scale;
+
+	UPROPERTY(EditAnywhere, Category = SplinePoint)
+	TEnumAsByte<ESplinePointType::Type> Type;
+
+	/** Default constructor */
+	FSplinePoint()
+		: InputKey(0.0f), Position(0.0f), ArriveTangent(0.0f), LeaveTangent(0.0f), Rotation(0.0f), Scale(1.0f), Type(ESplinePointType::Curve)
+	{}
+
+	/** Constructor taking a point position */
+	FSplinePoint(float InInputKey, const FVector& InPosition)
+		: InputKey(InInputKey), Position(InPosition), ArriveTangent(0.0f), LeaveTangent(0.0f), Rotation(0.0f), Scale(1.0f), Type(ESplinePointType::Curve)
+	{}
+
+	/** Constructor taking a point position and type, and optionally rotation and scale */
+	FSplinePoint(float InInputKey, const FVector& InPosition, ESplinePointType::Type InType, const FRotator& InRotation = FRotator(0.0f), const FVector& InScale = FVector(1.0f))
+		: InputKey(InInputKey), Position(InPosition), ArriveTangent(0.0f), LeaveTangent(0.0f), Rotation(InRotation), Scale(InScale), Type(InType)
+	{}
+
+	/** Constructor taking a point position and tangent, and optionally rotation and scale */
+	FSplinePoint(float InInputKey,
+				 const FVector& InPosition,
+				 const FVector& InArriveTangent,
+				 const FVector& InLeaveTangent,
+				 const FRotator& InRotation = FRotator(0.0f),
+				 const FVector& InScale = FVector(1.0f),
+				 ESplinePointType::Type InType = ESplinePointType::CurveCustomTangent)
+		: InputKey(InInputKey), Position(InPosition), ArriveTangent(InArriveTangent), LeaveTangent(InLeaveTangent), Rotation(InRotation), Scale(InScale), Type(InType)
+	{}
+};
 
 /** 
- *	A spline component is a spline shape which can be used for other purposes (e.g. animating objects). It does not contain rendering capabilities itself (outside the editor) 
+ *	A spline component is a spline shape which can be used for other purposes (e.g. animating objects). It contains debug rendering capabilities.
  *	@see https://docs.unrealengine.com/latest/INT/Resources/ContentExamples/Blueprint_Splines
  */
-UCLASS(ClassGroup=Utility, meta=(BlueprintSpawnableComponent))
+UCLASS(ClassGroup=Utility, ShowCategories = (Mobility), HideCategories = (Physics, Collision, Lighting, Rendering, Mobile), meta=(BlueprintSpawnableComponent))
 class ENGINE_API USplineComponent : public UPrimitiveComponent
 {
 	GENERATED_UCLASS_BODY()
 
-	/** Spline built from position data. */
-	UPROPERTY()//EditAnywhere, Category = Points)
-	FInterpCurveVector SplineInfo;
+	UPROPERTY(EditAnywhere, Category=Points)
+	FSplineCurves SplineCurves;
 
-	/** Spline built from rotation data. */
+	/** Deprecated - please use GetSplinePointsPosition() to fetch this FInterpCurve */
 	UPROPERTY()
-	FInterpCurveQuat SplineRotInfo;
+	FInterpCurveVector SplineInfo_DEPRECATED;
 
-	/** Spline built from scale data. */
+	/** Deprecated - please use GetSplinePointsRotation() to fetch this FInterpCurve */
 	UPROPERTY()
-	FInterpCurveVector SplineScaleInfo;
+	FInterpCurveQuat SplineRotInfo_DEPRECATED;
 
-	/** Input, distance along curve, output, parameter that puts you there. */
+	/** Deprecated - please use GetSplinePointsScale() to fetch this FInterpCurve */
 	UPROPERTY()
-	FInterpCurveFloat SplineReparamTable;
+	FInterpCurveVector SplineScaleInfo_DEPRECATED;
+
+	UPROPERTY()
+	FInterpCurveFloat SplineReparamTable_DEPRECATED;
 
 	UPROPERTY()
 	bool bAllowSplineEditingPerInstance_DEPRECATED;
@@ -76,11 +164,20 @@ class ENGINE_API USplineComponent : public UPrimitiveComponent
 	UPROPERTY(EditAnywhere, Category = Spline, meta=(DisplayName="Override Construction Script"))
 	bool bSplineHasBeenEdited;
 
+	UPROPERTY()
+	/** Whether the UCS has made changes to the spline points */
+	bool bModifiedByConstructionScript;
+
+	/**
+	 * Whether the spline points should be passed to the User Construction Script so they can be further manipulated by it.
+	 * If false, they will not be visible to it, and it will not be able to influence the per-instance positions set in the editor.
+	 */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Spline)
 	bool bInputSplinePointsToConstructionScript;
 
+	/** If true, the spline will be rendered if the Splines showflag is set. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Spline)
-	bool bAlwaysRenderInEditor;
+	bool bDrawDebug;
 
 private:
 	/**
@@ -89,6 +186,12 @@ private:
 	 */
 	UPROPERTY(EditAnywhere, Category = Spline)
 	bool bClosedLoop;
+
+	UPROPERTY(EditAnywhere, Category = Spline, meta=(InlineEditConditionToggle=true))
+	bool bLoopPositionOverride;
+
+	UPROPERTY(EditAnywhere, Category = Spline, meta=(EditCondition="bLoopPositionOverride"))
+	float LoopPosition;
 
 public:
 	/** Default up vector in local space to be used when calculating transforms along the spline */
@@ -104,20 +207,24 @@ public:
 	UPROPERTY(EditAnywhere, Category = Editor)
 	FLinearColor EditorSelectedSplineSegmentColor;
 
-	/** Whether scale visualization should be displayed */
+	/** Whether the spline's leave and arrive tangents can be different */
 	UPROPERTY(EditAnywhere, Category = Editor)
+	bool bAllowDiscontinuousSpline;
+
+	/** Whether scale visualization should be displayed */
+	UPROPERTY(EditAnywhere, Category = Editor, meta=(InlineEditConditionToggle=true))
 	bool bShouldVisualizeScale;
 
 	/** Width of spline in editor for use with scale visualization */
-	UPROPERTY(EditAnywhere, Category = Editor)
+	UPROPERTY(EditAnywhere, Category = Editor, meta=(EditCondition="bShouldVisualizeScale"))
 	float ScaleVisualizationWidth;
 #endif
 
 	//~ Begin UObject Interface
 	virtual void PostLoad() override;
 	virtual void PostEditImport() override;
-#if WITH_EDITOR
 	virtual void Serialize(FArchive& Ar) override;
+#if WITH_EDITOR
 	virtual void PostEditChangeChainProperty(FPropertyChangedChainEvent& PropertyChangedEvent) override;
 #endif
 	//~ End UObject Interface
@@ -126,7 +233,7 @@ public:
 	virtual FActorComponentInstanceData* GetComponentInstanceData() const override;
 	//~ End UActorComponent Interface.
 
-#if WITH_EDITOR
+#if !UE_BUILD_SHIPPING
 	//~ Begin UPrimitiveComponent Interface.
 	virtual FPrimitiveSceneProxy* CreateSceneProxy() override;
 	//~ End UPrimitiveComponent Interface.
@@ -135,6 +242,13 @@ public:
 	virtual FBoxSphereBounds CalcBounds(const FTransform& LocalToWorld) const override;
 	//~ End USceneComponent Interface
 #endif
+
+	FInterpCurveVector& GetSplinePointsPosition() { return SplineCurves.Position; }
+	const FInterpCurveVector& GetSplinePointsPosition() const { return SplineCurves.Position; }
+	FInterpCurveQuat& GetSplinePointsRotation() { return SplineCurves.Rotation; }
+	const FInterpCurveQuat& GetSplinePointsRotation() const { return SplineCurves.Rotation; }
+	FInterpCurveVector& GetSplinePointsScale() { return SplineCurves.Scale; }
+	const FInterpCurveVector& GetSplinePointsScale() const { return SplineCurves.Scale; }
 
 	void ApplyComponentInstanceData(class FSplineInstanceData* ComponentInstanceData, const bool bPostUCS);
 
@@ -183,9 +297,17 @@ public:
 	UFUNCTION(BlueprintCallable, Category = Editor)
 	void SetSelectedSplineSegmentColor(const FLinearColor& SegmentColor);
 
-	/** Specify whether the spline is a closed loop or not */
+	/** Specify whether this spline should be rendered when the Editor/Game spline show flag is set */
 	UFUNCTION(BlueprintCallable, Category = Spline)
-	void SetClosedLoop(bool bInClosedLoop);
+	void SetDrawDebug(bool bShow);
+
+	/** Specify whether the spline is a closed loop or not. The loop position will be at 1.0 after the last point's input key */
+	UFUNCTION(BlueprintCallable, Category = Spline)
+	void SetClosedLoop(bool bInClosedLoop, bool bUpdateSpline = true);
+
+	/** Specify whether the spline is a closed loop or not, and if so, the input key corresponding to the loop point */
+	UFUNCTION(BlueprintCallable, Category = Spline)
+	void SetClosedLoopAtPosition(bool bInClosedLoop, float Key, bool bUpdateSpline = true);
 
 	/** Check whether the spline is a closed loop or not */
 	UFUNCTION(BlueprintCallable, Category = Spline)
@@ -193,19 +315,27 @@ public:
 
 	/** Clears all the points in the spline */
 	UFUNCTION(BlueprintCallable, Category = Spline)
-	void ClearSplinePoints();
+	void ClearSplinePoints(bool bUpdateSpline = true);
+
+	/** Adds an FSplinePoint to the spline. This contains its input key, position, tangent, rotation and scale. */
+	UFUNCTION(BlueprintCallable, Category = Spline)
+	void AddPoint(const FSplinePoint& Point, bool bUpdateSpline = true);
+
+	/** Adds an array of FSplinePoints to the spline. */
+	UFUNCTION(BlueprintCallable, Category = Spline)
+	void AddPoints(const TArray<FSplinePoint>& Points, bool bUpdateSpline = true);
 
 	/** Adds a point to the spline */
 	UFUNCTION(BlueprintCallable, Category = Spline)
-	void AddSplinePoint(const FVector& Position, ESplineCoordinateSpace::Type CoordinateSpace);
+	void AddSplinePoint(const FVector& Position, ESplineCoordinateSpace::Type CoordinateSpace, bool bUpdateSpline = true);
 
-	/** Adds a point to the spline at the specified index*/
+	/** Adds a point to the spline at the specified index */
 	UFUNCTION(BlueprintCallable, Category = Spline)
-	void AddSplinePointAtIndex(const FVector& Position, int32 Index, ESplineCoordinateSpace::Type CoordinateSpace);
+	void AddSplinePointAtIndex(const FVector& Position, int32 Index, ESplineCoordinateSpace::Type CoordinateSpace, bool bUpdateSpline = true);
 
 	/** Removes point at specified index from the spline */
 	UFUNCTION(BlueprintCallable, Category = Spline)
-	void RemoveSplinePoint(const int32 Index);
+	void RemoveSplinePoint(int32 Index, bool bUpdateSpline = true);
 
 	/** Adds a world space point to the spline */
 	UFUNCTION(BlueprintCallable, Category = Spline, meta = (DeprecatedFunction, DeprecationMessage = "Please use AddSplinePoint, specifying SplineCoordinateSpace::World"))
@@ -217,7 +347,7 @@ public:
 
 	/** Sets the spline to an array of points */
 	UFUNCTION(BlueprintCallable, Category = Spline)
-	void SetSplinePoints(const TArray<FVector>& Points, ESplineCoordinateSpace::Type CoordinateSpace);
+	void SetSplinePoints(const TArray<FVector>& Points, ESplineCoordinateSpace::Type CoordinateSpace, bool bUpdateSpline = true);
 
 	/** Sets the spline to an array of world space points */
 	UFUNCTION(BlueprintCallable, Category = Spline, meta = (DeprecatedFunction, DeprecationMessage = "Please use SetSplinePoints, specifying SplineCoordinateSpace::World"))
@@ -229,7 +359,7 @@ public:
 
 	/** Move an existing point to a new location */
 	UFUNCTION(BlueprintCallable, Category = Spline)
-	void SetLocationAtSplinePoint(int32 PointIndex, const FVector& InLocation, ESplineCoordinateSpace::Type CoordinateSpace);
+	void SetLocationAtSplinePoint(int32 PointIndex, const FVector& InLocation, ESplineCoordinateSpace::Type CoordinateSpace, bool bUpdateSpline = true);
 
 	/** Move an existing point to a new world location */
 	UFUNCTION(BlueprintCallable, Category = Spline, meta = (DeprecatedFunction, DeprecationMessage = "Please use SetLocationAtSplinePoint, specifying SplineCoordinateSpace::World"))
@@ -237,11 +367,15 @@ public:
 
 	/** Specify the tangent at a given spline point */
 	UFUNCTION(BlueprintCallable, Category = Spline)
-	void SetTangentAtSplinePoint(int32 PointIndex, const FVector& InTangent, ESplineCoordinateSpace::Type CoordinateSpace);
+	void SetTangentAtSplinePoint(int32 PointIndex, const FVector& InTangent, ESplineCoordinateSpace::Type CoordinateSpace, bool bUpdateSpline = true);
+
+	/** Specify the tangents at a given spline point */
+	UFUNCTION(BlueprintCallable, Category = Spline)
+	void SetTangentsAtSplinePoint(int32 PointIndex, const FVector& InArriveTangent, const FVector& InLeaveTangent, ESplineCoordinateSpace::Type CoordinateSpace, bool bUpdateSpline = true);
 
 	/** Specify the up vector at a given spline point */
 	UFUNCTION(BlueprintCallable, Category = Spline)
-	void SetUpVectorAtSplinePoint(int32 PointIndex, const FVector& InUpVector, ESplineCoordinateSpace::Type CoordinateSpace);
+	void SetUpVectorAtSplinePoint(int32 PointIndex, const FVector& InUpVector, ESplineCoordinateSpace::Type CoordinateSpace, bool bUpdateSpline = true);
 
 	/** Get the type of a spline point */
 	UFUNCTION(BlueprintCallable, Category = Spline)
@@ -249,7 +383,7 @@ public:
 
 	/** Specify the type of a spline point */
 	UFUNCTION(BlueprintCallable, Category = Spline)
-	void SetSplinePointType(int32 PointIndex, ESplinePointType::Type Type);
+	void SetSplinePointType(int32 PointIndex, ESplinePointType::Type Type, bool bUpdateSpline = true);
 
 	/** Get the number of points that make up this spline */
 	UFUNCTION(BlueprintCallable, Category = Spline)
@@ -267,9 +401,17 @@ public:
 	UFUNCTION(BlueprintCallable, Category = Spline)
 	FVector GetDirectionAtSplinePoint(int32 PointIndex, ESplineCoordinateSpace::Type CoordinateSpace) const;
 
-	/** Get the tangent at spline point */
+	/** Get the tangent at spline point. This fetches the Leave tangent of the point. */
 	UFUNCTION(BlueprintCallable, Category = Spline)
 	FVector GetTangentAtSplinePoint(int32 PointIndex, ESplineCoordinateSpace::Type CoordinateSpace) const;
+
+	/** Get the arrive tangent at spline point */
+	UFUNCTION(BlueprintCallable, Category = Spline)
+	FVector GetArriveTangentAtSplinePoint(int32 PointIndex, ESplineCoordinateSpace::Type CoordinateSpace) const;
+
+	/** Get the leave tangent at spline point */
+	UFUNCTION(BlueprintCallable, Category = Spline)
+	FVector GetLeaveTangentAtSplinePoint(int32 PointIndex, ESplineCoordinateSpace::Type CoordinateSpace) const;
 
 	/** Get the rotation at spline point as a quaternion */
 	FQuat GetQuaternionAtSplinePoint(int32 PointIndex, ESplineCoordinateSpace::Type CoordinateSpace) const;
@@ -483,6 +625,9 @@ private:
 	/** Returns the parametric value t which would result in a spline segment of the given length between S(0)...S(t) */
 	float GetSegmentParamFromLength(const int32 Index, const float Length, const float SegmentLength) const;
 };
+
+ENGINE_API EInterpCurveMode ConvertSplinePointTypeToInterpCurveMode(ESplinePointType::Type SplinePointType);
+ENGINE_API ESplinePointType::Type ConvertInterpCurveModeToSplinePointType(EInterpCurveMode InterpCurveMode);
 
 
 // Deprecated method definitions

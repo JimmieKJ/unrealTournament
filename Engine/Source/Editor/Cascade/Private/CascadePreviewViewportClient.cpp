@@ -190,7 +190,7 @@ FCascadeEdPreviewViewportClient::~FCascadeEdPreviewViewportClient()
 {
 }
 
-void FCascadeEdPreviewViewportClient::Draw(FViewport* Viewport, FCanvas* Canvas)
+void FCascadeEdPreviewViewportClient::Draw(FViewport* InViewport, FCanvas* Canvas)
 {
 	if (!CascadePtr.IsValid())
 	{
@@ -265,7 +265,7 @@ void FCascadeEdPreviewViewportClient::Draw(FViewport* Viewport, FCanvas* Canvas)
 	CascadePreviewScene.AddComponent(LineBatcher,FTransform::Identity);
 
 
-	FEditorViewportClient::Draw(Viewport, Canvas);
+	FEditorViewportClient::Draw(InViewport, Canvas);
 
 	EngineShowFlags = SavedEngineShowFlags;
 	FCanvasTextItem TextItem( FVector2D::ZeroVector, FText::GetEmpty(), GEngine->GetTinyFont(), FLinearColor::White );
@@ -273,8 +273,8 @@ void FCascadeEdPreviewViewportClient::Draw(FViewport* Viewport, FCanvas* Canvas)
 	{
 		// 'Up' from the lower left...
 		FString strOutput;
-		const int32 XPosition = Viewport->GetSizeXY().X - 5;
-		int32 YPosition = Viewport->GetSizeXY().Y - (GetDrawElement(ParticleMemory) ? 15 : 5);
+		const int32 XPosition = InViewport->GetSizeXY().X - 5;
+		int32 YPosition = InViewport->GetSizeXY().Y - (GetDrawElement(ParticleMemory) ? 15 : 5);
 
 		UParticleSystemComponent* PartComp = CascadePtr.Pin()->GetParticleSystemComponent();
 
@@ -293,6 +293,12 @@ void FCascadeEdPreviewViewportClient::Draw(FViewport* Viewport, FCanvas* Canvas)
 				if (!LODLevel)
 				{
 					continue;
+				}
+
+				if (GetDrawElement(EmitterTickTimes))
+				{
+					FString StatLine = Instance->SpriteTemplate->EmitterName.ToString() + " tick: " + FString::Printf(TEXT("%.3f ms"), Instance->LastTickDurationMs);
+					Canvas->DrawShadowedString(0, i*16+25, *StatLine, GEngine->GetTinyFont(), FLinearColor::Gray);
 				}
 
 				strOutput = TEXT("");
@@ -333,7 +339,7 @@ void FCascadeEdPreviewViewportClient::Draw(FViewport* Viewport, FCanvas* Canvas)
 
 			if (GetDrawElement(ParticleMemory))
 			{
-				YPosition = Viewport->GetSizeXY().Y - 5;
+				YPosition = InViewport->GetSizeXY().Y - 5;
 				FString MemoryOutput = FString::Printf(TEXT("Template: %.0f KByte / Instance: %.0f KByte"), 
 					(float)ParticleSystemRootSize / 1024.0f + (float)ParticleModuleMemSize / 1024.0f,
 					(float)PSysCompRootSize / 1024.0f + (float)PSysCompResourceSize / 1024.0f);
@@ -385,7 +391,7 @@ void FCascadeEdPreviewViewportClient::Draw(FViewport* Viewport, FCanvas* Canvas)
 
 			if (GetDrawElement(ParticleMemory))
 			{
-				YPosition = Viewport->GetSizeXY().Y - 5;
+				YPosition = InViewport->GetSizeXY().Y - 5;
 				FString MemoryOutput = FString::Printf(TEXT("Template: %.0f KByte / Instance: %.0f KByte"), 
 					(float)ParticleSystemRootSize / 1024.0f + (float)ParticleModuleMemSize / 1024.0f,
 					(float)PSysCompRootSize / 1024.0f + (float)PSysCompResourceSize / 1024.0f);
@@ -404,7 +410,7 @@ void FCascadeEdPreviewViewportClient::Draw(FViewport* Viewport, FCanvas* Canvas)
 				TextItem.Text = LOCTEXT("SystemCompleted", "Completed");
 				TextItem.bCentreX = true;
 				TextItem.bCentreY = true;
-				Canvas->DrawItem(TextItem, Viewport->GetSizeXY().X * 0.5f, Viewport->GetSizeXY().Y - 10);
+				Canvas->DrawItem(TextItem, InViewport->GetSizeXY().X * 0.5f, InViewport->GetSizeXY().Y - 10);
 				TextItem.bCentreX = false;
 				TextItem.bCentreY = false;
 			}
@@ -436,7 +442,7 @@ void FCascadeEdPreviewViewportClient::Draw(FViewport* Viewport, FCanvas* Canvas)
 				if(bIsAGPUEmitter)
 				{
 					const int32 XPosition = 5;
-					const int32 YPosition = Viewport->GetSizeXY().Y - 75.0f;
+					const int32 YPosition = InViewport->GetSizeXY().Y - 75.0f;
 					FString strOutput = NSLOCTEXT("Cascade", "NoFixedBounds_Warning", "WARNING: This particle system has no fixed bounding box and contains a GPU emitter.").ToString();
 					TextItem.SetColor( FLinearColor::White );
 					TextItem.Text = FText::FromString( strOutput );
@@ -454,14 +460,14 @@ void FCascadeEdPreviewViewportClient::Draw(FViewport* Viewport, FCanvas* Canvas)
 		FString DetailModeOutput = FString::Printf(TEXT("DETAIL MODE: %s"), (DetailMode == DM_Medium)? TEXT("MEDIUM"): TEXT("LOW"));
 		TextItem.SetColor( FLinearColor::Red );
 		TextItem.Text = FText::FromString( DetailModeOutput );
-		Canvas->DrawItem( TextItem, 5.0f, Viewport->GetSizeXY().Y - 90.0f );		
+		Canvas->DrawItem( TextItem, 5.0f, InViewport->GetSizeXY().Y - 90.0f );		
 	}
 
 	if (GEngine->bEnableEditorPSysRealtimeLOD)
 	{
 		TextItem.SetColor( FLinearColor(0.25f, 0.25f, 1.0f) );
 		TextItem.Text = LOCTEXT("LODPREVIEWMODEENABLED","LOD PREVIEW MODE ENABLED");
-		Canvas->DrawItem( TextItem,  5.0f, Viewport->GetSizeXY().Y - 105.0f );		
+		Canvas->DrawItem( TextItem,  5.0f, InViewport->GetSizeXY().Y - 105.0f );		
 	}
 
 	EParticleSignificanceLevel ReqSignificance = CascadePtr.Pin()->GetRequiredSignificance();
@@ -470,17 +476,17 @@ void FCascadeEdPreviewViewportClient::Draw(FViewport* Viewport, FCanvas* Canvas)
 		FString ReqSigOutput = FString::Printf(TEXT("REQUIRED SIGNIFICANCE: %s"), (ReqSignificance == EParticleSignificanceLevel::Medium) ? TEXT("MEDIUM") : ((ReqSignificance == EParticleSignificanceLevel::High) ? TEXT("HIGH") : TEXT("CRITICAL")));
 		TextItem.SetColor(FLinearColor::Red);
 		TextItem.Text = FText::FromString(ReqSigOutput);
-		Canvas->DrawItem(TextItem, 5.0f, Viewport->GetSizeXY().Y - 120.0f);
+		Canvas->DrawItem(TextItem, 5.0f, InViewport->GetSizeXY().Y - 120.0f);
 	}
 
 	if (bCaptureScreenShot)
 	{
 		UParticleSystem* ParticleSystem = CascadePtr.Pin()->GetParticleSystem();
-		int32 SrcWidth = Viewport->GetSizeXY().X;
-		int32 SrcHeight = Viewport->GetSizeXY().Y;
+		int32 SrcWidth = InViewport->GetSizeXY().X;
+		int32 SrcHeight = InViewport->GetSizeXY().Y;
 		// Read the contents of the viewport into an array.
 		TArray<FColor> OrigBitmap;
-		if (Viewport->ReadPixels(OrigBitmap))
+		if (InViewport->ReadPixels(OrigBitmap))
 		{
 			check(OrigBitmap.Num() == SrcWidth * SrcHeight);
 
@@ -557,21 +563,21 @@ void FCascadeEdPreviewViewportClient::Draw(const FSceneView* View, FPrimitiveDra
 	DrawPreviewLightVisualization(View, PDI);
 }
 
-bool FCascadeEdPreviewViewportClient::InputKey(FViewport* Viewport, int32 ControllerId, FKey Key, EInputEvent Event, float AmountDepressed, bool Gamepad)
+bool FCascadeEdPreviewViewportClient::InputKey(FViewport* InViewport, int32 ControllerId, FKey Key, EInputEvent Event, float AmountDepressed, bool Gamepad)
 {
 	//Update cursor 
 	UpdateAndApplyCursorVisibility();
 
 	bool bHandled = false;
-	const int32 HitX = Viewport->GetMouseX();
-	const int32 HitY = Viewport->GetMouseY();
+	const int32 HitX = InViewport->GetMouseX();
+	const int32 HitY = InViewport->GetMouseY();
 
 	if(Key == EKeys::LeftMouseButton)
 	{
 		if (Event == IE_Pressed)
 		{
-			Viewport->InvalidateHitProxy();
-			HHitProxy* HitResult = Viewport->GetHitProxy(HitX,HitY);
+			InViewport->InvalidateHitProxy();
+			HHitProxy* HitResult = InViewport->GetHitProxy(HitX,HitY);
 			if (HitResult && HitResult->IsA(HWidgetUtilProxy::StaticGetType()))
 			{
 				HWidgetUtilProxy* WidgetProxy = (HWidgetUtilProxy*)HitResult;
@@ -582,7 +588,7 @@ bool FCascadeEdPreviewViewportClient::InputKey(FViewport* Viewport, int32 Contro
 				WidgetAxis = WidgetProxy->Axis;
 
 				// Calculate the scree-space directions for this drag.
-				FSceneViewFamilyContext ViewFamily( FSceneViewFamily::ConstructionValues( Viewport, GetScene(), EngineShowFlags ));
+				FSceneViewFamilyContext ViewFamily( FSceneViewFamily::ConstructionValues( InViewport, GetScene(), EngineShowFlags ));
 				FSceneView* View = CalcSceneView(&ViewFamily);
 				WidgetProxy->CalcVectors(View, FViewportClick(View, this, Key, Event, HitX, HitY), LocalManipulateDir, WorldManipulateDir, DragX, DragY);
 				bHandled = true;
@@ -611,7 +617,7 @@ bool FCascadeEdPreviewViewportClient::InputKey(FViewport* Viewport, int32 Contro
 
 	if( !bHandled )
 	{
-		bHandled = FEditorViewportClient::InputKey(Viewport,ControllerId,Key,Event,AmountDepressed,Gamepad);
+		bHandled = FEditorViewportClient::InputKey(InViewport,ControllerId,Key,Event,AmountDepressed,Gamepad);
 	}
 
 
@@ -624,7 +630,7 @@ static auto CVarCascadeDragSpeed = TAutoConsoleVariable<float>(TEXT("CascadeDrag
 static TAutoConsoleVariable<float> CVarCascadeRotateSpeed(TEXT("CascadeRotateSpeed"),0.005f,TEXT("Cascade drag speed."));
 static TAutoConsoleVariable<float> CVarCascadeScaleSpeed(TEXT("CascadeScaleSpeed"),1.0f,TEXT("Cascade scale speed."));
 
-bool FCascadeEdPreviewViewportClient::InputAxis(FViewport* Viewport, int32 ControllerId, FKey Key, float Delta, float DeltaTime, int32 NumSamples, bool bGamepad)
+bool FCascadeEdPreviewViewportClient::InputAxis(FViewport* InViewport, int32 ControllerId, FKey Key, float Delta, float DeltaTime, int32 NumSamples, bool bGamepad)
 {
 	bool bHandled = false;
 
@@ -660,12 +666,12 @@ bool FCascadeEdPreviewViewportClient::InputAxis(FViewport* Viewport, int32 Contr
 	}
 	else
 	{
-		bHandled = FEditorViewportClient::InputAxis(Viewport,ControllerId,Key,Delta,DeltaTime,NumSamples,bGamepad);
+		bHandled = FEditorViewportClient::InputAxis(InViewport,ControllerId,Key,Delta,DeltaTime,NumSamples,bGamepad);
 	}
 
 	if (!IsRealtime() && !FMath::IsNearlyZero(Delta))
 	{
-		Viewport->Invalidate();
+		InViewport->Invalidate();
 	}
 
 	return bHandled;

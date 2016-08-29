@@ -90,6 +90,7 @@ private:
 	};
 
 	bool				ValidIndex(int32 AnimSegmentIndex) const;
+	FLinearColor		GetNodeColor(int32 AnimSegmentIndex) const;
 	float				GetSegmentLength(int32 AnimSegmentIndex) const;
 	float				GetSegmentStartPos(int32 AnimSegmentIndex) const;
 	FString				GetAnimSegmentName(int32 AnimSegmentIndex) const;
@@ -102,10 +103,9 @@ private:
 
 	void				SummonSegmentNodeContextMenu( FMenuBuilder& MenuBuilder, int32 AnimSegmentIndex );
 
-	void				AddAnimSegment(UAnimSequence *NewSequence, float NewStartPos );
-	
-	bool				DoesAnimTypeMatchTrack(UAnimSequence* NewSequence);
+	void				AddAnimSegment(UAnimSequenceBase *NewSequenceBase, float NewStartPos );
 
+	bool				IsValidToAdd(UAnimSequenceBase* NewSequenceBase) const;
 	void				OnTrackDragDrop( TSharedPtr<FDragDropOperation> DragDropOp, float DataPos );
 	void				OnAnimSegmentNodeClicked(int32 SegmentIdx);
 
@@ -132,4 +132,6 @@ private:
 
 	/** List of widgets representing tracks */
 	TArray<TSharedPtr<STrack>> TrackWidgets;
+
+	TAttribute<FLinearColor> DefaultNodeColor;
 };

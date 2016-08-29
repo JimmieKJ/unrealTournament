@@ -139,17 +139,17 @@ void FPropertyTableRow::Tick()
 				return;
 			}
 
-			FPropertyNode::DataValidationResult Result = Node->EnsureDataIsValid();
+			EPropertyDataValidationResult Result = Node->EnsureDataIsValid();
 
-			if ( Result == FPropertyNode::ObjectInvalid )
+			if ( Result == EPropertyDataValidationResult::ObjectInvalid )
 			{
 				TableRef->RemoveRow( SharedThis( this ) );
 			}
-			else if ( Result == FPropertyNode::ArraySizeChanged )
+			else if ( Result == EPropertyDataValidationResult::ArraySizeChanged )
 			{
 				TableRef->RequestRefresh();
 			}
-			else if ( Result != FPropertyNode::DataValid )
+			else if ( Result != EPropertyDataValidationResult::DataValid )
 			{
 				Refresh();
 			}

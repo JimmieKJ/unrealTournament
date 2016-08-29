@@ -86,9 +86,10 @@ SAnimationOutlinerTreeNode::~SAnimationOutlinerTreeNode()
 void SAnimationOutlinerTreeNode::Construct( const FArguments& InArgs, TSharedRef<FSequencerDisplayNode> Node, const TSharedRef<SSequencerTreeViewRow>& InTableRow )
 {
 	DisplayNode = Node;
-	bIsTopLevelNode = !Node->GetParent().IsValid();
+	bIsOuterTopLevelNode = !Node->GetParent().IsValid();
+	bIsInnerTopLevelNode = Node->GetType() != ESequencerNode::Folder && Node->GetParent().IsValid() && Node->GetParent()->GetType() == ESequencerNode::Folder;
 
-	if (bIsTopLevelNode)
+	if (bIsOuterTopLevelNode)
 	{
 		ExpandedBackgroundBrush = FEditorStyle::GetBrush( "Sequencer.AnimationOutliner.TopLevelBorder_Expanded" );
 		CollapsedBackgroundBrush = FEditorStyle::GetBrush( "Sequencer.AnimationOutliner.TopLevelBorder_Collapsed" );
@@ -97,6 +98,18 @@ void SAnimationOutlinerTreeNode::Construct( const FArguments& InArgs, TSharedRef
 	{
 		ExpandedBackgroundBrush = FEditorStyle::GetBrush( "Sequencer.AnimationOutliner.DefaultBorder" );
 		CollapsedBackgroundBrush = FEditorStyle::GetBrush( "Sequencer.AnimationOutliner.DefaultBorder" );
+	}
+
+	FMargin InnerNodePadding;
+	if ( bIsInnerTopLevelNode )
+	{
+		InnerBackgroundBrush = FEditorStyle::GetBrush( "Sequencer.AnimationOutliner.TopLevelBorder_Expanded" );
+		InnerNodePadding = FMargin(0.f, 1.f);
+	}
+	else
+	{
+		InnerBackgroundBrush = FEditorStyle::GetBrush( "Sequencer.AnimationOutliner.TransparentBorder" );
+		InnerNodePadding = FMargin(0.f);
 	}
 
 	TableRowStyle = &FEditorStyle::Get().GetWidgetStyle<FTableRowStyle>("TableView.Row");
@@ -137,56 +150,69 @@ void SAnimationOutlinerTreeNode::Construct( const FArguments& InArgs, TSharedRef
 
 					// Expand track lanes button
 					+ SHorizontalBox::Slot()
-					.Padding(FMargin(2.f, 0.f, 4.f, 0.f))
+					.Padding(FMargin(2.f, 0.f, 2.f, 0.f))
 					.VAlign( VAlign_Center )
 					.AutoWidth()
 					[
 						SNew(SExpanderArrow, InTableRow).IndentAmount(SequencerLayoutConstants::IndentAmount)
 					]
 
-					// Icon
 					+ SHorizontalBox::Slot()
-					.Padding(FMargin(0.f, 0.f, 4.f, 0.f))
-					.VAlign(VAlign_Center)
-					.AutoWidth()
+					.Padding( InnerNodePadding )
 					[
-						SNew(SOverlay)
-
-						+ SOverlay::Slot()
+						SNew( SBorder )
+						.BorderImage( FEditorStyle::GetBrush( "Sequencer.AnimationOutliner.TopLevelBorder_Collapsed" ) )
+						.BorderBackgroundColor( this, &SAnimationOutlinerTreeNode::GetNodeInnerBackgroundTint )
+						.Padding( FMargin(0) )
 						[
-							SNew(SImage)
-							.Image(InArgs._IconBrush)
+							SNew( SHorizontalBox )
+							
+							// Icon
+							+ SHorizontalBox::Slot()
+							.Padding(FMargin(0.f, 0.f, 4.f, 0.f))
+							.VAlign(VAlign_Center)
+							.AutoWidth()
+							[
+								SNew(SOverlay)
+
+								+ SOverlay::Slot()
+								[
+									SNew(SImage)
+									.Image(InArgs._IconBrush)
+									.ColorAndOpacity(InArgs._IconColor)
+								]
+
+								+ SOverlay::Slot()
+								.VAlign(VAlign_Top)
+								.HAlign(HAlign_Right)
+								[
+									SNew(SImage)
+									.Image(InArgs._IconOverlayBrush)
+								]
+
+								+ SOverlay::Slot()
+								[
+									SNew(SSpacer)
+									.Visibility(EVisibility::Visible)
+									.ToolTipText(InArgs._IconToolTipText)
+								]
+							]
+
+							// Label Slot
+							+ SHorizontalBox::Slot()
+							.VAlign(VAlign_Center)
+							.Padding(FMargin(0.f, 0.f, 4.f, 0.f))
+							.AutoWidth()
+							[
+								EditableLabel.ToSharedRef()
+							]
+
+							// Arbitrary customization slot
+							+ SHorizontalBox::Slot()
+							[
+								InArgs._CustomContent.Widget
+							]
 						]
-
-						+ SOverlay::Slot()
-						.VAlign(VAlign_Top)
-						.HAlign(HAlign_Right)
-						[
-							SNew(SImage)
-							.Image(InArgs._IconOverlayBrush)
-						]
-
-						+ SOverlay::Slot()
-						[
-							SNew(SSpacer)
-							.Visibility(EVisibility::Visible)
-							.ToolTipText(InArgs._IconToolTipText)
-						]
-					]
-
-					// Label Slot
-					+ SHorizontalBox::Slot()
-					.VAlign(VAlign_Center)
-					.Padding(FMargin(0.f, 0.f, 4.f, 0.f))
-					.AutoWidth()
-					[
-						EditableLabel.ToSharedRef()
-					]
-
-					// Arbitrary customization slot
-					+ SHorizontalBox::Slot()
-					[
-						InArgs._CustomContent.Widget
 					]
 				]
 			]
@@ -198,6 +224,7 @@ void SAnimationOutlinerTreeNode::Construct( const FArguments& InArgs, TSharedRef
 				.ContentPadding(0)
 				.VAlign(VAlign_Fill)
 				.HasDownArrow(false)
+				.IsFocusable(false)
 				.ButtonStyle(FEditorStyle::Get(), "Sequencer.AnimationOutliner.ColorStrip")
 				.OnGetMenuContent(this, &SAnimationOutlinerTreeNode::OnGetColorPicker)
 				.OnMenuOpenChanged_Lambda([](bool bIsOpen){
@@ -286,11 +313,41 @@ FSlateColor SAnimationOutlinerTreeNode::GetNodeBackgroundTint() const
 	}	
 	else if (DisplayNode->IsHovered())
 	{
-		return bIsTopLevelNode ? FLinearColor(FColor(52, 52, 52, 255)) : FLinearColor(FColor(72, 72, 72, 255));
+		return bIsOuterTopLevelNode ? FLinearColor(FColor(52, 52, 52, 255)) : FLinearColor(FColor(72, 72, 72, 255));
 	}
 	else
 	{
-		return bIsTopLevelNode ? FLinearColor(FColor(48, 48, 48, 255)) : FLinearColor(FColor(62, 62, 62, 255));
+		return bIsOuterTopLevelNode ? FLinearColor(FColor(48, 48, 48, 255)) : FLinearColor(FColor(62, 62, 62, 255));
+	}
+}
+
+FSlateColor SAnimationOutlinerTreeNode::GetNodeInnerBackgroundTint() const
+{
+	if ( bIsInnerTopLevelNode )
+	{
+		FSequencer& Sequencer = DisplayNode->GetSequencer();
+		const bool bIsSelected = Sequencer.GetSelection().IsSelected( DisplayNode.ToSharedRef() );
+
+		if ( bIsSelected )
+		{
+			return FEditorStyle::GetSlateColor( "SelectionColor_Pressed" );
+		}
+		else if ( Sequencer.GetSelection().NodeHasSelectedKeysOrSections( DisplayNode.ToSharedRef() ) )
+		{
+			return FLinearColor( FColor( 115, 115, 115, 255 ) );
+		}
+		else if ( DisplayNode->IsHovered() )
+		{
+			return FLinearColor( FColor( 52, 52, 52, 255 ) );
+		}
+		else
+		{
+			return FLinearColor( FColor( 48, 48, 48, 255 ) );
+		}
+	}
+	else
+	{
+		return FLinearColor( 0.f, 0.f, 0.f, 0.f );
 	}
 }
 

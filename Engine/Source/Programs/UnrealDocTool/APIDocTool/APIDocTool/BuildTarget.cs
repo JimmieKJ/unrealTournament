@@ -31,25 +31,16 @@ namespace APIDocTool
 
 					// Parse a list of tokens
 					List<string> Tokens = new List<string>();
-					for (int Idx = 0; Idx < Params.Length; Idx++)
+					Tokens.AddRange(TokenizeArguments(Params));
+
+					// Expand response files
+					for(int Idx = 0; Idx < Tokens.Count; Idx++)
 					{
-						if (!Char.IsWhiteSpace(Params[Idx]))
+						if(Tokens[Idx].StartsWith("@"))
 						{
-							StringBuilder Token = new StringBuilder();
-							while (Idx < Params.Length && !Char.IsWhiteSpace(Params[Idx]))
-							{
-								if (Params[Idx] == '"')
-								{
-									Idx++;
-									while (Params[Idx] != '"') Token.Append(Params[Idx++]);
-									Idx++;
-								}
-								else
-								{
-									Token.Append(Params[Idx++]);
-								}
-							}
-							Tokens.Add(Token.ToString());
+							List<string> NewTokens = File.ReadAllLines(Tokens[Idx].Substring(1)).SelectMany(Line => TokenizeArguments(Line)).ToList();
+							Tokens.RemoveAt(Idx);
+							Tokens.InsertRange(Idx, NewTokens);
 						}
 					}
 
@@ -74,6 +65,31 @@ namespace APIDocTool
 							DirectoryNames.AddUnique(Path.GetDirectoryName(ResolveFile(BaseDirectoryName, Tokens[Idx])));
 						}
 					}
+				}
+			}
+		}
+
+		static IEnumerable<string> TokenizeArguments(string Params)
+		{
+			for (int Idx = 0; Idx < Params.Length; Idx++)
+			{
+				if (!Char.IsWhiteSpace(Params[Idx]))
+				{
+					StringBuilder Token = new StringBuilder();
+					while (Idx < Params.Length && !Char.IsWhiteSpace(Params[Idx]))
+					{
+						if (Params[Idx] == '"')
+						{
+							Idx++;
+							while (Params[Idx] != '"') Token.Append(Params[Idx++]);
+							Idx++;
+						}
+						else
+						{
+							Token.Append(Params[Idx++]);
+						}
+					}
+					yield return Token.ToString();
 				}
 			}
 		}

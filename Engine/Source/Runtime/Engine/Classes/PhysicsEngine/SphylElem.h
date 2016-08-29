@@ -18,17 +18,20 @@ struct FKSphylElem : public FKShapeElem
 	UPROPERTY()
 	FMatrix TM_DEPRECATED;
 
-	UPROPERTY(Category=KBoxElem, VisibleAnywhere)
+	/** Position of the capsule's origin */
+	UPROPERTY(Category=Capsule, EditAnywhere)
 	FVector Center;
 
-	UPROPERTY(Category=KBoxElem, VisibleAnywhere)
+	/** Orientation of the capsule */
+	UPROPERTY(Category= Capsule, EditAnywhere)
 	FQuat Orientation;
 
-	UPROPERTY(Category=KSphylElem, VisibleAnywhere)
+	/** Radius of the capsule */
+	UPROPERTY(Category= Capsule, EditAnywhere)
 	float Radius;
 
 	/** This is of line-segment ie. add Radius to both ends to find total length. */
-	UPROPERTY(Category=KSphylElem, VisibleAnywhere)
+	UPROPERTY(Category= Capsule, EditAnywhere)
 	float Length;
 
 	FKSphylElem()

@@ -1,8 +1,6 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-
-#ifndef __LEVELUTILS_H__
-#define __LEVELUTILS_H__
+#pragma once
 
 // Forward declarations.
 class ULevel;
@@ -155,4 +153,3 @@ private:
 #endif // WITH_EDITOR
 };
 
-#endif

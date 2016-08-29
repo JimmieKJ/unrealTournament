@@ -1,6 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
+#include "Core.h"
 #include "HttpNetworkReplayStreaming.h"
+#include "ScopedTimers.h"
 
 DEFINE_LOG_CATEGORY_STATIC( LogHttpReplay, Log, All );
 
@@ -12,9 +14,10 @@ DECLARE_CYCLE_STAT( TEXT( "Http replay compress time" ), STAT_HttpReplay_Compres
 DECLARE_CYCLE_STAT( TEXT( "Http replay decompress time" ), STAT_HttpReplay_DecompressTime, STATGROUP_HttpReplay );
 
 static TAutoConsoleVariable<FString> CVarMetaFilterOverride( TEXT( "httpReplay.MetaFilterOverride" ), TEXT( "" ), TEXT( "" ) );
-static TAutoConsoleVariable<float> CVarChunkUploadDelayInSeconds(TEXT("httpReplay.ChunkUploadDelayInSeconds"), 10.0f, TEXT(""));
+static TAutoConsoleVariable<float> CVarChunkUploadDelayInSeconds( TEXT( "httpReplay.ChunkUploadDelayInSeconds" ), 10.0f, TEXT( "" ) );
+static TAutoConsoleVariable<int> CVarMaxCacheSize( TEXT( "httpReplay.MaxCacheSize" ), 1024 * 1024 * 10, TEXT( "" ) );		// 10 MB cache by default
 
-class FNetworkReplayListItem : public FOnlineJsonSerializable
+class FNetworkReplayListItem : public FJsonSerializable
 {
 public:
 	FNetworkReplayListItem() : SizeInBytes( 0 ), DemoTimeInMs( 0 ), NumViewers( 0 ), bIsLive( false ), Changelist( 0 ), bShouldKeep( false ) {}
@@ -31,22 +34,22 @@ public:
 	int32		Changelist;
 	bool		bShouldKeep;
 
-	// FOnlineJsonSerializable
-	BEGIN_ONLINE_JSON_SERIALIZER
-		ONLINE_JSON_SERIALIZE( "AppName",		AppName );
-		ONLINE_JSON_SERIALIZE( "SessionName",	SessionName );
-		ONLINE_JSON_SERIALIZE( "FriendlyName",	FriendlyName );
-		ONLINE_JSON_SERIALIZE( "Timestamp",		Timestamp );
-		ONLINE_JSON_SERIALIZE( "SizeInBytes",	SizeInBytes );
-		ONLINE_JSON_SERIALIZE( "DemoTimeInMs",	DemoTimeInMs );
-		ONLINE_JSON_SERIALIZE( "NumViewers",	NumViewers );
-		ONLINE_JSON_SERIALIZE( "bIsLive",		bIsLive );
-		ONLINE_JSON_SERIALIZE( "Changelist",	Changelist );
-		ONLINE_JSON_SERIALIZE( "shouldKeep",	bShouldKeep );
-	END_ONLINE_JSON_SERIALIZER
+	// FJsonSerializable
+	BEGIN_JSON_SERIALIZER
+		JSON_SERIALIZE( "AppName",		AppName );
+		JSON_SERIALIZE( "SessionName",	SessionName );
+		JSON_SERIALIZE( "FriendlyName",	FriendlyName );
+		JSON_SERIALIZE( "Timestamp",		Timestamp );
+		JSON_SERIALIZE( "SizeInBytes",	SizeInBytes );
+		JSON_SERIALIZE( "DemoTimeInMs",	DemoTimeInMs );
+		JSON_SERIALIZE( "NumViewers",	NumViewers );
+		JSON_SERIALIZE( "bIsLive",		bIsLive );
+		JSON_SERIALIZE( "Changelist",	Changelist );
+		JSON_SERIALIZE( "shouldKeep",	bShouldKeep );
+	END_JSON_SERIALIZER
 };
 
-class FNetworkReplayList : public FOnlineJsonSerializable
+class FNetworkReplayList : public FJsonSerializable
 {
 public:
 	FNetworkReplayList()
@@ -55,13 +58,13 @@ public:
 
 	TArray< FNetworkReplayListItem > Replays;
 
-	// FOnlineJsonSerializable
-	BEGIN_ONLINE_JSON_SERIALIZER
-		ONLINE_JSON_SERIALIZE_ARRAY_SERIALIZABLE( "replays", Replays, FNetworkReplayListItem );
-	END_ONLINE_JSON_SERIALIZER
+	// FJsonSerializable
+	BEGIN_JSON_SERIALIZER
+		JSON_SERIALIZE_ARRAY_SERIALIZABLE( "replays", Replays, FNetworkReplayListItem );
+	END_JSON_SERIALIZER
 };
 
-class FNetworkReplayUserList : public FOnlineJsonSerializable
+class FNetworkReplayUserList : public FJsonSerializable
 {
 public:
 	FNetworkReplayUserList()
@@ -73,13 +76,13 @@ public:
 
 	TArray< FString > Users;
 
-	// FOnlineJsonSerializable
-	BEGIN_ONLINE_JSON_SERIALIZER
-		ONLINE_JSON_SERIALIZE_ARRAY( "users", Users );
-	END_ONLINE_JSON_SERIALIZER
+	// FJsonSerializable
+	BEGIN_JSON_SERIALIZER
+		JSON_SERIALIZE_ARRAY( "users", Users );
+	END_JSON_SERIALIZER
 };
 
-class FNetworkReplayStartUploadingResponse : public FOnlineJsonSerializable
+class FNetworkReplayStartUploadingResponse : public FJsonSerializable
 {
 public:
 	FNetworkReplayStartUploadingResponse()
@@ -88,13 +91,13 @@ public:
 
 	FString SessionId;
 
-	// FOnlineJsonSerializable
-	BEGIN_ONLINE_JSON_SERIALIZER
-		ONLINE_JSON_SERIALIZE("sessionId", SessionId);
-	END_ONLINE_JSON_SERIALIZER
+	// FJsonSerializable
+	BEGIN_JSON_SERIALIZER
+		JSON_SERIALIZE("sessionId", SessionId);
+	END_JSON_SERIALIZER
 };
 
-class FNetworkReplayStartDownloadingResponse : public FOnlineJsonSerializable
+class FNetworkReplayStartDownloadingResponse : public FJsonSerializable
 {
 public:
 	FNetworkReplayStartDownloadingResponse()
@@ -106,13 +109,13 @@ public:
 	int32 Time;
 	int32 NumChunks;
 
-	// FOnlineJsonSerializable
-	BEGIN_ONLINE_JSON_SERIALIZER
-		ONLINE_JSON_SERIALIZE("state", State);
-		ONLINE_JSON_SERIALIZE("numChunks", NumChunks);
-		ONLINE_JSON_SERIALIZE("time", Time);
-		ONLINE_JSON_SERIALIZE("viewerId", Viewer);
-	END_ONLINE_JSON_SERIALIZER
+	// FJsonSerializable
+	BEGIN_JSON_SERIALIZER
+		JSON_SERIALIZE("state", State);
+		JSON_SERIALIZE("numChunks", NumChunks);
+		JSON_SERIALIZE("time", Time);
+		JSON_SERIALIZE("viewerId", Viewer);
+	END_JSON_SERIALIZER
 };
 
 void FHttpStreamFArchive::Serialize( void* V, int64 Length ) 
@@ -183,7 +186,8 @@ FHttpNetworkReplayStreamer::FHttpNetworkReplayStreamer() :
 	HighPriorityEndTime( 0 ),
 	StreamerLastError( ENetworkReplayError::None ),
 	DownloadCheckpointIndex( -1 ),
-	LastGotoTimeInMS( -1 )
+	LastGotoTimeInMS( -1 ),
+	TotalUploadBytes( 0 )
 {
 	// Initialize the server URL
 	GConfig->GetString( TEXT( "HttpNetworkReplayStreaming" ), TEXT( "ServerURL" ), ServerURL, GEngineIni );
@@ -239,6 +243,8 @@ void FHttpNetworkReplayStreamer::StartStreaming( const FString& CustomName, cons
 
 	StreamChunkIndex = 0;
 
+	TotalUploadBytes = 0;
+
 	if ( !bRecord )
 	{
 		// We are streaming down
@@ -279,18 +285,28 @@ void FHttpNetworkReplayStreamer::StartStreaming( const FString& CustomName, cons
 
 		SessionName.Empty();
 
+		FString URL;
+
+		if ( !CustomName.IsEmpty() )
+		{
+			const FString SessionIDOverride = CustomName.ToLower();
+
+			URL = FString::Printf( TEXT( "%sreplay/%s?app=%s&version=%u&cl=%u&friendlyName=%s" ), *ServerURL, *SessionIDOverride, *ReplayVersion.AppString, ReplayVersion.NetworkVersion, ReplayVersion.Changelist, *FGenericPlatformHttp::UrlEncode( FriendlyName ) );
+		}
+		else
+		{
+			URL = FString::Printf( TEXT( "%sreplay?app=%s&version=%u&cl=%u&friendlyName=%s" ), *ServerURL, *ReplayVersion.AppString, ReplayVersion.NetworkVersion, ReplayVersion.Changelist, *FGenericPlatformHttp::UrlEncode( FriendlyName ) );
+		}
+
 		FString MetaString;
 
 		if ( FParse::Value( FCommandLine::Get(), TEXT( "ReplayMeta=" ), MetaString ) && !MetaString.IsEmpty() )
 		{
-			// Notify the http server that we want to start uploading a replay
-			HttpRequest->SetURL( FString::Printf( TEXT( "%sreplay?app=%s&version=%u&cl=%u&friendlyName=%s&meta=%s" ), *ServerURL, *ReplayVersion.AppString, ReplayVersion.NetworkVersion, ReplayVersion.Changelist, *FGenericPlatformHttp::UrlEncode( FriendlyName ), *FGenericPlatformHttp::UrlEncode( MetaString ) ) );
+			URL += FString::Printf( TEXT( "&meta=%s" ), *FGenericPlatformHttp::UrlEncode( MetaString ) );
 		}
-		else
-		{
-			// Notify the http server that we want to start uploading a replay
-			HttpRequest->SetURL( FString::Printf( TEXT( "%sreplay?app=%s&version=%u&cl=%u&friendlyName=%s" ), *ServerURL, *ReplayVersion.AppString, ReplayVersion.NetworkVersion, ReplayVersion.Changelist, *FGenericPlatformHttp::UrlEncode( FriendlyName ) ) );
-		}
+
+		// Notify the http server that we want to start uploading a replay
+		HttpRequest->SetURL( URL );
 
 		HttpRequest->SetVerb( TEXT( "POST" ) );
 
@@ -327,6 +343,59 @@ void FHttpNetworkReplayStreamer::AddCustomRequestToQueue( TSharedPtr< FQueuedHtt
 	QueuedHttpRequests.Add( Request );
 }
 
+void FHttpNetworkReplayStreamer::AddResponseToCache( FHttpRequestPtr HttpRequest, FHttpResponsePtr HttpResponse )
+{
+	if ( !HttpRequest.IsValid() )
+	{
+		return;
+	}
+
+	if ( !HttpResponse.IsValid() )
+	{
+		return;
+	}
+
+	// Add to cache (or freshen existing entry)
+	ResponseCache.Add( HttpRequest->GetURL(), FCachedResponse( HttpResponse, FPlatformTime::Seconds() ) );
+
+	// Anytime we add something to cache, make sure it's within budget
+	CleanupResponseCache();
+}
+
+void FHttpNetworkReplayStreamer::CleanupResponseCache()
+{
+	// Remove older entries until we're under the CVarMaxCacheSize threshold
+	while ( ResponseCache.Num() )
+	{
+		double OldestTime = 0.0;
+		FString OldestKey;
+		uint32 TotalSize = 0;
+
+		for ( auto It = ResponseCache.CreateIterator(); It; ++It )
+		{
+			if ( OldestKey.IsEmpty() || It.Value().LastAccessTime < OldestTime )
+			{
+				OldestTime = It.Value().LastAccessTime;
+				OldestKey = It.Key();
+			}
+
+			// Accumulate total cache size
+			TotalSize += It.Value().Response->GetContent().Num();
+		}
+
+		check( !OldestKey.IsEmpty() );
+
+		const uint32 MaxCacheSize = CVarMaxCacheSize.GetValueOnGameThread();
+
+		if ( TotalSize <= MaxCacheSize )
+		{
+			break;	// We're good
+		}
+
+		ResponseCache.Remove( OldestKey );
+	}
+}
+
 static FString BuildRequestErrorString( FHttpRequestPtr HttpRequest, FHttpResponsePtr HttpResponse )
 {
 	FString ExtraInfo;
@@ -352,7 +421,7 @@ static FString BuildRequestErrorString( FHttpRequestPtr HttpRequest, FHttpRespon
 	return FString::Printf( TEXT( "Response code: %d, Extra info: %s" ), HttpResponse.IsValid() ? HttpResponse->GetResponseCode() : 0, *ExtraInfo );
 }
 
-bool FHttpNetworkReplayStreamer::RetryRequest( TSharedPtr< FQueuedHttpRequest > Request, FHttpResponsePtr HttpResponse )
+bool FHttpNetworkReplayStreamer::RetryRequest( TSharedPtr< FQueuedHttpRequest > Request, FHttpResponsePtr HttpResponse, const bool bIgnoreResponseCode )
 {
 	if ( !Request.IsValid() )
 	{
@@ -369,9 +438,12 @@ bool FHttpNetworkReplayStreamer::RetryRequest( TSharedPtr< FQueuedHttpRequest > 
 		return false;
 	}
 
-	if ( HttpResponse->GetResponseCode() < 500 || HttpResponse->GetResponseCode() >= 600 )
+	if ( !bIgnoreResponseCode )
 	{
-		return false;		// Only retry on 5xx return codes
+		if ( HttpResponse->GetResponseCode() < 500 || HttpResponse->GetResponseCode() >= 600 )
+		{
+			return false;		// Only retry on 5xx return codes
+		}
 	}
 
 	Request->RetryProgress++;
@@ -503,10 +575,6 @@ void FHttpNetworkReplayStreamer::FlushStream()
 
 	HttpRequest->OnProcessRequestComplete().BindRaw( this, &FHttpNetworkReplayStreamer::HttpUploadStreamFinished );
 
-	HttpRequest->SetURL(FString::Printf(TEXT("%sreplay/%s/file/stream.%i?numChunks=%i&time=%i&mTime1=%i&mTime2=%i"), *ServerURL, *SessionName, StreamChunkIndex, StreamChunkIndex + 1, TotalDemoTimeInMS, StreamTimeRangeStart, StreamTimeRangeEnd));
-	HttpRequest->SetVerb( TEXT( "POST" ) );
-	HttpRequest->SetHeader( TEXT( "Content-Type" ), TEXT( "application/octet-stream" ) );
-
 	if ( SupportsCompression() )
 	{
 		SCOPE_CYCLE_COUNTER( STAT_HttpReplay_CompressTime );
@@ -525,11 +593,18 @@ void FHttpNetworkReplayStreamer::FlushStream()
 		UE_LOG( LogHttpReplay, VeryVerbose, TEXT( "Compressed stream. Original: %i, Compressed: %i, Time: %2.2f MS" ), StreamArchive.Buffer.Num(), Compressed.Buffer.Num(), ( EndTime - StartTime ) * 1000.0f );
 
 		HttpRequest->SetContent( Compressed.Buffer );
+
+		TotalUploadBytes += Compressed.Buffer.Num();
 	}
 	else
 	{
 		HttpRequest->SetContent( StreamArchive.Buffer );
+		TotalUploadBytes += StreamArchive.Buffer.Num();
 	}
+
+	HttpRequest->SetURL( FString::Printf( TEXT( "%sreplay/%s/file/stream.%i?numChunks=%i&time=%i&mTime1=%i&mTime2=%i&absSize=%i" ), *ServerURL, *SessionName, StreamChunkIndex, StreamChunkIndex + 1, TotalDemoTimeInMS, StreamTimeRangeStart, StreamTimeRangeEnd, TotalUploadBytes ) );
+	HttpRequest->SetVerb( TEXT( "POST" ) );
+	HttpRequest->SetHeader( TEXT( "Content-Type" ), TEXT( "application/octet-stream" ) );
 
 	StreamArchive.Buffer.Empty();
 	StreamArchive.Pos = 0;
@@ -551,7 +626,7 @@ void FHttpNetworkReplayStreamer::ConditionallyFlushStream()
 		return;
 	}
 	
-	const double FLUSH_TIME_IN_SECONDS = 10;
+	const float FLUSH_TIME_IN_SECONDS = CVarChunkUploadDelayInSeconds.GetValueOnGameThread();
 
 	if ( FPlatformTime::Seconds() - LastChunkTime > FLUSH_TIME_IN_SECONDS )
 	{
@@ -566,7 +641,7 @@ void FHttpNetworkReplayStreamer::StopUploading()
 
 	HttpRequest->OnProcessRequestComplete().BindRaw( this, &FHttpNetworkReplayStreamer::HttpStopUploadingFinished );
 
-	HttpRequest->SetURL( FString::Printf( TEXT( "%sreplay/%s/stopUploading?numChunks=%i&time=%i" ), *ServerURL, *SessionName, StreamChunkIndex, TotalDemoTimeInMS ) );
+	HttpRequest->SetURL( FString::Printf( TEXT( "%sreplay/%s/stopUploading?numChunks=%i&time=%i&absSize=%i" ), *ServerURL, *SessionName, StreamChunkIndex, TotalDemoTimeInMS, TotalUploadBytes ) );
 	HttpRequest->SetVerb( TEXT( "POST" ) );
 	HttpRequest->SetHeader( TEXT( "Content-Type" ), TEXT( "application/octet-stream" ) );
 
@@ -764,43 +839,52 @@ void FHttpNetworkReplayStreamer::FlushCheckpointInternal( uint32 TimeInMS )
 		return;
 	}
 
-	// Upload any new streamed data to the http server
-	UE_LOG( LogHttpReplay, Log, TEXT( "FHttpNetworkReplayStreamer::FlushCheckpointInternal. Size: %i, StreamChunkIndex: %i" ), CheckpointArchive.Buffer.Num(), StreamChunkIndex );
+	double Duration = 0;
 
-	// Create the Http request and add to pending request list
-	TSharedRef<IHttpRequest> HttpRequest = FHttpModule::Get().CreateRequest();
-
-	HttpRequest->OnProcessRequestComplete().BindRaw( this, &FHttpNetworkReplayStreamer::HttpUploadCheckpointFinished );
-
-	HttpRequest->SetURL( FString::Printf( TEXT( "%sreplay/%s/event?group=checkpoint&time1=%i&time2=%i&meta=%i" ), *ServerURL, *SessionName, TimeInMS, TimeInMS, StreamChunkIndex ) );
-	HttpRequest->SetVerb( TEXT( "POST" ) );
-	HttpRequest->SetHeader( TEXT( "Content-Type" ), TEXT( "application/octet-stream" ) );
-
-	if ( SupportsCompression() )
 	{
-		SCOPE_CYCLE_COUNTER( STAT_HttpReplay_CompressTime );
+		FScopedDurationTimer Timer(Duration);
 
-		const double StartTime = FPlatformTime::Seconds();
-		FHttpStreamFArchive Compressed;
-		if ( !CompressBuffer( CheckpointArchive.Buffer, Compressed ) )
+		// Create the Http request and add to pending request list
+		TSharedRef<IHttpRequest> HttpRequest = FHttpModule::Get().CreateRequest();
+
+		HttpRequest->OnProcessRequestComplete().BindRaw(this, &FHttpNetworkReplayStreamer::HttpUploadCheckpointFinished);
+
+		HttpRequest->SetURL(FString::Printf(TEXT("%sreplay/%s/event?group=checkpoint&time1=%i&time2=%i&meta=%i&incrementSize=false"), *ServerURL, *SessionName, TimeInMS, TimeInMS, StreamChunkIndex));
+		HttpRequest->SetVerb(TEXT("POST"));
+		HttpRequest->SetHeader(TEXT("Content-Type"), TEXT("application/octet-stream"));
+
+		if (SupportsCompression())
 		{
-			SetLastError( ENetworkReplayError::ServiceUnavailable );
-			return;
-		}
-		const double EndTime = FPlatformTime::Seconds();
-		HttpRequest->SetContent( Compressed.Buffer );
+			SCOPE_CYCLE_COUNTER(STAT_HttpReplay_CompressTime);
 
-		UE_LOG( LogHttpReplay, VeryVerbose, TEXT( "Compressed checkpoint. Original: %i, Compressed: %i, Time: %2.2f MS" ), CheckpointArchive.Buffer.Num(), Compressed.Buffer.Num(), ( EndTime - StartTime ) * 1000.0f );
+			const double StartTime = FPlatformTime::Seconds();
+			FHttpStreamFArchive Compressed;
+			if (!CompressBuffer(CheckpointArchive.Buffer, Compressed))
+			{
+				SetLastError(ENetworkReplayError::ServiceUnavailable);
+				return;
+			}
+			const double EndTime = FPlatformTime::Seconds();
+			HttpRequest->SetContent(Compressed.Buffer);
+
+			UE_LOG(LogHttpReplay, VeryVerbose, TEXT("Compressed checkpoint. Original: %i, Compressed: %i, Time: %2.2f MS"), CheckpointArchive.Buffer.Num(), Compressed.Buffer.Num(), (EndTime - StartTime) * 1000.0f);
+		}
+		else
+		{
+			HttpRequest->SetContent(CheckpointArchive.Buffer);
+		}
+
+		AddRequestToQueue(EQueuedHttpRequestType::UploadingCheckpoint, HttpRequest, 2, 2.0f);
 	}
-	else
-	{
-		HttpRequest->SetContent( CheckpointArchive.Buffer );
-	}
+
+	// Upload any new streamed data to the http server
+	UE_LOG(LogHttpReplay, Log, TEXT("FHttpNetworkReplayStreamer::FlushCheckpointInternal. Size: %i, StreamChunkIndex: %i, Time: %2.2f MS"), 
+		CheckpointArchive.Buffer.Num(), 
+		StreamChunkIndex,
+		Duration * 1000.0f);
 
 	CheckpointArchive.Buffer.Empty();
-	CheckpointArchive.Pos = 0;
-
-	AddRequestToQueue( EQueuedHttpRequestType::UploadingCheckpoint, HttpRequest, 2, 2.0f );
+	CheckpointArchive.Pos = 0;	
 }
 
 FQueuedHttpRequestAddEvent::FQueuedHttpRequestAddEvent( const FString& InName, const uint32 InTimeInMS, const FString& InGroup, const FString& InMeta, const TArray<uint8>& InData, TSharedRef< class IHttpRequest > InHttpRequest ) : FQueuedHttpRequest( EQueuedHttpRequestType::UploadingCustomEvent, InHttpRequest )
@@ -831,11 +915,11 @@ bool FQueuedHttpRequestAddEvent::PreProcess( FHttpNetworkReplayStreamer* Streame
 	{
 		// Add or update existing event
 		const FString EventName = SessionName + TEXT( "_" ) + Name;
-		Request->SetURL( FString::Printf( TEXT( "%sreplay/%s/event/%s?group=%s&time1=%i&time2=%i&meta=%s" ), *ServerURL, *SessionName, *EventName, *Group, TimeInMS, TimeInMS, *FGenericPlatformHttp::UrlEncode( Meta ) ) );
+		Request->SetURL( FString::Printf( TEXT( "%sreplay/%s/event/%s?group=%s&time1=%i&time2=%i&meta=%s&incrementSize=false" ), *ServerURL, *SessionName, *EventName, *Group, TimeInMS, TimeInMS, *FGenericPlatformHttp::UrlEncode( Meta ) ) );
 	}
 	else
 	{
-		Request->SetURL( FString::Printf( TEXT( "%sreplay/%s/event?group=%s&time1=%i&time2=%i&meta=%s" ), *ServerURL, *SessionName, *Group, TimeInMS, TimeInMS, *FGenericPlatformHttp::UrlEncode( Meta ) ) );
+		Request->SetURL( FString::Printf( TEXT( "%sreplay/%s/event?group=%s&time1=%i&time2=%i&meta=%s&incrementSize=false" ), *ServerURL, *SessionName, *Group, TimeInMS, TimeInMS, *FGenericPlatformHttp::UrlEncode( Meta ) ) );
 	}
 
 	return true;
@@ -1058,7 +1142,7 @@ void FHttpNetworkReplayStreamer::RefreshViewer( const bool bFinal )
 
 	HttpRequest->OnProcessRequestComplete().BindRaw( this, &FHttpNetworkReplayStreamer::HttpRefreshViewerFinished );
 
-	AddRequestToQueue( EQueuedHttpRequestType::RefreshingViewer, HttpRequest );
+	AddRequestToQueue( EQueuedHttpRequestType::RefreshingViewer, HttpRequest, 2, 2.0f );
 
 	LastRefreshViewerTime = FPlatformTime::Seconds();
 }
@@ -1126,11 +1210,6 @@ FArchive* FHttpNetworkReplayStreamer::GetCheckpointArchive()
 	}
 
 	return &CheckpointArchive;
-}
-
-FArchive* FHttpNetworkReplayStreamer::GetMetadataArchive()
-{
-	return NULL;
 }
 
 void FHttpNetworkReplayStreamer::UpdateTotalDemoTime( uint32 TimeInMS )
@@ -1405,6 +1484,9 @@ void FHttpNetworkReplayStreamer::HttpStartUploadingFinished( FHttpRequestPtr Htt
 		SessionName = StartUploadingResponse.SessionId;
 
 		UE_LOG( LogHttpReplay, Log, TEXT( "FHttpNetworkReplayStreamer::HttpStartUploadingFinished. SessionName: %s" ), *SessionName );
+
+		// Add the session id as search tag to replay
+		AddUserToReplay( SessionName );
 	}
 	else
 	{
@@ -1457,7 +1539,12 @@ void FHttpNetworkReplayStreamer::HttpHeaderUploadFinished( FHttpRequestPtr HttpR
 
 	if ( bSucceeded && HttpResponse->GetResponseCode() == EHttpResponseCodes::NoContent )
 	{
-		UE_LOG( LogHttpReplay, Log, TEXT( "FHttpNetworkReplayStreamer::HttpHeaderUploadFinished." ) );
+		if ( HttpRequest.IsValid() )
+		{
+			TotalUploadBytes += HttpRequest->GetContentLength();
+		}
+
+		UE_LOG( LogHttpReplay, Verbose, TEXT( "FHttpNetworkReplayStreamer::HttpHeaderUploadFinished. TotalUploadBytes: %i" ), TotalUploadBytes );
 
 		StartStreamingDelegate.ExecuteIfBound( true, true );
 	}
@@ -1507,7 +1594,12 @@ void FHttpNetworkReplayStreamer::HttpUploadCheckpointFinished( FHttpRequestPtr H
 
 	if ( bSucceeded && ( HttpResponse->GetResponseCode() == EHttpResponseCodes::Ok || HttpResponse->GetResponseCode() == EHttpResponseCodes::NoContent ) )
 	{
-		UE_LOG( LogHttpReplay, Verbose, TEXT( "FHttpNetworkReplayStreamer::HttpUploadCheckpointFinished." ) );
+		if ( HttpRequest.IsValid() )
+		{
+			TotalUploadBytes += HttpRequest->GetContentLength();
+		}
+
+		UE_LOG( LogHttpReplay, Verbose, TEXT( "FHttpNetworkReplayStreamer::HttpUploadCheckpointFinished. TotalUploadBytes: %i" ), TotalUploadBytes );
 	}
 	else
 	{
@@ -1527,7 +1619,12 @@ void FHttpNetworkReplayStreamer::HttpUploadCustomEventFinished(FHttpRequestPtr H
 
 	if ( bSucceeded && ( HttpResponse->GetResponseCode() == EHttpResponseCodes::Ok || HttpResponse->GetResponseCode() == EHttpResponseCodes::NoContent ) )
 	{
-		UE_LOG(LogHttpReplay, Verbose, TEXT("FHttpNetworkReplayStreamer::HttpUploadCustomEventFinished."));
+		if ( HttpRequest.IsValid() )
+		{
+			TotalUploadBytes += HttpRequest->GetContentLength();
+		}
+
+		UE_LOG( LogHttpReplay, Verbose, TEXT( "FHttpNetworkReplayStreamer::HttpUploadCustomEventFinished. TotalUploadBytes: %i" ), TotalUploadBytes );
 	}
 	else
 	{
@@ -1640,9 +1737,26 @@ void FHttpNetworkReplayStreamer::HttpDownloadFinished( FHttpRequestPtr HttpReque
 			return;
 		}
 
-		NumTotalStreamChunks = FCString::Atoi( *HttpResponse->GetHeader( TEXT( "NumChunks" ) ) );
-		TotalDemoTimeInMS = FCString::Atoi( *HttpResponse->GetHeader( TEXT( "Time" ) ) );
-		bStreamIsLive = HttpResponse->GetHeader( TEXT( "State" ) ) == TEXT( "Live" );
+		const int32 NewNumTotalStreamChunks = FCString::Atoi( *HttpResponse->GetHeader( TEXT( "NumChunks" ) ) );
+		const uint32 NewTotalDemoTimeInMS = FCString::Atoi( *HttpResponse->GetHeader( TEXT( "Time" ) ) );
+
+		// Cached http calls can make time go backwards, so protect against that
+		if ( NewNumTotalStreamChunks > NumTotalStreamChunks )
+		{
+			NumTotalStreamChunks = NewNumTotalStreamChunks;
+		}
+
+		if ( NewTotalDemoTimeInMS > TotalDemoTimeInMS )
+		{
+			TotalDemoTimeInMS = NewTotalDemoTimeInMS;
+		}
+
+		const bool bNewStreamIsLive = HttpResponse->GetHeader( TEXT( "State" ) ) == TEXT( "Live" );
+
+		if ( bStreamIsLive && !bNewStreamIsLive )
+		{
+			bStreamIsLive = bNewStreamIsLive;
+		}
 
 		if ( HttpResponse->GetContent().Num() > 0 || bStreamIsLive )
 		{
@@ -1656,7 +1770,10 @@ void FHttpNetworkReplayStreamer::HttpDownloadFinished( FHttpRequestPtr HttpReque
 
 				// This is the new end of the stream
 				StreamTimeRangeEnd = FCString::Atoi( *HttpResponse->GetHeader( TEXT( "MTime2" ) ) );
-				
+
+				// Add response to response cache
+				AddResponseToCache( HttpRequest, HttpResponse );
+
 				if ( SupportsCompression() )
 				{
 					SCOPE_CYCLE_COUNTER( STAT_HttpReplay_DecompressTime );
@@ -1752,6 +1869,9 @@ void FHttpNetworkReplayStreamer::HttpDownloadCheckpointFinished( FHttpRequestPtr
 			return;
 		}
 
+		// Add response to response cache
+		AddResponseToCache( HttpRequest, HttpResponse );
+
 		// Get the checkpoint data
 		if ( SupportsCompression() )
 		{
@@ -1831,10 +1951,17 @@ void FHttpNetworkReplayStreamer::HttpDownloadCheckpointFinished( FHttpRequestPtr
 
 void FHttpNetworkReplayStreamer::HttpRefreshViewerFinished( FHttpRequestPtr HttpRequest, FHttpResponsePtr HttpResponse, bool bSucceeded )
 {
+	TSharedPtr< FQueuedHttpRequest > SavedFlightHttpRequest = InFlightHttpRequest;
+
 	RequestFinished( EStreamerState::StreamingDown, EQueuedHttpRequestType::RefreshingViewer, HttpRequest );
 
 	if ( !bSucceeded || HttpResponse->GetResponseCode() != EHttpResponseCodes::NoContent )
 	{
+		if ( RetryRequest( SavedFlightHttpRequest, HttpResponse, true ) )
+		{
+			return;
+		}
+
 		UE_LOG( LogHttpReplay, Error, TEXT( "FHttpNetworkReplayStreamer::HttpRefreshViewerFinished. FAILED, %s" ), *BuildRequestErrorString( HttpRequest, HttpResponse ) );
 		SetLastError( ENetworkReplayError::ServiceUnavailable );
 	}
@@ -2048,6 +2175,26 @@ bool FHttpNetworkReplayStreamer::ProcessNextHttpRequest()
 
 		InFlightHttpRequest = QueuedRequest;
 
+		FCachedResponse* CachedResponse = ResponseCache.Find( InFlightHttpRequest->Request->GetURL() );
+
+		if ( CachedResponse != nullptr )
+		{
+			if ( InFlightHttpRequest->Request->OnProcessRequestComplete().IsBound() )
+			{
+				// If we have this response in the cache, process it now
+				CachedResponse->LastAccessTime = FPlatformTime::Seconds();
+				InFlightHttpRequest->Request->OnProcessRequestComplete().ExecuteIfBound( InFlightHttpRequest->Request, CachedResponse->Response, true );
+
+				// We can now immediately process next request
+				return ProcessNextHttpRequest();
+			}
+			else
+			{
+				// Should never happen, but just in case
+				ResponseCache.Remove( InFlightHttpRequest->Request->GetURL() );
+			}
+		}
+
 		ProcessRequestInternal( InFlightHttpRequest->Request );
 
 		// We can return now since we know a http request is now in flight
@@ -2138,6 +2285,8 @@ void FHttpNetworkReplayStreamingFactory::Tick( float DeltaTime )
 {
 	for ( int i = HttpStreamers.Num() - 1; i >= 0; i-- )
 	{
+		check( HttpStreamers[i].IsValid() );
+
 		HttpStreamers[i]->Tick( DeltaTime );
 		
 		// We can release our hold when streaming is completely done

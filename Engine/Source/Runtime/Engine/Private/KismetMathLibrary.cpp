@@ -1,9 +1,13 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "EnginePrivate.h"
+
+#include "Blueprint/BlueprintSupport.h"
 #include "Kismet/KismetMathLibrary.h"
 #include "CoreStats.h"
 #include "Math/DualQuat.h"
+
+#define LOCTEXT_NAMESPACE "UKismetMathLibrary"
 
 /** Interpolate a linear alpha value using an ease mode and function. */
 float EaseAlpha(float InAlpha, uint8 EasingFunc, float BlendExp, int32 Steps)
@@ -27,14 +31,76 @@ float EaseAlpha(float InAlpha, uint8 EasingFunc, float BlendExp, int32 Steps)
 	return InAlpha;
 }
 
+const FName DivideByZeroWarning = FName("DivideByZeroWarning");
+const FName NegativeSqrtWarning = FName("NegativeSqrtWarning");
+const FName ZeroLengthProjectionWarning = FName("ZeroLengthProjectionWarning");
+const FName InvalidDateWarning = FName("InvalidDateWarning");
+
 UKismetMathLibrary::UKismetMathLibrary(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
+	FBlueprintSupport::RegisterBlueprintWarning(
+		FBlueprintWarningDeclaration (
+			DivideByZeroWarning,
+			LOCTEXT("DivideByZeroWarning", "Divide by zero")
+		)
+	);
+	FBlueprintSupport::RegisterBlueprintWarning(
+		FBlueprintWarningDeclaration (
+			NegativeSqrtWarning,
+			LOCTEXT("NegativeSqrtWarning", "Square root of negative number")
+		)
+	);
+	FBlueprintSupport::RegisterBlueprintWarning(
+		FBlueprintWarningDeclaration (
+			ZeroLengthProjectionWarning,
+			LOCTEXT("ZeroLengthProjectionWarning", "Projection onto vector of zero length")
+		)
+	);
+	FBlueprintSupport::RegisterBlueprintWarning(
+		FBlueprintWarningDeclaration (
+			InvalidDateWarning,
+			LOCTEXT("InvalidDateWarning", "Invalid date warning")
+		)
+	);
 }
 
 bool UKismetMathLibrary::RandomBool()
 {
 	return FMath::RandBool();
+}
+
+bool UKismetMathLibrary::RandomBoolWithWeight(float Weight)
+{
+	//If the Weight equals to 0.0f then always return false
+	if (Weight <= 0.0f)
+	{
+		return false;
+	}
+	else
+	{
+		//If the Weight is higher or equal to the random number then return true
+		return Weight >= FMath::FRandRange(0.0f, 1.0f);
+	}
+
+}
+
+bool UKismetMathLibrary::RandomBoolWithWeightFromStream(float Weight, const FRandomStream& RandomStream)
+{
+	//If the Weight equals to 0.0f then always return false
+	if (Weight <= 0.0f)
+	{
+		return false;
+	}
+	else
+	{
+		//Create the random float from the specified stream
+		float Number = UKismetMathLibrary::RandomFloatFromStream(RandomStream);
+
+		//If the Weight is higher or equal to number generated from stream then return true
+		return Weight >= Number;
+	}
+
 }
 
 bool UKismetMathLibrary::Not_PreBool(bool A)
@@ -86,8 +152,7 @@ uint8 UKismetMathLibrary::Divide_ByteByte(uint8 A, uint8 B)
 {
 	if (B == 0)
 	{
-		//@TODO: EXCEPTION: Throw script exception 
-		FFrame::KismetExecutionMessage(TEXT("Divide by zero: Divide_ByteByte"), ELogVerbosity::Warning);
+		FFrame::KismetExecutionMessage(TEXT("Divide by zero: Divide_ByteByte"), ELogVerbosity::Warning, DivideByZeroWarning);
 	}
 
 	return (B != 0) ? (A / B) : 0;
@@ -97,8 +162,7 @@ uint8 UKismetMathLibrary::Percent_ByteByte(uint8 A, uint8 B)
 {
 	if (B == 0)
 	{
-		//@TODO: EXCEPTION: Whatever on these sites
-		FFrame::KismetExecutionMessage(TEXT("Modulo by zero"), ELogVerbosity::Warning);
+		FFrame::KismetExecutionMessage(TEXT("Modulo by zero"), ELogVerbosity::Warning, DivideByZeroWarning);
 	}
 
 	return (B != 0) ? (A % B) : 0;
@@ -163,8 +227,7 @@ int32 UKismetMathLibrary::Divide_IntInt(int32 A, int32 B)
 {
 	if (B == 0)
 	{
-		//@TODO: EXCEPTION: Throw script exception 
-		FFrame::KismetExecutionMessage(TEXT("Divide by zero: Divide_IntInt"), ELogVerbosity::Warning);
+		FFrame::KismetExecutionMessage(TEXT("Divide by zero: Divide_IntInt"), ELogVerbosity::Warning, DivideByZeroWarning);
 	}
 
 	return (B != 0) ? (A / B) : 0;
@@ -174,8 +237,7 @@ int32 UKismetMathLibrary::Percent_IntInt(int32 A, int32 B)
 {
 	if (B == 0)
 	{
-		//@TODO: EXCEPTION: Throw script exception 
-		FFrame::KismetExecutionMessage(TEXT("Modulo by zero"), ELogVerbosity::Warning);
+		FFrame::KismetExecutionMessage(TEXT("Modulo by zero"), ELogVerbosity::Warning, DivideByZeroWarning);
 	}
 
 	return (B != 0) ? (A % B) : 0;
@@ -234,6 +296,11 @@ int32 UKismetMathLibrary::Xor_IntInt(int32 A, int32 B)
 int32 UKismetMathLibrary::Or_IntInt(int32 A, int32 B)
 {
 	return A | B;
+}
+
+int32 UKismetMathLibrary::Not_Int(int32 A)
+{
+	return ~A;
 }
 
 int32 UKismetMathLibrary::SignOfInteger(int32 A)
@@ -504,7 +571,7 @@ float UKismetMathLibrary::Sqrt(float A)
 	}
 	else if (A < 0.f)
 	{
-		FFrame::KismetExecutionMessage(TEXT("Attempt to take Sqrt() of negative number - returning 0."), ELogVerbosity::Warning);
+		FFrame::KismetExecutionMessage(TEXT("Attempt to take Sqrt() of negative number - returning 0."), ELogVerbosity::Warning, NegativeSqrtWarning);
 	}
 
 	return Result;
@@ -546,8 +613,7 @@ int32 UKismetMathLibrary::FMod(float Dividend, float Divisor, float& Remainder)
 	}
 	else
 	{
-		//@TODO: EXCEPTION: Throw script exception 
-		FFrame::KismetExecutionMessage(TEXT("Attempted modulo 0 - returning 0."), ELogVerbosity::Warning);
+		FFrame::KismetExecutionMessage(TEXT("Attempted modulo 0 - returning 0."), ELogVerbosity::Warning, DivideByZeroWarning);
 
 		Result = 0;
 		Remainder = 0.f;
@@ -718,8 +784,7 @@ FVector UKismetMathLibrary::Divide_VectorFloat(FVector A, float B)
 {
 	if (B == 0.f)
 	{
-		//@TODO: EXCEPTION: Throw script exception 
-		FFrame::KismetExecutionMessage(TEXT("Divide by zero: Divide_VectorFloat"), ELogVerbosity::Warning);
+		FFrame::KismetExecutionMessage(TEXT("Divide by zero: Divide_VectorFloat"), ELogVerbosity::Warning, DivideByZeroWarning);
 		return FVector::ZeroVector;
 	}
 
@@ -730,8 +795,7 @@ FVector UKismetMathLibrary::Divide_VectorInt(FVector A, int32 B)
 {
 	if (B == 0)
 	{
-		//@TODO: EXCEPTION: Throw script exception 
-		FFrame::KismetExecutionMessage(TEXT("Divide by zero: Divide_VectorInt"), ELogVerbosity::Warning);
+		FFrame::KismetExecutionMessage(TEXT("Divide by zero: Divide_VectorInt"), ELogVerbosity::Warning, DivideByZeroWarning);
 		return FVector::ZeroVector;
 	}
 
@@ -742,8 +806,7 @@ FVector UKismetMathLibrary::Divide_VectorVector(FVector A, FVector B)
 {
 	if (B.X == 0.f || B.Y == 0.f || B.Z == 0.f)
 	{
-		//@TODO: EXCEPTION: Throw script exception 
-		FFrame::KismetExecutionMessage(TEXT("Divide by zero: Divide_VectorVector"), ELogVerbosity::Warning);
+		FFrame::KismetExecutionMessage(TEXT("Divide by zero: Divide_VectorVector"), ELogVerbosity::Warning, DivideByZeroWarning);
 		return FVector::ZeroVector;
 	}
 
@@ -937,7 +1000,7 @@ FVector UKismetMathLibrary::ProjectVectorOnToVector(FVector V, FVector Target)
 	}
 	else
 	{
-		FFrame::KismetExecutionMessage(TEXT("Divide by zero: ProjectVectorOnToVector with zero Target vector"), ELogVerbosity::Warning);
+		FFrame::KismetExecutionMessage(TEXT("Divide by zero: ProjectVectorOnToVector with zero Target vector"), ELogVerbosity::Warning, ZeroLengthProjectionWarning);
 		return FVector::ZeroVector;
 	}
 }
@@ -946,6 +1009,28 @@ FVector UKismetMathLibrary::ProjectVectorOnToVector(FVector V, FVector Target)
 void UKismetMathLibrary::FindNearestPointsOnLineSegments(FVector Segment1Start, FVector Segment1End, FVector Segment2Start, FVector Segment2End, FVector& Segment1Point, FVector& Segment2Point)
 {
 	FMath::SegmentDistToSegmentSafe(Segment1Start, Segment1End, Segment2Start, Segment2End, Segment1Point, Segment2Point);
+}
+
+FVector UKismetMathLibrary::FindClosestPointOnSegment(FVector Point, FVector SegmentStart, FVector SegmentEnd)
+{
+	return FMath::ClosestPointOnSegment(Point, SegmentStart, SegmentEnd);
+}
+
+FVector UKismetMathLibrary::FindClosestPointOnLine(FVector Point, FVector LineOrigin, FVector LineDirection)
+{
+	const FVector SafeDir = LineDirection.GetSafeNormal();
+	const FVector ClosestPoint = LineOrigin + (SafeDir * ((Point-LineOrigin) | SafeDir));
+	return ClosestPoint;
+}
+
+float UKismetMathLibrary::GetPointDistanceToSegment(FVector Point, FVector SegmentStart, FVector SegmentEnd)
+{
+	return FMath::PointDistToSegment(Point, SegmentStart, SegmentEnd);
+}
+
+float UKismetMathLibrary::GetPointDistanceToLine(FVector Point, FVector LineOrigin, FVector LineDirection)
+{
+	return FMath::PointDistToLine(Point, LineDirection, LineOrigin);
 }
 
 FVector UKismetMathLibrary::ProjectPointOnToPlane(FVector Point, FVector PlaneBase, FVector PlaneNormal)
@@ -1150,9 +1235,9 @@ FTransform UKismetMathLibrary::ComposeTransforms(const FTransform& A, const FTra
 	return A * B;
 }
 
-FTransform UKismetMathLibrary::ConvertTransformToRelative(const FTransform& WorldTransform, const FTransform& LocalTransform)
+FTransform UKismetMathLibrary::ConvertTransformToRelative(const FTransform& Transform, const FTransform& ParentTransform)
 {
-	return LocalTransform.GetRelativeTransformReverse(WorldTransform);
+	return ParentTransform.GetRelativeTransform(Transform);
 }
 
 FTransform UKismetMathLibrary::InvertTransform(const FTransform& T)
@@ -1243,12 +1328,16 @@ FVector2D UKismetMathLibrary::Multiply_Vector2DFloat(FVector2D A, float B)
 	return A * B;
 }
 
+FVector2D UKismetMathLibrary::Multiply_Vector2DVector2D(FVector2D A, FVector2D B)
+{
+	return A * B;
+}
+
 FVector2D UKismetMathLibrary::Divide_Vector2DFloat(FVector2D A, float B)
 {
 	if (B == 0.f)
 	{
-		//@TODO: EXCEPTION: Throw script exception 
-		FFrame::KismetExecutionMessage(TEXT("Divide by zero: Divide_Vector2DFloat"), ELogVerbosity::Warning);
+		FFrame::KismetExecutionMessage(TEXT("Divide by zero: Divide_Vector2DFloat"), ELogVerbosity::Warning, DivideByZeroWarning);
 		return FVector2D::ZeroVector;
 	}
 
@@ -1323,7 +1412,7 @@ FDateTime UKismetMathLibrary::MakeDateTime(int32 Year, int32 Month, int32 Day, i
 {
 	if (!FDateTime::Validate(Year, Month, Day, Hour, Minute, Second, Millisecond))
 	{
-		FFrame::KismetExecutionMessage(*FString::Printf(TEXT("DateTime in bad format (year %d, month %d, day %d, hour %d, minute %d, second %d, millisecond %d). E.g. year, month and day can't be zero."), Year, Month, Day, Hour, Minute, Second, Millisecond), ELogVerbosity::Warning);
+		FFrame::KismetExecutionMessage(*FString::Printf(TEXT("DateTime in bad format (year %d, month %d, day %d, hour %d, minute %d, second %d, millisecond %d). E.g. year, month and day can't be zero."), Year, Month, Day, Hour, Minute, Second, Millisecond), ELogVerbosity::Warning, InvalidDateWarning);
 
 		return FDateTime(1, 1, 1, 0, 0, 0, 0);
 	}
@@ -1476,8 +1565,7 @@ int32 UKismetMathLibrary::DaysInMonth( int32 Year, int32 Month )
 {
 	if ((Month < 1) || (Month > 12))
 	{
-		//@TODO: EXCEPTION: Throw script exception
-		FFrame::KismetExecutionMessage(TEXT("Invalid month (must be between 1 and 12): DaysInMonth"), ELogVerbosity::Warning);
+		FFrame::KismetExecutionMessage(TEXT("Invalid month (must be between 1 and 12): DaysInMonth"), ELogVerbosity::Warning, InvalidDateWarning);
 		return 0;
 	}
 
@@ -2230,13 +2318,17 @@ void UKismetMathLibrary::MinimumAreaRectangle(class UObject* WorldContextObject,
 
 	if( bDebugDraw )
 	{
-		UWorld* World = GEngine->GetWorldFromContextObject(WorldContextObject);
+		UWorld* World = (WorldContextObject) ? GEngine->GetWorldFromContextObject(WorldContextObject) : nullptr;
 		if(World != nullptr)
 		{
 			DrawDebugSphere(World, OutRectCenter, 10.f, 12, FColor::Yellow, true);
 			DrawDebugCoordinateSystem(World, OutRectCenter, SurfaceNormalMatrix.Rotator(), 100.f, true);
 			DrawDebugLine(World, OutRectCenter - RectSideA * 0.5f + FVector(0,0,10.f), OutRectCenter + RectSideA * 0.5f + FVector(0,0,10.f), FColor::Green, true,-1, 0, 5.f);
 			DrawDebugLine(World, OutRectCenter - RectSideB * 0.5f + FVector(0,0,10.f), OutRectCenter + RectSideB * 0.5f + FVector(0,0,10.f), FColor::Blue, true,-1, 0, 5.f);
+		}
+		else
+		{
+			FFrame::KismetExecutionMessage(TEXT("WorldContext required for MinimumAreaRectangle to draw a debug visualization."), ELogVerbosity::Warning);
 		}
 	}
 }
@@ -2310,3 +2402,4 @@ FRandomStream UKismetMathLibrary::MakeRandomStream(int32 InitialSeed)
 	return FRandomStream(InitialSeed);
 }
 
+#undef LOCTEXT_NAMESPACE

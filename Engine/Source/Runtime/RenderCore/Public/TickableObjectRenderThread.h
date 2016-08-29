@@ -4,8 +4,7 @@
 	TickableObjectRenderThread.h: Rendering thread tickable object definition.
 =============================================================================*/
 
-#ifndef __TickableObjectRenderThread_H__
-#define __TickableObjectRenderThread_H__
+#pragma once
 
 #include "RenderCore.h"
 
@@ -135,4 +134,3 @@ private:
 	bool bHighFrequency;
 };
 
-#endif

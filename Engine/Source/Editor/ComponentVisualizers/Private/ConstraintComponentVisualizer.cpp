@@ -3,6 +3,7 @@
 #include "ComponentVisualizersPrivatePCH.h"
 
 #include "ConstraintComponentVisualizer.h"
+#include "PhysicsEngine/PhysicsConstraintComponent.h"
 
 static const FColor	JointFrame1Color(255,0,0);
 static const FColor JointFrame2Color(0,0,255);
@@ -21,9 +22,29 @@ void FConstraintComponentVisualizer::DrawVisualization( const UActorComponent* C
 		{
 			FTransform BodyTransform1 = ConstraintComp->GetBodyTransform(EConstraintFrame::Frame1);
 			FTransform BodyTransform2 = ConstraintComp->GetBodyTransform(EConstraintFrame::Frame2);
+			BodyTransform1.RemoveScaling();
+			BodyTransform2.RemoveScaling();
 
-			Con1Frame = Instance.GetRefFrame(EConstraintFrame::Frame1) * BodyTransform1;
-			Con2Frame = Instance.GetRefFrame(EConstraintFrame::Frame2) * BodyTransform2;
+			Con1Frame = Instance.GetRefFrame(EConstraintFrame::Frame1);
+			Con2Frame = Instance.GetRefFrame(EConstraintFrame::Frame2);
+
+			const float LastKnownScale = Instance.GetLastKnownScale();
+
+			if(ConstraintComp->GetBodyInstance(EConstraintFrame::Frame1))
+			{
+				Con1Frame.ScaleTranslation(LastKnownScale);
+			}
+			
+
+			Con2Frame.SetScale3D(Con2Frame.GetScale3D() * LastKnownScale);
+
+			if (ConstraintComp->GetBodyInstance(EConstraintFrame::Frame2))
+			{
+				Con2Frame.ScaleTranslation(LastKnownScale);
+			}
+			
+			Con1Frame *= BodyTransform1;
+			Con2Frame *= BodyTransform2;
 		}
 		// Otherwise use the component frame
 		else

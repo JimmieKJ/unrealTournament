@@ -22,6 +22,8 @@ public:
 
 	virtual void UTCallServerMove();
 
+	virtual void UTSimulateMovement(float DeltaTime) { SimulateMovement(DeltaTime); }
+
 	UPROPERTY(Category = "Character Movement", BlueprintReadOnly)
 		float MaxPositionErrorSquared;
 

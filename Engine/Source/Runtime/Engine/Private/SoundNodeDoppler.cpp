@@ -17,7 +17,7 @@ USoundNodeDoppler::USoundNodeDoppler(const FObjectInitializer& ObjectInitializer
 void USoundNodeDoppler::ParseNodes( FAudioDevice* AudioDevice, const UPTRINT NodeWaveInstanceHash, FActiveSound& ActiveSound, const FSoundParseParameters& ParseParams, TArray<FWaveInstance*>& WaveInstances )
 {
 	FSoundParseParameters UpdatedParams = ParseParams;
-	UpdatedParams.Pitch *= GetDopplerPitchMultiplier(AudioDevice->Listeners[0], ParseParams.Transform.GetTranslation(), ParseParams.Velocity);
+	UpdatedParams.Pitch *= GetDopplerPitchMultiplier(AudioDevice->GetListeners()[0], ParseParams.Transform.GetTranslation(), ParseParams.Velocity);
 
 	Super::ParseNodes( AudioDevice, NodeWaveInstanceHash, ActiveSound, UpdatedParams, WaveInstances );
 }

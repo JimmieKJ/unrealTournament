@@ -260,17 +260,17 @@ void AUTDuelGame::BroadcastSpectatorPickup(AUTPlayerState* PS, FName StatsName, 
 	}
 }
 
-uint8 AUTDuelGame::GetNumMatchesFor(AUTPlayerState* PS, bool bRankedSession) const
+uint8 AUTDuelGame::GetNumMatchesFor(AUTPlayerState* PS, bool InbRankedSession) const
 {
 	return PS ? PS->DuelMatchesPlayed : 0;
 }
 
-int32 AUTDuelGame::GetEloFor(AUTPlayerState* PS, bool bRankedSession) const
+int32 AUTDuelGame::GetEloFor(AUTPlayerState* PS, bool InbRankedSession) const
 {
-	return PS ? PS->DuelRank : Super::GetEloFor(PS, bRankedSession);
+	return PS ? PS->DuelRank : Super::GetEloFor(PS, InbRankedSession);
 }
 
-void AUTDuelGame::SetEloFor(AUTPlayerState* PS, bool bRankedSession, int32 NewEloValue, bool bIncrementMatchCount)
+void AUTDuelGame::SetEloFor(AUTPlayerState* PS, bool InbRankedSession, int32 NewEloValue, bool bIncrementMatchCount)
 {
 	if (PS)
 	{

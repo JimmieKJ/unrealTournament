@@ -1,10 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "HMDPrivatePCH.h"
+#include "OculusRiftPrivatePCH.h"
 #include "OculusRiftHMD.h"
-#include "OculusRiftLayers.h"
 
 #if OCULUS_RIFT_SUPPORTED_PLATFORMS
+
+#include "OculusRiftLayers.h"
+#include "MediaTexture.h"
 
 FRenderLayer::FRenderLayer(FHMDLayerDesc& InDesc) :
 	FHMDRenderLayer(InDesc)
@@ -39,16 +41,61 @@ TSharedPtr<FHMDRenderLayer> FRenderLayer::Clone() const
 FLayerManager::FLayerManager(FCustomPresent* InBridge) :
 	pPresentBridge(InBridge)
 	, LayersList(nullptr)
+	, LayersListLen(0)
+	, EyeLayerId(0)
 	, bTextureSetsAreInvalid(true)
+	, bInitialized(false)
 {
-	uint32 ID;
-	auto EyeLayer = AddLayer(FHMDLayerDesc::Eye, INT_MIN, false, ID);
-	check(EyeLayer.IsValid());
 }
 
 FLayerManager::~FLayerManager()
 {
-	FMemory::Free(LayersList);
+	check(!bInitialized);
+}
+
+void FLayerManager::Startup()
+{
+	if (!bInitialized)
+	{
+		FHMDLayerManager::Startup();
+
+		auto EyeLayer = AddLayer(FHMDLayerDesc::Eye, INT_MIN, Layer_UnknownOrigin, EyeLayerId);
+		check(EyeLayer.IsValid());
+		bInitialized = true;
+		bTextureSetsAreInvalid = true;
+	}
+}
+
+void FLayerManager::Shutdown()
+{
+	if (bInitialized)
+	{
+		ReleaseTextureSets();
+		FMemory::Free(LayersList);
+		LayersList = nullptr;
+		LayersListLen = 0;
+
+		FHMDLayerManager::Shutdown();
+		bInitialized = false;
+	}
+}
+
+void FLayerManager::ReleaseTextureSets()
+{
+	if (IsInRenderingThread())
+	{
+		FScopeLock Lock(&LayersLock);
+		ReleaseTextureSets_RenderThread_NoLock();
+	}
+	else
+	{
+		ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(FLayerManager_Shutdown,
+			FLayerManager*, LayerMgr, this,
+			{
+				LayerMgr->ReleaseTextureSets_RenderThread_NoLock();
+			});
+		FlushRenderingCommands();
+	}
 }
 
 TSharedPtr<FHMDRenderLayer> FLayerManager::CreateRenderLayer_RenderThread(FHMDLayerDesc& InDesc)
@@ -68,9 +115,13 @@ FRenderLayer& FLayerManager::GetEyeLayer_RenderThread() const
 	return *LayerDesc;
 }
 
-void FLayerManager::ReleaseTextureSets_RenderThread_NoLock() 
+void FLayerManager::ReleaseTextureSets_RenderThread_NoLock()
 {
 	check(IsInRenderingThread());
+
+	InvalidateTextureSets();
+
+	FHMDLayerManager::ReleaseTextureSets_RenderThread_NoLock();
 
 	const uint32 NumLayers = LayersToRender.Num();
 	for (uint32 i = 0; i < NumLayers; ++i)
@@ -80,7 +131,7 @@ void FLayerManager::ReleaseTextureSets_RenderThread_NoLock()
 	}
 }
 
-void FLayerManager::PreSubmitUpdate_RenderThread(FRHICommandListImmediate& RHICmdList, const FHMDGameFrame* InCurrentFrame)
+void FLayerManager::PreSubmitUpdate_RenderThread(FRHICommandListImmediate& RHICmdList, const FHMDGameFrame* InCurrentFrame, bool ShowFlagsRendering)
 {
 	check(IsInRenderingThread());
 
@@ -89,7 +140,7 @@ void FLayerManager::PreSubmitUpdate_RenderThread(FRHICommandListImmediate& RHICm
 	const FGameFrame* CurrentFrame = static_cast<const FGameFrame*>(InCurrentFrame);
 
 	// Call base method first, it will make sure the LayersToRender is ready
-	FHMDLayerManager::PreSubmitUpdate_RenderThread(RHICmdList, CurrentFrame);
+	FHMDLayerManager::PreSubmitUpdate_RenderThread(RHICmdList, CurrentFrame, ShowFlagsRendering);
 
 	const uint32 NumLayers = LayersToRender.Num();
 
@@ -99,10 +150,15 @@ void FLayerManager::PreSubmitUpdate_RenderThread(FRHICommandListImmediate& RHICm
 
 		// Create array of ovrLayerHeaders, using LayersToRender array
 		LayersList = (ovrLayerHeader**)FMemory::Realloc(LayersList, NumLayers * sizeof(LayersList[0]));
+		LayersListLen = 0;
 		for (uint32 i = 0, n = NumLayers; i < n; ++i)
 		{
 			auto RenderLayer = static_cast<FRenderLayer*>(LayersToRender[i].Get());
-			LayersList[i] = &RenderLayer->Layer.Header;
+			// exclude not fully setup layers
+			if (RenderLayer->IsFullySetup())
+			{
+				LayersList[LayersListLen++] = &RenderLayer->Layer.Header;
+			}
 		}
 	}
 
@@ -113,128 +169,208 @@ void FLayerManager::PreSubmitUpdate_RenderThread(FRHICommandListImmediate& RHICm
 	for (uint32 i = 0; i < NumLayers; ++i)
 	{
 		auto RenderLayer = static_cast<FRenderLayer*>(LayersToRender[i].Get());
-		check(RenderLayer);
+		if (!RenderLayer || !RenderLayer->IsFullySetup())
+		{
+			continue;
+		}
 		const FHMDLayerDesc& LayerDesc = RenderLayer->GetLayerDesc();
 		switch (LayerDesc.GetType())
 		{
-			case FHMDLayerDesc::Eye:
+		case FHMDLayerDesc::Eye:
+		{
+			ovrLayer_Union& EyeLayer = RenderLayer->GetOvrLayer();
+			EyeLayer.EyeFov.Fov[0] = FrameSettings->EyeRenderDesc[0].Fov;
+			EyeLayer.EyeFov.Fov[1] = FrameSettings->EyeRenderDesc[1].Fov;
+
+			EyeLayer.EyeFov.Viewport[0] = ToOVRRecti(FrameSettings->EyeRenderViewport[0]);
+			EyeLayer.EyeFov.Viewport[1] = ToOVRRecti(FrameSettings->EyeRenderViewport[1]);
+
+			EyeLayer.EyeFov.ColorTexture[0] = RenderLayer->GetSwapTextureSet();
+			EyeLayer.EyeFov.ColorTexture[1] = RenderLayer->GetSwapTextureSet();
+
+#if DO_CHECK
+			// some runtime checks to make sure swaptextureset is valid
+			if (EyeLayer.EyeFov.ColorTexture[0] && pPresentBridge->GetSession()->IsActive())
 			{
-				ovrLayer_Union& EyeLayer = RenderLayer->GetOvrLayer();
-				EyeLayer.EyeFov.Fov[0] = FrameSettings->EyeRenderDesc[0].Fov;
-				EyeLayer.EyeFov.Fov[1] = FrameSettings->EyeRenderDesc[1].Fov;
+				FOvrSessionShared::AutoSession OvrSession(pPresentBridge->GetSession());
+				ovrTextureSwapChainDesc schDesc;
+				check(OVR_SUCCESS(ovr_GetTextureSwapChainDesc(OvrSession, EyeLayer.EyeFov.ColorTexture[0], &schDesc)));
+				check(schDesc.Type == ovrTexture_2D);
+			}
+#endif
 
-				EyeLayer.EyeFov.Viewport[0] = ToOVRRecti(FrameSettings->EyeRenderViewport[0]);
-				EyeLayer.EyeFov.Viewport[1] = ToOVRRecti(FrameSettings->EyeRenderViewport[1]);
+			// always use HighQuality for eyebuffers; the bHighQuality flag in LayerDesc means mipmaps are generated.
+			EyeLayer.EyeFov.Header.Flags = ovrLayerFlag_HighQuality;
 
-				EyeLayer.EyeFov.ColorTexture[0] = RenderLayer->GetSwapTextureSet();
-				EyeLayer.EyeFov.ColorTexture[1] = RenderLayer->GetSwapTextureSet();
+			if (ShowFlagsRendering)
+			{
+				EyeLayer.EyeFov.RenderPose[0] = CurrentFrame->CurEyeRenderPose[0];
+				EyeLayer.EyeFov.RenderPose[1] = CurrentFrame->CurEyeRenderPose[1];
+			}
+			else
+			{
+				EyeLayer.EyeFov.RenderPose[0] = ovrPosef(OVR::Posef());
+				EyeLayer.EyeFov.RenderPose[1] = ovrPosef(OVR::Posef());
+			}
 
-				if (pPresentBridge->GetRenderContext()->ShowFlags.Rendering)
+			RenderLayer->CommitTextureSet(RHICmdList);
+			break;
+		}
+		case FHMDLayerDesc::Quad:
+		{
+			OVR::Posef pose;
+			pose.Rotation = ToOVRQuat<OVR::Quatf>(LayerDesc.GetTransform().GetRotation());
+			pose.Translation = ToOVRVector_U2M<OVR::Vector3f>(LayerDesc.GetTransform().GetTranslation(), WorldToMetersScale);
+
+			// Physical size of the quad in meters.
+			OVR::Vector2f quadSize(LayerDesc.GetQuadSize().X / WorldToMetersScale, LayerDesc.GetQuadSize().Y / WorldToMetersScale);
+
+			// apply the scale from transform. We use Y for width and Z for height to match the UE coord space
+			quadSize.x *= LayerDesc.GetTransform().GetScale3D().Y;
+			quadSize.y *= LayerDesc.GetTransform().GetScale3D().Z;
+
+			FQuat PlayerOrientation = CurrentFrame->PlayerOrientation;
+
+			if (LayerDesc.IsWorldLocked())
+			{
+				// apply BaseOrientation
+				PlayerOrientation = FrameSettings->BaseOrientation.Inverse() * CurrentFrame->PlayerOrientation;
+
+				// calculate the location of the quad considering the player's location/orientation
+				OVR::Posef PlayerTorso(ToOVRQuat<OVR::Quatf>(PlayerOrientation),
+					ToOVRVector_U2M<OVR::Vector3f>(CurrentFrame->PlayerLocation, WorldToMetersScale));
+				pose = PlayerTorso.Inverted() * pose;
+			}
+
+			RenderLayer->Layer.Quad.Header.Type = ovrLayerType_Quad;
+			// LayerDesc.IsHighQuality() is used to gen mipmaps; the HQ flag on layer is always set (means, Aniso Filtering).
+			RenderLayer->Layer.Quad.Header.Flags = ovrLayerFlag_HighQuality | (LayerDesc.IsHeadLocked() ? ovrLayerFlag_HeadLocked : 0);
+			RenderLayer->Layer.Quad.QuadPoseCenter = pose;
+			RenderLayer->Layer.Quad.QuadSize = quadSize;
+
+			RenderLayer->Layer.Quad.Viewport = OVR::Recti();
+
+			FTextureRHIRef Texture = LayerDesc.GetTexture();
+			int32 SizeX = 16, SizeY = 16; // 16x16 default texture size for black rect (if the actual texture is not set)
+			EPixelFormat Format = EPixelFormat::PF_B8G8R8A8;
+			bool bTextureChanged = LayerDesc.IsTextureChanged();
+			bool isStatic = !(LayerDesc.GetFlags() & IStereoLayers::LAYER_FLAG_TEX_CONTINUOUS_UPDATE);
+
+			if (Texture)
+			{
+
+				SizeX = Texture->GetTexture2D()->GetSizeX();
+				SizeY = Texture->GetTexture2D()->GetSizeY();
+
+				Format = Texture->GetFormat();
+
+				FHeadMountedDisplay::QuantizeBufferSize(SizeX, SizeY, 32);
+
+				RenderLayer->Layer.Quad.Viewport = OVR::Recti(OVR::Sizei(SizeX, SizeY));
+				const FBox2D vp = LayerDesc.GetTextureViewport();
+				if (vp.bIsValid)
 				{
-					EyeLayer.EyeFov.RenderPose[0] = CurrentFrame->CurEyeRenderPose[0];
-					EyeLayer.EyeFov.RenderPose[1] = CurrentFrame->CurEyeRenderPose[1];
+					RenderLayer->Layer.Quad.Viewport.Pos.x = float(vp.Min.X) * SizeX;
+					RenderLayer->Layer.Quad.Viewport.Pos.y = float(vp.Min.Y) * SizeY;
+					RenderLayer->Layer.Quad.Viewport.Size.w = float(vp.Max.X - vp.Min.X) * SizeX;
+					RenderLayer->Layer.Quad.Viewport.Size.h = float(vp.Max.Y - vp.Min.Y) * SizeY;
+				}
+			}
+
+			bTextureChanged |= (Texture && LayerDesc.HasPendingTextureCopy()) ? true : false;
+			bTextureChanged |= (LayerDesc.GetFlags() & IStereoLayers::LAYER_FLAG_TEX_CONTINUOUS_UPDATE) ? true : false;
+
+			uint32 NumMips = (LayerDesc.IsHighQuality() ? 0 : 1);
+			if (RenderLayer->TextureSet.IsValid() && (bTextureSetsAreInvalid ||
+				RenderLayer->TextureSet->GetSourceSizeX() != SizeX ||
+				RenderLayer->TextureSet->GetSourceSizeY() != SizeY ||
+				RenderLayer->TextureSet->GetSourceFormat() != Format ||
+				RenderLayer->TextureSet->GetSourceNumMips() != NumMips ||
+				(bTextureChanged && RenderLayer->TextureSet->IsStaticImage())))
+			{
+				RenderLayer->TextureSet->ReleaseResources();
+				RenderLayer->TextureSet.Reset();
+			}
+			if (!RenderLayer->TextureSet.IsValid() || !RenderLayer->TextureSet->GetRHITexture())
+			{
+				// create texture set
+				check(pPresentBridge);
+				if (isStatic)
+				{
+					RenderLayer->TextureSet = pPresentBridge->CreateTextureSet(SizeX, SizeY, Format, NumMips, FCustomPresent::DefaultStaticImage);
 				}
 				else
 				{
-					EyeLayer.EyeFov.RenderPose[0] = ovrPosef(OVR::Posef());
-					EyeLayer.EyeFov.RenderPose[1] = ovrPosef(OVR::Posef());
+					RenderLayer->TextureSet = pPresentBridge->CreateTextureSet(SizeX, SizeY, Format, NumMips, FCustomPresent::DefaultLinear);
 				}
-
-				RenderLayer->CommitTextureSet();
-				break;
+				bTextureChanged = true;
 			}
-			case FHMDLayerDesc::Quad:
+			RenderLayer->Layer.Quad.ColorTexture = RenderLayer->GetSwapTextureSet();
+
+#if DO_CHECK
+			// some runtime checks to make sure swaptextureset is valid
+			if (RenderLayer->Layer.Quad.ColorTexture && pPresentBridge->GetSession()->IsActive())
 			{
-				OVR::Posef pose;
-				pose.Rotation = ToOVRQuat<OVR::Quatf>(LayerDesc.GetTransform().GetRotation());
-				pose.Translation = ToOVRVector_U2M<OVR::Vector3f>(LayerDesc.GetTransform().GetTranslation(), WorldToMetersScale);
-				// Now move them relative to the torso.
-				//pose = PlayerTorso.Inverted() * pose;
-				// Physical size of the quad in meters.
-				OVR::Vector2f quadSize(LayerDesc.GetQuadSize().X / WorldToMetersScale, LayerDesc.GetQuadSize().Y / WorldToMetersScale);
-
-				if (LayerDesc.IsWorldLocked())
-				{
-					// calculate the location of the quad considering the player's location/orientation
-					OVR::Posef PlayerTorso(ToOVRQuat<OVR::Quatf>(CurrentFrame->PlayerOrientation), 
-										   ToOVRVector_U2M<OVR::Vector3f>(CurrentFrame->PlayerLocation, WorldToMetersScale));
-					pose = PlayerTorso.Inverted() * pose;
-				}
-
-				RenderLayer->Layer.Quad.Header.Type = ovrLayerType_Quad;
-				RenderLayer->Layer.Quad.Header.Flags = (LayerDesc.IsHighQuality() ? ovrLayerFlag_HighQuality : 0) | (LayerDesc.IsHeadLocked() ? ovrLayerFlag_HeadLocked : 0);
-				RenderLayer->Layer.Quad.QuadPoseCenter = pose;
-				RenderLayer->Layer.Quad.QuadSize = quadSize;
-
-				RenderLayer->Layer.Quad.Viewport = OVR::Recti();
-
-				UTexture* TextureObj = LayerDesc.GetTexture();
-				if (TextureObj && TextureObj->Resource && TextureObj->Resource->TextureRHI)
-				{
-					FTextureRHIRef Texture = TextureObj->Resource->TextureRHI;
-					const uint32 SizeX = Texture->GetTexture2D()->GetSizeX();
-					const uint32 SizeY = Texture->GetTexture2D()->GetSizeY();
-					const EPixelFormat Format = Texture->GetFormat();
-
-					RenderLayer->Layer.Quad.Viewport = OVR::Recti(OVR::Sizei(SizeX, SizeY));
-					const FBox2D vp = LayerDesc.GetTextureViewport();
-					if (vp.bIsValid)
-					{
-						RenderLayer->Layer.Quad.Viewport.Pos.x = float(vp.Min.X) * SizeX;
-						RenderLayer->Layer.Quad.Viewport.Pos.y = float(vp.Min.Y) * SizeY;
-						RenderLayer->Layer.Quad.Viewport.Size.w = float(vp.Max.X - vp.Min.X) * SizeX;
-						RenderLayer->Layer.Quad.Viewport.Size.h = float(vp.Max.Y - vp.Min.Y) * SizeY;
-					}
-
-					if (RenderLayer->TextureSet.IsValid() && (bTextureSetsAreInvalid || 
-						RenderLayer->TextureSet->GetSourceSizeX() != SizeX ||
-						RenderLayer->TextureSet->GetSourceSizeY() != SizeY ||
-						RenderLayer->TextureSet->GetSourceFormat() != Format))
-					{
-						RenderLayer->TextureSet->ReleaseResources();
-						RenderLayer->TextureSet.Reset();
-					}
-					if (!RenderLayer->TextureSet.IsValid())
-					{
-						// create texture set
-						check(pPresentBridge);
-						RenderLayer->TextureSet = pPresentBridge->CreateTextureSet(SizeX, SizeY, Format);
-					}
-					RenderLayer->Layer.Quad.ColorTexture = RenderLayer->GetSwapTextureSet();
-
-					// Copy texture
-					if (RenderLayer->TextureSet.IsValid())
-					{
-						pPresentBridge->CopyTexture_RenderThread(RHICmdList, RenderLayer->TextureSet->GetRHITexture2D(), Texture->GetTexture2D());
-
-						RenderLayer->CommitTextureSet();
-					}
-				}
-				break;
+				FOvrSessionShared::AutoSession OvrSession(pPresentBridge->GetSession());
+				ovrTextureSwapChainDesc schDesc;
+				check(OVR_SUCCESS(ovr_GetTextureSwapChainDesc(OvrSession, RenderLayer->Layer.Quad.ColorTexture, &schDesc)));
+				check(schDesc.Type == ovrTexture_2D);
 			}
+#endif
+
+			// Copy texture if it was changed
+			if (RenderLayer->TextureSet.IsValid() && bTextureChanged)
+			{
+				if (Texture)
+				{
+					FRHITexture2D* Texture2D = Texture->GetTexture2D();
+					pPresentBridge->CopyTexture_RenderThread(
+						RHICmdList,
+						RenderLayer->TextureSet->GetRHITexture2D(),
+						Texture2D,
+						Texture2D->GetSizeX(),
+						Texture2D->GetSizeY(),
+						FIntRect(),
+						FIntRect(),
+						true,
+						!!(LayerDesc.GetFlags() & IStereoLayers::LAYER_FLAG_TEX_NO_ALPHA_CHANNEL));
+					LayerDesc.ClearPendingTextureCopy();
+				}
+				RenderLayer->CommitTextureSet(RHICmdList);
+			}
+			break;
 		}
+		}
+		RenderLayer->ResetChangedFlags();
 	}
 	bTextureSetsAreInvalid = false;
 }
 
-ovrResult FLayerManager::SubmitFrame(FViewExtension* RenderContext)
+ovrResult FLayerManager::SubmitFrame_RenderThread(ovrSession OvrSession, const FGameFrame* RenderFrame, bool AdvanceToNextElem)
 {
+	if (bTextureSetsAreInvalid)
+	{
+		UE_LOG(LogHMD, Log, TEXT("FLayerManager::SubmitFrame_RenderThread: skipping frame, no valid texture sets"));
+		return ovrError_TextureSwapChainInvalid;
+	}
+
+	check(RenderFrame);
+
 	// Finish the frame and let OVR do buffer swap (Present) and flush/sync.
-	FSettings* FrameSettings = RenderContext->GetFrameSettings();
+	const FSettings* FrameSettings = RenderFrame->GetSettings();
 
 	// Set up positional data.
 	ovrViewScaleDesc viewScaleDesc;
 	viewScaleDesc.HmdSpaceToWorldScaleInMeters = 1.0f;
-	viewScaleDesc.HmdToEyeViewOffset[0] = FrameSettings->EyeRenderDesc[0].HmdToEyeViewOffset;
-	viewScaleDesc.HmdToEyeViewOffset[1] = FrameSettings->EyeRenderDesc[1].HmdToEyeViewOffset;
+	viewScaleDesc.HmdToEyeOffset[0] = FrameSettings->EyeRenderDesc[0].HmdToEyeOffset;
+	viewScaleDesc.HmdToEyeOffset[1] = FrameSettings->EyeRenderDesc[1].HmdToEyeOffset;
 
-	const uint32 NumLayers = LayersToRender.Num();
+	const uint32 frameNumber = RenderFrame->FrameNumber;
+	ovrResult res = ovr_SubmitFrame(OvrSession, frameNumber, &viewScaleDesc, LayersList, LayersListLen);
 
-	ovrResult res = ovr_SubmitFrame(RenderContext->OvrSession, RenderContext->RenderFrame->FrameNumber, &viewScaleDesc, LayersList, NumLayers);
-
-	if (pPresentBridge->GetRenderContext()->ShowFlags.Rendering)
+	if (AdvanceToNextElem)
 	{
-		for (uint32 i = 0; i < NumLayers; ++i)
+		for (uint32 i = 0; i < LayersListLen; ++i)
 		{
 			auto RenderLayer = static_cast<FRenderLayer*>(LayersToRender[i].Get());
 			if (RenderLayer->TextureSet.IsValid())
@@ -244,7 +380,9 @@ ovrResult FLayerManager::SubmitFrame(FViewExtension* RenderContext)
 		}
 	}
 
-	if (!OVR_SUCCESS(res))
+	LastSubmitFrameResult.Set(int32(res));
+
+	if (OVR_FAILURE(res))
 	{
 		UE_LOG(LogHMD, Warning, TEXT("Error at SubmitFrame, err = %d"), int(res));
 

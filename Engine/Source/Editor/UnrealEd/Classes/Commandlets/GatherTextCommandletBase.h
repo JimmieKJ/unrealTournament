@@ -3,7 +3,7 @@
 #pragma once 
 
 #include "UnrealString.h"
-#include "InternationalizationManifest.h"
+#include "LocTextHelper.h"
 #include "Commandlets/Commandlet.h"
 #include "GatherTextCommandletBase.generated.h"
 
@@ -98,143 +98,6 @@ private:
 	TArray< TArray<FString> > Data;
 };
 
-/** Helper struct for tracking duplicate localization entries */
-struct FLocConflict
-{
-public:
-
-	FLocConflict( const FString& InNamespace, const FString& InKey, const TSharedPtr<FLocMetadataObject>& InKeyMetadataObj )
-		: Namespace( InNamespace )
-		, Key( InKey )
-		, KeyMetadataObj( InKeyMetadataObj )
-	{
-	}
-
-	void Add( const FLocItem& Source, const FString& SourceLocation );
-
-	const FString Namespace;
-	const FString Key;
-	TSharedPtr<FLocMetadataObject> KeyMetadataObj;
-
-	TMultiMap<FString, FLocItem> EntriesBySourceLocation;
-};
-
-struct FConflictReportInfo
-{
-	struct FLocConflictContainerKeyFuncs : BaseKeyFuncs<TSharedRef<FLocConflict>, FString, true>
-	{
-		static FORCEINLINE const FString& GetSetKey(const TPair<FString, TSharedRef<FLocConflict>>& Element)
-		{
-			return Element.Key;
-		}
-		static FORCEINLINE bool Matches(const FString& A, const FString& B)
-		{
-			return A.Equals(B, ESearchCase::CaseSensitive);
-		}
-		static FORCEINLINE uint32 GetKeyHash(const FString& Key)
-		{
-			return FCrc::StrCrc32<TCHAR>(*Key);
-		}
-	};
-	typedef TMultiMap<FString, TSharedRef<FLocConflict>, FDefaultSetAllocator, FLocConflictContainerKeyFuncs> TLocConflictContainer;
-
-	/**
-	 * Return the singleton instance of the report info.
-	 * @return The singleton instance.
-	 */
-	static FConflictReportInfo& GetInstance();
-
-	/**
-	 * Deletes the singleton instance of the report info.
-	 */
-	static void DeleteInstance();
-
-	/**
-	 * Finds a conflict entry based on namespace and key.
-	 * @param Namespace - The namespace of the entry.
-	 * @param Key - The key/identifier of the entry.
-	 * @return A pointer to the conflict entry or null if not found.
-	 */
-	TSharedPtr< FLocConflict > FindEntryByKey( const FString& Namespace, const FString& Key, const TSharedPtr<FLocMetadataObject> KeyMetadata );
-
-	/**
-	 * Gets the iterator that can be used to traverse all the conflict entries.
-	 *
-	 * @return A const iterator.
-	 */
-	TLocConflictContainer::TConstIterator GetEntryConstIterator() const
-	{
-		return EntriesByKey.CreateConstIterator();
-	}
-	
-	/**
-	 * Adds a conflict entry.
-	 * @param Namespace - The namespace of the entry.
-	 * @param Key - The key/identifier of the entry.
-	 * @param KeyMetadata - Entry Metadata keys.
-	 * @param Source - The source info for the conflict.
-	 * @param SourceLocation - The source location of the conflict.
-	 */
-	void AddConflict(const FString& Namespace, const FString& Key, const TSharedPtr<FLocMetadataObject> KeyMetadata, const FLocItem& Source, const FString& SourceLocation );
-
-	/**
-	 * Return the report in string format.
-	 *
-	 * @return String representing the report.
-	 */
-	FString ToString();
-
-private:
-	FConflictReportInfo() {}
-	FConflictReportInfo( const FConflictReportInfo& );
-	FConflictReportInfo& operator=( const FConflictReportInfo& );
-
-
-private:
-	static TSharedPtr<FConflictReportInfo> StaticConflictInstance;
-	TLocConflictContainer EntriesByKey;
-};
-
-
-class FManifestInfo
-{
-public:
- 	FManifestInfo( )
-	{
-		Manifest = MakeShareable( new FInternationalizationManifest() );
-	}
-
-	// Given a list of manifest file paths, this will load and add the files to the dependency list. ApplyManifestDependencies must be explicitly called to remove dependency entries from the manifest.
-	bool AddManifestDependencies( const TArray< FString >& InManifestFiles );
-
-	// Given a manifest file path will load and add that file to the dependency list. ApplyManifestDependencies must be explicitly called to remove dependency entries from the manifest.
-	bool AddManifestDependency( const FString& InManifestFile );
-
-	// Return the first entry in the dependencies that matches the passed in namespace and context.
-	TSharedPtr< FManifestEntry > FindDependencyEntryByContext(  const FString& Namespace, const FContext& Context, FString& OutFileName );
-
-	// Return the first entry in the dependencies that matches the passed in namespace and source.
-	TSharedPtr< FManifestEntry > FindDependencyEntryBySource( const FString& Namespace, const FLocItem& Source, FString& OutFileName );
-
-	// Returns the number of manifest dependencies
-	int32 NumDependencies() { return ManifestDependencies.Num(); }
-
-	// Strips the current manifest of any entries that appear in the dependencies.  This is not automatically called when dependency files are added.
-	void ApplyManifestDependencies();
-
-	// Adds an entry to the manifest if it is not in one of the manifest dependencies
-	bool AddEntry( const FString& EntryDescription, const FString& Namespace, const FLocItem& Source, const FContext& Context );
-
-	TSharedPtr< class FInternationalizationManifest > GetManifest() { return Manifest; }
-
-private:
-	TArray < FString > ManifestDependenciesFilePaths;
-	TArray < TSharedPtr< class FInternationalizationManifest > >  ManifestDependencies;
-
-	TSharedPtr< class FInternationalizationManifest > Manifest;
-
-};
-
 
 class FGatherTextSCC
 {
@@ -251,6 +114,28 @@ public:
 
 private:
 	TArray<FString> CheckedOutFiles;
+};
+
+
+class FLocFileSCCNotifies : public ILocFileNotifies
+{
+public:
+	FLocFileSCCNotifies(const TSharedPtr<FGatherTextSCC>& InSourceControlInfo)
+		: SourceControlInfo(InSourceControlInfo)
+	{
+	}
+
+	/** Virtual destructor */
+	virtual ~FLocFileSCCNotifies() {}
+
+	//~ ILocFileNotifies interface
+	virtual void PreFileRead(const FString& InFilename) override {}
+	virtual void PostFileRead(const FString& InFilename) override {}
+	virtual void PreFileWrite(const FString& InFilename) override;
+	virtual void PostFileWrite(const FString& InFilename) override;
+
+private:
+	TSharedPtr<FGatherTextSCC> SourceControlInfo;
 };
 
 
@@ -279,6 +164,44 @@ struct FLocalizedAssetUtil
 };
 
 
+/** Performs fuzzy path matching against a set of include and exclude paths */
+class FFuzzyPathMatcher
+{
+public:
+	enum EPathMatch
+	{
+		Included,
+		Excluded,
+		NoMatch,
+	};
+
+public:
+	FFuzzyPathMatcher(const TArray<FString>& InIncludePathFilters, const TArray<FString>& InExcludePathFilters);
+
+	EPathMatch TestPath(const FString& InPathToTest) const;
+
+private:
+	enum EPathType : uint8
+	{
+		Include,
+		Exclude,
+	};
+
+	struct FFuzzyPath
+	{
+		FFuzzyPath(FString InPathFilter, const EPathType InPathType)
+			: PathFilter(MoveTemp(InPathFilter))
+			, PathType(InPathType)
+		{
+		}
+
+		FString PathFilter;
+		EPathType PathType;
+	};
+
+	TArray<FFuzzyPath> FuzzyPaths;
+};
+
 /**
  *	UGatherTextCommandletBase: Base class for localization commandlets. Just to force certain behaviors and provide helper functionality. 
  */
@@ -291,13 +214,7 @@ class UGatherTextCommandletBase : public UCommandlet
 
 
 public:
-	virtual void Initialize( const TSharedRef< FManifestInfo >& InManifestInfo, const TSharedPtr< FGatherTextSCC >& InSourceControlInfo );
-
-	static TSharedPtr<FJsonObject> ReadJSONTextFile( const FString& InFilePath ) ;
-	static bool WriteJSONToTextFile( TSharedPtr<FJsonObject> Output, const FString& Filename, TSharedPtr<FGatherTextSCC> SourceControl );
-
-	// Used to replace strings found in localization text that could cause automated builds to fail if seen in the log output
-	static FString MungeLogOutput( const FString& InString );
+	virtual void Initialize( const TSharedPtr< FLocTextHelper >& InGatherManifestHelper, const TSharedPtr< FGatherTextSCC >& InSourceControlInfo );
 
 	// Wrappers for extracting config values
 	bool GetBoolFromConfig( const TCHAR* Section, const TCHAR* Key, bool& OutValue, const FString& Filename );
@@ -307,7 +224,7 @@ public:
 	int32 GetPathArrayFromConfig( const TCHAR* Section, const TCHAR* Key, TArray<FString>& OutArr, const FString& Filename );
 
 protected:
-	TSharedPtr< FManifestInfo > ManifestInfo;
+	TSharedPtr< FLocTextHelper > GatherManifestHelper;
 
 	TSharedPtr< FGatherTextSCC > SourceControlInfo;
 

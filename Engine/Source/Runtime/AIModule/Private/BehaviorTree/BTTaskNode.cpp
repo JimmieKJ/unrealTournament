@@ -6,7 +6,6 @@
 
 UBTTaskNode::UBTTaskNode(const FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
 {
-	NodeName = GetClass()->GetName();
 	bNotifyTick = false;
 	bNotifyTaskFinished = false;
 	bIgnoreRestartSelf = false;
@@ -154,12 +153,10 @@ FName UBTTaskNode::GetNodeIconName() const
 
 #endif	// WITH_EDITOR
 
-//----------------------------------------------------------------------//
-// UBTTaskNode IGameplayTaskOwnerInterface
-//----------------------------------------------------------------------//
-void UBTTaskNode::OnTaskDeactivated(UGameplayTask& Task)
+void UBTTaskNode::OnGameplayTaskDeactivated(UGameplayTask& Task)
 {
 	ensure(Task.GetTaskOwner() == this);
+
 	UBehaviorTreeComponent* BTComp = GetBTComponentForTask(Task);
 	if (BTComp)
 	{

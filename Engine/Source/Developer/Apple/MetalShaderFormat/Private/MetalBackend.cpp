@@ -1,8 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
-// 
 
-#include "MetalShaderFormat.h"
 #include "Core.h"
+#include "MetalShaderFormat.h"
 #include "hlslcc.h"
 #include "hlslcc_private.h"
 #include "MetalBackend.h"
@@ -233,7 +232,7 @@ static void InsertRange( TCBDMARangeMap& CBAllRanges, unsigned SourceCB, unsigne
 	SDMARange Range = { SourceCB, SourceOffset, Size, DestCBIndex, DestCBPrecision, DestOffset };
 
 	TDMARangeList& CBRanges = CBAllRanges[SourceDestCBKey];
-//printf("* InsertRange: %08x\t%d:%d - %d:%c:%d:%d\n", SourceDestCBKey, SourceCB, SourceOffset, DestCBIndex, DestCBPrecision, DestOffset, Size);
+//printf("* InsertRange: %08x\t%u:%u - %u:%c:%u:%u\n", SourceDestCBKey, SourceCB, SourceOffset, DestCBIndex, DestCBPrecision, DestOffset, Size);
 	if (CBRanges.empty())
 	{
 		CBRanges.push_back(Range);
@@ -326,7 +325,7 @@ static void DumpSortedRanges(TDMARangeList& SortedRanges)
 	for (auto i = SortedRanges.begin(); i != SortedRanges.end(); ++i )
 	{
 		auto o = *i;
-		printf("\t%d:%d - %d:%c:%d:%d\n", o.SourceCB, o.SourceOffset, o.DestCBIndex, o.DestCBPrecision, o.DestOffset, o.Size);
+		printf("\t%u:%u - %u:%c:%u:%u\n", o.SourceCB, o.SourceOffset, o.DestCBIndex, o.DestCBPrecision, o.DestOffset, o.Size);
 	}
 }
 
@@ -641,6 +640,36 @@ protected:
 		check(0 && "ir_rvalue not handled for GLSL export.");
 	}
 
+	void print_zero_initialiser(const glsl_type * type)
+	{
+		check(type->base_type != GLSL_TYPE_STRUCT);
+		{
+			if (type->base_type != GLSL_TYPE_ARRAY)
+			{
+				ir_constant* zero = ir_constant::zero(mem_ctx, type);
+				if (zero)
+				{
+					zero->accept(this);
+				}
+			}
+			else
+			{
+				ralloc_asprintf_append(buffer, "{");
+				
+				for (uint32 i = 0; i < type->length; i++)
+				{
+					if (i > 0)
+					{
+						ralloc_asprintf_append(buffer, ", ");
+					}
+					print_zero_initialiser(type->element_type());
+				}
+				
+				ralloc_asprintf_append(buffer, "}");
+			}
+		}
+	}
+
 	virtual void visit(ir_variable *var) override
 	{
 		// Check for an initialized const variable
@@ -679,6 +708,7 @@ protected:
 				check(BufferIndex >= 0);
 				if (var->type->sampler_buffer)
 				{
+                    check(BufferIndex <= 30);
 					ralloc_asprintf_append(
 						buffer,
 						"device "
@@ -740,7 +770,7 @@ protected:
 						{
 							// Buffer
 							int BufferIndex = Buffers.GetIndex(var, Backend->bIsDesktop);
-							check(BufferIndex >= 0);
+							check(BufferIndex >= 0 && BufferIndex <= 30);
 							ralloc_asprintf_append(
 								buffer,
 								"const device "
@@ -808,7 +838,7 @@ protected:
 							print_type_post(PtrType);
 							ralloc_asprintf_append(
 								buffer,
-								" [[ texture(%d) ]]", Entry->offset
+								" [[ texture(%u) ]]", Entry->offset
 								);
 						}
 					}
@@ -816,7 +846,7 @@ protected:
 					{
 						int BufferIndex = Buffers.GetIndex(var, Backend->bIsDesktop);
 						bool bNeedsPointer = (var->semantic && (strlen(var->semantic) == 1));
-						check(BufferIndex >= 0);
+						check(BufferIndex >= 0 && BufferIndex <= 30);
 						ralloc_asprintf_append(
 							buffer,
 							"constant "
@@ -921,7 +951,15 @@ protected:
 				var->constant_value->accept(this);
 			}
 		}
-
+		else if ((Backend && Backend->bZeroInitialise) && (var->type->base_type != GLSL_TYPE_STRUCT) && (var->mode == ir_var_auto || var->mode == ir_var_temporary || var->mode == ir_var_shared) && (Buffers.AtomicVariables.find(var) == Buffers.AtomicVariables.end()))
+		{
+			// @todo UE-34355 temporary workaround for 10.12 shader compiler error - really all arrays should be zero'd but only threadgroup shared initialisation works on the Beta drivers.
+			if (var->type->base_type != GLSL_TYPE_ARRAY || var->mode == ir_var_shared)
+			{
+				ralloc_asprintf_append(buffer, " = ");
+				print_zero_initialiser(var->type);
+			}
+		}
 	}
 
 	virtual void visit(ir_function_signature *sig) override
@@ -934,6 +972,23 @@ protected:
 
 		print_type_full(sig->return_type);
 		ralloc_asprintf_append(buffer, " %s(", sig->function_name());
+		
+        if (sig->is_main && Backend && Backend->bBoundsChecks)
+		{
+            bool bInsertSideTable = false;
+            foreach_iter(exec_list_iterator, iter, sig->parameters)
+            {
+                ir_variable *const inst = (ir_variable *) iter.get();
+                bInsertSideTable |= ((inst->type->is_image() || inst->type->sampler_buffer) && inst->used);
+            }
+            if (bInsertSideTable)
+            {
+                ir_variable* BufferSizes = new(ParseState)ir_variable(glsl_type::uint_type, "BufferSizes", ir_var_uniform);
+                BufferSizes->semantic = "u";
+                Buffers.Buffers.Add(BufferSizes);
+                sig->parameters.push_head(BufferSizes);
+            }
+		}
 
 		foreach_iter(exec_list_iterator, iter, sig->parameters)
 		{
@@ -1098,7 +1153,7 @@ protected:
 			ralloc_asprintf_append(buffer, "ERRROR_MulMatrix()");
 			check(0);
 		}
-		else if (op == ir_ternop_clamp && expr->type->base_type == GLSL_TYPE_FLOAT)
+		else if ((op == ir_ternop_clamp || op == ir_unop_sqrt || op == ir_unop_rsq) && expr->type->base_type == GLSL_TYPE_FLOAT)
 		{
 			ralloc_asprintf_append(buffer, "precise::%s", MetalExpressionTable[op][0]);
 			for (int i = 0; i < numOps; ++i)
@@ -1107,16 +1162,47 @@ protected:
 				ralloc_asprintf_append(buffer, MetalExpressionTable[op][i+1]);
 			}
 		}
-		else if (numOps == 2 && (op == ir_binop_max || op == ir_binop_min) && expr->type->is_integer())
+		else if (numOps == 2 && (op == ir_binop_max || op == ir_binop_min))
 		{
 			// Convert fmax/fmin to max/min when dealing with integers
 			auto* OpString = MetalExpressionTable[op][0];
 			check(OpString[0] == 'f');
-			ralloc_asprintf_append(buffer, OpString + 1);
+			
+			if(expr->type->is_integer())
+			{
+				OpString = (OpString + 1);
+			}
+			else if(expr->type->base_type == GLSL_TYPE_FLOAT)
+			{
+				ralloc_asprintf_append(buffer, "precise::");
+			}
+			
+			ralloc_asprintf_append(buffer, OpString);
 			expr->operands[0]->accept(this);
 			ralloc_asprintf_append(buffer, MetalExpressionTable[op][1]);
 			expr->operands[1]->accept(this);
 			ralloc_asprintf_append(buffer, MetalExpressionTable[op][2]);
+		}
+		else if (numOps == 2 && op == ir_binop_dot)
+		{
+			auto* OpString = MetalExpressionTable[op][0];
+			
+			if (expr->operands[0]->type->is_scalar() && expr->operands[1]->type->is_scalar())
+			{
+				ralloc_asprintf_append(buffer, "(");
+				expr->operands[0]->accept(this);
+				ralloc_asprintf_append(buffer, "*");
+				expr->operands[1]->accept(this);
+				ralloc_asprintf_append(buffer, ")");
+			}
+			else
+			{
+				ralloc_asprintf_append(buffer, OpString);
+				expr->operands[0]->accept(this);
+				ralloc_asprintf_append(buffer, MetalExpressionTable[op][1]);
+				expr->operands[1]->accept(this);
+				ralloc_asprintf_append(buffer, MetalExpressionTable[op][2]);
+			}
 		}
 		else if (op == ir_unop_lsb && numOps == 1)
 		{
@@ -1158,7 +1244,10 @@ protected:
 			ralloc_asprintf_append(buffer, "int2((int)");
 		}
 
-		tex->sampler->accept(this);
+		if (tex->op != ir_txf)
+		{
+			tex->sampler->accept(this);
+		}
 		switch (tex->op)
 		{
 		case ir_tex:
@@ -1285,15 +1374,49 @@ protected:
 
 		case ir_txf:
 		{
-			if (tex->sampler->type && tex->sampler->type->is_sampler() && tex->sampler->type->sampler_buffer)
+			check(tex->sampler->type);
+			if (tex->sampler->type->is_sampler() && tex->sampler->type->sampler_buffer)
 			{
-				ralloc_asprintf_append(buffer, "[");
-				tex->coordinate->accept(this);
-				ralloc_asprintf_append(buffer, "]");
+				auto* Texture = tex->sampler->variable_referenced();
+				int Index = Buffers.GetIndex(Texture, Backend->bIsDesktop);
+				check(Index >= 0 && Index <= 30);
+				
+				ralloc_asprintf_append(buffer, "(");
+				tex->sampler->accept(this);
+				if (Backend && Backend->bBoundsChecks)
+				{
+					ralloc_asprintf_append(buffer, "[");
+					ralloc_asprintf_append(buffer, "min(");
+					tex->coordinate->accept(this);
+					ralloc_asprintf_append(buffer, ",");
+					
+					ralloc_asprintf_append(buffer, "((BufferSizes[%d] / sizeof(", Index);
+					print_type_pre(Texture->type->inner_type);
+					ralloc_asprintf_append(buffer, ")) - 1))]");
+					
+					if (Buffers.AtomicVariables.find(Texture) == Buffers.AtomicVariables.end())
+					{
+						ralloc_asprintf_append(buffer, " * int(");
+						tex->coordinate->accept(this);
+						ralloc_asprintf_append(buffer, " < (BufferSizes[%d] / sizeof(", Index);
+						print_type_pre(Texture->type->inner_type);
+						ralloc_asprintf_append(buffer, ")))");
+					}
+				}
+				else
+				{
+					ralloc_asprintf_append(buffer, "[");
+					tex->coordinate->accept(this);
+					ralloc_asprintf_append(buffer, "]");
+				}
+				
+				ralloc_asprintf_append(buffer, ")");
+				
 				bNeedsClosingParenthesis = false;
 			}
 			else
 			{
+				tex->sampler->accept(this);
 				ralloc_asprintf_append(buffer, ".read(");
 				tex->coordinate->accept(this);
 				
@@ -1534,18 +1657,51 @@ protected:
 			bool bIsRWTexture = !deref->image->type->sampler_buffer;
 			if (src == nullptr)
 			{
-				deref->image->accept(this);
 				if (bIsRWTexture)
 				{
+					deref->image->accept(this);
 					ralloc_asprintf_append(buffer, ".read(");
 					deref->image_index->accept(this);
 					ralloc_asprintf_append(buffer, ")");
 				}
 				else
 				{
-					ralloc_asprintf_append(buffer, "[");
-					deref->image_index->accept(this);
-					ralloc_asprintf_append(buffer, "]"/*.%s, swizzle[dst_elements - 1]*/);
+					auto* Texture = deref->image->variable_referenced();
+					int Index = Buffers.GetIndex(Texture, Backend->bIsDesktop);
+					check(Index >= 0 && Index <= 30);
+					
+					ralloc_asprintf_append(buffer, "(");
+					deref->image->accept(this);
+					
+					if (Backend && Backend->bBoundsChecks)
+					{
+						ralloc_asprintf_append(buffer, "[");
+						ralloc_asprintf_append(buffer, "min(");
+						deref->image_index->accept(this);
+						ralloc_asprintf_append(buffer, ",");
+						
+						ralloc_asprintf_append(buffer, "((BufferSizes[%d] / sizeof(", Index);
+						print_type_pre(Texture->type->inner_type);
+						ralloc_asprintf_append(buffer, ")) - 1))]"/*.%s, swizzle[dst_elements - 1]*/);
+						
+						// Can't flush to zero for a structured buffer...
+						if (!Texture->type->inner_type->is_record() && Buffers.AtomicVariables.find(Texture) == Buffers.AtomicVariables.end())
+						{
+							ralloc_asprintf_append(buffer, " * int(");
+							deref->image_index->accept(this);
+							ralloc_asprintf_append(buffer, " < (BufferSizes[%d] / sizeof(", Index);
+							print_type_pre(Texture->type->inner_type);
+							ralloc_asprintf_append(buffer, ")))");
+						}
+					}
+					else
+					{
+						ralloc_asprintf_append(buffer, "[");
+						deref->image_index->accept(this);
+						ralloc_asprintf_append(buffer, "]"/*.%s, swizzle[dst_elements - 1]*/);
+					}
+					
+					ralloc_asprintf_append(buffer, ")");
 				}
 			}
 			else
@@ -1609,7 +1765,7 @@ protected:
 								break;
 						}
 					}
-					
+
 					//#todo-rco: Add language spec to know if indices need to be uint
 					ralloc_asprintf_append(buffer, ",(uint");
 					switch (deref->image_index->type->vector_elements)
@@ -1617,7 +1773,7 @@ protected:
 					case 4:
 					case 3:
 					case 2:
-						ralloc_asprintf_append(buffer, "%d", deref->image_index->type->vector_elements);
+						ralloc_asprintf_append(buffer, "%u", deref->image_index->type->vector_elements);
 						//fallthrough
 					case 1:
 						ralloc_asprintf_append(buffer, ")(");
@@ -1628,9 +1784,27 @@ protected:
 				}
 				else
 				{
-					ralloc_asprintf_append( buffer, "[" );
-					deref->image_index->accept(this);
-					ralloc_asprintf_append( buffer, "] = " );
+					if (Backend && Backend->bBoundsChecks)
+					{
+						ralloc_asprintf_append(buffer, "[");
+						ralloc_asprintf_append(buffer, "min(");
+						deref->image_index->accept(this);
+						ralloc_asprintf_append(buffer, ",");
+						
+						auto* Texture = deref->image->variable_referenced();
+						int Index = Buffers.GetIndex(Texture, Backend->bIsDesktop);
+						check(Index >= 0 && Index <= 30);
+						
+						ralloc_asprintf_append(buffer, "(BufferSizes[%d] / sizeof(", Index);
+						print_type_pre(Texture->type->inner_type);
+						ralloc_asprintf_append(buffer, ")))] = ");
+					}
+					else
+					{
+						ralloc_asprintf_append(buffer, "[");
+						deref->image_index->accept(this);
+						ralloc_asprintf_append(buffer, "] = ");
+					}
 					src->accept(this);
 					ralloc_asprintf_append(buffer, ""/*".%s", expand[src_elements - 1]*/);
 				}
@@ -1919,6 +2093,35 @@ protected:
 			}
 		}
 
+        if (call->return_deref && call->return_deref->type && call->return_deref->type->is_scalar())
+        {
+            if (!strcmp(call->callee_name(), "length"))
+            {
+                bool bIsVector = true;
+                foreach_iter(exec_list_iterator, iter, *call)
+                {
+                    ir_instruction *const inst = (ir_instruction *) iter.get();
+                    ir_rvalue* const val = inst->as_rvalue();
+                    if (val && val->type->is_scalar())
+                    {
+                        bIsVector &= val->type->is_vector();
+                    }
+                }
+                
+                if (!bIsVector)
+                {
+                    ralloc_asprintf_append(buffer, "(");
+                    foreach_iter(exec_list_iterator, iter, *call)
+                    {
+                        ir_instruction *const inst = (ir_instruction *) iter.get();
+                        inst->accept(this);
+                    }
+                    ralloc_asprintf_append(buffer, ")");
+                    return;
+                }
+            }
+        }
+        
 		if (!strcmp(call->callee_name(), "packHalf2x16"))
 		{
 			ralloc_asprintf_append(buffer, "as_type<uint>(half2(");
@@ -2488,9 +2691,9 @@ protected:
 		{
 			glsl_packed_uniform& Uniform = *Iter;
 			ANSICHAR Name[32];
-			FCStringAnsi::Sprintf(Name, "%si%d", glsl_variable_tag_from_parser_target(Frequency), Uniform.offset);
+			FCStringAnsi::Sprintf(Name, "%si%u", glsl_variable_tag_from_parser_target(Frequency), Uniform.offset);
 			int32 Offset = Buffers.GetIndex(Name, Backend->bIsDesktop);
-			check(Offset != -1);
+            check(Offset >= 0);
 			ralloc_asprintf_append(
 				buffer,
 				"%s%s(%u:%u)",
@@ -2601,7 +2804,7 @@ protected:
 						{
 							if (bNeedsHeader)
 							{
-								ralloc_asprintf_append(buffer, "// @PackedUB: %s(%d): ",
+								ralloc_asprintf_append(buffer, "// @PackedUB: %s(%u): ",
 									block->name,
 									CBIndex);
 								bNeedsHeader = false;
@@ -2653,7 +2856,7 @@ protected:
 				}
 
 				check(IterList->DestCBIndex == 0);
-				ralloc_asprintf_append(buffer, "%d:%d-%c:%d:%d", IterList->SourceCB, IterList->SourceOffset, IterList->DestCBPrecision, IterList->DestOffset, IterList->Size);
+				ralloc_asprintf_append(buffer, "%u:%u-%c:%u:%u", IterList->SourceCB, IterList->SourceOffset, IterList->DestCBPrecision, IterList->DestOffset, IterList->Size);
 			}
 		}
 
@@ -2834,6 +3037,18 @@ protected:
 		{
 			ralloc_asprintf_append(buffer, "// @NumThreads: %d, %d, %d\n", this->NumThreadsX, this->NumThreadsY, this->NumThreadsZ);
 		}
+		
+		for (int i = 0; i < Buffers.Buffers.Num(); ++i)
+		{
+			if (Buffers.Buffers[i])
+			{
+				auto* Var = Buffers.Buffers[i]->as_variable();
+				if (!Var->type->is_sampler() && !Var->type->is_image() && Var->semantic && !strcmp(Var->semantic, "u") && Var->mode == ir_var_uniform && Var->name && !strcmp(Var->name, "BufferSizes"))
+				{
+					ralloc_asprintf_append(buffer, "// @SideTable: %s(%d)", Var->name, i);
+				}
+			}
+		}
 	}
 
 public:
@@ -2966,48 +3181,130 @@ char* FMetalCodeBackend::GenerateCode(exec_list* ir, _mesa_glsl_parse_state* sta
 	return _strdup(code);
 }
 
-struct FMetalCheckRestrictionsVisitor : public ir_hierarchical_visitor
+struct FMetalCheckNonComputeRestrictionsVisitor : public ir_hierarchical_visitor
 {
 	_mesa_glsl_parse_state* ParseState;
-	EHlslShaderFrequency Frequency;
 	bool bErrors;
-	FMetalCheckRestrictionsVisitor(_mesa_glsl_parse_state* InParseState, EHlslShaderFrequency InFrequency)
+	FMetalCheckNonComputeRestrictionsVisitor(_mesa_glsl_parse_state* InParseState)
 		: ParseState(InParseState)
-		, Frequency(InFrequency)
 		, bErrors(false)
 	{
 	}
 
 	virtual ir_visitor_status visit(ir_variable* IR) override
 	{
-		if (Frequency != HSF_ComputeShader)
+		if (IR->type && IR->type->is_image())
 		{
-			if (IR->type && IR->type->is_image())
+			if (IR->name)
 			{
-				if (IR->name)
-				{
-					_mesa_glsl_error(ParseState, "Metal doesn't allow UAV '%s' on non-compute shader stages.", IR->name);
-				}
-				else
-				{
-					_mesa_glsl_error(ParseState, "Metal doesn't allow UAV on non-compute shader stages.");
-				}
-				bErrors = true;
-				return visit_stop;
+				_mesa_glsl_error(ParseState, "Metal doesn't allow UAV '%s' on non-compute shader stages.", IR->name);
 			}
+			else
+			{
+				_mesa_glsl_error(ParseState, "Metal doesn't allow UAV on non-compute shader stages.");
+			}
+			bErrors = true;
+			return visit_stop;
 		}
 
 		return visit_continue;
 	}
 }; 
 
+struct FMetalCheckComputeRestrictionsVisitor : public ir_rvalue_visitor
+{
+	_mesa_glsl_parse_state* ParseState;
+	bool bErrors;
+	enum
+	{
+		Read = 1,
+		Write = 2,
+		ReadWrite = Read | Write,
+	};
+	TMap<ir_variable*, uint32> ImageRW;
+
+	FMetalCheckComputeRestrictionsVisitor(_mesa_glsl_parse_state* InParseState)
+		: ParseState(InParseState)
+		, bErrors(false)
+	{
+	}
+
+	virtual ir_visitor_status visit(ir_variable* IR) override
+	{
+		if (IR->type && IR->type->is_image())
+		{
+			ImageRW.Add(IR, 0);
+		}
+
+		return ir_rvalue_visitor::visit(IR);
+	}
+
+	void VerifyDeReference(ir_dereference* DeRef, bool bWrite)
+	{
+		auto* Var = DeRef->variable_referenced();
+		if (Var && Var->type && Var->type->is_image() && !Var->type->sampler_buffer)
+		{
+			if (bWrite)
+			{
+				ImageRW[Var] |= Write;
+			}
+			else
+			{
+				ImageRW[Var] |= Read;
+			}
+
+			if (ImageRW[Var] == ReadWrite)
+			{
+				_mesa_glsl_error(ParseState, "Metal doesn't allow simultaneous read & write on RWTexture(s) %s%s%s", Var->name ? "(" : "", Var->name ? Var->name : "", Var->name ? ")" : "");
+				bErrors = true;
+			}
+		}
+	}
+
+	ir_visitor_status visit_leave(ir_assignment *ir) override
+	{
+		auto ReturnValue = ir_rvalue_visitor::visit_leave(ir);
+		if (ReturnValue != visit_stop)
+		{
+			VerifyDeReference(ir->lhs, true);
+			if (bErrors)
+			{
+				return visit_stop;
+			}
+		}
+		return ReturnValue;
+	}
+
+	virtual void handle_rvalue(ir_rvalue **rvalue) override
+	{
+		if (rvalue && *rvalue)
+		{
+			auto* DeRef = (*rvalue)->as_dereference();
+			if (DeRef)
+			{
+				VerifyDeReference(DeRef, in_assignee);
+			}
+		}
+	}
+};
+
 
 bool FMetalCodeBackend::ApplyAndVerifyPlatformRestrictions(exec_list* Instructions, _mesa_glsl_parse_state* ParseState, EHlslShaderFrequency Frequency)
 {
-	FMetalCheckRestrictionsVisitor Visitor(ParseState, Frequency);
-	Visitor.run(Instructions);
+	if (Frequency == HSF_ComputeShader)
+	{
+		FMetalCheckComputeRestrictionsVisitor Visitor(ParseState);
+		Visitor.run(Instructions);
 
-	return !Visitor.bErrors;
+		return !Visitor.bErrors;
+	}
+	else
+	{
+		FMetalCheckNonComputeRestrictionsVisitor Visitor(ParseState);
+		Visitor.run(Instructions);
+
+		return !Visitor.bErrors;
+	}
 }
 
 bool FMetalCodeBackend::GenerateMain(EHlslShaderFrequency Frequency, const char* EntryPoint, exec_list* Instructions, _mesa_glsl_parse_state* ParseState)
@@ -3103,10 +3400,12 @@ bool FMetalCodeBackend::GenerateMain(EHlslShaderFrequency Frequency, const char*
 	return true;
 }
 
-FMetalCodeBackend::FMetalCodeBackend(unsigned int InHlslCompileFlags, EHlslCompileTarget InTarget) :
+FMetalCodeBackend::FMetalCodeBackend(unsigned int InHlslCompileFlags, EHlslCompileTarget InTarget, bool bInDesktop, bool bInZeroInitialise, bool bInBoundsChecks) :
 	FCodeBackend(InHlslCompileFlags, HCT_FeatureLevelES3_1)
 {
-	bIsDesktop = (InTarget == HCT_FeatureLevelSM4 || InTarget == HCT_FeatureLevelSM5);
+	bIsDesktop = bInDesktop;
+	bZeroInitialise = bInZeroInitialise;
+	bBoundsChecks = bInBoundsChecks;
 }
 
 void FMetalLanguageSpec::SetupLanguageIntrinsics(_mesa_glsl_parse_state* State, exec_list* ir)

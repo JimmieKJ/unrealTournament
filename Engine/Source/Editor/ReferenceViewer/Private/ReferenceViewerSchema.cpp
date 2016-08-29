@@ -7,6 +7,10 @@
 
 #include "Editor/GraphEditor/Public/ConnectionDrawingPolicy.h"
 
+
+static const FLinearColor RiceFlower = FLinearColor(FColor(236, 252, 227));
+static const FLinearColor CannonPink = FLinearColor(FColor(145, 66, 117));
+
 // Overridden connection drawing policy to use less curvy lines between nodes
 class FReferenceViewerConnectionDrawingPolicy : public FConnectionDrawingPolicy
 {
@@ -20,6 +24,18 @@ public:
 	{
 		const int32 Tension = FMath::Abs<int32>(Start.X - End.X);
 		return Tension * FVector2D(1.0f, 0);
+	}
+
+	virtual void DetermineWiringStyle(UEdGraphPin* OutputPin, UEdGraphPin* InputPin, /*inout*/ FConnectionParams& Params) override
+	{
+		if (OutputPin->PinType.PinCategory == TEXT("hard") || InputPin->PinType.PinCategory == TEXT("hard"))
+		{
+			Params.WireColor = RiceFlower;
+		}
+		else
+		{
+			Params.WireColor = CannonPink;
+		}
 	}
 };
 
@@ -50,7 +66,14 @@ void UReferenceViewerSchema::GetContextMenuActions(const UEdGraph* CurrentGraph,
 
 FLinearColor UReferenceViewerSchema::GetPinTypeColor(const FEdGraphPinType& PinType) const
 {
-	return FLinearColor::White;
+	if (PinType.PinCategory == TEXT("hard"))
+	{
+		return RiceFlower;
+	}
+	else
+	{
+		return CannonPink;
+	}
 }
 
 void UReferenceViewerSchema::BreakPinLinks(UEdGraphPin& TargetPin, bool bSendsNodeNotifcation) const

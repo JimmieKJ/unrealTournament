@@ -282,6 +282,56 @@ namespace UnrealBuildTool
 		}
 
 		/// <summary>
+		/// Finds all csproj within Engine/Source/Programs, and add them if their UE4CSharp.prog file exists.
+		/// </summary>
+		void DiscoverCSharpProgramProjects(MasterProjectFolder ProgramsFolder)
+		{
+			List<FileReference> FoundProjects = new List<FileReference>();
+			DirectoryReference EngineProgramsSource = DirectoryReference.Combine(UnrealBuildTool.EngineDirectory, "Source", "Programs");
+			DiscoverCSharpProgramProjectsRecursively(EngineProgramsSource, FoundProjects);
+			foreach (FileReference FoundProject in FoundProjects)
+			{
+				VCSharpProjectFile Project = new VCSharpProjectFile(FoundProject);
+				Project.ShouldBuildForAllSolutionTargets = false;
+				Project.ShouldBuildByDefaultForSolutionTargets = true;
+				AddExistingProjectFile(Project, bForceDevelopmentConfiguration: false);
+				ProgramsFolder.ChildProjects.Add(Project);
+			}
+		}
+
+		private static void DiscoverCSharpProgramProjectsRecursively(DirectoryReference SearchFolder, List<FileReference> FoundProjects)
+		{
+			// Scan all the files in this directory
+			bool bSearchSubFolders = true;
+			foreach (FileReference File in DirectoryLookupCache.EnumerateFiles(SearchFolder))
+			{
+				// If we find a csproj or sln, we should not recurse this directory.
+				bool bIsCsProj = File.HasExtension(".csproj");
+				bool bIsSln = File.HasExtension(".sln");
+				bSearchSubFolders &= !(bIsCsProj || bIsSln);
+				// If we found an sln, ignore completely.
+				if (bIsSln)
+				{
+					break;
+				}
+				// For csproj files, add them to the sln if the UE4CSharp.prog file also exists.
+				if (bIsCsProj && FileReference.Combine(SearchFolder, "UE4CSharp.prog").Exists())
+				{
+					FoundProjects.Add(File);
+				}
+			}
+
+			// If we didn't find anything to stop the search, search all the subdirectories too
+			if (bSearchSubFolders)
+			{
+				foreach (DirectoryReference SubDirectory in DirectoryLookupCache.EnumerateDirectories(SearchFolder))
+				{
+					DiscoverCSharpProgramProjectsRecursively(SubDirectory, FoundProjects);
+				}
+			}
+		}
+
+		/// <summary>
 		/// Finds the game projects that we're generating project files for
 		/// </summary>
 		/// <returns>List of project files</returns>
@@ -317,7 +367,7 @@ namespace UnrealBuildTool
 				{
 					if (!DirectoryReference.Combine(MasterProjectPath, "Intermediate", "Source").Exists())
 					{
-						if (BuildHostPlatform.Current.Platform == UnrealTargetPlatform.Mac && !UnrealBuildTool.IsEngineInstalled())
+						if (BuildHostPlatform.Current.Platform == UnrealTargetPlatform.Mac)
 						{
 							MasterProjectPath = UnrealBuildTool.EngineDirectory;
 							GameProjectName = "UE4Game";
@@ -349,6 +399,12 @@ namespace UnrealBuildTool
 					IntermediateProjectFilesPath = new DirectoryReference(IntermediateProjectFilesPath.FullName + SortedPlatform);
 				}
 			}
+
+            // Optionally include the folder name in the project
+            if (Environment.GetEnvironmentVariable("UE_NAME_PROJECT_AFTER_FOLDER") == "1")
+            {
+                MasterProjectName += "_" + Path.GetFileName(MasterProjectPath.ToString());
+            }
 
 			bool bCleanProjectFiles = UnrealBuildTool.CommandLineContains( "-CleanProjects" );
 			if (bCleanProjectFiles)
@@ -495,12 +551,8 @@ namespace UnrealBuildTool
 				{
 					MasterProjectFolder ProgramsFolder = RootFolder.AddSubFolder( "Programs" );
 
-					// Add EnvVarsToXML to the master project
-					VCSharpProjectFile EnvVarsToXMLProjectFile = AddSimpleCSharpProject("EnvVarsToXML/EnvVarsToXML", bShouldBuildForAllSolutionTargets: true, bForceDevelopmentConfiguration: true);
-					ProgramsFolder.ChildProjects.Add(EnvVarsToXMLProjectFile);
-
 					// Add UnrealBuildTool to the master project
-					AddUnrealBuildToolProject( ProgramsFolder, new ProjectFile[] { EnvVarsToXMLProjectFile } );
+					AddUnrealBuildToolProject( ProgramsFolder, new ProjectFile[]{ } );
 
 					// Add AutomationTool to the master project
 					ProgramsFolder.ChildProjects.Add(AddSimpleCSharpProject("AutomationTool", bShouldBuildForAllSolutionTargets: true, bForceDevelopmentConfiguration: true));
@@ -527,6 +579,9 @@ namespace UnrealBuildTool
                     AddPS4Projects( ProgramsFolder );
 
 					AddHTML5Projects( ProgramsFolder );
+
+					// Discover C# programs which should additionally be included in the solution.
+					DiscoverCSharpProgramProjects(ProgramsFolder);
                 }
 
 
@@ -766,6 +821,11 @@ namespace UnrealBuildTool
 
 			if( bGeneratingGameProjectFiles || UnrealBuildTool.IsEngineInstalled() )
 			{
+				if (OnlyGameProject == null)
+				{
+					throw new BuildException("A game project path was not specified, which is required when generating project files using an installed build or passing -game on the command line");
+				}
+
 				GameProjectName = OnlyGameProject.GetFileNameWithoutExtension();
 				if (String.IsNullOrEmpty(GameProjectName))
 				{
@@ -1355,9 +1415,10 @@ namespace UnrealBuildTool
 
 						Log.TraceVerbose( "Found target: " + TargetName );
 
-						string[] ArgumentsCopy = new string[ Arguments.Length + 1 ];
+						string[] ArgumentsCopy = new string[ Arguments.Length + 2 ];
 						ArgumentsCopy[ 0 ] = TargetName;
-						Array.Copy(Arguments, 0, ArgumentsCopy, 1, Arguments.Length);
+						ArgumentsCopy[ 1 ] = "-precompile";
+						Array.Copy(Arguments, 0, ArgumentsCopy, 2, Arguments.Length);
 
 						// We only want to update definitions and include paths for modules that are part of this target's project file.
 						ProjectFileGenerator.OnlyGenerateIntelliSenseDataForProject = TargetProjectFile;
@@ -1415,10 +1476,6 @@ namespace UnrealBuildTool
 					{
 						if (UnrealBuildTool.IsValidPlatform(Platform))
 						{
-							// @todo UWP: Why would we exclude UWP from project files based on SDK install status?  We don't do this with anything else, right?
-                            if (BuildPlatform is UWPPlatform && ((UWPPlatform)BuildPlatform).HasRequiredSDKsInstalled() != SDKStatus.Valid)
-                                continue;
-
 							SupportedPlatforms.Add(Platform);
 
 							if (SupportedPlatformsString.Length > 0)

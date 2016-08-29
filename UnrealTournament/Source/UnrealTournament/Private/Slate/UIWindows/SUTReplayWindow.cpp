@@ -925,16 +925,16 @@ void SUTReplayWindow::OnArrangeChildren(const FGeometry& AllottedGeometry, FArra
 	const EVisibility ChildVisibility = ChildSlot.GetWidget()->GetVisibility();
 	if (ArrangedChildren.Accepts(ChildVisibility))
 	{
-		FVector2D DesiredSize = FVector2D(1920.0f, 1080.0f);
+		FVector2D DesiredDrawSize = FVector2D(1920.0f, 1080.0f);
 		FVector2D ActualGeometrySize = AllottedGeometry.Size * AllottedGeometry.Scale;
 		float Scale = 1.0f;
-		if (AllottedGeometry.Size != DesiredSize)
+		if (AllottedGeometry.Size != DesiredDrawSize)
 		{
 			//Scale to fit the width of the screen
-			Scale = AllottedGeometry.Size.X / DesiredSize.X;
-			DesiredSize = ActualGeometrySize / Scale;
+			Scale = AllottedGeometry.Size.X / DesiredDrawSize.X;
+			DesiredDrawSize = ActualGeometrySize / Scale;
 		}
-		ArrangedChildren.AddWidget(ChildVisibility, AllottedGeometry.MakeChild(ChildSlot.GetWidget(), FVector2D(0.0f, 0.0f), DesiredSize, Scale));
+		ArrangedChildren.AddWidget(ChildVisibility, AllottedGeometry.MakeChild(ChildSlot.GetWidget(), FVector2D(0.0f, 0.0f), DesiredDrawSize, Scale));
 	}
 }
 

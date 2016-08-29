@@ -77,6 +77,10 @@ class UNREALED_API UTextureFactory : public UFactory
 	UPROPERTY(EditAnywhere, Category=DitherMipMaps, meta=(ToolTip="If enabled, mip-map alpha values will be dithered for smooth transitions"))
 	uint32 bDitherMipMapAlpha:1;
 
+	/** Channel values to compare to when preserving alpha coverage from a mask. */
+	UPROPERTY(EditAnywhere, Category=PreserveAlphaCoverage, meta=(ToolTip="Channel values to compare to when preserving alpha coverage from a mask for mips"))
+	FVector4 AlphaCoverageThresholds;
+
 	/** If enabled, preserve the value of border pixels when creating mip-maps */
 	UPROPERTY(EditAnywhere, Category=PreserveBorder, meta=(ToolTip="If enabled, preserve the value of border pixels when creating mip-maps"))
 	uint32 bPreserveBorder:1;

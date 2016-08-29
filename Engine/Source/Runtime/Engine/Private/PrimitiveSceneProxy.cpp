@@ -9,17 +9,36 @@
 #include "Components/BrushComponent.h"
 #include "PrimitiveSceneInfo.h"
 
+static TAutoConsoleVariable<int32> CVarForceSingleSampleShadowingFromStationary(
+	TEXT("r.Shadow.ForceSingleSampleShadowingFromStationary"),
+	0,
+	TEXT("Whether to force all components to act as if they have bSingleSampleShadowFromStationaryLights enabled.  Useful for scalability when dynamic shadows are disabled."),
+	ECVF_RenderThreadSafe | ECVF_Scalability
+	);
+
+static TAutoConsoleVariable<int32> CVarCacheWPOPrimitives(
+	TEXT("r.Shadow.CacheWPOPrimitives"),
+	0,
+	TEXT("Whether primitives whose materials use World Position Offset should be considered movable for cached shadowmaps.\n")
+	TEXT("Enablings this gives more correct, but slower whole scene shadows from materials that use WPO."),
+	ECVF_RenderThreadSafe | ECVF_Scalability
+	);
+
+bool CacheShadowDepthsFromPrimitivesUsingWPO()
+{
+	return CVarCacheWPOPrimitives.GetValueOnAnyThread(true) != 0;
+}
+
 FPrimitiveSceneProxy::FPrimitiveSceneProxy(const UPrimitiveComponent* InComponent, FName InResourceName)
 :	WireframeColor(FLinearColor::White)
 ,	LevelColor(FLinearColor::White)
 ,	PropertyColor(FLinearColor::White)
+,	Mobility(InComponent->Mobility)
 ,	DrawInGame(InComponent->bVisible && !InComponent->bHiddenInGame)
 ,	DrawInEditor(InComponent->bVisible)
 ,	bReceivesDecals(InComponent->bReceivesDecals)
 ,	bOnlyOwnerSee(InComponent->bOnlyOwnerSee)
 ,	bOwnerNoSee(InComponent->bOwnerNoSee)
-,	bStatic(false)
-,	bOftenMoving(false)
 ,	bParentSelected(InComponent->ShouldRenderSelected())
 ,	bIndividuallySelected(InComponent->IsComponentIndividuallySelected())
 ,	bHovered(false)
@@ -34,6 +53,7 @@ FPrimitiveSceneProxy::FPrimitiveSceneProxy(const UPrimitiveComponent* InComponen
 ,	bCollisionEnabled(InComponent->IsCollisionEnabled())
 ,	bTreatAsBackgroundForOcclusion(InComponent->bTreatAsBackgroundForOcclusion)
 ,	bDisableStaticPath(false)
+,	bGoodCandidateForCachedShadowmap(true)
 ,	bNeedsUnbuiltPreviewLighting(InComponent->HasStaticLighting() && !InComponent->bHasCachedStaticLighting)
 ,	bHasValidSettingsForStaticLighting(InComponent->HasValidSettingsForStaticLighting(false))
 ,	bWillEverBeLit(true)
@@ -42,7 +62,6 @@ FPrimitiveSceneProxy::FPrimitiveSceneProxy(const UPrimitiveComponent* InComponen
 ,   bAffectDynamicIndirectLighting(InComponent->bAffectDynamicIndirectLighting)
 ,   bAffectDistanceFieldLighting(InComponent->bAffectDistanceFieldLighting)
 ,	bCastStaticShadow(InComponent->CastShadow && InComponent->bCastStaticShadow)
-,	bVisibleInPlanarReflection(InComponent->bVisibleInPlanarReflection)
 ,	bCastVolumetricTranslucentShadow(InComponent->bCastDynamicShadow && InComponent->CastShadow && InComponent->bCastVolumetricTranslucentShadow)
 ,	bCastCapsuleDirectShadow(false)
 ,	bCastCapsuleIndirectShadow(false)
@@ -67,7 +86,7 @@ FPrimitiveSceneProxy::FPrimitiveSceneProxy(const UPrimitiveComponent* InComponen
 ,	bSelectable(InComponent->bSelectable)
 ,	bHasPerInstanceHitProxies(InComponent->bHasPerInstanceHitProxies)
 ,	bUseEditorCompositing(InComponent->bUseEditorCompositing)
-,	bReceiveCSMFromDynamicObjects(InComponent->bReceiveCSMFromDynamicObjects)
+,	bReceiveCombinedCSMAndStaticShadowsFromStationaryLights(InComponent->bReceiveCombinedCSMAndStaticShadowsFromStationaryLights)
 ,	bRenderCustomDepth(InComponent->bRenderCustomDepth)
 ,	CustomDepthStencilValue((uint8)InComponent->CustomDepthStencilValue) 
 ,	LightingChannelMask(GetLightingChannelMaskForStruct(InComponent->LightingChannels))
@@ -91,7 +110,6 @@ FPrimitiveSceneProxy::FPrimitiveSceneProxy(const UPrimitiveComponent* InComponen
 ,	ComponentForDebuggingOnly(InComponent)
 #if WITH_EDITOR
 ,	NumUncachedStaticLightingInteractions(0)
-,	HierarchicalLODOverride(0)
 #endif
 {
 	check(Scene);
@@ -116,9 +134,6 @@ FPrimitiveSceneProxy::FPrimitiveSceneProxy(const UPrimitiveComponent* InComponen
 		// Otherwise they would light differently in editor and in game, even after a lighting rebuild
 		bNeedsUnbuiltPreviewLighting = false;
 	}
-
-	bStatic = InComponent->Mobility == EComponentMobility::Static;
-	bOftenMoving = InComponent->Mobility == EComponentMobility::Movable;
 
 	if(InComponent->GetOwner())
 	{
@@ -182,22 +197,6 @@ HHitProxy* FPrimitiveSceneProxy::CreateHitProxies(UPrimitiveComponent* Component
 FPrimitiveViewRelevance FPrimitiveSceneProxy::GetViewRelevance(const FSceneView* View) const
 {
 	return FPrimitiveViewRelevance();
-}
-
-void FPrimitiveSceneProxy::UpdateActorPosition(FVector InActorPosition)
-{
-	ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER(
-		UpdateActorPosition,
-		FPrimitiveSceneProxy*,PrimitiveSceneProxy,this,
-		FVector,InActorPosition,InActorPosition,
-	{
-		if (PrimitiveSceneProxy->ActorPosition != InActorPosition)
-		{
-			PrimitiveSceneProxy->ActorPosition = InActorPosition;
-			PrimitiveSceneProxy->UpdateUniformBufferMaybeLazy();
-			PrimitiveSceneProxy->OnActorPositionChanged();
-		}
-	});
 }
 
 static TAutoConsoleVariable<int32> CVarDeferUniformBufferUpdatesUntilVisible(
@@ -282,6 +281,11 @@ void FPrimitiveSceneProxy::ApplyLateUpdateTransform(const FMatrix& LateUpdateTra
 {
 	const FMatrix AdjustedLocalToWorld = LocalToWorld * LateUpdateTransform;
 	SetTransform(AdjustedLocalToWorld, Bounds, LocalBounds, ActorPosition);
+}
+
+bool FPrimitiveSceneProxy::UseSingleSampleShadowFromStationaryLights() const 
+{ 
+	return bSingleSampleShadowFromStationaryLights || CVarForceSingleSampleShadowingFromStationary.GetValueOnRenderThread() != 0; 
 }
 
 /**
@@ -392,27 +396,6 @@ void FPrimitiveSceneProxy::SetCollisionEnabled_RenderThread(const bool bNewEnabl
 	bCollisionEnabled = bNewEnabled;
 }
 
-#if WITH_EDITOR
-void FPrimitiveSceneProxy::SetHierarchicalLOD_GameThread(const int32 InLODLevel)
-{
-	check(IsInGameThread());
-
-	// Enqueue a message to the rendering thread to change draw state
-	ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER(
-		etHierarchicalLOD,
-		FPrimitiveSceneProxy*, PrimSceneProxy, this,
-		const int32, InLODLevel, InLODLevel,
-		{
-		PrimSceneProxy->SetHierarchicalLOD_RenderThread(InLODLevel);
-	});
-}
-
-void FPrimitiveSceneProxy::SetHierarchicalLOD_RenderThread(const int32 InLODLevel)
-{
-	check(IsInRenderingThread());
-	HierarchicalLODOverride = InLODLevel;
-}
-#endif 
 /** @return True if the primitive is visible in the given View. */
 bool FPrimitiveSceneProxy::IsShown(const FSceneView* View) const
 {
@@ -433,11 +416,6 @@ bool FPrimitiveSceneProxy::IsShown(const FSceneView* View) const
 		// If we are in a collision view, hide anything which doesn't have collision enabled
 		const bool bCollisionView = (View->Family->EngineShowFlags.CollisionVisibility || View->Family->EngineShowFlags.CollisionPawn);
 		if(bCollisionView && !IsCollisionEnabled())
-		{
-			return false;
-		}
-
-		if (View->Family->HierarchicalLODOverride >= 0 && View->Family->HierarchicalLODOverride != HierarchicalLODOverride)
 		{
 			return false;
 		}
@@ -498,9 +476,14 @@ bool FPrimitiveSceneProxy::IsShadowCast(const FSceneView* View) const
 			return false;
 		}
 
+		if (View->ShowOnlyPrimitives.Num() > 0 && !View->ShowOnlyPrimitives.Contains(PrimitiveComponentId))
+		{
+			return false;
+		}
+
 #if WITH_EDITOR
 		// For editor views, we use a show flag to determine whether shadows from editor-hidden actors are desired.
-		if(View->Family->EngineShowFlags.Editor && !View->Family->EngineShowFlags.ShadowsFromEditorHiddenActors)
+		if( View->Family->EngineShowFlags.Editor )
 		{
 			if(!DrawInEditor)
 			{

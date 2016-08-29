@@ -276,18 +276,21 @@ namespace
 {
 	void SerializeLocMetadataValue(FArchive& Archive, FLocMetadataValue*& Value)
 	{
-		if (Archive.IsSaving())
+		const bool bIsSaving  = Archive.IsSaving();
+		const bool bIsLoading = Archive.IsLoading();
+
+		if (bIsSaving)
 		{
 			check(Value != nullptr);
 		}
 
-		if(Archive.IsLoading())
+		if(bIsLoading)
 		{
 			check(Value == nullptr);
 		}
 
 		ELocMetadataType MetaDataType = ELocMetadataType::None;
-		if (Archive.IsSaving())
+		if (bIsSaving)
 		{
 			MetaDataType = Value->Type;
 		}
@@ -299,48 +302,48 @@ namespace
 		switch(MetaDataType)
 		{
 		case ELocMetadataType::Array:
-			if (Archive.IsSaving())
+			if (bIsSaving)
 			{
 				FLocMetadataValueArray::Serialize(static_cast<const FLocMetadataValueArray&>(*Value), Archive);
 			}
-			else if (Archive.IsLoading())
+			else if (bIsLoading)
 			{
 				Value = new FLocMetadataValueArray(Archive);
 			}
 			break;
 		case ELocMetadataType::Boolean:
-			if (Archive.IsSaving())
+			if (bIsSaving)
 			{
 				FLocMetadataValueBoolean::Serialize(static_cast<const FLocMetadataValueBoolean&>(*Value), Archive);
 			}
-			else if (Archive.IsLoading())
+			else if (bIsLoading)
 			{
 				Value = new FLocMetadataValueBoolean(Archive);
 			}
 			break;
 		case ELocMetadataType::Object:
-			if (Archive.IsSaving())
+			if (bIsSaving)
 			{
 				FLocMetadataValueObject::Serialize(static_cast<const FLocMetadataValueObject&>(*Value), Archive);
 			}
-			else if (Archive.IsLoading())
+			else if (bIsLoading)
 			{
 				Value = new FLocMetadataValueObject(Archive);
 			}
 			break;
 		case ELocMetadataType::String:
-			if (Archive.IsSaving())
+			if (bIsSaving)
 			{
 				FLocMetadataValueString::Serialize(static_cast<const FLocMetadataValueString&>(*Value), Archive);
 			}
-			else if (Archive.IsLoading())
+			else if (bIsLoading)
 			{
 				Value = new FLocMetadataValueString(Archive);
 			}
 			break;
 		default:
 			checkNoEntry();
-		}		
+		}
 	}
 }
 

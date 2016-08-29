@@ -34,6 +34,8 @@ public:
 
 	UClass* FindOriginalClass(const UClass* InClass) const;
 
+	UClass* GetFirstNativeOrConvertedClass(UClass* InClass, bool bExcludeBPDataOnly = false) const;
+
 public:
 	bool WillClassBeConverted(const UBlueprintGeneratedClass* InClass) const;
 

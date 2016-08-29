@@ -1,8 +1,6 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-
-#ifndef __D3DINDEXBUFFER_H__
-#define __D3DINDEXBUFFER_H__
+#pragma once
 
 class FSlateD3DIndexBuffer 
 {
@@ -37,5 +35,3 @@ private:
 	void operator=(const FSlateD3DIndexBuffer& );
 
 };
-
-#endif

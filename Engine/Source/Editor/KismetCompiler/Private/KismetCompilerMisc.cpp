@@ -5,6 +5,8 @@
 =============================================================================*/
 
 #include "KismetCompilerPrivatePCH.h"
+
+#include "AnimGraphNode_Base.h"
 #include "KismetCompilerMisc.h"
 #include "K2Node_EnumLiteral.h"
 #include "Kismet2/KismetReinstanceUtilities.h"
@@ -305,7 +307,7 @@ bool FKismetCompilerUtilities::IsTypeCompatibleWithProperty(UEdGraphPin* SourceP
 	if (Property->HasAnyPropertyFlags(CPF_Parm))
 	{
 		// Parameters are directional
-		const bool bOutParam = (Property->HasAnyPropertyFlags(CPF_OutParm | CPF_ReturnParm) && !(Property->HasAnyPropertyFlags(CPF_ReferenceParm)));
+		const bool bOutParam = Property->HasAllPropertyFlags(CPF_ReturnParm) || (Property->HasAllPropertyFlags(CPF_OutParm) && !Property->HasAnyPropertyFlags(CPF_ReferenceParm));
 
 		if ( ((SourcePin->Direction == EGPD_Input) && bOutParam) || ((SourcePin->Direction == EGPD_Output) && !bOutParam))
 		{
@@ -1403,9 +1405,7 @@ void FNodeHandlingFunctor::RegisterNets(FKismetFunctionContext& Context, UEdGrap
 
 //////////////////////////////////////////////////////////////////////////
 // FNetNameMapping
-
-template<>
-KISMETCOMPILER_API FString FNetNameMapping::MakeBaseName<UEdGraphPin>(const UEdGraphPin* Net)
+FString FNetNameMapping::MakeBaseName(const UEdGraphPin* Net)
 {
 	UEdGraphNode* Owner = Net->GetOwningNode();
 	FString Part1 = Owner->GetDescriptiveCompiledName();
@@ -1413,10 +1413,14 @@ KISMETCOMPILER_API FString FNetNameMapping::MakeBaseName<UEdGraphPin>(const UEdG
 	return FString::Printf(TEXT("%s_%s"), *Part1, *Net->PinName);
 }
 
-template<>
-KISMETCOMPILER_API FString FNetNameMapping::MakeBaseName<UEdGraphNode>(const UEdGraphNode* Net)
+FString FNetNameMapping::MakeBaseName(const UEdGraphNode* Net)
 {
 	return FString::Printf(TEXT("%s"), *Net->GetDescriptiveCompiledName());
+}
+
+FString FNetNameMapping::MakeBaseName(const UAnimGraphNode_Base* Net)
+{
+	return FString::Printf(TEXT("%s_%s"), *Net->GetDescriptiveCompiledName(), *Net->NodeGuid.ToString());
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -1480,12 +1484,6 @@ void FKismetFunctionContext::SetExternalNetNameMap(FNetNameMapping* NewMap)
 	bAllocatedNetNameMap = false;
 
 	NetNameMap = NewMap;
-}
-
-int32 FKismetFunctionContext::GetContextUniqueID()
-{
-	static int32 UUIDCounter = 1;
-	return UUIDCounter++;
 }
 
 bool FKismetFunctionContext::DoesStatementRequiresSwitch(const FBlueprintCompiledStatement* Statement)
@@ -1837,14 +1835,23 @@ struct FEventGraphUtils
 			return true;
 		}
 
+		// Local term must be created by return value. 
+		// If the term is from output- by-reference parameter, then it must be persistent between calls.
+		// Fix for UE - 23629
+		const UK2Node* OwnerNode = Cast<const UK2Node>(Net.GetOwningNodeUnchecked());
+		ensure(OwnerNode);
+		const UK2Node_CallFunction* CallFunction = Cast<const UK2Node_CallFunction>(OwnerNode);
+		if (!CallFunction || (&Net != CallFunction->GetReturnValuePin()))
+		{
+			return true;
+		}
+
 		// NOT CONNECTED, so it doesn't have to be shared
 		if (!Net.LinkedTo.Num())
 		{
 			return false;
 		}
 
-		auto OwnerNode = Cast<const UK2Node>(Net.GetOwningNodeUnchecked());
-		ensure(OwnerNode);
 		// Terminals from pure nodes will be recreated anyway, so they can be always local
 		if (OwnerNode && OwnerNode->IsNodePure())
 		{
@@ -1935,7 +1942,7 @@ FBPTerminal* FKismetFunctionContext::CreateLocalTerminalFromPinAutoChooseScope(U
 void FBPTerminal::CopyFromPin(UEdGraphPin* Net, const FString& NewName)
 {
 	Type = Net->PinType;
-	Source = Net;
+	SourcePin = Net;
 	Name = NewName;
 
 	bPassedByReference = Net->PinType.bIsReference;

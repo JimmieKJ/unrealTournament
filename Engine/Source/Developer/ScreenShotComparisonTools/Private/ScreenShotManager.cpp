@@ -40,34 +40,63 @@ void FScreenShotManager::CreateData()
 	TArray<FString> AllPNGFiles;
 	IFileManager::Get().FindFilesRecursive( AllPNGFiles, *PathName, TEXT("*.png"), true, false );
 
+	const FString RenderOutputValidation(TEXT("RenderOutputValidation"));
+
 	for ( int32 PathIndex = 0; PathIndex < AllPNGFiles.Num(); PathIndex++ )
 	{
+		// <Stream or NetworkPath>/<CLNumber or Name>/<OS>_<RHI>/Project(<Project>) Map(<Map>) Time(<Time>s).png
+
 		FString PathString = AllPNGFiles[PathIndex];
-		FString ChangeListName;
 		FString PathRemainder;
 
+		// remove ../../../ in front
 		FPaths::MakePathRelativeTo(PathString, *PathName);
 
-		if (PathString.Split(TEXT("/"), &PathRemainder, &ChangeListName, ESearchCase::CaseSensitive, ESearchDir::FromEnd) )
+		// remove RenderOutputValidation in front
 		{
-			PathString = PathRemainder;
-
-			// Get the CL number from the file name;
-			FString ChangeListFile = ChangeListName;
-			int32 ChangeListNumber = FCString::Atoi( *FPaths::GetBaseFilename(ChangeListFile) );
-
-			FString PlatformName;
-			if ( PathString.Split(TEXT("/"), &PathRemainder, &PlatformName, ESearchCase::CaseSensitive, ESearchDir::FromEnd) )
+			FString PathFront;
+			if (PathString.Split(TEXT("/"), &PathFront, &PathRemainder, ESearchCase::CaseSensitive, ESearchDir::FromStart) )
 			{
-				PathString = PathRemainder;
-				TempPlatforms.AddUnique( PlatformName );
-
-				//Take the rest of the path as the screenshot name
-				FString ScreenShotName = PathString;
-				if ( !ScreenShotName.IsEmpty() )
+				if(PathFront != RenderOutputValidation)
 				{
- 					FScreenShotDataItem ScreenItem( ScreenShotName, PlatformName, AllPNGFiles[PathIndex], ChangeListNumber );
- 					ScreenShotDataArray.Add( ScreenItem );
+					continue;
+				}
+			}
+			else
+			{
+				continue;
+			}
+		}
+
+		// get Changelist
+		FString CLName;
+		if (PathRemainder.Split(TEXT("/"), &CLName, &PathRemainder, ESearchCase::CaseSensitive, ESearchDir::FromStart) )
+		{
+			int32 ChangeListNumber = 0;
+
+			if(CLName.Len() > 2 && CLName[0]== TCHAR('C') && CLName[1]== TCHAR('L'))
+			{
+				// todo: later we want to support arbitrary names as well
+				ChangeListNumber = FCString::Atoi(*CLName.RightChop(2));
+			}
+
+			// get Platform and RHI
+			FString Platform_RHI;
+			if (PathRemainder.Split(TEXT("/"), &Platform_RHI, &PathRemainder, ESearchCase::CaseSensitive, ESearchDir::FromStart) )
+			{
+				if(!PathRemainder.Contains(TEXT("/")))
+				{
+					// without extension
+					FString ScreenShotName = *FPaths::GetBaseFilename(PathRemainder);
+
+					TempPlatforms.AddUnique( Platform_RHI );
+
+					// e.g. Map(RenderTestMap) Actor(GameEngine_0) Time(1.61s)
+					if ( !ScreenShotName.IsEmpty() )
+					{
+ 						FScreenShotDataItem ScreenItem( ScreenShotName, Platform_RHI, AllPNGFiles[PathIndex], ChangeListNumber );
+ 						ScreenShotDataArray.Add( ScreenItem );
+					}
 				}
 			}
 		}

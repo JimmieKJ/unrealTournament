@@ -164,7 +164,7 @@ int32 AUTBaseGameMode::GetNumMatches()
 	return 1;
 }
 
-void AUTBaseGameMode::PreLogin(const FString& Options, const FString& Address, const TSharedPtr<const FUniqueNetId>& UniqueId, FString& ErrorMessage)
+void AUTBaseGameMode::PreLogin(const FString& Options, const FString& Address, const FUniqueNetIdRepl& UniqueId, FString& ErrorMessage)
 {
 	Super::PreLogin(Options, Address, UniqueId, ErrorMessage);
 
@@ -184,10 +184,10 @@ void AUTBaseGameMode::PreLogin(const FString& Options, const FString& Address, c
 			IOnlineEntitlementsPtr EntitlementInterface = IOnlineSubsystem::Get()->GetEntitlementsInterface();
 			if (EntitlementInterface.IsValid())
 			{
-				EntitlementInterface->QueryEntitlements(*UniqueId.Get(), TEXT("ut"));
+				EntitlementInterface->QueryEntitlements(*UniqueId.GetUniqueNetId().Get(), TEXT("ut"));
 			}
 #if WITH_PROFILE
-			UMcpProfileGroup* Group = GetMcpProfileManager()->CreateProfileGroup(UniqueId, true, false);
+			UMcpProfileGroup* Group = GetMcpProfileManager()->CreateProfileGroup(UniqueId, UniqueId.GetUniqueNetId(), true, false);
 			UUtMcpProfile* Profile = Group->AddProfile<UUtMcpProfile>(EUtMcpProfile::ToProfileId(EUtMcpProfile::Profile, 0), false);
 			FDedicatedServerUrlContext QueryContext = FDedicatedServerUrlContext::Default; // IMPORTANT to make a copy!
 			Profile->ForceQueryProfile(QueryContext);
@@ -196,7 +196,7 @@ void AUTBaseGameMode::PreLogin(const FString& Options, const FString& Address, c
 	}
 }
 
-APlayerController* AUTBaseGameMode::Login(class UPlayer* NewPlayer, ENetRole RemoteRole, const FString& Portal, const FString& Options, const TSharedPtr<const FUniqueNetId>& UniqueId, FString& ErrorMessage)
+APlayerController* AUTBaseGameMode::Login(class UPlayer* NewPlayer, ENetRole InRemoteRole, const FString& Portal, const FString& Options, const FUniqueNetIdRepl& UniqueId, FString& ErrorMessage)
 {
 	// local players don't go through PreLogin()
 	if (UniqueId.IsValid() && Cast<ULocalPlayer>(NewPlayer) != NULL && IOnlineSubsystem::Get() != NULL)
@@ -205,17 +205,17 @@ APlayerController* AUTBaseGameMode::Login(class UPlayer* NewPlayer, ENetRole Rem
 		if (EntitlementInterface.IsValid())
 		{
 			// note that we need to redundantly query even if we already got this user's entitlements because they might have quit, bought some stuff, then come back
-			EntitlementInterface->QueryEntitlements(*UniqueId.Get(), TEXT("ut"));
+			EntitlementInterface->QueryEntitlements(*UniqueId.GetUniqueNetId().Get(), TEXT("ut"));
 		}
 #if WITH_PROFILE
-		UMcpProfileGroup* Group = GetMcpProfileManager()->CreateProfileGroup(UniqueId, true, false);
+		UMcpProfileGroup* Group = GetMcpProfileManager()->CreateProfileGroup(UniqueId, UniqueId.GetUniqueNetId(), true, false);
 		UUtMcpProfile* Profile = Group->AddProfile<UUtMcpProfile>(EUtMcpProfile::ToProfileId(EUtMcpProfile::Profile, 0), false);
 		FDedicatedServerUrlContext QueryContext = FDedicatedServerUrlContext::Default; // IMPORTANT to make a copy!
 		Profile->ForceQueryProfile(QueryContext);
 #endif
 	}
 
-	APlayerController* PC = Super::Login(NewPlayer, RemoteRole, Portal, Options, UniqueId, ErrorMessage);
+	APlayerController* PC = Super::Login(NewPlayer, InRemoteRole, Portal, Options, UniqueId, ErrorMessage);
 
 #if WITH_PROFILE
 	if (PC != NULL)
@@ -223,7 +223,7 @@ APlayerController* AUTBaseGameMode::Login(class UPlayer* NewPlayer, ENetRole Rem
 		AUTPlayerState* PS = Cast<AUTPlayerState>(PC->PlayerState);
 		if (PS != NULL && PS->UniqueId.IsValid())
 		{
-			UMcpProfileGroup* Group = GetMcpProfileManager()->CreateProfileGroup(UniqueId, true, false);
+			UMcpProfileGroup* Group = GetMcpProfileManager()->CreateProfileGroup(UniqueId, UniqueId.GetUniqueNetId(), true, false);
 			UUtMcpProfile* Profile = Cast<UUtMcpProfile>(Group->GetProfile(EUtMcpProfile::ToProfileId(EUtMcpProfile::Profile, 0)));
 			AUTPlayerState::FMcpProfileSetter::Set(PS, Profile);
 		}
@@ -595,10 +595,10 @@ bool AUTBaseGameMode::ProcessConsoleExec(const TCHAR* Cmd, FOutputDevice& Ar, UO
 
 void AUTBaseGameMode::MakeJsonReport(TSharedPtr<FJsonObject> JsonObject)
 {
-	AUTGameState* GameState = GetWorld()->GetGameState<AUTGameState>();
-	if (GameState)
+	AUTGameState* UTGameState = GetWorld()->GetGameState<AUTGameState>();
+	if (UTGameState)
 	{
-		GameState->MakeJsonReport(JsonObject);
+		UTGameState->MakeJsonReport(JsonObject);
 	}
 }
 

@@ -29,10 +29,10 @@ void SUTPlayerInfoDialog::Construct(const FArguments& InArgs)
 
 	TargetPlayerState = InArgs._TargetPlayerState;
 	
-	FText DialogTitle = FText::Format(NSLOCTEXT("SUTMenuBase", "PlayerInfoTitleFormat", "Player Info - {0}"), FText::FromString(InArgs._TargetPlayerState->PlayerName));
+	FText NewDialogTitle = FText::Format(NSLOCTEXT("SUTMenuBase", "PlayerInfoTitleFormat", "Player Info - {0}"), FText::FromString(InArgs._TargetPlayerState->PlayerName));
 	SUTDialogBase::Construct(SUTDialogBase::FArguments()
 							.PlayerOwner(InArgs._PlayerOwner)
-							.DialogTitle(DialogTitle)
+							.DialogTitle(NewDialogTitle)
 							.DialogSize(InArgs._DialogSize)
 							.DialogPosition(InArgs._DialogPosition)
 							.DialogAnchorPoint(InArgs._DialogAnchorPoint)

@@ -4,6 +4,17 @@
 
 #include "LandscapeGrassType.generated.h"
 
+UENUM()
+enum class EGrassScaling : uint8
+{
+	/** Grass instances will have uniform X, Y and Z scales. */
+	Uniform,
+	/** Grass instances will have random X, Y and Z scales. */
+	Free,
+	/** X and Y will be the same random scale, Z will be another */
+	LockXY,
+};
+
 USTRUCT()
 struct FGrassVariety
 {
@@ -41,15 +52,44 @@ struct FGrassVariety
 	UPROPERTY(EditAnywhere, Category = Grass)
 	int32 MinLOD;
 
+	/** Specifies grass instance scaling type */
+	UPROPERTY(EditAnywhere, Category=Grass)
+	EGrassScaling Scaling;
+
+	/** Specifies the range of scale, from minimum to maximum, to apply to a grass instance's X Scale property */
+	UPROPERTY(EditAnywhere, Category=Grass)
+	FFloatInterval ScaleX;
+
+	/** Specifies the range of scale, from minimum to maximum, to apply to a grass instance's Y Scale property */
+	UPROPERTY(EditAnywhere, Category=Grass)
+	FFloatInterval ScaleY;
+
+	/** Specifies the range of scale, from minimum to maximum, to apply to a grass instance's Z Scale property */
+	UPROPERTY(EditAnywhere, Category=Grass)
+	FFloatInterval ScaleZ;
+
+	/** Whether the grass instances should be placed at random rotation (true) or all at the same rotation (false) */
 	UPROPERTY(EditAnywhere, Category = Grass)
 	bool RandomRotation;
 
+	/** Whether the grass instances should be tilted to the normal of the landscape (true), or always vertical (false) */
 	UPROPERTY(EditAnywhere, Category = Grass)
 	bool AlignToSurface;
 
-	/* whether to use the landscape's lightmap when rendering the grass. */
+	/* Whether to use the landscape's lightmap when rendering the grass. */
 	UPROPERTY(EditAnywhere, Category = Grass)
 	bool bUseLandscapeLightmap;
+
+	/**
+	 * Lighting channels that the grass will be assigned. Lights with matching channels will affect the grass.
+	 * These channels only apply to opaque materials, direct lighting, and dynamic lighting and shadowing.
+	 */
+	UPROPERTY(EditAnywhere, AdvancedDisplay, Category = Grass)
+	FLightingChannels LightingChannels;
+
+	/** Whether the grass instances should receive decals. */
+	UPROPERTY(EditAnywhere, Category = Grass)
+	bool bReceivesDecals;
 
 	FGrassVariety()
 		: GrassMesh(nullptr)
@@ -59,9 +99,14 @@ struct FGrassVariety
 		, StartCullDistance(10000.0f)
 		, EndCullDistance(10000.0f)
 		, MinLOD(-1)
+		, Scaling(EGrassScaling::Uniform)
+		, ScaleX(1.0f, 1.0f)
+		, ScaleY(1.0f, 1.0f)
+		, ScaleZ(1.0f, 1.0f)
 		, RandomRotation(true)
 		, AlignToSurface(true)
 		, bUseLandscapeLightmap(false)
+		, bReceivesDecals(true)
 	{
 	}
 };

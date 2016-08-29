@@ -14,6 +14,7 @@ public:
 	virtual ~FChildActorComponentInstanceData();
 
 	virtual void ApplyToComponent(UActorComponent* Component, const ECacheApplyPhase CacheApplyPhase) override;
+	virtual void AddReferencedObjects(FReferenceCollector& Collector) override;
 
 	// The name of the spawned child actor so it (attempts to) remain constant across construction script reruns
 	FName ChildActorName;
@@ -49,9 +50,8 @@ private:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=ChildActorComponent, meta=(OnlyPlaceable, AllowPrivateAccess="true"))
 	TSubclassOf<AActor>	ChildActorClass;
 
-public:
 	/** The actor that we spawned and own */
-	UPROPERTY(BlueprintReadOnly, Category=ChildActorComponent, TextExportTransient, NonPIEDuplicateTransient)
+	UPROPERTY(Replicated, BlueprintReadOnly, Category=ChildActorComponent, TextExportTransient, NonPIEDuplicateTransient, meta=(AllowPrivateAccess="true"))
 	AActor*	ChildActor;
 
 	/** We try to keep the child actor's name as best we can, so we store it off here when destroying */
@@ -60,6 +60,8 @@ public:
 	/** Cached copy of the instance data when the ChildActor is destroyed to be available when needed */
 	mutable FChildActorComponentInstanceData* CachedInstanceData;
 
+public:
+
 	//~ Begin Object Interface.
 #if WITH_EDITOR
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
@@ -67,6 +69,9 @@ public:
 	virtual void PostLoad() override;
 #endif
 	virtual void BeginDestroy() override;
+	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
+	virtual void PostRepNotifies() override;
+	static void AddReferencedObjects(UObject* InThis, FReferenceCollector& Collector);
 	//~ End Object Interface.
 
 	//~ Begin ActorComponent Interface.
@@ -75,6 +80,7 @@ public:
 	virtual void OnRegister() override;
 	virtual void OnUnregister() override;
 	virtual FActorComponentInstanceData* GetComponentInstanceData() const override;
+	virtual void BeginPlay() override;
 	//~ End ActorComponent Interface.
 
 	/** Apply the component instance data to the child actor component */
@@ -83,8 +89,12 @@ public:
 	/** Create the child actor */
 	void CreateChildActor();
 
+	AActor* GetChildActor() const { return ChildActor; }
+
+	FName GetChildActorName() const { return ChildActorName; }
+
 	/** Kill any currently present child actor */
-	void DestroyChildActor(const bool bRequiresRename = true);
+	void DestroyChildActor();
 };
 
 

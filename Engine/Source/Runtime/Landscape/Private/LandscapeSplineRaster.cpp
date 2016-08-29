@@ -5,15 +5,18 @@
 	Functions to rasterize a spline into landscape heights/weights
   =============================================================================*/
 
+#include "LandscapePrivatePCH.h"
 #include "Landscape.h"
 #include "LandscapeSplineRaster.h"
-#include "LandscapeProxy.h"
+#include "LandscapeStreamingProxy.h"
 #include "LandscapeDataAccess.h"
 #include "LandscapeEdit.h"
 #include "LandscapeHeightfieldCollisionComponent.h"
 #include "LandscapeSplinesComponent.h"
 #include "LandscapeSplineControlPoint.h"
 #include "LandscapeSplineSegment.h"
+#include "LandscapeLayerInfoObject.h"
+#include "LandscapeComponent.h"
 #if WITH_EDITOR
 #include "AI/Navigation/NavigationSystem.h"
 #include "ScopedTransaction.h"
@@ -424,9 +427,8 @@ bool ULandscapeInfo::ApplySplines(bool bOnlySelected)
 
 	bResult |= ApplySplinesInternal(bOnlySelected, Landscape);
 
-	for (auto It = Proxies.CreateIterator(); It; ++It)
+	for (ALandscapeProxy* LandscapeProxy : Proxies)
 	{
-		ALandscapeProxy* LandscapeProxy = (*It);
 		bResult |= ApplySplinesInternal(bOnlySelected, LandscapeProxy);
 	}
 

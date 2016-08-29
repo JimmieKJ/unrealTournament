@@ -12,6 +12,8 @@
 #include "UnrealNetwork.h"
 #include "UTWeaponAttachment.h"
 #include "StatNames.h"
+#include "Animation/AnimMontage.h"
+#include "Animation/AnimInstance.h"
 
 AUTWeap_Enforcer::AUTWeap_Enforcer(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -42,7 +44,7 @@ AUTWeap_Enforcer::AUTWeap_Enforcer(const FObjectInitializer& ObjectInitializer)
 
 	LeftMesh = ObjectInitializer.CreateDefaultSubobject<USkeletalMeshComponent>(this, TEXT("LeftMesh"));
 	LeftMesh->SetOnlyOwnerSee(true);
-	LeftMesh->AttachParent = RootComponent;
+	LeftMesh->SetupAttachment(RootComponent);
 	LeftMesh->MeshComponentUpdateFlag = EMeshComponentUpdateFlag::OnlyTickPoseWhenRendered;
 	LeftMesh->bSelfShadowOnly = true;
 	LeftMesh->bHiddenInGame = true;
@@ -74,7 +76,7 @@ void AUTWeap_Enforcer::AttachLeftMesh()
 	if (LeftMesh != NULL && LeftMesh->SkeletalMesh != NULL)
 	{
 		LeftMesh->SetHiddenInGame(false);
-		LeftMesh->AttachTo(UTOwner->FirstPersonMesh);
+		LeftMesh->AttachToComponent(UTOwner->FirstPersonMesh, FAttachmentTransformRules::KeepRelativeTransform);
 		if (Cast<APlayerController>(UTOwner->Controller) != NULL && UTOwner->IsLocallyControlled())
 		{
 			LeftMesh->LastRenderTime = GetWorld()->TimeSeconds;
@@ -102,7 +104,7 @@ void AUTWeap_Enforcer::UpdateViewBob(float DeltaTime)
 	Super::UpdateViewBob(DeltaTime);
 
 	// if weapon is up in first person, view bob with movement
-	if (LeftMesh != NULL && LeftMesh->AttachParent != NULL && UTOwner != NULL && UTOwner->GetWeapon() == this && ShouldPlay1PVisuals() && GetWeaponHand() != EWeaponHand::HAND_Hidden)
+	if (LeftMesh != NULL && LeftMesh->GetAttachParent() != NULL && UTOwner != NULL && UTOwner->GetWeapon() == this && ShouldPlay1PVisuals() && GetWeaponHand() != EWeaponHand::HAND_Hidden)
 	{
 		if (FirstPLeftMeshOffset.IsZero())
 		{
@@ -462,7 +464,7 @@ void AUTWeap_Enforcer::AttachToOwner_Implementation()
 	if (LeftMesh != NULL && LeftMesh->SkeletalMesh != NULL && bDualEnforcerMode)
 	{
 		LeftMesh->SetHiddenInGame(false);
-		LeftMesh->AttachTo(UTOwner->FirstPersonMesh);
+		LeftMesh->AttachToComponent(UTOwner->FirstPersonMesh, FAttachmentTransformRules::KeepRelativeTransform);
 		if (ShouldPlay1PVisuals())
 		{
 			LeftMesh->MeshComponentUpdateFlag = EMeshComponentUpdateFlag::AlwaysTickPose; // needed for anims to be ticked even if weapon is not currently displayed, e.g. sniper zoom
@@ -509,7 +511,7 @@ void AUTWeap_Enforcer::DetachFromOwner_Implementation()
 
 	if (LeftMesh != NULL && LeftMesh->SkeletalMesh != NULL)
 	{
-		LeftMesh->DetachFromParent();
+		LeftMesh->DetachFromComponent(FDetachmentTransformRules::KeepWorldTransform);
 	}
 
 	Super::DetachFromOwner_Implementation();

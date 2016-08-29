@@ -859,10 +859,10 @@ void MainCS(
 {
 	float ScaleFactor = ScreenSpaceAOParams[2].x;
 
-	int2 PixelPos = DispatchThreadId + (int2)Frame.ViewRectMin.xy;
+	int2 PixelPos = DispatchThreadId + (int2)View.ViewRectMin.xy;
 
 	// todo: move to a function
-	float4 SvPosition = float4(DispatchThreadId + Frame.ViewRectMin.xy + 0.5f, 0, 0) * ScaleFactor;
+	float4 SvPosition = float4(DispatchThreadId + View.ViewRectMin.xy + 0.5f, 0, 0) * ScaleFactor;
 	float2 BufferUV = SvPositionToBufferUV(SvPosition);
 	SvPosition.z = LookupDeviceZ(BufferUV);
 	// todo: investigate

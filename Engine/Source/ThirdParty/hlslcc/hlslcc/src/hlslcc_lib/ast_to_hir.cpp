@@ -3307,12 +3307,14 @@ ir_rvalue* ast_declarator_list::hir(exec_list *instructions, struct _mesa_glsl_p
 			}
 		}
 
+/*
 		// We only allow static const declarations, even though HLSL does allow to change the value of a static;
 		// this simplifies constant value propagation
 		if (this->type->qualifier.flags.q.is_static && !this->type->qualifier.flags.q.constant)
 		{
 			_mesa_glsl_error(&loc, state, "static variables must be declared const");
 		}
+*/
 
 		/* Process the initializer and add its instructions to a temporary
 		* list.  This list will be added to the instruction stream (below) after
@@ -3322,6 +3324,22 @@ ir_rvalue* ast_declarator_list::hir(exec_list *instructions, struct _mesa_glsl_p
 		*/
 		exec_list initializer_instructions;
 		ir_variable *earlier = get_variable_being_redeclared(var, decl, state);
+
+		// Make static non-const variables initialized to zero as FXC does
+		if (this->type->qualifier.flags.q.is_static && !decl->initializer)
+		{
+			ast_expression* Zero = new(ctx)ast_expression(ast_int_constant, NULL, NULL, NULL);
+			Zero->set_location(decl->get_location());
+			Zero->primary_expression.int_constant = 0;
+
+			ast_expression* Cast = new(ctx)ast_expression(ast_type_cast, Zero, NULL, NULL);
+			Cast->set_location(decl->get_location());
+			Cast->primary_expression.type_specifier = this->type->specifier;
+
+			decl->initializer = new(ctx)ast_initializer_list_expression();
+			Cast->link.self_link();
+			decl->initializer->expressions.push_degenerate_list_at_head(&Cast->link);
+		}
 
 		if (decl->initializer != NULL)
 		{
@@ -5430,7 +5448,7 @@ public:
 		if (lhs->type->is_matrix() && assign->write_mask != 0)
 		{
 			check(lhs->type->base_type == assign->rhs->type->base_type);
-			check(assign->rhs->type->is_vector());
+			check(assign->rhs->type->is_scalar() || assign->rhs->type->is_vector());
 
 			void* ctx = ralloc_parent(assign);
 			ir_variable* dest_var = lhs->variable_referenced();
@@ -5448,16 +5466,14 @@ public:
 			{
 				if (write_mask & 0x1)
 				{
-					this->base_ir->insert_before(new(ctx)ir_assignment(
-						new(ctx)ir_dereference_array(
-						new(ctx)ir_dereference_array(
-						dest_var,
-						new(ctx)ir_constant(dest_index / dest_var->type->vector_elements)
-						),
-						new(ctx)ir_constant(dest_index % dest_var->type->vector_elements)
-						),
-						new(ctx)ir_dereference_array(tmp_vec, new(ctx)ir_constant(src_index))
-						));
+					ir_dereference_array* Row = new(ctx) ir_dereference_array(dest_var, new(ctx) ir_constant(dest_index / dest_var->type->vector_elements));
+					ir_dereference_array* LHS =  new(ctx) ir_dereference_array(
+									Row,
+									new(ctx) ir_constant(dest_index % dest_var->type->vector_elements));
+					ir_dereference* RHS = assign->rhs->type->is_vector()
+						? (ir_dereference*)(new(ctx) ir_dereference_array(tmp_vec, new(ctx)ir_constant(src_index)))
+						: (ir_dereference*)(new(ctx) ir_dereference_variable(tmp_vec));
+					this->base_ir->insert_before(new(ctx)ir_assignment(LHS, RHS));
 					src_index++;
 				}
 				dest_index++;

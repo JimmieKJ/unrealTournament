@@ -6,12 +6,13 @@
 
 extern bool D3D12RHI_ShouldCreateWithD3DDebug();
 
+static const uint64 InvalidFence = static_cast<uint64>(-1);
 
 FComputeFenceRHIRef FD3D12DynamicRHI::RHICreateComputeFence(const FName& Name)
 {
-	FD3D12Fence* Fence = new FD3D12Fence(GetRHIDevice(),Name);
+	FD3D12Fence* Fence = new FD3D12Fence(GetRHIDevice(), Name);
 
-	Fence->CreateFence(0);
+	Fence->CreateFence(InvalidFence);
 
 	return Fence;
 }
@@ -25,7 +26,8 @@ FD3D12FenceCore::FD3D12FenceCore(FD3D12Device* Parent, uint64 InitialValue)
 	hFenceCompleteEvent = CreateEvent(nullptr, false, false, nullptr);
 	check(INVALID_HANDLE_VALUE != hFenceCompleteEvent);
 
-	VERIFYD3D11RESULT(Parent->GetDevice()->CreateFence(InitialValue, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(Fence.GetInitReference())));
+	InitialValue = FMath::Min(InitialValue, InvalidFence);
+	VERIFYD3D12RESULT(Parent->GetDevice()->CreateFence(InitialValue, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(Fence.GetInitReference())));
 }
 
 FD3D12FenceCore::~FD3D12FenceCore()
@@ -80,7 +82,7 @@ uint64 FD3D12Fence::Signal(ID3D12CommandQueue* pCommandQueue)
 {
 	check(pCommandQueue != nullptr);
 
-	VERIFYD3D11RESULT(pCommandQueue->Signal(FenceCore->GetFence(), CurrentFence));
+	VERIFYD3D12RESULT(pCommandQueue->Signal(FenceCore->GetFence(), CurrentFence));
 
 	// Save the current fence and increment it
 	SignalFence = CurrentFence++;
@@ -93,7 +95,7 @@ void FD3D12Fence::GpuWait(ID3D12CommandQueue* pCommandQueue, uint64 FenceValue)
 {
 	check(pCommandQueue != nullptr);
 
-	VERIFYD3D11RESULT(pCommandQueue->Wait(FenceCore->GetFence(), FenceValue));
+	VERIFYD3D12RESULT(pCommandQueue->Wait(FenceCore->GetFence(), FenceValue));
 }
 
 bool FD3D12Fence::IsFenceComplete(uint64 FenceValue)
@@ -129,7 +131,7 @@ void FD3D12Fence::WaitForFence(uint64 FenceValue)
 	}
 
 	// We must wait.  Do so with an event handler so we don't oversleep.
-	VERIFYD3D11RESULT(FenceCore->GetFence()->SetEventOnCompletion(FenceValue, FenceCore->GetCompleteionEvent()));
+	VERIFYD3D12RESULT(FenceCore->GetFence()->SetEventOnCompletion(FenceValue, FenceCore->GetCompleteionEvent()));
 
 	// Wait for the event to complete (the event is automatically reset afterwards)
 	const uint32 WaitResult = WaitForSingleObject(FenceCore->GetCompleteionEvent(), INFINITE);
@@ -205,7 +207,7 @@ void FD3D12CommandListManager::Destroy()
 	}
 }
 
-void FD3D12CommandListManager::Create(uint32 NumCommandLists)
+void FD3D12CommandListManager::Create(const TCHAR* Name, uint32 NumCommandLists)
 {
 	check(D3DCommandQueue.GetReference() == nullptr);
 	check(ReadyLists.IsEmpty());
@@ -217,7 +219,8 @@ void FD3D12CommandListManager::Create(uint32 NumCommandLists)
 	CommandQueueDesc.NodeMask = 0;
 	CommandQueueDesc.Priority = 0;
 	CommandQueueDesc.Type = CommandListType;
-	VERIFYD3D11RESULT(Direct3DDevice->CreateCommandQueue(&CommandQueueDesc, IID_PPV_ARGS(D3DCommandQueue.GetInitReference())));
+	VERIFYD3D12RESULT(Direct3DDevice->CreateCommandQueue(&CommandQueueDesc, IID_PPV_ARGS(D3DCommandQueue.GetInitReference())));
+	SetName(D3DCommandQueue.GetReference(), Name);
 
 	for (uint32 i = 0; i < FT_NumTypes; i++)
 	{
@@ -245,6 +248,7 @@ FD3D12CommandListHandle FD3D12CommandListManager::ObtainCommandList(FD3D12Comman
 		List = CreateCommandListHandle(CommandAllocator);
 	}
 
+	check(List.GetCommandListType() == CommandListType);
 	List.Reset(CommandAllocator);
 	return List;
 }
@@ -252,6 +256,7 @@ FD3D12CommandListHandle FD3D12CommandListManager::ObtainCommandList(FD3D12Comman
 void FD3D12CommandListManager::ReleaseCommandList(FD3D12CommandListHandle& hList)
 {
 	check(hList.IsClosed());
+	check(hList.GetCommandListType() == CommandListType);
 	ReadyLists.Enqueue(hList);
 }
 
@@ -283,7 +288,7 @@ void FD3D12CommandListManager::ExecuteCommandList(FD3D12CommandListHandle& hList
 	ExecuteCommandLists(Lists, WaitForCompletion);
 }
 
-uint64 FD3D12CommandListManager::ExecuteAndIncrementFence(ID3D12CommandList* pD3DCommandLists[], uint64 NumCommandLists, FD3D12Fence &Fence)
+uint64 FD3D12CommandListManager::ExecuteAndIncrementFence(FD3D12CommandListPayload& Payload, FD3D12Fence &Fence)
 {
 	FScopeLock Lock(&FenceCS);
 
@@ -292,22 +297,30 @@ uint64 FD3D12CommandListManager::ExecuteAndIncrementFence(ID3D12CommandList* pD3
 	if (D3D12RHI_ShouldCreateWithD3DDebug())
 	{
 		// Debug layer will break when a command list does bad stuff. Helps identify the command list in question.
-		for (int32 i = 0; i < NumCommandLists; i++)
+		for (uint32 i = 0; i < Payload.NumCommandLists; i++)
 		{
-			D3DCommandQueue->ExecuteCommandLists(1, &(pD3DCommandLists[i]));
+#if ENABLE_RESIDENCY_MANAGEMENT
+			VERIFYD3D12RESULT(GetParentDevice()->GetResidencyManager().ExecuteCommandLists(D3DCommandQueue, &Payload.CommandLists[i], &Payload.ResidencySets[i], 1));
+#else
+			D3DCommandQueue->ExecuteCommandLists(1, &Payload.CommandLists[i]);
+#endif
 
 #if LOG_EXECUTE_COMMAND_LISTS
-			LogExecuteCommandLists(1, &(pD3DCommandLists[i]));
+			LogExecuteCommandLists(1, &(Payload.CommandLists[i]));
 #endif
 		}
 	}
 	else
 #endif
 	{
-		D3DCommandQueue->ExecuteCommandLists(NumCommandLists, pD3DCommandLists);
+#if ENABLE_RESIDENCY_MANAGEMENT
+		VERIFYD3D12RESULT(GetParentDevice()->GetResidencyManager().ExecuteCommandLists(D3DCommandQueue, Payload.CommandLists, Payload.ResidencySets, Payload.NumCommandLists));
+#else
+		D3DCommandQueue->ExecuteCommandLists(Payload.NumCommandLists, Payload.CommandLists);
+#endif
 
 #if LOG_EXECUTE_COMMAND_LISTS
-		LogExecuteCommandLists(NumCommandLists, pD3DCommandLists);
+		LogExecuteCommandLists(Payload.NumCommandLists, Payload.CommandLists);
 #endif
 	}
 
@@ -344,8 +357,10 @@ void FD3D12CommandListManager::ExecuteCommandLists(TArray<FD3D12CommandListHandl
 
 	// Close the resource barrier lists, get the raw command list pointers, and enqueue the command list handles
 	// Note: All command lists will share the same fence
-	check(Lists.Num() <= 128);
-	ID3D12CommandList* pD3DCommandLists[128];
+	FD3D12CommandListPayload CurrentCommandListPayload;
+	FD3D12CommandListPayload ComputeBarrierPayload;
+
+	check(Lists.Num() <= FD3D12CommandListPayload::MaxCommandListsPerPayload);
 	FD3D12CommandListHandle BarrierCommandList[128];
 	if (NeedsResourceBarriers)
 	{
@@ -354,9 +369,12 @@ void FD3D12CommandListManager::ExecuteCommandLists(TArray<FD3D12CommandListHandl
 		check(false);
 #endif // !USE_D3D12RHI_RESOURCE_STATE_TRACKING
 
-		//#todo-rco: Need verification from MS
-#if 0//UE_BUILD_DEBUG	
-		if (!ResourceStateCS.TryLock())
+#if UE_BUILD_DEBUG	
+		if (ResourceStateCS.TryLock())
+		{
+			ResourceStateCS.Unlock();
+		}
+		else
 		{
 			FD3D12DynamicRHI::GetD3DRHI()->SubmissionLockStalls++;
 			// We don't think this will get hit but it's possible. If we do see this happen,
@@ -383,23 +401,21 @@ void FD3D12CommandListManager::ExecuteCommandLists(TArray<FD3D12CommandListHandl
 
 				if (CommandListType == D3D12_COMMAND_LIST_TYPE_COMPUTE)
 				{
-					ID3D12CommandList *SingleBarrierCommandList = barrierCommandList.CommandList();
-					BarrierFenceValue = DirectCommandListManager.ExecuteAndIncrementFence(&SingleBarrierCommandList, 1, DirectFence);
+					ComputeBarrierPayload.Reset();
+					ComputeBarrierPayload.Append(barrierCommandList.CommandList(), &barrierCommandList.GetResidencySet());
+					BarrierFenceValue = DirectCommandListManager.ExecuteAndIncrementFence(ComputeBarrierPayload, DirectFence);
 					DirectFence.GpuWait(D3DCommandQueue, BarrierFenceValue);
 				}
 				else
 				{
-					pD3DCommandLists[commandListIndex] = barrierCommandList.CommandList();
-					commandListIndex++;
+					CurrentCommandListPayload.Append(barrierCommandList.CommandList(), &barrierCommandList.GetResidencySet());
 				}
-
-				check(commandListIndex < 127);
 			}
 
-			pD3DCommandLists[commandListIndex] = commandList.CommandList();
-			commandListIndex++;
+			CurrentCommandListPayload.Append(commandList.CommandList(), &commandList.GetResidencySet());
+			commandList.LogResourceBarriers();
 		}
-		SignaledFenceValue = ExecuteAndIncrementFence(pD3DCommandLists, commandListIndex, Fence);
+		SignaledFenceValue = ExecuteAndIncrementFence(CurrentCommandListPayload, Fence);
 		SyncPoint = FD3D12SyncPoint(&Fence, SignaledFenceValue);
 		if (CommandListType == D3D12_COMMAND_LIST_TYPE_COMPUTE)
 		{
@@ -414,11 +430,13 @@ void FD3D12CommandListManager::ExecuteCommandLists(TArray<FD3D12CommandListHandl
 	{
 		for (int32 i = 0; i < Lists.Num(); i++)
 		{
-			FD3D12CommandListHandle& commandList = Lists[i];
-			pD3DCommandLists[commandListIndex] = commandList.CommandList();
-			commandListIndex++;
+			CurrentCommandListPayload.Append(Lists[i].CommandList(), &Lists[i].GetResidencySet());
+			Lists[i].LogResourceBarriers();
 		}
-		SignaledFenceValue = ExecuteAndIncrementFence(pD3DCommandLists, commandListIndex, Fence);
+		SignaledFenceValue = ExecuteAndIncrementFence(CurrentCommandListPayload, Fence);
+		check(CommandListType != D3D12_COMMAND_LIST_TYPE_COMPUTE);
+		SyncPoint = FD3D12SyncPoint(&Fence, SignaledFenceValue);
+		BarrierSyncPoint = SyncPoint;
 	}
 
 	for (int32 i = 0; i < Lists.Num(); i++)
@@ -461,7 +479,7 @@ uint32 FD3D12CommandListManager::GetResourceBarrierCommandList(FD3D12CommandList
 		BarrierDescs.Reserve(NumPendingResourceBarriers);
 
 		// Fill out the descs
-		D3D12_RESOURCE_BARRIER Desc ={};
+		D3D12_RESOURCE_BARRIER Desc = {};
 		Desc.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
 
 		for (uint32 i = 0; i < NumPendingResourceBarriers; ++i)
@@ -507,6 +525,14 @@ uint32 FD3D12CommandListManager::GetResourceBarrierCommandList(FD3D12CommandList
 
 			hResourceBarrierList = ObtainCommandList(*ResourceBarrierCommandAllocator);
 
+#if ENABLE_RESIDENCY_MANAGEMENT
+			//TODO: Update the logic so that this loop can occur above!
+			for (uint32 i = 0; i < NumPendingResourceBarriers; ++i)
+			{
+				const FD3D12PendingResourceBarrier& PRB = PendingResourceBarriers[i];
+				hResourceBarrierList.UpdateResidency(PRB.Resource);
+			}
+#endif
 #if DEBUG_RESOURCE_STATES
 			LogResourceBarriers(BarrierDescs.Num(), BarrierDescs.GetData(), hResourceBarrierList.CommandList());
 #endif
@@ -561,7 +587,7 @@ void FD3D12CommandListManager::WaitForCommandQueueFlush()
 FD3D12CommandListHandle FD3D12CommandListManager::CreateCommandListHandle(FD3D12CommandAllocator& CommandAllocator)
 {
 	FD3D12CommandListHandle List;
-	List.Create(GetParentDevice()->GetDevice(), CommandListType, CommandAllocator, this);
+	List.Create(GetParentDevice(), CommandListType, CommandAllocator, this);
 	const int64 CommandListCount = FPlatformAtomics::InterlockedIncrement(&NumCommandListsAllocated);
 
 	// If we hit this, we should really evaluate why we need so many command lists, especially since
@@ -583,7 +609,10 @@ FD3D12FenceCore* FD3D12FenceCorePool::ObtainFenceCore(uint64 InitialValue)
 				AvailableFences.Dequeue(Fence);
 
 				//Reset the fence value
-				Fence->GetFence()->Signal(InitialValue);
+				if (InitialValue != InvalidFence)
+				{
+					Fence->GetFence()->Signal(InitialValue);
+				}
 
 				return Fence;
 			}
@@ -607,4 +636,20 @@ void FD3D12FenceCorePool::Destroy()
 	{
 		delete(Fence);
 	}
+}
+
+void FD3D12CommandListPayload::Reset()
+{
+	NumCommandLists = 0;
+	FMemory::Memzero(CommandLists);
+	FMemory::Memzero(ResidencySets);
+}
+
+void FD3D12CommandListPayload::Append(ID3D12CommandList* CommandList, FD3D12ResidencySet* Set)
+{
+	check(NumCommandLists < FD3D12CommandListPayload::MaxCommandListsPerPayload);
+
+	CommandLists[NumCommandLists] = CommandList;
+	ResidencySets[NumCommandLists] = Set;
+	NumCommandLists++;
 }

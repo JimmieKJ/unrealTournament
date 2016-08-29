@@ -4,6 +4,11 @@
 
 #include "MovieSceneActorReferenceTrack.h"
 #include "MovieSceneActorReferenceSection.h"
+#include "PropertyTrackEditor.h"
+
+
+class ISequencer;
+
 
 /**
  * A property track editor for actor references.
@@ -14,26 +19,26 @@ class FActorReferencePropertyTrackEditor
 public:
 
 	/**
-	 * Constructor
+	 * Constructor.
 	 *
-	 * @param InSequencer The sequencer instance to be used by this tool
+	 * @param InSequencer The sequencer instance to be used by this tool.
 	 */
-	FActorReferencePropertyTrackEditor( TSharedRef<ISequencer> InSequencer )
-		: FPropertyTrackEditor( InSequencer, NAME_ObjectProperty )
+	FActorReferencePropertyTrackEditor(TSharedRef<ISequencer> InSequencer)
+		: FPropertyTrackEditor(InSequencer, NAME_ObjectProperty)
 	{ }
 
 	/**
-	 * Creates an instance of this class.  Called by a sequencer 
+	 * Creates an instance of this class (called by a sequencer).
 	 *
-	 * @param OwningSequencer The sequencer instance to be used by this tool
-	 * @return The new instance of this class
+	 * @param OwningSequencer The sequencer instance to be used by this tool.
+	 * @return The new instance of this class.
 	 */
-	static TSharedRef<ISequencerTrackEditor> CreateTrackEditor( TSharedRef<ISequencer> OwningSequencer );
+	static TSharedRef<ISequencerTrackEditor> CreateTrackEditor(TSharedRef<ISequencer> OwningSequencer);
 
 protected:
 
-	// FPropertyTrackEditor interface
+	//~ FPropertyTrackEditor interface
 
-	virtual TSharedRef<FPropertySection> MakePropertySectionInterface( UMovieSceneSection& SectionObject, UMovieSceneTrack& Track ) override;
-	virtual void GenerateKeysFromPropertyChanged( const FPropertyChangedParams& PropertyChangedParams, TArray<FGuid>& NewGeneratedKeys, TArray<FGuid>& DefaultGeneratedKeys ) override;
+	virtual TSharedRef<FPropertySection> MakePropertySectionInterface(UMovieSceneSection& SectionObject, UMovieSceneTrack& Track) override;
+	virtual void GenerateKeysFromPropertyChanged(const FPropertyChangedParams& PropertyChangedParams, TArray<FGuid>& NewGeneratedKeys, TArray<FGuid>& DefaultGeneratedKeys) override;
 };

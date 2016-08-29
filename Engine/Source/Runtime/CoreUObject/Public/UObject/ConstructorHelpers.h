@@ -104,7 +104,7 @@ public:
 			Object = ConstructorHelpersInternal::FindOrLoadObject<T>(PathName);
 			ValidateObject( Object, PathName, ObjectToFind );
 		}
-		bool Succeeded()
+		bool Succeeded() const
 		{
 			return !!Object;
 		}

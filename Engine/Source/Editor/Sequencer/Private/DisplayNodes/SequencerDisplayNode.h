@@ -193,6 +193,13 @@ public:
 	virtual const FSlateBrush* GetIconOverlayBrush() const;
 
 	/**
+	 * Gets the color for the icon brush
+	 * 
+	 * @return This node's representative color
+	 */
+	virtual FSlateColor GetIconColor() const;
+
+	/**
 	 * Get the tooltip text to display for this node's icon
 	 * 
 	 * @return Text to display on the icon

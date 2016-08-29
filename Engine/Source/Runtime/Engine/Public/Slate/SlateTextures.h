@@ -7,13 +7,16 @@ struct FSlateTextureData;
 /**
  * Encapsulates a Texture2DRHIRef for use by a Slate rendering implementation                   
  */
-class ENGINE_API FSlateTexture2DRHIRef : public TSlateTexture<FTexture2DRHIRef>, public FSlateUpdatableTexture, public FRenderResource
+class ENGINE_API FSlateTexture2DRHIRef : public TSlateTexture<FTexture2DRHIRef>, public FSlateUpdatableTexture, public FDeferredCleanupInterface, public FRenderResource
 {
 public:
 	FSlateTexture2DRHIRef( FTexture2DRHIRef InRef, uint32 InWidth, uint32 InHeight );
 	FSlateTexture2DRHIRef( uint32 InWidth, uint32 InHeight, EPixelFormat InPixelFormat, TSharedPtr<FSlateTextureData, ESPMode::ThreadSafe> InTextureData, uint32 InTexCreateFlags = 0, bool bCreateEmptyTexture = false );
 
-	~FSlateTexture2DRHIRef();
+	virtual ~FSlateTexture2DRHIRef();
+
+	virtual void Cleanup() override;
+	virtual void FinishCleanup() override;
 
 	virtual uint32 GetWidth() const override { return Width; }
 	virtual uint32 GetHeight() const override { return Height; }
@@ -75,6 +78,7 @@ public:
 	virtual void UpdateTexture(const TArray<uint8>& Bytes) override;
 	virtual void UpdateTextureThreadSafe(const TArray<uint8>& Bytes) override;
 	virtual void UpdateTextureThreadSafeRaw(uint32 Width, uint32 Height, const void* Buffer, const FIntRect& Dirty) override;
+	virtual void UpdateTextureThreadSafeWithTextureData(FSlateTextureData* BulkData) override;
 protected:
 	/** Width of this texture */
 	uint32 Width;

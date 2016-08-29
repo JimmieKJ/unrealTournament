@@ -20,6 +20,7 @@
 #include "IntegralKeyDetailsCustomization.h"
 #include "MovieSceneSubSection.h"
 #include "MovieSceneCinematicShotSection.h"
+#include "Curves/IntegralCurve.h"
 
 #define LOCTEXT_NAMESPACE "SequencerContextMenus"
 
@@ -231,12 +232,12 @@ void FKeyContextMenu::AddPropertiesMenu(FMenuBuilder& MenuBuilder)
 			StructureDetailsView->SetStructureData(Key.Key);
 			StructureDetailsView->GetOnFinishedChangingPropertiesDelegate().AddLambda(
 				[=](const FPropertyChangedEvent& ChangeEvent) {
+					
 					if (Key.Key->GetStruct()->IsChildOf(FMovieSceneKeyStruct::StaticStruct()))
 					{
 						((FMovieSceneKeyStruct*)Key.Key->GetStructMemory())->PropagateChanges(ChangeEvent);
 					}
-					Sequencer->GetFocusedMovieSceneSequence()->Modify();
-					Sequencer->UpdateRuntimeInstances();
+					Sequencer->NotifyMovieSceneDataChanged( EMovieSceneDataChangeType::TrackValueChanged );
 				}
 			);
 		}
@@ -326,6 +327,13 @@ void FSectionContextMenu::PopulateMenu(FMenuBuilder& MenuBuilder)
 				LOCTEXT("SelectAllKeysTooltip", "Select all keys in section"),
 				FSlateIcon(),
 				FUIAction(FExecuteAction::CreateLambda([=]{ return Shared->SelectAllKeys(); }))
+			);
+
+			MenuBuilder.AddMenuEntry(
+				LOCTEXT("CopyAllKeys", "Copy All Keys"),
+				LOCTEXT("CopyAllKeysTooltip", "Copy all keys in section"),
+				FSlateIcon(),
+				FUIAction(FExecuteAction::CreateLambda([=] { return Shared->CopyAllKeys(); }))
 			);
 		}
 
@@ -514,7 +522,10 @@ void FSectionContextMenu::AddPropertiesMenu(FMenuBuilder& MenuBuilder)
 	{
 		for (auto Section : Sequencer->GetSelection().GetSelectedSections())
 		{
-			Sections.Add(Section);
+			if (Section.IsValid())
+			{
+				Sections.Add(Section);
+			}
 		}
 	}
 
@@ -573,6 +584,11 @@ void FSectionContextMenu::SelectAllKeys()
 	}
 }
 
+void FSectionContextMenu::CopyAllKeys()
+{
+	SelectAllKeys();
+	Sequencer->CopySelectedKeys();
+}
 
 void FSectionContextMenu::TogglePrimeForRecording() const
 {
@@ -671,7 +687,7 @@ void FSectionContextMenu::TrimSection(bool bTrimLeft)
 	FScopedTransaction TrimSectionTransaction(LOCTEXT("TrimSection_Transaction", "Trim Section"));
 
 	MovieSceneToolHelpers::TrimSection(Sequencer->GetSelection().GetSelectedSections(), Sequencer->GetGlobalTime(), bTrimLeft);
-	Sequencer->NotifyMovieSceneDataChanged();
+	Sequencer->NotifyMovieSceneDataChanged( EMovieSceneDataChangeType::TrackValueChanged );
 }
 
 
@@ -680,7 +696,7 @@ void FSectionContextMenu::SplitSection()
 	FScopedTransaction SplitSectionTransaction(LOCTEXT("SplitSection_Transaction", "Split Section"));
 
 	MovieSceneToolHelpers::SplitSection(Sequencer->GetSelection().GetSelectedSections(), Sequencer->GetGlobalTime());
-	Sequencer->NotifyMovieSceneDataChanged();
+	Sequencer->NotifyMovieSceneDataChanged( EMovieSceneDataChangeType::MovieSceneStructureItemAdded );
 }
 
 
@@ -729,7 +745,7 @@ void FSectionContextMenu::SetExtrapolationMode(ERichCurveExtrapolation ExtrapMod
 
 	if (bAnythingChanged)
 	{
-		Sequencer->UpdateRuntimeInstances();
+		Sequencer->NotifyMovieSceneDataChanged( EMovieSceneDataChangeType::TrackValueChanged );
 	}
 	else
 	{
@@ -774,14 +790,17 @@ void FSectionContextMenu::ToggleSectionActive()
 
 	for (auto Section : Sequencer->GetSelection().GetSelectedSections())
 	{
-		bAnythingChanged = true;
-		Section->Modify();
-		Section->SetIsActive(bIsActive);
+		if (Section.IsValid())
+		{
+			bAnythingChanged = true;
+			Section->Modify();
+			Section->SetIsActive(bIsActive);
+		}
 	}
 
 	if (bAnythingChanged)
 	{
-		Sequencer->UpdateRuntimeInstances();
+		Sequencer->NotifyMovieSceneDataChanged( EMovieSceneDataChangeType::TrackValueChanged );
 	}
 	else
 	{
@@ -795,7 +814,7 @@ bool FSectionContextMenu::IsSectionActive() const
 	// Active only if all are active
 	for (auto Section : Sequencer->GetSelection().GetSelectedSections())
 	{
-		if (!Section->IsActive())
+		if (Section.IsValid() && !Section->IsActive())
 		{
 			return false;
 		}
@@ -813,14 +832,17 @@ void FSectionContextMenu::ToggleSectionLocked()
 
 	for (auto Section : Sequencer->GetSelection().GetSelectedSections())
 	{
-		bAnythingChanged = true;
-		Section->Modify();
-		Section->SetIsLocked(bIsLocked);
+		if (Section.IsValid())
+		{
+			bAnythingChanged = true;
+			Section->Modify();
+			Section->SetIsLocked(bIsLocked);
+		}
 	}
 
 	if (bAnythingChanged)
 	{
-		Sequencer->UpdateRuntimeInstances();
+		Sequencer->NotifyMovieSceneDataChanged( EMovieSceneDataChangeType::TrackValueChanged );
 	}
 	else
 	{
@@ -834,7 +856,7 @@ bool FSectionContextMenu::IsSectionLocked() const
 	// Locked only if all are locked
 	for (auto Section : Sequencer->GetSelection().GetSelectedSections())
 	{
-		if (!Section->IsLocked())
+		if (Section.IsValid() && !Section->IsLocked())
 		{
 			return false;
 		}
@@ -1474,7 +1496,7 @@ void FPasteFromHistoryContextMenu::PopulateMenu(FMenuBuilder& MenuBuilder)
 	// Copy a reference to the context menu by value into each lambda handler to ensure the type stays alive until the menu is closed
 	TSharedRef<FPasteFromHistoryContextMenu> Shared = AsShared();
 
-	MenuBuilder.BeginSection("SequencerPasteHistory", LOCTEXT("PasteFromHistory", "Paste History"));
+	MenuBuilder.BeginSection("SequencerPasteHistory", LOCTEXT("PasteFromHistory", "Paste From History"));
 
 	for (int32 Index = Sequencer->GetClipboardStack().Num() - 1; Index >= 0; --Index)
 	{

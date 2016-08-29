@@ -10,6 +10,7 @@
 #include "SkeletalRenderPublic.h"
 #include "GPUSkinVertexFactory.h"
 #include "ClothSimData.h"
+#include "GlobalShader.h"
 
 /** 
 * Stores the updated matrices needed to skin the verts.
@@ -41,13 +42,15 @@ public:
 	* Updates the ReferenceToLocal matrices using the new dynamic data.
 	* @param	InSkelMeshComponent - parent skel mesh component
 	* @param	InLODIndex - each lod has its own bone map 
-	* @param	InActiveVertexAnims - vertex anims active for the mesh
+	* @param	InActiveMorphTargets - morph targets active for the mesh
+	* @param	InMorphTargetWeights - All morph target weights for the mesh
 	*/
 	void InitDynamicSkelMeshObjectDataGPUSkin(
 		USkinnedMeshComponent* InMeshComponent,
 		FSkeletalMeshResource* InSkeletalMeshResource,
 		int32 InLODIndex,
-		const TArray<FActiveVertexAnim>& InActiveVertexAnims
+		const TArray<FActiveMorphTarget>& InActiveMorphTargets,
+		const TArray<float>& InMorphTargetWeights
 		);
 
 	/** ref pose to local space transforms */
@@ -58,28 +61,31 @@ public:
 
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST) 
 	/** component space bone transforms*/
-	TArray<FTransform> MeshSpaceBases;
+	TArray<FTransform> MeshComponentSpaceTransforms;
 #endif
 
 	/** currently LOD for bones being updated */
 	int32 LODIndex;
 	/** current morph targets active on this mesh */
-	TArray<FActiveVertexAnim> ActiveVertexAnims;
-	/** number of active vertex anims with weights > 0 */
-	int32 NumWeightedActiveVertexAnims;
+	TArray<FActiveMorphTarget> ActiveMorphTargets;
+	/** All morph target weights on this mesh */
+	TArray<float> MorphTargetWeights;
+	/** number of active morph targets with weights > 0 */
+	int32 NumWeightedActiveMorphTargets;
 
 	/** data for updating cloth section */
-	TArray<FClothSimulData> ClothSimulUpdateData;
+	TMap<int32, FClothSimulData> ClothSimulUpdateData;
 
 	/** a weight factor to blend between simulated positions and skinned positions */	
 	float ClothBlendWeight;
 
 	/**
 	* Compare the given set of active morph targets with the current list to check if different
-	* @param CompareActiveVertexAnims - array of vertex anims to compare
-	* @return true if boths sets of active vertex anims are equal
+	* @param CompareActiveMorphTargets - array of morphs to compare
+	* @param MorphTargetWeights - array of morphs weights to compare
+	* @return true if both sets of active morphs are equal
 	*/
-	bool ActiveVertexAnimsEqual( const TArray<FActiveVertexAnim>& CompareActiveVertexAnims );
+	bool ActiveMorphTargetsEqual(const TArray<FActiveMorphTarget>& CompareActiveMorphTargets, const TArray<float>& CompareMorphTargetWeights);
 	
 	/**
 	* Returns the size of memory allocated by render data
@@ -89,7 +95,7 @@ public:
 		SIZE_T ResourceSize = sizeof(*this);
 		
 		ResourceSize += ReferenceToLocal.GetAllocatedSize();
-		ResourceSize += ActiveVertexAnims.GetAllocatedSize();
+		ResourceSize += ActiveMorphTargets.GetAllocatedSize();
 
 		return ResourceSize;
 	}
@@ -101,6 +107,7 @@ public:
 /** morph target mesh data for a single vertex delta */
 struct FMorphGPUSkinVertex
 {
+	// Changes to this struct must be reflected in MorphTargets.usf!
 	FVector			DeltaPosition;
 	FVector			DeltaTangentZ;
 
@@ -115,7 +122,7 @@ struct FMorphGPUSkinVertex
 };
 
 /**
-* VertexAnim target vertices which have been combined into single position/tangentZ deltas
+* MorphTarget vertices which have been combined into single position/tangentZ deltas
 */
 class FMorphVertexBuffer : public FVertexBuffer
 {
@@ -133,6 +140,7 @@ public:
 	{
 		check(SkelMeshResource);
 		check(SkelMeshResource->LODModels.IsValidIndex(LODIdx));
+		bUsesComputeShader = false;
 	}
 	/** 
 	* Initialize the dynamic RHI for this rendering resource 
@@ -144,10 +152,18 @@ public:
 	*/
 	virtual void ReleaseDynamicRHI();
 
+	inline void RecreateResourcesIfRequired(bool bInUsesComputeShader)
+	{
+		if (bUsesComputeShader != bInUsesComputeShader)
+		{
+			UpdateRHI();
+		}
+	}
+
 	/** 
 	* Morph target vertex name 
 	*/
-	virtual FString GetFriendlyName() const { return TEXT("VertexAnim target mesh vertices"); }
+	virtual FString GetFriendlyName() const { return TEXT("Morph target mesh vertices"); }
 
 	/**
 	 * Get Resource Size : mostly copied from InitDynamicRHI - how much they allocate when initialize
@@ -177,11 +193,22 @@ public:
 		return SRVValue;
 	}
 
+	// @param guaranteed only to be valid if the vertex buffer is valid
+	FUnorderedAccessViewRHIRef GetUAV() const
+	{
+		return UAVValue;
+	}
+
 	FStaticLODModel* GetStaticLODModel() const { return &SkelMeshResource->LODModels[LODIdx]; }
 
 protected:
 	// guaranteed only to be valid if the vertex buffer is valid
 	FShaderResourceViewRHIRef SRVValue;
+
+	// guaranteed only to be valid if the vertex buffer is valid
+	FUnorderedAccessViewRHIRef UAVValue;
+
+	bool bUsesComputeShader;
 
 private:
 	/** index to the SkelMeshResource.LODModels */
@@ -203,13 +230,14 @@ public:
 	//~ Begin FSkeletalMeshObject Interface
 	virtual void InitResources() override;
 	virtual void ReleaseResources() override;
-	virtual void Update(int32 LODIndex,USkinnedMeshComponent* InMeshComponent,const TArray<FActiveVertexAnim>& ActiveVertexAnims) override;
-	void UpdateDynamicData_RenderThread(FRHICommandListImmediate& RHICmdList, FDynamicSkelMeshObjectDataGPUSkin* InDynamicData, uint32 FrameNumber);
+	virtual void Update(int32 LODIndex,USkinnedMeshComponent* InMeshComponent,const TArray<FActiveMorphTarget>& ActiveMorphTargets, const TArray<float>& MorphTargetWeights) override;
+	void UpdateDynamicData_RenderThread(FRHICommandListImmediate& RHICmdList, FDynamicSkelMeshObjectDataGPUSkin* InDynamicData, uint32 FrameNumberToPrepare);
+	virtual void UpdateRecomputeTangent(int32 MaterialIndex, bool bRecomputeTangent) override;
 	virtual void PreGDMECallback(uint32 FrameNumber) override;
-	virtual const FVertexFactory* GetVertexFactory(int32 LODIndex,int32 ChunkIdx) const override;
+	virtual const FVertexFactory* GetSkinVertexFactory(const FSceneView* View, int32 LODIndex,int32 ChunkIdx) const override;
 	virtual void CacheVertices(int32 LODIndex, bool bForce) const override {}
 	virtual bool IsCPUSkinned() const override { return false; }
-	virtual TArray<FTransform>* GetSpaceBases() const override;
+	virtual TArray<FTransform>* GetComponentSpaceTransforms() const override;
 	virtual const TArray<FMatrix>& GetReferenceToLocalMatrices() const override;
 
 	virtual int32 GetLOD() const override
@@ -246,6 +274,8 @@ public:
 		{
 			ResourceSize += LODs[I].GetResourceSize();
 		}
+
+		ResourceSize += MorphWeightsVertexBuffer.VertexBufferRHI ? MorphWeightsVertexBuffer.VertexBufferRHI->GetSize() : 0;
 
 		return ResourceSize;
 	}
@@ -296,9 +326,9 @@ private:
 		 * Init default vertex factory resources for this LOD 
 		 *
 		 * @param VertexBuffers - available vertex buffers to reference in vertex factory streams
-		 * @param Chunks - relevant chunk information (either original or from swapped influence)
+		 * @param Sections - relevant section information (either original or from swapped influence)
 		 */
-		void InitVertexFactories(const FVertexFactoryBuffers& VertexBuffers, const TArray<FSkelMeshChunk>& Chunks, ERHIFeatureLevel::Type FeatureLevel);
+		void InitVertexFactories(const FVertexFactoryBuffers& VertexBuffers, const TArray<FSkelMeshSection>& Sections, ERHIFeatureLevel::Type FeatureLevel);
 		/** 
 		 * Release default vertex factory resources for this LOD 
 		 */
@@ -307,9 +337,9 @@ private:
 		 * Init morph vertex factory resources for this LOD 
 		 *
 		 * @param VertexBuffers - available vertex buffers to reference in vertex factory streams
-		 * @param Chunks - relevant chunk information (either original or from swapped influence)
+		 * @param Sections - relevant section information (either original or from swapped influence)
 		 */
-		void InitMorphVertexFactories(const FVertexFactoryBuffers& VertexBuffers, const TArray<FSkelMeshChunk>& Chunks, bool bInUsePerBoneMotionBlur, ERHIFeatureLevel::Type InFeatureLevel);
+		void InitMorphVertexFactories(const FVertexFactoryBuffers& VertexBuffers, const TArray<FSkelMeshSection>& Sections, bool bInUsePerBoneMotionBlur, ERHIFeatureLevel::Type InFeatureLevel);
 		/** 
 		 * Release morph vertex factory resources for this LOD 
 		 */
@@ -318,9 +348,9 @@ private:
 		 * Init APEX cloth vertex factory resources for this LOD 
 		 *
 		 * @param VertexBuffers - available vertex buffers to reference in vertex factory streams
-		 * @param Chunks - relevant chunk information (either original or from swapped influence)
+		 * @param Sections - relevant section information (either original or from swapped influence)
 		 */
-		void InitAPEXClothVertexFactories(const FVertexFactoryBuffers& VertexBuffers, const TArray<FSkelMeshChunk>& Chunks, ERHIFeatureLevel::Type InFeatureLevel);
+		void InitAPEXClothVertexFactories(const FVertexFactoryBuffers& VertexBuffers, const TArray<FSkelMeshSection>& Sections, ERHIFeatureLevel::Type InFeatureLevel);
 		/** 
 		 * Release morph vertex factory resources for this LOD 
 		 */
@@ -413,11 +443,12 @@ private:
 		FVertexFactoryData GPUSkinVertexFactories;
 
 		/**
-		 * Update the contents of the vertexanim vertex buffer by accumulating all 
-		 * delta positions and delta normals from the set of active vertex anims
-		 * @param ActiveVertexAnims - vertex anims to accumulate. assumed to be weighted and have valid targets
+		 * Update the contents of the morphtarget vertex buffer by accumulating all 
+		 * delta positions and delta normals from the set of active morph targets
+		 * @param ActiveMorphTargets - Morph to accumulate. assumed to be weighted and have valid targets
+		 * @param MorphTargetWeights - All Morph weights
 		 */
-		void UpdateMorphVertexBuffer(FRHICommandListImmediate& RHICmdList, const TArray<FActiveVertexAnim>& ActiveVertexAnims);
+		void UpdateMorphVertexBuffer(FRHICommandListImmediate& RHICmdList, const TArray<FActiveMorphTarget>& ActiveMorphTargets, const TArray<float>& MorphTargetWeights, FShaderResourceViewRHIRef MorphWeightsSRV, int32 NumInfluencedVerticesByMorph, FShaderResourceViewRHIRef MorphPerVertexInfoSRV, FShaderResourceViewRHIRef MorphFlattenedSRV);
 
 		/**
 		 * Determine the current vertex buffers valid for this LOD
@@ -434,15 +465,14 @@ private:
 	/** 
 	* Initialize morph rendering resources for each LOD 
 	*/
-	void InitMorphResources(bool bInUsePerBoneMotionBlur);
+	void InitMorphResources(bool bInUsePerBoneMotionBlur, const TArray<float>& MorphTargetWeights);
 
 	/** 
 	* Release morph rendering resources for each LOD. 
 	*/
 	void ReleaseMorphResources();
 
-	// @param FrameNumber from GFrameNumber
-	void ProcessUpdatedDynamicData(FRHICommandListImmediate& RHICmdList, uint32 FrameNumber, bool bMorphNeedsUpdate);
+	void ProcessUpdatedDynamicData(FRHICommandListImmediate& RHICmdList, uint32 FrameNumberToPrepare, bool bMorphNeedsUpdate);
 
 	void WaitForRHIThreadFenceForDynamicData();
 
@@ -464,4 +494,51 @@ private:
 	/** true if the morph resources have been initialized */
 	bool bMorphResourcesInitialized;
 
+	/** Vertex buffer that stores the weights for all morph targets (matches USkeletalMesh::MorphTargets). */
+	FVertexBufferAndSRV MorphWeightsVertexBuffer;
+};
+
+
+class FMorphTargetBaseShader : public FGlobalShader
+{
+public:
+	FMorphTargetBaseShader() {}
+
+	FMorphTargetBaseShader(const ShaderMetaType::CompiledShaderInitializerType& Initializer)
+		: FGlobalShader(Initializer)
+	{
+		MorphTargetCountsParameter.Bind(Initializer.ParameterMap, TEXT("MorphTargetCounts"));
+		MorphVertexBufferParameter.Bind(Initializer.ParameterMap, TEXT("MorphVertexBuffer"));
+		PerVertexInfoListParameter.Bind(Initializer.ParameterMap, TEXT("PerVertexInfoList"));
+		FlattenedDeltaListParameter.Bind(Initializer.ParameterMap, TEXT("FlattenedDeltaList"));
+		AllWeightsPerMorphsParameter.Bind(Initializer.ParameterMap, TEXT("AllWeightsPerMorphs"));
+	}
+
+	// FShader interface.
+	virtual bool Serialize(FArchive& Ar) override
+	{
+		bool bShaderHasOutdatedParameters = FGlobalShader::Serialize(Ar);
+		Ar << MorphTargetCountsParameter;
+		Ar << MorphVertexBufferParameter;
+		Ar << PerVertexInfoListParameter;
+		Ar << FlattenedDeltaListParameter;
+		Ar << AllWeightsPerMorphsParameter;
+		return bShaderHasOutdatedParameters;
+	}
+
+	static bool ShouldCache(EShaderPlatform Platform)
+	{
+		return IsFeatureLevelSupported(Platform, ERHIFeatureLevel::SM5);
+	}
+
+	void SetParameters(FRHICommandList& RHICmdList, int32 NumLODVertices, int32 NumMorphVertices, FShaderResourceViewRHIRef MorphWeightsSRV, FShaderResourceViewRHIRef PerVertexInfoListSRV, FShaderResourceViewRHIRef FlattenedDeltaListSRV, FUnorderedAccessViewRHIParamRef UAV);
+	void Dispatch(FRHICommandList& RHICmdList, int32 NumLODVertices, int32 NumMorphVertices, FShaderResourceViewRHIRef MorphWeightsSRV, FShaderResourceViewRHIRef PerVertexInfoListSRV, FShaderResourceViewRHIRef FlattenedDeltaListSRV, FUnorderedAccessViewRHIParamRef UAV);
+
+protected:
+	FShaderParameter MorphTargetCountsParameter;
+	FShaderResourceParameter MorphVertexBufferParameter;
+
+	FShaderResourceParameter PerVertexInfoListParameter;
+	FShaderResourceParameter FlattenedDeltaListParameter;
+	FShaderResourceParameter AllWeightsPerMorphsParameter;
 };

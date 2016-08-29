@@ -83,7 +83,7 @@ UObject* USlateWidgetStyleAssetFactory::FactoryCreateNew(UClass* Class,UObject* 
 {
 	USlateWidgetStyleAsset* NewUSlateStyle = NewObject<USlateWidgetStyleAsset>(InParent, Name, Flags);
 
-	//intialize
+	//initialize
 	NewUSlateStyle->CustomStyle = NewObject<USlateWidgetStyleContainerBase>(NewUSlateStyle, StyleType, Name);
 
 	return NewUSlateStyle;

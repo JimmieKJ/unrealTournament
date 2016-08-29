@@ -192,7 +192,35 @@ struct FEngineShowFlags
 		SetStereoRendering(false);
 		SetDistanceFieldAO(false);
 		SetDistanceFieldGI(false);
+		// hiding the SkinCache would break thumbnail caching
+		SetSkinCache(true);
 	}
+
+	void EnableAdvancedFeatures()
+	{
+		SetLensFlares(true);
+		SetEyeAdaptation(true);
+		SetColorGrading(true);
+		SetCameraImperfections(true);
+		SetDepthOfField(true);
+		SetVignette(true);
+		SetGrain(true);
+		SetSeparateTranslucency(true);
+		SetScreenSpaceReflections(true);
+		SetTemporalAA(true);
+
+		// might cause reallocation if we render rarely to it - for now off
+		SetAmbientOcclusion(true);
+
+		// Requires resources in the FScene, which get reallocated for every temporary scene if enabled
+		SetIndirectLightingCache(true);
+
+		SetLightShafts(true);
+		SetPostProcessMaterial(true);
+		SetDistanceFieldAO(true);
+		SetDistanceFieldGI(true);
+	}
+
 
 	// ---------------------------------------------------------
 	// The following methods are there for serialization, localization and in general to iterate and manipulate flags.
@@ -302,7 +330,6 @@ private:
 		SetShaderComplexityWithQuadOverdraw(false);
 		SetStationaryLightOverlap(false);
 		SetLightMapDensity(false);
-		SetVertexDensities(false);
 		SetLODColoration(false);
 		SetHLODColoration(false);
 		SetVisualizeLPV(false);
@@ -352,9 +379,10 @@ private:
 		SetVisualizeSSR(false);
 		SetVisualizeSSS(false);
 		SetVisualizeBloom(false);
-		SetWantedMipsAccuracy(false);
-		SetTexelFactorAccuracy(false);
-		SetTexCoordScaleAccuracy(false);
+		SetPrimitiveDistanceAccuracy(false);
+		SetMeshTexCoordSizeAccuracy(false);
+		SetMaterialTexCoordScalesAccuracy(false);
+		SetMaterialTexCoordScalesAnalysis(false);
 	}
 
 

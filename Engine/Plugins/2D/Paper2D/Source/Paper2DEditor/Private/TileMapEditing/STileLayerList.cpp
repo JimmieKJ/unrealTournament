@@ -31,7 +31,7 @@ public:
 	}
 
 	// FCustomizableTextObjectFactory interface
-	virtual bool CanCreateClass(UClass* ObjectClass) const override
+	virtual bool CanCreateClass(UClass* ObjectClass, bool& bOmitSubObjs) const override
 	{
 		// Only allow layers to be created
 		return ObjectClass->IsChildOf(UPaperTileLayer::StaticClass());

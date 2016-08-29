@@ -42,6 +42,10 @@ struct FAITestSpawnInfo
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = AISpawn, meta = (UIMin = 0, ClampMin = 0))
 	float SpawnDelay;
 
+	/** delay before attempting first spawn */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = AISpawn, meta = (UIMin = 0, ClampMin = 0))
+	float PreSpawnDelay;
+
 	/** Gets filled owning spawn set upon game start */
 	FName SpawnSetName;
 
@@ -123,6 +127,10 @@ protected:
 	UPROPERTY(BlueprintAssignable)
 	FFunctionalTestEventSignature OnAllAISPawned;
 
+	/** if set, ftest will postpone start until navmesh is fully generated */
+	UPROPERTY(BlueprintReadOnly, Category = AITest)
+	uint32 bWaitForNavMesh : 1;
+
 	uint32 bSingleSetRun:1;
 
 public:
@@ -134,11 +142,11 @@ public:
 	virtual void Tick(float DeltaSeconds) override;
 	// AActor interface end
 
-	virtual bool StartTest(const TArray<FString>& Params = TArray<FString>()) override;
+	virtual bool RunTest(const TArray<FString>& Params = TArray<FString>()) override;
 	virtual bool WantsToRunAgain() const override;
 	virtual void GatherRelevantActors(TArray<AActor*>& OutActors) const override;
 	virtual void CleanUp() override;
-	virtual FString GetAdditionalTestFinishedMessage(EFunctionalTestResult::Type TestResult) const override;
+	virtual FString GetAdditionalTestFinishedMessage(EFunctionalTestResult TestResult) const override;
 	virtual FString GetReproString() const override;
 
 	void AddSpawnedPawn(APawn& SpawnedPawn);
@@ -149,4 +157,9 @@ protected:
 
 	void KillOffSpawnedPawns();
 	void ClearPendingDelayedSpawns();
+	void StartSpawning();
+	void OnSpawningFailure();
+	bool IsNavMeshReady() const;
+
+	FTimerHandle NavmeshDelayTimer;
 };

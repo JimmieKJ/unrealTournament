@@ -566,7 +566,6 @@ private:
 
 	/** Best guess functions to try and match asset names */
 	const FAssetData* FindBestGuessMatch(const FAssetData& AssetName, const TArray<FAssetData>& PossibleAssets) const;
-	int32 GetStringDistance(const FString& First, const FString& Second) const;
 
 	/** The retargetting context we're managing*/
 	FAnimationRetargetContext* RetargetContext;

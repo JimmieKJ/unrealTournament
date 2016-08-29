@@ -131,6 +131,40 @@ const TCHAR* UAssetObjectProperty::ImportText_Internal( const TCHAR* InBuffer, v
 	return Buffer;
 }
 
+bool UAssetObjectProperty::ConvertFromType(const FPropertyTag& Tag, FArchive& Ar, uint8* Data, UStruct* DefaultsStruct, bool& bOutAdvanceProperty)
+{
+	bOutAdvanceProperty = true;
+
+	if (Tag.Type == NAME_ObjectProperty || Tag.Type == NAME_ClassProperty)
+	{
+		// This property used to be a raw UObjectProperty Foo* but is now a TAssetPtr<Foo>
+		UObject* PreviousValue = nullptr;
+		Ar << PreviousValue;
+
+		// now copy the value into the object's address space
+		FAssetPtr PreviousValueAssetPtr(PreviousValue);
+		SetPropertyValue_InContainer(Data, PreviousValueAssetPtr, Tag.ArrayIndex);
+
+		return true;
+	}
+	else if (Tag.Type == NAME_StructProperty)
+	{
+		// This property used to be a FStringAssetReference but is now a TAssetPtr<Foo>
+		FStringAssetReference PreviousValue;
+		// explicitly call Serialize to ensure that the various delegates needed for cooking are fired
+		PreviousValue.Serialize(Ar);
+
+		// now copy the value into the object's address space
+		FAssetPtr PreviousValueAssetPtr;
+		PreviousValueAssetPtr = PreviousValue;
+		SetPropertyValue_InContainer(Data, PreviousValueAssetPtr, Tag.ArrayIndex);
+
+		return true;
+	}
+
+	return false;
+}
+
 IMPLEMENT_CORE_INTRINSIC_CLASS(UAssetObjectProperty, UObjectPropertyBase,
 	{
 	}

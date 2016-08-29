@@ -17,7 +17,7 @@ class FUnrealSourceFile : public TSharedFromThis<FUnrealSourceFile>
 {
 public:
 	// Constructor.
-	FUnrealSourceFile(UPackage* InPackage, FString InFilename, FString InContent)
+	FUnrealSourceFile(UPackage* InPackage, FString&& InFilename, FString&& InContent)
 		: Scope                (MakeShareable(new FFileScope(*(FString(TEXT("__")) + FPaths::GetBaseFilename(InFilename) + FString(TEXT("__File"))), this)))
 		, Filename             (MoveTemp(InFilename))
 		, Package              (InPackage)
@@ -26,9 +26,9 @@ public:
 		, bParsed              (false)
 		, bDependenciesResolved(false)
 	{
-		if (GetStrippedFilename() != "Object")
+		if (GetStrippedFilename() != "NoExportTypes")
 		{
-			Includes.Add(FHeaderProvider(EHeaderProviderSourceType::FileName, "Object.h"));
+			Includes.Add(FHeaderProvider(EHeaderProviderSourceType::FileName, "NoExportTypes.h"));
 		}
 	}
 

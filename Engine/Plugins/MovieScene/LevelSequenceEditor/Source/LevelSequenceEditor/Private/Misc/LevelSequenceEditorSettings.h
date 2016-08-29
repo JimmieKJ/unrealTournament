@@ -6,6 +6,7 @@
 
 
 class UMovieSceneTrack;
+class ULevelSequence;
 
 
 USTRUCT()
@@ -36,9 +37,17 @@ struct FLevelSequenceTrackSettings
 	UPROPERTY(config, noclear, EditAnywhere, Category=TrackSettings, meta=(MetaClass="MovieSceneTrack"))
 	TArray<FStringClassReference> DefaultTracks;
 
+	/** List of movie scene track classes not to be added automatically. */
+	UPROPERTY(config, noclear, EditAnywhere, Category=TrackSettings, meta=(MetaClass="MovieSceneTrack"))
+	TArray<FStringClassReference> ExcludeDefaultTracks;
+
 	/** List of property names for which movie scene tracks will be created automatically. */
 	UPROPERTY(config, EditAnywhere, Category=TrackSettings)
 	TArray<FLevelSequencePropertyTrackSettings> DefaultPropertyTracks;
+
+	/** List of property names for which movie scene tracks will not be created automatically. */
+	UPROPERTY(config, EditAnywhere, Category=TrackSettings)
+	TArray<FLevelSequencePropertyTrackSettings> ExcludeDefaultPropertyTracks;
 };
 
 
@@ -57,3 +66,35 @@ public:
 	UPROPERTY(config, EditAnywhere, Category=Tracks)
 	TArray<FLevelSequenceTrackSettings> TrackSettings;
 };
+
+/**
+ * Level Sequence Master Sequence settings.
+ */
+UCLASS(config=EditorPerProjectUserSettings)
+class ULevelSequenceMasterSequenceSettings
+	: public UObject
+{
+	GENERATED_UCLASS_BODY()
+
+public:
+	/** Master sequence name. */
+	UPROPERTY(config, DisplayName="Name", EditAnywhere, Category=MasterSequence)
+	FString MasterSequenceName;
+
+	/** Master sequence suffix. */
+	UPROPERTY(config, DisplayName="Suffix", EditAnywhere, Category=MasterSequence)
+	FString MasterSequenceSuffix;
+
+	/** Master sequence path. */
+	UPROPERTY(config, DisplayName="Base Path", EditAnywhere, Category=MasterSequence, meta=(ContentDir))
+	FDirectoryPath MasterSequenceBasePath;
+
+	/** Master sequence number of shots. */
+	UPROPERTY(config, DisplayName="Number of Shots", EditAnywhere, Category=MasterSequence, meta = (UIMin = "1", UIMax = "100"))
+	uint32 MasterSequenceNumShots;
+
+	/** Master sequence level sequence to duplicate when creating shots. */
+	UPROPERTY(Transient, DisplayName="Sequence to Duplicate", EditAnywhere, Category=MasterSequence)
+	TLazyObjectPtr<class ULevelSequence> MasterSequenceLevelSequenceToDuplicate;
+};
+

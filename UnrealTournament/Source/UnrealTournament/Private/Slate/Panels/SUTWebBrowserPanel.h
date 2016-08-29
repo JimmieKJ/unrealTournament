@@ -69,7 +69,7 @@ protected:
 	// The Actual Web browser panel.
 	TSharedPtr<SWebBrowser> WebBrowserPanel;
 	
-	virtual bool BeforeBrowse(const FString& TargetURL, const FWebNavigationRequest& WebRequest);
+	virtual bool BeforeBrowse(const FString& TargetURL, const FWebNavigationRequest& Request);
 	virtual bool BeforePopup(FString TargetURL, FString FrameName);
 	
 	SWebBrowser::FOnBeforeBrowse OnBeforeBrowse;

@@ -137,7 +137,9 @@ struct limits <char>
     static char			smallest()	{return 1;}
     static char			epsilon()	{return 1;}
     static bool			isIntegral()	{return true;}
-    static bool			isSigned()	{return (char) ~0 < 0;}
+    // BEGIN EPIC MOD
+    static bool			isSigned()	{ CA_SUPPRESS(6326); return (char) ~0 < 0;}
+    // END EPIC MOD
 };
 
 template <>

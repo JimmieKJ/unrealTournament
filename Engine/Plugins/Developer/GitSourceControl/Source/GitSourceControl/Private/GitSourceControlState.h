@@ -18,7 +18,6 @@ namespace EWorkingCopyState
 		Copied,
 		Missing,
 		Conflicted,
-		Merged,
 		NotControlled,
 		Ignored,
 	};
@@ -59,6 +58,7 @@ public:
 	virtual bool IsUnknown() const override;
 	virtual bool IsModified() const override;
 	virtual bool CanAdd() const override;
+	virtual bool CanDelete() const override;
 	virtual bool IsConflicted() const override;
 
 public:

@@ -878,7 +878,12 @@ int32 FWindowsTextInputMethodSystem::ProcessMessage(HWND hwnd, uint32 msg, WPARA
 			if(ActiveContext.IsValid())
 			{
 				FInternalContext& InternalContext = ContextToInternalContextMap[ActiveContext];
-				check(InternalContext.IMMContext.IsComposing);
+				
+				// Not all IMEs trigger a call of WM_IME_STARTCOMPOSITION
+				if(!InternalContext.IMMContext.IsComposing)
+				{
+					BeginIMMComposition();
+				}
 
 				HIMC IMMContext = ::ImmGetContext(hwnd);
 

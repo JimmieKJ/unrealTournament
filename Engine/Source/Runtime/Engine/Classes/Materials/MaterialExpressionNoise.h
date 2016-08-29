@@ -8,14 +8,46 @@
 UENUM()
 enum ENoiseFunction
 {
-	/** Fast (~94 instructions per level). */
-	NOISEFUNCTION_Simplex UMETA(DisplayName="Simplex"),
-	/** Fast (~77 instructions per level) but low quality. */
-	NOISEFUNCTION_Perlin UMETA(DisplayName="Perlin"),
-	/** Very slow (~393 instructions per level). */
-	NOISEFUNCTION_Gradient UMETA(DisplayName="Gradient"),
-	/** Very fast (1 texture lookup, ~33 instructions per level), need to test more on every hardware, requires high quality texture filtering for bump mapping. */
-	NOISEFUNCTION_FastGradient UMETA(DisplayName="FastGradient"),
+	/** High quality for direct use and bumps 
+	 * ~77 instructions per level, 4 texture lookups
+	 * Cannot tile
+	 */
+	NOISEFUNCTION_SimplexTex UMETA(DisplayName="Simplex - Texture Based"),
+
+	/** High quality for direct use and bumps
+	 * Non-tiled: ~61 instructions per level, 8 texture lookups
+	 * Tiling: ~74 instructions per level, 8 texture lookups
+	 * Even "non-tiled" mode has a repeat of 128. Useful Repeat Size range <= 128
+	 * Formerly labeled as Perlin noise
+	 */
+	NOISEFUNCTION_GradientTex UMETA(DisplayName="Gradient - Texture Based"),
+
+	/** High quality for direct use, BAD for bumps; doesn't work on Mobile
+	 * ~16 instructions per level, 1 texture lookup
+	 * Always tiles with a repeat of 16, "Tiling" mode is not an option for Fast Gradient noise
+	 */
+	NOISEFUNCTION_GradientTex3D UMETA(DisplayName = "Fast Gradient - 3D Texture"),
+
+	/** High quality for direct use and bumps
+	 * Non-tiled: ~80 instructions per level, no textures
+	 * Tiling: ~143 instructions per level, no textures
+	 */
+	NOISEFUNCTION_GradientALU UMETA(DisplayName = "Gradient - Computational"),
+
+	/** Low quality, but pure computation
+	 * Non-tiled: ~53 instructions per level, no textures
+	 * Tiling: ~118 instructions per level, no textures
+	 * Formerly mis-labeled as Gradient noise
+	 */
+	NOISEFUNCTION_ValueALU UMETA(DisplayName="Value - Computational"),
+
+	/** Also known as Worley or Cellular noise
+	  * Quality=1 searches 8 cells, Quality=2 searches 16 cells
+	  * Quality=3 searches 27 cells, Quality=4 searches 32 cells
+	  * All are about 20 instructions per cell searched
+	  */
+	NOISEFUNCTION_VoronoiALU UMETA(DisplayName = "Voronoi"),
+
 	NOISEFUNCTION_MAX,
 };
 
@@ -36,8 +68,8 @@ class UMaterialExpressionNoise : public UMaterialExpression
 	UPROPERTY(EditAnywhere, Category=MaterialExpressionNoise)
 	float Scale;
 
-	/** 0 = fast, allows to pick a different implementation, can affect performance and look */
-	UPROPERTY(EditAnywhere, Category=MaterialExpressionNoise, meta=(UIMin = "1", UIMax = "10"))
+	/** Lower numbers are faster and lower quality, higher numbers are slower and higher quality */
+	UPROPERTY(EditAnywhere, Category=MaterialExpressionNoise, meta=(UIMin = "1", UIMax = "4"))
 	int32 Quality;
 
 	/** Noise function, affects performance and look */
@@ -48,7 +80,7 @@ class UMaterialExpressionNoise : public UMaterialExpression
 	UPROPERTY(EditAnywhere, Category=MaterialExpressionNoise)
 	uint32 bTurbulence:1;
 
-	/** 1 = fast but little detail, .. larger numbers cost more performance, only used for turbulence */
+	/** 1 = fast but little detail, .. larger numbers cost more performance */
 	UPROPERTY(EditAnywhere, Category=MaterialExpressionNoise, meta=(UIMin = "1", UIMax = "10"))
 	int32 Levels;
 
@@ -62,8 +94,17 @@ class UMaterialExpressionNoise : public UMaterialExpression
 	UPROPERTY(EditAnywhere, Category=MaterialExpressionNoise, meta=(UIMin = "2", UIMax = "8"))
 	float LevelScale;
 
+	/** Whether to use tiling noise pattern, useful for baking to seam-free repeating textures */
+	UPROPERTY(EditAnywhere, Category = MaterialExpressionNoise)
+	uint32 bTiling:1;
+
+	/** How many units in each tile (if Tiling is on) */
+	UPROPERTY(EditAnywhere, Category = MaterialExpressionNoise, meta=(UIMin = "4"))
+	uint32 RepeatSize;
+
 	//~ Begin UMaterialExpression Interface
 #if WITH_EDITOR
+	virtual bool CanEditChange(const UProperty* InProperty) const override;
 	virtual int32 Compile(class FMaterialCompiler* Compiler, int32 OutputIndex, int32 MultiplexIndex) override;
 	virtual void GetCaption(TArray<FString>& OutCaptions) const override;
 #endif

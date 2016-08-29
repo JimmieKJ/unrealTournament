@@ -48,7 +48,7 @@ type FLandscapeEditorDetailCustomization_Base::GetPropertyValue(TSharedRef<IProp
 	}
 
 	// Couldn't get, return null / 0
-	return (type)0;
+	return type{};
 }
 
 template<typename type>
@@ -60,7 +60,7 @@ TOptional<type> FLandscapeEditorDetailCustomization_Base::GetOptionalPropertyVal
 		return Value;
 	}
 
-	// Couldn't get, return null / 0
+	// Couldn't get, return unset optional
 	return TOptional<type>();
 }
 
@@ -74,7 +74,7 @@ type* FLandscapeEditorDetailCustomization_Base::GetObjectPropertyValue(TSharedRe
 	}
 
 	// Couldn't get, return null
-	return NULL;
+	return nullptr;
 }
 
 inline FText FLandscapeEditorDetailCustomization_Base::GetPropertyValueText(TSharedRef<IPropertyHandle> PropertyHandle)

@@ -8,17 +8,20 @@
 #include "BehaviorTree/Blackboard/BlackboardKeyType_Vector.h"
 #include "Tasks/AITask_MoveTo.h"
 
-UBTTask_MoveTo::UBTTask_MoveTo(const FObjectInitializer& ObjectInitializer) 
-	: Super(ObjectInitializer)
+UBTTask_MoveTo::UBTTask_MoveTo(const FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
 {
 	NodeName = "Move To";
-	bNotifyTick = true;
+	bUseGameplayTasks = GET_AI_CONFIG_VAR(bEnableBTAITasks);
+	bNotifyTick = !bUseGameplayTasks;
 	bNotifyTaskFinished = true;
 
 	AcceptableRadius = GET_AI_CONFIG_VAR(AcceptanceRadius);
 	bStopOnOverlap = GET_AI_CONFIG_VAR(bFinishMoveOnGoalOverlap); 
 	bAllowStrafe = GET_AI_CONFIG_VAR(bAllowStrafing);
 	bAllowPartialPath = GET_AI_CONFIG_VAR(bAcceptPartialPaths);
+	bTrackMovingGoal = true;
+	bProjectGoalLocation = true;
+	bUsePathfinding = true;
 
 	ObservedBlackboardValueTolerance = AcceptableRadius * 0.95f;
 
@@ -33,9 +36,10 @@ EBTNodeResult::Type UBTTask_MoveTo::ExecuteTask(UBehaviorTreeComponent& OwnerCom
 
 	FBTMoveToTaskMemory* MyMemory = reinterpret_cast<FBTMoveToTaskMemory*>(NodeMemory);
 	MyMemory->PreviousGoalLocation = FAISystem::InvalidLocation;
-	AAIController* MyController = OwnerComp.GetAIOwner();
+	MyMemory->MoveRequestID = FAIRequestID::InvalidRequest;
 
-	MyMemory->bWaitingForPath = MyController->ShouldPostponePathUpdates();
+	AAIController* MyController = OwnerComp.GetAIOwner();
+	MyMemory->bWaitingForPath = bUseGameplayTasks ? false : MyController->ShouldPostponePathUpdates();
 	if (!MyMemory->bWaitingForPath)
 	{
 		NodeResult = PerformMoveTask(OwnerComp, NodeMemory);
@@ -57,8 +61,7 @@ EBTNodeResult::Type UBTTask_MoveTo::ExecuteTask(UBehaviorTreeComponent& OwnerCom
 			}
 			MyMemory->BBObserverDelegateHandle = BlackboardComp->RegisterObserver(BlackboardKey.GetSelectedKeyID(), this, FOnBlackboardChangeNotification::CreateUObject(this, &UBTTask_MoveTo::OnBlackboardValueChange));
 		}
-	}
-	
+	}	
 	
 	return NodeResult;
 }
@@ -70,123 +73,113 @@ EBTNodeResult::Type UBTTask_MoveTo::PerformMoveTask(UBehaviorTreeComponent& Owne
 	AAIController* MyController = OwnerComp.GetAIOwner();
 
 	EBTNodeResult::Type NodeResult = EBTNodeResult::Failed;
-
 	if (MyController && MyBlackboard)
 	{
-		if (GET_AI_CONFIG_VAR(bEnableBTAITasks))
+		FAIMoveRequest MoveReq;
+		MoveReq.SetNavigationFilter(*FilterClass ? FilterClass : MyController->GetDefaultNavigationFilterClass());
+		MoveReq.SetAllowPartialPath(bAllowPartialPath);
+		MoveReq.SetAcceptanceRadius(AcceptableRadius);
+		MoveReq.SetCanStrafe(bAllowStrafe);
+		MoveReq.SetReachTestIncludesAgentRadius(bStopOnOverlap);
+		MoveReq.SetProjectGoalLocation(bProjectGoalLocation);
+		MoveReq.SetUsePathfinding(bUsePathfinding);
+
+		if (BlackboardKey.SelectedKeyType == UBlackboardKeyType_Object::StaticClass())
 		{
-			bool bTaskReusing = false;
-			UAITask_MoveTo* AIMoveTask = nullptr;
-
-			if (MyMemory->Task.IsValid())
+			UObject* KeyValue = MyBlackboard->GetValue<UBlackboardKeyType_Object>(BlackboardKey.GetSelectedKeyID());
+			AActor* TargetActor = Cast<AActor>(KeyValue);
+			if (TargetActor)
 			{
-				AIMoveTask = MyMemory->Task.Get();
-				ensure(AIMoveTask->GetState() != EGameplayTaskState::Finished);
-				bTaskReusing = true;
-			}
-			else
-			{
-				AIMoveTask = NewBTAITask<UAITask_MoveTo>(OwnerComp);
-			}			
-			
-			if (AIMoveTask != nullptr)
-			{
-				bool bSetUp = false;
-				if (BlackboardKey.SelectedKeyType == UBlackboardKeyType_Object::StaticClass())
-				{
-					UObject* KeyValue = MyBlackboard->GetValue<UBlackboardKeyType_Object>(BlackboardKey.GetSelectedKeyID());
-					AActor* TargetActor = Cast<AActor>(KeyValue);
-					if (TargetActor)
-					{
-						AIMoveTask->SetUp(MyController, FVector::ZeroVector, TargetActor, AcceptableRadius, /*bUsePathfinding=*/true, FAISystem::BoolToAIOption(bStopOnOverlap), FAISystem::BoolToAIOption(bAllowPartialPath));
-						NodeResult = EBTNodeResult::InProgress;
-					}
-					else
-					{
-						UE_VLOG(MyController, LogBehaviorTree, Warning, TEXT("UBTTask_MoveTo::ExecuteTask tried to go to actor while BB %s entry was empty"), *BlackboardKey.SelectedKeyName.ToString());
-					}
-				}
-				else if (BlackboardKey.SelectedKeyType == UBlackboardKeyType_Vector::StaticClass())
-				{
-					const FVector TargetLocation = MyBlackboard->GetValue<UBlackboardKeyType_Vector>(BlackboardKey.GetSelectedKeyID());
-					MyMemory->PreviousGoalLocation = TargetLocation;
-					AIMoveTask->SetUp(MyController, TargetLocation, nullptr, AcceptableRadius, /*bUsePathfinding=*/true, FAISystem::BoolToAIOption(bStopOnOverlap), FAISystem::BoolToAIOption(bAllowPartialPath));
-					NodeResult = EBTNodeResult::InProgress;
-				}
-
-				if (NodeResult == EBTNodeResult::InProgress)
-				{
-					/*WaitForMessage(OwnerComp, UBrainComponent::AIMessage_MoveFinished, RequestID);
-					WaitForMessage(OwnerComp, UBrainComponent::AIMessage_RepathFailed);*/
-
-					if (bTaskReusing == false)
-					{
-						MyMemory->Task = AIMoveTask;
-						UE_VLOG(MyController, LogBehaviorTree, Verbose, TEXT("\'%s\' task implementing move with task %s"), *GetNodeName(), *AIMoveTask->GetName());
-						AIMoveTask->ReadyForActivation();
-					}
-					else
-					{
-						ensure(AIMoveTask->IsActive());
-						UE_VLOG(MyController, LogBehaviorTree, Verbose, TEXT("\'%s\' reusing AITask %s"), *GetNodeName(), *AIMoveTask->GetName());
-						AIMoveTask->PerformMove();
-					}
-				}
-			}
-		}
-		else
-		{
-			EPathFollowingRequestResult::Type RequestResult = EPathFollowingRequestResult::Failed;
-
-			FAIMoveRequest MoveReq;
-			MoveReq.SetNavigationFilter(FilterClass);
-			MoveReq.SetAllowPartialPath(bAllowPartialPath);
-			MoveReq.SetAcceptanceRadius(AcceptableRadius);
-			MoveReq.SetCanStrafe(bAllowStrafe);
-			MoveReq.SetStopOnOverlap(bStopOnOverlap);
-
-			if (BlackboardKey.SelectedKeyType == UBlackboardKeyType_Object::StaticClass())
-			{
-				UObject* KeyValue = MyBlackboard->GetValue<UBlackboardKeyType_Object>(BlackboardKey.GetSelectedKeyID());
-				AActor* TargetActor = Cast<AActor>(KeyValue);
-				if (TargetActor)
+				if (bTrackMovingGoal)
 				{
 					MoveReq.SetGoalActor(TargetActor);
-
-					RequestResult = MyController->MoveTo(MoveReq);
 				}
 				else
 				{
-					UE_VLOG(MyController, LogBehaviorTree, Warning, TEXT("UBTTask_MoveTo::ExecuteTask tried to go to actor while BB %s entry was empty"), *BlackboardKey.SelectedKeyName.ToString());
+					MoveReq.SetGoalLocation(TargetActor->GetActorLocation());
 				}
 			}
-			else if (BlackboardKey.SelectedKeyType == UBlackboardKeyType_Vector::StaticClass())
+			else
 			{
-				const FVector TargetLocation = MyBlackboard->GetValue<UBlackboardKeyType_Vector>(BlackboardKey.GetSelectedKeyID());
-				MoveReq.SetGoalLocation(TargetLocation);
-				MyMemory->PreviousGoalLocation = TargetLocation;
-
-				RequestResult = MyController->MoveTo(MoveReq);
+				UE_VLOG(MyController, LogBehaviorTree, Warning, TEXT("UBTTask_MoveTo::ExecuteTask tried to go to actor while BB %s entry was empty"), *BlackboardKey.SelectedKeyName.ToString());
 			}
+		}
+		else if (BlackboardKey.SelectedKeyType == UBlackboardKeyType_Vector::StaticClass())
+		{
+			const FVector TargetLocation = MyBlackboard->GetValue<UBlackboardKeyType_Vector>(BlackboardKey.GetSelectedKeyID());
+			MoveReq.SetGoalLocation(TargetLocation);
 
-			if (RequestResult == EPathFollowingRequestResult::RequestSuccessful)
+			MyMemory->PreviousGoalLocation = TargetLocation;
+		}
+
+		if (MoveReq.IsValid())
+		{
+			if (GET_AI_CONFIG_VAR(bEnableBTAITasks))
 			{
-				const FAIRequestID RequestID = MyController->GetCurrentMoveRequestID();
+				UAITask_MoveTo* MoveTask = MyMemory->Task.Get();
+				const bool bReuseExistingTask = (MoveTask != nullptr);
 
-				MyMemory->MoveRequestID = RequestID;
-				WaitForMessage(OwnerComp, UBrainComponent::AIMessage_MoveFinished, RequestID);
-				WaitForMessage(OwnerComp, UBrainComponent::AIMessage_RepathFailed);
+				MoveTask = PrepareMoveTask(OwnerComp, MoveTask, MoveReq);
+				if (MoveTask)
+				{
+					MyMemory->bObserverCanFinishTask = false;
 
-				NodeResult = EBTNodeResult::InProgress;
+					if (bReuseExistingTask)
+					{
+						if (MoveTask->IsActive())
+						{
+							UE_VLOG(MyController, LogBehaviorTree, Verbose, TEXT("\'%s\' reusing AITask %s"), *GetNodeName(), *MoveTask->GetName());
+							MoveTask->ConditionalPerformMove();
+						}
+						else
+						{
+							UE_VLOG(MyController, LogBehaviorTree, Verbose, TEXT("\'%s\' reusing AITask %s, but task is not active - handing over move performing to task mechanics"), *GetNodeName(), *MoveTask->GetName());
+						}
+					}
+					else
+					{
+						MyMemory->Task = MoveTask;
+						UE_VLOG(MyController, LogBehaviorTree, Verbose, TEXT("\'%s\' task implementing move with task %s"), *GetNodeName(), *MoveTask->GetName());
+						MoveTask->ReadyForActivation();
+					}
+
+					MyMemory->bObserverCanFinishTask = true;
+					NodeResult = (MoveTask->GetState() != EGameplayTaskState::Finished) ? EBTNodeResult::InProgress :
+						MoveTask->WasMoveSuccessful() ? EBTNodeResult::Succeeded :
+						EBTNodeResult::Failed;
+				}
 			}
-			else if (RequestResult == EPathFollowingRequestResult::AlreadyAtGoal)
+			else
 			{
-				NodeResult = EBTNodeResult::Succeeded;
+				FPathFollowingRequestResult RequestResult = MyController->MoveTo(MoveReq);
+				if (RequestResult.Code == EPathFollowingRequestResult::RequestSuccessful)
+				{
+					MyMemory->MoveRequestID = RequestResult.MoveId;
+					WaitForMessage(OwnerComp, UBrainComponent::AIMessage_MoveFinished, RequestResult.MoveId);
+					WaitForMessage(OwnerComp, UBrainComponent::AIMessage_RepathFailed);
+
+					NodeResult = EBTNodeResult::InProgress;
+				}
+				else if (RequestResult.Code == EPathFollowingRequestResult::AlreadyAtGoal)
+				{
+					NodeResult = EBTNodeResult::Succeeded;
+				}
 			}
 		}
 	}
 
 	return NodeResult;
+}
+
+UAITask_MoveTo* UBTTask_MoveTo::PrepareMoveTask(UBehaviorTreeComponent& OwnerComp, UAITask_MoveTo* ExistingTask, FAIMoveRequest& MoveRequest)
+{
+	UAITask_MoveTo* MoveTask = ExistingTask ? ExistingTask : NewBTAITask<UAITask_MoveTo>(OwnerComp);
+	if (MoveTask)
+	{
+		MoveTask->SetUp(MoveTask->GetAIController(), MoveRequest);
+	}
+
+	return MoveTask;
 }
 
 EBlackboardNotificationResult UBTTask_MoveTo::OnBlackboardValueChange(const UBlackboardComponent& Blackboard, FBlackboard::FKey ChangedKeyID)
@@ -224,19 +217,20 @@ EBlackboardNotificationResult UBTTask_MoveTo::OnBlackboardValueChange(const UBla
 		{
 			const FVector TargetLocation = Blackboard.GetValue<UBlackboardKeyType_Vector>(BlackboardKey.GetSelectedKeyID());
 
-			bUpdateMove = (FVector::DistSquared(TargetLocation, MyMemory->PreviousGoalLocation) > ObservedBlackboardValueTolerance*ObservedBlackboardValueTolerance);
+			bUpdateMove = (FVector::DistSquared(TargetLocation, MyMemory->PreviousGoalLocation) > FMath::Square(ObservedBlackboardValueTolerance));
 		}
 
 		if (bUpdateMove)
 		{
 			// don't abort move if using AI tasks - it will mess things up
-			if (GET_AI_CONFIG_VAR(bEnableBTAITasks) == false)
+			if (MyMemory->MoveRequestID.IsValid())
 			{
+				UE_VLOG(BehaviorComp, LogBehaviorTree, Log, TEXT("Blackboard value for goal has changed, aborting current move request"));
 				StopWaitingForMessages(*BehaviorComp);
-				BehaviorComp->GetAIOwner()->GetPathFollowingComponent()->AbortMove(TEXT("Updating move due to BB value change"), MyMemory->MoveRequestID, /*bResetVelocity=*/false, /*bSilent=*/true);
+				BehaviorComp->GetAIOwner()->GetPathFollowingComponent()->AbortMove(*this, FPathFollowingResultFlags::NewRequest, MyMemory->MoveRequestID, EPathFollowingVelocityMode::Keep);
 			}
 
-			if (BehaviorComp->GetAIOwner()->ShouldPostponePathUpdates())
+			if (!bUseGameplayTasks && BehaviorComp->GetAIOwner()->ShouldPostponePathUpdates())
 			{
 				// NodeTick will take care of requesting move
 				MyMemory->bWaitingForPath = true;
@@ -244,7 +238,6 @@ EBlackboardNotificationResult UBTTask_MoveTo::OnBlackboardValueChange(const UBla
 			else
 			{
 				const EBTNodeResult::Type NodeResult = PerformMoveTask(*BehaviorComp, RawMemory);
-
 				if (NodeResult != EBTNodeResult::InProgress)
 				{
 					FinishLatentTask(*BehaviorComp, NodeResult);
@@ -261,11 +254,26 @@ EBTNodeResult::Type UBTTask_MoveTo::AbortTask(UBehaviorTreeComponent& OwnerComp,
 	FBTMoveToTaskMemory* MyMemory = reinterpret_cast<FBTMoveToTaskMemory*>(NodeMemory);
 	if (!MyMemory->bWaitingForPath)
 	{
-		AAIController* MyController = OwnerComp.GetAIOwner();
-
-		if (MyController && MyController->GetPathFollowingComponent())
+		if (MyMemory->MoveRequestID.IsValid())
 		{
-			MyController->GetPathFollowingComponent()->AbortMove(TEXT("BehaviorTree abort"), MyMemory->MoveRequestID);
+			AAIController* MyController = OwnerComp.GetAIOwner();
+			if (MyController && MyController->GetPathFollowingComponent())
+			{
+				MyController->GetPathFollowingComponent()->AbortMove(*this, FPathFollowingResultFlags::OwnerFinished, MyMemory->MoveRequestID);
+			}
+		}
+		else
+		{
+			MyMemory->bObserverCanFinishTask = false;
+			UAITask_MoveTo* MoveTask = MyMemory->Task.Get();
+			if (MoveTask)
+			{
+				MoveTask->ExternalCancel();
+			}
+			else
+			{
+				UE_VLOG(&OwnerComp, LogBehaviorTree, Error, TEXT("Can't abort path following! bWaitingForPath:false, MoveRequestID:invalid, MoveTask:none!"));
+			}
 		}
 	}
 
@@ -275,6 +283,7 @@ EBTNodeResult::Type UBTTask_MoveTo::AbortTask(UBehaviorTreeComponent& OwnerComp,
 void UBTTask_MoveTo::OnTaskFinished(UBehaviorTreeComponent& OwnerComp, uint8* NodeMemory, EBTNodeResult::Type TaskResult)
 {
 	FBTMoveToTaskMemory* MyMemory = reinterpret_cast<FBTMoveToTaskMemory*>(NodeMemory);
+	MyMemory->Task.Reset();
 
 	if (bObserveBlackboardValue)
 	{
@@ -283,12 +292,8 @@ void UBTTask_MoveTo::OnTaskFinished(UBehaviorTreeComponent& OwnerComp, uint8* No
 		{
 			BlackboardComp->UnregisterObserver(BlackboardKey.GetSelectedKeyID(), MyMemory->BBObserverDelegateHandle);
 		}
-		MyMemory->BBObserverDelegateHandle.Reset();
-	}
 
-	if (GET_AI_CONFIG_VAR(bEnableBTAITasks))
-	{
-		MyMemory->Task = nullptr;
+		MyMemory->BBObserverDelegateHandle.Reset();
 	}
 
 	Super::OnTaskFinished(OwnerComp, NodeMemory, TaskResult);
@@ -321,6 +326,27 @@ void UBTTask_MoveTo::OnMessage(UBehaviorTreeComponent& OwnerComp, uint8* NodeMem
 	Super::OnMessage(OwnerComp, NodeMemory, Message, SenderID, bSuccess);
 }
 
+void UBTTask_MoveTo::OnGameplayTaskDeactivated(UGameplayTask& Task)
+{
+	// AI move task finished
+	UAITask_MoveTo* MoveTask = Cast<UAITask_MoveTo>(&Task);
+	if (MoveTask && MoveTask->GetAIController() && MoveTask->GetState() != EGameplayTaskState::Paused)
+	{
+		UBehaviorTreeComponent* BehaviorComp = GetBTComponentForTask(Task);
+		if (BehaviorComp)
+		{
+			uint8* RawMemory = BehaviorComp->GetNodeMemory(this, BehaviorComp->FindInstanceContainingNode(this));
+			FBTMoveToTaskMemory* MyMemory = reinterpret_cast<FBTMoveToTaskMemory*>(RawMemory);
+
+			if (MyMemory->bObserverCanFinishTask && (MoveTask == MyMemory->Task))
+			{
+				const bool bSuccess = MoveTask->WasMoveSuccessful();
+				FinishLatentTask(*BehaviorComp, bSuccess ? EBTNodeResult::Succeeded : EBTNodeResult::Failed);
+			}
+		}
+	}
+}
+
 FString UBTTask_MoveTo::GetStaticDescription() const
 {
 	FString KeyDesc("invalid");
@@ -338,12 +364,20 @@ void UBTTask_MoveTo::DescribeRuntimeValues(const UBehaviorTreeComponent& OwnerCo
 	Super::DescribeRuntimeValues(OwnerComp, NodeMemory, Verbosity, Values);
 
 	const UBlackboardComponent* BlackboardComp = OwnerComp.GetBlackboardComponent();
-	FBTMoveToTaskMemory* MyMemory = (FBTMoveToTaskMemory*)NodeMemory;
 
-	if (MyMemory->MoveRequestID && BlackboardComp)
+	if (BlackboardComp)
 	{
-		FString KeyValue = BlackboardComp->DescribeKeyValue(BlackboardKey.GetSelectedKeyID(), EBlackboardDescription::OnlyValue);
-		Values.Add(FString::Printf(TEXT("move target: %s"), *KeyValue));
+		const FString KeyValue = BlackboardComp->DescribeKeyValue(BlackboardKey.GetSelectedKeyID(), EBlackboardDescription::OnlyValue);
+
+		FBTMoveToTaskMemory* MyMemory = (FBTMoveToTaskMemory*)NodeMemory;
+		const bool bIsUsingTask = MyMemory->Task.IsValid();
+		
+		const FString ModeDesc =
+			MyMemory->bWaitingForPath ? TEXT("(WAITING)") :
+			bIsUsingTask ? TEXT("(task)") :
+			TEXT("");
+
+		Values.Add(FString::Printf(TEXT("move target: %s%s"), *KeyValue, *ModeDesc));
 	}
 }
 

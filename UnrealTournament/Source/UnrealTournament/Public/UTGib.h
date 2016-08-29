@@ -36,5 +36,5 @@ class UNREALTOURNAMENT_API AUTGib : public AActor
 	virtual void CheckGibVisibility();
 
 	UFUNCTION()
-	virtual void OnPhysicsCollision(AActor* OtherActor, UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit);
+	virtual void OnPhysicsCollision(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit);
 };

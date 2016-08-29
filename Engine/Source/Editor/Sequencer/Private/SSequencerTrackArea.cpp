@@ -57,6 +57,11 @@ void SSequencerTrackArea::SetTreeView(const TSharedPtr<SSequencerTreeView>& InTr
 	TreeView = InTreeView;
 }
 
+void SSequencerTrackArea::Empty()
+{
+	TrackSlots.Empty();
+	Children.Empty();
+}
 
 void SSequencerTrackArea::AddTrackSlot(const TSharedRef<FSequencerDisplayNode>& InNode, const TSharedPtr<SSequencerTrackLane>& InSlot)
 {
@@ -281,7 +286,7 @@ void SSequencerTrackArea::UpdateHoverStates( const FGeometry& MyGeometry, const 
 				{
 					// Activate selection mode if the section has keys, otherwise just move it
 					TSet<FKeyHandle> KeyHandles;
-					Section->GetKeyHandles(KeyHandles);
+					Section->GetKeyHandles(KeyHandles, Section->GetRange());
 
 					if (KeyHandles.Num())
 					{

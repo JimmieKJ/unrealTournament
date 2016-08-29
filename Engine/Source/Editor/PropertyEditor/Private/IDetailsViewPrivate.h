@@ -14,12 +14,12 @@ class IDetailsViewPrivate : public IDetailsView
 {
 public:
 	/**
-	* Sets the expansion state for a node and optionally all of its children
-	*
-	* @param InTreeNode		The node to change expansion state on
-	* @param bIsItemExpanded	The new expansion state
-	* @param bRecursive		Whether or not to apply the expansion change to any children
-	*/
+	 * Sets the expansion state for a node and optionally all of its children
+	 *
+	 * @param InTreeNode		The node to change expansion state on
+	 * @param bIsItemExpanded	The new expansion state
+	 * @param bRecursive		Whether or not to apply the expansion change to any children
+	 */
 	virtual void SetNodeExpansionState(TSharedRef<IDetailTreeNode> InTreeNode, bool bIsItemExpanded, bool bRecursive) = 0;
 
 	/**
@@ -39,37 +39,37 @@ public:
 	virtual FNotifyHook* GetNotifyHook() const = 0;
 
 	/**
-	* Returns the property utilities for this view
-	*/
+	 * Returns the property utilities for this view
+	 */
 	virtual TSharedPtr<IPropertyUtilities> GetPropertyUtilities() = 0;
 
-
-	/** Gets the base class being viewed */
-	virtual const UClass* GetBaseClass() const = 0;
-	virtual UClass* GetBaseClass() = 0;
-
 	/**
-	* @return True if a category is hidden by any of the uobject classes currently in view by this details panel
-	*/
-	virtual bool IsCategoryHiddenByClass(FName CategoryName) const = 0;
+	 * @return True if a category is hidden by any of the uobject classes currently in view by this details panel
+	 */
+	virtual bool IsCategoryHiddenByClass(const TSharedPtr<FComplexPropertyNode>& InRootNode, FName CategoryName) const = 0;
 
 	/** Causes the details view to be refreshed (new widgets generated) with the current set of objects */
 	virtual void ForceRefresh() = 0;
 
+	/** Causes the details view to move the scroll offset (by item)
+	 * @param DeltaOffset	We add this value to the current scroll offset if the result is in the scrolling range
+	 */
+	virtual void MoveScrollOffset(int32 DeltaOffset) = 0;
+
 	/**
-	* Saves the expansion state of a tree node
-	*
-	* @param NodePath	The path to the detail node to save
-	* @param bIsExpanded	true if the node is expanded, false otherwise
-	*/
+	 * Saves the expansion state of a tree node
+	 *
+	 * @param NodePath	The path to the detail node to save
+	 * @param bIsExpanded	true if the node is expanded, false otherwise
+	 */
 	virtual void SaveCustomExpansionState(const FString& NodePath, bool bIsExpanded) = 0;
 
 	/**
-	* Gets the saved expansion state of a tree node in this category
-	*
-	* @param NodePath	The path to the detail node to get
-	* @return true if the node should be expanded, false otherwise
-	*/
+	 * Gets the saved expansion state of a tree node in this category
+	 *
+	 * @param NodePath	The path to the detail node to get
+	 * @return true if the node should be expanded, false otherwise
+	 */
 	virtual bool GetCustomSavedExpansionState(const FString& NodePath) const = 0;
 
 	/**
@@ -121,4 +121,10 @@ public:
 
 	/** If a customization standalone widget is used, the value should be update only once, when its window is closed */
 	virtual bool DontUpdateValueWhileEditing() const = 0;
+
+	/** @return Whether or not the details panel was created with multiple unrelated objects visible at once in the details panel */
+	virtual bool ContainsMultipleTopLevelObjects() const = 0;
+
+	/** @return the customization instance that defines how the display for a root object looks */
+	virtual TSharedPtr<class IDetailRootObjectCustomization> GetRootObjectCustomization() const = 0;
 };

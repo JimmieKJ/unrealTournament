@@ -12,7 +12,7 @@
 
 UMovieSceneVisibilityTrack::UMovieSceneVisibilityTrack(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
-{ }
+{}
 
 
 UMovieSceneSection* UMovieSceneVisibilityTrack::CreateNewSection()
@@ -28,10 +28,12 @@ TSharedPtr<IMovieSceneTrackInstance> UMovieSceneVisibilityTrack::CreateInstance(
 
 
 #if WITH_EDITORONLY_DATA
-FText UMovieSceneVisibilityTrack::GetDefaultDisplayName() const
+
+FText UMovieSceneVisibilityTrack::GetDisplayName() const
 {
 	return LOCTEXT("DisplayName", "Visibility");
 }
+
 #endif
 
 

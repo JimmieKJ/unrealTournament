@@ -3,6 +3,10 @@
 /*=============================================================================
 	ShadowProjectionPixelShader.usf: Pixel shader for projecting a shadow depth buffer onto the scene.
 =============================================================================*/
+#ifndef FORCE_FLOATS
+// TODO: remove this requirement: Iphone6/Metal needs full float for the depth comparison.
+#define FORCE_FLOATS (COMPILER_METAL)
+#endif
 
 #include "Common.usf"
 
@@ -25,6 +29,7 @@
 #include "ShadowProjectionCommon.usf"
 #include "ShadowFilteringCommon.usf"
 #include "DeferredShadingCommon.usf"
+#include "DynamicLightingCommon.usf"
 
 float ShadowFadeFraction;
 float ShadowSharpen;
@@ -38,17 +43,54 @@ float2 ProjectionDepthBiasParameters;
 #endif
 
 float4 ModulatedShadowColor;
+float4 ShadowTileOffsetAndSize;
 
 float3 ModulatedShadowBlendOp(float3 Source)
 {
 #if (COMPILER_GLSL_ES2)
 	half4 Dest = FramebufferFetchES2();
-	Dest.rgb = Decode32BPPHDR(Dest);
+	Dest.rgb = Decode32BPPHDR(Dest).rgb;
 #else
 	half4 Dest = half4(0, 0, 0, 0);
 #endif
 	return Source.rgb*Dest.rgb;
 }
+
+#if FORWARD_SHADING
+
+float GetLightInfluenceMask(float2 ScreenPosition, float SceneDepth)
+{
+	float4 HomogeneousWorldPosition = mul(float4(ScreenPosition.xy * SceneDepth, SceneDepth, 1), View.ScreenToWorld);
+	float3 WorldPosition = HomogeneousWorldPosition.xyz / HomogeneousWorldPosition.w;
+
+	float LightRadiusMask = 1;
+	float SpotFalloff = 1;
+
+	if (DeferredLightUniforms.LightInvRadius > 0)
+	{
+		float3 ToLight = DeferredLightUniforms.LightPosition - WorldPosition;
+		float DistanceSqr = dot(ToLight, ToLight);
+		float3 L = ToLight * rsqrt(DistanceSqr);
+
+		if (DeferredLightUniforms.LightFalloffExponent == 0)
+		{
+			LightRadiusMask = Square(saturate( 1 - Square(DistanceSqr * Square(DeferredLightUniforms.LightInvRadius))));
+		}
+		else
+		{
+			LightRadiusMask = RadialAttenuation(ToLight * DeferredLightUniforms.LightInvRadius, DeferredLightUniforms.LightFalloffExponent);
+		}
+
+		if (DeferredLightUniforms.SpotAngles.x > -2.0f)
+		{
+			SpotFalloff = SpotAttenuation(L, -DeferredLightUniforms.NormalizedLightDirection, DeferredLightUniforms.SpotAngles);
+		}
+	}
+
+	return LightRadiusMask * SpotFalloff > 0.0f ? 1.0f : 0.0f;
+}
+
+#endif
 
 /**
 * Entry point for uniform manual PCF that supports lights using normal shadows.
@@ -59,12 +101,19 @@ void Main(
 	out float4 OutColor : SV_Target0
 	)
 {
-	float2 ScreenUV = float2( SVPos.xy * Frame.BufferSizeAndInvSize.zw );
+	float2 ScreenUV = float2( SVPos.xy * View.BufferSizeAndInvSize.zw );
 	float SceneW = CalcSceneDepth( ScreenUV );
 	float2 ScreenPosition = ( ScreenUV.xy - View.ScreenPositionScaleBias.wz ) / View.ScreenPositionScaleBias.xy;
 	float4 ShadowPosition = mul(float4(ScreenPosition.xy * SceneW,SceneW,1), ScreenToShadowMatrix);
 
 	ShadowPosition.xy /= ShadowPosition.w;
+
+#if MODULATED_SHADOWS
+	// UE-29083 : work around precision issues with ScreenToShadowMatrix on low end devices.
+	ShadowPosition.xy *= ShadowTileOffsetAndSize.zw;
+	ShadowPosition.xy += ShadowTileOffsetAndSize.xy;
+#endif
+
 	// Clamp pixel depth in light space for shadowing opaque, because areas of the shadow depth buffer that weren't rendered to will have been cleared to 1
 	// We want to force the shadow comparison to result in 'unshadowed' in that case, regardless of whether the pixel being shaded is in front or behind that plane
 	float LightSpacePixelDepthForOpaque = min(ShadowPosition.z, 0.99999f);
@@ -82,8 +131,6 @@ void Main(
 	Shadow = CalculateTranslucencyShadowing(ShadowPosition.xy, ShadowPosition.z);
 
 #else
-
-	FGBufferData InGBufferData = GetGBufferData(ScreenUV);
 
 	// For debugging
 	#define UNFILTERED_SHADOW_PROJECTION 0
@@ -110,18 +157,20 @@ void Main(
 		
 	#if USE_FADE_PLANE
 		// Create a blend factor which is one before and at the fade plane, and lerps to zero at the far plane.
-		BlendFactor = 1.0f - saturate((InGBufferData.Depth - FadePlaneOffset) * InvFadePlaneLength);
+		BlendFactor = 1.0f - saturate((SceneW - FadePlaneOffset) * InvFadePlaneLength);
 	#endif
 
-	#if FEATURE_LEVEL >= FEATURE_LEVEL_SM4
+	#if FEATURE_LEVEL >= FEATURE_LEVEL_SM4 && !FORWARD_SHADING
+
+		FGBufferData GBufferData = GetGBufferData(ScreenUV);
 
 		BRANCH
-		if (IsSubsurfaceModel(InGBufferData.ShadingModelID))
+		if (IsSubsurfaceModel(GBufferData.ShadingModelID))
 		{
-			float Opacity = InGBufferData.CustomData.a;
+			float Opacity = GBufferData.CustomData.a;
 			// Derive density from a heuristic using opacity, tweaked for useful falloff ranges and to give a linear depth falloff with opacity
 			float Density = -.05f * log(1 - min(Opacity, .999f));
-			if( InGBufferData.ShadingModelID == SHADINGMODELID_HAIR || InGBufferData.ShadingModelID == SHADINGMODELID_EYE )
+			if( GBufferData.ShadingModelID == SHADINGMODELID_HAIR || GBufferData.ShadingModelID == SHADINGMODELID_EYE )
 			{
 				Opacity = 1;
 				Density = 1;
@@ -164,11 +213,19 @@ void Main(
 	// 0 is shadowed, 1 is unshadowed
 	// RETURN_COLOR not needed unless writing to SceneColor;
 	float FadedShadow = lerp(1.0f, Square(Shadow), ShadowFadeFraction);
+
+#if FORWARD_SHADING
+	float LightInfluenceMask = GetLightInfluenceMask(ScreenPosition, SceneW);
+	// Constrain shadowing from this light to pixels inside the light's influence, since other non-overlapping lights are packed into the same channel
+	FadedShadow = lerp(1, FadedShadow, LightInfluenceMask);
+	// Write into all channels, the write mask will constrain to the correct one
+	OutColor = EncodeLightAttenuation(FadedShadow);
+#else
 	float FadedSSSShadow = lerp(1.0f, Square(SSSTransmission), ShadowFadeFraction);
 
 	// the channel assignment is documented in ShadowRendering.cpp (look for Light Attenuation channel assignment)
-
 	OutColor = EncodeLightAttenuation(half4(FadedShadow, FadedSSSShadow, FadedShadow, FadedSSSShadow));
+#endif
 
 	#if USE_FADE_PLANE
 		// When the fade plane is in use for CSMs, we output the fade value in the alpha channel for blending.
@@ -183,9 +240,10 @@ void Main(
 		if (GetHDR32bppEncodeMode() == HDR_ENCODE_RGBA)
 		{
 			OutColor.rgb = ModulatedShadowBlendOp(OutColor.rgb);
+			// do 32bpp hdr encoding for mobile if required.
+			// Do not mosaic encode result as this will break during hw modulated blend op.
+			OutColor = Encode32BPPHDR(OutColor, SVPos.xy);
 		}
-		// do 32bpp hdr encoding for mobile if required.
-		OutColor = Encode32BPPHDR(OutColor, SVPos.xy);
 #endif
 #endif
 }
@@ -202,24 +260,38 @@ void MainOnePassPointLightPS(
 	out float4 OutColor : SV_Target0
 	)
 {
-
-	float2 ScreenUV = float2( SVPos.xy * Frame.BufferSizeAndInvSize.zw );
+	float2 ScreenUV = float2( SVPos.xy * View.BufferSizeAndInvSize.zw );
 	float SceneW = CalcSceneDepth( ScreenUV );
 	float2 ScreenPosition = ( ScreenUV.xy - View.ScreenPositionScaleBias.wz ) / View.ScreenPositionScaleBias.xy;
 	float4 HomogeneousWorldPosition = mul(float4(ScreenPosition.xy * SceneW, SceneW, 1), View.ScreenToWorld);
  	float3 WorldPosition = HomogeneousWorldPosition.xyz / HomogeneousWorldPosition.w;
 
+	// For debugging
+#define OUTPUT_CUBE_SHADOW_DEPTH_NO_FILTERING 0
+#if OUTPUT_CUBE_SHADOW_DEPTH_NO_FILTERING
+	float3 LightVector = LightPositionAndInvRadius.xyz - WorldPosition.xyz;
+	// Note: point light shadow depth is Z / W, not linear
+	float Shadow = TextureCubeSampleLevel(ShadowDepthCubeTexture, ShadowDepthTextureSampler, LightVector, 0);
+#else
  	float Shadow = CubemapHardwarePCF(WorldPosition, LightPositionAndInvRadius.xyz, LightPositionAndInvRadius.w, PointLightDepthBiasParameters.x);
 
 	Shadow = saturate( (Shadow - 0.5) * ShadowSharpen + 0.5 );
+#endif
 
 	float FadedShadow = lerp(1.0f, Square(Shadow), ShadowFadeFraction);
+
+#if FORWARD_SHADING
+	float LightInfluenceMask = GetLightInfluenceMask(ScreenPosition, SceneW);
+	FadedShadow = lerp(1, FadedShadow, LightInfluenceMask);
+	OutColor = EncodeLightAttenuation(FadedShadow);
+#else
 	// Light attenuation buffer has been remapped. 
 	// Point light shadows now write to the blue channel.
-	OutColor.b = EncodeLightAttenuation(Square(FadedShadow));
+	OutColor.b = EncodeLightAttenuation(FadedShadow);
 	OutColor.rga = 1;
 	// SSS is not correctly handled but at least it should be shadowed
 	OutColor.a = OutColor.b;
+#endif
 }
  
 #endif

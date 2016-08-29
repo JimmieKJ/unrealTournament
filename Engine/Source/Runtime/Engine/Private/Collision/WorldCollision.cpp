@@ -468,9 +468,8 @@ bool UWorld::ComponentSweepMulti(TArray<struct FHitResult>& OutHits, class UPrim
 	ExecuteOnPxRigidActorReadOnly(BodyInstance, [&] (const PxRigidActor* PRigidActor)
 	{
 		// Get all the shapes from the actor
-		TArray<PxShape*, TInlineAllocator<16>> PShapes;
-		PShapes.AddUninitialized(PRigidActor->getNbShapes());
-		PRigidActor->getShapes(PShapes.GetData(), PShapes.Num());
+		FInlinePxShapeArray PShapes;
+		const int32 NumShapes = FillInlinePxShapeArray(PShapes, *PRigidActor);
 
 		// calculate the test global pose of the actor
 		const PxQuat PGeomRot = U2PQuat(Quat);
@@ -478,7 +477,7 @@ bool UWorld::ComponentSweepMulti(TArray<struct FHitResult>& OutHits, class UPrim
 		const PxTransform PGlobalEndPose = PxTransform(U2PVector(End), PGeomRot);
 
 		// Iterate over each shape
-		for(int32 ShapeIdx=0; ShapeIdx<PShapes.Num(); ShapeIdx++)
+		for(int32 ShapeIdx=0; ShapeIdx<NumShapes; ShapeIdx++)
 		{
 			PxShape* PShape = PShapes[ShapeIdx];
 			check(PShape);

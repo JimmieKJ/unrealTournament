@@ -56,11 +56,11 @@ void FMRUList::MoveToTop(int32 InItem)
 
 void FMRUList::AddMRUItem(const FString& InItem)
 {
-	FString CleanedName = FPaths::ConvertRelativePathToFull(InItem);
+	check(FPackageName::IsValidLongPackageName(InItem));
 
 	// See if the item already exists in the list.  If so,
 	// move it to the top of the list and leave.
-	const int32 ItemIndex = Items.Find( CleanedName );
+	const int32 ItemIndex = Items.Find(InItem);
 	if ( ItemIndex != INDEX_NONE )
 	{
 		MoveToTop( ItemIndex );
@@ -68,9 +68,9 @@ void FMRUList::AddMRUItem(const FString& InItem)
 	else
 	{
 		// Item is new, so add it to the bottom of the list.
-		if( CleanedName.Len() )
+		if(InItem.Len() )
 		{
-			new(Items) FString( *CleanedName );
+			new(Items) FString( *InItem );
 			MoveToTop( Items.Num()-1 );
 		}
 
@@ -83,6 +83,8 @@ void FMRUList::AddMRUItem(const FString& InItem)
 
 int32 FMRUList::FindMRUItemIdx(const FString& InItem) const
 {
+	check(FPackageName::IsValidLongPackageName(InItem));
+
 	for( int32 mru = 0 ; mru < Items.Num() ; ++mru )
 	{
 		if( Items[mru] == InItem )
@@ -114,15 +116,36 @@ void FMRUList::InternalReadINI( TArray<FString>& OutItems, const FString& INISec
 	// Clear existing items
 	OutItems.Empty();
 
+	bool bConvertedToNewFormat = false;
+
 	// Iterate over the maximum number of provided elements
 	for( int32 ItemIdx = 0 ; ItemIdx < NumElements ; ++ItemIdx )
 	{
 		// Try to find data for a key formed as "INIKeyBaseItemIdx" for the provided INI section. If found, add the data to the output item array.
 		FString CurItem;
-		if ( GConfig->GetString( *INISection, *FString::Printf( TEXT("%s%d"), *INIKeyBase, ItemIdx ), CurItem, GEditorPerProjectIni ) )
+		if (GConfig->GetString(*INISection, *FString::Printf(TEXT("%s%d"), *INIKeyBase, ItemIdx), CurItem, GEditorPerProjectIni))
 		{
-			OutItems.AddUnique( FPaths::ConvertRelativePathToFull(CurItem) );
+			if (!FPackageName::IsValidLongPackageName(CurItem))
+			{
+				FString NewItem;
+				if (FPackageName::TryConvertFilenameToLongPackageName(CurItem, NewItem))
+				{
+					CurItem = NewItem;
+					OutItems.AddUnique(CurItem);
+				}
+
+				bConvertedToNewFormat = true;
+			}
+			else
+			{
+				OutItems.AddUnique(CurItem);
+			}
 		}
+	}
+
+	if (bConvertedToNewFormat)
+	{
+		InternalWriteINI(OutItems, INISection, INIKeyBase);
 	}
 }
 
@@ -143,16 +166,19 @@ void FMRUList::InternalWriteINI( const TArray<FString>& InItems, const FString& 
 bool FMRUList::VerifyMRUFile(int32 InItem)
 {
 	check( InItem > -1 && InItem < GetMaxItems() );
-	const FString filename = Items[InItem];
+	const FString PackageName = Items[InItem];
+
+	FString Filename;
+	bool bSuccess = FPackageName::TryConvertLongPackageNameToFilename(PackageName, Filename, FPackageName::GetMapPackageExtension());
 
 	// If the file doesn't exist, tell the user about it, remove the file from the list
-	if( IFileManager::Get().FileSize( *filename ) == -1 )
+	if( !bSuccess || IFileManager::Get().FileSize( *Filename) == INDEX_NONE )
 	{
 		FMessageLog EditorErrors("EditorErrors");
 		FFormatNamedArguments Arguments;
-		Arguments.Add(TEXT("FileName"), FText::FromString(filename));
-		EditorErrors.Warning(FText::Format( NSLOCTEXT("MRUList", "Error_FileDoesNotExist", "File does not exist : '{FileName}'.  It will be removed from the recent items list."), Arguments ) );
-		EditorErrors.Notify(NSLOCTEXT("MRUList", "Notification_FileDoesNotExist", "File does not exist! Removed from recent items list!"));
+		Arguments.Add(TEXT("PackageName"), FText::FromString(PackageName));
+		EditorErrors.Warning(FText::Format( NSLOCTEXT("MRUList", "Error_FileDoesNotExist", "Map '{PackageName}' does not exist.  It will be removed from the recent items list."), Arguments ) );
+		EditorErrors.Notify(NSLOCTEXT("MRUList", "Notification_PackageDoesNotExist", "Map does not exist! Removed from recent items list!"));
 		RemoveMRUItem( InItem );
 		WriteToINI();
 

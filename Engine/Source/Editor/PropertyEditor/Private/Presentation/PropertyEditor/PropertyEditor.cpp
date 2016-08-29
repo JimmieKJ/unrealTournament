@@ -202,6 +202,12 @@ void FPropertyEditor::OnAddItem()
 	PropertyNode->SetNodeFlags( EPropertyNodeFlags::Expanded, true );
 
 	ArrayHandle->AddItem();
+
+	//In case the property is show in the favorite category refresh the whole tree
+	if (PropertyNode->IsFavorite())
+	{
+		ForceRefresh();
+	}
 }
 
 void FPropertyEditor::ClearItem()
@@ -256,6 +262,12 @@ void FPropertyEditor::OnInsertItem()
 
 	int32 Index = PropertyNode->GetArrayIndex();
 	ArrayHandle->Insert( Index );
+
+	//In case the property is show in the favorite category refresh the whole tree
+	if (PropertyNode->IsFavorite() || (PropertyNode->GetParentNode() != nullptr && PropertyNode->GetParentNode()->IsFavorite()))
+	{
+		ForceRefresh();
+	}
 }
 
 void FPropertyEditor::DeleteItem()
@@ -271,6 +283,12 @@ void FPropertyEditor::OnDeleteItem()
 
 	int32 Index = PropertyNode->GetArrayIndex();
 	ArrayHandle->DeleteItem( Index );
+
+	//In case the property is show in the favorite category refresh the whole tree
+	if (PropertyNode->IsFavorite() || (PropertyNode->GetParentNode() != nullptr && PropertyNode->GetParentNode()->IsFavorite()))
+	{
+		ForceRefresh();
+	}
 }
 
 void FPropertyEditor::DuplicateItem()
@@ -286,6 +304,12 @@ void FPropertyEditor::OnDuplicateItem()
 
 	int32 Index = PropertyNode->GetArrayIndex();
 	ArrayHandle->DuplicateItem( Index );
+
+	//In case the property is show in the favorite category refresh the whole tree
+	if (PropertyNode->IsFavorite() || (PropertyNode->GetParentNode() != nullptr && PropertyNode->GetParentNode()->IsFavorite()))
+	{
+		ForceRefresh();
+	}
 }
 
 void FPropertyEditor::BrowseTo()
@@ -311,6 +335,12 @@ void FPropertyEditor::OnEmptyArray()
 	check( ArrayHandle.IsValid() );
 
 	ArrayHandle->EmptyArray();
+
+	//In case the property is show in the favorite category refresh the whole tree
+	if (PropertyNode->IsFavorite())
+	{
+		ForceRefresh();
+	}
 }
 
 bool FPropertyEditor::DoesPassFilterRestrictions() const
@@ -329,13 +359,38 @@ void FPropertyEditor::SetEditConditionState( bool bShouldEnable )
 	for ( int32 ValueIdx = 0; ValueIdx < PropertyEditConditions.Num(); ValueIdx++ )
 	{
 		uint8* ValueAddr = PropertyEditConditions[ValueIdx].Address;
-		if ( XOR(bShouldEnable, PropertyEditConditions[ValueIdx].bNegateValue) )
+		const bool OldValue = EditConditionProperty->GetPropertyValue( ValueAddr );
+		const bool NewValue = XOR(bShouldEnable, PropertyEditConditions[ValueIdx].bNegateValue);
+		EditConditionProperty->SetPropertyValue( ValueAddr, NewValue );
+
+		// Propagate the value change to any instances if we're editing a template object.
+		FObjectPropertyNode* ObjectNode = PropertyNode->FindObjectItemParent();
+		if (ObjectNode != nullptr)
 		{
-			EditConditionProperty->SetPropertyValue( ValueAddr, true );
-		}
-		else
-		{
-			EditConditionProperty->SetPropertyValue( ValueAddr, false );
+			FPropertyNode* ParentNode = PropertyNode->GetParentNode();
+			check(ParentNode != nullptr);
+
+			for (int32 ObjIndex = 0; ObjIndex < ObjectNode->GetNumObjects(); ++ObjIndex)
+			{
+				TWeakObjectPtr<UObject> ObjectWeakPtr = ObjectNode->GetUObject(ObjIndex);
+				UObject* Object = ObjectWeakPtr.Get();
+				if (Object != nullptr && Object->IsTemplate())
+				{
+					TArray<UObject*> ArchetypeInstances;
+					Object->GetArchetypeInstances(ArchetypeInstances);
+					for (int32 InstanceIndex = 0; InstanceIndex < ArchetypeInstances.Num(); ++InstanceIndex)
+					{
+						// Only propagate if the current value on the instance matches the previous value on the template.
+						uint8* BaseOffset = ParentNode->GetValueAddress((uint8*)ArchetypeInstances[InstanceIndex]);
+						ValueAddr = EditConditionProperty->ContainerPtrToValuePtr<uint8>(BaseOffset);
+						const bool CurValue = EditConditionProperty->GetPropertyValue(ValueAddr);
+						if (OldValue == CurValue)
+						{
+							EditConditionProperty->SetPropertyValue(ValueAddr, NewValue);
+						}
+					}
+				}
+			}
 		}
 	}
 
@@ -425,6 +480,11 @@ bool FPropertyEditor::IsPropertyEditingEnabled() const
 		(EditConditionProperty == NULL || IsEditConditionMet( EditConditionProperty, PropertyEditConditions ));
 }
 
+void FPropertyEditor::ForceRefresh()
+{
+	PropertyUtilities->ForceRefresh();
+}
+
 void FPropertyEditor::RequestRefresh()
 {
 	PropertyUtilities->RequestRefresh();
@@ -453,7 +513,7 @@ bool FPropertyEditor::IsResetToDefaultAvailable() const
 	const bool bFixedSized = Property && Property->PropertyFlags & CPF_EditFixedSize;
 	const bool bCanResetToDefault = !(Property && Property->PropertyFlags & CPF_Config);
 
-	return Property && !PropertyHandle->IsEditConst() && bCanResetToDefault && !bFixedSized && PropertyHandle->DiffersFromDefault();
+	return Property && bCanResetToDefault && !bFixedSized && PropertyHandle->DiffersFromDefault();
 }
 
 bool FPropertyEditor::ValueDiffersFromDefault() const

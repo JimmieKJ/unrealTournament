@@ -6,6 +6,7 @@
 #include "Engine/LODActor.h"
 #include "HLODOutliner.h"
 #include "HierarchicalLODUtilities.h"
+#include "HierarchicalLODUtilitiesModule.h"
 #include "ScopedTransaction.h"
 #include "SlateBasics.h"
 #include "TreeItemID.h"
@@ -39,13 +40,15 @@ void HLODOutliner::FLODActorItem::GenerateContextMenu(FMenuBuilder& MenuBuilder,
 	else
 	{		
 		MenuBuilder.AddMenuEntry(LOCTEXT("ForceView", "ForceView"), FText(), FSlateIcon(), FUIAction(FExecuteAction::CreateRaw(&Outliner, &SHLODOutliner::ForceViewLODActor)));
-		MenuBuilder.AddMenuEntry(LOCTEXT("BuildLODActorMesh", "Rebuild Proxy Mesh"), FText(), FSlateIcon(), FUIAction(FExecuteAction::CreateRaw(&Outliner, &SHLODOutliner::RebuildLODActor)));
+		MenuBuilder.AddMenuEntry(LOCTEXT("RebuildLODActorMesh", "Rebuild Proxy Mesh"), FText(), FSlateIcon(), FUIAction(FExecuteAction::CreateRaw(&Outliner, &SHLODOutliner::RebuildLODActor)));
 	}
 
 	MenuBuilder.AddMenuEntry(LOCTEXT("CreateHLODVolume", "Create Containing Hierarchical Volume"), FText(), FSlateIcon(), FUIAction(FExecuteAction::CreateRaw(&Outliner, &SHLODOutliner::CreateHierarchicalVolumeForActor)));
 
 	AActor* Actor = LODActor.Get();
-	ALODActor* ParentActor = FHierarchicalLODUtilities::GetParentLODActor(Actor);
+	FHierarchicalLODUtilitiesModule& Module = FModuleManager::LoadModuleChecked<FHierarchicalLODUtilitiesModule>("HierarchicalLODUtilities");
+	IHierarchicalLODUtilities* Utilities = Module.GetUtilities();
+	ALODActor* ParentActor = Utilities->GetParentLODActor(Actor);
 	if (ParentActor && Parent.Pin()->GetTreeItemType() == TreeItemType::HierarchicalLODActor)
 	{		
 		MenuBuilder.AddMenuEntry(LOCTEXT("RemoveChildFromCluster", "Remove from cluster"), FText(), FSlateIcon(), FUIAction(FExecuteAction::CreateRaw(&Outliner, &SHLODOutliner::RemoveLODActorFromCluster)));
@@ -60,7 +63,7 @@ FString HLODOutliner::FLODActorItem::GetDisplayString() const
 {
 	if (ALODActor* ActorPtr = LODActor.Get())
 	{
-		FString DisplayName = ActorPtr->GetName() + ((ActorPtr->SubActors.Num() < 2) ? FString(" (Insufficient Sub Actors)") : ((ActorPtr->IsDirty()) ? FString(" (Not built)") : FString()));
+		FString DisplayName = ActorPtr->GetName() + (!ActorPtr->HasValidSubActors() ? FString(" (Not enough mesh components)") : ((ActorPtr->IsDirty()) ? FString(" (Not built)") : FString()));
 
 		// Temporary indication of custom settings
 		if (ActorPtr->bOverrideMaterialMergeSettings || ActorPtr->bOverrideScreenSize || ActorPtr->bOverrideTransitionScreenSize)
@@ -227,7 +230,9 @@ HLODOutliner::FDragValidationInfo HLODOutliner::FLODActorDropTarget::ValidateDro
 				Actors.Add(LODActor.Get());
 				
 				const bool MultipleActors = DraggedObjects.StaticMeshActors->Num() > 1;
-				if (FHierarchicalLODUtilities::AreActorsInSamePersistingLevel(Actors))
+				FHierarchicalLODUtilitiesModule& Module = FModuleManager::LoadModuleChecked<FHierarchicalLODUtilitiesModule>("HierarchicalLODUtilities");
+				IHierarchicalLODUtilities* Utilities = Module.GetUtilities();
+				if (Utilities->AreActorsInSamePersistingLevel(Actors))
 				{
 					return FDragValidationInfo(EHierarchicalLODActionType::AddActorToCluster, 
 						MultipleActors ? FHLODOutlinerDragDropOp::ToolTip_MultipleSelection_Compatible : FHLODOutlinerDragDropOp::ToolTip_Compatible,
@@ -334,6 +339,9 @@ void HLODOutliner::FLODActorDropTarget::OnDrop(FDragDropPayload& DraggedObjects,
 		return;
 	}
 
+	FHierarchicalLODUtilitiesModule& Module = FModuleManager::LoadModuleChecked<FHierarchicalLODUtilitiesModule>("HierarchicalLODUtilities");
+	IHierarchicalLODUtilities* Utilities = Module.GetUtilities();
+
 	auto& DraggedStaticMeshActors = DraggedObjects.StaticMeshActors.GetValue();
 	auto& DraggedLODActors = DraggedObjects.LODActors.GetValue();
 	if (ValidationInfo.ActionType == EHierarchicalLODActionType::AddActorToCluster || ValidationInfo.ActionType == EHierarchicalLODActionType::MoveActorToCluster)
@@ -341,7 +349,7 @@ void HLODOutliner::FLODActorDropTarget::OnDrop(FDragDropPayload& DraggedObjects,
 		for (int32 ActorIndex = 0; ActorIndex < DraggedStaticMeshActors.Num(); ++ActorIndex)
 		{
 			auto Actor = DraggedStaticMeshActors[ActorIndex];
-			FHierarchicalLODUtilities::AddActorToCluster(Actor.Get(), LODActor.Get());
+			Utilities->AddActorToCluster(Actor.Get(), LODActor.Get());
 		}
 	}
 	else if (ValidationInfo.ActionType == EHierarchicalLODActionType::MergeClusters)
@@ -349,7 +357,7 @@ void HLODOutliner::FLODActorDropTarget::OnDrop(FDragDropPayload& DraggedObjects,
 		for (int32 ActorIndex = 0; ActorIndex < DraggedLODActors.Num(); ++ActorIndex)
 		{
 			ALODActor* InLODActor = Cast<ALODActor>(DraggedLODActors[ActorIndex].Get());			
-			FHierarchicalLODUtilities::MergeClusters(LODActor.Get(), InLODActor);
+			Utilities->MergeClusters(LODActor.Get(), InLODActor);
 		}
 	}
 	else if (ValidationInfo.ActionType == EHierarchicalLODActionType::ChildCluster)
@@ -357,7 +365,7 @@ void HLODOutliner::FLODActorDropTarget::OnDrop(FDragDropPayload& DraggedObjects,
 		for (int32 ActorIndex = 0; ActorIndex < DraggedLODActors.Num(); ++ActorIndex)
 		{
 			auto Actor = DraggedLODActors[ActorIndex];			
-			FHierarchicalLODUtilities::AddActorToCluster(Actor.Get(), LODActor.Get());
+			Utilities->AddActorToCluster(Actor.Get(), LODActor.Get());
 		}
 	}
 }

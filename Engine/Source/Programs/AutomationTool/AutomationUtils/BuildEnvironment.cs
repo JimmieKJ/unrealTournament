@@ -28,6 +28,7 @@ namespace AutomationTool
 		static public readonly string P4Port = "uebp_PORT";		
 		static public readonly string ClientRoot = "uebp_CLIENT_ROOT";
 		static public readonly string Changelist = "uebp_CL";
+		static public readonly string CodeChangelist = "uebp_CodeCL";
 		static public readonly string User = "uebp_USER";
 		static public readonly string Client = "uebp_CLIENT";
 		static public readonly string BuildRootP4 = "uebp_BuildRoot_P4";

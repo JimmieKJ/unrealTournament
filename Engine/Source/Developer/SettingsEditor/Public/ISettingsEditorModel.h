@@ -42,6 +42,14 @@ public:
 	 */
 	virtual void SelectSection( const TSharedPtr<ISettingsSection>& Section ) = 0;
 
+	/**
+	 * Gets the section interface for a specified section object
+	 *
+	 * @param SectionObject	The settings section object to get the section interface for
+	 *
+	 * @return The section interface for the section object or nullptr if it does not exist
+	 */
+	virtual TSharedPtr<ISettingsSection> GetSectionFromSectionObject(const UObject* SectionObject) const = 0;
 public:
 
 	/**

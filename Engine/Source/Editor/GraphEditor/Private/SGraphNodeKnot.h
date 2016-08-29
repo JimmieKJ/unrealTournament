@@ -29,21 +29,19 @@ public:
 	// End of SWidget interface
 
 protected:
-
-	/** Returns a custom hover state for the comment bubble */
-	bool IsKnotHovered() const;
-
 	/** Returns Offset to center comment on the node's only pin */
 	FVector2D GetCommentOffset() const;
-
-	/** Called to override the comment bubble's current visibility */
-	ECheckBoxState GetBubbleCheckState() const;
-
 protected:
 
-	/** The hovered visibility state */
-	bool bHoveredCommentVisibility;
+	/** Toggles the hovered visibility state */
+	virtual void OnCommentBubbleToggled(bool bInCommentBubbleVisible) override;
+
+	/** If bHoveredCommentVisibility is true, hides the comment bubble after a change is committed */
+	virtual void OnCommentTextCommitted(const FText& NewComment, ETextCommit::Type CommitInfo) override;
+
+	/** The hovered visibility state. If false, comment bubble will only appear on hover. */
+	bool bAlwaysShowCommentBubble;
+
 	/** SharedPtr to comment bubble */
 	TSharedPtr<SCommentBubble> CommentBubble;
-
 };

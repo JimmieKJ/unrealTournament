@@ -94,29 +94,28 @@ struct FTimeSliderArgs
 	FOnRangeChanged OnClampRangeChanged;
 
 	/** Attribute defining the playback range for this controller */
-	TAttribute<TRange<float>> InOutRange;
-
-	/** Delegate that is called when the in/out range wants to change */
-	FOnRangeChanged OnInOutRangeChanged;
-
-	/** Called right before the in/out range starts to be dragged */
-	FSimpleDelegate OnBeginInOutRangeDrag;
-
-	/** Called right after the in/out range has finished being dragged */
-	FSimpleDelegate OnEndInOutRangeDrag;
-
-	/** Attribute defining the playback range for this controller */
 	TAttribute<TRange<float>> PlaybackRange;
 
 	/** Delegate that is called when the playback range wants to change */
 	FOnRangeChanged OnPlaybackRangeChanged;
 
 	/** Called right before the playback range starts to be dragged */
-	FSimpleDelegate OnBeginPlaybackRangeDrag;
+	FSimpleDelegate OnPlaybackRangeBeginDrag;
 
 	/** Called right after the playback range has finished being dragged */
-	FSimpleDelegate OnEndPlaybackRangeDrag;
+	FSimpleDelegate OnPlaybackRangeEndDrag;
 
+	/** Attribute defining the selection range for this controller */
+	TAttribute<TRange<float>> SelectionRange;
+
+	/** Delegate that is called when the selection range wants to change */
+	FOnRangeChanged OnSelectionRangeChanged;
+
+	/** Called right before the selection range starts to be dragged */
+	FSimpleDelegate OnSelectionRangeBeginDrag;
+
+	/** Called right after the selection range has finished being dragged */
+	FSimpleDelegate OnSelectionRangeEndDrag;
 	/** Round the scrub position to an integer during playback */
 	TAttribute<EMovieScenePlayerStatus::Type> PlaybackStatus;
 

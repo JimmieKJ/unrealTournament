@@ -3,20 +3,6 @@
 #pragma once
 
 
-/**
- * Enum for async IO priorities.
- */
-enum EAsyncIOPriority
-{
-	AIOP_MIN	= 0,
-	AIOP_Low,
-	AIOP_BelowNormal,
-	AIOP_Normal,
-	AIOP_High,
-	AIOP_MAX
-};
-
-
 /*-----------------------------------------------------------------------------
 	FIOSystem.
 -----------------------------------------------------------------------------*/

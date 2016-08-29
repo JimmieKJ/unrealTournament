@@ -11,13 +11,15 @@
 /////////////////////////////////////////////////////
 // SGraphNodeSequencePlayer
 
-void SGraphNodeSequencePlayer::Construct(const FArguments& InArgs, UK2Node* InNode)
+void SGraphNodeSequencePlayer::Construct(const FArguments& InArgs, UAnimGraphNode_Base* InNode)
 {
 	this->GraphNode = InNode;
 
 	this->SetCursor(EMouseCursor::CardinalCross);
 
 	this->UpdateGraphNode();
+
+	SAnimationGraphNode::Construct(SAnimationGraphNode::FArguments(), InNode);
 }
 
 void SGraphNodeSequencePlayer::GetNodeInfoPopups(FNodeInfoContext* Context, TArray<FGraphInformationPopupInfo>& Popups) const

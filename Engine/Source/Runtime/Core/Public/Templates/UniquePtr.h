@@ -168,7 +168,7 @@ public:
 	 *
 	 * @return true if the TUniquePtr currently owns an object, false otherwise.
 	 */
-	FORCEINLINE_EXPLICIT_OPERATOR_BOOL() const
+	FORCEINLINE explicit operator bool() const
 	{
 		return IsValid();
 	}
@@ -354,60 +354,15 @@ struct TIsBitwiseConstructible<TUniquePtr<T>, T*>
 	enum { Value = true };
 };
 
-#if PLATFORM_COMPILER_HAS_VARIADIC_TEMPLATES
-
-	/**
-	 * Constructs a new object with the given arguments and returns it as a TUniquePtr.
-	 *
-	 * @param Args The arguments to pass to the constructor of T.
-	 *
-	 * @return A TUniquePtr which points to a newly-constructed T with the specified Args.
-	 */
-	template <typename T, typename... TArgs>
-	FORCEINLINE TUniquePtr<T> MakeUnique(TArgs&&... Args)
-	{
-		return TUniquePtr<T>(new T(Forward<TArgs>(Args)...));
-	}
-
-#else
-
-	/**
-	 * Constructs a new object with the given arguments and returns it as a TUniquePtr.
-	 *
-	 * @param Args The arguments to pass to the constructor of T.
-	 *
-	 * @return A TUniquePtr which points to a newly-constructed T with the specified Args.
-	 *
-	 * Note: Need to expand this for general argument list arity.
-	 */
-	template <typename T>
-	FORCEINLINE TUniquePtr<T> MakeUnique()
-	{
-		return TUniquePtr<T>(new T());
-	}
-
-	template <typename T, typename TArg0>
-	FORCEINLINE TUniquePtr<T> MakeUnique(TArg0&& Arg0)
-	{
-		return TUniquePtr<T>(new T(Forward<TArg0>(Arg0)));
-	}
-
-	template <typename T, typename TArg0, typename TArg1>
-	FORCEINLINE TUniquePtr<T> MakeUnique(TArg0&& Arg0, TArg1&& Arg1)
-	{
-		return TUniquePtr<T>(new T(Forward<TArg0>(Arg0), Forward<TArg1>(Arg1)));
-	}
-
-	template <typename T, typename TArg0, typename TArg1, typename TArg2>
-	FORCEINLINE TUniquePtr<T> MakeUnique(TArg0&& Arg0, TArg1&& Arg1, TArg2&& Arg2)
-	{
-		return TUniquePtr<T>(new T(Forward<TArg0>(Arg0), Forward<TArg1>(Arg1), Forward<TArg2>(Arg2)));
-	}
-
-	template <typename T, typename TArg0, typename TArg1, typename TArg2, typename TArg3>
-	FORCEINLINE TUniquePtr<T> MakeUnique(TArg0&& Arg0, TArg1&& Arg1, TArg2&& Arg2, TArg3&& Arg3)
-	{
-		return TUniquePtr<T>(new T(Forward<TArg0>(Arg0), Forward<TArg1>(Arg1), Forward<TArg2>(Arg2), Forward<TArg3>(Arg3)));
-	}
-
-#endif
+/**
+ * Constructs a new object with the given arguments and returns it as a TUniquePtr.
+ *
+ * @param Args The arguments to pass to the constructor of T.
+ *
+ * @return A TUniquePtr which points to a newly-constructed T with the specified Args.
+ */
+template <typename T, typename... TArgs>
+FORCEINLINE TUniquePtr<T> MakeUnique(TArgs&&... Args)
+{
+	return TUniquePtr<T>(new T(Forward<TArgs>(Args)...));
+}

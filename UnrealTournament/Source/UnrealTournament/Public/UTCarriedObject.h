@@ -406,7 +406,7 @@ protected:
 	virtual void OnHolderChanged();
 
 	UFUNCTION()
-	virtual void OnOverlapBegin(AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult);
+	virtual void OnOverlapBegin(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult);
 
 	/**
 	 *	By default, only people on the same team as the object can pick it up.  You can quickly override this by setting bTeamPickupSendsHome to true

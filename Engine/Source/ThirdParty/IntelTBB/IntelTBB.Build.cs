@@ -10,7 +10,13 @@ public class IntelTBB : ModuleRules
 
 		if ((Target.Platform == UnrealTargetPlatform.Win64) || (Target.Platform == UnrealTargetPlatform.Win32))
 		{
-			string IntelTBBPath = UEBuildConfiguration.UEThirdPartySourceDirectory + "IntelTBB/IntelTBB-4.0/";
+			string IntelTBBPath = UEBuildConfiguration.UEThirdPartySourceDirectory + "IntelTBB/";
+			switch (WindowsPlatform.Compiler)
+			{
+				case WindowsCompiler.VisualStudio2015: IntelTBBPath += "IntelTBB-4.4u3/"; break;
+				case WindowsCompiler.VisualStudio2013: IntelTBBPath += "IntelTBB-4.0/"; break;
+			}
+
 			PublicSystemIncludePaths.Add(IntelTBBPath + "Include");
 
 			if (Target.Platform == UnrealTargetPlatform.Win64)

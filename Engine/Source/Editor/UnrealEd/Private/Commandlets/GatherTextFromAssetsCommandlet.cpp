@@ -74,7 +74,7 @@ public:
 		{
 			static const FString LogIndentation = TEXT("    ");
 
-			UE_LOG(LogGatherTextFromAssetsCommandlet, Warning, TEXT("Package '%s' produced %d error(s) and %d warning(s) while loading. Please verify that your text has gathered correctly."), *PackageContext, ErrorCount, WarningCount);
+			UE_LOG(LogGatherTextFromAssetsCommandlet, Log, TEXT("Package '%s' produced %d error(s) and %d warning(s) while loading. Please verify that your text has gathered correctly."), *PackageContext, ErrorCount, WarningCount);
 			
 			GWarn->Log(NAME_None, ELogVerbosity::Log, FString::Printf(TEXT("The following errors and warnings were reported while loading '%s':"), *PackageContext));
 			for (const auto& FormattedOutput : FormattedErrorsAndWarningsList)
@@ -89,12 +89,12 @@ public:
 		if (Verbosity == ELogVerbosity::Error)
 		{
 			++ErrorCount;
-			FormattedErrorsAndWarningsList.Add(FormatLogLine(Verbosity, Category, V));
+			FormattedErrorsAndWarningsList.Add(FOutputDeviceHelper::FormatLogLine(Verbosity, Category, V));
 		}
 		else if (Verbosity == ELogVerbosity::Warning)
 		{
 			++WarningCount;
-			FormattedErrorsAndWarningsList.Add(FormatLogLine(Verbosity, Category, V));
+			FormattedErrorsAndWarningsList.Add(FOutputDeviceHelper::FormatLogLine(Verbosity, Category, V));
 		}
 		else
 		{
@@ -148,7 +148,7 @@ void UGatherTextFromAssetsCommandlet::ProcessGatherableTextDataArray(const FStri
 
 				static const FLocMetadataObject DefaultMetadataObject;
 
-				FContext Context;
+				FManifestContext Context;
 				Context.Key = TextSourceSiteContext.KeyName;
 				Context.KeyMetadataObj = !(FLocMetadataObject::IsMetadataExactMatch(&TextSourceSiteContext.KeyMetaData, &DefaultMetadataObject)) ? MakeShareable(new FLocMetadataObject(TextSourceSiteContext.KeyMetaData)) : nullptr;
 				Context.InfoMetadataObj = !(FLocMetadataObject::IsMetadataExactMatch(&TextSourceSiteContext.InfoMetaData, &DefaultMetadataObject)) ? MakeShareable(new FLocMetadataObject(TextSourceSiteContext.InfoMetaData)) : nullptr;
@@ -157,7 +157,7 @@ void UGatherTextFromAssetsCommandlet::ProcessGatherableTextDataArray(const FStri
 
 				FLocItem Source(GatherableTextData.SourceData.SourceString);
 
-				ManifestInfo->AddEntry(TextSourceSiteContext.SiteDescription, GatherableTextData.NamespaceName, Source, Context);
+				GatherManifestHelper->AddSourceText(GatherableTextData.NamespaceName, Source, Context, &TextSourceSiteContext.SiteDescription);
 			}
 		}
 	}
@@ -172,7 +172,8 @@ void UGatherTextFromAssetsCommandlet::ProcessPackages( const TArray< UPackage* >
 		GatherableTextDataArray.Reset();
 
 		// Gathers from the given package
-		FPropertyLocalizationDataGatherer(GatherableTextDataArray, Package);
+		EPropertyLocalizationGathererResultFlags GatherableTextResultFlags = EPropertyLocalizationGathererResultFlags::Empty;
+		FPropertyLocalizationDataGatherer(GatherableTextDataArray, Package, GatherableTextResultFlags);
 
 		ProcessGatherableTextDataArray(Package->FileName.ToString(), GatherableTextDataArray);
 	}
@@ -327,10 +328,14 @@ int32 UGatherTextFromAssetsCommandlet::Main(const FString& Params)
 	TArray<FString> ManifestDependenciesList;
 	GetPathArrayFromConfig(*SectionName, TEXT("ManifestDependencies"), ManifestDependenciesList, GatherTextConfigPath);
 
-	if( !ManifestInfo->AddManifestDependencies( ManifestDependenciesList ) )
+	for (const FString& ManifestDependency : ManifestDependenciesList)
 	{
-		UE_LOG(LogGatherTextFromAssetsCommandlet, Error, TEXT("The GatherTextFromAssets commandlet couldn't find all the specified manifest dependencies."));
-		return -1;
+		FText OutError;
+		if (!GatherManifestHelper->AddDependency(ManifestDependency, &OutError))
+		{
+			UE_LOG(LogGatherTextFromAssetsCommandlet, Error, TEXT("The GatherTextFromAssets commandlet couldn't load the specified manifest dependency: '%'. %s"), *ManifestDependency, *OutError.ToString());
+			return -1;
+		}
 	}
 
 	//The main array of files to work from.
@@ -339,6 +344,8 @@ int32 UGatherTextFromAssetsCommandlet::Main(const FString& Params)
 	TArray<FString> PackageFilesNotInIncludePath;
 	TArray<FString> PackageFilesInExcludePath;
 	TArray<FString> PackageFilesExcludedByClass;
+
+	const FFuzzyPathMatcher FuzzyPathMatcher = FFuzzyPathMatcher(IncludePathFilters, ExcludePathFilters);
 
 	//Fill the list of packages to work from.
 	uint8 PackageFilter = NORMALIZE_DefaultFlags;
@@ -364,31 +371,26 @@ int32 UGatherTextFromAssetsCommandlet::Main(const FString& Params)
 			PackageFile = FPaths::ConvertRelativePathToFull(PackageFile);
 
 			bool bExclude = false;
-			//Ensure it matches the include paths if there are some.
-			for (FString& IncludePath : IncludePathFilters)
+
+			//Check to see that this package is part of a valid gather path
+			const FFuzzyPathMatcher::EPathMatch PathMatch = FuzzyPathMatcher.TestPath(PackageFile);
+			switch (PathMatch)
 			{
+			case FFuzzyPathMatcher::Included:
+				break;
+
+			case FFuzzyPathMatcher::Excluded:
 				bExclude = true;
-				if( PackageFile.MatchesWildcard(IncludePath) )
-				{
-					bExclude = false;
-					break;
-				}
-			}
+				PackageFilesInExcludePath.Add(PackageFile);
+				break;
 
-			if ( bExclude )
-			{
+			case FFuzzyPathMatcher::NoMatch:
+				bExclude = true;
 				PackageFilesNotInIncludePath.Add(PackageFile);
-			}
+				break;
 
-			//Ensure it does not match the exclude paths if there are some.
-			for (const FString& ExcludePath : ExcludePathFilters)
-			{
-				if (PackageFile.MatchesWildcard(ExcludePath))
-				{
-					bExclude = true;
-					PackageFilesInExcludePath.Add(PackageFile);
-					break;
-				}
+			default:
+				break;
 			}
 
 			//Check that this is not on the list of packages that we don't care about e.g. textures.
@@ -448,7 +450,7 @@ int32 UGatherTextFromAssetsCommandlet::Main(const FString& Params)
 				MustLoadForGather = true;
 			}
 			// Package not resaved since gatherable text data was added to package headers must be loaded, since their package header won't contain pregathered text data.
-			else if (PackageFileSummary.GetFileVersionUE4() < VER_UE4_SERIALIZE_TEXT_IN_PACKAGES)
+			else if (PackageFileSummary.GetFileVersionUE4() < VER_UE4_SERIALIZE_TEXT_IN_PACKAGES || (!EditorVersion || EditorVersion->Version < FEditorObjectVersion::GatheredTextPackageCacheFixesV2))
 			{
 				// Fallback on the old package flag check.
 				if (PackageFileSummary.PackageFlags & PKG_RequiresLocalizationGather)
@@ -469,7 +471,13 @@ int32 UGatherTextFromAssetsCommandlet::Main(const FString& Params)
 					}
 				}
 			}
-				 
+			
+			// If this package doesn't have any cached data, then we have to load it for gather
+			if (PackageFileSummary.GetFileVersionUE4() >= VER_UE4_SERIALIZE_TEXT_IN_PACKAGES && PackageFileSummary.GatherableTextDataOffset == 0 && (PackageFileSummary.PackageFlags & PKG_RequiresLocalizationGather))
+			{
+				MustLoadForGather = true;
+			}
+
 			// Add package to list of packages to load fully and process.
 			if (MustLoadForGather)
 			{

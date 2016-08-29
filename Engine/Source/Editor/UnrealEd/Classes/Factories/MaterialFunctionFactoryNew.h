@@ -7,7 +7,7 @@
 #pragma once
 #include "MaterialFunctionFactoryNew.generated.h"
 
-UCLASS(hidecategories=Object, collapsecategories)
+UCLASS(MinimalAPI, hidecategories=Object, collapsecategories)
 class UMaterialFunctionFactoryNew : public UFactory
 {
 	GENERATED_UCLASS_BODY()

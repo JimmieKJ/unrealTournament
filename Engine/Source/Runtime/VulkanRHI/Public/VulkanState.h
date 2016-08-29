@@ -6,7 +6,7 @@
 
 #pragma once
 
-struct FVulkanDevice;
+class FVulkanDevice;
 
 class FVulkanSamplerState : public FRHISamplerState
 {
@@ -22,6 +22,14 @@ class FVulkanRasterizerState : public FRHIRasterizerState
 {
 public:
 	FVulkanRasterizerState(const FRasterizerStateInitializerRHI& Initializer);
+
+	static void ResetCreateInfo(VkPipelineRasterizationStateCreateInfo& OutInfo)
+	{
+		FMemory::Memzero(OutInfo);
+		OutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
+		OutInfo.frontFace = VK_FRONT_FACE_CLOCKWISE;
+		OutInfo.lineWidth = 1.0f;
+	}
 
 	VkPipelineRasterizationStateCreateInfo RasterizerState;
 };

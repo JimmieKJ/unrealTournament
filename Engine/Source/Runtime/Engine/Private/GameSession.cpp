@@ -6,7 +6,7 @@
 
 #include "EnginePrivate.h"
 #include "Net/UnrealNetwork.h"
-#include "OnlineSubsystemUtils.h"
+#include "Net/OnlineEngineInterface.h"
 #include "Kismet/GameplayStatics.h"
 #include "GameFramework/PlayerState.h"
 #include "GameFramework/GameSession.h"
@@ -57,8 +57,7 @@ void AGameSession::HandleMatchIsWaitingToStart()
 void AGameSession::HandleMatchHasStarted()
 {
 	UWorld* World = GetWorld();
-	IOnlineSessionPtr SessionInt = Online::GetSessionInterface(World);
-	if (SessionInt.IsValid() && SessionInt->GetNamedSession(SessionName) != nullptr)
+	if (UOnlineEngineInterface::Get()->DoesSessionExist(World, SessionName))
 	{
 		for (FConstPlayerControllerIterator Iterator = World->GetPlayerControllerIterator(); Iterator; ++Iterator)
 		{
@@ -69,8 +68,8 @@ void AGameSession::HandleMatchHasStarted()
 			}
 		}
 
-		StartSessionCompleteHandle = SessionInt->AddOnStartSessionCompleteDelegate_Handle(FOnStartSessionCompleteDelegate::CreateUObject(this, &AGameSession::OnStartSessionComplete));
-		SessionInt->StartSession(SessionName);
+		FOnlineSessionStartComplete CompletionDelegate = FOnlineSessionStartComplete::CreateUObject(this, &AGameSession::OnStartSessionComplete);
+		UOnlineEngineInterface::Get()->StartSession(World, SessionName, CompletionDelegate);
 	}
 
 	if (STATS && !UE_BUILD_SHIPPING)
@@ -86,12 +85,6 @@ void AGameSession::HandleMatchHasStarted()
 void AGameSession::OnStartSessionComplete(FName InSessionName, bool bWasSuccessful)
 {
 	UE_LOG(LogGameSession, Verbose, TEXT("OnStartSessionComplete %s bSuccess: %d"), *InSessionName.ToString(), bWasSuccessful);
-	UWorld* World = GetWorld();
-	IOnlineSessionPtr SessionInt = Online::GetSessionInterface(World);
-	if (SessionInt.IsValid())
-	{
-		SessionInt->ClearOnStartSessionCompleteDelegate_Handle(StartSessionCompleteHandle);
-	}
 }
 
 void AGameSession::HandleMatchHasEnded()
@@ -106,8 +99,7 @@ void AGameSession::HandleMatchHasEnded()
 	}
 
 	UWorld* World = GetWorld();
-	IOnlineSessionPtr SessionInt = Online::GetSessionInterface(World);
-	if (SessionInt.IsValid())
+	if (UOnlineEngineInterface::Get()->DoesSessionExist(World, SessionName))
 	{
 		for (FConstPlayerControllerIterator Iterator = World->GetPlayerControllerIterator(); Iterator; ++Iterator)
 		{
@@ -118,20 +110,14 @@ void AGameSession::HandleMatchHasEnded()
 			}
 		}
 
-		EndSessionCompleteHandle = SessionInt->AddOnEndSessionCompleteDelegate_Handle(FOnEndSessionCompleteDelegate::CreateUObject(this, &AGameSession::OnEndSessionComplete));
-		SessionInt->EndSession(SessionName);
+		FOnlineSessionStartComplete CompletionDelegate = FOnlineSessionEndComplete::CreateUObject(this, &AGameSession::OnEndSessionComplete);
+		UOnlineEngineInterface::Get()->EndSession(World, SessionName, CompletionDelegate);
 	}
 }
 
 void AGameSession::OnEndSessionComplete(FName InSessionName, bool bWasSuccessful)
 {
 	UE_LOG(LogGameSession, Verbose, TEXT("OnEndSessionComplete %s bSuccess: %d"), *InSessionName.ToString(), bWasSuccessful);
-	UWorld* World = GetWorld();
-	IOnlineSessionPtr SessionInt = Online::GetSessionInterface(World);
-	if (SessionInt.IsValid())
-	{
-		SessionInt->ClearOnEndSessionCompleteDelegate_Handle(EndSessionCompleteHandle);
-	}
 }
 
 bool AGameSession::HandleStartMatchRequest()
@@ -165,16 +151,11 @@ void AGameSession::InitOptions( const FString& Options )
 bool AGameSession::ProcessAutoLogin()
 {
 	UWorld* World = GetWorld();
-	IOnlineIdentityPtr IdentityInt = Online::GetIdentityInterface(World);
-	if (IdentityInt.IsValid())
-	{
-		OnLoginCompleteDelegateHandle = IdentityInt->AddOnLoginCompleteDelegate_Handle(0, FOnLoginCompleteDelegate::CreateUObject(this, &AGameSession::OnLoginComplete));
-		if (!IdentityInt->AutoLogin(0))
-		{
-			// Not waiting for async login
-			return false;
-		}
 
+	FOnlineAutoLoginComplete CompletionDelegate = FOnlineAutoLoginComplete::CreateUObject(this, &ThisClass::OnAutoLoginComplete);
+	if (UOnlineEngineInterface::Get()->AutoLogin(World, 0, CompletionDelegate))
+	{
+		// Async login started
 		return true;
 	}
 
@@ -182,21 +163,16 @@ bool AGameSession::ProcessAutoLogin()
 	return false;
 }
 
-void AGameSession::OnLoginComplete(int32 LocalUserNum, bool bWasSuccessful, const FUniqueNetId& UserId, const FString& Error)
+void AGameSession::OnAutoLoginComplete(int32 LocalUserNum, bool bWasSuccessful, const FString& Error)
 {
 	UWorld* World = GetWorld();
-	IOnlineIdentityPtr IdentityInt = Online::GetIdentityInterface(World);
-	if (IdentityInt.IsValid())
+	if (UOnlineEngineInterface::Get()->IsLoggedIn(World, LocalUserNum))
 	{
-		IdentityInt->ClearOnLoginCompleteDelegate_Handle(0, OnLoginCompleteDelegateHandle);
-		if (IdentityInt->GetLoginStatus(0) == ELoginStatus::LoggedIn)
-		{
-			RegisterServer();
-		}
-		else
-		{
-			RegisterServerFailed();
-		}
+		RegisterServer();
+	}
+	else
+	{
+		RegisterServerFailed();
 	}
 }
 
@@ -263,16 +239,12 @@ void AGameSession::RegisterPlayer(APlayerController* NewPlayer, const TSharedPtr
 void AGameSession::UnregisterPlayer(FName InSessionName, const FUniqueNetIdRepl& UniqueId)
 {
 	UWorld* World = GetWorld();
-	IOnlineSessionPtr SessionInt = Online::GetSessionInterface(World);
-	if (SessionInt.IsValid())
+	if (GetNetMode() != NM_Standalone &&
+		UniqueId.IsValid() &&
+		UniqueId->IsValid())
 	{
-		if (GetNetMode() != NM_Standalone &&
-			UniqueId.IsValid() &&
-			UniqueId->IsValid())
-		{
-			// Remove the player from the session
-			SessionInt->UnregisterPlayer(InSessionName, *UniqueId);
-		}
+		// Remove the player from the session
+		UOnlineEngineInterface::Get()->UnregisterPlayer(World, InSessionName, *UniqueId);
 	}
 }
 
@@ -387,24 +359,20 @@ void AGameSession::ReturnToMainMenuHost()
 bool AGameSession::TravelToSession(int32 ControllerId, FName InSessionName)
 {
 	UWorld* World = GetWorld();
-	IOnlineSubsystem* OnlineSub = Online::GetSubsystem(World);
-	if (OnlineSub)
+
+	FString URL;
+	if (UOnlineEngineInterface::Get()->GetResolvedConnectString(World, InSessionName, URL))
 	{
-		FString URL;
-		IOnlineSessionPtr SessionInt = OnlineSub->GetSessionInterface();
-		if (SessionInt.IsValid() && SessionInt->GetResolvedConnectString(InSessionName, URL))
+		APlayerController* PC = UGameplayStatics::GetPlayerController(World, ControllerId);
+		if (PC)
 		{
-			APlayerController* PC = UGameplayStatics::GetPlayerController(World, ControllerId);
-			if (PC)
-			{
-				PC->ClientTravel(URL, TRAVEL_Absolute);
-				return true;
-			}
+			PC->ClientTravel(URL, TRAVEL_Absolute);
+			return true;
 		}
-		else
-		{
-			UE_LOG(LogGameSession, Warning, TEXT("Failed to resolve session connect string for %s"), *InSessionName.ToString());
-		}
+	}
+	else
+	{
+		UE_LOG(LogGameSession, Warning, TEXT("Failed to resolve session connect string for %s"), *InSessionName.ToString());
 	}
 
 	return false;
@@ -419,11 +387,7 @@ void AGameSession::DumpSessionState()
 	UE_LOG(LogGameSession, Log, TEXT("  MaxPlayers: %i"), MaxPlayers);
 	UE_LOG(LogGameSession, Log, TEXT("  MaxSpectators: %i"), MaxSpectators);
 
-	IOnlineSessionPtr SessionInt = Online::GetSessionInterface(GetWorld());
-	if (SessionInt.IsValid())
-	{
-		SessionInt->DumpSessionState();
-	}
+	UOnlineEngineInterface::Get()->DumpSessionState(GetWorld());
 }
 
 bool AGameSession::CanRestartGame()
@@ -436,46 +400,15 @@ bool AGameSession::GetSessionJoinability(FName InSessionName, FJoinabilitySettin
 	UWorld* const World = GetWorld();
 	check(World);
 
-	bool bValidData = false;
-
-	IOnlineSessionPtr SessionInt = Online::GetSessionInterface(World);
-	if (SessionInt.IsValid())
-	{
-		FOnlineSessionSettings* SessionSettings = SessionInt->GetSessionSettings(InSessionName);
-		if (SessionSettings)
-		{
-			OutSettings.SessionName = InSessionName;
-			OutSettings.bPublicSearchable = SessionSettings->bShouldAdvertise;
-			OutSettings.bAllowInvites = SessionSettings->bAllowInvites;
-			OutSettings.bJoinViaPresence = SessionSettings->bAllowJoinViaPresence;
-			OutSettings.bJoinViaPresenceFriendsOnly = SessionSettings->bAllowJoinViaPresenceFriendsOnly;
-
-			OutSettings.MaxPlayers = MaxPlayers;
-			OutSettings.MaxPartySize = MaxPartySize;
-
-			bValidData = true;
-		}
-	}
-
-	return bValidData;
+	OutSettings.MaxPlayers = MaxPlayers;
+	OutSettings.MaxPartySize = MaxPartySize;
+	return UOnlineEngineInterface::Get()->GetSessionJoinability(World, InSessionName, OutSettings);
 }
 
 void AGameSession::UpdateSessionJoinability(FName InSessionName, bool bPublicSearchable, bool bAllowInvites, bool bJoinViaPresence, bool bJoinViaPresenceFriendsOnly)
 {
 	if (GetNetMode() != NM_Standalone)
 	{
-		IOnlineSessionPtr SessionInt = Online::GetSessionInterface(GetWorld());
-		if (SessionInt.IsValid())
-		{
-			FOnlineSessionSettings* GameSettings = SessionInt->GetSessionSettings(InSessionName);
-			if (GameSettings != NULL)
-			{
-				GameSettings->bShouldAdvertise = bPublicSearchable;
-				GameSettings->bAllowInvites = bAllowInvites;
-				GameSettings->bAllowJoinViaPresence = bJoinViaPresence && !bJoinViaPresenceFriendsOnly;
-				GameSettings->bAllowJoinViaPresenceFriendsOnly = bJoinViaPresenceFriendsOnly;
-				SessionInt->UpdateSession(InSessionName, *GameSettings, true);
-			}
-		}
+		UOnlineEngineInterface::Get()->UpdateSessionJoinability(GetWorld(), InSessionName, bPublicSearchable, bAllowInvites, bJoinViaPresence, bJoinViaPresenceFriendsOnly);
 	}
 }

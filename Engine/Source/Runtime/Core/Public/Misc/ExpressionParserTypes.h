@@ -237,6 +237,27 @@ struct FCompiledToken : FExpressionToken
 	EType Type;
 };
 
+/** Struct used to identify a function for a specific operator overload */
+struct FOperatorFunctionID
+{
+	FGuid OperatorType;
+	FGuid LeftOperandType;
+	FGuid RightOperandType;
+
+	friend bool operator==(const FOperatorFunctionID& A, const FOperatorFunctionID& B)
+	{
+		return A.OperatorType == B.OperatorType &&
+			A.LeftOperandType == B.LeftOperandType &&
+			A.RightOperandType == B.RightOperandType;
+	}
+
+	friend uint32 GetTypeHash(const FOperatorFunctionID& In)
+	{
+		const uint32 Hash = HashCombine(GetTypeHash(In.OperatorType), GetTypeHash(In.LeftOperandType));
+		return HashCombine(GetTypeHash(In.RightOperandType), Hash);
+	}
+};
+
 /** Jump table specifying how to execute an operator with different types */
 template<typename ContextType=void>
 struct TOperatorJumpTable
@@ -319,27 +340,6 @@ public:
 
 private:
 
-	/** Struct used to identify a function for a specific operator overload */
-	struct FOperatorFunctionID
-	{
-		FGuid OperatorType;
-		FGuid LeftOperandType;
-		FGuid RightOperandType;
-
-		friend bool operator==(const FOperatorFunctionID& A, const FOperatorFunctionID& B)
-		{
-			return A.OperatorType == B.OperatorType &&
-				A.LeftOperandType == B.LeftOperandType &&
-				A.RightOperandType == B.RightOperandType;
-		}
-
-		friend uint32 GetTypeHash(const FOperatorFunctionID& In)
-		{
-			const uint32 Hash = HashCombine(GetTypeHash(In.OperatorType), GetTypeHash(In.LeftOperandType));
-			return HashCombine(GetTypeHash(In.RightOperandType), Hash);
-		}
-	};
-
 	/** Maps of unary/binary operators */
 	TMap<FOperatorFunctionID, FUnaryFunction> PreUnaryOps;
 	TMap<FOperatorFunctionID, FUnaryFunction> PostUnaryOps;
@@ -400,7 +400,7 @@ public:
 	/** Add an expression node to the consumer, specifying the FStringToken this node relates to.
 	 *	Adding a node to the consumer will move its stream read position to the end of the added token.
 	 */
-	void Add(const FStringToken& SourceToken, FExpressionNode Node);
+	void Add(const FStringToken& SourceToken, FExpressionNode&& Node);
 
 	/** Get the expression stream */
 	FTokenStream& GetStream() { return Stream; }

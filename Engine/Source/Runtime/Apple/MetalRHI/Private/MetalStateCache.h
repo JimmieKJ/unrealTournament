@@ -54,20 +54,22 @@ public:
 	FMetalComputeShader* GetComputeShader() const { return ComputeShader; }
 	CGSize GetFrameBufferSize() const { return FrameBufferSize; }
 	FRHISetRenderTargetsInfo const& GetRenderTargetsInfo() const { return RenderTargetsInfo; }
-	int32 GetNumRenderTargets() { return bHasValidRenderTarget ? RenderTargetsInfo.NumColorRenderTargets : -1; }
+	int32 GetNumRenderTargets() { return bHasValidColorTarget ? RenderTargetsInfo.NumColorRenderTargets : -1; }
 	bool GetHasValidRenderTarget() const { return bHasValidRenderTarget; }
+	bool GetHasValidColorTarget() const { return bHasValidColorTarget; }
 	const MTLViewport& GetViewport() const { return Viewport; }
 	id<MTLBuffer> GetVertexBuffer(uint32 const Index) { check(Index < MaxMetalStreams); return VertexBuffers[Index]; }
 	uint32 GetVertexStride(uint32 const Index) { check(Index < MaxMetalStreams); return VertexStrides[Index]; }
 	uint32 GetRenderTargetArraySize() const { return RenderTargetArraySize; }
-	TArray<TRefCountPtr<FRHIUniformBuffer>> GetBoundUniformBuffers(EShaderFrequency const Freq) const { return BoundUniformBuffers[Freq]; }
+	TArray<TRefCountPtr<FRHIUniformBuffer>>& GetBoundUniformBuffers(EShaderFrequency const Freq) { return BoundUniformBuffers[Freq]; }
 	uint32 GetDirtyUniformBuffers(EShaderFrequency const Freq) const { return DirtyUniformBuffers[Freq]; }
 	id<MTLBuffer> GetVisibilityResultsBuffer() const { return VisibilityResults; }
 	bool GetScissorRectEnabled() const { return bScissorRectEnabled; }
-
+	bool NeedsToSetRenderTarget(const FRHISetRenderTargetsInfo& RenderTargetsInfo) const;
+	bool HasValidDepthStencilSurface() const { return IsValidRef(DepthStencilSurface); }
+	
 private:
 	void ConditionalUpdateBackBuffer(FMetalSurface& Surface);
-	bool NeedsToSetRenderTarget(const FRHISetRenderTargetsInfo& RenderTargetsInfo) const;
 	
 private:
 	FMetalCommandEncoder& CommandEncoder;
@@ -101,7 +103,8 @@ private:
 	MTLScissorRect Scissor;
 	
 	FRHISetRenderTargetsInfo RenderTargetsInfo;
+	FTextureRHIRef DepthStencilSurface;
 	bool bHasValidRenderTarget;
-	
+	bool bHasValidColorTarget;
 	bool bScissorRectEnabled;
 };

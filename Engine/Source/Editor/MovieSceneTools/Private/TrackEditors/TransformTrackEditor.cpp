@@ -15,9 +15,10 @@
 #include "TransformTrackEditor.h"
 #include "MatineeImportTools.h"
 #include "Matinee/InterpTrackMove.h"
+#include "Matinee/InterpTrackMoveAxis.h"
 #include "FloatCurveKeyArea.h"
 #include "ContentBrowserModule.h"
-
+#include "Animation/AnimSequence.h"
 
 #define LOCTEXT_NAMESPACE "MovieScene_TransformTrack"
 
@@ -239,6 +240,44 @@ bool F3DTransformTrackEditor::SupportsType( TSubclassOf<UMovieSceneTrack> Type )
 }
 
 
+void CopyInterpMoveTrack(TSharedRef<ISequencer> Sequencer, UInterpTrackMove* MoveTrack, UMovieScene3DTransformTrack* TransformTrack)
+{
+	if (FMatineeImportTools::CopyInterpMoveTrack(MoveTrack, TransformTrack))
+	{
+		Sequencer.Get().NotifyMovieSceneDataChanged( EMovieSceneDataChangeType::MovieSceneStructureItemAdded );
+	}
+}
+
+
+bool CanCopyInterpMoveTrack(UInterpTrackMove* MoveTrack, UMovieScene3DTransformTrack* TransformTrack)
+{
+	if (!MoveTrack || !TransformTrack)
+	{
+		return false;
+	}
+
+	bool bHasKeyframes = MoveTrack->GetNumKeyframes() != 0;
+
+	for (auto SubTrack : MoveTrack->SubTracks)
+	{
+		if (SubTrack->IsA(UInterpTrackMoveAxis::StaticClass()))
+		{
+			UInterpTrackMoveAxis* MoveSubTrack = Cast<UInterpTrackMoveAxis>(SubTrack);
+			if (MoveSubTrack)
+			{
+				if (MoveSubTrack->FloatTrack.Points.Num() > 0)
+				{
+					bHasKeyframes = true;
+					break;
+				}
+			}
+		}
+	}
+		
+	return bHasKeyframes;
+}
+
+
 void F3DTransformTrackEditor::BuildTrackContextMenu( FMenuBuilder& MenuBuilder, UMovieSceneTrack* Track )
 {
 	UInterpTrackMove* MoveTrack = nullptr;
@@ -252,12 +291,14 @@ void F3DTransformTrackEditor::BuildTrackContextMenu( FMenuBuilder& MenuBuilder, 
 	}
 	UMovieScene3DTransformTrack* TransformTrack = Cast<UMovieScene3DTransformTrack>( Track );
 	MenuBuilder.AddMenuEntry(
-		NSLOCTEXT( "Sequencer", "PasteMatineeTrack", "Paste Matinee Move Track" ),
-		NSLOCTEXT( "Sequencer", "PasteMatineeTrackTooltip", "Pastes keys from a Matinee move track into this track." ),
+		NSLOCTEXT( "Sequencer", "PasteMatineeMoveTrack", "Paste Matinee Move Track" ),
+		NSLOCTEXT( "Sequencer", "PasteMatineeMoveTrackTooltip", "Pastes keys from a Matinee move track into this track." ),
 		FSlateIcon(),
 		FUIAction(
-			FExecuteAction::CreateStatic( &FMatineeImportTools::CopyInterpMoveTrack, GetSequencer().ToSharedRef(), MoveTrack, TransformTrack ),
-			FCanExecuteAction::CreateLambda( [=]()->bool { return MoveTrack != nullptr && MoveTrack->GetNumKeys() > 0 && TransformTrack != nullptr; } ) ) );
+			FExecuteAction::CreateStatic( &CopyInterpMoveTrack, GetSequencer().ToSharedRef(), MoveTrack, TransformTrack ),
+			FCanExecuteAction::CreateStatic( &CanCopyInterpMoveTrack, MoveTrack, TransformTrack ) ) );
+
+	//		FCanExecuteAction::CreateLambda( [=]()->bool { return MoveTrack != nullptr && MoveTrack->GetNumKeys() > 0 && TransformTrack != nullptr; } ) ) );
 
 	auto AnimSubMenuDelegate = [](FMenuBuilder& InMenuBuilder, TSharedRef<ISequencer> InSequencer, UMovieScene3DTransformTrack* InTransformTrack)
 	{
@@ -827,7 +868,7 @@ void F3DTransformTrackEditor::ImportAnimSequenceTransforms(const FAssetData& Ass
 				const UClass* ObjectClass = nullptr;
 				if(FMovieSceneSpawnable* Spawnable = MovieScene->FindSpawnable(ObjectBinding))
 				{
-					ObjectClass = Spawnable->GetClass();
+					ObjectClass = Spawnable->GetObjectTemplate()->GetClass();
 				}
 				else if(FMovieScenePossessable* Possessable = MovieScene->FindPossessable(ObjectBinding))
 				{
@@ -953,7 +994,7 @@ void F3DTransformTrackEditor::ImportAnimSequenceTransforms(const FAssetData& Ass
 				Section->AddKey(TempKey.Time, FTransformKey(EKey3DTransformChannel::Scale, EAxis::Z, Scale.Z, bUnwindRotation), EMovieSceneKeyInterpolation::Linear);
 			}
 
-			Sequencer->NotifyMovieSceneDataChanged();
+			Sequencer->NotifyMovieSceneDataChanged( EMovieSceneDataChangeType::MovieSceneStructureItemAdded );
 		}
 	}
 }

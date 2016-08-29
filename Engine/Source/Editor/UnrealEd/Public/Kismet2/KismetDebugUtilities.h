@@ -40,10 +40,8 @@ public:
 	/** Advances iterator to the next element in the container. */
 	FObjectsBeingDebuggedIterator& operator++();
 
-	SAFE_BOOL_OPERATORS(FObjectsBeingDebuggedIterator)
-
 	/** conversion to "bool" returning true if the iterator has not reached the last element. */
-	FORCEINLINE_EXPLICIT_OPERATOR_BOOL() const
+	FORCEINLINE explicit operator bool() const
 	{ 
 		return IsValid(); 
 	}
@@ -82,10 +80,8 @@ public:
 	/** Advances iterator to the next element in the container. */
 	FBlueprintObjectsBeingDebuggedIterator& operator++();
 
-	SAFE_BOOL_OPERATORS(FBlueprintObjectsBeingDebuggedIterator)
-
 	/** conversion to "bool" returning true if the iterator has not reached the last element. */
-	FORCEINLINE_EXPLICIT_OPERATOR_BOOL() const
+	FORCEINLINE explicit operator bool() const
 	{ 
 		return IsValid(); 
 	}

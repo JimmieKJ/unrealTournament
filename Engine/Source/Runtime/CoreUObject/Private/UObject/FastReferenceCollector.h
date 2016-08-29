@@ -218,7 +218,7 @@ private:
 						ObjectClass->AssembleReferenceTokenStream();
 					}
 				}
-				checkSlow(CurrentObject->GetClass()->HasAnyClassFlags(CLASS_TokenStreamAssembled));
+				check(CurrentObject->GetClass()->HasAnyClassFlags(CLASS_TokenStreamAssembled));
 
 				// Get pointer to token stream and jump to the start.
 				FGCReferenceTokenStream* RESTRICT TokenStream = &CurrentObject->GetClass()->ReferenceTokenStream;
@@ -358,6 +358,14 @@ private:
 						TokenReturnCount = ReferenceInfo.ReturnCount;
 						FSimpleObjectReferenceCollectorArchive CollectorArchive(CurrentObject, ReferenceCollector);
 						MapProperty->SerializeItem(CollectorArchive, Map, nullptr);
+					}
+					else if (ReferenceInfo.Type == GCRT_AddTSetReferencedObjects)
+					{
+						void*         Set = StackEntryData + ReferenceInfo.Offset;
+						USetProperty* SetProperty = (USetProperty*)TokenStream->ReadPointer(TokenStreamIndex);
+						TokenReturnCount = ReferenceInfo.ReturnCount;
+						FSimpleObjectReferenceCollectorArchive CollectorArchive(CurrentObject, ReferenceCollector);
+						SetProperty->SerializeItem(CollectorArchive, Set, nullptr);
 					}
 					else if (ReferenceInfo.Type == GCRT_EndOfPointer)
 					{

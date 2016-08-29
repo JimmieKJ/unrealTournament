@@ -83,14 +83,11 @@ struct TTraversalHistory
 		}
 	}
 
-	TTraversalHistory AddNode(KDOP_IDX_TYPE NewNodeIndex)
+	TTraversalHistory AddNode(KDOP_IDX_TYPE NewNodeIndex) const
 	{
 		TTraversalHistory NewHistory;
-		for (int32 NodeIndex = NodeHistoryLength - 1; NodeIndex > 0; NodeIndex--)
-		{
-			// Move all the indices toward the end of the array one element
-			NewHistory.Nodes[NodeIndex] = Nodes[NodeIndex - 1];
-		}
+		// Move all the indices toward the end of the array one element
+		CopyAssignItems(NewHistory.Nodes + 1, Nodes, NodeHistoryLength - 1);
 		// Insert the new node at the beginning of the array
 		NewHistory.Nodes[0] = NewNodeIndex;
 		return NewHistory;

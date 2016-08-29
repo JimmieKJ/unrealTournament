@@ -8,8 +8,9 @@ public class NiagaraEditor : ModuleRules
 	{
 		PrivateDependencyModuleNames.AddRange(
 			new string[] {
-				"Engine", 
-				"Core", 
+				"Engine",
+                "RHI",
+                "Core", 
 				"CoreUObject", 
                 "InputCore",
 				"RenderCore",
@@ -31,7 +32,8 @@ public class NiagaraEditor : ModuleRules
             new string[] {
 				"Engine",
                 "Niagara",
-				"PropertyEditor",
+                "UnrealEd",
+                "PropertyEditor",
             }
         );
 

@@ -291,7 +291,7 @@ void FStaticMeshLightingInfoStatsPage::SwapMappingMethodOnSelectedComponents(TWe
 		{
 			const FScopedTransaction Transaction( LOCTEXT("StaticMeshLightingInfoSwap", "DlgStaticMeshLightingInfo:Swap") );
 
-			bool bRefresh = false;
+			bool bNeedsRefresh = false;
 			for (int32 CompIdx = 0; CompIdx < SelectedObjects.Num(); CompIdx++)
 			{
 				UStaticMeshLightingInfo* Entry = SelectedObjects[CompIdx];
@@ -307,10 +307,10 @@ void FStaticMeshLightingInfoStatsPage::SwapMappingMethodOnSelectedComponents(TWe
 					Entry->StaticMeshComponent->ReregisterComponent();
 				}
 
-				bRefresh = true;
+				bNeedsRefresh = true;
 			}
 
-			if (bRefresh)
+			if (bNeedsRefresh)
 			{
 				InParentStatsViewer.Pin()->Refresh();
 			}
@@ -375,7 +375,7 @@ void FStaticMeshLightingInfoStatsPage::SetMappingMethodOnSelectedComponents(TWea
 		{
 			const FScopedTransaction Transaction( LOCTEXT("StaticMeshLightingInfoSet", "DlgStaticMeshLightingInfo:Set") );
 
-			bool bRefresh = false;
+			bool bNeedsRefresh = false;
 			for (int32 CompIdx = 0; CompIdx < SelectedObjects.Num(); CompIdx++)
 			{
 				UStaticMeshLightingInfo* Entry = SelectedObjects[CompIdx];
@@ -391,10 +391,10 @@ void FStaticMeshLightingInfoStatsPage::SetMappingMethodOnSelectedComponents(TWea
 					Entry->StaticMeshComponent->ReregisterComponent();
 				}
 			
-				bRefresh = true;
+				bNeedsRefresh = true;
 			}
 
-			if (bRefresh)
+			if (bNeedsRefresh)
 			{
 				InParentStatsViewer.Pin()->Refresh();
 			}
@@ -512,8 +512,8 @@ void FStaticMeshLightingInfoStatsPage::OnEditorNewCurrentLevel( TWeakPtr<IStatsV
 {
 	if(InParentStatsViewer.IsValid())
 	{
-		int32 ObjectSetIndex = InParentStatsViewer.Pin()->GetObjectSetIndex();
-		if( ObjectSetIndex == StaticMeshLightingInfoObjectSets_CurrentLevel )
+		const int32 ObjSetIndex = InParentStatsViewer.Pin()->GetObjectSetIndex();
+		if( ObjSetIndex == StaticMeshLightingInfoObjectSets_CurrentLevel )
 		{
 			InParentStatsViewer.Pin()->Refresh();
 		}
@@ -524,8 +524,8 @@ void FStaticMeshLightingInfoStatsPage::OnEditorLevelSelected( TWeakPtr<IStatsVie
 {
 	if(InParentStatsViewer.IsValid())
 	{
-		int32 ObjectSetIndex = InParentStatsViewer.Pin()->GetObjectSetIndex();
-		if( ObjectSetIndex == StaticMeshLightingInfoObjectSets_SelectedLevels )
+		const int32 ObjSetIndex = InParentStatsViewer.Pin()->GetObjectSetIndex();
+		if( ObjSetIndex == StaticMeshLightingInfoObjectSets_SelectedLevels )
 		{
 			InParentStatsViewer.Pin()->Refresh();
 		}

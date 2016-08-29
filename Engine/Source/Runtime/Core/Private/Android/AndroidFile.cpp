@@ -320,7 +320,7 @@ public:
 };
 
 
-class FManifestReader
+class FAndroidFileManifestReader
 {
 private:
 	bool bInitialized;
@@ -328,7 +328,7 @@ private:
 	TMap<FString, FDateTime> ManifestEntries;
 public:
 
-	FManifestReader( const FString& InManifestFileName ) : ManifestFileName(InManifestFileName), bInitialized(false)
+	FAndroidFileManifestReader( const FString& InManifestFileName ) : ManifestFileName(InManifestFileName), bInitialized(false)
 	{
 	}
 
@@ -491,8 +491,8 @@ public:
 	}
 };
 
-FManifestReader NonUFSManifest(TEXT("Manifest_NonUFSFiles_Android.txt"));
-FManifestReader UFSManifest(TEXT("Manifest_UFSFiles_Android.txt"));
+FAndroidFileManifestReader NonUFSManifest(TEXT("Manifest_NonUFSFiles_Android.txt"));
+FAndroidFileManifestReader UFSManifest(TEXT("Manifest_UFSFiles_Android.txt"));
 
 /*
 	Access to files in multiple ZIP archives.

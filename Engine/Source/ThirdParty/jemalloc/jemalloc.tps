@@ -1,9 +1,9 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <TpsData xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
   <Name>jemalloc</Name>
-  <Location>//depot/UE4/Engine/Source/ThirdParty/jemalloc/</Location>
-  <Date>2015-09-04T19:04:23.4988433-04:00</Date>
-  <Function>Memory allocator</Function>
+  <Location>/Engine/Source/ThirdParty/jemalloc/</Location>
+  <Date>2016-06-10T12:37:06.1134138-04:00</Date>
+  <Function>memory allocator. one of options for memory allocators. statically linked library. </Function>
   <Justification />
   <Platforms>
     <Platform>PC</Platform>
@@ -13,9 +13,13 @@
     <Product>UDK4</Product>
     <Product>UE4</Product>
   </Products>
-  <TpsType />
+  <TpsType>lib</TpsType>
   <Eula>http://www.canonware.com/jemalloc/license.html</Eula>
-  <RedistributeTo />
+  <RedistributeTo>
+    <EndUserGroup>Licensees</EndUserGroup>
+    <EndUserGroup>Git</EndUserGroup>
+    <EndUserGroup>P4</EndUserGroup>
+  </RedistributeTo>
   <Redistribute>false</Redistribute>
   <IsSourceAvailable>false</IsSourceAvailable>
   <NoticeType>Full EULA Text</NoticeType>
@@ -47,5 +51,5 @@ PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
 LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
 OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
 ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.</Notification>
-  <LicenseFolder />
+  <LicenseFolder>/Engine/Source/ThirdParty/Licenses/JEMALLOC_License.txt</LicenseFolder>
 </TpsData>

@@ -38,63 +38,72 @@ void FMainMRUFavoritesList::WriteToINI() const
 }
 
 /**
- * Add a new file item to the favorites list
+ * Add a new item to the favorites list
  *
- * @param	Item	Filename of the item to add to the favorites list
+ * @param	Item	Package name of the item to add to the favorites list
  */
 void FMainMRUFavoritesList::AddFavoritesItem( const FString& Item )
 {
-	// Only add the item if it isn't already a favorite!
-	const FString CleanedName = FPaths::ConvertRelativePathToFull(Item);
-	if ( !FavoriteItems.Contains( CleanedName ) )
+	if (ensureMsgf(FPackageName::IsValidLongPackageName(Item), TEXT("Item is not a valid long package name: '%s'"), *Item))
 	{
-		FavoriteItems.Insert( CleanedName, 0 );
-		WriteToINI();
+		// Only add the item if it isn't already a favorite!
+		if ( !FavoriteItems.Contains( Item ) )
+		{
+			FavoriteItems.Insert( Item, 0 );
+			WriteToINI();
+		}
 	}
 }
 
 /**
- * Remove a file from the favorites list
+ * Remove an item from the favorites list
  *
- * @param	Item	Filename of the item to remove from the favorites list
+ * @param	Item	Package name of the item to remove from the favorites list
  */
 void FMainMRUFavoritesList::RemoveFavoritesItem( const FString& Item )
 {
-	const FString CleanedName = FPaths::ConvertRelativePathToFull(Item);
-	const int32 ItemIndex = FavoriteItems.Find( CleanedName );
-	if ( ItemIndex != INDEX_NONE )
+	if (ensureMsgf(FPackageName::IsValidLongPackageName(Item), TEXT("Item is not a valid long package name: '%s'"), *Item))
 	{
-		FavoriteItems.RemoveAt( ItemIndex );
-		WriteToINI();
+		const int32 ItemIndex = FavoriteItems.Find( Item );
+		if ( ItemIndex != INDEX_NONE )
+		{
+			FavoriteItems.RemoveAt( ItemIndex );
+			WriteToINI();
+		}
 	}
 }
 
 /**
  * Moves the specified favorites item to the head of the list
  *
- * @param	Item	Filename of the item to move
+ * @param	Item	Package name of the item to move
  */
 void FMainMRUFavoritesList::MoveFavoritesItemToHead(const FString& Item)
 {
-	const FString CleanedName = FPaths::ConvertRelativePathToFull(Item);
-	if ( FavoriteItems.RemoveSingle(Item) == 1 )
+	if (ensureMsgf(FPackageName::IsValidLongPackageName(Item), TEXT("Item is not a valid long package name: '%s'"), *Item))
 	{
-		FavoriteItems.Insert( CleanedName, 0 );
-		WriteToINI();
+		if ( FavoriteItems.RemoveSingle(Item) == 1 )
+		{
+			FavoriteItems.Insert( Item, 0 );
+			WriteToINI();
+		}
 	}
 }
 
 /**
- * Returns whether a filename is favorited or not
+ * Returns whether a package name is favorited or not
  *
- * @param	Item	Filename of the item to check
+ * @param	Item	Package name of the item to check
  *
  * @return	true if the provided item is in the favorite's list; false if it is not
  */
 bool FMainMRUFavoritesList::ContainsFavoritesItem( const FString& Item )
 {
-	const FString CleanedName = FPaths::ConvertRelativePathToFull(Item);
-	return FavoriteItems.Contains( CleanedName );
+	if (ensureMsgf(FPackageName::IsValidLongPackageName(Item), TEXT("Item is not a valid long package name: '%s'"), *Item))
+	{
+		return FavoriteItems.Contains( Item );
+	}
+	return false;
 }
 
 /**
@@ -121,19 +130,21 @@ FString FMainMRUFavoritesList::GetFavoritesItem( int32 ItemIndex ) const
 bool FMainMRUFavoritesList::VerifyFavoritesFile( int32 ItemIndex )
 {
 	check( FavoriteItems.IsValidIndex( ItemIndex ) );
-	const FString& CurFileName = FavoriteItems[ ItemIndex ];
+	const FString& CurPackageName = FavoriteItems[ ItemIndex ];
 
-	const bool bFileExists = IFileManager::Get().FileSize( *CurFileName ) != INDEX_NONE;
-	
+	FString CurFileName;
+	bool bSuccess = FPackageName::TryConvertLongPackageNameToFilename(CurPackageName, CurFileName, FPackageName::GetMapPackageExtension());
+
 	// If the file doesn't exist any more, remove it from the favorites list and alert the user
-	if ( !bFileExists )
+	if ( !bSuccess || IFileManager::Get().FileSize(*CurFileName) == INDEX_NONE )
 	{
-		FNotificationInfo Info(FText::Format(NSLOCTEXT("UnrealEd", "Error_FavoritesFileDoesNotExist", "Map '{0}' does not exist - it will be removed from the Favorites list."), FText::FromString(FPaths::GetCleanFilename(CurFileName))));
+		FNotificationInfo Info(FText::Format(NSLOCTEXT("UnrealEd", "Error_FavoritesFileDoesNotExist", "Map '{0}' does not exist - it will be removed from the Favorites list."), FText::FromString(CurPackageName)));
 		Info.bUseThrobber = false;
 		Info.ExpireDuration = 8.0f;
 		FSlateNotificationManager::Get().AddNotification(Info)->SetCompletionState(SNotificationItem::CS_Fail);
-		RemoveFavoritesItem( CurFileName );
+		RemoveFavoritesItem(CurPackageName);
+		return false;
 	}
 
-	return bFileExists;
+	return true;
 }

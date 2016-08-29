@@ -92,6 +92,10 @@ struct ENGINE_API FNavigationPath : public TSharedFromThis<FNavigationPath, ESPM
 	{
 		return bWaitingForRepath;
 	}
+	FORCEINLINE void SetManualRepathWaiting(const bool bInWaitingForRepath)
+	{
+		bWaitingForRepath = bInWaitingForRepath;
+	}
 	FORCEINLINE bool ShouldUpdateStartPointOnRepath() const
 	{
 		return bUpdateStartPointOnRepath;
@@ -181,9 +185,23 @@ struct ENGINE_API FNavigationPath : public TSharedFromThis<FNavigationPath, ESPM
 
 	FORCEINLINE void DoneUpdating(ENavPathUpdateType::Type UpdateType)
 	{
+		static const ENavPathEvent::Type PathUpdateTypeToPathEvent[] = {
+			ENavPathEvent::UpdatedDueToGoalMoved // GoalMoved,
+			, ENavPathEvent::UpdatedDueToNavigationChanged // NavigationChanged,
+			, ENavPathEvent::MetaPathUpdate // MetaPathUpdate,
+			, ENavPathEvent::Custom // Custom,
+		};
+
 		bUpToDate = true;
 		bWaitingForRepath = false;
-		ObserverDelegate.Broadcast(this, UpdateType == ENavPathUpdateType::GoalMoved ? ENavPathEvent::UpdatedDueToGoalMoved : ENavPathEvent::UpdatedDueToNavigationChanged);
+
+		if (bUseOnPathUpdatedNotify)
+		{
+			// notify path before observers
+			OnPathUpdated(UpdateType);
+		}
+		
+		ObserverDelegate.Broadcast(this, PathUpdateTypeToPathEvent[uint8(UpdateType)]);
 	}
 
 	FORCEINLINE float GetTimeStamp() const { return LastUpdateTimeStamp; }
@@ -298,10 +316,14 @@ public:
 	/** set's up the path to use SourceActor's location in case of recalculation */
 	void SetSourceActor(const AActor& InSourceActor);
 
+	const AActor* GetSourceActor() const { return SourceActor.Get(); }
+	const INavAgentInterface* GetSourceActorAsNavAgent() const { return SourceActorAsNavAgent; }
+
 	FVector GetLastRepathGoalLocation() const { return GoalActorLastLocation; }
 	void UpdateLastRepathGoalLocation();
 	
 	float GetLastUpdateTime() const { return LastUpdateTimeStamp; }
+	float GetGoalActorTetherDistance() const { return FMath::Sqrt(GoalActorLocationTetherDistanceSq); }
 
 	/** if enabled path will request recalculation if it gets invalidated due to a change to underlying navigation */
 	void EnableRecalculationOnInvalidation(bool bShouldAutoUpdate)
@@ -312,6 +334,10 @@ public:
 	{
 		return bDoAutoUpdateOnInvalidation;
 	}
+
+	/** if ignoring, path will stay bUpToDate after being invalidated due to a change to underlying navigation (observer and auto repath will NOT be triggered!) */
+	void SetIgnoreInvalidation(bool bShouldIgnore) { bIgnoreInvalidation = bShouldIgnore; }
+	bool GetIgnoreInvalidation() const { return bIgnoreInvalidation; }
 
 	EPathObservationResult::Type TickPathObservation();
 
@@ -335,6 +361,10 @@ public:
 	TArray<NavNodeRef> ShortcutNodeRefs;
 
 protected:
+	
+	/** optional notify called when path finishes update, before broadcasting to observes - requires bUseOnPathUpdatedNotify flag set */
+	virtual void OnPathUpdated(ENavPathUpdateType::Type UpdateType) {};
+	
 	/**
 	* IMPORTANT: path is assumed to be valid if it contains _MORE_ than _ONE_ point
 	*	point 0 is path's starting point - if it's the only point on the path then there's no path per se
@@ -388,6 +418,12 @@ protected:
 	/** if true path will request re-pathing if it gets invalidated due to underlying navigation changed */
 	uint32 bDoAutoUpdateOnInvalidation : 1;
 
+	/** if true path will keep bUpToDate value after getting invalidated due to underlying navigation changed
+	 *  (observer and auto repath will NOT be triggered!)
+	 *  it's NOT safe to use if path relies on navigation data references (e.g. poly corridor)
+	 */
+	uint32 bIgnoreInvalidation : 1;
+
 	/** if true path will use GetPathFindingStartLocation() for updating QueryData before repath */
 	uint32 bUpdateStartPointOnRepath : 1;
 
@@ -396,6 +432,9 @@ protected:
 
 	/** set when path is waiting for recalc from navigation data */
 	uint32 bWaitingForRepath : 1;
+
+	/** if true path will call OnPathUpdated notify */
+	uint32 bUseOnPathUpdatedNotify : 1;
 
 	/** navigation data used to generate this path */
 	TWeakObjectPtr<ANavigationData> NavigationDataUsed;
@@ -534,8 +573,6 @@ public:
 	bool IsSupportingDefaultAgent() const { return bSupportsDefaultAgent; }
 
 	virtual bool DoesSupportAgent(const FNavAgentProperties& AgentProps) const;
-
-	FORCEINLINE void MarkAsNeedingUpdate() { bWantsUpdate = true; }
 
 	virtual void RestrictBuildingToActiveTiles(bool InRestrictBuildingToActiveTiles) {}
 
@@ -915,10 +952,9 @@ protected:
 	uint32 bRegistered : 1;
 
 	/** was it generated for default agent (SupportedAgents[0]) */
-	uint32 bSupportsDefaultAgent:1;
-
-	/** controls whether this NavigationData will accept navigation building requests resulting from dirty areas
-	 *	true by default, set to false on successful serialization to skip initial rebuild */
+	uint32 bSupportsDefaultAgent : 1;
+	
+	DEPRECATED(4.12, "This flag is now deprecated, initial rebuild ignore should be handled by discarding dirty areas in UNavigationSystem::ConditionalPopulateNavOctree.")
 	uint32 bWantsUpdate:1;
 
 private:
@@ -929,6 +965,8 @@ private:
 public:
 	DEPRECATED(4.8, "GetRandomPointInRadius is deprecated, please use GetRandomReachablePointInRadius")
 	virtual bool GetRandomPointInRadius(const FVector& Origin, float Radius, FNavLocation& OutResult, FSharedConstNavQueryFilter Filter = NULL, const UObject* Querier = NULL) const PURE_VIRTUAL(ANavigationData::GetRandomPointInRadius, return false;);
+	DEPRECATED(4.12, "This function is now deprecated, initial rebuild ignore should be handled by discarding dirty areas in UNavigationSystem::ConditionalPopulateNavOctree.")
+	void MarkAsNeedingUpdate() { }
 };
 
 struct FAsyncPathFindingQuery : public FPathFindingQuery
@@ -962,7 +1000,7 @@ FORCEINLINE bool FPathFindingResult::IsPartial() const
 	return (Result != ENavigationQueryResult::Error) && Path.IsValid() && Path->IsPartial();
 }
 
-FORCEINLINE void FNavigationPath::SetNavigationDataUsed(const ANavigationData* const NewData)
+FORCEINLINE void FNavigationPath::SetNavigationDataUsed(const ANavigationData* const NavData)
 {
-	NavigationDataUsed = NewData;
+	NavigationDataUsed = NavData;
 }

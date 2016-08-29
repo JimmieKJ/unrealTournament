@@ -25,6 +25,10 @@ void FLegacyInternationalization::Terminate()
 {
 }
 
+void FLegacyInternationalization::LoadAllCultureData()
+{
+}
+
 bool FLegacyInternationalization::IsCultureRemapped(const FString& Name, FString* OutMappedCulture)
 {
 	return false;

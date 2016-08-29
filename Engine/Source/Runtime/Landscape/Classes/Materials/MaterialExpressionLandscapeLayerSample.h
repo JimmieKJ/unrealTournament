@@ -7,7 +7,7 @@
 #include "MaterialExpressionLandscapeLayerSample.generated.h"
 
 UCLASS(collapsecategories, hidecategories=Object)
-class UMaterialExpressionLandscapeLayerSample : public UMaterialExpression
+class LANDSCAPE_API UMaterialExpressionLandscapeLayerSample : public UMaterialExpression
 {
 	GENERATED_UCLASS_BODY()
 
@@ -31,7 +31,7 @@ public:
 	virtual UTexture* GetReferencedTexture() override;
 	//~ End UMaterialExpression Interface
 
-	LANDSCAPE_API virtual FGuid& GetParameterExpressionId() override;
+	virtual FGuid& GetParameterExpressionId() override;
 
 	/**
 	 * Called to get list of parameter names for static parameter sets

@@ -39,7 +39,7 @@ void AUTLift::SetEncroachComponent(class UPrimitiveComponent* NewEncroachCompone
 	}
 }
 
-void AUTLift::OnOverlapBegin(AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
+void AUTLift::OnOverlapBegin(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
 {
 	if (OtherActor)
 	{
@@ -144,7 +144,7 @@ void AUTLift::NotifyHit(class UPrimitiveComponent* MyComp, class AActor* Other, 
 			if (Pickup != NULL && Pickup->Movement != NULL && Pickup->Movement->UpdatedComponent != NULL && !bMoveWasBlocked && (LiftVelocity.Z > 0.f || Other->GetActorLocation().Z > MyComp->GetCenterOfMass().Z))
 			{
 				Pickup->Movement->StopSimulating(Hit);
-				Pickup->AttachRootComponentTo(EncroachComponent, NAME_None, EAttachLocation::KeepWorldPosition);
+				Pickup->AttachToComponent(EncroachComponent, FAttachmentTransformRules::KeepWorldTransform, NAME_None);
 				bMoveWasBlocked = true;
 				return;
 			}
@@ -179,7 +179,7 @@ void AUTLift::NotifyHit(class UPrimitiveComponent* MyComp, class AActor* Other, 
 				else
 				{
 					DroppedFlag->MovementComponent->StopSimulating(Hit);
-					DroppedFlag->AttachRootComponentTo(EncroachComponent, NAME_None, EAttachLocation::KeepWorldPosition);
+					DroppedFlag->AttachToComponent(EncroachComponent, FAttachmentTransformRules::KeepWorldTransform, NAME_None);
 				}
 				if (!bMoveWasBlocked)
 				{

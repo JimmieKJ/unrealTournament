@@ -1,12 +1,18 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
-
-#if WITH_BUILDPATCHGENERATION
-
 #include "BuildPatchServicesPrivatePCH.h"
 #include "FileAttributesParser.h"
 
+DECLARE_LOG_CATEGORY_EXTERN(LogFileAttributesParser, Log, All);
+DEFINE_LOG_CATEGORY(LogFileAttributesParser);
+
 namespace BuildPatchServices
 {
+	FFileAttributes::FFileAttributes()
+		: bReadOnly(false)
+		, bCompressed(false)
+		, bUnixExecutable(false)
+	{}
+
 	class FFileAttributesParserImpl
 		: public FFileAttributesParser
 	{
@@ -54,12 +60,12 @@ namespace BuildPatchServices
 			}
 			else
 			{
-				UE_LOG(LogBuildPatchServices, Error, TEXT("FFileAttributesParser: Error occured reading meta file %s"), *MetaFilename);
+				UE_LOG(LogFileAttributesParser, Error, TEXT("Could not read meta file %s"), *MetaFilename);
 			}
 		}
 		else
 		{
-			UE_LOG(LogBuildPatchServices, Error, TEXT("FFileAttributesParser: Could not open meta file %s"), *MetaFilename);
+			UE_LOG(LogFileAttributesParser, Error, TEXT("Could not open meta file %s"), *MetaFilename);
 		}
 
 		return false;
@@ -83,7 +89,7 @@ namespace BuildPatchServices
 			{
 				if (!FoundFilename)
 				{
-					UE_LOG(LogBuildPatchServices, Error, TEXT("FFileAttributesParser: Did not find opening quote for filename!"));
+					UE_LOG(LogFileAttributesParser, Error, TEXT("Did not find opening quote for filename!"));
 					return false;
 				}
 				break;
@@ -93,13 +99,13 @@ namespace BuildPatchServices
 			// Check we didn't run out of file
 			if (*CharPtr == EOFile)
 			{
-				UE_LOG(LogBuildPatchServices, Error, TEXT("FFileAttributesParser: Unexpected end of file before next quote! Pos:%d"), CharPtr - *AttributesList);
+				UE_LOG(LogFileAttributesParser, Error, TEXT("Unexpected end of file before next quote! Pos:%d"), CharPtr - *AttributesList);
 				return false;
 			}
 			// Check we didn't run out of line
 			if(*CharPtr == EOLine)
 			{
-				UE_LOG(LogBuildPatchServices, Error, TEXT("FFileAttributesParser: Unexpected end of line before next quote! Pos:%d"), CharPtr - *AttributesList);
+				UE_LOG(LogFileAttributesParser, Error, TEXT("Unexpected end of line before next quote! Pos:%d"), CharPtr - *AttributesList);
 				return false;
 			}
 			// Save positions
@@ -110,7 +116,7 @@ namespace BuildPatchServices
 			// Check we hit the end of the line or file, another quote it wrong
 			if (*CharPtr == Quote)
 			{
-				UE_LOG(LogBuildPatchServices, Error, TEXT("FFileAttributesParser: Unexpected Quote before end of keywords! Pos:%d"), CharPtr - *AttributesList);
+				UE_LOG(LogFileAttributesParser, Error, TEXT("Unexpected Quote before end of keywords! Pos:%d"), CharPtr - *AttributesList);
 				return false;
 			}
 			FoundFilename = true;
@@ -135,7 +141,7 @@ namespace BuildPatchServices
 				}
 				else
 				{
-					UE_LOG(LogBuildPatchServices, Error, TEXT("FFileAttributesParser: Unrecognised attribute %s for %s"), *AttributeParam, *Filename);
+					UE_LOG(LogFileAttributesParser, Error, TEXT("Unrecognised attribute %s for %s"), *AttributeParam, *Filename);
 					Successful = false;
 				}
 			}
@@ -149,5 +155,3 @@ namespace BuildPatchServices
 		return MakeShareable(new FFileAttributesParserImpl(PlatformFile));
 	}
 }
-
-#endif

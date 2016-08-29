@@ -65,7 +65,7 @@ protected:
 	virtual void DrawNavMeshSnapshot(APlayerController* PC, class UGameplayDebuggingComponent *DebugComponent);
 
 #if !ENABLE_OLD_GAMEPLAY_DEBUGGER
-	DEPRECATED_FORGAME(4.12, "GameplayDebuggingHUDComponent class is now deprecated, please check GameplayDebugger.h for details.")
+	DEPRECATED_FORGAME(4.13, "GameplayDebuggingHUDComponent class is now deprecated, please check GameplayDebugger.h for details.")
 #endif // !ENABLE_OLD_GAMEPLAY_DEBUGGER
 	virtual void DrawGameSpecificView(APlayerController* PC, class UGameplayDebuggingComponent *DebugComponent) {}
 

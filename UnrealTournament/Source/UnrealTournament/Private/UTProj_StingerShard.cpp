@@ -7,6 +7,7 @@
 #include "UTLift.h"
 #include "UTProjectileMovementComponent.h"
 #include "PhysicsEngine/BodySetup.h"
+#include "PhysicsEngine/PhysicsConstraintComponent.h"
 
 AUTProj_StingerShard::AUTProj_StingerShard(const class FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -15,7 +16,7 @@ AUTProj_StingerShard::AUTProj_StingerShard(const class FObjectInitializer& Objec
 	if (ShardMesh != NULL)
 	{
 		ShardMesh->SetCollisionProfileName(FName(TEXT("NoCollision")));
-		ShardMesh->AttachParent = RootComponent;
+		ShardMesh->SetupAttachment(RootComponent);
 	}
 	if (PawnOverlapSphere != NULL)
 	{
@@ -129,7 +130,7 @@ void AUTProj_StingerShard::ProcessHit_Implementation(AActor* OtherActor, UPrimit
 		AUTLift* Lift = Cast<AUTLift>(OtherActor);
 		if (Lift != NULL && Lift->GetEncroachComponent())
 		{
-			AttachRootComponentTo(Lift->GetEncroachComponent(), NAME_None, EAttachLocation::KeepWorldPosition);
+			AttachToComponent(Lift->GetEncroachComponent(), FAttachmentTransformRules::KeepWorldTransform);
 		}
 
 		// turn off in-flight sound and particle system
@@ -188,9 +189,9 @@ void AUTProj_StingerShard::AttachToRagdoll(AUTCharacter* HitChar, const FVector&
 		NewConstraint->OnComponentCreated();
 		NewConstraint->SetWorldLocation(HitLocation); // note: important! won't work right if not in the proper location
 		NewConstraint->RegisterComponent();
-		NewConstraint->ConstraintInstance.bDisableCollision = true;
+		NewConstraint->ConstraintInstance.ProfileInstance.bDisableCollision = true;
 		NewConstraint->SetConstrainedComponents(HitChar->GetMesh(), ClosestRagdollPart->BodySetup.Get()->BoneName, Cast<UPrimitiveComponent>(ProjectileMovement->UpdatedComponent), NAME_None);
-		NewConstraint->ConstraintInstance.ProjectionLinearTolerance = 0.05f;
+		NewConstraint->ConstraintInstance.ProfileInstance.ProjectionLinearTolerance = 0.05f;
 		//NewConstraint->ConstraintInstance.EnableProjection();
 		HitChar->RagdollConstraint = NewConstraint;
 		ProjectileMovement->Velocity *= 0.3f;

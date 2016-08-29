@@ -259,6 +259,8 @@ public:
 
 	void OnMakeSelectedDefaultClassClicked(FName ClassPropertyName)
 	{
+		FEditorDelegates::LoadSelectedAssetsIfNeeded.Broadcast();
+
 		UClassProperty* ClassProp = FindFieldChecked<UClassProperty>(AGameMode::StaticClass(), ClassPropertyName);
 		const UClass* SelectedClass = GEditor->GetFirstSelectedClass(ClassProp->MetaClass);
 		if (SelectedClass)
@@ -298,6 +300,8 @@ public:
 
 	void OnUseSelectedGameModeClicked(IDetailLayoutBuilder* DetailLayout)
 	{
+		FEditorDelegates::LoadSelectedAssetsIfNeeded.Broadcast();
+
 		const UClass* SelectedClass = GEditor->GetFirstSelectedClass(AGameMode::StaticClass());
 		if (SelectedClass)
 		{

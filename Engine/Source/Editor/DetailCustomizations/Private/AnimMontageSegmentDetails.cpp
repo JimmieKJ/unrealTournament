@@ -36,7 +36,6 @@ void FAnimationSegmentViewportClient::UpdateLighting()
 	const UDestructableMeshEditorSettings* Options = GetDefault<UDestructableMeshEditorSettings>();
 
 	PreviewScene->SetLightDirection(Options->AnimPreviewLightingDirection);
-	PreviewScene->GetScene()->UpdateDynamicSkyLight(Options->AnimPreviewSkyBrightness * FLinearColor(Options->AnimPreviewSkyColor), Options->AnimPreviewSkyBrightness * FLinearColor(Options->AnimPreviewFloorColor));
 	PreviewScene->SetLightColor(Options->AnimPreviewDirectionalColor);
 	PreviewScene->SetLightBrightness(Options->AnimPreviewLightBrightness);
 }
@@ -62,7 +61,40 @@ void FAnimMontageSegmentDetails::CustomizeDetails( IDetailLayoutBuilder& DetailB
 {
 	IDetailCategoryBuilder& SegmentCategory = DetailBuilder.EditCategory("Animation Segment", LOCTEXT("AnimationSegmentCategoryTitle", "Animation Segment") );
 
-	SegmentCategory.AddProperty("AnimSegment.AnimReference").DisplayName( LOCTEXT("AnimationReferenceLabel", "Animation Reference") );
+	TSharedRef<IPropertyHandle> TargetPropertyHandle = DetailBuilder.GetProperty("AnimSegment.AnimReference");
+	UProperty* TargetProperty = TargetPropertyHandle->GetProperty();
+
+	const UObjectPropertyBase* ObjectProperty = CastChecked<const UObjectPropertyBase>(TargetProperty);
+
+	IDetailPropertyRow& PropertyRow = SegmentCategory.AddProperty(TargetPropertyHandle);
+	PropertyRow.DisplayName(LOCTEXT("AnimationReferenceLabel", "Animation Reference"));
+
+	TSharedPtr<SWidget> NameWidget;
+	TSharedPtr<SWidget> ValueWidget;
+	FDetailWidgetRow Row;
+	PropertyRow.GetDefaultWidgets(NameWidget, ValueWidget, Row);
+
+	bool bAllowClear = !(ObjectProperty->PropertyFlags & CPF_NoClear);
+
+	SAssignNew(ValueWidget, SObjectPropertyEntryBox)
+		.PropertyHandle(TargetPropertyHandle)
+		.AllowedClass(ObjectProperty->PropertyClass)
+		.AllowClear(bAllowClear)
+		.OnShouldFilterAsset(FOnShouldFilterAsset::CreateSP(this, &FAnimMontageSegmentDetails::OnShouldFilterAnimAsset));
+
+	PropertyRow.CustomWidget()
+		.NameContent()
+		.MinDesiredWidth(Row.NameWidget.MinWidth)
+		.MaxDesiredWidth(Row.NameWidget.MaxWidth)
+		[
+			NameWidget.ToSharedRef()
+		]
+		.ValueContent()
+		.MinDesiredWidth(Row.ValueWidget.MinWidth)
+		.MaxDesiredWidth(Row.ValueWidget.MaxWidth)
+		[
+			ValueWidget.ToSharedRef()
+		];
 
 	SegmentCategory.AddProperty("AnimSegment.AnimStartTime").DisplayName( LOCTEXT("StartTimeLabel", "Start Time") );
 	SegmentCategory.AddProperty("AnimSegment.AnimEndTime").DisplayName( LOCTEXT("EndTimeLabel", "End Time") );
@@ -92,6 +124,10 @@ void FAnimMontageSegmentDetails::CustomizeDetails( IDetailLayoutBuilder& DetailB
 	];	
 }
 
+bool FAnimMontageSegmentDetails::OnShouldFilterAnimAsset(const FAssetData& AssetData) const
+{
+	return AssetData.GetClass() == UAnimMontage::StaticClass();
+}
 
 /////////////////////////////////////////////////
 ////////////////////////////////////////////////
@@ -229,13 +265,13 @@ void SAnimationSegmentViewport::InitSkeleton()
 				(PreviewComponent->SkeletalMesh != PreviewMesh))
 			{
 				PreviewComponent->SetSkeletalMesh(PreviewMesh);
-				PreviewComponent->EnablePreview(true, AnimSequence, NULL);
+				PreviewComponent->EnablePreview(true, AnimSequence);
 				PreviewComponent->PreviewInstance->SetLooping(true);
 
 				//Place the camera at a good viewer position
 				FVector NewPosition = LevelViewportClient->GetViewLocation();
 				NewPosition.Normalize();
-				LevelViewportClient->SetViewLocation(NewPosition * (PreviewMesh->Bounds.SphereRadius*1.5f));
+				LevelViewportClient->SetViewLocation(NewPosition * (PreviewMesh->GetImportedBounds().SphereRadius*1.5f));
 			}
 		}
 	}

@@ -7,17 +7,17 @@ SHAREDLIBCXXFLAGS = -dynamic
 SHAREDLIBCPPFLAGS =
 
 # Do not export internal methods by default
-LIBCFLAGS += -fvisibility=hidden
-LIBCXXFLAGS += -fvisibility=hidden
+LIBCFLAGS += -fvisibility=hidden -fembed-bitcode
+LIBCXXFLAGS += -fvisibility=hidden -fembed-bitcode
 
 # Flags for compiling
 XCODEDIR:=$(shell xcrun --show-sdk-path -sdk appletvos) 
-CPPFLAGS += -fmessage-length=0 -pipe -fpascal-strings -fno-exceptions -fvisibility=hidden -c -arch arm64 -isysroot $(XCODEDIR) -mappletvos-version-min=9.0 -O0
+CPPFLAGS += -fmessage-length=0 -pipe -fpascal-strings -fno-exceptions -fvisibility=hidden -c -fembed-bitcode -arch arm64 -isysroot $(XCODEDIR) -mappletvos-version-min=9.0 -O0
 CFLAGS += -x c
 CXXFLAGS += -x objective-c++ -fobjc-abi-version=2 -fobjc-legacy-dispatch -std=c++0x
 
 # Pad out the paths to the maximum possible length
-LD_FLAGS += -headerpad_max_install_names
+LD_FLAGS += -headerpad_max_install_names -fembed-bitcode
 
 # We do not need to see the stderr message that the archive was made.
 ARFLAGS += -c

@@ -6,8 +6,8 @@
 #include "Distributions/Distribution.h"
 #include "DistributionFloat.generated.h"
 
-/** Type-safe floating point distribution. */
 #if !CPP      //noexport struct
+/** Type-safe floating point distribution. */
 USTRUCT(noexport)
 struct FFloatDistribution
 {
@@ -48,7 +48,7 @@ public:
 	/**`
 		* Initialize a raw distribution from the original Unreal distribution
 		*/
-	void Initialize();
+	ENGINE_API void Initialize();
 #endif
 			 
 	/**
@@ -173,6 +173,7 @@ public:
 #endif	// WITH_EDITOR
 	virtual bool NeedsLoadForClient() const override;
 	virtual bool NeedsLoadForServer() const override;
+	virtual bool NeedsLoadForEditorGame() const override;
 	virtual void Serialize(FArchive& Ar) override;
 	/** End UObject interface */
 };

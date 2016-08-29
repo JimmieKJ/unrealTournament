@@ -99,7 +99,7 @@ namespace UAudio
 			{
 				for (uint32 ChannelIndex = 0; ChannelIndex < ConvertInfo.NumChannels; ++ChannelIndex)
 				{
-					int32 Value = FromBufferPtr[ChannelIndex];
+					int64 Value = FromBufferPtr[ChannelIndex];
 					ToBufferPtr[ChannelIndex] = (ToType)(Value >> ShiftAmount);
 				}
 				FromBufferPtr += ConvertInfo.FromChannels;
@@ -112,7 +112,7 @@ namespace UAudio
 			{
 				for (uint32 ChannelIndex = 0; ChannelIndex < ConvertInfo.NumChannels; ++ChannelIndex)
 				{
-					int32 Value = FromBufferPtr[ChannelIndex];
+					int64 Value = FromBufferPtr[ChannelIndex];
 					ToBufferPtr[ChannelIndex] = (ToType)(Value << ShiftAmount);
 				}
 				FromBufferPtr += ConvertInfo.FromChannels;

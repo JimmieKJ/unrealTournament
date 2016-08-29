@@ -153,8 +153,12 @@ public:
 
 	virtual FProfilerLoadCompletedDelegate& OnLoadCompleted() override
 	{
-
 		return ProfilerLoadCompletedDelegate;
+	}
+
+	virtual FProfilerLoadCancelledDelegate& OnLoadCancelled() override
+	{
+		return ProfilerLoadCancelledDelegate;
 	}
 
 private:
@@ -187,7 +191,10 @@ private:
 	bool CheckHashAndWrite( const FProfilerServiceFileChunk& FileChunk, const FProfilerFileChunkHeader& FileChunkHeader, FArchive* Writer );
 
 	/** Broadcast that loading has completed and cleans internal structures. */
-	void FinalizeLoading();
+	void FinalizeLoading(const FGuid InstanceId);
+
+	/** Cancels an in-progress load, broadcasts that loading was cancelled and cleans internal structures */
+	void CancelLoading(const FGuid InstanceId);
 
 	/** Decompress all stats data and send to the game thread. */
 	void DecompressDataAndSendToGame( FProfilerServiceData2* ToProcess );
@@ -196,7 +203,7 @@ private:
 	void SendDataToGame( TArray<uint8>* DataToGame, int64 Frame, const FGuid InstanceId );
 
 	/** A new profiler data frame from the async loading thread. */
-	void SendProfilerDataFrameToGame( FProfilerDataFrame* NewData, FStatMetaData* MetaDataPtr );
+	void SendProfilerDataFrameToGame( FProfilerDataFrame* NewData, FStatMetaData* MetaDataPtr, const FGuid InstanceId);
 
 	/** Removes active transfers and core tickers. */
 	void Shutdown();
@@ -272,6 +279,9 @@ private:
 
 	/** Delegate for notifying clients of a load completion */
 	FProfilerLoadCompletedDelegate ProfilerLoadCompletedDelegate;
+
+	/** Delegate for notifying clients of a load cancellation */
+	FProfilerLoadCancelledDelegate ProfilerLoadCancelledDelegate;
 
 	/** Holds a delegate to be invoked when the widget ticks. */
 	FTickerDelegate TickDelegate;

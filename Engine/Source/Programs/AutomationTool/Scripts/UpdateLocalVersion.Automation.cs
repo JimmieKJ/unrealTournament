@@ -15,8 +15,10 @@ public class UpdateLocalVersion : BuildCommand
 {
 	public override void ExecuteBuild()
 	{
-		var UE4Build = new UE4Build(this);
-		var ChangelistOverride = ParseParamInt("cl", -1);
-		UE4Build.UpdateVersionFiles(ChangelistNumberOverride: (ChangelistOverride < 0 ? (int?)null : ChangelistOverride));
+		UE4Build UE4Build = new UE4Build(this);
+		int? ChangelistOverride = ParseParamNullableInt("cl");
+		int? CompatibleChangelistOverride = ParseParamNullableInt("compatiblecl");
+		string Build = ParseParamValue("Build", null);
+		UE4Build.UpdateVersionFiles(ChangelistNumberOverride: ChangelistOverride, CompatibleChangelistNumberOverride: CompatibleChangelistOverride, Build: Build);
 	}
 }

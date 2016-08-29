@@ -29,6 +29,9 @@ void UGameplayCueNotify_HitImpact::HandleGameplayCue(AActor* Self, EGameplayCueE
 	}
 	else
 	{
-		ABILITY_LOG(Warning, TEXT("GameplayCue %s was called on GameplayCueNotify but there was no HitResult to spawn an impact from."), *Parameters.MatchedTagName.ToString(), *GetName() );
+		if (ParticleSystem)
+		{
+			UGameplayStatics::SpawnEmitterAtLocation(Self, ParticleSystem, Self->GetActorLocation(), Self->GetActorRotation(), true);
+		}
 	}
 }

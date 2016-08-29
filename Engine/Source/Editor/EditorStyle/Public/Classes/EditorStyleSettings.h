@@ -80,6 +80,22 @@ public:
 	UPROPERTY(EditAnywhere, config, Category=UserInterface)
 	uint32 bUseSmallToolBarIcons:1;
 
+	/** If true the material editor and blueprint editor will show a grid on it's background. */
+	UPROPERTY(EditAnywhere, config, Category = Graphs, meta = (DisplayName = "Use Grids In The Material And Blueprint Editor"))
+	uint32 bUseGrid : 1;
+
+	/** The color used to represent regular grid lines */
+	UPROPERTY(EditAnywhere, config, Category = Graphs, meta = (DisplayName = "Grid regular Color"))
+	FLinearColor RegularColor;
+
+	/** The color used to represent ruler lines in the grid */
+	UPROPERTY(EditAnywhere, config, Category = Graphs, meta = (DisplayName = "Grid ruler Color"))
+	FLinearColor RuleColor;
+
+	/** The color used to represent the center lines in the grid */
+	UPROPERTY(EditAnywhere, config, Category = Graphs, meta = (DisplayName = "Grid center Color"))
+	FLinearColor CenterColor;
+
 	/** Enables animated transitions for certain menus and pop-up windows.  Note that animations may be automatically disabled at low frame rates in order to improve responsiveness. */
 	UPROPERTY(EditAnywhere, config, Category=UserInterface)
 	uint32 bEnableWindowAnimations:1;

@@ -172,14 +172,15 @@ FGeometryShaderRHIRef FD3D12DynamicRHI::RHICreateGeometryShaderWithStreamOutput(
 		Shader->StreamOutput.RasterizedStream = D3D12_SO_NO_RASTERIZED_STREAM;
 	}
 
-	Shader->StreamOutput.NumEntries = ElementList.Num();
-	Shader->pStreamOutEntries = new D3D12_SO_DECLARATION_ENTRY[ElementList.Num()];
+	int32 NumEntries = ElementList.Num();
+	Shader->StreamOutput.NumEntries = NumEntries;
+	Shader->pStreamOutEntries = new D3D12_SO_DECLARATION_ENTRY[NumEntries];
 	Shader->StreamOutput.pSODeclaration = Shader->pStreamOutEntries;
 	if (Shader->pStreamOutEntries == nullptr)
 	{
 		return nullptr;	// Out of memory
 	}
-	for (int32 EntryIndex = 0; EntryIndex < ElementList.Num(); EntryIndex++)
+	for (int32 EntryIndex = 0; EntryIndex < NumEntries; EntryIndex++)
 	{
 		Shader->pStreamOutEntries[EntryIndex].Stream = ElementList[EntryIndex].Stream;
 		Shader->pStreamOutEntries[EntryIndex].SemanticName = ElementList[EntryIndex].SemanticName;

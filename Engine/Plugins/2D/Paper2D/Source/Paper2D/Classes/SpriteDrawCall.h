@@ -7,7 +7,7 @@
 
 //
 USTRUCT()
-struct FSpriteDrawCallRecord
+struct PAPER2D_API FSpriteDrawCallRecord
 {
 public:
 	GENERATED_USTRUCT_BODY()

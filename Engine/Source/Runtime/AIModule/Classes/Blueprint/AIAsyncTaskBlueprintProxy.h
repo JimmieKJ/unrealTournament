@@ -27,6 +27,7 @@ public:
 	void OnMoveCompleted(FAIRequestID RequestID, EPathFollowingResult::Type MovementResult);
 
 	void OnNoPath();
+	void OnAtGoal();
 
 	//~ Begin UObject Interface
 	virtual void BeginDestroy() override;
@@ -36,5 +37,5 @@ public:
 	FAIRequestID MoveRequestId;
 	TWeakObjectPtr<UWorld> MyWorld;
 
-	FTimerHandle TimerHandle_OnNoPath;
+	FTimerHandle TimerHandle_OnInstantFinish;
 };

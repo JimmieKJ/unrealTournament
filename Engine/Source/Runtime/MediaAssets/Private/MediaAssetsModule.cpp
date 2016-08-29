@@ -1,7 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "MediaAssetsPrivatePCH.h"
+#include "MediaAssetsPCH.h"
+#include "MediaPlayer.h"
 #include "ModuleInterface.h"
+
+
+DEFINE_LOG_CATEGORY(LogMediaAssets);
 
 
 /**
@@ -13,7 +17,7 @@ class FMediaAssetsModule
 {
 public:
 
-	// FSelfRegisteringExec interface
+	//~ FSelfRegisteringExec interface
 
 	virtual bool Exec(UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Ar) override
 	{
@@ -46,7 +50,7 @@ public:
 
 public:
 
-	// IModuleInterface interface
+	//~ IModuleInterface interface
 
 	virtual void StartupModule() override { }
 	virtual void ShutdownModule() override { }

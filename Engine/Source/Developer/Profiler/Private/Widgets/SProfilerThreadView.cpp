@@ -194,7 +194,7 @@ void SProfilerThreadView::DrawFramesBackgroundAndTimelines() const
 				&SolidWhiteBrush,
 				PaintState->AbsoluteClippingRect,
 				PaintState->DrawEffects,
-				ThreadNode.FrameIndex % 2 ? FColorList::White.WithAlpha( 64 ) : FColorList::White.WithAlpha( 128 )
+				(ThreadNode.FrameIndex % 2) ? FColorList::White.WithAlpha( 64 ) : FColorList::White.WithAlpha( 128 )
 			);
 
 			// Check if this frame time marker is inside the visible area.
@@ -283,7 +283,7 @@ void SProfilerThreadView::DrawUIStackNodes() const
 				}
 
 				FColor NodeColor = UIStackNode->bIsCombined ? ThreadColors[UIStackNode->ThreadIndex].WithAlpha( 64 ) : ThreadColors[UIStackNode->ThreadIndex].WithAlpha( 192 );
-				NodeColor.G += NodeIndex % 2 ? 0 : 64;
+				NodeColor.G += (NodeIndex % 2) ? 0 : 64;
 
 				// Draw a cycle counter for this profiler UI stack node.
 				FSlateDrawElement::MakeBox

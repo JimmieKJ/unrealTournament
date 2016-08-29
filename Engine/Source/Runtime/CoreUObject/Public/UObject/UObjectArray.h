@@ -4,8 +4,9 @@
 	UObjectArray.h: Unreal object array
 =============================================================================*/
 
-#ifndef __UOBJECTARRAY_H__
-#define __UOBJECTARRAY_H__
+#pragma once
+
+#include "UObjectBase.h"
 
 /**
 * Controls whether the number of available elements is being tracked in the ObjObjects array.
@@ -20,21 +21,21 @@ struct FUObjectItem
 {
 	// Pointer to the allocated object
 	class UObjectBase* Object;
-	// UObject internal flags
-	int32 ClusterAndFlags;
+	// Internal flags
+	int32 Flags;
+	// UObject Owner Cluster Index
+	int32 ClusterIndex;	
 	// Weak Object Pointer Serial number associated with the object
 	int32 SerialNumber;
 
 	FORCEINLINE void SetOwnerIndex(int32 OwnerIndex)
 	{
-		check(OwnerIndex >= 0 && (OwnerIndex & int32(EInternalObjectFlags::AllFlags)) == 0);
-		ClusterAndFlags &= int32(EInternalObjectFlags::AllFlags);
-		ClusterAndFlags |= OwnerIndex;
+		ClusterIndex = OwnerIndex;
 	}
 
 	FORCEINLINE int32 GetOwnerIndex() const
 	{
-		return ClusterAndFlags & ~int32(EInternalObjectFlags::AllFlags);
+		return ClusterIndex;
 	}
 
 	FORCEINLINE int32 GetSerialNumber() const
@@ -45,18 +46,18 @@ struct FUObjectItem
 	FORCEINLINE void SetFlags(EInternalObjectFlags FlagsToSet)
 	{
 		check((int32(FlagsToSet) & ~int32(EInternalObjectFlags::AllFlags)) == 0);
-		ClusterAndFlags |= int32(FlagsToSet);
+		Flags |= int32(FlagsToSet);
 	}
 
 	FORCEINLINE EInternalObjectFlags GetFlags() const
 	{
-		return EInternalObjectFlags(ClusterAndFlags & int32(EInternalObjectFlags::AllFlags));
+		return EInternalObjectFlags(Flags);
 	}
 
 	FORCEINLINE void ClearFlags(EInternalObjectFlags FlagsToClear)
 	{
 		check((int32(FlagsToClear) & ~int32(EInternalObjectFlags::AllFlags)) == 0);
-		ClusterAndFlags &= ~int32(FlagsToClear);
+		Flags &= ~int32(FlagsToClear);
 	}
 
 	/**
@@ -66,21 +67,21 @@ struct FUObjectItem
 	 */
 	FORCEINLINE bool ThisThreadAtomicallyClearedFlag(EInternalObjectFlags FlagToClear)
 	{
-		static_assert(sizeof(int32) == sizeof(ClusterAndFlags), "Flags must be 32-bit for atomics.");
+		static_assert(sizeof(int32) == sizeof(Flags), "Flags must be 32-bit for atomics.");
 		bool bIChangedIt = false;
 		while (1)
 		{
-			int32 StartValue = int32(ClusterAndFlags);
+			int32 StartValue = int32(Flags);
 			if (!(StartValue & int32(FlagToClear)))
 			{
 				break;
 			}
-			int32 OldValue = (int32)FPlatformAtomics::InterlockedCompareExchange((int32*)&ClusterAndFlags, StartValue & ~int32(FlagToClear), StartValue);
+			int32 OldValue = (int32)FPlatformAtomics::InterlockedCompareExchange((int32*)&Flags, StartValue & ~int32(FlagToClear), StartValue);
 			// We know the flag was set when we entered this iteration,
 			// so if the old value returned by atomics had the flag set, we must have cleared it.
 			// (there is always a chance that another thread cleared some other flag and the above function did nothing)
 			// But we only care about the flags we want to clear
-			if (!(ClusterAndFlags & int32(FlagToClear)) && (OldValue & int32(FlagToClear)) == (StartValue & int32(FlagToClear)))
+			if (!(Flags & int32(FlagToClear)) && (OldValue & int32(FlagToClear)) == (StartValue & int32(FlagToClear)))
 			{
 				// if (the flag has actually been cleared) && (the previous value had the flag set) we must have cleared it
 				bIChangedIt = true;
@@ -89,26 +90,26 @@ struct FUObjectItem
 			// We didn't clear the flag, probably because some other thread changed flags in the meantime (either the one we want to clear or some other). Try again.
 		}
 		// Make sure the flag was actually cleared
-		checkSlow((ClusterAndFlags & int32(FlagToClear)) == 0);
+		checkSlow((Flags & int32(FlagToClear)) == 0);
 		return bIChangedIt;
 	}
 
 	FORCEINLINE bool HasAnyFlags(EInternalObjectFlags InFlags) const
 	{
-		return !!(ClusterAndFlags & int32(InFlags));
+		return !!(Flags & int32(InFlags));
 	}
 
 	FORCEINLINE void SetUnreachable()
 	{
-		ClusterAndFlags |= int32(EInternalObjectFlags::Unreachable);
+		Flags |= int32(EInternalObjectFlags::Unreachable);
 	}
 	FORCEINLINE void ClearUnreachable()
 	{
-		ClusterAndFlags &= ~int32(EInternalObjectFlags::Unreachable);
+		Flags &= ~int32(EInternalObjectFlags::Unreachable);
 	}
 	FORCEINLINE bool IsUnreachable() const
 	{
-		return !!(ClusterAndFlags & int32(EInternalObjectFlags::Unreachable));
+		return !!(Flags & int32(EInternalObjectFlags::Unreachable));
 	}
 	FORCEINLINE bool ThisThreadAtomicallyClearedRFUnreachable()
 	{
@@ -117,45 +118,46 @@ struct FUObjectItem
 
 	FORCEINLINE void SetPendingKill()
 	{
-		ClusterAndFlags |= int32(EInternalObjectFlags::PendingKill);
+		Flags |= int32(EInternalObjectFlags::PendingKill);
 	}
 	FORCEINLINE void ClearPendingKill()
 	{
-		ClusterAndFlags &= ~int32(EInternalObjectFlags::PendingKill);
+		Flags &= ~int32(EInternalObjectFlags::PendingKill);
 	}
 	FORCEINLINE bool IsPendingKill() const
 	{
-		return !!(ClusterAndFlags & int32(EInternalObjectFlags::PendingKill));
+		return !!(Flags & int32(EInternalObjectFlags::PendingKill));
 	}
 
 	FORCEINLINE void SetRootSet()
 	{
-		ClusterAndFlags |= int32(EInternalObjectFlags::RootSet);
+		Flags |= int32(EInternalObjectFlags::RootSet);
 	}
 	FORCEINLINE void ClearRootSet()
 	{
-		ClusterAndFlags &= ~int32(EInternalObjectFlags::RootSet);
+		Flags &= ~int32(EInternalObjectFlags::RootSet);
 	}
 	FORCEINLINE bool IsRootSet() const
 	{
-		return !!(ClusterAndFlags & int32(EInternalObjectFlags::RootSet));
+		return !!(Flags & int32(EInternalObjectFlags::RootSet));
 	}
 
 	FORCEINLINE void SetNoStrongReference()
 	{
-		ClusterAndFlags |= int32(EInternalObjectFlags::NoStrongReference);
+		Flags |= int32(EInternalObjectFlags::NoStrongReference);
 	}
 	FORCEINLINE void ClearNoStrongReference()
 	{
-		ClusterAndFlags &= ~int32(EInternalObjectFlags::NoStrongReference);
+		Flags &= ~int32(EInternalObjectFlags::NoStrongReference);
 	}
 	FORCEINLINE bool IsNoStrongReference() const
 	{
-		return !!(ClusterAndFlags & int32(EInternalObjectFlags::NoStrongReference));
+		return !!(Flags & int32(EInternalObjectFlags::NoStrongReference));
 	}
 	FORCEINLINE void ResetSerialNumberAndFlags()
 	{
-		ClusterAndFlags = 0;
+		Flags = 0;
+		ClusterIndex = 0;
 		SerialNumber = 0;
 	}
 };
@@ -641,7 +643,7 @@ public:
 		friend bool operator!=(const TIterator& Lhs, const TIterator& Rhs) { return Lhs.Index != Rhs.Index; }
 
 		/** Conversion to "bool" returning true if the iterator is valid. */
-		FORCEINLINE_EXPLICIT_OPERATOR_BOOL() const
+		FORCEINLINE explicit operator bool() const
 		{ 
 			return !!CurrentObject;
 		}
@@ -769,5 +771,3 @@ struct FIndexToObject
 		return ObjectItem ? ObjectItem->Object : nullptr;
 	}
 };
-
-#endif	// __UOBJECTARRAY_H__

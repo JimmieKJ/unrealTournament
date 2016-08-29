@@ -20,30 +20,6 @@ our @EXPORT = (
 
 ########################################################################################################################################################################################################
 
-# enumerate all the streams and create job steps to update pages for each of them
-sub update_all_stream_dashboards
-{
-	my ($ec, $ec_project, $ec_update) = @_;
-	
-	# enumerate all the stream names from the GUBP project
-	my $properties_response = $ec->getProperties({ path => "/projects[$ec_project]/Streams" });
-	foreach my $property ($properties_response->findnodes("/responses/response/propertySheet/property"))
-	{
-		my $value = $properties_response->findvalue("value", $property)->string_value();
-		if($value)
-		{
-			my $name = $properties_response->findvalue("propertyName", $property)->string_value();
-			
-			my $stream = $name;
-			$stream =~ s/\+/\//g;
-			
-			update_dashboard($ec, $ec_project, $stream, $ec_update);
-			
-			print "\n";
-		}
-	}
-}
-
 # update the cis and build pages for the given stream
 sub update_dashboard
 {
@@ -51,18 +27,17 @@ sub update_dashboard
 	
 	# read the stream settings, and cache it under the dashboard link
 	my $settings = read_stream_settings($ec, $ec_project, $stream);
-	my $is_buildgraph = $settings->{"With BuildGraph"};
 	
 	# get a list of jobs
 	log_print("Querying job status for $stream from EC.");
 	
 	my $filter = [];
 	push(@{$filter}, { propertyName => 'projectName', operator => 'equals', operand1 => $ec_project });
-	push(@{$filter}, { propertyName => 'procedureName', operator => 'equals', operand1 => $is_buildgraph? 'Run BuildGraph' : 'Run Build' });
+	push(@{$filter}, { propertyName => 'procedureName', operator => 'equals', operand1 => 'Run BuildGraph' });
 	push(@{$filter}, { propertyName => 'Stream', operator => 'equals', operand1 => $stream });
 	push(@{$filter}, { propertyName => 'Preflight CL', operator => 'equals', operand1 => '' });
 
-	my $jobs_response = $ec->findObjects('job', { maxIds => 40, filter => $filter, sort => [{ propertyName => "createTime", order => "descending" }], select => [{ propertyName => 'CL'}, { propertyName => 'Arguments' }, { propertyName => 'CachedJobSteps' }, { propertyName => 'BuildInfo' }, { propertyName => 'GubpInfo' }, { propertyName => 'Upstream Job' }] });
+	my $jobs_response = $ec->findObjects('job', { maxIds => 40, filter => $filter, sort => [{ propertyName => "createTime", order => "descending" }], select => [{ propertyName => 'CL'}, { propertyName => 'Arguments' }, { propertyName => 'CachedJobSteps' }, { propertyName => 'BuildInfo' }, { propertyName => 'Upstream Job' }] });
 	
 	# convert it to a list, with all the properties we care about
 	my $job_ids = [];
@@ -105,7 +80,7 @@ sub update_dashboard
 			{
 				$properties->{'job_steps'} = decode_json($value);
 			}
-			elsif($name eq 'BuildInfo' || $name eq 'GubpInfo')
+			elsif($name eq 'BuildInfo')
 			{
 				$properties->{'build_info'} = decode_json($value);
 			}
@@ -122,7 +97,7 @@ sub update_dashboard
 			my %nodes_in_job_lookup = (map { $_ => 1 } @{$build_info->{'NodesInJob'}});
 			my @nodes_in_job = grep { $nodes_in_job_lookup{$_} } @{$build_info->{'NodesInGraph'}};
 			$build_info->{'NodesInJob'} = \@nodes_in_job;
-		}		
+		}
 		
 		# if we don't already have the step results, query the server for them directly
 		if(!defined $properties->{'job_steps'} || ($optional_arguments->{'no_cache'} && ($optional_arguments->{'no_cache'} == 1 || $optional_arguments->{'no_cache'} == $job_id)))
@@ -137,18 +112,21 @@ sub update_dashboard
 		
 				# query the server
 				log_print("Querying detailed status of job $job_id...");
-				my $job_steps_response = $ec->findJobSteps({ jobId => $job_id });
+				my $job_steps_response = $ec->findJobSteps({ jobId => $job_id, select => [{ propertyName => 'Telemetry' }] });
 				
 				# parse a list of names and mapping from name to outcome
 				my $node_to_outcome = {};
-				foreach my $job_step ($job_steps_response->findnodes("/responses/response/object/jobStep"))
+				foreach my $job_step_object ($job_steps_response->findnodes("/responses/response/object"))
 				{
+					my $job_step = $job_steps_response->findnodes("./jobStep", $job_step_object)->get_node(1);
 					my $id = $job_steps_response->findvalue("jobStepId", $job_step)->string_value();
 					
 					my $status = $job_steps_response->findvalue("status", $job_step)->string_value();
 					my $outcome = $job_steps_response->findvalue("outcome", $job_step)->string_value();
 					my $error_code = $job_steps_response->findvalue("errorCode", $job_step)->string_value();
 					my $abort_status = $job_steps_response->findvalue("abortStatus", $job_step)->string_value();
+					my $start_time = parse_sql_time($job_steps_response->findvalue("start", $job_step)->string_value());
+					my $run_time = $job_steps_response->findvalue("runTime", $job_step)->string_value();
 					
 					my $result = $status;
 					if($status eq 'completed')
@@ -167,7 +145,17 @@ sub update_dashboard
 						}
 					}
 					
-					my @outcome_fields = ( id => $id, result => $result, status => $status, outcome => $outcome, error => $error_code || $abort_status );
+					my @outcome_fields = ( id => $id, result => $result, status => $status, outcome => $outcome, error => $error_code || $abort_status, start_time => $start_time, run_time => $run_time );
+
+					foreach my $property ($job_steps_response->findnodes("./property", $job_step_object))
+					{
+						if($job_steps_response->findvalue("./propertyName", $property)->string_value() eq 'Telemetry')
+						{
+							my $value = $job_steps_response->findvalue("./value", $property)->string_value();
+							push(@outcome_fields, telemetry => decode_json($value));
+							last;
+						}
+					}
 
 					my $name = $job_steps_response->findvalue("stepName", $job_step)->string_value();
 					if($valid_node_names{$name})
@@ -187,7 +175,7 @@ sub update_dashboard
 					}
 				}
 				
-				# reorder the list of job steps to match the gubp order
+				# reorder the list of job steps to match the build order
 				foreach(@{$build_info->{'NodesInJob'}})
 				{
 					push(@{$job_steps}, $node_to_outcome->{$_}) if $node_to_outcome->{$_};
@@ -208,17 +196,86 @@ sub update_dashboard
 	}
 	
 	# update the builds page
-	update_build_links($is_buildgraph, $ec, $ec_project, $stream, $settings, $ec_update);
-	update_custom_build_link($is_buildgraph, $ec, $ec_project, $stream, $ec_update);
-	update_preflight_links($is_buildgraph, $ec, $ec_project, $stream, $settings, $ec_update);
-	update_dashboard_grid_view($ec, $ec_project, $stream, $job_ids, $job_id_to_properties, $ec_update);
+	update_settings($ec, $ec_project, $stream, $settings, $ec_update);
+	update_latest_builds($ec, $ec_project, $stream, $settings, $ec_update);
+	update_build_links($ec, $ec_project, $stream, $settings, $ec_update);
+	update_custom_build_link($ec, $ec_project, $stream, $ec_update);
+	update_preflight_links($ec, $ec_project, $stream, $settings, $ec_update);
+	update_telemetry($ec, $ec_project, $stream, $job_ids, $job_id_to_properties, $ec_update);
+	update_dashboard_grid_view($ec, $ec_project, $stream, $job_ids, $job_id_to_properties, $settings, $ec_update);
 	update_dashboard_list_view($ec, $ec_project, $stream, $job_ids, $job_id_to_properties, $settings, $ec_update);
+	update_github_view($ec, $ec_project, $stream, $settings, $ec_update);
+}
+
+# update the settings property in EC
+sub update_settings
+{
+	my ($ec, $ec_project, $stream, $settings, $ec_update) = @_;
+	
+	# store the full settings object
+	my $json = encode_json($settings);
+	ec_set_property($ec, "/projects[$ec_project]/Generated/".escape_stream_name($stream)."/Settings", $json, $ec_update);
+
+	# store the initial resource pool for easy access on new jobs
+	my $initial_agent_type = $settings->{'Initial Agent Type'};
+	if($initial_agent_type)
+	{
+		my $agent_type_definition = $settings->{'Agent Types'}->{$initial_agent_type};
+		if($agent_type_definition)
+		{
+			my $resource_pool = $agent_type_definition->{'Resource Pool'};
+			if($resource_pool)
+			{
+				ec_set_property($ec, "/projects[$ec_project]/Generated/".escape_stream_name($stream)."/Initial Resource Pool", $resource_pool, $ec_update);
+			}
+		}
+	}
+}
+
+# remove any outdated items from the latest builds list
+sub update_latest_builds
+{
+	my ($ec, $ec_project, $stream, $settings, $ec_update) = @_;
+
+	# get the time at which to remove entries
+	my $delete_time = time - (7 * 24 * 60 * 60);
+	log_print("Removing 'Latest Build' entries older than $delete_time...");
+	
+	# make sure the property sheet exists
+	my $latest_path = "/projects[$ec_project]/Generated/".escape_stream_name($stream)."/Latest";
+	ec_set_property($ec, "$latest_path/_placeholder", "", 1); 
+	
+	# read all the properties
+	my $latest_sheet = ec_get_property_sheet($ec, { path => $latest_path }) || {};
+	foreach my $key(keys %{$latest_sheet})
+	{
+		if($key ne '_placeholder')
+		{
+			my $latest_build;
+			eval { $latest_build = decode_json($latest_sheet->{$key}); };
+			
+			my $build_time = ($latest_build && $latest_build->{'time'}) || 0;
+			if($build_time < $delete_time)
+			{
+				my $build_path = "$latest_path/$key";
+				log_print("Removing '$build_path' (time $build_time)");
+				if($ec_update)
+				{
+					$ec->deleteProperty($build_path);
+				}
+				else
+				{
+					log_print("Skipping delete without --ec-update");
+				}
+			}
+		}
+	}
 }
 
 # update the list of new builds for the current stream
 sub update_build_links
 {
-	my ($is_buildgraph, $ec, $ec_project, $stream, $settings, $ec_update) = @_;
+	my ($ec, $ec_project, $stream, $settings, $ec_update) = @_;
 
 	my $build_links = [];
 	my $build_types = $settings->{'Build Types'};
@@ -230,10 +287,10 @@ sub update_build_links
 			{
 				my $name = $build_type->{'Name'};
 				
-				my $link = "/commander/link/runProcedure/projects/$ec_project/procedures/".encode_form_parameter($is_buildgraph? "Run BuildGraph" : "Run Build")."?runNow=1&priority=high";
+				my $link = "/commander/link/runProcedure/projects/$ec_project/procedures/".encode_form_parameter("Run BuildGraph")."?runNow=1&priority=high";
 				$link .= "&parameters1_name=".encode_form_parameter("Stream");
 				$link .= "&parameters1_value=".encode_form_parameter($stream);
-				$link .= "&parameters2_name=".encode_form_parameter($is_buildgraph? "Job Name" : "Build Name");
+				$link .= "&parameters2_name=".encode_form_parameter("Job Name");
 				$link .= "&parameters2_value=".encode_form_parameter($name);
 				$link .= "&parameters3_name=".encode_form_parameter("Arguments");
 				$link .= "&parameters3_value=".encode_form_parameter($build_type->{'Arguments'});
@@ -249,15 +306,15 @@ sub update_build_links
 # sets the custom build link for this stream
 sub update_custom_build_link
 {
-	my ($is_buildgraph, $ec, $ec_project, $stream, $ec_update) = @_;
+	my ($ec, $ec_project, $stream, $ec_update) = @_;
 
-	my $link = "/commander/link/runProcedure/projects/$ec_project/procedures/".encode_form_parameter($is_buildgraph? "Run BuildGraph" : "Run Build")."?runNow=1&priority=high";
+	my $link = "/commander/link/runProcedure/projects/$ec_project/procedures/".encode_form_parameter("Run BuildGraph")."?runNow=1&priority=high";
 	$link .= "&parameters1_name=".encode_form_parameter("Stream");
 	$link .= "&parameters1_value=".encode_form_parameter($stream);
-	$link .= "&parameters2_name=".encode_form_parameter($is_buildgraph? "Job Name" : "Build Name");
+	$link .= "&parameters2_name=".encode_form_parameter("Job Name");
 	$link .= "&parameters2_value=".encode_form_parameter("Custom (").'$(Nodes)'.encode_form_parameter(")");
 	$link .= "&parameters3_name=".encode_form_parameter("Arguments");
-	$link .= "&parameters3_value=".encode_form_parameter($is_buildgraph? "--Target=\"" : "--Node=\"").'$(Nodes)'.encode_form_parameter("\" ").'$(Arguments)';
+	$link .= "&parameters3_value=".encode_form_parameter("--Target=\"").'$(Nodes)'.encode_form_parameter("\" ").'$(Arguments)';
 	
 	ec_set_property($ec, "/projects[$ec_project]/Generated/".escape_stream_name($stream)."/Dashboard/CustomBuildLink", $link, $ec_update);
 }
@@ -265,7 +322,7 @@ sub update_custom_build_link
 # update the list of new builds for the current stream
 sub update_preflight_links
 {
-	my ($is_buildgraph, $ec, $ec_project, $stream, $settings, $ec_update) = @_;
+	my ($ec, $ec_project, $stream, $settings, $ec_update) = @_;
 
 	my $preflight_links = [];
 	my $build_types = $settings->{'Build Types'};
@@ -276,15 +333,15 @@ sub update_preflight_links
 			if($build_type->{'ShowPreflight'})
 			{
 				my $name = $build_type->{'Name'};
-				my $link = get_preflight_url($is_buildgraph, $ec_project, $stream, encode_form_parameter($name), encode_form_parameter($build_type->{'Arguments'}));
+				my $link = get_preflight_url($ec_project, $stream, encode_form_parameter($name), encode_form_parameter($build_type->{'Arguments'}));
 				push(@{$preflight_links}, "$name=$link");
 			}
 		}
 	}
 	
 	my $custom_name = encode_form_parameter('Custom (').'$(Nodes)'.encode_form_parameter(')');
-	my $custom_arguments = encode_form_parameter($is_buildgraph? "--Target=\"" : "--Node=\"").'$(Nodes)'.encode_form_parameter("\" -- ").'$(Arguments)';
-	push(@{$preflight_links}, "Custom...=".get_preflight_url($is_buildgraph, $ec_project, $stream, $custom_name, $custom_arguments));
+	my $custom_arguments = encode_form_parameter("--Target=\"").'$(Nodes)'.encode_form_parameter("\" -- ").'$(Arguments)';
+	push(@{$preflight_links}, "Custom...=".get_preflight_url($ec_project, $stream, $custom_name, $custom_arguments));
 	
 	ec_set_property($ec, "/projects[$ec_project]/Generated/".escape_stream_name($stream)."/Dashboard/PreflightLinks", join("\n", @{$preflight_links}), $ec_update);
 }
@@ -292,16 +349,16 @@ sub update_preflight_links
 # creates a preflight link url
 sub get_preflight_url
 {
-	my ($is_buildgraph, $ec_project, $stream, $name, $arguments) = @_;
+	my ($ec_project, $stream, $name, $arguments) = @_;
 
-	my $url = "/commander/link/runProcedure/projects/$ec_project/procedures/".encode_form_parameter($is_buildgraph? "Run BuildGraph" : "Run Build")."?runNow=1&priority=low";
+	my $url = "/commander/link/runProcedure/projects/$ec_project/procedures/".encode_form_parameter("Run BuildGraph")."?runNow=1&priority=low";
 	$url .= "&parameters1_name=".encode_form_parameter("Stream");
 	$url .= "&parameters1_value=".encode_form_parameter($stream);
 	$url .= "&parameters2_name=".encode_form_parameter("CL");
 	$url .= "&parameters2_value=\$(BaseCL)";
 	$url .= "&parameters3_name=".encode_form_parameter("Preflight CL");
 	$url .= "&parameters3_value=\$(ShelvedCL)";
-	$url .= "&parameters4_name=".encode_form_parameter($is_buildgraph? "Job Name" : "Build Name");
+	$url .= "&parameters4_name=".encode_form_parameter("Job Name");
 	$url .= "&parameters4_value=$name";
 	$url .= "&parameters5_name=".encode_form_parameter("Arguments");
 	$url .= "&parameters5_value=$arguments";
@@ -309,15 +366,108 @@ sub get_preflight_url
 	$url;
 }
 
+# update the telemetry property
+sub update_telemetry
+{
+	my ($ec, $ec_project, $stream, $job_ids, $job_id_to_properties, $ec_update) = @_;
+	log_print("Generating telemetry for $stream...");
+
+	# read the existing telemetry
+	my $property_name = "/projects[$ec_project]/Generated/".escape_stream_name($stream)."/Telemetry";
+	my $telemetry = decode_json(ec_try_get_property($ec, $property_name) || "{}");
+	my $job_telemetry_array = ($telemetry && $telemetry->{'version'} && $telemetry->{'version'} == 1)? $telemetry->{'jobs'} : [];
+
+	# remove any jobs from the list that we've got data for
+	$job_telemetry_array = [grep { !exists $job_id_to_properties->{$_->{'id'}} } @{$job_telemetry_array} ];
+	
+	# make a lookup from job id to the telemetry for it
+	my $job_id_to_telemetry = { };
+	foreach my $job_telemetry (@{$job_telemetry_array})
+	{
+		$job_id_to_telemetry->{$job_telemetry->{'id'}} = $job_telemetry;
+	}
+
+	# add rows for any jobs we're not already tracking
+	foreach my $job_id (@{$job_ids})
+	{
+		my $job_properties = $job_id_to_properties->{$job_id};
+		if($job_properties->{'build_info'})
+		{
+			# build a lookup of node name to group name
+			my $node_name_to_group_name = {};
+			my $group_name_to_node_names = $job_properties->{'build_info'}->{'GroupToNodes'};
+			foreach my $group_name (keys %{$group_name_to_node_names})
+			{
+				foreach my $node_name (@{$group_name_to_node_names->{$group_name}})
+				{
+					$node_name_to_group_name->{$node_name} = $group_name;
+				}
+			}
+
+			# check we have a dependencies list for this job; we can't build telemetry data without it
+			my $node_name_to_dependencies =  $job_properties->{'build_info'}->{'NodeToDependencies'};
+			if($node_name_to_dependencies)
+			{
+				my $job_telemetry = { id => $job_id, name => $job_properties->{'job_name'}, change_number => $job_properties->{'change_number'}, start_time => $job_properties->{'start_time'}, job_steps => [] };
+				foreach my $jobstep (@{$job_properties->{'job_steps'}})
+				{
+					my $result = $jobstep->{'result'};
+					if($result =~ /^completed:(success|warning)/ && $jobstep->{'run_time'})
+					{
+						my $jobstep_id = $jobstep->{'id'};
+						my $name = $jobstep->{'name'};
+						my $group = $node_name_to_group_name->{$name};
+						my $start_time = $jobstep->{'start_time'};
+						my $finish_time = $start_time + int ($jobstep->{'run_time'} / 1000);
+						my $depends_on = $job_properties->{'build_info'}->{'NodeToDependencies'}->{$name};
+						my $user_data = $jobstep->{'telemetry'};
+						
+						my $jobstep_telemetry = { id => $jobstep_id, name => $name, group => $group, start_time => $start_time, finish_time => $finish_time, depends_on => $depends_on };
+						$jobstep_telemetry->{'user_data'} = $user_data if $user_data;
+						push(@{$job_telemetry->{'job_steps'}}, $jobstep_telemetry);
+					}
+				}
+				push(@{$job_telemetry_array}, $job_telemetry);
+			}
+		}
+	}
+
+	# get the oldest time to retain telemetry
+	my $cull_time = time - (14 * 24 * 60 * 60);
+	$job_telemetry_array = [ grep { $_->{'start_time'} > $cull_time } @{$job_telemetry_array} ];
+	
+	# Update EC
+	my $new_json = encode_json({ version => 1, jobs => $job_telemetry_array });
+	ec_set_property($ec, $property_name, $new_json, $ec_update);
+}
+
 # update the grid dashboard for a given stream
 sub update_dashboard_grid_view
 {
-	my ($ec, $ec_project, $stream, $job_ids, $job_id_to_properties, $ec_update) = @_;
+	my ($ec, $ec_project, $stream, $job_ids, $job_id_to_properties, $settings, $ec_update) = @_;
 	log_print("Generating grid view for $stream...");
 
 	# remove all the job ids that don't have a valid CL set, or are downstream of another job
 	$job_ids = [ grep { !$job_id_to_properties->{$_}->{'upstream_job'} && $job_id_to_properties->{$_}->{'change_number'} =~ /^\d+$/ } @{$job_ids} ];
-
+	
+	# remove all the blacklisted job names as specified by the settings file
+	my $grid_settings = $settings && $settings->{'Dashboard'} && $settings->{'Dashboard'}->{'Grid'};
+	if($grid_settings)
+	{
+		my $exclude_jobs = $grid_settings->{'Exclude Jobs'};
+		if($exclude_jobs)
+		{
+			# create a new array of job ids that don't match any exclude patterns
+			my $new_job_ids = [];
+			foreach my $job_id(@{$job_ids})
+			{
+				my $base_job_name = get_base_job_name($job_id_to_properties->{$job_id}->{'job_name'});
+				push(@{$new_job_ids}, $job_id) if !(grep { $base_job_name =~ /^$_$/ } @{$exclude_jobs});
+			}
+			$job_ids = $new_job_ids;
+		}
+	}
+	
 	# find the count of each node name, and order in which we encounter them (from the first job to the last)
 	my $node_name_to_weight = { };
 	for my $job_id (@{$job_ids})
@@ -377,7 +527,8 @@ sub update_dashboard_grid_view
 	{
 		my $job_properties = $job_id_to_properties->{$job_id};
 		my $heading = $job_properties->{'change_number'} || "Latest";
-		$XHTML .= "<td bgcolor=#C8C8CE height=\"20\" width=\"65px\" align=\"center\" style=\"padding-left:0.75em;padding-right:0.75em;\"><a href=/commander/link/jobDetails/jobs/$job_id\><strong>$heading</strong></a></td>";
+		my $started_time = "Started ".format_recent_time($job_properties->{'start_time'});
+		$XHTML .= "<td bgcolor=#C8C8CE height=\"20\" width=\"65px\" align=\"center\" style=\"padding-left:0.75em;padding-right:0.75em;\" title=\"$started_time\"><a href=/commander/link/jobDetails/jobs/$job_id\><strong>$heading</strong></a></td>";
 	}
 	$XHTML .= "  </tr>\n";
 		
@@ -490,18 +641,18 @@ sub update_dashboard_list_view
 	my @sorted_job_ids = sort { ($job_id_to_properties->{$b}->{'change_number'} <=> $job_id_to_properties->{$a}->{'change_number'}) || ($b <=> $a) } @valid_job_ids;
 	
 	# parse them into a list and set of steps
-	my $labels = [];
-	my $label_to_node_names = {};
-	if($settings->{'Dashboard'})
-	{
-		foreach(@{$settings->{'Dashboard'}})
-		{
-			my ($label, $node_names) = ($_->{'Label'}, $_->{'Nodes'});
-			push(@{$labels}, $label);
-			my @node_names = split(/\+/, $node_names);
-			$label_to_node_names->{$label} = \@node_names;
-		}
-	}
+	#my $labels = [];
+	#my $label_to_node_names = {};
+	#if($settings->{'Dashboard'})
+	#{
+	#	foreach(@{$settings->{'Dashboard'}})
+	#	{
+	#		my ($label, $node_names) = ($_->{'Label'}, $_->{'Nodes'});
+	#		push(@{$labels}, $label);
+	#		my @node_names = split(/\+/, $node_names);
+	#		$label_to_node_names->{$label} = \@node_names;
+	#	}
+	#}
 
 	# create the html boilerplate
 	my $XHTML = "";	
@@ -545,8 +696,8 @@ sub update_dashboard_list_view
 		# change number column
 		my $change_number = $job_properties->{'change_number'};
 		my $script = "{ var x = document.getElementsByName('p4change'); for(var i = 0; i &lt; x.length; i++){ x[i].className = (x[i].className == 'change_hidden')? 'change_visible' : 'change_hidden'; } }";
-		my $p4web_url = "http://p4-web/\@md=d&cd=$stream/&c=Mt8\@$stream/?ac=43&mx=50&sr=$change_number";
-		$XHTML .= "    <td align=\"center\"><a href=\"$p4web_url\">$change_number</a></td>\n";
+		my $p4swarm_url = "http://p4-swarm.epicgames.net/files/".substr($stream, 1)."#commits";
+		$XHTML .= "    <td align=\"center\"><a href=\"$p4swarm_url\">$change_number</a></td>\n";
 		
 		# started by column
 		my $started_by = $job_properties->{'started_by'};
@@ -715,4 +866,120 @@ sub get_job_status_image
 	$XHTML .= "</a>";
 	
 	$XHTML;
+}
+
+# builds the page showing mirrored github commits
+sub update_github_view
+{
+	my ($ec, $ec_project, $stream, $settings, $ec_update) = @_;
+	
+	if($settings->{'GitHub'} && $settings->{'GitHub'}->{'Enabled'})
+	{
+		log_print("Generating GitHub view for $stream...");
+
+		my $filters = $settings->{'GitHub'}->{'Filters'};
+		my $remote_url = $settings->{'GitHub'}->{'RemoteUrl'};
+		
+		# read the status property
+		my $state = decode_json(ec_try_get_property($ec, "/projects[$ec_project]/Generated/".escape_stream_name($stream)."/GitHub"));
+		
+		# find all the changes submitted to this branch
+		my $change_history = get_change_history($stream, $filters, undef, 250);
+
+		# create the html boilerplate
+		my $html = "";	
+		$html .= "<link href='/commander/styles/JobsQuickView.css' rel='stylesheet' type='text/css' />\n";
+		$html .= "<link href='/commander/lib/styles/ColumnedSections.css' rel='stylesheet' type='text/css' />\n";
+		$html .= "<link href='/commander/lib/styles/Header.css' rel='stylesheet' type='text/css' />\n";
+		$html .= "<style type=\"text/css\">\n";
+		$html .= "  .builds { border-spacing: 1px; border-collapse: collapse; }\n";
+		$html .= "  .builds td { white-space:nowrap; padding:0.35em; padding-left:2em; padding-right:2em; border: 1px solid white; }\n";
+		$html .= "  .target_label { display:inline-block; padding-left:0.75em; padding-right:0.75em; }\n";
+		$html .= "  .target_label img { position: relative; padding-right:0.5em; vertical-align:middle; }\n";
+		$html .= "  .change_visible { visibility:visible; display:table-row; }\n";
+		$html .= "  .change_hidden { visibility:hidden; display:none; }\n";
+		$html .= "</style>\n";
+		$html .= "<table class='formBuilder data quickviewTable builds' style='position:absolute;width:100%;'>\n";
+		$html .= "  <tr bgcolor=\"#d7d7d7\">\n";
+		$html .= "    <td height=\"16\" align=\"center\" style=\"width:1%\"></td>\n";
+		$html .= "    <td height=\"16\" align=\"center\" style=\"width:1%\"><b>Changelist</b></td>\n";
+		$html .= "    <td height=\"16\" align=\"center\" style=\"width:10%\"><b>Author</b></td>\n";
+		$html .= "    <td height=\"16\" align=\"center\" style=\"width:90%\"><b>Description</b></td>\n";
+		$html .= "    <td height=\"16\" align=\"center\" style=\"width:1%\"><b>Commit</b></td>\n";
+		$html .= "  </tr>\n";
+		
+		# queries all the recent changes in a path
+		my $row_idx = 0;
+		my $is_pending = 1;
+		foreach my $change (@{$change_history})
+		{
+			my $change_number = $change->{'number'};
+			my $change_state = $state->{'changes'}->{$change_number};
+			$is_pending = 0 if $change_state;
+			
+			# open the row
+			my $row_background_color = ((++$row_idx % 2) == 0)? "#f0f0f0" : "#f7f7f7";
+			$html .= "  <tr bgcolor='$row_background_color' style=\"height:3em\">\n";
+
+			# get the icon to display
+			my $icon;
+			if($is_pending)
+			{
+				$icon = "<img alt=\"Pending\" src=\"/commander/lib/images/icn16px_runnable.gif\"/>";
+			}
+			elsif(!$change_state)
+			{
+				$icon = "<img alt=\"Success\" src=\"/commander/lib/images/icn16px_skipped.gif\"/>";
+			}
+			elsif($change_state->{'success'})
+			{
+				$icon = "<img alt=\"Success\" src=\"/commander/lib/images/icn16px_".($change_state->{'commit'}? 'success' : 'skipped').".gif\"/>";
+			}
+			else
+			{
+				$icon = "<img alt=\"Failed\" src=\"/commander/lib/images/icn16px_error.gif\"/>";
+			}
+			
+			# add the icon, with a link if appropriate
+			if($change_state->{'job_id'} && $change_state->{'jobstep_id'})
+			{
+				$html .= "    <td><a href=\"/commander/link/jobDetails/jobs/$change_state->{'job_id'}\" style=\"background-image:none;\">$icon</a></td>";
+			}		
+			else
+			{
+				$html .= "    <td>$icon</td>";
+			}
+				
+			# change number column
+			my $p4swarm_url = "https://p4-swarm.epicgames.net/changes/$change_number";
+			$html .= "    <td align=\"center\"><a href=\"$p4swarm_url\">$change_number</a></td>\n";
+
+			# author column
+			$html .= "    <td align=\"center\"><a href=\"mailto:$change->{'author_email'}\">$change->{'author'}</a></td>\n";
+
+			# description column
+			my ($trim_description) = ($change->{'description'} =~ /^([^\n]*)/);
+			$html .= "    <td align=\"left\" style=\"white-space:normal\">$trim_description</td>\n";
+			
+			# commit column
+			if($is_pending)
+			{
+				$html .= "    <td align=\"center\">Pending</td>\n";
+			}
+			elsif(!$change_state || !$change_state->{'commit'})
+			{
+				$html .= "    <td align=\"center\">Skipped</td>\n";
+			}
+			else
+			{
+				$html .= "    <td align=\"center\"><a href=\"$remote_url/commit/$change_state->{'commit'}\" target=\"_blank\">$change_state->{'commit'}</a></td>\n";
+			}
+			
+			# end of the row
+			$html .= "  <tr>\n";
+		}
+		$html .= "</table>";
+		
+		ec_set_property($ec, "/projects[$ec_project]/Generated/".escape_stream_name($stream)."/Dashboard/GitHubView", $html, $ec_update);
+	}
 }

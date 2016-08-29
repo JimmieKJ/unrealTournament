@@ -6,7 +6,7 @@
 
 #include "FoliageEditActions.h"
 
-#define LOCTEXT_NAMESPACE ""
+#define LOCTEXT_NAMESPACE "FoliageEditCommands"
 
 void FFoliageEditCommands::RegisterCommands()
 {

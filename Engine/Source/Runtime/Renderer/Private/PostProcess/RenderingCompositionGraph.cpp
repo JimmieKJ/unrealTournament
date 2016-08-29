@@ -148,7 +148,7 @@ void CompositionGraph_OnStartFrame()
 #endif
 }
 
-FRenderingCompositePassContext::FRenderingCompositePassContext(FRHICommandListImmediate& InRHICmdList, FViewInfo& InView/*, const FSceneRenderTargetItem& InRenderTargetItem*/)
+FRenderingCompositePassContext::FRenderingCompositePassContext(FRHICommandListImmediate& InRHICmdList, const FViewInfo& InView)
 	: View(InView)
 	, ViewState((FSceneViewState*)InView.State)
 	, Pass(0)

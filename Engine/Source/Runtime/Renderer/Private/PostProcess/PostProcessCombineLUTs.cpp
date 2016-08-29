@@ -126,7 +126,10 @@ class FLUTBlenderPS : public FGlobalShader
 	DECLARE_SHADER_TYPE(FLUTBlenderPS,Global);
 public:
 
-	static bool ShouldCache(EShaderPlatform Platform) { return IsFeatureLevelSupported(Platform, ERHIFeatureLevel::ES2); }
+	static bool ShouldCache(EShaderPlatform Platform)
+	{
+		return true;
+	}
 
 	FLUTBlenderPS(const ShaderMetaType::CompiledShaderInitializerType& Initializer)
 		: FGlobalShader(Initializer) 
@@ -157,13 +160,33 @@ public:
 		ColorGain.Bind(			Initializer.ParameterMap,TEXT("ColorGain") );
 		ColorOffset.Bind(		Initializer.ParameterMap,TEXT("ColorOffset") );
 
+		ColorSaturationShadows.Bind(Initializer.ParameterMap, TEXT("ColorSaturationShadows"));
+		ColorContrastShadows.Bind(Initializer.ParameterMap, TEXT("ColorContrastShadows"));
+		ColorGammaShadows.Bind(Initializer.ParameterMap, TEXT("ColorGammaShadows"));
+		ColorGainShadows.Bind(Initializer.ParameterMap, TEXT("ColorGainShadows"));
+		ColorOffsetShadows.Bind(Initializer.ParameterMap, TEXT("ColorOffsetShadows"));
+
+		ColorSaturationMidtones.Bind(Initializer.ParameterMap, TEXT("ColorSaturationMidtones"));
+		ColorContrastMidtones.Bind(Initializer.ParameterMap, TEXT("ColorContrastMidtones"));
+		ColorGammaMidtones.Bind(Initializer.ParameterMap, TEXT("ColorGammaMidtones"));
+		ColorGainMidtones.Bind(Initializer.ParameterMap, TEXT("ColorGainMidtones"));
+		ColorOffsetMidtones.Bind(Initializer.ParameterMap, TEXT("ColorOffsetMidtones"));
+
+		ColorSaturationHighlights.Bind(Initializer.ParameterMap, TEXT("ColorSaturationHighlights"));
+		ColorContrastHighlights.Bind(Initializer.ParameterMap, TEXT("ColorContrastHighlights"));
+		ColorGammaHighlights.Bind(Initializer.ParameterMap, TEXT("ColorGammaHighlights"));
+		ColorGainHighlights.Bind(Initializer.ParameterMap, TEXT("ColorGainHighlights"));
+		ColorOffsetHighlights.Bind(Initializer.ParameterMap, TEXT("ColorOffsetHighlights"));
+
 		FilmSlope.Bind(		Initializer.ParameterMap,TEXT("FilmSlope") );
 		FilmToe.Bind(		Initializer.ParameterMap,TEXT("FilmToe") );
 		FilmShoulder.Bind(	Initializer.ParameterMap,TEXT("FilmShoulder") );
 		FilmBlackClip.Bind(	Initializer.ParameterMap,TEXT("FilmBlackClip") );
 		FilmWhiteClip.Bind(	Initializer.ParameterMap,TEXT("FilmWhiteClip") );
 
-		OutputDevice.Bind( Initializer.ParameterMap,TEXT("OutputDevice") );
+		OutputDevice.Bind(Initializer.ParameterMap, TEXT("OutputDevice"));
+		OutputGamut.Bind(Initializer.ParameterMap, TEXT("OutputGamut"));
+		ACESInversion.Bind(Initializer.ParameterMap, TEXT("ACESInversion"));
 
 		ColorMatrixR_ColorCurveCd1.Bind(Initializer.ParameterMap, TEXT("ColorMatrixR_ColorCurveCd1"));
 		ColorMatrixG_ColorCurveCd3Cm3.Bind(Initializer.ParameterMap, TEXT("ColorMatrixG_ColorCurveCd3Cm3"));
@@ -212,6 +235,24 @@ public:
 		SetShaderValue( RHICmdList, ShaderRHI, ColorGain,		Settings.ColorGain );
 		SetShaderValue( RHICmdList, ShaderRHI, ColorOffset,		Settings.ColorOffset );
 
+		SetShaderValue(RHICmdList, ShaderRHI, ColorSaturationShadows, Settings.ColorSaturationShadows);
+		SetShaderValue(RHICmdList, ShaderRHI, ColorContrastShadows, Settings.ColorContrastShadows);
+		SetShaderValue(RHICmdList, ShaderRHI, ColorGammaShadows, Settings.ColorGammaShadows);
+		SetShaderValue(RHICmdList, ShaderRHI, ColorGainShadows, Settings.ColorGainShadows);
+		SetShaderValue(RHICmdList, ShaderRHI, ColorOffsetShadows, Settings.ColorOffsetShadows);
+
+		SetShaderValue(RHICmdList, ShaderRHI, ColorSaturationMidtones, Settings.ColorSaturationMidtones);
+		SetShaderValue(RHICmdList, ShaderRHI, ColorContrastMidtones, Settings.ColorContrastMidtones);
+		SetShaderValue(RHICmdList, ShaderRHI, ColorGammaMidtones, Settings.ColorGammaMidtones);
+		SetShaderValue(RHICmdList, ShaderRHI, ColorGainMidtones, Settings.ColorGainMidtones);
+		SetShaderValue(RHICmdList, ShaderRHI, ColorOffsetMidtones, Settings.ColorOffsetMidtones);
+
+		SetShaderValue(RHICmdList, ShaderRHI, ColorSaturationHighlights, Settings.ColorSaturationHighlights);
+		SetShaderValue(RHICmdList, ShaderRHI, ColorContrastHighlights, Settings.ColorContrastHighlights);
+		SetShaderValue(RHICmdList, ShaderRHI, ColorGammaHighlights, Settings.ColorGammaHighlights);
+		SetShaderValue(RHICmdList, ShaderRHI, ColorGainHighlights, Settings.ColorGainHighlights);
+		SetShaderValue(RHICmdList, ShaderRHI, ColorOffsetHighlights, Settings.ColorOffsetHighlights);
+
 		// Film
 		SetShaderValue( RHICmdList, ShaderRHI, FilmSlope,		Settings.FilmSlope );
 		SetShaderValue( RHICmdList, ShaderRHI, FilmToe,			Settings.FilmToe );
@@ -220,26 +261,43 @@ public:
 		SetShaderValue( RHICmdList, ShaderRHI, FilmWhiteClip,	Settings.FilmWhiteClip );
 
 		{
-			static TConsoleVariableData<int32>* CVar709		= IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.Tonemapper709"));
-			static TConsoleVariableData<float>* CVarGamma	= IConsoleManager::Get().FindTConsoleVariableDataFloat(TEXT("r.TonemapperGamma"));
+			static TConsoleVariableData<int32>* CVar709 = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.Tonemapper709"));
+			static TConsoleVariableData<float>* CVarGamma = IConsoleManager::Get().FindTConsoleVariableDataFloat(TEXT("r.TonemapperGamma"));
+			static TConsoleVariableData<int32>* CVar2084 = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.Tonemapper2084"));
 
 			int32 Rec709 = CVar709->GetValueOnRenderThread();
+			int32 ST2084 = CVar2084->GetValueOnRenderThread();
 			float Gamma = CVarGamma->GetValueOnRenderThread();
-			
-			if( PLATFORM_APPLE && Gamma == 0.0f )
+
+			if (PLATFORM_APPLE && Gamma == 0.0f)
 			{
 				Gamma = 2.2f;
 			}
-			
+
 			int32 Value = 0;						// sRGB
-			Value = Rec709			? 1 : Value;	// Rec709
-			Value = Gamma != 0.0f	? 2 : Value;	// Explicit gamma
-			SetShaderValue( RHICmdList, ShaderRHI, OutputDevice, Value );
-			
+			Value = Rec709 ? 1 : Value;	// Rec709
+			Value = Gamma != 0.0f ? 2 : Value;	// Explicit gamma
+			// ST-2084 (Dolby PQ) options 
+			// 1 = ACES
+			// 2 = Vanilla PQ for 200 nit input
+			// 3 = Unreal FilmToneMap + Inverted ACES + PQ
+			Value = ST2084 >= 1 ? ST2084 + 2 : Value;
+
+			SetShaderValue(RHICmdList, ShaderRHI, OutputDevice, Value);
+
+			static TConsoleVariableData<int32>* CVarOutputGamut = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.TonemapperOutputGamut"));
+			int32 OutputGamutValue = CVarOutputGamut->GetValueOnRenderThread();
+			SetShaderValue(RHICmdList, ShaderRHI, OutputGamut, OutputGamutValue);
+
+			// The approach to use when applying the inverse ACES Output Transform
+			static TConsoleVariableData<int32>* CVarACESInversion = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.TonemapperACESInversion"));
+			int32 ACESInversionValue = CVarACESInversion->GetValueOnRenderThread();
+			SetShaderValue(RHICmdList, ShaderRHI, ACESInversion, ACESInversionValue);
+
 			FVector InvDisplayGammaValue;
 			InvDisplayGammaValue.X = 1.0f / ViewFamily.RenderTarget->GetDisplayGamma();
 			InvDisplayGammaValue.Y = 2.2f / ViewFamily.RenderTarget->GetDisplayGamma();
-			InvDisplayGammaValue.Z = 1.0f / FMath::Max( Gamma, 1.0f );
+			InvDisplayGammaValue.Z = 1.0f / FMath::Max(Gamma, 1.0f);
 			SetShaderValue(RHICmdList, ShaderRHI, InverseGamma, InvDisplayGammaValue);
 		}
 
@@ -400,7 +458,27 @@ public:
 		Ar << ColorGain;
 		Ar << ColorOffset;
 
+		Ar << ColorSaturationShadows;
+		Ar << ColorContrastShadows;
+		Ar << ColorGammaShadows;
+		Ar << ColorGainShadows;
+		Ar << ColorOffsetShadows;
+
+		Ar << ColorSaturationMidtones;
+		Ar << ColorContrastMidtones;
+		Ar << ColorGammaMidtones;
+		Ar << ColorGainMidtones;
+		Ar << ColorOffsetMidtones;
+
+		Ar << ColorSaturationHighlights;
+		Ar << ColorContrastHighlights;
+		Ar << ColorGammaHighlights;
+		Ar << ColorGainHighlights;
+		Ar << ColorOffsetHighlights;
+
 		Ar << OutputDevice;
+		Ar << OutputGamut;
+		Ar << ACESInversion;
 
 		Ar << FilmSlope;
 		Ar << FilmToe;
@@ -434,6 +512,24 @@ private: // ---------------------------------------------------
 	FShaderParameter ColorGain;
 	FShaderParameter ColorOffset;
 
+	FShaderParameter ColorSaturationShadows;
+	FShaderParameter ColorContrastShadows;
+	FShaderParameter ColorGammaShadows;
+	FShaderParameter ColorGainShadows;
+	FShaderParameter ColorOffsetShadows;
+
+	FShaderParameter ColorSaturationMidtones;
+	FShaderParameter ColorContrastMidtones;
+	FShaderParameter ColorGammaMidtones;
+	FShaderParameter ColorGainMidtones;
+	FShaderParameter ColorOffsetMidtones;
+
+	FShaderParameter ColorSaturationHighlights;
+	FShaderParameter ColorContrastHighlights;
+	FShaderParameter ColorGammaHighlights;
+	FShaderParameter ColorGainHighlights;
+	FShaderParameter ColorOffsetHighlights;
+
 	FShaderParameter FilmSlope;
 	FShaderParameter FilmToe;
 	FShaderParameter FilmShoulder;
@@ -441,6 +537,8 @@ private: // ---------------------------------------------------
 	FShaderParameter FilmWhiteClip;
 
 	FShaderParameter OutputDevice;
+	FShaderParameter OutputGamut;
+	FShaderParameter ACESInversion;
 
 	// Legacy
 	FShaderParameter ColorMatrixR_ColorCurveCd1;

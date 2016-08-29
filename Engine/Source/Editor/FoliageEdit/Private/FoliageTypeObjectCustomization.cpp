@@ -39,8 +39,8 @@ void FFoliageTypeObjectCustomization::CustomizeChildren(TSharedRef<IPropertyHand
 bool FFoliageTypeObjectCustomization::OnShouldFilterAsset(const FAssetData& AssetData) const
 {
 	// If the asset is a BP class that doesn't inherit from UFoliageType, hide it
-	const FString* ParentClassName = AssetData.TagsAndValues.Find(TEXT("ParentClass"));
-	if (ParentClassName && !ParentClassName->Contains(TEXT("FoliageType_InstancedStaticMesh")))
+	const FString ParentClassName = AssetData.GetTagValueRef<FString>("ParentClass");
+	if (!ParentClassName.IsEmpty() && !ParentClassName.Contains(TEXT("FoliageType_InstancedStaticMesh")))
 	{
 		return true;
 	}

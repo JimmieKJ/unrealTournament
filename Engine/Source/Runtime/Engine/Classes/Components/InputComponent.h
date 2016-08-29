@@ -634,7 +634,7 @@ public:
 	 * @param BindingIndex The index of the binding to get.
 	 * @see AddActionBinding, ClearActionBindings, GetNumActionBindings, RemoveActionBinding
 	 */
-	FInputActionBinding& GetActionBinding( const int32 BindingIndex );
+	FInputActionBinding& GetActionBinding(const int32 BindingIndex) { return ActionBindings[BindingIndex]; }
 
 	/**
 	 * Gets the number of action bindings.
@@ -642,7 +642,7 @@ public:
 	 * @return Number of bindings.
 	 * @see AddActionBinding, ClearActionBindings, GetActionBinding, RemoveActionBinding
 	 */
-	int32 GetNumActionBindings( ) const;
+	int32 GetNumActionBindings() const { return ActionBindings.Num(); }
 
 	/**
 	 * Removes the action binding at the specified index.

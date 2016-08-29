@@ -736,6 +736,7 @@ static void rasterizeTri(const float* v0, const float* v1, const float* v2,
 						int othervert = (Hits.Hits[i] >> 2) & 3;
 						int basevert = Hits.Hits[i] & 3;
 
+						CA_SUPPRESS(6385);
 						intersectZ(vertarray[basevert], &edges[edge][0], cz, Inter[i]);
 						int x = (int)floorf((Inter[i][0] - bmin[0])*ics);
 						xInter[i] = x;

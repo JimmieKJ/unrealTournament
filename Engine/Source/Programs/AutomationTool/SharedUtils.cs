@@ -45,6 +45,12 @@ namespace AutomationTool
 					bEscape++;
 					bCanAppend = false;
 				}
+				else if(bEscape == 0 && C == '^' && Index + 1 < CmdLine.Length && CmdLine[Index + 1] == '&')
+				{
+					// Visual studio seems to escape ampersands as if for a batch file when running UAT *without* the debugger attached (ie. ctrl-f5)
+					Index++;
+					C = CmdLine[Index];
+				}
 				else if (C == '\"')
 				{
 					bCanAppend = bEscape > 0;

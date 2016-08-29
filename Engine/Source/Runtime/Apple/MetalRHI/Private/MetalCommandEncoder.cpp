@@ -7,6 +7,8 @@
 #include "MetalRHIPrivate.h"
 
 #include "MetalCommandEncoder.h"
+#include "MetalCommandBuffer.h"
+#include "MetalProfiler.h"
 
 #pragma mark - Public C++ Boilerplate -
 
@@ -14,7 +16,7 @@ FMetalCommandEncoder::FMetalCommandEncoder(FMetalCommandList& CmdList)
 : CommandList(CmdList)
 , FrontFacingWinding(MTLWindingClockwise)
 , CullMode(MTLCullModeNone)
-#if METAL_API_1_1
+#if METAL_API_1_1 && PLATFORM_MAC
 , DepthClipMode(MTLDepthClipModeClip)
 #endif
 , FillMode(MTLTriangleFillModeFill)
@@ -25,6 +27,7 @@ FMetalCommandEncoder::FMetalCommandEncoder(FMetalCommandList& CmdList)
 , PipelineStatsOffset(0)
 , PipelineStatsMask(0)
 , RenderPassDesc(nil)
+, RenderPassDescApplied(0)
 , CommandBuffer(nil)
 , RenderCommandEncoder(nil)
 , RenderPipelineState(nil)
@@ -43,13 +46,6 @@ FMetalCommandEncoder::FMetalCommandEncoder(FMetalCommandList& CmdList)
 	FMemory::Memzero(ShaderBuffers);
 	FMemory::Memzero(ShaderTextures);
 	FMemory::Memzero(ShaderSamplers);
-	for(int32 i = 0; i < SF_NumFrequencies; i++)
-	{
-		for(int32 j = 0; j < ML_MaxSamplers; j++)
-		{
-			ShaderSamplers[i].MaxLods[j] = FLT_MAX;
-		}
-	}
 }
 
 FMetalCommandEncoder::~FMetalCommandEncoder(void)
@@ -73,6 +69,7 @@ FMetalCommandEncoder::~FMetalCommandEncoder(void)
 		[DepthStencilState release];
 	}
 	[RenderPassDesc release];
+	RenderPassDesc = nil;
 
 	if(DebugGroups)
 	{
@@ -110,14 +107,20 @@ void FMetalCommandEncoder::Reset(void)
 		[DepthStencilState release];
 		DepthStencilState = nil;
 	}
-	[RenderPassDesc release];
-	RenderPassDesc = nil;
+	
+	if(RenderPassDesc)
+	{
+		UNTRACK_OBJECT(STAT_MetalRenderPassDescriptorCount, RenderPassDesc);
+		[RenderPassDesc release];
+		RenderPassDesc = nil;
+	}
+	RenderPassDescApplied = 0;
 	
 	[DebugGroups removeAllObjects];
 	
 	FrontFacingWinding = MTLWindingClockwise;
 	CullMode = MTLCullModeNone;
-#if METAL_API_1_1
+#if METAL_API_1_1 && PLATFORM_MAC
 	DepthClipMode = MTLDepthClipModeClip;
 #endif
 	FillMode = MTLTriangleFillModeFill;
@@ -141,8 +144,6 @@ void FMetalCommandEncoder::Reset(void)
 				[ShaderSamplers[i].Samplers[j] release];
 			}
 			ShaderSamplers[i].Samplers[j] = nil;
-			ShaderSamplers[i].MaxLods[j] = FLT_MAX;
-			ShaderSamplers[i].MinLods[j] = 0.0;
 		}
 		ShaderSamplers[i].Bound = 0;
 	}
@@ -200,6 +201,16 @@ bool FMetalCommandEncoder::IsBlitCommandEncoderActive(void) const
 	return BlitCommandEncoder != nil;
 }
 
+bool FMetalCommandEncoder::IsImmediate(void) const
+{
+	return CommandList.IsImmediate();
+}
+
+bool FMetalCommandEncoder::IsRenderPassDescriptorValid(void) const
+{
+	return (RenderPassDesc != nil);
+}
+
 id<MTLRenderCommandEncoder> FMetalCommandEncoder::GetRenderCommandEncoder(void) const
 {
 	return RenderCommandEncoder;
@@ -224,17 +235,32 @@ void FMetalCommandEncoder::BeginRenderCommandEncoding(void)
 	check(IsRenderCommandEncoderActive() == false && IsComputeCommandEncoderActive() == false && IsBlitCommandEncoderActive() == false);
 	
 	RenderCommandEncoder = [[CommandBuffer renderCommandEncoderWithDescriptor:RenderPassDesc] retain];
+	RenderPassDescApplied++;
 	
 	if(GEmitDrawEvents)
 	{
 		NSString* Label = [DebugGroups count] > 0 ? [DebugGroups lastObject] : (NSString*)CFSTR("InitialPass");
 		[RenderCommandEncoder setLabel:Label];
+#if !UE_BUILD_SHIPPING
+		if (CommandList.GetCommandQueue().GetRuntimeDebuggingLevel() >= EMetalDebugLevelLogOperations)
+		{
+			FMetalDebugCommandBuffer* Buf = (FMetalDebugCommandBuffer*)CommandBuffer;
+			[Buf beginRenderCommandEncoder:Label withDescriptor:RenderPassDesc];
+		}
+#endif
 		
 		if([DebugGroups count])
 		{
 			for (NSString* Group in DebugGroups)
 			{
 				[RenderCommandEncoder pushDebugGroup:Group];
+#if !UE_BUILD_SHIPPING
+				if (CommandList.GetCommandQueue().GetRuntimeDebuggingLevel() >= EMetalDebugLevelLogDebugGroups)
+				{
+					FMetalDebugCommandBuffer* Buf = (FMetalDebugCommandBuffer*)CommandBuffer;
+					[Buf pushDebugGroup:Group];
+				}
+#endif
 			}
 		}
     }
@@ -245,6 +271,57 @@ void FMetalCommandEncoder::RestoreRenderCommandEncoding(void)
 	check(RenderPassDesc);
 	check(CommandBuffer);
 	check(IsRenderCommandEncoderActive() == false && IsComputeCommandEncoderActive() == false && IsBlitCommandEncoderActive() == false);
+	
+#if UE_BUILD_DEBUG || UE_BUILD_DEVELOPMENT
+	if ((GetMetalDeviceContext().GetCommandQueue().GetRuntimeDebuggingLevel() >= EMetalDebugLevelValidation) && RenderPassDescApplied == 1)
+	{
+		bool bAllLoadActionsOK = true;
+		if(RenderPassDesc.colorAttachments)
+		{
+			for(uint i = 0; i< 8; i++)
+			{
+				MTLRenderPassColorAttachmentDescriptor* Desc = [RenderPassDesc.colorAttachments objectAtIndexedSubscript:i];
+				if(Desc)
+				{
+					bAllLoadActionsOK |= (Desc.loadAction == MTLLoadActionLoad);
+				}
+			}
+		}
+		if(RenderPassDesc.depthAttachment)
+		{
+			bAllLoadActionsOK |= (RenderPassDesc.depthAttachment.loadAction == MTLLoadActionLoad);
+		}
+		if(RenderPassDesc.stencilAttachment)
+		{
+			bAllLoadActionsOK |= (RenderPassDesc.stencilAttachment.loadAction == MTLLoadActionLoad);
+		}
+		
+		if (!bAllLoadActionsOK)
+		{
+			UE_LOG(LogMetal, Warning, TEXT("Called RestoreRenderCommandEncoding after the first use of a render-pass to restore the render pass with a clear operation - this would erroneously re-clear any existing draw calls."));
+			
+			if(RenderPassDesc.colorAttachments)
+			{
+				for(uint i = 0; i< 8; i++)
+				{
+					MTLRenderPassColorAttachmentDescriptor* Desc = [RenderPassDesc.colorAttachments objectAtIndexedSubscript:i];
+					if(Desc)
+					{
+						Desc.loadAction = MTLLoadActionLoad;
+					}
+				}
+			}
+			if(RenderPassDesc.depthAttachment)
+			{
+				RenderPassDesc.depthAttachment.loadAction = MTLLoadActionLoad;
+			}
+			if(RenderPassDesc.stencilAttachment)
+			{
+				RenderPassDesc.stencilAttachment.loadAction = MTLLoadActionLoad;
+			}
+		}
+	}
+#endif
 	
 	BeginRenderCommandEncoding();
 	RestoreRenderCommandEncodingState();
@@ -260,7 +337,7 @@ void FMetalCommandEncoder::RestoreRenderCommandEncodingState(void)
 	[RenderCommandEncoder setViewport:Viewport];
 	[RenderCommandEncoder setFrontFacingWinding:FrontFacingWinding];
 	[RenderCommandEncoder setCullMode:CullMode];
-#if METAL_API_1_1
+#if METAL_API_1_1 && PLATFORM_MAC
 	if(GetMetalDeviceContext().SupportsFeature(EMetalFeaturesDepthClipMode))
 	{
 		[RenderCommandEncoder setDepthClipMode:DepthClipMode];
@@ -318,11 +395,11 @@ void FMetalCommandEncoder::RestoreRenderCommandEncodingState(void)
 	{
 		if(ShaderSamplers[SF_Vertex].Samplers[i] != nil && (ShaderSamplers[SF_Vertex].Bound & (1 << i)))
 		{
-			[RenderCommandEncoder setVertexSamplerState:ShaderSamplers[SF_Vertex].Samplers[i] lodMinClamp:ShaderSamplers[SF_Vertex].MinLods[i] lodMaxClamp:ShaderSamplers[SF_Vertex].MaxLods[i] atIndex:i];
+			[RenderCommandEncoder setVertexSamplerState:ShaderSamplers[SF_Vertex].Samplers[i]  atIndex:i];
 		}
 		if(ShaderSamplers[SF_Pixel].Samplers[i] != nil && (ShaderSamplers[SF_Pixel].Bound & (1 << i)))
 		{
-			[RenderCommandEncoder setFragmentSamplerState:ShaderSamplers[SF_Pixel].Samplers[i] lodMinClamp:ShaderSamplers[SF_Pixel].MinLods[i] lodMaxClamp:ShaderSamplers[SF_Pixel].MaxLods[i] atIndex:i];
+			[RenderCommandEncoder setFragmentSamplerState:ShaderSamplers[SF_Pixel].Samplers[i] atIndex:i];
 		}
 	}
 	
@@ -340,12 +417,26 @@ void FMetalCommandEncoder::BeginComputeCommandEncoding(void)
 	{
 		NSString* Label = [DebugGroups count] > 0 ? [DebugGroups lastObject] : (NSString*)CFSTR("InitialPass");
 		[ComputeCommandEncoder setLabel:Label];
+#if !UE_BUILD_SHIPPING
+		if (CommandList.GetCommandQueue().GetRuntimeDebuggingLevel() >= EMetalDebugLevelLogOperations)
+		{
+			FMetalDebugCommandBuffer* Buf = (FMetalDebugCommandBuffer*)CommandBuffer;
+			[Buf beginComputeCommandEncoder:Label];
+		}
+#endif
 		
 		if([DebugGroups count])
 		{
 			for (NSString* Group in DebugGroups)
 			{
 				[ComputeCommandEncoder pushDebugGroup:Group];
+#if !UE_BUILD_SHIPPING
+				if (CommandList.GetCommandQueue().GetRuntimeDebuggingLevel() >= EMetalDebugLevelLogDebugGroups)
+				{
+					FMetalDebugCommandBuffer* Buf = (FMetalDebugCommandBuffer*)CommandBuffer;
+					[Buf pushDebugGroup:Group];
+				}
+#endif
 			}
 		}
 	}
@@ -389,7 +480,7 @@ void FMetalCommandEncoder::RestoreComputeCommandEncodingState(void)
 		if(ShaderSamplers[SF_Compute].Samplers[i] != nil)
 		{
 			ShaderSamplers[SF_Compute].Bound |= (1 << i);
-			[ComputeCommandEncoder setSamplerState:ShaderSamplers[SF_Compute].Samplers[i] lodMinClamp:ShaderSamplers[SF_Compute].MinLods[i] lodMaxClamp:ShaderSamplers[SF_Compute].MaxLods[i] atIndex:i];
+			[ComputeCommandEncoder setSamplerState:ShaderSamplers[SF_Compute].Samplers[i] atIndex:i];
 		}
 	}
 	
@@ -407,12 +498,26 @@ void FMetalCommandEncoder::BeginBlitCommandEncoding(void)
 	{
 		NSString* Label = [DebugGroups count] > 0 ? [DebugGroups lastObject] : (NSString*)CFSTR("InitialPass");
 		[BlitCommandEncoder setLabel:Label];
+#if !UE_BUILD_SHIPPING
+		if (CommandList.GetCommandQueue().GetRuntimeDebuggingLevel() >= EMetalDebugLevelLogOperations)
+		{
+			FMetalDebugCommandBuffer* Buf = (FMetalDebugCommandBuffer*)CommandBuffer;
+			[Buf beginBlitCommandEncoder:Label];
+		}
+#endif
 		
 		if([DebugGroups count])
 		{
 			for (NSString* Group in DebugGroups)
 			{
 				[BlitCommandEncoder pushDebugGroup:Group];
+#if !UE_BUILD_SHIPPING
+				if (CommandList.GetCommandQueue().GetRuntimeDebuggingLevel() >= EMetalDebugLevelLogDebugGroups)
+				{
+					FMetalDebugCommandBuffer* Buf = (FMetalDebugCommandBuffer*)CommandBuffer;
+					[Buf pushDebugGroup:Group];
+				}
+#endif
 			}
 		}
 	}
@@ -420,6 +525,13 @@ void FMetalCommandEncoder::BeginBlitCommandEncoding(void)
 
 void FMetalCommandEncoder::EndEncoding(void)
 {
+#if !UE_BUILD_SHIPPING
+	if (CommandList.GetCommandQueue().GetRuntimeDebuggingLevel() >= EMetalDebugLevelLogOperations)
+	{
+		FMetalDebugCommandBuffer* Buf = (FMetalDebugCommandBuffer*)CommandBuffer;
+		[Buf endCommandEncoder];
+	}
+#endif
 	if(IsRenderCommandEncoderActive())
 	{
 		[RenderCommandEncoder endEncoding];
@@ -444,6 +556,14 @@ void FMetalCommandEncoder::EndEncoding(void)
 
 void FMetalCommandEncoder::InsertDebugSignpost(NSString* const String)
 {
+#if !UE_BUILD_SHIPPING
+	if (CommandList.GetCommandQueue().GetRuntimeDebuggingLevel() >= EMetalDebugLevelLogDebugGroups)
+	{
+		FMetalDebugCommandBuffer* Buf = (FMetalDebugCommandBuffer*)CommandBuffer;
+		[Buf insertDebugSignpost:String];
+	}
+#endif
+	
 	if (RenderCommandEncoder)
 	{
 		[RenderCommandEncoder insertDebugSignpost:String];
@@ -460,6 +580,14 @@ void FMetalCommandEncoder::InsertDebugSignpost(NSString* const String)
 
 void FMetalCommandEncoder::PushDebugGroup(NSString* const String)
 {
+#if !UE_BUILD_SHIPPING
+	if (CommandList.GetCommandQueue().GetRuntimeDebuggingLevel() >= EMetalDebugLevelLogDebugGroups)
+	{
+		FMetalDebugCommandBuffer* Buf = (FMetalDebugCommandBuffer*)CommandBuffer;
+		[Buf pushDebugGroup:String];
+	}
+#endif
+	
 	[DebugGroups addObject:String];
 	if (RenderCommandEncoder)
 	{
@@ -477,6 +605,14 @@ void FMetalCommandEncoder::PushDebugGroup(NSString* const String)
 
 void FMetalCommandEncoder::PopDebugGroup(void)
 {
+#if !UE_BUILD_SHIPPING
+	if (CommandList.GetCommandQueue().GetRuntimeDebuggingLevel() >= EMetalDebugLevelLogDebugGroups)
+	{
+		FMetalDebugCommandBuffer* Buf = (FMetalDebugCommandBuffer*)CommandBuffer;
+		[Buf popDebugGroup];
+	}
+#endif
+	
 	[DebugGroups removeLastObject];
 	if (RenderCommandEncoder)
 	{
@@ -497,7 +633,9 @@ void FMetalCommandEncoder::PopDebugGroup(void)
 void FMetalCommandEncoder::SetRenderPassDescriptor(MTLRenderPassDescriptor* const RenderPass, bool const bReset)
 {
 	check(IsRenderCommandEncoderActive() == false && IsComputeCommandEncoderActive() == false && IsBlitCommandEncoderActive() == false);
+	check(RenderPass);
 	
+	RenderPassDescApplied = 0;
 	if(RenderPass != RenderPassDesc)
 	{
 		[RenderPass retain];
@@ -507,6 +645,7 @@ void FMetalCommandEncoder::SetRenderPassDescriptor(MTLRenderPassDescriptor* cons
 		}
 		RenderPassDesc = RenderPass;
 	}
+	check(RenderPassDesc);
 	
 	if (bReset)
 	{
@@ -557,7 +696,7 @@ void FMetalCommandEncoder::SetCullMode(MTLCullMode const InCullMode)
 	}
 }
 
-#if METAL_API_1_1
+#if METAL_API_1_1 && PLATFORM_MAC
 void FMetalCommandEncoder::SetDepthClipMode(MTLDepthClipMode const InDepthClipMode)
 {
 	DepthClipMode = InDepthClipMode;
@@ -713,6 +852,45 @@ void FMetalCommandEncoder::SetShaderBuffer(EShaderFrequency Frequency, id<MTLBuf
                 break;
         }
     }
+}
+
+bool FMetalCommandEncoder::SetShaderBufferConditional(EShaderFrequency const Frequency, id<MTLBuffer> const Buffer, NSUInteger const Offset, NSUInteger const index)
+{
+	check(index < ML_MaxBuffers);
+	check(Buffer);
+	bool bBound = (ShaderBuffers[Frequency].Bound & (1 << index));
+    if (!bBound)
+    {
+		ShaderBuffers[Frequency].Bound |= (1 << index);
+		ShaderBuffers[Frequency].Buffers[index] = Buffer;
+        ShaderBuffers[Frequency].Offsets[index] = Offset;
+        switch (Frequency)
+        {
+            case SF_Vertex:
+				if (RenderCommandEncoder)
+				{
+					[RenderCommandEncoder setVertexBuffer:Buffer offset:Offset atIndex:index];
+				}
+                break;
+            case SF_Pixel:
+				if (RenderCommandEncoder)
+				{
+					[RenderCommandEncoder setFragmentBuffer:Buffer offset:Offset atIndex:index];
+				}
+                break;
+            case SF_Compute:
+				if (ComputeCommandEncoder)
+				{
+					[ComputeCommandEncoder setBuffer:Buffer offset:Offset atIndex:index];
+				}
+                break;
+            default:
+                check(false);
+                break;
+        }
+    }
+    
+    return !bBound;
 }
 
 void FMetalCommandEncoder::SetShaderBufferOffset(EShaderFrequency Frequency, NSUInteger const Offset, NSUInteger index)
@@ -897,8 +1075,6 @@ void FMetalCommandEncoder::SetShaderSamplerState(EShaderFrequency Frequency, id<
 	}
 	
 	ShaderSamplers[Frequency].Samplers[index] = Sampler;
-	ShaderSamplers[Frequency].MinLods[index] = 0;
-	ShaderSamplers[Frequency].MaxLods[index] = FLT_MAX;
 	
 	switch (Frequency)
 	{
@@ -944,8 +1120,6 @@ void FMetalCommandEncoder::SetShaderSamplerStates(EShaderFrequency Frequency, co
 		}
 		
 		ShaderSamplers[Frequency].Samplers[i] = Samplers[i];
-		ShaderSamplers[Frequency].MinLods[i] = 0;
-		ShaderSamplers[Frequency].MaxLods[i] = FLT_MAX;
 	}
 	
 	switch (Frequency)
@@ -974,96 +1148,80 @@ void FMetalCommandEncoder::SetShaderSamplerStates(EShaderFrequency Frequency, co
 	}
 }
 
-void FMetalCommandEncoder::SetShaderSamplerState(EShaderFrequency Frequency, id<MTLSamplerState> Sampler, float lodMinClamp, float lodMaxClamp, NSUInteger index)
+bool FMetalCommandEncoder::ValidateArgumentBindings(EShaderFrequency const Frequency, MTLRenderPipelineReflection* Reflection)
 {
-	check(index < ML_MaxSamplers);
-	[Sampler retain];
-	[ShaderSamplers[Frequency].Samplers[index] release];
-
-	if(Sampler)
-	{
-		ShaderSamplers[Frequency].Bound |= (1 << index);
-	}
-	else
-	{
-		ShaderSamplers[Frequency].Bound &= ~(1 << index);
-	}
-	
-	ShaderSamplers[Frequency].Samplers[index] = Sampler;
-	ShaderSamplers[Frequency].MinLods[index] = lodMinClamp;
-	ShaderSamplers[Frequency].MaxLods[index] = lodMaxClamp;
-	
-	switch (Frequency)
+    bool bOK = true;
+    
+	NSArray<MTLArgument*>* Arguments = nil;
+	switch(Frequency)
 	{
 		case SF_Vertex:
-			if (RenderCommandEncoder)
-			{
-				[RenderCommandEncoder setVertexSamplerState:Sampler lodMinClamp:lodMinClamp lodMaxClamp:lodMaxClamp atIndex:index];
-			}
+		{
+			Arguments = Reflection.vertexArguments;
 			break;
+		}
 		case SF_Pixel:
-			if (RenderCommandEncoder)
-			{
-				[RenderCommandEncoder setFragmentSamplerState:Sampler lodMinClamp:lodMinClamp lodMaxClamp:lodMaxClamp atIndex:index];
-			}
+		{
+			Arguments = Reflection.fragmentArguments;
 			break;
-		case SF_Compute:
-			if (ComputeCommandEncoder)
-			{
-				[ComputeCommandEncoder setSamplerState:Sampler lodMinClamp:lodMinClamp lodMaxClamp:lodMaxClamp atIndex:index];
-			}
-			break;
+		}
 		default:
 			check(false);
 			break;
 	}
-}
-
-void FMetalCommandEncoder::SetShaderSamplerStates(EShaderFrequency Frequency, const id<MTLSamplerState> Samplers[], const float LodMinClamps[], const float LodMaxClamps[], NSRange const& Range)
-{
-	for (NSUInteger i = (NSUInteger)Range.location; i < (NSUInteger)Range.length; i++)
+	
+	for (uint32 i = 0; i < Arguments.count; i++)
 	{
-		check(i < ML_MaxSamplers);
-		[Samplers[i] retain];
-		
-		if(Samplers[i])
+		MTLArgument* Arg = [Arguments objectAtIndex:i];
+		check(Arg);
+		switch(Arg.type)
 		{
-			ShaderSamplers[Frequency].Bound |= (1 << i);
-		}
-		else
-		{
-			ShaderSamplers[Frequency].Bound &= ~(1 << i);
-		}
-		
-		[ShaderSamplers[Frequency].Samplers[i] release];
-		ShaderSamplers[Frequency].Samplers[i] = Samplers[i];
-		ShaderSamplers[Frequency].MinLods[i] = LodMinClamps[i];
-		ShaderSamplers[Frequency].MaxLods[i] = LodMaxClamps[i];
+			case MTLArgumentTypeBuffer:
+			{
+				checkf(Arg.index < ML_MaxBuffers, TEXT("Metal buffer index exceeded!"));
+				if (ShaderBuffers[Frequency].Buffers[Arg.index] == nil || !(ShaderBuffers[Frequency].Bound & (1 << Arg.index)))
+				{
+                    bOK = false;
+					UE_LOG(LogMetal, Warning, TEXT("Unbound buffer at Metal index: %u which will crash the driver."), (uint32)Arg.index);
+				}
+				break;
+			}
+   			case MTLArgumentTypeThreadgroupMemory:
+			{
+				break;
+			}
+    		case MTLArgumentTypeTexture:
+			{
+				checkf(Arg.index < ML_MaxTextures, TEXT("Metal texture index exceeded!"));
+				if (ShaderTextures[Frequency].Textures[Arg.index] == nil || !(ShaderTextures[Frequency].Bound & (1 << Arg.index)))
+                {
+                    bOK = false;
+					UE_LOG(LogMetal, Warning, TEXT("Unbound texture at Metal index: %u which will crash the driver."), (uint32)Arg.index);
+				}
+				else if (ShaderTextures[Frequency].Textures[Arg.index].textureType != Arg.textureType)
+                {
+                    bOK = false;
+					UE_LOG(LogMetal, Warning, TEXT("Incorrect texture type bound at Metal index: %u which will crash the driver."), (uint32)Arg.index);
+				}
+				break;
+			}
+    		case MTLArgumentTypeSampler:
+			{
+				checkf(Arg.index < ML_MaxSamplers, TEXT("Metal sampler index exceeded!"));
+				if (ShaderSamplers[Frequency].Samplers[Arg.index] == nil || !(ShaderSamplers[Frequency].Bound & (1 << Arg.index)))
+                {
+                    bOK = false;
+					UE_LOG(LogMetal, Warning, TEXT("Unbound sampler at Metal index: %u which will crash the driver."), (uint32)Arg.index);
+				}
+				break;
+			}
+			default:
+				check(false);
+				break;
+		}	
 	}
-	switch (Frequency)
-	{
-		case SF_Vertex:
-			if (RenderCommandEncoder)
-			{
-				[RenderCommandEncoder setVertexSamplerStates:Samplers lodMinClamps:LodMinClamps lodMaxClamps:LodMaxClamps withRange:Range];
-			}
-			break;
-		case SF_Pixel:
-			if (RenderCommandEncoder)
-			{
-				[RenderCommandEncoder setFragmentSamplerStates:Samplers lodMinClamps:LodMinClamps lodMaxClamps:LodMaxClamps withRange:Range];
-			}
-			break;
-		case SF_Compute:
-			if (ComputeCommandEncoder)
-			{
-				[ComputeCommandEncoder setSamplerStates:Samplers lodMinClamps:LodMinClamps lodMaxClamps:LodMaxClamps withRange:Range];
-			}
-			break;
-		default:
-			check(false);
-			break;
-	}
+    
+    return bOK;
 }
 
 #pragma mark - Public Compute State Mutators -

@@ -34,7 +34,7 @@ ASpotLight::ASpotLight(const FObjectInitializer& ObjectInitializer)
 		ArrowComponent->bTreatAsASprite = true;
 		ArrowComponent->SpriteInfo.Category = ConstructorStatics.ID_Lighting;
 		ArrowComponent->SpriteInfo.DisplayName = ConstructorStatics.NAME_Lighting;
-		ArrowComponent->AttachParent = SpotLightComponent;
+		ArrowComponent->SetupAttachment(SpotLightComponent);
 		ArrowComponent->bLightAttachment = true;
 		ArrowComponent->bIsScreenSizeScaled = true;
 	}

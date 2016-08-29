@@ -33,7 +33,7 @@ private:
 		/** FLinearColor */
 		Linear,
 		/** FColor */
-		RegularColor,
+		Color,
 	};
 
 	/** The track being instanced */

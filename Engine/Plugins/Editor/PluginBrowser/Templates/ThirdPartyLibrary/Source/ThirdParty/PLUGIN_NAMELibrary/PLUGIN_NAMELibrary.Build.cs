@@ -18,5 +18,9 @@ public class PLUGIN_NAMELibrary : ModuleRules
 			// Delay-load the DLL, so we can load it from the right place first
 			PublicDelayLoadDLLs.Add("ExampleLibrary.dll");
 		}
+        else if (Target.Platform == UnrealTargetPlatform.Mac)
+        {
+            PublicDelayLoadDLLs.Add(Path.Combine(ModuleDirectory, "Mac", "Release", "libExampleLibrary.dylib"));
+        }
 	}
 }

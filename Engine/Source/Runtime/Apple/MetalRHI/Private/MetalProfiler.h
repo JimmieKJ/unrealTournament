@@ -23,19 +23,34 @@ DECLARE_CYCLE_STAT_EXTERN(TEXT("Texture Page-Off time"), STAT_MetalTexturePageOf
 DECLARE_MEMORY_STAT_EXTERN(TEXT("Uniform buffer pool memory"), STAT_MetalTotalUniformBufferMemory, STATGROUP_MetalRHI, );
 DECLARE_MEMORY_STAT_EXTERN(TEXT("Free Uniform pool memory"), STAT_MetalFreeUniformBufferMemory, STATGROUP_MetalRHI, );
 DECLARE_DWORD_ACCUMULATOR_STAT_EXTERN(TEXT("Uniform buffer pool num free"), STAT_MetalNumFreeUniformBuffers, STATGROUP_MetalRHI, );
-#if PLATFORM_MAC
-DECLARE_FLOAT_COUNTER_STAT_EXTERN(TEXT("Device Utilization %"),STAT_MetalDeviceUtilisation,STATGROUP_MetalRHI, );
-DECLARE_FLOAT_COUNTER_STAT_EXTERN(TEXT("Device Utilization % at cur p-state"),STAT_MetalDeviceUtilisationAtPState,STATGROUP_MetalRHI, );
-DECLARE_FLOAT_COUNTER_STAT_EXTERN(TEXT("Device Unit 0 Utilization %"),STAT_MetalDevice0Utilisation,STATGROUP_MetalRHI, );
-DECLARE_FLOAT_COUNTER_STAT_EXTERN(TEXT("Device Unit 1 Utilization %"),STAT_MetalDevice1Utilisation,STATGROUP_MetalRHI, );
-DECLARE_FLOAT_COUNTER_STAT_EXTERN(TEXT("Device Unit 2 Utilization %"),STAT_MetalDevice2Utilisation,STATGROUP_MetalRHI, );
-DECLARE_FLOAT_COUNTER_STAT_EXTERN(TEXT("Device Unit 3 Utilization %"),STAT_MetalDevice3Utilisation,STATGROUP_MetalRHI, );
-DECLARE_MEMORY_STAT_EXTERN(TEXT("VRAM Used Bytes"),STAT_MetalVRAMUsedBytes,STATGROUP_MetalRHI, );
-DECLARE_MEMORY_STAT_EXTERN(TEXT("VRAM Free Bytes"),STAT_MetalVRAMFreeBytes,STATGROUP_MetalRHI, );
-DECLARE_MEMORY_STAT_EXTERN(TEXT("VRAM Largest Free Bytes"),STAT_MetalVRAMLargestFreeBytes,STATGROUP_MetalRHI, );
-DECLARE_MEMORY_STAT_EXTERN(TEXT("In Use Vid Mem Bytes"),STAT_MetalInUseVidMemBytes,STATGROUP_MetalRHI, );
-DECLARE_MEMORY_STAT_EXTERN(TEXT("In Use Sys Mem Bytes"),STAT_MetalInUseSysMemBytes,STATGROUP_MetalRHI, );
-#endif
+DECLARE_DWORD_ACCUMULATOR_STAT_EXTERN(TEXT("Buffer Count"), STAT_MetalBufferCount, STATGROUP_MetalRHI, );
+DECLARE_DWORD_ACCUMULATOR_STAT_EXTERN(TEXT("Texture Count"), STAT_MetalTextureCount, STATGROUP_MetalRHI, );
+DECLARE_DWORD_ACCUMULATOR_STAT_EXTERN(TEXT("Uncommitted Command Buffer Count"), STAT_MetalCommandBufferCount, STATGROUP_MetalRHI, );
+DECLARE_DWORD_ACCUMULATOR_STAT_EXTERN(TEXT("Sampler State Count"), STAT_MetalSamplerStateCount, STATGROUP_MetalRHI, );
+DECLARE_DWORD_ACCUMULATOR_STAT_EXTERN(TEXT("Depth Stencil State Count"), STAT_MetalDepthStencilStateCount, STATGROUP_MetalRHI, );
+DECLARE_DWORD_ACCUMULATOR_STAT_EXTERN(TEXT("Render Pipeline State Count"), STAT_MetalRenderPipelineStateCount, STATGROUP_MetalRHI, );
+DECLARE_DWORD_ACCUMULATOR_STAT_EXTERN(TEXT("Compute Pipeline State Count"), STAT_MetalComputePipelineStateCount, STATGROUP_MetalRHI, );
+DECLARE_DWORD_ACCUMULATOR_STAT_EXTERN(TEXT("Render Pipeline Color Desc Count"), STAT_MetalRenderPipelineColorAttachmentDescriptor, STATGROUP_MetalRHI, );
+DECLARE_DWORD_ACCUMULATOR_STAT_EXTERN(TEXT("Render Pass Desc Count"), STAT_MetalRenderPassDescriptorCount, STATGROUP_MetalRHI, );
+DECLARE_DWORD_ACCUMULATOR_STAT_EXTERN(TEXT("Render Pass Color Desc Count"), STAT_MetalRenderPassColorAttachmentDescriptorCount, STATGROUP_MetalRHI, );
+DECLARE_DWORD_ACCUMULATOR_STAT_EXTERN(TEXT("Render Pass Depth Desc Count"), STAT_MetalRenderPassDepthAttachmentDescriptorCount, STATGROUP_MetalRHI, );
+DECLARE_DWORD_ACCUMULATOR_STAT_EXTERN(TEXT("Render Pass Stencil Desc Count"), STAT_MetalRenderPassStencilAttachmentDescriptorCount, STATGROUP_MetalRHI, );
+DECLARE_DWORD_ACCUMULATOR_STAT_EXTERN(TEXT("Vertex Desc Count"), STAT_MetalVertexDescriptorCount, STATGROUP_MetalRHI, );
+DECLARE_DWORD_ACCUMULATOR_STAT_EXTERN(TEXT("Function Count"), STAT_MetalFunctionCount, STATGROUP_MetalRHI, );
+DECLARE_DWORD_ACCUMULATOR_STAT_EXTERN(TEXT("Free Pooled Buffer Count"), STAT_MetalFreePooledBufferCount, STATGROUP_MetalRHI, );
+DECLARE_DWORD_ACCUMULATOR_STAT_EXTERN(TEXT("Total Pooled Buffer Count"), STAT_MetalPooledBufferCount, STATGROUP_MetalRHI, );
+DECLARE_DWORD_COUNTER_STAT_EXTERN(TEXT("Metal Buffers Allocated Per-Frame"), STAT_MetalBufferNativeAlloctations, STATGROUP_MetalRHI, );
+DECLARE_DWORD_COUNTER_STAT_EXTERN(TEXT("Metal Buffers Freed Per-Frame"), STAT_MetalBufferNativeFreed, STATGROUP_MetalRHI, );
+DECLARE_MEMORY_STAT_EXTERN(TEXT("Total Pooled Buffer Memory"), STAT_MetalPooledBufferMem, STATGROUP_MetalRHI, );
+DECLARE_MEMORY_STAT_EXTERN(TEXT("Used Pooled Buffer Memory"), STAT_MetalUsedPooledBufferMem, STATGROUP_MetalRHI, );
+DECLARE_MEMORY_STAT_EXTERN(TEXT("Free Pooled Buffer Memory"), STAT_MetalFreePooledBufferMem, STATGROUP_MetalRHI, );
+DECLARE_MEMORY_STAT_EXTERN(TEXT("Wasted Pooled Buffer Memory"), STAT_MetalWastedPooledBufferMem, STATGROUP_MetalRHI, );
+DECLARE_DWORD_COUNTER_STAT_EXTERN(TEXT("Buffers Allocated Per-Frame"), STAT_MetalBufferAlloctations, STATGROUP_MetalRHI, );
+DECLARE_DWORD_COUNTER_STAT_EXTERN(TEXT("Buffers Freed Per-Frame"), STAT_MetalBufferFreed, STATGROUP_MetalRHI, );
+DECLARE_DWORD_COUNTER_STAT_EXTERN(TEXT("Buffer Memory Allocated Per-Frame"), STAT_MetalBufferMemAlloc, STATGROUP_MetalRHI, );
+DECLARE_DWORD_COUNTER_STAT_EXTERN(TEXT("Buffer Memory Freed Per-Frame"), STAT_MetalBufferMemFreed, STATGROUP_MetalRHI, );
+DECLARE_DWORD_COUNTER_STAT_EXTERN(TEXT("Metal Buffer Memory Allocated Per-Frame"), STAT_MetalBufferNativeMemAlloc, STATGROUP_MetalRHI, );
+DECLARE_DWORD_COUNTER_STAT_EXTERN(TEXT("Metal Buffer Memory Freed Per-Frame"), STAT_MetalBufferNativeMemFreed, STATGROUP_MetalRHI, );
 
 #if METAL_STATISTICS
 #define RHI_PROFILE_DRAW_CALL_STATS(StartPoint, EndPoint, NumPrims, NumVerts) FMetalDrawProfiler GPUWork(Profiler, (uint32)StartPoint, (uint32)EndPoint, NumPrims, NumVerts)

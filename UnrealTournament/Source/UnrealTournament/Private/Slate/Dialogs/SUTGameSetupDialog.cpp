@@ -303,7 +303,7 @@ void SUTGameSetupDialog::BuildRuleList(FName Category)
 			int32 Col = Cnt % 6;
 
 			FString Title = GameRulesets[i]->Title.IsEmpty() ? TEXT("") : GameRulesets[i]->Title;
-			FString ToolTip = GameRulesets[i]->Tooltip.IsEmpty() ? TEXT("") : GameRulesets[i]->Tooltip;
+			FString NewToolTip = GameRulesets[i]->Tooltip.IsEmpty() ? TEXT("") : GameRulesets[i]->Tooltip;
 			
 			TSharedPtr<SUTTabButton> Button;
 
@@ -327,7 +327,7 @@ void SUTGameSetupDialog::BuildRuleList(FName Category)
 							[
 								SNew(SImage)
 								.Image(GameRulesets[i]->GetSlateBadge())
-								.ToolTip(SUTUtils::CreateTooltip(FText::FromString(ToolTip)))
+								.ToolTip(SUTUtils::CreateTooltip(FText::FromString(NewToolTip)))
 							]
 
 						]
@@ -493,7 +493,7 @@ void SUTGameSetupDialog::BuildMapPanel()
 				int32 Col = i % 6;
 
 				FString Title = MapPlayList[i].MapInfo->Title;
-				FString ToolTip = MapPlayList[i].MapInfo->Description;;
+				FString NewToolTip = MapPlayList[i].MapInfo->Description;;
 
 				int32 Pos = INDEX_NONE;
 				if (Title.FindChar(TCHAR('-'), Pos))
@@ -525,7 +525,7 @@ void SUTGameSetupDialog::BuildMapPanel()
 						.bRightClickOpensMenu(true)
 						.DefaultMenuItems(TEXT("Move To Top,Move Up,Move Down"))
 						.MenuPlacement(MenuPlacement_MenuRight)
-						.ToolTip(SUTUtils::CreateTooltip(FText::FromString(ToolTip)))
+						.ToolTip(SUTUtils::CreateTooltip(FText::FromString(NewToolTip)))
 						.ButtonContent()
 						[
 							SNew(SVerticalBox)

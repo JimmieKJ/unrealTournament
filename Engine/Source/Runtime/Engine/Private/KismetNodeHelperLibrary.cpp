@@ -160,14 +160,16 @@ FString UKismetNodeHelperLibrary::GetEnumeratorUserFriendlyName(const UEnum* Enu
 
 uint8 UKismetNodeHelperLibrary::GetValidValue(const UEnum* Enum, uint8 EnumeratorValue)
 {
-	if (NULL != Enum)
+	if (ensure(Enum))
 	{
 		if (Enum->IsValidEnumValue(EnumeratorValue))
 		{
 			return EnumeratorValue;
 		}
+		return Enum->GetMaxEnumValue();
 	}
-	return Enum->GetMaxEnumValue();
+	UE_LOG(LogBlueprintUserMessages, Error, TEXT("UKismetNodeHelperLibrary::GetValidValue is called with Enum == null"));
+	return INDEX_NONE;
 }
 
 uint8 UKismetNodeHelperLibrary::GetEnumeratorValueFromIndex(const UEnum* Enum, uint8 EnumeratorIndex)

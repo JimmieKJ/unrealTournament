@@ -13,8 +13,6 @@
 #include "Widgets/SUTTabWidget.h"
 #include "StatNames.h"
 #include "UTAnalytics.h"
-#include "Runtime/Analytics/Analytics/Public/Analytics.h"
-#include "Runtime/Analytics/Analytics/Public/Interfaces/IAnalyticsProvider.h"
 #include "UTReplicatedMapInfo.h"
 #include "UTRewardMessage.h"
 #include "UTGameEngine.h"

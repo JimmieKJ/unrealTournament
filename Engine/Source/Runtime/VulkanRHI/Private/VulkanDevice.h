@@ -9,9 +9,11 @@
 #include "VulkanMemory.h"
 
 class FVulkanDescriptorPool;
+class FVulkanCommandListContext;
 
-struct FVulkanDevice
+class FVulkanDevice
 {
+public:
 	enum
 	{
 		NumTimestampPools = 3,	// Must be the same size as the number of the backbuffer images
@@ -26,35 +28,21 @@ struct FVulkanDevice
 
 	void InitGPU(int32 DeviceIndex);
 
-	void InitDevice();
+	void CreateDevice();
 
+	void PrepareForDestroy();
 	void Destroy();
 
 	void WaitUntilIdle();
 
-	inline FVulkanPendingState& GetPendingState()
-	{
-		check(PendingState);
-		return *PendingState;
-	}
-
-	void EndCommandBufferBlock(FVulkanCmdBuffer* CmdBuffer);
-
 	inline FVulkanQueue* GetQueue()
 	{
-		check(Queue);
 		return Queue;
 	}
 
-	inline VkPhysicalDevice GetPhysicalHandle()
+	inline VkPhysicalDevice GetPhysicalHandle() const
 	{
-		check(Gpu != VK_NULL_HANDLE);
 		return Gpu;
-	}
-
-	inline FVulkanRingBuffer* GetVBIBRingBuffer()
-	{
-		return VBIBRingBuffer;
 	}
 
 	inline FVulkanRingBuffer* GetUBRingBuffer()
@@ -103,49 +91,47 @@ struct FVulkanDevice
 		return FormatProperties;
 	}
 
-	void BindSRV(FVulkanShaderResourceView* SRV, uint32 TextureIndex, EShaderFrequency Stage);
-
-	VulkanRHI::FDeviceMemoryManager& GetMemoryManager()
+	inline VulkanRHI::FDeviceMemoryManager& GetMemoryManager()
 	{
 		return MemoryManager;
 	}
 
-	VulkanRHI::FResourceAllocationManager& GetResourceAllocationManager()
+	inline VulkanRHI::FResourceHeapManager& GetResourceHeapManager()
 	{
-		return ResourceAllocationManager;
+		return ResourceHeapManager;
 	}
 
-	VulkanRHI::FStagingManager& GetStagingManager()
+	inline VulkanRHI::FDeferredDeletionQueue& GetDeferredDeletionQueue()
+	{
+		return DeferredDeletionQueue;
+	}
+
+	inline VulkanRHI::FStagingManager& GetStagingManager()
 	{
 		return StagingManager;
 	}
 
-	FVulkanDescriptorPool* GetDescriptorPool()
-	{
-		return DescriptorPool;
-	}
-
-#if VULKAN_USE_FENCE_MANAGER
-	VulkanRHI::FFenceManager& GetFenceManager()
+	inline VulkanRHI::FFenceManager& GetFenceManager()
 	{
 		return FenceManager;
 	}
-#endif
 
-	FVulkanCommandListContext& GetImmediateContext()
+	inline FVulkanCommandListContext& GetImmediateContext()
 	{
 		return *ImmediateContext;
 	}
 
+	void NotifyDeletedRenderTarget(const FVulkanTextureBase* Texture);
+
 #if VULKAN_ENABLE_DRAW_MARKERS
-	PFN_vkCmdDbgMarkerBegin GetCmdDbgMarkerBegin() const
+	PFN_vkCmdDebugMarkerBeginEXT GetCmdDbgMarkerBegin() const
 	{
-		return VkCmdDbgMarkerBegin;
+		return CmdDbgMarkerBegin;
 	}
 
-	PFN_vkCmdDbgMarkerEnd GetCmdDbgMarkerEnd() const
+	PFN_vkCmdDebugMarkerEndEXT GetCmdDbgMarkerEnd() const
 	{
-		return VkCmdDbgMarkerEnd;
+		return CmdDbgMarkerEnd;
 	}
 #endif
 
@@ -158,41 +144,43 @@ private:
 	VkPhysicalDeviceProperties GpuProps;
 	VkPhysicalDeviceFeatures Features;
 	
-	VulkanRHI::FDeviceMemoryManager MemoryManager;
-	VulkanRHI::FResourceAllocationManager ResourceAllocationManager;
-	VulkanRHI::FStagingManager StagingManager;
-
-#if VULKAN_USE_FENCE_MANAGER
-	VulkanRHI::FFenceManager FenceManager;
-#endif
-
 	VkDevice Device;
 
-	FVulkanDescriptorPool* DescriptorPool;
+	VulkanRHI::FDeviceMemoryManager MemoryManager;
+
+	VulkanRHI::FResourceHeapManager ResourceHeapManager;
+
+	VulkanRHI::FDeferredDeletionQueue DeferredDeletionQueue;
+
+	VulkanRHI::FStagingManager StagingManager;
+
+	VulkanRHI::FFenceManager FenceManager;
 
 	FVulkanSamplerState* DefaultSampler;
 
-	TArray<VkQueueFamilyProperties> QueueProps;
+	TArray<VkQueueFamilyProperties> QueueFamilyProps;
 	VkFormatProperties FormatProperties[VK_FORMAT_RANGE_SIZE];
+	// Info for formats that are not in the core Vulkan spec (i.e. extensions)
+	mutable TMap<VkFormat, VkFormatProperties> ExtensionFormatProperties;
 
 	// Nullptr if not supported
 	FVulkanTimestampQueryPool* TimestampQueryPool[NumTimestampPools];
 
 	FVulkanQueue* Queue;
 
-	FVulkanPendingState* PendingState;
 	VkComponentMapping PixelFormatComponentMapping[PF_MAX];
 
-	class FVulkanCommandListContext* ImmediateContext;
+	FVulkanCommandListContext* ImmediateContext;
 
-	FVulkanRingBuffer* VBIBRingBuffer;
 	FVulkanRingBuffer* UBRingBuffer;
 
-	void GetDeviceExtensions(TArray<const ANSICHAR*>& OutDeviceExtensions, TArray<const ANSICHAR*>& OutDeviceLayers);
+	void GetDeviceExtensions(TArray<const ANSICHAR*>& OutDeviceExtensions, TArray<const ANSICHAR*>& OutDeviceLayers, bool& bOutDebugMarkers);
+	void SetupFormats();
 
 #if VULKAN_ENABLE_DRAW_MARKERS
-	PFN_vkCmdDbgMarkerBegin VkCmdDbgMarkerBegin;
-	PFN_vkCmdDbgMarkerEnd VkCmdDbgMarkerEnd;
+	PFN_vkCmdDebugMarkerBeginEXT CmdDbgMarkerBegin;
+	PFN_vkCmdDebugMarkerEndEXT CmdDbgMarkerEnd;
+	PFN_vkDebugMarkerSetObjectNameEXT DebugMarkerSetObjectName;
 	friend class FVulkanCommandListContext;
 #endif
 

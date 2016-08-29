@@ -18,8 +18,8 @@ namespace UnrealBuildTool
 
 		// --------------------------------------------------
 		// --------------------------------------------------
-		static string SDKBase { get { return Path.GetFullPath(Path.Combine(BuildConfiguration.RelativeEnginePath, "Source", "ThirdParty", "HTML5", "emsdk")); } }
-		static string EMSCRIPTEN_ROOT { get { return Path.Combine(SDKBase, "emscripten", SDKVersion); } }
+		static string SDKBase { get { return Path.GetFullPath(Path.Combine(BuildConfiguration.RelativeEnginePath, "Extras", "ThirdPartyNotUE", "emsdk")); } }
+		static public string EMSCRIPTEN_ROOT { get { return Path.Combine(SDKBase, "emscripten", SDKVersion); } }
 		// --------------------------------------------------
 		// --------------------------------------------------
 		static string CURRENT_PLATFORM
@@ -62,7 +62,7 @@ namespace UnrealBuildTool
 				{
 					case UnrealTargetPlatform.Win64:
 						return Path.Combine(SDKBase, "Win64", "python", PYTHON_VER, "python.exe");
-					case UnrealTargetPlatform.Mac: // python is default installed on mac. 
+					case UnrealTargetPlatform.Mac: // python is default installed on mac.
 						return "/usr/bin/python";
 					default:
 						return "error_unknown_platform";
@@ -75,12 +75,12 @@ namespace UnrealBuildTool
 		{
 			get
 			{
-                string HTML5IntermediatoryPath = Path.GetFullPath(Path.Combine(BuildConfiguration.RelativeEnginePath, BuildConfiguration.BaseIntermediateFolder, "HTML5"));
-                if (!Directory.Exists(HTML5IntermediatoryPath))
+				string HTML5IntermediatoryPath = Path.GetFullPath(Path.Combine(BuildConfiguration.RelativeEnginePath, BuildConfiguration.BaseIntermediateFolder, "HTML5"));
+				if (!Directory.Exists(HTML5IntermediatoryPath))
 				{
-                    Directory.CreateDirectory(HTML5IntermediatoryPath);
+					Directory.CreateDirectory(HTML5IntermediatoryPath);
 				}
-                return HTML5IntermediatoryPath;
+				return HTML5IntermediatoryPath;
 			}
 		}
 		static public string DOT_EMSCRIPTEN { get { return Path.Combine(HTML5Intermediatory, ".emscripten"); } }
@@ -122,18 +122,27 @@ namespace UnrealBuildTool
 			}
 		}
 
-        public static string SetUpEmscriptenConfigFile()
+		public static string SetUpEmscriptenConfigFile()
 		{
+			// the following are for diff checks for file timestamps
+			string SaveDotEmscripten = DOT_EMSCRIPTEN + ".save";
+			if (File.Exists(SaveDotEmscripten))
+			{
+				File.Delete(SaveDotEmscripten);
+			}
+			string config_old = "";
+
 			// make a fresh .emscripten resource file
 			if (File.Exists(DOT_EMSCRIPTEN))
 			{
-				File.Delete(DOT_EMSCRIPTEN);
+				config_old = File.ReadAllText(DOT_EMSCRIPTEN);
+				File.Move(DOT_EMSCRIPTEN, SaveDotEmscripten);
 			}
 
 			// the best way to generate .emscripten resource file,
 			// is to run "emcc -v" (show version info) without an existing one
 			// --------------------------------------------------
-			// save a few things 
+			// save a few things
 			string PATH_SAVE = Environment.GetEnvironmentVariable("PATH");
 			string HOME_SAVE = Environment.GetEnvironmentVariable(PLATFORM_USER_HOME);
 			// warm up the .emscripten resource file
@@ -161,9 +170,23 @@ namespace UnrealBuildTool
 				// and PYTHON (reduce warnings on EMCC_DEBUG=1)
 				string pyth = Regex.Replace(PYTHON, @"\\", @"\\");
 				string optz = Regex.Replace(Path.Combine(LLVM_ROOT, "optimizer") + PLATFORM_EXE, @"\\", @"\\");
-				File.WriteAllText(DOT_EMSCRIPTEN, Regex.Replace(
+				string txt = Regex.Replace(
 							Regex.Replace(File.ReadAllText(DOT_EMSCRIPTEN), "#(PYTHON).*", "$1 = '" + pyth + "'"),
-							"# (EMSCRIPTEN_NATIVE_OPTIMIZER).*", "$1 = '" + optz + "'"));
+							"# (EMSCRIPTEN_NATIVE_OPTIMIZER).*", "$1 = '" + optz + "'");
+				File.WriteAllText(DOT_EMSCRIPTEN, txt);
+			// --------------------------------------------------
+			if (File.Exists(SaveDotEmscripten))
+			{
+				if ( config_old.Equals(txt, StringComparison.Ordinal) )
+				{	// preserve file timestamp -- otherwise, emscripten "system libs" will always be recompiled
+					File.Delete(DOT_EMSCRIPTEN);
+					File.Move(SaveDotEmscripten, DOT_EMSCRIPTEN);
+				}
+				else
+				{
+					File.Delete(SaveDotEmscripten);
+				}
+			}
 			// --------------------------------------------------
 			// --------------------------------------------------
 			// restore a few things

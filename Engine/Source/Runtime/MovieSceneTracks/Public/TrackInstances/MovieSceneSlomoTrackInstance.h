@@ -42,7 +42,7 @@ protected:
 	AWorldSettings* GetWorld() const;
 
 	/** Check whether the slow motion should be applied. */
-	bool ShouldBeApplied() const;
+	bool ShouldBeApplied(IMovieScenePlayer& InMovieScenePlayer) const;
 
 private:
 

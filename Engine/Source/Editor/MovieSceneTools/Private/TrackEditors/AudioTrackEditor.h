@@ -38,6 +38,7 @@ public:
 	virtual bool HandleAssetAdded(UObject* Asset, const FGuid& TargetObjectGuid) override;
 	virtual TSharedRef<ISequencerSection> MakeSectionInterface(UMovieSceneSection& SectionObject, UMovieSceneTrack& Track) override;
 	virtual bool SupportsType(TSubclassOf<UMovieSceneTrack> Type) const override;
+	virtual void BuildTrackContextMenu( FMenuBuilder& MenuBuilder, UMovieSceneTrack* Track ) override;
 	virtual const FSlateBrush* GetIconBrush() const override;
 	
 protected:
@@ -103,9 +104,13 @@ private:
 
 	/** Stored data about the waveform to determine when it is invalidated. */
 	TRange<float> StoredDrawRange;
+	bool StoredShowIntensity;
 	int32 StoredXOffset;
 	int32 StoredXSize;
 	FColor StoredColor;
+
+	/** Stored sound wave to determine when it is invalidated. */
+	TWeakObjectPtr<USoundWave> StoredSoundWave;
 
 	/** Whether this section is on a master audio track or an attached audio track. */
 	bool bIsOnAMasterTrack;

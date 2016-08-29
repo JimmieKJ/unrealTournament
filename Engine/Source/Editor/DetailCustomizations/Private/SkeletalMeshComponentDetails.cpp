@@ -8,6 +8,7 @@
 #include "ClassViewerFilter.h"
 #include "Engine/Selection.h"
 #include "Animation/AnimBlueprintGeneratedClass.h"
+#include "Animation/AnimInstance.h"
 
 #define LOCTEXT_NAMESPACE "SkeletalMeshComponentDetails"
 
@@ -234,8 +235,8 @@ EVisibility FSkeletalMeshComponentDetails::VisibilityForAnimationMode(EAnimation
 
 bool FSkeletalMeshComponentDetails::OnShouldFilterAnimAsset( const FAssetData& AssetData )
 {
-	const FString* SkeletonName = AssetData.TagsAndValues.Find(TEXT("Skeleton"));
-	return *SkeletonName != SelectedSkeletonName;
+	const FString SkeletonName = AssetData.GetTagValueRef<FString>("Skeleton");
+	return SkeletonName != SelectedSkeletonName;
 }
 
 void FSkeletalMeshComponentDetails::SkeletalMeshPropertyChanged()

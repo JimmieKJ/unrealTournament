@@ -5,7 +5,9 @@
 #include "IMotionController.h"
 #include "InputCoreTypes.h"
 
-#if USE_OVR_MOTION_SDK
+#define OCULUS_INPUT_SUPPORTED_PLATFORMS (PLATFORM_WINDOWS && WINVER > 0x0502) // || PLATFORM_MAC
+
+#if OCULUS_INPUT_SUPPORTED_PLATFORMS
 
 /**
  * Digital buttons on the SteamVR controller
@@ -24,6 +26,24 @@ enum class EOculusTouchControllerButton
 	TotalButtonCount
 };
 
+enum class EOculusRemoteControllerButton
+{
+	DPad_Up,
+	DPad_Down,
+	DPad_Left,
+	DPad_Right,
+	
+	Enter,
+	Back,
+
+	VolumeUp,
+	VolumeDown,
+	Home,
+
+	/** Total number of controller buttons */
+	TotalButtonCount
+};
+
 enum class EOculusTouchCapacitiveAxes
 {
 	Thumbstick,
@@ -37,7 +57,7 @@ enum class EOculusTouchCapacitiveAxes
 	TotalAxisCount
 };
 
-struct FOculusTouchCapacitiveKey
+struct FOculusKey
 {
 	static const FKey OculusTouch_Left_Thumbstick;
 	static const FKey OculusTouch_Left_Trigger;
@@ -52,9 +72,21 @@ struct FOculusTouchCapacitiveKey
 	static const FKey OculusTouch_Right_FaceButton2; // Y or B
 	static const FKey OculusTouch_Right_IndexPointing;
 	static const FKey OculusTouch_Right_ThumbUp;
+
+	static const FKey OculusRemote_DPad_Up;
+	static const FKey OculusRemote_DPad_Down;
+	static const FKey OculusRemote_DPad_Left;
+	static const FKey OculusRemote_DPad_Right;
+
+	static const FKey OculusRemote_Enter;
+	static const FKey OculusRemote_Back;
+
+	static const FKey OculusRemote_VolumeUp;
+	static const FKey OculusRemote_VolumeDown;
+	static const FKey OculusRemote_Home;
 };
 
-struct FOculusTouchCapacitiveKeyNames
+struct FOculusKeyNames
 {
 	typedef FName Type;
 
@@ -71,6 +103,18 @@ struct FOculusTouchCapacitiveKeyNames
 	static const FName OculusTouch_Right_FaceButton2; // Y or B
 	static const FName OculusTouch_Right_IndexPointing;
 	static const FName OculusTouch_Right_ThumbUp;
+
+	static const FName OculusRemote_DPad_Up;
+	static const FName OculusRemote_DPad_Down;
+	static const FName OculusRemote_DPad_Left;
+	static const FName OculusRemote_DPad_Right;
+
+	static const FName OculusRemote_Enter;
+	static const FName OculusRemote_Back;
+
+	static const FName OculusRemote_VolumeUp;
+	static const FName OculusRemote_VolumeDown;
+	static const FName OculusRemote_Home;
 };
 
 /**
@@ -139,10 +183,10 @@ struct FOculusTouchControllerState
 	FVector2D ThumbstickAxes;
 
 	/** Button states */
-	FOculusButtonState Buttons[ EOculusTouchControllerButton::TotalButtonCount ];
+	FOculusButtonState Buttons[ (int32)EOculusTouchControllerButton::TotalButtonCount ];
 
 	/** Capacitive Touch axes */
-	FOculusTouchCapacitiveState CapacitiveAxes[EOculusTouchCapacitiveAxes::TotalAxisCount];
+	FOculusTouchCapacitiveState CapacitiveAxes[(int32)EOculusTouchCapacitiveAxes::TotalAxisCount];
 
 	/** Whether or not we're playing a haptic effect.  If true, force feedback calls will be early-outed in favor of the haptic effect */
 	bool bPlayingHapticEffect;
@@ -178,12 +222,12 @@ struct FOculusTouchControllerState
 		Buttons[ (int32)EOculusTouchControllerButton::XA ].Key = (Hand == EControllerHand::Left) ? FGamepadKeyNames::MotionController_Left_FaceButton1 : FGamepadKeyNames::MotionController_Right_FaceButton1;
 		Buttons[ (int32)EOculusTouchControllerButton::YB ].Key = (Hand == EControllerHand::Left) ? FGamepadKeyNames::MotionController_Left_FaceButton2 : FGamepadKeyNames::MotionController_Right_FaceButton2;
 
-		CapacitiveAxes[(int32)EOculusTouchCapacitiveAxes::Thumbstick].Axis = (Hand == EControllerHand::Left) ? FOculusTouchCapacitiveKeyNames::OculusTouch_Left_Thumbstick : FOculusTouchCapacitiveKeyNames::OculusTouch_Right_Thumbstick;
-		CapacitiveAxes[(int32)EOculusTouchCapacitiveAxes::Trigger].Axis = (Hand == EControllerHand::Left) ? FOculusTouchCapacitiveKeyNames::OculusTouch_Left_Trigger : FOculusTouchCapacitiveKeyNames::OculusTouch_Right_Trigger;
-		CapacitiveAxes[(int32)EOculusTouchCapacitiveAxes::XA].Axis = (Hand == EControllerHand::Left) ? FOculusTouchCapacitiveKeyNames::OculusTouch_Left_FaceButton1 : FOculusTouchCapacitiveKeyNames::OculusTouch_Right_FaceButton1;
-		CapacitiveAxes[(int32)EOculusTouchCapacitiveAxes::YB].Axis = (Hand == EControllerHand::Left) ? FOculusTouchCapacitiveKeyNames::OculusTouch_Left_FaceButton2 : FOculusTouchCapacitiveKeyNames::OculusTouch_Right_FaceButton2;
-		CapacitiveAxes[(int32)EOculusTouchCapacitiveAxes::IndexPointing].Axis = (Hand == EControllerHand::Left) ? FOculusTouchCapacitiveKeyNames::OculusTouch_Left_IndexPointing : FOculusTouchCapacitiveKeyNames::OculusTouch_Right_IndexPointing;
-		CapacitiveAxes[(int32)EOculusTouchCapacitiveAxes::ThumbUp].Axis = (Hand == EControllerHand::Left) ? FOculusTouchCapacitiveKeyNames::OculusTouch_Left_ThumbUp : FOculusTouchCapacitiveKeyNames::OculusTouch_Right_ThumbUp;
+		CapacitiveAxes[(int32)EOculusTouchCapacitiveAxes::Thumbstick].Axis = (Hand == EControllerHand::Left) ? FOculusKeyNames::OculusTouch_Left_Thumbstick : FOculusKeyNames::OculusTouch_Right_Thumbstick;
+		CapacitiveAxes[(int32)EOculusTouchCapacitiveAxes::Trigger].Axis = (Hand == EControllerHand::Left) ? FOculusKeyNames::OculusTouch_Left_Trigger : FOculusKeyNames::OculusTouch_Right_Trigger;
+		CapacitiveAxes[(int32)EOculusTouchCapacitiveAxes::XA].Axis = (Hand == EControllerHand::Left) ? FOculusKeyNames::OculusTouch_Left_FaceButton1 : FOculusKeyNames::OculusTouch_Right_FaceButton1;
+		CapacitiveAxes[(int32)EOculusTouchCapacitiveAxes::YB].Axis = (Hand == EControllerHand::Left) ? FOculusKeyNames::OculusTouch_Left_FaceButton2 : FOculusKeyNames::OculusTouch_Right_FaceButton2;
+		CapacitiveAxes[(int32)EOculusTouchCapacitiveAxes::IndexPointing].Axis = (Hand == EControllerHand::Left) ? FOculusKeyNames::OculusTouch_Left_IndexPointing : FOculusKeyNames::OculusTouch_Right_IndexPointing;
+		CapacitiveAxes[(int32)EOculusTouchCapacitiveAxes::ThumbUp].Axis = (Hand == EControllerHand::Left) ? FOculusKeyNames::OculusTouch_Left_ThumbUp : FOculusKeyNames::OculusTouch_Right_ThumbUp;
 	}
 
 	/** Default constructor does nothing.  Don't use it.  This only exists because we cannot initialize an array of objects with no default constructor on non-C++ 11 compliant compilers (VS 2013) */
@@ -192,4 +236,41 @@ struct FOculusTouchControllerState
 	}
 };
 
-#endif	// USE_OVR_MOTION_SDK
+struct FOculusRemoteControllerState
+{
+	/** Button states */
+	FOculusButtonState Buttons[(int32)EOculusRemoteControllerButton::TotalButtonCount];
+
+	FOculusRemoteControllerState()
+	{
+		for (FOculusButtonState& Button : Buttons)
+		{
+			Button.bIsPressed = false;
+			Button.NextRepeatTime = 0.0;
+		}
+
+		Buttons[(int32)EOculusRemoteControllerButton::DPad_Up].Key = FOculusKeyNames::OculusRemote_DPad_Up;
+		Buttons[(int32)EOculusRemoteControllerButton::DPad_Down].Key = FOculusKeyNames::OculusRemote_DPad_Down;
+		Buttons[(int32)EOculusRemoteControllerButton::DPad_Left].Key = FOculusKeyNames::OculusRemote_DPad_Left;
+		Buttons[(int32)EOculusRemoteControllerButton::DPad_Right].Key = FOculusKeyNames::OculusRemote_DPad_Right;
+		Buttons[(int32)EOculusRemoteControllerButton::Enter].Key = FOculusKeyNames::OculusRemote_Enter;
+		Buttons[(int32)EOculusRemoteControllerButton::Back].Key = FOculusKeyNames::OculusRemote_Back;
+
+		Buttons[(int32)EOculusRemoteControllerButton::VolumeUp].Key = FOculusKeyNames::OculusRemote_VolumeUp;
+		Buttons[(int32)EOculusRemoteControllerButton::VolumeDown].Key = FOculusKeyNames::OculusRemote_VolumeDown;
+		Buttons[(int32)EOculusRemoteControllerButton::Home].Key = FOculusKeyNames::OculusRemote_Home;
+	}
+
+	void ReinitButtonsForGamepadCompat()
+	{
+		Buttons[(int32)EOculusRemoteControllerButton::DPad_Up].Key = FGamepadKeyNames::DPadUp;
+		Buttons[(int32)EOculusRemoteControllerButton::DPad_Down].Key = FGamepadKeyNames::DPadDown;
+		Buttons[(int32)EOculusRemoteControllerButton::DPad_Left].Key = FGamepadKeyNames::DPadLeft;
+		Buttons[(int32)EOculusRemoteControllerButton::DPad_Right].Key = FGamepadKeyNames::DPadRight;
+		Buttons[(int32)EOculusRemoteControllerButton::Enter].Key = FGamepadKeyNames::SpecialRight;
+		Buttons[(int32)EOculusRemoteControllerButton::Back].Key = FGamepadKeyNames::SpecialLeft;
+	}
+};
+
+#endif	// OCULUS_INPUT_SUPPORTED_PLATFORMS
+

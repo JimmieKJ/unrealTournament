@@ -159,7 +159,7 @@ float AUTFlagRunGame::OverrideRespawnTime(TSubclassOf<AUTInventory> InventoryTyp
 	return (WeaponDefault && !WeaponDefault->bMustBeHolstered) ? 20.f : InventoryType.GetDefaultObject()->RespawnTime;
 }
 
-int32 AUTFlagRunGame::GetComSwitch(FName CommandTag, AActor* ContextActor, AUTPlayerController* Instigator, UWorld* World)
+int32 AUTFlagRunGame::GetComSwitch(FName CommandTag, AActor* ContextActor, AUTPlayerController* InInstigator, UWorld* World)
 {
 	if (World == nullptr) return INDEX_NONE;
 
@@ -167,10 +167,10 @@ int32 AUTFlagRunGame::GetComSwitch(FName CommandTag, AActor* ContextActor, AUTPl
 
 	if (Instigator == nullptr || UTCTFGameState == nullptr) 
 	{
-		return Super::GetComSwitch(CommandTag, ContextActor, Instigator, World);
+		return Super::GetComSwitch(CommandTag, ContextActor, InInstigator, World);
 	}
 
-	AUTPlayerState* UTPlayerState = Cast<AUTPlayerState>(Instigator->PlayerState);
+	AUTPlayerState* UTPlayerState = Cast<AUTPlayerState>(InInstigator->PlayerState);
 	AUTCharacter* ContextCharacter = ContextActor != nullptr ? Cast<AUTCharacter>(ContextActor) : nullptr;
 	AUTPlayerState* ContextPlayerState = ContextCharacter != nullptr ? Cast<AUTPlayerState>(ContextCharacter->PlayerState) : nullptr;
 	
@@ -178,7 +178,7 @@ int32 AUTFlagRunGame::GetComSwitch(FName CommandTag, AActor* ContextActor, AUTPl
 
 	if (ContextCharacter)
 	{
-		bool bContextOnSameTeam = ContextCharacter != nullptr ? World->GetGameState<AUTGameState>()->OnSameTeam(Instigator, ContextCharacter) : false;
+		bool bContextOnSameTeam = ContextCharacter != nullptr ? World->GetGameState<AUTGameState>()->OnSameTeam(InInstigator, ContextCharacter) : false;
 		bool bContextIsFlagCarrier = ContextPlayerState != nullptr && ContextPlayerState->CarriedObject != nullptr;
 
 		if (bContextIsFlagCarrier)
@@ -218,7 +218,7 @@ int32 AUTFlagRunGame::GetComSwitch(FName CommandTag, AActor* ContextActor, AUTPl
 		}
 	}
 
-	AUTCharacter* InstCharacter = Cast<AUTCharacter>(Instigator->GetCharacter());
+	AUTCharacter* InstCharacter = Cast<AUTCharacter>(InInstigator->GetCharacter());
 	if (InstCharacter != nullptr && !InstCharacter->IsDead())
 	{
 		// We aren't dead, look to see if we have the flag...
@@ -244,7 +244,7 @@ int32 AUTFlagRunGame::GetComSwitch(FName CommandTag, AActor* ContextActor, AUTPl
 	{
 		// Look to see if I'm on offense or defense...
 
-		if (Instigator->GetTeamNum() == OffensiveTeamNum)
+		if (InInstigator->GetTeamNum() == OffensiveTeamNum)
 		{
 			return ATTACK_THEIR_BASE_SWITCH_INDEX;
 		}
@@ -258,7 +258,7 @@ int32 AUTFlagRunGame::GetComSwitch(FName CommandTag, AActor* ContextActor, AUTPl
 	{
 		// Look to see if I'm on offense or defense...
 
-		if (Instigator->GetTeamNum() == OffensiveTeamNum)
+		if (InInstigator->GetTeamNum() == OffensiveTeamNum)
 		{
 			return ATTACK_THEIR_BASE_SWITCH_INDEX;
 		}
@@ -272,7 +272,7 @@ int32 AUTFlagRunGame::GetComSwitch(FName CommandTag, AActor* ContextActor, AUTPl
 	{
 		// Look to see if I'm on offense or defense...
 
-		if (Instigator->GetTeamNum() == OffensiveTeamNum)
+		if (InInstigator->GetTeamNum() == OffensiveTeamNum)
 		{
 			return ON_DEFENSE_SWITCH_INDEX;
 		}
@@ -287,7 +287,7 @@ int32 AUTFlagRunGame::GetComSwitch(FName CommandTag, AActor* ContextActor, AUTPl
 		return UNDER_HEAVY_ATTACK_SWITCH_INDEX;  
 	}
 
-	return Super::GetComSwitch(CommandTag, ContextActor, Instigator, World);
+	return Super::GetComSwitch(CommandTag, ContextActor, InInstigator, World);
 }
 
 void AUTFlagRunGame::HandleRallyRequest(AUTPlayerController* RequestingPC)
@@ -505,10 +505,10 @@ void AUTFlagRunGame::CompleteRallyRequest(AUTPlayerController* RequestingPC)
 			AActor* RallySpot = UTCharacter->UTCharacterMovement ? UTCharacter->UTCharacterMovement->GetPhysicsVolume() : nullptr;
 			if ((RallySpot == nullptr) || (RallySpot == GetWorld()->GetDefaultPhysicsVolume()))
 			{
-				AUTCTFFlag* Flag = Cast<AUTCTFFlag>(GS->FlagBases[GS->bRedToCap ? 0 : 1]->GetCarriedObject());
-				if (Flag)
+				AUTCTFFlag* CarriedFlag = Cast<AUTCTFFlag>(GS->FlagBases[GS->bRedToCap ? 0 : 1]->GetCarriedObject());
+				if (CarriedFlag)
 				{
-					RallySpot = Flag;
+					RallySpot = CarriedFlag;
 				}
 			}
 			for (FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator)

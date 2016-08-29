@@ -4,7 +4,6 @@
 #include "LevelEditorActions.h"
 #include "SLevelEditorToolBox.h"
 #include "LevelEditorActions.h"
-#include "SToolkitDisplay.h"
 #include "Editor/PropertyEditor/Public/PropertyEditorModule.h"
 #include "Editor/PropertyEditor/Public/IDetailsView.h"
 #include "LevelEditorModesActions.h"
@@ -148,21 +147,11 @@ void SLevelEditorToolBox::UpdateInlineContent(TSharedPtr<SWidget> InlineContent)
 
 void SLevelEditorToolBox::OnToolkitHostingStarted( const TSharedRef< class IToolkit >& Toolkit )
 {
-	if( ToolkitArea.IsValid() )
-	{
-		ToolkitArea->OnToolkitHostingStarted( Toolkit );
-	}
-
 	UpdateInlineContent( Toolkit->GetInlineContent() );
 }
 
 void SLevelEditorToolBox::OnToolkitHostingFinished( const TSharedRef< class IToolkit >& Toolkit )
 {
-	if( ToolkitArea.IsValid() )
-	{
-		ToolkitArea->OnToolkitHostingFinished( Toolkit );
-	}
-
 	bool FoundAnotherToolkit = false;
 	const TArray< TSharedPtr< IToolkit > >& HostedToolkits = LevelEditor.Pin()->GetHostedToolkits();
 	for( auto HostedToolkitIt = HostedToolkits.CreateConstIterator(); HostedToolkitIt; ++HostedToolkitIt )

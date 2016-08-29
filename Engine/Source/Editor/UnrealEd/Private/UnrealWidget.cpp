@@ -16,6 +16,129 @@ static const float OUTER_AXIS_CIRCLE_RADIUS = 56.0f;
 static const float ROTATION_TEXT_RADIUS = 75.0f;
 static const int32 AXIS_CIRCLE_SIDES = 24;
 
+/*
+ *  Simple struct used to create and group data related to the current window's / viewport's space,
+ *  orientation, and scale.
+ */
+struct FSpaceDescriptor
+{
+    /*
+     *  Creates a new FSpaceDescriptor.
+     *
+     *  @param View         The virtual view for the space.
+     *  @param Viewport     The real viewport for the space.
+     *  @param InLocation   The location of the camera in the virtual space.
+     */
+    FSpaceDescriptor(const FSceneView* View, const FEditorViewportClient* Viewport, const FVector& InLocation) :
+        bIsPerspective(View->ViewMatrices.ProjMatrix.M[3][3] < 1.0f),
+        bIsLocalSpace(Viewport->GetWidgetCoordSystemSpace() == COORD_Local),
+        bIsOrthoXY(!bIsPerspective && FMath::Abs(View->ViewMatrices.ViewMatrix.M[2][2]) > 0.0f),
+        bIsOrthoXZ(!bIsPerspective && FMath::Abs(View->ViewMatrices.ViewMatrix.M[1][2]) > 0.0f),
+        bIsOrthoYZ(!bIsPerspective && FMath::Abs(View->ViewMatrices.ViewMatrix.M[0][2]) > 0.0f),
+        UniformScale(View->WorldToScreen(InLocation).W * (4.0f / View->UnscaledViewRect.Width() / View->ViewMatrices.ProjMatrix.M[0][0])),
+        Scale(CreateScale())
+    {
+    }
+
+    // Wether or not the view is perspective.
+    const bool bIsPerspective;
+
+    // Whether or not the view is in local space.
+    const bool bIsLocalSpace;
+
+    // Whether or not the view is orthogonal to the XY plane.
+    const bool bIsOrthoXY;
+
+    // Whether or not the view is orthogonal to the XZ plane.
+    const bool bIsOrthoXZ;
+
+    // Whether or not the view is orthogonal to the YZ plane.
+    const bool bIsOrthoYZ;
+
+    // The uniform scale for the space.
+    const float UniformScale;
+
+    // The scale vector for the space based on orientation.
+    const FVector Scale;
+
+    /*
+     *  Used to determine whether or not the X axis should be drawn.
+     *
+     *  @param AxisToDraw   The desired axis to draw.
+     *
+     *  @return True if the axis should be drawn. False otherwise.
+     */
+    bool ShouldDrawAxisX(const EAxisList::Type AxisToDraw)
+    {
+        return ShouldDrawAxis(EAxisList::X, AxisToDraw, bIsOrthoYZ);
+    }
+
+    /*
+     *  Used to determine whether or not the Y axis should be drawn.
+     *
+     *  @param AxisToDraw   The desired axis to draw.
+     *
+     *  @return True if the axis should be drawn. False otherwise.
+     */
+    bool ShouldDrawAxisY(const EAxisList::Type AxisToDraw)
+    {
+        return ShouldDrawAxis(EAxisList::Y, AxisToDraw, bIsOrthoXZ);
+    }
+
+    /*
+     *  Used to determine whether or not the Z axis should be drawn.
+     *
+     *  @param AxisToDraw   The desired axis to draw.
+     *
+     *  @return True if the axis should be drawn. False otherwise.
+     */
+    bool ShouldDrawAxisZ(const EAxisList::Type AxisToDraw)
+    {
+        return ShouldDrawAxis(EAxisList::Z, AxisToDraw, bIsOrthoXY);
+    }
+        
+private:
+
+    /*
+     *  Creates a space scale vector from the determined orientation and uniform scale.
+     *
+     *  @return Space scale vector.
+     */
+    FVector CreateScale()
+    {
+        if (bIsOrthoXY)
+        {
+            return FVector(UniformScale, UniformScale, 1.0f);
+        }
+        else if (bIsOrthoXZ)
+        {
+            return FVector(UniformScale, 1.0f, UniformScale);
+        }
+        else if (bIsOrthoYZ)
+        {
+            return FVector(1.0f, UniformScale, UniformScale);
+        }
+        else
+        {
+            return FVector(UniformScale, UniformScale, UniformScale);
+        }
+    }
+    
+    /*
+     *  Used to determine whether or not a specific axis should be drawn.
+     *
+     *  @param AxisToCheck  The axis to check.
+     *  @param AxisToDraw   The desired axis to draw.
+     *  @param bIsOrtho     Whether or not the axis to check is orthogonal to the viewing orientation.
+     *
+     *  @return True if the axis should be drawn. False otherwise.
+     */
+    bool ShouldDrawAxis(const EAxisList::Type AxisToCheck, const EAxisList::Type AxisToDraw, const bool bIsOrtho)
+    {
+        return (AxisToCheck & AxisToDraw) && (bIsPerspective || bIsLocalSpace || !bIsOrtho);
+    }
+};
+
 FWidget::FWidget()
 {
 	EditorModeTools = NULL;
@@ -410,72 +533,43 @@ void FWidget::Render_Translate( const FSceneView* View, FPrimitiveDrawInterface*
 
 	// Figure out axis matrices
 	FMatrix WidgetMatrix = CustomCoordSystem * FTranslationMatrix( InLocation );
-
-	bool bIsPerspective = ( View->ViewMatrices.ProjMatrix.M[3][3] < 1.0f );
-	const bool bIsOrthoXY = !bIsPerspective && FMath::Abs(View->ViewMatrices.ViewMatrix.M[2][2]) > 0.0f;
-	const bool bIsOrthoXZ = !bIsPerspective && FMath::Abs(View->ViewMatrices.ViewMatrix.M[1][2]) > 0.0f;
-	const bool bIsOrthoYZ = !bIsPerspective && FMath::Abs(View->ViewMatrices.ViewMatrix.M[0][2]) > 0.0f;
-
-	// For local space widgets, we always want to draw all three axis, since they may not be aligned with
-	// the orthographic projection anyway.
-	const bool bIsLocalSpace = ( ViewportClient->GetWidgetCoordSystemSpace() == COORD_Local );
-
 	const EAxisList::Type DrawAxis = GetAxisToDraw( ViewportClient->GetWidgetMode() );
-
 	const bool bDisabled = IsWidgetDisabled();
 
-	FVector Scale;
-	float UniformScale = View->WorldToScreen(InLocation).W * ( 4.0f / View->UnscaledViewRect.Width() / View->ViewMatrices.ProjMatrix.M[0][0] );
-
-	if ( bIsOrthoXY )
-	{
-		Scale = FVector(UniformScale, UniformScale, 1.0f);
-	}
-	else if ( bIsOrthoXZ )
-	{
-		Scale = FVector(UniformScale, 1.0f, UniformScale);
-	}
-	else if ( bIsOrthoYZ )
-	{
-		Scale = FVector(1.0f, UniformScale, UniformScale);
-	}
-	else
-	{
-		Scale = FVector(UniformScale, UniformScale, UniformScale);
-	}
+    FSpaceDescriptor Space(View, ViewportClient, InLocation);
 
 	// Draw the axis lines with arrow heads
-	if( DrawAxis&EAxisList::X && (bIsPerspective || bIsLocalSpace || !bIsOrthoYZ) )
+	if( Space.ShouldDrawAxisX(DrawAxis) )
 	{
 		UMaterialInstanceDynamic* XMaterial = ( CurrentAxis&EAxisList::X ? CurrentAxisMaterial : AxisMaterialX );
-		Render_Axis( View, PDI, EAxisList::X, WidgetMatrix, XMaterial, XColor, XAxisDir, Scale, bDrawWidget );
+		Render_Axis( View, PDI, EAxisList::X, WidgetMatrix, XMaterial, XColor, XAxisDir, Space.Scale, bDrawWidget );
 	}
 
-	if( DrawAxis&EAxisList::Y && (bIsPerspective || bIsLocalSpace || !bIsOrthoXZ) )
+	if( Space.ShouldDrawAxisY(DrawAxis) )
 	{
 		UMaterialInstanceDynamic* YMaterial = ( CurrentAxis&EAxisList::Y ? CurrentAxisMaterial : AxisMaterialY );
-		Render_Axis( View, PDI, EAxisList::Y, WidgetMatrix, YMaterial, YColor, YAxisDir, Scale, bDrawWidget );
+		Render_Axis( View, PDI, EAxisList::Y, WidgetMatrix, YMaterial, YColor, YAxisDir, Space.Scale, bDrawWidget );
 	}
 
-	if( DrawAxis&EAxisList::Z && (bIsPerspective || bIsLocalSpace || !bIsOrthoXY) )
+	if( Space.ShouldDrawAxisZ(DrawAxis) )
 	{
 		UMaterialInstanceDynamic* ZMaterial = ( CurrentAxis&EAxisList::Z ? CurrentAxisMaterial : AxisMaterialZ );
-		Render_Axis( View, PDI, EAxisList::Z, WidgetMatrix, ZMaterial, ZColor, ZAxisDir, Scale, bDrawWidget );
+		Render_Axis( View, PDI, EAxisList::Z, WidgetMatrix, ZMaterial, ZColor, ZAxisDir, Space.Scale, bDrawWidget );
 	}
 
 	// Draw the grabbers
 	if( bDrawWidget )
 	{
-		FVector CornerPos = FVector(7, 0, 7) * UniformScale;
-		FVector AxisSize = FVector(12, 1.2, 12) * UniformScale;
-		float CornerLength = 1.2f * UniformScale;
+		FVector CornerPos = FVector(7, 0, 7) * Space.UniformScale;
+		FVector AxisSize = FVector(12, 1.2, 12) * Space.UniformScale;
+		float CornerLength = 1.2f * Space.UniformScale;
 
 		// After the primitives have been scaled and transformed, we apply this inverse scale that flattens the dimension
 		// that was scaled up to prevent it from intersecting with the near plane.  In perspective this won't have any effect,
 		// but in the ortho viewports it will prevent scaling in the direction of the camera and thus intersecting the near plane.
-		FVector FlattenScale = FVector(Scale.Component(0) == 1.0f ? 1.0f / UniformScale : 1.0f, Scale.Component(1) == 1.0f ? 1.0f / UniformScale : 1.0f, Scale.Component(2) == 1.0f ? 1.0f / UniformScale : 1.0f);
+		FVector FlattenScale = FVector(Space.Scale.Component(0) == 1.0f ? 1.0f / Space.UniformScale : 1.0f, Space.Scale.Component(1) == 1.0f ? 1.0f / Space.UniformScale : 1.0f, Space.Scale.Component(2) == 1.0f ? 1.0f / Space.UniformScale : 1.0f);
 
-		if (bIsPerspective || bIsLocalSpace || bIsOrthoXY)
+		if (Space.bIsPerspective || Space.bIsLocalSpace || Space.bIsOrthoXY)
 		{
 			if( (DrawAxis&EAxisList::XY) == EAxisList::XY )							// Top
 			{
@@ -490,7 +584,7 @@ void FWidget::Render_Translate( const FSceneView* View, FPrimitiveDrawInterface*
 			}
 		}
 
-		if (bIsPerspective || bIsLocalSpace || bIsOrthoXZ)		// Front
+		if (Space.bIsPerspective || Space.bIsLocalSpace || Space.bIsOrthoXZ)		// Front
 		{
 			if( (DrawAxis&EAxisList::XZ) == EAxisList::XZ ) 
 			{
@@ -505,7 +599,7 @@ void FWidget::Render_Translate( const FSceneView* View, FPrimitiveDrawInterface*
 			}
 		}
 
-		if( bIsPerspective || bIsLocalSpace || bIsOrthoYZ )		// Side
+		if( Space.bIsPerspective || Space.bIsLocalSpace || Space.bIsOrthoYZ )		// Side
 		{
 			if( (DrawAxis&EAxisList::YZ) == EAxisList::YZ ) 
 			{
@@ -522,7 +616,7 @@ void FWidget::Render_Translate( const FSceneView* View, FPrimitiveDrawInterface*
 	}
 
 	// Draw screen-space movement handle (circle)
-	if( bDrawWidget && ( DrawAxis & EAxisList::Screen ) && bIsPerspective )
+	if( bDrawWidget && ( DrawAxis & EAxisList::Screen ) && Space.bIsPerspective )
 	{
 		PDI->SetHitProxy( new HWidgetAxis(EAxisList::Screen, bDisabled) );
 		const FVector CameraXAxis = View->ViewMatrices.ViewMatrix.GetColumn(0);
@@ -530,7 +624,7 @@ void FWidget::Render_Translate( const FSceneView* View, FPrimitiveDrawInterface*
 		const FVector CameraZAxis = View->ViewMatrices.ViewMatrix.GetColumn(2);
 
 		UMaterialInstanceDynamic* XYZMaterial = ( CurrentAxis&EAxisList::Screen) ? CurrentAxisMaterial : OpaquePlaneMaterialXY;
-		DrawSphere( PDI, InLocation, 4.0f * Scale, 10, 5, XYZMaterial->GetRenderProxy(false), SDPG_Foreground );
+		DrawSphere( PDI, InLocation, 4.0f * Space.Scale, 10, 5, XYZMaterial->GetRenderProxy(false), SDPG_Foreground );
 
 		PDI->SetHitProxy( NULL );
 	}
@@ -594,85 +688,62 @@ void FWidget::Render_Scale( const FSceneView* View,FPrimitiveDrawInterface* PDI,
 	UMaterialInstanceDynamic* ZMaterial = ( CurrentAxis&EAxisList::Z ? CurrentAxisMaterial : AxisMaterialZ );
 	UMaterialInstanceDynamic* XYZMaterial = ( CurrentAxis&EAxisList::XYZ ? CurrentAxisMaterial : OpaquePlaneMaterialXY );
 
-	// Figure out axis matrices
-
 	FMatrix WidgetMatrix = CustomCoordSystem * FTranslationMatrix( InLocation );
-	// Determine viewport
-
 	const EAxisList::Type DrawAxis = GetAxisToDraw( ViewportClient->GetWidgetMode() );
-	const bool bIsPerspective = ( View->ViewMatrices.ProjMatrix.M[3][3] < 1.0f );
-	const bool bIsOrthoXY = !bIsPerspective && FMath::Abs(View->ViewMatrices.ViewMatrix.M[2][2]) > 0.0f;
-	const bool bIsOrthoXZ = !bIsPerspective && FMath::Abs(View->ViewMatrices.ViewMatrix.M[1][2]) > 0.0f;
-	const bool bIsOrthoYZ = !bIsPerspective && FMath::Abs(View->ViewMatrices.ViewMatrix.M[0][2]) > 0.0f;
+    FSpaceDescriptor Space(View, ViewportClient, InLocation);
 
-	FVector Scale;
-	const float UniformScale = View->WorldToScreen(InLocation).W * (4.0f / View->UnscaledViewRect.Width() / View->ViewMatrices.ProjMatrix.M[0][0]);
-
-	if ( bIsOrthoXY )
-	{
-		Scale = FVector(UniformScale, UniformScale, 1.0f);
-	}
-	else if ( bIsOrthoXZ )
-	{
-		Scale = FVector(UniformScale, 1.0f, UniformScale);
-	}
-	else if ( bIsOrthoYZ )
-	{
-		Scale = FVector(1.0f, UniformScale, UniformScale);
-	}
-	else
-	{
-		Scale = FVector(UniformScale, UniformScale, UniformScale);
-	}
+	// Use a constant uniform scale for this widget since orthographic view for it is not supported.
+	const FVector UniformScale(Space.UniformScale);
 
 	// Draw the axis lines with cube heads	
-	if( !bIsOrthoYZ && DrawAxis&EAxisList::X )
-	{
-		Render_Axis( View, PDI, EAxisList::X, WidgetMatrix, XMaterial, XColor, XAxisDir, Scale, bDrawWidget, true );
-	}
+    if (Space.ShouldDrawAxisX(DrawAxis))
+    {
+        Render_Axis(View, PDI, EAxisList::X, WidgetMatrix, XMaterial, XColor, XAxisDir, UniformScale, bDrawWidget, true);
+    }
 
-	if( !bIsOrthoXZ && DrawAxis&EAxisList::Y )
-	{
-		Render_Axis( View, PDI, EAxisList::Y, WidgetMatrix, YMaterial, YColor, YAxisDir, Scale, bDrawWidget, true );
-	}
+    if (Space.ShouldDrawAxisY(DrawAxis))
+    {
+        Render_Axis(View, PDI, EAxisList::Y, WidgetMatrix, YMaterial, YColor, YAxisDir, UniformScale, bDrawWidget, true);
+    }
 
-	if( !bIsOrthoXY &&  DrawAxis&EAxisList::Z )
-	{
-		Render_Axis( View, PDI, EAxisList::Z, WidgetMatrix, ZMaterial, ZColor, ZAxisDir, Scale, bDrawWidget, true );
-	}
+    if (Space.ShouldDrawAxisZ(DrawAxis))
+    {
+        Render_Axis(View, PDI, EAxisList::Z, WidgetMatrix, ZMaterial, ZColor, ZAxisDir, UniformScale, bDrawWidget, true);
+    }
 
 	// Draw grabber handles and center cube
 	if ( bDrawWidget )
 	{
 		const bool bDisabled = IsWidgetDisabled();
 
-		// Grabber handles
-		if( !bIsOrthoYZ && !bIsOrthoXZ && ((DrawAxis&(EAxisList::X|EAxisList::Y)) == (EAxisList::X|EAxisList::Y)) )
+		// Grabber handles - since orthographic scale widgets are not supported, we should always draw grabber handles if we're drawing
+		// the corresponding axes.
+		if( (DrawAxis&(EAxisList::X|EAxisList::Y)) == (EAxisList::X|EAxisList::Y) )
 		{
 			PDI->SetHitProxy( new HWidgetAxis(EAxisList::XY, bDisabled) );
 			{
-				PDI->DrawLine( WidgetMatrix.TransformPosition(FVector(24,0,0) * Scale), WidgetMatrix.TransformPosition(FVector(12,12,0) * Scale), XColor, SDPG_Foreground );
-				PDI->DrawLine( WidgetMatrix.TransformPosition(FVector(12,12,0) * Scale), WidgetMatrix.TransformPosition(FVector(0,24,0) * Scale), YColor, SDPG_Foreground );
+				PDI->DrawLine( WidgetMatrix.TransformPosition(FVector(24,0,0) * UniformScale), WidgetMatrix.TransformPosition(FVector(12,12,0) * UniformScale), XColor, SDPG_Foreground );
+				PDI->DrawLine( WidgetMatrix.TransformPosition(FVector(12,12,0) * UniformScale), WidgetMatrix.TransformPosition(FVector(0,24,0) * UniformScale), YColor, SDPG_Foreground );
 			}
 			PDI->SetHitProxy( NULL );
 		}
 
-		if( !bIsOrthoYZ && !bIsOrthoXY && ((DrawAxis&(EAxisList::X|EAxisList::Z)) == (EAxisList::X|EAxisList::Z)) )
+		if( (DrawAxis&(EAxisList::X|EAxisList::Z)) == (EAxisList::X|EAxisList::Z) )
 		{
 			PDI->SetHitProxy( new HWidgetAxis(EAxisList::XZ, bDisabled) );
 			{
-				PDI->DrawLine( WidgetMatrix.TransformPosition(FVector(24,0,0) * Scale), WidgetMatrix.TransformPosition(FVector(12,0,12) * Scale), XColor, SDPG_Foreground );
-				PDI->DrawLine( WidgetMatrix.TransformPosition(FVector(12,0,12) * Scale), WidgetMatrix.TransformPosition(FVector(0,0,24) * Scale), ZColor, SDPG_Foreground );
+				PDI->DrawLine( WidgetMatrix.TransformPosition(FVector(24,0,0) * UniformScale), WidgetMatrix.TransformPosition(FVector(12,0,12) * UniformScale), XColor, SDPG_Foreground );
+				PDI->DrawLine( WidgetMatrix.TransformPosition(FVector(12,0,12) * UniformScale), WidgetMatrix.TransformPosition(FVector(0,0,24) * UniformScale), ZColor, SDPG_Foreground );
 			}
 			PDI->SetHitProxy( NULL );
 		}
 
-		if( !bIsOrthoXY && !bIsOrthoXZ && ((DrawAxis&(EAxisList::Y|EAxisList::Z)) == (EAxisList::Y|EAxisList::Z)) )
+		if( (DrawAxis&(EAxisList::Y|EAxisList::Z)) == (EAxisList::Y|EAxisList::Z) )
 		{
 			PDI->SetHitProxy( new HWidgetAxis(EAxisList::YZ, bDisabled) );
 			{
-				PDI->DrawLine( WidgetMatrix.TransformPosition(FVector(0,24,0) * Scale), WidgetMatrix.TransformPosition(FVector(0,12,12) * Scale), YColor, SDPG_Foreground );
-				PDI->DrawLine( WidgetMatrix.TransformPosition(FVector(0,12,12) * Scale), WidgetMatrix.TransformPosition(FVector(0,0,24) * Scale), ZColor, SDPG_Foreground );
+				PDI->DrawLine( WidgetMatrix.TransformPosition(FVector(0,24,0) * UniformScale), WidgetMatrix.TransformPosition(FVector(0,12,12) * UniformScale), YColor, SDPG_Foreground );
+				PDI->DrawLine( WidgetMatrix.TransformPosition(FVector(0,12,12) * UniformScale), WidgetMatrix.TransformPosition(FVector(0,0,24) * UniformScale), ZColor, SDPG_Foreground );
 			}
 			PDI->SetHitProxy( NULL );
 		}
@@ -682,7 +753,7 @@ void FWidget::Render_Scale( const FSceneView* View,FPrimitiveDrawInterface* PDI,
 		{
 			PDI->SetHitProxy( new HWidgetAxis(EAxisList::XYZ, bDisabled) );
 
-			Render_Cube(PDI, WidgetMatrix, XYZMaterial, Scale * 4 );
+			Render_Cube(PDI, WidgetMatrix, XYZMaterial, UniformScale * 4 );
 
 			PDI->SetHitProxy( NULL );
 		}
@@ -711,63 +782,35 @@ void FWidget::Render_TranslateRotateZ( const FSceneView* View, FPrimitiveDrawInt
 
 	// Figure out axis matrices
 	FMatrix AxisMatrix = CustomCoordSystem * FTranslationMatrix( InLocation );
-
-	bool bIsPerspective = ( View->ViewMatrices.ProjMatrix.M[3][3] < 1.0f );
-	const bool bIsOrthoXY = !bIsPerspective && FMath::Abs(View->ViewMatrices.ViewMatrix.M[2][2]) > 0.0f;
-	const bool bIsOrthoXZ = !bIsPerspective && FMath::Abs(View->ViewMatrices.ViewMatrix.M[1][2]) > 0.0f;
-	const bool bIsOrthoYZ = !bIsPerspective && FMath::Abs(View->ViewMatrices.ViewMatrix.M[0][2]) > 0.0f;
-
-	// For local space widgets, we always want to draw all three axis, since they may not be aligned with
-	// the orthographic projection anyway.
-	bool bIsLocalSpace = ( ViewportClient->GetWidgetCoordSystemSpace() == COORD_Local );
-
 	EAxisList::Type DrawAxis = GetAxisToDraw( ViewportClient->GetWidgetMode() );
 
-	FVector Scale;
-	float UniformScale = View->WorldToScreen(InLocation).W * ( 4.0f / View->UnscaledViewRect.Width() / View->ViewMatrices.ProjMatrix.M[0][0] );
-
-	if ( bIsOrthoXY )
-	{
-		Scale = FVector(UniformScale, UniformScale, 1.0f);
-	}
-	else if ( bIsOrthoXZ )
-	{
-		Scale = FVector(UniformScale, 1.0f, UniformScale);
-	}
-	else if ( bIsOrthoYZ )
-	{
-		Scale = FVector(1.0f, UniformScale, UniformScale);
-	}
-	else
-	{
-		Scale = FVector(UniformScale, UniformScale, UniformScale);
-	}
+	FSpaceDescriptor Space(View, ViewportClient, InLocation);
 
 	// Draw the grabbers
 	if( bDrawWidget )
 	{
 		// Draw the axis lines with arrow heads
-		if( DrawAxis&EAxisList::X && (bIsPerspective || bIsLocalSpace || View->ViewMatrices.ViewMatrix.M[0][2] != -1.f) )
+		if( DrawAxis&EAxisList::X && (Space.bIsPerspective || Space.bIsLocalSpace || View->ViewMatrices.ViewMatrix.M[0][2] != -1.f) )
 		{
-			Render_Axis( View, PDI, EAxisList::X, AxisMatrix, XMaterial, XColor, XAxisDir, Scale, bDrawWidget );
+			Render_Axis( View, PDI, EAxisList::X, AxisMatrix, XMaterial, XColor, XAxisDir, Space.Scale, bDrawWidget );
 		}
 
-		if( DrawAxis&EAxisList::Y && (bIsPerspective || bIsLocalSpace || View->ViewMatrices.ViewMatrix.M[1][2] != -1.f) )
+		if( DrawAxis&EAxisList::Y && (Space.bIsPerspective || Space.bIsLocalSpace || View->ViewMatrices.ViewMatrix.M[1][2] != -1.f) )
 		{
-			Render_Axis( View, PDI, EAxisList::Y, AxisMatrix, YMaterial, YColor, YAxisDir, Scale, bDrawWidget );
+			Render_Axis( View, PDI, EAxisList::Y, AxisMatrix, YMaterial, YColor, YAxisDir, Space.Scale, bDrawWidget );
 		}
 
-		if( DrawAxis&EAxisList::Z && (bIsPerspective || bIsLocalSpace || View->ViewMatrices.ViewMatrix.M[0][1] != 1.f) )
+		if( DrawAxis&EAxisList::Z && (Space.bIsPerspective || Space.bIsLocalSpace || View->ViewMatrices.ViewMatrix.M[0][1] != 1.f) )
 		{
-			Render_Axis( View, PDI, EAxisList::Z, AxisMatrix, ZMaterial, ZColor, ZAxisDir, Scale, bDrawWidget );
+			Render_Axis( View, PDI, EAxisList::Z, AxisMatrix, ZMaterial, ZColor, ZAxisDir, Space.Scale, bDrawWidget );
 		}
 
 		const bool bDisabled = IsWidgetDisabled();
 
-		const float ScaledRadius = (TRANSLATE_ROTATE_AXIS_CIRCLE_RADIUS * UniformScale) + GetDefault<ULevelEditorViewportSettings>()->TransformWidgetSizeAdjustment;
+		const float ScaledRadius = (TRANSLATE_ROTATE_AXIS_CIRCLE_RADIUS * Space.UniformScale) + GetDefault<ULevelEditorViewportSettings>()->TransformWidgetSizeAdjustment;
 
 		//ZRotation
-		if( DrawAxis&EAxisList::ZRotation && (bIsPerspective || bIsLocalSpace || View->ViewMatrices.ViewMatrix.M[0][2] != -1.f) )
+		if( DrawAxis&EAxisList::ZRotation && (Space.bIsPerspective || Space.bIsLocalSpace || View->ViewMatrices.ViewMatrix.M[0][2] != -1.f) )
 		{
 			PDI->SetHitProxy( new HWidgetAxis(EAxisList::ZRotation, bDisabled) );
 			{
@@ -780,7 +823,7 @@ void FWidget::Render_TranslateRotateZ( const FSceneView* View, FPrimitiveDrawInt
 		}
 
 		//XY Plane
-		if( bIsPerspective || bIsLocalSpace || View->ViewMatrices.ViewMatrix.M[0][1] != 1.f )
+		if( Space.bIsPerspective || Space.bIsLocalSpace || View->ViewMatrices.ViewMatrix.M[0][1] != 1.f )
 		{
 			if( (DrawAxis & EAxisList::XY) == EAxisList::XY ) 
 			{
@@ -821,29 +864,22 @@ void FWidget::Render_2D(const FSceneView* View, FPrimitiveDrawInterface* PDI, FE
 	// Figure out axis matrices
 	FMatrix WidgetMatrix = CustomCoordSystem * FTranslationMatrix(InLocation);
 
-	bool bIsPerspective = (View->ViewMatrices.ProjMatrix.M[3][3] < 1.0f);
-	const bool bIsOrthoXY = !bIsPerspective && FMath::Abs(View->ViewMatrices.ViewMatrix.M[2][2]) > 0.0f;
-	const bool bIsOrthoXZ = !bIsPerspective && FMath::Abs(View->ViewMatrices.ViewMatrix.M[1][2]) > 0.0f;
-	const bool bIsOrthoYZ = !bIsPerspective && FMath::Abs(View->ViewMatrices.ViewMatrix.M[0][2]) > 0.0f;
-
-	// For local space widgets, we always want to draw all three axis, since they may not be aligned with
-	// the orthographic projection anyway.
-	const bool bIsLocalSpace = (ViewportClient->GetWidgetCoordSystemSpace() == COORD_Local);
+    FSpaceDescriptor Space(View, ViewportClient, InLocation);
 
 	EAxisList::Type DrawAxis = EAxisList::None;
-	if (bIsOrthoXY)
+	if (Space.bIsOrthoXY)
 	{
 		DrawAxis = EAxisList::X;
 	}
-	else if (bIsOrthoXZ)
+	else if (Space.bIsOrthoXZ)
 	{
 		DrawAxis = EAxisList::XZ;
 	}
-	else if (bIsOrthoYZ)
+	else if (Space.bIsOrthoYZ)
 	{
 		DrawAxis = EAxisList::Z;
 	}
-	else if (bIsPerspective)
+	else if (Space.bIsPerspective)
 	{
 		// Find the best plane to move on
 		const FVector CameraZAxis = View->ViewMatrices.ViewMatrix.GetColumn(2);
@@ -874,28 +910,8 @@ void FWidget::Render_2D(const FSceneView* View, FPrimitiveDrawInterface* PDI, FE
 
 	const bool bDisabled = IsWidgetDisabled();
 
-	FVector Scale;
-	float UniformScale = View->WorldToScreen(InLocation).W * (4.0f / View->UnscaledViewRect.Width() / View->ViewMatrices.ProjMatrix.M[0][0]);
-
-	if (bIsOrthoXY)
-	{
-		Scale = FVector(UniformScale, UniformScale, 1.0f);
-	}
-	else if (bIsOrthoXZ)
-	{
-		Scale = FVector(UniformScale, 1.0f, UniformScale);
-	}
-	else if (bIsOrthoYZ)
-	{
-		Scale = FVector(1.0f, UniformScale, UniformScale);
-	}
-	else
-	{
-		Scale = FVector(UniformScale, UniformScale, UniformScale);
-	}
-
 	// Radius
-	const float ScaledRadius = (TWOD_AXIS_CIRCLE_RADIUS * UniformScale) + GetDefault<ULevelEditorViewportSettings>()->TransformWidgetSizeAdjustment;
+	const float ScaledRadius = (TWOD_AXIS_CIRCLE_RADIUS * Space.UniformScale) + GetDefault<ULevelEditorViewportSettings>()->TransformWidgetSizeAdjustment;
 	const int32 CircleSides = (GetDefault<ULevelEditorViewportSettings>()->TransformWidgetSizeAdjustment > 0)
 		? AXIS_CIRCLE_SIDES + (GetDefault<ULevelEditorViewportSettings>()->TransformWidgetSizeAdjustment / 5)
 		: AXIS_CIRCLE_SIDES;
@@ -903,40 +919,40 @@ void FWidget::Render_2D(const FSceneView* View, FPrimitiveDrawInterface* PDI, FE
 	// Draw the grabbers
 	if (bDrawWidget)
 	{
-		FVector CornerPos = FVector(7, 0, 7) * UniformScale;
-		FVector AxisSize = FVector(12, 1.2, 12) * UniformScale;
-		float CornerLength = 1.2f * UniformScale;
+		FVector CornerPos = FVector(7, 0, 7) * Space.UniformScale;
+		FVector AxisSize = FVector(12, 1.2, 12) * Space.UniformScale;
+		float CornerLength = 1.2f * Space.UniformScale;
 
 		// Draw the axis lines with arrow heads
-		if (DrawAxis&EAxisList::X && (bIsPerspective || bIsLocalSpace || !bIsOrthoYZ))
+		if (Space.ShouldDrawAxisX(DrawAxis))
 		{
 			UMaterialInstanceDynamic* XMaterial = (CurrentAxis&EAxisList::X ? CurrentAxisMaterial : AxisMaterialX);
-			Render_Axis(View, PDI, EAxisList::X, WidgetMatrix, XMaterial, XColor, XAxisDir, Scale, bDrawWidget);
+			Render_Axis(View, PDI, EAxisList::X, WidgetMatrix, XMaterial, XColor, XAxisDir, Space.Scale, bDrawWidget);
 		}
 
-		if (DrawAxis&EAxisList::Y && (bIsPerspective || bIsLocalSpace || !bIsOrthoXZ))
+		if (Space.ShouldDrawAxisY(DrawAxis))
 		{
 			UMaterialInstanceDynamic* YMaterial = (CurrentAxis&EAxisList::Y ? CurrentAxisMaterial : AxisMaterialY);
-			Render_Axis(View, PDI, EAxisList::Y, WidgetMatrix, YMaterial, YColor, YAxisDir, Scale, bDrawWidget);
+			Render_Axis(View, PDI, EAxisList::Y, WidgetMatrix, YMaterial, YColor, YAxisDir, Space.Scale, bDrawWidget);
 		}
 
-		if (DrawAxis&EAxisList::Z && (bIsPerspective || bIsLocalSpace || !bIsOrthoXY))
+		if (Space.ShouldDrawAxisZ(DrawAxis))
 		{
 			UMaterialInstanceDynamic* ZMaterial = (CurrentAxis&EAxisList::Z ? CurrentAxisMaterial : AxisMaterialZ);
-			Render_Axis(View, PDI, EAxisList::Z, WidgetMatrix, ZMaterial, ZColor, ZAxisDir, Scale, bDrawWidget);
+			Render_Axis(View, PDI, EAxisList::Z, WidgetMatrix, ZMaterial, ZColor, ZAxisDir, Space.Scale, bDrawWidget);
 		}
 
 		// After the primitives have been scaled and transformed, we apply this inverse scale that flattens the dimension
 		// that was scaled up to prevent it from intersecting with the near plane.  In perspective this won't have any effect,
 		// but in the ortho viewports it will prevent scaling in the direction of the camera and thus intersecting the near plane.
-		FVector FlattenScale = FVector(Scale.Component(0) == 1.0f ? 1.0f / UniformScale : 1.0f, Scale.Component(1) == 1.0f ? 1.0f / UniformScale : 1.0f, Scale.Component(2) == 1.0f ? 1.0f / UniformScale : 1.0f);
+		FVector FlattenScale = FVector(Space.Scale.Component(0) == 1.0f ? 1.0f / Space.UniformScale : 1.0f, Space.Scale.Component(1) == 1.0f ? 1.0f / Space.UniformScale : 1.0f, Space.Scale.Component(2) == 1.0f ? 1.0f / Space.UniformScale : 1.0f);
 		float ArrowRadius = ScaledRadius * 2.0f;
 		float ArrowStartRadius = ScaledRadius * 1.3f;
 
 		uint8 HoverAlpha = 0xff;
 		uint8 NormalAlpha = 0x2f;
 
-		if (((DrawAxis&EAxisList::XZ) == EAxisList::XZ) && (bIsPerspective || bIsLocalSpace || bIsOrthoXZ)) // Front
+		if (((DrawAxis&EAxisList::XZ) == EAxisList::XZ) && (Space.bIsPerspective || Space.bIsLocalSpace || Space.bIsOrthoXZ)) // Front
 		{
 			uint8 Alpha = ((CurrentAxis&EAxisList::XZ) == EAxisList::XZ ? HoverAlpha : NormalAlpha);
 			PDI->SetHitProxy(new HWidgetAxis(EAxisList::XZ, bDisabled));

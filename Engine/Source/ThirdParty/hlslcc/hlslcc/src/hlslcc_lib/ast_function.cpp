@@ -37,9 +37,7 @@
 #include "macros.h"
 #include "LanguageSpec.h"
 
-ir_rvalue* process_mul(
-	exec_list* instructions, _mesa_glsl_parse_state* state,
-	exec_list* actual_parameters, YYLTYPE* loc)
+static ir_rvalue* process_mul(exec_list* instructions, _mesa_glsl_parse_state* state, exec_list* actual_parameters, YYLTYPE* loc)
 {
 	void* ctx = state;
 
@@ -2005,6 +2003,16 @@ ir_rvalue* ast_function_expression::hir(exec_list *instructions, struct _mesa_gl
 			{
 				value = process_mul(instructions, state, &actual_parameters, &loc);
 			}
+			else if (num_params == 1 && !strcmp(func_name, "length"))
+			{
+				// length(float X) => X
+				auto* Instruction = (ir_instruction*)actual_parameters.iterator().get();
+				auto* RValue = Instruction->as_rvalue();
+				if (RValue && RValue->type->is_scalar())
+				{
+					value = RValue;
+				}
+			}
 			if (value == NULL)
 			{
 				no_matching_function_error(func_name, &loc, &actual_parameters, state);
@@ -2403,7 +2411,7 @@ struct _mesa_glsl_parse_state *state)
 			auto* VarDeRef = SamplerStateDeRef->as_dereference_variable();
 			if (VarDeRef && VarDeRef->var && VarDeRef->var->name)
 			{
-				texop->SamplerStateName = VarDeRef->var->name;
+				texop->SamplerStateName = ralloc_strdup(ctx, VarDeRef->var->name);
 			}
 		}
 

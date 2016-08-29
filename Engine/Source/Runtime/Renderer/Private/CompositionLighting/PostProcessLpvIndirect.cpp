@@ -135,7 +135,7 @@ public:
 	static void ModifyCompilationEnvironment(EShaderPlatform Platform, FShaderCompilerEnvironment& OutEnvironment)
 	{
 		FPostProcessLpvIndirectPS::ModifyCompilationEnvironment(Platform,OutEnvironment);
-		OutEnvironment.SetDefine(TEXT("APPLY_SEPARATE_SPECULAR_RT"), (uint32)(bApplySeparateSpecularRT ? 1 : 0));
+		OutEnvironment.SetDefine(TEXT("APPLY_SEPARATE_SPECULAR_RT"), bApplySeparateSpecularRT);
 	}
 };
 
@@ -434,27 +434,7 @@ void FRCPassPostProcessVisualizeLPV::Process(FRenderingCompositePassContext& Con
 	SetRenderTarget(Context.RHICmdList, DestRenderTarget.TargetableTexture, FTextureRHIRef());
 
 	{
-		// this is a helper class for FCanvas to be able to get screen size
-		class FRenderTargetTemp : public FRenderTarget
-		{
-		public:
-			const FSceneView& View;
-			const FTexture2DRHIRef Texture;
-
-			FRenderTargetTemp(const FSceneView& InView, const FTexture2DRHIRef InTexture)
-				: View(InView), Texture(InTexture)
-			{
-			}
-			virtual FIntPoint GetSizeXY() const
-			{
-				return View.ViewRect.Size();
-			};
-			virtual const FTexture2DRHIRef& GetRenderTargetTexture() const
-			{
-				return Texture;
-			}
-		} TempRenderTarget(View, (const FTexture2DRHIRef&)DestRenderTarget.TargetableTexture);
-
+		FRenderTargetTemp TempRenderTarget(View, (const FTexture2DRHIRef&)DestRenderTarget.TargetableTexture);
 		FCanvas Canvas(&TempRenderTarget, NULL, ViewFamily.CurrentRealTime, ViewFamily.CurrentWorldTime, ViewFamily.DeltaWorldTime, View.GetFeatureLevel());
 
 		float X = 30;

@@ -4,6 +4,7 @@
 
 #include "ApsalarEditor.h"
 #include "ApsalarSettings.h"
+#include "Analytics.h"
 
 IMPLEMENT_MODULE( FApsalarEditorModule, ApsalarEditorModule );
 

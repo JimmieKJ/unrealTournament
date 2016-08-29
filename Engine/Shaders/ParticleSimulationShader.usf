@@ -10,6 +10,8 @@
 	#include "GlobalDistanceFieldShared.usf"
 #endif
 
+#define IMPROVED_DEPTH_BUFFER_COLLISION 1
+
 /*------------------------------------------------------------------------------
 	Shared declarations and functions.
 ------------------------------------------------------------------------------*/
@@ -189,10 +191,10 @@ void EvaluateVectorFields(out float3 OutForce, out float4 OutVelocity, float3 Po
 
 	for (int VectorFieldIndex = 0; VectorFieldIndex < VectorFields.Count; ++VectorFieldIndex)
 	{
-		float2 IntensityAndTightness = VectorFields.IntensityAndTightness[VectorFieldIndex];
+		float2 IntensityAndTightness = VectorFields.IntensityAndTightness[VectorFieldIndex].xy;
 		float Intensity = IntensityAndTightness.x * PerParticleScale;
 		float Tightness = IntensityAndTightness.y;
-		float3 VolumeSize = VectorFields.VolumeSize[VectorFieldIndex];
+		float3 VolumeSize = VectorFields.VolumeSize[VectorFieldIndex].xyz;
 		float3 VolumeUV = mul(float4(Position.xyz,1), VectorFields.WorldToVolume[VectorFieldIndex]).xyz;
 		//Tile the UVs if needed. TilingAxes will be 1.0 or 0.0 in each channel depending on which axes are being tiled, if any.
 		VolumeUV -= floor(VolumeUV * VectorFields.TilingAxes[VectorFieldIndex].xyz);
@@ -279,7 +281,12 @@ void CollideWithDepthBuffer(
 	NewVelocity = InVelocity.xyz + Acceleration;
 
 	// Figure out where to sample the depth buffer.
+#if IMPROVED_DEPTH_BUFFER_COLLISION
+	float3 CollisionOffset = normalize(DeltaPosition*0.5f) * CollisionRadius;
+#else
 	float3 CollisionOffset = normalize(DeltaPosition) * CollisionRadius;
+#endif
+
 	float3 CollisionPosition = InPosition + CollisionOffset;
 	float4 SamplePosition = float4(CollisionPosition + View.PreViewTranslation,1);
 	float4 ClipPosition = mul(SamplePosition, View.TranslatedWorldToClip);
@@ -304,8 +311,41 @@ void CollideWithDepthBuffer(
 
 			// Compute the portion of velocity normal to the collision plane.
 			float VelocityDot = dot(CollisionPlane.xyz, DeltaPosition.xyz);
-			float InvVelocityDot = rcp(VelocityDot + 0.0001f); // Add a small amount to avoid division by zero.
 
+
+
+#if IMPROVED_DEPTH_BUFFER_COLLISION
+			// distance to the plane from current and predicted position
+			float d_back = ( dot(CollisionPlane.xyz, InPosition.xyz)+CollisionRadius - CollisionPlane.w );
+			float d_front = ( dot(CollisionPlane.xyz, NewPosition.xyz)-CollisionRadius - CollisionPlane.w );
+
+			if (d_back >= 0.0f && d_front <= 0.0f && VelocityDot<0.0f)
+			{
+				// Separate velocity in to the components perpendicular and tangent to the collision plane.
+				float3 PerpVelocity = dot(MidVelocity,CollisionPlane.xyz) * CollisionPlane.xyz;
+				float3 TanVelocity = MidVelocity - PerpVelocity;
+
+				// Compute the new velocity accounting for resilience and friction.
+				NewVelocity = Simulation.OneMinusFriction * TanVelocity - Resilience * PerpVelocity;
+
+				// If the particle lies approximately on the collision plane, don't jump to the point of collision.
+				d_back *= step(VelocityDot,-1);
+
+				// Integrate position taking the collision in to account.
+				float PositionAdjustment = ( dot(CollisionPlane.xyz, InPosition.xyz)-CollisionRadius - CollisionPlane.w );
+				NewPosition = InPosition + PositionAdjustment*CollisionPlane.xyz + NewVelocity * DeltaSeconds*0.1;
+
+				// Update the relative time. Usually this does nothing, but if the
+				// user has elected to kill the particle upon collision this will do
+				// so.
+				RelativeTime += Simulation.CollisionTimeBias;
+			}
+			else if (d_front < 0.0f && d_back < 0.0f)
+			{
+				RelativeTime = 1.1f;
+			}
+#else
+			float InvVelocityDot = rcp(VelocityDot + 0.0001f); // Add a small amount to avoid division by zero.
 			// Distance to the plane from the center of the particle.
 			float DistanceToPlane = dot(CollisionPlane.xyz, InPosition.xyz) - CollisionPlane.w;
 
@@ -313,7 +353,6 @@ void CollideWithDepthBuffer(
 			float t_back = -(DistanceToPlane + CollisionRadius) * InvVelocityDot;
 			float t_front = -(DistanceToPlane - CollisionRadius) * InvVelocityDot;
 
-			//if (t_back >= 0 && t_front <= 1 && DistanceToPlane >= 0)
 			if (step(0, t_back) * step(t_front, 1) * step(0, DistanceToPlane))
 			{
 				// Separate velocity in to the components perpendicular and tangent to the collision plane.
@@ -341,6 +380,7 @@ void CollideWithDepthBuffer(
 				// relative time to a value > 1.0.
 				RelativeTime = 1.1f;
 			}
+#endif
 		}
 	}
 }

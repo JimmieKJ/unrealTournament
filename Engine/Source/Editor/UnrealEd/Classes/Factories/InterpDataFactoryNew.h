@@ -7,7 +7,7 @@
 #pragma once
 #include "InterpDataFactoryNew.generated.h"
 
-UCLASS(hidecategories=Object)
+UCLASS(MinimalAPI, hidecategories=Object)
 class UInterpDataFactoryNew : public UFactory
 {
 	GENERATED_UCLASS_BODY()
@@ -17,6 +17,3 @@ class UInterpDataFactoryNew : public UFactory
 	virtual UObject* FactoryCreateNew(UClass* Class,UObject* InParent,FName Name,EObjectFlags Flags,UObject* Context,FFeedbackContext* Warn) override;
 	//~ Begin UFactory Interface	
 };
-
-
-

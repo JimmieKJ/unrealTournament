@@ -60,7 +60,7 @@ void AUTDroppedPickup::CheckTouching()
 		if (P != NULL && P->GetMovementComponent() != NULL)
 		{
 			FHitResult UnusedHitResult;
-			OnOverlapBegin(P, Cast<UPrimitiveComponent>(P->GetMovementComponent()->UpdatedComponent), 0, false, UnusedHitResult);
+			OnOverlapBegin(Collision, P, Cast<UPrimitiveComponent>(P->GetMovementComponent()->UpdatedComponent), 0, false, UnusedHitResult);
 		}
 	}
 }
@@ -85,7 +85,7 @@ void AUTDroppedPickup::PhysicsStopped(const FHitResult& ImpactResult)
 	// if we landed on a mover, attach to it
 	if (ImpactResult.Component != NULL && ImpactResult.Component->Mobility == EComponentMobility::Movable)
 	{
-		Collision->AttachTo(ImpactResult.Component.Get(), NAME_None, EAttachLocation::KeepWorldPosition);
+		Collision->AttachToComponent(ImpactResult.Component.Get(), FAttachmentTransformRules::KeepWorldTransform, NAME_None);
 	}
 	AUTRecastNavMesh* NavData = GetUTNavData(GetWorld());
 	if (NavData != NULL)
@@ -109,7 +109,7 @@ void AUTDroppedPickup::EndPlay(const EEndPlayReason::Type EndPlayReason)
 	GetWorldTimerManager().ClearAllTimersForObject(this);
 }
 
-void AUTDroppedPickup::OnOverlapBegin(AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
+void AUTDroppedPickup::OnOverlapBegin(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
 {
 	if (bFullyInitialized && (OtherActor != Instigator || !GetWorld()->GetTimerManager().IsTimerActive(EnableInstigatorTouchHandle)))
 	{

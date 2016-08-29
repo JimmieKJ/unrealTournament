@@ -51,11 +51,12 @@ namespace UnrealVS
 		IVsSolutionEvents,		// This interface allows us to register to be notified of events such as opening a project
 		IVsUpdateSolutionEvents,// Allows us to register to be notified of events such as active config changes
 		IVsSelectionEvents,		// Allows us to be notified when the startup project has changed to a different project
-		IVsHierarchyEvents		// Allows us to be notified when a hierarchy (the startup project) has had properties changed
+		IVsHierarchyEvents,		// Allows us to be notified when a hierarchy (the startup project) has had properties changed
+		IDisposable
 	{
 		/** Constants */
 
-		private const string VersionString = "v1.41";
+		private const string VersionString = "v1.42";
 		private const string UnrealSolutionFileNamePrefix = "UE4";
 		private const string ExtensionName = "UnrealVS";
 		private const string CommandLineOptionKey = ExtensionName + "CommandLineMRU";
@@ -93,6 +94,7 @@ namespace UnrealVS
 		public delegate void OnSolutionClosedDelegate();
 		[System.Diagnostics.CodeAnalysis.SuppressMessage( "Microsoft.Design", "CA1009" )]
 		public event OnSolutionClosedDelegate OnSolutionClosing;
+		[System.Diagnostics.CodeAnalysis.SuppressMessage( "Microsoft.Design", "CA1009" )]
 		public event OnSolutionClosedDelegate OnSolutionClosed;
 
 		/// Called when the active project config changes for any project
@@ -215,6 +217,9 @@ namespace UnrealVS
 			// Create 'BuildStartupProject' instance
 			BuildStartupProject = new BuildStartupProject();
 
+			// Create 'CompileSingleFile' instance
+			CompileSingleFile = new CompileSingleFile();
+
 			// Create 'GenerateProjectFiles' tools
 			GenerateProjectFiles = new GenerateProjectFiles();
 
@@ -279,6 +284,14 @@ namespace UnrealVS
 			BatchBuilder.Tick();
 		}
 
+		/// <summary>
+		/// Implementation from IDisposable
+		/// </summary>
+		public void Dispose()
+		{
+			Dispose(true);
+		}
+
 		/// IDispose pattern lets us clean up our stuff!
 		protected override void Dispose( bool disposing )
 		{
@@ -302,6 +315,12 @@ namespace UnrealVS
 			BatchBuilder = null;
 			QuickBuilder = null;
 
+			if(CompileSingleFile != null)
+			{
+				CompileSingleFile.Dispose();
+				CompileSingleFile = null;
+			}
+			
 			// No longer want solution events
 			if( SolutionEventsHandle != 0 )
 			{
@@ -829,6 +848,9 @@ namespace UnrealVS
 
 		/// BuildStartupProject feature
 		private BuildStartupProject BuildStartupProject;
+
+		/// CompileSingleFile feature
+		private CompileSingleFile CompileSingleFile;
 
 		/// Project file generator button
 		private GenerateProjectFiles GenerateProjectFiles;

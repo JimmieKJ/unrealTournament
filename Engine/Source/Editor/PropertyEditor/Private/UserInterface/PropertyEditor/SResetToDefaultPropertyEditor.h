@@ -30,6 +30,8 @@ private:
 	FReply OnDefaultResetClicked();
 	FReply OnCustomResetClicked();
 
+	void UpdateDiffersFromDefaultState();
+	void OnPropertyValueChanged();
 private:
 	TOptional<FResetToDefaultOverride> OptionalCustomResetToDefault;
 

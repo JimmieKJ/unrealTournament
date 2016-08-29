@@ -133,6 +133,12 @@ void FVisualLogEntry::Reset()
 	DataBlocks.Reset();
 }
 
+void FVisualLogEntry::UpdateAllowedToLog()
+{
+	// object whitelist purpose is to create exceptions in class whitelist filter, expanding allowed set
+	bIsAllowedToLog = bIsClassWhitelisted || bIsObjectWhitelisted;
+}
+
 int32 FVisualLogEntry::AddEvent(const FVisualLogEventBase& Event)
 {
 	return Events.Add(Event);

@@ -201,6 +201,12 @@ namespace UnrealBuildTool
 					UEBuildConfiguration.bCompileSimplygon = bValue;
 				}
 
+                bValue = UEBuildConfiguration.bCompileSimplygonSSF;
+                if (Ini.GetBool("/Script/BuildSettings.BuildSettings", "bCompileSimplygonSSF", out bValue))
+                {
+                    UEBuildConfiguration.bCompileSimplygonSSF = bValue;
+                }
+
 				bValue = UEBuildConfiguration.bCompileLeanAndMeanUE;
 				if (Ini.GetBool("/Script/BuildSettings.BuildSettings", "bCompileLeanAndMeanUE", out bValue))
 				{
@@ -488,7 +494,6 @@ namespace UnrealBuildTool
 					return ":";
 				case UnrealTargetPlatform.Win32:
 				case UnrealTargetPlatform.Win64:
-				case UnrealTargetPlatform.UWP:
 					return ";";
 				default:
 					Log.TraceWarning("PATH var delimiter unknown for platform " + BuildHostPlatform.Current.Platform.ToString() + " using ';'");
@@ -781,7 +786,7 @@ namespace UnrealBuildTool
 		public virtual bool HasDefaultBuildConfig(UnrealTargetPlatform Platform, DirectoryReference ProjectDirectoryName)
 		{
 			string[] BoolKeys = new string[] {
-				"bCompileApex", "bCompileBox2D", "bCompileICU", "bCompileSimplygon", 
+				"bCompileApex", "bCompileBox2D", "bCompileICU", "bCompileSimplygon", "bCompileSimplygonSSF",
 				"bCompileLeanAndMeanUE", "bIncludeADO", "bCompileRecast", "bCompileSpeedTree", 
 				"bCompileWithPluginSupport", "bCompilePhysXVehicle", "bCompileFreeType", 
 				"bCompileForSize", "bCompileCEF3"
@@ -1003,7 +1008,11 @@ namespace UnrealBuildTool
 			{
 				String InstalledSDKVersionString = GetRequiredSDKString();
 				String PlatformSDKRoot = GetPathToPlatformAutoSDKs();
-				if (Directory.Exists(PlatformSDKRoot))
+                if (!Directory.Exists(PlatformSDKRoot))
+                {
+                    Directory.CreateDirectory(PlatformSDKRoot);
+                }
+
 				{
 					string VersionFilename = Path.Combine(PlatformSDKRoot, CurrentlyInstalledSDKStringManifest);
 					if (File.Exists(VersionFilename))
@@ -1204,10 +1213,18 @@ namespace UnrealBuildTool
 					}
 
 
-					// actually perform the PATH stripping / adding.
-					String OrigPathVar = Environment.GetEnvironmentVariable("PATH");
-					String PathDelimiter = UEBuildPlatform.GetPathVarDelimiter();
-					String[] PathVars = OrigPathVar.Split(PathDelimiter.ToCharArray());
+                    // actually perform the PATH stripping / adding.
+                    String OrigPathVar = Environment.GetEnvironmentVariable("PATH");
+                    String PathDelimiter = UEBuildPlatform.GetPathVarDelimiter();
+                    String[] PathVars = { };
+                    if (!String.IsNullOrEmpty(OrigPathVar))
+                    {
+                        PathVars = OrigPathVar.Split(PathDelimiter.ToCharArray());
+                    }
+                    else
+                    {
+                        LogAutoSDK("Path environment variable is null during AutoSDK");
+                    }
 
 					List<String> ModifiedPathVars = new List<string>();
 					ModifiedPathVars.AddRange(PathVars);
@@ -1225,7 +1242,7 @@ namespace UnrealBuildTool
 						}
 					}
 
-					// remove all the of ADDs so that if this function is executed multiple times, the paths will be guarateed to be in the same order after each run.
+					// remove all the of ADDs so that if this function is executed multiple times, the paths will be guaranteed to be in the same order after each run.
 					// If we did not do this, a 'remove' that matched some, but not all, of our 'adds' would cause the order to change.
 					foreach (String PathAdd in PathAdds)
 					{
@@ -1598,9 +1615,10 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// Attempt to register a build platform, checking whether it is a valid platform in installed builds
 		/// </summary>
-		public void TryRegisterBuildPlatforms()
+		public void TryRegisterBuildPlatforms(bool bValidatingPlatforms)
 		{
-			if (InstalledPlatformInfo.Current.IsValidPlatform(TargetPlatform))
+			// We need all platforms to be registered when we run -validateplatform command to check SDK status of each
+			if (bValidatingPlatforms || InstalledPlatformInfo.Current.IsValidPlatform(TargetPlatform))
 			{
 				RegisterBuildPlatforms();
 			}

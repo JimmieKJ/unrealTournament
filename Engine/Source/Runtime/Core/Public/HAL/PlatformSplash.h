@@ -15,8 +15,6 @@
 #include "IOS/IOSPlatformSplash.h"
 #elif PLATFORM_ANDROID
 #include "Android/AndroidSplash.h"
-#elif PLATFORM_WINRT
-#include "WinRT/WinRTSplash.h"
 #elif PLATFORM_HTML5
 #include "HTML5/HTML5PlatformSplash.h"
 #elif PLATFORM_LINUX

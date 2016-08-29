@@ -27,6 +27,16 @@ enum class AnimPhysLinearConstraintType : uint8
 	Limited,
 };
 
+UENUM(BlueprintType)
+enum class AnimPhysSimSpaceType : uint8
+{
+	Component UMETA(ToolTip = "Sim origin is the location/orientation of the skeletal mesh component."),
+	Actor UMETA(ToolTip = "Sim origin is the location/orientation of the actor containing the skeletal mesh component."),
+	World UMETA(ToolTip = "Sim origin is the world origin. Teleporting characters is not recommended in this mode."),
+	RootRelative UMETA(ToolTip = "Sim origin is the location/orientation of the root bone."),
+	BoneRelative UMETA(ToolTip = "Sim origin is the location/orientation of the bone specified in RelativeSpaceBone"),
+};
+
 /** Helper mapping a rigid body to a bone reference */
 struct FAnimPhysBoneRigidBody
 {
@@ -150,6 +160,42 @@ struct FAnimPhysPlanarLimit
 	FTransform PlaneTransform;
 };
 
+/** Whether spheres keep bodies inside, or outside of their shape */
+UENUM()
+enum class ESphericalLimitType : uint8
+{
+	Inner,
+	Outer
+};
+
+USTRUCT()
+struct FAnimPhysSphericalLimit
+{
+	GENERATED_BODY();
+
+	FAnimPhysSphericalLimit()
+		: SphereLocalOffset(FVector::ZeroVector)
+		, LimitRadius(0.0f)
+		, LimitType(ESphericalLimitType::Outer)
+	{}
+
+	/** Bone to attach the sphere to */
+	UPROPERTY(EditAnywhere, Category = SphericalLimit)
+	FBoneReference DrivingBone;
+
+	/** Local offset for the sphere, if no driving bone is set this is in node space, otherwise bone space */
+	UPROPERTY(EditAnywhere, Category = SphericalLimit)
+	FVector SphereLocalOffset;
+
+	/** Radius of the sphere */
+	UPROPERTY(EditAnywhere, Category = SphericalLimit)
+	float LimitRadius;
+
+	/** Whether to lock bodies inside or outside of the sphere */
+	UPROPERTY(EditAnywhere, Category = SphericalLimit)
+	ESphericalLimitType LimitType;
+};
+
 USTRUCT()
 struct ANIMGRAPHRUNTIME_API FAnimNode_AnimDynamics : public FAnimNode_SkeletalControlBase
 {
@@ -157,6 +203,14 @@ struct ANIMGRAPHRUNTIME_API FAnimNode_AnimDynamics : public FAnimNode_SkeletalCo
 
 	FAnimNode_AnimDynamics();
 	
+	/** The space used to run the simulation */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Setup, meta = (PinHiddenByDefault))
+	AnimPhysSimSpaceType SimulationSpace;
+
+	/** When in BoneRelative sim space, the simulation will use this bone as the origin */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Setup)
+	FBoneReference RelativeSpaceBone;
+
 	/** Set to true to use the solver to simulate a connected chain */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Setup)
 	bool bChain;
@@ -178,7 +232,7 @@ struct ANIMGRAPHRUNTIME_API FAnimNode_AnimDynamics : public FAnimNode_SkeletalCo
 	FVector LocalJointOffset;
 
 	/** Scale for gravity, higher values increase forces due to gravity */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Setup)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Setup, meta = (PinHiddenByDefault))
 	float GravityScale;
 
 	/** If true the body will attempt to spring back to its initial position */
@@ -190,11 +244,11 @@ struct ANIMGRAPHRUNTIME_API FAnimNode_AnimDynamics : public FAnimNode_SkeletalCo
 	bool bAngularSpring;
 
 	/** Spring constant to use when calculating linear springs, higher values mean a stronger spring.*/
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Setup)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Setup, meta = (PinHiddenByDefault))
 	float LinearSpringConstant;
 
 	/** Spring constant to use when calculating angular springs, higher values mean a stronger spring */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Setup)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Setup, meta = (PinHiddenByDefault))
 	float AngularSpringConstant;
 
 	/** Whether or not wind is enabled for the bodies in this simulation */
@@ -210,7 +264,7 @@ struct ANIMGRAPHRUNTIME_API FAnimNode_AnimDynamics : public FAnimNode_SkeletalCo
 	bool bOverrideLinearDamping;
 
 	/** Overridden linear damping value */
-	UPROPERTY(EditAnywhere, AdvancedDisplay, BlueprintReadWrite, Category = Setup)
+	UPROPERTY(EditAnywhere, AdvancedDisplay, BlueprintReadWrite, Category = Setup, meta = (PinHiddenByDefault))
 	float LinearDampingOverride;
 
 	/** If true, the override value will be used for angular damping */
@@ -218,8 +272,24 @@ struct ANIMGRAPHRUNTIME_API FAnimNode_AnimDynamics : public FAnimNode_SkeletalCo
 	bool bOverrideAngularDamping;
 
 	/** Overridden angular damping value */
-	UPROPERTY(EditAnywhere, AdvancedDisplay, BlueprintReadWrite, Category = Setup)
+	UPROPERTY(EditAnywhere, AdvancedDisplay, BlueprintReadWrite, Category = Setup, meta = (PinHiddenByDefault))
 	float AngularDampingOverride;
+
+	/** If true, the override value will be used for the angular bias for bodies in this node. 
+	 *  Angular bias is essentially a twist reduction for chain forces and defaults to a value to keep chains stability
+	 *  in check. When using single-body systems sometimes angular forces will look like they are "catching-up" with
+	 *  the mesh, if that's the case override this and push it towards 1.0f until it settles correctly
+	 */
+	UPROPERTY(EditAnywhere, AdvancedDisplay, BlueprintReadWrite, Category = Setup)
+	bool bOverrideAngularBias;
+
+	/** Overridden angular bias value
+	 *  Angular bias is essentially a twist reduction for chain forces and defaults to a value to keep chains stability
+	 *  in check. When using single-body systems sometimes angular forces will look like they are "catching-up" with
+	 *  the mesh, if that's the case override this and push it towards 1.0f until it settles correctly
+	 */
+	UPROPERTY(EditAnywhere, AdvancedDisplay, BlueprintReadWrite, Category = Setup, meta = (PinHiddenByDefault))
+	float AngularBiasOverride;
 
 	/** If true we will perform physics update, otherwise skip - allows visualisation of the initial state of the bodies */
 	UPROPERTY(EditAnywhere, AdvancedDisplay, BlueprintReadWrite, Category = Setup)
@@ -241,19 +311,33 @@ struct ANIMGRAPHRUNTIME_API FAnimNode_AnimDynamics : public FAnimNode_SkeletalCo
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Constraint)
 	FAnimPhysConstraintSetup ConstraintSetup;
 
+	/** Whether to evaluate planar limits */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=PlanarLimit)
 	bool bUsePlanarLimit;
 
+	/** List of available planar limits for this node */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=PlanarLimit)
 	TArray<FAnimPhysPlanarLimit> PlanarLimits;
 
+	/** Whether to evaluate spherical limits */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = SphericalLimit)
+	bool bUseSphericalLimits;
+
+	/** List of available spherical limits for this node */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = SphericalLimit)
+	TArray<FAnimPhysSphericalLimit> SphericalLimits;
+
 	/** Resolution method for planar limits */
-	UPROPERTY(EditAnywhere, Category = PlanarLimit)
+	UPROPERTY(EditAnywhere, Category = Collision)
 	AnimPhysCollisionType CollisionType;
 
 	/** Radius to use if CollisionType is set to CustomSphere */
-	UPROPERTY(EditAnywhere, Category = PlanarLimit, meta = (UIMin = "1", ClampMin = "1"))
+	UPROPERTY(EditAnywhere, Category = Collision, meta = (UIMin = "1", ClampMin = "1"))
 	float SphereCollisionRadius;
+
+	/** An external force to apply to all bodies in the simulation when ticked, specified in world space */
+	UPROPERTY(EditAnywhere, Category = Forces, meta = (PinShownByDefault))
+	FVector ExternalForce;
 
 	// FAnimNode_SkeletalControlBase interface
 	virtual void Initialize(const FAnimationInitializeContext& Context) override;
@@ -262,6 +346,8 @@ struct ANIMGRAPHRUNTIME_API FAnimNode_AnimDynamics : public FAnimNode_SkeletalCo
 	virtual void GatherDebugData(FNodeDebugData& DebugData) override;
 	virtual bool HasPreUpdate() const override { return true; }
 	virtual void PreUpdate(const UAnimInstance* InAnimInstance) override;
+	virtual bool NeedsDynamicReset() const { return true; }
+	virtual void ResetDynamics() { RequestInitialise(); }
 	// End of FAnimNode_SkeletalControlBase interface
 
 	void RequestInitialise() { bRequiresInit = true; }
@@ -293,6 +379,19 @@ protected:
 
 private:
 
+	// Given a bone index, get it's transform in the currently selected simulation space
+	FTransform GetBoneTransformInSimSpace(USkeletalMeshComponent* SkelComp, FCSPose<FCompactPose>& MeshBases, const FCompactPoseBoneIndex& BoneIndex);
+
+	// Given a transform in simulation space, convert it back to component space
+	FTransform GetComponentSpaceTransformFromSimSpace(AnimPhysSimSpaceType SimSpace, USkeletalMeshComponent* SkelComp, FCSPose<FCompactPose>& MeshBases, const FTransform& InSimTransform);
+	// Given a transform in component space, convert it to the current sim space
+	FTransform GetSimSpaceTransformFromComponentSpace(AnimPhysSimSpaceType SimSpace, USkeletalMeshComponent* SkelComp, FCSPose<FCompactPose>& MeshBases, const FTransform& InComponentTransform);
+
+	// Given a world-space vector, convert it into the current simulation space
+	FVector TransformWorldVectorToSimSpace(USkeletalMeshComponent* SkelComp, FCSPose<FCompactPose>& MeshBases, const FVector& InVec);
+
+	void ConvertSimulationSpace(USkeletalMeshComponent* SkelComp, FCSPose<FCompactPose>& MeshBases, AnimPhysSimSpaceType From, AnimPhysSimSpaceType To);
+
 	// We can't get clean bone positions unless we are in the evaluate step.
 	// Requesting an init or reinit sets this flag for us to pick up during evaluate
 	bool bRequiresInit;
@@ -315,8 +414,15 @@ private:
 	int32 MaxSubsteps;
 	//////////////////////////////////////////////////////////////////////////
 
+	// Cached sim space that we last used
+	AnimPhysSimSpaceType LastSimSpace;
+
 	// Active body list
 	TArray<FAnimPhysLinkedBody> Bodies;
+
+	// Pointers to bodies that need to be reset to their bound bone.
+	// This happens on LOD change so we don't make the simulation unstable
+	TArray<FAnimPhysLinkedBody*> BodiesToReset;
 
 	// Pointers back to the base bodies to pass to the simulation
 	TArray<FAnimPhysRigidBody*> BaseBodyPtrs;
@@ -335,4 +441,11 @@ private:
 
 	// List of bone references for all bodies in this node
 	TArray<FBoneReference> BoundBoneReferences;
+
+	// Depending on the LOD we might not be runnning all of the bound bodies (for chains)
+	// this tracks the active bodies.
+	TArray<int32> ActiveBoneIndices;
+
+	// Gravity direction in sim space
+	FVector SimSpaceGravityDirection;
 };

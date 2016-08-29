@@ -4,8 +4,7 @@
 	CaptureSource.h: CaptureSource definition
 =============================================================================*/
 
-#ifndef _CAPTURESOURCE_HEADER_
-#define _CAPTURESOURCE_HEADER_
+#pragma once
 
 #if PLATFORM_WINDOWS && !UE_BUILD_MINIMAL
 #pragma warning(push)
@@ -39,4 +38,3 @@ private:
 };
 #endif //#if PLATFORM_WINDOWS
 
-#endif	//#ifndef _CAPTURESOURCE_HEADER_

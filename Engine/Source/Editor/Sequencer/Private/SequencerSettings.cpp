@@ -10,6 +10,7 @@ USequencerSettings::USequencerSettings( const FObjectInitializer& ObjectInitiali
 	bKeyInterpPropertiesOnly = false;
 	KeyInterpolation = EMovieSceneKeyInterpolation::Auto;
 	SpawnPosition = SSP_Origin;
+	bCreateSpawnableCameras = true;
 	bShowFrameNumbers = true;
 	bShowRangeSlider = false;
 	bIsSnapEnabled = true;
@@ -21,13 +22,12 @@ USequencerSettings::USequencerSettings( const FObjectInitializer& ObjectInitiali
 	bSnapPlayTimeToKeys = false;
 	bSnapPlayTimeToInterval = true;
 	bSnapPlayTimeToDraggedKey = false;
-	bFixedTimeStepPlayback = true;
 	CurveValueSnapInterval = 10.0f;
 	bSnapCurveValueToInterval = true;
-	bDetailsViewVisible = false;
 	bLabelBrowserVisible = false;
+	bRewindOnRecord = true;
+	ZoomPosition = ESequencerZoomPosition::SZP_CurrentTime;
 	bAutoScrollEnabled = false;
-	bShowCurveEditor = false;
 	bShowCurveEditorCurveToolTips = true;
 	bLinkCurveEditorTimeRange = false;
 	bLooping = false;
@@ -38,6 +38,7 @@ USequencerSettings::USequencerSettings( const FObjectInitializer& ObjectInitiali
 	bInfiniteKeyAreas = false;
 	bShowChannelColors = false;
 	bShowViewportTransportControls = true;
+	bAllowPossessionOfPIEViewports = false;
 }
 
 EAutoKeyMode USequencerSettings::GetAutoKeyMode() const
@@ -110,6 +111,20 @@ void USequencerSettings::SetSpawnPosition(ESequencerSpawnPosition InSpawnPositio
 	}
 }
 
+bool USequencerSettings::GetCreateSpawnableCameras() const
+{
+	return bCreateSpawnableCameras;
+}
+
+void USequencerSettings::SetCreateSpawnableCameras(bool bInCreateSpawnableCameras)
+{
+	if ( bCreateSpawnableCameras != bInCreateSpawnableCameras)
+	{
+		bCreateSpawnableCameras = bInCreateSpawnableCameras;
+		SaveConfig();
+	}
+}
+
 bool USequencerSettings::GetShowFrameNumbers() const
 {
 	return bShowFrameNumbers;
@@ -162,6 +177,7 @@ void USequencerSettings::SetTimeSnapInterval(float InTimeSnapInterval)
 	if ( TimeSnapInterval != InTimeSnapInterval )
 	{
 		TimeSnapInterval = InTimeSnapInterval;
+		OnTimeSnapIntervalChanged.Broadcast();
 		SaveConfig();
 	}
 }
@@ -264,20 +280,6 @@ void USequencerSettings::SetSnapPlayTimeToDraggedKey(bool InbSnapPlayTimeToDragg
 	}
 }
 
-bool USequencerSettings::GetFixedTimeStepPlayback() const
-{
-	return bFixedTimeStepPlayback;
-}
-
-void USequencerSettings::SetFixedTimeStepPlayback(bool InbFixedTimeStepPlayback)
-{
-	if ( bFixedTimeStepPlayback != InbFixedTimeStepPlayback )
-	{
-		bFixedTimeStepPlayback = InbFixedTimeStepPlayback;
-		SaveConfig();
-	}
-}
-
 float USequencerSettings::GetCurveValueSnapInterval() const
 {
 	return CurveValueSnapInterval;
@@ -306,20 +308,6 @@ void USequencerSettings::SetSnapCurveValueToInterval( bool InbSnapCurveValueToIn
 	}
 }
 
-bool USequencerSettings::GetDetailsViewVisible() const
-{
-	return bDetailsViewVisible;
-}
-
-void USequencerSettings::SetDetailsViewVisible(bool Visible)
-{
-	if (bDetailsViewVisible != Visible)
-	{
-		bDetailsViewVisible = Visible;
-		SaveConfig();
-	}
-}
-
 bool USequencerSettings::GetLabelBrowserVisible() const
 {
 	return bLabelBrowserVisible;
@@ -334,6 +322,34 @@ void USequencerSettings::SetLabelBrowserVisible(bool Visible)
 	}
 }
 
+bool USequencerSettings::ShouldRewindOnRecord() const
+{
+	return bRewindOnRecord;
+}
+
+void USequencerSettings::SetRewindOnRecord(bool bInRewindOnRecord)
+{
+	if (bInRewindOnRecord != bRewindOnRecord)
+	{
+		bRewindOnRecord = bInRewindOnRecord;
+		SaveConfig();
+	}
+}
+
+ESequencerZoomPosition USequencerSettings::GetZoomPosition() const
+{
+	return ZoomPosition;
+}
+
+void USequencerSettings::SetZoomPosition(ESequencerZoomPosition InZoomPosition)
+{
+	if ( ZoomPosition != InZoomPosition)
+	{
+		ZoomPosition = InZoomPosition;
+		SaveConfig();
+	}
+}
+
 bool USequencerSettings::GetAutoScrollEnabled() const
 {
 	return bAutoScrollEnabled;
@@ -344,22 +360,6 @@ void USequencerSettings::SetAutoScrollEnabled(bool bInAutoScrollEnabled)
 	if (bAutoScrollEnabled != bInAutoScrollEnabled)
 	{
 		bAutoScrollEnabled = bInAutoScrollEnabled;
-		SaveConfig();
-	}
-}
-
-
-bool USequencerSettings::GetShowCurveEditor() const
-{
-	return bShowCurveEditor;
-}
-
-void USequencerSettings::SetShowCurveEditor(bool InbShowCurveEditor)
-{
-	if (bShowCurveEditor != InbShowCurveEditor)
-	{
-		bShowCurveEditor = InbShowCurveEditor;
-		OnShowCurveEditorChanged.Broadcast();
 		SaveConfig();
 	}
 }
@@ -515,7 +515,21 @@ float USequencerSettings::SnapTimeToInterval( float InTimeValue ) const
 		: InTimeValue;
 }
 
-USequencerSettings::FOnShowCurveEditorChanged& USequencerSettings::GetOnShowCurveEditorChanged()
+bool USequencerSettings::ShouldAllowPossessionOfPIEViewports() const
 {
-	return OnShowCurveEditorChanged;
+	return bAllowPossessionOfPIEViewports;
+}
+
+void USequencerSettings::SetAllowPossessionOfPIEViewports(bool bInAllowPossessionOfPIEViewports)
+{
+	if (bInAllowPossessionOfPIEViewports != bAllowPossessionOfPIEViewports)
+	{
+		bAllowPossessionOfPIEViewports = bInAllowPossessionOfPIEViewports;
+		SaveConfig();
+	}
+}
+
+USequencerSettings::FOnTimeSnapIntervalChanged& USequencerSettings::GetOnTimeSnapIntervalChanged()
+{
+	return OnTimeSnapIntervalChanged;
 }

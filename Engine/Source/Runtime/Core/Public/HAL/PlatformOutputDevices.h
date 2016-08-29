@@ -15,8 +15,6 @@
 #include "IOS/IOSPlatformOutputDevices.h"
 #elif PLATFORM_ANDROID
 #include "Android/AndroidOutputDevices.h"
-#elif PLATFORM_WINRT
-#include "WinRT/WinRTOutputDevices.h"
 #elif PLATFORM_HTML5
 #include "HTML5/HTML5PlatformOutputDevices.h"
 #elif PLATFORM_LINUX

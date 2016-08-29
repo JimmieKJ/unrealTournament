@@ -84,19 +84,19 @@ EVisibility SPropertyEditorColor::GetVisibilityForOpaqueDisplay() const
 	// the color even if it's mostly/entirely transparent.  But if the color is rendered as completely opaque,
 	// we might as well collapse the extra opaque display rather than drawing two separate boxes.
 
-	EVisibility Visibility = EVisibility::Collapsed;
+	EVisibility OpaqueDisplayVisibility = EVisibility::Collapsed;
 	if( !bIgnoreAlpha )
 	{
 		const bool bColorIsAlreadyOpaque = (OnGetColor().A == 1.0);
 		if (bColorIsAlreadyOpaque)
 		{
-			Visibility = EVisibility::Collapsed;
+			OpaqueDisplayVisibility = EVisibility::Collapsed;
 		}
 
-		Visibility = EVisibility::Visible;
+		OpaqueDisplayVisibility = EVisibility::Visible;
 	}
 
-	return Visibility;
+	return OpaqueDisplayVisibility;
 }
 
 FReply SPropertyEditorColor::ColorBlock_OnMouseButtonDown(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent)

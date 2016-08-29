@@ -65,19 +65,34 @@ $::gDontCheck .= ",javacNote";
 # NOTE: also be aware that the look ahead lines are considered processed
 
 unshift @::gMatchers, (
+	{
+		id => "UATErrStack",
+		pattern => q{begin: stack for UAT},
+		action => q{incValue("errors"); my $line_count = forwardTo(q{end: stack for UAT}); my $last_line = $::gCurrentLine + $line_count; diagnostic("AutomationTool", "error", 1, $line_count - 1); $::gCurrentLine = $last_line; }
+	},
     {
         id =>               "clErrorMultiline",
         pattern =>          q{([^(]+)(\([\d,]+\))? ?: (fatal )?error [a-zA-Z]+[\d]+},
-        action =>           q{incValue("errors"); my ($file_only) = ($1 =~ /([^\\\\]+)$/); diagnostic($file_only || $1, "error", 0, forwardWhile("^    "))},
+        action =>           q{incValue("errors"); my ($file_only) = ($1 =~ /([^\\\\]+)$/); diagnostic($file_only || $1, "error", 0, forwardWhile("^(    |^([^(]+)\\\\([\\\\d,]+\\\\) ?: note)"))},
     },
     {
         id =>               "clWarningMultiline",
         pattern =>          q{([^(]+)\([\d,]+\) ?: warning },
-        action =>           q{incValue("warnings"); my ($file_only) = ($1 =~ /([^\\\\]+)$/); diagnostic($file_only || $1, "warning", 0, forwardWhile("^    "))},
+        action =>           q{incValue("warnings"); my ($file_only) = ($1 =~ /([^\\\\]+)$/); diagnostic($file_only || $1, "warning", 0, forwardWhile("^(    |^([^(]+)\\\\([\\\\d,]+\\\\) ?: note)")) },
+    },
+    {
+        id =>               "clangError",
+        pattern =>          q{([^:]+):[\d:]+ error:},
+        action =>           q{incValue("errors"); diagnostic($1, "error", backWhile(": In (member )?function|In file included from"), forwardWhile("^   ")) },
+    },
+    {
+        id =>               "clangWarning",
+        pattern =>          q{([^:]+):[\d:]+ warning:},
+        action =>           q{incValue("warnings"); diagnostic($1, "warning", backWhile(": In function"), 0)},
     },
     {
         id =>               "ubtFailedToProduceItem",
-        pattern =>          q{ERROR: UBT ERROR: Failed to produce item: },
+        pattern =>          q{(ERROR: )?UBT ERROR: Failed to produce item: },
 		action =>           q{incValue("errors"); diagnostic("UnrealBuildTool", "error")}
     },
     {
@@ -119,7 +134,17 @@ unshift @::gMatchers, (
 		id =>				"ubtWarning",
 		pattern =>			q{^WARNING:},
 		action =>			q{incValue("warnings"); diagnostic("AutomationTool", "warning")}
-	}
+	},
+    {
+        id =>               "genericError",
+        pattern =>          q{^(.* )?(ERROR|[Ee]rror)}.q{( (\([^)]+\)|\[[^\]]+\]))?: },
+        action =>           q{incValue("errors"); diagnostic("", "error", 0, forwardWhile("^   "))}
+    },
+    {
+        id =>               "genericWarning",
+        pattern =>          q{WARNING:|[Ww]arning:},
+        action =>           q{incValue("warnings"); diagnostic("", "warning", 0)},
+    },
 );
 
 push @::gMatchers, (
@@ -187,11 +212,6 @@ push @::gMatchers, (
 		id => "UATErrStack",
 		pattern => q{AutomationTool: Stack:},
 		action => q{incValue("errors"); diagnostic("AutomationTool", "error", 0, forwardTo(q{AutomationTool: \n}));}
-	},
-	{
-		id => "UATErrStack",
-		pattern => q{begin: stack for UAT},
-		action => q{incValue("errors"); diagnostic("AutomationTool", "error", 0, forwardTo(q{end: stack for UAT}));}
 	},
 	{
 		id => "BuildFailed",

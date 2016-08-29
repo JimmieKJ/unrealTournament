@@ -6,9 +6,10 @@
 #include "BigInt.h"
 #include "SignedArchiveWriter.h"
 
-FSignedArchiveWriter::FSignedArchiveWriter(FArchive& Pak, const FEncryptionKey& InPublicKey, const FEncryptionKey& InPrivateKey)
-	: BufferArchive(Buffer)
-	, PakWriter(Pak)
+FSignedArchiveWriter::FSignedArchiveWriter(FArchive& InPak, const FString& InPakFilename, const FEncryptionKey& InPublicKey, const FEncryptionKey& InPrivateKey)
+: BufferArchive(Buffer)
+	, PakWriter(InPak)
+	, PakSignaturesFilename(FPaths::ChangeExtension(InPakFilename, TEXT("sig")))
 	, SizeOnDisk(0)
 	, PakSize(0)
 	, PublicKey(InPublicKey)
@@ -26,25 +27,17 @@ FSignedArchiveWriter::~FSignedArchiveWriter()
 	delete &PakWriter;
 }
 
-void FSignedArchiveWriter::Encrypt(int256* EncryptedData, const uint8* Data, const int64 DataLength, const FEncryptionKey EncryptionKey)
-{
-	for (int Index = 0; Index < DataLength; ++Index)
-	{
-		EncryptedData[Index] = FEncryption::ModularPow(int256(Data[Index]), EncryptionKey.Exponent, EncryptionKey.Modulus);
-	}
-}
-
 void FSignedArchiveWriter::SerializeBufferAndSign()
 {
 	// Hash the buffer
-	uint8 Hash[GPakFileChunkHashSize];
+	FDecryptedSignature SourceSignature;
 	
 	// Compute a hash for this buffer data
-	ComputePakChunkHash(&Buffer[0], Buffer.Num(), Hash);
+	SourceSignature.Data = FCrc::MemCrc32(&Buffer[0], Buffer.Num());
 
 	// Encrypt the signature
-	FEncryptedSignature<GPakFileChunkHashSize> Signature;
-	Encrypt(Signature.Data, Hash, sizeof(Hash), PrivateKey);
+	FEncryptedSignature EncryptedSignature;
+	FEncryption::EncryptSignature(SourceSignature, EncryptedSignature, PrivateKey);
 
 	// Flush the buffer
 	PakWriter.Serialize(&Buffer[0], Buffer.Num());
@@ -52,7 +45,13 @@ void FSignedArchiveWriter::SerializeBufferAndSign()
 	Buffer.Empty(FPakInfo::MaxChunkDataSize);
 
 	// Collect the signature so we can write it out at the end
-	ChunkSignatures.Add(Signature);
+	ChunkSignatures.Add(EncryptedSignature);
+
+#if 0
+	FDecryptedSignature<GPakFileChunkHashSize> TestSignature;
+	FEncryption::DecryptBytes(TestSignature.Data, Signature.Data, GPakFileChunkHashSize, PublicKey);
+	check(FMemory::Memcmp(TestSignature.Data, Hash, sizeof(Hash)) == 0);
+#endif
 }
 
 bool FSignedArchiveWriter::Close()
@@ -62,14 +61,9 @@ bool FSignedArchiveWriter::Close()
 		SerializeBufferAndSign();
 	}
 
-	// Write out all the chunk signatures
-	for (FEncryptedSignature<GPakFileChunkHashSize>& Signature : ChunkSignatures)
-	{
-		Signature.Serialize(PakWriter);
-	}
-
-	int64 NumSignatures = ChunkSignatures.Num();
-	PakWriter << NumSignatures;
+	FArchive* SignatureWriter = IFileManager::Get().CreateFileWriter(*PakSignaturesFilename);
+	*SignatureWriter << ChunkSignatures;
+	delete SignatureWriter;
 
 	return FArchive::Close();
 }
@@ -119,41 +113,14 @@ void FSignedArchiveWriter::Seek(int64 InPos)
 }
 
 /**
-	* Encrypt a buffer
-	*/
-static int256* Encrypt(const uint8* Data, const int64 DataLength, const FEncryptionKey EncryptionKey)
-{
-	int256* EncryptedData = (int256*)FMemory::Malloc(DataLength * sizeof(uint64));
-	for (int Index = 0; Index < DataLength; ++Index)
-	{
-		EncryptedData[Index] = FEncryption::ModularPow(int256(Data[Index]), EncryptionKey.Exponent, EncryptionKey.Modulus);
-	}
-	return EncryptedData;
-}
-
-/**
-	* Decrypt a buffer
-	*/
-static uint8* Decrypt(const int256* Data, const int64 DataLength, const FEncryptionKey& DecryptionKey)
-{
-	uint8* DecryptedData = (uint8*)FMemory::Malloc(DataLength);
-	for (int64 Index = 0; Index < DataLength; ++Index)
-	{
-		int256 DecryptedByte = FEncryption::ModularPow(Data[Index], DecryptionKey.Exponent, DecryptionKey.Modulus);
-		DecryptedData[Index] = (uint8)DecryptedByte.ToInt();
-	}
-	return DecryptedData;
-}
-
-/**
  * Useful code for testing the encryption methods
  */
 void TestEncryption()
 {
 	FEncryptionKey PublicKey;
 	FEncryptionKey PrivateKey;
-	int256 P = 61;
-	int256 Q = 53;
+	TEncryptionInt P(TEXT("0x21443BD2DD63E995403"));
+	TEncryptionInt Q(TEXT("0x28CBB6E5749AC65749"));
 	FEncryption::GenerateKeyPair(P, Q, PublicKey, PrivateKey);
 
 	// Generate random data
@@ -165,16 +132,17 @@ void TestEncryption()
 	}
 
 	// Generate signature
-	uint8 Signature[20];
-	FSHA1::HashBuffer(Data, DataSize, Signature);
+	FDecryptedSignature OriginalSignature;
+	FEncryptedSignature EncryptedSignature;
+	FDecryptedSignature DecryptedSignature;
+	OriginalSignature.Data = FCrc::MemCrc32(Data, DataSize);
 
 	// Encrypt signature with the private key
-	int256* EncryptedSignature = Encrypt(Signature, sizeof(Signature), PrivateKey);
-	uint8* DecryptedSignature = Decrypt(EncryptedSignature, sizeof(Signature), PublicKey);
+	FEncryption::EncryptSignature(OriginalSignature, EncryptedSignature, PrivateKey);
+	FEncryption::DecryptSignature(EncryptedSignature, DecryptedSignature, PublicKey);
 
 	// Check
-	bool Identical = FMemory::Memcmp(DecryptedSignature, Signature, sizeof(Signature)) == 0;
-	if (Identical)
+	if (OriginalSignature == DecryptedSignature)
 	{
 		UE_LOG(LogPakFile, Display, TEXT("Keys match"));
 	}
@@ -183,7 +151,23 @@ void TestEncryption()
 		UE_LOG(LogPakFile, Fatal, TEXT("Keys mismatched!"));
 	}
 
+	double OverallTime = 0.0;
+	double OverallNumTests = 0.0;
+	for (int32 TestIndex = 0; TestIndex < 10; ++TestIndex)
+	{
+		static const int64 NumTests = 500;
+		double Timer = FPlatformTime::Seconds();
+		{
+			for (int64 i = 0; i < NumTests; ++i)
+			{
+				FEncryption::DecryptSignature(EncryptedSignature, DecryptedSignature, PublicKey);
+			}
+		}
+		Timer = FPlatformTime::Seconds() - Timer;
+		OverallTime += Timer;
+		OverallNumTests += (double)NumTests;
+		UE_LOG(LogPakFile, Display, TEXT("%i signatures decrypted in %.4fs, Avg = %.4fs, OverallAvg = %.4fs"), NumTests, Timer, Timer / (double)NumTests, OverallTime / OverallNumTests);
+	}
+	
 	FMemory::Free(Data);
-	FMemory::Free(EncryptedSignature);
-	FMemory::Free(DecryptedSignature);
 }

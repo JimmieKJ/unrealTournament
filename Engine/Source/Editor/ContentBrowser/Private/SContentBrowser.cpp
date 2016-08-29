@@ -43,7 +43,7 @@ SContentBrowser::~SContentBrowser()
 }
 
 BEGIN_SLATE_FUNCTION_BUILD_OPTIMIZATION
-void SContentBrowser::Construct( const FArguments& InArgs, const FName& InInstanceName )
+void SContentBrowser::Construct( const FArguments& InArgs, const FName& InInstanceName, const FContentBrowserConfig* Config )
 {
 	if ( InArgs._ContainingTab.IsValid() )
 	{
@@ -55,6 +55,7 @@ void SContentBrowser::Construct( const FArguments& InArgs, const FName& InInstan
 	}
 	
 	bIsLocked = InArgs._InitiallyLocked;
+	bAlwaysShowCollections = Config != nullptr ? Config->bAlwaysShowCollections : false;
 
 	HistoryManager.SetOnApplyHistoryData(FOnApplyHistoryData::CreateSP(this, &SContentBrowser::OnApplyHistoryData));
 	HistoryManager.SetOnUpdateHistoryData(FOnUpdateHistoryData::CreateSP(this, &SContentBrowser::OnUpdateHistoryData));
@@ -320,6 +321,7 @@ void SContentBrowser::Construct( const FArguments& InArgs, const FName& InInstan
 					.VAlign( VAlign_Fill )
 					[
 						SAssignNew( PathPickerButton, SComboButton )
+						.Visibility( ( Config != nullptr ? Config->bUsePathPicker : true ) ? EVisibility::Visible : EVisibility::Collapsed )
 						.ButtonStyle(FEditorStyle::Get(), "FlatButton")
 						.ForegroundColor(FLinearColor::White)
 						.ToolTipText( LOCTEXT( "PathPickerTooltip", "Choose a path" ) )
@@ -361,6 +363,7 @@ void SContentBrowser::Construct( const FArguments& InArgs, const FName& InInstan
 					.VAlign(VAlign_Center)
 					[
 						SNew(SVerticalBox)
+						.Visibility( ( Config != nullptr ? Config->bCanShowLockButton : true ) ? EVisibility::SelfHitTestInvisible : EVisibility::Collapsed )
 
 						+ SVerticalBox::Slot()
 						.FillHeight(1.0f)
@@ -391,7 +394,7 @@ void SContentBrowser::Construct( const FArguments& InArgs, const FName& InInstan
 
 			// Sources View
 			+ SSplitter::Slot()
-			.Value(0.15f)
+			.Value(0.25f)
 			[
 				SNew(SVerticalBox)
 				.Visibility( this, &SContentBrowser::GetSourcesViewVisibility )
@@ -408,6 +411,7 @@ void SContentBrowser::Construct( const FArguments& InArgs, const FName& InInstan
 					.Value(0.9f)
 					[
 						SNew(SBorder)
+						.Visibility( ( Config != nullptr ? Config->bShowAssetPathTree : true ) ? EVisibility::Visible : EVisibility::Collapsed )
 						.Padding(FMargin(3))
 						.BorderImage( FEditorStyle::GetBrush("ToolPanel.GroupBorder") )
 						[
@@ -465,7 +469,7 @@ void SContentBrowser::Construct( const FArguments& InArgs, const FName& InInstan
 
 			// Asset View
 			+ SSplitter::Slot()
-			.Value(0.7f)
+			.Value(0.75f)
 			[
 				SNew(SBorder)
 				.Padding(FMargin(3))
@@ -485,6 +489,7 @@ void SContentBrowser::Construct( const FArguments& InArgs, const FName& InInstan
 						.Padding( 0, 0, 4, 0 )
 						[
 							SNew( SVerticalBox )
+							.Visibility(( Config != nullptr ? Config->bUseSourcesView : true ) ? EVisibility::SelfHitTestInvisible : EVisibility::Collapsed)
 							.AddMetaData<FTagMetaData>(FTagMetaData(TEXT("ContentBrowserSourcesToggle2")))
 							+ SVerticalBox::Slot()
 							.FillHeight( 1.0f )
@@ -517,6 +522,7 @@ void SContentBrowser::Construct( const FArguments& InArgs, const FName& InInstan
 							.HasDownArrow( true )
 							.ContentPadding( FMargin( 1, 0 ) )
 							.AddMetaData<FTagMetaData>(FTagMetaData(TEXT("ContentBrowserFiltersCombo")))
+							.Visibility( ( Config != nullptr ? Config->bCanShowFilters : true ) ? EVisibility::Visible : EVisibility::Collapsed )
 							.ButtonContent()
 							[
 								SNew(SHorizontalBox)
@@ -552,6 +558,7 @@ void SContentBrowser::Construct( const FArguments& InArgs, const FName& InInstan
 							.OnTextCommitted( this, &SContentBrowser::OnSearchBoxCommitted )
 							.PossibleSuggestions( this, &SContentBrowser::GetAssetSearchSuggestions )
 							.DelayChangeNotificationsWhileTyping( true )
+							.Visibility( ( Config != nullptr ? Config->bCanShowAssetSearch : true ) ? EVisibility::Visible : EVisibility::Collapsed )
 							.AddMetaData<FTagMetaData>(FTagMetaData(TEXT("ContentBrowserSearchAssets")))
 						]
 
@@ -567,6 +574,7 @@ void SContentBrowser::Construct( const FArguments& InArgs, const FName& InInstan
 							.IsEnabled(this, &SContentBrowser::IsSaveSearchButtonEnabled)
 							.OnClicked(this, &SContentBrowser::OnSaveSearchButtonClicked)
 							.ContentPadding( FMargin(1, 1) )
+							.Visibility( ( Config != nullptr ? Config->bCanShowAssetSearch : true ) ? EVisibility::Visible : EVisibility::Collapsed )
 							[
 								SNew(STextBlock)
 								.TextStyle(FEditorStyle::Get(), "ContentBrowser.Filters.Text")
@@ -583,6 +591,7 @@ void SContentBrowser::Construct( const FArguments& InArgs, const FName& InInstan
 						SAssignNew(FilterListPtr, SFilterList)
 						.OnFilterChanged(this, &SContentBrowser::OnFilterChanged)
 						.OnGetContextMenu(this, &SContentBrowser::GetFilterContextMenu)
+						.Visibility( ( Config != nullptr ? Config->bCanShowFilters : true ) ? EVisibility::Visible : EVisibility::Collapsed )
 						.FrontendFilters(FrontendFilters)
 						.AddMetaData<FTagMetaData>(FTagMetaData(TEXT("ContentBrowserFilters")))
 					]
@@ -593,7 +602,10 @@ void SContentBrowser::Construct( const FArguments& InArgs, const FName& InInstan
 					.Padding( 0 )
 					[
 						SAssignNew(AssetViewPtr, SAssetView)
-						.ThumbnailScale( 0.18 )
+						.ThumbnailLabel( Config != nullptr ? Config->ThumbnailLabel : EThumbnailLabel::ClassName )
+						.ThumbnailScale( Config != nullptr ? Config->ThumbnailScale : 0.18f )
+						.InitialViewType( Config != nullptr ? Config->InitialAssetViewType : EAssetViewType::Tile )
+						.ShowBottomToolbar( Config != nullptr ? Config->bShowBottomToolbar : true )
 						.OnPathSelected(this, &SContentBrowser::FolderEntered)
 						.OnAssetSelected(this, &SContentBrowser::OnAssetSelectionChanged)
 						.OnAssetsActivated(this, &SContentBrowser::OnAssetsActivated)
@@ -607,9 +619,10 @@ void SContentBrowser::Construct( const FArguments& InArgs, const FName& InInstan
 						.HighlightedText(this, &SContentBrowser::GetHighlightedText)
 						.AllowThumbnailEditMode(true)
 						.AllowThumbnailHintLabel(false)
-						.CanShowFolders(true)
-						.CanShowRealTimeThumbnails(true)
-						.CanShowDevelopersFolder(true)
+						.CanShowFolders(Config != nullptr ? Config->bCanShowFolders : true)
+						.CanShowClasses(Config != nullptr ? Config->bCanShowClasses : true)
+						.CanShowRealTimeThumbnails( Config != nullptr ? Config->bCanShowRealTimeThumbnails : true)
+						.CanShowDevelopersFolder( Config != nullptr ? Config->bCanShowDevelopersFolder : true)
 						.CanShowCollections(true)
 						.AddMetaData<FTagMetaData>(FTagMetaData(TEXT("ContentBrowserAssets")))
 					]
@@ -627,12 +640,22 @@ void SContentBrowser::Construct( const FArguments& InArgs, const FName& InInstan
 	AssetContextMenu->SetOnAssetViewRefreshRequested( FAssetContextMenu::FOnAssetViewRefreshRequested::CreateSP( this, &SContentBrowser::OnAssetViewRefreshRequested) );
 
 
-	// Select /Game by default
-	FSourcesData DefaultSourcesData(FName("/Game"));
-	TArray<FString> SelectedPaths;
-	SelectedPaths.Add(TEXT("/Game"));
-	PathViewPtr->SetSelectedPaths(SelectedPaths);
-	AssetViewPtr->SetSourcesData(DefaultSourcesData);
+	if( Config != nullptr && Config->SelectedCollectionName.Name != NAME_None )
+	{
+		// Select the specified collection by default
+		FSourcesData DefaultSourcesData( Config->SelectedCollectionName );
+		TArray<FString> SelectedPaths;
+		AssetViewPtr->SetSourcesData( DefaultSourcesData );
+	}
+	else
+	{
+		// Select /Game by default
+		FSourcesData DefaultSourcesData(FName("/Game"));
+		TArray<FString> SelectedPaths;
+		SelectedPaths.Add(TEXT("/Game"));
+		PathViewPtr->SetSelectedPaths(SelectedPaths);
+		AssetViewPtr->SetSourcesData(DefaultSourcesData);
+	}
 
 	// Set the initial history data
 	HistoryManager.AddHistoryData();
@@ -640,6 +663,16 @@ void SContentBrowser::Construct( const FArguments& InArgs, const FName& InInstan
 	// Load settings if they were specified
 	this->InstanceName = InInstanceName;
 	LoadSettings(InInstanceName);
+
+	if( Config != nullptr )
+	{
+		// Make sure the sources view is initially visible if we were asked to show it
+		if( ( bSourcesViewExpanded && ( !Config->bExpandSourcesView || !Config->bUseSourcesView ) ) ||
+			( !bSourcesViewExpanded && Config->bExpandSourcesView && Config->bUseSourcesView ) )
+		{
+			SourcesViewExpandClicked();
+		}
+	}
 
 	// Bindings to manage history when items are deleted
 	FCollectionManagerModule& CollectionManagerModule = FCollectionManagerModule::GetModule();
@@ -691,7 +724,7 @@ void SContentBrowser::BindCommands()
 
 EVisibility SContentBrowser::GetCollectionViewVisibility() const
 {
-	return GetDefault<UContentBrowserSettings>()->GetDisplayCollections() ? EVisibility::Visible : EVisibility::Collapsed;
+	return bAlwaysShowCollections ? EVisibility::Visible : ( GetDefault<UContentBrowserSettings>()->GetDisplayCollections() ? EVisibility::Visible : EVisibility::Collapsed );
 }
 
 FText SContentBrowser::GetHighlightedText() const
@@ -756,10 +789,11 @@ void SContentBrowser::SyncToAssets( const TArray<FAssetData>& AssetDataList, con
 	bool bDisplayDev = GetDefault<UContentBrowserSettings>()->GetDisplayDevelopersFolder();
 	bool bDisplayEngine = GetDefault<UContentBrowserSettings>()->GetDisplayEngineFolder();
 	bool bDisplayPlugins = GetDefault<UContentBrowserSettings>()->GetDisplayPluginFolders();
-	if ( !bDisplayDev || !bDisplayEngine || !bDisplayPlugins )
+	bool bDisplayLocalized = GetDefault<UContentBrowserSettings>()->GetDisplayL10NFolder();
+	if ( !bDisplayDev || !bDisplayEngine || !bDisplayPlugins || !bDisplayLocalized )
 	{
 		bool bRepopulate = false;
-		for (int32 AssetIdx = AssetDataList.Num() - 1; AssetIdx >= 0 && ( !bDisplayDev || !bDisplayEngine || !bDisplayPlugins ); --AssetIdx)
+		for (int32 AssetIdx = AssetDataList.Num() - 1; AssetIdx >= 0 && ( !bDisplayDev || !bDisplayEngine || !bDisplayPlugins || !bDisplayLocalized ); --AssetIdx)
 		{
 			const FAssetData& Item = AssetDataList[AssetIdx];
 
@@ -793,6 +827,13 @@ void SContentBrowser::SyncToAssets( const TArray<FAssetData>& AssetDataList, con
 			{
 				bDisplayPlugins = true;
 				GetMutableDefault<UContentBrowserSettings>()->SetDisplayPluginFolders(true, true);
+				bRepopulate = true;
+			}
+
+			if (!bDisplayLocalized && ContentBrowserUtils::IsLocalizationFolder(PackagePath))
+			{
+				bDisplayLocalized = true;
+				GetMutableDefault<UContentBrowserSettings>()->SetDisplayL10NFolder(true);
 				bRepopulate = true;
 			}
 		}

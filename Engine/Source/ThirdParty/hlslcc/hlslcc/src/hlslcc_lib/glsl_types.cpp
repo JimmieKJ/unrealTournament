@@ -44,13 +44,14 @@ hash_table *glsl_type::image_types = NULL;
 hash_table *glsl_type::array_types = NULL;
 hash_table *glsl_type::record_types = NULL;
 void *glsl_type::mem_ctx = NULL;
+void* glsl_type::BaseTypesContext = nullptr;
 
 void glsl_type::init_ralloc_type_ctx(void)
 {
-	if (glsl_type::mem_ctx == NULL)
+	if (BaseTypesContext == nullptr)
 	{
-		glsl_type::mem_ctx = ralloc_autofree_context();
-		check(glsl_type::mem_ctx != NULL);
+		BaseTypesContext = ralloc_autofree_context();
+		check(BaseTypesContext);
 	}
 }
 
@@ -63,8 +64,8 @@ glsl_type::glsl_type(glsl_base_type base_type, unsigned vector_elements,
 	matrix_columns(matrix_columns), length(0), patch_length(0)
 {
 	init_ralloc_type_ctx();
-	this->name = ralloc_strdup(this->mem_ctx, name);
-	this->HlslName = ralloc_strdup(this->mem_ctx, InHlslName);
+	this->name = ralloc_strdup(BaseTypesContext, name);
+	this->HlslName = ralloc_strdup(BaseTypesContext, InHlslName);
 	/* Neither dimension is zero or both dimensions are zero.
 	*/
 	check((vector_elements == 0) == (matrix_columns == 0));
@@ -145,10 +146,8 @@ glsl_type::glsl_type(const glsl_struct_field *fields, unsigned num_fields,
 	for (i = 0; i < length; i++)
 	{
 		this->fields.structure[i].type = fields[i].type;
-		this->fields.structure[i].name = ralloc_strdup(this->fields.structure,
-			fields[i].name);
-		this->fields.structure[i].semantic = ralloc_strdup(this->fields.structure,
-			fields[i].semantic);
+		this->fields.structure[i].name = ralloc_strdup(this->mem_ctx, fields[i].name);
+		this->fields.structure[i].semantic = ralloc_strdup(this->mem_ctx, fields[i].semantic);
 		this->fields.structure[i].centroid = fields[i].centroid;
 		this->fields.structure[i].interpolation = fields[i].interpolation;
 		this->fields.structure[i].geometryinput = fields[i].geometryinput;
@@ -368,44 +367,44 @@ _mesa_glsl_release_types(void)
 {
 	if (glsl_type::sampler_types != NULL)
 	{
-		hash_table_dtor(glsl_type::sampler_types);
+		hash_table_dtor_FreeData(glsl_type::sampler_types);
 		glsl_type::sampler_types = NULL;
 	}
 
 	if (glsl_type::outputstream_types != NULL)
 	{
-		hash_table_dtor(glsl_type::outputstream_types);
+		hash_table_dtor_FreeData(glsl_type::outputstream_types);
 		glsl_type::outputstream_types = NULL;
 	}
 
 	if (glsl_type::inputpatch_types != NULL)
 	{
-		hash_table_dtor(glsl_type::inputpatch_types);
+		hash_table_dtor_FreeData(glsl_type::inputpatch_types);
 		glsl_type::inputpatch_types = NULL;
 	}
 
 	if (glsl_type::outputpatch_types != NULL)
 	{
-		hash_table_dtor(glsl_type::outputpatch_types);
+		hash_table_dtor_FreeData(glsl_type::outputpatch_types);
 		glsl_type::outputpatch_types = NULL;
 	}
 
 
 	if (glsl_type::image_types != NULL)
 	{
-		hash_table_dtor(glsl_type::image_types);
+		hash_table_dtor_FreeData(glsl_type::image_types);
 		glsl_type::image_types = NULL;
 	}
 
 	if (glsl_type::array_types != NULL)
 	{
-		hash_table_dtor(glsl_type::array_types);
+		hash_table_dtor_FreeData(glsl_type::array_types);
 		glsl_type::array_types = NULL;
 	}
 
 	if (glsl_type::record_types != NULL)
 	{
-		hash_table_dtor(glsl_type::record_types);
+		hash_table_dtor_FreeData(glsl_type::record_types);
 		glsl_type::record_types = NULL;
 	}
 }
@@ -577,8 +576,7 @@ const glsl_type * glsl_type::get_templated_instance(const glsl_type *base, const
 
 	if (image_types == NULL)
 	{
-		image_types = hash_table_ctor(64, hash_table_string_hash,
-			hash_table_string_compare);
+		image_types = hash_table_ctor(64, hash_table_string_hash, hash_table_string_compare);
 
 		// Base sampler types.
 		hash_table_insert(image_types, new glsl_type(GLSL_SAMPLER_DIM_1D, /*array=*/ false, /*sampler_buffer=*/ true,  /*type=*/ NULL, "imageBuffer"), "RWBuffer");

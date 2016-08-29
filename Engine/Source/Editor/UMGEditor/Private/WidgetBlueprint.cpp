@@ -655,9 +655,4 @@ bool UWidgetBlueprint::NeedsLoadForClient() const
 	return false;
 }
 
-bool UWidgetBlueprint::NeedsLoadForServer() const
-{
-	return false;
-}
-
 #undef LOCTEXT_NAMESPACE 

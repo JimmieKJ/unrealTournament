@@ -153,6 +153,8 @@ private:
 	void WriteVertexData( int32 Channel, const struct FStaticLightingVertex* Vertex );
 	void WriteLandscapeMapping( int32 Channel, const class FLandscapeStaticLightingTextureMapping* LandscapeMapping );
 
+	void GetMaterialHash(const UMaterialInterface* Material, FSHAHash& OutHash);
+
 	/** Finds the GUID of the mapping that is being debugged. */
 	bool FindDebugMapping(FGuid& DebugMappingGuid);
 

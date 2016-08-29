@@ -48,8 +48,8 @@ public:
 	void UpdateEntry(const FCubemapEntry &Entry, float Weight)
 	{
 		bool Existing = false;
-		// Note: make sure to read the array size each loop here, since we remove elements.
-		for(int32 i = 0; i < ContributingCubemaps.Num(); ++i)
+		// Always verify the index is valid since elements can be removed!
+		for(int32 i = 0; ContributingCubemaps.IsValidIndex(i); ++i)
 		{
 			FCubemapEntry& Local = ContributingCubemaps[i];
 			
@@ -65,8 +65,9 @@ public:
 
 			if(Local.AmbientCubemapTintMulScaleValue.IsAlmostBlack())
 			{
-				ContributingCubemaps.RemoveAt(i, /*bAllowShrinking=*/ false);
+				ContributingCubemaps.RemoveAt(i, 1, /*bAllowShrinking=*/ false);
 				i--; // Maintain same index in the loop after loop increment since we removed an element.
+				continue; // Not strictly necessary but protect against future code using i incorrectly.
 			}
 		}
 

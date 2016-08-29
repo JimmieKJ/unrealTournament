@@ -229,9 +229,9 @@ void FD3D11DynamicRHI::RHICopyToResolveTarget(FTextureRHIParamRef SourceTextureR
 			GPUProfilingData.RegisterGPUWork();
 		
 			if(FeatureLevel == D3D_FEATURE_LEVEL_11_0 
-			&& DestTexture2D->GetDepthStencilView(FExclusiveDepthStencil::DepthWrite_StencilWrite)
-			&& SourceTextureRHI->IsMultisampled()
-			&& !DestTextureRHI->IsMultisampled())
+				&& DestTexture2D->GetDepthStencilView(FExclusiveDepthStencil::DepthWrite_StencilWrite)
+				&& SourceTextureRHI->IsMultisampled()
+				&& !DestTextureRHI->IsMultisampled())
 			{
 				D3D11_TEXTURE2D_DESC ResolveTargetDesc;
 				
@@ -337,7 +337,23 @@ void FD3D11DynamicRHI::RHICopyToResolveTarget(FTextureRHIParamRef SourceTextureR
 			}
 			else
 			{
-				Direct3DDeviceIMContext->CopySubresourceRegion(DestTextureCube->GetResource(),DestSubresource,0,0,0,SourceTextureCube->GetResource(),SourceSubresource,NULL);
+				if (ResolveParams.Rect.IsValid())
+				{
+					D3D11_BOX SrcBox;
+
+					SrcBox.left = ResolveParams.Rect.X1;
+					SrcBox.top = ResolveParams.Rect.Y1;
+					SrcBox.front = 0;
+					SrcBox.right = ResolveParams.Rect.X2;
+					SrcBox.bottom = ResolveParams.Rect.Y2;
+					SrcBox.back = 1;
+
+					Direct3DDeviceIMContext->CopySubresourceRegion(DestTextureCube->GetResource(), DestSubresource, 0, 0, 0, SourceTextureCube->GetResource(), SourceSubresource, &SrcBox);
+				}
+				else
+				{
+					Direct3DDeviceIMContext->CopySubresourceRegion(DestTextureCube->GetResource(), DestSubresource, 0, 0, 0, SourceTextureCube->GetResource(), SourceSubresource, NULL);
+				}
 			}
 		}
 	}
@@ -532,7 +548,7 @@ TRefCountPtr<ID3D11Texture2D> FD3D11DynamicRHI::GetStagingTexture(FTextureRHIPar
 	Desc.CPUAccessFlags = D3D11_CPU_ACCESS_READ;
 	Desc.MiscFlags = 0;
 	TRefCountPtr<ID3D11Texture2D> TempTexture2D;
-	VERIFYD3D11RESULT(Direct3DDevice->CreateTexture2D(&Desc,NULL,TempTexture2D.GetInitReference()));
+	VERIFYD3D11RESULT_EX(Direct3DDevice->CreateTexture2D(&Desc,NULL,TempTexture2D.GetInitReference()), Direct3DDevice);
 
 	// Staging rectangle is now the whole surface.
 	StagingRectOUT.Min = FIntPoint::ZeroValue;
@@ -580,7 +596,7 @@ void FD3D11DynamicRHI::ReadSurfaceDataNoMSAARaw(FTextureRHIParamRef TextureRHI,F
 
 	// Lock the staging resource.
 	D3D11_MAPPED_SUBRESOURCE LockedRect;
-	VERIFYD3D11RESULT(Direct3DDeviceIMContext->Map(TempTexture2D,0,D3D11_MAP_READ,0,&LockedRect));
+	VERIFYD3D11RESULT_EX(Direct3DDeviceIMContext->Map(TempTexture2D,0,D3D11_MAP_READ,0,&LockedRect), Direct3DDevice);
 
 	uint32 BytesPerLine = BytesPerPixel * InRect.Width();
 	uint8* DestPtr = OutData.GetData();
@@ -604,6 +620,19 @@ struct FD3DR10G10B10A2
 	uint32 B : 10;
 	uint32 A : 2;
 };
+
+struct FD3DR32G8
+{
+	uint32 R : 32;
+	uint32 G : 8;
+};
+
+struct FD3DR24G8
+{
+	uint32 R : 24;
+	uint32 G : 8;
+};
+
 
 /** Helper for accessing R16G16 colors. */
 struct FD3DRG16
@@ -895,6 +924,13 @@ static void ConvertRAWSurfaceDataToFColor(DXGI_FORMAT Format, uint32 Width, uint
 
 void FD3D11DynamicRHI::RHIReadSurfaceData(FTextureRHIParamRef TextureRHI,FIntRect InRect,TArray<FColor>& OutData, FReadSurfaceDataFlags InFlags)
 {
+	if (!ensure(TextureRHI))
+	{
+		OutData.Empty();
+		OutData.AddZeroed(InRect.Width() * InRect.Height());
+		return;
+	}
+
 	TArray<uint8> OutDataRaw;
 
 	FD3D11TextureBase* Texture = GetD3D11TextureFromRHITexture(TextureRHI);
@@ -968,7 +1004,7 @@ void FD3D11DynamicRHI::ReadSurfaceDataMSAARaw(FRHICommandList_RecursiveHazardous
 	NonMSAADesc.CPUAccessFlags = 0;
 	NonMSAADesc.MiscFlags = 0;
 	TRefCountPtr<ID3D11Texture2D> NonMSAATexture2D;
-	VERIFYD3D11RESULT(Direct3DDevice->CreateTexture2D(&NonMSAADesc,NULL,NonMSAATexture2D.GetInitReference()));
+	VERIFYD3D11RESULT_EX(Direct3DDevice->CreateTexture2D(&NonMSAADesc,NULL,NonMSAATexture2D.GetInitReference()), Direct3DDevice);
 
 	TRefCountPtr<ID3D11RenderTargetView> NonMSAARTV;
 	D3D11_RENDER_TARGET_VIEW_DESC RTVDesc;
@@ -979,7 +1015,7 @@ void FD3D11DynamicRHI::ReadSurfaceDataMSAARaw(FRHICommandList_RecursiveHazardous
 
 	RTVDesc.ViewDimension = D3D11_RTV_DIMENSION_TEXTURE2D;
 	RTVDesc.Texture2D.MipSlice = 0;
-	VERIFYD3D11RESULT(Direct3DDevice->CreateRenderTargetView(NonMSAATexture2D,&RTVDesc,NonMSAARTV.GetInitReference()));
+	VERIFYD3D11RESULT_EX(Direct3DDevice->CreateRenderTargetView(NonMSAATexture2D,&RTVDesc,NonMSAARTV.GetInitReference()), Direct3DDevice);
 
 	// Create a CPU-accessible staging texture to copy the resolved sample data to.
 	TRefCountPtr<ID3D11Texture2D> StagingTexture2D;
@@ -996,7 +1032,7 @@ void FD3D11DynamicRHI::ReadSurfaceDataMSAARaw(FRHICommandList_RecursiveHazardous
 	StagingDesc.BindFlags = 0;
 	StagingDesc.CPUAccessFlags = D3D11_CPU_ACCESS_READ;
 	StagingDesc.MiscFlags = 0;
-	VERIFYD3D11RESULT(Direct3DDevice->CreateTexture2D(&StagingDesc,NULL,StagingTexture2D.GetInitReference()));
+	VERIFYD3D11RESULT_EX(Direct3DDevice->CreateTexture2D(&StagingDesc,NULL,StagingTexture2D.GetInitReference()), Direct3DDevice);
 
 	// Determine the subresource index for cubemaps.
 	uint32 Subresource = 0;
@@ -1032,7 +1068,7 @@ void FD3D11DynamicRHI::ReadSurfaceDataMSAARaw(FRHICommandList_RecursiveHazardous
 
 		// Lock the staging texture.
 		D3D11_MAPPED_SUBRESOURCE LockedRect;
-		VERIFYD3D11RESULT(Direct3DDeviceIMContext->Map(StagingTexture2D,0,D3D11_MAP_READ,0,&LockedRect));
+		VERIFYD3D11RESULT_EX(Direct3DDeviceIMContext->Map(StagingTexture2D,0,D3D11_MAP_READ,0,&LockedRect), Direct3DDevice);
 
 		// Read the data out of the buffer, could be optimized
 		for(int32 Y = InRect.Min.Y; Y < InRect.Max.Y; Y++)
@@ -1064,29 +1100,13 @@ void FD3D11DynamicRHI::RHIMapStagingSurface(FTextureRHIParamRef TextureRHI,void*
 	uint32 BytesPerPixel = ComputeBytesPerPixel(TextureDesc.Format);
 
 	D3D11_MAPPED_SUBRESOURCE LockedRect;
-	HRESULT Result = Direct3DDeviceIMContext->Map(Texture,0,D3D11_MAP_READ,0,&LockedRect);
-	if (Result == DXGI_ERROR_DEVICE_REMOVED)
-	{
-		// When reading back to the CPU, we have to watch out for DXGI_ERROR_DEVICE_REMOVED
-		bDeviceRemoved = true;
+	VERIFYD3D11RESULT_EX(Direct3DDeviceIMContext->Map(Texture,0,D3D11_MAP_READ,0,&LockedRect), Direct3DDevice);
 
-		OutData = NULL;
-		OutWidth = OutHeight = 0;
+	OutData = LockedRect.pData;
+	OutWidth = LockedRect.RowPitch / BytesPerPixel;
+	OutHeight = LockedRect.DepthPitch / LockedRect.RowPitch;
 
-		HRESULT hRes = Direct3DDevice->GetDeviceRemovedReason();
-
-		UE_LOG(LogD3D11RHI, Warning, TEXT("FD3D11DynamicRHI::RHIMapStagingSurface failed (GetDeviceRemovedReason(): %d)"), hRes);
-	}
-	else
-	{
-		VERIFYD3D11RESULT_EX(Result, GetDevice());
-
-		OutData = LockedRect.pData;
-		OutWidth = LockedRect.RowPitch / BytesPerPixel;
-		OutHeight = LockedRect.DepthPitch / LockedRect.RowPitch;
-
-		check(OutData);
-	}
+	check(OutData);
 }
 
 void FD3D11DynamicRHI::RHIUnmapStagingSurface(FTextureRHIParamRef TextureRHI)
@@ -1136,7 +1156,7 @@ void FD3D11DynamicRHI::RHIReadSurfaceFloatData(FTextureRHIParamRef TextureRHI,FI
 	Desc.CPUAccessFlags = D3D11_CPU_ACCESS_READ;
 	Desc.MiscFlags = 0;
 	TRefCountPtr<ID3D11Texture2D> TempTexture2D;
-	VERIFYD3D11RESULT(Direct3DDevice->CreateTexture2D(&Desc,NULL,TempTexture2D.GetInitReference()));
+	VERIFYD3D11RESULT_EX(Direct3DDevice->CreateTexture2D(&Desc,NULL,TempTexture2D.GetInitReference()), Direct3DDevice);
 
 	// Copy the data to a staging resource.
 	uint32 Subresource = 0;
@@ -1149,7 +1169,7 @@ void FD3D11DynamicRHI::RHIReadSurfaceFloatData(FTextureRHIParamRef TextureRHI,FI
 
 	// Lock the staging resource.
 	D3D11_MAPPED_SUBRESOURCE LockedRect;
-	VERIFYD3D11RESULT(Direct3DDeviceIMContext->Map(TempTexture2D,0,D3D11_MAP_READ,0,&LockedRect));
+	VERIFYD3D11RESULT_EX(Direct3DDeviceIMContext->Map(TempTexture2D,0,D3D11_MAP_READ,0,&LockedRect), Direct3DDevice);
 
 	// Presize the array
 	int32 TotalCount = SizeX * SizeY;
@@ -1169,6 +1189,304 @@ void FD3D11DynamicRHI::RHIReadSurfaceFloatData(FTextureRHIParamRef TextureRHI,FI
 	}
 
 	Direct3DDeviceIMContext->Unmap(TempTexture2D,0);
+}
+
+static void ConvertRAWSurfaceDataToFLinearColor(EPixelFormat Format, uint32 Width, uint32 Height, uint8 *In, uint32 SrcPitch, FLinearColor* Out, FReadSurfaceDataFlags InFlags)
+{
+	if (Format == PF_R16F || Format == PF_R16F_FILTER)
+	{
+		// e.g. shadow maps
+		for (uint32 Y = 0; Y < Height; Y++)
+		{
+			uint16* SrcPtr = (uint16*)(In + Y * SrcPitch);
+			FLinearColor* DestPtr = Out + Y * Width;
+
+			for (uint32 X = 0; X < Width; X++)
+			{
+				uint16 Value16 = *SrcPtr;
+				float Value = Value16 / (float)(0xffff);
+
+				*DestPtr = FLinearColor(Value, Value, Value);
+				++SrcPtr;
+				++DestPtr;
+			}
+		}
+	}
+	else if (Format == PF_R8G8B8A8)
+	{
+		// Read the data out of the buffer, converting it from ABGR to ARGB.
+		for (uint32 Y = 0; Y < Height; Y++)
+		{
+			FColor* SrcPtr = (FColor*)(In + Y * SrcPitch);
+			FLinearColor* DestPtr = Out + Y * Width;
+			for (uint32 X = 0; X < Width; X++)
+			{
+				FColor sRGBColor = FColor(SrcPtr->B, SrcPtr->G, SrcPtr->R, SrcPtr->A);
+				*DestPtr = FLinearColor(sRGBColor);
+				++SrcPtr;
+				++DestPtr;
+			}
+		}
+	}
+	else if (Format == PF_B8G8R8A8)
+	{
+		for (uint32 Y = 0; Y < Height; Y++)
+		{
+			FColor* SrcPtr = (FColor*)(In + Y * SrcPitch);
+			FLinearColor* DestPtr = Out + Y * Width;
+			for (uint32 X = 0; X < Width; X++)
+			{
+				FColor sRGBColor = FColor(SrcPtr->R, SrcPtr->G, SrcPtr->B, SrcPtr->A);
+				*DestPtr = FLinearColor(sRGBColor);
+				++SrcPtr;
+				++DestPtr;
+			}
+		}
+	}
+	else if (Format == PF_A2B10G10R10)
+	{
+		// Read the data out of the buffer, converting it from R10G10B10A2 to FLinearColor.
+		for (uint32 Y = 0; Y < Height; Y++)
+		{
+			FD3DR10G10B10A2* SrcPtr = (FD3DR10G10B10A2*)(In + Y * SrcPitch);
+			FLinearColor* DestPtr = Out + Y * Width;
+			for (uint32 X = 0; X < Width; X++)
+			{
+				*DestPtr = FLinearColor(
+					(float)SrcPtr->R / 1023.0f,
+					(float)SrcPtr->G / 1023.0f,
+					(float)SrcPtr->B / 1023.0f,
+					(float)SrcPtr->A / 3.0f
+					);
+				++SrcPtr;
+				++DestPtr;
+			}
+		}
+	}
+	else if (Format == PF_FloatRGBA)
+	{
+		FPlane	MinValue(0.0f, 0.0f, 0.0f, 0.0f),
+			MaxValue(1.0f, 1.0f, 1.0f, 1.0f);
+
+		check(sizeof(FD3DFloat16) == sizeof(uint16));
+
+		for (uint32 Y = 0; Y < Height; Y++)
+		{
+			FD3DFloat16* SrcPtr = (FD3DFloat16*)(In + Y * SrcPitch);
+
+			for (uint32 X = 0; X < Width; X++)
+			{
+				MinValue.X = FMath::Min<float>(SrcPtr[0], MinValue.X);
+				MinValue.Y = FMath::Min<float>(SrcPtr[1], MinValue.Y);
+				MinValue.Z = FMath::Min<float>(SrcPtr[2], MinValue.Z);
+				MinValue.W = FMath::Min<float>(SrcPtr[3], MinValue.W);
+				MaxValue.X = FMath::Max<float>(SrcPtr[0], MaxValue.X);
+				MaxValue.Y = FMath::Max<float>(SrcPtr[1], MaxValue.Y);
+				MaxValue.Z = FMath::Max<float>(SrcPtr[2], MaxValue.Z);
+				MaxValue.W = FMath::Max<float>(SrcPtr[3], MaxValue.W);
+				SrcPtr += 4;
+			}
+		}
+
+		for (uint32 Y = 0; Y < Height; Y++)
+		{
+			FD3DFloat16* SrcPtr = (FD3DFloat16*)(In + Y * SrcPitch);
+			FLinearColor* DestPtr = Out + Y * Width;
+
+			for (uint32 X = 0; X < Width; X++)
+			{
+				*DestPtr = FLinearColor(
+					(SrcPtr[0] - MinValue.X) / (MaxValue.X - MinValue.X),
+					(SrcPtr[1] - MinValue.Y) / (MaxValue.Y - MinValue.Y),
+					(SrcPtr[2] - MinValue.Z) / (MaxValue.Z - MinValue.Z),
+					(SrcPtr[3] - MinValue.W) / (MaxValue.W - MinValue.W)
+					);
+				++DestPtr;
+				SrcPtr += 4;
+			}
+		}
+	}
+	else if (Format == PF_FloatRGB || Format == PF_FloatR11G11B10)
+	{
+		check(sizeof(FD3DFloatR11G11B10) == sizeof(uint32));
+
+		for (uint32 Y = 0; Y < Height; Y++)
+		{
+			FD3DFloatR11G11B10* SrcPtr = (FD3DFloatR11G11B10*)(In + Y * SrcPitch);
+			FLinearColor* DestPtr = Out + Y * Width;
+
+			for (uint32 X = 0; X < Width; X++)
+			{
+				*DestPtr = *SrcPtr;
+				++DestPtr;
+				++SrcPtr;
+			}
+		}
+	}
+	else if (Format == PF_A32B32G32R32F)
+	{
+		FPlane MinValue(0.0f, 0.0f, 0.0f, 0.0f);
+		FPlane MaxValue(1.0f, 1.0f, 1.0f, 1.0f);
+
+		for (uint32 Y = 0; Y < Height; Y++)
+		{
+			float* SrcPtr = (float*)(In + Y * SrcPitch);
+
+			for (uint32 X = 0; X < Width; X++)
+			{
+				MinValue.X = FMath::Min<float>(SrcPtr[0], MinValue.X);
+				MinValue.Y = FMath::Min<float>(SrcPtr[1], MinValue.Y);
+				MinValue.Z = FMath::Min<float>(SrcPtr[2], MinValue.Z);
+				MinValue.W = FMath::Min<float>(SrcPtr[3], MinValue.W);
+				MaxValue.X = FMath::Max<float>(SrcPtr[0], MaxValue.X);
+				MaxValue.Y = FMath::Max<float>(SrcPtr[1], MaxValue.Y);
+				MaxValue.Z = FMath::Max<float>(SrcPtr[2], MaxValue.Z);
+				MaxValue.W = FMath::Max<float>(SrcPtr[3], MaxValue.W);
+				SrcPtr += 4;
+			}
+		}
+
+		for (uint32 Y = 0; Y < Height; Y++)
+		{
+			float* SrcPtr = (float*)In;
+			FLinearColor* DestPtr = Out + Y * Width;
+
+			for (uint32 X = 0; X < Width; X++)
+			{
+				*DestPtr = FLinearColor(
+						(SrcPtr[0] - MinValue.X) / (MaxValue.X - MinValue.X),
+						(SrcPtr[1] - MinValue.Y) / (MaxValue.Y - MinValue.Y),
+						(SrcPtr[2] - MinValue.Z) / (MaxValue.Z - MinValue.Z),
+						(SrcPtr[3] - MinValue.W) / (MaxValue.W - MinValue.W)
+						);
+				++DestPtr;
+				SrcPtr += 4;
+			}
+		}
+	}
+	else if (Format == PF_DepthStencil || Format == PF_D24)
+	{
+		// Depth stencil
+		for (uint32 Y = 0; Y < Height; Y++)
+		{
+			uint32* SrcPtr = (uint32 *)In;
+			FLinearColor* DestPtr = Out + Y * Width;
+
+			for (uint32 X = 0; X < Width; X++)
+			{
+				float DeviceStencil = 0.0f;
+				DeviceStencil = (float)((*SrcPtr & 0xFF000000) >> 24)/255.0f;
+				float DeviceZ = (*SrcPtr & 0xffffff) / (float)(1 << 24);
+				float LinearValue = FMath::Min(InFlags.ComputeNormalizedDepth(DeviceZ), 1.0f);
+				*DestPtr = FLinearColor(LinearValue, DeviceStencil, 0.0f, 0.0f);
+				++DestPtr;
+				++SrcPtr;
+			}
+		}
+	}
+#if DEPTH_32_BIT_CONVERSION
+	// Changing Depth Buffers to 32 bit on Dingo as D24S8 is actually implemented as a 32 bit buffer in the hardware
+	else if (Format == PF_DepthStencil)
+	{
+		// Depth stencil
+		for (uint32 Y = 0; Y < Height; Y++)
+		{
+			uint8* SrcStart = (uint8 *)(In + Y * SrcPitch);
+			FLinearColor* DestPtr = Out + Y * Width;
+
+			for (uint32 X = 0; X < Width; X++)
+			{
+				float DeviceZ = *((float *)(SrcStart));
+				float LinearValue = FMath::Min(InFlags.ComputeNormalizedDepth(DeviceZ), 1.0f);
+				float DeviceStencil = (float)(*(SrcStart+4)) / 255.0f;
+				*DestPtr = FLinearColor(LinearValue, DeviceStencil, 0.0f, 0.0f);
+				SrcStart += 8; //64 bit format with the last 24 bit ignore
+			}
+		}
+	}
+#endif
+	else if (Format == PF_A16B16G16R16)
+	{
+		// Read the data out of the buffer, converting it to FLinearColor.
+		for (uint32 Y = 0; Y < Height; Y++)
+		{
+			FD3DRGBA16* SrcPtr = (FD3DRGBA16*)(In + Y * SrcPitch);
+			FLinearColor* DestPtr = Out + Y * Width;
+			for (uint32 X = 0; X < Width; X++)
+			{
+				*DestPtr = FLinearColor(
+					(float)SrcPtr->R / 65535.0f,
+					(float)SrcPtr->G / 65535.0f,
+					(float)SrcPtr->B / 65535.0f,
+					(float)SrcPtr->A / 65535.0f
+					);
+				++SrcPtr;
+				++DestPtr;
+			}
+		}
+	}
+	else if (Format == PF_G16R16)
+	{
+		// Read the data out of the buffer, converting it to FLinearColor.
+		for (uint32 Y = 0; Y < Height; Y++)
+		{
+			FD3DRG16* SrcPtr = (FD3DRG16*)(In + Y * SrcPitch);
+			FLinearColor* DestPtr = Out + Y * Width;
+			for (uint32 X = 0; X < Width; X++)
+			{
+				*DestPtr = FLinearColor(
+					(float)SrcPtr->R / 65535.0f,
+					(float)SrcPtr->G / 65535.0f,
+					0);
+				++SrcPtr;
+				++DestPtr;
+			}
+		}
+	}
+	else
+	{
+		// not supported yet
+		check(0);
+	}
+}
+
+void FD3D11DynamicRHI::RHIReadSurfaceData(FTextureRHIParamRef TextureRHI, FIntRect InRect, TArray<FLinearColor>& OutData, FReadSurfaceDataFlags InFlags)
+{
+	TArray<uint8> OutDataRaw;
+
+	FD3D11TextureBase* Texture = GetD3D11TextureFromRHITexture(TextureRHI);
+
+	// Check the format of the surface
+	D3D11_TEXTURE2D_DESC TextureDesc;
+
+	((ID3D11Texture2D*)Texture->GetResource())->GetDesc(&TextureDesc);
+
+	check(TextureDesc.SampleDesc.Count >= 1);
+
+	if (TextureDesc.SampleDesc.Count == 1)
+	{
+		ReadSurfaceDataNoMSAARaw(TextureRHI, InRect, OutDataRaw, InFlags);
+	}
+	else
+	{
+		FRHICommandList_RecursiveHazardous RHICmdList(this);
+		ReadSurfaceDataMSAARaw(RHICmdList, TextureRHI, InRect, OutDataRaw, InFlags);
+	}
+
+	const uint32 SizeX = InRect.Width() * TextureDesc.SampleDesc.Count;
+	const uint32 SizeY = InRect.Height();
+
+	// Allocate the output buffer.
+	OutData.Empty();
+	OutData.AddUninitialized(SizeX * SizeY);
+
+	uint32 BytesPerPixel = ComputeBytesPerPixel(TextureDesc.Format);
+	uint32 SrcPitch = SizeX * BytesPerPixel;
+	EPixelFormat Format = TextureRHI->GetFormat();
+	if (Format != PF_Unknown)
+	{
+		ConvertRAWSurfaceDataToFLinearColor(Format, SizeX, SizeY, OutDataRaw.GetData(), SrcPitch, OutData.GetData(), InFlags);
+	}
 }
 
 void FD3D11DynamicRHI::RHIRead3DSurfaceFloatData(FTextureRHIParamRef TextureRHI,FIntRect InRect,FIntPoint ZMinMax,TArray<FFloat16Color>& OutData)
@@ -1210,7 +1528,7 @@ void FD3D11DynamicRHI::RHIRead3DSurfaceFloatData(FTextureRHIParamRef TextureRHI,
 	Desc.CPUAccessFlags = D3D11_CPU_ACCESS_READ;
 	Desc.MiscFlags = 0;
 	TRefCountPtr<ID3D11Texture3D> TempTexture3D;
-	VERIFYD3D11RESULT(Direct3DDevice->CreateTexture3D(&Desc,NULL,TempTexture3D.GetInitReference()));
+	VERIFYD3D11RESULT_EX(Direct3DDevice->CreateTexture3D(&Desc,NULL,TempTexture3D.GetInitReference()), Direct3DDevice);
 
 	// Copy the data to a staging resource.
 	uint32 Subresource = 0;
@@ -1218,7 +1536,7 @@ void FD3D11DynamicRHI::RHIRead3DSurfaceFloatData(FTextureRHIParamRef TextureRHI,
 
 	// Lock the staging resource.
 	D3D11_MAPPED_SUBRESOURCE LockedRect;
-	VERIFYD3D11RESULT(Direct3DDeviceIMContext->Map(TempTexture3D,0,D3D11_MAP_READ,0,&LockedRect));
+	VERIFYD3D11RESULT_EX(Direct3DDeviceIMContext->Map(TempTexture3D,0,D3D11_MAP_READ,0,&LockedRect), Direct3DDevice);
 
 	// Presize the array
 	int32 TotalCount = SizeX * SizeY * SizeZ;

@@ -13,8 +13,6 @@
 #include "UTScoreboard.h"
 #include "SlateBasics.h"
 #include "UTAnalytics.h"
-#include "Runtime/Analytics/Analytics/Public/Analytics.h"
-#include "Runtime/Analytics/Analytics/Public/Interfaces/IAnalyticsProvider.h"
 #include "UTBot.h"
 #include "UTSquadAI.h"
 #include "Panels/SUTLobbyMatchSetupPanel.h"
@@ -47,6 +45,8 @@
 #include "UTPlayerStart.h"
 #include "UTPlaceablePowerup.h"
 #include "SUTSpawnWindow.h"
+#include "AnalyticsEventAttribute.h"
+#include "IAnalyticsProvider.h"
 #include "UTWeaponLocker.h"
 #include "UTCTFRoundGameState.h"
 #include "UTGameVolume.h"
@@ -646,7 +646,7 @@ void AUTGameMode::GameObjectiveInitialized(AUTGameObjective* Obj)
 	// Allow subclasses to track game objectives as they are initialized
 }
 
-APlayerController* AUTGameMode::Login(UPlayer* NewPlayer, ENetRole RemoteRole, const FString& Portal, const FString& Options, const TSharedPtr<const FUniqueNetId>& UniqueId, FString& ErrorMessage)
+APlayerController* AUTGameMode::Login(UPlayer* NewPlayer, ENetRole InRemoteRole, const FString& Portal, const FString& Options, const FUniqueNetIdRepl& UniqueId, FString& ErrorMessage)
 {
 	bool bCastingView = EvalBoolOptions(UGameplayStatics::ParseOption(Options, TEXT("CastingView")), false);
 	if (bCastingView)
@@ -667,7 +667,7 @@ APlayerController* AUTGameMode::Login(UPlayer* NewPlayer, ENetRole RemoteRole, c
 	{
 		BaseMutator->ModifyLogin(ModdedPortal, ModdedOptions);
 	}
-	APlayerController* Result = Super::Login(NewPlayer, RemoteRole, Portal, Options, UniqueId, ErrorMessage);
+	APlayerController* Result = Super::Login(NewPlayer, InRemoteRole, Portal, Options, UniqueId, ErrorMessage);
 	if (Result != NULL)
 	{
 		AUTPlayerController* UTPC = Cast<AUTPlayerController>(Result);
@@ -756,7 +756,7 @@ APlayerController* AUTGameMode::Login(UPlayer* NewPlayer, ENetRole RemoteRole, c
 
 	if (AntiCheatEngine)
 	{
-		AntiCheatEngine->OnPlayerLogin(Result, Options, UniqueId);
+		AntiCheatEngine->OnPlayerLogin(Result, Options, UniqueId.GetUniqueNetId());
 	}
 
 	return Result;
@@ -1164,7 +1164,7 @@ void AUTGameMode::DefaultTimer()
 
 	CheckBotCount();
 
-	int32 NumPlayers = GetNumPlayers();
+	int32 CurrentNumPlayers = GetNumPlayers();
 
 	if (IsGameInstanceServer() && LobbyBeacon)
 	{
@@ -1177,7 +1177,7 @@ void AUTGameMode::DefaultTimer()
 		{
 			if (!HasMatchStarted())
 			{
-				if (GetWorld()->GetRealTimeSeconds() > LobbyInitialTimeoutTime && NumPlayers <= 0 && (GetNetDriver() == NULL || GetNetDriver()->ClientConnections.Num() == 0))
+				if (GetWorld()->GetRealTimeSeconds() > LobbyInitialTimeoutTime && CurrentNumPlayers <= 0 && (GetNetDriver() == NULL || GetNetDriver()->ClientConnections.Num() == 0))
 				{
 					// Catch all...
 					SendEveryoneBackToLobby();
@@ -1186,7 +1186,7 @@ void AUTGameMode::DefaultTimer()
 			}
 			else 
 			{
-				if (NumPlayers <= 0)
+				if (CurrentNumPlayers <= 0)
 				{
 					// Catch all...
 					SendEveryoneBackToLobby();
@@ -2669,7 +2669,7 @@ AActor* AUTGameMode::FindPlayerStart_Implementation(AController* Player, const F
 	return Best;
 }
 
-FString AUTGameMode::InitNewPlayer(APlayerController* NewPlayerController, const TSharedPtr<const FUniqueNetId>& UniqueId, const FString& Options, const FString& Portal)
+FString AUTGameMode::InitNewPlayer(APlayerController* NewPlayerController, const FUniqueNetIdRepl& UniqueId, const FString& Options, const FString& Portal)
 {
 	FString ErrorMessage = Super::InitNewPlayer(NewPlayerController, UniqueId, Options, Portal);
 
@@ -3875,9 +3875,9 @@ void AUTGameMode::ProcessServerTravel(const FString& URL, bool bAbsolute)
 	Super::ProcessServerTravel(URL, bAbsolute);
 }
 
-FText AUTGameMode::BuildServerRules(AUTGameState* GameState)
+FText AUTGameMode::BuildServerRules(AUTGameState* InGameState)
 {
-	return FText::Format(NSLOCTEXT("UTGameMode", "GameRules", "{0} - GoalScore: {1}  Time Limit: {2}"), DisplayName, FText::AsNumber(GameState->GoalScore), (GameState->TimeLimit > 0) ? FText::Format(NSLOCTEXT("UTGameMode", "TimeMinutes", "{0} min"), FText::AsNumber(uint32(GameState->TimeLimit / 60))) : NSLOCTEXT("General", "None", "None"));
+	return FText::Format(NSLOCTEXT("UTGameMode", "GameRules", "{0} - GoalScore: {1}  Time Limit: {2}"), DisplayName, FText::AsNumber(InGameState->GoalScore), (InGameState->TimeLimit > 0) ? FText::Format(NSLOCTEXT("UTGameMode", "TimeMinutes", "{0} min"), FText::AsNumber(uint32(InGameState->TimeLimit / 60))) : NSLOCTEXT("General", "None", "None"));
 }
 
 void AUTGameMode::BuildServerResponseRules(FString& OutRules)
@@ -4101,7 +4101,7 @@ void AUTGameMode::UpdatePlayersPresence()
 }
 
 #if !UE_SERVER
-void AUTGameMode::NewPlayerInfoLine(TSharedPtr<SVerticalBox> VBox, FText DisplayName, TSharedPtr<TAttributeStat> Stat, TArray<TSharedPtr<TAttributeStat> >& StatList)
+void AUTGameMode::NewPlayerInfoLine(TSharedPtr<SVerticalBox> VBox, FText InDisplayName, TSharedPtr<TAttributeStat> Stat, TArray<TSharedPtr<TAttributeStat> >& StatList)
 {
 	//Add stat in here for layout convenience
 	StatList.Add(Stat);
@@ -4117,7 +4117,7 @@ void AUTGameMode::NewPlayerInfoLine(TSharedPtr<SVerticalBox> VBox, FText Display
 			.HAlign(HAlign_Left)
 			[
 				SNew(STextBlock)
-				.Text(DisplayName)
+				.Text(InDisplayName)
 				.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
 				.ColorAndOpacity(FLinearColor::Gray)
 			]
@@ -4139,7 +4139,7 @@ void AUTGameMode::NewPlayerInfoLine(TSharedPtr<SVerticalBox> VBox, FText Display
 	];
 }
 
-void AUTGameMode::NewWeaponInfoLine(TSharedPtr<SVerticalBox> VBox, FText DisplayName, TSharedPtr<TAttributeStat> KillStat, TSharedPtr<TAttributeStat> DeathStat, TSharedPtr<struct TAttributeStat> AccuracyStat, TArray<TSharedPtr<TAttributeStat> >& StatList)
+void AUTGameMode::NewWeaponInfoLine(TSharedPtr<SVerticalBox> VBox, FText InDisplayName, TSharedPtr<TAttributeStat> KillStat, TSharedPtr<TAttributeStat> DeathStat, TSharedPtr<struct TAttributeStat> AccuracyStat, TArray<TSharedPtr<TAttributeStat> >& StatList)
 {
 	//Add stat in here for layout convenience
 	StatList.Add(KillStat);
@@ -4157,7 +4157,7 @@ void AUTGameMode::NewWeaponInfoLine(TSharedPtr<SVerticalBox> VBox, FText Display
 			.HAlign(HAlign_Left)
 			[
 				SNew(STextBlock)
-				.Text(DisplayName)
+				.Text(InDisplayName)
 				.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
 				.ColorAndOpacity(FLinearColor::Gray)
 			]
@@ -5016,7 +5016,7 @@ void AUTGameMode::SendComsMessage( AUTPlayerController* Sender, AUTPlayerState* 
 }
 
 
-int32 AUTGameMode::GetComSwitch(FName CommandTag, AActor* ContextActor, AUTPlayerController* Instigator, UWorld* World)
+int32 AUTGameMode::GetComSwitch(FName CommandTag, AActor* ContextActor, AUTPlayerController* InInstigator, UWorld* World)
 {
 	if (CommandTag == CommandTags::Yes)
 	{

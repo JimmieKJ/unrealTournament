@@ -4,8 +4,13 @@
 
 #include "ModuleInterface.h"
 
+#include "AnimGraphCommands.h"
+
 class FAnimGraphModule : public IModuleInterface
 {
 public:
-
+	virtual void StartupModule() override
+	{
+		FAnimGraphCommands::Register();
+	}
 };

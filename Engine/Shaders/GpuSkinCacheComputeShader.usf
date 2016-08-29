@@ -99,19 +99,17 @@ FBoneMatrix CalcBoneMatrix( FVertexUnpacked VertexUnpacked )
 Buffer<float> SkinStreamUniformBuffer;
 Buffer<float> SkinStreamInputBuffer;
 
-RWBuffer<float> SkinCacheBuffer;
+RWBuffer<float> SkinCacheBufferUAV;
 
-uint SkinCacheInputStreamFloatOffset;
-uint SkinCacheOutputBufferFloatOffset;
-uint SkinCacheVertexStride;
-uint SkinCacheVertexCount;
+uint InputStreamStart;
+uint SkinCacheStart;
+uint InputStreamStride;
+uint NumVertices;
 
 float3 MeshOrigin;
 float3 MeshExtension;
 // see r.SkinCache.Debug, default is 1.0f
 float SkinCacheDebug;
-
-//uint4 DebugParameter;
 
 FVertexUnpacked UnpackedVertex(uint VertexIndex, uint Offset )
 {
@@ -173,16 +171,16 @@ void SkinCacheUpdateBatchCS(uint3 GroupID : SV_GroupID,
  uint3 GroupThreadID : SV_GroupThreadID)
 {
 	uint VertexIndex = DispatchThreadID.x;
-	if (VertexIndex >= SkinCacheVertexCount)
+		if (VertexIndex >= NumVertices)
 	{
 		return;
 	}
 
-	uint FloatsPerVertex = SkinCacheVertexStride / 4;
+	uint FloatsPerVertex = InputStreamStride / 4;
 	uint VBOffset = VertexIndex * FloatsPerVertex;
 	uint RWOffset = VertexIndex * GPUSKIN_RWBUFFER_NUM_FLOATS;
-	uint InputOffset = SkinCacheInputStreamFloatOffset + VBOffset;
-	uint OutputOffset = SkinCacheOutputBufferFloatOffset + RWOffset;
+	uint InputOffset = InputStreamStart + VBOffset;
+	uint OutputOffset = SkinCacheStart + RWOffset;
 
 	FVertexUnpacked	Unpacked = UnpackedVertex(VertexIndex, InputOffset);
 
@@ -219,25 +217,27 @@ void SkinCacheUpdateBatchCS(uint3 GroupID : SV_GroupID,
 	
 	float3 SPos = SkinPosition(Intermediates) * SkinCacheDebug;
 		
-	float3 TangentX = mul((float3x3)Intermediates.BlendMatrix, LocalTangentX);
-	float3 TangentZ = mul((float3x3)Intermediates.BlendMatrix, LocalTangentZ);
+	float3 TangentX = normalize(mul((float3x3)Intermediates.BlendMatrix, LocalTangentX));
+	float3 TangentZ = normalize(mul((float3x3)Intermediates.BlendMatrix, LocalTangentZ));
 
-	SkinCacheBuffer[OutputOffset + GPUSKIN_RWBUFFER_OFFSET_POSITION + 0] = SPos.x;
-	SkinCacheBuffer[OutputOffset + GPUSKIN_RWBUFFER_OFFSET_POSITION + 1] = SPos.y;
-	SkinCacheBuffer[OutputOffset + GPUSKIN_RWBUFFER_OFFSET_POSITION + 2] = SPos.z;
+	SkinCacheBufferUAV[OutputOffset + GPUSKIN_RWBUFFER_OFFSET_POSITION + 0] = SPos.x;
+	SkinCacheBufferUAV[OutputOffset + GPUSKIN_RWBUFFER_OFFSET_POSITION + 1] = SPos.y;
+	SkinCacheBufferUAV[OutputOffset + GPUSKIN_RWBUFFER_OFFSET_POSITION + 2] = SPos.z;
 	// we keep the w component (what is in it?)
 	uint TangentXCompressed = PackS8x3N(TangentX);
-	SkinCacheBuffer[OutputOffset + GPUSKIN_RWBUFFER_OFFSET_TANGENT_X] = asfloat(TangentXCompressed | (asuint(SkinStreamInputBuffer[InputOffset + GPUSKIN_VB_OFFSET_TANGENT_X]) & 0xff000000));
+//	uint TangentXCompressed = PackS8x3N(float3(0,0,0));
+	SkinCacheBufferUAV[OutputOffset + GPUSKIN_RWBUFFER_OFFSET_TANGENT_X] = asfloat(TangentXCompressed | (asuint(SkinStreamInputBuffer[InputOffset + GPUSKIN_VB_OFFSET_TANGENT_X]) & 0xff000000));
 	// we keep the w component which contains the sign of tangent basis determinant (left or right handed)
 	uint TangentZCompressed = PackS8x3N(TangentZ.xyz);
-	SkinCacheBuffer[OutputOffset + GPUSKIN_RWBUFFER_OFFSET_TANGENT_Z] = asfloat(TangentZCompressed | (asuint(SkinStreamInputBuffer[ InputOffset + GPUSKIN_VB_OFFSET_TANGENT_Z]) & 0xff000000));
+//	uint TangentZCompressed = PackS8x3N(float3(0,0,0));
+	SkinCacheBufferUAV[OutputOffset + GPUSKIN_RWBUFFER_OFFSET_TANGENT_Z] = asfloat(TangentZCompressed | (asuint(SkinStreamInputBuffer[ InputOffset + GPUSKIN_VB_OFFSET_TANGENT_Z]) & 0xff000000));
 
 #if GPUSKIN_DEBUG_PASSTHROUGH
 	// Passthrough debug code
-	SkinCacheBuffer[OutputOffset + GPUSKIN_RWBUFFER_OFFSET_POSITION + 0] = SkinStreamInputBuffer[InputOffset + GPUSKIN_VB_OFFSET_POSITION + 0];
-	SkinCacheBuffer[OutputOffset + GPUSKIN_RWBUFFER_OFFSET_POSITION + 1] = SkinStreamInputBuffer[InputOffset + GPUSKIN_VB_OFFSET_POSITION + 1];
-	SkinCacheBuffer[OutputOffset + GPUSKIN_RWBUFFER_OFFSET_POSITION + 2] = SkinStreamInputBuffer[InputOffset + GPUSKIN_VB_OFFSET_POSITION + 2];
-	SkinCacheBuffer[OutputOffset + GPUSKIN_RWBUFFER_OFFSET_TANGENT_X] = SkinStreamInputBuffer[InputOffset + GPUSKIN_VB_OFFSET_TANGENT_X];
-	SkinCacheBuffer[OutputOffset + GPUSKIN_RWBUFFER_OFFSET_TANGENT_Z] = SkinStreamInputBuffer[InputOffset + GPUSKIN_VB_OFFSET_TANGENT_Z];
+	SkinCacheBufferUAV[OutputOffset + GPUSKIN_RWBUFFER_OFFSET_POSITION + 0] = SkinStreamInputBuffer[InputOffset + GPUSKIN_VB_OFFSET_POSITION + 0];
+	SkinCacheBufferUAV[OutputOffset + GPUSKIN_RWBUFFER_OFFSET_POSITION + 1] = SkinStreamInputBuffer[InputOffset + GPUSKIN_VB_OFFSET_POSITION + 1];
+	SkinCacheBufferUAV[OutputOffset + GPUSKIN_RWBUFFER_OFFSET_POSITION + 2] = SkinStreamInputBuffer[InputOffset + GPUSKIN_VB_OFFSET_POSITION + 2];
+	SkinCacheBufferUAV[OutputOffset + GPUSKIN_RWBUFFER_OFFSET_TANGENT_X] = SkinStreamInputBuffer[InputOffset + GPUSKIN_VB_OFFSET_TANGENT_X];
+	SkinCacheBufferUAV[OutputOffset + GPUSKIN_RWBUFFER_OFFSET_TANGENT_Z] = SkinStreamInputBuffer[InputOffset + GPUSKIN_VB_OFFSET_TANGENT_Z];
 #endif
 }

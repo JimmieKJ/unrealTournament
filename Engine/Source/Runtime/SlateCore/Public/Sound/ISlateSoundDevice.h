@@ -16,19 +16,3 @@ public:
 	/** Virtual destructor: because it is an interface / pure virtual base class. */
 	virtual ~ISlateSoundDevice(){}
 };
-
-/** Silent implementation of ISlateSoundDevice; it plays nothing. */
-class SLATECORE_API FNullSlateSoundDevice : public ISlateSoundDevice
-{
-public:
-	virtual void PlaySound(const FSlateSound&, int32) const override
-	{
-	}
-
-	virtual float GetSoundDuration(const FSlateSound& Sound) const override
-	{
-		return 0.0f;
-	}
-
-	virtual ~FNullSlateSoundDevice(){}
-};

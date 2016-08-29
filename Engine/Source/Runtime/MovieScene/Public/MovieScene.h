@@ -86,6 +86,11 @@ class MOVIESCENE_API UMovieScene
 
 public:
 
+	/**~ UObject implementation */
+	virtual void Serialize( FArchive& Ar ) override;
+
+public:
+
 #if WITH_EDITOR
 	/**
 	 * Add a spawnable to this movie scene's list of owned blueprints.
@@ -93,10 +98,10 @@ public:
 	 * These objects are stored as "inners" of the MovieScene.
 	 *
 	 * @param Name Name of the spawnable.
-	 * @param Blueprint	The blueprint to add.
+	 * @param ObjectTemplate The object template to use for the spawnable
 	 * @return Guid of the newly-added spawnable.
 	 */
-	FGuid AddSpawnable(const FString& Name, UBlueprint* Blueprint);
+	FGuid AddSpawnable(const FString& Name, UObject& ObjectTemplate);
 
 	/**
 	 * Removes a spawnable from this movie scene.
@@ -208,6 +213,18 @@ public:
 	UMovieSceneTrack* AddTrack(TSubclassOf<UMovieSceneTrack> TrackClass, const FGuid& ObjectGuid);
 
 	/**
+	* Adds a given track.
+	*
+	* Note: Function will only add if the track is not already exist.
+	*
+	* @param InTrack The track to add.
+	* @param ObjectGuid The runtime object guid that the type should bind to.
+	* @see  FindTrack, RemoveTrack
+	* @return true if the track is successfully added, false otherwise.
+	*/
+	bool AddGivenTrack(UMovieSceneTrack* InTrack, const FGuid& ObjectGuid);
+
+	/**
 	 * Adds a track.
 	 *
 	 * Note: The type should not already exist.
@@ -228,11 +245,11 @@ public:
 	 *
 	 * @param TrackClass The class of the track to find.
 	 * @param ObjectGuid The runtime object guid that the track is bound to.
-	 * @param TrackName The name of the track to differentiate the one we are searching for from other tracks of the same class.
+	 * @param TrackName The name of the track to differentiate the one we are searching for from other tracks of the same class (optional).
 	 * @return The found track or nullptr if one does not exist.
 	 * @see AddTrack, RemoveTrack
 	 */
-	UMovieSceneTrack* FindTrack(TSubclassOf<UMovieSceneTrack> TrackClass, const FGuid& ObjectGuid, const FName& TrackName) const;
+	UMovieSceneTrack* FindTrack(TSubclassOf<UMovieSceneTrack> TrackClass, const FGuid& ObjectGuid, const FName& TrackName = NAME_None) const;
 	
 	/**
 	 * Finds a track.
@@ -382,17 +399,17 @@ public:
 		return ObjectBindings;
 	}
 
-	/** Get the current in/out range. */
-	TRange<float> GetInOutRange() const
+	/** Get the current selection range. */
+	TRange<float> GetSelectionRange() const
 	{
-		return InOutRange;
+		return SelectionRange;
 	}
 
 	/**
 	 * Get the display name of the object with the specified identifier.
 	 *
 	 * @param ObjectId The object identifier.
-	 * @result The object's display name.
+	 * @return The object's display name.
 	 */
 	FText GetObjectDisplayName(const FGuid& ObjectId);
 
@@ -415,17 +432,17 @@ public:
 		return ObjectsToLabels;
 	}
 
-	/** Set the in/out selection range. */
-	void SetInOutRange(TRange<float> Range)
+	/** Set the selection range. */
+	void SetSelectionRange(TRange<float> Range)
 	{
-		InOutRange = Range;
+		SelectionRange = Range;
 	}
 
 	/**
 	 * Get the display name of the object with the specified identifier.
 	 *
 	 * @param ObjectId The object identifier.
-	 * @result The object's display name.
+	 * @return The object's display name.
 	 */
 	void SetObjectDisplayName(const FGuid& ObjectId, const FText& DisplayName);
 
@@ -445,6 +462,36 @@ public:
 	 */
 	void SetPlaybackRange(float Start, float End, bool bAlwaysMarkDirty = true);
 
+	/**
+	 * Gets whether or not playback should be forced to match the fixed frame interval.  When true all time values will be rounded to a fixed
+	 * frame value which will force editor and runtime playback to match exactly, but will result in duplicate frames if the runtime and editor
+	 * frame rates aren't exactly the same.
+	 */
+	bool GetForceFixedFrameIntervalPlayback() const;
+
+	/**
+	* Sets whether or not playback should be forced to match the fixed frame interval.  When true all time values will be rounded to a fixed
+	* frame value which will force editor and runtime playback to match exactly, but will result in duplicate frames if the runtime and editor
+	* frame rates aren't exactly the same.
+	*/
+	void SetForceFixedFrameIntervalPlayback( bool bInForceFixedFrameIntervalPlayback );
+
+	/**
+	* Gets the fixed frame interval to be used when "force fixed frame interval playback" is set.
+	*/
+	float GetFixedFrameInterval() const;
+
+	/**
+	* Gets the fixed frame interval to be used when "force fixed frame interval playback" is set.
+	*/
+	void SetFixedFrameInterval( float InFixedFrameInterval );
+
+	/**
+	 * Calculates a fixed frame time based on a current time, a fixed frame interval, and an internal epsilon to account
+	 * for floating point consistency.
+	 */ 
+	static float CalculateFixedFrameTime( float Time, float FixedFrameInterval );
+
 public:
 	
 #if WITH_EDITORONLY_DATA
@@ -454,6 +501,11 @@ public:
 	FMovieSceneEditorData& GetEditorData()
 	{
 		return EditorData;
+	}
+
+	void SetEditorData(FMovieSceneEditorData& InEditorData)
+	{
+		EditorData = InEditorData;
 	}
 #endif
 
@@ -466,18 +518,28 @@ protected:
 	 */
 	void RemoveBinding(const FGuid& Guid);
 
+#if WITH_EDITOR
+	/** Templated helper for optimizing lists of possessables and spawnables for cook */
+	template<typename T>
+	void OptimizeObjectArray(TArray<T>& ObjectArray);
+#endif
+	
 protected:
 
 	/** Called after this object has been deserialized */
 	virtual void PostLoad() override;
 
 	/** Called before this object is being deserialized. */
-	virtual void PreSave() override;
+	virtual void PreSave(const class ITargetPlatform* TargetPlatform) override;
 
 	/** Perform legacy upgrade of time ranges */
 	void UpgradeTimeRanges();
 
 private:
+
+	// Small value added for fixed frame interval calculations to make up for consistency in
+	// floating point calculations.
+	static const float FixedFrameIntervalEpsilon;
 
 	/**
 	 * Data-only blueprints for all of the objects that we we're able to spawn.
@@ -503,13 +565,19 @@ private:
 	UPROPERTY()
 	UMovieSceneTrack* CameraCutTrack;
 
-	/** User-defined in/out selection range. */
+	/** User-defined selection range. */
 	UPROPERTY()
-	FFloatRange InOutRange;
+	FFloatRange SelectionRange;
 
 	/** User-defined playback range for this movie scene. Must be a finite range. Relative to this movie-scene's 0-time origin. */
 	UPROPERTY()
 	FFloatRange PlaybackRange;
+
+	UPROPERTY()
+	bool bForceFixedFrameIntervalPlayback;
+
+	UPROPERTY()
+	float FixedFrameInterval;
 
 #if WITH_EDITORONLY_DATA
 	/** Maps object GUIDs to user defined display names. */

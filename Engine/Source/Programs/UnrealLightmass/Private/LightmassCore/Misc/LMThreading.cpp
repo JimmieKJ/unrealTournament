@@ -4,7 +4,7 @@
 	LMThreading.cpp: Threading/process functionality
 =============================================================================*/
 
-#include "stdafx.h"
+#include "LightmassPCH.h"
 #include "LMCore.h"
 
 #if PLATFORM_WINDOWS

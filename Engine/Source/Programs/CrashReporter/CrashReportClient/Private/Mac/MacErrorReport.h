@@ -48,5 +48,5 @@ public:
 	 * Look for the most recent Mac Error Report
 	 * @return Full path to the most recent report, or an empty string if none found
 	 */
-	static FString FindMostRecentErrorReport();
+	static void FindMostRecentErrorReports(TArray<FString>& ErrorReportPaths, const FTimespan& MaxCrashReportAge);
 };

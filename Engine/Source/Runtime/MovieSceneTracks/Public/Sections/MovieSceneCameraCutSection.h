@@ -50,6 +50,10 @@ public:
 		ThumbnailReferenceOffset = InNewOffset;
 	}
 
+	// UMovieSceneSection interface
+	virtual TOptional<float> GetKeyTime( FKeyHandle KeyHandle ) const override { return TOptional<float>(); }
+	virtual void SetKeyTime( FKeyHandle KeyHandle, float Time ) override { }
+
 private:
 
 	/** The reference frame offset for single thumbnail rendering */

@@ -63,6 +63,9 @@ public:
 	/** Load profiler data. Global version. */
 	TSharedPtr< FUICommandInfo > ProfilerManager_Load;
 
+	/** Load multiple profiler data. Global version. */
+	TSharedPtr< FUICommandInfo > ProfilerManager_LoadMultiple;
+
 	/** Toggles the real time live preview. Global version. */
 	TSharedPtr< FUICommandInfo > ProfilerManager_ToggleLivePreview;
 
@@ -112,10 +115,12 @@ class FProfilerActionManager
 public:
 	/** Maps UI command info ProfilerManager_Load with the specified UI command list. */
 	void Map_ProfilerManager_Load();
-		
+	void Map_ProfilerManager_LoadMultiple();
+
 protected:
 	/** Handles FExecuteAction for ProfilerManager_Load. */
 	void ProfilerManager_Load_Execute();
+	void ProfilerManager_LoadMultiple_Execute();
 	/** Handles FCanExecuteAction for ProfilerManager_Load. */
 	bool ProfilerManager_Load_CanExecute() const;
 

@@ -53,6 +53,9 @@ protected:
 		return AnalogValues[ static_cast< uint8 >( Stick ) ];
 	}
 
+	/** Set the cached analog stick declinations to 0 */
+	void ClearAnalogValues();
+
 	/** Handles updating the cursor position and processing a Mouse Move Event */
 	void UpdateCursorPosition(FSlateApplication& SlateApp, TSharedRef<ICursor> Cursor, const FVector2D& NewPosition);
 

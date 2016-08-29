@@ -688,10 +688,10 @@ RETRY_SETUPANDVALIDATE:
 
 		static const FString SDKRootEnvFar(TEXT("UE_SDKS_ROOT"));
 		const int32 MaxPathSize = 16384;
-		TCHAR SDKPath[MaxPathSize] = { 0 };
-		FPlatformMisc::GetEnvironmentVariable(*SDKRootEnvFar, SDKPath, MaxPathSize);
+		FString SDKPath = FString::ChrN(16384, TEXT('\0'));
+		FPlatformMisc::GetEnvironmentVariable(*SDKRootEnvFar, SDKPath.GetCharArray().GetData(), MaxPathSize);
 
-		FString TargetSDKRoot = FPaths::Combine(SDKPath, *HostPlatform, *AutoSDKPath);
+		FString TargetSDKRoot = FPaths::Combine(*SDKPath, *HostPlatform, *AutoSDKPath);
 		static const FString SDKInstallManifestFileName(TEXT("CurrentlyInstalled.txt"));
 		FString SDKInstallManifestFilePath = FPaths::Combine(*TargetSDKRoot, *SDKInstallManifestFileName);
 
@@ -793,12 +793,10 @@ RETRY_SETUPANDVALIDATE:
 
 
 			const int32 MaxPathVarLen = 32768;
-			TCHAR OrigPathVarMem[MaxPathVarLen];
-			FPlatformMisc::GetEnvironmentVariable(TEXT("PATH"), OrigPathVarMem, MaxPathVarLen);
+			FString OrigPathVar = FString::ChrN(MaxPathVarLen, TEXT('\0'));
+			FPlatformMisc::GetEnvironmentVariable(TEXT("PATH"), OrigPathVar.GetCharArray().GetData(), MaxPathVarLen);
 
 			// actually perform the PATH stripping / adding.
-			FString OrigPathVar(OrigPathVarMem);
-
 			const TCHAR* PathDelimiter = FPlatformMisc::GetPathVarDelimiter();
 			TArray<FString> PathVars;
 			OrigPathVar.ParseIntoArray(PathVars, PathDelimiter, true);

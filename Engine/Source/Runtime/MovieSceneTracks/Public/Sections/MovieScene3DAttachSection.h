@@ -5,6 +5,11 @@
 #include "MovieScene3DConstraintSection.h"
 #include "MovieScene3DAttachSection.generated.h"
 
+
+class AActor;
+class USceneComponent;
+
+
 /**
  * A 3D Attach section
  */
@@ -19,9 +24,9 @@ public:
 	/**
 	 * Evaluates the attach track
 	 *
-	 * @param Time				The position in time within the movie scene
+	 * @param Time The position in time within the movie scene
 	 */
-	void Eval( USceneComponent* SceneComponent, float Time, AActor* Actor, FVector& OutTranslation, FRotator& OutRotation ) const;
+	void Eval(USceneComponent* SceneComponent, float Time, AActor* Actor, FVector& OutTranslation, FRotator& OutRotation) const;
 
 	/** 
 	 * Adds an attach to the section
@@ -30,8 +35,10 @@ public:
 	 * @param SequenceEndTime   The time at the end of the sequence, by default the attach is set to end at this time
 	 * @param InAttachId The id to the path
 	 */
-	void AddAttach( float Time, float SequenceEndTime, const FGuid& InAttachId);
+	void AddAttach(float Time, float SequenceEndTime, const FGuid& InAttachId);
 	
+public:
+
 	UPROPERTY(EditAnywhere, Category="Attach")
 	FName AttachSocketName;
 

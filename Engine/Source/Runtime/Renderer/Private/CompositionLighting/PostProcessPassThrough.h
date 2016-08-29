@@ -8,6 +8,31 @@
 
 #include "RenderingCompositionGraph.h"
 
+/** Encapsulates a simple copy pixel shader. */
+class FPostProcessPassThroughPS : public FGlobalShader
+{
+	DECLARE_SHADER_TYPE(FPostProcessPassThroughPS, Global);
+
+	static bool ShouldCache(EShaderPlatform Platform)
+	{
+		return IsFeatureLevelSupported(Platform, ERHIFeatureLevel::SM4);
+	}
+
+	/** Default constructor. */
+	FPostProcessPassThroughPS() {}
+
+public:
+	FPostProcessPassParameters PostprocessParameter;
+
+	/** Initialization constructor. */
+	FPostProcessPassThroughPS(const ShaderMetaType::CompiledShaderInitializerType& Initializer);
+
+	// FShader interface.
+	virtual bool Serialize(FArchive& Ar) override;
+
+	void SetParameters(const FRenderingCompositePassContext& Context);
+};
+
 // ePId_Input0: Input image
 // derives from TRenderingCompositePassBase<InputCount, OutputCount> 
 class FRCPassPostProcessPassThrough : public TRenderingCompositePassBase<1, 1>
@@ -24,6 +49,11 @@ public:
 	virtual void Process(FRenderingCompositePassContext& Context) override;
 	virtual void Release() override { delete this; }
 	virtual FPooledRenderTargetDesc ComputeOutputDesc(EPassOutputId InPassOutputId) const override;
+
+protected:
+
+	// Override this function in derived classes to draw custom UI like legends. This is called after the fullscreen copy.
+	virtual void DrawCustom(FRenderingCompositePassContext& Context) {}
 
 private:
 	// 0 if a new intermediate should be created

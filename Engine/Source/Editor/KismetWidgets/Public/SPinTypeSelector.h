@@ -13,7 +13,7 @@ DECLARE_DELEGATE_OneParam(FOnPinTypeChanged, const FEdGraphPinType&)
 typedef TSharedPtr<class UEdGraphSchema_K2::FPinTypeTreeInfo> FPinTypeTreeItem;
 typedef STreeView<FPinTypeTreeItem> SPinTypeTreeView;
 
-DECLARE_DELEGATE_ThreeParams(FGetPinTypeTree, TArray<FPinTypeTreeItem >&, bool, bool);
+DECLARE_DELEGATE_TwoParams(FGetPinTypeTree, TArray<FPinTypeTreeItem >&, ETypeTreeFilter);
 
 struct FObjectReferenceType;
 typedef TSharedPtr<struct FObjectReferenceType> FObjectReferenceListItem;
@@ -25,8 +25,7 @@ public:
 	SLATE_BEGIN_ARGS( SPinTypeSelector )
 		: _TargetPinType()
 		, _Schema(NULL)
-		, _bAllowExec(false)
-		, _bAllowWildcard(false)
+		, _TypeTreeFilter(ETypeTreeFilter::None)
 		, _bAllowArrays(true)
 		, _TreeViewWidth(300.f)
 		, _TreeViewHeight(400.f)
@@ -35,8 +34,7 @@ public:
 		{}
 		SLATE_ATTRIBUTE( FEdGraphPinType, TargetPinType )
 		SLATE_ARGUMENT( const UEdGraphSchema_K2*, Schema )
-		SLATE_ARGUMENT( bool, bAllowExec )
-		SLATE_ARGUMENT( bool, bAllowWildcard )
+		SLATE_ARGUMENT( ETypeTreeFilter, TypeTreeFilter )
 		SLATE_ARGUMENT( bool, bAllowArrays )
 		SLATE_ATTRIBUTE( FOptionalSize, TreeViewWidth )
 		SLATE_ATTRIBUTE( FOptionalSize, TreeViewHeight )
@@ -81,11 +79,8 @@ protected:
 	/** Schema in charge of determining available types for this pin */
 	UEdGraphSchema_K2*			Schema;
 
-	/** Whether or not to allow exec type wires in the type selection */
-	bool						bAllowExec;
-
-	/** Whether or not to allow wildcard as an option in the type selection */
-	bool						bAllowWildcard;
+	/** UEdgraphSchema::ETypeTreeFilter flags for filtering available types*/
+	ETypeTreeFilter				TypeTreeFilter;
 
 	/** Desired width of the tree view widget */
 	TAttribute<FOptionalSize>	TreeViewWidth;

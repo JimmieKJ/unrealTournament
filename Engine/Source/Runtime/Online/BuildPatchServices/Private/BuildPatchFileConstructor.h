@@ -194,4 +194,10 @@ private:
 	 * @return true if no errors were detected
 	 */
 	bool InsertChunkData(const FChunkPartData& ChunkPart, FArchive& DestinationFile, FSHA1& HashState);
+
+	/**
+	 * Delete all contents of a directory
+	 * @param RootDirectory	 	Directory to make empty
+	 */
+	void DeleteDirectoryContents(const FString& RootDirectory);
 };

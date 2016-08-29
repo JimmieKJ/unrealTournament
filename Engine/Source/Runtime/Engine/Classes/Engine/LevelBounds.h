@@ -63,6 +63,7 @@ class ALevelBounds
 private:
 	/** FTickableGameObject interface */
 	virtual void Tick(float DeltaTime) override;
+	virtual UWorld* GetTickableGameObjectWorld() const override { return GetWorld(); }
 	virtual TStatId GetStatId() const override;
 	virtual bool IsTickable() const override;
 	virtual bool IsTickableInEditor() const override;

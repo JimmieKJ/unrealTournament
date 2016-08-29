@@ -1,7 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
-#include "Runtime/Online/OnlineSubsystemUtils/Public/PartyBeaconHost.h"
+#include "PartyBeaconHost.h"
 
 /** Types of matchmaking searches possible */
 namespace EMatchmakingSearchType

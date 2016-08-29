@@ -3,6 +3,7 @@
 #include "Core.h"
 #include "CoreUObject.h"
 #include "Engine.h"
+#include "HierarchicalLODUtilitiesModule.h"
 
 
 // You should place include statements to your module's private header files here.  You only need to

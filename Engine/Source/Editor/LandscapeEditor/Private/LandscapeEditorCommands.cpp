@@ -4,7 +4,7 @@
 #include "LandscapeEditorPrivatePCH.h"
 #include "LandscapeEditorCommands.h"
 
-#define LOCTEXT_NAMESPACE ""
+#define LOCTEXT_NAMESPACE "LandscapeEditorCommands"
 
 void FLandscapeEditorCommands::RegisterCommands()
 {

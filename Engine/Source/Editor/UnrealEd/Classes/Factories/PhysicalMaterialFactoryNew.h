@@ -7,16 +7,16 @@
 #pragma once
 #include "PhysicalMaterialFactoryNew.generated.h"
 
-UCLASS(hidecategories=Object)
+UCLASS(MinimalAPI, HideCategories=Object)
 class UPhysicalMaterialFactoryNew : public UFactory
 {
 	GENERATED_UCLASS_BODY()
 
+	UPROPERTY(EditAnywhere, Category = PhysicalMaterialFactory)
+	TSubclassOf<UPhysicalMaterial> PhysicalMaterialClass;
 
 	//~ Begin UFactory Interface
+	virtual bool ConfigureProperties() override;
 	virtual UObject* FactoryCreateNew(UClass* Class,UObject* InParent,FName Name,EObjectFlags Flags,UObject* Context,FFeedbackContext* Warn) override;
 	//~ Begin UFactory Interface	
 };
-
-
-

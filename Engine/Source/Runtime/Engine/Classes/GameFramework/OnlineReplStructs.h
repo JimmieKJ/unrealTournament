@@ -5,12 +5,10 @@
 //
 
 #pragma once
-#include "Runtime/Online/OnlineSubsystem/Public/OnlineSubsystemTypes.h"
-#include "Runtime/Online/OnlineSubsystem/Public/UniqueNetIdWrapper.h"
+#include "CoreOnline.h"
 #include "OnlineReplStructs.generated.h"
 
 class FJsonValue;
-class FUniqueNetId;
 
 /**
  * Wrapper for opaque type FUniqueNetId
@@ -18,7 +16,7 @@ class FUniqueNetId;
  * Makes sure that the opaque aspects of FUniqueNetId are properly handled/serialized 
  * over network RPC and actor replication
  */
-USTRUCT()
+USTRUCT(BlueprintType)
 struct FUniqueNetIdRepl
 {
 	GENERATED_USTRUCT_BODY()
@@ -27,10 +25,10 @@ struct FUniqueNetIdRepl
 	{
 	}
 
-	FUniqueNetIdRepl(const FUniqueNetIdWrapper& InWrapper)
-	: UniqueNetId(InWrapper.GetUniqueNetId())
-	{
-	}
+ 	FUniqueNetIdRepl(const FUniqueNetIdWrapper& InWrapper)
+ 	: UniqueNetId(InWrapper.GetUniqueNetId())
+ 	{
+ 	}
 
 	FUniqueNetIdRepl(const TSharedRef<const FUniqueNetId>& InUniqueNetId) :
 		UniqueNetId(InUniqueNetId)
@@ -91,6 +89,12 @@ struct FUniqueNetIdRepl
 		return IsValid() ? UniqueNetId->ToString() : TEXT("INVALID");
 	}
 
+	/** Convert this value to a string with additional information */
+	virtual FString ToDebugString() const 
+	{
+		return IsValid() ? UniqueNetId->ToDebugString() : TEXT("INVALID");
+	}
+
 	/** Convert this unique id to a json value */
 	TSharedRef<FJsonValue> ToJson() const;
 	/** Create a unique id from a json string */
@@ -137,10 +141,10 @@ struct FUniqueNetIdRepl
 	/**
 	 * implicit cast operator to FUniqueNetIdWrapper
 	 */
-	FORCEINLINE operator FUniqueNetIdWrapper() const
-	{
-		return FUniqueNetIdWrapper(UniqueNetId);
-	}
+ 	FORCEINLINE operator FUniqueNetIdWrapper() const
+ 	{
+ 		return FUniqueNetIdWrapper(UniqueNetId);
+ 	}
 
 	friend inline uint32 GetTypeHash(FUniqueNetIdRepl const& Value)
 	{

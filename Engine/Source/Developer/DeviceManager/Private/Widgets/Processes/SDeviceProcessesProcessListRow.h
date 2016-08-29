@@ -46,7 +46,7 @@ public:
 	{
 		if (ColumnName == TEXT("Name"))
 		{
-			TSharedRef<SWidget> Content = SNew(SBox)
+			TSharedRef<SWidget> ColumnContent = SNew(SBox)
 				.Padding(FMargin(4.0f, 0.0f))
 				.VAlign(VAlign_Center)
 				[
@@ -69,12 +69,12 @@ public:
 					+ SHorizontalBox::Slot()
 						.AutoWidth()
 						[
-							Content
+							ColumnContent
 						];
 			}
 			else
 			{
-				return Content;
+				return ColumnContent;
 			}
 		}
 		else if (ColumnName == TEXT("Parent"))

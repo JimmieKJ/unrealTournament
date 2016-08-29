@@ -20,6 +20,8 @@ void SBox::Construct( const FArguments& InArgs )
 	MaxDesiredWidth = InArgs._MaxDesiredWidth;
 	MaxDesiredHeight = InArgs._MaxDesiredHeight;
 
+	MaxAspectRatio = InArgs._MaxAspectRatio;
+
 	ChildSlot
 		.HAlign( InArgs._HAlign )
 		.VAlign( InArgs._VAlign )
@@ -82,6 +84,11 @@ void SBox::SetMaxDesiredHeight(TAttribute<FOptionalSize> InMaxDesiredHeight)
 	MaxDesiredHeight = InMaxDesiredHeight;
 }
 
+void SBox::SetMaxAspectRatio(TAttribute<FOptionalSize> InMaxAspectRatio)
+{
+	MaxAspectRatio = InMaxAspectRatio;
+}
+
 FVector2D SBox::ComputeDesiredSize( float ) const
 {
 	EVisibility ChildVisibility = ChildSlot.GetWidget()->GetVisibility();
@@ -98,6 +105,7 @@ FVector2D SBox::ComputeDesiredSize( float ) const
 		const FOptionalSize CurrentMaxDesiredHeight = MaxDesiredHeight.Get();
 
 		float CurrentWidth = UnmodifiedChildDesiredSize.X;
+		float CurrentHeight = UnmodifiedChildDesiredSize.Y;
 
 		if ( CurrentMinDesiredWidth.IsSet() )
 		{
@@ -108,8 +116,6 @@ FVector2D SBox::ComputeDesiredSize( float ) const
 		{
 			CurrentWidth = FMath::Min(CurrentWidth, CurrentMaxDesiredWidth.Get());
 		}
-
-		float CurrentHeight = UnmodifiedChildDesiredSize.Y;
 
 		if ( CurrentMinDesiredHeight.IsSet() )
 		{
@@ -135,15 +141,73 @@ void SBox::OnArrangeChildren( const FGeometry& AllottedGeometry, FArrangedChildr
 	const EVisibility& MyCurrentVisibility = this->GetVisibility();
 	if ( ArrangedChildren.Accepts( MyCurrentVisibility ) )
 	{
+		const FOptionalSize CurrentMaxAspectRatio = MaxAspectRatio.Get();
 		const FMargin SlotPadding(ChildSlot.SlotPadding.Get());
-		AlignmentArrangeResult XAlignmentResult = AlignChild<Orient_Horizontal>( AllottedGeometry.Size.X, ChildSlot, SlotPadding );
-		AlignmentArrangeResult YAlignmentResult = AlignChild<Orient_Vertical>( AllottedGeometry.Size.Y, ChildSlot, SlotPadding );
+		bool bAlignChildren = true;
+
+		AlignmentArrangeResult XAlignmentResult(0, 0);
+		AlignmentArrangeResult YAlignmentResult(0, 0);
+
+		if ( CurrentMaxAspectRatio.IsSet() )
+		{
+			float CurrentWidth = FMath::Min(AllottedGeometry.Size.X, ChildSlot.GetWidget()->GetDesiredSize().X);
+			float CurrentHeight = FMath::Min(AllottedGeometry.Size.Y, ChildSlot.GetWidget()->GetDesiredSize().Y);
+
+			float AspectRatioWidth = CurrentMaxAspectRatio.Get();
+			if ( AspectRatioWidth != 0 && CurrentHeight > 0 && CurrentWidth > 0 )
+			{
+				const float AspectRatioHeight = 1.0f / AspectRatioWidth;
+
+				const float CurrentRatioWidth = ( AllottedGeometry.Size.X / AllottedGeometry.Size.Y );
+				const float CurrentRatioHeight = 1.0f / CurrentRatioWidth;
+
+				if ( CurrentRatioWidth > AspectRatioWidth /*|| CurrentRatioHeight > AspectRatioHeight*/ )
+				{
+					XAlignmentResult = AlignChild<Orient_Horizontal>(AllottedGeometry.Size.X, ChildSlot, SlotPadding);
+					YAlignmentResult = AlignChild<Orient_Vertical>(AllottedGeometry.Size.Y, ChildSlot, SlotPadding);
+
+					float NewWidth = AspectRatioWidth * XAlignmentResult.Size;
+					float NewHeight = AspectRatioHeight * NewWidth;
+
+					const float MaxWidth = AllottedGeometry.Size.X - SlotPadding.GetTotalSpaceAlong<Orient_Horizontal>();
+					const float MaxHeight = AllottedGeometry.Size.Y - SlotPadding.GetTotalSpaceAlong<Orient_Vertical>();
+
+					if ( NewWidth > MaxWidth )
+					{
+						float Scale = MaxWidth / NewWidth;
+						NewWidth *= Scale;
+						NewHeight *= Scale;
+					}
+
+					if ( NewHeight > MaxHeight )
+					{
+						float Scale = MaxHeight / NewHeight;
+						NewWidth *= Scale;
+						NewHeight *= Scale;
+					}
+
+					XAlignmentResult.Size = NewWidth;
+					YAlignmentResult.Size = NewHeight;
+
+					bAlignChildren = false;
+				}
+			}
+		}
+
+		if ( bAlignChildren )
+		{
+			XAlignmentResult = AlignChild<Orient_Horizontal>(AllottedGeometry.Size.X, ChildSlot, SlotPadding);
+			YAlignmentResult = AlignChild<Orient_Vertical>(AllottedGeometry.Size.Y, ChildSlot, SlotPadding);
+		}
+
+		const float AlignedSizeX = XAlignmentResult.Size;
+		const float AlignedSizeY = YAlignmentResult.Size;
 
 		ArrangedChildren.AddWidget(
 			AllottedGeometry.MakeChild(
 				ChildSlot.GetWidget(),
 				FVector2D(XAlignmentResult.Offset, YAlignmentResult.Offset),
-				FVector2D(XAlignmentResult.Size, YAlignmentResult.Size)
+				FVector2D(AlignedSizeX, AlignedSizeY)
 			)
 		);
 	}

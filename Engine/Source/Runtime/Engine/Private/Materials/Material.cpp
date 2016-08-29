@@ -33,6 +33,8 @@
 #include "ShaderCompiler.h"
 #include "Materials/MaterialParameterCollection.h"
 #include "MaterialShaderQualitySettings.h"
+#include "LoadTimeTracker.h"
+#include "RenderingObjectVersion.h"
 #if WITH_EDITOR
 #include "MessageLog.h"
 #include "UObjectToken.h"
@@ -230,13 +232,13 @@ public:
 			static FName NameSubsurfaceProfile(TEXT("__SubsurfaceProfile"));
 			if (ParameterName == NameSubsurfaceProfile)
 			{
-				const USubsurfaceProfile* SubsurfaceProfileRT = GetSubsurfaceProfileRT();
+				const USubsurfaceProfile* MySubsurfaceProfileRT = GetSubsurfaceProfileRT();
 
 				int32 AllocationId = 0;
-				if(SubsurfaceProfileRT)
+				if(MySubsurfaceProfileRT)
 				{
 					// can be optimized (cached)
-					AllocationId = GSubsurfaceProfileTextureObject.FindAllocationId(SubsurfaceProfileRT);
+					AllocationId = GSubsurfaceProfileTextureObject.FindAllocationId(MySubsurfaceProfileRT);
 				}
 				else
 				{
@@ -413,8 +415,10 @@ static TAutoConsoleVariable<int32> CVarDiscardUnusedQualityLevels(
 	TEXT("1: Discard unused quality levels on load."),
 	ECVF_ReadOnly);
 
-void SerializeInlineShaderMaps(const TMap<const ITargetPlatform*, TArray<FMaterialResource*>>* PlatformMaterialResourcesToSavePtr, FArchive& Ar, FMaterialResource* (&OutMaterialResourcesLoaded)[EMaterialQualityLevel::Num][ERHIFeatureLevel::Num])
+void SerializeInlineShaderMaps(const TMap<const ITargetPlatform*, TArray<FMaterialResource*>>* PlatformMaterialResourcesToSavePtr, FArchive& Ar, TArray<FMaterialResource>& OutLoadedResources)
 {
+	SCOPED_LOADTIMER(SerializeInlineShaderMaps);
+
 	if (Ar.IsSaving())
 	{
 		int32 NumResourcesToSave = 0;
@@ -449,26 +453,88 @@ void SerializeInlineShaderMaps(const TMap<const ITargetPlatform*, TArray<FMateri
 		int32 NumLoadedResources = 0;
 		Ar << NumLoadedResources;
 
-		TArray<FMaterialResource> LoadedResources;
-		LoadedResources.Empty(NumLoadedResources);
+		OutLoadedResources.Empty(NumLoadedResources);
 
 		for (int32 ResourceIndex = 0; ResourceIndex < NumLoadedResources; ResourceIndex++)
 		{
 			FMaterialResource LoadedResource;
 			LoadedResource.SerializeInlineShaderMap(Ar);
-			LoadedResources.Add(LoadedResource);
+			OutLoadedResources.Add(LoadedResource);
 		}
+	}
+}
 
-		if (CVarDiscardUnusedQualityLevels.GetValueOnAnyThread())
+void ProcessSerializedInlineShaderMaps(UMaterialInterface* Owner, TArray<FMaterialResource>& LoadedResources, FMaterialResource* (&OutMaterialResourcesLoaded)[EMaterialQualityLevel::Num][ERHIFeatureLevel::Num])
+{
+	check(IsInGameThread());
+
+	UMaterial* OwnerMaterial = Cast<UMaterial>(Owner);
+	UMaterialInstance* OwnerMaterialInstance = Cast<UMaterialInstance>(Owner);
+
+	for (FMaterialResource& Resource : LoadedResources)
+	{
+		Resource.RegisterInlineShaderMap();
+	}
+
+	if (CVarDiscardUnusedQualityLevels.GetValueOnAnyThread())
+	{
+		// Map EMaterialQualityLevel to a score.
+		// Higher quality levels are of increasing weight such that lower quality is preferred when neighbouring hi/lo QLs exist.
+		static const int32 QualityScores[EMaterialQualityLevel::Num + 1] = { 0, 3, 1, 10 };
+
+		int32 DesiredQL = (int32)GetCachedScalabilityCVars().MaterialQualityLevel;
+		check(DesiredQL < EMaterialQualityLevel::Num);
+		const int32 DesiredScore = QualityScores[DesiredQL];
+
+		for (int32 ResourceIndex = 0; ResourceIndex < LoadedResources.Num(); ResourceIndex++)
 		{
-			// Map EMaterialQualityLevel to a score.
-			// Higher quality levels are of increasing weight such that lower quality is preferred when neighbouring hi/lo QLs exist.
-			static const int32 QualityScores[EMaterialQualityLevel::Num + 1] = { 0, 3, 1, 10 };
+			FMaterialResource& LoadedResource = LoadedResources[ResourceIndex];
+			FMaterialShaderMap* LoadedShaderMap = LoadedResource.GetGameThreadShaderMap();
 
-			int32 DesiredQL = (int32)GetCachedScalabilityCVars().MaterialQualityLevel;
-			check(DesiredQL < EMaterialQualityLevel::Num);
-			const int32 DesiredScore = QualityScores[DesiredQL];
+			if (LoadedShaderMap && LoadedShaderMap->GetShaderPlatform() == GMaxRHIShaderPlatform)
+			{
+				EMaterialQualityLevel::Type LoadedQualityLevel = LoadedShaderMap->GetShaderMapId().QualityLevel;
+				LoadedQualityLevel = LoadedQualityLevel == EMaterialQualityLevel::Num ? EMaterialQualityLevel::High : LoadedQualityLevel;
+				ERHIFeatureLevel::Type LoadedFeatureLevel = LoadedShaderMap->GetShaderMapId().FeatureLevel;
 
+				// find current QL:
+				int32 CurrentQL = (int32)EMaterialQualityLevel::Num;
+				for (int32 i = 0; i < EMaterialQualityLevel::Num; i++)
+				{
+					FMaterialResource* MaterialResource = OutMaterialResourcesLoaded[i][LoadedFeatureLevel];
+					if (MaterialResource != nullptr && MaterialResource->GetGameThreadShaderMap() != nullptr)
+					{
+						int32 FoundQL = MaterialResource->GetGameThreadShaderMap()->GetShaderMapId().QualityLevel;
+						CurrentQL = FoundQL == EMaterialQualityLevel::Num ? EMaterialQualityLevel::High : FoundQL;
+					}
+				}
+
+				// Determine if this is a better match than our current shader map.
+				const int32 CurrentScore = FMath::Abs(QualityScores[CurrentQL] - DesiredScore);
+				const int32 PotentialScore = FMath::Abs(QualityScores[LoadedQualityLevel] - DesiredScore);
+				if (PotentialScore < CurrentScore)
+				{
+					// replace existing shadermap with loadedshadermap.
+					for (int32 QualityLevelIndex = 0; QualityLevelIndex < EMaterialQualityLevel::Num; QualityLevelIndex++)
+					{
+						if (!OutMaterialResourcesLoaded[QualityLevelIndex][LoadedFeatureLevel])
+						{
+							OutMaterialResourcesLoaded[QualityLevelIndex][LoadedFeatureLevel] =
+								OwnerMaterialInstance ? OwnerMaterialInstance->AllocatePermutationResource() : OwnerMaterial->AllocateResource();
+						}
+						OutMaterialResourcesLoaded[QualityLevelIndex][LoadedFeatureLevel]->ReleaseShaderMap();
+						OutMaterialResourcesLoaded[QualityLevelIndex][LoadedFeatureLevel]->SetInlineShaderMap(LoadedShaderMap);
+					}
+				}
+			}
+		}
+	}
+	else
+	{
+		// Apply in 2 passes - first pass is for shader maps without a specified quality level
+		// Second pass is where shader maps with a specified quality level override
+		for (int32 PassIndex = 0; PassIndex < 2; PassIndex++)
+		{
 			for (int32 ResourceIndex = 0; ResourceIndex < LoadedResources.Num(); ResourceIndex++)
 			{
 				FMaterialResource& LoadedResource = LoadedResources[ResourceIndex];
@@ -477,69 +543,21 @@ void SerializeInlineShaderMaps(const TMap<const ITargetPlatform*, TArray<FMateri
 				if (LoadedShaderMap && LoadedShaderMap->GetShaderPlatform() == GMaxRHIShaderPlatform)
 				{
 					EMaterialQualityLevel::Type LoadedQualityLevel = LoadedShaderMap->GetShaderMapId().QualityLevel;
-					LoadedQualityLevel = LoadedQualityLevel == EMaterialQualityLevel::Num ? EMaterialQualityLevel::High : LoadedQualityLevel;
 					ERHIFeatureLevel::Type LoadedFeatureLevel = LoadedShaderMap->GetShaderMapId().FeatureLevel;
-
-					// find current QL:
-					int32 CurrentQL = (int32)EMaterialQualityLevel::Num;
-					for (int32 i = 0; i < EMaterialQualityLevel::Num; i++)
+					for (int32 QualityLevelIndex = 0; QualityLevelIndex < EMaterialQualityLevel::Num; QualityLevelIndex++)
 					{
-						FMaterialResource* MaterialResource = OutMaterialResourcesLoaded[i][LoadedFeatureLevel];
-						if (MaterialResource != nullptr && MaterialResource->GetGameThreadShaderMap() != nullptr)
-						{
-							int32 FoundQL = MaterialResource->GetGameThreadShaderMap()->GetShaderMapId().QualityLevel;
-							CurrentQL = FoundQL == EMaterialQualityLevel::Num ? EMaterialQualityLevel::High : FoundQL;
-						}
-					}
-
-					// Determine if this is a better match than our current shader map.
-					const int32 CurrentScore = FMath::Abs(QualityScores[CurrentQL] - DesiredScore);
-					const int32 PotentialScore = FMath::Abs(QualityScores[LoadedQualityLevel] - DesiredScore);
-					if (PotentialScore < CurrentScore)
-					{
-						// replace existing shadermap with loadedshadermap.
-						for (int32 QualityLevelIndex = 0; QualityLevelIndex < EMaterialQualityLevel::Num; QualityLevelIndex++)
+						// Apply to all resources in the first pass if the shader map does not have a quality level specified
+						if ((PassIndex == 0 && LoadedQualityLevel == EMaterialQualityLevel::Num)
+							// Apply to just the corresponding resource in the second pass if the shader map has a quality level specified
+							|| (PassIndex == 1 && QualityLevelIndex == LoadedQualityLevel))
 						{
 							if (!OutMaterialResourcesLoaded[QualityLevelIndex][LoadedFeatureLevel])
 							{
-								OutMaterialResourcesLoaded[QualityLevelIndex][LoadedFeatureLevel] = new FMaterialResource();
+								OutMaterialResourcesLoaded[QualityLevelIndex][LoadedFeatureLevel] =
+									OwnerMaterialInstance ? OwnerMaterialInstance->AllocatePermutationResource() : OwnerMaterial->AllocateResource();
 							}
-							OutMaterialResourcesLoaded[QualityLevelIndex][LoadedFeatureLevel]->ReleaseShaderMap();
+
 							OutMaterialResourcesLoaded[QualityLevelIndex][LoadedFeatureLevel]->SetInlineShaderMap(LoadedShaderMap);
-						}
-					}
-				}
-			}
-		}
-		else
-		{
-			// Apply in 2 passes - first pass is for shader maps without a specified quality level
-			// Second pass is where shader maps with a specified quality level override
-			for (int32 PassIndex = 0; PassIndex < 2; PassIndex++)
-			{
-				for (int32 ResourceIndex = 0; ResourceIndex < LoadedResources.Num(); ResourceIndex++)
-				{
-					FMaterialResource& LoadedResource = LoadedResources[ResourceIndex];
-					FMaterialShaderMap* LoadedShaderMap = LoadedResource.GetGameThreadShaderMap();
-
-					if (LoadedShaderMap && LoadedShaderMap->GetShaderPlatform() == GMaxRHIShaderPlatform)
-					{
-						EMaterialQualityLevel::Type LoadedQualityLevel = LoadedShaderMap->GetShaderMapId().QualityLevel;
-						ERHIFeatureLevel::Type LoadedFeatureLevel = LoadedShaderMap->GetShaderMapId().FeatureLevel;
-						for (int32 QualityLevelIndex = 0; QualityLevelIndex < EMaterialQualityLevel::Num; QualityLevelIndex++)
-						{
-							// Apply to all resources in the first pass if the shader map does not have a quality level specified
-							if ((PassIndex == 0 && LoadedQualityLevel == EMaterialQualityLevel::Num)
-								// Apply to just the corresponding resource in the second pass if the shader map has a quality level specified
-								|| (PassIndex == 1 && QualityLevelIndex == LoadedQualityLevel))
-							{
-								if (!OutMaterialResourcesLoaded[QualityLevelIndex][LoadedFeatureLevel])
-								{
-									OutMaterialResourcesLoaded[QualityLevelIndex][LoadedFeatureLevel] = new FMaterialResource();
-								}
-
-								OutMaterialResourcesLoaded[QualityLevelIndex][LoadedFeatureLevel]->SetInlineShaderMap(LoadedShaderMap);
-							}
 						}
 					}
 				}
@@ -622,9 +640,9 @@ UMaterial::UMaterial(const FObjectInitializer& ObjectInitializer)
 #endif //WITH_EDITORONLY_DATA
 }
 
-void UMaterial::PreSave()
+void UMaterial::PreSave(const class ITargetPlatform* TargetPlatform)
 {
-	Super::PreSave();
+	Super::PreSave(TargetPlatform);
 #if WITH_EDITOR
 	GMaterialsWithDirtyUsageFlags.RemoveAnnotation(this);
 #endif
@@ -694,6 +712,50 @@ void UMaterial::GetUsedTextures(TArray<UTexture*>& OutTextures, EMaterialQuality
 						{
 							OutTextures.AddUnique(Texture);
 						}
+					}
+				}
+			}
+		}
+	}
+}
+
+void UMaterial::GetUsedTexturesAndIndices(TArray<UTexture*>& OutTextures, TArray< TArray<int32> >& OutIndices, EMaterialQualityLevel::Type QualityLevel, ERHIFeatureLevel::Type FeatureLevel) const
+{
+	OutTextures.Empty();
+	OutIndices.Empty();
+
+	if (!FPlatformProperties::IsServerOnly())
+	{
+		const FMaterialResource* CurrentResource = MaterialResources[QualityLevel][FeatureLevel];
+
+		if (CurrentResource)
+		{
+			const TArray<TRefCountPtr<FMaterialUniformExpressionTexture> >* ExpressionsByType[2] =
+			{
+				&CurrentResource->GetUniform2DTextureExpressions(),
+				&CurrentResource->GetUniformCubeTextureExpressions()
+			};
+
+			// Try to prevent resizing since this would be expensive.
+			OutIndices.Empty(ExpressionsByType[0]->Num() + ExpressionsByType[1]->Num());
+
+			for (int32 TypeIndex = 0; TypeIndex < ARRAY_COUNT(ExpressionsByType); TypeIndex++)
+			{
+				// Iterate over each of the material's texture expressions.
+				for (FMaterialUniformExpressionTexture* Expression : *ExpressionsByType[TypeIndex])
+				{
+					const bool bAllowOverride = false;
+					UTexture* Texture = NULL;
+					Expression->GetGameThreadTextureValue(this, *CurrentResource, Texture, bAllowOverride);
+
+					if (Texture)
+					{
+						int32 InsertIndex = OutTextures.AddUnique(Texture);
+						if (InsertIndex >= OutIndices.Num())
+						{
+							OutIndices.AddDefaulted(InsertIndex - OutIndices.Num() + 1);
+						}
+						OutIndices[InsertIndex].Add(Expression->GetTextureIndex());
 					}
 				}
 			}
@@ -887,7 +949,6 @@ bool UMaterial::GetUsageByFlag(EMaterialUsage Usage) const
 	switch(Usage)
 	{
 		case MATUSAGE_SkeletalMesh: UsageValue = bUsedWithSkeletalMesh; break;
-		case MATUSAGE_Landscape: UsageValue = bUsedWithLandscape; break;
 		case MATUSAGE_ParticleSprites: UsageValue = bUsedWithParticleSprites; break;
 		case MATUSAGE_BeamTrails: UsageValue = bUsedWithBeamTrails; break;
 		case MATUSAGE_MeshParticles: UsageValue = bUsedWithMeshParticles; break;
@@ -942,10 +1003,6 @@ void UMaterial::SetUsageByFlag(EMaterialUsage Usage, bool NewValue)
 		{
 			bUsedWithSkeletalMesh = NewValue; break;
 		}
-		case MATUSAGE_Landscape: 
-		{
-			bUsedWithLandscape = NewValue; break;
-		}
 		case MATUSAGE_ParticleSprites:
 		{
 			bUsedWithParticleSprites = NewValue; break;
@@ -955,7 +1012,7 @@ void UMaterial::SetUsageByFlag(EMaterialUsage Usage, bool NewValue)
 			bUsedWithBeamTrails = NewValue; break;
 		}
 		case MATUSAGE_MeshParticles:
-		{	
+		{
 			bUsedWithMeshParticles = NewValue; break;
 		}
 		case MATUSAGE_StaticLighting:
@@ -992,7 +1049,6 @@ FString UMaterial::GetUsageName(EMaterialUsage Usage) const
 	switch(Usage)
 	{
 		case MATUSAGE_SkeletalMesh: UsageName = TEXT("bUsedWithSkeletalMesh"); break;
-		case MATUSAGE_Landscape: UsageName = TEXT("bUsedWithLandscape"); break;
 		case MATUSAGE_ParticleSprites: UsageName = TEXT("bUsedWithParticleSprites"); break;
 		case MATUSAGE_BeamTrails: UsageName = TEXT("bUsedWithBeamTrails"); break;
 		case MATUSAGE_MeshParticles: UsageName = TEXT("bUsedWithMeshParticles"); break;
@@ -1078,8 +1134,8 @@ static bool IsPrimitiveTypeUsageFlag(EMaterialUsage Usage)
 bool UMaterial::NeedsSetMaterialUsage_Concurrent(bool &bOutHasUsage, EMaterialUsage Usage) const
 {
 	bOutHasUsage = true;
-	// Material usage is only relevant for surface materials.
-	if (MaterialDomain != MD_Surface)
+	// Material usage is only relevant for materials that can be applied onto a mesh / use with different vertex factories.
+	if (MaterialDomain != MD_Surface && MaterialDomain != MD_DeferredDecal)
 	{
 		bOutHasUsage = false;
 		return false;
@@ -1108,8 +1164,8 @@ bool UMaterial::SetMaterialUsage(bool &bNeedsRecompile, EMaterialUsage Usage, co
 {
 	bNeedsRecompile = false;
 
-	// Material usage is only relevant for surface materials.
-	if (MaterialDomain != MD_Surface)
+	// Material usage is only relevant for materials that can be applied onto a mesh / use with different vertex factories.
+	if (MaterialDomain != MD_Surface && MaterialDomain != MD_DeferredDecal)
 	{
 		return false;
 	}
@@ -2128,6 +2184,10 @@ const FMaterialResource* UMaterial::GetMaterialResource(ERHIFeatureLevel::Type I
 
 void UMaterial::Serialize(FArchive& Ar)
 {
+	SCOPED_LOADTIMER(MaterialSerializeTime);
+
+	Ar.UsingCustomVersion(FRenderingObjectVersion::GUID);
+
 	Super::Serialize(Ar);
 
 	if (FPlatformProperties::RequiresCookedData() && Ar.IsLoading())
@@ -2138,9 +2198,9 @@ void UMaterial::Serialize(FArchive& Ar)
 	if (Ar.UE4Ver() >= VER_UE4_PURGED_FMATERIAL_COMPILE_OUTPUTS)
 	{
 #if WITH_EDITOR
-		SerializeInlineShaderMaps( &CachedMaterialResourcesForCooking, Ar, MaterialResources );
+		SerializeInlineShaderMaps(&CachedMaterialResourcesForCooking, Ar, LoadedMaterialResources);
 #else
-		SerializeInlineShaderMaps( NULL, Ar, MaterialResources );
+		SerializeInlineShaderMaps(NULL, Ar, LoadedMaterialResources);
 #endif
 	}
 	else
@@ -2171,35 +2231,6 @@ void UMaterial::Serialize(FArchive& Ar)
 	}
 #endif // #if WITH_EDITOR
 
-#if WITH_EDITORONLY_DATA
-	DoMaterialAttributeReorder(&DiffuseColor_DEPRECATED,Ar.UE4Ver());
-	DoMaterialAttributeReorder(&SpecularColor_DEPRECATED,Ar.UE4Ver());
-	DoMaterialAttributeReorder(&BaseColor,				Ar.UE4Ver());
-	DoMaterialAttributeReorder(&Metallic,				Ar.UE4Ver());
-	DoMaterialAttributeReorder(&Specular,				Ar.UE4Ver());
-	DoMaterialAttributeReorder(&Roughness,				Ar.UE4Ver());
-	DoMaterialAttributeReorder(&Normal,					Ar.UE4Ver());
-	DoMaterialAttributeReorder(&EmissiveColor,			Ar.UE4Ver());
-	DoMaterialAttributeReorder(&Opacity,				Ar.UE4Ver());
-	DoMaterialAttributeReorder(&OpacityMask,			Ar.UE4Ver());
-	DoMaterialAttributeReorder(&WorldPositionOffset,	Ar.UE4Ver());
-	DoMaterialAttributeReorder(&WorldDisplacement,		Ar.UE4Ver());
-	DoMaterialAttributeReorder(&TessellationMultiplier,	Ar.UE4Ver());
-	DoMaterialAttributeReorder(&SubsurfaceColor,		Ar.UE4Ver());
-	DoMaterialAttributeReorder(&ClearCoat,				Ar.UE4Ver());
-	DoMaterialAttributeReorder(&ClearCoatRoughness,		Ar.UE4Ver());
-	DoMaterialAttributeReorder(&AmbientOcclusion,		Ar.UE4Ver());
-	DoMaterialAttributeReorder(&Refraction,				Ar.UE4Ver());
-	DoMaterialAttributeReorder(&CustomizedUVs[0],		Ar.UE4Ver());
-	DoMaterialAttributeReorder(&CustomizedUVs[1],		Ar.UE4Ver());
-	DoMaterialAttributeReorder(&CustomizedUVs[2],		Ar.UE4Ver());
-	DoMaterialAttributeReorder(&CustomizedUVs[3],		Ar.UE4Ver());
-	DoMaterialAttributeReorder(&CustomizedUVs[4],		Ar.UE4Ver());
-	DoMaterialAttributeReorder(&CustomizedUVs[5],		Ar.UE4Ver());
-	DoMaterialAttributeReorder(&CustomizedUVs[6],		Ar.UE4Ver());
-	DoMaterialAttributeReorder(&CustomizedUVs[7],		Ar.UE4Ver());
-	DoMaterialAttributeReorder(&PixelDepthOffset,		Ar.UE4Ver());
-#endif // WITH_EDITORONLY_DATA
 	static_assert(MP_MAX == 28, "New material properties must have DoMaterialAttributesReorder called on them to ensure that any future reordering of property pins is correctly applied.");
 
 	if (Ar.UE4Ver() < VER_UE4_MATERIAL_MASKED_BLENDMODE_TIDY)
@@ -2213,6 +2244,14 @@ void UMaterial::Serialize(FArchive& Ar)
 		else
 		{
 			bCanMaskedBeAssumedOpaque = false;
+		}
+	}
+
+	if(Ar.IsLoading() && Ar.CustomVer(FRenderingObjectVersion::GUID) < FRenderingObjectVersion::IntroducedMeshDecals)
+	{
+		if(MaterialDomain == MD_DeferredDecal)
+		{
+			BlendMode = BLEND_Translucent;
 		}
 	}
 }
@@ -2358,7 +2397,45 @@ TMap<FGuid, UMaterialInterface*> LightingGuidFixupMap;
 
 void UMaterial::PostLoad()
 {
+	SCOPED_LOADTIMER(MaterialPostLoad);
+
 	Super::PostLoad();
+
+	// Resources can be processed / registered now that we're back on the main thread
+	ProcessSerializedInlineShaderMaps(this, LoadedMaterialResources, MaterialResources);
+	// Empty the lsit of loaded resources, we don't need it anymore
+	LoadedMaterialResources.Empty();
+
+#if WITH_EDITORONLY_DATA
+	const int32 UE4Ver = GetLinkerUE4Version();
+	DoMaterialAttributeReorder(&DiffuseColor_DEPRECATED, UE4Ver);
+	DoMaterialAttributeReorder(&SpecularColor_DEPRECATED, UE4Ver);
+	DoMaterialAttributeReorder(&BaseColor, UE4Ver);
+	DoMaterialAttributeReorder(&Metallic, UE4Ver);
+	DoMaterialAttributeReorder(&Specular, UE4Ver);
+	DoMaterialAttributeReorder(&Roughness, UE4Ver);
+	DoMaterialAttributeReorder(&Normal, UE4Ver);
+	DoMaterialAttributeReorder(&EmissiveColor, UE4Ver);
+	DoMaterialAttributeReorder(&Opacity, UE4Ver);
+	DoMaterialAttributeReorder(&OpacityMask, UE4Ver);
+	DoMaterialAttributeReorder(&WorldPositionOffset, UE4Ver);
+	DoMaterialAttributeReorder(&WorldDisplacement, UE4Ver);
+	DoMaterialAttributeReorder(&TessellationMultiplier, UE4Ver);
+	DoMaterialAttributeReorder(&SubsurfaceColor, UE4Ver);
+	DoMaterialAttributeReorder(&ClearCoat, UE4Ver);
+	DoMaterialAttributeReorder(&ClearCoatRoughness, UE4Ver);
+	DoMaterialAttributeReorder(&AmbientOcclusion, UE4Ver);
+	DoMaterialAttributeReorder(&Refraction, UE4Ver);
+	DoMaterialAttributeReorder(&CustomizedUVs[0], UE4Ver);
+	DoMaterialAttributeReorder(&CustomizedUVs[1], UE4Ver);
+	DoMaterialAttributeReorder(&CustomizedUVs[2], UE4Ver);
+	DoMaterialAttributeReorder(&CustomizedUVs[3], UE4Ver);
+	DoMaterialAttributeReorder(&CustomizedUVs[4], UE4Ver);
+	DoMaterialAttributeReorder(&CustomizedUVs[5], UE4Ver);
+	DoMaterialAttributeReorder(&CustomizedUVs[6], UE4Ver);
+	DoMaterialAttributeReorder(&CustomizedUVs[7], UE4Ver);
+	DoMaterialAttributeReorder(&PixelDepthOffset, UE4Ver);
+#endif // WITH_EDITORONLY_DATA
 
 	if (!IsDefaultMaterial())
 	{
@@ -2677,13 +2754,19 @@ bool UMaterial::CanEditChange(const UProperty* InProperty) const
 		}
 
 		if (PropertyName == GET_MEMBER_NAME_STRING_CHECKED(UMaterial, bFullyRough) ||
+			PropertyName == GET_MEMBER_NAME_STRING_CHECKED(UMaterial, bNormalCurvatureToRoughness) ||
 			PropertyName == GET_MEMBER_NAME_STRING_CHECKED(UMaterial, TwoSided) ||
 			PropertyName == GET_MEMBER_NAME_STRING_CHECKED(UMaterial, bUseLightmapDirectionality) ||
-			PropertyName == GET_MEMBER_NAME_STRING_CHECKED(UMaterial, D3D11TessellationMode) ||
-			PropertyName == GET_MEMBER_NAME_STRING_CHECKED(UMaterial, bUseHQForwardReflections)
+			PropertyName == GET_MEMBER_NAME_STRING_CHECKED(UMaterial, bUseHQForwardReflections) ||
+			PropertyName == GET_MEMBER_NAME_STRING_CHECKED(UMaterial, bUsePlanarForwardReflections)
 			)
 		{
 			return MaterialDomain == MD_Surface;
+		}
+
+		if (PropertyName == GET_MEMBER_NAME_STRING_CHECKED(UMaterial, D3D11TessellationMode))
+		{
+			return MaterialDomain == MD_DeferredDecal || MaterialDomain == MD_Surface;
 		}
 
 		if (PropertyName == GET_MEMBER_NAME_STRING_CHECKED(UMaterial, bEnableCrackFreeDisplacement) ||
@@ -2691,7 +2774,7 @@ bool UMaterial::CanEditChange(const UProperty* InProperty) const
 			PropertyName == GET_MEMBER_NAME_STRING_CHECKED(UMaterial, bEnableAdaptiveTessellation)
 			)
 		{
-			return MaterialDomain == MD_Surface && D3D11TessellationMode != MTM_NoTessellation;
+			return (MaterialDomain == MD_DeferredDecal || MaterialDomain == MD_Surface) && D3D11TessellationMode != MTM_NoTessellation;
 		}
 
 		if (PropertyName == GET_MEMBER_NAME_STRING_CHECKED(UMaterial, BlendableLocation) ||
@@ -2703,7 +2786,7 @@ bool UMaterial::CanEditChange(const UProperty* InProperty) const
 
 		if (PropertyName == GET_MEMBER_NAME_STRING_CHECKED(UMaterial, BlendMode))
 		{
-			return MaterialDomain == MD_Surface || MaterialDomain == MD_UI;
+			return MaterialDomain == MD_DeferredDecal || MaterialDomain == MD_Surface || MaterialDomain == MD_UI;
 		}
 	
 		if (PropertyName == GET_MEMBER_NAME_STRING_CHECKED(UMaterial, ShadingModel))
@@ -2720,7 +2803,7 @@ bool UMaterial::CanEditChange(const UProperty* InProperty) const
 			FCString::Strcmp(*PropertyName, TEXT("bUsesDistortion")) == 0
 			)
 		{
-			return MaterialDomain == MD_Surface;
+			return MaterialDomain == MD_DeferredDecal || MaterialDomain == MD_Surface;
 		}
 		else if (PropertyName == GET_MEMBER_NAME_STRING_CHECKED(UMaterial, RefractionDepthBias))
 		{
@@ -2733,7 +2816,7 @@ bool UMaterial::CanEditChange(const UProperty* InProperty) const
 			|| PropertyName == GET_MEMBER_NAME_STRING_CHECKED(UMaterial, bDisableDepthTest)
 			|| PropertyName == GET_MEMBER_NAME_STRING_CHECKED(UMaterial, bUseTranslucencyVertexFog))
 		{
-			return IsTranslucentBlendMode(BlendMode);
+			return MaterialDomain != MD_DeferredDecal && IsTranslucentBlendMode(BlendMode);
 		}
 
 		if (PropertyName == GET_MEMBER_NAME_STRING_CHECKED(UMaterial, TranslucencyLightingMode)
@@ -2746,7 +2829,7 @@ bool UMaterial::CanEditChange(const UProperty* InProperty) const
 			|| PropertyName == GET_MEMBER_NAME_STRING_CHECKED(UMaterial, TranslucentMultipleScatteringExtinction)
 			|| PropertyName == GET_MEMBER_NAME_STRING_CHECKED(UMaterial, TranslucentShadowStartOffset))
 		{
-			return IsTranslucentBlendMode(BlendMode) && ShadingModel != MSM_Unlit;
+			return MaterialDomain != MD_DeferredDecal && IsTranslucentBlendMode(BlendMode) && ShadingModel != MSM_Unlit;
 		}
 
 		if (PropertyName == GET_MEMBER_NAME_STRING_CHECKED(UMaterial, SubsurfaceProfile))
@@ -2768,6 +2851,10 @@ void UMaterial::PreEditChange(UProperty* PropertyThatChanged)
 
 void UMaterial::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
 {
+	// If the material changes, then the debug view material must reset to prevent parameters mismatch
+	void ClearAllDebugViewMaterials();
+	ClearAllDebugViewMaterials();
+
 	Super::PostEditChangeProperty(PropertyChangedEvent);
 
 	UProperty* PropertyThatChanged = PropertyChangedEvent.Property;
@@ -3205,7 +3292,7 @@ void UMaterial::FinishDestroy()
 
 SIZE_T UMaterial::GetResourceSize(EResourceSizeMode::Type Mode)
 {
-	int32 ResourceSize = 0;
+	int32 ResourceSize = Super::GetResourceSize(Mode);
 
 	for (int32 InstanceIndex = 0; InstanceIndex < 3; ++InstanceIndex)
 	{
@@ -3541,12 +3628,6 @@ bool UMaterial::UpdateLightmassTextureTracking()
 		}
 	}
 #endif // WITH_EDITORONLY_DATA
-
-	if ( bTexturesHaveChanged )
-	{
-		// This will invalidate any cached Lightmass material exports
-		SetLightingGuid();
-	}
 
 	return bTexturesHaveChanged;
 }
@@ -3919,10 +4000,9 @@ int32 UMaterial::CompilePropertyEx( FMaterialCompiler* Compiler, EMaterialProper
 }
 #endif // WITH_EDITOR
 
-void UMaterial::NotifyCompilationFinished(FMaterialResource* CompiledResource)
+void UMaterial::NotifyCompilationFinished(UMaterialInterface* Material)
 {
-	// we don't know if it was actually us or one of our MaterialInstances (with StaticPermutationResources)...
-	UMaterial::OnMaterialCompilationFinished().Broadcast(this);
+	UMaterial::OnMaterialCompilationFinished().Broadcast(Material);
 }
 
 void UMaterial::ForceRecompileForRendering()
@@ -4070,6 +4150,11 @@ bool UMaterial::IsPropertyActive(EMaterialProperty InProperty) const
 		else if (InProperty == MP_MaterialAttributes)
 		{
 			// todo: MaterialAttruibutes would not return true, should it? Why we don't check for the checkbox in the material
+			return true;
+		}
+		else if( InProperty == MP_WorldPositionOffset )
+		{
+			// Note: DeferredDecals don't support this but MeshDecals do
 			return true;
 		}
 
@@ -4305,5 +4390,19 @@ bool UMaterial::HasFlippedCoordinates()
 	return ReversedInputCount > StandardInputCount;
 }
 #endif //WITH_EDITORONLY_DATA
+
+void UMaterial::GetLightingGuidChain(bool bIncludeTextures, TArray<FGuid>& OutGuids) const
+{
+#if WITH_EDITORONLY_DATA
+	if (bIncludeTextures)
+	{
+		OutGuids.Append(ReferencedTextureGuids);
+	}
+	GetReferencedFunctionIds(OutGuids);
+	GetReferencedParameterCollectionIds(OutGuids);
+	OutGuids.Add(StateId);
+	Super::GetLightingGuidChain(bIncludeTextures, OutGuids);
+#endif
+}
 
 #undef LOCTEXT_NAMESPACE

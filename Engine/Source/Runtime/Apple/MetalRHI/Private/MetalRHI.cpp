@@ -7,6 +7,8 @@
 #include "MetalRHIPrivate.h"
 #if PLATFORM_IOS
 #include "IOSAppDelegate.h"
+#elif PLATFORM_MAC
+#include "MacApplication.h"
 #endif
 #include "ShaderCache.h"
 #include "MetalProfiler.h"
@@ -23,7 +25,7 @@ bool FMetalDynamicRHIModule::IsSupported()
 	return true;
 }
 
-FDynamicRHI* FMetalDynamicRHIModule::CreateRHI()
+FDynamicRHI* FMetalDynamicRHIModule::CreateRHI(ERHIFeatureLevel::Type RequestedFeatureLevel)
 {
 	return new FMetalDynamicRHI();
 }
@@ -32,6 +34,7 @@ IMPLEMENT_MODULE(FMetalDynamicRHIModule, MetalRHI);
 
 FMetalDynamicRHI::FMetalDynamicRHI()
 : FMetalRHICommandContext(nullptr, FMetalDeviceContext::CreateDeviceContext())
+, AsyncComputeContext(nullptr)
 {
 	// This should be called once at the start 
 	check( IsInGameThread() );
@@ -65,11 +68,15 @@ FMetalDynamicRHI::FMetalDynamicRHI()
     {
         GMaxRHIFeatureLevel = ERHIFeatureLevel::SM4;
         GMaxRHIShaderPlatform = SP_METAL_MRT;
+		GSupportsMultipleRenderTargets = true;
     }
     else
     {
         GMaxRHIFeatureLevel = ERHIFeatureLevel::ES3_1;
         GMaxRHIShaderPlatform = SP_METAL;
+		// disable MRTs completely, because there is code in the engine that assumes the ability to use
+		// 32 bytes of pixel storage (like the 2 VERY WIDE ones in GPU particles)
+		GSupportsMultipleRenderTargets = false;
 	}
 	
 	GShaderPlatformForFeatureLevel[ERHIFeatureLevel::ES2] = SP_METAL;
@@ -90,8 +97,11 @@ FMetalDynamicRHI::FMetalDynamicRHI()
     bool bCanUseWideMRTs = true;
     bool bCanUseASTC = false;
 	bool bSupportsD24S8 = false;
+    bool bSupportsD16 = false;
 
-	if(FParse::Param(FCommandLine::Get(),TEXT("metalsm5")))
+	// Default to Metal SM5 on 10.11.5 or later. Earlier versions should still be running SM4.
+	bool const bTenElevenFiveOrLater = (FPlatformMisc::MacOSXVersionCompare(10,11,5) >= 0);
+	if(!FParse::Param(FCommandLine::Get(),TEXT("metal")) && (bTenElevenFiveOrLater || FParse::Param(FCommandLine::Get(),TEXT("metalsm5"))))
 	{
 		GMaxRHIFeatureLevel = ERHIFeatureLevel::SM5;
 		GMaxRHIShaderPlatform = SP_METAL_SM5;
@@ -102,35 +112,40 @@ FMetalDynamicRHI::FMetalDynamicRHI()
 		GMaxRHIShaderPlatform = SP_METAL_SM4;
 	}
 	
-	GShaderPlatformForFeatureLevel[ERHIFeatureLevel::ES2] = SP_METAL_MACES3_1;
+	GShaderPlatformForFeatureLevel[ERHIFeatureLevel::ES2] = SP_METAL_MACES2;
 	GShaderPlatformForFeatureLevel[ERHIFeatureLevel::ES3_1] = SP_METAL_MACES3_1;
 	GShaderPlatformForFeatureLevel[ERHIFeatureLevel::SM4] = SP_METAL_SM4;
 	GShaderPlatformForFeatureLevel[ERHIFeatureLevel::SM5] = (GMaxRHIFeatureLevel >= ERHIFeatureLevel::SM5) ? GMaxRHIShaderPlatform : SP_NumPlatforms;
 	
 	GRHIAdapterName = FString(Device.name);
 	
+	// Mac GPUs support layer indexing.
+	GSupportsVolumeTextureRendering = true;
+	
+	// However they don't all support other features depending on the version of the OS.
 	bool bSupportsPointLights = false;
+	bool bSupportsTiledReflections = false;
+	bool bSupportsDistanceFields = false;
 	if(GRHIAdapterName.Contains("Nvidia"))
 	{
-		// Nvidia support layer indexing.
-		GSupportsVolumeTextureRendering = true;
 		bSupportsPointLights = true;
 		GRHIVendorId = 0x10DE;
+		bSupportsTiledReflections = true;
+		bSupportsDistanceFields = (FPlatformMisc::MacOSXVersionCompare(10,11,4) >= 0);
 	}
 	else if(GRHIAdapterName.Contains("ATi") || GRHIAdapterName.Contains("AMD"))
 	{
-		// AMD support layer indexing.
-		GSupportsVolumeTextureRendering = true;
 		bSupportsPointLights = true;
 		GRHIVendorId = 0x1002;
 		if(GPUDesc.GPUVendorId == GRHIVendorId)
 		{
 			GRHIAdapterName = FString(GPUDesc.GPUName);
 		}
+		bSupportsTiledReflections = true;
+		bSupportsDistanceFields = (FPlatformMisc::MacOSXVersionCompare(10,11,4) >= 0);
 	}
 	else if(GRHIAdapterName.Contains("Intel"))
 	{
-		GSupportsVolumeTextureRendering = true;
 		bSupportsPointLights = (FPlatformMisc::MacOSXVersionCompare(10,11,4) >= 0);
 		GRHIVendorId = 0x8086;
 	}
@@ -139,8 +154,8 @@ FMetalDynamicRHI::FMetalDynamicRHI()
 	if(GPUDesc.GPUVendorId == GRHIVendorId)
 	{
 		GRHIDeviceId = GPUDesc.GPUDeviceId;
-		MemoryStats.DedicatedVideoMemory = GPUDesc.GPUMemoryMB;
-		MemoryStats.TotalGraphicsMemory = GPUDesc.GPUMemoryMB;
+		MemoryStats.DedicatedVideoMemory = GPUDesc.GPUMemoryMB * 1024 * 1024;
+		MemoryStats.TotalGraphicsMemory = GPUDesc.GPUMemoryMB * 1024 * 1024;
 		MemoryStats.DedicatedSystemMemory = 0;
 		MemoryStats.SharedSystemMemory = 0;
 	}
@@ -150,7 +165,7 @@ FMetalDynamicRHI::FMetalDynamicRHI()
 	GConfig->GetInt(TEXT("TextureStreaming"), TEXT("PoolSizeVRAMPercentage"), GPoolSizeVRAMPercentage, GEngineIni);
 	if ( GPoolSizeVRAMPercentage > 0 && MemoryStats.TotalGraphicsMemory > 0 )
 	{
-		float PoolSize = float(GPoolSizeVRAMPercentage) * 0.01f * (float(MemoryStats.TotalGraphicsMemory) * 1024.f * 1024.f);
+		float PoolSize = float(GPoolSizeVRAMPercentage) * 0.01f * float(MemoryStats.TotalGraphicsMemory);
 		
 		// Truncate GTexturePoolSize to MB (but still counted in bytes)
 		GTexturePoolSize = int64(FGenericPlatformMath::TruncToFloat(PoolSize / 1024.0f / 1024.0f)) * 1024 * 1024;
@@ -175,12 +190,52 @@ FMetalDynamicRHI::FMetalDynamicRHI()
 		}
 	}
 	
-	// @todo Need to get this working properly for performance parity with OpenGL on many Macs.
-	GRHISupportsRHIThread = FParse::Param(FCommandLine::Get(),TEXT("rhithread"));
-	GSupportsParallelOcclusionQueries = GRHISupportsRHIThread;
+	// Disable tiled reflections on Mac Metal for some GPU drivers that ignore the lod-level and so render incorrectly.
+	if (!bSupportsTiledReflections && !FParse::Param(FCommandLine::Get(),TEXT("metaltiledreflections")))
+	{
+		static auto CVarDoTiledReflections = IConsoleManager::Get().FindConsoleVariable(TEXT("r.DoTiledReflections"));
+		if(CVarDoTiledReflections && CVarDoTiledReflections->GetInt() != 0)
+		{
+			CVarDoTiledReflections->Set(0);
+		}
+	}
+	
+	// Disable the distance field AO & shadowing effects on GPU drivers that don't currently execute the shaders correctly.
+	if (GMaxRHIShaderPlatform == SP_METAL_SM5 && !bSupportsDistanceFields && !FParse::Param(FCommandLine::Get(),TEXT("metaldistancefields")))
+	{
+		static auto CVarDistanceFieldAO = IConsoleManager::Get().FindConsoleVariable(TEXT("r.DistanceFieldAO"));
+		if(CVarDistanceFieldAO && CVarDistanceFieldAO->GetInt() != 0)
+		{
+			CVarDistanceFieldAO->Set(0);
+		}
+		
+		static auto CVarDistanceFieldShadowing = IConsoleManager::Get().FindConsoleVariable(TEXT("r.DistanceFieldShadowing"));
+		if(CVarDistanceFieldShadowing && CVarDistanceFieldShadowing->GetInt() != 0)
+		{
+			CVarDistanceFieldShadowing->Set(0);
+		}
+	}
+	
+	GRHISupportsRHIThread = false;
+	if (GMaxRHIShaderPlatform == SP_METAL_SM5)
+	{
 #if METAL_SUPPORTS_PARALLEL_RHI_EXECUTE
-	GRHISupportsParallelRHIExecute = GRHISupportsRHIThread;
+#if WITH_EDITORONLY_DATA
+		GRHISupportsRHIThread = !GIsEditor;
+#else
+		GRHISupportsRHIThread = true;
 #endif
+		GRHISupportsParallelRHIExecute = GRHISupportsRHIThread;
+#endif
+		GSupportsEfficientAsyncCompute = GRHISupportsParallelRHIExecute && IsRHIDeviceAMD(); // Only AMD currently support async. compute and it requires parallel execution to be useful.
+		GSupportsParallelOcclusionQueries = GRHISupportsRHIThread;
+	}
+	else
+	{
+		GRHISupportsParallelRHIExecute = false;
+		GSupportsEfficientAsyncCompute = false;
+		GSupportsParallelOcclusionQueries = false;
+	}
 	
 #endif
 
@@ -201,22 +256,29 @@ FMetalDynamicRHI::FMetalDynamicRHI()
 	GSupportsRenderTargetFormat_PF_G8 = false;
 	GSupportsQuads = false;
 	GRHISupportsTextureStreaming = true;
+	GSupportsWideMRT = bCanUseWideMRTs;
 
 	GRHIRequiresEarlyBackBufferRenderTarget = false;
 	GSupportsSeparateRenderTargetBlendState = (GMaxRHIFeatureLevel >= ERHIFeatureLevel::SM4);
 
 #if PLATFORM_MAC
 	check([Device supportsFeatureSet:MTLFeatureSet_OSX_GPUFamily1_v1]);
-	GRHISupportsBaseVertexIndex = FPlatformMisc::MacOSXVersionCompare(10,11,2) >= 0 || !IsRHIDeviceAMD(); // Supported on OS X but not iOS - broken on AMD prior to 10.11.2
-	GRHISupportsFirstInstance = true; // Supported on OS X but not iOS.
+	GRHISupportsBaseVertexIndex = FPlatformMisc::MacOSXVersionCompare(10,11,2) >= 0 || !IsRHIDeviceAMD(); // Supported on macOS & iOS but not tvOS - broken on AMD prior to 10.11.2
+	GRHISupportsFirstInstance = true; // Supported on macOS & iOS but not tvOS.
 	GMaxTextureDimensions = 16384;
 	GMaxCubeTextureDimensions = 16384;
 	GMaxTextureArrayLayers = 2048;
 	GMaxShadowDepthBufferSizeX = 16384;
 	GMaxShadowDepthBufferSizeY = 16384;
+    bSupportsD16 = FParse::Param(FCommandLine::Get(),TEXT("metalv2")) || [Device supportsFeatureSet:MTLFeatureSet_OSX_GPUFamily1_v2];
 #else
+#if PLATFORM_TVOS
 	GRHISupportsBaseVertexIndex = false;
-	GRHISupportsFirstInstance = false; // Supported on OS X but not iOS.
+	GRHISupportsFirstInstance = false; // Supported on macOS & iOS but not tvOS.
+#else
+	GRHISupportsBaseVertexIndex = [Device supportsFeatureSet:MTLFeatureSet_iOS_GPUFamily3_v1];
+	GRHISupportsFirstInstance = GRHISupportsBaseVertexIndex;
+#endif
 	GMaxTextureDimensions = 4096;
 	GMaxCubeTextureDimensions = 4096;
 	GMaxTextureArrayLayers = 2048;
@@ -283,8 +345,16 @@ FMetalDynamicRHI::FMetalDynamicRHI()
 		GPixelFormats[PF_DepthStencil	].PlatformFormat	= MTLPixelFormatDepth32Float_Stencil8;
 	}
     GPixelFormats[PF_DepthStencil		].BlockBytes		= 4;
-    GPixelFormats[PF_ShadowDepth		].PlatformFormat	= MTLPixelFormatDepth32Float;
-    GPixelFormats[PF_ShadowDepth		].BlockBytes		= 4;
+    if (bSupportsD16)
+    {
+        GPixelFormats[PF_ShadowDepth		].PlatformFormat	= MTLPixelFormatDepth16Unorm;
+        GPixelFormats[PF_ShadowDepth		].BlockBytes		= 2;
+    }
+    else
+    {
+        GPixelFormats[PF_ShadowDepth		].PlatformFormat	= MTLPixelFormatDepth32Float;
+        GPixelFormats[PF_ShadowDepth		].BlockBytes		= 4;
+    }
 #endif
     GPixelFormats[PF_X24_G8				].PlatformFormat	= MTLPixelFormatStencil8;
     GPixelFormats[PF_X24_G8				].BlockBytes		= 1;
@@ -345,7 +415,8 @@ FMetalDynamicRHI::FMetalDynamicRHI()
 	GPixelFormats[PF_R8G8				].PlatformFormat	= MTLPixelFormatRG8Unorm;
 	GPixelFormats[PF_R16_SINT			].PlatformFormat	= MTLPixelFormatR16Sint;
 	GPixelFormats[PF_R16_UINT			].PlatformFormat	= MTLPixelFormatR16Uint;
-	
+	GPixelFormats[PF_R8_UINT			].PlatformFormat	= MTLPixelFormatR8Uint;
+
 	// get driver version (todo: share with other RHIs)
 	{
 		FGPUDriverInfo GPUDriverInfo = FPlatformMisc::GetGPUDriverInfo(GRHIAdapterName);
@@ -375,15 +446,18 @@ FMetalDynamicRHI::FMetalDynamicRHI()
 	GDynamicRHI = this;
 	
 #if PLATFORM_DESKTOP
-	static const auto CVar = IConsoleManager::Get().FindConsoleVariable(TEXT("r.Shaders.Optimize"));
-	
-	if (CVar->GetInt() == 0)
+	if (GMaxRHIFeatureLevel < ERHIFeatureLevel::SM5)
 	{
-		FShaderCache::InitShaderCache(SCO_NoShaderPreload, 128);
-	}
-	else
-	{
-		FShaderCache::InitShaderCache(SCO_Default, 128);
+		static const auto CVar = IConsoleManager::Get().FindConsoleVariable(TEXT("r.Shaders.Optimize"));
+		
+		if (CVar->GetInt() == 0)
+		{
+			FShaderCache::InitShaderCache(SCO_NoShaderPreload, 128);
+		}
+		else
+		{
+			FShaderCache::InitShaderCache(SCO_Default, 128);
+		}
 	}
 #endif
 
@@ -402,6 +476,7 @@ FMetalDynamicRHI::FMetalDynamicRHI()
 #if ENABLE_METAL_GPUPROFILE
 	Profiler = new FMetalGPUProfiler(Context);
 #endif
+	AsyncComputeContext = GSupportsEfficientAsyncCompute ? new FMetalRHIComputeContext(Profiler, new FMetalContext(Context->GetCommandQueue(), true)) : nullptr;
 }
 
 FMetalDynamicRHI::~FMetalDynamicRHI()
@@ -441,11 +516,6 @@ uint64 FMetalDynamicRHI::RHICalcTextureCubePlatformSize(uint32 Size, uint8 Forma
 void FMetalDynamicRHI::Init()
 {
 	GIsRHIInitialized = true;
-}
-
-void FMetalDynamicRHI::PostInit()
-{
-	SetupRecursiveResources();
 }
 
 void FMetalDynamicRHI::RHIBeginFrame()
@@ -519,13 +589,110 @@ void FMetalRHICommandContext::RHIPopEvent()
 
 void FMetalDynamicRHI::RHIGetSupportedResolution( uint32 &Width, uint32 &Height )
 {
-
+#if PLATFORM_MAC
+	uint32 InitializedMode = false;
+	uint32 BestWidth = 0;
+	uint32 BestHeight = 0;
+	
+	CFArrayRef AllModes = CGDisplayCopyAllDisplayModes(kCGDirectMainDisplay, NULL);
+	if (AllModes)
+	{
+		int32 NumModes = CFArrayGetCount(AllModes);
+		for (int32 Index = 0; Index < NumModes; Index++)
+		{
+			CGDisplayModeRef Mode = (CGDisplayModeRef)CFArrayGetValueAtIndex(AllModes, Index);
+			int32 ModeWidth = (int32)CGDisplayModeGetWidth(Mode);
+			int32 ModeHeight = (int32)CGDisplayModeGetHeight(Mode);
+			
+			bool IsEqualOrBetterWidth = FMath::Abs((int32)ModeWidth - (int32)Width) <= FMath::Abs((int32)BestWidth - (int32)Width);
+			bool IsEqualOrBetterHeight = FMath::Abs((int32)ModeHeight - (int32)Height) <= FMath::Abs((int32)BestHeight - (int32)Height);
+			if(!InitializedMode || (IsEqualOrBetterWidth && IsEqualOrBetterHeight))
+			{
+				BestWidth = ModeWidth;
+				BestHeight = ModeHeight;
+				InitializedMode = true;
+			}
+		}
+		CFRelease(AllModes);
+	}
+	check(InitializedMode);
+	Width = BestWidth;
+	Height = BestHeight;
+#else
+	UE_LOG(LogMetal, Warning,  TEXT("RHIGetSupportedResolution unimplemented!"));
+#endif
 }
 
 bool FMetalDynamicRHI::RHIGetAvailableResolutions(FScreenResolutionArray& Resolutions, bool bIgnoreRefreshRate)
 {
-
+#if PLATFORM_MAC
+	const int32 MinAllowableResolutionX = 0;
+	const int32 MinAllowableResolutionY = 0;
+	const int32 MaxAllowableResolutionX = 10480;
+	const int32 MaxAllowableResolutionY = 10480;
+	const int32 MinAllowableRefreshRate = 0;
+	const int32 MaxAllowableRefreshRate = 10480;
+	
+	CFArrayRef AllModes = CGDisplayCopyAllDisplayModes(kCGDirectMainDisplay, NULL);
+	if (AllModes)
+	{
+		const int32 NumModes = CFArrayGetCount(AllModes);
+		const int32 Scale = FMacApplication::GetPrimaryScreenBackingScaleFactor();
+		
+		for (int32 Index = 0; Index < NumModes; Index++)
+		{
+			const CGDisplayModeRef Mode = (const CGDisplayModeRef)CFArrayGetValueAtIndex(AllModes, Index);
+			const int32 Width = (int32)CGDisplayModeGetWidth(Mode) / Scale;
+			const int32 Height = (int32)CGDisplayModeGetHeight(Mode) / Scale;
+			const int32 RefreshRate = (int32)CGDisplayModeGetRefreshRate(Mode);
+			
+			if (Width >= MinAllowableResolutionX && Width <= MaxAllowableResolutionX && Height >= MinAllowableResolutionY && Height <= MaxAllowableResolutionY)
+			{
+				bool bAddIt = true;
+				if (bIgnoreRefreshRate == false)
+				{
+					if (RefreshRate < MinAllowableRefreshRate || RefreshRate > MaxAllowableRefreshRate)
+					{
+						continue;
+					}
+				}
+				else
+				{
+					// See if it is in the list already
+					for (int32 CheckIndex = 0; CheckIndex < Resolutions.Num(); CheckIndex++)
+					{
+						FScreenResolutionRHI& CheckResolution = Resolutions[CheckIndex];
+						if ((CheckResolution.Width == Width) &&
+							(CheckResolution.Height == Height))
+						{
+							// Already in the list...
+							bAddIt = false;
+							break;
+						}
+					}
+				}
+				
+				if (bAddIt)
+				{
+					// Add the mode to the list
+					const int32 Temp2Index = Resolutions.AddZeroed();
+					FScreenResolutionRHI& ScreenResolution = Resolutions[Temp2Index];
+					
+					ScreenResolution.Width = Width;
+					ScreenResolution.Height = Height;
+					ScreenResolution.RefreshRate = RefreshRate;
+				}
+			}
+		}
+		
+		CFRelease(AllModes);
+	}
+	
+	return true;
+#else
+	UE_LOG(LogMetal, Warning,  TEXT("RHIGetAvailableResolutions unimplemented!"));
 	return false;
+#endif
 }
 
 void FMetalDynamicRHI::RHIFlushResources()
@@ -536,6 +703,7 @@ void FMetalDynamicRHI::RHIFlushResources()
 void FMetalDynamicRHI::RHIAcquireThreadOwnership()
 {
 	Context->CreateAutoreleasePool();
+	SetupRecursiveResources();
 }
 
 void FMetalDynamicRHI::RHIReleaseThreadOwnership()
@@ -548,17 +716,3 @@ void* FMetalDynamicRHI::RHIGetNativeDevice()
 	return (void*)Context->GetDevice();
 }
 
-void FMetalRHICommandContext::RHIBeginAsyncComputeJob_DrawThread(EAsyncComputePriority Priority)
-{
-	UE_LOG(LogRHI, Fatal, TEXT("%s not implemented yet"), ANSI_TO_TCHAR(__FUNCTION__));
-}
-
-void FMetalRHICommandContext::RHIEndAsyncComputeJob_DrawThread(uint32 FenceIndex)
-{
-	UE_LOG(LogRHI, Fatal, TEXT("%s not implemented yet"), ANSI_TO_TCHAR(__FUNCTION__));
-}
-
-void FMetalRHICommandContext::RHIGraphicsWaitOnAsyncComputeJob(uint32 FenceIndex)
-{
-	UE_LOG(LogRHI, Fatal, TEXT("%s not implemented yet"), ANSI_TO_TCHAR(__FUNCTION__));
-}

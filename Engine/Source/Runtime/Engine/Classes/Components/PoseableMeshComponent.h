@@ -1,7 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
-#include "Animation/AnimationAsset.h"
+#include "Components/SkinnedMeshComponent.h"
 #include "PoseableMeshComponent.generated.h"
 
 /**
@@ -13,7 +13,7 @@ class ENGINE_API UPoseableMeshComponent : public USkinnedMeshComponent
 	GENERATED_UCLASS_BODY()
 
 	/** Temporary array of local-space (ie relative to parent bone) rotation/translation/scale for each bone. */
-	TArray<FTransform> LocalAtoms;
+	TArray<FTransform> BoneSpaceTransforms;
 
 	FBoneContainer RequiredBones;
 
@@ -54,11 +54,11 @@ class ENGINE_API UPoseableMeshComponent : public USkinnedMeshComponent
 
 	bool IsRunningParallelEvaluation() const { return false; }
 	/**
-	 * Take the LocalAtoms array (translation vector, rotation quaternion and scale vector) and update the array of component-space bone transformation matrices (SpaceBases).
+	 * Take the BoneSpaceTransforms array (translation vector, rotation quaternion and scale vector) and update the array of component-space bone transformation matrices (SpaceBases).
 	 * It will work down hierarchy multiplying the component-space transform of the parent by the relative transform of the child.
 	 * This code also applies any per-bone rotators etc. as part of the composition process
 	 */
-	void FillSpaceBases();
+	void FillComponentSpaceTransforms();
 };
 
 

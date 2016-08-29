@@ -9,7 +9,7 @@
 #include "Interfaces/NetworkPredictionInterface.h"
 #include "ConfigCacheIni.h"
 #include "SoundDefinitions.h"
-#include "OnlineSubsystemUtils.h"
+#include "Net/OnlineEngineInterface.h"
 #include "GameFramework/OnlineSession.h"
 #include "IHeadMountedDisplay.h"
 #include "IMotionController.h"
@@ -31,10 +31,10 @@
 #include "GameFramework/PlayerStart.h"
 #include "GameFramework/CheatManager.h"
 #include "GameFramework/InputSettings.h"
-#include "GameFramework/HapticFeedbackEffect.h"
 #include "GameFramework/PlayerState.h"
 #include "GameFramework/GameState.h"
 #include "GameFramework/GameMode.h"
+#include "Haptics/HapticFeedbackEffect_Base.h"
 #include "Engine/ChildConnection.h"
 #include "Engine/GameEngine.h"
 #include "Engine/GameInstance.h"
@@ -84,6 +84,7 @@ APlayerController::APlayerController(const FObjectInitializer& ObjectInitializer
 	bForceFeedbackEnabled = true;
 
 	bAutoManageActiveCameraTarget = true;
+	SmoothTargetViewRotationSpeed = 20.f;
 	bHidePawnInCinematicMode = false;
 
 	bIsPlayerController = true;
@@ -147,16 +148,11 @@ bool APlayerController::DestroyNetworkActorHandled()
 
 bool APlayerController::IsLocalController() const
 {
-	// Never local on dedicated server, always local on clients. IsServerOnly() and IsClientOnly() are checked at compile time and optimized out appropriately.
-	if (FGenericPlatformProperties::IsServerOnly())
+	// Never local on dedicated server. IsServerOnly() is checked at compile time and optimized out appropriately.
+	if (FPlatformProperties::IsServerOnly())
 	{
-		check(!bIsLocalPlayerController);
+		checkSlow(!bIsLocalPlayerController);
 		return false;
-	}
-	else if (FGenericPlatformProperties::IsClientOnly())
-	{
-		bIsLocalPlayerController = true;
-		return true;
 	}
 	
 	// Fast path if we have this bool set.
@@ -169,7 +165,7 @@ bool APlayerController::IsLocalController() const
 	if (NetMode == NM_DedicatedServer)
 	{
 		// This is still checked for the PIE case, which would not be caught in the IsServerOnly() check above.
-		check(!bIsLocalPlayerController);
+		checkSlow(!bIsLocalPlayerController);
 		return false;
 	}
 
@@ -612,39 +608,7 @@ void APlayerController::ForceSingleNetUpdateFor(AActor* Target)
 
 void APlayerController::SmoothTargetViewRotation(APawn* TargetPawn, float DeltaSeconds)
 {
-	struct FBlendHelper
-	{
-		/** worker function for APlayerController::SmoothTargetViewRotation() */
-		static float BlendRotation(float DeltaTime, float BlendC, float NewC)
-		{
-			if (FMath::Abs(BlendC - NewC) > 180.f)
-			{
-				if (BlendC > NewC)
-				{
-					NewC += 360.f;
-				}
-				else
-				{
-					BlendC += 360.f;
-				}
-			}
-
-			if (FMath::Abs(BlendC - NewC) > 22.57f)
-			{
-				BlendC = NewC;
-			}
-			else
-			{
-				BlendC = BlendC + (NewC - BlendC) * FMath::Min(1.f, 24.f * DeltaTime);
-			}
-
-			return FRotator::ClampAxis(BlendC);
-		}
-	};
-
-	BlendedTargetViewRotation.Pitch = FBlendHelper::BlendRotation(DeltaSeconds, BlendedTargetViewRotation.Pitch, FRotator::ClampAxis(TargetViewRotation.Pitch));
-	BlendedTargetViewRotation.Yaw = FBlendHelper::BlendRotation(DeltaSeconds, BlendedTargetViewRotation.Yaw, FRotator::ClampAxis(TargetViewRotation.Yaw));
-	BlendedTargetViewRotation.Roll = FBlendHelper::BlendRotation(DeltaSeconds, BlendedTargetViewRotation.Roll, FRotator::ClampAxis(TargetViewRotation.Roll));
+	BlendedTargetViewRotation = FMath::RInterpTo(BlendedTargetViewRotation, TargetViewRotation, DeltaSeconds, SmoothTargetViewRotationSpeed);
 }
 
 
@@ -713,6 +677,7 @@ void APlayerController::ClientRetryClientRestart_Implementation(APawn* NewPawn)
 	{
 		SetPawn(NewPawn);
 		NewPawn->Controller = this;
+		NewPawn->OnRep_Controller();
 		ClientRestart(GetPawn());
 	}
 }
@@ -766,6 +731,7 @@ void APlayerController::Possess(APawn* PawnToPossess)
 			LOCTEXT("PlayerControllerPossessAuthorityOnly", "Possess function should only be used by the network authority for {0}"),
 			FText::FromName(GetFName())
 			));
+		UE_LOG(LogPlayerController, Warning, TEXT("Trying to possess %s without network authority! Request will be ignored."), *GetNameSafe(PawnToPossess));
 		return;
 	}
 
@@ -1380,6 +1346,23 @@ void APlayerController::PawnLeavingGame()
 	}
 }
 
+void APlayerController::BeginPlay()
+{
+	Super::BeginPlay();
+
+	// If the viewport is currently set to lock mouse always, we need to cache what widget the mouse needs to be locked to even if the
+	// widget does not have mouse capture.
+	ULocalPlayer* LocalPlayer = Cast<ULocalPlayer>( Player );
+
+	if ( LocalPlayer && LocalPlayer->ViewportClient )
+	{
+		if ( LocalPlayer->ViewportClient->ShouldAlwaysLockMouse() )
+		{
+			LocalPlayer->GetSlateOperations().LockMouseToWidget( LocalPlayer->ViewportClient->GetGameViewportWidget().ToSharedRef() );
+		}
+	}
+}
+
 void APlayerController::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
 	ULocalPlayer* LocalPlayer = Cast<ULocalPlayer>(Player);
@@ -1540,7 +1523,7 @@ void APlayerController::SendClientAdjustment()
 	// Server sends updates.
 	// Note: we do this for both the pawn and spectator in case an implementation has a networked spectator.
 	APawn* RemotePawn = GetPawnOrSpectator();
-	if (RemotePawn && (GetNetMode() < NM_Client) && (RemotePawn->GetRemoteRole() == ROLE_AutonomousProxy))
+	if (RemotePawn && (RemotePawn->GetRemoteRole() == ROLE_AutonomousProxy) && !IsNetMode(NM_Client))
 	{
 		INetworkPredictionInterface* NetworkPredictionInterface = Cast<INetworkPredictionInterface>(RemotePawn->GetMovementComponent());
 		if (NetworkPredictionInterface)
@@ -1595,32 +1578,34 @@ bool APlayerController::ServerUpdateCamera_Validate(FVector_NetQuantize CamLoc, 
 
 void APlayerController::ServerUpdateCamera_Implementation(FVector_NetQuantize CamLoc, int32 CamPitchAndYaw)
 {
+	if (!PlayerCameraManager || !PlayerCameraManager->bUseClientSideCameraUpdates)
+	{
+		return;
+	}
+
 	FPOV NewPOV;
 	NewPOV.Location = CamLoc;
 	
 	NewPOV.Rotation.Yaw = FRotator::DecompressAxisFromShort( (CamPitchAndYaw >> 16) & 65535 );
 	NewPOV.Rotation.Pitch = FRotator::DecompressAxisFromShort(CamPitchAndYaw & 65535);
 
-	if (PlayerCameraManager)
+	if ( PlayerCameraManager->bDebugClientSideCamera )
 	{
-		if ( PlayerCameraManager->bDebugClientSideCamera )
-		{
-			// show differences (on server) between local and replicated camera
-			const FVector PlayerCameraLoc = PlayerCameraManager->GetCameraLocation();
+		// show differences (on server) between local and replicated camera
+		const FVector PlayerCameraLoc = PlayerCameraManager->GetCameraLocation();
 
-			DrawDebugSphere(GetWorld(), PlayerCameraLoc, 10, 10, FColor::Green );
-			DrawDebugSphere(GetWorld(), NewPOV.Location, 10, 10, FColor::Yellow );
-			DrawDebugLine(GetWorld(), PlayerCameraLoc, PlayerCameraLoc + 100*PlayerCameraManager->GetCameraRotation().Vector(), FColor::Green);
-			DrawDebugLine(GetWorld(), NewPOV.Location, NewPOV.Location + 100*NewPOV.Rotation.Vector(), FColor::Yellow);
-		}
-		else
-		{
-			//@TODO: CAMERA: Fat pipe
-			FMinimalViewInfo NewInfo = PlayerCameraManager->CameraCache.POV;
-			NewInfo.Location = NewPOV.Location;
-			NewInfo.Rotation = NewPOV.Rotation;
-			PlayerCameraManager->FillCameraCache(NewInfo);
-		}
+		DrawDebugSphere(GetWorld(), PlayerCameraLoc, 10, 10, FColor::Green );
+		DrawDebugSphere(GetWorld(), NewPOV.Location, 10, 10, FColor::Yellow );
+		DrawDebugLine(GetWorld(), PlayerCameraLoc, PlayerCameraLoc + 100*PlayerCameraManager->GetCameraRotation().Vector(), FColor::Green);
+		DrawDebugLine(GetWorld(), NewPOV.Location, NewPOV.Location + 100*NewPOV.Rotation.Vector(), FColor::Yellow);
+	}
+	else
+	{
+		//@TODO: CAMERA: Fat pipe
+		FMinimalViewInfo NewInfo = PlayerCameraManager->CameraCache.POV;
+		NewInfo.Location = NewPOV.Location;
+		NewInfo.Rotation = NewPOV.Rotation;
+		PlayerCameraManager->FillCameraCache(NewInfo);
 	}
 }
 
@@ -2139,6 +2124,15 @@ bool APlayerController::InputTouch(uint32 Handle, ETouchType::Type Type, const F
 {
 	bool bResult = false;
 
+	if (GEngine->HMDDevice.IsValid())
+	{
+		bResult = GEngine->HMDDevice->HandleInputTouch(Handle, Type, TouchLocation, DeviceTimestamp, TouchpadIndex);
+		if (bResult)
+		{
+			return bResult;
+		}
+	}
+
 	if (PlayerInput)
 	{
 		bResult = PlayerInput->InputTouch(Handle, Type, TouchLocation, DeviceTimestamp, TouchpadIndex);
@@ -2374,36 +2368,6 @@ void APlayerController::SetCinematicMode( bool bInCinematicMode, bool bAffectsMo
 	}
 }
 
-
-void APlayerController::SetIgnoreMoveInput( bool bNewMoveInput )
-{
-	IgnoreMoveInput = FMath::Max( IgnoreMoveInput + (bNewMoveInput ? +1 : -1), 0 );
-}
-
-void APlayerController::ResetIgnoreMoveInput()
-{
-	IgnoreMoveInput = 0;
-}
-
-bool APlayerController::IsMoveInputIgnored() const
-{
-	return (IgnoreMoveInput > 0);
-}
-
-void APlayerController::SetIgnoreLookInput( bool bNewLookInput )
-{
-	IgnoreLookInput = FMath::Max( IgnoreLookInput + (bNewLookInput ? +1 : -1), 0 );
-}
-
-void APlayerController::ResetIgnoreLookInput()
-{
-	IgnoreLookInput = 0;
-}
-
-bool APlayerController::IsLookInputIgnored() const
-{
-	return (IgnoreLookInput > 0);
-}
 
 void APlayerController::SetViewTargetWithBlend(AActor* NewViewTarget, float BlendTime, EViewTargetBlendFunction BlendFunc, float BlendExp, bool bLockOutgoing)
 {
@@ -2658,12 +2622,13 @@ void APlayerController::ServerViewPrevPlayer_Implementation()
 APlayerState* APlayerController::GetNextViewablePlayer(int32 dir)
 {
 	int32 CurrentIndex = -1;
+	UWorld* MyWorld = GetWorld();
 	if (PlayerCameraManager->ViewTarget.PlayerState )
 	{
 		// Find index of current viewtarget's PlayerState
-		for ( int32 i=0; i<GetWorld()->GameState->PlayerArray.Num(); i++ )
+		for ( int32 i=0; i<MyWorld->GameState->PlayerArray.Num(); i++ )
 		{
-			if (PlayerCameraManager->ViewTarget.PlayerState == GetWorld()->GameState->PlayerArray[i])
+			if (PlayerCameraManager->ViewTarget.PlayerState == MyWorld->GameState->PlayerArray[i])
 			{
 				CurrentIndex = i;
 				break;
@@ -2673,39 +2638,39 @@ APlayerState* APlayerController::GetNextViewablePlayer(int32 dir)
 
 	// Find next valid viewtarget in appropriate direction
 	int32 NewIndex;
-	for ( NewIndex=CurrentIndex+dir; (NewIndex>=0)&&(NewIndex<GetWorld()->GameState->PlayerArray.Num()); NewIndex=NewIndex+dir )
+	for ( NewIndex=CurrentIndex+dir; (NewIndex>=0)&&(NewIndex<MyWorld->GameState->PlayerArray.Num()); NewIndex=NewIndex+dir )
 	{
-		APlayerState* const PlayerState = GetWorld()->GameState->PlayerArray[NewIndex];
-		if ( (PlayerState != NULL) && (Cast<AController>(PlayerState->GetOwner()) != NULL) && (Cast<AController>(PlayerState->GetOwner())->GetPawn() != NULL)
-			&& GetWorld()->GetAuthGameMode()->CanSpectate(this, PlayerState) )
+		APlayerState* const NextPlayerState = MyWorld->GameState->PlayerArray[NewIndex];
+		AController* NextController = (NextPlayerState ? Cast<AController>(NextPlayerState->GetOwner()) : nullptr);
+		if ( NextController && NextController->GetPawn() != nullptr && MyWorld->GetAuthGameMode()->CanSpectate(this, PlayerState) )
 		{
 			return PlayerState;
 		}
 	}
 
 	// wrap around
-	CurrentIndex = (NewIndex < 0) ? GetWorld()->GameState->PlayerArray.Num() : -1;
+	CurrentIndex = (NewIndex < 0) ? MyWorld->GameState->PlayerArray.Num() : -1;
 	for ( NewIndex=CurrentIndex+dir; (NewIndex>=0)&&(NewIndex<GetWorld()->GameState->PlayerArray.Num()); NewIndex=NewIndex+dir )
 	{
-		APlayerState* const PlayerState = GetWorld()->GameState->PlayerArray[NewIndex];
-		if ( (PlayerState != NULL) && (Cast<AController>(PlayerState->GetOwner()) != NULL) && (Cast<AController>(PlayerState->GetOwner())->GetPawn() != NULL) &&
-			GetWorld()->GetAuthGameMode()->CanSpectate(this, PlayerState) )
+		APlayerState* const NextPlayerState = MyWorld->GameState->PlayerArray[NewIndex];
+		AController* NextController = (NextPlayerState ? Cast<AController>(NextPlayerState->GetOwner()) : nullptr);
+		if ( NextController && NextController->GetPawn() != nullptr && MyWorld->GetAuthGameMode()->CanSpectate(this, PlayerState) )
 		{
 			return PlayerState;
 		}
 	}
 
-	return NULL;
+	return nullptr;
 }
 
 
 void APlayerController::ViewAPlayer(int32 dir)
 {
-	APlayerState* const PlayerState = GetNextViewablePlayer(dir);
+	APlayerState* const NextPlayerState = GetNextViewablePlayer(dir);
 
-	if ( PlayerState != NULL )
+	if ( NextPlayerState != nullptr )
 	{
-		SetViewTarget(PlayerState);
+		SetViewTarget(NextPlayerState);
 	}
 }
 
@@ -2839,11 +2804,11 @@ void APlayerController::DisplayDebug(class UCanvas* Canvas, const FDebugDisplayI
 
 		for(int32 i=InputStack.Num() - 1; i >= 0; --i)
 		{
-			AActor* Owner = InputStack[i]->GetOwner();
+			AActor* InputComponentOwner = InputStack[i]->GetOwner();
 			DisplayDebugManager.SetDrawColor(FColor::White);
-			if (Owner)
+			if (InputComponentOwner)
 			{
-				DisplayDebugManager.DrawString(FString::Printf(TEXT(" %s.%s"), *Owner->GetName(), *InputStack[i]->GetName()));
+				DisplayDebugManager.DrawString(FString::Printf(TEXT(" %s.%s"), *InputComponentOwner->GetName(), *InputStack[i]->GetName()));
 			}
 			else
 			{
@@ -2866,6 +2831,8 @@ void APlayerController::DisplayDebug(class UCanvas* Canvas, const FDebugDisplayI
 		DisplayDebugManager.SetDrawColor(FColor::White);
 		DisplayDebugManager.DrawString(FString::Printf(TEXT("Force Feedback - Enabled: %s LL: %.2f LS: %.2f RL: %.2f RS: %.2f"), (bForceFeedbackEnabled ? TEXT("true") : TEXT("false")), ForceFeedbackValues.LeftLarge, ForceFeedbackValues.LeftSmall, ForceFeedbackValues.RightLarge, ForceFeedbackValues.RightSmall));
 	}
+
+	YPos = DisplayDebugManager.GetYPos();
 }
 
 void APlayerController::SetCinematicMode(bool bInCinematicMode, bool bHidePlayer, bool bAffectsHUD, bool bAffectsMovement, bool bAffectsTurning)
@@ -3052,17 +3019,13 @@ void APlayerController::ToggleSpeaking(bool bSpeaking)
 	if (LP != NULL)
 	{
 		UWorld* World = GetWorld();
-		IOnlineVoicePtr VoiceInt = Online::GetVoiceInterface(World);
-		if (VoiceInt.IsValid())
+		if (bSpeaking)
 		{
-			if (bSpeaking)
-			{
-				VoiceInt->StartNetworkedVoice(LP->GetControllerId());
-			}
-			else
-			{
-				VoiceInt->StopNetworkedVoice(LP->GetControllerId());
-			}
+			UOnlineEngineInterface::Get()->StartNetworkedVoice(World, LP->GetControllerId());
+		}
+		else
+		{
+			UOnlineEngineInterface::Get()->StopNetworkedVoice(World, LP->GetControllerId());
 		}
 	}
 }
@@ -3541,7 +3504,7 @@ void APlayerController::PlayDynamicForceFeedback(float Intensity, float Duration
 	}
 }
 
-void APlayerController::PlayHapticEffect(UHapticFeedbackEffect* HapticEffect, TEnumAsByte<EControllerHand> Hand, float Scale)
+void APlayerController::PlayHapticEffect(UHapticFeedbackEffect_Base* HapticEffect, TEnumAsByte<EControllerHand> Hand, float Scale, bool bLoop)
 {
 	if (HapticEffect)
 	{
@@ -3549,11 +3512,11 @@ void APlayerController::PlayHapticEffect(UHapticFeedbackEffect* HapticEffect, TE
 		{
 		case EControllerHand::Left:
 			ActiveHapticEffect_Left.Reset();
-			ActiveHapticEffect_Left = MakeShareable(new FActiveHapticFeedbackEffect(HapticEffect, Scale));
+			ActiveHapticEffect_Left = MakeShareable(new FActiveHapticFeedbackEffect(HapticEffect, Scale, bLoop));
 			break;
 		case EControllerHand::Right:
 			ActiveHapticEffect_Right.Reset();
-			ActiveHapticEffect_Right = MakeShareable(new FActiveHapticFeedbackEffect(HapticEffect, Scale));
+			ActiveHapticEffect_Right = MakeShareable(new FActiveHapticFeedbackEffect(HapticEffect, Scale, bLoop));
 			break;
 		default:
 			UE_LOG(LogPlayerController, Warning, TEXT("Invalid hand specified (%d) for haptic feedback effect %s"), (int32)Hand.GetValue(), *HapticEffect->GetName());
@@ -3648,7 +3611,7 @@ void APlayerController::ProcessForceFeedbackAndHaptics(const float DeltaTime, co
 			const bool bPlaying = ActiveHapticEffect_Left->Update(DeltaTime, LeftHaptics);
 			if (!bPlaying)
 			{
-				ActiveHapticEffect_Left.Reset();
+				ActiveHapticEffect_Left->bLoop ? ActiveHapticEffect_Left->Restart() : ActiveHapticEffect_Left.Reset();
 			}
 
 			bLeftHapticsNeedUpdate = true;
@@ -3659,11 +3622,12 @@ void APlayerController::ProcessForceFeedbackAndHaptics(const float DeltaTime, co
 			const bool bPlaying = ActiveHapticEffect_Right->Update(DeltaTime, RightHaptics);
 			if (!bPlaying)
 			{
-				ActiveHapticEffect_Right.Reset();
+				ActiveHapticEffect_Right->bLoop ? ActiveHapticEffect_Right->Restart() : ActiveHapticEffect_Right.Reset();
 			}
 
 			bRightHapticsNeedUpdate = true;
 		}
+
 	}
 
 	if (FSlateApplication::IsInitialized())
@@ -3685,6 +3649,7 @@ void APlayerController::ProcessForceFeedbackAndHaptics(const float DeltaTime, co
 			{
 				InputInterface->SetHapticFeedbackValues(ControllerId, (int32)EControllerHand::Right, RightHaptics);
 			}
+
 		}
 	}
 }
@@ -3834,6 +3799,13 @@ void APlayerController::SetPlayer( UPlayer* InPlayer )
 
 	UpdateStateInputComponents();
 
+#if ENABLE_VISUAL_LOG
+	if (Role == ROLE_Authority && FVisualLogger::Get().IsRecordingOnServer())
+	{
+		OnServerStartedVisualLogger(true);
+	}
+#endif
+
 	// notify script that we've been assigned a valid player
 	ReceivedPlayer();
 }
@@ -3841,6 +3813,11 @@ void APlayerController::SetPlayer( UPlayer* InPlayer )
 ULocalPlayer* APlayerController::GetLocalPlayer() const
 {
 	return Cast<ULocalPlayer>(Player);
+}
+
+bool APlayerController::IsInViewportClient(UGameViewportClient* ViewportClient) const
+{
+	return ViewportClient && ViewportClient->GetGameViewportWidget().IsValid() && ViewportClient->GetGameViewportWidget()->IsDirectlyHovered();
 }
 
 void APlayerController::TickPlayerInput(const float DeltaSeconds, const bool bGamePaused)
@@ -3861,7 +3838,7 @@ void APlayerController::TickPlayerInput(const float DeltaSeconds, const bool bGa
 			UGameViewportClient* ViewportClient = LocalPlayer->ViewportClient;
 
 			// Only send mouse hit events if we're directly over the viewport.
-			if ( ViewportClient && ViewportClient->GetGameViewportWidget().IsValid() && ViewportClient->GetGameViewportWidget()->IsDirectlyHovered() )
+			if ( IsInViewportClient(ViewportClient) )
 			{
 				if ( LocalPlayer->ViewportClient->GetMousePosition(MousePosition) )
 				{
@@ -3925,7 +3902,7 @@ void APlayerController::TickActor( float DeltaSeconds, ELevelTick TickType, FAct
 
 	//root of tick hierarchy
 
-	if ((GetNetMode() < NM_Client) && (GetRemoteRole() == ROLE_AutonomousProxy) && !IsLocalPlayerController())
+	if ((GetRemoteRole() == ROLE_AutonomousProxy) && !IsNetMode(NM_Client) && !IsLocalPlayerController())
 	{
 		// force physics update for clients that aren't sending movement updates in a timely manner 
 		// this prevents cheats associated with artificially induced ping spikes
@@ -4094,7 +4071,7 @@ void APlayerController::EndPlayingState()
 
 void APlayerController::BeginSpectatingState()
 {
-	if ( GetPawn() != NULL && Role == ROLE_Authority )
+	if ( GetPawn() != NULL )
 	{
 		UnPossess();
 	}
@@ -4120,12 +4097,12 @@ void APlayerController::SetSpectatorPawn(class ASpectatorPawn* NewSpectatorPawn)
 		else
 		{
 			// clearing the spectator pawn, try to attach to the regular pawn
-			APawn* const Pawn = GetPawn();
-			AttachToPawn(Pawn);
-			AddPawnTickDependency(Pawn);
-			if (Pawn)
+			APawn* const MyPawn = GetPawn();
+			AttachToPawn(MyPawn);
+			AddPawnTickDependency(MyPawn);
+			if (MyPawn)
 			{
-				AutoManageActiveCameraTarget(Pawn);
+				AutoManageActiveCameraTarget(MyPawn);
 			}
 			else
 			{
@@ -4303,12 +4280,12 @@ void APlayerController::SetupInactiveStateInputComponent(UInputComponent* InComp
 }
 
 
-void APlayerController::PushInputComponent(UInputComponent* InputComponent)
+void APlayerController::PushInputComponent(UInputComponent* InInputComponent)
 {
-	if (InputComponent)
+	if (InInputComponent)
 	{
 		bool bPushed = false;
-		CurrentInputStack.RemoveSingle(InputComponent);
+		CurrentInputStack.RemoveSingle(InInputComponent);
 		for (int32 Index = CurrentInputStack.Num() - 1; Index >= 0; --Index)
 		{
 			UInputComponent* IC = CurrentInputStack[Index].Get();
@@ -4316,27 +4293,27 @@ void APlayerController::PushInputComponent(UInputComponent* InputComponent)
 			{
 				CurrentInputStack.RemoveAt(Index);
 			}
-			else if (IC->Priority <= InputComponent->Priority)
+			else if (IC->Priority <= InInputComponent->Priority)
 			{
-				CurrentInputStack.Insert(InputComponent, Index + 1);
+				CurrentInputStack.Insert(InInputComponent, Index + 1);
 				bPushed = true;
 				break;
 			}
 		}
 		if (!bPushed)
 		{
-			CurrentInputStack.Insert(InputComponent, 0);
+			CurrentInputStack.Insert(InInputComponent, 0);
 		}
 	}
 }
 
-bool APlayerController::PopInputComponent(UInputComponent* InputComponent)
+bool APlayerController::PopInputComponent(UInputComponent* InInputComponent)
 {
-	if (InputComponent)
+	if (InInputComponent)
 	{
-		if (CurrentInputStack.RemoveSingle(InputComponent) > 0)
+		if (CurrentInputStack.RemoveSingle(InInputComponent) > 0)
 		{
-			InputComponent->ClearBindingValues();
+			InInputComponent->ClearBindingValues();
 			return true;
 		}
 	}
@@ -4546,7 +4523,7 @@ void FInputModeDataBase::SetFocusAndLocking(FReply& SlateOperations, TSharedPtr<
 	}
 
 	if (bLockMouseToViewport)
-	{
+	{	
 		SlateOperations.LockMouseToWidget(InViewportWidget);
 	}
 	else
@@ -4560,10 +4537,11 @@ void FInputModeUIOnly::ApplyInputMode(FReply& SlateOperations, class UGameViewpo
 	TSharedPtr<SViewport> ViewportWidget = GameViewportClient.GetGameViewportWidget();
 	if (ViewportWidget.IsValid())
 	{
-		SetFocusAndLocking(SlateOperations, WidgetToFocus, bLockMouseToViewport, ViewportWidget.ToSharedRef());
+		SetFocusAndLocking(SlateOperations, WidgetToFocus, MouseLockMode == EMouseLockMode::LockAlways, ViewportWidget.ToSharedRef());
 
 		SlateOperations.ReleaseMouseCapture();
 
+		GameViewportClient.SetMouseLockMode(MouseLockMode);
 		GameViewportClient.SetIgnoreInput(true);
 		GameViewportClient.SetCaptureMouseOnClick(EMouseCaptureMode::NoCapture);
 	}
@@ -4574,10 +4552,11 @@ void FInputModeGameAndUI::ApplyInputMode(FReply& SlateOperations, class UGameVie
 	TSharedPtr<SViewport> ViewportWidget = GameViewportClient.GetGameViewportWidget();
 	if (ViewportWidget.IsValid())
 	{
-		SetFocusAndLocking(SlateOperations, WidgetToFocus, bLockMouseToViewport, ViewportWidget.ToSharedRef());
+		SetFocusAndLocking(SlateOperations, WidgetToFocus, MouseLockMode == EMouseLockMode::LockAlways, ViewportWidget.ToSharedRef());
 
 		SlateOperations.ReleaseMouseCapture();
 
+		GameViewportClient.SetMouseLockMode(MouseLockMode);
 		GameViewportClient.SetIgnoreInput(false);
 		GameViewportClient.SetHideCursorDuringCapture(bHideCursorDuringCapture);
 		GameViewportClient.SetCaptureMouseOnClick(EMouseCaptureMode::CaptureDuringMouseDown);
@@ -4593,6 +4572,7 @@ void FInputModeGameOnly::ApplyInputMode(FReply& SlateOperations, class UGameView
 		SlateOperations.UseHighPrecisionMouseMovement(ViewportWidgetRef);
 		SlateOperations.SetUserFocus(ViewportWidgetRef);
 		SlateOperations.LockMouseToWidget(ViewportWidgetRef);
+		GameViewportClient.SetMouseLockMode(EMouseLockMode::LockOnCapture);
 		GameViewportClient.SetIgnoreInput(false);
 		GameViewportClient.SetCaptureMouseOnClick(bConsumeCaptureMouseDown ? EMouseCaptureMode::CapturePermanently : EMouseCaptureMode::CapturePermanently_IncludingInitialMouseDown);
 	}
@@ -4698,13 +4678,3 @@ bool APlayerController::ShouldPerformFullTickWhenPaused() const
 }
 
 #undef LOCTEXT_NAMESPACE
-
-void APlayerController::ToggleVoiceLoopback(bool bEnabled)
-{
-	UWorld* World = GetWorld();
-	IOnlineVoicePtr VoiceInt = Online::GetVoiceInterface(World);
-	if (VoiceInt.IsValid())
-	{
-		VoiceInt->ToggleLoopback(bEnabled);
-	}
-}

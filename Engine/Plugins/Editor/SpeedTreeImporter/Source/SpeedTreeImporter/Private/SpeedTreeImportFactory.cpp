@@ -1461,7 +1461,8 @@ UObject* USpeedTreeImportFactory::FactoryCreateBinary( UClass* InClass, UObject*
 						LODModel->BuildSettings.bRecomputeNormals = false;
 						LODModel->BuildSettings.bRecomputeTangents = false;
 						LODModel->BuildSettings.bRemoveDegenerates = true;
-						LODModel->BuildSettings.bUseFullPrecisionUVs = false;	
+						LODModel->BuildSettings.bUseHighPrecisionTangentBasis = false;
+						LODModel->BuildSettings.bUseFullPrecisionUVs = false;
 						LODModel->BuildSettings.bGenerateLightmapUVs = false;
 						LODModel->ScreenSize = 0.1f / FMath::Pow(2.0f, StaticMesh->SourceModels.Num() - 1);
 						LODModel->RawMeshBulkData->SaveRawMesh(RawMesh);
@@ -1573,6 +1574,7 @@ UObject* USpeedTreeImportFactory::FactoryCreateBinary( UClass* InClass, UObject*
 					LODModel->BuildSettings.bRecomputeNormals = false;
 					LODModel->BuildSettings.bRecomputeTangents = false;
 					LODModel->BuildSettings.bRemoveDegenerates = true;
+					LODModel->BuildSettings.bUseHighPrecisionTangentBasis = false;
 					LODModel->BuildSettings.bUseFullPrecisionUVs = false;
 					LODModel->BuildSettings.bGenerateLightmapUVs = false;
 					LODModel->ScreenSize = 0.1f / FMath::Pow(2.0f, StaticMesh->SourceModels.Num() - 1);

@@ -1,0 +1,448 @@
+<?xml version='1.0' ?>
+<BuildGraph xmlns="http://www.epicgames.com/BuildGraph" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.epicgames.com/BuildGraph ../../Engine/Build/Graph/Schema.xsd" >
+	<Property Name="IsReleaseBranch" Value="false" If="'$(IsReleaseBranch)' != true"/>
+	<Property Name="IsPreflight" Value="true" If="'$(PreflightChange)' != ''"/>
+	<Property Name="IsPreflight" Value="false" If="'$(IsPreflight)' == ''"/>
+	<Property Name="PreflightSuffix" Value="-PF-$(PreflightChange)-$(COMMANDER_JOBID)" If="$(IsPreflight)"/>
+
+	<Property Name="OutputDir" Value="P:\Builds\UnrealTournament" If="$(IsBuildMachine) And '$(OutputDir)' == ''"/>
+	<Property Name="OutputDirMac" Value="/Volumes/Builds/UnrealTournament" If="$(IsBuildMachine) And '$(OutputDirMac)' == ''"/>
+
+	<Property Name="CloudDir" Value="$(OutputDir)\CloudDir"/>
+	<Property Name="CloudDirMac" Value="$(OutputDirMac)/CloudDir"/>
+
+	<Property Name="LocalStagingDir" Value="$(RootDir)\LocalBuilds\UnrealTournament"/>
+	<Property Name="LocalMacStagingDir" Value="$(RootDir)/LocalBuilds/UnrealTournament"/>
+
+	<Property Name="WindowsSymbolsDir" Value="$(OutputDir)\Symbols\Windows"/>
+	<Property Name="EnableSymStore" Value="true" If="$(IsBuildMachine) And '$(EnableSymStore)' == ''"/>
+	<Property Name="EnableSymStore" Value="false" If="'$(EnableSymStore)' != 'true'"/>
+
+	<Property Name="BuildVersion" Value="$(EscapedBranch)-CL-$(Change)" If="'$(BuildVersion)' == ''"/>
+	<Property Name="EditorAppName" Value="UnrealTournamentEditorBuilds"/>
+	<Property Name="McpConfig" Value="MainGameDevNet"/>
+	<Property Name="CloudDir" Value="$(OutputDir)\CloudDir"/>
+	<Property Name="CloudDirMac" Value="$(OutputDirMac)/CloudDir"/>
+
+	<Property Name="BuildDir" Value="$(OutputDir)\$(BuildVersion)$(PreflightSuffix)"/>
+	<Property Name="BuildDirMac" Value="$(OutputDirMac)/$(BuildVersion)$(PreflightSuffix)"/>
+
+	<Property Name="DaysToKeepOldTempStorage" Value="3"/>
+	
+	<Property Name="AppName" Value="UnrealTournamentBuilds"/>
+	<Property Name="AppName" Value="UnrealTournamentReleaseBuilds" If="'$(IsReleaseBranch)'"/>
+
+	<Agent Name="Editor Win64" Type="CompileWin64">
+		<Node Name="Update Version Files">
+			<SetVersion Change="$(Change)" Branch="$(EscapedBranch)" If="$(IsBuildMachine)"/>
+		</Node>
+		<Node Name="Compile UnrealHeaderTool Win64" Requires="Update Version Files">
+			<Compile Target="UnrealHeaderTool" Platform="Win64" Configuration="Development" Arguments="-precompile"/>
+		</Node>
+		<Node Name="Compile UnrealTournamentEditor Win64" Requires="Compile UnrealHeaderTool Win64" Produces="#Win64_UTEditor">
+			<Compile Target="UnrealTournamentEditor" Platform="Win64" Configuration="Development" Tag="#Win64_UTEditor"/>
+		</Node>
+	</Agent>
+	
+	<Agent Name="Tools Group Win64" Type="CompileWin64">
+		<Node Name="Build Internal Tools Win64" Requires="Compile UnrealTournamentEditor Win64">
+			<Compile Target="BuildPatchTool" Platform="Win64" Configuration="Development"/>
+			<Compile Target="UnrealEngineLauncherProxy" Platform="Win32" Configuration="Shipping"/>
+			<Compile Target="UnrealEngineLauncherProxy" Platform="Win64" Configuration="Development"/>
+		</Node>
+		<Node Name="Compile Tools Win64" Requires="Build Internal Tools Win64" Produces="#Win64_Tools">
+			<Compile Target="CrashReportClient" Platform="Win32" Configuration="Shipping" Tag="#Win64_Tools"/>
+			<Compile Target="CrashReportClient" Platform="Win64" Configuration="Shipping" Tag="#Win64_Tools"/>
+			<Compile Target="ShaderCompileWorker" Platform="Win64" Configuration="Development" Tag="#Win64_Tools"/>
+			<Compile Target="UnrealCEFSubProcess" Platform="Win32" Configuration="Development" Tag="#Win64_Tools"/>
+			<Compile Target="UnrealCEFSubProcess" Platform="Win64" Configuration="Development" Tag="#Win64_Tools"/>
+			<Compile Target="UnrealLightmass" Platform="Win64" Configuration="Development" Tag="#Win64_Tools"/>
+			<Compile Target="UnrealPak" Platform="Win64" Configuration="Development" Tag="#Win64_Tools"/>
+			<Compile Target="BootstrapPackagedGame" Platform="Win32" Configuration="Shipping" Tag="#Win64_Tools"/>
+			<Compile Target="BootstrapPackagedGame" Platform="Win64" Configuration="Shipping" Tag="#Win64_Tools"/>	
+		</Node>
+	</Agent>
+	
+	<Agent Name="UTGame Win32" Type="CompileWin64">
+		<Node Name="Compile UT Win32" Requires="Compile Tools Win64">
+			<Compile Target="UnrealTournament" Platform="Win32" Configuration="Shipping"/>
+			<Compile Target="UnrealTournament" Platform="Win32" Configuration="Test"/>
+		</Node>
+	</Agent>
+
+	<Agent Name="UTGame Win64" Type="CompileWin64">
+		<Node Name="Compile UT Win64" Requires="Compile Tools Win64">
+			<Compile Target="UnrealTournament" Platform="Win64" Configuration="Shipping"/>
+			<Compile Target="UnrealTournament" Platform="Win64" Configuration="Test"/>
+		</Node>
+		<Node Name="Compile UT Win64 Server" Requires="Compile Tools Win64">
+			<Compile Target="UnrealTournamentServer" Platform="Win64" Configuration="Shipping"/>
+			<Compile Target="UnrealTournamentServer" Platform="Win64" Configuration="Test"/>
+		</Node>
+	</Agent>
+
+	<Aggregate Name="Compile Game Windows" Requires="Compile UnrealTournamentEditor Win64;Compile Tools Win64;Compile UT Win32;Compile UT Win64;Compile UT Win64 Server"/>
+
+	<Agent Name="NonUnity Compile Win64" Type="CompileWin64">
+		<Node Name="NonUnity Build Win64" Requires="Compile UnrealHeaderTool Win64" After="Compile Game Windows">
+			<Compile Target="UE4Editor" Platform="Win64" Configuration="Development" Arguments="-nodebuginfo -disableunity"/>
+			<Compile Target="UE4Game" Platform="Win64" Configuration="Development" Arguments="-nodebuginfo -disableunity"/>
+			<Compile Target="UE4Client" Platform="Win64" Configuration="Development" Arguments="-nodebuginfo -disableunity"/>
+			<Compile Target="UE4Server" Platform="Win64" Configuration="Development" Arguments="-nodebuginfo -disableunity"/>
+		</Node>
+	</Agent>
+
+	<Agent Name="Cook Win64 NoEditor" Type="Win64">
+		<Node Name="Cook UT Win64 NoEditor" Requires="Compile UnrealTournamentEditor Win64;Compile Tools Win64">
+			<Cook Project="UnrealTournament\UnrealTournament.uproject" Platform="WindowsNoEditor"/>
+		</Node>
+	</Agent>
+
+	<Agent Name="Cook Win64 Server" Type="Win64">
+		<Node Name="Cook UT Win64 WindowsServer" Requires="Compile UnrealTournamentEditor Win64;Compile Tools Win64">
+			<Cook Project="UnrealTournament\UnrealTournament.uproject" Platform="WindowsServer"/>
+		</Node>
+	</Agent>
+
+	<Aggregate Name="Cook Win64" Requires="Cook UT Win64 NoEditor;Cook UT Win64 WindowsServer"/>
+
+	<Agent Name="Editor Mac" Type="CompileMac">
+		<Node Name="Compile UnrealHeaderTool Mac" Requires="Update Version Files">
+			<Compile Target="UnrealHeaderTool" Platform="Mac" Configuration="Development" Arguments="-precompile"/>
+		</Node>
+		<Node Name="Compile UnrealTournamentEditor Mac" Requires="Compile UnrealHeaderTool Mac" Produces="#Mac_UTEditor">
+			<Compile Target="UnrealTournamentEditor" Platform="Mac" Configuration="Development" Tag="#Mac_UTEditor"/>
+		</Node>
+	</Agent>
+
+	<Agent Name="Tools Group Mac" Type="CompileMac">
+		<Node Name="Compile Tools Mac" Requires="Compile UnrealTournamentEditor Mac" Produces="#Mac_Tools">
+			<Compile Target="BuildPatchTool" Platform="Mac" Configuration="Development" Tag="#Mac_Tools"/>
+			<Compile Target="CrashReportClient" Platform="Mac" Configuration="Shipping" Tag="#Mac_Tools" />
+			<Compile Target="DsymExporter" Platform="Mac" Configuration="Development" Tag="#Mac_Tools"/>
+			<Compile Target="UE4EditorServices" Platform="Mac" Configuration="Development" Tag="#Mac_Tools"/>
+			<Compile Target="UnrealAtoS" Platform="Mac" Configuration="Development" Tag="#Mac_Tools"/>
+			<Compile Target="ShaderCompileWorker" Platform="Mac" Configuration="Development" Tag="#Mac_Tools"/>
+			<Compile Target="UnrealCEFSubProcess" Platform="Mac" Configuration="Development" Tag="#Mac_Tools"/>
+			<Compile Target="UnrealFrontend" Platform="Mac" Configuration="Development" Tag="#Mac_Tools"/>
+			<Compile Target="UnrealLightmass" Platform="Mac" Configuration="Development" Tag="#Mac_Tools"/>
+			<Compile Target="UnrealPak" Platform="Mac" Configuration="Development" Tag="#Mac_Tools"/>
+			<Compile Target="MinidumpDiagnostics" Platform="Mac" Configuration="Development" Tag="#Mac_Tools"/>
+		</Node>
+	</Agent>
+
+	<Agent Name="UTGame Mac" Type="CompileMac">
+		<Node Name="Compile UT Mac" Requires="Compile Tools Mac">
+			<Compile Target="UnrealTournament" Platform="Mac" Configuration="Shipping"/>
+			<Compile Target="UnrealTournament" Platform="Mac" Configuration="Test"/>
+		</Node>
+	</Agent>
+
+	<Aggregate Name="Compile Game Mac" Requires="Compile UnrealTournamentEditor Mac;Compile Tools Mac;Compile UT Mac"/>
+
+	<Agent Name="NonUnity Compile Mac" Type="CompileMac">
+		<Node Name="NonUnity Build Mac" Requires="Compile UnrealHeaderTool Mac" After="Compile Game Mac">
+			<Compile Target="UE4Editor" Platform="Mac" Configuration="Development" Arguments="-nodebuginfo -disableunity"/>
+			<Compile Target="UE4Game" Platform="Mac" Configuration="Development" Arguments="-nodebuginfo -disableunity"/>
+			<Compile Target="UE4Client" Platform="Mac" Configuration="Development" Arguments="-nodebuginfo -disableunity"/>
+			<Compile Target="UE4Server" Platform="Mac" Configuration="Development" Arguments="-nodebuginfo -disableunity"/>
+		</Node>
+	</Agent>
+
+	<Agent Name="Cook Mac NoEditor" Type="Mac">
+		<Node Name="Cook UT Mac" Requires="Compile UnrealTournamentEditor Mac;Compile Tools Mac">
+			<Cook Project="UnrealTournament/UnrealTournament.uproject" Platform="MacNoEditor"/>
+		</Node>
+	</Agent>
+
+	<Agent Name="Editor Linux" Type="CompileWin64">
+		<Node Name="Compile UnrealTournamentEditor Linux" Requires="Compile UnrealHeaderTool Win64">
+			<Compile Target="UnrealTournamentEditor" Platform="Linux" Configuration="Development"/>
+		</Node>
+	</Agent>
+
+	<Agent Name="Tools Group Linux" Type="CompileWin64">
+		<Node Name="Compile Tools Linux" Requires="Compile UnrealTournamentEditor Linux">
+			<Compile Target="CrashReportClient" Platform="Linux" Configuration="Shipping"/>
+			<Compile Target="ShaderCompileWorker" Platform="Linux" Configuration="Development"/>
+			<Compile Target="UnrealLightmass" Platform="Linux" Configuration="Development"/>
+			<Compile Target="UnrealPak" Platform="Linux" Configuration="Development"/>
+		</Node>
+	</Agent>
+	
+	<Agent Name="UTGame Linux" Type="CompileWin64">
+		<Node Name="Compile UT Linux" Requires="Compile Tools Linux">
+			<Compile Target="UnrealTournament" Platform="Linux" Configuration="Shipping"/>
+			<Compile Target="UnrealTournament" Platform="Linux" Configuration="Test"/>
+		</Node>
+		<Node Name="Compile UT Linux Server">
+			<Compile Target="UnrealTournamentServer" Platform="Linux" Configuration="Shipping"/>
+			<Compile Target="UnrealTournamentServer" Platform="Linux" Configuration="Test"/>
+		</Node>
+	</Agent>
+
+	<Aggregate Name="Compile Game Linux" Requires="Compile UnrealTournamentEditor Linux;Compile Tools Linux;Compile UT Linux;Compile UT Linux Server"/>
+
+	<Agent Name="Cook Linux NoEditor" Type="Win64">
+		<Node Name="Cook UT Linux NoEditor" Requires="Compile UnrealTournamentEditor Win64;Compile UnrealTournamentEditor Linux;Compile Tools Win64;Compile Tools Linux">
+			<Cook Project="UnrealTournament/UnrealTournament.uproject" Platform="LinuxNoEditor"/>
+		</Node>
+	</Agent>
+
+	<Agent Name="Cook Linux Server" Type="Win64">
+		<Node Name="Cook UT LinuxServer" Requires="Compile UnrealTournamentEditor Win64;Compile UnrealTournamentEditor Linux;Compile Tools Win64;Compile Tools Linux">
+			<Cook Project="UnrealTournament/UnrealTournament.uproject" Platform="LinuxServer"/>
+		</Node>
+	</Agent>
+
+	<Aggregate Name="Cook Linux" Requires="Cook UT Linux NoEditor;Cook UT LinuxServer"/>
+	
+	<Aggregate Name="Pretrigger Windows" Requires="Compile Game Windows;Cook Win64"/>
+	<Aggregate Name="Pretrigger Mac" Requires="Compile Game Mac;Cook UT Mac"/>
+	<Aggregate Name="Pretrigger Linux" Requires="Compile Game Linux;Cook Linux"/>
+
+	<Trigger Name="TriggerDef_MakeBuild">
+		<Agent Name="Trigger Distribute Win64" Type="Win64">
+			<Node Name="Stage Win64" Requires="Pretrigger Windows">
+				<Command Name="UnrealTournamentProto_BasicBuild" Arguments="-SkipBuild -SkipCook -Chunk -win -nolinux -StagingDir=&quot;$(LocalStagingDir)&quot;"/>
+			</Node>
+			<Node Name="Chunk Win64" Requires="Stage Win64">
+				<Local Name="Launch" Value="Engine\Binaries\Win64\UE4-Win64-Shipping.exe"/>
+				<Local Name="LaunchArgs" Value="UnrealTournament"/>
+				<Tag Files="$(LocalStagingDir)\WindowsNoEditor\..." Except="*.pdb" With="#FilesToChunk"/>
+				<Chunk AppName="$(AppName)" BuildVersion="$(BuildVersion)" Platform="Windows" InputDir="$(LocalStagingDir)\WindowsNoEditor" Files="#FilesToChunk" Launch="$(Launch)" LaunchArgs="$(LaunchArgs)" CloudDir="$(CloudDir)"  />
+			</Node>
+			<Node Name="Post Win64" Requires="Chunk Win64">
+				<Log Message="This will post win64 when turned on"/>
+				<!--
+				<PostBuild AppName="$(AppName)" BuildVersion="$(BuildVersion)" Platform="Windows" CloudDir="$(CloudDir)" McpConfig="$(McpConfig)"/>
+				<LabelBuild AppName="$(AppName)" BuildVersion="$(BuildVersion)" Platform="Windows" Label="Live" McpConfig="$(McpConfig)"/>-->
+			</Node>
+			<Node Name="Publish Client Win64" Requires="Post Win64">
+				<Copy Files="..." FromDir="$(LocalStagingDir)\WindowsNoEditor" ToDir="$(BuildDir)\WindowsNoEditor"/>
+				<SymStore Files="#Compile UT Win64" StoreDir="$(WindowsSymbolsDir)" Product="Ocean" If="$(EnableSymStore)"/>
+			</Node>
+			<Node Name="Publish Server Win64" Requires="Stage Win64">
+				<Copy Files="..." FromDir="$(LocalStagingDir)\WindowsServer" ToDir="$(BuildDir)\WindowsServer"/>
+			</Node>
+		</Agent>
+		<Agent Name="Trigger Distribute Editor Win64" Type="Win64">
+			<Node Name="Copy Editor Win64" Requires="Pretrigger Windows">
+				<Tag Files="#Win64_UTEditor" With="#Win64_UTEditor_Trimmed" Except="...\Win32\...;...\Intermediate\...;...\Android\...;...\HTML5\...;...\IOS\...;*-Simplygon;*-DDCUtils;*-HTML5*.dylib;UnrealFrontend*;UnrealHeaderTool*;...\NotForLicensees\...;...\NoRedist\...;...\EpicInternal\..."/>
+				<Tag Files="#Win64_Tools" With="#Win64_Tools_Trimmed" Except="...\Win32\...;...\Intermediate\...;...\Android\...;...\HTML5\...;...\IOS\...;...\Win32\...*-Simplygon;*-DDCUtils;*-HTML5*.dylib;UnrealFrontend*;UnrealHeaderTool*;...\NotForLicensees\...;...\NoRedist\...;...\EpicInternal\..."/>
+				<Tag Files="$(RootDir)\Engine\Binaries\Win64\libfbxsdk.dll" With="#EditorSupportFiles"/>
+				<Tag Files="$(RootDir)\Engine\Binaries\Win64\embree.dll" With="#EditorSupportFiles"/>
+				<Tag Files="$(RootDir)\Engine\Binaries\Win64\tbb.dll" With="#EditorSupportFiles"/>
+				<Tag Files="$(RootDir)\Engine\Binaries\Win64\tbbmalloc.dll" With="#EditorSupportFiles"/>
+				<Tag Files="$(RootDir)\Engine\Binaries\Win64\AgentInterface.dll" With="#EditorSupportFiles"/>
+				<Tag Files="$(RootDir)\Engine\Binaries\Win64\AgentInterface.pdb" With="#EditorSupportFiles"/>
+
+				<Tag Files="$(RootDir)\Engine\Binaries\DotNET\..." With="#EditorSupportFiles" Except="...\NoRedist\...;AutomationTool.pdb;UnrealBuildTool.pdb;AutomationUtils.Automation.pdb;AutomationToolLauncher*;*.application;*.exe.manifest;*.vshost.exe*" Filter="AgentInterface*;AutomationTool*;AutomationUtils*;DotNETUtilities*;HTML5LaunchHelper*;NetworkProfiler*;RPCUtility*;SwarmAgent*;SwarmCommonUtils*;SwarmCoordinator*;SwarmInterface*;UnrealBuildTool*;UnrealControls*"/>
+				<Tag Files="$(RootDir)\Engine\Binaries\DotNET\AutomationScripts\..." Except="...\NoRedist\..." Filter="AutomationScripts.Automation.dll;BuildGraph.Automation.dll;GUBP.Automation.dll;Localization.Automation.dll;OneSkyLocalization.Automation.dll;Win.Automation.dll;XLocLocalization.Automation.dll" With="#EditorSupportFiles"/>
+				<Tag Files="$(RootDir)\Engine\Binaries\ThirdParty\CEF3\Win64\..." With="#EditorSupportFiles"/>
+				<Tag Files="$(RootDir)\Engine\Binaries\ThirdParty\ICU\icu4c-53_1\Win64\VS2015\..." With="#EditorSupportFiles" Filter="*.dll"/>
+				<Tag Files="$(RootDir)\Engine\Binaries\ThirdParty\PhysX\APEX-1.3\Win64\VS2015\..." With="#EditorSupportFiles" Filter="*.dll" Except="*DEBUG*;*CHECKED*"/>
+				<Tag Files="$(RootDir)\Engine\Binaries\ThirdParty\PhysX\PhysX-3.3\Win64\VS2015\..." With="#EditorSupportFiles" Filter="*.dll" Except="*DEBUG*;*CHECKED*"/>
+				<Tag Files="$(RootDir)\Engine\Binaries\ThirdParty\Ogg\Win64\VS2015\..." With="#EditorSupportFiles" Filter="*.dll"/>
+				<Tag Files="$(RootDir)\Engine\Binaries\ThirdParty\Vorbis\Win64\VS2015\..." With="#EditorSupportFiles" Filter="*.dll"/>
+				<Tag Files="$(RootDir)\Engine\Binaries\ThirdParty\nvTextureTools\Win64\..." With="#EditorSupportFiles" Filter="*.dll"/>
+				<Tag Files="$(RootDir)\Engine\Binaries\ThirdParty\Oculus\Audio\Win64\..." With="#EditorSupportFiles" Filter="*.dll"/>
+				<Tag Files="$(RootDir)\Engine\Binaries\ThirdParty\OpenSSL\Win64\VS2015\..." With="#EditorSupportFiles" Filter="*.dll"/>
+
+				<Tag Files="$(RootDir)\Engine\Plugins\..." With="#EditorSupportFiles" Filter="*.uplugin"/>
+				<Tag Files="$(RootDir)\Engine\Plugins\...\Content\..." With="#EditorSupportFiles"/>
+				<Tag Files="$(RootDir)\Engine\Plugins\...\Binaries\..." With="#EditorSupportFiles"/>
+				<Tag Files="$(RootDir)\Engine\Plugins\...\Resources\..." With="#EditorSupportFiles"/>
+
+				<Tag Files="$(RootDir)\Engine\Build\Target.cs.template" With="#EditorSupportFiles"/>
+				<Tag Files="$(RootDir)\Engine\Build\BatchFiles\..." With="#EditorSupportFiles"/>
+				<Tag Files="$(RootDir)\Engine\Programs\...\Config\..." With="#EditorSupportFiles" Except="...\UnrealHeaderTool\Intermediate\...;...\UnrealHeaderTool\Saved\..."/>
+				<Tag Files="$(RootDir)\Engine\Config\..." With="#EditorSupportFiles"/>
+				<Tag Files="$(RootDir)\Engine\Content\..." With="#EditorSupportFiles" Except="...\EpicInternal\..."/>
+				<Tag Files="$(RootDir)\Engine\Documentation\Source\Shared\..." With="#EditorSupportFiles"/>
+				<Tag Files="$(RootDir)\Engine\Shaders\..." With="#EditorSupportFiles" Except="...\PS4\..."/>
+
+				<Tag Files="$(RootDir)\UnrealTournament\..." With="#EditorSupportFiles" Filter="*.uproject"/>
+				<Tag Files="$(RootDir)\UnrealTournament\Binaries\..." With="#EditorSupportFiles" Except="*Shipping*;*Test*"/>
+				<Tag Files="$(RootDir)\UnrealTournament\Plugins\..." With="#EditorSupportFiles" Except="...\Intermediate\...;...\*Shipping*\...;...\*Test*\..."/>
+				<Tag Files="$(RootDir)\UnrealTournament\Content\..." With="#EditorSupportFiles" Except="...\EpicInternal\..."/>
+				<Tag Files="$(RootDir)\UnrealTournament\Config\..." With="#EditorSupportFiles"/>
+				<Tag Files="$(RootDir)\UnrealTournament\Releases\..." With="#EditorSupportFiles"/>
+
+				<Tag Files="#EditorSupportFiles" With="#EditorSupportFiles_Trimmed" Except="*.tps;...\NotForLicensees\...;...\NoRedist\...;...\EpicInternal\...;...\HTML5\...;...\Linux\...;...\Mac\...;...\Android\...;...\IOS\...;...\XboxOne\...;...\PS4\...;...\Win32\..."/>
+
+				<!-- we want to add this one guy after the fact from noredist-->
+				<Tag Files="$(RootDir)\Engine\Binaries\DotNET\AutomationScripts\NoRedist\UnrealTournament.Automation.dll" With="#EditorSupportFiles_Trimmed"/>
+				
+				<Copy Files="#EditorSupportFiles_Trimmed" FromDir="" ToDir="$(LocalStagingDir)\UT-Build\Win64"/>
+				<Copy Files="#Win64_UTEditor_Trimmed" FromDir="" ToDir="$(LocalStagingDir)\UT-Build\Win64"/>
+				<Copy Files="#Win64_Tools_Trimmed" FromDir="" ToDir="$(LocalStagingDir)\UT-Build\Win64"/>
+
+			</Node>
+			<Node Name="EditorDDC Win64" Requires="Copy Editor Win64">
+			<Commandlet Name="DerivedDataCache" Project="$(LocalStagingDir)\UT-Build\Win64\UnrealTournament\UnrealTournament.uproject" Arguments="-TargetPlatform=Windows -fill -DDC=CreateInstalledEnginePak -Map=Example_Map" EditorExe="$(LocalStagingDir)\UT-Build\Win64\Engine\Binaries\Win64\UE4Editor-Cmd.exe"/>
+			</Node>
+			<Node Name="Chunk Editor Win64" Requires="Copy Editor Win64">
+				<Local Name="Launch" Value="Engine\Binaries\Win64\UE4Editor.exe"/>
+				<Local Name="LaunchArgs" Value="UnrealTournament"/>
+				<Tag Files="$(LocalStagingDir)\UT-Build\Win64\..." With="#EditorFilesToChunk"/>
+				<Chunk AppName="$(EditorAppName)" BuildVersion="$(BuildVersion)" Platform="Windows" InputDir="$(LocalStagingDir)\UT-Build\Win64" Files="#EditorFilesToChunk" Launch="$(Launch)" LaunchArgs="$(LaunchArgs)" CloudDir="$(CloudDir)"/>
+			</Node>
+			<Node Name="Post Editor Win64" Requires="Chunk Editor Win64">
+				<Log Message="This will post editor when turned on"/>
+					<!--
+					<PostBuild AppName="$(EditorAppName)" BuildVersion="$(BuildVersion)" Platform="Windows" CloudDir="$(CloudDir)" McpConfig="$(McpConfig)"/>
+					<LabelBuild AppName="$(EditorAppName)" BuildVersion="$(BuildVersion)" Platform="Windows" Label="Live" McpConfig="$(McpConfig)"/>-->
+			</Node>
+			<Node Name="Publish Editor Win64" Requires="Copy Editor Win64">
+				<Copy Files="..." FromDir="$(LocalStagingDir)\UT-Build\Win64" ToDir="$(BuildDir)\WindowsEditor"/>
+			</Node>
+		</Agent>
+		
+		<!-- Mac build but should be run on win64 because of the proto build function -->
+		<Agent Name="Trigger Distribute Mac" Type="Win64">
+			<Node Name="Stage Mac" Requires="Pretrigger Mac">
+				<Command Name="UnrealTournamentProto_BasicBuild" Arguments="-SkipBuild -SkipCook -Chunk -mac -nolinux -NoServer -StagingDir=&quot;$(LocalStagingDir)&quot;"/>
+			</Node>
+			<Node Name="Chunk Mac" Requires="Stage Mac">
+				<Local Name="Launch" Value="Engine\Binaries\Mac\UE4-Mac-Shipping.app"/>
+				<Local Name="LaunchArgs" Value="UnrealTournament"/>
+				<Tag Files="$(LocalStagingDir)\MacNoEditor\..." With="#FilesToChunk"/>
+				<Chunk AppName="$(AppName)" BuildVersion="$(BuildVersion)" Platform="Mac" InputDir="$(LocalStagingDir)\MacNoEditor" Files="..." Launch="$(Launch)" LaunchArgs="$(LaunchArgs)" CloudDir="$(CloudDir)"  />
+			</Node>
+			<Node Name="Post Mac" Requires="Chunk Mac">
+				<Log Message="This will post mac when turned on"/>
+				<!--
+				<PostBuild AppName="$(AppName)" BuildVersion="$(BuildVersion)" Platform="Mac" CloudDir="$(CloudDirMac)" McpConfig="$(McpConfig)"/>
+				<LabelBuild AppName="$(AppName)" BuildVersion="$(BuildVersion)" Platform="Mac" Label="Live" McpConfig="$(McpConfig)"/>-->
+			</Node>
+			<Node Name="Publish Mac" Requires="Post Mac">
+				<Copy Files="..." FromDir="$(LocalStagingDir)\MacNoEditor" ToDir="$(BuildDir)\MacNoEditor"/>
+			</Node>
+		</Agent>
+		
+		<Agent Name="Trigger Distribute Editor Mac" Type="Mac">
+			<Node Name="Copy Editor Mac" Requires="Pretrigger Mac">
+				<Tag Files="#Mac_UTEditor" With="#Mac_UTEditor_Trimmed" Except="*-Simplygon;*-DDCUtils;*-HTML5*.dylib;UnrealFrontend*;UnrealHeaderTool*;.../NotForLicensees/...;.../NoRedist/...;.../EpicInternal/...;.../Android/...;.../IOS/..."/>
+				<Tag Files="#Mac_Tools" With="#Mac_Tools_Trimmed" Except="*-Simplygon;*-DDCUtils;*-HTML5*.dylib;UnrealFrontend*;UnrealHeaderTool*;.../NotForLicensees/...;.../NoRedist/...;.../EpicInternal/..."/>
+
+				<Tag Files="$(RootDir)/Engine/Binaries/Mac/libembree.2.dylib" With="#EditorSupportFiles_Mac"/>
+				<Tag Files="$(RootDir)/Engine/Binaries/Mac/libtbb.dylib" With="#EditorSupportFiles_Mac"/>
+				<Tag Files="$(RootDir)/Engine/Binaries/ThirdParty/ICU/icu4c-53_1/Mac/..." Filter="*.dylib" With="#EditorSupportFiles_Mac"/>
+				<Tag Files="$(RootDir)/Engine/Binaries/ThirdParty/Mono/Mac/..." With="#EditorSupportFiles_Mac" Except="*.tps"/>
+				<Tag Files="$(RootDir)/Engine/Binaries/ThirdParty/CEF3/Mac/..." With="#EditorSupportFiles_Mac"/>
+
+				<Tag Files="#EditorSupportFiles_Mac" With="#EditorSupportFiles_Mac" Except="$(RootDir)/Engine/Binaries/DotNET/AutomationScripts/NoRedist/UnrealTournament.Automation.dll"/>
+
+				<Tag Files="$(RootDir)/Engine/Plugins/..." With="#EditorSupportFiles_Mac" Filter="*.uplugin"/>
+				<Tag Files="$(RootDir)/Engine/Plugins/.../Content/..." With="#EditorSupportFiles_Mac"/>
+				<Tag Files="$(RootDir)/Engine/Plugins/.../Resources/..." With="#EditorSupportFiles_Mac"/>
+
+				<Tag Files="$(RootDir)/Engine/Build/Target.cs.template" With="#EditorSupportFiles_Mac"/>
+				<Tag Files="$(RootDir)/Engine/Build/BatchFiles/..." With="#EditorSupportFiles_Mac"/>
+				<Tag Files="$(RootDir)/Engine/Programs/.../Config/..." With="#EditorSupportFiles_Mac"/>
+				<Tag Files="$(RootDir)/Engine/Config/..." With="#EditorSupportFiles_Mac"/>
+				<Tag Files="$(RootDir)/Engine/Content/..." With="#EditorSupportFiles_Mac"/>
+				<Tag Files="$(RootDir)/Engine/Documentation/Source/Shared/..." With="#EditorSupportFiles_Mac"/>
+				<Tag Files="$(RootDir)/Engine/Shaders/..." With="#EditorSupportFiles_Mac"/>
+
+				<Tag Files="$(RootDir)/UnrealTournament/..." With="#EditorSupportFiles_Mac" Filter="*.uproject"/>
+				<Tag Files="$(RootDir)/UnrealTournament/Binaries/..." With="#EditorSupportFiles_Mac" Except=".../Linux/...;.../Win32/...;.../Win64/...;*-Mac-Shipping*;*-Mac-Test*"/>
+				<Tag Files="$(RootDir)/UnrealTournament/Plugins/..." With="#EditorSupportFiles_Mac" Filter="Paper2D/*;ExampleDeviceProfileSelector/*;VisualStudioSourceCodeAccess/*;XCodeSourceCodeAccess/*;AnalyticsBlueprintLibrary/*;UdpMessaging/*;Developer/*;Blendables/*"/>
+				<Tag Files="$(RootDir)/UnrealTournament/Content/..." With="#EditorSupportFiles_Mac" Except=".../EpicInternal/..."/>
+				<Tag Files="$(RootDir)/UnrealTournament/Config/..." With="#EditorSupportFiles_Mac" Except=".../Linux/...;.../PS4/..."/>
+				<Tag Files="$(RootDir)/UnrealTournament/Releases/..." With="#EditorSupportFiles_Mac"/>
+
+				<Copy Files="#Mac_UTEditor_Trimmed" FromDir="" ToDir="$(LocalStagingDir)/UT-Build/Mac"/>
+				<Copy Files="#Mac_Tools_Trimmed" FromDir="" ToDir="$(LocalStagingDir)/UT-Build/Mac"/>
+				<Copy Files="#EditorSupportFiles_Mac" FromDir="" ToDir="$(LocalStagingDir)/UT-Build/Mac"/>
+			</Node>
+			<Node Name="EditorDDC Mac" Requires="Copy Editor Mac">
+				<Commandlet Name="DerivedDataCache" Project="$(LocalMacStagingDir)/UT-Build/Mac/UnrealTournament/UnrealTournament.uproject" Arguments="-TargetPlatform=Mac -fill -DDC=CreateInstalledEnginePak -Map=Example_Map"/>
+			</Node>
+			<Node Name="Chunk Editor Mac" Requires="EditorDDC Mac">
+				<Local Name="Launch" Value="Engine/Binaries/Mac/UE4Editor.app"/>
+				<Local Name="LaunchArgs" Value="UnrealTournament"/>
+				<Tag Files="$(LocalMacStagingDir)/UT-Build/Mac/..." With="#EditorFilesToChunk"/>
+				<Chunk AppName="$(EditorAppName)" BuildVersion="$(BuildVersion)" Platform="Mac" InputDir="$(LocalStagingDir)/UT-Build/Mac" Files="#EditorFilesToChunk" Launch="$(Launch)" LaunchArgs="$(LaunchArgs)" CloudDir="$(CloudDir)"/>
+			</Node>
+			<Node Name="Post Editor Mac" Requires="Chunk Editor Mac">
+				<Log Message="This will post editor when turned on"/>
+				<!--<PostBuild AppName="$(EditorAppName)" BuildVersion="$(BuildVersion)" Platform="Mac" CloudDir="$(CloudDir)" McpConfig="$(McpConfig)"/>
+				<LabelBuild AppName="$(EditorAppName)" BuildVersion="$(BuildVersion)" Platform="Mac" Label="Live" McpConfig="$(McpConfig)"/>-->
+			</Node>
+			<Node Name="Publish Editor Mac" Requires="Post Editor Mac">
+				<Copy Files="..." FromDir="$(LocalMacStagingDir)/UT-Build/Mac" ToDir="$(BuildDirMac)/MacEditor"/>
+			</Node>
+		</Agent>
+
+		<Agent Name="Trigger Distribute Linux" Type="Win64">
+			<Node Name="Stage Linux" Requires="Pretrigger Linux">
+				<Command Name="UnrealTournamentProto_BasicBuild" Arguments="-SkipBuild -SkipCook -Chunk -StagingDir=&quot;$(LocalStagingDir)&quot;"/>
+			</Node>
+			<Node Name="Publish Linux" Requires="Stage Linux">
+				<Copy Files="..." FromDir="$(LocalStagingDir)\LinuxNoEditor" ToDir="$(BuildDir)\LinuxNoEditor"/>
+			</Node>
+			<Node Name="Publish Server Linux" Requires="Stage Linux">
+				<Copy Files="..." FromDir="$(LocalStagingDir)\LinuxServer" ToDir="$(BuildDir)\LinuxServer"/>
+			</Node>
+		</Agent>		
+	</Trigger>
+
+	<!-- Other tasks -->
+	<Agent Name="Nightly Cleanup" Type="Win64">
+		<Node Name="Purge Old Symbols">
+			<AgeStore StoreDir="$(WindowsSymbolsDir)" Days="14"/>
+		</Node>
+		<Node Name="Clean Temp Storage">
+			<Command Name="CleanTempStorage" Arguments="-Days=$(DaysToKeepOldTempStorage) -TempStoragedir=&quot;$(OutputDir)\TempStorage&quot;"/>
+		</Node>
+	</Agent>
+	
+	<!---->
+	<!-- Still needs a promote job -->
+	<!---->
+
+	<!-- Auto kickoffs -->
+	<Aggregate Name="Editor And Tools Windows" Requires="Compile Tools Win64"/>
+	<Aggregate Name="Editor and Tools Mac" Requires="Compile Tools Mac"/>
+	<Aggregate Name="Editor and Tools Linux" Requires="Compile Tools Linux"/>
+	<Aggregate Name="Editors and Tools" Requires="Compile Tools Win64;Compile Tools Mac;Compile Tools Linux"/>
+	
+	<Aggregate Name="Editors Tools and Monolithics Windows" Requires="Compile Game Windows"/>
+	<Aggregate Name="Editors Tools and Monolithics Mac" Requires="Compile Game Mac"/>
+	<Aggregate Name="Editors Tools and Monolithics Linux" Requires="Compile Game Linux"/>
+	<Aggregate Name="Editors Tools and Monolithics" Requires="Compile Game Windows;Compile Game Mac;Compile Game Linux"/>
+
+	<Aggregate Name="Full Build Win64 Client" Requires="Publish Client Win64"/>
+	<Aggregate Name="Full Build Win64 Editor" Requires="Publish Editor Win64"/>
+	<Aggregate Name="Full Build Win64 Server" Requires="Publish Server Win64"/>
+
+	<Aggregate Name="Full Build Mac Client" Requires="Publish Mac"/>
+	<Aggregate Name="Full Build Mac Editor" Requires="Publish Editor Mac"/>
+
+	<Aggregate Name="Full Build Linux Client" Requires="Publish Linux"/>
+	<Aggregate Name="Full Build Linux Server" Requires="Publish Server Linux"/>
+
+	<!-- Standard Build Selection -->
+	<Local Name="Standard Build Targets" Value=""/>
+	<Local Name="Standard Build Targets" Value="$(StandardBuildTargets)Full Build Win64 Client;" If="'$(With Win64 Client)' != 'false'"/>
+	<Local Name="Standard Build Targets" Value="$(StandardBuildTargets)Full Build Win64 Editor;" If="'$(With Win64 Editor)' != 'false'"/>
+	<Local Name="Standard Build Targets" Value="$(StandardBuildTargets)Full Build Win64 Server;" If="'$(With Win64 Server)' != 'false'"/>
+	<Local Name="Standard Build Targets" Value="$(StandardBuildTargets)Full Build Mac Client;" If="'$(With Mac Client)' != 'false'"/>
+	<Local Name="Standard Build Targets" Value="$(StandardBuildTargets)Full Build Mac Editor;" If="'$(With Mac Editor)' != 'false'"/>
+	<Local Name="Standard Build Targets" Value="$(StandardBuildTargets)Full Build Linux Client;" If="'$(With Linux Client)' != 'false'"/>
+	<Local Name="Standard Build Targets" Value="$(StandardBuildTargets)Full Build Linux Server;" If="'$(With Linux Server)' != 'false'"/>
+	<Aggregate Name="Standard Build" Requires="$(StandardBuildTargets)"/>
+
+
+	<!-- Other stuff -->
+	<Aggregate Name="Nightly Automated Build" Requires="Full Build Win64 Client;Full Build Win64 Editor;Full Build Win64 Server;Full Build Mac Client;Full Build Mac Editor;Full Build Linux Client;Full Build Linux Server"/>
+	<Aggregate Name="Nightly Maintenance" Requires="Purge Old Symbols;Clean Temp Storage"/>
+
+	<!-- Emails -->
+	<Notify Targets="Nightly Automated Build;Standard Build" Users="chad.garyet@epicgames.com"/>
+
+	<Aggregate Name="ChadTestJob" Requires="Nightly Automated Build"/>
+
+	</BuildGraph>

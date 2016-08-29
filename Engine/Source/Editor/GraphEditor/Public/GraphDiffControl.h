@@ -90,7 +90,7 @@ public:
 
 	/**
 	 * Looks through the supplied graph for a node that best matches the one specified.
-	 * Sometimes (when diff'ing separate assets) there could be more than one possible
+	 * Sometimes (when diffing separate assets) there could be more than one possible
 	 * match, so providing a list of already matched nodes helps us narrow it down (and 
 	 * prevents us from matching one node with multiple others).
 	 * 

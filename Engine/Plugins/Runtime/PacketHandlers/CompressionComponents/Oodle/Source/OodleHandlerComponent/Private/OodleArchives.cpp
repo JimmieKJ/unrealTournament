@@ -8,6 +8,8 @@
 // Maximum size of compress/decompress buffers (just under 2GB, due to max int32 value)
 #define MAX_COMPRESS_BUFFER (1024 * 1024 * 2047)
 
+// @todo #JohnB: Remove after Oodle update, and after checking with Luigi
+#define OODLE_DICTIONARY_SLACK 65536
 
 // @todo #JohnB: Deprecate all pre-CAPTURE_VER_PACKETCOUNT file versions, after a short period
 
@@ -65,7 +67,8 @@ bool FOodleArchiveBase::SerializeOodleCompressData(FOodleCompressedData& OutData
 	return bSuccess;
 }
 
-bool FOodleArchiveBase::SerializeOodleDecompressData(FOodleCompressedData& DataInfo, uint8*& OutData, uint32& OutDataBytes)
+bool FOodleArchiveBase::SerializeOodleDecompressData(FOodleCompressedData& DataInfo, uint8*& OutData, uint32& OutDataBytes,
+														bool bOutDataSlack/*=false*/)
 {
 	check(OutData == nullptr);
 
@@ -82,8 +85,15 @@ bool FOodleArchiveBase::SerializeOodleDecompressData(FOodleCompressedData& DataI
 	{
 		SeekPush(DataOffset);
 
-		uint8* CompressedData = new uint8[CompressedLength];
+		// @todo #JohnB: Remove bOutDataSlack after Oodle update, and after checking with Luigi
+		uint8* CompressedData = new uint8[CompressedLength + (bOutDataSlack ? OODLE_DICTIONARY_SLACK : 0)];
 		uint8* DecompressedData = new uint8[DecompressedLength];
+
+		// @todo #JohnB: Remove after Oodle update, and after checking with Luigi
+		if (bOutDataSlack)
+		{
+			FMemory::Memzero(CompressedData + CompressedLength, OODLE_DICTIONARY_SLACK);
+		}
 
 		InnerArchive.Serialize(CompressedData, CompressedLength);
 
@@ -377,7 +387,8 @@ void FOodleDictionaryArchive::SerializeDictionaryAndState(uint8*& DictionaryData
 		check(DictionaryData == nullptr);
 		check(CompactCompresorState == nullptr);
 
-		SerializeOodleDecompressData(Header.DictionaryData, DictionaryData, DictionaryBytes);
+		// @todo #JohnB: Remove bOutDataSlack after Oodle update, and after checking with Luigi
+		SerializeOodleDecompressData(Header.DictionaryData, DictionaryData, DictionaryBytes, true);
 		SerializeOodleDecompressData(Header.CompressorData, CompactCompresorState, CompactCompressorStateBytes);
 	}
 	else

@@ -104,7 +104,7 @@ void FImageSequenceProtocol::Finalize()
 	FFrameGrabberProtocol::Finalize();
 }
 
-FFramePayloadPtr FImageSequenceProtocol::GetFramePayload(const FFrameMetrics& FrameMetrics, const ICaptureProtocolHost& Host) const
+FFramePayloadPtr FImageSequenceProtocol::GetFramePayload(const FFrameMetrics& FrameMetrics, const ICaptureProtocolHost& Host)
 {
 	TSharedRef<FImageFrameData, ESPMode::ThreadSafe> FrameData = MakeShareable(new FImageFrameData);
 
@@ -117,6 +117,7 @@ FFramePayloadPtr FImageSequenceProtocol::GetFramePayload(const FFrameMetrics& Fr
 	}
 
 	FrameData->Filename = Host.GenerateFilename(FrameMetrics, Extension);
+	Host.EnsureFileWritable(FrameData->Filename);
 
 	// Add our custom formatting rules as well
 	// @todo: document these on the tooltip?

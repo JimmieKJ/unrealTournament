@@ -623,7 +623,7 @@ public:
 	virtual void BuildSpecialLinks(int32 NumToProcess);
 
 	virtual void Tick(float DeltaTime) override;
-	virtual void PreSave() override;
+	virtual void PreSave(const class ITargetPlatform* TargetPlatform) override;
 
 	virtual bool NeedsRebuild() const
 	{

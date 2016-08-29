@@ -7,6 +7,8 @@
 #pragma once
 
 #include "ObjectBase.h"
+#include "Object.h"
+#include "GarbageCollection.h"
 
 /*-----------------------------------------------------------------------------
 	Mirrors of mirror structures in Object.h. These are used by generated code 
@@ -18,6 +20,7 @@ COREUOBJECT_API DECLARE_LOG_CATEGORY_EXTERN(LogClass, Log, All);
 COREUOBJECT_API DECLARE_LOG_CATEGORY_EXTERN(LogScriptSerialization, Log, All);
 
 struct FPropertyTag;
+struct FNetDeltaSerializeInfo;
 
 /*-----------------------------------------------------------------------------
 	FRepRecord.
@@ -1141,7 +1144,7 @@ public:
 	 */
 	COREUOBJECT_API void CopyScriptStruct(void* Dest, void const* Src, int32 ArrayDim = 1) const;
 	/**
-	 * Reintialize a struct in memory. This may be done by calling the native destructor and then the constructor or individually reinitializing properties
+	 * Reinitialize a struct in memory. This may be done by calling the native destructor and then the constructor or individually reinitializing properties
 	 *
 	 * @param	Dest		Pointer to memory to reinitialize
 	 * @param	ArrayDim	Number of elements in the array
@@ -1160,102 +1163,6 @@ public:
 	*/
 	virtual COREUOBJECT_API void InitializeDefaultValue(uint8* InStructData) const;
 #endif // WITH_EDITOR
-};
-
-class FStructOnScope
-{
-protected:
-	TWeakObjectPtr<const UStruct> ScriptStruct;
-	uint8* SampleStructMemory;
-
-	FStructOnScope() : SampleStructMemory(NULL) {}
-
-	void Initialize()
-	{
-		if (ScriptStruct.IsValid())
-		{
-			SampleStructMemory = (uint8*)FMemory::Malloc(ScriptStruct->GetStructureSize());
-			ScriptStruct.Get()->InitializeStruct(SampleStructMemory);
-			OwnsMemory = true;
-		}
-	}
-
-public:
-
-	FStructOnScope(const UStruct* InScriptStruct)
-		: ScriptStruct(InScriptStruct)
-		, SampleStructMemory(NULL)
-	{
-		Initialize();
-	}
-
-	FStructOnScope(const UStruct* InScriptStruct, uint8* InData)
-		: ScriptStruct(InScriptStruct)
-		, SampleStructMemory(InData)
-		, OwnsMemory(false)
-	{ }
-
-	virtual uint8* GetStructMemory()
-	{
-		return SampleStructMemory;
-	}
-
-	virtual const uint8* GetStructMemory() const
-	{
-		return SampleStructMemory;
-	}
-
-	virtual const UStruct* GetStruct() const
-	{
-		return ScriptStruct.Get();
-	}
-
-	virtual bool IsValid() const
-	{
-		return ScriptStruct.IsValid() && SampleStructMemory;
-	}
-
-	virtual void Destroy()
-	{
-		if (!OwnsMemory)
-		{
-			return;
-		}
-
-		if (ScriptStruct.IsValid() && SampleStructMemory)
-		{
-			ScriptStruct.Get()->DestroyStruct(SampleStructMemory);
-			ScriptStruct = NULL;
-		}
-
-		if (SampleStructMemory)
-		{
-			FMemory::Free(SampleStructMemory);
-			SampleStructMemory = NULL;
-		}
-	}
-
-	virtual ~FStructOnScope()
-	{
-		Destroy();
-	}
-
-	/** Re-initializes the scope with a specified UStruct */
-	void Initialize(TWeakObjectPtr<const UStruct> InScriptStruct)
-	{
-		ScriptStruct = InScriptStruct;
-		Initialize();
-	}
-
-private:
-
-	FStructOnScope(const FStructOnScope&);
-	FStructOnScope& operator=(const FStructOnScope&);
-
-private:
-
-	/** Whether the struct memory is owned by this instance. */
-	bool OwnsMemory;
 };
 
 /*-----------------------------------------------------------------------------
@@ -1344,12 +1251,7 @@ public:
 	virtual void Link(FArchive& Ar, bool bRelinkExistingProperties) override;
 
 	// UFunction interface.
-	UFunction* GetSuperFunction() const
-	{
-		UStruct* Result = GetSuperStruct();
-		checkSlow(!Result || Result->IsA<UFunction>());
-		return (UFunction*)Result;
-	}
+	UFunction* GetSuperFunction() const;
 
 	UProperty* GetReturnProperty() const;
 
@@ -1588,9 +1490,10 @@ public:
 	 *
 	 * @param InNames List of enum names.
 	 * @param InCppForm The form of enum.
+	 * @param bAddMaxKeyIfMissing Should a default Max item be added.
 	 * @return	true unless the MAX enum already exists and isn't the last enum.
 	 */
-	virtual bool SetEnums(TArray<TPair<FName, uint8>>& InNames, ECppForm InCppForm);
+	virtual bool SetEnums(TArray<TPair<FName, uint8>>& InNames, ECppForm InCppForm, bool bAddMaxKeyIfMissing = true);
 
 	/**
 	 * @return	The enum name at the specified Index.
@@ -1678,7 +1581,9 @@ public:
 	 * @return The tooltip for this object.
 	 */
 	FText GetToolTipText(int32 NameIndex=INDEX_NONE) const;
+#endif
 
+#if WITH_EDITOR || HACK_HEADER_GENERATOR
 	/**
 	 * Wrapper method for easily determining whether this enum has metadata associated with it.
 	 * 
@@ -1878,21 +1783,21 @@ namespace EIncludeSuperFlag
 	class FFastIndexingClassTreeRegistrar
 	{
 	public:
-		FFastIndexingClassTreeRegistrar();
-		FFastIndexingClassTreeRegistrar(const FFastIndexingClassTreeRegistrar&);
-		~FFastIndexingClassTreeRegistrar();
+		COREUOBJECT_API FFastIndexingClassTreeRegistrar();
+		COREUOBJECT_API FFastIndexingClassTreeRegistrar(const FFastIndexingClassTreeRegistrar&);
+		COREUOBJECT_API ~FFastIndexingClassTreeRegistrar();
 
 	private:
 		friend class UClass;
 		friend class UObjectBaseUtility;
 		friend class FFastIndexingClassTree;
 
-		bool IsAUsingFastTree(const FFastIndexingClassTreeRegistrar& Parent) const
+		FORCEINLINE bool IsAUsingFastTree(const FFastIndexingClassTreeRegistrar& Parent) const
 		{
 			return ClassTreeIndex - Parent.ClassTreeIndex <= Parent.ClassTreeNumChildren;
 		}
 
-		FFastIndexingClassTreeRegistrar& operator=(const FFastIndexingClassTreeRegistrar&);
+		FFastIndexingClassTreeRegistrar& operator=(const FFastIndexingClassTreeRegistrar&) = delete;
 
 		uint32 ClassTreeIndex;
 		uint32 ClassTreeNumChildren;
@@ -1997,6 +1902,11 @@ public:
 
 	// The class default object; used for delta serialization and object initialization
 	UObject* ClassDefaultObject;
+
+	/**
+	* Assemble reference token streams for all classes if they haven't had it assembled already
+	*/
+	static void AssembleReferenceTokenStreams();
 
 private:
 	/** Map of all functions by name contained in this class */
@@ -2216,7 +2126,7 @@ public:
 		return NULL;
 	}
 
-	virtual void CreatePersistentUberGraphFrame(UObject* Obj, bool bCreateOnlyIfEmpty = false, bool bSkipSuperClass = false) const
+	virtual void CreatePersistentUberGraphFrame(UObject* Obj, bool bCreateOnlyIfEmpty = false, bool bSkipSuperClass = false, UClass* OldClass = nullptr) const
 	{
 	}
 
@@ -2368,8 +2278,9 @@ public:
 	 * Assembles the token stream for realtime garbage collection by combining the per class only
 	 * token stream for each class in the class hierarchy. This is only done once and duplicate
 	 * work is avoided by using an object flag.
+	 * @param bForce Assemble the stream even if it has been already assembled (deletes the old one)
 	 */
-	void AssembleReferenceTokenStream();
+	void AssembleReferenceTokenStream(bool bForce = false);
 
 	/** 
 	 * This will return whether or not this class implements the passed in class / interface 
@@ -2383,6 +2294,11 @@ public:
 	 * @param Ar the archive to serialize from
 	 */
 	virtual void SerializeDefaultObject(UObject* Object, FArchive& Ar);
+
+	/** Wraps the PostLoad() call for the class default object.
+	 * @param Object the default object to call PostLoad() on
+	 */
+	virtual void PostLoadDefaultObject(UObject* Object) { Object->PostLoad(); }
 
 	/** 
 	 * Purges out the properties of this class in preparation for it to be regenerated
@@ -2507,10 +2423,12 @@ public:
 
 	// UObject interface.
 	static void AddReferencedObjects(UObject* InThis, FReferenceCollector& Collector);
-	virtual void PostLoad() override;
 
 	// UClass interface
 	virtual void PurgeClass(bool bRecompilingOnLoad) override;
+	virtual UObject* FindArchetype(UClass* ArchetypeClass, const FName ArchetypeName) const override;
+
+	UStructProperty* FindStructPropertyChecked(const TCHAR* PropertyName) const;
 
 	/** Misc objects owned by the class. */
 	TArray<UObject*> MiscConvertedSubobjects;
@@ -2785,28 +2703,15 @@ private:
 	TMap<class UObject*,class UObject*>			SourceToDestinationMap;
 };
 
+// UFunction interface.
 
-// ObjectBase.h
-
-/**
- * Dereference back into a UClass
- * @return	the embedded UClass
- */
-template<class TClass>
-FORCEINLINE UClass* TSubclassOf<TClass>::operator*() const
+inline UFunction* UFunction::GetSuperFunction() const
 {
-	if (!Class || !Class->IsChildOf(TClass::StaticClass()))
-{
-		return NULL;
-	}
-	return Class;
+	UStruct* Result = GetSuperStruct();
+	checkSlow(!Result || Result->IsA<UFunction>());
+	return (UFunction*)Result;
 }
 
-template<class TClass>
-FORCEINLINE TClass* TSubclassOf<TClass>::GetDefaultObject() const
-{
-	return Class ? Class->GetDefaultObject<TClass>() : NULL;
-}
 
 // UObject.h
 
@@ -2862,7 +2767,7 @@ T* ConstructObject(UClass* Class, UObject* Outer, FName Name, EObjectFlags SetFl
 template< class T > 
 inline const T* GetDefault(UClass *Class)
 {
-	checkSlow(Class->GetDefaultObject()->IsA(T::StaticClass()));
+	check(Class->GetDefaultObject()->IsA(T::StaticClass()));
 	return (const T*)Class->GetDefaultObject();
 }
 
@@ -2878,7 +2783,7 @@ inline const T* GetDefault(UClass *Class)
 template< class T > 
 inline T* GetMutableDefault(UClass *Class)
 {
-	checkSlow(Class->GetDefaultObject()->IsA(T::StaticClass()));
+	check(Class->GetDefaultObject()->IsA(T::StaticClass()));
 	return (T*)Class->GetDefaultObject();
 }
 
@@ -2974,3 +2879,4 @@ template<> struct TBaseStructure<FInt32Interval>
 {
 	COREUOBJECT_API static UScriptStruct* Get();
 };
+

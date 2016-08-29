@@ -98,14 +98,6 @@ public:
 	bool IsValid() const;
 	UActorComponent* FindBestArchetype(FComponentKey Key) const;
 
-	void GetAllTemplates(TArray<UActorComponent*>& OutArray) const
-	{
-		for (auto Record : Records)
-		{
-			OutArray.Add(Record.ComponentTemplate);
-		}
-	}
-
 	bool IsEmpty() const
 	{
 		return 0 == Records.Num();
@@ -133,6 +125,14 @@ public:
 	TArray<FComponentOverrideRecord>::TIterator CreateRecordIterator()
 	{
 		return Records.CreateIterator();
+	}
+
+	void GetAllTemplates(TArray<UActorComponent*>& OutArray) const
+	{
+		for (auto Record : Records)
+		{
+			OutArray.Add(Record.ComponentTemplate);
+		}
 	}
 
 private:

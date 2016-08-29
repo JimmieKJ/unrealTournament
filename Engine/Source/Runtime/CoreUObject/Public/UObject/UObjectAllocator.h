@@ -4,8 +4,8 @@
 	UnObjAllocator.h: Unreal object allocation
 =============================================================================*/
 
-#ifndef __UNOBJALLOCATOR_H__
-#define __UNOBJALLOCATOR_H__
+#pragma once
+
 #include "HAL/Platform.h"
 
 class UObjectBase;
@@ -79,7 +79,4 @@ private:
 
 /** Global UObjectBase allocator							*/
 extern COREUOBJECT_API FUObjectAllocator GUObjectAllocator;
-
-
-#endif	// __UNOBJALLOCATOR_H__
 

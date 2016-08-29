@@ -46,13 +46,13 @@ struct FAutomationTestResults
 	EAutomationState::Type State;
 
 	/* All errors reported as part of this test */
-	TArray <FString> Errors;
+	TArray<FAutomationEvent> Errors;
 
 	/* All warnings reported as part of this test */
-	TArray <FString> Warnings;
+	TArray<FString> Warnings;
 
 	/* All misc logs reported as part of this test */
-	TArray <FString> Logs;
+	TArray<FString> Logs;
 
 	/* The time this test took to complete */
 	float Duration;
@@ -165,7 +165,16 @@ public:
 	 * 
 	 * @return the asset name.
 	 */
-	virtual FString GetAssetName() const = 0;
+	virtual FString GetTestParameter() const = 0;
+
+	/**
+	 * Gets the asset path associated with a test, it may not have one.
+	 * 
+	 * @return the asset name.
+	 */
+	virtual FString GetAssetPath() const = 0;
+
+	virtual FString GetOpenCommand() const = 0;
 
 	/**
 	 * Get the test type.
@@ -174,8 +183,17 @@ public:
 	 */
 	virtual uint32 GetTestFlags() const = 0;
 
+	/** Gets the source file the test was defined on. */
+	virtual FString GetSourceFile() const = 0;
+
+	/** Gets the source file line number the test was defined on. */
+	virtual int32 GetSourceFileLine() const = 0;
+
 	/** Recursively gets the number of child nodes */
 	virtual int32 GetTotalNumChildren() const = 0;
+
+	/** Recursively gets the total number of filtered children */
+	virtual int32 GetTotalNumFilteredChildren() const = 0;
 
 	/** Gets the names of all the enabled tests */
 	virtual void GetEnabledTestNames(TArray<FString>& OutEnabledTestNames, FString CurrentPath) const = 0;
@@ -400,4 +418,8 @@ public:
 	 * @return A reference to the items of this tests previous runs.
 	 */
 	virtual const TArray<TSharedPtr<FAutomationHistoryItem>>& GetHistory() const = 0;
+
+	// Event that allows log to refresh once a test has finished
+	DECLARE_DELEGATE_OneParam(FOnSetResultsEvent, TSharedPtr<IAutomationReport>);
+	FOnSetResultsEvent OnSetResults;
 };

@@ -3,8 +3,6 @@
 #include "UnrealTournament.h"
 #include "UTGameMode.h"
 #include "UTGameState.h"
-#include "Runtime/Analytics/Analytics/Public/Analytics.h"
-#include "Runtime/Analytics/Analytics/Public/Interfaces/IAnalyticsProvider.h"
 #include "UTAnalytics.h"
 #include "Runtime/Launch/Resources/Version.h"
 #include "PerfCountersHelpers.h"
@@ -21,6 +19,8 @@
 #if WITH_QOSREPORTER
 	#include "QoSReporter.h"
 #endif // WITH_QOSREPORTER
+#include "IAnalyticsProvider.h"
+#include "Analytics.h"
 
 DEFINE_LOG_CATEGORY(LogUTAnalytics);
 
@@ -45,7 +45,9 @@ TSharedPtr<IAnalyticsProvider> FUTAnalytics::GetProviderPtr()
 {
 	return Analytics;
 }
- 
+
+static const FString SecureAnalyticsEndpoint = TEXT("https://datarouter.ol.epicgames.com/");
+
 void FUTAnalytics::Initialize()
 {
 	if (IsRunningCommandlet())
@@ -54,33 +56,14 @@ void FUTAnalytics::Initialize()
 	}
 
 	checkf(!bIsInitialized, TEXT("FUTAnalytics::Initialize called more than once."));
-
-	// Setup some default engine analytics if there is nothing custom bound
-	FAnalytics::FProviderConfigurationDelegate DefaultUTAnalyticsConfig;
-	DefaultUTAnalyticsConfig.BindStatic( 
-		[]( const FString& KeyName, bool bIsValueRequired ) -> FString
-		{
-			static TMap<FString, FString> ConfigMap;
-			if (ConfigMap.Num() == 0)
-			{
-				ConfigMap.Add(TEXT("ProviderModuleName"), TEXT("AnalyticsET"));
-				ConfigMap.Add(TEXT("APIServerET"), TEXT("https://datarouter.ol.epicgames.com/"));
-				ConfigMap.Add(TEXT("APIKeyET"), FString::Printf(TEXT("UnrealTournament.%s"), *GetBuildType()));
-			}
-
-			FString* ConfigValue = ConfigMap.Find(KeyName);
-			return ConfigValue != NULL ? *ConfigValue : TEXT("");
-		} );
-
+	
 	// Connect the engine analytics provider (if there is a configuration delegate installed)
-	Analytics = FAnalytics::Get().CreateAnalyticsProvider(
-		FName(*DefaultUTAnalyticsConfig.Execute(TEXT("ProviderModuleName"), true)), 
-		DefaultUTAnalyticsConfig);
+	Analytics = FAnalytics::Get().GetDefaultConfiguredProvider();
+	
 	// Set the UserID using the AccountID regkey if present.
 	LoginStatusChanged(FString());
 
 	InitializeAnalyticParameterNames();
-
 	bIsInitialized = true;
 }
 
@@ -100,7 +83,7 @@ FString FUTAnalytics::GetBuildType()
 
 	if (BuildType.IsEmpty())
 	{
-		BuildType = FAnalytics::ToString(FAnalytics::Get().GetBuildType());
+		//BuildType = FAnalytics::ToString(FAnalytics::Get().GetBuildType());
 	}
 
 	return BuildType;

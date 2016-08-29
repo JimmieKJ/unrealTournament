@@ -29,7 +29,7 @@ float4 UpsampleSeparateTranslucency(float2 Position, float2 UV)
 	float MaxOperationDepth = 2000000.0f;
 
 	// Note: this upsample is specialized for half res to full res
-    float4 LowResDepthBuffer = LowResDepthTexture.GatherRed(GetBilinearClampedSampler(), UV * .5f);
+    float4 LowResDepthBuffer = LowResDepthTexture.GatherRed(GetBilinearClampedSampler(), UV);
     float4 LowResDepth = min(float4(ConvertFromDeviceZ(LowResDepthBuffer.x), ConvertFromDeviceZ(LowResDepthBuffer.y), ConvertFromDeviceZ(LowResDepthBuffer.z), ConvertFromDeviceZ(LowResDepthBuffer.w)), MaxOperationDepth.xxxx);
 	float FullResDepth = min(ConvertFromDeviceZ(SceneDepthTexture[uint2(Position.xy)].x), MaxOperationDepth);
 

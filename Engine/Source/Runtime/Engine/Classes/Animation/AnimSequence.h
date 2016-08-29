@@ -7,12 +7,14 @@
  *
  */
 
+#include "AnimTypes.h"
 #include "AnimSequenceBase.h"
 #include "AnimSequence.generated.h"
 
 typedef TArray<FTransform> FTransformArrayA2;
 
 class USkeletalMesh;
+struct FAnimCompressContext;
 struct FCompactPose;
 
 
@@ -156,6 +158,11 @@ struct ENGINE_API FTrackToSkeletonMap
 		: BoneTreeIndex(InBoneTreeIndex)
 	{
 	}
+
+	friend FArchive& operator<<(FArchive& Ar, FTrackToSkeletonMap &Item)
+	{
+		return Ar << Item.BoneTreeIndex;
+	}
 };
 
 /**
@@ -261,15 +268,10 @@ struct ENGINE_API FCompressedTrack
 
 };
 
-USTRUCT()
 struct ENGINE_API FCompressedOffsetData
 {
-	GENERATED_USTRUCT_BODY()
-
-	UPROPERTY()
 	TArray<int32> OffsetData;
 
-	UPROPERTY()
 	int32 StripSize;
 
 	FCompressedOffsetData( int32 InStripSize=2 )
@@ -321,6 +323,8 @@ struct ENGINE_API FCompressedOffsetData
 	}
 };
 
+FArchive& operator<<(FArchive& Ar, FCompressedOffsetData& D);
+
 UCLASS(config=Engine, hidecategories=(UObject, Length), BlueprintType)
 class ENGINE_API UAnimSequence : public UAnimSequenceBase
 {
@@ -338,13 +342,24 @@ class ENGINE_API UAnimSequence : public UAnimSequenceBase
 	TArray<struct FTrackToSkeletonMap> TrackToSkeletonMapTable;
 
 	/**
+	 * Version of TrackToSkeletonMapTable for the compressed tracks. Due to baking additive data
+	 * we can end up with a different amount of tracks to the original raw animation and so we must index into the 
+	 * compressed data using this 
+	 */
+	TArray<struct FTrackToSkeletonMap> CompressedTrackToSkeletonMapTable;
+
+	/**
 	 * Raw uncompressed keyframe data. 
 	 */
 	TArray<struct FRawAnimSequenceTrack> RawAnimationData;
 
 #if WITH_EDITORONLY_DATA
+	// Update this if the contents of RawAnimationData changes;
+	UPROPERTY()
+	FGuid RawDataGuid;
+
 	/**
-	 * This is name of tracks for editoronly - if we lose skeleton, we'll need relink them
+	 * This is name of RawAnimationData tracks for editoronly - if we lose skeleton, we'll need relink them
 	 */
 	UPROPERTY()
 	TArray<FName> AnimationTrackNames;
@@ -353,49 +368,28 @@ class ENGINE_API UAnimSequence : public UAnimSequenceBase
 	 * Source RawAnimationData. Only can be overridden by when transform curves are added first time OR imported
 	 */
 	TArray<struct FRawAnimSequenceTrack> SourceRawAnimationData;
-#endif // WITH_EDITORONLY_DATA
 
 	/**
-	 * Translation data post keyframe reduction.  TranslationData.Num() is zero if keyframe reduction
-	 * has not yet been applied.
-	 */
-	UPROPERTY(transient)
-	TArray<struct FTranslationTrack> TranslationData;
+	* Temporary base pose buffer for additive animation that is used by compression. Do not use this unless within compression. It is not available.
+	* This is used by remove linear key that has to rebuild to full transform in order to compress
+	*/
+	TArray<struct FRawAnimSequenceTrack> TemporaryAdditiveBaseAnimationData;
 
-	/**
-	 * Rotation data post keyframe reduction.  RotationData.Num() is zero if keyframe reduction
-	 * has not yet been applied.
-	 */
-	UPROPERTY(transient)
-	TArray<struct FRotationTrack> RotationData;
-
-
-	/**
-	 * Scale data post keyframe reduction.  ScaleData.Num() is zero if keyframe reduction
-	 * has not yet been applied.
-	 */
-	UPROPERTY(transient)
-	TArray<struct FScaleTrack> ScaleData;
-
-#if WITH_EDITORONLY_DATA
 	/**
 	 * The compression scheme that was most recently used to compress this animation.
 	 * May be NULL.
 	 */
-	UPROPERTY(Instanced, Category=Compression, EditAnywhere)
+	UPROPERTY(Category=Compression, VisibleAnywhere)
 	class UAnimCompress* CompressionScheme;
 #endif // WITH_EDITORONLY_DATA
 
 	/** The compression format that was used to compress translation tracks. */
-	UPROPERTY()
 	TEnumAsByte<enum AnimationCompressionFormat> TranslationCompressionFormat;
 
 	/** The compression format that was used to compress rotation tracks. */
-	UPROPERTY()
 	TEnumAsByte<enum AnimationCompressionFormat> RotationCompressionFormat;
 
 	/** The compression format that was used to compress rotation tracks. */
-	UPROPERTY()
 	TEnumAsByte<enum AnimationCompressionFormat> ScaleCompressionFormat;
 
 	/**
@@ -407,7 +401,6 @@ class ENGINE_API UAnimSequence : public UAnimSequenceBase
 	 *   [4] Trans1.Offset
 	 *   . . .
 	 */
-	UPROPERTY()
 	TArray<int32> CompressedTrackOffsets;
 
 	/**
@@ -420,7 +413,6 @@ class ENGINE_API UAnimSequence : public UAnimSequenceBase
 	 * @TODO NOTE: first implementation is offset is [0], numkeys [1]
 	 *   . . .
 	 */
-	UPROPERTY()
 	FCompressedOffsetData CompressedScaleOffsets;
 
 	/**
@@ -435,7 +427,6 @@ class ENGINE_API UAnimSequence : public UAnimSequenceBase
 	 */
 	TArray<uint8> CompressedByteStream;
 
-	UPROPERTY()
 	TEnumAsByte<enum AnimationKeyFormat> KeyEncodingFormat;
 
 	/**
@@ -447,6 +438,9 @@ class ENGINE_API UAnimSequence : public UAnimSequenceBase
 	class AnimEncoding* RotationCodec;
 
 	class AnimEncoding* ScaleCodec;
+
+	// Built during compression, could be baked additive or original curve data
+	FRawCurveTracks CompressedCurveData;
 
 	/** Additive animation type. **/
 	UPROPERTY(EditAnywhere, Category=AdditiveSettings, AssetRegistrySearchable)
@@ -473,6 +467,10 @@ class ENGINE_API UAnimSequence : public UAnimSequenceBase
 	UPROPERTY(EditAnywhere, AssetRegistrySearchable, Category=Animation)
 	FName RetargetSource;
 
+	/** This defines how values between keys are calculated **/
+	UPROPERTY(EditAnywhere, AssetRegistrySearchable, Category = Animation)
+	EAnimInterpolationType Interpolation;
+	
 	/** If this is on, it will allow extracting of root motion **/
 	UPROPERTY(EditAnywhere, AssetRegistrySearchable, Category = RootMotion, meta = (DisplayName = "EnableRootMotion"))
 	bool bEnableRootMotion;
@@ -539,7 +537,7 @@ public:
 	virtual void Serialize(FArchive& Ar) override;
 	virtual void PostInitProperties() override;
 	virtual void PostLoad() override;
-	virtual void PreSave() override;
+	virtual void PreSave(const class ITargetPlatform* TargetPlatform) override;
 #if WITH_EDITOR
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
 	virtual void PostDuplicate(bool bDuplicateForPIE) override;
@@ -553,8 +551,8 @@ public:
 	virtual bool IsValidAdditive() const override;
 	virtual TArray<FName>* GetUniqueMarkerNames() { return &UniqueMarkerNames; }
 #if WITH_EDITOR
-	virtual bool GetAllAnimationSequencesReferred(TArray<UAnimSequence*>& AnimationSequences) override;
-	virtual void ReplaceReferredAnimations(const TMap<UAnimSequence*, UAnimSequence*>& ReplacementMap) override;
+	virtual bool GetAllAnimationSequencesReferred(TArray<UAnimationAsset*>& AnimationAssets) override;
+	virtual void ReplaceReferredAnimations(const TMap<UAnimationAsset*, UAnimationAsset*>& ReplacementMap) override;
 	virtual int32 GetNumberOfFrames() const override { return NumFrames; }
 #endif
 	//~ End UAnimationAsset Interface
@@ -563,6 +561,17 @@ public:
 	virtual void HandleAssetPlayerTickedInternal(FAnimAssetTickContext &Context, const float PreviousTime, const float MoveDelta, const FAnimTickRecord &Instance, struct FAnimNotifyQueue& NotifyQueue) const override;
 	virtual bool HasRootMotion() const override { return bEnableRootMotion; }
 	virtual void RefreshCacheData() override;
+	virtual EAdditiveAnimationType GetAdditiveAnimType() const override { return AdditiveAnimType; }
+	virtual void EvaluateCurveData(FBlendedCurve& OutCurve, float CurrentTime, bool bForceUseRawData=false) const;
+#if WITH_EDITOR
+	virtual void MarkRawDataAsModified(bool bForceNewRawDatGuid = true) override
+	{
+		Super::MarkRawDataAsModified();
+		bUseRawDataOnly = true;
+		RawDataGuid = bForceNewRawDatGuid ? FGuid::NewGuid() : GenerateGuidFromRawData();
+		FlagDependentAnimationsAsRawDataOnly();
+	}
+#endif
 	//~ End UAnimSequenceBase Interface
 
 	// Extract Root Motion transform from the animation
@@ -591,10 +600,10 @@ public:
 	*
 	* @param	OutPose				[out] Array of output bone transforms
 	* @param	OutCurve			[out] Curves to fill	
-	* @param	RequiredBones		Array of Desired Tracks
 	* @param	ExtractionContext	Extraction Context (position, looping, root motion, etc.)
+	* @param	bForceUseRawData	Override other settings and force raw data pose extraction
 	*/
-	void GetBonePose(FCompactPose& OutPose, FBlendedCurve& OutCurve, const FAnimExtractContext& ExtractionContext) const;
+	void GetBonePose(FCompactPose& OutPose, FBlendedCurve& OutCurve, const FAnimExtractContext& ExtractionContext, bool bForceUseRawData=false) const;
 
 private:
 	/** 
@@ -615,7 +624,7 @@ private:
 	* @param	BoneIndex			Bone Index in Bone Transform array.
 	* @param	RequiredBones		BoneContainer
 	*/
-	void RetargetBoneTransform(FTransform& BoneTransform, const int32& SkeletonBoneIndex, const FCompactPoseBoneIndex& BoneIndex, const FBoneContainer& RequiredBones) const;
+	void RetargetBoneTransform(FTransform& BoneTransform, const int32& SkeletonBoneIndex, const FCompactPoseBoneIndex& BoneIndex, const FBoneContainer& RequiredBones, const bool bIsBakedAdditive) const;
 
 public:
 	/**
@@ -665,6 +674,8 @@ public:
 	*/
 	void ExtractBoneTransform(const struct FRawAnimSequenceTrack& InRawAnimationTrack, FTransform& OutAtom, float Time) const;
 
+	void ExtractBoneTransform(const struct FRawAnimSequenceTrack& RawTrack, FTransform& OutAtom, int32 KeyIndex) const;
+
 	// End Transform related functions 
 
 	// Begin Memory related functions
@@ -672,11 +683,6 @@ public:
 	 * @return		The approximate size of raw animation data.
 	 */
 	int32 GetApproxRawSize() const;
-
-	/**
-	 * @return		The approximate size of key-reduced animation data.
-	 */
-	int32 GetApproxReducedSize() const;
 
 	/**
 	 * @return		The approximate size of compressed animation data.
@@ -704,17 +710,37 @@ public:
 	 * @return true if keys were removed.
 	 */
 	bool CompressRawAnimData();
+
+	// Get compressed data for this UAnimSequence. May be built directly or pulled from DDC
+	void RequestAnimCompression(bool bAsyncCompression, bool AllowAlternateCompressor = false, bool bOutput = false);
+	void RequestAnimCompression(bool bAsyncCompression, TSharedPtr<FAnimCompressContext> CompressContext);
+	void RequestSyncAnimRecompression(bool bOutput = false) { RequestAnimCompression(false, false, bOutput); }
+	bool IsCompressedDataValid() const;
+
+	// Write the compressed data to the supplied FArchive
+	void SerializeCompressedData(FArchive& Ar, bool bDDCData);
+
 	// End Memory related functions
 
 	// Begin Utility functions
 	/**
-	 * Get Skeleton Bone Index from Track Index
+	 * Get Skeleton Bone Index from Track Index for raw data
 	 *
 	 * @param	TrackIndex		Track Index
 	 */
-	int32 GetSkeletonIndexFromTrackIndex(const int32& TrackIndex) const 
+	int32 GetSkeletonIndexFromRawDataTrackIndex(const int32& TrackIndex) const 
 	{ 
 		return TrackToSkeletonMapTable[TrackIndex].BoneTreeIndex; 
+	}
+
+	/**
+	* Get Skeleton Bone Index from Track Index for compressed data
+	*
+	* @param	TrackIndex		Track Index
+	*/
+	int32 GetSkeletonIndexFromCompressedDataTrackIndex(const int32& TrackIndex) const
+	{
+		return CompressedTrackToSkeletonMapTable[TrackIndex].BoneTreeIndex;
 	}
 
 	/** Clears any data in the AnimSequence, so it can be recycled when importing a new animation with same name over it. */
@@ -736,17 +762,16 @@ public:
 	 */
 	void FlipRotationWForNonRoot(USkeletalMesh * SkelMesh);
 
-	/** 
-	 * Return number of tracks in this animation
-	 */
-	int32 GetNumberOfTracks() const;
-
 	// End Utility functions
 #if WITH_EDITOR
 	/**
 	 * After imported or any other change is made, call this to apply post process
 	 */
-	void PostProcessSequence();
+	void PostProcessSequence(bool bForceNewRawDatGuid = true);
+
+	// Kick off compression request when our raw data has changed
+	void OnRawDataChanged();
+
 	/** 
 	 * Insert extra frame of the first frame at the end of the frame so that it improves the interpolation when it loops
 	 * This increases framecount + time, so that it requires recompression
@@ -776,19 +801,23 @@ public:
 	 * Return true if it contains transform curves
 	 */
 	bool DoesContainTransformCurves() const;
+	/**
+	* Return true if compressed data is out of date / missing and so animation needs to use raw data
+	*/
+	bool DoesNeedRecompress() const { return GetSkeleton() && bUseRawDataOnly; }
 
 	/**
 	 * Create Animation Sequence from Reference Pose of the Mesh
 	 */
-	bool CreateAnimation(class USkeletalMesh * Mesh);
+	bool CreateAnimation(class USkeletalMesh* Mesh);
 	/**
-	 * Create Animation Sequence from the Mesh Component's current bone trasnform
+	 * Create Animation Sequence from the Mesh Component's current bone transform
 	 */
-	bool CreateAnimation(class USkeletalMeshComponent * MeshComponent);
+	bool CreateAnimation(class USkeletalMeshComponent* MeshComponent);
 	/**
 	 * Create Animation Sequence from the given animation
 	 */
-	bool CreateAnimation(class UAnimSequence * Sequence);
+	bool CreateAnimation(class UAnimSequence* Sequence);
 
 	/**
 	 * Crops the raw anim data either from Start to CurrentTime or CurrentTime to End depending on
@@ -837,6 +866,40 @@ public:
 	virtual float GetFirstMatchingPosFromMarkerSyncPos(const FMarkerSyncAnimPosition& InMarkerSyncGroupPosition) const override;
 	virtual float GetNextMatchingPosFromMarkerSyncPos(const FMarkerSyncAnimPosition& InMarkerSyncGroupPosition, const float& StartingPosition) const override;
 
+	// to support anim sequence base to all montages
+	virtual void EnableRootMotionSettingFromMontage(bool bInEnableRootMotion, const ERootMotionRootLock::Type InRootMotionRootLock) override;
+
+#if WITH_EDITOR
+	virtual class UAnimSequence* GetAdditiveBasePose() const override 
+	{ 
+		if (IsValidAdditive())
+		{
+			return RefPoseSeq;
+		}
+
+		return nullptr;
+	}
+
+	// Is this animation valid for baking into additive
+	bool CanBakeAdditive() const;
+
+	// Bakes out the additive version of this animation into the raw data.
+	void BakeOutAdditiveIntoRawData();
+
+	// Test whether at any point we will scale a bone to 0 (needed for validating additive anims)
+	bool DoesSequenceContainZeroScale();
+
+	// Helper function to allow us to notify animations that depend on us that they need to update
+	void FlagDependentAnimationsAsRawDataOnly() const;
+
+	// Generate a GUID from a hash of our own raw data
+	FGuid GenerateGuidFromRawData() const;
+
+	// Should we be always using our raw data (i.e is our compressed data stale)
+	bool OnlyUseRawData() const { return bUseRawDataOnly; }
+	void SetUseRawDataOnly(bool bInUseRawDataOnly) { bUseRawDataOnly = bInUseRawDataOnly; }
+#endif
+
 private:
 	/**
 	* Get Bone Transform of the animation for the Time given, relative to Parent for all RequiredBones
@@ -852,7 +915,7 @@ private:
 	/**
 	 * Remap Tracks to New Skeleton
 	 */
-	void RemapTracksToNewSkeleton( USkeleton* NewSkeleton, bool bConvertSpaces );
+	virtual void RemapTracksToNewSkeleton( USkeleton* NewSkeleton, bool bConvertSpaces ) override;
 	/**
 	 * Remap NaN tracks from the RawAnimation data and recompress
 	 */	
@@ -892,25 +955,16 @@ private:
 
 	/** Take a set of marker positions and validates them against a requested start position, updating them as desired */
 	void ValidateCurrentPosition(const FMarkerSyncAnimPosition& Position, bool bPlayingForwards, bool bLooping, float&CurrentTime, FMarkerPair& PreviousMarker, FMarkerPair& NextMarker) const;
-
-#if WITH_EDITOR
-	// Is this animation valid for baking into additive
-	bool CanBakeAdditive() const;
-
-	// Bakes out the additve version of this animation into the raw data (will also recompress)
-	void BakeOutAdditiveIntoRawData();
-#endif
-
-	// Do we calc additive dynamically (true in editor, false if animation had additive baked in during cook)
-	UPROPERTY()
-	bool bCalcAdditiveDynamically;
+	bool UseRawDataForPoseExtraction(const FBoneContainer& RequiredBones) const;
+	void UpdateSHAWithCurves(FSHA1& Sha, const FRawCurveTracks& RawCurveData) const;
+	// Should we be always using our raw data (i.e is our compressed data stale)
+	bool bUseRawDataOnly;
+	
+public:
+	// Are we currently compressing this animation
+	bool bCompressionInProgress;
 
 	friend class UAnimationAsset;
-	friend struct FScopedAnimSequenceCompressedDataCache;
-
-#if WITH_EDITORONLY_DATA
-	bool bCompressedOnCook;
-#endif
 };
 
 

@@ -385,7 +385,7 @@ void ANUTActor::Tick(float DeltaSeconds)
 				SetReplicates(false);
 
 				BeaconDriverName = BeaconDriver->NetDriverName;
-				SetNetDriverName(BeaconDriverName);
+				NetDriverName = BeaconDriverName;
 
 				Role = ROLE_Authority;
 				SetReplicates(true);

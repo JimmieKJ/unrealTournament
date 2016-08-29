@@ -25,7 +25,7 @@ void FHierarchicalSimplificationCustomizations::CustomizeHeader(TSharedRef<IProp
 	]
 	.ValueContent()
 	[
-		StructPropertyHandle->CreatePropertyValueWidget()
+		StructPropertyHandle->CreatePropertyValueWidget(false)
 	];
 }
 

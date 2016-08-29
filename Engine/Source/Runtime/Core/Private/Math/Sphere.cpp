@@ -66,7 +66,7 @@ FSphere FSphere::TransformBy(const FTransform& M) const
 
 float FSphere::GetVolume() const
 {
-	return 1.25f * PI * FMath::Pow(W, 3);
+	return (4.f / 3.f) * PI * (W * W * W);
 }
 
 FSphere& FSphere::operator+=(const FSphere &Other)

@@ -66,13 +66,13 @@ namespace
 			GraphPinObj->GetSchema()->TrySetDefaultText(*GraphPinObj, InText);
 		}
 
-		virtual void PreEdit() override
+#if USE_STABLE_LOCALIZATION_KEYS
+		virtual void GetStableTextId(const int32 InIndex, const ETextPropertyEditAction InEditAction, const FString& InTextSource, const FString& InProposedNamespace, const FString& InProposedKey, FString& OutStableNamespace, FString& OutStableKey) const override
 		{
+			check(InIndex == 0);
+			return StaticStableTextId(GraphPinObj->GetOwningNodeUnchecked(), InEditAction, InTextSource, InProposedNamespace, InProposedKey, OutStableNamespace, OutStableKey);
 		}
-
-		virtual void PostEdit() override
-		{
-		}
+#endif // USE_STABLE_LOCALIZATION_KEYS
 
 		virtual void RequestRefresh() override
 		{

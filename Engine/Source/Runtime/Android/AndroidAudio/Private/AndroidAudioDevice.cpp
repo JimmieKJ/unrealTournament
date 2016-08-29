@@ -144,13 +144,13 @@ bool FSLESAudioDevice::HasCompressedAudioInfoClass(USoundWave* SoundWave)
 {
 #if WITH_OGGVORBIS
 	static FName NAME_OGG(TEXT("OGG"));
-	if (SoundWave->CompressionName.IsValid() && SoundWave->CompressionName == NAME_OGG)
+	if (SoundWave->HasCompressedData(NAME_OGG))
 	{
 		return true;
 	}
 #endif
 	static FName NAME_ADPCM(TEXT("ADPCM"));
-	if (SoundWave->CompressionName.IsValid() && SoundWave->CompressionName == NAME_ADPCM)
+	if (SoundWave->HasCompressedData(NAME_ADPCM))
 	{
 		return true;
 	}
@@ -163,18 +163,18 @@ class ICompressedAudioInfo* FSLESAudioDevice::CreateCompressedAudioInfo(USoundWa
 {
 #if WITH_OGGVORBIS
 	static FName NAME_OGG(TEXT("OGG"));
-	if (SoundWave->CompressionName.IsValid() && SoundWave->CompressionName == NAME_OGG)
+	if (SoundWave->HasCompressedData(NAME_OGG))
 	{
 		return new FVorbisAudioInfo();
 	}
 #endif
 	static FName NAME_ADPCM(TEXT("ADPCM"));
-	if (SoundWave->CompressionName.IsValid() && SoundWave->CompressionName == NAME_ADPCM)
+	if (SoundWave->HasCompressedData(NAME_ADPCM))
 	{
 		return new FADPCMAudioInfo();
 	}
 
-	return NULL;
+	return nullptr;
 }
 
 /** Check if any background music or sound is playing through the audio device */

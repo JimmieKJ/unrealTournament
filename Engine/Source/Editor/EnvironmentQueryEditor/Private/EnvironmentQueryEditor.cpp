@@ -21,30 +21,30 @@
 const FName FEnvironmentQueryEditor::EQSUpdateGraphTabId( TEXT( "EnvironmentQueryEditor_UpdateGraph" ) );
 const FName FEnvironmentQueryEditor::EQSPropertiesTabId( TEXT( "EnvironmentQueryEditor_Properties" ) );
 
-void FEnvironmentQueryEditor::RegisterTabSpawners(const TSharedRef<class FTabManager>& TabManager)
+void FEnvironmentQueryEditor::RegisterTabSpawners(const TSharedRef<class FTabManager>& InTabManager)
 {
-	WorkspaceMenuCategory = TabManager->AddLocalWorkspaceMenuCategory(LOCTEXT("WorkspaceMenu_EnvironmentQueryEditor", "Environment Query Editor"));
+	WorkspaceMenuCategory = InTabManager->AddLocalWorkspaceMenuCategory(LOCTEXT("WorkspaceMenu_EnvironmentQueryEditor", "Environment Query Editor"));
 	auto WorkspaceMenuCategoryRef = WorkspaceMenuCategory.ToSharedRef();
 
-	FAssetEditorToolkit::RegisterTabSpawners(TabManager);
+	FAssetEditorToolkit::RegisterTabSpawners(InTabManager);
 
-	TabManager->RegisterTabSpawner( EQSUpdateGraphTabId, FOnSpawnTab::CreateSP(this, &FEnvironmentQueryEditor::SpawnTab_UpdateGraph) )
+	InTabManager->RegisterTabSpawner( EQSUpdateGraphTabId, FOnSpawnTab::CreateSP(this, &FEnvironmentQueryEditor::SpawnTab_UpdateGraph) )
 		.SetDisplayName( NSLOCTEXT("EnvironmentQueryEditor", "Graph", "Graph") )
 		.SetGroup(WorkspaceMenuCategoryRef)
 		.SetIcon(FSlateIcon(FEditorStyle::GetStyleSetName(), "GraphEditor.EventGraph_16x"));
 
-	TabManager->RegisterTabSpawner( EQSPropertiesTabId, FOnSpawnTab::CreateSP(this, &FEnvironmentQueryEditor::SpawnTab_Properties) )
+	InTabManager->RegisterTabSpawner( EQSPropertiesTabId, FOnSpawnTab::CreateSP(this, &FEnvironmentQueryEditor::SpawnTab_Properties) )
 		.SetDisplayName( NSLOCTEXT("EnvironmentQueryEditor", "PropertiesTab", "Details" ) )
 		.SetGroup(WorkspaceMenuCategoryRef)
 		.SetIcon(FSlateIcon(FEditorStyle::GetStyleSetName(), "LevelEditor.Tabs.Details"));
 }
 
-void FEnvironmentQueryEditor::UnregisterTabSpawners(const TSharedRef<class FTabManager>& TabManager)
+void FEnvironmentQueryEditor::UnregisterTabSpawners(const TSharedRef<class FTabManager>& InTabManager)
 {
-	FAssetEditorToolkit::UnregisterTabSpawners(TabManager);
+	FAssetEditorToolkit::UnregisterTabSpawners(InTabManager);
 
-	TabManager->UnregisterTabSpawner( EQSPropertiesTabId );
-	TabManager->UnregisterTabSpawner( EQSUpdateGraphTabId );
+	InTabManager->UnregisterTabSpawner( EQSPropertiesTabId );
+	InTabManager->UnregisterTabSpawner( EQSUpdateGraphTabId );
 }
 
 void FEnvironmentQueryEditor::InitEnvironmentQueryEditor( const EToolkitMode::Type Mode, const TSharedPtr< class IToolkitHost >& InitToolkitHost, UEnvQuery* InScript )
@@ -222,7 +222,7 @@ void FEnvironmentQueryEditor::OnSelectedNodesChanged(const TSet<class UObject*>&
 	{
 		for(TSet<class UObject*>::TConstIterator SetIt(NewSelection);SetIt;++SetIt)
 		{
-			UEnvironmentQueryGraphNode* GraphNode = CastChecked<UEnvironmentQueryGraphNode>(*SetIt);
+			UEnvironmentQueryGraphNode* GraphNode = Cast<UEnvironmentQueryGraphNode>(*SetIt);
 			if (GraphNode)
 			{
 				if (GraphNode->IsA(UEnvironmentQueryGraphNode_Root::StaticClass()))

@@ -30,7 +30,7 @@ void SCSVImportOptions::Construct(const FArguments& InArgs)
 
 	// Find table row struct info
 	UScriptStruct* TableRowStruct = FindObjectChecked<UScriptStruct>(ANY_PACKAGE, TEXT("TableRowBase"));
-	if(TableRowStruct != NULL)
+	if (TableRowStruct != NULL)
 	{
 		// Make combo of table rowstruct options
 		for (TObjectIterator<UScriptStruct> It; It; ++It)
@@ -45,6 +45,9 @@ void SCSVImportOptions::Construct(const FArguments& InArgs)
 				RowStructs.Add(Struct);
 			}
 		}
+
+		// Alphabetically sort the row structs by name
+		RowStructs.Sort([](const UScriptStruct& ElementA, const UScriptStruct& ElementB) { return (ElementA.GetName() < ElementB.GetName()); } );
 	}
 
 	// Create widget

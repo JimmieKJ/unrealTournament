@@ -14,6 +14,12 @@ UEditorStyleSettings::UEditorStyleSettings( const FObjectInitializer& ObjectInit
 
 	AssetEditorOpenLocation = EAssetEditorOpenLocation::Default;
 
+	RegularColor = FLinearColor(0.035f, 0.035f, 0.035f);
+	RuleColor = FLinearColor(0.008f, 0.008f, 0.008f);
+	CenterColor = FLinearColor::Black;
+
+	bUseGrid = true;
+
 	bShowFriendlyNames = true;
 	LogTimestampMode = ELogTimes::None;
 }

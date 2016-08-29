@@ -5,8 +5,7 @@
  *
  */
 
-#ifndef _CHART_CREATION_INC_
-#define _CHART_CREATION_INC_
+#pragma once
 
 #define DO_CHARTING 1
 #if DO_CHARTING
@@ -22,6 +21,12 @@ struct FFPSChartEntry
 	int32		Count;
 	/** Cumulative time spent in bucket. */
 	double	CummulativeTime;
+
+	FFPSChartEntry()
+		: Count(0)
+		, CummulativeTime(0.0)
+	{
+	}
 };
 
 //@todo this is a leftover from the old stats system, which used enums
@@ -86,6 +91,18 @@ struct FHitchChartEntry
 
 	/** How many hitches were bound by the GPU? */
 	int32 GPUBoundHitchCount;
+
+	/** Time spent hitching */
+	double FrameTimeSpentInBucket;
+
+	FHitchChartEntry()
+		: HitchCount(0)
+		, GameThreadBoundHitchCount(0)
+		, RenderThreadBoundHitchCount(0)
+		, GPUBoundHitchCount(0)
+		, FrameTimeSpentInBucket(0.0)
+	{
+	}
 };
 
 
@@ -93,5 +110,3 @@ struct FHitchChartEntry
 extern ENGINE_API FHitchChartEntry GHitchChart[ STAT_FPSChart_LastHitchBucketStat - STAT_FPSChart_FirstHitchStat ];
 
 #endif // DO_CHARTING
-
-#endif // _CHART_CREATION_INC_

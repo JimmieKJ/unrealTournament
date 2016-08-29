@@ -22,22 +22,11 @@ void FMaterialRelevance::SetPrimitiveViewRelevance(FPrimitiveViewRelevance& OutV
 	OutViewRelevance.bSeparateTranslucencyRelevance = bSeparateTranslucency;
 	OutViewRelevance.bMobileSeparateTranslucencyRelevance = bMobileSeparateTranslucency;
 	OutViewRelevance.bNormalTranslucencyRelevance = bNormalTranslucency;
-
-#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
-	{
-		static IConsoleVariable* CVar = IConsoleManager::Get().FindConsoleVariable(TEXT("r.ShaderModelDebug"));
-		if(CVar && CVar->GetInt())
-		{
-			UE_LOG(LogEngine, Log, TEXT("r.ShaderModelDebug: SetPrimitiveViewRelevance %x = %x"),
-				OutViewRelevance.ShadingModelMaskRelevance,
-				ShadingModelMask);
-			ensure(ShadingModelMask);
-		}
-	}
-#endif
-
 	OutViewRelevance.ShadingModelMaskRelevance = ShadingModelMask;
 	OutViewRelevance.bUsesGlobalDistanceField = bUsesGlobalDistanceField;
+	OutViewRelevance.bUsesWorldPositionOffset = bUsesWorldPositionOffset;
+	OutViewRelevance.bDecal = bDecal;
+	OutViewRelevance.bTranslucentSurfaceLighting = bTranslucentSurfaceLighting;
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -55,6 +44,8 @@ UMaterialInterface::UMaterialInterface(const FObjectInitializer& ObjectInitializ
 			SamplerTypeEnum = FindObject<UEnum>(NULL, TEXT("/Script/Engine.EMaterialSamplerType"));
 			check(SamplerTypeEnum);
 		}
+
+		SetLightingGuid();
 	}
 }
 
@@ -62,6 +53,12 @@ void UMaterialInterface::PostLoad()
 {
 	Super::PostLoad();
 	PostLoadDefaultMaterials();
+}
+
+void UMaterialInterface::GetUsedTexturesAndIndices(TArray<UTexture*>& OutTextures, TArray< TArray<int32> >& OutIndices, EMaterialQualityLevel::Type QualityLevel, ERHIFeatureLevel::Type FeatureLevel) const
+{
+	GetUsedTextures(OutTextures, QualityLevel, false, FeatureLevel, false);
+	OutIndices.AddDefaulted(OutTextures.Num());
 }
 
 FMaterialRelevance UMaterialInterface::GetRelevance_Internal(const UMaterial* Material, ERHIFeatureLevel::Type InFeatureLevel) const
@@ -72,20 +69,33 @@ FMaterialRelevance UMaterialInterface::GetRelevance_Internal(const UMaterial* Ma
 		const bool bIsTranslucent = IsTranslucentBlendMode((EBlendMode)GetBlendMode());
 
 		EMaterialShadingModel ShadingModel = GetShadingModel();
+		EMaterialDomain Domain = (EMaterialDomain)MaterialResource->GetMaterialDomain();
+		bool bDecal = (Domain == MD_DeferredDecal);
 
-		const bool bIsLit =  ShadingModel != MSM_Unlit;
 		// Determine the material's view relevance.
 		FMaterialRelevance MaterialRelevance;
+
 		MaterialRelevance.ShadingModelMask = 1 << ShadingModel;
-		MaterialRelevance.bOpaque = !bIsTranslucent;
-		MaterialRelevance.bMasked = IsMasked();
-		MaterialRelevance.bDistortion = MaterialResource->IsDistorted();
-		MaterialRelevance.bSeparateTranslucency = bIsTranslucent && Material->bEnableSeparateTranslucency;
-		MaterialRelevance.bMobileSeparateTranslucency = bIsTranslucent && Material->bEnableMobileSeparateTranslucency;
-		MaterialRelevance.bNormalTranslucency = bIsTranslucent && !Material->bEnableSeparateTranslucency;
-		MaterialRelevance.bDisableDepthTest = bIsTranslucent && Material->bDisableDepthTest;		
-		MaterialRelevance.bOutputsVelocityInBasePass = Material->bOutputVelocityOnBasePass;	
-		MaterialRelevance.bUsesGlobalDistanceField = MaterialResource->UsesGlobalDistanceField_GameThread();
+
+		if(bDecal)
+		{
+			MaterialRelevance.bDecal = bDecal;
+			// we rely on FMaterialRelevance defaults are 0
+		}
+		else
+		{
+			MaterialRelevance.bOpaque = !bIsTranslucent;
+			MaterialRelevance.bMasked = IsMasked();
+			MaterialRelevance.bDistortion = MaterialResource->IsDistorted();
+			MaterialRelevance.bSeparateTranslucency = bIsTranslucent && Material->bEnableSeparateTranslucency;
+			MaterialRelevance.bMobileSeparateTranslucency = bIsTranslucent && Material->bEnableMobileSeparateTranslucency;
+			MaterialRelevance.bNormalTranslucency = bIsTranslucent && !Material->bEnableSeparateTranslucency;
+			MaterialRelevance.bDisableDepthTest = bIsTranslucent && Material->bDisableDepthTest;		
+			MaterialRelevance.bOutputsVelocityInBasePass = Material->bOutputVelocityOnBasePass;	
+			MaterialRelevance.bUsesGlobalDistanceField = MaterialResource->UsesGlobalDistanceField_GameThread();
+			MaterialRelevance.bUsesWorldPositionOffset = MaterialResource->UsesWorldPositionOffset_GameThread();
+			MaterialRelevance.bTranslucentSurfaceLighting = bIsTranslucent && (MaterialResource->GetTranslucencyLightingMode() == TLM_SurfacePerPixelLighting);
+		}
 		return MaterialRelevance;
 	}
 	else
@@ -182,6 +192,13 @@ void UMaterialInterface::PostEditChangeProperty(FPropertyChangedEvent& PropertyC
 	Super::PostEditChangeProperty(PropertyChangedEvent);
 }
 #endif // WITH_EDITOR
+
+void UMaterialInterface::GetLightingGuidChain(bool bIncludeTextures, TArray<FGuid>& OutGuids) const
+{
+#if WITH_EDITORONLY_DATA
+	OutGuids.Add(LightingGuid);
+#endif // WITH_EDITORONLY_DATA
+}
 
 bool UMaterialInterface::GetVectorParameterValue(FName ParameterName, FLinearColor& OutValue) const
 {
@@ -290,6 +307,11 @@ bool UMaterialInterface::IsDitheredLODTransition() const
 }
 
 bool UMaterialInterface::IsMasked() const
+{
+	return false;
+}
+
+bool UMaterialInterface::IsDeferredDecal() const
 {
 	return false;
 }

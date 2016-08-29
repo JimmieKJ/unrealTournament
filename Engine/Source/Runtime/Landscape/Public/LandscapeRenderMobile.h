@@ -4,8 +4,7 @@
 LandscapeRenderMobile.h: Mobile landscape rendering
 =============================================================================*/
 
-#ifndef _LANDSCAPERENDERMOBILE_H
-#define _LANDSCAPERENDERMOBILE_H
+#pragma once
 
 #include "Landscape.h"
 
@@ -132,5 +131,3 @@ public:
 
 	friend class FLandscapeVertexBufferMobile;
 };
-
-#endif // _LANDSCAPERENDERMOBILE_H

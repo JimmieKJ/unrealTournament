@@ -23,7 +23,7 @@ public:
 	 * @param InMediaPlayer The MediaPlayer asset to show the details for.
 	 * @param InStyleSet The style set to use.
 	 */
-	void Construct( const FArguments& InArgs, UMediaPlayer* InMediaPlayer, const TSharedRef<ISlateStyle>& InStyle );
+	void Construct(const FArguments& InArgs, UMediaPlayer& InMediaPlayer, const TSharedRef<ISlateStyle>& InStyle);
 
 private:
 

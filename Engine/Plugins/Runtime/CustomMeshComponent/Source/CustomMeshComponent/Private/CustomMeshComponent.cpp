@@ -101,8 +101,11 @@ public:
 	{
 		const FColor VertexColor(255,255,255);
 
+		const int32 NumTris = Component->CustomMeshTris.Num();
+		VertexBuffer.Vertices.AddUninitialized(NumTris * 3);
+		IndexBuffer.Indices.AddUninitialized(NumTris * 3);
 		// Add each triangle to the vertex/index buffer
-		for(int TriIdx=0; TriIdx<Component->CustomMeshTris.Num(); TriIdx++)
+		for(int32 TriIdx = 0; TriIdx < NumTris; TriIdx++)
 		{
 			FCustomMeshTriangle& Tri = Component->CustomMeshTris[TriIdx];
 
@@ -113,26 +116,22 @@ public:
 			const FVector TangentZ = (Edge02 ^ Edge01).GetSafeNormal();
 			const FVector TangentY = (TangentX ^ TangentZ).GetSafeNormal();
 
-			FDynamicMeshVertex Vert0;
-			Vert0.Position = Tri.Vertex0;
-			Vert0.Color = VertexColor;
-			Vert0.SetTangents(TangentX, TangentY, TangentZ);
-			int32 VIndex = VertexBuffer.Vertices.Add(Vert0);
-			IndexBuffer.Indices.Add(VIndex);
+			FDynamicMeshVertex Vert;
+			
+			Vert.Color = VertexColor;
+			Vert.SetTangents(TangentX, TangentY, TangentZ);
 
-			FDynamicMeshVertex Vert1;
-			Vert1.Position = Tri.Vertex1;
-			Vert1.Color = VertexColor;
-			Vert1.SetTangents(TangentX, TangentY, TangentZ);
-			VIndex = VertexBuffer.Vertices.Add(Vert1);
-			IndexBuffer.Indices.Add(VIndex);
+			Vert.Position = Tri.Vertex0;
+			VertexBuffer.Vertices[TriIdx * 3 + 0] = Vert;
+			IndexBuffer.Indices[TriIdx * 3 + 0] = TriIdx * 3 + 0;
 
-			FDynamicMeshVertex Vert2;
-			Vert2.Position = Tri.Vertex2;
-			Vert2.Color = VertexColor;
-			Vert2.SetTangents(TangentX, TangentY, TangentZ);
-			VIndex = VertexBuffer.Vertices.Add(Vert2);
-			IndexBuffer.Indices.Add(VIndex);
+			Vert.Position = Tri.Vertex1;
+			VertexBuffer.Vertices[TriIdx * 3 + 1] = Vert;
+			IndexBuffer.Indices[TriIdx * 3 + 1] = TriIdx * 3 + 1;
+
+			Vert.Position = Tri.Vertex2;
+			VertexBuffer.Vertices[TriIdx * 3 + 2] = Vert;
+			IndexBuffer.Indices[TriIdx * 3 + 2] = TriIdx * 3 + 2;
 		}
 
 		// Init vertex factory

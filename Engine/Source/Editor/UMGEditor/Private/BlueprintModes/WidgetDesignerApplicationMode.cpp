@@ -6,6 +6,7 @@
 #include "Editor/Kismet/Public/BlueprintEditorTabs.h"
 #include "Editor/Kismet/Public/SBlueprintEditorToolbar.h"
 #include "Editor/Kismet/Public/BlueprintEditorModes.h"
+#include "Editor/Kismet/Public/BlueprintEditorSharedTabFactories.h"
 #include "SKismetInspector.h"
 
 #include "WidgetBlueprintEditor.h"
@@ -34,7 +35,7 @@ FWidgetDesignerApplicationMode::FWidgetDesignerApplicationMode(TSharedPtr<FWidge
 	// Override the default created category here since "Designer Editor" sounds awkward
 	WorkspaceMenuCategory = FWorkspaceItem::NewGroup(LOCTEXT("WorkspaceMenu_WidgetDesigner", "Widget Designer"));
 
-	TabLayout = FTabManager::NewLayout( "WidgetBlueprintEditor_Designer_Layout_v3" )
+	TabLayout = FTabManager::NewLayout( "WidgetBlueprintEditor_Designer_Layout_v4_1" )
 	->AddArea
 	(
 		FTabManager::NewPrimaryArea()
@@ -103,9 +104,9 @@ FWidgetDesignerApplicationMode::FWidgetDesignerApplicationMode(TSharedPtr<FWidge
 			(
 				FTabManager::NewStack()
 				->SetSizeCoefficient(.85f)
-				->SetHideTabWell(true)
+				->SetForegroundTab(FSequencerTabSummoner::TabID)
 				->AddTab(FSequencerTabSummoner::TabID, ETabState::OpenedTab)
-
+				->AddTab(FBlueprintEditorTabs::CompilerResultsID, ETabState::OpenedTab)
 			)
 		)
 	);
@@ -118,6 +119,7 @@ FWidgetDesignerApplicationMode::FWidgetDesignerApplicationMode(TSharedPtr<FWidge
 	TabFactories.RegisterFactory(MakeShareable(new FPaletteTabSummoner(InWidgetEditor)));
 	TabFactories.RegisterFactory(MakeShareable(new FSequencerTabSummoner(InWidgetEditor)));
 	TabFactories.RegisterFactory(MakeShareable(new FAnimationTabSummoner(InWidgetEditor)));
+	TabFactories.RegisterFactory(MakeShareable(new FCompilerResultsSummoner(InWidgetEditor)));
 
 	// setup toolbar - clear existing toolbar extender from the BP mode
 	//@TODO: Keep this in sync with BlueprintEditorModes.cpp
@@ -134,7 +136,7 @@ FWidgetDesignerApplicationMode::FWidgetDesignerApplicationMode(TSharedPtr<FWidge
 void FWidgetDesignerApplicationMode::RegisterTabFactories(TSharedPtr<FTabManager> InTabManager)
 {
 	TSharedPtr<FWidgetBlueprintEditor> BP = GetBlueprintEditor();
-	
+
 	BP->RegisterToolbarTab(InTabManager.ToSharedRef());
 	BP->PushTabFactories(TabFactories);
 }
@@ -147,6 +149,9 @@ void FWidgetDesignerApplicationMode::PreDeactivateMode()
 void FWidgetDesignerApplicationMode::PostActivateMode()
 {
 	//FWidgetBlueprintApplicationMode::PostActivateMode();
+	TSharedPtr<FWidgetBlueprintEditor> BP = GetBlueprintEditor();
+
+	BP->OnEnteringDesigner();
 }
 
 #undef LOCTEXT_NAMESPACE

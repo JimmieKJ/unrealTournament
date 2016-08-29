@@ -65,6 +65,11 @@ void FPropertyTable::Tick()
 	}
 }
 
+void FPropertyTable::ForceRefresh()
+{
+	RequestRefresh();
+}
+
 void FPropertyTable::RequestRefresh()
 {
 	bRefreshRequested = true;
@@ -437,22 +442,22 @@ void FPropertyTable::PasteTextAtCell( const FString& Text, const TSharedRef< IPr
 			}
 		}
 	}
-	else if ( StartingCellSelectionRange.IsValid() && EndingCellSelectionRange.IsValid() )
+	else
 	{
 		// Paste values into cells
-		while ( TargetCell.IsValid() && SelectedCells.Contains( TargetCell.ToSharedRef() ) && CurrentColumnIdx < CellStrings.Num() )
+		while ( TargetCell.IsValid() && CurrentColumnIdx < CellStrings.Num() )
 		{
 			SetCellValue( TargetCell.ToSharedRef(), CellStrings[CurrentColumnIdx++] );
 
 			// Move to next column
 			TargetCell = GetNextCellInRow(TargetCell.ToSharedRef());
 
-			if ( ( !TargetCell.IsValid() || !SelectedCells.Contains( TargetCell.ToSharedRef() ) || CurrentColumnIdx == CellStrings.Num() ) && CurrentRowIdx < RowStrings.Num() )
+			if ( ( !TargetCell.IsValid() || CurrentColumnIdx == CellStrings.Num() ) && CurrentRowIdx < RowStrings.Num() )
 			{
 				// Move to next row
 				TargetCell = GetNextCellInColumn(FirstCellInRow.ToSharedRef());
 
-				if ( TargetCell.IsValid() && SelectedCells.Contains( TargetCell.ToSharedRef() ) )
+				if ( TargetCell.IsValid() )
 				{
 					// Prepare data to operate on next row
 					CurrentColumnIdx = 0;

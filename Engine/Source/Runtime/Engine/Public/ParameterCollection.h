@@ -52,3 +52,6 @@ private:
 
 	void UpdateContents(const FGuid& InId, const TArray<FVector4>& Data);
 };
+
+// Default instance resources used when rendering a material using a parameter collection but there's no FScene present to get a FMaterialParameterCollectionInstanceResource
+extern ENGINE_API TMap<FGuid, FMaterialParameterCollectionInstanceResource*> GDefaultMaterialParameterCollectionInstances;

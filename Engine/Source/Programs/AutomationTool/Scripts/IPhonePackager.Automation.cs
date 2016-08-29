@@ -13,7 +13,7 @@ class IPhonePackager : BuildCommand
 	{
 		Log("************************* Calling IPP");
 
-		Platform IOS = Platform.Platforms[UnrealTargetPlatform.IOS];
+		Platform IOS = Platform.GetPlatform(UnrealTargetPlatform.IOS);
 		string Command = ParseParamValue("cmd", "");
 
 		// check the return value

@@ -152,9 +152,9 @@ void APawn::UpdateNavAgent()
 	}
 }
 
-void APawn::SetCanAffectNavigationGeneration(bool bNewValue)
+void APawn::SetCanAffectNavigationGeneration(bool bNewValue, bool bForceUpdate)
 {
-	if (bCanAffectNavigationGeneration != bNewValue)
+	if (bCanAffectNavigationGeneration != bNewValue || bForceUpdate)
 	{
 		bCanAffectNavigationGeneration = bNewValue;
 
@@ -563,14 +563,7 @@ void APawn::DestroyPlayerInputComponent()
 
 bool APawn::IsMoveInputIgnored() const
 {
-	const APlayerController* PCOwner = Cast<const APlayerController>(Controller);
-	if (PCOwner && PCOwner->IsMoveInputIgnored())
-	{
-		return true;
-	}
-
-	// No player controller or not ignoring input. We allow non-PCs to receive input, so AI can use the movement input system.
-	return false;
+	return Controller != nullptr && Controller->IsMoveInputIgnored();
 }
 
 
@@ -909,6 +902,18 @@ void APawn::EditorApplyRotation(const FRotator& DeltaRotation, bool bAltDown, bo
 		Controller->SetControlRotation( GetActorRotation() );
 	}
 }
+
+void APawn::PostEditChangeProperty(struct FPropertyChangedEvent& PropertyChangedEvent)
+{
+	static const FName NAME_CanAffectNavigationGeneration = FName(TEXT("bCanAffectNavigationGeneration"));
+
+	Super::PostEditChangeProperty(PropertyChangedEvent);
+
+	if (PropertyChangedEvent.Property != nullptr && PropertyChangedEvent.Property->GetFName() == NAME_CanAffectNavigationGeneration)
+	{
+		SetCanAffectNavigationGeneration(bCanAffectNavigationGeneration, /*bForceUpdate=*/true);
+	}
+}
 #endif
 
 void APawn::EnableInput(class APlayerController* PlayerController)
@@ -949,7 +954,7 @@ void APawn::TeleportSucceeded(bool bIsATest)
 	Super::TeleportSucceeded(bIsATest);
 }
 
-void APawn::GetMoveGoalReachTest(AActor* MovingActor, const FVector& MoveOffset, FVector& GoalOffset, float& GoalRadius, float& GoalHalfHeight) const 
+void APawn::GetMoveGoalReachTest(const AActor* MovingActor, const FVector& MoveOffset, FVector& GoalOffset, float& GoalRadius, float& GoalHalfHeight) const 
 {
 	GoalOffset = FVector::ZeroVector;
 	GetSimpleCollisionCylinder(GoalRadius, GoalHalfHeight);
@@ -1020,6 +1025,7 @@ bool APawn::IsBasedOnActor(const AActor* Other) const
 
 bool APawn::IsNetRelevantFor(const AActor* RealViewer, const AActor* ViewTarget, const FVector& SrcLocation) const
 {
+	CA_SUPPRESS(6011);
 	if (bAlwaysRelevant || RealViewer == Controller || IsOwnedBy(ViewTarget) || IsOwnedBy(RealViewer) || this == ViewTarget || ViewTarget == Instigator
 		|| IsBasedOnActor(ViewTarget) || (ViewTarget && ViewTarget->IsBasedOnActor(this)))
 	{

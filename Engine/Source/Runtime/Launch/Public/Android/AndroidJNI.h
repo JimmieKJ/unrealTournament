@@ -29,16 +29,13 @@ public:
 	static jmethodID AndroidThunkJava_KeepScreenOn;
 	static jmethodID AndroidThunkJava_InitHMDs;
 	static jmethodID AndroidThunkJava_DismissSplashScreen;
-	static jmethodID AndroidThunkJava_GetCurrentVolume;
-	static jmethodID AndroidThunkJava_GetMaximumVolume;
-	static jmethodID AndroidThunkJava_SetVolume;
-	static jmethodID AndroidThunkJava_AdjustVolume;
 	static jmethodID AndroidThunkJava_GetInputDeviceInfo;
 	static jmethodID AndroidThunkJava_HasMetaDataKey;
 	static jmethodID AndroidThunkJava_GetMetaDataBoolean;
 	static jmethodID AndroidThunkJava_GetMetaDataInt;
 	static jmethodID AndroidThunkJava_GetMetaDataString;
 	static jmethodID AndroidThunkJava_IsGearVRApplication;
+	static jmethodID AndroidThunkJava_ShowHiddenAlertDialog;
 
 	// InputDeviceInfo member field ids
 	static jclass InputDeviceInfoClass;
@@ -55,6 +52,8 @@ public:
 	static jmethodID AndroidThunkJava_ShowAdBanner;
 	static jmethodID AndroidThunkJava_HideAdBanner;
 	static jmethodID AndroidThunkJava_CloseAdBanner;
+	static jmethodID AndroidThunkJava_GoogleClientConnect;
+	static jmethodID AndroidThunkJava_GoogleClientDisconnect;
 
 	// In app purchase functionality
 	static jclass JavaStringClass;

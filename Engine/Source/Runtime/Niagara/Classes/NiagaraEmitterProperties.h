@@ -102,40 +102,6 @@ struct FNiagaraEmitterScriptProperties
 	NIAGARA_API void Init(UNiagaraEmitterProperties* EmitterProps);
 };
 
-//This struct now only exists for backwards compatibility and should be removed once effects are updated.
-USTRUCT()
-struct FDeprecatedNiagaraEmitterProperties
-{
-	GENERATED_USTRUCT_BODY()
-public:
-	UPROPERTY()
-	FString Name;
-	UPROPERTY()
-	bool bIsEnabled;
-	UPROPERTY()
-	float SpawnRate;
-	UPROPERTY()
-	UNiagaraScript *UpdateScript;
-	UPROPERTY()
-	UNiagaraScript *SpawnScript;
-	UPROPERTY()
-	UMaterial *Material;
-	UPROPERTY()
-	TEnumAsByte<EEmitterRenderModuleType> RenderModuleType;
-	UPROPERTY()
-	float StartTime;
-	UPROPERTY()
-	float EndTime;
-	UPROPERTY()
-	class UNiagaraEffectRendererProperties *RendererProperties;
-	UPROPERTY()
-	FNiagaraConstantMap ExternalConstants;		// these are the update script constants from the effect editor; will be added to the emitter's constant map
-	UPROPERTY()
-	FNiagaraConstantMap ExternalSpawnConstants;		// these are the spawn script constants from the effect editor; will be added to the emitter's constant map
-	UPROPERTY()
-	int32 NumLoops;
-};
-
 /** 
  *	UNiagaraEmitterProperties stores the attributes of an FNiagaraSimulation
  *	that need to be serialized and are used for its initialization 
@@ -146,7 +112,6 @@ class UNiagaraEmitterProperties : public UObject
 	GENERATED_UCLASS_BODY()
 public:
 	NIAGARA_API void Init();
-	void InitFromOldStruct(FDeprecatedNiagaraEmitterProperties& OldStruct);
 
 	//Begin UObject Interface
 #if WITH_EDITOR

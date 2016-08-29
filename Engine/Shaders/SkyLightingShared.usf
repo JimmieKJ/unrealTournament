@@ -21,37 +21,53 @@ SamplerState BentNormalAOSampler;
 
 float ApplyBentNormalAO;
 float InvSkySpecularOcclusionStrength;
-float MinSkySpecularOcclusion;
+float4 OcclusionTintAndMinOcclusion;
 
-void GetDistanceFieldAOSpecularOcclusion(float2 ScreenUV, float3 ReflectionVector, float Roughness, bool bTwoSidedFoliage, out float IndirectSpecularOcclusion, out float IndirectDiffuseOcclusion)
+void GetDistanceFieldAOSpecularOcclusion(float2 ScreenUV, float3 ReflectionVector, float Roughness, bool bTwoSidedFoliage, out float IndirectSpecularOcclusion, out float IndirectDiffuseOcclusion, out float3 ExtraIndirectSpecular)
 {
 	IndirectSpecularOcclusion = 1;
 	IndirectDiffuseOcclusion = 1;
+	ExtraIndirectSpecular = 0;
 
 	BRANCH
 	if (ApplyBentNormalAO > 0)
 	{
-		float3 BentNormalAO = Texture2DSampleLevel(BentNormalAOTexture, BentNormalAOSampler, ScreenUV, 0).xyz;
+		float4 TextureValue = Texture2DSampleLevel(BentNormalAOTexture, BentNormalAOSampler, ScreenUV, 0);
+		float3 BentNormalAO = TextureValue.xyz;
 		float BentNormalLength = length(BentNormalAO);
 
 		BRANCH
-		if (bTwoSidedFoliage)
+		if (View.DistanceFieldAOSpecularOcclusionMode == 0)
 		{
 			IndirectSpecularOcclusion = BentNormalLength;
 		}
-		else
+		else if (View.DistanceFieldAOSpecularOcclusionMode == 1)
 		{
-			float ReflectionConeAngle = Roughness * PI;
-			float UnoccludedAngle = BentNormalLength * PI * InvSkySpecularOcclusionStrength;
-			float AngleBetween = acos(dot(BentNormalAO, ReflectionVector) / max(BentNormalLength, .001f));
-			IndirectSpecularOcclusion = ApproximateConeConeIntersection(ReflectionConeAngle, UnoccludedAngle, AngleBetween);
+			BRANCH
+			if (bTwoSidedFoliage)
+			{
+				IndirectSpecularOcclusion = BentNormalLength;
+			}
+			else
+			{
+				float ReflectionConeAngle = max(Roughness, .1f) * PI;
+				float UnoccludedAngle = BentNormalLength * PI * InvSkySpecularOcclusionStrength;
+				float AngleBetween = acos(dot(BentNormalAO, ReflectionVector) / max(BentNormalLength, .001f));
+				IndirectSpecularOcclusion = ApproximateConeConeIntersection(ReflectionConeAngle, UnoccludedAngle, AngleBetween);
 
-			// Can't rely on the direction of the bent normal when close to fully occluded, lerp to shadowed
-			IndirectSpecularOcclusion = lerp(0, IndirectSpecularOcclusion, saturate((UnoccludedAngle - .1f) / .2f));
-			IndirectSpecularOcclusion = lerp(IndirectSpecularOcclusion, 1, MinSkySpecularOcclusion);
+				// Can't rely on the direction of the bent normal when close to fully occluded, lerp to shadowed
+				IndirectSpecularOcclusion = lerp(0, IndirectSpecularOcclusion, saturate((UnoccludedAngle - .1f) / .2f));
+			}
+		}
+		else if (View.DistanceFieldAOSpecularOcclusionMode == 2)
+		{
+			// Cone traced specular occlusion in w
+			IndirectSpecularOcclusion = TextureValue.w;
 		}
 
-		IndirectDiffuseOcclusion = lerp(BentNormalLength, 1, MinSkySpecularOcclusion);
+		IndirectSpecularOcclusion = lerp(IndirectSpecularOcclusion, 1, OcclusionTintAndMinOcclusion.w);
+		ExtraIndirectSpecular = (1 - IndirectSpecularOcclusion) * OcclusionTintAndMinOcclusion.xyz;
+		IndirectDiffuseOcclusion = lerp(BentNormalLength, 1, OcclusionTintAndMinOcclusion.w);
 	}
 }
 
@@ -59,6 +75,6 @@ float GetDynamicSkyIndirectIrradiance(float2 ScreenUV, float3 WorldNormal)
 {
 	float3 BentNormal = Texture2DSampleLevel(BentNormalAOTexture, BentNormalAOSampler, ScreenUV, 0).xyz;
 	float SkyVisibility = length(BentNormal);
-	float3 DiffuseLookup = GetSkySHDiffuse(WorldNormal) * Frame.SkyLightColor.rgb;
+	float3 DiffuseLookup = GetSkySHDiffuse(WorldNormal) * View.SkyLightColor.rgb;
 	return Luminance(DiffuseLookup) * SkyVisibility;
 }

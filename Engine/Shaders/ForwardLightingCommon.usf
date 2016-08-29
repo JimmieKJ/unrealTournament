@@ -1,0 +1,125 @@
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+
+/*=============================================================================
+	ForwardLightingCommon.usf
+=============================================================================*/
+
+#include "DeferredLightingCommon.usf"
+
+Buffer<float4> ForwardLocalLightBuffer;
+Buffer<uint> NumCulledLightsGrid;
+Buffer<uint> CulledLightDataGrid;
+
+uint ComputeLightGridCellIndex(float4 SvPosition)
+{
+	uint ZSlice = (uint)(max(0, log2(SvPosition.w * ForwardGlobalLightData.LightGridZParams.x + ForwardGlobalLightData.LightGridZParams.y) * ForwardGlobalLightData.LightGridZParams.z));
+	uint3 GridCoordinate = uint3(((uint2)SvPosition.xy) >> ForwardGlobalLightData.LightGridPixelSizeShift, ZSlice);
+	uint GridIndex = (GridCoordinate.z * ForwardGlobalLightData.CulledGridSize.y + GridCoordinate.y) * ForwardGlobalLightData.CulledGridSize.x + GridCoordinate.x;
+	return GridIndex;
+}
+
+float4 UnpackShadowMapChannelMask(uint ShadowMapChannelMaskPacked)
+{
+	return float4((ShadowMapChannelMaskPacked & 1) ? 1.0f : 0.0f, (ShadowMapChannelMaskPacked & 2) ? 1.0f : 0.0f, (ShadowMapChannelMaskPacked & 4) ? 1.0f : 0.0f, (ShadowMapChannelMaskPacked & 8) ? 1.0f : 0.0f);
+}
+
+Texture2D IndirectOcclusionTexture;
+SamplerState IndirectOcclusionTextureSampler;
+
+float GetIndirectOcclusion(float4 ScreenPosition)
+{
+	float2 NDC = ScreenPosition.xy / ScreenPosition.w;
+	float2 ScreenUV = NDC * View.ScreenPositionScaleBias.xy + View.ScreenPositionScaleBias.wz;
+	
+#if SUPPORTS_INDEPENDENT_SAMPLERS
+	return Texture2DSampleLevel(IndirectOcclusionTexture, LightAttenuationTextureSampler, ScreenUV, 0).x;
+#else
+	return Texture2DSampleLevel(IndirectOcclusionTexture, IndirectOcclusionTextureSampler, ScreenUV, 0).x;
+#endif
+}
+
+float3 GetForwardDirectLighting(float4 SvPosition, float4 ScreenPosition, float3 WorldPosition, float3 CameraVector, FGBufferData GBufferData)
+{
+	float3 DirectLighting = 0;
+	float4 DynamicShadowFactors = 1;
+
+	#if MATERIALBLENDING_SOLID || MATERIALBLENDING_MASKED
+		float2 NDC = ScreenPosition.xy / ScreenPosition.w;
+		float2 ScreenUV = NDC * View.ScreenPositionScaleBias.xy + View.ScreenPositionScaleBias.wz;
+		DynamicShadowFactors = GetPerPixelLightAttenuation(ScreenUV);
+	#endif
+
+	BRANCH
+	if (ForwardGlobalLightData.HasDirectionalLight)
+	{
+		FDeferredLightData LightData = (FDeferredLightData)0;
+		LightData.LightColorAndFalloffExponent = float4(ForwardGlobalLightData.DirectionalLightColor, 0);
+		LightData.LightDirection = ForwardGlobalLightData.DirectionalLightDirection;
+		LightData.DistanceFadeMAD = ForwardGlobalLightData.DirectionalLightDistanceFadeMAD;
+		LightData.bRadialLight = false;
+		// Prevent 0 Roughness which causes NaNs in Vis_SmithJointApprox
+		LightData.MinRoughness = .04f;
+
+		LightData.ShadowedBits = ForwardGlobalLightData.DirectionalLightShadowMapChannelMask != 0 ? 1 : 0;
+		// Static shadowing uses ShadowMapChannel, dynamic shadows are packed into light attenuation using PreviewShadowMapChannel
+		LightData.ShadowMapChannelMask = UnpackShadowMapChannelMask(ForwardGlobalLightData.DirectionalLightShadowMapChannelMask);
+		float4 PreviewShadowMapChannelMask = UnpackShadowMapChannelMask(ForwardGlobalLightData.DirectionalLightShadowMapChannelMask >> 4);
+		float DynamicShadowing = dot(PreviewShadowMapChannelMask, DynamicShadowFactors);
+
+		// In the forward shading path we can't separate per-object shadows from CSM, since we only spend one light attenuation channel per light
+		// If CSM is enabled (distance fading to precomputed shadowing is active), treat all of our dynamic shadowing as whole scene shadows that will be faded out at the max CSM distance
+		// If CSM is not enabled, allow our dynamic shadowing to coexist with precomputed shadowing
+		float PerObjectShadowing = LightData.DistanceFadeMAD.y < 0.0f ? 1.0f : DynamicShadowing;
+		float WholeSceneShadowing = LightData.DistanceFadeMAD.y < 0.0f ? DynamicShadowing : 1.0f;
+		
+		float4 LightAttenuation = float4(WholeSceneShadowing.xx, PerObjectShadowing.xx);
+		DirectLighting += GetDynamicLighting(WorldPosition, -CameraVector, GBufferData, 1, GBufferData.ShadingModelID, LightData, LightAttenuation, uint2(0,0)).xyz;
+	}
+	
+	uint NumLocalLights = ForwardGlobalLightData.NumLocalLights;
+
+#define USE_CULLED_LOCAL_LIGHTS 1
+#if USE_CULLED_LOCAL_LIGHTS
+
+	uint GridIndex = ComputeLightGridCellIndex(SvPosition);
+	NumLocalLights = NumCulledLightsGrid[GridIndex * NUM_CULLED_LIGHTS_GRID_STRIDE + 0];
+	uint DataStartIndex = NumCulledLightsGrid[GridIndex * NUM_CULLED_LIGHTS_GRID_STRIDE + 1];
+#endif
+
+	LOOP
+	for (uint LocalLightListIndex = 0; LocalLightListIndex < NumLocalLights; LocalLightListIndex++)
+	{
+		#if USE_CULLED_LOCAL_LIGHTS
+			uint LocalLightIndex = CulledLightDataGrid[DataStartIndex + LocalLightListIndex];
+		#else
+			uint LocalLightIndex = LocalLightListIndex;
+		#endif
+
+		uint LocalLightBaseIndex = LocalLightIndex * LOCAL_LIGHT_DATA_STRIDE;
+		 
+		FDeferredLightData LightData = (FDeferredLightData)0;
+		LightData.LightPositionAndInvRadius = ForwardLocalLightBuffer[LocalLightBaseIndex + 0];
+		LightData.LightColorAndFalloffExponent = ForwardLocalLightBuffer[LocalLightBaseIndex + 1];
+		float4 VectorValue2 = ForwardLocalLightBuffer[LocalLightBaseIndex + 2];
+		LightData.LightDirection = VectorValue2.xyz;
+		LightData.SpotAnglesAndSourceRadius = ForwardLocalLightBuffer[LocalLightBaseIndex + 3];
+		LightData.bInverseSquared = LightData.LightColorAndFalloffExponent.w == 0;
+		LightData.bRadialLight = true;
+		LightData.bSpotLight = LightData.SpotAnglesAndSourceRadius.x > -2.0f;
+		// Prevent 0 Roughness which causes NaNs in Vis_SmithJointApprox
+		LightData.MinRoughness = .04f;
+
+		uint PackedShadowMapChannelMask = asuint(VectorValue2.w);
+		LightData.ShadowedBits = PackedShadowMapChannelMask != 0 ? 1 : 0;
+		// Static shadowing uses ShadowMapChannel, dynamic shadows are packed into light attenuation using PreviewShadowMapChannel
+		LightData.ShadowMapChannelMask = UnpackShadowMapChannelMask(PackedShadowMapChannelMask);
+		float4 PreviewShadowMapChannelMask = UnpackShadowMapChannelMask(PackedShadowMapChannelMask >> 4);
+		float DynamicShadowing = dot(PreviewShadowMapChannelMask, DynamicShadowFactors);
+		float4 LightAttenuation = float4(1, 1, DynamicShadowing.x, DynamicShadowing.x);
+		DirectLighting += GetDynamicLighting(WorldPosition, -CameraVector, GBufferData, 1, GBufferData.ShadingModelID, LightData, LightAttenuation, uint2(0,0)).xyz;
+	}
+
+	// For debugging
+	//DirectLighting = NumLocalLights / (float)ForwardGlobalLightData.MaxCulledLightsPerCell;
+	return DirectLighting;
+}

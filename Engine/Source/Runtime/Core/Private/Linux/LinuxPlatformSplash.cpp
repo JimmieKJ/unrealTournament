@@ -161,7 +161,7 @@ static FString GetGLSLShaderLog( GLuint Shader )
 
 		glGetShaderInfoLog(Shader, Len, &ActualLen, Log);
 	
-		ShaderLog = ANSI_TO_TCHAR( Log );
+		ShaderLog = UTF8_TO_TCHAR( Log );
 
 		delete[] Log;
 	}
@@ -182,7 +182,7 @@ static FString GetGLSLProgramLog( GLuint Program )
 		GLsizei ActualLen;
 		glGetProgramInfoLog( Program, Len, &ActualLen, Log );
 
-		ProgramLog = ANSI_TO_TCHAR( Log );
+		ProgramLog = UTF8_TO_TCHAR( Log );
 
 		delete[] Log;
 	}

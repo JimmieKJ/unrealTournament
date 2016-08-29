@@ -20,7 +20,7 @@ AUTWallDodgePoint::AUTWallDodgePoint(const FObjectInitializer& OI)
 	EditorArrow = OI.CreateEditorOnlyDefaultSubobject<UArrowComponent>(this, TEXT("EditorArrow"));
 	if (EditorArrow != NULL)
 	{
-		EditorArrow->AttachParent = RootComponent;
+		EditorArrow->SetupAttachment(RootComponent);
 		EditorArrow->ArrowSize = 0.5f;
 		EditorArrow->ArrowColor = FLinearColor(0.0f, 1.0f, 0.0f, 1.0f).ToFColor(false);
 	}

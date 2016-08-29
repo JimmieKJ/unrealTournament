@@ -12,7 +12,7 @@
 #define MAX_GLOBAL_CONSTANT_BUFFER_SIZE		4096
 
 // !!! These offsets must match the cbuffer register definitions in Common.usf !!!
-enum ED3D11ShaderOffsetBuffer
+enum ED3D12ShaderOffsetBuffer
 {
 	/** Default constant buffer. */
 	GLOBAL_CONSTANT_BUFFER_INDEX = 0,
@@ -21,7 +21,7 @@ enum ED3D11ShaderOffsetBuffer
 
 namespace D3D12RHI
 {
-	/** Sizes of constant buffers defined in ED3D11ShaderOffsetBuffer. */
+	/** Sizes of constant buffers defined in ED3D12ShaderOffsetBuffer. */
 	extern const uint32 GConstantBufferSizes[MAX_CONSTANT_BUFFER_SLOTS];
 }
 using namespace D3D12RHI;

@@ -4,7 +4,6 @@
 #include "NetworkReplayStreaming.h"
 #include "Http.h"
 #include "Runtime/Engine/Public/Tickable.h"
-#include "OnlineJsonSerializer.h"
 
 /**
  * Archive used to buffer stream over http
@@ -181,6 +180,17 @@ public:
 	virtual bool PreProcess( FHttpNetworkReplayStreamer* Streamer, const FString& ServerURL, const FString& SessionName ) override;
 };
 
+class FCachedResponse
+{
+public:
+	FCachedResponse( FHttpResponsePtr InResponse, const double InLastAccessTime ) : Response( InResponse ), LastAccessTime( InLastAccessTime )
+	{
+	}
+	
+	FHttpResponsePtr	Response;
+	double				LastAccessTime;
+};
+
 /**
  * Http network replay streaming manager
  */
@@ -198,7 +208,6 @@ public:
 	virtual void		FlushCheckpoint( const uint32 TimeInMS ) override;
 	virtual void		GotoCheckpointIndex( const int32 CheckpointIndex, const FOnCheckpointReadyDelegate& Delegate ) override;
 	virtual void		GotoTimeInMS( const uint32 TimeInMS, const FOnCheckpointReadyDelegate& Delegate ) override;
-	virtual FArchive*	GetMetadataArchive() override;
 	virtual void		UpdateTotalDemoTime( uint32 TimeInMS ) override;
 	virtual uint32		GetTotalDemoTime() const override { return TotalDemoTimeInMS; }
 	virtual bool		IsDataAvailable() const override;
@@ -218,7 +227,8 @@ public:
 	virtual void		KeepReplay( const FString& ReplayName, const bool bKeep ) override;
 	virtual ENetworkReplayError::Type GetLastError() const override;
 	virtual FString		GetReplayID() const override { return SessionName; }
-
+	virtual void		SetTimeBufferHintSeconds(const float InTimeBufferHintSeconds) override {}
+	
 	/** FHttpNetworkReplayStreamer */
 	void UploadHeader();
 	void FlushStream();
@@ -231,13 +241,15 @@ public:
 	void RefreshViewer( const bool bFinal );
 	void ConditionallyRefreshViewer();
 	void SetLastError( const ENetworkReplayError::Type InLastError );
-	void CancelStreamingRequests();
+	virtual void CancelStreamingRequests();
 	void FlushCheckpointInternal( uint32 TimeInMS );
 	virtual void AddEvent( const uint32 TimeInMS, const FString& Group, const FString& Meta, const TArray<uint8>& Data ) override;
 	virtual void AddOrUpdateEvent( const FString& Name, const uint32 TimeInMS, const FString& Group, const FString& Meta, const TArray<uint8>& Data ) override;
 	void AddRequestToQueue( const EQueuedHttpRequestType::Type Type, TSharedPtr< class IHttpRequest > Request, const int32 InMaxRetries = 0, const float InRetryDelay = 0.0f );
 	void AddCustomRequestToQueue( TSharedPtr< FQueuedHttpRequest > Request );
-	bool RetryRequest( TSharedPtr< FQueuedHttpRequest > Request, FHttpResponsePtr HttpResponse );
+	void AddResponseToCache( FHttpRequestPtr HttpRequest, FHttpResponsePtr HttpResponse );
+	void CleanupResponseCache();
+	bool RetryRequest( TSharedPtr< FQueuedHttpRequest > Request, FHttpResponsePtr HttpResponse, const bool bIgnoreResponseCode = false );
 	void EnumerateCheckpoints();
 	void ConditionallyEnumerateCheckpoints();
 
@@ -314,7 +326,11 @@ public:
 	TArray< TSharedPtr< FQueuedHttpRequest > >	QueuedHttpRequests;
 	TSharedPtr< FQueuedHttpRequest >			InFlightHttpRequest;
 
-	TSet< FString >					EventGroupSet;
+	TSet< FString >						EventGroupSet;
+
+	uint32								TotalUploadBytes;
+
+	TMap< FString, FCachedResponse >	ResponseCache;
 };
 
 class HTTPNETWORKREPLAYSTREAMING_API FHttpNetworkReplayStreamingFactory : public INetworkReplayStreamingFactory, public FTickableGameObject

@@ -7,18 +7,23 @@
 #include "Animation/AnimNodeBase.h"
 #include "AnimationGraphSchema.h"
 #include "K2Node_TransitionRuleGetter.h"
+#include "AnimGraphNode_Base.h"
 //
 // Forward declarations.
 //
 class UAnimGraphNode_SaveCachedPose;
 class UAnimGraphNode_UseCachedPose;
+class UAnimGraphNode_SubInput;
+class UAnimGraphNode_SubInstance;
+
+class UStructProperty;
 class UBlueprintGeneratedClass;
 struct FPoseLinkMappingRecord;
 
 //////////////////////////////////////////////////////////////////////////
 // FAnimBlueprintCompiler
 
-class FAnimBlueprintCompiler : public FKismetCompilerContext
+class KISMETCOMPILER_API FAnimBlueprintCompiler : public FKismetCompilerContext
 {
 protected:
 	typedef FKismetCompilerContext Super;
@@ -65,12 +70,16 @@ protected:
 		// Whether this node chain only ever accesses members
 		bool bHasOnlyMemberAccess;
 
+		// If the anim instance is the container target instead of the node.
+		bool bInstanceIsTarget;
+
 		FAnimNodeSinglePropertyHandler()
 			: SinglePin(NULL)
 			, SimpleCopyPropertyName(NAME_None)
 			, SubStructPropertyName(NAME_None)
 			, Operation(EPostCopyOperation::None)
 			, bHasOnlyMemberAccess(false)
+			, bInstanceIsTarget(false)
 		{
 		}
 	};
@@ -110,28 +119,33 @@ protected:
 		bool Apply(UObject* Object);
 	};
 
-	// Struct used to record information about one evaluation handler
 	struct FEvaluationHandlerRecord
 	{
 	public:
+
+		// The instance property to use if we aren't accessing data through the node variable
+		UProperty* InstanceProperty;
+
 		// The node variable that the handler is in
-		class UStructProperty* NodeVariableProperty;
+		UStructProperty* NodeVariableProperty;
 
 		// The specific evaluation handler inside the specified node
-		class UStructProperty* EvaluationHandlerProperty;
+		UStructProperty* EvaluationHandlerProperty;
 
 		// Set of properties serviced by this handler (Map from property name to the record for that property)
 		TMap<FName, FAnimNodeSinglePropertyHandler> ServicedProperties;
 
 		// The resulting function name
 		FName HandlerFunctionName;
+
 	public:
+
 		FEvaluationHandlerRecord()
-			: NodeVariableProperty(NULL)
-			, EvaluationHandlerProperty(NULL)
+			: InstanceProperty(nullptr)
+			, NodeVariableProperty(nullptr)
+			, EvaluationHandlerProperty(nullptr)
 			, HandlerFunctionName(NAME_None)
-		{
-		}
+		{}
 
 		bool OnlyUsesCopyRecords() const
 		{
@@ -149,14 +163,17 @@ protected:
 
 		bool IsValid() const
 		{
-			return (NodeVariableProperty != NULL) && (EvaluationHandlerProperty != NULL);
+			return NodeVariableProperty != nullptr && EvaluationHandlerProperty != nullptr;
 		}
 
 		void PatchFunctionNameAndCopyRecordsInto(UObject* TargetObject) const;
 
 		void RegisterPin(UEdGraphPin* SourcePin, UProperty* AssociatedProperty, int32 AssociatedPropertyArrayIndex);
 
+		UStructProperty* GetHandlerNodeProperty() const { return NodeVariableProperty; }
+
 	private:
+
 		bool CheckForVariableGet(FAnimNodeSinglePropertyHandler& Handler, UEdGraphPin* SourcePin);
 
 		bool CheckForLogicalNot(FAnimNodeSinglePropertyHandler& Handler, UEdGraphPin* SourcePin);
@@ -229,7 +246,8 @@ private:
 	UK2Node_CallFunction* SpawnCallAnimInstanceFunction(UEdGraphNode* SourceNode, FName FunctionName);
 
 	// Creates an evaluation handler for an FExposedValue property in an animation node
-	void CreateEvaluationHandler(UAnimGraphNode_Base* VisualAnimNode, FEvaluationHandlerRecord& Record);
+	void CreateEvaluationHandlerStruct(UAnimGraphNode_Base* VisualAnimNode, FEvaluationHandlerRecord& Record);
+	void CreateEvaluationHandlerInstance(UAnimGraphNode_Base* VisualAnimNode, FEvaluationHandlerRecord& Record);
 
 	// Prunes any nodes that aren't reachable via a pose link
 	void PruneIsolatedAnimationNodes(const TArray<UAnimGraphNode_Base*>& RootSet, TArray<UAnimGraphNode_Base*>& GraphNodes);
@@ -243,6 +261,13 @@ private:
 	// Compiles one use cached pose instance
 	void ProcessUseCachedPose(UAnimGraphNode_UseCachedPose* UseCachedPose);
 
+	// Compiles one sub instance node
+	void ProcessSubInstance(UAnimGraphNode_SubInstance* SubInstance);
+
+	// Traverses subinstance links looking for slot names and state machine names, returning their count in a name map
+	typedef TMap<FName, int32> NameToCountMap;
+	void GetDuplicatedSlotAndStateNames(UAnimGraphNode_SubInstance* InSubInstance, NameToCountMap& OutStateMachineNameToCountMap, NameToCountMap& OutSlotNameToCountMap);
+
 	// Compiles an entire animation graph
 	void ProcessAllAnimationNodes();
 
@@ -251,6 +276,18 @@ private:
 
 	//
 	void ProcessAnimationNodesGivenRoot(TArray<UAnimGraphNode_Base*>& AnimNodeList, const TArray<UAnimGraphNode_Base*>& RootSet);
+
+	// Builds the update order list for saved pose nodes in this blueprint
+	void BuildCachedPoseNodeUpdateOrder();
+
+	// Traverses a graph to collect save pose nodes starting at InRootNode, then processes each node
+	void CachePoseNodeOrdering_StartNewTraversal(UAnimGraphNode_Base* InRootNode, TArray<UAnimGraphNode_SaveCachedPose*> &OrderedSavePoseNodes, TArray<UAnimGraphNode_Base*> VisitedRootNodes);
+
+	// Traverses a graph to collect save pose nodes starting at InAnimGraphNode, does NOT process saved pose nodes afterwards
+	void CachePoseNodeOrdering_TraverseInternal(UAnimGraphNode_Base* InAnimGraphNode, TArray<UAnimGraphNode_SaveCachedPose*> &OrderedSavePoseNodes);
+
+	// Gets all anim graph nodes that are piped into the provided node (traverses input pins)
+	void GetLinkedAnimNodes(UAnimGraphNode_Base* InGraphNode, TArray<UAnimGraphNode_Base*> &LinkedAnimNodes);
 
 	// Automatically fill in parameters for the specified Getter node
 	void AutoWireAnimGetter(class UK2Node_AnimGetter* Getter, UAnimStateTransitionNode* InTransitionNode);

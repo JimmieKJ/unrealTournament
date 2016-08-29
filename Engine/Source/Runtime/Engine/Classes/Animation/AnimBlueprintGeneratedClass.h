@@ -7,6 +7,7 @@
 #include "Engine/BlueprintGeneratedClass.h"
 #include "AnimBlueprint.h"
 #include "AnimClassInterface.h"
+#include "Engine/PoseWatch.h"
 
 #include "AnimBlueprintGeneratedClass.generated.h"
 
@@ -120,6 +121,9 @@ public:
 	// History of activated nodes
 	TArray<FNodeVisit> UpdatedNodesThisFrame;
 
+	// Active pose watches to track
+	TArray<FAnimNodePoseWatch> AnimNodePoseWatch;
+
 	// Index of snapshot
 	int32 SnapshotIndex;
 public:
@@ -146,6 +150,10 @@ public:
 	void ResetNodeVisitSites();
 	void RecordNodeVisit(int32 TargetNodeIndex, int32 SourceNodeIndex, float BlendWeight);
 	void RecordNodeVisitArray(const TArray<FNodeVisit>& Nodes);
+
+	void AddPoseWatch(int32 NodeID, FColor Color);
+	void RemovePoseWatch(int32 NodeID);
+	void UpdatePoseWatchColour(int32 NodeID, FColor Color);
 #endif
 };
 
@@ -181,6 +189,10 @@ class ENGINE_API UAnimBlueprintGeneratedClass : public UBlueprintGeneratedClass,
 	UPROPERTY()
 	int32 RootAnimNodeIndex;
 
+	// Indices for each of the saved pose nodes that require updating, in the order they need to get updates.
+	UPROPERTY()
+	TArray<int32> OrderedSavedPoseIndices;
+
 	// The array of anim nodes; this is transient generated data (created during Link)
 	UStructProperty* RootAnimNodeProperty;
 	TArray<UStructProperty*> AnimNodeProperties;
@@ -204,6 +216,8 @@ public:
 	virtual const TArray<UStructProperty*>& GetAnimNodeProperties() const override { return AnimNodeProperties; }
 
 	virtual const TArray<FName>& GetSyncGroupNames() const override { return SyncGroupNames; }
+
+	virtual const TArray<int32>& GetOrderedSavedPoseNodeIndices() const override { return OrderedSavedPoseIndices; }
 
 	virtual int32 GetSyncGroupIndex(FName SyncGroupName) const override { return SyncGroupNames.IndexOfByKey(SyncGroupName); }
 
@@ -238,9 +252,26 @@ public:
 	}
 
 	template<typename StructType>
+	const int32* GetNodePropertyIndex(class UAnimGraphNode_Base* Node, EPropertySearchMode::Type SearchMode = EPropertySearchMode::OnlyThis)
+	{
+		return (SearchMode == EPropertySearchMode::OnlyThis) ? AnimBlueprintDebugData.NodePropertyToIndexMap.Find(Node) : GetNodePropertyIndexFromHierarchy<StructType>(Node);
+	}
+
+	template<typename StructType>
+	int32 GetLinkIDForNode(class UAnimGraphNode_Base* Node, EPropertySearchMode::Type SearchMode = EPropertySearchMode::OnlyThis)
+	{
+		const int32* pIndex = GetNodePropertyIndex<StructType>(Node, SearchMode);
+		if (pIndex)
+		{
+			return (AnimNodeProperties.Num() - 1 - *pIndex); //@TODO: Crazysauce
+		}
+		return -1;
+	}
+
+	template<typename StructType>
 	UStructProperty* GetPropertyForNode(class UAnimGraphNode_Base* Node, EPropertySearchMode::Type SearchMode = EPropertySearchMode::OnlyThis)
 	{
-		const int32* pIndex = SearchMode == EPropertySearchMode::OnlyThis ? AnimBlueprintDebugData.NodePropertyToIndexMap.Find(Node) : GetNodePropertyIndexFromHierarchy<StructType>(Node);
+		const int32* pIndex = GetNodePropertyIndex<StructType>(Node, SearchMode);
 		if (pIndex)
 		{
 			if (UStructProperty* AnimationProperty = AnimNodeProperties[AnimNodeProperties.Num() - 1 - *pIndex])

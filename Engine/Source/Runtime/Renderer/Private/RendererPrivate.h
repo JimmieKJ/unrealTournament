@@ -4,8 +4,7 @@
 	RendererPrivate.h: Renderer interface private definitions.
 =============================================================================*/
 
-#ifndef __RendererPrivate_h__
-#define __RendererPrivate_h__
+#pragma once
 
 #include "Engine.h"
 #include "ShaderCore.h"
@@ -13,6 +12,7 @@
 #include "RHIStaticStates.h"
 #include "ScenePrivate.h"
 #include "RendererInterface.h"
+#include "RenderTargetTemp.h"
 
 DECLARE_LOG_CATEGORY_EXTERN(LogRenderer, Log, All);
 
@@ -20,6 +20,7 @@ DECLARE_LOG_CATEGORY_EXTERN(LogRenderer, Log, All);
 class FRendererModule : public IRendererModule
 {
 public:
+	FRendererModule();
 	virtual bool SupportsDynamicReloading() override { return true; }
 
 	virtual void BeginRenderingViewFamily(FCanvas* Canvas,FSceneViewFamily* ViewFamily) override;
@@ -84,4 +85,3 @@ private:
 
 extern ICustomCulling* GCustomCullingImpl;
 
-#endif

@@ -566,9 +566,13 @@ bool ContentBrowserUtils::DeleteFolders(const TArray<FString>& PathsToDelete)
 	{
 		FAssetRegistryModule& AssetRegistryModule = FModuleManager::LoadModuleChecked<FAssetRegistryModule>("AssetRegistry");
 
-		for ( auto PathIt = PathsToDelete.CreateConstIterator(); PathIt; ++PathIt )
+		for (const FString& PathToDelete : PathsToDelete)
 		{
-			AssetRegistryModule.Get().RemovePath(*PathIt);
+			FString PathToDeleteOnDisk;
+			if (FPackageName::TryConvertLongPackageNameToFilename(PathToDelete, PathToDeleteOnDisk) && IFileManager::Get().DeleteDirectory(*PathToDeleteOnDisk))
+			{
+				AssetRegistryModule.Get().RemovePath(PathToDelete);
+			}
 		}
 
 		return true;
@@ -1522,7 +1526,7 @@ FText ContentBrowserUtils::GetExploreFolderText()
 {
 	FFormatNamedArguments Args;
 	Args.Add(TEXT("FileManagerName"), FPlatformMisc::GetFileManagerName());
-	return FText::Format(NSLOCTEXT("GenericPlatform", "ShowInFileManager", "Show In {FileManagerName}"), Args);
+	return FText::Format(NSLOCTEXT("GenericPlatform", "ShowInFileManager", "Show in {FileManagerName}"), Args);
 }
 
 static const auto CVarMaxFullPathLength = 
@@ -1540,7 +1544,7 @@ bool ContentBrowserUtils::IsValidObjectPathForCreate(const FString& ObjectPath, 
 	}
 
 	// Make sure the new name only contains valid characters
-	if ( !FName(*ObjectName).IsValidXName( INVALID_OBJECTNAME_CHARACTERS INVALID_LONGPACKAGE_CHARACTERS, &OutErrorMessage ) )
+	if ( !FName::IsValidXName( ObjectName, INVALID_OBJECTNAME_CHARACTERS INVALID_LONGPACKAGE_CHARACTERS, &OutErrorMessage ) )
 	{
 		// Return false to indicate that the user should enter a new name
 		return false;
@@ -1704,6 +1708,69 @@ bool ContentBrowserUtils::IsValidPackageForCooking(const FString& PackageName, F
 	}
 
 	return true;
+}
+
+void ContentBrowserUtils::SyncPackagesFromSourceControl(TArray<FString> PackageNames)
+{
+	// Form a list of loaded packages to prompt for save
+	TArray<UPackage*> LoadedPackages;
+	TArray<FString> LoadedPackageNames;
+	for (const auto& PackageName : PackageNames)
+	{
+		UPackage* Package = FindPackage(nullptr, *PackageName);
+		if (Package != nullptr)
+		{
+			LoadedPackages.Add(Package);
+			LoadedPackageNames.Add(PackageName);
+		}
+	}
+
+	// Prevent any level assets from being synced if they are currently being edited
+	bool bSyncingLevelBeingEdited = false;
+	LoadedPackages.RemoveAllSwap(
+		[&bSyncingLevelBeingEdited, &PackageNames, &LoadedPackageNames](UPackage* Package)
+		{
+			UWorld* ExistingWorld = UWorld::FindWorldInPackage(Package);
+			if (ExistingWorld && ExistingWorld->WorldType == EWorldType::Editor)
+			{
+				PackageNames.RemoveSwap(Package->GetName());
+				LoadedPackageNames.RemoveSwap(Package->GetName());
+				bSyncingLevelBeingEdited = true;
+				return true;
+			}
+
+			return false;
+		}
+	);
+
+	if (bSyncingLevelBeingEdited)
+	{
+		FNotificationInfo Info(LOCTEXT("CannotSyncLevelBeingEdited", "Level(s) being currently edited have not been synced."));
+		Info.ExpireDuration = 3.0f;
+		FSlateNotificationManager::Get().AddNotification(Info);
+	}
+
+	if (PackageNames.Num() > 0)
+	{
+		FText ErrorMessage;
+		PackageTools::UnloadPackages(LoadedPackages, ErrorMessage);
+
+		if (!ErrorMessage.IsEmpty())
+		{
+			FMessageDialog::Open(EAppMsgType::Ok, ErrorMessage);
+		}
+		else
+		{
+			ISourceControlProvider& SCCProvider = ISourceControlModule::Get().GetProvider();
+			const TArray<FString> PackageFilenames = SourceControlHelpers::PackageFilenames(PackageNames);
+			SCCProvider.Execute(ISourceControlOperation::Create<FSync>(), PackageFilenames);
+			for (const FString& PackageName : LoadedPackageNames)
+			{
+				PackageTools::LoadPackage(PackageName);
+			}
+			SCCProvider.Execute(ISourceControlOperation::Create<FUpdateStatus>(), PackageFilenames, EConcurrency::Asynchronous);
+		}
+	}
 }
 
 #undef LOCTEXT_NAMESPACE

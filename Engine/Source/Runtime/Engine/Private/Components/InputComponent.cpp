@@ -134,19 +134,6 @@ void UInputComponent::ClearActionBindings( )
 	ActionBindings.Reset();
 }
 
-
-FInputActionBinding& UInputComponent::GetActionBinding( const int32 BindingIndex )
-{
-	return ActionBindings[BindingIndex];
-}
-
-
-int32 UInputComponent::GetNumActionBindings( ) const
-{
-	return ActionBindings.Num();
-}
-
-
 void UInputComponent::RemoveActionBinding( const int32 BindingIndex )
 {
 	if (BindingIndex >= 0 && BindingIndex < ActionBindings.Num())

@@ -14,8 +14,8 @@ TSharedRef<SWidget> SVisualLoggerTimelinesContainer::GetRightClickMenuContent()
 	MenuBuilder.BeginSection("VisualLogReports", LOCTEXT("VisualLogReports", "VisualLog Reports"));
 	{
 		MenuBuilder.AddMenuEntry(
-			LOCTEXT("GenarateReport", "Genarate Report"),
-			LOCTEXT("GenarateReportTooltip", "Genarate report from Visual Log events."),
+			LOCTEXT("GenerateReport", "Generate  Report"),
+			LOCTEXT("GenerateReportTooltip", "Generate report from Visual Log events."),
 			FSlateIcon(),
 			FUIAction(FExecuteAction::CreateSP(this, &SVisualLoggerTimelinesContainer::GenerateReport))
 			);

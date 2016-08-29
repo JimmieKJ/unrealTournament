@@ -102,7 +102,7 @@ namespace UnrealGameSync
 
 		NotificationWindow NotificationWindow;
 
-		public MainWindow(UpdateMonitor InUpdateMonitor, string InSqlConnectionString, string InDataFolder, EventWaitHandle ActivateEvent, bool bInRestoreStateOnLoad, string InOriginalExecutableFileName)
+		public MainWindow(UpdateMonitor InUpdateMonitor, string InSqlConnectionString, string InDataFolder, EventWaitHandle ActivateEvent, bool bInRestoreStateOnLoad, string InOriginalExecutableFileName, string InProjectFileName)
 		{
 			InitializeComponent();
 
@@ -126,6 +126,10 @@ namespace UnrealGameSync
 			Log.WriteLine("Started at {0}", DateTime.Now.ToString());
 
 			Settings = new UserSettings(Path.Combine(DataFolder, "UnrealGameSync.ini"));
+			if(!String.IsNullOrEmpty(InProjectFileName))
+			{
+				Settings.LastProjectFileName = InProjectFileName;
+			}
 
 			System.Reflection.PropertyInfo DoubleBufferedProperty = typeof(Control).GetProperty("DoubleBuffered", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
 			DoubleBufferedProperty.SetValue(BuildList, true, null); 
@@ -825,7 +829,7 @@ namespace UnrealGameSync
 				for(int ChangeIdx = 0; ChangeIdx < Changes.Count; ChangeIdx++)
 				{
 					PerforceChangeSummary Change = Changes[ChangeIdx];
-					if(String.Compare(Change.User, "buildmachine", true) != 0 || PromotedChangeNumbers.Contains(Change.Number))
+					if(ShouldShowChange(Change) || PromotedChangeNumbers.Contains(Change.Number))
 					{
 						SortedChangeNumbers.Add(Change.Number);
 
@@ -915,6 +919,15 @@ namespace UnrealGameSync
 			UpdateSyncActionCheckboxes();
 		}
 
+		bool ShouldShowChange(PerforceChangeSummary Change)
+		{
+			if(String.Compare(Change.User, "buildmachine", true) == 0 && Change.Description.IndexOf("lightmaps", StringComparison.InvariantCultureIgnoreCase) == -1)
+			{
+				return false;
+			}
+			return true;
+		}
+
 		void UpdateBuildMetadataCallback()
 		{
 			Invoke(new MethodInvoker(UpdateBuildMetadata));
@@ -994,7 +1007,7 @@ namespace UnrealGameSync
 				List<BuildData> NotifyBuilds = new List<BuildData>();
 				foreach(BuildData LastBuild in TypeToLastBuild.Values.OrderBy(x => x.BuildType))
 				{
-					if(LastBuild.Result == BuildDataResult.Failure || LastBuild.Result == BuildDataResult.Warning)
+					if((LastBuild.Result == BuildDataResult.Failure || LastBuild.Result == BuildDataResult.Warning) && LastBuild.ChangeNumber >= LastCodeChangeByCurrentUser)
 					{
 						BuildData LastSuccessfulBuild;
 						if(!TypeToLastSucceededBuild.TryGetValue(LastBuild.BuildType, out LastSuccessfulBuild) || LastSuccessfulBuild.ChangeNumber < LastCodeChangeByCurrentUser)
@@ -2037,7 +2050,7 @@ namespace UnrealGameSync
 		private void BrowseForProject()
 		{
 			OpenFileDialog Dialog = new OpenFileDialog();
-			Dialog.Filter = "Project files (*.uproject, *.uprojectdirs)|*.uproject;*.uprojectdirs|All files (*.*)|*.*" ;
+			Dialog.Filter = "Project files (*.uproject)|*.uproject|Project directory lists (*.uprojectdirs)|*.uprojectdirs|All files (*.*)|*.*" ;
 			if(Dialog.ShowDialog() == System.Windows.Forms.DialogResult.OK)
 			{
 				OpenProject(Dialog.FileName);

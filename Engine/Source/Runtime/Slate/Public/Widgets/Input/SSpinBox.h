@@ -311,10 +311,6 @@ public:
 				{
 					ExitTextMode();
 					bDragging = true;
-				}
-
-				if( bDragging )
-				{
 					OnBeginSliderMovement.ExecuteIfBound();
 				}
 
@@ -577,15 +573,7 @@ protected:
 
 		if ( !ValueAttribute.IsBound() )
 		{
-			if (TIsIntegralType<NumericType>::Value)
-			{
-				// Round floating point to avoid 'jumping' when spinning down integral values 
-				ValueAttribute.Set( (NumericType)FMath::FloorToDouble(NewValue+0.5) );
-			}
-			else
-			{
-				ValueAttribute.Set( (NumericType)NewValue );
-			}
+			ValueAttribute.Set( RoundIfIntegerValue( NewValue ) );
 		}
 
 		auto CurrentValue = ValueAttribute.Get();
@@ -615,10 +603,10 @@ protected:
 
 		if( CommitMethod == CommittedViaTypeIn )
 		{
-			OnValueCommitted.ExecuteIfBound( NumericType(NewValue), OriginalCommitInfo );
+			OnValueCommitted.ExecuteIfBound( RoundIfIntegerValue( NewValue ), OriginalCommitInfo );
 		}
 
-		OnValueChanged.ExecuteIfBound( NumericType(NewValue) );
+		OnValueChanged.ExecuteIfBound( RoundIfIntegerValue( NewValue ) );
 
 		// Update the cache of the external value to what the user believes the value is now.
 		CachedExternalValue = ValueAttribute.Get();
@@ -632,7 +620,9 @@ protected:
 	
 	void NotifyValueCommitted() const
 	{
-		const auto CurrentValue = (NumericType)InternalValue; // internal value should be snapped and clamped at this point
+		// The internal value will have been clamped and rounded to the delta at this point, but integer values may still need to be rounded
+		// if the delta is 0.
+		const auto CurrentValue = RoundIfIntegerValue( InternalValue );
 		OnValueCommitted.ExecuteIfBound( CurrentValue, ETextCommit::OnEnter );
 		OnEndSliderMovement.ExecuteIfBound( CurrentValue );
 	}
@@ -705,6 +695,14 @@ private:
 	bool IsCharacterValid(TCHAR InChar) const
 	{
 		return Interface->IsCharacterValid(InChar);
+	}
+
+	/** Rounds the submitted value to the correct value if it's an integer. */
+	NumericType RoundIfIntegerValue( double ValueToRound ) const
+	{
+		return TIsIntegral<NumericType>::Value
+			? (NumericType)FMath::FloorToDouble( ValueToRound + 0.5 )
+			: (NumericType)ValueToRound;
 	}
 
 	/** Whether the user is dragging the slider */

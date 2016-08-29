@@ -57,6 +57,12 @@ class SHAREDSETTINGSWIDGETS_API SExternalImageReference : public SCompoundWidget
 		/** If true, the target image will be deleted if the default is chosen */
 		SLATE_ARGUMENT(bool, DeleteTargetWhenDefaultChosen)
 
+		/** File extensions allowed for the external image reference */
+		SLATE_ARGUMENT(TArray<FString>, FileExtensions)
+
+		/** If true, deletes the previous reference if the file extension changes */
+		SLATE_ARGUMENT(bool, DeletePreviousTargetWhenExtensionChanges)
+
 	SLATE_END_ARGS()
 
 public:
@@ -89,4 +95,10 @@ protected:
 
 	/** If true, the target image will be deleted if the default is chosen */
 	bool bDeleteTargetWhenDefaultChosen;
+
+	/** The extensions supported by this external reference */
+	TArray<FString> Extensions;
+
+	/** If true, the previous target image will be deleted if the file extension changes */
+	bool bDeletePreviousTargetWhenExtensionChanges;
 };

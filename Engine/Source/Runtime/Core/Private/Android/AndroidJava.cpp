@@ -92,6 +92,20 @@ jobject FJavaClassObject::CallMethod<jobject>(FJavaClassMethod Method, ...)
 }
 
 template<>
+jobjectArray FJavaClassObject::CallMethod<jobjectArray>(FJavaClassMethod Method, ...)
+{
+	JNIEnv*	JEnv = FAndroidApplication::GetJavaEnv();
+	va_list Params;
+	va_start(Params, Method);
+	jobject val = JEnv->CallObjectMethodV(Object, Method.Method, Params);
+	va_end(Params);
+	VerifyException();
+	jobjectArray RetVal = (jobjectArray)JEnv->NewGlobalRef(val);
+	JEnv->DeleteLocalRef(val);
+	return RetVal;
+}
+
+template<>
 int64 FJavaClassObject::CallMethod<int64>(FJavaClassMethod Method, ...)
 {
 	JNIEnv*	JEnv = FAndroidApplication::GetJavaEnv();
@@ -122,8 +136,7 @@ FString FJavaClassObject::CallMethod<FString>(FJavaClassMethod Method, ...)
 jstring FJavaClassObject::GetJString(const FString& String)
 {
 	JNIEnv*	JEnv = FAndroidApplication::GetJavaEnv();
-	auto StringCastObj = StringCast<ANSICHAR>(*String);
-	jstring local = JEnv->NewStringUTF(StringCastObj.Get());
+	jstring local = JEnv->NewStringUTF(TCHAR_TO_UTF8(*String));
 	jstring result = (jstring)JEnv->NewGlobalRef(local);
 	JEnv->DeleteLocalRef(local);
 	return result;

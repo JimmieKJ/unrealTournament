@@ -381,9 +381,11 @@ public:
 	virtual void RemoveFromParent();
 
 	/**
-	 * Gets the underlying slate widget or constructs it if it doesn't exist.  This function is
-	 * virtual however, you should not inherit this function unless you're very aware of what you're
-	 * doing.  Normal derived versions should only ever override RebuildWidget.
+	 * Gets the underlying slate widget or constructs it if it doesn't exist.  If you're looking to replace
+	 * what slate widget gets constructed look for RebuildWidget.  For extremely special cases where you actually
+	 * need to change the the GC Root widget of the constructed User Widget - you need to use TakeDerivedWidget
+	 * you must also take care to not call TakeWidget before calling TakeDerivedWidget, as that would put the wrong
+	 * expected wrapper around the resulting widget being constructed.
 	 */
 	TSharedRef<SWidget> TakeWidget();
 
@@ -414,6 +416,7 @@ public:
 	
 private:
 	TSharedRef<SWidget> TakeWidget_Private( ConstructMethodType ConstructMethod );
+
 public:
 
 	/** Gets the last created widget does not recreate the gc container for the widget if one is needed. */
@@ -625,7 +628,6 @@ private:
 	void VerifySynchronizeProperties();
 
 	/** Did we route the synchronize properties call? */
-	UPROPERTY(Transient)
 	bool bRoutedSynchronizeProperties;
 
 #else

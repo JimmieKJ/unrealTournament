@@ -21,9 +21,12 @@ namespace Scalability
 		int32 PostProcessQuality;
 		int32 TextureQuality;
 		int32 EffectsQuality;
+		int32 FoliageQuality;
 
 		float CPUBenchmarkResults;
 		float GPUBenchmarkResults;
+		TArray<float> CPUBenchmarkSteps;
+		TArray<float> GPUBenchmarkSteps;
 
 		FQualityLevels()
 			: CPUBenchmarkResults(-1.0f)
@@ -40,6 +43,13 @@ namespace Scalability
 		bool operator!=(const FQualityLevels& Other ) const
 		{
 			return !(*this == Other);
+		}
+
+		/** used for DisplayInternals to quickly identify why a screenshot looks different */
+		uint32 GetHash() const
+		{
+			// Note: this assumes the memory of this class is not containing any uninitialized memory
+			return FCrc::MemCrc32(this, sizeof(*this));
 		}
 
 		// Sets all other settings based on an overall value
@@ -62,6 +72,12 @@ namespace Scalability
 	/** This is the only suggested way to get the current state - don't get CVars directly */
 	ENGINE_API FQualityLevels GetQualityLevels();
 
+	/** Gets the effects quality directly for the passed thread.
+	*
+	* @param bGameThread	If true, the game thread value for the CVar is returned, otherwise the render thread value is returned. Useful when accessing the CVar from a game task.
+	*/
+	int32 GetEffectsQualityDirect(bool bGameThread);
+
 	/**  */
 	ENGINE_API void InitScalabilitySystem();
 
@@ -83,6 +99,9 @@ namespace Scalability
 
 	/** Process a console command line **/
 	ENGINE_API void ProcessCommand(const TCHAR* Cmd, FOutputDevice& Ar);
+
+	/** Returns the number of steps for each quality level */
+	ENGINE_API FQualityLevels GetQualityLevelCounts();
 
 	/** Minimum single axis scale for render resolution */
 	static const float MinResolutionScale = 10.0f;

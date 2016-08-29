@@ -148,30 +148,33 @@ namespace AutomationTool
 							}
 
 							// Check the exit code
-							if(CompletedAction.ExitCode != 0)
+							if(CompletedAction.ExitCode == 0)
 							{
-								ExitCode = CompletedAction.ExitCode;
-								if(!CompletedAction.Action.bSkipIfProjectFailed)
+								// Mark all the dependents as done
+								foreach(BuildAction DependantAction in CompletedAction.Action.Dependants)
 								{
-									foreach(KeyValuePair<BuildActionExecutor, Thread> Pair in ExecutingActions)
+									if(--DependantAction.MissingDependencyCount == 0)
 									{
-										Pair.Value.Abort();
-										Pair.Value.Join();
+										QueuedActions.Add(DependantAction);
 									}
-									return ExitCode;
 								}
 							}
-
-							// Mark all the dependents as done
-							foreach(BuildAction DependantAction in CompletedAction.Action.Dependants)
+							else
 							{
-								if(--DependantAction.MissingDependencyCount == 0)
+								// Update the exit code if it's not already set
+								if(ExitCode == 0)
 								{
-									QueuedActions.Add(DependantAction);
+									ExitCode = CompletedAction.ExitCode;
 								}
 							}
 						}
 						CompletedActions.Clear();
+					}
+
+					// If we've already got a non-zero exit code, clear out the list of queued actions so nothing else will run
+					if(ExitCode != 0)
+					{
+						QueuedActions.Clear();
 					}
 				}
 			}

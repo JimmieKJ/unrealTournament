@@ -1274,7 +1274,7 @@ void UBlendSpaceBase::GetAnimationPose(TArray<FBlendSampleData>& BlendSampleData
 		}
 	}
 
-	TFixedSizeArrayView<FCompactPose> ChildrenPosesView(ChildrenPoses);
+	TArrayView<FCompactPose> ChildrenPosesView(ChildrenPoses);
 
 	if (PerBoneBlend.Num() > 0)
 	{
@@ -1304,23 +1304,27 @@ void UBlendSpaceBase::GetAnimationPose(TArray<FBlendSampleData>& BlendSampleData
 }
 
 #if WITH_EDITOR
-bool UBlendSpaceBase::GetAllAnimationSequencesReferred(TArray<UAnimSequence*>& AnimationSequences)
+bool UBlendSpaceBase::GetAllAnimationSequencesReferred(TArray<UAnimationAsset*>& AnimationAssets)
 {
 	for (auto Iter = SampleData.CreateConstIterator(); Iter; ++Iter)
 	{
 		// saves all samples in the AnimSequences
-		AnimationSequences.AddUnique((*Iter).Animation);
+		UAnimSequence* Sequence = (*Iter).Animation;
+		if (Sequence)
+		{
+			Sequence->HandleAnimReferenceCollection(AnimationAssets);
+		}
 	}
 
 	if (PreviewBasePose)
 	{
-		AnimationSequences.AddUnique(PreviewBasePose);
+		PreviewBasePose->HandleAnimReferenceCollection(AnimationAssets);
 	}
  
-	return (AnimationSequences.Num() > 0);
+	return (AnimationAssets.Num() > 0);
 }
 
-void UBlendSpaceBase::ReplaceReferredAnimations(const TMap<UAnimSequence*, UAnimSequence*>& ReplacementMap)
+void UBlendSpaceBase::ReplaceReferredAnimations(const TMap<UAnimationAsset*, UAnimationAsset*>& ReplacementMap)
 {
 	TArray<FBlendSample> NewSamples;
 	for (auto Iter = SampleData.CreateIterator(); Iter; ++Iter)
@@ -1334,6 +1338,7 @@ void UBlendSpaceBase::ReplaceReferredAnimations(const TMap<UAnimSequence*, UAnim
 			if(ReplacementAsset)
 			{
 				Sample.Animation = *ReplacementAsset;
+				Sample.Animation->ReplaceReferredAnimations(ReplacementMap);
 				NewSamples.Add(Sample);
 			}
 		}
@@ -1345,6 +1350,7 @@ void UBlendSpaceBase::ReplaceReferredAnimations(const TMap<UAnimSequence*, UAnim
 		if(ReplacementAsset)
 		{
 			PreviewBasePose = *ReplacementAsset;
+			PreviewBasePose->ReplaceReferredAnimations(ReplacementMap);
 		}
 	}
 	

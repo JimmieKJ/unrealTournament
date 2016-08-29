@@ -82,9 +82,10 @@ class AIMODULE_API AAIController : public AController, public IAIPerceptionListe
 {
 	GENERATED_BODY()
 
+	FGameplayResourceSet ScriptClaimedResources;
 protected:
 	FFocusKnowledge	FocusInformation;
-	
+
 	/** By default AI's logic gets stopped when controlled Pawn is unpossesed. Setting this flag to false
 	 *	will make AI logic persist past loosing controll over a pawn */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = AI)
@@ -93,19 +94,19 @@ protected:
 public:
 	/** used for alternating LineOfSight traces */
 	UPROPERTY()
-	mutable uint32 bLOSflag:1;
+	mutable uint32 bLOSflag : 1;
 
 	/** Skip extra line of sight traces to extremities of target being checked. */
 	UPROPERTY()
-	uint32 bSkipExtraLOSChecks:1;
+	uint32 bSkipExtraLOSChecks : 1;
 
 	/** Is strafing allowed during movement? */
 	UPROPERTY()
-	uint32 bAllowStrafe:1;	
+	uint32 bAllowStrafe : 1;
 
 	/** Specifies if this AI wants its own PlayerState. */
 	UPROPERTY()
-	uint32 bWantsPlayerState:1;
+	uint32 bWantsPlayerState : 1;
 
 	/** Copy Pawn rotation to ControlRotation, if there is no focus point. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = AI)
@@ -140,6 +141,9 @@ protected:
 
 	UPROPERTY()
 	UGameplayTasksComponent* CachedGameplayTasksComponent;
+	
+	UPROPERTY(BlueprintReadWrite, Category = AI)
+	TSubclassOf<UNavigationQueryFilter> DefaultNavigationFilterClass;
 
 public:
 
@@ -155,12 +159,12 @@ public:
 
 	virtual void SetPawn(APawn* InPawn) override;
 
-	/** Makes AI go toward specified Goal actor (destination will be continuously updated)
+	/** Makes AI go toward specified Goal actor (destination will be continuously updated), aborts any active path following
 	 *  @param AcceptanceRadius - finish move if pawn gets close enough
 	 *  @param bStopOnOverlap - add pawn's radius to AcceptanceRadius
 	 *  @param bUsePathfinding - use navigation data to calculate path (otherwise it will go in straight line)
 	 *  @param bCanStrafe - set focus related flag: bAllowStrafe
-	 *  @param FilterClass - navigation filter for pathfinding adjustments
+	 *  @param FilterClass - navigation filter for pathfinding adjustments. If none specified DefaultNavigationFilterClass will be used
 	 *  @param bAllowPartialPath - use incomplete path when goal can't be reached
 	 *	@note AcceptanceRadius has default value or -1 due to Header Parser not being able to recognize UPathFollowingComponent::DefaultAcceptanceRadius
 	 */
@@ -169,13 +173,13 @@ public:
 		bool bUsePathfinding = true, bool bCanStrafe = true,
 		TSubclassOf<UNavigationQueryFilter> FilterClass = NULL, bool bAllowPartialPath = true);
 
-	/** Makes AI go toward specified Dest location
+	/** Makes AI go toward specified Dest location, aborts any active path following
 	 *  @param AcceptanceRadius - finish move if pawn gets close enough
 	 *  @param bStopOnOverlap - add pawn's radius to AcceptanceRadius
 	 *  @param bUsePathfinding - use navigation data to calculate path (otherwise it will go in straight line)
 	 *  @param bProjectDestinationToNavigation - project location on navigation data before using it
 	 *  @param bCanStrafe - set focus related flag: bAllowStrafe
-	 *  @param FilterClass - navigation filter for pathfinding adjustments
+	 *  @param FilterClass - navigation filter for pathfinding adjustments. If none specified DefaultNavigationFilterClass will be used
 	 *  @param bAllowPartialPath - use incomplete path when goal can't be reached
 	 *	@note AcceptanceRadius has default value or -1 due to Header Parser not being able to recognize UPathFollowingComponent::DefaultAcceptanceRadius
 	 */
@@ -184,30 +188,31 @@ public:
 		bool bUsePathfinding = true, bool bProjectDestinationToNavigation = false, bool bCanStrafe = true,
 		TSubclassOf<UNavigationQueryFilter> FilterClass = NULL, bool bAllowPartialPath = true);
 
-	/** Makes AI go toward specified destination */
-	EPathFollowingRequestResult::Type MoveTo(const FAIMoveRequest& MoveRequest);
-
-	/** Fills pathfinding query for navigation system from given move request */
-	virtual bool PreparePathfinding(const FAIMoveRequest& MoveRequest, FPathFindingQuery& Query);
-	
-	DEPRECATED(4.8, "This function is deprecated, please use version with MoveRequest parameter instead.")
-	virtual bool PreparePathfinding(FPathFindingQuery& Query, const FVector& Dest, AActor* Goal, bool bUsePathfinding = true, TSubclassOf<class UNavigationQueryFilter> FilterClass = NULL);
-
-	/** Executes pathfinding query and starts move request
-	 *  @return RequestID, or 0 when failed
+	/** Makes AI go toward specified destination
+	 *  @param MoveRequest - details about move
+	 *  @param OutPath - optional output param, filled in with assigned path
+	 *  @return struct holding MoveId and enum code
 	 */
-	virtual FAIRequestID RequestPathAndMove(const FAIMoveRequest& MoveRequest, FPathFindingQuery& Query);
-	
-	DEPRECATED(4.8, "This function is deprecated, please use version with MoveRequest parameter instead.")
-	virtual FAIRequestID RequestPathAndMove(FPathFindingQuery& Query, AActor* Goal, float AcceptanceRadius, bool bStopOnOverlap, FCustomMoveSharedPtr CustomData);
+	FPathFollowingRequestResult MoveTo(const FAIMoveRequest& MoveRequest, FNavPathSharedPtr* OutPath = nullptr);
 
-	/** Handle move requests
-	 *  @return RequestID, or 0 when failed
-	 */
+	/** Passes move request and path object to path following */
 	virtual FAIRequestID RequestMove(const FAIMoveRequest& MoveRequest, FNavPathSharedPtr Path);
 
-	DEPRECATED(4.8, "This function is deprecated, please use version with MoveRequest parameter instead.")
-	virtual FAIRequestID RequestMove(FNavPathSharedPtr Path, AActor* Goal = NULL, float AcceptanceRadius = UPathFollowingComponent::DefaultAcceptanceRadius, bool bStopOnOverlap = true, FCustomMoveSharedPtr CustomData = NULL);
+	/** Finds path for given move request
+ 	 *  @param MoveRequest - details about move
+	 *  @param Query - pathfinding query for navigation system
+	 *  @param OutPath - generated path
+	 */
+	virtual void FindPathForMoveRequest(const FAIMoveRequest& MoveRequest, FPathFindingQuery& Query, FNavPathSharedPtr& OutPath) const;
+
+	/** Helper function for creating pathfinding query for this agent from move request data */
+	bool BuildPathfindingQuery(const FAIMoveRequest& MoveRequest, FPathFindingQuery& Query) const;
+
+	DEPRECATED_FORGAME(4.13, "This function is now deprecated, please use FindPathForMoveRequest() for adjusting Query or BuildPathfindingQuery() for getting one.")
+	virtual bool PreparePathfinding(const FAIMoveRequest& MoveRequest, FPathFindingQuery& Query);
+
+	DEPRECATED_FORGAME(4.13, "This function is now deprecated, please use FindPathForMoveRequest() for adjusting pathfinding or path postprocess.")
+	virtual FAIRequestID RequestPathAndMove(const FAIMoveRequest& MoveRequest, FPathFindingQuery& Query);
 
 	/** if AI is currently moving due to request given by RequestToPause, then the move will be paused */
 	bool PauseMove(FAIRequestID RequestToPause);
@@ -219,39 +224,44 @@ public:
 	virtual void StopMovement() override;
 
 	/** Called on completing current movement request */
+	virtual void OnMoveCompleted(FAIRequestID RequestID, const FPathFollowingResult& Result);
+
+	DEPRECATED_FORGAME(4.13, "This function is now deprecated, please use version with EPathFollowingResultDetails parameter.")
 	virtual void OnMoveCompleted(FAIRequestID RequestID, EPathFollowingResult::Type Result);
 
 	/** Returns the Move Request ID for the current move */
 	FORCEINLINE FAIRequestID GetCurrentMoveRequestID() const { return GetPathFollowingComponent() ? GetPathFollowingComponent()->GetCurrentRequestId() : FAIRequestID::InvalidRequest; }
 
 	/** Blueprint notification that we've completed the current movement request */
-	UPROPERTY(BlueprintAssignable, meta=(DisplayName="MoveCompleted"))
+	UPROPERTY(BlueprintAssignable, meta = (DisplayName = "MoveCompleted"))
 	FAIMoveCompletedSignature ReceiveMoveCompleted;
 
+	TSubclassOf<UNavigationQueryFilter> GetDefaultNavigationFilterClass() const { return DefaultNavigationFilterClass; }
+
 	/** Returns status of path following */
-	UFUNCTION(BlueprintCallable, Category="AI|Navigation")
+	UFUNCTION(BlueprintCallable, Category = "AI|Navigation")
 	EPathFollowingStatus::Type GetMoveStatus() const;
 
 	/** Returns true if the current PathFollowingComponent's path is partial (does not reach desired destination). */
-	UFUNCTION(BlueprintCallable, Category="AI|Navigation")
+	UFUNCTION(BlueprintCallable, Category = "AI|Navigation")
 	bool HasPartialPath() const;
-	
+
 	/** Returns position of current path segment's end. */
-	UFUNCTION(BlueprintCallable, Category="AI|Navigation")
+	UFUNCTION(BlueprintCallable, Category = "AI|Navigation")
 	FVector GetImmediateMoveDestination() const;
 
 	/** Updates state of movement block detection. */
-	UFUNCTION(BlueprintCallable, Category="AI|Navigation")
+	UFUNCTION(BlueprintCallable, Category = "AI|Navigation")
 	void SetMoveBlockDetection(bool bEnable);
 
 	/** Prepares path finding and path following components. */
 	virtual void InitNavigationControl(UPathFollowingComponent*& PathFollowingComp) override;
 
 	/** Starts executing behavior tree. */
-	UFUNCTION(BlueprintCallable, Category="AI")
+	UFUNCTION(BlueprintCallable, Category = "AI")
 	virtual bool RunBehaviorTree(UBehaviorTree* BTAsset);
 
-	/** 
+	/**
 	 * Makes AI use the specified Blackboard asset & creates a Blackboard Component if one does not already exist.
 	 * @param	BlackboardAsset			The Blackboard asset to use.
 	 * @param	BlackboardComponent		The Blackboard component that was used or created to work with the passed-in Blackboard Asset.
@@ -262,7 +272,12 @@ public:
 
 	/** does this AIController allow given UBlackboardComponent sync data with it */
 	virtual bool ShouldSyncBlackboardWith(const UBlackboardComponent& OtherBlackboardComponent) const { return true; }
-		
+
+	UFUNCTION(BlueprintCallable, Category = "AI|Tasks")
+	void ClaimTaskResource(TSubclassOf<UGameplayTaskResource> ResourceClass);
+	
+	UFUNCTION(BlueprintCallable, Category = "AI|Tasks")
+	void UnclaimTaskResource(TSubclassOf<UGameplayTaskResource> ResourceClass);
 
 protected:
 	UFUNCTION(BlueprintImplementableEvent)
@@ -272,38 +287,38 @@ protected:
 
 public:
 	/** Retrieve the final position that controller should be looking at. */
-	UFUNCTION(BlueprintCallable, Category="AI")
+	UFUNCTION(BlueprintCallable, Category = "AI")
 	FVector GetFocalPoint() const;
 
 	FVector GetFocalPointForPriority(EAIFocusPriority::Type InPriority) const;
 
 	/** Retrieve the focal point this controller should focus to on given actor. */
-	UFUNCTION(BlueprintCallable, Category="AI")
+	UFUNCTION(BlueprintCallable, Category = "AI")
 	virtual FVector GetFocalPointOnActor(const AActor *Actor) const;
 
 	/** Set the position that controller should be looking at. */
-	UFUNCTION(BlueprintCallable, Category="AI", meta=(DisplayName="SetFocalPoint", Keywords="focus"))
+	UFUNCTION(BlueprintCallable, Category = "AI", meta = (DisplayName = "SetFocalPoint", Keywords = "focus"))
 	void K2_SetFocalPoint(FVector FP);
 
 	/** Set Focus for actor, will set FocalPoint as a result. */
-	UFUNCTION(BlueprintCallable, Category="AI", meta=(DisplayName="SetFocus"))
+	UFUNCTION(BlueprintCallable, Category = "AI", meta = (DisplayName = "SetFocus"))
 	void K2_SetFocus(AActor* NewFocus);
 
 	/** Get the focused actor. */
-	UFUNCTION(BlueprintCallable, Category="AI")
+	UFUNCTION(BlueprintCallable, Category = "AI")
 	AActor* GetFocusActor() const;
 
-	FORCEINLINE AActor* GetFocusActorForPriority(EAIFocusPriority::Type InPriority) const {  return FocusInformation.Priorities.IsValidIndex(InPriority) ? FocusInformation.Priorities[InPriority].Actor.Get() : nullptr; }
+	FORCEINLINE AActor* GetFocusActorForPriority(EAIFocusPriority::Type InPriority) const { return FocusInformation.Priorities.IsValidIndex(InPriority) ? FocusInformation.Priorities[InPriority].Actor.Get() : nullptr; }
 
 	/** Clears Focus, will also clear FocalPoint as a result */
-	UFUNCTION(BlueprintCallable, Category="AI", meta=(DisplayName="ClearFocus"))
+	UFUNCTION(BlueprintCallable, Category = "AI", meta = (DisplayName = "ClearFocus"))
 	void K2_ClearFocus();
 
 
-	/** 
+	/**
 	 * Computes a launch velocity vector to toss a projectile and hit the given destination.
 	 * Performance note: Potentially expensive. Nonzero CollisionRadius and bOnlyTraceUp=false are the more expensive options.
-	 * 
+	 *
 	 * @param OutTossVelocity - out param stuffed with the computed velocity to use
 	 * @param Start - desired start point of arc
 	 * @param End - desired end point of arc
@@ -312,7 +327,7 @@ public:
 	 * @param bOnlyTraceUp  (optional) - when true collision checks verifying the arc will only be done along the upward portion of the arc
 	 * @return - true if a valid arc was computed, false if no valid solution could be found
 	 */
-	bool SuggestTossVelocity(FVector& OutTossVelocity, FVector Start, FVector End, float TossSpeed, bool bPreferHighArc, float CollisionRadius=0, bool bOnlyTraceUp=false);
+	bool SuggestTossVelocity(FVector& OutTossVelocity, FVector Start, FVector End, float TossSpeed, bool bPreferHighArc, float CollisionRadius = 0, bool bOnlyTraceUp = false);
 
 	//~ Begin AActor Interface
 	virtual void Tick(float DeltaTime) override;
@@ -323,6 +338,7 @@ public:
 	//~ Begin AController Interface
 	virtual void Possess(APawn* InPawn) override;
 	virtual void UnPossess() override;
+	virtual bool ShouldPostponePathUpdates() const override;
 	virtual void DisplayDebug(UCanvas* Canvas, const FDebugDisplayInfo& DebugDisplay, float& YL, float& YPos) override;
 
 #if ENABLE_VISUAL_LOG
@@ -348,7 +364,7 @@ public:
 	virtual void UpdateControlRotation(float DeltaTime, bool bUpdatePawn = true);
 
 	/** Set FocalPoint for given priority as absolute position or offset from base. */
-	virtual void SetFocalPoint(FVector NewFocus, EAIFocusPriority::Type InPriority=EAIFocusPriority::Gameplay);
+	virtual void SetFocalPoint(FVector NewFocus, EAIFocusPriority::Type InPriority = EAIFocusPriority::Gameplay);
 
 	/* Set Focus actor for given priority, will set FocalPoint as a result. */
 	virtual void SetFocus(AActor* NewFocus, EAIFocusPriority::Type InPriority = EAIFocusPriority::Gameplay);
@@ -380,16 +396,18 @@ public:
 	//----------------------------------------------------------------------//
 	// IGameplayTaskOwnerInterface
 	//----------------------------------------------------------------------//
-	UGameplayTasksComponent* GetGameplayTasksComponent() const { return CachedGameplayTasksComponent; }
-	virtual UGameplayTasksComponent* GetGameplayTasksComponent(const UGameplayTask& Task) const override { return CachedGameplayTasksComponent; }
-	virtual void OnTaskActivated(UGameplayTask& Task) override {}
-	virtual void OnTaskDeactivated(UGameplayTask& Task) override {}
-	virtual void OnTaskInitialized(UGameplayTask& Task) override {}
-	virtual AActor* GetOwnerActor(const UGameplayTask* Task) const override { return const_cast<AAIController*>(this); }
-	virtual AActor* GetAvatarActor(const UGameplayTask* Task) const override { return GetPawn(); }
-	virtual uint8 GetDefaultPriority() const override { return FGameplayTasks::DefaultPriority - 1; }
+	virtual UGameplayTasksComponent* GetGameplayTasksComponent(const UGameplayTask& Task) const override { return GetGameplayTasksComponent(); }
+	virtual AActor* GetGameplayTaskOwner(const UGameplayTask* Task) const override { return const_cast<AAIController*>(this); }
+	virtual AActor* GetGameplayTaskAvatar(const UGameplayTask* Task) const override { return GetPawn(); }
+	virtual uint8 GetGameplayTaskDefaultPriority() const { return FGameplayTasks::DefaultPriority - 1; }
 
-	// other GT tasks related
+	FORCEINLINE UGameplayTasksComponent* GetGameplayTasksComponent() const { return CachedGameplayTasksComponent; }
+
+	// add empty overrides to fix linker errors if project implements a child class without adding GameplayTasks module dependency
+	virtual void OnGameplayTaskInitialized(UGameplayTask& Task) override {}
+	virtual void OnGameplayTaskActivated(UGameplayTask& Task) override {}
+	virtual void OnGameplayTaskDeactivated(UGameplayTask& Task) override {}
+
 	UFUNCTION()
 	virtual void OnGameplayTaskResourcesClaimed(FGameplayResourceSet NewlyClaimed, FGameplayResourceSet FreshlyReleased);
 

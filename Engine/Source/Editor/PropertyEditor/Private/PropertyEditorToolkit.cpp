@@ -20,25 +20,25 @@ const FName FPropertyEditorToolkit::TreeTabId( TEXT( "PropertyEditorToolkit_Prop
 const FName FPropertyEditorToolkit::GridTabId( TEXT( "PropertyEditorToolkit_PropertyTable" ) );
 const FName FPropertyEditorToolkit::TreePinAsColumnHeaderId( TEXT( "PropertyEditorToolkit_PinAsColumnHeader" ) );
 
-void FPropertyEditorToolkit::RegisterTabSpawners(const TSharedRef<class FTabManager>& TabManager)
+void FPropertyEditorToolkit::RegisterTabSpawners(const TSharedRef<class FTabManager>& InTabManager)
 {
-	WorkspaceMenuCategory = TabManager->AddLocalWorkspaceMenuCategory(LOCTEXT("WorkspaceMenu_PropertyEditorToolkit", "Property Editor"));
+	WorkspaceMenuCategory = InTabManager->AddLocalWorkspaceMenuCategory(LOCTEXT("WorkspaceMenu_PropertyEditorToolkit", "Property Editor"));
 
-	TabManager->RegisterTabSpawner( GridTabId, FOnSpawnTab::CreateSP(this, &FPropertyEditorToolkit::SpawnTab_PropertyTable) )
+	InTabManager->RegisterTabSpawner( GridTabId, FOnSpawnTab::CreateSP(this, &FPropertyEditorToolkit::SpawnTab_PropertyTable) )
 		.SetDisplayName( LOCTEXT("PropertyTableTab", "Grid") )
 		.SetGroup( WorkspaceMenuCategory.ToSharedRef() )
 		.SetIcon(FSlateIcon(FEditorStyle::GetStyleSetName(), "LevelEditor.Tabs.Viewports"));
 
-	TabManager->RegisterTabSpawner( TreeTabId, FOnSpawnTab::CreateSP(this, &FPropertyEditorToolkit::SpawnTab_PropertyTree) )
+	InTabManager->RegisterTabSpawner( TreeTabId, FOnSpawnTab::CreateSP(this, &FPropertyEditorToolkit::SpawnTab_PropertyTree) )
 		.SetDisplayName( LOCTEXT("PropertiesTab", "Details") )
 		.SetGroup( WorkspaceMenuCategory.ToSharedRef() )
 		.SetIcon(FSlateIcon(FEditorStyle::GetStyleSetName(), "PropertyEditor.Grid.TabIcon"));
 }
 
-void FPropertyEditorToolkit::UnregisterTabSpawners(const TSharedRef<class FTabManager>& TabManager)
+void FPropertyEditorToolkit::UnregisterTabSpawners(const TSharedRef<class FTabManager>& InTabManager)
 {
-	TabManager->UnregisterTabSpawner( GridTabId );
-	TabManager->UnregisterTabSpawner( TreeTabId );
+	InTabManager->UnregisterTabSpawner( GridTabId );
+	InTabManager->UnregisterTabSpawner( TreeTabId );
 }
 
 FPropertyEditorToolkit::FPropertyEditorToolkit()
@@ -492,13 +492,13 @@ FText FPropertyEditorToolkit::GetBaseToolkitName() const
 
 FText FPropertyEditorToolkit::GetToolkitName() const
 {
-	const auto EditingObjects = GetEditingObjects();
+	const TArray<UObject*>& EditingObjs = GetEditingObjects();
 
-	check( EditingObjects.Num() > 0 );
+	check( EditingObjs.Num() > 0 );
 
-	if( EditingObjects.Num() == 1 )
+	if( EditingObjs.Num() == 1 )
 	{
-		const UObject* EditingObject = EditingObjects[ 0 ];
+		const UObject* EditingObject = EditingObjs[ 0 ];
 
 		const bool bDirtyState = EditingObject->GetOutermost()->IsDirty();
 
@@ -512,9 +512,9 @@ FText FPropertyEditorToolkit::GetToolkitName() const
 	{
 		bool bDirtyState = false;
 		UClass* SharedBaseClass = NULL;
-		for( int32 x = 0; x < EditingObjects.Num(); ++x )
+		for( int32 x = 0; x < EditingObjs.Num(); ++x )
 		{
-			UObject* Obj = EditingObjects[ x ];
+			UObject* Obj = EditingObjs[ x ];
 			check( Obj );
 
 			UClass* ObjClass = Cast<UClass>(Obj);
@@ -542,7 +542,7 @@ FText FPropertyEditorToolkit::GetToolkitName() const
 		}
 
 		FFormatNamedArguments Args;
-		Args.Add( TEXT("NumberOfObjects"), EditingObjects.Num() );
+		Args.Add( TEXT("NumberOfObjects"), EditingObjs.Num() );
 		Args.Add( TEXT("ClassName"), FText::FromString( SharedBaseClass->GetName() ) );
 		Args.Add( TEXT("DirtyState"), bDirtyState ? FText::FromString( TEXT( "*" ) ) : FText::GetEmpty() );
 		return FText::Format( LOCTEXT("ToolkitName_MultiObject", "{NumberOfObjects} {ClassName}{DirtyState} Objects - Property Matrix Editor"), Args );
@@ -552,21 +552,21 @@ FText FPropertyEditorToolkit::GetToolkitName() const
 
 FText FPropertyEditorToolkit::GetToolkitToolTipText() const
 {
-	const auto EditingObjects = GetEditingObjects();
+	const TArray<UObject*>& EditingObjs = GetEditingObjects();
 
-	check( EditingObjects.Num() > 0 );
+	check( EditingObjs.Num() > 0 );
 
-	if( EditingObjects.Num() == 1 )
+	if( EditingObjs.Num() == 1 )
 	{
-		const UObject* EditingObject = EditingObjects[ 0 ];
+		const UObject* EditingObject = EditingObjs[ 0 ];
 		return FAssetEditorToolkit::GetToolTipTextForObject(EditingObject);
 	}
 	else
 	{
 		UClass* SharedBaseClass = NULL;
-		for( int32 x = 0; x < EditingObjects.Num(); ++x )
+		for( int32 x = 0; x < EditingObjs.Num(); ++x )
 		{
-			UObject* Obj = EditingObjects[ x ];
+			UObject* Obj = EditingObjs[ x ];
 			check( Obj );
 
 			UClass* ObjClass = Cast<UClass>(Obj);
@@ -591,7 +591,7 @@ FText FPropertyEditorToolkit::GetToolkitToolTipText() const
 		}
 
 		FFormatNamedArguments Args;
-		Args.Add( TEXT("NumberOfObjects"), EditingObjects.Num() );
+		Args.Add( TEXT("NumberOfObjects"), EditingObjs.Num() );
 		Args.Add( TEXT("ClassName"), FText::FromString( SharedBaseClass->GetName() ) );
 		return FText::Format( LOCTEXT("ToolkitName_MultiObjectToolTip", "{NumberOfObjects} {ClassName} Objects - Property Matrix Editor"), Args );
 	}

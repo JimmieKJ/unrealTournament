@@ -3,6 +3,7 @@
 #pragma once
 
 #include "FeedbackContext.h"
+#include "IBlueprintCompilerCppBackendModule.h"  //for FNativizationSummary
 
 // Forward declares
 class  SBuildProgressWidget;
@@ -29,7 +30,7 @@ public:
 	 * @param  OutHeaderSource	Output destination for the header source.
 	 * @param  OutCppSource		Output destination for the cpp source.
 	 */
-	static void GenerateCppCode(UObject* Obj, TSharedPtr<FString> OutHeaderSource, TSharedPtr<FString> OutCppSource);
+	static void GenerateCppCode(UObject* Obj, TSharedPtr<FString> OutHeaderSource, TSharedPtr<FString> OutCppSource, TSharedPtr<FNativizationSummary> NativizationSummary = TSharedPtr<FNativizationSummary>());
 
 public: 
 	/** 

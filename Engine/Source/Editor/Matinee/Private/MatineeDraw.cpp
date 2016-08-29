@@ -498,10 +498,10 @@ FString FMatinee::MakeTimecodeString( float InTime, bool bIncludeMinutes ) const
 
 
 /** Draw gridlines and time labels. */
-void FMatineeViewportClient::DrawGrid(FViewport* Viewport, FCanvas* Canvas, bool bDrawTimeline)
+void FMatineeViewportClient::DrawGrid(FViewport* InViewport, FCanvas* Canvas, bool bDrawTimeline)
 {
-	const int32 ViewX = Viewport->GetSizeXY().X;
-	const int32 ViewY = Viewport->GetSizeXY().Y;
+	const int32 ViewX = InViewport->GetSizeXY().X;
+	const int32 ViewY = InViewport->GetSizeXY().Y;
 
 	// Calculate desired grid spacing.
 	int32 MinPixelsPerGrid = 35;
@@ -606,10 +606,10 @@ void FMatineeViewportClient::DrawGrid(FViewport* Viewport, FCanvas* Canvas, bool
 }
 
 /** Draw the timeline control at the bottom of the editor. */
-void FMatineeViewportClient::DrawTimeline(FViewport* Viewport, FCanvas* Canvas)
+void FMatineeViewportClient::DrawTimeline(FViewport* InViewport, FCanvas* Canvas)
 {
-	int32 ViewX = Viewport->GetSizeXY().X;
-	int32 ViewY = Viewport->GetSizeXY().Y;
+	int32 ViewX = InViewport->GetSizeXY().X;
+	int32 ViewY = InViewport->GetSizeXY().Y;
 
 	//////// DRAW TIMELINE
 	// Entire length is clickable.
@@ -618,12 +618,12 @@ void FMatineeViewportClient::DrawTimeline(FViewport* Viewport, FCanvas* Canvas)
 	Canvas->DrawTile(InterpEd->LabelWidth, ViewY - TotalBarHeight, ViewX - InterpEd->LabelWidth, TimelineHeight, 0.f, 0.f, 0.f, 0.f, FColor(80,80,80) );
 	if( Canvas->IsHitTesting() ) Canvas->SetHitProxy( NULL );
 
-	DrawGrid(Viewport, Canvas, true);
+	DrawGrid(InViewport, Canvas, true);
 
 	// Draw black line separating nav from timeline.
 	Canvas->DrawTile(0, ViewY - TotalBarHeight, ViewX, 1, 0.f, 0.f, 0.f, 0.f, FLinearColor::Black );
 
-	DrawMarkers(Viewport, Canvas);
+	DrawMarkers(InViewport, Canvas);
 
 	//////// DRAW NAVIGATOR
 	{
@@ -879,10 +879,10 @@ void FMatineeViewportClient::DrawTimeline(FViewport* Viewport, FCanvas* Canvas)
 }
 
 /** Draw various markers on the timeline */
-void FMatineeViewportClient::DrawMarkers(FViewport* Viewport, FCanvas* Canvas)
+void FMatineeViewportClient::DrawMarkers(FViewport* InViewport, FCanvas* Canvas)
 {
-	int32 ViewX = Viewport->GetSizeXY().X;
-	int32 ViewY = Viewport->GetSizeXY().Y;
+	int32 ViewX = InViewport->GetSizeXY().X;
+	int32 ViewY = InViewport->GetSizeXY().Y;
 	int32 ScaleTopY = ViewY - TotalBarHeight + 1;
 
 	// Calculate screen X position that indicates current position in track.
@@ -1713,7 +1713,7 @@ void FMatineeViewportClient::DrawTrackLabel( FCanvas* Canvas, UInterpTrack* Trac
 }
 
 /** Draw the track editor using the supplied 2D RenderInterface. */
-void FMatineeViewportClient::Draw(FViewport* Viewport, FCanvas* Canvas)
+void FMatineeViewportClient::Draw(FViewport* InViewport, FCanvas* Canvas)
 {
 	if (!ParentTab.IsValid())
 	{
@@ -1726,8 +1726,8 @@ void FMatineeViewportClient::Draw(FViewport* Viewport, FCanvas* Canvas)
 	// Erase background
 	Canvas->Clear( FColor(162,162,162) );
 
-	const int32 ViewX = Viewport->GetSizeXY().X;
-	const int32 ViewY = Viewport->GetSizeXY().Y;
+	const int32 ViewX = InViewport->GetSizeXY().X;
+	const int32 ViewY = InViewport->GetSizeXY().Y;
 
 	// @todo frick: Weird to compute this here and storing it in parent
 	InterpEd->TrackViewSizeX = ViewX - InterpEd->LabelWidth;
@@ -1737,7 +1737,7 @@ void FMatineeViewportClient::Draw(FViewport* Viewport, FCanvas* Canvas)
 	InterpEd->PixelsPerSec = FMath::Max( 1.0f, float(ViewX - InterpEd->LabelWidth)/float(InterpEd->ViewEndTime - InterpEd->ViewStartTime) );
 	InterpEd->NavPixelsPerSecond = FMath::Max( 0.0f, float(ViewX - InterpEd->LabelWidth)/InterpEd->IData->InterpLength );
 
-	DrawGrid(Viewport, Canvas, false);
+	DrawGrid(InViewport, Canvas, false);
 
 	FCanvasTileItem TileItem( FVector2D::ZeroVector, FVector2D::ZeroVector, NullRegionColor );
 	TileItem.BlendMode = SE_BLEND_Translucent;
@@ -2163,7 +2163,7 @@ void FMatineeViewportClient::Draw(FViewport* Viewport, FCanvas* Canvas)
 	if( bWantTimeline )
 	{
 		// Draw grid and timeline stuff.
-		DrawTimeline(Viewport, Canvas);
+		DrawTimeline(InViewport, Canvas);
 	}
 
 	// Draw line between title block and track view for empty space

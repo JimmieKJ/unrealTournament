@@ -99,7 +99,7 @@ FInterpCurveVector FSplineMeshComponentVisualizer::GetSpline(const USplineMeshCo
 }
 
 
-bool FSplineMeshComponentVisualizer::VisProxyHandleClick(FLevelEditorViewportClient* InViewportClient, HComponentVisProxy* VisProxy, const FViewportClick& Click)
+bool FSplineMeshComponentVisualizer::VisProxyHandleClick(FEditorViewportClient* InViewportClient, HComponentVisProxy* VisProxy, const FViewportClick& Click)
 {
 	bool bEditing = false;
 

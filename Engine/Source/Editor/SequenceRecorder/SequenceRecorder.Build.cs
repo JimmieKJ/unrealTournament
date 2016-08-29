@@ -14,7 +14,7 @@ namespace UnrealBuildTool.Rules
 			PrivateIncludePaths.AddRange(
 				new string[] {
 					"Editor/SequenceRecorder/Private",
-					"Editor/SequenceRecorder/Private/PropertyRecorders",
+					"Editor/SequenceRecorder/Private/Sections",
 				}
 				);
 

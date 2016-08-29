@@ -38,6 +38,7 @@ public:
 		return FModuleManager::Get().IsModuleLoaded( "OculusRift" );
 	}
 
+#if OCULUS_RIFT_SUPPORTED_PLATFORMS
 	/**
 	 * Takes an orientation and position in Oculus Rift coordinate space and converts it to 
 	 * Unreal's coordinate system, also applying world scale and base position/orientation offsets
@@ -47,12 +48,12 @@ public:
 	/**
 	 * Returns current ovrSession handle
 	 */
-	virtual struct ovrHmdStruct* GetSession() = 0;
+	virtual class FOvrSessionShared* GetSession() = 0;
 
 	/**
 	 * Returns current ovrTrackingState
 	 */
 	virtual bool GetCurrentTrackingState(struct ovrTrackingState_* TrackingState) = 0;
-
+#endif //OCULUS_RIFT_SUPPORTED_PLATFORMS
 };
 

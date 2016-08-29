@@ -121,7 +121,7 @@ void STileSetSelectorViewport::OnFocusViewportToSelection()
 	}
 }
 
-void STileSetSelectorViewport::OnSelectionChanged(FMarqueeOperation Marquee, bool bIsPreview)
+void STileSetSelectorViewport::OnSelectionChanged(FMarqueeOperation InMarquee, bool bIsPreview)
 {
 	UPaperTileSet* TileSetBeingEdited = TileSetPtr.Get();
 	if (TileSetBeingEdited == nullptr)
@@ -129,9 +129,9 @@ void STileSetSelectorViewport::OnSelectionChanged(FMarqueeOperation Marquee, boo
 		return;
 	}
 
-	const FVector2D TopLeftUnrounded = Marquee.Rect.GetUpperLeft();
-	const FVector2D BottomRightUnrounded = Marquee.Rect.GetLowerRight();
-	if ((TopLeftUnrounded != FVector2D::ZeroVector) || Marquee.IsValid())
+	const FVector2D TopLeftUnrounded = InMarquee.Rect.GetUpperLeft();
+	const FVector2D BottomRightUnrounded = InMarquee.Rect.GetLowerRight();
+	if ((TopLeftUnrounded != FVector2D::ZeroVector) || InMarquee.IsValid())
 	{
 		const int32 TileCountX = TileSetBeingEdited->GetTileCountX();
 		const int32 TileCountY = TileSetBeingEdited->GetTileCountY();
@@ -177,24 +177,24 @@ void STileSetSelectorViewport::OnSelectionChanged(FMarqueeOperation Marquee, boo
 
 void STileSetSelectorViewport::RefreshSelectionRectangle()
 {
-	if (FTileSetEditorViewportClient* Client = TypedViewportClient.Get())
+	if (FTileSetEditorViewportClient* ViewportClient = TypedViewportClient.Get())
 	{
 		UPaperTileSet* TileSetBeingEdited = TileSetPtr.Get();
 
 		const bool bHasSelection = (SelectionDimensions.X * SelectionDimensions.Y) > 0;
-		Client->bHasValidPaintRectangle = bHasSelection && (TileSetBeingEdited != nullptr);
+		ViewportClient->bHasValidPaintRectangle = bHasSelection && (TileSetBeingEdited != nullptr);
 
 		const int32 TileIndex = (bHasSelection && (TileSetBeingEdited != nullptr)) ? (SelectionTopLeft.X + SelectionTopLeft.Y * TileSetBeingEdited->GetTileCountX()) : INDEX_NONE;
-		Client->CurrentSelectedTileIndex = TileIndex;
+		ViewportClient->CurrentSelectedTileIndex = TileIndex;
 
 		if (bHasSelection && (TileSetBeingEdited != nullptr))
 		{
-			Client->ValidPaintRectangle.Color = FLinearColor::White;
+			ViewportClient->ValidPaintRectangle.Color = FLinearColor::White;
 
 			const FIntPoint TopLeft = TileSetBeingEdited->GetTileUVFromTileXY(SelectionTopLeft);
 			const FIntPoint BottomRight = TileSetBeingEdited->GetTileUVFromTileXY(SelectionTopLeft + SelectionDimensions - FIntPoint(1,1)) + TileSetBeingEdited->GetTileSize();
-			Client->ValidPaintRectangle.Dimensions = BottomRight - TopLeft;
-			Client->ValidPaintRectangle.TopLeft = TopLeft;
+			ViewportClient->ValidPaintRectangle.Dimensions = BottomRight - TopLeft;
+			ViewportClient->ValidPaintRectangle.TopLeft = TopLeft;
 		}
 	}
 }

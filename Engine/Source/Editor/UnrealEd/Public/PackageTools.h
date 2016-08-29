@@ -17,11 +17,8 @@ namespace PackageTools
 	 * @param	OutGroupPackages			The map that receives the filtered list of group packages.
 	 * @param	OutPackageList				The array that will contain the list of filtered packages.
 	 */
-	UNREALED_API void GetFilteredPackageList( TSet<const UPackage*> &OutFilteredPackageMap,
-								 TSet<UPackage*>* OutGroupPackages,
-								 TArray<UPackage*> &OutPackageList );
-
-
+	UNREALED_API void GetFilteredPackageList(TSet<UPackage*>& OutFilteredPackageMap);
+	
 	/**
 	 * Fills the OutObjects list with all valid objects that are supported by the current
 	 * browser settings and that reside withing the set of specified packages.
@@ -29,8 +26,7 @@ namespace PackageTools
 	 * @param	InPackages			Filters objects based on package.
 	 * @param	OutObjects			[out] Receives the list of objects
 	 */
-	UNREALED_API void GetObjectsInPackages( const TArray<UPackage*>* InPackages,
-							   TArray<UObject*>& OutObjects );
+	UNREALED_API void GetObjectsInPackages( const TArray<UPackage*>* InPackages, TArray<UObject*>& OutObjects );
 
 	/**
 	 * Handles fully loading passed in packages.

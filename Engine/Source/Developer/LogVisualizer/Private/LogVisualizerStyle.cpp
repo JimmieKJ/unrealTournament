@@ -116,7 +116,7 @@ TSharedRef< FSlateStyleSet > FLogVisualizerStyle::Create()
 	// Toolbar
 	{
 		Style.Set("Toolbar.Pause", new IMAGE_BRUSH("Icons/icon_pause_40x", Icon40x40));
-		Style.Set("Toolbar.Resume", new IMAGE_BRUSH("Icons/icon_play_40x", Icon40x40));
+		Style.Set("Toolbar.Resume", new IMAGE_BRUSH("Icons/icon_simulate_40x", Icon40x40));
 		Style.Set("Toolbar.Record", new IMAGE_BRUSH("Icons/LV_Record", Icon40x40));
 		Style.Set("Toolbar.Stop", new IMAGE_BRUSH("Icons/LV_Stop", Icon40x40));
 		Style.Set("Toolbar.Camera", new IMAGE_BRUSH("Icons/LV_Camera", Icon40x40));
@@ -128,7 +128,7 @@ TSharedRef< FSlateStyleSet > FLogVisualizerStyle::Create()
 		Style.Set("Toolbar.HideEmpty", new IMAGE_BRUSH("Icons/icon_levels_visible_40x", Icon40x40));
 
 		Style.Set("Toolbar.Pause.small", new IMAGE_BRUSH("Icons/icon_pause_40x", Icon20x20));
-		Style.Set("Toolbar.Resume.small", new IMAGE_BRUSH("Icons/icon_play_40x", Icon20x20));
+		Style.Set("Toolbar.Resume.small", new IMAGE_BRUSH("Icons/icon_simulate_40x", Icon20x20));
 		Style.Set("Toolbar.Record.small", new IMAGE_BRUSH("Icons/LV_Record", Icon20x20));
 		Style.Set("Toolbar.Stop.small", new IMAGE_BRUSH("Icons/LV_Stop", Icon20x20));
 		Style.Set("Toolbar.Camera.small", new IMAGE_BRUSH("Icons/LV_Camera", Icon20x20));

@@ -9,9 +9,11 @@ class SLATE_API SPopupErrorText : public SComboButton, public IErrorReportingWid
 public:
 	SLATE_BEGIN_ARGS(SPopupErrorText)
 		: _ShowInNewWindow( false )
+		, _Font()
 	{}
 		/** The popup appears in a new window instead of in the same window that this widget is in */
 		SLATE_ARGUMENT( bool, ShowInNewWindow )
+ 		SLATE_ATTRIBUTE( FSlateFontInfo, Font )
 	SLATE_END_ARGS()
 
 	virtual void Construct( const FArguments& InArgs );

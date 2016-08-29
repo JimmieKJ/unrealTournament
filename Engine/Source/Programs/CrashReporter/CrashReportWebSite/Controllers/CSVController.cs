@@ -10,8 +10,11 @@ using System.Net;
 using System.Text;
 using System.Web.Mvc;
 using System.Xml;
+using Tools.CrashReporter.CrashReportWebSite.DataModels;
+using Tools.CrashReporter.CrashReportWebSite.DataModels.Repositories;
 using Tools.CrashReporter.CrashReportWebSite.Models;
 using Tools.CrashReporter.CrashReportWebSite.Properties;
+using Tools.CrashReporter.CrashReportWebSite.ViewModels;
 using Tools.DotNETCommon;
 
 namespace Tools.CrashReporter.CrashReportWebSite.Controllers
@@ -94,7 +97,15 @@ namespace Tools.CrashReporter.CrashReportWebSite.Controllers
 		/// <summary>Fake id for all user groups</summary>
 		public static readonly int AllUserGroupId = -1;
 
-		//static readonly int MinNumberOfCrashes = 2;
+		static readonly int MinNumberOfCrashes = 2;
+
+        //Ugly instantiation of crash repository will replace with dependency injection BEFORE this gets anywhere near live.
+	    private IUnitOfWork _unitOfWork;
+
+	    public CSVController(IUnitOfWork unitOfWork)
+	    {
+	        _unitOfWork = unitOfWork;
+	    }
 
 		/// <summary>
 		/// Retrieve all Buggs matching the search criteria.
@@ -103,198 +114,175 @@ namespace Tools.CrashReporter.CrashReportWebSite.Controllers
 		/// <returns>A view to display the filtered Buggs.</returns>
 		public CSV_ViewModel GetResults( FormHelper FormData )
 		{
-			BuggRepository BuggsRepo = new BuggRepository();
-			CrashRepository CrashRepo = new CrashRepository();
-
 			using( FAutoScopedLogTimer LogTimer = new FAutoScopedLogTimer( this.GetType().ToString() ) )
 			{
-				string AnonymousGroup = "Anonymous";
-				//List<String> Users = FRepository.Get().GetUserNamesFromGroupName( AnonumousGroup );
-				int AnonymousGroupID = FRepository.Get( BuggsRepo ).FindOrAddGroup( AnonymousGroup );
-				HashSet<int> AnonumousIDs = FRepository.Get( BuggsRepo ).GetUserIdsFromUserGroup( AnonymousGroup );
-				int AnonymousID = AnonumousIDs.First();
-				HashSet<string> UserNamesForUserGroup = FRepository.Get( BuggsRepo ).GetUserNamesFromGroupName( AnonymousGroup );
+			    var anonymousGroup = _unitOfWork.UserGroupRepository.First(data => data.Name == "Anonymous");
+                var anonymousGroupId = anonymousGroup.Id;
+			    var anonumousIDs = new HashSet<int>(anonymousGroup.Users.Select(data => data.Id));
+                var anonymousID = anonumousIDs.First();
+                var userNamesForUserGroup = new HashSet<string>(anonymousGroup.Users.Select(data => data.UserName));
 
-				// Enable to narrow results and improve debugging performance.
-				//FormData.DateFrom = FormData.DateTo.AddDays( -1 );
-				FormData.DateTo = FormData.DateTo.AddDays( 1 );
+                // Enable to narrow results and improve debugging performance.
+                //FormData.DateFrom = FormData.DateTo.AddDays( -1 );
+                //FormData.DateTo = FormData.DateTo.AddDays( 1 );
 
-				var FilteringQueryJoin = CrashRepo
-					.ListAll()
-					.Where( c => c.EpicAccountId != "" )
-					// Only crashes and asserts
-					.Where( c => c.CrashType == 1 || c.CrashType == 2 )
-					// Only anonymous user
-					.Where( c => c.UserNameId == AnonymousID )
-					// Filter be date
-					.Where( c => c.TimeOfCrash > FormData.DateFrom && c.TimeOfCrash < FormData.DateTo )
-					.Join
-					(
-						CrashRepo.Context.Buggs_Crashes,
-						c => c,
-						bc => bc.Crash,
-						( c, bc ) => new
-						{
-							GameName = c.GameName,
-							TimeOfCrash = c.TimeOfCrash.Value,
-							BuiltFromCL = c.BuiltFromCL,
-							PlatformName = c.PlatformName,
-							EngineMode = c.EngineMode,
-							MachineId = c.MachineId,
-							Module = c.Module,
-							BuildVersion = c.BuildVersion,
-							Jira = c.Jira,
-							Branch = c.Branch,
-							CrashType = c.CrashType.Value,
-							EpicId = c.EpicAccountId,
-							BuggId = bc.BuggId,
-						}
-					);
+                var FilteringQueryJoin = _unitOfWork.CrashRepository
+                    .ListAll()
+                    .Where(c => c.EpicAccountId != "")
+                    // Only crashes and asserts
+                    .Where(c => c.CrashType == 1 || c.CrashType == 2)
+                    // Only anonymous user
+                    .Where(c => c.UserNameId == anonymousID)
+                    // Filter be date
+                    .Where(c => c.TimeOfCrash > FormData.DateFrom && c.TimeOfCrash < FormData.DateTo)
+                    .Select
+                    (
+                        c => new
+                        {
+                            GameName = c.GameName,
+                            TimeOfCrash = c.TimeOfCrash.Value,
+                            BuiltFromCL = c.ChangeListVersion,
+                            PlatformName = c.PlatformName,
+                            EngineMode = c.EngineMode,
+                            MachineId = c.ComputerName,
+                            Module = c.Module,
+                            BuildVersion = c.BuildVersion,
+                            Jira = c.Jira,
+                            Branch = c.Branch,
+                            CrashType = c.CrashType,
+                            EpicId = c.EpicAccountId,
+                            BuggId = c.Buggs.First().Id
+                        }
+                    );
 
-				var FilteringQueryCrashes = CrashRepo
-					.ListAll()
-					.Where( c => c.EpicAccountId != "" )
-					// Only crashes and asserts
-					.Where( c => c.CrashType == 1 || c.CrashType == 2 )
-					// Only anonymous user
-					.Where( c => c.UserNameId == AnonymousID );
+                var FilteringQueryCrashes = _unitOfWork.CrashRepository
+                    .ListAll()
+                    .Where(c => c.EpicAccountId != "")
+                    // Only crashes and asserts
+                    .Where(c => c.CrashType == 1 || c.CrashType == 2)
+                    // Only anonymous user
+                    .Where(c => c.UserNameId == anonymousID);
 
-				int TotalCrashes = CrashRepo
-					.ListAll()
-					.Count();
+                //Server timeout
+                int TotalCrashes = _unitOfWork.CrashRepository.ListAll().Count();
 
-				int TotalCrashesYearToDate = CrashRepo
-					.ListAll()
-					// Year to date
-					.Where( c => c.TimeOfCrash > new DateTime( DateTime.UtcNow.Year, 1, 1 ) )
-					.Count();
+                int TotalCrashesYearToDate = _unitOfWork.CrashRepository
+                    .ListAll().Count(c => c.TimeOfCrash > new DateTime(DateTime.UtcNow.Year, 1, 1));
 
-				var CrashesFilteredWithDateQuery = FilteringQueryCrashes
-					// Filter be date
-					.Where( c => c.TimeOfCrash > FormData.DateFrom && c.TimeOfCrash < FormData.DateTo );
+                var CrashesFilteredWithDateQuery = FilteringQueryCrashes
+                    // Filter be date
+                    .Where(c => c.TimeOfCrash > FormData.DateFrom && c.TimeOfCrash < FormData.DateTo);
 
-				int CrashesFilteredWithDate = CrashesFilteredWithDateQuery
-					.Count();
+                int CrashesFilteredWithDate = CrashesFilteredWithDateQuery
+                    .Count();
 
-				int CrashesYearToDateFiltered = FilteringQueryCrashes
-					// Year to date
-					.Where( c => c.TimeOfCrash > new DateTime( DateTime.UtcNow.Year, 1, 1 ) )
-					.Count();
+                int CrashesYearToDateFiltered = FilteringQueryCrashes.Count(c => c.TimeOfCrash > new DateTime( DateTime.UtcNow.Year, 1, 1 ));
 
-				int AffectedUsersFiltered = FilteringQueryCrashes
-					.Select( c => c.EpicAccountId )
-					.Distinct()
-					.Count();
+                //DB server timeout
+                int AffectedUsersFiltered = FilteringQueryCrashes.Select( c => c.EpicAccountId ).Distinct().Count();
 
-				int UniqueCrashesFiltered = FilteringQueryCrashes
-					.Select( c => c.Pattern )
-					.Distinct()
-					.Count();
+                //DB server time out
+                int UniqueCrashesFiltered = FilteringQueryCrashes.Select( c => c.Pattern ).Count();
 
+                int NumCrashes = FilteringQueryJoin.Count();
+                
+                // Export data to the file.
+                string CSVPathname = Path.Combine(Settings.Default.CrashReporterCSV, DateTime.UtcNow.ToString("yyyy-MM-dd.HH-mm-ss"));
+                CSVPathname += string
+                    .Format("__[{0}---{1}]__{2}",
+                    FormData.DateFrom.ToString("yyyy-MM-dd"),
+                    FormData.DateTo.ToString("yyyy-MM-dd"),
+                    NumCrashes)
+                    + ".csv";
 
-				int NumCrashes = FilteringQueryJoin.Count();
+                string ServerPath = Server.MapPath(CSVPathname);
+                var CSVFile = new StreamWriter(ServerPath, true, Encoding.UTF8);
 
-				// Get all users
-				// SLOW
-				//var Users = FRepository.Get( BuggsRepo ).GetAnalyticsUsers().ToDictionary( X => X.EpicAccountId, Y => Y );
+                using (FAutoScopedLogTimer ExportToCSVTimer = new FAutoScopedLogTimer("ExportToCSV"))
+                {
+                    var RowType = FilteringQueryJoin.FirstOrDefault().GetType();
 
-				// Export data to the file.
-				string CSVPathname = Path.Combine( Settings.Default.CrashReporterCSV, DateTime.UtcNow.ToString( "yyyy-MM-dd.HH-mm-ss" ) );
-				CSVPathname += string
-					.Format( "__[{0}---{1}]__{2}", 
-					FormData.DateFrom.ToString( "yyyy-MM-dd" ), 
-					FormData.DateTo.ToString( "yyyy-MM-dd" ), 
-					NumCrashes ) 
-					+ ".csv";
+                    string AllProperties = "";
+                    foreach (var Property in RowType.GetProperties())
+                    {
+                        AllProperties += Property.Name;
+                        AllProperties += "; ";
+                    }
 
-				string ServerPath = Server.MapPath( CSVPathname );
-				var CSVFile = new StreamWriter( ServerPath, true, Encoding.UTF8 );
+                    // Write header
+                    CSVFile.WriteLine(AllProperties);
 
-				using (FAutoScopedLogTimer ExportToCSVTimer = new FAutoScopedLogTimer( "ExportToCSV" ))
-				{
-					var RowType = FilteringQueryJoin.FirstOrDefault().GetType();
+                    foreach (var Row in FilteringQueryJoin)
+                    {
+                        var BVParts = Row.BuildVersion.Split(new char[] { '.' }, StringSplitOptions.RemoveEmptyEntries);
+                        if (BVParts.Length > 2 && BVParts[0] != "0")
+                        {
+                            string CleanEngineVersion = string.Format("{0}.{1}.{2}", BVParts[0], BVParts[1], BVParts[2]);
 
-					string AllProperties = "";
-					foreach( var Property in RowType.GetProperties() )
-					{
-						AllProperties += Property.Name;
-						AllProperties += "; ";
-					}
+                            string[] RowProperties = new string[]
+                            {
+                                Row.GameName,
+                                Row.TimeOfCrash.ToString(),
+                                Row.BuiltFromCL,
+                                Row.PlatformName,
+                                Row.EngineMode,
+                                Row.MachineId,
+                                Row.Module,
+                                CleanEngineVersion,
+                                Row.Jira,
+                                Row.Branch,
+                                Row.CrashType == 1 ? "Crash" : "Assert",
+                                Row.EpicId,
+                                Row.BuggId.ToString()
+                            };
 
-					// Write header
-					CSVFile.WriteLine( AllProperties );
+                            string JoinedLine = string.Join("; ", RowProperties);
+                            JoinedLine += "; ";
 
-					foreach (var Row in FilteringQueryJoin)
-					{
-						var BVParts = Row.BuildVersion.Split( new char[] { '.' }, StringSplitOptions.RemoveEmptyEntries );
-						if (BVParts.Length > 2 && BVParts[0] != "0")
-						{
-							string CleanEngineVersion = string.Format( "{0}.{1}.{2}", BVParts[0], BVParts[1], BVParts[2] );
+                            CSVFile.WriteLine(JoinedLine);
+                        }
+                    }
 
-							string[] RowProperties = new string[]
-							{
-								Row.GameName,
-								Row.TimeOfCrash.ToString(),
-								Row.BuiltFromCL,
-								Row.PlatformName,
-								Row.EngineMode,
-								Row.MachineId,
-								Row.Module,
-								CleanEngineVersion,
-								Row.Jira,
-								Row.Branch,
-								Row.CrashType == 1 ? "Crash" : "Assert",
-								Row.EpicId,
-								Row.BuggId.ToString()
-							};
+                    CSVFile.Flush();
+                    CSVFile.Close();
+                    CSVFile = null;
+                }
 
-							string JoinedLine = string.Join( "; ", RowProperties );
-							JoinedLine += "; ";
+                List<FCSVRow> CSVRows = FilteringQueryJoin
+                    .OrderByDescending(X => X.TimeOfCrash)
+                    .Take(32)
+                    .Select(c => new FCSVRow
+                    {
+                        GameName = c.GameName,
+                        TimeOfCrash = c.TimeOfCrash,
+                        BuiltFromCL = c.BuiltFromCL,
+                        PlatformName = c.PlatformName,
+                        EngineMode = c.EngineMode,
+                        MachineId = c.MachineId,
+                        Module = c.Module,
+                        BuildVersion = c.BuildVersion,
+                        Jira = c.Jira,
+                        Branch = c.Branch,
+                        CrashType = c.CrashType,
+                        EpicId = c.EpicId,
+                        BuggId = c.BuggId,
+                    })
+                    .ToList();
 
-							CSVFile.WriteLine( JoinedLine );
-						}
-					}
-
-					CSVFile.Flush();
-					CSVFile.Close();
-					CSVFile = null;
-				}
-
-				List<FCSVRow> CSVRows = FilteringQueryJoin
-					.OrderByDescending( X => X.TimeOfCrash )
-					.Take( 32 )
-					.Select( c => new FCSVRow 
-					{
-						GameName = c.GameName,
-						TimeOfCrash = c.TimeOfCrash,
-						BuiltFromCL = c.BuiltFromCL,
-						PlatformName = c.PlatformName,
-						EngineMode = c.EngineMode,
-						MachineId = c.MachineId,
-						Module = c.Module,
-						BuildVersion = c.BuildVersion,
-						Jira = c.Jira,
-						Branch = c.Branch,
-						CrashType = c.CrashType,
-						EpicId = c.EpicId,
-						BuggId = c.BuggId,
-					} )
-					.ToList();
-				
-				return new CSV_ViewModel
-				{
-					CSVRows = CSVRows,
-					CSVPathname = CSVPathname,
-					DateFrom = (long)( FormData.DateFrom - CrashesViewModel.Epoch ).TotalMilliseconds,
-					DateTo = (long)( FormData.DateTo - CrashesViewModel.Epoch ).TotalMilliseconds,
-					DateTimeFrom = FormData.DateFrom,
-					DateTimeTo = FormData.DateTo,
-					AffectedUsersFiltered = AffectedUsersFiltered,
-					UniqueCrashesFiltered = UniqueCrashesFiltered,
-					CrashesFilteredWithDate = CrashesFilteredWithDate,
-					TotalCrashes = TotalCrashes,
-					TotalCrashesYearToDate = TotalCrashesYearToDate,
-				};
+			    return new CSV_ViewModel()
+                {
+                    CSVRows = CSVRows,
+                    CSVPathname = CSVPathname,
+                    DateFrom = (long)(FormData.DateFrom - CrashesViewModel.Epoch).TotalMilliseconds,
+                    DateTo = (long)(FormData.DateTo - CrashesViewModel.Epoch).TotalMilliseconds,
+                    DateTimeFrom = FormData.DateFrom,
+                    DateTimeTo = FormData.DateTo,
+                    AffectedUsersFiltered = AffectedUsersFiltered,
+                    UniqueCrashesFiltered = UniqueCrashesFiltered,
+                    CrashesFilteredWithDate = CrashesFilteredWithDate,
+                    TotalCrashes = TotalCrashes,
+                    TotalCrashesYearToDate = TotalCrashesYearToDate,
+                };
 			}
 		}
 
@@ -307,11 +295,42 @@ namespace Tools.CrashReporter.CrashReportWebSite.Controllers
 		{
 			using( FAutoScopedLogTimer LogTimer = new FAutoScopedLogTimer( this.GetType().ToString(), bCreateNewLog: true ) )
 			{
-				FormHelper FormData = new FormHelper( Request, Form, "JustReport" );
-				CSV_ViewModel Results = GetResults( FormData );
-				Results.GenerationTime = LogTimer.GetElapsedSeconds().ToString( "F2" );
-				return View( "Index", Results );
+			    var model = new CSV_ViewModel();
+			    model.DateTimeFrom = DateTime.Now.AddDays(-7);
+			    model.DateTimeTo = DateTime.Now;
+			    model.DateFrom = (long) (model.DateTimeFrom - CrashesViewModel.Epoch).TotalMilliseconds;
+			    model.DateTo = (long) (model.DateTimeTo - CrashesViewModel.Epoch).TotalMilliseconds;
+                return View("Index", model);
 			}
 		}
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="Form"></param>
+        /// <returns></returns>
+	    public ActionResult GenerateCSV(FormCollection Form)
+        {
+            using (var logTimer = new FAutoScopedLogTimer(this.GetType().ToString(), bCreateNewLog: true))
+            {
+                var formData = new FormHelper(Request, Form, "JustReport");
+                var results = GetResults(formData);
+                results.GenerationTime = logTimer.GetElapsedSeconds().ToString("F2");
+                return View("CSV", results);
+            }
+        }
+
+        /// <summary>
+        /// Holding on to entity contexts for too long causes desynchronisation errors
+        /// so dispose of the context when we're done with this controller
+        /// </summary>
+        /// <param name="disposing"></param>
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing)
+            {
+                _unitOfWork.Dispose();
+            }
+        }
 	}
 }

@@ -39,6 +39,7 @@ public:
 
 	virtual void Tick() = 0;
 
+	virtual void ForceRefresh() = 0;
 	virtual void RequestRefresh() = 0;
 
 	virtual void AddColumn( const TWeakObjectPtr< class UObject >& Object ) = 0;

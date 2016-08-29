@@ -28,21 +28,21 @@ UClass* UGridPanel::GetSlotClass() const
 	return UGridSlot::StaticClass();
 }
 
-void UGridPanel::OnSlotAdded(UPanelSlot* Slot)
+void UGridPanel::OnSlotAdded(UPanelSlot* InSlot)
 {
 	// Add the child to the live canvas if it already exists
 	if ( MyGridPanel.IsValid() )
 	{
-		Cast<UGridSlot>(Slot)->BuildSlot(MyGridPanel.ToSharedRef());
+		CastChecked<UGridSlot>(InSlot)->BuildSlot(MyGridPanel.ToSharedRef());
 	}
 }
 
-void UGridPanel::OnSlotRemoved(UPanelSlot* Slot)
+void UGridPanel::OnSlotRemoved(UPanelSlot* InSlot)
 {
 	// Remove the widget from the live slot if it exists.
 	if ( MyGridPanel.IsValid() )
 	{
-		TSharedPtr<SWidget> Widget = Slot->Content->GetCachedWidget();
+		TSharedPtr<SWidget> Widget = InSlot->Content->GetCachedWidget();
 		if ( Widget.IsValid() )
 		{
 			MyGridPanel->RemoveSlot(Widget.ToSharedRef());
@@ -54,9 +54,9 @@ TSharedRef<SWidget> UGridPanel::RebuildWidget()
 {
 	MyGridPanel = SNew(SGridPanel);
 
-	for ( UPanelSlot* Slot : Slots )
+	for ( UPanelSlot* PanelSlot : Slots )
 	{
-		if ( UGridSlot* TypedSlot = Cast<UGridSlot>(Slot) )
+		if ( UGridSlot* TypedSlot = Cast<UGridSlot>(PanelSlot) )
 		{
 			TypedSlot->Parent = this;
 			TypedSlot->BuildSlot( MyGridPanel.ToSharedRef() );
@@ -74,6 +74,8 @@ UGridSlot* UGridPanel::AddChildToGrid(UWidget* Content)
 void UGridPanel::SynchronizeProperties()
 {
 	Super::SynchronizeProperties();
+
+	MyGridPanel->ClearFill();
 
 	for ( int ColumnIndex = 0; ColumnIndex < ColumnFill.Num(); ColumnIndex++ )
 	{

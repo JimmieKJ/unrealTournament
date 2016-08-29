@@ -17,9 +17,10 @@ class SComboRow : public STableRow< OptionType >
 public:
 
 	SLATE_BEGIN_ARGS( SComboRow )
-		: _Content()
+		: _Style(&FCoreStyle::Get().GetWidgetStyle<FTableRowStyle>("TableView.Row"))
+		, _Content()
 		{}
-
+		SLATE_STYLE_ARGUMENT(FTableRowStyle, Style)
 		SLATE_DEFAULT_SLOT( FArguments, Content )
 	SLATE_END_ARGS()
 
@@ -32,6 +33,7 @@ public:
 	{
 		STableRow< OptionType >::Construct(
 			typename STableRow<OptionType>::FArguments()
+			.Style(InArgs._Style)
 			.Content()
 			[
 				InArgs._Content.Widget
@@ -79,6 +81,7 @@ public:
 		: _Content()
 		, _ComboBoxStyle( &FCoreStyle::Get().GetWidgetStyle< FComboBoxStyle >( "ComboBox" ) )
 		, _ButtonStyle(nullptr)
+		, _ItemStyle( &FCoreStyle::Get().GetWidgetStyle< FTableRowStyle >( "TableView.Row" ) )
 		, _ContentPadding(FMargin(4.0, 2.0))
 		, _ForegroundColor(FCoreStyle::Get().GetSlateColor("InvertedForeground"))
 		, _OptionsSource()
@@ -97,6 +100,8 @@ public:
 
 		/** The visual style of the button part of the combo box (overrides ComboBoxStyle) */
 		SLATE_STYLE_ARGUMENT( FButtonStyle, ButtonStyle )
+
+		SLATE_STYLE_ARGUMENT(FTableRowStyle, ItemStyle)
 
 		SLATE_ATTRIBUTE( FMargin, ContentPadding )
 		SLATE_ATTRIBUTE( FSlateColor, ForegroundColor )
@@ -138,6 +143,8 @@ public:
 	void Construct( const FArguments& InArgs )
 	{
 		check(InArgs._ComboBoxStyle);
+
+		ItemStyle = InArgs._ItemStyle;
 
 		// Work out which values we should use based on whether we were given an override, or should use the style's version
 		const FComboButtonStyle& OurComboButtonStyle = InArgs._ComboBoxStyle->ComboButtonStyle;
@@ -229,7 +236,7 @@ protected:
 	/** Handle key presses that SListView ignores */
 	virtual FReply OnHandleKeyPressed(FKey KeyPressed)
 	{
-		if (KeyPressed == EKeys::Enter)
+		if (KeyPressed == EKeys::Enter || KeyPressed == EKeys::SpaceBar || KeyPressed == EKeys::Gamepad_FaceButton_Bottom)
 		{
 			TArray<OptionType> SelectedItems = ComboListView->GetSelectedItems();
 			if (SelectedItems.Num() > 0)
@@ -250,7 +257,7 @@ protected:
 	{
 		const FKey Key = InKeyEvent.GetKey();
 
-		if(Key == EKeys::Up)
+		if (Key == EKeys::Up || Key == EKeys::Gamepad_DPad_Up || Key == EKeys::Gamepad_LeftStick_Up)
 		{
 			const int32 SelectionIndex = OptionsSource->Find( GetSelectedItem() );
 			if ( SelectionIndex >= 1 )
@@ -261,7 +268,7 @@ protected:
 
 			return FReply::Handled();
 		}
-		else if(Key == EKeys::Down)
+		else if (Key == EKeys::Down || Key == EKeys::Gamepad_DPad_Down || Key == EKeys::Gamepad_LeftStick_Down)
 		{
 			const int32 SelectionIndex = OptionsSource->Find( GetSelectedItem() );
 			if ( SelectionIndex < OptionsSource->Num() - 1 )
@@ -294,6 +301,7 @@ private:
 		if (OnGenerateWidget.IsBound())
 		{
 			return SNew(SComboRow<OptionType>, OwnerTable)
+				.Style(ItemStyle)
 				[
 					OnGenerateWidget.Execute(InItem)
 				];
@@ -365,6 +373,9 @@ private:
 
 	/** The Sound to play when the selection is changed */
 	FSlateSound SelectionChangeSound;
+
+	/** The item style to use. */
+	const FTableRowStyle* ItemStyle;
 
 private:
 	/** Delegate that is invoked when the selected item in the combo box changes */

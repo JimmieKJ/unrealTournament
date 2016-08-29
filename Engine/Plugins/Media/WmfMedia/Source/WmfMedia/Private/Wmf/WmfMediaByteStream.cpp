@@ -1,6 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "WmfMediaPrivatePCH.h"
+#include "WmfMediaPCH.h"
+
+#if WMFMEDIA_SUPPORTED_PLATFORM
+
+#include "WmfMediaByteStream.h"
+#include "WmfMediaReadState.h"
 #include "AllowWindowsPlatformTypes.h"
 
 
@@ -33,19 +38,24 @@ STDMETHODIMP FWmfMediaByteStream::Invoke(IMFAsyncResult* AsyncResult)
 {
 	// recover read state
 	IUnknown* State = NULL;
-	HRESULT Result = AsyncResult->GetState(&State);
-	check(SUCCEEDED(Result));
+	
+	if (FAILED(AsyncResult->GetState(&State)))
+	{
+		return S_OK;
+	}
 
 	IMFAsyncResult* CallerResult = NULL;
-	Result = State->QueryInterface(IID_PPV_ARGS(&CallerResult));
-	check(SUCCEEDED(Result));
+
+	if (FAILED(State->QueryInterface(IID_PPV_ARGS(&CallerResult))))
+	{
+		return S_OK;
+	}
 
 	IUnknown* Unknown = NULL;
 	
-	if (CallerResult != NULL)
+	if ((CallerResult != NULL) && FAILED(CallerResult->GetObject(&Unknown)))
 	{
-		Result = CallerResult->GetObject(&Unknown);
-		check(SUCCEEDED(Result));
+		return S_OK;
 	}
 
 	FWmfMediaReadState* ReadState = static_cast<FWmfMediaReadState*>(Unknown);
@@ -58,7 +68,7 @@ STDMETHODIMP FWmfMediaByteStream::Invoke(IMFAsyncResult* AsyncResult)
 	// notify caller
 	if (CallerResult != NULL)
 	{
-		CallerResult->SetStatus(Result);
+		CallerResult->SetStatus(S_OK);
 		::MFInvokeCallback(CallerResult);
 	}
 
@@ -81,10 +91,11 @@ STDMETHODIMP FWmfMediaByteStream::Invoke(IMFAsyncResult* AsyncResult)
 	return S_OK;
 }
 
+
 #if _MSC_VER == 1900
-#pragma warning(push)
-#pragma warning(disable:4838)
-#endif // _MSC_VER == 1900
+	#pragma warning(push)
+	#pragma warning(disable:4838)
+#endif
 
 STDMETHODIMP FWmfMediaByteStream::QueryInterface(REFIID RefID, void** Object)
 {
@@ -97,9 +108,10 @@ STDMETHODIMP FWmfMediaByteStream::QueryInterface(REFIID RefID, void** Object)
 
 	return QISearch( this, QITab, RefID, Object );
 }
+
 #if _MSC_VER == 1900
-#pragma warning(pop)
-#endif // _MSC_VER == 1900
+	#pragma warning(pop)
+#endif
 
 
 STDMETHODIMP_(ULONG) FWmfMediaByteStream::Release()
@@ -309,6 +321,12 @@ STDMETHODIMP FWmfMediaByteStream::SetCurrentPosition(QWORD qwPosition)
 		return S_FALSE;
 	}
 
+	if (qwPosition > (QWORD)Archive->TotalSize())
+	{
+		// MSDN is wrong: clamp instead of returning E_INVALIDARG
+		qwPosition = (QWORD)Archive->TotalSize();
+	}
+
 	Archive->Seek((int64)qwPosition);
 
 	return S_OK;
@@ -322,3 +340,5 @@ STDMETHODIMP FWmfMediaByteStream::Write(const BYTE* pb, ULONG cb, ULONG* pcbWrit
 
 
 #include "HideWindowsPlatformTypes.h"
+
+#endif //WMFMEDIA_SUPPORTED_PLATFORM

@@ -2,13 +2,13 @@
 
 #include "SlateRHIRendererPrivatePCH.h"
 
-FSlateFontTextureRHI::FSlateFontTextureRHI( uint32 InWidth, uint32 InHeight )
+FSlateFontTextureRHIResource::FSlateFontTextureRHIResource(uint32 InWidth, uint32 InHeight)
 	: Width( InWidth )
 	, Height( InHeight )
 {
 }
 
-void FSlateFontTextureRHI::InitDynamicRHI()
+void FSlateFontTextureRHIResource::InitDynamicRHI()
 {
 	check( IsInRenderingThread() );
 
@@ -55,7 +55,7 @@ void FSlateFontTextureRHI::InitDynamicRHI()
 	}
 }
 
-void FSlateFontTextureRHI::ReleaseDynamicRHI()
+void FSlateFontTextureRHIResource::ReleaseDynamicRHI()
 {
 	check( IsInRenderingThread() );
 
@@ -70,7 +70,7 @@ void FSlateFontTextureRHI::ReleaseDynamicRHI()
 
 FSlateFontAtlasRHI::FSlateFontAtlasRHI( uint32 Width, uint32 Height )
 	: FSlateFontAtlas( Width, Height ) 
-	, FontTexture( new FSlateFontTextureRHI( Width, Height ) )
+	, FontTexture( new FSlateFontTextureRHIResource( Width, Height ) )
 {
 }
 
@@ -105,7 +105,7 @@ void FSlateFontAtlasRHI::ConditionalUpdateTexture()
 
 			BeginInitResource( FontTexture.Get() );
 
-			ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER( SlateUpdateFontTextureCommand,
+			ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER( SlateUpdateFontAtlasTextureCommand,
 				FSlateFontAtlasRHI&, Atlas, *this,
 			{
 				uint32 DestStride;
@@ -118,4 +118,63 @@ void FSlateFontAtlasRHI::ConditionalUpdateTexture()
 
 		bNeedsUpdate = false;
 	}
+}
+
+FSlateFontTextureRHI::FSlateFontTextureRHI(const uint32 InWidth, const uint32 InHeight, const TArray<uint8>& InRawData)
+	: FontTexture(new FSlateFontTextureRHIResource(InWidth, InHeight))
+{
+	if (IsInRenderingThread())
+	{
+		FontTexture->InitResource();
+		UpdateTextureFromSource(InWidth, InHeight, InRawData);
+	}
+	else
+	{
+		checkSlow(IsThreadSafeForSlateRendering());
+
+		PendingSourceData.Reset(new FPendingSourceData(InWidth, InHeight, InRawData));
+
+		BeginInitResource(FontTexture.Get());
+
+		ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(SlateUpdateFontTextureCommand,
+			FSlateFontTextureRHI&, FontTexture, *this,
+			{
+				FontTexture.UpdateTextureFromSource(FontTexture.PendingSourceData->SourceWidth, FontTexture.PendingSourceData->SourceHeight, FontTexture.PendingSourceData->SourceData);
+				FontTexture.PendingSourceData.Reset();
+			});
+	}
+}
+
+FSlateFontTextureRHI::~FSlateFontTextureRHI()
+{
+}
+
+void FSlateFontTextureRHI::ReleaseResources()
+{
+	checkSlow(IsThreadSafeForSlateRendering());
+
+	BeginReleaseResource(FontTexture.Get());
+}
+
+void FSlateFontTextureRHI::UpdateTextureFromSource(const uint32 SourceWidth, const uint32 SourceHeight, const TArray<uint8>& SourceData)
+{
+	static const uint32 BytesPerPixel = sizeof(uint8);
+
+	uint32 DestStride;
+	uint8* LockedTextureData = static_cast<uint8*>(RHILockTexture2D(FontTexture->GetTypedResource(), 0, RLM_WriteOnly, /*out*/ DestStride, false));
+
+	// If our stride matches our width, we can copy in a single call, rather than copy each line
+	if (BytesPerPixel * SourceWidth == DestStride)
+	{
+		FMemory::Memcpy(LockedTextureData, SourceData.GetData(), BytesPerPixel * SourceWidth * SourceHeight);
+	}
+	else
+	{
+		for (uint32 RowIndex = 0; RowIndex < SourceHeight; ++RowIndex)
+		{
+			FMemory::Memcpy(LockedTextureData + (RowIndex * DestStride), SourceData.GetData() + (RowIndex * SourceWidth), BytesPerPixel * SourceWidth);
+		}
+	}
+	
+	RHIUnlockTexture2D(FontTexture->GetTypedResource(), 0, false);
 }

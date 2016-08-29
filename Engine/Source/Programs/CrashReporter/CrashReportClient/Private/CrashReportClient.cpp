@@ -225,32 +225,38 @@ bool FCrashReportClient::Tick(float UnusedDeltaTime)
 			FCrashUploadBase::StaticInitialize( ErrorReport );
 		}
 
-		if( !ReceiverUploader.IsUploadCalled())
+		if (ReceiverUploader.IsEnabled())
 		{
-			// Can be called only when we have all files.
-			ReceiverUploader.BeginUpload( ErrorReport );
+			if (!ReceiverUploader.IsUploadCalled())
+			{
+				// Can be called only when we have all files.
+				ReceiverUploader.BeginUpload(ErrorReport);
+			}
+
+			// IsWorkDone will always return true here (since ReceiverUploader can't finish until the diagnosis has been sent), but it
+			//  has the side effect of joining the worker thread.
+			if (!ReceiverUploader.IsFinished())
+			{
+				// More ticks, please
+				return true;
+			}
 		}
 
-		// IsWorkDone will always return true here (since ReceiverUploader can't finish until the diagnosis has been sent), but it
-		//  has the side effect of joining the worker thread.
-		if( !ReceiverUploader.IsFinished() )
+		if (DataRouterUploader.IsEnabled())
 		{
-			// More ticks, please
-			return true;
-		}
+			if (!DataRouterUploader.IsUploadCalled())
+			{
+				// Can be called only when we have all files.
+				DataRouterUploader.BeginUpload(ErrorReport);
+			}
 
-		if (!DataRouterUploader.IsUploadCalled())
-		{
-			// Can be called only when we have all files.
-			DataRouterUploader.BeginUpload(ErrorReport);
-		}
-
-		// IsWorkDone will always return true here (since DataRouterUploader can't finish until the diagnosis has been sent), but it
-		//  has the side effect of joining the worker thread.
-		if (!DataRouterUploader.IsFinished())
-		{
-			// More ticks, please
-			return true;
+			// IsWorkDone will always return true here (since DataRouterUploader can't finish until the diagnosis has been sent), but it
+			//  has the side effect of joining the worker thread.
+			if (!DataRouterUploader.IsFinished())
+			{
+				// More ticks, please
+				return true;
+			}
 		}
 	}
 

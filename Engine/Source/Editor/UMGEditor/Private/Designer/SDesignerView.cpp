@@ -18,6 +18,10 @@
 #include "BlueprintEditorUtils.h"
 
 #include "WidgetTemplateDragDropOp.h"
+#include "DragAndDrop/AssetDragDropOp.h"
+
+#include "Templates/WidgetTemplateBlueprintClass.h"
+
 #include "SZoomPan.h"
 #include "SRuler.h"
 #include "SDisappearingBar.h"
@@ -255,7 +259,7 @@ void SDesignerView::Construct(const FArguments& InArgs, TSharedPtr<FWidgetBluepr
 	Register(MakeShareable(new FUniformGridSlotExtension()));
 	Register(MakeShareable(new FGridSlotExtension()));
 
-	GEditor->OnBlueprintReinstanced().AddRaw(this, &SDesignerView::OnBlueprintReinstanced);
+	GEditor->OnBlueprintReinstanced().AddRaw(this, &SDesignerView::OnPreviewNeedsRecreation);
 
 	BindCommands();
 
@@ -365,6 +369,7 @@ void SDesignerView::Construct(const FArguments& InArgs, TSharedPtr<FWidgetBluepr
 	PinnedBlueprintEditor->OnSelectedWidgetsChanged.AddRaw(this, &SDesignerView::OnEditorSelectionChanged);
 	PinnedBlueprintEditor->OnHoveredWidgetSet.AddRaw(this, &SDesignerView::OnHoveredWidgetSet);
 	PinnedBlueprintEditor->OnHoveredWidgetCleared.AddRaw(this, &SDesignerView::OnHoveredWidgetCleared);
+	PinnedBlueprintEditor->OnWidgetPreviewUpdated.AddRaw(this, &SDesignerView::OnPreviewNeedsRecreation);
 
 	ZoomToFit(/*bInstantZoom*/ true);
 }
@@ -501,7 +506,7 @@ TSharedRef<SWidget> SDesignerView::CreateOverlayUI()
 			.Delta(1)
 			.MinSliderValue(1)
 			.MinValue(1)
-			.MaxSliderValue(TOptional<int32>(1000))
+			.MaxSliderValue(TOptional<int32>(10000))
 			.Value(this, &SDesignerView::GetCustomResolutionWidth)
 			.OnValueChanged(this, &SDesignerView::OnCustomResolutionWidthChanged)
 			.Visibility(this, &SDesignerView::GetCustomResolutionEntryVisibility)
@@ -522,7 +527,7 @@ TSharedRef<SWidget> SDesignerView::CreateOverlayUI()
 			.AllowSpin(true)
 			.Delta(1)
 			.MinSliderValue(1)
-			.MaxSliderValue(TOptional<int32>(1000))
+			.MaxSliderValue(TOptional<int32>(10000))
 			.MinValue(1)
 			.Value(this, &SDesignerView::GetCustomResolutionHeight)
 			.OnValueChanged(this, &SDesignerView::OnCustomResolutionHeightChanged)
@@ -627,6 +632,7 @@ SDesignerView::~SDesignerView()
 		PinnedEditor->OnSelectedWidgetsChanged.RemoveAll(this);
 		PinnedEditor->OnHoveredWidgetSet.RemoveAll(this);
 		PinnedEditor->OnHoveredWidgetCleared.RemoveAll(this);
+		PinnedEditor->OnWidgetPreviewUpdated.RemoveAll(this);
 	}
 
 	if ( GEditor )
@@ -886,7 +892,10 @@ void SDesignerView::PushDesignerMessage(const FText& Message)
 
 void SDesignerView::PopDesignerMessage()
 {
-	DesignerMessageStack.Pop();
+	if ( DesignerMessageStack.Num() > 0)
+	{
+		DesignerMessageStack.Pop();
+	}
 }
 
 void SDesignerView::OnEditorSelectionChanged()
@@ -1157,7 +1166,7 @@ void SDesignerView::Register(TSharedRef<FDesignerExtension> Extension)
 	DesignerExtensions.Add(Extension);
 }
 
-void SDesignerView::OnBlueprintReinstanced()
+void SDesignerView::OnPreviewNeedsRecreation()
 {
 	// Because widget blueprints can contain other widget blueprints, the safe thing to do is to have all
 	// designers jettison their previews on the compilation of any widget blueprint.  We do this to prevent
@@ -1407,13 +1416,13 @@ FReply SDesignerView::OnMouseMove(const FGeometry& MyGeometry, const FPointerEve
 						{
 							const FSlateRenderTransform& AbsoluteToLocalTransform = Inverse(ParentGeometry.GetAccumulatedRenderTransform());
 
-							FWidgetTransform RenderTransform = WidgetPreview->RenderTransform;
-							RenderTransform.Translation += AbsoluteToLocalTransform.TransformVector(MouseEvent.GetCursorDelta());
+							FWidgetTransform WidgetRenderTransform = WidgetPreview->RenderTransform;
+							WidgetRenderTransform.Translation += AbsoluteToLocalTransform.TransformVector(MouseEvent.GetCursorDelta());
 
 							static const FName RenderTransformName(TEXT("RenderTransform"));
 
-							FObjectEditorUtils::SetPropertyValue<UWidget, FWidgetTransform>(WidgetPreview, RenderTransformName, RenderTransform);
-							FObjectEditorUtils::SetPropertyValue<UWidget, FWidgetTransform>(SelectedWidget.GetTemplate(), RenderTransformName, RenderTransform);
+							FObjectEditorUtils::SetPropertyValue<UWidget, FWidgetTransform>(WidgetPreview, RenderTransformName, WidgetRenderTransform);
+							FObjectEditorUtils::SetPropertyValue<UWidget, FWidgetTransform>(SelectedWidget.GetTemplate(), RenderTransformName, WidgetRenderTransform);
 						}
 					}
 				}
@@ -1673,7 +1682,7 @@ void SDesignerView::UpdatePreviewWidget(bool bForceUpdate)
 
 			// The constraint box for the widget size needs to inside the DPI scaler in order to make sure it too
 			// is sized accurately for the size screen it's on.
-			TSharedRef<SBox> NewPreviewSizeConstraintBox = SAssignNew(PreviewSizeConstraint, SBox)
+			TSharedRef<SBox> NewPreviewSizeConstraintBox = SNew(SBox)
 				.WidthOverride(this, &SDesignerView::GetPreviewSizeWidth)
 				.HeightOverride(this, &SDesignerView::GetPreviewSizeHeight)
 				[
@@ -1902,6 +1911,8 @@ FReply SDesignerView::OnDragOver(const FGeometry& MyGeometry, const FDragDropEve
 
 void SDesignerView::ProcessDropAndAddWidget(const FGeometry& MyGeometry, const FDragDropEvent& DragDropEvent, const bool bIsPreview)
 {
+	TSharedPtr<FDragDropOperation> DragOperation = DragDropEvent.GetOperation();
+
 	// In order to prevent the GetWidgetAtCursor code from picking the widgets we're about to move, we need to mark them
 	// as the drop preview widgets before any other code can run.
 	TSharedPtr<FSelectedWidgetDragDropOp> SelectedDragDropOp = DragDropEvent.GetOperationAs<FSelectedWidgetDragDropOp>();
@@ -1914,6 +1925,7 @@ void SDesignerView::ProcessDropAndAddWidget(const FGeometry& MyGeometry, const F
 			FDropPreview DropPreview;
 			DropPreview.Parent = nullptr;
 			DropPreview.Widget = DraggedWidget.Preview;
+			DropPreview.DragOperation = DragOperation;
 			DropPreviews.Add(DropPreview);
 		}
 	}
@@ -1932,11 +1944,24 @@ void SDesignerView::ProcessDropAndAddWidget(const FGeometry& MyGeometry, const F
 	UWidgetBlueprint* BP = GetBlueprint();
 
 	TSharedPtr<FWidgetTemplateDragDropOp> TemplateDragDropOp = DragDropEvent.GetOperationAs<FWidgetTemplateDragDropOp>();
-	if ( TemplateDragDropOp.IsValid() )
+	TSharedPtr<FAssetDragDropOp> AssetDragDropOp = DragDropEvent.GetOperationAs<FAssetDragDropOp>();
+	
+	bool bIsAssetDrop = TemplateDragDropOp.IsValid();
+	if ( AssetDragDropOp.IsValid() )
+	{
+		// Allow users dragging a blueprint in from the content browser to drag and drop it into the designer.
+		const static FName NAME_WidgetBlueprint(TEXT("WidgetBlueprint"));
+		if ( AssetDragDropOp->AssetData[0].AssetClass == NAME_WidgetBlueprint )
+		{
+			bIsAssetDrop = true;
+		}
+	}
+
+	if ( bIsAssetDrop )
 	{
 		BlueprintEditor.Pin()->SetHoveredWidget(HitResult.Widget);
 
-		TemplateDragDropOp->SetCursorOverride(TOptional<EMouseCursor::Type>());
+		DragOperation->SetCursorOverride(TOptional<EMouseCursor::Type>());
 
 		// If there's no root widget go ahead and add the widget into the root slot.
 		if ( BP->WidgetTree->RootWidget == nullptr )
@@ -1950,16 +1975,25 @@ void SDesignerView::ProcessDropAndAddWidget(const FGeometry& MyGeometry, const F
 			}
 
 			// TODO UMG This method isn't great, maybe the user widget should just be a canvas.
+			UWidget* DragDropPreviewWidget = nullptr;
+			if ( TemplateDragDropOp.IsValid() )
+			{
+				DragDropPreviewWidget = TemplateDragDropOp->Template->Create(BP->WidgetTree);
+			}
+			else
+			{
+				DragDropPreviewWidget = FWidgetTemplateBlueprintClass(AssetDragDropOp->AssetData[0]).Create(BP->WidgetTree);
+			}
 
 			// Add it to the root if there are no other widgets to add it to.
-			UWidget* Widget = TemplateDragDropOp->Template->Create(BP->WidgetTree);
-			Widget->SetDesignerFlags(BlueprintEditor.Pin()->GetCurrentDesignerFlags());
+			DragDropPreviewWidget->SetDesignerFlags(BlueprintEditor.Pin()->GetCurrentDesignerFlags());
 
-			BP->WidgetTree->RootWidget = Widget;
+			BP->WidgetTree->RootWidget = DragDropPreviewWidget;
 
 			FDropPreview DropPreview;
-			DropPreview.Widget = Widget;
+			DropPreview.Widget = DragDropPreviewWidget;
 			DropPreview.Parent = nullptr;
+			DropPreview.DragOperation = DragOperation;
 			DropPreviews.Add(DropPreview);
 
 			if ( bIsPreview )
@@ -1986,19 +2020,28 @@ void SDesignerView::ProcessDropAndAddWidget(const FGeometry& MyGeometry, const F
 				BP->WidgetTree->Modify();
 			}
 
+			UWidget* DragDropPreviewWidget = nullptr;
+			if ( TemplateDragDropOp.IsValid() )
+			{
+				DragDropPreviewWidget = TemplateDragDropOp->Template->Create(BP->WidgetTree);
+			}
+			else
+			{
+				DragDropPreviewWidget = FWidgetTemplateBlueprintClass(AssetDragDropOp->AssetData[0]).Create(BP->WidgetTree);
+			}
+
 			// Construct the widget and mark it for design time rendering.
-			UWidget* Widget = TemplateDragDropOp->Template->Create(BP->WidgetTree);
-			Widget->SetDesignerFlags(BlueprintEditor.Pin()->GetCurrentDesignerFlags());
+			DragDropPreviewWidget->SetDesignerFlags(BlueprintEditor.Pin()->GetCurrentDesignerFlags());
 
 			// Determine local position inside the parent widget and add the widget to the slot.
 			FVector2D LocalPosition = WidgetUnderCursorGeometry.AbsoluteToLocal(DragDropEvent.GetScreenSpacePosition());
-			if ( UPanelSlot* Slot = Parent->AddChild(Widget) )
+			if ( UPanelSlot* Slot = Parent->AddChild(DragDropPreviewWidget) )
 			{
 				// Special logic for canvas panel slots.
 				if ( UCanvasPanelSlot* CanvasSlot = Cast<UCanvasPanelSlot>(Slot) )
 				{
 					// HACK UMG - This seems like a bad idea to call TakeWidget
-					TSharedPtr<SWidget> SlateWidget = Widget->TakeWidget();
+					TSharedPtr<SWidget> SlateWidget = DragDropPreviewWidget->TakeWidget();
 					SlateWidget->SlatePrepass();
 					const FVector2D& WidgetDesiredSize = SlateWidget->GetDesiredSize();
 
@@ -2017,8 +2060,9 @@ void SDesignerView::ProcessDropAndAddWidget(const FGeometry& MyGeometry, const F
 				}
 
 				FDropPreview DropPreview;
-				DropPreview.Widget = Widget;
+				DropPreview.Widget = DragDropPreviewWidget;
 				DropPreview.Parent = Parent;
+				DropPreview.DragOperation = DragOperation;
 				DropPreviews.Add(DropPreview);
 
 				if ( bIsPreview )
@@ -2030,7 +2074,7 @@ void SDesignerView::ProcessDropAndAddWidget(const FGeometry& MyGeometry, const F
 			}
 			else
 			{
-				TemplateDragDropOp->SetCursorOverride(EMouseCursor::SlashedCircle);
+				DragOperation->SetCursorOverride(EMouseCursor::SlashedCircle);
 
 				// TODO UMG ERROR Slot can not be created because maybe the max children has been reached.
 				//          Maybe we can traverse the hierarchy and add it to the first parent that will accept it?
@@ -2043,7 +2087,7 @@ void SDesignerView::ProcessDropAndAddWidget(const FGeometry& MyGeometry, const F
 		}
 		else
 		{
-			TemplateDragDropOp->SetCursorOverride(EMouseCursor::SlashedCircle);
+			DragOperation->SetCursorOverride(EMouseCursor::SlashedCircle);
 		}
 	}
 
@@ -2104,6 +2148,7 @@ void SDesignerView::ProcessDropAndAddWidget(const FGeometry& MyGeometry, const F
 				if (ensure(Widget))
 				{
 					bool bIsChangingParent = Widget->GetParent() != NewParent;
+					UBlueprint* OriginalBP = nullptr;
 
 					check(Widget->GetParent() != nullptr || bIsChangingParent);
 
@@ -2117,6 +2162,15 @@ void SDesignerView::ProcessDropAndAddWidget(const FGeometry& MyGeometry, const F
 
 							BP->WidgetTree->SetFlags(RF_Transactional);
 							BP->WidgetTree->Modify();
+
+							// If the Widget is changing parents, there's a chance it might be moving to a different WidgetTree as well.
+							UWidgetTree* OriginalWidgetTree = Cast<UWidgetTree>(Widget->GetOuter());
+							
+							if (UWidgetTree::TryMoveWidgetToNewTree(Widget, BP->WidgetTree))
+							{
+								// The Widget likely originated from a different blueprint, so get what blueprint it was originally a part of.
+								OriginalBP = OriginalWidgetTree ? OriginalWidgetTree->GetTypedOuter<UBlueprint>() : nullptr;
+							}
 						}
 
 						Widget->Modify();
@@ -2130,6 +2184,12 @@ void SDesignerView::ProcessDropAndAddWidget(const FGeometry& MyGeometry, const F
 						}
 
 						Widget->GetParent()->RemoveChild(Widget);
+
+						// The Widget originated from a different blueprint, so mark it as modified.
+						if (OriginalBP && OriginalBP != BP)
+						{
+							FBlueprintEditorUtils::MarkBlueprintAsStructurallyModified(OriginalBP);
+						}
 					}
 
 					FVector2D ScreenSpacePosition = DragDropEvent.GetScreenSpacePosition();

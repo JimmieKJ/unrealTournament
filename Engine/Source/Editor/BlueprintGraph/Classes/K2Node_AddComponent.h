@@ -18,6 +18,10 @@ class UK2Node_AddComponent : public UK2Node_CallFunction
 	UPROPERTY()
 	FString TemplateBlueprint;
 
+	//~ Begin UObject Interface
+	virtual void PostDuplicate(bool bDuplicateForPIE) override;
+	//~ End UObject Interface
+
 	//~ Begin UEdGraphNode Interface
 	virtual void AllocateDefaultPins() override;
 	virtual void DestroyNode() override;
@@ -55,6 +59,9 @@ class UK2Node_AddComponent : public UK2Node_CallFunction
 	{
 		return FindPinChecked(TEXT("bManualAttachment"));
 	}
+
+	/** Helper method used to instantiate a new component template after duplication. */
+	BLUEPRINTGRAPH_API void MakeNewComponentTemplate();
 
 	/** Static name of function to call */
 	static BLUEPRINTGRAPH_API FName GetAddComponentFunctionName();

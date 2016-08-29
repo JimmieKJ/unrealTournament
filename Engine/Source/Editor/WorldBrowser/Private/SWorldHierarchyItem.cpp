@@ -296,7 +296,7 @@ void SWorldHierarchyItem::OnColorPickerCancelled(FLinearColor OriginalColor)
 
 void SWorldHierarchyItem::OnColorPickerInteractiveBegin()
 {
-	GEditor->BeginTransaction(NSLOCTEXT("FColorStructCustomization", "SetColorProperty", "Edit Level Draw Color"));
+	GEditor->BeginTransaction(LOCTEXT("EditLevelDragColor", "Edit Level Draw Color"));
 }
 
 void SWorldHierarchyItem::OnColorPickerInteractiveEnd()

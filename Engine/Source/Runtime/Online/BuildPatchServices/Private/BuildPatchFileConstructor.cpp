@@ -7,6 +7,8 @@
 
 #include "BuildPatchServicesPrivatePCH.h"
 
+using namespace BuildPatchConstants;
+
 // This define the number of bytes on a half-finished file that we ignore from the end
 // incase of previous partial write.
 #define NUM_BYTES_RESUME_IGNORE     1024
@@ -39,30 +41,36 @@ public:
 	// Whether we have resume data for this install
 	bool bHasResumeData;
 
+	// Whether we have resume data for a different install.
+	bool bHasIncompatibleResumeData;
+
 public:
 	/**
 	 * Constructor - reads in the resume data
 	 * @param InStagingDir      The install staging directory
 	 * @param InBuildManifest   The manifest we are installing from
 	 */
-	FResumeData( const FString& InStagingDir, const FBuildPatchAppManifestRef& InBuildManifest )
-		: StagingDir( InStagingDir )
-		, ResumeDataFile( InStagingDir / TEXT( "$resumeData" ) )
-		, PatchVersion( InBuildManifest->GetAppName() + InBuildManifest->GetVersionString() )
-		, BuildManifest( InBuildManifest )
+	FResumeData(const FString& InStagingDir, const FBuildPatchAppManifestRef& InBuildManifest)
+		: StagingDir(InStagingDir)
+		, ResumeDataFile(InStagingDir / TEXT("$resumeData"))
+		, PatchVersion(InBuildManifest->GetAppName() + InBuildManifest->GetVersionString())
+		, BuildManifest(InBuildManifest)
+		, bHasResumeData(false)
+		, bHasIncompatibleResumeData(false)
 	{
 		// Load data from previous resume file
 		bHasResumeData = FPlatformFileManager::Get().GetPlatformFile().FileExists(*ResumeDataFile);
 		GLog->Logf(TEXT("BuildPatchResumeData file found %d"), bHasResumeData);
-		if( bHasResumeData )
+		if (bHasResumeData)
 		{
 			FString PrevResumeData;
 			TArray< FString > ResumeDataLines;
-			FFileHelper::LoadFileToString( PrevResumeData, *ResumeDataFile );
-			PrevResumeData.ParseIntoArray( ResumeDataLines, TEXT( "\n" ), true );
+			FFileHelper::LoadFileToString(PrevResumeData, *ResumeDataFile);
+			PrevResumeData.ParseIntoArray(ResumeDataLines, TEXT("\n"), true);
 			// Line 1 will be the previously attempted version
 			FString PreviousVersion = (ResumeDataLines.Num() > 0) ? MoveTemp(ResumeDataLines[0]) : TEXT("");
-			bHasResumeData = PreviousVersion  == PatchVersion;
+			bHasResumeData = PreviousVersion == PatchVersion;
+			bHasIncompatibleResumeData = !bHasResumeData;
 			GLog->Logf(TEXT("BuildPatchResumeData version matched %d %s == %s"), bHasResumeData, *PreviousVersion, *PatchVersion);
 		}
 	}
@@ -147,12 +155,14 @@ bool FBuildPatchFileConstructor::Init()
 	bool bStageDirExists = IFileManager::Get().DirectoryExists(*StagingDirectory);
 	if (!bStageDirExists)
 	{
-		FBuildPatchInstallError::SetFatalError(EBuildPatchInstallError::InitializationError, FString::Printf(TEXT("File Constructor failed init: Stage directory missing %s"), *StagingDirectory));
+		UE_LOG(LogBuildPatchServices, Error, TEXT("FBuildPatchFileConstructor: Stage directory missing %s"), *StagingDirectory);
+		FBuildPatchInstallError::SetFatalError(EBuildPatchInstallError::InitializationError, InitializationErrorCodes::MissingStageDirectory);
 	}
 	bool bInstallDirExists = IFileManager::Get().DirectoryExists(*InstallDirectory);
 	if (!bInstallDirExists)
 	{
-		FBuildPatchInstallError::SetFatalError(EBuildPatchInstallError::InitializationError, FString::Printf(TEXT("File Constructor failed init: Install directory missing %s"), *InstallDirectory));
+		UE_LOG(LogBuildPatchServices, Error, TEXT("FBuildPatchFileConstructor: Install directory missing %s"), *InstallDirectory);
+		FBuildPatchInstallError::SetFatalError(EBuildPatchInstallError::InitializationError, InitializationErrorCodes::MissingInstallDirectory);
 	}
 	bool bReady = bStageDirExists && bInstallDirExists;
 	SetInitFailed(!bReady);
@@ -170,6 +180,14 @@ uint32 FBuildPatchFileConstructor::Run()
 
 	// Check for resume data
 	FResumeData ResumeData( StagingDirectory, BuildManifest );
+
+	// If we found incompatible resume data, we need to clean out the staging folder
+	// We don't delete the folder itself though as we should presume it was created with desired attributes
+	if (ResumeData.bHasIncompatibleResumeData)
+	{
+		GLog->Logf(TEXT("BuildPatchServices: Deleting incompatible stage files"));
+		DeleteDirectoryContents(StagingDirectory);
+	}
 
 	// Save for started version
 	ResumeData.SaveOut();
@@ -211,8 +229,8 @@ uint32 FBuildPatchFileConstructor::Run()
 		}
 		else
 		{
-			GWarn->Logf( TEXT( "BuildPatchServices: ERROR: Failed to construct file %s" ), *FPaths::GetCleanFilename( FileToConstruct ) );
-			FBuildPatchInstallError::SetFatalError( EBuildPatchInstallError::FileConstructionFail );
+			// This will only record and log if a failure was not already registered
+			FBuildPatchInstallError::SetFatalError(EBuildPatchInstallError::FileConstructionFail, ConstructionErrorCodes::UnknownFail);
 		}
 
 		// Pause
@@ -333,7 +351,6 @@ bool FBuildPatchFileConstructor::ConstructFileFromChunks( const FString& Filenam
 	const bool bIsFileData = BuildManifest->IsFileDataManifest();
 	bResumeExisting = bResumeExisting && !bIsFileData;
 	bool bSuccess = true;
-	FString ErrorString;
 	FString NewFilename = StagingDirectory / Filename;
 
 	// Calculate the hash as we write the data
@@ -415,6 +432,7 @@ bool FBuildPatchFileConstructor::ConstructFileFromChunks( const FString& Filenam
 
 		// Attempt to create the file
 		FArchive* NewFile = IFileManager::Get().CreateFileWriter( *NewFilename, bResumeExisting ? EFileWrite::FILEWRITE_Append : 0 );
+		uint32 LastError = FPlatformMisc::GetLastError();
 		bSuccess = NewFile != NULL;
 		if( bSuccess )
 		{
@@ -444,12 +462,13 @@ bool FBuildPatchFileConstructor::ConstructFileFromChunks( const FString& Filenam
 				}
 				else
 				{
-					ErrorString = TEXT( "Failed to construct file " );
-					ErrorString += Filename;
-					ErrorString += TEXT( " because of chunk " );
-					ErrorString += ChunkPart.Guid.ToString();
-					GWarn->Logf( TEXT( "BuildPatchFileConstructor: ERROR: %s" ), *ErrorString );
-					FBuildPatchInstallError::SetFatalError( EBuildPatchInstallError::FileConstructionFail, ErrorString );
+					// Only report or log if the first error
+					if (FBuildPatchInstallError::HasFatalError() == false)
+					{
+						FBuildPatchAnalytics::RecordConstructionError(Filename, INDEX_NONE, TEXT("Missing Chunk"));
+						UE_LOG(LogBuildPatchServices, Error, TEXT("FBuildPatchFileConstructor: Failed %s due to chunk %s"), *Filename, *ChunkPart.Guid.ToString());
+					}
+					FBuildPatchInstallError::SetFatalError(EBuildPatchInstallError::InitializationError, ConstructionErrorCodes::MissingChunkData);
 				}
 			}
 
@@ -470,30 +489,41 @@ bool FBuildPatchFileConstructor::ConstructFileFromChunks( const FString& Filenam
 				if (DriveSpace < RequiredSpace)
 				{
 					bError = true;
-					FBuildPatchAnalytics::RecordConstructionError(Filename, FPlatformMisc::GetLastError(), TEXT("Not Enough Disk Space"));
-					ErrorString = TEXT("Not enough disk space for new file ");
-					ErrorString += Filename;
-					GWarn->Logf(TEXT("BuildPatchFileConstructor: ERROR: %s"), *ErrorString);
-					FBuildPatchInstallError::SetFatalError(EBuildPatchInstallError::OutOfDiskSpace, ErrorString);
+					// Only report or log if the first error
+					if (FBuildPatchInstallError::HasFatalError() == false)
+					{
+						FBuildPatchAnalytics::RecordConstructionError(Filename, INDEX_NONE, TEXT("Not Enough Disk Space"));
+						UE_LOG(LogBuildPatchServices, Error, TEXT("FBuildPatchFileConstructor: Out of disk space. Avail:%u, Needed:%u, File:%s"), DriveSpace, RequiredSpace, *Filename);
+					}
+					// Always set
+					FBuildPatchInstallError::SetFatalError(EBuildPatchInstallError::OutOfDiskSpace, DiskSpaceErrorCodes::DuringInstallation);
 				}
 			}
 
+			// Otherwise we just couldn't make the file
 			if (!bError)
 			{
-				FBuildPatchAnalytics::RecordConstructionError(Filename, FPlatformMisc::GetLastError(), TEXT("Could Not Create File"));
-				ErrorString = TEXT("Could not create new file ");
-				ErrorString += Filename;
-				GWarn->Logf(TEXT("BuildPatchFileConstructor: ERROR: %s"), *ErrorString);
-				FBuildPatchInstallError::SetFatalError(EBuildPatchInstallError::FileConstructionFail, ErrorString);
+				// Only report or log if the first error
+				if (FBuildPatchInstallError::HasFatalError() == false)
+				{
+					FBuildPatchAnalytics::RecordConstructionError(Filename, LastError, TEXT("Could Not Create File"));
+					UE_LOG(LogBuildPatchServices, Error, TEXT("FBuildPatchFileConstructor: Could not create %s"), *Filename);
+				}
+				// Always set
+				FBuildPatchInstallError::SetFatalError(EBuildPatchInstallError::FileConstructionFail, ConstructionErrorCodes::FileCreateFail);
 			}
 		}
 	}
 	else
 	{
-		FBuildPatchAnalytics::RecordConstructionError( Filename, INDEX_NONE, TEXT( "Missing File Manifest" ) );
-		ErrorString = TEXT( "Build manifest does not contain a file manifest for " );
-		ErrorString += Filename;
-		FBuildPatchInstallError::SetFatalError( EBuildPatchInstallError::FileConstructionFail, ErrorString );
+		// Only report or log if the first error
+		if (FBuildPatchInstallError::HasFatalError() == false)
+		{
+			FBuildPatchAnalytics::RecordConstructionError(Filename, INDEX_NONE, TEXT("Missing File Manifest"));
+			UE_LOG(LogBuildPatchServices, Error, TEXT("FBuildPatchFileConstructor: Missing file manifest for %s"), *Filename);
+		}
+		// Always set
+		FBuildPatchInstallError::SetFatalError(EBuildPatchInstallError::FileConstructionFail, ConstructionErrorCodes::MissingFileInfo);
 	}
 
 	// Verify the hash for the file that we created
@@ -504,11 +534,14 @@ bool FBuildPatchFileConstructor::ConstructFileFromChunks( const FString& Filenam
 		bSuccess = HashValue == FileManifest->FileHash;
 		if( !bSuccess )
 		{
-			FBuildPatchAnalytics::RecordConstructionError( Filename, INDEX_NONE, TEXT( "Serialised Verify Fail" ) );
-			ErrorString = TEXT( "Verify failed after constructing file " );
-			ErrorString += Filename;
-			GWarn->Logf( TEXT( "BuildDataGenerator: ERROR: %s" ), *ErrorString );
-			FBuildPatchInstallError::SetFatalError( EBuildPatchInstallError::FileConstructionFail, ErrorString );
+			// Only report or log if the first error
+			if (FBuildPatchInstallError::HasFatalError() == false)
+			{
+				FBuildPatchAnalytics::RecordConstructionError(Filename, INDEX_NONE, TEXT("Serialised Verify Fail"));
+				UE_LOG(LogBuildPatchServices, Error, TEXT("FBuildPatchFileConstructor: Verify failed after constructing %s"), *Filename);
+			}
+			// Always set
+			FBuildPatchInstallError::SetFatalError(EBuildPatchInstallError::FileConstructionFail, ConstructionErrorCodes::OutboundCorrupt);
 		}
 	}
 
@@ -524,7 +557,7 @@ bool FBuildPatchFileConstructor::ConstructFileFromChunks( const FString& Filenam
 	}
 #endif
 	
-#if PLATFORM_ANDROID || PLATFORM_ANDROIDGL4 || PLATFORM_ANDROIDES31
+#if PLATFORM_ANDROID || PLATFORM_ANDROIDESDEFERRED
 	if (bSuccess)
 	{
 		IFileManager::Get().SetTimeStamp(*NewFilename, FDateTime::UtcNow());
@@ -637,6 +670,24 @@ bool FBuildPatchFileConstructor::InsertChunkData(const FChunkPartData& ChunkPart
 		return true;
 	}
 	return false;
+}
+
+
+void FBuildPatchFileConstructor::DeleteDirectoryContents(const FString& RootDirectory)
+{
+	TArray<FString> SubDirNames;
+	IFileManager::Get().FindFiles(SubDirNames, *(RootDirectory / TEXT("*")), false, true);
+	for (const FString& DirName : SubDirNames)
+	{
+		IFileManager::Get().DeleteDirectory(*(RootDirectory / DirName), false, true);
+	}
+
+	TArray<FString> SubFileNames;
+	IFileManager::Get().FindFiles(SubFileNames, *(RootDirectory / TEXT("*")), true, false);
+	for (const FString& FileName : SubFileNames)
+	{
+		IFileManager::Get().Delete(*(RootDirectory / FileName), false, true);
+	}
 }
 
 /**

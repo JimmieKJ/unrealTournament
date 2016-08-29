@@ -22,13 +22,7 @@ UEditorTutorial::UEditorTutorial(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
 #if WITH_EDITORONLY_DATA
-	static struct FAutomaticRegistrationOfLocalizationGatherer
-	{
-		FAutomaticRegistrationOfLocalizationGatherer()
-		{
-			FPropertyLocalizationDataGatherer::GetTypeSpecificLocalizationDataGatheringCallbacks().Add(UEditorTutorial::StaticClass(), &GatherEditorTutorialForLocalization);
-		}
-	} AutomaticRegistrationOfLocalizationGatherer;
+	{ static const FAutoRegisterLocalizationDataGatheringCallback AutomaticRegistrationOfLocalizationGatherer(UEditorTutorial::StaticClass(), &GatherEditorTutorialForLocalization); }
 #endif
 }
 

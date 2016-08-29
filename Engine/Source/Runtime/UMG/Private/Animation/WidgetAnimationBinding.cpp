@@ -7,8 +7,13 @@
 /* FWidgetAnimationBinding interface
  *****************************************************************************/
 
-UObject* FWidgetAnimationBinding::FindRuntimeObject( UWidgetTree& WidgetTree ) const
-{
+UObject* FWidgetAnimationBinding::FindRuntimeObject(UWidgetTree& WidgetTree, UUserWidget& UserWidget ) const
+{	
+	if (bIsRootWidget)
+	{
+		return &UserWidget;
+	}
+
 	UObject* FoundObject = FindObject<UObject>(&WidgetTree, *WidgetName.ToString());
 
 	if (FoundObject && (SlotWidgetName != NAME_None))

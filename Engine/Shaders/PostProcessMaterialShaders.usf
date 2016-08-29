@@ -7,6 +7,8 @@
 #include "Common.usf"
 #include "Material.usf"
 
+#if (FEATURE_LEVEL > FEATURE_LEVEL_ES3_1)
+
 void MainVS(
 	in float4 InPosition : ATTRIBUTE0,
 	out float4 OutPosition : SV_POSITION
@@ -37,6 +39,7 @@ void MainPS(
 	Parameters.VertexColor = 1;
 	
 	SvPosition.z = LookupDeviceZ(ScreenUV);
+	SvPosition.z = max(SvPosition.z, 1e-18);
 
 	// fill out other related material parameters
 	CalcMaterialParametersPost(Parameters, PixelMaterialInputs, SvPosition, true);
@@ -44,3 +47,52 @@ void MainPS(
 	// Grab emissive colour as output
 	OutColor = float4(GetMaterialEmissive(PixelMaterialInputs), 1);
 } 
+
+#else // FEATURE_LEVEL_ES3_1
+//
+// Mobile version
+//
+void MainVS_ES2(
+	in float4 InPosition : ATTRIBUTE0,
+	in float2 InTexCoord : ATTRIBUTE1,
+	out float2 OutUV : TEXCOORD0,
+	out float4 OutPosition : SV_POSITION
+	)
+{
+	DrawRectangle(InPosition, InTexCoord, OutPosition, OutUV);
+}
+
+void MainPS_ES2(
+	in float2 InUV : TEXCOORD0,
+	in float4 SvPosition : SV_Position,		// after all interpolators
+	out half4 OutColor : SV_Target0
+	)
+{
+	ResolvedView = ResolveView();
+	FMaterialPixelParameters Parameters = MakeInitializedMaterialPixelParameters();
+	FPixelMaterialInputs PixelMaterialInputs;
+
+	float2 ScreenUV = InUV;
+
+#if NUM_MATERIAL_TEXCOORDS
+	for(int CoordinateIndex = 0;CoordinateIndex < NUM_MATERIAL_TEXCOORDS;CoordinateIndex++)
+	{
+		Parameters.TexCoords[CoordinateIndex] = ScreenUV;
+	}
+#endif
+
+	Parameters.VertexColor = 1;
+
+	// fill out other related material parameters
+	CalcMaterialParametersPost(Parameters, PixelMaterialInputs, SvPosition, true);
+
+	// Grab emissive colour as output
+	half3 EmissiveColor = GetMaterialEmissive(PixelMaterialInputs);
+	half4 FullSceneColor = half4(EmissiveColor, Parameters.BackupSceneColorAlpha);
+
+#if POST_PROCESS_MATERIAL_BEFORE_TONEMAP
+	FullSceneColor = Encode32BPPHDR(FullSceneColor, SvPosition);
+#endif
+	OutColor = FullSceneColor;
+}
+#endif //(FEATURE_LEVEL > FEATURE_LEVEL_ES3_1)

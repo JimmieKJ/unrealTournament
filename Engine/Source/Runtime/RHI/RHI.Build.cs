@@ -20,14 +20,13 @@ public class RHI : ModuleRules
 
 				//#todo-rco: D3D12 requires different SDK headers not compatible with WinXP
 				DynamicallyLoadedModuleNames.Add("D3D12RHI");
-
-                string VulkanSDKPath = Environment.GetEnvironmentVariable("VK_SDK_PATH");
-                if (!String.IsNullOrEmpty(VulkanSDKPath))
-                {
-                    DynamicallyLoadedModuleNames.Add("VulkanRHI");
-                }
-
             }
+
+			if ((Target.Platform == UnrealTargetPlatform.Win64) ||
+				(Target.Platform == UnrealTargetPlatform.Win32))
+            {
+				DynamicallyLoadedModuleNames.Add("VulkanRHI");
+			}
 
 			if ((Target.Platform == UnrealTargetPlatform.Win32) ||
 				(Target.Platform == UnrealTargetPlatform.Win64) ||
@@ -43,5 +42,7 @@ public class RHI : ModuleRules
 		{
 			PrivateIncludePathModuleNames.AddRange(new string[] { "TaskGraph" });
 		}
+
+		PrivateIncludePaths.Add("Runtime/RHI/Private");
 	}
 }

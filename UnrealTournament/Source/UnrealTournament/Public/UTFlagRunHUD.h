@@ -2,7 +2,7 @@
 
 #pragma once
 #include "UTHUD_CTF.h"
-#include "SUTHudWindow.h"
+#include "SUTHUDWindow.h"
 #include "UTCTFGameState.h"
 #include "UTFlagRunHUD.generated.h"
 

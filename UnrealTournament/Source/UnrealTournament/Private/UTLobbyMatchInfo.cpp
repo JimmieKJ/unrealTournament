@@ -631,15 +631,15 @@ void AUTLobbyMatchInfo::ServerSetPrivateMatch_Implementation(bool bIsPrivate)
 
 FText AUTLobbyMatchInfo::GetDebugInfo()
 {
-	FText Owner = NSLOCTEXT("UTLobbyMatchInfo","NoOwner","NONE");
+	FText OwnerText = NSLOCTEXT("UTLobbyMatchInfo","NoOwner","NONE");
 	if (OwnerId.IsValid())
 	{
-		if (Players.Num() > 0 && Players[0].IsValid()) Owner = FText::FromString(Players[0]->PlayerName);
-		else Owner = FText::FromString(OwnerId.ToString());
+		if (Players.Num() > 0 && Players[0].IsValid()) OwnerText = FText::FromString(Players[0]->PlayerName);
+		else OwnerText = FText::FromString(OwnerId.ToString());
 	}
 
 	FFormatNamedArguments Args;
-	Args.Add(TEXT("OwnerName"), Owner);
+	Args.Add(TEXT("OwnerName"), OwnerText);
 	Args.Add(TEXT("CurrentState"), FText::FromName(CurrentState));
 	Args.Add(TEXT("CurrentRuleSet"), FText::FromString(CurrentRuleset.IsValid() ? CurrentRuleset->Title : TEXT("None")));
 	Args.Add(TEXT("ShouldShowInDock"), FText::AsNumber(ShouldShowInDock()));

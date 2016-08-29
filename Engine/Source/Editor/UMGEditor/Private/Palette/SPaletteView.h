@@ -3,7 +3,7 @@
 #pragma once
 #include "Misc/TextFilter.h"
 #include "SCompoundWidget.h"
-#include "BlueprintEditor.h"
+#include "WidgetBlueprintEditor.h"
 #include "TreeFilterHandler.h"
 
 class FWidgetTemplate;
@@ -14,6 +14,8 @@ class FWidgetViewModel : public TSharedFromThis<FWidgetViewModel>
 {
 public:
 	virtual FText GetName() const = 0;
+
+	virtual bool IsTemplate() const = 0;
 
 	/** Get the string which should be used for filtering the item. */
 	virtual FString GetFilterString() const = 0;
@@ -35,13 +37,19 @@ public:
 	SLATE_BEGIN_ARGS( SPaletteView ){}
 	SLATE_END_ARGS()
 
-	void Construct(const FArguments& InArgs, TSharedPtr<FBlueprintEditor> InBlueprintEditor);
+	void Construct(const FArguments& InArgs, TSharedPtr<FWidgetBlueprintEditor> InBlueprintEditor);
 	virtual ~SPaletteView();
 	
 	virtual void Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime ) override;
 
 	/** Gets the text currently displayed in the search box. */
 	FText GetSearchText() const;
+
+	/** On Selected template widget changed in palette view */
+	void WidgetPalette_OnSelectionChanged(TSharedPtr<FWidgetViewModel> SelectedItem, ESelectInfo::Type SelectInfo);
+
+	/** Gets the selected template widget in palette */
+	TSharedPtr<FWidgetTemplate> GetSelectedTemplateWidget() const;
 
 private:
 	UWidgetBlueprint* GetBlueprint() const;
@@ -77,7 +85,7 @@ private:
 	/** Requests a rebuild of the widget list if a widget blueprint was deleted */
 	void HandleOnAssetsDeleted(const TArray<UClass*>& DeletedAssetClasses);
 
-	TWeakPtr<class FBlueprintEditor> BlueprintEditor;
+	TWeakPtr<class FWidgetBlueprintEditor> BlueprintEditor;
 
 	/** Handles filtering the palette based on an IFilter. */
 	typedef TreeFilterHandler<TSharedPtr<FWidgetViewModel>> PaletteFilterHandler;

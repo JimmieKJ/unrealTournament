@@ -4,7 +4,7 @@
 #include "AnimViewportPlaybackCommands.h"
 #include "SAnimationEditorViewport.h"
 
-#define LOCTEXT_NAMESPACE ""
+#define LOCTEXT_NAMESPACE "AnimViewportPlaybackCommands"
 
 FAnimViewportPlaybackCommands::FAnimViewportPlaybackCommands() : TCommands<FAnimViewportPlaybackCommands>
 	(

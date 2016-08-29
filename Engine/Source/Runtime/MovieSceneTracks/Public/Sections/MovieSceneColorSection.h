@@ -46,6 +46,7 @@ struct FMovieSceneColorKeyStruct
 	FLinearColor Color;
 
 	FRichCurveKey* Keys[4];
+	FRichCurve* Curves[4];
 
 	virtual void PropagateChanges(const FPropertyChangedEvent& ChangeEvent) override;
 };
@@ -66,7 +67,8 @@ public:
 	/**
 	 * Updates this section
 	 *
-	 * @param Position	The position in time within the movie scene
+	 * @param Position The position in time within the movie scene.
+	 * @param DefaultColor The default value to return.
 	 */
 	virtual FLinearColor Eval(float Position, const FLinearColor& DefaultColor) const;
 
@@ -74,6 +76,7 @@ public:
 	 * Gets the red color curve
 	 *
 	 * @return The rich curve for this color channel
+	 * @see GetAlphaCurve, GetBlueCurve, GetGreenCurve
 	 */
 	FRichCurve& GetRedCurve() { return RedCurve; }
 	const FRichCurve& GetRedCurve() const { return RedCurve; }
@@ -82,6 +85,7 @@ public:
 	 * Gets the green color curve
 	 *
 	 * @return The rich curve for this color channel
+	 * @see GetAlphaCurve, GetBlueCurve, GetRedCurve
 	 */
 	FRichCurve& GetGreenCurve() { return GreenCurve; }
 	const FRichCurve& GetGreenCurve() const { return GreenCurve; }
@@ -90,6 +94,7 @@ public:
 	 * Gets the blue color curve
 	 *
 	 * @return The rich curve for this color channel
+	 * @see GetAlphaCurve, GetGreenCurve, GetRedCurve
 	 */
 	FRichCurve& GetBlueCurve() { return BlueCurve; }
 	const FRichCurve& GetBlueCurve() const { return BlueCurve; }
@@ -98,22 +103,25 @@ public:
 	 * Gets the alpha color curve
 	 *
 	 * @return The rich curve for this color channel
+	 * @see GetBlueCurve, GetGreenCurve, GetRedCurve
 	 */
 	FRichCurve& GetAlphaCurve() { return AlphaCurve; }
 	const FRichCurve& GetAlphaCurve() const { return AlphaCurve; }
 
 public:
 
-	// UMovieSceneSection interface
+	//~ UMovieSceneSection interface
 
 	virtual void MoveSection(float DeltaPosition, TSet<FKeyHandle>& KeyHandles) override;
 	virtual void DilateSection(float DilationFactor, float Origin, TSet<FKeyHandle>& KeyHandles) override;
-	virtual void GetKeyHandles(TSet<FKeyHandle>& KeyHandles) const override;
+	virtual void GetKeyHandles(TSet<FKeyHandle>& OutKeyHandles, TRange<float> TimeRange) const override;
 	virtual TSharedPtr<FStructOnScope> GetKeyStruct(const TArray<FKeyHandle>& KeyHandles) override;
+	virtual TOptional<float> GetKeyTime(FKeyHandle KeyHandle) const override;
+	virtual void SetKeyTime(FKeyHandle KeyHandle, float Time) override;
 
 public:
 
-	// IKeyframeSection interface
+	//~ IKeyframeSection interface
 
 	virtual void AddKey(float Time, const FColorKey& Key, EMovieSceneKeyInterpolation KeyInterpolation) override;
 	virtual bool NewKeyIsNewData(float Time, const FColorKey& Key) const override;

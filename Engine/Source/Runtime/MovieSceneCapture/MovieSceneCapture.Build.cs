@@ -14,7 +14,7 @@ public class MovieSceneCapture : ModuleRules
 
 		if (UEBuildConfiguration.bBuildDeveloperTools)
 		{
-			PrivateIncludePathModuleNames.Add("ImageWrapper");
+			PublicIncludePathModuleNames.Add("ImageWrapper");
 			DynamicallyLoadedModuleNames.Add("ImageWrapper");
 		}
 
@@ -26,19 +26,21 @@ public class MovieSceneCapture : ModuleRules
 
 		PrivateDependencyModuleNames.AddRange(
 			new string[] {
-				"Core",
+                "AssetRegistry",
+                "Core",
 				"CoreUObject",
 				"Engine",
 				"InputCore",
 				"Json",
 				"JsonUtilities",
 				"MovieScene",
-				"RenderCore",
+                "MovieSceneTracks",
+                "RenderCore",
 				"RHI",
 				"ShaderCore",
 				"Slate",
 				"SlateCore",
 			}
 		);
-	}
+    }
 }

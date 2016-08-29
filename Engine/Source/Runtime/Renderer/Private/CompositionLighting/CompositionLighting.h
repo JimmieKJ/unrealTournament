@@ -27,6 +27,8 @@ public:
 	void ProcessAsyncSSAO(FRHICommandListImmediate& RHICmdList, TArray<FViewInfo>& Views);
 	void GfxWaitForAsyncSSAO(FRHICommandListImmediate& RHICmdList);
 
+	bool IsSubsurfacePostprocessRequired() const;
+
 private:
 	void PrepareAsyncSSAO(FRHICommandListImmediate& RHICmdList, TArray<FViewInfo>& Views);
 	void FinishAsyncSSAO(FRHICommandListImmediate& RHICmdList);

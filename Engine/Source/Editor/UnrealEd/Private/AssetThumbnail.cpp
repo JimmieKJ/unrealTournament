@@ -413,7 +413,7 @@ private:
 
 	const FSlateBrush* GetClassIconBrush() const
 	{
-		return FClassIconFinder::FindIconForClass(ThumbnailClass.Get());
+		return FSlateIconFinder::FindIconBrushForClass(ThumbnailClass.Get());
 	}
 
 	FMargin GetClassIconPadding() const
@@ -518,15 +518,17 @@ private:
 
 	FText GetLabelText() const
 	{
-		if ( Label == EThumbnailLabel::ClassName )
+		if( Label != EThumbnailLabel::NoLabel )
 		{
-			return GetAssetClassDisplayName();
+			if ( Label == EThumbnailLabel::ClassName )
+			{
+				return GetAssetClassDisplayName();
+			}
+			else if ( Label == EThumbnailLabel::AssetName ) 
+			{
+				return GetAssetDisplayName();
+			}
 		}
-		else if ( Label == EThumbnailLabel::AssetName ) 
-		{
-			return GetAssetDisplayName();
-		}
-
 		return FText::GetEmpty();
 	}
 

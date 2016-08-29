@@ -1252,7 +1252,7 @@ void SUTMatchSummaryPanel::RecreateAllPlayers(int32 TeamIndex)
 			float CurrentOffsetY = ((PlayerRowIndex % 2 == 0) ? PLAYER_SPACING * (int32(PlayerRowIndex / 2) + 0.8f*PlayerRow + 2) : PLAYER_SPACING * (2 - int32((PlayerRowIndex + 1) / 2)) - 0.8f*PlayerRow) - BaseOffsetY;
 			float CurrentOffsetZ = 10.f * PlayerRow;
 			AUTCharacter* NewCharacter = RecreatePlayerPreview(TeamPlayerStates[TeamIndex][iPlayer], FVector(CurrentOffsetX, CurrentOffsetY, CurrentOffsetZ), FRotator(0.f));
-			NewCharacter->AttachRootComponentToActor(TeamAnchors[TeamIndex], NAME_None, EAttachLocation::KeepWorldPosition);
+			NewCharacter->AttachToComponent(TeamAnchors[TeamIndex]->GetRootComponent(), FAttachmentTransformRules::KeepWorldTransform);
 
 			//Add the character to the team list
 			if (!TeamPreviewMeshs.IsValidIndex(TeamIndex))

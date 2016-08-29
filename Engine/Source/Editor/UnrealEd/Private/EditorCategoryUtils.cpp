@@ -285,7 +285,7 @@ FString FEditorCategoryUtils::GetCategoryDisplayString(FString const& Unsanitize
 }
 
 //------------------------------------------------------------------------------
-void FEditorCategoryUtils::GetClassHideCategories(UClass const* Class, TArray<FString>& CategoriesOut)
+void FEditorCategoryUtils::GetClassHideCategories(UClass const* Class, TArray<FString>& CategoriesOut, bool bHomogenize)
 {
 	CategoriesOut.Empty();
 
@@ -296,9 +296,12 @@ void FEditorCategoryUtils::GetClassHideCategories(UClass const* Class, TArray<FS
 
 		HideCategories.ParseIntoArray(CategoriesOut, TEXT(" "), /*InCullEmpty =*/true);
 		
-		for (FString& Category : CategoriesOut)
+		if (bHomogenize)
 		{
-			Category = GetCategoryDisplayString(Category);
+			for (FString& Category : CategoriesOut)
+			{
+				Category = GetCategoryDisplayString(Category);
+			}
 		}
 	}
 }

@@ -72,9 +72,32 @@ void SPropertyEditorCombo::Construct( const FArguments& InArgs, const TSharedRef
 	TArray< bool > Restrictions;
 	GenerateComboBoxStrings( ComboItems, ToolTips, Restrictions );
 
+	TArray<TSharedPtr<SToolTip>> RichToolTips;
+
+	// For enums, look for rich tooltip information
+	if(PropertyEditor.IsValid() && PropertyEditor->GetProperty())
+	{
+		if(UEnum* Enum = CastChecked<UByteProperty>(PropertyEditor->GetProperty())->Enum)
+		{
+			// Get enum doc link (not just GetDocumentationLink as that is the documentation for the struct we're in, not the enum documentation)
+			FString DocLink = PropertyEditorHelpers::GetEnumDocumentationLink(PropertyEditor->GetProperty());
+			
+			for(int32 EnumIdx = 0; EnumIdx < Enum->NumEnums() - 1; ++EnumIdx)
+			{
+				FString Excerpt = Enum->GetEnumName(EnumIdx);
+
+				bool bShouldBeHidden = Enum->HasMetaData(TEXT("Hidden"), EnumIdx) || Enum->HasMetaData(TEXT("Spacer"), EnumIdx);
+				if(!bShouldBeHidden)
+				{
+					RichToolTips.Add(IDocumentation::Get()->CreateToolTip(Enum->GetToolTipText(EnumIdx), nullptr, DocLink, Excerpt));
+				}
+			}
+		}
+	}
+	
 	SAssignNew(ComboBox, SPropertyComboBox)
 		.Font( InArgs._Font )
-		.ToolTipList( ToolTips )
+		.RichToolTipList( RichToolTips )
 		.ComboItemList( ComboItems )
 		.RestrictedList( Restrictions )
 		.OnSelectionChanged( this, &SPropertyEditorCombo::OnComboSelectionChanged )

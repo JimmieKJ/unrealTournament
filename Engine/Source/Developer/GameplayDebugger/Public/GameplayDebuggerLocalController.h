@@ -39,7 +39,6 @@ protected:
 	UPROPERTY()
 	AActor* DebugActorCandidate;
 
-	TArray<TSharedRef<FGameplayDebuggerExtension> > Extensions;
 	TArray<TArray<int32> > DataPackMap;
 	TArray<TArray<int32> > SlotCategoryIds;
 	TArray<FString> SlotNames;
@@ -109,15 +108,6 @@ protected:
 
 	FString GetKeyDescriptionShort(const FKey& KeyBind) const;
 	FString GetKeyDescriptionLong(const FKey& KeyBind) const;
-
-	/** called when tool is activated */
-	void NotifyExtensionsActivation();
-
-	/** called when tool is deactivated */
-	void NotifyExtensionsDeactivation();
-
-	/** called when known extension set has changed */
-	void OnExtensionsChanged();
 
 	/** called when known category set has changed */
 	void OnCategoriesChanged();

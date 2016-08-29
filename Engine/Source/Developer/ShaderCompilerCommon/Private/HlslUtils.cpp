@@ -4,6 +4,7 @@
 	HlslUtils.cpp - Utils for HLSL.
 =============================================================================*/
 
+#include "ShaderCompilerCommonPrivatePCH.h"
 #include "ShaderCompilerCommon.h"
 #include "HlslUtils.h"
 #include "HlslAST.h"
@@ -80,6 +81,37 @@ namespace CrossCompiler
 	}
 }
 
+// Returns "TEXCOORD" if Semantic is "TEXCOORD4" and OutStartIndex=4; return nullptr if the semantic didn't have a number
+static inline TCHAR* GetNonDigitSemanticPrefix(CrossCompiler::FLinearAllocator* Allocator, const TCHAR* Semantic, uint32& OutStartIndex)
+{
+	const TCHAR* StartOfDigit = Semantic;
+	do 
+	{
+		if (*StartOfDigit >= '0' && *StartOfDigit <= '9')
+		{
+			break;
+		}
+		++StartOfDigit;
+	}
+	while (*StartOfDigit);
+
+	if (!*StartOfDigit)
+	{
+		return nullptr;
+	}
+
+	OutStartIndex = FCString::Atoi(StartOfDigit);
+	TCHAR* Prefix = Allocator->Strdup(Semantic);
+	Prefix[StartOfDigit - Semantic] = 0;
+	return Prefix;
+}
+
+
+static inline TCHAR* MakeIndexedSemantic(CrossCompiler::FLinearAllocator* Allocator, const TCHAR* Semantic, uint32 Index)
+{
+	FString Out = FString::Printf(TEXT("%s%d"), Semantic, Index);
+	return Allocator->Strdup(Out);
+}
 
 struct FRemoveAlgorithm
 {
@@ -238,7 +270,20 @@ struct FRemoveAlgorithm
 		return false;
 	};
 
-	bool CopyMember(CrossCompiler::AST::FDeclaration* Declaration, const TCHAR* DestPrefix, const TCHAR* SourcePrefix, FBodyContext& BodyContext)
+	static bool IsSubstringInArray(const TArray<FString>& Array, const TCHAR* Semantic)
+	{
+		for (const FString& String : Array)
+		{
+			if (FCString::Stristr(*String, Semantic) != NULL)
+			{
+				return true;
+			}
+		}
+
+		return false;
+	};
+
+	bool CopyMember(CrossCompiler::AST::FDeclaration* Declaration, const TCHAR* DestPrefix, const TCHAR* SourcePrefix, TArray<CrossCompiler::AST::FNode*>& InstructionList)
 	{
 		using namespace CrossCompiler::AST;
 
@@ -265,7 +310,7 @@ struct FRemoveAlgorithm
 				auto* LHS = MakeIdentifierExpression(Allocator, *LHSElement, SourceInfo);
 				auto* RHS = MakeIdentifierExpression(Allocator, *RHSElement, SourceInfo);
 				auto* Assignment = new(Allocator) FBinaryExpression(Allocator, EOperators::Assign, LHS, RHS, SourceInfo);
-				BodyContext.PostInstructions.Add(new(Allocator) FExpressionStatement(Allocator, Assignment, SourceInfo));
+				InstructionList.Add(new(Allocator) FExpressionStatement(Allocator, Assignment, SourceInfo));
 			}
 		}
 		else
@@ -273,7 +318,7 @@ struct FRemoveAlgorithm
 			auto* LHS = MakeIdentifierExpression(Allocator, *LHSName, SourceInfo);
 			auto* RHS = MakeIdentifierExpression(Allocator, *RHSName, SourceInfo);
 			auto* Assignment = new(Allocator) FBinaryExpression(Allocator, EOperators::Assign, LHS, RHS, SourceInfo);
-			BodyContext.PostInstructions.Add(new(Allocator) FExpressionStatement(Allocator, Assignment, SourceInfo));
+			InstructionList.Add(new(Allocator) FExpressionStatement(Allocator, Assignment, SourceInfo));
 		}
 
 		return true;
@@ -376,6 +421,7 @@ struct FRemoveAlgorithm
 struct FRemoveUnusedOutputs : FRemoveAlgorithm
 {
 	const TArray<FString>& UsedOutputs;
+	const TArray<FString>& Exceptions;
 
 	struct FOutputsBodyContext : FBodyContext
 	{
@@ -399,8 +445,9 @@ struct FRemoveUnusedOutputs : FRemoveAlgorithm
 		}
 	};
 
-	FRemoveUnusedOutputs(const TArray<FString>& InUsedOutputs) :
-		UsedOutputs(InUsedOutputs)
+	FRemoveUnusedOutputs(const TArray<FString>& InUsedOutputs, const TArray<FString>& InExceptions) :
+		UsedOutputs(InUsedOutputs),
+		Exceptions(InExceptions)
 	{
 	}
 
@@ -706,7 +753,7 @@ struct FRemoveUnusedOutputs : FRemoveAlgorithm
 
 	bool IsSemanticUsed(const TCHAR* SemanticName)
 	{
-		if (bLeaveAllUsed || IsStringInArray(UsedOutputs, SemanticName))
+		if (bLeaveAllUsed || IsStringInArray(UsedOutputs, SemanticName) || IsSubstringInArray(Exceptions, SemanticName))
 		{
 			return true;
 		}
@@ -736,7 +783,60 @@ struct FRemoveUnusedOutputs : FRemoveAlgorithm
 				check(MemberDeclaration);
 				if (MemberDeclaration->Semantic)
 				{
-					if (IsSemanticUsed(MemberDeclaration->Semantic))
+					if (MemberDeclaration->bIsArray)
+					{
+						uint32 ArrayLength = 0;
+						if (!GetArrayLength(MemberDeclaration, ArrayLength))
+						{
+							return false;
+						}
+
+						uint32 StartIndex = 0;
+						TCHAR* ElementSemanticPrefix = GetNonDigitSemanticPrefix(Allocator, MemberDeclaration->Semantic, StartIndex);
+						if (!ElementSemanticPrefix)
+						{
+							Errors.Add(FString::Printf(TEXT("RemoveUnusedOutputs: Member (%s) %s : %s is expected to have an indexed semantic!"), MemberDeclarator->Type->Specifier->TypeName, MemberDeclaration->Identifier, MemberDeclaration->Semantic));
+
+							// Fatal: Array of non-indexed semantic (eg float4 Colors[4] : MYSEMANTIC; )
+							// Assume semantic is used and just fallback
+							auto* NewDeclaratorList = new(Allocator) FDeclaratorList(Allocator, MemberDeclarator->SourceInfo);
+							NewDeclaratorList->Type = CloneType(MemberDeclarator->Type);
+							NewDeclaratorList->Declarations.Add(MemberDeclaration);
+							DestStruct->Declarations.Add(NewDeclaratorList);
+
+							CopyMember(MemberDeclaration, SourcePrefix, DestPrefix, BodyContext.PostInstructions);
+						}
+
+						for (uint32 Index = 0; Index < ArrayLength; ++Index)
+						{
+							TCHAR* ElementSemantic = MakeIndexedSemantic(Allocator, ElementSemanticPrefix, StartIndex + Index);
+							if (IsSemanticUsed(ElementSemantic))
+							{
+								auto* NewMemberDeclaration = new(Allocator) FDeclaration(Allocator, MemberDeclaration->SourceInfo);
+								NewMemberDeclaration->Semantic = ElementSemantic;
+								NewMemberDeclaration->Identifier = Allocator->Strdup(FString::Printf(TEXT("%s_%d"), MemberDeclaration->Identifier, Index));
+
+								// Add member to struct
+								auto* NewDeclaratorList = new(Allocator) FDeclaratorList(Allocator, MemberDeclarator->SourceInfo);
+								NewDeclaratorList->Type = CloneType(MemberDeclarator->Type);
+								NewDeclaratorList->Declarations.Add(NewMemberDeclaration);
+								DestStruct->Declarations.Add(NewDeclaratorList);
+
+								FString LHSElement = FString::Printf(TEXT("%s.%s"), DestPrefix, NewMemberDeclaration->Identifier);
+								FString RHSElement = FString::Printf(TEXT("%s.%s[%d]"), SourcePrefix, MemberDeclaration->Identifier, Index);
+
+								auto* LHS = MakeIdentifierExpression(Allocator, *LHSElement, SourceInfo);
+								auto* RHS = MakeIdentifierExpression(Allocator, *RHSElement, SourceInfo);
+								auto* Assignment = new(Allocator) FBinaryExpression(Allocator, EOperators::Assign, LHS, RHS, SourceInfo);
+								BodyContext.PostInstructions.Add(new(Allocator) FExpressionStatement(Allocator, Assignment, SourceInfo));
+							}
+							else
+							{
+								RemovedSemantics.Add(ElementSemantic);
+							}
+						}
+					}
+					else if (IsSemanticUsed(MemberDeclaration->Semantic))
 					{
 						// Add member to struct
 						auto* NewDeclaratorList = new(Allocator) FDeclaratorList(Allocator, MemberDeclarator->SourceInfo);
@@ -744,7 +844,7 @@ struct FRemoveUnusedOutputs : FRemoveAlgorithm
 						NewDeclaratorList->Declarations.Add(MemberDeclaration);
 						DestStruct->Declarations.Add(NewDeclaratorList);
 
-						CopyMember(MemberDeclaration, DestPrefix, SourcePrefix, BodyContext);
+						CopyMember(MemberDeclaration, DestPrefix, SourcePrefix, BodyContext.PostInstructions);
 					}
 					else
 					{
@@ -793,10 +893,10 @@ static void HlslParserCallbackWrapperRemoveOutputs(void* CallbackData, CrossComp
 }
 
 
-bool RemoveUnusedOutputs(FString& InOutSourceCode, const TArray<FString>& InUsedOutputs, FString& EntryPoint, TArray<FString>& OutErrors)
+bool RemoveUnusedOutputs(FString& InOutSourceCode, const TArray<FString>& InUsedOutputs, const TArray<FString>& InExceptions, FString& EntryPoint, TArray<FString>& OutErrors)
 {
 	FString DummyFilename(TEXT("RemoveUnusedOutputs.usf"));
-	FRemoveUnusedOutputs Data(InUsedOutputs);
+	FRemoveUnusedOutputs Data(InUsedOutputs, InExceptions);
 	Data.EntryPoint = EntryPoint;
 	CrossCompiler::FCompilerMessages Messages;
 	if (!CrossCompiler::Parser::Parse(InOutSourceCode, DummyFilename, Messages, HlslParserCallbackWrapperRemoveOutputs, &Data))
@@ -1134,7 +1234,60 @@ struct FRemoveUnusedInputs : FRemoveAlgorithm
 				check(MemberDeclaration);
 				if (MemberDeclaration->Semantic)
 				{
-					if (IsSemanticUsed(MemberDeclaration->Semantic))
+					if (MemberDeclaration->bIsArray)
+					{
+						uint32 ArrayLength = 0;
+						if (!GetArrayLength(MemberDeclaration, ArrayLength))
+						{
+							return false;
+						}
+
+						uint32 StartIndex = 0;
+						TCHAR* ElementSemanticPrefix = GetNonDigitSemanticPrefix(Allocator, MemberDeclaration->Semantic, StartIndex);
+						if (!ElementSemanticPrefix)
+						{
+							Errors.Add(FString::Printf(TEXT("RemoveUnusedInputs: Member (%s) %s : %s is expected to have an indexed semantic!"), MemberDeclarator->Type->Specifier->TypeName, MemberDeclaration->Identifier, MemberDeclaration->Semantic));
+
+							// Fatal: Array of non-indexed semantic (eg float4 Colors[4] : MYSEMANTIC; )
+							// Assume semantic is used and just fallback
+							auto* NewDeclaratorList = new(Allocator) FDeclaratorList(Allocator, MemberDeclarator->SourceInfo);
+							NewDeclaratorList->Type = CloneType(MemberDeclarator->Type);
+							NewDeclaratorList->Declarations.Add(MemberDeclaration);
+							DestStruct->Declarations.Add(NewDeclaratorList);
+
+							CopyMember(MemberDeclaration, SourcePrefix, DestPrefix, BodyContext.PreInstructions);
+						}
+
+						for (uint32 Index = 0; Index < ArrayLength; ++Index)
+						{
+							TCHAR* ElementSemantic = MakeIndexedSemantic(Allocator, ElementSemanticPrefix, StartIndex + Index);
+							if (IsSemanticUsed(ElementSemantic))
+							{
+								auto* NewMemberDeclaration = new(Allocator) FDeclaration(Allocator, MemberDeclaration->SourceInfo);
+								NewMemberDeclaration->Semantic = ElementSemantic;
+								NewMemberDeclaration->Identifier = Allocator->Strdup(FString::Printf(TEXT("%s_%d"), MemberDeclaration->Identifier, Index));
+
+								// Add member to struct
+								auto* NewDeclaratorList = new(Allocator) FDeclaratorList(Allocator, MemberDeclarator->SourceInfo);
+								NewDeclaratorList->Type = CloneType(MemberDeclarator->Type);
+								NewDeclaratorList->Declarations.Add(NewMemberDeclaration);
+								DestStruct->Declarations.Add(NewDeclaratorList);
+
+								FString LHSElement = FString::Printf(TEXT("%s.%s[%d]"), SourcePrefix, MemberDeclaration->Identifier, Index);
+								FString RHSElement = FString::Printf(TEXT("%s.%s"), DestPrefix, NewMemberDeclaration->Identifier);
+
+								auto* LHS = MakeIdentifierExpression(Allocator, *LHSElement, SourceInfo);
+								auto* RHS = MakeIdentifierExpression(Allocator, *RHSElement, SourceInfo);
+								auto* Assignment = new(Allocator) FBinaryExpression(Allocator, EOperators::Assign, LHS, RHS, SourceInfo);
+								BodyContext.PreInstructions.Add(new(Allocator) FExpressionStatement(Allocator, Assignment, SourceInfo));
+							}
+							else
+					{
+								RemovedSemantics.Add(ElementSemantic);
+							}
+						}
+					}
+					else if (IsSemanticUsed(MemberDeclaration->Semantic))
 					{
 						// Add member to struct
 						auto* NewDeclaratorList = new(Allocator) FDeclaratorList(Allocator, MemberDeclarator->SourceInfo);
@@ -1142,7 +1295,7 @@ struct FRemoveUnusedInputs : FRemoveAlgorithm
 						NewDeclaratorList->Declarations.Add(MemberDeclaration);
 						DestStruct->Declarations.Add(NewDeclaratorList);
 
-						CopyMember(MemberDeclaration, SourcePrefix, DestPrefix, BodyContext);
+						CopyMember(MemberDeclaration, SourcePrefix, DestPrefix, BodyContext.PreInstructions);
 					}
 					else
 					{

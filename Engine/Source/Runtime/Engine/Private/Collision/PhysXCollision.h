@@ -88,10 +88,10 @@ class FPxQueryFilterCallback : public PxSceneQueryFilterCallback
 public:
 
 	/** List of ComponentIds for this query to ignore */
-	FilterIgnoreComponentsArrayType IgnoreComponents;
+	const FilterIgnoreComponentsArrayType& IgnoreComponents;
 
 	/** List of ActorIds for this query to ignore */
-	FilterIgnoreActorsArrayType IgnoreActors;
+	const FilterIgnoreActorsArrayType& IgnoreActors;
 	
 	/** Result of PreFilter callback. */
 	PxSceneQueryHitType::Enum PrefilterReturnValue;
@@ -102,20 +102,11 @@ public:
 	/** Whether to ignore blocks (convert an eBLOCK result to eNONE). */
 	bool bIgnoreBlocks;
 
-
-	FPxQueryFilterCallback()
-	{
-		PrefilterReturnValue = PxSceneQueryHitType::eNONE;
-		bIgnoreTouches = false;
-		bIgnoreBlocks = false;
-	}
-
 	FPxQueryFilterCallback(const FCollisionQueryParams& InQueryParams)
+		: IgnoreComponents(InQueryParams.GetIgnoredComponents())
+		, IgnoreActors(InQueryParams.GetIgnoredActors())
 	{
-		PrefilterReturnValue = PxSceneQueryHitType::eNONE;
-		
-		IgnoreComponents = InQueryParams.GetIgnoredComponents();
-		IgnoreActors = InQueryParams.GetIgnoredActors();
+		PrefilterReturnValue = PxSceneQueryHitType::eNONE;		
 		bIgnoreTouches = false;
 		bIgnoreBlocks = InQueryParams.bIgnoreBlocks;
 	}

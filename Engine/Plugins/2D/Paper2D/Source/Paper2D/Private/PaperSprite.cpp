@@ -592,6 +592,7 @@ void UPaperSprite::PostEditChangeProperty(FPropertyChangedEvent& PropertyChanged
 			{
 				BakedSourceTexture = nullptr;
 				BakedSourceUV = FVector2D(0, 0);
+				BakedSourceDimension = FVector2D(0, 0);
 				bRenderDataModified = true;
 			}
 
@@ -1648,6 +1649,28 @@ void UPaperSprite::GetAssetRegistryTags(TArray<FAssetRegistryTag>& OutTags) cons
 }
 
 #endif
+
+FSlateAtlasData UPaperSprite::GetSlateAtlasData() const
+{
+	if ( BakedSourceTexture == nullptr )
+	{
+		const FVector2D ImportedSize = FVector2D(SourceTexture->GetImportedSize());
+
+		const FVector2D StartUV = SourceUV / ImportedSize;
+		const FVector2D SizeUV = SourceDimension / ImportedSize;
+
+		return FSlateAtlasData(SourceTexture, StartUV, SizeUV);
+	}
+	else
+	{
+		const FVector2D ImportedSize = FVector2D(BakedSourceTexture->GetImportedSize());
+
+		const FVector2D StartUV = BakedSourceUV / ImportedSize;
+		const FVector2D SizeUV = BakedSourceDimension / ImportedSize;
+
+		return FSlateAtlasData(BakedSourceTexture, StartUV, SizeUV);
+	}
+}
 
 bool UPaperSprite::GetPhysicsTriMeshData(FTriMeshCollisionData* OutCollisionData, bool InUseAllTriData)
 {

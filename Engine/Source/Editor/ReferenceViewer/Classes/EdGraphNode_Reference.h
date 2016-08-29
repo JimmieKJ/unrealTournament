@@ -26,10 +26,10 @@ class UEdGraphNode_Reference : public UEdGraphNode
 
 	bool UsesThumbnail() const;
 	FAssetData GetAssetData() const;
-protected:
+
 	virtual UEdGraphPin* GetDependencyPin();
 	virtual UEdGraphPin* GetReferencerPin();
-
+protected:
 	class UEdGraph_ReferenceViewer* GetReferenceGraph() const
 	{
 		return CastChecked<UEdGraph_ReferenceViewer>(GetOuter());

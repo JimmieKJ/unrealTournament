@@ -36,16 +36,21 @@ void Main(
 #if MATERIAL_TANGENTSPACENORMAL
 	half3 ViewNormal = normalize(TransformTangentVectorToView(MaterialParameters, Normal));
 #else
-	half3 ViewNormal = normalize(TransformWorldVectorToLocal(Normal));
+	half3 ViewNormal = normalize(TransformWorldVectorToView(Normal));
 #endif
 
 	// X = IOR, Y = Refraction Bias
 	float2 Refraction = GetMaterialRefraction(PixelMaterialInputs);
 	 	
+#if REFRACTION_USE_PIXEL_NORMAL_OFFSET
+	half3 ViewVertexNormal = TransformTangentVectorToView(MaterialParameters, float3(0, 0, 1));
+	// Treat Refraction of 1 as no refraction, to be consistent with IOR mode
+	float2 Distortion = (ViewVertexNormal.xy - ViewNormal.xy) * (Refraction.x - 1);
+#else
 	// we assume the camera is in air
 	float AirIOR = 1.0f;
-
 	float2 Distortion = ViewNormal.xy * (Refraction.x - AirIOR);
+#endif
 
 	//clip if the distortion distance (squared) is too small to be noticed
 	//this will result in a less expensive apply pass since the clipped pixels won't set stencil to pass
@@ -58,7 +63,7 @@ void Main(
 	//Fix for Fov and aspect.
 	float InvTanHalfFov = DistortionParams.x;
     float Ratio = DistortionParams.y;
- 	float3 FovFix = float3(InvTanHalfFov,Ratio*InvTanHalfFov,1);
+ 	float2 FovFix = float2(InvTanHalfFov,Ratio*InvTanHalfFov);
 	Distortion *= DistortionParams.zw * float2(OffsetFudgeFactor,-OffsetFudgeFactor) * FovFix;
 
 	// Sample depth at distortion offset

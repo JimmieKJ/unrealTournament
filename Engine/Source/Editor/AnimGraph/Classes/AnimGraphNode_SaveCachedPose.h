@@ -2,7 +2,7 @@
 
 #pragma once
 #include "AnimGraphNode_Base.h"
-#include "AnimNodes/AnimNode_SaveCachedPose.h"
+#include "Animation/AnimNode_SaveCachedPose.h"
 #include "EdGraph/EdGraphNodeUtils.h" // for FNodeTextCache
 #include "AnimGraphNode_SaveCachedPose.generated.h"
 

@@ -431,6 +431,7 @@ static dtOffMeshSegmentData* initSegmentIntersection(dtMeshTile* tile)
 	{
 		dtOffMeshSegmentConnection& con = tile->offMeshSeg[i];
 		
+		CA_SUPPRESS(6385);
 		gatherSegmentIntersections(tile, con.startA, con.endA, con.rad, segs[i].listA);
 		gatherSegmentIntersections(tile, con.startB, con.endB, con.rad, segs[i].listB);
 	}
@@ -1078,7 +1079,8 @@ void dtNavMesh::connectExtOffMeshLinks(dtMeshTile* tile, dtMeshTile* target, int
 			findCheapestNearPolyInTile(tile, p, ext, nearestPt) :
 			findNearestPolyInTile(tile, p, ext, nearestPt, true);
 
-		if (!ref)
+		// Avoid linking back into the same ground poly
+		if (!ref || (targetLandPoly == ref))
 			continue;
 		// findNearestPoly may return too optimistic results, further check to make sure. 
 		if (dtSqr(nearestPt[0]-p[0])+dtSqr(nearestPt[2]-p[2]) > dtSqr(targetCon->rad))
@@ -1335,6 +1337,7 @@ void dtNavMesh::closestPointOnPolyInTile(const dtMeshTile* tile, unsigned int ip
 		}
 		const float* va = &verts[imin*3];
 		const float* vb = &verts[((imin+1)%nv)*3];
+		CA_SUPPRESS(6385);
 		dtVlerp(closest, va, vb, edget[imin]);
 	}
 	
@@ -1350,9 +1353,14 @@ void dtNavMesh::closestPointOnPolyInTile(const dtMeshTile* tile, unsigned int ip
 			for (int k = 0; k < 3; ++k)
 			{
 				if (t[k] < poly->vertCount)
+				{
+					CA_SUPPRESS(6385);
 					v[k] = &tile->verts[poly->verts[t[k]]*3];
+				}
 				else
+				{
 					v[k] = &tile->detailVerts[(pd->vertBase+(t[k]-poly->vertCount))*3];
+				}
 			}
 			float h;
 			if (dtClosestHeightPointTriangle(pos, v[0], v[1], v[2], h))
@@ -1380,6 +1388,8 @@ dtPolyRef dtNavMesh::findNearestPolyInTile(const dtMeshTile* tile,
 										   const float* center, const float* extents,
 										   float* nearestPt, bool bExcludeUnwalkable) const
 {
+	dtAssert(nearestPt);
+
 	float bmin[3], bmax[3];
 	dtVsub(bmin, center, extents);
 	dtVadd(bmax, center, extents);
@@ -1399,8 +1409,7 @@ dtPolyRef dtNavMesh::findNearestPolyInTile(const dtMeshTile* tile,
 		float d = dtVdistSqr(center, closestPtPoly);
 		if (d < nearestDistanceSqr)
 		{
-			if (nearestPt)
-				dtVcopy(nearestPt, closestPtPoly);
+			dtVcopy(nearestPt, closestPtPoly);
 			nearestDistanceSqr = d;
 			nearest = ref;
 		}
@@ -1418,6 +1427,8 @@ dtPolyRef dtNavMesh::findNearestPolyInTile(const dtMeshTile* tile,
 dtPolyRef dtNavMesh::findCheapestNearPolyInTile(const dtMeshTile* tile, const float* center,
 												const float* extents, float* nearestPt) const
 {
+	dtAssert(nearestPt);
+
 	float bmin[3], bmax[3];
 	dtVsub(bmin, center, extents);
 	dtVadd(bmax, center, extents);
@@ -1452,8 +1463,7 @@ dtPolyRef dtNavMesh::findCheapestNearPolyInTile(const dtMeshTile* tile, const fl
 			float d = dtVdistSqr(center, closestPtPoly);
 			if (d < nearestDistanceSqr)
 			{
-				if (nearestPt)
-					dtVcopy(nearestPt, closestPtPoly);
+				dtVcopy(nearestPt, closestPtPoly);
 				nearestDistanceSqr = d;
 				nearest = ref;
 			}
@@ -1716,8 +1726,8 @@ dtStatus dtNavMesh::addTile(unsigned char* data, int dataSize, int flags,
 			connectExtLinks(tile, neis[j], -1, bHasClusters);
 			connectExtLinks(neis[j], tile, -1, bHasClusters);
 			appendSegmentIntersection(segList, tile, neis[j]);
+			connectExtOffMeshLinks(tile, neis[j], -1, bHasClusters);
 		}
-		connectExtOffMeshLinks(tile, neis[j], -1, bHasClusters);
 		connectExtOffMeshLinks(neis[j], tile, -1, bHasClusters);
 	}
 	

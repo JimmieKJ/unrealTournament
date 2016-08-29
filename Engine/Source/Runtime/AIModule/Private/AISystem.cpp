@@ -22,6 +22,7 @@ UAISystem::UAISystem(const FObjectInitializer& ObjectInitializer)
 	bFinishMoveOnGoalOverlap = true;
 	bAcceptPartialPaths = true;
 	bAllowStrafing = false;
+	DefaultSightCollisionChannel = ECC_Visibility;
 
 	bEnableBTAITasks = false;
 

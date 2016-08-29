@@ -83,13 +83,13 @@ void SIntegralCurveKeyEditor::OnValueChanged(int32 Value)
 		{
 			Curve->UpdateOrAddKey(CurrentTime, Value);
 		}
-		Sequencer->UpdateRuntimeInstances();
+		Sequencer->NotifyMovieSceneDataChanged( EMovieSceneDataChangeType::TrackValueChanged );
 	}
 }
 
 void SIntegralCurveKeyEditor::OnValueCommitted(int32 Value, ETextCommit::Type CommitInfo)
 {
-	if (CommitInfo == ETextCommit::OnEnter)
+	if (CommitInfo == ETextCommit::OnEnter || CommitInfo == ETextCommit::OnUserMovedFocus)
 	{
 		const FScopedTransaction Transaction( LOCTEXT("SetIntegralKey", "Set Integral Key Value") );
 

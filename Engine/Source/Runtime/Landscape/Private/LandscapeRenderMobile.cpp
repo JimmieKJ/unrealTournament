@@ -4,6 +4,7 @@
 LandscapeRenderMobile.cpp: Landscape Rendering without using vertex texture fetch
 =============================================================================*/
 
+#include "LandscapePrivatePCH.h"
 #include "Landscape.h"
 #include "ShaderParameters.h"
 #include "ShaderParameterUtils.h"
@@ -223,7 +224,8 @@ FLandscapeComponentSceneProxyMobile::FLandscapeComponentSceneProxyMobile(ULandsc
 	check(InComponent->MobileMaterialInterface);
 	check(InComponent->MobileWeightNormalmapTexture);
 	
-	MaterialInterface = InComponent->MobileMaterialInterface;
+	MaterialInterfacesByLOD.Empty(1);
+	MaterialInterfacesByLOD.Add(InComponent->MobileMaterialInterface);
 
 	WeightmapTextures.Empty(1);
 	WeightmapTextures.Add(InComponent->MobileWeightNormalmapTexture);

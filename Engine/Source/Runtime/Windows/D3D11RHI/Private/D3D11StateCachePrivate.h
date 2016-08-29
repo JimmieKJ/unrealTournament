@@ -131,6 +131,7 @@ protected:
 	D3D11_STATE_CACHE_INLINE void InternalSetShaderResourceView(uint32 ResourceIndex, ID3D11ShaderResourceView*& SRV)
 	{
 		// Set the SRV we have been given (or null).
+		CA_SUPPRESS(6326);
 		switch (ShaderFrequency)
 		{
 		case SF_Vertex:		Direct3DDeviceIMContext->VSSetShaderResources(ResourceIndex, 1, &SRV); break;
@@ -145,6 +146,7 @@ protected:
 	template <EShaderFrequency ShaderFrequency>
 	D3D11_STATE_CACHE_INLINE void InternalSetSamplerState(uint32 SamplerIndex, ID3D11SamplerState*& SamplerState)
 	{
+		CA_SUPPRESS(6326);
 		switch (ShaderFrequency)
 		{
 		case SF_Vertex:		Direct3DDeviceIMContext->VSSetSamplers(SamplerIndex, 1, &SamplerState); break;
@@ -159,6 +161,7 @@ protected:
 	template <EShaderFrequency ShaderFrequency>
 	D3D11_STATE_CACHE_INLINE void InternalSetSetConstantBuffer(uint32 SlotIndex, ID3D11Buffer*& ConstantBuffer)
 	{
+		CA_SUPPRESS(6326);
 		switch (ShaderFrequency)
 		{
 		case SF_Vertex:		Direct3DDeviceIMContext->VSSetConstantBuffers(SlotIndex, 1, &ConstantBuffer); break;

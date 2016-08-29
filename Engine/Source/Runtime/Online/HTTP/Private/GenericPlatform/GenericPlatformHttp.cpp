@@ -167,7 +167,6 @@ FString FGenericPlatformHttp::UrlDecode(const FString &EncodedString)
 		}
 	}
 
-	Data.Add(0);
-	FUTF8ToTCHAR DecodeConvert(Data.GetData());
-	return DecodeConvert.Get();
+	Data.Add('\0');
+	return FString(UTF8_TO_TCHAR(Data.GetData()));
 }

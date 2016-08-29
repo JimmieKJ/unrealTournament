@@ -1,6 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "MovieSceneToolsPrivatePCH.h"
+#include "TrackEditorThumbnail.h"
+#include "TrackEditorThumbnailPool.h"
 
 
 /* FShotSequencerSection structors
@@ -24,11 +26,12 @@ void FTrackEditorThumbnailPool::AddThumbnailsNeedingRedraw(const TArray<TSharedP
 	bNeedsSort = true;
 }
 
+
 bool FTrackEditorThumbnailPool::DrawThumbnails()
 {
 	int32 ThumbnailsDrawn = 0;
 
-	// Apply sorting if necessary
+	// apply sorting if necessary
 	if (bNeedsSort)
 	{
 		auto SortFunc = [](const TSharedPtr<FTrackEditorThumbnail>& A, const TSharedPtr<FTrackEditorThumbnail>& B){
@@ -38,14 +41,16 @@ bool FTrackEditorThumbnailPool::DrawThumbnails()
 			}
 			return A->SortOrder < B->SortOrder;
 		};
+
 		ThumbnailsNeedingDraw.Sort(SortFunc);
 		bNeedsSort = false;
 	}
 
 	const double CurrentTime = FSlateApplication::Get().GetCurrentTime();
 
-	// Only allow drawing if we're not waiting on other thumbnails
+	// only allow drawing if we're not waiting on other thumbnails
 	bool bAllowDraw = !ThumbnailsBeingDrawn.Num();
+
 	for (int32 ThumbnailIndex = ThumbnailsBeingDrawn.Num() - 1; ThumbnailIndex >= 0; --ThumbnailIndex)
 	{
 		if (ThumbnailsBeingDrawn[ThumbnailIndex]->bHasFinishedDrawing)
@@ -75,17 +80,15 @@ bool FTrackEditorThumbnailPool::DrawThumbnails()
 			const float MaxFramerate = 90.f;
 
 			const float AverageDeltaTime = FSlateApplication::Get().GetAverageDeltaTime();
-
-			const float Lerp = FMath::Max(((1.f/AverageDeltaTime) - MinFramerate), 0.f) / (MaxFramerate - MinFramerate);
+			const float Lerp = FMath::Max(((1.f / AverageDeltaTime) - MinFramerate), 0.f) / (MaxFramerate - MinFramerate);
 			const float NumToDrawPerS = FMath::Lerp(MinThumbnailsPerS, MaxThumbnailsPerS, Lerp);
 
 			const float TimeThreshold = 1.f / NumToDrawPerS;
-
 			const float TimeElapsed = CurrentTime - TimeOfLastDraw;
 
 			if (!FMath::IsNearlyEqual(float(CurrentTime - TimeOfLastUpdate), AverageDeltaTime, AverageDeltaTime*2.f))
 			{
-				// Don't generate thumbnails if we haven't had an update within a reasonable time - assume some blocking task
+				// don't generate thumbnails if we haven't had an update within a reasonable time - assume some blocking task
 				TimeOfLastDraw = CurrentTime;
 			}
 			else

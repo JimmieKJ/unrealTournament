@@ -244,8 +244,7 @@ void UK2Node_DoOnceMultiInput::RemoveInputPin(UEdGraphPin* Pin)
 		if (Pins.Find(Pin, /*out*/ PinRemovalIndex))
 		{
 			Pins.RemoveAt(PinRemovalIndex);
-			Pin->Modify();
-			Pin->BreakAllPinLinks();
+			Pin->MarkPendingKill();
 			--NumAdditionalInputs;
 
 			int32 NameIndex = 0;

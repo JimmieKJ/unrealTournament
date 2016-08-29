@@ -4,7 +4,7 @@
 #include "MatineeActions.h"
 #include "Matinee.h"
 
-#define LOCTEXT_NAMESPACE ""
+#define LOCTEXT_NAMESPACE "MatineeCommands"
 
 /** UI_COMMAND takes long for the compile to optimize */
 PRAGMA_DISABLE_OPTIMIZATION

@@ -2,6 +2,7 @@
 
 #pragma once
 
+class SWindow;
 
 /**
  * A reply to the OnQueryCursor event.

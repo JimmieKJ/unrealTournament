@@ -184,6 +184,12 @@ void FGenericErrorReport::SetPrimaryCrashProperties( FPrimaryCrashProperties& ou
 	}
 }
 
+void FGenericErrorReport::SetCrashReportClientVersion(const FString& InVersion)
+{
+	FPrimaryCrashProperties::Get()->CrashReportClientVersion = InVersion;
+	FPrimaryCrashProperties::Get()->Save();
+}
+
 TArray<FString> FGenericErrorReport::GetFilesToUpload() const
 {
 	TArray<FString> FilesToUpload;

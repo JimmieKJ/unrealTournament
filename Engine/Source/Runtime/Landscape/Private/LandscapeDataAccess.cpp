@@ -1,5 +1,6 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
+#include "LandscapePrivatePCH.h"
 #include "Landscape.h"
 
 #if WITH_EDITOR
@@ -12,19 +13,8 @@ LANDSCAPE_API FLandscapeComponentDataInterface::FLandscapeComponentDataInterface
 	Component(InComponent),
 	HeightMipData(NULL),
 	XYOffsetMipData(NULL),
-	bNeedToDeleteDataInterface(false),
 	MipLevel(InMipLevel)
 {
-	if (Component->GetLandscapeInfo())
-	{
-		DataInterface = Component->GetLandscapeInfo()->GetDataInterface();
-	}
-	else
-	{
-		DataInterface = new FLandscapeDataInterface;
-		bNeedToDeleteDataInterface = true;
-	}
-
 	// Offset and stride for this component's data in heightmap texture
 	HeightmapStride = Component->HeightmapTexture->Source.GetSizeX() >> MipLevel;
 	HeightmapComponentOffsetX = FMath::RoundToInt((float)(Component->HeightmapTexture->Source.GetSizeX() >> MipLevel) * Component->HeightmapScaleBias.Z);
@@ -37,10 +27,10 @@ LANDSCAPE_API FLandscapeComponentDataInterface::FLandscapeComponentDataInterface
 
 	if (MipLevel < Component->HeightmapTexture->Source.GetNumMips())
 	{
-		HeightMipData = (FColor*)DataInterface->LockMip(Component->HeightmapTexture, MipLevel);
+		HeightMipData = (FColor*)DataInterface.LockMip(Component->HeightmapTexture, MipLevel);
 		if (Component->XYOffsetmapTexture)
 		{
-			XYOffsetMipData = (FColor*)DataInterface->LockMip(Component->XYOffsetmapTexture, MipLevel);
+			XYOffsetMipData = (FColor*)DataInterface.LockMip(Component->XYOffsetmapTexture, MipLevel);
 		}
 	}
 }
@@ -49,23 +39,12 @@ LANDSCAPE_API FLandscapeComponentDataInterface::~FLandscapeComponentDataInterfac
 {
 	if (HeightMipData)
 	{
-		DataInterface->UnlockMip(Component->HeightmapTexture, MipLevel);
+		DataInterface.UnlockMip(Component->HeightmapTexture, MipLevel);
 		if (Component->XYOffsetmapTexture)
 		{
-			DataInterface->UnlockMip(Component->XYOffsetmapTexture, MipLevel);
+			DataInterface.UnlockMip(Component->XYOffsetmapTexture, MipLevel);
 		}
 	}
-
-	if (bNeedToDeleteDataInterface)
-	{
-		delete DataInterface;
-		DataInterface = NULL;
-	}
-}
-
-LANDSCAPE_API void FLandscapeComponentDataInterface::UnlockRawHeightData() const
-{
-	DataInterface->UnlockMip(Component->HeightmapTexture, MipLevel);
 }
 
 LANDSCAPE_API void FLandscapeComponentDataInterface::GetHeightmapTextureData(TArray<FColor>& OutData, bool bOkToFail)
@@ -123,7 +102,7 @@ LANDSCAPE_API bool FLandscapeComponentDataInterface::GetWeightmapTextureData(ULa
 	OutData.Empty(FMath::Square(WeightmapSize));
 	OutData.AddUninitialized(FMath::Square(WeightmapSize));
 
-	FColor* WeightMipData = (FColor*)DataInterface->LockMip(Component->WeightmapTextures[Component->WeightmapLayerAllocations[LayerIdx].WeightmapTextureIndex], MipLevel);
+	FColor* WeightMipData = (FColor*)DataInterface.LockMip(Component->WeightmapTextures[Component->WeightmapLayerAllocations[LayerIdx].WeightmapTextureIndex], MipLevel);
 
 	// Channel remapping
 	int32 ChannelOffsets[4] = { (int32)STRUCT_OFFSET(FColor, R), (int32)STRUCT_OFFSET(FColor, G), (int32)STRUCT_OFFSET(FColor, B), (int32)STRUCT_OFFSET(FColor, A) };
@@ -135,7 +114,7 @@ LANDSCAPE_API bool FLandscapeComponentDataInterface::GetWeightmapTextureData(ULa
 		OutData[i] = SrcTextureData[i * 4];
 	}
 
-	DataInterface->UnlockMip(Component->WeightmapTextures[Component->WeightmapLayerAllocations[LayerIdx].WeightmapTextureIndex], MipLevel);
+	DataInterface.UnlockMip(Component->WeightmapTextures[Component->WeightmapLayerAllocations[LayerIdx].WeightmapTextureIndex], MipLevel);
 	return true;
 }
 

@@ -25,7 +25,7 @@ private:
 
 	uint32 bAsyncLoading:1;
 
-	void OnSoundModLoaded(const FName& PackageName, UPackage * Package, EAsyncLoadingResult::Type Result);
+	void OnSoundModLoaded(const FName& PackageName, UPackage * Package, EAsyncLoadingResult::Type Result, bool bAddToRoot);
 
 public:	
 
@@ -47,7 +47,7 @@ public:
 	//~ End USoundNode Interface
 
 	//~ Begin USoundNodeAssetReferencer Interface
-	virtual void LoadAsset() override;
+	virtual void LoadAsset(bool bAddToRoot = false) override;
 	//~ End USoundNode Interface
 
 };

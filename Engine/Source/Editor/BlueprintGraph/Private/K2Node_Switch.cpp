@@ -98,7 +98,7 @@ public:
 					FBPTerminal* CaseValueTerm = new (Context.Literals) FBPTerminal();
 					CaseValueTerm->Name = Pin->PinName;
 					CaseValueTerm->Type = SelectionPin->PinType;
-					CaseValueTerm->Source = Pin;
+					CaseValueTerm->SourcePin = Pin;
 					CaseValueTerm->bIsLiteral = true;
 
 					// Call the comparison function associated with this switch node
@@ -222,6 +222,12 @@ FLinearColor UK2Node_Switch::GetNodeTitleColor() const
 	return FLinearColor(255.0f, 255.0f, 0.0f);
 }
 
+FSlateIcon UK2Node_Switch::GetIconAndTint(FLinearColor& OutColor) const
+{
+	static FSlateIcon Icon("EditorStyle", "GraphEditor.Switch_16x");
+	return Icon;
+}
+
 void UK2Node_Switch::AddPinToSwitchNode()
 {
 	const UEdGraphSchema_K2* K2Schema = GetDefault<UEdGraphSchema_K2>();
@@ -250,10 +256,8 @@ void UK2Node_Switch::RemovePinFromSwitchNode(UEdGraphPin* TargetPin)
 	}
 	else
 	{
-		TargetPin->BreakAllPinLinks();
+		TargetPin->MarkPendingKill();
 		Pins.Remove(TargetPin);
-
-		RemovePin(TargetPin);
 	}
 }
 

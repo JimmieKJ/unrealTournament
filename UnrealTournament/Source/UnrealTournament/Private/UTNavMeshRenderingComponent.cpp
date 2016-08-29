@@ -5,7 +5,7 @@
 FPrimitiveSceneProxy* UUTNavMeshRenderingComponent::CreateSceneProxy()
 {
 #if WITH_RECAST && WITH_EDITOR
-	FPrimitiveSceneProxy* SceneProxy = NULL;
+	FPrimitiveSceneProxy* NewSceneProxy = NULL;
 	ARecastNavMesh* NavMesh = Cast<ARecastNavMesh>(GetOwner());
 	if (IsVisible() && NavMesh != NULL && !NavMesh->IsPendingKillPending())
 	{
@@ -27,10 +27,10 @@ FPrimitiveSceneProxy* UUTNavMeshRenderingComponent::CreateSceneProxy()
 			GatherTriangleData(&ProxyData);
 		}
 
-		SceneProxy = new FNavMeshSceneProxy(this, &ProxyData);
+		NewSceneProxy = new FNavMeshSceneProxy(this, &ProxyData);
 		ProxyData.Reset();
 	}
-	return SceneProxy;
+	return NewSceneProxy;
 #else
 	return NULL;
 #endif

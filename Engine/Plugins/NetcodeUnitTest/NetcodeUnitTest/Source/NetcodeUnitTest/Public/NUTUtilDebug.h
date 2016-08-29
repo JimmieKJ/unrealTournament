@@ -634,7 +634,7 @@ public:
 /**
  * General debug functions
  */
-struct NUTDebug
+struct NETCODEUNITTEST_API NUTDebug
 {
 	// @todo #JohnBMerge: Might be useful to find a place for the hexdump functions within the base engine code itself;
 	//				they are very useful
@@ -717,7 +717,7 @@ struct NUTDebug
 		for (int32 i=0; i<LogLines.Num(); i++)
 		{
 			// NOTE: It's important to pass it in as a parameter, otherwise there is a crash if the line contains '%s'
-			OutLog->Logf(TEXT("%s"), *LogLines[i]);
+			OutLog->Logf(TEXT(" %s"), *LogLines[i]);
 		}
 	}
 

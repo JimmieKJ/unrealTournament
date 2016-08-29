@@ -136,10 +136,10 @@ public:
 									if (::GetTokenInformation(TokenHandle, TokenUser, UserToken, UserTokenSize, &UserTokenSize))
 									{
 										WCHAR DomainName[256];
-										::DWORD DomainNameLength;
+										::DWORD DomainNameLength = 256;
 
 										WCHAR UserName[256];
-										::DWORD UserNameLength;
+										::DWORD UserNameLength = 256;
 
 										SID_NAME_USE SidType;
 
@@ -272,6 +272,7 @@ public:
 			return false;
 		}
 
+		CA_SUPPRESS(28159);
 		return (::ExitWindowsEx(EWX_POWEROFF | EWX_FORCE, SHTDN_REASON_MINOR_MAINTENANCE | SHTDN_REASON_FLAG_PLANNED) != 0);
 	}
 
@@ -287,6 +288,7 @@ public:
 			return false;
 		}
 
+		CA_SUPPRESS(28159);
 		return (::ExitWindowsEx(EWX_REBOOT | EWX_FORCE, SHTDN_REASON_MINOR_MAINTENANCE | SHTDN_REASON_FLAG_PLANNED) != 0);
 	}
 

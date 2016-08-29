@@ -184,11 +184,13 @@ struct FNetNameMapping
 {
 public:
 	TMap<const UObject*, FString> NetToName;
+	TMap<UEdGraphPin*, FString> NetPinToName;
 	TMap<FString, int32> BaseNameToCount;
 
 public:
-	template<typename NetType>
-	static FString MakeBaseName(const NetType* Net);
+	KISMETCOMPILER_API static FString MakeBaseName(const UEdGraphNode* Net);
+	KISMETCOMPILER_API static FString MakeBaseName(const UEdGraphPin* Net);;
+	KISMETCOMPILER_API static FString MakeBaseName(const UAnimGraphNode_Base* Net);
 
 	// Come up with a valid, unique (within the scope of NetNameMap) name based on an existing Net object.
 	// The resulting name is stable across multiple calls if given the same pointer.
@@ -213,6 +215,30 @@ public:
 			}
 
 			NetToName.Add(Net, NetName);
+
+			return NetName;
+		}
+	}
+
+	FString MakeValidName(UEdGraphPin* Net)
+	{
+		if (FString* Result = NetPinToName.Find(Net))
+		{
+			return *Result;
+		}
+		else
+		{
+			FString NetName = MakeBaseName(Net);
+			FNodeHandlingFunctor::SanitizeName(NetName);
+
+			int32& ExistingCount = BaseNameToCount.FindOrAdd(NetName);
+			++ExistingCount;
+			if (ExistingCount > 1)
+			{
+				NetName += FString::FromInt(ExistingCount);
+			}
+
+			NetPinToName.Add(Net, NetName);
 
 			return NetName;
 		}

@@ -141,6 +141,9 @@ void FSlateStatCycleCounter::EndFrame(double CurrentTime)
 						}
 					}
 				}
+
+				check(PathCurrentDepth >= 0 && PathCurrentDepth < kMaxDepth);
+
 				// increment the ordinal at this depth
 				++Path[PathCurrentDepth];
 				FCString::Sprintf(PathStrCurrent, TEXT("%4d"), Path[PathCurrentDepth]);

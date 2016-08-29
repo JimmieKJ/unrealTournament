@@ -6,6 +6,7 @@
 #include "Recast/Recast.h"
 #include "DetourNavMesh.h"
 #include "AI/NavDataGenerator.h"
+#include "AI/Navigation/RecastNavMesh.h"
 #include "AI/NavigationModifier.h"
 
 #define MAX_VERTS_PER_POLY	6

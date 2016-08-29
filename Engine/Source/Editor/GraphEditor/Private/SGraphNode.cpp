@@ -418,6 +418,18 @@ void SGraphNode::Tick( const FGeometry& AllottedGeometry, const double InCurrent
 	CachedUnscaledPosition = AllottedGeometry.AbsolutePosition/AllottedGeometry.Scale;
 
 	SNodePanel::SNode::Tick(AllottedGeometry, InCurrentTime, InDeltaTime);
+
+	if (IsHovered())
+	{
+		if (FNodeSlot* CommentSlot = GetSlot(ENodeZone::TopCenter))
+		{
+			TSharedPtr<SCommentBubble> CommentBubble = StaticCastSharedRef<SCommentBubble>(CommentSlot->GetWidget());
+			if (CommentBubble.IsValid())
+			{
+				CommentBubble->TickVisibility(InCurrentTime, InDeltaTime);
+			}
+		}
+	}
 }
 
 bool SGraphNode::IsSelectedExclusively() const
@@ -712,7 +724,7 @@ void SGraphNode::UpdateGraphNode()
 	const FSlateBrush* IconBrush = NULL;
 	if (GraphNode != NULL && GraphNode->ShowPaletteIconOnNode())
 	{
-		IconBrush = FEditorStyle::GetBrush(GraphNode->GetPaletteIcon(IconColor));
+		IconBrush = GraphNode->GetIconAndTint(IconColor).GetOptionalIcon();
 	}
 
 	TSharedRef<SOverlay> DefaultTitleAreaWidget =
@@ -838,7 +850,19 @@ void SGraphNode::UpdateGraphNode()
 					.HAlign(HAlign_Fill)
 					.VAlign(VAlign_Top)
 					[
-						CreateNodeContentArea()
+						SNew(SOverlay)
+						+SOverlay::Slot()
+						.VAlign(VAlign_Fill)
+						[
+							SNew(SImage)
+							.Image(FEditorStyle::GetBrush("Graph.Node.IndicatorOverlay"))
+							.Visibility(this, &SGraphNode::GetNodeIndicatorOverlayVisibility)
+							.ColorAndOpacity(this, &SGraphNode::GetNodeIndicatorOverlayColor)
+						]
+						+SOverlay::Slot()
+						[
+							CreateNodeContentArea()
+						]
 					]
 
 					+SVerticalBox::Slot()
@@ -1023,6 +1047,18 @@ void SGraphNode::CreatePinWidgets()
 	for (int32 PinIndex = 0; PinIndex < GraphNode->Pins.Num(); ++PinIndex)
 	{
 		UEdGraphPin* CurPin = GraphNode->Pins[PinIndex];
+
+		if ( !ensureMsgf(CurPin->GetOuter() == GraphNode
+			, TEXT("Graph node ('%s' - %s) has an invalid %s pin: '%s'; (with a bad %s outer: '%s'); skiping creation of a widget for this pin.")
+			, *GraphNode->GetNodeTitle(ENodeTitleType::ListView).ToString()
+			, *GraphNode->GetPathName()
+			, (CurPin->Direction == EEdGraphPinDirection::EGPD_Input) ? TEXT("input") : TEXT("output")
+			,  CurPin->PinFriendlyName.IsEmpty() ? *CurPin->PinName : *CurPin->PinFriendlyName.ToString()
+			,  CurPin->GetOuter() ? *CurPin->GetOuter()->GetClass()->GetName() : TEXT("UNKNOWN")
+			,  CurPin->GetOuter() ? *CurPin->GetOuter()->GetPathName() : TEXT("NULL")) )
+		{
+			continue;
+		}
 
 		CreateStandardPinWidget(CurPin);
 	}
@@ -1226,7 +1262,7 @@ void SGraphNode::PositionThisNodeBetweenOtherNodes(const TMap< UObject*, TShared
 
 void SGraphNode::PositionThisNodeBetweenOtherNodes(const FVector2D& PrevPos, const FVector2D& NextPos, float HeightAboveWire) const
 {
-	const FVector2D DesiredSize = GetDesiredSize();
+	const FVector2D DesiredNodeSize = GetDesiredSize();
 
 	FVector2D DeltaPos(NextPos - PrevPos);
 	if (DeltaPos.IsNearlyZero())
@@ -1236,12 +1272,12 @@ void SGraphNode::PositionThisNodeBetweenOtherNodes(const FVector2D& PrevPos, con
 
 	const FVector2D Normal = FVector2D(DeltaPos.Y, -DeltaPos.X).GetSafeNormal();
 
-	const FVector2D SlidingCapsuleBias = FVector2D::ZeroVector;//(0.5f * FMath::Sin(Normal.X * (float)HALF_PI) * DesiredSize.X, 0.0f);
+	const FVector2D SlidingCapsuleBias = FVector2D::ZeroVector;//(0.5f * FMath::Sin(Normal.X * (float)HALF_PI) * DesiredNodeSize.X, 0.0f);
 
 	const FVector2D NewCenter = PrevPos + (0.5f * DeltaPos) + (HeightAboveWire * Normal) + SlidingCapsuleBias;
 
 	// Now we need to adjust the new center by the node size and zoom factor
-	const FVector2D NewCorner = NewCenter - (0.5f * DesiredSize);
+	const FVector2D NewCorner = NewCenter - (0.5f * DesiredNodeSize);
 
 	GraphNode->NodePosX = NewCorner.X;
 	GraphNode->NodePosY = NewCorner.Y;

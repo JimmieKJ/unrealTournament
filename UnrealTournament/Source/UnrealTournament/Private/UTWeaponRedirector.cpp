@@ -12,8 +12,11 @@ void AUTWeaponRedirector::InitFor_Implementation(APawn* InInstigator, const FRep
 	PortalDest = InDest;
 	PortalDest.RemoveScaling();
 	CollisionInfo = InCollision;
-	UpdateCollisionShape();
-	RootComponent->AttachTo(InBase, NAME_None, EAttachLocation::KeepWorldPosition);
+	UpdateCollisionShape(); 
+	if (InBase != nullptr)
+	{
+		RootComponent->AttachToComponent(InBase, FAttachmentTransformRules::KeepWorldTransform);
+	}
 	bReplicateMovement = (InBase != NULL);
 }
 
@@ -21,7 +24,7 @@ void AUTWeaponRedirector::UpdateCollisionShape()
 {
 	if (CollisionComp != NULL)
 	{
-		CollisionComp->DetachFromParent();
+		CollisionComp->DetachFromComponent(FDetachmentTransformRules::KeepWorldTransform);
 		CollisionComp->DestroyComponent();
 		CollisionComp = NULL;
 	}
@@ -47,7 +50,7 @@ void AUTWeaponRedirector::UpdateCollisionShape()
 		CollisionComp->SetCollisionProfileName(FName(TEXT("OverlapAll")));
 		CollisionComp->SetCollisionResponseToChannel(COLLISION_TRACE_WEAPON, ECR_Block);
 		CollisionComp->SetCollisionResponseToChannel(COLLISION_TRACE_WEAPONNOCHARACTER, ECR_Block);
-		CollisionComp->AttachTo(RootComponent, NAME_None, EAttachLocation::SnapToTarget);
+		CollisionComp->AttachToComponent(RootComponent, FAttachmentTransformRules::SnapToTargetIncludingScale);
 		CollisionComp->RegisterComponent();
 		CollisionComp->UpdateOverlaps();
 	}

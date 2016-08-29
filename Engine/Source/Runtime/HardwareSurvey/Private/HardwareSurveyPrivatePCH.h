@@ -7,6 +7,3 @@
  *****************************************************************************/
 
 #include "HardwareSurvey.h"
-#include "Analytics.h"
-#include "AnalyticsEventAttribute.h"
-#include "IAnalyticsProvider.h"

@@ -62,14 +62,14 @@ void FKismetVariableDragDropAction::HoverTargetChanged()
 	bool bCanMakeSetter = true;
 	bool bBadSchema = false;
 	bool bBadGraph = false;
-	UEdGraph* HoveredGraph = GetHoveredGraph();
-	if (HoveredGraph)
+	UEdGraph* TheHoveredGraph = GetHoveredGraph();
+	if (TheHoveredGraph)
 	{
-		if (Cast<const UEdGraphSchema_K2>(HoveredGraph->GetSchema()) == NULL)
+		if (Cast<const UEdGraphSchema_K2>(TheHoveredGraph->GetSchema()) == nullptr)
 		{
 			bBadSchema = true;
 		}
-		else if(!CanVariableBeDropped(VariableProperty, *HoveredGraph))
+		else if(!CanVariableBeDropped(VariableProperty, *TheHoveredGraph))
 		{
 			bBadGraph = true;
 		}
@@ -78,8 +78,8 @@ void FKismetVariableDragDropAction::HoverTargetChanged()
 
 		FNodeConstructionParams NewNodeParams;
 		NewNodeParams.VariableName = VariableName;
-		const UBlueprint* DropOnBlueprint = FBlueprintEditorUtils::FindBlueprintForGraph(HoveredGraph);
-		NewNodeParams.Graph = HoveredGraph;
+		const UBlueprint* DropOnBlueprint = FBlueprintEditorUtils::FindBlueprintForGraph(TheHoveredGraph);
+		NewNodeParams.Graph = TheHoveredGraph;
 		NewNodeParams.VariableSource = Outer;
 		
 		bCanMakeSetter = CanExecuteMakeSetter(NewNodeParams, VariableProperty);
@@ -96,11 +96,11 @@ void FKismetVariableDragDropAction::HoverTargetChanged()
 	{
 		FFormatNamedArguments Args;
 		Args.Add(TEXT("VariableName"), FText::FromString(VariableString));
-		Args.Add(TEXT("Scope"), FText::FromString(HoveredGraph->GetName()));
+		Args.Add(TEXT("Scope"), FText::FromString(TheHoveredGraph->GetName()));
 
 		StatusSymbol = FEditorStyle::GetBrush(TEXT("Graph.ConnectorFeedback.Error"));
 
-		if(IsFromBlueprint(FBlueprintEditorUtils::FindBlueprintForGraph(HoveredGraph)) && VariableProperty->GetOuter()->IsA(UFunction::StaticClass()))
+		if(IsFromBlueprint(FBlueprintEditorUtils::FindBlueprintForGraph(TheHoveredGraph)) && VariableProperty->GetOuter()->IsA(UFunction::StaticClass()))
 		{
 			Message = FText::Format( LOCTEXT("IncorrectGraphForLocalVariable_Error", "Cannot place local variable '{VariableName}' in external scope '{Scope}'"), Args);
 		}
@@ -398,7 +398,7 @@ FReply FKismetVariableDragDropAction::DroppedOnNode(FVector2D ScreenPosition, FV
 				Pin->PinType = NewPinType;
 
 				//break bad links
-				for(TArray<class UEdGraphPin*>::TIterator OtherPinIt(BadLinks);OtherPinIt;)
+				for(TArray<class UEdGraphPin*>::TIterator OtherPinIt(BadLinks);OtherPinIt;++OtherPinIt)
 				{
 					Pin->BreakLinkTo(*OtherPinIt);
 				}

@@ -9,7 +9,7 @@ struct FBuildPatchSettings
 	// The directory to analyze
 	FString RootDirectory;
 	// The ID of the app of this build
-	uint32 AppID;
+	uint32 AppId;
 	// The name of the app of this build
 	FString AppName;
 	// The version string for this build
@@ -34,4 +34,6 @@ struct FBuildPatchSettings
 	bool bShouldHonorReuseThreshold;
 	// Map of custom fields to add to the manifest
 	TMap<FString, FVariant> CustomFields;
+	// The output manifest filename.
+	FString OutputFilename;
 };

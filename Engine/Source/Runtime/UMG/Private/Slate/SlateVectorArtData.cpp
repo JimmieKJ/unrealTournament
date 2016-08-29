@@ -148,9 +148,9 @@ void USlateVectorArtData::EnsureValidData()
 #endif
 }
 
-void USlateVectorArtData::PreSave()
+void USlateVectorArtData::PreSave(const class ITargetPlatform* TargetPlatform)
 {
-	Super::PreSave();
+	Super::PreSave(TargetPlatform);
 	EnsureValidData();
 }
 

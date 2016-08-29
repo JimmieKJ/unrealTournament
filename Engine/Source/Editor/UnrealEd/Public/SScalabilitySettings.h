@@ -62,11 +62,13 @@ private:
 	/** Called when the state of the "Show notification" check box changes */
 	void OnMonitorPerformanceChanged(ECheckBoxState NewState);
 
+	/** Adds buttons for one settings strip to the grid */
+	void AddButtonsToGrid(int32 X0, int32 Y0, TSharedRef<SGridPanel> ButtonMatrix, const FText* FourNameArray, int32 ButtonCount, const TCHAR* GroupName, const FText& TooltipShape);
+
 private:
 	/* The state of scalability settings at the point of opening the menu*/
 	Scalability::FQualityLevels InitialQualityLevels;
 
 	/** The state of quality levels as they are changed in this widget */
 	Scalability::FQualityLevels CachedQualityLevels;
-
 };

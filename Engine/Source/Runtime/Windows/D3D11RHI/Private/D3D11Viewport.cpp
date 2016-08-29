@@ -41,11 +41,11 @@ namespace RHIConsoleVariables
 		ECVF_RenderThreadSafe
 		);
 
-	int32 bForceThirtyHz = 1;
-	static FAutoConsoleVariableRef CVarForceThirtyHz(
-		TEXT("RHI.ForceThirtyHz"),
-		bForceThirtyHz,
-		TEXT("If true, the display will never update more often than 30Hz."),
+	int32 TargetRefreshRate = 0;
+	static FAutoConsoleVariableRef CVarTargetRefreshRate(
+		TEXT("RHI.TargetRefreshRate"),
+		TargetRefreshRate,
+		TEXT("If non-zero, the display will never update more often than the target refresh rate (in Hz)."),
 		ECVF_RenderThreadSafe
 		);
 
@@ -108,7 +108,7 @@ FD3D11Texture2D* GetSwapChainSurface(FD3D11DynamicRHI* D3DRHI, EPixelFormat Pixe
 	RTVDesc.Format = DXGI_FORMAT_UNKNOWN;
 	RTVDesc.ViewDimension = D3D11_RTV_DIMENSION_TEXTURE2D;
 	RTVDesc.Texture2D.MipSlice = 0;
-	VERIFYD3D11RESULT(D3DRHI->GetDevice()->CreateRenderTargetView(BackBufferResource,&RTVDesc,BackBufferRenderTargetView.GetInitReference()));
+	VERIFYD3D11RESULT_EX(D3DRHI->GetDevice()->CreateRenderTargetView(BackBufferResource,&RTVDesc,BackBufferRenderTargetView.GetInitReference()), D3DRHI->GetDevice());
 
 	D3D11_TEXTURE2D_DESC TextureDesc;
 	BackBufferResource->GetDesc(&TextureDesc);
@@ -123,7 +123,7 @@ FD3D11Texture2D* GetSwapChainSurface(FD3D11DynamicRHI* D3DRHI, EPixelFormat Pixe
 	SRVDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
 	SRVDesc.Texture2D.MostDetailedMip = 0;
 	SRVDesc.Texture2D.MipLevels = 1;
-	VERIFYD3D11RESULT(D3DRHI->GetDevice()->CreateShaderResourceView(BackBufferResource,&SRVDesc,BackBufferShaderResourceView.GetInitReference()));
+	VERIFYD3D11RESULT_EX(D3DRHI->GetDevice()->CreateShaderResourceView(BackBufferResource,&SRVDesc,BackBufferShaderResourceView.GetInitReference()), D3DRHI->GetDevice());
 
 	FD3D11Texture2D* NewTexture = new FD3D11Texture2D(
 		D3DRHI,
@@ -158,7 +158,7 @@ FD3D11Viewport::~FD3D11Viewport()
 
 	// If the swap chain was in fullscreen mode, switch back to windowed before releasing the swap chain.
 	// DXGI throws an error otherwise.
-	VERIFYD3D11RESULT(SwapChain->SetFullscreenState(false,NULL));
+	VERIFYD3D11RESULT_EX(SwapChain->SetFullscreenState(false,NULL), D3DRHI->GetDevice());
 
 	FrameSyncEvent.ReleaseResource();
 
@@ -264,16 +264,8 @@ bool FD3D11Viewport::PresentChecked(int32 SyncInterval)
 		Result = SwapChain->Present(SyncInterval, 0);
 	}
 
-	// Detect a lost device.
-	if(Result == DXGI_ERROR_DEVICE_REMOVED || Result == DXGI_ERROR_DEVICE_RESET || Result == DXGI_ERROR_DRIVER_INTERNAL_ERROR)
-	{
-		// This variable is checked periodically by the main thread.
-		D3DRHI->bDeviceRemoved = true;
-	}
-	else
-	{
-		VERIFYD3D11RESULT(Result);
-	}
+	VERIFYD3D11RESULT_EX(Result, D3DRHI->GetDevice());
+	
 	return bNeedNativePresent;
 }
 
@@ -288,7 +280,8 @@ void FD3D11Viewport::PresentWithVsyncDWM()
 	QueryPerformanceCounter(&Cycles);
 	FMemory::Memzero(TimingInfo);
 	TimingInfo.cbSize = sizeof(DWM_TIMING_INFO);
-	DwmGetCompositionTimingInfo(WindowHandle, &TimingInfo);
+	// Starting at windows 8.1 null must be passed into this method for it to work.  null also works on previous versions
+	DwmGetCompositionTimingInfo(nullptr, &TimingInfo);
 
 	uint64 QpcAtFlip = Cycles.QuadPart;
 	uint64 CyclesSinceLastFlip = Cycles.QuadPart - LastFlipTime;
@@ -298,13 +291,14 @@ void FD3D11Viewport::PresentWithVsyncDWM()
 
 	// Find the smallest multiple of the refresh rate that is >= 33ms, our target frame rate.
 	float RefreshPeriod = DisplayRefreshPeriod;
-	if (RHIConsoleVariables::bForceThirtyHz && RefreshPeriod > 1.0f)
+	if(RHIConsoleVariables::TargetRefreshRate > 0 && RefreshPeriod > 1.0f)
 	{
-		while (RefreshPeriod - (1000.0f / 30.0f) < -1.0f)
+		while(RefreshPeriod - (1000.0f / RHIConsoleVariables::TargetRefreshRate) < -1.0f)
 		{
 			RefreshPeriod *= 2.0f;
 		}
 	}
+
 
 	// If the last frame hasn't completed yet, we don't know how long the GPU took.
 	bool bValidGPUTime = (TimingInfo.cFrameComplete > LastFrameComplete);
@@ -417,7 +411,7 @@ bool FD3D11Viewport::Present(bool bLockToVsync)
 		// Check if the viewport's swap chain has been invalidated by DXGI.
 		BOOL bSwapChainFullscreenState;
 		TRefCountPtr<IDXGIOutput> SwapChainOutput;
-		VERIFYD3D11RESULT(SwapChain->GetFullscreenState(&bSwapChainFullscreenState,SwapChainOutput.GetInitReference()));
+		VERIFYD3D11RESULT_EX(SwapChain->GetFullscreenState(&bSwapChainFullscreenState,SwapChainOutput.GetInitReference()), D3DRHI->GetDevice());
 		// Can't compare BOOL with bool...
 		if ( (!!bSwapChainFullscreenState)  != bIsFullscreen )
 		{
@@ -434,7 +428,7 @@ bool FD3D11Viewport::Present(bool bLockToVsync)
 	{
 		MaximumFrameLatency = RHIConsoleVariables::MaximumFrameLatency;	
 		TRefCountPtr<IDXGIDevice1> DXGIDevice;
-		VERIFYD3D11RESULT(D3DRHI->GetDevice()->QueryInterface(IID_IDXGIDevice, (void**)DXGIDevice.GetInitReference()));
+		VERIFYD3D11RESULT_EX(D3DRHI->GetDevice()->QueryInterface(IID_IDXGIDevice, (void**)DXGIDevice.GetInitReference()), D3DRHI->GetDevice());
 		DXGIDevice->SetMaximumFrameLatency(MaximumFrameLatency);
 	}
 
@@ -482,15 +476,9 @@ void FD3D11DynamicRHI::RHIResizeViewport(FViewportRHIParamRef ViewportRHI,uint32
 void FD3D11DynamicRHI::RHITick( float DeltaTime )
 {
 	check( IsInGameThread() );
-
-	// Check to see if the device has been removed.
-	if ( bDeviceRemoved )
-	{
-		InitD3DDevice();
-	}
-
+	
 	// Check if any swap chains have been invalidated.
-	for(int32 ViewportIndex = 0;ViewportIndex < Viewports.Num();ViewportIndex++)
+	for(int32 ViewportIndex = 0; ViewportIndex < Viewports.Num(); ViewportIndex++)
 	{
 		Viewports[ViewportIndex]->ConditionalResetSwapChain(false);
 	}

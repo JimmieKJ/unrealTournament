@@ -38,6 +38,19 @@ public:
 		return MakeShareable(new FSlateFontAtlasRHI(AtlasSize, AtlasSize));
 	}
 
+	virtual TSharedPtr<ISlateFontTexture> CreateNonAtlasedTexture(const uint32 InWidth, const uint32 InHeight, const TArray<uint8>& InRawData) const override
+	{
+		if (GIsEditor)
+		{
+			const uint32 MaxFontTextureDimension = FMath::Min(AtlasSize * 4u, GetMax2DTextureDimension()); // Don't allow textures greater than 4x our atlas size, but still honor the platform limit
+			if (InWidth <= MaxFontTextureDimension && InHeight <= MaxFontTextureDimension)
+			{
+				return MakeShareable(new FSlateFontTextureRHI(InWidth, InHeight, InRawData));
+			}
+		}
+		return nullptr;
+	}
+
 private:
 	/** Size of each font texture, width and height */
 	int32 AtlasSize;

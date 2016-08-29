@@ -184,6 +184,8 @@ protected:
 		}
 		else
 		{
+			FThreadManager::Get().AddThread(ThreadID, this);
+
 			// Let the thread start up, then set the name for debug purposes.
 			ThreadInitSyncEvent->Wait(INFINITE);
 			ThreadName = InThreadName ? InThreadName : TEXT("Unnamed UE4");

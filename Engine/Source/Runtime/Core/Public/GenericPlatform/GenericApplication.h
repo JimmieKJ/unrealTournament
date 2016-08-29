@@ -463,6 +463,15 @@ public:
 
 	virtual void GetInitialDisplayMetrics( FDisplayMetrics& OutDisplayMetrics ) const { FDisplayMetrics::GetDisplayMetrics(OutDisplayMetrics); }
 
+	
+	/** Delegate for virtual keyboard being shown/hidden in case UI wants to slide out of the way */
+	DECLARE_EVENT_OneParam(FSlateApplication, FVirtualKeyboardShownEvent, FPlatformRect);
+	FVirtualKeyboardShownEvent& OnVirtualKeyboardShown()  { return VirtualKeyboardShownEvent; }
+	
+	DECLARE_EVENT(FSlateApplication, FVirtualKeyboardHiddenEvent);
+	FVirtualKeyboardHiddenEvent& OnVirtualKeyboardHidden()  { return VirtualKeyboardHiddenEvent; }
+
+	
 	/** Gets the horizontal alignment of the window title bar's title text. */
 	virtual EWindowTitleAlignment::Type GetWindowTitleAlignment() const
 	{
@@ -509,4 +518,12 @@ protected:
 	
 	// Notifies subscribers when any of the display metrics change: e.g. resolution changes or monitor sare re-arranged.
 	FOnDisplayMetricsChanged OnDisplayMetricsChangedEvent;
+
+	/** Delegate for virtual keyboard being shown */
+	FVirtualKeyboardShownEvent VirtualKeyboardShownEvent;
+	
+	/** Delegate for virtual keyboard being shown */
+	FVirtualKeyboardHiddenEvent VirtualKeyboardHiddenEvent;
+	
+
 };

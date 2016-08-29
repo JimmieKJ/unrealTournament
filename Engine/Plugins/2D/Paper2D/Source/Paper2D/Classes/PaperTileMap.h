@@ -33,7 +33,7 @@ namespace ETileMapProjectionMode
 }
 
 // A tile map is a 2D grid with a defined width and height (in tiles).  There can be multiple layers, each of which can specify which tile should appear in each cell of the map for that layer.
-UCLASS()
+UCLASS(BlueprintType)
 class PAPER2D_API UPaperTileMap : public UObject
 {
 	GENERATED_UCLASS_BODY()
@@ -206,6 +206,9 @@ public:
 	// Checks to see if this tile map uses the specified tile set
 	// Note: This is a slow operation, it scans each tile of each layer!
 	bool UsesTileSet(UPaperTileSet* TileSet) const;
+
+	// Rebuild collision and recreate the body setup
+	void RebuildCollision();
 
 protected:
 	virtual void UpdateBodySetup();

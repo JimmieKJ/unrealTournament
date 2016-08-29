@@ -12,5 +12,6 @@ public:
 	virtual bool HasActions ( const TArray<UObject*>& InObjects ) const override { return false; }
 	virtual void OpenAssetEditor( const TArray<UObject*>& InObjects, TSharedPtr<class IToolkitHost> EditWithinLevelEditor = TSharedPtr<IToolkitHost>() ) override;
 	virtual uint32 GetCategories() override { return EAssetTypeCategories::Basic; }
+	virtual bool CanLocalize() const override { return false; }
 	virtual class UThumbnailInfo* GetThumbnailInfo(UObject* Asset) const override;
 };

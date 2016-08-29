@@ -54,16 +54,16 @@ void APainCausingVolume::PainTimer()
 {
 	if (bPainCausing)
 	{
-		TArray<AActor*> TouchingActors;
+		TSet<AActor*> TouchingActors;
 		GetOverlappingActors(TouchingActors, APawn::StaticClass());
 
-		for (int32 iTouching = 0; iTouching < TouchingActors.Num(); ++iTouching)
+		for (AActor* const A : TouchingActors)
 		{
-			AActor* const A = TouchingActors[iTouching];
-			if (A && !A->IsPendingKill())
+			if (A && A->bCanBeDamaged && !A->IsPendingKill())
 			{
 				// @todo physicsVolume This won't work for other actor. Need to fix it properly
-				if ( A->bCanBeDamaged && (Cast<APawn>(A) && Cast<APawn>(A)->GetPawnPhysicsVolume() == this) )
+				APawn* PawnA = Cast<APawn>(A);
+				if (PawnA && PawnA->GetPawnPhysicsVolume() == this)
 				{
 					CausePainTo(A);
 				}

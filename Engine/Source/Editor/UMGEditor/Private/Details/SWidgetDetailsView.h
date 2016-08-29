@@ -39,6 +39,9 @@ private:
 	/** Handles the widget selection changed event in the editor, updates the details panel accordingly. */
 	void OnEditorSelectionChanged();
 
+	/** Handles the callback from the property detail view confirming the list of objects being edited has changed */
+	void OnPropertyViewObjectArrayChanged(const FString& InTitle, const TArray<TWeakObjectPtr<UObject>>& InObjects);
+
 	void ClearFocusIfOwned();
 
 	bool IsWidgetCDOSelected() const;

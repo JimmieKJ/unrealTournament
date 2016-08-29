@@ -7,11 +7,16 @@
 #include "Developer/CollectionManager/Public/CollectionManagerTypes.h"
 #include "IFilter.h"
 #include "FilterCollection.h"
+#include "ITypedTableView.h"
 #include "AssetThumbnail.h"
 #include "UnrealClient.h"
 
+
 typedef const FAssetData& FAssetFilterType;
 typedef TFilterCollection<FAssetFilterType> FAssetFilterCollectionType;
+
+class UFactory;
+
 
 /** The view modes used in SAssetView */
 namespace EAssetViewType
@@ -25,6 +30,83 @@ namespace EAssetViewType
 		MAX
 	};
 }
+
+
+/** A struct containing details about how the content browser should behave */
+struct FContentBrowserConfig
+{
+	/** The contents of the label on the thumbnail */
+	EThumbnailLabel::Type ThumbnailLabel;
+
+	/** The default scale for thumbnails. [0-1] range */
+	TAttribute< float > ThumbnailScale;
+
+	/** The default view mode */
+	EAssetViewType::Type InitialAssetViewType;
+
+	/** If true, show the bottom toolbar which shows # of assets selected, view mode buttons, etc... */
+	bool bShowBottomToolbar;
+
+	/** Indicates if this view is allowed to show classes */
+	bool bCanShowClasses;
+
+	/** Whether the sources view for choosing folders/collections is available or not */
+	bool bUseSourcesView;
+
+	/** Whether the sources view should initially be expanded or not */
+	bool bExpandSourcesView;
+
+	/** Whether asset paths are shown in the Content Browser.  Only useful if you only want to show collections */
+	bool bShowAssetPathTree;
+
+	/** Forces collections to be initially visible, regardless of defaults */
+	bool bAlwaysShowCollections;
+
+	/** Collection to view initially */
+	FCollectionNameType SelectedCollectionName;
+
+	/** Whether the path picker is available or not */
+	bool bUsePathPicker;
+
+	/** Whether to show filters */
+	bool bCanShowFilters;
+
+	/** Whether to show asset search */
+	bool bCanShowAssetSearch;
+
+	/** Indicates if the 'Show folders' option should be enabled or disabled */
+	bool bCanShowFolders;
+
+	/** Indicates if the 'Real-Time Thumbnails' option should be enabled or disabled */
+	bool bCanShowRealTimeThumbnails;
+
+	/** Indicates if the 'Show Developers' option should be enabled or disabled */
+	bool bCanShowDevelopersFolder;
+
+	/** Whether the 'lock' button is visible on the toolbar */
+	bool bCanShowLockButton;
+
+	FContentBrowserConfig()
+		: ThumbnailLabel( EThumbnailLabel::ClassName )
+		, ThumbnailScale(0.1f)
+		, InitialAssetViewType(EAssetViewType::Tile)
+		, bShowBottomToolbar(true)
+		, bCanShowClasses(true)
+		, bUseSourcesView(true)
+		, bExpandSourcesView(true)
+		, bShowAssetPathTree(true)
+		, bAlwaysShowCollections(false)
+		, SelectedCollectionName( NAME_None, ECollectionShareType::CST_Local )
+		, bUsePathPicker(true)
+		, bCanShowFilters(true)
+		, bCanShowAssetSearch(true)
+		, bCanShowFolders(true)
+		, bCanShowRealTimeThumbnails(true)
+		, bCanShowDevelopersFolder(true)
+		, bCanShowLockButton(true)
+	{ }
+};
+
 
 /** A struct containing details about how the asset picker should behave */
 struct FAssetPickerConfig
@@ -294,6 +376,17 @@ class IContentBrowserSingleton
 public:
 	/** Virtual destructor */
 	virtual ~IContentBrowserSingleton() {}
+
+	/**
+	 * Generates a content browser.  Generally you should not call this function, but instead use CreateAssetPicker().
+	 *
+	 * @param	InstanceName			Global name of this content browser instance
+	 * @param	ContainingTab			The tab the browser is contained within or nullptr
+	 * @param	ContentBrowserConfig	Initial defaults for the new content browser, or nullptr to use saved settings
+	 *
+	 * @return The newly created content browser widget
+	 */
+	virtual TSharedRef<class SWidget> CreateContentBrowser( const FName InstanceName, TSharedPtr<SDockTab> ContainingTab, const FContentBrowserConfig* ContentBrowserConfig ) = 0;
 
 	/**
 	 * Generates an asset picker widget locked to the specified FARFilter.

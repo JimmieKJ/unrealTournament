@@ -78,9 +78,9 @@ protected:
 public:
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
 	virtual void CheckForErrors() override;
-	virtual void PreSave() override
+	virtual void PreSave(const class ITargetPlatform* TargetPlatform) override
 	{
-		Super::PreSave();
+		Super::PreSave(TargetPlatform);
 
 		if (GIsEditor && !IsTemplate() && !IsRunningCommandlet())
 		{
@@ -121,7 +121,7 @@ public:
 
 	/** Event when this actor overlaps another actor. */
 	UFUNCTION()
-	virtual void TriggerBeginOverlap(AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult);
+	virtual void TriggerBeginOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult);
 
 	virtual void AddSpecialPaths(class UUTPathNode* MyNode, class AUTRecastNavMesh* NavData);
 

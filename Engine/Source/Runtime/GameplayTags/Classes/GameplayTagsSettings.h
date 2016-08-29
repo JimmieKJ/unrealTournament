@@ -42,3 +42,13 @@ class GAMEPLAYTAGS_API UGameplayTagsSettings : public UObject
 #endif
 
 };
+
+UCLASS(config=GameplayTags, notplaceable)
+class GAMEPLAYTAGS_API UGameplayTagsDeveloperSettings : public UObject
+{
+	GENERATED_UCLASS_BODY()
+
+	/** Allows new tags to be saved into their own INI file. This is make merging easier for non technical developers by setting up their own ini file. */
+	UPROPERTY(config, EditAnywhere, Category=GameplayTags)
+	FString DeveloperConfigName;
+};

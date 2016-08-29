@@ -6,6 +6,41 @@
 #include "SequenceRecorderActorFilter.h"
 #include "SequenceRecorderSettings.generated.h"
 
+USTRUCT()
+struct FPropertiesToRecordForClass
+{
+	GENERATED_BODY()
+
+	FPropertiesToRecordForClass()
+	{}
+
+	FPropertiesToRecordForClass(TSubclassOf<USceneComponent> InClass)
+		: Class(InClass)
+	{}
+
+	/** The class of the object we can record */
+	UPROPERTY(Config, EditAnywhere, AdvancedDisplay, Category = "Sequence Recording")
+	TSubclassOf<USceneComponent> Class;
+
+	/** List of properties we want to record for this class */
+	UPROPERTY(Config, EditAnywhere, AdvancedDisplay, Category = "Sequence Recording")
+	TArray<FName> Properties;
+};
+
+USTRUCT()
+struct FSettingsForActorClass
+{
+	GENERATED_BODY()
+
+	/** The class of the actor we want to record */
+	UPROPERTY(Config, EditAnywhere, AdvancedDisplay, Category = "Sequence Recording")
+	TSubclassOf<AActor> Class;
+
+	/** Whether to record to 'possessable' (i.e. level-owned) or 'spawnable' (i.e. sequence-owned) actors. */
+	UPROPERTY(Config, EditAnywhere, AdvancedDisplay, Category = "Sequence Recording")
+	bool bRecordToPossessable;
+};
+
 UCLASS(config=Editor)
 class SEQUENCERECORDER_API USequenceRecorderSettings : public UObject
 {
@@ -17,6 +52,10 @@ public:
 	/** Whether to create a level sequence when recording. Actors and animations will be inserted into this sequence */
 	UPROPERTY(Config, EditAnywhere, Category = "Sequence Recording")
 	bool bCreateLevelSequence;
+
+	/** Whether to maximize the viewport when recording */
+	UPROPERTY(Config, EditAnywhere, Category = "Sequence Recording")
+	bool bImmersiveMode;
 
 	/** The length of the recorded sequence */
 	UPROPERTY(Config, EditAnywhere, Category = "Sequence Recording")
@@ -61,4 +100,16 @@ public:
 	/** Default settings applied to animation recording */
 	UPROPERTY(Config, EditAnywhere, Category = "Sequence Recording")
 	FAnimationRecordingSettings DefaultAnimationSettings;
+
+	/** Whether to record actors that are spawned by sequencer itself (this is usually disabled as results can be unexpected) */
+	UPROPERTY(Config, EditAnywhere, AdvancedDisplay, Category = "Sequence Recording")
+	bool bRecordSequencerSpawnedActors;
+
+	/** The properties to record for specified classes. Component classes specified here will be recorded. If an actor does not contain one of these classes it will be ignored. */
+	UPROPERTY(Config, EditAnywhere, Category = "Sequence Recording")
+	TArray<FPropertiesToRecordForClass> ClassesAndPropertiesToRecord;
+
+	/** Settings applied to actors of a specified class */
+	UPROPERTY(Config, EditAnywhere, AdvancedDisplay, Category = "Sequence Recording")
+	TArray<FSettingsForActorClass> PerActorSettings;
 };

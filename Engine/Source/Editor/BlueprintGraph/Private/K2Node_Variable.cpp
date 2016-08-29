@@ -4,7 +4,7 @@
 #include "BlueprintGraphPrivatePCH.h"
 
 #include "CompilerResultsLog.h"
-#include "ClassIconFinder.h"
+#include "SlateIconFinder.h"
 #include "MessageLog.h"
 
 #define LOCTEXT_NAMESPACE "K2Node"
@@ -90,7 +90,17 @@ bool UK2Node_Variable::CreatePinForVariable(EEdGraphPinDirection Direction, FStr
 	{
 		if (!VariableReference.IsLocalScope())
 		{
-			Message_Warn(*FString::Printf(TEXT("CreatePinForVariable: '%s' variable not found. Base class was probably changed."), *GetVarNameString()));
+			FString WarningMsg = FString::Printf(TEXT("'%s' variable not found. Base class was probably changed."), *GetVarNameString());
+
+			UBlueprint* OwnerBP = GetBlueprint();
+			if (OwnerBP && OwnerBP->CurrentMessageLog)
+			{
+				OwnerBP->CurrentMessageLog->Warning(*FString::Printf(TEXT("@@: %s"), *WarningMsg), this);
+			}
+			else
+			{
+				Message_Warn(*WarningMsg);
+			}			
 		}
 		return false;
 	}
@@ -427,42 +437,33 @@ void UK2Node_Variable::ValidateNodeDuringCompilation(class FCompilerResultsLog& 
 	}
 }
 
-FName UK2Node_Variable::GetPaletteIcon(FLinearColor& ColorOut) const
+FSlateIcon UK2Node_Variable::GetIconAndTint(FLinearColor& ColorOut) const
 {
-	FName ReturnIconName;
+	const UStruct* VarScope = VariableReference.IsLocalScope() ?
+		VariableReference.GetMemberScope(GetBlueprintClassFromNode()) :
+		GetVariableSourceClass();
 
-	if(VariableReference.IsLocalScope())
-	{
-		ReturnIconName = GetVariableIconAndColor(VariableReference.GetMemberScope(GetBlueprintClassFromNode()), GetVarName(), ColorOut);
-	}
-	else
-	{
-		ReturnIconName = GetVariableIconAndColor(GetVariableSourceClass(), GetVarName(), ColorOut);
-	}
-
-	return ReturnIconName;
+	return GetVariableIconAndColor(VarScope, GetVarName(), ColorOut);
 }
 
-FName UK2Node_Variable::GetVarIconFromPinType(const FEdGraphPinType& InPinType, FLinearColor& IconColorOut)
+FSlateIcon UK2Node_Variable::GetVarIconFromPinType(const FEdGraphPinType& InPinType, FLinearColor& IconColorOut)
 {
-	FName IconBrush = TEXT("Kismet.AllClasses.VariableIcon");
-
 	const UEdGraphSchema_K2* K2Schema = GetDefault<UEdGraphSchema_K2>();
 	IconColorOut = K2Schema->GetPinTypeColor(InPinType);
 
 	if(InPinType.bIsArray)
 	{
-		IconBrush = TEXT("Kismet.AllClasses.ArrayVariableIcon");
+		return FSlateIcon("EditorStyle", "Kismet.AllClasses.ArrayVariableIcon");
 	}
 	else if(InPinType.PinSubCategoryObject.IsValid())
 	{
 		if(UClass* Class = Cast<UClass>(InPinType.PinSubCategoryObject.Get()))
 		{
-			IconBrush = FClassIconFinder::FindIconNameForClass( Class );
+			return FSlateIconFinder::FindIconForClass( Class );
 		}
 	}
 
-	return IconBrush;
+	return FSlateIcon("EditorStyle", "Kismet.AllClasses.VariableIcon");
 }
 
 FText UK2Node_Variable::GetToolTipHeading() const
@@ -507,10 +508,8 @@ void UK2Node_Variable::GetNodeAttributes( TArray<TKeyValuePair<FString, FString>
 	OutNodeAttributes.Add( TKeyValuePair<FString, FString>( TEXT( "Name" ), VariableName ));
 }
 
-FName UK2Node_Variable::GetVariableIconAndColor(const UStruct* VarScope, FName VarName, FLinearColor& IconColorOut)
+FSlateIcon UK2Node_Variable::GetVariableIconAndColor(const UStruct* VarScope, FName VarName, FLinearColor& IconColorOut)
 {
-	FName IconBrush = TEXT("Kismet.AllClasses.VariableIcon");
-
 	if(VarScope != NULL)
 	{
 		UProperty* Property = FindField<UProperty>(VarScope, VarName);
@@ -521,12 +520,12 @@ FName UK2Node_Variable::GetVariableIconAndColor(const UStruct* VarScope, FName V
 			FEdGraphPinType PinType;
 			if(K2Schema->ConvertPropertyToPinType(Property,  PinType)) // use schema to get the color
 			{
-				IconBrush = GetVarIconFromPinType(PinType, IconColorOut);
+				return GetVarIconFromPinType(PinType, IconColorOut);
 			}
 		}
 	}
 
-	return IconBrush;
+	return FSlateIcon("EditorStyle", "Kismet.AllClasses.VariableIcon");
 }
 
 

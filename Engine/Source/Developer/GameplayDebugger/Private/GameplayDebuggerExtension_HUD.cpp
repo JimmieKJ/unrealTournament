@@ -2,27 +2,24 @@
 
 #include "GameplayDebuggerPrivatePCH.h"
 #include "GameplayDebuggerExtension_HUD.h"
-#include "GameplayDebuggerConfig.h"
 #include "GameFramework/HUD.h"
 #include "GameFramework/PlayerController.h"
 
 FGameplayDebuggerExtension_HUD::FGameplayDebuggerExtension_HUD()
 {
+	bWantsHUDEnabled = false;
 	bIsGameHUDEnabled = false;
 	bAreDebugMessagesEnabled = false;
 	bPrevDebugMessagesEnabled = GEngine && GEngine->bEnableOnScreenDebugMessages;
 	bIsCachedDescriptionValid = false;
 
-	const UGameplayDebuggerConfig* SettingsCDO = UGameplayDebuggerConfig::StaticClass()->GetDefaultObject<UGameplayDebuggerConfig>();
+	const FGameplayDebuggerInputHandlerConfig HUDKeyConfig(TEXT("ToggleHUD"), EKeys::Tilde.GetFName(), FGameplayDebuggerInputModifier::Ctrl);
+	const FGameplayDebuggerInputHandlerConfig MessagesKeyConfig(TEXT("ToggleMessages"), EKeys::Tab.GetFName(), FGameplayDebuggerInputModifier::Ctrl);
 
-	const bool bHasHUDBinding = BindKeyPress(SettingsCDO->GameHUDKey.GetFName(), 
-		SettingsCDO->bUseGameHUDModifiers ? SettingsCDO->GameHUDModifiers.CreateModifier() : FGameplayDebuggerInputModifier::None,
-		this, &FGameplayDebuggerExtension_HUD::ToggleGameHUD);
+	const bool bHasHUDBinding = BindKeyPress(HUDKeyConfig, this, &FGameplayDebuggerExtension_HUD::ToggleGameHUD);
 	HudBindingIdx = bHasHUDBinding ? (GetNumInputHandlers() - 1) : INDEX_NONE;
 
-	const bool bHasMessagesBinding = BindKeyPress(SettingsCDO->DebugMessagesKey.GetFName(),
-		SettingsCDO->bUseDebugMessagesModifiers ? SettingsCDO->DebugMessagesModifiers.CreateModifier() : FGameplayDebuggerInputModifier::None,
-		this, &FGameplayDebuggerExtension_HUD::ToggleDebugMessages);
+	const bool bHasMessagesBinding = BindKeyPress(MessagesKeyConfig, this, &FGameplayDebuggerExtension_HUD::ToggleDebugMessages);
 	MessagesBindingIdx = bHasMessagesBinding ? (GetNumInputHandlers() - 1) : INDEX_NONE;
 }
 
@@ -33,7 +30,7 @@ TSharedRef<FGameplayDebuggerExtension> FGameplayDebuggerExtension_HUD::MakeInsta
 
 void FGameplayDebuggerExtension_HUD::OnActivated()
 {
-	SetGameHUDEnabled(false);
+	SetGameHUDEnabled(bWantsHUDEnabled);
 	SetDebugMessagesEnabled(false);
 }
 
@@ -103,7 +100,8 @@ void FGameplayDebuggerExtension_HUD::SetDebugMessagesEnabled(bool bEnable)
 
 void FGameplayDebuggerExtension_HUD::ToggleGameHUD()
 {
-	SetGameHUDEnabled(!bIsGameHUDEnabled);
+	const bool bEnable = bWantsHUDEnabled = !bIsGameHUDEnabled;
+	SetGameHUDEnabled(bEnable);
 }
 
 void FGameplayDebuggerExtension_HUD::ToggleDebugMessages()

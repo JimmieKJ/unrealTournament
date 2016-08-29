@@ -4,6 +4,8 @@
 #include "SlateBasics.h"
 #include "AutomationCommon.h"
 #include "ImageUtils.h"
+#include "ShaderCompiler.h"		// GShaderCompilingManager
+#include "GameFramework/GameMode.h"
 
 #if WITH_EDITOR
 #include "FileHelpers.h"
@@ -37,6 +39,24 @@ namespace AutomationCommon
 			FAutomationTestFramework::GetInstance().OnScreenshotCaptured().ExecuteIfBound(OutImageSize.X, OutImageSize.Y, OutImageData, FileName);
 		}
 	}
+
+	// @todo this is a temporary solution. Once we know how to get test's hands on a proper world
+	// this function should be redone/removed
+	UWorld* GetAnyGameWorld()
+	{
+		UWorld* TestWorld = nullptr;
+		const TIndirectArray<FWorldContext>& WorldContexts = GEngine->GetWorldContexts();
+		for ( const FWorldContext& Context : WorldContexts )
+		{
+			if ( ( ( Context.WorldType == EWorldType::PIE ) || ( Context.WorldType == EWorldType::Game ) ) && ( Context.World() != NULL ) )
+			{
+				TestWorld = Context.World();
+				break;
+			}
+		}
+
+		return TestWorld;
+	}
 }
 
 bool AutomationOpenMap(const FString& MapName)
@@ -51,13 +71,12 @@ bool AutomationOpenMap(const FString& MapName)
 	else
 #endif
 	{
-		//will happen on a subsequent frame
-		check(GEngine->GetWorldContexts().Num() == 1);
-		check(GEngine->GetWorldContexts()[0].WorldType == EWorldType::Game);
-		//Don't reload the map if it's already loaded
-		if (GEngine->GetWorldContexts()[0].World()->GetName() != MapName)
+		UWorld* TestWorld = AutomationCommon::GetAnyGameWorld();
+
+		if ( TestWorld->GetMapName() != MapName )
 		{
-			GEngine->Exec(GEngine->GetWorldContexts()[0].World(), *FString::Printf(TEXT("Open %s"), *MapName));
+			FString OpenCommand = FString::Printf(TEXT("Open %s"), *MapName);
+			GEngine->Exec(TestWorld, *OpenCommand);
 		}
 
 		//Wait for map to load - need a better way to determine if loaded
@@ -100,42 +119,40 @@ bool FLoadGameMapCommand::Update()
 	return true;
 }
 
+bool FExitGameCommand::Update()
+{
+	UWorld* TestWorld = AutomationCommon::GetAnyGameWorld();
+
+	if ( APlayerController* TargetPC = UGameplayStatics::GetPlayerController(TestWorld, 0) )
+	{
+		TargetPC->ConsoleCommand(TEXT("Exit"), true);
+	}
+
+	return true;
+}
+
 bool FRequestExitCommand::Update()
 {
 	GIsRequestingExit = true;
 	return true;
 }
 
-namespace
-{
-	// @todo this is a temporary solution. Once we know how to get test's hands on a proper world
-	// this function should be redone/removed
-	UWorld* GetAnyGameWorld()
-	{
-		UWorld* TestWorld = nullptr;
-		const TIndirectArray<FWorldContext>& WorldContexts = GEngine->GetWorldContexts();
-		for (const FWorldContext& Context : WorldContexts)
-		{
-			if (((Context.WorldType == EWorldType::PIE) || (Context.WorldType == EWorldType::Game)) && (Context.World() != NULL))
-			{
-				TestWorld = Context.World();
-				break;
-			}
-		}
-
-		return TestWorld;
-	}
-}
-
 bool FWaitForMapToLoadCommand::Update()
 {
-	//TODO - Is there a better way to see if the map is loaded?  Are Actors Initialized isn't right in Fortnite...
-	UWorld* TestWorld = GetAnyGameWorld();
+	//TODO Automation we need a better way to know when the map finished loading.
 
-	if (TestWorld && TestWorld->AreActorsInitialized())
+	//TODO - Is there a better way to see if the map is loaded?  Are Actors Initialized isn't right in Fortnite...
+	UWorld* TestWorld = AutomationCommon::GetAnyGameWorld();
+
+	if ( TestWorld && TestWorld->AreActorsInitialized() )
 	{
-		return true;
+		AGameMode* GameMode = TestWorld->GetAuthGameMode();
+		if ( GameMode && GameMode->HasMatchStarted() )
+		{
+			return true;
+		}
 	}
+
 	return false;
 }
 
@@ -149,8 +166,8 @@ bool FPlayMatineeLatentCommand::Update()
 	{
 		UE_LOG(LogEngineAutomationLatentCommand, Log, TEXT("Triggering the matinee named: '%s'"), *MatineeActor->GetName())
 
-			//force this matinee to not be looping so it doesn't infinitely loop
-			MatineeActor->bLooping = false;
+		//force this matinee to not be looping so it doesn't infinitely loop
+		MatineeActor->bLooping = false;
 		MatineeActor->Play();
 	}
 	return true;
@@ -194,6 +211,26 @@ bool FEngineWaitLatentCommand::Update()
 	return false;
 }
 
+ENGINE_API uint32 GStreamAllResourcesStillInFlight = -1;
+bool FStreamAllResourcesLatentCommand::Update()
+{
+	float LocalStartTime = FPlatformTime::Seconds();
+
+	GStreamAllResourcesStillInFlight = IStreamingManager::Get().StreamAllResources(Duration);
+
+	float Time = FPlatformTime::Seconds();
+
+	if(GStreamAllResourcesStillInFlight)
+	{
+		UE_LOG(LogEngineAutomationLatentCommand, Warning, TEXT("StreamAllResources() waited for %.2fs but %d resources are still in flight."), Time - LocalStartTime, GStreamAllResourcesStillInFlight);
+	}
+	else
+	{
+		UE_LOG(LogEngineAutomationLatentCommand, Log, TEXT("StreamAllResources() waited for %.2fs (max duration: %.2f)."), Time - LocalStartTime, Duration);
+	}
+
+	return true;
+}
 
 bool FEnqueuePerformanceCaptureCommands::Update()
 {
@@ -259,4 +296,18 @@ bool FExecWorldStringLatentCommand::Update()
 	return true;
 }
 
+
+/**
+* This will cause the test to wait for the shaders to finish compiling before moving on.
+*/
+bool FWaitForShadersToFinishCompilingInGame::Update()
+{
+	if (GShaderCompilingManager)
+	{
+		UE_LOG(LogEditorAutomationTests, Log, TEXT("Waiting for %i shaders to finish."), GShaderCompilingManager->GetNumRemainingJobs());
+		GShaderCompilingManager->FinishAllCompilation();
+		UE_LOG(LogEditorAutomationTests, Log, TEXT("Done waiting for shaders to finish."));
+	}
+	return true;
+}
 #endif //WITH_DEV_AUTOMATION_TESTS

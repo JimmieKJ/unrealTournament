@@ -250,9 +250,9 @@ void UUnrealEdEngine::SetActorSelectionFlags (AActor* InActor)
 		{
 			// If we have a 'child actor' component, want to update its visible selection state
 			UChildActorComponent* ChildActorComponent = Cast<UChildActorComponent>(Component);
-			if(ChildActorComponent != NULL && ChildActorComponent->ChildActor != NULL)
+			if(ChildActorComponent != NULL && ChildActorComponent->GetChildActor() != NULL)
 			{
-				SetActorSelectionFlags(ChildActorComponent->ChildActor);
+				SetActorSelectionFlags(ChildActorComponent->GetChildActor());
 			}
 
 			UPrimitiveComponent* PrimComponent = Cast<UPrimitiveComponent>(Component);
@@ -406,8 +406,14 @@ void UUnrealEdEngine::NoteSelectionChange()
 void UUnrealEdEngine::SelectGroup(AGroupActor* InGroupActor, bool bForceSelection/*=false*/, bool bInSelected/*=true*/, bool bNotify/*=true*/)
 {
 	USelection* SelectedActors = GetSelectedActors();
-	SelectedActors->BeginBatchSelectOperation();
-	SelectedActors->Modify();
+	bool bStartedBatchSelect = false;
+	if(!SelectedActors->IsBatchSelecting())
+	{
+		bStartedBatchSelect = true;
+		// These will have already been called when batch selecting
+		SelectedActors->BeginBatchSelectOperation();
+		SelectedActors->Modify();
+	}
 
 	static bool bIteratingGroups = false;
 
@@ -434,7 +440,10 @@ void UUnrealEdEngine::SelectGroup(AGroupActor* InGroupActor, bool bForceSelectio
 			}
 		}
 
-		SelectedActors->EndBatchSelectOperation(bNotify);
+		if(bStartedBatchSelect)
+		{
+			SelectedActors->EndBatchSelectOperation(bNotify);
+		}
 		if (bNotify)
 		{
 			NoteSelectionChange();

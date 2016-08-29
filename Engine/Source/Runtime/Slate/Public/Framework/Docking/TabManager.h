@@ -4,6 +4,7 @@
 
 #include "SlateIcon.h"
 #include "WorkspaceItem.h"
+#include "SlateEnums.h"
 
 class FMenuBuilder;
 class FMultiBox;
@@ -607,7 +608,7 @@ class SLATE_API FTabManager : public TSharedFromThis<FTabManager>
 
 		void PopulateTabSpawnerMenu( FMenuBuilder &PopulateMe, const FName& TabType );
 
-		void DrawAttention( const TSharedRef<SDockTab>& TabToHighlight );
+		virtual void DrawAttention( const TSharedRef<SDockTab>& TabToHighlight );
 
 		struct ESearchPreference
 		{
@@ -622,13 +623,13 @@ class SLATE_API FTabManager : public TSharedFromThis<FTabManager>
 		void InsertNewDocumentTab( FName PlaceholderId, const FSearchPreference& SearchPreference, const TSharedRef<SDockTab>& UnmanagedTab );
 		
 		/** Insert a new UnmanagedTab document tab next to an existing tab (closed or open) that has the PlaceholdId. */
-		void InsertNewDocumentTab( FName PlaceholderId, ESearchPreference::Type SearchPreference, const TSharedRef<SDockTab>& UnmanagedTab );
+		void InsertNewDocumentTab(FName PlaceholderId, ESearchPreference::Type SearchPreference, const TSharedRef<SDockTab>& UnmanagedTab);
 
 		/**
 		 * Much like InsertNewDocumentTab, but the UnmanagedTab is not seen by the user as newly-created.
 		 * e.g. Opening an restores multiple previously opened documents; these are not seen as new tabs.
 		 */
-		void RestoreDocumentTab( FName PlaceholderId, ESearchPreference::Type SearchPreference, const TSharedRef<SDockTab>& UnmanagedTab );
+		void RestoreDocumentTab(FName PlaceholderId, ESearchPreference::Type SearchPreference, const TSharedRef<SDockTab>& UnmanagedTab);
 
 		/**
 		 * Opens tab if it is closed at the last known location.  If it already exists, it will draw attention to the tab.
@@ -636,7 +637,7 @@ class SLATE_API FTabManager : public TSharedFromThis<FTabManager>
 		 * @param TabId The tab identifier.
 		 * @return The existing or newly spawned tab instance.
 		 */
-		TSharedRef<SDockTab> InvokeTab( const FTabId& TabId );
+		virtual TSharedRef<SDockTab> InvokeTab( const FTabId& TabId );
 
 		virtual ~FTabManager()
 		{
@@ -689,7 +690,9 @@ class SLATE_API FTabManager : public TSharedFromThis<FTabManager>
 
 	protected:
 		
-		void InsertDocumentTab(FName PlaceholderId, const FSearchPreference& SearchPreference, const TSharedRef<SDockTab>& UnmanagedTab, bool bPlaySpawnAnim);
+		void InsertDocumentTab( FName PlaceholderId, const FSearchPreference& SearchPreference, const TSharedRef<SDockTab>& UnmanagedTab, bool bPlaySpawnAnim );
+
+		virtual void OpenUnmanagedTab(FName PlaceholderId, const FSearchPreference& SearchPreference, const TSharedRef<SDockTab>& UnmanagedTab);
 			
 		void PopulateTabSpawnerMenu_Helper( FMenuBuilder& PopulateMe, struct FPopulateTabSpawnerMenu_Args Args );
 
@@ -811,7 +814,7 @@ class SLATE_API FTabManager : public TSharedFromThis<FTabManager>
 
 
 
-
+class FProxyTabmanager;
 
 
 class SLATE_API FGlobalTabmanager : public FTabManager
@@ -895,11 +898,15 @@ public:
 	/** Returns the highest number of parent windows that were open simultaneously during this session */
 	int32 GetMaximumWindowCount() const { return AllAreasWindowMaxCount; }
 
+	void SetProxyTabManager(TSharedPtr<FProxyTabmanager> InProxyTabManager);
+
 protected:
 	virtual void OnTabForegrounded( const TSharedPtr<SDockTab>& NewForegroundTab, const TSharedPtr<SDockTab>& BackgroundedTab ) override;
 	virtual void OnTabRelocated( const TSharedRef<SDockTab>& RelocatedTab, const TSharedPtr<SWindow>& NewOwnerWindow ) override;
 	virtual void OnTabClosing( const TSharedRef<SDockTab>& TabBeingClosed ) override;
 	virtual void UpdateStats() override;
+
+	virtual void OpenUnmanagedTab(FName PlaceholderId, const FSearchPreference& SearchPreference, const TSharedRef<SDockTab>& UnmanagedTab) override;
 
 public:
 	virtual void OnTabManagerClosing() override;
@@ -980,4 +987,33 @@ private:
 	/** Keeps track of the running-maximum number of unique parent windows in all dock areas and sub-managers during this session */
 	int32 AllAreasWindowMaxCount;
 
+	/**  */
+	TSharedPtr<FProxyTabmanager> ProxyTabManager;
+};
+
+//#HACK VREDITOR - Had to introduce the proxy tab manager to steal asset tabs.
+
+DECLARE_MULTICAST_DELEGATE_OneParam(FOnTabEvent, TSharedPtr<SDockTab>);
+
+
+class SLATE_API FProxyTabmanager : public FTabManager
+{
+public:
+
+	FProxyTabmanager(TSharedRef<SWindow> InParentWindow)
+		: FTabManager(TSharedPtr<SDockTab>(), MakeShareable(new FTabSpawner()))
+		, ParentWindow(InParentWindow)
+	{
+		bCanDoDragOperation = false;
+	}
+
+	virtual void OpenUnmanagedTab(FName PlaceholderId, const FSearchPreference& SearchPreference, const TSharedRef<SDockTab>& UnmanagedTab) override;
+	virtual void DrawAttention(const TSharedRef<SDockTab>& TabToHighlight) override;
+
+public:
+	FOnTabEvent OnTabOpened;
+	FOnTabEvent OnAttentionDrawnToTab;
+
+private:
+	TWeakPtr<SWindow> ParentWindow;
 };

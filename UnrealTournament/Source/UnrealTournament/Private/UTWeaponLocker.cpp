@@ -125,9 +125,9 @@ void AUTWeaponLocker::WeaponListUpdated()
 	{
 		if (NextMesh != NULL)
 		{
-			TArray<USceneComponent*> Children;
-			NextMesh->GetChildrenComponents(true, Children);
-			for (USceneComponent* Child : Children)
+			TArray<USceneComponent*> ChildComps;
+			NextMesh->GetChildrenComponents(true, ChildComps);
+			for (USceneComponent* Child : ChildComps)
 			{
 				Child->DestroyComponent(false);
 			}

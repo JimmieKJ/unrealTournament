@@ -69,14 +69,22 @@ void TIntermediate::error(TInfoSink& infoSink, const char* message)
 //
 void TIntermediate::merge(TInfoSink& infoSink, TIntermediate& unit)
 {
+    if (source == EShSourceNone)
+        source = unit.source;
+
+    if (source != unit.source)
+        error(infoSink, "can't link compilation units from different source languages");
+
+    if (source == EShSourceHlsl && unit.entryPoint.size() > 0) {
+        if (entryPoint.size() > 0)
+            error(infoSink, "can't handle multiple entry points per stage");
+        else
+            entryPoint = unit.entryPoint;
+    }
     numMains += unit.numMains;
     numErrors += unit.numErrors;
     numPushConstants += unit.numPushConstants;
     callGraph.insert(callGraph.end(), unit.callGraph.begin(), unit.callGraph.end());
-
-    if ((profile != EEsProfile && unit.profile == EEsProfile) ||
-        (profile == EEsProfile && unit.profile != EEsProfile))
-        error(infoSink, "Cannot mix ES profile with non-ES profile shaders\n");
 
     if (originUpperLeft != unit.originUpperLeft || pixelCenterInteger != unit.pixelCenterInteger)
         error(infoSink, "gl_FragCoord redeclarations must match across shaders\n");
@@ -297,6 +305,12 @@ void TIntermediate::mergeErrorCheck(TInfoSink& infoSink, const TIntermSymbol& sy
         writeTypeComparison = true;
     }
 
+    // Precise...
+    if (! crossStage && symbol.getQualifier().noContraction != unitSymbol.getQualifier().noContraction) {
+        error(infoSink, "Presence of precise qualifier must match:");
+        writeTypeComparison = true;
+    }
+
     // Auxiliary and interpolation...
     if (symbol.getQualifier().centroid  != unitSymbol.getQualifier().centroid ||
         symbol.getQualifier().smooth    != unitSymbol.getQualifier().smooth ||
@@ -355,8 +369,8 @@ void TIntermediate::mergeErrorCheck(TInfoSink& infoSink, const TIntermSymbol& sy
 // Also, lock in defaults of things not set, including array sizes.
 //
 void TIntermediate::finalCheck(TInfoSink& infoSink)
-{   
-    if (numMains < 1)
+{
+    if (source == EShSourceGlsl && numMains < 1)
         error(infoSink, "Missing entry point: Each stage requires one \"void main()\" entry point");
 
     if (numPushConstants > 1)
@@ -374,6 +388,8 @@ void TIntermediate::finalCheck(TInfoSink& infoSink)
 
     if (inIoAccessed("gl_ClipDistance") && inIoAccessed("gl_ClipVertex"))
         error(infoSink, "Can only use one of gl_ClipDistance or gl_ClipVertex (gl_ClipDistance is preferred)");
+    if (inIoAccessed("gl_CullDistance") && inIoAccessed("gl_ClipVertex"))
+        error(infoSink, "Can only use one of gl_CullDistance or gl_ClipVertex (gl_ClipDistance is preferred)");
 
     if (userOutputUsed() && (inIoAccessed("gl_FragColor") || inIoAccessed("gl_FragData")))
         error(infoSink, "Cannot use gl_FragColor or gl_FragData when using user-defined outputs");
@@ -699,6 +715,19 @@ int TIntermediate::addUsedOffsets(int binding, int offset, int numOffsets)
     return -1; // no collision
 }
 
+// Accumulate used constant_id values.
+//
+// Return false is one was already used.
+bool TIntermediate::addUsedConstantId(int id)
+{
+    if (usedConstantId.find(id) != usedConstantId.end())
+        return false;
+
+    usedConstantId.insert(id);
+
+    return true;
+}
+
 // Recursively figure out how many locations are used up by an input or output type.
 // Return the size of type, as measured by "locations".
 int TIntermediate::computeTypeLocationSize(const TType& type) const
@@ -855,6 +884,8 @@ const int baseAlignmentVec4Std140 = 16;
 int TIntermediate::getBaseAlignmentScalar(const TType& type, int& size)
 {
     switch (type.getBasicType()) {
+    case EbtInt64:
+    case EbtUint64:
     case EbtDouble:  size = 8; return 8;
     default:         size = 4; return 4;
     }

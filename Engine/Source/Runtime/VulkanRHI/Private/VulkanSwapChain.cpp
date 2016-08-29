@@ -7,44 +7,14 @@
 #include "VulkanRHIPrivate.h"
 #include "VulkanSwapChain.h"
 
-FVulkanSwapChain::FVulkanSwapChain(VkInstance Instance, FVulkanDevice& Device, void* WindowHandle, EPixelFormat& InOutPixelFormat, uint32 Width, uint32 Height, 
+FVulkanSwapChain::FVulkanSwapChain(VkInstance Instance, FVulkanDevice& InDevice, void* WindowHandle, EPixelFormat& InOutPixelFormat, uint32 Width, uint32 Height, 
 	uint32* InOutDesiredNumBackBuffers, TArray<VkImage>& OutImages)
 	: SwapChain(VK_NULL_HANDLE)
+	, Device(InDevice)
 	, Surface(VK_NULL_HANDLE)
+	, CurrentImageIndex(-1)
+	, SemaphoreIndex(0)
 {
-#define FETCH_KHR_FPN(FunctionPointerName)\
-	{\
-		FunctionPointerName = (PFN_vk##FunctionPointerName)vkGetDeviceProcAddr(Device.GetInstanceHandle(), "vk"#FunctionPointerName);\
-		check(FunctionPointerName);\
-	}
-
-#if PLATFORM_ANDROID || PLATFORM_WINDOWS
-	#define FETCH_KHR_INSTANCE_FPN(FunctionPointerName) \
-	{ \
-		FunctionPointerName = (PFN_vk##FunctionPointerName)vkGetInstanceProcAddr(Instance, "vk"#FunctionPointerName); \
-		check(FunctionPointerName); \
-	}
-#else
-	#define FETCH_KHR_INSTANCE_FPN(FunctionPointerName) FETCH_KHR_FPN(FunctionPointerName)
-#endif
-
-	#ifdef _MSC_VER
-		#pragma warning(push)
-		#pragma warning(disable:4191)
-	#endif
-
-	FETCH_KHR_FPN(CreateSwapchainKHR);
-	FETCH_KHR_FPN(DestroySwapchainKHR);
-	FETCH_KHR_FPN(GetSwapchainImagesKHR);
-	FETCH_KHR_FPN(QueuePresentKHR);
-	FETCH_KHR_FPN(AcquireNextImageKHR);
-
-	#ifdef _MSC_VER
-		#pragma warning(pop)
-	#endif
-
-	#undef FETCH_KHR_FPN
-
 #if PLATFORM_WINDOWS
 	VkWin32SurfaceCreateInfoKHR SurfaceCreateInfo;
 	FMemory::Memzero(SurfaceCreateInfo);
@@ -95,7 +65,7 @@ FVulkanSwapChain::FVulkanSwapChain(VkInstance Instance, FVulkanDevice& Device, v
 		}
 		else
 		{
-			auto PlatformFormat = (VkFormat)GPixelFormats[InOutPixelFormat].PlatformFormat;
+			VkFormat PlatformFormat = UEToVkFormat(InOutPixelFormat, false);
 			bool bSupported = false;
 			for (int32 Index = 0; Index < Formats.Num(); ++Index)
 			{
@@ -111,11 +81,11 @@ FVulkanSwapChain::FVulkanSwapChain(VkInstance Instance, FVulkanDevice& Device, v
 		}
 	}
 
-	auto PlatformFormat = (VkFormat)GPixelFormats[InOutPixelFormat].PlatformFormat;
+	VkFormat PlatformFormat = UEToVkFormat(InOutPixelFormat, false);
 
 	//#todo-rco: Check multiple Gfx Queues?
 	VkBool32 bSupportsPresent = VK_FALSE;
-	VERIFYVULKANRESULT(vkGetPhysicalDeviceSurfaceSupportKHR(Device.GetPhysicalHandle(), Device.GetQueue()->GetNodeIndex(), Surface, &bSupportsPresent));
+	VERIFYVULKANRESULT(vkGetPhysicalDeviceSurfaceSupportKHR(Device.GetPhysicalHandle(), Device.GetQueue()->GetFamilyIndex(), Surface, &bSupportsPresent));
 	//#todo-rco: Find separate present queue if the gfx one doesn't support presents
 	check(bSupportsPresent);
 
@@ -154,25 +124,30 @@ FVulkanSwapChain::FVulkanSwapChain(VkInstance Instance, FVulkanDevice& Device, v
 	VERIFYVULKANRESULT_EXPANDED(vkGetPhysicalDeviceSurfaceCapabilitiesKHR(Device.GetPhysicalHandle(),
 		Surface,
 		&SurfProperties));
-
+	VkSurfaceTransformFlagBitsKHR PreTransform;
+	if (SurfProperties.supportedTransforms & VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR)
+	{
+		PreTransform = VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR;
+	}
+	else
+	{
+		PreTransform = SurfProperties.currentTransform;
+	}
 	uint32 DesiredNumBuffers = FMath::Clamp(*InOutDesiredNumBackBuffers, SurfProperties.minImageCount, SurfProperties.maxImageCount);
 	
 	VkSwapchainCreateInfoKHR SwapChainInfo;
 	FMemory::Memzero(SwapChainInfo);
 	SwapChainInfo.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
-	SwapChainInfo.pNext = nullptr;
 	SwapChainInfo.surface = Surface;
 	SwapChainInfo.minImageCount = DesiredNumBuffers;
 	SwapChainInfo.imageFormat = CurrFormat.format;
 	SwapChainInfo.imageColorSpace = CurrFormat.colorSpace;
 	SwapChainInfo.imageExtent.width = PLATFORM_ANDROID ? Width : (SurfProperties.currentExtent.width == -1 ? Width : SurfProperties.currentExtent.width);
 	SwapChainInfo.imageExtent.height = PLATFORM_ANDROID ? Height : (SurfProperties.currentExtent.height == -1 ? Height : SurfProperties.currentExtent.height);
-	SwapChainInfo.imageUsage |= VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
-	SwapChainInfo.preTransform = SurfProperties.currentTransform;
+	SwapChainInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+	SwapChainInfo.preTransform = PreTransform;
 	SwapChainInfo.imageArrayLayers = 1;
 	SwapChainInfo.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
-	SwapChainInfo.queueFamilyIndexCount = 0;
-	SwapChainInfo.pQueueFamilyIndices = NULL;
 	SwapChainInfo.presentMode = PresentMode;
 	SwapChainInfo.oldSwapchain = VK_NULL_HANDLE;
 	SwapChainInfo.clipped = VK_TRUE;
@@ -180,17 +155,76 @@ FVulkanSwapChain::FVulkanSwapChain(VkInstance Instance, FVulkanDevice& Device, v
 
 	*InOutDesiredNumBackBuffers = DesiredNumBuffers;
 
-	VERIFYVULKANRESULT_EXPANDED(vkCreateSwapchainKHR(Device.GetInstanceHandle(), &SwapChainInfo, nullptr, &SwapChain));
+	VERIFYVULKANRESULT_EXPANDED(VulkanRHI::vkCreateSwapchainKHR(Device.GetInstanceHandle(), &SwapChainInfo, nullptr, &SwapChain));
 
 	uint32 NumSwapChainImages;
-	VERIFYVULKANRESULT_EXPANDED(GetSwapchainImagesKHR(Device.GetInstanceHandle(), SwapChain, &NumSwapChainImages, nullptr));
+	VERIFYVULKANRESULT_EXPANDED(VulkanRHI::vkGetSwapchainImagesKHR(Device.GetInstanceHandle(), SwapChain, &NumSwapChainImages, nullptr));
 
 	OutImages.AddUninitialized(NumSwapChainImages);
-	VERIFYVULKANRESULT_EXPANDED(GetSwapchainImagesKHR(Device.GetInstanceHandle(), SwapChain, &NumSwapChainImages, OutImages.GetData()));
+	VERIFYVULKANRESULT_EXPANDED(VulkanRHI::vkGetSwapchainImagesKHR(Device.GetInstanceHandle(), SwapChain, &NumSwapChainImages, OutImages.GetData()));
+
+	ImageAcquiredSemaphore.AddUninitialized(DesiredNumBuffers);
+	for (uint32 BufferIndex = 0; BufferIndex < DesiredNumBuffers; ++BufferIndex)
+	{
+		ImageAcquiredSemaphore[BufferIndex] = new FVulkanSemaphore(Device);
+	}
 }
 
-void FVulkanSwapChain::Destroy(FVulkanDevice& Device)
+void FVulkanSwapChain::Destroy()
 {
-	vkDestroySwapchainKHR(Device.GetInstanceHandle(), SwapChain, nullptr);
+	VulkanRHI::vkDestroySwapchainKHR(Device.GetInstanceHandle(), SwapChain, nullptr);
 	SwapChain = VK_NULL_HANDLE;
+
+	//#todo-rco: Enqueue for deletion as we first need to destroy the cmd buffers and queues otherwise validation fails
+	for (int BufferIndex = 0; BufferIndex < ImageAcquiredSemaphore.Num(); ++BufferIndex)
+	{
+		delete ImageAcquiredSemaphore[BufferIndex];
+	}
+}
+
+int32 FVulkanSwapChain::AcquireImageIndex(FVulkanSemaphore** OutSemaphore)
+{
+	// Get the index of the next swapchain image we should render to.
+	// We'll wait with an "infinite" timeout, the function will block until an image is ready.
+	// The ImageAcquiredSemaphore[ImageAcquiredSemaphoreIndex] will get signaled when the image is ready (upon function return).
+	uint32 ImageIndex = 0;
+	SemaphoreIndex = (SemaphoreIndex + 1) % ImageAcquiredSemaphore.Num();
+	*OutSemaphore = ImageAcquiredSemaphore[SemaphoreIndex];
+	VkResult Result = VulkanRHI::vkAcquireNextImageKHR(
+		Device.GetInstanceHandle(),
+		SwapChain,
+		UINT64_MAX,
+		ImageAcquiredSemaphore[SemaphoreIndex]->GetHandle(),
+		VK_NULL_HANDLE,	// Currently no fence needed
+		&ImageIndex);
+	checkf(Result == VK_SUCCESS || Result == VK_SUBOPTIMAL_KHR, TEXT("AcquireNextImageKHR failed Result = %d"), int32(Result));
+	CurrentImageIndex = (int32)ImageIndex;
+	check(CurrentImageIndex == ImageIndex);
+	return CurrentImageIndex;
+}
+
+bool FVulkanSwapChain::Present(FVulkanQueue* Queue, FVulkanSemaphore* BackBufferRenderingDoneSemaphore)
+{
+	check(CurrentImageIndex != -1);
+
+	VkPresentInfoKHR Info;
+	FMemory::Memzero(Info);
+	Info.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
+	VkSemaphore Semaphore = VK_NULL_HANDLE;
+	if (BackBufferRenderingDoneSemaphore)
+	{
+		Info.waitSemaphoreCount = 1;
+		Semaphore = BackBufferRenderingDoneSemaphore->GetHandle();
+		Info.pWaitSemaphores = &Semaphore;
+	}
+	Info.swapchainCount = 1;
+	Info.pSwapchains = &SwapChain;
+	Info.pImageIndices = (uint32*)&CurrentImageIndex;
+
+	{
+		SCOPE_CYCLE_COUNTER(STAT_VulkanQueuePresent);
+		VERIFYVULKANRESULT(VulkanRHI::vkQueuePresentKHR(Queue->GetHandle(), &Info));
+	}
+
+	return true;
 }

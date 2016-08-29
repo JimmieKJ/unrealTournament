@@ -87,7 +87,7 @@ void FPaperEditorViewportClient::Tick(float DeltaSeconds)
 	FEditorViewportClient::Tick(DeltaSeconds);
 }
 
-void FPaperEditorViewportClient::DrawSelectionRectangles(FViewport* Viewport, FCanvas* Canvas)
+void FPaperEditorViewportClient::DrawSelectionRectangles(FViewport* InViewport, FCanvas* Canvas)
 {
 	for (auto RectangleIt = SelectionRectangles.CreateConstIterator(); RectangleIt; ++RectangleIt)
 	{

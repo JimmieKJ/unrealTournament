@@ -287,7 +287,7 @@ namespace AutomationTool
 			{
 				NormalizedPattern = NormalizedPattern.Substring(1);
 			}
-			else if(!NormalizedPattern.Contains("/") && !NormalizedPattern.StartsWith("...") && Type == FileFilterType.Exclude)
+			else if(!NormalizedPattern.Contains("/") && !NormalizedPattern.StartsWith("..."))
 			{
 				NormalizedPattern = ".../" + NormalizedPattern;
 			}
@@ -451,8 +451,27 @@ namespace AutomationTool
 		public List<FileReference> ApplyToDirectory(DirectoryReference DirectoryName, string PrefixPath, bool bIgnoreSymlinks)
 		{
 			List<FileReference> MatchingFileNames = new List<FileReference>();
-			FindMatchesFromDirectory(new DirectoryInfo(DirectoryName.FullName), PrefixPath.Replace('\\', '/'), bIgnoreSymlinks, MatchingFileNames);
+			FindMatchesFromDirectory(new DirectoryInfo(DirectoryName.FullName), PrefixPath.Replace('\\', '/').TrimEnd('/') + "/", bIgnoreSymlinks, MatchingFileNames);
 			return MatchingFileNames;
+		}
+
+		/// <summary>
+		/// Checks whether the given pattern contains a supported wildcard. Useful for distinguishing explicit file references from opportunistic file references.
+		/// </summary>
+		/// <param name="Pattern">The pattern to check</param>
+		/// <returns>True if the pattern contains a wildcard (?, *, ...), false otherwise.</returns>
+		public static int FindWildcardIndex(string Pattern)
+		{
+			int Result = -1;
+			for(int Idx = 0; Idx < Pattern.Length; Idx++)
+			{
+				if(Pattern[Idx] == '?' || Pattern[Idx] == '*' || (Pattern[Idx] == '.' && Idx + 2 < Pattern.Length && Pattern[Idx + 1] == '.' && Pattern[Idx + 2] == '.'))
+				{
+					Result = Idx;
+					break;
+				}
+			}
+			return Result;
 		}
 
 		/// <summary>

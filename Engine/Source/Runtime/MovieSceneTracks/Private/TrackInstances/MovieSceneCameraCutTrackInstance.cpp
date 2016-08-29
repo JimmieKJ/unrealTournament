@@ -49,7 +49,7 @@ void FMovieSceneCameraCutTrackInstance::RestoreState(const TArray<TWeakObjectPtr
 void FMovieSceneCameraCutTrackInstance::Update(EMovieSceneUpdateData& UpdateData, const TArray<TWeakObjectPtr<UObject>>& RuntimeObjects, class IMovieScenePlayer& Player, FMovieSceneSequenceInstance& SequenceInstance) 
 {
 	// Don't switch CameraCuts when in preroll
-	if (UpdateData.bPreroll)
+	if (UpdateData.bPreroll || !UpdateData.bUpdateCameras)
 	{
 		return;
 	}

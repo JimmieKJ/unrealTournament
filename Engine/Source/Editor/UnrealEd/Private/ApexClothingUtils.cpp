@@ -259,6 +259,8 @@ bool LoadPhysicalMeshFromClothingAsset(NxClothingAsset& ApexClothingAsset,
 										TArray<FApexClothPhysToRenderVertData>& RenderToPhysicalMapping, 
 										TArray<FVector>& PhysicalMeshVertices, 
 										TArray<FVector>& PhysicalMeshNormals,
+										TArray<uint32>& PhysicalMeshIndices,
+										TArray<float>& PhysicalMeshMaxDistances,
 										int32 LODIndex, 
 										uint32 StartSimulIndex, 
 										uint32 NumRealSimulVertices,
@@ -342,9 +344,9 @@ bool LoadPhysicalMeshFromClothingAsset(NxClothingAsset& ApexClothingAsset,
 
 				check(MaxSimulVertexCount <= VertexCount);
 				
-				PhysicalMeshVertices.Empty(MaxSimulVertexCount);
+				PhysicalMeshVertices.Empty(VertexCount);
 
-				for (physx::PxI32 VertexIndex = 0; VertexIndex < MaxSimulVertexCount; ++VertexIndex)
+				for (physx::PxI32 VertexIndex = 0; VertexIndex < VertexCount; ++VertexIndex)
 				{
 					FCStringAnsi::Sprintf( ParameterName, "physicalMesh.vertices[%d]", VertexIndex );
 					NxParameterized::Handle MeshVertexHandle(*PhysicalMeshParams);
@@ -367,9 +369,9 @@ bool LoadPhysicalMeshFromClothingAsset(NxClothingAsset& ApexClothingAsset,
 				check(NormalCount == NumVertices);
 				check(MaxSimulVertexCount <= NormalCount);
 
-				PhysicalMeshNormals.Empty(MaxSimulVertexCount);
+				PhysicalMeshNormals.Empty(NormalCount);
 
-				for (physx::PxI32 NormalIndex = 0; NormalIndex < MaxSimulVertexCount; ++NormalIndex)
+				for (physx::PxI32 NormalIndex = 0; NormalIndex < NormalCount; ++NormalIndex)
 				{
 					FCStringAnsi::Sprintf( ParameterName, "physicalMesh.normals[%d]", NormalIndex );
 					NxParameterized::Handle MeshNormalHandle(*PhysicalMeshParams);
@@ -384,6 +386,57 @@ bool LoadPhysicalMeshFromClothingAsset(NxClothingAsset& ApexClothingAsset,
 						PhysicalMeshNormals.Add(UNormal);
 
 					}
+				}
+			}
+
+			physx::PxI32 IndexCount = 0;
+			if(NxParameterized::getParamArraySize(*PhysicalMeshParams, "physicalMesh.indices", IndexCount))
+			{
+				check(IndexCount == NumIndices);
+
+				PhysicalMeshIndices.Empty(IndexCount);
+
+				for(physx::PxI32 IndicesIndex = 0; IndicesIndex < IndexCount; ++IndicesIndex)
+				{
+					FCStringAnsi::Sprintf(ParameterName, "physicalMesh.indices[%d]", IndicesIndex);
+					NxParameterized::Handle MeshIndexHandle(*PhysicalMeshParams);
+					if(NxParameterized::findParam(*PhysicalMeshParams, ParameterName, MeshIndexHandle) != nullptr)
+					{
+						physx::PxU32 Index;
+						MeshIndexHandle.getParamU32(Index);
+						PhysicalMeshIndices.Add(Index);
+					}
+				}
+			}
+
+			physx::PxI32 CoeffCount = 0;
+			NxParameterized::Handle CoeffArrayHandle(PhysicalMeshParams);
+			NxParameterized::findParam(*PhysicalMeshParams, "physicalMesh.constrainCoefficients", CoeffArrayHandle);
+			
+			if(CoeffArrayHandle.isValid())
+			{
+				int32 NumCoeffs = 0;
+				CoeffArrayHandle.getArraySize(NumCoeffs);
+
+				// Should have one per vert
+				check(NumCoeffs == NumVertices);
+
+				// Initialise out array
+				PhysicalMeshMaxDistances.Empty(NumCoeffs);
+				PhysicalMeshMaxDistances.AddZeroed(NumCoeffs);
+
+				NxParameterized::Handle ChildHandle(PhysicalMeshParams);
+				for(int32 CoeffIdx = 0; CoeffIdx < NumCoeffs; ++CoeffIdx)
+				{
+					float& CurrMaxDistance = PhysicalMeshMaxDistances[CoeffIdx];
+
+					CoeffArrayHandle.set(CoeffIdx);
+
+					CoeffArrayHandle.getChildHandle(PhysicalMeshParams, "maxDistance", ChildHandle);
+					check(ChildHandle.isValid());
+					ChildHandle.getParamF32(CurrMaxDistance);
+
+					CoeffArrayHandle.popIndex();
 				}
 			}
 		}
@@ -750,7 +803,7 @@ void SetBoneIndex(FSoftSkinVertex& OutVertex, FBoneIndices& BoneIndices, FVector
 	}
 }
 
-bool AssociateClothingAssetWithSkeletalMesh(USkeletalMesh* SkelMesh, int32 LODIndex, uint32 SectionIndex, int32 AssetIndex, int32 AssetSubmeshIndex, FVertexImportData& ImportData, TArray<FApexClothPhysToRenderVertData>& RenderToPhysicalMapping, TArray<FVector>& PhysicalMeshVertices,TArray<FVector>& PhysicalMeshNormals, TArray<FName>& BoneNames, TArray<uint32>& IndexBuffer, uint32 TriangleCount)
+bool AssociateClothingAssetWithSkeletalMesh(USkeletalMesh* SkelMesh, int32 LODIndex, uint32 SectionIndex, int32 AssetIndex, int32 AssetSubmeshIndex, FVertexImportData& ImportData, TArray<FApexClothPhysToRenderVertData>& RenderToPhysicalMapping, TArray<FVector>& PhysicalMeshVertices,TArray<FVector>& PhysicalMeshNormals, TArray<uint32>& PhysicalMeshIndices, TArray<float>& PhysicalMeshMaxDistances, TArray<FName>& BoneNames, TArray<uint32>& IndexBuffer, uint32 TriangleCount)
 {
 	FSkeletalMeshResource* ImportedResource= SkelMesh->GetImportedResource();
 	if( LODIndex >= ImportedResource->LODModels.Num())
@@ -772,50 +825,67 @@ bool AssociateClothingAssetWithSkeletalMesh(USkeletalMesh* SkelMesh, int32 LODIn
 
 	//TempChunk makes it easy to go back to previous status when error occurred
 	//to check errors about bone-mapping first
-	FSkelMeshChunk		TempChunk; 
+	FSkelMeshSection	TempSection; 
 
 	uint32 NumImportedVertices = ImportData.Positions.Num();
 
-	TempChunk.NumRigidVertices = 0;
-	TempChunk.RigidVertices.Empty();
-	TempChunk.NumSoftVertices = NumImportedVertices;
-	TempChunk.SoftVertices.Empty(NumImportedVertices);
+	TempSection.SoftVertices.Empty(NumImportedVertices);
+	TempSection.NumVertices = NumImportedVertices;
 
-	for( uint32 VertexIndex=0;VertexIndex<NumImportedVertices;VertexIndex++ )
+	FSkelMeshSection& TempOrigSection = LODModel.Sections[SectionIndex];
+	TArray<int32> VertMapping;
+	VertMapping.AddZeroed(TempOrigSection.SoftVertices.Num());
+	FMemory::Memset(VertMapping.GetData(), INDEX_NONE, sizeof(int32) * VertMapping.Num());
+
+	// APEX data doesn't map to ours correctly, resulting in rendering artefacts, we need to build
+	// Our own mesh skinning data to use with the simulation
+	TArray<FApexClothPhysToRenderVertData> MeshToMeshData;
+	TArray<FVector> RenderPositions;
+	TArray<FVector> RenderNormals;
+	TArray<FVector> RenderTangents;
+
+	RenderPositions.Reserve(TempOrigSection.SoftVertices.Num());
+	RenderNormals.Reserve(TempOrigSection.SoftVertices.Num());
+	RenderTangents.Reserve(TempOrigSection.SoftVertices.Num());
+
+	for(FSoftSkinVertex& UnrealVert : TempOrigSection.SoftVertices)
 	{
-		FSoftSkinVertex& OutVertex = TempChunk.SoftVertices[TempChunk.SoftVertices.AddZeroed()];
-
-		OutVertex.Position	= ImportData.Positions[VertexIndex];
-		OutVertex.TangentX	= ImportData.Tangents[VertexIndex];
-		OutVertex.TangentY	= ImportData.Binormals[VertexIndex];
-		OutVertex.TangentZ	= ImportData.Normals[VertexIndex];
-		OutVertex.UVs[0]	= ImportData.UVs[VertexIndex];
-		OutVertex.Color		= ImportData.Colors[VertexIndex];
-
-		//refresh used bones & map
-		SetBoneIndex(OutVertex, 
-			ImportData.BoneIndices[VertexIndex],
-			ImportData.BoneWeights[VertexIndex],
-			BoneNames, 
-			UsedBones, 
-			UsedBonesMap);
+		RenderPositions.Add(UnrealVert.Position);
+		RenderNormals.Add(UnrealVert.TangentZ);
+		RenderTangents.Add(UnrealVert.TangentX);
 	}
 
-	// Set the bone map
-	int32 NumUsedBones = UsedBones.Num();
-	TempChunk.BoneMap.Empty(NumUsedBones);
+	ApexClothingUtils::GenerateMeshToMeshSkinningData(MeshToMeshData,
+													  RenderPositions,
+													  RenderNormals,
+													  RenderTangents,
+													  PhysicalMeshVertices,
+													  PhysicalMeshNormals,
+													  PhysicalMeshIndices);
 
-	for( int32 UsedBoneIndex=0; UsedBoneIndex<NumUsedBones; UsedBoneIndex++ )
+	// Need to set fixed verts based on the loaded max distance data
+	for(FApexClothPhysToRenderVertData& VertData : MeshToMeshData)
 	{
-		const int32 BoneIdx = SkelMesh->RefSkeleton.FindBoneIndex(UsedBones[UsedBoneIndex]);
-		if(BoneIdx != INDEX_NONE)
+		float TriangleMaxDistance = 0.0f;
+		TriangleMaxDistance += PhysicalMeshMaxDistances[VertData.SimulMeshVertIndices[0]];
+		TriangleMaxDistance += PhysicalMeshMaxDistances[VertData.SimulMeshVertIndices[1]];
+		TriangleMaxDistance += PhysicalMeshMaxDistances[VertData.SimulMeshVertIndices[2]];
+
+		if(TriangleMaxDistance == 0.0f)
 		{
-			TempChunk.BoneMap.Add(BoneIdx);
+			// Triangle is fixed, lock the vert
+			VertData.SimulMeshVertIndices[3] = 0xFFFF;
 		}
 	}
 
+	RenderToPhysicalMapping = MeshToMeshData;
+
+	TempSection.SoftVertices = TempOrigSection.SoftVertices;
+	TempSection.BoneMap = TempOrigSection.BoneMap;
+	TempSection.MaxBoneInfluences = TempOrigSection.MaxBoneInfluences;
+
 	//if bone count is 0, then crash will occur while drawing
-	if(TempChunk.BoneMap.Num() == 0)
+	if(TempSection.BoneMap.Num() == 0)
 	{
 		FString FailedBones = "\nMapping failed bones : \n";
 
@@ -844,6 +914,23 @@ bool AssociateClothingAssetWithSkeletalMesh(USkeletalMesh* SkelMesh, int32 LODIn
 		RestoreSectionIndex = SectionIndex;
 	}
 
+	// Check the influences on the original chunk to make sure the influences match
+	{
+		FSkelMeshSection& CheckOriginMeshSection = LODModel.Sections[OriginSectionIndex];
+		if(CheckOriginMeshSection.MaxBoneInfluences > MAX_INFLUENCES_PER_STREAM)
+		{
+			const FText Text = FText::Format(LOCTEXT("Error_TooManyInfluences", "Section {0} in Skeletal Mesh {1} has up to {2} influences on it's vertices. The maximum when using cloth is 4, reduce the number of influences and reimport the mesh to allow cloth on this mesh."),
+				FText::AsNumber(OriginSectionIndex),
+				FText::FromString(SkelMesh->GetName()),
+				FText::AsNumber(CheckOriginMeshSection.MaxBoneInfluences));
+
+			FMessageDialog::Open(EAppMsgType::Ok, Text);
+
+			// Can't associate, influences don't match
+			return false;
+		}
+	}
+
 	//add new one after restoring to original section
 	if(RestoreSectionIndex >= 0)
 	{
@@ -852,34 +939,37 @@ bool AssociateClothingAssetWithSkeletalMesh(USkeletalMesh* SkelMesh, int32 LODIn
 
 	SkelMesh->PreEditChange(NULL);
 
-	//add new section & chunk for clothing
+	// Add new section for clothing
 	int32 NewSectionIndex = LODModel.Sections.AddZeroed();
-	int16 NewChunkIndex = LODModel.Chunks.Add(TempChunk);
 
-	FSkelMeshSection& ClothSection = LODModel.Sections[NewSectionIndex];
+	// Get original section
 	FSkelMeshSection& OriginMeshSection = LODModel.Sections[OriginSectionIndex];
+	FSkelMeshSection& ClothSection = LODModel.Sections[NewSectionIndex];
 
-	// copy default info from original section
-	ClothSection = OriginMeshSection;
+	// Copy 'chunk' properties from TempSection
+	ClothSection.SoftVertices = TempSection.SoftVertices;
+	ClothSection.NumVertices = ClothSection.SoftVertices.Num();
+	ClothSection.BoneMap = TempSection.BoneMap;
+	ClothSection.MaxBoneInfluences = TempSection.MaxBoneInfluences;
+	ClothSection.CorrespondClothAssetIndex = TempSection.CorrespondClothAssetIndex;
+	ClothSection.ClothAssetSubmeshIndex = TempSection.ClothAssetSubmeshIndex;
 
-	FSkelMeshChunk& ClothChunk = LODModel.Chunks[NewChunkIndex];
-	FSkelMeshChunk& OriginChunk = LODModel.Chunks[OriginMeshSection.ChunkIndex];
-
-	// copy data from original chunk
-	ClothChunk.BaseVertexIndex = OriginChunk.BaseVertexIndex;
-	ClothChunk.MaxBoneInfluences = OriginChunk.MaxBoneInfluences;
+	// copy 'material' properties from original section
+	ClothSection.MaterialIndex = OriginMeshSection.MaterialIndex;
+	ClothSection.TriangleSorting = OriginMeshSection.TriangleSorting;
+	ClothSection.bSelected = OriginMeshSection.bSelected;
+	ClothSection.bRecomputeTangent = OriginMeshSection.bRecomputeTangent;
+	ClothSection.bEnableClothLOD_DEPRECATED = OriginMeshSection.bEnableClothLOD_DEPRECATED;
 
 	OriginMeshSection.bDisabled = true;
-	// assign newly added chunk
-	ClothSection.ChunkIndex = NewChunkIndex;
 	ClothSection.bDisabled = false;
 
 	ClothSection.CorrespondClothSectionIndex = OriginSectionIndex;
 	OriginMeshSection.CorrespondClothSectionIndex = NewSectionIndex;
 
-	ClothChunk.ApexClothMappingData = RenderToPhysicalMapping;
-	ClothChunk.PhysicalMeshVertices = PhysicalMeshVertices;
-	ClothChunk.PhysicalMeshNormals = PhysicalMeshNormals;
+	ClothSection.ApexClothMappingData = RenderToPhysicalMapping;
+	ClothSection.PhysicalMeshVertices = PhysicalMeshVertices;
+	ClothSection.PhysicalMeshNormals = PhysicalMeshNormals;
 
 	//adjust index buffer
 	TArray<uint32> OutIndexBuffer;
@@ -891,25 +981,26 @@ bool AssociateClothingAssetWithSkeletalMesh(USkeletalMesh* SkelMesh, int32 LODIn
 	uint32 NumVertices = 0;
 	for(int32 SectionIdx = 0; SectionIdx < NewSectionIndex; SectionIdx++)
 	{
-		uint16 ChunkIdx = LODModel.Sections[SectionIdx].ChunkIndex;
-		FSkelMeshChunk& Chunk = LODModel.Chunks[ChunkIdx]; 	
-		NumVertices += Chunk.GetNumVertices();
+		FSkelMeshSection& Section = LODModel.Sections[SectionIdx];
+		NumVertices += Section.GetNumVertices();
 	}
+	ClothSection.BaseVertexIndex = NumVertices;
 
-	ClothChunk.BaseVertexIndex = NumVertices;
+	// Data for copying the original section indices
+	const int32 BaseIndexToCopy = TempOrigSection.BaseIndex;
+	const int32 NumIndicesToCopy = TempOrigSection.NumTriangles * 3;
 
-	// if Section Index is greater than 0, Vertex Index has to be adjusted
-	if(NewSectionIndex > 0)
+	// Need to bump the index to the new verts, work out the vertex offset
+	const int32 BaseVertexOffset = ClothSection.BaseVertexIndex - TempOrigSection.BaseVertexIndex;
+	for(int32 CurrIdx = 0; CurrIdx < NumIndicesToCopy; ++CurrIdx)
 	{
-		for(int32 Index=0; Index<IndexBuffer.Num(); Index++)
-			IndexBuffer[Index] += ClothChunk.BaseVertexIndex;
+		int32 SourceIndex = OutIndexBuffer[BaseIndexToCopy + CurrIdx];
+		OutIndexBuffer.Add(SourceIndex + BaseVertexOffset);
 	}
 
-	OutIndexBuffer += IndexBuffer;
-
+	// Copy back to LOD
 	LODModel.MultiSizeIndexContainer.CopyIndexBuffer(OutIndexBuffer);
-
-	LODModel.NumVertices += ClothChunk.GetNumVertices();
+	LODModel.NumVertices += ClothSection.GetNumVertices();
 
 	// build adjacency information for this clothing section
 	{
@@ -927,12 +1018,12 @@ bool AssociateClothingAssetWithSkeletalMesh(USkeletalMesh* SkelMesh, int32 LODIn
 
 
 	// set asset submesh info to new chunk 
-	ClothChunk.SetClothSubmeshIndex(AssetIndex, AssetSubmeshIndex);
+	ClothSection.SetClothSubmeshIndex(AssetIndex, AssetSubmeshIndex);
 
 	// It's possible that the required/active bones for the new cloth chunk differ from
 	// the original chunk - here we inspect the bone map and activate any new bones.
 	bool bRequiredBonesChanged = false;
-	for(FBoneIndexType BoneIdx : ClothChunk.BoneMap)
+	for(FBoneIndexType BoneIdx : ClothSection.BoneMap)
 	{
 		if(!LODModel.RequiredBones.Contains(BoneIdx))
 		{
@@ -1249,13 +1340,13 @@ void RemoveAssetFromSkeletalMesh(USkeletalMesh* SkelMesh, uint32 AssetIndex, boo
 
 		FStaticLODModel& LODModel = ImportedResource->LODModels[LODIdx];
 
-		int32 NumChunks = LODModel.Chunks.Num();
+		int32 NumSections = LODModel.Sections.Num();
 
 		//decrease asset index because one asset is removed
-		for(int32 ChunkIdx=0; ChunkIdx < NumChunks; ChunkIdx++)
+		for(int32 SectionIdx=0; SectionIdx < NumSections; SectionIdx++)
 		{
-			if(LODModel.Chunks[ChunkIdx].CorrespondClothAssetIndex > (int16)AssetIndex)
-				LODModel.Chunks[ChunkIdx].CorrespondClothAssetIndex--;
+			if(LODModel.Sections[SectionIdx].CorrespondClothAssetIndex > (int16)AssetIndex)
+				LODModel.Sections[SectionIdx].CorrespondClothAssetIndex--;
 		}
 	}
 
@@ -1283,13 +1374,11 @@ void RestoreOriginalClothingSection(USkeletalMesh* SkelMesh, uint32 LODIndex, ui
 
 	FSkelMeshSection& Section = LODModel.Sections[SectionIndex];
 
-	uint16 ChunkIndex = Section.ChunkIndex;
-
 	int32 OriginSectionIndex = -1, ClothSectionIndex = -1;
 
 	// if this section is original mesh section ( without clothing data )
 	if(Section.CorrespondClothSectionIndex >= 0
-		&& !LODModel.Chunks[ChunkIndex].HasApexClothData())
+		&& !Section.HasApexClothData())
 	{
 		ClothSectionIndex = Section.CorrespondClothSectionIndex;
 		OriginSectionIndex = SectionIndex;
@@ -1297,7 +1386,7 @@ void RestoreOriginalClothingSection(USkeletalMesh* SkelMesh, uint32 LODIndex, ui
 
 	// if this section is clothing section
 	if(Section.CorrespondClothSectionIndex >= 0
-		&&LODModel.Chunks[ChunkIndex].HasApexClothData())
+		&& Section.HasApexClothData())
 	{
 		ClothSectionIndex = SectionIndex;
 		OriginSectionIndex = Section.CorrespondClothSectionIndex;
@@ -1315,17 +1404,13 @@ void RestoreOriginalClothingSection(USkeletalMesh* SkelMesh, uint32 LODIndex, ui
 		TArray<uint32> OutIndexBuffer;
 		LODModel.MultiSizeIndexContainer.GetIndexBuffer(OutIndexBuffer);
 
-		int16 RemovedChunkIndex = ClothSection.ChunkIndex;
 		uint32 RemovedBaseIndex = ClothSection.BaseIndex;
 		uint32 RemovedNumIndices = ClothSection.NumTriangles * 3;
-
-		FSkelMeshChunk& ClothChunk = LODModel.Chunks[ClothSection.ChunkIndex];
-
-		uint32 RemovedBaseVertexIndex = ClothChunk.BaseVertexIndex;
+		uint32 RemovedBaseVertexIndex = ClothSection.BaseVertexIndex;
 
 		int32 NumIndexBuffer = OutIndexBuffer.Num();
 
-		int32 NumRemovedVertices = ClothChunk.GetNumVertices();
+		int32 NumRemovedVertices = ClothSection.GetNumVertices();
 
 		// Remove old indices and update any indices for other sections
 		OutIndexBuffer.RemoveAt(RemovedBaseIndex, RemovedNumIndices);
@@ -1334,13 +1419,12 @@ void RestoreOriginalClothingSection(USkeletalMesh* SkelMesh, uint32 LODIndex, ui
 
 		for(int32 i=0; i < NumIndexBuffer; i++)
 		{
-			if(OutIndexBuffer[i] >= ClothChunk.BaseVertexIndex)
+			if(OutIndexBuffer[i] >= ClothSection.BaseVertexIndex)
 				OutIndexBuffer[i] -= NumRemovedVertices;
 		}
 
 		LODModel.MultiSizeIndexContainer.CopyIndexBuffer(OutIndexBuffer);
 
-		LODModel.Chunks.RemoveAt(ClothSection.ChunkIndex);
 		LODModel.Sections.RemoveAt(OriginSection.CorrespondClothSectionIndex);
 
 		LODModel.NumVertices -= NumRemovedVertices;
@@ -1352,17 +1436,11 @@ void RestoreOriginalClothingSection(USkeletalMesh* SkelMesh, uint32 LODIndex, ui
 			if(LODModel.Sections[i].CorrespondClothSectionIndex > OriginSection.CorrespondClothSectionIndex)
 				LODModel.Sections[i].CorrespondClothSectionIndex -= 1;
 
-			if(LODModel.Sections[i].ChunkIndex > RemovedChunkIndex)
-				LODModel.Sections[i].ChunkIndex -= 1;
-
 			if(LODModel.Sections[i].BaseIndex > RemovedBaseIndex)
 				LODModel.Sections[i].BaseIndex -= RemovedNumIndices;
 
-			int16 NewChunkIndex = LODModel.Sections[i].ChunkIndex;
-
-			if(LODModel.Chunks[NewChunkIndex].BaseVertexIndex > RemovedBaseVertexIndex)
-				LODModel.Chunks[NewChunkIndex].BaseVertexIndex -= NumRemovedVertices;
-
+			if(LODModel.Sections[i].BaseVertexIndex > RemovedBaseVertexIndex)
+				LODModel.Sections[i].BaseVertexIndex -= NumRemovedVertices;
 		}
 
 		OriginSection.bDisabled = false;
@@ -1453,6 +1531,8 @@ bool ImportClothingSectionFromClothingAsset( USkeletalMesh* SkelMesh, uint32 LOD
 	TArray<FApexClothPhysToRenderVertData> RenderToPhysicalMapping;
 	TArray<FVector> PhysicalMeshVertices;
 	TArray<FVector> PhysicalMeshNormals;
+	TArray<uint32> PhysicalMeshIndices;
+	TArray<float> PhysicalMeshMaxDistances;
 	FVertexImportData ImportData;
 
 	// get values from LoadGraphicalMeshFromClothingAsset
@@ -1467,7 +1547,7 @@ bool ImportClothingSectionFromClothingAsset( USkeletalMesh* SkelMesh, uint32 LOD
 		return false;
 	}
 
-	LoadPhysicalMeshFromClothingAsset(*ApexClothingAsset, RenderToPhysicalMapping, PhysicalMeshVertices, PhysicalMeshNormals, LODIndex, StartSimulIndex, NumSimulVertices, SubmeshVertexCount);
+	LoadPhysicalMeshFromClothingAsset(*ApexClothingAsset, RenderToPhysicalMapping, PhysicalMeshVertices, PhysicalMeshNormals, PhysicalMeshIndices, PhysicalMeshMaxDistances, LODIndex, StartSimulIndex, NumSimulVertices, SubmeshVertexCount);
 
 	// Load bone names
 	TArray<FName> BoneNames;
@@ -1475,7 +1555,7 @@ bool ImportClothingSectionFromClothingAsset( USkeletalMesh* SkelMesh, uint32 LOD
 
 	return AssociateClothingAssetWithSkeletalMesh(SkelMesh, LODIndex, SectionIndex, 
 											AssetIndex, AssetSubmeshIndex, ImportData, 		
-											RenderToPhysicalMapping, PhysicalMeshVertices, PhysicalMeshNormals, 
+											RenderToPhysicalMapping, PhysicalMeshVertices, PhysicalMeshNormals, PhysicalMeshIndices, PhysicalMeshMaxDistances, 
 											BoneNames, IndexBuffer, SubmeshTriangleCount);
 }
 
@@ -1513,9 +1593,8 @@ void ReImportClothingSectionFromClothingAsset(USkeletalMesh* SkelMesh, int32 LOD
 		return;
 	}
 
-	int16 ClothChunkIdx = Model.Sections[ClothSecIdx].ChunkIndex;
-	int16 AssetIndex = Model.Chunks[ClothChunkIdx].CorrespondClothAssetIndex;
-	int16 SubmeshIdx = Model.Chunks[ClothChunkIdx].ClothAssetSubmeshIndex;
+	int16 AssetIndex = Model.Sections[ClothSecIdx].CorrespondClothAssetIndex;
+	int16 SubmeshIdx = Model.Sections[ClothSecIdx].ClothAssetSubmeshIndex;
 
 	ImportClothingSectionFromClothingAsset(SkelMesh, LODIndex, SectionIndex, AssetIndex, SubmeshIdx);
 }
@@ -1610,8 +1689,7 @@ EClothUtilRetType ImportApexAssetFromApexFile(FString& ApexFile, USkeletalMesh* 
 				FSkelMeshSection& Section = LODModel.Sections[SectionIndices[i]];
 
 				int16 ClothSecIdx = Section.CorrespondClothSectionIndex;
-				int16 ClothChunkIdx = LODModel.Sections[ClothSecIdx].ChunkIndex;
-				int16 SubmeshIdx = LODModel.Chunks[ClothChunkIdx].ClothAssetSubmeshIndex;
+				int16 SubmeshIdx = LODModel.Sections[ClothSecIdx].ClothAssetSubmeshIndex;
 
 				int32 SecIdx = SectionIndices[i];
 
@@ -1801,7 +1879,6 @@ void BackupClothingDataFromSkeletalMesh(USkeletalMesh* SkelMesh, FClothingBackup
 	FStaticLODModel& LODModel = ImportedResource->LODModels[0];
 
 	int32 NumSections = LODModel.Sections.Num();
-	int32 NumChunks = LODModel.Chunks.Num();
 
 	int32 NumClothingSections = 0;
 	int32 NumIndexBuffer = 0;
@@ -1814,14 +1891,13 @@ void BackupClothingDataFromSkeletalMesh(USkeletalMesh* SkelMesh, FClothingBackup
 			FSkelMeshSection& Section = LODModel.Sections[i];
 			NumClothingSections++;
 			NumIndexBuffer += (Section.NumTriangles * 3);
-			NumBoneIndices += LODModel.Chunks[Section.ChunkIndex].BoneMap.Num();
+			NumBoneIndices += Section.BoneMap.Num();
 		}
 	}
 
 	if(NumClothingSections > 0)
 	{
 		ClothingBackup.Sections.Empty(NumClothingSections);
-		ClothingBackup.Chunks.Empty(NumClothingSections);
 		ClothingBackup.IndexBuffer.Empty(NumIndexBuffer);
 
 		TArray<uint32> OutIndexBuffer;
@@ -1833,19 +1909,15 @@ void BackupClothingDataFromSkeletalMesh(USkeletalMesh* SkelMesh, FClothingBackup
 			{
 				FSkelMeshSection& Section = LODModel.Sections[SecIdx];
 				int32 BackupSectionIndex = ClothingBackup.Sections.Add(Section);
-				FSkelMeshChunk& Chunk = LODModel.Chunks[Section.ChunkIndex];
-				int32 BackupChunkIndex = ClothingBackup.Chunks.Add(Chunk);
 				// back up index buffer
 				FSkelMeshSection& NewSection = ClothingBackup.Sections[BackupSectionIndex];
-				FSkelMeshChunk& NewChunk = ClothingBackup.Chunks[BackupChunkIndex];
 
-				NewSection.ChunkIndex = BackupChunkIndex;
 				int32 BaseIndex = NewSection.BaseIndex;
 				NewSection.BaseIndex = ClothingBackup.IndexBuffer.Num();
 				int32 NumIndices = NewSection.NumTriangles * 3;
 				int32 EndIndex = BaseIndex + NumIndices;
 
-				int32 BaseVertexIndex = NewChunk.BaseVertexIndex;
+				int32 BaseVertexIndex = NewSection.BaseVertexIndex;
 
 				for(int32 Idx=BaseIndex; Idx < EndIndex; Idx++)
 				{
@@ -1889,16 +1961,12 @@ void ReapplyClothingDataToSkeletalMesh( USkeletalMesh* SkelMesh, FClothingBackup
 			continue;
 		}
 
-		int16 ChunkIndex = Section.ChunkIndex;
-
-		FSkelMeshChunk& Chunk = ClothingBackup.Chunks[ChunkIndex];
-
 		ImportClothingSectionFromClothingAsset(
 			SkelMesh, 
 			0,
 			Section.CorrespondClothSectionIndex,
-			Chunk.CorrespondClothAssetIndex,
-			Chunk.ClothAssetSubmeshIndex
+			Section.CorrespondClothAssetIndex,
+			Section.ClothAssetSubmeshIndex
 		);
 
 	}
@@ -2105,6 +2173,102 @@ void SetPhysicsPropertiesToApexAsset(NxClothingAsset *InAsset, FClothPhysicsProp
 		}
 
 	}
+}
+
+void GenerateMeshToMeshSkinningData(TArray<FApexClothPhysToRenderVertData>& OutSkinningData, const TArray<FVector>& Mesh0Verts, const TArray<FVector>& Mesh0Normals, const TArray<FVector>& Mesh0Tangents, const TArray<FVector>& Mesh1Verts, const TArray<FVector>& Mesh1Normals, const TArray<uint32>& Mesh1Indices)
+{
+	const int32 NumMesh0Verts = Mesh0Verts.Num();
+	const int32 NumMesh0Normals = Mesh0Normals.Num();
+	const int32 NumMesh0Tangents = Mesh0Tangents.Num();
+
+	const int32 NumMesh1Verts = Mesh1Verts.Num();
+	const int32 NumMesh1Normals = Mesh1Normals.Num();
+	const int32 NumMesh1Indices = Mesh1Indices.Num();
+
+	// Check we have properly formed triangles
+	check(NumMesh1Indices % 3 == 0);
+
+	const int32 NumMesh1Triangles = NumMesh1Indices / 3;
+
+	// Check mesh data to make sure we have the same number of each element
+	if((NumMesh0Verts + NumMesh0Normals) / NumMesh0Tangents != 2)
+	{
+		UE_LOG(LogApexClothingUtils, Warning, TEXT("Can't generate mesh to mesh skinning data, Mesh0 data is missing verts."));
+		return;
+	}
+
+	if(NumMesh1Verts != NumMesh1Normals)
+	{
+		UE_LOG(LogApexClothingUtils, Warning, TEXT("Can't generate mesh to mesh skinning data, Mesh1 data is missing verts."));
+		return;
+	}
+
+	OutSkinningData.Reserve(NumMesh0Verts);
+
+	// For all mesh0 verts
+	for(int32 VertIdx0 = 0; VertIdx0 < NumMesh0Verts; ++VertIdx0)
+	{
+		OutSkinningData.AddZeroed();
+		FApexClothPhysToRenderVertData& SkinningData = OutSkinningData.Last();
+
+		const FVector& VertPosition = Mesh0Verts[VertIdx0];
+		const FVector& VertNormal = Mesh0Normals[VertIdx0];
+		const FVector& VertTangent = Mesh0Tangents[VertIdx0];
+
+		float MinimumDistanceSq = MAX_flt;
+		int32 ClosestTriangleBaseIdx = INDEX_NONE;
+		// For all mesh1 triangles
+		for(int32 Mesh1TriangleIdx = 0; Mesh1TriangleIdx < NumMesh1Triangles; ++Mesh1TriangleIdx)
+		{
+			int32 TriangleBaseIdx = Mesh1TriangleIdx * 3;
+			const FVector& A = Mesh1Verts[Mesh1Indices[TriangleBaseIdx]];
+			const FVector& B = Mesh1Verts[Mesh1Indices[TriangleBaseIdx + 1]];
+			const FVector& C = Mesh1Verts[Mesh1Indices[TriangleBaseIdx + 2]];
+
+			FVector PointOnTri = FMath::ClosestPointOnTriangleToPoint(VertPosition, A, B, C);
+			float DistSq = (PointOnTri - VertPosition).SizeSquared();
+
+			if(DistSq < MinimumDistanceSq)
+			{
+				MinimumDistanceSq = DistSq;
+				ClosestTriangleBaseIdx = TriangleBaseIdx;
+			}
+		}
+
+		// Should have found at least one triangle
+		check(ClosestTriangleBaseIdx != INDEX_NONE);
+
+		const FVector& A = Mesh1Verts[Mesh1Indices[ClosestTriangleBaseIdx]];
+		const FVector& B = Mesh1Verts[Mesh1Indices[ClosestTriangleBaseIdx + 1]];
+		const FVector& C = Mesh1Verts[Mesh1Indices[ClosestTriangleBaseIdx + 2]];
+
+		const FVector& NA = Mesh1Normals[Mesh1Indices[ClosestTriangleBaseIdx]];
+		const FVector& NB = Mesh1Normals[Mesh1Indices[ClosestTriangleBaseIdx + 1]];
+		const FVector& NC = Mesh1Normals[Mesh1Indices[ClosestTriangleBaseIdx + 2]];
+
+		SkinningData.PositionBaryCoordsAndDist = GetPointBaryAndDist(A, B, C, NA, NB, NC, VertPosition);
+		SkinningData.NormalBaryCoordsAndDist = GetPointBaryAndDist(A, B, C, NA, NB, NC, VertPosition + VertNormal);
+		SkinningData.TangentBaryCoordsAndDist = GetPointBaryAndDist(A, B, C, NA, NB, NC, VertPosition + VertTangent);
+		SkinningData.SimulMeshVertIndices[0] = Mesh1Indices[ClosestTriangleBaseIdx];
+		SkinningData.SimulMeshVertIndices[1] = Mesh1Indices[ClosestTriangleBaseIdx + 1];
+		SkinningData.SimulMeshVertIndices[2] = Mesh1Indices[ClosestTriangleBaseIdx + 2];
+		SkinningData.SimulMeshVertIndices[3] = 0;
+	}
+}
+
+FVector4 GetPointBaryAndDist(const FVector& A, const FVector& B, const FVector& C, const FVector& NA, const FVector& NB, const FVector& NC, const FVector& Point)
+{
+	FPlane TrianglePlane(A, B, C);
+	const FVector PointOnTriPlane = FVector::PointPlaneProject(Point, TrianglePlane);
+	const FVector BaryCoords = FMath::ComputeBaryCentric2D(PointOnTriPlane, A, B, C);
+	const FVector NormalAtPoint = TrianglePlane; //NA * BaryCoords.X + NB * BaryCoords.Y + NC * BaryCoords.Z;
+	FVector TriPointToVert = Point - PointOnTriPlane;
+	TriPointToVert = TriPointToVert.ProjectOnTo(NormalAtPoint);
+	float Dist = TriPointToVert.Size();
+
+	float Sign = TrianglePlane.PlaneDot(Point) < 0.0f ? -1.0f : 1.0f;
+
+	return FVector4(BaryCoords, TrianglePlane.PlaneDot(Point));
 }
 
 #else

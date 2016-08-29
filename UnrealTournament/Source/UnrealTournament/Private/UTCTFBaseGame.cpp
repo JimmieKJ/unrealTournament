@@ -541,7 +541,7 @@ void AUTCTFBaseGame::PlacePlayersAroundFlagBase(int32 TeamNum, int32 FlagTeamNum
 				AUTPlayerState* PS = Cast<AUTPlayerState>(UTChar->PlayerState);
 				if (PS && PS->CarriedObject && PS->CarriedObject->HolderTrail)
 				{
-					PS->CarriedObject->HolderTrail->DetachFromParent();
+					PS->CarriedObject->HolderTrail->DetachFromComponent(FDetachmentTransformRules::KeepRelativeTransform);
 				}
 				FRotator AdjustmentAngle(0, StartAngle + AngleSlices * PlacementCounter, 0);
 				FVector PlacementLoc = FlagLoc + AdjustmentAngle.RotateVector(PlacementOffset);
@@ -674,17 +674,17 @@ void AUTCTFBaseGame::SetBlueScore(int32 NewScore)
 	}
 }
 
-uint8 AUTCTFBaseGame::GetNumMatchesFor(AUTPlayerState* PS, bool bRankedSession) const
+uint8 AUTCTFBaseGame::GetNumMatchesFor(AUTPlayerState* PS, bool InbRankedSession) const
 {
 	return PS ? PS->CTFMatchesPlayed : 0;
 }
 
-int32 AUTCTFBaseGame::GetEloFor(AUTPlayerState* PS, bool bRankedSession) const
+int32 AUTCTFBaseGame::GetEloFor(AUTPlayerState* PS, bool InbRankedSession) const
 {
-	return PS ? PS->CTFRank : Super::GetEloFor(PS, bRankedSession);
+	return PS ? PS->CTFRank : Super::GetEloFor(PS, InbRankedSession);
 }
 
-void AUTCTFBaseGame::SetEloFor(AUTPlayerState* PS, bool bRankedSession, int32 NewEloValue, bool bIncrementMatchCount)
+void AUTCTFBaseGame::SetEloFor(AUTPlayerState* PS, bool InbRankedSession, int32 NewEloValue, bool bIncrementMatchCount)
 {
 	if (PS)
 	{
@@ -696,12 +696,12 @@ void AUTCTFBaseGame::SetEloFor(AUTPlayerState* PS, bool bRankedSession, int32 Ne
 	}
 }
 
-int32 AUTCTFBaseGame::GetComSwitch(FName CommandTag, AActor* ContextActor, AUTPlayerController* Instigator, UWorld* World)
+int32 AUTCTFBaseGame::GetComSwitch(FName CommandTag, AActor* ContextActor, AUTPlayerController* InInstigator, UWorld* World)
 {
 	if (CommandTag == CommandTags::Distress)
 	{
 		return UNDER_HEAVY_ATTACK_SWITCH_INDEX;
 	}
 
-	return Super::GetComSwitch(CommandTag, ContextActor, Instigator, World);
+	return Super::GetComSwitch(CommandTag, ContextActor, InInstigator, World);
 }

@@ -41,7 +41,7 @@ bool UUTMatchmakingSingleSession::IsMatchmaking() const
 	return CurrentSessionParams.State >= EMatchmakingState::AcquiringLock;
 }
 
-void UUTMatchmakingSingleSession::JoinSessionById(FName SessionName, const FUniqueNetId& SessionId)
+void UUTMatchmakingSingleSession::JoinSessionById(FName InSessionName, const FUniqueNetId& SessionId)
 {
 	if (!IsMatchmaking())
 	{
@@ -71,7 +71,7 @@ void UUTMatchmakingSingleSession::JoinSessionById(FName SessionName, const FUniq
 							ProcessMatchmakingStateChange(EMatchmakingState::FindingExistingSession);
 
 							FOnSingleSessionResultCompleteDelegate CompletionDelegate;
-							CompletionDelegate.BindUObject(this, &ThisClass::OnFindSessionByIdComplete, SessionName);
+							CompletionDelegate.BindUObject(this, &ThisClass::OnFindSessionByIdComplete, InSessionName);
 							SessionInt->FindSessionById(*LocalUserId, SessionId, SessionId, CompletionDelegate);
 							bSuccess = true;
 						}
@@ -112,14 +112,14 @@ void UUTMatchmakingSingleSession::JoinSessionById(FName SessionName, const FUniq
 	}
 }
 
-void UUTMatchmakingSingleSession::OnFindSessionByIdComplete(int32 LocalUserNum, bool bWasSuccessful, const FOnlineSessionSearchResult& SearchResult, FName SessionName)
+void UUTMatchmakingSingleSession::OnFindSessionByIdComplete(int32 LocalUserNum, bool bWasSuccessful, const FOnlineSessionSearchResult& SearchResult, FName InSessionName)
 {
 	UE_LOG(LogOnlineGame, Verbose, TEXT("OnFindSessionByIdComplete LocalUserNum=%d bSuccess: %d"), LocalUserNum, bWasSuccessful);
 
 	if (bWasSuccessful &&
 		SearchResult.IsValid())
 	{
-		JoinSessionInternal(SessionName, SearchResult);
+		JoinSessionInternal(InSessionName, SearchResult);
 	}
 	else
 	{
@@ -129,7 +129,7 @@ void UUTMatchmakingSingleSession::OnFindSessionByIdComplete(int32 LocalUserNum, 
 	}
 }
 
-void UUTMatchmakingSingleSession::JoinSessionInternal(FName SessionName, const FOnlineSessionSearchResult& SearchResult)
+void UUTMatchmakingSingleSession::JoinSessionInternal(FName InSessionName, const FOnlineSessionSearchResult& SearchResult)
 {
 	bool bSuccess = false;
 	if (SearchResult.IsValid())
@@ -167,11 +167,11 @@ void UUTMatchmakingSingleSession::JoinSessionInternal(FName SessionName, const F
 
 					if ((CurrentParams.Flags & EMatchmakingFlags::NoReservation) == EMatchmakingFlags::NoReservation)
 					{
-						SessionHelper->SkipReservation(LocalUserId, SessionName, SearchResult, CompletionDelegate);
+						SessionHelper->SkipReservation(LocalUserId, InSessionName, SearchResult, CompletionDelegate);
 					}
 					else
 					{
-						SessionHelper->ReserveSession(LocalUserId, SessionName, SearchResult, CompletionDelegate);
+						SessionHelper->ReserveSession(LocalUserId, InSessionName, SearchResult, CompletionDelegate);
 					}
 					bSuccess = true;
 				}
@@ -236,9 +236,9 @@ void UUTMatchmakingSingleSession::CleanupExistingSessionsAndContinue()
 	}
 }
 
-void UUTMatchmakingSingleSession::OnCleanupForJoinComplete(FName SessionName, bool bWasSuccessful)
+void UUTMatchmakingSingleSession::OnCleanupForJoinComplete(FName InSessionName, bool bWasSuccessful)
 {
-	if (SessionName == GameSessionName)
+	if (InSessionName == GameSessionName)
 	{
 		if (bWasSuccessful)
 		{
@@ -349,7 +349,7 @@ void UUTMatchmakingSingleSession::ProcessFailure()
 	}
 }
 
-void UUTMatchmakingSingleSession::OnCleanupAfterFailureComplete(FName SessionName, bool bWasSuccesful)
+void UUTMatchmakingSingleSession::OnCleanupAfterFailureComplete(FName InSessionName, bool bWasSuccesful)
 {
 	// Give this delegate a chance to unwind
 	FTimerDelegate CleanupFailureTimer;

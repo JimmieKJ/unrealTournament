@@ -2,8 +2,6 @@
 #include "UnrealTournament.h"
 #include "UTGameEngine.h"
 #include "UTAnalytics.h"
-#include "Runtime/Analytics/Analytics/Public/Analytics.h"
-#include "Runtime/Analytics/Analytics/Public/Interfaces/IAnalyticsProvider.h"
 #include "Runtime/Core/Public/Features/IModularFeatures.h"
 #include "AssetRegistryModule.h"
 #include "UTLevelSummary.h"
@@ -14,6 +12,7 @@
 #include "UTFlagInfo.h"
 #include "UTLobbyGameMode.h"
 #include "UTGameInstance.h"
+#include "IAnalyticsProvider.h"
 #if !UE_SERVER
 #include "SlateBasics.h"
 #include "MoviePlayer.h"

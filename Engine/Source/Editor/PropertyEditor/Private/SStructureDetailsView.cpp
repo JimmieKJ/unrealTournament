@@ -40,7 +40,9 @@ void SStructureDetailsView::Construct(const FArguments& InArgs)
 	CustomName = InArgs._CustomName;
 
 	// Create the root property now
-	RootNode = MakeShareable(new FStructurePropertyNode);
+	// Only one root node in a structure details view
+	RootNodes.Empty(1);
+	RootNodes.Add(MakeShareable(new FStructurePropertyNode));
 		
 	PropertyUtilities = MakeShareable( new FPropertyDetailsUtilities( *this ) );
 	
@@ -98,7 +100,7 @@ void SStructureDetailsView::Construct(const FArguments& InArgs)
 			FSlateIcon(),
 			FUIAction(FExecuteAction::CreateSP(this, &SStructureDetailsView::SetRootExpansionStates, /*bExpanded=*/true, /*bRecurse=*/false)));
 
-	TSharedRef<SHorizontalBox> FilterRow = SNew( SHorizontalBox )
+	TSharedRef<SHorizontalBox> FilterBoxRow = SNew( SHorizontalBox )
 		.Visibility(this, &SStructureDetailsView::GetFilterBoxVisibility)
 		+SHorizontalBox::Slot()
 		.FillWidth( 1 )
@@ -111,7 +113,7 @@ void SStructureDetailsView::Construct(const FArguments& InArgs)
 
 	if (DetailsViewArgs.bShowOptions)
 	{
-		FilterRow->AddSlot()
+		FilterBoxRow->AddSlot()
 			.HAlign(HAlign_Right)
 			.AutoWidth()
 			[
@@ -151,7 +153,7 @@ void SStructureDetailsView::Construct(const FArguments& InArgs)
 			.AutoHeight()
 			.Padding( 0.0f, 0.0f, 0.0f, 2.0f )
 			[
-				FilterRow
+				FilterBoxRow
 			]
 			+ SVerticalBox::Slot()
 			.FillHeight(1)
@@ -178,15 +180,20 @@ void SStructureDetailsView::Construct(const FArguments& InArgs)
 
 void SStructureDetailsView::SetStructureData(TSharedPtr<FStructOnScope> InStructData)
 {
+	TSharedPtr<FComplexPropertyNode> RootNode = GetRootNode();
 	//PRE SET
-	SaveExpandedItems( RootNode.ToSharedRef() );
-	RootNode->SetStructure(NULL);
+	SaveExpandedItems(RootNode.ToSharedRef() );
+	RootNode->AsStructureNode()->SetStructure(nullptr);
 	RootNodesPendingKill.Add(RootNode);
+
+	RootNodes.Empty(1);
+
 	RootNode = MakeShareable(new FStructurePropertyNode);
+	RootNodes.Add(RootNode);
 
 	//SET
 	StructData = InStructData;
-	RootNode->SetStructure(StructData);
+	RootNode->AsStructureNode()->SetStructure(StructData);
 	if (!StructData.IsValid())
 	{
 		bIsLocked = false;
@@ -210,7 +217,7 @@ void SStructureDetailsView::SetStructureData(TSharedPtr<FStructOnScope> InStruct
 
 	RestoreExpandedItems(RootNode.ToSharedRef());
 
-	UpdatePropertyMap();
+	UpdatePropertyMaps();
 
 	UpdateFilteredDetails();
 }
@@ -219,6 +226,14 @@ void SStructureDetailsView::ForceRefresh()
 {
 	SetStructureData(StructData);
 }
+
+void SStructureDetailsView::ClearSearch()
+{
+	CurrentFilter.FilterStrings.Empty();
+	SearchBox->SetText(FText::GetEmpty());
+	RerunCurrentFilter();
+}
+
 
 const TArray< TWeakObjectPtr<UObject> >& SStructureDetailsView::GetSelectedObjects() const
 {
@@ -240,22 +255,34 @@ const FSelectedActorInfo& SStructureDetailsView::GetSelectedActorInfo() const
 
 bool SStructureDetailsView::IsConnected() const
 {
-	return StructData.IsValid() && StructData->IsValid() && RootNode.IsValid() && RootNode->IsValid();
+	const FStructurePropertyNode* RootNode = GetRootNode().IsValid() ? GetRootNode()->AsStructureNode() : nullptr;
+	return StructData.IsValid() && StructData->IsValid() && RootNode && RootNode->HasValidStructData();
+}
+
+FRootPropertyNodeList& SStructureDetailsView::GetRootNodes()
+{
+	return RootNodes;
 }
 
 TSharedPtr<class FComplexPropertyNode> SStructureDetailsView::GetRootNode()
 {
-	return RootNode;
+	return RootNodes[0];
 }
 
-void SStructureDetailsView::CustomUpdatePropertyMap()
+const TSharedPtr<class FComplexPropertyNode> SStructureDetailsView::GetRootNode() const
 {
-	DetailLayout->DefaultCategory(NAME_None).SetDisplayName(NAME_None, CustomName);
+	return RootNodes[0];
+}
+
+void SStructureDetailsView::CustomUpdatePropertyMap(TSharedPtr<FDetailLayoutBuilderImpl>& InDetailLayout)
+{
+	InDetailLayout->DefaultCategory(NAME_None).SetDisplayName(NAME_None, CustomName);
 }
 
 EVisibility SStructureDetailsView::GetPropertyEditingVisibility() const
 {
-	return StructData.IsValid() && StructData->IsValid() && RootNode.IsValid() && RootNode->IsValid() ? EVisibility::Visible : EVisibility::Collapsed;
+	const FStructurePropertyNode* RootNode = GetRootNode().IsValid() ? GetRootNode()->AsStructureNode() : nullptr;
+	return StructData.IsValid() && StructData->IsValid() && RootNode && RootNode->HasValidStructData() ? EVisibility::Visible : EVisibility::Collapsed;
 }
 
 void SStructureDetailsView::RegisterInstancedCustomPropertyLayout(UStruct* Class, FOnGetDetailCustomizationInstance DetailLayoutDelegate)

@@ -152,6 +152,9 @@ public:
 	/** Load all of the objects in asset data list into memory */
 	virtual int32 LoadAssetsFromAssetData();
 
+	/** Whether to set bIncludeOnlyOnDiskAssets when setting up AR filters for discovering asset data */
+	bool bIncludeOnlyOnDiskAssets;
+
 #if WITH_EDITOR
 	/** The paths that we will query again once assets are finished being discovered */
 	TArray<FString> DeferredAssetDataPaths;

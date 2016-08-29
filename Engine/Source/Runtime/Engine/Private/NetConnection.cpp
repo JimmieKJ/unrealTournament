@@ -52,7 +52,7 @@ UNetConnection::UNetConnection(const FObjectInitializer& ObjectInitializer)
 ,	PacketOverhead		( 0 )
 ,	ResponseId			( 0 )
 
-,	QueuedBytes			( 0 )
+,	QueuedBits			( 0 )
 ,	TickCount			( 0 )
 ,	ConnectTime			( 0.0 )
 
@@ -74,15 +74,22 @@ UNetConnection::UNetConnection(const FObjectInitializer& ObjectInitializer)
 ,	CountedFrames		( 0 )
 ,	InBytes				( 0 )
 ,	OutBytes			( 0 )
+,	InPackets			( 0 )
+,	OutPackets			( 0 )
 ,	InBytesPerSecond	( 0 )
 ,	OutBytesPerSecond	( 0 )
+,	InPacketsPerSecond	( 0 )
+,	OutPacketsPerSecond	( 0 )
 
 ,	SendBuffer			( 0 )
 ,	InPacketId			( -1 )
 ,	OutPacketId			( 0 ) // must be initialized as OutAckPacketId + 1 so loss of first packet can be detected
 ,	OutAckPacketId		( -1 )
 ,	bLastHasServerFrameTime( false )
+,	EngineNetworkProtocolVersion( FNetworkVersion::GetEngineNetworkProtocolVersion() )
+,	GameNetworkProtocolVersion( FNetworkVersion::GetGameNetworkProtocolVersion() )
 ,	ClientWorldPackageName( NAME_None )
+,	bResendAllDataSinceOpen( false )
 {
 }
 
@@ -98,13 +105,11 @@ UNetConnection::UNetConnection(const FObjectInitializer& ObjectInitializer)
  */
 void UNetConnection::InitBase(UNetDriver* InDriver,class FSocket* InSocket, const FURL& InURL, EConnectionState InState, int32 InMaxPacket, int32 InPacketOverhead)
 {
+	// Oodle depends upon this
+	check(InMaxPacket <= MAX_PACKET_SIZE);
+
 	// Owning net driver
 	Driver = InDriver;
-
-	// Reset Handler
-	Handler.Reset(NULL);
-
-	InitHandler();
 
 	// Stats
 	StatUpdateTime			= Driver->Time;
@@ -117,6 +122,8 @@ void UNetConnection::InitBase(UNetDriver* InDriver,class FSocket* InSocket, cons
 	LastRecvAckTime			= Driver->Time;
 	ConnectTime				= Driver->Time;
 
+	NetConnectionHistogram.InitHitchTracking();
+
 	// Current state
 	State = InState;
 	// Copy the URL
@@ -127,6 +134,13 @@ void UNetConnection::InitBase(UNetDriver* InDriver,class FSocket* InSocket, cons
 	PacketOverhead = InPacketOverhead;
 
 	check(MaxPacket > 0 && PacketOverhead > 0);
+
+
+	// Reset Handler
+	Handler.Reset(NULL);
+
+	InitHandler();
+
 
 #if DO_ENABLE_NET_TEST
 	// Copy the command line settings from the net driver
@@ -165,8 +179,6 @@ void UNetConnection::InitBase(UNetDriver* InDriver,class FSocket* InSocket, cons
 void UNetConnection::InitConnection(UNetDriver* InDriver, EConnectionState InState, const FURL& InURL, int32 InConnectionSpeed, int32 InMaxPacket)
 {
 	Driver = InDriver;
-
-	// NOTE: If Handler assignment is added, it must be initialized, and GetPacketOverhead must be factored into MaxPacketHandlerBits
 
 	// We won't be sending any packets, so use a default size
 	MaxPacket = (InMaxPacket == 0 || InMaxPacket > MAX_PACKET_SIZE) ? MAX_PACKET_SIZE : InMaxPacket;
@@ -207,31 +219,48 @@ void UNetConnection::InitHandler()
 {
 	check(!Handler.IsValid());
 
-	Handler = MakeUnique<PacketHandler>();
-
-	if (Handler.IsValid())
+#if !UE_BUILD_SHIPPING
+	if (!FParse::Param(FCommandLine::Get(), TEXT("NoPacketHandler")))
+#endif
 	{
-		Handler::Mode Mode = Driver->ServerConnection != nullptr ? Handler::Mode::Client : Handler::Mode::Server;
+		Handler = MakeUnique<PacketHandler>();
 
-		Handler->Initialize(Mode);
-
-
-		// Add handling for the stateless connect handshake, for connectionless packets, as the outermost layer
-		TSharedPtr<HandlerComponent> NewComponent =
-			Handler->AddHandler(TEXT("Engine.EngineHandlerComponentFactory(StatelessConnectHandlerComponent)"), true);
-
-		StatelessConnectComponent = StaticCastSharedPtr<StatelessConnectHandlerComponent>(NewComponent);
-
-		if (StatelessConnectComponent.IsValid())
+		if (Handler.IsValid())
 		{
-			StatelessConnectComponent.Pin()->SetDriver(Driver);
+			Handler::Mode Mode = Driver->ServerConnection != nullptr ? Handler::Mode::Client : Handler::Mode::Server;
+
+			Handler->Initialize(Mode, MaxPacket * 8);
+
+
+			// Add handling for the stateless connect handshake, for connectionless packets, as the outermost layer
+			TSharedPtr<HandlerComponent> NewComponent =
+				Handler->AddHandler(TEXT("Engine.EngineHandlerComponentFactory(StatelessConnectHandlerComponent)"), true);
+
+			StatelessConnectComponent = StaticCastSharedPtr<StatelessConnectHandlerComponent>(NewComponent);
+
+			if (StatelessConnectComponent.IsValid())
+			{
+				StatelessConnectComponent.Pin()->SetDriver(Driver);
+			}
+
+
+			Handler->InitializeComponents();
+
+			MaxPacketHandlerBits = Handler->GetTotalReservedPacketBits();
 		}
-
-
-		Handler->InitializeComponents();
-
-		MaxPacketHandlerBits = Handler->GetTotalPacketOverheadBits();
 	}
+
+
+#if !UE_BUILD_SHIPPING
+	uint32 MaxPacketBits = MaxPacket * 8;
+	uint32 ReservedTotal = MaxPacketHandlerBits + MAX_PACKET_HEADER_BITS + MAX_PACKET_TRAILER_BITS;
+
+	SET_DWORD_STAT(STAT_MaxPacket, MaxPacketBits);
+	SET_DWORD_STAT(STAT_MaxPacketMinusReserved, MaxPacketBits - ReservedTotal);
+	SET_DWORD_STAT(STAT_PacketReservedTotal, ReservedTotal);
+	SET_DWORD_STAT(STAT_PacketReservedNetConnection, MAX_PACKET_HEADER_BITS + MAX_PACKET_TRAILER_BITS);
+	SET_DWORD_STAT(STAT_PacketReservedPacketHandler, MaxPacketHandlerBits);
+#endif
 }
 
 void UNetConnection::Serialize( FArchive& Ar )
@@ -326,9 +355,20 @@ void UNetConnection::CleanUp()
 		UChannel* OpenChannel = OpenChannels[i];
 		if (OpenChannel != NULL)
 		{
-			OpenChannel->ConditionalCleanUp();
+			OpenChannel->ConditionalCleanUp(true);
 		}
 	}
+
+	// Cleanup any straggler KeepProcessingActorChannelBunchesMap channels
+	for (const TPair<FNetworkGUID, TArray<UActorChannel*>>& MapKeyValuePair : KeepProcessingActorChannelBunchesMap)
+	{
+		for (UActorChannel* CurChannel : MapKeyValuePair.Value)
+		{
+			CurChannel->ConditionalCleanUp(true);
+		}
+	}
+
+	KeepProcessingActorChannelBunchesMap.Empty();
 
 	PackageMap = NULL;
 
@@ -414,7 +454,11 @@ void UNetConnection::AddReferencedObjects(UObject* InThis, FReferenceCollector& 
 	// Let GC know that we're referencing some UActorChannel objects
 	for ( auto It = This->KeepProcessingActorChannelBunchesMap.CreateIterator(); It; ++It )
 	{
-		Collector.AddReferencedObject( It.Value(), This );
+		const TArray<UActorChannel*>& ChannelArray = It.Value();
+		for ( UActorChannel* CurChannel : ChannelArray )
+		{
+			Collector.AddReferencedObject( CurChannel, This );
+		}
 	}
 
 	Super::AddReferencedObjects(This, Collector);
@@ -491,8 +535,11 @@ void UNetConnection::ValidateSendBuffer()
 void UNetConnection::InitSendBuffer()
 {
 	check(MaxPacket > 0);
+
+	int32 FinalBufferSize = (MaxPacket * 8) - MaxPacketHandlerBits;
+
 	// Initialize the one outgoing buffer.
-	if (MaxPacket * 8 == SendBuffer.GetMaxBits())
+	if (FinalBufferSize == SendBuffer.GetMaxBits())
 	{
 		// Reset all of our values to their initial state without a malloc/free
 		SendBuffer.Reset();
@@ -500,7 +547,7 @@ void UNetConnection::InitSendBuffer()
 	else
 	{
 		// First time initialization needs to allocate the buffer
-		SendBuffer = FBitWriter((MaxPacket * 8) - MaxPacketHandlerBits);
+		SendBuffer = FBitWriter(FinalBufferSize);
 	}
 
 	ResetPacketBitCounts();
@@ -512,7 +559,6 @@ void UNetConnection::ReceivedRawPacket( void* InData, int32 Count )
 {
 	uint8* Data = (uint8*)InData;
 
-	// UnProcess the packet
 	if (Handler.IsValid())
 	{
 		const ProcessedPacket UnProcessedPacket = Handler->Incoming(Data, Count);
@@ -530,28 +576,49 @@ void UNetConnection::ReceivedRawPacket( void* InData, int32 Count )
 		}
 	}
 
+
 	// Handle an incoming raw packet from the driver.
 	UE_LOG(LogNetTraffic, Verbose, TEXT("%6.3f: Received %i"), FPlatformTime::Seconds() - GStartTime, Count );
 	int32 PacketBytes = Count + PacketOverhead;
 	InBytes += PacketBytes;
+	++InPackets;
 	Driver->InBytes += PacketBytes;
 	Driver->InPackets++;
-	if( Count>0 )
+
+	if (Count > 0)
 	{
 		uint8 LastByte = Data[Count-1];
-		if( LastByte )
+
+		if (LastByte != 0)
 		{
-			int32 BitSize = Count*8-1;
-			while( !(LastByte & 0x80) )
+			int32 BitSize = (Count * 8) - 1;
+
+			// Bit streaming, starts at the Least Significant Bit, and ends at the MSB.
+			while (!(LastByte & 0x80))
 			{
 				LastByte *= 2;
 				BitSize--;
 			}
-			FBitReader Reader( Data, BitSize );
-			ReceivedPacket( Reader );
+
+
+			FBitReader Reader(Data, BitSize);
+
+			// Set the network version on the reader
+			Reader.SetEngineNetVer( EngineNetworkProtocolVersion );
+			Reader.SetGameNetVer( GameNetworkProtocolVersion );
+
+			if (Handler.IsValid())
+			{
+				Handler->IncomingHigh(Reader);
+			}
+
+			if (Reader.GetBitsLeft() > 0)
+			{
+				ReceivedPacket(Reader);
+			}
 		}
 		// MalformedPacket - Received a packet with 0's in the last byte
-		else 
+		else
 		{
 			CLOSE_CONNECTION_DUE_TO_SECURITY_VIOLATION(this, ESecurityEvent::Malformed_Packet, TEXT("Received packet with 0's in last byte of packet"));
 		}
@@ -582,17 +649,24 @@ void UNetConnection::FlushNet(bool bIgnoreSimulation)
 			WriteBitsToSendBuffer( NULL, 0 );		// This will force the packet id to be written
 		}
 
-		const int NumBitsPrePadding = SendBuffer.GetNumBits();
 
-		// Make sure packet size is byte-aligned.
-		SendBuffer.WriteBit( 1 );
-		while( SendBuffer.GetNumBits() & 7 )
+		// @todo #JohnB: Since OutgoingHigh uses SendBuffer, its ReservedPacketBits needs to be modified to account for this differently
+		if (Handler.IsValid())
 		{
-			SendBuffer.WriteBit( 0 );
+			Handler->OutgoingHigh(SendBuffer);
 		}
+
+
+		// Write the UNetConnection-level termination bit
+		SendBuffer.WriteBit(1);
+
 		ValidateSendBuffer();
 
-		NumPaddingBits += SendBuffer.GetNumBits() - NumBitsPrePadding;
+		const int32 NumStrayBits = SendBuffer.GetNumBits();
+
+		// @todo: This is no longer accurate, given potential for PacketHandler termination bit and bit padding
+		//NumPaddingBits += (NumStrayBits != 0) ? (8 - NumStrayBits) : 0;
+
 
 		NETWORK_PROFILER(GNetworkProfiler.FlushOutgoingBunches(this));
 
@@ -665,10 +739,14 @@ void UNetConnection::FlushNet(bool bIgnoreSimulation)
 		OutBytesPerSecondHistory[Index]	= OutBytesPerSecond / 1024;
 
 		OutPacketId++;
+		++OutPackets;
 		Driver->OutPackets++;
 		LastSendTime = Driver->Time;
+
 		const int32 PacketBytes = SendBuffer.GetNumBytes() + PacketOverhead;
-		QueuedBytes += PacketBytes;
+
+		QueuedBits += (PacketBytes * 8);
+
 		OutBytes += PacketBytes;
 		Driver->OutBytes += PacketBytes;
 		InitSendBuffer();
@@ -685,9 +763,12 @@ void UNetConnection::FlushNet(bool bIgnoreSimulation)
 int32 UNetConnection::IsNetReady( bool Saturate )
 {
 	// Return whether we can send more data without saturation the connection.
-	if( Saturate )
-		QueuedBytes = -SendBuffer.GetNumBytes();
-	return QueuedBytes+SendBuffer.GetNumBytes() <= 0;
+	if (Saturate)
+	{
+		QueuedBits = -SendBuffer.GetNumBits();
+	}
+
+	return QueuedBits + SendBuffer.GetNumBits() <= 0;
 }
 
 void UNetConnection::ReadInput( float DeltaSeconds )
@@ -721,6 +802,10 @@ void UNetConnection::ReceivedPacket( FBitReader& Reader )
 
 	ValidateSendBuffer();
 
+	//Record the packet time to the histogram
+	double LastPacketTimeDiffInMs = (FPlatformTime::Seconds() - LastReceiveRealtime) * 1000.0;
+	NetConnectionHistogram.AddMeasurement(LastPacketTimeDiffInMs);
+
 	// Update receive time to avoid timeout.
 	LastReceiveTime		= Driver->Time;
 	LastReceiveRealtime = FPlatformTime::Seconds();
@@ -733,7 +818,7 @@ void UNetConnection::ReceivedPacket( FBitReader& Reader )
 		
 		if ( PacketsLost > 10 )
 		{
-			UE_LOG( LogNetTraffic, Verbose, TEXT( "High single frame packet loss. PacketsLost: %i %s" ), PacketsLost, *Describe() );
+			UE_LOG( LogNetTraffic, Log, TEXT( "High single frame packet loss. PacketsLost: %i %s" ), PacketsLost, *Describe() );
 		}
 
 		InPacketsLost += PacketsLost;
@@ -906,9 +991,10 @@ void UNetConnection::ReceivedPacket( FBitReader& Reader )
 			Bunch.bOpen					= bControl ? Reader.ReadBit() : 0;
 			Bunch.bClose				= bControl ? Reader.ReadBit() : 0;
 			Bunch.bDormant				= Bunch.bClose ? Reader.ReadBit() : 0;
+			Bunch.bIsReplicationPaused  = Reader.ReadBit();
 			Bunch.bReliable				= Reader.ReadBit();
 			Bunch.ChIndex				= Reader.ReadInt( MAX_CHANNELS );
-			Bunch.bHasGUIDs				= Reader.ReadBit();
+			Bunch.bHasPackageMapExports	= Reader.ReadBit();
 			Bunch.bHasMustBeMappedGUIDs	= Reader.ReadBit();
 			Bunch.bPartial				= Reader.ReadBit();
 
@@ -965,7 +1051,7 @@ void UNetConnection::ReceivedPacket( FBitReader& Reader )
 				return;
 			}
 
-			if (Bunch.bHasGUIDs)
+			if ( Bunch.bHasPackageMapExports )
 			{
 				Driver->NetGUIDInBytes += (BunchDataBits + (HeaderPos - IncomingStartPos)) >> 3;
 			}
@@ -1297,9 +1383,10 @@ int32 UNetConnection::SendRawBunch( FOutBunch& Bunch, bool InAllowMerge )
 			Header.WriteBit( Bunch.bDormant );
 		}
 	}
+	Header.WriteBit( Bunch.bIsReplicationPaused );
 	Header.WriteBit( Bunch.bReliable );
 	Header.WriteIntWrapped(Bunch.ChIndex, MAX_CHANNELS);
-	Header.WriteBit( Bunch.bHasGUIDs );
+	Header.WriteBit( Bunch.bHasPackageMapExports );
 	Header.WriteBit( Bunch.bHasMustBeMappedGUIDs );
 	Header.WriteBit( Bunch.bPartial );
 
@@ -1343,12 +1430,12 @@ int32 UNetConnection::SendRawBunch( FOutBunch& Bunch, bool InAllowMerge )
 
 	UE_LOG(LogNetTraffic, Verbose, TEXT("UNetConnection::SendRawBunch. ChIndex: %d. Bits: %d. PacketId: %d"), Bunch.ChIndex, Bunch.GetNumBits(), Bunch.PacketId );
 
-	if ( PackageMap && Bunch.bHasGUIDs )
+	if ( PackageMap && Bunch.bHasPackageMapExports )
 	{
-		PackageMap->NotifyBunchCommit( Bunch.PacketId, Bunch.ExportNetGUIDs );
+		PackageMap->NotifyBunchCommit( Bunch.PacketId, &Bunch );
 	}
 
-	if (Bunch.bHasGUIDs)
+	if ( Bunch.bHasPackageMapExports )
 	{
 		Driver->NetGUIDOutBytes += (Header.GetNumBits() + Bunch.GetNumBits()) >> 3;
 	}
@@ -1422,15 +1509,18 @@ UVoiceChannel* UNetConnection::GetVoiceChannel()
 
 float UNetConnection::GetTimeoutValue()
 {
+#if !UE_BUILD_SHIPPING
+	if (Driver->bNoTimeouts)
+	{
+		return MAX_FLT;
+	}
+#endif
+
 	float Timeout = Driver->InitialConnectTimeout;
+
 	if ( ( State != USOCK_Pending ) && ( bPendingDestroy || ( OwningActor && OwningActor->UseShortConnectTimeout() ) ) )
 	{
-#if !UE_BUILD_SHIPPING
-		// Check for -notimeouts, if using it then set the timeout value to a huge number
-		const float ConnectionTimeout = !Driver->bNoTimeouts ? Driver->ConnectionTimeout : MAX_FLT;
-#else
 		const float ConnectionTimeout = Driver->ConnectionTimeout;
-#endif
 
 		// If the connection is pending destroy give it 2 seconds to try to finish sending any reliable packets
 		Timeout = bPendingDestroy ? 2.f : ConnectionTimeout;
@@ -1512,6 +1602,8 @@ void UNetConnection::Tick()
 
 		InBytesPerSecond = FMath::TruncToInt(static_cast<float>(InBytes) / RealTime);
 		OutBytesPerSecond = FMath::TruncToInt(static_cast<float>(OutBytes) / RealTime);
+		InPacketsPerSecond = FMath::TruncToInt(static_cast<float>(InPackets) / RealTime);
+		OutPacketsPerSecond = FMath::TruncToInt(static_cast<float>(OutPackets) / RealTime);
 
 		// Init counters.
 		LagAcc = 0;
@@ -1522,6 +1614,8 @@ void UNetConnection::Tick()
 		OutPacketsLost = 0;
 		InBytes = 0;
 		OutBytes = 0;
+		InPackets = 0;
+		OutPackets = 0;
 	}
 
 	// Compute time passed since last update.
@@ -1585,25 +1679,44 @@ void UNetConnection::Tick()
 			}
 		}
 
-		for ( auto It = KeepProcessingActorChannelBunchesMap.CreateIterator(); It; ++It )
+		for ( auto ProcessingActorMapIter = KeepProcessingActorChannelBunchesMap.CreateIterator(); ProcessingActorMapIter; ++ProcessingActorMapIter )
 		{
-			if ( It.Value() == NULL || It.Value()->IsPendingKill() )
+			TArray<UActorChannel*>& ActorChannelArray = ProcessingActorMapIter.Value();
+			for ( int32 ActorChannelIdx = 0; ActorChannelIdx < ActorChannelArray.Num(); ++ActorChannelIdx )
 			{
-				It.RemoveCurrent();
-				UE_LOG( LogNet, Verbose, TEXT( "UNetConnection::Tick: Removing from KeepProcessingActorChannelBunchesMap before done processing bunches. Num: %i" ), KeepProcessingActorChannelBunchesMap.Num() );
-				continue;
+				UActorChannel* CurChannel = ActorChannelArray[ActorChannelIdx];
+				
+				bool bRemoveChannel = false;
+				if ( CurChannel && !CurChannel->IsPendingKill() )
+				{
+					check( CurChannel->ChIndex == -1 );
+					if ( CurChannel->ProcessQueuedBunches() )
+					{
+						// Since we are done processing bunches, we can now actually clean this channel up
+						CurChannel->ConditionalCleanUp();
+
+						bRemoveChannel = true;
+						UE_LOG( LogNet, VeryVerbose, TEXT("UNetConnection::Tick: Removing from KeepProcessingActorChannelBunchesMap. Num: %i"), KeepProcessingActorChannelBunchesMap.Num() );
+					}
+
+				}
+				else
+				{
+					bRemoveChannel = true;
+					UE_LOG( LogNet, Verbose, TEXT("UNetConnection::Tick: Removing from KeepProcessingActorChannelBunchesMap before done processing bunches. Num: %i"), KeepProcessingActorChannelBunchesMap.Num() );
+				}
+
+				// Remove the actor channel from the array
+				if ( bRemoveChannel )
+				{
+					ActorChannelArray.RemoveAt( ActorChannelIdx, 1, false );
+					--ActorChannelIdx;
+				}
 			}
 
-			check( It.Value()->ChIndex == -1 );
-
-			if ( It.Value()->ProcessQueuedBunches() )
+			if ( ActorChannelArray.Num() == 0 )
 			{
-				// Since we are done processing bunches, we can now actually clean this channel up
-				It.Value()->ConditionalCleanUp();
-
-				// Remove the channel from the map
-				It.RemoveCurrent();
-				UE_LOG( LogNet, VeryVerbose, TEXT( "UNetConnection::Tick: Removing from KeepProcessingActorChannelBunchesMap. Num: %i" ), KeepProcessingActorChannelBunchesMap.Num() );
+				ProcessingActorMapIter.RemoveCurrent();
 			}
 		}
 
@@ -1641,12 +1754,12 @@ void UNetConnection::Tick()
 
 	// Update queued byte count.
 	// this should be at the end so that the cap is applied *after* sending (and adjusting QueuedBytes for) any remaining data for this tick
-	float DeltaBytes = CurrentNetSpeed * DeltaTime;
-	QueuedBytes -= FMath::TruncToInt(DeltaBytes);
-	float AllowedLag = 2.f * DeltaBytes;
-	if (QueuedBytes < -AllowedLag)
+	float DeltaBits = CurrentNetSpeed * DeltaTime * 8.f;
+	QueuedBits -= FMath::TruncToInt(DeltaBits);
+	float AllowedLag = 2.f * DeltaBits;
+	if (QueuedBits < -AllowedLag)
 	{
-		QueuedBytes = FMath::TruncToInt(-AllowedLag);
+		QueuedBits = FMath::TruncToInt(-AllowedLag);
 	}
 }
 
@@ -1870,7 +1983,7 @@ void UNetConnection::CleanupDormantActorState()
 	DormantReplicatorMap.Empty();
 }
 
-void UNetConnection::FlushDormancy( class AActor* Actor )
+void UNetConnection::FlushDormancy(class AActor* Actor)
 {
 	UE_LOG( LogNetDormancy, Verbose, TEXT( "FlushDormancy: %s. Connection: %s" ), *Actor->GetName(), *GetName() );
 	

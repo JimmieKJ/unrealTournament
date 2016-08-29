@@ -12,7 +12,7 @@ class UNREALTOURNAMENT_API AUTLift : public AActor, public INavRelevantInterface
 	GENERATED_UCLASS_BODY()
 
 	UFUNCTION()
-	virtual void OnOverlapBegin(AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult);
+	virtual void OnOverlapBegin(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult);
 
 	inline class UPrimitiveComponent* GetEncroachComponent() const
 	{

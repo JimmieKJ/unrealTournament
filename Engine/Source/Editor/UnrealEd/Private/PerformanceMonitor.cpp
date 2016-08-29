@@ -148,6 +148,7 @@ bool FPerformanceMonitor::WillAutoScalabilityHelp() const
 	IsAutoScaleLower |= NewLevels.PostProcessQuality < CurrentLevels.PostProcessQuality;
 	IsAutoScaleLower |= NewLevels.TextureQuality < CurrentLevels.TextureQuality;
 	IsAutoScaleLower |= NewLevels.EffectsQuality < CurrentLevels.EffectsQuality;
+	IsAutoScaleLower |= NewLevels.FoliageQuality < CurrentLevels.FoliageQuality;
 
 	// We don't check things like real-time, because the user may have enabled it temporarily.
 
@@ -167,6 +168,7 @@ Scalability::FQualityLevels FPerformanceMonitor::GetAutoScalabilityQualityLevels
 	NewLevels.PostProcessQuality	= FMath::Min(NewLevels.PostProcessQuality, ExistingLevels.PostProcessQuality);
 	NewLevels.TextureQuality		= FMath::Min(NewLevels.TextureQuality, ExistingLevels.TextureQuality);
 	NewLevels.EffectsQuality		= FMath::Min(NewLevels.EffectsQuality, ExistingLevels.EffectsQuality);
+	NewLevels.FoliageQuality		= FMath::Min(NewLevels.FoliageQuality, ExistingLevels.FoliageQuality);
 
 	return NewLevels;
 }
@@ -266,6 +268,7 @@ void FPerformanceMonitor::Tick(float DeltaTime)
 	{
 		static IConsoleVariable* CVarMinFPS = IConsoleManager::Get().FindConsoleVariable(TEXT("PerfWarn.FineMinFPS"));
 		static IConsoleVariable* CVarPercentThreshold = IConsoleManager::Get().FindConsoleVariable(TEXT("PerfWarn.FinePercentThreshold"));
+		static IConsoleVariable* CVarSampleTime = IConsoleManager::Get().FindConsoleVariable(TEXT("PerfWarn.FineSampleTime"));
 
 		PercentUnderTarget = FineMovingAverage.PercentageBelowThreshold(CVarMinFPS->GetFloat());
 
@@ -273,7 +276,7 @@ void FPerformanceMonitor::Tick(float DeltaTime)
 		{
 			Arguments.Add(TEXT("Framerate"), CVarMinFPS->GetInt());
 			Arguments.Add(TEXT("Percentage"), FMath::FloorToFloat(PercentUnderTarget));
-			SampleTime = IConsoleManager::Get().FindConsoleVariable(TEXT("PerfWarn.FineSampleTime"))->GetInt();
+			SampleTime = CVarSampleTime->GetInt();
 
 			bLowFramerate = true;
 		}
@@ -288,11 +291,11 @@ void FPerformanceMonitor::Tick(float DeltaTime)
 
 		if (PercentUnderTarget >= CVarPercentThreshold->GetFloat())
 		{
-			static IConsoleVariable* CVarCoarseSampleTime = IConsoleManager::Get().FindConsoleVariable(TEXT("PerfWarn.CoarseSampleTime"));
+			static IConsoleVariable* CoarseSampleTimeCVar = IConsoleManager::Get().FindConsoleVariable(TEXT("PerfWarn.CoarseSampleTime"));
 
 			Arguments.Add(TEXT("Framerate"), CVarMinFPS->GetInt());
 			Arguments.Add(TEXT("Percentage"), FMath::FloorToFloat(PercentUnderTarget));
-			SampleTime = CVarCoarseSampleTime->GetInt();
+			SampleTime = CoarseSampleTimeCVar->GetInt();
 
 			bLowFramerate = true;
 		}

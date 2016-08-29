@@ -150,6 +150,10 @@ void FStackTracker::DumpStackTraces(int32 StackThreshold, FOutputDevice& Ar, flo
 	{
 		FramesCaptured = StopFrameCounter - StartFrameCounter;
 	}
+	if (!FramesCaptured)
+	{
+		FramesCaptured = 1;
+	}
 
 	// Log quick summary as we don't log each individual so totals in CSV won't represent real totals.
 	if (SampleCountCorrectionFactor != 1.0f)

@@ -262,9 +262,14 @@ struct FLightMapAllocation
 		{
 			UInstancedStaticMeshComponent* Component = CastChecked<UInstancedStaticMeshComponent>(Primitive);
 
-			// TODO: We currently only support one LOD of static lighting in foliage
-			// Need to create per-LOD instance data to fix that
-			Component->PerInstanceSMData[InstanceIndex].LightmapUVBias = LightMap->GetCoordinateBias();
+			// Instances may have been removed since LM allocation.
+			// Instances may have also been shuffled from removes. We do not handle this case.
+			if( InstanceIndex < Component->PerInstanceSMData.Num() )
+			{
+				// TODO: We currently only support one LOD of static lighting in foliage
+				// Need to create per-LOD instance data to fix that
+				Component->PerInstanceSMData[InstanceIndex].LightmapUVBias = LightMap->GetCoordinateBias();
+			}
 
 			Component->ReleasePerInstanceRenderData();
 			Component->MarkRenderStateDirty();
@@ -721,15 +726,15 @@ bool FLightMapPendingTexture::AddElement(FLightMapAllocationGroup& AllocationGro
 	{
 		auto& Allocation = AllocationGroup.Allocations[iAllocation];
 		uint32 BaseX, BaseY;
-		const uint32 SizeX = Allocation->MappedRect.Width();
-		const uint32 SizeY = Allocation->MappedRect.Height();
-		if (FTextureLayout::AddElement(BaseX, BaseY, SizeX, SizeY))
+		const uint32 MappedRectWidth = Allocation->MappedRect.Width();
+		const uint32 MappedRectHeight = Allocation->MappedRect.Height();
+		if (FTextureLayout::AddElement(BaseX, BaseY, MappedRectWidth, MappedRectHeight))
 		{
 			Allocation->OffsetX = BaseX;
 			Allocation->OffsetY = BaseY;
 
 			// Assumes bAlignByFour
-			NewUnallocatedTexels -= ((SizeX + 3) & ~3) * ((SizeY + 3) & ~3);
+			NewUnallocatedTexels -= ((MappedRectWidth + 3) & ~3) * ((MappedRectHeight + 3) & ~3);
 		}
 		else
 		{
@@ -744,9 +749,9 @@ bool FLightMapPendingTexture::AddElement(FLightMapAllocationGroup& AllocationGro
 		for (--iAllocation; iAllocation >= 0; --iAllocation)
 		{
 			auto& Allocation = AllocationGroup.Allocations[iAllocation];
-			const uint32 SizeX = Allocation->MappedRect.Width();
-			const uint32 SizeY = Allocation->MappedRect.Height();
-			verify(FTextureLayout::RemoveElement(Allocation->OffsetX, Allocation->OffsetY, SizeX, SizeY));
+			const uint32 MappedRectWidth = Allocation->MappedRect.Width();
+			const uint32 MappedRectHeight = Allocation->MappedRect.Height();
+			verify(FTextureLayout::RemoveElement(Allocation->OffsetX, Allocation->OffsetY, MappedRectWidth, MappedRectHeight));
 		}
 		return false;
 	}
@@ -1097,7 +1102,10 @@ void FLightMapPendingTexture::CreateUObjects()
 	{
 		Textures[CoefficientIndex] = nullptr;
 		// Skip generating simple lightmaps if wanted.
-		if (!GEngine->bShouldGenerateLowQualityLightmaps && CoefficientIndex >= LQ_LIGHTMAP_COEF_INDEX)
+		static const auto CVarSupportLowQualityLightmaps = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.SupportLowQualityLightmaps"));
+		const bool bAllowLowQualityLightMaps = (!CVarSupportLowQualityLightmaps) || (CVarSupportLowQualityLightmaps->GetValueOnAnyThread() != 0);
+
+		if ((!bAllowLowQualityLightMaps) && CoefficientIndex >= LQ_LIGHTMAP_COEF_INDEX)
 		{
 			continue;
 		}
@@ -2131,8 +2139,10 @@ void FLightMap2D::Serialize(FArchive& Ar)
 			bool bStripHQLightmaps = !Ar.CookingTarget()->SupportsFeature(ETargetPlatformFeatures::HighQualityLightmaps);
 
 			ULightMapTexture2D* Dummy = NULL;
-			Ar << ( bStripHQLightmaps ? Dummy : Textures[0] );
-			Ar << ( bStripLQLightmaps ? Dummy : Textures[1] );
+			ULightMapTexture2D*& Texture1 = bStripHQLightmaps ? Dummy : Textures[0];
+			ULightMapTexture2D*& Texture2 = bStripLQLightmaps ? Dummy : Textures[1];
+			Ar << Texture1;
+			Ar << Texture2;
 		}
 		else
 		{
@@ -2147,11 +2157,13 @@ void FLightMap2D::Serialize(FArchive& Ar)
 				bool bStripHQLightmaps = !Ar.CookingTarget()->SupportsFeature(ETargetPlatformFeatures::HighQualityLightmaps);
 
 				ULightMapTexture2D* Dummy = NULL;
-				Ar << (bStripHQLightmaps ? Dummy : SkyOcclusionTexture);
+				ULightMapTexture2D*& SkyTexture = bStripHQLightmaps ? Dummy : SkyOcclusionTexture;
+				Ar << SkyTexture;
 
 				if (Ar.UE4Ver() >= VER_UE4_AO_MATERIAL_MASK)
 				{
-					Ar << (bStripHQLightmaps ? Dummy : AOMaterialMaskTexture);
+					ULightMapTexture2D*& MaskTexture = bStripHQLightmaps ? Dummy : AOMaterialMaskTexture;
+					Ar << MaskTexture;
 				}
 			}
 			else
@@ -2360,7 +2372,9 @@ bool FQuantizedLightmapData::HasNonZeroData() const
 		if (LightmapSample.Coverage >= MinCoverageThreshold)
 		{
 			// Don't look at simple lightmap coefficients if we're not building them.
-			const int32 NumCoefficients = GEngine->bShouldGenerateLowQualityLightmaps ? NUM_STORED_LIGHTMAP_COEF : NUM_HQ_LIGHTMAP_COEF;
+			static const auto CVarSupportLowQualityLightmaps = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.SupportLowQualityLightmaps"));
+			const bool bAllowLowQualityLightMaps = (!CVarSupportLowQualityLightmaps) || (CVarSupportLowQualityLightmaps->GetValueOnAnyThread() != 0);
+			const int32 NumCoefficients = bAllowLowQualityLightMaps ? NUM_STORED_LIGHTMAP_COEF : NUM_HQ_LIGHTMAP_COEF;
 
 			for (int32 CoefficentIndex = 0; CoefficentIndex < NumCoefficients; CoefficentIndex++)
 			{

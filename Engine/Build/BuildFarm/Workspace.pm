@@ -137,6 +137,12 @@ sub setup_workspace
 	my $workspace_identifier = $stream;
 	$workspace_identifier =~ s/^\/\///;
 
+	# get the stream to start with
+	my $workspace_stream = $stream;
+	
+	# whether the workspace should sync incrementally
+	my $workspace_incremental_sync = 0;
+	
 	# read the agent settings, if necessary
 	my $workspace_exclusions;
 	if($optional_arguments->{'agent_type'})
@@ -165,6 +171,24 @@ sub setup_workspace
 			$workspace_settings = $workspace_settings->{$workspace_name};
 			fail("Missing workspace settings for $workspace_name") if !defined $workspace_settings;
 
+			# allow overriding the workspace name to facilitate switching between streams
+			if($workspace_settings->{'Identifier'})
+			{
+				$workspace_identifier = $workspace_settings->{'Identifier'};
+			}
+			
+			# allow overriding the stream with another stream, which may narrow the view
+			if($workspace_settings->{'Stream'})
+			{
+				$workspace_stream = $workspace_settings->{'Stream'};
+			}
+
+			# check whether it prefers incremental syncs
+			if($workspace_settings->{'Incremental Sync'})
+			{
+				$workspace_incremental_sync = 1;
+			}
+
 			# read the exclusions
 			$workspace_exclusions = $workspace_settings->{'Exclude'};
 		}
@@ -190,7 +214,7 @@ sub setup_workspace
 	if(defined $workspace_exclusions)
 	{
 		# get the default stream view
-		my @stream_spec_output = p4_command("stream -o -v $stream");
+		my @stream_spec_output = p4_command("stream -o -v $workspace_stream");
 		my $stream_spec = p4_parse_spec(@stream_spec_output);
 		my @stream_view = split /\s*\n\s*/, $stream_spec->{'View'};
 
@@ -252,7 +276,7 @@ sub setup_workspace
 	push(@new_spec, "Host: $p4_host_name\n");
 	if($#workspace_view < 0)
 	{
-		push(@new_spec, "Stream: $stream\n");
+		push(@new_spec, "Stream: $workspace_stream\n");
 	}
 	else
 	{
@@ -273,7 +297,7 @@ sub setup_workspace
 	print "Completed in ".(time - $start_time)."s.\n";
 	
 	# return the new workspace info in a hash
-	{ name => $workspace_name, stream => $stream, dir => $workspace_dir, metadata_dir => $workspace_metadata_dir, capture_filename => $workspace_capture_filename, identifier => $workspace_identifier };
+	{ name => $workspace_name, stream => $stream, dir => $workspace_dir, metadata_dir => $workspace_metadata_dir, capture_filename => $workspace_capture_filename, identifier => $workspace_identifier, incremental_sync => $workspace_incremental_sync };
 }
 
 # clean the existing workspace. keep separate so we can do at the end of a build. note that this does not sync it; it just reconciles the have table.
@@ -341,18 +365,53 @@ sub clean_workspace
 	print "Completed in ".(time - $start_time)."s.\n";
 }
 
+# get a list of submitted changes
+sub get_submitted_changes
+{
+	my ($workspace, $filter, $max_results) = @_;
+	
+	# parse out the change information
+	my $changes = [];
+	foreach(p4_command("-c$workspace->{'name'} changes -s submitted -t -m $max_results \"$filter\""))
+	{
+		if(/^Change (\d+) on ([\d+\/]+ [\d:]+) by ([^ ]+) '(.*)'$/)
+		{
+			push(@{$changes}, { change => $1, time => p4_parse_time($2), author => $3, summary => $4 });
+		}
+	}
+	$changes;
+}
+
 # sync the workspace to a given changelist, and capture it so we can quickly clean in the future
 sub sync_workspace
 {
 	my ($workspace, $optional_arguments) = @_;
 
 	# clean the current workspace
-	clean_workspace($workspace) unless $optional_arguments->{'already_clean'};
+	clean_workspace($workspace) unless $optional_arguments->{'already_clean'} || $workspace->{'incremental_sync'};
 
 	# sync to the right changelist
 	my $sync_start_time = time;
 	my $estimate_text = "";
 	my $change = $optional_arguments->{'change'};
+	if($optional_arguments->{'ensure_recent'})
+	{
+		# find the last change before the build changelist
+		my $build_changes = get_submitted_changes($workspace, "//$workspace->{'name'}/...\@$change", 1);
+		fail("Could not find any submitted changes to stream before $change") if $#{$build_changes} < 0;
+		my $build_change = $build_changes->[0];
+		
+		# find the last change submitted to the stream
+		my $last_changes = get_submitted_changes($workspace, "//$workspace->{'name'}/...", 1);
+		fail("Could not find any submitted changes to stream") if $#{$last_changes} < 0;
+		my $last_change = $last_changes->[0];
+
+		# check it's recent
+		if($build_change->{'time'} < $last_change->{'time'} - (30 * 24 * 60 * 60))
+		{
+			fail("Change being built (CL $build_change->{'change'}, ".format_date_time($build_change->{'time'}).") is over 30 days older than most recent change (CL $last_change->{'change'}, ".format_date_time($last_change->{'time'})."). Check that the build changelist is correct, or pass --allow-old-change.");
+		}
+	}
 	if($optional_arguments->{'show_traffic'})
 	{
 		# calculate the amount of data we need to transfer. This incurs the same overhead as an actual sync (seems to be ~5s), so only do it if explicitly requested.
@@ -370,19 +429,22 @@ sub sync_workspace
 	print "Syncing $workspace->{'name'} to ".(defined $change? "changelist $change" : "latest")."$estimate_text.\n";
 	p4_command("-c$workspace->{'name'} sync -q $sync_arguments //...".(defined $change? "\@$change" : ""));
 	print "Completed in ".(time - $sync_start_time)."s\n";
-	
+
 	# capture the new state.
 	my $capture_start_time = time;
-	my $capture_filename = $workspace->{'capture_filename'};
-	print "Capturing workspace state to $capture_filename\n";
-	run_reconcile_workspace($workspace, "capture \"$workspace->{'dir'}\" \"$capture_filename.next\"");
+	if(!$workspace->{'incremental_sync'})
+	{
+		my $capture_filename = $workspace->{'capture_filename'};
+		print "Capturing workspace state to $capture_filename\n";
+		run_reconcile_workspace($workspace, "capture \"$workspace->{'dir'}\" \"$capture_filename.next\"");
 
-	# we're careful to execute things in the right order to be tolerant of interruptions here (eg. the job being aborted). Each of the following file system operations
-	# is atomic, so we can resume from any intermediate state in clean_workspace. First we rename the existing file, then we move the new file into place, then we 
-	# remove the backup of the original file.
-	rename $capture_filename, "$capture_filename.last" if -f $capture_filename;
-	rename "$capture_filename.next", $capture_filename;
-	safe_delete_file("$capture_filename.last") if -f "$capture_filename.last";
+		# we're careful to execute things in the right order to be tolerant of interruptions here (eg. the job being aborted). Each of the following file system operations
+		# is atomic, so we can resume from any intermediate state in clean_workspace. First we rename the existing file, then we move the new file into place, then we 
+		# remove the backup of the original file.
+		rename $capture_filename, "$capture_filename.last" if -f $capture_filename;
+		rename "$capture_filename.next", $capture_filename;
+		safe_delete_file("$capture_filename.last") if -f "$capture_filename.last";
+	}
 
 	# print the timing info for the capture
 	print "Completed in ".(time - $capture_start_time)."s\n\n";
@@ -391,6 +453,7 @@ sub sync_workspace
 	my $unshelve_change = $optional_arguments->{'unshelve_change'};
 	if($unshelve_change)
 	{
+		fail("Cannot unshelve files into incrementally synced workspace") if $workspace->{'incremental_sync'};
 		fake_unshelve_files($workspace, $unshelve_change);
 	}
 }
@@ -434,16 +497,22 @@ sub fake_unshelve_files
 	foreach my $delete_file (@delete_files)
 	{
 		my $local_path = p4_get_local_path($workspace, $delete_file);
-		print "  Deleting: $local_path\n";
-		safe_delete_file($local_path) if defined $local_path && -f $local_path;
+		if(defined $local_path && -f $local_path)
+		{
+			print "  Deleting: $local_path\n";
+			safe_delete_file($local_path);
+		}
 	}
 	
 	# add all the new files
 	foreach my $write_file (@write_files)
 	{
 		my $local_path = p4_get_local_path($workspace, $write_file);
-		print "  Writing: $local_path\n";
-		p4_command("print -o \"$local_path\" \"$write_file@=$unshelve_changelist\"");
+		if($local_path)
+		{
+			print "  Writing: $local_path\n";
+			p4_command("print -o \"$local_path\" \"$write_file@=$unshelve_changelist\"");
+		}
 	}
 	print "Completed in ".(time - $start_time)."s\n";
 }
@@ -467,6 +536,28 @@ sub run_reconcile_workspace
 	$result == 0 or fail("ReconcileWorkspace failed ($result)");
 }
 
+# sync and run the ReconcileWorkspace utility on the given directory
+sub terminate_processes
+{
+	my ($workspace, $directory) = @_;
+
+	if(is_windows())
+	{
+		# use the print command to get the latest version of the executable without needing to sync it. uniquify the filename so it doesn't cause sharing violations if run by multiple jobsteps simultaneously.
+		my $terminate_processes_filename = "TerminateProcesses+$workspace->{'name'}.exe";
+		if(!-f $terminate_processes_filename)
+		{
+			my $terminate_processes_syncpath = "//$workspace->{'name'}/Engine/Extras/UnsupportedTools/Windows/TerminateProcesses/Release/TerminateProcesses.exe";
+			p4_command("-c$workspace->{'name'} print -o $terminate_processes_filename $terminate_processes_syncpath");
+			fail("Failed to sync $terminate_processes_syncpath") if !-f $terminate_processes_filename;
+		}
+	
+		# spawn it with the given arguments.
+		system("$terminate_processes_filename \"$directory\"");
+		$? == 0 or fail("TerminateProcesses failed ($?)");
+	}
+}
+
 # reads the settings for a stream, caching them to the working directory
 sub read_stream_settings
 {
@@ -480,12 +571,17 @@ sub read_stream_settings
 	my $cache_location = "$escaped_stream.json";
 	if(!$ENV{'COMMANDER_WORKSPACE'} || !-f $cache_location)
 	{
-		my $settings_path = ec_get_property($ec, "/projects[$ec_project]/Streams/$escaped_stream/Settings");
+		# allow the settings to be a direct property, or nested under a property sheet in a property called 'Settings'
+		my $settings_path = ec_get_property($ec, "/projects[$ec_project]/Streams/$escaped_stream");
+		if(!$settings_path)
+		{
+			$settings_path = ec_get_property($ec, "/projects[$ec_project]/Streams/$escaped_stream/Settings");
+		}
 		
 		# if we're running outside of EC, we can try reading the file directly from the local machine, making it easier to iterate.
 		if(!$ENV{'COMMANDER_WORKSPACE'})
 		{
-			my @records = p4_tagged_command("where $settings_path");
+			my @records = p4_tagged_command("where $settings_path", { errors_as_warnings => 1 });
 			if($#records == 0)
 			{
 				$cache_location = $records[0]->{'path'};
@@ -521,9 +617,12 @@ sub read_all_stream_settings
 		my $streams = ec_get_property_sheet($ec, { path => "/projects[$ec_project]/Streams", recurse => 1 });
 		foreach my $escaped_stream (keys %{$streams})
 		{
-			next if ref $streams->{$escaped_stream} ne ref { };
-		
-			my $settings_path = $streams->{$escaped_stream}->{'Settings'};
+			# allow the settings to be a direct property, or nested under a property sheet in a property called 'Settings'
+			my $settings_path = $streams->{$escaped_stream};
+			if($settings_path && ref $settings_path)
+			{
+				$settings_path = $settings_path->{'Settings'};
+			}
 			if($settings_path)
 			{
 				# print the settings to the workspace
@@ -547,58 +646,95 @@ sub read_all_stream_settings
 # syncs all the build machines to a clean state
 sub conform_resources
 {
-	my ($ec, $ec_project, $ec_job, $resource_pools) = @_;
-
-	# find all of the actual resources, and whether they're alive or not
-	my $resources_start_time = time;
-	print "Querying resources from EC...\n";
-	my $response = $ec->getResources();
-	print "Completed in ".(time - $resources_start_time)."s\n\n";
-
-	# cache all the stream settings, so we don't have race conditions between each of the builders 
-	read_all_stream_settings($ec, $ec_project);
+	my ($ec, $ec_project, $ec_job, $ec_jobstep, $input_names, $set_pools, $max_parallel, $ec_update) = @_;
 	
+	# find all of the actual resources, and whether they're alive or not
+	my $response = $ec->getResources();
+
 	# find all the resource names in the given pools
-	my @resource_names = ();
-	foreach my $resource_pool (split /\+/, $resource_pools)
+	my %unique_resource_names;
+	foreach my $input_name (split /\s+/, $input_names)
 	{
-		my $initial_resource_names = $#resource_names;
+		my $resolved_name = 0;
 		foreach my $resource_node ($response->findnodes('/responses/response/resource'))
 		{
 			my $name = $response->findvalue('resourceName', $resource_node)->string_value();
 			my @pools = split /\s+/, $response->findvalue('pools', $resource_node)->string_value();
-			if(lc $name eq lc $resource_pool || (grep { lc $_ eq lc $resource_pool } @pools))
+			if(lc $name eq lc $input_name || (grep { lc $_ eq lc $input_name } @pools))
 			{
 				if($response->findvalue('agentState/alive', $resource_node)->string_value())
 				{
-					push(@resource_names, $name);
+					$unique_resource_names{$name} = 1;
 				}
 				else
 				{
-					print "Not conforming $name; agent is reported as dead.\n";
+					log_print("Not conforming $name; agent is reported as dead.\n");
 				}
+				$resolved_name = 1;
 			}
 		}
-		fail("Couldn't find any matching resources for $resource_pool") if $#resource_names == $initial_resource_names;
+		fail("Couldn't find any matching resources for $input_name") if !$resolved_name;
 	}
 	
-	# create a child jobstep for each one
-	my $create_steps_start_time = time;
-	print "Creating child steps...\n";
-	my $batch = $ec->newBatch("serial");
-	foreach my $resource_name (sort @resource_names)
+	# find all the default workspaces
+	my %resource_name_to_default_workspace;
+	foreach my $resource_node ($response->findnodes('/responses/response/resource'))
 	{
-		my $jobstep_arguments = {};
-		$jobstep_arguments->{'parentPath'} = "/jobs[$ec_job]";
-		$jobstep_arguments->{'jobStepName'} = "Conform $resource_name";
-		$jobstep_arguments->{'actualParameter'} = [{ actualParameterName => 'Command', value => "ConformResource --resource-name=\"$resource_name\"" }, { actualParameterName => 'Resource', value => $resource_name } ];
-		$jobstep_arguments->{'projectName'} = $ec_project;
-		$jobstep_arguments->{'subprocedure'} = "Run Subcommand";
-		$jobstep_arguments->{'parallel'} = '1';
-		$batch->createJobStep($jobstep_arguments);
+		my $name = $response->findvalue('resourceName', $resource_node)->string_value();
+		my $default_workspace = $response->findvalue('workspaceName', $resource_node)->string_value();
+		$resource_name_to_default_workspace{$name} = $default_workspace;
 	}
-	$batch->submit();
-	print "Completed in ".(time - $create_steps_start_time)."s.\n";
+	
+	# convert it to an array and sort
+	my @resource_names = sort keys %unique_resource_names;
+	log_print "Matching resources: ".join(", ", @resource_names)."\n";
+
+	# cache all the stream settings, so we don't have race conditions between each of the builders 
+	read_all_stream_settings($ec, $ec_project);
+	
+	# create a child jobstep for each one
+	log_print("Creating child steps...");
+	my $jobstep_arguments_array = [];
+	for(my $idx = 0; $idx <= $#resource_names; $idx++)
+	{
+		my $resource_name = $resource_names[$idx];
+	
+		my $command = '';
+		$command .= "standard_builder_setup('\$[/myResource/resourceName]');\n";
+		$command .= "run_command('ConformResource --name=$resource_name".($set_pools? " --set-pools=\"$set_pools\"" : "")." --ec-update');\n";
+		$command .= "\n";
+		$command .= "\$[/myProject/Functions/standard_builder_setup]\n";
+		$command .= "\n";
+		$command .= "\$[/myProject/Functions/run_command]\n";
+	
+		my $jobstep_arguments = {};
+		$jobstep_arguments->{'jobStepId'} = $ec_jobstep || "?";
+		$jobstep_arguments->{'jobStepName'} = "Conform $resource_name";
+		$jobstep_arguments->{'projectName'} = $ec_project;
+		$jobstep_arguments->{'parallel'} = '1';
+		$jobstep_arguments->{'command'} = $command;
+		$jobstep_arguments->{'shell'} = 'ec-perl';
+		$jobstep_arguments->{'resourceName'} = $resource_name;
+		$jobstep_arguments->{'workspaceName'} = $resource_name_to_default_workspace{$resource_name};
+		
+		if($max_parallel && $idx >= $max_parallel)
+		{
+			my $previous_jobstep = "/jobs[".($ec_job || "?")."]/jobSteps[Conform Resources]/jobSteps[Conform $resource_names[$idx - $max_parallel]]";
+			$jobstep_arguments->{'precondition'} = "\$[/javascript (getProperty('$previous_jobstep/status') == 'completed')? true : false]";
+		}
+	
+		my $mac_credential_response = $ec->getFullCredential('Mac');
+		foreach my $mac_credential ($mac_credential_response->findnodes("/responses/response/credential"))
+		{
+			my $username = $mac_credential_response->findvalue("./userName", $mac_credential)->string_value();
+			my $password = $mac_credential_response->findvalue("./password", $mac_credential)->string_value();
+			$jobstep_arguments->{'credential'} = [{ credentialName => 'Mac', userName => $username, password => $password }];
+			last;
+		}
+		
+		push(@{$jobstep_arguments_array}, $jobstep_arguments);
+	}
+	ec_create_jobsteps($ec, $jobstep_arguments_array, 'jobsteps.txt', $ec_update);
 }
 
 # returns an resource to a clean state; syncing and cleaning all branches, and removing unused branches

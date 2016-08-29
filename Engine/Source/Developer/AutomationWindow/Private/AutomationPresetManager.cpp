@@ -5,6 +5,8 @@
 
 FAutomationTestPresetManager::FAutomationTestPresetManager()
 {
+	// Add the None Option
+	Presets.Add(AutomationPresetPtr());
 }
 
 

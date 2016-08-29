@@ -121,6 +121,8 @@ void UK2Node_VariableSetRef::ReallocatePinsDuringReconstruction(TArray<UEdGraphP
   		CoerceTypeFromPin(OldTargetPin);
   	}
 	CachedNodeTitle.MarkDirty();
+
+	RestoreSplitPins(OldPins);
 }
 
 FText UK2Node_VariableSetRef::GetTooltipText() const

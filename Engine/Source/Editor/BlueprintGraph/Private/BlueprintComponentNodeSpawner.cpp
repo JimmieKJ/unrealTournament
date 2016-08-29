@@ -3,7 +3,7 @@
 #include "BlueprintGraphPrivatePCH.h"
 #include "BlueprintComponentNodeSpawner.h"
 #include "K2Node_AddComponent.h"
-#include "ClassIconFinder.h" // for FindIconNameForClass()
+#include "SlateIconFinder.h" // for FindIconForClass()
 #include "BlueprintNodeTemplateCache.h" // for IsTemplateOuter()
 #include "ComponentAssetBroker.h" // for GetComponentsForAsset()/AssignAssetToComponent()
 #include "BlueprintActionFilter.h"	// for FBlueprintActionContext
@@ -69,7 +69,7 @@ UBlueprintComponentNodeSpawner* UBlueprintComponentNodeSpawner::Create(const FCo
 		{
 			MenuSignature.Keywords = FText::FromString(TEXT(" "));
 		}
-		MenuSignature.IconName = FClassIconFinder::FindIconNameForClass(nullptr);
+		MenuSignature.Icon = FSlateIconFinder::FindIconForClass(nullptr);
 		MenuSignature.DocLink  = TEXT("Shared/GraphNodes/Blueprint/UK2Node_AddComponent");
 		MenuSignature.DocExcerptTag = TEXT("AddComponent");
 
@@ -79,6 +79,13 @@ UBlueprintComponentNodeSpawner* UBlueprintComponentNodeSpawner::Create(const FCo
 	if (ComponentClass->HasAnyClassFlags(CLASS_Abstract) || !ComponentClass->HasMetaData(FBlueprintMetadata::MD_BlueprintSpawnableComponent))
 	{
 		// loaded class that is marked as abstract or not spawnable, don't create an entry:
+		return nullptr;
+	}
+
+	if (ComponentClass->ClassWithin && ComponentClass->ClassWithin != UObject::StaticClass())
+	{
+		// we can't support 'Within' markup on components at this time (core needs to be aware of non-CDO archetypes
+		// that have within markup, and BP system needs to property use RF_ArchetypeObject on template objects)
 		return nullptr;
 	}
 
@@ -100,7 +107,7 @@ UBlueprintComponentNodeSpawner* UBlueprintComponentNodeSpawner::Create(const FCo
 	{
 		MenuSignature.Keywords = FText::FromString(TEXT(" "));
 	}
-	MenuSignature.IconName = FClassIconFinder::FindIconNameForClass(AuthoritativeClass);
+	MenuSignature.Icon = FSlateIconFinder::FindIconForClass(AuthoritativeClass);
 	MenuSignature.DocLink  = TEXT("Shared/GraphNodes/Blueprint/UK2Node_AddComponent");
 	MenuSignature.DocExcerptTag = AuthoritativeClass->GetName();
 
@@ -140,6 +147,10 @@ UEdGraphNode* UBlueprintComponentNodeSpawner::Invoke(UEdGraph* ParentGraph, FBin
 	FCustomizeNodeDelegate PostSpawnDelegate = FCustomizeNodeDelegate::CreateStatic(PostSpawnLambda, CustomizeNodeDelegate);
 	// let SpawnNode() allocate default pins (so we can modify them)
 	UK2Node_AddComponent* NewNode = Super::SpawnNode<UK2Node_AddComponent>(NodeClass, ParentGraph, FBindingSet(), Location, PostSpawnDelegate);
+	if (NewNode->Pins.Num() == 0)
+	{
+		NewNode->AllocateDefaultPins();
+	}
 
 	// set the return type to be the type of the template
 	UEdGraphPin* ReturnPin = NewNode->GetReturnValuePin();

@@ -2,15 +2,14 @@
 
 #pragma once
 
-#include "Core.h"
+#include "AnalyticsProviderConfigurationDelegate.h"
 #include "ModuleManager.h"
-#include "Runtime/Analytics/Analytics/Public/Analytics.h"
-#include "Runtime/Analytics/Analytics/Public/AnalyticsEventAttribute.h"
-#include "Runtime/Analytics/Analytics/Public/Interfaces/IAnalyticsProvider.h"
+
+class IAnalyticsProvider;
 
 /** Generic interface for an analytics provider. Other modules can define more and register them with this module. */
 class IAnalyticsProviderModule : public IModuleInterface
 {
 public:
-	virtual TSharedPtr<IAnalyticsProvider> CreateAnalyticsProvider(const FAnalytics::FProviderConfigurationDelegate& GetConfigValue) const = 0;
+	virtual TSharedPtr<IAnalyticsProvider> CreateAnalyticsProvider(const FAnalyticsProviderConfigurationDelegate& GetConfigValue) const = 0;
 };

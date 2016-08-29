@@ -3,6 +3,7 @@
 #pragma once
 
 #include "ModuleDescriptor.h"
+#include "LocalizationDescriptor.h"
 #include "CustomBuildSteps.h"
 
 /**
@@ -68,6 +69,9 @@ struct PROJECTS_API FPluginDescriptor
 	/** List of all modules associated with this plugin */
 	TArray<FModuleDescriptor> Modules;
 
+	/** List of all localization targets associated with this plugin */
+	TArray<FLocalizationTargetDescriptor> LocalizationTargets;
+
 	/** Whether this plugin should be enabled by default for all projects */
 	bool bEnabledByDefault;
 
@@ -118,7 +122,7 @@ struct PROJECTS_API FPluginReferenceDescriptor
 
 	/** Whether this plugin is optional, and the game should silently ignore it not being present */
 	bool bOptional;
-
+	
 	/** Description of the plugin for users that do not have it installed. */
 	FString Description;
 

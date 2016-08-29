@@ -5,6 +5,7 @@
 #include "AI/Navigation/NavigationTypes.h"
 #include "AI/Navigation/RecastNavMesh.h"
 #include "AI/Navigation/NavigationPath.h"
+#include "AI/Navigation/NavAreas/NavArea.h"
 #include "Debug/DebugDrawService.h"
 
 #define DEBUG_DRAW_OFFSET 0
@@ -22,8 +23,11 @@ const FNavPathType FNavigationPath::Type;
 
 FNavigationPath::FNavigationPath()
 	: PathType(FNavigationPath::Type)
+	, bDoAutoUpdateOnInvalidation(true)
+	, bIgnoreInvalidation(false)
 	, bUpdateStartPointOnRepath(true)
 	, bUpdateEndPointOnRepath(true)
+	, bUseOnPathUpdatedNotify(false)
 	, LastUpdateTimeStamp(-1.f)	// indicates that it has not been set
 	, GoalActorLocationTetherDistanceSq(-1.f)
 {
@@ -32,8 +36,11 @@ FNavigationPath::FNavigationPath()
 
 FNavigationPath::FNavigationPath(const TArray<FVector>& Points, AActor* InBase)
 	: PathType(FNavigationPath::Type)
+	, bDoAutoUpdateOnInvalidation(true)
+	, bIgnoreInvalidation(false)
 	, bUpdateStartPointOnRepath(true)
 	, bUpdateEndPointOnRepath(true)
+	, bUseOnPathUpdatedNotify(false)
 	, LastUpdateTimeStamp(-1.f)	// indicates that it has not been set
 	, GoalActorLocationTetherDistanceSq(-1.f)
 {
@@ -71,6 +78,7 @@ void FNavigationPath::InternalResetNavigationPath()
 	// - PathType
 	// - ObserverDelegate
 	// - bDoAutoUpdateOnInvalidation
+	// - bIgnoreInvalidation
 	// - bUpdateStartPointOnRepath
 	// - bUpdateEndPointOnRepath
 	// - bWaitingForRepath
@@ -101,14 +109,17 @@ void FNavigationPath::SetGoalActorObservation(const AActor& ActorToObserve, floa
 	}
 
 	// register for path observing only if we weren't registered already
-	const bool RegisterForPathUpdates = GoalActor.IsValid() == false;	
+	const bool RegisterForPathUpdates = (GoalActor.IsValid() == false);
 	GoalActor = &ActorToObserve;
 	checkSlow(GoalActor.IsValid());
 	GoalActorAsNavAgent = Cast<INavAgentInterface>(&ActorToObserve);
 	GoalActorLocationTetherDistanceSq = FMath::Square(TetherDistance);
 	UpdateLastRepathGoalLocation();
 
-	NavigationDataUsed->RegisterObservedPath(AsShared());
+	if (RegisterForPathUpdates)
+	{
+		NavigationDataUsed->RegisterObservedPath(AsShared());
+	}
 }
 
 void FNavigationPath::SetSourceActor(const AActor& InSourceActor)
@@ -145,12 +156,15 @@ void FNavigationPath::DisableGoalActorObservation()
 
 void FNavigationPath::Invalidate()
 {
-	bUpToDate = false;
-	ObserverDelegate.Broadcast(this, ENavPathEvent::Invalidated);
-	if (bDoAutoUpdateOnInvalidation && NavigationDataUsed.IsValid())
+	if (!bIgnoreInvalidation)
 	{
-		bWaitingForRepath = true;
-		NavigationDataUsed->RequestRePath(AsShared(), ENavPathUpdateType::NavigationChanged);
+		bUpToDate = false;
+		ObserverDelegate.Broadcast(this, ENavPathEvent::Invalidated);
+		if (bDoAutoUpdateOnInvalidation && NavigationDataUsed.IsValid())
+		{
+			bWaitingForRepath = true;
+			NavigationDataUsed->RequestRePath(AsShared(), ENavPathUpdateType::NavigationChanged);
+		}
 	}
 }
 
@@ -895,10 +909,11 @@ void FNavMeshPath::DebugDraw(const ANavigationData* NavData, FColor PathColor, U
 	const ARecastNavMesh* RecastNavMesh = Cast<const ARecastNavMesh>(NavData);		
 	const TArray<FNavigationPortalEdge>& Edges = (const_cast<FNavMeshPath*>(this))->GetPathCorridorEdges();	
 	const int32 CorridorEdgesCount = Edges.Num();
+	const UWorld* World = NavData->GetWorld();
 
 	for (int32 EdgeIndex = 0; EdgeIndex < CorridorEdgesCount; ++EdgeIndex)
 	{
-		DrawDebugLine(NavData->GetWorld(), Edges[EdgeIndex].Left + NavigationDebugDrawing::PathOffset, Edges[EdgeIndex].Right + NavigationDebugDrawing::PathOffset
+		DrawDebugLine(World, Edges[EdgeIndex].Left + NavigationDebugDrawing::PathOffset, Edges[EdgeIndex].Right + NavigationDebugDrawing::PathOffset
 			, FColor::Blue, bPersistent, /*LifeTime*/-1.f, /*DepthPriority*/0
 			, /*Thickness*/NavigationDebugDrawing::PathLineThickness);
 	}
@@ -985,6 +1000,13 @@ bool FNavMeshPath::DoesPathIntersectBoxImplementation(const FBox& Box, const FVe
 	FVector Start = StartLocation;
 	if (CorridorEdges.IsValidIndex(StartingIndex))
 	{
+		// make sure that Start is initialized correctly when testing from the middle of path (StartingIndex > 0)
+		if (CorridorEdges.IsValidIndex(StartingIndex - 1))
+		{
+			const FNavigationPortalEdge& Edge = CorridorEdges[StartingIndex - 1];
+			Start = Edge.Right + (Edge.Left - Edge.Right) / 2 + (AgentExtent ? FVector(0.f, 0.f, AgentExtent->Z) : FVector::ZeroVector);
+		}
+
 		for (uint32 PortalIndex = StartingIndex; PortalIndex < NumCorridorEdges; ++PortalIndex)
 		{
 			const FNavigationPortalEdge& Edge = CorridorEdges[PortalIndex];

@@ -2068,7 +2068,7 @@ bool AUTRecastNavMesh::FindBestPath(APawn* Asker, const FNavAgentProperties& Age
 			for (const FNavPoly& TestPoly : FoundPolys)
 			{
 				// TODO: should do more complex test than this, but want to avoid getting caught up on slopes
-				if (!GetWorld()->LineTraceTestByChannel(StartTrace, TestPoly.Center + FVector(0.0f, 0.0f, AgentProps.AgentHeight), ECC_Pawn, FCollisionQueryParams(NAME_None, false), WorldResponseParams))
+				if (!GetWorld()->LineTraceTestByChannel(StartTrace, TestPoly.Center + FVector(0.0f, 0.0f, AgentProps.AgentHeight), ECC_Pawn, FCollisionQueryParams(FName(TEXT("FindBestPath")), false), WorldResponseParams))
 				{
 					StartPoly = TestPoly.Ref;
 					break;
@@ -2529,7 +2529,7 @@ bool AUTRecastNavMesh::HasReachedTarget(APawn* Asker, const FNavAgentProperties&
 			{
 				if (Pickup->IsOverlappingActor(Asker))
 				{
-					Pickup->OnOverlapBegin(Asker, Cast<UPrimitiveComponent>(Asker->GetRootComponent()), INDEX_NONE, false, FHitResult(Pickup, Pickup->Collision, Pickup->GetActorLocation(), -Asker->GetVelocity().GetSafeNormal()));
+					Pickup->OnOverlapBegin(Pickup->Collision, Asker, Cast<UPrimitiveComponent>(Asker->GetRootComponent()), INDEX_NONE, false, FHitResult(Pickup, Pickup->Collision, Pickup->GetActorLocation(), -Asker->GetVelocity().GetSafeNormal()));
 					return true;
 				}
 				else
@@ -2539,7 +2539,7 @@ bool AUTRecastNavMesh::HasReachedTarget(APawn* Asker, const FNavAgentProperties&
 			}
 			else if (Teleporter != NULL && Teleporter->IsOverlappingActor(Asker))
 			{
-				Teleporter->OnOverlapBegin(Asker);
+				Teleporter->OnOverlapBegin(Teleporter, Asker);
 				return true;
 			}
 			else if (JumpPad != NULL && JumpPad->IsEnabled())
@@ -2665,7 +2665,7 @@ void AUTRecastNavMesh::ClearRebuildWarning()
 }
 #endif
 
-void AUTRecastNavMesh::PreSave()
+void AUTRecastNavMesh::PreSave(const class ITargetPlatform* TargetPlatform)
 {
 #if !UE_SERVER && WITH_EDITOR && WITH_EDITORONLY_DATA
 	if (NeedsRebuild() && !IsRunningCommandlet())
@@ -2687,7 +2687,7 @@ void AUTRecastNavMesh::PreSave()
 	}
 #endif
 
-	Super::PreSave();
+	Super::PreSave(TargetPlatform);
 }
 
 void AUTRecastNavMesh::PreInitializeComponents()

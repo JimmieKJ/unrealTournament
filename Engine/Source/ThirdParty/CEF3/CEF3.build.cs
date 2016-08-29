@@ -24,6 +24,7 @@ public class CEF3 : ModuleRules
 		else if (Target.Platform == UnrealTargetPlatform.Mac)
 		{
 			CEFPlatform = "macosx64";
+			CEFVersion = "3.2623.1395.g3034273";
 		}
 
 		if (CEFPlatform.Length > 0 && UEBuildConfiguration.bCompileCEF3)
@@ -103,10 +104,13 @@ public class CEF3 : ModuleRules
 				PublicAdditionalLibraries.Add(WrapperPath);
                 PublicFrameworks.Add(FrameworkPath);
 
-                var LocaleFolders = Directory.GetFileSystemEntries(LibraryPath + "/locale", "*.lproj");
-				foreach (var FolderName in LocaleFolders)
+				if(Directory.Exists(LibraryPath + "/locale"))
 				{
-					AdditionalBundleResources.Add(new UEBuildBundleResource(FolderName, bInShouldLog:false));
+					var LocaleFolders = Directory.GetFileSystemEntries(LibraryPath + "/locale", "*.lproj");
+					foreach (var FolderName in LocaleFolders)
+					{
+						AdditionalBundleResources.Add(new UEBuildBundleResource(FolderName, bInShouldLog:false));
+					}
 				}
 
 				// Add contents of framework directory as runtime dependencies

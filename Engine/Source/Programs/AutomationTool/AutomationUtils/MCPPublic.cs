@@ -309,89 +309,124 @@ namespace EpicGames.MCP.Automation
 			Platform = InPlatform;
 			CloudDir = InCloudDir;
 		}
+
+		/// <summary>
+		/// Constructor which sets all values directly, without assuming any default paths.
+		/// </summary>
+		public BuildPatchToolStagingInfo(BuildCommand InOwnerCommand, string InAppName, int InAppID, string InBuildVersion, MCPPlatform InPlatform, DirectoryReference InStagingDir, DirectoryReference InCloudDir)
+		{
+			OwnerCommand = InOwnerCommand;
+			AppName = InAppName;
+			AppID = InAppID;
+			BuildVersion = InBuildVersion;
+			Platform = InPlatform;
+			if(InStagingDir != null)
+			{
+				StagingDir = InStagingDir.FullName;
+			}
+			if(InCloudDir != null)
+			{
+				DirectoryReference BuildRootDir = new DirectoryReference(GetBuildRootPath());
+				if(!InCloudDir.IsUnderDirectory(BuildRootDir))
+				{
+					throw new AutomationException("Cloud directory must be under build root path ({0})", BuildRootDir.FullName);
+				}
+				CloudDir = InCloudDir.FullName;
+				CloudDirRelativePath = InCloudDir.MakeRelativeTo(BuildRootDir).Replace('\\', '/');
+			}
+		}
     }
 
-    /// <summary>
-    /// Class that provides programmatic access to the BuildPatchTool
-    /// </summary>
-    public abstract class BuildPatchToolBase
-    {
-        /// <summary>
-        /// Controls the chunking type used by the buildinfo server (nochunks parameter)
-        /// </summary>
-        public enum ChunkType
-        {
-            /// <summary>
-            /// Chunk the files
-            /// </summary>
-            Chunk,
-            /// <summary>
-            /// Don't chunk the files, just build a file manifest.
-            /// </summary>
-            NoChunk,
-        }
+	/// <summary>
+	/// Class that provides programmatic access to the BuildPatchTool
+	/// </summary>
+	public abstract class BuildPatchToolBase
+	{
+		/// <summary>
+		/// Obsolete: BuildPatchTool will now only use chunked patch generation.
+		/// </summary>
+		public enum ChunkType { Chunk }
 
+		/// <summary>
+		/// Controls which version of BPT to use when executing.
+		/// </summary>
+		public enum ToolVersion
+		{
+			/// <summary>
+			/// The current live, tested build.
+			/// </summary>
+			Live,
+			/// <summary>
+			/// The latest published build, may be untested.
+			/// </summary>
+			Next,
+			/// <summary>
+			/// Use local build from source of BuildPatchTool.
+			/// </summary>
+			Source
+		}
 
-        public class PatchGenerationOptions
-        {
-            /// <summary>
-            /// By default, we will only consider data referenced from manifests modified within five days to be reusable.
-            /// </summary>
-            private const int DEFAULT_DATA_AGE_THRESHOLD = 5;
+		public class PatchGenerationOptions
+		{
+			/// <summary>
+			/// By default, we will only consider data referenced from manifests modified within five days to be reusable.
+			/// </summary>
+			private const int DEFAULT_DATA_AGE_THRESHOLD = 5;
 
-            public PatchGenerationOptions()
-            {
-                DataAgeThreshold = DEFAULT_DATA_AGE_THRESHOLD;
-            }
+			public PatchGenerationOptions()
+			{
+				DataAgeThreshold = DEFAULT_DATA_AGE_THRESHOLD;
+			}
 
-            /// <summary>
-            /// Staging information
-            /// </summary>
-            public BuildPatchToolStagingInfo StagingInfo;
-            /// <summary>
-            /// Matches the corresponding BuildPatchTool command line argument.
-            /// </summary>
-            public string BuildRoot;
-            /// <summary>
-            /// Matches the corresponding BuildPatchTool command line argument.
-            /// </summary>
-            public string FileIgnoreList;
-            /// <summary>
-            /// Matches the corresponding BuildPatchTool command line argument.
-            /// </summary>
-            public string FileAttributeList;
-            /// <summary>
-            /// Matches the corresponding BuildPatchTool command line argument.
-            /// </summary>
-            public string AppLaunchCmd;
-            /// <summary>
-            /// Matches the corresponding BuildPatchTool command line argument.
-            /// </summary>
-            public string AppLaunchCmdArgs;
-            /// <summary>
-            /// Matches the corresponding BuildPatchTool command line argument.
-            /// </summary>
-            public string PrereqPath;
-            /// <summary>
-            /// Matches the corresponding BuildPatchTool command line argument.
-            /// </summary>
-            public string PrereqArgs;
-            /// <summary>
-            /// Corresponds to the -nochunks parameter
-            /// </summary>
-            public ChunkType AppChunkType;
-            /// <summary>
-            /// Used as part of manifest filename and build version strings.
-            /// </summary>
-            public MCPPlatform Platform;
-            /// <summary>
-            /// When identifying existing patch data to reuse in this build, only
-            /// files referenced from a manifest file modified within this number of days will be considered for reuse.
-            /// IMPORTANT: This should always be smaller than the minimum age at which manifest files can be deleted by any cleanup process, to ensure
-            /// that we do not reuse any files which could be deleted by a concurrently running compactify. It is recommended that this number be at least
-            /// two days less than the cleanup data age threshold.
-            /// </summary>
-            public int DataAgeThreshold;
+			/// <summary>
+			/// Staging information
+			/// </summary>
+			public BuildPatchToolStagingInfo StagingInfo;
+			/// <summary>
+			/// The directory containing the build image to be read.
+			/// </summary>
+			public string BuildRoot;
+			/// <summary>
+			/// A path to a text file containing BuildRoot relative files, separated by \r\n line endings, to not be included in the build.
+			/// </summary>
+			public string FileIgnoreList;
+			/// <summary>
+			/// A path to a text file containing quoted BuildRoot relative files followed by optional attributes such as readonly compressed executable tag:mytag, separated by \r\n line endings.
+			/// These attribute will be applied when build is installed client side.
+			/// </summary>
+			public string FileAttributeList;
+			/// <summary>
+			/// The path to the app executable, must be relative to, and inside of BuildRoot.
+			/// </summary>
+			public string AppLaunchCmd;
+			/// <summary>
+			/// The commandline to send to the app on launch.
+			/// </summary>
+			public string AppLaunchCmdArgs;
+			/// <summary>
+			/// The prerequisites installer to launch on successful product install, must be relative to, and inside of BuildRoot.
+			/// </summary>
+			public string PrereqPath;
+			/// <summary>
+			/// The commandline to send to prerequisites installer on launch.
+			/// </summary>
+			public string PrereqArgs;
+			/// <summary>
+			/// An override for the output manifest filename.
+			/// </summary>
+			public string OutputFilename;
+			/// <summary>
+			/// Used as part of manifest filename and build version strings.
+			/// </summary>
+			public MCPPlatform Platform;
+			/// <summary>
+			/// When identifying existing patch data to reuse in this build, only
+			/// files referenced from a manifest file modified within this number of days will be considered for reuse.
+			/// IMPORTANT: This should always be smaller than the minimum age at which manifest files can be deleted by any cleanup process, to ensure
+			/// that we do not reuse any files which could be deleted by a concurrently running compactify. It is recommended that this number be at least
+			/// two days less than the cleanup data age threshold.
+			/// </summary>
+			public int DataAgeThreshold;
 			/// <summary>
 			/// Contains a list of custom string arguments to be embedded in the generated manifest file.
 			/// </summary>
@@ -404,6 +439,11 @@ namespace EpicGames.MCP.Automation
 			/// Contains a list of custom float arguments to be embedded in the generated manifest file.
 			/// </summary>
 			public List<KeyValuePair<string, float>> CustomFloatArgs;
+
+			/// <summary>
+			/// Obsolete: BuildPatchTool will now only use chunked patch generation.
+			/// </summary>
+			public ChunkType AppChunkType;
 		}
 
 		/// <summary>
@@ -427,15 +467,6 @@ namespace EpicGames.MCP.Automation
 			/// </summary>
 			public bool bPreviewCompactify;
 			/// <summary>
-			/// The full list of manifest files in the compactify directory that we wish to keep; all others will be deleted.
-			/// </summary>
-			public string[] ManifestsToKeep;
-			/// <summary>
-			/// A filename (relative to the compactify directory) which contains a list of manifests to keep, one manifest per line.
-			/// N.b. If ManifestsToKeep is specified, then this option is ignored.
-			/// </summary>
-			public string ManifestsToKeepFile;
-			/// <summary>
 			/// Patch data files modified within this number of days will *not* be deleted, to ensure that any patch files being written out by a.
 			/// patch generation process are not deleted before their corresponding manifest file(s) can be written out.
 			/// NOTE: this should be set to a value larger than the expected maximum time that a build could take.
@@ -446,65 +477,102 @@ namespace EpicGames.MCP.Automation
 		public class DataEnumerationOptions
 		{
 			/// <summary>
-			/// Matches the corresponding BuildPatchTool command line argument.
+			/// The file path to the manifest to enumerate from.
 			/// </summary>
 			public string ManifestFile;
 			/// <summary>
-			/// Matches the corresponding BuildPatchTool command line argument.
+			/// The file path to where the list will be saved out, containing \r\n separated cloud relative file paths.
 			/// </summary>
 			public string OutputFile;
 			/// <summary>
-			/// When true, the output will include the size of individual files
+			/// When true, the output will include the size of each file on each line, separated by \t
 			/// </summary>
 			public bool bIncludeSize;
 		}
 
-        static BuildPatchToolBase Handler = null;
+		public class ManifestMergeOptions
+		{
+			/// <summary>
+			/// The file path to the base manifest.
+			/// </summary>
+			public string ManifestA;
+			/// <summary>
+			/// The file path to the update manifest.
+			/// </summary>
+			public string ManifestB;
+			/// <summary>
+			/// The file path to the output manifest.
+			/// </summary>
+			public string ManifestC;
+			/// <summary>
+			/// The new version string for the build being produced.
+			/// </summary>
+			public string BuildVersion;
+			/// <summary>
+			/// Optional. The set of files that should be kept from ManifestA.
+			/// </summary>
+			public HashSet<string> FilesToKeepFromA;
+			/// <summary>
+			/// Optional. The set of files that should be kept from ManifestB.
+			/// </summary>
+			public HashSet<string> FilesToKeepFromB;
+		}
 
-        public static BuildPatchToolBase Get()
-        {
-            if (Handler == null)
-            {
-                Assembly[] LoadedAssemblies = AppDomain.CurrentDomain.GetAssemblies();
-                foreach (var Dll in LoadedAssemblies)
-                {
-                    Type[] AllTypes = Dll.GetTypes();
-                    foreach (var PotentialConfigType in AllTypes)
-                    {
-                        if (PotentialConfigType != typeof(BuildPatchToolBase) && typeof(BuildPatchToolBase).IsAssignableFrom(PotentialConfigType))
-                        {
-                            Handler = Activator.CreateInstance(PotentialConfigType) as BuildPatchToolBase;
-                            break;
-                        }
-                    }
-                }
-                if (Handler == null)
-                {
-                    throw new AutomationException("Attempt to use BuildPatchToolBase.Get() and it doesn't appear that there are any modules that implement this class.");
-                }
-            }
-            return Handler;
-        }
+		static BuildPatchToolBase Handler = null;
 
-        /// <summary>
-        /// Runs the Build Patch Tool executable to generate patch data using the supplied parameters.
-        /// </summary>
-		/// <param name="Opts">Parameters which will be passed to the patch tool generation process</param>
-		public abstract void Execute(PatchGenerationOptions Opts);
+		public static BuildPatchToolBase Get()
+		{
+			if (Handler == null)
+			{
+				Assembly[] LoadedAssemblies = AppDomain.CurrentDomain.GetAssemblies();
+				foreach (var Dll in LoadedAssemblies)
+				{
+					Type[] AllTypes = Dll.GetTypes();
+					foreach (var PotentialConfigType in AllTypes)
+					{
+						if (PotentialConfigType != typeof(BuildPatchToolBase) && typeof(BuildPatchToolBase).IsAssignableFrom(PotentialConfigType))
+						{
+							Handler = Activator.CreateInstance(PotentialConfigType) as BuildPatchToolBase;
+							break;
+						}
+					}
+				}
+				if (Handler == null)
+				{
+					throw new AutomationException("Attempt to use BuildPatchToolBase.Get() and it doesn't appear that there are any modules that implement this class.");
+				}
+			}
+			return Handler;
+		}
+
+		/// <summary>
+		/// Runs the Build Patch Tool executable to generate patch data using the supplied parameters.
+		/// </summary>
+		/// <param name="Opts">Parameters which will be passed to the patch tool generation process.</param>
+		/// <param name="Version">Which version of BuildPatchTool is desired.</param>
+		public abstract void Execute(PatchGenerationOptions Opts, ToolVersion Version = ToolVersion.Live);
 
 		/// <summary>
 		/// Runs the Build Patch Tool executable to compactify a cloud directory using the supplied parameters.
 		/// </summary>
-		/// <param name="Opts">Parameters which will be passed to the patch tool generation process</param>
-		public abstract void Execute(CompactifyOptions Opts);
+		/// <param name="Opts">Parameters which will be passed to the patch tool compactify process.</param>
+		/// <param name="Version">Which version of BuildPatchTool is desired.</param>
+		public abstract void Execute(CompactifyOptions Opts, ToolVersion Version = ToolVersion.Live);
 
 		/// <summary>
 		/// Runs the Build Patch Tool executable to enumerate patch data files referenced by a manifest using the supplied parameters.
 		/// </summary>
-		/// <param name="Opts">Parameters which will be passed to the patch tool enumeration process</param>
-		public abstract void Execute(DataEnumerationOptions Opts);
+		/// <param name="Opts">Parameters which will be passed to the patch tool enumeration process.</param>
+		/// <param name="Version">Which version of BuildPatchTool is desired.</param>
+		public abstract void Execute(DataEnumerationOptions Opts, ToolVersion Version = ToolVersion.Live);
 
-    }
+		/// <summary>
+		/// Runs the Build Patch Tool executable to merge two manifest files producing a hotfix manifest.
+		/// </summary>
+		/// <param name="Opts">Parameters which will be passed to the patch tool manifest merge process.</param>
+		/// <param name="Version">Which version of BuildPatchTool is desired.</param>
+		public abstract void Execute(ManifestMergeOptions Opts, ToolVersion Version = ToolVersion.Live);
+	}
 
 
     /// <summary>
@@ -753,10 +821,11 @@ namespace EpicGames.MCP.Automation
 		/// <param name="Container">The name of the folder or container in which to store the file.</param>
 		/// <param name="Identifier">The identifier or filename of the file to write.</param>
 		/// <param name="Contents">A byte array containing the data to write.</param>
-		/// <param name="ContentType">The MIME type of the file being uploaded.</param>
+		/// <param name="ContentType">The MIME type of the file being uploaded. If left NULL, will be determined server-side by cloud provider.</param>
 		/// <param name="bOverwrite">If true, will overwrite an existing file.  If false, will throw an exception if the file exists.</param>
-		/// <param name="bMakePublic">Specified whether the file should be made public readable.</param>
-        	/// <param name="bQuiet">If set to true, all log output for the operation is suppressed.</param>
+		/// <param name="bMakePublic">Specifies whether the file should be made publicly readable.</param>
+        /// <param name="bQuiet">If set to true, all log output for the operation is supressed.</param>
+		/// <returns>A PostFileResult indicating whether the call was successful, and the URL to the uploaded file.</returns>
 		public PostFileResult PostFile(string Container, string Identifier, byte[] Contents, string ContentType = null, bool bOverwrite = true, bool bMakePublic = false, bool bQuiet = false)
 		{
 			return PostFileAsync(Container, Identifier, Contents, ContentType, bOverwrite, bMakePublic, bQuiet).Result;
@@ -768,10 +837,11 @@ namespace EpicGames.MCP.Automation
 		/// <param name="Container">The name of the folder or container in which to store the file.</param>
 		/// <param name="Identifier">The identifier or filename of the file to write.</param>
 		/// <param name="Contents">A byte array containing the data to write.</param>
-		/// <param name="ContentType">The MIME type of the file being uploaded.</param>
+		/// <param name="ContentType">The MIME type of the file being uploaded. If left NULL, will be determined server-side by cloud provider.</param>
 		/// <param name="bOverwrite">If true, will overwrite an existing file.  If false, will throw an exception if the file exists.</param>
-		/// <param name="bMakePublic">Specified whether the file should be made public readable.</param>
-        	/// <param name="bQuiet">If set to true, all log output for the operation is suppressed.</param>
+		/// <param name="bMakePublic">Specifies whether the file should be made publicly readable.</param>
+        /// <param name="bQuiet">If set to true, all log output for the operation is supressed.</param>
+		/// <returns>A PostFileResult indicating whether the call was successful, and the URL to the uploaded file.</returns>
 		abstract public Task<PostFileResult> PostFileAsync(string Container, string Identifier, byte[] Contents, string ContentType = null, bool bOverwrite = true, bool bMakePublic = false, bool bQuiet = false);
 
 		/// <summary>
@@ -780,10 +850,11 @@ namespace EpicGames.MCP.Automation
 		/// <param name="Container">The name of the folder or container in which to store the file.</param>
 		/// <param name="Identifier">The identifier or filename of the file to write.</param>
 		/// <param name="SourceFilePath">The full path of the file to upload.</param>
-		/// <param name="ContentType">The MIME type of the file being uploaded.</param>
+		/// <param name="ContentType">The MIME type of the file being uploaded. If left NULL, will be determined server-side by cloud provider.</param>
 		/// <param name="bOverwrite">If true, will overwrite an existing file.  If false, will throw an exception if the file exists.</param>
-		/// <param name="bMakePublic">Specified whether the file should be made public readable.</param>
-	        /// <param name="bQuiet">If set to true, all log output for the operation is suppressed.</param>
+		/// <param name="bMakePublic">Specifies whether the file should be made publicly readable.</param>
+        /// <param name="bQuiet">If set to true, all log output for the operation is supressed.</param>
+		/// <returns>A PostFileResult indicating whether the call was successful, and the URL to the uploaded file.</returns>
 		public PostFileResult PostFile(string Container, string Identifier, string SourceFilePath, string ContentType = null, bool bOverwrite = true, bool bMakePublic = false, bool bQuiet = false)
 		{
 			return PostFileAsync(Container, Identifier, SourceFilePath, ContentType, bOverwrite, bMakePublic, bQuiet).Result;
@@ -795,11 +866,45 @@ namespace EpicGames.MCP.Automation
 		/// <param name="Container">The name of the folder or container in which to store the file.</param>
 		/// <param name="Identifier">The identifier or filename of the file to write.</param>
 		/// <param name="SourceFilePath">The full path of the file to upload.</param>
-		/// <param name="ContentType">The MIME type of the file being uploaded.</param>
+		/// <param name="ContentType">The MIME type of the file being uploaded. If left NULL, will be determined server-side by cloud provider.</param>
 		/// <param name="bOverwrite">If true, will overwrite an existing file.  If false, will throw an exception if the file exists.</param>
-		/// <param name="bMakePublic">Specified whether the file should be made public readable.</param>
-	        /// <param name="bQuiet">If set to true, all log output for the operation is suppressed.</param>
+		/// <param name="bMakePublic">Specifies whether the file should be made publicly readable.</param>
+        /// <param name="bQuiet">If set to true, all log output for the operation is supressed.</param>
+		/// <returns>A PostFileResult indicating whether the call was successful, and the URL to the uploaded file.</returns>
 		abstract public Task<PostFileResult> PostFileAsync(string Container, string Identifier, string SourceFilePath, string ContentType = null, bool bOverwrite = true, bool bMakePublic = false, bool bQuiet = false);
+
+		/// <summary>
+		/// Posts a file to the cloud storage provider using multiple connections.
+		/// </summary>
+		/// <param name="Container">The name of the folder or container in which to store the file.</param>
+		/// <param name="Identifier">The identifier or filename of the file to write.</param>
+		/// <param name="SourceFilePath">The full path of the file to upload.</param>
+		/// <param name="NumConcurrentConnections">The number of concurrent connections to use during uploading.</param>
+		/// <param name="PartSizeMegabytes">The size of each part that is uploaded. Minimum (and default) is 5 MB.</param>
+		/// <param name="ContentType">The MIME type of the file being uploaded. If left NULL, will be determined server-side by cloud provider.</param>
+		/// <param name="bOverwrite">If true, will overwrite an existing file. If false, will throw an exception if the file exists.</param>
+		/// <param name="bMakePublic">Specifies whether the file should be made publicly readable.</param>
+		/// <param name="bQuiet">If set to true, all log output for the operation is supressed.</param>
+		/// <returns>A PostFileResult indicating whether the call was successful, and the URL to the uploaded file.</returns>
+		public PostFileResult PostMultipartFile(string Container, string Identifier, string SourceFilePath, int NumConcurrentConnections, decimal PartSizeMegabytes = 5.0m, string ContentType = null, bool bOverwrite = true, bool bMakePublic = false, bool bQuiet = false)
+		{
+			return PostMultipartFileAsync(Container, Identifier, SourceFilePath, NumConcurrentConnections, PartSizeMegabytes, ContentType, bOverwrite, bMakePublic, bQuiet).Result;
+		}
+
+		/// <summary>
+		/// Posts a file to the cloud storage provider using multiple connections asynchronously.
+		/// </summary>
+		/// <param name="Container">The name of the folder or container in which to store the file.</param>
+		/// <param name="Identifier">The identifier or filename of the file to write.</param>
+		/// <param name="SourceFilePath">The full path of the file to upload.</param>
+		/// <param name="NumConcurrentConnections">The number of concurrent connections to use during uploading.</param>
+		/// <param name="PartSizeMegabytes">The size of each part that is uploaded. Minimum (and default) is 5 MB.</param>
+		/// <param name="ContentType">The MIME type of the file being uploaded. If left NULL, will be determined server-side by cloud provider.</param>
+		/// <param name="bOverwrite">If true, will overwrite an existing file. If false, will throw an exception if the file exists.</param>
+		/// <param name="bMakePublic">Specifies whether the file should be made publicly readable.</param>
+		/// <param name="bQuiet">If set to true, all log output for the operation is supressed.</param>
+		/// <returns>A PostFileResult indicating whether the call was successful, and the URL to the uploaded file.</returns>
+		abstract public Task<PostFileResult> PostMultipartFileAsync(string Container, string Identifier, string SourceFilePath, int NumConcurrentConnections, decimal PartSizeMegabytes = 5.0m, string ContentType = null, bool bOverwrite = true, bool bMakePublic = false, bool bQuiet = false);
 
 		/// <summary>
 		/// Deletes a file from cloud storage
@@ -816,13 +921,73 @@ namespace EpicGames.MCP.Automation
 		abstract public void DeleteFolder(string Container, string FolderIdentifier);
 
 		/// <summary>
-		/// Retrieves a list of files from the cloud storage provider
+		/// Retrieves a list of folders from the cloud storage provider
+		/// </summary>
+		/// <param name="Container">The name of the container from which to list folders.</param>
+		/// <param name="Prefix">A string to specify the identifer that you want to list from. Typically used to specify a relative folder within the container to list all of its folders. Specify null to return folders in the root of the container.</param>
+		/// <param name="Options">An action which acts upon an options object to configure the operation. See ListOptions for more details.</param>
+		/// <returns>An array of paths to the folders in the specified container and matching the prefix constraint.</returns>
+		public string[] ListFolders(string Container, string Prefix, Action<ListOptions> Options)
+		{
+			ListOptions Opts = new ListOptions();
+			if (Options != null)
+			{
+				Options(Opts);
+			}
+			return ListFolders(Container, Prefix, Opts);
+		}
+
+		/// <summary>
+		/// Retrieves a list of folders from the cloud storage provider
+		/// </summary>
+		/// <param name="Container">The name of the container from which to list folders.</param>
+		/// <param name="Prefix">A string to specify the identifer that you want to list from. Typically used to specify a relative folder within the container to list all of its folders. Specify null to return folders in the root of the container.</param>
+		/// <param name="Options">An options object to configure the operation. See ListOptions for more details.</param>
+		/// <returns>An array of paths to the folders in the specified container and matching the prefix constraint.</returns>
+		abstract public string[] ListFolders(string Container, string Prefix, ListOptions Options);
+
+		/// <summary>
+		/// DEPRECATED. Retrieves a list of files from the cloud storage provider.  See overload with ListOptions for non-deprecated use.
 		/// </summary>
 		/// <param name="Container">The name of the folder or container from which to list files.</param>
 		/// <param name="Prefix">A string with which the identifier or filename should start. Typically used to specify a relative directory within the container to list all of its files recursively. Specify null to return all files.</param>
 		/// <param name="Recursive">Indicates whether the list of files returned should traverse subdirectories</param>
+		/// <param name="bQuiet">If set to true, all log output for the operation is supressed.</param>
 		/// <returns>An array of paths to the files in the specified location and matching the prefix constraint.</returns>
-		abstract public string[] ListFiles(string Container, string Prefix = null, bool bRecursive = true, bool bQuiet = false);
+		public string[] ListFiles(string Container, string Prefix = null, bool bRecursive = true, bool bQuiet = false)
+		{
+			return ListFiles(Container, Prefix, opts =>
+			{
+				opts.bRecursive = bRecursive;
+				opts.bQuiet = bQuiet;
+			});
+		}
+
+		/// <summary>
+		/// Retrieves a list of files from the cloud storage provider
+		/// </summary>
+		/// <param name="Container">The name of the container from which to list folders.</param>
+		/// <param name="Prefix">A string to specify the identifer that you want to list from. Typically used to specify a relative folder within the container to list all of its folders. Specify null to return folders in the root of the container.</param>
+		/// <param name="Options">An action which acts upon an options object to configure the operation. See ListOptions for more details.</param>
+		/// <returns>An array of paths to the folders in the specified container and matching the prefix constraint.</returns>
+		public string[] ListFiles(string Container, string Prefix, Action<ListOptions> Options)
+		{
+			ListOptions Opts = new ListOptions();
+			if (Options != null)
+			{
+				Options(Opts);
+			}
+			return ListFiles(Container, Prefix, Opts);
+		}
+
+		/// <summary>
+		/// Retrieves a list of files from the cloud storage provider.
+		/// </summary>
+		/// <param name="Container">The name of the folder or container from which to list files.</param>
+		/// <param name="Prefix">A string with which the identifier or filename should start. Typically used to specify a relative directory within the container to list all of its files recursively. Specify null to return all files.</param>
+		/// <param name="Options">An options object to configure the operation. See ListOptions for more details.</param>
+		/// <returns>An array of paths to the files in the specified location and matching the prefix constraint.</returns>
+		abstract public string[] ListFiles(string Container, string Prefix, ListOptions Options);
 
 		/// <summary>
 		/// Sets one or more items of metadata on an object in cloud storage
@@ -851,16 +1016,24 @@ namespace EpicGames.MCP.Automation
 		/// <summary>
 		/// Updates the timestamp on a particular file in cloud storage to the current time.
 		/// </summary>
-		/// <param name="Container">The identifier of filename of the file to touch.</param>
+		/// <param name="Container">The name of the container in which the file is stored.</param>
 		/// <param name="Identifier">The identifier of filename of the file to touch.</param>
 		abstract public void TouchFile(string Container, string Identifier);
 
 		/// <summary>
-		/// Copies chunks from a staged location to cloud storage.
+		/// Copies manifest and chunks from a staged location to cloud storage.
 		/// </summary>
-		/// <param name="Container">The name of the folder or container in which to store files.</param>
+		/// <param name="Container">The name of the container in which to store files.</param>
 		/// <param name="stagingInfo">Staging info used to determine where the chunks are to copy.</param>
 		abstract public void CopyChunksToCloudStorage(string Container, BuildPatchToolStagingInfo StagingInfo);
+
+		/// <summary>
+		/// Copies manifest and its chunks from a specific path to a given target folder in the cloud.
+		/// </summary>
+		/// <param name="Container">The name of the container in which to store files.</param>
+		/// <param name="RemoteCloudDir">The path within the container that the files should be stored in.</param>
+		/// <param name="ManifestFilePath">The full path of the manifest file to copy.</param>
+		abstract public void CopyChunksToCloudStorage(string Container, string RemoteCloudDir, string ManifestFilePath);
 
 		/// <summary>
 		/// Verifies whether a manifest for a given build is in cloud storage.
@@ -881,6 +1054,34 @@ namespace EpicGames.MCP.Automation
 			/// Set to true if the write succeeds, false otherwise.
 			/// </summary>
 			public bool bSuccess { get; set; }
+		}
+
+		/// <summary>
+		/// Encapsulates options used when listing files or folders using ListFiles and ListFolders
+		/// </summary>
+		public class ListOptions
+		{
+			public ListOptions()
+			{
+				bQuiet = false;
+				bRecursive = false;
+				bReturnURLs = true;
+			}
+
+			/// <summary>
+			/// If set to true, all log output for the operation is suppressed. Defaults to false.
+			/// </summary>
+			public bool bQuiet { get; set; }
+
+			/// <summary>
+			/// Indicates whether the list of files returned should traverse subfolders. Defaults to false.
+			/// </summary>
+			public bool bRecursive { get; set; }
+
+			/// <summary>
+			/// If true, returns the full URL to the listed objects. If false, returns their identifier within the container. Defaults to true.
+			/// </summary>
+			public bool bReturnURLs { get; set; }
 		}
 	}
 }

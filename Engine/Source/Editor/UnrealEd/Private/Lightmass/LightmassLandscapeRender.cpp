@@ -10,6 +10,7 @@
 #include "EngineModule.h"
 #include "RHIStaticStates.h"
 #include "LandscapeEdit.h"
+#include "LandscapeInfo.h"
 
 struct FLightmassLandscapeVertex
 {
@@ -51,20 +52,20 @@ public:
 	/** Default constructor. */
 	FLightmassLandscapeVertexFactory()
 	{
-		FLocalVertexFactory::FDataType Data;
+		FLocalVertexFactory::FDataType VertextData;
 		// Position
-		Data.PositionComponent = STRUCTMEMBER_VERTEXSTREAMCOMPONENT(&LightmassLandscapeVertexBuffer, FLightmassLandscapeVertex, Position, VET_Float3);
+		VertextData.PositionComponent = STRUCTMEMBER_VERTEXSTREAMCOMPONENT(&LightmassLandscapeVertexBuffer, FLightmassLandscapeVertex, Position, VET_Float3);
 		// Tangents
-		Data.TangentBasisComponents[0] = STRUCTMEMBER_VERTEXSTREAMCOMPONENT(&LightmassLandscapeVertexBuffer, FLightmassLandscapeVertex, TangentX, VET_PackedNormal);
-		Data.TangentBasisComponents[1] = STRUCTMEMBER_VERTEXSTREAMCOMPONENT(&LightmassLandscapeVertexBuffer, FLightmassLandscapeVertex, TangentZ, VET_PackedNormal);
+		VertextData.TangentBasisComponents[0] = STRUCTMEMBER_VERTEXSTREAMCOMPONENT(&LightmassLandscapeVertexBuffer, FLightmassLandscapeVertex, TangentX, VET_PackedNormal);
+		VertextData.TangentBasisComponents[1] = STRUCTMEMBER_VERTEXSTREAMCOMPONENT(&LightmassLandscapeVertexBuffer, FLightmassLandscapeVertex, TangentZ, VET_PackedNormal);
 		// Color
-		Data.ColorComponent = STRUCTMEMBER_VERTEXSTREAMCOMPONENT(&LightmassLandscapeVertexBuffer, FLightmassLandscapeVertex, Color, VET_Color);
+		VertextData.ColorComponent = STRUCTMEMBER_VERTEXSTREAMCOMPONENT(&LightmassLandscapeVertexBuffer, FLightmassLandscapeVertex, Color, VET_Color);
 		// UVs (packed two to a stream component)
-		Data.TextureCoordinates.Add(STRUCTMEMBER_VERTEXSTREAMCOMPONENT(&LightmassLandscapeVertexBuffer, FLightmassLandscapeVertex, UVs[0], VET_Half4));
-		Data.TextureCoordinates.Add(STRUCTMEMBER_VERTEXSTREAMCOMPONENT(&LightmassLandscapeVertexBuffer, FLightmassLandscapeVertex, UVs[2], VET_Half4));
+		VertextData.TextureCoordinates.Add(STRUCTMEMBER_VERTEXSTREAMCOMPONENT(&LightmassLandscapeVertexBuffer, FLightmassLandscapeVertex, UVs[0], VET_Half4));
+		VertextData.TextureCoordinates.Add(STRUCTMEMBER_VERTEXSTREAMCOMPONENT(&LightmassLandscapeVertexBuffer, FLightmassLandscapeVertex, UVs[2], VET_Half4));
 
 		// update the data
-		SetData(Data);
+		SetData(VertextData);
 	}
 };
 TGlobalResource<FLightmassLandscapeVertexFactory> LightmassLandscapeVertexFactory;
@@ -222,7 +223,7 @@ void GetLandscapeOpacityData(const FLandscapeStaticLightingMesh* LandscapeMesh, 
 	const int32 LightingLOD = LandscapeComponent->GetLandscapeProxy()->StaticLightingLOD;
 	const float LightMapRatio = ::GetTerrainExpandPatchCount(LightMapRes, PatchExpandCountX, PatchExpandCountY, ComponentSizeQuads, (NumSubsections * (SubsectionSizeQuads + 1)), DesiredSize, LightingLOD);
 
-	ULandscapeInfo* const LandscapeInfo = LandscapeComponent->GetLandscapeInfo(false);
+	ULandscapeInfo* const LandscapeInfo = LandscapeComponent->GetLandscapeInfo();
 	check(LandscapeInfo);
 
 	FLandscapeEditDataInterface DataInterface = FLandscapeEditDataInterface(LandscapeInfo);

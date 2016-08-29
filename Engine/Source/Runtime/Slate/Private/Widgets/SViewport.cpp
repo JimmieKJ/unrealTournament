@@ -26,6 +26,7 @@ void SViewport::Construct( const FArguments& InArgs )
 	bEnableBlending = InArgs._EnableBlending;
 	bEnableStereoRendering = InArgs._EnableStereoRendering;
 	bIgnoreTextureAlpha = InArgs._IgnoreTextureAlpha;
+	bPreMultipliedAlpha = InArgs._PreMultipliedAlpha;
 	ViewportInterface = InArgs._ViewportInterface;
 	ViewportSize = InArgs._ViewportSize;
 
@@ -70,6 +71,23 @@ int32 SViewport::OnPaint( const FPaintArgs& Args, const FGeometry& AllottedGeome
 		DrawEffects |= ESlateDrawEffect::IgnoreTextureAlpha;
 	}
 
+	// Should we perform gamma correction?
+	if( !bEnableGammaCorrection )
+	{
+		DrawEffects |= ESlateDrawEffect::NoGamma;
+	}
+
+	// Show we enable blending?
+	if( !bEnableBlending )
+	{
+		DrawEffects |= ESlateDrawEffect::NoBlending;
+	}
+	// Should we use pre-multiplied alpha?
+	else if( bPreMultipliedAlpha )
+	{
+		DrawEffects |= ESlateDrawEffect::PreMultipliedAlpha;
+	}
+
 	TSharedPtr<ISlateViewport> ViewportInterfacePin = ViewportInterface.Pin();
 
 	// Tell the interface that we are drawing.
@@ -78,13 +96,12 @@ int32 SViewport::OnPaint( const FPaintArgs& Args, const FGeometry& AllottedGeome
 		ViewportInterfacePin->OnDrawViewport( AllottedGeometry, MyClippingRect, OutDrawElements, LayerId, InWidgetStyle, bParentEnabled );
 	}
 
-
 	// Only draw a quad if not rendering directly to the backbuffer
 	if( !ShouldRenderDirectly() )
 	{
 		if( ViewportInterfacePin.IsValid() && ViewportInterfacePin->GetViewportRenderTargetTexture() != nullptr )
 		{
-			FSlateDrawElement::MakeViewport( OutDrawElements, LayerId, AllottedGeometry.ToPaintGeometry(), ViewportInterfacePin, MyClippingRect, bEnableGammaCorrection, bEnableBlending, DrawEffects, InWidgetStyle.GetColorAndOpacityTint() );
+			FSlateDrawElement::MakeViewport( OutDrawElements, LayerId, AllottedGeometry.ToPaintGeometry(), ViewportInterfacePin, MyClippingRect, DrawEffects, InWidgetStyle.GetColorAndOpacityTint() );
 		}
 		else
 		{
@@ -125,12 +142,6 @@ int32 SViewport::OnPaint( const FPaintArgs& Args, const FGeometry& AllottedGeome
 			Brush,
 			MyClippingRect
 		);
-	}
-
-	// If there are any custom hit testable widgets in the 3D world we need to register their custom hit test path here.
-	if ( CustomHitTestPath.IsValid() )
-	{
-		Args.InsertCustomHitTestPath(CustomHitTestPath.ToSharedRef(), LastHitTestIndex);
 	}
 
 	return Layer;
@@ -246,16 +257,6 @@ void SViewport::SetContent( TSharedPtr<SWidget> InContent )
 	];
 }
 
-void SViewport::SetCustomHitTestPath( TSharedPtr<ICustomHitTestPath> InCustomHitTestPath )
-{
-	CustomHitTestPath = InCustomHitTestPath;
-}
-
-TSharedPtr<ICustomHitTestPath> SViewport::GetCustomHitTestPath()
-{
-	return CustomHitTestPath;
-}
-
 void SViewport::OnWindowClosed( const TSharedRef<SWindow>& WindowBeingClosed )
 {
 	if (ViewportInterface.IsValid())
@@ -327,25 +328,6 @@ void SViewport::OnFinishedPointerInput()
 	{
 		PinnedInterface->OnFinishedPointerInput();
 	}
-}
-
-void SViewport::OnArrangeChildren( const FGeometry& AllottedGeometry, FArrangedChildren& ArrangedChildren ) const
-{
-	SCompoundWidget::OnArrangeChildren(AllottedGeometry, ArrangedChildren);
-	if( ArrangedChildren.Allows3DWidgets() && CustomHitTestPath.IsValid() )
-	{
-		CustomHitTestPath->ArrangeChildren( ArrangedChildren );
-	}
-}
-
-TSharedPtr<FVirtualPointerPosition> SViewport::TranslateMouseCoordinateFor3DChild(const TSharedRef<SWidget>& ChildWidget, const FGeometry& MyGeometry, const FVector2D& ScreenSpaceMouseCoordinate, const FVector2D& LastScreenSpaceMouseCoordinate) const
-{
-	if( CustomHitTestPath.IsValid() )
-	{
-		return CustomHitTestPath->TranslateMouseCoordinateFor3DChild( ChildWidget, MyGeometry, ScreenSpaceMouseCoordinate, LastScreenSpaceMouseCoordinate );
-	}
-
-	return nullptr;
 }
 
 FNavigationReply SViewport::OnNavigation(const FGeometry& MyGeometry, const FNavigationEvent& InNavigationEvent)

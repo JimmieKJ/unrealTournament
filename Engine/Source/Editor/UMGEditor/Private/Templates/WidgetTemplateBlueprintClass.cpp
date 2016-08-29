@@ -36,15 +36,14 @@ FText FWidgetTemplateBlueprintClass::GetCategory() const
 	}
 	else
 	{
-		const FString* FoundPaletteCategory = WidgetAssetData.TagsAndValues.Find(GET_MEMBER_NAME_CHECKED(UWidgetBlueprint, PaletteCategory));
-
-		if ( FoundPaletteCategory && !FoundPaletteCategory->IsEmpty() )
+		//If the blueprint is unloaded we need to extract it from the asset metadata.
+		FText FoundPaletteCategoryText = WidgetAssetData.GetTagValueRef<FText>(GET_MEMBER_NAME_CHECKED(UWidgetBlueprint, PaletteCategory));
+		if (!FoundPaletteCategoryText.IsEmpty())
 		{
-			return FText::FromString(*FoundPaletteCategory);
+			return FoundPaletteCategoryText;
 		}
 		else
 		{
-			//If the blueprint is unloaded we need to extract it from the asset metadata.
 			auto DefaultUserWidget = UUserWidget::StaticClass()->GetDefaultObject<UUserWidget>();
 			return DefaultUserWidget->GetPaletteCategory();
 		}
@@ -77,12 +76,12 @@ const FSlateBrush* FWidgetTemplateBlueprintClass::GetIcon() const
 TSharedRef<IToolTip> FWidgetTemplateBlueprintClass::GetToolTip() const
 {
 	FText Description;
-	if ( const FString* DescriptionStr = WidgetAssetData.TagsAndValues.Find( GET_MEMBER_NAME_CHECKED( UBlueprint, BlueprintDescription ) ) )
+
+	FString DescriptionStr = WidgetAssetData.GetTagValueRef<FString>( GET_MEMBER_NAME_CHECKED( UBlueprint, BlueprintDescription ) );
+	if ( !DescriptionStr.IsEmpty() )
 	{
-		if ( !DescriptionStr->IsEmpty() )
-		{
-			Description = FText::FromString( DescriptionStr->Replace( TEXT( "\\n" ), TEXT( "\n" ) ) );
-		}
+		DescriptionStr.ReplaceInline( TEXT( "\\n" ), TEXT( "\n" ) );
+		Description = FText::FromString( MoveTemp(DescriptionStr) );
 	}
 	else
 	{
@@ -96,6 +95,11 @@ FReply FWidgetTemplateBlueprintClass::OnDoubleClicked()
 {
 	FAssetEditorManager::Get().OpenEditorForAsset( WidgetAssetData.GetAsset() );
 	return FReply::Handled();
+}
+
+FAssetData FWidgetTemplateBlueprintClass::GetWidgetAssetData()
+{
+	return WidgetAssetData;
 }
 
 #undef LOCTEXT_NAMESPACE

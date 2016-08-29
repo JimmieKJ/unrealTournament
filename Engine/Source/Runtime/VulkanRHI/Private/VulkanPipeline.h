@@ -6,8 +6,8 @@
 
 #pragma once
 
-struct FVulkanDevice;
-struct FVulkanFramebuffer;
+class FVulkanDevice;
+class FVulkanFramebuffer;
 
 // High level description of the state
 struct FVulkanPipelineState
@@ -35,9 +35,10 @@ struct FVulkanPipelineState
 	TRefCountPtr<FVulkanBlendState> BlendState;
 	TRefCountPtr<FVulkanDepthStencilState> DepthStencilState;
 
-	VkRect2D Scissor, PrevScissor;
-	VkViewport Viewport, PrevViewport;
-	bool bNeedsScissorUpdate, bNeedsViewportUpdate;
+	VkRect2D Scissor;
+	VkViewport Viewport;
+	uint32 StencilRef, PrevStencilRef;
+	bool bNeedsScissorUpdate, bNeedsViewportUpdate, bNeedsStencilRefUpdate;
 
 private:
 	void InitializeDefaultStates();
@@ -80,16 +81,16 @@ inline uint32 GetTypeHash(const FVulkanPipelineStateKey& Key)
 
 #endif
 
-class FVulkanPipeline
+class FVulkanPipeline : public VulkanRHI::FRefCount
 {
 public:
 	FVulkanPipeline(FVulkanDevice* InDevice);
+	~FVulkanPipeline();
 
 #if !VULKAN_ENABLE_PIPELINE_CACHE
 	void Create(const FVulkanPipelineState& State);
-#endif
-
 	void Destroy();
+#endif
 
 	inline VkPipeline GetHandle() const
 	{
@@ -98,14 +99,14 @@ public:
 
 	inline void UpdateDynamicStates(FVulkanCmdBuffer* Cmd, FVulkanPipelineState& State)
 	{
-		if (State.bNeedsViewportUpdate || State.bNeedsScissorUpdate)
+		if (State.bNeedsViewportUpdate || State.bNeedsScissorUpdate || State.bNeedsStencilRefUpdate)
 		{
-			InternalUpdateDynamicStates(Cmd, State, State.bNeedsViewportUpdate, State.bNeedsScissorUpdate);
+			InternalUpdateDynamicStates(Cmd, State, State.bNeedsViewportUpdate, State.bNeedsScissorUpdate, State.bNeedsStencilRefUpdate);
 		}
 	}
 
 private:
-	void InternalUpdateDynamicStates(FVulkanCmdBuffer* Cmd, FVulkanPipelineState& State, bool bNeedsViewportUpdate, bool bNeedsScissorUpdate);
+	void InternalUpdateDynamicStates(FVulkanCmdBuffer* Cmd, FVulkanPipelineState& State, bool bNeedsViewportUpdate, bool bNeedsScissorUpdate, bool bNeedsStencilRefUpdate);
 
 	FVulkanDevice* Device;
 	VkPipeline Pipeline;
@@ -124,13 +125,13 @@ class FVulkanPipelineStateCache
 public:
 	FVulkanPipeline* Find(const FVulkanPipelineStateKey& CreateInfo)
 	{
-		auto** Found = Cache.Find(CreateInfo);
+		FVulkanPipeline** Found = KeyToPipelineMap.Find(CreateInfo);
 #if 0
 		if (Found)
 		{
 			for (int i = 0; i < DiskEntries.Num(); ++i)
 			{
-				auto* Entry = &DiskEntries[i];
+				FDiskEntry* Entry = &DiskEntries[i];
 				if (Entry->PipelineKey == CreateInfo.PipelineKey)
 				{
 					if (!FMemory::Memcmp(Entry->ShaderHashes, CreateInfo.ShaderHashes, sizeof(CreateInfo.ShaderHashes)))
@@ -144,6 +145,8 @@ public:
 #endif
 		return Found ? *Found : nullptr;
 	}
+
+	void DestroyPipeline(FVulkanPipeline* Pipeline);
 
 	// Array of potential cache locations; first entries have highest priority. Only one cache file is loaded. If unsuccessful, tries next entry in the array.
 	void InitAndLoad(const TArray<FString>& CacheFilenames);
@@ -504,7 +507,11 @@ public:
 private:
 	FVulkanDevice* Device;
 
-	TMap<FVulkanPipelineStateKey, FVulkanPipeline*> Cache;
+	// Map the runtime key to a pipeline pointer
+	TMap<FVulkanPipelineStateKey, FVulkanPipeline*> KeyToPipelineMap;
+
+	// Map used to delete the created pipelines
+	TMap<FDiskEntry*, FVulkanPipeline*> CreatedPipelines;
 
 	TIndirectArray<FDiskEntry> DiskEntries;
 
@@ -514,6 +521,7 @@ private:
 	void PopulateDiskEntry(const FVulkanPipelineState& State, const FVulkanRenderPass* RenderPass, FDiskEntry* OutDiskEntry);
 	void CreateDiskEntryRuntimeObjects(FDiskEntry* DiskEntry);
 	bool Load(const TArray<FString>& CacheFilenames, TArray<uint8>& OutDeviceCache);
+	void DestroyCache();
 };
 
 #endif	// VULKAN_ENABLE_PIPELINE_CACHE

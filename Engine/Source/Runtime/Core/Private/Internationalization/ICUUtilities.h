@@ -3,7 +3,16 @@
 #pragma once
 
 #if UE_ENABLE_ICU
-#include "unicode/unistr.h"
+#if defined(_MSC_VER) && USING_CODE_ANALYSIS
+	#pragma warning(push)
+	#pragma warning(disable:28251)
+	#pragma warning(disable:28252)
+	#pragma warning(disable:28253)
+#endif
+	#include "unicode/unistr.h"
+#if defined(_MSC_VER) && USING_CODE_ANALYSIS
+	#pragma warning(pop)
+#endif
 
 namespace ICUUtilities
 {

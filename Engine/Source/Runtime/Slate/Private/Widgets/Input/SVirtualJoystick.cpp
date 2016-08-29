@@ -121,7 +121,7 @@ int32 SVirtualJoystick::OnPaint( const FPaintArgs& Args, const FGeometry& Allott
 	if (bVisible)
 	{
 		FLinearColor ColorAndOpacitySRGB = InWidgetStyle.GetColorAndOpacityTint();
-		ColorAndOpacitySRGB.A = FMath::RoundToInt(255.f * CurrentOpacity);
+		ColorAndOpacitySRGB.A = CurrentOpacity;
 
 		for (int32 ControlIndex = 0; ControlIndex < Controls.Num(); ControlIndex++)
 		{
@@ -377,10 +377,25 @@ void SVirtualJoystick::Tick( const FGeometry& AllottedGeometry, const double InC
 		{
 			Control.bSendOneMoreEvent = false;
 
+			// Get the corrected thumb offset scale (now allows ellipse instead of assuming square)
+			FVector2D ThumbScaledOffset = FVector2D(Control.ThumbPosition.X * 2.0f / Control.CorrectedVisualSize.X, Control.ThumbPosition.Y * 2.0f / Control.CorrectedVisualSize.Y);
+			float ThumbSquareSum = ThumbScaledOffset.X * ThumbScaledOffset.X + ThumbScaledOffset.Y * ThumbScaledOffset.Y;
+			float ThumbMagnitude = FMath::Sqrt(ThumbSquareSum);
+			FVector2D ThumbNormalized = FVector2D(0.f, 0.f);
+			if (ThumbSquareSum > SMALL_NUMBER)
+			{
+				const float Scale = 1.0f / ThumbMagnitude;
+				ThumbNormalized = FVector2D(ThumbScaledOffset.X * Scale, ThumbScaledOffset.Y * Scale);
+			}
+
+			// Find the scale to apply to ThumbNormalized vector to project onto unit square
+			float ToSquareScale = fabs(ThumbNormalized.Y) > fabs(ThumbNormalized.X) ? FMath::Sqrt((ThumbNormalized.X * ThumbNormalized.X) / (ThumbNormalized.Y * ThumbNormalized.Y) + 1.0f)
+				: ThumbNormalized.X == 0.0f ? 1.0f : FMath::Sqrt((ThumbNormalized.Y * ThumbNormalized.Y) / (ThumbNormalized.X * ThumbNormalized.X) + 1.0f);
+
+			// Apply proportional offset corrected for projection to unit square
+			FVector2D NormalizedOffset = ThumbNormalized * Control.CorrectedInputScale * ThumbMagnitude * ToSquareScale;
+
 			// now pass the fake joystick events to the game
-			// Assume that joystick size is all equal
-			float JoystickInputSize = Control.ThumbPosition.Size() * 2.f / Control.CorrectedVisualSize.X;
-			FVector2D NormalizedOffset = Control.ThumbPosition.GetSafeNormal() * Control.CorrectedInputScale * JoystickInputSize;
 			const FGamepadKeyNames::Type XAxis = (Control.MainInputKey.IsValid() ? Control.MainInputKey.GetFName() : (ControlIndex == 0 ? FGamepadKeyNames::LeftAnalogX : FGamepadKeyNames::RightAnalogX));
 			const FGamepadKeyNames::Type YAxis = (Control.AltInputKey.IsValid() ? Control.AltInputKey.GetFName() : (ControlIndex == 0 ? FGamepadKeyNames::LeftAnalogY : FGamepadKeyNames::RightAnalogY));
 

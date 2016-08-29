@@ -290,7 +290,7 @@ DECLARE_CYCLE_STAT_EXTERN(TEXT("Sprite Tick Time"),STAT_GPUSpriteTickTime,STATGR
 DECLARE_CYCLE_STAT_EXTERN(TEXT("Sprite Spawn Time"),STAT_GPUSpriteSpawnTime,STATGROUP_GPUParticles, );
 DECLARE_CYCLE_STAT_EXTERN(TEXT("Sprite PreRender Time"),STAT_GPUSpritePreRenderTime,STATGROUP_GPUParticles, );
 DECLARE_CYCLE_STAT_EXTERN(TEXT("Sprite Render Time"),STAT_GPUSpriteRenderingTime,STATGROUP_GPUParticles, );
-DECLARE_CYCLE_STAT_EXTERN(TEXT("Particle Tick Time"),STAT_GPUParticleTickTime,STATGROUP_GPUParticles, );
+DECLARE_CYCLE_STAT_EXTERN(TEXT("GPU Particle Tick Time"),STAT_GPUParticleTickTime,STATGROUP_GPUParticles, );
 DECLARE_CYCLE_STAT_EXTERN(TEXT("Build Sim Commands"),STAT_GPUParticleBuildSimCmdsTime,STATGROUP_GPUParticles, );
 DECLARE_CYCLE_STAT_EXTERN(TEXT("Cull Vector Fields"),STAT_GPUParticleVFCullTime,STATGROUP_GPUParticles, );
 DECLARE_CYCLE_STAT_EXTERN(TEXT("Misc1"),STAT_GPUParticleMisc1,STATGROUP_GPUParticles, );
@@ -858,33 +858,6 @@ private:
 	int32 ArrayMax;
 	/** Pointer to an array, stored within a contiguous memory block.*/
 	ElementType* Array;
-};
-
-/** ModuleLocationBoneSocket instance payload */
-struct FModuleLocationBoneSocketInstancePayload
-{
-	/** The skeletal mesh component used as the source of the sockets */
-	TWeakObjectPtr<USkeletalMeshComponent> SourceComponent;
-	/** The last selected index into the socket array */
-	int32 LastSelectedIndex;
-	/** The index of the current 'unused' indices */
-	int32 CurrentUnused;
-	/** The position of each bone/socket from the previous tick. Used to calculate the inherited bone velocity when spawning particles. */
-	TPreallocatedArrayProxy<FVector> PrevFrameBoneSocketPositions;
-	/** The velocity of each bone/socket. Used to calculate the inherited bone velocity when spawning particles. */
-	TPreallocatedArrayProxy<FVector> BoneSocketVelocities;
-	
-	/** Initialize array proxies and map to memory that has been allocated in the emitter's instance data buffer */
-	void InitArrayProxies( int32 FixedArraySize )
-	{
-		// Calculate offsets into instance data buffer for the arrays and initialize the buffer proxies. The allocation 
-		// size for these arrays is calculated in RequiredBytesPerInstance.
-		const uint32 StructSize =  sizeof(FModuleLocationBoneSocketInstancePayload);
-		PrevFrameBoneSocketPositions = TPreallocatedArrayProxy<FVector>((uint8*)this + StructSize, FixedArraySize);
-
-		const uint32 StructOffset = StructSize + (FixedArraySize*sizeof(FVector));
-		BoneSocketVelocities = TPreallocatedArrayProxy<FVector>((uint8*)this + StructOffset, FixedArraySize );
-	}
 };
 
 /** ModuleLocationBoneSocket per-particle payload */
@@ -1534,9 +1507,9 @@ struct FDynamicSpriteEmitterDataBase : public FDynamicEmitterDataBase
 	 *
 	 *	@return	FMaterialRenderProxy*	The material proxt to render with.
 	 */
-	const FMaterialRenderProxy* GetMaterialRenderProxy(bool bSelected) 
+	const FMaterialRenderProxy* GetMaterialRenderProxy(bool bInSelected) 
 	{ 
-		return MaterialResource[bSelected]; 
+		return MaterialResource[bInSelected]; 
 	}
 
 	/**
@@ -1819,7 +1792,7 @@ struct FDynamicMeshEmitterData : public FDynamicSpriteEmitterDataBase
 	FParticleVertexFactoryBase *CreateVertexFactory() override;
 
 	/** Initialize this emitter's dynamic rendering data, called after source data has been filled in */
-	void Init(bool bInSelected,const FParticleMeshEmitterInstance* InEmitterInstance,UStaticMesh* InStaticMesh);
+	void Init(bool bInSelected,const FParticleMeshEmitterInstance* InEmitterInstance,UStaticMesh* InStaticMesh, ERHIFeatureLevel::Type InFeatureLevel );
 
 	/**
 	 *	Create the render thread resources for this emitter data
@@ -2470,7 +2443,6 @@ public:
 	}
 	virtual void GetDynamicMeshElements(const TArray<const FSceneView*>& Views, const FSceneViewFamily& ViewFamily, uint32 VisibilityMap, FMeshElementCollector& Collector) const override;
 	virtual FPrimitiveViewRelevance GetViewRelevance(const FSceneView* View) const override;
-	virtual void OnActorPositionChanged() override;
 	virtual void OnTransformChanged() override;
 
 	/** Gathers simple lights for this emitter. */
@@ -2513,6 +2485,7 @@ public:
 		return( AdditionalSize ); 
 	}
 
+	// @param FrameNumber from ViewFamily.FrameNumber
 	void DetermineLODDistance(const FSceneView* View, int32 FrameNumber);
 
 	/**
@@ -2632,6 +2605,7 @@ protected:
 	float PendingLODDistance;
 	int32 VisualizeLODIndex; // Only used in the LODColoration view mode.
 
+	// from ViewFamily.FrameNumber
 	int32 LastFramePreRendered;
 
 	/** The primitive's uniform buffer.  Mutable because it is cached state during GetDynamicMeshElements. */
@@ -2824,3 +2798,14 @@ enum class EParticleSystemInsignificanceReaction: uint8
 	Num UMETA(Hidden),
 };
 
+/** Helper class to reset and recreate all PSCs with specific templates on their next tick. */
+class ENGINE_API FParticleResetContext
+{
+public:
+
+	TArray<class UParticleSystem*, TInlineAllocator<32>> SystemsToReset;
+	void AddTemplate(class UParticleSystem* Template);
+	void AddTemplate(class UParticleModule* Module);
+	void AddTemplate(class UParticleEmitter* Emitter);
+	~FParticleResetContext();
+};

@@ -14,9 +14,8 @@ enum EFileInteraction
 {
 	FI_Load,
 	FI_Save,
-	FI_Import,
 	FI_ImportScene,
-	FI_Export
+	FI_ExportScene
 };
 
 namespace EAutosaveContentPackagesResult
@@ -118,10 +117,11 @@ public:
 	 *
 	 * @param	Level				The level to be saved.
 	 * @param	DefaultFilename		File name to use for this level if it doesn't have one yet (or empty string to prompt)
+	 * @param	OutSavedFilename	When returning true, this string will be set to the filename of the saved level.
 	 *
 	 * @return				true if the level was saved.
 	 */
-	static UNREALED_API bool SaveLevel(ULevel* Level, const FString& DefaultFilename = TEXT( "" ) );
+	static UNREALED_API bool SaveLevel(ULevel* Level, const FString& DefaultFilename = TEXT( "" ), FString* OutSavedFilename = nullptr );
 
 	/**
 	 * Does a SaveAs for the specified assets.
@@ -134,10 +134,11 @@ public:
 	/**
 	 * Does a saveAs for the specified level.
 	 *
-	 * @param	Level		The Level to be SaveAs'd.
-	 * @return				true if the world was saved.
+	 * @param	Level				The Level to be SaveAs'd.
+	 * @param	OutSavedFilename	When returning true, this string will be set to the filename of the saved level.
+	 * @return						true if the world was saved.
 	 */
-	UNREALED_API static bool SaveLevelAs(ULevel* Level);
+	UNREALED_API static bool SaveLevelAs(ULevel* Level, FString* OutSavedFilename = nullptr);
 
 	/**
 	 * Saves all levels to the specified directory.
@@ -270,8 +271,8 @@ public:
 	 * Presents the user with a file dialog for importing.
 	 * If the import is not a merge (bMerging is false), AskSaveChanges() is called first.
 	 */
-	UNREALED_API static void Import(bool bImportScene);
-	UNREALED_API static void Import(const FString& InFilename, bool bImportScene);
+	UNREALED_API static void Import();
+	UNREALED_API static void Import(const FString& InFilename);
 	UNREALED_API static void Export(bool bExportSelectedActorsOnly);			// prompts user for file etc.
 
 	////////////////////////////////////////////////////////////////////////////
@@ -430,7 +431,14 @@ public:
 	 * @param	ObjectPath		The path to the package to test
 	 * @return					The package name from the string
 	 */
-	UNREALED_API static FString ExtractPackageName(const FString& ObjectPath);
+	UNREALED_API static FString ExtractPackageName(const FString& ObjectPath);\
+
+	////////////////////////////////////////////////////////////////////////////
+	// File
+
+	UNREALED_API static FString GetFilename(const FName& PackageName);
+
+	UNREALED_API static FString GetFilename(UObject* LevelObject);
 
 private:
 

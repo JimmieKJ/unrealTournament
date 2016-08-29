@@ -76,21 +76,22 @@ void UK2Node_GameplayCueEvent::GetMenuActions(FBlueprintActionDatabaseRegistrar&
 	};
 	
 	IGameplayTagsModule& GameplayTagsModule = IGameplayTagsModule::Get();
-	FGameplayTag RootTag = GameplayTagsModule.GetGameplayTagsManager().RequestGameplayTag(FName(TEXT("GameplayCue")));
-	
-	
-	FGameplayTagContainer CueTags = GameplayTagsModule.GetGameplayTagsManager().RequestGameplayTagChildren(RootTag);
-	// Add a root GameplayCue function as a default
-	CueTags.AddTag(RootTag);
-	for (auto TagIt = CueTags.CreateConstIterator(); TagIt; ++TagIt)
+	FGameplayTag RootTag = GameplayTagsModule.GetGameplayTagsManager().RequestGameplayTag(FName(TEXT("GameplayCue")), false);
+	if (RootTag.IsValid())
 	{
-		UBlueprintNodeSpawner::FCustomizeNodeDelegate PostSpawnDelegate = UBlueprintNodeSpawner::FCustomizeNodeDelegate::CreateStatic(CustomizeCueNodeLambda, TagIt->GetTagName());
+		FGameplayTagContainer CueTags = GameplayTagsModule.GetGameplayTagsManager().RequestGameplayTagChildren(RootTag);
+		// Add a root GameplayCue function as a default
+		CueTags.AddTag(RootTag);
+		for (auto TagIt = CueTags.CreateConstIterator(); TagIt; ++TagIt)
+		{
+			UBlueprintNodeSpawner::FCustomizeNodeDelegate PostSpawnDelegate = UBlueprintNodeSpawner::FCustomizeNodeDelegate::CreateStatic(CustomizeCueNodeLambda, TagIt->GetTagName());
 		
-		UBlueprintNodeSpawner* NodeSpawner = UBlueprintEventNodeSpawner::Create(GetClass(), TagIt->GetTagName());
-		check(NodeSpawner != nullptr);
-		NodeSpawner->CustomizeNodeDelegate = PostSpawnDelegate;
+			UBlueprintNodeSpawner* NodeSpawner = UBlueprintEventNodeSpawner::Create(GetClass(), TagIt->GetTagName());
+			check(NodeSpawner != nullptr);
+			NodeSpawner->CustomizeNodeDelegate = PostSpawnDelegate;
 		
-		ActionRegistrar.AddBlueprintAction(ActionKey, NodeSpawner);
+			ActionRegistrar.AddBlueprintAction(ActionKey, NodeSpawner);
+		}
 	}
 }
 

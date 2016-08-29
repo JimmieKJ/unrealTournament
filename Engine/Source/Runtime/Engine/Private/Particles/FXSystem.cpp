@@ -108,14 +108,12 @@ namespace FXConsoleVariables
 	FAutoConsoleVariableRef CVarMaxCPUParticlesPerEmitter(
 		TEXT("FX.MaxCPUParticlesPerEmitter"),
 		MaxCPUParticlesPerEmitter,
-		TEXT("Maximum number of CPU particles allowed per-emitter."),
-		ECVF_Cheat
+		TEXT("Maximum number of CPU particles allowed per-emitter.")
 		);
 	FAutoConsoleVariableRef CVarMaxGPUParticlesSpawnedPerFrame(
 		TEXT("FX.MaxGPUParticlesSpawnedPerFrame"),
 		MaxGPUParticlesSpawnedPerFrame,
-		TEXT("Maximum number of GPU particles allowed to spawn per-frame per-emitter."),
-		ECVF_Cheat
+		TEXT("Maximum number of GPU particles allowed to spawn per-frame per-emitter.")
 		);
 	FAutoConsoleVariableRef CVarGPUSpawnWarningThreshold(
 		TEXT("FX.GPUSpawnWarningThreshold"),

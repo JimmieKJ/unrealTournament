@@ -19,7 +19,7 @@ FUTOnlineSessionSettings::FUTOnlineSessionSettings(bool bIsLAN, bool bIsPresence
 	bAllowJoinViaPresence = true;
 	bAllowJoinViaPresenceFriendsOnly = false;
 	
-	FString Region = FQosInterface::GetDefaultRegionString();
+	FString Region = TEXT("NA");
 	FString RegionOverride;
 	if (FParse::Value(FCommandLine::Get(), TEXT("REGION="), RegionOverride))
 	{

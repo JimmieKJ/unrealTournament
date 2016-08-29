@@ -33,6 +33,7 @@
 #include "GlobalDistanceFieldParameters.h"
 
 DECLARE_CYCLE_STAT(TEXT("GPUSpriteEmitterInstance Init"), STAT_GPUSpriteEmitterInstance_Init, STATGROUP_Particles);
+DECLARE_FLOAT_COUNTER_STAT(TEXT("Particle Simulation"), Stat_GPU_ParticleSimulation, STATGROUP_GPU);
 
 /*------------------------------------------------------------------------------
 	Constants to tune memory and performance for GPU particle simulation.
@@ -82,6 +83,8 @@ enum { MAX_VECTOR_FIELDS = 4 };
 static TAutoConsoleVariable<float> CVarGPUParticleFixDeltaSeconds(TEXT("r.GPUParticle.FixDeltaSeconds"), 1.f/30.f,TEXT("GPU particle fix delta seconds."));
 static TAutoConsoleVariable<float> CVarGPUParticleFixTolerance(TEXT("r.GPUParticle.FixTolerance"),.1f,TEXT("Delta second tolerance before switching to a fix delta seconds."));
 static TAutoConsoleVariable<int32> CVarGPUParticleMaxNumIterations(TEXT("r.GPUParticle.MaxNumIterations"),3,TEXT("Max number of iteration when using a fix delta seconds."));
+
+static TAutoConsoleVariable<int32> CVarSimulateGPUParticles(TEXT("r.GPUParticle.Simulate"), 1, TEXT("Enable or disable GPU particle simulation"));
 
 /*-----------------------------------------------------------------------------
 	Allocators used to manage GPU particle resources.
@@ -896,14 +899,8 @@ public:
 	{
 		FGlobalShader::ModifyCompilationEnvironment( Platform, OutEnvironment );
 		OutEnvironment.SetDefine(TEXT("TILES_PER_INSTANCE"), TILES_PER_INSTANCE);
-		OutEnvironment.SetFloatDefine(
-			TEXT("TILE_SIZE_X"),
-			(float)GParticleSimulationTileSize / (float)GParticleSimulationTextureSizeX
-			);
-		OutEnvironment.SetFloatDefine(
-			TEXT("TILE_SIZE_Y"),
-			(float)GParticleSimulationTileSize / (float)GParticleSimulationTextureSizeY
-			);
+		OutEnvironment.SetDefine(TEXT("TILE_SIZE_X"), (float)GParticleSimulationTileSize / (float)GParticleSimulationTextureSizeX);
+		OutEnvironment.SetDefine(TEXT("TILE_SIZE_Y"), (float)GParticleSimulationTileSize / (float)GParticleSimulationTextureSizeY);
 
 		if (Platform == SP_OPENGL_ES2_ANDROID)
 		{
@@ -967,8 +964,8 @@ public:
 		FGlobalShader::ModifyCompilationEnvironment(Platform, OutEnvironment);
 		OutEnvironment.SetDefine(TEXT("PARTICLE_SIMULATION_PIXELSHADER"), 1);
 		OutEnvironment.SetDefine(TEXT("MAX_VECTOR_FIELDS"), MAX_VECTOR_FIELDS);
-		OutEnvironment.SetDefine(TEXT("DEPTH_BUFFER_COLLISION"), (uint32)(CollisionMode == PCM_DepthBuffer ? 1 : 0));
-		OutEnvironment.SetDefine(TEXT("DISTANCE_FIELD_COLLISION"), (uint32)(CollisionMode == PCM_DistanceField ? 1 : 0));
+		OutEnvironment.SetDefine(TEXT("DEPTH_BUFFER_COLLISION"), CollisionMode == PCM_DepthBuffer);
+		OutEnvironment.SetDefine(TEXT("DISTANCE_FIELD_COLLISION"), CollisionMode == PCM_DistanceField);
 		OutEnvironment.SetRenderTargetOutputFormat(0, PF_A32B32G32R32F);
 
 		if (Platform == SP_OPENGL_ES2_ANDROID)
@@ -1388,7 +1385,14 @@ void ExecuteSimulationCommands(
 	FTexture2DRHIParamRef GBufferATexture,
 	bool bUseFixDT)
 {
+	if (!CVarSimulateGPUParticles.GetValueOnAnyThread())
+	{
+		return;
+	}
+
 	SCOPED_DRAW_EVENT(RHICmdList, ParticleSimulation);
+	SCOPED_GPU_STAT(RHICmdList, Stat_GPU_ParticleSimulation);
+
 
 	const float FixDeltaSeconds = CVarGPUParticleFixDeltaSeconds.GetValueOnRenderThread();
 	const FParticleStateTextures& TextureResources = (FixDeltaSeconds <= 0 || bUseFixDT) ? ParticleSimulationResources->GetPreviousStateTextures() : ParticleSimulationResources->GetCurrentStateTextures();
@@ -1493,7 +1497,13 @@ void ExecuteSimulationCommands(
  */
 void ClearTiles(FRHICommandList& RHICmdList, ERHIFeatureLevel::Type FeatureLevel, const TArray<uint32>& Tiles)
 {
+	if (!CVarSimulateGPUParticles.GetValueOnAnyThread())
+	{
+		return;
+	}
+
 	SCOPED_DRAW_EVENT(RHICmdList, ClearTiles);
+	SCOPED_GPU_STAT(RHICmdList, Stat_GPU_ParticleSimulation);
 
 	const int32 MaxTilesPerDrawCallUnaligned = GParticleScratchVertexBufferSize / sizeof(FVector2D);
 	const int32 MaxTilesPerDrawCall = MaxTilesPerDrawCallUnaligned & (~(TILES_PER_INSTANCE-1));
@@ -1745,7 +1755,7 @@ TGlobalResource<FParticleInjectionVertexDeclaration> GParticleInjectionVertexDec
  */
 void InjectNewParticles(FRHICommandList& RHICmdList, ERHIFeatureLevel::Type FeatureLevel, const TArray<FNewParticle>& NewParticles)
 {
-	if (GIsRenderingThreadSuspended)
+	if (GIsRenderingThreadSuspended || !CVarSimulateGPUParticles.GetValueOnAnyThread())
 	{
 		return;
 	}
@@ -2733,6 +2743,9 @@ struct FGPUSpriteDynamicEmitterData : FDynamicEmitterDataBase
 	uint32 bLocalVectorFieldTileY : 1;
 	/** Tile vector field in z axis? */
 	uint32 bLocalVectorFieldTileZ : 1;
+	/** Tile vector field in z axis? */
+	uint32 bLocalVectorFieldUseFixDT : 1;
+
 
 	/** Current MacroUV override settings */
 	FMacroUVOverride MacroUVOverride;
@@ -2748,6 +2761,7 @@ struct FGPUSpriteDynamicEmitterData : FDynamicEmitterDataBase
 		, bLocalVectorFieldTileX(false)
 		, bLocalVectorFieldTileY(false)
 		, bLocalVectorFieldTileZ(false)
+		, bLocalVectorFieldUseFixDT(false)
 	{
 		GetNewParticleArray(NewParticles);
 	}
@@ -2778,6 +2792,8 @@ struct FGPUSpriteDynamicEmitterData : FDynamicEmitterDataBase
 		Simulation->LocalVectorField.bTileX = bLocalVectorFieldTileX;
 		Simulation->LocalVectorField.bTileY = bLocalVectorFieldTileY;
 		Simulation->LocalVectorField.bTileZ = bLocalVectorFieldTileZ;
+		Simulation->LocalVectorField.bUseFixDT = bLocalVectorFieldUseFixDT;
+
 		if (Simulation->LocalVectorField.Resource)
 		{
 			Simulation->LocalVectorField.UpdateTransforms(LocalVectorFieldToWorld);
@@ -2962,10 +2978,10 @@ struct FGPUSpriteDynamicEmitterData : FDynamicEmitterDataBase
 	/**
 	 * Retrieves the material render proxy with which to render sprites.
 	 */
-	virtual const FMaterialRenderProxy* GetMaterialRenderProxy(bool bSelected) override
+	virtual const FMaterialRenderProxy* GetMaterialRenderProxy(bool bInSelected) override
 	{
 		check( Material );
-		return Material->GetRenderProxy( bSelected );
+		return Material->GetRenderProxy( bInSelected );
 	}
 
 	/**
@@ -3117,7 +3133,7 @@ public:
 	 *
 	 *	@return	bool		true if GetDynamicData should continue, false if it should return NULL
 	 */
-	virtual bool IsDynamicDataRequired(UParticleLODLevel* CurrentLODLevel) override
+	virtual bool IsDynamicDataRequired(UParticleLODLevel* InCurrentLODLevel) override
 	{
 		bool bShouldRender = (ActiveParticles >= 0 || TilesToClear.Num() || NewParticles.Num());
 		bool bCanRender = (FXSystem != NULL) && (Component != NULL) && (Component->FXSystem == FXSystem);
@@ -3127,7 +3143,7 @@ public:
 	/**
 	 *	Retrieves the dynamic data for the emitter
 	 */
-	virtual FDynamicEmitterDataBase* GetDynamicData(bool bSelected) override
+	virtual FDynamicEmitterDataBase* GetDynamicData(bool bSelected, ERHIFeatureLevel::Type InFeatureLevel) override
 	{
 		QUICK_SCOPE_CYCLE_COUNTER(STAT_FDynamicEmitterDataBase_GetDynamicData);
 		check(Component);
@@ -3162,6 +3178,7 @@ public:
 		DynamicData->bLocalVectorFieldTileX = EmitterInfo.LocalVectorField.bTileX;	
 		DynamicData->bLocalVectorFieldTileY = EmitterInfo.LocalVectorField.bTileY;	
 		DynamicData->bLocalVectorFieldTileZ = EmitterInfo.LocalVectorField.bTileZ;	
+		DynamicData->bLocalVectorFieldUseFixDT = EmitterInfo.LocalVectorField.bUseFixDT;
 		DynamicData->SortMode = EmitterInfo.RequiredModule->SortMode;
 		DynamicData->bSelected = bSelected;
 		DynamicData->bUseLocalSpace = EmitterInfo.RequiredModule->bUseLocalSpace;
@@ -3248,46 +3265,55 @@ public:
 			// If using fixDT strategy
 			if (FixDeltaSeconds > 0)
 			{
-				// Move some time from varying DT to fix DT simulation.
-				NumIterationsInFix = FMath::FloorToInt(DeltaSecondsInVar / FixDeltaSeconds);
-				DeltaSecondsInVar -= NumIterationsInFix * FixDeltaSeconds;
-
-				float SecondsInFix = NumIterationsInFix * FixDeltaSeconds;
-
-				const float RelativeVar = DeltaSecondsInVar / FixDeltaSeconds;
-
-				// If we had some fixed steps, try to move a small value from var dt to fix dt as an optimization (skips on full simulation step)
-				if (NumIterationsInFix > 0 && RelativeVar < FixTolerance)
+				if (!Simulation->LocalVectorField.bUseFixDT)
 				{
-					SecondsInFix += DeltaSecondsInVar;
-					DeltaSecondsInVar = 0;
-					NumIterationsInVar = 0;
+					// With FixDeltaSeconds > 0, "InFix" is the persistent delta time, while "InVar" is only used for interpolation.
+					Swap(DeltaSecondsInFix, DeltaSecondsInVar);
+					Swap(NumIterationsInFix, NumIterationsInVar);
 				}
-				// Also check if there is almost one full step.
-				else if (1.f - RelativeVar < FixTolerance) 
+				else
 				{
-					SecondsInFix += DeltaSecondsInVar;
-					NumIterationsInFix += 1;
-					DeltaSecondsInVar = 0;
-					NumIterationsInVar = 0;
-				}
-				// Otherwise, transfer a part from the varying time to the fix time. At this point, we know we will have both fix and var iterations.
-				// This prevents DT that are multiple of FixDT, from keeping an non zero OffsetSeconds.
-				else if (NumIterationsInFix > 0)
-				{
-					const float TransferedSeconds = FixTolerance * FixDeltaSeconds;
-					DeltaSecondsInVar -= TransferedSeconds;
-					SecondsInFix += TransferedSeconds;
-				}
+					// Move some time from varying DT to fix DT simulation.
+					NumIterationsInFix = FMath::FloorToInt(DeltaSecondsInVar / FixDeltaSeconds);
+					DeltaSecondsInVar -= NumIterationsInFix * FixDeltaSeconds;
 
-				if (NumIterationsInFix > 0)
-				{
-					// Here we limit the iteration count to prevent long frames from taking even longer.
-					NumIterationsInFix = FMath::Min<int32>(NumIterationsInFix, MaxNumIterations);
-					DeltaSecondsInFix = SecondsInFix / (float)NumIterationsInFix;
-				}
+					float SecondsInFix = NumIterationsInFix * FixDeltaSeconds;
 
-				OffsetSeconds = DeltaSecondsInVar;
+					const float RelativeVar = DeltaSecondsInVar / FixDeltaSeconds;
+
+					// If we had some fixed steps, try to move a small value from var dt to fix dt as an optimization (skips on full simulation step)
+					if (NumIterationsInFix > 0 && RelativeVar < FixTolerance)
+					{
+						SecondsInFix += DeltaSecondsInVar;
+						DeltaSecondsInVar = 0;
+						NumIterationsInVar = 0;
+					}
+					// Also check if there is almost one full step.
+					else if (1.f - RelativeVar < FixTolerance) 
+					{
+						SecondsInFix += DeltaSecondsInVar;
+						NumIterationsInFix += 1;
+						DeltaSecondsInVar = 0;
+						NumIterationsInVar = 0;
+					}
+					// Otherwise, transfer a part from the varying time to the fix time. At this point, we know we will have both fix and var iterations.
+					// This prevents DT that are multiple of FixDT, from keeping an non zero OffsetSeconds.
+					else if (NumIterationsInFix > 0)
+					{
+						const float TransferedSeconds = FixTolerance * FixDeltaSeconds;
+						DeltaSecondsInVar -= TransferedSeconds;
+						SecondsInFix += TransferedSeconds;
+					}
+
+					if (NumIterationsInFix > 0)
+					{
+						// Here we limit the iteration count to prevent long frames from taking even longer.
+						NumIterationsInFix = FMath::Min<int32>(NumIterationsInFix, MaxNumIterations);
+						DeltaSecondsInFix = SecondsInFix / (float)NumIterationsInFix;
+					}
+
+					OffsetSeconds = DeltaSecondsInVar;
+				}
 
 			#if STATS
 				if (NumIterationsInFix + NumIterationsInVar == 1)
@@ -3485,6 +3511,9 @@ public:
 				FSpawnInfo SpawnInfo = GetNumParticlesToSpawn(DeltaSeconds);
 				SpawnInfo.Count += ForceSpawnedParticles.Num();
 
+				float SpawnRateMult = SpriteTemplate->GetQualityLevelSpawnRateMult();
+				SpawnInfo.Count *= SpawnRateMult;
+				BurstInfo.Count *= SpawnRateMult;
 
 				int32 FirstBurstParticleIndex = NewParticles.Num();
 
@@ -3704,7 +3733,7 @@ private:
 	 */
 	void InitLocalVectorField()
 	{
-		LocalVectorFieldRotation = FMath::Lerp(
+		LocalVectorFieldRotation = FMath::LerpRange(
 			EmitterInfo.LocalVectorField.MinInitialRotation,
 			EmitterInfo.LocalVectorField.MaxInitialRotation,
 			RandomStream.GetFraction() );
@@ -4054,23 +4083,23 @@ private:
 		return false;
 	}
 
-	virtual float Tick_SpawnParticles(float DeltaTime, UParticleLODLevel* CurrentLODLevel, bool bSuppressSpawning, bool bFirstTime) override
+	virtual float Tick_SpawnParticles(float DeltaTime, UParticleLODLevel* InCurrentLODLevel, bool bSuppressSpawning, bool bFirstTime) override
 	{
 		return 0.0f;
 	}
 
-	virtual void Tick_ModulePreUpdate(float DeltaTime, UParticleLODLevel* CurrentLODLevel)
+	virtual void Tick_ModulePreUpdate(float DeltaTime, UParticleLODLevel* InCurrentLODLevel)
 	{
 	}
 
-	virtual void Tick_ModuleUpdate(float DeltaTime, UParticleLODLevel* CurrentLODLevel) override
+	virtual void Tick_ModuleUpdate(float DeltaTime, UParticleLODLevel* InCurrentLODLevel) override
 	{
 		// We cannot update particles that have spawned, but modules such as BoneSocket and Skel Vert/Surface may need to perform calculations each tick.
 		UParticleLODLevel* HighestLODLevel = SpriteTemplate->LODLevels[0];
 		check(HighestLODLevel);
-		for (int32 ModuleIndex = 0; ModuleIndex < CurrentLODLevel->UpdateModules.Num(); ModuleIndex++)
+		for (int32 ModuleIndex = 0; ModuleIndex < InCurrentLODLevel->UpdateModules.Num(); ModuleIndex++)
 		{
-			UParticleModule* CurrentModule	= CurrentLODLevel->UpdateModules[ModuleIndex];
+			UParticleModule* CurrentModule	= InCurrentLODLevel->UpdateModules[ModuleIndex];
 			if (CurrentModule && CurrentModule->bEnabled && CurrentModule->bUpdateModule && CurrentModule->bUpdateForGPUEmitter)
 			{
 				CurrentModule->Update(this, GetModuleDataOffset(HighestLODLevel->UpdateModules[ModuleIndex]), DeltaTime);
@@ -4078,18 +4107,18 @@ private:
 		}
 	}
 
-	virtual void Tick_ModulePostUpdate(float DeltaTime, UParticleLODLevel* CurrentLODLevel) override
+	virtual void Tick_ModulePostUpdate(float DeltaTime, UParticleLODLevel* InCurrentLODLevel) override
 	{
 	}
 
-	virtual void Tick_ModuleFinalUpdate(float DeltaTime, UParticleLODLevel* CurrentLODLevel) override
+	virtual void Tick_ModuleFinalUpdate(float DeltaTime, UParticleLODLevel* InCurrentLODLevel) override
 	{
 		// We cannot update particles that have spawned, but modules such as BoneSocket and Skel Vert/Surface may need to perform calculations each tick.
 		UParticleLODLevel* HighestLODLevel = SpriteTemplate->LODLevels[0];
 		check(HighestLODLevel);
-		for (int32 ModuleIndex = 0; ModuleIndex < CurrentLODLevel->UpdateModules.Num(); ModuleIndex++)
+		for (int32 ModuleIndex = 0; ModuleIndex < InCurrentLODLevel->UpdateModules.Num(); ModuleIndex++)
 		{
-			UParticleModule* CurrentModule	= CurrentLODLevel->UpdateModules[ModuleIndex];
+			UParticleModule* CurrentModule	= InCurrentLODLevel->UpdateModules[ModuleIndex];
 			if (CurrentModule && CurrentModule->bEnabled && CurrentModule->bFinalUpdateModule && CurrentModule->bUpdateForGPUEmitter)
 			{
 				CurrentModule->FinalUpdate(this, GetModuleDataOffset(HighestLODLevel->UpdateModules[ModuleIndex]), DeltaTime);
@@ -4113,9 +4142,9 @@ private:
 		return NULL;
 	}
 
-	virtual uint32 CalculateParticleStride(uint32 ParticleSize) override
+	virtual uint32 CalculateParticleStride(uint32 InParticleSize) override
 	{
-		return ParticleSize;
+		return InParticleSize;
 	}
 
 	virtual void ResetParticleParameters(float DeltaTime) override
@@ -4632,6 +4661,7 @@ void FFXSystem::SimulateGPUParticles(
 	if (NewParticles.Num())
 	{
 		SCOPED_DRAW_EVENT(RHICmdList, ParticleInjection);
+		SCOPED_GPU_STAT(RHICmdList, Stat_GPU_ParticleSimulation);
 
 		FParticleStateTextures& CurrentStateTextures = ParticleSimulationResources->GetCurrentStateTextures();
 
@@ -4675,7 +4705,7 @@ void FFXSystem::SimulateGPUParticles(
 		FTextureRHIParamRef CurrentStateRHIs[2] = { CurrentStateTextures.PositionTextureTargetRHI, CurrentStateTextures.VelocityTextureTargetRHI };
 		RHICmdList.TransitionResources(EResourceTransitionAccess::EReadable, CurrentStateRHIs, 2);
 
-		FParticleStateTextures& VisualizeStateTextures = ParticleSimulationResources->GetVisualizeStateTextures();
+		FParticleStateTextures& VisualizeStateTextures = ParticleSimulationResources->GetPreviousStateTextures();
 		FTextureRHIParamRef VisualizeStateRHIs[2] = { VisualizeStateTextures.PositionTextureTargetRHI, VisualizeStateTextures.VelocityTextureTargetRHI };
 		RHICmdList.TransitionResources(EResourceTransitionAccess::EWritable, VisualizeStateRHIs, 2);	
 		SetRenderTargets(RHICmdList, 2, VisualizeStateRHIs, FTextureRHIParamRef(), 0, NULL);

@@ -4,9 +4,9 @@
 #include "IOculusInputPlugin.h"
 #include "IOculusRiftPlugin.h"
 
-#if USE_OVR_MOTION_SDK
+#if OCULUS_INPUT_SUPPORTED_PLATFORMS
 
-#define LOCTEXT_NAMESPACE "OculusTouch"
+#define LOCTEXT_NAMESPACE "OculusInput"
 
 class FOculusInputModule : public IOculusInputPlugin
 {
@@ -22,16 +22,17 @@ class FOculusInputModule : public IOculusInputPlugin
 			UE_LOG(LogOcInput, Warning, TEXT("OculusInput plugin enabled, but OculusRift plugin is not available."));
 			return nullptr;
 		}
+		
 	}
 };
 
-#else	//	USE_OVR_MOTION_SDK
+#else	//	OCULUS_INPUT_SUPPORTED_PLATFORMS
 
 class FOculusInputModule : public FDefaultModuleImpl
 {
 };
 
 #undef LOCTEXT_NAMESPACE
-#endif	// USE_OVR_MOTION_SDK
+#endif	// OCULUS_INPUT_SUPPORTED_PLATFORMS
 
 IMPLEMENT_MODULE( FOculusInputModule, OculusInput )

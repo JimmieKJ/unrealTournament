@@ -32,8 +32,6 @@ class UAbilityTask_ApplyRootMotionConstantForce : public UAbilityTask
 	virtual void PreDestroyFromReplication() override;
 	virtual void OnDestroy(bool AbilityIsEnding) override;
 
-	void PreReplicatedRemove(const struct FOrionCardArray& InArray);
-
 protected:
 
 	UPROPERTY(Replicated)

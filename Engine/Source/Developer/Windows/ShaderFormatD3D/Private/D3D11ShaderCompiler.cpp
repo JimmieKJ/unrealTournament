@@ -12,6 +12,9 @@ DEFINE_LOG_CATEGORY_STATIC(LogD3D11ShaderCompiler, Log, All);
 // D3D headers.
 #define D3D_OVERLOADS 1
 
+// D3D doesn't define a mask for this, so we do so here
+#define SHADER_OPTIMIZATION_LEVEL_MASK (D3D10_SHADER_OPTIMIZATION_LEVEL0 | D3D10_SHADER_OPTIMIZATION_LEVEL1 | D3D10_SHADER_OPTIMIZATION_LEVEL2 | D3D10_SHADER_OPTIMIZATION_LEVEL3)
+
 // Disable macro redefinition warning for compatibility with Windows SDK 8+
 #pragma warning(push)
 #pragma warning(disable : 4005)	// macro redefinition
@@ -26,15 +29,7 @@ DEFINE_LOG_CATEGORY_STATIC(LogD3D11ShaderCompiler, Log, All);
 #pragma warning(pop)
 
 static int32 GD3DAllowRemoveUnused = 0;
-static FAutoConsoleVariableRef CVarD3DUseExternalShaderCompiler(
-	TEXT("r.D3DRemoveUnusedInterpolators"),
-	GD3DAllowRemoveUnused,
-	TEXT("Enables removing unused interpolators mode when compiling pipelines for D3D.\n")
-	TEXT(" -1: Do not actually remove, but make the app think it did (for debugging)\n")
-	TEXT(" 0: Disable (default)\n")
-	TEXT(" 1: Enable removing unused"),
-	ECVF_Default
-	);
+
 
 static int32 GD3DCheckForDoubles = 1;
 static FAutoConsoleVariableRef CVarD3DCheckForDoubles(
@@ -53,6 +48,16 @@ static FAutoConsoleVariableRef CVarD3DDumpAMDCodeXLFile(
 	TEXT("When r.DumpShaderDebugInfo is enabled, this will generate a batch file for running CodeXL.\n")
 	TEXT(" 0: Do not generate extra batch file (default)\n")
 	TEXT(" 1: Enable generating extra batch file"),
+	ECVF_Default
+	);
+
+static int32 GD3DDumpD3DAsmFile = 0;
+static FAutoConsoleVariableRef CVarD3DDumpD3DAsmFile(
+	TEXT("r.D3DDumpD3DAsm"),
+	GD3DDumpD3DAsmFile,
+	TEXT("When r.DumpShaderDebugInfo is enabled, this will generate a text file with the fxc assembly.\n")
+	TEXT(" 0: Do not generate extra file (default)\n")
+	TEXT(" 1: Enable generating extra disassembly file"),
 	ECVF_Default
 	);
 
@@ -153,7 +158,8 @@ static FString D3D11CreateShaderCompileCommandLine(
 	const FString& ShaderPath, 
 	const TCHAR* EntryFunction, 
 	const TCHAR* ShaderProfile, 
-	uint32 CompileFlags
+	uint32 CompileFlags,
+	FShaderCompilerOutput& Output
 	)
 {
 	// fxc is our command line compiler
@@ -206,20 +212,30 @@ static FString D3D11CreateShaderCompileCommandLine(
 		FXCCommandline += FString(TEXT(" /Gec"));
 	}
 
-	if ((CompileFlags & D3D10_SHADER_OPTIMIZATION_LEVEL2) == D3D10_SHADER_OPTIMIZATION_LEVEL2)
+	switch (CompileFlags & SHADER_OPTIMIZATION_LEVEL_MASK)
 	{
+		case D3D10_SHADER_OPTIMIZATION_LEVEL2:
 		CompileFlags &= ~D3D10_SHADER_OPTIMIZATION_LEVEL2;
 		FXCCommandline += FString(TEXT(" /O2"));
-	}
-	else if (CompileFlags & D3D10_SHADER_OPTIMIZATION_LEVEL3)
-	{
+			break;
+
+		case D3D10_SHADER_OPTIMIZATION_LEVEL3:
 		CompileFlags &= ~D3D10_SHADER_OPTIMIZATION_LEVEL3;
 		FXCCommandline += FString(TEXT(" /O3"));
-	}
-	else if (CompileFlags & D3D10_SHADER_OPTIMIZATION_LEVEL1)
-	{
+			break;
+
+		case D3D10_SHADER_OPTIMIZATION_LEVEL1:
 		CompileFlags &= ~D3D10_SHADER_OPTIMIZATION_LEVEL1;
 		FXCCommandline += FString(TEXT(" /O1"));
+			break;
+
+		case D3D10_SHADER_OPTIMIZATION_LEVEL0:
+			CompileFlags &= ~D3D10_SHADER_OPTIMIZATION_LEVEL0;
+			break;
+
+		default:
+			Output.Errors.Emplace(TEXT("Unknown D3D10 optimization level"));
+			break;
 	}
 
 	checkf(CompileFlags == 0, TEXT("Unhandled d3d11 shader compiler flag!"));
@@ -366,13 +382,18 @@ static bool CompileAndProcessD3DShader(FString& PreprocessedShaderSource, const 
 			delete FileWriter;
 		}
 
-		const FString BatchFileContents = D3D11CreateShaderCompileCommandLine((Input.SourceFilename + TEXT(".usf")), *EntryPointName, ShaderProfile, CompileFlags);
+		const FString BatchFileContents = D3D11CreateShaderCompileCommandLine((Input.SourceFilename + TEXT(".usf")), *EntryPointName, ShaderProfile, CompileFlags, Output);
 		FFileHelper::SaveStringToFile(BatchFileContents, *(Input.DumpDebugInfoPath / TEXT("CompileD3D.bat")));
 
 		if (GD3DDumpAMDCodeXLFile)
 		{
 			const FString BatchFileContents2 = CreateAMDCodeXLCommandLine((Input.SourceFilename + TEXT(".usf")), *EntryPointName, ShaderProfile, CompileFlags);
 			FFileHelper::SaveStringToFile(BatchFileContents2, *(Input.DumpDebugInfoPath / TEXT("CompileAMD.bat")));
+		}
+
+		if (Input.bGenerateDirectCompileFile)
+		{
+			FFileHelper::SaveStringToFile(CreateShaderCompilerWorkerDirectCommandLine(Input), *(Input.DumpDebugInfoPath / TEXT("DirectCompile.txt")));
 		}
 	}
 
@@ -423,7 +444,7 @@ static bool CompileAndProcessD3DShader(FString& PreprocessedShaderSource, const 
 	// Fail the compilation if double operations are being used, since those are not supported on all D3D11 cards
 	if (SUCCEEDED(Result))
 	{
-		if (GD3DCheckForDoubles)
+		if (GD3DCheckForDoubles || GD3DDumpD3DAsmFile)
 		{
 			TRefCountPtr<ID3DBlob> Dissasembly;
 			if (SUCCEEDED(D3DDisassemble(Shader->GetBufferPointer(), Shader->GetBufferSize(), 0, "", Dissasembly.GetInitReference())))
@@ -434,11 +455,18 @@ static bool CompileAndProcessD3DShader(FString& PreprocessedShaderSource, const 
 				FString DissasemblyStringW(DissasemblyString);
 				delete[] DissasemblyString;
 
-				// dcl_globalFlags will contain enableDoublePrecisionFloatOps when the shader uses doubles, even though the docs on dcl_globalFlags don't say anything about this
-				if (DissasemblyStringW.Contains(TEXT("enableDoublePrecisionFloatOps")))
+				if (GD3DDumpD3DAsmFile)
 				{
-					FilteredErrors.Add(TEXT("Shader uses double precision floats, which are not supported on all D3D11 hardware!"));
-					return false;
+					FFileHelper::SaveStringToFile(DissasemblyStringW, *(Input.DumpDebugInfoPath / TEXT("Output.d3dasm")));
+				}
+				else if (GD3DCheckForDoubles)
+				{
+					// dcl_globalFlags will contain enableDoublePrecisionFloatOps when the shader uses doubles, even though the docs on dcl_globalFlags don't say anything about this
+					if (DissasemblyStringW.Contains(TEXT("enableDoublePrecisionFloatOps")))
+					{
+						FilteredErrors.Add(TEXT("Shader uses double precision floats, which are not supported on all D3D11 hardware!"));
+						return false;
+					}
 				}
 			}
 		}
@@ -534,18 +562,18 @@ static bool CompileAndProcessD3DShader(FString& PreprocessedShaderSource, const 
 				if (GD3DAllowRemoveUnused && Input.bCompilingForShaderPipeline && bFoundUnused && !bProcessingSecondTime)
 				{
 					// Rewrite the source removing the unused inputs so the bindings will match
-					TArray<FString> Errors;
-					if (RemoveUnusedInputs(PreprocessedShaderSource, ShaderInputs, EntryPointName, Errors))
+					TArray<FString> RemoveErrors;
+					if (RemoveUnusedInputs(PreprocessedShaderSource, ShaderInputs, EntryPointName, RemoveErrors))
 					{
 						return CompileAndProcessD3DShader(PreprocessedShaderSource, CompilerPath, CompileFlags, Input, EntryPointName, ShaderProfile, true, FilteredErrors, Output);
 					}
 					else
 					{
 						UE_LOG(LogD3D11ShaderCompiler, Warning, TEXT("Failed to Remove unused inputs [%s]!"), *Input.DumpDebugInfoPath);
-						for (int32 Index = 0; Index < Errors.Num(); ++Index)
+						for (int32 Index = 0; Index < RemoveErrors.Num(); ++Index)
 						{
 							FShaderCompilerError NewError;
-							NewError.StrippedErrorMessage = Errors[Index];
+							NewError.StrippedErrorMessage = RemoveErrors[Index];
 							Output.Errors.Add(NewError);
 						}
 						Output.bFailedRemovingUnused = true;
@@ -786,7 +814,9 @@ static bool CompileAndProcessD3DShader(FString& PreprocessedShaderSource, const 
 			}
 
 			// store data we can pickup later with ShaderCode.FindOptionalData('n'), could be removed for shipping
-			Output.ShaderCode.AddOptionalData('n', TCHAR_TO_UTF8(*Input.GenerateShaderName()));
+			// Daniel L: This GenerateShaderName does not generate a deterministic output among shaders as the shader code can be shared. 
+			//			uncommenting this will cause the project to have non deterministic materials and will hurt patch sizes
+			//Output.ShaderCode.AddOptionalData('n', TCHAR_TO_UTF8(*Input.GenerateShaderName()));
 
 			// Set the number of instructions.
 			Output.NumInstructions = ShaderDesc.InstructionCount;
@@ -861,6 +891,8 @@ void CompileD3D11Shader(const FShaderCompilerInput& Input,FShaderCompilerOutput&
 		}
 	}
 
+	GD3DAllowRemoveUnused = Input.Environment.CompilerFlags.Contains(CFLAG_ForceRemoveUnusedInterpolators) ? 1 : 0;
+
 	FString EntryPointName = Input.EntryPointName;
 
 	Output.bFailedRemovingUnused = false;
@@ -870,8 +902,31 @@ void CompileD3D11Shader(const FShaderCompilerInput& Input,FShaderCompilerOutput&
 		TArray<FString> UsedOutputs = Input.UsedOutputs;
 		UsedOutputs.AddUnique(TEXT("SV_POSITION"));
 
+		// We can't remove any of the output-only system semantics
+		//@todo - there are a bunch of tessellation ones as well
+		TArray<FString> Exceptions;
+		Exceptions.AddUnique(TEXT("SV_ClipDistance"));
+		Exceptions.AddUnique(TEXT("SV_ClipDistance0"));
+		Exceptions.AddUnique(TEXT("SV_ClipDistance1"));
+		Exceptions.AddUnique(TEXT("SV_ClipDistance2"));
+		Exceptions.AddUnique(TEXT("SV_ClipDistance3"));
+		Exceptions.AddUnique(TEXT("SV_ClipDistance4"));
+		Exceptions.AddUnique(TEXT("SV_ClipDistance5"));
+		Exceptions.AddUnique(TEXT("SV_ClipDistance6"));
+		Exceptions.AddUnique(TEXT("SV_ClipDistance7"));
+
+		Exceptions.AddUnique(TEXT("SV_CullDistance"));
+		Exceptions.AddUnique(TEXT("SV_CullDistance0"));
+		Exceptions.AddUnique(TEXT("SV_CullDistance1"));
+		Exceptions.AddUnique(TEXT("SV_CullDistance2"));
+		Exceptions.AddUnique(TEXT("SV_CullDistance3"));
+		Exceptions.AddUnique(TEXT("SV_CullDistance4"));
+		Exceptions.AddUnique(TEXT("SV_CullDistance5"));
+		Exceptions.AddUnique(TEXT("SV_CullDistance6"));
+		Exceptions.AddUnique(TEXT("SV_CullDistance7"));
+		
 		TArray<FString> Errors;
-		if (!RemoveUnusedOutputs(PreprocessedShaderSource, UsedOutputs, EntryPointName, Errors))
+		if (!RemoveUnusedOutputs(PreprocessedShaderSource, UsedOutputs, Exceptions, EntryPointName, Errors))
 		{
 			UE_LOG(LogD3D11ShaderCompiler, Warning, TEXT("Failed to Remove unused outputs [%s]!"), *Input.DumpDebugInfoPath);
 			for (int32 Index = 0; Index < Errors.Num(); ++Index)
@@ -889,18 +944,13 @@ void CompileD3D11Shader(const FShaderCompilerInput& Input,FShaderCompilerOutput&
 		return;
 	}
 
-	// Search definitions for a custom D3D compiler path.
-	for(TMap<FString,FString>::TConstIterator DefinitionIt(Input.Environment.GetDefinitions());DefinitionIt;++DefinitionIt)
-	{
-		const FString& Name = DefinitionIt.Key();
-		const FString& Definition = DefinitionIt.Value();
-
-		if(Name == TEXT("D3DCOMPILER_PATH"))
-		{
-			CompilerPath = Definition;
-			break;
-		}
-	}
+	// Override default compiler path to newer dll
+	CompilerPath = FPaths::EngineDir();
+#if !PLATFORM_64BITS
+	CompilerPath.Append(TEXT("Binaries/ThirdParty/Windows/DirectX/x86/d3dcompiler_47.dll"));
+#else
+	CompilerPath.Append(TEXT("Binaries/ThirdParty/Windows/DirectX/x64/d3dcompiler_47.dll"));
+#endif
 
 	// @TODO - currently d3d11 uses d3d10 shader compiler flags... update when this changes in DXSDK
 	// @TODO - implement different material path to allow us to remove backwards compat flag on sm5 shaders

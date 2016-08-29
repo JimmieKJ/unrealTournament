@@ -29,6 +29,7 @@ struct FRecastTileData
 };
 
 class dtNavMesh;
+class FPImplRecastNavMesh;
 
 /** 
  * 

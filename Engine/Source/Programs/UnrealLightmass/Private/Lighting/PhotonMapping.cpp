@@ -1,6 +1,6 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "stdafx.h"
+#include "LightmassPCH.h"
 #include "LightingSystem.h"
 #include "MonteCarlo.h"
 #include "LightmassSwarm.h"
@@ -2222,7 +2222,7 @@ FGatheredLightSample FStaticLightingSystem::CalculatePhotonIncidentRadiance(
 			{
 				const float PhotonDistance = (CurrentPhoton.GetPosition() - Vertex.WorldPosition).Size3();
 				const float ConeWeight = FMath::Max(1.0f - PhotonDistance / (PhotonMappingSettings.ConeFilterConstant * SearchDistance), 0.0f);
-				PhotonIncidentRadiance.AddWeighted(FGatheredLightSample::PointLightWorldSpace(CurrentPhoton.GetPower(), TangentPathDirection, CurrentPhoton.GetIncidentDirection()), ConeWeight * ConstantWeight);
+				PhotonIncidentRadiance.AddWeighted(FGatheredLightSampleUtil::PointLightWorldSpace<2>(CurrentPhoton.GetPower(), TangentPathDirection, CurrentPhoton.GetIncidentDirection()), ConeWeight * ConstantWeight);
 			}
 		}
 	}

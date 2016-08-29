@@ -277,13 +277,29 @@ FVector FMath::ClosestPointOnLine(const FVector& LineStart, const FVector& LineE
 {
 	// Solve to find alpha along line that is closest point
 	// Weisstein, Eric W. "Point-Line Distance--3-Dimensional." From MathWorld--A Wolfram Web Resource. http://mathworld.wolfram.com/Point-LineDistance3-Dimensional.html 
-	const float A = (LineStart-Point) | (LineEnd - LineStart);
+	const float A = (LineStart - Point) | (LineEnd - LineStart);
 	const float B = (LineEnd - LineStart).SizeSquared();
+	// This should be robust to B == 0 (resulting in NaN) because clamp should return 1.
 	const float T = FMath::Clamp(-A/B, 0.f, 1.f);
 
 	// Generate closest point
 	FVector ClosestPoint = LineStart + (T * (LineEnd - LineStart));
 
+	return ClosestPoint;
+}
+
+FVector FMath::ClosestPointOnInfiniteLine(const FVector& LineStart, const FVector& LineEnd, const FVector& Point)
+{
+	const float A = (LineStart - Point) | (LineEnd - LineStart);
+	const float B = (LineEnd - LineStart).SizeSquared();
+	if (B < SMALL_NUMBER)
+	{
+		return LineStart;
+	}
+	const float T = -A/B;
+
+	// Generate closest point
+	const FVector ClosestPoint = LineStart + (T * (LineEnd - LineStart));
 	return ClosestPoint;
 }
 
@@ -476,10 +492,10 @@ FString FMatrix::ToString() const
 {
 	FString Output;
 
-	Output += FString::Printf(TEXT("[%f %f %f %f] "), M[0][0], M[0][1], M[0][2], M[0][3]);
-	Output += FString::Printf(TEXT("[%f %f %f %f] "), M[1][0], M[1][1], M[1][2], M[1][3]);
-	Output += FString::Printf(TEXT("[%f %f %f %f] "), M[2][0], M[2][1], M[2][2], M[2][3]);
-	Output += FString::Printf(TEXT("[%f %f %f %f] "), M[3][0], M[3][1], M[3][2], M[3][3]);
+	Output += FString::Printf(TEXT("[%g %g %g %g] "), M[0][0], M[0][1], M[0][2], M[0][3]);
+	Output += FString::Printf(TEXT("[%g %g %g %g] "), M[1][0], M[1][1], M[1][2], M[1][3]);
+	Output += FString::Printf(TEXT("[%g %g %g %g] "), M[2][0], M[2][1], M[2][2], M[2][3]);
+	Output += FString::Printf(TEXT("[%g %g %g %g] "), M[3][0], M[3][1], M[3][2], M[3][3]);
 
 	return Output;
 }
@@ -2743,6 +2759,29 @@ double FMath::RoundHalfToZero(double F)
 {
 	F = MathRoundingUtil::TruncateToHalfIfClose(F);
 	return (F < 0.0) ? FloorToDouble(F + 0.5) : CeilToDouble(F - 0.5);
+}
+
+FString FMath::FormatIntToHumanReadable(int32 Val)
+{
+	FString Src = *FString::Printf(TEXT("%i"), Val);
+	FString Dst;
+
+	if (Val > 999)
+	{
+		Dst = FString::Printf(TEXT(",%s"), *Src.Mid(Src.Len() - 3, 3));
+		Src = Src.Left(Src.Len() - 3);
+
+	}
+
+	if (Val > 999999)
+	{
+		Dst = FString::Printf(TEXT(",%s%s"), *Src.Mid(Src.Len() - 3, 3), *Dst);
+		Src = Src.Left(Src.Len() - 3);
+	}
+
+	Dst = Src + Dst;
+
+	return Dst;
 }
 
 bool FMath::MemoryTest( void* BaseAddress, uint32 NumBytes )

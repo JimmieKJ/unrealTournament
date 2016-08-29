@@ -3,7 +3,7 @@
 #include "UnrealEd.h"
 #include "FoliagePaletteCommands.h"
 
-#define LOCTEXT_NAMESPACE ""
+#define LOCTEXT_NAMESPACE "FoliagePaletteCommands"
 
 void FFoliagePaletteCommands::RegisterCommands()
 {

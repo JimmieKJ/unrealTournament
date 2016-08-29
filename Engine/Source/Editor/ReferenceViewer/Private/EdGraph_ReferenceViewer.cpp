@@ -14,6 +14,10 @@ UEdGraph_ReferenceViewer::UEdGraph_ReferenceViewer(const FObjectInitializer& Obj
 
 	bLimitSearchDepth = true;
 	bLimitSearchBreadth = true;
+	bIsShowSoftReferences = true;
+	bIsShowSoftDependencies = true;
+	bIsShowHardReferences = true;
+	bIsShowHardDependencies = true;
 }
 
 void UEdGraph_ReferenceViewer::BeginDestroy()
@@ -57,6 +61,26 @@ bool UEdGraph_ReferenceViewer::IsSearchBreadthLimited() const
 	return bLimitSearchBreadth;
 }
 
+bool UEdGraph_ReferenceViewer::IsShowSoftReferences() const
+{
+	return bIsShowSoftReferences;
+}
+
+bool UEdGraph_ReferenceViewer::IsShowSoftDependencies() const
+{
+	return bIsShowSoftDependencies;
+}
+
+bool UEdGraph_ReferenceViewer::IsShowHardReferences() const
+{
+	return bIsShowHardReferences;
+}
+
+bool UEdGraph_ReferenceViewer::IsShowHardDependencies() const
+{
+	return bIsShowHardDependencies;
+}
+
 void UEdGraph_ReferenceViewer::SetSearchDepthLimitEnabled(bool newEnabled)
 {
 	bLimitSearchDepth = newEnabled;
@@ -65,6 +89,26 @@ void UEdGraph_ReferenceViewer::SetSearchDepthLimitEnabled(bool newEnabled)
 void UEdGraph_ReferenceViewer::SetSearchBreadthLimitEnabled(bool newEnabled)
 {
 	bLimitSearchBreadth = newEnabled;
+}
+
+void UEdGraph_ReferenceViewer::SetShowSoftReferencesEnabled(bool newEnabled)
+{
+	bIsShowSoftReferences = newEnabled;
+}
+
+void UEdGraph_ReferenceViewer::SetShowSoftDependenciesEnabled(bool newEnabled)
+{
+	bIsShowSoftDependencies = newEnabled;
+}
+
+void UEdGraph_ReferenceViewer::SetShowHardReferencesEnabled(bool newEnabled)
+{
+	bIsShowHardReferences = newEnabled;
+}
+
+void UEdGraph_ReferenceViewer::SetShowHardDependenciesEnabled(bool newEnabled)
+{
+	bIsShowHardDependencies = newEnabled;
 }
 
 int32 UEdGraph_ReferenceViewer::GetSearchDepthLimit() const
@@ -232,18 +276,43 @@ UEdGraphNode_Reference* UEdGraph_ReferenceViewer::RecursivelyConstructNodes(bool
 
 	FAssetRegistryModule& AssetRegistryModule = FModuleManager::LoadModuleChecked<FAssetRegistryModule>("AssetRegistry");
 	TArray<FName> ReferenceNames;
+	TArray<FName> HardReferenceNames;
 	if ( bReferencers )
 	{
 		for ( auto NameIt = PackageNames.CreateConstIterator(); NameIt; ++NameIt )
 		{
-			AssetRegistryModule.Get().GetReferencers(*NameIt, ReferenceNames);
+			AssetRegistryModule.Get().GetReferencers(*NameIt, HardReferenceNames, EAssetRegistryDependencyType::Hard);
+			if (bIsShowSoftReferences && bIsShowHardReferences)
+			{
+				AssetRegistryModule.Get().GetReferencers(*NameIt, ReferenceNames, EAssetRegistryDependencyType::All);
+			}
+			else if (bIsShowSoftReferences && !bIsShowHardReferences)
+			{
+				AssetRegistryModule.Get().GetReferencers(*NameIt, ReferenceNames, EAssetRegistryDependencyType::Soft);
+			}
+			else
+			{
+				AssetRegistryModule.Get().GetReferencers(*NameIt, ReferenceNames, EAssetRegistryDependencyType::Hard);
+			}
 		}
 	}
 	else
 	{
 		for ( auto NameIt = PackageNames.CreateConstIterator(); NameIt; ++NameIt )
 		{
-			AssetRegistryModule.Get().GetDependencies(*NameIt, ReferenceNames);
+			AssetRegistryModule.Get().GetDependencies(*NameIt, HardReferenceNames, EAssetRegistryDependencyType::Hard);
+			if (bIsShowSoftDependencies && bIsShowHardDependencies)
+			{
+				AssetRegistryModule.Get().GetDependencies(*NameIt, ReferenceNames, EAssetRegistryDependencyType::All);
+			}
+			else if (bIsShowSoftDependencies && !bIsShowHardDependencies)
+			{
+				AssetRegistryModule.Get().GetDependencies(*NameIt, ReferenceNames, EAssetRegistryDependencyType::Soft);
+			}
+			else
+			{
+				AssetRegistryModule.Get().GetDependencies(*NameIt, ReferenceNames, EAssetRegistryDependencyType::Hard);
+			}
 		}
 	}
 
@@ -285,6 +354,21 @@ UEdGraphNode_Reference* UEdGraph_ReferenceViewer::RecursivelyConstructNodes(bool
 					TArray<FName> NewPackageNames;
 					NewPackageNames.Add(ReferenceName);
 					UEdGraphNode_Reference* ReferenceNode = RecursivelyConstructNodes(bReferencers, RootNode, NewPackageNames, RefNodeLoc, NodeSizes, PackagesToAssetDataMap, CurrentDepth + 1, VisitedNames);
+					for (FName NodeName : HardReferenceNames)
+					{
+						FName NewNodeFName = FName(*ReferenceNode->NodeComment);
+						if (NodeName == FName(*ReferenceNode->NodeComment))
+						{
+							if (bReferencers)
+							{
+								ReferenceNode->GetDependencyPin()->PinType.PinCategory = TEXT("hard");
+							}
+							else
+							{
+								ReferenceNode->GetReferencerPin()->PinType.PinCategory = TEXT("hard");
+							}
+						}
+					}
 					if ( ensure(ReferenceNode) )
 					{
 						if ( bReferencers )

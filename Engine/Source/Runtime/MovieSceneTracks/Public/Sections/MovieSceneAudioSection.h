@@ -45,6 +45,21 @@ public:
 	float GetAudioDilationFactor() const {return AudioDilationFactor;}
 
 	/**
+	* Sets the dilation multiplier of the sound
+	*/
+	void SetAudioDilationFactor( float InAudioDilationFactor ) { AudioDilationFactor = InAudioDilationFactor; }
+
+	/**
+	* @return The volume the sound will be played with.
+	*/
+	float GetAudioVolume() const { return AudioVolume; }
+
+	/**
+	* Sets the volume the sound will be played with.
+	*/
+	void SetAudioVolume( float InAudioVolume ) { AudioVolume = InAudioVolume; }
+
+	/**
 	 * Returns whether or not a provided position in time is within the timespan of the audio range
 	 *
 	 * @param Position	The position to check
@@ -72,8 +87,10 @@ public:
 
 	virtual void MoveSection( float DeltaPosition, TSet<FKeyHandle>& KeyHandles ) override;
 	virtual void DilateSection( float DilationFactor, float Origin, TSet<FKeyHandle>& KeyHandles ) override;
-	virtual void GetKeyHandles(TSet<FKeyHandle>& KeyHandles) const override;
+	virtual void GetKeyHandles(TSet<FKeyHandle>& OutKeyHandles, TRange<float> TimeRange) const override;
 	virtual void GetSnapTimes(TArray<float>& OutSnapTimes, bool bGetSectionBorders) const override;
+	virtual TOptional<float> GetKeyTime( FKeyHandle KeyHandle ) const override { return TOptional<float>(); }
+	virtual void SetKeyTime( FKeyHandle KeyHandle, float Time ) override { }
 
 private:
 
@@ -88,6 +105,10 @@ private:
 	/** The amount which this audio is time dilated by */
 	UPROPERTY(EditAnywhere, Category="Audio")
 	float AudioDilationFactor;
+
+	/** The volume the sound will be played with. */
+	UPROPERTY( EditAnywhere, Category = "Audio" )
+	float AudioVolume;
 
 #if WITH_EDITORONLY_DATA
 	/** Whether to show the actual intensity of the wave on the thumbnail, as well as the smoothed RMS */

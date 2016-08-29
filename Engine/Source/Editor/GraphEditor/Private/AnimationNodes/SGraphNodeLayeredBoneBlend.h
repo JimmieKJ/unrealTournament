@@ -2,9 +2,11 @@
 
 #pragma once
 
+#include "SAnimationGraphNode.h"
+
 class UAnimGraphNode_LayeredBoneBlend;
 
-class SGraphNodeLayeredBoneBlend : public SGraphNode
+class SGraphNodeLayeredBoneBlend : public SAnimationGraphNode
 {
 public:
 	SLATE_BEGIN_ARGS(SGraphNodeLayeredBoneBlend){}

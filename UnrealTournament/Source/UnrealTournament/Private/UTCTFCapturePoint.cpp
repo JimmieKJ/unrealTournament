@@ -14,7 +14,7 @@ AUTCTFCapturePoint::AUTCTFCapturePoint(const FObjectInitializer& ObjectInitializ
 	Capsule->InitCapsuleSize(92.f, 134.0f);
 	Capsule->OnComponentBeginOverlap.AddDynamic(this, &AUTCTFCapturePoint::OnOverlapBegin);
 	Capsule->OnComponentEndOverlap.AddDynamic(this, &AUTCTFCapturePoint::OnOverlapEnd);
-	Capsule->AttachParent = RootComponent;
+	Capsule->SetupAttachment(RootComponent);
 
 	CaptureBoostPerCharacter.SetNum(6, false);
 	CaptureBoostPerCharacter[0] = 0.f;
@@ -63,7 +63,7 @@ void AUTCTFCapturePoint::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& O
 	DOREPLIFETIME(AUTCTFCapturePoint, AttackersInCapsule);
 }
 
-void AUTCTFCapturePoint::OnOverlapBegin(AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
+void AUTCTFCapturePoint::OnOverlapBegin(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
 {
 	AUTCharacter* UTCharacter = Cast<AUTCharacter>(OtherActor);
 	if (UTCharacter)
@@ -72,7 +72,7 @@ void AUTCTFCapturePoint::OnOverlapBegin(AActor* OtherActor, UPrimitiveComponent*
 	}
 }
 
-void AUTCTFCapturePoint::OnOverlapEnd(AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex)
+void AUTCTFCapturePoint::OnOverlapEnd(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex)
 {
 	AUTCharacter* UTCharacter = Cast<AUTCharacter>(OtherActor);
 	if (UTCharacter)

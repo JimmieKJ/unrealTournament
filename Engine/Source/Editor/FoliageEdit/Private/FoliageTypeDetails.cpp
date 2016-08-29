@@ -99,4 +99,6 @@ void FFoliageTypeDetails::CustomizeDetails(IDetailLayoutBuilder& DetailBuilder)
 	}
 	
 	AddSubcategoryProperties(DetailBuilder, InstanceSettingsName);
+
+	FFoliageTypeCustomizationHelpers::AddBodyInstanceProperties(DetailBuilder);
 }

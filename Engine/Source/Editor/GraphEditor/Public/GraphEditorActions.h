@@ -118,6 +118,10 @@ public:
 	TSharedPtr< FUICommandInfo > ConvertToBSEvaluator;
 	TSharedPtr< FUICommandInfo > ConvertToBSPlayer;
 
+	// options for sequence/evaluator converter
+	TSharedPtr< FUICommandInfo > ConvertToPoseBlender;
+	TSharedPtr< FUICommandInfo > ConvertToPoseByName;
+
 	// option for opening the asset related to the graph node
 	TSharedPtr< FUICommandInfo > OpenRelatedAsset;
 

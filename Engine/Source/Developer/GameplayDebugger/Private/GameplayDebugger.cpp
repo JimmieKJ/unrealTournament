@@ -4,9 +4,10 @@
 // THIS CLASS IS NOW DEPRECATED AND WILL BE REMOVED IN NEXT VERSION
 // Please check GameplayDebugger.h for details.
 
+#include "GameplayDebuggerPrivatePCH.h"
+
 #if ENABLE_OLD_GAMEPLAY_DEBUGGER
 
-#include "GameplayDebuggerPrivatePCH.h"
 #include "Misc/CoreMisc.h"
 #include "GameplayDebuggingComponent.h"
 #include "GameplayDebuggingHUDComponent.h"
@@ -678,7 +679,6 @@ void FGameplayDebuggerCompat::UseNewGameplayDebugger()
 
 #else // ENABLE_OLD_GAMEPLAY_DEBUGGER
 
-#include "GameplayDebuggerPrivatePCH.h"
 #include "GameplayDebuggingReplicator.h"
 #include "GameplayDebuggerSettings.h"
 

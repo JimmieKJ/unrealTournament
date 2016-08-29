@@ -6,6 +6,8 @@
 
 #include "BuildPatchServicesPrivatePCH.h"
 
+using namespace BuildPatchConstants;
+
 DEFINE_LOG_CATEGORY(LogBuildPatchServices);
 IMPLEMENT_MODULE(FBuildPatchServicesModule, BuildPatchServices);
 
@@ -60,6 +62,18 @@ const FString FBuildPatchInstallationInfo::GetManifestInstallDir(FBuildPatchAppM
 
 void FBuildPatchServicesModule::StartupModule()
 {
+	// Debug sanity checks
+#if UE_BUILD_DEBUG
+	TSet<FString> NoDupes;
+	bool bWasDupe = false;
+	check(ARRAY_COUNT(InstallErrorPrefixes::ErrorTypeStrings) == (uint64)EBuildPatchInstallError::NumInstallErrors);
+	for (int32 Idx = 0; Idx < ARRAY_COUNT(InstallErrorPrefixes::ErrorTypeStrings); ++Idx)
+	{
+		NoDupes.Add(FString(InstallErrorPrefixes::ErrorTypeStrings[Idx]), &bWasDupe);
+		check(bWasDupe == false);
+	}
+#endif
+
 	// We need to initialize the lookup for our hashing functions
 	FRollingHashConst::Init();
 
@@ -225,49 +239,61 @@ bool FBuildPatchServicesModule::Tick( float Delta )
 	return true;
 }
 
-#if WITH_BUILDPATCHGENERATION
 bool FBuildPatchServicesModule::GenerateChunksManifestFromDirectory( const FBuildPatchSettings& Settings )
 {
 	return FBuildDataGenerator::GenerateChunksManifestFromDirectory( Settings );
 }
 
-bool FBuildPatchServicesModule::GenerateFilesManifestFromDirectory( const FBuildPatchSettings& Settings )
-{
-	return FBuildDataGenerator::GenerateFilesManifestFromDirectory( Settings );
-}
-
-bool FBuildPatchServicesModule::CompactifyCloudDirectory(const TArray<FString>& ManifestsToKeep, const float DataAgeThreshold, const ECompactifyMode::Type Mode)
+bool FBuildPatchServicesModule::CompactifyCloudDirectory(float DataAgeThreshold, ECompactifyMode::Type Mode)
 {
 	const bool bPreview = Mode == ECompactifyMode::Preview;
-	return FBuildDataCompactifier::CompactifyCloudDirectory(ManifestsToKeep, DataAgeThreshold, bPreview);
+	return FBuildDataCompactifier::CompactifyCloudDirectory(DataAgeThreshold, bPreview);
 }
 
-bool FBuildPatchServicesModule::EnumerateManifestData(FString ManifestFilePath, FString OutputFile, const bool bIncludeSizes)
+bool FBuildPatchServicesModule::EnumerateManifestData(const FString& ManifestFilePath, const FString& OutputFile, bool bIncludeSizes)
 {
-	return FBuildDataEnumeration::EnumerateManifestData(MoveTemp(ManifestFilePath), MoveTemp(OutputFile), bIncludeSizes);
+	return FBuildDataEnumeration::EnumerateManifestData(ManifestFilePath, OutputFile, bIncludeSizes);
 }
 
-#endif //WITH_BUILDPATCHGENERATION
+bool FBuildPatchServicesModule::MergeManifests(const FString& ManifestFilePathA, const FString& ManifestFilePathB, const FString& ManifestFilePathC, const FString& NewVersionString, const FString& SelectionDetailFilePath)
+{
+	return FBuildMergeManifests::MergeManifests(ManifestFilePathA, ManifestFilePathB, ManifestFilePathC, NewVersionString, SelectionDetailFilePath);
+}
 
 void FBuildPatchServicesModule::SetStagingDirectory( const FString& StagingDir )
 {
 	StagingDirectory = StagingDir;
 }
 
-void FBuildPatchServicesModule::SetCloudDirectory( const FString& CloudDir )
+void FBuildPatchServicesModule::SetCloudDirectory(FString CloudDir)
 {
-	CloudDirectory = CloudDir;
+	TArray<FString> CloudDirs;
+	CloudDirs.Add(MoveTemp(CloudDir));
+	SetCloudDirectories(MoveTemp(CloudDirs));
+}
 
-	// Ensure that we remove any double-slash characters apart from:
-	//   1. A double slash following the URI schema
-	//   2. A double slash at the start of the path, indicating a network share
-	CloudDirectory.ReplaceInline(TEXT("\\"), TEXT("/"));
-	bool bIsNetworkPath = CloudDirectory.StartsWith(TEXT("//"));
-	CloudDirectory.ReplaceInline(TEXT("://"), TEXT(":////"));
-	CloudDirectory.ReplaceInline(TEXT("//"), TEXT("/"));
-	if (bIsNetworkPath)
+void FBuildPatchServicesModule::SetCloudDirectories(TArray<FString> CloudDirs)
+{
+	check(IsInGameThread());
+	CloudDirectories = MoveTemp(CloudDirs);
+	NormalizeCloudPaths(CloudDirectories);
+}
+
+void FBuildPatchServicesModule::NormalizeCloudPaths(TArray<FString>& InOutCloudPaths)
+{
+	for (FString& CloudPath : InOutCloudPaths)
 	{
-		CloudDirectory.InsertAt(0, TEXT("/"));
+		// Ensure that we remove any double-slash characters apart from:
+		//   1. A double slash following the URI schema
+		//   2. A double slash at the start of the path, indicating a network share
+		CloudPath.ReplaceInline(TEXT("\\"), TEXT("/"));
+		bool bIsNetworkPath = CloudPath.StartsWith(TEXT("//"));
+		CloudPath.ReplaceInline(TEXT("://"), TEXT(":////"));
+		CloudPath.ReplaceInline(TEXT("//"), TEXT("/"));
+		if (bIsNetworkPath)
+		{
+			CloudPath.InsertAt(0, TEXT("/"));
+		}
 	}
 }
 
@@ -319,7 +345,7 @@ void FBuildPatchServicesModule::CancelAllInstallers(bool WaitForThreads)
 void FBuildPatchServicesModule::PreExit()
 {
 	// Set shutdown error so any running threads know to exit.
-	FBuildPatchInstallError::SetFatalError(EBuildPatchInstallError::ApplicationClosing);
+	FBuildPatchInstallError::SetFatalError(EBuildPatchInstallError::ApplicationClosing, ApplicationClosedErrorCodes::ApplicationClosed);
 
 	// Cleanup installers
 	CancelAllInstallers(true);
@@ -374,14 +400,34 @@ const FString& FBuildPatchServicesModule::GetStagingDirectory()
 	return StagingDirectory;
 }
 
-const FString& FBuildPatchServicesModule::GetCloudDirectory()
+FString FBuildPatchServicesModule::GetCloudDirectory(int32 CloudIdx)
 {
-	// Default cloud directory
-	if( CloudDirectory.IsEmpty() )
+	FString RtnValue;
+	if (CloudDirectories.Num())
 	{
-		CloudDirectory = FPaths::CloudDir();
+		RtnValue = CloudDirectories[CloudIdx % CloudDirectories.Num()];
 	}
-	return CloudDirectory;
+	else
+	{
+		// Default cloud directory
+		RtnValue = FPaths::CloudDir();
+	}
+	return RtnValue;
+}
+
+TArray<FString> FBuildPatchServicesModule::GetCloudDirectories()
+{
+	TArray<FString> RtnValue;
+	if (CloudDirectories.Num() > 0)
+	{
+		RtnValue = CloudDirectories;
+	}
+	else
+	{
+		// Singular function controls the default when none provided
+		RtnValue.Add(GetCloudDirectory(0));
+	}
+	return RtnValue;
 }
 
 const FString& FBuildPatchServicesModule::GetBackupDirectory()
@@ -392,6 +438,6 @@ const FString& FBuildPatchServicesModule::GetBackupDirectory()
 
 /* Static variables
  *****************************************************************************/
-FString FBuildPatchServicesModule::CloudDirectory;
+TArray<FString> FBuildPatchServicesModule::CloudDirectories;
 FString FBuildPatchServicesModule::StagingDirectory;
 FString FBuildPatchServicesModule::BackupDirectory;

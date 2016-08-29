@@ -27,15 +27,15 @@ void FMovieScene3DRotationKeyStruct::PropagateChanges(const FPropertyChangedEven
 {
 	if(RotationKeys[0] != nullptr)
 	{
-		RotationKeys[0]->Value = Rotation.Pitch;
+		RotationKeys[0]->Value = Rotation.Roll;
 	}
 	if(RotationKeys[1] != nullptr)
 	{	
-		RotationKeys[1]->Value = Rotation.Yaw;
+		RotationKeys[1]->Value = Rotation.Pitch;
 	}
 	if(RotationKeys[2] != nullptr)
 	{
-		RotationKeys[2]->Value = Rotation.Roll;
+		RotationKeys[2]->Value = Rotation.Yaw;
 	}
 }
 
@@ -74,15 +74,15 @@ void FMovieScene3DTransformKeyStruct::PropagateChanges(const FPropertyChangedEve
 
 	if(RotationKeys[0] != nullptr)
 	{
-		RotationKeys[0]->Value = Rotation.Pitch;
+		RotationKeys[0]->Value = Rotation.Roll;
 	}
 	if(RotationKeys[1] != nullptr)
 	{	
-		RotationKeys[1]->Value = Rotation.Yaw;
+		RotationKeys[1]->Value = Rotation.Pitch;
 	}
 	if(RotationKeys[2] != nullptr)
 	{
-		RotationKeys[2]->Value = Rotation.Roll;
+		RotationKeys[2]->Value = Rotation.Yaw;
 	}
 }
 
@@ -92,6 +92,9 @@ void FMovieScene3DTransformKeyStruct::PropagateChanges(const FPropertyChangedEve
 
 UMovieScene3DTransformSection::UMovieScene3DTransformSection(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
+#if WITH_EDITORONLY_DATA
+	, Show3DTrajectory(EShow3DTrajectory::EST_OnlyWhenSelected)
+#endif
 { }
 
 
@@ -192,34 +195,39 @@ void UMovieScene3DTransformSection::DilateSection(float DilationFactor, float Or
 }
 
 
-void UMovieScene3DTransformSection::GetKeyHandles(TSet<FKeyHandle>& KeyHandles) const
+void UMovieScene3DTransformSection::GetKeyHandles(TSet<FKeyHandle>& OutKeyHandles, TRange<float> TimeRange) const
 {
+	if (!TimeRange.Overlaps(GetRange()))
+	{
+		return;
+	}
+
 	for (int32 Axis = 0; Axis < 3; ++Axis)
 	{
 		for (auto It(Translation[Axis].GetKeyHandleIterator()); It; ++It)
 		{
 			float Time = Translation[Axis].GetKeyTime(It.Key());
-			if (IsTimeWithinSection(Time))
+			if (TimeRange.Contains(Time))
 			{
-				KeyHandles.Add(It.Key());
+				OutKeyHandles.Add(It.Key());
 			}
 		}
 
 		for (auto It(Rotation[Axis].GetKeyHandleIterator()); It; ++It)
 		{
 			float Time = Rotation[Axis].GetKeyTime(It.Key());
-			if (IsTimeWithinSection(Time))
+			if (TimeRange.Contains(Time))
 			{
-				KeyHandles.Add(It.Key());
+				OutKeyHandles.Add(It.Key());
 			}
 		}
 
 		for (auto It(Scale[Axis].GetKeyHandleIterator()); It; ++It)
 		{
 			float Time = Scale[Axis].GetKeyTime(It.Key());
-			if (IsTimeWithinSection(Time))
+			if (TimeRange.Contains(Time))
 			{
-				KeyHandles.Add(It.Key());
+				OutKeyHandles.Add(It.Key());
 			}
 		}
 	}
@@ -297,15 +305,15 @@ TSharedPtr<FStructOnScope> UMovieScene3DTransformSection::GetKeyStruct(const TAr
 
 			if(RotationKeys[0] != nullptr)
 			{
-				Struct->Rotation.Pitch = RotationKeys[0]->Value;
+				Struct->Rotation.Roll = RotationKeys[0]->Value;
 			}
 			if(RotationKeys[1] != nullptr)
 			{
-				Struct->Rotation.Yaw = RotationKeys[1]->Value;
+				Struct->Rotation.Pitch = RotationKeys[1]->Value;
 			}
 			if(RotationKeys[2] != nullptr)
 			{
-				Struct->Rotation.Roll = RotationKeys[2]->Value;
+				Struct->Rotation.Yaw = RotationKeys[2]->Value;
 			}
 		}
 
@@ -343,9 +351,20 @@ TSharedPtr<FStructOnScope> UMovieScene3DTransformSection::GetKeyStruct(const TAr
 				}
 			}
 
-			Struct->Rotation.Pitch = Struct->RotationKeys[0]->Value;
-			Struct->Rotation.Yaw = Struct->RotationKeys[1]->Value;
-			Struct->Rotation.Roll = Struct->RotationKeys[2]->Value;
+			if (Struct->RotationKeys[0] != nullptr)
+			{
+				Struct->Rotation.Roll = Struct->RotationKeys[0]->Value;
+			}
+
+			if (Struct->RotationKeys[1] != nullptr)
+			{
+				Struct->Rotation.Pitch = Struct->RotationKeys[1]->Value;
+			}
+			
+			if (Struct->RotationKeys[2] != nullptr)
+			{
+				Struct->Rotation.Yaw = Struct->RotationKeys[2]->Value;
+			}
 		}
 
 		return KeyStruct;
@@ -370,6 +389,95 @@ TSharedPtr<FStructOnScope> UMovieScene3DTransformSection::GetKeyStruct(const TAr
 	}
 
 	return nullptr;
+}
+
+
+TOptional<float> UMovieScene3DTransformSection::GetKeyTime( FKeyHandle KeyHandle ) const
+{
+	// Translation
+	if ( Translation[0].IsKeyHandleValid( KeyHandle ) )
+	{
+		return TOptional<float>( Translation[0].GetKeyTime( KeyHandle ) );
+	}
+	if ( Translation[1].IsKeyHandleValid( KeyHandle ) )
+	{
+		return TOptional<float>( Translation[1].GetKeyTime( KeyHandle ) );
+	}
+	if ( Translation[2].IsKeyHandleValid( KeyHandle ) )
+	{
+		return TOptional<float>( Translation[2].GetKeyTime( KeyHandle ) );
+	}
+	// Rotation
+	if ( Rotation[0].IsKeyHandleValid( KeyHandle ) )
+	{
+		return TOptional<float>( Rotation[0].GetKeyTime( KeyHandle ) );
+	}
+	if ( Rotation[1].IsKeyHandleValid( KeyHandle ) )
+	{
+		return TOptional<float>( Rotation[1].GetKeyTime( KeyHandle ) );
+	}
+	if ( Rotation[2].IsKeyHandleValid( KeyHandle ) )
+	{
+		return TOptional<float>( Rotation[2].GetKeyTime( KeyHandle ) );
+	}
+	// Scale
+	if ( Scale[0].IsKeyHandleValid( KeyHandle ) )
+	{
+		return TOptional<float>( Scale[0].GetKeyTime( KeyHandle ) );
+	}
+	if ( Scale[1].IsKeyHandleValid( KeyHandle ) )
+	{
+		return TOptional<float>( Scale[1].GetKeyTime( KeyHandle ) );
+	}
+	if ( Scale[2].IsKeyHandleValid( KeyHandle ) )
+	{
+		return TOptional<float>( Scale[2].GetKeyTime( KeyHandle ) );
+	}
+	return TOptional<float>();
+}
+
+
+void UMovieScene3DTransformSection::SetKeyTime( FKeyHandle KeyHandle, float Time )
+{
+	// Translation
+	if ( Translation[0].IsKeyHandleValid( KeyHandle ) )
+	{
+		Translation[0].SetKeyTime( KeyHandle, Time );
+	}
+	else if ( Translation[1].IsKeyHandleValid( KeyHandle ) )
+	{
+		Translation[1].SetKeyTime( KeyHandle, Time );
+	}
+	else if ( Translation[2].IsKeyHandleValid( KeyHandle ) )
+	{
+		Translation[2].SetKeyTime( KeyHandle, Time );
+	}
+	// Rotation
+	else if ( Rotation[0].IsKeyHandleValid( KeyHandle ) )
+	{
+		Rotation[0].SetKeyTime( KeyHandle, Time );
+	}
+	else if ( Rotation[1].IsKeyHandleValid( KeyHandle ) )
+	{
+		Rotation[1].SetKeyTime( KeyHandle, Time );
+	}
+	else if ( Rotation[2].IsKeyHandleValid( KeyHandle ) )
+	{
+		Rotation[2].SetKeyTime( KeyHandle, Time );
+	}
+	// Scale
+	else if ( Scale[0].IsKeyHandleValid( KeyHandle ) )
+	{
+		Scale[0].SetKeyTime( KeyHandle, Time );
+	}
+	else if ( Scale[1].IsKeyHandleValid( KeyHandle ) )
+	{
+		Scale[1].SetKeyTime( KeyHandle, Time );
+	}
+	else if ( Scale[2].IsKeyHandleValid( KeyHandle ) )
+	{
+		Scale[2].SetKeyTime( KeyHandle, Time );
+	}
 }
 
 
@@ -430,7 +538,9 @@ bool UMovieScene3DTransformSection::HasKeys(const FTransformKey& TransformKey) c
 void UMovieScene3DTransformSection::AddKey(float Time, const FTransformKey& TransformKey, EMovieSceneKeyInterpolation KeyInterpolation)
 {
 	FRichCurve* KeyCurve = GetCurveForChannelAndAxis(TransformKey.Channel, TransformKey.Axis, Translation, Rotation, Scale);
-	AddKeyToCurve(*KeyCurve, Time, TransformKey.Value, KeyInterpolation);
+	
+	bool bUnwindRotation = TransformKey.Channel == EKey3DTransformChannel::Rotation;
+	AddKeyToCurve(*KeyCurve, Time, TransformKey.Value, KeyInterpolation, bUnwindRotation);
 }
 
 

@@ -9,7 +9,11 @@ FMovieSceneBoolTrackInstance::FMovieSceneBoolTrackInstance( UMovieSceneBoolTrack
 {
 	BoolTrack = &InBoolTrack;
 	
-	PropertyBindings = MakeShareable( new FTrackInstancePropertyBindings( BoolTrack->GetPropertyName(), BoolTrack->GetPropertyPath() ) );
+	FString PropertyVarName = BoolTrack->GetPropertyName().ToString();
+	PropertyVarName.RemoveFromStart("b", ESearchCase::CaseSensitive);
+	FName PropertyName = FName(*PropertyVarName);
+
+	PropertyBindings = MakeShareable( new FTrackInstancePropertyBindings( PropertyName, BoolTrack->GetPropertyPath() ) );
 }
 
 

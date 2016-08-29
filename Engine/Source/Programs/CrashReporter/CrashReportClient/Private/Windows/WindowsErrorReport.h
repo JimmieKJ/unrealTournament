@@ -45,8 +45,8 @@ public:
 	FString FindCrashedAppPath() const;
 
 	/**
-	 * Look for the most recent Windows Error Report
+	 * Look for the most recent Windows Error Reports
 	 * @return Full path to the most recent report, or an empty string if none found
 	 */
-	static FString FindMostRecentErrorReport();
+	static void FindMostRecentErrorReports(TArray<FString>& ErrorReportPaths, const FTimespan& MaxCrashReportAge);
 };

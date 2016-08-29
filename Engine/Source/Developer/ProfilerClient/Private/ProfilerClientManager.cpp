@@ -268,7 +268,7 @@ protected:
 		// Send to game thread.
 		FSimpleDelegateGraphTask::CreateAndDispatchWhenReady
 		(
-			FSimpleDelegateGraphTask::FDelegate::CreateRaw( ProfilerClientManager, &FProfilerClientManager::SendProfilerDataFrameToGame, DataFramePtr, MetaDataPtr ),
+			FSimpleDelegateGraphTask::FDelegate::CreateRaw( ProfilerClientManager, &FProfilerClientManager::SendProfilerDataFrameToGame, DataFramePtr, MetaDataPtr, LoadConnection->InstanceId ),
 			TStatId(), nullptr, ENamedThreads::GameThread
 		);
 	}
@@ -276,11 +276,11 @@ protected:
 	/** Called after reading all data from the file. */
 	virtual void PreProcessStats() override
 	{
-		FFunctionGraphTask::CreateAndDispatchWhenReady( [=]()
-		{
-			ProfilerClientManager->FinalizeLoading();
-		}
-		, TStatId(), NULL, ENamedThreads::GameThread );
+		FSimpleDelegateGraphTask::CreateAndDispatchWhenReady
+		(
+			FSimpleDelegateGraphTask::FDelegate::CreateRaw( ProfilerClientManager, &FProfilerClientManager::FinalizeLoading, LoadConnection->InstanceId ),
+			TStatId(), NULL, ENamedThreads::GameThread
+		);
 	}
 
 	FProfilerClientManager* ProfilerClientManager;
@@ -734,20 +734,23 @@ void FProfilerClientManager::SendDataToGame( TArray<uint8>* DataToGame, int64 Fr
 	}
 }
 
-void FProfilerClientManager::SendProfilerDataFrameToGame( FProfilerDataFrame* NewData, FStatMetaData* MetaDataPtr )
+void FProfilerClientManager::SendProfilerDataFrameToGame( FProfilerDataFrame* NewData, FStatMetaData* MetaDataPtr, const FGuid InstanceId )
 {
-	if (MetaDataPtr)
+	if (Connections.Find(InstanceId) != nullptr)
 	{
-		ProfilerMetaDataUpdatedDelegate.Broadcast( LoadConnection->InstanceId, *MetaDataPtr );
-		delete MetaDataPtr;
-		MetaDataPtr = nullptr;
-	}
+		if (MetaDataPtr)
+		{
+			ProfilerMetaDataUpdatedDelegate.Broadcast( InstanceId, *MetaDataPtr );
+			delete MetaDataPtr;
+			MetaDataPtr = nullptr;
+		}
 
-	if (NewData)
-	{
-		ProfilerDataDelegate.Broadcast( LoadConnection->InstanceId, *NewData );
-		delete NewData;
-		NewData = nullptr;
+		if (NewData)
+		{
+			ProfilerDataDelegate.Broadcast( InstanceId, *NewData );
+			delete NewData;
+			NewData = nullptr;
+		}
 	}
 }
 
@@ -770,14 +773,32 @@ void FProfilerClientManager::Shutdown()
 	FTicker::GetCoreTicker().RemoveTicker( TickDelegateHandle );
 }
 
-void FProfilerClientManager::FinalizeLoading()
+void FProfilerClientManager::FinalizeLoading(const FGuid InstanceId)
 {
-	ProfilerLoadCompletedDelegate.Broadcast( LoadConnection->InstanceId );
-	delete LoadConnection->StatsReader;
-	LoadConnection->StatsReader = nullptr;
-	LoadConnection = nullptr;
+	if (Connections.Find(InstanceId) != nullptr)
+	{
+		ProfilerLoadCompletedDelegate.Broadcast(InstanceId);
+		LoadConnection = &Connections.FindChecked(InstanceId);
+		delete LoadConnection->StatsReader;
+		LoadConnection->StatsReader = nullptr;
+		LoadConnection = nullptr;
+		Connections.Remove(InstanceId);
 
-	RetryTime = 5.f;
+		RetryTime = 5.f;
+	}
+}
+
+void FProfilerClientManager::CancelLoading(const FGuid InstanceId)
+{
+	if (Connections.Find(InstanceId) != nullptr)
+	{
+		ProfilerLoadCancelledDelegate.Broadcast(InstanceId);
+		LoadConnection = &Connections.FindChecked(InstanceId);
+		delete LoadConnection->StatsReader;
+		LoadConnection->StatsReader = nullptr;
+		LoadConnection = nullptr;
+		Connections.Remove(InstanceId);
+	}
 }
 
 #if STATS

@@ -22,6 +22,8 @@ struct FSystemSettingsData
 	void LoadFromIni(const TCHAR* IniSection, const FString& IniFilename = GEngineIni, bool bAllowMissingValues = true, bool* FoundValues=NULL);
 };
 
+ENGINE_API void OnSetCVarFromIniEntry(const TCHAR *IniFile, const TCHAR *Key, const TCHAR* Value, uint32 SetBy, bool bAllowCheating = false);
+
 
 /**
  * Class that actually holds the current system settings

@@ -10,12 +10,12 @@ NiagaraSimulation.h: Niagara emitter simulation class
 #include "NiagaraEvents.h"
 #include "NiagaraDataSet.h"
 #include "NiagaraEmitterProperties.h"
-#include "Private/NiagaraSimulationDebugger.h"
 
 DECLARE_CYCLE_STAT(TEXT("Tick"), STAT_NiagaraTick, STATGROUP_Niagara);
 DECLARE_CYCLE_STAT(TEXT("Simulate"), STAT_NiagaraSimulate, STATGROUP_Niagara);
 DECLARE_CYCLE_STAT(TEXT("Spawn"), STAT_NiagaraSpawn, STATGROUP_Niagara);
 DECLARE_CYCLE_STAT(TEXT("Kill"), STAT_NiagaraKill, STATGROUP_Niagara);
+DECLARE_CYCLE_STAT(TEXT("Register Setup"), STAT_NiagaraSimRegisterSetup, STATGROUP_Niagara);
 
 /**
 * A Niagara particle simulation.
@@ -35,14 +35,15 @@ public:
 
 	void PreTick();
 	void Tick(float DeltaSeconds);
+	void TickEvents(float DeltaSeconds);
 
+	void KillParticles();
 
 	FBox GetBounds() const { return CachedBounds; }
 
 	FNiagaraDataSet &GetData()	{ return Data; }
 
-	void SetConstants(const FNiagaraConstantMap &InMap)	{ Constants = InMap; }
-	FNiagaraConstantMap &GetConstants()	{ return Constants; }
+	FNiagaraConstants &GetConstants()	{ return ExternalConstants; }
 
 	NiagaraEffectRenderer *GetEffectRenderer()	{ return EffectRenderer; }
 	
@@ -93,7 +94,8 @@ private:
 	ENiagaraTickState TickState;
 	
 	/** Local constant set. */
-	FNiagaraConstantMap Constants;
+	FNiagaraConstants ExternalConstants;
+
 	/** particle simulation data */
 	FNiagaraDataSet Data;
 	/** Keep partial particle spawns from last frame */
@@ -136,41 +138,12 @@ private:
 	/** Util to move a particle */
 	void MoveParticleToIndex(int32 SrcIndex, int32 DestIndex)
 	{
-		FVector4 *SrcPtr = Data.GetCurrentBuffer() + SrcIndex;
-		FVector4 *DestPtr = Data.GetCurrentBuffer() + DestIndex;
-
 		for (int32 AttrIndex = 0; AttrIndex < Data.GetNumVariables(); AttrIndex++)
 		{
-			*DestPtr = *SrcPtr;
-			DestPtr += Data.GetDataAllocation();
-			SrcPtr += Data.GetDataAllocation();
+			FVector4 *AttrPtr = Data.GetCurrentBuffer(AttrIndex);
+			*(AttrPtr+DestIndex) = *(AttrPtr+SrcIndex);
 		}
 	}
 
 	bool CheckAttriubtesForRenderer();
-
-	//Debugger hooks
-#if ENABLE_NIAGARA_SIMULATION_DEBUGGING
-	FORCEINLINE void DebuggerHook_PreSpawn(FNiagaraSimulation* Sim, int32 CurrNumParticles, int32 NumToSpawn)
-	{
-		FNiagaraSimulationDebugger::Get().PreSpawn(Sim, CurrNumParticles, NumToSpawn);
-	}
-	FORCEINLINE void DebuggerHook_OnDeath(FNiagaraSimulation* Sim, int32 DyingParticle, int32 ReplacementParticle)
-	{
-		FNiagaraSimulationDebugger::Get().OnDeath(Sim, DyingParticle, ReplacementParticle);
-	}
-	FORCEINLINE void DebuggerHook_PreScriptRun(FNiagaraSimulation* Sim, UNiagaraScript* Script, int32 TotalNumParticles, int32 NumParticlesProcessed, int32 StartingParticle)
-	{
-		FNiagaraSimulationDebugger::Get().PreScriptRun(Sim, Script, TotalNumParticles, NumParticlesProcessed, StartingParticle);
-	}
-	FORCEINLINE void DebuggerHook_PostScriptRun(FNiagaraSimulation* Sim, UNiagaraScript* Script)
-	{
-		FNiagaraSimulationDebugger::Get().PostScriptRun(Sim, Script);
-	}
-#else
-	FORCEINLINE void DebuggerHook_PreSpawn(FNiagaraSimulation* Sim, int32 CurrNumParticles, int32 NumToSpawn){}
-	FORCEINLINE void DebuggerHook_OnDeath(FNiagaraSimulation* Sim, int32 DyingParticle, int32 ReplacementParticle){}
-	FORCEINLINE void DebuggerHook_PreScriptRun(FNiagaraSimulation* Sim, UNiagaraScript* Script, int32 TotalNumParticles, int32 NumParticlesProcessed, int32 StartingParticle){ }
-	FORCEINLINE void DebuggerHook_PostScriptRun(FNiagaraSimulation* Sim, UNiagaraScript* Script){}
-#endif
 };

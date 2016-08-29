@@ -10,9 +10,9 @@ void FBackendHelperUMG::WidgetFunctionsInHeader(FEmitterLocalContext& Context)
 {
 	if (Cast<UWidgetBlueprintGeneratedClass>(Context.GetCurrentlyGeneratedClass()))
 	{
-		Context.Header.AddLine(TEXT("virtual void GetSlotNames(TArray<FName>& SlotNames) const override;"));
-		Context.Header.AddLine(TEXT("virtual void PreSave() override;"));
-		Context.Header.AddLine(TEXT("virtual void CustomNativeInitilize() override;"));
+		Context.Header.AddLine(FString::Printf(TEXT("virtual void %s(TArray<FName>& SlotNames) const override;"), GET_FUNCTION_NAME_STRING_CHECKED(UUserWidget, GetSlotNames)));
+		Context.Header.AddLine(FString::Printf(TEXT("virtual void %s(const class ITargetPlatform* TargetPlatform) override;"), GET_FUNCTION_NAME_STRING_CHECKED(UUserWidget, PreSave)));
+		Context.Header.AddLine(FString::Printf(TEXT("virtual void %s() override;"), GET_FUNCTION_NAME_STRING_CHECKED(UUserWidget, CustomNativeInitilize)));
 	}
 }
 
@@ -63,7 +63,7 @@ void FBackendHelperUMG::EmitWidgetInitializationFunctions(FEmitterLocalContext& 
 		};
 
 		{	// GetSlotNames
-			Context.AddLine(FString::Printf(TEXT("void %s::GetSlotNames(TArray<FName>& SlotNames) const"), *CppClassName));
+			Context.AddLine(FString::Printf(TEXT("void %s::%s(TArray<FName>& SlotNames) const"), *CppClassName, GET_FUNCTION_NAME_STRING_CHECKED(UUserWidget, GetSlotNames)));
 			Context.AddLine(TEXT("{"));
 			Context.IncreaseIndent();
 
@@ -75,7 +75,7 @@ void FBackendHelperUMG::EmitWidgetInitializationFunctions(FEmitterLocalContext& 
 		}
 
 		{	// CustomNativeInitilize
-			Context.AddLine(FString::Printf(TEXT("void %s::CustomNativeInitilize()"), *CppClassName));
+			Context.AddLine(FString::Printf(TEXT("void %s::%s()"), *CppClassName, GET_FUNCTION_NAME_STRING_CHECKED(UUserWidget, CustomNativeInitilize)));
 			Context.AddLine(TEXT("{"));
 			Context.IncreaseIndent();
 
@@ -84,7 +84,8 @@ void FBackendHelperUMG::EmitWidgetInitializationFunctions(FEmitterLocalContext& 
 			const FString AnimationsArrayNativeName = GenerateLocalProperty(Context, FindFieldChecked<UArrayProperty>(UWidgetBlueprintGeneratedClass::StaticClass(), TEXT("Animations")), reinterpret_cast<const uint8*>(&WidgetClass->Animations));
 			const FString BindingsArrayNativeName = GenerateLocalProperty(Context, FindFieldChecked<UArrayProperty>(UWidgetBlueprintGeneratedClass::StaticClass(), TEXT("Bindings")), reinterpret_cast<const uint8*>(&WidgetClass->Bindings));
 					
-			Context.AddLine(FString::Printf(TEXT("UWidgetBlueprintGeneratedClass::InitializeWidgetStatic(this, GetClass(), %s, %s, %s, %s, %s, nullptr);")
+			Context.AddLine(FString::Printf(TEXT("UWidgetBlueprintGeneratedClass::%s(this, GetClass(), %s, %s, %s, %s, %s);")
+				, GET_FUNCTION_NAME_STRING_CHECKED(UWidgetBlueprintGeneratedClass, InitializeWidgetStatic)
 				, WidgetClass->bCanEverTick ? TEXT("true") : TEXT("false")
 				, WidgetClass->bCanEverPaint ? TEXT("true") : TEXT("false")
 				, *WidgetTreeStr
@@ -96,13 +97,13 @@ void FBackendHelperUMG::EmitWidgetInitializationFunctions(FEmitterLocalContext& 
 		}
 
 		// PreSave
-		Context.AddLine(FString::Printf(TEXT("void %s::PreSave()"), *CppClassName));
+		Context.AddLine(FString::Printf(TEXT("void %s::%s(const class ITargetPlatform* TargetPlatform)"), *CppClassName, GET_FUNCTION_NAME_STRING_CHECKED(UUserWidget, PreSave)));
 		Context.AddLine(TEXT("{"));
 		Context.IncreaseIndent();
-		Context.AddLine(TEXT("Super::PreSave();"));
+		Context.AddLine(FString::Printf(TEXT("Super::%s(TargetPlatform);"), GET_FUNCTION_NAME_STRING_CHECKED(UObject, PreSave)));
 		Context.AddLine(TEXT("TArray<FName> LocalNamedSlots;"));
-		Context.AddLine(TEXT("GetSlotNames(LocalNamedSlots);"));
-		Context.AddLine(TEXT("RemoveObsoleteBindings(LocalNamedSlots);"));
+		Context.AddLine(FString::Printf(TEXT("%s(LocalNamedSlots);"), GET_FUNCTION_NAME_STRING_CHECKED(UUserWidget, GetSlotNames)));
+		Context.AddLine(TEXT("RemoveObsoleteBindings(LocalNamedSlots);")); //RemoveObsoleteBindings is protected - no check
 		Context.DecreaseIndent();
 		Context.AddLine(TEXT("}"));
 	}

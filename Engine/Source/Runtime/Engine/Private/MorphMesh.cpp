@@ -5,13 +5,7 @@
 =============================================================================*/
 
 #include "EnginePrivate.h"
-#include "Animation/VertexAnim/VertexAnimBase.h"
-#include "Animation/VertexAnim/MorphTarget.h"
-
-UVertexAnimBase::UVertexAnimBase(const FObjectInitializer& ObjectInitializer)
-	: Super(ObjectInitializer)
-{
-}
+#include "Animation/MorphTarget.h"
 
 //////////////////////////////////////////////////////////////////////////
 

@@ -1205,9 +1205,9 @@ private:
 	}
 
 	/**
-	 * Checks to see if the selected history-tree items can be diff'd against each other.
+	 * Checks to see if the selected history-tree items can be diffed against each other.
 	 * 
-	 * @return True if the selected items can be diff'd, false if not.
+	 * @return True if the selected items can be diffed, false if not.
 	 */
 	bool CanDiffSelected() const
 	{

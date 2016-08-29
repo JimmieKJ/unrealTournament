@@ -18,8 +18,36 @@ class ENGINE_API USelection : public UObject
 {
 	GENERATED_UCLASS_BODY()
 private:
+	/** Contains info about each class and how many objects of that class are selected */
+	struct FSelectedClassInfo
+	{
+		/** The selected class */
+		const UClass* Class;
+		/** How many objects of that class are selected */
+		int32 SelectionCount;
+
+		FSelectedClassInfo(const UClass* InClass)
+			: Class(InClass)
+			, SelectionCount(0)
+		{}
+
+		FSelectedClassInfo(const UClass* InClass, int32 InSelectionCount)
+			: Class(InClass)
+			, SelectionCount(InSelectionCount)
+		{}
+		bool operator==(const FSelectedClassInfo& Info) const
+		{
+			return Class == Info.Class;
+		}
+
+		friend uint32 GetTypeHash(const FSelectedClassInfo& Info)
+		{
+			return GetTypeHash(Info.Class);
+		}
+	};
+
 	typedef TArray<TWeakObjectPtr<UObject> >	ObjectArray;
-	typedef TMRUArray<UClass*>	ClassArray;
+	typedef TSet<FSelectedClassInfo>	ClassArray;
 
 	template<typename SelectionFilter>
 	friend class TSelectionIterator;
@@ -61,7 +89,7 @@ public:
 	 */
 	UObject* GetSelectedObject(const int32 InIndex)
 	{
-		return (SelectedObjects.IsValidIndex(InIndex) && SelectedObjects[InIndex].IsValid() ? SelectedObjects[InIndex].Get() : NULL);
+		return (SelectedObjects.IsValidIndex(InIndex) && SelectedObjects[InIndex].IsValid() ? SelectedObjects[InIndex].Get() : nullptr);
 	}
 
 	/**
@@ -69,7 +97,7 @@ public:
 	 */
 	const UObject* GetSelectedObject(const int32 InIndex) const
 	{
-		return (SelectedObjects.IsValidIndex(InIndex) && SelectedObjects[InIndex].IsValid() ? SelectedObjects[InIndex].Get() : NULL);
+		return (SelectedObjects.IsValidIndex(InIndex) && SelectedObjects[InIndex].IsValid() ? SelectedObjects[InIndex].Get() : nullptr);
 	}
 
 	/**
@@ -156,7 +184,7 @@ public:
 	 * @param	bArchetypesOnly		[opt] true to only return archetype objects, false otherwise
 	 * @return						The first selected object of the specified class.
 	 */
-	UObject* GetTop(UClass* InClass, UClass* RequiredInterface=NULL, bool bArchetypesOnly=false)
+	UObject* GetTop(UClass* InClass, UClass* RequiredInterface=nullptr, bool bArchetypesOnly=false)
 	{
 		check( InClass );
 		for( int32 i=0; i<SelectedObjects.Num(); ++i )
@@ -188,7 +216,7 @@ public:
 				}
 			}
 		}
-		return NULL;
+		return nullptr;
 	}
 
 	/**
@@ -208,7 +236,7 @@ public:
 				return SelectedObject;
 			}
 		}
-		return NULL;
+		return nullptr;
 	}
 
 	/**
@@ -219,7 +247,7 @@ public:
 	template< class T > T* GetTop()
 	{
 		UObject* Selected = GetTop(T::StaticClass());
-		return Selected ? CastChecked<T>(Selected) : NULL;
+		return Selected ? CastChecked<T>(Selected) : nullptr;
 	}
 
 	/**
@@ -230,7 +258,7 @@ public:
 	template< class T > T* GetBottom()
 	{
 		UObject* Selected = GetBottom(T::StaticClass());
-		return Selected ? CastChecked<T>(Selected) : NULL;
+		return Selected ? CastChecked<T>(Selected) : nullptr;
 	}
 
 	/**
@@ -284,11 +312,18 @@ public:
 	 *
 	 * @return			The selected class at the specified index.
 	 */
+	DEPRECATED(4.14, "GetSelectedClass is deprecated.  Use IsClassSelected or a class iterator to search through classes")
 	UClass* GetSelectedClass(int32 InIndex) const
 	{
-		return SelectedClasses[ InIndex ];
+		FSetElementId Id = FSetElementId::FromInteger(InIndex);
+		return const_cast<UClass*>(SelectedClasses[Id].Class);
 	}
 
+	bool IsClassSelected(UClass* Class) const
+	{
+		const FSelectedClassInfo* Info = SelectedClasses.Find(Class);
+		return Info && Info->SelectionCount > 0;
+	}
 
 	//~ Begin UObject Interface
 	virtual void Serialize(FArchive& Ar) override;

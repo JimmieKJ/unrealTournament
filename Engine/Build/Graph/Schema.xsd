@@ -1,0 +1,650 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<xs:schema xmlns:tns="http://www.epicgames.com/BuildGraph" elementFormDefault="qualified" targetNamespace="http://www.epicgames.com/BuildGraph" xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="BuildGraph" type="tns:GraphType" />
+  <xs:complexType name="GraphType">
+    <xs:choice minOccurs="0" maxOccurs="unbounded">
+      <xs:element name="Include" type="tns:IncludeType" />
+      <xs:element name="Option" type="tns:OptionType" />
+      <xs:element name="EnvVar" type="tns:EnvVarType" />
+      <xs:element name="Property" type="tns:PropertyType" />
+      <xs:element name="Agent" type="tns:AgentType" />
+      <xs:element name="Trigger" type="tns:TriggerType" />
+      <xs:element name="Aggregate" type="tns:AggregateType" />
+      <xs:element name="Report" type="tns:ReportType" />
+      <xs:element name="Badge" type="tns:BadgeType" />
+      <xs:element name="Notify" type="tns:NotifyType" />
+      <xs:element name="Warning" type="tns:WarningType" />
+      <xs:element name="Error" type="tns:ErrorType" />
+      <xs:element name="Do">
+        <xs:complexType>
+          <xs:complexContent mixed="false">
+            <xs:extension base="tns:GraphType">
+              <xs:attribute name="If" type="tns:BalancedStringType" use="optional" />
+            </xs:extension>
+          </xs:complexContent>
+        </xs:complexType>
+      </xs:element>
+      <xs:element name="Switch">
+        <xs:complexType>
+          <xs:sequence>
+            <xs:element minOccurs="0" maxOccurs="unbounded" name="Case">
+              <xs:complexType>
+                <xs:complexContent mixed="false">
+                  <xs:extension base="tns:GraphType">
+                    <xs:attribute name="If" type="tns:BalancedStringType" use="required" />
+                  </xs:extension>
+                </xs:complexContent>
+              </xs:complexType>
+            </xs:element>
+            <xs:element minOccurs="0" maxOccurs="1" name="Default" type="tns:GraphType" />
+          </xs:sequence>
+        </xs:complexType>
+      </xs:element>
+      <xs:element name="ForEach">
+        <xs:complexType>
+          <xs:complexContent mixed="false">
+            <xs:extension base="tns:GraphType">
+              <xs:attribute name="Name" type="tns:BalancedStringType" use="required" />
+              <xs:attribute name="Values" type="tns:BalancedStringType" use="required" />
+              <xs:attribute name="If" type="tns:BalancedStringType" use="optional" />
+            </xs:extension>
+          </xs:complexContent>
+        </xs:complexType>
+      </xs:element>
+    </xs:choice>
+  </xs:complexType>
+  <xs:complexType name="TriggerType">
+    <xs:complexContent mixed="false">
+      <xs:extension base="tns:TriggerBodyType">
+        <xs:attribute name="Name" type="tns:QualifiedNameType" use="required" />
+        <xs:attribute name="If" type="tns:BalancedStringType" use="optional" />
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+  <xs:complexType name="TriggerBodyType">
+    <xs:choice minOccurs="0" maxOccurs="unbounded">
+      <xs:element name="Property" type="tns:PropertyType" />
+      <xs:element name="EnvVar" type="tns:EnvVarType" />
+      <xs:element name="Agent" type="tns:AgentType" />
+      <xs:element name="Aggregate" type="tns:AggregateType" />
+      <xs:element name="Warning" type="tns:WarningType" />
+      <xs:element name="Error" type="tns:ErrorType" />
+      <xs:element name="Do">
+        <xs:complexType>
+          <xs:complexContent mixed="false">
+            <xs:extension base="tns:TriggerBodyType">
+              <xs:attribute name="If" type="tns:BalancedStringType" use="optional" />
+            </xs:extension>
+          </xs:complexContent>
+        </xs:complexType>
+      </xs:element>
+      <xs:element name="Switch">
+        <xs:complexType>
+          <xs:sequence>
+            <xs:element minOccurs="0" maxOccurs="unbounded" name="Case">
+              <xs:complexType>
+                <xs:complexContent mixed="false">
+                  <xs:extension base="tns:TriggerBodyType">
+                    <xs:attribute name="If" type="tns:BalancedStringType" use="required" />
+                  </xs:extension>
+                </xs:complexContent>
+              </xs:complexType>
+            </xs:element>
+            <xs:element minOccurs="0" maxOccurs="1" name="Default" type="tns:TriggerBodyType" />
+          </xs:sequence>
+        </xs:complexType>
+      </xs:element>
+      <xs:element name="ForEach">
+        <xs:complexType>
+          <xs:complexContent mixed="false">
+            <xs:extension base="tns:TriggerBodyType">
+              <xs:attribute name="Name" type="tns:BalancedStringType" use="required" />
+              <xs:attribute name="Values" type="tns:BalancedStringType" use="required" />
+              <xs:attribute name="If" type="tns:BalancedStringType" use="optional" />
+            </xs:extension>
+          </xs:complexContent>
+        </xs:complexType>
+      </xs:element>
+    </xs:choice>
+  </xs:complexType>
+  <xs:complexType name="AgentType">
+    <xs:complexContent mixed="false">
+      <xs:extension base="tns:AgentBodyType">
+        <xs:attribute name="Name" type="xs:string" use="required" />
+        <xs:attribute name="Type" type="tns:NameListType" use="optional" />
+        <xs:attribute name="If" type="tns:BalancedStringType" use="optional" />
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+  <xs:complexType name="AgentBodyType">
+    <xs:choice minOccurs="0" maxOccurs="unbounded">
+      <xs:element name="Property" type="tns:PropertyType" />
+      <xs:element name="EnvVar" type="tns:EnvVarType" />
+      <xs:element name="Node" type="tns:NodeType" />
+      <xs:element name="Warning" type="tns:WarningType" />
+      <xs:element name="Error" type="tns:ErrorType" />
+      <xs:element name="Do">
+        <xs:complexType>
+          <xs:complexContent mixed="false">
+            <xs:extension base="tns:AgentBodyType">
+              <xs:attribute name="If" type="tns:BalancedStringType" use="optional" />
+            </xs:extension>
+          </xs:complexContent>
+        </xs:complexType>
+      </xs:element>
+      <xs:element name="Switch">
+        <xs:complexType>
+          <xs:sequence>
+            <xs:element minOccurs="0" maxOccurs="unbounded" name="Case">
+              <xs:complexType>
+                <xs:complexContent mixed="false">
+                  <xs:extension base="tns:AgentBodyType">
+                    <xs:attribute name="If" type="tns:BalancedStringType" use="required" />
+                  </xs:extension>
+                </xs:complexContent>
+              </xs:complexType>
+            </xs:element>
+            <xs:element minOccurs="0" maxOccurs="1" name="Default" type="tns:AgentBodyType" />
+          </xs:sequence>
+        </xs:complexType>
+      </xs:element>
+      <xs:element name="ForEach">
+        <xs:complexType>
+          <xs:complexContent mixed="false">
+            <xs:extension base="tns:AgentBodyType">
+              <xs:attribute name="Name" type="tns:BalancedStringType" use="required" />
+              <xs:attribute name="Values" type="tns:BalancedStringType" use="required" />
+              <xs:attribute name="If" type="tns:BalancedStringType" use="optional" />
+            </xs:extension>
+          </xs:complexContent>
+        </xs:complexType>
+      </xs:element>
+    </xs:choice>
+  </xs:complexType>
+  <xs:complexType name="NodeType">
+    <xs:complexContent mixed="false">
+      <xs:extension base="tns:NodeBodyType">
+        <xs:attribute name="Name" type="tns:NameType" use="required" />
+        <xs:attribute name="Requires" type="tns:NameOrTagListType" use="optional" />
+        <xs:attribute name="Produces" type="tns:TagListType" use="optional" />
+        <xs:attribute name="After" type="tns:NameOrTagListType" use="optional" />
+        <xs:attribute name="Token" type="tns:BalancedStringType" use="optional" />
+        <xs:attribute name="If" type="tns:BalancedStringType" use="optional" />
+        <xs:attribute name="NotifyOnWarnings" type="tns:BooleanType" use="optional" />
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+  <xs:complexType name="NodeBodyType">
+    <xs:choice minOccurs="0" maxOccurs="unbounded">
+      <xs:element name="Property" type="tns:PropertyType" />
+      <xs:element name="EnvVar" type="tns:EnvVarType" />
+      <xs:element name="Warning" type="tns:WarningType" />
+      <xs:element name="Error" type="tns:ErrorType" />
+      <xs:element name="Do">
+        <xs:complexType>
+          <xs:complexContent mixed="false">
+            <xs:extension base="tns:NodeBodyType">
+              <xs:attribute name="If" type="tns:BalancedStringType" use="optional" />
+            </xs:extension>
+          </xs:complexContent>
+        </xs:complexType>
+      </xs:element>
+      <xs:element name="Switch">
+        <xs:complexType>
+          <xs:sequence>
+            <xs:element minOccurs="0" maxOccurs="unbounded" name="Case">
+              <xs:complexType>
+                <xs:complexContent mixed="false">
+                  <xs:extension base="tns:NodeBodyType">
+                    <xs:attribute name="If" type="tns:BalancedStringType" use="required" />
+                  </xs:extension>
+                </xs:complexContent>
+              </xs:complexType>
+            </xs:element>
+            <xs:element minOccurs="0" maxOccurs="1" name="Default" type="tns:NodeBodyType" />
+          </xs:sequence>
+        </xs:complexType>
+      </xs:element>
+      <xs:element name="ForEach">
+        <xs:complexType>
+          <xs:complexContent mixed="false">
+            <xs:extension base="tns:NodeBodyType">
+              <xs:attribute name="Name" type="tns:BalancedStringType" use="required" />
+              <xs:attribute name="Values" type="tns:BalancedStringType" use="required" />
+              <xs:attribute name="If" type="tns:BalancedStringType" use="optional" />
+            </xs:extension>
+          </xs:complexContent>
+        </xs:complexType>
+      </xs:element>
+      <xs:element name="AgeStore" type="tns:AgeStoreTaskType" />
+      <xs:element name="Chunk" type="tns:ChunkTaskType" />
+      <xs:element name="Command" type="tns:CommandTaskType" />
+      <xs:element name="Commandlet" type="tns:CommandletTaskType" />
+      <xs:element name="Compile" type="tns:CompileTaskType" />
+      <xs:element name="Cook" type="tns:CookTaskType" />
+      <xs:element name="Copy" type="tns:CopyTaskType" />
+      <xs:element name="CsCompile" type="tns:CsCompileTaskType" />
+      <xs:element name="Delete" type="tns:DeleteTaskType" />
+      <xs:element name="LabelBuild" type="tns:LabelBuildTaskType" />
+      <xs:element name="Log" type="tns:LogTaskType" />
+      <xs:element name="Merge" type="tns:MergeTaskType" />
+      <xs:element name="PakFile" type="tns:PakFileTaskType" />
+      <xs:element name="PostBuild" type="tns:PostBuildTaskType" />
+      <xs:element name="Rename" type="tns:RenameTaskType" />
+      <xs:element name="SetVersion" type="tns:SetVersionTaskType" />
+      <xs:element name="Sign" type="tns:SignTaskType" />
+      <xs:element name="Spawn" type="tns:SpawnTaskType" />
+      <xs:element name="SrcSrv" type="tns:SrcSrvTaskType" />
+      <xs:element name="Stage" type="tns:StageTaskType" />
+      <xs:element name="Strip" type="tns:StripTaskType" />
+      <xs:element name="Submit" type="tns:SubmitTaskType" />
+      <xs:element name="SymStore" type="tns:SymStoreTaskType" />
+      <xs:element name="Tag" type="tns:TagTaskType" />
+      <xs:element name="TagReceipt" type="tns:TagReceiptTaskType" />
+      <xs:element name="Unzip" type="tns:UnzipTaskType" />
+      <xs:element name="Zip" type="tns:ZipTaskType" />
+    </xs:choice>
+  </xs:complexType>
+  <xs:complexType name="AggregateType">
+    <xs:attribute name="Name" type="tns:NameType" use="required" />
+    <xs:attribute name="Requires" type="tns:NameOrTagListType" use="required" />
+    <xs:attribute name="If" type="tns:BalancedStringType" use="optional" />
+  </xs:complexType>
+  <xs:complexType name="ReportType">
+    <xs:attribute name="Name" type="tns:NameType" use="required" />
+    <xs:attribute name="Requires" type="tns:NameOrTagListType" use="required" />
+    <xs:attribute name="If" type="tns:BalancedStringType" use="optional" />
+  </xs:complexType>
+  <xs:complexType name="BadgeType">
+    <xs:attribute name="Name" type="tns:NameType" use="required" />
+    <xs:attribute name="Requires" type="tns:NameOrTagListType" use="required" />
+    <xs:attribute name="Project" type="tns:BalancedStringType" use="required" />
+    <xs:attribute name="If" type="tns:BalancedStringType" use="optional" />
+  </xs:complexType>
+  <xs:complexType name="NotifyType">
+    <xs:attribute name="Targets" type="tns:NameOrTagListType" use="optional" />
+    <xs:attribute name="Except" type="tns:NameOrTagListType" use="optional" />
+    <xs:attribute name="Nodes" type="tns:NameOrTagListType" use="optional" />
+    <xs:attribute name="Triggers" type="tns:NameListType" use="optional" />
+    <xs:attribute name="Reports" type="tns:NameListType" use="optional" />
+    <xs:attribute name="Users" type="tns:BalancedStringType" use="optional" />
+    <xs:attribute name="Submitters" type="tns:BalancedStringType" use="optional" />
+    <xs:attribute name="Warnings" type="tns:BooleanType" use="optional" />
+    <xs:attribute name="If" type="tns:BalancedStringType" use="optional" />
+  </xs:complexType>
+  <xs:complexType name="IncludeType">
+    <xs:attribute name="Script" type="tns:BalancedStringType" use="required" />
+    <xs:attribute name="If" type="tns:BalancedStringType" use="optional" />
+  </xs:complexType>
+  <xs:complexType name="OptionType">
+    <xs:attribute name="Name" type="tns:NameType" use="required" />
+    <xs:attribute name="Restrict" type="xs:string" use="optional" />
+    <xs:attribute name="DefaultValue" type="xs:string" use="required" />
+    <xs:attribute name="Description" type="xs:string" use="required" />
+    <xs:attribute name="If" type="tns:BalancedStringType" use="optional" />
+  </xs:complexType>
+  <xs:complexType name="EnvVarType">
+    <xs:attribute name="Name" type="tns:NameType" use="required" />
+    <xs:attribute name="If" type="tns:BalancedStringType" use="optional" />
+  </xs:complexType>
+  <xs:complexType name="PropertyType">
+    <xs:attribute name="Name" type="tns:NameType" use="required" />
+    <xs:attribute name="Value" type="xs:string" use="required" />
+    <xs:attribute name="If" type="tns:BalancedStringType" use="optional" />
+  </xs:complexType>
+  <xs:complexType name="WarningType">
+    <xs:attribute name="Message" type="tns:BalancedStringType" use="required" />
+    <xs:attribute name="If" type="tns:BalancedStringType" use="optional" />
+  </xs:complexType>
+  <xs:complexType name="ErrorType">
+    <xs:attribute name="Message" type="tns:BalancedStringType" use="required" />
+    <xs:attribute name="If" type="tns:BalancedStringType" use="optional" />
+  </xs:complexType>
+  <xs:simpleType name="NameType">
+    <xs:restriction base="xs:string">
+      <xs:pattern value="([^ ^&lt;&gt;:&quot;/\|?*]+( [^ ^&lt;&gt;:&quot;/\|?*]+)*|[^\$]*((\$\([^ ^&lt;&gt;:&quot;/\|?*]+( [^ ^&lt;&gt;:&quot;/\|?*]+)*\)|\$[^\(])[^\$]*)+\$?)" />
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:simpleType name="NameListType">
+    <xs:restriction base="xs:string">
+      <xs:pattern value="([^ ^&lt;&gt;:&quot;/\|?*]+( [^ ^&lt;&gt;:&quot;/\|?*]+)*(;[^ ^&lt;&gt;:&quot;/\|?*]+( [^ ^&lt;&gt;:&quot;/\|?*]+)*)*|[^\$]*((\$\([^ ^&lt;&gt;:&quot;/\|?*]+( [^ ^&lt;&gt;:&quot;/\|?*]+)*\)|\$[^\(])[^\$]*)+\$?)" />
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:simpleType name="TagType">
+    <xs:restriction base="xs:string">
+      <xs:pattern value="(#[^ ^&lt;&gt;:&quot;/\|?*]+( [^ ^&lt;&gt;:&quot;/\|?*]+)*|[^\$]*((\$\([^ ^&lt;&gt;:&quot;/\|?*]+( [^ ^&lt;&gt;:&quot;/\|?*]+)*\)|\$[^\(])[^\$]*)+\$?)" />
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:simpleType name="TagListType">
+    <xs:restriction base="xs:string">
+      <xs:pattern value="(#[^ ^&lt;&gt;:&quot;/\|?*]+( [^ ^&lt;&gt;:&quot;/\|?*]+)*(;#[^ ^&lt;&gt;:&quot;/\|?*]+( [^ ^&lt;&gt;:&quot;/\|?*]+)*)*|[^\$]*((\$\([^ ^&lt;&gt;:&quot;/\|?*]+( [^ ^&lt;&gt;:&quot;/\|?*]+)*\)|\$[^\(])[^\$]*)+\$?)" />
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:simpleType name="NameOrTagType">
+    <xs:restriction base="xs:string">
+      <xs:pattern value="(#?[^ ^&lt;&gt;:&quot;/\|?*]+( [^ ^&lt;&gt;:&quot;/\|?*]+)*|[^\$]*((\$\([^ ^&lt;&gt;:&quot;/\|?*]+( [^ ^&lt;&gt;:&quot;/\|?*]+)*\)|\$[^\(])[^\$]*)+\$?)" />
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:simpleType name="NameOrTagListType">
+    <xs:restriction base="xs:string">
+      <xs:pattern value="(#?[^ ^&lt;&gt;:&quot;/\|?*]+( [^ ^&lt;&gt;:&quot;/\|?*]+)*(;#?[^ ^&lt;&gt;:&quot;/\|?*]+( [^ ^&lt;&gt;:&quot;/\|?*]+)*)*|[^\$]*((\$\([^ ^&lt;&gt;:&quot;/\|?*]+( [^ ^&lt;&gt;:&quot;/\|?*]+)*\)|\$[^\(])[^\$]*)+\$?)" />
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:simpleType name="QualifiedNameType">
+    <xs:restriction base="xs:string">
+      <xs:pattern value="([^ ^&lt;&gt;:&quot;/\|?*]+( [^ ^&lt;&gt;:&quot;/\|?*]+)*(\.[^ ^&lt;&gt;:&quot;/\|?*]+( [^ ^&lt;&gt;:&quot;/\|?*]+)*)*|[^\$]*((\$\([^ ^&lt;&gt;:&quot;/\|?*]+( [^ ^&lt;&gt;:&quot;/\|?*]+)*\)|\$[^\(])[^\$]*)+\$?)" />
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:simpleType name="BalancedStringType">
+    <xs:restriction base="xs:string">
+      <xs:pattern value="[^\$]*((\$\([^ ^&lt;&gt;:&quot;/\|?*]+( [^ ^&lt;&gt;:&quot;/\|?*]+)*\)|\$[^\(])[^\$]*)*\$?" />
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:simpleType name="BooleanType">
+    <xs:restriction base="xs:string">
+      <xs:pattern value="(true|false|[^\$]*((\$\([^ ^&lt;&gt;:&quot;/\|?*]+( [^ ^&lt;&gt;:&quot;/\|?*]+)*\)|\$[^\(])[^\$]*)+\$?)" />
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:simpleType name="IntegerType">
+    <xs:restriction base="xs:string">
+      <xs:pattern value="((-?[1-9][0-9]*|0)|[^\$]*((\$\([^ ^&lt;&gt;:&quot;/\|?*]+( [^ ^&lt;&gt;:&quot;/\|?*]+)*\)|\$[^\(])[^\$]*)+\$?)" />
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:complexType name="PakFileTaskType">
+    <xs:attribute name="Files" type="tns:BalancedStringType" use="required" />
+    <xs:attribute name="Output" type="tns:BalancedStringType" use="required" />
+    <xs:attribute name="ResponseFile" type="tns:BalancedStringType" use="optional" />
+    <xs:attribute name="RebaseDir" type="tns:BalancedStringType" use="optional" />
+    <xs:attribute name="Order" type="tns:BalancedStringType" use="optional" />
+    <xs:attribute name="Sign" type="tns:BalancedStringType" use="optional" />
+    <xs:attribute name="Compress" type="tns:BooleanType" use="optional" />
+    <xs:attribute name="Arguments" type="tns:BalancedStringType" use="optional" />
+    <xs:attribute name="Tag" type="tns:TagListType" use="optional" />
+    <xs:attribute name="If" type="tns:BalancedStringType" use="optional" />
+  </xs:complexType>
+  <xs:complexType name="RenameTaskType">
+    <xs:attribute name="Files" type="tns:BalancedStringType" use="required" />
+    <xs:attribute name="From" type="tns:BalancedStringType" use="optional" />
+    <xs:attribute name="To" type="tns:BalancedStringType" use="required" />
+    <xs:attribute name="Tag" type="tns:TagListType" use="optional" />
+    <xs:attribute name="If" type="tns:BalancedStringType" use="optional" />
+  </xs:complexType>
+  <xs:complexType name="SpawnTaskType">
+    <xs:attribute name="Exe" type="tns:BalancedStringType" use="required" />
+    <xs:attribute name="Arguments" type="tns:BalancedStringType" use="optional" />
+    <xs:attribute name="ErrorLevel" type="tns:IntegerType" use="optional" />
+    <xs:attribute name="If" type="tns:BalancedStringType" use="optional" />
+  </xs:complexType>
+  <xs:complexType name="LogTaskType">
+    <xs:attribute name="Message" type="tns:BalancedStringType" use="optional" />
+    <xs:attribute name="Files" type="tns:BalancedStringType" use="optional" />
+    <xs:attribute name="IncludeContents" type="tns:BooleanType" use="optional" />
+    <xs:attribute name="If" type="tns:BalancedStringType" use="optional" />
+  </xs:complexType>
+  <xs:complexType name="CommandTaskType">
+    <xs:attribute name="Name" type="tns:BalancedStringType" use="required" />
+    <xs:attribute name="Arguments" type="tns:BalancedStringType" use="optional" />
+    <xs:attribute name="MergeTelemetryWithPrefix" type="tns:BalancedStringType" use="optional" />
+    <xs:attribute name="If" type="tns:BalancedStringType" use="optional" />
+  </xs:complexType>
+  <xs:complexType name="CookTaskType">
+    <xs:attribute name="Project" type="tns:BalancedStringType" use="required" />
+    <xs:attribute name="Platform" type="tns:BalancedStringType" use="required" />
+    <xs:attribute name="Maps" type="tns:BalancedStringType" use="optional" />
+    <xs:attribute name="Versioned" type="tns:BooleanType" use="optional" />
+    <xs:attribute name="Arguments" type="tns:BalancedStringType" use="optional" />
+    <xs:attribute name="Tag" type="tns:TagListType" use="optional" />
+    <xs:attribute name="If" type="tns:BalancedStringType" use="optional" />
+  </xs:complexType>
+  <xs:complexType name="CopyTaskType">
+    <xs:attribute name="Files" type="tns:BalancedStringType" use="required" />
+    <xs:attribute name="FromDir" type="tns:BalancedStringType" use="required" />
+    <xs:attribute name="ToDir" type="tns:BalancedStringType" use="required" />
+    <xs:attribute name="Tag" type="tns:TagListType" use="optional" />
+    <xs:attribute name="If" type="tns:BalancedStringType" use="optional" />
+  </xs:complexType>
+  <xs:complexType name="DeleteTaskType">
+    <xs:attribute name="Files" type="tns:BalancedStringType" use="required" />
+    <xs:attribute name="DeleteEmptyDirectories" type="tns:BooleanType" use="optional" />
+    <xs:attribute name="If" type="tns:BalancedStringType" use="optional" />
+  </xs:complexType>
+  <xs:complexType name="SignTaskType">
+    <xs:attribute name="Files" type="tns:BalancedStringType" use="required" />
+    <xs:attribute name="Tag" type="tns:TagListType" use="optional" />
+    <xs:attribute name="If" type="tns:BalancedStringType" use="optional" />
+  </xs:complexType>
+  <xs:complexType name="StageTaskType">
+    <xs:attribute name="Project" type="tns:BalancedStringType" use="optional" />
+    <xs:attribute name="Target" type="tns:BalancedStringType" use="required" />
+    <xs:attribute name="Platform" type="tns:UnrealTargetPlatformUserType" use="required" />
+    <xs:attribute name="Configuration" type="tns:UnrealTargetConfigurationUserType" use="required" />
+    <xs:attribute name="Architecture" type="tns:BalancedStringType" use="optional" />
+    <xs:attribute name="ToDir" type="tns:BalancedStringType" use="required" />
+    <xs:attribute name="Overwrite" type="tns:BooleanType" use="optional" />
+    <xs:attribute name="Tag" type="tns:TagListType" use="optional" />
+    <xs:attribute name="If" type="tns:BalancedStringType" use="optional" />
+  </xs:complexType>
+  <xs:complexType name="StripTaskType">
+    <xs:attribute name="Platform" type="tns:UnrealTargetPlatformUserType" use="required" />
+    <xs:attribute name="BaseDir" type="tns:BalancedStringType" use="optional" />
+    <xs:attribute name="Files" type="tns:BalancedStringType" use="required" />
+    <xs:attribute name="OutputDir" type="tns:BalancedStringType" use="required" />
+    <xs:attribute name="Tag" type="tns:TagListType" use="optional" />
+    <xs:attribute name="If" type="tns:BalancedStringType" use="optional" />
+  </xs:complexType>
+  <xs:complexType name="UnzipTaskType">
+    <xs:attribute name="ZipFile" type="tns:BalancedStringType" use="required" />
+    <xs:attribute name="ToDir" type="tns:BalancedStringType" use="required" />
+    <xs:attribute name="Tag" type="tns:TagListType" use="optional" />
+    <xs:attribute name="If" type="tns:BalancedStringType" use="optional" />
+  </xs:complexType>
+  <xs:complexType name="ZipTaskType">
+    <xs:attribute name="FromDir" type="tns:BalancedStringType" use="required" />
+    <xs:attribute name="Files" type="tns:BalancedStringType" use="optional" />
+    <xs:attribute name="ZipFile" type="tns:BalancedStringType" use="required" />
+    <xs:attribute name="Tag" type="tns:TagListType" use="optional" />
+    <xs:attribute name="If" type="tns:BalancedStringType" use="optional" />
+  </xs:complexType>
+  <xs:complexType name="CompileTaskType">
+    <xs:attribute name="Target" type="tns:BalancedStringType" use="required" />
+    <xs:attribute name="Configuration" type="tns:UnrealTargetConfigurationUserType" use="required" />
+    <xs:attribute name="Platform" type="tns:UnrealTargetPlatformUserType" use="required" />
+    <xs:attribute name="Arguments" type="tns:BalancedStringType" use="optional" />
+    <xs:attribute name="Tag" type="tns:TagListType" use="optional" />
+    <xs:attribute name="If" type="tns:BalancedStringType" use="optional" />
+  </xs:complexType>
+  <xs:complexType name="CommandletTaskType">
+    <xs:attribute name="Name" type="tns:BalancedStringType" use="required" />
+    <xs:attribute name="Project" type="tns:BalancedStringType" use="optional" />
+    <xs:attribute name="Arguments" type="tns:BalancedStringType" use="optional" />
+    <xs:attribute name="EditorExe" type="tns:BalancedStringType" use="optional" />
+    <xs:attribute name="If" type="tns:BalancedStringType" use="optional" />
+  </xs:complexType>
+  <xs:complexType name="CsCompileTaskType">
+    <xs:attribute name="Project" type="tns:BalancedStringType" use="required" />
+    <xs:attribute name="Configuration" type="tns:BalancedStringType" use="optional" />
+    <xs:attribute name="Platform" type="tns:BalancedStringType" use="optional" />
+    <xs:attribute name="Arguments" type="tns:BalancedStringType" use="optional" />
+    <xs:attribute name="EnumerateOnly" type="tns:BooleanType" use="optional" />
+    <xs:attribute name="Tag" type="tns:TagListType" use="optional" />
+    <xs:attribute name="TagReferences" type="tns:TagListType" use="optional" />
+    <xs:attribute name="If" type="tns:BalancedStringType" use="optional" />
+  </xs:complexType>
+  <xs:complexType name="TagReceiptTaskType">
+    <xs:attribute name="Files" type="tns:BalancedStringType" use="required" />
+    <xs:attribute name="EngineDir" type="tns:BalancedStringType" use="optional" />
+    <xs:attribute name="ProjectDir" type="tns:BalancedStringType" use="optional" />
+    <xs:attribute name="BuildProducts" type="tns:BooleanType" use="optional" />
+    <xs:attribute name="BuildProductType" type="tns:BalancedStringType" use="optional" />
+    <xs:attribute name="RuntimeDependencies" type="tns:BooleanType" use="optional" />
+    <xs:attribute name="StagedFileType" type="tns:BalancedStringType" use="optional" />
+    <xs:attribute name="PrecompiledBuildDependencies" type="tns:BooleanType" use="optional" />
+    <xs:attribute name="PrecompiledRuntimeDependencies" type="tns:BooleanType" use="optional" />
+    <xs:attribute name="With" type="tns:TagListType" use="required" />
+    <xs:attribute name="If" type="tns:BalancedStringType" use="optional" />
+  </xs:complexType>
+  <xs:complexType name="SubmitTaskType">
+    <xs:attribute name="Description" type="tns:BalancedStringType" use="required" />
+    <xs:attribute name="Files" type="tns:BalancedStringType" use="required" />
+    <xs:attribute name="FileType" type="tns:BalancedStringType" use="optional" />
+    <xs:attribute name="Workspace" type="tns:BalancedStringType" use="optional" />
+    <xs:attribute name="Stream" type="tns:BalancedStringType" use="optional" />
+    <xs:attribute name="RootDir" type="tns:BalancedStringType" use="optional" />
+    <xs:attribute name="If" type="tns:BalancedStringType" use="optional" />
+  </xs:complexType>
+  <xs:complexType name="TagTaskType">
+    <xs:attribute name="BaseDir" type="tns:BalancedStringType" use="optional" />
+    <xs:attribute name="Files" type="tns:BalancedStringType" use="required" />
+    <xs:attribute name="Filter" type="tns:BalancedStringType" use="optional" />
+    <xs:attribute name="Except" type="tns:BalancedStringType" use="optional" />
+    <xs:attribute name="With" type="tns:TagListType" use="required" />
+    <xs:attribute name="If" type="tns:BalancedStringType" use="optional" />
+  </xs:complexType>
+  <xs:complexType name="SetVersionTaskType">
+    <xs:attribute name="Change" type="tns:IntegerType" use="required" />
+    <xs:attribute name="CompatibleChange" type="tns:IntegerType" use="optional" />
+    <xs:attribute name="Branch" type="tns:BalancedStringType" use="required" />
+    <xs:attribute name="Build" type="tns:BalancedStringType" use="optional" />
+    <xs:attribute name="Licensee" type="tns:BooleanType" use="optional" />
+    <xs:attribute name="SkipWrite" type="tns:BooleanType" use="optional" />
+    <xs:attribute name="Tag" type="tns:TagListType" use="optional" />
+    <xs:attribute name="If" type="tns:BalancedStringType" use="optional" />
+  </xs:complexType>
+  <xs:complexType name="AgeStoreTaskType">
+    <xs:attribute name="StoreDir" type="tns:BalancedStringType" use="required" />
+    <xs:attribute name="Days" type="tns:IntegerType" use="required" />
+    <xs:attribute name="If" type="tns:BalancedStringType" use="optional" />
+  </xs:complexType>
+  <xs:complexType name="SrcSrvTaskType">
+    <xs:attribute name="BinaryFiles" type="tns:BalancedStringType" use="required" />
+    <xs:attribute name="SourceFiles" type="tns:BalancedStringType" use="required" />
+    <xs:attribute name="Branch" type="tns:BalancedStringType" use="required" />
+    <xs:attribute name="Change" type="tns:IntegerType" use="required" />
+    <xs:attribute name="If" type="tns:BalancedStringType" use="optional" />
+  </xs:complexType>
+  <xs:complexType name="SymStoreTaskType">
+    <xs:attribute name="Files" type="tns:BalancedStringType" use="required" />
+    <xs:attribute name="StoreDir" type="tns:BalancedStringType" use="required" />
+    <xs:attribute name="Product" type="tns:BalancedStringType" use="required" />
+    <xs:attribute name="If" type="tns:BalancedStringType" use="optional" />
+  </xs:complexType>
+  <xs:complexType name="PostBuildTaskType">
+    <xs:attribute name="AppName" type="tns:BalancedStringType" use="required" />
+    <xs:attribute name="BuildVersion" type="tns:BalancedStringType" use="required" />
+    <xs:attribute name="Platform" type="tns:MCPPlatformUserType" use="required" />
+    <xs:attribute name="CloudDir" type="tns:BalancedStringType" use="required" />
+    <xs:attribute name="McpConfig" type="tns:BalancedStringType" use="required" />
+    <xs:attribute name="If" type="tns:BalancedStringType" use="optional" />
+  </xs:complexType>
+  <xs:complexType name="ChunkTaskType">
+    <xs:attribute name="AppName" type="tns:BalancedStringType" use="required" />
+    <xs:attribute name="AppID" type="tns:IntegerType" use="optional" />
+    <xs:attribute name="Platform" type="tns:MCPPlatformUserType" use="required" />
+    <xs:attribute name="BuildVersion" type="tns:BalancedStringType" use="required" />
+    <xs:attribute name="InputDir" type="tns:BalancedStringType" use="required" />
+    <xs:attribute name="Files" type="tns:BalancedStringType" use="optional" />
+    <xs:attribute name="Launch" type="tns:BalancedStringType" use="optional" />
+    <xs:attribute name="LaunchArgs" type="tns:BalancedStringType" use="optional" />
+    <xs:attribute name="CloudDir" type="tns:BalancedStringType" use="required" />
+    <xs:attribute name="ToolVersion" type="tns:ToolVersionUserType" use="optional" />
+    <xs:attribute name="AttributesFileName" type="tns:BalancedStringType" use="optional" />
+    <xs:attribute name="PrereqPath" type="tns:BalancedStringType" use="optional" />
+    <xs:attribute name="PrereqArgs" type="tns:BalancedStringType" use="optional" />
+    <xs:attribute name="If" type="tns:BalancedStringType" use="optional" />
+  </xs:complexType>
+  <xs:complexType name="LabelBuildTaskType">
+    <xs:attribute name="AppName" type="tns:BalancedStringType" use="required" />
+    <xs:attribute name="AppID" type="tns:IntegerType" use="optional" />
+    <xs:attribute name="BuildVersion" type="tns:BalancedStringType" use="required" />
+    <xs:attribute name="Platform" type="tns:MCPPlatformUserType" use="required" />
+    <xs:attribute name="Label" type="tns:BalancedStringType" use="required" />
+    <xs:attribute name="McpConfig" type="tns:BalancedStringType" use="required" />
+    <xs:attribute name="If" type="tns:BalancedStringType" use="optional" />
+  </xs:complexType>
+  <xs:complexType name="MergeTaskType">
+    <xs:attribute name="AppName" type="tns:BalancedStringType" use="required" />
+    <xs:attribute name="BaseVersion" type="tns:BalancedStringType" use="required" />
+    <xs:attribute name="PatchVersion" type="tns:BalancedStringType" use="required" />
+    <xs:attribute name="FinalVersion" type="tns:BalancedStringType" use="required" />
+    <xs:attribute name="Platform" type="tns:MCPPlatformUserType" use="required" />
+    <xs:attribute name="CloudDir" type="tns:BalancedStringType" use="required" />
+    <xs:attribute name="If" type="tns:BalancedStringType" use="optional" />
+  </xs:complexType>
+  <xs:simpleType name="UnrealTargetPlatformUserType">
+    <xs:union>
+      <xs:simpleType>
+        <xs:restriction base="xs:string">
+          <xs:enumeration value="Unknown" />
+          <xs:enumeration value="Win32" />
+          <xs:enumeration value="Win64" />
+          <xs:enumeration value="Mac" />
+          <xs:enumeration value="XboxOne" />
+          <xs:enumeration value="PS4" />
+          <xs:enumeration value="IOS" />
+          <xs:enumeration value="Android" />
+          <xs:enumeration value="HTML5" />
+          <xs:enumeration value="Linux" />
+          <xs:enumeration value="AllDesktop" />
+          <xs:enumeration value="TVOS" />
+        </xs:restriction>
+      </xs:simpleType>
+      <xs:simpleType>
+        <xs:restriction base="xs:string">
+          <xs:pattern value="[^\$]*((\$\([^ ^&lt;&gt;:&quot;/\|?*]+( [^ ^&lt;&gt;:&quot;/\|?*]+)*\)|\$[^\(])[^\$]*)+\$?" />
+        </xs:restriction>
+      </xs:simpleType>
+    </xs:union>
+  </xs:simpleType>
+  <xs:simpleType name="UnrealTargetConfigurationUserType">
+    <xs:union>
+      <xs:simpleType>
+        <xs:restriction base="xs:string">
+          <xs:enumeration value="Unknown" />
+          <xs:enumeration value="Debug" />
+          <xs:enumeration value="DebugGame" />
+          <xs:enumeration value="Development" />
+          <xs:enumeration value="Shipping" />
+          <xs:enumeration value="Test" />
+        </xs:restriction>
+      </xs:simpleType>
+      <xs:simpleType>
+        <xs:restriction base="xs:string">
+          <xs:pattern value="[^\$]*((\$\([^ ^&lt;&gt;:&quot;/\|?*]+( [^ ^&lt;&gt;:&quot;/\|?*]+)*\)|\$[^\(])[^\$]*)+\$?" />
+        </xs:restriction>
+      </xs:simpleType>
+    </xs:union>
+  </xs:simpleType>
+  <xs:simpleType name="MCPPlatformUserType">
+    <xs:union>
+      <xs:simpleType>
+        <xs:restriction base="xs:string">
+          <xs:enumeration value="Windows" />
+          <xs:enumeration value="Win32" />
+          <xs:enumeration value="Mac" />
+          <xs:enumeration value="Linux" />
+        </xs:restriction>
+      </xs:simpleType>
+      <xs:simpleType>
+        <xs:restriction base="xs:string">
+          <xs:pattern value="[^\$]*((\$\([^ ^&lt;&gt;:&quot;/\|?*]+( [^ ^&lt;&gt;:&quot;/\|?*]+)*\)|\$[^\(])[^\$]*)+\$?" />
+        </xs:restriction>
+      </xs:simpleType>
+    </xs:union>
+  </xs:simpleType>
+  <xs:simpleType name="ToolVersionUserType">
+    <xs:union>
+      <xs:simpleType>
+        <xs:restriction base="xs:string">
+          <xs:enumeration value="Live" />
+          <xs:enumeration value="Next" />
+          <xs:enumeration value="Source" />
+        </xs:restriction>
+      </xs:simpleType>
+      <xs:simpleType>
+        <xs:restriction base="xs:string">
+          <xs:pattern value="[^\$]*((\$\([^ ^&lt;&gt;:&quot;/\|?*]+( [^ ^&lt;&gt;:&quot;/\|?*]+)*\)|\$[^\(])[^\$]*)+\$?" />
+        </xs:restriction>
+      </xs:simpleType>
+    </xs:union>
+  </xs:simpleType>
+</xs:schema>

@@ -20,7 +20,7 @@
 #include "SkeletalRenderGPUSkin.h"
 #include "RawIndexBuffer.h"
 #include "PhysicsPublic.h"
-#include "Animation/VertexAnim/MorphTarget.h"
+#include "Animation/MorphTarget.h"
 #include "Animation/AnimSingleNodeInstance.h"
 #include "Animation/AnimBlueprint.h"
 #include "Animation/AnimBlueprintGeneratedClass.h"
@@ -28,9 +28,15 @@
 #include "PhysicsEngine/PhysicsAsset.h"
 #include "Engine/AssetUserData.h"
 #include "Animation/AnimMontage.h"
+#include "Animation/AnimInstance.h"
 
 #if WITH_EDITOR
 #include "MeshUtilities.h"
+
+#if WITH_APEX_CLOTHING
+#include "ApexClothingUtils.h"
+#endif
+
 #endif // #if WITH_EDITOR
 
 #include "Net/UnrealNetwork.h"
@@ -48,8 +54,37 @@
 #define LOCTEXT_NAMESPACE "SkeltalMesh"
 
 DEFINE_LOG_CATEGORY(LogSkeletalMesh);
-
 DECLARE_CYCLE_STAT(TEXT("GetShadowShapes"), STAT_GetShadowShapes, STATGROUP_Anim);
+
+// Custom serialization version for RecomputeTangent
+struct FSkeletalMeshCustomVersion
+{
+	enum Type
+	{
+		// Before any version changes were made
+		BeforeCustomVersionWasAdded = 0,
+		// Remove Chunks array in FStaticLODModel and combine with Sections array
+		CombineSectionWithChunk = 1,
+		// Remove FRigidSkinVertex and combine with FSoftSkinVertex array
+		CombineSoftAndRigidVerts = 2,
+		// Need to recalc max bone influences
+		RecalcMaxBoneInfluences = 3,
+		// Add NumVertices that can be accessed when stripping editor data
+		SaveNumVertices = 4,
+		// -----<new versions can be added above this line>-------------------------------------------------
+		VersionPlusOne,
+		LatestVersion = VersionPlusOne - 1
+	};
+
+	// The GUID for this custom version number
+	const static FGuid GUID;
+
+private:
+	FSkeletalMeshCustomVersion() {}
+};
+
+const FGuid FSkeletalMeshCustomVersion::GUID(0xD78A4A00, 0xE8584697, 0xBAA819B5, 0x487D46B4);
+FCustomVersionRegistration GRegisterSkeletalMeshCustomVersion(FSkeletalMeshCustomVersion::GUID, FSkeletalMeshCustomVersion::LatestVersion, TEXT("SkeletalMeshVer"));
 
 #if WITH_APEX_CLOTHING
 /*-----------------------------------------------------------------------------
@@ -868,31 +903,21 @@ FArchive& operator<<(FArchive& Ar,FSoftSkinVertex& V)
 	return Ar;
 }
 
-/*-----------------------------------------------------------------------------
-	FRigidSkinVertex
------------------------------------------------------------------------------*/
-
-/**
-* Serializer
-*
-* @param Ar - archive to serialize with
-* @param V - vertex to serialize
-* @return archive that was used
-*/
-FArchive& operator<<(FArchive& Ar,FRigidSkinVertex& V)
+bool FSoftSkinVertex::GetRigidWeightBone(uint8& OutBoneIndex) const
 {
-	Ar << V.Position;
-	Ar << V.TangentX << V.TangentY << V.TangentZ;
+	bool bIsRigid = false;
 
-	for( int32 UVIdx = 0; UVIdx < MAX_TEXCOORDS; ++UVIdx )
+	for (int32 WeightIdx = 0; WeightIdx < MAX_TOTAL_INFLUENCES; WeightIdx++)
 	{
-		Ar << V.UVs[UVIdx];
+		if (InfluenceWeights[WeightIdx] == 255)
+		{
+			bIsRigid = true;
+			OutBoneIndex = InfluenceBones[WeightIdx];
+			break;
+		}
 	}
 
-	Ar << V.Color;
-	Ar << V.Bone;
-
-	return Ar;
+	return bIsRigid;
 }
 
 /*-----------------------------------------------------------------------------
@@ -1096,46 +1121,88 @@ FMultiSizeIndexContainer& FMultiSizeIndexContainer::operator=(const FMultiSizeIn
 }
 #endif
 
-/**
-* Serialize this class
-* @param Ar - archive to serialize to
-* @param C - skel mesh chunk to serialize
-*/
-FArchive& operator<<(FArchive& Ar,FSkelMeshChunk& C)
-{
-	FStripDataFlags StripFlags( Ar );
-
-	if( !StripFlags.IsDataStrippedForServer() )
-	{
-		// This is so that BaseVertexIndex is never set to anything else that 0 (for safety)
-		Ar << C.BaseVertexIndex;
-	}
-	if( !StripFlags.IsEditorDataStripped() )
-	{		
-		Ar << C.RigidVertices;
-		Ar << C.SoftVertices;
-	}
-	Ar << C.BoneMap;
-	Ar << C.NumRigidVertices;
-	Ar << C.NumSoftVertices;
-	Ar << C.MaxBoneInfluences;
-
-
-	if( Ar.UE4Ver() >= VER_UE4_APEX_CLOTH )
-	{
-		Ar << C.ApexClothMappingData;
-		Ar << C.PhysicalMeshVertices;
-		Ar << C.PhysicalMeshNormals;
-		Ar << C.CorrespondClothAssetIndex;
-		Ar << C.ClothAssetSubmeshIndex;
-	}
-
-	return Ar;
-}
 
 /*-----------------------------------------------------------------------------
 	FSkelMeshSection
 -----------------------------------------------------------------------------*/
+
+// Custom serialization version for RecomputeTangent
+struct FRecomputeTangentCustomVersion
+{
+	enum Type
+	{
+		// Before any version changes were made in the plugin
+		BeforeCustomVersionWasAdded = 0,
+		// We serialize the RecomputeTangent Option
+		RuntimeRecomputeTangent = 1,
+		// -----<new versions can be added above this line>-------------------------------------------------
+		VersionPlusOne,
+		LatestVersion = VersionPlusOne - 1
+	};
+
+	// The GUID for this custom version number
+	const static FGuid GUID;
+
+private:
+	FRecomputeTangentCustomVersion() {}
+};
+
+const FGuid FRecomputeTangentCustomVersion::GUID(0x5579F886, 0x933A4C1F, 0x83BA087B, 0x6361B92F);
+// Register the custom version with core
+FCustomVersionRegistration GRegisterRecomputeTangentCustomVersion(FRecomputeTangentCustomVersion::GUID, FRecomputeTangentCustomVersion::LatestVersion, TEXT("RecomputeTangentCustomVer"));
+
+/** Legacy 'rigid' skin vertex */
+struct FLegacyRigidSkinVertex
+{
+	FVector			Position;
+	FPackedNormal	TangentX,	// Tangent, U-direction
+		TangentY,	// Binormal, V-direction
+		TangentZ;	// Normal
+	FVector2D		UVs[MAX_TEXCOORDS]; // UVs
+	FColor			Color;		// Vertex color.
+	uint8			Bone;
+
+	friend FArchive& operator<<(FArchive& Ar, FLegacyRigidSkinVertex& V)
+	{
+		Ar << V.Position;
+		Ar << V.TangentX << V.TangentY << V.TangentZ;
+
+		for (int32 UVIdx = 0; UVIdx < MAX_TEXCOORDS; ++UVIdx)
+		{
+			Ar << V.UVs[UVIdx];
+		}
+
+		Ar << V.Color;
+		Ar << V.Bone;
+
+		return Ar;
+	}
+
+	/** Util to convert from legacy */
+	void ConvertToSoftVert(FSoftSkinVertex& DestVertex)
+	{
+		DestVertex.Position = Position;
+		DestVertex.TangentX = TangentX;
+		DestVertex.TangentY = TangentY;
+		DestVertex.TangentZ = TangentZ;
+		// store the sign of the determinant in TangentZ.W
+		DestVertex.TangentZ.Vector.W = GetBasisDeterminantSignByte(TangentX, TangentY, TangentZ);
+
+		// copy all texture coordinate sets
+		FMemory::Memcpy(DestVertex.UVs, UVs, sizeof(FVector2D)*MAX_TEXCOORDS);
+
+		DestVertex.Color = Color;
+		DestVertex.InfluenceBones[0] = Bone;
+		DestVertex.InfluenceWeights[0] = 255;
+		for (int32 InfluenceIndex = 1; InfluenceIndex < MAX_TOTAL_INFLUENCES; InfluenceIndex++)
+		{
+			DestVertex.InfluenceBones[InfluenceIndex] = 0;
+			DestVertex.InfluenceWeights[InfluenceIndex] = 0;
+		}
+	}
+};
+
+
 
 // Serialization.
 FArchive& operator<<(FArchive& Ar,FSkelMeshSection& S)
@@ -1146,7 +1213,14 @@ FArchive& operator<<(FArchive& Ar,FSkelMeshSection& S)
 	FStripDataFlags StripFlags( Ar );
 
 	Ar << S.MaterialIndex;
-	Ar << S.ChunkIndex;
+
+	Ar.UsingCustomVersion(FSkeletalMeshCustomVersion::GUID);
+	if (Ar.CustomVer(FSkeletalMeshCustomVersion::GUID) < FSkeletalMeshCustomVersion::CombineSectionWithChunk)
+	{
+		uint16 DummyChunkIndex;
+		Ar << DummyChunkIndex;
+	}
+
 	if (!StripFlags.IsDataStrippedForServer())
 	{
 		Ar << S.BaseIndex;
@@ -1171,12 +1245,232 @@ FArchive& operator<<(FArchive& Ar,FSkelMeshSection& S)
 		Ar << S.bEnableClothLOD_DEPRECATED;
 	}
 
+	Ar.UsingCustomVersion(FRecomputeTangentCustomVersion::GUID);
+	if (Ar.CustomVer(FRecomputeTangentCustomVersion::GUID) >= FRecomputeTangentCustomVersion::RuntimeRecomputeTangent)
+	{
+		Ar << S.bRecomputeTangent;
+	}
+
+	if (Ar.CustomVer(FSkeletalMeshCustomVersion::GUID) >= FSkeletalMeshCustomVersion::CombineSectionWithChunk)
+	{
+
+		if (!StripFlags.IsDataStrippedForServer())
+		{
+			// This is so that BaseVertexIndex is never set to anything else that 0 (for safety)
+			Ar << S.BaseVertexIndex;
+		}
+
+		if (!StripFlags.IsEditorDataStripped())
+		{
+			// For backwards compat, read rigid vert array into array
+			TArray<FLegacyRigidSkinVertex> LegacyRigidVertices;
+			if (Ar.IsLoading() && Ar.CustomVer(FSkeletalMeshCustomVersion::GUID) < FSkeletalMeshCustomVersion::CombineSoftAndRigidVerts)
+			{
+				Ar << LegacyRigidVertices;
+			}
+
+			Ar << S.SoftVertices;
+
+			// Once we have read in SoftVertices, convert and insert legacy rigid verts (if present) at start
+			const int32 NumRigidVerts = LegacyRigidVertices.Num();
+			if (NumRigidVerts > 0 && Ar.CustomVer(FSkeletalMeshCustomVersion::GUID) < FSkeletalMeshCustomVersion::CombineSoftAndRigidVerts)
+			{
+				S.SoftVertices.InsertUninitialized(0, NumRigidVerts);
+
+				for (int32 VertIdx = 0; VertIdx < NumRigidVerts; VertIdx++)
+				{
+					LegacyRigidVertices[VertIdx].ConvertToSoftVert(S.SoftVertices[VertIdx]);
+				}
+			}
+		}
+
+		// If loading content newer than CombineSectionWithChunk but older than SaveNumVertices, update NumVertices here
+		if (Ar.IsLoading() && Ar.CustomVer(FSkeletalMeshCustomVersion::GUID) < FSkeletalMeshCustomVersion::SaveNumVertices)
+		{
+			if (!StripFlags.IsDataStrippedForServer())
+			{
+				S.NumVertices = S.SoftVertices.Num();
+			}
+			else
+			{
+				UE_LOG(LogSkeletalMesh, Warning, TEXT("Cannot set FSkelMeshSection::NumVertices for older content, loading in non-editor build."));
+				S.NumVertices = 0;
+			}
+		}
+
+		Ar << S.BoneMap;
+
+		if (Ar.CustomVer(FSkeletalMeshCustomVersion::GUID) >= FSkeletalMeshCustomVersion::SaveNumVertices)
+		{
+			Ar << S.NumVertices;
+		}
+
+		// Removed NumRigidVertices and NumSoftVertices
+		if (Ar.CustomVer(FSkeletalMeshCustomVersion::GUID) < FSkeletalMeshCustomVersion::CombineSoftAndRigidVerts)
+		{
+			int32 DummyNumRigidVerts, DummyNumSoftVerts;
+			Ar << DummyNumRigidVerts;
+			Ar << DummyNumSoftVerts;
+
+			if (DummyNumRigidVerts + DummyNumSoftVerts != S.SoftVertices.Num())
+			{
+				UE_LOG(LogSkeletalMesh, Error, TEXT("Legacy NumSoftVerts + NumRigidVerts != SoftVertices.Num()"));
+			}
+		}
+
+		Ar << S.MaxBoneInfluences;
+
+#if WITH_EDITOR
+		// If loading content where we need to recalc 'max bone influences' instead of using loaded version, do that now
+		if (!StripFlags.IsEditorDataStripped() && Ar.IsLoading() && Ar.CustomVer(FSkeletalMeshCustomVersion::GUID) < FSkeletalMeshCustomVersion::RecalcMaxBoneInfluences)
+		{
+			S.CalcMaxBoneInfluences();
+		}
+#endif
+
+		Ar << S.ApexClothMappingData;
+		Ar << S.PhysicalMeshVertices;
+		Ar << S.PhysicalMeshNormals;
+		Ar << S.CorrespondClothAssetIndex;
+		Ar << S.ClothAssetSubmeshIndex;
+	}
+
 	return Ar;
+}
+
+void FMorphTargetVertexInfoBuffers::InitRHI()
+{
+	if (PerVertexInfoList.Num() > 0)
+	{
+		FRHIResourceCreateInfo CreateInfo;
+		void* PerVertexInfoListVBData = nullptr;
+		PerVertexInfoVB = RHICreateAndLockVertexBuffer(PerVertexInfoList.GetAllocatedSize(), BUF_Static | BUF_ShaderResource, CreateInfo, PerVertexInfoListVBData);
+		FMemory::Memcpy(PerVertexInfoListVBData, PerVertexInfoList.GetData(), PerVertexInfoList.GetAllocatedSize());
+		RHIUnlockVertexBuffer(PerVertexInfoVB);
+		PerVertexInfoSRV = RHICreateShaderResourceView(PerVertexInfoVB, sizeof(uint32), PF_R32_UINT);
+
+		void* FlattenedDeltasVBData = nullptr;
+		FlattenedDeltasVB = RHICreateAndLockVertexBuffer(FlattenedDeltaList.GetAllocatedSize(), BUF_Static | BUF_ShaderResource, CreateInfo, FlattenedDeltasVBData);
+		FMemory::Memcpy(FlattenedDeltasVBData, FlattenedDeltaList.GetData(), FlattenedDeltaList.GetAllocatedSize());
+		RHIUnlockVertexBuffer(FlattenedDeltasVB);
+		FlattenedDeltasSRV = RHICreateShaderResourceView(FlattenedDeltasVB, sizeof(uint32), PF_R32_UINT);
+
+		NumInfluencedVerticesByMorphs = (uint32)PerVertexInfoList.Num();
+
+		PerVertexInfoList.Empty();
+		FlattenedDeltaList.Empty();
+	}
+}
+
+void FMorphTargetVertexInfoBuffers::ReleaseRHI()
+{
+	PerVertexInfoVB.SafeRelease();
+	PerVertexInfoSRV.SafeRelease();
+	FlattenedDeltasVB.SafeRelease();
+	FlattenedDeltasSRV.SafeRelease();
 }
 
 /*-----------------------------------------------------------------------------
 	FStaticLODModel
 -----------------------------------------------------------------------------*/
+
+/** Legacy Chunk struct, now merged with FSkelMeshSection */
+struct FLegacySkelMeshChunk
+{
+	uint32 BaseVertexIndex;
+	TArray<FSoftSkinVertex> SoftVertices;
+	TArray<FApexClothPhysToRenderVertData> ApexClothMappingData;
+	TArray<FVector> PhysicalMeshVertices;
+	TArray<FVector> PhysicalMeshNormals;
+	TArray<FBoneIndexType> BoneMap;
+	int32 MaxBoneInfluences;
+
+	int16 CorrespondClothAssetIndex;
+	int16 ClothAssetSubmeshIndex;
+
+	FLegacySkelMeshChunk()
+		: BaseVertexIndex(0)
+		, MaxBoneInfluences(4)
+		, CorrespondClothAssetIndex(INDEX_NONE)
+		, ClothAssetSubmeshIndex(INDEX_NONE)
+	{}
+
+	void CopyToSection(FSkelMeshSection& Section)
+	{
+		Section.BaseVertexIndex = BaseVertexIndex;
+		Section.SoftVertices = SoftVertices;
+		Section.ApexClothMappingData = ApexClothMappingData;
+		Section.PhysicalMeshVertices = PhysicalMeshVertices;
+		Section.PhysicalMeshNormals = PhysicalMeshNormals;
+		Section.BoneMap = BoneMap;
+		Section.MaxBoneInfluences = MaxBoneInfluences;
+		Section.CorrespondClothAssetIndex = CorrespondClothAssetIndex;
+		Section.ClothAssetSubmeshIndex = ClothAssetSubmeshIndex;
+	}
+
+
+	friend FArchive& operator<<(FArchive& Ar, FLegacySkelMeshChunk& C)
+	{
+		FStripDataFlags StripFlags(Ar);
+
+		if (!StripFlags.IsDataStrippedForServer())
+		{
+			// This is so that BaseVertexIndex is never set to anything else that 0 (for safety)
+			Ar << C.BaseVertexIndex;
+		}
+		if (!StripFlags.IsEditorDataStripped())
+		{
+			// For backwards compat, read rigid vert array into array
+			TArray<FLegacyRigidSkinVertex> LegacyRigidVertices;
+			if (Ar.IsLoading() && Ar.CustomVer(FSkeletalMeshCustomVersion::GUID) < FSkeletalMeshCustomVersion::CombineSoftAndRigidVerts)
+			{
+				Ar << LegacyRigidVertices;
+			}
+
+			Ar << C.SoftVertices;
+
+			// Once we have read in SoftVertices, convert and insert legacy rigid verts (if present) at start
+			const int32 NumRigidVerts = LegacyRigidVertices.Num();
+			if (NumRigidVerts > 0 && Ar.CustomVer(FSkeletalMeshCustomVersion::GUID) < FSkeletalMeshCustomVersion::CombineSoftAndRigidVerts)
+			{
+				C.SoftVertices.InsertUninitialized(0, NumRigidVerts);
+
+				for (int32 VertIdx = 0; VertIdx < NumRigidVerts; VertIdx++)
+				{
+					LegacyRigidVertices[VertIdx].ConvertToSoftVert(C.SoftVertices[VertIdx]);
+				}
+			}
+		}
+		Ar << C.BoneMap;
+
+		// Removed NumRigidVertices and NumSoftVertices, just use array size
+		if (Ar.CustomVer(FSkeletalMeshCustomVersion::GUID) < FSkeletalMeshCustomVersion::CombineSoftAndRigidVerts)
+		{
+			int32 DummyNumRigidVerts, DummyNumSoftVerts;
+			Ar << DummyNumRigidVerts;
+			Ar << DummyNumSoftVerts;
+
+			if (DummyNumRigidVerts + DummyNumSoftVerts != C.SoftVertices.Num())
+			{
+				UE_LOG(LogSkeletalMesh, Error, TEXT("Legacy NumSoftVerts + NumRigidVerts != SoftVertices.Num()"));
+			}
+		}
+
+		Ar << C.MaxBoneInfluences;
+
+
+		if (Ar.UE4Ver() >= VER_UE4_APEX_CLOTH)
+		{
+			Ar << C.ApexClothMappingData;
+			Ar << C.PhysicalMeshVertices;
+			Ar << C.PhysicalMeshNormals;
+			Ar << C.CorrespondClothAssetIndex;
+			Ar << C.ClothAssetSubmeshIndex;
+		}
+
+		return Ar;
+	}
+};
 
 void FStaticLODModel::Serialize( FArchive& Ar, UObject* Owner, int32 Idx )
 {
@@ -1196,7 +1490,34 @@ void FStaticLODModel::Serialize( FArchive& Ar, UObject* Owner, int32 Idx )
 	Ar << Sections;
 	MultiSizeIndexContainer.Serialize(Ar, bKeepBuffersInCPUMemory);
 	Ar << ActiveBoneIndices;
-	Ar << Chunks;
+
+	// Array of Sections for backwards compat
+	Ar.UsingCustomVersion(FSkeletalMeshCustomVersion::GUID);
+	if (Ar.IsLoading() && Ar.CustomVer(FSkeletalMeshCustomVersion::GUID) < FSkeletalMeshCustomVersion::CombineSectionWithChunk)
+	{
+		TArray<FLegacySkelMeshChunk> LegacyChunks;
+
+		Ar << LegacyChunks;
+
+		check(LegacyChunks.Num() == Sections.Num());
+		for (int32 ChunkIdx = 0; ChunkIdx < LegacyChunks.Num(); ChunkIdx++)
+		{
+			FSkelMeshSection& Section = Sections[ChunkIdx];
+
+			LegacyChunks[ChunkIdx].CopyToSection(Section);
+
+			// Set NumVertices for older content on load
+			if (!StripFlags.IsDataStrippedForServer())
+			{
+				Section.NumVertices = Section.SoftVertices.Num();
+			}
+			else
+			{
+				UE_LOG(LogSkeletalMesh, Warning, TEXT("Cannot set FSkelMeshSection::NumVertices for older content, loading in non-editor build."));
+				Section.NumVertices = 0;
+			}
+		}
+	}
 	
 	// no longer in use
 	{
@@ -1284,7 +1605,7 @@ void FStaticLODModel::Serialize( FArchive& Ar, UObject* Owner, int32 Idx )
 	}
 }
 
-void FStaticLODModel::InitResources(bool bNeedsVertexColors)
+void FStaticLODModel::InitResources(bool bNeedsVertexColors, int32 LODIndex, TArray<UMorphTarget*>& InMorphTargets)
 {
 	INC_DWORD_STAT_BY( STAT_SkeletalMeshIndexMemory, MultiSizeIndexContainer.IsIndexBufferValid() ? (MultiSizeIndexContainer.GetIndexBuffer()->Num() * MultiSizeIndexContainer.GetDataTypeSize()) : 0 );
 	
@@ -1312,6 +1633,51 @@ void FStaticLODModel::InitResources(bool bNeedsVertexColors)
 		AdjacencyMultiSizeIndexContainer.InitResources();
 		INC_DWORD_STAT_BY( STAT_SkeletalMeshIndexMemory, AdjacencyMultiSizeIndexContainer.IsIndexBufferValid() ? (AdjacencyMultiSizeIndexContainer.GetIndexBuffer()->Num() * AdjacencyMultiSizeIndexContainer.GetDataTypeSize()) : 0 );
 	}
+
+	if (RHISupportsComputeShaders(GMaxRHIShaderPlatform) && InMorphTargets.Num() > 0)
+	{
+		// Populate the arrays to be filled in later in the render thread
+
+		// Auxiliary mapping for affected vertex indices by morph to its weights
+		TMap<uint32, TArray<FMorphTargetVertexInfoBuffers::FFlattenedDelta>> AuxDeltaList;
+
+		int32 TotalNumDeltas = 0;
+		for (int32 AnimIdx = 0; AnimIdx < InMorphTargets.Num(); ++AnimIdx)
+		{
+			UMorphTarget* MorphTarget = InMorphTargets[AnimIdx];
+
+			int32 NumSrcDeltas = 0;
+			FMorphTargetDelta* SrcDelta = MorphTarget->GetMorphTargetDelta(LODIndex, NumSrcDeltas);
+			for (int32 SrcDeltaIndex = 0; SrcDeltaIndex < NumSrcDeltas; ++SrcDeltaIndex, ++SrcDelta)
+			{
+				TArray<FMorphTargetVertexInfoBuffers::FFlattenedDelta>& FlattenedDeltas = AuxDeltaList.FindOrAdd(SrcDelta->SourceIdx);
+				FMorphTargetVertexInfoBuffers::FFlattenedDelta* NewDelta = new(FlattenedDeltas) FMorphTargetVertexInfoBuffers::FFlattenedDelta;
+				NewDelta->PosDelta = SrcDelta->PositionDelta;
+				NewDelta->TangentDelta = SrcDelta->TangentZDelta;
+				NewDelta->WeightIndex = AnimIdx;
+				++TotalNumDeltas;
+			}
+		}
+
+		MorphTargetVertexInfoBuffers.FlattenedDeltaList.Empty(TotalNumDeltas);
+		MorphTargetVertexInfoBuffers.PerVertexInfoList.AddUninitialized(AuxDeltaList.Num());
+		int32 StartDelta = 0;
+		FMorphTargetVertexInfoBuffers::FPerVertexInfo* NewPerVertexInfo = MorphTargetVertexInfoBuffers.PerVertexInfoList.GetData();
+		for (auto& Pair : AuxDeltaList)
+		{
+			NewPerVertexInfo->DestVertexIndex = Pair.Key;
+			NewPerVertexInfo->StartDelta = StartDelta;
+			NewPerVertexInfo->NumDeltas = Pair.Value.Num();
+			MorphTargetVertexInfoBuffers.FlattenedDeltaList.Append(Pair.Value);
+			StartDelta += Pair.Value.Num();
+			++NewPerVertexInfo;
+		}
+
+		if (AuxDeltaList.Num() > 0)
+		{
+			BeginInitResource(&MorphTargetVertexInfoBuffers);
+		}
+	}
 }
 
 void FStaticLODModel::ReleaseResources()
@@ -1328,6 +1694,7 @@ void FStaticLODModel::ReleaseResources()
 	BeginReleaseResource(&VertexBufferGPUSkin);
 	BeginReleaseResource(&ColorVertexBuffer);
 	BeginReleaseResource(&APEXClothVertexBuffer);
+	BeginReleaseResource(&MorphTargetVertexInfoBuffers);
 }
 
 int32 FStaticLODModel::GetTotalFaces() const
@@ -1341,40 +1708,28 @@ int32 FStaticLODModel::GetTotalFaces() const
 	return TotalFaces;
 }
 
-void FStaticLODModel::GetChunkAndSkinType(int32 InVertIndex, int32& OutChunkIndex, int32& OutVertIndex, bool& bOutSoftVert, bool& bOutHasExtraBoneInfluences) const
+void FStaticLODModel::GetSectionFromVertexIndex(int32 InVertIndex, int32& OutSectionIndex, int32& OutVertIndex, bool& bOutHasExtraBoneInfluences) const
 {
-	OutChunkIndex = 0;
+	OutSectionIndex = 0;
 	OutVertIndex = 0;
-	bOutSoftVert = false;
 	bOutHasExtraBoneInfluences = false;
 
 	int32 VertCount = 0;
 
 	// Iterate over each chunk
-	for(int32 ChunkCount = 0; ChunkCount < Chunks.Num(); ChunkCount++)
+	for(int32 SectionCount = 0; SectionCount < Sections.Num(); SectionCount++)
 	{
-		const FSkelMeshChunk& Chunk = Chunks[ChunkCount];
-		OutChunkIndex = ChunkCount;
-
-		// Is it in Rigid vertex range?
-		if(InVertIndex < VertCount + Chunk.GetNumRigidVertices())
-		{
-			OutVertIndex = InVertIndex - VertCount;
-			bOutSoftVert = false;
-			bOutHasExtraBoneInfluences = VertexBufferGPUSkin.HasExtraBoneInfluences();
-			return;
-		}
-		VertCount += Chunk.GetNumRigidVertices();
+		const FSkelMeshSection& Section = Sections[SectionCount];
+		OutSectionIndex = SectionCount;
 
 		// Is it in Soft vertex range?
-		if(InVertIndex < VertCount + Chunk.GetNumSoftVertices())
+		if(InVertIndex < VertCount + Section.GetNumVertices())
 		{
 			OutVertIndex = InVertIndex - VertCount;
-			bOutSoftVert = true;
 			bOutHasExtraBoneInfluences = VertexBufferGPUSkin.HasExtraBoneInfluences();
 			return;
 		}
-		VertCount += Chunk.GetNumSoftVertices();
+		VertCount += Section.GetNumVertices();
 	}
 
 	// InVertIndex should always be in some chunk!
@@ -1385,54 +1740,29 @@ void FStaticLODModel::GetVertices(TArray<FSoftSkinVertex>& Vertices) const
 {
 	Vertices.Empty(NumVertices);
 	Vertices.AddUninitialized(NumVertices);
-		
+	
 	// Initialize the vertex data
 	// All chunks are combined into one (rigid first, soft next)
 	FSoftSkinVertex* DestVertex = (FSoftSkinVertex*)Vertices.GetData();
-	for(int32 ChunkIndex = 0;ChunkIndex < Chunks.Num();ChunkIndex++)
+	for(int32 SectionIndex = 0; SectionIndex < Sections.Num(); SectionIndex++)
 	{
-		const FSkelMeshChunk& Chunk = Chunks[ChunkIndex];
-		//check(Chunk.NumRigidVertices == Chunk.RigidVertices.Num());
-		//check(Chunk.NumSoftVertices == Chunk.SoftVertices.Num());
-		for(int32 VertexIndex = 0;VertexIndex < Chunk.RigidVertices.Num();VertexIndex++)
-		{
-			const FRigidSkinVertex& SourceVertex = Chunk.RigidVertices[VertexIndex];
-			DestVertex->Position = SourceVertex.Position;
-			DestVertex->TangentX = SourceVertex.TangentX;
-			DestVertex->TangentY = SourceVertex.TangentY;
-			DestVertex->TangentZ = SourceVertex.TangentZ;
-			// store the sign of the determinant in TangentZ.W
-			DestVertex->TangentZ.Vector.W = GetBasisDeterminantSignByte( SourceVertex.TangentX, SourceVertex.TangentY, SourceVertex.TangentZ );
-
-			// copy all texture coordinate sets
-			FMemory::Memcpy( DestVertex->UVs, SourceVertex.UVs, sizeof(FVector2D)*MAX_TEXCOORDS );
-
-			DestVertex->Color = SourceVertex.Color;
-			DestVertex->InfluenceBones[0] = SourceVertex.Bone;
-			DestVertex->InfluenceWeights[0] = 255;
-			for(int32 InfluenceIndex = 1;InfluenceIndex < MAX_TOTAL_INFLUENCES;InfluenceIndex++)
-			{
-				DestVertex->InfluenceBones[InfluenceIndex] = 0;
-				DestVertex->InfluenceWeights[InfluenceIndex] = 0;
-			}
-			DestVertex++;
-		}
-		FMemory::Memcpy(DestVertex,Chunk.SoftVertices.GetData(),Chunk.SoftVertices.Num() * sizeof(FSoftSkinVertex));
-		DestVertex += Chunk.SoftVertices.Num();
+		const FSkelMeshSection& Section = Sections[SectionIndex];
+		FMemory::Memcpy(DestVertex, Section.SoftVertices.GetData(), Section.SoftVertices.Num() * sizeof(FSoftSkinVertex));
+		DestVertex += Section.SoftVertices.Num();
 	}
 }
 
 void FStaticLODModel::GetApexClothMappingData(TArray<FApexClothPhysToRenderVertData>& MappingData) const
 {
-	for( int32 ChunkIndex = 0; ChunkIndex < Chunks.Num(); ChunkIndex++ )
+	for (int32 SectionIndex = 0; SectionIndex < Sections.Num(); SectionIndex++)
 	{
-		const FSkelMeshChunk& Chunk = Chunks[ChunkIndex];
+		const FSkelMeshSection& Section = Sections[SectionIndex];
 
-		if( Chunk.ApexClothMappingData.Num() == 0 )
+		if(Section.ApexClothMappingData.Num() == 0 )
 		{
 			int32 PrevNum = MappingData.Num();
 
-			MappingData.AddZeroed(Chunk.RigidVertices.Num() + Chunk.SoftVertices.Num());
+			MappingData.AddZeroed(Section.SoftVertices.Num());
 			for(int32 i=PrevNum; i<MappingData.Num(); i++)
 			{
 				MappingData[i].PositionBaryCoordsAndDist[0] = 1.0f;
@@ -1444,7 +1774,7 @@ void FStaticLODModel::GetApexClothMappingData(TArray<FApexClothPhysToRenderVertD
 		}
 		else
 		{
-			MappingData += Chunk.ApexClothMappingData;
+			MappingData += Section.ApexClothMappingData;
 		}
 	}
 }
@@ -1464,7 +1794,7 @@ void FStaticLODModel::BuildVertexBuffers(uint32 BuildFlags)
 	// Set the number of texture coordinate sets
 	VertexBufferGPUSkin.SetNumTexCoords( NumTexCoords );
 
-	VertexBufferGPUSkin.SetHasExtraBoneInfluences(DoChunksNeedExtraBoneInfluences());
+	VertexBufferGPUSkin.SetHasExtraBoneInfluences(DoSectionsNeedExtraBoneInfluences());
 
 	// init vertex buffer with the vertex array
 	VertexBufferGPUSkin.Init(Vertices);
@@ -1582,18 +1912,14 @@ void FStaticLODModel::ReleaseCPUResources()
 	{
 		if(MultiSizeIndexContainer.IsIndexBufferValid())
 		{
-			int32 MemorySize = MultiSizeIndexContainer.GetIndexBuffer()->Num() * MultiSizeIndexContainer.GetDataTypeSize();
-			DEC_DWORD_STAT_BY( STAT_SkeletalMeshIndexMemory, MemorySize);
 			MultiSizeIndexContainer.GetIndexBuffer()->Empty();
 		}
 		if(AdjacencyMultiSizeIndexContainer.IsIndexBufferValid())
 		{
-			DEC_DWORD_STAT_BY( STAT_SkeletalMeshIndexMemory, AdjacencyMultiSizeIndexContainer.GetIndexBuffer()->Num() * AdjacencyMultiSizeIndexContainer.GetDataTypeSize());
 			AdjacencyMultiSizeIndexContainer.GetIndexBuffer()->Empty();
 		}
 		if(VertexBufferGPUSkin.IsVertexDataValid())
 		{
-			DEC_DWORD_STAT_BY( STAT_SkeletalMeshVertexMemory, VertexBufferGPUSkin.GetVertexDataSize() );
 			VertexBufferGPUSkin.CleanUp();
 		}
 	}
@@ -1604,7 +1930,6 @@ SIZE_T FStaticLODModel::GetResourceSize() const
 	SIZE_T ResourceSize = 0;
 
 	ResourceSize += Sections.GetAllocatedSize();
-	ResourceSize += Chunks.GetAllocatedSize();
 	ResourceSize += ActiveBoneIndices.GetAllocatedSize();  
 	ResourceSize += RequiredBones.GetAllocatedSize();
 
@@ -1817,7 +2142,7 @@ USkeletalMesh
 /**
 * Calculate max # of bone influences used by this skel mesh chunk
 */
-void FSkelMeshChunk::CalcMaxBoneInfluences()
+void FSkelMeshSection::CalcMaxBoneInfluences()
 {
 	// if we only have rigid verts then there is only one bone
 	MaxBoneInfluences = 1;
@@ -1912,14 +2237,14 @@ FSkeletalMeshResource::FSkeletalMeshResource()
 {
 }
 
-void FSkeletalMeshResource::InitResources(bool bNeedsVertexColors)
+void FSkeletalMeshResource::InitResources(bool bNeedsVertexColors, TArray<UMorphTarget*>& InMorphTargets)
 {
 	if (!bInitialized)
 	{
 		// initialize resources for each lod
 		for( int32 LODIndex = 0;LODIndex < LODModels.Num();LODIndex++ )
 		{
-			LODModels[LODIndex].InitResources(bNeedsVertexColors);
+			LODModels[LODIndex].InitResources(bNeedsVertexColors, LODIndex, InMorphTargets);
 		}
 		bInitialized = true;
 	}
@@ -1950,7 +2275,7 @@ bool FSkeletalMeshResource::HasExtraBoneInfluences() const
 	for (int32 LODIndex = 0; LODIndex < LODModels.Num(); ++LODIndex)
 	{
 		const FStaticLODModel& Model = LODModels[LODIndex];
-		if (Model.DoChunksNeedExtraBoneInfluences())
+		if (Model.DoSectionsNeedExtraBoneInfluences())
 		{
 			return true;
 		}
@@ -1959,24 +2284,24 @@ bool FSkeletalMeshResource::HasExtraBoneInfluences() const
 	return false;
 }
 
-int32 FSkeletalMeshResource::GetMaxBonesPerChunk() const
+int32 FSkeletalMeshResource::GetMaxBonesPerSection() const
 {
-	int32 MaxBonesPerChunk = 0;
+	int32 MaxBonesPerSection = 0;
 	for (int32 LODIndex = 0; LODIndex < LODModels.Num(); ++LODIndex)
 	{
 		const FStaticLODModel& Model = LODModels[LODIndex];
-		for (int32 ChunkIndex = 0; ChunkIndex < Model.Chunks.Num(); ++ChunkIndex)
+		for (int32 SectionIndex = 0; SectionIndex < Model.Sections.Num(); ++SectionIndex)
 		{
-			MaxBonesPerChunk = FMath::Max<int32>(MaxBonesPerChunk,Model.Chunks[ChunkIndex].BoneMap.Num());
+			MaxBonesPerSection = FMath::Max<int32>(MaxBonesPerSection, Model.Sections[SectionIndex].BoneMap.Num());
 		}
 	}
-	return MaxBonesPerChunk;
+	return MaxBonesPerSection;
 }
 
 bool FSkeletalMeshResource::RequiresCPUSkinning(ERHIFeatureLevel::Type FeatureLevel) const
 {
 	const int32 MaxGPUSkinBones = GetFeatureLevelMaxNumberOfBones(FeatureLevel);
-	const int32 MaxBonesPerChunk = GetMaxBonesPerChunk();
+	const int32 MaxBonesPerChunk = GetMaxBonesPerSection();
 	// Do CPU skinning if we need too many bones per chunk, or if we have too many influences per vertex on lower end
 	return (MaxBonesPerChunk > MaxGPUSkinBones) || (HasExtraBoneInfluences() && FeatureLevel < ERHIFeatureLevel::ES3_1);
 }
@@ -2009,7 +2334,6 @@ USkeletalMesh::USkeletalMesh(const FObjectInitializer& ObjectInitializer)
 	ImportedResource = MakeShareable(new FSkeletalMeshResource());
 }
 
-
 void USkeletalMesh::PostInitProperties()
 {
 #if WITH_EDITORONLY_DATA
@@ -2021,10 +2345,68 @@ void USkeletalMesh::PostInitProperties()
 	Super::PostInitProperties();
 }
 
+FBoxSphereBounds USkeletalMesh::GetBounds()
+{
+	return ExtendedBounds;
+}
+
+FBoxSphereBounds USkeletalMesh::GetImportedBounds()
+{
+	return ImportedBounds;
+}
+
+void USkeletalMesh::SetImportedBounds(const FBoxSphereBounds& InBounds)
+{
+	ImportedBounds = InBounds;
+	CalculateExtendedBounds();
+}
+
+void USkeletalMesh::SetPositiveBoundsExtension(const FVector& InExtension)
+{
+	PositiveBoundsExtension = InExtension;
+	CalculateExtendedBounds();
+}
+
+void USkeletalMesh::SetNegativeBoundsExtension(const FVector& InExtension)
+{
+	NegativeBoundsExtension = InExtension;
+	CalculateExtendedBounds();
+}
+
+void USkeletalMesh::CalculateExtendedBounds()
+{
+	FBoxSphereBounds CalculatedBounds = ImportedBounds;
+
+	// Convert to Min and Max
+	FVector Min = CalculatedBounds.Origin - CalculatedBounds.BoxExtent;
+	FVector Max = CalculatedBounds.Origin + CalculatedBounds.BoxExtent;
+	// Apply bound extensions
+	Min -= NegativeBoundsExtension;
+	Max += PositiveBoundsExtension;
+	// Convert back to Origin, Extent and update SphereRadius
+	CalculatedBounds.Origin = (Min + Max) / 2;
+	CalculatedBounds.BoxExtent = (Max - Min) / 2;
+	CalculatedBounds.SphereRadius = CalculatedBounds.BoxExtent.GetAbsMax();
+
+	ExtendedBounds = CalculatedBounds;
+}
+
+void USkeletalMesh::ValidateBoundsExtension()
+{
+	FVector HalfExtent = ImportedBounds.BoxExtent;
+
+	PositiveBoundsExtension.X = FMath::Clamp(PositiveBoundsExtension.X, -HalfExtent.X, MAX_flt);
+	PositiveBoundsExtension.Y = FMath::Clamp(PositiveBoundsExtension.Y, -HalfExtent.Y, MAX_flt);
+	PositiveBoundsExtension.Z = FMath::Clamp(PositiveBoundsExtension.Z, -HalfExtent.Z, MAX_flt);
+
+	NegativeBoundsExtension.X = FMath::Clamp(NegativeBoundsExtension.X, -HalfExtent.X, MAX_flt);
+	NegativeBoundsExtension.Y = FMath::Clamp(NegativeBoundsExtension.Y, -HalfExtent.Y, MAX_flt);
+	NegativeBoundsExtension.Z = FMath::Clamp(NegativeBoundsExtension.Z, -HalfExtent.Z, MAX_flt);
+}
 
 void USkeletalMesh::InitResources()
 {
-	ImportedResource->InitResources(bHasVertexColors);
+	ImportedResource->InitResources(bHasVertexColors, MorphTargets);
 }
 
 
@@ -2041,7 +2423,15 @@ static void GetStreamingTextureFactorForLOD(FStaticLODModel& LODModel, TArray<fl
 {
 	int32 NumTotalTriangles = LODModel.GetTotalFaces();
 
-	TArray<float> TexelRatios[MAX_TEXCOORDS];
+	struct FTriangleInfo
+	{
+		FTriangleInfo(float InAera, float InTexelRatio) : Aera(InAera), TexelRatio(InTexelRatio) {}
+		float Aera;
+		float TexelRatio;
+	};
+
+
+	TArray<FTriangleInfo> TexelRatios[MAX_TEXCOORDS];
 	float MaxTexelRatio = 0.0f;
 	for(int32 UVIndex = 0;UVIndex < MAX_TEXCOORDS;UVIndex++)
 	{
@@ -2070,52 +2460,82 @@ static void GetStreamingTextureFactorForLOD(FStaticLODModel& LODModel, TArray<fl
 				const FVector Pos0 = LODModel.VertexBufferGPUSkin.GetVertexPositionFast<bExtraBoneInfluencesT>(Index0);
 				const FVector Pos1 = LODModel.VertexBufferGPUSkin.GetVertexPositionFast<bExtraBoneInfluencesT>(Index1);
 				const FVector Pos2 = LODModel.VertexBufferGPUSkin.GetVertexPositionFast<bExtraBoneInfluencesT>(Index2);
-				float L1 = (Pos0 - Pos1).Size();
-				float L2 = (Pos0 - Pos2).Size();
 
-				int32 NumUVs = LODModel.NumTexCoords;
-				for(int32 UVIndex = 0;UVIndex < FMath::Min(NumUVs,(int32)MAX_TEXCOORDS);UVIndex++)
+				FVector P01 = Pos1 - Pos0;
+				FVector P02 = Pos2 - Pos0;
+
+				float Aera = FVector::CrossProduct(P01, P02).Size();
+
+				if (Aera > SMALL_NUMBER)
 				{
-					const FVector2D UV0 = LODModel.VertexBufferGPUSkin.GetVertexUVFast<bExtraBoneInfluencesT>(Index0, UVIndex);
-					const FVector2D UV1 = LODModel.VertexBufferGPUSkin.GetVertexUVFast<bExtraBoneInfluencesT>(Index1, UVIndex);
-					const FVector2D UV2 = LODModel.VertexBufferGPUSkin.GetVertexUVFast<bExtraBoneInfluencesT>(Index2, UVIndex);
+					float L1 = (Pos0 - Pos1).Size();
+					float L2 = (Pos0 - Pos2).Size();
 
-					float T1 = (UV0 - UV1).Size();
-					float T2 = (UV0 - UV2).Size();
-
-					if( FMath::Abs(T1 * T2) > FMath::Square(SMALL_NUMBER) )
+					int32 NumUVs = LODModel.NumTexCoords;
+					for(int32 UVIndex = 0;UVIndex < FMath::Min(NumUVs,(int32)MAX_TEXCOORDS);UVIndex++)
 					{
-						const float TexelRatio = FMath::Max( L1 / T1, L2 / T2 );
-						TexelRatios[UVIndex].Add( TexelRatio );
+						const FVector2D UV0 = LODModel.VertexBufferGPUSkin.GetVertexUVFast<bExtraBoneInfluencesT>(Index0, UVIndex);
+						const FVector2D UV1 = LODModel.VertexBufferGPUSkin.GetVertexUVFast<bExtraBoneInfluencesT>(Index1, UVIndex);
+						const FVector2D UV2 = LODModel.VertexBufferGPUSkin.GetVertexUVFast<bExtraBoneInfluencesT>(Index2, UVIndex);
 
-						// Update max texel ratio
-						if( TexelRatio > MaxTexelRatio )
+						float T1 = (UV0 - UV1).Size();
+						float T2 = (UV0 - UV2).Size();
+
+						if( FMath::Abs(T1 * T2) > FMath::Square(SMALL_NUMBER) )
 						{
-							MaxTexelRatio = TexelRatio;
+							const float TexelRatio = FMath::Max( L1 / T1, L2 / T2 );
+							TexelRatios[UVIndex].Add( FTriangleInfo(Aera, TexelRatio) );
+
+							// Update max texel ratio
+							if( TexelRatio > MaxTexelRatio )
+							{
+								MaxTexelRatio = TexelRatio;
+							}
 						}
 					}
-				}
-			}
-
-			for(int32 UVIndex = 0;UVIndex < MAX_TEXCOORDS;UVIndex++)
-			{
-				if( TexelRatios[UVIndex].Num() )
-				{
-					// Disregard upper 75% of texel ratios.
-					// This is to ignore backfacing surfaces or other non-visible surfaces that tend to map a small number of texels to a large surface.
-					TexelRatios[UVIndex].Sort( TGreater<float>() );
-					float TexelRatio = TexelRatios[UVIndex][ FMath::TruncToInt(TexelRatios[UVIndex].Num() * 0.75f) ];
-					if ( UVIndex == 0 )
-					{
-						TexelRatio *= InStreamingDistanceMultiplier;
-					}
-					CachedStreamingTextureFactors[UVIndex] = TexelRatio;
 				}
 			}
 		}
 		else
 		{
 			UE_LOG(LogSkeletalMesh,Warning,TEXT("GetStreamingTextureFactor called but section %d has no indices."),SectionIndex);
+		}
+	}
+
+	for(int32 UVIndex = 0;UVIndex < MAX_TEXCOORDS;UVIndex++)
+	{
+		TArray<FTriangleInfo>& TriangleInfos = TexelRatios[UVIndex];
+		float WeightedTexelFactorSum = 0;
+		float AreaSum = 0;
+
+		if( TriangleInfos.Num() )
+		{
+			struct FCompareTexelRatio
+			{
+				FORCEINLINE bool operator()(FTriangleInfo const& A, FTriangleInfo const& B) const { return A.TexelRatio < B.TexelRatio; }
+			};
+
+			TriangleInfos.Sort( FCompareTexelRatio() );
+
+			// Disregard upper 10% of texel ratios.
+			// This is to ignore backfacing surfaces or other non-visible surfaces that tend to map a small number of texels to a large surface.
+			int32 Threshold = FMath::FloorToInt(.10f * (float)TriangleInfos.Num());
+			for (int32 Index = Threshold; Index < TriangleInfos.Num() - Threshold; ++Index)
+			{
+				WeightedTexelFactorSum += TriangleInfos[Index].TexelRatio * TriangleInfos[Index].Aera;
+				AreaSum += TriangleInfos[Index].Aera;
+			}
+
+			if (AreaSum != 0)
+			{
+				CachedStreamingTextureFactors[UVIndex] = WeightedTexelFactorSum / AreaSum;
+
+				if ( UVIndex == 0 )
+				{
+					CachedStreamingTextureFactors[UVIndex] *= InStreamingDistanceMultiplier;
+				}
+			}
+
 		}
 	}
 }
@@ -2322,17 +2742,17 @@ void USkeletalMesh::PostEditChangeProperty(FPropertyChangedEvent& PropertyChange
 		}
 	}
 	
-	if (!bSkipRestartRenderState)
-	{
-		RestartRenderState();
-	}
-
 	if ( GIsEditor && PropertyThatChanged && PropertyThatChanged->GetName() == TEXT("StreamingDistanceMultiplier") )
 	{
 		// Allow recalculating the texture factor.
 		CachedStreamingTextureFactors.Empty();
 		// Recalculate in a few seconds.
 		GEngine->TriggerStreamingDataRebuild();
+	}
+
+	if (!bSkipRestartRenderState)
+	{
+		RestartRenderState();
 	}
 
 	if( GIsEditor &&
@@ -2356,6 +2776,17 @@ void USkeletalMesh::PostEditChangeProperty(FPropertyChangedEvent& PropertyChange
 		)
 	{
 		BuildPhysicsData();
+	}
+
+	if(UProperty* MemberProperty = PropertyChangedEvent.MemberProperty)
+	{
+		if(MemberProperty->GetFName() == GET_MEMBER_NAME_CHECKED(USkeletalMesh, PositiveBoundsExtension) ||
+			MemberProperty->GetFName() == GET_MEMBER_NAME_CHECKED(USkeletalMesh, NegativeBoundsExtension))
+		{
+			// If the bounds extensions change, recalculate extended bounds.
+			ValidateBoundsExtension();
+			CalculateExtendedBounds();
+		}
 	}
 
 	Super::PostEditChangeProperty(PropertyChangedEvent);
@@ -2459,9 +2890,11 @@ void USkeletalMesh::Serialize( FArchive& Ar )
 
 	Super::Serialize(Ar);
 
+	Ar.UsingCustomVersion(FFrameworkObjectVersion::GUID);
+
 	FStripDataFlags StripFlags( Ar );
 
-	Ar << Bounds;
+	Ar << ImportedBounds;
 	Ar << Materials;
 
 	Ar << RefSkeleton;
@@ -2547,6 +2980,11 @@ void USkeletalMesh::Serialize( FArchive& Ar )
 			Ar << ClothingAssets[Idx];
 		}
 
+		if (Ar.UE4Ver() < VER_UE4_REFERENCE_SKELETON_REFACTOR)
+		{
+			RebuildRefSkeletonNameToIndexMap();
+		}
+
 #if WITH_APEX_CLOTHING
 		if (Ar.IsLoading())
 		{
@@ -2572,6 +3010,14 @@ void USkeletalMesh::Serialize( FArchive& Ar )
 	{
 		Ar << BodySetup;
 	}
+
+#if WITH_APEX_CLOTHING && WITH_EDITORONLY_DATA
+	if(GIsEditor && Ar.IsLoading() && Ar.CustomVer(FFrameworkObjectVersion::GUID) < FFrameworkObjectVersion::AddInternalClothingGraphicalSkinning)
+	{
+		ApexClothingUtils::BackupClothingDataFromSkeletalMesh(this);
+		ApexClothingUtils::ReapplyClothingDataToSkeletalMesh(this);
+	}
+#endif
 }
 
 void USkeletalMesh::AddReferencedObjects(UObject* InThis, FReferenceCollector& Collector)
@@ -2650,12 +3096,12 @@ void USkeletalMesh::RestartRenderState()
 	RecreateRenderState_Internal(this);
 }
 
-void USkeletalMesh::PreSave()
+void USkeletalMesh::PreSave(const class ITargetPlatform* TargetPlatform)
 {
 	// check the parent index of the root bone is invalid
 	check((RefSkeleton.GetNum() == 0) || (RefSkeleton.GetRefBoneInfo()[0].ParentIndex == INDEX_NONE));
 
-	Super::PreSave();
+	Super::PreSave(TargetPlatform);
 	// Make sure streaming texture factors have been cached. Calling GetStreamingTextureFactor
 	// with editor-only data available will calculate it if it has not been cached.
 	GetStreamingTextureFactor(0);
@@ -2761,13 +3207,6 @@ void USkeletalMesh::PostLoad()
 			ThisLODInfo.TriangleSortSettings.AddZeroed( ThisLODModel.Sections.Num()-ThisLODInfo.TriangleSortSettings.Num() );
 		}
 
-		// Verify that section and chunk indices match.
-		check(ThisLODModel.Sections.Num() == ThisLODModel.Chunks.Num());
-		for (int32 SectionIndex = 0; SectionIndex < ThisLODModel.Sections.Num(); ++SectionIndex)
-		{
-			check(ThisLODModel.Sections[SectionIndex].ChunkIndex == SectionIndex);
-		}
-
 #if WITH_EDITOR
 		if (ThisLODInfo.ReductionSettings.BonesToRemove_DEPRECATED.Num() > 0)
 		{
@@ -2817,6 +3256,19 @@ void USkeletalMesh::PostLoad()
 	// initialize rendering resources
 	if (FApp::CanEverRender())
 	{
+#if WITH_EDITOR
+		// If we needed to recalc max bone influences, also need to recreate gpu vertex buffer with that info
+		if (GetLinkerCustomVersion(FSkeletalMeshCustomVersion::GUID) < FSkeletalMeshCustomVersion::RecalcMaxBoneInfluences)
+		{
+			FSkeletalMeshResource* Resource = GetImportedResource();
+			uint32 VertexFlags = GetVertexBufferFlags();
+			for (int32 LODIndex = 0; LODIndex < Resource->LODModels.Num(); LODIndex++)
+			{
+				Resource->LODModels[LODIndex].BuildVertexBuffers(VertexFlags);
+			}
+		}
+#endif // WITH_EDITOR
+
 		InitResources();
 	}
 
@@ -2845,53 +3297,36 @@ void USkeletalMesh::PostLoad()
 		}
 #endif // WITH_EDITOR
 	}
+
+	// validate influences for existing clothing
+	if(FSkeletalMeshResource* SkelResource = GetImportedResource())
+	{
+		for(int32 LODIndex = 0; LODIndex < SkelResource->LODModels.Num(); ++LODIndex)
+		{
+			FStaticLODModel& CurLODModel = SkelResource->LODModels[LODIndex];
+
+			for (int32 SectionIdx = 0; SectionIdx< CurLODModel.Sections.Num(); SectionIdx++)
+			{
+				FSkelMeshSection& CurSection = CurLODModel.Sections[SectionIdx];
+
+				if(CurSection.CorrespondClothSectionIndex != INDEX_NONE && CurSection.MaxBoneInfluences > MAX_INFLUENCES_PER_STREAM)
+				{
+					UE_LOG(LogSkeletalMesh, Warning, TEXT("Section %d for LOD %d in skeletal mesh %s has clothing associated but has %d influences. Clothing only supports a maximum of %d influences - reduce influences on chunk and reimport mesh."),
+						SectionIdx,
+						LODIndex,
+						*GetName(),
+						CurSection.MaxBoneInfluences,
+						MAX_INFLUENCES_PER_STREAM);
+				}
+			}
+		}
+	}
+
 #endif // WITH_APEX_CLOTHING
 
 	if( GetLinkerUE4Version() < VER_UE4_REFERENCE_SKELETON_REFACTOR )
 	{
-		TArray<FBoneIndexType> DuplicateBones;
-		// Make sure we have no duplicate bones. Some content got corrupted somehow. :(
-		RefSkeleton.RemoveDuplicateBones(this, DuplicateBones);
-
-		// If we have removed any duplicate bones, we need to fix up any broken LODs as well.
-		// Duplicate bones are given from highest index to lowest. 
-		// so it's safe to decrease indices for children, we're not going to lose the index of the remaining duplicate bones.
-		for(int32 Index=0; Index<DuplicateBones.Num(); Index++)
-		{
-			const FBoneIndexType& DuplicateBoneIndex = DuplicateBones[Index];
-			for(int32 LodIndex=0; LodIndex<LODInfo.Num(); LodIndex++)
-			{
-				FStaticLODModel & ThisLODModel = ImportedResource->LODModels[LodIndex];
-				{
-					int32 FoundIndex;
-					if( ThisLODModel.RequiredBones.Find(DuplicateBoneIndex, FoundIndex) )
-					{
-						ThisLODModel.RequiredBones.RemoveAt(FoundIndex, 1);
-						// we need to shift indices of the remaining bones.
-						for(int32 j=FoundIndex; j<ThisLODModel.RequiredBones.Num(); j++)
-						{
-							ThisLODModel.RequiredBones[j] = ThisLODModel.RequiredBones[j] - 1;
-						}
-					}
-				}
-
-				{
-					int32 FoundIndex;
-					if( ThisLODModel.ActiveBoneIndices.Find(DuplicateBoneIndex, FoundIndex) )
-					{
-						ThisLODModel.ActiveBoneIndices.RemoveAt(FoundIndex, 1);
-						// we need to shift indices of the remaining bones.
-						for(int32 j=FoundIndex; j<ThisLODModel.ActiveBoneIndices.Num(); j++)
-						{
-							ThisLODModel.ActiveBoneIndices[j] = ThisLODModel.ActiveBoneIndices[j] - 1;
-						}
-					}
-				}
-			}
-		}
-
-		// Rebuild name table.
-		RefSkeleton.RebuildNameToIndexMap();
+		RebuildRefSkeletonNameToIndexMap();
 	}
 
 #if WITH_APEX_CLOTHING
@@ -2917,6 +3352,56 @@ void USkeletalMesh::PostLoad()
 		RetargetBasePose = RefSkeleton.GetRefBonePose();
 	}
 #endif
+
+	// Bounds have been loaded - apply extensions.
+	CalculateExtendedBounds();
+}
+
+void USkeletalMesh::RebuildRefSkeletonNameToIndexMap()
+{
+	TArray<FBoneIndexType> DuplicateBones;
+	// Make sure we have no duplicate bones. Some content got corrupted somehow. :(
+	RefSkeleton.RemoveDuplicateBones(this, DuplicateBones);
+
+	// If we have removed any duplicate bones, we need to fix up any broken LODs as well.
+	// Duplicate bones are given from highest index to lowest. 
+	// so it's safe to decrease indices for children, we're not going to lose the index of the remaining duplicate bones.
+	for (int32 Index = 0; Index < DuplicateBones.Num(); Index++)
+	{
+		const FBoneIndexType& DuplicateBoneIndex = DuplicateBones[Index];
+		for (int32 LodIndex = 0; LodIndex < LODInfo.Num(); LodIndex++)
+		{
+			FStaticLODModel & ThisLODModel = ImportedResource->LODModels[LodIndex];
+			{
+				int32 FoundIndex;
+				if (ThisLODModel.RequiredBones.Find(DuplicateBoneIndex, FoundIndex))
+				{
+					ThisLODModel.RequiredBones.RemoveAt(FoundIndex, 1);
+					// we need to shift indices of the remaining bones.
+					for (int32 j = FoundIndex; j < ThisLODModel.RequiredBones.Num(); j++)
+					{
+						ThisLODModel.RequiredBones[j] = ThisLODModel.RequiredBones[j] - 1;
+					}
+				}
+			}
+
+			{
+				int32 FoundIndex;
+				if (ThisLODModel.ActiveBoneIndices.Find(DuplicateBoneIndex, FoundIndex))
+				{
+					ThisLODModel.ActiveBoneIndices.RemoveAt(FoundIndex, 1);
+					// we need to shift indices of the remaining bones.
+					for (int32 j = FoundIndex; j < ThisLODModel.ActiveBoneIndices.Num(); j++)
+					{
+						ThisLODModel.ActiveBoneIndices[j] = ThisLODModel.ActiveBoneIndices[j] - 1;
+					}
+				}
+			}
+		}
+	}
+
+	// Rebuild name table.
+	RefSkeleton.RebuildNameToIndexMap();
 }
 
 void USkeletalMesh::GetAssetRegistryTags(TArray<FAssetRegistryTag>& OutTags) const
@@ -2928,8 +3413,9 @@ void USkeletalMesh::GetAssetRegistryTags(TArray<FAssetRegistryTag>& OutTags) con
 		NumTriangles = LODModel.GetTotalFaces();
 	}
 
-	OutTags.Add( FAssetRegistryTag("Triangles", FString::FromInt(NumTriangles), FAssetRegistryTag::TT_Numerical) );
-	OutTags.Add( FAssetRegistryTag("Bones", FString::FromInt(RefSkeleton.GetNum()), FAssetRegistryTag::TT_Numerical) );
+	OutTags.Add(FAssetRegistryTag("Triangles", FString::FromInt(NumTriangles), FAssetRegistryTag::TT_Numerical));
+	OutTags.Add(FAssetRegistryTag("Bones", FString::FromInt(RefSkeleton.GetNum()), FAssetRegistryTag::TT_Numerical));
+	OutTags.Add(FAssetRegistryTag("MorphTargets", FString::FromInt(MorphTargets.Num()), FAssetRegistryTag::TT_Numerical));
 
 #if WITH_EDITORONLY_DATA
 	if (AssetImportData)
@@ -3037,41 +3523,59 @@ void USkeletalMesh::InitMorphTargets()
 {
 	MorphTargetIndexMap.Empty();
 
-	// Work from last element in list backwards, so you can replace a specific target by adding a set later in the array.
-	for ( auto TableIter = MorphTargets.CreateIterator(); TableIter; ++TableIter )
+	for (int32 Index = 0; Index < MorphTargets.Num(); ++Index)
 	{
-		UMorphTarget* Item = (*TableIter);
-		FName const ShapeName = Item->GetFName();
-		if( MorphTargetIndexMap.Find(ShapeName) == NULL )
-		{ 
-			MorphTargetIndexMap.Add(ShapeName, Item);
+		UMorphTarget* MorphTarget = MorphTargets[Index];
+		FName const ShapeName = MorphTarget->GetFName();
+		if (MorphTargetIndexMap.Find(ShapeName) == nullptr)
+		{
+			MorphTargetIndexMap.Add(ShapeName, Index);
 		}
 	}
 }
 
-
-UMorphTarget* USkeletalMesh::FindMorphTarget( FName MorphTargetName ) const
+UMorphTarget* USkeletalMesh::FindMorphTarget(FName MorphTargetName) const
 {
+	int32 Index;
+	return FindMorphTargetAndIndex(MorphTargetName, Index);
+}
+
+UMorphTarget* USkeletalMesh::FindMorphTargetAndIndex(FName MorphTargetName, int32& OutIndex) const
+{
+	OutIndex = INDEX_NONE;
 	if( MorphTargetName != NAME_None )
 	{
-		return MorphTargetIndexMap.FindRef(MorphTargetName);
+		const int32* Found = MorphTargetIndexMap.Find(MorphTargetName);
+		if (Found)
+		{
+			OutIndex = *Found;
+			return MorphTargets[*Found];
+		}
 	}
 
-	return NULL;
+	return nullptr;
 }
 
 USkeletalMeshSocket* USkeletalMesh::FindSocket(FName InSocketName) const
 {
-	if(InSocketName == NAME_None)
+	int32 DummyIdx;
+	return FindSocketAndIndex(InSocketName, DummyIdx);
+}
+
+USkeletalMeshSocket* USkeletalMesh::FindSocketAndIndex(FName InSocketName, int32& OutIndex) const
+{
+	OutIndex = INDEX_NONE;
+	if (InSocketName == NAME_None)
 	{
 		return NULL;
 	}
 
-	for(int32 i=0; i<Sockets.Num(); i++)
+	for (int32 i = 0; i < Sockets.Num(); i++)
 	{
 		USkeletalMeshSocket* Socket = Sockets[i];
-		if(Socket && Socket->SocketName == InSocketName)
+		if (Socket && Socket->SocketName == InSocketName)
 		{
+			OutIndex = i;
 			return Socket;
 		}
 	}
@@ -3082,8 +3586,9 @@ USkeletalMeshSocket* USkeletalMesh::FindSocket(FName InSocketName) const
 		for (int32 i = 0; i < Skeleton->Sockets.Num(); ++i)
 		{
 			USkeletalMeshSocket* Socket = Skeleton->Sockets[i];
-			if(Socket && Socket->SocketName == InSocketName)
+			if (Socket && Socket->SocketName == InSocketName)
 			{
+				OutIndex = Sockets.Num() + i;
 				return Socket;
 			}
 		}
@@ -3091,6 +3596,28 @@ USkeletalMeshSocket* USkeletalMesh::FindSocket(FName InSocketName) const
 
 	return NULL;
 }
+
+int32 USkeletalMesh::NumSockets() const
+{
+	return Sockets.Num() + (Skeleton ? Skeleton->Sockets.Num() : 0);
+}
+
+USkeletalMeshSocket* USkeletalMesh::GetSocketByIndex(int32 Index) const
+{
+	if (Index < Sockets.Num())
+	{
+		return Sockets[Index];
+	}
+
+	if (Skeleton && Index < Skeleton->Sockets.Num())
+	{
+		return Skeleton->Sockets[Index];
+	}
+
+	return nullptr;
+}
+
+
 
 /**
  * This will return detail info about this specific object. (e.g. AudioComponent will return the name of the cue,
@@ -3277,6 +3804,12 @@ FArchive& operator<<( FArchive& Ar, FSkeletalMaterial& Elem )
 	if ( Ar.UE4Ver() >= VER_UE4_MOVE_SKELETALMESH_SHADOWCASTING )
 	{
 		Ar << Elem.bEnableShadowCasting;
+	}
+
+	Ar.UsingCustomVersion(FRecomputeTangentCustomVersion::GUID);
+	if (Ar.CustomVer(FRecomputeTangentCustomVersion::GUID) >= FRecomputeTangentCustomVersion::RuntimeRecomputeTangent)
+	{
+		Ar << Elem.bRecomputeTangent;
 	}
 
 	return Ar;
@@ -3588,27 +4121,18 @@ bool USkeletalMesh::GetPhysicsTriMeshData(FTriMeshCollisionData* CollisionData, 
 		// Copy all verts into collision vertex buffer.
 		CollisionData->Vertices.Empty();
 		CollisionData->Vertices.AddUninitialized(Model.NumVertices);
-		const uint32 NumChunks = Model.Chunks.Num();
+		const uint32 NumSections = Model.Sections.Num();
 
-		for (uint32 ChunkIdx = 0; ChunkIdx < NumChunks; ++ChunkIdx)
+		for (uint32 SectionIdx = 0; SectionIdx < NumSections; ++SectionIdx)
 		{
-			const FSkelMeshChunk& Chunk = Model.Chunks[ChunkIdx];
-			{
-				//rigid
-				const uint32 RigidOffset = Chunk.GetRigidVertexBufferIndex();
-				const uint32 NumRigidVerts = Chunk.GetNumRigidVertices();
-				for (uint32 RigidIdx = 0; RigidIdx < NumRigidVerts; ++RigidIdx)
-				{
-					CollisionData->Vertices[RigidIdx + RigidOffset] = Chunk.RigidVertices[RigidIdx].Position;
-				}
-			}
+			const FSkelMeshSection& Section = Model.Sections[SectionIdx];
 			{
 				//soft
-				const uint32 SoftOffset = Chunk.GetSoftVertexBufferIndex();
-				const uint32 NumSoftVerts = Chunk.GetNumSoftVertices();
+				const uint32 SoftOffset = Section.GetVertexBufferIndex();
+				const uint32 NumSoftVerts = Section.GetNumVertices();
 				for (uint32 SoftIdx = 0; SoftIdx < NumSoftVerts; ++SoftIdx)
 				{
-					CollisionData->Vertices[SoftIdx + SoftOffset] = Chunk.SoftVertices[SoftIdx].Position;
+					CollisionData->Vertices[SoftIdx + SoftOffset] = Section.SoftVertices[SoftIdx].Position;
 				}
 			}
 
@@ -3725,12 +4249,8 @@ bool USkeletalMesh::IsSectionUsingCloth(int32 InSectionIndex, bool bCheckCorresp
 				{
 					SectionToCheck = &LodModel.Sections[SectionToCheck->CorrespondClothSectionIndex];
 				}
-
-				int32 ChunkIdx = SectionToCheck->ChunkIndex;
-				check(LodModel.Chunks.IsValidIndex(ChunkIdx)); // Built on import, should be valid at all times
-				
-				FSkelMeshChunk& Chunk = LodModel.Chunks[ChunkIdx];
-				if(Chunk.HasApexClothData())
+			
+				if(SectionToCheck->HasApexClothData())
 				{
 					return true;
 				}
@@ -4008,7 +4528,8 @@ void ASkeletalMeshActor::PreviewSetAnimPosition(FName SlotName, int32 ChannelInd
 {
 	if(CanPlayAnimation(InAnimSequence))
 	{
-		FAnimMontageInstance::PreviewMatineeSetAnimPositionInner(SlotName, SkeletalMeshComponent, InAnimSequence, CurrentlyPlayingMontage, InPosition, bLooping, bFireNotifies, DeltaTime);
+		TWeakObjectPtr<class UAnimMontage>& CurrentlyPlayingMontage = CurrentlyPlayingMontages.FindOrAdd(SlotName);
+		CurrentlyPlayingMontage = FAnimMontageInstance::PreviewMatineeSetAnimPositionInner(SlotName, SkeletalMeshComponent, InAnimSequence, InPosition, bLooping, bFireNotifies, DeltaTime);
 	}
 }
 
@@ -4154,7 +4675,8 @@ void ASkeletalMeshActor::SetAnimPosition(FName SlotName, int32 ChannelIndex, UAn
 {
 	if (CanPlayAnimation(InAnimSequence))
 	{
-		FAnimMontageInstance::SetMatineeAnimPositionInner(SlotName, SkeletalMeshComponent, InAnimSequence, CurrentlyPlayingMontage, InPosition, bLooping);
+		TWeakObjectPtr<class UAnimMontage>& CurrentlyPlayingMontage = CurrentlyPlayingMontages.FindOrAdd(SlotName);
+		CurrentlyPlayingMontage = FAnimMontageInstance::SetMatineeAnimPositionInner(SlotName, SkeletalMeshComponent, InAnimSequence, InPosition, bLooping);
 	}
 }
 
@@ -4252,6 +4774,10 @@ FSkeletalMeshSceneProxy::FSkeletalMeshSceneProxy(const USkinnedMeshComponent* Co
 		,	bCanHighlightSelectedSections(Component->bCanHighlightSelectedSections)
 		,	MaterialRelevance(Component->GetMaterialRelevance(GetScene().GetFeatureLevel()))
 		,	bMaterialsNeedMorphUsage_GameThread(false)
+#if WITH_EDITORONLY_DATA
+		,	StreamingDistanceMultiplier(FMath::Max(0.0f, Component->StreamingDistanceMultiplier))
+		,	StreamingTexelFactor(Component->SkeletalMesh->GetStreamingTextureFactor(0) * Component->ComponentToWorld.GetMaximumAxisScale())
+#endif
 {
 	check(MeshObject);
 	check(SkelMeshResource);
@@ -4385,9 +4911,9 @@ FSkeletalMeshSceneProxy::FSkeletalMeshSceneProxy(const USkinnedMeshComponent* Co
 			&& SkeletalMeshComponent->CastShadow
 			&& (SkeletalMeshComponent->bCastCapsuleDirectShadow || SkeletalMeshComponent->bCastCapsuleIndirectShadow))
 		{
-			for (int32 BodyIndex = 0; BodyIndex < ShadowPhysicsAsset->BodySetup.Num(); BodyIndex++)
+			for (int32 BodyIndex = 0; BodyIndex < ShadowPhysicsAsset->SkeletalBodySetups.Num(); BodyIndex++)
 			{
-				UBodySetup* BodySetup = ShadowPhysicsAsset->BodySetup[BodyIndex];
+				UBodySetup* BodySetup = ShadowPhysicsAsset->SkeletalBodySetups[BodyIndex];
 				int32 BoneIndex = SkeletalMeshComponent->GetBoneIndex(BodySetup->BoneName);
 
 				if (BoneIndex != INDEX_NONE)
@@ -4438,9 +4964,7 @@ public:
 		, MeshObject(InMeshObject)
 		, LODSectionElements(InLODSectionElements)
 		, Sections(InLODModel.Sections)
-		, Chunks(InLODModel.Chunks)
 #if WITH_EDITORONLY_DATA
-		, ChunkIndexPreview(InMeshObject.ChunkIndexPreview)
 		, SectionIndexPreview(InMeshObject.SectionIndexPreview)
 #endif
 	{
@@ -4460,10 +4984,6 @@ public:
 	FORCEINLINE operator bool() const
 	{
 		return ((SectionIndex < Sections.Num()) && LODSectionElements.SectionElements.IsValidIndex(GetSectionElementIndex()));
-	}
-	FORCEINLINE const FSkelMeshChunk& GetChunk() const
-	{
-		return Chunks[GetSection().ChunkIndex];
 	}
 	FORCEINLINE const FSkelMeshSection& GetSection() const
 	{
@@ -4485,9 +5005,19 @@ public:
 	FORCEINLINE bool NotValidPreviewSection()
 	{
 #if WITH_EDITORONLY_DATA
+
+		int32 ActualPreviewSectionIdx = SectionIndexPreview;
+		if(ActualPreviewSectionIdx != INDEX_NONE && Sections.IsValidIndex(ActualPreviewSectionIdx))
+		{
+			const FSkelMeshSection& PreviewSection = Sections[ActualPreviewSectionIdx];
+			if(PreviewSection.CorrespondClothSectionIndex != INDEX_NONE)
+			{
+				ActualPreviewSectionIdx = PreviewSection.CorrespondClothSectionIndex;
+			}
+		}
+
 		return	(SectionIndex < Sections.Num()) && 
-				(((ChunkIndexPreview >= 0) && (ChunkIndexPreview != Sections[SectionIndex].ChunkIndex)) ||
-				((SectionIndexPreview >= 0) && (SectionIndexPreview != SectionIndex)));
+				((ActualPreviewSectionIdx >= 0) && (ActualPreviewSectionIdx != SectionIndex));
 #else
 		return false;
 #endif
@@ -4497,9 +5027,7 @@ private:
 	const FSkeletalMeshObject& MeshObject;
 	const FSkeletalMeshSceneProxy::FLODSectionElements& LODSectionElements;
 	const TArray<FSkelMeshSection>& Sections;
-	const TArray<FSkelMeshChunk>& Chunks;
 #if WITH_EDITORONLY_DATA
-	const int32 ChunkIndexPreview;
 	const int32 SectionIndexPreview;
 #endif
 };
@@ -4555,7 +5083,7 @@ void FSkeletalMeshSceneProxy::GetDynamicMeshElements(const TArray<const FSceneVi
 	GetMeshElementsConditionallySelectable(Views, ViewFamily, true, VisibilityMap, Collector);
 }
 
-void FSkeletalMeshSceneProxy::GetMeshElementsConditionallySelectable(const TArray<const FSceneView*>& Views, const FSceneViewFamily& ViewFamily, bool bSelectable, uint32 VisibilityMap, FMeshElementCollector& Collector) const
+void FSkeletalMeshSceneProxy::GetMeshElementsConditionallySelectable(const TArray<const FSceneView*>& Views, const FSceneViewFamily& ViewFamily, bool bInSelectable, uint32 VisibilityMap, FMeshElementCollector& Collector) const
 {
 	if( !MeshObject )
 	{
@@ -4568,7 +5096,7 @@ void FSkeletalMeshSceneProxy::GetMeshElementsConditionallySelectable(const TArra
 		if (VisibilityMap & (1 << ViewIndex))
 		{
 			const FSceneView* View = Views[ViewIndex];
-			MeshObject->UpdateMinDesiredLODLevel(View, GetBounds(), GFrameNumberRenderThread);
+			MeshObject->UpdateMinDesiredLODLevel(View, GetBounds(), ViewFamily.FrameNumber);
 		}
 	}
 
@@ -4584,14 +5112,16 @@ void FSkeletalMeshSceneProxy::GetMeshElementsConditionallySelectable(const TArra
 
 		for (FSkeletalMeshSectionIter Iter(LODIndex, *MeshObject, LODModel, LODSection); Iter; ++Iter)
 		{
-			FSkelMeshSection Section = Iter.GetSection();
-			const FSkelMeshChunk& Chunk = Iter.GetChunk();
+			const FSkelMeshSection& Section = Iter.GetSection();
+			const int32 SectionIndex = Iter.GetSectionElementIndex();
 			const FSectionElementInfo& SectionElementInfo = Iter.GetSectionElementInfo();
 			const FTwoVectors& CustomLeftRightVectors = Iter.GetCustomLeftRightVectors();
 
+			bool bSectionSelected = false;
+
 #if WITH_EDITORONLY_DATA
 			// TODO: This is not threadsafe! A render command should be used to propagate SelectedEditorSection to the scene proxy.
-			Section.bSelected = (SkeletalMeshForDebug->SelectedEditorSection == Iter.GetSectionElementIndex());
+			bSectionSelected = (SkeletalMeshForDebug->SelectedEditorSection == Iter.GetSectionElementIndex());
 #endif
 			// If hidden skip the draw
 			if (MeshObject->IsMaterialHidden(LODIndex, SectionElementInfo.UseMaterialIndex))
@@ -4605,7 +5135,7 @@ void FSkeletalMeshSceneProxy::GetMeshElementsConditionallySelectable(const TArra
 				continue;
 			}
 
-			GetDynamicElementsSection(Views, ViewFamily, VisibilityMap, LODModel, LODIndex, Section, Chunk, SectionElementInfo, CustomLeftRightVectors, bSelectable, Collector);
+			GetDynamicElementsSection(Views, ViewFamily, VisibilityMap, LODModel, LODIndex, SectionIndex, bSectionSelected, SectionElementInfo, CustomLeftRightVectors, bInSelectable, Collector);
 		}
 	}
 
@@ -4629,9 +5159,11 @@ void FSkeletalMeshSceneProxy::GetMeshElementsConditionallySelectable(const TArra
 }
 
 void FSkeletalMeshSceneProxy::GetDynamicElementsSection(const TArray<const FSceneView*>& Views, const FSceneViewFamily& ViewFamily, uint32 VisibilityMap, 
-	const FStaticLODModel& LODModel, const int32 LODIndex, const FSkelMeshSection& Section, const FSkelMeshChunk& Chunk, 
-	const FSectionElementInfo& SectionElementInfo, const FTwoVectors& CustomLeftRightVectors, bool bSelectable, FMeshElementCollector& Collector ) const
+	const FStaticLODModel& LODModel, const int32 LODIndex, const int32 SectionIndex, bool bSectionSelected,
+	const FSectionElementInfo& SectionElementInfo, const FTwoVectors& CustomLeftRightVectors, bool bInSelectable, FMeshElementCollector& Collector ) const
 {
+	const FSkelMeshSection& Section = LODModel.Sections[SectionIndex];
+
 	// If hidden skip the draw
 	if (Section.bDisabled || MeshObject->IsMaterialHidden(LODIndex,SectionElementInfo.UseMaterialIndex))
 	{
@@ -4644,7 +5176,7 @@ void FSkeletalMeshSceneProxy::GetDynamicElementsSection(const TArray<const FScen
 	bool bIsSelected = IsSelected();
 
 	// if the mesh isn't selected but the mesh section is selected in the AnimSetViewer, find the mesh component and make sure that it can be highlighted (ie. are we rendering for the AnimSetViewer or not?)
-	if( !bIsSelected && Section.bSelected && bCanHighlightSelectedSections )
+	if( !bIsSelected && bSectionSelected && bCanHighlightSelectedSections )
 	{
 		bIsSelected = true;
 	}
@@ -4666,14 +5198,28 @@ void FSkeletalMeshSceneProxy::GetDynamicElementsSection(const TArray<const FScen
 			Mesh.LCI = NULL;
 			Mesh.bWireframe |= bForceWireframe;
 			Mesh.Type = PT_TriangleList;
-			Mesh.VertexFactory = MeshObject->GetVertexFactory(LODIndex,Section.ChunkIndex);
-			Mesh.bSelectable = bSelectable;
+			Mesh.VertexFactory = MeshObject->GetSkinVertexFactory(View, LODIndex, SectionIndex);
+			
+			if(!Mesh.VertexFactory)
+			{
+				// hide this part
+				continue;
+			}
+
+			Mesh.bSelectable = bInSelectable;
 			BatchElement.FirstIndex = Section.BaseIndex;
 
 			BatchElement.IndexBuffer = LODModel.MultiSizeIndexContainer.GetIndexBuffer();
 			BatchElement.MaxVertexIndex = LODModel.NumVertices - 1;
-
-			BatchElement.UserIndex = MeshObject->GPUSkinCacheKeys[Section.ChunkIndex];
+	
+			if(SectionIndex < FSkeletalMeshObject::MAX_GPUSKINCACHE_CHUNKS_PER_LOD)
+			{
+				BatchElement.UserIndex = MeshObject->GPUSkinCacheKeys[SectionIndex];
+			}
+			else
+			{
+				BatchElement.UserIndex = -1;
+			}
 
 			const bool bRequiresAdjacencyInformation = RequiresAdjacencyInformation( SectionElementInfo.Material, Mesh.VertexFactory->GetType(), ViewFamily.GetFeatureLevel() );
 			if ( bRequiresAdjacencyInformation )
@@ -4688,7 +5234,7 @@ void FSkeletalMeshSceneProxy::GetDynamicElementsSection(const TArray<const FScen
 
 			Mesh.BatchHitProxyId = SectionElementInfo.HitProxy ? SectionElementInfo.HitProxy->Id : FHitProxyId();
 
-			if (Section.bSelected)
+			if (bSectionSelected)
 			{
 				auto SelectionOverrideProxy = new FOverrideSelectionColorMaterialRenderProxy(
 					SectionElementInfo.Material->GetRenderProxy(bIsSelected, IsHovered()),
@@ -4735,9 +5281,11 @@ void FSkeletalMeshSceneProxy::GetDynamicElementsSection(const TArray<const FScen
 			}
 
 			BatchElement.NumPrimitives = Section.NumTriangles;
+
+#if WITH_EDITORONLY_DATA
 			if( GIsEditor && MeshObject->ProgressiveDrawingFraction != 1.f )
 			{
-				if (Mesh.MaterialRenderProxy->GetMaterial(FeatureLevel)->GetBlendMode() == BLEND_Translucent)
+				if (Mesh.MaterialRenderProxy && Mesh.MaterialRenderProxy->GetMaterial(FeatureLevel)->GetBlendMode() == BLEND_Translucent)
 				{
 					BatchElement.NumPrimitives = FMath::RoundToInt(((float)Section.NumTriangles)*FMath::Clamp<float>(MeshObject->ProgressiveDrawingFraction,0.f,1.f));
 					if( BatchElement.NumPrimitives == 0 )
@@ -4746,7 +5294,9 @@ void FSkeletalMeshSceneProxy::GetDynamicElementsSection(const TArray<const FScen
 					}
 				}
 			}
-			BatchElement.MinVertexIndex = Chunk.BaseVertexIndex;
+#endif // WITH_EDITORONLY_DATA
+
+			BatchElement.MinVertexIndex = Section.BaseVertexIndex;
 			Mesh.ReverseCulling = IsLocalToWorldDeterminantNegative();
 			Mesh.CastShadow = SectionElementInfo.bEnableShadowCasting;
 
@@ -4763,7 +5313,7 @@ void FSkeletalMeshSceneProxy::GetDynamicElementsSection(const TArray<const FScen
 				Collector.AddMesh(ViewIndex, Mesh);
 			}
 
-			const int32 NumVertices = Chunk.NumRigidVertices + Chunk.NumSoftVertices;
+			const int32 NumVertices = Section.GetNumVertices();
 			INC_DWORD_STAT_BY(STAT_GPUSkinVertices,(uint32)(bIsCPUSkinned ? 0 : NumVertices));
 			INC_DWORD_STAT_BY(STAT_SkelMeshTriangles,Mesh.GetNumPrimitives());
 			INC_DWORD_STAT(STAT_SkelMeshDrawCalls);
@@ -4783,21 +5333,21 @@ void FSkeletalMeshSceneProxy::GetShadowShapes(TArray<FCapsuleShape>& CapsuleShap
 	SCOPE_CYCLE_COUNTER(STAT_GetShadowShapes);
 
 	const TArray<FMatrix>& ReferenceToLocalMatrices = MeshObject->GetReferenceToLocalMatrices();
-	const FMatrix& LocalToWorld = GetLocalToWorld();
+	const FMatrix& ProxyLocalToWorld = GetLocalToWorld();
 
 	int32 CapsuleIndex = CapsuleShapes.Num();
 	CapsuleShapes.SetNum(CapsuleShapes.Num() + ShadowCapsuleData.Num(), false);
 
 	for(const TPair<int32, FCapsuleShape>& CapsuleData : ShadowCapsuleData)
 	{
-		FMatrix ReferenceToWorld = ReferenceToLocalMatrices[CapsuleData.Key] * LocalToWorld;
+		FMatrix ReferenceToWorld = ReferenceToLocalMatrices[CapsuleData.Key] * ProxyLocalToWorld;
 		const float MaxScale = ReferenceToWorld.GetScaleVector().GetMax();
 
 		FCapsuleShape& NewCapsule = CapsuleShapes[CapsuleIndex++];
 
 		NewCapsule.Center = ReferenceToWorld.TransformPosition(CapsuleData.Value.Center);
 		NewCapsule.Radius = CapsuleData.Value.Radius * MaxScale;
-		NewCapsule.Orientation = ReferenceToWorld.TransformVector(CapsuleData.Value.Orientation);
+		NewCapsule.Orientation = ReferenceToWorld.TransformVector(CapsuleData.Value.Orientation).GetSafeNormal();
 		NewCapsule.Length = CapsuleData.Value.Length * MaxScale;
 	}
 }
@@ -4833,6 +5383,10 @@ FPrimitiveViewRelevance FSkeletalMeshSceneProxy::GetViewRelevance(const FSceneVi
 	Result.bRenderInMainPass = ShouldRenderInMainPass();
 	Result.bUsesLightingChannels = GetLightingChannelMask() != GetDefaultLightingChannelMask();
 	MaterialRelevance.SetPrimitiveViewRelevance(Result);
+
+#if !UE_BUILD_SHIPPING
+	Result.bSeparateTranslucencyRelevance |= View->Family->EngineShowFlags.Constraints;
+#endif
 	return Result;
 }
 
@@ -4860,32 +5414,32 @@ int32 FSkeletalMeshSceneProxy::GetCurrentLODIndex()
  */
 void FSkeletalMeshSceneProxy::DebugDrawPhysicsAsset(int32 ViewIndex, FMeshElementCollector& Collector, const FEngineShowFlags& EngineShowFlags) const
 {
-	FMatrix LocalToWorld, WorldToLocal;
-	if (!GetWorldMatrices(LocalToWorld, WorldToLocal))
+	FMatrix ProxyLocalToWorld, WorldToLocal;
+	if (!GetWorldMatrices(ProxyLocalToWorld, WorldToLocal))
 	{
 		return; // Cannot draw this, world matrix not valid
 	}
 
-	FMatrix ScalingMatrix = LocalToWorld;
+	FMatrix ScalingMatrix = ProxyLocalToWorld;
 	FVector TotalScale = ScalingMatrix.ExtractScaling();
 
 	// Only if valid
 	if( !TotalScale.IsNearlyZero() )
 	{
-		FTransform LocalToWorldTransform(LocalToWorld);
+		FTransform LocalToWorldTransform(ProxyLocalToWorld);
 
-		TArray<FTransform>* BoneSpaceBases = MeshObject->GetSpaceBases();
+		TArray<FTransform>* BoneSpaceBases = MeshObject->GetComponentSpaceTransforms();
 		if(BoneSpaceBases)
 		{
+			//TODO: These data structures are not double buffered. This is not thread safe!
 			check(PhysicsAssetForDebug);
-			if( EngineShowFlags.Collision && IsCollisionEnabled() )
+			if (EngineShowFlags.Collision && IsCollisionEnabled())
 			{
 				PhysicsAssetForDebug->GetCollisionMesh(ViewIndex, Collector, SkeletalMeshForDebug, *BoneSpaceBases, LocalToWorldTransform, TotalScale);
 			}
-			if( EngineShowFlags.Constraints )
+			if (EngineShowFlags.Constraints)
 			{
-				// TODO: Currently doesn't work because the PDI returned here (FSimpleElementCollector) can't draw meshes
-				//PhysicsAssetForDebug->DrawConstraints(Collector.GetPDI(ViewIndex), SkeletalMeshForDebug, *BoneSpaceBases, LocalToWorldTransform, TotalScale.X);
+				PhysicsAssetForDebug->DrawConstraints(ViewIndex, Collector, SkeletalMeshForDebug, *BoneSpaceBases, LocalToWorldTransform, TotalScale.X);
 			}
 		}
 	}
@@ -4948,6 +5502,24 @@ void FSkeletalMeshSceneProxy::UpdateMorphMaterialUsage_GameThread(bool bNeedsMor
 	}
 }
 
+#if WITH_EDITORONLY_DATA
+const FStreamingSectionBuildInfo* FSkeletalMeshSceneProxy::GetStreamingSectionData(float& OutComponentExtraScale, float& OutMeshExtraScale, int32 LODIndex, int32 ElementIndex) const
+{
+	static FStreamingSectionBuildInfo Data;
+	
+	OutMeshExtraScale = 1.f; // No extra scale as this scale is already taken into account in StreamingTexelFactor
+	OutComponentExtraScale = StreamingDistanceMultiplier;
+
+	Data.BoxOrigin = GetBounds().Origin;
+	Data.BoxExtent = GetBounds().BoxExtent;
+	for (int32 TexCoordIndex = 0; TexCoordIndex < FMaterialTexCoordBuildInfo::MAX_NUM_TEX_COORD; ++TexCoordIndex)
+	{
+		Data.TexelFactors[TexCoordIndex] = StreamingTexelFactor;
+	}
+	return &Data;
+}
+#endif
+
 USkinnedMeshComponent::USkinnedMeshComponent(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 	, AnimUpdateRateParams(NULL)
@@ -4962,10 +5534,10 @@ USkinnedMeshComponent::USkinnedMeshComponent(const FObjectInitializer& ObjectIni
 	SetCollisionProfileName(UCollisionProfile::NoCollision_ProfileName);
 
 	StreamingDistanceMultiplier = 1.0f;
-	ProgressiveDrawingFraction = 1.0f;
 	bCanHighlightSelectedSections = false;
 	CanCharacterStepUpOn = ECB_Owner;
 #if WITH_EDITORONLY_DATA
+	ProgressiveDrawingFraction = 1.0f;
 	ChunkIndexPreview = -1;
 	SectionIndexPreview = -1;
 #endif // WITH_EDITORONLY_DATA
@@ -4973,9 +5545,9 @@ USkinnedMeshComponent::USkinnedMeshComponent(const FObjectInitializer& ObjectIni
 	bCastCapsuleDirectShadow = false;
 	bCastCapsuleIndirectShadow = false;
 
-	bDoubleBufferedBlendSpaces = true;
-	CurrentEditableSpaceBases = 0;
-	CurrentReadSpaceBases = 1;
+	bDoubleBufferedComponentSpaceTransforms = true;
+	CurrentEditableComponentTransforms = 0;
+	CurrentReadComponentTransforms = 1;
 	bNeedToFlipSpaceBaseBuffers = false;
 
 	bCanEverAffectNavigation = false;
@@ -4988,7 +5560,7 @@ void USkinnedMeshComponent::UpdateMorphMaterialUsageOnProxy()
 	// update morph material usage
 	if( SceneProxy )
 	{
-		const bool bHasMorphs = ActiveVertexAnims.Num() > 0;
+		const bool bHasMorphs = ActiveMorphTargets.Num() > 0;
 		((FSkeletalMeshSceneProxy*)SceneProxy)->UpdateMorphMaterialUsage_GameThread(bHasMorphs);
 	}
 }
@@ -5002,8 +5574,8 @@ void USkinnedMeshComponent::Serialize(FArchive& Ar)
 	if(Ar.IsCountingMemory())
 	{
 		// add all native variables - mostly bigger chunks 
-		SpaceBasesArray[0].CountBytes(Ar);
-		SpaceBasesArray[1].CountBytes(Ar);
+		ComponentSpaceTransformsArray[0].CountBytes(Ar);
+		ComponentSpaceTransformsArray[1].CountBytes(Ar);
 		MasterBoneMap.CountBytes(Ar);
 	}
 }
@@ -5026,7 +5598,7 @@ void USkeletalMeshComponent::Serialize(FArchive& Ar)
 	// to count memory : TODO: REMOVE?
 	if(Ar.IsCountingMemory())
 	{
-		LocalAtoms.CountBytes(Ar);
+		BoneSpaceTransforms.CountBytes(Ar);
 		RequiredBones.CountBytes(Ar);
 	}
 
@@ -5099,7 +5671,7 @@ FPrimitiveSceneProxy* USkinnedMeshComponent::CreateSceneProxy()
 		MeshObject)
 	{
 		// Only create a scene proxy if the bone count being used is supported, or if we don't have a skeleton (this is the case with destructibles)
-		int32 MaxBonesPerChunk = SkelMeshResource->GetMaxBonesPerChunk();
+		int32 MaxBonesPerChunk = SkelMeshResource->GetMaxBonesPerSection();
 		if (MaxBonesPerChunk <= GetFeatureLevelMaxNumberOfBones(SceneFeatureLevel))
 		{
 			Result = ::new FSkeletalMeshSceneProxy(this,SkelMeshResource);

@@ -517,15 +517,19 @@ void UVectorFieldComponent::OnRegister()
 			Instance->UpdateTransforms(ComponentToWorld.ToMatrixWithScale());
 			VectorFieldInstance = Instance;
 		}
-		else if (World && World->Scene && World->Scene->GetFXSystem())
+		else
 		{
-			// Store the FX system for the world in which this component is registered.
-			check(FXSystem == NULL);
-			FXSystem = World->Scene->GetFXSystem();
-			check(FXSystem != NULL);
+			UWorld* World = GetWorld();
+			if (World && World->Scene && World->Scene->GetFXSystem())
+			{
+				// Store the FX system for the world in which this component is registered.
+				check(FXSystem == NULL);
+				FXSystem = World->Scene->GetFXSystem();
+				check(FXSystem != NULL);
 
-			// Add this component to the FX system.
-			FXSystem->AddVectorField(this);
+				// Add this component to the FX system.
+				FXSystem->AddVectorField(this);
+			}
 		}
 	}
 }

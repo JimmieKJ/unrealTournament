@@ -10,13 +10,15 @@ public class LauncherCheck : ModuleRules
 			new string[]
 			{
 				"Core",
-                 "HTTP"
+                 "HTTP",
 			}
 		);
 
+        // Need to make this an option as it pulls in a developer module
         if (UEBuildConfiguration.bUseLauncherChecks)
         {
+            Definitions.Add("WITH_LAUNCHERCHECK=1");
             PublicDependencyModuleNames.Add("DesktopPlatform");
         }
-	}
+    }
 }

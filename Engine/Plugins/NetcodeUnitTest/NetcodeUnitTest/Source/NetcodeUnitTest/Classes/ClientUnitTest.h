@@ -217,6 +217,9 @@ protected:
 	/** Stores a reference to the server connection (always a 'UUnitTestNetConnection') */
 	UNetConnection* UnitConn;
 
+	/** Whether or not the initial connect of the fake client was triggered */
+	bool bTriggerredInitialConnect;
+
 	/** Stores a reference to the replicated PlayerController (if set to wait for this), after NotifyHandleClientPlayer */
 	TWeakObjectPtr<APlayerController> UnitPC;
 
@@ -451,7 +454,7 @@ public:
 	 * @param Target	The actor the RPC is being called on (optional - for internal logging/debugging)
 	 * @return			Whether or not the RPC was sent successfully
 	 */
-	bool PostSendRPC(FString RPCName, AActor* Target=NULL);
+	bool PostSendRPC(FString RPCName, AActor* Target=nullptr);
 
 	/**
 	 * Internal base implementation and utility functions for client unit tests
@@ -516,7 +519,7 @@ protected:
 	 * @param InNetID		The unique net id the player should use
 	 * @return				Whether or not the connection kicked off successfully
 	 */
-	virtual bool ConnectFakeClient(FUniqueNetIdRepl* InNetID=NULL);
+	virtual bool ConnectFakeClient(FUniqueNetIdRepl* InNetID=nullptr);
 
 	/**
 	 * Cleans up the local/fake client

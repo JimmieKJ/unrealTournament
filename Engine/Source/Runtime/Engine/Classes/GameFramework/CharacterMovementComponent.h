@@ -3,7 +3,6 @@
 #pragma once
 #include "AI/Navigation/NavigationAvoidanceTypes.h"
 #include "AI/RVOAvoidanceInterface.h"
-#include "Animation/AnimationAsset.h"
 #include "Engine/EngineBaseTypes.h"
 #include "Engine/EngineTypes.h"
 #include "GameFramework/PawnMovementComponent.h"
@@ -22,7 +21,10 @@ struct ENGINE_API FFindFloorResult
 {
 	GENERATED_USTRUCT_BODY()
 
-	/** True if there was a blocking hit in the floor test. */
+	/**
+	* True if there was a blocking hit in the floor test that was NOT in initial penetration.
+	* The HitResult can give more info about other circumstances.
+	*/
 	UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Category=CharacterFloor)
 	uint32 bBlockingHit:1;
 
@@ -134,7 +136,7 @@ public:
 protected:
 
 	/** Character movement component belongs to */
-	UPROPERTY()
+	UPROPERTY(Transient, DuplicateTransient)
 	ACharacter* CharacterOwner;
 
 public:
@@ -555,6 +557,12 @@ protected:
 	/** Computes the analog input modifier based on current input vector and/or acceleration. */
 	virtual float ComputeAnalogInputModifier() const;
 
+	/** Used for throttling "stuck in geometry" logging. */
+	float LastStuckWarningTime;
+
+	/** Used when throttling "stuck in geometry" logging, to output the number of events we skipped if throttling. */
+	uint32 StuckWarningCountSinceNotify;
+
 public:
 
 	/** Get the value of ServerLastTransformUpdateTimeStamp. */
@@ -594,6 +602,37 @@ public:
 	int32 MaxSimulationIterations;
 
 	/**
+	* Max distance we allow simulated proxies to depenetrate when moving out of anything but Pawns.
+	* This is generally more tolerant than with Pawns, because other geometry is either not moving, or is moving predictably with a bit of delay compared to on the server.
+	* @see MaxDepenetrationWithGeometryAsProxy, MaxDepenetrationWithPawn, MaxDepenetrationWithPawnAsProxy
+	*/
+	UPROPERTY(Category="Character Movement (General Settings)", EditAnywhere, BlueprintReadWrite, AdvancedDisplay, meta=(ClampMin="0", UIMin="0"))
+	float MaxDepenetrationWithGeometry;
+
+	/**
+	* Max distance we allow simulated proxies to depenetrate when moving out of anything but Pawns.
+	* This is generally more tolerant than with Pawns, because other geometry is either not moving, or is moving predictably with a bit of delay compared to on the server.
+	* @see MaxDepenetrationWithGeometry, MaxDepenetrationWithPawn, MaxDepenetrationWithPawnAsProxy
+	*/
+	UPROPERTY(Category="Character Movement (General Settings)", EditAnywhere, BlueprintReadWrite, AdvancedDisplay, meta=(ClampMin="0", UIMin="0"))
+	float MaxDepenetrationWithGeometryAsProxy;
+
+	/**
+	* Max distance we are allowed to depenetrate when moving out of other Pawns.
+	* @see MaxDepenetrationWithGeometry, MaxDepenetrationWithGeometryAsProxy, MaxDepenetrationWithPawnAsProxy
+	*/
+	UPROPERTY(Category="Character Movement (General Settings)", EditAnywhere, BlueprintReadWrite, AdvancedDisplay, meta=(ClampMin="0", UIMin="0"))
+	float MaxDepenetrationWithPawn;
+
+	/**
+	 * Max distance we allow simulated proxies to depenetrate when moving out of other Pawns.
+	 * Typically we don't want a large value, because we receive a server authoritative position that we should not then ignore by pushing them out of the local player.
+	 * @see MaxDepenetrationWithGeometry, MaxDepenetrationWithGeometryAsProxy, MaxDepenetrationWithPawn
+	 */
+	UPROPERTY(Category="Character Movement (General Settings)", EditAnywhere, BlueprintReadWrite, AdvancedDisplay, meta=(ClampMin="0", UIMin="0"))
+	float MaxDepenetrationWithPawnAsProxy;
+
+	/**
 	 * How long to take to smoothly interpolate from the old pawn position on the client to the corrected one sent by the server. Not used by Linear smoothing.
 	 */
 	UPROPERTY(Category="Character Movement (Networking)", EditDefaultsOnly, AdvancedDisplay, meta=(ClampMin="0.0", ClampMax="1.0", UIMin="0.0", UIMax="1.0"))
@@ -604,6 +643,18 @@ public:
 	 */
 	UPROPERTY(Category="Character Movement (Networking)", EditDefaultsOnly, AdvancedDisplay, meta=(ClampMin="0.0", ClampMax="1.0", UIMin="0.0", UIMax="1.0"))
 	float NetworkSimulatedSmoothRotationTime;
+
+	/**
+	* Similar setting as NetworkSimulatedSmoothLocationTime but only used on Listen servers.
+	*/
+	UPROPERTY(Category="Character Movement (Networking)", EditDefaultsOnly, AdvancedDisplay, meta=(ClampMin="0.0", ClampMax="1.0", UIMin="0.0", UIMax="1.0"))
+	float ListenServerNetworkSimulatedSmoothLocationTime;
+
+	/**
+	* Similar setting as NetworkSimulatedSmoothRotationTime but only used on Listen servers.
+	*/
+	UPROPERTY(Category="Character Movement (Networking)", EditDefaultsOnly, AdvancedDisplay, meta=(ClampMin="0.0", ClampMax="1.0", UIMin="0.0", UIMax="1.0"))
+	float ListenServerNetworkSimulatedSmoothRotationTime;
 
 	/** Maximum distance character is allowed to lag behind server location when interpolating between updates. */
 	UPROPERTY(Category="Character Movement (Networking)", EditDefaultsOnly, meta=(ClampMin="0.0", UIMin="0.0"))
@@ -705,8 +756,11 @@ public:
 	UPROPERTY(Transient, Category="Character Movement", EditAnywhere, BlueprintReadWrite)
 	uint32 bIgnoreClientMovementErrorChecksAndCorrection:1;
 
-	/** if true, event NotifyJumpApex() to CharacterOwner's controller when at apex of jump.  Is cleared when event is triggered. */
-	UPROPERTY(Category="Character Movement: Jumping / Falling", EditAnywhere, BlueprintReadWrite)
+	/**
+	 * If true, event NotifyJumpApex() to CharacterOwner's controller when at apex of jump. Is cleared when event is triggered.
+	 * By default this is off, and if you want the event to fire you typically set it to true when movement mode changes to "Falling" from another mode (see OnMovementModeChanged).
+	 */
+	UPROPERTY(Category="Character Movement: Jumping / Falling", VisibleAnywhere, BlueprintReadWrite)
 	uint32 bNotifyApex:1;
 
 	/** Instantly stop when in flying mode and no acceleration is being applied. */
@@ -830,20 +884,32 @@ public:
 	/** Moving actor's group mask */
 	UPROPERTY(Category="Character Movement: Avoidance", EditAnywhere, BlueprintReadOnly, AdvancedDisplay)
 	FNavAvoidanceMask AvoidanceGroup;
-	UFUNCTION(BlueprintCallable, Category="Pawn|Components|CharacterMovement")
+
+	UFUNCTION(BlueprintCallable, Category="Pawn|Components|CharacterMovement", meta=(DeprecatedFunction, DeprecationMessage="Please use SetAvoidanceGroupMask function instead."))
 	void SetAvoidanceGroup(int32 GroupFlags);
+
+	UFUNCTION(BlueprintCallable, Category = "Pawn|Components|CharacterMovement")
+	void SetAvoidanceGroupMask(const FNavAvoidanceMask& GroupMask);
 
 	/** Will avoid other agents if they are in one of specified groups */
 	UPROPERTY(Category="Character Movement: Avoidance", EditAnywhere, BlueprintReadOnly, AdvancedDisplay)
 	FNavAvoidanceMask GroupsToAvoid;
-	UFUNCTION(BlueprintCallable, Category="Pawn|Components|CharacterMovement")
+
+	UFUNCTION(BlueprintCallable, Category="Pawn|Components|CharacterMovement", meta = (DeprecatedFunction, DeprecationMessage = "Please use SetGroupsToAvoidMask function instead."))
 	void SetGroupsToAvoid(int32 GroupFlags);
+
+	UFUNCTION(BlueprintCallable, Category = "Pawn|Components|CharacterMovement")
+	void SetGroupsToAvoidMask(const FNavAvoidanceMask& GroupMask);
 
 	/** Will NOT avoid other agents if they are in one of specified groups, higher priority than GroupsToAvoid */
 	UPROPERTY(Category="Character Movement: Avoidance", EditAnywhere, BlueprintReadOnly, AdvancedDisplay)
 	FNavAvoidanceMask GroupsToIgnore;
-	UFUNCTION(BlueprintCallable, Category="Pawn|Components|CharacterMovement")
+
+	UFUNCTION(BlueprintCallable, Category="Pawn|Components|CharacterMovement", meta = (DeprecatedFunction, DeprecationMessage = "Please use SetGroupsToIgnoreMask function instead."))
 	void SetGroupsToIgnore(int32 GroupFlags);
+
+	UFUNCTION(BlueprintCallable, Category = "Pawn|Components|CharacterMovement")
+	void SetGroupsToIgnoreMask(const FNavAvoidanceMask& GroupMask);
 
 	/** De facto default value 0.5 (due to that being the default in the avoidance registration function), indicates RVO behavior. */
 	UPROPERTY(Category="Character Movement: Avoidance", EditAnywhere, BlueprintReadOnly)
@@ -1019,11 +1085,10 @@ public:
 	/** Update controller's view rotation as pawn's base rotates */
 	virtual void UpdateBasedRotation(FRotator& FinalRotation, const FRotator& ReducedRotation);
 
-	/** Update (or defer updating) OldBaseLocation and OldBaseQuat if there is a valid movement base. */
-	DEPRECATED(4.4, "CharacterMovementComponent::MaybeSaveBaseLocation() will be removed, call SaveBaseLocation().")
+	/** Call SaveBaseLocation() if not deferring updates (bDeferUpdateBasedMovement is false). */
 	virtual void MaybeSaveBaseLocation();
 
-	/** Update OldBaseLocation and OldBaseQuat if there is a valid movement base, and store the relative location/rotation if necessary. */
+	/** Update OldBaseLocation and OldBaseQuat if there is a valid movement base, and store the relative location/rotation if necessary. Ignores bDeferUpdateBasedMovement and forces the update. */
 	virtual void SaveBaseLocation();
 
 	/** changes physics based on MovementMode */
@@ -1307,6 +1372,9 @@ protected:
 	 */
 	virtual FVector ProjectLocationFromNavMesh(float DeltaSeconds, const FVector& CurrentFeetLocation, const FVector& TargetNavLocation, float UpOffset, float DownOffset);
 
+	/** Performs trace for ProjectLocationFromNavMesh */
+	virtual void FindBestNavMeshLocation(const FVector& TraceStart, const FVector& TraceEnd, const FVector& CurrentFeetLocation, const FVector& TargetNavLocation, FHitResult& OutHitResult) const;
+
 public:
 
 	/** Called by owning Character upon successful teleport from AActor::TeleportTo(). */
@@ -1500,13 +1568,16 @@ protected:
 	virtual void MoveAlongFloor(const FVector& InVelocity, float DeltaSeconds, FStepDownResult* OutStepDownResult = NULL);
 
 	/** Notification that the character is stuck in geometry.  Only called during walking movement. */
-	virtual void OnCharacterStuckInGeometry();
+	virtual void OnCharacterStuckInGeometry(const FHitResult* Hit);
 
 	/**
 	 * Adjusts velocity when walking so that Z velocity is zero.
 	 * When bMaintainHorizontalGroundVelocity is false, also rescales the velocity vector to maintain the original magnitude, but in the horizontal direction.
 	 */
 	virtual void MaintainHorizontalGroundVelocity();
+
+	/** Overridden to enforce max distances based on hit geometry. */
+	virtual FVector GetPenetrationAdjustment(const FHitResult& Hit) const override;
 
 	/** Overridden to set bJustTeleported to true, so we don't make incorrect velocity calculations based on adjusted movement. */
 	virtual bool ResolvePenetrationImpl(const FVector& Adjustment, const FHitResult& Hit, const FQuat& NewRotation) override;
@@ -1648,7 +1719,7 @@ protected:
 
 	/** Called when the collision capsule touches another primitive component */
 	UFUNCTION()
-	virtual void CapsuleTouched(AActor* Other, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult);
+	virtual void CapsuleTouched(UPrimitiveComponent* OverlappedComp, AActor* Other, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult);
 
 	// Enum used to control GetPawnCapsuleExtent behavior
 	enum EShrinkCapsuleExtent
@@ -1724,8 +1795,7 @@ protected:
 
 	/** Special Tick for Simulated Proxies */
 	void SimulatedTick(float DeltaSeconds);
-	
-public:
+
 	/** Simulate movement on a non-owning client. Called by SimulatedTick(). */
 	virtual void SimulateMovement(float DeltaTime);
 
@@ -1982,6 +2052,9 @@ public:
 	 *  @return LocalID for this Root Motion Source */
 	uint16 ApplyRootMotionSource(FRootMotionSource* SourcePtr);
 
+	/** Called during ApplyRootMotionSource call, useful for project-specific alerts for "something is about to be altering our movement" */
+	virtual void OnRootMotionSourceBeingApplied(const FRootMotionSource* Source);
+
 	/** Get a RootMotionSource from current root motion by name */
 	TSharedPtr<FRootMotionSource> GetRootMotionSource(FName InstanceName);
 
@@ -2019,6 +2092,10 @@ public:
 	UPROPERTY(Transient)
 	FRootMotionMovementParams RootMotionParams;
 
+	/** Velocity extracted from RootMotionParams when there is anim root motion active. Invalid to use when HasAnimRootMotion() returns false. */
+	UPROPERTY(Transient)
+	FVector AnimRootMotionVelocity;
+
 	/** True when SimulatedProxies are simulating RootMotion */
 	UPROPERTY(Transient)
 	bool bWasSimulatingRootMotion;
@@ -2034,12 +2111,21 @@ public:
 	void SimulateRootMotion(float DeltaSeconds, const FTransform& LocalRootMotionTransform);
 
 	/**
-	 * Calculate velocity from root motion. Under some movement conditions, only portions of root motion may be used (e.g. when falling Z may be ignored).
+	 * Calculate velocity from anim root motion.
 	 * @param RootMotionDeltaMove	Change in location from root motion.
 	 * @param DeltaSeconds			Elapsed time
 	 * @param CurrentVelocity		Non-root motion velocity at current time, used for components of result that may ignore root motion.
+	 * @see ConstrainAnimRootMotionVelocity
 	 */
+	virtual FVector CalcAnimRootMotionVelocity(const FVector& RootMotionDeltaMove, float DeltaSeconds, const FVector& CurrentVelocity) const;
+
+	DEPRECATED(4.13, "CalcRootMotionVelocity() has been replaced by CalcAnimRootMotionVelocity() instead, and ConstrainAnimRootMotionVelocity() now handles restricting root motion velocity under different conditions.")
 	virtual FVector CalcRootMotionVelocity(const FVector& RootMotionDeltaMove, float DeltaSeconds, const FVector& CurrentVelocity) const;
+
+	/**
+	 * Constrain components of root motion velocity that may not be appropriate given the current movement mode (e.g. when falling Z may be ignored).
+	 */
+	virtual FVector ConstrainAnimRootMotionVelocity(const FVector& RootMotionVelocity, const FVector& CurrentVelocity) const;
 
 	// RVO Avoidance
 
@@ -2054,6 +2140,7 @@ protected:
 	/** called in Tick to update data in RVO avoidance manager */
 	void UpdateDefaultAvoidance();
 
+public:
 	/** lock avoidance velocity */
 	void SetAvoidanceVelocityLock(class UAvoidanceManager* Avoidance, float Duration);
 
@@ -2131,6 +2218,8 @@ public:
 	float DeltaTime;    // amount of time for this move
 	float CustomTimeDilation;
 	float JumpKeyHoldTime;
+	int32 JumpMaxCount;
+	int32 JumpCurrentCount;
 	uint8 MovementMode;	// packed movement mode
 
 	// Information at the start of the move

@@ -140,6 +140,9 @@
 #include "Materials/MaterialExpressionDistanceFieldGradient.h"
 #include "Materials/MaterialFunction.h"
 #include "Materials/MaterialParameterCollection.h"
+#include "Materials/MaterialExpressionClearCoatNormalCustomOutput.h"
+#include "Materials/MaterialExpressionAtmosphericLightVector.h"
+#include "Materials/MaterialExpressionAtmosphericLightColor.h"
 
 #include "EditorSupportDelegates.h"
 #include "MaterialCompiler.h"
@@ -156,6 +159,7 @@
 #include "Engine/TextureRenderTargetCube.h"
 #include "Engine/TextureRenderTarget2D.h"
 #include "Engine/TextureCube.h"
+#include "RenderingObjectVersion.h"
 
 #define LOCTEXT_NAMESPACE "MaterialExpression"
 
@@ -449,11 +453,6 @@ void UMaterialExpression::Serialize( FArchive& Ar )
 		DoMaterialAttributeReorder(Input, Ar.UE4Ver());
 	}
 #endif
-}
-
-bool UMaterialExpression::NeedsLoadForServer() const
-{
-	return false; 
 }
 
 bool UMaterialExpression::NeedsLoadForClient() const
@@ -1338,7 +1337,7 @@ int32 UMaterialExpressionTextureSample::Compile(class FMaterialCompiler* Compile
 	if (Texture || TextureObject.Expression)
 	{
 		int32 TextureReferenceIndex = INDEX_NONE;
-		int32 TextureCodeIndex = TextureObject.Expression ? TextureObject.Compile(Compiler) : Compiler->Texture(Texture, TextureReferenceIndex, SamplerSource);
+		int32 TextureCodeIndex = TextureObject.Expression ? TextureObject.Compile(Compiler) : Compiler->Texture(Texture, TextureReferenceIndex, SamplerSource, MipValueMode);
 
 		UTexture* EffectiveTexture = Texture;
 		EMaterialSamplerType EffectiveSamplerType = (EMaterialSamplerType)SamplerType;
@@ -1370,6 +1369,8 @@ int32 UMaterialExpressionTextureSample::Compile(class FMaterialCompiler* Compile
 				EffectiveTexture = TextureObjectParameter->Texture;
 				EffectiveSamplerType = TextureObjectParameter->SamplerType;
 			}
+
+			TextureReferenceIndex = Compiler->GetTextureReferenceIndex(EffectiveTexture);
 		}
 
 		if (EffectiveTexture && VerifySamplerType(Compiler, (Desc.Len() > 0 ? *Desc : TEXT("TextureSample")), EffectiveTexture, EffectiveSamplerType))
@@ -3087,19 +3088,22 @@ UMaterialExpressionPanner::UMaterialExpressionPanner(const FObjectInitializer& O
 int32 UMaterialExpressionPanner::Compile(class FMaterialCompiler* Compiler, int32 OutputIndex, int32 MultiplexIndex)
 {
 	int32 TimeArg = Time.Expression ? Time.Compile(Compiler) : Compiler->GameTime(false, 0.0f);
+	int32 SpeedVectorArg = Speed.Expression ? Speed.Compile(Compiler) : INDEX_NONE;
+	int32 SpeedXArg = Speed.Expression ? Compiler->ComponentMask(SpeedVectorArg, true, false, false, false) : Compiler->Constant(SpeedX);
+	int32 SpeedYArg = Speed.Expression ? Compiler->ComponentMask(SpeedVectorArg, false, true, false, false) : Compiler->Constant(SpeedY);
 	int32 Arg1;
 	int32 Arg2;
 	if (bFractionalPart)
 	{
 		// Note: this is to avoid (delay) divergent accuracy issues as GameTime increases.
 		// TODO: C++ to calculate its phase via per frame time delta.
-		Arg1 = Compiler->PeriodicHint(Compiler->Frac(Compiler->Mul(TimeArg, Compiler->Constant(SpeedX))));
-		Arg2 = Compiler->PeriodicHint(Compiler->Frac(Compiler->Mul(TimeArg, Compiler->Constant(SpeedY))));
+		Arg1 = Compiler->PeriodicHint(Compiler->Frac(Compiler->Mul(TimeArg, SpeedXArg)));
+		Arg2 = Compiler->PeriodicHint(Compiler->Frac(Compiler->Mul(TimeArg, SpeedYArg)));
 	}
 	else
 	{
-		Arg1 = Compiler->PeriodicHint(Compiler->Mul(TimeArg, Compiler->Constant(SpeedX)));
-		Arg2 = Compiler->PeriodicHint(Compiler->Mul(TimeArg, Compiler->Constant(SpeedY)));
+		Arg1 = Compiler->PeriodicHint(Compiler->Mul(TimeArg, SpeedXArg));
+		Arg2 = Compiler->PeriodicHint(Compiler->Mul(TimeArg, SpeedYArg));
 	}
 
 	int32 Arg3 = Coordinate.Expression ? Coordinate.Compile(Compiler) : Compiler->TextureCoordinate(ConstCoordinate, false, false);
@@ -5562,6 +5566,7 @@ static EMaterialCommonBasis GetMaterialCommonBasis(EMaterialVectorCoordTransform
 		MCB_World,						// TRANSFORMSOURCE_World
 		MCB_View,						// TRANSFORMSOURCE_View
 		MCB_Camera,						// TRANSFORMSOURCE_Camera
+		MCB_MeshParticle,
 	};
 	return ConversionTable[X];
 }
@@ -5574,6 +5579,7 @@ static EMaterialCommonBasis GetMaterialCommonBasis(EMaterialVectorCoordTransform
 		MCB_World,						// TRANSFORM_World
 		MCB_View,						// TRANSFORM_View
 		MCB_Camera,						// TRANSFORM_Camera
+		MCB_MeshParticle,
 	};
 	return ConversionTable[X];
 }
@@ -5669,6 +5675,7 @@ static EMaterialCommonBasis GetMaterialCommonBasis(EMaterialPositionTransformSou
 		MCB_TranslatedWorld,			// TRANSFORMPOSSOURCE_TranslatedWorld
 		MCB_View,						// TRANSFORMPOSSOURCE_View
 		MCB_Camera,						// TRANSFORMPOSSOURCE_Camera
+		MCB_MeshParticle,	
 	};
 	return ConversionTable[X];
 }
@@ -6126,7 +6133,7 @@ void UMaterialExpressionWorldPosition::GetCaption(TArray<FString>& OutCaptions) 
 	{
 	case WPT_Default:
 		{
-			OutCaptions.Add(NSLOCTEXT("MaterialExpressions", "WorldPositonText", "Absolute World Position (Including Material Offsets)").ToString());
+			OutCaptions.Add(NSLOCTEXT("MaterialExpressions", "WorldPositonText", "Absolute World Position").ToString());
 			break;
 		}
 
@@ -6138,7 +6145,7 @@ void UMaterialExpressionWorldPosition::GetCaption(TArray<FString>& OutCaptions) 
 
 	case WPT_CameraRelative:
 		{
-			OutCaptions.Add(NSLOCTEXT("MaterialExpressions", "CamRelativeWorldPositonText", "Camera Relative World Position (Including Material Offsets)").ToString());
+			OutCaptions.Add(NSLOCTEXT("MaterialExpressions", "CamRelativeWorldPositonText", "Camera Relative World Position").ToString());
 			break;
 		}
 
@@ -6578,12 +6585,24 @@ void UMaterialExpressionCustom::Serialize(FArchive& Ar)
 {
 	Super::Serialize(Ar);
 
-	// Fix up uniform references that were moved from View to Frame as part of the instanced stereo implementation
+	Ar.UsingCustomVersion(FRenderingObjectVersion::GUID);
+
+	// Make a copy of the current code before we change it
+	const FString PreFixUp = Code;
+
+	bool bDidUpdate = false;
+
 	if (Ar.UE4Ver() < VER_UE4_INSTANCED_STEREO_UNIFORM_UPDATE)
 	{
-		// Make a copy of the current code before we change it
-		const FString PreFixUp = Code;
-
+		// Look for WorldPosition rename
+		if (Code.ReplaceInline(TEXT("Parameters.WorldPosition"), TEXT("Parameters.AbsoluteWorldPosition"), ESearchCase::CaseSensitive) > 0)
+		{
+			bDidUpdate = true;
+		}
+	}
+	// Fix up uniform references that were moved from View to Frame as part of the instanced stereo implementation
+	else if (Ar.UE4Ver() < VER_UE4_INSTANCED_STEREO_UNIFORM_REFACTOR)
+	{
 		// Uniform members that were moved from View to Frame
 		static const FString UniformMembers[] = {
 			FString(TEXT("FieldOfViewWideAngles")),
@@ -6661,33 +6680,33 @@ void UMaterialExpressionCustom::Serialize(FArchive& Ar)
 			FString(TEXT("SamplerState")),
 		};
 
-		// Update the uniform members
-		bool bDidUpdate = false;
 		const FString ViewUniformName(TEXT("View."));
 		const FString FrameUniformName(TEXT("Frame."));
 		for (const FString& Member : UniformMembers)
 		{
-			const FString SearchString = ViewUniformName + Member;
-			const FString ReplaceString = FrameUniformName + Member;
+			const FString SearchString = FrameUniformName + Member;
+			const FString ReplaceString = ViewUniformName + Member;
 			if (Code.ReplaceInline(*SearchString, *ReplaceString, ESearchCase::CaseSensitive) > 0)
 			{
 				bDidUpdate = true;
 			}
 		}
+	}
 
-		// Look for WorldPosition rename
-		if (Code.ReplaceInline(TEXT("Parameters.WorldPosition"), TEXT("Parameters.AbsoluteWorldPosition"), ESearchCase::CaseSensitive) > 0)
+	if (Ar.CustomVer(FRenderingObjectVersion::GUID) < FRenderingObjectVersion::RemovedRenderTargetSize)
+	{
+		if (Code.ReplaceInline(TEXT("View.RenderTargetSize"), TEXT("View.BufferSizeAndInvSize.xy"), ESearchCase::CaseSensitive) > 0)
 		{
 			bDidUpdate = true;
 		}
+	}
 
-		// If we made changes, copy the original into the description just in case
-		if (bDidUpdate)
-		{
-			Desc += TEXT("\n*** Original source before expression upgrade ***\n");
-			Desc += PreFixUp;
-			UE_LOG(LogMaterial, Log, TEXT("Uniform references updated for custom material expression %s."), *Description);
-		}
+	// If we made changes, copy the original into the description just in case
+	if (bDidUpdate)
+	{
+		Desc += TEXT("\n*** Original source before expression upgrade ***\n");
+		Desc += PreFixUp;
+		UE_LOG(LogMaterial, Log, TEXT("Uniform references updated for custom material expression %s."), *Description);
 	}
 }
 
@@ -7275,6 +7294,7 @@ void UMaterialExpressionMaterialFunctionCall::PreEditChange(UProperty* PropertyA
 		// Save off the previous MaterialFunction value
 		SavedMaterialFunction = MaterialFunction;
 	}
+	Super::PreEditChange(PropertyAboutToChange);
 }
 
 void UMaterialExpressionMaterialFunctionCall::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
@@ -7824,6 +7844,7 @@ void UMaterialExpressionFunctionInput::PreEditChange(UProperty* PropertyAboutToC
 	{
 		InputNameBackup = InputName;
 	}
+	Super::PreEditChange(PropertyAboutToChange);
 }
 
 void UMaterialExpressionFunctionInput::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
@@ -8013,12 +8034,7 @@ void UMaterialExpressionFunctionInput::ValidateName()
 #if WITH_EDITOR
 bool UMaterialExpressionFunctionInput::IsResultMaterialAttributes(int32 OutputIndex)
 {
-	// If there is a loop anywhere in this expression's inputs then we can't risk checking them
-	if( Preview.Expression && !Preview.Expression->ContainsInputLoop() )
-	{
-		return Preview.Expression->IsResultMaterialAttributes(Preview.OutputIndex);
-	}
-	else if( FunctionInput_MaterialAttributes == InputType )
+	if( FunctionInput_MaterialAttributes == InputType )
 	{
 		return true;
 	}
@@ -8119,6 +8135,7 @@ void UMaterialExpressionFunctionOutput::PreEditChange(UProperty* PropertyAboutTo
 	{
 		OutputNameBackup = OutputName;
 	}
+	Super::PreEditChange(PropertyAboutToChange);
 }
 
 void UMaterialExpressionFunctionOutput::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
@@ -8797,18 +8814,50 @@ UMaterialExpressionNoise::UMaterialExpressionNoise(const FObjectInitializer& Obj
 
 	Scale = 1.0f;
 	Levels = 6;
-	Quality = 0;
+	Quality = 1;
 	OutputMin = -1.0f;
 	OutputMax = 1.0f;
 	LevelScale = 2.0f;
-	NoiseFunction = NOISEFUNCTION_Simplex;
+	NoiseFunction = NOISEFUNCTION_SimplexTex;
 	bTurbulence = true;
+	bTiling = false;
+	RepeatSize = 512;
 
 	MenuCategories.Add(ConstructorStatics.NAME_Utility);
 
 }
 
 #if WITH_EDITOR
+bool UMaterialExpressionNoise::CanEditChange(const UProperty* InProperty) const
+{
+	bool bIsEditable = Super::CanEditChange(InProperty);
+	if (bIsEditable && InProperty != NULL)
+	{
+		FName PropertyFName = InProperty->GetFName();
+
+		bool bTilableNoiseType = NoiseFunction == NOISEFUNCTION_GradientALU || NoiseFunction == NOISEFUNCTION_ValueALU 
+			|| NoiseFunction == NOISEFUNCTION_GradientTex || NoiseFunction == NOISEFUNCTION_VoronoiALU;
+
+		bool bSupportsQuality = (NoiseFunction == NOISEFUNCTION_VoronoiALU);
+
+		if (PropertyFName == GET_MEMBER_NAME_CHECKED(UMaterialExpressionNoise, bTiling))
+		{
+			bIsEditable = bTilableNoiseType;
+		}
+		else if (PropertyFName == GET_MEMBER_NAME_CHECKED(UMaterialExpressionNoise, RepeatSize))
+		{
+			bIsEditable = bTilableNoiseType && bTiling;
+		}
+
+		if (PropertyFName == GET_MEMBER_NAME_CHECKED(UMaterialExpressionNoise, Quality))
+		{
+			bIsEditable = bSupportsQuality;
+		}
+	}
+
+	return bIsEditable;
+}
+
 int32 UMaterialExpressionNoise::Compile(class FMaterialCompiler* Compiler, int32 OutputIndex, int32 MultiplexIndex)
 {
 	int32 PositionInput;
@@ -8833,7 +8882,7 @@ int32 UMaterialExpressionNoise::Compile(class FMaterialCompiler* Compiler, int32
 		FilterWidthInput = Compiler->Constant(0);
 	}
 
-	return Compiler->Noise(PositionInput, Scale, Quality, NoiseFunction, bTurbulence, Levels, OutputMin, OutputMax, LevelScale, FilterWidthInput);
+	return Compiler->Noise(PositionInput, Scale, Quality, NoiseFunction, bTurbulence, Levels, OutputMin, OutputMax, LevelScale, FilterWidthInput, bTiling, RepeatSize);
 }
 
 void UMaterialExpressionNoise::GetCaption(TArray<FString>& OutCaptions) const
@@ -10057,6 +10106,123 @@ int32 UMaterialExpressionTangentOutput::Compile(class FMaterialCompiler* Compile
 void UMaterialExpressionTangentOutput::GetCaption(TArray<FString>& OutCaptions) const
 {
 	OutCaptions.Add(TEXT("Tangent output"));
+}
+#endif // WITH_EDITOR
+
+///////////////////////////////////////////////////////////////////////////////
+// Clear Coat Custom Normal Input
+///////////////////////////////////////////////////////////////////////////////
+
+UMaterialExpressionClearCoatNormalCustomOutput::UMaterialExpressionClearCoatNormalCustomOutput(const FObjectInitializer& ObjectInitializer)
+: Super(ObjectInitializer)
+{
+	// Structure to hold one-time initialization
+	struct FConstructorStatics
+	{
+		FText NAME_Utility;
+		FConstructorStatics()
+			: NAME_Utility(LOCTEXT("Utility", "Utility"))
+		{
+		}
+	};
+	static FConstructorStatics ConstructorStatics;
+
+	MenuCategories.Add(ConstructorStatics.NAME_Utility);
+	bCollapsed = true;
+
+	// No outputs
+	Outputs.Reset();
+}
+
+#if WITH_EDITOR
+int32  UMaterialExpressionClearCoatNormalCustomOutput::Compile(class FMaterialCompiler* Compiler, int32 OutputIndex, int32 MultiplexIndex)
+{
+	if (Input.Expression)
+	{
+		return Compiler->CustomOutput(this, OutputIndex, Input.Compile(Compiler, MultiplexIndex));
+	}
+	else
+	{
+		return CompilerError(Compiler, TEXT("Input missing"));
+	}
+	return INDEX_NONE;
+}
+
+
+void UMaterialExpressionClearCoatNormalCustomOutput::GetCaption(TArray<FString>& OutCaptions) const
+{
+	OutCaptions.Add(FString(TEXT("ClearCoatBottomNormal")));
+}
+#endif // WITH_EDITOR
+
+FExpressionInput* UMaterialExpressionClearCoatNormalCustomOutput::GetInput(int32 InputIndex)
+{
+	return &Input;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+// UMaterialExpressionrAtmosphericLightVector
+///////////////////////////////////////////////////////////////////////////////
+UMaterialExpressionAtmosphericLightVector::UMaterialExpressionAtmosphericLightVector(const FObjectInitializer& ObjectInitializer)
+	: Super(ObjectInitializer)
+{
+	// Structure to hold one-time initialization
+	struct FConstructorStatics
+	{
+		FText NAME_Utility;
+		FConstructorStatics()
+			: NAME_Utility(LOCTEXT("Utility", "Utility"))
+		{
+		}
+	};
+	static FConstructorStatics ConstructorStatics;
+
+	MenuCategories.Add(ConstructorStatics.NAME_Utility);
+}
+
+#if WITH_EDITOR
+int32 UMaterialExpressionAtmosphericLightVector::Compile(class FMaterialCompiler* Compiler, int32 OutputIndex, int32 MultiplexIndex)
+{
+
+	return Compiler->AtmosphericLightVector();
+}
+
+void UMaterialExpressionAtmosphericLightVector::GetCaption(TArray<FString>& OutCaptions) const
+{
+	OutCaptions.Add(TEXT("AtmosphericLightVector"));
+}
+#endif // WITH_EDITOR
+
+///////////////////////////////////////////////////////////////////////////////
+// UMaterialExpressionrAtmosphericLightVector
+///////////////////////////////////////////////////////////////////////////////
+UMaterialExpressionAtmosphericLightColor ::UMaterialExpressionAtmosphericLightColor(const FObjectInitializer& ObjectInitializer)
+	: Super(ObjectInitializer)
+{
+	// Structure to hold one-time initialization
+	struct FConstructorStatics
+	{
+		FText NAME_Utility;
+		FConstructorStatics()
+			: NAME_Utility(LOCTEXT("Utility", "Utility"))
+		{
+		}
+	};
+	static FConstructorStatics ConstructorStatics;
+
+	MenuCategories.Add(ConstructorStatics.NAME_Utility);
+}
+
+#if WITH_EDITOR
+int32 UMaterialExpressionAtmosphericLightColor::Compile(class FMaterialCompiler* Compiler, int32 OutputIndex, int32 MultiplexIndex)
+{
+
+	return Compiler->AtmosphericLightColor();
+}
+
+void UMaterialExpressionAtmosphericLightColor::GetCaption(TArray<FString>& OutCaptions) const
+{
+	OutCaptions.Add(TEXT("AtmosphericLightColor"));
 }
 #endif // WITH_EDITOR
 

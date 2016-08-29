@@ -26,6 +26,7 @@
 #include "RendererInterface.h"
 #include "MaterialShaderQualitySettings.h"
 #include "UObject/CoreObjectVersion.h"
+#include "DecalRenderingCommon.h"
 
 DEFINE_LOG_CATEGORY(LogMaterial);
 
@@ -324,7 +325,7 @@ EMaterialValueType GetMaterialPropertyType(EMaterialProperty Property)
 	case MP_CustomData0: return MCT_Float;
 	case MP_CustomData1: return MCT_Float;
 	case MP_AmbientOcclusion: return MCT_Float;
-	case MP_Refraction: return MCT_Float;
+	case MP_Refraction: return MCT_Float2;
 	case MP_MaterialAttributes: return MCT_MaterialAttributes;
 	case MP_PixelDepthOffset: return MCT_Float;
 	};
@@ -364,30 +365,44 @@ void FMaterialCompilationOutput::Serialize(FArchive& Ar)
 	Ar << bNeedsSceneTextures;
 	Ar << bUsesEyeAdaptation;
 	Ar << bModifiesMeshPosition;
+	Ar << bUsesWorldPositionOffset;
 	Ar << bNeedsGBuffer;
 	Ar << bUsesGlobalDistanceField;
+	Ar << bUsesPixelDepthOffset;
 }
 
 void FMaterial::GetShaderMapId(EShaderPlatform Platform, FMaterialShaderMapId& OutId) const
 { 
-	TArray<FShaderType*> ShaderTypes;
-	TArray<FVertexFactoryType*> VFTypes;
-	TArray<const FShaderPipelineType*> ShaderPipelineTypes;
+	if (bLoadedCookedShaderMapId)
+	{
+		OutId = CookedShaderMapId;
+	}
+	else
+	{
+		TArray<FShaderType*> ShaderTypes;
+		TArray<FVertexFactoryType*> VFTypes;
+		TArray<const FShaderPipelineType*> ShaderPipelineTypes;
 
-	GetDependentShaderAndVFTypes(Platform, ShaderTypes, ShaderPipelineTypes, VFTypes);
+		GetDependentShaderAndVFTypes(Platform, ShaderTypes, ShaderPipelineTypes, VFTypes);
 
-	OutId.Usage = GetShaderMapUsage();
-	OutId.BaseMaterialId = GetMaterialId();
-	OutId.QualityLevel = GetQualityLevelForShaderMapId();
-	OutId.FeatureLevel = GetFeatureLevel();
-	OutId.SetShaderDependencies(ShaderTypes, ShaderPipelineTypes, VFTypes);
-	GetReferencedTexturesHash(Platform, OutId.TextureReferencesHash);
+		OutId.Usage = GetShaderMapUsage();
+		OutId.BaseMaterialId = GetMaterialId();
+		OutId.QualityLevel = GetQualityLevelForShaderMapId();
+		OutId.FeatureLevel = GetFeatureLevel();
+		OutId.SetShaderDependencies(ShaderTypes, ShaderPipelineTypes, VFTypes);
+		GetReferencedTexturesHash(Platform, OutId.TextureReferencesHash);
+	}
 }
 
 EMaterialTessellationMode FMaterial::GetTessellationMode() const 
 { 
 	return MTM_NoTessellation; 
-};
+}
+
+ERefractionMode FMaterial::GetRefractionMode() const 
+{ 
+	return RM_IndexOfRefraction; 
+}
 
 void FMaterial::GetShaderMapIDsWithUnfinishedCompilation(TArray<int32>& ShaderMapIds)
 {
@@ -558,7 +573,8 @@ bool FMaterial::NeedsGBuffer() const
 {
 	check(IsInParallelRenderingThread());
 
-	if (IsOpenGLPlatform(GMaxRHIShaderPlatform)) // @todo: TTP #341211
+	if (IsOpenGLPlatform(GMaxRHIShaderPlatform) // @todo: TTP #341211
+		&& !IsMobilePlatform(GMaxRHIShaderPlatform)) 
 	{
 		return true;
 	}
@@ -589,6 +605,11 @@ bool FMaterial::UsesGlobalDistanceField_GameThread() const
 	return GameThreadShaderMap.GetReference() ? GameThreadShaderMap->UsesGlobalDistanceField() : false; 
 }
 
+bool FMaterial::UsesWorldPositionOffset_GameThread() const 
+{ 
+	return GameThreadShaderMap.GetReference() ? GameThreadShaderMap->UsesWorldPositionOffset() : false; 
+}
+
 bool FMaterial::MaterialModifiesMeshPosition_RenderThread() const
 { 
 	check(IsInParallelRenderingThread());
@@ -612,6 +633,12 @@ bool FMaterial::MaterialMayModifyMeshPosition() const
 	// This function is only intended for use in deciding whether or not shader permutations are required.
 	return HasVertexPositionOffsetConnected() || HasPixelDepthOffsetConnected() || HasMaterialAttributesConnected() || GetTessellationMode() != MTM_NoTessellation
 		|| (GetMaterialDomain() == MD_DeferredDecal && GetDecalBlendMode() == DBM_Volumetric_DistanceFunction);
+}
+
+bool FMaterial::MaterialUsesPixelDepthOffset() const
+{
+	check(IsInParallelRenderingThread());
+	return RenderingThreadShaderMap ? RenderingThreadShaderMap->UsesPixelDepthOffset() : false;
 }
 
 FMaterialShaderMap* FMaterial::GetRenderingThreadShaderMap() const 
@@ -738,6 +765,14 @@ void FMaterial::SerializeInlineShaderMap(FArchive& Ar)
 	}
 }
 
+void FMaterial::RegisterInlineShaderMap()
+{
+	if (GameThreadShaderMap)
+	{
+		GameThreadShaderMap->RegisterSerializedShaders();
+	}
+}
+
 void FMaterialResource::LegacySerialize(FArchive& Ar)
 {
 	FMaterial::LegacySerialize(Ar);
@@ -777,11 +812,6 @@ void FMaterial::ReleaseShaderMap()
 	}
 }
 
-bool IsTranslucentBlendMode(EBlendMode BlendMode)
-{
-	return BlendMode != BLEND_Opaque && BlendMode != BLEND_Masked;
-}
-
 int32 FMaterialResource::GetMaterialDomain() const { return Material->MaterialDomain; }
 bool FMaterialResource::IsTangentSpaceNormal() const { return Material->bTangentSpaceNormal || (!Material->Normal.IsConnected() && !Material->bUseMaterialAttributes); }
 bool FMaterialResource::ShouldInjectEmissiveIntoLPV() const { return Material->bUseEmissiveForDynamicAreaLighting; }
@@ -794,7 +824,7 @@ bool FMaterialResource::IsWireframe() const { return Material->Wireframe; }
 bool FMaterialResource::IsUIMaterial() const { return Material->MaterialDomain == MD_UI; }
 bool FMaterialResource::IsLightFunction() const { return Material->MaterialDomain == MD_LightFunction; }
 bool FMaterialResource::IsUsedWithEditorCompositing() const { return Material->bUsedWithEditorCompositing; }
-bool FMaterialResource::IsUsedWithDeferredDecal() const { return Material->MaterialDomain == MD_DeferredDecal; }
+bool FMaterialResource::IsDeferredDecal() const { return Material->MaterialDomain == MD_DeferredDecal; }
 bool FMaterialResource::IsSpecialEngineMaterial() const { return Material->bUsedAsSpecialEngineMaterial; }
 bool FMaterialResource::HasVertexPositionOffsetConnected() const { return HasMaterialAttributesConnected() || (!Material->bUseMaterialAttributes && Material->WorldPositionOffset.IsConnected()); }
 bool FMaterialResource::HasPixelDepthOffsetConnected() const { return HasMaterialAttributesConnected() || (!Material->bUseMaterialAttributes && Material->PixelDepthOffset.IsConnected()); }
@@ -808,7 +838,7 @@ bool FMaterialResource::IsUsedWithSkeletalMesh() const
 
 bool FMaterialResource::IsUsedWithLandscape() const
 {
-	return Material->bUsedWithLandscape;
+	return false;
 }
 
 bool FMaterialResource::IsUsedWithParticleSystem() const
@@ -891,14 +921,24 @@ bool FMaterialResource::IsFullyRough() const
 	return Material->bFullyRough;
 }
 
+bool FMaterialResource::UseNormalCurvatureToRoughness() const
+{
+	return Material->bNormalCurvatureToRoughness;
+}
+
+bool FMaterialResource::IsUsingFullPrecision() const
+{
+	return Material->bUseFullPrecision;
+}
+
 bool FMaterialResource::IsUsingHQForwardReflections() const
 {
 	return Material->bUseHQForwardReflections;
 }
 
-bool FMaterialResource::IsUsingPlanarReflection() const
+bool FMaterialResource::IsUsingPlanarForwardReflections() const
 {
-	return Material->bAcceptsPlanarReflection;
+	return Material->bUsePlanarForwardReflections;
 }
 
 bool FMaterialResource::OutputsVelocityOnBasePass() const
@@ -940,6 +980,11 @@ EBlendMode FMaterialResource::GetBlendMode() const
 	return MaterialInstance ? MaterialInstance->GetBlendMode() : Material->GetBlendMode();
 }
 
+ERefractionMode FMaterialResource::GetRefractionMode() const
+{
+	return Material->RefractionMode;
+}
+
 EMaterialShadingModel FMaterialResource::GetShadingModel() const 
 {
 	return MaterialInstance ? MaterialInstance->GetShadingModel() : Material->GetShadingModel();
@@ -963,6 +1008,11 @@ bool FMaterialResource::IsMasked() const
 bool FMaterialResource::IsDitherMasked() const 
 {
 	return Material->DitherOpacityMask;
+}
+
+bool FMaterialResource::AllowNegativeEmissiveColor() const 
+{
+	return Material->bAllowNegativeEmissiveColor;
 }
 
 bool FMaterialResource::IsDistorted() const { return Material->bUsesDistortion && IsTranslucentBlendMode(GetBlendMode()); }
@@ -1009,9 +1059,14 @@ int32 FMaterialResource::GetNumCustomizedUVs() const
 	return Material->NumCustomizedUVs;
 }
 
+int32 FMaterialResource::GetBlendableLocation() const
+{
+	return Material->BlendableLocation;
+}
+
 void FMaterialResource::NotifyCompilationFinished()
 {
-	Material->NotifyCompilationFinished(this);
+	UMaterial::NotifyCompilationFinished(MaterialInstance ? (UMaterialInterface*)MaterialInstance : (UMaterialInterface*)Material);
 }
 
 /**
@@ -1333,6 +1388,11 @@ void FMaterial::SetupMaterialEnvironment(
 			}
 			break;
 		}
+	case BLEND_AlphaComposite: 
+		{
+			// Fall through the case, blend mode will reuse MATERIALBLENDING_TRANSLUCENT
+			OutEnvironment.SetDefine(TEXT("MATERIALBLENDING_ALPHACOMPOSITE"), TEXT("1"));
+		}
 	case BLEND_Translucent: OutEnvironment.SetDefine(TEXT("MATERIALBLENDING_TRANSLUCENT"),TEXT("1")); break;
 	case BLEND_Additive: OutEnvironment.SetDefine(TEXT("MATERIALBLENDING_ADDITIVE"),TEXT("1")); break;
 	case BLEND_Modulate: OutEnvironment.SetDefine(TEXT("MATERIALBLENDING_MODULATE"),TEXT("1")); break;
@@ -1364,20 +1424,36 @@ void FMaterial::SetupMaterialEnvironment(
 		OutEnvironment.SetDefine(TEXT("MATERIALDECALRESPONSEMASK"), MaterialDecalResponseMask);
 	}
 
-	OutEnvironment.SetDefine(TEXT("USE_DITHERED_LOD_TRANSITION_FROM_MATERIAL"), IsDitheredLODTransition() ? TEXT("1") : TEXT("0"));
-	OutEnvironment.SetDefine(TEXT("MATERIAL_TWOSIDED"), IsTwoSided() ? TEXT("1") : TEXT("0"));
-	OutEnvironment.SetDefine(TEXT("MATERIAL_TANGENTSPACENORMAL"), IsTangentSpaceNormal() ? TEXT("1") : TEXT("0"));
-	OutEnvironment.SetDefine(TEXT("GENERATE_SPHERICAL_PARTICLE_NORMALS"),ShouldGenerateSphericalParticleNormals() ? TEXT("1") : TEXT("0"));
-	OutEnvironment.SetDefine(TEXT("MATERIAL_USES_SCENE_COLOR_COPY"), RequiresSceneColorCopy_GameThread() ? TEXT("1") : TEXT("0"));
-	OutEnvironment.SetDefine(TEXT("MATERIAL_FULLY_ROUGH"), IsFullyRough() ? TEXT("1") : TEXT("0"));
-	OutEnvironment.SetDefine(TEXT("MATERIAL_HQ_FORWARD_REFLECTIONS"), IsUsingHQForwardReflections() ? TEXT("1") : TEXT("0"));
-	OutEnvironment.SetDefine(TEXT("MATERIAL_USE_PLANAR_REFLECTION"), IsUsingPlanarReflection() ? TEXT("1") : TEXT("0"));
-	OutEnvironment.SetDefine(TEXT("MATERIAL_NONMETAL"), IsNonmetal() ? TEXT("1") : TEXT("0"));
-	OutEnvironment.SetDefine(TEXT("MATERIAL_USE_LM_DIRECTIONALITY"), UseLmDirectionality() ? TEXT("1") : TEXT("0"));
-	OutEnvironment.SetDefine(TEXT("MATERIAL_INJECT_EMISSIVE_INTO_LPV"), ShouldInjectEmissiveIntoLPV() ? TEXT("1") : TEXT("0"));
-	OutEnvironment.SetDefine(TEXT("MATERIAL_SSR"), ShouldDoSSR() ? TEXT("1") : TEXT("0"));
-	OutEnvironment.SetDefine(TEXT("MATERIAL_BLOCK_GI"), ShouldBlockGI() ? TEXT("1") : TEXT("0"));
-	OutEnvironment.SetDefine(TEXT("MATERIAL_DITHER_OPACITY_MASK"), IsDitherMasked() ? TEXT("1") : TEXT("0"));
+	switch(GetRefractionMode())
+	{
+	case RM_IndexOfRefraction: OutEnvironment.SetDefine(TEXT("REFRACTION_USE_INDEX_OF_REFRACTION"),TEXT("1")); break;
+	case RM_PixelNormalOffset: OutEnvironment.SetDefine(TEXT("REFRACTION_USE_PIXEL_NORMAL_OFFSET"),TEXT("1")); break;
+	default: 
+		UE_LOG(LogMaterial, Warning, TEXT("Unknown material refraction mode: %u  Setting to RM_IndexOfRefraction"),(int32)GetRefractionMode());
+		OutEnvironment.SetDefine(TEXT("REFRACTION_USE_INDEX_OF_REFRACTION"),TEXT("1"));
+	}
+
+	OutEnvironment.SetDefine(TEXT("USE_DITHERED_LOD_TRANSITION_FROM_MATERIAL"), IsDitheredLODTransition());
+	OutEnvironment.SetDefine(TEXT("MATERIAL_TWOSIDED"), IsTwoSided());
+	OutEnvironment.SetDefine(TEXT("MATERIAL_TANGENTSPACENORMAL"), IsTangentSpaceNormal());
+	OutEnvironment.SetDefine(TEXT("GENERATE_SPHERICAL_PARTICLE_NORMALS"),ShouldGenerateSphericalParticleNormals());
+	OutEnvironment.SetDefine(TEXT("MATERIAL_USES_SCENE_COLOR_COPY"), RequiresSceneColorCopy_GameThread());
+	OutEnvironment.SetDefine(TEXT("MATERIAL_FULLY_ROUGH"), IsFullyRough());
+	OutEnvironment.SetDefine(TEXT("MATERIAL_HQ_FORWARD_REFLECTIONS"), IsUsingHQForwardReflections());
+	OutEnvironment.SetDefine(TEXT("MATERIAL_PLANAR_FORWARD_REFLECTIONS"), IsUsingPlanarForwardReflections());
+	OutEnvironment.SetDefine(TEXT("MATERIAL_NONMETAL"), IsNonmetal());
+	OutEnvironment.SetDefine(TEXT("MATERIAL_USE_LM_DIRECTIONALITY"), UseLmDirectionality());
+	OutEnvironment.SetDefine(TEXT("MATERIAL_INJECT_EMISSIVE_INTO_LPV"), ShouldInjectEmissiveIntoLPV());
+	OutEnvironment.SetDefine(TEXT("MATERIAL_SSR"), ShouldDoSSR());
+	OutEnvironment.SetDefine(TEXT("MATERIAL_BLOCK_GI"), ShouldBlockGI());
+	OutEnvironment.SetDefine(TEXT("MATERIAL_DITHER_OPACITY_MASK"), IsDitherMasked());
+	OutEnvironment.SetDefine(TEXT("MATERIAL_NORMAL_CURVATURE_TO_ROUGHNESS"), UseNormalCurvatureToRoughness() ? TEXT("1") : TEXT("0"));
+	OutEnvironment.SetDefine(TEXT("MATERIAL_ALLOW_NEGATIVE_EMISSIVECOLOR"), AllowNegativeEmissiveColor());
+
+	if (IsUsingFullPrecision())
+	{
+		OutEnvironment.CompilerFlags.Add(CFLAG_UseFullPrecisionInPS);
+	}
 
 	{
 		auto DecalBlendMode = (EDecalBlendMode)GetDecalBlendMode();
@@ -1387,6 +1463,30 @@ void FMaterial::SetupMaterialEnvironment(
 		OutEnvironment.SetDefine(TEXT("MATERIAL_DBUFFERA"), (bDBufferMask & 0x1) != 0);
 		OutEnvironment.SetDefine(TEXT("MATERIAL_DBUFFERB"), (bDBufferMask & 0x2) != 0);
 		OutEnvironment.SetDefine(TEXT("MATERIAL_DBUFFERC"), (bDBufferMask & 0x4) != 0);
+	}
+
+	if(GetMaterialDomain() == MD_DeferredDecal)
+	{
+		bool bHasNormalConnected = HasNormalConnected();
+		EDecalBlendMode DecalBlendMode = FDecalRenderingCommon::ComputeFinalDecalBlendMode(Platform, (EDecalBlendMode)GetDecalBlendMode(), bHasNormalConnected);
+		FDecalRenderingCommon::ERenderTargetMode RenderTargetMode = FDecalRenderingCommon::ComputeRenderTargetMode(Platform, DecalBlendMode, bHasNormalConnected);
+		uint32 RenderTargetCount = FDecalRenderingCommon::ComputeRenderTargetCount(Platform, RenderTargetMode);
+
+		uint32 BindTarget1 = (RenderTargetMode == FDecalRenderingCommon::RTM_SceneColorAndGBufferNoNormal || RenderTargetMode == FDecalRenderingCommon::RTM_SceneColorAndGBufferDepthWriteNoNormal) ? 0 : 1;
+		OutEnvironment.SetDefine(TEXT("BIND_RENDERTARGET1"), BindTarget1);
+
+		// avoid using the index directly, better use DECALBLENDMODEID_VOLUMETRIC, DECALBLENDMODEID_STAIN, ...
+		OutEnvironment.SetDefine(TEXT("DECAL_BLEND_MODE"), (uint32)DecalBlendMode);
+		OutEnvironment.SetDefine(TEXT("DECAL_PROJECTION"), 1);
+		OutEnvironment.SetDefine(TEXT("DECAL_RENDERTARGET_COUNT"), RenderTargetCount);
+		OutEnvironment.SetDefine(TEXT("DECAL_RENDERSTAGE"), (uint32)FDecalRenderingCommon::ComputeRenderStage(Platform, DecalBlendMode));
+
+		// to compare against DECAL_BLEND_MODE, we can expose more if needed
+		OutEnvironment.SetDefine(TEXT("DECALBLENDMODEID_VOLUMETRIC"), (uint32)DBM_Volumetric_DistanceFunction);
+		OutEnvironment.SetDefine(TEXT("DECALBLENDMODEID_STAIN"), (uint32)DBM_Stain);
+		OutEnvironment.SetDefine(TEXT("DECALBLENDMODEID_NORMAL"), (uint32)DBM_Normal);
+		OutEnvironment.SetDefine(TEXT("DECALBLENDMODEID_EMISSIVE"), (uint32)DBM_Emissive);
+		OutEnvironment.SetDefine(TEXT("DECALBLENDMODEID_TRANSLUCENT"), (uint32)DBM_Translucent);
 	}
 
 	switch(GetShadingModel())
@@ -1429,10 +1529,8 @@ void FMaterial::SetupMaterialEnvironment(
 	}
 
 	{	
-		// Note: Should be kept in sync with DDM_AllOccluders enum entry in DepthRendering.h.
-		const int32 EarlyZMode_DDM_AllOccluders = 2; 
-		static const auto CVar = IConsoleManager::Get().FindConsoleVariable(TEXT("r.EarlyZPass"));
-		OutEnvironment.SetDefine(TEXT("USE_STENCIL_LOD_DITHER_DEFAULT"), ((CVar ? CVar->GetInt() : 0) == EarlyZMode_DDM_AllOccluders) ? 1 : 0);
+		static const auto CVar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.StencilForLODDither"));
+		OutEnvironment.SetDefine(TEXT("USE_STENCIL_LOD_DITHER_DEFAULT"), CVar->GetValueOnAnyThread() != 0 ? 1 : 0);
 	}
 }
 
@@ -1495,6 +1593,12 @@ bool FMaterial::CacheShaders(const FMaterialShaderMapId& ShaderMapId, EShaderPla
 	// Log which shader, pipeline or factory is missing when about to have a fatal error
 	const bool bLogShaderMapFailInfo = IsSpecialEngineMaterial() && (bContainsInlineShaders || FPlatformProperties::RequiresCookedData());
 
+	bool bAssumeShaderMapIsComplete = false;
+#if UE_BUILD_SHIPPING || UE_BUILD_TEST
+	bAssumeShaderMapIsComplete = (bContainsInlineShaders || FPlatformProperties::RequiresCookedData()) 
+		&& !bLogShaderMapFailInfo; // if it is the special engine material, we will check it
+#endif
+
 	if (GameThreadShaderMap && GameThreadShaderMap->TryToAddToExistingCompilationTask(this))
 	{
 		OutstandingCompileShaderMapIds.Add(GameThreadShaderMap->GetCompilingId());
@@ -1502,7 +1606,7 @@ bool FMaterial::CacheShaders(const FMaterialShaderMapId& ShaderMapId, EShaderPla
 		GameThreadShaderMap = nullptr;
 		bSucceeded = true;
 	}
-	else if (!GameThreadShaderMap || !GameThreadShaderMap->IsComplete(this, !bLogShaderMapFailInfo))
+	else if (!GameThreadShaderMap || !(bAssumeShaderMapIsComplete || GameThreadShaderMap->IsComplete(this, !bLogShaderMapFailInfo)))
 	{
 		if (bContainsInlineShaders || FPlatformProperties::RequiresCookedData())
 		{
@@ -1704,7 +1808,7 @@ FShaderPipeline* FMaterial::GetShaderPipeline(class FShaderPipelineType* ShaderP
 		for (auto* ShaderType : ShaderPipelineType->GetStages())
 		{
 			FShader* Shader = MeshShaderMap ? MeshShaderMap->GetShader((FShaderType*)ShaderType) : nullptr;
-			if (Shader && ShaderType->GetMeshMaterialShaderType())
+			if (!Shader && ShaderType->GetMeshMaterialShaderType())
 			{
 				bool bMaterialShouldCache = ShouldCache(ShaderPlatform, ShaderType->GetMeshMaterialShaderType(), VertexFactoryType);
 				bool bVFShouldCache = VertexFactoryType->ShouldCache(ShaderPlatform, this, ShaderType->GetMeshMaterialShaderType());
@@ -1712,11 +1816,6 @@ FShaderPipeline* FMaterial::GetShaderPipeline(class FShaderPipelineType* ShaderP
 
 				Message += FString::Printf(TEXT("%s Freq %d, ShouldCache: Mat=%u, VF=%u, Shader=%u\n"),
 					ShaderType->GetName(), (int32)ShaderType->GetFrequency(), bMaterialShouldCache, bVFShouldCache, bShaderShouldCache);
-			}
-			else
-			{
-				Message += FString::Printf(TEXT("%s Freq %d not Found\n"),
-					ShaderType->GetName(), (int32)ShaderType->GetFrequency());
 			}
 		}
 
@@ -1805,13 +1904,13 @@ void FMaterialRenderProxy::CacheUniformExpressions()
 
 	TArray<FMaterialResource*> ResourcesToCache;
 
-	UMaterialInterface::IterateOverActiveFeatureLevels([&](ERHIFeatureLevel::Type FeatureLevel)
+	UMaterialInterface::IterateOverActiveFeatureLevels([&](ERHIFeatureLevel::Type InFeatureLevel)
 	{
-		const FMaterial* MaterialNoFallback = GetMaterialNoFallback(FeatureLevel);
+		const FMaterial* MaterialNoFallback = GetMaterialNoFallback(InFeatureLevel);
 
 		if (MaterialNoFallback && MaterialNoFallback->GetRenderingThreadShaderMap())
 		{
-			const FMaterial* Material = GetMaterial(FeatureLevel);
+			const FMaterial* Material = GetMaterial(InFeatureLevel);
 
 			// Do not cache uniform expressions for fallback materials. This step could
 			// be skipped where we don't allow for asynchronous shader compiling.
@@ -1821,7 +1920,7 @@ void FMaterialRenderProxy::CacheUniformExpressions()
 			{
 				FMaterialRenderContext MaterialRenderContext(this , *Material, nullptr);
 				MaterialRenderContext.bShowSelection = GIsEditor;
-				EvaluateUniformExpressions(UniformExpressionCache[(int32)FeatureLevel], MaterialRenderContext);
+				EvaluateUniformExpressions(UniformExpressionCache[(int32)InFeatureLevel], MaterialRenderContext);
 			}
 			else
 			{
@@ -1865,7 +1964,10 @@ FMaterialRenderProxy::FMaterialRenderProxy()
 	: bSelected(false)
 	, bHovered(false)
 	, SubsurfaceProfileRT(0)
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 	, DeletedFlag(0)
+	, bIsStaticDrawListReferenced(0)
+#endif
 {
 }
 
@@ -1873,19 +1975,27 @@ FMaterialRenderProxy::FMaterialRenderProxy(bool bInSelected, bool bInHovered)
 	: bSelected(bInSelected)
 	, bHovered(bInHovered)
 	, SubsurfaceProfileRT(0)
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 	, DeletedFlag(0)
+	, bIsStaticDrawListReferenced(0)
+#endif
 {
 }
 
 FMaterialRenderProxy::~FMaterialRenderProxy()
 {
+	// Removed for now to work around UE-31636. Re-enable when the underlying bug is fixed!
+	//check(!IsReferencedInDrawList());
+
 	if(IsInitialized())
 	{
 		check(IsInRenderingThread());
 		ReleaseResource();
 	}
 
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 	DeletedFlag = 1;
+#endif
 }
 
 void FMaterialRenderProxy::InitDynamicRHI()
@@ -1995,11 +2105,9 @@ FString FMaterialResource::GetMaterialUsageDescription() const
 
 	// this changed from ",SpecialEngine, TwoSided" to ",SpecialEngine=1, TwoSided=1, TSNormal=0, ..." to be more readable
 	BaseDescription += FString::Printf(
-		TEXT("SpecialEngine=%d, TwoSided=%d, TSNormal=%d, InjectEmissiveIntoLPV=%d, Masked=%d, Distorted=%d")
-		TEXT(", BlockGI=%d")
+		TEXT("SpecialEngine=%d, TwoSided=%d, TSNormal=%d, Masked=%d, Distorted=%d, WritesEveryPixel=%d, ModifiesMeshPosition=%d")
 		TEXT(", Usage={"),
-		(int32)IsSpecialEngineMaterial(), (int32)IsTwoSided(), (int32)IsTangentSpaceNormal(), (int32)ShouldInjectEmissiveIntoLPV(), (int32)IsMasked(), (int32)IsDistorted()
-		, (int32)ShouldBlockGI()
+		(int32)IsSpecialEngineMaterial(), (int32)IsTwoSided(), (int32)IsTangentSpaceNormal(), (int32)IsMasked(), (int32)IsDistorted(), (int32)WritesEveryPixel(), (int32)MaterialMayModifyMeshPosition()
 		);
 
 	bool bFirst = true;
@@ -2155,13 +2263,10 @@ void FMaterial::GetReferencedTexturesHash(EShaderPlatform Platform, FSHAHash& Ou
 		HashState.UpdateWithString(*TextureName, TextureName.Len());
 	}
 
-	// TODO:
-	// Appending the quality settings for this platform,
-	// this is being done here to avoid bumping EUnrealEngineObjectUE4Version for 4.10
-	// must be fixed for 4.11.
-	if (bHasQualityLevelUsage)
+	UMaterialShaderQualitySettings* MaterialShaderQualitySettings = UMaterialShaderQualitySettings::Get();
+	if(MaterialShaderQualitySettings->HasPlatformQualitySettings(Platform, QualityLevel))
 	{
-		UMaterialShaderQualitySettings::Get()->GetShaderPlatformQualitySettings(Platform)->AppendToHashState(GetQualityLevelForShaderMapId(), HashState);
+		MaterialShaderQualitySettings->GetShaderPlatformQualitySettings(Platform)->AppendToHashState(QualityLevel, HashState);
 	}
 
 	HashState.Final();
@@ -2505,7 +2610,18 @@ int32 GetDefaultExpressionForMaterialProperty(FMaterialCompiler* Compiler, EMate
 		case MP_DiffuseColor:			return Compiler->Constant3(0, 0, 0);
 		case MP_SpecularColor:			return Compiler->Constant3(0, 0, 0);
 		case MP_BaseColor:				return Compiler->Constant3(0, 0, 0);
-		case MP_SubsurfaceColor:		return Compiler->Constant3(1, 1, 1);
+		case MP_SubsurfaceColor:		
+		{
+			// Two-sided foliage should default to black
+			if (Compiler->GetMaterialShadingModel() == MSM_TwoSidedFoliage)
+			{
+				return Compiler->Constant3(0, 0, 0);
+			}
+			else
+			{
+				return Compiler->Constant3(1, 1, 1);
+			}
+		}
 		case MP_Normal:					return Compiler->Constant3(0, 0, 1);
 		case MP_WorldPositionOffset:	return Compiler->Constant3(0, 0, 0);
 		case MP_WorldDisplacement:		return Compiler->Constant3(0, 0, 0);

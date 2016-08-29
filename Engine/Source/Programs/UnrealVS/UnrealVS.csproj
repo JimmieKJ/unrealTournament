@@ -164,6 +164,7 @@
       <DependentUpon>BuildStatusIcon.xaml</DependentUpon>
     </Compile>
     <Compile Include="CommandLineEditor.cs" />
+    <Compile Include="CompileSingleFile.cs" />
     <Compile Include="GenerateProjectFiles.cs" />
     <Compile Include="Guids.cs" />
     <Compile Include="Logging.cs" />

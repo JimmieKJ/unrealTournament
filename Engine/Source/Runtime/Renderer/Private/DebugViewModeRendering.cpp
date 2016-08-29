@@ -9,9 +9,9 @@ DebugViewModeRendering.cpp: Contains definitions for rendering debug viewmodes.
 #include "SceneFilterRendering.h"
 #include "SceneUtils.h"
 #include "PostProcessing.h"
-#include "WantedMipsAccuracyRendering.h"
-#include "TexelFactorAccuracyRendering.h"
-#include "TexCoordScaleAnalysisRendering.h"
+#include "PrimitiveDistanceAccuracyRendering.h"
+#include "MeshTexCoordSizeAccuracyRendering.h"
+#include "MaterialTexCoordScalesRendering.h"
 
 IMPLEMENT_MATERIAL_SHADER_TYPE(,FDebugViewModeVS,TEXT("DebugViewModeVertexShader"),TEXT("Main"),SF_Vertex);	
 IMPLEMENT_MATERIAL_SHADER_TYPE(,FDebugViewModeHS,TEXT("DebugViewModeVertexShader"),TEXT("MainHull"),SF_Hull);	
@@ -26,7 +26,7 @@ class FMissingShaderPS : public FGlobalShader, public IDebugViewModePSInterface
 
 public:
 
-	static bool ShouldCache(EShaderPlatform Platform) { return AllowDebugViewModeShader(Platform); }
+	static bool ShouldCache(EShaderPlatform Platform) { return AllowDebugViewVSDSHS(Platform); }
 
 	FMissingShaderPS(const ShaderMetaType::CompiledShaderInitializerType& Initializer):	FGlobalShader(Initializer) {}
 	FMissingShaderPS() {}
@@ -62,8 +62,9 @@ public:
 IMPLEMENT_SHADER_TYPE(,FMissingShaderPS,TEXT("MissingShaderPixelShader"),TEXT("Main"),SF_Pixel);
 
 
-void FDebugViewMode::GetDebugMaterial(const FMaterialRenderProxy** MaterialRenderProxy, const FMaterial** Material, ERHIFeatureLevel::Type FeatureLevel)
+void FDebugViewMode::GetMaterialForVSHSDS(const FMaterialRenderProxy** MaterialRenderProxy, const FMaterial** Material, ERHIFeatureLevel::Type FeatureLevel)
 {
+	// If the material was compiled fo VS, return it, otherwise, return the default material.
 	if (!(*Material)->HasVertexPositionOffsetConnected() && (*Material)->GetTessellationMode() == MTM_NoTessellation)
 	{
 		if (MaterialRenderProxy)
@@ -91,16 +92,17 @@ IDebugViewModePSInterface* FDebugViewMode::GetPSInterface(TShaderMap<FGlobalShad
 	case DVSM_ShaderComplexity:
 	case DVSM_ShaderComplexityContainedQuadOverhead:
 		return *TShaderMapRef<TShaderComplexityAccumulatePS>(ShaderMap);
-	case DVSM_WantedMipsAccuracy:
-		return *TShaderMapRef<FWantedMipsAccuracyPS>(ShaderMap);
-	case DVSM_TexelFactorAccuracy:
-		return *TShaderMapRef<FTexelFactorAccuracyPS>(ShaderMap);
-	case DVSM_TexCoordScaleAnalysis:
+	case DVSM_PrimitiveDistanceAccuracy:
+		return *TShaderMapRef<FPrimitiveDistanceAccuracyPS>(ShaderMap);
+	case DVSM_MeshTexCoordSizeAccuracy:
+		return *TShaderMapRef<FMeshTexCoordSizeAccuracyPS>(ShaderMap);
+	case DVSM_MaterialTexCoordScalesAccuracy:
+	case DVSM_MaterialTexCoordScalesAnalysis:
 	{
 		const FMaterial* MaterialForPS = GetDebugViewMaterialPS(DebugViewShaderMode, Material);
 		if (MaterialForPS)
 		{
-			return MaterialForPS->GetShader<FTexCoordScaleAnalysisPS>(LocalVertexFactory);
+			return MaterialForPS->GetShader<FMaterialTexCoordScalePS>(LocalVertexFactory);
 		}
 		break;
 	}
@@ -119,25 +121,24 @@ void FDebugViewMode::PatchBoundShaderState(
 	EDebugViewShaderMode DebugViewShaderMode
 	)
 {
-	const FMaterial* MaterialForPS = Material;
-	GetDebugMaterial(nullptr, &Material, FeatureLevel);
+	const FMaterial* MaterialForPS = Material; // Backup before calling GetMaterialForVSHSDS
 
-	if (!Material->HasVertexPositionOffsetConnected() && Material->GetTessellationMode() == MTM_NoTessellation)
+	if (AllowDebugViewVSDSHS(GetFeatureLevelShaderPlatform(FeatureLevel)))
 	{
-		Material = UMaterial::GetDefaultMaterial(MD_Surface)->GetRenderProxy(false)->GetMaterial(FeatureLevel);
-	}
+		GetMaterialForVSHSDS(nullptr, &Material, FeatureLevel);
 
-	FVertexFactoryType* VertexFactoryType = VertexFactory->GetType();
+		FVertexFactoryType* VertexFactoryType = VertexFactory->GetType();
 
-	BoundShaderStateInput.VertexShaderRHI = Material->GetShader<FDebugViewModeVS>(VertexFactoryType)->GetVertexShader();
+		BoundShaderStateInput.VertexShaderRHI = Material->GetShader<FDebugViewModeVS>(VertexFactoryType)->GetVertexShader();
 
-	if (BoundShaderStateInput.HullShaderRHI)
-	{
-		BoundShaderStateInput.HullShaderRHI = Material->GetShader<FDebugViewModeHS>(VertexFactoryType)->GetHullShader();
-	}
-	if (BoundShaderStateInput.DomainShaderRHI)
-	{
-		BoundShaderStateInput.DomainShaderRHI = Material->GetShader<FDebugViewModeDS>(VertexFactoryType)->GetDomainShader();
+		if (BoundShaderStateInput.HullShaderRHI)
+		{
+			BoundShaderStateInput.HullShaderRHI = Material->GetShader<FDebugViewModeHS>(VertexFactoryType)->GetHullShader();
+		}
+		if (BoundShaderStateInput.DomainShaderRHI)
+		{
+			BoundShaderStateInput.DomainShaderRHI = Material->GetShader<FDebugViewModeDS>(VertexFactoryType)->GetDomainShader();
+		}
 	}
 
 	BoundShaderStateInput.PixelShaderRHI = GetPSInterface(GetGlobalShaderMap(FeatureLevel), MaterialForPS, DebugViewShaderMode)->GetShader()->GetPixelShader();
@@ -154,7 +155,7 @@ void FDebugViewMode::SetParametersVSHSDS(
 {
 	VertexFactory->Set(RHICmdList);
 
-	GetDebugMaterial(&MaterialRenderProxy, &Material, View.GetFeatureLevel());
+	GetMaterialForVSHSDS(&MaterialRenderProxy, &Material, View.GetFeatureLevel());
 
 	FVertexFactoryType* VertexFactoryType = VertexFactory->GetType();
 
@@ -178,7 +179,7 @@ void FDebugViewMode::SetMeshVSHSDS(
 	bool bHasHullAndDomainShader
 	)
 {
-	GetDebugMaterial(nullptr, &Material, View.GetFeatureLevel());
+	GetMaterialForVSHSDS(nullptr, &Material, View.GetFeatureLevel());
 
 	FVertexFactoryType* VertexFactoryType = VertexFactory->GetType();
 

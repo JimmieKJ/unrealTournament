@@ -6,6 +6,21 @@ class UNREALED_API FSnappingUtils
 {
 public:
 	/**
+	 * @return true if snapping (translation) to the grid is enabled
+	 */
+	static bool IsSnapToGridEnabled();
+
+	/**
+	 * @return true if orientation snapping is enabled
+	 */
+	static bool IsRotationSnapEnabled();
+
+	/**
+	 * @return true if orientation snapping is enabled
+	 */
+	static bool IsScaleSnapEnabled();
+
+	/**
 	 * @return true if snapping actors to other actors is enabled
 	 */
 	static bool IsSnapToActorEnabled();

@@ -126,9 +126,8 @@ public:
 	virtual FReply OnKeyDown( const FGeometry& MyGeometry, const FKeyEvent& InKeyEvent ) override
 	{
 		FReply Reply = FReply::Unhandled();
-		const ESelectionMode::Type SelectionMode = Table->GetSelectionMode();
 
-		if ( SelectionMode == ESelectionMode::None )
+		if ( Table->GetSelectionMode() == ESelectionMode::None )
 		{
 			return Reply;
 		}

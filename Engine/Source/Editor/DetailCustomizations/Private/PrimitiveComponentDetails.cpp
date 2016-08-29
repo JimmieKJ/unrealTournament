@@ -5,7 +5,7 @@
 #include "ScopedTransaction.h"
 #include "ObjectEditorUtils.h"
 #include "PhysicsEngine/BodySetup.h"
-#include "PhysicsEngine//BodyInstance.h"
+#include "PhysicsEngine/BodyInstance.h"
 #include "Components/DestructibleComponent.h"
 #include "Components/InstancedStaticMeshComponent.h"
 #include "IDocumentation.h"
@@ -65,7 +65,7 @@ void FPrimitiveComponentDetails::CustomizeDetails( IDetailLayoutBuilder& DetailB
 
 	// See if we are hiding Physics category
 	TArray<FString> HideCategories;
-	FEditorCategoryUtils::GetClassHideCategories(DetailBuilder.GetDetailsView().GetBaseClass(), HideCategories);
+	FEditorCategoryUtils::GetClassHideCategories(DetailBuilder.GetBaseClass(), HideCategories);
 
 	if(!HideCategories.Contains("Materials"))
 	{

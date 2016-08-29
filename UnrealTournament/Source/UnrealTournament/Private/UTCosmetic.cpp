@@ -38,9 +38,9 @@ void AUTCosmetic::PreInitializeComponents()
 			PrimComponent->bUseAttachParentBound = false;
 		}
 
-		TArray<USceneComponent*> Children;
-		GetRootComponent()->GetChildrenComponents(true, Children);
-		for (auto Child : Children)
+		TArray<USceneComponent*> ChildComps;
+		GetRootComponent()->GetChildrenComponents(true, ChildComps);
+		for (auto Child : ChildComps)
 		{
 			PrimComponent = Cast<UPrimitiveComponent>(Child);
 			if (PrimComponent)
@@ -64,9 +64,9 @@ void AUTCosmetic::PostInitializeComponents()
 
 	if (!PrimComponent)
 	{
-		TArray<USceneComponent*> Children;
-		GetRootComponent()->GetChildrenComponents(true, Children);
-		for (auto Child : Children)
+		TArray<USceneComponent*> ChildComps;
+		GetRootComponent()->GetChildrenComponents(true, ChildComps);
+		for (auto Child : ChildComps)
 		{
 			PrimComponent = Cast<UPrimitiveComponent>(Child);
 			if (PrimComponent != nullptr)
@@ -101,9 +101,9 @@ void AUTCosmetic::OnWearerDeath_Implementation(TSubclassOf<UDamageType> DamageTy
 
 void AUTCosmetic::SetBodiesToSimulatePhysics()
 {
-	TArray<USceneComponent*> Children;
-	GetRootComponent()->GetChildrenComponents(true, Children);
-	for (auto Child : Children)
+	TArray<USceneComponent*> ChildComps;
+	GetRootComponent()->GetChildrenComponents(true, ChildComps);
+	for (auto Child : ChildComps)
 	{
 		UPrimitiveComponent* PrimComponent = Cast<UPrimitiveComponent>(Child);
 		if (PrimComponent)

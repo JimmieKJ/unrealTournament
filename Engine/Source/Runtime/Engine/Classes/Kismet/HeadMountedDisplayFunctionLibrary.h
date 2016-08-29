@@ -27,6 +27,20 @@ namespace EHMDTrackingOrigin
 	};
 }
 
+/**
+* Stores if the user is wearing the HMD or not. For HMDs without a sensor to detect the user wearing it, the state defaults to Unknown.
+*/
+UENUM()
+namespace EHMDWornState
+{
+	enum Type
+	{
+		Unknown UMETA(DisplayName = "Unknown"),
+		Worn UMETA(DisplayName = "Worn"),
+		NotWorn UMETA(DisplayName = "Not Worn"),
+	};
+}
+
 UCLASS()
 class ENGINE_API UHeadMountedDisplayFunctionLibrary : public UBlueprintFunctionLibrary
 {
@@ -50,6 +64,14 @@ class ENGINE_API UHeadMountedDisplayFunctionLibrary : public UBlueprintFunctionL
 	static bool EnableHMD(bool bEnable);
 
 	/**
+	 * Returns the name of the device, so scripts can modify their behaviour appropriately
+	 *
+	 * @return	FName specific to the currently active HMD device type.  "None" implies no device, "Unknown" implies a device with no description.
+	 */
+	UFUNCTION(BlueprintPure, Category="Input|HeadMountedDisplay")
+	static FName GetHMDDeviceName();
+
+	/**
 	 * Grabs the current orientation and position for the HMD.  If positional tracking is not available, DevicePosition will be a zero vector
 	 *
 	 * @param DeviceRotation	(out) The device's current rotation
@@ -59,25 +81,48 @@ class ENGINE_API UHeadMountedDisplayFunctionLibrary : public UBlueprintFunctionL
 	static void GetOrientationAndPosition(FRotator& DeviceRotation, FVector& DevicePosition);
 
 	/**
-	 * If the HMD supports positional tracking, whether or not we are currently being tracked	
-	 */
- 	UFUNCTION(BlueprintPure, Category="Input|HeadMountedDisplay")
+	* If the HMD supports positional tracking, whether or not we are currently being tracked
+	*/
+	UFUNCTION(BlueprintPure, Category = "Input|HeadMountedDisplay")
 	static bool HasValidTrackingPosition();
+
+	/**
+	* If the HMD has multiple positional tracking sensors, return a total number of them currently connected.
+	*/
+	UFUNCTION(BlueprintPure, Category = "Input|HeadMountedDisplay")
+	static int32 GetNumOfTrackingSensors();
 
 	/**
 	 * If the HMD has a positional sensor, this will return the game-world location of it, as well as the parameters for the bounding region of tracking.
 	 * This allows an in-game representation of the legal positional tracking range.  All values will be zeroed if the sensor is not available or the HMD does not support it.
 	 *
-	 * @param CameraOrigin		(out) Origin, in world-space, of the sensor
-	 * @param CameraRotation	(out) Rotation, in world-space, of the sensor
+	 * @param Index				(in) Index of the tracking sensor to query
+	 * @param Origin			(out) Origin, in world-space, of the sensor
+	 * @param Rotation			(out) Rotation, in world-space, of the sensor
+	 * @param HFOV				(out) Field-of-view, horizontal, in degrees, of the valid tracking zone of the sensor
+	 * @param VFOV				(out) Field-of-view, vertical, in degrees, of the valid tracking zone of the sensor
+	 * @param Distance			(out) Nominal distance to sensor, in world-space
+	 * @param NearPlane			(out) Near plane distance of the tracking volume, in world-space
+	 * @param FarPlane			(out) Far plane distance of the tracking volume, in world-space
+	 * @param IsActive			(out) True, if the query for the specified sensor succeeded.
+	 */
+	UFUNCTION(BlueprintPure, Category = "Input|HeadMountedDisplay", meta = (AdvancedDisplay = "HFOV,VFOV,Distance,NearPlane,FarPlane"))
+	static void GetTrackingSensorParameters(FVector& Origin, FRotator& Rotation, float& HFOV, float& VFOV, float& Distance, float& NearPlane, float& FarPlane, bool& IsActive, int32 Index = 0);
+
+	/**
+	 * If the HMD has a positional sensor, this will return the game-world location of it, as well as the parameters for the bounding region of tracking.
+	 * This allows an in-game representation of the legal positional tracking range.  All values will be zeroed if the sensor is not available or the HMD does not support it.
+	 *
+	 * @param Origin			(out) Origin, in world-space, of the sensor
+	 * @param Rotation			(out) Rotation, in world-space, of the sensor
 	 * @param HFOV				(out) Field-of-view, horizontal, in degrees, of the valid tracking zone of the sensor
 	 * @param VFOV				(out) Field-of-view, vertical, in degrees, of the valid tracking zone of the sensor
 	 * @param CameraDistance	(out) Nominal distance to sensor, in world-space
 	 * @param NearPlane			(out) Near plane distance of the tracking volume, in world-space
 	 * @param FarPlane			(out) Far plane distance of the tracking volume, in world-space
 	 */
-	UFUNCTION(BlueprintPure, Category="Input|HeadMountedDisplay")
-	static void GetPositionalTrackingCameraParameters(FVector& CameraOrigin, FRotator& CameraRotation, float& HFOV, float& VFOV, float& CameraDistance, float& NearPlane, float&FarPlane);
+	UFUNCTION(BlueprintPure, Category="Input|HeadMountedDisplay", meta=(DeprecatedFunction, DeprecationMessage = "Use new GetTrackingSensorParameters / GetNumOfTrackingSensors"))
+	static void GetPositionalTrackingCameraParameters(FVector& CameraOrigin, FRotator& CameraRotation, float& HFOV, float& VFOV, float& CameraDistance, float& NearPlane, float& FarPlane);
 
 	/**
 	 * Returns true, if HMD is in low persistence mode. 'false' otherwise.

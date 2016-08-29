@@ -14,11 +14,9 @@ void FWebBrowserApp::OnBeforeChildProcessLaunch(CefRefPtr<CefCommandLine> Comman
 
 void FWebBrowserApp::OnBeforeCommandLineProcessing(const CefString& ProcessType, CefRefPtr< CefCommandLine > CommandLine)
 {
-#if !PLATFORM_WINDOWS
 	CommandLine->AppendSwitch("disable-gpu");
 	CommandLine->AppendSwitch("disable-gpu-compositing");
 	CommandLine->AppendSwitch("enable-begin-frame-scheduling");
-#endif
 }
 
 void FWebBrowserApp::OnRenderProcessThreadCreated(CefRefPtr<CefListValue> ExtraInfo)

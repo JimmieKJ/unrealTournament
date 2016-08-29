@@ -14,18 +14,20 @@ class FChunkManifestGenerator;
 
 enum class ECookInitializationFlags
 {
-	None =										0x000, // No flags
-	Compressed =								0x001, // will save compressed packages
-	Iterative =									0x002, // use iterative cooking (previous cooks will not be cleaned unless detected out of date, experimental)
-	SkipEditorContent =							0x004, // do not cook any content in the content\editor directory
-	Unversioned =								0x008, // save the cooked packages without a version number
-	AutoTick =									0x010, // enable ticking (only works in the editor)
-	AsyncSave =									0x020, // save packages async
-	IncludeServerMaps =							0x080, // should we include the server maps when cooking
-	UseSerializationForPackageDependencies =	0x100, // should we use the serialization code path for generating package dependencies (old method will be deprecated)
-	BuildDDCInBackground =						0x200, // build ddc content in background while the editor is running (only valid for modes which are in editor IsCookingInEditor())
-	GeneratedAssetRegistry =					0x400, // have we generated asset registry yet
-	OutputVerboseCookerWarnings =				0x800, // output additional cooker warnings about content issues
+	None =										0x0000, // No flags
+	Compressed =								0x0001, // will save compressed packages
+	Iterative =									0x0002, // use iterative cooking (previous cooks will not be cleaned unless detected out of date, experimental)
+	SkipEditorContent =							0x0004, // do not cook any content in the content\editor directory
+	Unversioned =								0x0008, // save the cooked packages without a version number
+	AutoTick =									0x0010, // enable ticking (only works in the editor)
+	AsyncSave =									0x0020, // save packages async
+	IncludeServerMaps =							0x0080, // should we include the server maps when cooking
+	UseSerializationForPackageDependencies =	0x0100, // should we use the serialization code path for generating package dependencies (old method will be deprecated)
+	BuildDDCInBackground =						0x0200, // build ddc content in background while the editor is running (only valid for modes which are in editor IsCookingInEditor())
+	GeneratedAssetRegistry =					0x0400, // have we generated asset registry yet
+	OutputVerboseCookerWarnings =				0x0800, // output additional cooker warnings about content issues
+	MarkupInUsePackages =						0x1000, // mark up with an object flag objects which are in packages which we are about to use or in the middle of using, this means we can gc more often but only gc stuff which we have finished with
+	TestCook =									0x2000, // test the cooker garbage collection process and cooking (cooker will never end just keep testing).
 };
 ENUM_CLASS_FLAGS(ECookInitializationFlags);
 
@@ -446,6 +448,14 @@ private:
 		TMap<FName, TArray<FName>> PlatformList;
 		mutable FCriticalSection SynchronizationObject;
 	public:
+
+		template <class PREDICATE_CLASS>
+		void Sort(const PREDICATE_CLASS& Predicate)
+		{
+			FScopeLock ScopeLock(&SynchronizationObject);
+			Queue.Sort(Predicate);
+		}
+
 		const TArray<FName> &GetQueue() const { return Queue;  }
 		void EnqueueUnique(const FFilePlatformRequest& Request, bool ForceEnqueFront = false)
 		{
@@ -756,6 +766,14 @@ private:
 	double IdleTimeToGC;
 	/** Max memory the cooker should use before forcing a gc */
 	uint64 MaxMemoryAllowance;
+	/** Min memory before the cooker should partial gc */
+	uint64 MinMemoryBeforeGC;
+	/** If we have less then this much memory free then finish current task and kick off gc */
+	uint64 MinFreeMemory;
+	/** Max number of packages to save before we partial gc */
+	int32 MaxNumPackagesBeforePartialGC;
+	/** Num packages saved since last partial gc */
+	int32 NumPackagesSavedSinceLastPartialGC;
 
 	ECookInitializationFlags CookFlags;
 	TAutoPtr<class FSandboxPlatformFile> SandboxFile;
@@ -772,14 +790,17 @@ private:
 
 	//////////////////////////////////////////////////////////////////////////
 	
-	// data about the current package being processed
+	// data about the current packages being processed
+	// stores temporal state like finished cache as an optimization so we don't need to 
 	struct FReentryData
 	{
 		FName FileName;
 		bool bBeginCacheFinished;
 		int BeginCacheCount;
+		bool bFinishedCacheFinished;
+		TArray<UObject*> CachedObjectsInOuter;
 
-		FReentryData() : FileName(NAME_None), bBeginCacheFinished(false), BeginCacheCount(0)
+		FReentryData() : FileName(NAME_None), bBeginCacheFinished(false), BeginCacheCount(0), bFinishedCacheFinished(false)
 		{ }
 
 		void Reset( const FName& InFilename )
@@ -790,7 +811,9 @@ private:
 		}
 	};
 
-	FReentryData CurrentReentryData;
+	TMap<FName, FReentryData> PackageReentryData;
+
+	FReentryData& GetReentryData(const UPackage* Package);
 
 	FThreadSafeQueue<struct FRecompileRequest*> RecompileRequests;
 	FFilenameQueue CookRequests; // list of requested files
@@ -798,6 +821,7 @@ private:
 	FThreadSafeFilenameSet CookedPackages; // set of files which have been cooked when needing to recook a file the entry will need to be removed from here
 	FThreadSafeNameSet NeverCookPackageList;
 	FThreadSafeNameSet UncookedEditorOnlyPackages; // set of packages that have been rejected due to being referenced by editor-only properties
+
 
 	FString GetCachedPackageFilename( const FName& PackageName ) const;
 	FString GetCachedStandardPackageFilename( const FName& PackageName ) const;
@@ -814,6 +838,10 @@ private:
 
 	FString ConvertCookedPathToUncookedPath(const FString& CookedPackageName) const;
 
+	// get dependencies for this package 
+	const TArray<FName>& GetFullPackageDependencies(const FName& PackageName) const;
+	mutable TMap<FName, TArray<FName>> CachedFullPackageDependencies;
+
 	// declared mutable as it's used to cache package filename strings and I don't want to declare all functions using it as non const
 	// used by GetCached * Filename functions
 	mutable TMap<FName, FCachedPackageFilename> PackageFilenameCache; // filename cache (only process the string operations once)
@@ -827,12 +855,13 @@ public:
 
 	enum ECookOnTheSideResult
 	{
-		COSR_CookedMap			= 0x00000001,
-		COSR_CookedPackage		= 0x00000002,
-		COSR_ErrorLoadingPackage= 0x00000004,
-		COSR_RequiresGC			= 0x00000008,
-		COSR_WaitingOnCache		= 0x00000010,
-		COSR_WaitingOnChildCookers = 0x00000020,
+		COSR_CookedMap				= 0x00000001,
+		COSR_CookedPackage			= 0x00000002,
+		COSR_ErrorLoadingPackage	= 0x00000004,
+		COSR_RequiresGC				= 0x00000008,
+		COSR_WaitingOnCache			= 0x00000010,
+		COSR_WaitingOnChildCookers	= 0x00000020,
+		COSR_MarkedUpKeepPackages	= 0x00000040
 	};
 
 
@@ -931,6 +960,11 @@ public:
 	void CancelCookByTheBook();
 
 	bool IsCookByTheBookRunning() const;
+
+	/**
+	 * Get any packages which are in memory, these were probably required to be loaded because of the current package we are cooking, so we should probably cook them also
+	 */
+	void GetUnsolicitedPackages(TArray<UPackage*>& PackagesToSave, bool &ContainsFullGCAssetClasses, const TArray<FName>& TargetPlatformNames) const;
 
 	/**
 	 * Handles cook package requests until there are no more requests, then returns
@@ -1034,6 +1068,11 @@ public:
 	/** Returns the configured amount of memory allowed before forcing a GC */
 	uint64 GetMaxMemoryAllowance() const;
 
+	/** Mark package as keep around for the cooker (don't GC) */
+	void MarkGCPackagesToKeepForCooker();
+
+	bool HasExceededMaxMemory() const;
+
 	/**
 	* RequestPackage to be cooked
 	*
@@ -1076,6 +1115,12 @@ public:
 	 * @param Package to mark as not requiring reload
 	 */
 	void MaybeMarkPackageAsAlreadyLoaded(UPackage* Package);
+
+	/**
+	 * Callbacks from UObject globals
+	 */
+	void PreGarbageCollect();
+	void OnStringAssetReferenceLoadedPackage(const FName& PackageName);
 
 
 private:

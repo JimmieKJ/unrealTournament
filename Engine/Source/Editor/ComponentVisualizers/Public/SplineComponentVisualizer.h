@@ -66,24 +66,28 @@ public:
 	//~ Begin FComponentVisualizer Interface
 	virtual void OnRegister() override;
 	virtual void DrawVisualization(const UActorComponent* Component, const FSceneView* View, FPrimitiveDrawInterface* PDI) override;
-	virtual bool VisProxyHandleClick(FLevelEditorViewportClient* InViewportClient, HComponentVisProxy* VisProxy, const FViewportClick& Click) override;
+	virtual bool VisProxyHandleClick(FEditorViewportClient* InViewportClient, HComponentVisProxy* VisProxy, const FViewportClick& Click) override;
 	virtual void EndEditing() override;
 	virtual bool GetWidgetLocation(const FEditorViewportClient* ViewportClient, FVector& OutLocation) const override;
 	virtual bool GetCustomInputCoordinateSystem(const FEditorViewportClient* ViewportClient, FMatrix& OutMatrix) const override;
 	virtual bool HandleInputDelta(FEditorViewportClient* ViewportClient, FViewport* Viewport, FVector& DeltaTranslate, FRotator& DeltaRotate, FVector& DeltaScale) override;
 	virtual bool HandleInputKey(FEditorViewportClient* ViewportClient, FViewport* Viewport, FKey Key, EInputEvent Event) override;
 	virtual TSharedPtr<SWidget> GenerateContextMenu() const override;
+	virtual bool IsVisualizingArchetype() const override;
 	//~ End FComponentVisualizer Interface
 
 	/** Get the spline component we are currently editing */
 	USplineComponent* GetEditedSplineComponent() const;
+
+	TSet<int32> GetSelectedKeys() const { return SelectedKeys; }
 
 protected:
 
 	/** Update the key selection state of the visualizer */
 	void ChangeSelectionState(int32 Index, bool bIsCtrlHeld);
 
-	void NotifyComponentModified();
+	/** Duplicates the selected spline key(s) */
+	void DuplicateKey();
 
 	void OnDeleteKey();
 	bool CanDeleteKey() const;
@@ -102,6 +106,9 @@ protected:
 
 	void OnSetVisualizeRollAndScale();
 	bool IsVisualizingRollAndScale() const;
+
+	void OnSetDiscontinuousSpline();
+	bool IsDiscontinuousSpline() const;
 
 	void OnResetToDefault();
 	bool CanResetToDefault() const;
@@ -154,4 +161,7 @@ protected:
 
 	/** Whether we currently allow duplication when dragging */
 	bool bAllowDuplication;
+
+private:
+	UProperty* SplineCurvesProperty;
 };

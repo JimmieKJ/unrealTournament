@@ -1,9 +1,15 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 using UnrealBuildTool;
+using System.IO;
 
 public class UnrealTournamentServer : ModuleRules
 {
+    bool IsLicenseeBuild()
+    {
+        return !Directory.Exists("Runtime/NotForLicensees");
+    }
+
 	public UnrealTournamentServer(TargetInfo Target)
 	{
 		PrivateIncludePaths.Add("../../OrionGame/Source/UnrealTournamentServer/Private");
@@ -52,7 +58,7 @@ public class UnrealTournamentServer : ModuleRules
 			(Target.Platform == UnrealTargetPlatform.Mac) || 
 			(Target.Platform == UnrealTargetPlatform.Linux))
 		{
-			if (UEBuildConfiguration.bCompileMcpOSS == true)
+			if (!IsLicenseeBuild())
 			{
 				PrivateDependencyModuleNames.Add("OnlineSubsystemMcp");
 			}

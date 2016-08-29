@@ -34,6 +34,10 @@
 #define MATERIALBLENDING_MODULATE						0
 #endif
 
+#ifndef MATERIALBLENDING_ALPHACOMPOSITE
+#define MATERIALBLENDING_ALPHACOMPOSITE					0
+#endif
+
 #ifndef MATERIAL_SHADINGMODEL_DEFAULT_LIT
 #define MATERIAL_SHADINGMODEL_DEFAULT_LIT				0
 #endif
@@ -71,7 +75,11 @@
 #endif
 
 #ifndef COMPILER_GLSL_ES2
-#define COMPILER_GLSL_ES2									0
+#define COMPILER_GLSL_ES2								0
+#endif
+
+#ifndef COMPILER_GLSL_ES3_1
+#define COMPILER_GLSL_ES3_1								0
 #endif
 
 #ifndef COMPILER_METAL
@@ -192,6 +200,14 @@
 #define INSTANCED_STEREO								0
 #endif	
 
+#ifndef MULTI_VIEW
+#define MULTI_VIEW									0
+#endif	
+
+#ifndef CLEAR_COAT_BOTTOM_NORMAL
+#define CLEAR_COAT_BOTTOM_NORMAL						0
+#endif
+
 #ifndef TEX_COORD_SCALE_ANALYSIS
 #define TEX_COORD_SCALE_ANALYSIS						0		
 #endif
@@ -276,8 +292,13 @@
 #endif
 
 // 'static' asserts
-#if COMPILER_GLSL || COMPILER_GLSL_ES2 || VULKAN_PROFILE || METAL_PROFILE || METAL_MRT_PROFILE || METAL_SM4_PROFILE || METAL_SM5_PROFILE
+#if COMPILER_GLSL || COMPILER_GLSL_ES2 || COMPILER_GLSL_ES3_1 || VULKAN_PROFILE || METAL_PROFILE || METAL_MRT_PROFILE || METAL_SM4_PROFILE || METAL_SM5_PROFILE
 #if !COMPILER_HLSLCC
 #error "Missing COMPILER_HLSLCC define!"
 #endif
+#endif
+
+// Hlslcc platforms ignore the uniform keyword as it can't properly optimize flow
+#if COMPILER_HLSLCC
+#define uniform
 #endif

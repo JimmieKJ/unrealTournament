@@ -10,6 +10,13 @@
 #include "GameplayDebuggerExtension_Spectator.h"
 #include "GameplayDebuggerExtension_HUD.h"
 
+#if WITH_EDITOR
+#include "PropertyEditorModule.h"
+#include "Editor/GameplayDebuggerCategoryConfigCustomization.h"
+#include "Editor/GameplayDebuggerExtensionConfigCustomization.h"
+#include "Editor/GameplayDebuggerInputConfigCustomization.h"
+#endif
+
 #if !ENABLE_OLD_GAMEPLAY_DEBUGGER
 
 class FGameplayDebuggerModule : public IGameplayDebugger
@@ -62,16 +69,15 @@ void FGameplayDebuggerCompat::StartupNewDebugger()
 				SettingsCDO);
 		}
 
-		if (SettingsCDO->bEnableExtension_GameHUD)
-		{
-			AddonManager.RegisterExtension("GameHUD", FOnGetExtension::CreateStatic(&FGameplayDebuggerExtension_HUD::MakeInstance));
-		}
+#if WITH_EDITOR
+		FPropertyEditorModule& PropertyEditorModule = FModuleManager::GetModuleChecked<FPropertyEditorModule>("PropertyEditor");
+		PropertyEditorModule.RegisterCustomPropertyTypeLayout("GameplayDebuggerCategoryConfig", FOnGetPropertyTypeCustomizationInstance::CreateStatic(&FGameplayDebuggerCategoryConfigCustomization::MakeInstance));
+		PropertyEditorModule.RegisterCustomPropertyTypeLayout("GameplayDebuggerExtensionConfig", FOnGetPropertyTypeCustomizationInstance::CreateStatic(&FGameplayDebuggerExtensionConfigCustomization::MakeInstance));
+		PropertyEditorModule.RegisterCustomPropertyTypeLayout("GameplayDebuggerInputConfig", FOnGetPropertyTypeCustomizationInstance::CreateStatic(&FGameplayDebuggerInputConfigCustomization::MakeInstance));
+#endif
 
-		if (SettingsCDO->bEnableExtension_Spectator)
-		{
-			AddonManager.RegisterExtension("Spectator", FOnGetExtension::CreateStatic(&FGameplayDebuggerExtension_Spectator::MakeInstance));
-		}
-
+		AddonManager.RegisterExtension("GameHUD", FOnGetExtension::CreateStatic(&FGameplayDebuggerExtension_HUD::MakeInstance));
+		AddonManager.RegisterExtension("Spectator", FOnGetExtension::CreateStatic(&FGameplayDebuggerExtension_Spectator::MakeInstance));
 		AddonManager.NotifyExtensionsChanged();
 	}
 }
@@ -91,6 +97,13 @@ void FGameplayDebuggerCompat::ShutdownNewDebugger()
 	{
 		SettingsModule->UnregisterSettings("Project", "Engine", "GameplayDebugger");
 	}
+
+#if WITH_EDITOR
+	FPropertyEditorModule& PropertyEditorModule = FModuleManager::GetModuleChecked<FPropertyEditorModule>("PropertyEditor");
+	PropertyEditorModule.UnregisterCustomPropertyTypeLayout("GameplayDebuggerCategoryConfig");
+	PropertyEditorModule.UnregisterCustomPropertyTypeLayout("GameplayDebuggerExtensionConfig");
+	PropertyEditorModule.UnregisterCustomPropertyTypeLayout("GameplayDebuggerInputConfig");
+#endif
 }
 
 void FGameplayDebuggerModule::RegisterCategory(FName CategoryName, IGameplayDebugger::FOnGetCategory MakeInstanceDelegate, EGameplayDebuggerCategoryState CategoryState, int32 SlotIdx)

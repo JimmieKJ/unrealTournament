@@ -1,0 +1,336 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--GoogleVRHMD plugin additions-->
+<root xmlns:android="http://schemas.android.com/apk/res/android">
+	<!-- init section is always evaluated once per architecture -->
+	<init>
+		<log text="GoogleVRHMD init"/>
+    
+    <!-- Check for desired sustained-performance -->
+    <setBoolFromProperty result="bGoogleVRSustainedPerformance" ini="Engine" section="/Script/AndroidRuntimeSettings.AndroidRuntimeSettings" property="bGoogleVRSustainedPerformance" default="false"/>
+    <if condition="bGoogleVRSustainedPerformance">
+      <true>
+		    <log text="Sustained-performance mode is desired"/>
+      </true>
+      <false>
+        <log text="Sustained-performance mode is not desired"/>
+      </false>
+    </if>
+    
+    <!-- Check for GoogleVR Deployment Mode and Set Vars. -->
+    <setStringFromProperty result="GoogleVRMode" ini="Engine" section="/Script/AndroidRuntimeSettings.AndroidRuntimeSettings" property="GoogleVRMode" default="DaydreamAndCardboard"/>
+    <setBool result="bPackageForDaydream" value="false"/>
+    <setBool result="bPackageForDaydreamAndCardboard" value="false"/>
+    <setBool result="bEnableGoogleVRScanlineRacingWhenPossible" value="false"/>
+    <setBoolIsEqual result="bPackageForDaydream" arg1="$S(GoogleVRMode)" arg2="Daydream"/>
+    <setBoolIsEqual result="bPackageForDaydreamAndCardboard" arg1="$S(GoogleVRMode)" arg2="DaydreamAndCardboard"/>
+    <if condition="bPackageForDaydream">
+      <true>
+        <log text="Packaging app for Daydream deployment. Scanline racing and sustained-performance will be forced."/>
+        <setBool result="bEnableGoogleVRScanlineRacingWhenPossible" value="true"/>
+      </true>
+      <false>
+        <if condition="bPackageForDaydreamAndCardboard">
+          <true>
+            <log text="Packaging app for Daydream and Cardboard deployment."/>
+            <setBool result="bEnableGoogleVRScanlineRacingWhenPossible" value="true"/>
+          </true>
+          <false>
+            <log text="Packaging app for Cardboard deployment."/>
+          </false>
+        </if>
+      </false>
+    </if>
+	</init>
+	
+	<!-- optional files or directories to copy to Intermediate/Android/APK -->
+	<resourceCopies>
+    <log text="Copying GoogleVR runtime files to staging"/>
+		<isArch arch="armeabi-v7a">
+      <copyFile src="$S(EngineDir)/Source/ThirdParty/GoogleVR/lib/android_arm/libgvr.so"
+						dst="$S(BuildDir)/libs/armeabi-v7a/libgvr.so" />
+		</isArch>
+		<isArch arch="arm64-v8a">
+      <copyFile src="$S(EngineDir)/Source/ThirdParty/GoogleVR/lib/android_arm64/libgvr.so"
+						dst="$S(BuildDir)/libs/arm64-v8a/libgvr.so" />
+		</isArch>
+		<isArch arch="x86">
+      <copyFile src="$S(EngineDir)/Source/ThirdParty/GoogleVR/lib/android_x86/libgvr.so"
+						dst="$S(BuildDir)/libs/x86/libgvr.so" />
+		</isArch>
+		<isArch arch="x86_64">
+      <copyFile src="$S(EngineDir)/Source/ThirdParty/GoogleVR/lib/android_x86_64/libgvr.so"
+						dst="$S(BuildDir)/libs/x86_64/libgvr.so" />
+		</isArch>
+	</resourceCopies>
+	
+	<!-- Files to copy before the build so they can be used in the build -->
+	<prebuildCopies>
+    <log text="Copying GoogleVR buildtime files to staging"/>
+    <copyDir src="$S(EngineDir)/Source/ThirdParty/GoogleVR/lib/common_library"
+					dst="$S(BuildDir)/JavaLibs/common_library" />
+	</prebuildCopies>
+
+  <!-- optional additions to proguard -->
+  <proguardAdditions>
+    <insert>
+      -keep class com.google.** {
+      *;
+      }
+    </insert>
+  </proguardAdditions>
+  
+	<!-- optional updates applied to AndroidManifest.xml -->
+	<androidManifestUpdates>
+    <!-- Add features -->
+    <if condition="bPackageForDaydream">
+      <true>
+        <addFeature android:name="android.software.vr.mode" android:required="true"/>
+        <addFeature android:name="android.hardware.vr.high_performance" android:required="true"/>
+      </true>
+      <false>
+        <addFeature android:name="android.software.vr.mode" android:required="false"/>
+        <addFeature android:name="android.hardware.vr.high_performance" android:required="false"/>
+      </false>
+    </if>
+    
+    <!-- Add intents -->
+    <loopElements tag="activity">
+      <setStringFromAttribute result="activityName" tag="$" name="android:name"/>
+      <setBoolIsEqual result="bSplashActivity" arg1="$S(activityName)" arg2="com.epicgames.ue4.SplashActivity"/>
+      <if condition="bSplashActivity">
+        <true>
+          <!-- Check for existing intent filter -->
+          <setBool result="bHasIntentFilter" value="false"/>
+          <loopElements tag="intent-filter">
+            <setBool result="bHasIntentFilter" value="true"/>
+          </loopElements>
+          
+          <!-- If no intent filter found, add a new one -->
+          <if condition="bHasIntentFilter">
+            <false>
+              <setElement result="newIntentFilter" value="intent-filter"/>
+              <addElement tag="$" name="newIntentFilter"/>
+            </false>
+          </if>
+          
+          <!-- Add intents for either Cardboard or Daydream -->
+          <if condition="bPackageForDaydream">
+            <true>
+              <setElement result="intentInfo" value="category"/>
+              <addAttribute tag="$intentInfo" name="android:name" value="com.google.intent.category.DAYDREAM"/>
+              <addElement tag="intent-filter" name="intentInfo"/>
+            </true>
+            <false>
+              <if condition="bPackageForDaydreamAndCardboard">
+                <true>
+                  <setElement result="intentInfo" value="category"/>
+                  <addAttribute tag="$intentInfo" name="android:name" value="com.google.intent.category.DAYDREAM"/>
+                  <addAttribute tag="$intentInfo" name="android:name" value="com.google.intent.category.CARDBOARD"/>
+                  <addElement tag="intent-filter" name="intentInfo"/>
+                </true>
+                <false>
+                  <setElement result="intentInfo" value="category"/>
+                  <addAttribute tag="$intentInfo" name="android:name" value="com.google.intent.category.CARDBOARD"/>
+                  <addElement tag="intent-filter" name="intentInfo"/>
+                </false>
+              </if>
+            </false>
+          </if>
+        </true>
+      </if>
+    </loopElements>
+	</androidManifestUpdates>
+
+  <gameActivityImportAdditions>
+    <insert>
+      import com.google.vr.ndk.base.GvrLayout;
+      import com.google.vr.ndk.base.AndroidCompat;
+      import android.view.ViewGroup;
+      import android.widget.ImageButton;
+      import android.os.PowerManager;
+      import android.content.pm.PackageManager;
+      import android.content.pm.PackageManager.NameNotFoundException;
+      import android.os.Build.VERSION;
+    </insert>
+  </gameActivityImportAdditions>
+  
+  <gameActivityClassAdditions>
+    <insert>
+      private GvrLayout gvrLayout;
+      private boolean bScanlineRacingEnabled;
+      
+      public native void nativeOnUiLayerBack();
+        
+      public void AndroidThunkJava_UiLayer_SetEnabled(boolean bEnable)
+      {
+			  _activity.gvrLayout.getUiLayout().getUiLayer().setEnabled(bEnable);
+      }
+      
+      public void AndroidThunkJava_UiLayer_SetViewerName(String viewerName)
+      {
+			  _activity.gvrLayout.getUiLayout().getUiLayer().setViewerName(viewerName);
+      }
+      
+      public long AndroidThunkJava_GetNativeGVRApi()
+      {
+        return _activity.gvrLayout.getGvrApi().getNativeGvrContext();
+      }
+      
+      public boolean AndroidThunkJava_IsScanlineRacingEnabled()
+      {
+        return bScanlineRacingEnabled;
+      }
+      
+      public void AndroidThunkJava_GvrLayout_SetFixedPresentationSurfaceSizeToCurrent()
+      {
+        // Setup hardware scaling
+        gvrLayout.setFixedPresentationSurfaceSize(DesiredHolderWidth, DesiredHolderHeight);
+      }
+    </insert>
+    
+    <!-- If using Daydream, the transition view should not be brought up as it would be jarring when launching from VR -->
+    <!-- If using Cardboard-only mode, the native code should be set up to use PPHMD distortion only. -->
+    <if condition="bPackageForDaydream">
+      <true>
+        <insert>
+          public boolean AndroidThunkJava_ProjectWantsCardboardOnlyMode()
+          {
+            return false;
+          }
+        </insert>
+      </true>
+      <false>
+        <if condition="bPackageForDaydreamAndCardboard">
+          <true>
+            <insert>
+              public boolean AndroidThunkJava_ProjectWantsCardboardOnlyMode()
+              {
+                return false;
+              }
+            </insert>
+          </true>
+          <false>
+            <insert>
+              public boolean AndroidThunkJava_ProjectWantsCardboardOnlyMode()
+              {
+                return true;
+              }
+            </insert>
+          </false>
+        </if>
+      </false>
+    </if>
+    
+    <!-- Function to support scanline racing -->
+    <if condition="bEnableGoogleVRScanlineRacingWhenPossible">
+      <true>
+        <insert>
+          public boolean ProjectWantsScanlineRacing()
+          {
+            return true;
+          }
+        </insert>
+      </true>
+      <false>
+        <insert>
+          public boolean ProjectWantsScanlineRacing()
+          {
+            return false;
+          }
+        </insert>
+      </false>
+    </if>
+    
+    <!-- Function to support sustained-performance -->
+    <if condition="bGoogleVRSustainedPerformance">
+      <true>
+        <insert>
+          public boolean ProjectWantsSustainedPerformance()
+          {
+            return true;
+          }
+        </insert>
+      </true>
+      <false>
+        <insert>
+          public boolean ProjectWantsSustainedPerformance()
+          {
+            return false;
+          }
+        </insert>
+      </false>
+    </if>
+  </gameActivityClassAdditions>
+  
+  <gameActivityOnPauseAdditions>
+    <insert>
+      if(gvrLayout != null)
+      {
+        gvrLayout.onPause();
+      }
+    </insert>
+  </gameActivityOnPauseAdditions>
+  
+  <gameActivityOnResumeAdditions>
+    <insert>
+      if(gvrLayout != null)
+      {
+        gvrLayout.onResume();
+      }
+    </insert>
+  </gameActivityOnResumeAdditions>
+
+  <gameActivityOnCreateAdditions>
+    <insert>
+      // Create the Layout and override the content view
+      gvrLayout = new GvrLayout(this);
+      ((ViewGroup)MySurfaceView.getParent()).removeView(MySurfaceView);
+      gvrLayout.setPresentationView(MySurfaceView);
+
+      gvrLayout.getUiLayout().setBackButtonListener(
+        new Runnable() {
+          @Override
+          public void run() {
+            nativeOnUiLayerBack();
+        }
+      });
+      setContentView(gvrLayout);
+
+      // Attempt to enable scan line racing. Only supported on some platforms.
+      if(ProjectWantsScanlineRacing())
+      {
+        bScanlineRacingEnabled = gvrLayout.setScanlineRacingEnabled(true);
+      }
+      else
+      {
+        bScanlineRacingEnabled = false;
+      }
+
+      // Attempt to enable VR Mode. Only supported on some platforms. Check done internally.
+      if(bScanlineRacingEnabled)
+      {
+        AndroidCompat.setVrModeEnabled(this, true);
+      }
+      else
+      {
+        gvrLayout.getUiLayout().setTransitionViewEnabled(true);
+      }
+        
+      // Attempt to enable sustained-performance mode
+      if(ProjectWantsSustainedPerformance())
+      {
+        AndroidCompat.setSustainedPerformanceMode(this, true);
+      }
+    </insert>
+  </gameActivityOnCreateAdditions>
+
+  <gameActivityOnStartAdditions>
+    <insert>
+    </insert>
+  </gameActivityOnStartAdditions>
+  
+  <!-- optional libraries to load in GameActivity.java before libUE4.so -->
+	<soLoadLibrary>
+    <loadLibrary name="gvr" failmsg="GoogleVR library not loaded and required!" />
+	</soLoadLibrary>
+</root>

@@ -183,7 +183,7 @@ void FRCPassPostProcessDownsample::Process(FRenderingCompositePassContext& Conte
 	FIntPoint DestSize = PassOutputs[0].RenderTargetDesc.Extent;
 
 	// e.g. 4 means the input texture is 4x smaller than the buffer size
-	uint32 ScaleFactor = FSceneRenderTargets::Get(Context.RHICmdList).GetBufferSizeXY().X / SrcSize.X;
+	uint32 ScaleFactor = FMath::DivideAndRoundUp(FSceneRenderTargets::Get(Context.RHICmdList).GetBufferSizeXY().Y, SrcSize.Y);
 
 	FIntRect SrcRect = View.ViewRect / ScaleFactor;
 	FIntRect DestRect = FIntRect::DivideAndRoundUp(SrcRect, 2);
@@ -250,7 +250,7 @@ void FRCPassPostProcessDownsample::Process(FRenderingCompositePassContext& Conte
 		SrcSize,
 		*VertexShader,
 		View.StereoPass,
-		Context.HasHmdMesh(),
+		false, // This pass is input for passes that can't use the hmd mask, so we need to disable it to ensure valid input data
 		EDRF_UseTriangleOptimization);
 
 	Context.RHICmdList.CopyToResolveTarget(DestRenderTarget.TargetableTexture, DestRenderTarget.ShaderResourceTexture, false, FResolveParams());

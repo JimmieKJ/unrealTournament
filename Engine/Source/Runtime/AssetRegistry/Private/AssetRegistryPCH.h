@@ -1,7 +1,6 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#ifndef _ASSET_REGISTRY_PRIVATE_
-#define _ASSET_REGISTRY_PRIVATE_
+#pragma once
 
 #include "Core.h"
 #include "CoreUObject.h"
@@ -18,4 +17,3 @@ DECLARE_LOG_CATEGORY_EXTERN(LogAssetRegistry, Log, All);
 #include "AssetDataGatherer.h"
 #include "AssetRegistry.h"
 
-#endif // _ASSET_REGISTRY_PRIVATE_

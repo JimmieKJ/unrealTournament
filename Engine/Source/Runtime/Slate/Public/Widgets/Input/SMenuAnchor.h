@@ -77,9 +77,9 @@ public:
 	 * Open or close the popup
 	 *
 	 * @param InIsOpen    If true, open the popup. Otherwise close it.
-	 * @param bFocusMenu  Shoudl we focus the popup as soon as it opens?
+	 * @param bFocusMenu  Should we focus the popup as soon as it opens?
 	 */
-	virtual void SetIsOpen( bool InIsOpen, const bool bFocusMenu = true );
+	virtual void SetIsOpen( bool InIsOpen, const bool bFocusMenu = true, const int32 FocusUserIndex = 0 );
 	
 	/** @return true if the popup is open; false otherwise. */
 	bool IsOpen() const;
@@ -99,6 +99,8 @@ public:
 	virtual void OnMenuDismissed() override;
 	// End of IMenuHost interface
 
+	static void DismissAllApplicationMenus();
+
 protected:
 	// SWidget interface
 	virtual void Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime ) override;
@@ -116,6 +118,8 @@ protected:
 
 	/** Handler/callback called by menus created by this anchor, when they are dismissed */
 	void OnMenuClosed(TSharedRef<IMenu> InMenu);
+
+	static TArray<TWeakPtr<IMenu>> OpenApplicationMenus;
 
 protected:
 	/**
@@ -184,5 +188,6 @@ protected:
 	 */
 	FVector2D ScreenPopupPosition;
 
+	/** The currently arranged children in the menu anchor.  Changes as the opened/closed state of the widget changes. */
 	TPanelChildren<FSimpleSlot> Children;
 };

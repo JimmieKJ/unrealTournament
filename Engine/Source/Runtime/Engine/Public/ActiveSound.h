@@ -7,6 +7,8 @@
 #include "Sound/SoundAttenuation.h"
 #include "Components/AudioComponent.h"
 
+class UWorld;
+
 /**
  *	Struct used for gathering the final parameters to apply to a wave instance
  */
@@ -26,6 +28,9 @@ struct FSoundParseParameters
 	
 	float Volume;
 	float VolumeMultiplier;
+
+	// The multiplier to apply if the sound class desires
+	float InteriorVolumeMultiplier;
 
 	// The priority of sound, which is the product of the component priority and the USoundBased priority
 	float Priority;
@@ -73,6 +78,7 @@ struct FSoundParseParameters
 		, Velocity(ForceInit)
 		, Volume(1.f)
 		, VolumeMultiplier(1.f)
+		, InteriorVolumeMultiplier(1.f)
 		, Pitch(1.f)
 		, StartTime(-1.f)
 		, OmniRadius(0.0f)
@@ -97,23 +103,39 @@ public:
 	FActiveSound();
 	~FActiveSound();
 
-	class USoundBase* Sound;
-	TWeakObjectPtr<class UWorld> World;
 
 private:
-	TWeakObjectPtr<class UAudioComponent> AudioComponent;
-	UPTRINT AudioComponentIndex;
+	TWeakObjectPtr<UWorld> World;
+	uint32 WorldID;
+
+	class USoundBase* Sound;
+
+	uint64 AudioComponentID;
+	uint32 OwnerID;
+	
+	FName AudioComponentName;
+	FName OwnerName;
 
 public:
 
-	bool IsAudioComponentValid() const { return AudioComponent.IsValid(); }
-	UAudioComponent* GetAudioComponent() const { return AudioComponent.Get(); }
-	UPTRINT GetAudioComponentIndex() const { return AudioComponentIndex; }
-	void SetAudioComponent(UAudioComponent* Component)
-	{
-		AudioComponent = Component;
-		AudioComponentIndex = (UPTRINT)Component;
+	uint64 GetAudioComponentID() const { return AudioComponentID; }
+	void SetAudioComponent(UAudioComponent* Component);
+	FString GetAudioComponentName() const;
+	FString GetOwnerName() const;
+
+	uint32 GetWorldID() const { return WorldID; }
+	TWeakObjectPtr<UWorld> GetWeakWorld() const { return World; }
+	UWorld* GetWorld() const 
+	{ 
+		check(IsInGameThread()); 
+		return World.Get();
 	}
+	void SetWorld(UWorld* World);
+
+	USoundBase* GetSound() const { return Sound; }
+	void SetSound(USoundBase* InSound);
+
+	void SetSoundClass(USoundClass* SoundClass);
 
 	void SetAudioDevice(FAudioDevice* InAudioDevice)
 	{
@@ -134,89 +156,100 @@ public:
 	/** Optional USoundConcurrency to override sound */
 	USoundConcurrency* ConcurrencySettings;
 
+private:
 	/** Optional SoundClass to override Sound */
 	USoundClass* SoundClassOverride;
 
+public:
 	/** Whether or not the sound has checked if it was occluded already. Used to initialize a sound as occluded and bypassing occlusion interpolation. */
-	uint32 bHasCheckedOcclusion:1;
+	uint8 bHasCheckedOcclusion:1;
 
 	/** Flag to trigger binding our trace delegate for async trace calls */
-	uint32 bIsTraceDelegateBound:1;
+	uint8 bIsTraceDelegateBound:1;
 
 	/** Is this sound allowed to be spatialized? */
-	uint32 bAllowSpatialization:1;
+	uint8 bAllowSpatialization:1;
 
 	/** Does this sound have attenuation settings specified */
-	uint32 bHasAttenuationSettings:1;
+	uint8 bHasAttenuationSettings:1;
 
 	/** Whether the wave instances should remain active if they're dropped by the prioritization code. Useful for e.g. vehicle sounds that shouldn't cut out. */
-	uint32 bShouldRemainActiveIfDropped:1;
+	uint8 bShouldRemainActiveIfDropped:1;
 
 	/** Is the audio component currently fading out */
-	uint32 bFadingOut:1;
+	uint8 bFadingOut:1;
 
 	/** Whether the current component has finished playing */
-	uint32 bFinished:1;
+	uint8 bFinished:1;
 
 	/** Whether or not to stop this active sound due to max concurrency */
-	uint32 bShouldStopDueToMaxConcurrency:1;
+	uint8 bShouldStopDueToMaxConcurrency:1;
 
 	/** If true, the decision on whether to apply the radio filter has been made. */
-	uint32 bRadioFilterSelected:1;
+	uint8 bRadioFilterSelected:1;
 
 	/** If true, this sound will not be stopped when flushing the audio device. */
-	uint32 bApplyRadioFilter:1;
+	uint8 bApplyRadioFilter:1;
 
 	/** If true, the AudioComponent will be notified when a Wave is started to handle subtitles */
-	uint32 bHandleSubtitles:1;
+	uint8 bHandleSubtitles:1;
 
 	/** Whether the Location of the component is well defined */
-	uint32 bLocationDefined:1;
+	uint8 bLocationDefined:1;
 
 	/** If true, this sound will not be stopped when flushing the audio device. */
-	uint32 bIgnoreForFlushing:1;
+	uint8 bIgnoreForFlushing:1;
 
 	/** Whether audio effects are applied */
-	uint32 bEQFilterApplied:1;
+	uint8 bEQFilterApplied:1;
 
 	/** Whether to artificially prioritize the component to play */
-	uint32 bAlwaysPlay:1;
+	uint8 bAlwaysPlay:1;
 
 	/** Whether or not this sound plays when the game is paused in the UI */
-	uint32 bIsUISound:1;
+	uint8 bIsUISound:1;
 
 	/** Whether or not this audio component is a music clip */
-	uint32 bIsMusic:1;
+	uint8 bIsMusic:1;
 
 	/** Whether or not the audio component should be excluded from reverb EQ processing */
-	uint32 bReverb:1;
+	uint8 bReverb:1;
 
 	/** Whether or not this sound class forces sounds to the center channel */
-	uint32 bCenterChannelOnly:1;
+	uint8 bCenterChannelOnly:1;
 
 	/** Whether or not this active sound is a preview sound */
-	uint32 bIsPreviewSound:1;
+	uint8 bIsPreviewSound:1;
 
 	/** Whether we have queried for the interior settings at least once */
-	uint32 bGotInteriorSettings:1;
+	uint8 bGotInteriorSettings:1;
+
+	/** Whether some part of this sound will want interior sounds to be applied */
+	uint8 bApplyInteriorVolumes:1;
 
 #if !(NO_LOGGING || UE_BUILD_SHIPPING || UE_BUILD_TEST)
 	/** For debugging purposes, output to the log once that a looping sound has been orphaned */
-	uint32 bWarnedAboutOrphanedLooping:1;
+	uint8 bWarnedAboutOrphanedLooping:1;
 #endif
 
 	/** Whether or not we have a low-pass filter enabled on this active sound. */
-	uint32 bEnableLowPassFilter : 1;
+	uint8 bEnableLowPassFilter : 1;
+
 	/** Whether or not to use an async trace for occlusion */
-	uint32 bOcclusionAsyncTrace : 1;
+	uint8 bOcclusionAsyncTrace : 1;
+
+private:
+	/** Whether or not this sound is audible */
+	uint8 bIsAudible : 1;
+
+public:
+	uint8 UserIndex;
 
 	/** whether we were occluded the last time we checked */
 	FThreadSafeBool bIsOccluded;
 
 	/** Whether or not there is an async occlusion trace pending */
 	FThreadSafeBool bAsyncOcclusionPending;
-
-	uint8 UserIndex;
 
 	float PlaybackTime;
 	float RequestedStartTime;
@@ -275,9 +308,9 @@ public:
 	FAttenuationSettings AttenuationSettings;
 
 	/** Cache what volume settings we had last time so we don't have to search again if we didn't move */
-	FInteriorSettings LastInteriorSettings;
+	FInteriorSettings InteriorSettings;
 
-	class AAudioVolume* LastAudioVolume;
+	uint32 AudioVolumeID;
 
 	// To remember where the volumes are interpolating to and from
 	double LastUpdateTime; 
@@ -367,7 +400,7 @@ public:
 	int32 FindClosestListener( const TArray<struct FListener>& InListeners ) const;
 	
 	/** Returns the unique ID of the active sound's owner if it exists. Returns 0 if the sound doesn't have an owner. */
-	uint32 TryGetOwnerID() const;
+	uint32 GetOwnerID() const { return OwnerID; }
 
 	/** Gets the sound concurrency to apply on this active sound instance */
 	const FSoundConcurrencySettings* GetSoundConcurrencySettingsToApply() const;
@@ -384,9 +417,6 @@ public:
 
 private:
 	
-	/** Whether or not this sound is audible */
-	bool bIsAudible;
-
 	/** Cached ptr to the closest listener. So we don't have to do the work to find it twice. */
 	const FListener* ClosestListenerPtr;
 

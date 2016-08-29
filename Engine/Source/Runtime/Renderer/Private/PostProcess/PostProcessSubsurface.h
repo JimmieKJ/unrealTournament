@@ -54,6 +54,8 @@ public:
 	// @param InDirection 0:horizontal/1:vertical
 	FRCPassPostProcessSubsurface(uint32 InDirection, bool bInHalfRes);
 
+	static const bool RequiresCheckerboardSubsurfaceRendering(EPixelFormat SceneColorFormat);
+
 	// interface FRenderingCompositePass ---------
 
 	virtual void Process(FRenderingCompositePassContext& Context) override;

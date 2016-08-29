@@ -32,6 +32,7 @@
     <WarningLevel>4</WarningLevel>
     <PlatformTarget>AnyCPU</PlatformTarget>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <DocumentationFile>..\..\..\..\Binaries\DotNET\AutomationScripts\BuildGraph.Automation.xml</DocumentationFile>
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="Ionic.Zip.Reduced">
@@ -61,22 +62,26 @@
     <Compile Include="..\..\DotNETCommon\MetaData.cs">
       <Link>Properties\MetaData.cs</Link>
     </Compile>
-    <Compile Include="AgentGroup.cs" />
+    <Compile Include="Agent.cs" />
+    <Compile Include="Badge.cs" />
+    <Compile Include="BuildGraph.cs" />
     <Compile Include="Graph.cs" />
     <Compile Include="Node.cs" />
+    <Compile Include="Report.cs" />
     <Compile Include="Task.cs" />
     <Compile Include="JobContext.cs" />
     <Compile Include="ManualTrigger.cs" />
     <Compile Include="Condition.cs" />
-    <Compile Include="Build.cs" />
     <Compile Include="Schema.cs" />
     <Compile Include="Script.cs" />
-    <Compile Include="Tasks\ChunkTask.cs" />
-    <Compile Include="Tasks\ErrorTask.cs" />
-    <Compile Include="Tasks\MsBuildTask.cs" />
+    <Compile Include="Tasks\CommandletTask.cs" />
+    <Compile Include="Tasks\CsCompileTask.cs" />
+    <Compile Include="Tasks\TagReceiptTask.cs" />
     <Compile Include="Tasks\PakFileTask.cs" />
+    <Compile Include="Tasks\RenameTask.cs" />
     <Compile Include="Tasks\SpawnTask.cs" />
     <Compile Include="Tasks\LogTask.cs" />
+    <Compile Include="Tasks\SubmitTask.cs" />
     <Compile Include="Tasks\TagTask.cs" />
     <Compile Include="Tasks\CommandTask.cs" />
     <Compile Include="Tasks\CompileTask.cs" />
@@ -87,7 +92,7 @@
     <Compile Include="Tasks\StageTask.cs" />
     <Compile Include="Tasks\StripTask.cs" />
     <Compile Include="Tasks\SetVersionTask.cs" />
-    <Compile Include="Tasks\WarningTask.cs" />
+    <Compile Include="Tasks\UnzipTask.cs" />
     <Compile Include="Tasks\ZipTask.cs" />
     <Compile Include="TempStorage.cs" />
   </ItemGroup>

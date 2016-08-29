@@ -97,7 +97,7 @@ float AInteractiveFoliageActor::TakeDamage(float DamageAmount, FDamageEvent cons
 	return 0.f;
 }
 
-void AInteractiveFoliageActor::CapsuleTouched(AActor* Other, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
+void AInteractiveFoliageActor::CapsuleTouched(UPrimitiveComponent* OverlappedComp, AActor* Other, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
 {
 	if (Other != NULL && OtherComp != NULL)
 	{
@@ -137,12 +137,11 @@ void AInteractiveFoliageActor::Tick(float DeltaSeconds)
 	// The proxy will be NULL on dedicated server
 	if (FoliageComponent->IsRegistered() && FoliageComponent->FoliageSceneProxy)
 	{
-		TArray<AActor*> Touching;
+		TSet<AActor*> Touching;
 		GetOverlappingActors(Touching);
 
-		for (int32 TouchingIndex = 0; TouchingIndex < Touching.Num(); TouchingIndex++)
+		for (AActor* TouchingActor : Touching)
 		{
-			AActor* TouchingActor = Touching[TouchingIndex];
 			if (TouchingActor != NULL && TouchingActor->GetRootComponent() != NULL)
 			{
 				const FVector TouchingActorPosition(TouchingActor->GetRootComponent()->Bounds.Origin.X, TouchingActor->GetRootComponent()->Bounds.Origin.Y, GetRootComponent()->Bounds.Origin.Z);

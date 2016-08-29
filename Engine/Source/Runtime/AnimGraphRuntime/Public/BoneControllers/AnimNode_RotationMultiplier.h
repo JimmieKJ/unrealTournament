@@ -5,13 +5,6 @@
 #include "AnimNode_SkeletalControlBase.h"
 #include "AnimNode_RotationMultiplier.generated.h"
 
-UENUM()
-enum EBoneAxis
-{
-	BA_X,
-	BA_Y,
-	BA_Z
-};
 
 /**
  *	Simple controller that multiplies scalar value to the translation/rotation/scale of a single bone.

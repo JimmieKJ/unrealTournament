@@ -3,7 +3,7 @@
 #include "DistCurveEditorModule.h"
 #include "CurveEditorActions.h"
 
-#define LOCTEXT_NAMESPACE ""
+#define LOCTEXT_NAMESPACE "CurveEditorCommands"
 
 void FCurveEditorCommands::RegisterCommands()
 {

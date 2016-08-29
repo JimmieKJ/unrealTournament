@@ -13,6 +13,8 @@
 #include "GenericCommands.h"
 #include "ImaginaryBlueprintData.h"
 #include "FiBSearchInstance.h"
+#include "BlueprintEditorTabs.h"
+#include "ToolkitManager.h"
 
 #define LOCTEXT_NAMESPACE "FindInBlueprints"
 
@@ -200,7 +202,7 @@ FText FFindInBlueprintsResult::GetDisplayString() const
 
 FFindInBlueprintsGraphNode::FFindInBlueprintsGraphNode(const FText& InValue, TSharedPtr<FFindInBlueprintsResult> InParent)
 	: FFindInBlueprintsResult(InValue, InParent)
-	, GlyphBrush(nullptr)
+	, Glyph("EditorStyle", "")
 	, Class(nullptr)
 {
 }
@@ -224,7 +226,7 @@ FReply FFindInBlueprintsGraphNode::OnClick()
 TSharedRef<SWidget> FFindInBlueprintsGraphNode::CreateIcon() const
 {
 	return 	SNew(SImage)
-		.Image(GlyphBrush)
+		.Image(Glyph.GetOptionalIcon())
 		.ColorAndOpacity(GlyphColor)
 		.ToolTipText( GetCategory() );
 }
@@ -251,7 +253,11 @@ void FFindInBlueprintsGraphNode::ParseSearchInfo(FText InKey, FText InValue)
 	}
 	else if(InKey.CompareTo(FFindInBlueprintSearchTags::FiB_Glyph) == 0)
 	{
-		GlyphBrush = FEditorStyle::GetBrush(*InValue.ToString());
+		Glyph = FSlateIcon(Glyph.GetStyleSetName(), *InValue.ToString());
+	}
+	else if(InKey.CompareTo(FFindInBlueprintSearchTags::FiB_GlyphStyleSet) == 0)
+	{
+		Glyph = FSlateIcon(*InValue.ToString(), Glyph.GetStyleName());
 	}
 	else if(InKey.CompareTo(FFindInBlueprintSearchTags::FiB_GlyphColor) == 0)
 	{
@@ -388,10 +394,54 @@ FFindInBlueprintsProperty::FFindInBlueprintsProperty(const FText& InValue, TShar
 {
 }
 
+FReply FFindInBlueprintsProperty::OnClick()
+{
+	if (bIsSCSComponent)
+	{
+		UBlueprint* Blueprint = GetParentBlueprint();
+		if (Blueprint)
+		{
+			TSharedPtr<IBlueprintEditor> BlueprintEditor = FKismetEditorUtilities::GetIBlueprintEditorForObject(Blueprint, false);
+
+			if (BlueprintEditor.IsValid())
+			{
+				// Open Viewport Tab
+				BlueprintEditor->FocusWindow();
+				BlueprintEditor->GetTabManager()->InvokeTab(FBlueprintEditorTabs::SCSViewportID);
+
+				// Find and Select the Component in the Viewport tab view
+				const TArray<USCS_Node*>& Nodes = Blueprint->SimpleConstructionScript->GetAllNodes();
+				for (USCS_Node* Node : Nodes)
+				{
+					if (Node->VariableName.ToString() == DisplayText.ToString())
+					{
+						UBlueprintGeneratedClass* GeneratedClass = Cast<UBlueprintGeneratedClass>(Blueprint->GeneratedClass);
+						if (GeneratedClass)
+						{
+							UActorComponent* Component = Node->GetActualComponentTemplate(GeneratedClass);
+							if (Component)
+							{
+								BlueprintEditor->FindAndSelectSCSEditorTreeNode(Component, false);
+							}
+						}
+						break;
+					}
+				}
+			}
+		}
+	}
+	else
+	{
+		return FFindInBlueprintsResult::OnClick();
+	}
+
+	return FReply::Handled();
+}
+
 TSharedRef<SWidget> FFindInBlueprintsProperty::CreateIcon() const
 {
 	FLinearColor IconColor = FLinearColor::White;
-	const FSlateBrush* Brush = FEditorStyle::GetBrush(UK2Node_Variable::GetVarIconFromPinType(PinType, IconColor));
+	const FSlateBrush* Brush = UK2Node_Variable::GetVarIconFromPinType(PinType, IconColor).GetOptionalIcon();
 	IconColor = UEdGraphSchema_K2::StaticClass()->GetDefaultObject<UEdGraphSchema_K2>()->GetPinTypeColor(PinType);
 
 	return 	SNew(SImage)
@@ -1250,7 +1300,10 @@ FText SFindInBlueprints::GetUncachedBlueprintWarningText() const
 	}
 	else
 	{
-		ReturnDisplayText = FText::Format(LOCTEXT("UncachedBlueprints", "Search incomplete. {Count} Blueprints are not indexed!"), Args);
+		Args.Add(TEXT("UnindexedCount"), FindInBlueprintManager.GetNumberUncachedBlueprints());
+		Args.Add(TEXT("OutOfDateCount"), OutOfDateWithLastSearchBPCount);
+
+		ReturnDisplayText = FText::Format(LOCTEXT("UncachedBlueprints", "Search incomplete. {Count} ({UnindexedCount} Unindexed/{OutOfDateCount} Out-of-Date) Blueprints need to be indexed!"), Args);
 
 		if (FailedToCacheCount > 0)
 		{

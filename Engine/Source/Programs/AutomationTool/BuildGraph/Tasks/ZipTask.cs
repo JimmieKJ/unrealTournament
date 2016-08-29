@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using System.Xml;
 using UnrealBuildTool;
 
 namespace BuildGraph.Tasks
@@ -14,26 +15,32 @@ namespace BuildGraph.Tasks
 	public class ZipTaskParameters
 	{
 		/// <summary>
-		/// The directory to copy from
+		/// The directory to read compressed files from
 		/// </summary>
-		[TaskParameter]
-		public string BaseDir;
+		[TaskParameter(ValidationType = TaskParameterValidationType.DirectoryName)]
+		public string FromDir;
 
 		/// <summary>
-		/// List of file specifications separated by semicolons (eg. *.cpp;Engine/.../*.bat), or the name of a tag set
+		/// List of file specifications separated by semicolons (eg. *.cpp;Engine/.../*.bat), or the name of a tag set. Relative paths are taken from FromDir.
 		/// </summary>
-		[TaskParameter(Optional = true)]
+		[TaskParameter(Optional = true, ValidationType = TaskParameterValidationType.FileSpec)]
 		public string Files;
 
 		/// <summary>
 		/// The zip file to create
 		/// </summary>
-		[TaskParameter]
+		[TaskParameter(ValidationType = TaskParameterValidationType.FileName)]
 		public string ZipFile;
+
+		/// <summary>
+		/// Tag to be applied to the created zip file
+		/// </summary>
+		[TaskParameter(Optional = true, ValidationType = TaskParameterValidationType.TagList)]
+		public string Tag;
 	}
 
 	/// <summary>
-	/// Task which creates a zip archive
+	/// Compresses files into a zip archive.
 	/// </summary>
 	[TaskElement("Zip", typeof(ZipTaskParameters))]
 	public class ZipTask : CustomTask
@@ -61,23 +68,58 @@ namespace BuildGraph.Tasks
 		/// <returns>True if the task succeeded</returns>
 		public override bool Execute(JobContext Job, HashSet<FileReference> BuildProducts, Dictionary<string, HashSet<FileReference>> TagNameToFileSet)
 		{
-			DirectoryReference BaseDirectory = ResolveDirectory(Parameters.BaseDir);
+			DirectoryReference FromDir = ResolveDirectory(Parameters.FromDir);
 
 			// Find all the input files
 			IEnumerable<FileReference> Files;
 			if(Parameters.Files == null)
 			{
-				Files = BaseDirectory.EnumerateFileReferences("*", System.IO.SearchOption.AllDirectories);
+				Files = FromDir.EnumerateFileReferences("*", System.IO.SearchOption.AllDirectories);
 			}
 			else
 			{
-				Files = ResolveFilespec(BaseDirectory, Parameters.Files, TagNameToFileSet);
+				Files = ResolveFilespec(FromDir, Parameters.Files, TagNameToFileSet);
 			}
 
 			// Create the zip file
 			FileReference ArchiveFile = ResolveFile(Parameters.ZipFile);
-			CommandUtils.ZipFiles(ArchiveFile, BaseDirectory, Files);
+			CommandUtils.ZipFiles(ArchiveFile, FromDir, Files);
+
+			// Apply the optional tag to the produced archive
+			foreach(string TagName in FindTagNamesFromList(Parameters.Tag))
+			{
+				FindOrAddTagSet(TagNameToFileSet, TagName).Add(ArchiveFile);
+			}
+
+			// Add the archive to the set of build products
+			BuildProducts.Add(ArchiveFile);
 			return true;
+		}
+
+		/// <summary>
+		/// Output this task out to an XML writer.
+		/// </summary>
+		public override void Write(XmlWriter Writer)
+		{
+			Write(Writer, Parameters);
+		}
+
+		/// <summary>
+		/// Find all the tags which are used as inputs to this task
+		/// </summary>
+		/// <returns>The tag names which are read by this task</returns>
+		public override IEnumerable<string> FindConsumedTagNames()
+		{
+			return FindTagNamesFromFilespec(Parameters.Files);
+		}
+
+		/// <summary>
+		/// Find all the tags which are modified by this task
+		/// </summary>
+		/// <returns>The tag names which are modified by this task</returns>
+		public override IEnumerable<string> FindProducedTagNames()
+		{
+			return FindTagNamesFromList(Parameters.Tag);
 		}
 	}
 }

@@ -58,6 +58,28 @@ public:
 		OnSelectionChangedDelegate.Broadcast();
 	}
 
+	virtual ISettingsSectionPtr GetSectionFromSectionObject(const UObject* SectionObject) const override
+	{
+		TArray<ISettingsCategoryPtr> Categories;
+		GetSettingsContainer()->GetCategories(Categories);
+
+		for(ISettingsCategoryPtr& Category : Categories)
+		{
+			TArray<ISettingsSectionPtr> Sections;
+			Category->GetSections(Sections);
+
+			for(ISettingsSectionPtr& Section : Sections)
+			{
+				if(Section->GetSettingsObject() == SectionObject)
+				{
+					return Section;
+				}
+			}
+		}
+
+		return nullptr;
+	}
+
 private:
 
 	/** Handles the removal of sections from the settings container. */

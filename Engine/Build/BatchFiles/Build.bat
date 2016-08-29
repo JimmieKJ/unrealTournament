@@ -11,9 +11,15 @@ REM %2 is the platform name
 REM %3 is the configuration name
 
 IF EXIST ..\..\Engine\Binaries\DotNET\UnrealBuildTool.exe (
-         ..\..\Engine\Binaries\DotNET\UnrealBuildTool.exe %* -DEPLOY
-		 popd
-		 EXIT /B !ERRORLEVEL!
+        ..\..\Engine\Binaries\DotNET\UnrealBuildTool.exe %* -DEPLOY
+		popd
+
+		REM Ignore exit codes of 2 ("ECompilationResult.UpToDate") from UBT; it's not a failure.
+		if "!ERRORLEVEL!"=="2" (
+			EXIT /B 0
+		)
+		 
+		EXIT /B !ERRORLEVEL!
 ) ELSE (
 	ECHO UnrealBuildTool.exe not found in ..\..\Engine\Binaries\DotNET\UnrealBuildTool.exe 
 	popd

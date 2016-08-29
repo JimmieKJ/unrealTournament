@@ -79,6 +79,9 @@ extern struct hash_table *hash_table_ctor(unsigned num_buckets,
  */
 extern void hash_table_dtor(struct hash_table *ht);
 
+// Same as above but calls free() on the data on each node
+extern void hash_table_dtor_FreeData(struct hash_table *ht);
+
 
 /**
  * Flush all entries from a hash table

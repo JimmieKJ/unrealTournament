@@ -92,9 +92,15 @@ protected:
 	UPROPERTY(EditDefaultsOnly, AdvancedDisplay, Category="Controller|Transform")
 	uint32 bAttachToPawn:1;
 
-	/** Whether this controller is a player controller. */
+	/** Whether this controller is a PlayerController. */
 	UPROPERTY()
 	uint32 bIsPlayerController:1;
+
+	/** Ignores movement input. Stacked state storage, Use accessor function IgnoreMoveInput() */
+	uint8 IgnoreMoveInput;
+
+	/** Ignores look input. Stacked state storage, use accessor function IgnoreLookInput(). */
+	uint8 IgnoreLookInput;
 
 	/**
 	  * Physically attach the Controller to the specified Pawn, so that our position reflects theirs.
@@ -211,12 +217,13 @@ public:
 	UFUNCTION(BlueprintCallable, Category="Pawn")
 	virtual FRotator GetDesiredRotation() const;
 
-	/** returns whether this Controller is a locally controlled PlayerController.  */
+	/** Returns whether this Controller is a PlayerController.  */
 	UFUNCTION(BlueprintCallable, Category="Pawn")
-	bool IsLocalPlayerController() const
-	{
-		return bIsPlayerController && IsLocalController();
-	}
+	bool IsPlayerController() const;
+
+	/** Returns whether this Controller is a locally controlled PlayerController.  */
+	UFUNCTION(BlueprintCallable, Category="Pawn")
+	bool IsLocalPlayerController() const;
 
 	/** Returns whether this Controller is a local controller.	 */
 	UFUNCTION(BlueprintCallable, Category="Pawn")
@@ -278,7 +285,7 @@ public:
 	//~ Begin INavAgentInterface Interface
 	virtual const struct FNavAgentProperties& GetNavAgentPropertiesRef() const override;
 	virtual FVector GetNavAgentLocation() const override;
-	virtual void GetMoveGoalReachTest(class AActor* MovingActor, const FVector& MoveOffset, FVector& GoalOffset, float& GoalRadius, float& GoalHalfHeight) const override;
+	virtual void GetMoveGoalReachTest(const AActor* MovingActor, const FVector& MoveOffset, FVector& GoalOffset, float& GoalRadius, float& GoalHalfHeight) const override;
 	virtual bool ShouldPostponePathUpdates() const override;
 	virtual bool IsFollowingAPath() const override;
 	//~ End INavAgentInterface Interface
@@ -293,6 +300,40 @@ public:
 	/** Aborts the move the controller is currently performing */
 	UFUNCTION(BlueprintCallable, Category = "AI|Navigation")
 	virtual void StopMovement();
+
+	/**
+	* Locks or unlocks movement input, consecutive calls stack up and require the same amount of calls to undo, or can all be undone using ResetIgnoreMoveInput.
+	* @param bNewMoveInput	If true, move input is ignored. If false, input is not ignored.
+	*/
+	UFUNCTION(BlueprintCallable, Category="Input")
+	virtual void SetIgnoreMoveInput(bool bNewMoveInput);
+
+	/** Stops ignoring move input by resetting the ignore move input state. */
+	UFUNCTION(BlueprintCallable, Category="Input", meta = (Keywords = "ClearIgnoreMoveInput"))
+	virtual void ResetIgnoreMoveInput();
+
+	/** Returns true if movement input is ignored. */
+	UFUNCTION(BlueprintCallable, Category="Input")
+	virtual bool IsMoveInputIgnored() const;
+
+	/**
+	* Locks or unlocks look input, consecutive calls stack up and require the same amount of calls to undo, or can all be undone using ResetIgnoreLookInput.
+	* @param bNewLookInput	If true, look input is ignored. If false, input is not ignored.
+	*/
+	UFUNCTION(BlueprintCallable, Category="Input")
+	virtual void SetIgnoreLookInput(bool bNewLookInput);
+
+	/** Stops ignoring look input by resetting the ignore look input state. */
+	UFUNCTION(BlueprintCallable, Category="Input", meta=(Keywords="ClearIgnoreLookInput"))
+	virtual void ResetIgnoreLookInput();
+
+	/** Returns true if look input is ignored. */
+	UFUNCTION(BlueprintCallable, Category="Input")
+	virtual bool IsLookInputIgnored() const;
+
+	/** Reset move and look input ignore flags. */
+	UFUNCTION(BlueprintCallable, Category="Input")
+	virtual void ResetIgnoreInputFlags();
 
 protected:
 	/** State entered when inactive (no possessed pawn, not spectating, etc). */
@@ -321,3 +362,16 @@ protected:
 	/** Returns TransformComponent subobject **/
 	class USceneComponent* GetTransformComponent() const;
 };
+
+
+// INLINES
+
+FORCEINLINE_DEBUGGABLE bool AController::IsPlayerController() const
+{
+	return bIsPlayerController;
+}
+
+FORCEINLINE_DEBUGGABLE bool AController::IsLocalPlayerController() const
+{
+	return IsPlayerController() && IsLocalController();
+}

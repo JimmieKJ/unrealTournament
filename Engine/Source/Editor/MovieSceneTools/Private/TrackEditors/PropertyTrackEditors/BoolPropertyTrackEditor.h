@@ -4,34 +4,41 @@
 
 #include "MovieSceneBoolSection.h"
 #include "MovieSceneBoolTrack.h"
+#include "PropertyTrackEditor.h"
+
+
+class ISequencer;
+
 
 /**
-* A property track editor for bools.
-*/
+ * A property track editor for Booleans.
+ */
 class FBoolPropertyTrackEditor
 	: public FPropertyTrackEditor<UMovieSceneBoolTrack, UMovieSceneBoolSection, bool>
 {
 public:
+
 	/**
-	 * Constructor
+	 * Constructor.
 	 *
-	 * @param InSequencer The sequencer instance to be used by this tool
+	 * @param InSequencer The sequencer instance to be used by this tool.
 	 */
 	FBoolPropertyTrackEditor( TSharedRef<ISequencer> InSequencer )
 		: FPropertyTrackEditor( InSequencer, NAME_BoolProperty )
 	{ }
 
 	/**
-	 * Creates an instance of this class.  Called by a sequencer 
+	 * Creates an instance of this class (called by a sequencer).
 	 *
-	 * @param OwningSequencer The sequencer instance to be used by this tool
-	 * @return The new instance of this class
+	 * @param OwningSequencer The sequencer instance to be used by this tool.
+	 * @return The new instance of this class.
 	 */
 	static TSharedRef<ISequencerTrackEditor> CreateTrackEditor( TSharedRef<ISequencer> OwningSequencer );
 
 protected:
 
-	// FPropertyTrackEditor interface
+	//~ FPropertyTrackEditor interface
+
 	virtual TSharedRef<FPropertySection> MakePropertySectionInterface( UMovieSceneSection& SectionObject, UMovieSceneTrack& Track ) override;
 	virtual void GenerateKeysFromPropertyChanged( const FPropertyChangedParams& PropertyChangedParams, TArray<bool>& NewGeneratedKeys, TArray<bool>& DefaultGeneratedKeys ) override;
 };

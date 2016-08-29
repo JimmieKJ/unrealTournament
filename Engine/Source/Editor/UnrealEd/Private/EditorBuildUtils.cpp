@@ -22,6 +22,7 @@
 #include "AI/Navigation/NavigationSystem.h"
 #include "HierarchicalLOD.h"
 #include "ActorEditorUtils.h"
+#include "MaterialUtilities.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogEditorBuildUtils, Log, All);
 
@@ -40,7 +41,7 @@ const FName FBuildOptions::BuildAll(TEXT("BuildAll"));
 const FName FBuildOptions::BuildAllSubmit(TEXT("BuildAllSubmit"));
 const FName FBuildOptions::BuildAllOnlySelectedPaths(TEXT("BuildAllOnlySelectedPaths"));
 const FName FBuildOptions::BuildHierarchicalLOD(TEXT("BuildHierarchicalLOD"));
-
+const FName FBuildOptions::BuildTextureStreaming(TEXT("BuildTextureStreaming"));
 
 bool FEditorBuildUtils::bBuildingNavigationFromUserRequest = false;
 TMap<FName, FEditorBuildUtils::FCustomBuildType> FEditorBuildUtils::CustomBuildTypes;
@@ -267,13 +268,20 @@ bool FEditorBuildUtils::EditorBuild( UWorld* InWorld, FName Id, const bool bAllo
 	{
 		BuildType = SBuildProgressWidget::BUILDTYPE_LODs;
 	}
+	else if (Id == FBuildOptions::BuildTextureStreaming)
+	{
+		BuildType = SBuildProgressWidget::BUILDTYPE_TextureStreaming;
+	}
 	else
 	{
 		BuildType = SBuildProgressWidget::BUILDTYPE_Unknown;	
 	}
 
 	TWeakPtr<class SBuildProgressWidget> BuildProgressWidget = GWarn->ShowBuildProgressWindow();
-	BuildProgressWidget.Pin()->SetBuildType(BuildType);
+	if ( BuildProgressWidget.IsValid() )
+	{
+		BuildProgressWidget.Pin()->SetBuildType(BuildType);
+	}
 
 	bool bShouldMapCheck = true;
 	if (Id == FBuildOptions::BuildGeometry)
@@ -874,6 +882,7 @@ FBuildAllHandler::FBuildAllHandler()
 	BuildSteps.Add(FBuildOptions::BuildGeometry);
 	BuildSteps.Add(FBuildOptions::BuildHierarchicalLOD);
 	BuildSteps.Add(FBuildOptions::BuildAIPaths);
+	BuildSteps.Add(FBuildOptions::BuildTextureStreaming);
 	
 	//Lighting must always be the last one when doing a build all
 	BuildSteps.Add(FBuildOptions::BuildLighting);
@@ -921,6 +930,9 @@ void FBuildAllHandler::ResumeBuild()
 	// Resuming from async operation, may be about to do slow stuff again so show the progress window again.
 	TWeakPtr<SBuildProgressWidget> BuildProgressWidget = GWarn->ShowBuildProgressWindow();
 
+	// We have to increment the build step, resuming from an async build step
+	CurrentStep++;
+
 	ProcessBuild(BuildProgressWidget);
 
 	// Synchronous part completed, hide the build progress dialog.
@@ -956,6 +968,11 @@ void FBuildAllHandler::ProcessBuild(const TWeakPtr<SBuildProgressWidget>& BuildP
 		{
 			BuildProgressWidget.Pin()->SetBuildType(SBuildProgressWidget::BUILDTYPE_LODs);
 			FEditorBuildUtils::TriggerHierarchicalLODBuilder(CurrentWorld, CurrentBuildId);
+		}
+		else if (StepId == FBuildOptions::BuildTextureStreaming)
+		{
+			BuildProgressWidget.Pin()->SetBuildType(SBuildProgressWidget::BUILDTYPE_TextureStreaming);
+			FEditorBuildUtils::EditorBuildTextureStreaming(CurrentWorld);
 		}
 		else if (StepId == FBuildOptions::BuildAIPaths)
 		{
@@ -1026,6 +1043,138 @@ void FEditorBuildUtils::TriggerHierarchicalLODBuilder(UWorld* InWorld, FName Id)
 {
 	// Invoke HLOD generator, with either preview or full build
 	InWorld->HierarchicalLODBuilder->BuildMeshesForLODActors();
+}
+
+bool FEditorBuildUtils::EditorBuildTextureStreaming(UWorld* InWorld, bool bWithTexCoordScales, bool bDebugDataOnly)
+{
+	FScopedSlowTask BuildTextureStreamingTask(bWithTexCoordScales ? 5.f : 1.f, bDebugDataOnly ? LOCTEXT("TextureStreamingDataUpdate", "Updating Texture Streaming Data") : LOCTEXT("TextureStreamingBuild", "Building Texture Streaming"));
+	BuildTextureStreamingTask.MakeDialog(true);
+
+	const EMaterialQualityLevel::Type QualityLevel = EMaterialQualityLevel::High;
+	const ERHIFeatureLevel::Type FeatureLevel = GMaxRHIFeatureLevel;
+
+	CollectGarbage( GARBAGE_COLLECTION_KEEPFLAGS );
+
+	FTexCoordScaleMap TexCoordScales;
+	FMaterialToLevelsMap MaterialToLevels;
+	if (bWithTexCoordScales)
+	{
+		// Reset build warning data.
+		if (!bDebugDataOnly)
+		{
+			InWorld->NumTextureStreamingUnbuiltComponents = 0;
+			InWorld->NumTextureStreamingDirtyResources = 0;
+
+			for (int32 LevelIndex = 0; LevelIndex < InWorld->GetNumLevels(); LevelIndex++)
+			{
+				ULevel* Level = InWorld->GetLevel(LevelIndex);
+				if (!Level) continue;
+
+				TArray<FGuid>& BuildGuids = Level->TextureStreamingBuildGuids;
+				if (Level->NumTextureStreamingUnbuiltComponents || Level->NumTextureStreamingDirtyResources || BuildGuids.Num())
+				{
+					Level->NumTextureStreamingUnbuiltComponents = 0;
+					Level->NumTextureStreamingDirtyResources = 0;
+					Level->TextureStreamingBuildGuids.Empty();
+					Level->MarkPackageDirty();
+				}
+			}
+		}
+
+		if (!BuildTextureStreamingShaders(InWorld, QualityLevel, FeatureLevel, TexCoordScales, MaterialToLevels, bDebugDataOnly, BuildTextureStreamingTask))
+		{
+			return false;
+		}
+
+		// Exporting Material TexCoord Scales
+		FScopedSlowTask SlowTask((float)TexCoordScales.Num(), (LOCTEXT("TextureStreamingBuild_ExportingMaterialScales", "Exporting Material TexCoord Scales")));
+
+		const double StartTime = FPlatformTime::Seconds();
+
+		FMaterialUtilities::FExportErrorManager ExportErrors(FeatureLevel);
+
+		for (FTexCoordScaleMap::TIterator It(TexCoordScales); It; ++It)
+		{
+			SlowTask.EnterProgressFrame();
+			BuildTextureStreamingTask.EnterProgressFrame(1.f / TexCoordScales.Num());
+			if (GWarn->ReceivedUserCancel()) return false;
+
+			UMaterialInterface* MaterialInterface = It.Key();
+			TArray<FMaterialTexCoordBuildInfo>& Scales = It.Value();
+
+			const bool bExportSuccess = FMaterialUtilities::ExportMaterialTexCoordScales(MaterialInterface, QualityLevel, FeatureLevel, Scales, ExportErrors);
+
+			// Materials not having the RF_Public are instances created dynamically.
+			const TArray<ULevel*>* MaterialLevels = MaterialToLevels.Find(MaterialInterface);
+			if (bExportSuccess && !!(MaterialInterface->GetFlags() & RF_Public) && MaterialLevels)
+			{
+				TArray<FGuid> MaterialGuids;
+				MaterialInterface->GetLightingGuidChain(false, MaterialGuids);
+
+				for (const FGuid& MaterialGuid : MaterialGuids)
+				{
+					if (MaterialGuid.IsValid())
+					{
+						// Add to the build Guids all exported materials.
+						for (ULevel* Level : *MaterialLevels)
+						{
+							Level->TextureStreamingBuildGuids.Add(MaterialGuid);
+						}
+					}
+				}
+			}
+		}
+		UE_LOG(LogLevel, Display, TEXT("Export Material TexCoord Scales took %.3f seconds."), FPlatformTime::Seconds() - StartTime);
+
+		ExportErrors.OutputToLog();
+	}
+
+	if (bDebugDataOnly)
+	{
+		if (!UpdateComponentStreamingSectionData(InWorld, TexCoordScales, true, BuildTextureStreamingTask))
+		{
+			return false;
+		}
+	}
+	else
+	{
+		if (!BuildTextureStreamingData(InWorld, TexCoordScales, QualityLevel, FeatureLevel, BuildTextureStreamingTask))
+		{
+			return false;
+		}
+
+		// Update build warning data.
+		if (bWithTexCoordScales)
+		{
+			for (int32 LevelIndex = 0; LevelIndex < InWorld->GetNumLevels(); LevelIndex++)
+			{
+				ULevel* Level = InWorld->GetLevel(LevelIndex);
+				if (!Level) continue;
+
+				// If there is nothing related to texture streaming skip it.
+				TArray<FGuid>& BuildGuids = Level->TextureStreamingBuildGuids;
+				if (BuildGuids.Num())
+				{
+					// Remove duplicates
+					BuildGuids.Sort();
+					int32 WriteIndex = 1;
+					for (int32 ReadIndex = 1; ReadIndex < BuildGuids.Num(); ++ReadIndex)
+					{
+						if (BuildGuids[WriteIndex - 1] != BuildGuids[ReadIndex])
+						{
+							BuildGuids[WriteIndex] = BuildGuids[ReadIndex];
+							++WriteIndex;
+						}
+					}
+					BuildGuids.SetNum(WriteIndex);
+					Level->MarkPackageDirty();
+				}
+			}
+		}
+	}
+
+	CollectGarbage( GARBAGE_COLLECTION_KEEPFLAGS );
+	return true;
 }
 
 #undef LOCTEXT_NAMESPACE

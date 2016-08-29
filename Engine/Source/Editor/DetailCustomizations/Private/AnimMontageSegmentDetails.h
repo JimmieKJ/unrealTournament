@@ -15,6 +15,7 @@ public:
 
 	/** IDetailCustomization interface */
 	virtual void CustomizeDetails( IDetailLayoutBuilder& DetailBuilder ) override;
+	bool OnShouldFilterAnimAsset(const FAssetData& AssetData) const;
 };
 
 

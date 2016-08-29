@@ -2,6 +2,7 @@
 
 #include "ProfilerPrivatePCH.h"
 #include "DesktopPlatformModule.h"
+#include "FileManagerGeneric.h"
 
 #define LOCTEXT_NAMESPACE "FProfilerCommands"
 
@@ -48,7 +49,8 @@ void FProfilerCommands::RegisterCommands()
 	UI_COMMAND( OpenSettings, "Settings", "Opens the settings for the profiler", EUserInterfaceActionType::Button, FInputChord( EModifierKey::Control, EKeys::O ) );
 
 	UI_COMMAND( ProfilerManager_Load, "Load", "Loads profiler data", EUserInterfaceActionType::Button, FInputChord( EModifierKey::Control, EKeys::L ) );
-	UI_COMMAND( ProfilerManager_ToggleLivePreview, "Live preview", "Toggles the real time live preview", EUserInterfaceActionType::ToggleButton, FInputChord() );
+	UI_COMMAND(ProfilerManager_LoadMultiple, "Load Folder", "Loads multiple stats dumps", EUserInterfaceActionType::Button, FInputChord(EModifierKey::Control | EModifierKey::Shift, EKeys::L));
+	UI_COMMAND(ProfilerManager_ToggleLivePreview, "Live preview", "Toggles the real time live preview", EUserInterfaceActionType::ToggleButton, FInputChord());
 
 	UI_COMMAND( DataGraph_ToggleViewMode, "Toggle graph view mode", "Toggles the data graph view mode between time based and index based", EUserInterfaceActionType::Button, FInputChord() );
 
@@ -162,6 +164,15 @@ void FProfilerActionManager::Map_ProfilerManager_Load()
 	This->CommandList->MapAction( This->GetCommands().ProfilerManager_Load, UIAction );
 }
 
+void FProfilerActionManager::Map_ProfilerManager_LoadMultiple()
+{
+	FUIAction UIAction;
+	UIAction.ExecuteAction = FExecuteAction::CreateRaw(this, &FProfilerActionManager::ProfilerManager_LoadMultiple_Execute);
+	UIAction.CanExecuteAction = FCanExecuteAction::CreateRaw(this, &FProfilerActionManager::ProfilerManager_Load_CanExecute);
+
+	This->CommandList->MapAction(This->GetCommands().ProfilerManager_LoadMultiple, UIAction);
+}
+
 void FProfilerActionManager::ProfilerManager_Load_Execute()
 {
 	// @see FStatConstants::StatsFileExtension
@@ -175,7 +186,7 @@ void FProfilerActionManager::ProfilerManager_Load_Execute()
 		bOpened = DesktopPlatform->OpenFileDialog
 		(
 			NULL, 
-			LOCTEXT("ProfilerManager_Load_Desc", "Open profiler capture file...").ToString(),
+			LOCTEXT("ProfilerManager_LoadFile_Desc", "Open profiler capture file...").ToString(),
 			ProfilingDirectory, 
 			TEXT(""), 
 			LOCTEXT("ProfilerManager_Load_FileFilter", "Stats files (*.ue4stats)|*.ue4stats|Raw Stats files (*.ue4statsraw)|*.ue4statsraw").ToString(), 
@@ -201,6 +212,46 @@ void FProfilerActionManager::ProfilerManager_Load_Execute()
 		}
 	}
 }
+
+
+
+void FProfilerActionManager::ProfilerManager_LoadMultiple_Execute()
+{
+	// @see FStatConstants::StatsFileExtension
+	FString OutFolder;
+	const FString ProfilingDirectory = *FPaths::ConvertRelativePathToFull(*FPaths::ProfilingDir());
+
+	IDesktopPlatform* DesktopPlatform = FDesktopPlatformModule::Get();
+	bool bOpened = false;
+	if (DesktopPlatform != NULL)
+	{
+		bOpened = DesktopPlatform->OpenDirectoryDialog(NULL,
+			LOCTEXT("ProfilerManager_Load_Desc", "Open capture folder...").ToString(),
+			ProfilingDirectory,
+			OutFolder);
+	}
+
+	if (bOpened == true)
+	{
+		This->ProfilerWindow.Pin()->MultiDumpBrowser->Clear();
+
+		if (!OutFolder.IsEmpty())
+		{
+			TArray<FString> FoundFiles;
+			FFileManagerGeneric::Get().FindFiles(FoundFiles, *OutFolder, TEXT(".ue4stats"));
+			for (FString &FilePath : FoundFiles)
+			{
+				const TCHAR* PathDelimiter = FPlatformMisc::GetDefaultPathSeparator();
+				SMultiDumpBrowser::FFileDescriptor *Desc = new SMultiDumpBrowser::FFileDescriptor();
+				Desc->FullPath = OutFolder + PathDelimiter + FilePath;
+				Desc->DisplayName = FilePath;
+				This->ProfilerWindow.Pin()->MultiDumpBrowser->AddFile(Desc);
+			}
+			This->ProfilerWindow.Pin()->MultiDumpBrowser->Update();
+		}
+	}
+}
+
 
 bool FProfilerActionManager::ProfilerManager_Load_CanExecute() const
 {

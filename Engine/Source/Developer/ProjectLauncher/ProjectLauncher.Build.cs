@@ -52,7 +52,8 @@ public class ProjectLauncher : ModuleRules
 				"Developer/ProjectLauncher/Private/Widgets/Project",
 				"Developer/ProjectLauncher/Private/Widgets/Shared",
 				"Developer/ProjectLauncher/Private/Widgets/Toolbar",
-			}
+                "Developer/ProjectLauncher/Private/Widgets/Archive",
+            }
 		);
 	}
 }

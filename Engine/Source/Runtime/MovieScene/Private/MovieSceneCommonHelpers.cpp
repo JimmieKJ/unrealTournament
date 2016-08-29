@@ -88,6 +88,7 @@ UMovieSceneSection* MovieSceneHelpers::FindNearestSectionAtTime( const TArray<UM
 	for( int32 SectionIndex = 0; SectionIndex < Sections.Num(); ++SectionIndex )
 	{
 		UMovieSceneSection* Section = Sections[SectionIndex];
+		checkSlow(Section);
 
 		if (Section->IsActive())
 		{
@@ -344,21 +345,25 @@ void FTrackInstancePropertyBindings::UpdateBindings( const TArray<TWeakObjectPtr
 {
 	for (auto ObjectPtr : InRuntimeObjects)
 	{
-		UObject* Object = ObjectPtr.Get();
-
-		if (Object != nullptr)
-		{
-			FPropertyAndFunction PropAndFunction;
-			{
-				PropAndFunction.Function = Object->FindFunction(FunctionName);
-				PropAndFunction.PropertyAddress = FindProperty(Object, PropertyPath);
-			}
-
-			RuntimeObjectToFunctionMap.Add(Object, PropAndFunction);
-		}
+		UpdateBinding(ObjectPtr);
 	}
 }
 
+void FTrackInstancePropertyBindings::UpdateBinding(const TWeakObjectPtr<UObject>& InRuntimeObject)
+{
+	UObject* Object = InRuntimeObject.Get();
+
+	if (Object != nullptr)
+	{
+		FPropertyAndFunction PropAndFunction;
+		{
+			PropAndFunction.Function = Object->FindFunction(FunctionName);
+			PropAndFunction.PropertyAddress = FindProperty(Object, PropertyPath);
+		}
+
+		RuntimeObjectToFunctionMap.Add(Object, PropAndFunction);
+	}
+}
 
 UProperty* FTrackInstancePropertyBindings::GetProperty(const UObject* Object) const
 {

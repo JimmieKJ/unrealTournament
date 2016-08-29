@@ -33,7 +33,7 @@ FRenderQueryRHIRef FD3D11DynamicRHI::RHICreateRenderQuery(ERenderQueryType Query
 	}
 
 	Desc.MiscFlags = 0;
-	VERIFYD3D11RESULT(Direct3DDevice->CreateQuery(&Desc,Query.GetInitReference()));
+	VERIFYD3D11RESULT_EX(Direct3DDevice->CreateQuery(&Desc,Query.GetInitReference()), Direct3DDevice);
 	return new FD3D11RenderQuery(Query, QueryType);
 }
 
@@ -129,14 +129,9 @@ bool FD3D11DynamicRHI::GetQueryData(ID3D11Query* Query,void* Data,SIZE_T DataSiz
 		// Return failure if the query isn't complete, and waiting wasn't requested.
 		return false;
 	}
-	else if( Result == DXGI_ERROR_DEVICE_REMOVED || Result == DXGI_ERROR_DEVICE_RESET || Result == DXGI_ERROR_DRIVER_INTERNAL_ERROR )
-	{
-		bDeviceRemoved = true;
-		return false;
-	}
 	else
 	{
-		VERIFYD3D11RESULT(Result);
+		VERIFYD3D11RESULT_EX(Result, Direct3DDevice);
 		return false;
 	}
 }
@@ -161,7 +156,7 @@ void FD3D11EventQuery::InitDynamicRHI()
 	D3D11_QUERY_DESC QueryDesc;
 	QueryDesc.Query = D3D11_QUERY_EVENT;
 	QueryDesc.MiscFlags = 0;
-	VERIFYD3D11RESULT(D3DRHI->GetDevice()->CreateQuery(&QueryDesc,Query.GetInitReference()));
+	VERIFYD3D11RESULT_EX(D3DRHI->GetDevice()->CreateQuery(&QueryDesc,Query.GetInitReference()), D3DRHI->GetDevice());
 
 	// Initialize the query by issuing an initial event.
 	IssueEvent();
@@ -465,7 +460,7 @@ void FD3D11DisjointTimeStampQuery::InitDynamicRHI()
 	QueryDesc.Query = D3D11_QUERY_TIMESTAMP_DISJOINT;
 	QueryDesc.MiscFlags = 0;
 
-	VERIFYD3D11RESULT(D3DRHI->GetDevice()->CreateQuery(&QueryDesc, DisjointQuery.GetInitReference()));
+	VERIFYD3D11RESULT_EX(D3DRHI->GetDevice()->CreateQuery(&QueryDesc, DisjointQuery.GetInitReference()), D3DRHI->GetDevice());
 }
 
 void FD3D11DisjointTimeStampQuery::ReleaseDynamicRHI()

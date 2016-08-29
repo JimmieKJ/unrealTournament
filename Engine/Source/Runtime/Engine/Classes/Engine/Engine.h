@@ -10,13 +10,10 @@ class UDeviceProfileManager;
 class FViewport;
 class FCommonViewportClient;
 class FCanvas;
-
-#if PLATFORM_COMPILER_HAS_VARIADIC_TEMPLATES
 class FTypeContainer;
 class IMessageRpcClient;
 class IPortalRpcLocator;
 class IPortalServiceLocator;
-#endif
 
 /**
  * Enumerates types of fully loaded packages.
@@ -546,6 +543,9 @@ class ENGINE_API UEngine
 {
 	GENERATED_UCLASS_BODY()
 
+	// Called after GEngine->Init has been called
+	static FSimpleMulticastDelegate OnPostEngineInit;
+
 private:
 	// Fonts.
 	UPROPERTY()
@@ -706,14 +706,6 @@ public:
 	/** Path to the default tire type */
 	UPROPERTY(globalconfig, EditAnywhere, Category=DefaultClasses, meta=(AllowedClasses="TireType", DisplayName="Default Tire Type"), AdvancedDisplay)
 	FStringAssetReference DefaultTireTypeName;
-
-	/** The class to use previewing camera animations. */
-	UPROPERTY()
-	TSubclassOf<class APawn>  DefaultPreviewPawnClass;
-
-	/** The name of the class to use when previewing camera animations. */
-	UPROPERTY(globalconfig, noclear, EditAnywhere, Category=DefaultClasses, meta=(MetaClass="Pawn", DisplayName="Default Preview Pawn Class"), AdvancedDisplay)
-	FStringClassReference DefaultPreviewPawnClassName;
 
 	/** Path that levels for play on console will be saved to (relative to FPaths::GameSavedDir()) */
 	UPROPERTY(config)
@@ -899,17 +891,20 @@ public:
 	class UMaterialInstanceDynamic* ConstraintLimitMaterialX;
 
 	UPROPERTY()
+	class UMaterialInstanceDynamic* ConstraintLimitMaterialXAxis;
+
+	UPROPERTY()
 	class UMaterialInstanceDynamic* ConstraintLimitMaterialY;
+	UPROPERTY()
+	class UMaterialInstanceDynamic* ConstraintLimitMaterialYAxis;
 
 	UPROPERTY()
 	class UMaterialInstanceDynamic* ConstraintLimitMaterialZ;
+	UPROPERTY()
+	class UMaterialInstanceDynamic* ConstraintLimitMaterialZAxis;
 
 	UPROPERTY()
 	class UMaterialInstanceDynamic* ConstraintLimitMaterialPrismatic;
-
-	/** @todo document */
-	UPROPERTY(globalconfig)
-	FStringAssetReference ConstraintLimitMaterialName;
 
 	/** Material that renders a message about lightmap settings being invalid. */
 	UPROPERTY()
@@ -963,7 +958,7 @@ public:
 	UPROPERTY(globalconfig)
 	TArray<FLinearColor> HLODColorationColors;
 
-	/** The colors used for TexelFactorAccuracy, WantedMipsAccuracy and TexCoordScaleAccuracy. */
+	/** The colors used for texture streaming accuracy debug view modes. */
 	UPROPERTY(globalconfig)
 	TArray<FLinearColor> StreamingAccuracyColors;
 
@@ -1149,7 +1144,7 @@ public:
 	uint32 bUseFixedFrameRate : 1;
 	
 	/** The fixed framerate to use. */
-	UPROPERTY(config, EditAnywhere, Category = Framerate, meta=(EditCondition="bUseFixedFrameRate"))
+	UPROPERTY(config, EditAnywhere, Category = Framerate, meta=(EditCondition="bUseFixedFrameRate", ClampMin = "15.0"))
 	float FixedFrameRate;
 
 	/** Range of framerates in which smoothing will kick in */
@@ -1169,10 +1164,10 @@ public:
 	int32 NumPawnsAllowedToBeSpawnedInAFrame;
 
 	/**
-	 * Whether or not the LQ lightmaps should be generated during lighting rebuilds.
+	 * Whether or not the LQ lightmaps should be generated during lighting rebuilds.  This has been moved to r.SupportLowQualityLightmaps.
 	 */
 	UPROPERTY(globalconfig)
-	uint32 bShouldGenerateLowQualityLightmaps:1;
+	uint32 bShouldGenerateLowQualityLightmaps_DEPRECATED :1;
 
 	/**
 	 * Bool that indicates that 'console' input is desired. This flag is mis named as it is used for a lot of gameplay related things
@@ -1300,10 +1295,6 @@ public:
 	/** Number of times to tick each client per second */
 	UPROPERTY(globalconfig)
 	float NetClientTicksPerSecond;
-
-	/** true if the engine needs to perform a delayed global component reregister (really just for editor) */
-	UPROPERTY(transient)
-	uint32 bHasPendingGlobalReregister:1;
 
 	/** Current display gamma setting */
 	UPROPERTY(config)
@@ -1496,9 +1487,6 @@ public:
 	/** Extensions that can modify view parameters on the render thread. */
 	TArray<TSharedPtr<class ISceneViewExtension, ESPMode::ThreadSafe> > ViewExtensions;
 
-	/** Reference to the Motion Control devices that are attached, if any */
-	TArray < class IMotionController*> MotionControllerDevices;
-
 	/** Triggered when a world is added. */	
 	DECLARE_EVENT_OneParam( UEngine, FWorldAddedEvent , UWorld* );
 	
@@ -1600,6 +1588,13 @@ public:
 	/** Called after UEditorEngine::Tick has been called (or UGameEngine::Tick in standalone) */
 	void BroadcastPostEditorTick(float DeltaSeconds) { PostEditorTickEvent.Broadcast(DeltaSeconds); }
 
+	/** Delegate broadcast after UEditorEngine::Tick has been called (or UGameEngine::Tick in standalone) */
+	DECLARE_EVENT(UEditorEngine, FEditorCloseEvent);
+	FEditorCloseEvent& OnEditorClose() { return EditorCloseEvent; }
+
+	/** Called after UEditorEngine::Tick has been called (or UGameEngine::Tick in standalone) */
+	void BroadcastEditorClose() { EditorCloseEvent.Broadcast(); }
+
 #endif // #if WITH_EDITOR
 
 	/** Event triggered after a server travel failure of any kind has occurred */
@@ -1635,9 +1630,14 @@ public:
 	/** Initialize the game engine. */
 	virtual void Init(IEngineLoop* InEngineLoop);
 
+	/** Start the game, separate from the initialize call to allow for post initialize configuration before the game starts. */
+	virtual void Start();
+
 	/** Called at shutdown, just before the exit purge.	 */
 	virtual void PreExit();
 	virtual void ShutdownAudioDeviceManager();
+	
+	void ShutdownHMD();
 
 	/** Called at startup, in the middle of FEngineLoop::Init.	 */
 	void ParseCommandline();
@@ -1668,8 +1668,7 @@ public:
 #endif
 
 #if WITH_PROFILEGPU
-	bool HandleProfileGPUCommand( const TCHAR* Cmd, FOutputDevice& Ar );
-	bool HandleShowMaterialDrawEventsCommand( const TCHAR* Cmd, FOutputDevice& Ar );
+	bool HandleProfileGPUCommand( const TCHAR* Cmd, FOutputDevice& Ar );	
 #endif
 
 	// Compile in Debug or Development
@@ -1687,8 +1686,7 @@ public:
 	bool HandleFreezeStreamingCommand( const TCHAR* Cmd, FOutputDevice& Ar, UWorld* InWorld );		// Smedis
 	bool HandleFreezeAllCommand( const TCHAR* Cmd, FOutputDevice& Ar, UWorld* InWorld );			// Smedis
 	bool HandleFlushIOManagerCommand( const TCHAR* Cmd, FOutputDevice& Ar );						// Smedis
-	bool HandleToggleRenderingThreadCommand( const TCHAR* Cmd, FOutputDevice& Ar );
-	bool HandleToggleRHIThreadCommand( const TCHAR* Cmd, FOutputDevice& Ar );
+	bool HandleToggleRenderingThreadCommand( const TCHAR* Cmd, FOutputDevice& Ar );	
 	bool HandleToggleAsyncComputeCommand( const TCHAR* Cmd, FOutputDevice& Ar );
 	bool HandleRecompileShadersCommand( const TCHAR* Cmd, FOutputDevice& Ar );
 	bool HandleRecompileGlobalShadersCommand( const TCHAR* Cmd, FOutputDevice& Ar );
@@ -1699,14 +1697,10 @@ public:
 	bool HandleShaderComplexityCommand( const TCHAR* Cmd, FOutputDevice& Ar );
 	bool HandleFreezeRenderingCommand( const TCHAR* Cmd, FOutputDevice& Ar, UWorld* InWorld );
 	bool HandleShowSelectedLightmapCommand( const TCHAR* Cmd, FOutputDevice& Ar );
-#endif // !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
-	
-	// Compile in Debug, Development, and Test
-#if !UE_BUILD_SHIPPING
 	bool HandleStartFPSChartCommand( const TCHAR* Cmd, FOutputDevice& Ar );
 	bool HandleStopFPSChartCommand( const TCHAR* Cmd, FOutputDevice& Ar, UWorld* InWorld );
 	bool HandleDumpLevelScriptActorsCommand( UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Ar );
-	bool HandleKismetEventCommand( const TCHAR* Cmd, FOutputDevice& Ar );
+	bool HandleKismetEventCommand( UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Ar );
 	bool HandleListTexturesCommand( const TCHAR* Cmd, FOutputDevice& Ar );
 	bool HandleRemoteTextureStatsCommand( const TCHAR* Cmd, FOutputDevice& Ar );
 	bool HandleListParticleSystemsCommand( const TCHAR* Cmd, FOutputDevice& Ar );
@@ -1982,11 +1976,17 @@ public:
 	void ClearOnScreenDebugMessages();
 
 #if !UE_BUILD_SHIPPING
-	/** Capture screenshots and performance metrics */
-	void PerformanceCapture(UWorld* World, const FString& CaptureName);
+	/** 
+	 * Capture screenshots and performance metrics
+	 * @param EventTime time of the Matinee event
+	 */
+	void PerformanceCapture(UWorld* World, const FString& MapName, const FString& MatineeName, float EventTime);
 
-	/** Logs performance capture for use in automation analytics */
-	void LogPerformanceCapture(UWorld* World, const FString& CaptureName);
+	/**
+	 * Logs performance capture for use in automation analytics
+	 * @param EventTime time of the Matinee event
+	 */
+	void LogPerformanceCapture(UWorld* World, const FString& MapName, const FString& MatineeName, float EventTime);
 #endif	// UE_BUILD_SHIPPING
 
 	/**
@@ -2010,6 +2010,13 @@ public:
 	virtual void StopFPSChart();
 
 	/**
+	* Pauses FPS chart data capture if in progress. Useful for omitting known-problem areas from charts.
+	 *
+	 * @param	bPause	Pause State
+	 */
+	virtual void PauseFPSChart(bool bPause);
+
+	/**
 	 * Dumps the FPS chart information to the passed in archive.
 	 *
 	 * @param	InMapName	Name of the map (Or Global)
@@ -2022,7 +2029,7 @@ public:
 	*
 	* @param	InMapName	Name of the map (Or Global)
 	*/
-	virtual void DumpFPSChartAnalytics(const FString& InMapName, TArray<struct FAnalyticsEventAttribute>& InParamArray);
+	virtual void DumpFPSChartAnalytics(const FString& InMapName, TArray<struct FAnalyticsEventAttribute>& InParamArray, bool bIncludeClientHWInfo);
 
 	/** Delegate called when FPS charting detects a hitch (it is not triggered if a capture isn't in progress). */
 	FEngineHitchDetectedDelegate OnHitchDetectedDelegate;
@@ -2132,6 +2139,7 @@ public:
 	 *
 	 * @param Object		Object whose owning world we require.
 	 * @param bChecked      Allows calling function to specify not to do ensure check and that a nullptr return value is acceptable
+	 *						This flag is only used when called by main game thread. 
 	 * returns				The world to which the object belongs.
 	 */
 	UWorld* GetWorldFromContextObject(const UObject* Object, bool bChecked = true) const;
@@ -2181,7 +2189,6 @@ public:
 
 	virtual void RemapGamepadControllerIdForPIE(class UGameViewportClient* InGameViewport, int32 &ControllerId) { }
 
-#if PLATFORM_COMPILER_HAS_VARIADIC_TEMPLATES
 	/**
 	 * Get a locator for Portal services.
 	 *
@@ -2205,7 +2212,6 @@ protected:
 
 	/** Holds registered service instances. */
 	TSharedPtr<IPortalServiceLocator> ServiceLocator;
-#endif
 
 
 public:
@@ -2263,6 +2269,7 @@ public:
 
 		/** Skips copying properties with BlueprintCompilerGeneratedDefaults metadata */
 		bool bSkipCompilerGeneratedDefaults;
+		bool bNotifyObjectReplacement;
 
 		FCopyPropertiesForUnrelatedObjectsParams()
 			: bAggressiveDefaultSubobjectReplacement(false)
@@ -2271,6 +2278,7 @@ public:
 			, bCopyDeprecatedProperties(false)
 			, bPreserveRootComponent(true)
 			, bSkipCompilerGeneratedDefaults(false)
+			, bNotifyObjectReplacement(true)
 		{}
 	};
 	static void CopyPropertiesForUnrelatedObjects(UObject* OldObject, UObject* NewObject, FCopyPropertiesForUnrelatedObjectsParams Params = FCopyPropertiesForUnrelatedObjectsParams());//bool bAggressiveDefaultSubobjectReplacement = false, bool bDoDelta = true);
@@ -2298,18 +2306,14 @@ protected:
 	 */
 	virtual bool InitializeHMDDevice();
 
-	virtual bool InitializeMotionControllers();
-
 	/**	Record EngineAnalytics information for attached HMD devices. */
 	virtual void RecordHMDAnalytics();
 
 	/** Loads all Engine object references from their corresponding config entries. */
 	virtual void InitializeObjectReferences();
 
-#if PLATFORM_COMPILER_HAS_VARIADIC_TEMPLATES
 	/** Initialize Portal services. */
 	virtual void InitializePortalServices();
-#endif
 
 	/** Initializes the running average delta to some good initial framerate. */
 	virtual void InitializeRunningAverageDeltaTime();
@@ -2357,6 +2361,9 @@ private:
 	
 	/** Delegate broadcast after UEditorEngine::Tick has been called (or UGameEngine::Tick in standalone) */
 	FPostEditorTick PostEditorTickEvent;
+
+	/** Delegate broadcast when the editor is closing */
+	FEditorCloseEvent EditorCloseEvent;
 
 #endif // #if WITH_EDITOR
 
@@ -2664,6 +2671,13 @@ protected:
 
 	bool WorldHasValidContext(UWorld *InWorld);
 
+	/**
+	 * Attempts to gracefully handle a failure to travel to the default map.
+	 *
+	 * @param Error the error string result from the LoadMap call that attempted to load the default map.
+	 */
+	virtual void HandleBrowseToDefaultMapFailure(FWorldContext& Context, const FString& TextURL, const FString& Error);
+
 protected:
 
 	// Async map change/ persistent level transition code.
@@ -2884,6 +2898,23 @@ private:
 	/** A list of all the simple stats functions that have been registered */
 	TArray<FEngineStatFuncs> EngineStats;
 
+	// Helper struct that registers itself with the output redirector and copies off warnings
+	// and errors that we'll overlay on the client viewport
+	struct FErrorsAndWarningsCollector : public FBufferedOutputDevice
+	{
+		FErrorsAndWarningsCollector();
+		~FErrorsAndWarningsCollector();
+
+		void Initialize();
+		bool Tick(float Seconds);
+
+		TMap<uint32, uint32>	MessagesToCountMap;
+		FDelegateHandle			TickerHandle;
+		float					DisplayTime;
+	};
+
+	FErrorsAndWarningsCollector	ErrorsAndWarningsCollector;
+
 private:
 
 	/**
@@ -2903,8 +2934,10 @@ private:
 	bool ToggleStatUnitGraph(UWorld* World, FCommonViewportClient* ViewportClient, const TCHAR* Stream = nullptr);
 	bool ToggleStatUnitTime(UWorld* World, FCommonViewportClient* ViewportClient, const TCHAR* Stream = nullptr);
 	bool ToggleStatRaw(UWorld* World, FCommonViewportClient* ViewportClient, const TCHAR* Stream = nullptr);
-#endif
+	bool ToggleStatSoundWaves(UWorld* World, FCommonViewportClient* ViewportClient, const TCHAR* Stream = nullptr);
+	bool ToggleStatSoundCues(UWorld* World, FCommonViewportClient* ViewportClient, const TCHAR* Stream = nullptr);
 	bool ToggleStatSounds(UWorld* World, FCommonViewportClient* ViewportClient, const TCHAR* Stream = nullptr);
+#endif
 
 	/**
 	 * Functions for rendering the various simple stats, should only be used when registering with EngineStats.
@@ -2933,8 +2966,8 @@ private:
 	int32 RenderStatSoundMixes(UWorld* World, FViewport* Viewport, FCanvas* Canvas, int32 X, int32 Y, const FVector* ViewLocation = nullptr, const FRotator* ViewRotation = nullptr);
 	int32 RenderStatSoundWaves(UWorld* World, FViewport* Viewport, FCanvas* Canvas, int32 X, int32 Y, const FVector* ViewLocation = nullptr, const FRotator* ViewRotation = nullptr);
 	int32 RenderStatSoundCues(UWorld* World, FViewport* Viewport, FCanvas* Canvas, int32 X, int32 Y, const FVector* ViewLocation = nullptr, const FRotator* ViewRotation = nullptr);
-#endif // !UE_BUILD_SHIPPING
 	int32 RenderStatSounds(UWorld* World, FViewport* Viewport, FCanvas* Canvas, int32 X, int32 Y, const FVector* ViewLocation = nullptr, const FRotator* ViewRotation = nullptr);
+#endif // !UE_BUILD_SHIPPING
 	int32 RenderStatAI(UWorld* World, FViewport* Viewport, FCanvas* Canvas, int32 X, int32 Y, const FVector* ViewLocation = nullptr, const FRotator* ViewRotation = nullptr);
 #if STATS
 	int32 RenderStatSlateBatches(UWorld* World, FViewport* Viewport, FCanvas* Canvas, int32 X, int32 Y, const FVector* ViewLocation = nullptr, const FRotator* ViewRotation = nullptr);

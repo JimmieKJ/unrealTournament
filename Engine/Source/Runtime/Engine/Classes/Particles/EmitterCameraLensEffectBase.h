@@ -72,6 +72,8 @@ public:
 	/** Given updated camera information, adjust this effect to display appropriately. */
 	virtual void UpdateLocation(const FVector& CamLoc, const FRotator& CamRot, float CamFOVDeg);
 
+	static FTransform GetAttachedEmitterTransform(AEmitterCameraLensEffectBase const* Emitter, const FVector& CamLoc, const FRotator& CamRot, float CamFOVDeg);
+
 	/** Returns true if either particle system would loop forever when played */
 	bool IsLooping() const;
 private:

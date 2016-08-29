@@ -1,12 +1,13 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "MediaPlayerEditorPrivatePCH.h"
+#include "MediaPlayerEditorPCH.h"
+#include "MediaSoundWaveFactoryNew.h"
 
 
 /* UMediaSoundWaveFactoryNew structors
  *****************************************************************************/
 
-UMediaSoundWaveFactoryNew::UMediaSoundWaveFactoryNew( const FObjectInitializer& ObjectInitializer )
+UMediaSoundWaveFactoryNew::UMediaSoundWaveFactoryNew(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
 	SupportedClass = UMediaSoundWave::StaticClass();
@@ -15,19 +16,18 @@ UMediaSoundWaveFactoryNew::UMediaSoundWaveFactoryNew( const FObjectInitializer& 
 }
 
 
-/* UFactory overrides
+/* UFactory interface
  *****************************************************************************/
 
-UObject* UMediaSoundWaveFactoryNew::FactoryCreateNew( UClass* InClass, UObject* InParent, FName InName, EObjectFlags Flags, UObject* Context, FFeedbackContext* Warn )
+UObject* UMediaSoundWaveFactoryNew::FactoryCreateNew(UClass* InClass, UObject* InParent, FName InName, EObjectFlags Flags, UObject* Context, FFeedbackContext* Warn)
 {
-	UMediaSoundWave* MediaSoundWave = NewObject<UMediaSoundWave>(InParent, InClass, InName, Flags);
+	return NewObject<UMediaSoundWave>(InParent, InClass, InName, Flags);
+}
 
-	if ((MediaSoundWave != nullptr) && (InitialMediaPlayer != nullptr))
-	{
-		MediaSoundWave->SetMediaPlayer(InitialMediaPlayer);
-	}
 
-	return MediaSoundWave;
+uint32 UMediaSoundWaveFactoryNew::GetMenuCategories() const
+{
+	return EAssetTypeCategories::Media | EAssetTypeCategories::Sounds;
 }
 
 

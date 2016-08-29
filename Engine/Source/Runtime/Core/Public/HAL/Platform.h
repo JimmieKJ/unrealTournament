@@ -2,6 +2,7 @@
 
 #pragma once
 
+#include "../Misc/Build.h"
 
 // define all other platforms to be zero
 //@port Define the platform here to be zero when compiling for other platforms
@@ -38,17 +39,8 @@
 #if !defined(PLATFORM_ANDROID_VULKAN)
 	#define PLATFORM_ANDROID_VULKAN 0
 #endif
-#if !defined(PLATFORM_ANDROIDGL4)
-	#define PLATFORM_ANDROIDGL4 0
-#endif
-#if !defined(PLATFORM_ANDROIDES31)
-	#define PLATFORM_ANDROIDES31 0
-#endif
-#if !defined(PLATFORM_WINRT)
-	#define PLATFORM_WINRT 0
-#endif
-#if !defined(PLATFORM_WINRT_ARM)
-	#define PLATFORM_WINRT_ARM	0
+#if !defined(PLATFORM_ANDROIDESDEFERRED)
+	#define PLATFORM_ANDROIDESDEFERRED 0
 #endif
 #if !defined(PLATFORM_APPLE)
 	#define PLATFORM_APPLE 0
@@ -73,8 +65,6 @@
 	#include "IOS/IOSPlatformCompilerPreSetup.h"
 #elif PLATFORM_ANDROID
 	#include "Android/AndroidPlatformCompilerPreSetup.h"
-#elif PLATFORM_WINRT_ARM || PLATFORM_WINRT
-	#include "WinRT/WinRTPlatformCompilerPreSetup.h"
 #elif PLATFORM_HTML5
 	#include "HTML5/HTML5PlatformCompilerPreSetup.h"
 #elif PLATFORM_LINUX
@@ -109,10 +99,6 @@
 	#include "IOS/IOSPlatform.h"
 #elif PLATFORM_ANDROID
 	#include "Android/AndroidPlatform.h"
-#elif PLATFORM_WINRT_ARM
-	#include "WinRT/WinRTARMPlatform.h"
-#elif PLATFORM_WINRT
-	#include "WinRT/WinRTPlatform.h"
 #elif PLATFORM_HTML5
 	#include "HTML5/HTML5Platform.h"
 #elif PLATFORM_LINUX
@@ -173,15 +159,6 @@
 #endif
 #ifndef PLATFORM_COMPILER_HAS_DEFAULTED_FUNCTIONS
 	#define PLATFORM_COMPILER_HAS_DEFAULTED_FUNCTIONS	1
-#endif
-#ifndef PLATFORM_COMPILER_HAS_VARIADIC_TEMPLATES
-	#define PLATFORM_COMPILER_HAS_VARIADIC_TEMPLATES	1
-#endif
-#ifndef PLATFORM_COMPILER_HAS_DEFAULT_FUNCTION_TEMPLATE_ARGUMENTS
-	#define PLATFORM_COMPILER_HAS_DEFAULT_FUNCTION_TEMPLATE_ARGUMENTS	1
-#endif
-#ifndef PLATFORM_COMPILER_HAS_EXPLICIT_OPERATORS
-	#define PLATFORM_COMPILER_HAS_EXPLICIT_OPERATORS	1
 #endif
 #ifndef PLATFORM_COMPILER_COMMON_LANGUAGE_RUNTIME_COMPILATION
 	#define PLATFORM_COMPILER_COMMON_LANGUAGE_RUNTIME_COMPILATION 0
@@ -341,8 +318,25 @@
 #ifndef RESTRICT
 	#define RESTRICT __restrict						/* no alias hint */
 #endif
+
+/* Wrap a function signature in these to warn that callers should not ignore the return value */
+#ifndef FUNCTION_CHECK_RETURN_START
+	#define FUNCTION_CHECK_RETURN_START
+#endif
+#ifndef FUNCTION_CHECK_RETURN_END
+	#define FUNCTION_CHECK_RETURN_END
+#endif
+
+/* Wrap a function signature in these to indicate that the function never returns */
+#ifndef FUNCTION_NO_RETURN_START
+	#define FUNCTION_NO_RETURN_START
+#endif
+#ifndef FUNCTION_NO_RETURN_END
+	#define FUNCTION_NO_RETURN_END
+#endif
+
 #ifndef FUNCTION_CHECK_RETURN
-	#define FUNCTION_CHECK_RETURN(...) __VA_ARGS__	/* Wrap a function signature in this to warn that callers should not ignore the return value */
+	#define FUNCTION_CHECK_RETURN(...) DEPRECATED_MACRO(4.12, "FUNCTION_CHECK_RETURN has been deprecated and should be replaced with FUNCTION_CHECK_RETURN_START and FUNCTION_CHECK_RETURN_END.") FUNCTION_CHECK_RETURN_START __VA_ARGS__ FUNCTION_CHECK_RETURN_END
 #endif
 
 #ifndef ASSUME										/* Hints compiler that expression is true; generally restricted to comparisons against constants */
@@ -351,16 +345,16 @@
 
 /** Branch prediction hints */
 #ifndef LIKELY						/* Hints compiler that expression is likely to be true, much softer than ASSUME - allows (penalized by worse performance) expression to be false */
-	#if defined(__clang__) || defined(__GNUC__)
-		#define LIKELY(x)			__builtin_expect((x), 1)
+	#if ( defined(__clang__) || defined(__GNUC__) ) && PLATFORM_LINUX	// effect of these on non-Linux platform has not been analyzed as of 2016-03-21
+		#define LIKELY(x)			__builtin_expect(!!(x), 1)
 	#else
 		#define LIKELY(x)			(x)
 	#endif
 #endif
 
 #ifndef UNLIKELY					/* Hints compiler that expression is unlikely to be true, allows (penalized by worse performance) expression to be true */
-	#if defined(__clang__) || defined(__GNUC__)
-		#define UNLIKELY(x)			__builtin_expect((x), 0)
+	#if ( defined(__clang__) || defined(__GNUC__) ) && PLATFORM_LINUX	// effect of these on non-Linux platform has not been analyzed as of 2016-03-21
+		#define UNLIKELY(x)			__builtin_expect(!!(x), 0)
 	#else
 		#define UNLIKELY(x)			(x)
 	#endif
@@ -543,38 +537,6 @@ struct THasOperatorNotEquals
 	enum { Value = FHasOperatorImpl::NotEquals<T>::Value };
 };
 
-#if PLATFORM_COMPILER_HAS_EXPLICIT_OPERATORS
-	#define FORCEINLINE_EXPLICIT_OPERATOR_BOOL FORCEINLINE explicit operator bool
-	#define SAFE_BOOL_OPERATORS(...)		// not needed when compiler supports explicit operator bool()
-#elif PLATFORM_COMPILER_COMMON_LANGUAGE_RUNTIME_COMPILATION
-	// unsafe version
-	#define FORCEINLINE_EXPLICIT_OPERATOR_BOOL FORCEINLINE operator bool
-	#define SAFE_BOOL_OPERATORS(...)
-#else
-	#define FORCEINLINE_EXPLICIT_OPERATOR_BOOL \
-					private: \
-						template <typename TheClassType> \
-						static TheClassType UE_ClassTypeHelper(const TheClassType&); \
-						struct UE_PrivateBoolType \
-						{ \
-							int x; \
-						}; \
-					public: \
-						FORCEINLINE operator int UE_PrivateBoolType::*() const \
-						{ \
-							static_assert(THasOperatorEquals   <decltype(UE_ClassTypeHelper(*this))>::Value, "Class needs operator==()."); \
-							static_assert(THasOperatorNotEquals<decltype(UE_ClassTypeHelper(*this))>::Value, "Class needs operator!=()."); \
-							return UE_OperatorBool() ? &UE_PrivateBoolType::x : 0; \
-						} \
-						FORCEINLINE bool UE_OperatorBool
-
-	// these are left unimplemented to cause link errors if used
-	#define SAFE_BOOL_OPERATORS(...)	\
-			void operator ==( const __VA_ARGS__ & RHS ) const; \
-			void operator !=( const __VA_ARGS__ & RHS ) const;
-#endif
-
-
 // Console ANSICHAR/TCHAR command line handling
 #if PLATFORM_COMPILER_HAS_TCHAR_WMAIN
 #define INT32_MAIN_INT32_ARGC_TCHAR_ARGV() int32 wmain(int32 ArgC, TCHAR* ArgV[])
@@ -748,3 +710,35 @@ namespace TypeTests
 	static_assert(sizeof(SIZE_T) == sizeof(void *), "SIZE_T type size test failed.");
 	static_assert(SIZE_T(-1) > SIZE_T(0), "SIZE_T type sign test failed.");
 }
+
+// Platform specific compiler setup.
+#if PLATFORM_WINDOWS
+	#include "Windows/WindowsPlatformCompilerSetup.h"
+#elif PLATFORM_PS4
+	#include "PS4/PS4CompilerSetup.h"
+#elif PLATFORM_XBOXONE
+	#include "XboxOne/XboxOneCompilerSetup.h"
+#elif PLATFORM_MAC
+	#include "Mac/MacPlatformCompilerSetup.h"
+#elif PLATFORM_IOS
+	#include "IOS/IOSPlatformCompilerSetup.h"
+#elif PLATFORM_ANDROID
+	#include "Android/AndroidCompilerSetup.h"
+#elif PLATFORM_HTML5
+	#include "HTML5/HTML5PlatformCompilerSetup.h"
+#elif PLATFORM_LINUX
+	#include "Linux/LinuxPlatformCompilerSetup.h"
+#else
+	#error Unknown Compiler
+#endif
+
+// If we don't have a platform-specific define for the TEXT macro, define it now.
+#if !defined(TEXT) && !UE_BUILD_DOCS
+	#define TEXT_PASTE(x) L ## x
+	#define TEXT(x) TEXT_PASTE(x)
+#endif
+
+// Include defaults for defines that aren't explicitly set by the platform
+#include "UMemoryDefines.h"
+#include "../Misc/CoreMiscDefines.h"
+#include "../Misc/CoreDefines.h"

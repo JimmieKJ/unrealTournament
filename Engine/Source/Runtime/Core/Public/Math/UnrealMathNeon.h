@@ -913,6 +913,47 @@ FORCEINLINE void VectorStoreHalf4(VectorRegister Vec, void* RESTRICT Ptr)
 }
 
 /**
+* Loads packed RGB10A2(4 bytes) from unaligned memory and converts them into 4 FLOATs.
+* IMPORTANT: You need to call VectorResetFloatRegisters() before using scalar FLOATs after you've used this intrinsic!
+*
+* @param Ptr			Unaligned memory pointer to the RGB10A2(4 bytes).
+* @return				VectorRegister with 4 FLOATs loaded from Ptr.
+*/
+FORCEINLINE VectorRegister VectorLoadURGB10A2N(void* Ptr)
+{
+	float V[4];
+	uint32 E = *(uint32*)Ptr;
+
+	V[0] = float((E >> 00) & 0x3FF) / 1023.0f;
+	V[1] = float((E >> 10) & 0x3FF) / 1023.0f;
+	V[2] = float((E >> 20) & 0x3FF) / 1023.0f;
+	V[3] = float((E >> 30) & 0x3) / 3.0f;
+
+	return MakeVectorRegister(V[0], V[1], V[2], V[3]);
+}
+
+/**
+* Converts the 4 FLOATs in the vector RGB10A2, clamped to [0, 1023] and [0, 3], and stores to unaligned memory.
+* IMPORTANT: You need to call VectorResetFloatRegisters() before using scalar FLOATs after you've used this intrinsic!
+*
+* @param Vec			Vector containing 4 FLOATs
+* @param Ptr			Unaligned memory pointer to store the packed RGB10A2(4 bytes).
+*/
+FORCEINLINE void VectorStoreURGB10A2N(const VectorRegister& Vec, void* Ptr)
+{
+	union { VectorRegister V; float F[4]; } Tmp;
+	Tmp.V = VectorMax(Vec, MakeVectorRegister(0.0f, 0.0f, 0.0f, 0.0f));
+	Tmp.V = VectorMin(Tmp.V, MakeVectorRegister(1.0f, 1.0f, 1.0f, 1.0f));
+	Tmp.V = VectorMultiply(Tmp.V, MakeVectorRegister(1023.0f, 1023.0f, 1023.0f, 3.0f));
+
+	uint32* Out = (uint32*)Ptr;
+	*Out = (uint32(Tmp.F[0]) & 0x3FF) << 00 |
+		(uint32(Tmp.F[1]) & 0x3FF) << 10 |
+		(uint32(Tmp.F[2]) & 0x3FF) << 20 |
+		(uint32(Tmp.F[3]) & 0x003) << 30;
+}
+
+/**
  * Returns non-zero if any element in Vec1 is greater than the corresponding element in Vec2, otherwise 0.
  *
  * @param Vec1			1st source vector
@@ -1143,7 +1184,46 @@ FORCEINLINE VectorRegister VectorStep(const VectorRegister& X)
 		(float)(VectorGetComponent(X, 3) >= 0.0f ? 1.0f : -1.0f));
 }
 
+/**
+* Loads packed RGBA16(4 bytes) from unaligned memory and converts them into 4 FLOATs.
+* IMPORTANT: You need to call VectorResetFloatRegisters() before using scalar FLOATs after you've used this intrinsic!
+*
+* @param Ptr			Unaligned memory pointer to the RGBA16(8 bytes).
+* @return				VectorRegister with 4 FLOATs loaded from Ptr.
+*/
+FORCEINLINE VectorRegister VectorLoadURGBA16N(void* Ptr)
+{
+	float V[4];
+	uint16* E = (uint16*)Ptr;
+
+	V[0] = float(E[0]) / 65535.0f;
+	V[1] = float(E[1]) / 65535.0f;
+	V[2] = float(E[2]) / 65535.0f;
+	V[3] = float(E[3]) / 65535.0f;
+
+	return MakeVectorRegister(V[0], V[1], V[2], V[3]);
+}
+
+/**
+* Converts the 4 FLOATs in the vector RGBA16, clamped to [0, 65535], and stores to unaligned memory.
+* IMPORTANT: You need to call VectorResetFloatRegisters() before using scalar FLOATs after you've used this intrinsic!
+*
+* @param Vec			Vector containing 4 FLOATs
+* @param Ptr			Unaligned memory pointer to store the packed RGBA16(8 bytes).
+*/
+FORCEINLINE void VectorStoreURGBA16N(const VectorRegister& Vec, void* Ptr)
+{
+	VectorRegister Tmp;
+	Tmp = VectorMax(Vec, MakeVectorRegister(0.0f, 0.0f, 0.0f, 0.0f));
+	Tmp = VectorMin(Tmp, MakeVectorRegister(1.0f, 1.0f, 1.0f, 1.0f));
+	Tmp = VectorMultiplyAdd(Tmp, MakeVectorRegister(65535.0f, 65535.0f, 65535.0f, 65535.0f), MakeVectorRegister(0.5f, 0.5f, 0.5f, 0.5f));
+	Tmp = VectorTruncate(Tmp);
+
+	uint16* Out = (uint16*)Ptr;
+	Out[0] = (uint16)VectorGetComponent(Tmp, 0);
+	Out[1] = (uint16)VectorGetComponent(Tmp, 1);
+	Out[2] = (uint16)VectorGetComponent(Tmp, 2);
+	Out[3] = (uint16)VectorGetComponent(Tmp, 3);
+}
 
 // To be continued...
-
-

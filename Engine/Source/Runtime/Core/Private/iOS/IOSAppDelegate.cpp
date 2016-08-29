@@ -18,7 +18,7 @@
 #if (UE_BUILD_SHIPPING || UE_BUILD_TEST)
 #define GAME_THREAD_STACK_SIZE 1024 * 1024
 #else
-#define GAME_THREAD_STACK_SIZE 4 * 1024 * 1024
+#define GAME_THREAD_STACK_SIZE 8 * 1024 * 1024
 #endif
 
 DEFINE_LOG_CATEGORY(LogIOSAudioSession);
@@ -27,6 +27,13 @@ DECLARE_LOG_CATEGORY_EXTERN(LogEngine, Log, All);
 extern bool GShowSplashScreen;
 
 FIOSCoreDelegates::FOnOpenURL FIOSCoreDelegates::OnOpenURL;
+
+/*
+	From: https://developer.apple.com/library/ios/documentation/UIKit/Reference/UIApplicationDelegate_Protocol/#//apple_ref/occ/intfm/UIApplicationDelegate/applicationDidEnterBackground:
+	"In practice, you should return from applicationDidEnterBackground: as quickly as possible. If the method does not return before time runs out your app is terminated and purged from memory."
+*/
+const double cMaxThreadWaitTime = 2.0;	// Setting this to be 2 seconds since this wait has to be done twice (once for sending the enter background event to the game thread, and another for waiting on the suspend msg
+										// I could not find a reference for this but in the past I believe the timeout was 5 seconds
 
 static void SignalHandler(int32 Signal, struct __siginfo* Info, void* Context)
 {
@@ -367,10 +374,11 @@ void InstallSignalHandlers()
 		FAppEntry::Resume();
 	}
     
-	// if you run this on the main thread super early, it will deadlock
-	if (IOSView && IOSView->bIsInitialized) 
+	if (IOSView && IOSView->bIsInitialized)
 	{
-		while(!self.bHasSuspended)
+		// Don't deadlock here because a msg box may appear super early blocking the game thread and then the app may go into the background
+		double	startTime = FPlatformTime::Seconds();
+		while(!self.bHasSuspended && (FPlatformTime::Seconds() - startTime) < cMaxThreadWaitTime)
 		{
             FIOSPlatformRHIFramePacer::Suspend();
 			FPlatformProcess::Sleep(0.05f);
@@ -514,7 +522,27 @@ void InstallSignalHandlers()
     imageView.tag = 2;
     [self.Window addSubview: imageView];
     GShowSplashScreen = true;
-    
+	
+#if !PLATFORM_TVOS
+	// Save launch local notification so the app can check for it when it is ready
+	UILocalNotification *notification = [launchOptions objectForKey:UIApplicationLaunchOptionsLocalNotificationKey];
+	if ( notification != nullptr )
+	{
+		NSDictionary*	userInfo = [notification userInfo];
+		if(userInfo != nullptr)
+		{
+			NSString*	activationEvent = (NSString*)[notification.userInfo objectForKey: @"ActivationEvent"];
+			
+			if(activationEvent != nullptr)
+			{
+				FAppEntry::gAppLaunchedWithLocalNotification = true;
+				FAppEntry::gLaunchLocalNotificationActivationEvent = FString(activationEvent);
+				FAppEntry::gLaunchLocalNotificationFireDate = [notification.fireDate timeIntervalSince1970];
+			}
+		}
+	}
+#endif
+	
     timer = [NSTimer scheduledTimerWithTimeInterval: 0.05f target:self selector:@selector(timerForSplashScreen) userInfo:nil repeats:YES];
     
 	// create a new thread (the pointer will be retained forever)
@@ -537,8 +565,29 @@ void InstallSignalHandlers()
 #endif
 
 	[self InitializeAudioSession];
-    
+	
+#if !PLATFORM_TVOS
+	// Register for device orientation changes
+	[[UIDevice currentDevice] beginGeneratingDeviceOrientationNotifications];
+	[[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(didRotate:) name:UIDeviceOrientationDidChangeNotification object:nil];
+#endif
+	
 	return YES;
+}
+
+- (void) didRotate:(NSNotification *)notification
+{   
+#if !PLATFORM_TVOS
+	UIDeviceOrientation orientation = [[UIDevice currentDevice] orientation];
+
+    if (bEngineInit)
+    {
+		FFunctionGraphTask::CreateAndDispatchWhenReady([orientation]()
+		{
+			FCoreDelegates::ApplicationReceivedScreenOrientationChangedNotificationDelegate.Broadcast((int32)orientation);
+		}, TStatId(), NULL, ENamedThreads::GameThread);
+	}
+#endif
 }
 
 - (BOOL)application:(UIApplication *)application openURL:(NSURL *)url sourceApplication:(NSString *)sourceApplication annotation:(id)annotation
@@ -579,11 +628,21 @@ void InstallSignalHandlers()
 	 */
     if (bEngineInit)
     {
-        FGraphEventRef ResignTask = FFunctionGraphTask::CreateAndDispatchWhenReady([&]()
+        FGraphEventRef ResignTask = FFunctionGraphTask::CreateAndDispatchWhenReady([]()
         {
             FCoreDelegates::ApplicationWillDeactivateDelegate.Broadcast();
         }, TStatId(), NULL, ENamedThreads::GameThread);
-        FTaskGraphInterface::Get().WaitUntilTaskCompletes(ResignTask);
+		
+		// Do not wait forever for this task to complete since the game thread may be stuck on waiting for user input from a modal dialog box
+		double	startTime = FPlatformTime::Seconds();
+		while((FPlatformTime::Seconds() - startTime) < cMaxThreadWaitTime)
+		{
+			FPlatformProcess::Sleep(0.05f);
+			if(ResignTask->IsComplete())
+			{
+				break;
+			}
+		}
     }
     
 	[self ToggleSuspend:true];
@@ -617,11 +676,21 @@ void InstallSignalHandlers()
 
     if (bEngineInit)
     {
-        FGraphEventRef ResignTask = FFunctionGraphTask::CreateAndDispatchWhenReady([&]()
+        FGraphEventRef ResignTask = FFunctionGraphTask::CreateAndDispatchWhenReady([]()
         {
             FCoreDelegates::ApplicationHasReactivatedDelegate.Broadcast();
         }, TStatId(), NULL, ENamedThreads::GameThread);
-        FTaskGraphInterface::Get().WaitUntilTaskCompletes(ResignTask);
+
+		// Do not wait forever for this task to complete since the game thread may be stuck on waiting for user input from a modal dialog box
+		double	startTime = FPlatformTime::Seconds();
+ 		while((FPlatformTime::Seconds() - startTime) < cMaxThreadWaitTime)
+		{
+			FPlatformProcess::Sleep(0.05f);
+			if(ResignTask->IsComplete())
+			{
+				break;
+			}
+		}
     }
 }
 
@@ -658,6 +727,11 @@ void InstallSignalHandlers()
 - (void)application:(UIApplication *)application didRegisterUserNotificationSettings:(UIUserNotificationSettings *)notificationSettings
 {
 	[application registerForRemoteNotifications];
+	int32 types = (int32)[notificationSettings types];
+    FFunctionGraphTask::CreateAndDispatchWhenReady([types]()
+    {
+		FCoreDelegates::ApplicationRegisteredForUserNotificationsDelegate.Broadcast(types);
+    }, TStatId(), NULL, ENamedThreads::GameThread);
 }
 #endif
 
@@ -667,12 +741,20 @@ void InstallSignalHandlers()
 	Token.AddUninitialized([deviceToken length]);
 	memcpy(Token.GetData(), [deviceToken bytes], [deviceToken length]);
 
-	FCoreDelegates::ApplicationRegisteredForRemoteNotificationsDelegate.Broadcast(Token);
+    FFunctionGraphTask::CreateAndDispatchWhenReady([Token]()
+    {
+		FCoreDelegates::ApplicationRegisteredForRemoteNotificationsDelegate.Broadcast(Token);
+    }, TStatId(), NULL, ENamedThreads::GameThread);
 }
 
 -(void)application:(UIApplication *)application didFailtoRegisterForRemoteNotificationsWithError:(NSError *)error
 {
-	FCoreDelegates::ApplicationFailedToRegisterForRemoteNotificationsDelegate.Broadcast(FString([error description]));
+	FString errorDescription([error description]);
+	
+    FFunctionGraphTask::CreateAndDispatchWhenReady([errorDescription]()
+    {
+		FCoreDelegates::ApplicationFailedToRegisterForRemoteNotificationsDelegate.Broadcast(errorDescription);
+    }, TStatId(), NULL, ENamedThreads::GameThread);
 }
 
 -(void)application : (UIApplication *)application didReceiveRemoteNotification:(NSDictionary *)userInfo fetchCompletionHandler:(void(^)(UIBackgroundFetchResult result))handler
@@ -687,9 +769,35 @@ void InstallSignalHandlers()
 	{
 		JsonString = [[[NSString alloc] initWithData:JsonData encoding : NSUTF8StringEncoding] autorelease];
 	}
-
-	FCoreDelegates::ApplicationReceivedRemoteNotificationDelegate.Broadcast(FString(JsonString));
+	
+	FString	jsonFString(JsonString);
+	
+    FFunctionGraphTask::CreateAndDispatchWhenReady([jsonFString]()
+    {
+		FCoreDelegates::ApplicationReceivedRemoteNotificationDelegate.Broadcast(jsonFString);
+    }, TStatId(), NULL, ENamedThreads::GameThread);
 }
+
+- (void)application:(UIApplication *)application didReceiveLocalNotification:(UILocalNotification *)notification
+{
+	NSString*	activationEvent = (NSString*)[notification.userInfo objectForKey: @"ActivationEvent"];
+	
+	if(activationEvent != nullptr)
+	{
+		FString	activationEventFString(activationEvent);
+		int32	fireDate = [notification.fireDate timeIntervalSince1970];
+		
+		FFunctionGraphTask::CreateAndDispatchWhenReady([activationEventFString, fireDate]()
+		{
+			FCoreDelegates::ApplicationReceivedLocalNotificationDelegate.Broadcast(activationEventFString, fireDate);
+		}, TStatId(), NULL, ENamedThreads::GameThread);
+	}
+	else
+	{
+		NSLog(@"Warning: Missing local notification activation event");
+	}
+}
+
 #endif
 
 /**
@@ -807,6 +915,11 @@ CORE_API bool IOSShowAchievementsUI()
 	[[IOSAppDelegate GetDelegate] performSelectorOnMainThread:@selector(ShowAchievements) withObject:nil waitUntilDone : NO];
 
 	return true;
+}
+
+-(UIWindow*)window
+{
+	return Window;
 }
 
 @end

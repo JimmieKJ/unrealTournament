@@ -223,16 +223,16 @@ void SBlueprintLibraryPalette::CollectAllActions(FGraphActionListBuilderBase& Ou
 }
 
 //------------------------------------------------------------------------------
-TSharedRef<SVerticalBox> SBlueprintLibraryPalette::ConstructHeadingWidget(FSlateBrush const* const Icon, FText const& TitleText, FText const& ToolTip)
+TSharedRef<SVerticalBox> SBlueprintLibraryPalette::ConstructHeadingWidget(FSlateBrush const* const Icon, FText const& TitleText, FText const& InToolTip)
 {
-	TSharedRef<SVerticalBox> SuperHeading = SBlueprintSubPalette::ConstructHeadingWidget(Icon, TitleText, ToolTip);
+	TSharedRef<SVerticalBox> SuperHeading = SBlueprintSubPalette::ConstructHeadingWidget(Icon, TitleText, InToolTip);
 
 	TSharedPtr<SToolTip> ClassPickerToolTip;
 	SAssignNew(ClassPickerToolTip, SToolTip).Text(LOCTEXT("ClassFilter", "Filter the available nodes by class."));
 
 	if (bUseLegacyLayout)
 	{
-		SuperHeading = SNew(SVerticalBox).ToolTipText(ToolTip);
+		SuperHeading = SNew(SVerticalBox).ToolTipText(InToolTip);
 	}
 
 	SuperHeading->AddSlot()

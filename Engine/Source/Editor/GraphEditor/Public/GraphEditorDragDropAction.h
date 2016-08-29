@@ -47,7 +47,7 @@ private:
 	EVisibility GetErrorIconVisible() const;
 
 	// The pin that the drag action is currently hovering over
-	TWeakObjectPtr<class UEdGraphPin> HoveredPin;
+	FEdGraphPinReference HoveredPin;
 
 	// The node that the drag action is currently hovering over
 	TSharedPtr<class SGraphNode> HoveredNode;

@@ -65,21 +65,21 @@ class ENGINE_API UInstancedStaticMeshComponent : public UStaticMeshComponent
 {
 	GENERATED_UCLASS_BODY()
 
-	/** Array of instances, bulk serialized */
-	UPROPERTY(EditAnywhere, Transient, DuplicateTransient, DisplayName="Instances", Category=Instances, meta=(MakeEditWidget=true))
+	/** Array of instances, bulk serialized. */
+	UPROPERTY(EditAnywhere, SkipSerialization, DisplayName="Instances", Category=Instances, meta=(MakeEditWidget=true))
 	TArray<FInstancedStaticMeshInstanceData> PerInstanceSMData;
 
 	/** Value used to seed the random number stream that generates random numbers for each of this mesh's instances.
-		The random number is stored in a buffer accessible to materials through the PerInstanceRandom expression.  If
-		this is set to zero (default), it will be populated automatically by the editor */
+		The random number is stored in a buffer accessible to materials through the PerInstanceRandom expression. If
+		this is set to zero (default), it will be populated automatically by the editor. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=InstancedStaticMeshComponent)
 	int32 InstancingRandomSeed;
 
-	/** Distance from camera at which each instance begins to fade out */
+	/** Distance from camera at which each instance begins to fade out. */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Culling)
 	int32 InstanceStartCullDistance;
 
-	/** Distance from camera at which each instance completely fades out */
+	/** Distance from camera at which each instance completely fades out. */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Culling)
 	int32 InstanceEndCullDistance;
 
@@ -94,7 +94,7 @@ class ENGINE_API UInstancedStaticMeshComponent : public UStaticMeshComponent
 	/** Tracks outstanding proxysize, as this is a bit hard to do with the fire-and-forget grass. */
 	SIZE_T ProxySize;
 
-	/** Add an instance to this component. Transform is given in local space of this component.  */
+	/** Add an instance to this component. Transform is given in local space of this component. */
 	UFUNCTION(BlueprintCallable, Category="Components|InstancedStaticMesh")
 	virtual int32 AddInstance(const FTransform& InstanceTransform);
 
@@ -106,6 +106,17 @@ class ENGINE_API UInstancedStaticMeshComponent : public UStaticMeshComponent
 	UFUNCTION(BlueprintCallable, Category = "Components|InstancedStaticMesh")
 	bool GetInstanceTransform(int32 InstanceIndex, FTransform& OutInstanceTransform, bool bWorldSpace = false) const;
 
+	virtual void OnUpdateTransform(EUpdateTransformFlags UpdateTransformFlags, ETeleportType Teleport) override;
+
+
+	/**
+	* Return whether this primitive should have data for texture streaming.
+	* Instanced Static Mesh component don't have valid build data yet.
+	*
+	* @return	true if a rebuild is required.
+	*/
+	virtual bool RequiresStreamingTextureData() const override { return false; }
+
 	/**
 	* Update the transform for the instance specified.
 	*
@@ -113,20 +124,21 @@ class ENGINE_API UInstancedStaticMeshComponent : public UStaticMeshComponent
 	* @param NewInstanceTransform	The new transform
 	* @param bWorldSpace			If true, the new transform interpreted as a World Space transform, otherwise it is interpreted as Local Space
 	* @param bMarkRenderStateDirty	If true, the change should be visible immediately. If you are updating many instances you should only set this to true for the last instance.
+	* @param bTeleport				Whether or not the instance's physics should be moved normally, or teleported (moved instantly, ignoring velocity).
 	* @return						True on success.
 	*/
 	UFUNCTION(BlueprintCallable, Category = "Components|InstancedStaticMesh")
-	virtual bool UpdateInstanceTransform(int32 InstanceIndex, const FTransform& NewInstanceTransform, bool bWorldSpace=false, bool bMarkRenderStateDirty = false);
+	virtual bool UpdateInstanceTransform(int32 InstanceIndex, const FTransform& NewInstanceTransform, bool bWorldSpace=false, bool bMarkRenderStateDirty=false, bool bTeleport=false);
 
-	/** Remove the instance specified. Returns True on success. */
+	/** Remove the instance specified. Returns True on success. Note that this will leave the array in order, but may shrink it. */
 	UFUNCTION(BlueprintCallable, Category = "Components|InstancedStaticMesh")
 	virtual bool RemoveInstance(int32 InstanceIndex);
 	
-	/** Clear all instances being rendered by this component */
+	/** Clear all instances being rendered by this component. */
 	UFUNCTION(BlueprintCallable, Category="Components|InstancedStaticMesh")
 	virtual void ClearInstances();
 	
-	/** Get the number of instances in this component */
+	/** Get the number of instances in this component. */
 	UFUNCTION(BlueprintCallable, Category = "Components|InstancedStaticMesh")
 	int32 GetInstanceCount() const;
 
@@ -145,9 +157,7 @@ class ENGINE_API UInstancedStaticMeshComponent : public UStaticMeshComponent
 	virtual bool ShouldCreatePhysicsState() const override;
 
 public:
-	/** Render data will be initialized once we create scene proxy for this component
-	 *  Released on the rendering thread
-	 */
+	/** Render data will be initialized once we create scene proxy for this component. Released on the rendering thread. */
 	TSharedPtr<FPerInstanceRenderData, ESPMode::ThreadSafe> PerInstanceRenderData;
 	/** This was prebuilt for grass, never destroy it. */
 	bool bPerInstanceRenderDataWasPrebuilt;
@@ -164,21 +174,23 @@ public:
 	TArray<physx::PxAggregate*> Aggregates;
 #endif	//WITH_PHYSX
 
-	/** Physics representation of the instance bodies */
+	/** Physics representation of the instance bodies. */
 	TArray<FBodyInstance*> InstanceBodies;
 
-	/** Serialization of all the InstanceBodies. Helps speed up physics creation time*/
+	/** Serialization of all the InstanceBodies. Helps speed up physics creation time. */
 	UPROPERTY()
 	class UPhysicsSerializer* PhysicsSerializer;
 
-	//~ Begin UActorComponent Interface 
+	//~ Begin UActorComponent Interface
 	virtual FActorComponentInstanceData* GetComponentInstanceData() const override;
-	//~ End UActorComponent Interface 
+	//~ End UActorComponent Interface
 
 	//~ Begin UPrimitiveComponent Interface
 	virtual FPrimitiveSceneProxy* CreateSceneProxy() override;
-	virtual void CreatePhysicsState() override;
-	virtual void DestroyPhysicsState() override;
+protected:
+	virtual void OnCreatePhysicsState() override;
+	virtual void OnDestroyPhysicsState() override;
+public:
 	virtual bool CanEditSimulatePhysics() override;
 
 	virtual FBoxSphereBounds CalcBounds(const FTransform& BoundTransform) const override;
@@ -191,11 +203,11 @@ public:
 	virtual bool DoCustomNavigableGeometryExport(FNavigableGeometryExport& GeomExport) const override;
 	//~ End UPrimitiveComponent Interface
 	
-	//~ Begin UNavRelevantInterface Interface.
+	//~ Begin UNavRelevantInterface Interface
 	virtual void GetNavigationData(FNavigationRelevantData& Data) const override;
-	//~ End UPrimitiveComponent Interface.
+	//~ End UPrimitiveComponent Interface
 	
-	//Begin UObject Interface
+	//~ Begin UObject Interface
 	virtual void Serialize(FArchive& Ar) override;
 	virtual SIZE_T GetResourceSize(EResourceSizeMode::Type Mode) override;
 	void BeginDestroy() override;
@@ -203,51 +215,51 @@ public:
 	virtual void PostEditChangeChainProperty(FPropertyChangedChainEvent& PropertyChangedEvent) override;
 	virtual void PostEditUndo() override;
 #endif
-	//End UObject Interface
+	//~ End UObject Interface
 
-	/** Applies the cached component instance data to a newly blueprint constructed component */
+	/** Applies the cached component instance data to a newly blueprint constructed component. */
 	void ApplyComponentInstanceData(class FInstancedStaticMeshComponentInstanceData* ComponentInstanceData);
 
-	/** Check to see if an instance is selected */
+	/** Check to see if an instance is selected. */
 	bool IsInstanceSelected(int32 InInstanceIndex) const;
 
-	/** Select/deselect an instance or group of instances */
+	/** Select/deselect an instance or group of instances. */
 	void SelectInstance(bool bInSelected, int32 InInstanceIndex, int32 InInstanceCount = 1);
 
-	/** Deselect all instances */
+	/** Deselect all instances. */
 	void ClearInstanceSelection();
 
-	/** 
-	 * Transfers ownership of instance render data to a render thread 
-	 * instance render data will be released in scene proxy dtor or on render thread task
-	 */
+	/** Transfers ownership of instance render data to a render thread. Instance render data will be released in scene proxy destructor or on render thread task. */
 	void ReleasePerInstanceRenderData();
 
+	// Number of instances in the render-side instance buffer
+	virtual int32 GetNumRenderInstances() const { return PerInstanceSMData.Num() + RemovedInstances.Num(); }
+
 private:
-	/** Creates body instances for all instances owned by this component */
+	/** Creates body instances for all instances owned by this component. */
 	void CreateAllInstanceBodies();
 
-	/** Terminate all body instances owned by this component */
+	/** Terminate all body instances owned by this component. */
 	void ClearAllInstanceBodies();
 
-	/** Sets up new instance data to sensible defaults, creates physics counterparts if possible */
+	/** Sets up new instance data to sensible defaults, creates physics counterparts if possible. */
 	void SetupNewInstanceData(FInstancedStaticMeshInstanceData& InOutNewInstanceData, int32 InInstanceIndex, const FTransform& InInstanceTransform);
-	
+
 protected:
-	/** Request to navigation system to update only part of navmesh occupied by specified instance */
+	/** Request to navigation system to update only part of navmesh occupied by specified instance. */
 	virtual void PartialNavigationUpdate(int32 InstanceIdx);
 	
-	/** Handles request from navigation system to gather instance transforms in a specific area box */
+	/** Handles request from navigation system to gather instance transforms in a specific area box. */
 	virtual void GetNavigationPerInstanceTransforms(const FBox& AreaBox, TArray<FTransform>& InstanceData) const;
 
-	/** Initializes the body instance for the specified instance of the static mesh*/
+	/** Initializes the body instance for the specified instance of the static mesh. */
 	void InitInstanceBody(int32 InstanceIdx, FBodyInstance* InBodyInstance);
 
-	/** Number of pending lightmaps still to be calculated (Apply()'d) */
+	/** Number of pending lightmaps still to be calculated (Apply()'d). */
 	UPROPERTY(Transient, DuplicateTransient, TextExportTransient)
 	int32 NumPendingLightmaps;
 
-	/** The mappings for all the instances of this component */
+	/** The mappings for all the instances of this component. */
 	UPROPERTY(Transient, DuplicateTransient, TextExportTransient)
 	TArray<FInstancedStaticMeshMappingInfo> CachedMappings;
 

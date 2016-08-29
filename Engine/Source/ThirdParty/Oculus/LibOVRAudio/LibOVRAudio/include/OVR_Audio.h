@@ -48,7 +48,7 @@ typedef struct ovrPoseStatef_ ovrPoseStatef;
 
 #define OVR_AUDIO_MAJOR_VERSION 1
 #define OVR_AUDIO_MINOR_VERSION 0
-#define OVR_AUDIO_PATCH_VERSION 0
+#define OVR_AUDIO_PATCH_VERSION 2
 
 #ifdef _WIN32
 #ifdef OVR_AUDIO_DLL

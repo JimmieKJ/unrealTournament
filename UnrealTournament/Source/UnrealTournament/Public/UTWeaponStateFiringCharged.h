@@ -3,6 +3,7 @@
 #pragma once
 
 #include "UTWeaponStateFiring.h"
+#include "Animation/AnimInstance.h"
 
 #include "UTWeaponStateFiringCharged.generated.h"
 

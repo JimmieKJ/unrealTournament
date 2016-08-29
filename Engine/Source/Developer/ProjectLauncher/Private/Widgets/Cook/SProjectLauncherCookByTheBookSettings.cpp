@@ -601,6 +601,23 @@ TSharedRef<SWidget> SProjectLauncherCookByTheBookSettings::MakeComplexWidget()
 						]
 					]
 
+
+				+ SVerticalBox::Slot()
+					.Padding(0.0f, 4.0f, 0.0f, 0.0f)
+					.AutoHeight()
+					[
+						SNew(SCheckBox)
+						.IsChecked(this, &SProjectLauncherCookByTheBookSettings::HandleEncryptIniFilesCheckBoxIsChecked)
+					.OnCheckStateChanged(this, &SProjectLauncherCookByTheBookSettings::HandleEncryptIniFilesCheckBoxCheckStateChanged)
+					.Padding(FMargin(4.0f, 0.0f))
+					.ToolTipText(LOCTEXT("EncryptIniFilesCheckboxToolTip", "If checked, ini files stored inside pak file will be encrypted."))
+					.Content()
+					[
+						SNew(STextBlock)
+						.Text(LOCTEXT("EncryptIniFilesCheckBoxText", "Encrypt ini files (only with use pak file)"))
+					]
+					]
+
 				// generate chunks check box
 				+ SVerticalBox::Slot()
 					.AutoHeight()
@@ -686,6 +703,7 @@ TSharedRef<SWidget> SProjectLauncherCookByTheBookSettings::MakeComplexWidget()
 									[
 										// repository path text box
 										SAssignNew(HttpChunkInstallDirectoryTextBox, SEditableTextBox)
+										.Text(this, &SProjectLauncherCookByTheBookSettings::HandleHtppChunkInstallDirectoryText)
 										.OnTextCommitted(this, &SProjectLauncherCookByTheBookSettings::HandleHtppChunkInstallDirectoryTextCommitted)
 										.OnTextChanged(this, &SProjectLauncherCookByTheBookSettings::HandleHtppChunkInstallDirectoryTextChanged)
 									]
@@ -1259,6 +1277,33 @@ ECheckBoxState SProjectLauncherCookByTheBookSettings::HandleCompressedCheckBoxIs
 }
 
 
+
+void SProjectLauncherCookByTheBookSettings::HandleEncryptIniFilesCheckBoxCheckStateChanged(ECheckBoxState NewState)
+{
+	ILauncherProfilePtr SelectedProfile = Model->GetSelectedProfile();
+
+	if (SelectedProfile.IsValid())
+	{
+		SelectedProfile->SetEncryptingIniFiles(NewState == ECheckBoxState::Checked);
+	}
+}
+
+
+ECheckBoxState SProjectLauncherCookByTheBookSettings::HandleEncryptIniFilesCheckBoxIsChecked() const
+{
+	ILauncherProfilePtr SelectedProfile = Model->GetSelectedProfile();
+
+	if (SelectedProfile.IsValid())
+	{
+		if (SelectedProfile->IsEncryptingIniFiles())
+		{
+			return ECheckBoxState::Checked;
+		}
+	}
+
+	return ECheckBoxState::Unchecked;
+}
+
 TSharedRef<ITableRow> SProjectLauncherCookByTheBookSettings::HandleMapListViewGenerateRow( TSharedPtr<FString> InItem, const TSharedRef<STableViewBase>& OwnerTable )
 {
 	return SNew(SProjectLauncherMapListRow, Model.ToSharedRef())
@@ -1680,6 +1725,17 @@ FReply SProjectLauncherCookByTheBookSettings::HandleHtppChunkInstallBrowseButton
 	return FReply::Handled();
 }
 
+FText SProjectLauncherCookByTheBookSettings::HandleHtppChunkInstallDirectoryText() const
+{
+	ILauncherProfilePtr SelectedProfile = Model->GetSelectedProfile();
+
+	if (SelectedProfile.IsValid())
+	{
+		return FText::FromString(SelectedProfile->GetHttpChunkDataDirectory());
+	}
+
+	return FText::GetEmpty();
+}
 
 void SProjectLauncherCookByTheBookSettings::HandleHtppChunkInstallDirectoryTextChanged(const FText& InText)
 {

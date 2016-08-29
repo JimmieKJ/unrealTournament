@@ -111,7 +111,7 @@ GeometryVolumeEntry ReadGvCell_Pos( int3 pos )
 float ComputeAmbientOcclusion( float3 gridPos )
 {
 #if OPTIMISED
-	const int NumSamples=16;
+	const uint NumSamples=16;
 	const float3 Directions[16] = 
 	{
 		DIRECTIONS16
@@ -120,7 +120,7 @@ float ComputeAmbientOcclusion( float3 gridPos )
 	const uint samplesPerRay = 8;
 	float sampleLength = rayLength / float(16); // Optimised = same initial step size as with 16 taps, but step size increases per iteration to compensate
 #else
-	const int NumSamples=32;
+	const uint NumSamples=32;
 	const float3 Directions[32] = 
 	{
 		DIRECTIONS32
@@ -152,7 +152,7 @@ float ComputeAmbientOcclusion( float3 gridPos )
 
 	// NOTE: Balanced to give 0.5 AO on a plane, using default settings
 	LOOP
-	for ( int i=0; i<NumSamples; i++ )
+	for ( uint i=0; i<NumSamples; i++ )
 	{
 #if JITTER
 		float3 direction = mul( rotation, Directions[i] );
@@ -167,7 +167,7 @@ float ComputeAmbientOcclusion( float3 gridPos )
 		pos += inc*0.5f;
 		float weight = 2.0f;
 
-		for ( int j=0; j < samplesPerRay; j++ )
+		for ( uint j=0; j < samplesPerRay; j++ )
 		{ 
 			pos += inc;
 			GeometryVolumeEntry gvCell = ReadGvCell_Pos( pos );

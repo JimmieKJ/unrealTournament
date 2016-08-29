@@ -6,6 +6,8 @@
 
 #pragma once
 
+#include "CoreUObject.h"
+
 #include "Generation/StatsCollector.h"
 
 #include "BuildPatchChunk.generated.h"
@@ -173,8 +175,6 @@ private:
 	FChunkFile(const FChunkFile&){}
 };
 
-#if WITH_BUILDPATCHGENERATION
-
 /**
  * Declares a delegate for the chunk writer that gets called whenever a chunk has completed saving out
  * @param Param1	The GUID of the completed chunk
@@ -338,6 +338,4 @@ private:
 	// Holds a pointer to our thread for the runnable
 	FRunnableThread* WriterThread;
 };
-
-#endif // WITH_BUILDPATCHGENERATION
 

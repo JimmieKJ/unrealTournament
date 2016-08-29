@@ -14,8 +14,6 @@
 #include "UTPowerupUseMessage.h"
 #include "Engine/Console.h"
 #include "UTAnalytics.h"
-#include "Runtime/Analytics/Analytics/Public/Analytics.h"
-#include "Runtime/Analytics/Analytics/Public/Interfaces/IAnalyticsProvider.h"
 #include "Online.h"
 #include "UTOnlineGameSearchBase.h"
 #include "OnlineSubsystemTypes.h"
@@ -40,6 +38,7 @@
 #include "UTMutator.h"
 #include "UTVictimMessage.h"
 #include "SUTSpawnWindow.h"
+#include "IAnalyticsProvider.h"
 #include "UTPlaceablePowerup.h"
 #include "UTKillcamPlayback.h"
 #include "UTWeaponAttachment.h"
@@ -233,7 +232,8 @@ void AUTPlayerController::NetStats()
 	UNetDriver* NetDriver = GetWorld()->GetNetDriver();
 	if (NetDriver)
 	{
-		NetDriver->bCollectNetStats = bShowNetInfo;
+		// POLGE TODO: Work out with the engine team how we should do this
+		//NetDriver->bCollectNetStats = bShowNetInfo;
 	}
 	if (MyUTHUD && !MyUTHUD->HasHudWidget(UUTHUDWidget_NetInfo::StaticClass()))
 	{
@@ -914,6 +914,7 @@ void AUTPlayerController::TriggerBoost()
 	}
 }
 
+
 void AUTPlayerController::TeamNotifiyOfPowerupUse()
 {
 	AUTGameMode* GameMode = GetWorld()->GetAuthGameMode<AUTGameMode>();
@@ -1515,10 +1516,10 @@ void AUTPlayerController::ViewProjectile()
 			// toggle away from projectile cam
 			for (FConstPawnIterator Iterator = GetWorld()->GetPawnIterator(); Iterator; ++Iterator)
 			{
-				APawn* Pawn = *Iterator;
-				if (Pawn != nullptr)
+				APawn* PawnIter = *Iterator;
+				if (PawnIter != nullptr)
 				{
-					AUTPlayerState* PS = Cast<AUTPlayerState>(Pawn->PlayerState);
+					AUTPlayerState* PS = Cast<AUTPlayerState>(PawnIter->PlayerState);
 					if (PS && PS->SpectatingID == LastSpectatedPlayerId)
 					{
 						bAutoCam = false;
@@ -1601,10 +1602,10 @@ void AUTPlayerController::TogglePlayerInfo()
 
 		if (PS == nullptr)
 		{
-			APawn* Pawn = Cast<APawn>(GetViewTarget());
-			if (Pawn)
+			APawn* PawnViewTarget = Cast<APawn>(GetViewTarget());
+			if (PawnViewTarget)
 			{
-				PS = Cast<AUTPlayerState>(Pawn->PlayerState);
+				PS = Cast<AUTPlayerState>(PawnViewTarget->PlayerState);
 			}
 		}
 
@@ -1907,7 +1908,8 @@ void AUTPlayerController::ClientHearSound_Implementation(USoundBase* TheSound, A
 {
 	if (TheSound != NULL && (SoundPlayer != NULL || !SoundLocation.IsZero()))
 	{
-		bool bHRTFEnabled = (GetWorld()->GetAudioDevice() != NULL && GetWorld()->GetAudioDevice()->IsHRTFEnabledForAll());
+		FAudioDevice* AudioDevice = GetWorld()->GetAudioDevice();
+		bool bHRTFEnabled = (AudioDevice != nullptr && AudioDevice->IsHRTFEnabledForAll());
 		FCustomSoundAmplification CustomAmp = FCustomSoundAmplification();
 		switch (AmpType)
 		{
@@ -1934,8 +1936,8 @@ void AUTPlayerController::ClientHearSound_Implementation(USoundBase* TheSound, A
 		{
 			// no attenuation/spatialization, full volume
 			FActiveSound NewActiveSound;
-			NewActiveSound.World = GetWorld();
-			NewActiveSound.Sound = TheSound;
+			NewActiveSound.SetWorld(GetWorld());
+			NewActiveSound.SetSound(TheSound);
 
 			NewActiveSound.VolumeMultiplier = CustomAmp.OwnVolumeMultiplier;
 			NewActiveSound.PitchMultiplier = CustomAmp.OwnPitchMultiplier;
@@ -1947,10 +1949,7 @@ void AUTPlayerController::ClientHearSound_Implementation(USoundBase* TheSound, A
 			NewActiveSound.bHasAttenuationSettings = false;
 			NewActiveSound.bAllowSpatialization = false;
 
-			if (GetWorld()->GetAudioDevice() != NULL)
-			{
-				GetWorld()->GetAudioDevice()->AddNewActiveSound(NewActiveSound);
-			}
+			AudioDevice->AddNewActiveSound(NewActiveSound);
 		}
 		else
 		{
@@ -2008,11 +2007,11 @@ void AUTPlayerController::ClientHearSound_Implementation(USoundBase* TheSound, A
 				if (bHit)
 				{
 					if (CustomAmp.OccludedAttenuation != nullptr)
-					{
+				{
 						AttenuationOverride = CustomAmp.OccludedAttenuation;
-					}
-					else
-					{
+				}
+				else
+				{
 						if (0.5f * MaxAudibleDistance > (SoundLocation - GetViewTarget()->GetActorLocation()).Size())
 						{
 							return;
@@ -3230,13 +3229,13 @@ void AUTPlayerController::PlayerTick( float DeltaTime )
 		{
 			for (FConstPawnIterator Iterator = GetWorld()->GetPawnIterator(); Iterator; ++Iterator)
 			{
-				APawn* Pawn = *Iterator;
-				if (Pawn != nullptr)
+				APawn* PawnIter = *Iterator;
+				if (PawnIter != nullptr)
 				{
-					AUTPlayerState* PS = Cast<AUTPlayerState>(Pawn->PlayerState);
+					AUTPlayerState* PS = Cast<AUTPlayerState>(PawnIter->PlayerState);
 					if (PS && PS->SpectatingID == LastSpectatedPlayerId)
 					{
-						AUTCharacter* TargetChar = Cast<AUTCharacter>(Pawn);
+						AUTCharacter* TargetChar = Cast<AUTCharacter>(PawnIter);
 						if (TargetChar && TargetChar->DrivenVehicle && !TargetChar->DrivenVehicle->IsPendingKillPending())
 						{
 							ViewPawn(TargetChar->DrivenVehicle);
@@ -3425,8 +3424,8 @@ void AUTPlayerController::NotifyTakeHit(AController* InstigatedBy, int32 Damage,
 		}
 		else
 		{
-			ShotDir = (((FRadialDamageEvent*)&DamageEvent)->ComponentHits[0].ImpactPoint - ((FRadialDamageEvent*)&DamageEvent)->Origin).GetSafeNormal();
-		}
+		ShotDir = (((FRadialDamageEvent*)&DamageEvent)->ComponentHits[0].ImpactPoint - ((FRadialDamageEvent*)&DamageEvent)->Origin).GetSafeNormal();
+	}
 	}
 	AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
 	bool bFriendlyFire = InstigatedByState != PlayerState && GS != NULL && GS->OnSameTeam(InstigatedByState, this);
@@ -4400,23 +4399,23 @@ void AUTPlayerController::ShowBuyMenu()
 	{
 		LastBuyMenuOpenTime = GetWorld()->GetTimeSeconds();
 
-		// It's silly to send this to the server before handling it here.  I probably should just for safe keepeing but for now
-		// just locally.
+	// It's silly to send this to the server before handling it here.  I probably should just for safe keepeing but for now
+	// just locally.
 
-		AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
-		if (GS && GS->AvailableLoadout.Num() > 0)
-		{
+	AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
+	if (GS && GS->AvailableLoadout.Num() > 0)
+	{
 			if (GetPawn() == nullptr || !GS->HasMatchStarted() || GS->IsMatchIntermission())
 			{
-				ClientOpenLoadout_Implementation(true);
-			}
-		}
-		// in RCTF we want to tie the BuyMenu button to the power select menu
-		else if (UTPlayerState)
-		{
-			UTPlayerState->bIsPowerupSelectWindowOpen = !UTPlayerState->bIsPowerupSelectWindowOpen;
-		}
+		ClientOpenLoadout_Implementation(true);
 	}
+		}
+	// in RCTF we want to tie the BuyMenu button to the power select menu
+	else if (UTPlayerState)
+	{
+		UTPlayerState->bIsPowerupSelectWindowOpen = !UTPlayerState->bIsPowerupSelectWindowOpen;
+	}
+}
 }
 
 void AUTPlayerController::DropCarriedObject()

@@ -20,12 +20,6 @@ pushd coremode-4.2.6\projects
 	msbuild vstudio12.sln /target:Clean,libpng /p:Platform=x64;Configuration="Debug Library"
 	popd
 
-	REM WinRT
-	pushd WinRT
-	msbuild WinRT.sln /target:Clean,libpng /p:Platform=x64;Configuration=Release
-	msbuild WinRT.sln /target:Clean,libpng /p:Platform=x64;Configuration=Debug
-	popd
-
 	REM XboxOne
 	pushd XboxOne
 	msbuild libpng_XboxOne.sln /target:Clean,libpng /p:Platform=Durango;Configuration=Release

@@ -2,9 +2,6 @@
 
 #pragma once
 
-#include "IInternationalizationArchiveSerializer.h"
-#include "IInternationalizationManifestSerializer.h"
-
 typedef TSharedRef<FString, ESPMode::ThreadSafe> FTextDisplayStringRef;
 typedef TSharedPtr<FString, ESPMode::ThreadSafe> FTextDisplayStringPtr;
 
@@ -152,7 +149,7 @@ private:
 			, Key(InKey)
 		{}
 	};
-	typedef TMap<FTextDisplayStringPtr, FNamespaceKeyEntry> FNamespaceKeyLookupTable;
+	typedef TMap<FTextDisplayStringRef, FNamespaceKeyEntry> FNamespaceKeyLookupTable;
 
 private:
 	bool bIsInitialized;
@@ -160,7 +157,8 @@ private:
 	FCriticalSection SynchronizationObject;
 	FDisplayStringLookupTable DisplayStringLookupTable;
 	FNamespaceKeyLookupTable NamespaceKeyLookupTable;
-	int32 TextRevisionCounter;
+	TMap<FTextDisplayStringRef, uint16> LocalTextRevisions;
+	uint16 TextRevisionCounter;
 
 private:
 	FTextLocalizationManager() 
@@ -193,6 +191,13 @@ public:
 	 */
 	bool FindNamespaceAndKeyFromDisplayString(const FTextDisplayStringRef& InDisplayString, FString& OutNamespace, FString& OutKey);
 	
+	/**
+	 * Attempts to find a local revision history for the given display string.
+	 * This will only be set if the display string has been changed since the localization manager version has been changed (eg, if it has been edited while keeping the same key).
+	 * @return The local revision, or 0 if there have been no changes since a global history change.
+	 */
+	uint16 GetLocalRevisionForDisplayString(const FTextDisplayStringRef& InDisplayString);
+
 	/**	Attempts to register the specified display string, associating it with the specified namespace and key.
 	 *	Returns true if the display string has been or was already associated with the namespace and key.
 	 *	Returns false if the display string was already associated with another namespace and key or the namespace and key are already in use by another display string.
@@ -205,22 +210,26 @@ public:
 	 */
 	bool UpdateDisplayString(const FTextDisplayStringRef& DisplayString, const FString& Value, const FString& Namespace, const FString& Key);
 
-	/** Loads localizations for the current culture based on a configuration file specifying which manifests and archives to use. Effectively generates a localization resource in memory. */
-	void LoadFromManifestAndArchives(const FString& ConfigFilePath, IInternationalizationArchiveSerializer& ArchiveSerializer, IInternationalizationManifestSerializer& ManifestSerializer);
-
 	/** Updates display string entries and adds new display string entries based on localizations found in a specified localization resource. */
 	void UpdateFromLocalizationResource(const FString& LocalizationResourceFilePath);
+
+	/** Updates display string entries and adds new display string entries based on localizations found in a specified localization resource. */
+	void UpdateFromLocalizationResource(FArchive& LocResArchive, const FString& LocResID);
 
 	/** Reloads resources for the current culture. */
 	void RefreshResources();
 
 	/**	Returns the current text revision number. This value can be cached when caching information from the text localization manager.
 	 *	If the revision does not match, cached information may be invalid and should be recached. */
-	int32 GetTextRevision() const { return TextRevisionCounter; }
+	uint16 GetTextRevision() const { return TextRevisionCounter; }
 
 	/** Event type for immediately reacting to changes in display strings for text. */
 	DECLARE_EVENT(FTextLocalizationManager, FTextRevisionChangedEvent)
 	FTextRevisionChangedEvent OnTextRevisionChangedEvent;
+
+	/** Delegate for gathering up additional localization paths that are unknown to the UE4 core (such as plugins) */
+	DECLARE_MULTICAST_DELEGATE_OneParam(FGatherAdditionalLocResPathsDelegate, TArray<FString>&);
+	FGatherAdditionalLocResPathsDelegate GatherAdditionalLocResPathsCallback;
 
 private:
 	/** Callback for changes in culture. Loads the new culture's localization resources. */
@@ -232,6 +241,9 @@ private:
 	/** Updates display string entries and adds new display string entries based on provided localizations. */
 	void UpdateFromLocalizations(const TArray<FLocalizationEntryTracker>& LocalizationEntryTrackers);
 
+	/** Dirties the local revision counter for the given display string by incrementing it (or adding it) */
+	void DirtyLocalRevisionForDisplayString(const FTextDisplayStringRef& InDisplayString);
+
 	/** Dirties the text revision counter by incrementing it, causing a revision mismatch for any information cached before this happens.  */
-	void DirtyTextRevision() { ++TextRevisionCounter; OnTextRevisionChangedEvent.Broadcast(); }
+	void DirtyTextRevision();
 };

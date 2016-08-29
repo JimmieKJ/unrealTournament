@@ -70,7 +70,7 @@ public:
 		return BrushAlpha.GetData() + (Position.Y - Bounds.Min.Y) * Bounds.Width() + (Position.X - Bounds.Min.X);
 	}
 
-	FORCEINLINE_EXPLICIT_OPERATOR_BOOL() const
+	FORCEINLINE explicit operator bool() const
 	{
 		return BrushAlpha.Num() != 0;
 	}
@@ -260,3 +260,8 @@ public:
 	int32					PreviousBrushIndex;
 	TArray<FName>			ValidBrushes;
 };
+
+namespace LandscapeTool
+{
+	UMaterialInstance* CreateMaterialInstance(UMaterialInterface* BaseMaterial);
+}

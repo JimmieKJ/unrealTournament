@@ -24,12 +24,12 @@ void SUTAspectPanel::OnArrangeChildren(const FGeometry& AllottedGeometry, FArran
 	if (ArrangedChildren.Accepts(ChildVisibility))
 	{
 		FVector2D OrigSize = ChildSlot.GetWidget()->GetDesiredSize(); 
-		FVector2D DesiredSize = OrigSize;
+		FVector2D DesiredDrawSize = OrigSize;
 		FVector2D ActualGeometrySize = AllottedGeometry.Size * AllottedGeometry.Scale;
 		FVector2D FinalOffset(0, 0);
 		float Aspect = ActualGeometrySize.Y / ActualGeometrySize.X;
 		float Scale = 1.0f;
-		if (AllottedGeometry.Size != DesiredSize)
+		if (AllottedGeometry.Size != DesiredDrawSize)
 		{
 			// Attempt to scale us with a best fit.
 
@@ -38,21 +38,21 @@ void SUTAspectPanel::OnArrangeChildren(const FGeometry& AllottedGeometry, FArran
 				// If this is the case, all we have to do is scale the resolution
 				// and then center on the screen.
 
-				Scale = AllottedGeometry.Size.X / DesiredSize.X;
+				Scale = AllottedGeometry.Size.X / DesiredDrawSize.X;
 
-				DesiredSize.X = ActualGeometrySize.X;
-				DesiredSize.Y = DesiredSize.X * 0.5625;
-				DesiredSize /= Scale;
+				DesiredDrawSize.X = ActualGeometrySize.X;
+				DesiredDrawSize.Y = DesiredDrawSize.X * 0.5625;
+				DesiredDrawSize /= Scale;
 			}
 			else if (Aspect < 0.5625)	// Greater than 16:9
 			{
-				Scale = AllottedGeometry.Size.Y / DesiredSize.Y;
+				Scale = AllottedGeometry.Size.Y / DesiredDrawSize.Y;
 
-				DesiredSize.Y = ActualGeometrySize.Y;
-				DesiredSize.X = DesiredSize.Y / 0.5625;
-				DesiredSize /= AllottedGeometry.Scale;
+				DesiredDrawSize.Y = ActualGeometrySize.Y;
+				DesiredDrawSize.X = DesiredDrawSize.Y / 0.5625;
+				DesiredDrawSize /= AllottedGeometry.Scale;
 
-				DesiredSize /= Scale;
+				DesiredDrawSize /= Scale;
 			}
 
 			FinalOffset /= AllottedGeometry.Scale;
@@ -60,7 +60,7 @@ void SUTAspectPanel::OnArrangeChildren(const FGeometry& AllottedGeometry, FArran
 
 		CachedLayoutScale = Scale;
 
-		ArrangedChildren.AddWidget(ChildVisibility, AllottedGeometry.MakeChild( ChildSlot.GetWidget(), FinalOffset, DesiredSize, Scale));
+		ArrangedChildren.AddWidget(ChildVisibility, AllottedGeometry.MakeChild( ChildSlot.GetWidget(), FinalOffset, DesiredDrawSize, Scale));
 	}
 }
 

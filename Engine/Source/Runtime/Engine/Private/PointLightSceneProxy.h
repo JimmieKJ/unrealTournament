@@ -4,8 +4,8 @@
 	PointLightSceneProxy.h: Point light scene info definition.
 =============================================================================*/
 
-#ifndef __PointLightSceneProxy_H__
-#define __PointLightSceneProxy_H__
+#pragma once
+
 #include "Components/PointLightComponent.h"
 
 
@@ -39,6 +39,8 @@ public:
 	,	SourceRadius(Component->SourceRadius)
 	,	SourceLength(Component->SourceLength)
 	,	bInverseSquared(Component->bUseInverseSquaredFalloff)
+	,	MaxDrawDistance(Component->MaxDrawDistance)
+	,	FadeRange(Component->MaxDistanceFadeRange)
 	{
 		UpdateRadius(Component->AttenuationRadius);
 	}
@@ -50,6 +52,15 @@ public:
 	void UpdateRadius_GameThread(UPointLightComponent* Component);
 
 	// FLightSceneInfo interface.
+	virtual float GetMaxDrawDistance() const final override 
+	{ 
+		return MaxDrawDistance; 
+	}
+
+	virtual float GetFadeRange() const final override 
+	{ 
+		return FadeRange; 
+	}
 
 	/** @return radius of the light or 0 if no radius */
 	virtual float GetRadius() const override
@@ -109,7 +120,7 @@ public:
 		FVector LightVector = SubjectBounds.Origin - LightPosition;
 		float LightDistance = LightVector.Size();
 		float SilhouetteRadius = 1.0f;
-		const float SubjectRadius = SubjectBounds.SphereRadius;
+		const float SubjectRadius = SubjectBounds.BoxExtent.Size();
 		const float ShadowRadiusMultiplier = 1.1f;
 
 		if (LightDistance > SubjectRadius)
@@ -147,6 +158,9 @@ private:
 		// Min to avoid div by 0 (NaN in InvRadius)
 		InvRadius = 1.0f / FMath::Max(0.00001f, ComponentRadius);
 	}
+
+	float MaxDrawDistance;
+	float FadeRange;
 };
 
 /**
@@ -164,4 +178,3 @@ public:
 	}
 };
 
-#endif

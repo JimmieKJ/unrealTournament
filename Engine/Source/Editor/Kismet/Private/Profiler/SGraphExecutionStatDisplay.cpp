@@ -2,6 +2,7 @@
 
 #include "BlueprintEditorPrivatePCH.h"
 #include "BPProfilerStatisticWidgets.h"
+#include "SBlueprintProfilerToolbar.h"
 #include "SGraphExecutionStatDisplay.h"
 #include "BlueprintEditor.h"
 #include "Public/Profiler/EventExecution.h"
@@ -27,134 +28,103 @@ SGraphExecutionStatDisplay::~SGraphExecutionStatDisplay()
 void SGraphExecutionStatDisplay::Construct(const FArguments& InArgs)
 {	
 	BlueprintEditor = InArgs._AssetEditor;
+	DisplayOptions = InArgs._DisplayOptions;
 	// Register for profiling toggle events
 	FBlueprintCoreDelegates::OnToggleScriptProfiler.AddSP(this, &SGraphExecutionStatDisplay::OnToggleProfiler);
-	// Remove delegate for graph structural changes
+	// Register delegate for graph structural changes
 	if (IBlueprintProfilerInterface* Profiler = FModuleManager::GetModulePtr<IBlueprintProfilerInterface>("BlueprintProfiler"))
 	{
 		Profiler->GetGraphLayoutChangedDelegate().AddSP(this, &SGraphExecutionStatDisplay::OnGraphLayoutChanged);
 	}
-	// Set Default States
-	bDisplayInstances = false;
-	bScopeToActiveDebugInstance = false;
-	bAutoExpandStats = false;
-	bFilterEventsToGraph = true;
 
 	ChildSlot
 	[
-		SNew(SVerticalBox)
-		+SVerticalBox::Slot()
-		.Padding(FMargin(0, 0, 0, 2))
-		.AutoHeight()
-		.HAlign(HAlign_Fill)
-		.VAlign(VAlign_Top)
+		SNew(SOverlay)
+		+SOverlay::Slot()
 		[
-			SNew(SBorder)
-			.Padding(4)
-			.BorderImage(FEditorStyle::GetBrush("BlueprintProfiler.ViewToolBar"))
+			SNew(SVerticalBox)
+			.Visibility(this, &SGraphExecutionStatDisplay::GetWidgetVisibility)
+			+SVerticalBox::Slot()
 			[
-				SNew(SVerticalBox)
-				+SVerticalBox::Slot()
-				.HAlign(HAlign_Right)
-				.AutoHeight()
+				SNew(SBorder)
+				.Padding(0)
+				.BorderImage(FEditorStyle::GetBrush("BlueprintProfiler.ViewContent"))
 				[
-					SNew(SHorizontalBox)
-					+SHorizontalBox::Slot()
-					.AutoWidth()
-					.Padding(FMargin(5,0))
-					[
-						SNew(SCheckBox)
-						.Content()
-						[
-							SNew(STextBlock)
-							.Text(LOCTEXT("FilterToGraph", "Filter Events to Current Graph"))
-						]
-						.IsChecked(this, &SGraphExecutionStatDisplay::GetGraphFilterCheck)
-						.OnCheckStateChanged(this, &SGraphExecutionStatDisplay::OnGraphFilterCheck)
-					]
-					+SHorizontalBox::Slot()
-					.AutoWidth()
-					.Padding(FMargin(5,0))
-					[
-						SNew(SCheckBox)
-						.Content()
-						[
-							SNew(STextBlock)
-							.Text(LOCTEXT("ShowInstancesCheck", "Display By Instance"))
-						]
-						.IsChecked(this, &SGraphExecutionStatDisplay::GetDisplayByInstanceCheck)
-						.OnCheckStateChanged(this, &SGraphExecutionStatDisplay::OnDisplayByInstanceCheck)
-					]
-					+SHorizontalBox::Slot()
-					.AutoWidth()
-					.Padding(FMargin(5,0))
-					[
-						SNew(SCheckBox)
-						.Content()
-						[
-							SNew(STextBlock)
-							.Text(LOCTEXT("InstanceFilterCheck", "Scope To Debug Filter"))
-						]
-						.IsChecked(this, &SGraphExecutionStatDisplay::GetInstanceFilterCheck)
-						.OnCheckStateChanged(this, &SGraphExecutionStatDisplay::OnInstanceFilterCheck)
-					]
-					+SHorizontalBox::Slot()
-					.AutoWidth()
-					.Padding(FMargin(5,0))
-					[
-						SNew(SCheckBox)
-						.Content()
-						[
-							SNew(STextBlock)
-							.Text(LOCTEXT("AutoItemExpansion", "Auto Expand Statistics"))
-						]
-						.IsChecked(this, &SGraphExecutionStatDisplay::GetAutoExpansionCheck)
-						.OnCheckStateChanged(this, &SGraphExecutionStatDisplay::OnAutoExpansionCheck)
-					]
+					SAssignNew(ExecutionStatTree, STreeView<FBPStatWidgetPtr>)
+					.TreeItemsSource(&RootTreeItems)
+					.SelectionMode(ESelectionMode::Single)
+					.OnGetChildren(this, &SGraphExecutionStatDisplay::OnGetChildren)
+					.OnGenerateRow(this, &SGraphExecutionStatDisplay::OnGenerateRow)
+					.OnMouseButtonDoubleClick(this, &SGraphExecutionStatDisplay::OnDoubleClickStatistic)
+					.OnExpansionChanged(this, &SGraphExecutionStatDisplay::OnStatisticExpansionChanged)
+					.HeaderRow
+					(
+						SNew(SHeaderRow)
+						+SHeaderRow::Column(SProfilerStatRow::GetStatName(EBlueprintProfilerStat::Name))
+						.DefaultLabel(SProfilerStatRow::GetStatText(EBlueprintProfilerStat::Name))
+						.FillWidth(0.5f)
+						+SHeaderRow::Column(SProfilerStatRow::GetStatName(EBlueprintProfilerStat::AverageTime))
+						.DefaultLabel(SProfilerStatRow::GetStatText(EBlueprintProfilerStat::AverageTime))
+						.FixedWidth(90)
+						.HAlignHeader(HAlign_Right)
+						.HAlignCell(HAlign_Right)
+						.VAlignCell(VAlign_Center)
+						+SHeaderRow::Column(SProfilerStatRow::GetStatName(EBlueprintProfilerStat::InclusiveTime))
+						.DefaultLabel(SProfilerStatRow::GetStatText(EBlueprintProfilerStat::InclusiveTime))
+						.FixedWidth(120)
+						.HAlignHeader(HAlign_Right)
+						.HAlignCell(HAlign_Right)
+						.VAlignCell(VAlign_Center)
+						+SHeaderRow::Column(SProfilerStatRow::GetStatName(EBlueprintProfilerStat::MaxTime))
+						.DefaultLabel(SProfilerStatRow::GetStatText(EBlueprintProfilerStat::MaxTime))
+						.FixedWidth(90)
+						.HAlignHeader(HAlign_Right)
+						.HAlignCell(HAlign_Right)
+						.VAlignCell(VAlign_Center)
+						+SHeaderRow::Column(SProfilerStatRow::GetStatName(EBlueprintProfilerStat::MinTime))
+						.DefaultLabel(SProfilerStatRow::GetStatText(EBlueprintProfilerStat::MinTime))
+						.FixedWidth(90)
+						.HAlignHeader(HAlign_Right)
+						.HAlignCell(HAlign_Right)
+						.VAlignCell(VAlign_Center)
+						+SHeaderRow::Column(SProfilerStatRow::GetStatName(EBlueprintProfilerStat::TotalTime))
+						.DefaultLabel(SProfilerStatRow::GetStatText(EBlueprintProfilerStat::TotalTime))
+						.FixedWidth(100)
+						.HAlignHeader(HAlign_Right)
+						.HAlignCell(HAlign_Right)
+						.VAlignCell(VAlign_Center)
+						+SHeaderRow::Column(SProfilerStatRow::GetStatName(EBlueprintProfilerStat::Samples))
+						.DefaultLabel(SProfilerStatRow::GetStatText(EBlueprintProfilerStat::Samples))
+						.FixedWidth(100)
+						.HAlignHeader(HAlign_Center)
+						.HAlignCell(HAlign_Center)
+						.VAlignCell(VAlign_Center)
+					)
 				]
 			]
 		]
-		+SVerticalBox::Slot()
+		+SOverlay::Slot()
 		[
-			SNew(SBorder)
+			SNew(SVerticalBox)
+			.Visibility(this, &SGraphExecutionStatDisplay::GetNoDataWidgetVisibility)
+			+SVerticalBox::Slot()
+			.HAlign(HAlign_Center)
+			.VAlign(VAlign_Center)
 			.Padding(0)
-			.BorderImage(FEditorStyle::GetBrush("NoBorder"))
 			[
-				SAssignNew(ExecutionStatTree, STreeView<FBPStatWidgetPtr>)
-				.TreeItemsSource(&RootTreeItems)
-				.SelectionMode(ESelectionMode::Single)
-				.OnGetChildren(this, &SGraphExecutionStatDisplay::OnGetChildren)
-				.OnGenerateRow(this, &SGraphExecutionStatDisplay::OnGenerateRow)
-				.OnMouseButtonDoubleClick(this, &SGraphExecutionStatDisplay::OnDoubleClickStatistic)
-				.OnExpansionChanged(this, &SGraphExecutionStatDisplay::OnStatisticExpansionChanged)
-				.HeaderRow
-				(
-					SNew(SHeaderRow)
-					+SHeaderRow::Column(SProfilerStatRow::GetStatName(EBlueprintProfilerStat::Name))
-					.DefaultLabel(SProfilerStatRow::GetStatText(EBlueprintProfilerStat::Name))
-					.ManualWidth(450)
-					+SHeaderRow::Column(SProfilerStatRow::GetStatName(EBlueprintProfilerStat::Time))
-					.DefaultLabel(SProfilerStatRow::GetStatText(EBlueprintProfilerStat::Time))
-					.ManualWidth(70)
-					+SHeaderRow::Column(SProfilerStatRow::GetStatName(EBlueprintProfilerStat::PureTime))
-					.DefaultLabel(SProfilerStatRow::GetStatText(EBlueprintProfilerStat::PureTime))
-					.ManualWidth(100)
-					+SHeaderRow::Column(SProfilerStatRow::GetStatName(EBlueprintProfilerStat::InclusiveTime))
-					.DefaultLabel(SProfilerStatRow::GetStatText(EBlueprintProfilerStat::InclusiveTime))
-					.ManualWidth(120)
-					+SHeaderRow::Column(SProfilerStatRow::GetStatName(EBlueprintProfilerStat::MaxTime))
-					.DefaultLabel(SProfilerStatRow::GetStatText(EBlueprintProfilerStat::MaxTime))
-					.ManualWidth(90)
-					+SHeaderRow::Column(SProfilerStatRow::GetStatName(EBlueprintProfilerStat::MinTime))
-					.DefaultLabel(SProfilerStatRow::GetStatText(EBlueprintProfilerStat::MinTime))
-					.ManualWidth(90)
-					+SHeaderRow::Column(SProfilerStatRow::GetStatName(EBlueprintProfilerStat::TotalTime))
-					.DefaultLabel(SProfilerStatRow::GetStatText(EBlueprintProfilerStat::TotalTime))
-					.ManualWidth(80)
-					+SHeaderRow::Column(SProfilerStatRow::GetStatName(EBlueprintProfilerStat::Samples))
-					.DefaultLabel(SProfilerStatRow::GetStatText(EBlueprintProfilerStat::Samples))
-					.ManualWidth(60)
-				)
+				SNew(SHorizontalBox)
+				+SHorizontalBox::Slot()
+				[
+					SNew(SBorder)
+					.Padding(0)
+					.BorderImage(FEditorStyle::GetBrush("BlueprintProfiler.ViewContent"))
+					.HAlign(HAlign_Center)
+					.VAlign(VAlign_Center)
+					[
+						SNew(STextBlock)
+						.Text(LOCTEXT("NoInstancesMessage", "There are currently no valid instances of this blueprint in the current level to gather profiling data on."))
+					]
+				]
 			]
 		]
 	];
@@ -165,14 +135,14 @@ void SGraphExecutionStatDisplay::OnGraphLayoutChanged(TWeakObjectPtr<UBlueprint>
 	if (CurrentBlueprint == Blueprint)
 	{
 		// Force a stat update.
-		CurrentBlueprint.Reset();
+		DisplayOptions->SetStateModified();
 	}
 }
 
 void SGraphExecutionStatDisplay::OnToggleProfiler(bool bEnabled)
 {
 	// Force a stat update.
-	CurrentBlueprint.Reset();
+	DisplayOptions->SetStateModified();
 }
 
 TSharedRef<ITableRow> SGraphExecutionStatDisplay::OnGenerateRow(FBPStatWidgetPtr InItem, const TSharedRef<STableViewBase>& OwnerTable)
@@ -188,63 +158,6 @@ void SGraphExecutionStatDisplay::OnGetChildren(FBPStatWidgetPtr InParent, TArray
 	}
 }
 
-void SGraphExecutionStatDisplay::OnGraphFilterCheck(ECheckBoxState NewState)
-{
-	const bool bOldState = bFilterEventsToGraph;
-	bFilterEventsToGraph = (NewState == ECheckBoxState::Checked) ? true : false;
-	// Force Update.
-	if (bFilterEventsToGraph != bOldState)
-	{
-		CurrentBlueprint.Reset();
-	}
-}
-
-void SGraphExecutionStatDisplay::OnInstanceFilterCheck(ECheckBoxState NewState)
-{
-	const bool bOldState = bScopeToActiveDebugInstance;
-	bScopeToActiveDebugInstance = (NewState == ECheckBoxState::Checked) ? true : false;
-	// Force Update.
-	if (bScopeToActiveDebugInstance != bOldState)
-	{
-		CurrentBlueprint.Reset();
-	}
-}
-
-void SGraphExecutionStatDisplay::OnDisplayByInstanceCheck(ECheckBoxState NewState)
-{
-	const bool bOldState = bDisplayInstances;
-	bDisplayInstances = (NewState == ECheckBoxState::Checked) ? true : false;
-	// Force Update.
-	if (bDisplayInstances != bOldState)
-	{
-		CurrentBlueprint.Reset();
-	}
-}
-
-void SGraphExecutionStatDisplay::OnAutoExpansionCheck(ECheckBoxState NewState)
-{
-	const bool bOldState = bAutoExpandStats;
-	bAutoExpandStats = (NewState == ECheckBoxState::Checked) ? true : false;
-	// Force Update.
-	if (bAutoExpandStats != bOldState)
-	{
-		if (bAutoExpandStats)
-		{
-			for (auto Iter : RootTreeItems)
-			{
-				Iter->ExpandWidgetState(ExecutionStatTree, bAutoExpandStats);
-			}
-		}
-		else
-		{
-			for (auto Iter : RootTreeItems)
-			{
-				Iter->RestoreWidgetExpansionState(ExecutionStatTree);
-			}
-		}
-	}
-}
-
 void SGraphExecutionStatDisplay::OnDoubleClickStatistic(FBPStatWidgetPtr Item)
 {
 	if (Item.IsValid())
@@ -255,7 +168,7 @@ void SGraphExecutionStatDisplay::OnDoubleClickStatistic(FBPStatWidgetPtr Item)
 
 void SGraphExecutionStatDisplay::OnStatisticExpansionChanged(FBPStatWidgetPtr Item, bool bExpanded)
 {
-	if (!bAutoExpandStats && Item.IsValid())
+	if (Item.IsValid())
 	{
 		Item->SetExpansionState(bExpanded);
 	}
@@ -281,63 +194,70 @@ void SGraphExecutionStatDisplay::Tick(const FGeometry& AllottedGeometry, const d
 
 					if (BlueprintExecContext.IsValid())
 					{
+						// Check blueprint
+						if (CurrentBlueprint.Get() != NewBlueprint)
+						{
+							CurrentBlueprint = NewBlueprint;
+							DisplayOptions->SetStateModified();
+						}
+						// Find Current instance
 						FName NewInstancePath = BlueprintExecContext->RemapInstancePath(FName(*NewInstance->GetPathName()));
-						const bool bBlueprintChanged = NewBlueprint != CurrentBlueprint.Get();
-						const bool bInstanceChanged = bScopeToActiveDebugInstance && NewInstancePath != CurrentInstancePath;
+						DisplayOptions->SetActiveInstance(NewInstancePath);
 						// Find active graph to filter on
-						bool bGraphFilterChanged = false;
 						TSharedPtr<SDockTab> DockTab = BlueprintEditor.Pin()->DocumentManager->GetActiveTab();
 						if (DockTab.IsValid())
 						{
 							TSharedRef<SGraphEditor> ActiveGraphEditor = StaticCastSharedRef<SGraphEditor>(DockTab->GetContent());
-							bGraphFilterChanged = ActiveGraphEditor->GetCurrentGraph() != CurrentGraph.Get();
-							CurrentGraph = ActiveGraphEditor->GetCurrentGraph();
+							const UEdGraph* CurrentGraph = ActiveGraphEditor->GetCurrentGraph();
+							DisplayOptions->SetActiveGraph(CurrentGraph ? CurrentGraph->GetFName() : NAME_None);
 						}
-
-						if (bBlueprintChanged||bInstanceChanged||bGraphFilterChanged)
+						if (DisplayOptions->IsStateModified())
 						{
-							const FString BlueprintPath = NewBlueprint->GeneratedClass->GetPathName();
 							TSharedPtr<FScriptExecutionBlueprint> BlueprintExecNode = BlueprintExecContext->GetBlueprintExecNode();
 							RootTreeItems.Reset(0);
 
 							if (BlueprintExecNode.IsValid())
 							{
-								// Cache Active blueprint and Instance
-								CurrentBlueprint = NewBlueprint;
-								CurrentInstancePath = NewInstancePath;
 								// Build Instance widget execution trees
-								FName GraphFilter = CurrentGraph.IsValid() && bFilterEventsToGraph ? CurrentGraph.Get()->GetFName() : NAME_None;
+								DisplayOptions->ClearFlags(FBlueprintProfilerStatOptions::Modified);
+								// Cache Active blueprint and Instance
+								const FName CurrentInstancePath = DisplayOptions->GetActiveInstance();
 
-								if (bDisplayInstances && bScopeToActiveDebugInstance)
+								if (DisplayOptions->HasFlags(FBlueprintProfilerStatOptions::DisplayByInstance))
 								{
-									if (CurrentInstancePath != NAME_None)
+									if (DisplayOptions->HasFlags(FBlueprintProfilerStatOptions::ScopeToDebugInstance))
 									{
-										TSharedPtr<FScriptExecutionNode> InstanceStat = BlueprintExecNode->GetInstanceByName(CurrentInstancePath);
-										if (InstanceStat.IsValid())
+										if (CurrentInstancePath != NAME_None)
 										{
-											FTracePath InstanceTracePath;
-											FBPStatWidgetPtr InstanceWidget = MakeShareable<FBPProfilerStatWidget>(new FBPProfilerStatWidget(InstanceStat, InstanceTracePath));
-											InstanceWidget->GenerateExecNodeWidgets(InstanceStat->GetName(), GraphFilter);
-											RootTreeItems.Add(InstanceWidget);
+											TSharedPtr<FScriptExecutionNode> InstanceStat = BlueprintExecNode->GetInstanceByName(CurrentInstancePath);
+											if (InstanceStat.IsValid())
+											{
+												FTracePath InstanceTracePath;
+												DisplayOptions->SetActiveInstance(InstanceStat->GetName());
+												FBPStatWidgetPtr InstanceWidget = MakeShareable<FBPProfilerStatWidget>(new FBPProfilerStatWidget(InstanceStat, InstanceTracePath));
+												InstanceWidget->GenerateExecNodeWidgets(DisplayOptions);
+												RootTreeItems.Add(InstanceWidget);
+											}
 										}
 									}
-								}
-								else if (bDisplayInstances)
-								{
-									for (int32 InstanceIdx = 0; InstanceIdx < BlueprintExecNode->GetInstanceCount(); ++InstanceIdx)
+									else
 									{
-										TSharedPtr<FScriptExecutionNode> InstanceStat = BlueprintExecNode->GetInstanceByIndex(InstanceIdx);
-										FTracePath InstanceTracePath;
-										FBPStatWidgetPtr InstanceWidget = MakeShareable<FBPProfilerStatWidget>(new FBPProfilerStatWidget(InstanceStat, InstanceTracePath));
-										InstanceWidget->GenerateExecNodeWidgets(InstanceStat->GetName(), GraphFilter);
-										RootTreeItems.Add(InstanceWidget);
+										for (int32 InstanceIdx = 0; InstanceIdx < BlueprintExecNode->GetInstanceCount(); ++InstanceIdx)
+										{
+											TSharedPtr<FScriptExecutionNode> InstanceStat = BlueprintExecNode->GetInstanceByIndex(InstanceIdx);
+											FTracePath InstanceTracePath;
+											DisplayOptions->SetActiveInstance(InstanceStat->GetName());
+											FBPStatWidgetPtr InstanceWidget = MakeShareable<FBPProfilerStatWidget>(new FBPProfilerStatWidget(InstanceStat, InstanceTracePath));
+											InstanceWidget->GenerateExecNodeWidgets(DisplayOptions);
+											RootTreeItems.Add(InstanceWidget);
+										}
 									}
 								}
 								else
 								{
 									FTracePath TracePath;
 									FBPStatWidgetPtr BlueprintWidget = MakeShareable<FBPProfilerStatWidget>(new FBPProfilerStatWidget(BlueprintExecNode, TracePath));
-									BlueprintWidget->GenerateExecNodeWidgets(NAME_None, GraphFilter);
+									BlueprintWidget->GenerateExecNodeWidgets(DisplayOptions);
 									RootTreeItems.Add(BlueprintWidget);
 								}
 							}
@@ -345,20 +265,10 @@ void SGraphExecutionStatDisplay::Tick(const FGeometry& AllottedGeometry, const d
 							if (ExecutionStatTree.IsValid())
 							{
 								ExecutionStatTree->RequestTreeRefresh();
-								if (bAutoExpandStats)
+								for (auto Iter : RootTreeItems)
 								{
-									for (auto Iter : RootTreeItems)
-									{
-										Iter->ExpandWidgetState(ExecutionStatTree, bAutoExpandStats);
-									}
-								}
-								else
-								{
-									for (auto Iter : RootTreeItems)
-									{
-										Iter->ProbeChildWidgetExpansionStates();
-										Iter->RestoreWidgetExpansionState(ExecutionStatTree);
-									}
+									Iter->ProbeChildWidgetExpansionStates();
+									Iter->RestoreWidgetExpansionState(ExecutionStatTree);
 								}
 							}
 						}

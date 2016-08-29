@@ -6,94 +6,107 @@
 
 DEFINE_LOG_CATEGORY_STATIC(LogGatherArchiveObject, Log, All);
 
-FArchiveEntry::FArchiveEntry( const FString& InNamespace, const FLocItem& InSource, const FLocItem& InTranslation, TSharedPtr<FLocMetadataObject> InKeyMetadataObj /*= NULL*/, bool IsOptional /*= false */ ) : Namespace( InNamespace )
-	, Source( InSource )
-	, Translation( InTranslation )
-	, bIsOptional( IsOptional )
+FArchiveEntry::FArchiveEntry(const FString& InNamespace, const FString& InKey, const FLocItem& InSource, const FLocItem& InTranslation, TSharedPtr<FLocMetadataObject> InKeyMetadataObj, bool IsOptional)
+	: Namespace(InNamespace)
+	, Key(InKey)
+	, Source(InSource)
+	, Translation(InTranslation)
+	, bIsOptional(IsOptional)
 {
-	if( InKeyMetadataObj.IsValid() )
+	if (InKeyMetadataObj.IsValid())
 	{
-		KeyMetadataObj = MakeShareable( new FLocMetadataObject( *(InKeyMetadataObj) ) );
+		KeyMetadataObj = MakeShareable(new FLocMetadataObject(*InKeyMetadataObj));
 	}
 }
 
-bool FInternationalizationArchive::AddEntry( const FString& Namespace, const FLocItem& Source, const FLocItem& Translation, const TSharedPtr<FLocMetadataObject> KeyMetadataObj, const bool bOptional )
+bool FInternationalizationArchive::AddEntry(const FString& Namespace, const FString& Key, const FLocItem& Source, const FLocItem& Translation, const TSharedPtr<FLocMetadataObject> KeyMetadataObj, const bool bOptional)
 {
-
-	TSharedPtr<FArchiveEntry> ExistingEntry = FindEntryBySource( Namespace, Source, KeyMetadataObj );
-
-	if( ExistingEntry.IsValid() )
+	if (Key.IsEmpty())
 	{
-		return ( ExistingEntry->Translation == Translation );
+		return false;
 	}
 
-	TSharedRef< FArchiveEntry > NewEntry = MakeShareable( new FArchiveEntry( Namespace, Source, Translation, KeyMetadataObj, bOptional ) );
-	EntriesBySourceText.Add( Source.Text, NewEntry );
+	TSharedPtr<FArchiveEntry> ExistingEntry = FindEntryByKey(Namespace, Key, KeyMetadataObj);
+	if (ExistingEntry.IsValid() && ExistingEntry->Source == Source)
+	{
+		return (ExistingEntry->Translation == Translation);
+	}
+
+	TSharedRef<FArchiveEntry> NewEntry = MakeShareable(new FArchiveEntry(Namespace, Key, Source, Translation, KeyMetadataObj, bOptional));
+	if (ExistingEntry.IsValid())
+	{
+		UpdateEntry(ExistingEntry.ToSharedRef(), NewEntry);
+	}
+	else
+	{
+		EntriesBySourceText.Add(Source.Text, NewEntry);
+		EntriesByKey.Add(Key, NewEntry);
+	}
+
 	return true;
 }
 
-bool FInternationalizationArchive::AddEntry( const TSharedRef<FArchiveEntry>& InEntry )
+bool FInternationalizationArchive::AddEntry(const TSharedRef<FArchiveEntry>& InEntry)
 {
-	return AddEntry( InEntry->Namespace, InEntry->Source, InEntry->Translation, InEntry->KeyMetadataObj, InEntry->bIsOptional );
-}
-
-bool FInternationalizationArchive::SetTranslation( const FString& Namespace, const FLocItem& Source, const FLocItem& Translation, const TSharedPtr<FLocMetadataObject> KeyMetadataObj )
-{
-	TSharedPtr<FArchiveEntry> Entry = FindEntryBySource( Namespace, Source, KeyMetadataObj );
-	if( Entry.IsValid() )
-	{
-		Entry->Translation = Translation;
-		return true;
-	}
-	return false;
-}
-
-TSharedPtr< FArchiveEntry > FInternationalizationArchive::FindEntryBySource( const FString& Namespace, const FLocItem& Source, const TSharedPtr<FLocMetadataObject> KeyMetadataObj ) const
-{
-	TArray< TSharedRef< FArchiveEntry > > MatchingEntries;
-	EntriesBySourceText.MultiFind( Source.Text, MatchingEntries );
-
-	for (int Index = 0; Index < MatchingEntries.Num(); Index++)
-	{
-		if ( MatchingEntries[Index]->Namespace.Equals( Namespace, ESearchCase::CaseSensitive ) )
-		{
-			if( Source == MatchingEntries[Index]->Source )
-			{
-				if( !MatchingEntries[Index]->KeyMetadataObj.IsValid() && !KeyMetadataObj.IsValid() )
-				{
-					return MatchingEntries[Index];
-				}
-				else if( (KeyMetadataObj.IsValid() != MatchingEntries[Index]->KeyMetadataObj.IsValid()) )
-				{
-					// If we are in here, we know that one of the metadata entries is null, if the other
-					//  contains zero entries we will still consider them equivalent.
-					if( (KeyMetadataObj.IsValid() && KeyMetadataObj->Values.Num() == 0) ||
-						(MatchingEntries[Index]->KeyMetadataObj.IsValid() && MatchingEntries[Index]->KeyMetadataObj->Values.Num() == 0) )
-					{
-						return MatchingEntries[Index];
-					}
-				}
-				else if( *(MatchingEntries[Index]->KeyMetadataObj) == *(KeyMetadataObj) )
-				{
-					return MatchingEntries[Index];
-				}
-			}
-		}
-	}
-
-	return NULL;
+	return AddEntry(InEntry->Namespace, InEntry->Key, InEntry->Source, InEntry->Translation, InEntry->KeyMetadataObj, InEntry->bIsOptional);
 }
 
 void FInternationalizationArchive::UpdateEntry(const TSharedRef<FArchiveEntry>& OldEntry, const TSharedRef<FArchiveEntry>& NewEntry)
 {
 	EntriesBySourceText.RemoveSingle(OldEntry->Source.Text, OldEntry);
 	EntriesBySourceText.Add(NewEntry->Source.Text, NewEntry);
+
+	EntriesByKey.RemoveSingle(OldEntry->Key, OldEntry);
+	EntriesByKey.Add(NewEntry->Key, NewEntry);
 }
 
-TArchiveEntryContainer::TConstIterator FInternationalizationArchive::GetEntryIterator() const
+bool FInternationalizationArchive::SetTranslation(const FString& Namespace, const FString& Key, const FLocItem& Source, const FLocItem& Translation, const TSharedPtr<FLocMetadataObject> KeyMetadataObj)
 {
-	return EntriesBySourceText.CreateConstIterator();
+	TSharedPtr<FArchiveEntry> Entry = FindEntryByKey(Namespace, Key, KeyMetadataObj);
+	if (Entry.IsValid())
+	{
+		if (Entry->Source != Source)
+		{
+			UpdateEntry(Entry.ToSharedRef(), MakeShareable(new FArchiveEntry(Namespace, Key, Source, Translation, KeyMetadataObj, Entry->bIsOptional)));
+		}
+		else
+		{
+			Entry->Translation = Translation;
+		}
+
+		return true;
+	}
+
+	return false;
 }
 
+TSharedPtr<FArchiveEntry> FInternationalizationArchive::FindEntryByKey(const FString& Namespace, const FString& Key, const TSharedPtr<FLocMetadataObject> KeyMetadataObj) const
+{
+	TArray<TSharedRef<FArchiveEntry>> MatchingEntries;
+	EntriesByKey.MultiFind(Key, MatchingEntries);
 
+	for (const TSharedRef<FArchiveEntry>& Entry : MatchingEntries)
+	{
+		if (Entry->Namespace.Equals(Namespace, ESearchCase::CaseSensitive))
+		{
+			if (!Entry->KeyMetadataObj.IsValid() && !KeyMetadataObj.IsValid())
+			{
+				return Entry;
+			}
+			else if ((KeyMetadataObj.IsValid() != Entry->KeyMetadataObj.IsValid()))
+			{
+				// If we are in here, we know that one of the metadata entries is null, if the other contains zero entries we will still consider them equivalent.
+				if ((KeyMetadataObj.IsValid() && KeyMetadataObj->Values.Num() == 0) || (Entry->KeyMetadataObj.IsValid() && Entry->KeyMetadataObj->Values.Num() == 0))
+				{
+					return Entry;
+				}
+			}
+			else if (*Entry->KeyMetadataObj == *KeyMetadataObj)
+			{
+				return Entry;
+			}
+		}
+	}
 
+	return nullptr;
+}

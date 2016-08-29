@@ -13,12 +13,11 @@
 
 #if USE_HZB
 #define HZB_LEVEL_OFFSET 1.0
-
-float4 HZBUvFactorAndInvFactor;
 #else
 #define HZB_LEVEL_OFFSET 0.0
-
 #endif
+
+float4 HZBUvFactorAndInvFactor;
 
 float4 SampleDepthTexture( Texture2D Texture, SamplerState Sampler, float Level, float4 SampleUV0, float4 SampleUV1 )
 {
@@ -49,22 +48,25 @@ void RayCast(
 {
 	// TODO provide RayStartUVz
 	const float4 RayStartV = mul( float4( RayOriginTranslatedWorld, 1 ), View.TranslatedWorldToView );
-	const float4 RayDirV = mul(float4(RayDirection * SceneDepth, 0),  View.TranslatedWorldToView);
+	const float4 RayDirV = mul(float4(RayDirection * SceneDepth, 0), View.TranslatedWorldToView);
 	const float4 RayEndV = RayStartV + RayDirV;
 
 	const float RayEndRadiusV = length(RayDirV.xyz) * tan(ConeAngleWorld * 0.4);
 	const float2 RayEndBorderV = RayEndV.xy + RayEndRadiusV / sqrt(2.0);
 
 	const float4 RayStartClip	= mul( RayStartV, View.ViewToClip );
-	const float4 RayEndClip	= mul( RayEndV, View.ViewToClip );
+	const float4 RayEndClip		= mul( RayEndV, View.ViewToClip );
 	const float2 RayEndBorderClip = mul(float4(RayEndBorderV, RayEndV.zw), View.ViewToClip).xy;
 
 	const float3 RayStartScreen = RayStartClip.xyz / RayStartClip.w;
 	const float3 RayEndScreen = RayEndClip.xyz / RayEndClip.w;
 	const float2 RayEndBorderScreen = RayEndBorderClip.xy / RayEndClip.w;
-	
-	float3 RayStepScreen = (RayEndScreen - RayStartScreen);
-	float2 RayStepRadiusScreen = (RayEndBorderScreen - RayEndScreen.xy);
+
+	float4 RayDepthClip	= RayStartClip + mul( float4( 0, 0, SceneDepth, 0 ), View.ViewToClip );
+	float3 RayDepthScreen = RayDepthClip.xyz / RayDepthClip.w;
+
+	float3 RayStepScreen = RayEndScreen - RayStartScreen;
+	float2 RayStepRadiusScreen = RayEndBorderScreen - RayEndScreen.xy;
 
 	{
 		// Computes the scale down factor for RayStepScreen required to fit on the X and Y axis in order to clip it in the viewport
@@ -81,20 +83,19 @@ void RayCast(
 
 	const float2 HzbSize = float2(1024, 512);
 #if USE_HZB
-	const float3 RayStartUVz = float3( (RayStartScreen.xy * float2( 0.5, -0.5 ) + 0.5) * HZBUvFactorAndInvFactor.xy, RayStartScreen.z );
-	const float3 RayStepUVz = float3( RayStepScreen.xy * float2( 0.5, -0.5 ) * HZBUvFactorAndInvFactor.xy, RayStepScreen.z );
-	const float2 RayStepRadiusUV = RayStepRadiusScreen.xy * float2( 0.5, -0.5 ) * HZBUvFactorAndInvFactor.xy;
+	float3 RayStartUVz = float3( (RayStartScreen.xy * float2( 0.5, -0.5 ) + 0.5) * HZBUvFactorAndInvFactor.xy, RayStartScreen.z );
+	float3 RayStepUVz = float3( RayStepScreen.xy * float2( 0.5, -0.5 ) * HZBUvFactorAndInvFactor.xy, RayStepScreen.z );
+	float2 RayStepRadiusUV = RayStepRadiusScreen.xy * float2( 0.5, -0.5 ) * HZBUvFactorAndInvFactor.xy;
 #else
-	const float3 RayStartUVz = float3( (RayStartScreen.xy * float2( 0.5, -0.5 ) + 0.5), RayStartScreen.z );
-	const float3 RayStepUVz = float3( RayStepScreen.xy * float2( 0.5, -0.5 ), RayStepScreen.z );
-	const float2 RayStepRadiusUV = RayStepRadiusScreen.xy * float2( 0.5, -0.5 );
+	float3 RayStartUVz = float3( (RayStartScreen.xy * float2( 0.5, -0.5 ) + 0.5), RayStartScreen.z );
+	float3 RayStepUVz = float3( RayStepScreen.xy * float2( 0.5, -0.5 ), RayStepScreen.z );
+	float2 RayStepRadiusUV = RayStepRadiusScreen.xy * float2( 0.5, -0.5 );
 #endif
 	const float RayStepRadiusFactor = length(RayStepRadiusUV * TextureSize);
 	
-	const float Step = 1.0 / (NumSteps + 1);
+	const float Step = 1.0 / NumSteps;
 
-	// *2 to get less morie pattern in extreme cases, larger values make object appear not grounded in reflections
-	const float CompareTolerance = abs( RayStepUVz.z ) * Step * 2;
+	const float CompareTolerance = abs( RayDepthScreen.z - RayStartScreen.z ) * Step * 4;
 
 	// avoid bugs with early returns inside of loops on certain platform compilers.
 	float4 Result = float4( 0, 0, 0, 1 );
@@ -192,6 +193,106 @@ void RayCast(
 	float3 HitUVz = RayStartUVz + RayStepUVz * MinHitTime;
 
 	Result = float4( HitUVz, MinHitTime );
+
+#elif 1
+
+	float LastDiff = 0;
+	float Level = HZB_LEVEL_OFFSET;
+
+	RayStepUVz *= Step;
+	float3 RayUVz = RayStartUVz + RayStepUVz * StepOffset;
+
+	LOOP
+	for( int i = 0; i < NumSteps; i += 4 )
+	{
+		// Vectorized to group fetches
+		float4 SampleUV0 = RayUVz.xyxy + RayStepUVz.xyxy * float4( 1, 1, 2, 2 );
+		float4 SampleUV1 = RayUVz.xyxy + RayStepUVz.xyxy * float4( 3, 3, 4, 4 );
+		float4 SampleZ   = RayUVz.zzzz + RayStepUVz.zzzz * float4( 1, 2, 3, 4 );
+		
+		// Use lower res for farther samples
+		float4 SampleDepth = SampleDepthTexture( Texture, Sampler, Level, SampleUV0, SampleUV1 );
+
+		float4 DepthDiff = SampleZ - SampleDepth;
+		bool4 Hit = abs( -DepthDiff - CompareTolerance ) < CompareTolerance;
+
+		BRANCH if( any( Hit ) )
+		{
+			float DepthDiff0 = DepthDiff[2];
+			float DepthDiff1 = DepthDiff[3];
+			float MinTime = 3;
+
+			FLATTEN if( Hit[2] )
+			{
+				DepthDiff0 = DepthDiff[1];
+				DepthDiff1 = DepthDiff[2];
+				MinTime = 2;
+			}
+			FLATTEN if( Hit[1] )
+			{
+				DepthDiff0 = DepthDiff[0];
+				DepthDiff1 = DepthDiff[1];
+				MinTime = 1;
+			}
+			FLATTEN if( Hit[0] )
+			{
+				DepthDiff0 = LastDiff;
+				DepthDiff1 = DepthDiff[0];
+				MinTime = 0;
+			}
+
+			// Find more accurate hit using line segment intersection
+			float TimeLerp = saturate( DepthDiff0 / (DepthDiff0 - DepthDiff1) );
+			float IntersectTime = MinTime + TimeLerp;
+			float3 HitUVz = RayUVz + RayStepUVz * IntersectTime;
+
+			Result = float4( HitUVz, 0.5 );
+			break;
+		}
+
+		LastDiff = DepthDiff.w;
+		Level += Roughness * (16.0 / NumSteps);
+
+		RayUVz += 4 * RayStepUVz;
+	}
+
+#elif 1
+
+	float Level = HZB_LEVEL_OFFSET;
+
+	RayStepUVz *= Step;
+	float3 RayUVz = RayStartUVz + RayStepUVz * StepOffset;
+
+	LOOP
+	for( uint i = 0; i < NumSteps; i += 4 )
+	{
+		// Vectorized to group fetches
+		float4 SampleUV0 = RayUVz.xyxy + RayStepUVz.xyxy * float4( 1, 1, 2, 2 );
+		float4 SampleUV1 = RayUVz.xyxy + RayStepUVz.xyxy * float4( 3, 3, 4, 4 );
+		float4 SampleZ   = RayUVz.zzzz + RayStepUVz.zzzz * float4( 1, 2, 3, 4 );
+		
+		// Use lower res for farther samples
+		float4 SampleDepth = SampleDepthTexture( Texture, Sampler, Level, SampleUV0, SampleUV1 );
+
+		float4 DepthDiff = SampleZ - SampleDepth;
+		bool4 Hit = abs( -DepthDiff - CompareTolerance ) < CompareTolerance;
+
+		BRANCH if( any( Hit ) )
+		{
+			float MinTime = 3;
+			MinTime = Hit[2] ? 2 : MinTime;
+			MinTime = Hit[1] ? 1 : MinTime;
+			MinTime = Hit[0] ? 0 : MinTime;
+
+			float3 HitUVz = RayUVz + RayStepUVz * MinTime;
+
+			Result = float4( HitUVz, 0.5 );
+			break;
+		}
+
+		Level += Roughness * (16.0 / NumSteps);
+		RayUVz += 4 * RayStepUVz;
+	}
 
 #else // VECTORIZED_EARLY_OUT
 
@@ -353,6 +454,8 @@ float4 SampleScreenColor( Texture2D Texture, SamplerState Sampler, float3 HitUVz
 	float4 OutColor;
 
 #if PREV_FRAME_COLOR
+
+#if 0
 	// Find previous screen position for hit since color buffer is from last frame
 	// TODO combine to single matrix
 	float4 HitClip = float4( (HitUVz.xy - View.ScreenPositionScaleBias.wz) / View.ScreenPositionScaleBias.xy, HitUVz.z, 1 );
@@ -362,6 +465,13 @@ float4 SampleScreenColor( Texture2D Texture, SamplerState Sampler, float3 HitUVz
 	float4 PrevClip = mul( PrevTranslatedWorld, View.PrevTranslatedWorldToClip );
 	float2 PrevScreen = PrevClip.xy / PrevClip.w;
 	float2 PrevUV = PrevScreen.xy * View.ScreenPositionScaleBias.xy + View.ScreenPositionScaleBias.wz;
+#else
+	// Camera motion for pixel (in ScreenPos space).
+	float4 ThisClip = float4( (HitUVz.xy - View.ScreenPositionScaleBias.wz) / View.ScreenPositionScaleBias.xy, HitUVz.z, 1 );
+	float4 PrevClip = mul( ThisClip, View.ClipToPrevClip );
+	float2 PrevScreen = PrevClip.xy / PrevClip.w;
+	float2 PrevUV = PrevScreen.xy * View.ScreenPositionScaleBias.xy + View.ScreenPositionScaleBias.wz;
+#endif
 
 	OutColor.rgb = Texture.SampleLevel( Sampler, PrevUV, 0 ).rgb;
 	OutColor.a = 1;

@@ -8,6 +8,8 @@
 #include "TutorialMetaData.h"
 #include "EngineBuildSettings.h"
 #include "AssetRegistryModule.h"
+#include "EngineAnalytics.h"
+#include "IAnalyticsProvider.h"
 
 #define LOCTEXT_NAMESPACE "STutorialButton"
 

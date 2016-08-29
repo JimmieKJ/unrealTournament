@@ -147,6 +147,10 @@ public:
 	/** Passes in a slate loading screen UI, movie paths, and any additional data. */
 	virtual void SetupLoadingScreen(const FLoadingScreenAttributes& InLoadingScreenAttributes) = 0;
 	
+	/** Called before playing a movie if the loading screen has not been prepared. */
+	DECLARE_EVENT(IGameMoviePlayer, FOnPrepareLoadingScreen)
+	virtual FOnPrepareLoadingScreen& OnPrepareLoadingScreen() = 0;
+
 	/** 
 	 * Starts playing the movie given the last FLoadingScreenAttributes passed in
 	 * @return true of a movie started playing.

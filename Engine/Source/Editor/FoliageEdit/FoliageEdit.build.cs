@@ -7,7 +7,8 @@ public class FoliageEdit : ModuleRules
 	public FoliageEdit(TargetInfo Target)
 	{
 		PublicDependencyModuleNames.AddRange(
-			new string[] {
+			new string[] 
+			{
 				"Core",
 				"CoreUObject",
 				"InputCore",
@@ -25,5 +26,13 @@ public class FoliageEdit : ModuleRules
                 "Foliage",
 			}
 		);
-	}
+
+		PrivateDependencyModuleNames.AddRange(
+			new string[]
+			{
+				"ViewportInteraction",
+				"VREditor"
+			}
+		);
+    }
 }

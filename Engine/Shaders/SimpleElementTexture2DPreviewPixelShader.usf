@@ -8,6 +8,8 @@
 #include "ColorUtils.usf"
 #include "GammaCorrectionCommon.usf"
 
+#define WRITE_TO_GBUFFER (FEATURE_LEVEL >= FEATURE_LEVEL_SM4 && !FORWARD_SHADING)
+
 Texture2D InTexture;
 SamplerState InTextureSampler;
 
@@ -23,10 +25,8 @@ void Main(
 	in float2 TextureCoordinate : TEXCOORD0,
 	in float4 Color : TEXCOORD1,
 	out float4 OutColor : SV_Target0
-#if FEATURE_LEVEL >= FEATURE_LEVEL_SM4
+#if WRITE_TO_GBUFFER
 	,out float4 OutWorldNormal : SV_Target1 
-	,out float4 OutReflectionWorldNormal : SV_Target2 
-	,out float4 OutSpecularColorAndPower : SV_Target3
 #endif
 	)
 {
@@ -72,10 +72,8 @@ void Main(
 		 
 	OutColor = FinalColor;
 
-#if FEATURE_LEVEL >= FEATURE_LEVEL_SM4
+#if WRITE_TO_GBUFFER
 	// Set the G buffer bits that indicate that deferred lighting and image reflections are not enabled
 	OutWorldNormal = 0;
-	OutReflectionWorldNormal = 0;
-	OutSpecularColorAndPower = 0;
 #endif
 }

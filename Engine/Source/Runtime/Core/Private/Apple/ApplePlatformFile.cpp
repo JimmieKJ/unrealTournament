@@ -54,6 +54,7 @@ public:
 		, FileOffset(0)
 		, FileSize(0)
 #endif
+        , bReadOnly(bIsReadOnly)
 	{
 		check(FileHandle > -1);
 
@@ -76,14 +77,30 @@ public:
 		{
 			if( ActiveHandles[ HandleSlot ] == this )
 			{
-				close(FileHandle);
+				int CloseResult = close(FileHandle);
+				if (CloseResult < 0)
+				{
+					UE_LOG(LogInit, Warning, TEXT("Failed to properly close readable file: %s with errno: %d"), *Filename, errno);
+				}
 				ActiveHandles[ HandleSlot ] = NULL;
 			}
 		}
 		else
 #endif
 		{
-			close(FileHandle);
+            if (!bReadOnly)
+            {
+                int Result = fsync(FileHandle);
+				if (Result < 0)
+				{
+					UE_LOG(LogInit, Error, TEXT("Failed to properly flush writable file with errno: %d"), errno);
+				}
+            }
+			int CloseResult = close(FileHandle);
+			if (CloseResult < 0)
+			{
+				UE_LOG(LogInit, Warning, TEXT("Failed to properly close file with errno: %d"), errno);
+			}
 		}
 		FileHandle = -1;
 	}
@@ -304,6 +321,9 @@ private:
     static __thread double AccessTimes[ ACTIVE_HANDLE_COUNT ];
 #endif
 
+    // Whether the file is read-only or permits writes.
+    bool bReadOnly;
+    
 	FORCEINLINE bool IsValid()
 	{
 		return FileHandle != -1;

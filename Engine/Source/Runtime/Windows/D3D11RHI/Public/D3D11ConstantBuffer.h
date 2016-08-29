@@ -4,8 +4,7 @@
 	D3D11ConstantBuffer.h: Public D3D Constant Buffer definitions.
 =============================================================================*/
 
-#ifndef __D3D11ConstantBuffer_H__
-#define __D3D11ConstantBuffer_H__
+#pragma once
 
 #include "RenderResource.h"
 
@@ -69,4 +68,3 @@ protected:
 
 DECLARE_CYCLE_STAT_EXTERN(TEXT("Global Constant buffer update time"),STAT_D3D11GlobalConstantBufferUpdateTime,STATGROUP_D3D11RHI, );
 
-#endif

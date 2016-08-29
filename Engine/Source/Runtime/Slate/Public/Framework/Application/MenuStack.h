@@ -58,6 +58,11 @@ struct FPopupTransitionEffect
 class FMenuStack
 {
 public:
+	/** Constructor */
+	FMenuStack()
+		: bHostWindowGuard(false)
+	{}
+
 	/**
 	 * [Deprecated] Pushes a new menu onto the stack.  Automatically removes windows from the stack that are no longer valid
 	 * Invalid windows are those that are not parents of the window menu being pushed and any windows on the same stack level
@@ -272,11 +277,9 @@ private:
 	void DismissInternal(int32 FirstStackIndexToRemove);
 
 	/**
-	 * Handles changes to the host window. Makes sure overlay slots are added/removed as appropriate.
-	 *
-	 * @param	InWindow	The new host window.
+	 * Handles changes to the owner path, potentially locating and establishing the new host. Makes sure overlay slots are added/removed as appropriate.
 	 */
-	void SetHostWindow(TSharedPtr<SWindow> InWindow);
+	void SetHostPath(const FWidgetPath& InOwnerPath);
 
 	/**
 	 * Callback method called by all menus when they are dismissed.  Handles changes to the stack state when a menu is destroyed.
@@ -393,6 +396,9 @@ private:
 	/** The parent window of the root menu in the stack. NOT the actual menu window if it's a CreateNewWindow */
 	TSharedPtr<SMenuPanel> HostWindowPopupPanel;
 
+	/** The popup layer that contains our HostWindowPopupPanel. */
+	TSharedPtr<FPopupLayer> HostPopupLayer;
+
 	/** The array of menus in the stack */
 	TArray<TSharedPtr<class FMenuBase>> Stack;
 
@@ -407,4 +413,7 @@ private:
 
 	/** Temporary ptr to a new menu created during the menu creation process. Nulled before the Push() call returns. Stops it collapsing the stack when it gets focus. */
 	TSharedPtr<class FMenuBase> PendingNewMenu;
+
+	/** Guard to prevent the HostWindow and HostWindowPopupPanel being set reentrantly */
+	bool bHostWindowGuard;
 };

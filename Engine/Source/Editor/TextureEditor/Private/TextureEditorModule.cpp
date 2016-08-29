@@ -90,7 +90,7 @@ public:
 		ToolBarExtensibilityManager.Reset();
 
 		FPropertyEditorModule& PropertyModule = FModuleManager::GetModuleChecked<FPropertyEditorModule>("PropertyEditor");
-		PropertyModule.UnregisterCustomClassLayout("Texture2D");
+		PropertyModule.UnregisterCustomClassLayout("Texture");
 	}
 
 private:

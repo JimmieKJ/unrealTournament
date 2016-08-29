@@ -197,8 +197,8 @@ bool FSequencerObjectChangeListener::FindPropertySetter( const UClass& ObjectCla
 			}
 		}
 		
-		// Valid either if a setter function is found or a property with the Interp keyword is found. The property also needs to be editable.
-		bFound = (bFoundValidFunction || bFoundValidInterp) && bFoundEdit && !bFoundEditDefaultsOnly;
+		// Valid if there's a setter function and the property is editable. Also valid if there's an interp keyword.
+		bFound = (bFoundValidFunction && bFoundEdit && !bFoundEditDefaultsOnly) || bFoundValidInterp;
 	}
 
 	return bFound;

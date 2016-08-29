@@ -222,6 +222,7 @@ FParticleEmitterBuildInfo::FParticleEmitterBuildInfo()
 	, bLocalVectorFieldTileX(false)
 	, bLocalVectorFieldTileY(false)
 	, bLocalVectorFieldTileZ(false)
+	, bLocalVectorFieldUseFixDT(false)
 {
 	DragScale.InitializeWithConstant(1.0f);
 	VectorFieldScale.InitializeWithConstant(1.0f);
@@ -2311,7 +2312,7 @@ FBaseParticle* FParticleEmitterInstance::GetParticle(int32 Index)
 
 FBaseParticle* FParticleEmitterInstance::GetParticleDirect(int32 InDirectIndex)
 {
-	if (/*(ActiveParticles > 0) &&*/ (InDirectIndex < MaxActiveParticles))
+	if ((ActiveParticles > 0) && (InDirectIndex < MaxActiveParticles))
 	{
 		DECLARE_PARTICLE_PTR(Particle, ParticleData + ParticleStride * InDirectIndex);
 		return Particle;
@@ -2581,6 +2582,7 @@ bool FParticleEmitterInstance::FillReplayData( FDynamicEmitterReplayDataBase& Ou
  * Gathers material relevance flags for this emitter instance.
  * @param OutMaterialRelevance - Pointer to where material relevance flags will be stored.
  * @param LODLevel - The LOD level for which to compute material relevance flags.
+ * @param InFeatureLevel - The relevant shader feature level.
  */
 void FParticleEmitterInstance::GatherMaterialRelevance(FMaterialRelevance* OutMaterialRelevance, const UParticleLODLevel* LODLevel, ERHIFeatureLevel::Type InFeatureLevel) const
 {
@@ -2692,10 +2694,11 @@ FParticleSpriteEmitterInstance::~FParticleSpriteEmitterInstance()
  *	Retrieves the dynamic data for the emitter
  *	
  *	@param	bSelected					Whether the emitter is selected in the editor
+ *  @param InFeatureLevel				The relevant shader feature level.
  *
  *	@return	FDynamicEmitterDataBase*	The dynamic data, or NULL if it shouldn't be rendered
  */
-FDynamicEmitterDataBase* FParticleSpriteEmitterInstance::GetDynamicData(bool bSelected)
+FDynamicEmitterDataBase* FParticleSpriteEmitterInstance::GetDynamicData(bool bSelected, ERHIFeatureLevel::Type InFeatureLevel)
 {
 	QUICK_SCOPE_CYCLE_COUNTER(STAT_ParticleSpriteEmitterInstance_GetDynamicData);
 
@@ -2726,41 +2729,6 @@ FDynamicEmitterDataBase* FParticleSpriteEmitterInstance::GetDynamicData(bool bSe
 	NewEmitterData->Init( bSelected );
 
 	return NewEmitterData;
-}
-
-/**
- *	Updates the dynamic data for the instance
- *
- *	@param	DynamicData		The dynamic data to fill in
- *	@param	bSelected		true if the particle system component is selected
- */
-bool FParticleSpriteEmitterInstance::UpdateDynamicData(FDynamicEmitterDataBase* DynamicData, bool bSelected)
-{
-	QUICK_SCOPE_CYCLE_COUNTER(STAT_ParticleSpriteEmitterInstance_UpdateDynamicData);
-
-	checkf((DynamicData->GetSource().eEmitterType == DET_Sprite), TEXT("Sprite::UpdateDynamicData> Invalid DynamicData type!"));
-
-	if (ActiveParticles <= 0 || !bEnabled)
-	{
-		return false;
-	}
-
-	UParticleLODLevel* LODLevel = SpriteTemplate->GetCurrentLODLevel(this);
-	if ((LODLevel == NULL) || (LODLevel->bEnabled == false))
-	{
-		return false;
-	}
-	FDynamicSpriteEmitterData* SpriteDynamicData = (FDynamicSpriteEmitterData*)DynamicData;
-	// Now fill in the source data
-	if( !FillReplayData( SpriteDynamicData->Source ) )
-	{
-		return false;
-	}
-
-	// Setup dynamic render data.  Only call this AFTER filling in source data for the emitter.
-	SpriteDynamicData->Init( bSelected );
-
-	return true;
 }
 
 /**
@@ -2881,6 +2849,7 @@ UMaterialInterface* FParticleEmitterInstance::GetCurrentMaterial()
 	{
 		RenderMaterial = UMaterial::GetDefaultMaterial(MD_Surface);
 	}
+	CurrentMaterial = RenderMaterial;
 	return RenderMaterial;
 }
 
@@ -2966,6 +2935,42 @@ void FParticleMeshEmitterInstance::Tick(float DeltaTime, bool bSuppressSpawning)
 {
 	SCOPE_CYCLE_COUNTER(STAT_MeshTickTime);
 
+	if (bEnabled && MeshMotionBlurOffset)
+	{
+		for (int32 i = 0; i < ActiveParticles; i++)
+		{
+			DECLARE_PARTICLE(Particle, ParticleData + ParticleStride * ParticleIndices[i]);
+
+			FMeshRotationPayloadData* RotationPayloadData = (FMeshRotationPayloadData*)((uint8*)&Particle + MeshRotationOffset);
+			FMeshMotionBlurPayloadData* MotionBlurPayloadData = (FMeshMotionBlurPayloadData*)((uint8*)&Particle + MeshMotionBlurOffset);
+
+			MotionBlurPayloadData->BaseParticlePrevRotation = Particle.Rotation;
+			MotionBlurPayloadData->BaseParticlePrevVelocity = Particle.Velocity;
+			MotionBlurPayloadData->BaseParticlePrevSize = Particle.Size;
+			MotionBlurPayloadData->PayloadPrevRotation = RotationPayloadData->Rotation;
+
+			if (CameraPayloadOffset)
+			{
+				const FCameraOffsetParticlePayload* CameraPayload = (const FCameraOffsetParticlePayload*)((const uint8*)&Particle + CameraPayloadOffset);
+				MotionBlurPayloadData->PayloadPrevCameraOffset = CameraPayload->Offset;
+			}
+			else
+			{
+				MotionBlurPayloadData->PayloadPrevCameraOffset = 0.0f;
+			}
+
+			if (OrbitModuleOffset)
+			{
+				const FOrbitChainModuleInstancePayload* OrbitPayload = (const FOrbitChainModuleInstancePayload*)((const uint8*)&Particle + OrbitModuleOffset);
+				MotionBlurPayloadData->PayloadPrevOrbitOffset = OrbitPayload->Offset;
+			}
+			else
+			{
+				MotionBlurPayloadData->PayloadPrevOrbitOffset = FVector::ZeroVector;
+			}
+		}
+	}
+
 	UParticleLODLevel* LODLevel = GetCurrentLODLevelChecked();
 	// See if we are handling mesh rotation
 	if (MeshRotationActive && bEnabled)
@@ -2991,20 +2996,15 @@ void FParticleMeshEmitterInstance::Tick(float DeltaTime, bool bSuppressSpawning)
 						UParticleModuleOrbit* LastOrbit = SpriteTemplate->LODLevels[0]->OrbitModules[LODLevel->OrbitModules.Num() - 1];
 						check(LastOrbit);
 					
-						uint32 OrbitModuleOffset = *SpriteTemplate->ModuleOffsetMap.Find(LastOrbit);
+						uint32 SpriteOrbitModuleOffset = *SpriteTemplate->ModuleOffsetMap.Find(LastOrbit);
 						if (OrbitModuleOffset != 0)
 						{
-							FOrbitChainModuleInstancePayload &OrbitPayload = *(FOrbitChainModuleInstancePayload*)((uint8*)&Particle + OrbitModuleOffset);
-
-							FVector OrbitOffset = OrbitPayload.Offset;
-							FVector PrevOrbitOffset = OrbitPayload.PreviousOffset;
-							FVector Location = Particle.Location;
-							FVector OldLocation = Particle.OldLocation;
+							const FOrbitChainModuleInstancePayload &OrbitPayload = *(FOrbitChainModuleInstancePayload*)((uint8*)&Particle + SpriteOrbitModuleOffset);
 
 							//this should be our current position
-							FVector NewPos = Location + OrbitOffset;	
+							const FVector NewPos =  Particle.Location + OrbitPayload.Offset;	
 							//this should be our previous position
-							FVector OldPos = OldLocation + PrevOrbitOffset;
+							const FVector OldPos = Particle.OldLocation + OrbitPayload.PreviousOffset;
 
 							NewDirection = NewPos - OldPos;
 						}	
@@ -3158,36 +3158,6 @@ void FParticleMeshEmitterInstance::UpdateBoundingBox(float DeltaTime)
 			FPlatformMisc::Prefetch(ParticleData, ParticleStride * ParticleIndices[i+1]);
 			FPlatformMisc::Prefetch(ParticleData, (ParticleIndices[i+1] * ParticleStride) + PLATFORM_CACHE_LINE_SIZE);
 
-			if (MeshMotionBlurOffset)
-			{
-				FMeshRotationPayloadData* RotationPayloadData = (FMeshRotationPayloadData*)((uint8*)&Particle + MeshRotationOffset);
-				FMeshMotionBlurPayloadData* MotionBlurPayloadData = (FMeshMotionBlurPayloadData*)((uint8*)&Particle + MeshRotationOffset);
-				MotionBlurPayloadData->BaseParticlePrevRotation = Particle.Rotation;
-				MotionBlurPayloadData->BaseParticlePrevVelocity = Particle.Velocity;
-				MotionBlurPayloadData->BaseParticlePrevSize = Particle.Size;
-				MotionBlurPayloadData->PayloadPrevRotation = RotationPayloadData->Rotation;
-
-				if (CameraPayloadOffset)
-				{
-					const FCameraOffsetParticlePayload* CameraPayload = (const FCameraOffsetParticlePayload*)((const uint8*)&Particle + CameraPayloadOffset);
-					MotionBlurPayloadData->PayloadPrevCameraOffset = CameraPayload->Offset;
-				}
-				else
-				{
-					MotionBlurPayloadData->PayloadPrevCameraOffset = 0.0f;
-				}
-
-				if (OrbitModuleOffset)
-				{
-					const FOrbitChainModuleInstancePayload* OrbitPayload = (const FOrbitChainModuleInstancePayload*)((const uint8*)&Particle + OrbitModuleOffset);
-					MotionBlurPayloadData->PayloadPrevOrbitOffset = OrbitPayload->Offset;
-				}
-				else
-				{
-					MotionBlurPayloadData->PayloadPrevOrbitOffset = FVector::ZeroVector;
-				}
-			}
-
 			// Do linear integrator and update bounding box
 			Particle.OldLocation = Particle.Location;
 			if ((Particle.Flags & STATE_Particle_Freeze) == 0)
@@ -3266,7 +3236,7 @@ uint32 FParticleMeshEmitterInstance::RequiredBytes()
 	if (MeshTypeData)
 	{
 		const auto* MeshTD = static_cast<const UParticleModuleTypeDataMesh*>(MeshTypeData);
-		if (MeshTypeData->bEnableMotionBlur)
+		if (MeshTypeData->IsMotionBlurEnabled())
 		{
 			MeshMotionBlurOffset = PayloadOffset + uiBytes;
 			uiBytes += sizeof(FMeshMotionBlurPayloadData);
@@ -3346,21 +3316,22 @@ void FParticleMeshEmitterInstance::PostSpawn(FBaseParticle* Particle, float Inte
 	}
 }
 
-bool FParticleMeshEmitterInstance::IsDynamicDataRequired(UParticleLODLevel* CurrentLODLevel)
+bool FParticleMeshEmitterInstance::IsDynamicDataRequired(UParticleLODLevel* InCurrentLODLevel)
 {
 	return MeshTypeData->Mesh != NULL
 		&& MeshTypeData->Mesh->HasValidRenderData()
-		&& FParticleEmitterInstance::IsDynamicDataRequired(CurrentLODLevel);
+		&& FParticleEmitterInstance::IsDynamicDataRequired(InCurrentLODLevel);
 }
 
 /**
  *	Retrieves the dynamic data for the emitter
  *	
  *	@param	bSelected					Whether the emitter is selected in the editor
+ *  @param InFeatureLevel				The relevant shader feature level.
  *
  *	@return	FDynamicEmitterDataBase*	The dynamic data, or NULL if it shouldn't be rendered
  */
-FDynamicEmitterDataBase* FParticleMeshEmitterInstance::GetDynamicData(bool bSelected)
+FDynamicEmitterDataBase* FParticleMeshEmitterInstance::GetDynamicData(bool bSelected, ERHIFeatureLevel::Type InFeatureLevel)
 {
 	QUICK_SCOPE_CYCLE_COUNTER(STAT_ParticleMeshEmitterInstance_GetDynamicData);
 
@@ -3392,50 +3363,11 @@ FDynamicEmitterDataBase* FParticleMeshEmitterInstance::GetDynamicData(bool bSele
 	NewEmitterData->Init(
 		bSelected,
 		this,
-		MeshTypeData->Mesh
+		MeshTypeData->Mesh,
+		InFeatureLevel
 		);
 
 	return NewEmitterData;
-}
-
-/**
- *	Updates the dynamic data for the instance
- *
- *	@param	DynamicData		The dynamic data to fill in
- *	@param	bSelected		true if the particle system component is selected
- */
-bool FParticleMeshEmitterInstance::UpdateDynamicData(FDynamicEmitterDataBase* DynamicData, bool bSelected)
-{
-	QUICK_SCOPE_CYCLE_COUNTER(STAT_ParticleMeshEmitterInstance_UpdateDynamicData);
-
-	if (ActiveParticles <= 0 || !bEnabled)
-	{
-		return false;
-	}
-
-	UParticleLODLevel* LODLevel = SpriteTemplate->GetCurrentLODLevel(this);
-	if ((LODLevel == NULL) || (LODLevel->bEnabled == false))
-	{
-		return false;
-	}
-
-	checkf((DynamicData->GetSource().eEmitterType == DET_Mesh), TEXT("Mesh::UpdateDynamicData> Invalid DynamicData type!"));
-
-	FDynamicMeshEmitterData* MeshDynamicData = (FDynamicMeshEmitterData*)DynamicData;
-	// Now fill in the source data
-	if( !FillReplayData( MeshDynamicData->Source ) )
-	{
-		return false;
-	}
-
-	// Setup dynamic render data.  Only call this AFTER filling in source data for the emitter.
-	MeshDynamicData->Init(
-		bSelected,
-		this,
-		MeshTypeData->Mesh
-		);
-
-	return true;
 }
 
 /**
@@ -3514,11 +3446,12 @@ void FParticleMeshEmitterInstance::SetMeshMaterials( const TArray<UMaterialInter
  * Gathers material relevance flags for this emitter instance.
  * @param OutMaterialRelevance - Pointer to where material relevance flags will be stored.
  * @param LODLevel - The LOD level for which to compute material relevance flags.
+ * @param InFeatureLevel - The relevant shader feature level.
  */
 void FParticleMeshEmitterInstance::GatherMaterialRelevance( FMaterialRelevance* OutMaterialRelevance, const UParticleLODLevel* LODLevel, ERHIFeatureLevel::Type InFeatureLevel ) const
 {
 	TArray<UMaterialInterface*,TInlineAllocator<2> > Materials;
-	GetMeshMaterials(Materials, LODLevel);
+	GetMeshMaterials(Materials, LODLevel, InFeatureLevel, true); // Allow log issues since GatherMaterialRelevance is only called when the proxy is created.
 	for (int32 MaterialIndex = 0; MaterialIndex < Materials.Num(); ++MaterialIndex)
 	{
 		(*OutMaterialRelevance) |= Materials[MaterialIndex]->GetRelevance(InFeatureLevel);
@@ -3527,7 +3460,9 @@ void FParticleMeshEmitterInstance::GatherMaterialRelevance( FMaterialRelevance* 
 
 void FParticleMeshEmitterInstance::GetMeshMaterials(
 	TArray<UMaterialInterface*,TInlineAllocator<2> >& OutMaterials,
-	const UParticleLODLevel* LODLevel
+	const UParticleLODLevel* LODLevel,
+	ERHIFeatureLevel::Type InFeatureLevel,
+	bool bLogWarnings
 	) const
 {
 	if (MeshTypeData && MeshTypeData->Mesh)
@@ -3571,6 +3506,16 @@ void FParticleMeshEmitterInstance::GetMeshMaterials(
 			if (Material == NULL)
 			{
 				Material = MeshTypeData->Mesh->GetMaterial(LODModel.Sections[SectionIndex].MaterialIndex);
+			}
+
+			// Check that adjacency data is not required since the implementation does not support it.
+			if (RequiresAdjacencyInformation(Material, LODModel.VertexFactory.GetType(), InFeatureLevel))
+			{
+				if (bLogWarnings)
+				{
+					UE_LOG(LogParticles, Warning, TEXT("Material %s requires adjacency information because of Crack Free Displacement or PN Triangle Tesselation, which is not supported with particles. Falling back to DefaultMaterial."), *Material->GetName());
+				}
+				Material = NULL;
 			}
 
 			// Use the default material...
@@ -3620,6 +3565,7 @@ bool FParticleMeshEmitterInstance::FillReplayData( FDynamicEmitterReplayDataBase
 		RenderMaterial = UMaterial::GetDefaultMaterial(MD_Surface);
 	}
 	NewReplayData->MaterialInterface = RenderMaterial;
+	CurrentMaterial = RenderMaterial;
 
 	// Mesh settings
 	NewReplayData->bScaleUV = LODLevel->RequiredModule->bScaleUV;

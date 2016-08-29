@@ -515,9 +515,9 @@ void STutorialContent::HandlePaintNamedWidget(TSharedRef<SWidget> InWidget, cons
 	{
 	case ETutorialAnchorIdentifier::NamedWidget:
 		{
-			TSharedPtr<FTagMetaData> MetaData = InWidget->GetMetaData<FTagMetaData>();
+			TSharedPtr<FTagMetaData> WidgetMetaData = InWidget->GetMetaData<FTagMetaData>();
 			if( Anchor.WrapperIdentifier == InWidget->GetTag() ||
-				(MetaData.IsValid() && MetaData->Tag == Anchor.WrapperIdentifier))
+				(WidgetMetaData.IsValid() && WidgetMetaData->Tag == Anchor.WrapperIdentifier))
 			{
 				bIsVisible = true;
 				CachedGeometry = InGeometry;

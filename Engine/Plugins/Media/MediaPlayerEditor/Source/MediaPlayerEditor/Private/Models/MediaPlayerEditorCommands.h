@@ -11,29 +11,36 @@ class FMediaPlayerEditorCommands
 {
 public:
 
-	/**
-	 * Default constructor.
-	 */
+	/** Default constructor. */
 	FMediaPlayerEditorCommands() 
 		: TCommands<FMediaPlayerEditorCommands>("MediaPlayerEditor", NSLOCTEXT("Contexts", "MediaPlayerEditor", "MediaPlayer Editor"), NAME_None, "MediaPlayerEditorStyle")
 	{ }
 
 public:
 
-	// TCommands interface
+	//~ TCommands interface
 
 	virtual void RegisterCommands() override;
 	
 public:
 
+	/** Close the currently opened media. */
+	TSharedPtr<FUICommandInfo> CloseMedia;
+
 	/** Fast forwards media playback. */
 	TSharedPtr<FUICommandInfo> ForwardMedia;
+
+	/** Jump to next item in the play list. */
+	TSharedPtr<FUICommandInfo> NextMedia;
 
 	/** Pauses media playback. */
 	TSharedPtr<FUICommandInfo> PauseMedia;
 
 	/** Starts media playback. */
 	TSharedPtr<FUICommandInfo> PlayMedia;
+
+	/** Jump to previous item in the play list. */
+	TSharedPtr<FUICommandInfo> PreviousMedia;
 
 	/** Reverses media playback. */
 	TSharedPtr<FUICommandInfo> ReverseMedia;

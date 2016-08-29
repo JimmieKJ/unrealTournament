@@ -1,77 +1,123 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "WmfMediaPrivatePCH.h"
+#include "WmfMediaPCH.h"
+
+#if WMFMEDIA_SUPPORTED_PLATFORM
+
+#include "WmfMediaSession.h"
+#include "WmfMediaUtils.h"
 #include "AllowWindowsPlatformTypes.h"
 
 
 /* FWmfMediaSession structors
  *****************************************************************************/
 
+FWmfMediaSession::FWmfMediaSession()
+	: Buffering(false)
+	, CanScrub(false)
+	, Capabilities(0)
+	, ChangeRequested(false)
+	, CurrentRate(0.0f)
+	, CurrentState(EMediaState::Closed)
+	, Duration(FTimespan::Zero())
+	, Looping(false)
+	, RefCount(0)
+	, RequestedRate(0.0f)
+	, RequestedTime(FTimespan::MinValue())
+	, StateChangePending(false)
+{ }
+
+
 FWmfMediaSession::FWmfMediaSession(const FTimespan& InDuration, const TComPtr<IMFTopology>& InTopology)
-	: Capabilities(0)
+	: Buffering(false)
+	, Capabilities(0)
 	, ChangeRequested(false)
 	, CurrentRate(0.0f)
 	, Duration(InDuration)
 	, Looping(false)
 	, RefCount(0)
-	, RequestedPosition(FTimespan::MinValue())
+	, RequestedTime(FTimespan::MinValue())
 	, RequestedRate(0.0f)
 	, StateChangePending(false)
 {
-	CurrentState = EMediaStates::Error;
+	CurrentState = EMediaState::Error;
+	
+	// create media session
+	HRESULT Result = ::MFCreateMediaSession(NULL, &MediaSession);
 
-	if (FAILED(::MFCreateMediaSession(NULL, &MediaSession)))
+	if (FAILED(Result))
 	{
-		UE_LOG(LogWmfMedia, Error, TEXT("Failed to create media session"));
-	}
-	else if (FAILED(MediaSession->SetTopology(0, InTopology)))
-	{
-		UE_LOG(LogWmfMedia, Error, TEXT("Failed to set topology in media session"));
-	}
-	else if (FAILED(MediaSession->BeginGetEvent(this, NULL)))
-	{
-		UE_LOG(LogWmfMedia, Error, TEXT("Failed to start media session event processing"));
-	}
-	else
-	{
-		// get presentation clock, if available
-		TComPtr<IMFClock> Clock;
-
-		if (SUCCEEDED(MediaSession->GetClock(&Clock)))
-		{
-			Clock->QueryInterface(IID_PPV_ARGS(&PresentationClock));
-		}
-
-		// get rate control and support, if available
-		if (SUCCEEDED(::MFGetService(MediaSession, MF_RATE_CONTROL_SERVICE, IID_PPV_ARGS(&RateControl))) &&
-			SUCCEEDED(::MFGetService(MediaSession, MF_RATE_CONTROL_SERVICE, IID_PPV_ARGS(&RateSupport))))
-		{
-			CanScrub = SUCCEEDED(RateSupport->IsRateSupported(TRUE, 0, NULL));
-		}
-
-		CurrentState = EMediaStates::Stopped;
+		UE_LOG(LogWmfMedia, Error, TEXT("Failed to create media session (%s)"), *WmfMedia::ResultToString(Result));
+		return;
 	}
 
+	// assign the media topology
+	Result = MediaSession->SetTopology(0, InTopology);
+
+	if (FAILED(Result))
+	{
+		UE_LOG(LogWmfMedia, Error, TEXT("Failed to set topology in media session (%s)"), *WmfMedia::ResultToString(Result));
+		return;
+	}
+
+	// start media event processing
+	Result = MediaSession->BeginGetEvent(this, NULL);
+
+	if (FAILED(Result))
+	{
+		UE_LOG(LogWmfMedia, Error, TEXT("Failed to start media session event processing (%s)"), *WmfMedia::ResultToString(Result));
+		return;
+	}
+
+	// get presentation clock, if available
+	TComPtr<IMFClock> Clock;
+
+	if (SUCCEEDED(MediaSession->GetClock(&Clock)))
+	{
+		Clock->QueryInterface(IID_PPV_ARGS(&PresentationClock));
+	}
+
+	// get rate control and support, if available
+	if (SUCCEEDED(::MFGetService(MediaSession, MF_RATE_CONTROL_SERVICE, IID_PPV_ARGS(&RateControl))) &&
+		SUCCEEDED(::MFGetService(MediaSession, MF_RATE_CONTROL_SERVICE, IID_PPV_ARGS(&RateSupport))))
+	{
+		CanScrub = SUCCEEDED(RateSupport->IsRateSupported(TRUE, 0, NULL));
+	}
+
+	CurrentState = EMediaState::Stopped;
 	RequestedState = CurrentState;
 }
 
 
-/* FWmfMediaSession interface
+/* IMediaControls interface
  *****************************************************************************/
 
-FTimespan FWmfMediaSession::GetPosition() const
+FTimespan FWmfMediaSession::GetDuration() const
 {
-	if (PresentationClock == NULL)
+	return Duration;
+}
+
+
+float FWmfMediaSession::GetRate() const
+{
+	return CurrentRate;
+}
+
+
+EMediaState FWmfMediaSession::GetState() const
+{
+	if (Buffering)
 	{
-		return FTimespan::MinValue();
+		return EMediaState::Preparing;
 	}
 
-	if (RequestedPosition >= FTimespan::Zero())
+	if ((CurrentState == EMediaState::Playing) && FMath::IsNearlyZero(CurrentRate))
 	{
-		return RequestedPosition;
+		// scrubbing counts as paused
+		return EMediaState::Paused;
 	}
-	
-	return GetInternalPosition();
+
+	return CurrentState;
 }
 
 
@@ -102,7 +148,70 @@ TRange<float> FWmfMediaSession::GetSupportedRates(EMediaPlaybackDirections Direc
 }
 
 
-bool FWmfMediaSession::IsRateSupported(float Rate, bool Unthinned) const
+FTimespan FWmfMediaSession::GetTime() const
+{
+	if (PresentationClock == NULL)
+	{
+		return FTimespan::Zero();
+	}
+
+	if (RequestedTime >= FTimespan::Zero())
+	{
+		return RequestedTime;
+	}
+
+	return GetInternalPosition();
+}
+
+
+bool FWmfMediaSession::IsLooping() const
+{
+	return Looping;
+}
+
+
+bool FWmfMediaSession::Seek(const FTimespan& Time)
+{
+	RequestedTime = Time;
+
+	return ChangeState();
+}
+
+
+bool FWmfMediaSession::SetLooping(bool InLooping)
+{
+	Looping = InLooping;
+
+	return true;
+}
+
+
+bool FWmfMediaSession::SetRate(float Rate)
+{
+	if (!SupportsRate(Rate, false))
+	{
+		return false;
+	}
+
+	RequestedRate = Rate;
+
+	if (FMath::IsNearlyZero(Rate))
+	{
+		if (!SupportsScrubbing())
+		{
+			RequestedState = EMediaState::Paused;
+		}
+	}
+	else
+	{
+		RequestedState = EMediaState::Playing;
+	}
+
+	return ChangeState();
+}
+
+
+bool FWmfMediaSession::SupportsRate(float Rate, bool Unthinned) const
 {
 	if (Rate == 1.0f)
 	{
@@ -123,46 +232,28 @@ bool FWmfMediaSession::IsRateSupported(float Rate, bool Unthinned) const
 }
 
 
-bool FWmfMediaSession::SetPosition(const FTimespan& Position)
+bool FWmfMediaSession::SupportsScrubbing() const
 {
-	RequestedPosition = Position;
-
-	return ChangeState();
+	return CanScrub;
 }
 
 
-bool FWmfMediaSession::SetRate(float Rate)
+bool FWmfMediaSession::SupportsSeeking() const
 {
-	if (!IsRateSupported(Rate, false))
-	{
-		return false;
-	}
-
-	RequestedRate = Rate;
-
-	if (FMath::IsNearlyZero(Rate))
-	{
-		if (!SupportsScrubbing())
-		{
-			RequestedState = EMediaStates::Paused;
-		}
-	}
-	else
-	{
-		RequestedState = EMediaStates::Playing;
-	}
-
-	return ChangeState();
+	return (((Capabilities & MFSESSIONCAP_SEEK) != 0) && (Duration > FTimespan::Zero()));
 }
 
 
-bool FWmfMediaSession::SetState(EMediaStates NewState)
+/* FWmfMediaSession interface
+ *****************************************************************************/
+
+bool FWmfMediaSession::SetState(EMediaState NewState)
 {
 	RequestedState = NewState;
 
-	if ((NewState == EMediaStates::Closed) || (NewState == EMediaStates::Stopped))
+	if ((NewState == EMediaState::Closed) || (NewState == EMediaState::Stopped))
 	{
-		RequestedPosition = FTimespan::Zero();
+		RequestedTime = FTimespan::Zero();
 		RequestedRate = 0.0f;
 	}
 
@@ -187,10 +278,12 @@ STDMETHODIMP FWmfMediaSession::GetParameters(unsigned long*, unsigned long*)
 
 STDMETHODIMP FWmfMediaSession::Invoke(IMFAsyncResult* AsyncResult)
 {
+	// get event
 	TComPtr<IMFMediaEvent> Event;
 	
 	if (FAILED(MediaSession->EndGetEvent(AsyncResult, &Event)))
 	{
+		UE_LOG(LogWmfMedia, Verbose, TEXT("Failed to get event"));
 		return S_OK;
 	}
 
@@ -198,105 +291,104 @@ STDMETHODIMP FWmfMediaSession::Invoke(IMFAsyncResult* AsyncResult)
 	
 	if (FAILED(Event->GetType(&EventType)))
 	{
+		UE_LOG(LogWmfMedia, Verbose, TEXT("Failed to get session event type"));
 		return S_OK;
 	}
 
-	HRESULT EventResult;
-	Event->GetStatus(&EventResult);
+	// process event
+	HRESULT EventResult = S_OK;
+
+	if (FAILED(Event->GetStatus(&EventResult)))
+	{
+		UE_LOG(LogWmfMedia, Verbose, TEXT("Failed to get event result"));
+	}
+
+	UE_LOG(LogWmfMedia, Verbose, TEXT("Media session event: %s: %s"), *WmfMedia::SessionEventToString(EventType), *WmfMedia::ResultToString(EventResult));
 
 	FScopeLock ScopeLock(&CriticalSection);
 	{
-		if (EventType == MESessionClosed)
+		switch (EventType)
 		{
-			UpdateState(EMediaStates::Closed);
+		case MEBufferingStarted:
+			Buffering = true;
+			break;
+
+		case MEBufferingStopped:
+			Buffering = false;
+			break;
+
+		case MEError:
+			UE_LOG(LogWmfMedia, Error, TEXT("An error occured in the media session: %s"), *WmfMedia::ResultToString(EventResult));
+			UpdateState(EMediaState::Error);
+			break;
+
+		case MESessionCapabilitiesChanged:
+			Capabilities = ::MFGetAttributeUINT32(Event, MF_EVENT_SESSIONCAPS, Capabilities);
+			break;
+
+		case MESessionClosed:
+			UpdateState(EMediaState::Closed);
 			Capabilities = 0;
-		}
-		else if (EventType == MEError)
-		{
-			ErrorEvent.Broadcast(EventResult);
-			UpdateState(EMediaStates::Error);
-		}
-		else
-		{
-			switch (EventType)
+			break;
+
+		case MESessionEnded:
+			if (Looping)
 			{
-			case MEEndOfPresentation:
-				if (Looping && (CurrentRate > 0.0f))
+				RequestedTime = (CurrentRate < 0.0f) ? Duration : FTimespan::Zero();
+				ChangeState();
+			}
+			else
+			{
+				RequestedState = EMediaState::Stopped;
+				UpdateState(EMediaState::Stopped);
+			}
+			break;
+
+		case MESessionPaused:
+			UpdateState(EMediaState::Paused);
+			break;
+
+		case MESessionRateChanged:
+			// recover active playback rate if rate change failed
+			if (FAILED(EventResult) && (CurrentRate == RequestedRate))
+			{
+				PROPVARIANT Value;
+				PropVariantInit(&Value);
+
+				if (SUCCEEDED(Event->GetValue(&Value)) && (Value.vt == VT_R4))
 				{
-					RequestedPosition = FTimespan::Zero();
-					ChangeState();
-				}
-				break;
-
-			case MESessionCapabilitiesChanged:
-				Capabilities = ::MFGetAttributeUINT32(Event, MF_EVENT_SESSIONCAPS, Capabilities);
-				break;
-
-			case MESessionEnded:
-				if (Looping)
-				{
-					if (CurrentRate < 0.0f)
-					{
-						RequestedPosition = Duration;
-						ChangeState();
-					}
-				}
-				else
-				{
-					RequestedState = EMediaStates::Stopped;
-					UpdateState(EMediaStates::Stopped);
-				}
-				break;
-
-			case MESessionPaused:
-				UpdateState(EMediaStates::Paused);
-				break;
-
-			case MESessionRateChanged:
-				// recover active playback rate if rate change failed
-				if (FAILED(EventResult) && (CurrentRate == RequestedRate))
-				{
-					PROPVARIANT Value;
-					PropVariantInit(&Value);
-
-					if (SUCCEEDED(Event->GetValue(&Value)) && (Value.vt == VT_R4))
-					{
-						CurrentRate = Value.fltVal;
-					}
-
-					RequestedRate = CurrentRate;
+					CurrentRate = Value.fltVal;
 				}
 
-			case MESessionScrubSampleComplete:
-				if (GetInternalPosition() == RequestedPosition)
-				{
-					RequestedPosition = FTimespan::MinValue();
-				}
-				break;
-
-			case MESessionStarted:
-				if (GetInternalPosition() == RequestedPosition)
-				{
-					RequestedPosition = FTimespan::MinValue();
-				}
-
-				UpdateState(EMediaStates::Playing);
-				break;
-
-			case MESessionStopped:
-				UpdateState(EMediaStates::Stopped);
-				break;
+				RequestedRate = CurrentRate;
 			}
 
-			// bubble up event to player
-			SessionEvent.Broadcast(EventType);
-
-			// request the next event
-			if (FAILED(MediaSession->BeginGetEvent(this, NULL)))
+		case MESessionScrubSampleComplete:
+			if (GetInternalPosition() == RequestedTime)
 			{
-				Capabilities = 0;
-				CurrentState = EMediaStates::Error;
+				RequestedTime = FTimespan::MinValue();
 			}
+			break;
+
+		case MESessionStarted:
+			UpdateState(EMediaState::Playing);
+			break;
+
+		case MESessionStopped:
+			UpdateState(EMediaState::Stopped);
+			break;
+		}
+
+		// bubble up event to player
+		SessionEvent.Broadcast(EventType);
+
+		// request the next event
+		if (FAILED(MediaSession->BeginGetEvent(this, NULL)))
+		{
+			UE_LOG(LogWmfMedia, Verbose, TEXT("Failed to request next session event"));
+
+			Capabilities = 0;
+			CurrentState = EMediaState::Error;
 		}
 	}
 	
@@ -348,15 +440,16 @@ STDMETHODIMP_(ULONG) FWmfMediaSession::Release()
 bool FWmfMediaSession::ChangeState()
 {
 	// disallow state changes if session was closed or had an error
-	if (CurrentState == EMediaStates::Closed)
+	if (CurrentState == EMediaState::Closed)
 	{
 		return false;
 	}
 
 	FScopeLock ScopeLock(&CriticalSection);
 	{
-		if (CurrentState == EMediaStates::Error)
+		if (CurrentState == EMediaState::Error)
 		{
+			UE_LOG(LogWmfMedia, Verbose, TEXT("Closing media session on error"));
 			MediaSession->Close();
 
 			return true;
@@ -371,60 +464,81 @@ bool FWmfMediaSession::ChangeState()
 		}
 
 		// close session
-		if (RequestedState == EMediaStates::Closed)
+		if (RequestedState == EMediaState::Closed)
 		{
+			UE_LOG(LogWmfMedia, Verbose, TEXT("Closing media session as requested"));
 			MediaSession->Close();
 
 			return true;
 		}
 
 		// handle rate changes
-		bool bUpdateRateStopped = false;
-		UpdateRate(bUpdateRateStopped);
-		if (bUpdateRateStopped)
+		if (UpdateRate())
 		{
 			return true;
 		}
 
+		// seek or scrub
+		if (RequestedTime >= FTimespan::Zero())
+		{
+			UE_LOG(LogWmfMedia, Verbose, TEXT("Starting playback to seek to %s"), *RequestedTime.ToString());
+
+			PROPVARIANT StartPosition;
+			{
+				StartPosition.vt = VT_I8;
+				StartPosition.hVal.QuadPart = RequestedTime.GetTicks();
+			}
+
+			HRESULT Result = MediaSession->Start(NULL, &StartPosition);
+
+			if (FAILED(Result))
+			{
+				UE_LOG(LogWmfMedia, Warning, TEXT("Failed to seek %i"), *WmfMedia::ResultToString(Result));
+			}
+		}
+
 		// handle state changes
+		if (RequestedState == CurrentState)
+		{
+			return true;
+		}
+
 		bool StateChangeFailed = false;
 
-		if (RequestedState == EMediaStates::Paused)
+		if (RequestedState == EMediaState::Paused)
 		{
-			if (CurrentState != EMediaStates::Paused)
-			{
-				StateChangePending = true;
-				StateChangeFailed = FAILED(MediaSession->Pause());
-				RequestedPosition = GetPosition();
-			}
-		}
-		else if (RequestedState == EMediaStates::Playing)
-		{
-			if ((CurrentState != EMediaStates::Playing) || (RequestedPosition >= FTimespan::Zero()))
-			{
-				PROPVARIANT StartPosition;
+			UE_LOG(LogWmfMedia, Verbose, TEXT("Pausing media session as requested"));
 
-				if (RequestedPosition >= FTimespan::Zero())
-				{
-					StartPosition.vt = VT_I8;
-					StartPosition.hVal.QuadPart = RequestedPosition.GetTicks();
-				}
-				else
-				{
-					PropVariantInit(&StartPosition);
-				}
-
-				StateChangePending = true;
-				StateChangeFailed = FAILED(MediaSession->Start(NULL, &StartPosition));
-			}
+			StateChangePending = true;
+			StateChangeFailed = FAILED(MediaSession->Pause());
+//			RequestedTime = GetTime();
 		}
-		else if (RequestedState == EMediaStates::Stopped)
+		else if (RequestedState == EMediaState::Playing)
 		{
-			if (CurrentState != EMediaStates::Stopped)
+			PROPVARIANT StartPosition;
+
+			if (RequestedTime >= FTimespan::Zero())
 			{
-				StateChangePending = true;
-				StateChangeFailed = FAILED(MediaSession->Stop());
+				UE_LOG(LogWmfMedia, Verbose, TEXT("Starting playback at %s"), *RequestedTime.ToString());
+
+				StartPosition.vt = VT_I8;
+				StartPosition.hVal.QuadPart = RequestedTime.GetTicks();
 			}
+			else
+			{
+				UE_LOG(LogWmfMedia, Verbose, TEXT("Starting playback at beginning"));
+				PropVariantInit(&StartPosition);
+			}
+
+			StateChangePending = true;
+			StateChangeFailed = FAILED(MediaSession->Start(NULL, &StartPosition));
+		}
+		else if (RequestedState == EMediaState::Stopped)
+		{
+			UE_LOG(LogWmfMedia, Verbose, TEXT("Stopping playback as requested"));
+
+			StateChangePending = true;
+			StateChangeFailed = FAILED(MediaSession->Stop());
 		}
 
 		if (StateChangeFailed)
@@ -439,44 +553,38 @@ bool FWmfMediaSession::ChangeState()
 }
 
 
-void FWmfMediaSession::UpdateRate(bool &OutStopped)
+bool FWmfMediaSession::UpdateRate()
 {
-	OutStopped = false;
+	bool Result = false;
 
 	if (RequestedRate != CurrentRate)
 	{
-		if (CurrentState != EMediaStates::Stopped)
+		if (CurrentState != EMediaState::Stopped)
 		{
-			if (RequestedPosition == FTimespan::MinValue())
+			UE_LOG(LogWmfMedia, Verbose, TEXT("Stopping playback for rate change"));
+
+			if (RequestedTime == FTimespan::MinValue())
 			{
-				RequestedPosition = GetPosition();
+				RequestedTime = GetTime();
 			}
 
 			MediaSession->Stop();
-
-			OutStopped = true;
+			Result = true;
 		}
 
-		bool RateChangeFailed;
-
-		if (IsRateSupported(RequestedRate, true))
+		if (SUCCEEDED(RateControl->SetRate(SupportsRate(RequestedRate, true) ? FALSE : TRUE, RequestedRate)))
 		{
-			RateChangeFailed = FAILED(RateControl->SetRate(FALSE, RequestedRate));
-		}
-		else
-		{
-			RateChangeFailed = FAILED(RateControl->SetRate(TRUE, RequestedRate));
-		}
-
-		if (RateChangeFailed)
-		{
-			RequestedRate = CurrentRate;
-		}
-		else
-		{
+			UE_LOG(LogWmfMedia, Verbose, TEXT("Set rate from %f to %f"), CurrentRate, RequestedRate);
 			CurrentRate = RequestedRate;
 		}
+		else
+		{
+			UE_LOG(LogWmfMedia, Verbose, TEXT("Failed to set rate from %f to %f"), CurrentRate, RequestedRate);
+			RequestedRate = CurrentRate;
+		}
 	}
+
+	return Result;
 }
 
 
@@ -494,23 +602,21 @@ FTimespan FWmfMediaSession::GetInternalPosition() const
 }
 
 
-void FWmfMediaSession::UpdateState(EMediaStates CompletedState)
+void FWmfMediaSession::UpdateState(EMediaState CompletedState)
 {
 	CurrentState = CompletedState;
 
-	if (CompletedState == EMediaStates::Playing)
+	if (CompletedState == EMediaState::Playing)
 	{
-		RequestedPosition = FTimespan::MinValue();
+		RequestedTime = FTimespan::MinValue();
 	}
 
 	if (CompletedState == RequestedState)
 	{
 		StateChangePending = false;
+		UpdateRate();
 
-		bool bUpdateRateStopped = false;
-		UpdateRate(bUpdateRateStopped);
-
-		if (RequestedState == EMediaStates::Stopped)
+		if (RequestedState == EMediaState::Stopped)
 		{
 			CurrentRate = 0.0f;
 			RequestedRate = 0.0f;
@@ -524,3 +630,5 @@ void FWmfMediaSession::UpdateState(EMediaStates CompletedState)
 
 
 #include "HideWindowsPlatformTypes.h"
+
+#endif //WMFMEDIA_SUPPORTED_PLATFORM

@@ -9,6 +9,7 @@
 #include "IInputDeviceModule.h"
 #include "IInputDevice.h"
 #include "IHapticDevice.h"
+#include "HAL/ThreadHeartBeat.h"
 
 #if WITH_EDITOR
 #include "ModuleManager.h"
@@ -26,6 +27,9 @@
 #include <cfgmgr32.h>
 #include <windowsx.h>
 
+// Platform code uses IsMaximized which is defined to IsZoomed by windowsx.h
+#pragma push_macro("IsMaximized")
+#undef IsMaximized
 
 // This might not be defined by Windows when maintaining backwards-compatibility to pre-Vista builds
 #ifndef WM_MOUSEHWHEEL
@@ -62,6 +66,8 @@ FWindowsApplication::FWindowsApplication( const HINSTANCE HInstance, const HICON
 	, bInModalSizeLoop( false )
 
 {
+	FMemory::Memzero(ModifierKeyState, EModifierKey::Count);
+
 	// Disable the process from being showing "ghosted" not responding messages during slow tasks
 	// This is a hack.  A more permanent solution is to make our slow tasks not block the editor for so long
 	// that message pumping doesn't occur (which causes these messages).
@@ -222,6 +228,7 @@ bool FWindowsApplication::RegisterClass( const HINSTANCE HInstance, const HICON 
 		//ShowLastError();
 
 		// @todo Slate: Error message should be localized!
+		FSlowHeartBeatScope SuspendHeartBeat;
 		MessageBox(NULL, TEXT("Window Registration Failed!"), TEXT("Error!"), MB_ICONEXCLAMATION | MB_OK);
 
 		return false;
@@ -288,33 +295,24 @@ bool FWindowsApplication::IsGamepadAttached() const
 
 FModifierKeysState FWindowsApplication::GetModifierKeys() const
 {
-	return CachedModifierKeyState;
-}
-
-void FWindowsApplication::UpdateModifierKeyState(int32 ModifierKey, bool bNewState)
-{
-	const bool bIsLeftShiftDown = (ModifierKey == VK_LSHIFT ? bNewState : CachedModifierKeyState.IsLeftShiftDown());
-	const bool bIsRightShiftDown = (ModifierKey == VK_RSHIFT ? bNewState : CachedModifierKeyState.IsRightShiftDown());
-	const bool bIsLeftControlDown = (ModifierKey == VK_LCONTROL ? bNewState : CachedModifierKeyState.IsLeftControlDown());
-	const bool bIsRightControlDown = (ModifierKey == VK_RCONTROL ? bNewState : CachedModifierKeyState.IsRightControlDown());
-	const bool bIsLeftAltDown = (ModifierKey == VK_LMENU ? bNewState : CachedModifierKeyState.IsLeftAltDown());
-	const bool bIsRightAltDown = (ModifierKey == VK_RMENU ? bNewState : CachedModifierKeyState.IsRightAltDown());
-	const bool bAreCapsLocked = (ModifierKey == VK_CAPITAL ? bNewState : CachedModifierKeyState.AreCapsLocked());
-
-	CachedModifierKeyState = FModifierKeysState(bIsLeftShiftDown, bIsRightShiftDown, bIsLeftControlDown, bIsRightControlDown, bIsLeftAltDown, bIsRightAltDown, false, false, bAreCapsLocked); // Win key is ignored
+	return FModifierKeysState(
+		ModifierKeyState[EModifierKey::LeftShift], ModifierKeyState[EModifierKey::RightShift], 
+		ModifierKeyState[EModifierKey::LeftControl], ModifierKeyState[EModifierKey::RightControl], 
+		ModifierKeyState[EModifierKey::LeftAlt], ModifierKeyState[EModifierKey::RightAlt], 
+		false, false, 
+		ModifierKeyState[EModifierKey::CapsLock]
+		); // Win key is ignored
 }
 
 void FWindowsApplication::UpdateAllModifierKeyStates()
 {
-	const bool bIsLeftShiftDown = (::GetAsyncKeyState(VK_LSHIFT) & 0x8000) != 0;
-	const bool bIsRightShiftDown = (::GetAsyncKeyState(VK_RSHIFT) & 0x8000) != 0;
-	const bool bIsLeftControlDown = (::GetAsyncKeyState(VK_LCONTROL) & 0x8000) != 0;
-	const bool bIsRightControlDown = (::GetAsyncKeyState(VK_RCONTROL) & 0x8000) != 0;
-	const bool bIsLeftAltDown = (::GetAsyncKeyState(VK_LMENU) & 0x8000) != 0;
-	const bool bIsRightAltDown = (::GetAsyncKeyState(VK_RMENU) & 0x8000) != 0;
-	const bool bAreCapsLocked = (::GetKeyState(VK_CAPITAL) & 0x0001) != 0;
-
-	CachedModifierKeyState = FModifierKeysState(bIsLeftShiftDown, bIsRightShiftDown, bIsLeftControlDown, bIsRightControlDown, bIsLeftAltDown, bIsRightAltDown, false, false, bAreCapsLocked); // Win key is ignored
+	ModifierKeyState[EModifierKey::LeftShift]		= (::GetAsyncKeyState(VK_LSHIFT) & 0x8000) != 0;
+	ModifierKeyState[EModifierKey::RightShift]		= (::GetAsyncKeyState(VK_RSHIFT) & 0x8000) != 0;
+	ModifierKeyState[EModifierKey::LeftControl]		= (::GetAsyncKeyState(VK_LCONTROL) & 0x8000) != 0;
+	ModifierKeyState[EModifierKey::RightControl]	= (::GetAsyncKeyState(VK_RCONTROL) & 0x8000) != 0;
+	ModifierKeyState[EModifierKey::LeftAlt]			= (::GetAsyncKeyState(VK_LMENU) & 0x8000) != 0;
+	ModifierKeyState[EModifierKey::RightAlt]		= (::GetAsyncKeyState(VK_RMENU) & 0x8000) != 0;
+	ModifierKeyState[EModifierKey::CapsLock]		= (::GetKeyState(VK_CAPITAL) & 0x0001) != 0;
 }
 
 static TSharedPtr< FWindowsWindow > FindWindowByHWND(const TArray< TSharedRef< FWindowsWindow > >& WindowsToSearch, HWND HandleToFind)
@@ -622,6 +620,9 @@ void FDisplayMetrics::GetDisplayMetrics(struct FDisplayMetrics& OutDisplayMetric
 
 	// Get connected monitor information
 	GetMonitorInfo(OutDisplayMetrics.MonitorInfo);
+
+	// Apply the debug safe zones
+	OutDisplayMetrics.ApplyDefaultSafeZones();
 }
 
 void FWindowsApplication::GetInitialDisplayMetrics( FDisplayMetrics& OutDisplayMetrics ) const
@@ -862,6 +863,50 @@ int32 FWindowsApplication::ProcessMessage( HWND hwnd, uint32 msg, WPARAM wParam,
 				// Let windows absorb this message if using the standard border
 				if ( wParam && !CurrentNativeEventWindow->GetDefinition().HasOSWindowBorder )
 				{
+					// Borderless game windows are not actually borderless, they have a thick border that we simply draw game content over (client
+					// rect contains the window border). When maximized Windows will bleed our border over the edges of the monitor. So that we
+					// don't draw content we are going to later discard, we change a maximized window's size and position so that the entire
+					// window rect (including the border) sits inside the monitor. The size adjustments here will be sent to WM_MOVE and
+					// WM_SIZE and the window will still be considered maximized.
+					if (CurrentNativeEventWindow->GetDefinition().Type == EWindowType::GameWindow && CurrentNativeEventWindow->IsMaximized())
+					{
+						// Ask the system for the window border size as this is the amount that Windows will bleed our window over the edge
+						// of our desired space. The value returned by CurrentNativeEventWindow will be incorrect for our usage here as it
+						// refers to the border of the window that Slate should consider.
+						WINDOWINFO WindowInfo;
+						FMemory::Memzero(WindowInfo);
+						WindowInfo.cbSize = sizeof(WindowInfo);
+						::GetWindowInfo(hwnd, &WindowInfo);
+
+						// A pointer to the window size data that Windows will use is passed to us in lParam
+						LPNCCALCSIZE_PARAMS ResizingRects = (LPNCCALCSIZE_PARAMS)lParam;
+						// The first rectangle contains the client rectangle of the resized window. Decrease window size on all sides by
+						// the border size.
+						ResizingRects->rgrc[0].left += WindowInfo.cxWindowBorders;
+						ResizingRects->rgrc[0].top += WindowInfo.cxWindowBorders;
+						ResizingRects->rgrc[0].right -= WindowInfo.cxWindowBorders;
+						ResizingRects->rgrc[0].bottom -= WindowInfo.cxWindowBorders;
+						// The second rectangle contains the destination rectangle for the content currently displayed in the window's
+						// client rect. Windows will blit the previous client content into this new location to simulate the move of
+						// the window until the window can repaint itself. This should also be adjusted to our new window size.
+						ResizingRects->rgrc[1].left = ResizingRects->rgrc[0].left;
+						ResizingRects->rgrc[1].top = ResizingRects->rgrc[0].top;
+						ResizingRects->rgrc[1].right = ResizingRects->rgrc[0].right;
+						ResizingRects->rgrc[1].bottom = ResizingRects->rgrc[0].bottom;
+						// A third rectangle is passed in that contains the source rectangle (client area from window pre-maximize).
+						// It's value should not be changed.
+
+						// The new window position. Pull in the window on all sides by the width of the window border so that the
+						// window fits entirely on screen. We'll draw over these borders with game content.
+						ResizingRects->lppos->x += WindowInfo.cxWindowBorders;
+						ResizingRects->lppos->y += WindowInfo.cxWindowBorders;
+						ResizingRects->lppos->cx -= 2 * WindowInfo.cxWindowBorders;
+						ResizingRects->lppos->cy -= 2 * WindowInfo.cxWindowBorders;
+
+						// Informs Windows to use the values as we altered them.
+						return WVR_VALIDRECTS;
+					}
+
 					return 0;
 				}
 			}
@@ -884,7 +929,79 @@ int32 FWindowsApplication::ProcessMessage( HWND hwnd, uint32 msg, WPARAM wParam,
 		case WM_SIZING:
 			{
 				DeferMessage( CurrentNativeEventWindowPtr, hwnd, msg, wParam, lParam, 0, 0 );
-			}
+		
+				if (CurrentNativeEventWindowPtr->GetDefinition().ShouldPreserveAspectRatio)
+				{
+					// The rect we get in lParam is window rect, but we need to preserve client's aspect ratio,
+					// so we need to find what the border and title bar sizes are, if window has them and adjust the rect.
+					WINDOWINFO WindowInfo;
+					FMemory::Memzero(WindowInfo);
+					WindowInfo.cbSize = sizeof(WindowInfo);
+					::GetWindowInfo(hwnd, &WindowInfo);
+
+					RECT TestRect;
+					TestRect.left = TestRect.right = TestRect.top = TestRect.bottom = 0;
+					AdjustWindowRectEx(&TestRect, WindowInfo.dwStyle, false, WindowInfo.dwExStyle);
+
+					RECT* Rect = (RECT*)lParam;
+					Rect->left -= TestRect.left;
+					Rect->right -= TestRect.right;
+					Rect->top -= TestRect.top;
+					Rect->bottom -= TestRect.bottom;
+
+					const float AspectRatio = CurrentNativeEventWindowPtr->GetAspectRatio();
+					int32 NewWidth = Rect->right - Rect->left;
+					int32 NewHeight = Rect->bottom - Rect->top;
+
+					switch (wParam)
+					{
+					case WMSZ_LEFT:
+					case WMSZ_RIGHT:
+						{
+							int32 AdjustedHeight = NewWidth / AspectRatio;
+							Rect->top -= (AdjustedHeight - NewHeight) / 2;
+							Rect->bottom += (AdjustedHeight - NewHeight) / 2;
+							break;
+						}
+					case WMSZ_TOP:
+					case WMSZ_BOTTOM:
+						{
+							int32 AdjustedWidth = NewHeight * AspectRatio;
+							Rect->left -= (AdjustedWidth - NewWidth) / 2;
+							Rect->right += (AdjustedWidth - NewWidth) / 2;
+							break;
+						}
+					case WMSZ_TOPLEFT:
+						{
+							int32 AdjustedHeight = NewWidth / AspectRatio;
+							Rect->top -= AdjustedHeight - NewHeight;
+							break;
+						}
+					case WMSZ_TOPRIGHT:
+						{
+							int32 AdjustedHeight = NewWidth / AspectRatio;
+							Rect->top -= AdjustedHeight - NewHeight;
+							break;
+						}
+					case WMSZ_BOTTOMLEFT:
+						{
+							int32 AdjustedHeight = NewWidth / AspectRatio;
+							Rect->bottom += AdjustedHeight - NewHeight;
+							break;
+						}
+					case WMSZ_BOTTOMRIGHT:
+						{
+							int32 AdjustedHeight = NewWidth / AspectRatio;
+							Rect->bottom += AdjustedHeight - NewHeight;
+							break;
+						}
+					}
+
+					AdjustWindowRectEx(Rect, WindowInfo.dwStyle, false, WindowInfo.dwExStyle);
+
+					return TRUE;
+				}
+		}
 			break;
 		case WM_ENTERSIZEMOVE:
 			{
@@ -1087,10 +1204,28 @@ int32 FWindowsApplication::ProcessMessage( HWND hwnd, uint32 msg, WPARAM wParam,
 			{
 				MINMAXINFO* MinMaxInfo = (MINMAXINFO*)lParam;
 				FWindowSizeLimits SizeLimits = MessageHandler->GetSizeLimitsForWindow(CurrentNativeEventWindow);
+
+				// We need to inflate the max values if using an OS window border
+				int32 BorderWidth = 0;
+				int32 BorderHeight = 0;
+				if (CurrentNativeEventWindow->GetDefinition().HasOSWindowBorder)
+				{
+					const DWORD WindowStyle = ::GetWindowLong(hwnd, GWL_STYLE);
+					const DWORD WindowExStyle = ::GetWindowLong(hwnd, GWL_EXSTYLE);
+
+					// This adjusts a zero rect to give us the size of the border
+					RECT BorderRect = { 0, 0, 0, 0 };
+					::AdjustWindowRectEx(&BorderRect, WindowStyle, false, WindowExStyle);
+
+					BorderWidth = BorderRect.right - BorderRect.left;
+					BorderHeight = BorderRect.bottom - BorderRect.top;
+				}
+
+				// We always apply BorderWidth and BorderHeight since Slate always works with client area window sizes
 				MinMaxInfo->ptMinTrackSize.x = FMath::RoundToInt( SizeLimits.GetMinWidth().Get(MinMaxInfo->ptMinTrackSize.x) );
 				MinMaxInfo->ptMinTrackSize.y = FMath::RoundToInt( SizeLimits.GetMinHeight().Get(MinMaxInfo->ptMinTrackSize.y) );
-				MinMaxInfo->ptMaxTrackSize.x = FMath::RoundToInt( SizeLimits.GetMaxWidth().Get(MinMaxInfo->ptMaxTrackSize.x) );
-				MinMaxInfo->ptMaxTrackSize.y = FMath::RoundToInt( SizeLimits.GetMaxHeight().Get(MinMaxInfo->ptMaxTrackSize.y) );
+				MinMaxInfo->ptMaxTrackSize.x = FMath::RoundToInt( SizeLimits.GetMaxWidth().Get(MinMaxInfo->ptMaxTrackSize.x) ) + BorderWidth;
+				MinMaxInfo->ptMaxTrackSize.y = FMath::RoundToInt( SizeLimits.GetMaxHeight().Get(MinMaxInfo->ptMaxTrackSize.y) ) + BorderHeight;
 				return 0;
 			}
 			break;
@@ -1183,10 +1318,13 @@ int32 FWindowsApplication::ProcessMessage( HWND hwnd, uint32 msg, WPARAM wParam,
 
 void FWindowsApplication::CheckForShiftUpEvents(const int32 KeyCode)
 {
+	check(KeyCode == VK_LSHIFT || KeyCode == VK_RSHIFT);
+
 	// Since VK_SHIFT doesn't get an up message if the other shift key is held we need to poll for it
-	if (PressedModifierKeys.Contains(KeyCode) && ((::GetKeyState(KeyCode) & 0x8000) == 0) )
+	const EModifierKey::Type ModifierKeyIndex = KeyCode == VK_LSHIFT ? EModifierKey::LeftShift : EModifierKey::RightShift;
+	if (ModifierKeyState[ModifierKeyIndex] && ((::GetKeyState(KeyCode) & 0x8000) == 0) )
 	{
-		PressedModifierKeys.Remove(KeyCode);
+		ModifierKeyState[ModifierKeyIndex] = false;
 		MessageHandler->OnKeyUp( KeyCode, 0, false );
 	}
 }
@@ -1206,6 +1344,11 @@ int32 FWindowsApplication::ProcessDeferredMessage( const FDeferredWindowsMessage
 		// This allows us to continue receiving messages for it.
 		if ( !MessageHandler->ShouldProcessUserInputMessages( CurrentNativeEventWindowPtr ) && IsInputMessage( msg ) )
 		{
+			if (IsKeyboardInputMessage(msg))
+			{
+				// Force an update since we may have just consumed a modifier key state change
+				UpdateAllModifierKeyStates();
+			}
 			return 0;	// consume input messages
 		}
 
@@ -1267,52 +1410,47 @@ int32 FWindowsApplication::ProcessDeferredMessage( const FDeferredWindowsMessage
 					if( (lParam & 0x1000000) == 0 )
 					{
 						ActualKey = VK_LMENU;
-						if ( (bIsRepeat = PressedModifierKeys.Contains( VK_LMENU )) == false)
-						{
-							PressedModifierKeys.Add( VK_LMENU );
-						}
+						bIsRepeat = ModifierKeyState[EModifierKey::LeftAlt];
+						ModifierKeyState[EModifierKey::LeftAlt] = true;
 					}
 					else
 					{
 						ActualKey = VK_RMENU;
-						if ( (bIsRepeat = PressedModifierKeys.Contains( VK_RMENU )) == false)
-						{
-							PressedModifierKeys.Add( VK_RMENU );
-						}
+						bIsRepeat = ModifierKeyState[EModifierKey::RightAlt];
+						ModifierKeyState[EModifierKey::RightAlt] = true;
 					}
-					UpdateModifierKeyState(ActualKey, true);
 					break;
 				case VK_CONTROL:
 					// Differentiate between left and right control
 					if( (lParam & 0x1000000) == 0 )
 					{
 						ActualKey = VK_LCONTROL;
-						if ( (bIsRepeat = PressedModifierKeys.Contains( VK_LCONTROL )) == false)
-						{
-							PressedModifierKeys.Add( VK_LCONTROL );
-						}
+						bIsRepeat = ModifierKeyState[EModifierKey::LeftControl];
+						ModifierKeyState[EModifierKey::LeftControl] = true;
 					}
 					else
 					{
 						ActualKey = VK_RCONTROL;
-						if ( (bIsRepeat = PressedModifierKeys.Contains( VK_RCONTROL )) == false)
-						{
-							PressedModifierKeys.Add( VK_RCONTROL );
-						}
+						bIsRepeat = ModifierKeyState[EModifierKey::RightControl];
+						ModifierKeyState[EModifierKey::RightControl] = true;
 					}
-					UpdateModifierKeyState(ActualKey, true);
 					break;
 				case VK_SHIFT:
 					// Differentiate between left and right shift
 					ActualKey = MapVirtualKey( (lParam & 0x00ff0000) >> 16, MAPVK_VSC_TO_VK_EX);
-					if ( (bIsRepeat = PressedModifierKeys.Contains( ActualKey )) == false)
+					if (ActualKey == VK_LSHIFT)
 					{
-						PressedModifierKeys.Add( ActualKey );
+						bIsRepeat = ModifierKeyState[EModifierKey::LeftShift];
+						ModifierKeyState[EModifierKey::LeftShift] = true;
 					}
-					UpdateModifierKeyState(ActualKey, true);
+					else
+					{
+						bIsRepeat = ModifierKeyState[EModifierKey::RightShift];
+						ModifierKeyState[EModifierKey::RightShift] = true;
+					}
 					break;
 				case VK_CAPITAL:
-					UpdateModifierKeyState(VK_CAPITAL, true);
+					ModifierKeyState[EModifierKey::CapsLock] = (::GetKeyState(VK_CAPITAL) & 0x0001) != 0;
 					break;
 				default:
 					// No translation needed
@@ -1354,35 +1492,41 @@ int32 FWindowsApplication::ProcessDeferredMessage( const FDeferredWindowsMessage
 					if( (lParam & 0x1000000) == 0 )
 					{
 						ActualKey = VK_LMENU;
+						ModifierKeyState[EModifierKey::LeftAlt] = false;
 					}
 					else
 					{
 						ActualKey = VK_RMENU;
+						ModifierKeyState[EModifierKey::RightAlt] = false;
 					}
-					PressedModifierKeys.Remove( ActualKey );
-					UpdateModifierKeyState(ActualKey, false);
 					break;
 				case VK_CONTROL:
 					// Differentiate between left and right control
 					if( (lParam & 0x1000000) == 0 )
 					{
 						ActualKey = VK_LCONTROL;
+						ModifierKeyState[EModifierKey::LeftControl] = false;
 					}
 					else
 					{
 						ActualKey = VK_RCONTROL;
+						ModifierKeyState[EModifierKey::RightControl] = false;
 					}
-					PressedModifierKeys.Remove( ActualKey );
-					UpdateModifierKeyState(ActualKey, false);
 					break;
 				case VK_SHIFT:
 					// Differentiate between left and right shift
 					ActualKey = MapVirtualKey( (lParam & 0x00ff0000) >> 16, MAPVK_VSC_TO_VK_EX);
-					PressedModifierKeys.Remove( ActualKey );
-					UpdateModifierKeyState(ActualKey, false);
+					if (ActualKey == VK_LSHIFT)
+					{
+						ModifierKeyState[EModifierKey::LeftShift] = false;
+					}
+					else
+					{
+						ModifierKeyState[EModifierKey::RightShift] = false;
+					}
 					break;
 				case VK_CAPITAL:
-					UpdateModifierKeyState(VK_CAPITAL, false);
+					ModifierKeyState[EModifierKey::CapsLock] = (::GetKeyState(VK_CAPITAL) & 0x0001) != 0;
 					break;
 				default:
 					// No translation needed
@@ -1675,7 +1819,13 @@ int32 FWindowsApplication::ProcessDeferredMessage( const FDeferredWindowsMessage
 
 					const bool bWasMinimized = (wParam == SIZE_MINIMIZED);
 
-					const bool Result = MessageHandler->OnSizeChanged( CurrentNativeEventWindowPtr.ToSharedRef(), NewWidth, NewHeight, bWasMinimized );
+					const bool bIsFullscreen = (CurrentNativeEventWindowPtr->GetWindowMode() == EWindowMode::Type::Fullscreen);
+
+					// When in fullscreen Windows rendering size should be determined by the application. Do not adjust based on WM_SIZE messages.
+ 					if ( !bIsFullscreen )
+					{
+						const bool Result = MessageHandler->OnSizeChanged(CurrentNativeEventWindowPtr.ToSharedRef(), NewWidth, NewHeight, bWasMinimized);
+					}
 				}
 			}
 			break;
@@ -1742,7 +1892,7 @@ void FWindowsApplication::ProcessDeferredDragDropOperation(const FDeferredWindow
 	}
 }
 
-bool FWindowsApplication::IsInputMessage( uint32 msg )
+bool FWindowsApplication::IsKeyboardInputMessage( uint32 msg )
 {
 	switch(msg)
 	{
@@ -1754,6 +1904,15 @@ bool FWindowsApplication::IsInputMessage( uint32 msg )
 	case WM_SYSKEYUP:
 	case WM_KEYUP:
 	case WM_SYSCOMMAND:
+		return true;
+	}
+	return false;
+}
+
+bool FWindowsApplication::IsMouseInputMessage( uint32 msg )
+{
+	switch(msg)
+	{
 	// Mouse input notification messages...
 	case WM_MOUSEHWHEEL:
 	case WM_MOUSEWHEEL:
@@ -1784,6 +1943,20 @@ bool FWindowsApplication::IsInputMessage( uint32 msg )
 	case WM_XBUTTONDBLCLK:
 	case WM_XBUTTONDOWN:
 	case WM_XBUTTONUP:
+		return true;
+	}
+	return false;
+}
+
+bool FWindowsApplication::IsInputMessage( uint32 msg )
+{
+	if (IsKeyboardInputMessage(msg) || IsMouseInputMessage(msg))
+	{
+		return true;
+	}
+
+	switch(msg)
+	{
 	// Raw input notification messages...
 	case WM_INPUT:
 	case WM_INPUT_DEVICE_CHANGE:
@@ -1908,7 +2081,12 @@ void FWindowsApplication::SetForceFeedbackChannelValues(int32 ControllerId, cons
 	// send vibration to externally-implemented devices
 	for( auto DeviceIt = ExternalInputDevices.CreateIterator(); DeviceIt; ++DeviceIt )
 	{
-		(*DeviceIt)->SetChannelValues(ControllerId, Values);
+		// *N.B 06/20/2016*: Ideally, we would want to use GetHapticDevice instead
+		// but they're not implemented for SteamController and SteamVRController
+		if ((*DeviceIt)->IsGamepadAttached()) 
+		{
+			(*DeviceIt)->SetChannelValues(ControllerId, Values);
+		}
 	}
 }
 
@@ -1956,17 +2134,24 @@ HRESULT FWindowsApplication::OnOLEDragEnter( const HWND HWnd, const FDragDropOLE
 		return 0;
 	}
 
-	switch (OLEData.Type)
+	if ( Window->IsEnabled() )
 	{
-		case FDragDropOLEData::Text:
+		if ((OLEData.Type & FDragDropOLEData::Text) && (OLEData.Type & FDragDropOLEData::Files))
+		{
+			*CursorEffect = MessageHandler->OnDragEnterExternal(Window.ToSharedRef(), OLEData.OperationText, OLEData.OperationFilenames);
+		}
+		else if (OLEData.Type & FDragDropOLEData::Text)
+		{
 			*CursorEffect = MessageHandler->OnDragEnterText(Window.ToSharedRef(), OLEData.OperationText);
-			break;
-		case FDragDropOLEData::Files:
+		}
+		else if (OLEData.Type & FDragDropOLEData::Files)
+		{
 			*CursorEffect = MessageHandler->OnDragEnterFiles(Window.ToSharedRef(), OLEData.OperationFilenames);
-			break;
-		case FDragDropOLEData::None:
-		default:
-			break;
+		}
+	}
+	else
+	{
+		*CursorEffect = EDropEffect::None;
 	}
 
 	return 0;
@@ -1978,7 +2163,14 @@ HRESULT FWindowsApplication::OnOLEDragOver( const HWND HWnd, DWORD KeyState, POI
 
 	if ( Window.IsValid() )
 	{
-		*CursorEffect = MessageHandler->OnDragOver( Window.ToSharedRef() );
+		if ( Window->IsEnabled() )
+		{
+			*CursorEffect = MessageHandler->OnDragOver( Window.ToSharedRef() );
+		}
+		else
+		{
+			*CursorEffect = EDropEffect::None;
+		}
 	}
 
 	return 0;
@@ -1988,7 +2180,7 @@ HRESULT FWindowsApplication::OnOLEDragOut( const HWND HWnd )
 {
 	const TSharedPtr< FWindowsWindow > Window = FindWindowByHWND( Windows, HWnd );
 
-	if ( Window.IsValid() )
+	if ( Window.IsValid() && Window->IsEnabled() )
 	{
 		// User dragged out of a Slate window. We must tell Slate it is no longer in drag and drop mode.
 		// Note that this also gets triggered when the user hits ESC to cancel a drag and drop.
@@ -2004,7 +2196,14 @@ HRESULT FWindowsApplication::OnOLEDrop( const HWND HWnd, const FDragDropOLEData&
 
 	if ( Window.IsValid() )
 	{
-		*CursorEffect = MessageHandler->OnDragDrop( Window.ToSharedRef() );
+		if ( Window->IsEnabled() )
+		{
+			*CursorEffect = MessageHandler->OnDragDrop(Window.ToSharedRef());
+		}
+		else
+		{
+			*CursorEffect = EDropEffect::None;
+		}
 	}
 
 	return 0;
@@ -2026,7 +2225,7 @@ void FWindowsApplication::RemoveMessageHandler(IWindowsMessageHandler& InMessage
 void FWindowsApplication::QueryConnectedMice()
 {
 	TArray<RAWINPUTDEVICELIST> DeviceList;
-	UINT DeviceCount;
+	UINT DeviceCount = 0;
 
 	GetRawInputDeviceList(nullptr, &DeviceCount, sizeof(RAWINPUTDEVICELIST));
 	if (DeviceCount == 0)
@@ -2041,7 +2240,7 @@ void FWindowsApplication::QueryConnectedMice()
 	int32 MouseCount = 0;
 	for (const auto& Device : DeviceList)
 	{
-		UINT NameLen;
+		UINT NameLen = 0;
 		TAutoPtr<char> Name;
 		if (Device.dwType != RIM_TYPEMOUSE)
 			continue;
@@ -2076,7 +2275,10 @@ void FTaskbarList::Initialize()
 {
 	if (FWindowsPlatformMisc::CoInitialize())
 	{
-		CoCreateInstance(CLSID_TaskbarList, NULL, CLSCTX_INPROC_SERVER, IID_ITaskbarList3, (void **)&TaskBarList3);
+		if (CoCreateInstance(CLSID_TaskbarList, NULL, CLSCTX_INPROC_SERVER, IID_ITaskbarList3, (void **)&TaskBarList3) != S_OK)
+		{
+			TaskBarList3 = nullptr;
+		}
 	}
 }
 
@@ -2131,5 +2333,7 @@ TSharedRef<FTaskbarList> FTaskbarList::Create()
 	return TaskbarList;
 }
 
+// Restore the windowsx.h macro for IsMaximized
+#pragma pop_macro("IsMaximized")
 
 #include "HideWindowsPlatformTypes.h"

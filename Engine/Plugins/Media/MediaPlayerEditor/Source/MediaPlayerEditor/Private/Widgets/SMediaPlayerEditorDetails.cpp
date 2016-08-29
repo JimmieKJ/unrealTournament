@@ -1,6 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "MediaPlayerEditorPrivatePCH.h"
+#include "MediaPlayerEditorPCH.h"
+#include "SMediaPlayerEditorDetails.h"
 
 
 #define LOCTEXT_NAMESPACE "SMediaPlayerEditorDetails"
@@ -9,9 +10,9 @@
 /* SMediaPlayerEditorDetails interface
  *****************************************************************************/
 
-void SMediaPlayerEditorDetails::Construct( const FArguments& InArgs, UMediaPlayer* InMediaPlayer, const TSharedRef<ISlateStyle>& InStyle )
+void SMediaPlayerEditorDetails::Construct(const FArguments& InArgs, UMediaPlayer& InMediaPlayer, const TSharedRef<ISlateStyle>& InStyle)
 {
-	MediaPlayer = InMediaPlayer;
+	MediaPlayer = &InMediaPlayer;
 
 	// initialize details view
 	FDetailsViewArgs DetailsViewArgs;
@@ -30,14 +31,7 @@ void SMediaPlayerEditorDetails::Construct( const FArguments& InArgs, UMediaPlaye
 
 	ChildSlot
 	[
-		SNew(SVerticalBox)
-
-		+ SVerticalBox::Slot()
-			.AutoHeight()
-			.Padding(4.0f, 2.0f)
-			[
-				DetailsView.ToSharedRef()
-			]
+		DetailsView.ToSharedRef()
 	];
 }
 

@@ -174,6 +174,7 @@ public class UE4EditorTarget : TargetRules
         NonCodeProjectNames.Add("MorphTargets", DesktopPlats);
         NonCodeProjectNames.Add("PostProcessMatinee", DesktopPlats);
         NonCodeProjectNames.Add("SciFiHallway", DesktopPlats);
+        NonCodeProjectNames.Add("SubwaySequencer", DesktopPlats);
 
         // Windows only due to VR elements
         if (HostPlatform == UnrealTargetPlatform.Win64)
@@ -186,6 +187,7 @@ public class UE4EditorTarget : TargetRules
         //NonCodeProjectNames.Add("TappyChicken", TappyChickenPlats);
         //NonCodeProjectNames.Add("SwingNinja", TappyChickenPlats);
         NonCodeProjectNames.Add("SunTemple", DesktopAndMobilePlats);
+		NonCodeProjectNames.Add("Zen", DesktopAndMobilePlats);
 
         NonCodeProjectNames.Add("FP_FirstPersonBP", AllSupportedPlats);
 		NonCodeProjectNames.Add("TP_2DSideScrollerBP", TP_2DSideScrollerPlats);
@@ -225,6 +227,7 @@ public class UE4EditorTarget : TargetRules
         //Add Samples to the list with its corresponding settings
         //NonCodeProjectNames.Add("TappyChicken", TappyChickenBuildSettings);
         NonCodeProjectNames.Add("SunTemple", SunTempleBuildSettings);
+		NonCodeProjectNames.Add("Zen", SunTempleBuildSettings);
         return NonCodeProjectNames;
     }
 }

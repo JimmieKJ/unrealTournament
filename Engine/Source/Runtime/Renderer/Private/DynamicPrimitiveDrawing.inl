@@ -4,8 +4,7 @@
 	DynamicPrimitiveDrawing.inl: Dynamic primitive drawing implementation.
 =============================================================================*/
 
-#ifndef __DYNAMICPRIMITIVEDRAWING_INL__
-#define __DYNAMICPRIMITIVEDRAWING_INL__
+#pragma once
 
 template<class DrawingPolicyFactoryType>
 void DrawViewElementsInner(
@@ -297,11 +296,13 @@ inline int32 FViewElementPDI::DrawMesh(const FMeshBatch& Mesh)
 		TIndirectArray<FMeshBatch>& ViewMeshElementList = ( ( DPGIndex == SDPG_Foreground  ) ? ViewInfo->TopViewMeshElements : ViewInfo->ViewMeshElements );
 
 		FMeshBatch* NewMesh = new(ViewMeshElementList) FMeshBatch(Mesh);
-		NewMesh->BatchHitProxyId = CurrentHitProxy ? CurrentHitProxy->Id : FHitProxyId();
+		if( CurrentHitProxy != nullptr )
+		{
+			NewMesh->BatchHitProxyId = CurrentHitProxy->Id;
+		}
 
 		return 1;
 	}
 	return 0;
 }
 
-#endif

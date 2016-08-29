@@ -134,8 +134,8 @@ public:
 
 	EVisibility GetBorderVisibility() const
 	{
-		EVisibility Visibility = SLevelViewport::OnGetViewportContentVisibility();
-		return Visibility == EVisibility::Visible ? EVisibility::HitTestInvisible : Visibility;
+		const EVisibility ViewportContentVisibility = SLevelViewport::OnGetViewportContentVisibility();
+		return ViewportContentVisibility == EVisibility::Visible ? EVisibility::HitTestInvisible : ViewportContentVisibility;
 	}
 
 private:
@@ -572,8 +572,6 @@ void SCinematicLevelViewport::Tick(const FGeometry& AllottedGeometry, const doub
 	{
 		return;
 	}
-
-	ViewportClient->bDisableInput = Sequencer->GetPlaybackStatus() == EMovieScenePlayerStatus::Playing;
 
 	UMovieSceneSequence* Sequence = Sequencer->GetFocusedMovieSceneSequence();
 	if (!Sequence)

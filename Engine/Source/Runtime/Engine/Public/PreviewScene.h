@@ -4,8 +4,7 @@
 	PreviewScene.h: Preview scene definitions.
 =============================================================================*/
 
-#ifndef __PREVIEWSCENE_H__
-#define __PREVIEWSCENE_H__
+#pragma once
 
 /**
  * Encapsulates a simple scene setup for preview or thumbnail rendering.
@@ -96,5 +95,3 @@ protected:
 	/** This controls whether or not all mip levels of textures used by UMeshComponents added to this preview window should be loaded and remain loaded. */
 	bool bForceAllUsedMipsResident;
 };
-
-#endif // __PREVIEWSCENE_H__

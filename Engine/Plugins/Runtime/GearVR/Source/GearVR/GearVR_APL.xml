@@ -125,23 +125,26 @@
 	<!-- optional files or directories to copy to Intermediate/Android/APK -->
 	<resourceCopies>
 		<isArch arch="armeabi-v7a">
-			<copyFile src="$S(EngineDir)/Source/ThirdParty/Oculus/OculusMobile/SDK_1_0_0/Libs/armeabi-v7a/libvrapi.so"
+			<copyFile src="$S(EngineDir)/Source/ThirdParty/Oculus/OculusMobile/SDK_1_0_3/Libs/armeabi-v7a/libvrapi.so"
 						dst="$S(BuildDir)/libs/armeabi-v7a/libvrapi.so" />
 		</isArch>
-		<copyFile src="$S(EngineDir)/Source/ThirdParty/Oculus/OculusMobile/SDK_1_0_0/Libs/VrApi.jar"
+		<copyFile src="$S(EngineDir)/Source/ThirdParty/Oculus/OculusMobile/SDK_1_0_3/Libs/VrApi.jar"
 					dst="$S(BuildDir)/libs/VrApi.jar" />
 
-		<copyFile src="$S(EngineDir)/Source/ThirdParty/Oculus/OculusMobile/SDK_1_0_0/Libs/SystemUtils.jar"
+		<copyFile src="$S(EngineDir)/Source/ThirdParty/Oculus/OculusMobile/SDK_1_0_3/Libs/SystemUtils.jar"
 					dst="$S(BuildDir)/libs/SystemUtils.jar" />
 
-		<if condition="bRemoveOSIG">
+		<if condition="bEntitlementCheck">
 			<true>
-				<deleteFiles filespec="assets/oculussig_*" />
-			</true>
-			<false>
-				<copyFile src="$S(EngineDir)/Source/ThirdParty/Oculus/OculusMobile/SDK_1_0_0/Libs/vrplatlib.jar"
+				<copyFile src="$S(EngineDir)/Source/ThirdParty/Oculus/OculusMobile/SDK_1_0_3/Libs/vrplatlib.jar"
 							dst="$S(BuildDir)/libs/vrplatlib.jar" />
-			</false>
+			</true>
+			</if>
+
+		<if condition="bRemoveOSIG">
+				<true>
+							<deleteFiles filespec="assets/oculussig_*" />
+			</true>
 		</if>
 	</resourceCopies>
 

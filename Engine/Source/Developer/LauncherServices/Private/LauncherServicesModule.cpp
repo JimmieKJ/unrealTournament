@@ -41,6 +41,7 @@ public:
 			TSharedPtr<FLauncherProfileManager> ProfileManager = MakeShareable(new FLauncherProfileManager());	
 			ProfileManager->Load();
 			ProfileManagerSingleton = ProfileManager;
+			ProfileManagerInitializedDelegate.Broadcast(*ProfileManager);
 		}
 
 		return ProfileManagerSingleton.ToSharedRef();
@@ -71,6 +72,7 @@ private:
 /* Static initialization
  *****************************************************************************/
 
+FOnLauncherProfileManagerInitialized ILauncherServicesModule::ProfileManagerInitializedDelegate;
 ILauncherProfileManagerPtr FLauncherServicesModule::ProfileManagerSingleton = NULL;
 
 

@@ -11,6 +11,7 @@
 #include "MoviePlayer.h"
 #endif
 
+#include "NetworkVersion.h"
 #include "UTGameInstance.generated.h"
 
 class UUTMatchmaking;
@@ -72,7 +73,7 @@ inline void InitPerfCounters()
 		{
 			// Not exactly full version string, but the build number
 			//UE_LOG(UT,Log,TEXT("GEngineNetVersion %i"),GEngineNetVersion);
-			PerfCounters->Set(TEXT("BuildVersion"), GEngineNetVersion);
+			PerfCounters->Set(TEXT("BuildVersion"), FNetworkVersion::GetNetworkCompatibleChangelist());
 		}
 		else
 		{

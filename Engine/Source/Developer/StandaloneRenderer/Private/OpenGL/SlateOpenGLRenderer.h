@@ -136,7 +136,7 @@ public:
 
 	/** FSlateRenderer interface */
 	virtual FSlateDrawBuffer& GetDrawBuffer() override;
-	virtual void Initialize() override;
+	virtual bool Initialize() override;
 	virtual void Destroy() override {}
 	virtual void DrawWindows( FSlateDrawBuffer& InWindowDrawBuffer ) override;
 	virtual void OnWindowDestroyed( const TSharedRef<SWindow>& InWindow ) override;

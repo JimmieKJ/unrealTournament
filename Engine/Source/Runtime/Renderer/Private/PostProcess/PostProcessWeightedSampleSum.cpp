@@ -585,8 +585,15 @@ void FRCPassPostProcessWeightedSampleSum::Process(FRenderingCompositePassContext
 	FSceneRenderTargets& SceneContext = FSceneRenderTargets::Get(Context.RHICmdList);
 
 	// e.g. 4 means the input texture is 4x smaller than the buffer size
-	FIntPoint SrcScaleFactor = SceneContext.GetBufferSizeXY() / SrcSize;
-	FIntPoint DstScaleFactor = SceneContext.GetBufferSizeXY() / DestSize;
+	const FIntPoint BufferSize = SceneContext.GetBufferSizeXY();
+
+	const uint32 SrcScaleFactorX = FMath::DivideAndRoundUp(BufferSize.X, SrcSize.X);
+	const uint32 SrcScaleFactorY = FMath::DivideAndRoundUp(BufferSize.Y, SrcSize.Y);
+	const FIntPoint SrcScaleFactor(SrcScaleFactorX, SrcScaleFactorY);
+
+	const uint32 DstScaleFactorX = FMath::DivideAndRoundUp(BufferSize.X, DestSize.X);
+	const uint32 DstScaleFactorY = FMath::DivideAndRoundUp(BufferSize.Y, DestSize.Y);
+	const FIntPoint DstScaleFactor(DstScaleFactorX, DstScaleFactorY);
 
 	TRefCountPtr<IPooledRenderTarget> InputPooledElement = Input->RequestInput();
 

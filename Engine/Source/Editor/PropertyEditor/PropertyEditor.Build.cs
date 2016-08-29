@@ -10,6 +10,7 @@ public class PropertyEditor : ModuleRules
 			new string[] {
 				"UnrealEd",
                 "ActorPickerMode",
+                "SceneDepthPickerMode",
 			}
 		);
 		

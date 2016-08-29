@@ -51,18 +51,17 @@
 #endif //WITH_APEX_CLOTHING
 
 #ifndef ENABLE_VISUAL_LOG
-	#define ENABLE_VISUAL_LOG (PLATFORM_DESKTOP && !NO_LOGGING && !USING_CODE_ANALYSIS && !(UE_BUILD_SHIPPING || UE_BUILD_TEST))
+	#define ENABLE_VISUAL_LOG (PLATFORM_DESKTOP && !NO_LOGGING && !(UE_BUILD_SHIPPING || UE_BUILD_TEST))
 #endif
-
-#ifndef WITH_FIXED_AREA_ENTERING_COST
-	#define WITH_FIXED_AREA_ENTERING_COST 1
-#endif // WITH_FIXED_AREA_ENTERING_COST
 
 // If set, recast will use async workers for rebuilding tiles in runtime
 // All access to tile data must be guarded with critical sections
 #ifndef RECAST_ASYNC_REBUILDING
 	#define RECAST_ASYNC_REBUILDING	1
 #endif
+
+// Whether lightmass generates FSHVector2 or FSHVector3. Linked with VER_UE4_INDIRECT_LIGHTING_SH3
+#define NUM_INDIRECT_LIGHTING_SH_COEFFICIENTS 9
 
 /*-----------------------------------------------------------------------------
 	Size of the world.

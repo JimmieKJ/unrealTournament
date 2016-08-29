@@ -94,9 +94,9 @@ void UUTGameViewportClient::RemoveViewportWidgetContent_NoAspect(TSharedRef<clas
 #endif
 }
 
-void UUTGameViewportClient::PeekTravelFailureMessages(UWorld* World, enum ETravelFailure::Type FailureType, const FString& ErrorString)
+void UUTGameViewportClient::PeekTravelFailureMessages(UWorld* InWorld, enum ETravelFailure::Type FailureType, const FString& ErrorString)
 {
-	Super::PeekTravelFailureMessages(World, FailureType, ErrorString);
+	Super::PeekTravelFailureMessages(InWorld, FailureType, ErrorString);
 #if !UE_SERVER
 	UUTLocalPlayer* FirstPlayer = Cast<UUTLocalPlayer>(GEngine->GetLocalPlayerFromControllerId(this, 0));	// Grab the first local player.
 	UUTGameEngine* UTEngine = Cast<UUTGameEngine>(GEngine);
@@ -265,18 +265,18 @@ void UUTGameViewportClient::PeekTravelFailureMessages(UWorld* World, enum ETrave
 #endif
 }
 
-void UUTGameViewportClient::PeekNetworkFailureMessages(UWorld *World, UNetDriver *NetDriver, ENetworkFailure::Type FailureType, const FString& ErrorString)
+void UUTGameViewportClient::PeekNetworkFailureMessages(UWorld *InWorld, UNetDriver *NetDriver, ENetworkFailure::Type FailureType, const FString& ErrorString)
 {
 	static FName NAME_PendingNetDriver(TEXT("PendingNetDriver"));
 
 	// ignore connection loss on game net driver if we have a pending one; this happens during standard blocking server travel
-	if ( NetDriver->NetDriverName == NAME_GameNetDriver && GEngine->GetWorldContextFromWorld(World)->PendingNetGame != NULL &&
+	if ( NetDriver->NetDriverName == NAME_GameNetDriver && GEngine->GetWorldContextFromWorld(InWorld)->PendingNetGame != NULL &&
 		(FailureType == ENetworkFailure::ConnectionLost || FailureType == ENetworkFailure::FailureReceived) )
 	{
 		return;
 	}
 
-	Super::PeekNetworkFailureMessages(World, NetDriver, FailureType, ErrorString);
+	Super::PeekNetworkFailureMessages(InWorld, NetDriver, FailureType, ErrorString);
 #if !UE_SERVER
 
 	// Don't care about net drivers that aren't the game net driver, they are probably just beacon net drivers
@@ -499,7 +499,7 @@ void UUTGameViewportClient::Draw(FViewport* InViewport, FCanvas* SceneCanvas)
 				if (SceneView != NULL)
 				{
 					TArray<UMeshComponent*> WeaponMeshes = UTC->GetWeapon()->Get1PMeshes();
-					TArray<USceneComponent*> Children = UTC->GetWeapon()->GetMesh()->AttachChildren; // make a copy in case something below causes it to change
+					TArray<USceneComponent*> Children = UTC->GetWeapon()->GetMesh()->GetAttachChildren(); // make a copy in case something below causes it to change
 					for (USceneComponent* Attachment : Children)
 					{
 						// any additional weapon meshes are assumed to be projected in the shader if desired

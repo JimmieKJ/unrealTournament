@@ -42,6 +42,7 @@ class KISMET_API IBlueprintEditor : public FWorkflowCentricApplication
 {
 public:
 	virtual void JumpToHyperlink(const UObject* ObjectReference, bool bRequestRename) = 0;
+	virtual void JumpToPin(const UEdGraphPin* PinToFocusOn) = 0;
 
 	/** Invokes the search UI and sets the mode and search terms optionally */
 	virtual void SummonSearchUI(bool bSetFindWithinBlueprint, FString NewSearchTerms = FString(), bool bSelectFirstResult = false) = 0;
@@ -50,6 +51,8 @@ public:
 	virtual void SummonFindAndReplaceUI() = 0;
 
 	virtual void RefreshEditors(ERefreshBlueprintEditorReason::Type Reason = ERefreshBlueprintEditorReason::UnknownReason) = 0;
+
+	virtual void AddToSelection(UEdGraphNode* InNode) = 0;
 
 	virtual bool CanPasteNodes() const= 0;
 
@@ -179,4 +182,7 @@ private:
 
 	/** Handle to a registered LevelViewportContextMenuBlueprintExtender delegate */
 	FDelegateHandle LevelViewportContextMenuBlueprintExtenderDelegateHandle;
+
+	/** Reference to keep our custom configuration panel alive */
+	TSharedPtr<SWidget> ConfigurationPanel;
 };

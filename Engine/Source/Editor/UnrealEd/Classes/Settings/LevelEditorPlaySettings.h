@@ -154,7 +154,7 @@ public:
 
 public:
 
-	/** Should Play-in-Editor automatically give mouse control to the game on PIE start (default = false). */
+	/** Should Play-in-Editor automatically give mouse control to the game on PIE start (default = false). Note that this does not affect VR, which will always take focus */
 	UPROPERTY(config, EditAnywhere, Category=PlayInEditor, meta=(ToolTip="Give the game mouse control when PIE starts or require a click in the viewport first"))
 	bool GameGetsMouseControl;
 

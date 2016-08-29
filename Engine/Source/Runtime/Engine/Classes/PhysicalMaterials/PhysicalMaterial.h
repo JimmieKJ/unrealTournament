@@ -1,7 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
-#include "PhysicsEngine/PhysicsSettings.h"
+#include "PhysicsEngine/PhysicsSettingsEnums.h"
 #include "PhysicalMaterial.generated.h"
 
 namespace physx
@@ -33,7 +33,7 @@ struct FTireFrictionScalePair
 /**
  * Physical materials are used to define the response of a physical object when interacting dynamically with the world.
  */
-UCLASS(BlueprintType, collapsecategories, hidecategories = Object)
+UCLASS(BlueprintType, Blueprintable, CollapseCategories, HideCategories = Object)
 class ENGINE_API UPhysicalMaterial : public UObject
 {
 	GENERATED_UCLASS_BODY()

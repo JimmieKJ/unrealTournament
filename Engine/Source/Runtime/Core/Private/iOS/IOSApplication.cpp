@@ -23,6 +23,7 @@ FIOSApplication::FIOSApplication()
 	, InputInterface( FIOSInputInterface::Create( MessageHandler ) )
 	, bHasLoadedInputPlugins(false)
 {
+	[IOSAppDelegate GetDelegate].IOSApplication = this;
 }
 
 void FIOSApplication::InitializeWindow( const TSharedRef< FGenericWindow >& InWindow, const TSharedRef< FGenericWindowDefinition >& InDefinition, const TSharedPtr< FGenericWindow >& InParent, const bool bShowImmediately )

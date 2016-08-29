@@ -1,0 +1,137 @@
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+
+/*=============================================================================
+	MorphTargets.usf: Compute shader for calculating Morph Targets.
+=============================================================================*/
+
+#include "Common.usf"
+
+////////////////////////////////////////////////////////////////
+
+#ifndef USE_BYTE_BUFFER
+#define USE_BYTE_BUFFER	0
+#endif
+
+#if USE_BYTE_BUFFER
+RWByteAddressBuffer MorphVertexBuffer;
+#else
+RWBuffer<uint> MorphVertexBuffer;
+#endif
+
+// .x = NumLODVertices, .y = NumVertexInfoMorphs
+float4 MorphTargetCounts;
+
+Buffer<uint> PerVertexInfoList;
+Buffer<uint> FlattenedDeltaList;
+Buffer<uint> AllWeightsPerMorphs;
+
+
+#if 0
+// This is how MorphVertexBuffer is interpreted as (6 floats)
+struct FMorphGPUSkinVertex
+{
+	FVector			DeltaPosition;
+	FVector			DeltaTangentZ;
+};
+
+// This is how PerVertexInfoList is interpreted as (3 uints)
+struct FPerVertexInfo
+{
+	uint32 DestVertexIndex;
+	uint32 StartDelta;
+	uint32 NumDeltas;
+};
+
+// This is how FFlattenedDelta is interpreted as (7 uints)
+struct FFlattenedDeltaList
+{
+	FVector PosDelta;
+	FVector TangentDelta;
+	uint32 WeightIndex;
+};
+
+// AllWeightsPerMorphs is a float per weight
+#endif
+
+void ApplyMorphDeltas(uint DestVertexIndex, uint StartDelta, uint NumDeltas, out float3 Position, out float3 TangentZ)
+{
+	// See FFlattenedDelta
+	const uint FlattenedDeltaListStride = 7;
+
+	Position = 0;
+	TangentZ = 0;
+	float AccumulatedWeight = 0;
+
+	for (uint Index = 0; Index < NumDeltas; ++Index)
+	{
+		uint DeltaIndex = Index + StartDelta;
+		float3 MorphVertexPositionDelta = float3(
+			asfloat(FlattenedDeltaList[FlattenedDeltaListStride * DeltaIndex + 0]),
+			asfloat(FlattenedDeltaList[FlattenedDeltaListStride * DeltaIndex + 1]),
+			asfloat(FlattenedDeltaList[FlattenedDeltaListStride * DeltaIndex + 2]));
+		float3 MorphVertexTangentZDelta = float3(
+			asfloat(FlattenedDeltaList[FlattenedDeltaListStride * DeltaIndex + 3]),
+			asfloat(FlattenedDeltaList[FlattenedDeltaListStride * DeltaIndex + 4]),
+			asfloat(FlattenedDeltaList[FlattenedDeltaListStride * DeltaIndex + 5]));
+		uint WeightIndex = FlattenedDeltaList[FlattenedDeltaListStride * DeltaIndex + 6];
+
+		const float Weight = asfloat(AllWeightsPerMorphs[WeightIndex]);
+
+		Position += Weight * MorphVertexPositionDelta;
+		TangentZ += Weight * MorphVertexTangentZDelta;
+		AccumulatedWeight += abs(Weight);
+	}
+
+	// if accumulated weight is >1.f
+	// previous code was applying the weight again in GPU if less than 1, but it doesn't make sense to do so
+	// so instead, we just divide by AccumulatedWeight if it's more than 1.
+	// now DeltaTangentZ isn't FPackedNormal, so you can apply any value to it. 
+	if (AccumulatedWeight > 1.f)
+	{
+		TangentZ /= AccumulatedWeight;
+	}
+}
+
+
+[numthreads(64,1,1)]
+void GPUMorphUpdateCS(uint DispatchId : SV_DispatchThreadID)
+{
+	// See FMorphDelta
+	const uint MorphDeltaStride = 3 + 3 + 1;
+
+	uint NumVertexInfoMorphs = (uint)MorphTargetCounts.y;
+	if (DispatchId.x < NumVertexInfoMorphs)
+	{
+		// See FPerVertexInfo
+		const uint PerVertexInfoStride = 3;
+		// Equivalent to PerVertexInfoList<FPerVertexInfo>
+		const uint DestVertexIndex = PerVertexInfoList[DispatchId.x * PerVertexInfoStride + 0];
+		const uint StartDelta = PerVertexInfoList[DispatchId.x * PerVertexInfoStride + 1];
+		const uint NumDeltas = PerVertexInfoList[DispatchId.x * PerVertexInfoStride + 2];
+
+		float3 Position = 0;
+		float3 TangentZ = 0;
+
+		ApplyMorphDeltas(DestVertexIndex, StartDelta, NumDeltas, Position, TangentZ);
+
+		// See FMorphGPUSkinVertex
+		const uint MorphVertexBufferStride = 3 + 3;
+#if USE_BYTE_BUFFER
+		// Equivalent to MorphVertexBuffer<FMorphGPUSkinVertex>
+		MorphVertexBuffer.Store((MorphVertexBufferStride * DestVertexIndex + 0) * 4, asuint(Position.x));
+		MorphVertexBuffer.Store((MorphVertexBufferStride * DestVertexIndex + 1) * 4, asuint(Position.y));
+		MorphVertexBuffer.Store((MorphVertexBufferStride * DestVertexIndex + 2) * 4, asuint(Position.z));
+		MorphVertexBuffer.Store((MorphVertexBufferStride * DestVertexIndex + 3) * 4, asuint(TangentZ.x));
+		MorphVertexBuffer.Store((MorphVertexBufferStride * DestVertexIndex + 4) * 4, asuint(TangentZ.y));
+		MorphVertexBuffer.Store((MorphVertexBufferStride * DestVertexIndex + 5) * 4, asuint(TangentZ.z));
+#else
+		// Equivalent to MorphVertexBuffer<FMorphGPUSkinVertex>
+		MorphVertexBuffer[MorphVertexBufferStride * DestVertexIndex + 0] = asuint(Position.x);
+		MorphVertexBuffer[MorphVertexBufferStride * DestVertexIndex + 1] = asuint(Position.y);
+		MorphVertexBuffer[MorphVertexBufferStride * DestVertexIndex + 2] = asuint(Position.z);
+		MorphVertexBuffer[MorphVertexBufferStride * DestVertexIndex + 3] = asuint(TangentZ.x);
+		MorphVertexBuffer[MorphVertexBufferStride * DestVertexIndex + 4] = asuint(TangentZ.y);
+		MorphVertexBuffer[MorphVertexBufferStride * DestVertexIndex + 5] = asuint(TangentZ.z);
+#endif
+	}
+}

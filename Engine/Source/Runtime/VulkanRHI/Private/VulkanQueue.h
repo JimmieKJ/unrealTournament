@@ -6,54 +6,60 @@
 
 #pragma once
 
-#include "VulkanRHIPrivate.h"
+#include "VulkanConfiguration.h"
 
-struct FVulkanDevice;
+class FVulkanDevice;
 class FVulkanCmdBuffer;
 struct FVulkanSemaphore;
-struct FVulkanSwapChain;
+class FVulkanSwapChain;
+class FVulkanCommandListContext;
 
-struct FVulkanQueue
+namespace VulkanRHI
 {
-	FVulkanQueue(FVulkanDevice* InDevice, uint32 InNodeIndex);
+	class FFence;
+}
+
+class FVulkanQueue
+{
+public:
+	FVulkanQueue(FVulkanDevice* InDevice, uint32 InFamilyIndex, uint32 InQueueIndex);
 
 	~FVulkanQueue();
 
-	inline uint32 GetNodeIndex() const
+	inline uint32 GetFamilyIndex() const
 	{
-		return NodeIndex;
+		return FamilyIndex;
 	}
 
-	void Submit(FVulkanCmdBuffer* CmdBuffer);
-
-	void SubmitBlocking(FVulkanCmdBuffer* CmdBuffer);
-
-	uint32 AquireImageIndex(FVulkanSwapChain* Swapchain);
-	
-	void Present(FVulkanSwapChain* Swapchain, uint32 ImageIndex);
+	void Submit(FVulkanCmdBuffer* CmdBuffer, FVulkanSemaphore* WaitSemaphore, VkPipelineStageFlags WaitStageFlags, FVulkanSemaphore* SignalSemaphore);
 
 	inline VkQueue GetHandle() const
 	{
 		return Queue;
 	}
 
+	void GetLastSubmittedInfo(FVulkanCmdBuffer*& OutCmdBuffer, uint64& OutFenceCounter) const
+	{
+		FScopeLock ScopeLock(&CS);
+		OutCmdBuffer = LastSubmittedCmdBuffer;
+		OutFenceCounter = LastSubmittedCmdBufferFenceCounter;
+	}
+
+	inline uint64 GetSubmitCount() const
+	{
+		return SubmitCounter;
+	}
+
 private:
-	PFN_vkAcquireNextImageKHR AcquireNextImageKHR;
-	PFN_vkQueuePresentKHR QueuePresentKHR;
-
-	FVulkanSemaphore* ImageAcquiredSemaphore[VULKAN_NUM_IMAGE_BUFFERS];
-	FVulkanSemaphore* RenderingCompletedSemaphore[VULKAN_NUM_IMAGE_BUFFERS];
-#if VULKAN_USE_FENCE_MANAGER
-	VulkanRHI::FFence* Fences[VULKAN_NUM_IMAGE_BUFFERS];
-#else
-	VkFence Fences[VULKAN_NUM_IMAGE_BUFFERS];
-#endif
-	uint32	CurrentFenceIndex;
-
-	uint32 CurrentImageIndex;	// Perhaps move this to the FVulkanSwapChain?
-
 	VkQueue Queue;
-	uint32 NodeIndex;
+	uint32 FamilyIndex;
+	uint32 QueueIndex;
 	FVulkanDevice* Device;
-};
 
+	mutable FCriticalSection CS;
+	FVulkanCmdBuffer* LastSubmittedCmdBuffer;
+	uint64 LastSubmittedCmdBufferFenceCounter;
+	uint64 SubmitCounter;
+
+	void UpdateLastSubmittedCommandBuffer(FVulkanCmdBuffer* CmdBuffer);
+};

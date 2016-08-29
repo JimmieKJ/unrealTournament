@@ -2,8 +2,9 @@
 
 
 #include "BlueprintGraphPrivatePCH.h"
-#include "Engine/Breakpoint.h"
 
+#include "EdGraph/EdGraphPin.h"
+#include "Engine/Breakpoint.h"
 #include "K2Node.h"
 #include "KismetDebugUtilities.h" // for HasDebuggingData(), GetWatchText()
 #include "KismetCompiler.h"
@@ -28,6 +29,31 @@ UK2Node::UK2Node(const FObjectInitializer& ObjectInitializer)
 
 void UK2Node::PostLoad()
 {
+#if WITH_EDITORONLY_DATA
+	// Clean up win watches for any deprecated pins we are about to remove in Super::PostLoad
+	if (DeprecatedPins.Num() && HasValidBlueprint())
+	{
+		UBlueprint* BP = GetBlueprint();
+		check(BP);
+
+		// patch DeprecatedPinWatches to WatchedPins:
+		for (int32 WatchIdx = BP->DeprecatedPinWatches.Num() - 1; WatchIdx >= 0; --WatchIdx)
+		{
+			UEdGraphPin_Deprecated* WatchedPin = BP->DeprecatedPinWatches[WatchIdx];
+			if (DeprecatedPins.Contains(WatchedPin))
+			{
+				if (UEdGraphPin* NewPin = UEdGraphPin::FindPinCreatedFromDeprecatedPin(WatchedPin))
+				{
+					BP->WatchedPins.Add(NewPin);
+				}
+
+				BP->DeprecatedPinWatches.RemoveAt(WatchIdx);
+			}
+		}
+		
+	}
+#endif // WITH_EDITORONLY_DATA
+
 	Super::PostLoad();
 
 	// fix up pin default values
@@ -289,27 +315,7 @@ void UK2Node::ReallocatePinsDuringReconstruction(TArray<UEdGraphPin*>& OldPins)
 {
 	AllocateDefaultPins();
 
-	for (auto OldPin : OldPins)
-	{
-		if (OldPin->ParentPin)
-		{
-			// find the new pin that corresponds to parent, and split it if it isn't already split
-			for (auto NewPin : Pins)
-			{
-				if (FCString::Stricmp(*(NewPin->PinName), *(OldPin->ParentPin->PinName)) == 0)
-				{
-					// Make sure we're not dealing with a menu node
-					UEdGraph* OuterGraph = GetGraph();
-					if (OuterGraph && OuterGraph->Schema && NewPin->SubPins.Num() == 0)
-					{
-						NewPin->PinType = OldPin->ParentPin->PinType;
-						GetSchema()->SplitPin(NewPin);
-						break;
-					}
-				}
-			}
-		}
-	}
+	RestoreSplitPins(OldPins);
 }
 
 void UK2Node::PostReconstructNode()
@@ -477,6 +483,32 @@ UK2Node::ERedirectType UK2Node::ShouldRedirectParam(const TArray<FString>& OldPi
 	return ERedirectType_None;
 }
 
+void UK2Node::RestoreSplitPins(TArray<UEdGraphPin*>& OldPins)
+{
+	// necessary to recreate split pins and keep their wires
+	for (auto OldPin : OldPins)
+	{
+		if (OldPin->ParentPin)
+		{
+			// find the new pin that corresponds to parent, and split it if it isn't already split
+			for (auto NewPin : Pins)
+			{
+				if (FCString::Stricmp(*(NewPin->PinName), *(OldPin->ParentPin->PinName)) == 0)
+				{
+					// Make sure we're not dealing with a menu node
+					UEdGraph* OuterGraph = GetGraph();
+					if (OuterGraph && OuterGraph->Schema && NewPin->SubPins.Num() == 0)
+					{
+						NewPin->PinType = OldPin->ParentPin->PinType;
+						GetSchema()->SplitPin(NewPin);
+						break;
+					}
+				}
+			}
+		}
+	}
+}
+
 UK2Node::ERedirectType UK2Node::DoPinsMatchForReconstruction(const UEdGraphPin* NewPin, int32 NewPinIndex, const UEdGraphPin* OldPin, int32 OldPinIndex) const
 {
 	ERedirectType RedirectType = ERedirectType_None;
@@ -638,9 +670,9 @@ void UK2Node::ReconstructSinglePin(UEdGraphPin* NewPin, UEdGraphPin* OldPin, ERe
 	}
 
 	// Update the blueprints watched pins as the old pin will be going the way of the dodo
-	for (int32 WatchIndex = 0; WatchIndex < Blueprint->PinWatches.Num(); ++WatchIndex)
+	for (int32 WatchIndex = 0; WatchIndex < Blueprint->WatchedPins.Num(); ++WatchIndex)
 	{
-		UEdGraphPin*& WatchedPin = Blueprint->PinWatches[WatchIndex];
+		UEdGraphPin* WatchedPin = Blueprint->WatchedPins[WatchIndex].Get();
 		if( WatchedPin == OldPin )
 		{
 			WatchedPin = NewPin;
@@ -648,7 +680,7 @@ void UK2Node::ReconstructSinglePin(UEdGraphPin* NewPin, UEdGraphPin* OldPin, ERe
 		}
 	}
 
-	OldPin->Rename(NULL, GetTransientPackage(), (REN_DontCreateRedirectors|(Blueprint->bIsRegeneratingOnLoad ? REN_ForceNoResetLoaders : REN_None)));
+	OldPin->MarkPendingKill();
 }
 
 void UK2Node::RewireOldPinsToNewPins(TArray<UEdGraphPin*>& InOldPins, TArray<UEdGraphPin*>& InNewPins)
@@ -660,16 +692,24 @@ void UK2Node::RewireOldPinsToNewPins(TArray<UEdGraphPin*>& InOldPins, TArray<UEd
 	}
 
 	// Rewire any connection to pins that are matched by name (O(N^2) right now)
-	//@TODO: Can do moderately smart things here if only one pin changes name by looking at it's relative position, etc...,
-	// rather than just failing to map it and breaking the links
-	for (int32 OldPinIndex = 0; OldPinIndex < InOldPins.Num(); ++OldPinIndex)
+	// @TODO: Can do moderately smart things here if only one pin changes name 
+	//        by looking at it's relative position, etc..., rather than just 
+	//        failing to map it and breaking the links
+	//
+	// NOTE: we iterate backwards through the list because ReconstructSinglePin()
+	//       destroys pins as we go along (clearing out parent pointers, etc.); 
+	//       we need the parent pin chain intact for DoPinsMatchForReconstruction();              
+	//       we want to destroy old pins from the split children (leafs) up, so 
+	//       we do this since split child pins are ordered later in the list 
+	//       (after their parents) 
+	for (int32 OldPinIndex = InOldPins.Num()-1; OldPinIndex >= 0; --OldPinIndex)
 	{
 		UEdGraphPin* OldPin = InOldPins[OldPinIndex];
 
 		// common case is for InOldPins and InNewPins to match, so we start searching from the current index:
 		const int32 NumNewPins = InNewPins.Num();
 		int32 NewPinIndex = OldPinIndex % InNewPins.Num();
-		for (int32 NewPinCount = 0; NewPinCount < InNewPins.Num(); ++NewPinCount)
+		for (int32 NewPinCount = InNewPins.Num()-1; NewPinCount >= 0; --NewPinCount)
 		{
 			// if InNewPins grows in this loop then we may skip entries and fail to find a match:
 			check(NumNewPins == InNewPins.Num());
@@ -696,15 +736,7 @@ void UK2Node::DestroyPinList(TArray<UEdGraphPin*>& InPins)
 		Pin->Modify();
 		Pin->BreakAllPinLinks();
 
-		// just in case this pin was set to watch (don't want to save PinWatches with dead pins)
-		Blueprint->PinWatches.Remove(Pin);
-#if 0
-		UEdGraphNode::ReturnPinToPool(Pin);
-#else
-		Pin->Rename(NULL, GetTransientPackage(), (Blueprint->bIsRegeneratingOnLoad ? REN_ForceNoResetLoaders : REN_None));
-		Pin->RemoveFromRoot();
-		Pin->MarkPendingKill();
-#endif
+		UEdGraphNode::DestroyPin(Pin);
 	}
 }
 
@@ -729,6 +761,12 @@ void UK2Node::ExpandSplitPin(FKismetCompilerContext* CompilerContext, UEdGraph* 
 		{
 			if (ExpandedPin->Direction == Pin->Direction)
 			{
+				if (Pin->SubPins.Num() == SubPinIndex)
+				{
+					CompilerContext->MessageLog.Error(*LOCTEXT("PinExpansionError", "Failed to expand pin @@, likely due to bad logic in node @@").ToString(), Pin, Pin->GetOwningNode());
+					break;
+				}
+
 				UEdGraphPin* SubPin = Pin->SubPins[SubPinIndex++];
 				if (CompilerContext)
 				{
@@ -739,6 +777,8 @@ void UK2Node::ExpandSplitPin(FKismetCompilerContext* CompilerContext, UEdGraph* 
 					Schema->MovePinLinks(*SubPin, *ExpandedPin);
 				}
 				Pins.Remove(SubPin);
+				SubPin->ParentPin = nullptr;
+				SubPin->MarkPendingKill();
 			}
 			else
 			{

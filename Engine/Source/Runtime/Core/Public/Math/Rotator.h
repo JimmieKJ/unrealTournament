@@ -314,9 +314,9 @@ public:
 	bool InitFromString( const FString& InSourceString );
 
 	/**
-	 * Utility to check if there are any NaNs in this Rotator.
+	 * Utility to check if there are any non-finite values (NaN or Inf) in this Rotator.
 	 *
-	 * @return true if there are any NaNs in this Rotator, otherwise false.
+	 * @return true if there are any non-finite values in this Rotator, otherwise false.
 	 */
 	bool ContainsNaN() const;
 
@@ -725,9 +725,9 @@ FORCEINLINE bool FRotator::InitFromString( const FString& InSourceString )
 
 FORCEINLINE bool FRotator::ContainsNaN() const
 {
-	return (FMath::IsNaN(Pitch) || !FMath::IsFinite(Pitch) 
-			|| FMath::IsNaN(Yaw) || !FMath::IsFinite(Yaw) 
-			|| FMath::IsNaN(Roll) || !FMath::IsFinite(Roll));
+	return (!FMath::IsFinite(Pitch) ||
+			!FMath::IsFinite(Yaw) ||
+			!FMath::IsFinite(Roll));
 }
 
 

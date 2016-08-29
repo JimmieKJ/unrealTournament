@@ -271,14 +271,11 @@ void SAdditionalMeshesEditor::OnAssetSelectedFromPicker(const FAssetData& AssetD
 
 bool SAdditionalMeshesEditor::ShouldFilterAssetBasedOnSkeleton(const FAssetData& AssetData)
 {
-	const FString* SkeletonName = AssetData.TagsAndValues.Find(TEXT("Skeleton"));
+	const FString SkeletonName = AssetData.GetTagValueRef<FString>("Skeleton");
 
-	if ( SkeletonName )
+	if ( !SkeletonName.IsEmpty() && SkeletonName == SkeletonNameAssetFilter )
 	{
-		if ( (*SkeletonName) == SkeletonNameAssetFilter )
-		{
-			return false;
-		}
+		return false;
 	}
 
 	return true;

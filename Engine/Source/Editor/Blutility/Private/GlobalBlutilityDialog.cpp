@@ -22,14 +22,14 @@ const FName NAME_GlobalBlutilityDialogAppIdentifier = FName(TEXT("GlobalBlutilit
 //////////////////////////////////////////////////////////////////////////
 // FGlobalBlutilityDialog
 
-void FGlobalBlutilityDialog::RegisterTabSpawners(const TSharedRef<class FTabManager>& TabManager)
+void FGlobalBlutilityDialog::RegisterTabSpawners(const TSharedRef<class FTabManager>& InTabManager)
 {
-	TabManager->RegisterTabSpawner( NAME_DetailsPanel, FOnSpawnTab::CreateRaw( this, &FGlobalBlutilityDialog::SpawnTab_DetailsPanel ) );
+	InTabManager->RegisterTabSpawner( NAME_DetailsPanel, FOnSpawnTab::CreateRaw( this, &FGlobalBlutilityDialog::SpawnTab_DetailsPanel ) );
 }
 
-void FGlobalBlutilityDialog::UnregisterTabSpawners(const TSharedRef<class FTabManager>& TabManager)
+void FGlobalBlutilityDialog::UnregisterTabSpawners(const TSharedRef<class FTabManager>& InTabManager)
 {
-	TabManager->UnregisterTabSpawner( NAME_DetailsPanel );
+	InTabManager->UnregisterTabSpawner( NAME_DetailsPanel );
 }
 
 TSharedRef<SDockTab> FGlobalBlutilityDialog::SpawnTab_DetailsPanel( const FSpawnTabArgs& SpawnTabArgs )

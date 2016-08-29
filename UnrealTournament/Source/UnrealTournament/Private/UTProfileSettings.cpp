@@ -450,11 +450,11 @@ bool UUTProfileSettings::ValidateGameActions()
 					int32 k = 0;
 					while (k < UTPlayerInput->CustomBinds.Num())
 					{
-						FString Command = UTPlayerInput->CustomBinds[k].Command;
+						FString CustomCommand = UTPlayerInput->CustomBinds[k].Command;
 						// NOTE: StartActivePowerup and ToggleComMenu were once placed in the wrong group.
-						if (Command.Equals(Command, ESearchCase::IgnoreCase) 
-							|| Command.Equals(TEXT("StartActivatePowerup"),ESearchCase::IgnoreCase)		
-							|| Command.Equals(TEXT("ToggleComMenu"),ESearchCase::IgnoreCase))
+						if (CustomCommand.Equals(CustomCommand, ESearchCase::IgnoreCase)
+							|| CustomCommand.Equals(TEXT("StartActivatePowerup"),ESearchCase::IgnoreCase)
+							|| CustomCommand.Equals(TEXT("ToggleComMenu"),ESearchCase::IgnoreCase))
 						{
 							UTPlayerInput->CustomBinds.RemoveAt(k,1);
 						}

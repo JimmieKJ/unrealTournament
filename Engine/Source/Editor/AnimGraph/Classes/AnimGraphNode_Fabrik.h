@@ -25,9 +25,9 @@ public:
 	ANIMGRAPH_API virtual FName FindSelectedBone() override;
 	ANIMGRAPH_API virtual void DoTranslation(const USkeletalMeshComponent* SkelComp, FVector& Drag, FAnimNode_Base* InOutAnimNode) override;
 
-	ANIMGRAPH_API virtual void	CopyNodeDataTo(FAnimNode_Base* AnimNode) override;
-	ANIMGRAPH_API virtual void	CopyNodeDataFrom(const FAnimNode_Base* NewAnimNode) override;
-
+	ANIMGRAPH_API virtual void CopyNodeDataTo(FAnimNode_Base* AnimNode) override;
+	ANIMGRAPH_API virtual void CopyNodeDataFrom(const FAnimNode_Base* NewAnimNode) override;
+	ANIMGRAPH_API virtual void Draw(FPrimitiveDrawInterface* PDI, USkeletalMeshComponent * PreviewSkelMeshComp) const override;
 	// End of UAnimGraphNode_SkeletalControlBase interface
 
 protected:

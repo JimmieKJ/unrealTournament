@@ -29,7 +29,7 @@ void FMovieSceneParticleTrackInstance::Update(EMovieSceneUpdateData& UpdateData,
 	// @todo Sequencer We need something analagous to Matinee 1's particle replay tracks
 	// What we have here is simple toggling/triggering
 
-	if (UpdateData.Position > UpdateData.LastPosition && Player.GetPlaybackStatus() == EMovieScenePlayerStatus::Playing)
+	if (UpdateData.Position >= UpdateData.LastPosition && Player.GetPlaybackStatus() == EMovieScenePlayerStatus::Playing)
 	{
 		const TArray<UMovieSceneSection*> Sections = ParticleTrack->GetAllParticleSections();
 		EParticleKey::Type ParticleKey = EParticleKey::Deactivate;

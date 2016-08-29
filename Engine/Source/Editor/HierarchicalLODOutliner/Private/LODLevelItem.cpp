@@ -5,6 +5,7 @@
 #include "LevelEditor.h"
 #include "LODLevelItem.h"
 #include "HierarchicalLODUtilities.h"
+#include "HierarchicalLODUtilitiesModule.h"
 #include "ScopedTransaction.h"
 #include "SlateBasics.h"
 #include "TreeItemID.h"
@@ -60,6 +61,9 @@ void HLODOutliner::FLODLevelItem::OnDrop(FDragDropPayload& DraggedObjects, const
 
 HLODOutliner::FDragValidationInfo HLODOutliner::FLODLevelDropTarget::ValidateDrop(FDragDropPayload& DraggedObjects) const
 {
+	FHierarchicalLODUtilitiesModule& Module = FModuleManager::LoadModuleChecked<FHierarchicalLODUtilitiesModule>("HierarchicalLODUtilities");
+	IHierarchicalLODUtilities* Utilities = Module.GetUtilities();
+
 	if (DraggedObjects.StaticMeshActors.IsSet() && DraggedObjects.StaticMeshActors->Num() > 0)
 	{
 		const int32 NumStaticMeshActors = DraggedObjects.StaticMeshActors->Num();	
@@ -73,8 +77,8 @@ HLODOutliner::FDragValidationInfo HLODOutliner::FLODLevelDropTarget::ValidateDro
 			DraggedActors.Add(Actor.Get());
 		}
 
-		bool bSameLevelInstance = FHierarchicalLODUtilities::AreActorsInSamePersistingLevel(DraggedActors);
-		bool bAlreadyClustered = FHierarchicalLODUtilities::AreActorsClustered(DraggedActors);
+		bool bSameLevelInstance = Utilities->AreActorsInSamePersistingLevel(DraggedActors);
+		bool bAlreadyClustered = Utilities->AreActorsClustered(DraggedActors);
 		
 		if (!bSameLevelInstance)
 		{
@@ -104,10 +108,10 @@ HLODOutliner::FDragValidationInfo HLODOutliner::FLODLevelDropTarget::ValidateDro
 				DraggedActors.Add(Actor.Get());
 			}
 
-			bool bSameLevelInstance = FHierarchicalLODUtilities::AreActorsInSamePersistingLevel(DraggedActors);
-			bool bSameLODLevel = FHierarchicalLODUtilities::AreClustersInSameHLODLevel(DraggedLODActors);
+			bool bSameLevelInstance = Utilities->AreActorsInSamePersistingLevel(DraggedActors);
+			bool bSameLODLevel = Utilities->AreClustersInSameHLODLevel(DraggedLODActors);
 			const uint32 LevelIndex = (DraggedLODActors.Num() > 0 ) ? DraggedLODActors[0]->LODLevel : 0;
-			bool bIsClustered = FHierarchicalLODUtilities::AreActorsClustered(DraggedActors);
+			bool bIsClustered = Utilities->AreActorsClustered(DraggedActors);
 
 			if (!bSameLODLevel)
 			{
@@ -162,8 +166,10 @@ void HLODOutliner::FLODLevelDropTarget::CreateNewCluster(FDragDropPayload &Dragg
 		SubActors.Add(LODActor.Get());
 	}
 
+	FHierarchicalLODUtilitiesModule& Module = FModuleManager::LoadModuleChecked<FHierarchicalLODUtilitiesModule>("HierarchicalLODUtilities");
+	IHierarchicalLODUtilities* Utilities = Module.GetUtilities();
 	// Create the new cluster
-	FHierarchicalLODUtilities::CreateNewClusterFromActors(OuterWorld, DraggedObjects.OutlinerWorld->GetWorldSettings(), SubActors, LODLevelIndex);	
+	Utilities->CreateNewClusterFromActors(OuterWorld, DraggedObjects.OutlinerWorld->GetWorldSettings(), SubActors, LODLevelIndex);	
 }
 
 #undef LOCTEXT_NAMESPACE

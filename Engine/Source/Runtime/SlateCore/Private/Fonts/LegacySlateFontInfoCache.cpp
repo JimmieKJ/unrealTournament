@@ -17,8 +17,8 @@ FLegacySlateFontInfoCache& FLegacySlateFontInfoCache::Get()
 }
 
 FLegacySlateFontInfoCache::FLegacySlateFontInfoCache()
-	: LocalizedFallbackFontRevision(INDEX_NONE)
-	, LocalizedFallbackFontDataHistoryVersion(INDEX_NONE)
+	: LocalizedFallbackFontRevision(0)
+	, LocalizedFallbackFontDataHistoryVersion(0)
 	, LocalizedFallbackFontFrameCounter(0)
 {
 }
@@ -90,7 +90,7 @@ const FFontData& FLegacySlateFontInfoCache::GetLocalizedFallbackFontData()
 	FScopeLock Lock(&LocalizedFallbackFontDataCS);
 
 	// The fallback font can change if the active culture is changed
-	const int32 CurrentHistoryVersion = FTextLocalizationManager::Get().GetTextRevision();
+	const uint16 CurrentHistoryVersion = FTextLocalizationManager::Get().GetTextRevision();
 	const uint64 CurrentFrameCounter = GFrameCounter;
 
 	// Only allow the fallback font to be updated once per-frame, as a culture change mid-frame could cause it to change unexpectedly and invalidate some assumptions that the font cache makes
@@ -120,14 +120,14 @@ const FFontData& FLegacySlateFontInfoCache::GetLocalizedFallbackFontData()
 		if (LocalizedFallbackFontData != PreviousLocalizedFallbackFontData)
 		{
 			// Only bump the revision if the font has actually changed
-			++LocalizedFallbackFontRevision;
+			while (++LocalizedFallbackFontRevision == 0) {} // Zero is special, don't allow an overflow to stay at zero
 		}
 	}
 
 	return *LocalizedFallbackFontData;
 }
 
-int32 FLegacySlateFontInfoCache::GetLocalizedFallbackFontRevision() const
+uint16 FLegacySlateFontInfoCache::GetLocalizedFallbackFontRevision() const
 {
 	return LocalizedFallbackFontRevision;
 }

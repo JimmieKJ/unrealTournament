@@ -3,6 +3,13 @@
 #include "MovieSceneCapturePCH.h"
 #include "IMovieSceneCaptureProtocol.h"
 #include "SceneViewport.h"
+#include "FileManager.h"
+
+
+bool IMovieSceneCaptureProtocol::CanWriteToFile(const TCHAR* InFilename, bool bOverwriteExisting) const
+{
+	return bOverwriteExisting || IFileManager::Get().FileSize(InFilename) == -1;
+}
 
 FCaptureProtocolInitSettings FCaptureProtocolInitSettings::FromSlateViewport(TSharedRef<FSceneViewport> InSceneViewport, UObject* InProtocolSettings)
 {

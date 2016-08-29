@@ -33,6 +33,11 @@ public:
 	 */
 	virtual TSharedRef<SWidget> CreateSessionConsole( const TSharedRef<ISessionManager>& SessionManager ) = 0;
 
+	/**
+	 * Show the session frontend tab.
+	 */
+	virtual void InvokeSessionFrontend(FName SubTabToActivate = NAME_None) = 0;
+
 public:
 
 	/** Virtual destructor. */

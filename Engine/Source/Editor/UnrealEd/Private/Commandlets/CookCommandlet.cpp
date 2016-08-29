@@ -34,7 +34,8 @@ DEFINE_LOG_CATEGORY_STATIC(LogCookCommandlet, Log, All);
 #if ENABLE_COOK_STATS
 #include "ScopedTimers.h"
 #include "AnalyticsET.h"
-#include "IAnalyticsProvider.h"
+#include "IAnalyticsProviderET.h"
+
 namespace DetailedCookStats
 {
 	FString CookProject;
@@ -55,83 +56,247 @@ namespace DetailedCookStats
 	double TickLoopProcessDeferredCommandsTimeSec = 0.0;
 	double TickLoopTickCommandletStatsTimeSec = 0.0;
 
-	static void CollectStats(FCookStatsManager::AddStatFuncRef AddStat)
+	FCookStatsManager::FAutoRegisterCallback RegisterCookStats([](FCookStatsManager::AddStatFuncRef AddStat)
 	{
 		const FString StatName(TEXT("Cook.Profile"));
-		TArray<FCookStatsManager::KeyValue> Attrs;
+		TArray<FCookStatsManager::StringKeyValue> Attrs;
 		#define ADD_COOK_STAT_FLT(Path, Name) AddStat(StatName, FCookStatsManager::CreateKeyValueArray(TEXT("Path"), TEXT(Path), TEXT(#Name), Name))
 		ADD_COOK_STAT_FLT(" 0", CookWallTimeSec);
 		ADD_COOK_STAT_FLT(" 0. 0", StartupWallTimeSec);
-		ADD_COOK_STAT_FLT(" 0. 0. 0", NewCookTimeSec);
-		ADD_COOK_STAT_FLT(" 0. 0. 0. 0", StartCookByTheBookTimeSec);
-		ADD_COOK_STAT_FLT(" 0. 0. 0. 1", TickCookOnTheSideTimeSec);
-		ADD_COOK_STAT_FLT(" 0. 0. 0. 1. 0", TickCookOnTheSideLoadPackagesTimeSec);
-		ADD_COOK_STAT_FLT(" 0. 0. 0. 1. 1", TickCookOnTheSideResolveRedirectorsTimeSec);
-		ADD_COOK_STAT_FLT(" 0. 0. 0. 1. 2", TickCookOnTheSideSaveCookedPackageTimeSec);
-		ADD_COOK_STAT_FLT(" 0. 0. 0. 1. 3", TickCookOnTheSideBeginPackageCacheForCookedPlatformDataTimeSec);
-		ADD_COOK_STAT_FLT(" 0. 0. 0. 1. 4", TickCookOnTheSideFinishPackageCacheForCookedPlatformDataTimeSec);
-		ADD_COOK_STAT_FLT(" 0. 0. 0. 2", TickLoopGCTimeSec);
-		ADD_COOK_STAT_FLT(" 0. 0. 0. 3", TickLoopRecompileShaderRequestsTimeSec);
-		ADD_COOK_STAT_FLT(" 0. 0. 0. 4", TickLoopShaderProcessAsyncResultsTimeSec);
-		ADD_COOK_STAT_FLT(" 0. 0. 0. 5", TickLoopProcessDeferredCommandsTimeSec);
-		ADD_COOK_STAT_FLT(" 0. 0. 0. 6", TickLoopTickCommandletStatsTimeSec);
+		ADD_COOK_STAT_FLT(" 0. 1", NewCookTimeSec);
+		ADD_COOK_STAT_FLT(" 0. 1. 0", StartCookByTheBookTimeSec);
+		ADD_COOK_STAT_FLT(" 0. 1. 1", TickCookOnTheSideTimeSec);
+		ADD_COOK_STAT_FLT(" 0. 1. 1. 0", TickCookOnTheSideLoadPackagesTimeSec);
+		ADD_COOK_STAT_FLT(" 0. 1. 1. 1", TickCookOnTheSideSaveCookedPackageTimeSec);
+		ADD_COOK_STAT_FLT(" 0. 1. 1. 1. 0", TickCookOnTheSideResolveRedirectorsTimeSec);
+		ADD_COOK_STAT_FLT(" 0. 1. 1. 2", TickCookOnTheSideBeginPackageCacheForCookedPlatformDataTimeSec);
+		ADD_COOK_STAT_FLT(" 0. 1. 1. 3", TickCookOnTheSideFinishPackageCacheForCookedPlatformDataTimeSec);
+		ADD_COOK_STAT_FLT(" 0. 1. 2", TickLoopGCTimeSec);
+		ADD_COOK_STAT_FLT(" 0. 1. 3", TickLoopRecompileShaderRequestsTimeSec);
+		ADD_COOK_STAT_FLT(" 0. 1. 4", TickLoopShaderProcessAsyncResultsTimeSec);
+		ADD_COOK_STAT_FLT(" 0. 1. 5", TickLoopProcessDeferredCommandsTimeSec);
+		ADD_COOK_STAT_FLT(" 0. 1. 6", TickLoopTickCommandletStatsTimeSec);
 		#undef ADD_COOK_STAT_FLT
-	}
-	FCookStatsManager::FAutoRegisterCallback RegisterCookStats(&CollectStats);
+	});
 
 	/** Gathers the cook stats registered with the FCookStatsManager delegate and logs them as a CSV. */
 	static void LogCookStats(const FString& CookCmdLine)
 	{
 		// Optionally create an analytics provider to send stats to for central collection.
-		TSharedPtr<IAnalyticsProvider> CookAnalytics;
 		if (GIsBuildMachine || FParse::Param(FCommandLine::Get(), TEXT("SendCookAnalytics")))
 		{
-			FAnalyticsET::Config Config;
+			FString APIServerET;
 			// This value is set by an INI private to Epic.
-			if (GConfig->GetString(TEXT("CookAnalytics"), TEXT("APIServer"), Config.APIServerET, GEngineIni))
+			if (GConfig->GetString(TEXT("CookAnalytics"), TEXT("APIServer"), APIServerET, GEngineIni))
 			{
-				Config.UseLegacyProtocol = true;
-				Config.APIKeyET = TEXT("Cook");
-				CookAnalytics = FAnalyticsET::Get().CreateAnalyticsProvider(Config);
+				TSharedPtr<IAnalyticsProviderET> CookAnalytics = FAnalyticsET::Get().CreateAnalyticsProvider(FAnalyticsET::Config(TEXT("Cook"), APIServerET, FString(), true));
+				if (CookAnalytics.IsValid())
+				{
+					// start the session
+					CookAnalytics->SetUserID(FString(FPlatformProcess::ComputerName()) + FString(TEXT("\\")) + FString(FPlatformProcess::UserName(false)));
+					CookAnalytics->StartSession(MakeAnalyticsEventAttributeArray(
+						TEXT("Project"), CookProject,
+						TEXT("CmdLine"), CookCmdLine,
+						TEXT("IsBuildMachine"), GIsBuildMachine,
+						TEXT("TargetPlatforms"), TargetPlatforms
+					));
+					// Sends each cook stat to the analytics provider.
+					auto SendCookStatsToAnalytics = [CookAnalytics](const FString& StatName, const TArray<FCookStatsManager::StringKeyValue>& StatAttributes)
+					{
+						// convert all stats directly to an analytics event
+						TArray<FAnalyticsEventAttribute> StatAttrs;
+						StatAttrs.Reset(StatAttributes.Num());
+						for (const auto& Attr : StatAttributes)
+						{
+							StatAttrs.Emplace(Attr.Key, Attr.Value);
+						}
+						CookAnalytics->RecordEvent(StatName, StatAttrs);
+					};
+					FCookStatsManager::LogCookStats(SendCookStatsToAnalytics);
+				}
 			}
-		}
-		if (CookAnalytics.IsValid())
-		{
-			CookAnalytics->SetUserID(FString(FPlatformProcess::ComputerName()) + FString(TEXT("\\")) + FString(FPlatformProcess::UserName(false)));
-			TArray<FAnalyticsEventAttribute> Attrs;
-			Attrs.Emplace(TEXT("Project"), CookProject);
-			Attrs.Emplace(TEXT("CmdLine"), CookCmdLine);
-			Attrs.Emplace(TEXT("IsBuildMachine"), GIsBuildMachine);
-			Attrs.Emplace(TEXT("TargetPlatforms"), TargetPlatforms);
-			CookAnalytics->StartSession(Attrs);
 		}
 
-		/** this functor will take a collected cooker stat and log it out, optionally sending it to a configured analytics provider. */
-		auto LogAndSendAnalytics = [=](const FString& StatName, const TArray<FCookStatsManager::KeyValue>& StatAttributes)
+		/** Used for custom logging of DDC Resource usage stats. */
+		struct FDDCResourceUsageStat
 		{
-			FString LogLine = StatName;
-			// log each key/value pair, with the equal signs lined up.
-			for (const auto& Attr : StatAttributes)
+		public:
+			FDDCResourceUsageStat(FString InAssetType, double InTotalTimeSec, bool bIsGameThreadTime, double InSizeMB, int64 InAssetsBuilt) : AssetType(MoveTemp(InAssetType)), TotalTimeSec(InTotalTimeSec), GameThreadTimeSec(bIsGameThreadTime ? InTotalTimeSec : 0.0), SizeMB(InSizeMB), AssetsBuilt(InAssetsBuilt) {}
+			void Accumulate(const FDDCResourceUsageStat& OtherStat)
 			{
-				LogLine += FString::Printf(TEXT(",%s=%s"), *Attr.Key, *Attr.Value);
+				TotalTimeSec += OtherStat.TotalTimeSec;
+				GameThreadTimeSec += OtherStat.GameThreadTimeSec;
+				SizeMB += OtherStat.SizeMB;
+				AssetsBuilt += OtherStat.AssetsBuilt;
 			}
-			UE_LOG(LogCookCommandlet, Display, TEXT("%s"), *LogLine);
-			// convert to an analytics event
-			if (CookAnalytics.IsValid())
+			FString AssetType;
+			double TotalTimeSec;
+			double GameThreadTimeSec;
+			double SizeMB;
+			int64 AssetsBuilt;
+		};
+
+		/** Used for custom TSet comparison of DDC Resource usage stats. */
+		struct FDDCResourceUsageStatKeyFuncs : BaseKeyFuncs<FDDCResourceUsageStat, FString, false>
+		{
+			static const FString& GetSetKey(const FDDCResourceUsageStat& Element) { return Element.AssetType; }
+			static bool Matches(const FString& A, const FString& B) { return A == B; }
+			static uint32 GetKeyHash(const FString& Key) { return GetTypeHash(Key); }
+		};
+
+		/** Used to store profile data for custom logging. */
+		struct FCookProfileData
+		{
+		public:
+			FCookProfileData(FString InPath, FString InKey, FString InValue) : Path(MoveTemp(InPath)), Key(MoveTemp(InKey)), Value(MoveTemp(InValue)) {}
+			FString Path;
+			FString Key;
+			FString Value;
+		};
+
+		// instead of printing the usage stats generically, we capture them so we can log a subset of them in an easy-to-read way.
+		TSet<FDDCResourceUsageStat, FDDCResourceUsageStatKeyFuncs> DDCResourceUsageStats;
+		TArray<FCookStatsManager::StringKeyValue> DDCSummaryStats;
+		TArray<FCookProfileData> CookProfileData;
+
+		/** this functor will take a collected cooker stat and log it out using some custom formatting based on known stats that are collected.. */
+		auto LogStatsFunc = [&DDCResourceUsageStats, &DDCSummaryStats, &CookProfileData](const FString& StatName, const TArray<FCookStatsManager::StringKeyValue>& StatAttributes)
+		{
+			// Some stats will use custom formatting to make a visibly pleasing summary.
+			bool bStatUsedCustomFormatting = false;
+
+			if (StatName == TEXT("DDC.Usage"))
 			{
-				TArray<FAnalyticsEventAttribute> Attrs;
-				Attrs.Reset(StatAttributes.Num());
+				// Don't even log this detailed DDC data. It's mostly only consumable by ingestion into pivot tools.
+				bStatUsedCustomFormatting = true;
+			}
+			else if (StatName.EndsWith(TEXT(".Usage"), ESearchCase::IgnoreCase))
+			{
+				// Anything that ends in .Usage is assumed to be an instance of FCookStats.FDDCResourceUsageStats. We'll log that using custom formatting.
+				FString AssetType = StatName;
+				AssetType.RemoveFromEnd(TEXT(".Usage"), ESearchCase::IgnoreCase);
+				// See if the asset has a subtype (found via the "Node" parameter")
+				const FCookStatsManager::StringKeyValue* AssetSubType = StatAttributes.FindByPredicate([](const FCookStatsManager::StringKeyValue& Item) { return Item.Key == TEXT("Node"); });
+				if (AssetSubType && AssetSubType->Value.Len() > 0)
+				{
+					AssetType += FString::Printf(TEXT(" (%s)"), *AssetSubType->Value);
+				}
+				// Pull the Time and Size attributes and AddOrAccumulate them into the set of stats. Ugly string/container manipulation code courtesy of UE4/C++.
+				const FCookStatsManager::StringKeyValue* AssetTimeSecAttr = StatAttributes.FindByPredicate([](const FCookStatsManager::StringKeyValue& Item) { return Item.Key == TEXT("TimeSec"); });
+				double AssetTimeSec = 0.0;
+				if (AssetTimeSecAttr)
+				{
+					LexicalConversion::FromString(AssetTimeSec, *AssetTimeSecAttr->Value);
+				}
+				const FCookStatsManager::StringKeyValue* AssetSizeMBAttr = StatAttributes.FindByPredicate([](const FCookStatsManager::StringKeyValue& Item) { return Item.Key == TEXT("MB"); });
+				double AssetSizeMB = 0.0;
+				if (AssetSizeMBAttr)
+				{
+					LexicalConversion::FromString(AssetSizeMB, *AssetSizeMBAttr->Value);
+				}
+				const FCookStatsManager::StringKeyValue* ThreadNameAttr = StatAttributes.FindByPredicate([](const FCookStatsManager::StringKeyValue& Item) { return Item.Key == TEXT("ThreadName"); });
+				bool bIsGameThreadTime = ThreadNameAttr != nullptr && ThreadNameAttr->Value == TEXT("GameThread");
+
+				const FCookStatsManager::StringKeyValue* HitOrMissAttr = StatAttributes.FindByPredicate([](const FCookStatsManager::StringKeyValue& Item) { return Item.Key == TEXT("HitOrMiss"); });
+				bool bWasMiss = HitOrMissAttr != nullptr && HitOrMissAttr->Value == TEXT("Miss");
+				int64 AssetsBuilt = 0;
+				if (bWasMiss)
+				{
+					const FCookStatsManager::StringKeyValue* CountAttr = StatAttributes.FindByPredicate([](const FCookStatsManager::StringKeyValue& Item) { return Item.Key == TEXT("Count"); });
+					if (CountAttr)
+					{
+						LexicalConversion::FromString(AssetsBuilt, *CountAttr->Value);
+					}
+				}
+
+
+				FDDCResourceUsageStat Stat(AssetType, AssetTimeSec, bIsGameThreadTime, AssetSizeMB, AssetsBuilt);
+				FDDCResourceUsageStat* ExistingStat = DDCResourceUsageStats.Find(Stat.AssetType);
+				if (ExistingStat)
+				{
+					ExistingStat->Accumulate(Stat);
+				}
+				else
+				{
+					DDCResourceUsageStats.Add(Stat);
+				}
+				bStatUsedCustomFormatting = true;
+			}
+			else if (StatName == TEXT("DDC.Summary"))
+			{
+				DDCSummaryStats = StatAttributes;
+				bStatUsedCustomFormatting = true;
+			}
+			else if (StatName == TEXT("Cook.Profile"))
+			{
+				if (StatAttributes.Num() >= 2)
+				{
+					CookProfileData.Emplace(StatAttributes[0].Value, StatAttributes[1].Key, StatAttributes[1].Value);
+				}
+				bStatUsedCustomFormatting = true;
+			}
+
+			// if a stat doesn't use custom formatting, just spit out the raw info.
+			if (!bStatUsedCustomFormatting)
+			{
+				UE_LOG(LogCookCommandlet, Display, TEXT("%s"), *StatName);
+				// log each key/value pair, with the equal signs lined up.
 				for (const auto& Attr : StatAttributes)
 				{
-					Attrs.Emplace(Attr.Key, Attr.Value);
+					UE_LOG(LogCookCommandlet, Display, TEXT("    %s=%s"), *Attr.Key, *Attr.Value);
 				}
-				CookAnalytics->RecordEvent(StatName, Attrs);
 			}
 		};
 
-		UE_LOG(LogCookCommandlet, Display, TEXT("CookStats"));
-		UE_LOG(LogCookCommandlet, Display, TEXT("---------"));
-		FCookStatsManager::LogCookStats(LogAndSendAnalytics);
+		UE_LOG(LogCookCommandlet, Display, TEXT("Misc Cook Stats"));
+		UE_LOG(LogCookCommandlet, Display, TEXT("==============="));
+		FCookStatsManager::LogCookStats(LogStatsFunc);
+
+		// DDC Usage stats are custom formatted, and the above code just accumulated them into a TSet. Now log it with our special formatting for readability.
+		if (CookProfileData.Num() > 0)
+		{
+			UE_LOG(LogCookCommandlet, Display, TEXT(""));
+			UE_LOG(LogCookCommandlet, Display, TEXT("Cook Profile"));
+			UE_LOG(LogCookCommandlet, Display, TEXT("============"));
+			for (const auto& ProfileEntry : CookProfileData)
+			{
+				UE_LOG(LogCookCommandlet, Display, TEXT("%s.%s=%s"), *ProfileEntry.Path, *ProfileEntry.Key, *ProfileEntry.Value);
+			}
+		}
+		if (DDCSummaryStats.Num() > 0)
+		{
+			UE_LOG(LogCookCommandlet, Display, TEXT(""));
+			UE_LOG(LogCookCommandlet, Display, TEXT("DDC Summary Stats"));
+			UE_LOG(LogCookCommandlet, Display, TEXT("================="));
+			for (const auto& Attr : DDCSummaryStats)
+			{
+				UE_LOG(LogCookCommandlet, Display, TEXT("%-14s=%10s"), *Attr.Key, *Attr.Value);
+			}
+		}
+		if (DDCResourceUsageStats.Num() > 0)
+		{
+			// sort the list
+			TArray<FDDCResourceUsageStat> SortedDDCResourceUsageStats;
+			SortedDDCResourceUsageStats.Empty(DDCResourceUsageStats.Num());
+			for (const FDDCResourceUsageStat& Stat : DDCResourceUsageStats)
+			{
+				SortedDDCResourceUsageStats.Emplace(Stat);
+			}
+			SortedDDCResourceUsageStats.Sort([](const FDDCResourceUsageStat& LHS, const FDDCResourceUsageStat& RHS)
+			{
+				return LHS.TotalTimeSec > RHS.TotalTimeSec;
+			});
+
+			UE_LOG(LogCookCommandlet, Display, TEXT(""));
+			UE_LOG(LogCookCommandlet, Display, TEXT("DDC Resource Stats"));
+			UE_LOG(LogCookCommandlet, Display, TEXT("======================================================================================================="));
+			UE_LOG(LogCookCommandlet, Display, TEXT("Asset Type                          Total Time (Sec)  GameThread Time (Sec)  Assets Built  MB Processed"));
+			UE_LOG(LogCookCommandlet, Display, TEXT("----------------------------------  ----------------  ---------------------  ------------  ------------"));
+			for (const FDDCResourceUsageStat& Stat : SortedDDCResourceUsageStats)
+			{
+				UE_LOG(LogCookCommandlet, Display, TEXT("%-34s  %16.2f  %21.2f  %12d  %12.2f"), *Stat.AssetType, Stat.TotalTimeSec, Stat.GameThreadTimeSec, Stat.AssetsBuilt, Stat.SizeMB);
+			}
+		}
 	}
 }
 #endif
@@ -202,7 +367,6 @@ bool UCookCommandlet::CookOnTheFly( FGuid InstanceId, int32 Timeout, bool bForce
 	CookFlags |= bIterativeCooking ? ECookInitializationFlags::Iterative : ECookInitializationFlags::None;
 	CookFlags |= bSkipEditorContent ? ECookInitializationFlags::SkipEditorContent : ECookInitializationFlags::None;
 	CookFlags |= bUnversioned ? ECookInitializationFlags::Unversioned : ECookInitializationFlags::None;
-
 	CookOnTheFlyServer->Initialize( ECookMode::CookOnTheFly, CookFlags );
 
 	bool BindAnyPort = InstanceId.IsValid();
@@ -273,7 +437,7 @@ bool UCookCommandlet::CookOnTheFly( FGuid InstanceId, int32 Timeout, bool bForce
 			bShouldGC |= true;
 		}
 
-		if ( !bShouldGC && HasExceededMaxMemory(MaxMemoryAllowance) )
+		if ( !bShouldGC && CookOnTheFlyServer->HasExceededMaxMemory() )
 		{
 			UE_LOG(LogCookCommandlet, Display, TEXT("Cooker has exceeded max memory usage collecting garbage"));
 			bShouldGC |= true;
@@ -518,7 +682,9 @@ bool UCookCommandlet::SaveCookedPackage( UPackage* Package, uint32 SaveFlags, bo
 			}
 
 			// don't save Editor resources from the Engine if the target doesn't have editoronly data
-			if (bSkipEditorContent && Name.StartsWith(TEXT("/Engine/Editor")) && !Target->HasEditorOnlyData())
+			if (bSkipEditorContent && 
+				( Name.StartsWith(TEXT("/Engine/Editor")) || Name.StartsWith(TEXT("/Engine/VREditor"))) && 
+				!Target->HasEditorOnlyData())
 			{
 				bCookPackage = false;
 			}
@@ -623,6 +789,7 @@ int32 UCookCommandlet::Main(const FString& CmdLineParams)
 	bUseSerializationForGeneratingPackageDependencies = Switches.Contains(TEXT("UseSerializationForGeneratingPackageDependencies"));
 	bCookSinglePackage = Switches.Contains(TEXT("cooksinglepackage"));
 	bVerboseCookerWarnings = Switches.Contains(TEXT("verbosecookerwarnings"));
+	bPartialGC = Switches.Contains(TEXT("Partialgc"));
 	if (bLeakTest)
 	{
 		for (FObjectIterator It; It; ++It)
@@ -1140,6 +1307,9 @@ bool UCookCommandlet::NewCook( const TArray<ITargetPlatform*>& Platforms, TArray
 	CookFlags |= bUseSerializationForGeneratingPackageDependencies ? ECookInitializationFlags::UseSerializationForPackageDependencies : ECookInitializationFlags::None;
 	CookFlags |= bUnversioned ? ECookInitializationFlags::Unversioned : ECookInitializationFlags::None;
 	CookFlags |= bVerboseCookerWarnings ? ECookInitializationFlags::OutputVerboseCookerWarnings : ECookInitializationFlags::None;
+	CookFlags |= bPartialGC ? ECookInitializationFlags::MarkupInUsePackages : ECookInitializationFlags::None;
+	bool bTestCook = FParse::Param(*Params, TEXT("Testcook"));
+	CookFlags |= bTestCook ? ECookInitializationFlags::TestCook : ECookInitializationFlags::None;
 
 	TArray<UClass*> FullGCAssetClasses;
 	if (FullGCAssetClassNames.Num())
@@ -1245,11 +1415,11 @@ bool UCookCommandlet::NewCook( const TArray<ITargetPlatform*>& Platforms, TArray
 	TArray<FString> AlwaysCookMapList;
 
 	// Add the default map section
-	GEditor->LoadMapListFromIni(TEXT("AlwaysCookMaps"), AlwaysCookMapList);
+	//GEditor->LoadMapListFromIni(TEXT("AlwaysCookMaps"), AlwaysCookMapList);
 
 	TArray<FString> MapList;
 	// Add any map sections specified on command line
-	GEditor->ParseMapSectionIni(*Params, MapList);
+	/*GEditor->ParseMapSectionIni(*Params, MapList);
 
 	if (MapList.Num() == 0 && !bCookSinglePackage)
 	{
@@ -1261,7 +1431,7 @@ bool UCookCommandlet::NewCook( const TArray<ITargetPlatform*>& Platforms, TArray
 		{
 			MapList.Add(MapToCook.FilePath);
 		}
-	}
+	}*/
 
 	// Add any map specified on the command line.
 	for (const auto& MapName : CmdLineMapEntries)
@@ -1276,9 +1446,12 @@ bool UCookCommandlet::NewCook( const TArray<ITargetPlatform*>& Platforms, TArray
 		GEditor->ParseMapSectionIni(TEXT("-MAPINISECTION=AllMaps"), MapList);
 	}
 
-	// Put the always cook map list at the front of the map list
-	AlwaysCookMapList.Append(MapList);
-	Swap(MapList, AlwaysCookMapList);
+	if (!bCookSinglePackage)
+	{
+		// Put the always cook map list at the front of the map list
+		AlwaysCookMapList.Append(MapList);
+		Swap(MapList, AlwaysCookMapList);
+	}
 
 	// Set the list of cultures to cook as those on the commandline, if specified.
 	// Otherwise, use the project packaging settings.
@@ -1337,92 +1510,143 @@ bool UCookCommandlet::NewCook( const TArray<ITargetPlatform*>& Platforms, TArray
 			DetailedCookStats::TargetPlatforms.RemoveFromEnd(TEXT("+"));
 		}
 	});
+	
+	do
 	{
-		COOK_STAT(FScopedDurationTimer StartCookByTheBookTimer(DetailedCookStats::StartCookByTheBookTimeSec));
-		CookOnTheFlyServer->StartCookByTheBook(StartupOptions);
-	}
-
-	// Garbage collection should happen when either
-	//	1. We have cooked a map (configurable asset type)
-	//	2. We have cooked non-map packages and...
-	//		a. we have accumulated 50 (configurable) of these since the last GC.
-	//		b. we have been idle for 20 (configurable) seconds.
-	bool bShouldGC = false;
-
-	// megamoth
-	uint32 NonMapPackageCountSinceLastGC = 0;
-
-	const uint32 PackagesPerGC = CookOnTheFlyServer->GetPackagesPerGC();
-	const double IdleTimeToGC = CookOnTheFlyServer->GetIdleTimeToGC();
-	const uint64 MaxMemoryAllowance = CookOnTheFlyServer->GetMaxMemoryAllowance();
-
-	double LastCookActionTime = FPlatformTime::Seconds();
-
-	FDateTime LastConnectionTime = FDateTime::UtcNow();
-	bool bHadConnection = false;
-
-	while (CookOnTheFlyServer->IsCookByTheBookRunning())
-	{
-		DECLARE_SCOPE_CYCLE_COUNTER( TEXT( "NewCook.MainLoop" ), STAT_CookOnTheFly_MainLoop, STATGROUP_LoadTime );
 		{
-			uint32 TickResults = 0;
-			static const float CookOnTheSideTimeSlice = 10.0f;
-			TickResults = CookOnTheFlyServer->TickCookOnTheSide( CookOnTheSideTimeSlice, NonMapPackageCountSinceLastGC );
+			COOK_STAT(FScopedDurationTimer StartCookByTheBookTimer(DetailedCookStats::StartCookByTheBookTimeSec));
+			CookOnTheFlyServer->StartCookByTheBook(StartupOptions);
+		}
 
-			if (TickResults & (UCookOnTheFlyServer::COSR_CookedMap | UCookOnTheFlyServer::COSR_CookedPackage))
+		// Garbage collection should happen when either
+		//	1. We have cooked a map (configurable asset type)
+		//	2. We have cooked non-map packages and...
+		//		a. we have accumulated 50 (configurable) of these since the last GC.
+		//		b. we have been idle for 20 (configurable) seconds.
+		bool bShouldGC = false;
+		FString GCReason;
+
+		// megamoth
+		uint32 NonMapPackageCountSinceLastGC = 0;
+
+		const uint32 PackagesPerGC = CookOnTheFlyServer->GetPackagesPerGC();
+		const double IdleTimeToGC = CookOnTheFlyServer->GetIdleTimeToGC();
+		const uint64 MaxMemoryAllowance = CookOnTheFlyServer->GetMaxMemoryAllowance();
+
+		double LastCookActionTime = FPlatformTime::Seconds();
+
+		FDateTime LastConnectionTime = FDateTime::UtcNow();
+		bool bHadConnection = false;
+
+		while (CookOnTheFlyServer->IsCookByTheBookRunning())
+		{
+			DECLARE_SCOPE_CYCLE_COUNTER( TEXT( "NewCook.MainLoop" ), STAT_CookOnTheFly_MainLoop, STATGROUP_LoadTime );
 			{
-				LastCookActionTime = FPlatformTime::Seconds();
-			}
+				uint32 TickResults = 0;
+				static const float CookOnTheSideTimeSlice = 10.0f;
+				TickResults = CookOnTheFlyServer->TickCookOnTheSide( CookOnTheSideTimeSlice, NonMapPackageCountSinceLastGC );
 
+				{
+					COOK_STAT(FScopedDurationTimer ShaderProcessAsyncTimer(DetailedCookStats::TickLoopShaderProcessAsyncResultsTimeSec));
+					GShaderCompilingManager->ProcessAsyncResults(true, false);
+				}
 
-			{
-				COOK_STAT(FScopedDurationTimer ShaderProcessAsyncTimer(DetailedCookStats::TickLoopShaderProcessAsyncResultsTimeSec));
-				GShaderCompilingManager->ProcessAsyncResults(true, false);
-			}
-
-			if (NonMapPackageCountSinceLastGC > 0)
-			{
+				const bool bHasExceededMaxMemory = CookOnTheFlyServer->HasExceededMaxMemory();
 				// We should GC if we have packages to collect and we've been idle for some time.
 				const bool bExceededPackagesPerGC = (PackagesPerGC > 0) && (NonMapPackageCountSinceLastGC > PackagesPerGC);
-				const bool bExceededIdleTimeToGC = (IdleTimeToGC > 0) && ((FPlatformTime::Seconds() - LastCookActionTime) >= IdleTimeToGC);
-				bShouldGC |= bExceededPackagesPerGC || bExceededIdleTimeToGC;
+				const bool bWaitingOnObjectCache = ((TickResults & UCookOnTheFlyServer::COSR_WaitingOnCache) == 0);
+
+
+				if ( !bWaitingOnObjectCache && bExceededPackagesPerGC ) // if we are waiting on things to cache then ignore the exceeded packages per gc
+				{
+					bShouldGC = true;
+					GCReason = TEXT("Exceeded packages per GC");
+				}
+				else if ( bHasExceededMaxMemory ) // if we are exceeding memory then we need to gc (this can cause thrashing if the cooker loads the same stuff into memory next tick
+				{
+					bShouldGC = true;
+					GCReason = TEXT("Exceeded Max Memory");
+				}
+				else if ((TickResults & UCookOnTheFlyServer::COSR_RequiresGC) != 0) // cooker loaded some object which needs to be cleaned up before the cooker can proceed so force gc
+				{
+					GCReason = TEXT("COSR_RequiresGC");
+					bShouldGC = true;
+				}
+
+
+				bShouldGC |= bTestCook; // testing cooking / gc path
+				
+				auto DumpMemStats = []()
+				{
+					FGenericMemoryStats MemStats;
+					GMalloc->GetAllocatorStats(MemStats);
+					for (const auto& Item : MemStats.Data)
+					{
+						UE_LOG(LogCookCommandlet, Display, TEXT("Item %s = %d"), *Item.Key, Item.Value);
+					}
+				};
+
+				if ( bPartialGC && (TickResults & UCookOnTheFlyServer::COSR_MarkedUpKeepPackages))
+				{
+					COOK_STAT(FScopedDurationTimer GCTimer(DetailedCookStats::TickLoopGCTimeSec));
+					UE_LOG(LogCookCommandlet, Display, TEXT("GarbageCollection... partial gc"));
+
+					DumpMemStats();
+
+					int32 NumObjectsBeforeGC = GUObjectArray.GetObjectArrayNumMinusAvailable();
+					int32 NumObjectsAvailableBeforeGC = GUObjectArray.GetObjectArrayNum();
+					CollectGarbage(RF_KeepForCooker, true);
+
+					int32 NumObjectsAfterGC = GUObjectArray.GetObjectArrayNumMinusAvailable();
+					int32 NumObjectsAvailableAfterGC = GUObjectArray.GetObjectArrayNum();
+					UE_LOG(LogCookCommandlet, Display, TEXT("Partial GC before %d available %d after %d available %d"), NumObjectsBeforeGC, NumObjectsAvailableBeforeGC, NumObjectsAfterGC, NumObjectsAvailableAfterGC);
+
+					DumpMemStats();
+				
+				}
+				else if (bShouldGC) // don't clean up if we are waiting on cache of cooked data
+				{
+					bShouldGC = false;
+					NonMapPackageCountSinceLastGC = 0;
+
+					int32 NumObjectsBeforeGC = GUObjectArray.GetObjectArrayNumMinusAvailable();
+					int32 NumObjectsAvailableBeforeGC = GUObjectArray.GetObjectArrayNum();
+
+					UE_LOG( LogCookCommandlet, Display, TEXT( "GarbageCollection... (%s)" ), *GCReason);
+					GCReason = FString();
+
+
+					DumpMemStats();
+
+					COOK_STAT(FScopedDurationTimer GCTimer(DetailedCookStats::TickLoopGCTimeSec));
+					CollectGarbage(RF_NoFlags);
+
+					int32 NumObjectsAfterGC = GUObjectArray.GetObjectArrayNumMinusAvailable();
+					int32 NumObjectsAvailableAfterGC = GUObjectArray.GetObjectArrayNum();
+					UE_LOG(LogCookCommandlet, Display, TEXT("Full GC before %d available %d after %d available %d"), NumObjectsBeforeGC, NumObjectsAvailableBeforeGC, NumObjectsAfterGC, NumObjectsAvailableAfterGC);
+
+					DumpMemStats();
+				}
+				else
+				{
+					COOK_STAT(FScopedDurationTimer RecompileTimer(DetailedCookStats::TickLoopRecompileShaderRequestsTimeSec));
+					CookOnTheFlyServer->TickRecompileShaderRequests();
+
+					FPlatformProcess::Sleep( 0.0f );
+				}
+
+				{
+					COOK_STAT(FScopedDurationTimer ProcessDeferredCommandsTimer(DetailedCookStats::TickLoopProcessDeferredCommandsTimeSec));
+					ProcessDeferredCommands();
+				}
 			}
 
-			bShouldGC |= (TickResults & UCookOnTheFlyServer::COSR_RequiresGC) != 0;
-
-			bShouldGC |= HasExceededMaxMemory( MaxMemoryAllowance );
-
-
-			// don't clean up if we are waiting on cache of cooked data
-			if (bShouldGC && ((TickResults & UCookOnTheFlyServer::COSR_WaitingOnCache) == 0))
 			{
-				bShouldGC = false;
-				NonMapPackageCountSinceLastGC = 0;
-
-				UE_LOG( LogCookCommandlet, Display, TEXT( "GC..." ) );
-
-				COOK_STAT(FScopedDurationTimer GCTimer(DetailedCookStats::TickLoopGCTimeSec));
-				CollectGarbage(RF_NoFlags);
-			}
-			else
-			{
-				COOK_STAT(FScopedDurationTimer RecompileTimer(DetailedCookStats::TickLoopRecompileShaderRequestsTimeSec));
-				CookOnTheFlyServer->TickRecompileShaderRequests();
-
-				FPlatformProcess::Sleep( 0.0f );
-			}
-
-			{
-				COOK_STAT(FScopedDurationTimer ProcessDeferredCommandsTimer(DetailedCookStats::TickLoopProcessDeferredCommandsTimeSec));
-				ProcessDeferredCommands();
+				COOK_STAT(FScopedDurationTimer TickCommandletStatsTimer(DetailedCookStats::TickLoopTickCommandletStatsTimeSec));
+				FStats::TickCommandletStats();
 			}
 		}
-
-		{
-			COOK_STAT(FScopedDurationTimer TickCommandletStatsTimer(DetailedCookStats::TickLoopTickCommandletStatsTimeSec));
-			FStats::TickCommandletStats();
-		}
-	}
+	} while (bTestCook);
 
 	return true;
 }

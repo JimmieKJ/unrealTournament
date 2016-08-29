@@ -96,16 +96,15 @@ void FLightmapCustomNodeBuilder::GenerateChildContent(IDetailChildrenBuilder& Ch
 {
 	RefreshLightmapItems();
 
-	ChildrenBuilder.AddChildContent(LOCTEXT("LightMapsFilter", "Lightmaps"))
-	.ValueContent()
-	.HAlign(HAlign_Fill)
-	[
-		SAssignNew(LightmapListView, SListView<TSharedPtr<FLightmapItem>>)
-		.ListItemsSource(&LightmapItems)
-		.OnGenerateRow(this, &FLightmapCustomNodeBuilder::MakeLightMapListViewWidget)
-		.OnContextMenuOpening(this, &FLightmapCustomNodeBuilder::OnGetLightMapContextMenuContent)
-		.OnMouseButtonDoubleClick(this, &FLightmapCustomNodeBuilder::OnLightMapListMouseButtonDoubleClick)
-	];
+	for(TSharedPtr<FLightmapItem>& Item : LightmapItems)
+	{
+		ChildrenBuilder.AddChildContent(LOCTEXT("LightMapsFilter", "Lightmaps"))
+		.ValueContent()
+		.HAlign(HAlign_Fill)
+		[
+			MakeLightMapList(Item)
+		];
+	}
 }
 
 
@@ -133,11 +132,11 @@ void FLightmapCustomNodeBuilder::HandleNewCurrentLevel()
 }
 
 
-TSharedRef<ITableRow> FLightmapCustomNodeBuilder::MakeLightMapListViewWidget(TSharedPtr<FLightmapItem> LightMapItem, const TSharedRef<STableViewBase>& OwnerTable)
+TSharedRef<SWidget> FLightmapCustomNodeBuilder::MakeLightMapList(TSharedPtr<FLightmapItem> LightMapItem)
 {
 	if ( !ensure(LightMapItem.IsValid()) )
 	{
-		return SNew( STableRow<TSharedPtr<FLightmapItem>>, OwnerTable );
+		return SNullWidget::NullWidget;
 	}
 
 	const uint32 ThumbnailResolution = 64;
@@ -148,11 +147,15 @@ TSharedRef<ITableRow> FLightmapCustomNodeBuilder::MakeLightMapListViewWidget(TSh
 	FAssetThumbnailConfig ThumbnailConfig;
 	ThumbnailConfig.bAllowFadeIn = true;
 
-	return SNew( STableRow<TSharedPtr<FLightmapItem>>, OwnerTable )
-		.Style(FEditorStyle::Get(), "ContentBrowser.AssetListView.TableRow")
+	TWeakPtr<FLightmapItem> LightmapWeakPtr = LightMapItem;
+	return
+		SNew(SBorder)
+		.BorderImage(nullptr)
+		.Padding(0.0f)
+		.OnMouseButtonUp(this, &FLightmapCustomNodeBuilder::OnMouseButtonUp, LightmapWeakPtr)
+		.OnMouseDoubleClick(this, &FLightmapCustomNodeBuilder::OnLightMapListMouseButtonDoubleClick, LightmapWeakPtr)
 		[
 			SNew(SHorizontalBox)
-
 			// Viewport
 			+SHorizontalBox::Slot()
 			.AutoWidth()
@@ -184,8 +187,8 @@ TSharedRef<ITableRow> FLightmapCustomNodeBuilder::MakeLightMapListViewWidget(TSh
 				.Padding(0, 1)
 				[
 					SNew(STextBlock)
-					.Font(FEditorStyle::GetFontStyle("ContentBrowser.AssetTileViewNameFont"))
-					.Text( FText::FromName(LightMapAssetData.AssetName) )
+					.Font(IDetailLayoutBuilder::GetDetailFont())
+					.Text(FText::FromName(LightMapAssetData.AssetName) )
 				]
 
 				+SVerticalBox::Slot()
@@ -194,7 +197,7 @@ TSharedRef<ITableRow> FLightmapCustomNodeBuilder::MakeLightMapListViewWidget(TSh
 				[
 					// Class
 					SNew(STextBlock)
-					.Font(FEditorStyle::GetFontStyle("ContentBrowser.AssetListViewClassFont"))
+					.Font(IDetailLayoutBuilder::GetDetailFont())
 					.Text(FText::FromName(LightMapAssetData.AssetClass))
 				]
 			]
@@ -202,44 +205,57 @@ TSharedRef<ITableRow> FLightmapCustomNodeBuilder::MakeLightMapListViewWidget(TSh
 }
 
 
-TSharedPtr<SWidget> FLightmapCustomNodeBuilder::OnGetLightMapContextMenuContent()
+TSharedPtr<SWidget> FLightmapCustomNodeBuilder::OnGetLightMapContextMenuContent(TSharedPtr<FLightmapItem> Lightmap)
 {
-	TArray<TSharedPtr<FLightmapItem>> SelectedLightmaps = LightmapListView->GetSelectedItems();
-	
-	TSharedPtr<FLightmapItem> SelectedLightmap;
-	if ( SelectedLightmaps.Num() > 0 )
-	{
-		SelectedLightmap = SelectedLightmaps[0];
-	}
-
-	if ( SelectedLightmap.IsValid() )
+	if (Lightmap.IsValid() )
 	{
 		FMenuBuilder MenuBuilder(/*bInShouldCloseWindowAfterMenuSelection=*/true, NULL);
 
 		MenuBuilder.BeginSection("LightMapsContextMenuSection", LOCTEXT("LightMapsContextMenuHeading", "Options") );
 		{
 			MenuBuilder.AddMenuEntry(
-				LOCTEXT("ViewLightmapLabel", "View"),
+				LOCTEXT("ViewLightmapLabel", "View Lightmap"),
 				LOCTEXT("ViewLightmapTooltip", "Opens the texture editor with this lightmap."),
 				FSlateIcon(),
-				FUIAction(FExecuteAction::CreateSP(this, &FLightmapCustomNodeBuilder::ExecuteViewLightmap, SelectedLightmap->ObjectPath))
+				FUIAction(FExecuteAction::CreateSP(this, &FLightmapCustomNodeBuilder::ExecuteViewLightmap, Lightmap->ObjectPath))
 				);
 		}
 		MenuBuilder.EndSection(); //LightMapsContextMenuSection
 
 		return MenuBuilder.MakeWidget();
 	}
-	
-	return NULL;
+
+	return nullptr;
 }
 
 
-void FLightmapCustomNodeBuilder::OnLightMapListMouseButtonDoubleClick(TSharedPtr<FLightmapItem> SelectedLightmap)
+FReply FLightmapCustomNodeBuilder::OnMouseButtonUp(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent, TWeakPtr<FLightmapItem> Lightmap)
+{
+	if(MouseEvent.GetEffectingButton() == EKeys::RightMouseButton)
+	{
+		TSharedPtr<SWidget> MenuContent = OnGetLightMapContextMenuContent(Lightmap.Pin());
+
+		if(MenuContent.IsValid() && MouseEvent.GetEventPath() != nullptr)
+		{
+			const FVector2D& SummonLocation = MouseEvent.GetScreenSpacePosition();
+			FWidgetPath WidgetPath = *MouseEvent.GetEventPath();
+			FSlateApplication::Get().PushMenu(WidgetPath.Widgets.Last().Widget, WidgetPath, MenuContent.ToSharedRef(), SummonLocation, FPopupTransitionEffect(FPopupTransitionEffect::ContextMenu));
+		}
+
+		return FReply::Handled();
+	}
+
+	return FReply::Unhandled();
+}
+
+FReply FLightmapCustomNodeBuilder::OnLightMapListMouseButtonDoubleClick(const FGeometry& MyGeom, const FPointerEvent& PointerEvent, TWeakPtr<FLightmapItem> SelectedLightmap)
 {
 	if ( ensure(SelectedLightmap.IsValid()) )
 	{
-		ExecuteViewLightmap(SelectedLightmap->ObjectPath);
+		ExecuteViewLightmap(SelectedLightmap.Pin()->ObjectPath);
 	}
+
+	return FReply::Handled();
 }
 
 
@@ -275,11 +291,6 @@ void FLightmapCustomNodeBuilder::RefreshLightmapItems()
 				LightmapItems.Add(NewItem);
 			}
 		}
-	}
-
-	if ( LightmapListView.IsValid() )
-	{
-		LightmapListView->RequestListRefresh();
 	}
 }
 

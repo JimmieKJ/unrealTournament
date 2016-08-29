@@ -1,7 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
-#include "stdafx.h"
+#include "LightmassPCH.h"
 #include "LightingSystem.h"
 #include "MonteCarlo.h"
 #include "Raster.h"
@@ -216,12 +216,25 @@ void FStaticLightingSystem::SetupPrecomputedVisibility()
 			const FStaticLightingMapping* CurrentMapping = AllMappings[MappingIndex];
 			const FStaticLightingMesh* CurrentMesh = CurrentMapping->Mesh;
 
+			const uint32 GeoMeshLODIndex = CurrentMesh->GetLODIndices() & 0xFFFF;
+			const uint32 GeoHLODTreeIndex = (CurrentMesh->GetLODIndices() & 0xFFFF0000) >> 16;
+			const uint32 GeoHLODRange = CurrentMesh->GetHLODRange();
+			const uint32 GeoHLODRangeStart = GeoHLODRange & 0xFFFF;
+			const uint32 GeoHLODRangeEnd = (GeoHLODRange & 0xFFFF0000) >> 16;
+
+			bool bMeshBelongsToLOD0 = GeoMeshLODIndex == 0;
+
+			if (GeoHLODTreeIndex > 0)
+			{
+				bMeshBelongsToLOD0 = GeoHLODRangeStart == GeoHLODRangeEnd;
+			}
+
 			// Only process meshes whose bounding box intersects a PVS volume
-			if (Scene.DoesBoxIntersectVisibilityVolume(CurrentMesh->BoundingBox))
+			if (Scene.DoesBoxIntersectVisibilityVolume(CurrentMesh->BoundingBox) && bMeshBelongsToLOD0)
 			{
 				// Whether mesh wants to be fully opaque for visibility step
 				const bool bOpaqueMesh = CurrentMesh->IsAlwaysOpaqueForVisibility();
-				
+
 				// Rasterize all triangles in the mesh
 				for (int32 TriangleIndex = 0; TriangleIndex < CurrentMesh->NumTriangles; TriangleIndex++)
 				{

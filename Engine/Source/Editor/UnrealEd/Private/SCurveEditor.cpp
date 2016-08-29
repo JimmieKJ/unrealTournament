@@ -44,7 +44,8 @@ void SCurveEditor::Construct(const FArguments& InArgs)
 
 	InputSnap = InArgs._InputSnap;
 	OutputSnap = InArgs._OutputSnap;
-	bSnappingEnabled = InArgs._SnappingEnabled;
+	bInputSnappingEnabled = InArgs._InputSnappingEnabled;
+	bOutputSnappingEnabled = InArgs._OutputSnappingEnabled;
 
 	bZoomToFitVertical = InArgs._ZoomToFitVertical;
 	bZoomToFitHorizontal = InArgs._ZoomToFitHorizontal;
@@ -104,10 +105,15 @@ void SCurveEditor::Construct(const FArguments& InArgs)
 	Commands->MapAction(FRichCurveEditorCommands::Get().ZoomToFitAll,
 		FExecuteAction::CreateSP(this, &SCurveEditor::ZoomToFit, true));
 
-	Commands->MapAction(FRichCurveEditorCommands::Get().ToggleSnapping,
-		FExecuteAction::CreateSP(this, &SCurveEditor::ToggleSnapping),
+	Commands->MapAction(FRichCurveEditorCommands::Get().ToggleInputSnapping,
+		FExecuteAction::CreateSP(this, &SCurveEditor::ToggleInputSnapping),
 		FCanExecuteAction(),
-		FIsActionChecked::CreateSP(this, &SCurveEditor::IsSnappingEnabled));
+		FIsActionChecked::CreateSP(this, &SCurveEditor::IsInputSnappingEnabled));
+
+	Commands->MapAction(FRichCurveEditorCommands::Get().ToggleOutputSnapping,
+		FExecuteAction::CreateSP(this, &SCurveEditor::ToggleOutputSnapping),
+		FCanExecuteAction(),
+		FIsActionChecked::CreateSP(this, &SCurveEditor::IsOutputSnappingEnabled));
 
 	// Interpolation
 	Commands->MapAction(FRichCurveEditorCommands::Get().InterpolationConstant,
@@ -342,7 +348,7 @@ void SCurveEditor::Construct(const FArguments& InArgs)
 							.UndeterminedString(LOCTEXT("MultipleValues", "Multiple Values"))
 							.OnValueCommitted(this, &SCurveEditor::OnTimeComitted)
 							.OnValueChanged(this, &SCurveEditor::OnTimeChanged)
-							.OnBeginSliderMovement(this, &SCurveEditor::OnBeginSliderMovement, LOCTEXT("SetValue", "Set New Time"))
+							.OnBeginSliderMovement(this, &SCurveEditor::OnBeginSliderMovement, LOCTEXT("SetTime", "Set New Time"))
 							.OnEndSliderMovement(this, &SCurveEditor::OnEndSliderMovement)
 							.LabelVAlign(VAlign_Center)
 							.AllowSpin(true)
@@ -1159,12 +1165,12 @@ void SCurveEditor::PaintMarquee(const FGeometry& AllottedGeometry, const FSlateR
 
 float SCurveEditor::GetInputNumericEntryBoxDelta() const
 {
-	return bSnappingEnabled.Get() ? InputSnap.Get() : 0;
+	return bInputSnappingEnabled.Get() ? InputSnap.Get() : 0;
 }
 
 float SCurveEditor::GetOutputNumericEntryBoxDelta() const
 {
-	return bSnappingEnabled.Get() ? OutputSnap.Get() : 0;
+	return bOutputSnappingEnabled.Get() ? OutputSnap.Get() : 0;
 }
 
 void SCurveEditor::SetCurveOwner(FCurveOwnerInterface* InCurveOwner, bool bCanEdit)
@@ -1266,6 +1272,9 @@ void SCurveEditor::DeleteSelectedKeys()
 
 FReply SCurveEditor::OnMouseButtonDown( const FGeometry& InMyGeometry, const FPointerEvent& InMouseEvent)
 {
+	// End any transactions that weren't ended cleanly
+	EndDragTransaction();
+
 	const bool bLeftMouseButton = InMouseEvent.GetEffectingButton() == EKeys::LeftMouseButton;
 	const bool bMiddleMouseButton = InMouseEvent.GetEffectingButton() == EKeys::MiddleMouseButton;
 	const bool bRightMouseButton = InMouseEvent.GetEffectingButton() == EKeys::RightMouseButton;
@@ -2515,17 +2524,30 @@ void SCurveEditor::ZoomToFit(const bool bZoomToFitAll)
 	ZoomToFitVertical(bZoomToFitAll);
 }
 
-void SCurveEditor::ToggleSnapping()
+void SCurveEditor::ToggleInputSnapping()
 {
-	if (bSnappingEnabled.IsBound() == false)
+	if (bInputSnappingEnabled.IsBound() == false)
 	{
-		bSnappingEnabled = !bSnappingEnabled.Get();
+		bInputSnappingEnabled = !bInputSnappingEnabled.Get();
 	}
 }
 
-bool SCurveEditor::IsSnappingEnabled()
+void SCurveEditor::ToggleOutputSnapping()
 {
-	return bSnappingEnabled.Get();
+	if (bOutputSnappingEnabled.IsBound() == false)
+	{
+		bOutputSnappingEnabled = !bOutputSnappingEnabled.Get();
+	}
+}
+
+bool SCurveEditor::IsInputSnappingEnabled()
+{
+	return bInputSnappingEnabled.Get();
+}
+
+bool SCurveEditor::IsOutputSnappingEnabled()
+{
+	return bOutputSnappingEnabled.Get();
 }
 
 void SCurveEditor::CreateContextMenu(const FGeometry& InMyGeometry, const FPointerEvent& InMouseEvent)
@@ -3533,12 +3555,17 @@ bool SCurveEditor::IsLinearColorCurve() const
 
 FVector2D SCurveEditor::SnapLocation(FVector2D InLocation)
 {
-	if (bSnappingEnabled.Get())
+	if (bInputSnappingEnabled.Get())
 	{
 		const float InputSnapNow = InputSnap.Get();
-		const float OutputSnapNow = OutputSnap.Get();
 
 		InLocation.X = InputSnapNow != 0 ? FMath::RoundToInt(InLocation.X / InputSnapNow) * InputSnapNow : InLocation.X;
+	}
+
+	if (bOutputSnappingEnabled.Get())
+	{
+		const float OutputSnapNow = OutputSnap.Get();
+
 		InLocation.Y = OutputSnapNow != 0 ? FMath::RoundToInt(InLocation.Y / OutputSnapNow) * OutputSnapNow : InLocation.Y;
 	}
 	return InLocation;

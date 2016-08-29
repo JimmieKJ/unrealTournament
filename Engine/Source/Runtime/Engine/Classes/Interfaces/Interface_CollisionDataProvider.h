@@ -9,20 +9,11 @@
 #include "Interface_CollisionDataProvider.generated.h"
 
 // Vertex indices necessary to describe the vertices listed in TriMeshCollisionData
-USTRUCT()
 struct FTriIndices
 {
-	GENERATED_USTRUCT_BODY()
-
-	UPROPERTY()
 	int32 v0;
-
-	UPROPERTY()
 	int32 v1;
-
-	UPROPERTY()
 	int32 v2;
-
 
 	FTriIndices()
 		: v0(0)
@@ -30,35 +21,31 @@ struct FTriIndices
 		, v2(0)
 	{
 	}
-
 };
 
+
 // Description of triangle mesh collision data necessary for cooking physics data
-USTRUCT()
 struct FTriMeshCollisionData
 {
-	GENERATED_USTRUCT_BODY()
-
 	/** Array of vertices included in the triangle mesh */
-	UPROPERTY(transient)
 	TArray<FVector> Vertices;
 
 	/** Array of indices defining the ordering of triangles in the mesh */
-	UPROPERTY(transient)
-	TArray<struct FTriIndices> Indices;
-
-	/** Does the mesh require its normals flipped (see PxMeshFlag) */
-	UPROPERTY(transient)
-	uint32 bFlipNormals:1;
-
-	FTriMeshCollisionData()
-		: bFlipNormals(false)
-	{
-	}
-
+	TArray<FTriIndices> Indices;
 
 	/** Array of optional material indices (must equal num triangles) */
 	TArray<uint16>	MaterialIndices;
+
+	/** Optional UV co-ordinates (each array must be zero of equal num vertices) */
+	TArray< TArray<FVector2D> > UVs;
+
+	/** Does the mesh require its normals flipped (see PxMeshFlag) */
+	uint32 bFlipNormals:1;
+
+	FTriMeshCollisionData()
+	: bFlipNormals(false)
+	{
+	}
 };
 
 UINTERFACE(meta=(CannotImplementInterfaceInBlueprint))

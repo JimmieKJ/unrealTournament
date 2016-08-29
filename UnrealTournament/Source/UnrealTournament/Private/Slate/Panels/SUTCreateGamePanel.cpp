@@ -13,8 +13,6 @@
 #include "IPAddress.h"
 #include "UTAnalytics.h"
 #include "UTLobbyGameState.h"
-#include "Runtime/Analytics/Analytics/Public/Analytics.h"
-#include "Runtime/Analytics/Analytics/Public/Interfaces/IAnalyticsProvider.h"
 #include "PartyContext.h"
 #include "BlueprintContextLibrary.h"
 

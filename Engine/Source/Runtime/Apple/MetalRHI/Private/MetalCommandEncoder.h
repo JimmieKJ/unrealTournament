@@ -52,7 +52,16 @@ public:
 	
 	/** @returns True if and only if there is an active blit command encoder, otherwise false. */
 	bool IsBlitCommandEncoderActive(void) const;
+	
+	/**
+	 * True iff the command-encoder submits immediately to the command-queue, false if it performs any buffering.
+	 * @returns True iff the command-list submits immediately to the command-queue, false if it performs any buffering.
+	 */
+	bool IsImmediate(void) const;
 
+	/** @returns True if and only if there is valid render pass descriptor set on the encoder, otherwise false. */
+	bool IsRenderPassDescriptorValid(void) const;
+	
 	/** @returns The active render command encoder or nil if there isn't one. */
 	id<MTLRenderCommandEncoder> GetRenderCommandEncoder(void) const;
 	
@@ -137,7 +146,7 @@ public:
 	 */
 	void SetCullMode(MTLCullMode const CullMode);
 
-#if METAL_API_1_1
+#if METAL_API_1_1 && PLATFORM_MAC
 	/*
 	 * Controls what is done with fragments outside of the near or far planes.
 	 * @param DepthClipMode the clip mode.
@@ -203,7 +212,7 @@ public:
 #pragma mark - Public Shader Resource Mutators -
 	
 	/*
-	 * Set a global buffer for all fragment shaders at the given bind point index.
+	 * Set a global buffer for the specified shader frequency at the given bind point index.
 	 * @param Frequency The shader frequency to modify.
 	 * @param Buffer The buffer to bind or nil to clear.
 	 * @param Offset The offset in the buffer or 0 when Buffer is nil.
@@ -212,7 +221,17 @@ public:
 	void SetShaderBuffer(EShaderFrequency const Frequency, id<MTLBuffer> const Buffer, NSUInteger const Offset, NSUInteger const Index);
 	
 	/*
-	 * Set the offset within the current global buffer for all fragment shaders at the given bind point index.
+	 * Conditionally set a global buffer for the specified shader frequency at the given bind point index.
+	 * @param Frequency The shader frequency to modify.
+	 * @param Buffer The buffer to bind or nil to clear.
+	 * @param Offset The offset in the buffer or 0 when Buffer is nil.
+	 * @param Index The index to modify.
+	 * @returns True if the buffer was set because there was no existing binding otherwise false as the buffer was not set. 
+	 */
+	bool SetShaderBufferConditional(EShaderFrequency const Frequency, id<MTLBuffer> const Buffer, NSUInteger const Offset, NSUInteger const Index);
+	
+	/*
+	 * Set the offset for the buffer bound on the specified shader frequency at the given bind point index.
 	 * @param Frequency The shader frequency to modify.
 	 * @param Offset The offset in the buffer or 0 when Buffer is nil.
 	 * @param Index The index to modify.
@@ -220,7 +239,7 @@ public:
 	void SetShaderBufferOffset(EShaderFrequency const Frequency, NSUInteger const Offset, NSUInteger const Index);
 	
 	/*
-	 * Set an array of global buffers for all fragment shaders with the given bind point range.
+	 * Set an array of global buffers for the specified shader frequency with the given bind point range.
 	 * @param Frequency The shader frequency to modify.
 	 * @param Buffer sThe buffers to bind or nil to clear.
 	 * @param Offset The offset in the buffer or 0 when Buffer is nil.
@@ -229,7 +248,7 @@ public:
 	void SetShaderBuffers(EShaderFrequency const Frequency, const id<MTLBuffer> Buffers[], const NSUInteger Offset[], NSRange const& Range);
 	
 	/*
-	 * Set a global texture for all fragment shaders at the given bind point index.
+	 * Set a global texture for the specified shader frequency at the given bind point index.
 	 * @param Frequency The shader frequency to modify.
 	 * @param Texture The texture to bind or nil to clear.
 	 * @param Index The index to modify.
@@ -237,7 +256,7 @@ public:
 	void SetShaderTexture(EShaderFrequency const Frequency, id<MTLTexture> const Texture, NSUInteger const Index);
 	
 	/*
-	 * Set an array of global textures for all fragment shaders with the given bind point range.
+	 * Set an array of global textures for the specified shader frequency with the given bind point range.
 	 * @param Frequency The shader frequency to modify.
 	 * @param Textures The textures to bind or nil to clear.
 	 * @param Range The start point and number of indices to modify.
@@ -245,7 +264,7 @@ public:
 	void SetShaderTextures(EShaderFrequency const Frequency, const id<MTLTexture> Textures[], NSRange const& Range);
 	
 	/*
-	 * Set a global sampler for all fragment shaders at the given bind point index.
+	 * Set a global sampler for the specified shader frequency at the given bind point index.
 	 * @param Frequency The shader frequency to modify.
 	 * @param Sampler The sampler state to bind or nil to clear.
 	 * @param Index The index to modify.
@@ -253,7 +272,7 @@ public:
 	void SetShaderSamplerState(EShaderFrequency const Frequency, id<MTLSamplerState> const Sampler, NSUInteger const Index);
 	
 	/*
-	 * Set an array of global samplers for all fragment shaders with the given bind point range.
+	 * Set an array of global samplers for the specified shader frequency with the given bind point range.
 	 * @param Frequency The shader frequency to modify.
 	 * @param Samplers The sampler states to bind or nil to clear.
 	 * @param Range The start point and number of indices to modify.
@@ -261,24 +280,12 @@ public:
 	void SetShaderSamplerStates(EShaderFrequency const Frequency, const id<MTLSamplerState> Samplers[], NSRange const& Range);
 	
 	/*
-	 * Set a global sampler for all fragment shaders at the given bind point index.
-	 * @param Frequency The shader frequency to modify.
-	 * @param Sampler The sampler state to bind or nil to clear.
-	 * @param LodMinClamp The minimum lod value or 0.
-	 * @param LodMaxClamp The maximum lod value or FLT_MAX.
-	 * @param Index The index to modify.
+	 * Validate the argument binding state for the given shader frequency and report whether the current bindings are sufficient.
+	 * @param Frequency The shader frequency to validate.
+	 * @param Reflection The shader reflection data to validate against.
+	 * @returns True if and only if the current binding state satisfies the reflection data, otherwise false.
 	 */
-	void SetShaderSamplerState(EShaderFrequency const Frequency, id<MTLSamplerState> const Sampler, float LodMinClamp, float LodMaxClamp, NSUInteger const Index);
-	
-	/*
-	 * Set an array of global samplers for all fragment shaders with the given bind point range.
-	 * @param Frequency The shader frequency to modify.
-	 * @param Samplers The sampler states to bind or nil to clear.
-	 * @param LodMinClamps The minimum lod values or 0.
-	 * @param LodMaxClamps The maximum lod values or FLT_MAX.
-	 * @param Range The start point and number of indices to modify.
-	 */
-	void SetShaderSamplerStates(EShaderFrequency const Frequency, const id<MTLSamplerState> Samplers[], const float LodMinClamps[], const float LodMaxClamps[], NSRange const& Range);
+	bool ValidateArgumentBindings(EShaderFrequency const Frequency, MTLRenderPipelineReflection* Reflection);
 	
 #pragma mark - Public Compute State Mutators -
 	
@@ -351,10 +358,6 @@ private:
 	{
 		/** The bound sampler states or nil. */
 		id<MTLSamplerState> Samplers[ML_MaxSamplers];
-		/** The bound min. lods or 0. */
-		float MinLods[ML_MaxSamplers];
-		/** The bound max. lods or FLT_MAX. */
-		float MaxLods[ML_MaxSamplers];
 		/** A bitmask for which samplers were bound by the application where a bit value of 1 is bound and 0 is unbound. */
 		uint16 Bound;
 	};
@@ -389,6 +392,7 @@ private:
 	NSUInteger PipelineStatsMask;
 	
 	MTLRenderPassDescriptor* RenderPassDesc;
+	NSUInteger RenderPassDescApplied;
 	
 	id<MTLCommandBuffer> CommandBuffer;
 	id<MTLRenderCommandEncoder> RenderCommandEncoder;

@@ -11,5 +11,99 @@
     <Setting Name="CrashReporterCSV" Type="System.String" Scope="Application">
       <Value Profile="(Default)">/CrashReporterCSV/</Value>
     </Setting>
+    <Setting Name="JiraDeploymentAddress" Type="System.String" Scope="Application">
+      <Value Profile="(Default)">https://jira.ol.epicgames.net/rest/api/2</Value>
+    </Setting>
+    <Setting Name="SitePath" Type="System.String" Scope="Application">
+      <Value Profile="(Default)">\\devweb-02\Sites</Value>
+    </Setting>
+    <Setting Name="SlackWebhookUrl" Type="System.String" Scope="Application">
+      <Value Profile="(Default)">https://hooks.slack.com/services/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</Value>
+    </Setting>
+    <Setting Name="SlackChannel" Type="System.String" Scope="Application">
+      <Value Profile="(Default)">#crashreporterspam</Value>
+    </Setting>
+    <Setting Name="SlackUsername" Type="System.String" Scope="Application">
+      <Value Profile="(Default)">CrashReportWebsite</Value>
+    </Setting>
+    <Setting Name="SlackEmoji" Type="System.String" Scope="Application">
+      <Value Profile="(Default)">:rngesus:</Value>
+    </Setting>
+    <Setting Name="TestXML" Type="System.String" Scope="Application">
+      <Value Profile="(Default)">&lt;CrashDescription&gt;
+	&lt;CrashType /&gt;
+	&lt;BranchName&gt;//UE4/Release-4.11&lt;/BranchName&gt;
+	&lt;GameName&gt;UE4-AKnightsQuest&lt;/GameName&gt;
+	&lt;Platform&gt;Win64 [Windows 10  64b]&lt;/Platform&gt;
+	&lt;EngineMode&gt;Editor&lt;/EngineMode&gt;
+	&lt;BuildVersion&gt;4.11.2&lt;/BuildVersion&gt;
+	&lt;BuiltFromCL&gt;2946394&lt;/BuiltFromCL&gt;
+	&lt;CommandLine&gt;"D:\Unreal Projects\AKnightsQuest\AKnightsQuest.uproject"&lt;/CommandLine&gt;
+	&lt;BaseDir&gt;C:/Program Files/Epic Games/4.11/Engine/Binaries/Win64/&lt;/BaseDir&gt;
+	&lt;Language&gt;en_US&lt;/Language&gt;
+	&lt;SystemLanguage /&gt;
+	&lt;UserName&gt;Dude&lt;/UserName&gt;
+	&lt;MachineGuid&gt;356F267248376B358771468010AD4930&lt;/MachineGuid&gt;
+	&lt;EpicAccountId&gt;8b7f350472024d30a8249934068bc9f8&lt;/EpicAccountId&gt;
+	&lt;CallStack&gt;UE4Editor_Engine!UEngine::AddOnScreenDebugMessage() [d:\buildfarm\buildmachine_++ue4+release-4.11\engine\source\runtime\engine\private\unrealengine.cpp:6867]&lt;/CallStack&gt;
+	&lt;CallStack&gt;UE4Editor_AKnightsQuest_5438!UT::Pop() [d:\unreal projects\aknightsquest\source\aknightsquest\ut.cpp:25]&lt;/CallStack&gt;
+	&lt;CallStack&gt;UE4Editor_AKnightsQuest_5438!UHudInv::UHudInv() [d:\unreal projects\aknightsquest\source\aknightsquest\hudinv.cpp:24]&lt;/CallStack&gt;
+	&lt;CallStack&gt;UE4Editor_CoreUObject!UClass::CreateDefaultObject() [d:\buildfarm\buildmachine_++ue4+release-4.11\engine\source\runtime\coreuobject\private\uobject\class.cpp:2763]&lt;/CallStack&gt;
+	&lt;CallStack&gt;UE4Editor_CoreUObject!UObjectLoadAllCompiledInDefaultProperties() [d:\buildfarm\buildmachine_++ue4+release-4.11\engine\source\runtime\coreuobject\private\uobject\uobjectbase.cpp:724]&lt;/CallStack&gt;
+	&lt;CallStack&gt;UE4Editor_CoreUObject!ProcessNewlyLoadedUObjects() [d:\buildfarm\buildmachine_++ue4+release-4.11\engine\source\runtime\coreuobject\private\uobject\uobjectbase.cpp:818]&lt;/CallStack&gt;
+	&lt;CallStack&gt;UE4Editor_CoreUObject!TBaseStaticDelegateInstance&amp;lt;void __cdecl(void)&amp;gt;::ExecuteIfSafe() [d:\buildfarm\buildmachine_++ue4+release-4.11\engine\source\runtime\core\public\delegates\delegateinstancesimpl_variadics.inl:1021]&lt;/CallStack&gt;
+	&lt;CallStack&gt;UE4Editor_Core!TBaseMulticastDelegate&amp;lt;void&amp;gt;::Broadcast() [d:\buildfarm\buildmachine_++ue4+release-4.11\engine\source\runtime\core\public\delegates\delegatesignatureimpl_variadics.inl:921]&lt;/CallStack&gt;
+	&lt;CallStack&gt;UE4Editor_Core!FModuleManager::LoadModuleWithFailureReason() [d:\buildfarm\buildmachine_++ue4+release-4.11\engine\source\runtime\core\private\modules\modulemanager.cpp:427]&lt;/CallStack&gt;
+	&lt;CallStack&gt;UE4Editor_Projects!FModuleDescriptor::LoadModulesForPhase() [d:\buildfarm\buildmachine_++ue4+release-4.11\engine\source\runtime\projects\private\moduledescriptor.cpp:398]&lt;/CallStack&gt;
+	&lt;CallStack&gt;UE4Editor_Projects!FProjectManager::LoadModulesForProject() [d:\buildfarm\buildmachine_++ue4+release-4.11\engine\source\runtime\projects\private\projectmanager.cpp:53]&lt;/CallStack&gt;
+	&lt;CallStack&gt;UE4Editor!FEngineLoop::LoadStartupModules() [d:\buildfarm\buildmachine_++ue4+release-4.11\engine\source\runtime\launch\private\launchengineloop.cpp:2081]&lt;/CallStack&gt;
+	&lt;CallStack&gt;UE4Editor!FEngineLoop::PreInit() [d:\buildfarm\buildmachine_++ue4+release-4.11\engine\source\runtime\launch\private\launchengineloop.cpp:1544]&lt;/CallStack&gt;
+	&lt;CallStack&gt;UE4Editor!GuardedMain() [d:\buildfarm\buildmachine_++ue4+release-4.11\engine\source\runtime\launch\private\launch.cpp:110]&lt;/CallStack&gt;
+	&lt;CallStack&gt;UE4Editor!GuardedMainWrapper() [d:\buildfarm\buildmachine_++ue4+release-4.11\engine\source\runtime\launch\private\windows\launchwindows.cpp:126]&lt;/CallStack&gt;
+	&lt;CallStack&gt;UE4Editor!WinMain() [d:\buildfarm\buildmachine_++ue4+release-4.11\engine\source\runtime\launch\private\windows\launchwindows.cpp:200]&lt;/CallStack&gt;
+	&lt;CallStack&gt;UE4Editor!__scrt_common_main_seh() [f:\dd\vctools\crt\vcstartup\src\startup\exe_common.inl:264]&lt;/CallStack&gt;
+	&lt;CallStack&gt;kernel32&lt;/CallStack&gt;
+	&lt;CallStack&gt;ntdll&lt;/CallStack&gt;
+	&lt;SourceContext&gt; 6852       Message-&amp;gt;ScreenMessage = DebugMessage;&lt;/SourceContext&gt;
+	&lt;SourceContext&gt; 6853       Message-&amp;gt;DisplayColor = DisplayColor;&lt;/SourceContext&gt;
+	&lt;SourceContext&gt; 6854       Message-&amp;gt;TimeToDisplay = TimeToDisplay;&lt;/SourceContext&gt;
+	&lt;SourceContext&gt; 6855       Message-&amp;gt;CurrentTimeDisplayed = 0.0f;&lt;/SourceContext&gt;
+	&lt;SourceContext&gt; 6856       Message-&amp;gt;TextScale = TextScale;&lt;/SourceContext&gt;
+	&lt;SourceContext&gt; 6857       }&lt;/SourceContext&gt;
+	&lt;SourceContext&gt; 6858       }&lt;/SourceContext&gt;
+	&lt;SourceContext&gt; 6859       }&lt;/SourceContext&gt;
+	&lt;SourceContext&gt; 6860       #endif&lt;/SourceContext&gt;
+	&lt;SourceContext&gt; 6861       }&lt;/SourceContext&gt;
+	&lt;SourceContext&gt; 6862       &lt;/SourceContext&gt;
+	&lt;SourceContext&gt; 6863       /** Wrapper from int32 to uint64 */&lt;/SourceContext&gt;
+	&lt;SourceContext&gt; 6864       void UEngine::AddOnScreenDebugMessage(int32 Key, float TimeToDisplay, FColor DisplayColor, const FString&amp;amp; DebugMessage, bool bNewerOnTop, const FVector2D&amp;amp; TextScale)&lt;/SourceContext&gt;
+	&lt;SourceContext&gt; 6865       {&lt;/SourceContext&gt;
+	&lt;SourceContext&gt; 6866 ***** if (bEnableOnScreenDebugMessages == true)&lt;/SourceContext&gt;
+	&lt;SourceContext&gt; 6867       {&lt;/SourceContext&gt;
+	&lt;SourceContext&gt; 6868       AddOnScreenDebugMessage((uint64)Key, TimeToDisplay, DisplayColor, DebugMessage, bNewerOnTop, TextScale);&lt;/SourceContext&gt;
+	&lt;SourceContext&gt; 6869       }&lt;/SourceContext&gt;
+	&lt;SourceContext&gt; 6870       }&lt;/SourceContext&gt;
+	&lt;SourceContext&gt; 6871       &lt;/SourceContext&gt;
+	&lt;SourceContext&gt; 6872       bool UEngine::OnScreenDebugMessageExists(uint64 Key)&lt;/SourceContext&gt;
+	&lt;SourceContext&gt; 6873       {&lt;/SourceContext&gt;
+	&lt;SourceContext&gt; 6874       if (bEnableOnScreenDebugMessages == true)&lt;/SourceContext&gt;
+	&lt;SourceContext&gt; 6875       {&lt;/SourceContext&gt;
+	&lt;SourceContext&gt; 6876       if (Key == (uint64)-1)&lt;/SourceContext&gt;
+	&lt;SourceContext&gt; 6877       {&lt;/SourceContext&gt;
+	&lt;SourceContext&gt; 6878       // Priority messages assumed to always exist...&lt;/SourceContext&gt;
+	&lt;SourceContext&gt; 6879       // May want to check for there being none.&lt;/SourceContext&gt;
+	&lt;SourceContext&gt; 6880       return true;&lt;/SourceContext&gt;
+	&lt;SourceContext&gt; 6881       }&lt;/SourceContext&gt;
+	&lt;ErrorMessage&gt;Access violation - code c0000005 (first/second chance not available)&lt;/ErrorMessage&gt;
+	&lt;CrashGUID&gt;UE4CC-Windows-BF1F2AC945FA74B7E6385FB7DC4BF8D1&lt;/CrashGUID&gt;
+	&lt;TimeofCrash&gt;2016-07-11T21:44:52.9866712Z&lt;/TimeofCrash&gt;
+	&lt;bHasMiniDump&gt;true&lt;/bHasMiniDump&gt;
+	&lt;bHasLog&gt;true&lt;/bHasLog&gt;
+	&lt;bHasDiags&gt;false&lt;/bHasDiags&gt;
+	&lt;bHasWERData&gt;false&lt;/bHasWERData&gt;
+	&lt;bHasVideo&gt;false&lt;/bHasVideo&gt;
+	&lt;bAllowToBeContacted&gt;true&lt;/bAllowToBeContacted&gt;
+&lt;/CrashDescription&gt;</Value>
+    </Setting>
   </Settings>
 </SettingsFile>

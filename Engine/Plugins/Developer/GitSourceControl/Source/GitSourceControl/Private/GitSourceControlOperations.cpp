@@ -169,6 +169,32 @@ bool FGitRevertWorker::UpdateStates() const
 	return GitSourceControlUtils::UpdateCachedStates(States);
 }
 
+FName FGitSyncWorker::GetName() const
+{
+   return "Sync";
+}
+
+bool FGitSyncWorker::Execute(FGitSourceControlCommand& InCommand)
+{
+   // pull the branch to get remote changes by rebasing any local commits (not merging them to avoid complex graphs)
+   // (this cannot work if any local files are modified but not commited)
+   {
+      TArray<FString> Parameters;
+      Parameters.Add(TEXT("--rebase"));
+      InCommand.bCommandSuccessful = GitSourceControlUtils::RunCommand(TEXT("pull"), InCommand.PathToGitBinary, InCommand.PathToRepositoryRoot, Parameters, TArray<FString>(), InCommand.InfoMessages, InCommand.ErrorMessages);
+   }
+
+   // now update the status of our files
+   GitSourceControlUtils::RunUpdateStatus(InCommand.PathToGitBinary, InCommand.PathToRepositoryRoot, InCommand.Files, InCommand.ErrorMessages, States);
+
+   return InCommand.bCommandSuccessful;
+}
+
+bool FGitSyncWorker::UpdateStates() const
+{
+   return GitSourceControlUtils::UpdateCachedStates(States);
+}
+
 FName FGitUpdateStatusWorker::GetName() const
 {
 	return "UpdateStatus";

@@ -2,6 +2,7 @@
 
 #include "AnimGraphPrivatePCH.h"
 #include "AnimGraphNode_Fabrik.h"
+#include "Animation/AnimInstance.h"
 
 /////////////////////////////////////////////////////
 // UAnimGraphNode_Fabrik 
@@ -16,6 +17,17 @@ UAnimGraphNode_Fabrik::UAnimGraphNode_Fabrik(const FObjectInitializer& ObjectIni
 FText UAnimGraphNode_Fabrik::GetControllerDescription() const
 {
 	return LOCTEXT("Fabrik", "FABRIK");
+}
+
+void UAnimGraphNode_Fabrik::Draw(FPrimitiveDrawInterface* PDI, USkeletalMeshComponent * PreviewSkelMeshComp) const
+{
+	if(PreviewSkelMeshComp)
+	{
+		if(FAnimNode_Fabrik* ActiveNode = GetActiveInstanceNode<FAnimNode_Fabrik>(PreviewSkelMeshComp->GetAnimInstance()))
+		{
+			ActiveNode->ConditionalDebugDraw(PDI, PreviewSkelMeshComp);
+		}
+	}
 }
 
 FText UAnimGraphNode_Fabrik::GetNodeTitle(ENodeTitleType::Type TitleType) const

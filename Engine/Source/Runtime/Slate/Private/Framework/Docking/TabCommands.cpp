@@ -3,7 +3,7 @@
 #include "SlatePrivatePCH.h"
 #include "TabCommands.h"
 
-#define LOCTEXT_NAMESPACE ""
+#define LOCTEXT_NAMESPACE "TabCommands"
 
 void FTabCommands::RegisterCommands()
 {

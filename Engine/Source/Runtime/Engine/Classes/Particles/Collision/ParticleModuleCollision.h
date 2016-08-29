@@ -5,7 +5,7 @@
 #include "Particles/Collision/ParticleModuleCollisionBase.h"
 #include "ParticleModuleCollision.generated.h"
 
-UCLASS(editinlinenew, hidecategories=Object, MinimalAPI, meta=(DisplayName = "Collision"))
+UCLASS(editinlinenew, hidecategories=Object, MinimalAPI, meta=(DisplayName = "Actor Collision"))
 class UParticleModuleCollision : public UParticleModuleCollisionBase
 {
 	GENERATED_UCLASS_BODY()

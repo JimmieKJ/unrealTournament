@@ -21,8 +21,8 @@ bool UFbxMeshImportData::CanEditChange(const UProperty* InProperty) const
 		bMutable = Outer->CanEditChange(InProperty);
 	}
 
-	static FName NormalGenerationMethod("NormalGenerationMethod");
-	if( bMutable && InProperty->GetFName() == NormalGenerationMethod )
+	static FName NAME_NormalGenerationMethod("NormalGenerationMethod");
+	if( bMutable && InProperty->GetFName() == NAME_NormalGenerationMethod )
 	{
 		// Normal generation method is ignored if we are importing both tangents and normals
 		return NormalImportMethod == FBXNIM_ImportNormalsAndTangents ? false : true;

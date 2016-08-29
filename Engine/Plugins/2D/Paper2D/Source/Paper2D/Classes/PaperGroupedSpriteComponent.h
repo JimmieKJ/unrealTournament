@@ -2,11 +2,11 @@
 
 #pragma once
 
-class FGroupedSpriteSceneProxy;
-
 #include "PaperSprite.h"
 
 #include "PaperGroupedSpriteComponent.generated.h"
+
+class FGroupedSpriteSceneProxy;
 
 USTRUCT()
 struct FSpriteInstanceData
@@ -76,9 +76,11 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Components|Sprite")
 	bool GetInstanceTransform(int32 InstanceIndex, FTransform& OutInstanceTransform, bool bWorldSpace = false) const;
 	
+	virtual void OnUpdateTransform(EUpdateTransformFlags UpdateTransformFlags, ETeleportType Teleport) override;
+
 	/** Update the transform for the instance specified. Instance is given in local space of this component unless bWorldSpace is set.  Returns True on success. */
 	UFUNCTION(BlueprintCallable, Category = "Components|Sprite")
-	virtual bool UpdateInstanceTransform(int32 InstanceIndex, const FTransform& NewInstanceTransform, bool bWorldSpace = false, bool bMarkRenderStateDirty = true);
+	virtual bool UpdateInstanceTransform(int32 InstanceIndex, const FTransform& NewInstanceTransform, bool bWorldSpace=false, bool bMarkRenderStateDirty=true, bool bTeleport=false);
 
 	/** Update the color for the instance specified. Returns True on success. */
 	UFUNCTION(BlueprintCallable, Category = "Components|Sprite")
@@ -102,8 +104,10 @@ public:
 
 	// UActorComponent interface
 	virtual bool ShouldCreatePhysicsState() const override;
-	virtual void CreatePhysicsState() override;
-	virtual void DestroyPhysicsState() override;
+protected:
+	virtual void OnCreatePhysicsState() override;
+	virtual void OnDestroyPhysicsState() override;
+public:
 	virtual const UObject* AdditionalStatObject() const override;
 #if WITH_EDITOR
 	virtual void CheckForErrors() override;

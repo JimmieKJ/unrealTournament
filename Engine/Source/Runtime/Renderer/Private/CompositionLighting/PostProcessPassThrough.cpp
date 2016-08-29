@@ -11,46 +11,27 @@
 #include "PostProcessing.h"
 #include "SceneUtils.h"
 
-/** Encapsulates a simple copy pixel shader. */
-class FPostProcessPassThroughPS : public FGlobalShader
+FPostProcessPassThroughPS::FPostProcessPassThroughPS(const ShaderMetaType::CompiledShaderInitializerType& Initializer)
+	: FGlobalShader(Initializer)
 {
-	DECLARE_SHADER_TYPE(FPostProcessPassThroughPS, Global);
+	PostprocessParameter.Bind(Initializer.ParameterMap);
+}
 
-	static bool ShouldCache(EShaderPlatform Platform)
-	{
-		return IsFeatureLevelSupported(Platform, ERHIFeatureLevel::SM4);
-	}
+bool FPostProcessPassThroughPS::Serialize(FArchive& Ar)
+{
+	bool bShaderHasOutdatedParameters = FGlobalShader::Serialize(Ar);
+	Ar << PostprocessParameter;
+	return bShaderHasOutdatedParameters;
+}
 
-	/** Default constructor. */
-	FPostProcessPassThroughPS() {}
+void FPostProcessPassThroughPS::SetParameters(const FRenderingCompositePassContext& Context)
+{
+	const FPixelShaderRHIParamRef ShaderRHI = GetPixelShader();
 
-public:
-	FPostProcessPassParameters PostprocessParameter;
+	FGlobalShader::SetParameters(Context.RHICmdList, ShaderRHI, Context.View);
 
-	/** Initialization constructor. */
-	FPostProcessPassThroughPS(const ShaderMetaType::CompiledShaderInitializerType& Initializer)
-		: FGlobalShader(Initializer)
-	{
-		PostprocessParameter.Bind(Initializer.ParameterMap);
-	}
-
-	// FShader interface.
-	virtual bool Serialize(FArchive& Ar) override
-	{
-		bool bShaderHasOutdatedParameters = FGlobalShader::Serialize(Ar);
-		Ar << PostprocessParameter;
-		return bShaderHasOutdatedParameters;
-	}
-
-	void SetParameters(const FRenderingCompositePassContext& Context)
-	{
-		const FPixelShaderRHIParamRef ShaderRHI = GetPixelShader();
-		
-		FGlobalShader::SetParameters(Context.RHICmdList, ShaderRHI, Context.View);
-
-		PostprocessParameter.SetPS(ShaderRHI, Context, TStaticSamplerState<SF_Point,AM_Clamp,AM_Clamp,AM_Clamp>::GetRHI());
-	}
-};
+	PostprocessParameter.SetPS(ShaderRHI, Context, TStaticSamplerState<SF_Point, AM_Clamp, AM_Clamp, AM_Clamp>::GetRHI());
+}
 
 IMPLEMENT_SHADER_TYPE(,FPostProcessPassThroughPS,TEXT("PostProcessPassThrough"),TEXT("MainPS"),SF_Pixel);
 
@@ -140,6 +121,9 @@ void FRCPassPostProcessPassThrough::Process(FRenderingCompositePassContext& Cont
 		Context.HasHmdMesh(),
 		EDRF_UseTriangleOptimization);
 
+	// Draw custom data (like legends) for derived types
+	DrawCustom(Context);
+
 	Context.RHICmdList.CopyToResolveTarget(DestRenderTarget.TargetableTexture, DestRenderTarget.ShaderResourceTexture, false, FResolveParams());
 }
 
@@ -204,7 +188,7 @@ void CopyOverOtherViewportsIfNeeded(FRenderingCompositePassContext& Context, con
 					Size,
 					Size,
 					*VertexShader,
-					View.StereoPass, 
+					LocalView.StereoPass, 
 					Context.HasHmdMesh(),
 					EDRF_UseTriangleOptimization);
 			}

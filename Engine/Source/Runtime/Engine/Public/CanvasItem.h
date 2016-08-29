@@ -508,7 +508,7 @@ protected:
 	virtual void DrawStringInternal( FCanvas* InCanvas, const FVector2D& DrawPos, const FLinearColor& DrawColor ) override;
 };
 
-/* Line item. */
+/* Line item. Note blend mode will be disregarded for these - only SE_BLEND_Opaque is currently supported. */
 class ENGINE_API FCanvasLineItem : public FCanvasItem
 {
 public:

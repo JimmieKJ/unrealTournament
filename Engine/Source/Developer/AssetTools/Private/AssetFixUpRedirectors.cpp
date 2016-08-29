@@ -393,6 +393,7 @@ void FAssetFixUpRedirectors::DeleteRedirectors(TArray<FRedirectorRefs>& Redirect
 			if ( !bContainsAtLeastOneOtherAsset )
 			{
 				RedirectorPackage->RemoveFromRoot();
+				ObjectsToDelete.Add(RedirectorPackage);
 
 				// @todo we shouldnt be worrying about metadata objects here, ObjectTools::CleanUpAfterSuccessfulDelete should
 				if ( PackageMetaData )

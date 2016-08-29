@@ -4,10 +4,6 @@
 #include "Commandlets/ImportDialogueScriptCommandlet.h"
 #include "CsvParser.h"
 #include "Sound/DialogueWave.h"
-#include "Internationalization/InternationalizationManifest.h"
-#include "Internationalization/InternationalizationArchive.h"
-#include "JsonInternationalizationManifestSerializer.h"
-#include "JsonInternationalizationArchiveSerializer.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogImportDialogueScriptCommandlet, Log, All);
 
@@ -111,55 +107,21 @@ int32 UImportDialogueScriptCommandlet::Main(const FString& Params)
 		return -1;
 	}
 
-	// Prepare the manifest
+	// We may only have a single culture if using this setting
+	if (!bUseCultureDirectory && CulturesToGenerate.Num() > 1)
 	{
-		const FString ManifestFileName = DestinationPath / ManifestName;
-		if (!FPaths::FileExists(ManifestFileName))
-		{
-			UE_LOG(LogImportDialogueScriptCommandlet, Error, TEXT("Failed to find manifest '%s'."), *ManifestFileName);
-			return -1;
-		}
-
-		const TSharedPtr<FJsonObject> ManifestJsonObject = ReadJSONTextFile(ManifestFileName);
-		if (!ManifestJsonObject.IsValid())
-		{
-			UE_LOG(LogImportDialogueScriptCommandlet, Error, TEXT("Failed to parse manifest '%s'."), *ManifestFileName);
-			return -1;
-		}
-
-		FJsonInternationalizationManifestSerializer ManifestSerializer;
-		InternationalizationManifest = MakeShareable(new FInternationalizationManifest());
-		if (!ManifestSerializer.DeserializeManifest(ManifestJsonObject.ToSharedRef(), InternationalizationManifest.ToSharedRef()))
-		{
-			UE_LOG(LogImportDialogueScriptCommandlet, Error, TEXT("Failed to deserialize manifest '%s'."), *ManifestFileName);
-			return -1;
-		}
+		UE_LOG(LogImportDialogueScriptCommandlet, Error, TEXT("bUseCultureDirectory may only be used with a single culture."));
+		return false;
 	}
 
-	// Prepare the native archive
+	// Load the manifest and all archives
+	FLocTextHelper LocTextHelper(DestinationPath, ManifestName, ArchiveName, NativeCulture, CulturesToGenerate, MakeShareable(new FLocFileSCCNotifies(SourceControlInfo)));
 	{
-		const FString NativeCulturePath = DestinationPath / NativeCulture;
-
-		const FString NativeArchiveFileName = NativeCulturePath / ArchiveName;
-		if (!FPaths::FileExists(NativeArchiveFileName))
+		FText LoadError;
+		if (!LocTextHelper.LoadAll(ELocTextHelperLoadFlags::LoadOrCreate, &LoadError))
 		{
-			UE_LOG(LogImportDialogueScriptCommandlet, Error, TEXT("Failed to find archive '%s'."), *NativeArchiveFileName);
-			return -1;
-		}
-
-		const TSharedPtr<FJsonObject> ArchiveJsonObject = ReadJSONTextFile(NativeArchiveFileName);
-		if (!ArchiveJsonObject.IsValid())
-		{
-			UE_LOG(LogImportDialogueScriptCommandlet, Error, TEXT("Failed to parse archive '%s'."), *NativeArchiveFileName);
-			return -1;
-		}
-
-		FJsonInternationalizationArchiveSerializer ArchiveSerializer;
-		NativeArchive = MakeShareable(new FInternationalizationArchive());
-		if (!ArchiveSerializer.DeserializeArchive(ArchiveJsonObject.ToSharedRef(), NativeArchive.ToSharedRef()))
-		{
-			UE_LOG(LogImportDialogueScriptCommandlet, Error, TEXT("Failed to deserialize archive '%s'."), *NativeArchiveFileName);
-			return -1;
+			UE_LOG(LogImportDialogueScriptCommandlet, Error, TEXT("%s"), *LoadError.ToString());
+			return false;
 		}
 	}
 
@@ -167,7 +129,7 @@ int32 UImportDialogueScriptCommandlet::Main(const FString& Params)
 	{
 		const FString CultureSourcePath = SourcePath / (bUseCultureDirectory ? NativeCulture : TEXT(""));
 		const FString CultureDestinationPath = DestinationPath / NativeCulture;
-		ImportDialogueScriptForCulture(CultureSourcePath / DialogueScriptName, CultureDestinationPath / ArchiveName, NativeCulture, true);
+		ImportDialogueScriptForCulture(LocTextHelper, CultureSourcePath / DialogueScriptName, NativeCulture, true);
 	}
 
 	// Import any remaining cultures
@@ -181,13 +143,13 @@ int32 UImportDialogueScriptCommandlet::Main(const FString& Params)
 
 		const FString CultureSourcePath = SourcePath / (bUseCultureDirectory ? CultureName : TEXT(""));
 		const FString CultureDestinationPath = DestinationPath / CultureName;
-		ImportDialogueScriptForCulture(CultureSourcePath / DialogueScriptName, CultureDestinationPath / ArchiveName, CultureName, false);
+		ImportDialogueScriptForCulture(LocTextHelper, CultureSourcePath / DialogueScriptName, CultureName, false);
 	}
 
 	return 0;
 }
 
-bool UImportDialogueScriptCommandlet::ImportDialogueScriptForCulture(const FString& InDialogueScriptFileName, const FString& InCultureArchiveFileName, const FString& InCultureName, const bool bIsNativeCulture)
+bool UImportDialogueScriptCommandlet::ImportDialogueScriptForCulture(FLocTextHelper& InLocTextHelper, const FString& InDialogueScriptFileName, const FString& InCultureName, const bool bIsNativeCulture)
 {
 	// Load dialogue script file contents to string
 	FString DialogScriptFileContents;
@@ -250,36 +212,6 @@ bool UImportDialogueScriptCommandlet::ImportDialogueScriptForCulture(const FStri
 		return false;
 	}
 
-	// Prepare the culture archive
-	TSharedPtr<FInternationalizationArchive> CultureArchive;
-	if (bIsNativeCulture)
-	{
-		CultureArchive = NativeArchive;
-	}
-	else
-	{
-		if (!FPaths::FileExists(InCultureArchiveFileName))
-		{
-			UE_LOG(LogImportDialogueScriptCommandlet, Error, TEXT("Failed to find archive '%s'."), *InCultureArchiveFileName);
-			return false;
-		}
-
-		const TSharedPtr<FJsonObject> ArchiveJsonObject = ReadJSONTextFile(InCultureArchiveFileName);
-		if (!ArchiveJsonObject.IsValid())
-		{
-			UE_LOG(LogImportDialogueScriptCommandlet, Error, TEXT("Failed to parse archive '%s'."), *InCultureArchiveFileName);
-			return false;
-		}
-
-		FJsonInternationalizationArchiveSerializer ArchiveSerializer;
-		CultureArchive = MakeShareable(new FInternationalizationArchive());
-		if (!ArchiveSerializer.DeserializeArchive(ArchiveJsonObject.ToSharedRef(), CultureArchive.ToSharedRef()))
-		{
-			UE_LOG(LogImportDialogueScriptCommandlet, Error, TEXT("Failed to deserialize archive '%s'."), *InCultureArchiveFileName);
-			return false;
-		}
-	}
-
 	bool bHasUpdatedArchive = false;
 
 	// Parse each row of the CSV data
@@ -312,7 +244,7 @@ bool UImportDialogueScriptCommandlet::ImportDialogueScriptForCulture(const FStri
 		for (const FString& ContextLocalizationKey : ParsedScriptEntry.LocalizationKeys)
 		{
 			// Find the manifest entry so that we can find the corresponding archive entry
-			TSharedPtr<FManifestEntry> ContextManifestEntry = InternationalizationManifest->FindEntryByKey(FDialogueConstants::DialogueNamespace, ContextLocalizationKey);
+			TSharedPtr<FManifestEntry> ContextManifestEntry = InLocTextHelper.FindSourceText(FDialogueConstants::DialogueNamespace, ContextLocalizationKey);
 			if (!ContextManifestEntry.IsValid())
 			{
 				UE_LOG(LogImportDialogueScriptCommandlet, Log, TEXT("No internationalization manifest entry was found for context '%s' in culture '%s'. This context will be skipped."), *ContextLocalizationKey, *InCultureName);
@@ -320,33 +252,18 @@ bool UImportDialogueScriptCommandlet::ImportDialogueScriptForCulture(const FStri
 			}
 
 			// Find the correct entry for our context
-			const FContext* ContextManifestEntryContext = ContextManifestEntry->FindContextByKey(ContextLocalizationKey);
-			check(ContextManifestEntryContext); // This should never fail as we pass in the key to FindEntryByKey
+			const FManifestContext* ContextManifestEntryContext = ContextManifestEntry->FindContextByKey(ContextLocalizationKey);
+			check(ContextManifestEntryContext); // This should never fail as we pass in the key to FindSourceText
 
-			// Find the correct source text (we might have a native translation that we should update instead of the source)
-			FString SourceText = ContextManifestEntry->Source.Text;
-			if (!bIsNativeCulture)
-			{
-				TSharedPtr<FArchiveEntry> NativeArchiveEntry = NativeArchive->FindEntryBySource(FDialogueConstants::DialogueNamespace, SourceText, ContextManifestEntryContext->KeyMetadataObj);
-				if (NativeArchiveEntry.IsValid())
-				{
-					SourceText = NativeArchiveEntry->Translation.Text;
-				}
-			}
+			// Get the text we would have exported
+			FLocItem ExportedSource;
+			FLocItem ExportedTranslation;
+			InLocTextHelper.GetExportText(InCultureName, FDialogueConstants::DialogueNamespace, ContextManifestEntryContext->Key, ContextManifestEntryContext->KeyMetadataObj, ELocTextExportSourceMethod::NativeText, ContextManifestEntry->Source, ExportedSource, ExportedTranslation);
 
-			// Update (or add) the entry in the archive
-			TSharedPtr<FArchiveEntry> ArchiveEntry = CultureArchive->FindEntryBySource(FDialogueConstants::DialogueNamespace, SourceText, ContextManifestEntryContext->KeyMetadataObj);
-			if (ArchiveEntry.IsValid())
+			// Attempt to import the new text (if required)
+			if (!ExportedTranslation.Text.Equals(ParsedScriptEntry.SpokenDialogue, ESearchCase::CaseSensitive))
 			{
-				if (!ArchiveEntry->Translation.Text.Equals(ParsedScriptEntry.SpokenDialogue, ESearchCase::CaseSensitive))
-				{
-					bHasUpdatedArchive = true;
-					ArchiveEntry->Translation.Text = ParsedScriptEntry.SpokenDialogue;
-				}
-			}
-			else
-			{
-				if (CultureArchive->AddEntry(FDialogueConstants::DialogueNamespace, SourceText, ParsedScriptEntry.SpokenDialogue, ContextManifestEntryContext->KeyMetadataObj, false))
+				if (InLocTextHelper.ImportTranslation(InCultureName, FDialogueConstants::DialogueNamespace, ContextManifestEntryContext->Key, ContextManifestEntryContext->KeyMetadataObj, ExportedSource, FLocItem(ParsedScriptEntry.SpokenDialogue), ContextManifestEntryContext->bIsOptional))
 				{
 					bHasUpdatedArchive = true;
 				}
@@ -357,13 +274,10 @@ bool UImportDialogueScriptCommandlet::ImportDialogueScriptForCulture(const FStri
 	// Write out the updated archive file
 	if (bHasUpdatedArchive)
 	{
-		TSharedRef<FJsonObject> ArchiveJsonObj = MakeShareable(new FJsonObject());
-		FJsonInternationalizationArchiveSerializer ArchiveSerializer;
-		ArchiveSerializer.SerializeArchive(CultureArchive.ToSharedRef(), ArchiveJsonObj);
-
-		if (!WriteJSONToTextFile(ArchiveJsonObj, InCultureArchiveFileName, SourceControlInfo))
+		FText SaveError;
+		if (!InLocTextHelper.SaveForeignArchive(InCultureName, &SaveError))
 		{
-			UE_LOG(LogImportDialogueScriptCommandlet, Error, TEXT("Failed to write archive file for culture '%s' to '%s'."), *InCultureName, *InCultureArchiveFileName);
+			UE_LOG(LogImportDialogueScriptCommandlet, Error, TEXT("%s"), *SaveError.ToString());
 			return false;
 		}
 	}

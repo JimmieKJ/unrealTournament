@@ -100,6 +100,7 @@ template <> FTransform UpdateBoneAtom<FQuat>(int32 BoneIndex, const FTransform& 
 	return FTransform(Component, Atom.GetTranslation(), FVector(1.0f));
 }
 
+#if WITH_EDITOR
 /**
  * Template function to reduce the keys of a given data type.
  * Used to reduce both Translation and Rotation keys using the corresponding
@@ -301,7 +302,6 @@ void FilterLinearKeysTemplate(
 	}
 }
 
-
 void UAnimCompress_RemoveLinearKeys::UpdateWorldBoneTransformTable(
 	UAnimSequence* AnimSeq, 
 	const TArray<FBoneData>& BoneData, 
@@ -314,7 +314,7 @@ void UAnimCompress_RemoveLinearKeys::UpdateWorldBoneTransformTable(
 	const int32 NumFrames			= AnimSeq->NumFrames;
 	const float SequenceLength	= AnimSeq->SequenceLength;
 	const int32 FrameStart		= (BoneIndex*NumFrames);
-	const int32 TrackIndex = AnimSeq->GetSkeleton()->GetAnimationTrackIndex(BoneIndex, AnimSeq);
+	const int32 TrackIndex = AnimSeq->GetSkeleton()->GetAnimationTrackIndex(BoneIndex, AnimSeq, UseRaw);
 	
 	check(OutputWorldBones.Num() >= (FrameStart+NumFrames));
 
@@ -364,7 +364,6 @@ void UAnimCompress_RemoveLinearKeys::UpdateWorldBoneTransformTable(
 		}
 	}
 }
-
 
 void UAnimCompress_RemoveLinearKeys::FilterBeforeMainKeyRemoval(
 	UAnimSequence* AnimSeq, 
@@ -441,101 +440,126 @@ void UAnimCompress_RemoveLinearKeys::UpdateBoneAtomList(
 bool UAnimCompress_RemoveLinearKeys::ConvertFromRelativeSpace(UAnimSequence* AnimSeq)
 {
 	// if this is an additive animation, temporarily convert it out of relative-space
-/*
-	const bool bAdditiveAnimation = AnimSeq->bIsAdditive;
+	const bool bAdditiveAnimation = AnimSeq->IsValidAdditive();
 	if (bAdditiveAnimation)
 	{
-		// let the sequence believe it is no longer additive
-		AnimSeq->bIsAdditive = false;
-
 		// convert the raw tracks out of additive-space
 		const int32 NumTracks = AnimSeq->RawAnimationData.Num();
 		for (int32 TrackIndex = 0; TrackIndex < NumTracks; ++TrackIndex)
 		{
 			// bone index of skeleton
-			int32 const BoneIndex = AnimSeq->TrackToSkeletonMapTable(TrackIndex).BoneTreeIndex;
+			int32 const BoneIndex = AnimSeq->TrackToSkeletonMapTable[TrackIndex].BoneTreeIndex;
 			bool const bIsRootBone = (BoneIndex == 0);
 
-			FRawAnimSequenceTrack& BasePoseTrack = AnimSeq->AdditiveBasePose(TrackIndex);
-			FRawAnimSequenceTrack& RawTrack	= AnimSeq->RawAnimationData(TrackIndex);
+			FRawAnimSequenceTrack& BasePoseTrack = AnimSeq->TemporaryAdditiveBaseAnimationData[TrackIndex];
+			FRawAnimSequenceTrack& RawTrack	= AnimSeq->RawAnimationData[TrackIndex];
 
 			// @note: we only extract the first frame, as we don't want to induce motion from the base pose
 			// only the motion from the additive data should matter.
-			const FVector& RefBonePos = BasePoseTrack.PosKeys(0);
-			const FQuat& RefBoneRotation = BasePoseTrack.RotKeys(0);
+			const FVector& RefBonePos = BasePoseTrack.PosKeys[0];
+			const FQuat& RefBoneRotation = BasePoseTrack.RotKeys[0];
 
 			// Transform position keys.
 			for (int32 PosIndex = 0; PosIndex < RawTrack.PosKeys.Num(); ++PosIndex)
 			{
-				RawTrack.PosKeys(PosIndex) += RefBonePos;
+				RawTrack.PosKeys[PosIndex] += RefBonePos;
 			}
 
 			// Transform rotation keys.
 			for (int32 RotIndex = 0; RotIndex < RawTrack.RotKeys.Num(); ++RotIndex)
 			{
-				RawTrack.RotKeys(RotIndex) = RawTrack.RotKeys(RotIndex) * RefBoneRotation;
-				RawTrack.RotKeys(RotIndex).Normalize();
+				RawTrack.RotKeys[RotIndex] = RawTrack.RotKeys[RotIndex] * RefBoneRotation;
+				RawTrack.RotKeys[RotIndex].Normalize();
+			}
+
+			// make sure scale key exists
+			if (RawTrack.ScaleKeys.Num() > 0)
+			{
+				const FVector DefaultScale(1.f);
+				const FVector& RefBoneScale = (BasePoseTrack.ScaleKeys.Num() > 0)? BasePoseTrack.ScaleKeys[0] : DefaultScale;
+				for (int32 ScaleIndex = 0; ScaleIndex < RawTrack.ScaleKeys.Num(); ++ScaleIndex)
+				{
+					RawTrack.ScaleKeys[ScaleIndex] = RefBoneScale * (DefaultScale + RawTrack.ScaleKeys[ScaleIndex]);
+				}
 			}
 		}
 	}
 
-	return bAdditiveAnimation;*/
-	return false;
+	return bAdditiveAnimation;
 }
 
 
 void UAnimCompress_RemoveLinearKeys::ConvertToRelativeSpace(
 	UAnimSequence* AnimSeq,
 	TArray<FTranslationTrack>& TranslationData,
-	TArray<FRotationTrack>& RotationData)
+	TArray<FRotationTrack>& RotationData, 
+	TArray<FScaleTrack>& ScaleData)
 {
-/*
-	// restore the additive flag in the sequence
-	AnimSeq->bIsAdditive = true;
 
 	// convert the raw tracks back to additive-space
 	const int32 NumTracks = AnimSeq->RawAnimationData.Num();
 	for ( int32 TrackIndex = 0; TrackIndex < NumTracks; ++TrackIndex )
 	{
-		int32 const BoneIndex = AnimSeq->TrackToSkeletonMapTable(TrackIndex).BoneTreeIndex;
+		int32 const BoneIndex = AnimSeq->TrackToSkeletonMapTable[TrackIndex].BoneTreeIndex;
 
 		bool const bIsRootBone = (BoneIndex == 0);
 
-		FRawAnimSequenceTrack& BasePoseTrack = AnimSeq->AdditiveBasePose(TrackIndex);
-		FRawAnimSequenceTrack& RawTrack	= AnimSeq->RawAnimationData(TrackIndex);
+		FRawAnimSequenceTrack& BasePoseTrack = AnimSeq->TemporaryAdditiveBaseAnimationData[TrackIndex];
+		FRawAnimSequenceTrack& RawTrack	= AnimSeq->RawAnimationData[TrackIndex];
 		// @note: we only extract the first frame, as we don't want to induce motion from the base pose
 		// only the motion from the additive data should matter.
-		const FQuat& InvRefBoneRotation = -BasePoseTrack.RotKeys(0);
-		const FVector& InvRefBoneTranslation = -BasePoseTrack.PosKeys(0);
+		const FQuat& InvRefBoneRotation = BasePoseTrack.RotKeys[0].Inverse();
+		const FVector& InvRefBoneTranslation = -BasePoseTrack.PosKeys[0];
 
 		// transform position keys.
 		for ( int32 PosIndex = 0; PosIndex < RawTrack.PosKeys.Num(); ++PosIndex )
 		{
-			RawTrack.PosKeys(PosIndex) += InvRefBoneTranslation;
+			RawTrack.PosKeys[PosIndex] += InvRefBoneTranslation;
 		}
 
 		// transform rotation keys.
 		for ( int32 RotIndex = 0; RotIndex < RawTrack.RotKeys.Num(); ++RotIndex )
 		{
-			RawTrack.RotKeys(RotIndex) = RawTrack.RotKeys(RotIndex) * InvRefBoneRotation;
-			RawTrack.RotKeys(RotIndex).Normalize();
+			RawTrack.RotKeys[RotIndex] = RawTrack.RotKeys[RotIndex] * InvRefBoneRotation;
+			RawTrack.RotKeys[RotIndex].Normalize();
 		}
 
 		// convert the new translation tracks to additive space
-		FTranslationTrack& TranslationTrack = TranslationData(TrackIndex);
+		FTranslationTrack& TranslationTrack = TranslationData[TrackIndex];
 		for (int32 KeyIndex = 0; KeyIndex < TranslationTrack.PosKeys.Num(); ++KeyIndex)
 		{
-			TranslationTrack.PosKeys(KeyIndex) += InvRefBoneTranslation;
+			TranslationTrack.PosKeys[KeyIndex] += InvRefBoneTranslation;
 		}
 
 		// convert the new rotation tracks to additive space
-		FRotationTrack& RotationTrack = RotationData(TrackIndex);
+		FRotationTrack& RotationTrack = RotationData[TrackIndex];
 		for (int32 KeyIndex = 0; KeyIndex < RotationTrack.RotKeys.Num(); ++KeyIndex)
 		{
-			RotationTrack.RotKeys(KeyIndex) = RotationTrack.RotKeys(KeyIndex) * InvRefBoneRotation;
-			RotationTrack.RotKeys(KeyIndex).Normalize();
+			RotationTrack.RotKeys[KeyIndex] = RotationTrack.RotKeys[KeyIndex] * InvRefBoneRotation;
+			RotationTrack.RotKeys[KeyIndex].Normalize();
 		}
-	}*/
+
+		// scale key
+		if (ScaleData.Num() > 0)
+		{
+			const FVector& InvRefBoneScale = FTransform::GetSafeScaleReciprocal(BasePoseTrack.ScaleKeys[0]);
+
+			// transform scale keys.
+			for (int32 ScaleIndex = 0; ScaleIndex < RawTrack.ScaleKeys.Num(); ++ScaleIndex)
+			{
+				// to revert scale correctly, you have to - 1.f
+				// check AccumulateWithAdditiveScale
+				RawTrack.ScaleKeys[ScaleIndex] = (RawTrack.ScaleKeys[ScaleIndex] * InvRefBoneScale) - 1.f;
+			}
+
+			// convert the new scale tracks to additive space
+			FScaleTrack& ScaleTrack = ScaleData[TrackIndex];
+			for (int32 KeyIndex = 0; KeyIndex < ScaleTrack.ScaleKeys.Num(); ++KeyIndex)
+			{
+				ScaleTrack.ScaleKeys[KeyIndex] = (ScaleTrack.ScaleKeys[KeyIndex] * InvRefBoneScale) - 1.f;
+			}
+		}
+	}
 }
 
 
@@ -602,7 +626,7 @@ void UAnimCompress_RemoveLinearKeys::ProcessAnimationTracks(
 		const FBoneData& Bone = BoneData[BoneIndex];
 		const int32 ParentBoneIndex = Bone.GetParent();
 
-		const int32 TrackIndex = AnimSeq->GetSkeleton()->GetAnimationTrackIndex(BoneIndex, AnimSeq);
+		const int32 TrackIndex = AnimSeq->GetSkeleton()->GetAnimationTrackIndex(BoneIndex, AnimSeq, true);
 
 		if (TrackIndex != INDEX_NONE)
 		{
@@ -805,7 +829,7 @@ void UAnimCompress_RemoveLinearKeys::ProcessAnimationTracks(
 				{
 					const int32 NextParentBoneIndex= Bone.BonesToRoot[FamilyIndex];
 
-					GuideTrackIndex = AnimSeq->GetSkeleton()->GetAnimationTrackIndex(NextParentBoneIndex, AnimSeq);
+					GuideTrackIndex = AnimSeq->GetSkeleton()->GetAnimationTrackIndex(NextParentBoneIndex, AnimSeq, true);
 				}
 			}
 
@@ -984,7 +1008,6 @@ void UAnimCompress_RemoveLinearKeys::CompressUsingUnderlyingCompressor(
 	AnimationFormat_SetInterfaceLinks(*AnimSeq);
 }
 
-
 void UAnimCompress_RemoveLinearKeys::DoReduction(UAnimSequence* AnimSeq, const TArray<FBoneData>& BoneData)
 {
 #if WITH_EDITORONLY_DATA
@@ -1036,7 +1059,7 @@ void UAnimCompress_RemoveLinearKeys::DoReduction(UAnimSequence* AnimSeq, const T
 		// if previously additive, convert back to relative-space
 		if( bNeedToConvertBackToAdditive )
 		{
-			ConvertToRelativeSpace(AnimSeq, TranslationData, RotationData);
+			ConvertToRelativeSpace(AnimSeq, TranslationData, RotationData, ScaleData);
 		}
 	}
 
@@ -1061,3 +1084,19 @@ void UAnimCompress_RemoveLinearKeys::DoReduction(UAnimSequence* AnimSeq, const T
 #endif // WITH_EDITORONLY_DATA
 }
 
+void UAnimCompress_RemoveLinearKeys::PopulateDDCKey(FArchive& Ar)
+{
+	Super::PopulateDDCKey(Ar);
+	Ar << MaxPosDiff;
+	Ar << MaxAngleDiff;
+	Ar << MaxScaleDiff;
+	Ar << MaxEffectorDiff;
+	Ar << MinEffectorDiff;
+	Ar << EffectorDiffSocket;
+	Ar << ParentKeyScale;
+	uint8 Flags =	MakeBitForFlag(bRetarget, 0) +
+					MakeBitForFlag(bActuallyFilterLinearKeys, 1);
+	Ar << Flags;
+}
+
+#endif // WITH_EIDOT

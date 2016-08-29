@@ -28,13 +28,13 @@ public:
 	int32 StartProcessing();
 
 	/** Extract the files we need to import from our outstanding changes (happens first)*/ 
-	void ProcessAdditions(const IAssetRegistry& Registry, const DirectoryWatcher::FTimeLimit& TimeLimit, TArray<UPackage*>& OutPackagesToSave, const TMap<FString, TArray<UFactory*>>& InFactoriesByExtension, FReimportFeedbackContext& Context);
+	void ProcessAdditions(const DirectoryWatcher::FTimeLimit& TimeLimit, TArray<UPackage*>& OutPackagesToSave, const TMap<FString, TArray<UFactory*>>& InFactoriesByExtension, FReimportFeedbackContext& Context);
 
 	/** Process the outstanding changes that we have cached */
-	void ProcessModifications(const IAssetRegistry& Registry, const DirectoryWatcher::FTimeLimit& TimeLimit, TArray<UPackage*>& OutPackagesToSave, FReimportFeedbackContext& Context);
+	void ProcessModifications(const DirectoryWatcher::FTimeLimit& TimeLimit, TArray<UPackage*>& OutPackagesToSave, FReimportFeedbackContext& Context);
 
 	/** Extract the assets we need to delete from our outstanding changes (happens last) */ 
-	void ExtractAssetsToDelete(const IAssetRegistry& Registry, TArray<FAssetData>& OutAssetsToDelete);
+	void ExtractAssetsToDelete(TArray<FAssetData>& OutAssetsToDelete);
 
 	/** Abort the current processing operation */
 	void Abort();
@@ -57,18 +57,24 @@ public:
 public:
 
 	/** Get the number of outstanding changes that we potentially have to process (when not already processing) */
-	int32 GetNumUnprocessedChanges() const { return Cache.GetNumOutstandingChanges(); }
+	int32 GetNumUnprocessedChanges() const;
+
+	/** Iterate the current set of unprocessed file system changes */
+	void IterateUnprocessedChanges(TFunctionRef<bool(const DirectoryWatcher::FUpdateCacheTransaction&, const FDateTime&)>) const;
 
 private:
 
 	/** Import a new asset into the specified package path, from the specified file */ 
 	void ImportAsset(const FString& PackagePath, const FString& Filename, TArray<UPackage*>& OutPackagesToSave, const TMap<FString, TArray<UFactory*>>& InFactoriesByExtension, FReimportFeedbackContext& Context);
 
-	/** Reimport a specific asset, provided its source content differs from the specified file hash */
-	void ReimportAsset(UObject* InAsset, const FString& FullFilename, const FMD5Hash& NewFileHash, TArray<UPackage*>& OutPackagesToSave, FReimportFeedbackContext& Context);
+	/** Reimport a specific asset */
+	void ReimportAsset(UObject* InAsset, const FString& FullFilename, TArray<UPackage*>& OutPackagesToSave, FReimportFeedbackContext& Context);
 
 	/** Set the specified asset to import from the specified file, then attempt to reimport it */
-	void ReimportAssetWithNewSource(UObject* InAsset, const FString& FullFilename, const FMD5Hash& NewFileHash, TArray<UPackage*>& OutPackagesToSave, FReimportFeedbackContext& Context);
+	void ReimportAssetWithNewSource(UObject* InAsset, const FString& FullFilename, TArray<UPackage*>& OutPackagesToSave, FReimportFeedbackContext& Context);
+
+	/** Check whether we should consider a change for the specified transaction */
+	bool ShouldConsiderChange(const DirectoryWatcher::FUpdateCacheTransaction& Transaction) const;
 
 private:
 
@@ -83,6 +89,9 @@ private:
 
 	/** The last time we attempted to save the cache file */
 	double LastSaveTime;
+
+	/** Cached asset registry ptr */
+	IAssetRegistry* Registry;
 
 	/** The interval between potential re-saves of the cache file */
 	static const int32 ResaveIntervalS = 60;

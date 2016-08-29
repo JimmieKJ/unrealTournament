@@ -6,15 +6,24 @@
 
 
 /**
- * Implements a callback object for the sample grabber sink.
- *
- * 
+ * Clock sink events.
+ */
+enum class EWmfMediaSamplerClockEvent
+{
+	Paused,
+	Restarted,
+	Started,
+	Stopped
+};
+
+
+/**
+ * Implements a callback object for the WMF sample grabber sink.
  */
 class FWmfMediaSampler
 	: public IMFSampleGrabberSinkCallback
 {
 public:
-	DECLARE_DELEGATE(CommandDelegate)
 
 	/** Default constructor. */
 	FWmfMediaSampler()
@@ -26,33 +35,23 @@ public:
 
 public:
 
-	/**
-	 * Registers a media sink with this sampler.
-	 *
-	 * @param Sink The media sink to register.
-	 * @return true on success, false otherwise.
-	 * @see UnregisterSink
-	 */
-	bool RegisterSink(const IMediaSinkRef& Sink)
+	/** Get an event that gets fired when the sampler's presentation clock changed its state. */
+	DECLARE_EVENT_OneParam(FWmfMediaSampler, FOnClock, EWmfMediaSamplerClockEvent /*Event*/)
+	FOnClock& OnClock()
 	{
-		return Commands.Enqueue(FSimpleDelegate::CreateRaw(this, &FWmfMediaSampler::HandleRegisterSink, IMediaSinkWeakPtr(Sink)));
+		return ClockEvent;
 	}
 
-	/**
-	 * Unregisters a media sink with this sampler.
-	 *
-	 * @param Sink The media sink to unregister.
-	 * @return true on success, false otherwise.
-	 * @see RegisterSink
-	 */
-	bool UnregisterSink(const IMediaSinkRef& Sink)
+	/** Get an event that gets fired when a new sample is ready (handler must be thread-safe). */
+	DECLARE_EVENT_FourParams(FWmfMediaSampler, FOnSample, const uint8* /*Buffer*/, uint32 /*Size*/, FTimespan /*Duration*/, FTimespan /*Time*/)
+	FOnSample& OnSample()
 	{
-		return Commands.Enqueue(FSimpleDelegate::CreateRaw(this, &FWmfMediaSampler::HandleUnregisterSink, IMediaSinkWeakPtr(Sink)));
+		return SampleEvent;
 	}
 
 public:
 
-	// IMFSampleGrabberSinkCallback interface
+	//~ IMFSampleGrabberSinkCallback interface
 
 	STDMETHODIMP_(ULONG) AddRef()
 	{
@@ -61,11 +60,15 @@ public:
 
 	STDMETHODIMP OnClockPause(MFTIME SystemTime)
 	{
+		ClockEvent.Broadcast(EWmfMediaSamplerClockEvent::Paused);
+
 		return S_OK;
 	}
 
 	STDMETHODIMP OnClockRestart(MFTIME SystemTime)
 	{
+		ClockEvent.Broadcast(EWmfMediaSamplerClockEvent::Restarted);
+
 		return S_OK;
 	}
 
@@ -76,34 +79,21 @@ public:
 
 	STDMETHODIMP OnClockStart(MFTIME SystemTime, LONGLONG llClockStartOffset)
 	{
+		ClockEvent.Broadcast(EWmfMediaSamplerClockEvent::Started);
+
 		return S_OK;
 	}
 
 	STDMETHODIMP OnClockStop(MFTIME SystemTime)
 	{
+		ClockEvent.Broadcast(EWmfMediaSamplerClockEvent::Stopped);
+
 		return S_OK;
 	}
 
 	STDMETHODIMP OnProcessSample(REFGUID MajorMediaType, DWORD SampleFlags, LONGLONG SampleTime, LONGLONG SampleDuration, const BYTE* SampleBuffer, DWORD SampleSize)
 	{
-		// process pending commands
-		CommandDelegate Command;
-
-		while (Commands.Dequeue(Command))
-		{
-			Command.Execute();
-		}
-
-		// notify all registered media sinks
-		for (IMediaSinkWeakPtr& SinkPtr : Sinks)
-		{
-			IMediaSinkPtr Sink = SinkPtr.Pin();
-
-			if (Sink.IsValid())
-			{
-				Sink->ProcessMediaSample(SampleBuffer, SampleSize, FTimespan(SampleDuration), FTimespan(SampleTime));
-			}
-		}
+		SampleEvent.Broadcast((uint8*)SampleBuffer, (uint32)SampleSize, FTimespan(SampleDuration), FTimespan(SampleTime));
 
 		return S_OK;
 	}
@@ -118,11 +108,11 @@ public:
 		return S_OK;
 	}
 
-
 #if _MSC_VER == 1900
-#pragma warning(push)
-#pragma warning(disable:4838)
-#endif // _MSC_VER == 1900
+	#pragma warning(push)
+	#pragma warning(disable:4838)
+#endif
+
 	STDMETHODIMP QueryInterface(REFIID RefID, void** Object)
 	{
 		static const QITAB QITab[] =
@@ -133,9 +123,10 @@ public:
 
 		return QISearch(this, QITab, RefID, Object);
 	}
+
 #if _MSC_VER == 1900
-#pragma warning(pop)
-#endif // _MSC_VER == 1900
+	#pragma warning(pop)
+#endif
 
 	STDMETHODIMP_(ULONG) Release()
 	{
@@ -151,26 +142,14 @@ public:
 
 private:
 
-	void HandleRegisterSink(IMediaSinkWeakPtr Sink)
-	{
-		Sinks.AddUnique(Sink);
-	}
-
-	void HandleUnregisterSink(IMediaSinkWeakPtr Sink)
-	{
-		Sinks.RemoveSingle(Sink);
-	}
-
-private:
-
-	/** Holds the router command queue. */
-	TQueue<CommandDelegate, EQueueMode::Mpsc> Commands;
-
-	/** The collection of registered media sinks. */
-	TArray<IMediaSinkWeakPtr> Sinks;
+	/** Event that gets fired when the sampler's presentation clock changed state. */
+	FOnClock ClockEvent;
 
 	/** Holds a reference counter for this instance. */
 	int32 RefCount;
+
+	/** Event that gets fired when a new sample is ready. */
+	FOnSample SampleEvent;
 };
 
 

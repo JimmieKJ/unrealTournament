@@ -148,14 +148,17 @@ UObject* UCSVImportFactory::FactoryCreateText( UClass* InClass, UObject* InParen
 
 		if (ImportType == ECSVImportType::ECSV_DataTable)
 		{
+			UClass* DataTableClass = UDataTable::StaticClass();
+
 			// If there is an existing table, need to call this to free data memory before recreating object
 			if(ExistingTable != NULL)
 			{
+				DataTableClass = ExistingTable->GetClass();
 				ExistingTable->EmptyTable();
 			}
 
 			// Create/reset table
-			UDataTable* NewTable = NewObject<UDataTable>(InParent, InName, Flags);
+			UDataTable* NewTable = NewObject<UDataTable>(InParent, DataTableClass, InName, Flags);
 			NewTable->RowStruct = ImportRowStruct;
 			NewTable->AssetImportData->Update(CurrentFilename);
 			// Go ahead and create table from string
@@ -167,14 +170,17 @@ UObject* UCSVImportFactory::FactoryCreateText( UClass* InClass, UObject* InParen
 		}
 		else if (ImportType == ECSVImportType::ECSV_CurveTable)
 		{
+			UClass* CurveTableClass = UCurveTable::StaticClass();
+
 			// If there is an existing table, need to call this to free data memory before recreating object
 			if(ExistingCurveTable != NULL)
 			{
+				CurveTableClass = ExistingCurveTable->GetClass();
 				ExistingCurveTable->EmptyTable();
 			}
 
 			// Create/reset table
-			UCurveTable* NewTable = NewObject<UCurveTable>(InParent, InName, Flags);
+			UCurveTable* NewTable = NewObject<UCurveTable>(InParent, CurveTableClass, InName, Flags);
 			NewTable->AssetImportData->Update(CurrentFilename);
 
 			// Go ahead and create table from string
@@ -186,7 +192,7 @@ UObject* UCSVImportFactory::FactoryCreateText( UClass* InClass, UObject* InParen
 		}
 		else if (ImportType == ECSVImportType::ECSV_CurveFloat || ImportType == ECSVImportType::ECSV_CurveVector || ImportType == ECSVImportType::ECSV_CurveLinearColor)
 		{
-			UClass* CurveClass = GetCurveClass( ImportType );
+			UClass* CurveClass = ExistingCurve ? ExistingCurve->GetClass() : GetCurveClass( ImportType );
 
 			// Create/reset curve
 			UCurveBase* NewCurve = NewObject<UCurveBase>(InParent, CurveClass, InName, Flags);

@@ -58,8 +58,11 @@ void FD3D12VertexBuffer::Rename(FD3D12ResourceLocation* NewResource)
 {
 	FD3D12CommandContext& DefaultContext = GetParentDevice()->GetDefaultCommandContext();
 
-	// If this resource is bound to the device, unbind it
-	DefaultContext.ConditionalClearShaderResource(ResourceLocation);
+	if (ResourceLocation)
+	{
+		// If this resource is bound to the device, unbind it
+		DefaultContext.ConditionalClearShaderResource(ResourceLocation);
+	}
 
 	ResourceLocation = NewResource;
 
@@ -81,6 +84,7 @@ FVertexBufferRHIRef FD3D12DynamicRHI::RHICreateVertexBuffer(uint32 Size, uint32 
 	FD3D12VertexBuffer* NewBuffer = new FD3D12VertexBuffer(GetRHIDevice(), ResourceLocation, Size, InUsage);
 	UpdateBufferStats(NewBuffer->ResourceLocation, true, D3D12_BUFFER_TYPE_VERTEX);
 	NewBuffer->BufferAlignment = Alignment;
+
 	return NewBuffer;
 }
 
@@ -95,7 +99,7 @@ void FD3D12DynamicRHI::RHIUnlockVertexBuffer(FVertexBufferRHIParamRef VertexBuff
 }
 
 FVertexBufferRHIRef FD3D12DynamicRHI::CreateVertexBuffer_RenderThread(FRHICommandListImmediate& RHICmdList, uint32 Size, uint32 InUsage, FRHIResourceCreateInfo& CreateInfo)
-{
+{	
 	const D3D12_RESOURCE_DESC Desc = CreateVertexBufferResourceDesc(Size, InUsage);
 	const uint32 Alignment = 4;
 
@@ -103,6 +107,7 @@ FVertexBufferRHIRef FD3D12DynamicRHI::CreateVertexBuffer_RenderThread(FRHIComman
 	FD3D12VertexBuffer* NewBuffer = new FD3D12VertexBuffer(GetRHIDevice(), ResourceLocation, Size, InUsage);
 	UpdateBufferStats(NewBuffer->ResourceLocation, true, D3D12_BUFFER_TYPE_VERTEX);
 	NewBuffer->BufferAlignment = Alignment;
+
 	return NewBuffer;
 }
 
@@ -138,9 +143,33 @@ void FD3D12DynamicRHI::RHICopyVertexBuffer(FVertexBufferRHIParamRef SourceBuffer
 	check(SourceBufferDesc.Width == DestBufferDesc.Width);
 	check(SourceBuffer->GetSize() == DestBuffer->GetSize());
 
-	GetRHIDevice()->GetDefaultCommandContext().numCopies++;
-	GetRHIDevice()->GetDefaultCommandContext().CommandListHandle->CopyResource(pDestResource->GetResource(), pSourceResource->GetResource());
+	FD3D12CommandContext& Context = GetRHIDevice()->GetDefaultCommandContext();
+	Context.numCopies++;
+	Context.CommandListHandle->CopyResource(pDestResource->GetResource(), pSourceResource->GetResource());
+	Context.CommandListHandle.UpdateResidency(pDestResource);
+	Context.CommandListHandle.UpdateResidency(pSourceResource);
+
 	DEBUG_RHI_EXECUTE_COMMAND_LIST(this);
 
 	GPUProfilingData.RegisterGPUWork(1);
+}
+
+FVertexBufferRHIRef FD3D12DynamicRHI::CreateAndLockVertexBuffer_RenderThread(FRHICommandListImmediate& RHICmdList, uint32 Size, uint32 InUsage, FRHIResourceCreateInfo& CreateInfo, void*& OutDataBuffer)
+{
+	const uint32 Alignment = 4;
+
+	FD3D12ResourceLocation* ResourceLocation = nullptr;
+	// If the resource is dynamic, don't bother creating a buffer as one will be created during lock
+	if ((InUsage & BUF_AnyDynamic) == 0)
+	{
+		const D3D12_RESOURCE_DESC Desc = CreateVertexBufferResourceDesc(Size, InUsage);
+		ResourceLocation = CreateBuffer(&RHICmdList, Desc, Size, InUsage, CreateInfo, Alignment);
+		UpdateBufferStats(ResourceLocation, true, D3D12_BUFFER_TYPE_VERTEX);
+	}
+	FD3D12VertexBuffer* NewBuffer = new FD3D12VertexBuffer(GetRHIDevice(), ResourceLocation, Size, InUsage);
+	NewBuffer->BufferAlignment = Alignment;
+
+	OutDataBuffer = LockVertexBuffer_RenderThread(RHICmdList, NewBuffer, 0, Size, RLM_WriteOnly);
+
+	return NewBuffer;
 }

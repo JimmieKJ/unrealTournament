@@ -204,10 +204,7 @@ public:
 		SubCategories.Add(InSubCategory);
 	}
 
-	void AddTutorial(TSharedPtr<FTutorialListEntry_Tutorial> InTutorial)
-	{
-		Tutorials.Add(InTutorial);
-	}
+	void AddTutorial(TSharedPtr<FTutorialListEntry_Tutorial> InTutorial);
 
 	FReply OnClicked() const
 	{
@@ -624,6 +621,11 @@ void STutorialsBrowser::Construct(const FArguments& InArgs)
 	ReloadTutorials();
 
 	RebuildCrumbs();
+}
+
+inline void FTutorialListEntry_Category::AddTutorial(TSharedPtr<FTutorialListEntry_Tutorial> InTutorial)
+{
+	Tutorials.Add(InTutorial);
 }
 
 EActiveTimerReturnType STutorialsBrowser::TriggerReloadTutorials( double InCurrentTime, float InDeltaTime )
@@ -1063,10 +1065,10 @@ void STutorialsBrowser::HandleAssetAdded(const FAssetData& InAssetData)
 {
 	if(InAssetData.AssetClass == UBlueprint::StaticClass()->GetFName())
 	{
-		const FString* ParentClassPath = InAssetData.TagsAndValues.Find(TEXT("ParentClass"));
-		if(ParentClassPath != nullptr)
+		const FString ParentClassPath = InAssetData.GetTagValueRef<FString>("ParentClass");
+		if(!ParentClassPath.IsEmpty())
 		{
-			UClass* ParentClass = FindObject<UClass>(NULL, **ParentClassPath);
+			UClass* ParentClass = FindObject<UClass>(NULL, *ParentClassPath);
 			if(ParentClass == UEditorTutorial::StaticClass())
 			{
 				bNeedsRefresh = true;

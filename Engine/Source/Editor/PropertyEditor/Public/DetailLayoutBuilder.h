@@ -52,6 +52,11 @@ public:
 	virtual const class IDetailsView& GetDetailsView() const = 0;
 
 	/**
+	 * @return The base class of the objects being customized in this detail layout
+	 */
+	virtual UClass* GetBaseClass() const = 0;
+
+	/**
 	 * Gets the current object(s) being customized by this builder
 	 *
 	 * If this is a sub-object customization it will return those sub objects.  Otherwise the root objects will be returned.
@@ -106,6 +111,14 @@ public:
 		To access MyFloat in MyActor you can just pass in "MyFloat" because the name of the property is unambiguous
 	 */
 	virtual TSharedRef<IPropertyHandle> GetProperty( const FName PropertyPath, const UClass* ClassOutermost = NULL, FName InstanceName = NAME_None )  = 0;
+
+	/**
+	 * Gets the top level property, for showing the warning for experimental or early access class
+	 * 
+	 * @return the top level property name
+	 */
+
+	virtual FName GetTopLevelProperty() = 0;
 
 	/**
 	 * Hides a property from view 

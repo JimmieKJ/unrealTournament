@@ -55,32 +55,32 @@ void UUTHUDWidget_RespawnChoice::Draw_Implementation(float DeltaTime)
 
 			if (UTPS->RespawnTime <= 0.25f)
 			{
-				FVector2D Size;
-				Size.X = (Canvas->SizeY / 720.0f) * RespawnChoiceACaptureComponent->TextureTarget->SizeX * 0.4f;
-				Size.Y = (Canvas->SizeY / 720.0f) * RespawnChoiceACaptureComponent->TextureTarget->SizeY * 0.4f;
+				FVector2D DrawSize;
+				DrawSize.X = (Canvas->SizeY / 720.0f) * RespawnChoiceACaptureComponent->TextureTarget->SizeX * 0.4f;
+				DrawSize.Y = (Canvas->SizeY / 720.0f) * RespawnChoiceACaptureComponent->TextureTarget->SizeY * 0.4f;
 
-				FVector2D PositionA(Canvas->SizeX / 2.0f - Size.X - Canvas->SizeX * 0.05f, Canvas->SizeY * .25f);
+				FVector2D PositionA(Canvas->SizeX / 2.0f - DrawSize.X - Canvas->SizeX * 0.05f, Canvas->SizeY * .25f);
 				FVector2D PositionB(Canvas->SizeX / 2.0f + Canvas->SizeX * 0.05f, Canvas->SizeY * .25f);
 
 				// Draw the Backgrounds
 				FLinearColor ChoiceColor = UTPS->bChosePrimaryRespawnChoice ? FLinearColor::Yellow : FLinearColor::White;
-				DrawTexture(UTHUDOwner->ScoreboardAtlas, PositionA.X - 0.05f*Size.X, PositionA.Y - 0.15f*Size.Y, 1.1f*Size.X, 4, 4, 2, 124, 8, 1.0, ChoiceColor);
-				DrawTexture(UTHUDOwner->ScoreboardAtlas, PositionA.X - 0.05f*Size.X, PositionA.Y - 0.15f*Size.Y + 4, 1.1f*Size.X, 1.3f*Size.Y - 8, 4, 10, 124, 112, 1.0, ChoiceColor);
-				DrawTexture(UTHUDOwner->ScoreboardAtlas, PositionA.X - 0.05f*Size.X, PositionA.Y + 1.15f*Size.Y - 4, 1.1f*Size.X, 4, 4, 122, 124, 8, 1.0, ChoiceColor);
+				DrawTexture(UTHUDOwner->ScoreboardAtlas, PositionA.X - 0.05f*DrawSize.X, PositionA.Y - 0.15f*DrawSize.Y, 1.1f*DrawSize.X, 4, 4, 2, 124, 8, 1.0, ChoiceColor);
+				DrawTexture(UTHUDOwner->ScoreboardAtlas, PositionA.X - 0.05f*DrawSize.X, PositionA.Y - 0.15f*DrawSize.Y + 4, 1.1f*DrawSize.X, 1.3f*DrawSize.Y - 8, 4, 10, 124, 112, 1.0, ChoiceColor);
+				DrawTexture(UTHUDOwner->ScoreboardAtlas, PositionA.X - 0.05f*DrawSize.X, PositionA.Y + 1.15f*DrawSize.Y - 4, 1.1f*DrawSize.X, 4, 4, 122, 124, 8, 1.0, ChoiceColor);
 
 				ChoiceColor = UTPS->bChosePrimaryRespawnChoice ? FLinearColor::White : FLinearColor::Yellow;
-				DrawTexture(UTHUDOwner->ScoreboardAtlas, PositionB.X - 0.05f*Size.X, PositionB.Y - 0.15f*Size.Y, 1.1f*Size.X, 4, 4, 2, 124, 8, 1.0, ChoiceColor);
-				DrawTexture(UTHUDOwner->ScoreboardAtlas, PositionB.X - 0.05f*Size.X, PositionB.Y - 0.15f*Size.Y + 4, 1.1f*Size.X, 1.3f*Size.Y - 8, 4, 10, 124, 112, 1.0, ChoiceColor);
-				DrawTexture(UTHUDOwner->ScoreboardAtlas, PositionB.X - 0.05f*Size.X, PositionB.Y + 1.15f*Size.Y - 4, 1.1f*Size.X, 4, 4, 122, 124, 8, 1.0, ChoiceColor);
+				DrawTexture(UTHUDOwner->ScoreboardAtlas, PositionB.X - 0.05f*DrawSize.X, PositionB.Y - 0.15f*DrawSize.Y, 1.1f*DrawSize.X, 4, 4, 2, 124, 8, 1.0, ChoiceColor);
+				DrawTexture(UTHUDOwner->ScoreboardAtlas, PositionB.X - 0.05f*DrawSize.X, PositionB.Y - 0.15f*DrawSize.Y + 4, 1.1f*DrawSize.X, 1.3f*DrawSize.Y - 8, 4, 10, 124, 112, 1.0, ChoiceColor);
+				DrawTexture(UTHUDOwner->ScoreboardAtlas, PositionB.X - 0.05f*DrawSize.X, PositionB.Y + 1.15f*DrawSize.Y - 4, 1.1f*DrawSize.X, 4, 4, 122, 124, 8, 1.0, ChoiceColor);
 
-				Canvas->K2_DrawTexture(RespawnChoiceACaptureComponent->TextureTarget, PositionA, Size, FVector2D(0, 0), FVector2D::UnitVector, FLinearColor::White, BLEND_Opaque);
-				Canvas->K2_DrawTexture(RespawnChoiceBCaptureComponent->TextureTarget, PositionB, Size, FVector2D(0, 0), FVector2D::UnitVector, FLinearColor::White, BLEND_Opaque);
+				Canvas->K2_DrawTexture(RespawnChoiceACaptureComponent->TextureTarget, PositionA, DrawSize, FVector2D(0, 0), FVector2D::UnitVector, FLinearColor::White, BLEND_Opaque);
+				Canvas->K2_DrawTexture(RespawnChoiceBCaptureComponent->TextureTarget, PositionB, DrawSize, FVector2D(0, 0), FVector2D::UnitVector, FLinearColor::White, BLEND_Opaque);
 						
 				FText ChoiceA = NSLOCTEXT("UTHUDWidth_RespawnChoice", "FIRE", "FIRE to select this spawn");
-				DrawText(ChoiceA, PositionA.X + Size.X / 2.0f, PositionA.Y + Size.Y, UTHUDOwner->MediumFont, 1.0f, 1.0f, FLinearColor::White, ETextHorzPos::Center, ETextVertPos::Top);
+				DrawText(ChoiceA, PositionA.X + DrawSize.X / 2.0f, PositionA.Y + DrawSize.Y, UTHUDOwner->MediumFont, 1.0f, 1.0f, FLinearColor::White, ETextHorzPos::Center, ETextVertPos::Top);
 
 				FText ChoiceB = NSLOCTEXT("UTHUDWidth_RespawnChoice", "ALT-FIRE", "ALT-FIRE to select this spawn");
-				DrawText(ChoiceB, PositionB.X + Size.X / 2.0f, PositionB.Y + Size.Y, UTHUDOwner->MediumFont, 1.0f, 1.0f, FLinearColor::White, ETextHorzPos::Center, ETextVertPos::Top);
+				DrawText(ChoiceB, PositionB.X + DrawSize.X / 2.0f, PositionB.Y + DrawSize.Y, UTHUDOwner->MediumFont, 1.0f, 1.0f, FLinearColor::White, ETextHorzPos::Center, ETextVertPos::Top);
 			}
 		}
 	}

@@ -4,6 +4,7 @@ using System.Web.Mvc;
 using System.Text;
 
 using Tools.CrashReporter.CrashReportWebSite.Models;
+using Tools.CrashReporter.CrashReportWebSite.ViewModels;
 
 namespace Tools.CrashReporter.CrashReportWebSite.Views.Helpers
 {
@@ -255,7 +256,10 @@ namespace Tools.CrashReporter.CrashReportWebSite.Views.Helpers
 														DateFrom = Model.DateFrom,
 														DateTo = Model.DateTo,
 														VersionName = Model.VersionName,
-														CrashType = Model.CrashType,
+                                                        CrashType = Model.CrashType,
+                                                        JiraId = Model.Jira,
+                                                        PlatformName = Model.PlatformName,
+                                                        BranchName = Model.BranchName
 													} );
 
 			Tag.MergeAttribute( "href", URL );

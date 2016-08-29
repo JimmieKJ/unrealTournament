@@ -144,6 +144,8 @@ struct CORE_API FGenericPlatformMemory
 		MCR_GPU, // memory directly a GPU (graphics card, etc)
 		MCR_GPUSystem, // system memory directly accessible by a GPU
 		MCR_TexturePool, // presized texture pools
+		MCR_StreamingPool, // amount of texture pool available for streaming.
+		MCR_UsedStreamingPool, // amount of texture pool used for streaming.
 		MCR_GPUDefragPool, // presized pool of memory that can be defragmented.
 		MCR_MAX
 	};
@@ -263,8 +265,9 @@ struct CORE_API FGenericPlatformMemory
 	 * Returns pages allocated by BinnedAllocFromOS to the OS.
 	 *
 	 * @param A pointer previously returned from BinnedAllocFromOS
+	 * @param Size size of the allocation previously passed to BinnedAllocFromOS
 	 */
-	static void BinnedFreeToOS( void* Ptr );
+	static void BinnedFreeToOS( void* Ptr, SIZE_T Size );
 
 	// These alloc/free memory that is mapped to the GPU
 	// Only for platforms with UMA (XB1/PS4/etc)
@@ -335,13 +338,16 @@ private:
 		B = Tmp;
 	}
 
-	static void MemswapImpl( void* Ptr1, void* Ptr2, SIZE_T Size );
+	static void MemswapGreaterThan8( void* Ptr1, void* Ptr2, SIZE_T Size );
 
 public:
 	static inline void Memswap( void* Ptr1, void* Ptr2, SIZE_T Size )
 	{
 		switch (Size)
 		{
+			case 0:
+				break;
+
 			case 1:
 				Valswap(*(uint8*)Ptr1, *(uint8*)Ptr2);
 				break;
@@ -350,8 +356,29 @@ public:
 				Valswap(*(uint16*)Ptr1, *(uint16*)Ptr2);
 				break;
 
+			case 3:
+				Valswap(*((uint16*&)Ptr1)++, *((uint16*&)Ptr2)++);
+				Valswap(*(uint8*)Ptr1, *(uint8*)Ptr2);
+				break;
+
 			case 4:
 				Valswap(*(uint32*)Ptr1, *(uint32*)Ptr2);
+				break;
+
+			case 5:
+				Valswap(*((uint32*&)Ptr1)++, *((uint32*&)Ptr2)++);
+				Valswap(*(uint8*)Ptr1, *(uint8*)Ptr2);
+				break;
+
+			case 6:
+				Valswap(*((uint32*&)Ptr1)++, *((uint32*&)Ptr2)++);
+				Valswap(*(uint16*)Ptr1, *(uint16*)Ptr2);
+				break;
+
+			case 7:
+				Valswap(*((uint32*&)Ptr1)++, *((uint32*&)Ptr2)++);
+				Valswap(*((uint16*&)Ptr1)++, *((uint16*&)Ptr2)++);
+				Valswap(*(uint8*)Ptr1, *(uint8*)Ptr2);
 				break;
 
 			case 8:
@@ -364,7 +391,7 @@ public:
 				break;
 
 			default:
-				MemswapImpl(Ptr1, Ptr2, Size);
+				MemswapGreaterThan8(Ptr1, Ptr2, Size);
 				break;
 		}
 	}

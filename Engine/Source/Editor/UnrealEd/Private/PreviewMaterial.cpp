@@ -47,7 +47,6 @@ public:
 	
 		}
 
-
 		{
 			bool bEditorStatsMaterial = Material->bIsMaterialEditorStatsMaterial;
 
@@ -63,9 +62,20 @@ public:
 				//cache for gpu skinned vertex factory if the material allows it
 				//this way we can have a preview skeletal mesh
 				if (bEditorStatsMaterial ||
-					!IsUsedWithSkeletalMesh() ||
-					(VertexFactoryType != FindVertexFactoryType(FName(TEXT("TGPUSkinVertexFactoryfalse"), FNAME_Find)) &&
-					VertexFactoryType != FindVertexFactoryType(FName(TEXT("TGPUSkinVertexFactorytrue"), FNAME_Find))))
+					!IsUsedWithSkeletalMesh())
+				{
+					return false;
+				}
+
+				extern ENGINE_API int32 GEnableGPUSkinCacheShaders;
+
+				bool bSkinCache = GEnableGPUSkinCacheShaders && (VertexFactoryType == FindVertexFactoryType(FName(TEXT("FGPUSkinPassthroughVertexFactory"), FNAME_Find)));
+					
+				if (
+					VertexFactoryType != FindVertexFactoryType(FName(TEXT("TGPUSkinVertexFactoryfalse"), FNAME_Find)) &&
+					VertexFactoryType != FindVertexFactoryType(FName(TEXT("TGPUSkinVertexFactorytrue"), FNAME_Find)) &&
+					!bSkinCache
+					)
 				{
 					return false;
 				}
@@ -85,6 +95,10 @@ public:
 
 			// For FMaterialResource::GetRepresentativeInstructionCounts
 			if (FCString::Stristr(ShaderType->GetName(), TEXT("BasePassPSTDistanceFieldShadowsAndLightMapPolicyHQ")))
+			{
+				bShaderTypeMatches = true;
+			}
+			else if (FCString::Stristr(ShaderType->GetName(), TEXT("Simple")))
 			{
 				bShaderTypeMatches = true;
 			}
@@ -116,6 +130,10 @@ public:
 				bShaderTypeMatches = true;
 			}
 			else if (FCString::Stristr(ShaderType->GetName(), TEXT("TDistortion")))
+			{
+				bShaderTypeMatches = true;
+			}
+			else if (FCString::Stristr(ShaderType->GetName(), TEXT("MeshDecal")))
 			{
 				bShaderTypeMatches = true;
 			}

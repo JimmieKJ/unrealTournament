@@ -15,6 +15,8 @@ void SGraphNodeLayeredBoneBlend::Construct(const FArguments& InArgs, UAnimGraphN
 	this->SetCursor(EMouseCursor::CardinalCross);
 
 	this->UpdateGraphNode();
+
+	SAnimationGraphNode::Construct(SAnimationGraphNode::FArguments(), InNode);
 }
 
 void SGraphNodeLayeredBoneBlend::CreateInputSideAddButton(TSharedPtr<SVerticalBox> InputBox)

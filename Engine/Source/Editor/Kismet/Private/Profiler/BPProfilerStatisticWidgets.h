@@ -15,8 +15,8 @@ namespace EBlueprintProfilerStat
 	{
 		Name = 0,
 		TotalTime,
+		AverageTime,
 		InclusiveTime,
-		Time,
 		PureTime,
 		MaxTime,
 		MinTime,
@@ -60,16 +60,12 @@ class FBPProfilerStatWidget : public TSharedFromThis<FBPProfilerStatWidget>
 {
 public:
 
-	FBPProfilerStatWidget(TSharedPtr<class FScriptExecutionNode> InExecNode, const FTracePath& WidgetTracePathIn)
-		: WidgetTracePath(WidgetTracePathIn)
-		, ExecNode(InExecNode)
-	{
-	}
+	FBPProfilerStatWidget(TSharedPtr<class FScriptExecutionNode> InExecNode, const FTracePath& WidgetTracePathIn);
 
 	virtual ~FBPProfilerStatWidget() {}
 
 	/** Generate exec node widgets */
-	virtual void GenerateExecNodeWidgets(const FName InstanceName, const FName FilterGraph);
+	void GenerateExecNodeWidgets(const TSharedPtr<struct FBlueprintProfilerStatOptions> DisplayOptions);
 
 	/** Gather children for list/tree widget */
 	void GatherChildren(TArray<TSharedPtr<FBPProfilerStatWidget>>& OutChildren);
@@ -100,11 +96,32 @@ public:
 
 protected:
 
-	/** Returns if the exec node representing an event is filtered from view */
-	bool IsEventFiltered(TSharedPtr<FScriptExecutionNode> InEventNode, FName GraphFilter) const;
+	/** Generate standard node widgets */
+	void GenerateStandardNodeWidgets(const TSharedPtr<struct FBlueprintProfilerStatOptions> DisplayOptions);
+
+	/** Generate pure node widgets */
+	void GeneratePureNodeWidgets(const TSharedPtr<FBlueprintProfilerStatOptions> DisplayOptions);
+
+	/** Generate simple tunnel widgets */
+	void GenerateSimpleTunnelWidgets(TSharedPtr<FScriptExecutionTunnelEntry> TunnelEntryNode, const TSharedPtr<FBlueprintProfilerStatOptions> DisplayOptions);
+
+	/** Generate complex tunnel widgets */
+	void GenerateComplexTunnelWidgets(TSharedPtr<FScriptExecutionTunnelEntry> TunnelEntryNode, const TSharedPtr<FBlueprintProfilerStatOptions> DisplayOptions);
+
+	/** Generate tunnel exit site linked widgets */
+	void GenerateTunnelLinkWidgets(const TSharedPtr<FBlueprintProfilerStatOptions> DisplayOptions, const int32 ScriptOffset = INDEX_NONE);
 
 	/** Navigate to referenced node */
 	void NavigateTo() const;
+
+	/** Calculate and return the heat color to use for average timing stats. */
+	FSlateColor GetAverageHeatColor() const;
+
+	/** Calculate and return the heat color to use for inclusive timing stats. */
+	FSlateColor GetInclusiveHeatColor() const;
+
+	/** Calculate and return the heat color to use for max time stats. */
+	FSlateColor GetMaxTimeHeatColor() const;
 
 protected:
 
@@ -114,9 +131,6 @@ protected:
 	TSharedPtr<FScriptExecutionNode> ExecNode;
 	/** Script performance data */
 	TSharedPtr<FScriptPerfData> PerformanceStats;
-	/** Script code offset */
-	int32 ScriptCodeOffset;
 	/** Child statistics */
 	TArray<TSharedPtr<FBPProfilerStatWidget>> CachedChildren;
-
 };

@@ -6,6 +6,7 @@
 
 #include "CoreUObjectPrivate.h"
 #include "PropertyHelper.h"
+#include "PropertyTag.h"
 #include "StringAssetReference.h"
 #include "StringClassReference.h"
 
@@ -584,22 +585,29 @@ bool UProperty::ExportText_Direct
 bool UProperty::ShouldSerializeValue( FArchive& Ar ) const
 {
 	if (Ar.ShouldSkipProperty(this))
+	{
 		return false;
+	}
 
-	if (Ar.IsSaveGame() && !(PropertyFlags & CPF_SaveGame))
+	if (!(PropertyFlags & CPF_SaveGame) && Ar.IsSaveGame())
+	{
 		return false;
+	}
 
-	static uint64 SkipFlags = CPF_Transient | CPF_DuplicateTransient | CPF_NonPIEDuplicateTransient | CPF_NonTransactional | CPF_Deprecated | CPF_DevelopmentAssets;
+	const uint64 SkipFlags = CPF_Transient | CPF_DuplicateTransient | CPF_NonPIEDuplicateTransient | CPF_NonTransactional | CPF_Deprecated | CPF_DevelopmentAssets | CPF_SkipSerialization;
 	if (!(PropertyFlags & SkipFlags))
+	{
 		return true;
+	}
 
 	bool Skip =
 			((PropertyFlags & CPF_Transient) && Ar.IsPersistent() && !Ar.IsSerializingDefaults())
 		||	((PropertyFlags & CPF_DuplicateTransient) && (Ar.GetPortFlags() & PPF_Duplicate))
 		||	((PropertyFlags & CPF_NonPIEDuplicateTransient) && !(Ar.GetPortFlags() & PPF_DuplicateForPIE) && (Ar.GetPortFlags() & PPF_Duplicate))
-		||  (Ar.IsFilterEditorOnly() && IsEditorOnlyProperty())
 		||	((PropertyFlags & CPF_NonTransactional) && Ar.IsTransacting())
-		||	((PropertyFlags & CPF_Deprecated) && !Ar.HasAllPortFlags(PPF_UseDeprecatedProperties) && (Ar.IsSaving() || Ar.IsTransacting() || Ar.WantBinaryPropertySerialization()));
+		||	((PropertyFlags & CPF_Deprecated) && !Ar.HasAllPortFlags(PPF_UseDeprecatedProperties) && (Ar.IsSaving() || Ar.IsTransacting() || Ar.WantBinaryPropertySerialization()))
+		||  ((PropertyFlags & CPF_SkipSerialization))
+		||  (IsEditorOnlyProperty() && Ar.IsFilterEditorOnly());
 
 	return !Skip;
 }
@@ -1186,6 +1194,44 @@ IMPLEMENT_CORE_INTRINSIC_CLASS(UProperty, UField,
 	}
 );
 
+uint8 UNumericProperty::ReadEnumAsUint8(FArchive& Ar, UStruct* DefaultsStruct, const FPropertyTag& Tag)
+{
+	//@warning: mirrors loading code in UByteProperty::SerializeItem()
+	FName EnumName;
+	Ar << EnumName;
+
+	UEnum* Enum = FindField<UEnum>(dynamic_cast<UClass*>(DefaultsStruct) ? static_cast<UClass*>(DefaultsStruct) : DefaultsStruct->GetTypedOuter<UClass>(), Tag.EnumName);
+	if (!Enum)
+	{
+		Enum = FindObject<UEnum>(ANY_PACKAGE, *Tag.EnumName.ToString(), true);
+	}
+
+	if (!Enum)
+	{
+		UE_LOG(LogClass, Warning, TEXT("Failed to find enum '%s' when converting property '%s' during property loading - setting to 0"), *Tag.EnumName.ToString(), *Tag.Name.ToString());
+		return 0;
+	}
+
+	Ar.Preload(Enum);
+
+	uint8 Result = Enum->GetValueByName(EnumName);
+	if (!Enum->IsValidEnumValue(Result))
+	{
+		UE_LOG(
+			LogClass,
+			Warning,
+			TEXT("Failed to find valid enum value '%s' for enum type '%s' when converting property '%s' during property loading - setting to '%s'"),
+			*EnumName.ToString(),
+			*Enum->GetName(),
+			*Tag.Name.ToString(),
+			*Enum->GetNameByValue(Enum->GetMaxEnumValue()).ToString()
+			);
+
+		return Enum->GetMaxEnumValue();
+	}
+
+	return Result;
+};
 
 const TCHAR* UNumericProperty::ImportText_Internal( const TCHAR* Buffer, void* Data, int32 PortFlags, UObject* Parent, FOutputDevice* ErrorText ) const
 {

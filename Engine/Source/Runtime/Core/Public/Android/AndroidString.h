@@ -200,21 +200,37 @@ struct FAndroidPlatformString : public FGenericPlatformString
 
 	static FORCEINLINE const WIDECHAR* Strstr( const WIDECHAR* String, const WIDECHAR* Find)
 	{
-		int StringLen = Strlen(String);
-		int FindLen = Strlen(Find);
+		WIDECHAR FindChar = *Find;
 
-		ANSICHAR* AnsiString = (ANSICHAR*)FMemory_Alloca(StringLen+1);
-		ANSICHAR* AnsiFind = (ANSICHAR*)FMemory_Alloca(FindLen+1);
+		// Always find an empty string
+		if (!FindChar)
+			return String;
 
-		CopyWideToAnsi(AnsiString, String);
-		CopyWideToAnsi(AnsiFind, Find);
+		++Find;
+		size_t MemCmpLen = wcslen(Find);
+		WIDECHAR* FoundChar;
+		for (;;)
+		{
+			FoundChar = wcschr(String, FindChar);
+			if (!FoundChar)
+			{
+				//	No more instances of FindChar in String, Find does not exist in String
+				break;
+			}
 
-		ANSICHAR* Loc = strstr(AnsiString, AnsiFind);
+			// Found FindChar, now set String to one character after FoundChar...
+			// We can now compare characters after FoundChar to Find, which is pointing at original Find[1], to see if the rest of the characters match
+			String = FoundChar + 1;
+			if (!wmemcmp(String, Find, MemCmpLen))
+			{
+				// Strings match, return pointer to beginning of Find instance in String
+				return FoundChar;
+			}
 
-		if (!Loc)
-			return NULL;
+			// No match, String is already ready to loop again to find the next instance of FindChar
+		}
 
-		return String + (Loc - AnsiString);
+		return nullptr;
 	}
 
 	static FORCEINLINE const WIDECHAR* Strchr( const WIDECHAR* String, WIDECHAR C)

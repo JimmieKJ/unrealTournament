@@ -17,8 +17,21 @@
 
 static const uint32 MAX_AUTOCOMPLETION_LINES = 20;
 
-static FName NAME_Typing = FName(TEXT("Typing"));
-static FName NAME_Open = FName(TEXT("Open"));
+static const FName NAME_Typing = FName(TEXT("Typing"));
+static const FName NAME_Open = FName(TEXT("Open"));
+
+namespace ConsoleDefs
+{
+	/** Colors */
+	static const FColor BorderColor( 140, 140, 140 );
+	static const FColor CursorColor( 255, 255, 255 );
+	static const FColor AutocompleteBackgroundColor( 0, 0, 0 );
+	static const FColor CursorLineColor( 0, 50, 0 );
+	static const int32 AutocompleteGap = 6;
+
+	/** Text that appears before the user's typed input string that acts as a visual cue for the editable area */
+	static const FString LeadingInputText(TEXT(" > "));
+}
 
 class FConsoleVariableAutoCompleteVisitor 
 {
@@ -38,19 +51,35 @@ public:
 			return;
 		}
 
+		const UConsoleSettings* ConsoleSettings = GetDefault<UConsoleSettings>();
+
 		// can be optimized
 		int32 NewIdx = Sink.AddZeroed(1);
-
 		FAutoCompleteCommand& Cmd = Sink[NewIdx];
-		
 		Cmd.Command = Name;
+
+		IConsoleVariable* CVariable = CVar->AsVariable();
+		if (CVariable)
+		{
+			if (CVar->TestFlags(ECVF_ReadOnly))
+			{
+				Cmd.Color = ConsoleSettings->AutoCompleteFadedColor;
+			}
+			else
+			{
+				Cmd.Color = ConsoleSettings->AutoCompleteCVarColor;
+			}
+		}
+		else
+		{
+			Cmd.Color = ConsoleSettings->AutoCompleteCommandColor;
+		}
 	}
 };
 
 UConsole::UConsole(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
-//	, HistoryBufferCur(0)
-//	, AutoCompleteCursor(-1)
+	, ConsoleSettings(GetDefault<UConsoleSettings>())
 {
 	// Structure to hold one-time initialization
 	struct FConstructorStatics
@@ -94,7 +123,7 @@ void UConsole::PostInitProperties()
 
 void UConsole::BuildRuntimeAutoCompleteList(bool bForce)
 {
-#if !UE_BUILD_SHIPPING
+#if ALLOW_CONSOLE
 	if (!bForce)
 	{
 		// unless forced delay updating until needed
@@ -112,19 +141,18 @@ void UConsole::BuildRuntimeAutoCompleteList(bool bForce)
 
 	AutoCompleteTree.ChildNodes.Empty();
 
-	const UConsoleSettings* ConsoleSettings = GetDefault<UConsoleSettings>();
-
 	// copy the manual list first
 	AutoCompleteList.Empty();
 	AutoCompleteList.AddZeroed(ConsoleSettings->ManualAutoCompleteList.Num());
 	for (int32 Idx = 0; Idx < ConsoleSettings->ManualAutoCompleteList.Num(); Idx++)
 	{
 		AutoCompleteList[Idx] = ConsoleSettings->ManualAutoCompleteList[Idx];
+		AutoCompleteList[Idx].Color = ConsoleSettings->AutoCompleteCommandColor;
 	}
 
 	// console variables
 	{
-		IConsoleManager::Get().ForEachConsoleObject(
+		IConsoleManager::Get().ForEachConsoleObjectThatStartsWith(
 			FConsoleObjectVisitor::CreateStatic< TArray<struct FAutoCompleteCommand>& >(
 				&FConsoleVariableAutoCompleteVisitor::OnConsoleVariable,
 				AutoCompleteList ) );
@@ -160,6 +188,7 @@ void UConsole::BuildRuntimeAutoCompleteList(bool bForce)
 
 			int32 NewIdx = AutoCompleteList.AddZeroed(1);
 			AutoCompleteList[NewIdx].Command = FuncName;
+			AutoCompleteList[NewIdx].Color = ConsoleSettings->AutoCompleteCommandColor;
 			// build a help string
 			// append each property (and it's type) to the help string
 			for (TFieldIterator<UProperty> PropIt(Func); PropIt && (PropIt->PropertyFlags & CPF_Parm); ++PropIt)
@@ -208,8 +237,11 @@ void UConsole::BuildRuntimeAutoCompleteList(bool bForce)
 				NewIdx = AutoCompleteList.AddZeroed(3);
 			}
 			AutoCompleteList[NewIdx].Command = FString::Printf(TEXT("open %s"),*TrimmedMapName);
+			AutoCompleteList[NewIdx].Color = ConsoleSettings->AutoCompleteCommandColor;
 			AutoCompleteList[NewIdx+1].Command = FString::Printf(TEXT("travel %s"),*TrimmedMapName);
+			AutoCompleteList[NewIdx+1].Color = ConsoleSettings->AutoCompleteCommandColor;
 			AutoCompleteList[NewIdx+2].Command = FString::Printf(TEXT("servertravel %s"),*TrimmedMapName);
+			AutoCompleteList[NewIdx+2].Color = ConsoleSettings->AutoCompleteCommandColor;
 			//MapNames.AddItem(Pkg);
 		}
 	}
@@ -218,6 +250,7 @@ void UConsole::BuildRuntimeAutoCompleteList(bool bForce)
 		int32 NewIdx = AutoCompleteList.AddZeroed(1);
 		AutoCompleteList[NewIdx].Command = FString(TEXT("open 127.0.0.1"));
 		AutoCompleteList[NewIdx].Desc = FString(TEXT("(opens connection to localhost)"));
+		AutoCompleteList[NewIdx].Color = ConsoleSettings->AutoCompleteCommandColor;
 	}
 
 #if STATS
@@ -232,6 +265,7 @@ void UConsole::BuildRuntimeAutoCompleteList(bool bForce)
 			Command += StatGroupName.ToString().RightChop(sizeof("STATGROUP_") - 1);
 
 			AutoCompleteList[NewIdx].Command = Command;
+			AutoCompleteList[NewIdx].Color = ConsoleSettings->AutoCompleteCommandColor;
 			NewIdx++;
 		}
 	}
@@ -255,6 +289,7 @@ void UConsole::BuildRuntimeAutoCompleteList(bool bForce)
 				int32 NewIdx = AutoCompleteList.AddZeroed(1);
 				AutoCompleteList[NewIdx].Command = TEXT("show ") + InName;
 				AutoCompleteList[NewIdx].Desc = FString::Printf(TEXT("(toggles the %s showflag)"),*LocName.ToString());
+				AutoCompleteList[NewIdx].Color = GetDefault<UConsoleSettings>()->AutoCompleteCommandColor;
 				
 				return true;
 			}
@@ -325,7 +360,7 @@ void UConsole::UpdateCompleteIndices()
 		Filter.SetRawFilterText(FText::FromString(Right));
 
 		AutoCompleteIndex = 0;
-		AutoCompleteCursor = -1;
+		AutoCompleteCursor = 0;
 		AutoComplete.Empty();
 
 		for (auto Command : AutoCompleteList)
@@ -341,7 +376,7 @@ void UConsole::UpdateCompleteIndices()
 	}
 
 	AutoCompleteIndex = 0;
-	AutoCompleteCursor = -1;
+	AutoCompleteCursor = 0;
 	AutoComplete.Empty();
 	FAutoCompleteNode *Node = &AutoCompleteTree;
 	FString LowerTypedStr = TypedStr.ToLower();
@@ -416,6 +451,7 @@ void UConsole::SetAutoCompleteFromHistory()
 		FAutoCompleteCommand Cmd;
 
 		Cmd.Command = HistoryBuffer[i]; 
+		Cmd.Color = ConsoleSettings->HistoryColor;
 		Cmd.SetHistory();
 
 		AutoComplete.Add(Cmd);
@@ -475,8 +511,6 @@ void UConsole::ClearOutput()
 
 void UConsole::OutputTextLine(const FString& Text)
 {
-	const UConsoleSettings* ConsoleSettings = GetDefault<UConsoleSettings>();
-
 	// If we are full, delete the first line
 	if (Scrollback.Num() > ConsoleSettings->MaxScrollbackSize)
 	{
@@ -614,6 +648,7 @@ void UConsole::AppendInputText(const FString& Text)
 		}
 	};
 	UpdateCompleteIndices();
+	UpdatePrecompletedInputLine();
 }
 
 bool UConsole::InputChar_Typing( int32 ControllerId, const FString& Unicode )
@@ -659,6 +694,64 @@ bool UConsole::InputKey_InputLine( int32 ControllerId, FKey Key, EInputEvent Eve
 		return true;
 	}
 
+	auto DecrementCursor = [this]()
+	{
+		if (AutoCompleteCursor > 0)
+		{
+			// move cursor within displayed region
+			--AutoCompleteCursor;
+		}
+		else
+		{
+			// can we scroll?
+			if (AutoCompleteIndex > 0)
+			{
+				--AutoCompleteIndex;
+			}
+			else
+			{
+				// wrap around
+				AutoCompleteIndex = FMath::Max(0, AutoComplete.Num() - (int32)MAX_AUTOCOMPLETION_LINES - 1);
+				if (AutoComplete.Num() <= MAX_AUTOCOMPLETION_LINES)
+				{
+					AutoCompleteCursor = AutoComplete.Num() + AutoCompleteCursor - 1;
+				}
+				else
+				{
+					// skip the "x more matches" line when wrapping
+					AutoCompleteIndex++;
+					AutoCompleteCursor = MAX_AUTOCOMPLETION_LINES + AutoCompleteCursor - 1;
+				}
+			}
+			bAutoCompleteLocked = false;
+		}
+	};
+
+	auto IncrementCursor = [this]()
+	{
+		if (AutoCompleteCursor + 1 < FMath::Min((int32)MAX_AUTOCOMPLETION_LINES, AutoComplete.Num()))
+		{
+			// move cursor within displayed region
+			++AutoCompleteCursor;
+		}
+		else
+		{
+			// can be negative
+			int32 ScrollRegionSize = AutoComplete.Num() - (int32)MAX_AUTOCOMPLETION_LINES;
+
+			// can we scroll?
+			if (AutoCompleteIndex < ScrollRegionSize)
+			{
+				++AutoCompleteIndex;
+			}
+			else
+			{
+				// wrap around
+				AutoCompleteIndex = AutoCompleteCursor = 0;
+			}
+		}
+	};
+
 	// if user input is open
 	if(ConsoleState != NAME_None)
 	{
@@ -678,7 +771,9 @@ bool UConsole::InputKey_InputLine( int32 ControllerId, FKey Key, EInputEvent Eve
 				SetCursorPos(0);
 
 				AutoCompleteIndex = 0;
-				AutoCompleteCursor = -1;
+				AutoCompleteCursor = 0;
+				PrecompletedInputLine = FString(TEXT(""));
+				LastAutoCompletedCommand = nullptr;
 				AutoComplete.Empty();
 				bAutoCompleteLocked = false;
 
@@ -687,15 +782,6 @@ bool UConsole::InputKey_InputLine( int32 ControllerId, FKey Key, EInputEvent Eve
 			else
 			{
 				FakeGotoState( NAME_None );
-			}
-
-			return true;
-		}
-		else if (Key == EKeys::Tab && Event == IE_Pressed)
-		{
-			if (!bAutoCompleteLocked)
-			{
-				SetInputLineFromAutoComplete();
 			}
 
 			return true;
@@ -729,6 +815,10 @@ bool UConsole::InputKey_InputLine( int32 ControllerId, FKey Key, EInputEvent Eve
 				FakeGotoState(NAME_None);
 			}
 
+			// A command was executed and/or the console closed, discard the most recent autocomplete info
+			PrecompletedInputLine = FString(TEXT(""));
+			LastAutoCompletedCommand = nullptr;
+
 			return true;
 		}
 		else if( Event != IE_Pressed && Event != IE_Repeat )
@@ -747,52 +837,58 @@ bool UConsole::InputKey_InputLine( int32 ControllerId, FKey Key, EInputEvent Eve
 			{
 				if(AutoComplete.Num())
 				{
-					if(AutoCompleteCursor + 1 < FMath::Min((int32)MAX_AUTOCOMPLETION_LINES, AutoComplete.Num()))
+					if (ConsoleSettings->bOrderTopToBottom)
 					{
-						// move cursor within displayed region
-						++AutoCompleteCursor;
+						DecrementCursor();
 					}
-					else 
+					else
 					{
-						// can be negative
-						int32 ScrollRegionSize = AutoComplete.Num() - (int32)MAX_AUTOCOMPLETION_LINES;
-
-						// can we scroll?
-						if(AutoCompleteIndex + 1 < ScrollRegionSize)
-						{
-							++AutoCompleteIndex;
-						}
+						IncrementCursor();
 					}
-					SetInputLineFromAutoComplete();
 				}
 				else
 				{
 					SetAutoCompleteFromHistory();
-					SetInputLineFromAutoComplete();
-				}
-			}
-			return true;
-		}
-		else if( Key == EKeys::Down )
-		{
-			if (!bCtrl && AutoComplete.Num() > 1)
-			{
-				if(AutoCompleteCursor > 0)
-				{
-					// move cursor within displayed region
-					--AutoCompleteCursor;
-				}
-				else
-				{
-					// can we scroll?
-					if(AutoCompleteIndex > 0)
-					{
-						--AutoCompleteIndex;
-					}
-					bAutoCompleteLocked = false;
 				}
 				SetInputLineFromAutoComplete();
 			}
+		}
+		else if( Key == EKeys::Down || Key == EKeys::Tab )
+		{
+			if (!bCtrl)
+			{
+				if (AutoComplete.Num())
+				{
+					bool bScroll = AutoComplete.Num() > 1;
+
+					if (Key == EKeys::Tab)
+					{
+						bCaptureKeyInput = true;
+
+						// If this is a repeated tab press, we want to scroll. Otherwise complete the current command
+						bScroll = bScroll && LastAutoCompletedCommand == TypedStr;
+					}
+
+					if (bScroll)
+					{
+						if (ConsoleSettings->bOrderTopToBottom)
+						{
+							IncrementCursor();
+						}
+						else
+						{
+							DecrementCursor();
+						}
+					}
+				}
+				else
+				{
+					SetAutoCompleteFromHistory();
+				}
+
+				SetInputLineFromAutoComplete();
+			}
+			return true;
 		}
 		else if( Key==EKeys::BackSpace )
 		{
@@ -860,40 +956,9 @@ bool UConsole::InputKey_InputLine( int32 ControllerId, FKey Key, EInputEvent Eve
 			SetCursorPos(TypedStr.Len());
 			return true;
 		}
-		else
-		{
-			// auto complete is open and the user adds a key
-			if (AutoComplete.Num() > 0 && !bAutoCompleteLocked && AutoCompleteCursor >= 0)
-			{
-				const FAutoCompleteCommand& Cmd = AutoComplete[AutoCompleteIndex + AutoCompleteCursor];
-
-				TypedStr = Cmd.Command;
-				SetCursorPos(TypedStr.Len());
-				bAutoCompleteLocked = true;
-
-				// no "return true" so that the following key will be added the auto completed string
-			}
-		}
 	}
 
 	return false;
-}
-
-
-namespace ConsoleDefs
-{
-	/** Colors */
-	static const FColor BorderColor( 140, 140, 140 );
-	static const FColor CursorColor( 255, 255, 255 );
-	static const FColor InputTextColor( 220, 220, 220 );
-	static const FColor AutocompleteBackgroundColor( 0, 0, 0 );
-	static const FColor AutocompletePartialSuggestionColor( 100, 100, 100 );
-	static const FColor AutocompleteSuggestionColor( 180, 180, 180 );
-	static const FColor CursorLineColor( 0, 50, 0 );
-	static const int32 AutocompleteGap = 6;
-
-	/** Text that appears before the user's typed input string that acts as a visual cue for the editable area */
-	static const FString LeadingInputText( TEXT( " > " ) );
 }
 
 void UConsole::SetInputLineFromAutoComplete()
@@ -906,6 +971,25 @@ void UConsole::SetInputLineFromAutoComplete()
 		TypedStr = Cmd.Command;
 		SetCursorPos(TypedStr.Len());
 		bAutoCompleteLocked = true;
+
+		PrecompletedInputLine = Cmd.Command;
+		LastAutoCompletedCommand = Cmd.Command;
+	}
+}
+
+void UConsole::UpdatePrecompletedInputLine()
+{
+	// Set the full command text for the user input if they were to autocomplete it with tab
+	if (AutoComplete.Num() > 0)
+	{
+		const int32 Index = AutoCompleteIndex + (AutoCompleteCursor >= 0 ? AutoCompleteCursor : 0);
+		const FAutoCompleteCommand& Cmd = AutoComplete[Index];
+		PrecompletedInputLine = Cmd.Command;
+	}
+	else
+	{
+		// Input buffer cleared, or the user is typing some nonexistent command
+		PrecompletedInputLine = FString(TEXT(""));
 	}
 }
 
@@ -924,16 +1008,6 @@ void UConsole::NormalizeHistoryBuffer()
 
 void UConsole::PostRender_Console_Typing(UCanvas* Canvas)
 {
-	float xl, yl;
-
-	// Blank out a space
-
-	// use the smallest font
-	UFont* Font = GEngine->GetSmallFont();
-	// determine the position for the cursor
-	FString OutStr = FString::Printf(TEXT("%s%s"), *ConsoleDefs::LeadingInputText, *TypedStr);
-	Canvas->StrLen(Font, OutStr,xl,yl);
-
 	float ClipX = Canvas->ClipX;
 	float ClipY = Canvas->ClipY;
 	float LeftPos = 0;
@@ -1050,7 +1124,10 @@ void UConsole::PostRender_Console_Open(UCanvas* Canvas)
 	Canvas->StrLen(Font, TEXT("M"),xl,yl);
 
 	// Background
-	FCanvasTileItem ConsoleTile( FVector2D( LeftPos, 0.0f ), DefaultTexture_Black->Resource, FVector2D( ClipX, Height + TopPos - yl), FVector2D( 0.0f, 0.0f), FVector2D( 1.0f, 1.0f ), FLinearColor::White );
+	FLinearColor BackgroundColor = ConsoleDefs::AutocompleteBackgroundColor.ReinterpretAsLinear();
+	BackgroundColor.A = ConsoleSettings->BackgroundOpacityPercentage / 100.0f;
+	FCanvasTileItem ConsoleTile( FVector2D( LeftPos, 0.0f ), DefaultTexture_Black->Resource, FVector2D( ClipX, Height + TopPos - yl), FVector2D( 0.0f, 0.0f), FVector2D( 1.0f, 1.0f ), BackgroundColor );
+	ConsoleTile.BlendMode = SE_BLEND_Translucent;
 	Canvas->DrawItem( ConsoleTile );
 
 	// figure out which element of the scrollback buffer to should appear first (at the top of the screen)
@@ -1060,7 +1137,7 @@ void UConsole::PostRender_Console_Open(UCanvas* Canvas)
 
 	if(Scrollback.Num())
 	{
-		FCanvasTextItem ConsoleText( FVector2D( LeftPos,TopPos+Height-5-yl ), FText::FromString(TEXT("")), GEngine->GetSmallFont(), ConsoleDefs::InputTextColor );		
+		FCanvasTextItem ConsoleText( FVector2D( LeftPos,TopPos+Height-5-yl ), FText::FromString(TEXT("")), GEngine->GetSmallFont(), ConsoleSettings->InputColor );
 
 		// change the text color to white
 		ConsoleText.SetColor( FLinearColor::White );
@@ -1164,11 +1241,13 @@ void UConsole::PostRender_InputLine(UCanvas* Canvas, FIntPoint UserInputLinePos)
 {
 	float xl, yl;
 
+	const FString TypedInputText = FString::Printf(TEXT("%s%s"), *ConsoleDefs::LeadingInputText, *TypedStr);
+	const FString PrecompletedInputText = !PrecompletedInputLine.IsEmpty() ? PrecompletedInputLine.RightChop(TypedStr.Len()) : FString();
+
 	// use the smallest font
 	UFont* Font = GEngine->GetSmallFont();
-	// determine the position for the cursor
-	FString OutStr = FString::Printf(TEXT("%s%s"), *ConsoleDefs::LeadingInputText, *TypedStr);
-	Canvas->StrLen(Font, OutStr,xl,yl);
+	// determine the size of the input line
+	Canvas->StrLen(Font, TypedInputText, xl, yl);
 
 	float ClipX = Canvas->ClipX;
 	float ClipY = Canvas->ClipY;
@@ -1186,7 +1265,10 @@ void UConsole::PostRender_InputLine(UCanvas* Canvas, FIntPoint UserInputLinePos)
 	}
 
 	// Background
-	FCanvasTileItem ConsoleTile( FVector2D( UserInputLinePos.X,UserInputLinePos.Y-6-yl ), DefaultTexture_Black->Resource, FVector2D( ClipX, yl+6 ), FVector2D( 0.0f, 0.0f), FVector2D( 1.0f, 1.0f ), FLinearColor::White );
+	FLinearColor BackgroundColor = ConsoleDefs::AutocompleteBackgroundColor.ReinterpretAsLinear();
+	BackgroundColor.A = ConsoleSettings->BackgroundOpacityPercentage / 100.0f;
+	FCanvasTileItem ConsoleTile( FVector2D( UserInputLinePos.X,UserInputLinePos.Y-6-yl ), DefaultTexture_Black->Resource, FVector2D( ClipX, yl+6 ), FVector2D( 0.0f, 0.0f), FVector2D( 1.0f, 1.0f ), BackgroundColor );
+	ConsoleTile.BlendMode = SE_BLEND_Translucent;
 	Canvas->DrawItem( ConsoleTile );
 
 	// Separator line
@@ -1196,11 +1278,20 @@ void UConsole::PostRender_InputLine(UCanvas* Canvas, FIntPoint UserInputLinePos)
 	Canvas->DrawItem( ConsoleTile );
 
 	// Currently typed string
-	FText Str = FText::FromString( OutStr );
-	FCanvasTextItem ConsoleText( FVector2D( UserInputLinePos.X,UserInputLinePos.Y-3-yl ), Str , GEngine->GetSmallFont(), ConsoleDefs::InputTextColor );		
+	FText Str = FText::FromString( TypedInputText );
+	FCanvasTextItem ConsoleText( FVector2D( UserInputLinePos.X,UserInputLinePos.Y-3-yl ), Str , GEngine->GetSmallFont(), ConsoleSettings->InputColor );
+	ConsoleText.EnableShadow(FLinearColor::Black);
 	Canvas->DrawItem( ConsoleText );
 
-	// draw the remaining text for matching auto-complete
+	// Precompleted remainder of the typed string (faded out)
+	if (!PrecompletedInputText.IsEmpty())
+	{
+		ConsoleText.SetColor(ConsoleSettings->AutoCompleteFadedColor);
+		ConsoleText.Text = FText::FromString(PrecompletedInputText);
+		Canvas->DrawItem(ConsoleText, UserInputLinePos.X + xl, UserInputLinePos.Y - 3 - yl);
+	}
+
+	// Draw the autocomplete elements
 	if (AutoComplete.Num() > 0)
 	{
 		int32 StartIdx = AutoCompleteIndex;
@@ -1214,7 +1305,9 @@ void UConsole::PostRender_InputLine(UCanvas* Canvas, FIntPoint UserInputLinePos)
 		float y = UserInputLinePos.Y - 6.0f - (yl * 2.0f);
 
 		// Set the background color/texture of the auto-complete section
-		ConsoleTile.SetColor( ConsoleDefs::AutocompleteBackgroundColor );
+		FLinearColor AutoCompleteBackgroundColor = ConsoleDefs::AutocompleteBackgroundColor;
+		AutoCompleteBackgroundColor.A = ConsoleSettings->BackgroundOpacityPercentage / 100.0f;
+		ConsoleTile.SetColor( AutoCompleteBackgroundColor );
 		ConsoleTile.Texture = DefaultTexture_White->Resource;
 
 		// wasteful memory allocations but when typing in a console command this is fine
@@ -1222,88 +1315,70 @@ void UConsole::PostRender_InputLine(UCanvas* Canvas, FIntPoint UserInputLinePos)
 		// to avoid memory many allocations
 		AutoCompleteElements.Empty(MAX_AUTOCOMPLETION_LINES + 1);
 
+		float MaxLeftWidth = 0;
+		float MaxRightWidth = 0;
 		for (int32 MatchIdx = 0; MatchIdx < MAX_AUTOCOMPLETION_LINES && MatchIdx < AutoComplete.Num(); MatchIdx++)
 		{
 			const FAutoCompleteCommand &Cmd = AutoComplete[StartIdx + MatchIdx];
-			OutStr = Cmd.Desc;
-
 			AutoCompleteElements.Add(&Cmd);
+
+			// Find the longest command and the longest description for left-justification of the descriptions
+			float CmdLenX, CmdLenY;
+			Canvas->StrLen(Font, Cmd.GetLeft(), CmdLenX, CmdLenY);
+			MaxLeftWidth = FMath::Max(MaxLeftWidth, CmdLenX);
+			if (!Cmd.Desc.IsEmpty())
+			{
+				float DescLenX, DescLenY;
+				Canvas->StrLen(Font, Cmd.GetRight(), DescLenX, DescLenY);
+				MaxRightWidth = FMath::Max(MaxRightWidth, ConsoleDefs::AutocompleteGap + DescLenX);
+			}
 		}
 
 		// Display a message if there were more matches
-		if (AutoComplete.Num() >= MAX_AUTOCOMPLETION_LINES)
+		if (AutoComplete.Num() > MAX_AUTOCOMPLETION_LINES)
 		{
 			static FAutoCompleteCommand MoreMatchesLine;
 
-			MoreMatchesLine.Desc = FString::Printf(TEXT("[%i more matches]"), (AutoComplete.Num() - MAX_AUTOCOMPLETION_LINES + 1));
+			MoreMatchesLine.Command = FString::Printf(TEXT("[%i more matches]"), (AutoComplete.Num() - MAX_AUTOCOMPLETION_LINES));
+			MoreMatchesLine.Color = ConsoleSettings->AutoCompleteFadedColor;
 			AutoCompleteElements.Add(&MoreMatchesLine);
 		}
 
 		// background rectangle behind auto completion
-		float MaxWidth = 0;
-		{
-			float MaxHeight = 0;
+		float MaxWidth = MaxLeftWidth + MaxRightWidth;
+		float Height = AutoCompleteElements.Num() * yl;
+		int32 Border = 4;
 
-			for(int32 i = 0, Num = AutoCompleteElements.Num(); i < Num; ++i)
-			{
-				const FAutoCompleteCommand& AutoCompleteElement = *AutoCompleteElements[i];
+		// dark inner part
+		ConsoleTile.Size = FVector2D( MaxWidth + 2 * Border, Height + 2 * Border );
+		ConsoleTile.SetColor( AutoCompleteBackgroundColor );
+		ConsoleTile.BlendMode = SE_BLEND_Translucent;
+		Canvas->DrawItem( ConsoleTile, UserInputLinePos.X + xl - Border, y + yl - Height - Border );
 
-				float Width = 0;
-				{
-					float info_xl, info_yl;
-					Canvas->StrLen(Font, AutoCompleteElement.GetLeft(), info_xl, info_yl);
-					Width += info_xl;
-				}
-				if(!AutoCompleteElement.Desc.IsEmpty())
-				{
-					Width += ConsoleDefs::AutocompleteGap;
-
-					float info_xl, info_yl;
-					Canvas->StrLen(Font, AutoCompleteElement.GetRight(), info_xl, info_yl);
-					Width += info_xl;
-				}
-				MaxWidth = FMath::Max(MaxWidth, Width);
-				MaxHeight += yl;
-			}
-
-			int32 Border = 4;
-
-			// white border
-			ConsoleTile.Size = FVector2D( MaxWidth + 2 * Border, MaxHeight + 2 * Border );
-			ConsoleTile.SetColor( ConsoleDefs::BorderColor );
-			Canvas->DrawItem( ConsoleTile, UserInputLinePos.X + xl - Border, y + yl - MaxHeight - Border );
-
-			--Border;
-
-			// dark inner part
-			ConsoleTile.Size = FVector2D( MaxWidth + 2 * Border, MaxHeight + 2 * Border );
-			ConsoleTile.SetColor( ConsoleDefs::AutocompleteBackgroundColor );
-			Canvas->DrawItem( ConsoleTile, UserInputLinePos.X + xl - Border, y + yl - MaxHeight - Border );
-		}
+		// white border
+		FCanvasBoxItem ConsoleOutline(ConsoleTile.Position, FVector2D(MaxWidth + 2 * Border, Height + 2 * Border));
+		ConsoleOutline.SetColor(ConsoleDefs::BorderColor);
+		ConsoleOutline.BlendMode = SE_BLEND_Opaque;
+		Canvas->DrawItem(ConsoleOutline, UserInputLinePos.X + xl - Border, y + yl - Height - Border);
 
 		// auto completion elements
-		for(int32 i = 0, Num = AutoCompleteElements.Num(); i < Num; ++i)
+		auto DrawElement = [&](const FAutoCompleteCommand& AutoCompleteElement, int32 i, int32 Num)
 		{
-			const FAutoCompleteCommand& AutoCompleteElement = *AutoCompleteElements[i];
-
 			const bool bCursorLineColor = (i == AutoCompleteCursor);
-			const bool bMoreMatches = (Num >= MAX_AUTOCOMPLETION_LINES && i == Num - 1);
+			const bool bMoreMatches = (Num > MAX_AUTOCOMPLETION_LINES && i == Num - 1);
 			const bool bHistory = AutoCompleteElement.IsHistory();
+			int CmdXOffset = 0;
 		
-			FColor LeftC = ConsoleDefs::AutocompleteSuggestionColor;
-			FColor RightC = ConsoleDefs::AutocompletePartialSuggestionColor;
+			FColor LeftC = AutoCompleteElement.Color;
+			FColor RightC = ConsoleSettings->AutoCompleteFadedColor;
 
 			if(bCursorLineColor)
 			{
 				ConsoleTile.Size = FVector2D(MaxWidth, yl);
 				ConsoleTile.SetColor(ConsoleDefs::CursorLineColor);
+				ConsoleTile.BlendMode = SE_BLEND_Opaque;
 				Canvas->DrawItem(ConsoleTile, UserInputLinePos.X + xl, y);
 				LeftC = ConsoleDefs::CursorColor;
-			}
-
-			if(bMoreMatches)
-			{
-				LeftC = RightC = ConsoleDefs::AutocompletePartialSuggestionColor;
 			}
 
 			if(bHistory)
@@ -1312,29 +1387,63 @@ void UConsole::PostRender_InputLine(UCanvas* Canvas, FIntPoint UserInputLinePos)
 				Swap(LeftC, RightC);
 			}
 
+			float CommandWidth, CommandHeight;
+			Canvas->StrLen(Font, AutoCompleteElement.Command, CommandWidth, CommandHeight);
+
+			if (bMoreMatches)
+			{
+				// Center the "x more matches" line, unless that would put it further right than the descriptions
+				CmdXOffset = FMath::Min((MaxWidth / 2) - (CommandWidth / 2), MaxLeftWidth + ConsoleDefs::AutocompleteGap);
+			}
+
 			ConsoleText.SetColor(LeftC);
 			ConsoleText.Text = FText::FromString(AutoCompleteElement.GetLeft());
-			Canvas->DrawItem( ConsoleText, UserInputLinePos.X + xl, y );
-			float info_xl;
+			Canvas->DrawItem( ConsoleText, UserInputLinePos.X + CmdXOffset + xl, y );
+
+			float DescriptionWidth, DescriptionHeight;
+			Canvas->StrLen(Font, AutoCompleteElement.GetRight(), DescriptionWidth, DescriptionHeight);
+			float DescriptionX = UserInputLinePos.X + xl + ConsoleDefs::AutocompleteGap;
+			float DescriptionOverflow = DescriptionX + MaxLeftWidth + DescriptionWidth - Canvas->SizeX;
+
+			if (DescriptionOverflow > 0)
 			{
-				float info_yl;
-				Canvas->StrLen(Font, AutoCompleteElement.GetLeft(), info_xl, info_yl);
+				// Horizontal overflow due to low resolution or an overly long description; forgo justification
+				DescriptionX = FMath::Max(DescriptionX + CommandWidth, DescriptionX + MaxLeftWidth - DescriptionOverflow);
 			}
+			else
+			{
+				DescriptionX += MaxLeftWidth;
+			}
+
 			ConsoleText.SetColor(RightC);
 			ConsoleText.Text = FText::FromString(AutoCompleteElement.GetRight());
-			Canvas->DrawItem( ConsoleText, UserInputLinePos.X + xl + info_xl + ConsoleDefs::AutocompleteGap, y );
+			Canvas->DrawItem( ConsoleText, DescriptionX, y );
 			y -= yl;
+		};
+
+		if (ConsoleSettings->bOrderTopToBottom)
+		{
+			for (int32 Num = AutoCompleteElements.Num(), i = Num - 1; i >= 0; --i)
+			{
+				DrawElement(*AutoCompleteElements[i], i, Num);
+			}
+		}
+		else
+		{
+			for (int32 Num = AutoCompleteElements.Num(), i = 0; i < Num; ++i)
+			{
+				DrawElement(*AutoCompleteElements[i], i, Num);
+			}
 		}
 	}
 
 	// determine the cursor position
-	OutStr = FString::Printf(TEXT("%s%s"), *ConsoleDefs::LeadingInputText, *TypedStr.Left(TypedStrPos));
-	Canvas->StrLen(Font, OutStr,xl,yl);
+	const FString TypedInputTextUpToCursor = FString::Printf(TEXT("%s%s"), *ConsoleDefs::LeadingInputText, *TypedStr.Left(TypedStrPos));
+	Canvas->StrLen(Font, TypedInputTextUpToCursor,xl,yl);
 
 	// draw the cursor
 	ConsoleText.SetColor( ConsoleDefs::CursorColor );
-	OutStr = FString::Printf( TEXT("_") );
-	ConsoleText.Text = FText::FromString( OutStr );
+	ConsoleText.Text = FText::FromString( FString(TEXT("_")) );
 	Canvas->DrawItem( ConsoleText, UserInputLinePos.X + xl, UserInputLinePos.Y-1.0f-yl );
 
 }
@@ -1386,18 +1495,8 @@ void UConsole::FakeGotoState(FName NextStateName)
 
 		if (WidgetToFocus.IsValid())
 		{
-			bool bViewportGotFocus = false;
-			FSceneViewport* Viewport = GetOuterUGameViewportClient()->GetGameViewport();
-			if (Viewport && WidgetToFocus == GetOuterUGameViewportClient()->GetGameViewportWidget())
-			{
-				bViewportGotFocus = Viewport->RestoreCaptureState(FSlateApplication::Get().GetUserIndexForKeyboard());
-			}
-			
-			if (!bViewportGotFocus)
-			{
-				FSlateApplication::Get().ClearKeyboardFocus(EFocusCause::SetDirectly);
-				FSlateApplication::Get().SetKeyboardFocus(WidgetToFocus);
-			}
+			FSlateApplication::Get().ClearKeyboardFocus(EFocusCause::SetDirectly);
+			FSlateApplication::Get().SetKeyboardFocus(WidgetToFocus);
 		}
 	}
 

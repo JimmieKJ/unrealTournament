@@ -153,6 +153,8 @@ namespace UnrealBuildTool
 			// @todo clang: Clang on Windows doesn't respect "#pragma warning (error: ####)", and we're not passing "/WX", so warnings are not
 			// treated as errors when compiling on Windows using Clang right now.
 
+			// NOTE re: clang: the arguments for clang-cl can be found at http://llvm.org/viewvc/llvm-project/cfe/trunk/include/clang/Driver/CLCompatOptions.td?view=markup
+			// This will show the cl.exe options that map to clang.exe ones, which ones are ignored and which ones are unsupported.
 
 			if (BuildConfiguration.bEnableCodeAnalysis)
 			{
@@ -175,7 +177,12 @@ namespace UnrealBuildTool
 				Arguments.Append(" /nologo");
 
 				// Enable intrinsic functions.
-				Arguments.Append(" /Oi");	// @todo clang: No Clang equivalent to this?
+				Arguments.Append(" /Oi");
+			}
+			else
+			{
+				// Enable intrinsic functions.
+				Arguments.Append(" -fbuiltin");
 			}
 
 
@@ -188,7 +195,7 @@ namespace UnrealBuildTool
 				}
 				else
 				{
-					Arguments.Append(" --target=x86-pc-windows-msvc");
+					Arguments.Append(" --target=i686-pc-windows-msvc");
 				}
 			}
 
@@ -220,13 +227,13 @@ namespace UnrealBuildTool
 			// Reverting this behaviour until the UE4 source catches up.
 			if (WindowsPlatform.Compiler == WindowsCompiler.VisualStudio2015)
 			{
-				Arguments.Append(" /D_CRT_STDIO_LEGACY_WIDE_SPECIFIERS=1");
+				AddDefinition(Arguments, "_CRT_STDIO_LEGACY_WIDE_SPECIFIERS=1");
 			}
 
 			// @todo UWP: Silence the hash_map deprecation errors for now. This should be replaced with unordered_map for the real fix.
 			if (WindowsPlatform.Compiler == WindowsCompiler.VisualStudio2015)
 			{
-				Arguments.Append(" /D_SILENCE_STDEXT_HASH_DEPRECATION_WARNINGS");
+				AddDefinition(Arguments, "_SILENCE_STDEXT_HASH_DEPRECATION_WARNINGS=1");
 			}
 
 			if (BuildConfiguration.bUseSharedPCHs)
@@ -367,23 +374,39 @@ namespace UnrealBuildTool
 				(CompileEnvironment.Config.Target.Platform == CPPTargetPlatform.Win64))
 			{
 				// SSE options are not allowed when using CLR compilation
-				if (CompileEnvironment.Config.CLRMode == CPPCLRMode.CLRDisabled && WindowsPlatform.bUseVCCompilerArgs)
+				if (CompileEnvironment.Config.CLRMode == CPPCLRMode.CLRDisabled)
 				{
-					if (CompileEnvironment.Config.bUseAVX)
+					if (WindowsPlatform.bUseVCCompilerArgs)
 					{
-						// Allow the compiler to generate AVX instructions.
-						Arguments.Append(" /arch:AVX");
+						if (CompileEnvironment.Config.bUseAVX)
+						{
+							// Allow the compiler to generate AVX instructions.
+							Arguments.Append(" /arch:AVX");
+						}
+						// SSE options are not allowed when using the 64 bit toolchain
+						// (enables SSE2 automatically)
+						else if (CompileEnvironment.Config.Target.Platform != CPPTargetPlatform.Win64)
+						{
+							// Allow the compiler to generate SSE2 instructions.
+							Arguments.Append(" /arch:SSE2");
+						}
 					}
-					// SSE options are not allowed when using the 64 bit toolchain
-					// (enables SSE2 automatically)
-					else if (CompileEnvironment.Config.Target.Platform != CPPTargetPlatform.Win64)
+					else
 					{
-						// Allow the compiler to generate SSE2 instructions.
-						Arguments.Append(" /arch:SSE2");
+						if (CompileEnvironment.Config.bUseAVX)
+						{
+							// Allow the compiler to generate AVX instructions.
+							Arguments.Append(" -mavx");
+						}
+						else if (CompileEnvironment.Config.Target.Platform != CPPTargetPlatform.Win64)
+						{
+							// Allow the compiler to generate SSE2 instructions.
+							Arguments.Append(" -msse2");
+						}
 					}
 				}
 
-				if (WindowsPlatform.bUseVCCompilerArgs)
+				if (WindowsPlatform.bUseVCCompilerArgs && !WindowsPlatform.bCompileWithICL)
 				{
 					// Prompt the user before reporting internal errors to Microsoft.
 					Arguments.Append(" /errorReport:prompt");
@@ -427,6 +450,7 @@ namespace UnrealBuildTool
 				{
 					// Store debug info in .pdb files.
 					// @todo clang: PDB files are emited from Clang but do not fully work with Visual Studio yet (breakpoints won't hit due to "symbol read error")
+					// @todo clang (update): as of clang 3.9 breakpoints work with PDBs, and the callstack is correct, so could be used for crash dumps. However debugging is still impossible due to the large amount of unreadable variables and unpredictable breakpoint stepping behaviour
 					if (BuildConfiguration.bUsePDBFiles)
 					{
 						// Create debug info suitable for E&C if wanted.
@@ -514,12 +538,15 @@ namespace UnrealBuildTool
 
 			if (WindowsPlatform.bUseVCCompilerArgs && !BuildConfiguration.bRunUnrealCodeAnalyzer)
 			{
-				// @todo clang: Not supported in clang-cl yet
 				if (!WindowsPlatform.bCompileWithClang)
 				{
 					// Allow large object files to avoid hitting the 2^16 section limit when running with -StressTestUnity.
+					// Note: not needed for clang, it implicitly upgrades COFF files to bigobj format when necessary.
 					Arguments.Append(" /bigobj");
+				}
 
+				if (!WindowsPlatform.bCompileWithICL)
+				{
 					// Relaxes floating point precision semantics to allow more optimization.
 					Arguments.Append(" /fp:fast");
 				}
@@ -535,9 +562,17 @@ namespace UnrealBuildTool
 					}
 					else
 					{
-						Arguments.Append(" /d2Zi+");
+						if (!WindowsPlatform.bCompileWithICL)
+						{
+							Arguments.Append(" /d2Zi+");
+						}
 					}
 				}
+			}
+			else
+			{
+				// Relaxes floating point precision semantics to allow more optimization.
+				Arguments.Append(" -ffast-math");
 			}
 
 			// Disabled when compiling UnrealCodeAnalyzer as it breaks compilation (some structs in clang/llvm headers require 8-byte alignment in 32-bit compilation)
@@ -580,12 +615,15 @@ namespace UnrealBuildTool
 			}
 
 			//@todo: Disable warnings for VS2015. These should be reenabled as we clear the reasons for them out of the engine source and the VS2015 toolchain evolves.
-			if (WindowsPlatform.Compiler == WindowsCompiler.VisualStudio2015)
+			if (WindowsPlatform.Compiler == WindowsCompiler.VisualStudio2015 && WindowsPlatform.bUseVCCompilerArgs)
 			{
 				// Disable shadow variable warnings
-				Arguments.Append(" /wd4456"); // 4456 - declaration of 'LocalVariable' hides previous local declaration
-				Arguments.Append(" /wd4458"); // 4458 - declaration of 'parameter' hides class member
-				Arguments.Append(" /wd4459"); // 4459 - declaration of 'LocalVariable' hides global declaration
+				if (CompileEnvironment.Config.bEnableShadowVariableWarning == false)
+				{
+					Arguments.Append(" /wd4456"); // 4456 - declaration of 'LocalVariable' hides previous local declaration
+					Arguments.Append(" /wd4458"); // 4458 - declaration of 'parameter' hides class member
+					Arguments.Append(" /wd4459"); // 4459 - declaration of 'LocalVariable' hides global declaration
+				}
 
 				Arguments.Append(" /wd4463"); // 4463 - overflow; assigning 1 to bit-field that can only hold values from -1 to 0
 
@@ -596,21 +634,27 @@ namespace UnrealBuildTool
 
 		static void AppendCLArguments_CPP(CPPEnvironment CompileEnvironment, StringBuilder Arguments)
 		{
-			if (WindowsPlatform.bUseVCCompilerArgs)
+			if (!WindowsPlatform.bCompileWithClang)
 			{
 				// Explicitly compile the file as C++.
 				Arguments.Append(" /TP");
 			}
 			else
 			{
+				string FileSpecifier = "c++";
 				if (CompileEnvironment.Config.PrecompiledHeaderAction == PrecompiledHeaderAction.Create)
 				{
 					// Tell Clang to generate a PCH header
-					Arguments.Append(" -x c++-header");
+					FileSpecifier += "-header";
+				}
+				
+				if (WindowsPlatform.bUseVCCompilerArgs)
+				{
+					Arguments.AppendFormat(" -Xclang -x -Xclang \"{0}\"", FileSpecifier);
 				}
 				else
 				{
-					Arguments.Append(" -x c++");
+					Arguments.Append(" -x " + FileSpecifier);
 				}
 			}
 
@@ -623,6 +667,10 @@ namespace UnrealBuildTool
 					// Which can add some performance overhead, especially in performance intensive code
 					// Only disable this if you know what you are doing, because it will be disabled for the entire module!
 					Arguments.Append(" /GS-");
+				}
+				else
+				{
+					Arguments.Append(" -fno-stack-protector");
 				}
 			}
 
@@ -658,20 +706,28 @@ namespace UnrealBuildTool
 			// Set warning level.
 			if (WindowsPlatform.bUseVCCompilerArgs)
 			{
-				if (!BuildConfiguration.bRunUnrealCodeAnalyzer)
+				if (!BuildConfiguration.bRunUnrealCodeAnalyzer && !WindowsPlatform.bCompileWithICL)
 				{
 					// Restrictive during regular compilation.
 					Arguments.Append(" /W4");
 				}
 				else
 				{
-					// If we had /W4 with clang on windows we would be flooded with warnings. This will be fixed incrementally.
+					// If we had /W4 with clang or Intel on windows we would be flooded with warnings. This will be fixed incrementally.
 					Arguments.Append(" /W0");
 				}
 			}
 			else
 			{
 				Arguments.Append(" -Wall");
+			}
+
+			// Intel compiler options.
+			if (WindowsPlatform.bCompileWithICL)
+			{
+				Arguments.Append(" /Qstd=c++11");
+				Arguments.Append(" /fp:precise");
+				Arguments.Append(" /nologo");
 			}
 
 			if (WindowsPlatform.bCompileWithClang)
@@ -721,6 +777,15 @@ namespace UnrealBuildTool
 				Arguments.Append(" -Wno-tautological-compare");
 				Arguments.Append(" -Wno-switch");
 				Arguments.Append(" -Wno-invalid-offsetof"); // needed to suppress warnings about using offsetof on non-POD types.
+
+				// @todo clang: Sorry for adding more of these, but I couldn't read my output log. Most should probably be looked at
+				Arguments.Append(" -Wno-unused-parameter");			// Unused function parameter. A lot are named 'bUnused'...
+				Arguments.Append(" -Wno-ignored-qualifiers");		// const ignored when returning by value e.g. 'const int foo() { return 4; }'
+				Arguments.Append(" -Wno-expansion-to-defined");		// Usage of 'defined(X)' in a macro definition. Gives different results under MSVC
+				Arguments.Append(" -Wno-gnu-string-literal-operator-template");	// String literal operator"" in template, used by delegates
+				Arguments.Append(" -Wno-sign-compare");				// Signed/unsigned comparison - millions of these
+				Arguments.Append(" -Wno-undefined-var-template");	// Variable template instantiation required but no definition available
+				Arguments.Append(" -Wno-missing-field-initializers"); // Stupid warning, generated when you initialize with MyStruct A = {0};
 			}
 		}
 
@@ -1104,7 +1169,7 @@ namespace UnrealBuildTool
 					}
 				}
 
-				if (WindowsPlatform.bCompileWithClang)
+				if (WindowsPlatform.bCompileWithClang || WindowsPlatform.bCompileWithICL)
 				{
 					CompileAction.OutputEventHandler = new DataReceivedEventHandler(ClangCompilerOutputFormatter);
 				}
@@ -1130,7 +1195,7 @@ namespace UnrealBuildTool
 					// Add the precompiled header file to the produced items list.
 					FileItem PrecompiledHeaderFile = FileItem.GetItemByFileReference(
 						FileReference.Combine(
-							CompileEnvironment.Config.OutputDirectory,
+							CompileEnvironment.Config.PCHOutputDirectory ?? CompileEnvironment.Config.OutputDirectory,
 							Path.GetFileName(SourceFile.AbsolutePath) + PrecompiledFileExtension
 							)
 						);
@@ -1330,7 +1395,23 @@ namespace UnrealBuildTool
 					UnrealCodeAnalyzerArguments = UCAMode + SourceFile.AbsolutePath + @" -OutputFile=""" + ObjectFile.AbsolutePath + @""" -- " + ClangPath + @" --driver-mode=cl ";
 				}
 
-				CompileAction.CommandArguments = UnrealCodeAnalyzerArguments + SharedArguments.ToString() + FileArguments.ToString() + CompileEnvironment.Config.AdditionalArguments;
+				if (!ProjectFileGenerator.bGenerateProjectFiles
+					&& !WindowsPlatform.bCompileWithClang
+					&& CompileAction.ProducedItems.Count > 0)
+				{
+					FileItem TargetFile = CompileAction.ProducedItems[0];
+					string ResponseFileName = TargetFile.AbsolutePath + ".response";
+					List<string> ResponseLines = new List<string>();
+					string ResponseLine = UnrealCodeAnalyzerArguments + SharedArguments.ToString() + FileArguments.ToString() + CompileEnvironment.Config.AdditionalArguments;
+					ResponseLines.Add(ActionThread.ExpandEnvironmentVariables(ResponseLine));
+					ResponseFile.Create(new FileReference(ResponseFileName), ResponseLines);
+					CompileAction.CommandArguments = " @\"" + ResponseFileName + "\"";
+					CompileAction.PrerequisiteItems.Add(FileItem.GetExistingItemByPath(ResponseFileName));
+				}
+				else
+				{
+					CompileAction.CommandArguments = UnrealCodeAnalyzerArguments + SharedArguments.ToString() + FileArguments.ToString() + CompileEnvironment.Config.AdditionalArguments;
+				}
 
 				if (CompileEnvironment.Config.PrecompiledHeaderAction == PrecompiledHeaderAction.Create)
 				{
@@ -1678,7 +1759,7 @@ namespace UnrealBuildTool
 				LinkAction.bPrintDebugInfo = true;
 			}
 
-			if (WindowsPlatform.bCompileWithClang)
+			if (WindowsPlatform.bCompileWithClang || WindowsPlatform.bCompileWithICL)
 			{
 				LinkAction.OutputEventHandler = new DataReceivedEventHandler(ClangCompilerOutputFormatter);
 			}
@@ -1821,19 +1902,111 @@ namespace UnrealBuildTool
 		protected static void ClangCompilerOutputFormatter(object sender, DataReceivedEventArgs e)
 		{
 			string Output = e.Data;
-			if (Output == null)
+			if (string.IsNullOrEmpty(Output))
 			{
 				return;
 			}
 
-			// @todo clang: Convert relative includes to absolute files so they'll be clickable
-			Log.TraceInformation(Output);
+			// Simplify some assumptions
+			Output = Output.Replace("\r\n", "\n");
+			Output = Output.Replace("/", "\\");
+
+			// Clang has two main types of line number formats for diagnostic messages:
+			const string SourceExtensions = "cpp|c|cc|cxx|mm|m|hpp|h|inl";
+			const string RegexLineAndColumnNumber = @"\.(?:" + SourceExtensions + @")\(\d+(,\d+)\)";	// 'foo.cpp(30,10): warning : [...]'
+			const string RegexEndOfLineNumber = @"\.(?:" + SourceExtensions + @")\:(\d+)\:";			// 'In file included from foo.cpp:30:'
+
+			// We need to replace both of them with MSVC's format ('foo.cpp(30): warning') to make them colourized and clickable.
+			// Note: MSVC does support clickable column numbers, but adding them makes the colours disappear which is much worse
+			foreach (var Group in Regex.Matches(Output, RegexLineAndColumnNumber)
+				.Cast<Match>()
+				.Where(m => m.Groups.Count == 2)
+				.Select(m => m.Groups[1])
+				.OrderByDescending(g => g.Index)) // Work backwards so the match indices remain valid
+			{
+				string Left = Output.Substring(0, Group.Index) + "):";
+				string Remainder = (Group.Index + Group.Length < Output.Length)
+					? Output.Substring(Group.Index + Group.Length + 2, Output.Length - (Group.Index + Group.Length + 2))
+					: "";
+				Output = Left + Remainder;
+			}
+
+			foreach (var Group in Regex.Matches(Output, RegexEndOfLineNumber)
+				.Cast<Match>()
+				.Where(m => m.Groups.Count == 2)
+				.Select(m => m.Groups[1])
+				.OrderByDescending(g => g.Index))
+			{
+				string Left = Output.Substring(0, Group.Index - 1);
+				string LineNumber = "(" + Group.Value + "):";
+				string Remainder = (Group.Index + Group.Length < Output.Length)
+					? Output.Substring(Group.Index + Group.Length + 1, Output.Length - (Group.Index + Group.Length + 1))
+					: "";
+				Output = Left + LineNumber + Remainder;
+			}
+
+			// Move the weird misplaced space in clang's 'note' diagnostic to make it consistent with warnings/errors, it bugs my OCD
+			Output = Output.Replace(":  note", " : note ");
+
+			LogEventType Verbosity = LogEventType.Console;
+			const string RegexCompilerDiagnostic = @"([\s\:]error[\s\:]|[\s\:]warning[\s\:]|[\s\:]note[\s\:]).*";
+			const string RegexFilePath =  @"([A-Za-z]:?)*([\\\/][A-Za-z0-9_\-\.\ ]*)+\.(" + SourceExtensions + ")";
+			const string RegexAbsoluteFilePath = @"^(?:[A-Za-z]:)?\\";
+
+			// An output string usually consists of multiple lines, each of which may contain a path
+			string[] Lines = Output.Split(new[] {'\n'});
+			for (int LineNum = 0; LineNum < Lines.Length; ++LineNum)
+			{
+				string Line = Lines[LineNum];
+				if (Line.Length > 2 && Line[0] == '\\' && Line[1] != '\\')
+				{
+					Line = Line.Substring(1);
+				}
+
+				// Only match notices, warnings and errors. It is sometimes convenient to have everything clickable, but it gets spammy
+				// with long paths and there are also cases where paths get incorrectly converted (e.g. include paths in errors)
+				string DiagnosticLevel = Regex.Match(Line, RegexCompilerDiagnostic).Value.TrimStart().ToLowerInvariant();
+				if (DiagnosticLevel.Length == 0)
+				{
+					continue;
+				}
+
+				// Set the verbosity level so that UBT console output is colourized
+				if (DiagnosticLevel.Contains("error"))
+				{
+					Verbosity = (LogEventType)Math.Min((int)Verbosity, (int)LogEventType.Error);
+				}
+				else if (DiagnosticLevel.Contains("warning"))
+				{
+					Verbosity = (LogEventType)Math.Min((int)Verbosity, (int)LogEventType.Warning);
+				}
+
+				string FilePath = Regex.Match(Line, RegexFilePath).Value;
+				bool bAbsoluteFilePath = Regex.IsMatch(FilePath, RegexAbsoluteFilePath); // If match, no need to convert
+				if (FilePath.Length > 0 && !bAbsoluteFilePath)
+				{
+					// This assumes all relative source file paths to come from Engine/Source, which is true as far as I know.
+					// Errors in e.g. Engine/Plugins seem to always be reported with their absolute paths.
+					string EngineSourcePath = Path.Combine(BuildConfiguration.RelativeEnginePath, "Source");
+					string AbsoluteFilePath = Path.GetFullPath(Path.Combine(EngineSourcePath, FilePath));
+					Lines[LineNum] = Line.Replace(FilePath, AbsoluteFilePath);
+				}
+			}
+
+			Output = string.Join("\n", Lines);
+			Log.WriteLine(Verbosity, Output);
 		}
 
 		public override void StripSymbols(string SourceFileName, string TargetFileName)
 		{
 			ProcessStartInfo StartInfo = new ProcessStartInfo();
-			StartInfo.FileName = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86), "MSBuild", "Microsoft", "VisualStudio", "v12.0", "AppxPackage", "PDBCopy.exe");
+			string PDBCopyPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86), "MSBuild", "Microsoft", "VisualStudio", "v14.0", "AppxPackage", "PDBCopy.exe");
+			if (!File.Exists(PDBCopyPath))
+			{
+				// Fall back on VS2013 version
+				PDBCopyPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86), "MSBuild", "Microsoft", "VisualStudio", "v12.0", "AppxPackage", "PDBCopy.exe");
+			}
+			StartInfo.FileName = PDBCopyPath;
 			StartInfo.Arguments = String.Format("\"{0}\" \"{1}\" -p", SourceFileName, TargetFileName);
 			StartInfo.UseShellExecute = false;
 			StartInfo.CreateNoWindow = true;

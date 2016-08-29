@@ -529,6 +529,11 @@ public:
 
 	}
 
+	virtual void RHISetStereoViewport(uint32 LeftMinX, uint32 RightMinX, uint32 MinY, float MinZ, uint32 LeftMaxX, uint32 RightMaxX, uint32 MaxY, float MaxZ) final override
+	{
+
+	}
+
 	virtual void RHISetScissorRect(bool bEnable, uint32 MinX, uint32 MinY, uint32 MaxX, uint32 MaxY) final override
 	{
 	}
@@ -781,6 +786,14 @@ public:
 	{
 
 	}
+	virtual bool RHIEnqueueDecompress(uint8_t*, uint8_t*, int, void*) final override
+	{
+		return false;
+	}
+	virtual bool RHIEnqueueCompress(uint8_t*, uint8_t*, int, void*) final override
+	{
+		return false;
+	}
 	virtual bool RHIGetAvailableResolutions(FScreenResolutionArray& Resolutions, bool bIgnoreRefreshRate) final override
 	{ 
 		return false; 
@@ -822,16 +835,6 @@ public:
 	virtual class IRHICommandContextContainer* RHIGetCommandContextContainer() final override
 	{ 
 		return nullptr; 
-	}
-	
-	virtual void RHIBeginAsyncComputeJob_DrawThread(EAsyncComputePriority Priority) override
-	{
-	}
-	virtual void RHIEndAsyncComputeJob_DrawThread(uint32 FenceIndex) override
-	{
-	}
-	virtual void RHIGraphicsWaitOnAsyncComputeJob(uint32 FenceIndex) override
-	{
 	}
 
 private:

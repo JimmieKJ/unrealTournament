@@ -146,17 +146,17 @@ void AUTTeamDMGameMode::UpdateSkillRating()
 	ReportRankedMatchResults(NAME_TDMSkillRating.ToString());
 }
 
-uint8 AUTTeamDMGameMode::GetNumMatchesFor(AUTPlayerState* PS, bool bRankedSession) const
+uint8 AUTTeamDMGameMode::GetNumMatchesFor(AUTPlayerState* PS, bool InbRankedSession) const
 {
 	return PS ? PS->TDMMatchesPlayed : 0;
 }
 
-int32 AUTTeamDMGameMode::GetEloFor(AUTPlayerState* PS, bool bRankedSession) const
+int32 AUTTeamDMGameMode::GetEloFor(AUTPlayerState* PS, bool InbRankedSession) const
 {
-	return PS ? PS->TDMRank : Super::GetEloFor(PS, bRankedSession);
+	return PS ? PS->TDMRank : Super::GetEloFor(PS, InbRankedSession);
 }
 
-void AUTTeamDMGameMode::SetEloFor(AUTPlayerState* PS, bool bRankedSession, int32 NewEloValue, bool bIncrementMatchCount)
+void AUTTeamDMGameMode::SetEloFor(AUTPlayerState* PS, bool InbRankedSession, int32 NewEloValue, bool bIncrementMatchCount)
 {
 	if (PS)
 	{

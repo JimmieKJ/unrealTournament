@@ -5,6 +5,8 @@
 #include "ReflectionMetadata.h"
 #include "SObjectWidget.h"
 
+#define LOCTEXT_NAMESPACE "UMG"
+
 /**
 * Interface for tool tips.
 */
@@ -407,12 +409,22 @@ void UWidget::SetUserFocus(APlayerController* PlayerController)
 {
 	if ( PlayerController == nullptr || !PlayerController->IsLocalPlayerController() || PlayerController->Player == nullptr )
 	{
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+		FMessageLog("PIE").Error(LOCTEXT("NoPlayerControllerToFocus", "The PlayerController is not a valid local player so it can't focus the widget."));
+#endif
 		return;
 	}
 
 	TSharedPtr<SWidget> SafeWidget = GetCachedWidget();
 	if ( SafeWidget.IsValid() )
 	{
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+		if ( !SafeWidget->SupportsKeyboardFocus() )
+		{
+			FMessageLog("PIE").Warning(LOCTEXT("ThisWidgetDoesntSupportFocus", "This widget does not support focus.  If this is a UserWidget, you should set bIsFocusable to true."));
+		}
+#endif
+
 		FLocalPlayerContext Context(PlayerController);
 
 		if ( ULocalPlayer* LocalPlayer = Context.GetLocalPlayer() )
@@ -598,6 +610,7 @@ TSharedRef<SWidget> UWidget::BuildDesignTimeWidget(TSharedRef<SWidget> WrapWidge
 }
 
 #if WITH_EDITOR
+#undef LOCTEXT_NAMESPACE
 #define LOCTEXT_NAMESPACE "UMGEditor"
 
 void UWidget::SetDesignerFlags(EWidgetDesignFlags::Type NewFlags)
@@ -726,6 +739,7 @@ void UWidget::Deselect()
 }
 
 #undef LOCTEXT_NAMESPACE
+#define LOCTEXT_NAMESPACE "UMG"
 #endif
 
 bool UWidget::Modify(bool bAlwaysMarkDirty)
@@ -837,19 +851,21 @@ void UWidget::SynchronizeProperties()
 
 void UWidget::BuildNavigation()
 {
-	TSharedPtr<SWidget> SafeWidget = GetCachedWidget();
-	check(SafeWidget.IsValid());
-
 	if ( Navigation != nullptr )
 	{
-		TSharedPtr<FNavigationMetaData> MetaData = SafeWidget->GetMetaData<FNavigationMetaData>();
-		if ( !MetaData.IsValid() )
-		{
-			MetaData = MakeShareable(new FNavigationMetaData());
-			SafeWidget->AddMetadata(MetaData.ToSharedRef());
-		}
+		TSharedPtr<SWidget> SafeWidget = GetCachedWidget();
 
-		Navigation->UpdateMetaData(MetaData.ToSharedRef());
+		if ( ensure(SafeWidget.IsValid()) )
+		{
+			TSharedPtr<FNavigationMetaData> MetaData = SafeWidget->GetMetaData<FNavigationMetaData>();
+			if ( !MetaData.IsValid() )
+			{
+				MetaData = MakeShareable(new FNavigationMetaData());
+				SafeWidget->AddMetadata(MetaData.ToSharedRef());
+			}
+
+			Navigation->UpdateMetaData(MetaData.ToSharedRef());
+		}
 	}
 }
 
@@ -1059,3 +1075,5 @@ void UWidget::OnBindingChanged(const FName& Property)
 {
 
 }
+
+#undef LOCTEXT_NAMESPACE

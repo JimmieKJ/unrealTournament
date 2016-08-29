@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include "UTActivatedPowerupPlaceholder.generated.h"
+#include "UTActivatedPowerUpPlaceholder.generated.h"
 
 UCLASS(Blueprintable, Abstract, notplaceable)
 class UNREALTOURNAMENT_API AUTActivatedPowerUpPlaceholder : public AUTInventory

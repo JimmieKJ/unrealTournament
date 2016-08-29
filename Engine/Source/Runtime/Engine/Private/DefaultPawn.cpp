@@ -59,7 +59,7 @@ ADefaultPawn::ADefaultPawn(const FObjectInitializer& ObjectInitializer)
 		MeshComponent->bCastDynamicShadow = true;
 		MeshComponent->bAffectDynamicIndirectLighting = false;
 		MeshComponent->PrimaryComponentTick.TickGroup = TG_PrePhysics;
-		MeshComponent->AttachParent = RootComponent;
+		MeshComponent->SetupAttachment(RootComponent);
 		MeshComponent->SetCollisionProfileName(UCollisionProfile::Pawn_ProfileName);
 		const float Scale = CollisionComponent->GetUnscaledSphereRadius() / 160.f; // @TODO: hardcoding known size of EngineMeshes.Sphere. Should use a unit sphere instead.
 		MeshComponent->SetRelativeScale3D(FVector(Scale));
@@ -117,21 +117,21 @@ void InitializeDefaultPawnInputBindings()
 	}
 }
 
-void ADefaultPawn::SetupPlayerInputComponent(UInputComponent* InputComponent)
+void ADefaultPawn::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
 {
-	check(InputComponent);
+	check(PlayerInputComponent);
 
 	if (bAddDefaultMovementBindings)
 	{
 		InitializeDefaultPawnInputBindings();
 
-		InputComponent->BindAxis("DefaultPawn_MoveForward", this, &ADefaultPawn::MoveForward);
-		InputComponent->BindAxis("DefaultPawn_MoveRight", this, &ADefaultPawn::MoveRight);
-		InputComponent->BindAxis("DefaultPawn_MoveUp", this, &ADefaultPawn::MoveUp_World);
-		InputComponent->BindAxis("DefaultPawn_Turn", this, &ADefaultPawn::AddControllerYawInput);
-		InputComponent->BindAxis("DefaultPawn_TurnRate", this, &ADefaultPawn::TurnAtRate);
-		InputComponent->BindAxis("DefaultPawn_LookUp", this, &ADefaultPawn::AddControllerPitchInput);
-		InputComponent->BindAxis("DefaultPawn_LookUpRate", this, &ADefaultPawn::LookUpAtRate);
+		PlayerInputComponent->BindAxis("DefaultPawn_MoveForward", this, &ADefaultPawn::MoveForward);
+		PlayerInputComponent->BindAxis("DefaultPawn_MoveRight", this, &ADefaultPawn::MoveRight);
+		PlayerInputComponent->BindAxis("DefaultPawn_MoveUp", this, &ADefaultPawn::MoveUp_World);
+		PlayerInputComponent->BindAxis("DefaultPawn_Turn", this, &ADefaultPawn::AddControllerYawInput);
+		PlayerInputComponent->BindAxis("DefaultPawn_TurnRate", this, &ADefaultPawn::TurnAtRate);
+		PlayerInputComponent->BindAxis("DefaultPawn_LookUp", this, &ADefaultPawn::AddControllerPitchInput);
+		PlayerInputComponent->BindAxis("DefaultPawn_LookUpRate", this, &ADefaultPawn::LookUpAtRate);
 	}
 }
 

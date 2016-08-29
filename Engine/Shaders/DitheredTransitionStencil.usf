@@ -9,8 +9,7 @@
 float DitheredTransitionFactor;
 
 void Main(
-	FScreenVertexOutput Interpolators,
-	out float OutColor : SV_Target0)
+	FScreenVertexOutput Interpolators)
 {
 	float4 SvPosition = Interpolators.Position;
 	if (abs(DitheredTransitionFactor) > 0.001f)
@@ -22,6 +21,4 @@ void Main(
 			(DitheredTransitionFactor < RandomVal);
 		clip(RetVal - 0.001f);
 	}
-
-	OutColor = 0.f;
 }

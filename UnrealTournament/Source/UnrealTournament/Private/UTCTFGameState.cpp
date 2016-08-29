@@ -229,29 +229,29 @@ void AUTCTFGameState::OnRep_MatchState()
 
 AUTTeamInfo* AUTCTFGameState::FindLeadingTeam()
 {
-	AUTTeamInfo* WinningTeam = NULL;
+	AUTTeamInfo* LeadingTeam = NULL;
 	bool bTied;
 
 	if (Teams.Num() > 0)
 	{
-		WinningTeam = Teams[0];
+		LeadingTeam = Teams[0];
 		bTied = false;
 		for (int32 i=1;i<Teams.Num();i++)
 		{
-			if (Teams[i]->Score == WinningTeam->Score)
+			if (Teams[i]->Score == LeadingTeam->Score)
 			{
 				bTied = true;
 			}
-			else if (Teams[i]->Score > WinningTeam->Score)
+			else if (Teams[i]->Score > LeadingTeam->Score)
 			{
-				WinningTeam = Teams[i];
+				LeadingTeam = Teams[i];
 				bTied = false;
 			}
 		}
 
-		if (bTied) WinningTeam = NULL;
+		if (bTied) LeadingTeam = NULL;
 	}
-	return WinningTeam;	
+	return LeadingTeam;
 }
 
 FName AUTCTFGameState::GetFlagState(uint8 TeamNum)
@@ -294,20 +294,20 @@ void AUTCTFGameState::ResetFlags()
 
 bool AUTCTFGameState::IsMatchInProgress() const
 {
-	FName MatchState = GetMatchState();
-	return (MatchState == MatchState::InProgress || MatchState == MatchState::MatchIsInOvertime || MatchState == MatchState::MatchIntermission || MatchState == MatchState::MatchExitingIntermission);
+	const FName CurrentMatchState = GetMatchState();
+	return (CurrentMatchState == MatchState::InProgress || CurrentMatchState == MatchState::MatchIsInOvertime || CurrentMatchState == MatchState::MatchIntermission || CurrentMatchState == MatchState::MatchExitingIntermission);
 }
 
 bool AUTCTFGameState::IsMatchInOvertime() const
 {
-	FName MatchState = GetMatchState();
-	return (MatchState == MatchState::MatchIsInOvertime);
+	const FName CurrentMatchState = GetMatchState();
+	return (CurrentMatchState == MatchState::MatchIsInOvertime);
 }
 
 bool AUTCTFGameState::IsMatchIntermission() const
 {
-	FName MatchState = GetMatchState();
-	return (MatchState == MatchState::MatchIntermission) || (MatchState == MatchState::MatchIntermission || MatchState == MatchState::MatchExitingIntermission);
+	const FName CurrentMatchState = GetMatchState();
+	return (CurrentMatchState == MatchState::MatchIntermission) || (CurrentMatchState == MatchState::MatchIntermission || CurrentMatchState == MatchState::MatchExitingIntermission);
 }
 
 FName AUTCTFGameState::OverrideCameraStyle(APlayerController* PCOwner, FName CurrentCameraStyle)

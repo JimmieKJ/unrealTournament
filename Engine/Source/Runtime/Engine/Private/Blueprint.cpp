@@ -97,19 +97,19 @@ static void ConformNativeComponents(UBlueprint* Blueprint)
 						// (we're looking to fixup scene-component parents)
 						continue;
 					}
-					UActorComponent* OldNativeParent = FindNativeComponentLambda(BlueprintSceneComponent->AttachParent);
+					UActorComponent* OldNativeParent = FindNativeComponentLambda(BlueprintSceneComponent->GetAttachParent());
 
 					USceneComponent* NativeSceneComponent = CastChecked<USceneComponent>(NativeComponent);
 					// if this native component has since been reparented, we need
 					// to make sure that this blueprint reflects that change
-					if (OldNativeParent != NativeSceneComponent->AttachParent)
+					if (OldNativeParent != NativeSceneComponent->GetAttachParent())
 					{
 						USceneComponent* NewParent = nullptr;
-						if (NativeSceneComponent->AttachParent != nullptr)
+						if (NativeSceneComponent->GetAttachParent() != nullptr)
 						{
-							NewParent = CastChecked<USceneComponent>(FindNamedComponentLambda(NativeSceneComponent->AttachParent->GetFName(), OldNativeComponents));
+							NewParent = CastChecked<USceneComponent>(FindNamedComponentLambda(NativeSceneComponent->GetAttachParent()->GetFName(), OldNativeComponents));
 						}
-						BlueprintSceneComponent->AttachParent = NewParent;
+						BlueprintSceneComponent->SetupAttachment(NewParent, BlueprintSceneComponent->GetAttachSocketName());
 					}
 				}
 				else // the component has been removed from the native class
@@ -187,10 +187,23 @@ namespace
 {
 	void GatherBlueprintForLocalization(const UObject* const Object, FPropertyLocalizationDataGatherer& PropertyLocalizationDataGatherer, const EPropertyLocalizationGathererTextFlags GatherTextFlags)
 	{
-		const UBlueprintCore* const Blueprint = CastChecked<UBlueprintCore>(Object);
+		const UBlueprintCore* const BlueprintCore = CastChecked<UBlueprintCore>(Object);
 
 		// Blueprint assets never exist at runtime, so treat all of their properties as editor-only, but allow their script (which is available at runtime) to be gathered by a game
-		PropertyLocalizationDataGatherer.GatherLocalizationDataFromObject(Blueprint, GatherTextFlags | EPropertyLocalizationGathererTextFlags::ForceEditorOnlyProperties);
+		EPropertyLocalizationGathererTextFlags BlueprintGatherFlags = GatherTextFlags | EPropertyLocalizationGathererTextFlags::ForceEditorOnlyProperties;
+
+#if WITH_EDITOR
+		if (const UBlueprint* const Blueprint = Cast<UBlueprint>(Object))
+		{
+			if (!FBlueprintEditorUtils::IsDataOnlyBlueprint(Blueprint))
+			{
+				// Force non-data-only blueprints to set the HasScript flag, as they may not currently have bytecode due to a compilation error
+				BlueprintGatherFlags |= EPropertyLocalizationGathererTextFlags::ForceHasScript;
+			}
+		}
+#endif
+
+		PropertyLocalizationDataGatherer.GatherLocalizationDataFromObject(BlueprintCore, BlueprintGatherFlags);
 	}
 }
 #endif
@@ -199,13 +212,7 @@ UBlueprintCore::UBlueprintCore(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
 #if WITH_EDITORONLY_DATA
-	static struct FAutomaticRegistrationOfLocalizationGatherer
-	{
-		FAutomaticRegistrationOfLocalizationGatherer()
-		{
-			FPropertyLocalizationDataGatherer::GetTypeSpecificLocalizationDataGatheringCallbacks().Add(UBlueprintCore::StaticClass(), &GatherBlueprintForLocalization);
-		}
-	} AutomaticRegistrationOfLocalizationGatherer;
+	{ static const FAutoRegisterLocalizationDataGatheringCallback AutomaticRegistrationOfLocalizationGatherer(UBlueprintCore::StaticClass(), &GatherBlueprintForLocalization); }
 #endif
 
 	bLegacyGeneratedClassIsAuthoritative = false;
@@ -310,9 +317,9 @@ UBlueprint::UBlueprint(const FObjectInitializer& ObjectInitializer)
 }
 
 #if WITH_EDITORONLY_DATA
-void UBlueprint::PreSave()
+void UBlueprint::PreSave(const class ITargetPlatform* TargetPlatform)
 {
-	Super::PreSave();
+	Super::PreSave(TargetPlatform);
 
 	// Clear all upgrade notes, the user has saved and should not see them anymore
 	UpgradeNotesLog.Reset();
@@ -361,14 +368,14 @@ void UBlueprint::Serialize(FArchive& Ar)
 		}
 	}
 
-	if (Ar.UE4Ver() < VER_UE4_FIX_BLUEPRINT_VARIABLE_FLAGS)
+	for (int32 i = 0; i < NewVariables.Num(); ++i)
 	{
+		FBPVariableDescription& Variable = NewVariables[i];
+
 		// Actor variables can't have default values (because Blueprint templates are library elements that can 
 		// bridge multiple levels and different levels might not have the actor that the default is referencing).
-		for (int32 i = 0; i < NewVariables.Num(); ++i)
+		if (Ar.UE4Ver() < VER_UE4_FIX_BLUEPRINT_VARIABLE_FLAGS)
 		{
-			FBPVariableDescription& Variable = NewVariables[i];
-
 			const FEdGraphPinType& VarType = Variable.VarType;
 
 			bool bDisableEditOnTemplate = false;
@@ -383,7 +390,7 @@ void UBlueprint::Serialize(FArchive& Ar)
 				}
 			}
 
-			if(bDisableEditOnTemplate)
+			if (bDisableEditOnTemplate)
 			{
 				Variable.PropertyFlags |= CPF_DisableEditOnTemplate;
 			}
@@ -391,6 +398,12 @@ void UBlueprint::Serialize(FArchive& Ar)
 			{
 				Variable.PropertyFlags &= ~CPF_DisableEditOnTemplate;
 			}
+		}
+
+		if (Ar.IsLoading())
+		{
+			// Validate metadata keys/values on load only
+			FBlueprintEditorUtils::ValidateBlueprintVariableMetadata(Variable);
 		}
 	}
 
@@ -585,6 +598,13 @@ void UBlueprint::PostLoad()
 	// Make sure that all of the interfaces this BP implements have all required graphs
 	FBlueprintEditorUtils::ConformImplementedInterfaces(this);
 
+	// Make sure that there are no function graphs that are marked as bAllowDeletion=false 
+	// (possible if a blueprint was reparented prior to 4.11):
+	if (GetLinkerCustomVersion(FBlueprintsObjectVersion::GUID) < FBlueprintsObjectVersion::AllowDeletionConformed)
+	{
+		FBlueprintEditorUtils::ConformAllowDeletionFlag(this);
+	}
+
 	// Update old Anim Blueprints
 	FBlueprintEditorUtils::UpdateOutOfDateAnimBlueprints(this);
 
@@ -614,18 +634,6 @@ void UBlueprint::PostLoad()
 			Schema->BackwardCompatibilityNodeConversion(Graph, true);
 		}
 	}
-
-#if WITH_EDITOR
-	if (UpgradeNotesLog.IsValid() && GetLinker())
-	{
-		const FCustomVersion* CustomVersion = GetLinker()->GetCustomVersions().GetVersion(FBlueprintsObjectVersion::GUID);
-		if (CustomVersion == nullptr || CustomVersion->Version < FBlueprintsObjectVersion::ArrayGetByRefUpgrade)
-		{
-			UpgradeNotesLog->Note(TEXT("Auto-Upgrade Note: Updated all array \"Get\" nodes in Blueprint Class \'@@\' to return a reference. Nodes have been injected to ensure they continue to work as they always have."), this);
-			UpgradeNotesLog->Note(TEXT("Auto-Upgrade Note: To remove these upgrade notes, resave @@. Be sure to verify nothing has broken in the upgrade process."), this);
-		}
-	}
-#endif
 
 	FStructureEditorUtils::RemoveInvalidStructureMemberVariableFromBlueprint(this);
 
@@ -750,10 +758,12 @@ UWorld* UBlueprint::GetWorldBeingDebugged()
 
 void UBlueprint::GetAssetRegistryTags(TArray<FAssetRegistryTag>& OutTags) const
 {
-	UClass* GenClass = Cast<UClass>(GeneratedClass);
-	if ( GenClass && GenClass->GetDefaultObject() )
+	if (UClass* GenClass = Cast<UClass>(GeneratedClass))
 	{
-		GenClass->GetDefaultObject()->GetAssetRegistryTags(OutTags);
+		if (UObject* CDO = GenClass->GetDefaultObject())
+		{
+			CDO->GetAssetRegistryTags(OutTags);
+		}
 	}
 
 	Super::GetAssetRegistryTags(OutTags);
@@ -802,12 +812,12 @@ void UBlueprint::GetAssetRegistryTags(TArray<FAssetRegistryTag>& OutTags) const
 	}
 	OutTags.Add( FAssetRegistryTag("ClassFlags", FString::FromInt(ClassFlagsTagged), FAssetRegistryTag::TT_Hidden) );
 
-	if ( ParentClass )
-	{
-		OutTags.Add( FAssetRegistryTag( "IsDataOnly",
+	OutTags.Add( FAssetRegistryTag( "IsDataOnly",
 			FBlueprintEditorUtils::IsDataOnlyBlueprint(this) ? TEXT("True") : TEXT("False"),
 			FAssetRegistryTag::TT_Alphabetical ) );
 
+	if ( ParentClass )
+	{
 		OutTags.Add( FAssetRegistryTag("FiBData", FFindInBlueprintSearchManager::Get().QuerySingleBlueprint((UBlueprint*)this, false), FAssetRegistryTag::TT_Hidden) );
 	}
 
@@ -1237,13 +1247,13 @@ void UBlueprint::TagSubobjects(EObjectFlags NewFlags)
 {
 	Super::TagSubobjects(NewFlags);
 
-	if (GeneratedClass && !GeneratedClass->HasAnyFlags(GARBAGE_COLLECTION_KEEPFLAGS) && !GeneratedClass->IsRooted())
+	if (GeneratedClass && !GeneratedClass->HasAnyFlags(GARBAGE_COLLECTION_KEEPFLAGS))
 	{
 		GeneratedClass->SetFlags(NewFlags);
 		GeneratedClass->TagSubobjects(NewFlags);
 	}
 
-	if (SkeletonGeneratedClass && SkeletonGeneratedClass != GeneratedClass && !SkeletonGeneratedClass->HasAnyFlags(GARBAGE_COLLECTION_KEEPFLAGS) && !SkeletonGeneratedClass->IsRooted())
+	if (SkeletonGeneratedClass && SkeletonGeneratedClass != GeneratedClass && !SkeletonGeneratedClass->HasAnyFlags(GARBAGE_COLLECTION_KEEPFLAGS))
 	{
 		SkeletonGeneratedClass->SetFlags(NewFlags);
 		SkeletonGeneratedClass->TagSubobjects(NewFlags);

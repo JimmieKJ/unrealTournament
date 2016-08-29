@@ -176,9 +176,6 @@ void AUTPartyBeaconHost::LockReservations(bool bNewLockState)
 	UE_LOG(LogBeacon, Verbose, TEXT("Setting reservation lock state to %s"), bNewLockState ? TEXT("true") : TEXT("false"));
 	// warn on new reservations?
 	bReservationsLocked = bNewLockState;
-
-	// Turn off timeouts when locked to avoid log spam about timing players out that will never be removed
-	bNoTimeouts = bNewLockState;
 }
 
 void AUTPartyBeaconHost::HandlePlayerLogout(const FUniqueNetIdRepl& PlayerId)

@@ -294,7 +294,7 @@ public:
 	/** A delegate that is invoked prior to browser navigation. */
 	DECLARE_DELEGATE_RetVal_TwoParams(bool, FOnBeforeBrowse, const FString& /*Url*/, const FWebNavigationRequest& /*Request*/)
 	virtual FOnBeforeBrowse& OnBeforeBrowse() = 0;
-
+	
 	/** A delegate that is invoked to allow user code to override the contents of a Url. */
 	DECLARE_DELEGATE_RetVal_ThreeParams(bool, FOnLoadUrl, const FString& /*Method*/, const FString& /*Url*/, FString& /*OutBody*/)
 	virtual FOnLoadUrl& OnLoadUrl() = 0;

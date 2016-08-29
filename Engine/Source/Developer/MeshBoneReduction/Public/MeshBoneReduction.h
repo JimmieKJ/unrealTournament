@@ -11,15 +11,15 @@ class IMeshBoneReduction
 {
 public:
 	/**
-	 * Fix up chunk bone maps based on list of bones to remove
+	 * Fix up section bone maps based on list of bones to remove
 	 * List of bones to remove should contains <bone index to remove, bone index to replace to >
 	 * 
-	 * @param	Chunk : Chunk reference to fix up
+	 * @param	Section : Section reference to fix up
 	 * @param	BonesToRemove : List of bones to remove with a pair of [bone index, bone to replace]
 	 *
 	 * @return	true if success 
 	 */
-	virtual void FixUpChunkBoneMaps( FSkelMeshChunk & Chunk, const TMap<FBoneIndexType, FBoneIndexType> &BonesToRepair ) = 0;
+	virtual void FixUpSectionBoneMaps( FSkelMeshSection & Section, const TMap<FBoneIndexType, FBoneIndexType> &BonesToRepair ) = 0;
 	/**
 	 * Get Bones To Remove from the Desired LOD
 	 * List of bones to remove should contains <bone index to remove, bone index to replace to >

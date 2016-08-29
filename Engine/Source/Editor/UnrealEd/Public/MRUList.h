@@ -33,7 +33,7 @@ public:
 	/**
 	 * Adds an item to the MRU list, moving it to the top.
 	 *
-	 * @param	Item		The item to add.
+	 * @param	Item		The long package name of the item to add.
 	 */
 	void AddMRUItem(const FString& Item);
 	

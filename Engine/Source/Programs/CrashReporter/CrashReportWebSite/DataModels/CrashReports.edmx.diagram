@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<edmx:Edmx Version="3.0" xmlns:edmx="http://schemas.microsoft.com/ado/2009/11/edmx">
+ <!-- EF Designer content (DO NOT EDIT MANUALLY BELOW HERE) -->
+  <edmx:Designer xmlns="http://schemas.microsoft.com/ado/2009/11/edmx">
+    <!-- Diagram content (shape and connector positions) -->
+    <edmx:Diagrams>
+      <Diagram DiagramId="db29c6e2910b4ef8b7876a6c6da579c9" Name="Diagram1">
+        <EntityTypeShape EntityType="CrashReportModel.Bugg" Width="1.5" PointX="3" PointY="5.5" IsExpanded="true" />
+        <EntityTypeShape EntityType="CrashReportModel.Buggs_Users" Width="1.5" PointX="9.75" PointY="16.75" IsExpanded="true" />
+        <EntityTypeShape EntityType="CrashReportModel.CallStackPattern" Width="1.5" PointX="0.75" PointY="6.75" IsExpanded="true" />
+        <EntityTypeShape EntityType="CrashReportModel.Crash" Width="1.5" PointX="9.75" PointY="6.5" IsExpanded="true" />
+        <EntityTypeShape EntityType="CrashReportModel.ErrorMessage" Width="1.5" PointX="0.75" PointY="3.875" IsExpanded="true" />
+        <EntityTypeShape EntityType="CrashReportModel.FunctionCall" Width="1.5" PointX="0.75" PointY="0.75" IsExpanded="true" />
+        <EntityTypeShape EntityType="CrashReportModel.UserGroup" Width="1.5" PointX="5.25" PointY="16.75" IsExpanded="true" />
+        <EntityTypeShape EntityType="CrashReportModel.User" Width="1.5" PointX="7.5" PointY="16.5" IsExpanded="true" />
+        <AssociationConnector Association="CrashReportModel.Buggs_ErrorMessages_FK" ManuallyRouted="false" />
+        <AssociationConnector Association="CrashReportModel.FK_Buggs_CallStackPatterns" ManuallyRouted="false" />
+        <AssociationConnector Association="CrashReportModel.FK_Buggs_Users_Users" ManuallyRouted="false" />
+        <AssociationConnector Association="CrashReportModel.FK_Buggs_Users_Users_ByName" ManuallyRouted="false" />
+        <AssociationConnector Association="CrashReportModel.FK_Crashes_CallStackPattern" ManuallyRouted="false" />
+        <AssociationConnector Association="CrashReportModel.FK_Crashes_Users" ManuallyRouted="false" />
+        <AssociationConnector Association="CrashReportModel.FK_Users_UserGroups" ManuallyRouted="false" />
+        <AssociationConnector Association="CrashReportModel.Buggs_Crashes" ManuallyRouted="false" />
+        <AssociationConnector Association="CrashReportModel.Buggs_UserGroups" ManuallyRouted="false" />
+      </Diagram>
+    </edmx:Diagrams>
+  </edmx:Designer>
+</edmx:Edmx>

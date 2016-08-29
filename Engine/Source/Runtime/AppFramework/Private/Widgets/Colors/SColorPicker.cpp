@@ -62,6 +62,7 @@ void SColorPicker::Construct( const FArguments& InArgs )
 	ParentWindowPtr = InArgs._ParentWindow.Get();
 	DisplayGamma = InArgs._DisplayGamma;
 	bClosedViaOkOrCancel = false;
+	bValidCreationOverrideExists = InArgs._OverrideColorPickerCreation;
 
 	if ( InArgs._sRGBOverride.IsSet() )
 	{
@@ -431,6 +432,7 @@ void SColorPicker::GenerateDefaultColorPickerContent( bool bAdvancedSectionExpan
 											.OnBegin(this, &SColorPicker::HandleInteractiveChangeBegin)
 											.OnComplete(this, &SColorPicker::HandleEyeDropperButtonComplete)
 											.DisplayGamma(DisplayGamma)
+											.Visibility(bValidCreationOverrideExists ? EVisibility::Collapsed : EVisibility::Visible)
 									]
 							]
 					]
@@ -581,7 +583,7 @@ void SColorPicker::GenerateDefaultColorPickerContent( bool bAdvancedSectionExpan
 					.MinDesiredSlotHeight(FCoreStyle::Get().GetFloat("StandardDialog.MinDesiredSlotHeight"))
 					.MinDesiredSlotWidth(FCoreStyle::Get().GetFloat("StandardDialog.MinDesiredSlotWidth"))
 					.SlotPadding(FCoreStyle::Get().GetMargin("StandardDialog.SlotPadding"))
-					.Visibility(ParentWindowPtr.IsValid() ? EVisibility::Visible : EVisibility::Collapsed)
+					.Visibility((ParentWindowPtr.IsValid() || bValidCreationOverrideExists) ? EVisibility::Visible : EVisibility::Collapsed)
 
 				+ SUniformGridPanel::Slot(0, 0)
 					[
@@ -1189,7 +1191,14 @@ FReply SColorPicker::HandleCancelButtonClicked()
 	bClosedViaOkOrCancel = true;
 
 	DiscardColor();
-	ParentWindowPtr.Pin()->RequestDestroyWindow();
+	if (SColorPicker::OnColorPickerDestroyOverride.IsBound())
+	{
+		SColorPicker::OnColorPickerDestroyOverride.Execute();
+	}
+	else
+	{
+		ParentWindowPtr.Pin()->RequestDestroyWindow();
+	}
 
 	return FReply::Handled();
 }
@@ -1291,9 +1300,15 @@ void SColorPicker::HandleColorSpinBoxValueChanged( float NewValue, EColorPickerC
 }
 
 
-void SColorPicker::HandleEyeDropperButtonComplete()
+void SColorPicker::HandleEyeDropperButtonComplete(bool bCancelled)
 {
 	bIsInteractive = false;
+
+	if (bCancelled)
+	{
+		SetNewTargetColorHSV(OldColor, true);
+		RestoreColors();
+	}
 
 	if (bOnlyRefreshOnMouseUp || bPerfIsTooSlowToUpdate)
 	{
@@ -1431,8 +1446,14 @@ FReply SColorPicker::HandleOkButtonClicked()
 		UpdateColorPick();
 	}
 
-	ParentWindowPtr.Pin()->RequestDestroyWindow();
-
+	if (SColorPicker::OnColorPickerDestroyOverride.IsBound())
+	{
+		SColorPicker::OnColorPickerDestroyOverride.Execute();
+	}
+	else
+	{
+		ParentWindowPtr.Pin()->RequestDestroyWindow();
+	}
 	return FReply::Handled();
 }
 
@@ -1575,6 +1596,9 @@ void SColorPicker::HandleThemesViewerThemeChanged()
 	}
 }
 
+// Static delegates to access whether or not the override is bound in the global Open/Destroy functions
+SColorPicker::FOnColorPickerCreationOverride SColorPicker::OnColorPickerNonModalCreateOverride;
+SColorPicker::FOnColorPickerDestructionOverride SColorPicker::OnColorPickerDestroyOverride;
 
 /* Global functions
  *****************************************************************************/
@@ -1619,13 +1643,21 @@ bool OpenColorPicker(const FColorPickerArgs& Args)
 
 	FVector2D AdjustedSummonLocation = FSlateApplication::Get().CalculatePopupWindowPosition( Anchor, SColorPicker::DEFAULT_WINDOW_SIZE, Orient_Horizontal );
 
-	TSharedPtr<SWindow> Window = SNew(SWindow)
-		.AutoCenter(EAutoCenter::None)
-		.ScreenPosition(AdjustedSummonLocation)
-		.SupportsMaximize(false)
-		.SupportsMinimize(false)
-		.SizingRule(ESizingRule::Autosized)
-		.Title(LOCTEXT("WindowHeader", "Color Picker"));
+	// Only override the color picker window creation behavior if we are not creating a modal color picker
+	const bool bOverrideNonModalCreation = (SColorPicker::OnColorPickerNonModalCreateOverride.IsBound() && !Args.bIsModal);
+
+	TSharedPtr<SWindow> Window = nullptr;
+	
+	if (!bOverrideNonModalCreation)
+	{
+		Window = SNew(SWindow)
+			.AutoCenter(EAutoCenter::None)
+			.ScreenPosition(AdjustedSummonLocation)
+			.SupportsMaximize(false)
+			.SupportsMinimize(false)
+			.SizingRule(ESizingRule::Autosized)
+			.Title(LOCTEXT("WindowHeader", "Color Picker"));
+	}
 
 	TSharedRef<SColorPicker> ColorPicker = SNew(SColorPicker)
 		.TargetColorAttribute(OldColor)
@@ -1644,44 +1676,58 @@ bool OpenColorPicker(const FColorPickerArgs& Args)
 		.OnColorPickerWindowClosed(Args.OnColorPickerWindowClosed)
 		.ParentWindow(Window)
 		.DisplayGamma(Args.DisplayGamma)
-		.sRGBOverride(Args.sRGBOverride);
-		
-	Window->SetContent(
-		SNew(SBox)
-		[
-			SNew(SBorder)
-			.BorderImage(FCoreStyle::Get().GetBrush("ToolPanel.GroupBorder"))
+		.sRGBOverride(Args.sRGBOverride)
+		.OverrideColorPickerCreation(bOverrideNonModalCreation);
+	
+	// If the color picker requested is modal, don't override the behavior even if the delegate is bound
+	if (bOverrideNonModalCreation)
+	{
+		SColorPicker::OnColorPickerNonModalCreateOverride.Execute(ColorPicker);
+
+		Result = true;
+
+		//hold on to the window created for external use...
+		ColorPickerWindow = Window;
+	}
+	else
+	{
+		Window->SetContent(
+			SNew(SBox)
+			[
+				SNew(SBorder)
+				.BorderImage(FCoreStyle::Get().GetBrush("ToolPanel.GroupBorder"))
 			.Padding(FMargin(8.0f, 8.0f))
 			[
 				ColorPicker
 			]
-		]
-	);
+			]
+		);
 
-	if (Args.bIsModal)
-	{
-		FSlateApplication::Get().AddModalWindow(Window.ToSharedRef(), Args.ParentWidget);
-	}
-	else
-	{
-		if ( Args.ParentWidget.IsValid() )
+		if (Args.bIsModal)
 		{
-			// Find the window of the parent widget
-			FWidgetPath WidgetPath;
-			FSlateApplication::Get().GeneratePathToWidgetChecked( Args.ParentWidget.ToSharedRef(), WidgetPath );
-			Window = FSlateApplication::Get().AddWindowAsNativeChild( Window.ToSharedRef(), WidgetPath.GetWindow() );
+			FSlateApplication::Get().AddModalWindow(Window.ToSharedRef(), Args.ParentWidget);
 		}
 		else
 		{
-			Window = FSlateApplication::Get().AddWindow(Window.ToSharedRef());
+			if (Args.ParentWidget.IsValid())
+			{
+				// Find the window of the parent widget
+				FWidgetPath WidgetPath;
+				FSlateApplication::Get().GeneratePathToWidgetChecked(Args.ParentWidget.ToSharedRef(), WidgetPath);
+				Window = FSlateApplication::Get().AddWindowAsNativeChild(Window.ToSharedRef(), WidgetPath.GetWindow());
+			}
+			else
+			{
+				Window = FSlateApplication::Get().AddWindow(Window.ToSharedRef());
+			}
+
 		}
-			
+
+		Result = true;
+
+		//hold on to the window created for external use...
+		ColorPickerWindow = Window;
 	}
-
-	Result = true;
-
-	//hold on to the window created for external use...
-	ColorPickerWindow = Window;
 	
 #endif
 

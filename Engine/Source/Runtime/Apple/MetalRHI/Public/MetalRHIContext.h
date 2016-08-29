@@ -36,7 +36,7 @@ public:
 	 *Sets the current compute shader.  Mostly for compliance with platforms
 	 *that require shader setting before resource binding.
 	 */
-	virtual void RHISetComputeShader(FComputeShaderRHIParamRef ComputeShader) final override;
+	virtual void RHISetComputeShader(FComputeShaderRHIParamRef ComputeShader) override;
 	
 	virtual void RHIDispatchComputeShader(uint32 ThreadGroupCountX, uint32 ThreadGroupCountY, uint32 ThreadGroupCountZ) final override;
 	
@@ -71,7 +71,7 @@ public:
 	
 	virtual void RHIEndOcclusionQueryBatch() final override;
 	
-	virtual void RHISubmitCommandsHint() final override;
+	virtual void RHISubmitCommandsHint() override;
 	
 	// This method is queued with an RHIThread, otherwise it will flush after it is queued; without an RHI thread there is no benefit to queuing this frame advance commands
 	virtual void RHIBeginDrawingViewport(FViewportRHIParamRef Viewport, FTextureRHIParamRef RenderTargetRHI) override;
@@ -108,6 +108,8 @@ public:
 	// @param MaxX excluding like Win32 RECT
 	// @param MaxY excluding like Win32 RECT
 	virtual void RHISetViewport(uint32 MinX, uint32 MinY, float MinZ, uint32 MaxX, uint32 MaxY, float MaxZ) final override;
+
+	virtual void RHISetStereoViewport(uint32 LeftMinX, uint32 RightMinX, uint32 MinY, float MinZ, uint32 LeftMaxX, uint32 RightMaxX, uint32 MaxY, float MaxZ) final override;
 	
 	// @param MinX including like Win32 RECT
 	// @param MinY including like Win32 RECT
@@ -310,15 +312,24 @@ public:
 	
 	virtual void RHIUpdateTextureReference(FTextureReferenceRHIParamRef TextureRef, FTextureRHIParamRef NewTexture) final override;
 	
-	/** Start AsyncCompute command stream recording (no effect if not supported) */
-	virtual void RHIBeginAsyncComputeJob_DrawThread(EAsyncComputePriority Priority) final override;
+	/**
+	 * Explicitly transition a UAV from readable -> writable by the GPU or vice versa.
+	 * Also explicitly states which pipeline the UAV can be used on next.  For example, if a Compute job just wrote this UAV for a Pixel shader to read
+	 * you would do EResourceTransitionAccess::Readable and EResourceTransitionPipeline::EComputeToGfx
+	 *
+	 * @param TransitionType - direction of the transition
+	 * @param EResourceTransitionPipeline - How this UAV is transitioning between Gfx and Compute, if at all.
+	 * @param InUAVs - array of UAV objects to transition
+	 * @param NumUAVs - number of UAVs to transition
+	 * @param WriteComputeFence - Optional ComputeFence to write as part of this transition
+	 */
+	virtual void RHITransitionResources(EResourceTransitionAccess TransitionType, EResourceTransitionPipeline TransitionPipeline, FUnorderedAccessViewRHIParamRef* InUAVs, int32 NumUAVs, FComputeFenceRHIParamRef WriteComputeFence) final override;
 	
-	/** End AsyncCompute command stream recording (no effect if not supported) */
-	virtual void RHIEndAsyncComputeJob_DrawThread(uint32 FenceIndex) final override;
-	
-	/** Wait for AsyncCompute command stream to finish (no effect if not supported) */
-	virtual void RHIGraphicsWaitOnAsyncComputeJob(uint32 FenceIndex) final override;
-	
+	/**
+	 * Compute queue will wait for the fence to be written before continuing.
+	 */
+	virtual void RHIWaitComputeFence(FComputeFenceRHIParamRef InFence) final override;
+
 protected:
 	// Helper for ClearMRT so that it can properly perform volumetric clears
 	void RHIDrawInstancedPrimitiveUP( FRHICommandList& RHICmdList, uint32 PrimitiveType, uint32 NumPrimitives, const void* VertexData, uint32 VertexDataStride, uint32 InstanceCount );
@@ -341,4 +352,15 @@ protected:
 	
 	uint32 PendingPrimitiveType;
 	uint32 PendingNumPrimitives;
+};
+
+class FMetalRHIComputeContext : public FMetalRHICommandContext
+{
+public:
+	FMetalRHIComputeContext(struct FMetalGPUProfiler* InProfiler, FMetalContext* WrapContext);
+	virtual ~FMetalRHIComputeContext();
+	
+	virtual void RHISetAsyncComputeBudget(EAsyncComputeBudget Budget) final override;
+	virtual void RHISetComputeShader(FComputeShaderRHIParamRef ComputeShader) final override;
+	virtual void RHISubmitCommandsHint() final override;
 };

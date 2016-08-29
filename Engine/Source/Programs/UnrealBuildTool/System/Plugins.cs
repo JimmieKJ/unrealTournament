@@ -63,6 +63,34 @@ namespace UnrealBuildTool
 		static Dictionary<DirectoryReference, List<FileReference>> PluginFileCache = new Dictionary<DirectoryReference, List<FileReference>>();
 
 		/// <summary>
+		/// Filters the list of plugins to ensure that any game plugins override engine plugins with the same name, and otherwise that no two
+		/// plugins with the same name exist. 
+		/// </summary>
+		/// <param name="Plugins">List of plugins to filter</param>
+		/// <returns>Filtered list of plugins in the original order</returns>
+		public static IEnumerable<PluginInfo> FilterPlugins(IEnumerable<PluginInfo> Plugins)
+		{
+			Dictionary<string, PluginInfo> NameToPluginInfo = new Dictionary<string, PluginInfo>(StringComparer.InvariantCultureIgnoreCase);
+			foreach(PluginInfo Plugin in Plugins)
+			{
+				PluginInfo ExistingPluginInfo;
+				if(!NameToPluginInfo.TryGetValue(Plugin.Name, out ExistingPluginInfo))
+				{
+					NameToPluginInfo.Add(Plugin.Name, Plugin);
+				}
+				else if(ExistingPluginInfo.LoadedFrom == PluginLoadedFrom.Engine && Plugin.LoadedFrom == PluginLoadedFrom.GameProject)
+				{
+					NameToPluginInfo[Plugin.Name] = Plugin;
+				}
+				else if(ExistingPluginInfo.LoadedFrom != PluginLoadedFrom.GameProject || Plugin.LoadedFrom != PluginLoadedFrom.Engine)
+				{
+					throw new BuildException(String.Format("Found '{0}' plugin in two locations ({1} and {2}). Plugin names must be unique.", Plugin.Name, ExistingPluginInfo.File, Plugin.File));
+				}
+			}
+			return Plugins.Where(x => NameToPluginInfo[x.Name] == x);
+		}
+
+		/// <summary>
 		/// Read all the plugins available to a given project
 		/// </summary>
 		/// <param name="EngineDir">Path to the engine directory</param>
@@ -83,7 +111,7 @@ namespace UnrealBuildTool
 				Plugins.AddRange(ReadPluginsFromDirectory(ProjectPluginsDir, PluginLoadedFrom.GameProject));
 			}
 
-			return Plugins;
+			return FilterPlugins(Plugins).ToList();
 		}
 
 		/// <summary>

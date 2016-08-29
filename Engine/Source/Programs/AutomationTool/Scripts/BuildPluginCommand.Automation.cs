@@ -21,76 +21,136 @@ class BuildPlugin : BuildCommand
 		string PluginParam = ParseParamValue("Plugin");
 		if(PluginParam == null)
 		{
-			throw new AutomationException("Plugin file name was not specified via the -plugin argument");
+			throw new AutomationException("Missing -Plugin=... argument");
 		}
+
+		// Check it exists
+		FileReference PluginFile = new FileReference(PluginParam);
+		if (!PluginFile.Exists())
+		{
+			throw new AutomationException("Plugin '{0}' not found", PluginFile.FullName);
+		}
+
+		// Get the output directory
+		string PackageParam = ParseParamValue("Package");
+		if (PackageParam == null)
+		{
+			throw new AutomationException("Missing -Package=... argument");
+		}
+
+		// Make sure the packaging directory is valid
+		DirectoryReference PackageDir = new DirectoryReference(PackageParam);
+		if (PluginFile.IsUnderDirectory(PackageDir))
+		{
+			throw new AutomationException("Packaged plugin output directory must be different to source");
+		}
+		if (PackageDir.IsUnderDirectory(DirectoryReference.Combine(CommandUtils.RootDirectory, "Engine")))
+		{
+			throw new AutomationException("Output directory for packaged plugin must be outside engine directory");
+		}
+
+		// Clear the output directory of existing stuff
+		if (PackageDir.Exists())
+		{
+			CommandUtils.DeleteDirectoryContents(PackageDir.FullName);
+		}
+		else
+		{
+			PackageDir.CreateDirectory();
+		}
+
+		// Create a placeholder FilterPlugin.ini with instructions on how to use it
+		FileReference SourceFilterFile = FileReference.Combine(PluginFile.Directory, "Config", "FilterPlugin.ini");
+		if (!SourceFilterFile.Exists())
+		{
+			List<string> Lines = new List<string>();
+			Lines.Add("[FilterPlugin]");
+			Lines.Add("; This section lists additional files which will be packaged along with your plugin. Paths should be listed relative to the root plugin directory, and");
+			Lines.Add("; may include \"...\", \"*\", and \"?\" wildcards to match directories, files, and individual characters respectively.");
+			Lines.Add(";");
+			Lines.Add("; Examples:");
+			Lines.Add(";    /README.txt");
+			Lines.Add(";    /Extras/...");
+			Lines.Add(";    /Binaries/ThirdParty/*.dll");
+			SourceFilterFile.Directory.CreateDirectory();
+			CommandUtils.WriteAllLines_NoExceptions(SourceFilterFile.FullName, Lines.ToArray());
+		}
+
+		// Create a host project for the plugin. For script generator plugins, we need to have UHT be able to load it, which can only happen if it's enabled in a project.
+		FileReference HostProjectFile = FileReference.Combine(PackageDir, "HostProject", "HostProject.uproject");
+		FileReference HostProjectPluginFile = CreateHostProject(HostProjectFile, PluginFile);
 
 		// Read the plugin
-		FileReference PluginFile = new FileReference(PluginParam);
-		DirectoryReference PluginDirectory = PluginFile.Directory;
-		PluginDescriptor Plugin = PluginDescriptor.FromFile(PluginFile);
+		CommandUtils.Log("Reading plugin from {0}...", HostProjectPluginFile);
+		PluginDescriptor Plugin = PluginDescriptor.FromFile(HostProjectPluginFile);
 
-		// Clean the intermediate build directory
-		DirectoryReference IntermediateBuildDirectory = DirectoryReference.Combine(PluginDirectory, "Intermediate", "Build");
-		if(CommandUtils.DirectoryExists(IntermediateBuildDirectory.FullName))
+		// Compile the plugin for all the target platforms
+		List<UnrealTargetPlatform> HostPlatforms = ParseParam("NoHostPlatform")? new List<UnrealTargetPlatform>() : new List<UnrealTargetPlatform> { BuildHostPlatform.Current.Platform };
+		List<UnrealTargetPlatform> TargetPlatforms = Rocket.RocketBuild.GetTargetPlatforms(this, BuildHostPlatform.Current.Platform).Where(x => Rocket.RocketBuild.IsCodeTargetPlatform(BuildHostPlatform.Current.Platform, x)).ToList();
+		FileReference[] BuildProducts = CompilePlugin(HostProjectFile, HostProjectPluginFile, Plugin, HostPlatforms, TargetPlatforms, "");
+
+		// Package up the final plugin data
+		PackagePlugin(HostProjectPluginFile, BuildProducts, PackageDir);
+
+		// Remove the host project
+		if(!ParseParam("NoDeleteHostProject"))
 		{
-			CommandUtils.DeleteDirectory(IntermediateBuildDirectory.FullName);
+			CommandUtils.DeleteDirectory(HostProjectFile.Directory.FullName);
 		}
+	}
 
-		// Create a host project for the plugin. For script generator plugins, we need to have UHT be able to load it - and that can only happen if it's enabled in a project.
-		DirectoryReference HostProjectDirectory = DirectoryReference.Combine(new DirectoryReference(CommandUtils.CmdEnv.LocalRoot), "HostProject");
-		if (CommandUtils.DirectoryExists(HostProjectDirectory.FullName))
-		{
-			CommandUtils.DeleteDirectory(HostProjectDirectory.FullName);
-		}
+	FileReference CreateHostProject(FileReference HostProjectFile, FileReference PluginFile)
+	{
+		DirectoryReference HostProjectDir = HostProjectFile.Directory;
+		HostProjectDir.CreateDirectory();
 
-		DirectoryReference HostProjectPluginDirectory = DirectoryReference.Combine(HostProjectDirectory, "Plugins", PluginFile.GetFileNameWithoutExtension());
-
-		string[] CopyPluginFiles = Directory.EnumerateFiles(PluginDirectory.FullName, "*", SearchOption.AllDirectories).ToArray();
-		foreach (string CopyPluginFile in CopyPluginFiles)
-		{
-			CommandUtils.CopyFile(CopyPluginFile, CommandUtils.MakeRerootedFilePath(CopyPluginFile, PluginDirectory.FullName, HostProjectPluginDirectory.FullName));
-		}
-
-		FileReference HostProjectPluginFile = FileReference.Combine(HostProjectPluginDirectory, PluginFile.GetFileName());
-		FileReference HostProjectFile = FileReference.Combine(HostProjectDirectory, "HostProject.uproject");
+		// Create the new project descriptor
 		File.WriteAllText(HostProjectFile.FullName, "{ \"FileVersion\": 3, \"Plugins\": [ { \"Name\": \"" + PluginFile.GetFileNameWithoutExtension() + "\", \"Enabled\": true } ] }");
 
-		// Get any additional arguments from the commandline
-		string AdditionalArgs = "";
+		// Get the plugin directory in the host project, and copy all the files in
+		DirectoryReference HostProjectPluginDir = DirectoryReference.Combine(HostProjectDir, "Plugins", PluginFile.GetFileNameWithoutExtension());
+		CommandUtils.ThreadedCopyFiles(PluginFile.Directory.FullName, HostProjectPluginDir.FullName);
+		CommandUtils.DeleteDirectory(true, DirectoryReference.Combine(HostProjectPluginDir, "Intermediate").FullName);
+
+		// Return the path to the plugin file in the host project
+		return FileReference.Combine(HostProjectPluginDir, PluginFile.GetFileName());
+	}
+
+	FileReference[] CompilePlugin(FileReference HostProjectFile, FileReference HostProjectPluginFile, PluginDescriptor Plugin, List<UnrealTargetPlatform> HostPlatforms, List<UnrealTargetPlatform> TargetPlatforms, string AdditionalArgs)
+	{
+		List<string> ReceiptFileNames = new List<string>();
 
 		// Build the host platforms
-		List<string> ReceiptFileNames = new List<string>();
-		UnrealTargetPlatform HostPlatform = BuildHostPlatform.Current.Platform;
-		if(!ParseParam("NoHostPlatform"))
+		if(HostPlatforms.Count > 0)
 		{
-			if (Plugin.bCanBeUsedWithUnrealHeaderTool)
+			CommandUtils.Log("Building plugin for host platforms: {0}", String.Join(", ", HostPlatforms));
+			foreach (UnrealTargetPlatform HostPlatform in HostPlatforms)
 			{
-				BuildPluginWithUBT(PluginFile, Plugin, null, "UnrealHeaderTool", TargetRules.TargetType.Program, HostPlatform, UnrealTargetConfiguration.Development, ReceiptFileNames, String.Format("{0} -plugin {1}", AdditionalArgs, CommandUtils.MakePathSafeToUseWithCommandLine(HostProjectPluginFile.FullName)));
+				if (Plugin.bCanBeUsedWithUnrealHeaderTool)
+				{
+					CompilePluginWithUBT(null, HostProjectPluginFile, Plugin, "UnrealHeaderTool", TargetRules.TargetType.Program, HostPlatform, UnrealTargetConfiguration.Development, ReceiptFileNames, String.Format("{0} -plugin {1}", AdditionalArgs, CommandUtils.MakePathSafeToUseWithCommandLine(HostProjectPluginFile.FullName)));
+				}
+				CompilePluginWithUBT(HostProjectFile, HostProjectPluginFile, Plugin, "UE4Editor", TargetRules.TargetType.Editor, HostPlatform, UnrealTargetConfiguration.Development, ReceiptFileNames, AdditionalArgs);
 			}
-			BuildPluginWithUBT(PluginFile, Plugin, HostProjectFile, "UE4Editor", TargetRules.TargetType.Editor, HostPlatform, UnrealTargetConfiguration.Development, ReceiptFileNames, AdditionalArgs);
 		}
 
 		// Add the game targets
-		List<UnrealTargetPlatform> TargetPlatforms = Rocket.RocketBuild.GetTargetPlatforms(this, HostPlatform);
-		foreach(UnrealTargetPlatform TargetPlatform in TargetPlatforms)
+		if(TargetPlatforms.Count > 0)
 		{
-			if(Rocket.RocketBuild.IsCodeTargetPlatform(HostPlatform, TargetPlatform))
+			CommandUtils.Log("Building plugin for target platforms: {0}", String.Join(", ", TargetPlatforms));
+			foreach (UnrealTargetPlatform TargetPlatform in TargetPlatforms)
 			{
-				BuildPluginWithUBT(PluginFile, Plugin, HostProjectFile, "UE4Game", TargetRules.TargetType.Game, TargetPlatform, UnrealTargetConfiguration.Development, ReceiptFileNames, AdditionalArgs);
-				BuildPluginWithUBT(PluginFile, Plugin, HostProjectFile, "UE4Game", TargetRules.TargetType.Game, TargetPlatform, UnrealTargetConfiguration.Shipping, ReceiptFileNames, AdditionalArgs);
+				CompilePluginWithUBT(HostProjectFile, HostProjectPluginFile, Plugin, "UE4Game", TargetRules.TargetType.Game, TargetPlatform, UnrealTargetConfiguration.Development, ReceiptFileNames, null);
+				CompilePluginWithUBT(HostProjectFile, HostProjectPluginFile, Plugin, "UE4Game", TargetRules.TargetType.Game, TargetPlatform, UnrealTargetConfiguration.Shipping, ReceiptFileNames, null);
 			}
 		}
 
 		// Package the plugin to the output folder
-		string PackageDirectory = ParseParamValue("Package");
-		if(PackageDirectory != null)
-		{
-			List<BuildProduct> BuildProducts = GetBuildProductsFromReceipts(UnrealBuildTool.UnrealBuildTool.EngineDirectory, HostProjectDirectory, ReceiptFileNames);
-			PackagePlugin(HostProjectPluginFile, BuildProducts, PackageDirectory);
-		}
+		List<BuildProduct> BuildProducts = GetBuildProductsFromReceipts(UnrealBuildTool.UnrealBuildTool.EngineDirectory, HostProjectFile.Directory, ReceiptFileNames);
+		return BuildProducts.Select(x => new FileReference(x.Path)).ToArray();
 	}
 
-	void BuildPluginWithUBT(FileReference PluginFile, PluginDescriptor Plugin, FileReference HostProjectFile, string TargetName, TargetRules.TargetType TargetType, UnrealTargetPlatform Platform, UnrealTargetConfiguration Configuration, List<string> ReceiptFileNames, string InAdditionalArgs)
+	void CompilePluginWithUBT(FileReference HostProjectFile, FileReference HostProjectPluginFile, PluginDescriptor Plugin, string TargetName, TargetRules.TargetType TargetType, UnrealTargetPlatform Platform, UnrealTargetConfiguration Configuration, List<string> ReceiptFileNames, string InAdditionalArgs)
 	{
 		// Find a list of modules that need to be built for this plugin
 		List<string> ModuleNames = new List<string>();
@@ -115,7 +175,7 @@ class BuildPlugin : BuildCommand
 
 			string Architecture = UEBuildPlatform.GetBuildPlatform(Platform).CreateContext(HostProjectFile).GetActiveArchitecture();
 
-			string ReceiptFileName = TargetReceipt.GetDefaultPath(Path.GetDirectoryName(PluginFile.FullName), TargetName, Platform, Configuration, Architecture);
+			string ReceiptFileName = TargetReceipt.GetDefaultPath(HostProjectPluginFile.Directory.FullName, TargetName, Platform, Configuration, Architecture);
 			Arguments += String.Format(" -receipt {0}", CommandUtils.MakePathSafeToUseWithCommandLine(ReceiptFileName));
 			ReceiptFileNames.Add(ReceiptFileName);
 			
@@ -144,37 +204,33 @@ class BuildPlugin : BuildCommand
 		return BuildProducts;
 	}
 
-	static void PackagePlugin(FileReference PluginFile, List<BuildProduct> BuildProducts, string PackageDirectory)
+	static void PackagePlugin(FileReference SourcePluginFile, IEnumerable<FileReference> BuildProducts, DirectoryReference TargetDir)
 	{
-		// Clear the output directory
-		CommandUtils.DeleteDirectoryContents(PackageDirectory);
+		DirectoryReference SourcePluginDir = SourcePluginFile.Directory;
 
 		// Copy all the files to the output directory
-		List<string> MatchingFileNames = FilterPluginFiles(PluginFile.FullName, BuildProducts);
-		foreach(string MatchingFileName in MatchingFileNames)
+		FileReference[] SourceFiles = FilterPluginFiles(SourcePluginFile, BuildProducts).ToArray();
+		foreach(FileReference SourceFile in SourceFiles)
 		{
-			string SourceFileName = Path.Combine(Path.GetDirectoryName(PluginFile.FullName), MatchingFileName);
-			string TargetFileName = Path.Combine(PackageDirectory, MatchingFileName);
-			CommandUtils.CopyFile(SourceFileName, TargetFileName);
-			CommandUtils.SetFileAttributes(TargetFileName, ReadOnly: false);
+			FileReference TargetFile = FileReference.Combine(TargetDir, SourceFile.MakeRelativeTo(SourcePluginDir));
+			CommandUtils.CopyFile(SourceFile.FullName, TargetFile.FullName);
+			CommandUtils.SetFileAttributes(TargetFile.FullName, ReadOnly: false);
 		}
 
 		// Get the output plugin filename
-		FileReference TargetPluginFile = FileReference.Combine(new DirectoryReference(PackageDirectory), PluginFile.GetFileName());
+		FileReference TargetPluginFile = FileReference.Combine(TargetDir, SourcePluginFile.GetFileName());
 		PluginDescriptor NewDescriptor = PluginDescriptor.FromFile(TargetPluginFile);
 		NewDescriptor.bEnabledByDefault = true;
 		NewDescriptor.bInstalled = true;
 		NewDescriptor.Save(TargetPluginFile.FullName);
 	}
 
-	static List<string> FilterPluginFiles(string PluginFileName, List<BuildProduct> BuildProducts)
+	static IEnumerable<FileReference> FilterPluginFiles(FileReference PluginFile, IEnumerable<FileReference> BuildProducts)
 	{
-		string PluginDirectory = Path.GetDirectoryName(PluginFileName);
-
 		// Set up the default filter
 		FileFilter Filter = new FileFilter();
-		Filter.AddRuleForFile(PluginFileName, PluginDirectory, FileFilterType.Include);
-		Filter.AddRuleForFiles(BuildProducts.Select(x => x.Path), PluginDirectory, FileFilterType.Include);
+		Filter.AddRuleForFile(PluginFile.FullName, PluginFile.Directory.FullName, FileFilterType.Include);
+		Filter.AddRuleForFiles(BuildProducts, PluginFile.Directory, FileFilterType.Include);
 		Filter.Include("/Binaries/ThirdParty/...");
 		Filter.Include("/Resources/...");
 		Filter.Include("/Content/...");
@@ -182,10 +238,11 @@ class BuildPlugin : BuildCommand
 		Filter.Include("/Source/...");
 
 		// Add custom rules for each platform
-		string FilterFileName = Path.Combine(Path.GetDirectoryName(PluginFileName), "Config", "FilterPlugin.ini");
-		if(File.Exists(FilterFileName))
+		FileReference FilterFile = FileReference.Combine(PluginFile.Directory, "Config", "FilterPlugin.ini");
+		if(FilterFile.Exists())
 		{
-			Filter.ReadRulesFromFile(FilterFileName, "FilterPlugin");
+			CommandUtils.Log("Reading filter rules from {0}", FilterFile);
+			Filter.ReadRulesFromFile(FilterFile.FullName, "FilterPlugin");
 		}
 
 		// Apply the standard exclusion rules
@@ -193,6 +250,6 @@ class BuildPlugin : BuildCommand
 		Filter.ExcludeConfidentialPlatforms();
 
 		// Apply the filter to the plugin directory
-		return Filter.ApplyToDirectory(PluginDirectory, true);
+		return Filter.ApplyToDirectory(PluginFile.Directory, true);
 	}
 }

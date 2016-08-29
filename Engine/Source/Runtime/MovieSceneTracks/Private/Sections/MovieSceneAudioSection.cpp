@@ -12,6 +12,7 @@ UMovieSceneAudioSection::UMovieSceneAudioSection( const FObjectInitializer& Obje
 	Sound = nullptr;
 	AudioStartTime = 0.f;
 	AudioDilationFactor = 1.f;
+	AudioVolume = 1.f;
 #if WITH_EDITORONLY_DATA
 	bShowIntensity = false;
 #endif
@@ -49,7 +50,7 @@ void UMovieSceneAudioSection::DilateSection( float DilationFactor, float Origin,
 }
 
 
-void UMovieSceneAudioSection::GetKeyHandles(TSet<FKeyHandle>& KeyHandles) const
+void UMovieSceneAudioSection::GetKeyHandles(TSet<FKeyHandle>& KeyHandles, TRange<float> TimeRange) const
 {
 	// do nothing
 }

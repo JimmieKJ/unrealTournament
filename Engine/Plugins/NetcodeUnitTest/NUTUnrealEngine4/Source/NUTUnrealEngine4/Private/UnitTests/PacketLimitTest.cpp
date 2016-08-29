@@ -154,8 +154,8 @@ void UPacketLimitTest::ExecuteClientUnitTest()
 				UnitConn->FlushNet();
 
 
-				int32 ControlBunchSequence = 0;
-				FOutBunch* TestBunch = NUTNet::CreateChannelBunch(ControlBunchSequence, UnitConn, CHTYPE_Control, 0);
+				int32 DummyControlBunchSequence = 0;
+				FOutBunch* TestBunch = NUTNet::CreateChannelBunch(DummyControlBunchSequence, UnitConn, CHTYPE_Control, 0);
 
 				TestBunch->Serialize(PacketData.GetData(), PacketData.Num());
 

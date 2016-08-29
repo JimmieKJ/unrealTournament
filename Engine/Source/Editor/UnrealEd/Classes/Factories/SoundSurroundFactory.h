@@ -7,7 +7,7 @@
 #pragma once
 #include "SoundSurroundFactory.generated.h"
 
-UCLASS(hidecategories=Object)
+UCLASS(MinimalAPI, hidecategories=Object)
 class USoundSurroundFactory : public UFactory
 {
 	GENERATED_UCLASS_BODY()
@@ -21,6 +21,3 @@ class USoundSurroundFactory : public UFactory
 	virtual bool FactoryCanImport( const FString& Filename ) override;
 	//~ End UFactory Interface
 };
-
-
-

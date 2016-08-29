@@ -4,8 +4,7 @@
 	GenericOctree.h: Generic octree definition.
 =============================================================================*/
 
-#ifndef __GENERIC_OCTREE_H__
-#define __GENERIC_OCTREE_H__
+#pragma once
 
 class FOctreeElementId;
 
@@ -726,8 +725,13 @@ public:
 		RootNode.ShrinkElements();
 	}
 
-	/** Apply an arbitrary offset to all elements in the tree */
-	void ApplyOffset(const FVector& InOffset);
+	/** 
+	 * Apply an arbitrary offset to all elements in the tree 
+	 * InOffset - offset to apply
+	 * bGlobalOctree - hint that this octree is used as a boundless global volume, 
+	 *  so only content will be shifted but not origin of the octree
+	 */
+	void ApplyOffset(const FVector& InOffset, bool bGlobalOctree = false);
 
 	/** Initialization constructor. */
 	TOctree(const FVector& InOrigin,float InExtent);
@@ -765,4 +769,3 @@ private:
 
 #include "GenericOctree.inl"
 
-#endif

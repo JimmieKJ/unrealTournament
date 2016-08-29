@@ -25,6 +25,13 @@ public:
 	/** Unlock the bulk font data, after which point the pointer returned by Lock no longer is valid */
 	void Unlock() const;
 
+	/**
+	 * Loads this bulk data, and flags it to be loaded for the lifespan of its owner font.
+	 * Typically this is handled automatically as fonts are used, however you'll want to call this for any fonts used by the rendering thread (as we can't load the bulk data on that thread).
+	 * See UFont::ForceLoadFontData for more details.
+	 */
+	void ForceLoadBulkData();
+
 	/** Returns the size of the bulk data in bytes */
 	int32 GetBulkDataSize() const;
 

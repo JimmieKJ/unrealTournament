@@ -101,6 +101,8 @@ UAISense_Sight::UAISense_Sight(const FObjectInitializer& ObjectInitializer)
 	
 	bAutoRegisterAllPawnsAsSources = true;
 	bNeedsForgettingNotification = true;
+
+	DefaultSightCollisionChannel = GET_AI_CONFIG_VAR(DefaultSightCollisionChannel);
 }
 
 FORCEINLINE_DEBUGGABLE float UAISense_Sight::CalcQueryImportance(const FPerceptionListener& Listener, const FVector& TargetLocation, const float SightRadiusSq) const
@@ -216,11 +218,17 @@ float UAISense_Sight::Update()
 							SightQuery->bLastResult = true;
 							SightQuery->LastSeenLocation = OutSeenLocation;
 						}
-						else
+						// communicate failure only if we've seen give actor before
+						else if (SightQuery->bLastResult == true)
 						{
-							SIGHT_LOG_LOCATION(Listener.Listener.Get()->GetOwner(), TargetLocation, 25.f, FColor::Red, TEXT(""));
 							Listener.RegisterStimulus(TargetActor, FAIStimulus(*this, 0.f, TargetLocation, Listener.CachedLocation, FAIStimulus::SensingFailed));
 							SightQuery->bLastResult = false;
+							SightQuery->LastSeenLocation = FAISystem::InvalidLocation;
+						}
+
+						if (SightQuery->bLastResult == false)
+						{
+							SIGHT_LOG_LOCATION(Listener.Listener.Get()->GetOwner(), TargetLocation, 25.f, FColor::Red, TEXT(""));
 						}
 
 						TracesCount += NumberOfLoSChecksPerformed;
@@ -229,8 +237,8 @@ float UAISense_Sight::Update()
 					{
 						// we need to do tests ourselves
 						FHitResult HitResult;
-						const bool bHit = World->LineTraceSingleByObjectType(HitResult, Listener.CachedLocation, TargetLocation
-							, FCollisionObjectQueryParams(ECC_WorldStatic)
+						const bool bHit = World->LineTraceSingleByChannel(HitResult, Listener.CachedLocation, TargetLocation
+							, DefaultSightCollisionChannel
 							, FCollisionQueryParams(NAME_AILineOfSight, true, Listener.Listener->GetBodyActor()));
 
 						++TracesCount;
@@ -241,11 +249,17 @@ float UAISense_Sight::Update()
 							SightQuery->bLastResult = true;
 							SightQuery->LastSeenLocation = TargetLocation;
 						}
-						else
+						// communicate failure only if we've seen give actor before
+						else if (SightQuery->bLastResult == true)
 						{
-							SIGHT_LOG_LOCATION(Listener.Listener.Get()->GetOwner(), TargetLocation, 25.f, FColor::Red, TEXT(""));
 							Listener.RegisterStimulus(TargetActor, FAIStimulus(*this, 0.f, TargetLocation, Listener.CachedLocation, FAIStimulus::SensingFailed));
 							SightQuery->bLastResult = false;
+							SightQuery->LastSeenLocation = FAISystem::InvalidLocation;
+						}
+
+						if (SightQuery->bLastResult == false)
+						{
+							SIGHT_LOG_LOCATION(Listener.Listener.Get()->GetOwner(), TargetLocation, 25.f, FColor::Red, TEXT(""));
 						}
 					}
 				}

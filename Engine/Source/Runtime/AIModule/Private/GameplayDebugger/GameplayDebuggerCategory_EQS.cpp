@@ -11,7 +11,7 @@
 #if WITH_GAMEPLAY_DEBUGGER
 
 static TAutoConsoleVariable<int32> CVarEQSDetailsOnHUD(
-	TEXT("ai.vd.EQSOnHUD"),
+	TEXT("ai.debug.EQSOnHUD"),
 	0,
 	TEXT("Enable or disable EQS details table on screen.\n")
 	TEXT(" 0: Disable details\n")
@@ -236,7 +236,7 @@ namespace FEQSDebugTable
 void FGameplayDebuggerCategory_EQS::DrawDetailedItemTable(const EQSDebug::FQueryData& QueryData, FGameplayDebuggerCanvasContext& CanvasContext) const
 {
 	const int32 EnableTableView = CVarEQSDetailsOnHUD.GetValueOnGameThread();
-	CanvasContext.Printf(TEXT("Detailed table view: {%s}%s{white}, use '{green}ai.vd.EQSOnHUD %d{white}' to toggle"),
+	CanvasContext.Printf(TEXT("Detailed table view: {%s}%s{white}, use '{green}ai.debug.EQSOnHUD %d{white}' to toggle"),
 		EnableTableView ? TEXT("green") : TEXT("red"),
 		EnableTableView ? TEXT("active") : TEXT("disabled"),
 		EnableTableView ? 0 : 1);

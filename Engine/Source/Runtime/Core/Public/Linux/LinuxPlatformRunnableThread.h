@@ -23,16 +23,15 @@ class FRunnableThreadLinux : public FRunnableThreadPThread
 	};
 
 	/** Each thread needs a separate stack for the signal handler, so possible stack overflows in the thread are handled */
-	void* ThreadCrashHandlingStack;
+	char ThreadCrashHandlingStack[EConstants::CrashHandlerStackSize];
 
 public:
 
-	/** Separate stack for the signal handler (so possible stack overflows don't go unnoticed), shared between threads. */
+	/** Separate stack for the signal handler (so possible stack overflows don't go unnoticed), for the main thread specifically. */
 	static char MainThreadSignalHandlerStack[EConstants::CrashHandlerStackSize];
 
 	FRunnableThreadLinux()
 		:	FRunnableThreadPThread()
-		,	ThreadCrashHandlingStack(nullptr)
 	{
 	}
 
@@ -76,35 +75,18 @@ private:
 		}
 
 		// set the alternate stack for handling crashes due to stack overflow
-		ThreadCrashHandlingStack = FMemory::Malloc(EConstants::CrashHandlerStackSize);
-		if (ThreadCrashHandlingStack)
+		stack_t SignalHandlerStack;
+		FMemory::Memzero(SignalHandlerStack);
+		SignalHandlerStack.ss_sp = ThreadCrashHandlingStack;
+		SignalHandlerStack.ss_size = EConstants::CrashHandlerStackSize;
+
+		if (sigaltstack(&SignalHandlerStack, nullptr) < 0)
 		{
-			stack_t SignalHandlerStack;
-			FMemory::Memzero(SignalHandlerStack);
-			SignalHandlerStack.ss_sp = ThreadCrashHandlingStack;
-			SignalHandlerStack.ss_size = EConstants::CrashHandlerStackSize;
-
-			if (sigaltstack(&SignalHandlerStack, nullptr) < 0)
-			{
-				int ErrNo = errno;
-				UE_LOG(LogLinux, Warning, TEXT("Unable to set alternate stack for crash handler, sigaltstack() failed with errno=%d (%s)"),
-					ErrNo,
-					UTF8_TO_TCHAR(strerror(ErrNo))
-					);
-
-				// free the memory immediately
-				FMemory::Free(ThreadCrashHandlingStack);
-				ThreadCrashHandlingStack = nullptr;
-			}
-		}
-	}
-
-	virtual void PostRun()
-	{
-		if (ThreadCrashHandlingStack)
-		{
-			FMemory::Free(ThreadCrashHandlingStack);
-			ThreadCrashHandlingStack = nullptr;
+			int ErrNo = errno;
+			UE_LOG(LogLinux, Warning, TEXT("Unable to set alternate stack for crash handler, sigaltstack() failed with errno=%d (%s)"),
+				ErrNo,
+				UTF8_TO_TCHAR(strerror(ErrNo))
+				);
 		}
 	}
 

@@ -107,13 +107,13 @@ void SFloatCurveKeyEditor::OnValueChanged(float Value)
 
 		OnValueChangedEvent.ExecuteIfBound(Value);
 
-		Sequencer->UpdateRuntimeInstances();
+		Sequencer->NotifyMovieSceneDataChanged( EMovieSceneDataChangeType::TrackValueChanged );
 	}
 }
 
 void SFloatCurveKeyEditor::OnValueCommitted(float Value, ETextCommit::Type CommitInfo)
 {
-	if (CommitInfo == ETextCommit::OnEnter)
+	if (CommitInfo == ETextCommit::OnEnter || CommitInfo == ETextCommit::OnUserMovedFocus)
 	{
 		const FScopedTransaction Transaction( LOCTEXT("SetFloatKey", "Set Float Key Value") );
 

@@ -2,6 +2,8 @@
 
 #pragma once
 
+struct FAnimInstanceProxy;
+
 struct FAnimNotifyQueue
 {
 	FAnimNotifyQueue()
@@ -16,15 +18,18 @@ struct FAnimNotifyQueue
 	/** Work out whether this notify should be triggered based on its chance of triggering value */
 	bool PassesChanceOfTriggering(const FAnimNotifyEvent* Event) const;
 
-	/** Add anim notifier **/
+	/** Add anim notifies **/
 	void AddAnimNotifies(const TArray<const FAnimNotifyEvent*>& NewNotifies, const float InstanceWeight);
+
+	/** Add anim notifies from montage**/
+	void AddAnimNotifies(const TMap<FName, TArray<const FAnimNotifyEvent*>>& NewNotifies, const float InstanceWeight);
 
 	/** Reset queue & update LOD level */
 	void Reset(USkeletalMeshComponent* Component);
 
 	/** Append one queue to another */
 	void Append(const FAnimNotifyQueue& Queue);
-
+	
 	/** 
 	 *	Best LOD that was 'predicted' by UpdateSkelPose. Copied form USkeletalMeshComponent.
 	 *	This is what bones were updated based on, so we do not allow rendering at a better LOD than this. 
@@ -36,4 +41,13 @@ struct FAnimNotifyQueue
 
 	/** Animation Notifies that has been triggered in the latest tick **/
 	TArray<const struct FAnimNotifyEvent *> AnimNotifies;
+
+	/** Animation Notifies from montages that still need to be filtered by slot weight*/
+	TMap<FName, TArray<const FAnimNotifyEvent*>> UnfilteredMontageAnimNotifies;
+
+	/** Takes the cached notifies from playing montages and adds them if they pass a slot weight check */
+	void ApplyMontageNotifies(const FAnimInstanceProxy& Proxy);
+private:
+	/** Implementation for adding notifies*/
+	void AddAnimNotifiesToDest(const TArray<const FAnimNotifyEvent*>& NewNotifies, TArray<const FAnimNotifyEvent*>& DestArray, const float InstanceWeight);
 };

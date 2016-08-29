@@ -22,14 +22,6 @@ public:
 	bool DrawAccumulatedOffsets(FRHICommandListImmediate& RHICmdList, const class FViewInfo& View, bool bInitializeOffsets);
 
 	/**
-	* Add a new primitive to the list of distortion prims
-	* @param PrimitiveSceneProxy - primitive info to add.
-	*/
-	void AddScenePrimitive(FPrimitiveSceneProxy* PrimitiveSceneProxy)
-	{
-		Prims.Add(PrimitiveSceneProxy);
-	}
-	/**
 	* Adds a new primitives to the list of distortion prims
 	* @param PrimitiveSceneProxies - primitive info to add.
 	*/

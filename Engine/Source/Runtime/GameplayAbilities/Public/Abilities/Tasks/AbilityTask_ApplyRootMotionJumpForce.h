@@ -41,8 +41,6 @@ class UAbilityTask_ApplyRootMotionJumpForce : public UAbilityTask
 	virtual void PreDestroyFromReplication() override;
 	virtual void OnDestroy(bool AbilityIsEnding) override;
 
-	void PreReplicatedRemove(const struct FOrionCardArray& InArray);
-
 protected:
 
 	UPROPERTY(Replicated)

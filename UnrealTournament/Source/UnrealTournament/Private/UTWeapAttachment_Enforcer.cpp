@@ -11,7 +11,8 @@ AUTWeapAttachment_Enforcer::AUTWeapAttachment_Enforcer(const FObjectInitializer&
 {
 	LeftMesh = OI.CreateDefaultSubobject<USkeletalMeshComponent>(this, TEXT("Mesh3P_Left"));
 
-	LeftMesh->AttachParent = RootComponent;
+	LeftMesh->SetupAttachment(RootComponent);
+
 	LeftMesh->MeshComponentUpdateFlag = EMeshComponentUpdateFlag::OnlyTickPoseWhenRendered;
 	LeftAttachSocket = FName((TEXT("LeftWeaponPoint")));
 
@@ -37,7 +38,7 @@ void AUTWeapAttachment_Enforcer::BeginPlay()
 
 void AUTWeapAttachment_Enforcer::AttachToOwnerNative()
 {
-	LeftMesh->AttachTo(UTOwner->GetMesh(), LeftAttachSocket);
+	LeftMesh->AttachToComponent(UTOwner->GetMesh(), FAttachmentTransformRules::SnapToTargetIncludingScale, LeftAttachSocket);
 
 	LeftMesh->SetRelativeLocation(LeftAttachOffset);
 	LeftMesh->bRecentlyRendered = UTOwner->GetMesh()->bRecentlyRendered;

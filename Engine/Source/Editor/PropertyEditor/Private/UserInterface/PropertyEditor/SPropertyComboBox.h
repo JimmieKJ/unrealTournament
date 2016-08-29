@@ -13,7 +13,7 @@ public:
 		SLATE_ATTRIBUTE( TArray< TSharedPtr< FString > >, ComboItemList )
 		SLATE_ATTRIBUTE( TArray< bool >, RestrictedList )
 		SLATE_ATTRIBUTE( FString, VisibleText )
-		SLATE_ARGUMENT( TArray< FText >, ToolTipList )
+		SLATE_ARGUMENT( TArray< TSharedPtr< SToolTip > >, RichToolTipList)
 		SLATE_EVENT( FOnSelectionChanged, OnSelectionChanged )
 		SLATE_EVENT( FOnComboBoxOpening, OnComboBoxOpening )
 		SLATE_ARGUMENT( FSlateFontInfo, Font )
@@ -36,7 +36,7 @@ public:
 	 *	@param InTooltipList		The list of tooltips to use.
 	 *	@param InRestrictedList		The list of restricted items.
 	 */
-	void SetItemList(TArray< TSharedPtr< FString > >& InItemList, TArray< FText >& InTooltipList, TArray<bool>& InRestrictedList);
+	void SetItemList(TArray< TSharedPtr< FString > >& InItemList, TArray< TSharedPtr< SToolTip > >& InRichTooltips, TArray<bool>& InRestrictedList);
 
 
 private:
@@ -52,7 +52,7 @@ private:
 
 	/** List of items in our combo box. Only generated once as combo items dont change at runtime */
 	TArray< TSharedPtr<FString> > ComboItemList;
-	TArray< FText > ToolTipList;
+	TArray< TSharedPtr< SToolTip > > RichToolTips;
 	FOnSelectionChanged OnSelectionChanged;
 	FSlateFontInfo Font;
 	TArray< bool > RestrictedList;

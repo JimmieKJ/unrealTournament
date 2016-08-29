@@ -6,10 +6,10 @@
 
 FObjectBaseArchiveProxy::FObjectBaseArchiveProxy(FUHTMakefile& UHTMakefile, const UObjectBase* ObjectBase)
 {
-	ObjectFlagsUint32 = static_cast<uint32>(ObjectBase->ObjectFlags);
-	ClassIndex = UHTMakefile.GetClassIndex(ObjectBase->Class);
-	Name = FNameArchiveProxy(UHTMakefile, ObjectBase->Name);
-	OuterIndex = UHTMakefile.GetObjectIndex(ObjectBase->Outer);
+	ObjectFlagsUint32 = static_cast<uint32>(ObjectBase->GetFlags());
+	ClassIndex = UHTMakefile.GetClassIndex(ObjectBase->GetClass());
+	Name = FNameArchiveProxy(UHTMakefile, ObjectBase->GetFName());
+	OuterIndex = UHTMakefile.GetObjectIndex(ObjectBase->GetOuter());
 }
 
 UObjectBase* FObjectBaseArchiveProxy::CreateObjectBase(const FUHTMakefile& UHTMakefile) const
@@ -21,13 +21,13 @@ UObjectBase* FObjectBaseArchiveProxy::CreateObjectBase(const FUHTMakefile& UHTMa
 
 void FObjectBaseArchiveProxy::Resolve(UObjectBase* ObjectBase, const FUHTMakefile& UHTMakefile) const
 {
-	ObjectBase->Class = UHTMakefile.GetClassByIndex(ClassIndex);
-	ObjectBase->Outer = UHTMakefile.GetObjectByIndex(OuterIndex);
+	ObjectBase->ClassPrivate = UHTMakefile.GetClassByIndex(ClassIndex);
+	ObjectBase->OuterPrivate = UHTMakefile.GetObjectByIndex(OuterIndex);
 }
 
 void FObjectBaseArchiveProxy::AddReferencedNames(const UObjectBase* ObjectBase, FUHTMakefile& UHTMakefile)
 {
-	UHTMakefile.AddName(ObjectBase->Name);
+	UHTMakefile.AddName(ObjectBase->GetFName());
 }
 
 void FObjectBaseArchiveProxy::PostConstruct(UObjectBase* ObjectBase) const

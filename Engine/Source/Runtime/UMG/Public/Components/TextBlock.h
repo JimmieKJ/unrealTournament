@@ -99,7 +99,7 @@ public:
 	FGetLinearColor ShadowColorAndOpacityDelegate;
 
 	/** The minimum desired size for the text */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Appearance, AdvancedDisplay)
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Appearance)
 	float MinDesiredWidth;
 
 	/** If true, it will automatically wrap this text widget with an invalidation panel */

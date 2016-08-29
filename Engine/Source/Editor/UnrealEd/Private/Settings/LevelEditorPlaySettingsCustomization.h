@@ -407,7 +407,7 @@ public:
 			WindowPositionHandle->MarkHiddenByCustomization();
 			CenterNewWindowHandle->MarkHiddenByCustomization();
 
-			PlayInStandaloneCategory.AddCustomRow(LOCTEXT("PlayInStandaloneWindowDetails", "Standalone Window Size"), false)
+			PlayInStandaloneCategory.AddCustomRow(LOCTEXT("StandaloneWindowSizeName", "Standalone Window Size"), false)
 				.NameContent()
 				[
 					SNew(STextBlock)
@@ -421,7 +421,7 @@ public:
 					SNew(SScreenResolutionCustomization, &LayoutBuilder, WindowHeightHandle, WindowWidthHandle)
 				];
 
-			PlayInStandaloneCategory.AddCustomRow(LOCTEXT("PlayInStandaloneWindowDetails", "Standalone Window Position"), false)
+			PlayInStandaloneCategory.AddCustomRow(LOCTEXT("StandaloneWindowPosName", "Standalone Window Position"), false)
 				.NameContent()
 				[
 					SNew(STextBlock)

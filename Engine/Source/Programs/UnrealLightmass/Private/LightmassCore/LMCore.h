@@ -2,7 +2,7 @@
 
 #pragma once
 
-// recommended that these are included by all files (ie, leave in LMCore.h, and maybe include LMCore.h in stdafx.h)
+// recommended that these are included by all files (ie, leave in LMCore.h, and maybe include LMCore.h in LightmassPCH.h)
 #include "LMHelpers.h"			// helper #defines, etc
 #include "LMQueue.h"			// TQueue implementation
 #include "LMMath.h"				// math functions and classes

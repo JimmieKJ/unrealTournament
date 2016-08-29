@@ -23,6 +23,9 @@ enum EMaterialVectorCoordTransformSource
 	/** Camera space */
 	TRANSFORMSOURCE_Camera  UMETA(DisplayName="Camera Space"),
 
+	/** Particle space */
+	TRANSFORMSOURCE_ParticleWorld  UMETA(DisplayName = "Mesh particle space"),
+
 	TRANSFORMSOURCE_MAX,
 };
 
@@ -43,7 +46,10 @@ enum EMaterialVectorCoordTransform
 
 	/** Camera space */
 	TRANSFORM_Camera  UMETA(DisplayName="Camera Space"),
-	
+
+	/** Particle space */
+	TRANSFORM_ParticleWorld UMETA(DisplayName = "Mesh particle space"),
+
 	TRANSFORM_MAX,
 };
 

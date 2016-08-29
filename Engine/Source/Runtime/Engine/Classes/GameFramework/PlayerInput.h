@@ -29,38 +29,38 @@ struct FKeyBind
 
 	/** Whether the control key needs to be held when the key event occurs */
 	UPROPERTY(config)
-	uint32 Control:1;
+	uint8 Control:1;
 
 	/** Whether the shift key needs to be held when the key event occurs */
 	UPROPERTY(config)
-	uint32 Shift:1;
+	uint8 Shift:1;
 
 	/** Whether the alt key needs to be held when the key event occurs */
 	UPROPERTY(config)
-	uint32 Alt:1;
+	uint8 Alt:1;
 
 	/** Whether the command key needs to be held when the key event occurs */
 	UPROPERTY(config)
-	uint32 Cmd:1;
+	uint8 Cmd:1;
 
 	/** Whether the control key must not be held when the key event occurs */
 	UPROPERTY(config)
-	uint32 bIgnoreCtrl:1;
+	uint8 bIgnoreCtrl:1;
 
 	/** Whether the shift key must not be held when the key event occurs */
 	UPROPERTY(config)
-	uint32 bIgnoreShift:1;
+	uint8 bIgnoreShift:1;
 
 	/** Whether the alt key must not be held when the key event occurs */
 	UPROPERTY(config)
-	uint32 bIgnoreAlt:1;
+	uint8 bIgnoreAlt:1;
 
 	/** Whether the command key must not be held when the key event occurs */
 	UPROPERTY(config)
-	uint32 bIgnoreCmd:1;
+	uint8 bIgnoreCmd:1;
 
 	UPROPERTY(transient)
-	uint32 bDisabled : 1;
+	uint8 bDisabled : 1;
 
 	FKeyBind()
 	{
@@ -87,7 +87,7 @@ struct FInputAxisProperties
 
 	/** Inverts reported values for this axis */
 	UPROPERTY(EditAnywhere, Category="Input")
-	uint32 bInvert:1;
+	uint8 bInvert:1;
 
 	FInputAxisProperties()
 		: DeadZone(0.2f)
@@ -133,19 +133,19 @@ struct FInputActionKeyMapping
 
 	/** true if one of the Shift keys must be down when the KeyEvent is received to be acknowledged */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Input")
-	uint32 bShift:1;
+	uint8 bShift:1;
 
 	/** true if one of the Ctrl keys must be down when the KeyEvent is received to be acknowledged */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Input")
-	uint32 bCtrl:1;
+	uint8 bCtrl:1;
 
 	/** true if one of the Alt keys must be down when the KeyEvent is received to be acknowledged */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Input")
-	uint32 bAlt:1;
+	uint8 bAlt:1;
 
 	/** true if one of the Cmd keys must be down when the KeyEvent is received to be acknowledged */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Input")
-	uint32 bCmd:1;
+	uint8 bCmd:1;
 
 	bool operator==(const FInputActionKeyMapping& Other) const
 	{
@@ -373,7 +373,7 @@ private:
 		TArray<FInputAxisKeyMapping> KeyMappings;
 
 		/** Whether this axis should invert its outputs */
-		uint32 bInverted:1;
+		uint8 bInverted:1;
 
 		FAxisKeyDetails()
 			: bInverted(false)
@@ -392,6 +392,8 @@ private:
 
 	/** The current game view of each key */
 	TMap<FKey,FKeyState> KeyStateMap;
+
+	uint8 bKeyMapsBuilt:1;
 
 public:
 	
@@ -444,9 +446,6 @@ public:
 	 * @return the smoothed mouse axis movement
 	 */
 	float SmoothMouse(float aMouse, float DeltaTime, uint8& SampleCount, int32 Index);
-
-	/** Hook to do mouse acceleration if desired. */
-	float AccelMouse(FKey Key, float RawValue, float DeltaTime);
 
 	/**
 	 * Draw important PlayerInput variables on canvas.  HUD will call DisplayDebug() on the current ViewTarget when the ShowDebug exec is used
@@ -567,7 +566,15 @@ private:
 	float DetermineAxisValue(const FInputAxisBinding& AxisBinding, const bool bGamePaused, TArray<FKey>& KeysToConsume);
 
 	/** Utility function to ensure the key mapping cache maps are built */
-	void ConditionalBuildKeyMappings();
+	FORCEINLINE void ConditionalBuildKeyMappings()
+	{
+		if (!bKeyMapsBuilt)
+		{
+			ConditionalBuildKeyMappings_Internal();
+		}
+	}
+
+	void ConditionalBuildKeyMappings_Internal();
 
 	/** Set the Key consumed for the frame so that subsequent input components will not be notified they were pressed */
 	void ConsumeKey(FKey Key);
@@ -594,6 +601,9 @@ private:
 
 	/** Axis Mappings defined by engine systems that cannot be remapped by users */
 	static TArray<FInputAxisKeyMapping> EngineDefinedAxisMappings;
+
+	// Temporary array used as part of input processing
+	TArray<uint32> EventIndices;
 
 	/** A counter used to track the order in which events occurred since the last time the input stack was processed */
 	uint32 EventCount;

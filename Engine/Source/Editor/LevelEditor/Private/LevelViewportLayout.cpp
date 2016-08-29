@@ -6,6 +6,8 @@
 #include "LevelViewportLayout.h"
 #include "SDockTab.h"
 #include "SLevelViewport.h"
+#include "HeadMountedDisplay.h"
+#include "LevelEditor.h"
 
 namespace ViewportLayoutDefs
 {
@@ -67,9 +69,6 @@ public:
 
 private:
 	
-	/** Ticks the level viewport tab */
-	EActiveTimerReturnType ActiveTimer( double InCurrentTime, float InDeltaTime );
-
 	/** Reference to the owning level viewport tab */
 	TSharedPtr<FLevelViewportTabContent> LevelViewportTab;
 
@@ -86,8 +85,6 @@ void SViewportsOverlay::Construct( const FArguments& InArgs )
 	const TSharedRef<SWidget>& ContentWidget = InArgs._Content.Widget;
 	LevelViewportTab = InArgs._LevelViewportTab;
 
-	//RegisterActiveTimer( 0.f, FTickWidgetDelegate::CreateSP( this, &SViewportsOverlay::ActiveTimer ) );
-
 	ChildSlot
 		[
 			SAssignNew( OverlayWidget, SOverlay )
@@ -96,12 +93,6 @@ void SViewportsOverlay::Construct( const FArguments& InArgs )
 				ContentWidget
 			]
 		];
-}
-
-EActiveTimerReturnType SViewportsOverlay::ActiveTimer( double InCurrentTime, float InDeltaTime )
-{
-	// Exists to ensure slate is ticked
-	return EActiveTimerReturnType::Continue;
 }
 
 void SViewportsOverlay::Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime )
@@ -254,7 +245,8 @@ void FLevelViewportLayout::SaveCommonLayoutString( const FString& SpecificLayout
 	// Save all our data using the additional layout config
 	for (auto& Pair : Viewports)
 	{
-		FString ConfigName = SpecificLayoutString + Pair.Key.ToString();
+		// The Viewports map is keyed on the full config name, so no need to prepend the SpecificLayoutString
+		FString ConfigName = Pair.Key.ToString();
 
 		Pair.Value->SaveConfig(ConfigName);
 

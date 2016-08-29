@@ -8,11 +8,11 @@
 #include "SNiagaraEffectEditorWidget.h"
 #include "NiagaraSequencer.h"
 
-
+class UNiagaraSequence;
 
 /** Viewer/editor for a NiagaraEffect
 */
-class FNiagaraEffectEditor : public INiagaraEffectEditor, public FNotifyHook
+class FNiagaraEffectEditor : public INiagaraEffectEditor, public FNotifyHook, public FGCObject
 {
 
 public:
@@ -49,6 +49,10 @@ public:
 
 	FReply OnDeleteEmitterClicked(TSharedPtr<FNiagaraSimulation> Emitter);
 	FReply OnDuplicateEmitterClicked(TSharedPtr<FNiagaraSimulation> Emitter);
+
+	/** FGCObject interface */
+	virtual void AddReferencedObjects( FReferenceCollector& Collector ) override;
+
 private:
 	/** Create widget for graph editing */
 	TSharedRef<class SNiagaraEffectEditorWidget> CreateEditorWidget(UNiagaraEffect* InEffect);
@@ -78,7 +82,7 @@ private:
 	TSharedPtr<FNiagaraEffectInstance> EffectInstance;
 
 	/* stuff needed by the Sequencer */
-	UMovieScene *MovieScene;
+	UNiagaraSequence *NiagaraSequence;
 	TSharedPtr<ISequencer> Sequencer;
 
 

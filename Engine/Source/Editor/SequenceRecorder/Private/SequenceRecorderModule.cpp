@@ -10,6 +10,8 @@
 #include "ISequenceRecorder.h"
 #include "NotificationManager.h"
 #include "SNotificationList.h"
+#include "ActorRecordingDetailsCustomization.h"
+#include "PropertiesToRecordForClassDetailsCustomization.h"
 
 #define LOCTEXT_NAMESPACE "SequenceRecorder"
 
@@ -82,12 +84,6 @@ class FSequenceRecorderModule : public ISequenceRecorder, private FSelfRegisteri
 			FLevelEditorModule& LevelEditorModule = FModuleManager::LoadModuleChecked<FLevelEditorModule>(TEXT("LevelEditor"));
 			LevelEditorModule.OnCaptureSingleFrameAnimSequence().BindStatic(&FSequenceRecorderModule::HandleCaptureSingleFrameAnimSequence);
 
-			// register level editor menu extender
-			LevelEditorMenuExtenderDelegate = FLevelEditorModule::FLevelViewportMenuExtender_SelectedActors::CreateStatic(&FSequenceRecorderModule::ExtendLevelViewportContextMenu);
-			auto& MenuExtenders = LevelEditorModule.GetAllLevelViewportContextMenuExtenders();
-			MenuExtenders.Add(LevelEditorMenuExtenderDelegate);
-			LevelEditorExtenderDelegateHandle = MenuExtenders.Last().GetHandle();
-
 			// register standalone UI
 			FGlobalTabmanager::Get()->RegisterNomadTabSpawner(SequenceRecorderTabName, FOnSpawnTab::CreateStatic(&FSequenceRecorderModule::SpawnSequenceRecorderTab))
 				.SetGroup(WorkspaceMenu::GetMenuStructure().GetLevelEditorCategory())
@@ -96,7 +92,12 @@ class FSequenceRecorderModule : public ISequenceRecorder, private FSelfRegisteri
 				.SetIcon(FSlateIcon(FEditorStyle::GetStyleSetName(), "SequenceRecorder.TabIcon"));
 
 			// register for debug drawing
-			DrawDebugDelegateHandle = UDebugDrawService::Register(TEXT("Game"),  FDebugDrawDelegate::CreateStatic(&FSequenceRecorderModule::DrawDebug));
+			DrawDebugDelegateHandle = UDebugDrawService::Register(TEXT("Decals"), FDebugDrawDelegate::CreateStatic(&FSequenceRecorderModule::DrawDebug));
+
+			// register details customization
+			FPropertyEditorModule& PropertyModule = FModuleManager::LoadModuleChecked<FPropertyEditorModule>("PropertyEditor");
+			PropertyModule.RegisterCustomClassLayout(UActorRecording::StaticClass()->GetFName(), FOnGetDetailCustomizationInstance::CreateStatic(&FActorRecordingDetailsCustomization::MakeInstance));
+			PropertyModule.RegisterCustomPropertyTypeLayout(FPropertiesToRecordForClass::StaticStruct()->GetFName(), FOnGetPropertyTypeCustomizationInstance::CreateStatic(&FPropertiesToRecordForClassDetailsCustomization::MakeInstance));
 		}
 #endif
 	}
@@ -120,9 +121,6 @@ class FSequenceRecorderModule : public ISequenceRecorder, private FSelfRegisteri
 			{
 				FLevelEditorModule& LevelEditorModule = FModuleManager::GetModuleChecked<FLevelEditorModule>(TEXT("LevelEditor"));
 				LevelEditorModule.OnCaptureSingleFrameAnimSequence().Unbind();
-				LevelEditorModule.GetAllLevelViewportContextMenuExtenders().RemoveAll([&](const FLevelEditorModule::FLevelViewportMenuExtender_SelectedActors& Delegate) {
-					return Delegate.GetHandle() == LevelEditorExtenderDelegateHandle;
-				});
 			}
 
 			if (FModuleManager::Get().IsModuleLoaded(TEXT("Persona")))
@@ -133,6 +131,18 @@ class FSequenceRecorderModule : public ISequenceRecorder, private FSelfRegisteri
 				PersonaModule.OnStopRecording().Unbind();
 				PersonaModule.OnGetCurrentRecording().Unbind();
 				PersonaModule.OnGetCurrentRecordingTime().Unbind();
+			}
+
+			if (FModuleManager::Get().IsModuleLoaded(TEXT("PropertyEditor")))
+			{
+				FPropertyEditorModule& PropertyModule = FModuleManager::LoadModuleChecked<FPropertyEditorModule>("PropertyEditor");
+
+				if (UObjectInitialized())
+				{
+					PropertyModule.UnregisterCustomClassLayout(UActorRecording::StaticClass()->GetFName());
+					PropertyModule.UnregisterCustomClassLayout(USequenceRecorderSettings::StaticClass()->GetFName());
+					PropertyModule.UnregisterCustomPropertyTypeLayout(FPropertiesToRecordForClass::StaticStruct()->GetFName());
+				}
 			}
 		}
 
@@ -167,6 +177,28 @@ class FSequenceRecorderModule : public ISequenceRecorder, private FSelfRegisteri
 		return false;
 	}
 
+	static AActor* FindActorByName(const FString& ActorNameStr, UWorld* InWorld)
+	{
+		for (ULevel const* Level : InWorld->GetLevels())
+		{
+			if (Level)
+			{
+				for (AActor* Actor : Level->Actors)
+				{
+					if (Actor)
+					{
+						if (Actor->GetName() == ActorNameStr)
+						{
+							return Actor;
+						}
+					}
+				}
+			}
+		}
+
+		return nullptr;
+	}
+
 	static bool HandleRecordAnimationCommand(UWorld* InWorld, const TCHAR* InStr, FOutputDevice& Ar)
 	{
 #if WITH_EDITOR
@@ -176,24 +208,7 @@ class FSequenceRecorderModule : public ISequenceRecorder, private FSelfRegisteri
 		AActor* FoundActor = nullptr;
 		if (FParse::Token(Str, ActorName, ARRAY_COUNT(ActorName), 0))
 		{
-			FString const ActorNameStr = FString(ActorName);
-			for (ULevel const* Level : InWorld->GetLevels())
-			{
-				if (Level)
-				{
-					for (AActor* Actor : Level->Actors)
-					{
-						if (Actor)
-						{
-							if (Actor->GetName() == ActorNameStr)
-							{
-								FoundActor = Actor;
-								break;
-							}
-						}
-					}
-				}
-			}
+			FoundActor = FindActorByName(FString(ActorName), InWorld);
 		}
 
 		if (FoundActor)
@@ -211,7 +226,7 @@ class FSequenceRecorderModule : public ISequenceRecorder, private FSelfRegisteri
 		return false;
 	}
 
-	static AActor* FindActor(const FString& ActorNameStr, UWorld* InWorld, bool bFuzzy = false)
+	static AActor* FindActorByLabel(const FString& ActorNameStr, UWorld* InWorld, bool bFuzzy = false)
 	{
 		// search for the actor by name
 		for (ULevel* Level : InWorld->GetLevels())
@@ -222,7 +237,7 @@ class FSequenceRecorderModule : public ISequenceRecorder, private FSelfRegisteri
 				{
 					if (Actor)
 					{
-						if (Actor->GetName() == ActorNameStr)
+						if (Actor->GetActorLabel() == ActorNameStr)
 						{
 							return Actor;
 						}
@@ -245,7 +260,7 @@ class FSequenceRecorderModule : public ISequenceRecorder, private FSelfRegisteri
 					{
 						if (Actor)
 						{
-							if (Actor->GetName().ToLower().StartsWith(FuzzyActorNameStr))
+							if (Actor->GetActorLabel().ToLower().StartsWith(FuzzyActorNameStr))
 							{
 								return Actor;
 							}
@@ -277,7 +292,7 @@ class FSequenceRecorderModule : public ISequenceRecorder, private FSelfRegisteri
 			}
 			else if (InWorld)
 			{
-				FoundActor = FindActor(ActorNameStr, InWorld);
+				FoundActor = FindActorByName(ActorNameStr, InWorld);
 			}
 		}
 
@@ -362,7 +377,7 @@ class FSequenceRecorderModule : public ISequenceRecorder, private FSelfRegisteri
 				FString const SpecifierStr = FString(Specifier).Trim();
 				if(FilterType == EFilterType::Actor)
 				{
-					AActor* FoundActor = FindActor(SpecifierStr, InWorld, true);
+					AActor* FoundActor = FindActorByLabel(SpecifierStr, InWorld, true);
 					if(FoundActor)
 					{
 						Settings->ActorFilter.ActorClassesToRecord.Empty();
@@ -471,28 +486,27 @@ class FSequenceRecorderModule : public ISequenceRecorder, private FSelfRegisteri
 		return CurrentSequence.IsValid() ? CurrentSequence->GetMovieScene()->GetPlaybackRange().Size<float>() : 0.0f;
 	}
 
-	virtual bool StartRecording(UWorld* World, const FString& ActorNameToRecord, const FOnRecordingStarted& OnRecordingStarted, const FOnRecordingFinished& OnRecordingFinished, const FString& PathToRecordTo, const FString& SequenceName) override
+	virtual bool StartRecording(TArrayView<AActor* const> ActorsToRecord, const FOnRecordingStarted& OnRecordingStarted, const FOnRecordingFinished& OnRecordingFinished, const FString& PathToRecordTo, const FString& SequenceName) override
 	{
-		if(ActorNameToRecord.Len() > 0)
+		if(ActorsToRecord.Num() != 0)
 		{
-			AActor* Actor = FindActor(ActorNameToRecord, World, true);
-			if(Actor != nullptr)
+			FSequenceRecorder::Get().ClearQueuedRecordings();
+			for (AActor* Actor : ActorsToRecord)
 			{
-				FSequenceRecorder::Get().ClearQueuedRecordings();
 				FSequenceRecorder::Get().AddNewQueuedRecording(Actor);
 			}
-			else
+		}
+		else
+		{
+			if(FSlateApplication::IsInitialized())
 			{
-				if(FSlateApplication::IsInitialized())
-				{
-					FNotificationInfo Info(FText::Format(LOCTEXT("SequenceRecordingErrorActor", "Couldnt find an actor to record matching name \"{0}\""), FText::FromString(ActorNameToRecord)));
-					Info.bUseLargeFont = false;
+				FNotificationInfo Info(LOCTEXT("SequenceRecordingErrorActor", "Couldn't find actor to record"));
+				Info.bUseLargeFont = false;
 
-					FSlateNotificationManager::Get().AddNotification(Info);
-				}
-
-				UE_LOG(LogAnimation, Display, TEXT("Couldnt find an actor to record matching name \"%s\""), *ActorNameToRecord);
+				FSlateNotificationManager::Get().AddNotification(Info);
 			}
+
+			UE_LOG(LogAnimation, Display, TEXT("Couldn't find actor to record"));
 		}
 
 		return FSequenceRecorder::Get().StartRecording(OnRecordingStarted, OnRecordingFinished, PathToRecordTo, SequenceName);
@@ -506,6 +520,17 @@ class FSequenceRecorderModule : public ISequenceRecorder, private FSelfRegisteri
 	virtual void NotifyActorStopRecording(AActor* Actor)
 	{
 		FSequenceRecorder::Get().HandleActorDespawned(Actor);
+	}
+
+	virtual FGuid GetRecordingGuid(AActor* Actor) const
+	{
+		UActorRecording* Recording = FSequenceRecorder::Get().FindRecording(Actor);
+		if (Recording != nullptr)
+		{
+			return Recording->GetSpawnableGuid();
+		}
+
+		return FGuid();
 	}
 
 	static void TickSequenceRecorder(float DeltaSeconds)
@@ -575,120 +600,12 @@ class FSequenceRecorderModule : public ISequenceRecorder, private FSelfRegisteri
 		return MajorTab;
 	}
 
-	static TSharedRef<FExtender> ExtendLevelViewportContextMenu(const TSharedRef<FUICommandList> CommandList, const TArray<AActor*> SelectedActors)
-	{
-		TSharedRef<FExtender> Extender(new FExtender());
-
-		// check if actors are already registered for recording
-		bool bCanAddRecording = false;
-		bool bCanRemoveRecording = false;
-
-		FSequenceRecorder& SequenceRecorder = FSequenceRecorder::Get();
-
-		for (AActor* Actor : SelectedActors)
-		{
-			const bool bIsQueued = SequenceRecorder.IsRecordingQueued(Actor);
-			bCanRemoveRecording |= bIsQueued;
-			bCanAddRecording |= !bIsQueued;
-		}
-
-		if (bCanAddRecording || bCanRemoveRecording)
-		{
-			// Add the sequence recorder sub-menu extender
-			Extender->AddMenuExtension(
-				"ActorSelectVisibilityLevels",
-				EExtensionHook::After,
-				nullptr,
-				FMenuExtensionDelegate::CreateStatic(&FSequenceRecorderModule::CreateLevelViewportContextMenuEntries, bCanAddRecording, bCanRemoveRecording));
-		}
-
-		return Extender;
-	}
-
-	static void CreateLevelViewportContextMenuEntries(FMenuBuilder& MenuBuilder, bool bCanAddRecording, bool bCanRemoveRecording)
-	{
-		MenuBuilder.BeginSection("SequenceRecording", LOCTEXT("SequenceRecordingLevelEditorHeading", "Sequence Recording"));
-
-		if (bCanAddRecording)
-		{
-			FUIAction Action_AddQuickRecording(FExecuteAction::CreateStatic(&FSequenceRecorderModule::AddActorsForQuickRecording));
-
-			MenuBuilder.AddMenuEntry(
-				LOCTEXT("MenuExtensionAddQuickRecording", "Trigger Actor Recording"),
-				LOCTEXT("MenuExtensionAddQuickRecording_Tooltip", "Set up the selected actors for recording and trigger recording immediately"),
-				FSlateIcon(),
-				Action_AddQuickRecording,
-				NAME_None,
-				EUserInterfaceActionType::Button);
-
-			FUIAction Action_AddRecording(FExecuteAction::CreateStatic(&FSequenceRecorderModule::AddActorsForRecording));
-
-			MenuBuilder.AddMenuEntry(
-				LOCTEXT("MenuExtensionAddRecording", "Queue Actor Recording"),
-				LOCTEXT("MenuExtensionAddRecording_Tooltip", "Queue up the selected actors for recording"),
-				FSlateIcon(),
-				Action_AddRecording,
-				NAME_None,
-				EUserInterfaceActionType::Button);
-		}
-
-		if (bCanRemoveRecording)
-		{
-			FUIAction Action_RemoveRecording(FExecuteAction::CreateStatic(&FSequenceRecorderModule::RemoveActorsForRecording));
-
-			MenuBuilder.AddMenuEntry(
-				LOCTEXT("MenuExtensionRemoveRecording", "Removed Queued Recording"),
-				LOCTEXT("MenuExtensionRemoveRecording_Tooltip", "Remove the selected actors from the recording queue"),
-				FSlateIcon(),
-				Action_RemoveRecording,
-				NAME_None,
-				EUserInterfaceActionType::Button);
-		}
-
-		MenuBuilder.EndSection();
-	}
-
-	static void AddActorsForRecording()
-	{
-		FSequenceRecorder& SequenceRecorder = FSequenceRecorder::Get();
-
-		TArray<AActor*> SelectedActors;
-		GEditor->GetSelectedActors()->GetSelectedObjects<AActor>(SelectedActors);
-		for(AActor* Actor : SelectedActors)
-		{
-			SequenceRecorder.AddNewQueuedRecording(Actor, nullptr, GetDefault<USequenceRecorderSettings>()->SequenceLength);
-		}
-	}
-
-	static void AddActorsForQuickRecording()
-	{
-		AddActorsForRecording();
-
-		FSequenceRecorder::Get().StartRecording();
-	}
-
-	static void RemoveActorsForRecording()
-	{
-		FSequenceRecorder& SequenceRecorder = FSequenceRecorder::Get();
-
-		TArray<AActor*> SelectedActors;
-		GEditor->GetSelectedActors()->GetSelectedObjects<AActor>(SelectedActors);
-		for (AActor* Actor : SelectedActors)
-		{
-			SequenceRecorder.RemoveQueuedRecording(Actor);
-		}
-	}
-
 	static void DrawDebug(UCanvas* InCanvas, APlayerController* InPlayerController)
 	{
 		FSequenceRecorder::Get().DrawDebug(InCanvas, InPlayerController);
 	}
 #endif
 	FDelegateHandle PostEditorTickHandle;
-
-	FLevelEditorModule::FLevelViewportMenuExtender_SelectedActors LevelEditorMenuExtenderDelegate;
-
-	FDelegateHandle LevelEditorExtenderDelegateHandle;
 
 	FDelegateHandle DrawDebugDelegateHandle;
 };

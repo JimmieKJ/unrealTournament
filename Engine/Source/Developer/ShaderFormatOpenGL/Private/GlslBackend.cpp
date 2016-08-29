@@ -1,5 +1,5 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
-// 
+// ..
 
 // This code is largely based on that in ir_print_glsl_visitor.cpp from
 // glsl-optimizer.
@@ -30,8 +30,8 @@
 	CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
-#include "ShaderFormatOpenGL.h"
 #include "Core.h"
+#include "ShaderFormatOpenGL.h"
 #include "hlslcc.h"
 #include "hlslcc_private.h"
 #include "GlslBackend.h"
@@ -55,8 +55,6 @@ PRAGMA_ENABLE_SHADOW_VARIABLE_WARNINGS
 #define _strdup strdup
 #endif
 
-static bool GDefaultPrecisionIsHalf = true;
-
 static inline FCustomStdString FixHlslName(const glsl_type* Type)
 {
 	check(Type->is_image() || Type->is_vector() || Type->is_numeric() || Type->is_void() || Type->is_sampler() || Type->is_scalar());
@@ -77,7 +75,42 @@ static inline FCustomStdString FixHlslName(const glsl_type* Type)
 	{
 		return "vec4";
 	}
-
+	else if (Type == glsl_type::half2x2_type)
+	{
+		return "mat2";
+	}
+	else if (Type == glsl_type::half2x3_type)
+	{
+		return "mat2x3";
+	}
+	else if (Type == glsl_type::half2x4_type)
+	{
+		return "mat2x4";
+	}
+	else if (Type == glsl_type::half3x2_type)
+	{
+		return "mat3x2";
+	}
+	else if (Type == glsl_type::half3x3_type)
+	{
+		return "mat3";
+	}
+	else if (Type == glsl_type::half3x4_type)
+	{
+		return "mat3x4";
+	}
+	else if (Type == glsl_type::half4x2_type)
+	{
+		return "mat4x2";
+	}
+	else if (Type == glsl_type::half4x3_type)
+	{
+		return "mat4x3";
+	}
+	else if (Type == glsl_type::half4x4_type)
+	{
+		return "mat4";
+	}
 	return Name;
 }
 
@@ -321,7 +354,7 @@ static void InsertRange( TCBDMARangeMap& CBAllRanges, unsigned SourceCB, unsigne
 	SDMARange Range = { SourceCB, SourceOffset, Size, DestCBIndex, DestCBPrecision, DestOffset };
 
 	TDMARangeList& CBRanges = CBAllRanges[SourceDestCBKey];
-//printf("* InsertRange: %08x\t%d:%d - %d:%c:%d:%d\n", SourceDestCBKey, SourceCB, SourceOffset, DestCBIndex, DestCBPrecision, DestOffset, Size);
+//printf("* InsertRange: %08x\t%u:%u - %u:%c:%u:%u\n", SourceDestCBKey, SourceCB, SourceOffset, DestCBIndex, DestCBPrecision, DestOffset, Size);
 	if (CBRanges.empty())
 	{
 		CBRanges.push_back(Range);
@@ -413,12 +446,12 @@ static void DumpSortedRanges(TDMARangeList& SortedRanges)
 	printf("**********************************\n");
 	for (auto& o : SortedRanges)
 	{
-		printf("\t%d:%d - %d:%c:%d:%d\n", o.SourceCB, o.SourceOffset, o.DestCBIndex, o.DestCBPrecision, o.DestOffset, o.Size);
+		printf("\t%u:%u - %u:%c:%u:%u\n", o.SourceCB, o.SourceOffset, o.DestCBIndex, o.DestCBPrecision, o.DestOffset, o.Size);
 	}
 }
 
 // Returns true if the passed 'intrinsic' is used
-static bool UsesUEIntrinsic(exec_list* Instructions, const char * UEIntrinsic)
+static bool UsesUEIntrinsic(exec_list* Instructions, const char* UEIntrinsic)
 {
 	struct SFindUEIntrinsic : public ir_hierarchical_visitor
 	{
@@ -503,6 +536,7 @@ class ir_gen_glsl_visitor : public ir_visitor
 	_mesa_glsl_parser_targets ShaderTarget;
 
 	bool bGenerateLayoutLocations;
+	bool bDefaultPrecisionIsHalf;
 	
 
 	/** Memory context within which to make allocations. */
@@ -631,7 +665,7 @@ class ir_gen_glsl_visitor : public ir_visitor
 			ralloc_asprintf_append(buffer, "_mdarr_");
 			do 
 			{
-				ralloc_asprintf_append(buffer, "%d_", t->length);
+				ralloc_asprintf_append(buffer, "%u_", t->length);
 				t = t->fields.array;
 			} while (t->base_type == GLSL_TYPE_ARRAY);
 			print_base_type(t);
@@ -741,11 +775,11 @@ class ir_gen_glsl_visitor : public ir_visitor
 	{
 		if (type->is_sampler() || type->is_image())
 		{
-			if (GDefaultPrecisionIsHalf && type->inner_type->base_type == GLSL_TYPE_FLOAT)
+			if (bDefaultPrecisionIsHalf && type->inner_type->base_type == GLSL_TYPE_FLOAT)
 			{
 				return GLSL_PRECISION_HIGHP;
 			}
-			else if (!GDefaultPrecisionIsHalf && type->inner_type->base_type == GLSL_TYPE_HALF)
+			else if (!bDefaultPrecisionIsHalf && type->inner_type->base_type == GLSL_TYPE_HALF)
 			{
 				return GLSL_PRECISION_MEDIUMP;
 			}
@@ -754,11 +788,11 @@ class ir_gen_glsl_visitor : public ir_visitor
 				return GLSL_PRECISION_HIGHP;
 			}
 		}
-		else if (GDefaultPrecisionIsHalf && (type->base_type == GLSL_TYPE_FLOAT || (type->is_array() && type->element_type()->base_type == GLSL_TYPE_FLOAT)))
+		else if (bDefaultPrecisionIsHalf && (type->base_type == GLSL_TYPE_FLOAT || (type->is_array() && type->element_type()->base_type == GLSL_TYPE_FLOAT)))
 		{
 			return GLSL_PRECISION_HIGHP;
 		}
-		else if (!GDefaultPrecisionIsHalf && (type->base_type == GLSL_TYPE_HALF || (type->is_array() && type->element_type()->base_type == GLSL_TYPE_HALF)))
+		else if (!bDefaultPrecisionIsHalf && (type->base_type == GLSL_TYPE_HALF || (type->is_array() && type->element_type()->base_type == GLSL_TYPE_HALF)))
 		{
 			return GLSL_PRECISION_MEDIUMP;
 		}
@@ -913,12 +947,20 @@ class ir_gen_glsl_visitor : public ir_visitor
 				if(bGenerateLayoutLocations && var->explicit_location && var->is_patch_constant == 0)
 				{
 					check(layout_bits == 0);
-					
+
+					// Some devices (S6 G920L 6.0.1) may complain about second empty parameter in an INTERFACE_BLOCK macro
+					// Make sure we put something there 
+					const char* interp_qualifier = interp_str[var->interpolation];
+					if (bIsES31 && strlen(interp_qualifier) == 0)
+					{
+						interp_qualifier = "smooth ";
+					}
+										
 					ralloc_asprintf_append(
 						buffer,
 						"INTERFACE_BLOCK(%d, %s, %s%s%s%s, ",
 						var->location,
-						interp_str[var->interpolation],
+						interp_qualifier,
 						centroid_str[var->centroid],
 						invariant_str[var->invariant],
 						patch_constant_str[var->is_patch_constant],
@@ -2510,7 +2552,7 @@ class ir_gen_glsl_visitor : public ir_visitor
 						{
 							if (bNeedsHeader)
 							{
-								ralloc_asprintf_append(buffer, "// @PackedUB: %s(%d): ",
+								ralloc_asprintf_append(buffer, "// @PackedUB: %s(%u): ",
 									block->name,
 									CBIndex);
 								bNeedsHeader = false;
@@ -2563,12 +2605,12 @@ class ir_gen_glsl_visitor : public ir_visitor
 
 				if (bGroupFlattenedUBs)
 				{
-					ralloc_asprintf_append(buffer, "%d:%d-%d:%c:%d:%d", IterList->SourceCB, IterList->SourceOffset, IterList->DestCBIndex, IterList->DestCBPrecision, IterList->DestOffset, IterList->Size);
+					ralloc_asprintf_append(buffer, "%u:%u-%u:%c:%u:%u", IterList->SourceCB, IterList->SourceOffset, IterList->DestCBIndex, IterList->DestCBPrecision, IterList->DestOffset, IterList->Size);
 				}
 				else
 				{
 					check(IterList->DestCBIndex == 0);
-					ralloc_asprintf_append(buffer, "%d:%d-%c:%d:%d", IterList->SourceCB, IterList->SourceOffset, IterList->DestCBPrecision, IterList->DestOffset, IterList->Size);
+					ralloc_asprintf_append(buffer, "%u:%u-%c:%u:%u", IterList->SourceCB, IterList->SourceOffset, IterList->DestCBPrecision, IterList->DestOffset, IterList->Size);
 				}
 			}
 		}
@@ -2624,6 +2666,7 @@ class ir_gen_glsl_visitor : public ir_visitor
 					type = type->fields.structure->type;
 				}
 			}
+			check(type);
 			bool is_array = type->is_array();
 			int array_size = is_array ? type->length : 0;
 			if (is_array)
@@ -2861,10 +2904,21 @@ class ir_gen_glsl_visitor : public ir_visitor
 
 		if (bUsesES31Extensions)
 		{
+			ralloc_asprintf_append(buffer, "\n#ifdef GL_EXT_gpu_shader5\n");
 			ralloc_asprintf_append(buffer, "#extension GL_EXT_gpu_shader5 : enable\n");
+			ralloc_asprintf_append(buffer, "\n#endif\n");
+			
+			ralloc_asprintf_append(buffer, "\n#ifdef GL_EXT_texture_buffer\n");
 			ralloc_asprintf_append(buffer, "#extension GL_EXT_texture_buffer : enable\n");
+			ralloc_asprintf_append(buffer, "\n#endif\n");
+
+			ralloc_asprintf_append(buffer, "\n#ifdef GL_EXT_texture_cube_map_array\n");
 			ralloc_asprintf_append(buffer, "#extension GL_EXT_texture_cube_map_array : enable\n");
+			ralloc_asprintf_append(buffer, "\n#endif\n");
+
+			ralloc_asprintf_append(buffer, "\n#ifdef GL_EXT_shader_io_blocks\n");
 			ralloc_asprintf_append(buffer, "#extension GL_EXT_shader_io_blocks : enable\n");
+			ralloc_asprintf_append(buffer, "\n#endif\n");
 
 			if (ShaderTarget == geometry_shader)
 			{
@@ -2882,13 +2936,14 @@ class ir_gen_glsl_visitor : public ir_visitor
 public:
 
 	/** Constructor. */
-	ir_gen_glsl_visitor(bool bInIsES, bool bInEmitPrecision, bool bInIsES31, _mesa_glsl_parser_targets InShaderTarget, bool bInGenerateLayoutLocations)
+	ir_gen_glsl_visitor(bool bInIsES, bool bInEmitPrecision, bool bInIsES31, _mesa_glsl_parser_targets InShaderTarget, bool bInGenerateLayoutLocations, bool bInDefaultPrecisionIsHalf)
 		: early_depth_stencil(false)
 		, bIsES(bInIsES)
 		, bEmitPrecision(bInEmitPrecision)
 		, bIsES31(bInIsES31)
 		, ShaderTarget(InShaderTarget)
 		, bGenerateLayoutLocations(bInGenerateLayoutLocations)
+		, bDefaultPrecisionIsHalf(bInDefaultPrecisionIsHalf)
 		, buffer(0)
 		, indentation(0)
 		, scope_depth(0)
@@ -2929,7 +2984,7 @@ public:
 		{
 			// TODO: Improve this...
 			
-			const char* DefaultPrecision = GDefaultPrecisionIsHalf ? "mediump" : "highp";
+			const char* DefaultPrecision = bDefaultPrecisionIsHalf ? "mediump" : "highp";
 			ralloc_asprintf_append(buffer, "precision %s float;\n", DefaultPrecision);
 			ralloc_asprintf_append(buffer, "precision %s int;\n", DefaultPrecision);
 			ralloc_asprintf_append(buffer, "\n#ifndef DONTEMITSAMPLERDEFAULTPRECISION\n"); 
@@ -3014,7 +3069,7 @@ public:
 			check(state->outputstream_type>0);
 			geometry_layouts = ralloc_asprintf(
 				mem_ctx,
-				"\nlayout(%s) in;\nlayout(%s, max_vertices = %d) out;\n\n",
+				"\nlayout(%s) in;\nlayout(%s, max_vertices = %u) out;\n\n",
 				GeometryInputStrings[state->geometryinput],
 				OutputStreamTypeStrings[state->outputstream_type],
 				state->maxvertexcount);
@@ -3104,7 +3159,12 @@ public:
 struct FBreakPrecisionChangesVisitor : public ir_rvalue_visitor
 {
 	_mesa_glsl_parse_state* State;
-	FBreakPrecisionChangesVisitor(_mesa_glsl_parse_state* InState) : State(InState) {}
+	const bool bDefaultPrecisionIsHalf;
+
+	FBreakPrecisionChangesVisitor(_mesa_glsl_parse_state* InState, bool bInDefaultPrecisionIsHalf) 
+		: State(InState)
+		, bDefaultPrecisionIsHalf(bInDefaultPrecisionIsHalf)
+	{}
 
 	virtual void handle_rvalue(ir_rvalue** RValuePtr) override
 	{
@@ -3118,20 +3178,20 @@ struct FBreakPrecisionChangesVisitor : public ir_rvalue_visitor
 		auto* Constant = RValue->as_constant();
 		if (Expression)
 		{
-			if (GDefaultPrecisionIsHalf)
+			if (bDefaultPrecisionIsHalf)
 			{
 				switch (Expression->operation)
 				{
 					case ir_unop_i2f:
 					case ir_unop_b2f:
 					case ir_unop_u2f:
-						bGenerateNewVar = GDefaultPrecisionIsHalf;
+						bGenerateNewVar = bDefaultPrecisionIsHalf;
 						break;
 
 					case ir_unop_i2h:
 					case ir_unop_b2h:
 					case ir_unop_u2h:
-						bGenerateNewVar = !GDefaultPrecisionIsHalf;
+						bGenerateNewVar = !bDefaultPrecisionIsHalf;
 						break;
 
 					case ir_unop_h2f:
@@ -3147,8 +3207,8 @@ struct FBreakPrecisionChangesVisitor : public ir_rvalue_visitor
 		else if (Constant)
 		{
 /*
-			if ((GDefaultPrecisionIsHalf && Constant->type->base_type == GLSL_TYPE_HALF) ||
-				(!GDefaultPrecisionIsHalf && Constant->type->base_type == GLSL_TYPE_FLOAT))
+			if ((bDefaultPrecisionIsHalf && Constant->type->base_type == GLSL_TYPE_HALF) ||
+				(!bDefaultPrecisionIsHalf && Constant->type->base_type == GLSL_TYPE_FLOAT))
 			{
 				bGenerateNewVar = true;
 			}
@@ -3197,13 +3257,15 @@ char* FGlslCodeBackend::GenerateCode(exec_list* ir, _mesa_glsl_parse_state* stat
 	FixRedundantCasts(ir);
 //IRDump(ir);
 
-	FBreakPrecisionChangesVisitor BreakPrecisionChangesVisitor(state);
+	const bool bDefaultPrecisionIsHalf = ((HlslCompileFlags & HLSLCC_UseFullPrecisionInPS) == 0);
+	
+	FBreakPrecisionChangesVisitor BreakPrecisionChangesVisitor(state, bDefaultPrecisionIsHalf);
 	BreakPrecisionChangesVisitor.run(ir);
 
 	const bool bGroupFlattenedUBs = ((HlslCompileFlags & HLSLCC_GroupFlattenedUniformBuffers) == HLSLCC_GroupFlattenedUniformBuffers);
 	const bool bGenerateLayoutLocations = state->bGenerateLayoutLocations;
 	const bool bEmitPrecision = (Target == HCT_FeatureLevelES2 || Target == HCT_FeatureLevelES3_1 || Target == HCT_FeatureLevelES3_1Ext);
-	ir_gen_glsl_visitor visitor(state->bGenerateES, bEmitPrecision, (Target == HCT_FeatureLevelES3_1Ext), state->target, bGenerateLayoutLocations);
+	ir_gen_glsl_visitor visitor(state->bGenerateES, bEmitPrecision, (Target == HCT_FeatureLevelES3_1Ext || Target == HCT_FeatureLevelES3_1), state->target, bGenerateLayoutLocations, bDefaultPrecisionIsHalf);
 	const char* code = visitor.run(ir, state, bGroupFlattenedUBs);
 	return _strdup(code);
 }
@@ -3214,9 +3276,12 @@ struct SPromoteSampleLevelES2 : public ir_hierarchical_visitor
 {
 	_mesa_glsl_parse_state* ParseState;
 	const bool bIsVertexShader;
-	SPromoteSampleLevelES2(_mesa_glsl_parse_state* InParseState, bool bInIsVertexShader) :
+	bool bIsES2;
+
+	SPromoteSampleLevelES2(_mesa_glsl_parse_state* InParseState, bool bInIsVertexShader, bool bInIsES2) :
 		ParseState(InParseState),
-		bIsVertexShader(bInIsVertexShader)
+		bIsVertexShader(bInIsVertexShader),
+		bIsES2(bInIsES2)
 	{
 	}
 
@@ -3224,7 +3289,7 @@ struct SPromoteSampleLevelES2 : public ir_hierarchical_visitor
 	{
 		if (IR->op == ir_txl)
 		{
-			if (bIsVertexShader)
+			if (bIsVertexShader && bIsES2)
 			{
 				YYLTYPE loc;
 				loc.first_column = IR->SourceLocation.Column;
@@ -3238,7 +3303,7 @@ struct SPromoteSampleLevelES2 : public ir_hierarchical_visitor
 				// http://www.khronos.org/registry/gles/extensions/EXT/EXT_shader_texture_lod.txt
 				// Compat work will be required for devices which do not support it.
 				/*
-				_mesa_glsl_warning(ParseState, "%s(%d, %d) Converting SampleLevel() to Sample()\n", IR->SourceLocation.SourceFile.c_str(), IR->SourceLocation.Line, IR->SourceLocation.Column);
+				_mesa_glsl_warning(ParseState, "%s(%u, %u) Converting SampleLevel() to Sample()\n", IR->SourceLocation.SourceFile.c_str(), IR->SourceLocation.Line, IR->SourceLocation.Column);
 				IR->op = ir_tex;
 				*/
 			}
@@ -3338,7 +3403,7 @@ bool FGlslCodeBackend::ApplyAndVerifyPlatformRestrictions(exec_list* Instruction
 
 		// Handle SampleLevel
 		{
-			SPromoteSampleLevelES2 Visitor(ParseState, bIsVertexShader);
+			SPromoteSampleLevelES2 Visitor(ParseState, bIsVertexShader, Target == HCT_FeatureLevelES2);
 			Visitor.run(Instructions);
 		}
 
@@ -3831,10 +3896,12 @@ static ir_rvalue* GenShaderOutputSemantic(
 	bool& ApplyClampPowerOfTwo
 	)
 {
+	check(Semantic);
+
 	FSystemValue* SystemValues = SystemValueTable[Frequency];
 	ir_variable* Variable = NULL;
 
-	if (Semantic && FCStringAnsi::Strnicmp(Semantic, "SV_", 3) == 0)
+	if (FCStringAnsi::Strnicmp(Semantic, "SV_", 3) == 0)
 	{
 		for (int i = 0; SystemValues[i].Semantic != NULL; ++i)
 		{
@@ -4053,7 +4120,7 @@ static void GenShaderInputForVariable(
 
 			if (InputSemantic && !FieldSemantic)
 			{
-				Semantic = ralloc_asprintf(ParseState, "%s%d", InputSemantic, i);
+				Semantic = ralloc_asprintf(ParseState, "%s%u", InputSemantic, i);
 				_mesa_glsl_warning(ParseState, "  creating semantic '%s' for struct field '%s'", Semantic, InputType->fields.structure[i].name);
 			}
 			else if (!InputSemantic && FieldSemantic)
@@ -4126,7 +4193,7 @@ static void GenShaderInputForVariable(
 			GenShaderInputForVariable(
 				Frequency,
 				ParseState,
-				ralloc_asprintf(ParseState, "%s%d", Semantic, BaseIndex + i),
+				ralloc_asprintf(ParseState, "%s%u", Semantic, BaseIndex + i),
 				InputQualifier,
 				ArrayDeref,
 				DeclInstructions,
@@ -4362,7 +4429,7 @@ void GenShaderOutputForVariable(
 
 			if (OutputSemantic && !FieldSemantic)
 			{
-				Semantic = ralloc_asprintf(ParseState, "%s%d", OutputSemantic, i);
+				Semantic = ralloc_asprintf(ParseState, "%s%u", OutputSemantic, i);
 				_mesa_glsl_warning(ParseState, "  creating semantic '%s' for struct field '%s'", Semantic, OutputType->fields.structure[i].name);
 			}
 			else if (!OutputSemantic && FieldSemantic)
@@ -4434,7 +4501,7 @@ void GenShaderOutputForVariable(
 				GenShaderOutputForVariable(
 					Frequency,
 					ParseState,
-					ralloc_asprintf(ParseState, "%s%d", Semantic, BaseIndex + i),
+					ralloc_asprintf(ParseState, "%s%u", Semantic, BaseIndex + i),
 					OutputQualifier,
 					ArrayDeref,
 					DeclInstructions,

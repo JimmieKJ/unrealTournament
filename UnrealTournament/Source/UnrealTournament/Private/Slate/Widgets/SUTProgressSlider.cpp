@@ -67,12 +67,12 @@ int32 SUTProgressSlider::OnPaint(const FPaintArgs& Args, const FGeometry& Allott
 	if (Orientation == Orient_Vertical)
 	{
 		// Do this by translating along -X by the width of the geometry, then rotating 90 degreess CCW (left-hand coords)
-		FSlateRenderTransform RenderTransform = TransformCast<FSlateRenderTransform>(Concatenate(Inverse(FVector2D(AllottedWidth, 0)), FQuat2D(FMath::DegreesToRadians(-90.0f))));
+		FSlateRenderTransform CurrentRenderTransform = TransformCast<FSlateRenderTransform>(Concatenate(Inverse(FVector2D(AllottedWidth, 0)), FQuat2D(FMath::DegreesToRadians(-90.0f))));
 		// create a child geometry matching this one, but with the render transform.
 		SliderGeometry = AllottedGeometry.MakeChild(
 			FVector2D(AllottedWidth, AllottedHeight),
 			FSlateLayoutTransform(),
-			RenderTransform, FVector2D::ZeroVector);
+			CurrentRenderTransform, FVector2D::ZeroVector);
 		// The clipping rect is already given properly in window space. But we do not support layout rotations, so our local space rendering cannot
 		// get the clipping rect into local space properly for the local space clipping we do in the shader.
 		// Thus, we transform the clip coords into local space manually, UNDO the render transform so it will clip properly,
@@ -80,7 +80,7 @@ int32 SUTProgressSlider::OnPaint(const FPaintArgs& Args, const FGeometry& Allott
 		RotatedClippingRect = TransformRect(
 			Concatenate(
 			Inverse(SliderGeometry.GetAccumulatedLayoutTransform()),
-			Inverse(RenderTransform),
+			Inverse(CurrentRenderTransform),
 			SliderGeometry.GetAccumulatedLayoutTransform()),
 			MyClippingRect);
 	}

@@ -31,6 +31,8 @@ namespace
 		case EBreakIteratorType::Title:
 			FactoryFunction = icu::BreakIterator::createTitleInstance;
 			break;
+		default:
+			checkf(false, TEXT("Unhandled break iterator type"));
 		}
 		TSharedPtr<const icu::BreakIterator> Ptr = MakeShareable( FactoryFunction(ICULocale, ICUStatus) );
 		checkf(Ptr.IsValid(), TEXT("Creating a break iterator object failed using locale %s. Perhaps this locale has no data."), StringCast<TCHAR>(ICULocale.getName()).Get());
@@ -97,11 +99,58 @@ namespace
 	}
 }
 
+ETextPluralForm ICUPluralFormToUE(const icu::UnicodeString& InICUTag)
+{
+	static const icu::UnicodeString ZeroStr("zero");
+	static const icu::UnicodeString OneStr("one");
+	static const icu::UnicodeString TwoStr("two");
+	static const icu::UnicodeString FewStr("few");
+	static const icu::UnicodeString ManyStr("many");
+	static const icu::UnicodeString OtherStr("other");
+
+	if (InICUTag == ZeroStr)
+	{
+		return ETextPluralForm::Zero;
+	}
+	if (InICUTag == OneStr)
+	{
+		return ETextPluralForm::One;
+	}
+	if (InICUTag == TwoStr)
+	{
+		return ETextPluralForm::Two;
+	}
+	if (InICUTag == FewStr)
+	{
+		return ETextPluralForm::Few;
+	}
+	if (InICUTag == ManyStr)
+	{
+		return ETextPluralForm::Many;
+	}
+	if (InICUTag == OtherStr)
+	{
+		return ETextPluralForm::Other;
+	}
+
+	ensureAlwaysMsgf(false, TEXT("Unknown ICU plural form tag! Returning 'other'."));
+	return ETextPluralForm::Other;
+}
+
 FCulture::FICUCultureImplementation::FICUCultureImplementation(const FString& LocaleName)
 	: ICULocale( TCHAR_TO_ANSI( *LocaleName ) )
 	, ICUDecimalFormatLRUCache( 10 )
 {
-
+	{
+		UErrorCode ICUStatus = U_ZERO_ERROR;
+		ICUCardinalPluralRules = icu::PluralRules::forLocale(ICULocale, UPLURAL_TYPE_CARDINAL, ICUStatus);
+		checkf(U_SUCCESS(ICUStatus) && ICUCardinalPluralRules, TEXT("Creating a cardinal plural rules object failed using locale %s. Perhaps this locale has no data."), *LocaleName);
+	}
+	{
+		UErrorCode ICUStatus = U_ZERO_ERROR;
+		ICUOrdianalPluralRules = icu::PluralRules::forLocale(ICULocale, UPLURAL_TYPE_ORDINAL, ICUStatus);
+		checkf(U_SUCCESS(ICUStatus) && ICUOrdianalPluralRules, TEXT("Creating an ordinal plural rules object failed using locale %s. Perhaps this locale has no data."), *LocaleName);
+	}
 }
 
 FString FCulture::FICUCultureImplementation::GetDisplayName() const
@@ -746,6 +795,26 @@ const FDecimalNumberFormattingRules& FCulture::FICUCultureImplementation::GetCur
 		UEAlternateCurrencyFormattingRules.Add(InCurrencyCode, FoundUEAlternateCurrencyFormattingRules);
 		return *FoundUEAlternateCurrencyFormattingRules;
 	}
+}
+
+ETextPluralForm FCulture::FICUCultureImplementation::GetPluralForm(int32 Val, const ETextPluralType PluralType)
+{
+	checkf(Val >= 0, TEXT("GetPluralFormImpl requires a positive value"));
+
+	const icu::PluralRules* ICUPluralRules = (PluralType == ETextPluralType::Cardinal) ? ICUCardinalPluralRules : ICUOrdianalPluralRules;
+	const icu::UnicodeString ICUPluralFormTag = ICUPluralRules->select(Val);
+
+	return ICUPluralFormToUE(ICUPluralFormTag);
+}
+
+ETextPluralForm FCulture::FICUCultureImplementation::GetPluralForm(double Val, const ETextPluralType PluralType)
+{
+	checkf(!FMath::IsNegativeDouble(Val), TEXT("GetPluralFormImpl requires a positive value"));
+
+	const icu::PluralRules* ICUPluralRules = (PluralType == ETextPluralType::Cardinal) ? ICUCardinalPluralRules : ICUOrdianalPluralRules;
+	const icu::UnicodeString ICUPluralFormTag = ICUPluralRules->select(Val);
+
+	return ICUPluralFormToUE(ICUPluralFormTag);
 }
 
 #endif

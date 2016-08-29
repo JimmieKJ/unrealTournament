@@ -96,7 +96,7 @@ public:
 
 		FPostSignificanceFunction PostSignificanceFunction;
 
-		void UpdateSignificance(const TArray<FTransform>& ViewPoints);
+		void UpdateSignificance(const TArray<FTransform>& ViewPoints, const bool bSortSignificanceAscending);
 
 		// Allow SignificanceManager to call UpdateSignificance
 		friend USignificanceManager;

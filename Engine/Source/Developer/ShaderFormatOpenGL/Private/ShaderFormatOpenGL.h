@@ -14,6 +14,7 @@ enum GLSLVersion
 	GLSL_ES2_IOS,
 	GLSL_150_MAC, // Apple only
 	GLSL_310_ES_EXT,
+	GLSL_ES3_1_ANDROID,
 };
 
 extern void CompileShader_Windows_OGL(const struct FShaderCompilerInput& Input,struct FShaderCompilerOutput& Output,const class FString& WorkingDirectory, GLSLVersion Version);

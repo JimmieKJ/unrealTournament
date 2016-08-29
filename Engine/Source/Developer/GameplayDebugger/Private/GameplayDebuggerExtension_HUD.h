@@ -23,6 +23,7 @@ protected:
 	void SetGameHUDEnabled(bool bEnable);
 	void SetDebugMessagesEnabled(bool bEnable);
 
+	uint32 bWantsHUDEnabled : 1;
 	uint32 bIsGameHUDEnabled : 1;
 	uint32 bAreDebugMessagesEnabled : 1;
 	uint32 bPrevDebugMessagesEnabled : 1;

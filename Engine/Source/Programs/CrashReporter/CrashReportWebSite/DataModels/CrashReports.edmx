@@ -1,0 +1,749 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<edmx:Edmx Version="3.0" xmlns:edmx="http://schemas.microsoft.com/ado/2009/11/edmx">
+  <!-- EF Runtime content -->
+  <edmx:Runtime>
+    <!-- SSDL content -->
+    <edmx:StorageModels>
+      <Schema Namespace="CrashReportModel.Store" Provider="System.Data.SqlClient" ProviderManifestToken="2008" Alias="Self" xmlns:store="http://schemas.microsoft.com/ado/2007/12/edm/EntityStoreSchemaGenerator" xmlns:customannotation="http://schemas.microsoft.com/ado/2013/11/edm/customannotation" xmlns="http://schemas.microsoft.com/ado/2009/11/edm/ssdl">
+        <EntityType Name="Buggs">
+          <Key>
+            <PropertyRef Name="Id" />
+          </Key>
+          <Property Name="Id" Type="int" StoreGeneratedPattern="Identity" Nullable="false" />
+          <Property Name="TTPID" Type="varchar" MaxLength="50" />
+          <Property Name="Pattern" Type="varchar" MaxLength="800" Nullable="false" />
+          <Property Name="NumberOfCrashes" Type="int" />
+          <Property Name="NumberOfUsers" Type="int" />
+          <Property Name="TimeOfFirstCrash" Type="datetime" />
+          <Property Name="TimeOfLastCrash" Type="datetime" />
+          <Property Name="Status" Type="varchar" MaxLength="64" />
+          <Property Name="FixedChangeList" Type="varchar" MaxLength="50" />
+          <Property Name="CrashType" Type="smallint" />
+          <Property Name="BuildVersion" Type="varchar" MaxLength="64" />
+          <Property Name="PatternId" Type="int" />
+          <Property Name="ErrorMessageId" Type="int" />
+        </EntityType>
+        <EntityType Name="Buggs_Crashes">
+          <Key>
+            <PropertyRef Name="BuggId" />
+            <PropertyRef Name="CrashId" />
+          </Key>
+          <Property Name="BuggId" Type="int" Nullable="false" />
+          <Property Name="CrashId" Type="int" Nullable="false" />
+        </EntityType>
+        <EntityType Name="Buggs_UserGroups">
+          <Key>
+            <PropertyRef Name="BuggId" />
+            <PropertyRef Name="UserGroupId" />
+          </Key>
+          <Property Name="BuggId" Type="int" Nullable="false" />
+          <Property Name="UserGroupId" Type="int" Nullable="false" />
+        </EntityType>
+        <EntityType Name="Buggs_Users">
+          <Key>
+            <PropertyRef Name="BuggId" />
+            <PropertyRef Name="UserName" />
+          </Key>
+          <Property Name="BuggId" Type="int" Nullable="false" />
+          <Property Name="UserName" Type="varchar" MaxLength="64" Nullable="false" />
+          <Property Name="UserNameId" Type="int" />
+        </EntityType>
+        <EntityType Name="CallStackPatterns">
+          <Key>
+            <PropertyRef Name="id" />
+          </Key>
+          <Property Name="id" Type="int" StoreGeneratedPattern="Identity" Nullable="false" />
+          <Property Name="Pattern" Type="varchar" MaxLength="800" />
+        </EntityType>
+        <EntityType Name="Crashes">
+          <Key>
+            <PropertyRef Name="Id" />
+          </Key>
+          <Property Name="Id" Type="int" StoreGeneratedPattern="Identity" Nullable="false" />
+          <Property Name="Title" Type="nchar" MaxLength="20" />
+          <Property Name="Summary" Type="varchar" MaxLength="512" />
+          <Property Name="GameName" Type="varchar" MaxLength="64" />
+          <Property Name="Status" Type="varchar" MaxLength="64" />
+          <Property Name="TimeOfCrash" Type="datetime" />
+          <Property Name="ChangeListVersion" Type="varchar" MaxLength="64" />
+          <Property Name="PlatformName" Type="varchar" MaxLength="64" />
+          <Property Name="EngineMode" Type="varchar" MaxLength="64" />
+          <Property Name="Description" Type="varchar" MaxLength="1024" />
+          <Property Name="RawCallStack" Type="varchar(max)" />
+          <Property Name="Pattern" Type="varchar" MaxLength="800" />
+          <Property Name="CommandLine" Type="varchar" MaxLength="512" />
+          <Property Name="ComputerName" Type="varchar" MaxLength="64" />
+          <Property Name="Selected" Type="bit" />
+          <Property Name="FixedChangeList" Type="varchar" MaxLength="64" />
+          <Property Name="LanguageExt" Type="varchar" MaxLength="64" />
+          <Property Name="Module" Type="varchar" MaxLength="128" />
+          <Property Name="BuildVersion" Type="varchar" MaxLength="128" />
+          <Property Name="BaseDir" Type="varchar" MaxLength="512" />
+          <Property Name="Version" Type="int" />
+          <Property Name="UserName" Type="varchar" MaxLength="64" />
+          <Property Name="TTPID" Type="varchar" MaxLength="64" />
+          <Property Name="AutoReporterID" Type="int" />
+          <Property Name="Processed" Type="bit" />
+          <Property Name="HasLogFile" Type="bit" />
+          <Property Name="HasMiniDumpFile" Type="bit" />
+          <Property Name="HasVideoFile" Type="bit" />
+          <Property Name="HasDiagnosticsFile" Type="bit" />
+          <Property Name="HasNewLogFile" Type="bit" />
+          <Property Name="Branch" Type="varchar" MaxLength="32" />
+          <Property Name="CrashType" Type="smallint" Nullable="false" />
+          <Property Name="UserNameId" Type="int" />
+          <Property Name="HasMetaData" Type="bit" />
+          <Property Name="SourceContext" Type="varchar(max)" />
+          <Property Name="EpicAccountId" Type="varchar" MaxLength="64" />
+          <Property Name="EngineVersion" Type="varchar" MaxLength="64" />
+          <Property Name="UserActivityHint" Type="varchar" MaxLength="512" />
+          <Property Name="InsertTS" Type="datetime" />
+          <Property Name="PatternId" Type="int" />
+        </EntityType>
+        <EntityType Name="ErrorMessages">
+          <Key>
+            <PropertyRef Name="Id" />
+          </Key>
+          <Property Name="Id" Type="int" StoreGeneratedPattern="Identity" Nullable="false" />
+          <Property Name="ErrorMessage" Type="nvarchar" MaxLength="800" />
+        </EntityType>
+        <EntityType Name="FunctionCalls">
+          <Key>
+            <PropertyRef Name="Id" />
+          </Key>
+          <Property Name="Id" Type="int" StoreGeneratedPattern="Identity" Nullable="false" />
+          <Property Name="Call" Type="varchar(max)" />
+        </EntityType>
+        <EntityType Name="UserGroups">
+          <Key>
+            <PropertyRef Name="Id" />
+          </Key>
+          <Property Name="Id" Type="int" StoreGeneratedPattern="Identity" Nullable="false" />
+          <Property Name="Name" Type="varchar" MaxLength="64" />
+        </EntityType>
+        <EntityType Name="Users">
+          <Key>
+            <PropertyRef Name="Id" />
+          </Key>
+          <Property Name="Id" Type="int" StoreGeneratedPattern="Identity" Nullable="false" />
+          <Property Name="UserName" Type="nvarchar" MaxLength="64" />
+          <Property Name="UserGroupId" Type="int" Nullable="false" />
+        </EntityType>
+        <Association Name="Buggs_ErrorMessages_FK">
+          <End Role="ErrorMessages" Type="Self.ErrorMessages" Multiplicity="0..1" />
+          <End Role="Buggs" Type="Self.Buggs" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="ErrorMessages">
+              <PropertyRef Name="Id" />
+            </Principal>
+            <Dependent Role="Buggs">
+              <PropertyRef Name="ErrorMessageId" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_Buggs_CallStackPatterns">
+          <End Role="CallStackPatterns" Type="Self.CallStackPatterns" Multiplicity="0..1" />
+          <End Role="Buggs" Type="Self.Buggs" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="CallStackPatterns">
+              <PropertyRef Name="id" />
+            </Principal>
+            <Dependent Role="Buggs">
+              <PropertyRef Name="PatternId" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_Buggs_Crashes_Buggs">
+          <End Role="Buggs" Type="Self.Buggs" Multiplicity="1" />
+          <End Role="Buggs_Crashes" Type="Self.Buggs_Crashes" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="Buggs">
+              <PropertyRef Name="Id" />
+            </Principal>
+            <Dependent Role="Buggs_Crashes">
+              <PropertyRef Name="BuggId" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_Buggs_Crashes_Crashes">
+          <End Role="Crashes" Type="Self.Crashes" Multiplicity="1" />
+          <End Role="Buggs_Crashes" Type="Self.Buggs_Crashes" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="Crashes">
+              <PropertyRef Name="Id" />
+            </Principal>
+            <Dependent Role="Buggs_Crashes">
+              <PropertyRef Name="CrashId" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_Buggs_UserGroups_Buggs">
+          <End Role="Buggs" Type="Self.Buggs" Multiplicity="1" />
+          <End Role="Buggs_UserGroups" Type="Self.Buggs_UserGroups" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="Buggs">
+              <PropertyRef Name="Id" />
+            </Principal>
+            <Dependent Role="Buggs_UserGroups">
+              <PropertyRef Name="BuggId" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_Buggs_UserGroups_UserGroups">
+          <End Role="UserGroups" Type="Self.UserGroups" Multiplicity="1" />
+          <End Role="Buggs_UserGroups" Type="Self.Buggs_UserGroups" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="UserGroups">
+              <PropertyRef Name="Id" />
+            </Principal>
+            <Dependent Role="Buggs_UserGroups">
+              <PropertyRef Name="UserGroupId" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_Buggs_Users_Users">
+          <End Role="Users" Type="Self.Users" Multiplicity="0..1" />
+          <End Role="Buggs_Users" Type="Self.Buggs_Users" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="Users">
+              <PropertyRef Name="Id" />
+            </Principal>
+            <Dependent Role="Buggs_Users">
+              <PropertyRef Name="UserNameId" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_Buggs_Users_Users_ByName">
+          <End Role="Users" Type="Self.Users" Multiplicity="0..1" />
+          <End Role="Buggs_Users" Type="Self.Buggs_Users" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="Users">
+              <PropertyRef Name="Id" />
+            </Principal>
+            <Dependent Role="Buggs_Users">
+              <PropertyRef Name="UserNameId" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_Crashes_CallStackPattern">
+          <End Role="CallStackPatterns" Type="Self.CallStackPatterns" Multiplicity="0..1" />
+          <End Role="Crashes" Type="Self.Crashes" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="CallStackPatterns">
+              <PropertyRef Name="id" />
+            </Principal>
+            <Dependent Role="Crashes">
+              <PropertyRef Name="PatternId" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_Crashes_Users">
+          <End Role="Users" Type="Self.Users" Multiplicity="0..1" />
+          <End Role="Crashes" Type="Self.Crashes" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="Users">
+              <PropertyRef Name="Id" />
+            </Principal>
+            <Dependent Role="Crashes">
+              <PropertyRef Name="UserNameId" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_Users_UserGroups">
+          <End Role="UserGroups" Type="Self.UserGroups" Multiplicity="1" />
+          <End Role="Users" Type="Self.Users" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="UserGroups">
+              <PropertyRef Name="Id" />
+            </Principal>
+            <Dependent Role="Users">
+              <PropertyRef Name="UserGroupId" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <EntityContainer Name="CrashReportModelStoreContainer">
+          <EntitySet Name="Buggs" EntityType="Self.Buggs" Schema="dbo" store:Type="Tables" />
+          <EntitySet Name="Buggs_Crashes" EntityType="Self.Buggs_Crashes" Schema="dbo" store:Type="Tables" />
+          <EntitySet Name="Buggs_UserGroups" EntityType="Self.Buggs_UserGroups" Schema="dbo" store:Type="Tables" />
+          <EntitySet Name="Buggs_Users" EntityType="Self.Buggs_Users" Schema="dbo" store:Type="Tables" />
+          <EntitySet Name="CallStackPatterns" EntityType="Self.CallStackPatterns" Schema="dbo" store:Type="Tables" />
+          <EntitySet Name="Crashes" EntityType="Self.Crashes" Schema="dbo" store:Type="Tables" />
+          <EntitySet Name="ErrorMessages" EntityType="Self.ErrorMessages" Schema="dbo" store:Type="Tables" />
+          <EntitySet Name="FunctionCalls" EntityType="Self.FunctionCalls" Schema="dbo" store:Type="Tables" />
+          <EntitySet Name="UserGroups" EntityType="Self.UserGroups" Schema="dbo" store:Type="Tables" />
+          <EntitySet Name="Users" EntityType="Self.Users" Schema="dbo" store:Type="Tables" />
+          <AssociationSet Name="Buggs_ErrorMessages_FK" Association="Self.Buggs_ErrorMessages_FK">
+            <End Role="ErrorMessages" EntitySet="ErrorMessages" />
+            <End Role="Buggs" EntitySet="Buggs" />
+          </AssociationSet>
+          <AssociationSet Name="FK_Buggs_CallStackPatterns" Association="Self.FK_Buggs_CallStackPatterns">
+            <End Role="CallStackPatterns" EntitySet="CallStackPatterns" />
+            <End Role="Buggs" EntitySet="Buggs" />
+          </AssociationSet>
+          <AssociationSet Name="FK_Buggs_Crashes_Buggs" Association="Self.FK_Buggs_Crashes_Buggs">
+            <End Role="Buggs" EntitySet="Buggs" />
+            <End Role="Buggs_Crashes" EntitySet="Buggs_Crashes" />
+          </AssociationSet>
+          <AssociationSet Name="FK_Buggs_Crashes_Crashes" Association="Self.FK_Buggs_Crashes_Crashes">
+            <End Role="Crashes" EntitySet="Crashes" />
+            <End Role="Buggs_Crashes" EntitySet="Buggs_Crashes" />
+          </AssociationSet>
+          <AssociationSet Name="FK_Buggs_UserGroups_Buggs" Association="Self.FK_Buggs_UserGroups_Buggs">
+            <End Role="Buggs" EntitySet="Buggs" />
+            <End Role="Buggs_UserGroups" EntitySet="Buggs_UserGroups" />
+          </AssociationSet>
+          <AssociationSet Name="FK_Buggs_UserGroups_UserGroups" Association="Self.FK_Buggs_UserGroups_UserGroups">
+            <End Role="UserGroups" EntitySet="UserGroups" />
+            <End Role="Buggs_UserGroups" EntitySet="Buggs_UserGroups" />
+          </AssociationSet>
+          <AssociationSet Name="FK_Buggs_Users_Users" Association="Self.FK_Buggs_Users_Users">
+            <End Role="Users" EntitySet="Users" />
+            <End Role="Buggs_Users" EntitySet="Buggs_Users" />
+          </AssociationSet>
+          <AssociationSet Name="FK_Buggs_Users_Users_ByName" Association="Self.FK_Buggs_Users_Users_ByName">
+            <End Role="Users" EntitySet="Users" />
+            <End Role="Buggs_Users" EntitySet="Buggs_Users" />
+          </AssociationSet>
+          <AssociationSet Name="FK_Crashes_CallStackPattern" Association="Self.FK_Crashes_CallStackPattern">
+            <End Role="CallStackPatterns" EntitySet="CallStackPatterns" />
+            <End Role="Crashes" EntitySet="Crashes" />
+          </AssociationSet>
+          <AssociationSet Name="FK_Crashes_Users" Association="Self.FK_Crashes_Users">
+            <End Role="Users" EntitySet="Users" />
+            <End Role="Crashes" EntitySet="Crashes" />
+          </AssociationSet>
+          <AssociationSet Name="FK_Users_UserGroups" Association="Self.FK_Users_UserGroups">
+            <End Role="UserGroups" EntitySet="UserGroups" />
+            <End Role="Users" EntitySet="Users" />
+          </AssociationSet>
+        </EntityContainer>
+      </Schema>
+    </edmx:StorageModels>
+    <!-- CSDL content -->
+    <edmx:ConceptualModels>
+      <Schema Namespace="CrashReportModel" Alias="Self" annotation:UseStrongSpatialTypes="false" xmlns:annotation="http://schemas.microsoft.com/ado/2009/02/edm/annotation" xmlns:customannotation="http://schemas.microsoft.com/ado/2013/11/edm/customannotation" xmlns="http://schemas.microsoft.com/ado/2009/11/edm">
+        <EntityType Name="Bugg">
+          <Key>
+            <PropertyRef Name="Id" />
+          </Key>
+          <Property Name="Id" Type="Int32" Nullable="false" annotation:StoreGeneratedPattern="Identity" />
+          <Property Name="TTPID" Type="String" MaxLength="50" FixedLength="false" Unicode="false" />
+          <Property Name="Pattern" Type="String" MaxLength="800" FixedLength="false" Unicode="false" Nullable="false" />
+          <Property Name="NumberOfCrashes" Type="Int32" />
+          <Property Name="NumberOfUsers" Type="Int32" />
+          <Property Name="TimeOfFirstCrash" Type="DateTime" Precision="3" />
+          <Property Name="TimeOfLastCrash" Type="DateTime" Precision="3" />
+          <Property Name="Status" Type="String" MaxLength="64" FixedLength="false" Unicode="false" />
+          <Property Name="FixedChangeList" Type="String" MaxLength="50" FixedLength="false" Unicode="false" />
+          <Property Name="CrashType" Type="Int16" />
+          <Property Name="BuildVersion" Type="String" MaxLength="64" FixedLength="false" Unicode="false" />
+          <Property Name="PatternId" Type="Int32" />
+          <Property Name="ErrorMessageId" Type="Int32" />
+          <NavigationProperty Name="ErrorMessage" Relationship="Self.Buggs_ErrorMessages_FK" FromRole="Buggs" ToRole="ErrorMessages" />
+          <NavigationProperty Name="CallStackPattern" Relationship="Self.FK_Buggs_CallStackPatterns" FromRole="Buggs" ToRole="CallStackPatterns" />
+          <NavigationProperty Name="Crashes" Relationship="Self.Buggs_Crashes" FromRole="Buggs" ToRole="Crashes" />
+          <NavigationProperty Name="UserGroups" Relationship="Self.Buggs_UserGroups" FromRole="Buggs" ToRole="UserGroups" />
+        </EntityType>
+        <EntityType Name="Buggs_Users">
+          <Key>
+            <PropertyRef Name="BuggId" />
+            <PropertyRef Name="UserName" />
+          </Key>
+          <Property Name="BuggId" Type="Int32" Nullable="false" />
+          <Property Name="UserName" Type="String" MaxLength="64" FixedLength="false" Unicode="false" Nullable="false" />
+          <Property Name="UserNameId" Type="Int32" />
+          <NavigationProperty Name="User" Relationship="Self.FK_Buggs_Users_Users" FromRole="Buggs_Users" ToRole="Users" />
+          <NavigationProperty Name="User1" Relationship="Self.FK_Buggs_Users_Users_ByName" FromRole="Buggs_Users" ToRole="Users" />
+        </EntityType>
+        <EntityType Name="CallStackPattern">
+          <Key>
+            <PropertyRef Name="id" />
+          </Key>
+          <Property Name="id" Type="Int32" Nullable="false" annotation:StoreGeneratedPattern="Identity" />
+          <Property Name="Pattern" Type="String" MaxLength="800" FixedLength="false" Unicode="false" />
+          <NavigationProperty Name="Buggs" Relationship="Self.FK_Buggs_CallStackPatterns" FromRole="CallStackPatterns" ToRole="Buggs" />
+          <NavigationProperty Name="Crashes" Relationship="Self.FK_Crashes_CallStackPattern" FromRole="CallStackPatterns" ToRole="Crashes" />
+        </EntityType>
+        <EntityType Name="Crash">
+          <Key>
+            <PropertyRef Name="Id" />
+          </Key>
+          <Property Name="Id" Type="Int32" Nullable="false" annotation:StoreGeneratedPattern="Identity" />
+          <Property Name="Title" Type="String" MaxLength="20" FixedLength="true" Unicode="true" />
+          <Property Name="Summary" Type="String" MaxLength="512" FixedLength="false" Unicode="false" />
+          <Property Name="GameName" Type="String" MaxLength="64" FixedLength="false" Unicode="false" />
+          <Property Name="Status" Type="String" MaxLength="64" FixedLength="false" Unicode="false" />
+          <Property Name="TimeOfCrash" Type="DateTime" Precision="3" />
+          <Property Name="ChangeListVersion" Type="String" MaxLength="64" FixedLength="false" Unicode="false" />
+          <Property Name="PlatformName" Type="String" MaxLength="64" FixedLength="false" Unicode="false" />
+          <Property Name="EngineMode" Type="String" MaxLength="64" FixedLength="false" Unicode="false" />
+          <Property Name="Description" Type="String" MaxLength="1024" FixedLength="false" Unicode="false" />
+          <Property Name="RawCallStack" Type="String" MaxLength="Max" FixedLength="false" Unicode="false" />
+          <Property Name="Pattern" Type="String" MaxLength="800" FixedLength="false" Unicode="false" />
+          <Property Name="CommandLine" Type="String" MaxLength="512" FixedLength="false" Unicode="false" />
+          <Property Name="ComputerName" Type="String" MaxLength="64" FixedLength="false" Unicode="false" />
+          <Property Name="Selected" Type="Boolean" />
+          <Property Name="FixedChangeList" Type="String" MaxLength="64" FixedLength="false" Unicode="false" />
+          <Property Name="LanguageExt" Type="String" MaxLength="64" FixedLength="false" Unicode="false" />
+          <Property Name="Module" Type="String" MaxLength="128" FixedLength="false" Unicode="false" />
+          <Property Name="BuildVersion" Type="String" MaxLength="128" FixedLength="false" Unicode="false" />
+          <Property Name="BaseDir" Type="String" MaxLength="512" FixedLength="false" Unicode="false" />
+          <Property Name="Version" Type="Int32" />
+          <Property Name="UserName" Type="String" MaxLength="64" FixedLength="false" Unicode="false" />
+          <Property Name="Jira" Type="String" MaxLength="64" FixedLength="false" Unicode="false" />
+          <Property Name="AutoReporterID" Type="Int32" />
+          <Property Name="Processed" Type="Boolean" />
+          <Property Name="HasLogFile" Type="Boolean" />
+          <Property Name="HasMiniDumpFile" Type="Boolean" />
+          <Property Name="HasVideoFile" Type="Boolean" />
+          <Property Name="HasDiagnosticsFile" Type="Boolean" />
+          <Property Name="HasNewLogFile" Type="Boolean" />
+          <Property Name="Branch" Type="String" MaxLength="32" FixedLength="false" Unicode="false" />
+          <Property Name="CrashType" Type="Int16" Nullable="false" />
+          <Property Name="UserNameId" Type="Int32" />
+          <Property Name="HasMetaData" Type="Boolean" />
+          <Property Name="SourceContext" Type="String" MaxLength="Max" FixedLength="false" Unicode="false" />
+          <Property Name="EpicAccountId" Type="String" MaxLength="64" FixedLength="false" Unicode="false" />
+          <Property Name="EngineVersion" Type="String" MaxLength="64" FixedLength="false" Unicode="false" />
+          <Property Name="UserActivityHint" Type="String" MaxLength="512" FixedLength="false" Unicode="false" />
+          <Property Name="InsertTS" Type="DateTime" Precision="3" />
+          <Property Name="PatternId" Type="Int32" />
+          <NavigationProperty Name="CallStackPattern" Relationship="Self.FK_Crashes_CallStackPattern" FromRole="Crashes" ToRole="CallStackPatterns" />
+          <NavigationProperty Name="User" Relationship="Self.FK_Crashes_Users" FromRole="Crashes" ToRole="Users" />
+          <NavigationProperty Name="Buggs" Relationship="Self.Buggs_Crashes" FromRole="Crashes" ToRole="Buggs" />
+        </EntityType>
+        <EntityType Name="ErrorMessage">
+          <Key>
+            <PropertyRef Name="Id" />
+          </Key>
+          <Property Name="Id" Type="Int32" Nullable="false" annotation:StoreGeneratedPattern="Identity" />
+          <Property Name="Message" Type="String" MaxLength="800" FixedLength="false" Unicode="true" />
+          <NavigationProperty Name="Buggs" Relationship="Self.Buggs_ErrorMessages_FK" FromRole="ErrorMessages" ToRole="Buggs" />
+        </EntityType>
+        <EntityType Name="FunctionCall">
+          <Key>
+            <PropertyRef Name="Id" />
+          </Key>
+          <Property Name="Id" Type="Int32" Nullable="false" annotation:StoreGeneratedPattern="Identity" />
+          <Property Name="Call" Type="String" MaxLength="Max" FixedLength="false" Unicode="false" />
+        </EntityType>
+        <EntityType Name="UserGroup">
+          <Key>
+            <PropertyRef Name="Id" />
+          </Key>
+          <Property Name="Id" Type="Int32" Nullable="false" annotation:StoreGeneratedPattern="Identity" />
+          <Property Name="Name" Type="String" MaxLength="64" FixedLength="false" Unicode="false" />
+          <NavigationProperty Name="Users" Relationship="Self.FK_Users_UserGroups" FromRole="UserGroups" ToRole="Users" />
+          <NavigationProperty Name="Buggs" Relationship="Self.Buggs_UserGroups" FromRole="UserGroups" ToRole="Buggs" />
+        </EntityType>
+        <EntityType Name="User">
+          <Key>
+            <PropertyRef Name="Id" />
+          </Key>
+          <Property Name="Id" Type="Int32" Nullable="false" annotation:StoreGeneratedPattern="Identity" />
+          <Property Name="UserName" Type="String" MaxLength="64" FixedLength="false" Unicode="true" />
+          <Property Name="UserGroupId" Type="Int32" Nullable="false" />
+          <NavigationProperty Name="Buggs_Users" Relationship="Self.FK_Buggs_Users_Users" FromRole="Users" ToRole="Buggs_Users" />
+          <NavigationProperty Name="Buggs_Users1" Relationship="Self.FK_Buggs_Users_Users_ByName" FromRole="Users" ToRole="Buggs_Users" />
+          <NavigationProperty Name="Crashes" Relationship="Self.FK_Crashes_Users" FromRole="Users" ToRole="Crashes" />
+          <NavigationProperty Name="UserGroup" Relationship="Self.FK_Users_UserGroups" FromRole="Users" ToRole="UserGroups" />
+        </EntityType>
+        <Association Name="Buggs_ErrorMessages_FK">
+          <End Role="ErrorMessages" Type="Self.ErrorMessage" Multiplicity="0..1" />
+          <End Role="Buggs" Type="Self.Bugg" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="ErrorMessages">
+              <PropertyRef Name="Id" />
+            </Principal>
+            <Dependent Role="Buggs">
+              <PropertyRef Name="ErrorMessageId" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_Buggs_CallStackPatterns">
+          <End Role="CallStackPatterns" Type="Self.CallStackPattern" Multiplicity="0..1" />
+          <End Role="Buggs" Type="Self.Bugg" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="CallStackPatterns">
+              <PropertyRef Name="id" />
+            </Principal>
+            <Dependent Role="Buggs">
+              <PropertyRef Name="PatternId" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_Buggs_Users_Users">
+          <End Role="Users" Type="Self.User" Multiplicity="0..1" />
+          <End Role="Buggs_Users" Type="Self.Buggs_Users" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="Users">
+              <PropertyRef Name="Id" />
+            </Principal>
+            <Dependent Role="Buggs_Users">
+              <PropertyRef Name="UserNameId" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_Buggs_Users_Users_ByName">
+          <End Role="Users" Type="Self.User" Multiplicity="0..1" />
+          <End Role="Buggs_Users" Type="Self.Buggs_Users" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="Users">
+              <PropertyRef Name="Id" />
+            </Principal>
+            <Dependent Role="Buggs_Users">
+              <PropertyRef Name="UserNameId" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_Crashes_CallStackPattern">
+          <End Role="CallStackPatterns" Type="Self.CallStackPattern" Multiplicity="0..1" />
+          <End Role="Crashes" Type="Self.Crash" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="CallStackPatterns">
+              <PropertyRef Name="id" />
+            </Principal>
+            <Dependent Role="Crashes">
+              <PropertyRef Name="PatternId" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_Crashes_Users">
+          <End Role="Users" Type="Self.User" Multiplicity="0..1" />
+          <End Role="Crashes" Type="Self.Crash" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="Users">
+              <PropertyRef Name="Id" />
+            </Principal>
+            <Dependent Role="Crashes">
+              <PropertyRef Name="UserNameId" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_Users_UserGroups">
+          <End Role="UserGroups" Type="Self.UserGroup" Multiplicity="1" />
+          <End Role="Users" Type="Self.User" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="UserGroups">
+              <PropertyRef Name="Id" />
+            </Principal>
+            <Dependent Role="Users">
+              <PropertyRef Name="UserGroupId" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="Buggs_Crashes">
+          <End Role="Buggs" Type="Self.Bugg" Multiplicity="*" />
+          <End Role="Crashes" Type="Self.Crash" Multiplicity="*" />
+        </Association>
+        <Association Name="Buggs_UserGroups">
+          <End Role="Buggs" Type="Self.Bugg" Multiplicity="*" />
+          <End Role="UserGroups" Type="Self.UserGroup" Multiplicity="*" />
+        </Association>
+        <EntityContainer Name="CrashReportEntities" annotation:LazyLoadingEnabled="true">
+          <EntitySet Name="Buggs" EntityType="Self.Bugg" />
+          <EntitySet Name="Buggs_Users" EntityType="Self.Buggs_Users" />
+          <EntitySet Name="CallStackPatterns" EntityType="Self.CallStackPattern" />
+          <EntitySet Name="Crashes" EntityType="Self.Crash" />
+          <EntitySet Name="ErrorMessages" EntityType="Self.ErrorMessage" />
+          <EntitySet Name="FunctionCalls" EntityType="Self.FunctionCall" />
+          <EntitySet Name="UserGroups" EntityType="Self.UserGroup" />
+          <EntitySet Name="Users" EntityType="Self.User" />
+          <AssociationSet Name="Buggs_ErrorMessages_FK" Association="Self.Buggs_ErrorMessages_FK">
+            <End Role="ErrorMessages" EntitySet="ErrorMessages" />
+            <End Role="Buggs" EntitySet="Buggs" />
+          </AssociationSet>
+          <AssociationSet Name="FK_Buggs_CallStackPatterns" Association="Self.FK_Buggs_CallStackPatterns">
+            <End Role="CallStackPatterns" EntitySet="CallStackPatterns" />
+            <End Role="Buggs" EntitySet="Buggs" />
+          </AssociationSet>
+          <AssociationSet Name="FK_Buggs_Users_Users" Association="Self.FK_Buggs_Users_Users">
+            <End Role="Users" EntitySet="Users" />
+            <End Role="Buggs_Users" EntitySet="Buggs_Users" />
+          </AssociationSet>
+          <AssociationSet Name="FK_Buggs_Users_Users_ByName" Association="Self.FK_Buggs_Users_Users_ByName">
+            <End Role="Users" EntitySet="Users" />
+            <End Role="Buggs_Users" EntitySet="Buggs_Users" />
+          </AssociationSet>
+          <AssociationSet Name="FK_Crashes_CallStackPattern" Association="Self.FK_Crashes_CallStackPattern">
+            <End Role="CallStackPatterns" EntitySet="CallStackPatterns" />
+            <End Role="Crashes" EntitySet="Crashes" />
+          </AssociationSet>
+          <AssociationSet Name="FK_Crashes_Users" Association="Self.FK_Crashes_Users">
+            <End Role="Users" EntitySet="Users" />
+            <End Role="Crashes" EntitySet="Crashes" />
+          </AssociationSet>
+          <AssociationSet Name="FK_Users_UserGroups" Association="Self.FK_Users_UserGroups">
+            <End Role="UserGroups" EntitySet="UserGroups" />
+            <End Role="Users" EntitySet="Users" />
+          </AssociationSet>
+          <AssociationSet Name="Buggs_Crashes" Association="Self.Buggs_Crashes">
+            <End Role="Buggs" EntitySet="Buggs" />
+            <End Role="Crashes" EntitySet="Crashes" />
+          </AssociationSet>
+          <AssociationSet Name="Buggs_UserGroups" Association="Self.Buggs_UserGroups">
+            <End Role="Buggs" EntitySet="Buggs" />
+            <End Role="UserGroups" EntitySet="UserGroups" />
+          </AssociationSet>
+        </EntityContainer>
+      </Schema>
+    </edmx:ConceptualModels>
+    <!-- C-S mapping content -->
+    <edmx:Mappings>
+      <Mapping Space="C-S" xmlns="http://schemas.microsoft.com/ado/2009/11/mapping/cs">
+        <EntityContainerMapping StorageEntityContainer="CrashReportModelStoreContainer" CdmEntityContainer="CrashReportEntities">
+          <EntitySetMapping Name="Buggs">
+            <EntityTypeMapping TypeName="CrashReportModel.Bugg">
+              <MappingFragment StoreEntitySet="Buggs">
+                <ScalarProperty Name="Id" ColumnName="Id" />
+                <ScalarProperty Name="TTPID" ColumnName="TTPID" />
+                <ScalarProperty Name="Pattern" ColumnName="Pattern" />
+                <ScalarProperty Name="NumberOfCrashes" ColumnName="NumberOfCrashes" />
+                <ScalarProperty Name="NumberOfUsers" ColumnName="NumberOfUsers" />
+                <ScalarProperty Name="TimeOfFirstCrash" ColumnName="TimeOfFirstCrash" />
+                <ScalarProperty Name="TimeOfLastCrash" ColumnName="TimeOfLastCrash" />
+                <ScalarProperty Name="Status" ColumnName="Status" />
+                <ScalarProperty Name="FixedChangeList" ColumnName="FixedChangeList" />
+                <ScalarProperty Name="CrashType" ColumnName="CrashType" />
+                <ScalarProperty Name="BuildVersion" ColumnName="BuildVersion" />
+                <ScalarProperty Name="PatternId" ColumnName="PatternId" />
+                <ScalarProperty Name="ErrorMessageId" ColumnName="ErrorMessageId" />
+              </MappingFragment>
+            </EntityTypeMapping>
+          </EntitySetMapping>
+          <EntitySetMapping Name="Buggs_Users">
+            <EntityTypeMapping TypeName="CrashReportModel.Buggs_Users">
+              <MappingFragment StoreEntitySet="Buggs_Users">
+                <ScalarProperty Name="BuggId" ColumnName="BuggId" />
+                <ScalarProperty Name="UserName" ColumnName="UserName" />
+                <ScalarProperty Name="UserNameId" ColumnName="UserNameId" />
+              </MappingFragment>
+            </EntityTypeMapping>
+          </EntitySetMapping>
+          <EntitySetMapping Name="CallStackPatterns">
+            <EntityTypeMapping TypeName="CrashReportModel.CallStackPattern">
+              <MappingFragment StoreEntitySet="CallStackPatterns">
+                <ScalarProperty Name="id" ColumnName="id" />
+                <ScalarProperty Name="Pattern" ColumnName="Pattern" />
+              </MappingFragment>
+            </EntityTypeMapping>
+          </EntitySetMapping>
+          <EntitySetMapping Name="Crashes">
+            <EntityTypeMapping TypeName="CrashReportModel.Crash">
+              <MappingFragment StoreEntitySet="Crashes">
+                <ScalarProperty Name="Id" ColumnName="Id" />
+                <ScalarProperty Name="Title" ColumnName="Title" />
+                <ScalarProperty Name="Summary" ColumnName="Summary" />
+                <ScalarProperty Name="GameName" ColumnName="GameName" />
+                <ScalarProperty Name="Status" ColumnName="Status" />
+                <ScalarProperty Name="TimeOfCrash" ColumnName="TimeOfCrash" />
+                <ScalarProperty Name="ChangeListVersion" ColumnName="ChangeListVersion" />
+                <ScalarProperty Name="PlatformName" ColumnName="PlatformName" />
+                <ScalarProperty Name="EngineMode" ColumnName="EngineMode" />
+                <ScalarProperty Name="Description" ColumnName="Description" />
+                <ScalarProperty Name="RawCallStack" ColumnName="RawCallStack" />
+                <ScalarProperty Name="Pattern" ColumnName="Pattern" />
+                <ScalarProperty Name="CommandLine" ColumnName="CommandLine" />
+                <ScalarProperty Name="ComputerName" ColumnName="ComputerName" />
+                <ScalarProperty Name="Selected" ColumnName="Selected" />
+                <ScalarProperty Name="FixedChangeList" ColumnName="FixedChangeList" />
+                <ScalarProperty Name="LanguageExt" ColumnName="LanguageExt" />
+                <ScalarProperty Name="Module" ColumnName="Module" />
+                <ScalarProperty Name="BuildVersion" ColumnName="BuildVersion" />
+                <ScalarProperty Name="BaseDir" ColumnName="BaseDir" />
+                <ScalarProperty Name="Version" ColumnName="Version" />
+                <ScalarProperty Name="UserName" ColumnName="UserName" />
+                <ScalarProperty Name="Jira" ColumnName="TTPID" />
+                <ScalarProperty Name="AutoReporterID" ColumnName="AutoReporterID" />
+                <ScalarProperty Name="Processed" ColumnName="Processed" />
+                <ScalarProperty Name="HasLogFile" ColumnName="HasLogFile" />
+                <ScalarProperty Name="HasMiniDumpFile" ColumnName="HasMiniDumpFile" />
+                <ScalarProperty Name="HasVideoFile" ColumnName="HasVideoFile" />
+                <ScalarProperty Name="HasDiagnosticsFile" ColumnName="HasDiagnosticsFile" />
+                <ScalarProperty Name="HasNewLogFile" ColumnName="HasNewLogFile" />
+                <ScalarProperty Name="Branch" ColumnName="Branch" />
+                <ScalarProperty Name="CrashType" ColumnName="CrashType" />
+                <ScalarProperty Name="UserNameId" ColumnName="UserNameId" />
+                <ScalarProperty Name="HasMetaData" ColumnName="HasMetaData" />
+                <ScalarProperty Name="SourceContext" ColumnName="SourceContext" />
+                <ScalarProperty Name="EpicAccountId" ColumnName="EpicAccountId" />
+                <ScalarProperty Name="EngineVersion" ColumnName="EngineVersion" />
+                <ScalarProperty Name="UserActivityHint" ColumnName="UserActivityHint" />
+                <ScalarProperty Name="InsertTS" ColumnName="InsertTS" />
+                <ScalarProperty Name="PatternId" ColumnName="PatternId" />
+              </MappingFragment>
+            </EntityTypeMapping>
+          </EntitySetMapping>
+          <EntitySetMapping Name="ErrorMessages">
+            <EntityTypeMapping TypeName="CrashReportModel.ErrorMessage">
+              <MappingFragment StoreEntitySet="ErrorMessages">
+                <ScalarProperty Name="Id" ColumnName="Id" />
+                <ScalarProperty Name="Message" ColumnName="ErrorMessage" />
+              </MappingFragment>
+            </EntityTypeMapping>
+          </EntitySetMapping>
+          <EntitySetMapping Name="FunctionCalls">
+            <EntityTypeMapping TypeName="CrashReportModel.FunctionCall">
+              <MappingFragment StoreEntitySet="FunctionCalls">
+                <ScalarProperty Name="Id" ColumnName="Id" />
+                <ScalarProperty Name="Call" ColumnName="Call" />
+              </MappingFragment>
+            </EntityTypeMapping>
+          </EntitySetMapping>
+          <EntitySetMapping Name="UserGroups">
+            <EntityTypeMapping TypeName="CrashReportModel.UserGroup">
+              <MappingFragment StoreEntitySet="UserGroups">
+                <ScalarProperty Name="Id" ColumnName="Id" />
+                <ScalarProperty Name="Name" ColumnName="Name" />
+              </MappingFragment>
+            </EntityTypeMapping>
+          </EntitySetMapping>
+          <EntitySetMapping Name="Users">
+            <EntityTypeMapping TypeName="CrashReportModel.User">
+              <MappingFragment StoreEntitySet="Users">
+                <ScalarProperty Name="Id" ColumnName="Id" />
+                <ScalarProperty Name="UserName" ColumnName="UserName" />
+                <ScalarProperty Name="UserGroupId" ColumnName="UserGroupId" />
+              </MappingFragment>
+            </EntityTypeMapping>
+          </EntitySetMapping>
+          <AssociationSetMapping Name="Buggs_Crashes" TypeName="CrashReportModel.Buggs_Crashes" StoreEntitySet="Buggs_Crashes">
+            <EndProperty Name="Buggs">
+              <ScalarProperty Name="Id" ColumnName="BuggId" />
+            </EndProperty>
+            <EndProperty Name="Crashes">
+              <ScalarProperty Name="Id" ColumnName="CrashId" />
+            </EndProperty>
+          </AssociationSetMapping>
+          <AssociationSetMapping Name="Buggs_UserGroups" TypeName="CrashReportModel.Buggs_UserGroups" StoreEntitySet="Buggs_UserGroups">
+            <EndProperty Name="Buggs">
+              <ScalarProperty Name="Id" ColumnName="BuggId" />
+            </EndProperty>
+            <EndProperty Name="UserGroups">
+              <ScalarProperty Name="Id" ColumnName="UserGroupId" />
+            </EndProperty>
+          </AssociationSetMapping>
+        </EntityContainerMapping>
+      </Mapping>
+    </edmx:Mappings>
+  </edmx:Runtime>
+  <!-- EF Designer content (DO NOT EDIT MANUALLY BELOW HERE) -->
+  <Designer xmlns="http://schemas.microsoft.com/ado/2009/11/edmx">
+    <Connection>
+      <DesignerInfoPropertySet>
+        <DesignerProperty Name="MetadataArtifactProcessing" Value="EmbedInOutputAssembly" />
+      </DesignerInfoPropertySet>
+    </Connection>
+    <Options>
+      <DesignerInfoPropertySet>
+        <DesignerProperty Name="ValidateOnBuild" Value="true" />
+        <DesignerProperty Name="EnablePluralization" Value="true" />
+        <DesignerProperty Name="IncludeForeignKeysInModel" Value="true" />
+        <DesignerProperty Name="UseLegacyProvider" Value="false" />
+        <DesignerProperty Name="CodeGenerationStrategy" Value="None" />
+      </DesignerInfoPropertySet>
+    </Options>
+    <!-- Diagram content (shape and connector positions) -->
+    <Diagrams></Diagrams>
+  </Designer>
+</edmx:Edmx>

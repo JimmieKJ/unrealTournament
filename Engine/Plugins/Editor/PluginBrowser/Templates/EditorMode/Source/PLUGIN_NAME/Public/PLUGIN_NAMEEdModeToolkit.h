@@ -10,6 +10,9 @@ class FPLUGIN_NAMEEdModeToolkit : public FModeToolkit
 public:
 
 	FPLUGIN_NAMEEdModeToolkit();
+	
+	/** FModeToolkit interface */
+	virtual void Init(const TSharedPtr<IToolkitHost>& InitToolkitHost) override;
 
 	/** IToolkit interface */
 	virtual FName GetToolkitFName() const override;

@@ -142,12 +142,12 @@ void UUTHUDWidget_WeaponBar::PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCan
 	Cells.Empty();
 
 	int32 GroupCount = 0; // How many different weapon groups are there
-	AUTCharacter* UTCharacterOwner = Cast<AUTCharacter>(InUTHUDOwner->UTPlayerOwner->GetPawn());
-	if (UTCharacterOwner != nullptr)
+	AUTCharacter* UTCharOwner = Cast<AUTCharacter>(InUTHUDOwner->UTPlayerOwner->GetPawn());
+	if (UTCharOwner != nullptr)
 	{
 		// Look for activity
-		AUTWeapon* CurrentWeapon = UTCharacterOwner->GetPendingWeapon();
-		if (CurrentWeapon == nullptr) CurrentWeapon = UTCharacterOwner->GetWeapon();
+		AUTWeapon* CurrentWeapon = UTCharOwner->GetPendingWeapon();
+		if (CurrentWeapon == nullptr) CurrentWeapon = UTCharOwner->GetWeapon();
 		if (CurrentWeapon != LastSelectedWeapon)
 		{
 			LastActiveTime = InUTHUDOwner->GetWorld()->GetTimeSeconds();
@@ -157,10 +157,10 @@ void UUTHUDWidget_WeaponBar::PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCan
 		UUTProfileSettings* PlayerProfile = InUTHUDOwner->UTPlayerOwner->GetProfileSettings();
 		bVerticalLayout = PlayerProfile == nullptr ? UUTProfileSettings::StaticClass()->GetDefaultObject<UUTProfileSettings>()->bVerticalWeaponBar : PlayerProfile->bVerticalWeaponBar;
 
-		AUTGameState* UTGameState = InUTHUDOwner->GetWorld()->GetGameState<AUTGameState>();
-		if (UTGameState)
+		AUTGameState* UTGS = InUTHUDOwner->GetWorld()->GetGameState<AUTGameState>();
+		if (UTGS)
 		{
-			CellBackground.bUseTeamColors = false; // UTGameState->bTeamGame;	
+			CellBackground.bUseTeamColors = false; // UTGS->bTeamGame;	
 		}
 
 		// grabs the coords via the layout
@@ -176,7 +176,7 @@ void UUTHUDWidget_WeaponBar::PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCan
 		}
 
 		// Now look at the player's Inventory and find all of the weapons they have and update the map
-		for (TInventoryIterator<AUTWeapon> It(UTCharacterOwner); It; ++It)
+		for (TInventoryIterator<AUTWeapon> It(UTCharOwner); It; ++It)
 		{
 			AUTWeapon* Weapon = *It;
 			if (Weapon != nullptr)

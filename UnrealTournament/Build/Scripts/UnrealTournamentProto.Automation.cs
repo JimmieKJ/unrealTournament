@@ -410,36 +410,42 @@ namespace UnrealTournamentGame.Automation
 	[RequireP4]
 	class UnrealTournamentProto_BasicBuild : BuildCommand
 	{
-		static List<UnrealTargetPlatform> GetClientTargetPlatforms(BuildCommand Cmd)
+		static List<TargetPlatformDescriptor> GetClientTargetPlatforms(BuildCommand Cmd)
 		{
 			List<UnrealTargetPlatform> ClientPlatforms = new List<UnrealTargetPlatform>();
 
-			ClientPlatforms.Add(UnrealTargetPlatform.Win64);
-			ClientPlatforms.Add(UnrealTargetPlatform.Win32);
-			ClientPlatforms.Add(UnrealTargetPlatform.Mac);
+			if (Cmd.ParseParam("win"))
+			{
+				ClientPlatforms.Add(UnrealTargetPlatform.Win64);
+				ClientPlatforms.Add(UnrealTargetPlatform.Win32);
+			}
+			if (Cmd.ParseParam("mac"))
+			{
+				ClientPlatforms.Add(UnrealTargetPlatform.Mac);
+			}
 			if (!Cmd.ParseParam("nolinux"))
 			{
 				ClientPlatforms.Add(UnrealTargetPlatform.Linux);
 			}
 
-			return ClientPlatforms;
+			return ClientPlatforms.ConvertAll(x => new TargetPlatformDescriptor(x));
 		}
 
-		static List<UnrealTargetPlatform> GetServerTargetPlatforms(BuildCommand Cmd)
+		static List<TargetPlatformDescriptor> GetServerTargetPlatforms(BuildCommand Cmd)
 		{
 			List<UnrealTargetPlatform> ServerPlatforms = new List<UnrealTargetPlatform>();
 
-			if (!Cmd.ParseParam("mac"))
+			if(Cmd.ParseParam("win"))
 			{
 				ServerPlatforms.Add(UnrealTargetPlatform.Win64);
-				if (!Cmd.ParseParam("nolinux"))
-				{
-					ServerPlatforms.Add(UnrealTargetPlatform.Linux);
-				}
+			}
+			if (!Cmd.ParseParam("nolinux"))
+			{
+				ServerPlatforms.Add(UnrealTargetPlatform.Linux);
 			}
 
-			return ServerPlatforms;
-		}
+            return ServerPlatforms.ConvertAll(x => new TargetPlatformDescriptor(x));
+        }
 
 		static public ProjectParams GetParams(BuildCommand Cmd)
 		{
@@ -450,6 +456,10 @@ namespace UnrealTournamentGame.Automation
 				P4Change = P4Env.ChangelistString;
 				P4Branch = P4Env.BuildRootEscaped;
 			}
+
+			string StageDirectory = Cmd.ParseParamValue("StagingDir", null);
+
+			List<TargetPlatformDescriptor> ServerTargetPlatforms = GetServerTargetPlatforms(Cmd);
 
 			ProjectParams Params = new ProjectParams
 			(
@@ -463,15 +473,15 @@ namespace UnrealTournamentGame.Automation
 
 				ClientConfigsToBuild: new List<UnrealTargetConfiguration>() { UnrealTargetConfiguration.Shipping, UnrealTargetConfiguration.Test },
 				ServerConfigsToBuild: new List<UnrealTargetConfiguration>() { UnrealTargetConfiguration.Shipping, UnrealTargetConfiguration.Test },
-				ClientTargetPlatforms: GetClientTargetPlatforms(Cmd),
-				ServerTargetPlatforms: GetServerTargetPlatforms(Cmd),
+                ClientTargetPlatforms: GetClientTargetPlatforms(Cmd),
+				ServerTargetPlatforms: ServerTargetPlatforms,
 				Build: !Cmd.ParseParam("skipbuild"),
 				Cook: true,
 				CulturesToCook: new ParamList<string>("en"),
 				InternationalizationPreset: "English",
 				SkipCook: Cmd.ParseParam("skipcook"),
 				Clean: !Cmd.ParseParam("NoClean") && !Cmd.ParseParam("skipcook") && !Cmd.ParseParam("skippak") && !Cmd.ParseParam("skipstage") && !Cmd.ParseParam("skipbuild"),
-				DedicatedServer: true,
+				DedicatedServer: ServerTargetPlatforms.Count > 0,
 				Pak: true,
 				SkipPak: Cmd.ParseParam("skippak"),
 				NoXGE: Cmd.ParseParam("NoXGE"),
@@ -484,7 +494,7 @@ namespace UnrealTournamentGame.Automation
 				// if we are running, we assume this is a local test and don't chunk
 				Run: Cmd.ParseParam("Run"),
                 TreatNonShippingBinariesAsDebugFiles: true,
-                StageDirectoryParam: UnrealTournamentBuild.GetArchiveDir()
+				StageDirectoryParam: (StageDirectory != null ? StageDirectory : UnrealTournamentBuild.GetArchiveDir())
 			);
 			Params.ValidateAndLog();
 			return Params;
@@ -498,12 +508,25 @@ namespace UnrealTournamentGame.Automation
 				string ReleasePath = CombinePaths(CmdEnv.LocalRoot, "UnrealTournament", "Releases", Params.CreateReleaseVersion);
 				string SavedPath = CombinePaths(CmdEnv.LocalRoot, "UnrealTournament", "Saved", "Cooked");
 
-				string[] Platforms = new string[] { "WindowsNoEditor", "MacNoEditor", "LinuxServer", "WindowsServer", "LinuxNoEditor" };
+				// add in the platforms we just made assetregistry files for.
+				List<string> Platforms = new List<string>();
+				if (Params.ClientTargetPlatforms.Contains(new TargetPlatformDescriptor(UnrealTargetPlatform.Win32)) || Params.ClientTargetPlatforms.Contains(new TargetPlatformDescriptor(UnrealTargetPlatform.Win64)))
+					Platforms.Add("WindowsNoEditor");
+				if (Params.ClientTargetPlatforms.Contains(new TargetPlatformDescriptor(UnrealTargetPlatform.Mac)))
+					Platforms.Add("MacNoEditor");
+				if (Params.ClientTargetPlatforms.Contains(new TargetPlatformDescriptor(UnrealTargetPlatform.Linux)))
+					Platforms.Add("LinuxNoEditor");
+				if (Params.ServerTargetPlatforms.Contains(new TargetPlatformDescriptor(UnrealTargetPlatform.Win32)) || Params.ServerTargetPlatforms.Contains(new TargetPlatformDescriptor(UnrealTargetPlatform.Win64)))
+					Platforms.Add("WindowsServer");
+				if (Params.ServerTargetPlatforms.Contains(new TargetPlatformDescriptor(UnrealTargetPlatform.Linux)))
+					Platforms.Add("LinuxServer");
 
 				foreach (string Platform in Platforms)
 				{
-					string Filename = CombinePaths(ReleasePath, Platform, "AssetRegistry.bin");
-					CommandUtils.CopyFile_NoExceptions(CombinePaths(SavedPath, Platform, "Releases", Params.CreateReleaseVersion, "AssetRegistry.bin"), Filename);
+					string FromPath = CombinePaths(SavedPath, Platform, "UnrealTournament", "AssetRegistry.bin");
+                    string Filename = CombinePaths(ReleasePath, Platform, "AssetRegistry.bin");
+					Log("Copying AssetRegistry.bin file from: " + FromPath + " to " + Filename);
+					CommandUtils.CopyFile_NoExceptions(FromPath, Filename);
 				}
 			}
 		}
@@ -519,7 +542,18 @@ namespace UnrealTournamentGame.Automation
 				{
 					string ReleasePath = CombinePaths(CmdEnv.LocalRoot, "UnrealTournament", "Releases", Params.CreateReleaseVersion);
 
-					string[] Platforms = new string[] { "WindowsNoEditor", "MacNoEditor", "LinuxServer", "WindowsServer", "LinuxNoEditor" };
+					// add in the platforms we just made assetregistry files for.
+					List<string> Platforms = new List<string>();
+					if (Params.ClientTargetPlatforms.Contains(new TargetPlatformDescriptor(UnrealTargetPlatform.Win32)) || Params.ClientTargetPlatforms.Contains(new TargetPlatformDescriptor(UnrealTargetPlatform.Win64)))
+						Platforms.Add("WindowsNoEditor");
+					if (Params.ClientTargetPlatforms.Contains(new TargetPlatformDescriptor(UnrealTargetPlatform.Mac)))
+						Platforms.Add("MacNoEditor");
+					if (Params.ClientTargetPlatforms.Contains(new TargetPlatformDescriptor(UnrealTargetPlatform.Linux)))
+						Platforms.Add("LinuxNoEditor");
+					if (Params.ServerTargetPlatforms.Contains(new TargetPlatformDescriptor(UnrealTargetPlatform.Win32)) || Params.ServerTargetPlatforms.Contains(new TargetPlatformDescriptor(UnrealTargetPlatform.Win64)))
+						Platforms.Add("WindowsServer");
+					if (Params.ServerTargetPlatforms.Contains(new TargetPlatformDescriptor(UnrealTargetPlatform.Linux)))
+						Platforms.Add("LinuxServer");
 
 					foreach (string Platform in Platforms)
 					{
@@ -1941,14 +1975,15 @@ namespace UnrealTournamentGame.Automation
 			ParamList<string> ListToProcess = InDedicatedServer && (Params.Cook || Params.CookOnTheFly) ? Params.ServerCookedTargets : Params.ClientCookedTargets;
 			var ConfigsToProcess = InDedicatedServer && (Params.Cook || Params.CookOnTheFly) ? Params.ServerConfigsToBuild : Params.ClientConfigsToBuild;
 
-			List<UnrealTargetPlatform> PlatformsToStage = Params.ClientTargetPlatforms;
+			List<TargetPlatformDescriptor> PlatformsToStage = Params.ClientTargetPlatforms;
 			if (InDedicatedServer && (Params.Cook || Params.CookOnTheFly))
 			{
 				PlatformsToStage = Params.ServerTargetPlatforms;
 			}
 
 			bool prefixArchiveDir = false;
-			if (PlatformsToStage.Contains(UnrealTargetPlatform.Win32) && PlatformsToStage.Contains(UnrealTargetPlatform.Win64))
+			if (PlatformsToStage.Contains(new TargetPlatformDescriptor(UnrealTargetPlatform.Win32)) && 
+                PlatformsToStage.Contains(new TargetPlatformDescriptor(UnrealTargetPlatform.Win64)))
 			{
 				prefixArchiveDir = true;
 			}
@@ -1956,8 +1991,8 @@ namespace UnrealTournamentGame.Automation
 			List<DeploymentContext> DeploymentContexts = new List<DeploymentContext>();
 			foreach (var StagePlatform in PlatformsToStage)
 			{
-				// Get the platform to get cooked data from, may differ from the stage platform
-				UnrealTargetPlatform CookedDataPlatform = Params.GetCookedDataPlatformForClientTarget(StagePlatform);
+                // Get the platform to get cooked data from, may differ from the stage platform
+                TargetPlatformDescriptor CookedDataPlatform = Params.GetCookedDataPlatformForClientTarget(StagePlatform);
 
 				if (InDedicatedServer && (Params.Cook || Params.CookOnTheFly))
 				{
@@ -1983,7 +2018,7 @@ namespace UnrealTournamentGame.Automation
 
 				string StageDirectory = (Params.Stage || !String.IsNullOrEmpty(Params.StageDirectoryParam)) ? Params.BaseStageDirectory : "";
 				string ArchiveDirectory = (Params.Archive || !String.IsNullOrEmpty(Params.ArchiveDirectoryParam)) ? Params.BaseArchiveDirectory : "";
-				if (prefixArchiveDir && (StagePlatform == UnrealTargetPlatform.Win32 || StagePlatform == UnrealTargetPlatform.Win64))
+				if (prefixArchiveDir && (StagePlatform.Type == UnrealTargetPlatform.Win32 || StagePlatform.Type == UnrealTargetPlatform.Win64))
 				{
 					if (Params.Stage)
 					{
@@ -1997,19 +2032,18 @@ namespace UnrealTournamentGame.Automation
 
 				List<StageTarget> TargetsToStage = new List<StageTarget>();
 
-				//@todo should pull StageExecutables from somewhere else if not cooked
-				DeploymentContext SC = new DeploymentContext(Params.RawProjectPath, CmdEnv.LocalRoot,
-					StageDirectory,
-					ArchiveDirectory,
-					Params.CookFlavor,
-					Params.GetTargetPlatformInstance(CookedDataPlatform),
-					Params.GetTargetPlatformInstance(StagePlatform),
+                //@todo should pull StageExecutables from somewhere else if not cooked
+                DeploymentContext SC = new DeploymentContext(Params.RawProjectPath, CmdEnv.LocalRoot,
+                    StageDirectory,
+                    ArchiveDirectory,
+                    Platform.Platforms[CookedDataPlatform],
+                    Platform.Platforms[StagePlatform],
 					ConfigsToProcess,
 					TargetsToStage,
 					ExecutablesToStage,
 					InDedicatedServer,
 					Params.Cook || Params.CookOnTheFly,
-					Params.CrashReporter && !(StagePlatform == UnrealTargetPlatform.Linux), // can't include the crash reporter from binary Linux builds
+					Params.CrashReporter && !(StagePlatform.Type == UnrealTargetPlatform.Linux), // can't include the crash reporter from binary Linux builds
 					Params.Stage,
 					Params.CookOnTheFly,
 					Params.Archive,
@@ -2020,7 +2054,7 @@ namespace UnrealTournamentGame.Automation
 
 				// If we're a derived platform make sure we're at the end, otherwise make sure we're at the front
 
-				if (CookedDataPlatform != StagePlatform)
+				if (!CookedDataPlatform.Equals(StagePlatform))
 				{
 					DeploymentContexts.Add(SC);
 				}

@@ -2,6 +2,7 @@
 
 #pragma once
 
+#include "MovieSceneToolsUserSettings.h"
 
 class FThumbnailSection;
 class FSlateRenderTargetRHI;
@@ -99,7 +100,7 @@ struct IThumbnailClient
 /** Cache data */
 struct FThumbnailCacheData
 {
-	FThumbnailCacheData() : VisibleRange(0.f), TimeRange(0.f), AllottedSize(0,0), DesiredSize(0, 0) {}
+	FThumbnailCacheData() : VisibleRange(0.f), TimeRange(0.f), AllottedSize(0,0), DesiredSize(0, 0), Quality(EThumbnailQuality::Normal) {}
 
 	bool operator==(const FThumbnailCacheData& RHS) const
 	{
@@ -108,6 +109,7 @@ struct FThumbnailCacheData
 			VisibleRange == RHS.VisibleRange &&
 			TimeRange == RHS.TimeRange &&
 			DesiredSize == RHS.DesiredSize &&
+			Quality == RHS.Quality &&
 			SingleReferenceFrame == RHS.SingleReferenceFrame;
 	}
 
@@ -118,6 +120,7 @@ struct FThumbnailCacheData
 			VisibleRange != RHS.VisibleRange ||
 			TimeRange != RHS.TimeRange ||
 			DesiredSize != RHS.DesiredSize ||
+			Quality != RHS.Quality ||
 			SingleReferenceFrame != RHS.SingleReferenceFrame;
 	}
 
@@ -129,6 +132,8 @@ struct FThumbnailCacheData
 	FIntPoint AllottedSize;
 	/** Desired frame size constraint */
 	FIntPoint DesiredSize;
+	/** Thumbnail quality */
+	EThumbnailQuality Quality;
 	/** Set when we want to render a single reference frame */
 	TOptional<float> SingleReferenceFrame;
 };
@@ -144,9 +149,9 @@ public:
 	void SetSingleReferenceFrame(TOptional<float> InReferenceFrame);
 	TOptional<float> GetSingleReferenceFrame() const { return CurrentCache.SingleReferenceFrame; }
 
-	void Update(const TRange<float>& NewRange, const TRange<float>& VisibleRange, const FIntPoint& AllottedSize, const FIntPoint& InDesiredSize);
+	void Update(const TRange<float>& NewRange, const TRange<float>& VisibleRange, const FIntPoint& AllottedSize, const FIntPoint& InDesiredSize, EThumbnailQuality InQuality, double InCurrentTime);
 
-	void Revalidate();
+	void Revalidate(double InCurrentTime);
 
 	void DrawViewportThumbnail(FTrackEditorThumbnail& TrackEditorThumbnail);
 
@@ -156,6 +161,8 @@ public:
 	}
 
 protected:
+
+	void ComputeNewThumbnails();
 
 	void Setup();
 
@@ -170,6 +177,8 @@ protected:
 	void GenerateFront(const TRange<float>& Boundary);
 
 	void GenerateBack(const TRange<float>& Boundary);
+
+	void SetupViewportEngineFlags();
 
 protected:
 
@@ -194,6 +203,9 @@ protected:
 
 	/** The number of frames we've rendered */
 	uint32 FrameCount;
+
+	double LastComputationTime;
+	bool bNeedsNewThumbnails;
 
 	/** Whether to force a redraw or not */
 	bool bForceRedraw;

@@ -57,7 +57,7 @@ struct FStreamedAudioChunk
 	 * Place chunk data in the derived data cache associated with the provided
 	 * key.
 	 */
-	void StoreInDerivedDataCache(const FString& InDerivedDataKey);
+	uint32 StoreInDerivedDataCache(const FString& InDerivedDataKey);
 #endif // #if WITH_EDITORONLY_DATA
 };
 
@@ -269,9 +269,6 @@ public:
 	/** cooked streaming platform data for this sound */
 	TMap<FString, FStreamedAudioPlatformData*> CookedPlatformData;
 
-	/** Codec used to compress/encode this audio data */
-	FName CompressionName;
-
 	//~ Begin UObject Interface. 
 	virtual void Serialize( FArchive& Ar ) override;
 	virtual void PostInitProperties() override;
@@ -281,7 +278,6 @@ public:
 #if WITH_EDITOR
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;	
 #endif // WITH_EDITOR
-	virtual bool IsLocalizedResource() override;
 	virtual SIZE_T GetResourceSize(EResourceSizeMode::Type Mode) override;
 	virtual FName GetExporterName() override;
 	virtual FString GetDesc() override;
@@ -334,7 +330,7 @@ public:
 	/** 
 	 * Handle any special requirements when the sound starts (e.g. subtitles)
 	 */
-	FWaveInstance* HandleStart( FActiveSound& ActiveSound, const UPTRINT WaveInstanceHash );
+	FWaveInstance* HandleStart( FActiveSound& ActiveSound, const UPTRINT WaveInstanceHash ) const;
 
 	/** 
 	 * This is only for DTYPE_Procedural audio. Override this function.
@@ -358,6 +354,8 @@ public:
 		FByteBulkData* Data = GetCompressedData(Format);
 		return Data ? Data->GetBulkDataSize() : 0;
 	}
+
+	virtual bool HasCompressedData(FName Format) const;
 
 	/** 
 	 * Gets the compressed data from derived data cache for the specified platform
@@ -438,6 +436,18 @@ public:
 	 * @param OutChunkData	Address of pointer that will store data.
 	 */
 	void GetChunkData(int32 ChunkIndex, uint8** OutChunkData);
+
+private:
+
+	enum class ESoundWaveResourceState
+	{
+		NeedsFree,
+		Freeing,
+		Freed
+	};
+
+	ESoundWaveResourceState ResourceState;
+
 };
 
 

@@ -572,6 +572,9 @@ void FLevelCollectionModel::UnloadLevels(const FLevelModelList& InLevelList)
 		return;
 	}
 
+	UWorld* ThisWorld = GetWorld();
+	check(ThisWorld != nullptr);
+
 	// If matinee is opened, and if it belongs to the level being removed, close it
 	if (GLevelEditorModeTools().IsModeActive(FBuiltinEditorModes::EM_InterpEdit))
 	{
@@ -589,8 +592,6 @@ void FLevelCollectionModel::UnloadLevels(const FLevelModelList& InLevelList)
 		GLevelEditorModeTools().ActivateDefaultMode();
 	}
 
-	
-	// Remove each level!
 	// Take a copy of the list rather than using a reference to the selected levels list, as this will be modified in the loop below
 	const FLevelModelList LevelListCopy = InLevelList;
 	for (auto It = LevelListCopy.CreateConstIterator(); It; ++It)
@@ -598,7 +599,7 @@ void FLevelCollectionModel::UnloadLevels(const FLevelModelList& InLevelList)
 		TSharedPtr<FLevelModel> LevelModel = (*It);
 		ULevel* Level = LevelModel->GetLevelObject();
 
-		if (Level != NULL && !LevelModel->IsPersistent())
+		if (Level != nullptr && !LevelModel->IsPersistent())
 		{
 			// Unselect all actors before removing the level
 			// This avoids crashing in areas that rely on getting a selected actors level. The level will be invalid after its removed.
@@ -607,6 +608,23 @@ void FLevelCollectionModel::UnloadLevels(const FLevelModelList& InLevelList)
 				GEditor->SelectActor((*ActorIt), /*bInSelected=*/ false, /*bSelectEvenIfHidden=*/ false);
 			}
 			
+			// In case we have created temporary streaming level object for this sub-level - remove it before unloading sub-level
+			{
+				FName LevelPackageName = LevelModel->GetLongPackageName();
+				auto Predicate = [&](ULevelStreaming* StreamingLevel) 
+				{
+					return (StreamingLevel->GetWorldAssetPackageFName() == LevelPackageName && StreamingLevel->HasAnyFlags(RF_Transient));
+				};
+				
+				int32 Index = ThisWorld->StreamingLevels.IndexOfByPredicate(Predicate);
+				if (Index != INDEX_NONE)
+				{
+					ThisWorld->StreamingLevels[Index]->MarkPendingKill();
+					ThisWorld->StreamingLevels.RemoveAt(Index);
+				}
+			}
+			
+			// Unload sub-level
 			{
 				FUnmodifiableObject ImmuneWorld(CurrentWorld.Get());
 				EditorLevelUtils::RemoveLevelFromWorld(Level);

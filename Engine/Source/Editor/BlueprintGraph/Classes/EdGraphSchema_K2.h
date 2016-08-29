@@ -172,6 +172,13 @@ public:
 
 	static const FName MD_ArrayParam;
 	static const FName MD_ArrayDependentParam;
+
+	/** Metadata that identifies an integral property as a bitmask. */
+	static const FName MD_Bitmask;
+	/** Metadata that associates a bitmask property with a bitflag enum. */
+	static const FName MD_BitmaskEnum;
+	/** Metadata that identifies an enum as a set of explicitly-named bitflags. */
+	static const FName MD_Bitflags;
 	
 private:
 	// This class should never be instantiated
@@ -211,6 +218,20 @@ enum class EObjectReferenceType : uint8
 	AllTypes		= 0x0f,
 };
 
+/**
+* Filter flags for GetVariableTypeTree
+*/
+enum class ETypeTreeFilter : uint8
+{
+	None			= 0x00, // No Exec or Wildcards
+	AllowExec		= 0x01, // Include Executable pins
+	AllowWildcard	= 0x02, // Include Wildcard pins
+	IndexTypesOnly	= 0x04, // Exclude all pins that aren't index types
+	RootTypesOnly	= 0x08	// Exclude all pins that aren't root types
+};
+
+ENUM_CLASS_FLAGS(ETypeTreeFilter);
+
 struct FTypesDatabase;
 
 UCLASS(config=Editor)
@@ -242,6 +263,7 @@ class BLUEPRINTGRAPH_API UEdGraphSchema_K2 : public UEdGraphSchema
 	static const FString PSC_Self;    // Category=PC_Object or PC_Class, indicates the class being compiled
 
 	static const FString PSC_Index;	// Category=PC_Wildcard, indicates the wildcard will only accept Int, Bool, Byte and Enum pins (used when a pin represents indexing a list)
+	static const FString PSC_Bitmask;	// Category=PC_Byte or PC_Int, indicates that the pin represents a bitmask field. SubCategoryObject is either NULL or the UEnum object to which the bitmap is linked for bitflag name specification.
 
 	// Pin names that have special meaning and required types in some contexts (depending on the node type)
 	static const FString PN_Execute;    // Category=PC_Exec, singleton, input
@@ -384,6 +406,8 @@ public:
 	};
 
 public:
+	void SelectAllInputNodes(UEdGraph* Graph, UEdGraphPin* InGraphPin);
+
 	//~ Begin EdGraphSchema Interface
 	virtual void GetContextMenuActions(const UEdGraph* CurrentGraph, const UEdGraphNode* InGraphNode, const UEdGraphPin* InGraphPin, class FMenuBuilder* MenuBuilder, bool bIsDebugging) const override;
 	virtual const FPinConnectionResponse CanCreateConnection(const UEdGraphPin* A, const UEdGraphPin* B) const override;
@@ -417,7 +441,7 @@ public:
 	virtual void GetAssetsPinHoverMessage(const TArray<FAssetData>& Assets, const UEdGraphPin* HoverPin, FString& OutTooltipText, bool& OutOkIcon) const override;
 	virtual bool CanDuplicateGraph(UEdGraph* InSourceGraph) const override;
 	virtual UEdGraph* DuplicateGraph(UEdGraph* GraphToDuplicate) const override;
-	virtual UEdGraphNode* CreateSubstituteNode(UEdGraphNode* Node, const UEdGraph* Graph, FObjectInstancingGraph* InstanceGraph) const override;
+	virtual UEdGraphNode* CreateSubstituteNode(UEdGraphNode* Node, const UEdGraph* Graph, FObjectInstancingGraph* InstanceGraph, TArray<FName>& InOutExtraNames) const override;
 	virtual int32 GetNodeSelectionCount(const UEdGraph* Graph) const override;
 	virtual TSharedPtr<FEdGraphSchemaAction> GetCreateCommentAction() const override;
 	virtual bool FadeNodeWhenDraggingOffPin(const UEdGraphNode* Node, const UEdGraphPin* Pin) const override;
@@ -826,19 +850,9 @@ public:
 	 * Get the type tree for all of the property types valid for this schema
 	 *
 	 * @param	TypeTree		The array that will contain the type tree hierarchy for this schema upon returning
-	 * @param	bAllowExec		Whether or not to add the exec type to the type tree
-	 * @param	bAllowWildcard	Whether or not to add the wildcard type to the type tree
+	 * @param	TypeTreeFilter	ETypeTreeFilter flags that determine how the TypeTree is populated.
 	 */
-	void GetVariableTypeTree(TArray< TSharedPtr<FPinTypeTreeInfo> >& TypeTree, bool bAllowExec, bool bAllowWildcard) const;
-
-	/**
-	 * Get the type tree for the index property types valid for this schema
-	 *
-	 * @param	TypeTree	The array that will contain the type tree hierarchy for this schema upon returning
-	 * @param	bAllowExec	Whether or not to add the exec type to the type tree
-	 * @param	bAllowExec	Whether or not to add the exec type to the type tree
-	 */
-	void GetVariableIndexTypeTree( TArray< TSharedPtr<FPinTypeTreeInfo> >& TypeTree, bool bAllowExec, bool bAllowWildcard ) const;
+	void GetVariableTypeTree(TArray< TSharedPtr<FPinTypeTreeInfo> >& TypeTree, ETypeTreeFilter TypeTreeFilter = ETypeTreeFilter::None) const;
 
 	/**
 	 * Returns whether or not the specified type has valid subtypes available
@@ -1005,9 +1019,6 @@ public:
 	static void GetReplaceVariableMenu(class FMenuBuilder& MenuBuilder, class UK2Node_Variable* Variable, UBlueprint* OwnerBlueprint, bool bReplaceExistingVariable = false);
 
 private:
-
-	void GetVariableTypeTreeImpl(TArray< TSharedPtr<FPinTypeTreeInfo> >& TypeTree, bool bAllowExec, bool bAllowWildCard, bool bIndexTypesOnly) const;
-
 	/**
 	 * Returns true if the specified function has any out parameters
 	 * @param [in] Function	The function to check for out parameters

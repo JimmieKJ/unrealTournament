@@ -4,6 +4,8 @@ EXPORTS
 	CompressBlocksBC3
 	CompressBlocksBC6H
 	CompressBlocksBC7
+	CompressBlocksETC1
+	CompressBlocksASTC
 	GetProfile_ultrafast
 	GetProfile_veryfast
 	GetProfile_fast
@@ -19,4 +21,8 @@ EXPORTS
 	GetProfile_bc6h_basic
 	GetProfile_bc6h_slow
 	GetProfile_bc6h_veryslow
-	
+	GetProfile_etc_slow
+	GetProfile_astc_fast
+	GetProfile_astc_alpha_fast
+	GetProfile_astc_alpha_slow
+	ReplicateBorders

@@ -267,6 +267,10 @@ public:
 	void AddWhitelistedClass(UClass& InClass);
 	bool IsClassWhitelisted(const UClass& InClass) const;
 
+	void AddWhitelistedObject(const UObject& InObject);
+	void ClearObjectWhitelist();
+	bool IsObjectWhitelisted(const UObject* InObject) const;
+
 private:
 	FVisualLogger();
 	virtual void Serialize(const TCHAR* V, ELogVerbosity::Type Verbosity, const FName& Category) override { ensureMsgf(0, TEXT("Regular serialize is forbiden for visual logs")); }
@@ -280,6 +284,11 @@ protected:
 	// white-listed classes - only instances of these classes will be logged. 
 	// if ClassWhitelist is empty (default) everything will log
 	TArray<UClass*> ClassWhitelist;
+
+	// white-listed objects - takes priority over class whitelist and should be used to create exceptions in it
+	// if ObjectWhitelist is empty (default) everything will log
+	// do NOT read from those pointers, they can be invalid!
+	TSet<const UObject*> ObjectWhitelist;
 
 	// white list of categories to bypass blocking
 	TArray<FName>	CategoriesWhitelist;

@@ -216,6 +216,27 @@ public:
 	{
 		return LowerLevel->SendMessageToServer(Message, Handler);
 	}
+#if USE_NEW_ASYNC_IO
+	virtual IAsyncReadFileHandle* OpenAsyncRead(const TCHAR* Filename) override
+	{
+		IAsyncReadFileHandle* Result = LowerLevel->OpenAsyncRead(Filename);
+		if (Result)
+		{
+			CriticalSection.Lock();
+			if (FilenameAccessMap.Find(Filename) == nullptr)
+			{
+				FilenameAccessMap.Emplace(Filename, ++OpenOrder);
+				FString Text = FString::Printf(TEXT("\"%s\" %llu\n"), Filename, OpenOrder);
+				for (auto File = LogOutput.CreateIterator(); File; ++File)
+				{
+					(*File)->Write((uint8*)StringCast<ANSICHAR>(*Text).Get(), Text.Len());
+				}
+			}
+			CriticalSection.Unlock();
+		}
+		return Result;
+	}
+#endif // USE_NEW_ASYNC_IO
 };
 
 #endif // !UE_BUILD_SHIPPING

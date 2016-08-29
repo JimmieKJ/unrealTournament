@@ -5,6 +5,7 @@
 #include "Slate/UMGDragDropOp.h"
 #include "WidgetBlueprintLibrary.h"
 #include "EngineGlobals.h"
+#include "Blueprint/WidgetLayoutLibrary.h"
 #include "Engine/Engine.h"
 
 #define LOCTEXT_NAMESPACE "UMG"
@@ -63,10 +64,15 @@ UDragDropOperation* UWidgetBlueprintLibrary::CreateDragDropOperation(TSubclassOf
 
 void UWidgetBlueprintLibrary::SetInputMode_UIOnly(APlayerController* Target, UWidget* InWidgetToFocus, bool bLockMouseToViewport)
 {
+	SetInputMode_UIOnlyEx(Target, InWidgetToFocus, bLockMouseToViewport ? EMouseLockMode::LockOnCapture : EMouseLockMode::DoNotLock);
+}
+
+void UWidgetBlueprintLibrary::SetInputMode_UIOnlyEx(APlayerController* Target, UWidget* InWidgetToFocus, EMouseLockMode InMouseLockMode)
+{
 	if (Target != nullptr)
 	{
 		FInputModeUIOnly InputMode;
-		InputMode.SetLockMouseToViewport(bLockMouseToViewport);
+		InputMode.SetLockMouseToViewportBehavior(InMouseLockMode);
 
 		if (InWidgetToFocus != nullptr)
 		{
@@ -78,10 +84,15 @@ void UWidgetBlueprintLibrary::SetInputMode_UIOnly(APlayerController* Target, UWi
 
 void UWidgetBlueprintLibrary::SetInputMode_GameAndUI(APlayerController* Target, UWidget* InWidgetToFocus, bool bLockMouseToViewport, bool bHideCursorDuringCapture)
 {
+	SetInputMode_GameAndUIEx(Target, InWidgetToFocus, bLockMouseToViewport ? EMouseLockMode::LockOnCapture : EMouseLockMode::DoNotLock, bHideCursorDuringCapture);
+}
+
+void UWidgetBlueprintLibrary::SetInputMode_GameAndUIEx(APlayerController* Target, UWidget* InWidgetToFocus, EMouseLockMode InMouseLockMode, bool bHideCursorDuringCapture)
+{
 	if (Target != nullptr)
 	{
 		FInputModeGameAndUI InputMode;
-		InputMode.SetLockMouseToViewport(bLockMouseToViewport);
+		InputMode.SetLockMouseToViewportBehavior(InMouseLockMode);
 		InputMode.SetHideCursorDuringCapture(bHideCursorDuringCapture);
 
 		if (InWidgetToFocus != nullptr)
@@ -565,6 +576,18 @@ FInputEvent UWidgetBlueprintLibrary::GetInputEventFromControllerEvent(const FCon
 FInputEvent UWidgetBlueprintLibrary::GetInputEventFromNavigationEvent(const FNavigationEvent& Event)
 {
 	return Event;
+}
+
+void UWidgetBlueprintLibrary::GetSafeZonePadding(UObject* WorldContextObject, FVector2D& SafePadding, FVector2D& SafePaddingScale, FVector2D& SpillOverPadding)
+{
+	FVector2D ViewportSize = UWidgetLayoutLibrary::GetViewportSize(WorldContextObject);
+
+	FDisplayMetrics Metrics;
+	FSlateApplication::Get().GetDisplayMetrics(Metrics);
+
+	SafePadding = Metrics.TitleSafePaddingSize;
+	SafePaddingScale = SafePadding / ViewportSize;
+	SpillOverPadding = Metrics.ActionSafePaddingSize;
 }
 
 #undef LOCTEXT_NAMESPACE

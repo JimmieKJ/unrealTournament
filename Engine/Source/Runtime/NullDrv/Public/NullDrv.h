@@ -19,7 +19,7 @@ public:
 	virtual bool SupportsDynamicReloading() override { return false; }
 	virtual bool IsSupported() override;
 
-	virtual FDynamicRHI* CreateRHI() override
+	virtual FDynamicRHI* CreateRHI(ERHIFeatureLevel::Type RequestedFeatureLevel = ERHIFeatureLevel::Num) override
 	{
 		return new FNullDynamicRHI();
 	}

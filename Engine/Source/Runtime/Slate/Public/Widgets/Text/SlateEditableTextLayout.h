@@ -3,9 +3,11 @@
 #pragma once
 
 #include "SlateEditableTextTypes.h"
+#include "SlateTextLayoutFactory.h"
 #include "IVirtualKeyboardEntry.h"
 #include "ITextInputMethodSystem.h"
 #include "ISlateEditableTextWidget.h"
+#include "IBreakIterator.h"
 #include "UniquePtr.h"
 
 class FSlateTextLayout;
@@ -17,7 +19,7 @@ class ISlateRunRenderer;
 class SLATE_API FSlateEditableTextLayout
 {
 public:
-	FSlateEditableTextLayout(ISlateEditableTextWidget& InOwnerWidget, const TAttribute<FText>& InInitialText, FTextBlockStyle InTextStyle, const TOptional<ETextShapingMethod> InTextShapingMethod, const TOptional<ETextFlowDirection> InTextFlowDirection, TSharedRef<ITextLayoutMarshaller> InTextMarshaller, TSharedRef<ITextLayoutMarshaller> InHintTextMarshaller);
+	FSlateEditableTextLayout(ISlateEditableTextWidget& InOwnerWidget, const TAttribute<FText>& InInitialText, FTextBlockStyle InTextStyle, const TOptional<ETextShapingMethod> InTextShapingMethod, const TOptional<ETextFlowDirection> InTextFlowDirection, const FCreateSlateTextLayout& InCreateSlateTextLayout, TSharedRef<ITextLayoutMarshaller> InTextMarshaller, TSharedRef<ITextLayoutMarshaller> InHintTextMarshaller);
 	~FSlateEditableTextLayout();
 
 	void SetText(const TAttribute<FText>& InText);
@@ -65,13 +67,16 @@ public:
 	void SetTextFlowDirection(const TOptional<ETextFlowDirection>& InTextFlowDirection);
 
 	/** Set the wrapping to use for this document */
-	void SetTextWrapping(const TAttribute<float>& InWrapTextAt, const TAttribute<bool>& InAutoWrapText);
+	void SetTextWrapping(const TAttribute<float>& InWrapTextAt, const TAttribute<bool>& InAutoWrapText, const TAttribute<ETextWrappingPolicy>& InWrappingPolicy);
 
 	/** Set whether text wraps onto a new line when it's length exceeds this width; if this value is zero or negative, no wrapping occurs */
 	void SetWrapTextAt(const TAttribute<float>& InWrapTextAt);
 
 	/** Set whether to wrap text automatically based on the widget's computed horizontal space */
 	void SetAutoWrapText(const TAttribute<bool>& InAutoWrapText);
+
+	/** Set the wrapping policy to use */
+	void SetWrappingPolicy(const TAttribute<ETextWrappingPolicy>& InWrappingPolicy);
 
 	/** Set the amount of blank space left around the edges of text area */
 	void SetMargin(const TAttribute<FMargin>& InMargin);
@@ -203,7 +208,7 @@ public:
 	void InsertRunAtCursor(TSharedRef<IRun> InRun);
 
 	/** Move the cursor in the document using the specified move method */
-	void MoveCursor(const FMoveCursor& InArgs);
+	bool MoveCursor(const FMoveCursor& InArgs);
 
 	/** Move the cursor to the given location in the document (will also scroll to this point) */
 	void GoTo(const FTextLocation& NewLocation);
@@ -338,7 +343,7 @@ private:
 	void InsertNewLineAtCursorImpl();
 
 	/** Implementation of Refresh that actually updates the layout. Optionally takes text to set, or will use the current editable text if none if provided */
-	bool RefreshImpl(const FText* InTextToSet, bool bForce = false);
+	bool RefreshImpl(const FText* InTextToSet, const bool bForce = false);
 
 	/** Create a text or password run using the given text and style */
 	TSharedRef<IRun> CreateTextOrPasswordRun(const FRunInfo& InRunInfo, const TSharedRef<const FString>& InText, const FTextBlockStyle& InStyle);
@@ -375,6 +380,8 @@ private:
 	{
 	public:
 		static TSharedRef<FTextInputMethodContext> Create(FSlateEditableTextLayout& InOwnerLayout);
+
+		void CacheWindow();
 
 		FORCEINLINE bool IsComposing() const
 		{
@@ -414,6 +421,7 @@ private:
 	private:
 		FTextInputMethodContext(FSlateEditableTextLayout& InOwnerLayout);
 		FSlateEditableTextLayout* OwnerLayout;
+		TWeakPtr<SWindow> CachedParentWindow;
 
 		FGeometry CachedGeometry;
 		bool bIsComposing;
@@ -425,11 +433,17 @@ private:
 	/** Pointer to the interface for our owner widget */
 	ISlateEditableTextWidget* OwnerWidget;
 
+	/** The iterator to use to detect grapheme cluster boundaries */
+	TSharedPtr<IBreakIterator> GraphemeBreakIterator;
+
 	/** The marshaller used to get/set the BoundText text to/from the text layout. */
 	TSharedPtr<ITextLayoutMarshaller> Marshaller;
 
 	/** The marshaller used to get/set the HintText text to/from the text layout. */
 	TSharedPtr<ITextLayoutMarshaller> HintMarshaller;
+
+	/** Delegate used to create internal text layouts. */
+	FCreateSlateTextLayout CreateSlateTextLayout;
 
 	/** In control of the layout and wrapping of the BoundText */
 	TSharedPtr<FSlateTextLayout> TextLayout;
@@ -461,6 +475,9 @@ private:
 	/** True if we're wrapping text automatically based on the computed horizontal space for this widget */
 	TAttribute<bool> AutoWrapText;
 
+	/** The wrapping policy we're using */
+	TAttribute<ETextWrappingPolicy> WrappingPolicy;
+
 	/** The amount of blank space left around the edges of text area */
 	TAttribute<FMargin> Margin;
 
@@ -489,7 +506,10 @@ private:
 	TSharedPtr<SlateEditableTextTypes::FTextCompositionHighlighter> TextCompositionHighlighter;
 
 	/** Run renderer used to draw the active text selection */
-	TSharedPtr<SlateEditableTextTypes::FTextSelectionRunRenderer> TextSelectionRunRenderer;
+	TSharedPtr<SlateEditableTextTypes::FTextSelectionHighlighter> TextSelectionHighlighter;
+
+	/** Line highlights that have been added from this editable text layout (used for cleanup without removing) */
+	TArray<FTextLineHighlight> ActiveLineHighlights;
 
 	/** The scroll offset (in unscaled Slate units) for this text */
 	FVector2D ScrollOffset;

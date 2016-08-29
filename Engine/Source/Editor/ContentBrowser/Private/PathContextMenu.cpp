@@ -13,6 +13,8 @@
 #include "SColorPicker.h"
 #include "GenericCommands.h"
 #include "NativeClassHierarchy.h"
+#include "NotificationManager.h"
+#include "SNotificationList.h"
 
 
 #define LOCTEXT_NAMESPACE "ContentBrowser"
@@ -623,6 +625,20 @@ bool FPathContextMenu::CanExecuteDelete() const
 
 void FPathContextMenu::ExecuteDelete()
 {
+	// Don't allow asset deletion during PIE
+	if (GIsEditor)
+	{
+		UEditorEngine* Editor = GEditor;
+		FWorldContext* PIEWorldContext = GEditor->GetPIEWorldContext();
+		if (PIEWorldContext)
+		{
+			FNotificationInfo Notification(LOCTEXT("CannotDeleteAssetInPIE", "Assets cannot be deleted while in PIE."));
+			Notification.ExpireDuration = 3.0f;
+			FSlateNotificationManager::Get().AddNotification(Notification);
+			return;
+		}
+	}
+
 	check(SelectedPaths.Num() > 0);
 	if (ParentContent.IsValid())
 	{
@@ -894,32 +910,9 @@ void FPathContextMenu::ExecuteSCCSync() const
 
 	if ( PathsOnDisk.Num() > 0 )
 	{
-		// attempt to unload all assets under this path
 		TArray<FString> PackageNames;
 		GetPackageNamesInSelectedPaths(PackageNames);
-
-		// Form a list of loaded packages to prompt for save
-		TArray<UPackage*> LoadedPackages;
-		for( const auto& PackageName : PackageNames )
-		{
-			UPackage* Package = FindPackage(nullptr, *PackageName);
-			if ( Package != nullptr )
-			{
-				LoadedPackages.Add(Package);
-			}
-		}
-
-		FText ErrorMessage;
-		PackageTools::UnloadPackages(LoadedPackages, ErrorMessage);
-
-		if(!ErrorMessage.IsEmpty())
-		{
-			FMessageDialog::Open( EAppMsgType::Ok, ErrorMessage );
-		}
-		else
-		{
-			SourceControlProvider.Execute(ISourceControlOperation::Create<FSync>(), PathsOnDisk);
-		}
+		ContentBrowserUtils::SyncPackagesFromSourceControl(PackageNames);
 	}
 	else
 	{

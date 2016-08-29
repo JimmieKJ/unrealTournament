@@ -153,10 +153,15 @@ bool FMacPlatformMemory::PageProtect(void* const Ptr, const SIZE_T Size, const b
 
 void* FMacPlatformMemory::BinnedAllocFromOS( SIZE_T Size )
 {
-	return valloc(Size);
+	return mmap(nullptr, Size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANON, -1, 0);
 }
 
-void FMacPlatformMemory::BinnedFreeToOS( void* Ptr )
+void FMacPlatformMemory::BinnedFreeToOS( void* Ptr, SIZE_T Size )
 {
-	free(Ptr);
+	if (munmap(Ptr, Size) != 0)
+	{
+		const int ErrNo = errno;
+		UE_LOG(LogHAL, Fatal, TEXT("munmap(addr=%p, len=%llu) failed with errno = %d (%s)"), Ptr, Size,
+			   ErrNo, StringCast< TCHAR >(strerror(ErrNo)).Get());
+	}
 }

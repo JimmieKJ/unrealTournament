@@ -55,7 +55,7 @@ public:
 
 public:
 
-	// IMFAsyncCallback interface
+	//~ IMFAsyncCallback interface
 
 	STDMETHODIMP_(ULONG) AddRef();
 	STDMETHODIMP GetParameters(unsigned long*, unsigned long*);

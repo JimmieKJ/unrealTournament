@@ -6,25 +6,30 @@
 
 #pragma once
 
-struct FVulkanSwapChain
-{
-#if !PLATFORM_WINDOWS
-	//@HACK : maybe NUM_BUFFERS at VulkanViewport should be moved to here?
-	enum { NUM_BUFFERS = 2 };
-#endif
+class FVulkanQueue;
 
-	FVulkanSwapChain(VkInstance Instance, FVulkanDevice& Device, void* WindowHandle, EPixelFormat& InOutPixelFormat, uint32 Width, uint32 Height,
+class FVulkanSwapChain
+{
+public:
+	FVulkanSwapChain(VkInstance Instance, FVulkanDevice& InDevice, void* WindowHandle, EPixelFormat& InOutPixelFormat, uint32 Width, uint32 Height,
 		uint32* InOutDesiredNumBackBuffers, TArray<VkImage>& OutImages);
 
-	void Destroy(FVulkanDevice& Device);
+	void Destroy();
 
+	bool Present(FVulkanQueue* Queue, FVulkanSemaphore* BackBufferRenderingDoneSemaphore);
+
+protected:
 	VkSwapchainKHR SwapChain;
-
-	PFN_vkCreateSwapchainKHR CreateSwapchainKHR;
-	PFN_vkDestroySwapchainKHR DestroySwapchainKHR;
-	PFN_vkGetSwapchainImagesKHR GetSwapchainImagesKHR;
-	PFN_vkQueuePresentKHR QueuePresentKHR;
-	PFN_vkAcquireNextImageKHR AcquireNextImageKHR;
+	FVulkanDevice& Device;
 
 	VkSurfaceKHR Surface;
+
+	int32 CurrentImageIndex;
+	int32 SemaphoreIndex;
+	TArray<FVulkanSemaphore*> ImageAcquiredSemaphore;
+
+	int32 AcquireImageIndex(FVulkanSemaphore** OutSemaphore);
+
+	friend class FVulkanViewport;
+	friend class FVulkanQueue;
 };

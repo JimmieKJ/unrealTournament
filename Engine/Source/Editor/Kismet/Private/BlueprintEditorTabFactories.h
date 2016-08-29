@@ -267,22 +267,6 @@ public:
 };
 
 //////////////////////////////////////////////////////////////////////////
-// FCompilerResultsSummoner
-
-struct FCompilerResultsSummoner : public FWorkflowTabFactory
-{
-public:
-	FCompilerResultsSummoner(TSharedPtr<class FAssetEditorToolkit> InHostingApp);
-
-	virtual TSharedRef<SWidget> CreateTabBody(const FWorkflowTabSpawnInfo& Info) const override;
-
-	virtual FText GetTabToolTipText(const FWorkflowTabSpawnInfo& Info) const override
-	{
-		return LOCTEXT("CompilerResultsTooltip", "The compiler results tab shows any errors or warnings generated when compiling this Blueprint.");
-	}
-};
-
-//////////////////////////////////////////////////////////////////////////
 // FFindResultsSummoner
 
 struct FFindResultsSummoner : public FWorkflowTabFactory

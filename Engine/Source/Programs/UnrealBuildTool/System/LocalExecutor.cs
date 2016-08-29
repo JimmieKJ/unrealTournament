@@ -296,26 +296,6 @@ namespace UnrealBuildTool
 			// track how long it took
 			Action.EndTime = DateTimeOffset.Now;
 
-			/*
-						// send telemetry
-						{
-							// See if the action produced a PCH file (infer from the extension as we no longer have the compile environments used to generate the actions.
-							var ActionProducedPCH = Action.ProducedItems.Find(fileItem => new[] { ".PCH", ".GCH" }.Contains(Path.GetExtension(fileItem.AbsolutePath).ToUpperInvariant()));
-							if (ActionProducedPCH != null && File.Exists(ActionProducedPCH.AbsolutePath)) // File may not exist if we're building remotely
-							{
-								// If we had a valid match for a PCH item, send an event.
-								Telemetry.SendEvent("PCHTime.2",
-									"ExecutorType", "Local",
-									// Use status description because on VC tool chains it tells us more details about shared PCHs and their source modules.
-									"Filename", Action.StatusDescription,
-									// Get the length from the OS instead of the FileItem.Length is really for when the file is used as an input,
-									// so the stored length is absent for a new for or out of date at best.
-									"FileSize", new FileInfo(ActionProducedPCH.AbsolutePath).Length.ToString(),
-									"Duration", Action.Duration.TotalSeconds.ToString("0.00"));
-							}
-						}
-			*/
-
 			if (!Utils.IsRunningOnMono)
 			{
 				// let RPCUtilHelper clean up anything thread related
@@ -562,7 +542,7 @@ namespace UnrealBuildTool
 				TotalThreadSeconds += ThreadSeconds;
 			}
 
-			Log.TraceInformation("-------- End Detailed Actions Stats -----------------------------------------------------------");
+			Log.WriteLineIf(BuildConfiguration.bLogDetailedActionStats, LogEventType.Console, "-------- End Detailed Actions Stats -----------------------------------------------------------");
 
 			// Log total CPU seconds and numbers of processors involved in tasks.
 			Log.WriteLineIf(BuildConfiguration.bLogDetailedActionStats || BuildConfiguration.bPrintDebugInfo,

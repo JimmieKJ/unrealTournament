@@ -33,22 +33,29 @@ void FEmitDefaultValueHelper::OuterGenerate(FEmitterLocalContext& Context
 
 		return false;
 	};
-
+	check(Property);
 	if (Property->HasAnyPropertyFlags(CPF_EditorOnly | CPF_Transient))
 	{
 		UE_LOG(LogK2Compiler, Verbose, TEXT("FEmitDefaultValueHelper Skip EditorOnly or Transient property: %s"), *Property->GetPathName());
 		return;
 	}
 
+	if (Property->IsA<UDelegateProperty>() || Property->IsA<UMulticastDelegateProperty>())
+	{
+		UE_LOG(LogK2Compiler, Verbose, TEXT("FEmitDefaultValueHelper delegate property: %s"), *Property->GetPathName());
+		return;
+	}
+
 	for (int32 ArrayIndex = 0; ArrayIndex < Property->ArrayDim; ++ArrayIndex)
 	{
 		if (!OptionalDefaultDataContainer
+			|| ((Property->PropertyFlags & CPF_Config) != 0) 
 			|| (!Property->Identical_InContainer(DataContainer, OptionalDefaultDataContainer, ArrayIndex) && !IsInstancedSubobjectLambda(ArrayIndex)))
 		{
 			FString PathToMember;
 			UBlueprintGeneratedClass* PropertyOwnerAsBPGC = Cast<UBlueprintGeneratedClass>(Property->GetOwnerClass());
 			UScriptStruct* PropertyOwnerAsScriptStruct = Cast<UScriptStruct>(Property->GetOwnerStruct());
-			const bool bNoexportProperty = PropertyOwnerAsScriptStruct
+			const bool bNoExportProperty = PropertyOwnerAsScriptStruct
 				&& PropertyOwnerAsScriptStruct->IsNative()
 				&& (PropertyOwnerAsScriptStruct->StructFlags & STRUCT_NoExport)
 				// && !PropertyOwnerAsScriptStruct->GetBoolMetaData(TEXT("BlueprintType"))
@@ -62,14 +69,28 @@ void FEmitDefaultValueHelper::OuterGenerate(FEmitterLocalContext& Context
 				PathToMember = FString::Printf(TEXT("FUnconvertedWrapper__%s(%s).GetRef__%s()"), *FEmitHelper::GetCppName(PropertyOwnerAsBPGC), *ContainerStr
 					, *UnicodeToCPPIdentifier(Property->GetName(), false, nullptr));
 			}
-			else if (bNoexportProperty || Property->HasAnyPropertyFlags(CPF_NativeAccessSpecifierPrivate) || (!bAllowProtected && Property->HasAnyPropertyFlags(CPF_NativeAccessSpecifierProtected)))
+			else if (bNoExportProperty || Property->HasAnyPropertyFlags(CPF_NativeAccessSpecifierPrivate) || (!bAllowProtected && Property->HasAnyPropertyFlags(CPF_NativeAccessSpecifierProtected)))
 			{
-				ensure(EPropertyAccessOperator::None != AccessOperator);
+				const UBoolProperty* BoolProperty = Cast<const UBoolProperty>(Property);
+				const bool bBietfield = BoolProperty && !BoolProperty->IsNativeBool();
 				const FString OperatorStr = (EPropertyAccessOperator::Dot == AccessOperator) ? TEXT("&") : TEXT("");
 				const FString ContainerStr = (EPropertyAccessOperator::None == AccessOperator) ? TEXT("this") : OuterPath;
-				const FString GetPtrStr = bNoexportProperty
+				if (bBietfield)
+				{
+					const FString PropertyLocalName = FEmitHelper::GenerateGetPropertyByName(Context, Property);
+					const FString ValueStr = Context.ExportTextItem(Property, Property->ContainerPtrToValuePtr<uint8>(DataContainer, ArrayIndex));
+					Context.AddLine(FString::Printf(TEXT("(((UBoolProperty*)%s)->%s(%s(%s), %s, %d));")
+						, *PropertyLocalName
+						, GET_FUNCTION_NAME_STRING_CHECKED(UBoolProperty, SetPropertyValue_InContainer)
+						, *OperatorStr
+						, *ContainerStr
+						, *ValueStr
+						, ArrayIndex));
+					continue;
+				}
+				const FString GetPtrStr = bNoExportProperty
 					? FEmitHelper::AccessInaccessiblePropertyUsingOffset(Context, Property, ContainerStr, OperatorStr, ArrayIndex)
-					: FEmitHelper::AccessInaccessibleProperty(Context, Property, ContainerStr, OperatorStr, ArrayIndex, false);
+					: FEmitHelper::AccessInaccessibleProperty(Context, Property, ContainerStr, OperatorStr, ArrayIndex, ENativizedTermUsage::UnspecifiedOrReference, nullptr);
 				PathToMember = Context.GenerateUniqueLocalName();
 				Context.AddLine(FString::Printf(TEXT("auto& %s = %s;"), *PathToMember, *GetPtrStr));
 			}
@@ -81,9 +102,12 @@ void FEmitDefaultValueHelper::OuterGenerate(FEmitterLocalContext& Context
 				const FString ArrayPost = bStaticArray ? FString::Printf(TEXT("[%d]"), ArrayIndex) : TEXT("");
 				PathToMember = FString::Printf(TEXT("%s%s%s%s"), *OuterPath, *AccessOperatorStr, *FEmitHelper::GetCppName(Property), *ArrayPost);
 			}
-			const uint8* ValuePtr = Property->ContainerPtrToValuePtr<uint8>(DataContainer, ArrayIndex);
-			const uint8* DefaultValuePtr = OptionalDefaultDataContainer ? Property->ContainerPtrToValuePtr<uint8>(OptionalDefaultDataContainer, ArrayIndex) : nullptr;
-			InnerGenerate(Context, Property, PathToMember, ValuePtr, DefaultValuePtr);
+
+			{
+				const uint8* ValuePtr = Property->ContainerPtrToValuePtr<uint8>(DataContainer, ArrayIndex);
+				const uint8* DefaultValuePtr = OptionalDefaultDataContainer ? Property->ContainerPtrToValuePtr<uint8>(OptionalDefaultDataContainer, ArrayIndex) : nullptr;
+				InnerGenerate(Context, Property, PathToMember, ValuePtr, DefaultValuePtr);
+			}
 		}
 	}
 }
@@ -96,17 +120,17 @@ void FEmitDefaultValueHelper::GenerateGetDefaultValue(const UUserDefinedStruct* 
 	Context.Header.AddLine(TEXT("{"));
 
 	Context.Header.IncreaseIndent();
-	Context.Header.AddLine(FString::Printf(TEXT("%s DefaultData__;"), *StructName));
+	Context.Header.AddLine(FString::Printf(TEXT("FStructOnScope StructOnScope(%s::StaticStruct());"), *StructName));
+	Context.Header.AddLine(FString::Printf(TEXT("%s& DefaultData__ = *((%s*)StructOnScope.GetStructMemory());"), *StructName, *StructName));
 	{
 		TGuardValue<FCodeText*> OriginalDefaultTarget(Context.DefaultTarget, &Context.Header);
 		FStructOnScope StructData(Struct);
 		FStructureEditorUtils::Fill_MakeStructureDefaultValue(Struct, StructData.GetStructMemory());
+		FStructOnScope RawDefaultStructOnScope(Struct);
 		for (auto Property : TFieldRange<const UProperty>(Struct))
 		{
-			OuterGenerate(Context, Property, TEXT("DefaultData__"), StructData.GetStructMemory(), nullptr, EPropertyAccessOperator::Dot);
+			OuterGenerate(Context, Property, TEXT("DefaultData__"), StructData.GetStructMemory(), RawDefaultStructOnScope.GetStructMemory(), EPropertyAccessOperator::Dot);
 		}
-
-
 	}
 	Context.Header.AddLine(TEXT("return DefaultData__;"));
 	Context.Header.DecreaseIndent();
@@ -129,7 +153,7 @@ void FEmitDefaultValueHelper::InnerGenerate(FEmitterLocalContext& Context, const
 				check(StructProperty->Struct);
 				if (bGenerateEmptyStructConstructor)
 				{
-					ValueStr = FString::Printf(TEXT("%s{}"), *FEmitHelper::GetCppName(StructProperty->Struct)); //don;t override existing values
+					ValueStr = FString::Printf(TEXT("%s%s"), *FEmitHelper::GetCppName(StructProperty->Struct), FEmitHelper::EmptyDefaultConstructor(StructProperty->Struct)); //don;t override existing values
 				}
 				bComplete = false;
 			}
@@ -164,20 +188,36 @@ void FEmitDefaultValueHelper::InnerGenerate(FEmitterLocalContext& Context, const
 
 	if (StructProperty)
 	{
+		// Create default struct instance, only when DefaultValuePtr is null.
+		FStructOnScope DefaultStructOnScope(DefaultValuePtr ? nullptr : StructProperty->Struct);
+
 		for (auto LocalProperty : TFieldRange<const UProperty>(StructProperty->Struct))
 		{
-			OuterGenerate(Context, LocalProperty, PathToMember, ValuePtr, DefaultValuePtr, EPropertyAccessOperator::Dot);
+			OuterGenerate(Context, LocalProperty, PathToMember, ValuePtr
+				, (DefaultValuePtr ? DefaultValuePtr : DefaultStructOnScope.GetStructMemory())
+				, EPropertyAccessOperator::Dot);
 		}
 	}
 	
 	if (ArrayProperty)
 	{
-		const bool bInitializeWithoutScriptStruct = false;
 		FScriptArrayHelper ScriptArrayHelper(ArrayProperty, ValuePtr);
 		UStructProperty* InnerStructProperty = Cast<UStructProperty>(ArrayProperty->Inner);
-		UScriptStruct* RegularInnerStruct = ((!bInitializeWithoutScriptStruct) && InnerStructProperty && !FEmitDefaultValueHelper::SpecialStructureConstructor(InnerStructProperty->Struct, nullptr, nullptr))
-			? InnerStructProperty->Struct
-			: nullptr;
+		
+		const bool bNoExportStructure = InnerStructProperty && InnerStructProperty->Struct
+			&& InnerStructProperty->Struct->IsNative()
+			&& (InnerStructProperty->Struct->StructFlags & STRUCT_NoExport);
+		const bool bInitializeWithoutScriptStruct = bNoExportStructure;
+
+		UScriptStruct* RegularInnerStruct = nullptr;
+		if (!bInitializeWithoutScriptStruct)
+		{
+			if (InnerStructProperty && !FEmitDefaultValueHelper::SpecialStructureConstructor(InnerStructProperty->Struct, nullptr, nullptr))
+			{
+				RegularInnerStruct = InnerStructProperty->Struct;
+			}
+		}
+
 		if (ScriptArrayHelper.Num())
 		{
 			const TCHAR* ArrayReserveFunctionName = RegularInnerStruct ? TEXT("AddUninitialized") : TEXT("Reserve");
@@ -185,8 +225,12 @@ void FEmitDefaultValueHelper::InnerGenerate(FEmitterLocalContext& Context, const
 
 			if (RegularInnerStruct)
 			{
-				const FString InnerStructStr = Context.FindGloballyMappedObject(RegularInnerStruct);
-				Context.AddLine(FString::Printf(TEXT("%s->InitializeStruct(%s.GetData(), %d);"), *InnerStructStr, *PathToMember, ScriptArrayHelper.Num()));
+				const FString InnerStructStr = Context.FindGloballyMappedObject(RegularInnerStruct, UScriptStruct::StaticClass());
+				Context.AddLine(FString::Printf(TEXT("%s->%s(%s.GetData(), %d);")
+					, *InnerStructStr
+					, GET_FUNCTION_NAME_STRING_CHECKED(UStruct, InitializeStruct)
+					, *PathToMember
+					, ScriptArrayHelper.Num()));
 			}
 		}
 
@@ -207,16 +251,35 @@ void FEmitDefaultValueHelper::InnerGenerate(FEmitterLocalContext& Context, const
 			
 			if (RegularInnerStruct || (bInitializeWithoutScriptStruct && !bComplete))
 			{
-				const FString LocalPathToMember = FString::Printf(TEXT("%s[%d]"), *PathToMember, Index);
+				FString LocalPathToMember = FString::Printf(TEXT("%s[%d]"), *PathToMember, Index);
+				if (RegularInnerStruct)
+				{
+					const FString ArrayElementRefName = Context.GenerateUniqueLocalName();
+					Context.AddLine(FString::Printf(TEXT("auto& %s = %s;"), *ArrayElementRefName, *LocalPathToMember));
+					LocalPathToMember = ArrayElementRefName;
+				}
 				InnerGenerate(Context, ArrayProperty->Inner, LocalPathToMember, LocalValuePtr, DefaultStruct.GetStructMemory(), true);
 			}
 		}
 	}
 }
 
-bool FEmitDefaultValueHelper::SpecialStructureConstructor(const UScriptStruct* Struct, const uint8* ValuePtr, /*out*/ FString* OutResult)
+bool FEmitDefaultValueHelper::SpecialStructureConstructor(const UStruct* Struct, const uint8* ValuePtr, /*out*/ FString* OutResult)
 {
 	check(ValuePtr || !OutResult);
+
+	if (FLatentActionInfo::StaticStruct() == Struct)
+	{
+		if (OutResult)
+		{
+			const FLatentActionInfo* LatentActionInfo = reinterpret_cast<const FLatentActionInfo*>(ValuePtr);
+			*OutResult = FString::Printf(TEXT("FLatentActionInfo(%d, %d, TEXT(\"%s\"), this)")
+				, LatentActionInfo->Linkage
+				, LatentActionInfo->UUID
+				, *LatentActionInfo->ExecutionFunction.ToString().ReplaceCharWithEscapedChar());
+		}
+		return true;
+	}
 
 	if (TBaseStructure<FTransform>::Get() == Struct)
 	{
@@ -226,10 +289,10 @@ bool FEmitDefaultValueHelper::SpecialStructureConstructor(const UScriptStruct* S
 			const auto Rotation = Transform->GetRotation();
 			const auto Translation = Transform->GetTranslation();
 			const auto Scale = Transform->GetScale3D();
-			*OutResult = FString::Printf(TEXT("FTransform(FQuat(%f, %f, %f, %f), FVector(%f, %f, %f), FVector(%f, %f, %f))")
-				, Rotation.X, Rotation.Y, Rotation.Z, Rotation.W
-				, Translation.X, Translation.Y, Translation.Z
-				, Scale.X, Scale.Y, Scale.Z);
+			*OutResult = FString::Printf(TEXT("FTransform( FQuat(%s,%s,%s,%s), FVector(%s,%s,%s), FVector(%s,%s,%s) )"),
+				*FEmitHelper::FloatToString(Rotation.X), *FEmitHelper::FloatToString(Rotation.Y), *FEmitHelper::FloatToString(Rotation.Z), *FEmitHelper::FloatToString(Rotation.W),
+				*FEmitHelper::FloatToString(Translation.X), *FEmitHelper::FloatToString(Translation.Y), *FEmitHelper::FloatToString(Translation.Z),
+				*FEmitHelper::FloatToString(Scale.X), *FEmitHelper::FloatToString(Scale.Y), *FEmitHelper::FloatToString(Scale.Z));
 		}
 		return true;
 	}
@@ -239,7 +302,7 @@ bool FEmitDefaultValueHelper::SpecialStructureConstructor(const UScriptStruct* S
 		if (OutResult)
 		{
 			const FVector* Vector = reinterpret_cast<const FVector*>(ValuePtr);
-			*OutResult = FString::Printf(TEXT("FVector(%f, %f, %f)"), Vector->X, Vector->Y, Vector->Z);
+			*OutResult = FString::Printf(TEXT("FVector(%s, %s, %s)"), *FEmitHelper::FloatToString(Vector->X), *FEmitHelper::FloatToString(Vector->Y), *FEmitHelper::FloatToString(Vector->Z));
 		}
 		return true;
 	}
@@ -259,7 +322,7 @@ bool FEmitDefaultValueHelper::SpecialStructureConstructor(const UScriptStruct* S
 		if (OutResult)
 		{
 			const FRotator* Rotator = reinterpret_cast<const FRotator*>(ValuePtr);
-			*OutResult = FString::Printf(TEXT("FRotator(%f, %f, %f)"), Rotator->Pitch, Rotator->Yaw, Rotator->Roll);
+			*OutResult = FString::Printf(TEXT("FRotator(%s, %s, %s)"), *FEmitHelper::FloatToString(Rotator->Pitch), *FEmitHelper::FloatToString(Rotator->Yaw), *FEmitHelper::FloatToString(Rotator->Roll));
 		}
 		return true;
 	}
@@ -269,7 +332,7 @@ bool FEmitDefaultValueHelper::SpecialStructureConstructor(const UScriptStruct* S
 		if (OutResult)
 		{
 			const FLinearColor* LinearColor = reinterpret_cast<const FLinearColor*>(ValuePtr);
-			*OutResult = FString::Printf(TEXT("FLinearColor(%f, %f, %f, %f)"), LinearColor->R, LinearColor->B, LinearColor->G, LinearColor->A);
+			*OutResult = FString::Printf(TEXT("FLinearColor(%s, %s, %s, %s)"), *FEmitHelper::FloatToString(LinearColor->R), *FEmitHelper::FloatToString(LinearColor->G), *FEmitHelper::FloatToString(LinearColor->B), *FEmitHelper::FloatToString(LinearColor->A));
 		}
 		return true;
 	}
@@ -279,7 +342,7 @@ bool FEmitDefaultValueHelper::SpecialStructureConstructor(const UScriptStruct* S
 		if (OutResult)
 		{
 			const FColor* Color = reinterpret_cast<const FColor*>(ValuePtr);
-			*OutResult = FString::Printf(TEXT("FColor(%d, %d, %d, %d)"), Color->R, Color->B, Color->G, Color->A);
+			*OutResult = FString::Printf(TEXT("FColor(%d, %d, %d, %d)"), Color->R, Color->G, Color->B, Color->A);
 		}
 		return true;
 	}
@@ -289,7 +352,7 @@ bool FEmitDefaultValueHelper::SpecialStructureConstructor(const UScriptStruct* S
 		if (OutResult)
 		{
 			const FVector2D* Vector2D = reinterpret_cast<const FVector2D*>(ValuePtr);
-			*OutResult = FString::Printf(TEXT("FVector2D(%f, %f)"), Vector2D->X, Vector2D->Y);
+			*OutResult = FString::Printf(TEXT("FVector2D(%s, %s)"), *FEmitHelper::FloatToString(Vector2D->X), *FEmitHelper::FloatToString(Vector2D->Y));
 		}
 		return true;
 	}
@@ -299,11 +362,11 @@ bool FEmitDefaultValueHelper::SpecialStructureConstructor(const UScriptStruct* S
 		if (OutResult)
 		{
 			const FBox2D* Box2D = reinterpret_cast<const FBox2D*>(ValuePtr);
-			*OutResult = FString::Printf(TEXT("CreateFBox2D(FVector2D(%f, %f), FVector2D(%f, %f), %s)")
-				, Box2D->Min.X
-				, Box2D->Min.Y
-				, Box2D->Max.X
-				, Box2D->Max.Y
+			*OutResult = FString::Printf(TEXT("CreateFBox2D(FVector2D(%s, %s), FVector2D(%s, %s), %s)")
+				, *FEmitHelper::FloatToString(Box2D->Min.X)
+				, *FEmitHelper::FloatToString(Box2D->Min.Y)
+				, *FEmitHelper::FloatToString(Box2D->Max.X)
+				, *FEmitHelper::FloatToString(Box2D->Max.Y)
 				, Box2D->bIsValid ? TEXT("true") : TEXT("false"));
 		}
 		return true;
@@ -316,15 +379,15 @@ bool FEmitDefaultValueHelper::SpecialStructureConstructor(const UScriptStruct* S
 			const FFloatRangeBound* FloatRangeBound = reinterpret_cast<const FFloatRangeBound*>(ValuePtr);
 			if (FloatRangeBound->IsExclusive())
 			{
-				*OutResult = FString::Printf(TEXT("FFloatRangeBound::Exclusive(%f)"), FloatRangeBound->GetValue());
+				*OutResult = FString::Printf(TEXT("FFloatRangeBound::%s(%s)"), GET_FUNCTION_NAME_STRING_CHECKED(FFloatRangeBound, Exclusive), *FEmitHelper::FloatToString(FloatRangeBound->GetValue()));
 			}
 			if (FloatRangeBound->IsInclusive())
 			{
-				*OutResult = FString::Printf(TEXT("FFloatRangeBound::Inclusive(%f)"), FloatRangeBound->GetValue());
+				*OutResult = FString::Printf(TEXT("FFloatRangeBound::%s(%s)"), GET_FUNCTION_NAME_STRING_CHECKED(FFloatRangeBound, Inclusive), *FEmitHelper::FloatToString(FloatRangeBound->GetValue()));
 			}
 			if (FloatRangeBound->IsOpen())
 			{
-				*OutResult = TEXT("FFloatRangeBound::Open()");
+				*OutResult = FString::Printf(TEXT("FFloatRangeBound::%s()"), GET_FUNCTION_NAME_STRING_CHECKED(FFloatRangeBound, Open));
 			}
 		}
 		return true;
@@ -356,15 +419,15 @@ bool FEmitDefaultValueHelper::SpecialStructureConstructor(const UScriptStruct* S
 			const FInt32RangeBound* RangeBound = reinterpret_cast<const FInt32RangeBound*>(ValuePtr);
 			if (RangeBound->IsExclusive())
 			{
-				*OutResult = FString::Printf(TEXT("FInt32RangeBound::Exclusive(%d)"), RangeBound->GetValue());
+				*OutResult = FString::Printf(TEXT("FInt32RangeBound::%s(%d)"), GET_FUNCTION_NAME_STRING_CHECKED(FInt32RangeBound, Exclusive), RangeBound->GetValue());
 			}
 			if (RangeBound->IsInclusive())
 			{
-				*OutResult = FString::Printf(TEXT("FInt32RangeBound::Inclusive(%d)"), RangeBound->GetValue());
+				*OutResult = FString::Printf(TEXT("FInt32RangeBound::%s(%d)"), GET_FUNCTION_NAME_STRING_CHECKED(FInt32RangeBound, Exclusive), RangeBound->GetValue());
 			}
 			if (RangeBound->IsOpen())
 			{
-				*OutResult = TEXT("FInt32RangeBound::Open()");
+				*OutResult = FString::Printf(TEXT("FInt32RangeBound::%s()"), GET_FUNCTION_NAME_STRING_CHECKED(FFloatRangeBound, Open));
 			}
 		}
 		return true;
@@ -394,7 +457,7 @@ bool FEmitDefaultValueHelper::SpecialStructureConstructor(const UScriptStruct* S
 		if (OutResult)
 		{
 			const FFloatInterval* Interval = reinterpret_cast<const FFloatInterval*>(ValuePtr);
-			*OutResult = FString::Printf(TEXT("FFloatInterval(%f, %f)"), Interval->Min, Interval->Max);
+			*OutResult = FString::Printf(TEXT("FFloatInterval(%s, %s)"), *FEmitHelper::FloatToString(Interval->Min), *FEmitHelper::FloatToString(Interval->Max));
 		}
 		return true;
 	}
@@ -477,12 +540,30 @@ struct FNonativeComponentData
 	bool bSetNativeCreationMethod;
 	/** Socket/Bone that Component might attach to */
 	FName AttachToName;
+	bool bIsRoot;
 
 	FNonativeComponentData()
 		: ComponentTemplate(nullptr)
 		, ObjectToCompare(nullptr)
 		, bSetNativeCreationMethod(false)
+		, bIsRoot(false)
 	{
+	}
+
+	bool HandledAsSpecialProperty(FEmitterLocalContext& Context, const UProperty* Property)
+	{
+		// skip relative location and rotation. THey are ignored for root components created from scs (and they probably should be reset by scs editor).
+		if (bIsRoot && (Property->GetOuter() == USceneComponent::StaticClass()))
+		{
+			UProperty* RelativeLocationProperty = USceneComponent::StaticClass()->FindPropertyByName(GET_MEMBER_NAME_CHECKED(USceneComponent, RelativeLocation));
+			UProperty* RelativeRotationProperty = USceneComponent::StaticClass()->FindPropertyByName(GET_MEMBER_NAME_CHECKED(USceneComponent, RelativeRotation));
+			if ((Property == RelativeLocationProperty) || (Property == RelativeRotationProperty))
+			{
+				return true;
+			}
+		}
+
+		return false;
 	}
 
 	void EmitProperties(FEmitterLocalContext& Context)
@@ -490,25 +571,70 @@ struct FNonativeComponentData
 		ensure(!NativeVariablePropertyName.IsEmpty());
 		if (bSetNativeCreationMethod)
 		{
-			Context.AddLine(FString::Printf(TEXT("%s->CreationMethod = EComponentCreationMethod::Native;"), *NativeVariablePropertyName));
+			Context.AddLine(FString::Printf(TEXT("%s->%s = EComponentCreationMethod::Native;"), *NativeVariablePropertyName, GET_MEMBER_NAME_STRING_CHECKED(UActorComponent, CreationMethod)));
 		}
 
 		if (!ParentVariableName.IsEmpty())
 		{
 			const FString SocketName = (AttachToName == NAME_None) ? FString() : FString::Printf(TEXT(", TEXT(\"%s\")"), *AttachToName.ToString());
-			Context.AddLine(FString::Printf(TEXT("%s->AttachTo(%s %s);"), *NativeVariablePropertyName, *ParentVariableName, *SocketName));
+			Context.AddLine(FString::Printf(TEXT("%s->%s(%s, FAttachmentTransformRules::KeepRelativeTransform %s);")
+				, *NativeVariablePropertyName
+				, GET_FUNCTION_NAME_STRING_CHECKED(USceneComponent, AttachToComponent)
+				, *ParentVariableName, *SocketName));
 			// AttachTo is called first in case some properties will be overridden.
+		}
+
+		bool bBodyInstanceIsAlreadyHandled = false;
+		UProperty* BodyInstanceProperty = UPrimitiveComponent::StaticClass()->FindPropertyByName(GET_MEMBER_NAME_CHECKED(UPrimitiveComponent, BodyInstance));
+		UPrimitiveComponent* PrimitiveComponent = Cast<UPrimitiveComponent>(ComponentTemplate);
+		if(PrimitiveComponent)
+		{
+			const FName CollisionProfileName = PrimitiveComponent->BodyInstance.GetCollisionProfileName();
+			UPrimitiveComponent* ComponentArchetype = Cast<UPrimitiveComponent>(ObjectToCompare);
+			const FName ComponentArchetypeCollisionProfileName = ComponentArchetype ? ComponentArchetype->BodyInstance.GetCollisionProfileName() : NAME_None;
+			if (CollisionProfileName != ComponentArchetypeCollisionProfileName)
+			{
+				FStructOnScope BodyInstanceToCompare(FBodyInstance::StaticStruct());
+				if (ComponentArchetype)
+				{
+					FBodyInstance::StaticStruct()->CopyScriptStruct(BodyInstanceToCompare.GetStructMemory(), &ComponentArchetype->BodyInstance);
+				}
+				((FBodyInstance*)BodyInstanceToCompare.GetStructMemory())->SetCollisionProfileName(CollisionProfileName);
+
+				const FString PathToMember = FString::Printf(TEXT("%s->BodyInstance"), *NativeVariablePropertyName);
+				Context.AddLine(FString::Printf(TEXT("%s.SetCollisionProfileName(FName(TEXT(\"%s\")));"), *PathToMember, *CollisionProfileName.ToString().ReplaceCharWithEscapedChar()));
+				FEmitDefaultValueHelper::InnerGenerate(Context, BodyInstanceProperty, PathToMember, (const uint8*)&PrimitiveComponent->BodyInstance, BodyInstanceToCompare.GetStructMemory());
+				bBodyInstanceIsAlreadyHandled = true;
+			}
 		}
 
 		UClass* ComponentClass = ComponentTemplate->GetClass();
 		for (auto Property : TFieldRange<const UProperty>(ComponentClass))
 		{
+			if (bBodyInstanceIsAlreadyHandled && (Property == BodyInstanceProperty))
+			{
+				continue;
+			}
+			if (HandledAsSpecialProperty(Context, Property))
+			{
+				continue;
+			}
 			FEmitDefaultValueHelper::OuterGenerate(Context, Property, NativeVariablePropertyName
 				, reinterpret_cast<const uint8*>(ComponentTemplate)
 				, reinterpret_cast<const uint8*>(ObjectToCompare)
 				, FEmitDefaultValueHelper::EPropertyAccessOperator::Pointer);
 		}
+	}
 
+	void EmitForcedPostLoad(FEmitterLocalContext& Context)
+	{
+		Context.AddLine(FString::Printf(TEXT("if(%s && !%s->%s())"), *NativeVariablePropertyName, *NativeVariablePropertyName, GET_FUNCTION_NAME_STRING_CHECKED(UActorComponent, IsTemplate)));
+		Context.AddLine(TEXT("{"));
+		Context.IncreaseIndent();
+		Context.AddLine(FString::Printf(TEXT("%s->%s(RF_NeedPostLoad |RF_NeedPostLoadSubobjects);"), *NativeVariablePropertyName, GET_FUNCTION_NAME_STRING_CHECKED(UActorComponent, SetFlags)));
+		Context.AddLine(FString::Printf(TEXT("%s->%s();"), *NativeVariablePropertyName, GET_FUNCTION_NAME_STRING_CHECKED(UActorComponent, ConditionalPostLoad)));
+		Context.DecreaseIndent();
+		Context.AddLine(TEXT("}"));
 	}
 };
 
@@ -541,7 +667,9 @@ FString FEmitDefaultValueHelper::HandleNonNativeComponent(FEmitterLocalContext& 
 			FNonativeComponentData NonativeComponentData;
 			NonativeComponentData.NativeVariablePropertyName = NativeVariablePropertyName;
 			NonativeComponentData.ComponentTemplate = ComponentTemplate;
-
+			USCS_Node* RootComponentNode = nullptr;
+			Node->GetSCS()->GetSceneRootComponentTemplate(&RootComponentNode);
+			NonativeComponentData.bIsRoot = RootComponentNode == Node;
 			UClass* ComponentClass = ComponentTemplate->GetClass();
 			check(ComponentClass != nullptr);
 
@@ -601,7 +729,7 @@ public:
 		{
 			return Result;
 		}
-		
+
 		for (UObject* Outer = Item; Outer; Outer = Outer->GetOuter())
 		{
 			if (!Result.IsEmpty())
@@ -635,83 +763,216 @@ public:
 		const FString ClassString = Item->IsA<UClass>() ? TEXT("UClass") : TEXT("UScriptStruct");
 		return FString(TEXT("Z_Construct_")) + ClassString + TEXT("_") + Result + TEXT("()");
 	}
+};
 
-	static void AddStaticFunctionsForDependencies(FEmitterLocalContext& Context)
+void FEmitDefaultValueHelper::AddStaticFunctionsForDependencies(FEmitterLocalContext& Context, TSharedPtr<FGatherConvertedClassDependencies> ParentDependencies)
+{
+
+
+	// 0.ALL ASSETS TO LIST
+	TSet<const UObject*> StaticDependenciesAssets;
 	{
-		auto SourceClass = Context.GetCurrentlyGeneratedClass();
-		auto OriginalClass = Context.Dependencies.FindOriginalClass(SourceClass);
-		const FString CppClassName = FEmitHelper::GetCppName(OriginalClass);
-		
-		// __StaticDependenciesAssets
+		for (UObject* LocAsset : Context.Dependencies.Assets)
+		{
+			if (ParentDependencies.IsValid() && ParentDependencies->Assets.Contains(LocAsset))
+			{
+				continue;
+			}
+			StaticDependenciesAssets.Add(LocAsset);
+		}
+		for (UBlueprintGeneratedClass* LocAsset : Context.Dependencies.ConvertedClasses)
+		{
+			if (ParentDependencies.IsValid() && (ParentDependencies->ConvertedClasses.Contains(LocAsset) || ParentDependencies->Assets.Contains(LocAsset)))
+			{
+				continue;
+			}
+			StaticDependenciesAssets.Add(LocAsset);
+		}
+	}
+
+	// 1. USED ASSETS LIST
+	auto SourceClass = Context.GetCurrentlyGeneratedClass();
+	auto OriginalClass = Context.Dependencies.FindOriginalClass(SourceClass);
+	const FString CppClassName = FEmitHelper::GetCppName(OriginalClass);
+
+	auto CreateAssetToLoadString = [&](const UObject* AssetObj, const FString& LongPathVariable) -> FString
+	{
+		UClass* AssetType = AssetObj->GetClass();
+		if (AssetType->IsChildOf<UUserDefinedEnum>())
+		{
+			AssetType = UEnum::StaticClass();
+		}
+		else if (AssetType->IsChildOf<UUserDefinedStruct>())
+		{
+			AssetType = UScriptStruct::StaticClass();
+		}
+		else if (AssetType->IsChildOf<UBlueprintGeneratedClass>() && Context.Dependencies.WillClassBeConverted(CastChecked<UBlueprintGeneratedClass>(AssetObj)))
+		{
+			AssetType = UDynamicClass::StaticClass();
+		}
+
+		return FString::Printf(TEXT("FBlueprintDependencyData(%s, TEXT(\"%s\"), TEXT(\"%s\"), TEXT(\"%s\"), TEXT(\"%s\")),")
+			, *LongPathVariable
+			, *FPackageName::GetShortName(AssetObj->GetOutermost()->GetPathName())
+			, *AssetObj->GetName()
+			, *AssetType->GetOutermost()->GetPathName()
+			, *AssetType->GetName());
+	};
+
+	auto AddAssetArray = [&](TArray<const UObject*>& Assets)
+	{
+		TMap<FString, FString> PrefixToLocalVariable;
+		for (const UObject* LocAsset : Assets)
+		{
+			FString LongPackagePath = FPackageName::GetLongPackagePath(LocAsset->GetOutermost()->GetPathName());
+			if (!PrefixToLocalVariable.Find(LongPackagePath))
+			{
+				FString VariableName = Context.GenerateUniqueLocalName();
+				Context.AddLine(FString::Printf(TEXT("const TCHAR* %s = TEXT(\"%s\");"), *VariableName, *LongPackagePath));
+				PrefixToLocalVariable.Add(LongPackagePath, VariableName);
+			}
+		}
+
+		if (Assets.Num())
+		{
+			Context.AddLine(TEXT("FBlueprintDependencyData LocAssets[] ="));
+			Context.AddLine(TEXT("{"));
+			Context.IncreaseIndent();
+		}
+
+		for (const UObject* LocAsset : Assets)
+		{
+			FString* LongPathVar = PrefixToLocalVariable.Find(FPackageName::GetLongPackagePath(LocAsset->GetOutermost()->GetPathName()));
+			check(LongPathVar);
+			Context.AddLine(CreateAssetToLoadString(LocAsset, *LongPathVar));
+		}
+
+		if (Assets.Num())
+		{
+			Context.DecreaseIndent();
+			Context.AddLine(TEXT("};"));
+			Context.AddLine(TEXT("for(auto& LocAsset : LocAssets) { AssetsToLoad.Add(LocAsset); } "));
+		}
+	};
+
+	int32 UsedAssetIndex = 0;
+	// 1. COMMON DEPENDENCIES ASSETS - USED BOTH BY __StaticDependenciesAssets and __StaticDependencies_DirectlyUsedAssets
+	{
+		Context.AddLine(FString::Printf(TEXT("void %s::__StaticDependencies_CommonAssets(TArray<FBlueprintDependencyData>& AssetsToLoad)"), *CppClassName));
+		Context.AddLine(TEXT("{"));
+		Context.IncreaseIndent();
+
+		TArray<const UObject*> AssetsToAdd;
+		for (;UsedAssetIndex < Context.UsedObjectInCurrentClass.Num(); ++UsedAssetIndex)
+		{
+			const UObject* LocAsset = Context.UsedObjectInCurrentClass[UsedAssetIndex];
+			if (!StaticDependenciesAssets.Contains(LocAsset))
+			{
+				break;
+			}
+			StaticDependenciesAssets.Remove(LocAsset);
+			AssetsToAdd.Add(LocAsset);
+		}
+		AddAssetArray(AssetsToAdd);
+
+		Context.DecreaseIndent();
+		Context.AddLine(TEXT("}"));
+	}
+
+	//
+	{
+		// __StaticDependencies_DirectlyUsedAssets
+		Context.AddLine(FString::Printf(TEXT("void %s::__StaticDependencies_DirectlyUsedAssets(TArray<FBlueprintDependencyData>& AssetsToLoad)"), *CppClassName));
+		Context.AddLine(TEXT("{"));
+		Context.IncreaseIndent();
+
+		Context.AddLine(FString(TEXT("__StaticDependencies_CommonAssets(AssetsToLoad);")));
+
+		TArray<const UObject*> AssetsToAdd;
+		for (; UsedAssetIndex < Context.UsedObjectInCurrentClass.Num(); ++UsedAssetIndex)
+		{
+			const UObject* LocAsset = Context.UsedObjectInCurrentClass[UsedAssetIndex];
+			ensure(!StaticDependenciesAssets.Contains(LocAsset));
+			AssetsToAdd.Add(LocAsset);
+		}
+		AddAssetArray(AssetsToAdd);
+
+		Context.DecreaseIndent();
+		Context.AddLine(TEXT("}"));
+	}
+
+	// 2. REMAINING DEPENDENCIES
+	// __StaticDependenciesAssets
+	{
 		Context.AddLine(FString::Printf(TEXT("void %s::__StaticDependenciesAssets(TArray<FBlueprintDependencyData>& AssetsToLoad)"), *CppClassName));
 		Context.AddLine(TEXT("{"));
 		Context.IncreaseIndent();
 
-		auto CreateAssetToLoadString = [&](const UObject* AssetObj) -> FString
+		UBlueprintGeneratedClass* ParentBPGC = Cast<UBlueprintGeneratedClass>(SourceClass->GetSuperClass());
+		ensure(ParentDependencies.IsValid() == !!ParentBPGC);
+		if (ParentBPGC)
 		{
-			UClass* AssetType = AssetObj->GetClass();
-			if (AssetType->IsChildOf<UUserDefinedEnum>())
-			{
-				AssetType = UEnum::StaticClass();
-			}
-			else if (AssetType->IsChildOf<UUserDefinedStruct>())
-			{
-				AssetType = UScriptStruct::StaticClass();
-			}
-			else if (AssetType->IsChildOf<UBlueprintGeneratedClass>() && Context.Dependencies.WillClassBeConverted(CastChecked<UBlueprintGeneratedClass>(AssetObj)))
-			{
-				AssetType = UDynamicClass::StaticClass();
-			}
+			Context.AddLine(FString::Printf(TEXT("%s::__StaticDependenciesAssets(AssetsToLoad);"), *FEmitHelper::GetCppName(ParentBPGC)));
+		}
+		Context.AddLine(FString(TEXT("__StaticDependencies_CommonAssets(AssetsToLoad);")));
 
-			return FString::Printf(TEXT("AssetsToLoad.Add({FName(TEXT(\"%s\")), FName(TEXT(\"%s\")), FName(TEXT(\"%s\")), FName(TEXT(\"%s\"))});")
-				, *AssetObj->GetOutermost()->GetPathName()
-				, *AssetObj->GetName()
-				, *AssetType->GetOutermost()->GetPathName()
-				, *AssetType->GetName());
-		};
-		for (UObject* LocAsset : Context.Dependencies.Assets)
+		TArray<const UObject*> AssetsToAdd;
+		for (const UObject* LocAsset : StaticDependenciesAssets)
 		{
-			Context.AddLine(CreateAssetToLoadString(LocAsset));
+			AssetsToAdd.Add(LocAsset);
 		}
-		for (UObject* LocAsset : Context.Dependencies.ConvertedClasses)
-		{
-			if (!Context.Dependencies.Assets.Contains(LocAsset))
-			{
-				Context.AddLine(CreateAssetToLoadString(LocAsset));
-			}
-		}
+		AddAssetArray(AssetsToAdd);
 
 		Context.DecreaseIndent();
 		Context.AddLine(TEXT("}"));
-
-		// Register Helper Struct
-		const FString RegisterHelperName = FString::Printf(TEXT("FRegisterHelper__%s"), *CppClassName);
-		Context.AddLine(FString::Printf(TEXT("struct %s"), *RegisterHelperName));
-		Context.AddLine(TEXT("{"));
-		Context.IncreaseIndent();
-
-		Context.AddLine(FString::Printf(TEXT("%s()"), *RegisterHelperName));
-		Context.AddLine(TEXT("{"));
-		Context.IncreaseIndent();
-
-		Context.AddLine(FString::Printf(
-			TEXT("FConvertedBlueprintsDependencies::Get().RegisterClass(TEXT(\"%s\"), &%s::__StaticDependenciesAssets);")
-			, *OriginalClass->GetOutermost()->GetPathName()
-			, *CppClassName));
-
-		Context.DecreaseIndent();
-		Context.AddLine(TEXT("}"));
-
-		Context.AddLine(FString::Printf(TEXT("static %s Instance;"), *RegisterHelperName));
-
-		Context.DecreaseIndent();
-		Context.AddLine(TEXT("};"));
-
-		Context.AddLine(FString::Printf(TEXT("%s %s::Instance;"), *RegisterHelperName, *RegisterHelperName));
 	}
-};
+}
 
-void FEmitDefaultValueHelper::GenerateCustomDynamicClassInitialization(FEmitterLocalContext& Context)
+void FEmitDefaultValueHelper::AddRegisterHelper(FEmitterLocalContext& Context)
+{
+	auto SourceClass = Context.GetCurrentlyGeneratedClass();
+	auto OriginalClass = Context.Dependencies.FindOriginalClass(SourceClass);
+	const FString CppClassName = FEmitHelper::GetCppName(OriginalClass);
+
+	const FString RegisterHelperName = FString::Printf(TEXT("FRegisterHelper__%s"), *CppClassName);
+	Context.AddLine(FString::Printf(TEXT("struct %s"), *RegisterHelperName));
+	Context.AddLine(TEXT("{"));
+	Context.IncreaseIndent();
+
+	Context.AddLine(FString::Printf(TEXT("%s()"), *RegisterHelperName));
+	Context.AddLine(TEXT("{"));
+	Context.IncreaseIndent();
+
+	Context.AddLine(FString::Printf(
+		TEXT("FConvertedBlueprintsDependencies::Get().RegisterClass(TEXT(\"%s\"), &%s::__StaticDependenciesAssets);")
+		, *OriginalClass->GetOutermost()->GetPathName()
+		, *CppClassName));
+
+	Context.DecreaseIndent();
+	Context.AddLine(TEXT("}"));
+
+	Context.AddLine(FString::Printf(TEXT("static %s Instance;"), *RegisterHelperName));
+
+	Context.DecreaseIndent();
+	Context.AddLine(TEXT("};"));
+
+	Context.AddLine(FString::Printf(TEXT("%s %s::Instance;"), *RegisterHelperName, *RegisterHelperName));
+}
+
+
+void FEmitDefaultValueHelper::FillCommonUsedAssets(FEmitterLocalContext& Context, TSharedPtr<FGatherConvertedClassDependencies> ParentDependencies)
+{
+	ensure(0 == Context.UsedObjectInCurrentClass.Num());
+	for (auto LocAsset : Context.Dependencies.Assets)
+	{
+		if (!ParentDependencies.IsValid() || !ParentDependencies->Assets.Contains(LocAsset))
+		{
+			Context.UsedObjectInCurrentClass.Add(LocAsset);
+		}
+	}
+}
+
+void FEmitDefaultValueHelper::GenerateCustomDynamicClassInitialization(FEmitterLocalContext& Context, TSharedPtr<FGatherConvertedClassDependencies> ParentDependencies)
 {
 	auto BPGC = CastChecked<UBlueprintGeneratedClass>(Context.GetCurrentlyGeneratedClass());
 	const FString CppClassName = FEmitHelper::GetCppName(BPGC);
@@ -719,16 +980,26 @@ void FEmitDefaultValueHelper::GenerateCustomDynamicClassInitialization(FEmitterL
 	Context.AddLine(FString::Printf(TEXT("void %s::__CustomDynamicClassInitialization(UDynamicClass* InDynamicClass)"), *CppClassName));
 	Context.AddLine(TEXT("{"));
 	Context.IncreaseIndent();
-	Context.AddLine(TEXT("ensure(0 == InDynamicClass->ReferencedConvertedFields.Num());"));
-	Context.AddLine(TEXT("ensure(0 == InDynamicClass->MiscConvertedSubobjects.Num());"));
-	Context.AddLine(TEXT("ensure(0 == InDynamicClass->UsedAssets.Num());"));
-	Context.AddLine(TEXT("ensure(0 == InDynamicClass->DynamicBindingObjects.Num());"));
-	Context.AddLine(TEXT("ensure(0 == InDynamicClass->ComponentTemplates.Num());"));
-	Context.AddLine(TEXT("ensure(0 == InDynamicClass->Timelines.Num());"));
-	Context.AddLine(TEXT("ensure(nullptr == InDynamicClass->AnimClassImplementation);"));
+	Context.AddLine(FString::Printf(TEXT("ensure(0 == InDynamicClass->%s.Num());"), GET_MEMBER_NAME_STRING_CHECKED(UDynamicClass, ReferencedConvertedFields)));
+	Context.AddLine(FString::Printf(TEXT("ensure(0 == InDynamicClass->%s.Num());"), GET_MEMBER_NAME_STRING_CHECKED(UDynamicClass, MiscConvertedSubobjects)));
+	Context.AddLine(FString::Printf(TEXT("ensure(0 == InDynamicClass->%s.Num());"), GET_MEMBER_NAME_STRING_CHECKED(UDynamicClass, DynamicBindingObjects)));
+	Context.AddLine(FString::Printf(TEXT("ensure(0 == InDynamicClass->%s.Num());"), GET_MEMBER_NAME_STRING_CHECKED(UDynamicClass, ComponentTemplates)));
+	Context.AddLine(FString::Printf(TEXT("ensure(0 == InDynamicClass->%s.Num());"), GET_MEMBER_NAME_STRING_CHECKED(UDynamicClass, Timelines)));
+	Context.AddLine(FString::Printf(TEXT("ensure(nullptr == InDynamicClass->%s);"), GET_MEMBER_NAME_STRING_CHECKED(UDynamicClass, AnimClassImplementation)));
+	Context.AddLine(FString::Printf(TEXT("InDynamicClass->%s();"), GET_FUNCTION_NAME_STRING_CHECKED(UDynamicClass, AssembleReferenceTokenStream)));
 
 	Context.CurrentCodeType = FEmitterLocalContext::EGeneratedCodeType::SubobjectsOfClass;
 	Context.ResetPropertiesForInaccessibleStructs();
+
+	if (Context.Dependencies.ConvertedEnum.Num())
+	{
+		Context.AddLine(TEXT("// List of all referenced converted enums"));
+	}
+	for (auto LocEnum : Context.Dependencies.ConvertedEnum)
+	{
+		Context.AddLine(FString::Printf(TEXT("InDynamicClass->%s.Add(LoadObject<UEnum>(nullptr, TEXT(\"%s\")));"), GET_MEMBER_NAME_STRING_CHECKED(UDynamicClass, ReferencedConvertedFields), *(LocEnum->GetPathName().ReplaceCharWithEscapedChar())));
+		Context.EnumsInCurrentClass.Add(LocEnum);
+	}
 
 	if (Context.Dependencies.ConvertedClasses.Num())
 	{
@@ -739,9 +1010,14 @@ void FEmitDefaultValueHelper::GenerateCustomDynamicClassInitialization(FEmitterL
 		UClass* ClassToLoad = Context.Dependencies.FindOriginalClass(LocStruct);
 		if (ensure(ClassToLoad))
 		{
+			if (ParentDependencies.IsValid() && ParentDependencies->ConvertedClasses.Contains(LocStruct))
+			{
+				continue;
+			}
+
 			const FString ClassConstructor = FDependenciesHelper::GenerateZConstructor(ClassToLoad);
 			Context.AddLine(FString::Printf(TEXT("extern UClass* %s;"), *ClassConstructor));
-			Context.AddLine(FString::Printf(TEXT("InDynamicClass->ReferencedConvertedFields.Add(%s);"), *ClassConstructor));
+			Context.AddLine(FString::Printf(TEXT("InDynamicClass->%s.Add(%s);"), GET_MEMBER_NAME_STRING_CHECKED(UDynamicClass, ReferencedConvertedFields), *ClassConstructor));
 
 			//Context.AddLine(FString::Printf(TEXT("InDynamicClass->ReferencedConvertedFields.Add(LoadObject<UClass>(nullptr, TEXT(\"%s\")));")
 			//	, *(ClassToLoad->GetPathName().ReplaceCharWithEscapedChar())));
@@ -754,9 +1030,13 @@ void FEmitDefaultValueHelper::GenerateCustomDynamicClassInitialization(FEmitterL
 	}
 	for (auto LocStruct : Context.Dependencies.ConvertedStructs)
 	{
+		if (ParentDependencies.IsValid() && ParentDependencies->ConvertedStructs.Contains(LocStruct))
+		{
+			continue;
+		}
 		const FString StructConstructor = FDependenciesHelper::GenerateZConstructor(LocStruct);
 		Context.AddLine(FString::Printf(TEXT("extern UScriptStruct* %s;"), *StructConstructor));
-		Context.AddLine(FString::Printf(TEXT("InDynamicClass->ReferencedConvertedFields.Add(%s);"), *StructConstructor));
+		Context.AddLine(FString::Printf(TEXT("InDynamicClass->%s.Add(%s);"), GET_MEMBER_NAME_STRING_CHECKED(UDynamicClass, ReferencedConvertedFields), *StructConstructor));
 	}
 
 	TArray<UActorComponent*> ActorComponentTempatesOwnedByClass = BPGC->ComponentTemplates;
@@ -778,15 +1058,7 @@ void FEmitDefaultValueHelper::GenerateCustomDynamicClassInitialization(FEmitterL
 		});
 	}
 
-	if (Context.Dependencies.Assets.Num())
-	{
-		Context.AddLine(TEXT("// List of all referenced assets"));
-	}
-	for (auto LocAsset : Context.Dependencies.Assets)
-	{
-		const FString AssetStr = Context.FindGloballyMappedObject(LocAsset, UObject::StaticClass(), true, false);
-		Context.AddLine(FString::Printf(TEXT("InDynamicClass->UsedAssets.Add(%s);"), *AssetStr));
-	}
+	Context.AddLine(TEXT("FConvertedBlueprintsDependencies::FillUsedAssetsInDynamicClass(InDynamicClass, &__StaticDependencies_DirectlyUsedAssets);"));
 
 	auto CreateAndInitializeClassSubobjects = [&](bool bCreate, bool bInitilize)
 	{
@@ -822,24 +1094,27 @@ void FEmitDefaultValueHelper::GenerateCustomDynamicClassInitialization(FEmitterL
 
 	Context.DecreaseIndent();
 	Context.AddLine(TEXT("}"));
+
+	Context.CurrentCodeType = FEmitterLocalContext::EGeneratedCodeType::Regular;
+	Context.ResetPropertiesForInaccessibleStructs();
+
+	FBackendHelperUMG::EmitWidgetInitializationFunctions(Context);
 }
 
 void FEmitDefaultValueHelper::GenerateConstructor(FEmitterLocalContext& Context)
 {
-	GenerateCustomDynamicClassInitialization(Context);
-
-	auto BPGC = CastChecked<UBlueprintGeneratedClass>(Context.GetCurrentlyGeneratedClass());
+	UBlueprintGeneratedClass* BPGC = CastChecked<UBlueprintGeneratedClass>(Context.GetCurrentlyGeneratedClass());
 	const FString CppClassName = FEmitHelper::GetCppName(BPGC);
 
 	UClass* SuperClass = BPGC->GetSuperClass();
-	const bool bSuperHasOnlyDefaultConstructor = SuperClass && SuperClass->HasMetaData(TEXT("OnlyDefaultConstructorDeclared"));
+	const bool bSuperHasObjectInitializerConstructor = SuperClass && SuperClass->HasMetaData(TEXT("ObjectInitializerConstructorDeclared"));
 
 	Context.CurrentCodeType = FEmitterLocalContext::EGeneratedCodeType::CommonConstructor;
 	Context.ResetPropertiesForInaccessibleStructs();
 	Context.AddLine(FString::Printf(TEXT("%s::%s(const FObjectInitializer& ObjectInitializer) : Super(%s)")
 		, *CppClassName
 		, *CppClassName
-		, bSuperHasOnlyDefaultConstructor ? TEXT("") : TEXT("ObjectInitializer")));
+		, bSuperHasObjectInitializerConstructor ? TEXT("ObjectInitializer") : TEXT("")));
 	Context.AddLine(TEXT("{"));
 	Context.IncreaseIndent();
 
@@ -853,7 +1128,7 @@ void FEmitDefaultValueHelper::GenerateConstructor(FEmitterLocalContext& Context)
 
 	// Components that must be fixed after serialization
 	TArray<FString> NativeCreatedComponentProperties;
-
+	TArray<FNonativeComponentData> ComponentsToInit;
 	{
 		UObject* CDO = BPGC->GetDefaultObject(false);
 
@@ -923,8 +1198,6 @@ void FEmitDefaultValueHelper::GenerateConstructor(FEmitterLocalContext& Context)
 		const bool bErrorFree = UBlueprintGeneratedClass::GetGeneratedClassesHierarchy(BPGC, BPGCStack);
 		if (bErrorFree)
 		{
-			TArray<FNonativeComponentData> ComponentsToInit;
-
 			// Start at the base of the hierarchy so that dependencies are handled first.
 			for (int32 i = BPGCStack.Num() - 1; i >= 0; --i)
 			{
@@ -956,16 +1229,29 @@ void FEmitDefaultValueHelper::GenerateConstructor(FEmitterLocalContext& Context)
 			for (auto& ComponentToInit : ComponentsToInit)
 			{
 				ComponentToInit.EmitProperties(Context);
+
+				if (Cast<UPrimitiveComponent>(ComponentToInit.ComponentTemplate))
+				{
+					Context.AddLine(FString::Printf(TEXT("if(!%s->%s())"), *ComponentToInit.NativeVariablePropertyName, GET_FUNCTION_NAME_STRING_CHECKED(UPrimitiveComponent, IsTemplate)));
+					Context.AddLine(TEXT("{"));
+					Context.IncreaseIndent();
+					Context.AddLine(FString::Printf(TEXT("%s->%s.%s(%s);")
+						, *ComponentToInit.NativeVariablePropertyName
+						, GET_MEMBER_NAME_STRING_CHECKED(UPrimitiveComponent, BodyInstance)
+						, GET_FUNCTION_NAME_STRING_CHECKED(FBodyInstance, FixupData)
+						, *ComponentToInit.NativeVariablePropertyName));
+					Context.DecreaseIndent();
+					Context.AddLine(TEXT("}"));
+				}
 			}
 		}
 
 		// Generate ctor init code for generated Blueprint class property values that may differ from parent class defaults (or that otherwise belong to the generated Blueprint class).
 		for (auto Property : TFieldRange<const UProperty>(BPGC))
 		{
-			const bool bNewProperty = Property->GetOwnerStruct() == BPGC;
-			const bool bIsAccessible = bNewProperty || !Property->HasAnyPropertyFlags(CPF_NativeAccessSpecifierPrivate);
-			if (bIsAccessible && !HandledProperties.Contains(Property))
+			if (!HandledProperties.Contains(Property))
 			{
+				const bool bNewProperty = Property->GetOwnerStruct() == BPGC;
 				OuterGenerate(Context, Property, TEXT(""), reinterpret_cast<const uint8*>(CDO), bNewProperty ? nullptr : reinterpret_cast<const uint8*>(ParentCDO), EPropertyAccessOperator::None, true);
 			}
 		}
@@ -973,27 +1259,26 @@ void FEmitDefaultValueHelper::GenerateConstructor(FEmitterLocalContext& Context)
 	Context.DecreaseIndent();
 	Context.AddLine(TEXT("}"));
 
+	// TODO: this mechanism could be required by other instanced subobjects.
 	Context.CurrentCodeType = FEmitterLocalContext::EGeneratedCodeType::Regular;
 	Context.ResetPropertiesForInaccessibleStructs();
-	Context.AddLine(FString::Printf(TEXT("void %s::PostLoadSubobjects(FObjectInstancingGraph* OuterInstanceGraph)"), *CppClassName));
+
+	Context.ResetPropertiesForInaccessibleStructs();
+	Context.AddLine(FString::Printf(TEXT("void %s::%s(FObjectInstancingGraph* OuterInstanceGraph)"), *CppClassName, GET_FUNCTION_NAME_STRING_CHECKED(UObject, PostLoadSubobjects)));
 	Context.AddLine(TEXT("{"));
 	Context.IncreaseIndent();
-	Context.AddLine(TEXT("Super::PostLoadSubobjects(OuterInstanceGraph);"));
+	Context.AddLine(FString::Printf(TEXT("Super::%s(OuterInstanceGraph);"), GET_FUNCTION_NAME_STRING_CHECKED(UObject, PostLoadSubobjects)));
 	for (auto& ComponentToFix : NativeCreatedComponentProperties)
 	{
-		Context.AddLine(FString::Printf(TEXT("if(ensure(%s))"), *ComponentToFix));
+		Context.AddLine(FString::Printf(TEXT("if(%s)"), *ComponentToFix));
 		Context.AddLine(TEXT("{"));
 		Context.IncreaseIndent();
-		Context.AddLine(FString::Printf(TEXT("%s->CreationMethod = EComponentCreationMethod::Native;"), *ComponentToFix));
+		Context.AddLine(FString::Printf(TEXT("%s->%s = EComponentCreationMethod::Native;"), *ComponentToFix, GET_MEMBER_NAME_STRING_CHECKED(UActorComponent, CreationMethod)));
 		Context.DecreaseIndent();
 		Context.AddLine(TEXT("}"));
 	}
 	Context.DecreaseIndent();
 	Context.AddLine(TEXT("}"));
-
-	FDependenciesHelper::AddStaticFunctionsForDependencies(Context);
-
-	FBackendHelperUMG::EmitWidgetInitializationFunctions(Context);
 }
 
 FString FEmitDefaultValueHelper::HandleClassSubobject(FEmitterLocalContext& Context, UObject* Object, FEmitterLocalContext::EClassSubobjectList ListOfSubobjectsType, bool bCreate, bool bInitilize)
@@ -1030,7 +1315,7 @@ FString FEmitDefaultValueHelper::HandleClassSubobject(FEmitterLocalContext& Cont
 			, *NativeType
 			, bAddAsSubobjectOfClass ? TEXT("InDynamicClass") : *OuterStr
 			, *ActualClass
-			, *Object->GetName()));
+			, *Object->GetName().ReplaceCharWithEscapedChar()));
 		if (bAddAsSubobjectOfClass)
 		{
 			Context.RegisterClassSubobject(Object, ListOfSubobjectsType);
@@ -1111,8 +1396,11 @@ FString FEmitDefaultValueHelper::HandleInstancedSubobject(FEmitterLocalContext& 
 		}
 		else
 		{
-			Context.AddLine(FString::Printf(TEXT("auto %s = CastChecked<%s>(GetDefaultSubobjectByName(TEXT(\"%s\")));")
-				, *LocalNativeName, *FEmitHelper::GetCppName(ObjectClass), *Object->GetName()));
+			Context.AddLine(FString::Printf(TEXT("auto %s = CastChecked<%s>(%s(TEXT(\"%s\")));")
+				, *LocalNativeName
+				, *FEmitHelper::GetCppName(ObjectClass)
+				, GET_FUNCTION_NAME_STRING_CHECKED(UObject, GetDefaultSubobjectByName)
+				, *Object->GetName()));
 		}
 
 		const UObject* ObjectArchetype = Object->GetArchetype();
@@ -1141,7 +1429,7 @@ FString FEmitDefaultValueHelper::HandleInstancedSubobject(FEmitterLocalContext& 
 			, *NativeType
 			, *OuterStr
 			, *ActualClass
-			, *Object->GetName()));
+			, *Object->GetName().ReplaceCharWithEscapedChar()));
 	}
 
 	return LocalNativeName;

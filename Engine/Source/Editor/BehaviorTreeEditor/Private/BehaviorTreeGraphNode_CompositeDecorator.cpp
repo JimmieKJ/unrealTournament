@@ -173,7 +173,7 @@ void UBehaviorTreeGraphNode_CompositeDecorator::SetDecoratorData(class UBTCompos
 void UBehaviorTreeGraphNode_CompositeDecorator::InitializeDecorator(class UBTDecorator* InnerDecorator)
 {
 	InnerDecorator->InitializeNode(ParentNodeInstance, 0, 0, 0);
-	InnerDecorator->InitializeDecorator(ChildIndex);
+	InnerDecorator->InitializeParentLink(ChildIndex);
 }
 
 void UBehaviorTreeGraphNode_CompositeDecorator::OnBlackboardUpdate()

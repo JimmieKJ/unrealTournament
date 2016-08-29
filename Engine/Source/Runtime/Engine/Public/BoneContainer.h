@@ -2,10 +2,10 @@
 
 #pragma once
 
-class USkeleton;
-
 #include "BoneIndices.h"
 #include "CustomBoneIndexArray.h"
+
+class USkeleton;
 
 /**
 * This is a native transient structure.

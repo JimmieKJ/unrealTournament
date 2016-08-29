@@ -180,7 +180,7 @@ private:
 			if (It.Key() == TrackRedirectsName)
 			{
 				FName TargetClassName = NAME_Object;
-				FParse::Value(*It.Value(), TEXT("TargetClassName="), TargetClassName);
+				FParse::Value(*It.Value().GetValue(), TEXT("TargetClassName="), TargetClassName);
 
 				if (UClass* TargetClass = LoadClass<UObject>(NULL, *TargetClassName.ToString(), NULL, LOAD_None, NULL))
 				{
@@ -188,8 +188,8 @@ private:
 
 					FString OldFieldName;
 					FString NewFieldName;
-					FParse::Value(*It.Value(), TEXT("OldFieldName="), OldFieldName);
-					FParse::Value(*It.Value(), TEXT("NewFieldName="), NewFieldName);
+					FParse::Value(*It.Value().GetValue(), TEXT("OldFieldName="), OldFieldName);
+					FParse::Value(*It.Value().GetValue(), TEXT("NewFieldName="), NewFieldName);
 
 					ClassRemapInfo.PrefixMap.Add(OldFieldName, NewFieldName);
 				}

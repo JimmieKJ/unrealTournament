@@ -14,8 +14,12 @@ UEditorPerProjectUserSettings::UEditorPerProjectUserSettings(const FObjectInitia
 	bMonitorEditorPerformance = true;
 	BlueprintFavorites = CreateDefaultSubobject<UBlueprintPaletteFavorites>(TEXT("BlueprintFavorites"));
 	SCSViewportCameraSpeed = 4;
+	AssetViewerProfileIndex = 0;
 
 	SimplygonServerIP = "127.0.0.1";
+	SimplygonSwarmDelay = 500;
+	bEnableSwarmDebugging = false;
+	SwarmIntermediateFolder = FPaths::ConvertRelativePathToFull(FPaths::GameIntermediateDir() + TEXT("Simplygon/"));
 }
 
 void UEditorPerProjectUserSettings::PostInitProperties()

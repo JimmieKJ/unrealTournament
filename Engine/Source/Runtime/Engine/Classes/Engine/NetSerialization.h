@@ -334,10 +334,11 @@ struct FFastArraySerializerItem
 	FORCEINLINE void PostReplicatedChange(const struct FFastArraySerializer& InArraySerializer) { }
 };
 
-/** Struct for holding information about a element that has unmapped network guids */
-struct FFastArraySerializerUnmappedItem
+/** Struct for holding guid references */
+struct FFastArraySerializerGuidReferences
 {
-	TArray< FNetworkGUID >		UnmappedGUIDs;		// List of guids that were unmapped so we can quickly check
+	TSet< FNetworkGUID >		UnmappedGUIDs;		// List of guids that were unmapped so we can quickly check
+	TSet< FNetworkGUID >		MappedDynamicGUIDs;	// List of guids that were mapped so we can move them to unmapped when necessary (i.e. actor channel closes)
 	TArray< uint8 >				Buffer;				// Buffer of data to re-serialize when the guids are mapped
 	int32						NumBufferBits;		// Number of bits in the buffer
 };
@@ -348,13 +349,17 @@ struct FFastArraySerializer
 {
 	GENERATED_USTRUCT_BODY()
 
-	FFastArraySerializer() : IDCounter(0), ArrayReplicationKey(0) { }
+	FFastArraySerializer()
+		: IDCounter(0)
+		, ArrayReplicationKey(0)
+		, CachedNumItems(INDEX_NONE)
+		, CachedNumItemsToConsiderForWriting(INDEX_NONE) { }
 
 	TMap<int32, int32>	ItemMap;
 	int32				IDCounter;
 	int32				ArrayReplicationKey;
 
-	TMap< int32, FFastArraySerializerUnmappedItem > UnmappedItems;	// List of items that need to be re-serialized when the referenced objects are mapped
+	TMap< int32, FFastArraySerializerGuidReferences > GuidReferencesMap;	// List of items that need to be re-serialized when the referenced objects are mapped
 
 	/** This must be called if you add or change an item in the array */
 	void MarkItemDirty(FFastArraySerializerItem & Item)
@@ -374,6 +379,15 @@ struct FFastArraySerializer
 	void MarkArrayDirty()
 	{
 		ItemMap.Reset();		// This allows to clients to add predictive elements to arrays without affecting replication.
+		IncrementArrayReplicationKey();
+
+		// Invalidate the cached item counts so that they're recomputed during the next write
+		CachedNumItems = INDEX_NONE;
+		CachedNumItemsToConsiderForWriting = INDEX_NONE;
+	}
+
+	void IncrementArrayReplicationKey()
+	{
 		ArrayReplicationKey++;
 		if (ArrayReplicationKey == INDEX_NONE)
 			ArrayReplicationKey++;
@@ -381,6 +395,25 @@ struct FFastArraySerializer
 
 	template< typename Type, typename SerializerType >
 	static bool FastArrayDeltaSerialize( TArray<Type> &Items, FNetDeltaSerializeInfo& Parms, SerializerType& ArraySerializer );
+
+private:
+	// Cached item counts, used for fast sanity checking when writing.
+	int32				CachedNumItems;
+	int32				CachedNumItemsToConsiderForWriting;
+
+	/**
+	 * Helper function for FastArrayDeltaSerialize to consolidate the logic of whether to consider writing an item in a fast TArray during network serialization.
+	 * For client replay recording, we don't want to write any items that have been added to the array predictively.
+	 */ 
+	static bool ShouldWriteFastArrayItem(const int32 ItemReplicationID, const bool bIsWritingOnClient)
+	{
+		if (bIsWritingOnClient)
+		{
+			return ItemReplicationID != INDEX_NONE;
+		}
+
+		return true;
+	}
 };
 
 // Struct used only in FFastArraySerializer::FastArrayDeltaSerialize, however, declaring it within the templated function
@@ -429,21 +462,61 @@ bool FFastArraySerializer::FastArrayDeltaSerialize( TArray<Type> &Items, FNetDel
 		}
 	}
 
+	if ( Parms.GatherGuidReferences )
+	{
+		// Loop over all tracked guids, and return what we have
+		for ( const auto& GuidReferencesPair : ArraySerializer.GuidReferencesMap )
+		{
+			const FFastArraySerializerGuidReferences& GuidReferences = GuidReferencesPair.Value;
+
+			Parms.GatherGuidReferences->Append( GuidReferences.UnmappedGUIDs );
+			Parms.GatherGuidReferences->Append( GuidReferences.MappedDynamicGUIDs );
+
+			if ( Parms.TrackedGuidMemoryBytes )
+			{
+				*Parms.TrackedGuidMemoryBytes += GuidReferences.Buffer.Num();
+			}
+		}
+
+		return true;
+	}
+
+	if ( Parms.MoveGuidToUnmapped )
+	{
+		bool bFound = false;
+
+		const FNetworkGUID GUID = *Parms.MoveGuidToUnmapped;
+
+		// Try to find the guid in the list, and make sure it's on the unmapped lists now
+		for ( auto& GuidReferencesPair : ArraySerializer.GuidReferencesMap )
+		{
+			FFastArraySerializerGuidReferences& GuidReferences = GuidReferencesPair.Value;
+
+			if ( GuidReferences.MappedDynamicGUIDs.Contains( GUID ) )
+			{
+				GuidReferences.MappedDynamicGUIDs.Remove( GUID );
+				GuidReferences.UnmappedGUIDs.Add( GUID );
+				bFound = true;
+			}
+		}
+
+		return bFound;
+	}
+
 	if ( Parms.bUpdateUnmappedObjects )
 	{
 		// Loop over each item that has unmapped objects
-		for ( auto It = ArraySerializer.UnmappedItems.CreateIterator(); It; ++It )
+		for ( auto It = ArraySerializer.GuidReferencesMap.CreateIterator(); It; ++It )
 		{
 			// Get the element id
 			const int32 ElementID = It.Key();
 			
 			// Get a reference to the unmapped item itself
-			FFastArraySerializerUnmappedItem& UnmappedItem = It.Value();
+			FFastArraySerializerGuidReferences& GuidReferences = It.Value();
 
-			if ( UnmappedItem.UnmappedGUIDs.Num() == 0 || ArraySerializer.ItemMap.Find( ElementID ) == NULL )
+			if ( ( GuidReferences.UnmappedGUIDs.Num() == 0 && GuidReferences.MappedDynamicGUIDs.Num() == 0 ) || ArraySerializer.ItemMap.Find( ElementID ) == NULL )
 			{
 				// If for some reason the item is gone (or all guids were removed), we don't need to track guids for this item anymore
-				UnmappedItem.UnmappedGUIDs.Empty();
 				It.RemoveCurrent();
 				continue;		// We're done with this unmapped item
 			}
@@ -451,15 +524,15 @@ bool FFastArraySerializer::FastArrayDeltaSerialize( TArray<Type> &Items, FNetDel
 			// Loop over all the guids, and check to see if any of them are loaded yet
 			bool bMappedSomeGUIDs = false;
 
-			for ( int32 i = UnmappedItem.UnmappedGUIDs.Num() - 1; i >= 0 ; i-- )
-			{			
-				const FNetworkGUID& GUID = UnmappedItem.UnmappedGUIDs[i];
+			for ( auto UnmappedIt = GuidReferences.UnmappedGUIDs.CreateIterator(); UnmappedIt; ++UnmappedIt )
+			{
+				const FNetworkGUID& GUID = *UnmappedIt;
 
 				if ( Parms.Map->IsGUIDBroken( GUID, false ) )
 				{
 					// Stop trying to load broken guids
 					UE_LOG( LogNetFastTArray, Warning, TEXT( "FastArrayDeltaSerialize: Broken GUID. NetGuid: %s" ), *GUID.ToString() );
-					UnmappedItem.UnmappedGUIDs.RemoveAt( i );
+					UnmappedIt.RemoveCurrent();
 					continue;
 				}
 
@@ -468,7 +541,11 @@ bool FFastArraySerializer::FastArrayDeltaSerialize( TArray<Type> &Items, FNetDel
 				if ( Object != NULL )
 				{
 					// This guid loaded!
-					UnmappedItem.UnmappedGUIDs.RemoveAt( i );
+					if ( GUID.IsDynamic() )
+					{
+						GuidReferences.MappedDynamicGUIDs.Add( GUID );		// Move back to mapped list
+					}
+					UnmappedIt.RemoveCurrent();
 					bMappedSomeGUIDs = true;
 				}
 			}
@@ -488,7 +565,7 @@ bool FFastArraySerializer::FastArrayDeltaSerialize( TArray<Type> &Items, FNetDel
 				Type* ThisElement = &Items[ArraySerializer.ItemMap.FindChecked( ElementID )];
 
 				// Initialize the reader with the stored buffer that we need to read from
-				FNetBitReader Reader( Parms.Map, UnmappedItem.Buffer.GetData(), UnmappedItem.NumBufferBits );
+				FNetBitReader Reader( Parms.Map, GuidReferences.Buffer.GetData(), GuidReferences.NumBufferBits );
 
 				// Read the property (which should serialize any newly mapped objects as well)
 				bool bHasUnmapped = false;
@@ -498,15 +575,15 @@ bool FFastArraySerializer::FastArrayDeltaSerialize( TArray<Type> &Items, FNetDel
 				ThisElement->PostReplicatedChange( ArraySerializer );
 			}
 
-			// If we have no more guids, we can remove this item
-			if ( UnmappedItem.UnmappedGUIDs.Num() == 0 )
+			// If we have no more guids, we can remove this item for good
+			if ( GuidReferences.UnmappedGUIDs.Num() == 0 && GuidReferences.MappedDynamicGUIDs.Num() == 0 )
 			{
 				It.RemoveCurrent();
 			}
 		}
 
 		// If we still have unmapped items, then communicate this to the outside
-		if ( ArraySerializer.UnmappedItems.Num() > 0 )
+		if ( ArraySerializer.GuidReferencesMap.Num() > 0 )
 		{
 			Parms.bOutHasMoreUnmapped = true;
 		}
@@ -536,10 +613,28 @@ bool FFastArraySerializer::FastArrayDeltaSerialize( TArray<Type> &Items, FNetDel
 		// See if the array changed at all. If the ArrayReplicationKey matches we can skip checking individual items
 		if (Parms.OldState && (ArraySerializer.ArrayReplicationKey == BaseReplicationKey))
 		{
-			// Double check the old map is valid and the old/new maps are the same size.
+			// Double check the old map is valid and that we will consider writing the same number of elements that are in the old map.
 			if (ensureMsgf(OldMap, TEXT("Invalid OldMap")))
 			{
-				ensureMsgf((OldMap->Num() == Items.Num()), TEXT("OldMap size (%d) does not match Items size (%d)"), OldMap->Num(), Items.Num());
+				// If the keys didn't change, only update the item count caches if necessary.
+				if (ArraySerializer.CachedNumItems == INDEX_NONE ||
+					ArraySerializer.CachedNumItems != Items.Num() ||
+					ArraySerializer.CachedNumItemsToConsiderForWriting == INDEX_NONE)
+				{
+					ArraySerializer.CachedNumItems = Items.Num();
+					ArraySerializer.CachedNumItemsToConsiderForWriting = 0;
+
+					// Count the number of items in the current array that may be written. On clients, items that were predicted will be skipped.
+					for (const Type& Item : Items)
+					{
+						if (ShouldWriteFastArrayItem(Item.ReplicationID, Parms.bIsWritingOnClient))
+						{
+							ArraySerializer.CachedNumItemsToConsiderForWriting++;
+						}
+					}
+				}
+
+				ensureMsgf((OldMap->Num() == ArraySerializer.CachedNumItemsToConsiderForWriting), TEXT("OldMap size (%d) does not match item count (%d)"), OldMap->Num(), ArraySerializer.CachedNumItemsToConsiderForWriting);
 			}
 
 			return false;
@@ -580,6 +675,11 @@ bool FFastArraySerializer::FastArrayDeltaSerialize( TArray<Type> &Items, FNetDel
 		for (int32 i=0; i < Items.Num(); ++i)
 		{
 			UE_LOG(LogNetFastTArray, Log, TEXT("    Array[%d] - ID %d. CL %d."), i, Items[i].ReplicationID, Items[i].ReplicationKey);
+			if (!ShouldWriteFastArrayItem(Items[i].ReplicationID, Parms.bIsWritingOnClient))
+			{
+				// On clients, this will skip items that were added predictively.
+				continue;
+			}
 			if (Items[i].ReplicationID == INDEX_NONE)
 			{
 				ArraySerializer.MarkItemDirty(Items[i]);
@@ -632,13 +732,8 @@ bool FFastArraySerializer::FastArrayDeltaSerialize( TArray<Type> &Items, FNetDel
 			}
 		}
 
-		// return if nothing changed
-		if ( ChangedElements.Num() == 0 && DeletedElements.Num() == 0)
-		{
-			// Nothing changed
-			UE_LOG(LogNetFastTArray, Log, TEXT("   No Changed Elements in this array - skipping write"));
-			return false;
-		}
+		// Note: we used to early return false here if nothing had changed, but we still need to send
+		// a bunch with the array key / base key, so that clients can look for implicit deletes.
 
 		// The array replication key may have changed while adding new elemnts (in the call to MarkItemDirty above)
 		NewState->ArrayReplicationKey = ArraySerializer.ArrayReplicationKey;
@@ -657,7 +752,7 @@ bool FFastArraySerializer::FastArrayDeltaSerialize( TArray<Type> &Items, FNetDel
 		ElemNum = ChangedElements.Num();
 		Writer << ElemNum;
 
-		UE_LOG(LogNetFastTArray, Log, TEXT("   Writing Bunch. NumChange: %d. NumDel: %d"), ChangedElements.Num(), DeletedElements.Num() );
+		UE_LOG(LogNetFastTArray, Log, TEXT("   Writing Bunch. NumChange: %d. NumDel: %d [%d/%d]"), ChangedElements.Num(), DeletedElements.Num(), ArrayReplicationKey, BaseReplicationKey );
 
 		// Serialize deleted items, just by their ID
 		for (auto It = DeletedElements.CreateIterator(); It; ++It)
@@ -730,7 +825,7 @@ bool FFastArraySerializer::FastArrayDeltaSerialize( TArray<Type> &Items, FNetDel
 		// Increment keys so that a client can re-serialize the array if needed, such as for client replay recording
 		if ( NumDeletes > 0 || NumChanged > 0 )
 		{
-			++ArraySerializer.ArrayReplicationKey;
+			ArraySerializer.IncrementArrayReplicationKey();
 		}
 
 		TArray<int32, TInlineAllocator<8> > DeleteIndices;
@@ -747,13 +842,14 @@ bool FFastArraySerializer::FastArrayDeltaSerialize( TArray<Type> &Items, FNetDel
 				int32 ElementID;
 				Reader << ElementID;
 
-				ArraySerializer.UnmappedItems.Remove( ElementID );
+				ArraySerializer.GuidReferencesMap.Remove( ElementID );
 
 				int32* ElementIndexPtr = ArraySerializer.ItemMap.Find(ElementID);
 				if (ElementIndexPtr)
 				{
 					int32 DeleteIndex = *ElementIndexPtr;
 					DeleteIndices.Add(DeleteIndex);
+					UE_LOG(LogNetFastTArray, Log, TEXT("   Adding ElementID: %d for deletion"), ElementID);
 				}
 				else
 				{
@@ -791,15 +887,17 @@ bool FFastArraySerializer::FastArrayDeltaSerialize( TArray<Type> &Items, FNetDel
 				UE_LOG(LogNetFastTArray, Log, TEXT("   Changed. ID: %d -> Idx: %d"), ElementID, *ElementIndexPtr);
 				ElementIndex = *ElementIndexPtr;
 				ThisElement = &Items[ElementIndex];
-				++Items[ElementIndex].ReplicationKey;
 				ChangedIndices.Add(ElementIndex);
 			}
 
 			// Update this element's most recent array replication key
 			ThisElement->MostRecentArrayReplicationKey = ArrayReplicationKey;
 
+			// Update this element's replication key so that a client can re-serialize the array for client replay recording
+			ThisElement->ReplicationKey++;
+
 			// Let package map know we want to track and know about any guids that are unmapped during the serialize call
-			Parms.Map->ResetTrackedUnmappedGuids( true );
+			Parms.Map->ResetTrackedGuids( true );
 
 			// Remember where we started reading from, so that if we have unmapped properties, we can re-deserialize from this data later
 			FBitReaderMark Mark( Reader );
@@ -810,34 +908,51 @@ bool FFastArraySerializer::FastArrayDeltaSerialize( TArray<Type> &Items, FNetDel
 			if ( !Reader.IsError() )
 			{
 				// Track unmapped guids
-				const TArray< FNetworkGUID > & TrackedUnmappedGuids = Parms.Map->GetTrackedUnmappedGuids();
+				const TSet< FNetworkGUID >& TrackedUnmappedGuids = Parms.Map->GetTrackedUnmappedGuids();
+				const TSet< FNetworkGUID >& TrackedMappedDynamicGuids = Parms.Map->GetTrackedDynamicMappedGuids();
 
-				if ( TrackedUnmappedGuids.Num() )
+				if ( TrackedUnmappedGuids.Num() || TrackedMappedDynamicGuids.Num() )
 				{	
-					FFastArraySerializerUnmappedItem& UnmappedItem = ArraySerializer.UnmappedItems.FindOrAdd( ElementID );
+					FFastArraySerializerGuidReferences& GuidReferences = ArraySerializer.GuidReferencesMap.FindOrAdd( ElementID );
 
-					// Copy the unmapped guid list to this unmapped item
-					UnmappedItem.UnmappedGUIDs = TrackedUnmappedGuids;
-					UnmappedItem.Buffer.Empty();
+					// If guid lists are different, make note of that, and copy respective list
+					if ( !NetworkGuidSetsAreSame( GuidReferences.UnmappedGUIDs, TrackedUnmappedGuids ) )
+					{
+						// Copy the unmapped guid list to this unmapped item
+						GuidReferences.UnmappedGUIDs = TrackedUnmappedGuids;
+						Parms.bGuidListsChanged = true;
+					}
+
+					if ( !NetworkGuidSetsAreSame( GuidReferences.MappedDynamicGUIDs, TrackedMappedDynamicGuids ) )
+					{ 
+						// Copy the mapped guid list
+						GuidReferences.MappedDynamicGUIDs = TrackedMappedDynamicGuids;
+						Parms.bGuidListsChanged = true;
+					}
+
+					GuidReferences.Buffer.Empty();
 
 					// Remember the number of bits in the buffer
-					UnmappedItem.NumBufferBits = Reader.GetPosBits() - Mark.GetPos();
+					GuidReferences.NumBufferBits = Reader.GetPosBits() - Mark.GetPos();
 					
 					// Copy the buffer itself
-					Mark.Copy( Reader, UnmappedItem.Buffer );
+					Mark.Copy( Reader, GuidReferences.Buffer );
 
 					// Hijack this property to communicate that we need to be tracked since we have some unmapped guids
-					Parms.bOutHasMoreUnmapped = true;	
+					if ( TrackedUnmappedGuids.Num() )
+					{
+						Parms.bOutHasMoreUnmapped = true;
+					}
 				}
 				else
 				{
 					// If we don't have any unmapped objects, make sure we're no longer tracking this item in the unmapped lists
-					ArraySerializer.UnmappedItems.Remove( ElementID );
+					ArraySerializer.GuidReferencesMap.Remove( ElementID );
 				}
 			}
 
 			// Stop tracking unmapped objects
-			Parms.Map->ResetTrackedUnmappedGuids( false );
+			Parms.Map->ResetTrackedGuids( false );
 
 			if ( Reader.IsError() )
 			{
@@ -855,9 +970,14 @@ bool FFastArraySerializer::FastArrayDeltaSerialize( TArray<Type> &Items, FNetDel
 			Type& Item = Items[idx];
 			if (Item.MostRecentArrayReplicationKey < ArrayReplicationKey && Item.MostRecentArrayReplicationKey > BaseReplicationKey)
 			{
-				// This will happen in normal conditions in network replays.
-				UE_LOG( LogNetFastTArray, Log, TEXT( "Adding implicit delete for ElementID: %d. MostRecentArrayReplicationKey: %d. Current Payload: [%d/%d]"), Item.ReplicationID, Item.MostRecentArrayReplicationKey, ArrayReplicationKey, BaseReplicationKey);
-				DeleteIndices.Add(idx);
+				// Make sure this wasn't an explicit delete in this bunch (otherwise we end up deleting an extra element!)
+				if (DeleteIndices.Contains(idx) == false)
+				{
+					// This will happen in normal conditions in network replays.
+					UE_LOG( LogNetFastTArray, Log, TEXT( "Adding implicit delete for ElementID: %d. MostRecentArrayReplicationKey: %d. Current Payload: [%d/%d]"), Item.ReplicationID, Item.MostRecentArrayReplicationKey, ArrayReplicationKey, BaseReplicationKey);
+					
+					DeleteIndices.Add(idx);
+				}
 			}
 		}
 
@@ -865,6 +985,7 @@ bool FFastArraySerializer::FastArrayDeltaSerialize( TArray<Type> &Items, FNetDel
 		// Invoke all callbacks: removed -> added -> changed
 		// ---------------------------------------------------------
 
+		int32 PreRemoveSize = Items.Num();
 		for (int32 idx : DeleteIndices)
 		{
 			if (Items.IsValidIndex(idx))
@@ -872,6 +993,10 @@ bool FFastArraySerializer::FastArrayDeltaSerialize( TArray<Type> &Items, FNetDel
 				// Call the delete callbacks now, actually remove them at the end
 				Items[idx].PreReplicatedRemove(ArraySerializer);
 			}
+		}
+		if (PreRemoveSize != Items.Num())
+		{
+			UE_LOG( LogNetFastTArray, Error, TEXT( "Item size changed after PreReplicatedRemove! PremoveSize: %d  Item.Num: %d"), PreRemoveSize, Items.Num() );
 		}
 
 		for (int32 idx : AddedIndices)
@@ -883,6 +1008,11 @@ bool FFastArraySerializer::FastArrayDeltaSerialize( TArray<Type> &Items, FNetDel
 		{
 			Items[idx].PostReplicatedChange(ArraySerializer);
 		}	
+
+		if (PreRemoveSize != Items.Num())
+		{
+			UE_LOG( LogNetFastTArray, Error, TEXT( "Item size changed after PostReplicatedAdd/PostReplicatedChange! PremoveSize: %d  Item.Num: %d"), PreRemoveSize, Items.Num() );
+		}
 
 		if (DeleteIndices.Num() > 0)
 		{
@@ -1346,8 +1476,8 @@ struct TStructOpsTypeTraits< FVector_NetQuantizeNormal > : public TStructOpsType
  *			Ar << MyVectors;
  *			
  *			// Do this instead:
- *			SafeNetSerializeTArray_Default<32>(Ar, MyFloats);
- *			SafeNetSerializeTArray_WithNetSerialize<32>(Ar, MyVectors, Map);
+ *			SafeNetSerializeTArray_Default<31>(Ar, MyFloats);
+ *			SafeNetSerializeTArray_WithNetSerialize<31>(Ar, MyVectors, Map);
  *		}
  *	}	
  *	
@@ -1356,7 +1486,7 @@ struct TStructOpsTypeTraits< FVector_NetQuantizeNormal > : public TStructOpsType
 template<int32 MaxNum, typename T>
 int32 SafeNetSerializeTArray_HeaderOnly(FArchive& Ar, TArray<T>& Array, bool& bOutSuccess)
 {
-	const uint32 NumBits = FMath::CeilLogTwo(MaxNum);
+	const uint32 NumBits = FMath::CeilLogTwo(MaxNum)+1;
 	
 	int32 ArrayNum = 0;
 

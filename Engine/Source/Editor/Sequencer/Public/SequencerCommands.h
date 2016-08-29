@@ -24,6 +24,15 @@ public:
 	/** Rewind */
 	TSharedPtr< FUICommandInfo > Rewind;
 
+	/** Shuttle forward */
+	TSharedPtr< FUICommandInfo > ShuttleForward;
+
+	/** Shuttle backward */
+	TSharedPtr< FUICommandInfo > ShuttleBackward;
+
+	/** Pause */
+	TSharedPtr< FUICommandInfo > Pause;
+
 	/** Step forward */
 	TSharedPtr< FUICommandInfo > StepForward;
 
@@ -57,6 +66,9 @@ public:
 	/** Zoom out of the view range */
 	TSharedPtr< FUICommandInfo > ZoomOutViewRange;
 
+	/** Forces playback both in editor and at runtime to be evaluated at fixed frame intervals. */
+	TSharedPtr< FUICommandInfo > ToggleForceFixedFrameIntervalPlayback;
+
 	/** Toggle constraining the time cursor to the playback range */
 	TSharedPtr< FUICommandInfo > ToggleKeepCursorInPlaybackRange;
 
@@ -75,11 +87,17 @@ public:
 	/** Expand/collapse nodes and descendants */
 	TSharedPtr< FUICommandInfo > ToggleExpandCollapseNodesAndDescendants;
 
-	/** Sets the upper bound of the in/out section */
-	TSharedPtr< FUICommandInfo > SetInOutEnd;
+	/** Sets the upper bound of the selection range */
+	TSharedPtr< FUICommandInfo > SetSelectionRangeEnd;
 
-	/** Sets the lower bound of the in/out section */
-	TSharedPtr< FUICommandInfo > SetInOutStart;
+	/** Sets the lower bound of the selection range */
+	TSharedPtr< FUICommandInfo > SetSelectionRangeStart;
+
+	/** Clear and reset the selection range */
+	TSharedPtr< FUICommandInfo > ResetSelectionRange;
+
+	/** Select all keys that fall into the selection range*/
+	TSharedPtr< FUICommandInfo > SelectKeysInSelectionRange;
 
 	/** Sets a key at the current time for the selected actor */
 	TSharedPtr< FUICommandInfo > SetKey;
@@ -129,9 +147,6 @@ public:
 	/** Turns the range slider on and off. */
 	TSharedPtr< FUICommandInfo > ToggleShowRangeSlider;
 
-	/** Toggles whether to lock the in/out to the start/end range on scrolling. */
-	TSharedPtr< FUICommandInfo > ToggleLockInOutToStartEndRange;
-
 	/** Turns snapping on and off. */
 	TSharedPtr< FUICommandInfo > ToggleIsSnapEnabled;
 
@@ -155,9 +170,6 @@ public:
 
 	/** Toggles whether or not the play time should snap to the dragged key. */
 	TSharedPtr< FUICommandInfo > ToggleSnapPlayTimeToDraggedKey;
-
-	/** Toggles whether or not to lock the play rate to the frame rate. */
-	TSharedPtr< FUICommandInfo > ToggleFixedTimeStepPlayback;
 
 	/** Toggles whether or not to snap curve values to the interval. */
 	TSharedPtr< FUICommandInfo > ToggleSnapCurveValueToInterval;
@@ -192,11 +204,17 @@ public:
 	/** Open a panel that enables exporting the sequence to a movie */
 	TSharedPtr< FUICommandInfo > RenderMovie;
 
+	/** Create camera and set it as the current camera cut */
+	TSharedPtr< FUICommandInfo > CreateCamera;
+
 	/** Paste from the sequencer clipboard history */
 	TSharedPtr< FUICommandInfo > PasteFromHistory;
 
 	/** Convert the selected possessed objects to spawnables. These will be spawned and destroyed by sequencer as per object's the spawn track. */
 	TSharedPtr< FUICommandInfo > ConvertToSpawnable;
+
+	/** Convert the selected spawnable objects to possessables. The newly created possessables will be created in the current level. */
+	TSharedPtr< FUICommandInfo > ConvertToPossessable;
 
 	/** Discard all changes to the current movie scene. */
 	TSharedPtr< FUICommandInfo > DiscardChanges;
@@ -204,6 +222,17 @@ public:
 	/** Attempts to fix broken actor references. */
 	TSharedPtr< FUICommandInfo > FixActorReferences;
 
+	/** Attempts to move all time data for this sequence on to a valid frame */
+	TSharedPtr< FUICommandInfo > FixFrameTiming;
+
+	/** Record the selected actors into a sub sequence of the currently active sequence */
+	TSharedPtr< FUICommandInfo > RecordSelectedActors;
+
+	/** Imports animation from fbx. */
+	TSharedPtr< FUICommandInfo > ImportFBX;
+
+	/** Exports animation to fbx. */
+	TSharedPtr< FUICommandInfo > ExportFBX;
 
 	/**
 	 * Initialize commands

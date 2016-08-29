@@ -28,6 +28,13 @@ public:
 	 */
 	static EBuildConfigurations::Type GetBuildConfiguration();
 
+	/*
+	* Gets the unique version string for this build. This string is not assumed to have any particular format other being a unique identifier for the build.
+	*
+	* @return The build version
+	*/
+	static const TCHAR* GetBuildVersion();
+
 	/**
 	 * Gets the deployment name (also known as "EpicApp" in the launcher), e.g. DevPlaytest, PublicTest, Live etc.
 	 *
@@ -308,24 +315,19 @@ public:
 
 	/**
 	 * Checks whether this application can render anything.
+	 * Certain application types never render, while for others this behavior may be controlled by switching to NullRHI.
+	 * This can be used for decisions like omitting code paths that make no sense on servers or games running in headless mode (e.g. automated tests).
 	 *
 	 * @return true if the application can render, false otherwise.
 	 */
 	FORCEINLINE static bool CanEverRender()
 	{
-		return (!IsRunningCommandlet() || IsAllowCommandletRendering()) && !IsRunningDedicatedServer();
-	}
-
-	/**
-	 * Checks whether this application should run with the null RHI.
-	 *
-	 * Distinct from GUsingNullRHI which tells you whether the engine has actually initialized and is running a null RHI.
-	 *
-	 * @return true if the application should use null RHI.
-	 */
-	FORCEINLINE static bool ShouldUseNullRHI()
-	{
-		return (USE_NULL_RHI || FParse::Param(FCommandLine::Get(), TEXT("nullrhi")) || !CanEverRender());
+#if UE_SERVER
+		return false;
+#else
+		static bool bHasNullRHIOnCommandline = FParse::Param(FCommandLine::Get(), TEXT("nullrhi"));
+		return (!IsRunningCommandlet() || IsAllowCommandletRendering()) && !IsRunningDedicatedServer() && !(USE_NULL_RHI || bHasNullRHIOnCommandline);
+#endif // UE_SERVER
 	}
 
 	/**
@@ -364,6 +366,7 @@ public:
 	 *
 	 * @return true if the application runs unattended, false otherwise.
 	 */
+#if ( !PLATFORM_WINDOWS ) || ( !defined(__clang__) )
 	static bool IsUnattended()
 	{
 		// FCommandLine::Get() will assert that the command line has been set.
@@ -371,6 +374,9 @@ public:
 		static bool bIsUnattended = FParse::Param(FCommandLine::Get(), TEXT("UNATTENDED"));
 		return bIsUnattended || GIsAutomationTesting;
 	}
+#else
+	static bool IsUnattended(); // @todo clang: Workaround for missing symbol export
+#endif
 
 	/**
 	 * Checks whether the application should run multi-threaded for performance critical features.
@@ -591,6 +597,9 @@ public:
 	{
 		return bHasVRFocus;
 	}
+	
+	/* If the random seed started with a constant or on time, can be affected by -FIXEDSEED or -BENCHMARK */
+	static bool bUseFixedSeed;
 
 private:
 

@@ -26,6 +26,11 @@ FInternationalization& FInternationalization::Get()
 	return *Instance;
 }
 
+bool FInternationalization::IsAvailable()
+{
+	return Instance && Instance->IsInitialized();
+}
+
 void FInternationalization::TearDown()
 {
 	if (Instance && Instance->IsInitialized())
@@ -220,6 +225,11 @@ FString& FInternationalization::Leetify(FString& SourceString)
 	return SourceString;
 }
 #endif
+
+void FInternationalization::LoadAllCultureData()
+{
+	Implementation->LoadAllCultureData();
+}
 
 void FInternationalization::GetCultureNames(TArray<FString>& CultureNames) const
 {

@@ -5,6 +5,7 @@
 #include "BehaviorTreeComponent.h"
 #include "BehaviorTreeTypes.h"
 #include "GameplayTaskOwnerInterface.h"
+#include "Tasks/AITask.h"
 #include "BTNode.generated.h"
 
 AIMODULE_API DECLARE_LOG_CATEGORY_EXTERN(LogBehaviorTree, Display, All);
@@ -143,29 +144,22 @@ class AIMODULE_API UBTNode : public UObject, public IGameplayTaskOwnerInterface
 	/** Gets called only for instanced nodes(bCreateNodeInstance == true). In practive overridden by BP-implemented BT nodes */
 	virtual void SetOwner(AActor* ActorOwner) {}
 
-	//----------------------------------------------------------------------//
-	// IGameplayTaskOwnerInterface & other gameplay task stuff
-	//----------------------------------------------------------------------//
+	// BEGIN IGameplayTaskOwnerInterface
 	virtual UGameplayTasksComponent* GetGameplayTasksComponent(const UGameplayTask& Task) const override;
-	virtual void OnTaskActivated(UGameplayTask& Task) override;
-	virtual void OnTaskDeactivated(UGameplayTask& Task) override;
-	virtual void OnTaskInitialized(UGameplayTask& Task) override;
-	virtual AActor* GetOwnerActor(const UGameplayTask* Task) const;
-	virtual AActor* GetAvatarActor(const UGameplayTask* Task) const;
-	virtual uint8 GetDefaultPriority() const;
+	virtual AActor* GetGameplayTaskOwner(const UGameplayTask* Task) const override;
+	virtual AActor* GetGameplayTaskAvatar(const UGameplayTask* Task) const override;
+	virtual uint8 GetGameplayTaskDefaultPriority() const override;
+	virtual void OnGameplayTaskInitialized(UGameplayTask& Task) override;
+	// END IGameplayTaskOwnerInterface
 
 	UBehaviorTreeComponent* GetBTComponentForTask(UGameplayTask& Task) const;
 	
 	template <class T>
 	T* NewBTAITask(UBehaviorTreeComponent& BTComponent)
 	{
-		T* NewAITask = NewObject<T>();
-		AAIController* AIController = BTComponent.GetAIOwner();
-		check(AIController && "Can\'t spawn an AI task without AI controller!");
-		NewAITask->InitAITask(*AIController, *this, GetDefaultPriority());
+		check(BTComponent.GetAIOwner());
 		bOwnsGameplayTasks = true;
-
-		return NewAITask;
+		return UAITask::NewAITask<T>(*BTComponent.GetAIOwner(), *this, TEXT("Behavior"));
 	}
 
 	/** node name */

@@ -36,7 +36,7 @@ void FEditorLiveStreaming::StartupModule()
 
 	if( ensure( SettingsModule != nullptr ) )
 	{
-		SettingsModule->RegisterSettings( "Editor", "General", "EditorLiveStreaming",
+		SettingsModule->RegisterSettings( "Editor", "Advanced", "EditorLiveStreaming",
 			LOCTEXT( "EditorLiveStreamingSettingsName", "Live Streaming"),
 			LOCTEXT( "EditorLiveStreamingSettingsDescription", "Settings for broadcasting live from the editor"),
 			GetMutableDefault< UEditorLiveStreamingSettings >()

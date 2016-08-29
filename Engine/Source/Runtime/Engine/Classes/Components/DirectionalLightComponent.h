@@ -138,18 +138,6 @@ class ENGINE_API UDirectionalLightComponent : public ULightComponent
 	UPROPERTY(BlueprintReadOnly, interp, Category = Light, meta = (HideAlphaChannel), AdvancedDisplay)
 	FColor ModulatedShadowColor;
 
-	/**
-	* Mobile & Stationary lights only: Whether to cast movable component shadows into a single CSM.
-	* This allows the light to cast both static and dynamic shadows at once.
-	* Requires:
-	* Stationary Light mobility.
-	* Static lighting must be built / valid.
-	* Dynamic Shadow Distance Stationary Light > 0 
-	* inset shadows are disabled.
-	*/
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Mobile)
-	uint32 bStationaryLightUsesCSMForMovableShadows : 1;
-
 	UPROPERTY(EditAnywhere, AdvancedDisplay, BlueprintReadOnly, Category=Light, meta=(DisplayName = "Atmosphere Sun Light"))
 	uint32 bUsedAsAtmosphereSunLight : 1;
 

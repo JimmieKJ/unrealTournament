@@ -8,6 +8,8 @@
 #include "NotificationManager.h"
 #include "AutoSaveUtils.h"
 #include "ShaderCompiler.h"
+#include "EditorLevelUtils.h"
+#include "IVREditorModule.h"
 
 namespace PackageAutoSaverJson
 {
@@ -70,10 +72,6 @@ FPackageAutoSaver::FPackageAutoSaver()
 	, bDelayingDueToFailedSave(false)
 {
 	const UEditorLoadingSavingSettings* LoadingSavingSettings = GetDefault<UEditorLoadingSavingSettings>();
-
-	// Set these to the current setting value
-	bWasAutoSavingMaps = LoadingSavingSettings->bAutoSaveMaps;
-	bWasAutoSavingContent = LoadingSavingSettings->bAutoSaveContent;
 
 	// Register for the package dirty state updated callback to catch packages that have been cleaned without being saved
 	UPackage::PackageDirtyStateChangedEvent.AddRaw(this, &FPackageAutoSaver::OnPackageDirtyStateUpdated);
@@ -177,20 +175,22 @@ void FPackageAutoSaver::AttemptAutoSave()
 
 			if (LoadingSavingSettings->bAutoSaveMaps)
 			{
-				// If we weren't saving worlds when we last ran an auto-save, we need to forcibly save any that are dirty
-				// as DirtyPackagesForAutoSave gets cleared each time an auto-save is run, so may not be up-to-date for the new settings
-				const bool bForceSaveWorlds = !bWasAutoSavingMaps && LoadingSavingSettings->bAutoSaveMaps;
-				MapsSaveResults = FEditorFileUtils::AutosaveMapEx(AutoSaveDir, NewAutoSaveIndex, bForceSaveWorlds, DirtyPackagesForAutoSave);
+				MapsSaveResults = FEditorFileUtils::AutosaveMapEx(AutoSaveDir, NewAutoSaveIndex, false, DirtyMapsForAutoSave);
+				if (MapsSaveResults == EAutosaveContentPackagesResult::Success)
+				{
+					DirtyMapsForAutoSave.Empty();
+				}
 			}
 
 			SlowTask.EnterProgressFrame(50);
 
 			if (LoadingSavingSettings->bAutoSaveContent && UnrealEdMisc.GetAutosaveState() != FUnrealEdMisc::EAutosaveState::Cancelled)
 			{
-				// If we weren't saving content packages when we last ran an auto-save, we need to forcibly save any that are dirty
-				// as DirtyPackagesForAutoSave gets cleared each time an auto-save is run, so may not be up-to-date for the new settings
-				const bool bForceSaveContentPackages = !bWasAutoSavingContent && LoadingSavingSettings->bAutoSaveContent;
-				AssetsSaveResults = FEditorFileUtils::AutosaveContentPackagesEx(AutoSaveDir, NewAutoSaveIndex, bForceSaveContentPackages, DirtyPackagesForAutoSave);
+				AssetsSaveResults = FEditorFileUtils::AutosaveContentPackagesEx(AutoSaveDir, NewAutoSaveIndex, false, DirtyContentForAutoSave);
+				if (AssetsSaveResults == EAutosaveContentPackagesResult::Success)
+				{
+					DirtyContentForAutoSave.Empty();
+				}
 			}
 
 			const bool bNothingToDo = (MapsSaveResults == EAutosaveContentPackagesResult::NothingToDo && AssetsSaveResults == EAutosaveContentPackagesResult::NothingToDo);
@@ -219,13 +219,6 @@ void FPackageAutoSaver::AttemptAutoSave()
 			if (UnrealEdMisc.GetAutosaveState() == FUnrealEdMisc::EAutosaveState::Cancelled)
 			{
 				UE_LOG(PackageAutoSaver, Warning, TEXT("Autosave was cancelled."));
-			}
-			else
-			{
-				DirtyPackagesForAutoSave.Empty();
-
-				bWasAutoSavingMaps = LoadingSavingSettings->bAutoSaveMaps;
-				bWasAutoSavingContent = LoadingSavingSettings->bAutoSaveContent;
 			}
 
 			bIsAutoSaving = false;
@@ -301,7 +294,8 @@ void FPackageAutoSaver::OnPackagesDeleted(const TArray<UPackage*>& DeletedPackag
 
 	for(UPackage* DeletedPackage : DeletedPackages)
 	{
-		DirtyPackagesForAutoSave.Remove(DeletedPackage);
+		DirtyMapsForAutoSave.Remove(DeletedPackage);
+		DirtyContentForAutoSave.Remove(DeletedPackage);
 		DirtyPackagesForUserSave.Remove(DeletedPackage);
 	}
 
@@ -346,7 +340,7 @@ void FPackageAutoSaver::UpdateDirtyListsForPackage(UPackage* Pkg)
 	const UPackage* TransientPackage = GetTransientPackage();
 
 	// Don't auto-save the transient package or packages with the transient flag.
-	if ( Pkg == TransientPackage || Pkg->HasAnyFlags(RF_Transient) )
+	if ( Pkg == TransientPackage || Pkg->HasAnyFlags(RF_Transient) || Pkg->HasAnyPackageFlags(PKG_CompiledIn) )
 	{
 		return;
 	}
@@ -360,13 +354,38 @@ void FPackageAutoSaver::UpdateDirtyListsForPackage(UPackage* Pkg)
 		// Note: Packages get dirtied again after they're auto-saved, so this would add them back again, which we don't want
 		if ( !IsAutoSaving() )
 		{
-			DirtyPackagesForAutoSave.Add(Pkg);
+			// Get the set of all reference worlds.
+			FWorldContext& EditorContext = GEditor->GetEditorWorldContext();
+			TArray<UWorld*> WorldsArray;
+			EditorLevelUtils::GetWorlds(EditorContext.World(), WorldsArray, true);
+
+			bool bPackageIsMap = false;
+			for (UWorld* World : WorldsArray)
+			{
+				UPackage* Package = CastChecked<UPackage>(World->GetOuter());
+				if (Package == Pkg)
+				{
+					bPackageIsMap = true;
+					break;
+				}
+			}
+
+			// Add package into the appropriate list (map or content)
+			if (bPackageIsMap)
+			{
+				DirtyMapsForAutoSave.Add(Pkg);
+			}
+			else
+			{
+				DirtyContentForAutoSave.Add(Pkg);
+			}
 		}
 	}
 	else
 	{
 		// Always remove the package from the auto-save list
-		DirtyPackagesForAutoSave.Remove(Pkg);
+		DirtyMapsForAutoSave.Remove(Pkg);
+		DirtyContentForAutoSave.Remove(Pkg);
 
 		// Only remove the package from the user list if we're not auto-saving
 		// Note: Packages call this even when auto-saving, so this would remove them from the user list, which we don't want as they're still dirty
@@ -400,22 +419,19 @@ bool FPackageAutoSaver::CanAutoSave() const
 	const bool bIsInteracting = FSlateApplication::Get().HasAnyMouseCaptor() || GUnrealEd->IsUserInteracting() || (bDidInteractRecently && !bAutoSaveNotificationLaunched && !bDelayingDueToFailedSave);
 	const bool bHasGameOrProjectLoaded = FApp::HasGameName();
 	const bool bAreShadersCompiling = GShaderCompilingManager->IsCompiling();
+	const bool bIsVREditorActive = IVREditorModule::Get().IsVREditorEnabled();	// @todo vreditor: Eventually we should support this while in VR (modal VR progress, with sufficient early warning)
 
-	return (bAutosaveEnabled && !bSlowTask && !bInterpEditMode && !bPlayWorldValid && !bAnyMenusVisible && !bAutomationTesting && !bIsInteracting && !GIsDemoMode && bHasGameOrProjectLoaded && !bAreShadersCompiling);
+	return (bAutosaveEnabled && !bSlowTask && !bInterpEditMode && !bPlayWorldValid && !bAnyMenusVisible && !bAutomationTesting && !bIsInteracting && !GIsDemoMode && bHasGameOrProjectLoaded && !bAreShadersCompiling && !bIsVREditorActive);
 }
 
 bool FPackageAutoSaver::DoPackagesNeedAutoSave() const
 {
 	const UEditorLoadingSavingSettings* LoadingSavingSettings = GetDefault<UEditorLoadingSavingSettings>();
 
-	// If we weren't saving worlds or content packages when we last ran an auto-save, we need to forcibly save any that are dirty
-	// as DirtyPackagesForAutoSave gets cleared each time an auto-save is run, so may not be up-to-date for the new settings
-	const bool bForceSaveWorlds = !bWasAutoSavingMaps && LoadingSavingSettings->bAutoSaveMaps;
-	const bool bForceSaveContentPackages = !bWasAutoSavingContent && LoadingSavingSettings->bAutoSaveContent;
-
-	const bool bHasDirtyPackagesForAutoSave = DirtyPackagesForAutoSave.Num() != 0;
-	const bool bWorldsMightBeDirty = LoadingSavingSettings->bAutoSaveMaps && (bForceSaveWorlds || bHasDirtyPackagesForAutoSave);
-	const bool bContentPackagesMightBeDirty = LoadingSavingSettings->bAutoSaveContent && (bForceSaveContentPackages || bHasDirtyPackagesForAutoSave);
+	const bool bHasDirtyMapsForAutoSave = DirtyMapsForAutoSave.Num() != 0;
+	const bool bHasDirtyContentForAutoSave = DirtyContentForAutoSave.Num() != 0;
+	const bool bWorldsMightBeDirty = LoadingSavingSettings->bAutoSaveMaps && bHasDirtyMapsForAutoSave;
+	const bool bContentPackagesMightBeDirty = LoadingSavingSettings->bAutoSaveContent && bHasDirtyContentForAutoSave;
 	const bool bPackagesNeedAutoSave = bWorldsMightBeDirty || bContentPackagesMightBeDirty;
 
 	return bPackagesNeedAutoSave;
@@ -426,11 +442,22 @@ FText FPackageAutoSaver::GetAutoSaveNotificationText(const int32 TimeInSecondsUn
 	// Don't switch to pending text unless auto-save really is overdue
 	if(!bDelayingDueToFailedSave && TimeInSecondsUntilAutosave > -1)
 	{
+		const UEditorLoadingSavingSettings* LoadingSavingSettings = GetDefault<UEditorLoadingSavingSettings>();
+		int32 NumPackagesToAutoSave = 0;
+		if (DirtyMapsForAutoSave.Num() != 0 && LoadingSavingSettings->bAutoSaveMaps)
+		{
+			NumPackagesToAutoSave += DirtyMapsForAutoSave.Num();
+		}
+		if (DirtyContentForAutoSave.Num() != 0 && LoadingSavingSettings->bAutoSaveContent)
+		{
+			NumPackagesToAutoSave += DirtyContentForAutoSave.Num();
+		}
+
 		// Count down the time
 		FFormatNamedArguments Args;
 		Args.Add(TEXT("TimeInSecondsUntilAutosave"), TimeInSecondsUntilAutosave);
-		Args.Add(TEXT("DirtyPackagesCount"), DirtyPackagesForAutoSave.Num());
-		return (DirtyPackagesForUserSave.Num() == 1)
+		Args.Add(TEXT("DirtyPackagesCount"), NumPackagesToAutoSave);
+		return (NumPackagesToAutoSave == 1)
 			? FText::Format(NSLOCTEXT("AutoSaveNotify", "AutoSaveIn", "Autosave in {TimeInSecondsUntilAutosave} seconds"), Args)
 			: FText::Format(NSLOCTEXT("AutoSaveNotify", "AutoSaveXPackagesIn", "Autosave in {TimeInSecondsUntilAutosave} seconds for {DirtyPackagesCount} items"), Args);
 	}
@@ -614,13 +641,23 @@ void FPackageAutoSaver::ClearStalePointers()
 		}
 	}
 
-	auto DirtyPackagesForAutoSaveTmp = DirtyPackagesForAutoSave;
-	for(auto It = DirtyPackagesForAutoSaveTmp.CreateConstIterator(); It; ++It)
+	auto DirtyMapsForAutoSaveTmp = DirtyMapsForAutoSave;
+	for(auto It = DirtyMapsForAutoSaveTmp.CreateConstIterator(); It; ++It)
 	{
 		const TWeakObjectPtr<UPackage>& Package = *It;
 		if(!Package.IsValid())
 		{
-			DirtyPackagesForAutoSave.Remove(Package);
+			DirtyMapsForAutoSave.Remove(Package);
+		}
+	}
+
+	auto DirtyContentForAutoSaveTmp = DirtyContentForAutoSave;
+	for (auto It = DirtyContentForAutoSaveTmp.CreateConstIterator(); It; ++It)
+	{
+		const TWeakObjectPtr<UPackage>& Package = *It;
+		if (!Package.IsValid())
+		{
+			DirtyContentForAutoSave.Remove(Package);
 		}
 	}
 }

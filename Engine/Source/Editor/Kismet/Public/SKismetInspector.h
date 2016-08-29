@@ -131,6 +131,9 @@ protected:
 	/** Set of object properties that should be visible */
 	TSet<TWeakObjectPtr<UProperty> > SelectedObjectProperties;
 	
+	/** User defined delegate for IsPropertyEditingEnabled: */
+	FIsPropertyEditingEnabled IsPropertyEditingEnabledDelegate;
+
 	/** User defined delegate for OnFinishedChangingProperties */
 	FOnFinishedChangingProperties::FDelegate UserOnFinishedChangingProperties;
 

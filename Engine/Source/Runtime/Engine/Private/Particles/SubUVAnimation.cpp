@@ -6,13 +6,32 @@
 #include "Particles/ParticleSystemComponent.h"
 #include "ParticleHelper.h"
 #include "DerivedDataCacheInterface.h"
+#include "CookStats.h"
+
+#if ENABLE_COOK_STATS
+namespace SubUVAnimationCookStats
+{
+	static FCookStats::FDDCResourceUsageStats UsageStats;
+	static FCookStatsManager::FAutoRegisterCallback RegisterCookStats([](FCookStatsManager::AddStatFuncRef AddStat)
+	{
+		UsageStats.LogStats(AddStat, TEXT("SubUVAnimation.Usage"), TEXT(""));
+	});
+}
+#endif
 
 // Can change this guid to force SubUV derived data to be regenerated on next load
-#define SUBUV_DERIVEDDATA_VER TEXT("96DFC022836B48889143E9DF484C3296")
+#define SUBUV_DERIVEDDATA_VER TEXT("67E9AF86DF8B4D8E97B7A614A73CD4BF")
 
-FString FSubUVDerivedData::GetDDCKeyString(const FGuid& StateId, int32 SizeX, int32 SizeY, int32 Mode, float AlphaThreshold)
+FString FSubUVDerivedData::GetDDCKeyString(const FGuid& StateId, int32 SizeX, int32 SizeY, int32 Mode, float AlphaThreshold, int32 OpacitySourceMode)
 {
-	return FDerivedDataCacheInterface::BuildCacheKey(TEXT("SUBUV_"), SUBUV_DERIVEDDATA_VER, *FString::Printf(TEXT("%s_%u_%u_%u_%f"), *StateId.ToString(), SizeX, SizeY, Mode, AlphaThreshold));
+	FString KeyString = FString::Printf(TEXT("%s_%u_%u_%u_%f"), *StateId.ToString(), SizeX, SizeY, Mode, AlphaThreshold);
+
+	if (OpacitySourceMode != 0)
+	{
+		KeyString += FString::Printf(TEXT("_%u"), OpacitySourceMode);
+	}
+
+	return FDerivedDataCacheInterface::BuildCacheKey(TEXT("SUBUV_"), SUBUV_DERIVEDDATA_VER, *KeyString);
 }
 
 void FSubUVDerivedData::Serialize(FArchive& Ar)
@@ -97,23 +116,33 @@ void USubUVAnimation::Serialize(FArchive& Ar)
 void USubUVAnimation::CacheDerivedData()
 {
 #if WITH_EDITORONLY_DATA
-	const FString KeyString = FSubUVDerivedData::GetDDCKeyString(SubUVTexture->Source.GetId(), SubImages_Horizontal, SubImages_Vertical, (int32)BoundingMode, AlphaThreshold);
+
+	if (!SubUVTexture)
+	{
+		UE_LOG(LogParticles, Warning, TEXT("SubUVAnimation %s set with a NULL texture, particle geometry will be a quad by default."), *GetName());
+	}
+	
+	FGuid SubUVGuid = SubUVTexture ? SubUVTexture->Source.GetId() : FGuid(0, 0, 0, 0);
+	const FString KeyString = FSubUVDerivedData::GetDDCKeyString(SubUVGuid, SubImages_Horizontal, SubImages_Vertical, (int32)BoundingMode, AlphaThreshold, (int32)OpacitySourceMode);
 	TArray<uint8> Data;
 
+	COOK_STAT(auto Timer = SubUVAnimationCookStats::UsageStats.TimeSyncWork());
 	if (GetDerivedDataCacheRef().GetSynchronous(*KeyString, Data))
 	{
+		COOK_STAT(Timer.AddHit(Data.Num()));
 		DerivedData.BoundingGeometry.Empty(Data.Num() / sizeof(FVector2D));
 		DerivedData.BoundingGeometry.AddUninitialized(Data.Num() / sizeof(FVector2D));
 		FPlatformMemory::Memcpy(DerivedData.BoundingGeometry.GetData(), Data.GetData(), Data.Num() * Data.GetTypeSize());
 	}
 	else
 	{
-		DerivedData.Build(SubUVTexture, SubImages_Horizontal, SubImages_Vertical, BoundingMode, AlphaThreshold);
+		DerivedData.Build(SubUVTexture, SubImages_Horizontal, SubImages_Vertical, BoundingMode, AlphaThreshold, OpacitySourceMode);
 
 		Data.Empty(DerivedData.BoundingGeometry.Num() * sizeof(FVector2D));
 		Data.AddUninitialized(DerivedData.BoundingGeometry.Num() * sizeof(FVector2D));
 		FPlatformMemory::Memcpy(Data.GetData(), DerivedData.BoundingGeometry.GetData(), DerivedData.BoundingGeometry.Num() * DerivedData.BoundingGeometry.GetTypeSize());
 		GetDerivedDataCacheRef().Put(*KeyString, Data);
+		COOK_STAT(Timer.AddMiss(Data.Num()));
 	}
 #endif
 }
@@ -538,8 +567,36 @@ FIntPoint Neighbors[] =
 	FIntPoint(-1, 0)
 };
 
+uint8 ComputeOpacityValue(const uint8* RGBA, EOpacitySourceMode OpacitySourceMode)
+{
+	if (OpacitySourceMode == OSM_Alpha)
+	{
+		return *(RGBA + 3);
+	}
+	else if (OpacitySourceMode == OSM_RedChannel)
+	{
+		return *(RGBA + 0);
+	}
+	else if (OpacitySourceMode == OSM_GreenChannel)
+	{
+		return *(RGBA + 1);
+	}
+	else if (OpacitySourceMode == OSM_BlueChannel)
+	{
+		return *(RGBA + 2);
+	}
+	else
+	{
+		uint32 R = *RGBA;
+		uint32 G = *(RGBA + 1);
+		uint32 B = *(RGBA + 2);
+
+		return (uint8)((R + G + B) / 3);
+	}
+}
+
 /** Counts how many neighbors have non-zero alpha. */
-int32 ComputeNeighborCount(int32 X, int32 Y, int32 GlobalX, int32 GlobalY, int32 SubImageSizeX, int32 SubImageSizeY, int32 TextureSizeX, const TArray<uint8>& MipData, uint8 AlphaThresholdByte)
+int32 ComputeNeighborCount(int32 X, int32 Y, int32 GlobalX, int32 GlobalY, int32 SubImageSizeX, int32 SubImageSizeY, int32 TextureSizeX, const TArray<uint8>& MipData, uint8 AlphaThresholdByte, EOpacitySourceMode OpacitySourceMode)
 {
 	int32 NeighborCount = 0;
 
@@ -551,7 +608,7 @@ int32 ComputeNeighborCount(int32 X, int32 Y, int32 GlobalX, int32 GlobalY, int32
 		if (NeighborX >= 0 && NeighborX < SubImageSizeX 
 			&& NeighborY >= 0 && NeighborY < SubImageSizeY)
 		{
-			uint8 NeighborAlphaValue = MipData[((GlobalY + Neighbors[NeighborIndex].Y) * TextureSizeX + GlobalX + Neighbors[NeighborIndex].X) * 4 + 3];
+			uint8 NeighborAlphaValue = ComputeOpacityValue(&MipData[((GlobalY + Neighbors[NeighborIndex].Y) * TextureSizeX + GlobalX + Neighbors[NeighborIndex].X) * 4], OpacitySourceMode);
 
 			if (NeighborAlphaValue > AlphaThresholdByte)
 			{
@@ -568,9 +625,31 @@ struct FSubUVFrameData
 	TArray<FVector2D> BoundingVertices;
 };
 
-void FSubUVDerivedData::Build(UTexture2D* SubUVTexture, int32 SubImages_Horizontal, int32 SubImages_Vertical, ESubUVBoundingVertexCount BoundingMode, float AlphaThreshold)
+void FSubUVDerivedData::Build(UTexture2D* SubUVTexture, int32 SubImages_Horizontal, int32 SubImages_Vertical, ESubUVBoundingVertexCount BoundingMode, float AlphaThreshold, EOpacitySourceMode OpacitySourceMode)
 {
 #if WITH_EDITORONLY_DATA
+	FSubUVFrameData DefaultFrame;
+	if (BoundingMode == BVC_FourVertices)
+	{
+		DefaultFrame.BoundingVertices.Empty(4);
+		DefaultFrame.BoundingVertices.Add(FVector2D(0, 0));
+		DefaultFrame.BoundingVertices.Add(FVector2D(0, 1));
+		DefaultFrame.BoundingVertices.Add(FVector2D(1, 1));
+		DefaultFrame.BoundingVertices.Add(FVector2D(1, 0));
+	}
+	else
+	{
+		DefaultFrame.BoundingVertices.Empty(8);
+		DefaultFrame.BoundingVertices.Add(FVector2D(0, 0));
+		DefaultFrame.BoundingVertices.Add(FVector2D(0, 1));
+		DefaultFrame.BoundingVertices.Add(FVector2D(1, 1));
+		DefaultFrame.BoundingVertices.Add(FVector2D(1, 0));
+		DefaultFrame.BoundingVertices.Add(FVector2D(1, 0));
+		DefaultFrame.BoundingVertices.Add(FVector2D(1, 0));
+		DefaultFrame.BoundingVertices.Add(FVector2D(1, 0));
+		DefaultFrame.BoundingVertices.Add(FVector2D(1, 0));
+	}
+
 	if (SubUVTexture)
 	{
 		TArray<uint8> MipData;
@@ -583,38 +662,9 @@ void FSubUVDerivedData::Build(UTexture2D* SubUVTexture, int32 SubImages_Horizont
 		const int32 NumSubImages = SubImages_Horizontal * SubImages_Vertical;
 		const uint8 AlphaThresholdByte = FMath::Clamp(FMath::TruncToInt(AlphaThreshold * 255.0f), 0, 255);
 
-		// Only handling textures whose dimensions are even multiples of the subimage sizes
-		if (SubImageSizeX * SubImages_Horizontal != TextureSizeX || SubImageSizeY * SubImages_Vertical != TextureSizeY)
-		{
-			bSuccess = false;
-		}
-
 		check(!bSuccess || MipData.Num() == TextureSizeX * TextureSizeY * 4);
 
-		FSubUVFrameData DefaultFrame;
-
 		const int32 TargetNumBoundingVertices = BoundingMode == BVC_FourVertices ? 4 : 8;
-
-		if (BoundingMode == BVC_FourVertices)
-		{
-			DefaultFrame.BoundingVertices.Empty(4);
-			DefaultFrame.BoundingVertices.Add(FVector2D(0, 0));
-			DefaultFrame.BoundingVertices.Add(FVector2D(0, 1));
-			DefaultFrame.BoundingVertices.Add(FVector2D(1, 1));
-			DefaultFrame.BoundingVertices.Add(FVector2D(1, 0));
-		}
-		else
-		{
-			DefaultFrame.BoundingVertices.Empty(8);
-			DefaultFrame.BoundingVertices.Add(FVector2D(0, 0));
-			DefaultFrame.BoundingVertices.Add(FVector2D(0, 1));
-			DefaultFrame.BoundingVertices.Add(FVector2D(1, 1));
-			DefaultFrame.BoundingVertices.Add(FVector2D(1, 0));
-			DefaultFrame.BoundingVertices.Add(FVector2D(1, 0));
-			DefaultFrame.BoundingVertices.Add(FVector2D(1, 0));
-			DefaultFrame.BoundingVertices.Add(FVector2D(1, 0));
-			DefaultFrame.BoundingVertices.Add(FVector2D(1, 0));
-		}
 
 		BoundingGeometry.Empty(NumSubImages * TargetNumBoundingVertices);
 
@@ -643,13 +693,13 @@ void FSubUVDerivedData::Build(UTexture2D* SubUVTexture, int32 SubImages_Horizont
 						{
 							int32 GlobalX = SubImageX * SubImageSizeX + X;
 							int32 NextGlobalX = NextSubImageX * SubImageSizeX + X;
-							uint8 AlphaValue = MipData[(GlobalY * TextureSizeX + GlobalX) * 4 + 3];
-							uint8 NextAlphaValue = MipData[(NextGlobalY * TextureSizeX + NextGlobalX) * 4 + 3];
+							uint8 AlphaValue = ComputeOpacityValue(&MipData[(GlobalY * TextureSizeX + GlobalX) * 4], OpacitySourceMode);
+							uint8 NextAlphaValue = ComputeOpacityValue(&MipData[(NextGlobalY * TextureSizeX + NextGlobalX) * 4], OpacitySourceMode);
 
 							if (AlphaValue > AlphaThresholdByte || NextAlphaValue > AlphaThresholdByte)
 							{
-								int32 NeighborCount = AlphaValue > AlphaThresholdByte ? ComputeNeighborCount(X, Y, GlobalX, GlobalY, SubImageSizeX, SubImageSizeY, TextureSizeX, MipData, AlphaThresholdByte) : 8;
-								int32 NextNeighborCount = NextAlphaValue > AlphaThresholdByte ? ComputeNeighborCount(X, Y, NextGlobalX, NextGlobalY, SubImageSizeX, SubImageSizeY, TextureSizeX, MipData, AlphaThresholdByte) : 8;
+								int32 NeighborCount = AlphaValue > AlphaThresholdByte ? ComputeNeighborCount(X, Y, GlobalX, GlobalY, SubImageSizeX, SubImageSizeY, TextureSizeX, MipData, AlphaThresholdByte, OpacitySourceMode) : 8;
+								int32 NextNeighborCount = NextAlphaValue > AlphaThresholdByte ? ComputeNeighborCount(X, Y, NextGlobalX, NextGlobalY, SubImageSizeX, SubImageSizeY, TextureSizeX, MipData, AlphaThresholdByte, OpacitySourceMode) : 8;
 
 								// Points with non-zero alpha that have 5 or more filled in neighbors must be in the solid interior
 								if (NeighborCount < 5 || NextNeighborCount < 5)
@@ -717,7 +767,19 @@ void FSubUVDerivedData::Build(UTexture2D* SubUVTexture, int32 SubImages_Horizont
 	}
 	else
 	{
-		BoundingGeometry.Empty();
+		// No texture set, fill with default vertices
+		const int32 TargetNumBoundingVertices = BoundingMode == BVC_FourVertices ? 4 : 8;
+		const int32 NumSubImages = SubImages_Horizontal * SubImages_Vertical;
+
+		BoundingGeometry.Empty(NumSubImages * TargetNumBoundingVertices);
+
+		for (int32 SubImageY = 0; SubImageY < SubImages_Vertical; SubImageY++)
+		{
+			for (int32 SubImageX = 0; SubImageX < SubImages_Horizontal; SubImageX++)
+			{
+				BoundingGeometry.Append(DefaultFrame.BoundingVertices);
+			}
+		}
 	}
 #endif
 }

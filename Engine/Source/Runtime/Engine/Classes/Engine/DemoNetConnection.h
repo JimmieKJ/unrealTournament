@@ -47,6 +47,8 @@ public:
 	virtual bool ClientHasInitializedLevelFor( const UObject* TestObject ) const override;
 	virtual TSharedPtr<FObjectReplicator> CreateReplicatorForNewActorChannel(UObject* Object);
 
+	virtual void FlushDormancy( class AActor* Actor ) override;
+
 public:
 
 	/** @return The DemoRecording driver object */
@@ -62,6 +64,7 @@ public:
 	}
 
 	TArray<FQueuedDemoPacket> QueuedDemoPackets;
+	TArray<FQueuedDemoPacket> QueuedCheckpointPackets;
 
 private:
 	void TrackSendForProfiler(const void* Data, int32 NumBytes);

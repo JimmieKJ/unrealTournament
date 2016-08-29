@@ -210,6 +210,21 @@ bool FStructDeserializer::Deserialize( void* OutStruct, UStruct& TypeInfo, IStru
 						UE_LOG(LogSerialization, Verbose, TEXT("An item in map '%s' could not be read (%s)"), *PropertyName, *Backend.GetDebugString());
 					}
 				}
+				else if ((CurrentState.Property != nullptr) && (CurrentState.Property->GetClass() == USetProperty::StaticClass()))
+				{
+					// handle set element
+					USetProperty* SetProperty = Cast<USetProperty>(CurrentState.Property);
+					FScriptSetHelper SetHelper(SetProperty, SetProperty->ContainerPtrToValuePtr<void>(CurrentState.Data));
+					UProperty* Property = SetProperty->ElementProp;
+
+					const int32 ElementIndex = SetHelper.AddDefaultValue_Invalid_NeedsRehash();
+					uint8* ElementPtr = SetHelper.GetElementPtr(ElementIndex);
+
+					if (!Backend.ReadProperty(Property, CurrentState.Property, ElementPtr, CurrentState.ArrayIndex))
+					{
+						UE_LOG(LogSerialization, Verbose, TEXT("An item in Set '%s' could not be read (%s)"), *PropertyName, *Backend.GetDebugString());
+					}
+				}
 				else
 				{
 					// handle scalar property
@@ -248,11 +263,18 @@ bool FStructDeserializer::Deserialize( void* OutStruct, UStruct& TypeInfo, IStru
 			{
 				// rehash if value was a map
 				UMapProperty* MapProperty = Cast<UMapProperty>(CurrentState.Property);
-
 				if (MapProperty != nullptr)
 				{			
 					FScriptMapHelper MapHelper(MapProperty, CurrentState.Data);
 					MapHelper.Rehash();
+				}
+
+				// rehash if value was a set
+				USetProperty* SetProperty = Cast<USetProperty>(CurrentState.Property);
+				if (SetProperty != nullptr)
+				{			
+					FScriptSetHelper SetHelper(SetProperty, CurrentState.Data);
+					SetHelper.Rehash();
 				}
 
 				if (StateStack.Num() == 0)
@@ -305,16 +327,27 @@ bool FStructDeserializer::Deserialize( void* OutStruct, UStruct& TypeInfo, IStru
 
 					MapProperty->KeyProp->ImportText(*PropertyName, PairPtr + MapProperty->MapLayout.KeyOffset, PPF_None, nullptr);
 				}
+				else if ((CurrentState.Property != nullptr) && (CurrentState.Property->GetClass() == USetProperty::StaticClass()))
+				{
+					// handle map or struct element inside map
+					USetProperty* SetProperty = Cast<USetProperty>(CurrentState.Property);
+					FScriptSetHelper SetHelper(SetProperty, CurrentState.Data);
+					const int32 ElementIndex = SetHelper.AddDefaultValue_Invalid_NeedsRehash();
+					uint8* ElementPtr = SetHelper.GetElementPtr(ElementIndex);
+
+					NewState.Data = ElementPtr + SetHelper.SetLayout.ElementOffset;
+					NewState.Property = SetProperty->ElementProp;
+				}
 				else
 				{
 					NewState.Property = FindField<UProperty>(CurrentState.TypeInfo, *PropertyName);
 
 					if (NewState.Property == nullptr)
 					{
-						// error: map or struct property not found
+						// error: map, set, or struct property not found
 						if (Policies.MissingFields != EStructDeserializerErrorPolicies::Ignore)
 						{
-							UE_LOG(LogSerialization, Verbose, TEXT("Map or struct property '%s' not found"), *PropertyName);
+							UE_LOG(LogSerialization, Verbose, TEXT("Map, Set, or struct property '%s' not found"), *PropertyName);
 						}
 
 						if (Policies.MissingFields == EStructDeserializerErrorPolicies::Error)
@@ -330,6 +363,15 @@ bool FStructDeserializer::Deserialize( void* OutStruct, UStruct& TypeInfo, IStru
 
 						FScriptMapHelper MapHelper(MapProperty, NewState.Data);
 						MapHelper.EmptyValues();
+					}
+					else if (NewState.Property->GetClass() == USetProperty::StaticClass())
+					{
+						// handle set property
+						USetProperty* SetProperty = Cast<USetProperty>(NewState.Property);
+						NewState.Data = SetProperty->ContainerPtrToValuePtr<void>(CurrentState.Data, CurrentState.ArrayIndex);
+
+						FScriptSetHelper SetHelper(SetProperty, NewState.Data);
+						SetHelper.EmptyElements();
 					}
 					else
 					{

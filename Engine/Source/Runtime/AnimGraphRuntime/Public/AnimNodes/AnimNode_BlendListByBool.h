@@ -20,10 +20,6 @@ public:
 	FAnimNode_BlendListByBool()
 		: FAnimNode_BlendListBase()
 	{
-#if	WITH_EDITOR
-		AddPose();
-		AddPose();
-#endif
 	}
 
 protected:

@@ -9,7 +9,7 @@
 
 float UEditorEngine::GetGridSize()
 {
-	const TArray<float> PosGridSizes = GetCurrentPositionGridArray();
+	const TArray<float>& PosGridSizes = GetCurrentPositionGridArray();
 	const int32 CurrentPosGridSize = GetDefault<ULevelEditorViewportSettings>()->CurrentPosGridSize;
 	float PosVal = 0.0001f;
 	if ( PosGridSizes.IsValidIndex(CurrentPosGridSize) )
@@ -59,6 +59,15 @@ const TArray<float>& UEditorEngine::GetCurrentPositionGridArray() const
 	return (ViewportSettings->bUsePowerOf2SnapSize) ?
 			ViewportSettings->Pow2GridSizes :
 			ViewportSettings->DecimalGridSizes;
+}
+
+const TArray<float>& UEditorEngine::GetCurrentIntervalGridArray() const
+{
+	const ULevelEditorViewportSettings* ViewportSettings = GetDefault<ULevelEditorViewportSettings>();
+
+	return (ViewportSettings->bUsePowerOf2SnapSize ?
+			ViewportSettings->Pow2GridIntervals :
+			ViewportSettings->DecimalGridIntervals);
 }
 
 FRotator UEditorEngine::GetRotGridSize()
@@ -134,12 +143,21 @@ void UEditorEngine::SetScaleGridSize( int32 InIndex )
 
 float UEditorEngine::GetGridInterval()
 {
-	const ULevelEditorViewportSettings* ViewportSettings = GetDefault<ULevelEditorViewportSettings>();
-	const TArray<float>& GridIntervals = ViewportSettings->bUsePowerOf2SnapSize ? ViewportSettings->Pow2GridIntervals : ViewportSettings->DecimalGridIntervals;
+	const TArray<float>& GridIntervals = GetCurrentIntervalGridArray();
 
-	int32 CurrentIndex = (ViewportSettings->CurrentPosGridSize < GridIntervals.Num()) ? ViewportSettings->CurrentPosGridSize : GridIntervals.Num() - 1;
+	int32 CurrentIndex = GetDefault<ULevelEditorViewportSettings>()->CurrentPosGridSize;
 
-	return GridIntervals[CurrentIndex];
+	if (CurrentIndex >= GridIntervals.Num())
+	{
+		CurrentIndex = GridIntervals.Num() - 1;
+	}
+
+	float IntervalValue = 1.0f;
+	if (GridIntervals.IsValidIndex(CurrentIndex))
+	{
+		IntervalValue = GridIntervals[CurrentIndex];
+	}
+	return IntervalValue;
 }
 
 

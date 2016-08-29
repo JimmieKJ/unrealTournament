@@ -38,6 +38,7 @@
 // Slate related headers.
 #include "SProfilerToolbar.h"
 #include "SFiltersAndPresets.h"
+#include "SMultiDumpBrowser.h"
 #include "SEventGraph.h"
 #include "SDataGraph.h"
 #include "SProfilerMiniView.h"

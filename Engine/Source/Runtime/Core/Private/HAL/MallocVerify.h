@@ -19,7 +19,6 @@ class FMallocVerify
 {
 	/** List of all currently allocated pointers */
 	TSet<void*, DefaultKeyFuncs<void*>, FAnsiSetAllocator> AllocatedPointers;
-	FCriticalSection AllocatedPointersCritical;
 
 public:
 
@@ -46,6 +45,9 @@ private:
 	/* Verifier object */
 	FMallocVerify Verify;
 
+	/** Malloc critical section */
+	FCriticalSection VerifyCritical;
+
 public:
 	explicit FMallocVerifyProxy(FMalloc* InMalloc)
 		: UsedMalloc(InMalloc)
@@ -54,6 +56,7 @@ public:
 
 	virtual void* Malloc(SIZE_T Size, uint32 Alignment) override
 	{
+		FScopeLock VerifyLock(&VerifyCritical);
 		void* Result = UsedMalloc->Malloc(Size, Alignment);
 		Verify.Malloc(Result);
 		return Result;
@@ -61,6 +64,7 @@ public:
 
 	virtual void* Realloc(void* Ptr, SIZE_T NewSize, uint32 Alignment) override
 	{
+		FScopeLock VerifyLock(&VerifyCritical);
 		void* Result = UsedMalloc->Realloc(Ptr, NewSize, Alignment);
 		Verify.Realloc(Ptr, Result);
 		return Result;
@@ -70,6 +74,7 @@ public:
 	{
 		if (Ptr)
 		{
+			FScopeLock VerifyLock(&VerifyCritical);
 			Verify.Free(Ptr);
 			UsedMalloc->Free(Ptr);
 		}

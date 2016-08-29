@@ -7,7 +7,7 @@
 #pragma once
 #include "SoundFactory.generated.h"
 
-UCLASS(hidecategories=Object)
+UCLASS(MinimalAPI, hidecategories=Object)
 class USoundFactory : public UFactory
 {
 	GENERATED_UCLASS_BODY()
@@ -48,6 +48,3 @@ private:
 	/** If true, the overwrite dialog should not be shown while importing */
 	static bool bSuppressImportOverwriteDialog;
 };
-
-
-

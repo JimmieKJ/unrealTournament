@@ -80,6 +80,9 @@ public:
 	// called when the widget is dragged in scale mode
 	virtual void DoScale(const USkeletalMeshComponent* SkelComp, FVector& Scale, FAnimNode_Base* InOutAnimNode) {}
 
+	/** Try to find the preview control node instance for this anim graph node */
+	FAnimNode_SkeletalControlBase* FindDebugAnimNode(USkeletalMeshComponent * PreviewSkelMeshComp) const;
+
 protected:
 	// Returns the short descriptive name of the controller
 	virtual FText GetControllerDescription() const;

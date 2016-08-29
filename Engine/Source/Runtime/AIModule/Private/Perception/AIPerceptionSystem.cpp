@@ -347,10 +347,8 @@ void UAIPerceptionSystem::UnregisterListener(UAIPerceptionComponent& Listener)
 	}
 }
 
-void UAIPerceptionSystem::UnregisterSource(AActor& SourceActor, TSubclassOf<UAISense> Sense)
-{
-	SourceActor.OnEndPlay.Remove(StimuliSourceEndPlayDelegate);
-	
+void UAIPerceptionSystem::UnregisterSource(AActor& SourceActor, const TSubclassOf<UAISense> Sense)
+{	
 	FPerceptionStimuliSource* StimuliSource = RegisteredStimuliSources.Find(&SourceActor);
 	if (StimuliSource)
 	{
@@ -373,6 +371,13 @@ void UAIPerceptionSystem::UnregisterSource(AActor& SourceActor, TSubclassOf<UAIS
 					Senses[SenseID]->UnregisterSource(SourceActor);
 				}
 			}
+			StimuliSource->RelevantSenses.Clear();
+		}
+
+		if (StimuliSource->RelevantSenses.IsEmpty())
+		{
+			SourceActor.OnEndPlay.Remove(StimuliSourceEndPlayDelegate);
+			RegisteredStimuliSources.Remove(&SourceActor);
 		}
 	}
 	else
@@ -592,7 +597,7 @@ void UAIPerceptionSystem::RegisterSourceForSenseClass(TSubclassOf<UAISense> Sens
 	RegisterSource(SenseID, Target);
 }
 
-void UAIPerceptionSystem::OnPerceptionStimuliSourceEndPlay(EEndPlayReason::Type EndPlayReason)
+void UAIPerceptionSystem::OnPerceptionStimuliSourceEndPlay(AActor* Actor, EEndPlayReason::Type EndPlayReason)
 {
 	// this tells us just that _a_ source has been removed. We need to parse through all sources and find which one was it
 	// this is a fall-back behavior, if source gets unregistered manually this function won't get called 

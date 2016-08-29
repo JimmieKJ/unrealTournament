@@ -91,6 +91,10 @@ FText UK2Node_TransitionRuleGetter::GetNodeTitle(ENodeTitleType::Type TitleType)
 			Args.Add(TEXT("BoundAsset"), FText::FromString(BoundAsset->GetName()));
 			return  FText::Format(LOCTEXT("AnimationAssetInfoGetterTitle", "{BoundAsset} Asset"), Args);
 		}
+		else
+		{
+			return LOCTEXT("AnimationAssetInfoGetterTitle_None", "Animation Asset");
+		}
 	}
 	else if (AssociatedStateNode != NULL)
 	{
@@ -102,6 +106,10 @@ FText UK2Node_TransitionRuleGetter::GetNodeTitle(ENodeTitleType::Type TitleType)
 			Args.Add(TEXT("OwnerName"), FText::FromString(OwnerName));
 			Args.Add(TEXT("StateName"), FText::FromString(State->GetStateName()));
 			return FText::Format(LOCTEXT("StateInfoGetterTitle", "{OwnerName}.{StateName} State"), Args);
+		}
+		else
+		{
+			return LOCTEXT("StateInfoGetterTitle_None", "State");
 		}
 	}
 	else if (GetterType == ETransitionGetter::CurrentTransitionDuration)

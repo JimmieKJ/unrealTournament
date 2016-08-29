@@ -191,7 +191,7 @@ void UUnitTest::NotifyLocalLog(ELogType InLogType, const TCHAR* Data, ELogVerbos
 			}
 			else
 			{
-				FString LogLine = FOutputDevice::FormatLogLine(Verbosity, Category, Data, GPrintLogTimes);
+				FString LogLine = FOutputDeviceHelper::FormatLogLine(Verbosity, Category, Data, GPrintLogTimes);
 				FSlateColor CurLogColor = FSlateColor::UseForeground();
 
 				// Make unit test logs grey

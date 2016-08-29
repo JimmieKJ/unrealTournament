@@ -118,9 +118,9 @@ private:
 	bool bSuppressLoggingToOutputLog;
 
 	/** Delegate for retrieving the message log */
-	static FGetLog GetLog;
+	CORE_API static FGetLog GetLog;
 
 	/** Delegate for message selection */
-	static FMessageSelectionChanged MessageSelectionChanged;
+	CORE_API static FMessageSelectionChanged MessageSelectionChanged;
 };
 

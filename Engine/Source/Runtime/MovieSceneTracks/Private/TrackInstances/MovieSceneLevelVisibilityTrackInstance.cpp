@@ -34,6 +34,12 @@ ULevelStreaming* GetStreamingLevel( FName LevelName )
 	if ( LevelName != NAME_None )
 	{
 		FString SafeLevelName = MakeSafeLevelName( LevelName );
+		if (FPackageName::IsShortPackageName(SafeLevelName))
+		{
+			// Make sure MyMap1 and Map1 names do not resolve to a same streaming level
+			SafeLevelName = TEXT("/") + SafeLevelName;
+		}
+
 		for ( ULevelStreaming* LevelStreaming : GWorld->StreamingLevels )
 		{
 			if ( LevelStreaming && LevelStreaming->GetWorldAssetPackageName().EndsWith( SafeLevelName, ESearchCase::IgnoreCase ) )
@@ -69,6 +75,56 @@ void GetAnimatedStreamingLevels( UMovieSceneLevelVisibilityTrack* LevelVisibilit
 	}
 }
 
+bool GetLevelVisibility( ULevelStreaming* Level )
+{
+#if WITH_EDITOR
+	if ( GIsEditor && Level->GetWorld()->IsPlayInEditor() == false )
+	{
+		return Level->bShouldBeVisibleInEditor;
+	}
+	else
+#endif
+	{
+		return Level->bShouldBeVisible;
+	}
+}
+
+void SetLevelVisibility( ULevelStreaming* Level, bool bVisible )
+{
+#if WITH_EDITOR
+	if ( GIsEditor && Level->GetWorld()->IsPlayInEditor() == false )
+	{
+		Level->bShouldBeVisibleInEditor = bVisible;
+		Level->GetWorld()->FlushLevelStreaming();
+
+		// Iterate over the level's actors
+		TArray<AActor*>& Actors = Level->GetLoadedLevel()->Actors;
+		for ( int32 ActorIndex = 0; ActorIndex < Actors.Num(); ++ActorIndex )
+		{
+			AActor* Actor = Actors[ActorIndex];
+			if ( Actor )
+			{
+				if (Actor->bHiddenEdLevel == bVisible )
+				{
+					Actor->bHiddenEdLevel = !bVisible;
+					if ( bVisible )
+					{
+						Actor->ReregisterAllComponents();
+					}
+					else
+					{
+						Actor->UnregisterAllComponents();
+					}
+				}
+			}
+		}
+	}
+	else
+#endif
+	{
+		Level->bShouldBeVisible = bVisible;
+	}
+}
 
 void FMovieSceneLevelVisibilityTrackInstance::SaveState(const TArray<TWeakObjectPtr<UObject>>& RuntimeObjects, IMovieScenePlayer& Player, FMovieSceneSequenceInstance& SequenceInstance)
 {
@@ -92,7 +148,7 @@ void FMovieSceneLevelVisibilityTrackInstance::RestoreState(const TArray<TWeakObj
 		bool* SavedVisibility = SavedLevelVisibility.Find( FObjectKey( StreamingLevel ) );
 		if ( SavedVisibility != nullptr )
 		{
-			SetEditorLevelVisibilityState( StreamingLevel, *SavedVisibility );
+			SetLevelVisibility( StreamingLevel, *SavedVisibility );
 		}
 	}
 
@@ -102,58 +158,104 @@ void FMovieSceneLevelVisibilityTrackInstance::RestoreState(const TArray<TWeakObj
 
 void FMovieSceneLevelVisibilityTrackInstance::Update(EMovieSceneUpdateData& UpdateData, const TArray<TWeakObjectPtr<UObject>>& RuntimeObjects, class IMovieScenePlayer& Player, FMovieSceneSequenceInstance& SequenceInstance ) 
 {
-	for ( UMovieSceneSection* Section : LevelVisibilityTrack->GetAllSections() )
+	bool bVisibilityModified = false;
+	UWorld* CurrentWorld = nullptr;
+
+	TArray<UMovieSceneLevelVisibilitySection*> CurrentActiveSections;
+	if ( UpdateData.bSubSceneDeactivate == false )
 	{
-		UMovieSceneLevelVisibilitySection* LevelVisibilitySection = Cast<UMovieSceneLevelVisibilitySection>(Section);
-		if (LevelVisibilitySection != nullptr &&
-			LevelVisibilitySection->GetStartTime() <= UpdateData.Position &&
-			LevelVisibilitySection->GetEndTime() > UpdateData.Position )
+		for ( UMovieSceneSection* Section : LevelVisibilityTrack->GetAllSections() )
 		{
-			bool bShouldBeVisible = LevelVisibilitySection->GetVisibility() == ELevelVisibility::Visible ? true : false;
-			bool bVisibilityModified = false;
-			for ( FName LevelName : *LevelVisibilitySection->GetLevelNames() )
+			UMovieSceneLevelVisibilitySection* LevelVisibilitySection = Cast<UMovieSceneLevelVisibilitySection>( Section );
+			if ( LevelVisibilitySection != nullptr &&
+				LevelVisibilitySection->GetStartTime() <= UpdateData.Position &&
+				LevelVisibilitySection->GetEndTime() > UpdateData.Position )
 			{
-				FName SafeLevelName ( *MakeSafeLevelName( LevelName ) );
-				ULevelStreaming* StreamingLevel = nullptr;
-				TWeakObjectPtr<ULevelStreaming>* FoundStreamingLevel = NameToLevelMap.Find( SafeLevelName );
-
-				if ( FoundStreamingLevel != nullptr )
-				{
-					StreamingLevel = FoundStreamingLevel->Get();
-				}
-				else if ( GIsEditor && !GWorld->HasBegunPlay() )
-				{
-					// If we're in the editor, it possible the level list has been updated since the last refresh, so try to find the level.
-					StreamingLevel = GetStreamingLevel( LevelName );
-					if ( StreamingLevel != nullptr )
-					{
-						SaveLevelVisibilityState( StreamingLevel );
-						NameToLevelMap.Add( LevelName, TWeakObjectPtr<ULevelStreaming>( StreamingLevel ) );
-					}
-				}
-
-				if ( StreamingLevel != nullptr )
-				{
-					if ( GIsEditor && !GWorld->HasBegunPlay() )
-					{
-						SetEditorLevelVisibilityState( StreamingLevel, bShouldBeVisible );
-					}
-					else
-					{
-						if ( StreamingLevel->bShouldBeVisible != bShouldBeVisible )
-						{
-							StreamingLevel->bShouldBeVisible = bShouldBeVisible;
-							bVisibilityModified = true;
-						}
-					}
-					
-				}
-			}
-			if ( bVisibilityModified )
-			{
-				GWorld->FlushLevelStreaming( EFlushLevelStreamingType::Visibility );
+				CurrentActiveSections.Add( LevelVisibilitySection );
 			}
 		}
+	}
+
+	TArray<UMovieSceneLevelVisibilitySection*> NewActiveSections = CurrentActiveSections;
+	for (int i = ActiveSectionDatas.Num() - 1; i >= 0; i--)
+	{
+		FActiveSectionData& ActiveSectionData = ActiveSectionDatas[i];
+		if ( ActiveSectionData.Section.IsValid() )
+		{
+			if ( CurrentActiveSections.Contains( ActiveSectionData.Section ) )
+			{
+				NewActiveSections.Remove( ActiveSectionData.Section.Get() );
+			}
+			else
+			{
+				for ( auto LevelNamePreviousVisibilityPair : ActiveSectionData.PreviousLevelVisibility )
+				{
+					FName SafeLevelName( *MakeSafeLevelName( LevelNamePreviousVisibilityPair.Key ) );
+					TWeakObjectPtr<ULevelStreaming>* FoundStreamingLevel = NameToLevelMap.Find( SafeLevelName );
+					if ( FoundStreamingLevel != nullptr && FoundStreamingLevel->IsValid() )
+					{
+						if ( GetLevelVisibility( FoundStreamingLevel->Get() ) != LevelNamePreviousVisibilityPair.Value )
+						{
+							SetLevelVisibility( FoundStreamingLevel->Get(), LevelNamePreviousVisibilityPair.Value );
+							bVisibilityModified = true;
+							CurrentWorld = (*FoundStreamingLevel)->GetWorld();
+						}
+					}
+				}
+				ActiveSectionDatas.RemoveAt( i );
+			}
+		}
+		else
+		{
+			ActiveSectionDatas.RemoveAt( i );
+		}
+	}
+
+	for ( UMovieSceneLevelVisibilitySection* LevelVisibilitySection : NewActiveSections )
+	{
+		FActiveSectionData ActiveSectionData;
+		ActiveSectionData.Section = LevelVisibilitySection;
+		bool bShouldBeVisible = LevelVisibilitySection->GetVisibility() == ELevelVisibility::Visible ? true : false;
+		
+
+		for ( FName LevelName : *LevelVisibilitySection->GetLevelNames() )
+		{
+			FName SafeLevelName ( *MakeSafeLevelName( LevelName ) );
+			ULevelStreaming* StreamingLevel = nullptr;
+			TWeakObjectPtr<ULevelStreaming>* FoundStreamingLevel = NameToLevelMap.Find( SafeLevelName );
+
+			if ( FoundStreamingLevel != nullptr )
+			{
+				StreamingLevel = FoundStreamingLevel->Get();
+			}
+			else if ( GIsEditor )
+			{
+				// If we're in the editor, it possible the level list has been updated since the last refresh, so try to find the level.
+				StreamingLevel = GetStreamingLevel( LevelName );
+				if ( StreamingLevel != nullptr )
+				{
+					SaveLevelVisibilityState( StreamingLevel );
+					NameToLevelMap.Add( LevelName, TWeakObjectPtr<ULevelStreaming>( StreamingLevel ) );
+				}
+			}
+
+			if ( StreamingLevel != nullptr )
+			{
+				ActiveSectionData.PreviousLevelVisibility.Add(LevelName, GetLevelVisibility( StreamingLevel ) );
+				if ( GetLevelVisibility( StreamingLevel ) != bShouldBeVisible )
+				{
+					SetLevelVisibility( StreamingLevel, bShouldBeVisible );
+					bVisibilityModified = true;
+					CurrentWorld = StreamingLevel->GetWorld();
+				}
+			}
+		}
+		ActiveSectionDatas.Emplace(ActiveSectionData);
+	}
+
+	if ( bVisibilityModified && CurrentWorld != nullptr )
+	{
+		CurrentWorld->FlushLevelStreaming( EFlushLevelStreamingType::Visibility );
 	}
 }
 
@@ -173,26 +275,5 @@ void FMovieSceneLevelVisibilityTrackInstance::RefreshInstance( const TArray<TWea
 
 void FMovieSceneLevelVisibilityTrackInstance::SaveLevelVisibilityState( ULevelStreaming* StreamingLevel )
 {
-	SavedLevelVisibility.Add( FObjectKey( StreamingLevel ), StreamingLevel->bShouldBeVisibleInEditor );
-}
-
-void FMovieSceneLevelVisibilityTrackInstance::SetEditorLevelVisibilityState( ULevelStreaming* StreamingLevel, bool bShouldBeVisible )
-{
-	if ( StreamingLevel->bShouldBeVisibleInEditor != bShouldBeVisible )
-	{
-		StreamingLevel->bShouldBeVisibleInEditor = bShouldBeVisible;
-		ULevel* LoadedLevel = StreamingLevel->GetLoadedLevel();
-		if ( LoadedLevel != nullptr )
-		{
-			for ( AActor* Actor : LoadedLevel->Actors )
-			{
-				if ( Actor != nullptr )
-				{
-#if WITH_EDITOR
-					Actor->SetIsTemporarilyHiddenInEditor( !bShouldBeVisible );
-#endif
-				}
-			}
-		}
-	}
+	SavedLevelVisibility.Add( FObjectKey( StreamingLevel ), GetLevelVisibility(StreamingLevel) );
 }

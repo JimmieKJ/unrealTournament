@@ -4,9 +4,9 @@
 #include "EditorProjectSettings.h"
 
 
-EUnit ConvertDefaultInputUnits(UEditorProjectAppearanceSettings::EDefaultLocationUnit In)
+EUnit ConvertDefaultInputUnits(EDefaultLocationUnit In)
 {
-	typedef UEditorProjectAppearanceSettings::EDefaultLocationUnit EDefaultLocationUnit;
+	typedef EDefaultLocationUnit EDefaultLocationUnit;
 
 	switch(In)
 	{

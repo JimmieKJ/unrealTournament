@@ -81,17 +81,17 @@ void UUTHUDWidget_DetectedWarning::DrawDetectedCameraNotice(AUTCTFGameState* Gam
 	float WorldRenderScale = RenderScale * FMath::Clamp(MaxIconScale - (Dist - ScalingStartDist) / ScalingEndDist, MinIconScale, MaxIconScale);
 
 	FVector WorldPosition = DetectingCamera->K2_GetComponentLocation();
-	FVector ScreenPosition = GetCanvas()->Project(WorldPosition);
+	FVector DrawScreenPosition = GetCanvas()->Project(WorldPosition);
 
 	FVector ViewDir = PlayerViewRotation.Vector();
 	FVector CameraDir = WorldPosition - PlayerViewPoint;
 	
-	AdjustScreenPosition(ScreenPosition, WorldPosition, ViewDir, CameraDir);
+	AdjustScreenPosition(DrawScreenPosition, WorldPosition, ViewDir, CameraDir);
 
-	RenderObj_TextureAt(WarningIconTemplate, ScreenPosition.X, ScreenPosition.Y, WarningIconTemplate.UVs.UL * WorldRenderScale, WarningIconTemplate.UVs.VL * WorldRenderScale);
+	RenderObj_TextureAt(WarningIconTemplate, DrawScreenPosition.X, DrawScreenPosition.Y, WarningIconTemplate.UVs.UL * WorldRenderScale, WarningIconTemplate.UVs.VL * WorldRenderScale);
 }
 
-void UUTHUDWidget_DetectedWarning::AdjustScreenPosition( /*OUT*/ FVector& ScreenPosition, const FVector& WorldPosition, const FVector& ViewDir, const FVector& CameraDir)
+void UUTHUDWidget_DetectedWarning::AdjustScreenPosition( /*OUT*/ FVector& OutScreenPosition, const FVector& WorldPosition, const FVector& ViewDir, const FVector& CameraDir)
 {
 	const float EdgeOffsetX = EdgeOffsetPercentX * GetCanvas()->ClipX;
 	const float MinEdgeOffsetY = (GetCanvas()->ClipY * MinEdgeOffsetPercentY) + WarningIconTemplate.UVs.VL;
@@ -104,15 +104,15 @@ void UUTHUDWidget_DetectedWarning::AdjustScreenPosition( /*OUT*/ FVector& Screen
 		const bool bIsLeft = ((UTPlayerOwner->GetActorRightVector() | CameraDir) < 0);
 
 		//Force X position to side of the screen
-		ScreenPosition.X = bIsLeft ? EdgeOffsetX : GetCanvas()->ClipX - EdgeOffsetX;
+		OutScreenPosition.X = bIsLeft ? EdgeOffsetX : GetCanvas()->ClipX - EdgeOffsetX;
 
 		//if the camera is behind us the Y direction is flipped. Lets adjust that
-		ScreenPosition.Y = FMath::Clamp(ScreenPosition.Y, MinEdgeOffsetY, MaxEdgeOffsetY);
-		const float InvertedYScreenPercent = FMath::Clamp(((MaxEdgeOffsetY - ScreenPosition.Y) / MaxEdgeOffsetY), 0.f, 1.f);
-		ScreenPosition.Y = GetCanvas()->ClipY * InvertedYScreenPercent;
+		OutScreenPosition.Y = FMath::Clamp(OutScreenPosition.Y, MinEdgeOffsetY, MaxEdgeOffsetY);
+		const float InvertedYScreenPercent = FMath::Clamp(((MaxEdgeOffsetY - OutScreenPosition.Y) / MaxEdgeOffsetY), 0.f, 1.f);
+		OutScreenPosition.Y = GetCanvas()->ClipY * InvertedYScreenPercent;
 	}
 	
-	ScreenPosition.X = FMath::Clamp(ScreenPosition.X, EdgeOffsetX, GetCanvas()->ClipX - EdgeOffsetX);
-	ScreenPosition.Y = FMath::Clamp(ScreenPosition.Y, MinEdgeOffsetY, MaxEdgeOffsetY);
-	ScreenPosition.Z = 0.0f;
+	OutScreenPosition.X = FMath::Clamp(OutScreenPosition.X, EdgeOffsetX, GetCanvas()->ClipX - EdgeOffsetX);
+	OutScreenPosition.Y = FMath::Clamp(OutScreenPosition.Y, MinEdgeOffsetY, MaxEdgeOffsetY);
+	OutScreenPosition.Z = 0.0f;
 }

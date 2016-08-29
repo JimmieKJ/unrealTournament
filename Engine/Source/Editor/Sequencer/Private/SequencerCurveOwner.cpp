@@ -68,6 +68,21 @@ FName BuildCurveName( TSharedPtr<FSequencerDisplayNode> KeyAreaNode )
 	return FName(*FString::Join(NameParts, TEXT(" - ")));
 }
 
+bool IsNodeOrAncestorSelected(TSharedPtr<FSequencerDisplayNode> DisplayNode)
+{
+	if (!DisplayNode.IsValid())
+	{
+		return false;
+	}
+	
+	if (DisplayNode->GetSequencer().GetSelection().IsSelected(DisplayNode.ToSharedRef()))
+	{
+		return true;
+	}
+
+	return IsNodeOrAncestorSelected(DisplayNode->GetParent());
+}
+
 FSequencerCurveOwner::FSequencerCurveOwner( TSharedPtr<FSequencerNodeTree> InSequencerNodeTree, ECurveEditorCurveVisibility::Type CurveVisibility )
 {
 	SequencerNodeTree = InSequencerNodeTree;
@@ -86,7 +101,7 @@ FSequencerCurveOwner::FSequencerCurveOwner( TSharedPtr<FSequencerNodeTree> InSeq
 				bAddCurve = true;
 				break;
 			case ECurveEditorCurveVisibility::SelectedCurves:
-				bAddCurve = DisplayNodeAndKeyArea.DisplayNode->GetSequencer().GetSelection().IsSelected( DisplayNodeAndKeyArea.DisplayNode.ToSharedRef() );
+				bAddCurve = IsNodeOrAncestorSelected(DisplayNodeAndKeyArea.DisplayNode);
 				break;
 			case ECurveEditorCurveVisibility::AnimatedCurves:
 				bAddCurve = RichCurve->GetNumKeys() > 0;
@@ -113,9 +128,9 @@ TArray<FRichCurve*> FSequencerCurveOwner::GetSelectedCurves() const
 	for ( const FDisplayNodeAndKeyArea& DisplayNodeAndKeyArea : DisplayNodesAndKeyAreas )
 	{
 		FRichCurve* RichCurve = DisplayNodeAndKeyArea.KeyArea->GetRichCurve();
-		if ( RichCurve != nullptr )
+		if ( RichCurve != nullptr && SelectedCurves.Find(RichCurve) == INDEX_NONE )
 		{
-			if (DisplayNodeAndKeyArea.DisplayNode->GetSequencer().GetSelection().IsSelected(DisplayNodeAndKeyArea.DisplayNode.ToSharedRef()))
+			if (IsNodeOrAncestorSelected(DisplayNodeAndKeyArea.DisplayNode))
 			{
 				SelectedCurves.Add(RichCurve);
 			}
@@ -176,7 +191,7 @@ void FSequencerCurveOwner::OnCurveChanged( const TArray<FRichCurveEditInfo>& Cha
 		}
 	}
 
-	SequencerNodeTree->GetSequencer().UpdateRuntimeInstances();
+	SequencerNodeTree->GetSequencer().NotifyMovieSceneDataChanged( EMovieSceneDataChangeType::TrackValueChanged );
 }
 
 bool FSequencerCurveOwner::IsValidCurve( FRichCurveEditInfo CurveInfo )

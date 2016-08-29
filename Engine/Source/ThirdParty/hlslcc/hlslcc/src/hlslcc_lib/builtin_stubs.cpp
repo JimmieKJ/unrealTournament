@@ -1385,7 +1385,7 @@ void _mesa_glsl_initialize_functions(exec_list *ir, _mesa_glsl_parse_state *stat
 	make_intrinsic_isfinite(ir, state);
 
 	// 8.4 Geometric Functions.
-	make_intrinsic_genType(ir, state, "length", ir_invalid_opcode, IR_INTRINSIC_ALL_FLOATING | IR_INTRINSIC_SCALAR, 1, 2, 4);
+	make_intrinsic_genType(ir, state, "length", ir_invalid_opcode, IR_INTRINSIC_ALL_FLOATING | IR_INTRINSIC_SCALAR, 1, 2, 4);	// only float2..float4, length(float) is handled on ast_function_expression.hir
 	make_intrinsic_genType(ir, state, "distance", ir_invalid_opcode, IR_INTRINSIC_ALL_FLOATING | IR_INTRINSIC_SCALAR, 2, 2, 4);
 	make_intrinsic_genType(ir, state, "dot", ir_binop_dot, IR_INTRINSIC_ALL_FLOATING | IR_INTRINSIC_SCALAR, 2, 1, 4);
 	make_intrinsic_genType(ir, state, "cross", ir_binop_cross, IR_INTRINSIC_ALL_FLOATING, 2, 3, 3);

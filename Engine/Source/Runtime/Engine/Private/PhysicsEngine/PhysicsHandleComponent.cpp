@@ -18,6 +18,9 @@ UPhysicsHandleComponent::UPhysicsHandleComponent(const FObjectInitializer& Objec
 	AngularDamping = 500.0f;
 	AngularStiffness = 1500.0f;
 	InterpolationSpeed = 50.f;
+	bSoftAngularConstraint = true;
+	bSoftLinearConstraint = true;
+	bInterpolateTarget = true;
 }
 
 void UPhysicsHandleComponent::OnUnregister()
@@ -51,8 +54,47 @@ void UPhysicsHandleComponent::OnUnregister()
 	Super::OnUnregister();
 }
 
+void UPhysicsHandleComponent::GrabComponent(class UPrimitiveComponent* InComponent, FName InBoneName, FVector GrabLocation, bool bConstrainRotation)
+{
+	//Old behavior was automatically using grabbed body's orientation. This is an edge case that we'd rather not support automatically. We do it here for backwards compat
 
-void UPhysicsHandleComponent::GrabComponent(UPrimitiveComponent* InComponent, FName InBoneName, FVector Location, bool bConstrainRotation)
+	if (!InComponent)
+	{
+		return;
+	}
+
+	// Get the PxRigidDynamic that we want to grab.
+	FBodyInstance* BodyInstance = InComponent->GetBodyInstance(InBoneName);
+	if (!BodyInstance)
+	{
+		return;
+	}
+
+	FRotator GrabbedRotation = FRotator::ZeroRotator;
+
+#if WITH_PHYSX
+	ExecuteOnPxRigidDynamicReadWrite(BodyInstance, [&GrabbedRotation](PxRigidDynamic* Actor)
+	{
+		PxScene* Scene = Actor->getScene();
+		GrabbedRotation = P2UQuat(Actor->getGlobalPose().q).Rotator();
+	});
+#endif
+
+
+	GrabComponentImp(InComponent, InBoneName, GrabLocation, GrabbedRotation, bConstrainRotation);
+}
+
+void UPhysicsHandleComponent::GrabComponentAtLocation(class UPrimitiveComponent* Component, FName InBoneName, FVector GrabLocation)
+{
+	GrabComponentImp(Component, InBoneName, GrabLocation, FRotator::ZeroRotator, false);
+}
+
+void UPhysicsHandleComponent::GrabComponentAtLocationWithRotation(class UPrimitiveComponent* Component, FName InBoneName, FVector GrabLocation, FRotator Rotation)
+{
+	GrabComponentImp(Component, InBoneName, GrabLocation, Rotation, true);
+}
+
+void UPhysicsHandleComponent::GrabComponentImp(UPrimitiveComponent* InComponent, FName InBoneName, const FVector& Location, const FRotator& Rotation, bool bConstrainRotation)
 {
 	// If we are already holding something - drop it first.
 	if(GrabbedComponent != NULL)
@@ -79,8 +121,9 @@ void UPhysicsHandleComponent::GrabComponent(UPrimitiveComponent* InComponent, FN
 		
 		// Get transform of actor we are grabbing
 		PxVec3 KinLocation = U2PVector(Location);
+		PxQuat KinOrientation = U2PQuat(Rotation.Quaternion());
 		PxTransform GrabbedActorPose = Actor->getGlobalPose();
-		PxTransform KinPose(KinLocation, GrabbedActorPose.q);
+		PxTransform KinPose(KinLocation, KinOrientation);
 
 		// set target and current, so we don't need another "Tick" call to have it right
 		TargetTransform = CurrentTransform = P2UTransform(KinPose);
@@ -104,8 +147,7 @@ void UPhysicsHandleComponent::GrabComponent(UPrimitiveComponent* InComponent, FN
 			KinActorData = KinActor;
 
 			// Create the joint
-			PxVec3 LocalHandlePos = GrabbedActorPose.transformInv(KinLocation);
-			PxD6Joint* NewJoint = PxD6JointCreate(Scene->getPhysics(), KinActor, PxTransform::createIdentity(), Actor, PxTransform(LocalHandlePos));
+			PxD6Joint* NewJoint = PxD6JointCreate(Scene->getPhysics(), KinActor, PxTransform::createIdentity(), Actor, GrabbedActorPose.transformInv(KinPose));
 
 			if (!NewJoint)
 			{
@@ -123,26 +165,27 @@ void UPhysicsHandleComponent::GrabComponent(UPrimitiveComponent* InComponent, FN
 				SceneIndex = RBScene->PhysXSceneIndex[SceneType];
 
 				// Setting up the joint
-				NewJoint->setMotion(PxD6Axis::eX, PxD6Motion::eFREE);
-				NewJoint->setMotion(PxD6Axis::eY, PxD6Motion::eFREE);
-				NewJoint->setMotion(PxD6Axis::eZ, PxD6Motion::eFREE);
+				
+				PxD6Motion::Enum const LocationMotionType = bSoftLinearConstraint ? PxD6Motion::eFREE : PxD6Motion::eLOCKED;
+				PxD6Motion::Enum const RotationMotionType = (bSoftAngularConstraint || !bConstrainRotation) ? PxD6Motion::eFREE : PxD6Motion::eLOCKED;
+
+				NewJoint->setMotion(PxD6Axis::eX, LocationMotionType);
+				NewJoint->setMotion(PxD6Axis::eY, LocationMotionType);
+				NewJoint->setMotion(PxD6Axis::eZ, LocationMotionType);
 				NewJoint->setDrivePosition(PxTransform(PxVec3(0, 0, 0)));
 
-				NewJoint->setMotion(PxD6Axis::eTWIST, PxD6Motion::eFREE);
-				NewJoint->setMotion(PxD6Axis::eSWING1, PxD6Motion::eFREE);
-				NewJoint->setMotion(PxD6Axis::eSWING2, PxD6Motion::eFREE);
+				NewJoint->setMotion(PxD6Axis::eTWIST, RotationMotionType);
+				NewJoint->setMotion(PxD6Axis::eSWING1, RotationMotionType);
+				NewJoint->setMotion(PxD6Axis::eSWING2, RotationMotionType);
 
 				bRotationConstrained = bConstrainRotation;
 
 				UpdateDriveSettings();
 			}
-
 		}
 	});
 	
-	
 #endif // WITH_PHYSX
-
 
 	GrabbedComponent = InComponent;
 	GrabbedBoneName = InBoneName;
@@ -151,13 +194,16 @@ void UPhysicsHandleComponent::GrabComponent(UPrimitiveComponent* InComponent, FN
 void UPhysicsHandleComponent::UpdateDriveSettings()
 {
 #if WITH_PHYSX
-	if(HandleData != nullptr)
+	if (HandleData != nullptr)
 	{
-		HandleData->setDrive(PxD6Drive::eX, PxD6JointDrive(LinearStiffness, LinearDamping, PX_MAX_F32, PxD6JointDriveFlag::eACCELERATION));
-		HandleData->setDrive(PxD6Drive::eY, PxD6JointDrive(LinearStiffness, LinearDamping, PX_MAX_F32, PxD6JointDriveFlag::eACCELERATION));
-		HandleData->setDrive(PxD6Drive::eZ, PxD6JointDrive(LinearStiffness, LinearDamping, PX_MAX_F32, PxD6JointDriveFlag::eACCELERATION));
+		if (bSoftLinearConstraint)
+		{
+			HandleData->setDrive(PxD6Drive::eX, PxD6JointDrive(LinearStiffness, LinearDamping, PX_MAX_F32, PxD6JointDriveFlag::eACCELERATION));
+			HandleData->setDrive(PxD6Drive::eY, PxD6JointDrive(LinearStiffness, LinearDamping, PX_MAX_F32, PxD6JointDriveFlag::eACCELERATION));
+			HandleData->setDrive(PxD6Drive::eZ, PxD6JointDrive(LinearStiffness, LinearDamping, PX_MAX_F32, PxD6JointDriveFlag::eACCELERATION));
+		}
 
-		if (bRotationConstrained)
+		if (bSoftAngularConstraint && bRotationConstrained)
 		{
 			HandleData->setDrive(PxD6Drive::eSLERP, PxD6JointDrive(AngularStiffness, AngularDamping, PX_MAX_F32, PxD6JointDriveFlag::eACCELERATION));
 
@@ -272,19 +318,23 @@ void UPhysicsHandleComponent::UpdateHandleTransform(const FTransform& NewTransfo
 #endif // WITH_PHYSX
 }
 
-
-
 void UPhysicsHandleComponent::TickComponent(float DeltaTime, enum ELevelTick TickType, FActorComponentTickFunction *ThisTickFunction)
 {
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
 
-	const float Alpha = FMath::Clamp(DeltaTime * InterpolationSpeed, 0.f, 1.f);
-
-	FTransform C = CurrentTransform;
-	FTransform T = TargetTransform;
-	C.NormalizeRotation();
-	T.NormalizeRotation();
-	CurrentTransform.Blend(C, T, Alpha);
+	if (bInterpolateTarget)
+	{
+		const float Alpha = FMath::Clamp(DeltaTime * InterpolationSpeed, 0.f, 1.f);
+		FTransform C = CurrentTransform;
+		FTransform T = TargetTransform;
+		C.NormalizeRotation();
+		T.NormalizeRotation();
+		CurrentTransform.Blend(C, T, Alpha);
+	}
+	else
+	{
+		CurrentTransform = TargetTransform;
+	}
 
 	UpdateHandleTransform(CurrentTransform);
 }

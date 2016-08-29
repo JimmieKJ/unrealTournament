@@ -94,6 +94,13 @@ public:
 	UPROPERTY(config, EditAnywhere, Category=LocalMultiplayer, meta=(editcondition="bUseSplitScreen"))
 	TEnumAsByte<EThreePlayerSplitScreenType::Type> ThreePlayerSplitscreenLayout;
 
+	/**
+	* If enabled, this will make so that gamepads start being assigned to the second controller ID in local multiplayer games.
+	* In PIE sessions with multiple windows, this has the same effect as enabling "Route 1st Gamepad to 2nd Client"
+	*/
+	UPROPERTY(config, EditAnywhere, Category=LocalMultiplayer, meta=(DisplayName="Skip Assigning Gamepad to Player 1"))
+	bool bOffsetPlayerGamepadIds;
+
 	/** The class to use when instantiating the transient GameInstance class */
 	UPROPERTY(config, noclear, EditAnywhere, Category=GameInstance, meta=(MetaClass="GameInstance"))
 	FStringClassReference GameInstanceClass;

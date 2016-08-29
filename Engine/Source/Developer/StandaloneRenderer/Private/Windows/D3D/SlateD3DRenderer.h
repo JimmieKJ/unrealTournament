@@ -1,9 +1,6 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-
-#ifndef _SLATERENDERRD3D_H__
-#define _SLATERENDERRD3D_H__
-
+#pragma once
 
 class FSlateD3DTextureManager;
 class FSlateD3D11RenderingPolicy;
@@ -44,7 +41,7 @@ public:
 	~FSlateD3DRenderer();
 
 	/** FSlateRenderer Interface */
-	virtual void Initialize() override;
+	virtual bool Initialize() override;
 	virtual void Destroy() override;
 	virtual FSlateDrawBuffer& GetDrawBuffer() override; 
 	virtual void DrawWindows( FSlateDrawBuffer& InWindowDrawBuffer ) override;
@@ -62,7 +59,7 @@ public:
 	virtual void ReleaseUpdatableTexture(FSlateUpdatableTexture* Texture) override;
 	virtual ISlateAtlasProvider* GetTextureAtlasProvider() override;
 	
-	void CreateDevice();
+	bool CreateDevice();
 	void CreateDepthStencilBuffer( FSlateD3DViewport& Viewport );
 
 private:
@@ -78,5 +75,3 @@ private:
 	TSharedPtr<FSlateD3D11RenderingPolicy> RenderingPolicy;
 	TArray<TSharedPtr<FSlateDynamicImageBrush>> DynamicBrushesToRemove;
 };
-
-#endif

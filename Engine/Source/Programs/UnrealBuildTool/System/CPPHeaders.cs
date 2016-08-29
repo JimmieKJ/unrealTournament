@@ -444,6 +444,20 @@ namespace UnrealBuildTool
 			DateTime TimerStartTime = DateTime.UtcNow;
 			++CPPEnvironment.TotalDirectIncludeCacheMisses;
 
+			Result = GetUncachedDirectIncludeDependencies(CPPFile, BuildPlatform, Target.ProjectFile);
+
+			// Populate cache with results.
+			IncludeDependencyCache[Target].SetDependencyInfo(CPPFile, Result);
+
+			CPPEnvironment.DirectIncludeCacheMissesTotalTime += (DateTime.UtcNow - TimerStartTime).TotalSeconds;
+
+			return Result;
+		}
+
+		public static List<DependencyInclude> GetUncachedDirectIncludeDependencies(FileItem CPPFile, UEBuildPlatform BuildPlatform, FileReference ProjectFile = null)
+		{
+			List<DependencyInclude> Result = new List<DependencyInclude>();
+
 			// Get the adjusted filename
 			string FileToRead = CPPFile.AbsolutePath;
 			if (BuildPlatform.RequiresExtraUnityCPPWriter() && Path.GetFileName(FileToRead).StartsWith("Module."))
@@ -480,20 +494,15 @@ namespace UnrealBuildTool
 						EndIndex = FileContents.Length;
 					}
 
-					Result.AddRange(CollectHeaders(Target.ProjectFile, CPPFile, FileToRead, FileContents, InstalledFolder, StartIndex, EndIndex));
+					Result.AddRange(CollectHeaders(ProjectFile, CPPFile, FileToRead, FileContents, InstalledFolder, StartIndex, EndIndex));
 
 					StartIndex = EndIndex + 1;
 				}
 			}
 			else
 			{
-				Result = CollectHeaders(Target.ProjectFile, CPPFile, FileToRead, FileContents, InstalledFolder, 0, FileContents.Length);
+				Result = CollectHeaders(ProjectFile, CPPFile, FileToRead, FileContents, InstalledFolder, 0, FileContents.Length);
 			}
-
-			// Populate cache with results.
-			IncludeDependencyCache[Target].SetDependencyInfo(CPPFile, Result);
-
-			CPPEnvironment.DirectIncludeCacheMissesTotalTime += (DateTime.UtcNow - TimerStartTime).TotalSeconds;
 
 			return Result;
 		}

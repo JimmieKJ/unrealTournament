@@ -10,6 +10,7 @@
 #include "SNotificationList.h"
 #include "NotificationManager.h"
 #include "Settings/EditorProjectSettings.h"
+#include "DebuggerCommands.h"
 
 #define LOCTEXT_NAMESPACE "EditorViewport"
 
@@ -39,20 +40,23 @@ void SEditorViewport::Construct( const FArguments& InArgs )
 
 	ChildSlot
 	[
-		SAssignNew( ViewportWidget, SViewport )
-		.ShowEffectWhenDisabled( false )
-		.EnableGammaCorrection( false ) // Scene rendering handles this
-		.AddMetaData(InArgs.MetaData.Num() > 0 ? InArgs.MetaData[0] : MakeShareable(new FTagMetaData(TEXT("LevelEditorViewport"))))
+		SNew(SGlobalPlayWorldActions)
 		[
-			SAssignNew( ViewportOverlay, SOverlay )
-			+SOverlay::Slot()
+			SAssignNew(ViewportWidget, SViewport)
+			.ShowEffectWhenDisabled(false)
+			.EnableGammaCorrection(false) // Scene rendering handles this
+			.AddMetaData(InArgs.MetaData.Num() > 0 ? InArgs.MetaData[0] : MakeShareable(new FTagMetaData(TEXT("LevelEditorViewport"))))
 			[
-				SNew( SBorder )
-				.BorderImage( this, &SEditorViewport::OnGetViewportBorderBrush )
-				.BorderBackgroundColor( this, &SEditorViewport::OnGetViewportBorderColorAndOpacity )
-				.Visibility( this, &SEditorViewport::OnGetViewportContentVisibility )
+				SAssignNew(ViewportOverlay, SOverlay)
+				+ SOverlay::Slot()
+				[
+				SNew(SBorder)
+				.BorderImage(this, &SEditorViewport::OnGetViewportBorderBrush)
+				.BorderBackgroundColor(this, &SEditorViewport::OnGetViewportBorderColorAndOpacity)
+				.Visibility(this, &SEditorViewport::OnGetViewportContentVisibility)
 				.Padding(0.0f)
-				.ShowEffectWhenDisabled( false )
+				.ShowEffectWhenDisabled(false)
+				]
 			]
 		]
 	];
@@ -211,6 +215,12 @@ void SEditorViewport::BindCommands()
 		FIsActionChecked::CreateSP(ClientRef, &FEditorViewportClient::IsActiveViewportType, LVT_OrthoNegativeXY));
 
 	CommandListRef.MapAction(
+		Commands.Next,
+		FExecuteAction::CreateSP(ClientRef, &FEditorViewportClient::RotateViewportType),
+		FCanExecuteAction(),
+		FIsActionChecked::CreateSP(ClientRef, &FEditorViewportClient::IsActiveViewportTypeInRotation));
+
+	CommandListRef.MapAction(
 		Commands.ScreenCapture,
 		FExecuteAction::CreateSP( this, &SEditorViewport::OnScreenCapture ),
 		FCanExecuteAction(),
@@ -351,9 +361,9 @@ void SEditorViewport::BindCommands()
 	MAP_VIEWMODE_ACTION( Commands.ShaderComplexityMode, VMI_ShaderComplexity );
 	MAP_VIEWMODE_ACTION( Commands.QuadOverdrawMode, VMI_QuadOverdraw);
 	MAP_VIEWMODE_ACTION( Commands.ShaderComplexityWithQuadOverdrawMode, VMI_ShaderComplexityWithQuadOverdraw );
-	MAP_VIEWMODE_ACTION( Commands.WantedMipsAccuracyMode, VMI_WantedMipsAccuracy );
-	MAP_VIEWMODE_ACTION( Commands.TexelFactorAccuracyMode, VMI_TexelFactorAccuracy );
-	MAP_VIEWMODE_ACTION( Commands.TexCoordScaleAccuracyMode, VMI_TexCoordScaleAccuracy );
+	MAP_VIEWMODE_ACTION( Commands.TexStreamAccPrimitiveDistanceMode, VMI_PrimitiveDistanceAccuracy );
+	MAP_VIEWMODE_ACTION( Commands.TexStreamAccMeshTexCoordSizeMode, VMI_MeshTexCoordSizeAccuracy );
+	MAP_VIEWMODE_ACTION( Commands.TexStreamAccMaterialTexCoordScalesMode, VMI_MaterialTexCoordScalesAccuracy );
 	MAP_VIEWMODE_ACTION( Commands.StationaryLightOverlapMode, VMI_StationaryLightOverlap );
 	MAP_VIEWMODE_ACTION( Commands.LightmapDensityMode, VMI_LightmapDensity );
 	MAP_VIEWMODE_ACTION( Commands.ReflectionOverrideMode, VMI_ReflectionOverride );
@@ -387,6 +397,19 @@ void SEditorViewport::OnToggleRealtime()
 		ActiveTimerHandle = RegisterActiveTimer( 0.f, FWidgetActiveTimerDelegate::CreateSP( this, &SEditorViewport::EnsureTick ) );
 	}
 }
+
+
+void SEditorViewport::SetRenderDirectlyToWindow( const bool bInRenderDirectlyToWindow )
+{
+	ViewportWidget->SetRenderDirectlyToWindow( bInRenderDirectlyToWindow );
+}
+
+
+void SEditorViewport::EnableStereoRendering( const bool bInEnableStereoRendering )
+{
+	ViewportWidget->EnableStereoRendering( bInEnableStereoRendering );
+}
+
 
 void SEditorViewport::OnToggleStats()
 {
@@ -431,6 +454,12 @@ void SEditorViewport::ToggleShowFlag(uint32 EngineShowFlagIndex)
 {
 	bool bOldState = Client->EngineShowFlags.GetSingleFlag(EngineShowFlagIndex);
 	Client->EngineShowFlags.SetSingleFlag(EngineShowFlagIndex, !bOldState);
+
+	// If changing collision flag, need to do special handling for hidden objects
+	if (EngineShowFlagIndex == FEngineShowFlags::EShowFlag::SF_Collision)
+	{
+		Client->UpdateHiddenCollisionDrawing();
+	}
 
 	// Invalidate clients which aren't real-time so we see the changes
 	Client->Invalidate();

@@ -111,6 +111,9 @@ public:
 		return FVector2D(16.0f,16.0f);
 	}
 
+	/** Sets a new Analyzer for the Description panel */
+	void SetFPSAnalyzer(const TSharedPtr<FFPSAnalyzer>& InAnalyzer);
+
 protected:
 	FHistogramDescription Description;
 };

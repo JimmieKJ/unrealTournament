@@ -16,6 +16,7 @@ class UGameplayAbility;
 class AGameplayAbilityTargetActor;
 class UAbilityTask;
 class UAttributeSet;
+struct FActiveGameplayEffect;
 
 GAMEPLAYABILITIES_API DECLARE_LOG_CATEGORY_EXTERN(LogAbilitySystemComponent, Log, All);
 
@@ -137,6 +138,10 @@ struct GAMEPLAYABILITIES_API FGameplayAbilityActorInfo
 	UPROPERTY(BlueprintReadOnly, Category = "ActorInfo")
 	TWeakObjectPtr<UAbilitySystemComponent>	AbilitySystemComponent;
 
+	/** Skeletal mesh of the avatar actor. Often null */
+	UPROPERTY(BlueprintReadOnly, Category = "ActorInfo")
+	TWeakObjectPtr<USkeletalMeshComponent>	SkeletalMeshComponent;
+
 	/** Anim instance of the avatar actor. Often null */
 	UPROPERTY(BlueprintReadOnly, Category = "ActorInfo")
 	TWeakObjectPtr<UAnimInstance>	AnimInstance;
@@ -144,6 +149,9 @@ struct GAMEPLAYABILITIES_API FGameplayAbilityActorInfo
 	/** Movement component of the avatar actor. Often null */
 	UPROPERTY(BlueprintReadOnly, Category = "ActorInfo")
 	TWeakObjectPtr<UMovementComponent>	MovementComponent;
+
+	/** Accessor to get the current anim instance from the SkeletalMeshComponent */
+	UAnimInstance* GetAnimInstance() const { return (SkeletalMeshComponent.IsValid() ? SkeletalMeshComponent->GetAnimInstance() : nullptr); }
 
 	/** Returns true if this actor is locally controlled. Only true for players on the client that owns them */
 	bool IsLocallyControlled() const;

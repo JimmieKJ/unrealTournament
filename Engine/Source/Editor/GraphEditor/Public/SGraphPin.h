@@ -194,7 +194,7 @@ protected:
 	/** Cached offset from owning node to approximate position of culled pins */
 	FVector2D CachedNodeOffset;
 
-	TSet< TWeakObjectPtr<UEdGraphPin> > HoverPinSet;
+	TSet< FEdGraphPinReference > HoverPinSet;
 
 	/** TRUE if the pin should use the Pin's color for the text */
 	bool bUsePinColorForText;

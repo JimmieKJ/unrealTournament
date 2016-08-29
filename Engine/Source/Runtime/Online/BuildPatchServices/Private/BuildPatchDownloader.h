@@ -109,8 +109,8 @@ private:
 	// The directory to save data to
 	const FString SaveDirectory;
 
-	// The base url for downloads
-	const FString CloudDirectory;
+	// The base urls for downloads
+	const TArray<FString> CloudDirectories;
 
 	// The Manifest that is being installed
 	const FBuildPatchAppManifestRef InstallManifest;
@@ -134,7 +134,16 @@ private:
 	bool bWaitingForJobs;
 
 	// The current overall download success rate
-	double ChunkSuccessRate;
+	float ChunkSuccessRate;
+
+	// Used to help time health states
+	volatile int64 CyclesAtLastHealthState;
+
+	// Timers in seconds for how long we were in each health state
+	TArray<float> HealthStateTimes;
+
+	// The current overall download health, determined by ChunkSuccessRate
+	EBuildPatchDownloadHealth DownloadHealth;
 
 	// A critical section to protect the flags and rate
 	FCriticalSection FlagsLock;
@@ -169,6 +178,12 @@ private:
 	// Counter for tracking number of bytes downloaded per delta
 	FThreadSafeCounter ByteDownloadCount;
 
+	// Counter for tracking how many chunks we did not successfully receive
+	FThreadSafeCounter NumFailedDownloads;
+
+	// Counter for tracking how many chunks we downloaded fine but were determined bad data
+	FThreadSafeCounter NumBadDownloads;
+
 	// Pointer to the build progress tracker
 	FBuildPatchProgress* BuildProgress;
 
@@ -176,12 +191,12 @@ public:
 
 	/**
 	 * Constructor
-	 * @param	SaveDirectory		The chunk save to directory
-	 * @param	CloudDirectory		The base path or url for the downloads
-	 * @param	InstallManifest		The manifest being installed so we can pull info from it
-	 * @param	BuildProgress		Pointer to the progress tracker, for setting progress and getting pause state
+	 * @param SaveDirectory         The chunk save to directory
+	 * @param CloudDirectories      The base paths or urls for the downloads
+	 * @param InstallManifest       The manifest being installed so we can pull info from it
+	 * @param BuildProgress         Pointer to the progress tracker, for setting progress and getting pause state
 	 */
-	FBuildPatchDownloader(const FString& SaveDirectory, const FString& CloudDirectory, const FBuildPatchAppManifestRef& InstallManifest, FBuildPatchProgress* BuildProgress);
+	FBuildPatchDownloader(const FString& SaveDirectory, const TArray<FString>& CloudDirectories, const FBuildPatchAppManifestRef& InstallManifest, FBuildPatchProgress* BuildProgress);
 
 	/**
 	 * Default Destructor, deletes allocated Thread
@@ -200,184 +215,226 @@ public:
 	bool IsComplete();
 
 	/**
-	 * Get whether the thread is idle waiting for chunks to download
-	 * @return	true if the thread completed
+	 * Get whether the thread is idle waiting for chunks to download.
+	 * @return True if the thread completed.
 	 */
 	bool IsIdle();
 
 	/**
-	 * Get whether the thread is currently failing all downloads
-	 * @return	true if the thread is not getting success responses
+	 * Get whether the thread is currently failing all downloads.
+	 * @return True if the thread is not getting success responses.
 	 */
 	bool IsDisconnected();
 
 	/**
-	 * Gets the array of download recordings. Should not be polled, only call when the thread has finished to gather data
-	 * @return	An array of download records
+	 * Gets the array of download recordings. Should not be polled, only call when the thread has finished to gather data.
+	 * @return An array of download records.
 	 */
 	TArray< FBuildPatchDownloadRecord > GetDownloadRecordings();
 
 	/**
-	 * Adds a chunk GUID to the download list
-	 * @param Guid				The GUID for the data
-	 * @param bInsertAtFront	If this should be queued at the front
+	 * Adds a chunk GUID to the download list.
+	 * @param Guid                  The GUID for the data.
+	 * @param bInsertAtFront        If this should be queued at the front.
 	 */
 	void AddChunkToDownload( const FGuid& Guid, const bool bInsertAtFront = false );
 
 	/**
-	 * Adds an array of chunk GUIDs to the download list
-	 * @param Guid				The GUID array for the data
-	 * @param bInsertAtFront	If this should be queued at the front
+	 * Adds an array of chunk GUIDs to the download list.
+	 * @param Guid                  The GUID array for the data.
+	 * @param bInsertAtFront        If this should be queued at the front.
 	 */
 	void AddChunksToDownload( const TArray< FGuid >& Guids, const bool bInsertAtFront = false );
 
 	/**
-	 * Clear out the download list
+	 * Clear out the download list.
 	 */
 	void ClearDownloadJobs();
 
 	/**
-	 * A notification for when there is no possibility of more jobs to be queued (so the thread can end)
+	 * A notification for when there is no possibility of more jobs to be queued (so the thread can end).
 	 */
 	void NotifyNoMoreChunksToAdd();
 
 	/**
-	 * Get how many chunks are in the list
-	 * @return The number of chunks in the list
+	 * Get how many chunks are in the list.
+	 * @return The number of chunks in the list.
 	 */
 	int32 GetNumChunksLeft();
 
 	/**
 	 * Get the number of bytes left to download.
-	 * @return The number of byte left to download
+	 * @return The number of byte left to download.
 	 */
 	int64 GetNumBytesLeft();
 
 	/**
-	 * Get the number of bytes that have been queued
-	 * @return The total number of bytes queued
+	 * Get the number of bytes that have been queued.
+	 * @return The total number of bytes queued.
 	 */
 	int64 GetNumBytesQueued();
 
 	/**
-	 * Get how many bytes have been downloaded, resetting the counter
-	 * @return The number of bytes downloaded since the last call
+	 * Get how many bytes have been downloaded, resetting the counter.
+	 * @return The number of bytes downloaded since the last call.
 	 */
 	int32 GetByteDownloadCountReset();
 
 	/**
-	 * @return The currently reported download health
+	 * Get the success rate of chunk downloads in range of 0 to 1.
+	 * @return The current success rate.
+	 */
+	float GetDownloadSuccessRate();
+
+	/**
+	 * Get the current download health based on configured percentage bars of success rate.
+	 * @return The currently reported download health.
 	 */
 	EBuildPatchDownloadHealth GetDownloadHealth();
 
 	/**
-	 * Add some bytes to the download counter
-	 * @param	NumBytes The number of bytes to add
+	 * Get an array indexable by EBuildPatchDownloadHealth providing the time spent in each health state.
+	 * @return The health timers.
 	 */
-	void IncrementByteDownloadCount( const int32& NumBytes );
+	TArray<float> GetDownloadHealthTimers();
+
+	/**
+	 * Get how many chunks we did not successfully receive.
+	 * @return The number of failed chunks.
+	 */
+	int32 GetNumFailedDownloads();
+
+	/**
+	 * Get how many chunks we downloaded fine but were determined bad data.
+	 * @return The number of bad chunks.
+	 */
+	int32 GetNumBadDownloads();
 
 private:
 
 	/**
-	 * @return	The desired number of retries per request, from config or default
+	 * Load from configuration, the number of time to retry each request before failing. Negative indicates always retry.
+	 * @return The desired number of retries per request, from config or default.
 	 */
 	int32 LoadRetryCount() const;
 
 	/**
-	 * @return	The desired retry times, from config or default
+	 * Load from configuration, the set of times to wait in between each retry up to the maximum delay.
+	 * @return The desired retry times, from config or default.
 	 */
 	TArray<float> LoadRetryTimes() const;
 
 	/**
-	 * @return	The amount of time with no data received to consider a disconnected state
+	 * Load from configuration, the disconnection delay time.
+	 * @return The amount of time with no data received to consider a disconnected state.
 	 */
 	float LoadDisconnectDelay() const;
 
 	/**
-	 * @return	The percentages used to determine the health status
+	 * Load from configuration, the percentages of success rate that determine the download health status.
+	 * @return The percentages used to determine the health status.
 	 */
 	TArray<float> LoadHealthPercentages() const;
 
 	/**
-	 * Sets the bIsRunning flag
-	 * @param bRunning	Whether the thread is running
+	 * Get the desired cloud directory given the retry number that a chunk is on.
+	 * @param RetryNum              The zero based retry number for the chunk to be downloaded.
+	 * @return The base url to use for the download.
+	 */
+	const FString& GetCloudDirectory(int32 RetryNum) const;
+
+	/**
+	 * Sets the bIsRunning flag.
+	 * @param bRunning              Whether the thread is running.
 	 */
 	void SetRunning( bool bRunning );
 
 	/**
-	 * Sets the bIsInited flag
-	 * @param bInited	Whether the thread successfully initialized
+	 * Sets the bIsInited flag.
+	 * @param bInited               Whether the thread successfully initialized.
 	 */
 	void SetInited( bool bInited );
 
 	/**
-	 * Sets the bIsIdle flag
-	 * @param bIdle	Whether the thread is waiting for jobs
+	 * Sets the bIsIdle flag.
+	 * @param bIdle                 Whether the thread is waiting for jobs.
 	 */
 	void SetIdle( bool bIdle );
 
 	/**
-	 * Sets the bIsDisconnected flag
-	 * @param bIsDisconnected	Whether the thread is stalling on all requests
+	 * Sets the bIsDisconnected flag.
+	 * @param bIsDisconnected       Whether the thread is stalling on all requests.
 	 */
 	void SetIsDisconnected(bool bIsDisconnected);
 
 	/**
-	 * Sets the current request success rate
-	 * @param SuccessRate	The rate of success from 0.0f to 1.0f
+	 * Sets the current request success rate.
+	 * @param SuccessRate           The rate of success from 0.0f to 1.0f.
 	 */
-	void SetSuccessRate(double SuccessRate);
+	void SetSuccessRate(float SuccessRate);
 
 	/**
-	 * Gets whether the thread still has work to do
-	 * @return	false if the thread can quit
+	 * Update download health based on success rate and whether disconnected
+	 * @param bFlushTimer           Whether to flush the current timer to the current state
+	 */
+	void UpdateDownloadHealth(bool bFlushTimer = false);
+
+	/**
+	 * Add some bytes to the download counter.
+	 * @param NumBytes              The number of bytes to add.
+	 */
+	void IncrementByteDownloadCount( const int32& NumBytes );
+
+	/**
+	 * Gets whether the thread still has work to do.
+	 * @return False if the thread can quit.
 	 */
 	bool ShouldBeRunning();
 
 	/**
 	 * Receives the HTTP request bytes downloaded when downloading a chunk.
-	 * @param Request               The request that was made
-	 * @param BytesSentSoFar        The total number of bytes sent so far
-	 * @param BytesReceivedSoFar    The total number of bytes downloaded so far
+	 * @param Request               The request that was made.
+	 * @param BytesSentSoFar        The total number of bytes sent so far.
+	 * @param BytesReceivedSoFar    The total number of bytes downloaded so far.
 	 */
 	void HttpRequestProgress( FHttpRequestPtr Request, int32 BytesSent, int32 BytesReceived );
 
 	/**
 	 * Receives the HTTP response when downloading a chunk.
-	 * @param Request		The request that was made
-	 * @param Response		The request's response
-	 * @param bSucceeded	Whether the request successfully completed
+	 * @param Request               The request that was made.
+	 * @param Response              The request's response.
+	 * @param bSucceeded            Whether the request successfully completed.
 	 */
 	void HttpRequestComplete( FHttpRequestPtr Request, FHttpResponsePtr Response, bool bSucceeded );
 
 	/**
 	 * Progress update for download of a chunk, from HTTP or Network/HDD.
-	 * @param Guid			The guid for the data
-	 * @param BytesSoFar	The number of bytes downloaded so far
+	 * @param Guid                  The guid for the data.
+	 * @param BytesSoFar            The number of bytes downloaded so far.
 	 */
 	void OnDownloadProgress( const FGuid& Guid, const int32& BytesSoFar );
 
 	/**
 	 * Completes a download of a chunk, from HTTP or Network/HDD.
-	 * @param Guid			The guid for the data
-	 * @param DownloadUrl	The url used to download the data
-	 * @param DataArray		The array of bytes for the data
-	 * @param bSucceeded	Whether the download was successful
-	 * @param ResponseCode	The HTTP response code
+	 * @param Guid                  The guid for the data.
+	 * @param DownloadUrl           The url used to download the data.
+	 * @param DataArray             The array of bytes for the data.
+	 * @param bSucceeded            Whether the download was successful.
+	 * @param ResponseCode          The HTTP response code.
 	 */
 	void OnDownloadComplete( const FGuid& Guid, const FString& DownloadUrl, const TArray< uint8 >& DataArray, bool bSucceeded, int32 ResponseCode );
 
 	/**
-	 * Get the next GUID to download data with
-	 * @param Guid		Receives the download data GUID
-	 * @return true if there was a job in the list
+	 * Get the next GUID to download data with.
+	 * @param Guid                  Receives the download data GUID.
+	 * @return True if there was a job in the list.
 	 */
 	bool GetNextDownload( FGuid& Guid );
 
 	/**
 	 * Get the required retry delay for a chunk retry.
-	 * @param RetryCount	The retry number
-	 * @return	The required retry delay in seconds
+	 * @param RetryCount            The retry number.
+	 * @return The required retry delay in seconds.
 	 */
 	float GetRetryDelay(int32 RetryCount);
 
@@ -387,16 +444,16 @@ public:
 
 	/**
 	 * Creates the singleton downloader system. Takes the arguments required for construction.
-	 * @param	SaveDirectory		The chunk save to directory
-	 * @param	CloudDirectory		The base path or url for the downloads
-	 * @param	InstallManifest		The manifest being installed so we can pull info from it
-	 * @param	BuildProgress		Pointer to the progress tracker, for setting progress and getting pause state
+	 * @param SaveDirectory         The chunk save to directory.
+	 * @param CloudDirectories      The base paths or urls for the downloads.
+	 * @param InstallManifest       The manifest being installed so we can pull info from it.
+	 * @param BuildProgress         Pointer to the progress tracker, for setting progress and getting pause state.
 	 */
-	static void Create(const FString& SaveDirectory, const FString& CloudDirectory, const FBuildPatchAppManifestRef& InstallManifest, FBuildPatchProgress* BuildProgress);
+	static void Create(const FString& SaveDirectory, const TArray<FString>& CloudDirectories, const FBuildPatchAppManifestRef& InstallManifest, FBuildPatchProgress* BuildProgress);
 
 	/**
 	 * Get the singleton class object. Must only be called between Create and Shutdown calls otherwise the code will assert.
-	 * @return		reference the the downloader system
+	 * @return Reference the the downloader system.
 	 */
 	static FBuildPatchDownloader& Get();
 
@@ -407,6 +464,6 @@ public:
 
 private:
 
-	// The threadsafe shared pointer holding the singleton download system
+	// The threadsafe shared pointer holding the singleton download system.
 	static TSharedPtr< FBuildPatchDownloader, ESPMode::ThreadSafe > SingletonInstance;
 };

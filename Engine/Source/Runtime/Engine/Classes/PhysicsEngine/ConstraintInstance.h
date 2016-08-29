@@ -1,6 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
-
+#include "ConstraintTypes.h"
+#include "ConstraintDrives.h"
 #include "ConstraintInstance.generated.h"
 
 #if WITH_PHYSX
@@ -12,42 +13,86 @@ namespace physx
 }
 #endif // WITH_PHYSX
 
-// LINEAR DOF
-UENUM()
-enum ELinearConstraintMotion
-{
-	/** No constraint against this axis. */ 
-	LCM_Free	UMETA(DisplayName="Free"),
-	/** Limited freedom along this axis. */ 
-	LCM_Limited UMETA(DisplayName="Limited"),
-	/** Fully constraint against this axis. */
-	LCM_Locked UMETA(DisplayName="Locked"),
+class FMaterialRenderProxy;
+class FPrimitiveDrawInterface;
+class FMaterialRenderProxy;
 
-	LCM_MAX,
+DECLARE_DELEGATE_OneParam(FOnConstraintBroken, int32 /*ConstraintIndex*/);
+
+/** Container for properties of a physics constraint that can be easily swapped at runtime. This is useful for switching different setups when going from ragdoll to standup for example */
+USTRUCT()
+struct ENGINE_API FConstraintProfileProperties
+{
+	GENERATED_USTRUCT_BODY()
+
+	/** Linear tolerance value in world units. If the distance error exceeds this tolerence limit, the body will be projected. */
+	UPROPERTY(EditAnywhere, Category = Projection, meta = (editcondition = "bEnableProjection", ClampMin = "0.0"))
+	float ProjectionLinearTolerance;
+
+	/** Angular tolerance value in world units. If the distance error exceeds this tolerence limit, the body will be projected. */
+	UPROPERTY(EditAnywhere, Category = Projection, meta = (editcondition = "bEnableProjection", ClampMin = "0.0"))
+	float ProjectionAngularTolerance;
+
+	/** Force needed to break the distance constraint. */
+	UPROPERTY(EditAnywhere, AdvancedDisplay, Category = Linear, meta = (ClampMin = "0.0"))
+	float LinearBreakThreshold;
+
+	/** Torque needed to break the joint. */
+	UPROPERTY(EditAnywhere, AdvancedDisplay, Category = Angular, meta = (editcondition = "bAngularBreakable", ClampMin = "0.0"))
+	float AngularBreakThreshold;
+
+	UPROPERTY(EditAnywhere, Category = Linear)
+	FLinearConstraint LinearLimit;
+
+	UPROPERTY(EditAnywhere, Category = Angular)
+	FConeConstraint ConeLimit;
+
+	UPROPERTY(EditAnywhere, Category = Angular)
+	FTwistConstraint TwistLimit;
+
+	UPROPERTY(EditAnywhere, Category = Linear)
+	FLinearDriveConstraint LinearDrive;
+
+	UPROPERTY(EditAnywhere, Category = Angular)
+	FAngularDriveConstraint AngularDrive;
+
+	// Disable collision between bodies joined by this constraint.
+	UPROPERTY(EditAnywhere, Category = Constraint)
+	uint8 bDisableCollision : 1;
+
+	/**
+	* If distance error between bodies exceeds 0.1 units, or rotation error exceeds 10 degrees, body will be projected to fix this.
+	* For example a chain spinning too fast will have its elements appear detached due to velocity, this will project all bodies so they still appear attached to each other.
+	*/
+	UPROPERTY(EditAnywhere, Category = Projection)
+	uint8 bEnableProjection : 1;
+
+	/** Whether it is possible to break the joint with angular force. */
+	UPROPERTY(EditAnywhere, AdvancedDisplay, Category = Angular)
+	uint8 bAngularBreakable : 1;
+
+	/** Whether it is possible to break the joint with linear force. */
+	UPROPERTY(EditAnywhere, AdvancedDisplay, Category = Linear)
+	uint8 bLinearBreakable : 1;
+
+	FConstraintProfileProperties();
+
+#if WITH_PHYSX
+
+	/** Updates physx joint properties from unreal properties (limits, drives, flags, etc...) */
+	void UpdatePhysX_AssumesLocked(physx::PxD6Joint* Joint, float AverageMass, float UseScale) const;
+
+	/** Updates physx drive target */
+	void UpdatePhysXDriveTarget_AssumesLocked(physx::PxD6Joint* Joint) const;
+
+	/** Updates physx joint breakable properties (threshold, etc...)*/
+	void UpdatePhysXBreakable_AssumesLocked(physx::PxD6Joint* Joint) const;
+
+	/** Updates physx joint flag based on profile properties */
+	void UpdatePhysXConstraintFlags_AssumesLocked(physx::PxD6Joint* Joint) const;
+#endif
 };
 
-/** Enum to indicate which frame we want. */
-UENUM()
-namespace EConstraintFrame
-{
-	enum Type
-	{
-		Frame1,
-		Frame2
-	};
-}
-
-UENUM()
-namespace EAngularDriveMode
-{
-	enum Type
-	{
-		/** Follows the shortest arc between a pair of anuglar configurations (Ignored if any angular limits/locks are used). */
-		SLERP,
-		/** Path is decomposed into twist and swing. Doesn't follow shortest arc and may have gimbal lock. (Works with angular limits/locks.) */
-		TwistAndSwing
-	};
-}
 
 /** Container for a physics representation of an object. */
 USTRUCT()
@@ -55,16 +100,8 @@ struct ENGINE_API FConstraintInstance
 {
 	GENERATED_USTRUCT_BODY()
 
-	///////////////////////////// INSTANCE DATA
-
-	/**
-	 *	Indicates position of this constraint within the array in SkeletalMeshComponent
-	 */
+	/** Indicates position of this constraint within the array in SkeletalMeshComponent. */
 	int32 ConstraintIndex;
-
-	/** The component that created this instance. */
-	UPROPERTY()
-	USceneComponent* OwnerComponent;
 
 #if WITH_PHYSX
 	/** Internal use. Physics-engine representation of this constraint. */
@@ -122,335 +159,202 @@ struct ENGINE_API FConstraintInstance
 	UPROPERTY()
 	FVector SecAxis2;
 
-	// Disable collision between bodies joined by this constraint.
-	UPROPERTY(EditAnywhere, Category=Constraint)
-	uint32 bDisableCollision:1;
-
-	/** 
-	 * If distance error between bodies exceeds 0.1 units, or rotation error exceeds 10 degrees, body will be projected to fix this.
-	 * For example a chain spinning too fast will have its elements appear detached due to velocity, this will project all bodies so they still appear attached to each other. 
-	 */
-	UPROPERTY(EditAnywhere, Category=Projection)
-	uint32 bEnableProjection:1;
-
-	/** Linear tolerance value in world units. If the distance error exceeds this tolarance limit, the body will be projected. */
-	UPROPERTY(EditAnywhere, Category=Projection, meta=(editcondition = "bEnableProjection", ClampMin = "0.0"))
-	float ProjectionLinearTolerance;
-
-	/** Angular tolerance value in world units. If the distance error exceeds this tolarance limit, the body will be projected. */
-	UPROPERTY(EditAnywhere, Category=Projection, meta=(editcondition = "bEnableProjection", ClampMin = "0.0"))
-	float ProjectionAngularTolerance;
-
-	/** Indicates whether linear motion along the x axis is allowed, blocked or limited. If limited, the LinearLimit property will be used
-		to determine if a motion is allowed. See ELinearConstraintMotion. */
-	UPROPERTY(EditAnywhere, Category=Linear)
-	TEnumAsByte<enum ELinearConstraintMotion> LinearXMotion;
-
-	/** Indicates whether linear motion along the y axis is allowed, blocked or limited. If limited, the LinearLimit property will be used
-		to determine if a motion is allowed. See ELinearConstraintMotion. */
-	UPROPERTY(EditAnywhere, Category=Linear)
-	TEnumAsByte<enum ELinearConstraintMotion> LinearYMotion;
-
-	/** Indicates whether linear motion along the z axis is allowed, blocked or limited. If limited, the LinearLimit property will be used
-		to determine if a motion is allowed. See ELinearConstraintMotion. */
-	UPROPERTY(EditAnywhere, Category=Linear)
-	TEnumAsByte<enum ELinearConstraintMotion> LinearZMotion;
-
-	/** The limiting extent in world units of the linear motion for limited motion axes. */
-	UPROPERTY(EditAnywhere, Category=Linear, meta=(ClampMin = "0.0"))
-	float LinearLimitSize;
-
-	/** Whether we want to use soft limits instead of hard limits. With enabled soft limit, a constraint is used 
-		instead of hard-capping the motion. */
-	UPROPERTY(EditAnywhere, AdvancedDisplay, Category=Linear)
-	uint32 bLinearLimitSoft:1;
-
-	/** Stiffness of the linear soft limit constraint. Only used, when bLinearLimitSoft is true. */
-	UPROPERTY(EditAnywhere, AdvancedDisplay, Category=Linear, meta=(editcondition = "bLinearLimitSoft", ClampMin = "0.0"))
-	float LinearLimitStiffness;
-	
-	/** Damping of the linear soft limit constraint. Only used, when bLinearLimitSoft is true. */
-	UPROPERTY(EditAnywhere, AdvancedDisplay, Category=Linear, meta=(editcondition = "bLinearLimitSoft", ClampMin = "0.0"))
-	float LinearLimitDamping;
-
-	/** Defines whether the joint is breakable or not. */
-	UPROPERTY(EditAnywhere, AdvancedDisplay, Category=Linear)
-	uint32 bLinearBreakable:1;
-
-	/** Force needed to break the joint. */
-	UPROPERTY(EditAnywhere, AdvancedDisplay, Category=Linear, meta=(editcondition = "bLinearBreakable", ClampMin = "0.0"))
-	float LinearBreakThreshold;
-
-	/** Indicates whether rotation about the Z axis is allowed, blocked, or limited. If limited, the 
-		AngularLimit property will be used to determine the range of motion. See EAngularConstraintMotion. */
-	UPROPERTY(EditAnywhere, Category=Angular)
-	TEnumAsByte<enum EAngularConstraintMotion> AngularSwing1Motion;
-		
-	/** Indicates whether rotation about the the X axis is allowed, blocked, or limited. If limited, the
-		AngularLimit property will be used to determine the range of motion. See EAngularConstraintMotion. */
-	UPROPERTY(EditAnywhere, Category=Angular)
-	TEnumAsByte<enum EAngularConstraintMotion> AngularTwistMotion;
-
-	/** Indicates whether rotation about the Y axis is allowed, blocked, or limited. If limited, the
-		AngularLimit property will be used to determine the range of motion. See EAngularConstraintMotion. */
-	UPROPERTY(EditAnywhere, Category = Angular)
-	TEnumAsByte<enum EAngularConstraintMotion> AngularSwing2Motion;
-
-
-	/** Whether we want to use soft limits for swing motions instead of hard limits. With enabled 
-		soft limit, a constraint is used instead of hard-capping the motion. */
-	UPROPERTY(EditAnywhere, AdvancedDisplay, Category=Angular)
-	uint32 bSwingLimitSoft:1;
-
-	/** Whether we want to use soft limits for twist motions instead of hard limits. With enabled 
-		soft limit, a constraint is used instead of hard-capping the motion. */
-	UPROPERTY(EditAnywhere, AdvancedDisplay, Category=Angular)
-	uint32 bTwistLimitSoft:1;
-
-	/** Used if swing motion along the y axis is limited. The limit angle is specified in degrees and should be
-		between 0 and 180. */
-	UPROPERTY(EditAnywhere, Category=Angular, meta=(ClampMin = "0.0", ClampMax = "180.0"))
-	float Swing1LimitAngle;
-	
-	/** Used if twist motion along the x axis is limited. The limit angle is specified in degrees and should be
-		between 0 and 180. */
-	UPROPERTY(EditAnywhere, Category=Angular, meta=(ClampMin = "0.0", ClampMax = "180.0"))
-	float TwistLimitAngle;
-
-	/** Used if swing motion along the z axis is limited. The limit angle is specified in degrees and should be
-	between 0 and 180. */
-	UPROPERTY(EditAnywhere, Category = Angular, meta = (ClampMin = "0.0", ClampMax = "180.0"))
-	float Swing2LimitAngle;
-
-	/** Stiffness of the swing limit constraint if soft limit is used for swing motions. */
-	UPROPERTY(EditAnywhere, AdvancedDisplay, Category=Angular, meta=(editcondition = "bSwingLimitSoft", ClampMin = "0.0"))
-	float SwingLimitStiffness;
-
-	/** Damping of the swing limit constraint if soft limit is used for swing motions. */
-	UPROPERTY(EditAnywhere, AdvancedDisplay, Category=Angular, meta=(editcondition = "bSwingLimitSoft", ClampMin = "0.0"))
-	float SwingLimitDamping;
-
-	/** Stiffness of the twist limit constraint if soft limit is used for twist motions. */
-	UPROPERTY(EditAnywhere, AdvancedDisplay, Category=Angular, meta=(editcondition = "bTwistLimitSoft", ClampMin = "0.0"))
-	float TwistLimitStiffness;
-
-	/** Damping of the twist limit constraint if soft limit is used for twist motions. */
-	UPROPERTY(EditAnywhere, AdvancedDisplay, Category=Angular, meta=(editcondition = "bTwistLimitSoft", ClampMin = "0.0"))
-	float TwistLimitDamping;
-
 	/** Specifies the angular offset between the two frames of reference. By default limit goes from (-Angle, +Angle)
-	  * This allows you to bias the limit for swing1 swing2 and twist. */
+	* This allows you to bias the limit for swing1 swing2 and twist. */
 	UPROPERTY(EditAnywhere, Category = Angular)
 	FRotator AngularRotationOffset;
-	
-	/** Whether it is possible to break the joint with angular force. */
-	UPROPERTY(EditAnywhere, AdvancedDisplay, Category=Angular)
-	uint32 bAngularBreakable:1;
-
-	/** Angular force needed to break the joint. */
-	UPROPERTY(EditAnywhere, AdvancedDisplay, Category=Angular, meta=(editcondition = "bAngularBreakable", ClampMin = "0.0"))
-	float AngularBreakThreshold;
 
 	/** If true, linear limits scale using the absolute min of the 3d scale of the owning component */
 	UPROPERTY(EditAnywhere, Category = Linear)
 	uint32 bScaleLinearLimits : 1;
 
-private:
-
-	/** Enables/Disables linear position drive along the x axis. */
-	UPROPERTY(EditAnywhere, Category=LinearMotor)
-	uint32 bLinearXPositionDrive:1;
-
-	/** Enables/Disables linear velocity drive along the x axis. */
-	UPROPERTY(EditAnywhere, Category=LinearMotor)
-	uint32 bLinearXVelocityDrive:1;
-
-	/** Enables/Disables linear position drive along the y axis. */
-	UPROPERTY(EditAnywhere, Category=LinearMotor)
-	uint32 bLinearYPositionDrive:1;
-
-	/** Enables/Disables linear velocity drive along the y axis. */
-	UPROPERTY(EditAnywhere, Category=LinearMotor)
-	uint32 bLinearYVelocityDrive:1;
-
-	/** Enables/Disables linear position drive along the z axis. */
-	UPROPERTY(EditAnywhere, Category=LinearMotor)
-	uint32 bLinearZPositionDrive:1;
-
-	/** Enables/Disables linear velocity drive along the z axis. */
-	UPROPERTY(EditAnywhere, Category=LinearMotor)
-	uint32 bLinearZVelocityDrive:1;
-
-public:
-
-	/** Enables/Disables linear position drive. */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=LinearMotor)
-	uint32 bLinearPositionDrive:1;
-	
-	/** Enables/Disables linear velocity drive. */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = LinearMotor)
-	uint32 bLinearVelocityDrive:1;
-
-	/** Target position the linear drive. Only the components that are enabled are used. */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=LinearMotor, meta=(editcondition="bLinearPositionDrive"))
-	FVector LinearPositionTarget;
-
-	/** Target velocity the linear drive. */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = LinearMotor, meta = (editcondition = "bLinearVelocityDrive"))
-	FVector LinearVelocityTarget;
-
-	/** Spring to apply to the for linear drive. */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = LinearMotor, meta = (DisplayName = "Linear Position Strength"))
-	float LinearDriveSpring;
-
-	/** Damping to apply to the for linear drive. */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = LinearMotor, meta = (DisplayName = "Linear Velocity Strength"))
-	float LinearDriveDamping;
-
-	/** Limit to the force the linear drive can apply. */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=LinearMotor, meta = (DisplayName = "Max Linear Force"))
-	float LinearDriveForceLimit;
-
-	UPROPERTY()
-	uint32 bSwingPositionDrive_DEPRECATED:1;
-
-	UPROPERTY()
-	uint32 bSwingVelocityDrive_DEPRECATED:1;
-
-	UPROPERTY()
-	uint32 bTwistPositionDrive_DEPRECATED:1;
-
-	UPROPERTY()
-	uint32 bTwistVelocityDrive_DEPRECATED:1;
-
-	UPROPERTY()
-	uint32 bAngularSlerpDrive_DEPRECATED:1;
-
-	/** Enables the angular drive towards a target orientation. */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=AngularMotor)
-	uint32 bAngularOrientationDrive:1;
-
-private:
-	/** Enables the swing drive. Only relevant when in twist and swing mode */
-	UPROPERTY()
-	uint32 bEnableSwingDrive: 1;
-
-	/** Enables the swing drive. Only relevant when in twist and swing mode */
-	UPROPERTY()
-	uint32 bEnableTwistDrive : 1;
-
-public:
-	
-	/** Enables the angular drive towards a target velocity. */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=AngularMotor)
-	uint32 bAngularVelocityDrive:1;
-
-	UPROPERTY()
-	FQuat AngularPositionTarget_DEPRECATED;
-	
-	/** The way rotation paths are estimated */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = AngularMotor)
-	TEnumAsByte<enum EAngularDriveMode::Type> AngularDriveMode;
-
-	/** Target orientation for the angular drive. */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=AngularMotor)
-	FRotator AngularOrientationTarget;
-
-	/** Target velocity for the angular drive. */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=AngularMotor)
-	FVector AngularVelocityTarget;    // Revolutions per second
-
-	/** Spring value to apply to the for angular drive. */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = AngularMotor, meta = (DisplayName = "Angular Position Strength", editcondition = "bAngularOrientationDrive"))
-	float AngularDriveSpring;
-
-	/** Damping value to apply to the for angular drive. */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = AngularMotor, meta = (DisplayName = "Angular Velocity Strength", editcondition = "bAngularVelocityDrive"))
-	float AngularDriveDamping;
-
-	/** Limit to the force the angular drive can apply. */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = AngularMotor, meta = (DisplayName = "Max Angular Force"))
-	float AngularDriveForceLimit;
-
 	float AverageMass;
+
+	//Constraint Data (properties easily swapped at runtime based on different constraint profiles)
+	UPROPERTY(EditAnywhere, Category = Constraint)
+	FConstraintProfileProperties ProfileInstance;
+
+public:
+	/** Copies behavior properties from the given profile. Automatically updates the physx representation if it's been created */
+	void CopyProfilePropertiesFrom(const FConstraintProfileProperties& FromProperties);
+
+#if WITH_PHYSX
+	FPhysxUserData PhysxUserData;
+#endif
 
 private:
 	/** The component scale passed in during initialization*/
 	float LastKnownScale;
 
 public:
-	/** Sets the LinearX Motion Type
-	*	@param MotionType	New Motion Type
-	*/
-	void SetLinearXLimit(ELinearConstraintMotion ConstraintType, float InLinearLimitSize);
-
-	/** Sets the LinearY Motion Type
-	*	@param MotionType	New Motion Type
-	*/
-	void SetLinearYLimit(ELinearConstraintMotion ConstraintType, float InLinearLimitSize);
-
-	/** Sets the LinearZ Motion Type
-	*	@param MotionType	New Motion Type
-	*/
-	void SetLinearZLimit(ELinearConstraintMotion ConstraintType, float InLinearLimitSize);
-
-	/** Sets the Angular Swing1 Motion Type
-	*	@param MotionType	New Motion Type
-	*/
-	void SetAngularSwing1Limit(EAngularConstraintMotion MotionType, float InSwing1LimitAngle);
-
-	/** Sets the Angular Swing2 Motion Type
-	*	@param MotionType	New Motion Type
-	*/
-	void SetAngularSwing2Limit(EAngularConstraintMotion MotionType, float InSwing2LimitAngle);
-
-	/** Sets the Angular Twist Motion Type
-	*	@param MotionType	New Motion Type
-	*/
-	void SetAngularTwistLimit(EAngularConstraintMotion MotionType, float InTwistLimitAngle);
-
-#if WITH_PHYSX
-	FPhysxUserData PhysxUserData;
-#endif
-
-
-public:
-
 
 	/** Constructor **/
 	FConstraintInstance();
 
-	/** Create physics engine constraint. */
-	void InitConstraint(USceneComponent* Owner, FBodyInstance* Body1, FBodyInstance* Body2, float Scale);
+	/** Gets the linear limit size */
+	float GetLinearLimit() const
+	{
+		return ProfileInstance.LinearLimit.Limit;
+	}
 
-	/** Terminate physics engine constraint */
-	void TermConstraint();
+	/** Gets the motion type for the linear X-axis limit. */
+	ELinearConstraintMotion GetLinearXMotion() const
+	{
+		return ProfileInstance.LinearLimit.XMotion;
+	}
 
-	bool IsTerminated() const;
+	/** Sets the Linear XMotion type */
+	void SetLinearXMotion(ELinearConstraintMotion ConstraintType)
+	{
+		ProfileInstance.LinearLimit.XMotion = ConstraintType;
+		UpdateLinearLimit();
+	}
 
-	/** See if this constraint is valid. */
-	bool IsValidConstraintInstance() const;
+	/** Sets the LinearX Motion Type and the limit distance (Note distance is the same for all 3 axes) */
+	void SetLinearXLimit(ELinearConstraintMotion ConstraintType, float InLinearLimitSize)
+	{
+		ProfileInstance.LinearLimit.XMotion = ConstraintType;
+		ProfileInstance.LinearLimit.Limit = InLinearLimitSize;
+		UpdateLinearLimit();
+	}
 
-	// Pass in reference frame in. If the constraint is currently active, this will set its active local pose. Otherwise the change will take affect in InitConstraint. 
-	void SetRefFrame(EConstraintFrame::Type Frame, const FTransform& RefFrame);
+	/** Gets the motion type for the linear Y-axis limit. */
+	ELinearConstraintMotion GetLinearYMotion() const
+	{
+		return ProfileInstance.LinearLimit.YMotion;
+	}
 
-	// Pass in reference position in (maintains reference orientation). If the constraint is currently active, this will set its active local pose. Otherwise the change will take affect in InitConstraint.
-	void SetRefPosition(EConstraintFrame::Type Frame, const FVector& RefPosition);
-	
-	// Pass in reference orientation in (maintains reference position). If the constraint is currently active, this will set its active local pose. Otherwise the change will take affect in InitConstraint.
-	void SetRefOrientation(EConstraintFrame::Type Frame, const FVector& PriAxis, const FVector& SecAxis);
-	
-	// The current twist of the constraint
-	float GetCurrentTwist() const;
+	/** Sets the Linear YMotion type */
+	void SetLinearYMotion(ELinearConstraintMotion ConstraintType)
+	{
+		ProfileInstance.LinearLimit.YMotion = ConstraintType;
+		UpdateLinearLimit();
+	}
+
+	/** Sets the LinearY Motion Type and the limit distance (Note distance is the same for all 3 axes) */
+	void SetLinearYLimit(ELinearConstraintMotion ConstraintType, float InLinearLimitSize)
+	{
+		ProfileInstance.LinearLimit.YMotion = ConstraintType;
+		ProfileInstance.LinearLimit.Limit = InLinearLimitSize;
+		UpdateLinearLimit();
+	}
+
+	/** Gets the motion type for the linear Z-axis limit. */
+	ELinearConstraintMotion GetLinearZMotion() const
+	{
+		return ProfileInstance.LinearLimit.ZMotion;
+	}
+
+	/** Sets the Linear ZMotion type */
+	void SetLinearZMotion(ELinearConstraintMotion ConstraintType)
+	{
+		ProfileInstance.LinearLimit.ZMotion = ConstraintType;
+		UpdateLinearLimit();
+	}
+
+	/** Sets the LinearZ Motion Type and the limit distance (Note distance is the same for all 3 axes) */
+	void SetLinearZLimit(ELinearConstraintMotion ConstraintType, float InLinearLimitSize)
+	{
+		ProfileInstance.LinearLimit.ZMotion = ConstraintType;
+		ProfileInstance.LinearLimit.Limit = InLinearLimitSize;
+		UpdateLinearLimit();
+	}
+
+	/** Gets the motion type for the swing1 of the cone constraint */
+	EAngularConstraintMotion GetAngularSwing1Motion() const
+	{
+		return ProfileInstance.ConeLimit.Swing1Motion;
+	}
+
+	/** Sets the cone limit's swing1 motion type */
+	void SetAngularSwing1Motion(EAngularConstraintMotion MotionType)
+	{
+		ProfileInstance.ConeLimit.Swing1Motion = MotionType;
+		UpdateAngularLimit();
+	}
 
 	// The current swing1 of the constraint
 	float GetCurrentSwing1() const;
 
+	/** Gets the cone limit swing1 angle in degrees */
+	float GetAngularSwing1Limit() const
+	{
+		return ProfileInstance.ConeLimit.Swing1LimitDegrees;
+	}
+
+	/** Sets the Angular Swing1 Motion Type
+	*	@param MotionType	New Motion Type
+	*/
+	void SetAngularSwing1Limit(EAngularConstraintMotion MotionType, float InSwing1LimitAngle)
+	{
+		ProfileInstance.ConeLimit.Swing1Motion = MotionType;
+		ProfileInstance.ConeLimit.Swing1LimitDegrees = InSwing1LimitAngle;
+		UpdateAngularLimit();
+	}
+	
+	/** Gets the motion type for the swing2 of the cone constraint */
+	EAngularConstraintMotion GetAngularSwing2Motion() const
+	{
+		return ProfileInstance.ConeLimit.Swing2Motion;
+	}
+
+	/** Sets the cone limit's swing2 motion type */
+	void SetAngularSwing2Motion(EAngularConstraintMotion MotionType)
+	{
+		ProfileInstance.ConeLimit.Swing2Motion = MotionType;
+		UpdateAngularLimit();
+	}
+
 	// The current swing2 of the constraint
 	float GetCurrentSwing2() const;
 
-	// Get component ref frame
-	FTransform GetRefFrame(EConstraintFrame::Type Frame) const;
+	/** Gets the cone limit swing2 angle in degrees */
+	float GetAngularSwing2Limit() const
+	{
+		return ProfileInstance.ConeLimit.Swing2LimitDegrees;
+	}
+
+	/** Sets the Angular Swing2 Motion Type
+	*	@param MotionType	New Motion Type
+	*/
+	void SetAngularSwing2Limit(EAngularConstraintMotion MotionType, float InSwing2LimitAngle)
+	{
+		ProfileInstance.ConeLimit.Swing2Motion = MotionType;
+		ProfileInstance.ConeLimit.Swing2LimitDegrees = InSwing2LimitAngle;
+		UpdateAngularLimit();
+	}
+
+	/** Gets the motion type for the twist of the cone constraint */
+	EAngularConstraintMotion GetAngularTwistMotion() const
+	{
+		return ProfileInstance.TwistLimit.TwistMotion;
+	}
+
+	/** Sets the twist limit's motion type */
+	void SetAngularTwistMotion(EAngularConstraintMotion MotionType)
+	{
+		ProfileInstance.TwistLimit.TwistMotion = MotionType;
+		UpdateAngularLimit();
+	}
+
+	// The current twist of the constraint
+	float GetCurrentTwist() const;
+
+	/** Gets the twist limit angle in degrees */
+	float GetAngularTwistLimit() const
+	{
+		return ProfileInstance.TwistLimit.TwistLimitDegrees;
+	}
+
+	/** Sets the Angular Twist Motion Type
+	*	@param MotionType	New Motion Type
+	*/
+	void SetAngularTwistLimit(EAngularConstraintMotion MotionType, float InTwistLimitAngle)
+	{
+		ProfileInstance.TwistLimit.TwistMotion = MotionType;
+		ProfileInstance.TwistLimit.TwistLimitDegrees = InTwistLimitAngle;
+		UpdateAngularLimit();
+	}
 
 	// @todo document
 	void CopyConstraintGeometryFrom(const FConstraintInstance* FromInstance);
@@ -458,65 +362,144 @@ public:
 	// @todo document
 	void CopyConstraintParamsFrom(const FConstraintInstance* FromInstance);
 
-	/** Get the position of this constraint in world space. */
-	FVector GetConstraintLocation();
-
 	// Retrieve the constraint force most recently applied to maintain this constraint. Returns 0 forces if the constraint is not initialized or broken.
 	void GetConstraintForce(FVector& OutLinearForce, FVector& OutAngularForce);
 
+	/** Set which linear position drives are enabled */
 	void SetLinearPositionDrive(bool bEnableXDrive, bool bEnableYDrive, bool bEnableZDrive);
+
+	/** Whether the linear position drive is enabled */
+	bool IsLinearPositionDriveEnabled() const
+	{
+		return ProfileInstance.LinearDrive.IsPositionDriveEnabled();
+	}
+
+	/** Set the linear drive's target position position */
+	void SetLinearPositionTarget(const FVector& InPosTarget);
+
+	/** Set which linear velocity drives are enabled */
 	void SetLinearVelocityDrive(bool bEnableXDrive, bool bEnableYDrive, bool bEnableZDrive);
+
+	/** Whether the linear velocity drive is enabled */
+	bool IsLinearVelocityDriveEnabled() const
+	{
+		return ProfileInstance.LinearDrive.IsVelocityDriveEnabled();
+	}
+
+	/** Set the linear drive's target velocity*/
+	void SetLinearVelocityTarget(const FVector& InVelTarget);
+
+	/** Set the linear drive's strength parameters */
+	void SetLinearDriveParams(float InPositionStrength, float InVelocityStrength, float InForceLimit);
+
+	/** Set which twist and swing orientation drives are enabled. Only applicable when Twist And Swing drive mode is used */
 	void SetAngularPositionDrive(bool bInEnableSwingDrive, bool bInEnableTwistDrive);
+
+	/** Whether the angular orientation drive is enabled */
+	bool IsAngularOrientationDriveEnabled() const
+	{
+		return ProfileInstance.AngularDrive.IsOrientationDriveEnabled();
+	}
+	
+	/** Set the angular drive's orientation target*/
+	void SetAngularOrientationTarget(const FQuat& InPosTarget);
+
+	/** Set which twist and swing angular velocity drives are enabled. Only applicable when Twist And Swing drive mode is used */
 	void SetAngularVelocityDrive(bool bInEnableSwingDrive, bool bInEnableTwistDrive);
 
-	void SetLinearPositionTarget(const FVector& InPosTarget);
-	void SetLinearVelocityTarget(const FVector& InVelTarget);
-	void SetLinearDriveParams(float InSpring, float InDamping, float InForceLimit);
-
-	void SetAngularOrientationTarget(const FQuat& InPosTarget);
+	/** Whether the angular velocity drive is enabled */
+	bool IsAngularVelocityDriveEnabled() const
+	{
+		return ProfileInstance.AngularDrive.IsVelocityDriveEnabled();
+	}
+	
+	/** Set the angular drive's angular velocity target*/
 	void SetAngularVelocityTarget(const FVector& InVelTarget);
+
+	/** Set the angular drive's strength parameters*/
 	void SetAngularDriveParams(float InSpring, float InDamping, float InForceLimit);
 
-	void SetDisableCollision(bool InDisableCollision);
-
+	/** Refreshes the physics engine joint's linear limits. Only applicable if the joint has been created already.*/
 	void UpdateLinearLimit();
+
+	/** Refreshes the physics engine joint's angular limits. Only applicable if the joint has been created already.*/
 	void UpdateAngularLimit();
 
-
-	/** Scale Angular Limit Constraints (as defined in RB_ConstraintSetup) */
-	void	SetAngularDOFLimitScale(float InSwing1LimitScale, float InSwing2LimitScale, float InTwistLimitScale);
+	/** Scale Angular Limit Constraints (as defined in RB_ConstraintSetup). This only affects the physics engine and does not update the unreal side so you can do things like a LERP of the scale values. */
+	void SetAngularDOFLimitScale(float InSwing1LimitScale, float InSwing2LimitScale, float InTwistLimitScale);
 
 	/** Allows you to dynamically change the size of the linear limit 'sphere'. */
-	void	SetLinearLimitSize(float NewLimitSize);
+	void SetLinearLimitSize(float NewLimitSize);
+
+	/** Create physics engine constraint. */
+	void InitConstraint(FBodyInstance* Body1, FBodyInstance* Body2, float Scale, UObject* DebugOwner, FOnConstraintBroken InConstraintBrokenDelegate = FOnConstraintBroken());
+
+#if WITH_PHYSX
+	/** Create physics engine constraint using physx actors. */
+	void InitConstraintPhysX_AssumesLocked(physx::PxRigidActor* PActor1, physx::PxRigidActor* PActor2, physx::PxScene* PScene, float InScale, FOnConstraintBroken InConstraintBrokenDelegate = FOnConstraintBroken());
+#endif
+
+	/** Terminate physics engine constraint */
+	void TermConstraint();
+
+	/** Whether the physics engine constraint has been terminated */
+	bool IsTerminated() const;
+
+	/** See if this constraint is valid. */
+	bool IsValidConstraintInstance() const;
+
+	// Get component ref frame
+	FTransform GetRefFrame(EConstraintFrame::Type Frame) const;
+
+	// Pass in reference frame in. If the constraint is currently active, this will set its active local pose. Otherwise the change will take affect in InitConstraint. 
+	void SetRefFrame(EConstraintFrame::Type Frame, const FTransform& RefFrame);
+
+	/** Get the position of this constraint in world space. */
+	FVector GetConstraintLocation();
+
+	// Pass in reference position in (maintains reference orientation). If the constraint is currently active, this will set its active local pose. Otherwise the change will take affect in InitConstraint.
+	void SetRefPosition(EConstraintFrame::Type Frame, const FVector& RefPosition);
+
+	// Pass in reference orientation in (maintains reference position). If the constraint is currently active, this will set its active local pose. Otherwise the change will take affect in InitConstraint.
+	void SetRefOrientation(EConstraintFrame::Type Frame, const FVector& PriAxis, const FVector& SecAxis);
+
+	/** Whether collision is currently disabled */
+	bool IsCollisionDisabled() const
+	{
+		return ProfileInstance.bDisableCollision;
+	}
+
+	/** Set whether jointed actors can collide with each other */
+	void SetDisableCollision(bool InDisableCollision);
 
 	// @todo document
-	void DrawConstraint(class FPrimitiveDrawInterface* PDI, 
+	void DrawConstraint(int32 ViewIndex, class FMeshElementCollector& Collector,
 		float Scale, float LimitDrawScale, bool bDrawLimits, bool bDrawSelected,
-		const FTransform& Con1Frame, const FTransform& Con2Frame, bool bDrawAsPoint) const;
+		const FTransform& Con1Frame, const FTransform& Con2Frame, bool bDrawAsPoint) const
+	{
+		DrawConstraintImp(FPDIOrCollector(ViewIndex, Collector), Scale, LimitDrawScale, bDrawLimits, bDrawSelected, Con1Frame, Con2Frame, bDrawAsPoint);
+	}
 
-	void ConfigureAsHinge(bool bOverwriteLimits = true);
+	void DrawConstraint(FPrimitiveDrawInterface* PDI,
+		float Scale, float LimitDrawScale, bool bDrawLimits, bool bDrawSelected,
+		const FTransform& Con1Frame, const FTransform& Con2Frame, bool bDrawAsPoint) const
+	{
+		DrawConstraintImp(FPDIOrCollector(PDI), Scale, LimitDrawScale, bDrawLimits, bDrawSelected, Con1Frame, Con2Frame, bDrawAsPoint);
+	}
 
-	void ConfigureAsPrismatic(bool bOverwriteLimits = true);
-
-	void ConfigureAsSkelJoint(bool bOverwriteLimits = true);
-
-	void ConfigureAsBS(bool bOverwriteLimits = true);
-
-	bool IsHinge() const;
-
-	bool IsPrismatic() const;
-
-	bool IsSkelJoint() const;
-
-	bool IsBallAndSocket() const;
-
+	bool Serialize(FArchive& Ar);
 	void PostSerialize(const FArchive& Ar);
-
+	
+	/** Notifies owner component that constraint has broken */
 	void OnConstraintBroken();
 
+	/** Turn on linear and angular projection */
 	void EnableProjection();
 
+	/** Turn off linear and angular projection */
 	void DisableProjection();
+
+	float GetLastKnownScale() const { return LastKnownScale; }
 
 	//Hacks to easily get zeroed memory for special case when we don't use GC
 	static void Free(FConstraintInstance * Ptr);
@@ -533,8 +516,166 @@ private:
 	bool ExecuteOnUnbrokenJointReadWrite(TFunctionRef<void(physx::PxD6Joint*)> Func) const;
 #endif
 
+	struct FPDIOrCollector
+	{
+		FPrimitiveDrawInterface* PDI;
+		FMeshElementCollector* Collector;
+		int32 ViewIndex;
+
+		FPDIOrCollector(FPrimitiveDrawInterface* InPDI)
+			: PDI(InPDI)
+			, Collector(nullptr)
+			, ViewIndex(INDEX_NONE)
+		{
+		}
+
+		FPDIOrCollector(int32 InViewIndex, FMeshElementCollector& InCollector)
+			: PDI(nullptr)
+			, Collector(&InCollector)
+			, ViewIndex(InViewIndex)
+		{
+		}
+
+		bool HasCollector() const
+		{
+			return Collector != nullptr;
+		}
+
+		FPrimitiveDrawInterface* GetPDI() const;
+
+		void DrawCylinder(const FVector& Start, const FVector& End, float Thickness, FMaterialRenderProxy* MaterialProxy, ESceneDepthPriorityGroup DepthPriority) const;
+	};
+
+	void DrawConstraintImp(const FPDIOrCollector& PDIOrCollector,
+		float Scale, float LimitDrawScale, bool bDrawLimits, bool bDrawSelected,
+		const FTransform& Con1Frame, const FTransform& Con2Frame, bool bDrawAsPoint) const;
+
 	void UpdateBreakable();
 	void UpdateDriveTarget();
+
+	FOnConstraintBroken OnConstraintBrokenDelegate;
+
+public:
+
+	///////////////////////////// DEPRECATED
+#if WITH_EDITORONLY_DATA
+	UPROPERTY()
+	uint32 bDisableCollision_DEPRECATED : 1;
+	UPROPERTY()
+	uint32 bEnableProjection_DEPRECATED : 1;
+	UPROPERTY()
+	float ProjectionLinearTolerance_DEPRECATED;
+	UPROPERTY()
+	float ProjectionAngularTolerance_DEPRECATED;
+	UPROPERTY()
+	TEnumAsByte<enum ELinearConstraintMotion> LinearXMotion_DEPRECATED;
+	UPROPERTY()
+	TEnumAsByte<enum ELinearConstraintMotion> LinearYMotion_DEPRECATED;
+	UPROPERTY()
+	TEnumAsByte<enum ELinearConstraintMotion> LinearZMotion_DEPRECATED;
+	UPROPERTY()
+	float LinearLimitSize_DEPRECATED;
+	UPROPERTY()
+	uint32 bLinearLimitSoft_DEPRECATED : 1;
+	UPROPERTY()
+	float LinearLimitStiffness_DEPRECATED;
+	UPROPERTY()
+	float LinearLimitDamping_DEPRECATED;
+	UPROPERTY()
+	uint32 bLinearBreakable_DEPRECATED : 1;
+	UPROPERTY()
+	float LinearBreakThreshold_DEPRECATED;
+	UPROPERTY()
+	TEnumAsByte<enum EAngularConstraintMotion> AngularSwing1Motion_DEPRECATED;
+	UPROPERTY()
+	TEnumAsByte<enum EAngularConstraintMotion> AngularTwistMotion_DEPRECATED;
+	UPROPERTY()
+	TEnumAsByte<enum EAngularConstraintMotion> AngularSwing2Motion_DEPRECATED;
+	UPROPERTY()
+	uint32 bSwingLimitSoft_DEPRECATED : 1;
+	UPROPERTY()
+	uint32 bTwistLimitSoft_DEPRECATED : 1;
+	UPROPERTY()
+	float Swing1LimitAngle_DEPRECATED;
+	UPROPERTY()
+	float TwistLimitAngle_DEPRECATED;
+	UPROPERTY()
+	float Swing2LimitAngle_DEPRECATED;
+	UPROPERTY()
+	float SwingLimitStiffness_DEPRECATED;
+	UPROPERTY()
+	float SwingLimitDamping_DEPRECATED;
+	UPROPERTY()
+	float TwistLimitStiffness_DEPRECATED;
+	UPROPERTY()
+	float TwistLimitDamping_DEPRECATED;
+	UPROPERTY()
+	uint32 bAngularBreakable_DEPRECATED : 1;
+	UPROPERTY()
+	float AngularBreakThreshold_DEPRECATED;
+private:
+	UPROPERTY()
+	uint32 bLinearXPositionDrive_DEPRECATED : 1;
+	UPROPERTY()
+	uint32 bLinearXVelocityDrive_DEPRECATED : 1;
+	UPROPERTY()
+	uint32 bLinearYPositionDrive_DEPRECATED : 1;
+	UPROPERTY()
+	uint32 bLinearYVelocityDrive_DEPRECATED : 1;
+	UPROPERTY()
+	uint32 bLinearZPositionDrive_DEPRECATED : 1;
+	UPROPERTY()
+	uint32 bLinearZVelocityDrive_DEPRECATED : 1;
+public:
+	UPROPERTY()
+	uint32 bLinearPositionDrive_DEPRECATED : 1;
+	UPROPERTY()
+	uint32 bLinearVelocityDrive_DEPRECATED : 1;
+	UPROPERTY()
+	FVector LinearPositionTarget_DEPRECATED;
+	UPROPERTY()
+	FVector LinearVelocityTarget_DEPRECATED;
+	UPROPERTY()
+	float LinearDriveSpring_DEPRECATED;
+	UPROPERTY()
+	float LinearDriveDamping_DEPRECATED;
+	UPROPERTY()
+	float LinearDriveForceLimit_DEPRECATED;
+	UPROPERTY()
+	uint32 bSwingPositionDrive_DEPRECATED : 1;
+	UPROPERTY()
+	uint32 bSwingVelocityDrive_DEPRECATED : 1;
+	UPROPERTY()
+	uint32 bTwistPositionDrive_DEPRECATED : 1;
+	UPROPERTY()
+	uint32 bTwistVelocityDrive_DEPRECATED : 1;
+	UPROPERTY()
+	uint32 bAngularSlerpDrive_DEPRECATED : 1;
+	UPROPERTY()
+	uint32 bAngularOrientationDrive_DEPRECATED : 1;
+private:
+	UPROPERTY()
+	uint32 bEnableSwingDrive_DEPRECATED : 1;
+	UPROPERTY()
+	uint32 bEnableTwistDrive_DEPRECATED : 1;
+public:
+	UPROPERTY()
+	uint32 bAngularVelocityDrive_DEPRECATED : 1;
+	UPROPERTY()
+	FQuat AngularPositionTarget_DEPRECATED;
+	UPROPERTY()
+	TEnumAsByte<EAngularDriveMode::Type> AngularDriveMode_DEPRECATED;
+	UPROPERTY()
+	FRotator AngularOrientationTarget_DEPRECATED;
+	UPROPERTY()
+	FVector AngularVelocityTarget_DEPRECATED;    // Revolutions per second
+	UPROPERTY()
+	float AngularDriveSpring_DEPRECATED;
+	UPROPERTY()
+	float AngularDriveDamping_DEPRECATED;
+	UPROPERTY()
+	float AngularDriveForceLimit_DEPRECATED;
+#endif //EDITOR_ONLY_DATA
 };
 
 template<>
@@ -542,6 +683,7 @@ struct TStructOpsTypeTraits<FConstraintInstance> : public TStructOpsTypeTraitsBa
 {
 	enum 
 	{
-		WithPostSerialize = true,
+		WithSerializer = true,
+		WithPostSerialize = true
 	};
 };

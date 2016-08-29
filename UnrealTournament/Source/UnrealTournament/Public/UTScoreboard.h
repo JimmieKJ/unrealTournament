@@ -317,7 +317,7 @@ public:
 	 *	Allows blueprints to handle a context command.  Should return TRUE if blueprint handles the command.
 	 **/
 	UFUNCTION(BlueprintNativeEvent, Category = "Scoreboard")
-	bool HandleContextCommand(uint8 ContextId, AUTPlayerState* SelectedPlayer);
+	bool HandleContextCommand(uint8 ContextId, AUTPlayerState* InSelectedPlayer);
 
 
 };

@@ -3,7 +3,153 @@
 
 #include "NiagaraCommon.h"
 
-/** Storage for Niagara data. */
+const FName BUILTIN_VAR_PARTICLEAGE = FName(TEXT("Age"));
+
+#define SEPARATE_PER_VARIABLE_DATA 1
+
+
+
+
+/** Niagara Data Buffer
+  * Holds a number of elements of data of a specific type; set Target to determine
+  * whether CPU or GPU side
+  */
+class FNiagaraDataBuffer
+{
+public:
+	FNiagaraDataBuffer()
+		: DataType(ENiagaraDataType::Vector)
+		, ElementType(ENiagaraType::Float)
+		, Target(ENiagaraSimTarget::CPUSim)
+	{
+	}
+
+	ENiagaraSimTarget GetTarget()
+	{
+		return Target;
+	}
+
+	// when changing sim target at runtime, make sure to Reset/Alloc
+	// generally only happens when changing sim type on emitters, case components are usually re-registered and no further work is needed
+	void SetTarget(ENiagaraSimTarget InTarget)
+	{
+		Target = InTarget;
+	}
+
+	void Allocate(int32 NumElements)
+	{
+		uint32 SizePerElement = GetNiagaraBytesPerElement(DataType, ElementType);
+		uint32 SizeInBytes = NumElements * SizePerElement;
+
+		if (Target == CPUSim)
+		{
+			CPUBuffer.AddUninitialized(SizeInBytes);
+		}
+		else if (Target == GPUComputeSim)
+		{
+			FRHIResourceCreateInfo CreateInfo;
+			CreateInfo.ClearValueBinding = FClearValueBinding::None;
+			CreateInfo.BulkData = nullptr;
+			GPUBuffer = RHICreateStructuredBuffer(SizePerElement, SizeInBytes, BUF_ShaderResource, CreateInfo);
+		}
+	}
+
+	void Reset(uint32 NumElements)
+	{
+		if (Target == CPUSim)
+		{
+			CPUBuffer.Reset(NumElements);
+		}
+		else if (Target == GPUComputeSim)
+		{
+			FRHIResourceCreateInfo CreateInfo;
+			uint32 SizePerElement = GetNiagaraBytesPerElement(DataType, ElementType);
+			uint32 SizeInBytes = NumElements * SizePerElement;
+			GPUBuffer = RHICreateStructuredBuffer(SizePerElement, SizeInBytes, BUF_ShaderResource, CreateInfo);
+		}
+	}
+
+	const TArray<FVector4>& GetCPUBuffer() const
+	{
+		return CPUBuffer;
+	}
+
+	TArray<FVector4>& GetCPUBuffer() 
+	{
+		return CPUBuffer;
+	}
+
+
+private:
+	ENiagaraDataType DataType;
+	ENiagaraType ElementType;
+	FStructuredBufferRHIRef GPUBuffer;
+	TArray<FVector4> CPUBuffer;
+	ENiagaraSimTarget Target;
+};
+
+
+
+/** Storage for a single particle attribute for all particles of one emitter 
+  * We double buffer at this level, so we can avoid copying or explicitly dealing
+  * with unused attributes.
+  */
+class FNiagaraVariableData
+{
+public:
+	FNiagaraVariableData()
+		: CurrentBuffer(0)
+		, bPassThroughEnabled(false)
+	{}
+	
+	TArray<FVector4> &GetCurrentBuffer() { return DataBuffers[CurrentBuffer].GetCPUBuffer(); }
+	TArray<FVector4> &GetPrevBuffer() { return DataBuffers[CurrentBuffer ^ 0x1].GetCPUBuffer(); }
+
+	const TArray<FVector4> &GetCurrentBuffer() const { return DataBuffers[CurrentBuffer].GetCPUBuffer(); }
+	const TArray<FVector4> &GetPrevBuffer() const { return DataBuffers[CurrentBuffer ^ 0x1].GetCPUBuffer(); }
+
+	void Allocate(uint32 NumElements)
+	{
+		//DataBuffers[CurrentBuffer].AddUninitialized(NumElements);
+		DataBuffers[CurrentBuffer].Allocate(NumElements);
+	}
+
+	void Reset(uint32 NumElements)
+	{
+		DataBuffers[CurrentBuffer].Reset(NumElements);
+	}
+
+	void SwapBuffers()
+	{ 
+		// Passthrough is usually enabled when an attribute is unused during VM execution; 
+		// in this case, we don't swap buffers, to avoid needing to copy source to destination
+		if (!bPassThroughEnabled)
+		{
+			CurrentBuffer ^= 0x1;
+		}
+	}
+
+	// Passthrough enabled means no double buffering; to be used for unused attributes only
+	void EnablePassThrough() { bPassThroughEnabled = true; }
+	void DisablePassThrough() { bPassThroughEnabled = false; }
+
+
+private:
+	ENiagaraDataType Type;
+	uint8 CurrentBuffer;
+	FNiagaraDataBuffer DataBuffers[2];
+	FStructuredBufferRHIRef GPUDataBuffers[2];
+
+	bool bPassThroughEnabled;
+};
+
+
+
+
+/** Storage for Niagara data. 
+  * Holds a set of FNiagaraVariableData along with mapping from FNiagaraVariableInfos
+  * Generally, this is the entire set of particle attributes for one emitter
+  */
 class FNiagaraDataSet
 {
 public:
@@ -27,12 +173,20 @@ public:
 	{
 		if (bReset)
 		{
-			DataBuffers[CurrentBuffer].Reset(NumExpectedInstances * VariableMap.Num());
-			DataBuffers[CurrentBuffer].AddUninitialized(NumExpectedInstances * VariableMap.Num());
+			VariableDataArray.SetNumZeroed(VariableMap.Num());
+			for (auto &Data : VariableDataArray)
+			{
+				Data.Reset(NumExpectedInstances);
+				Data.Allocate(NumExpectedInstances);
+			}
 		}
 		else
 		{
-			DataBuffers[CurrentBuffer].SetNumUninitialized(NumExpectedInstances * VariableMap.Num());
+			VariableDataArray.SetNumUninitialized(VariableMap.Num());
+			for (auto &Data : VariableDataArray)
+			{
+				Data.Allocate(NumExpectedInstances);
+			}
 		}
 
 		DataAllocation[CurrentBuffer] = NumExpectedInstances;
@@ -46,32 +200,30 @@ public:
 		DataAllocation[0] = 0;
 		DataAllocation[1] = 0;
 		CurrentBuffer = 0;
-		DataBuffers[0].Empty();
-		DataBuffers[1].Empty();
 	}
 
 	FVector4* GetVariableData(const FNiagaraVariableInfo& VariableID, uint32 StartParticle = 0)
 	{
 		const uint32* Offset = VariableMap.Find(VariableID);
-		return Offset ? DataBuffers[CurrentBuffer].GetData() + (*Offset * DataAllocation[CurrentBuffer]) + StartParticle : NULL;
+		return Offset ? VariableDataArray[*Offset].GetCurrentBuffer().GetData() + StartParticle : NULL;
 	}
 
 	const FVector4* GetVariableData(const FNiagaraVariableInfo& VariableID, uint32 StartParticle = 0)const
 	{
 		const uint32* Offset = VariableMap.Find(VariableID);
-		return Offset ? DataBuffers[CurrentBuffer].GetData() + (*Offset * DataAllocation[CurrentBuffer]) + StartParticle : NULL;
+		return Offset ? VariableDataArray[*Offset].GetCurrentBuffer().GetData() + StartParticle : NULL;
 	}
 
 	FVector4* GetPrevVariableData(const FNiagaraVariableInfo& VariableID, uint32 StartParticle = 0)
 	{
 		const uint32* Offset = VariableMap.Find(VariableID);
-		return Offset ? DataBuffers[CurrentBuffer ^ 0x1].GetData() + (*Offset * DataAllocation[CurrentBuffer ^ 0x1]) + StartParticle : NULL;
+		return Offset ? VariableDataArray[*Offset].GetPrevBuffer().GetData() + StartParticle : NULL;
 	}
 
 	const FVector4* GetPrevVariableData(const FNiagaraVariableInfo& VariableID, uint32 StartParticle = 0)const
 	{
 		const uint32* Offset = VariableMap.Find(VariableID);
-		return Offset ? DataBuffers[CurrentBuffer ^ 0x1].GetData() + (*Offset * DataAllocation[CurrentBuffer ^ 0x1]) + StartParticle : NULL;
+		return Offset ? VariableDataArray[*Offset].GetPrevBuffer().GetData() + StartParticle : NULL;
 	}
 
 	void GetVariableData(const FNiagaraVariableInfo& VariableID, FVector4*& PrevBuffer, FVector4*& CurrBuffer, uint32 StartParticle)
@@ -79,8 +231,8 @@ public:
 		const uint32* Offset = VariableMap.Find(VariableID);
 		if (Offset)
 		{
-			PrevBuffer = DataBuffers[CurrentBuffer ^ 0x1].GetData() + (*Offset * DataAllocation[CurrentBuffer ^ 0x1]) + StartParticle;
-			CurrBuffer = DataBuffers[CurrentBuffer].GetData() + (*Offset * DataAllocation[CurrentBuffer]) + StartParticle;
+			PrevBuffer = VariableDataArray[*Offset].GetPrevBuffer().GetData() + StartParticle;
+			CurrBuffer = VariableDataArray[*Offset].GetCurrentBuffer().GetData() + StartParticle;
 		}
 		else
 		{
@@ -88,6 +240,14 @@ public:
 			CurrBuffer = NULL;
 		}
 	}
+
+
+	FNiagaraVariableData &GetVariableBuffer(const FNiagaraVariableInfo& VariableID)
+	{
+		const uint32* VarIdx = VariableMap.Find(VariableID);
+		return VariableDataArray[*VarIdx];
+	}
+
 
 	bool HasAttriubte(const FNiagaraVariableInfo& VariableID)
 	{
@@ -123,6 +283,7 @@ public:
 		}
 	}
 
+
 	const TMap<FNiagaraVariableInfo, uint32>& GetVariables()const { return VariableMap; }
 	int GetNumVariables()				{ return VariableMap.Num(); }
 
@@ -133,10 +294,17 @@ public:
 	void SetNumInstances(uint32 Num)	{ NumInstances[CurrentBuffer] = Num; }
 	void SwapBuffers()					{ CurrentBuffer ^= 0x1; }
 
-	FVector4* GetCurrentBuffer()		{ return DataBuffers[CurrentBuffer].GetData(); }
-	FVector4* GetPreviousBuffer()		{ return DataBuffers[CurrentBuffer ^ 0x1].GetData(); }
+	FVector4* GetCurrentBuffer(uint32 AttrIndex) { return VariableDataArray[AttrIndex].GetCurrentBuffer().GetData(); }
+	FVector4* GetPreviousBuffer(uint32 AttrIndex) { return VariableDataArray[AttrIndex].GetPrevBuffer().GetData(); }
 
-	int GetBytesUsed()	{ return (DataBuffers[0].Num() + DataBuffers[1].Num()) * 16 + VariableMap.Num() * 4; }
+	int GetBytesUsed()	
+	{ 
+		if (VariableDataArray.Num() == 0)
+		{
+			return 0;
+		}
+		return (VariableDataArray[0].GetCurrentBuffer().Num() + VariableDataArray[0].GetPrevBuffer().Num()) * 16 + VariableMap.Num() * 4; 
+	}
 
 	FNiagaraDataSetID GetID()const { return ID; }
 	void SetID(FNiagaraDataSetID InID) { ID = InID; }
@@ -144,6 +312,11 @@ public:
 	void Tick()
 	{
 		SwapBuffers();
+
+		for (auto &VarData : VariableDataArray)
+		{
+			VarData.SwapBuffers();
+		}
 
 		if (ID.Type == ENiagaraDataSetType::Event)
 		{
@@ -159,10 +332,11 @@ public:
 
 private:
 	uint32 CurrentBuffer;
-	uint32 NumInstances[2];
 	uint32 DataAllocation[2];
-	TArray<FVector4> DataBuffers[2];
+	uint32 NumInstances[2];
+
 	TMap<FNiagaraVariableInfo, uint32> VariableMap;
 	FNiagaraDataSetID ID;
+	TArray<FNiagaraVariableData> VariableDataArray;
 };
 

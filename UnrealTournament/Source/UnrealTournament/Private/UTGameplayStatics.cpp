@@ -2,6 +2,7 @@
 #include "UnrealTournament.h"
 #include "UTGameplayStatics.h"
 #include "Runtime/Engine/Classes/Engine/DemoNetDriver.h"
+#include "PhysicsEngine/PhysicsSettings.h"
 
 void UUTGameplayStatics::UTPlaySound(UWorld* TheWorld, USoundBase* TheSound, AActor* SourceActor, ESoundReplicationType RepType, bool bStopWhenOwnerDestroyed, const FVector& SoundLoc, AUTPlayerController* AmpedListener, APawn* Instigator, bool bNotifyAI, ESoundAmplificationType AmpType)
 {
@@ -669,7 +670,7 @@ class UAudioComponent* UUTGameplayStatics::PlaySoundTeamAdjusted(USoundCue* Soun
 
 		if (Attached)
 		{
-			AudioComponent->AttachTo(SoundTarget->GetRootComponent());
+			AudioComponent->AttachToComponent(SoundTarget->GetRootComponent(), FAttachmentTransformRules::KeepRelativeTransform);
 		}
 		else
 		{

@@ -18,21 +18,28 @@ void FMovieSceneMaterialTrackInstance::SaveState(const TArray<TWeakObjectPtr<UOb
 		if (RuntimeObjectToOriginalMaterialMap.Find(FObjectKey(Object)) == nullptr)
 		{
 			UMaterialInterface* CurrentMaterial = GetMaterialForObject(Object);
-			if ( CurrentMaterial->IsA( UMaterialInstanceDynamic::StaticClass() ) )
+			if ( CurrentMaterial != nullptr )
 			{
-				TWeakObjectPtr<UMaterialInterface>* OriginalMaterial = DynamicMaterialToOriginalMaterialMap.Find( FObjectKey( CurrentMaterial ) );
-				if ( OriginalMaterial != nullptr )
+				UMaterialInterface* OriginalMaterial = nullptr;
+				if ( CurrentMaterial->IsA( UMaterialInstanceDynamic::StaticClass() ) )
 				{
-					CurrentMaterial = OriginalMaterial->Get();
+					// If the current material is a dynamic material see if we can find the original material.
+					TWeakObjectPtr<UMaterialInterface>* OriginalMaterialPtr = DynamicMaterialToOriginalMaterialMap.Find( FObjectKey( CurrentMaterial ) );
+					if ( OriginalMaterialPtr != nullptr )
+					{
+						OriginalMaterial = OriginalMaterialPtr->Get();
+					}
 				}
 				else
 				{
-					CurrentMaterial = nullptr;
+					// If the material isn't dynamic than the original material is the current material.
+					OriginalMaterial = CurrentMaterial;
 				}
-			}
-			if (CurrentMaterial != nullptr)
-			{
-				RuntimeObjectToOriginalMaterialMap.Add( FObjectKey(Object), CurrentMaterial );
+
+				if ( OriginalMaterial != nullptr )
+				{
+					RuntimeObjectToOriginalMaterialMap.Add( FObjectKey( Object ), OriginalMaterial );
+				}
 			}
 		}
 	}
@@ -93,16 +100,20 @@ void FMovieSceneMaterialTrackInstance::RefreshInstance( const TArray<TWeakObject
 	{
 		UObject* Object = ObjectPtr.Get();
 		UMaterialInterface* Material = GetMaterialForObject( Object );
-		UMaterialInstanceDynamic* DynamicMaterialInstance = Cast<UMaterialInstanceDynamic>(Material);
 
-		if (DynamicMaterialInstance == nullptr )
+		if ( Material != nullptr)
 		{
-			DynamicMaterialInstance = UMaterialInstanceDynamic::Create(Material, Object);
-			SetMaterialForObject( Object, DynamicMaterialInstance );
-			DynamicMaterialToOriginalMaterialMap.Add( FObjectKey( DynamicMaterialInstance ), Material );
-		}
+			UMaterialInstanceDynamic* DynamicMaterialInstance = Cast<UMaterialInstanceDynamic>( Material );
 
-		DynamicMaterialInstances.Add( DynamicMaterialInstance );
+			if ( DynamicMaterialInstance == nullptr )
+			{
+				DynamicMaterialInstance = UMaterialInstanceDynamic::Create( Material, Object, FName( *( Material->GetName() + "_Animated" ) ) );
+				SetMaterialForObject( Object, DynamicMaterialInstance );
+				DynamicMaterialToOriginalMaterialMap.Add( FObjectKey( DynamicMaterialInstance ), Material );
+			}
+
+			DynamicMaterialInstances.Add( DynamicMaterialInstance );
+		}
 	}
 }
 

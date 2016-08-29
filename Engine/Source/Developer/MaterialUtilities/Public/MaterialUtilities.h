@@ -8,6 +8,7 @@
 #include "Runtime/Engine/Classes/Engine/Texture.h"
 #include "Runtime/Engine/Public/SceneTypes.h"
 #include "Runtime/Engine/Classes/Materials/Material.h"
+#include "Runtime/Engine/Classes/Engine/TextureStreamingTypes.h"
 #include "RawMesh.h"
 
 /** Structure used for storing intermediate baked down material data/samples*/
@@ -43,7 +44,7 @@ struct FFlattenMaterial
 	}
 	
 	/** Set all alpha channel values with InAlphaValue */
-	void FillAlphaValues(const int InAlphaValue)
+	void FillAlphaValues(const uint8 InAlphaValue)
 	{
 		for (FColor& Sample : DiffuseSamples) 
 		{ 
@@ -127,6 +128,57 @@ struct MATERIALUTILITIES_API FExportMaterialProxyCache
 	void Release();
 };
 
+/** Intermediate material merging data */
+struct FMaterialMergeData
+{
+	/** Material proxy cache, eliminates shader compilations when a material is baked out multiple times for different meshes */
+	FExportMaterialProxyCache* ProxyCache;
+
+	/** Input data */
+	/** Material that is being baked out */
+	class UMaterialInterface* Material;
+	/** Raw mesh data used to bake out the material with, optional */
+	const struct FRawMesh* Mesh;
+	/** LODModel data used to bake out the material with, optional */
+	const class FStaticLODModel* LODModel;
+	/** Material index to use when the material is baked out using mesh data (face material indices) */
+	int32 MaterialIndex;
+	/** Optional tex coordinate bounds of original texture coordinates set */
+	const FBox2D& TexcoordBounds;
+	/** Optional new set of non-overlapping texture coordinates */
+	const TArray<FVector2D>& TexCoords;
+
+	/** Output emissive scale, maximum baked out emissive value (used to scale other samples, 1/EmissiveScale * Sample) */
+	float EmissiveScale;
+
+	FMaterialMergeData(
+		UMaterialInterface* InMaterial,
+		const FRawMesh* InMesh,
+		const FStaticLODModel* InLODModel,
+		int32 InMaterialIndex,
+		const FBox2D& InTexcoordBounds,
+		const TArray<FVector2D>& InTexCoords)
+		: ProxyCache(nullptr)
+		, Material(InMaterial)
+		, Mesh(InMesh)
+		, LODModel(InLODModel)
+		, MaterialIndex(InMaterialIndex)
+		, TexcoordBounds(InTexcoordBounds)
+		, TexCoords(InTexCoords)
+		, EmissiveScale(0.0f)
+	{
+		ProxyCache = new FExportMaterialProxyCache();
+	}
+
+	~FMaterialMergeData()
+	{
+		if (ProxyCache)
+		{
+			delete ProxyCache;
+		}
+	}
+};
+
 
 class UMaterialInterface;
 class UMaterial;
@@ -136,6 +188,7 @@ class UWorld;
 class ALandscapeProxy;
 class ULandscapeComponent;
 class FPrimitiveComponentId;
+class UMaterialInstanceConstant;
 struct FMaterialMergeData;
 
 /**
@@ -270,7 +323,17 @@ public:
 	 * @return						Returns a pointer to the constructed UMaterial object.
 	 */
 	static UMaterial* CreateMaterial(const FFlattenMaterial& InFlattenMaterial, UPackage* InOuter, const FString& BaseName, EObjectFlags Flags, const struct FMaterialProxySettings& MaterialProxySettings, TArray<UObject*>& OutGeneratedAssets, const TextureGroup& InTextureGroup = TEXTUREGROUP_World);
-	
+
+	/** 
+	* Creates an instanced material based of BaseMaterial
+	* @param Outer					Outer for the material and texture objects, if NULL new packages will be created for each asset
+	* @param BaseName				BaseName for the material and texture objects, should be a long package name in case Outer is not specified
+	* @param Flags					Object flags for the material and texture objects.
+	* @return						Returns a pointer to the constructed UMaterialInstanceConstant object.
+	*/
+
+	static UMaterialInstanceConstant* CreateInstancedMaterial(UMaterial* BaseMaterial, UPackage* InOuter, const FString& BaseName, EObjectFlags Flags);
+
 	/**
 	* Creates bakes textures for a ULandscapeComponent
 	*
@@ -325,6 +388,73 @@ public:
 	* @param InFlattenMaterial				Flatten material to optimize
 	*/
 	static void ResizeFlattenMaterial(FFlattenMaterial& InFlattenMaterial, const struct FMeshProxySettings& InMeshProxySettings);
+
+
+	/**
+	* Contains errors generated when exporting material texcoord scales. 
+	* Used to prevent displaying duplicates, as instances using the same shaders get the same issues.
+	*/
+	class MATERIALUTILITIES_API FExportErrorManager
+	{
+	public:
+
+		FExportErrorManager(ERHIFeatureLevel::Type InFeatureLevel) : FeatureLevel(InFeatureLevel) {}
+
+		enum EErrorType
+		{
+			EET_IncohorentValues,
+			EET_NoValues
+		};
+
+		/**
+		* Register a new error.
+		*
+		* @param Material			The material having this error.
+		* @param Texture			The texture for which the scale could not be generated.
+		* @param RegisterIndex		The register index bound to this texture.
+		* @param ErrorType			The issue encountered.
+		*/
+		void Register(const UMaterialInterface* Material, const UTexture* Texture, int32 RegisterIndex, EErrorType ErrorType);
+
+		/**
+		* Output all errors registered.
+		*/
+		void OutputToLog();
+
+	private:
+
+		struct FError
+		{
+			const FMaterial* Material;
+			int32 RegisterIndex;
+			EErrorType ErrorType;
+
+			bool operator==(const FError& Rhs) const;
+		};
+
+		struct FInstance
+		{
+			const UMaterialInterface* Material;
+			const UTexture* Texture;
+		};
+
+		friend uint32 GetTypeHash(const FError& Error);
+
+		ERHIFeatureLevel::Type FeatureLevel;
+		TMap<FError, TArray<FInstance> > ErrorInstances;
+	};
+
+	/**
+	* Get the material texcoord scales applied on each textures
+	*
+	* @param InMaterial			Target material
+	* @param QualityLevel		Quality level used for the shader profiling.
+	* @param FeatureLevel		Feature level used for the shader profiling.
+	* @param OutScales			TheOutput array of rendered samples	
+	* @return					Whether operation was successful
+	*/
+	static bool ExportMaterialTexCoordScales(UMaterialInterface* InMaterial, EMaterialQualityLevel::Type QualityLevel, ERHIFeatureLevel::Type FeatureLevel, TArray<FMaterialTexCoordBuildInfo>& OutScales, FExportErrorManager& OutErrors);
+
 private:
 	
 	/**

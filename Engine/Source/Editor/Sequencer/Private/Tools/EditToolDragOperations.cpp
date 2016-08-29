@@ -135,8 +135,7 @@ void FEditToolDragOperation::BeginTransaction( TArray< FSectionHandle >& Section
 void FEditToolDragOperation::EndTransaction()
 {
 	Transaction.Reset();
-	Sequencer.UpdateRuntimeInstances();
-	Sequencer.UpdatePlaybackRange();
+	Sequencer.NotifyMovieSceneDataChanged( EMovieSceneDataChangeType::TrackValueChanged );
 }
 
 FResizeSection::FResizeSection( FSequencer& InSequencer, TArray<FSectionHandle> InSections, bool bInDraggingByEnd )
@@ -182,7 +181,7 @@ void FResizeSection::OnBeginDrag(const FPointerEvent& MouseEvent, FVector2D Loca
 			}
 		}
 
-		Section->GetKeyHandles(DraggedKeyHandles);
+		Section->GetKeyHandles(DraggedKeyHandles, Section->GetRange());
 		SectionInitTimes.Add(Section, bDraggingByEnd ? Section->GetEndTime() : Section->GetStartTime());
 	}
 }
@@ -290,7 +289,7 @@ void FResizeSection::OnDrag(const FPointerEvent& MouseEvent, FVector2D LocalMous
 		}
 	}
 
-	Sequencer.UpdateRuntimeInstances();
+	Sequencer.NotifyMovieSceneDataChanged( EMovieSceneDataChangeType::TrackValueChanged );
 }
 
 FMoveSection::FMoveSection( FSequencer& InSequencer, TArray<FSectionHandle> InSections )
@@ -328,7 +327,7 @@ void FMoveSection::OnBeginDrag(const FPointerEvent& MouseEvent, FVector2D LocalM
 	{
 		auto* Section = Sections[Index].GetSectionObject();
 
-		Section->GetKeyHandles(DraggedKeyHandles);
+		Section->GetKeyHandles(DraggedKeyHandles, Section->GetRange());
 		RelativeOffsets.Add(FRelativeOffset{ Section->GetStartTime() - InitialPosition.X, Section->GetEndTime() - InitialPosition.X });
 	}
 }
@@ -494,7 +493,7 @@ void FMoveSection::OnDrag(const FPointerEvent& MouseEvent, FVector2D LocalMouseP
 		}
 	}
 
-	Sequencer.UpdateRuntimeInstances();
+	Sequencer.NotifyMovieSceneDataChanged( EMovieSceneDataChangeType::TrackValueChanged );
 }
 
 void FMoveKeys::OnBeginDrag(const FPointerEvent& MouseEvent, FVector2D LocalMousePos, const FVirtualTrackArea& VirtualTrackArea)
@@ -618,7 +617,7 @@ void FMoveKeys::OnDrag(const FPointerEvent& MouseEvent, FVector2D LocalMousePos,
 		Sequencer.SetGlobalTime(PrevNewKeyTime);
 	}
 
-	Sequencer.UpdateRuntimeInstances();
+	Sequencer.NotifyMovieSceneDataChanged( EMovieSceneDataChangeType::TrackValueChanged );
 }
 
 void FMoveKeys::OnEndDrag(const FPointerEvent& MouseEvent, FVector2D LocalMousePos, const FVirtualTrackArea& VirtualTrackArea)

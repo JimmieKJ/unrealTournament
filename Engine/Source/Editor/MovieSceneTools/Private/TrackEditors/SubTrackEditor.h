@@ -4,7 +4,7 @@
 
 
 class UMovieSceneSequence;
-
+class UMovieSceneTrack;
 
 /**
  * Tools for animatable property types such as floats ands vectors
@@ -62,13 +62,13 @@ private:
 	void HandleAddSubTrackMenuEntryExecute();
 
 	/** Callback for generating the menu of the "Add Sequence" combo button. */
-	TSharedRef<SWidget> HandleAddSubSequenceComboButtonGetMenuContent();
+	TSharedRef<SWidget> HandleAddSubSequenceComboButtonGetMenuContent(UMovieSceneTrack* InTrack);
 
 	/** Callback for executing a menu entry in the "Add Sequence" combo button. */
-	void HandleAddSubSequenceComboButtonMenuEntryExecute(const FAssetData& AssetData);
+	void HandleAddSubSequenceComboButtonMenuEntryExecute(const FAssetData& AssetData, UMovieSceneTrack* InTrack);
 
 	/** Delegate for AnimatablePropertyChanged in AddKey */
-	bool AddKeyInternal(float KeyTime, UMovieSceneSequence* InMovieSceneSequence);
+	bool AddKeyInternal(float KeyTime, UMovieSceneSequence* InMovieSceneSequence, UMovieSceneTrack* InTrack);
 
 	/** Callback for AnimatablePropertyChanged in HandleAssetAdded. */
 	bool HandleSequenceAdded(float KeyTime, UMovieSceneSequence* Sequence);
@@ -77,8 +77,8 @@ private:
 	bool CanRecordNewSequence() const;
 
 	/** Handle recording new sequence into a sub track */
-	void HandleRecordNewSequence();
+	void HandleRecordNewSequence(AActor* InActorToRecord, UMovieSceneTrack* InTrack);
 
 	/** Actually handles the adding of the section */
-	bool HandleRecordNewSequenceInternal(float KeyTime);
+	bool HandleRecordNewSequenceInternal(float KeyTime, AActor* InActorToRecord, UMovieSceneTrack* InTrack);
 };

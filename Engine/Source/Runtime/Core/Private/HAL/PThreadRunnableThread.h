@@ -161,6 +161,8 @@ protected:
 		// cache the thread ID for this thread (defined by the platform)
 		ThisThread->ThreadID = FPlatformTLS::GetCurrentThreadId();
 
+		FThreadManager::Get().AddThread(ThisThread->ThreadID, ThisThread);
+
 		// set the affinity.  This function sets affinity on the current thread, so don't call in the Create function which will trash the main thread affinity.
 		FPlatformProcess::SetThreadAffinityMask(ThisThread->ThreadAffinityMask);		
 

@@ -151,7 +151,7 @@ FCascadeEmitterCanvasClient::~FCascadeEmitterCanvasClient()
 {
 }
 
-void FCascadeEmitterCanvasClient::Draw(FViewport* Viewport, FCanvas* Canvas)
+void FCascadeEmitterCanvasClient::Draw(FViewport* InViewport, FCanvas* Canvas)
 {
 	if (!CascadePtr.IsValid())
 	{
@@ -180,8 +180,8 @@ void FCascadeEmitterCanvasClient::Draw(FViewport* Viewport, FCanvas* Canvas)
 		Canvas->Clear(FLinearColor(1.0f,1.0f,1.0f,1.0f));
 	}
 
-	int32 ViewX = Viewport->GetSizeXY().X;
-	int32 ViewY = Viewport->GetSizeXY().Y;
+	int32 ViewX = InViewport->GetSizeXY().X;
+	int32 ViewY = InViewport->GetSizeXY().Y;
 
 	UParticleSystem* ParticleSystem = CascadePtr.Pin()->GetParticleSystem();
 
@@ -191,7 +191,7 @@ void FCascadeEmitterCanvasClient::Draw(FViewport* Viewport, FCanvas* Canvas)
 		UParticleEmitter* Emitter = ParticleSystem->Emitters[i];
 		if (Emitter)
 		{
-			DrawEmitter(i, EmitterOffset, Emitter, Viewport, Canvas);
+			DrawEmitter(i, EmitterOffset, Emitter, InViewport, Canvas);
 		}
 		// Move X position on to next emitter.
 		if (Emitter && Emitter->bCollapsed)
@@ -211,13 +211,17 @@ void FCascadeEmitterCanvasClient::Draw(FViewport* Viewport, FCanvas* Canvas)
 
 	// Draw the module dump, if it is enabled
 	if (bDrawDraggedModule)
-		DrawModuleDump(Viewport, Canvas);
+	{
+		DrawModuleDump(InViewport, Canvas);
+	}
 
 	// When dragging a module.
 	if ((CurrentMoveMode != MoveMode_None) && bMouseDragging)
 	{
 		if (DraggedModule)
-			DrawDraggedModule(DraggedModule, Viewport, Canvas);
+		{
+			DrawDraggedModule(DraggedModule, InViewport, Canvas);
+		}
 	}
 
 	Canvas->PopTransform();
@@ -253,17 +257,17 @@ void FCascadeEmitterCanvasClient::Draw(FViewport* Viewport, FCanvas* Canvas)
 	}
 }
 
-bool FCascadeEmitterCanvasClient::InputKey(FViewport* Viewport, int32 ControllerId, FKey Key, EInputEvent Event, float AmountDepressed, bool Gamepad)
+bool FCascadeEmitterCanvasClient::InputKey(FViewport* InViewport, int32 ControllerId, FKey Key, EInputEvent Event, float AmountDepressed, bool Gamepad)
 {
 	bool bHandled = false;
 
 	bool bLODIsValid = true;
 	UParticleSystem* ParticleSystem = CascadePtr.Pin()->GetParticleSystem();
-	bool bCtrlDown = Viewport->KeyState(EKeys::LeftControl) || Viewport->KeyState(EKeys::RightControl);
-	bool bShiftDown = Viewport->KeyState(EKeys::LeftShift) || Viewport->KeyState(EKeys::RightShift);
-	bool bAltDown = Viewport->KeyState(EKeys::LeftAlt) || Viewport->KeyState(EKeys::RightAlt);
-	int32 HitX = Viewport->GetMouseX();
-	int32 HitY = Viewport->GetMouseY();
+	bool bCtrlDown = InViewport->KeyState(EKeys::LeftControl) || InViewport->KeyState(EKeys::RightControl);
+	bool bShiftDown = InViewport->KeyState(EKeys::LeftShift) || InViewport->KeyState(EKeys::RightShift);
+	bool bAltDown = InViewport->KeyState(EKeys::LeftAlt) || InViewport->KeyState(EKeys::RightAlt);
+	int32 HitX = InViewport->GetMouseX();
+	int32 HitY = InViewport->GetMouseY();
 	FIntPoint MousePos = FIntPoint(HitX, HitY);
 
 	if (Key == EKeys::LeftMouseButton || Key == EKeys::RightMouseButton)
@@ -278,7 +282,7 @@ bool FCascadeEmitterCanvasClient::InputKey(FViewport* Viewport, int32 Controller
 				bMouseDown = true;
 			}
 
-			HHitProxy*	HitResult = Viewport->GetHitProxy(HitX,HitY);
+			HHitProxy*	HitResult = InViewport->GetHitProxy(HitX,HitY);
 			
 			// Short-term, performing a quick-out
 			bool bHandledHitProxy = true;
@@ -362,8 +366,8 @@ bool FCascadeEmitterCanvasClient::InputKey(FViewport* Viewport, int32 Controller
 							if ( FColorArray.Num() > 0 )
 							{
 								// Let go of the mouse lock...
-								Viewport->LockMouseToViewport(false);
-								Viewport->CaptureMouse(false);
+								InViewport->LockMouseToViewport(false);
+								InViewport->CaptureMouse(false);
 
 								FColorPickerArgs PickerArgs;
 								PickerArgs.DisplayGamma = TAttribute<float>::Create( TAttribute<float>::FGetter::CreateUObject(GEngine, &UEngine::GetDisplayGamma) );
@@ -412,7 +416,7 @@ bool FCascadeEmitterCanvasClient::InputKey(FViewport* Viewport, int32 Controller
 						}
 
 						// Figure out and save the offset from mouse location to top-left of selected module.
-						FIntPoint ModuleTopLeft = FindModuleTopLeft(Emitter, Module, Viewport);
+						FIntPoint ModuleTopLeft = FindModuleTopLeft(Emitter, Module, InViewport);
 						MouseHoldOffset = ModuleTopLeft - MousePressPosition;
 					}
 				}
@@ -472,6 +476,7 @@ bool FCascadeEmitterCanvasClient::InputKey(FViewport* Viewport, int32 Controller
 						{
 							Module->bEnabled = !Module->bEnabled;
 							Module->PostEditChange();
+							CascadePtr.Pin()->OnRestartInLevel();
 						}
 					}
 				}
@@ -571,13 +576,13 @@ bool FCascadeEmitterCanvasClient::InputKey(FViewport* Viewport, int32 Controller
 			CurrentMoveMode = MoveMode_None;
 			DraggedModule = NULL;
 
-			Viewport->Invalidate();
+			InViewport->Invalidate();
 		}
 		else if (Event == IE_DoubleClick)
 		{
 			if (Key == EKeys::LeftMouseButton)
 			{
-				HHitProxy*	HitResult = Viewport->GetHitProxy(HitX,HitY);
+				HHitProxy*	HitResult = InViewport->GetHitProxy(HitX,HitY);
 				if (HitResult)
 				{
 					if (HitResult->IsA(HCascadeEdEmitterProxy::StaticGetType()))
@@ -590,7 +595,7 @@ bool FCascadeEmitterCanvasClient::InputKey(FViewport* Viewport, int32 Controller
 							{
 								CascadePtr.Pin()->SetSelectedModule(NULL);
 							}
-							Viewport->Invalidate();
+							InViewport->Invalidate();
 						}
 					}
 				}
@@ -654,12 +659,12 @@ bool FCascadeEmitterCanvasClient::InputKey(FViewport* Viewport, int32 Controller
 
 
 	// Handle viewport screenshot.
-	bHandled |= InputTakeScreenshot(Viewport, Key, Event);
+	bHandled |= InputTakeScreenshot(InViewport, Key, Event);
 
 	return bHandled;
 }
 
-void FCascadeEmitterCanvasClient::CapturedMouseMove(FViewport* Viewport, int32 X, int32 Y)
+void FCascadeEmitterCanvasClient::CapturedMouseMove(FViewport* InViewport, int32 X, int32 Y)
 {
 	// Update bMouseDragging.
 	if (bMouseDown && !bMouseDragging)
@@ -679,8 +684,8 @@ void FCascadeEmitterCanvasClient::CapturedMouseMove(FViewport* Viewport, int32 X
 				(SelectedModuleIndex == INDEX_SPAWNMODULE))
 			{
 				// Only allow dragging of these if they are being copied/shared...
-				if ((Viewport->KeyState(EKeys::LeftControl) || Viewport->KeyState(EKeys::RightControl)) ||
-					(Viewport->KeyState(EKeys::LeftShift) || Viewport->KeyState(EKeys::RightShift)))
+				if ((InViewport->KeyState(EKeys::LeftControl) || InViewport->KeyState(EKeys::RightControl)) ||
+					(InViewport->KeyState(EKeys::LeftShift) || InViewport->KeyState(EKeys::RightShift)))
 				{
 					bMouseDragging = true;
 				}
@@ -748,7 +753,7 @@ void FCascadeEmitterCanvasClient::CapturedMouseMove(FViewport* Viewport, int32 X
 
 				if (CurrentMoveMode == MoveMode_Move)
 				{
-					// Remeber where to put this module back to if we abort the move.
+					// Remember where to put this module back to if we abort the move.
 					ResetDragModIndex = INDEX_NONE;
 					if (SelectedEmitter)
 					{
@@ -800,7 +805,7 @@ void FCascadeEmitterCanvasClient::CapturedMouseMove(FViewport* Viewport, int32 X
 	// If dragging a module around, update each frame.
 	if (bMouseDragging && CurrentMoveMode != MoveMode_None)
 	{
-		Viewport->Invalidate();
+		InViewport->Invalidate();
 	}
 }
 
@@ -968,25 +973,25 @@ FVector2D FCascadeEmitterCanvasClient::GetViewportScrollBarPositions() const
 	return Positions;
 }
 
-void FCascadeEmitterCanvasClient::DrawEmitter(int32 Index, int32 XPos, UParticleEmitter* Emitter, FViewport* Viewport, FCanvas* Canvas)
+void FCascadeEmitterCanvasClient::DrawEmitter(int32 Index, int32 XPos, UParticleEmitter* Emitter, FViewport* InViewport, FCanvas* Canvas)
 {
-	int32 ViewY = Viewport->GetSizeXY().Y;
+	int32 ViewY = InViewport->GetSizeXY().Y;
 
 	if (Emitter && (Emitter->bCollapsed == false))
 	{
 		// Draw background block
 
 		// Draw header block
-		DrawHeaderBlock(Index, XPos, Emitter, Viewport, Canvas);
+		DrawHeaderBlock(Index, XPos, Emitter, InViewport, Canvas);
 
 		// Draw the type data module
-		DrawTypeDataBlock(XPos, Emitter, Viewport, Canvas);
+		DrawTypeDataBlock(XPos, Emitter, InViewport, Canvas);
 
 		// Draw the required module
-		DrawRequiredBlock(XPos, Emitter, Viewport, Canvas);
+		DrawRequiredBlock(XPos, Emitter, InViewport, Canvas);
 
 		// Draw the spawn module
-		DrawSpawnBlock(XPos, Emitter, Viewport, Canvas);
+		DrawSpawnBlock(XPos, Emitter, InViewport, Canvas);
 
 		// Draw each module - skipping the 'required' modules!
 		int32 YPos = EmitterHeadHeight + ModulesOffset * ModuleHeight;
@@ -1004,7 +1009,7 @@ void FCascadeEmitterCanvasClient::DrawEmitter(int32 Index, int32 XPos, UParticle
 				check(Module);
 				if (!(Module->IsA(UParticleModuleTypeDataBase::StaticClass())))
 				{
-					DrawModule(XPos, YPos, Emitter, Module, Viewport, Canvas);
+					DrawModule(XPos, YPos, Emitter, Module, InViewport, Canvas);
 					// Update Y position for next module.
 					YPos += ModuleHeight;
 				}
@@ -1015,13 +1020,13 @@ void FCascadeEmitterCanvasClient::DrawEmitter(int32 Index, int32 XPos, UParticle
 	else
 	{
 		// Draw header block
-		DrawCollapsedHeaderBlock(Index, XPos, Emitter, Viewport, Canvas);
+		DrawCollapsedHeaderBlock(Index, XPos, Emitter, InViewport, Canvas);
 	}
 }
 
-void FCascadeEmitterCanvasClient::DrawHeaderBlock(int32 Index, int32 XPos, UParticleEmitter* Emitter, FViewport* Viewport,FCanvas* Canvas)
+void FCascadeEmitterCanvasClient::DrawHeaderBlock(int32 Index, int32 XPos, UParticleEmitter* Emitter, FViewport* InViewport, FCanvas* Canvas)
 {
-	int32 ViewY = Viewport->GetSizeXY().Y;
+	int32 ViewY = InViewport->GetSizeXY().Y;
 	FColor HeadColor = (Emitter == CascadePtr.Pin()->GetSelectedEmitter()) ? EmitterSelectedColor : EmitterUnselectedColor;
 
 	UParticleLODLevel* LODLevel = CascadePtr.Pin()->GetCurrentlySelectedLODLevel(Emitter);
@@ -1031,7 +1036,9 @@ void FCascadeEmitterCanvasClient::DrawHeaderBlock(int32 Index, int32 XPos, UPart
 	}
 
 	if (Canvas->IsHitTesting())
+	{
 		Canvas->SetHitProxy(new HCascadeEdEmitterProxy(Emitter));
+	}
 
 	// If the module is shared w/ higher LOD levels, then mark it as such...
 	if (LODLevel->bEnabled == true)
@@ -1110,7 +1117,7 @@ void FCascadeEmitterCanvasClient::DrawHeaderBlock(int32 Index, int32 XPos, UPart
 					// If there is an object configured to handle it, draw the thumbnail
 					if (RenderInfo != NULL && RenderInfo->Renderer != NULL)
 					{
-						RenderInfo->Renderer->Draw(MaterialInterface, ThumbPos.X, ThumbPos.Y, ThumbSize, ThumbSize, Viewport, Canvas);
+						RenderInfo->Renderer->Draw(MaterialInterface, ThumbPos.X, ThumbPos.Y, ThumbSize, ThumbSize, InViewport, Canvas);
 					}
 				}
 				else
@@ -1124,7 +1131,9 @@ void FCascadeEmitterCanvasClient::DrawHeaderBlock(int32 Index, int32 XPos, UPart
 	// Draw column background
 	Canvas->DrawTile(XPos, EmitterHeadHeight, EmitterWidth, ViewY - EmitterHeadHeight - Origin2D.Y, 0.f, 0.f, 1.f, 1.f, EmitterBackgroundColor);
 	if (Canvas->IsHitTesting())
+	{
 		Canvas->SetHitProxy(NULL);
+	}
 
 	// Draw enable/disable button
 	FTexture* EnabledIconTxtr = NULL;
@@ -1138,10 +1147,14 @@ void FCascadeEmitterCanvasClient::DrawHeaderBlock(int32 Index, int32 XPos, UPart
 	}
 	check(EnabledIconTxtr);
 	if (Canvas->IsHitTesting())
+	{
 		Canvas->SetHitProxy(new HCascadeEdEmitterEnableProxy(Emitter));
+	}
 	Canvas->DrawTile(XPos + 12, 26, 16, 16, 0.f, 0.f, 1.f, 1.f, FLinearColor::White, EnabledIconTxtr);
 	if (Canvas->IsHitTesting())
+	{
 		Canvas->SetHitProxy(NULL);
+	}
 
 	// Draw rendering mode button.
 	FTexture* IconTxtr	= NULL;
@@ -1166,10 +1179,14 @@ void FCascadeEmitterCanvasClient::DrawHeaderBlock(int32 Index, int32 XPos, UPart
 	check(IconTxtr);
 
 	if (Canvas->IsHitTesting())
+	{
 		Canvas->SetHitProxy(new HCascadeEdDrawModeButtonProxy(Emitter, SpriteEmitter->EmitterRenderMode));
+	}
 	Canvas->DrawTile(XPos + 32, 26, 16, 16, 0.f, 0.f, 1.f, 1.f, FLinearColor::White, IconTxtr);
 	if (Canvas->IsHitTesting())
+	{
 		Canvas->SetHitProxy(NULL);
+	}
 
 	FTexture* SoloIconTxr = NULL;
 	if (SpriteEmitter->bIsSoloing)
@@ -1183,23 +1200,27 @@ void FCascadeEmitterCanvasClient::DrawHeaderBlock(int32 Index, int32 XPos, UPart
 	check(SoloIconTxr);
 
 	if (Canvas->IsHitTesting())
+	{
 		Canvas->SetHitProxy(new HCascadeEdSoloButtonProxy(Emitter));
+	}
 	Canvas->DrawTile(XPos + 52, 26, 16, 16, 0.f, 0.f, 1.f, 1.f, FLinearColor::White, SoloIconTxr);
 	if (Canvas->IsHitTesting())
+	{
 		Canvas->SetHitProxy(NULL);
+	}
 
 	DrawColorButton(XPos, Emitter, NULL, Canvas->IsHitTesting(), Canvas);
 }
 
-void FCascadeEmitterCanvasClient::DrawCollapsedHeaderBlock(int32 Index, int32 XPos, UParticleEmitter* Emitter, FViewport* Viewport,FCanvas* Canvas)
+void FCascadeEmitterCanvasClient::DrawCollapsedHeaderBlock(int32 Index, int32 XPos, UParticleEmitter* Emitter, FViewport* InViewport,FCanvas* Canvas)
 {
 	UParticleLODLevel* LODLevel = CascadePtr.Pin()->GetCurrentlySelectedLODLevel(Emitter);
-	if (LODLevel == NULL)
+	if (LODLevel == nullptr)
 	{
 		return;
 	}
 
-	int32 ViewY = Viewport->GetSizeXY().Y;
+	int32 ViewY = InViewport->GetSizeXY().Y;
 	FColor HeadColor = Emitter->EmitterEditorColor;
 
 	if (Canvas->IsHitTesting())
@@ -1225,7 +1246,7 @@ void FCascadeEmitterCanvasClient::DrawCollapsedHeaderBlock(int32 Index, int32 XP
 	}
 }
 
-void FCascadeEmitterCanvasClient::DrawTypeDataBlock(int32 XPos, UParticleEmitter* Emitter, FViewport* Viewport, FCanvas* Canvas)
+void FCascadeEmitterCanvasClient::DrawTypeDataBlock(int32 XPos, UParticleEmitter* Emitter, FViewport* InViewport, FCanvas* Canvas)
 {
 	UParticleLODLevel* LODLevel = CascadePtr.Pin()->GetCurrentlySelectedLODLevel(Emitter);
 	if (LODLevel)
@@ -1234,22 +1255,22 @@ void FCascadeEmitterCanvasClient::DrawTypeDataBlock(int32 XPos, UParticleEmitter
 		if (Module)
 		{
 			check(Module->IsA(UParticleModuleTypeDataBase::StaticClass()));
-			DrawModule(XPos, EmitterHeadHeight, Emitter, Module, Viewport, Canvas, false);
+			DrawModule(XPos, EmitterHeadHeight, Emitter, Module, InViewport, Canvas, false);
 		}
 	}
 }
 
-void FCascadeEmitterCanvasClient::DrawRequiredBlock(int32 XPos, UParticleEmitter* Emitter, FViewport* Viewport, FCanvas* Canvas)
+void FCascadeEmitterCanvasClient::DrawRequiredBlock(int32 XPos, UParticleEmitter* Emitter, FViewport* InViewport, FCanvas* Canvas)
 {
 	UParticleLODLevel* LODLevel = CascadePtr.Pin()->GetCurrentlySelectedLODLevel(Emitter);
 	if (LODLevel)
 	{
 		check(LODLevel->RequiredModule);
-		DrawModule(XPos, EmitterHeadHeight + RequiredModuleOffset * ModuleHeight, Emitter, LODLevel->RequiredModule, Viewport, Canvas, false);
+		DrawModule(XPos, EmitterHeadHeight + RequiredModuleOffset * ModuleHeight, Emitter, LODLevel->RequiredModule, InViewport, Canvas, false);
 	}
 }
 
-void FCascadeEmitterCanvasClient::DrawSpawnBlock(int32 XPos, UParticleEmitter* Emitter, FViewport* Viewport, FCanvas* Canvas)
+void FCascadeEmitterCanvasClient::DrawSpawnBlock(int32 XPos, UParticleEmitter* Emitter, FViewport* InViewport, FCanvas* Canvas)
 {
 	UParticleLODLevel* LODLevel = CascadePtr.Pin()->GetCurrentlySelectedLODLevel(Emitter);
 	if (LODLevel)
@@ -1258,13 +1279,13 @@ void FCascadeEmitterCanvasClient::DrawSpawnBlock(int32 XPos, UParticleEmitter* E
 		if (Module)
 		{
 			check(Module->IsA(UParticleModuleSpawn::StaticClass()));
-			DrawModule(XPos, EmitterHeadHeight + SpawnModuleOffset * ModuleHeight, Emitter, Module, Viewport, Canvas);
+			DrawModule(XPos, EmitterHeadHeight + SpawnModuleOffset * ModuleHeight, Emitter, Module, InViewport, Canvas);
 		}
 	}
 }
 
 void FCascadeEmitterCanvasClient::DrawModule(int32 XPos, int32 YPos, UParticleEmitter* Emitter, UParticleModule* Module, 
-	FViewport* Viewport, FCanvas* Canvas, bool bDrawEnableButton)
+	FViewport* InViewport, FCanvas* Canvas, bool bDrawEnableButton)
 {	
 	// Hack to ensure no black modules...
 	if (Module->ModuleEditorColor == FColor(0,0,0,0))
@@ -1400,9 +1421,9 @@ void FCascadeEmitterCanvasClient::DrawModule(FCanvas* Canvas, UParticleModule* M
 	Canvas->DrawShadowedString(10, StartY, *(ModuleName), GEngine->GetSmallFont(), FLinearColor::White);
 }
 
-void FCascadeEmitterCanvasClient::DrawDraggedModule(UParticleModule* Module, FViewport* Viewport, FCanvas* Canvas)
+void FCascadeEmitterCanvasClient::DrawDraggedModule(UParticleModule* Module, FViewport* InViewport, FCanvas* Canvas)
 {
-	FIntPoint MousePos = FIntPoint(Viewport->GetMouseX(), Viewport->GetMouseY());
+	FIntPoint MousePos = FIntPoint(InViewport->GetMouseX(), InViewport->GetMouseY());
 
 	// Draw indicator for where we would insert this module.
 	UParticleEmitter* TargetEmitter = NULL;
@@ -1528,11 +1549,11 @@ void FCascadeEmitterCanvasClient::DrawEnableButton(UParticleEmitter* Emitter, UP
 		Canvas->SetHitProxy(NULL);
 }
 
-void FCascadeEmitterCanvasClient::DrawModuleDump(FViewport* Viewport, FCanvas* Canvas)
+void FCascadeEmitterCanvasClient::DrawModuleDump(FViewport* InViewport, FCanvas* Canvas)
 {
 #if defined(_CASCADE_ENABLE_MODULE_DUMP_)
-	int32 ViewX = Viewport->GetSizeXY().X;
-	int32 ViewY = Viewport->GetSizeXY().Y;
+	int32 ViewX = InViewport->GetSizeXY().X;
+	int32 ViewY = InViewport->GetSizeXY().Y;
 	bool bHitTesting = RI->IsHitTesting();
 	int32 XPos = ViewX - EmitterWidth - 1;
 	FColor HeadColor = EmitterUnselectedColor;
@@ -1562,7 +1583,7 @@ void FCascadeEmitterCanvasClient::DrawModuleDump(FViewport* Viewport, FCanvas* C
 	{
 		UParticleModule* Module = CascadePtr.Pin()->ModuleDumpList(i);
 		check(Module);
-		DrawModule(XPos, YPos, NULL, Module, Viewport, Canvas);
+		DrawModule(XPos, YPos, NULL, Module, InViewport, Canvas);
 		// Update Y position for next module.
 		YPos += ModuleHeight;
 	}
@@ -1607,7 +1628,7 @@ void FCascadeEmitterCanvasClient::FindDesiredModulePosition(const FIntPoint& Pos
 	OutIndex = FMath::Clamp<int32>(((Pos.Y - Origin2D.Y) - EmitterHeadHeight - ModulesOffset * ModuleHeight) / ModuleHeight, 0, LODLevel->Modules.Num());
 }
 
-FIntPoint FCascadeEmitterCanvasClient::FindModuleTopLeft(class UParticleEmitter* Emitter, class UParticleModule* Module, FViewport* Viewport)
+FIntPoint FCascadeEmitterCanvasClient::FindModuleTopLeft(class UParticleEmitter* Emitter, class UParticleModule* Module, FViewport* InViewport)
 {
 	int32 i;
 	UParticleSystem* ParticleSystem = CascadePtr.Pin()->GetParticleSystem();
@@ -1616,7 +1637,9 @@ FIntPoint FCascadeEmitterCanvasClient::FindModuleTopLeft(class UParticleEmitter*
 	for(i = 0; i < ParticleSystem->Emitters.Num(); i++)
 	{
 		if (ParticleSystem->Emitters[i] == Emitter)
+		{
 			EmitterIndex = i;
+		}
 	}
 
 	int32 ModuleIndex = 0;
@@ -1667,7 +1690,7 @@ FIntPoint FCascadeEmitterCanvasClient::FindModuleTopLeft(class UParticleEmitter*
 				// When we grab from the dump, we need to account for no 'TypeData'
 				OffsetHeight = ModuleHeight;
 			}
-			return FIntPoint(Viewport->GetSizeXY().X - EmitterWidth - Origin2D.X, EmitterHeadHeight - OffsetHeight + i * EmitterHeadHeight - Origin2D.Y);
+			return FIntPoint(InViewport->GetSizeXY().X - EmitterWidth - Origin2D.X, EmitterHeadHeight - OffsetHeight + i * EmitterHeadHeight - Origin2D.Y);
 		}
 	}
 

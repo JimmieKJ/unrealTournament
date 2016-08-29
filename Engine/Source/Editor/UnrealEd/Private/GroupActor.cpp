@@ -100,6 +100,21 @@ bool ActorHasParentInGroup(const TArray<class AActor*> &GroupActors, const AActo
 	return false;
 }
 
+bool ActorHasParentInSelection(const AActor* Actor)
+{
+	check(Actor);
+	bool bHasParentInSelection = false;
+	AActor* ParentActor = Actor->GetAttachParentActor();
+	while (ParentActor != NULL && !bHasParentInSelection)
+	{
+		if (ParentActor->IsSelected())
+		{
+			bHasParentInSelection = true;
+		}
+		ParentActor = ParentActor->GetAttachParentActor();
+	}
+	return bHasParentInSelection;
+}
 
 void AGroupActor::GroupApplyDelta(FLevelEditorViewportClient* Viewport, const FVector& InDrag, const FRotator& InRot, const FVector& InScale )
 {
@@ -108,11 +123,11 @@ void AGroupActor::GroupApplyDelta(FLevelEditorViewportClient* Viewport, const FV
 	{
 		if( GroupActors[ActorIndex] != NULL )
 		{
-			// Check that we've not got a parent attachment within the group.
-			const bool canApplyDelta = !ActorHasParentInGroup(GroupActors, GroupActors[ActorIndex]);
-			if( canApplyDelta )
+			// Check that we've not got a parent attachment within the group/selection
+			const bool bCanApplyDelta = !ActorHasParentInGroup(GroupActors, GroupActors[ActorIndex]) && !ActorHasParentInSelection(GroupActors[ActorIndex]);
+			if(bCanApplyDelta)
 			{
-				Viewport->ApplyDeltaToActor( GroupActors[ActorIndex], InDrag, InRot, InScale );
+				Viewport->ApplyDeltaToActor(GroupActors[ActorIndex], InDrag, InRot, InScale);
 			}
 		}
 	}
@@ -130,9 +145,9 @@ void AGroupActor::GroupApplyDelta(const FVector& InDrag, const FRotator& InRot, 
 {
 	for(int32 ActorIndex=0; ActorIndex<GroupActors.Num(); ++ActorIndex)
 	{
-		// Check that we've not got a parent attachment within the group.
-		const bool canApplyDelta = !ActorHasParentInGroup(GroupActors, GroupActors[ActorIndex]);
-		if( canApplyDelta && GroupActors[ActorIndex] != NULL )
+		// Check that we've not got a parent attachment within the group/selection
+		const bool bCanApplyDelta = !ActorHasParentInGroup(GroupActors, GroupActors[ActorIndex]) && !ActorHasParentInSelection(GroupActors[ActorIndex]);
+		if(bCanApplyDelta && GroupActors[ActorIndex] != NULL )
 		{
 			GEditor->ApplyDeltaToActor( GroupActors[ActorIndex], true, &InDrag, &InRot, &InScale );
 		}

@@ -10,7 +10,7 @@
 #include "BlueprintFunctionNodeSpawner.h" 
 #include "BlueprintEventNodeSpawner.h" 
 
-#define LOCTEXT_NAMESPACE ""
+#define LOCTEXT_NAMESPACE "BlueprintEditorCommands"
 
 /** UI_COMMAND takes long for the compile to optimize */
 PRAGMA_DISABLE_OPTIMIZATION

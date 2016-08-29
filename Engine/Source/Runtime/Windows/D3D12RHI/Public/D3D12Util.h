@@ -37,7 +37,7 @@ namespace D3D12RHI
 	 * @param	Filename - The filename of the source file containing Code.
 	 * @param	Line - The line number of Code within Filename.
 	 */
-	extern void VerifyD3D11Result(HRESULT Result, const ANSICHAR* Code, const ANSICHAR* Filename, uint32 Line, ID3D12Device* Device);
+	extern void VerifyD3D12Result(HRESULT Result, const ANSICHAR* Code, const ANSICHAR* Filename, uint32 Line, ID3D12Device* Device);
 }
 
 namespace D3D12RHI
@@ -53,11 +53,11 @@ namespace D3D12RHI
 		uint32 SizeX, uint32 SizeY, uint32 SizeZ, uint8 D3DFormat, uint32 NumMips, uint32 Flags);
 
 	/**
-	 * A macro for using VERIFYD3D11RESULT that automatically passes in the code and filename/line.
+	 * A macro for using VERIFYD3D12RESULT that automatically passes in the code and filename/line.
 	 */
-#define VERIFYD3D11RESULT_EX(x, Device)	{HRESULT hr = x; if (FAILED(hr)) { VerifyD3D11Result(hr,#x,__FILE__,__LINE__, Device); }}
-#define VERIFYD3D11RESULT(x)			{HRESULT hr = x; if (FAILED(hr)) { VerifyD3D11Result(hr,#x,__FILE__,__LINE__, 0); }}
-#define VERIFYD3D11CREATETEXTURERESULT(x,SizeX,SizeY,SizeZ,Format,NumMips,Flags) {HRESULT hr = x; if (FAILED(hr)) { VerifyD3D12CreateTextureResult(hr,#x,__FILE__,__LINE__,SizeX,SizeY,SizeZ,Format,NumMips,Flags); }}
+#define VERIFYD3D12RESULT_EX(x, Device)	{HRESULT hr = x; if (FAILED(hr)) { VerifyD3D12Result(hr,#x,__FILE__,__LINE__, Device); }}
+#define VERIFYD3D12RESULT(x)			{HRESULT hr = x; if (FAILED(hr)) { VerifyD3D12Result(hr,#x,__FILE__,__LINE__, 0); }}
+#define VERIFYD3D12CREATETEXTURERESULT(x,SizeX,SizeY,SizeZ,Format,NumMips,Flags) {HRESULT hr = x; if (FAILED(hr)) { VerifyD3D12CreateTextureResult(hr,#x,__FILE__,__LINE__,SizeX,SizeY,SizeZ,Format,NumMips,Flags); }}
 
 	/**
 	 * Checks that a COM object has the expected number of references.
@@ -66,7 +66,7 @@ namespace D3D12RHI
 #define checkComRefCount(Obj,ExpectedRefs) VerifyComRefCount(Obj,ExpectedRefs,TEXT(#Obj),TEXT(__FILE__),__LINE__)
 
 	/** Returns a string for the provided DXGI format. */
-	const TCHAR* GetD3D11TextureFormatString(DXGI_FORMAT TextureFormat);
+	const TCHAR* GetD3D12TextureFormatString(DXGI_FORMAT TextureFormat);
 }
 
 using namespace D3D12RHI;
@@ -246,7 +246,7 @@ private:
 * @param Face - ECubeFace type to convert
 * @return D3D cube face enum value
 */
-FORCEINLINE uint32 GetD3D11CubeFace(ECubeFace Face)
+FORCEINLINE uint32 GetD3D12CubeFace(ECubeFace Face)
 {
 	switch (Face)
 	{
@@ -275,7 +275,7 @@ FORCEINLINE uint32 CalcSubresource(uint32 MipSlice, uint32 ArraySlice, uint32 Mi
 }
 
 /**
- * Keeps track of Locks for D3D11 objects
+ * Keeps track of Locks for D3D12 objects
  */
 class FD3D12LockedKey
 {
@@ -324,53 +324,6 @@ public:
 	}
 };
 
-/** Information about a D3D resource that is currently locked. */
-struct FD3D12LockedData
-{
-	TRefCountPtr<FD3D12Resource> StagingResource;
-	TRefCountPtr<FD3D12Resource> UploadHeapResource;
-	TRefCountPtr<FD3D12ResourceLocation> UploadHeapLocation;
-	uint32 Pitch;
-	uint32 DepthPitch;
-
-	// constructor
-	FD3D12LockedData()
-		: bAllocDataWasUsed(false)
-	{
-	}
-
-	// 16 byte alignment for best performance  (can be 30x faster than unaligned)
-	void AllocData(uint32 Size)
-	{
-		Data = (uint8*)FMemory::Malloc(Size, 16);
-		bAllocDataWasUsed = true;
-	}
-
-	// Some driver might return aligned memory so we don't enforce the alignment
-	void SetData(void* InData)
-	{
-		check(!bAllocDataWasUsed); Data = (uint8*)InData;
-	}
-
-	uint8* GetData() const
-	{
-		return Data;
-	}
-
-	// only call if AllocData() was used
-	void FreeData()
-	{
-		check(bAllocDataWasUsed);
-		FMemory::Free(Data);
-		Data = 0;
-	}
-
-private:
-	uint8* Data;
-	// then FreeData
-	bool bAllocDataWasUsed;
-};
-
 class FD3D12RenderTargetView;
 class FD3D12DepthStencilView;
 
@@ -402,37 +355,9 @@ private:
 	int32 NumActiveTargets;
 };
 
-/**
- * Class for managing dynamic buffers.
- */
-class FD3D12DynamicBuffer : public FRenderResource, public FRHIResource, public FD3D12DeviceChild
-{
-public:
-	/** Initialization constructor. */
-	FD3D12DynamicBuffer(FD3D12Device* InParent, class FD3D12FastAllocator& Allocator);
-	/** Destructor. */
-	~FD3D12DynamicBuffer();
-
-	/** Locks the buffer returning at least Size bytes. */
-	void* Lock(uint32 Size);
-	/** Unlocks the buffer returning the underlying D3D12 buffer to use as a resource. */
-	FD3D12ResourceLocation* Unlock();
-
-	// Begin FRenderResource interface.
-	virtual void InitRHI() override;
-	virtual void ReleaseRHI() override;
-	// End FRenderResource interface.
-
-	void ReleaseResourceLocation() { ResourceLocation = nullptr; }
-
-private:
-	TRefCountPtr<FD3D12ResourceLocation> ResourceLocation;
-	class FD3D12FastAllocator& FastAllocator;
-};
-
 static D3D12_DESCRIPTOR_HEAP_DESC CreateDHD(D3D12_DESCRIPTOR_HEAP_TYPE Type, uint32 NumDescriptorsPerHeap, D3D12_DESCRIPTOR_HEAP_FLAGS Flags)
 {
-	D3D12_DESCRIPTOR_HEAP_DESC DHD ={Type, NumDescriptorsPerHeap, Flags};
+	D3D12_DESCRIPTOR_HEAP_DESC DHD = {Type, NumDescriptorsPerHeap, Flags};
 
 	return DHD;
 }
@@ -550,7 +475,7 @@ private: // Methods
 	void AllocateHeap()
 	{
 		TRefCountPtr<ID3D12DescriptorHeap> Heap;
-		VERIFYD3D11RESULT(m_pDevice->CreateDescriptorHeap(&m_Desc, IID_PPV_ARGS(Heap.GetInitReference())));
+		VERIFYD3D12RESULT(m_pDevice->CreateDescriptorHeap(&m_Desc, IID_PPV_ARGS(Heap.GetInitReference())));
 		SetName(Heap, L"FDescriptorHeapManager Descriptor Heap");
 
 		HeapOffset HeapBase = Heap->GetCPUDescriptorHandleForHeapStart();
@@ -694,6 +619,8 @@ struct FD3D12LowLevelGraphicsPipelineStateDesc
 	ShaderBytecodeHash PSHash;
 
 	SIZE_T CombinedHash;
+
+	FORCEINLINE FString GetName() const { return FString::Printf(TEXT("%llu"), CombinedHash); }
 };
 
 class FD3D12BoundShaderState; // forward-declare
@@ -724,8 +651,9 @@ struct FD3D12ComputePipelineStateDesc
 	ShaderBytecodeHash CSHash;
 
 	SIZE_T CombinedHash;
-};
 
+	FORCEINLINE FString GetName() const { return FString::Printf(TEXT("%llu"), CombinedHash); }
+};
 
 /**
  * The base class of threadsafe reference counted objects.
@@ -852,6 +780,7 @@ public:
 	{
 	}
 
+	bool IsValid() const;
 	bool IsComplete() const;
 	void WaitForCompletion() const;
 
@@ -1133,3 +1062,93 @@ bool AssertResourceState(ID3D12CommandList* pCommandList, FD3D12View<TView>* pVi
 
 bool AssertResourceState(ID3D12CommandList* pCommandList, FD3D12Resource* pResource, const D3D12_RESOURCE_STATES& State, uint32 Subresource);
 bool AssertResourceState(ID3D12CommandList* pCommandList, FD3D12Resource* pResource, const D3D12_RESOURCE_STATES& State, const CViewSubresourceSubset& SubresourceSubset);
+
+/** Find an appropriate DXGI format for the input format and SRGB setting. */
+inline DXGI_FORMAT FindShaderResourceDXGIFormat(DXGI_FORMAT InFormat, bool bSRGB)
+{
+	if (bSRGB)
+	{
+		switch (InFormat)
+		{
+		case DXGI_FORMAT_B8G8R8A8_TYPELESS:    return DXGI_FORMAT_B8G8R8A8_UNORM_SRGB;
+		case DXGI_FORMAT_R8G8B8A8_TYPELESS:    return DXGI_FORMAT_R8G8B8A8_UNORM_SRGB;
+		case DXGI_FORMAT_BC1_TYPELESS:         return DXGI_FORMAT_BC1_UNORM_SRGB;
+		case DXGI_FORMAT_BC2_TYPELESS:         return DXGI_FORMAT_BC2_UNORM_SRGB;
+		case DXGI_FORMAT_BC3_TYPELESS:         return DXGI_FORMAT_BC3_UNORM_SRGB;
+		case DXGI_FORMAT_BC7_TYPELESS:         return DXGI_FORMAT_BC7_UNORM_SRGB;
+		};
+	}
+	else
+	{
+		switch (InFormat)
+		{
+		case DXGI_FORMAT_B8G8R8A8_TYPELESS: return DXGI_FORMAT_B8G8R8A8_UNORM;
+		case DXGI_FORMAT_R8G8B8A8_TYPELESS: return DXGI_FORMAT_R8G8B8A8_UNORM;
+		case DXGI_FORMAT_BC1_TYPELESS:      return DXGI_FORMAT_BC1_UNORM;
+		case DXGI_FORMAT_BC2_TYPELESS:      return DXGI_FORMAT_BC2_UNORM;
+		case DXGI_FORMAT_BC3_TYPELESS:      return DXGI_FORMAT_BC3_UNORM;
+		case DXGI_FORMAT_BC7_TYPELESS:      return DXGI_FORMAT_BC7_UNORM;
+		};
+	}
+	switch (InFormat)
+	{
+	case DXGI_FORMAT_R24G8_TYPELESS: return DXGI_FORMAT_R24_UNORM_X8_TYPELESS;
+	case DXGI_FORMAT_R32_TYPELESS: return DXGI_FORMAT_R32_FLOAT;
+	case DXGI_FORMAT_R16_TYPELESS: return DXGI_FORMAT_R16_UNORM;
+#if DEPTH_32_BIT_CONVERSION
+		// Changing Depth Buffers to 32 bit on Dingo as D24S8 is actually implemented as a 32 bit buffer in the hardware
+	case DXGI_FORMAT_R32G8X24_TYPELESS: return DXGI_FORMAT_R32_FLOAT_X8X24_TYPELESS;
+#endif
+	}
+	return InFormat;
+}
+
+/** Find an appropriate DXGI format unordered access of the raw format. */
+inline DXGI_FORMAT FindUnorderedAccessDXGIFormat(DXGI_FORMAT InFormat)
+{
+	switch (InFormat)
+	{
+	case DXGI_FORMAT_B8G8R8A8_TYPELESS: return DXGI_FORMAT_B8G8R8A8_UNORM;
+	case DXGI_FORMAT_R8G8B8A8_TYPELESS: return DXGI_FORMAT_R8G8B8A8_UNORM;
+	}
+	return InFormat;
+}
+
+/** Find the appropriate depth-stencil targetable DXGI format for the given format. */
+inline DXGI_FORMAT FindDepthStencilDXGIFormat(DXGI_FORMAT InFormat)
+{
+	switch (InFormat)
+	{
+	case DXGI_FORMAT_R24G8_TYPELESS:
+		return DXGI_FORMAT_D24_UNORM_S8_UINT;
+#if DEPTH_32_BIT_CONVERSION
+		// Changing Depth Buffers to 32 bit on Dingo as D24S8 is actually implemented as a 32 bit buffer in the hardware
+	case DXGI_FORMAT_R32G8X24_TYPELESS:
+		return DXGI_FORMAT_D32_FLOAT_S8X24_UINT;
+#endif
+	case DXGI_FORMAT_R32_TYPELESS:
+		return DXGI_FORMAT_D32_FLOAT;
+	case DXGI_FORMAT_R16_TYPELESS:
+		return DXGI_FORMAT_D16_UNORM;
+	};
+	return InFormat;
+}
+
+/**
+* Returns whether the given format contains stencil information.
+* Must be passed a format returned by FindDepthStencilDXGIFormat, so that typeless versions are converted to their corresponding depth stencil view format.
+*/
+inline bool HasStencilBits(DXGI_FORMAT InFormat)
+{
+	switch (InFormat)
+	{
+	case DXGI_FORMAT_D24_UNORM_S8_UINT:
+		return true;
+#if  DEPTH_32_BIT_CONVERSION
+		// Changing Depth Buffers to 32 bit on Dingo as D24S8 is actually implemented as a 32 bit buffer in the hardware
+	case DXGI_FORMAT_D32_FLOAT_S8X24_UINT:
+		return true;
+#endif
+	};
+	return false;
+}

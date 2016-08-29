@@ -45,8 +45,8 @@ class FMalloc* FLinuxPlatformMemory::BaseAllocator()
 	}
 	AllocatorToUse = EAllocatorToUse::Binned;
 
-	// Prefer jemalloc as it consistently saves ~20% RES usage in my (RCL) tests.
-	if (PLATFORM_SUPPORTS_JEMALLOC)
+	// Prefer jemalloc as it consistently saves ~20% RES usage in my (RCL) tests (editor only)
+	if (PLATFORM_SUPPORTS_JEMALLOC && WITH_EDITOR)
 	{
 		AllocatorToUse = EAllocatorToUse::Jemalloc;
 	}
@@ -80,7 +80,7 @@ class FMalloc* FLinuxPlatformMemory::BaseAllocator()
 
 				if (FCStringAnsi::Stricmp(Arg, "-binnedmalloc") == 0)
 				{
-					AllocatorToUse = EAllocatorToUse::Jemalloc;
+					AllocatorToUse = EAllocatorToUse::Binned;
 					break;
 				}	
 			}
@@ -138,12 +138,17 @@ bool FLinuxPlatformMemory::PageProtect(void* const Ptr, const SIZE_T Size, const
 
 void* FLinuxPlatformMemory::BinnedAllocFromOS( SIZE_T Size )
 {	
-	return valloc(Size);	// equivalent to memalign(sysconf(_SC_PAGESIZE),size).
+	return mmap(nullptr, Size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANON, -1, 0);
 }
 
-void FLinuxPlatformMemory::BinnedFreeToOS( void* Ptr )
+void FLinuxPlatformMemory::BinnedFreeToOS( void* Ptr, SIZE_T Size )
 {
-	return free(Ptr);
+	if (munmap(Ptr, Size) != 0)
+	{
+		const int ErrNo = errno;
+		UE_LOG(LogHAL, Fatal, TEXT("munmap(addr=%p, len=%llu) failed with errno = %d (%s)"), Ptr, Size,
+			ErrNo, StringCast< TCHAR >(strerror(ErrNo)).Get());
+	}
 }
 
 namespace LinuxPlatformMemory

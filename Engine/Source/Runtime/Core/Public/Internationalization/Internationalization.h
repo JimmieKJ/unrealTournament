@@ -16,8 +16,13 @@ class FLegacyInternationalization;
 
 class FInternationalization
 {
+	friend class FText;
+
 public:
 	static CORE_API FInternationalization& Get();
+
+	/** Checks to see that an internationalization instance exists, and has been initialized. Usually you would use Get(), however this may be used to work out whether TearDown() has been called when cleaning up on shutdown. */
+	static CORE_API bool IsAvailable();
 
 	static CORE_API void TearDown();
 
@@ -48,6 +53,9 @@ public:
 	}
 
 	CORE_API bool IsInitialized() const {return bIsInitialized;}
+
+	// Load and cache the data needed for every culture we know about (this is usually done per-culture as required)
+	CORE_API void LoadAllCultureData();
 
 #if ENABLE_LOC_TESTING
 	static CORE_API FString& Leetify(FString& SourceString);

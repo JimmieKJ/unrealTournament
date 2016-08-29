@@ -1,13 +1,13 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <TpsData xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
   <Name>Protobuf</Name>
-  <Location>//depot/UE4/Engine/Source/ThirdParty/PLCrashReporter/plcrashreporter-master-5ae3b0a/Dependencies/protobuf-2.0.3</Location>
-  <Date>2015-09-04T20:19:39.7509917-04:00</Date>
+  <Location>/Engine/Source/ThirdParty/PLCrashReporter/plcrashreporter-master-5ae3b0a/Dependencies/protobuf-2.0.3/</Location>
+  <Date>2016-06-15T14:27:35.0016532-04:00</Date>
   <Function>Communication layer between game/gamecoordinator required for ship.API/SDK for encoding structured data across the network</Function>
-  <Justification>Communication layer between game/gamecoordinator required for ship</Justification>
+  <Justification>Used by PLCrashReporter</Justification>
   <Platforms>
-    <Platform>PC</Platform>
     <Platform>Mac</Platform>
+    <Platform>iOS</Platform>
   </Platforms>
   <Products>
     <Product>UDK4</Product>
@@ -15,8 +15,12 @@
     <Product>Fortnite</Product>
   </Products>
   <TpsType>Source Code</TpsType>
-  <Eula>http://creativecommons.org/licenses/by/3.0/</Eula>
-  <RedistributeTo />
+  <Eula>https://github.com/google/protobuf/blob/master/LICENSE</Eula>
+  <RedistributeTo>
+    <EndUserGroup>Licensees</EndUserGroup>
+    <EndUserGroup>Git</EndUserGroup>
+    <EndUserGroup>P4</EndUserGroup>
+  </RedistributeTo>
   <Redistribute>false</Redistribute>
   <IsSourceAvailable>false</IsSourceAvailable>
   <NoticeType>Full EULA Text</NoticeType>
@@ -54,5 +58,5 @@ of the input file used when generating it.  This code is not
 standalone and requires a support library to be linked with it.  This
 support library is itself covered by the above license.
 </Notification>
-  <LicenseFolder />
+  <LicenseFolder>/Engine/Source/ThirdParty/Licenses/Protobuf_License.txt</LicenseFolder>
 </TpsData>

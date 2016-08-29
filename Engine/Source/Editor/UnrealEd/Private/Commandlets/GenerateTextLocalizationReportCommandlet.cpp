@@ -1,11 +1,6 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "UnrealEd.h"
-#include "Json.h"
-#include "InternationalizationManifest.h"
-#include "InternationalizationArchive.h"
-#include "JsonInternationalizationManifestSerializer.h"
-#include "JsonInternationalizationArchiveSerializer.h"
 #include "BreakIterator.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogGenerateTextLocalizationReportCommandlet, Log, All);
@@ -13,29 +8,6 @@ DEFINE_LOG_CATEGORY_STATIC(LogGenerateTextLocalizationReportCommandlet, Log, All
 UGenerateTextLocalizationReportCommandlet::UGenerateTextLocalizationReportCommandlet(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
-}
-
-int32 UGenerateTextLocalizationReportCommandlet::CountWords( const FString& Text ) const
-{
-	int32 NumOfWords = 0;
-	// Calculate # of words
-
-	TSharedRef<IBreakIterator> LineBreakIterator = FBreakIterator::CreateLineBreakIterator();
-	LineBreakIterator->SetString( Text );
-
-	int32 PreviousBreak = 0;
-	int32 CurrentBreak = 0;
-
-	while( ( CurrentBreak = LineBreakIterator->MoveToNext() ) != INDEX_NONE )
-	{
-		if ( CurrentBreak > PreviousBreak )
-		{
-			++NumOfWords;
-		}
-		PreviousBreak = CurrentBreak;
-	}
-
-	return NumOfWords;
 }
 
 int32 UGenerateTextLocalizationReportCommandlet::Main(const FString& Params)
@@ -106,7 +78,6 @@ int32 UGenerateTextLocalizationReportCommandlet::Main(const FString& Params)
 	GetBoolFromConfig( *SectionName, TEXT("bWordCountReport"), bWordCountReport, GatherTextConfigPath );
 	GetBoolFromConfig( *SectionName, TEXT("bConflictReport"), bConflictReport, GatherTextConfigPath );
 
-
 	if( bWordCountReport )
 	{
 		if( !ProcessWordCountReport( SourcePath, DestinationPath ) )
@@ -130,21 +101,26 @@ int32 UGenerateTextLocalizationReportCommandlet::Main(const FString& Params)
 
 bool UGenerateTextLocalizationReportCommandlet::ProcessWordCountReport(const FString& SourcePath, const FString& DestinationPath)
 {
-	FString ManifestName;
-	FString WordCountReportName;
-	FString TimeStamp;
-	TArray<FString> CulturesToGenerate;
-
-	TimeStamp = (CmdlineTimeStamp.IsEmpty()) ? *FDateTime::Now().ToString() : CmdlineTimeStamp;
+	const FString TimeStamp = (CmdlineTimeStamp.IsEmpty()) ? *FDateTime::Now().ToString() : CmdlineTimeStamp;
 
 	// Get manifest name.
+	FString ManifestName;
 	if( !( GetStringFromConfig( *SectionName, TEXT("ManifestName"), ManifestName, GatherTextConfigPath ) ) )
 	{
 		UE_LOG(LogGenerateTextLocalizationReportCommandlet, Error, TEXT("No manifest name specified."));
 		return false;
 	}
 
+	// Get archive name.
+	FString ArchiveName;
+	if( !( GetStringFromConfig( *SectionName, TEXT("ArchiveName"), ArchiveName, GatherTextConfigPath ) ) )
+	{
+		UE_LOG(LogGenerateTextLocalizationReportCommandlet, Error, TEXT("No archive name specified."));
+		return false;
+	}
+
 	// Get report name.
+	FString WordCountReportName;
 	if( !( GetStringFromConfig( *SectionName, TEXT("WordCountReportName"), WordCountReportName, GatherTextConfigPath ) ) )
 	{
 		UE_LOG(LogGenerateTextLocalizationReportCommandlet, Error, TEXT("No word count report name specified."));
@@ -152,6 +128,7 @@ bool UGenerateTextLocalizationReportCommandlet::ProcessWordCountReport(const FSt
 	}
 
 	// Get cultures to generate.
+	TArray<FString> CulturesToGenerate;
 	GetStringArrayFromConfig( *SectionName, TEXT("CulturesToGenerate"), CulturesToGenerate, GatherTextConfigPath );
 
 	for(int32 i = 0; i < CulturesToGenerate.Num(); ++i)
@@ -163,7 +140,7 @@ bool UGenerateTextLocalizationReportCommandlet::ProcessWordCountReport(const FSt
 	}
 
 	FString ReportStr;
-	FString ReportFilePath = (DestinationPath / WordCountReportName);
+	const FString ReportFilePath = (DestinationPath / WordCountReportName);
 
 	if ( FPaths::FileExists( ReportFilePath ) )
 	{
@@ -181,20 +158,15 @@ bool UGenerateTextLocalizationReportCommandlet::ProcessWordCountReport(const FSt
 		return false;
 	}
 
-	// Read the manifest file from the source path.
-	FString ManifestFilePath = (SourcePath / ManifestName);
-	ManifestFilePath = FPaths::ConvertRelativePathToFull(ManifestFilePath);
-	TSharedPtr<FJsonObject> ManifestJSONObject = ReadJSONTextFile(ManifestFilePath);
-	if( !(ManifestJSONObject.IsValid()) )
+	// Load the manifest and all archives
+	FLocTextHelper LocTextHelper(SourcePath, ManifestName, ArchiveName, FString(), CulturesToGenerate, MakeShareable(new FLocFileSCCNotifies(SourceControlInfo)));
 	{
-		UE_LOG(LogGenerateTextLocalizationReportCommandlet, Error, TEXT("No manifest found at %s."), *ManifestFilePath);
-		return false;
-	}
-
-	TSharedRef<FInternationalizationManifest> InternationalizationManifest = MakeShareable( new FInternationalizationManifest );
-	{
-		FJsonInternationalizationManifestSerializer ManifestSerializer;
-		ManifestSerializer.DeserializeManifest(ManifestJSONObject.ToSharedRef(), InternationalizationManifest);
+		FText LoadError;
+		if (!LocTextHelper.LoadAll(ELocTextHelperLoadFlags::LoadOrCreate, &LoadError))
+		{
+			UE_LOG(LogGenerateTextLocalizationReportCommandlet, Error, TEXT("%s"), *LoadError.ToString());
+			return false;
+		}
 	}
 
 	// If we are starting a new report file we will add a heading row
@@ -209,9 +181,6 @@ bool UGenerateTextLocalizationReportCommandlet::ProcessWordCountReport(const FSt
 
 	int32 NewRowIndex = ReportData.AddRow();
 	ReportData.SetEntry(NewRowIndex, FWordCountReportData::ColHeadingDateTime, TimeStamp);
-
-	int32 TotalNumOfWords = 0;
-
 
 	struct FCaseSensitiveStringKeyFuncs : BaseKeyFuncs<FString, FString, false>
 	{
@@ -229,99 +198,81 @@ bool UGenerateTextLocalizationReportCommandlet::ProcessWordCountReport(const FSt
 		}
 	};
 
-	TSet< FString, FCaseSensitiveStringKeyFuncs > CountedText;
-	for(TManifestEntryBySourceTextContainer::TConstIterator i = InternationalizationManifest->GetEntriesBySourceTextIterator(); i; ++i)
+	auto CountWords = [](const FString& InTextToCount) -> int32
 	{
-		// Gather relevant info from manifest entry.
-		const TSharedRef<FManifestEntry>& ManifestEntry = i.Value();
-		const FLocItem& Source = ManifestEntry->Source;
+		int32 NumOfWords = 0;
+		// Calculate # of words
 
-		bool HasNonOptional = false;
-		for( auto ContextIter = ManifestEntry->Contexts.CreateConstIterator(); ContextIter; ++ContextIter )
+		TSharedRef<IBreakIterator> LineBreakIterator = FBreakIterator::CreateLineBreakIterator();
+		LineBreakIterator->SetString(InTextToCount);
+
+		int32 PreviousBreak = 0;
+		int32 CurrentBreak = 0;
+
+		while ((CurrentBreak = LineBreakIterator->MoveToNext()) != INDEX_NONE)
 		{
-			if( !(*ContextIter).bIsOptional )
+			if (CurrentBreak > PreviousBreak)
 			{
-				HasNonOptional = true;
-				break;
+				++NumOfWords;
+			}
+			PreviousBreak = CurrentBreak;
+		}
+
+		return NumOfWords;
+	};
+
+	int32 TotalNumOfWords = 0;
+	TSet< FString, FCaseSensitiveStringKeyFuncs > CountedText;
+
+	LocTextHelper.EnumerateSourceTexts([&TotalNumOfWords, &CountedText, &CountWords](TSharedRef<FManifestEntry> InManifestEntry) -> bool
+	{
+		const int32 NumWords = CountWords(InManifestEntry->Source.Text);
+
+		// Gather relevant info from each manifest entry
+		for (const FManifestContext& Context : InManifestEntry->Contexts)
+		{
+			if (!Context.bIsOptional)
+			{
+				const FString CountedTextId = FString::Printf(TEXT("%s::%s::%s"), *InManifestEntry->Source.Text, *InManifestEntry->Namespace, *Context.Key);
+				if (!CountedText.Contains(CountedTextId))
+				{
+					TotalNumOfWords += NumWords;
+
+					bool IsAlreadySet = false;
+					CountedText.Add(CountedTextId, &IsAlreadySet);
+					check(!IsAlreadySet);
+				}
 			}
 		}
 
-		if( HasNonOptional )
-		{
-			const FString CountedTextId = Source.Text + FString(TEXT("::")) + ManifestEntry->Namespace;
-			if ( !CountedText.Contains( CountedTextId ) )
-			{
-				TotalNumOfWords += CountWords( Source.Text );
-
-				bool IsAlreadySet = false;
-				CountedText.Add( CountedTextId, &IsAlreadySet );
-				check( !IsAlreadySet );
-			}
-		}
-	}
+		return true; // continue enumeration
+	}, true);
 
 	ReportData.SetEntry(NewRowIndex, FWordCountReportData::ColHeadingWordCount, FString::FromInt( TotalNumOfWords ) );
 	
 	// For each culture:
-	for(int32 Culture = 0; Culture < CulturesToGenerate.Num(); Culture++)
+	for (const FString& CultureName : CulturesToGenerate)
 	{
 		uint32 TranslatedWords = 0;
-		FString CultureStr = CulturesToGenerate[Culture];
-		FString CulturePath = SourcePath / (*CultureStr);
-		CountedText.Empty();
+		CountedText.Reset();
 
-		// Find archives in the culture-specific folder.
-		TArray<FString> ArchiveFileNames;
-		IFileManager::Get().FindFiles(ArchiveFileNames, *(CulturePath / TEXT("*.archive")), true, false);
-
-		// For each archive:
-		for(int32 ArchiveIndex = 0; ArchiveIndex < ArchiveFileNames.Num(); ++ArchiveIndex)
+		// Finds all the manifest entries in the archive and adds the source text word count to the running total if there is a valid translation.
+		LocTextHelper.EnumerateSourceTexts([&LocTextHelper, &CultureName, &TranslatedWords, &CountedText, &CountWords](TSharedRef<FManifestEntry> InManifestEntry) -> bool
 		{
-			const FString ArchiveName = ArchiveFileNames[ArchiveIndex];
+			const int32 NumWords = CountWords(InManifestEntry->Source.Text);
 
-			// Read each archive file from the culture-named directory in the source path.
-			FString ArchiveFilePath = CulturePath / ArchiveName;
-			ArchiveFilePath = FPaths::ConvertRelativePathToFull(ArchiveFilePath);
-			TSharedPtr<FJsonObject> ArchiveJSONObject = ReadJSONTextFile(ArchiveFilePath);
-			if( !(ArchiveJSONObject.IsValid()) )
+			// Gather relevant info from each manifest entry
+			for (const FManifestContext& Context : InManifestEntry->Contexts)
 			{
-				UE_LOG(LogGenerateTextLocalizationReportCommandlet, Error, TEXT("No archive found at %s."), *ArchiveFilePath);
-				continue;
-			}
-
-			TSharedRef<FInternationalizationArchive> InternationalizationArchive = MakeShareable( new FInternationalizationArchive );
-			{
-				FJsonInternationalizationArchiveSerializer ArchiveSerializer;
-				ArchiveSerializer.DeserializeArchive(ArchiveJSONObject.ToSharedRef(), InternationalizationArchive);
-			}
-
-			// Finds all the manifest entries in the archive and adds the source text word count to the running total if there is a valid translation.
-			for (TManifestEntryBySourceTextContainer::TConstIterator i = InternationalizationManifest->GetEntriesBySourceTextIterator(); i; ++i)
-			{
-				// Gather relevant info from manifest entry.
-				const TSharedRef<FManifestEntry>& ManifestEntry = i.Value();
-				const FString& Namespace = ManifestEntry->Namespace;
-				const FLocItem& Source = ManifestEntry->Source;
-
-				if (ManifestEntry->Contexts.Num() > 0)
+				if (!Context.bIsOptional)
 				{
-					TSharedPtr<FArchiveEntry> ArchiveEntry = InternationalizationArchive->FindEntryBySource(Namespace, Source, ManifestEntry->Contexts[0].KeyMetadataObj);
-					if (ArchiveEntry.IsValid() && !ArchiveEntry->Translation.Text.IsEmpty())
+					TSharedPtr<FArchiveEntry> ArchiveEntry = LocTextHelper.FindTranslation(CultureName, InManifestEntry->Namespace, Context.Key, Context.KeyMetadataObj);
+					if (ArchiveEntry.IsValid() && ArchiveEntry->Source.IsExactMatch(InManifestEntry->Source) && !ArchiveEntry->Translation.Text.IsEmpty())
 					{
-						bool HasNonOptional = false;
-						for (auto ContextIter = ManifestEntry->Contexts.CreateConstIterator(); ContextIter; ++ContextIter)
-						{
-							if (!(*ContextIter).bIsOptional)
-							{
-								HasNonOptional = true;
-								break;
-							}
-						}
-
-						const FString CountedTextId = Source.Text + FString(TEXT("::")) + ManifestEntry->Namespace;
+						const FString CountedTextId = FString::Printf(TEXT("%s::%s::%s"), *InManifestEntry->Source.Text, *InManifestEntry->Namespace, *Context.Key);
 						if (!CountedText.Contains(CountedTextId))
 						{
-							TranslatedWords += CountWords(Source.Text);
+							TranslatedWords += NumWords;
 
 							bool IsAlreadySet = false;
 							CountedText.Add(CountedTextId, &IsAlreadySet);
@@ -330,40 +281,22 @@ bool UGenerateTextLocalizationReportCommandlet::ProcessWordCountReport(const FSt
 					}
 				}
 			}
-		}
-		ReportData.SetEntry(NewRowIndex, CultureStr, FString::FromInt( TranslatedWords ) );
+			
+			return true; // continue enumeration
+		}, true);
+
+		ReportData.SetEntry(NewRowIndex, CultureName, FString::FromInt(TranslatedWords));
 	}
 
-	const bool DidFileExist = FPaths::FileExists(ReportFilePath);
-	if (DidFileExist)
+	const bool bReportFileSaved = FLocalizedAssetSCCUtil::SaveFileWithSCC(SourceControlInfo, ReportFilePath, [&ReportData](const FString& InSaveFileName) -> bool
 	{
-		if( SourceControlInfo.IsValid() )
-		{
-			FText SCCErrorText;
-			if (!SourceControlInfo->CheckOutFile(ReportFilePath, SCCErrorText))
-			{
-				UE_LOG(LogGenerateTextLocalizationReportCommandlet, Warning, TEXT("Check out of file %s failed: %s"), *ReportFilePath, *SCCErrorText.ToString());
-			}
-		}
-	}
+		return FFileHelper::SaveStringToFile(ReportData.ToCSV(), *InSaveFileName);
+	});
 
-	if ( !FFileHelper::SaveStringToFile( ReportData.ToCSV(), *ReportFilePath ) )
+	if (!bReportFileSaved)
 	{
 		UE_LOG(LogGenerateTextLocalizationReportCommandlet, Error, TEXT("Unable to save report at %s."), *ReportFilePath);
 		return false;
-	}
-
-	if (!DidFileExist)
-	{
-		// Checkout on a new file will cause it to be added
-		if( SourceControlInfo.IsValid() )
-		{
-			FText SCCErrorText;
-			if (!SourceControlInfo->CheckOutFile(ReportFilePath, SCCErrorText))
-			{
-				UE_LOG(LogGenerateTextLocalizationReportCommandlet, Warning, TEXT("Check out of file %s failed: %s"), *ReportFilePath, *SCCErrorText.ToString());
-			}
-		}
 	}
 
 	return true;
@@ -371,54 +304,28 @@ bool UGenerateTextLocalizationReportCommandlet::ProcessWordCountReport(const FSt
 
 bool UGenerateTextLocalizationReportCommandlet::ProcessConflictReport(const FString& DestinationPath)
 {
-	FString ConflictReportName;
-	FString TimeStamp;
-
-
-	TimeStamp = (CmdlineTimeStamp.IsEmpty()) ? *FDateTime::Now().ToString() : CmdlineTimeStamp;
+	const FString TimeStamp = (CmdlineTimeStamp.IsEmpty()) ? *FDateTime::Now().ToString() : CmdlineTimeStamp;
 
 	// Get report name.
-	if( !( GetStringFromConfig( *SectionName, TEXT("ConflictReportName"), ConflictReportName, GatherTextConfigPath ) ) )
+	FString ConflictReportName;
+	if (!GetStringFromConfig(*SectionName, TEXT("ConflictReportName"), ConflictReportName, GatherTextConfigPath))
 	{
 		UE_LOG(LogGenerateTextLocalizationReportCommandlet, Error, TEXT("No conflict report name specified."));
 		return false;
 	}
 
-	FString ReportStr;
-	FString ReportFilePath = (DestinationPath / ConflictReportName);
+	const FString ReportStr = GatherManifestHelper->GetConflictReport();
+	const FString ReportFilePath = (DestinationPath / ConflictReportName);
 
-	ReportStr = FConflictReportInfo::GetInstance().ToString();
-
-	const bool DidFileExist = FPaths::FileExists(ReportFilePath);
-	if (DidFileExist)
+	const bool bReportFileSaved = FLocalizedAssetSCCUtil::SaveFileWithSCC(SourceControlInfo, ReportFilePath, [&ReportStr](const FString& InSaveFileName) -> bool
 	{
-		if( SourceControlInfo.IsValid() )
-		{
-			FText SCCErrorText;
-			if (!SourceControlInfo->CheckOutFile(ReportFilePath, SCCErrorText))
-			{
-				UE_LOG(LogGenerateTextLocalizationReportCommandlet, Warning, TEXT("Check out of file %s failed: %s"), *ReportFilePath, *SCCErrorText.ToString());
-			}
-		}
-	}
+		return FFileHelper::SaveStringToFile(ReportStr, *InSaveFileName);
+	});
 
-	if ( !FFileHelper::SaveStringToFile( ReportStr, *ReportFilePath ) )
+	if (!bReportFileSaved)
 	{
 		UE_LOG(LogGenerateTextLocalizationReportCommandlet, Error, TEXT("Unable to save report at %s."), *ReportFilePath);
 		return false;
-	}
-
-	if (!DidFileExist)
-	{
-		// Checkout on a new file will cause it to be added
-		if( SourceControlInfo.IsValid() )
-		{
-			FText SCCErrorText;
-			if (!SourceControlInfo->CheckOutFile(ReportFilePath, SCCErrorText))
-			{
-				UE_LOG(LogGenerateTextLocalizationReportCommandlet, Warning, TEXT("Check out of file %s failed: %s"), *ReportFilePath, *SCCErrorText.ToString());
-			}
-		}
 	}
 
 	return true;

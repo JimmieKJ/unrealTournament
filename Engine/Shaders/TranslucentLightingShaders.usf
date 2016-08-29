@@ -150,9 +150,9 @@ void PerObjectShadowingMainPS(
 	out float4 OutColor : SV_Target0
 	)
 {
-	float ZPosition = Frame.TranslucencyLightingVolumeMin[VolumeCascadeIndex].z + (Input.LayerIndex + .5f) * Frame.TranslucencyLightingVolumeInvSize[VolumeCascadeIndex].w;
-	float3 WorldPosition = float3(Frame.TranslucencyLightingVolumeMin[VolumeCascadeIndex].xy + Input.Vertex.UV / Frame.TranslucencyLightingVolumeInvSize[VolumeCascadeIndex].xy - .5f * Frame.TranslucencyLightingVolumeInvSize[VolumeCascadeIndex].w, ZPosition);
-	float VoxelSize = Frame.TranslucencyLightingVolumeInvSize[VolumeCascadeIndex].w;
+	float ZPosition = View.TranslucencyLightingVolumeMin[VolumeCascadeIndex].z + (Input.LayerIndex + .5f) * View.TranslucencyLightingVolumeInvSize[VolumeCascadeIndex].w;
+	float3 WorldPosition = float3(View.TranslucencyLightingVolumeMin[VolumeCascadeIndex].xy + Input.Vertex.UV / View.TranslucencyLightingVolumeInvSize[VolumeCascadeIndex].xy - .5f * View.TranslucencyLightingVolumeInvSize[VolumeCascadeIndex].w, ZPosition);
+	float VoxelSize = View.TranslucencyLightingVolumeInvSize[VolumeCascadeIndex].w;
 
 	float ShadowFactor = 1;
 

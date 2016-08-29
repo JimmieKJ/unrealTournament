@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include "Runtime/Online/OnlineSubsystemUtils/Public/PartyBeaconHost.h"
+#include "PartyBeaconHost.h"
 #include "PartyBeaconState.h"
 #include "UTPartyBeaconState.h"
 #include "UTPartyBeaconHost.generated.h"

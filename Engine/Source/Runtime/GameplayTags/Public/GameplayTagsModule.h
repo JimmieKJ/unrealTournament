@@ -3,6 +3,7 @@
 #pragma once
 
 #include "ModuleManager.h"
+#include "EngineGlobals.h"
 #include "GameplayTagsManager.h"
 
 

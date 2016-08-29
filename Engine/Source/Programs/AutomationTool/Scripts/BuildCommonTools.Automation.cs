@@ -50,7 +50,7 @@ public class BuildCommonTools : BuildCommand
 
 		// Build everything. We don't want to touch version files for GitHub builds -- these are "programmer builds" and won't have a canonical build version
 		UE4Build Builder = new UE4Build(this);
-		Builder.Build(Agenda, InDeleteBuildProducts:true, InUpdateVersionFiles: false);
+		Builder.Build(Agenda, InUpdateVersionFiles: false);
 
 		// Add UAT and UBT to the build products
 		Builder.AddUATFilesToBuildProducts();

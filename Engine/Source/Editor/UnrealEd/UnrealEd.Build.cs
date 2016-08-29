@@ -45,12 +45,12 @@ public class UnrealEd : ModuleRules
 				"PlacementMode",
 				"Settings",
 				"SettingsEditor",
-				"SoundClassEditor",
+                "SuperSearch",
+                "SoundClassEditor",
 				"ViewportSnapping",
 				"SourceCodeAccess",
 				"ReferenceViewer",
                 "IntroTutorials",
-                "SuperSearch",
 				"OutputLog",
 				"Landscape",
                 "Niagara",
@@ -86,9 +86,9 @@ public class UnrealEd : ModuleRules
 				"BlueprintGraph",
                 "Http",
 				"UnrealAudio",
-                "Niagara",
-                "VectorVM",
-                "FunctionalTesting"
+                "FunctionalTesting",
+				"AutomationController",
+				"Internationalization",
 			}
 		);
 
@@ -99,15 +99,11 @@ public class UnrealEd : ModuleRules
 				"AnimGraph",
                 "AppFramework",
 				"BlueprintGraph",
-				"OnlineSubsystem",
-				"OnlineSubsystemUtils",
-				"OnlineBlueprintSupport",
 				"DesktopPlatform",
 				"EditorStyle",
 				"EngineSettings",
 				"InputCore",
 				"InputBindingEditor",
-				"Internationalization",
 				"LauncherServices",
 				"MaterialEditor",
 				"MessageLog",
@@ -122,7 +118,7 @@ public class UnrealEd : ModuleRules
 				"Sockets",
 				"SoundClassEditor",
 				"SoundCueEditor",
-				"SourceControlWindows", 
+				"SourceControlWindows",
 				"StatsViewer",
 				"SwarmInterface",
 				"TargetPlatform",
@@ -143,9 +139,13 @@ public class UnrealEd : ModuleRules
 				"AddContentDialog",
 				"GameProjectGeneration",
                 "HierarchicalLODUtilities",
+				"Analytics",
                 "AnalyticsET",
-                "PluginWarden"
-			}
+                "PluginWarden",
+                "PixelInspectorModule",
+				"MovieScene",
+				"MovieSceneTracks",
+            }
 		);
 
 		DynamicallyLoadedModuleNames.AddRange(
@@ -181,14 +181,14 @@ public class UnrealEd : ModuleRules
 				"SettingsEditor",
 				"SessionFrontend",
 				"Sequencer",
-				"GeometryMode",
+                "SuperSearch",
+                "GeometryMode",
 				"TextureAlignMode",
 				"FoliageEdit",
 				"PackageDependencyInfo",
 				"ImageWrapper",
 				"Blutility",
 				"IntroTutorials",
-                "SuperSearch",
 				"WorkspaceMenuStructure",
 				"PlacementMode",
 				"NiagaraEditor",
@@ -216,19 +216,15 @@ public class UnrealEd : ModuleRules
                 "PortalServices",
                 "GeometryCacheEd",
                 "BlueprintNativeCodeGen",
-			}
+				"VREditor",
+                "EditorAutomation",
+            }
 		);
 
 		if (Target.Platform == UnrealTargetPlatform.Win64 || Target.Platform == UnrealTargetPlatform.Win32 || Target.Platform == UnrealTargetPlatform.Mac)
 		{
 			DynamicallyLoadedModuleNames.Add("AndroidPlatformEditor");
 		}
-
-        if (Target.Type == TargetRules.TargetType.Editor)
-        {
-            DynamicallyLoadedModuleNames.Add("SequenceRecorder");
-            PrivateIncludePathModuleNames.Add("SequenceRecorder");
-        }
 
 		CircularlyReferencedDependentModules.AddRange(
 			new string[] 

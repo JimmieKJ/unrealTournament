@@ -41,14 +41,6 @@ DECLARE_DELEGATE_RetVal_TwoParams(FReply, FOnDragOver,
 	const FDragDropEvent&)
 
 
-/** Delegate type for handling mouse events */
-DECLARE_DELEGATE_RetVal_TwoParams(
-FReply, FPointerEventHandler,
-	/** The geometry of the widget*/
-	const FGeometry&,
-	/** The Mouse Event that we are processing */
-	const FPointerEvent& )
-
 /** Delegate type for handling OnDrop events */
 DECLARE_DELEGATE_RetVal_TwoParams(
 FReply, FDropEventHandler,

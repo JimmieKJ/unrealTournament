@@ -40,6 +40,14 @@ public:
 	static const ISlateStyle* FindSlateStyle( const FName& InSlateStyleName );
 
 	/**
+	 * Iterate all the slate style known to this registry
+	 *
+	 * @param Iter A predicate to call for each known style that returns true to continue iteration, and false to terminate iteration
+	 * @return true where to loop completed, of false if it was terminated by the predicate
+	 */
+	static bool IterateAllStyles(const TFunctionRef<bool(const ISlateStyle&)>& Iter);
+
+	/**
 	 * Populate an array of slate brushes with all of the resources used by the registered styles.
 	 *
 	 * @param OutResources Array of slate brushes to populate.

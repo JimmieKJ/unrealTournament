@@ -241,7 +241,7 @@ void FPredictionKeyDelegates::AddDependency(FPredictionKey::KeyType ThisKey, FPr
 
 // -------------------------------------
 
-FScopedPredictionWindow::FScopedPredictionWindow(UAbilitySystemComponent* AbilitySystemComponent, FPredictionKey InPredictionKey)
+FScopedPredictionWindow::FScopedPredictionWindow(UAbilitySystemComponent* AbilitySystemComponent, FPredictionKey InPredictionKey, bool InSetReplicatedPredictionKey /*=true*/)
 {
 	if (!ensure(AbilitySystemComponent != NULL))
 	{
@@ -255,9 +255,10 @@ FScopedPredictionWindow::FScopedPredictionWindow(UAbilitySystemComponent* Abilit
 	{
 		Owner = AbilitySystemComponent;
 		check(Owner.IsValid());
+		RestoreKey = Owner->ScopedPredictionKey;
 		Owner->ScopedPredictionKey = InPredictionKey;
 		ClearScopedPredictionKey = true;
-		SetReplicatedPredictionKey = true;
+		SetReplicatedPredictionKey = InSetReplicatedPredictionKey;
 	}
 }
 

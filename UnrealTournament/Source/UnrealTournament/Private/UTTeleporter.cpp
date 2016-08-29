@@ -15,14 +15,14 @@ AUTTeleporter::AUTTeleporter(const FObjectInitializer& ObjectInitializer)
 	ExitArrow = ObjectInitializer.CreateEditorOnlyDefaultSubobject<UArrowComponent>(this, TEXT("ExitArrow"));
 	if (ExitArrow != NULL)
 	{
-		ExitArrow->AttachParent = RootComponent;
+		ExitArrow->SetupAttachment(RootComponent);
 		ExitArrow->ArrowColor = FLinearColor(0.0f, 0.0f, 1.0f, 1.0f).ToFColor(false);
 	}
 
 	EntryArrow = ObjectInitializer.CreateEditorOnlyDefaultSubobject<UArrowComponent>(this, TEXT("EntryArrow"));
 	if (EntryArrow != NULL)
 	{
-		EntryArrow->AttachParent = RootComponent;
+		EntryArrow->SetupAttachment(RootComponent);
 		EntryArrow->ArrowColor = FLinearColor(0.0f, 1.0f, 0.0f, 1.0f).ToFColor(false);
 	}
 
@@ -47,7 +47,7 @@ bool AUTTeleporter::CanTeleport_Implementation(AActor* OtherActor)
 // prevents re-entrancy between teleporters
 static AActor* CurrentlyTeleportingActor = NULL;
 
-void AUTTeleporter::OnOverlapBegin(AActor* OtherActor)
+void AUTTeleporter::OnOverlapBegin(AActor* OverlappingActor, AActor* OtherActor)
 {
 	if (OtherActor != NULL && CurrentlyTeleportingActor != OtherActor && CanTeleport(OtherActor))
 	{

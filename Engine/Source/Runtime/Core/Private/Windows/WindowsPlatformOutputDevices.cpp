@@ -5,6 +5,7 @@
 #include "FeedbackContextAnsi.h"
 #include "../Private/Windows/WindowsPlatformOutputDevicesPrivate.h"
 #include "../Private/Windows/WindowsPlatformFeedbackContextPrivate.h"
+#include "HAL/ThreadHeartBeat.h"
 
 #include "AllowWindowsPlatformTypes.h"
 
@@ -129,10 +130,9 @@ void FOutputDeviceWindowsError::HandleError()
 	FCoreDelegates::OnHandleSystemError.Broadcast();
 
 	// Dump the error and flush the log.
-	FDebug::ConditionallyEmitBeginCrashUATMarker();
-	UE_LOG( LogWindows, Error, TEXT( "=== Critical error: ===" ) LINE_TERMINATOR TEXT( "%s" ) LINE_TERMINATOR, GErrorHist );
-	FDebug::ConditionallyEmitEndCrashUATMarker();
-
+#if !NO_LOGGING
+	FDebug::OutputMultiLineCallstack(__FILE__, __LINE__, LogWindows.GetCategoryName(), TEXT("=== Critical error: ==="), GErrorHist, ELogVerbosity::Error);
+#endif
 	GLog->PanicFlushThreadedLogs();
 
 	// Unhide the mouse.
@@ -326,7 +326,7 @@ void FOutputDeviceConsoleWindows::Serialize( const TCHAR* Data, ELogVerbosity::T
 					}
 				}
 				TCHAR OutputString[MAX_SPRINTF]=TEXT(""); //@warning: this is safe as FCString::Sprintf only use 1024 characters max
-				FCString::Sprintf(OutputString,TEXT("%s%s"),*FOutputDevice::FormatLogLine(Verbosity, Category, Data, GPrintLogTimes,RealTime),LINE_TERMINATOR);
+				FCString::Sprintf(OutputString,TEXT("%s%s"),*FOutputDeviceHelper::FormatLogLine(Verbosity, Category, Data, GPrintLogTimes,RealTime),LINE_TERMINATOR);
 				uint32 Written;
 				WriteConsole( ConsoleHandle, OutputString, FCString::Strlen(OutputString), (::DWORD*)&Written, NULL );
 
@@ -404,3 +404,15 @@ bool FOutputDeviceConsoleWindows::IsAttached()
 	return false;
 }
 
+bool FFeedbackContextWindows::YesNof(const FText& Question)
+{
+	if ((GIsClient || GIsEditor) && ((GIsSilent != true) && (FApp::IsUnattended() != true)))
+	{
+		FSlowHeartBeatScope SuspendHeartBeat;
+		return(::MessageBox(NULL, Question.ToString().GetCharArray().GetData(), *NSLOCTEXT("Core", "Question", "Question").ToString(), MB_YESNO | MB_TASKMODAL) == IDYES);
+	}
+	else
+	{
+		return false;
+	}
+}

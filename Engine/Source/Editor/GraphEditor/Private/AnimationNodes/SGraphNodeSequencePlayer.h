@@ -2,13 +2,15 @@
 
 #pragma once
 
-class SGraphNodeSequencePlayer : public SGraphNode
+#include "SAnimationGraphNode.h"
+
+class SGraphNodeSequencePlayer : public SAnimationGraphNode
 {
 public:
 	SLATE_BEGIN_ARGS(SGraphNodeSequencePlayer){}
 	SLATE_END_ARGS()
 
-	void Construct(const FArguments& InArgs, UK2Node* InNode);
+	void Construct(const FArguments& InArgs, UAnimGraphNode_Base* InNode);
 
 	// SNodePanel::SNode interface
 	virtual void GetNodeInfoPopups(FNodeInfoContext* Context, TArray<FGraphInformationPopupInfo>& Popups) const override;

@@ -12,6 +12,7 @@
 #include "Net/UnrealNetwork.h"
 #include "Collision.h"
 #include "PhysicsPublic.h"
+#include "Tickable.h"
 #include "IHeadMountedDisplay.h"
 
 #include "ParticleDefinitions.h"
@@ -29,6 +30,7 @@
 #include "Engine/CoreSettings.h"
 
 #include "InGamePerformanceTracker.h"
+#include "Streaming/TextureStreamingHelpers.h"
 
 // this will log out all of the objects that were ticked in the FDetailedTickStats struct so you can isolate what is expensive
 #define LOG_DETAILED_DUMPSTATS 0
@@ -80,12 +82,14 @@ DEFINE_STAT(STAT_FinishAsyncTraceTickTime);
 DEFINE_STAT(STAT_NetBroadcastTickTime);
 DEFINE_STAT(STAT_NetServerRepActorsTime);
 DEFINE_STAT(STAT_NetConsiderActorsTime);
+DEFINE_STAT(STAT_NetUpdateUnmappedObjectsTime);
 DEFINE_STAT(STAT_NetInitialDormantCheckTime);
 DEFINE_STAT(STAT_NetPrioritizeActorsTime);
 DEFINE_STAT(STAT_NetReplicateActorsTime);
 DEFINE_STAT(STAT_NetReplicateDynamicPropTime);
 DEFINE_STAT(STAT_NetSkippedDynamicProps);
 DEFINE_STAT(STAT_NetSerializeItemDeltaTime);
+DEFINE_STAT(STAT_NetUpdateGuidToReplicatorMap);
 DEFINE_STAT(STAT_NetReplicateStaticPropTime);
 DEFINE_STAT(STAT_NetBroadcastPostTickTime);
 DEFINE_STAT(STAT_NetRebuildConditionalTime);
@@ -104,6 +108,7 @@ extern bool GShouldLogOutAFrameOfSetBodyTransform;
 
 /** Static array of tickable objects */
 TArray<FTickableGameObject*> FTickableGameObject::TickableObjects;
+bool FTickableGameObject::bIsTickingObjects = false;
 
 /*-----------------------------------------------------------------------------
 	Detailed tick stats helper classes.
@@ -374,6 +379,8 @@ void AController::TickActor( float DeltaSeconds, ELevelTick TickType, FActorTick
 
 void UWorld::TickNetClient( float DeltaSeconds )
 {
+	SCOPE_TIME_GUARD(TEXT("UWorld::TickNetClient"));
+
 	// If our net driver has lost connection to the server,
 	// and there isn't a PendingNetGame, throw a network failure error.
 	if( NetDriver->ServerConnection->State == USOCK_Closed )
@@ -494,6 +501,11 @@ private:
  */
 void UWorld::ProcessLevelStreamingVolumes(FVector* OverrideViewLocation)
 {
+	if (GetWorldSettings()->bUseClientSideLevelStreamingVolumes != (GetNetMode() == NM_Client))
+	{
+		return;
+	}
+
 	// if we are delaying using streaming volumes, return now
 	if( StreamingVolumeUpdateDelay > 0 )
 	{
@@ -1045,6 +1057,80 @@ static FAutoConsoleVariableRef CVarTimeBetweenPurgingPendingKillObjects(
 
 #include "GameFramework/SpawnActorTimer.h"
 
+TDrawEvent<FRHICommandList>* BeginTickDrawEvent()
+{
+	TDrawEvent<FRHICommandList>* TickDrawEvent = new TDrawEvent<FRHICommandList>();
+
+	ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(
+		BeginDrawEventCommand,
+		TDrawEvent<FRHICommandList>*,TickDrawEvent,TickDrawEvent,
+	{
+		BEGIN_DRAW_EVENTF(
+			RHICmdList, 
+			WorldTick, 
+			(*TickDrawEvent),
+			TEXT("WorldTick"));
+	});
+
+	return TickDrawEvent;
+}
+
+void EndTickDrawEvent(TDrawEvent<FRHICommandList>* TickDrawEvent)
+{
+	ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(
+		EndDrawEventCommand,
+		TDrawEvent<FRHICommandList>*,TickDrawEvent,TickDrawEvent,
+	{
+		STOP_DRAW_EVENT((*TickDrawEvent));
+		delete TickDrawEvent;
+	});
+}
+
+
+void FTickableGameObject::TickObjects(UWorld* World, int32 InTickType, bool bIsPaused, float DeltaSeconds)
+{
+	check(!bIsTickingObjects);
+	bIsTickingObjects = true;
+
+	bool bNeedsCleanup = false;
+	ELevelTick TickType = (ELevelTick)InTickType;
+
+	for( int32 i=0; i < TickableObjects.Num(); ++i )
+	{
+		if (FTickableGameObject* TickableObject = TickableObjects[i])
+		{
+			const bool bTickIt = TickableObject->IsTickable() && (TickableObject->GetTickableGameObjectWorld() == World) &&
+				(
+					(TickType != LEVELTICK_TimeOnly && !bIsPaused) ||
+					(bIsPaused && TickableObject->IsTickableWhenPaused()) ||
+					(GIsEditor && (World == nullptr || !World->IsPlayInEditor()) && TickableObject->IsTickableInEditor())
+					);
+
+			if (bTickIt)
+			{
+				STAT(FScopeCycleCounter Context(TickableObject->GetStatId());)
+				TickableObject->Tick(DeltaSeconds);
+
+				if (TickableObjects[i] == nullptr)
+				{
+					bNeedsCleanup = true;
+				}
+			}
+		}
+		else
+		{
+			bNeedsCleanup = true;
+		}
+	}
+
+	if (bNeedsCleanup)
+	{
+		TickableObjects.RemoveAll([](FTickableGameObject* Object) { return Object == nullptr; });
+	}
+
+	bIsTickingObjects = false;
+}
+
 /**
  * Update the level after a variable amount of time, DeltaSeconds, has passed.
  * All child actors are ticked after their owners have been ticked.
@@ -1055,6 +1141,8 @@ void UWorld::Tick( ELevelTick TickType, float DeltaSeconds )
 	{
 		return;
 	}
+
+	TDrawEvent<FRHICommandList>* TickDrawEvent = BeginTickDrawEvent();
 
 	FWorldDelegates::OnWorldTickStart.Broadcast(TickType, DeltaSeconds);
 
@@ -1071,6 +1159,7 @@ void UWorld::Tick( ELevelTick TickType, float DeltaSeconds )
 
 	SCOPE_CYCLE_COUNTER(STAT_WorldTickTime);
 
+	// @todo vreditor: In the VREditor, this isn't actually wrapping the whole frame.  That would have to happen in EditorEngine.cpp's Tick.  However, it didn't seem to affect anything when I tried that.
 	if (GEngine->HMDDevice.IsValid())
 	{
 		GEngine->HMDDevice->OnStartGameFrame( GEngine->GetWorldContextFromWorldChecked( this ) );
@@ -1244,21 +1333,7 @@ void UWorld::Tick( ELevelTick TickType, float DeltaSeconds )
 			GetTimerManager().Tick(DeltaSeconds);
 		}
 
-		for( int32 i=0; i<FTickableGameObject::TickableObjects.Num(); i++ )
-		{
-			FTickableGameObject* TickableObject = FTickableGameObject::TickableObjects[i];
-			bool bTickIt = TickableObject->IsTickable() && 
-				(
-					(TickType != LEVELTICK_TimeOnly && !bIsPaused) ||
-					(bIsPaused && TickableObject->IsTickableWhenPaused()) ||
-					(GIsEditor && !IsPlayInEditor() && TickableObject->IsTickableInEditor())
-				);
-			if (bTickIt)
-			{
-				STAT(FScopeCycleCounter Context(TickableObject->GetStatId());)
-				TickableObject->Tick(DeltaSeconds);
-			}
-		}
+		FTickableGameObject::TickObjects(this, TickType, bIsPaused, DeltaSeconds);
 	}
 	
 	// Update cameras and streaming volumes
@@ -1277,14 +1352,14 @@ void UWorld::Tick( ELevelTick TickType, float DeltaSeconds )
 		if( !bIsPaused )
 		{
 			// Issues level streaming load/unload requests based on local players being inside/outside level streaming volumes.
-			if (IsGameWorld() && GetNetMode() != NM_Client)
+			if (IsGameWorld())
 			{
 				ProcessLevelStreamingVolumes();
-			}
 
-			if (IsGameWorld() && WorldComposition)
-			{
-				WorldComposition->UpdateStreamingState();
+				if (WorldComposition)
+				{
+					WorldComposition->UpdateStreamingState();
+				}
 			}
 		}
 	}
@@ -1335,9 +1410,6 @@ void UWorld::Tick( ELevelTick TickType, float DeltaSeconds )
 	{
 		// Update SpeedTree wind objects.
 		Scene->UpdateSpeedTreeWind(TimeSeconds);
-
-		USceneCaptureComponent2D::UpdateDeferredCaptures( Scene );
-		USceneCaptureComponentCube::UpdateDeferredCaptures( Scene );
 	}
 
 	// Tick the FX system.
@@ -1479,6 +1551,8 @@ void UWorld::Tick( ELevelTick TickType, float DeltaSeconds )
 		}
 	}
 	);
+
+	EndTickDrawEvent(TickDrawEvent);
 }
 
 /**

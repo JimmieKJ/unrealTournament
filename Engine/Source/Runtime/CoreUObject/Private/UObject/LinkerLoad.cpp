@@ -14,6 +14,9 @@
 #include "GatherableTextData.h"
 #include "Serialization/AsyncLoading.h"
 #include "ModuleManager.h"
+#include "LoadTimeTracker.h"
+#include "HAL/ThreadHeartBeat.h"
+#include "../Serialization/AsyncLoadingPrivate.h"
 
 #define LOCTEXT_NAMESPACE "LinkerLoad"
 
@@ -77,7 +80,7 @@ void FLinkerLoad::AddGameNameRedirect(const FName OldName, const FName NewName)
 }
 
 /*----------------------------------------------------------------------------
-	Helpers
+Helpers
 ----------------------------------------------------------------------------*/
 
 /**
@@ -110,17 +113,17 @@ void FLinkerLoad::CreateActiveRedirectsMap(const FString& GEngineIniName)
 
 					bool bInstanceOnly = false;
 
-					FParse::Bool( *It.Value(), TEXT("InstanceOnly="), bInstanceOnly );
-					FParse::Value( *It.Value(), TEXT("ObjectName="), ObjectName );
+					FParse::Bool( *It.Value().GetValue(), TEXT("InstanceOnly="), bInstanceOnly );
+					FParse::Value( *It.Value().GetValue(), TEXT("ObjectName="), ObjectName );
 
-					FParse::Value( *It.Value(), TEXT("OldClassName="), OldClassName );
-					FParse::Value( *It.Value(), TEXT("NewClassName="), NewClassName );
+					FParse::Value( *It.Value().GetValue(), TEXT("OldClassName="), OldClassName );
+					FParse::Value( *It.Value().GetValue(), TEXT("NewClassName="), NewClassName );
 
-					FParse::Value( *It.Value(), TEXT("OldSubobjName="), OldSubobjName );
-					FParse::Value( *It.Value(), TEXT("NewSubobjName="), NewSubobjName );
+					FParse::Value( *It.Value().GetValue(), TEXT("OldSubobjName="), OldSubobjName );
+					FParse::Value( *It.Value().GetValue(), TEXT("NewSubobjName="), NewSubobjName );
 
-					FParse::Value( *It.Value(), TEXT("NewClassClass="), NewClassClass );
-					FParse::Value( *It.Value(), TEXT("NewClassPackage="), NewClassPackage );
+					FParse::Value( *It.Value().GetValue(), TEXT("NewClassClass="), NewClassClass );
+					FParse::Value( *It.Value().GetValue(), TEXT("NewClassPackage="), NewClassPackage );
 
 					if (NewSubobjName != NAME_None || OldSubobjName != NAME_None)
 					{
@@ -181,8 +184,8 @@ void FLinkerLoad::CreateActiveRedirectsMap(const FString& GEngineIniName)
 					FName OldGameName = NAME_None;
 					FName NewGameName = NAME_None;
 
-					FParse::Value( *It.Value(), TEXT("OldGameName="), OldGameName );
-					FParse::Value( *It.Value(), TEXT("NewGameName="), NewGameName );
+					FParse::Value( *It.Value().GetValue(), TEXT("OldGameName="), OldGameName );
+					FParse::Value( *It.Value().GetValue(), TEXT("NewGameName="), NewGameName );
 
 					GameNameRedirects.Add(OldGameName, NewGameName);
 				}
@@ -191,8 +194,8 @@ void FLinkerLoad::CreateActiveRedirectsMap(const FString& GEngineIniName)
 					FName OldStructName = NAME_None;
 					FName NewStructName = NAME_None;
 
-					FParse::Value( *It.Value(), TEXT("OldStructName="), OldStructName );
-					FParse::Value( *It.Value(), TEXT("NewStructName="), NewStructName );
+					FParse::Value( *It.Value().GetValue(), TEXT("OldStructName="), OldStructName );
+					FParse::Value( *It.Value().GetValue(), TEXT("NewStructName="), NewStructName );
 
 					StructNameRedirects.Add(OldStructName, NewStructName);
 				}
@@ -201,8 +204,8 @@ void FLinkerLoad::CreateActiveRedirectsMap(const FString& GEngineIniName)
 					FString OldPluginName;
 					FString NewPluginName;
 
-					FParse::Value( *It.Value(), TEXT("OldPluginName="), OldPluginName );
-					FParse::Value( *It.Value(), TEXT("NewPluginName="), NewPluginName );
+					FParse::Value( *It.Value().GetValue(), TEXT("OldPluginName="), OldPluginName );
+					FParse::Value( *It.Value().GetValue(), TEXT("NewPluginName="), NewPluginName );
 
 					OldPluginName = FString(TEXT("/")) + OldPluginName + FString(TEXT("/"));
 					NewPluginName = FString(TEXT("/")) + NewPluginName + FString(TEXT("/"));
@@ -213,7 +216,7 @@ void FLinkerLoad::CreateActiveRedirectsMap(const FString& GEngineIniName)
 				{
 					FName KnownMissingPackage = NAME_None;
 
-					FParse::Value( *It.Value(), TEXT("PackageName="), KnownMissingPackage );
+					FParse::Value( *It.Value().GetValue(), TEXT("PackageName="), KnownMissingPackage );
 
 					KnownMissingPackages.Add(KnownMissingPackage);
 				}
@@ -393,7 +396,7 @@ void FLinkerLoad::StaticInit(UClass* InUTexture2DStaticClass)
  *
  * @return	new FLinkerLoad object for Parent/ Filename
  */
-FLinkerLoad* FLinkerLoad::CreateLinker( UPackage* Parent, const TCHAR* Filename, uint32 LoadFlags )
+FLinkerLoad* FLinkerLoad::CreateLinker(UPackage* Parent, const TCHAR* Filename, uint32 LoadFlags)
 {
 #if USE_CIRCULAR_DEPENDENCY_LOAD_DEFERRING
 	// we don't want the linker permanently created with the 
@@ -409,7 +412,7 @@ FLinkerLoad* FLinkerLoad::CreateLinker( UPackage* Parent, const TCHAR* Filename,
 	LoadFlags &= ~LOAD_DeferDependencyLoads;
 #endif // USE_CIRCULAR_DEPENDENCY_LOAD_DEFERRING
 
-	FLinkerLoad* Linker = CreateLinkerAsync( Parent, Filename, LoadFlags );
+	FLinkerLoad* Linker = CreateLinkerAsync(Parent, Filename, LoadFlags);
 	{
 #if USE_CIRCULAR_DEPENDENCY_LOAD_DEFERRING
 		// the linker could already have the DeferDependencyLoads flag present 
@@ -421,9 +424,9 @@ FLinkerLoad* FLinkerLoad::CreateLinker( UPackage* Parent, const TCHAR* Filename,
 		TGuardValue<uint32> LinkerLoadFlagGuard(Linker->LoadFlags, Linker->LoadFlags | DeferredLoadFlag);
 #endif // USE_CIRCULAR_DEPENDENCY_LOAD_DEFERRING
 
-		FSerializedPackageLinkerGuard Guard;	
+		FSerializedPackageLinkerGuard Guard;
 		FUObjectThreadContext::Get().SerializedPackageLinker = Linker;
-		if (Linker->Tick( 0.f, false, false ) == LINKER_Failed)
+		if (Linker->Tick(0.f, false, false) == LINKER_Failed)
 		{
 			return NULL;
 		}
@@ -606,42 +609,49 @@ FLinkerLoad::ELinkerStatus FLinkerLoad::Tick( float InTimeLimit, bool bInUseTime
 			// false is returned until any precaching is complete.
 			if( true )
 			{
+				SCOPED_LOADTIMER(LinkerLoad_CreateLoader);
 				Status = CreateLoader();
 			}
 
 			// Serialize the package file summary and presize the various arrays (name, import & export map)
 			if( Status == LINKER_Loaded )
 			{
+				SCOPED_LOADTIMER(LinkerLoad_SerializePackageFileSummary);
 				Status = SerializePackageFileSummary();
 			}
 
 			// Serialize the name map and register the names.
 			if( Status == LINKER_Loaded )
 			{
+				SCOPED_LOADTIMER(LinkerLoad_SerializeNameMap);
 				Status = SerializeNameMap();
 			}
 
 			// Serialize the gatherable text data map.
 			if( Status == LINKER_Loaded )
 			{
+				SCOPED_LOADTIMER(LinkerLoad_SerializeGatherableTextDataMap);
 				Status = SerializeGatherableTextDataMap();
 			}
 
 			// Serialize the import map.
 			if( Status == LINKER_Loaded )
 			{
+				SCOPED_LOADTIMER(LinkerLoad_SerializeImportMap);
 				Status = SerializeImportMap();
 			}
 
 			// Serialize the export map.
 			if( Status == LINKER_Loaded )
 			{
+				SCOPED_LOADTIMER(LinkerLoad_SerializeExportMap);
 				Status = SerializeExportMap();
 			}
 
 			// Start pre-allocation of texture memory.
 			if( Status == LINKER_Loaded )
 			{
+				SCOPED_LOADTIMER(LinkerLoad_StartTextureAllocation);
 #if WITH_ENGINE
 				Status = StartTextureAllocation();
 #endif		// WITH_ENGINE
@@ -650,41 +660,48 @@ FLinkerLoad::ELinkerStatus FLinkerLoad::Tick( float InTimeLimit, bool bInUseTime
 			// Fix up import map for backward compatible serialization.
 			if( Status == LINKER_Loaded )
 			{	
+				SCOPED_LOADTIMER(LinkerLoad_FixupImportMap);
 				Status = FixupImportMap();
 			}
 
 			if ( Status == LINKER_Loaded )
 			{
+				SCOPED_LOADTIMER(LinkerLoad_RemapImports);
 				Status = RemapImports();
 			}
 
 			// Fix up export map for object class conversion 
 			if( Status == LINKER_Loaded )
 			{	
+				SCOPED_LOADTIMER(LinkerLoad_FixupExportMap);
 				Status = FixupExportMap();
 			}
 
 			// Serialize the dependency map.
 			if( Status == LINKER_Loaded )
 			{
+				SCOPED_LOADTIMER(LinkerLoad_SerializeDependsMap);
 				Status = SerializeDependsMap();
 			}
 
 			// Hash exports.
 			if( Status == LINKER_Loaded )
 			{
+				SCOPED_LOADTIMER(LinkerLoad_CreateExportHash);
 				Status = CreateExportHash();
 			}
 
 			// Find existing objects matching exports and associate them with this linker.
 			if( Status == LINKER_Loaded )
 			{
+				SCOPED_LOADTIMER(LinkerLoad_FindExistingExports);
 				Status = FindExistingExports();
 			}
 
 			// Finalize creation process.
 			if( Status == LINKER_Loaded )
 			{
+				SCOPED_LOADTIMER(LinkerLoad_FinalizeCreation);
 				Status = FinalizeCreation();
 			}
 		}
@@ -726,6 +743,7 @@ FLinkerLoad::FLinkerLoad(UPackage* InParent, const TCHAR* InFilename, uint32 InL
 , GatherableTextDataMapIndex(0)
 , ImportMapIndex(0)
 , ExportMapIndex(0)
+, FirstNotLoadedExportMapIndex(0)
 , DependsMapIndex(0)
 , ExportHashIndex(0)
 , bHasSerializedPackageFileSummary(false)
@@ -831,7 +849,9 @@ FLinkerLoad::ELinkerStatus FLinkerLoad::CreateLoader()
 
 	if( !Loader && !bDynamicClassLinker )
 	{
-		bool bIsSeekFree = LoadFlags & LOAD_SeekFree;
+#if !USE_NEW_ASYNC_IO
+		bool bIsSeekFree = LoadFlags & LOAD_SeekFree; // delete all of the seek free stuff
+#endif
 
 #if WITH_EDITOR
 		FFormatNamedArguments FeedbackArgs;
@@ -878,6 +898,52 @@ FLinkerLoad::ELinkerStatus FLinkerLoad::CreateLoader()
 			// remove the precache info from the map
 			PackagePrecacheMap.Remove(*Filename);
 		}
+#if USE_NEW_ASYNC_IO
+		else
+		{
+			Loader = NewFArchiveAsync2(*Filename);
+
+			if (!Loader)
+			{
+				UE_LOG(LogLinker, Warning, TEXT("Error opening file '%s'."), *Filename);
+				return LINKER_Failed;
+			}
+
+			if( Loader->IsError() )
+			{
+				delete Loader;
+				Loader = nullptr;
+				UE_LOG(LogLinker, Warning, TEXT("Error opening file '%s'."), *Filename);
+				return LINKER_Failed;
+			}
+
+			bool bHasHashEntry = FSHA1::GetFileSHAHash(*Filename, NULL);
+			if ((LoadFlags & LOAD_MemoryReader) || bHasHashEntry)
+			{
+				// force preload into memory if file has an SHA entry
+				// Serialize data from memory instead of from disk.
+				uint32	BufferSize = Loader->TotalSize();
+				void*	Buffer = FMemory::Malloc(BufferSize);
+				Loader->Serialize(Buffer, BufferSize);
+				delete Loader;
+				Loader = nullptr;
+				if (bHasHashEntry)
+				{
+					// create buffer reader and spawn SHA verify when it gets closed
+					Loader = new FBufferReaderWithSHA(Buffer, BufferSize, true, *Filename, true);
+				}
+				else
+				{
+					// create a buffer reader
+					Loader = new FBufferReader(Buffer, BufferSize, true, true);
+				}
+			}
+			else
+			{
+				bLoaderIsFArchiveAsync2 = true;
+			}
+		}
+#else
 		else if ((LoadFlags & LOAD_MemoryReader) || !bIsSeekFree)
 		{
 			// Create file reader used for serialization.
@@ -929,6 +995,8 @@ FLinkerLoad::ELinkerStatus FLinkerLoad::CreateLoader()
 				return LINKER_Failed;
 			}
 		}
+#endif // USE_NEW_ASYNC_IO
+
 		check(bDynamicClassLinker || Loader);
 		check(bDynamicClassLinker || !Loader->IsError());
 
@@ -952,16 +1020,33 @@ FLinkerLoad::ELinkerStatus FLinkerLoad::CreateLoader()
 	bool bExecuteNextStep = true;
 	if( bHasSerializedPackageFileSummary == false )
 	{
-		// Precache up to one ECC block before serializing package file summary.
-		// If the package is partially compressed, we'll know that quickly and
-		// end up discarding some of the precached data so we can re-fetch
-		// and decompress it.
-		static int64 MinimumReadSize = 32 * 1024;
-		checkSlow(MinimumReadSize >= 2048 && MinimumReadSize <= 1024 * 1024); // not a hard limit, but we should be loading at least a reasonable amount of data
-		int32 PrecacheSize = FMath::Min( MinimumReadSize, Loader->TotalSize() );
-		check( PrecacheSize > 0 );
-		// Wait till we're finished precaching before executing the next step.
-		bExecuteNextStep = Loader->Precache( 0, PrecacheSize);
+#if USE_NEW_ASYNC_IO
+		if (bLoaderIsFArchiveAsync2)
+		{
+			bExecuteNextStep = GetFArchiveAsync2Loader()->ReadyToStartReadingHeader(bUseTimeLimit, bUseFullTimeLimit, TickStartTime, TimeLimit);
+		}
+		else
+#endif
+		{
+			int64 Size = Loader->TotalSize();
+			if (Size <= 0)
+			{
+				delete Loader;
+				Loader = nullptr;
+				UE_LOG(LogLinker, Warning, TEXT("Error opening file '%s'."), *Filename);
+				return LINKER_Failed;
+			}
+			// Precache up to one ECC block before serializing package file summary.
+			// If the package is partially compressed, we'll know that quickly and
+			// end up discarding some of the precached data so we can re-fetch
+			// and decompress it.
+			static int64 MinimumReadSize = 32 * 1024;
+			checkSlow(MinimumReadSize >= 2048 && MinimumReadSize <= 1024 * 1024); // not a hard limit, but we should be loading at least a reasonable amount of data
+			int32 PrecacheSize = FMath::Min(MinimumReadSize, Size);
+			check( PrecacheSize > 0 );
+			// Wait till we're finished precaching before executing the next step.
+			bExecuteNextStep = Loader->Precache(0, PrecacheSize);
+		}
 	}
 
 	return (bExecuteNextStep && !IsTimeLimitExceeded( TEXT("creating loader") )) ? LINKER_Loaded : LINKER_TimedOut;
@@ -976,6 +1061,13 @@ FLinkerLoad::ELinkerStatus FLinkerLoad::SerializePackageFileSummary()
 
 	if (bHasSerializedPackageFileSummary == false)
 	{
+#if USE_NEW_ASYNC_IO
+		if (bLoaderIsFArchiveAsync2)
+		{
+			GetFArchiveAsync2Loader()->StartReadingHeader();
+		}
+#endif
+
 #if WITH_EDITOR
 		LoadProgressScope->EnterProgressFrame(1);
 #endif
@@ -1127,6 +1219,9 @@ FLinkerLoad::ELinkerStatus FLinkerLoad::SerializePackageFileSummary()
 		if( Summary.PackageFlags & PKG_StoreCompressed )
 #endif
 		{
+#if USE_NEW_ASYNC_IO
+			check(!"Package level compression cannot be used with the async io scheme.");
+#else
 			// Set compression mapping. Failure means Loader doesn't support package compression.
 			check( Summary.CompressedChunks.Num() );
 			if( !Loader->SetCompressionMap( &Summary.CompressedChunks, (ECompressionFlags) Summary.CompressionFlags ) )
@@ -1153,6 +1248,7 @@ FLinkerLoad::ELinkerStatus FLinkerLoad::SerializePackageFileSummary()
 				// Set the compression map and verify it won't fail this time.
 				verify( Loader->SetCompressionMap( &Summary.CompressedChunks, (ECompressionFlags) Summary.CompressionFlags ) );
 			}
+#endif // USE_NEW_ASYNC_IO
 		}
 
 		UPackage* LinkerRootPackage = LinkerRoot;
@@ -1234,7 +1330,16 @@ FLinkerLoad::ELinkerStatus FLinkerLoad::SerializeNameMap()
 		if( Summary.TotalHeaderSize > 0 )
 		{
 			// Precache name, import and export map.
-			bFinishedPrecaching = Loader->Precache( Summary.NameOffset, Summary.TotalHeaderSize - Summary.NameOffset );
+#if USE_NEW_ASYNC_IO
+			if (bLoaderIsFArchiveAsync2)
+			{
+				bFinishedPrecaching = GetFArchiveAsync2Loader()->ReadyToStartReadingHeader(bUseTimeLimit, bUseFullTimeLimit, TickStartTime, TimeLimit);
+			}
+			else
+#endif
+			{
+				bFinishedPrecaching = Loader->Precache(Summary.NameOffset, Summary.TotalHeaderSize - Summary.NameOffset);
+			}
 		}
 		// Backward compat code for VER_MOVED_EXPORTIMPORTMAPS_ADDED_TOTALHEADERSIZE.
 		else
@@ -1245,6 +1350,8 @@ FLinkerLoad::ELinkerStatus FLinkerLoad::SerializeNameMap()
 
 	while( bFinishedPrecaching && NameMapIndex < Summary.NameCount && !IsTimeLimitExceeded(TEXT("serializing name map"),100) )
 	{
+		SCOPED_LOADTIMER(LinkerLoad_SerializeNameMap_ProcessingEntries);
+
 		// Read the name entry from the file.
 		FNameEntrySerialized NameEntry(ENAME_LinkerConstructor);
 		*this << NameEntry;
@@ -1544,6 +1651,7 @@ FLinkerLoad::ELinkerStatus FLinkerLoad::SerializeExportMap()
 		FObjectExport* Export = new(ExportMap)FObjectExport;
 		*this << *Export;
 		Export->ThisIndex = FPackageIndex::FromExport(ExportMapIndex);
+		Export->bWasFiltered = FilterExport(*Export);
 		ExportMapIndex++;
 	}
 
@@ -1796,6 +1904,12 @@ FLinkerLoad::ELinkerStatus FLinkerLoad::CreateExportHash()
 	// Zero initialize hash on first iteration.
 	if( ExportHashIndex == 0 )
 	{
+#if USE_NEW_ASYNC_IO
+		if (bLoaderIsFArchiveAsync2)
+		{
+			GetFArchiveAsync2Loader()->EndReadingHeader();
+		}
+#endif
 		for( int32 i=0; i<ARRAY_COUNT(ExportHash); i++ )
 		{
 			ExportHash[i] = INDEX_NONE;
@@ -2332,7 +2446,7 @@ FLinkerLoad::EVerifyResult FLinkerLoad::VerifyImport(int32 ImportIndex)
 				{
 					FUObjectThreadContext& ThreadContext = FUObjectThreadContext::Get();
 					// failure to load a class, most likely deleted instead of deprecated
-					if ( (!GIsEditor || IsRunningCommandlet()) && (FindClass->IsChildOf(UClass::StaticClass())) )
+					if ( (!GIsEditor || IsRunningCommandlet()) && FindClass && FindClass->IsChildOf(UClass::StaticClass()) )
 					{
 						UE_LOG(LogLinker, Warning, TEXT("Missing Class '%s' referenced by package '%s' ('%s').  Classes should not be removed if referenced by content; mark the class 'deprecated' instead."),
 							*GetImportFullName(ImportIndex),
@@ -2867,6 +2981,9 @@ void FLinkerLoad::LoadAllObjects( bool bForcePreload )
 		MetaDataIndex = LoadMetaDataFromExportMap(bForcePreload);
 	}
 	
+	// Tick the heartbeat if we're loading on the game thread
+	const bool bShouldTickHeartBeat = IsInGameThread();
+
 	for(int32 ExportIndex = 0; ExportIndex < ExportMap.Num(); ++ExportIndex)
 	{
 #if WITH_EDITOR
@@ -2895,7 +3012,21 @@ void FLinkerLoad::LoadAllObjects( bool bForcePreload )
 		}
 #endif // USE_CIRCULAR_DEPENDENCY_LOAD_DEFERRING
 
-		CreateExportAndPreload(ExportIndex, bForcePreload);
+		UObject* LoadedObject = CreateExportAndPreload(ExportIndex, bForcePreload);
+		// DynamicClass could be created without calling CreateImport. The imported objects will be required later when a CDO is created.
+		if (UDynamicClass* DynamicClass = Cast<UDynamicClass>(LoadedObject))
+		{
+			for (int32 ImportIndex = 0; ImportIndex < ImportMap.Num(); ++ImportIndex)
+			{
+				CreateImport(ImportIndex);
+			}
+		}
+
+		// If needed send a heartbeat, but no need to do it too often
+		if (bShouldTickHeartBeat && (ExportIndex % 10) == 0)
+		{
+			FThreadHeartBeat::Get().HeartBeat();
+		}
 	}
 
 	// Mark package as having been fully loaded.
@@ -3153,7 +3284,7 @@ void FLinkerLoad::Preload( UObject* Object )
 			// its owner has had a chance to initialize itself (because, as part
 			// of CDO initialization, inherited sub-objects get filled in with 
 			// values inherited from the super)
-			else if (Object->HasAnyFlags(RF_DefaultSubObject) && FDeferredObjInitializerTracker::DeferSubObjectPreload(Object))
+			else if (Object->HasAnyFlags(RF_DefaultSubObject|RF_InheritableComponentTemplate) && FDeferredObjInitializerTracker::DeferSubObjectPreload(Object))
 			{
 				// don't worry, FDeferredObjInitializerTracker::DeferSubObjectPreload() 
 				// should have cached this object, and it will run Preload() on 
@@ -3196,12 +3327,33 @@ void FLinkerLoad::Preload( UObject* Object )
 
 				// move to the position in the file where this object's data
 				// is stored
-				Loader->Seek( Export.SerialOffset );
-
+				Loader->Seek(Export.SerialOffset);
+#if USE_NEW_ASYNC_IO
+				FArchiveAsync2* FAA2 = GetFArchiveAsync2Loader();
+#endif
 				{
 					SCOPE_CYCLE_COUNTER(STAT_LinkerPrecache);
 					// tell the file reader to read the raw data from disk
-					Loader->Precache( Export.SerialOffset, Export.SerialSize );
+#if USE_NEW_ASYNC_IO
+					if (FAA2)
+					{
+						for (int32 TrimIndex = FirstNotLoadedExportMapIndex; TrimIndex < ExportIndex; TrimIndex++)
+						{
+							FObjectExport& TrimExport = ExportMap[TrimIndex];
+							if (!TrimExport.Object || TrimExport.Object->HasAnyFlags(RF_NeedLoad))
+							{
+								break;
+							}
+							FirstNotLoadedExportMapIndex = TrimIndex + 1;
+						}
+						bool bReady = FAA2->Precache(Export.SerialOffset, Export.SerialSize, bUseTimeLimit, bUseFullTimeLimit, TickStartTime, TimeLimit, FirstNotLoadedExportMapIndex == ExportIndex);
+						check(bReady || !FPlatformProperties::RequiresCookedData()); // if we are cooked, then this should be ready to go
+					}
+					else
+#endif
+					{
+						Loader->Precache(Export.SerialOffset, Export.SerialSize);
+					}
 				}
 
 				// mark the object to indicate that it has been loaded
@@ -3322,6 +3474,28 @@ void FLinkerLoad::Preload( UObject* Object )
 				}
 
 				Loader->Seek( SavedPos );
+#if USE_NEW_ASYNC_IO
+				if (FPlatformProperties::RequiresCookedData() && FAA2)
+				{
+					if (Export.Object && !Export.Object->HasAnyFlags(RF_NeedLoad)) // if we somehow failed here, then we know there is at least one thing pending and we will forget about it
+					{
+						for (int32 TrimIndex = FirstNotLoadedExportMapIndex; TrimIndex < ExportMap.Num(); TrimIndex++)
+						{
+							FObjectExport& TrimExport = ExportMap[TrimIndex];
+							if (!TrimExport.Object || TrimExport.Object->HasAnyFlags(RF_NeedLoad))
+							{
+								break;
+							}
+							FirstNotLoadedExportMapIndex = TrimIndex + 1;
+						}
+						if (FirstNotLoadedExportMapIndex == ExportMap.Num())
+						{
+							// EOF, flush archive
+							FAA2->FlushCache();
+						}
+					}
+				}
+#endif
 
 				// if this is a UClass object and it already has a class default object
 				if ( Cls != NULL && Cls->GetDefaultsCount() )
@@ -3460,6 +3634,15 @@ UObject* FLinkerLoad::CreateExport( int32 Index )
 			if (Export.Object)
 			{
 				Export.Object->SetLinker(this, Index);
+				if (UDynamicClass* DynamicClass = Cast<UDynamicClass>(Export.Object))
+				{
+					// Dynamic Class doesn't require/use pre-loading (or post-loading), but at this point the class is not fully initialized. 
+					// The CDO is created (in a custom code) at the end of loading (when it's safe to solve cyclic dependencies).
+					if (!DynamicClass->GetDefaultObject(false))
+					{
+						FUObjectThreadContext::Get().ObjLoaded.Add(Export.Object);
+					}
+				}
 			}
 			return Export.Object;
 		}
@@ -3657,6 +3840,14 @@ UObject* FLinkerLoad::CreateExport( int32 Index )
 			return Export.Object;
 		}
 
+		// If we should have an outer but it doesn't exist because it was filtered out, we should silently be filtered out too
+		if (Export.OuterIndex.IsExport() && ThisParent == nullptr && ExportMap[Export.OuterIndex.ToExport()].bWasFiltered)
+		{
+			Export.bWasFiltered = true;
+			return nullptr;
+		}
+
+		// If outer was a redirector or an object that doesn't exist (but wasn't filtered) then log a warning
 		UObjectRedirector* ParentRedirector = dynamic_cast<UObjectRedirector*>(ThisParent);
 		if( ThisParent == NULL || ParentRedirector)
 		{

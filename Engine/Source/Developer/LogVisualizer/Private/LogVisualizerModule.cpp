@@ -51,7 +51,7 @@ void FLogVisualizerModule::StartupModule()
 	ISettingsModule* SettingsModule = FModuleManager::GetModulePtr<ISettingsModule>("Settings");
 	if (SettingsModule != nullptr)
 	{
-		SettingsModule->RegisterSettings("Editor", "General", "VisualLogger",
+		SettingsModule->RegisterSettings("Editor", "Advanced", "VisualLogger",
 			LOCTEXT("AIToolsSettingsName", "Visual Logger"),
 			LOCTEXT("AIToolsSettingsDescription", "General settings for UE4 AI Tools."),
 			ULogVisualizerSettings::StaticClass()->GetDefaultObject()

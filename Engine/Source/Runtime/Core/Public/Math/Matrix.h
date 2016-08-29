@@ -489,3 +489,5 @@ static inline void Inverse4x4( double* dst, const float* src )
 		dst[i] = inv[i] * det;
 	}
 }
+
+#include "Matrix.inl"

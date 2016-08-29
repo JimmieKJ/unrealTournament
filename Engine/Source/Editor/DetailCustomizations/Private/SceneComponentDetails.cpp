@@ -109,12 +109,7 @@ static bool IsMobilitySettingProhibited(EComponentMobility::Type const MobilityV
 
 	case EComponentMobility::Stationary:
 		{
-			if (!SceneComponent->IsA(ULightComponentBase::StaticClass()))
-			{
-				ProhibitedReasonOut = LOCTEXT("OnlyLightsCanBeStationary", "Only light components can be stationary.");
-				bIsProhibited = true;
-			}
-			else if (GetInheritedMobility(SceneComponent) == EComponentMobility::Movable)
+			if (GetInheritedMobility(SceneComponent) == EComponentMobility::Movable)
 			{
 				ProhibitedReasonOut = LOCTEXT("ParentMoreMobileRestriction", "Selected objects cannot be less mobile than their inherited parents.");
 				// can't be less movable than what we've inherited
@@ -151,6 +146,7 @@ void FSceneComponentDetails::CustomizeDetails( IDetailLayoutBuilder& DetailBuild
 	TSharedPtr<IPropertyHandle> MobilityHandle = DetailBuilder.GetProperty("Mobility");
 
 	uint8 RestrictedMobilityBits = 0u;
+	bool bAnySelectedIsLight = false;
 
 	TArray< TWeakObjectPtr<UObject> > SelectedSceneComponents;
 
@@ -168,6 +164,11 @@ void FSceneComponentDetails::CustomizeDetails( IDetailLayoutBuilder& DetailBuild
 		if (SceneComponent == NULL)
 		{
 			continue;
+		}
+
+		if (SceneComponent->IsA(ULightComponentBase::StaticClass()))
+		{
+			bAnySelectedIsLight = true;
 		}
 
 		// if we haven't restricted the "Static" option yet
@@ -206,7 +207,17 @@ void FSceneComponentDetails::CustomizeDetails( IDetailLayoutBuilder& DetailBuild
 	}
 
 	MobilityCustomization = MakeShareable(new FMobilityCustomization);
-	MobilityCustomization->CreateMobilityCustomization(TransformCategory, MobilityHandle, RestrictedMobilityBits);
+	MobilityCustomization->CreateMobilityCustomization(TransformCategory, MobilityHandle, RestrictedMobilityBits, bAnySelectedIsLight);
+
+	// Only display bHiddenInGame if the property is being flattened in to an Actor.
+	// Details panel for BP component will have the base class be the Actor due to how the SKismetInspector works, but in that case we
+	// have a class default object selected, so use that to infer that this is the component directly selected and since BPs do not do
+	// property flattening it all kind of works
+	if (DetailBuilder.GetBaseClass()->IsChildOf<AActor>() && !DetailBuilder.GetDetailsView().HasClassDefaultObject())
+	{
+		TSharedPtr<IPropertyHandle> ComponentHiddenInGameProperty = DetailBuilder.GetProperty(GET_MEMBER_NAME_CHECKED(USceneComponent, bHiddenInGame));
+		ComponentHiddenInGameProperty->MarkHiddenByCustomization();
+	}
 }
 
 void FSceneComponentDetails::MakeTransformDetails( IDetailLayoutBuilder& DetailBuilder )
@@ -251,7 +262,12 @@ void FSceneComponentDetails::MakeTransformDetails( IDetailLayoutBuilder& DetailB
 		for (int32 ComponentIndex = 0; bShouldShowTransform && ComponentIndex < SceneComponentObjects.Num(); ++ComponentIndex)
 		{
 			USceneComponent* SceneComponent = Cast<USceneComponent>(SceneComponentObjects[ComponentIndex].Get());
-			if (SceneComponent && SceneComponent->GetAttachParent() == NULL && SceneComponent->GetOuter()->HasAnyFlags(RF_ClassDefaultObject))
+			if (SceneComponent == nullptr)
+			{
+				continue;
+			}
+
+			if (SceneComponent->GetAttachParent() == NULL && SceneComponent->GetOuter()->HasAnyFlags(RF_ClassDefaultObject))
 			{
 				bShouldShowTransform = false;
 			}
@@ -270,7 +286,7 @@ void FSceneComponentDetails::MakeTransformDetails( IDetailLayoutBuilder& DetailB
 				}
 			}
 
-			if (bShouldShowTransform && SceneComponent && SceneComponent->HasAnyFlags(RF_InheritableComponentTemplate))
+			if (bShouldShowTransform && SceneComponent->HasAnyFlags(RF_InheritableComponentTemplate))
 			{
 				auto OwnerClass = Cast<UClass>(SceneComponent->GetOuter());
 				auto Bluepirnt = UBlueprint::GetBlueprintFromClass(OwnerClass);

@@ -23,11 +23,6 @@ pushd libPNG\libPNG-1.5.2\projects
 	msbuild vstudio11.sln /target:Clean,libpng /p:Platform=x64;Configuration="Release Library"
 	popd
 
-	REM WinRT
-	pushd WinRT
-	msbuild WinRT.sln /target:Clean,libpng /p:Platform=x64;Configuration=Release
-	popd
-
 	REM XboxOne
 	pushd XboxOne
 	msbuild libpng_XboxOne.sln /target:Clean,libpng /p:Platform=x64;Configuration=Release

@@ -7,6 +7,7 @@
 #include "StatNames.h"
 #include "UTSquadAI.h"
 #include "UTWeaponStateFiring.h"
+#include "Animation/AnimInstance.h"
 
 AUTWeap_LinkGun::AUTWeap_LinkGun(const FObjectInitializer& OI)
 : Super(OI)

@@ -12,12 +12,12 @@
 class FActiveSubtitle
 {
 public:
-	FActiveSubtitle( int32 InIndex, float InPriority, bool InbSplit, bool InbSingleLine, const TArray<FSubtitleCue>& InSubtitles )
+	FActiveSubtitle( int32 InIndex, float InPriority, bool InbSplit, bool InbSingleLine, TArray<FSubtitleCue> InSubtitles )
 		:	Index( InIndex )
 		,	Priority( InPriority )
 		,	bSplit( InbSplit )
 		,	bSingleLine( InbSingleLine )
-		,	Subtitles( InSubtitles )
+		,	Subtitles( MoveTemp(InSubtitles) )
 	{}
 
 	/** Index into the Subtitles array for the currently active subtitle in this set. */
@@ -31,6 +31,23 @@ public:
 	/** A set of subtitles. */
 	TArray<FSubtitleCue>	Subtitles;
 };
+
+struct FQueueSubtitleParams
+{
+	FQueueSubtitleParams(const TArray<FSubtitleCue>& InSubtitles)
+		: Subtitles(InSubtitles)
+	{ }
+
+	uint64 AudioComponentID;
+	TWeakObjectPtr<UWorld> WorldPtr;
+	PTRINT WaveInstance;
+	float SubtitlePriority;
+	float Duration;
+	uint8 bManualWordWrap : 1;
+	uint8 bSingleLine : 1;
+	const TArray<FSubtitleCue>& Subtitles;
+};
+
 
 /**
  * Subtitle manager.  Handles prioritization and rendering of subtitles.
@@ -73,7 +90,9 @@ public:
 	 * @param  SoundDuration - time in seconds after which the subtitles do not display
 	 * @param  Subtitles - TArray of lines of subtitle and time offset to play them
 	 */
-	void		QueueSubtitles( PTRINT SubtitleID, float Priority, bool bManualWordWrap, bool bSingleLine, float SoundDuration, TArray<FSubtitleCue>& Subtitles, float InStartTime );
+	void		QueueSubtitles( PTRINT SubtitleID, float Priority, bool bManualWordWrap, bool bSingleLine, float SoundDuration, const TArray<FSubtitleCue>& Subtitles, float InStartTime );
+
+	static void QueueSubtitles(const FQueueSubtitleParams& QueueSubtitlesParams);
 
 	/**
 	 * Draws a subtitle at the specified pixel location.

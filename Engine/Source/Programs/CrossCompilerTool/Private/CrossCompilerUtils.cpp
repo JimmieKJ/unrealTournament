@@ -17,6 +17,7 @@ namespace CCT
 		bUseNew(false),
 		bList(false),
 		bPreprocessOnly(false),
+		bTestRemoveUnused(false),
 		bPackIntoUBs(false),
 		bUseDX11Clip(false),
 		bFlattenUBs(false),
@@ -25,7 +26,8 @@ namespace CCT
 		bCSE(false),
 		bExpandExpressions(false),
 		bFixAtomics(false),
-		bSeparateShaders(false)
+		bSeparateShaders(false),
+		bUseFullPrecisionInPS(false)
 	{
 	}
 
@@ -49,6 +51,7 @@ namespace CCT
 		UE_LOG(LogCrossCompilerTool, Display, TEXT("\t\t\t-separateshaders\tUse the separate shaders flags"));
 		UE_LOG(LogCrossCompilerTool, Display, TEXT("\t\t\t-packintoubs\tMove packed global uniform arrays into a uniform buffer"));
 		UE_LOG(LogCrossCompilerTool, Display, TEXT("\t\t\t-fixatomics\tConvert accesses to atomic variable into intrinsics"));
+		UE_LOG(LogCrossCompilerTool, Display, TEXT("\t\t\t-usefullprecision\tSet default precision to highp in a pixel shader (default is mediump on ES2 platforms)"));
 		UE_LOG(LogCrossCompilerTool, Display, TEXT("\t\tProfiles:"));
 		UE_LOG(LogCrossCompilerTool, Display, TEXT("\t\t\t-vs\tCompile as a Vertex Shader"));
 		UE_LOG(LogCrossCompilerTool, Display, TEXT("\t\t\t-ps\tCompile as a Pixel Shader"));
@@ -176,6 +179,18 @@ namespace CCT
 				else
 				{
 					Target = HCT_FeatureLevelES2;
+					OutBackEnd = BE_OpenGL;
+				}
+			}
+			else if (Switch == "es31")
+			{
+				if (Target != HCT_InvalidTarget)
+				{
+					UE_LOG(LogCrossCompilerTool, Warning, TEXT("Ignoring extra command line argument -es31!"));
+				}
+				else
+				{
+					Target = HCT_FeatureLevelES3_1;
 					OutBackEnd = BE_OpenGL;
 				}
 			}
@@ -367,6 +382,10 @@ namespace CCT
 			{
 				bGroupFlattenUBs = true;
 			}
+			else if (Switch.StartsWith(TEXT("removeunused")))
+			{
+				bTestRemoveUnused = true;
+			}
 			else if (Switch.StartsWith(TEXT("packintoubs")))
 			{
 				bPackIntoUBs = true;
@@ -394,6 +413,10 @@ namespace CCT
 			else if (Switch.StartsWith(TEXT("separateshaders")))
 			{
 				bSeparateShaders = true;
+			}
+			else if (Switch.StartsWith(TEXT("usefullprecision")))
+			{
+				bUseFullPrecisionInPS = true;
 			}
 		}
 

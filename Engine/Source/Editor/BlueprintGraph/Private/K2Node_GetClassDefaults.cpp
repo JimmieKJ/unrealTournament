@@ -271,7 +271,7 @@ bool UK2Node_GetClassDefaults::HasExternalDependencies(TArray<class UStruct*>* O
 
 void UK2Node_GetClassDefaults::ReallocatePinsDuringReconstruction(TArray<UEdGraphPin*>& OldPins) 
 {
-	Super::ReallocatePinsDuringReconstruction(OldPins);
+	AllocateDefaultPins();
 
 	// Recreate output pins based on the previous input class
 	UEdGraphPin* OldClassPin = FindClassPin(OldPins);
@@ -279,6 +279,8 @@ void UK2Node_GetClassDefaults::ReallocatePinsDuringReconstruction(TArray<UEdGrap
 	{
 		CreateOutputPins(InputClass);
 	}
+
+	RestoreSplitPins(OldPins);
 }
 
 FNodeHandlingFunctor* UK2Node_GetClassDefaults::CreateNodeHandler(FKismetCompilerContext& CompilerContext) const
@@ -347,30 +349,66 @@ UClass* UK2Node_GetClassDefaults::GetInputClass(const UEdGraphPin* FromPin) cons
 {
 	UClass* InputClass = nullptr;
 
-	const UEdGraphPin* ClassPin = FromPin;
-	if(ClassPin == nullptr)
+	if (FromPin != nullptr)
 	{
-		ClassPin = FindClassPin();
-	}
-	
-	if(ClassPin != nullptr)
-	{
-		check(ClassPin->Direction == EGPD_Input);
+		check(FromPin->Direction == EGPD_Input);
 
-		if(ClassPin->DefaultObject != nullptr && ClassPin->LinkedTo.Num() == 0)
+		if (FromPin->DefaultObject != nullptr && FromPin->LinkedTo.Num() == 0)
 		{
-			InputClass = CastChecked<UClass>(ClassPin->DefaultObject);
+			InputClass = CastChecked<UClass>(FromPin->DefaultObject);
 		}
-		else if(ClassPin->LinkedTo.Num() > 0)
+		else if (FromPin->LinkedTo.Num() > 0)
 		{
-			if(UEdGraphPin* LinkedPin = ClassPin->LinkedTo[0])
+			if (UEdGraphPin* LinkedPin = FromPin->LinkedTo[0])
 			{
 				InputClass = Cast<UClass>(LinkedPin->PinType.PinSubCategoryObject.Get());
 			}
 		}
 	}
 
+	// Switch Blueprint Class types to use the generated skeleton class (if valid).
+	if (InputClass)
+	{
+		if (UBlueprint* Blueprint = Cast<UBlueprint>(InputClass->ClassGeneratedBy))
+		{
+			// Stick with the original (serialized) class if the skeleton class is not valid for some reason (e.g. the Blueprint hasn't been compiled on load yet).
+			// Note: There's not a need to force it to be preloaded here in that case, because once it is loaded, we'll end up reconstructing this node again anyway.
+			if (Blueprint->SkeletonGeneratedClass)
+			{
+				InputClass = Blueprint->SkeletonGeneratedClass;
+			}
+		}
+	}
+
 	return InputClass;
+}
+
+void UK2Node_GetClassDefaults::OnBlueprintClassModified(UBlueprint* TargetBlueprint)
+{
+	check(TargetBlueprint);
+	UBlueprint* OwnerBlueprint = FBlueprintEditorUtils::FindBlueprintForNode(this); //GetBlueprint() will crash, when the node is transient, etc
+	if (OwnerBlueprint)
+	{
+		// The Blueprint that contains this node may have finished 
+		// regenerating (see bHasBeenRegenerated), but we still may be
+		// in the midst of unwinding a cyclic load (dependent Blueprints);
+		// this lambda could be triggered during the targeted 
+		// Blueprint's regeneration - meaning we really haven't completed 
+		// the load process. In this situation, we cannot "reset loaders" 
+		// because it is not likely that all of the package's objects
+		// have been post-loaded (meaning an assert will most likely  
+		// fire from ReconstructNode). To guard against this, we flip this
+		// Blueprint's bIsRegeneratingOnLoad (like in 
+		// UBlueprintGeneratedClass::ConditionalRecompileClass), which
+		// we use throughout Blueprints to keep us from reseting loaders 
+		// on object Rename()
+		const bool bOldIsRegeneratingVal = OwnerBlueprint->bIsRegeneratingOnLoad;
+		OwnerBlueprint->bIsRegeneratingOnLoad = bOldIsRegeneratingVal || TargetBlueprint->bIsRegeneratingOnLoad;
+
+		ReconstructNode();
+
+		OwnerBlueprint->bIsRegeneratingOnLoad = bOldIsRegeneratingVal;
+	}
 }
 
 void UK2Node_GetClassDefaults::CreateOutputPins(UClass* InClass)
@@ -398,6 +436,53 @@ void UK2Node_GetClassDefaults::CreateOutputPins(UClass* InClass)
 	else if(!bHasAdvancedPins)
 	{
 		AdvancedPinDisplay = ENodeAdvancedPins::NoPins;
+	}
+
+	// Unbind OnChanged() delegate from a previous Blueprint, if valid.
+
+	// If the class was generated for a Blueprint, bind delegates to handle any OnChanged() & OnCompiled() events.
+	bool bShouldClearDelegate = true;
+	if (InClass)
+	{
+		if (UBlueprint* Blueprint = Cast<UBlueprint>(InClass->ClassGeneratedBy))
+		{
+			// only clear the delegate if the pin has changed:
+			bShouldClearDelegate = BlueprintSubscribedTo != Blueprint;
+		}
+	}
+
+	if (bShouldClearDelegate)
+	{
+		if (OnBlueprintChangedDelegate.IsValid())
+		{
+			if (BlueprintSubscribedTo)
+			{
+				BlueprintSubscribedTo->OnChanged().Remove(OnBlueprintChangedDelegate);
+			}
+			OnBlueprintChangedDelegate.Reset();
+		}
+
+		// Unbind OnCompiled() delegate from a previous Blueprint, if valid.
+		if (OnBlueprintCompiledDelegate.IsValid())
+		{
+			if (BlueprintSubscribedTo)
+			{
+				BlueprintSubscribedTo->OnCompiled().Remove(OnBlueprintCompiledDelegate);
+			}
+			OnBlueprintCompiledDelegate.Reset();
+		}
+		// Associated Blueprint changed, clear the BlueprintSubscribedTo:
+		BlueprintSubscribedTo = nullptr;
+	}
+
+	if (InClass && bShouldClearDelegate)
+	{
+		if (UBlueprint* Blueprint = Cast<UBlueprint>(InClass->ClassGeneratedBy))
+		{
+			BlueprintSubscribedTo = Blueprint;
+			OnBlueprintChangedDelegate  = Blueprint->OnChanged().AddUObject(this, &ThisClass::OnBlueprintClassModified);
+			OnBlueprintCompiledDelegate = Blueprint->OnCompiled().AddUObject(this, &ThisClass::OnBlueprintClassModified);
+		}
 	}
 }
 

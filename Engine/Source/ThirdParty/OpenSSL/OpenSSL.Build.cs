@@ -1,6 +1,7 @@
 ﻿// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 using UnrealBuildTool;
+using System.IO;
 
 public class OpenSSL : ModuleRules
 {
@@ -8,48 +9,29 @@ public class OpenSSL : ModuleRules
 	{
 		Type = ModuleType.External;
 
-		string LibFolder = "lib/";
-		string LibPrefix = "";
-		string LibPostfixAndExt = (Target.Configuration == UnrealTargetConfiguration.Debug && BuildConfiguration.bDebugBuildsActuallyUseDebugCRT) ? "d." : ".";
-		string OpenSSLPath = UEBuildConfiguration.UEThirdPartySourceDirectory + "OpenSSL/1.0.1g/";
-		
+		//string OpenSSLPath = Path.Combine(UEBuildConfiguration.UEThirdPartySourceDirectory, "OpenSSL", "1.0.1g");
+		string OpenSSL102Path = Path.Combine(UEBuildConfiguration.UEThirdPartySourceDirectory, "OpenSSL", "1.0.2g");
+		string PlatformSubdir = Target.Platform.ToString();
+
 		if (Target.Platform == UnrealTargetPlatform.Mac)
 		{
-			LibPostfixAndExt = ".a";
-			LibFolder += "Mac/";
-			LibPrefix = OpenSSLPath + LibFolder;
-			PublicIncludePaths.Add(OpenSSLPath + "include");
-			PublicLibraryPaths.Add(OpenSSLPath + LibFolder);
-			PublicAdditionalLibraries.Add(LibPrefix + "libssl" + LibPostfixAndExt);
-			PublicAdditionalLibraries.Add(LibPrefix + "libcrypto" + LibPostfixAndExt);
+			string LibPath = Path.Combine(OpenSSL102Path, "lib", PlatformSubdir);
+			PublicIncludePaths.Add(Path.Combine(OpenSSL102Path, "include", PlatformSubdir));
+			PublicLibraryPaths.Add(LibPath);
+			PublicAdditionalLibraries.Add(Path.Combine(LibPath, "libssl.a"));
+			PublicAdditionalLibraries.Add(Path.Combine(LibPath, "libcrypto.a"));
+			PublicAdditionalLibraries.Add("z");
 		}
-		else
+		else if (Target.Platform == UnrealTargetPlatform.Win64 || Target.Platform == UnrealTargetPlatform.Win32)
 		{
-			if (Target.Platform == UnrealTargetPlatform.Win64)
-			{
-				PublicIncludePaths.Add(OpenSSLPath + "include");
-				LibFolder += "Win64/VS2013/";
-				LibPostfixAndExt += "lib";
-				PublicLibraryPaths.Add(OpenSSLPath + LibFolder);
-			}
+			string LibPath = Path.Combine(OpenSSL102Path, "lib", PlatformSubdir, "VS" + WindowsPlatform.GetVisualStudioCompilerVersionName());
+			string LibPostfixAndExt = (Target.Configuration == UnrealTargetConfiguration.Debug && BuildConfiguration.bDebugBuildsActuallyUseDebugCRT) ? "d.lib" : ".lib";
+			PublicIncludePaths.Add(Path.Combine(OpenSSL102Path, "include", PlatformSubdir, "VS" + WindowsPlatform.GetVisualStudioCompilerVersionName()));
+			PublicLibraryPaths.Add(LibPath);
 
-			PublicAdditionalLibraries.Add(LibPrefix + "libeay32" + LibPostfixAndExt);
-			PublicAdditionalLibraries.Add(LibPrefix + "ssleay32" + LibPostfixAndExt);
 
-			PublicDelayLoadDLLs.AddRange(
-						   new string[] {
-							"libeay32.dll", 
-							"ssleay32.dll" 
-					   }
-					   );
-
-			if (Target.Platform == UnrealTargetPlatform.Win64 || Target.Platform == UnrealTargetPlatform.Win32)
-			{
-				RuntimeDependencies.Add(new RuntimeDependency("$(EngineDir)/Binaries/ThirdParty/OpenSSL/Win64/VS2012/libeay32.dll"));
-				RuntimeDependencies.Add(new RuntimeDependency("$(EngineDir)/Binaries/ThirdParty/OpenSSL/Win64/VS2012/ssleay32.dll"));
-				RuntimeDependencies.Add(new RuntimeDependency("$(EngineDir)/Binaries/ThirdParty/OpenSSL/Win64/VS2013/libeay32.dll"));
-				RuntimeDependencies.Add(new RuntimeDependency("$(EngineDir)/Binaries/ThirdParty/OpenSSL/Win64/VS2013/ssleay32.dll"));
-			}
+			PublicAdditionalLibraries.Add(Path.Combine(LibPath, "libeay" + LibPostfixAndExt));
+			PublicAdditionalLibraries.Add(Path.Combine(LibPath, "ssleay" + LibPostfixAndExt));
 		}
 	}
 }

@@ -89,6 +89,11 @@ namespace UnrealBuildTool
 		public ModuleDescriptor[] Modules;
 
 		/// <summary>
+		/// List of all localization targets associated with this plugin
+		/// </summary>
+		public LocalizationTargetDescriptor[] LocalizationTargets;
+
+		/// <summary>
 		/// Whether this plugin should be enabled by default for all projects
 		/// </summary>
 		public bool bEnabledByDefault;
@@ -193,6 +198,12 @@ namespace UnrealBuildTool
 				if (RawObject.TryGetObjectArrayField("Modules", out ModulesArray))
 				{
 					Descriptor.Modules = Array.ConvertAll(ModulesArray, x => ModuleDescriptor.FromJsonObject(x));
+				}
+
+				JsonObject[] LocalizationTargetsArray;
+				if (RawObject.TryGetObjectArrayField("LocalizationTargets", out LocalizationTargetsArray))
+				{
+					Descriptor.LocalizationTargets = Array.ConvertAll(LocalizationTargetsArray, x => LocalizationTargetDescriptor.FromJsonObject(x));
 				}
 
 				RawObject.TryGetBoolField("EnabledByDefault", out Descriptor.bEnabledByDefault);

@@ -56,8 +56,6 @@ void SResetToDefaultMenu::Tick( const FGeometry& AllottedGeometry, const double 
 
 EVisibility SResetToDefaultMenu::GetResetToDefaultVisibility() const
 {
-	EVisibility Visibility = VisibilityWhenDefault;
-
 	return bShouldBeVisible ? EVisibility::Visible : VisibilityWhenDefault;
 }
 

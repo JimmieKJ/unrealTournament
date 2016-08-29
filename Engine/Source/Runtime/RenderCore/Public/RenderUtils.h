@@ -309,7 +309,16 @@ RENDERCORE_API FVertexDeclarationRHIRef& GetVertexDeclarationFVector4();
 
 RENDERCORE_API FVertexDeclarationRHIRef& GetVertexDeclarationFVector3();
 
-RENDERCORE_API bool IsSimpleDynamicLightingEnabled();
+RENDERCORE_API bool PlatformSupportsSimpleForwardShading(EShaderPlatform Platform);
+
+RENDERCORE_API bool IsSimpleForwardShadingEnabled(EShaderPlatform Platform);
+
+RENDERCORE_API bool IsForwardShadingEnabled(ERHIFeatureLevel::Type FeatureLevel);
+
+inline bool IsAnyForwardShadingEnabled(EShaderPlatform Platform)
+{
+	return IsForwardShadingEnabled(GetMaxSupportedFeatureLevel(Platform)) || IsSimpleForwardShadingEnabled(Platform);
+}
 
 /** Unit cube vertex buffer (VertexDeclarationFVector4) */
 RENDERCORE_API FVertexBufferRHIRef& GetUnitCubeVertexBuffer();

@@ -121,6 +121,7 @@
     <Compile Include="System\CustomBuildSteps.cs" />
     <Compile Include="System\FileSystemReference.cs" />
     <Compile Include="System\InstalledPlatformInfo.cs" />
+    <Compile Include="System\LocalizationDescriptor.cs" />
     <Compile Include="System\TargetReceipt.cs" />
     <Compile Include="System\VersionManifest.cs" />
     <Compile Include="ToolChain\AppleToolChain.cs" />
@@ -130,21 +131,15 @@
     <Compile Include="TVOS\UEDeployTVOS.cs" />
     <Compile Include="Android\UEBuildAndroid.cs" />
     <Compile Include="Android\UEDeployAndroid.cs" />
+    <Compile Include="Android\AndroidAARHandler.cs" />
     <Compile Include="Android\AndroidToolChain.cs" />
-    <Compile Include="Android\AndroidPluginLanguage.cs" />
     <Compile Include="Android\AndroidProjectGenerator.cs" />
+    <Compile Include="System\UnrealPluginLanguage.cs" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="UWP\UEBuildUWP.cs" />
-    <Compile Include="UWP\UWPDeploy.cs" />
-    <Compile Include="UWP\UWPProjectGenerator.cs" />
-    <Compile Include="UWP\UWPToolChain.cs" />
+    <Compile Include="Utilities\HashSetExtensions.cs" />
     <Compile Include="Windows\WindowsDeploy.cs" />
     <Compile Include="Windows\WinResources.cs" />
-    <Compile Include="WinRT\UEBuildWinRT.cs" />
-    <Compile Include="WinRT\WinRTToolChain.cs" />
-    <Compile Include="WinRT\WinRTDeploy.cs" />
-    <Compile Include="WinRT\WinRTProjectGenerator.cs" />
   </ItemGroup>
   <ItemGroup>
     <Compile Include="IOS\IOSProjectGenerator.cs" />
@@ -288,10 +283,6 @@
     <ProjectReference Include="..\DotNETCommon\DotNETUtilities\DotNETUtilities.csproj">
       <Project>{5d7d66e8-8c76-4af9-b3ec-2ef03421d730}</Project>
       <Name>DotNETUtilities</Name>
-    </ProjectReference>
-    <ProjectReference Include="..\EnvVarsToXML\EnvVarsToXML\EnvVarsToXML.csproj">
-      <Project>{66e423eb-ffa3-4ce4-bca3-75bdb6a8318d}</Project>
-      <Name>EnvVarsToXML</Name>
     </ProjectReference>
   </ItemGroup>
   <Import Project="$(MSBuildBinPath)\Microsoft.CSharp.targets" />

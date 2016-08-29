@@ -15,5 +15,8 @@ public:
 		return FModuleManager::LoadModuleChecked<IMovieSceneCaptureDialogModule>(ModuleName);
 	}
 	virtual void OpenDialog(const TSharedRef<class FTabManager>& TabManager, UMovieSceneCapture* CaptureObject) = 0;
+
+	/** Get the world we're currently recording from, if an in process record is happening */
+	virtual UWorld* GetCurrentlyRecordingWorld() = 0;
 };
 

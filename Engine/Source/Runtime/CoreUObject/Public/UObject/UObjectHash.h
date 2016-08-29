@@ -4,8 +4,7 @@
 	UObjectHash.h: Unreal object name hashes
 =============================================================================*/
 
-#ifndef __UOBJECTHASH_H__
-#define __UOBJECTHASH_H__
+#pragma once
 
 DECLARE_STATS_GROUP_VERBOSE(TEXT("UObject Hash"), STATGROUP_UObjectHash, STATCAT_Advanced);
 
@@ -135,7 +134,4 @@ COREUOBJECT_API void LogHashOuterStatistics(FOutputDevice& Ar, const bool bShowH
  * @param	Object Object to allocate an index for
  */
 void AllocateUObjectIndexForCurrentThread(class UObjectBase* Object);
-
-
-#endif	// __UOBJECTHASH_H__
 

@@ -2,10 +2,10 @@
 
 #pragma once
 
-/**
- * Do not modify this file manually. It will be modified by the build machine with the correct key value.
- * The below values should always be "0x0" in P4, otherwise pak code will always assume paks are signed.
- */
-
+#ifndef DECRYPTION_KEY_EXPONENT
 #define DECRYPTION_KEY_EXPONENT "0x0"
-#define DECYRPTION_KEY_MODULUS "0x0"
+#endif
+
+#ifndef DECRYPTION_KEY_MODULUS
+#define DECRYPTION_KEY_MODULUS "0x0"
+#endif

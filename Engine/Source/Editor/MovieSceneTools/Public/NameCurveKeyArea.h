@@ -5,6 +5,11 @@
 #include "NamedKeyArea.h"
 #include "ClipboardTypes.h"
 
+
+struct FNameCurve;
+class UMovieSceneSection;
+
+
 /**
  * A key area for FName curves.
  */
@@ -26,7 +31,7 @@ public:
 
 public:
 
-	// IKeyArea interface
+	//~ IKeyArea interface
 
 	virtual TArray<FKeyHandle> AddKeyUnique(float Time, EMovieSceneKeyInterpolation InKeyInterpolation, float TimeToCopyFrom = FLT_MAX) override;
 	virtual TOptional<FKeyHandle> DuplicateKey(FKeyHandle KeyToDuplicate) override;

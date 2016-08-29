@@ -5,6 +5,10 @@
 #include "Animation/AnimLinkableElement.h"
 #include "AnimTypes.generated.h"
 
+struct FMarkerPair;
+struct FPassedMarker;
+struct FMarkerSyncAnimPosition;
+
 namespace EAnimEventTriggerOffsets
 {
 	enum Type
@@ -16,6 +20,43 @@ namespace EAnimEventTriggerOffsets
 }
 
 ENGINE_API float GetTriggerTimeOffsetForType(EAnimEventTriggerOffsets::Type OffsetType);
+
+/** Enum for specifying a specific axis of a bone */
+UENUM()
+enum EBoneAxis
+{
+	BA_X UMETA(DisplayName = "X Axis"),
+	BA_Y UMETA(DisplayName = "Y Axis"),
+	BA_Z UMETA(DisplayName = "Z Axis"),
+};
+
+
+/** Enum for controlling which reference frame a controller is applied in. */
+UENUM()
+enum EBoneControlSpace
+{
+	/** Set absolute position of bone in world space. */
+	BCS_WorldSpace UMETA(DisplayName = "World Space"),
+	/** Set position of bone in SkeletalMeshComponent's reference frame. */
+	BCS_ComponentSpace UMETA(DisplayName = "Component Space"),
+	/** Set position of bone relative to parent bone. */
+	BCS_ParentBoneSpace UMETA(DisplayName = "Parent Bone Space"),
+	/** Set position of bone in its own reference frame. */
+	BCS_BoneSpace UMETA(DisplayName = "Bone Space"),
+	BCS_MAX,
+};
+
+/** Enum for specifying the source of a bone's rotation. */
+UENUM()
+enum EBoneRotationSource
+{
+	/** Don't change rotation at all. */
+	BRS_KeepComponentSpaceRotation UMETA(DisplayName = "No Change (Preserve Existing Component Space Rotation)"),
+	/** Keep forward direction vector relative to the parent bone. */
+	BRS_KeepLocalSpaceRotation UMETA(DisplayName = "Maintain Local Rotation Relative to Parent"),
+	/** Copy rotation of target to bone. */
+	BRS_CopyFromTarget UMETA(DisplayName = "Copy Target Rotation"),
+};
 
 /** Ticking method for AnimNotifies in AnimMontages. */
 UENUM()
@@ -43,6 +84,95 @@ namespace ENotifyFilterType
 		LOD,
 	};
 }
+
+USTRUCT(BlueprintType)
+struct FPerBoneBlendWeight
+{
+	GENERATED_USTRUCT_BODY()
+
+		/** Source index of the buffer. */
+		UPROPERTY()
+		int32 SourceIndex;
+
+	UPROPERTY()
+		float BlendWeight;
+
+	FPerBoneBlendWeight()
+		: SourceIndex(0)
+		, BlendWeight(0.0f)
+	{
+	}
+};
+
+USTRUCT(BlueprintType)
+struct FPerBoneBlendWeights
+{
+	GENERATED_USTRUCT_BODY()
+
+		UPROPERTY()
+		TArray<FPerBoneBlendWeight> BoneBlendWeights;
+
+
+	FPerBoneBlendWeights() {}
+
+};
+
+struct FGraphTraversalCounter
+{
+private:
+	int16 InternalCounter;
+
+public:
+	FGraphTraversalCounter()
+		: InternalCounter(INDEX_NONE)
+	{}
+
+	int16 Get() const
+	{
+		return InternalCounter;
+	}
+
+	void Increment()
+	{
+		InternalCounter++;
+
+		// Avoid wrapping over back to INDEX_NONE, as this means 'never been traversed'
+		if (InternalCounter == INDEX_NONE)
+		{
+			InternalCounter++;
+		}
+	}
+
+	void Reset()
+	{
+		InternalCounter = INDEX_NONE;
+	}
+
+	void SynchronizeWith(const FGraphTraversalCounter& InMasterCounter)
+	{
+		InternalCounter = InMasterCounter.Get();
+	}
+
+	bool IsSynchronizedWith(const FGraphTraversalCounter& InMasterCounter) const
+	{
+		return ((InternalCounter != INDEX_NONE) && (InternalCounter == InMasterCounter.Get()));
+	}
+
+	bool WasSynchronizedInTheLastFrame(const FGraphTraversalCounter& InMasterCounter) const
+	{
+		// Test if we're currently in sync with our master counter
+		if (IsSynchronizedWith(InMasterCounter))
+		{
+			return true;
+		}
+
+		// If not, test if the Master Counter is a frame ahead of us
+		FGraphTraversalCounter TestCounter(*this);
+		TestCounter.Increment();
+
+		return TestCounter.IsSynchronizedWith(InMasterCounter);
+	}
+};
 
 /**
  * Triggers an animation notify.  Each AnimNotifyEvent contains an AnimNotify object
@@ -349,3 +479,17 @@ struct FAnimWeight
 		return (InWeight >= (1.f - ZERO_ANIMWEIGHT_THRESH));
 	}
 };
+
+/** 
+ * Indicates how animation should be evaluated between keys.
+ */
+UENUM(BlueprintType)
+enum class EAnimInterpolationType : uint8
+{
+	/** Linear interpolation when looking up values between keys. */
+	Linear		UMETA(DisplayName="Linear"),
+
+	/** Step interpolation when looking up values between keys. */
+	Step		UMETA(DisplayName="Step"),
+};
+

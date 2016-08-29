@@ -53,7 +53,6 @@ private:
 	virtual FString GetFunctionNameFromNode(UEdGraphNode* Node) const;
 	UClass* GetCallingContext(FKismetFunctionContext& Context, UEdGraphNode* Node);
 	UClass* GetTrueCallingClass(FKismetFunctionContext& Context, UEdGraphPin* SelfPin);
-	bool IsUserFunctionCall(UEdGraphNode* Node) const;
 
 public:
 

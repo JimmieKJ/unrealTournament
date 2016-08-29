@@ -1111,6 +1111,25 @@ TSharedRef<SWidget> SEventGraph::GetWidgetBoxForOptions()
 			.ToolTipText( LOCTEXT("FilteringSearchBox_TT", "Type here to search or filter events") )
 		]
 
+		// Aggressive filtering
+		+ SHorizontalBox::Slot()
+			.AutoWidth()
+			.HAlign(HAlign_Center)
+			.VAlign(VAlign_Fill)
+			.Padding(1.0f)
+			[
+				SNew(SCheckBox)
+				.Visibility(EVisibility::Visible)
+				.IsEnabled(true)
+				.OnCheckStateChanged(this, &SEventGraph::OnAggressiveFilteringToggled)
+				[
+					SNew(STextBlock)
+					.Text( LOCTEXT("AggressiveFilteringLabel", "AF") )
+					.ToolTipText(LOCTEXT("AggressiveFiltering_TT", "Toggle aggressive filtering"))
+				]
+			]
+
+
 		// Filtering help
 		+SHorizontalBox::Slot()
 		.AutoWidth()
@@ -1375,6 +1394,7 @@ static bool RecursiveShowUnfilteredItems(TSharedPtr< STreeView<FEventGraphSample
 		bExpandedAnyChildren |= bExpandThis;
 
 		TreeView->SetItemExpansion(Node, bExpandThis);
+		
 	}
 
 	return bExpandedAnyChildren;
@@ -1401,6 +1421,22 @@ bool SEventGraph::FilteringSearchBox_IsEnabled() const
 {
 	return true;
 }
+
+
+void SEventGraph::OnAggressiveFilteringToggled(ECheckBoxState InState)
+{
+	GetCurrentState()->SetAggressiveFiltering( InState == ECheckBoxState::Checked ? true : false );
+
+	RestoreEventGraphStateFrom(GetCurrentState());
+
+	// Auto-expand to view the unfiltered items
+	if (GetCurrentStateViewMode() == EEventGraphViewModes::Hierarchical)
+	{
+		RecursiveShowUnfilteredItems(TreeView_Base, GetCurrentState()->GetRoot()->GetChildren());
+		TreeView_Refresh();
+	}
+}
+
 
 TSharedPtr<SWidget> SEventGraph::EventGraph_GetMenuContent() const
 {

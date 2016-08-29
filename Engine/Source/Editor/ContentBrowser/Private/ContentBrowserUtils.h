@@ -231,4 +231,7 @@ namespace ContentBrowserUtils
 
 	/** Checks to see whether the path is within the size restrictions for cooking */
 	bool IsValidPackageForCooking(const FString& PackageName, FText& OutErrorMessage);
+
+	/** Syncs the specified packages from source control, other than any level assets which are currently being edited */
+	void SyncPackagesFromSourceControl(TArray<FString> PackageNames);
 }

@@ -5,6 +5,8 @@
 =============================================================================*/
 
 #include "AndroidDeviceDetectionPrivatePCH.h"
+#include "ModuleManager.h"
+#include "IConnectionBasedMessagingModule.h"
 
 #define LOCTEXT_NAMESPACE "FAndroidDeviceDetectionModule" 
 
@@ -20,8 +22,8 @@ public:
 		ADBPathCheckLock(InADBPathCheckLock),
 		HasADBPath(false),
 		ForceCheck(false)
-
 	{
+		TcpMessagingModule = FModuleManager::LoadModulePtr<IConnectionBasedMessagingModule>("TcpMessaging");
 	}
 
 public:
@@ -119,6 +121,9 @@ private:
 		StdOut = StdOut.Replace(TEXT("\r"), TEXT("\n"));
 		StdOut.ParseIntoArray(DeviceStrings, TEXT("\n"), true);
 
+		// list of any existing port forwardings, filled in when we find a device we need to add.
+		TArray<FString> PortForwardings;
+
 		// a list containing all devices found this time, so we can remove anything not in this list
 		TArray<FString> CurrentlyConnectedDevices;
 
@@ -149,19 +154,22 @@ private:
 			NewDeviceInfo.SerialNumber = DeviceString.Left(TabIndex);
 			const FString DeviceState = DeviceString.Mid(TabIndex + 1).Trim();
 
-			NewDeviceInfo.bUnauthorizedDevice = DeviceState == TEXT("unauthorized");
+			NewDeviceInfo.bAuthorizedDevice = DeviceState != TEXT("unauthorized");
 
 			// add it to our list of currently connected devices
 			CurrentlyConnectedDevices.Add(NewDeviceInfo.SerialNumber);
 
-			// move on to next device if this one is already a known device
-			if (DeviceMap.Contains(NewDeviceInfo.SerialNumber))
-			{
+			// move on to next device if this one is already a known device that has either already been authorized or the authorization
+			// status has not changed
+			if (DeviceMap.Contains(NewDeviceInfo.SerialNumber) && 
+				(DeviceMap[NewDeviceInfo.SerialNumber].bAuthorizedDevice || !NewDeviceInfo.bAuthorizedDevice))
+			{					
 				continue;
 			}
 
-			if (NewDeviceInfo.bUnauthorizedDevice)
+			if (!NewDeviceInfo.bAuthorizedDevice)
 			{
+				//note: AndroidTargetDevice::GetName() does not fetch this value, do not rely on this
 				NewDeviceInfo.DeviceName = TEXT("Unauthorized - enable USB debugging");
 			}
 			else
@@ -225,6 +233,62 @@ private:
 					const TCHAR* Ptr = *RoProductDevice;
 					FParse::Line(&Ptr, NewDeviceInfo.DeviceName);
 				}
+
+				// establish port forwarding if we're doing messaging
+				if (TcpMessagingModule != nullptr)
+				{
+					// fill in the port forwarding array if needed
+					if (PortForwardings.Num() == 0)
+					{
+						FString ForwardList;
+						if (ExecuteAdbCommand(TEXT("forward --list"), &ForwardList, nullptr))
+						{
+							ForwardList = ForwardList.Replace(TEXT("\r"), TEXT("\n"));
+							ForwardList.ParseIntoArray(PortForwardings, TEXT("\n"), true);
+						}
+					}
+
+					// check if this device already has port forwarding enabled for message bus, eg from another editor session
+					for (FString& FwdString : PortForwardings)
+					{
+						const TCHAR* Ptr = *FwdString;
+						FString FwdSerialNumber, FwdHostPortString, FwdDevicePortString;
+						uint16 FwdHostPort, FwdDevicePort;
+						if (FParse::Token(Ptr, FwdSerialNumber, false) && FwdSerialNumber == NewDeviceInfo.SerialNumber &&
+							FParse::Token(Ptr, FwdHostPortString, false) && FParse::Value(*FwdHostPortString, TEXT("tcp:"), FwdHostPort) &&
+							FParse::Token(Ptr, FwdDevicePortString, false) && FParse::Value(*FwdDevicePortString, TEXT("tcp:"), FwdDevicePort) && FwdDevicePort == 6666)
+						{
+							NewDeviceInfo.HostMessageBusPort = FwdHostPort;
+							break;
+						}
+					}
+
+					// if not, setup TCP port forwarding for message bus on first available TCP port above 6666
+					if (NewDeviceInfo.HostMessageBusPort == 0)
+					{
+						uint16 HostMessageBusPort = 6666;
+						bool bFoundPort;
+						do
+						{
+							bFoundPort = true;
+							for (auto It = DeviceMap.CreateConstIterator(); It; ++It)
+							{
+								if (HostMessageBusPort == It.Value().HostMessageBusPort)
+								{
+									bFoundPort = false;
+									HostMessageBusPort++;
+									break;
+								}
+							}
+						} while (!bFoundPort);
+
+						FString DeviceCommand = FString::Printf(TEXT("-s %s forward tcp:%d tcp:6666"), *NewDeviceInfo.SerialNumber, HostMessageBusPort);
+						ExecuteAdbCommand(*DeviceCommand, nullptr, nullptr);
+						NewDeviceInfo.HostMessageBusPort = HostMessageBusPort;
+					}
+
+					TcpMessagingModule->AddOutgoingConnection(FString::Printf(TEXT("127.0.0.1:%d"), NewDeviceInfo.HostMessageBusPort));
+				}
 			}
 
 			// add the device to the map
@@ -243,6 +307,11 @@ private:
 		{
 			if (!CurrentlyConnectedDevices.Contains(It.Key()))
 			{
+				if (TcpMessagingModule && It.Value().HostMessageBusPort != 0)
+				{
+					TcpMessagingModule->RemoveOutgoingConnection(FString::Printf(TEXT("127.0.0.1:%d"), It.Value().HostMessageBusPort));
+				}
+
 				DevicesToRemove.Add(It.Key());
 			}
 		}
@@ -272,6 +341,8 @@ private:
 	FCriticalSection* ADBPathCheckLock;
 	bool HasADBPath;
 	bool ForceCheck;
+
+	IConnectionBasedMessagingModule* TcpMessagingModule;
 };
 
 class FAndroidDeviceDetection : public IAndroidDeviceDetection

@@ -36,7 +36,7 @@ namespace AutomationTool
 			{
 				CommandLine += " -nocreatestub";
 			}
-			CommandLine += " -NoHotReloadFromIDE";
+			CommandLine += " -NoHotReload";
 			if (bJunkDeleted || GlobalCommandLine.IgnoreJunk)
 			{
 				// UBT has already deleted junk files, make sure it doesn't do it again

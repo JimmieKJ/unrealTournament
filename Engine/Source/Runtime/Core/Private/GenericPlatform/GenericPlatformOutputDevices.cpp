@@ -4,7 +4,7 @@
 #include "HAL/FeedbackContextAnsi.h"
 #include "Misc/App.h"
 #include "Misc/OutputDeviceConsole.h"
-
+#include "HAL/OutputDeviceMemory.h"
 
 void FGenericPlatformOutputDevices::SetupOutputDevices()
 {
@@ -63,8 +63,32 @@ FString FGenericPlatformOutputDevices::GetAbsoluteLogFilename()
 
 class FOutputDevice* FGenericPlatformOutputDevices::GetLog()
 {
-	static FOutputDeviceFile Singleton;
-	return &Singleton;
+	static struct FLogOutputDeviceInitializer
+	{
+		TAutoPtr<FOutputDevice> LogDevice;
+		FLogOutputDeviceInitializer()
+		{
+#if !IS_PROGRAM && !WITH_EDITORONLY_DATA
+			if (!LogDevice.IsValid() 
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+				 && FParse::Param(FCommandLine::Get(), TEXT("LOGTOMEMORY")) 
+#else
+				 && !FParse::Param(FCommandLine::Get(), TEXT("NOLOGTOMEMORY")) && !FPlatformProperties::IsServerOnly()
+#endif
+				 )
+			{
+				LogDevice = new FOutputDeviceMemory();
+			}
+#endif
+			if (!LogDevice.IsValid())
+			{
+				LogDevice = new FOutputDeviceFile();
+			}
+		}
+
+	} Singleton;
+
+	return Singleton.LogDevice.GetOwnedPointer();
 }
 
 

@@ -50,7 +50,8 @@ public:
 		WireSphere = 0x040,
 		OriginAxis = 0x080,
 		Orbit = 0x100,
-		ParticleSystemCompleted = 0x200
+		ParticleSystemCompleted = 0x200,
+		EmitterTickTimes = 0x400
 	};
 
 	/** Accessors */

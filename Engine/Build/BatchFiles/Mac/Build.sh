@@ -93,7 +93,7 @@ case $ACTION in
 esac
 
 ExitCode=$?
-if [ $ExitCode -eq 254 ] || [ $ExitCode -eq 255 ]; then
+if [ $ExitCode -eq 254 ] || [ $ExitCode -eq 255 ] || [ $ExitCode -eq 2 ]; then
 	exit 0
 else
 	exit $ExitCode

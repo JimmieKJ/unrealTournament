@@ -622,6 +622,7 @@ ESearchableValueStatus FImaginaryGraphNode::GetSearchabilityStatus(FString InKey
 		return ESearchableValueStatus::CoreDisplayItem;
 	}
 	else if (FindInBlueprintsHelpers::IsTextEqualToString(FFindInBlueprintSearchTags::FiB_Glyph, InKey)
+		|| FindInBlueprintsHelpers::IsTextEqualToString(FFindInBlueprintSearchTags::FiB_GlyphStyleSet, InKey)
 		|| FindInBlueprintsHelpers::IsTextEqualToString(FFindInBlueprintSearchTags::FiB_GlyphColor, InKey)
 		|| FindInBlueprintsHelpers::IsTextEqualToString(FFindInBlueprintSearchTags::FiB_NodeGuid, InKey)
 		)

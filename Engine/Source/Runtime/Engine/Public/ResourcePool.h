@@ -125,6 +125,8 @@ public:
 				// Clean entries that are unlikely to be reused
 				if ((GFrameNumberRenderThread - PoolEntry.FrameFreed) > CullAfterFramesNum || bForceDrainAll)
 				{
+					Policy.FreeResource(ResourceBuckets[BucketIndex][EntryIndex].Resource);
+					
 					ResourceBuckets[BucketIndex].RemoveAtSwap(EntryIndex);
 					
 					--NumToCleanThisFrame;

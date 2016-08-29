@@ -164,7 +164,7 @@ void SProjectLauncher::Construct( const FArguments& InArgs, const TSharedRef<SDo
 							SNew(SHorizontalBox)
 
 							+ SHorizontalBox::Slot()
-							.AutoWidth()
+							.FillWidth(1.0f)
 							[
 								SNew(STextBlock)
 								.TextStyle(FCoreStyle::Get(), "Toolbar.Label")
@@ -174,6 +174,22 @@ void SProjectLauncher::Construct( const FArguments& InArgs, const TSharedRef<SDo
 
 							+ SHorizontalBox::Slot()
 							.HAlign(HAlign_Right)
+							.AutoWidth()
+							[
+								SNew(SComboButton)
+								.ComboButtonStyle(FEditorStyle::Get(), "ContentBrowser.Filters.Style")
+								.ForegroundColor(FLinearColor::White)
+								.ContentPadding(0)
+								.ToolTipText(LOCTEXT("AddFilterToolTip", "Add a new custom launch profile using wizard"))
+								.OnGetMenuContent(this, &SProjectLauncher::MakeProfileWizardsMenu)
+								.HasDownArrow(true)
+								.ContentPadding(FMargin(1, 0))
+								.Visibility(this, &SProjectLauncher::GetProfileWizardsMenuVisibility)
+							]
+
+							+ SHorizontalBox::Slot()
+							.HAlign(HAlign_Right)
+							.AutoWidth()
 							[
 								SNew(SButton)
 								.ButtonStyle(FEditorStyle::Get(), "ToggleButton")
@@ -295,6 +311,40 @@ FReply SProjectLauncher::OnAddCustomLaunchProfileClicked()
 	ProfileSettingsPanel->EnterEditMode();
 
 	return FReply::Handled();
+}
+
+EVisibility SProjectLauncher::GetProfileWizardsMenuVisibility() const
+{
+	return Model->GetProfileManager()->GetProfileWizards().Num() > 0 ? EVisibility::Visible : EVisibility::Hidden;
+}
+
+TSharedRef<SWidget> SProjectLauncher::MakeProfileWizardsMenu()
+{
+	FMenuBuilder MenuBuilder(true, NULL);
+
+	const TArray<ILauncherProfileWizardPtr>& Wizards = Model->GetProfileManager()->GetProfileWizards();
+	for (const ILauncherProfileWizardPtr& Wizard : Wizards)
+	{
+		FText WizardName = Wizard->GetName();
+		FText WizardDescription = Wizard->GetDescription();
+				
+		MenuBuilder.AddMenuEntry(
+			WizardName,
+			WizardDescription,
+			FSlateIcon(),
+			FUIAction(
+				FExecuteAction::CreateSP(this, &SProjectLauncher::ExecProfileWizard, Wizard),
+				FCanExecuteAction()
+				)
+			);
+	}
+
+	return MenuBuilder.MakeWidget();
+}
+
+void SProjectLauncher::ExecProfileWizard(ILauncherProfileWizardPtr InWizard)
+{
+	InWizard->HandleCreateLauncherProfile(Model->GetProfileManager());
 }
 
 FReply SProjectLauncher::OnProfileSettingsClose()

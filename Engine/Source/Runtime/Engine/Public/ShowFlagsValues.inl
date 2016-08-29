@@ -68,8 +68,6 @@ SHOWFLAG_FIXED_IN_SHIPPING(1, ColorGrading, SFG_PostProcess, LOCTEXT("ColorGradi
 SHOWFLAG_FIXED_IN_SHIPPING(0, VectorFields, SFG_Developer, LOCTEXT("VectorFieldsSF", "Vector Fields"))
 /** Depth of Field */
 SHOWFLAG_FIXED_IN_SHIPPING(1, DepthOfField, SFG_PostProcess, LOCTEXT("DepthOfFieldSF", "Depth Of Field"))
-/** Whether editor-hidden primitives cast shadows. */
-SHOWFLAG_FIXED_IN_SHIPPING(1, ShadowsFromEditorHiddenActors, SFG_Developer, LOCTEXT("ShadowsFromEditorHiddenActorsSF", "Shadows of Editor-Hidden Actors"))
 /** Highlight materials that indicate performance issues or show unrealistic materials */
 SHOWFLAG_FIXED_IN_SHIPPING(0, GBufferHints, SFG_Developer, LOCTEXT("GBufferHintsSF", "GBuffer Hints (material attributes)"))
 /** MotionBlur, for now only camera motion blur, for now SHOWFLAG_ALWAYS_ACCESSIBLE because it's exposed in SceneCapture */
@@ -140,6 +138,8 @@ SHOWFLAG_ALWAYS_ACCESSIBLE(DynamicShadows, SFG_LightingComponents, LOCTEXT("Dyna
 SHOWFLAG_ALWAYS_ACCESSIBLE(Particles, SFG_Normal, LOCTEXT("ParticlesSF", "Particles Sprite"))
 /** if SkeletalMeshes are getting rendered, for now SHOWFLAG_ALWAYS_ACCESSIBLE because it's exposed in SceneCapture */
 SHOWFLAG_ALWAYS_ACCESSIBLE(SkeletalMeshes, SFG_Normal, LOCTEXT("SkeletalMeshesSF", "Skeletal Meshes"))
+/** if elements using the SkinCache are getting rendered (cache is still populated but not rendered, c) */
+SHOWFLAG_FIXED_IN_SHIPPING(1, SkinCache, SFG_Advanced, LOCTEXT("SkinCacheSF", "Skin Cache (GPU vertex cache for skeletal meshes)"))
 /** if the builder brush (editor) is getting rendered */
 SHOWFLAG_FIXED_IN_SHIPPING(0, BuilderBrush, SFG_Hidden, LOCTEXT("BuilderBrushSF", "Builder Brush"))
 /** Render translucency, for now SHOWFLAG_ALWAYS_ACCESSIBLE because it's exposed in SceneCapture */
@@ -187,7 +187,7 @@ SHOWFLAG_FIXED_IN_SHIPPING(0, MeshEdges, SFG_Advanced, LOCTEXT("MeshEdgesSF", "M
 /** Complex cover rendering */
 SHOWFLAG_FIXED_IN_SHIPPING(0, Cover, SFG_Hidden, LOCTEXT("CoverSF", "Cover"))
 /** Spline rendering */
-SHOWFLAG_FIXED_IN_SHIPPING(1, Splines, SFG_Advanced, LOCTEXT("SplinesSF", "Splines"))
+SHOWFLAG_FIXED_IN_SHIPPING(0, Splines, SFG_Advanced, LOCTEXT("SplinesSF", "Splines"))
 /** Selection rendering, could be useful in game as well */
 SHOWFLAG_FIXED_IN_SHIPPING(0, Selection, SFG_Advanced, LOCTEXT("SelectionSF", "Selection"))
 /** Draws mode specific widgets and controls in the viewports (should only be set on viewport clients that are editing the level itself) */
@@ -271,7 +271,7 @@ SHOWFLAG_ALWAYS_ACCESSIBLE(Paper2DSprites, SFG_Advanced, LOCTEXT("Paper2DSprites
 /** Visualization of distance field AO */
 SHOWFLAG_FIXED_IN_SHIPPING(0, VisualizeDistanceFieldAO, SFG_Visualize, LOCTEXT("VisualizeDistanceFieldAOSF", "Distance Field Ambient Occlusion"))
 /** Visualization of distance field GI */
-SHOWFLAG_FIXED_IN_SHIPPING(0, VisualizeDistanceFieldGI, SFG_Visualize, LOCTEXT("VisualizeDistanceFieldGISF", "Distance Field Global Illumination"))
+SHOWFLAG_FIXED_IN_SHIPPING(0, VisualizeDistanceFieldGI, SFG_Hidden, LOCTEXT("VisualizeDistanceFieldGISF", "Distance Field Global Illumination"))
 /** Mesh Distance fields */
 SHOWFLAG_FIXED_IN_SHIPPING(0, VisualizeMeshDistanceFields, SFG_Visualize, LOCTEXT("MeshDistanceFieldsSF", "Mesh DistanceFields"))
 /** Screen space AO, for now SHOWFLAG_ALWAYS_ACCESSIBLE because r.GBuffer need that */
@@ -279,7 +279,7 @@ SHOWFLAG_ALWAYS_ACCESSIBLE(ScreenSpaceAO, SFG_LightingFeatures, LOCTEXT("ScreenS
 /** Distance field AO, for now SHOWFLAG_ALWAYS_ACCESSIBLE because it's exposed in SceneCapture */
 SHOWFLAG_ALWAYS_ACCESSIBLE(DistanceFieldAO, SFG_LightingFeatures, LOCTEXT("DistanceFieldAOSF", "Distance Field Ambient Occlusion"))
 /** Distance field GI */
-SHOWFLAG_FIXED_IN_SHIPPING(1, DistanceFieldGI, SFG_LightingFeatures, LOCTEXT("DistanceFieldGISF", "Distance Field Global Illumination"))
+SHOWFLAG_FIXED_IN_SHIPPING(1, DistanceFieldGI, SFG_Hidden, LOCTEXT("DistanceFieldGISF", "Distance Field Global Illumination"))
 /** Visualize screen space reflections, for developer (by default off): */
 SHOWFLAG_FIXED_IN_SHIPPING(0, VisualizeSSR, SFG_Visualize, LOCTEXT("VisualizeSSR", "Screen Space Reflections"))
 /** Visualize the Shading Models, mostly or debugging and profiling */
@@ -288,8 +288,6 @@ SHOWFLAG_FIXED_IN_SHIPPING(0, VisualizeShadingModels, SFG_Visualize, LOCTEXT("Vi
 SHOWFLAG_FIXED_IN_SHIPPING(0, VisualizeSenses, SFG_Advanced, LOCTEXT("VisualizeSenses", "Senses"))
 /** Visualize the bloom, for developer (by default off): */
 SHOWFLAG_FIXED_IN_SHIPPING(0, VisualizeBloom, SFG_Visualize, LOCTEXT("VisualizeBloom", "Bloom"))
-/** Visualize Vertex Density */
-SHOWFLAG_FIXED_IN_SHIPPING(0, VertexDensities, SFG_Hidden, LOCTEXT("VisualizeVertexDensities", "Visualize Vertex Densities"))
 /** Visualize LOD Coloration */
 SHOWFLAG_FIXED_IN_SHIPPING(0, LODColoration, SFG_Hidden, LOCTEXT("VisualizeLODColoration", "Visualize LOD Coloration"))
 /** Visualize HLOD Coloration */
@@ -298,11 +296,13 @@ SHOWFLAG_FIXED_IN_SHIPPING(0, HLODColoration, SFG_Hidden, LOCTEXT("VisualizeHLOD
 SHOWFLAG_FIXED_IN_SHIPPING(0, QuadOverdraw, SFG_Hidden, LOCTEXT("QuadOverdrawSF", "Quad Overdraw"))
 /** Visualize the overhead of material quads */
 SHOWFLAG_FIXED_IN_SHIPPING(0, ShaderComplexityWithQuadOverdraw, SFG_Hidden, LOCTEXT("ShaderComplexityWithQuadOverdraw", "Shader Complexity With Quad Overdraw"))
-/** Visualize the streaming texture scale in the mesh editors */
-SHOWFLAG_FIXED_IN_SHIPPING(0, WantedMipsAccuracy, SFG_Hidden, LOCTEXT("WantedMipsAccuracy", "Streaming Wanted Mips Accuracy"))
-/** Visualize how accurate is the texel factor is computed on each mesh */
-SHOWFLAG_FIXED_IN_SHIPPING(0, TexelFactorAccuracy, SFG_Hidden, LOCTEXT("TexelFactorAccuracy", "Texel Factor Accuracy"))
-/** Visualize the accuracy of the material texture coordinate scale factors */
-SHOWFLAG_FIXED_IN_SHIPPING(0, TexCoordScaleAccuracy, SFG_Hidden, LOCTEXT("TexCoordScaleAccuray", "Texture Coordinate Scale Accuracy"))
+/** Visualize the accuracy of the CPU primitive distance when compared with the GPU value */
+SHOWFLAG_FIXED_IN_SHIPPING(0, PrimitiveDistanceAccuracy, SFG_Hidden, LOCTEXT("PrimitiveDistanceAccuracy", "Primitive Distance Accuracy"))
+/** Visualize the accuracy of the CPU mesh texture coordinate size when compared to the GPU value */
+SHOWFLAG_FIXED_IN_SHIPPING(0, MeshTexCoordSizeAccuracy, SFG_Hidden, LOCTEXT("MeshTexCoordSizeAccuracy", "Mesh Texture Coordinate Size Accuracy"))
+/** Visualize the accuracy of CPU material texture coordinate scales when compared to the GPU values */
+SHOWFLAG_FIXED_IN_SHIPPING(0, MaterialTexCoordScalesAccuracy, SFG_Hidden, LOCTEXT("MaterialTexCoordScalesAccuracy", "Material Texture Coordinate Scales Accuracy"))
+/** Outputs the material texture coordinate scales. */
+SHOWFLAG_FIXED_IN_SHIPPING(0, MaterialTexCoordScalesAnalysis, SFG_Hidden, LOCTEXT("MaterialTexCoordScalesAnalysis", "Material Texture Coordinate Scales Analysis"))
 #undef SHOWFLAG_ALWAYS_ACCESSIBLE
 #undef SHOWFLAG_FIXED_IN_SHIPPING

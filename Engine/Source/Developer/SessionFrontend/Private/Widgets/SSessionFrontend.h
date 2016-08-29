@@ -25,6 +25,8 @@ public:
 	 */
 	void Construct( const FArguments& InArgs, const TSharedRef<SDockTab>& ConstructUnderMajorTab, const TSharedPtr<SWindow>& ConstructUnderWindow );
 
+	TSharedPtr<FTabManager> GetTabManager() const { return TabManager; }
+
 protected:
 
 	/**

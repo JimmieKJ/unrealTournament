@@ -66,7 +66,8 @@ public:
 	virtual IConsoleCommand* RegisterConsoleCommand(const TCHAR* Name, const TCHAR* Help, uint32 Flags) override;
 	virtual IConsoleObject* FindConsoleObject(const TCHAR* Name) const override;
 	virtual IConsoleVariable* FindConsoleVariable(const TCHAR* Name) const override;
-	virtual void ForEachConsoleObject(const FConsoleObjectVisitor& Visitor, const TCHAR* ThatStartsWith) const override;
+	virtual void ForEachConsoleObjectThatStartsWith(const FConsoleObjectVisitor& Visitor, const TCHAR* ThatStartsWith) const override;
+	virtual void ForEachConsoleObjectThatContains(const FConsoleObjectVisitor& Visitor, const TCHAR* ThatContains) const override;
 	virtual bool ProcessUserConsoleInput(const TCHAR* InInput, FOutputDevice& Ar, UWorld* InWorld) override;
 	virtual void AddConsoleHistoryEntry(const TCHAR* Input) override;
 	virtual void GetConsoleHistory(TArray<FString>& Out) override;
@@ -109,6 +110,10 @@ private: // ----------------------------------------------------
 	 * @param Pattern must not be 0
 	 */
 	static bool MatchPartialName(const TCHAR* Stream, const TCHAR* Pattern);
+
+	/** Returns true if Pattern is found in Stream, case insensitive. */
+	static bool MatchSubstring(const TCHAR* Stream, const TCHAR* Pattern);
+
 	/**
 	 * Get string till whitespace, jump over whitespace
 	 * inefficient but this code is not performance critical

@@ -14,6 +14,8 @@ DECLARE_DELEGATE_OneParam( FOnSelectionChanged, const FGraphPanelSelectionSet& )
 DECLARE_DELEGATE( FOnUpdatePanel )
 DECLARE_DELEGATE_RetVal( float, FOnGetScrubValue )
 
+class FAnimCurveBaseInterface;
+
 struct FSmartNameSortItem
 {
 	FName SmartName;
@@ -138,7 +140,7 @@ public:
 	/**
 	 * Creates a context menu for the provided curve
 	 */
-	TSharedRef<SWidget> CreateCurveContextMenu(FFloatCurve* Curve) const;
+	TSharedRef<SWidget> CreateCurveContextMenu(FAnimCurveBaseInterface* Curve) const;
 
 	/**
 	 * Sets the specified flag value to State for the provided curve
@@ -222,15 +224,15 @@ private:
 	/**
 	 * Convert the requested flag bool value into a checkbox state
 	 */
-	ECheckBoxState GetCurveFlagAsCheckboxState(FFloatCurve* Curve, EAnimCurveFlags InFlag) const;
+	ECheckBoxState GetCurveFlagAsCheckboxState(FAnimCurveBaseInterface* Curve, EAnimCurveFlags InFlag) const;
 
 	/**
 	 * Convert a given checkbox state into a flag value in the provided curve
 	 */
-	void SetCurveFlagFromCheckboxState(ECheckBoxState CheckState, FFloatCurve* Curve, EAnimCurveFlags InFlag);
+	void SetCurveFlagFromCheckboxState(ECheckBoxState CheckState, FAnimCurveBaseInterface* Curve, EAnimCurveFlags InFlag);
 
 	/**
 	 * Handler for converting a curve from metadata to variable curve or vice versa
 	 */
-	void ToggleCurveTypeMenuCallback(FFloatCurve* Curve);
+	void ToggleCurveTypeMenuCallback(FAnimCurveBaseInterface* Curve);
 };

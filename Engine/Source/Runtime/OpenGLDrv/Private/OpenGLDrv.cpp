@@ -20,6 +20,9 @@ IMPLEMENT_MODULE(FOpenGLDynamicRHIModule, OpenGLDrv);
 DEFINE_LOG_CATEGORY(LogOpenGL);
 
 
+ERHIFeatureLevel::Type GRequestedFeatureLevel = ERHIFeatureLevel::Num;
+
+
 void FOpenGLDynamicRHI::RHIPushEvent(const TCHAR* Name, FColor Color)
 {
 #if ENABLE_OPENGL_DEBUG_GROUPS
@@ -206,7 +209,9 @@ void FOpenGLGPUProfiler::EndFrame()
 #ifdef GL_ARB_debug_output
 			DebugEnabled = GL_TRUE == glIsEnabled( GL_DEBUG_OUTPUT );
 #endif
-			if(OPENGL_PERFORMANCE_DATA_INVALID || DebugEnabled )
+#if !OPENGL_PERFORMANCE_DATA_INVALID
+			if( DebugEnabled )
+#endif
 			{
 				UE_LOG(LogRHI, Warning, TEXT(""));
 				UE_LOG(LogRHI, Warning, TEXT(""));
@@ -517,10 +522,12 @@ void FOpenGLBase::ProcessExtensions( const FString& ExtensionsString )
 	// Setup CVars that require the RHI initialized
 
 	//@todo-rco: Workaround Nvidia driver crash
-	if (PLATFORM_DESKTOP && !PLATFORM_LINUX && IsRHIDeviceNVIDIA())
+#if PLATFORM_DESKTOP && !PLATFORM_LINUX
+	if (IsRHIDeviceNVIDIA())
 	{
 		OpenGLConsoleVariables::bUseVAB = 0;
 	}
+#endif
 }
 
 void GetExtensionsString( FString& ExtensionsString)

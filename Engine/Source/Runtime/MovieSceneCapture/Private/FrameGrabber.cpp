@@ -65,7 +65,7 @@ void FViewportSurfaceReader::BlockUntilAvailable()
 	}
 }
 
-void FViewportSurfaceReader::ResolveRenderTarget(const FViewportRHIRef& ViewportRHI, TFunction<void(FColor*)> Callback)
+void FViewportSurfaceReader::ResolveRenderTarget(const FViewportRHIRef& ViewportRHI, TFunction<void(FColor*, int32, int32)> Callback)
 {
 	static const FName RendererModuleName( "Renderer" );
 	IRendererModule* RendererModule = &FModuleManager::GetModuleChecked<IRendererModule>(RendererModuleName);
@@ -144,10 +144,10 @@ void FViewportSurfaceReader::ResolveRenderTarget(const FViewportRHIRef& Viewport
 
 		void* ColorDataBuffer = nullptr;
 
-		int32 UnusedWidth = 0, UnusedHeight = 0;
-		RHICmdList.MapStagingSurface(ReadbackTexture, ColorDataBuffer, UnusedWidth, UnusedHeight);
+		int32 Width = 0, Height = 0;
+		RHICmdList.MapStagingSurface(ReadbackTexture, ColorDataBuffer, Width, Height);
 
-		Callback((FColor*)ColorDataBuffer);
+		Callback((FColor*)ColorDataBuffer, Width, Height);
 
 		RHICmdList.UnmapStagingSurface(ReadbackTexture);
 		AvailableEvent->Trigger();
@@ -164,6 +164,21 @@ void FViewportSurfaceReader::ResolveRenderTarget(const FViewportRHIRef& Viewport
 FFrameGrabber::FFrameGrabber(TSharedRef<FSceneViewport> Viewport, FIntPoint DesiredBufferSize, EPixelFormat InPixelFormat, uint32 NumSurfaces)
 {
 	State = EFrameGrabberState::Inactive;
+
+	// cause the viewport to always flush on draw
+	Viewport->IncrementFlushOnDraw();
+
+	{
+		// Setup a functor to decrement the flag on destruction (this class isn't necessarily tied to scene viewports)
+		TWeakPtr<FSceneViewport> WeakViewport = Viewport;
+		OnShutdown = [WeakViewport]{
+			TSharedPtr<FSceneViewport> PinnedViewport = WeakViewport.Pin();
+			if (PinnedViewport.IsValid())
+			{
+				PinnedViewport->DecrementFlushOnDraw();
+			}
+		};
+	}
 
 	TargetSize = DesiredBufferSize;
 
@@ -222,6 +237,11 @@ FFrameGrabber::~FFrameGrabber()
 	{
 		FSlateApplication::Get().GetRenderer()->OnSlateWindowRendered().Remove(OnWindowRendered);
 	}
+	
+	if (OnShutdown)
+	{
+		OnShutdown();
+	}
 }
 
 void FFrameGrabber::StartCapturingFrames()
@@ -244,15 +264,8 @@ void FFrameGrabber::CaptureThisFrame(FFramePayloadPtr Payload)
 
 	OutstandingFrameCount.Increment();
 
-	// Issue a rendering command to ensure we capture the frame that is currently being set up
-	ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER(
-		IssueCaptureFrameCommand,
-		FFrameGrabber* , This, this,
-		FFramePayloadPtr, Payload, Payload,
-	{
-		FScopeLock Lock(&This->PendingFramePayloadsMutex);
-		This->PendingFramePayloads.Add(Payload);
-	});
+	FScopeLock Lock(&PendingFramePayloadsMutex);
+	PendingFramePayloads.Add(Payload);
 }
 
 void FFrameGrabber::StopCapturingFrames()
@@ -343,15 +356,15 @@ void FFrameGrabber::OnSlateWindowRendered( SWindow& SlateWindow, void* ViewportR
 
 	const FViewportRHIRef* RHIViewport = (const FViewportRHIRef*)ViewportRHIPtr;
 
-	Surfaces[ThisCaptureIndex].Surface.ResolveRenderTarget(*RHIViewport, [=](FColor* ColorBuffer){
+	Surfaces[ThisCaptureIndex].Surface.ResolveRenderTarget(*RHIViewport, [=](FColor* ColorBuffer, int32 Width, int32 Height){
 		// Handle the frame
-		OnFrameReady(ThisCaptureIndex, ColorBuffer);
+		OnFrameReady(ThisCaptureIndex, ColorBuffer, Width, Height);
 	});
 
 	CurrentFrameIndex = (CurrentFrameIndex+1) % Surfaces.Num();
 }
 
-void FFrameGrabber::OnFrameReady(int32 BufferIndex, FColor* ColorBuffer)
+void FFrameGrabber::OnFrameReady(int32 BufferIndex, FColor* ColorBuffer, int32 Width, int32 Height)
 {
 	if (!ensure(ColorBuffer))
 	{
@@ -363,8 +376,16 @@ void FFrameGrabber::OnFrameReady(int32 BufferIndex, FColor* ColorBuffer)
 
 	FCapturedFrameData ResolvedFrameData(TargetSize, Surface.Payload);
 
-	ResolvedFrameData.ColorBuffer.Reserve(TargetSize.X * TargetSize.Y);
-	ResolvedFrameData.ColorBuffer.Insert(ColorBuffer, TargetSize.X * TargetSize.Y, 0);
+	ResolvedFrameData.ColorBuffer.InsertUninitialized(0, TargetSize.X * TargetSize.Y);
+	FColor* Dest = &ResolvedFrameData.ColorBuffer[0];
+
+	const int32 MaxWidth = FMath::Min(TargetSize.X, Width);
+	for (int32 Row = 0; Row < FMath::Min(Height, TargetSize.Y); ++Row)
+	{
+		FMemory::Memcpy(Dest, ColorBuffer, sizeof(FColor)*MaxWidth);
+		ColorBuffer += Width;
+		Dest += MaxWidth;
+	}
 
 	{
 		FScopeLock Lock(&CapturedFramesMutex);

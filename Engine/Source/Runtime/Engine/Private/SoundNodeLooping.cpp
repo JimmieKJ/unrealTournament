@@ -30,9 +30,9 @@ void USoundNodeLooping::ParseNodes( FAudioDevice* AudioDevice, const UPTRINT Nod
 	}
 
 #if !(NO_LOGGING || UE_BUILD_SHIPPING || UE_BUILD_TEST)
-	if (bLoopIndefinitely && !ActiveSound.bWarnedAboutOrphanedLooping && ActiveSound.GetAudioComponent() == nullptr)
+	if (bLoopIndefinitely && !ActiveSound.bWarnedAboutOrphanedLooping && ActiveSound.GetAudioComponentID() == 0)
 	{
-		UE_LOG(LogAudio, Warning, TEXT("Detected orphaned looping sound '%s'."), *ActiveSound.Sound->GetName());
+		UE_LOG(LogAudio, Warning, TEXT("Detected orphaned looping sound '%s'."), *ActiveSound.GetSound()->GetName());
 		ActiveSound.bWarnedAboutOrphanedLooping = true;
 	}
 #endif
@@ -60,16 +60,24 @@ bool USoundNodeLooping::NotifyWaveInstanceFinished( FWaveInstance* InWaveInstanc
 	const UPTRINT NodeWaveInstanceHash = InWaveInstance->NotifyBufferFinishedHooks.GetHashForNode(this);
 	RETRIEVE_SOUNDNODE_PAYLOAD(sizeof(int32));
 	DECLARE_SOUNDNODE_ELEMENT(int32, CurrentLoopCount);
-	check(*RequiresInitialization == 0);
 
-	if (bLoopIndefinitely || ++CurrentLoopCount < LoopCount)
+	const bool bRequiresInitialization = (*RequiresInitialization) != 0;
+
+	// The looping node should be initialized, but we hit this check and need to get information about what sound cue is causing the issue.
+	ensureMsgf(!bRequiresInitialization, TEXT("Sound looping finished but not initialized. SoundWave: %s, Sound: %s"), *InWaveInstance->GetName(), *ActiveSound.GetSound()->GetName());
+
+	// Avoid the crash and continue...
+	if (!bRequiresInitialization)
 	{
-		ResetChildren(NodeWaveInstanceHash, ActiveSound, CurrentLoopCount);
+		if (bLoopIndefinitely || ++CurrentLoopCount < LoopCount)
+		{
+			ResetChildren(NodeWaveInstanceHash, ActiveSound, CurrentLoopCount);
 
-		// Reset wave instances that notified us of completion.
-		InWaveInstance->bIsStarted = false;
-		InWaveInstance->bIsFinished = false;
-		return true;
+			// Reset wave instances that notified us of completion.
+			InWaveInstance->bIsStarted = false;
+			InWaveInstance->bIsFinished = false;
+			return true;
+		}
 	}
 
 	return false;
@@ -103,17 +111,17 @@ void USoundNodeLooping::ResetChildren(const UPTRINT NodeWaveInstanceHash, FActiv
 
 	for (int32 ResetNodeIndex = 0; ResetNodeIndex < NodesToReset.Num(); ++ResetNodeIndex)
 	{
-		const FNodeHashPairs& NodeHashPair = NodesToReset[ResetNodeIndex];
+		// cache both fields, ref to NodesToReset[ResetNodeIndex] can become invalid after NodesToReset.Add due to memory reallocation
+		const UPTRINT ResetNodeWaveInstanceHash = NodesToReset[ResetNodeIndex].NodeWaveInstanceHash;
+		USoundNode* ResetNode = NodesToReset[ResetNodeIndex].Node;
 
 		// Reset all child nodes so they are initialized again.
-		uint32* Offset = ActiveSound.SoundNodeOffsetMap.Find(NodeHashPair.NodeWaveInstanceHash);
+		uint32* Offset = ActiveSound.SoundNodeOffsetMap.Find(ResetNodeWaveInstanceHash);
 		if (Offset)
 		{
 			bool* bRequiresInitialization = (bool*)&ActiveSound.SoundNodeData[*Offset];
 			*bRequiresInitialization = true;
 		}
-
-		USoundNode* ResetNode = NodeHashPair.Node;
 
 		if (ResetNode->ChildNodes.Num())
 		{
@@ -122,13 +130,13 @@ void USoundNodeLooping::ResetChildren(const UPTRINT NodeWaveInstanceHash, FActiv
 				USoundNode* ResetChildNode = ResetNode->ChildNodes[ResetChildIndex];
 				if (ResetChildNode)
 				{
-					NodesToReset.Add(FNodeHashPairs(ResetChildNode, GetNodeWaveInstanceHash(NodeHashPair.NodeWaveInstanceHash, ResetChildNode, ResetChildIndex)));
+					NodesToReset.Add(FNodeHashPairs(ResetChildNode, GetNodeWaveInstanceHash(ResetNodeWaveInstanceHash, ResetChildNode, ResetChildIndex)));
 				}
 			}
 		}
 		else if (ResetNode->IsA<USoundNodeWavePlayer>())
 		{
-			FWaveInstance* WaveInstance = ActiveSound.FindWaveInstance(NodeHashPair.NodeWaveInstanceHash);
+			FWaveInstance* WaveInstance = ActiveSound.FindWaveInstance(ResetNodeWaveInstanceHash);
 			if (WaveInstance)
 			{
 				WaveInstance->bAlreadyNotifiedHook = true;

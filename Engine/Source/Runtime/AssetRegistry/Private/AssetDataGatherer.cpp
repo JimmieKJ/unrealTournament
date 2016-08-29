@@ -516,6 +516,8 @@ uint32 FAssetDataGatherer::Run()
 		LocalDependencyResults.Reset();
 		LocalCookedPackageNamesWithoutAssetDataResults.Reset();
 
+		TArray<FDiscoveredPackageFile> LocalFilesToRetry;
+
 		if (LocalFilesToSearch.Num() > 0)
 		{
 			for (const FDiscoveredPackageFile& AssetFileData : LocalFilesToSearch)
@@ -564,7 +566,8 @@ uint32 FAssetDataGatherer::Run()
 					TArray<FAssetData*> AssetDataFromFile;
 					FPackageDependencyData DependencyData;
 					TArray<FString> CookedPackageNamesWithoutAssetData;
-					if (ReadAssetFile(AssetFileData.PackageFilename, AssetDataFromFile, DependencyData, CookedPackageNamesWithoutAssetData))
+					bool bCanAttemptAssetRetry = false;
+					if (ReadAssetFile(AssetFileData.PackageFilename, AssetDataFromFile, DependencyData, CookedPackageNamesWithoutAssetData, bCanAttemptAssetRetry))
 					{
 						++NumUncachedFiles;
 
@@ -604,10 +607,16 @@ uint32 FAssetDataGatherer::Run()
 							NewCachedAssetDataMap.Add(PackageName, NewData);
 						}
 					}
+					else if (bCanAttemptAssetRetry)
+					{
+						LocalFilesToRetry.Add(AssetFileData);
+					}
 				}
 			}
 
 			LocalFilesToSearch.Reset();
+			LocalFilesToSearch.Append(LocalFilesToRetry);
+			LocalFilesToRetry.Reset();
 
 			if (bLoadAndSaveCache)
 			{
@@ -783,12 +792,22 @@ void FAssetDataGatherer::SortPathsByPriority(const int32 MaxNumToSort)
 	}
 }
 
-bool FAssetDataGatherer::ReadAssetFile(const FString& AssetFilename, TArray<FAssetData*>& AssetDataList, FPackageDependencyData& DependencyData, TArray<FString>& CookedPackageNamesWithoutAssetData ) const
+bool FAssetDataGatherer::ReadAssetFile(const FString& AssetFilename, TArray<FAssetData*>& AssetDataList, FPackageDependencyData& DependencyData, TArray<FString>& CookedPackageNamesWithoutAssetData, bool& OutCanRetry) const
 {
+	OutCanRetry = false;
+
 	FPackageReader PackageReader;
 
-	if ( !PackageReader.OpenPackageFile(AssetFilename) )
+	FPackageReader::EOpenPackageResult OpenPackageResult;
+	if ( !PackageReader.OpenPackageFile(AssetFilename, &OpenPackageResult) )
 	{
+		// If we're missing a custom version, we might be able to load this package later once the module containing that version is loaded...
+		//   -	We can only attempt a retry in editors (not commandlets) that haven't yet finished initializing (!GIsRunning), as we 
+		//		have no guarantee that a commandlet or an initialized editor is going to load any more modules/plugins
+		//   -	Likewise, we can only attempt a retry for asynchronous scans, as during a synchronous scan we won't be loading any 
+		//		modules/plugins so it would last forever
+		const bool bAllowRetry = GIsEditor && !IsRunningCommandlet() && !GIsRunning && !bIsSynchronous;
+		OutCanRetry = bAllowRetry && OpenPackageResult == FPackageReader::EOpenPackageResult::CustomVersionMissing;
 		return false;
 	}
 

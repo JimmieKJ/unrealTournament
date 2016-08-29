@@ -1,7 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
-#include "Runtime/Online/OnlineSubsystemUtils/Public/PartyBeaconState.h"
+#include "PartyBeaconState.h"
 #include "UTPartyBeaconState.generated.h"
 
 USTRUCT()

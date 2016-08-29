@@ -2,26 +2,31 @@
 
 #pragma once
 
-#include "ByteKeyArea.h"
+#include "IntegralKeyArea.h"
+#include "PropertySection.h"
+
+
+struct FIntegralCurve;
+class FActorReferenceKeyArea;
+class UMovieSceneSection;
 
 
 /** A key area for displaying and editing an actor reference property. */
 class FActorReferenceKeyArea
-	: public FIntegralKeyArea < int32 >
+	: public FIntegralKeyArea<int32>
 {
 public:
 
-	FActorReferenceKeyArea( FIntegralCurve& InCurve, UMovieSceneSection* InOwningSection )
-		: FIntegralKeyArea( InCurve, InOwningSection )
+	FActorReferenceKeyArea(FIntegralCurve& InCurve, UMovieSceneSection* InOwningSection)
+		: FIntegralKeyArea(InCurve, InOwningSection)
 	{ }
 
 public:
 
-	// FIntegralKeyArea overrides
+	//~ FIntegralKeyArea overrides
 
 	virtual bool CanCreateKeyEditor() override { return false; }
-	virtual TSharedRef<SWidget> CreateKeyEditor( ISequencer* Sequencer ) override { return SNew( SSpacer ); }
-
+	virtual TSharedRef<SWidget> CreateKeyEditor(ISequencer* Sequencer) override { return SNew(SSpacer); }
 };
 
 
@@ -39,7 +44,7 @@ public:
 
 public:
 
-	// FPropertySection interface 
+	//~ FPropertySection interface
 
 	virtual void GenerateSectionLayout(class ISectionLayoutBuilder& LayoutBuilder) const override;
 	virtual void SetIntermediateValue(FPropertyChangedParams PropertyChangedParams) override;

@@ -9,7 +9,7 @@
 struct FObjectKey
 {
 public:
-	/** Deafult constructor */
+	/** Default constructor */
 	FORCEINLINE FObjectKey()
 		: ObjectIndex(INDEX_NONE)
 		, ObjectSerialNumber(0)

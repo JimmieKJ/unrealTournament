@@ -2,7 +2,20 @@
 
 #pragma once
 
-#include "LeapMotionPublicPCH.h"
+#include "LeapEnums.h"
+#include "LeapForwardDeclaration.h"
+#include "LeapFinger.h"
+#include "LeapFingerList.h"
+#include "LeapArm.h"
+#include "LeapHand.h"
+#include "LeapHandList.h"
+#include "LeapGestureList.h"
+#include "LeapCircleGesture.h"
+#include "LeapKeyTapGesture.h"
+#include "LeapScreenTapGesture.h"
+#include "LeapSwipeGesture.h"
+#include "LeapPointable.h"
+#include "LeapPointableList.h"
 #include "LeapToolList.generated.h"
 
 /**

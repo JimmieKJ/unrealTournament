@@ -52,6 +52,16 @@ struct IMovieSceneCaptureProtocol
 	 */
 	virtual void AddFormatMappings(TMap<FString, FStringFormatArg>& FormatMappings) const {}
 
+	/**
+	 * Test whether this capture protocol thinks the file should be written to. Only called when we're not overwriting existing files.
+	 * By default, we simply test for the file's existence, however this can be overridden to afford complex behaviour like
+	 * writing out multiple video files for different file names
+	 * @param InFilename 			The filename to test
+	 * @param bOverwriteExisting	Whether we are allowed to overwrite existing files
+	 * @return Whether we should deem this file writable or not
+	 */
+	virtual MOVIESCENECAPTURE_API bool CanWriteToFile(const TCHAR* InFilename, bool bOverwriteExisting) const;
+
 	virtual ~IMovieSceneCaptureProtocol() {}
 };
 
@@ -100,6 +110,9 @@ struct ICaptureProtocolHost
 {
 	/** Generate a filename for the specified frame metrics. How often this is called is determined by the protocol itself */
 	virtual FString GenerateFilename(const FFrameMetrics& FrameMetrics, const TCHAR* Extension) const = 0;
+
+	/** Ensure that the specified file is writable, potentially deleting an existing file if settings allow */
+	virtual void EnsureFileWritable(const FString& File) const = 0;
 
 	/** Get the capture frequency */
 	virtual float GetCaptureFrequency() const = 0;

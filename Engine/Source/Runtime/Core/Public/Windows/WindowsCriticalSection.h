@@ -20,9 +20,7 @@ public:
 	 */
 	FORCEINLINE FWindowsCriticalSection()
 	{
-#if USING_CODE_ANALYSIS
-	MSVC_PRAGMA( warning( suppress : 28125 ) )	// warning C28125: The function 'InitializeCriticalSection' must be called from within a try/except block:  The requirement might be conditional.
-#endif	// USING_CODE_ANALYSIS
+		CA_SUPPRESS(28125);
 		InitializeCriticalSection(&CriticalSection);
 		SetCriticalSectionSpinCount(&CriticalSection,4000);
 	}

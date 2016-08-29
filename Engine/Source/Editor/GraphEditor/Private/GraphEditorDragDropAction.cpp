@@ -35,7 +35,7 @@ UEdGraph* FGraphEditorDragDropAction::GetHoveredGraph() const
 
 void FGraphEditorDragDropAction::SetHoveredPin(UEdGraphPin* InPin)
 {
-	if (HoveredPin != InPin)
+	if (HoveredPin.Get() != InPin)
 	{
 		HoveredPin = InPin;
 		HoverTargetChanged();

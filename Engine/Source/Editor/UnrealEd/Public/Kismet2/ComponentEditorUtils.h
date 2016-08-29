@@ -112,7 +112,7 @@ public:
 
 	// Given a template and a property, propagates a default value change to all instances (only if applicable)
 	template<typename T>
-	static void PropagateDefaultValueChange(class USceneComponent* InSceneComponentTemplate, const class UProperty* InProperty, const T& OldDefaultValue, const T& NewDefaultValue, TSet<class USceneComponent*>& UpdatedInstances)
+	static void PropagateDefaultValueChange(class USceneComponent* InSceneComponentTemplate, const class UProperty* InProperty, const T& OldDefaultValue, const T& NewDefaultValue, TSet<class USceneComponent*>& UpdatedInstances, int32 PropertyOffset = INDEX_NONE)
 	{
 		TArray<UObject*> ArchetypeInstances;
 		if(InSceneComponentTemplate->HasAnyFlags(RF_ArchetypeObject))
@@ -121,7 +121,7 @@ public:
 			for(int32 InstanceIndex = 0; InstanceIndex < ArchetypeInstances.Num(); ++InstanceIndex)
 			{
 				USceneComponent* InstancedSceneComponent = static_cast<USceneComponent*>(ArchetypeInstances[InstanceIndex]);
-				if(InstancedSceneComponent != nullptr && !UpdatedInstances.Contains(InstancedSceneComponent) && ApplyDefaultValueChange(InstancedSceneComponent, InProperty, OldDefaultValue, NewDefaultValue))
+				if(InstancedSceneComponent != nullptr && !UpdatedInstances.Contains(InstancedSceneComponent) && ApplyDefaultValueChange(InstancedSceneComponent, InProperty, OldDefaultValue, NewDefaultValue, PropertyOffset))
 				{
 					UpdatedInstances.Add(InstancedSceneComponent);
 				}
@@ -133,7 +133,7 @@ public:
 			for(int32 InstanceIndex = 0; InstanceIndex < ArchetypeInstances.Num(); ++InstanceIndex)
 			{
 				USceneComponent* InstancedSceneComponent = static_cast<USceneComponent*>(FindObjectWithOuter(ArchetypeInstances[InstanceIndex], InSceneComponentTemplate->GetClass(), InSceneComponentTemplate->GetFName()));
-				if(InstancedSceneComponent != nullptr && !UpdatedInstances.Contains(InstancedSceneComponent) && ApplyDefaultValueChange(InstancedSceneComponent, InProperty, OldDefaultValue, NewDefaultValue))
+				if(InstancedSceneComponent != nullptr && !UpdatedInstances.Contains(InstancedSceneComponent) && ApplyDefaultValueChange(InstancedSceneComponent, InProperty, OldDefaultValue, NewDefaultValue, PropertyOffset))
 				{
 					UpdatedInstances.Add(InstancedSceneComponent);
 				}
@@ -143,12 +143,12 @@ public:
 
 	// Given an instance of a template and a property, set a default value change to the instance (only if applicable)
 	template<typename T>
-	static bool ApplyDefaultValueChange(class USceneComponent* InSceneComponent, const class UProperty* InProperty, const T& OldDefaultValue, const T& NewDefaultValue)
+	static bool ApplyDefaultValueChange(class USceneComponent* InSceneComponent, const class UProperty* InProperty, const T& OldDefaultValue, const T& NewDefaultValue, int32 PropertyOffset)
 	{
 		check(InProperty != nullptr);
 		check(InSceneComponent != nullptr);
 
-		T* CurrentValue = InProperty->ContainerPtrToValuePtr<T>(InSceneComponent);
+		T* CurrentValue = PropertyOffset == INDEX_NONE ? InProperty->ContainerPtrToValuePtr<T>(InSceneComponent) : (T*)((uint8*)InSceneComponent + PropertyOffset);
 		if(CurrentValue != nullptr)
 		{
 			return ApplyDefaultValueChange(InSceneComponent, *CurrentValue, OldDefaultValue, NewDefaultValue);

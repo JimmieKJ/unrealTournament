@@ -8,7 +8,7 @@
 
 #define LOCTEXT_NAMESPACE "SoundNodeWavePlayer"
 
-void USoundNodeWavePlayer::LoadAsset()
+void USoundNodeWavePlayer::LoadAsset(bool bAddToRoot)
 {
 	if (IsAsyncLoading())
 	{
@@ -19,21 +19,33 @@ void USoundNodeWavePlayer::LoadAsset()
 			if (!LongPackageName.IsEmpty())
 			{
 				bAsyncLoading = true;
-				LoadPackageAsync(LongPackageName, FLoadPackageAsyncDelegate::CreateUObject(this, &USoundNodeWavePlayer::OnSoundWaveLoaded));
+				LoadPackageAsync(LongPackageName, FLoadPackageAsyncDelegate::CreateUObject(this, &USoundNodeWavePlayer::OnSoundWaveLoaded, bAddToRoot));
 			}
+		}
+		else if (bAddToRoot)
+		{
+			SoundWave->AddToRoot();
 		}
 	}
 	else
 	{
 		SoundWave = SoundWaveAssetPtr.LoadSynchronous();
+		if (bAddToRoot && SoundWave)
+		{
+			SoundWave->AddToRoot();
+		}
 	}
 }
 
-void USoundNodeWavePlayer::OnSoundWaveLoaded(const FName& PackageName, UPackage * Package, EAsyncLoadingResult::Type Result)
+void USoundNodeWavePlayer::OnSoundWaveLoaded(const FName& PackageName, UPackage* Package, EAsyncLoadingResult::Type Result, bool bAddToRoot)
 {
 	if (Result == EAsyncLoadingResult::Succeeded)
 	{
 		SoundWave = SoundWaveAssetPtr.Get();
+		if (bAddToRoot && SoundWave)
+		{
+			SoundWave->AddToRoot();
+		}
 	}
 	bAsyncLoading = false;
 }
@@ -58,7 +70,7 @@ void USoundNodeWavePlayer::ParseNodes( FAudioDevice* AudioDevice, const UPTRINT 
 {
 	if (bAsyncLoading)
 	{
-		UE_LOG(LogAudio, Warning, TEXT("Asynchronous load of %s not complete in USoundNodeWavePlayer::ParseNodes, will attempt to play later."), *GetFullNameSafe(this));
+		UE_LOG(LogAudio, Verbose, TEXT("Asynchronous load of %s not complete in USoundNodeWavePlayer::ParseNodes, will attempt to play later."), *GetFullNameSafe(this));
 		// We're still loading so don't stop this active sound yet
 		ActiveSound.bFinished = false;
 		return;

@@ -22,12 +22,12 @@ protected:
 	void AbortDisplayOfAllNodes(TArray< TWeakObjectPtr<UObject> >& SelectedObjectsList, class IDetailLayoutBuilder& DetailBuilder);
 
 	// Creates a widget for the supplied property
-	TSharedRef<SWidget> CreatePropertyWidget(UProperty* TargetProperty, TSharedRef<IPropertyHandle> TargetPropertyHandle);
+	TSharedRef<SWidget> CreatePropertyWidget(UProperty* TargetProperty, TSharedRef<IPropertyHandle> TargetPropertyHandle, const UClass* NodeClass);
 
 	EVisibility GetVisibilityOfProperty(TSharedRef<IPropertyHandle> Handle) const;
 
 	/** Delegate to handle filtering of asset pickers */
-	bool OnShouldFilterAnimAsset( const FAssetData& AssetData ) const;
+	bool OnShouldFilterAnimAsset( const FAssetData& AssetData, const UClass* NodeToFilterFor ) const;
 
 	/** Called when a blend profile is selected */
 	void OnBlendProfileChanged(UBlendProfile* NewProfile, TSharedPtr<IPropertyHandle> PropertyHandle);

@@ -577,26 +577,27 @@ void SAssetViewItem::DirtyStateChanged()
 
 FText SAssetViewItem::GetAssetClassText() const
 {
-	if (AssetItem.IsValid())
+	if (!AssetItem.IsValid())
 	{
-		if (AssetItem->GetType() != EAssetItemType::Folder)
+		return FText();
+	}
+	
+	if (AssetItem->GetType() == EAssetItemType::Folder)
+	{
+		return LOCTEXT("FolderName", "Folder");
+	}
+
+	if (AssetTypeActions.IsValid())
+	{
+		FText Name = AssetTypeActions.Pin()->GetName();
+
+		if (!Name.IsEmpty())
 		{
-			if (AssetTypeActions.IsValid())
-			{
-				return AssetTypeActions.Pin()->GetName();
-			}
-			else
-			{
-				return FText::FromName(StaticCastSharedPtr<FAssetViewAsset>(AssetItem)->Data.AssetClass);
-			}
-		}
-		else
-		{
-			return LOCTEXT("FolderName", "Folder");
+			return Name;
 		}
 	}
 
-	return FText();
+	return FText::FromName(StaticCastSharedPtr<FAssetViewAsset>(AssetItem)->Data.AssetClass);
 }
 
 const FSlateBrush* SAssetViewItem::GetSCCStateImage() const
@@ -1785,11 +1786,7 @@ FText SAssetColumnItem::GetAssetTagText(FName AssetRegistryTag) const
 	{
 		if(AssetItem->GetType() != EAssetItemType::Folder)
 		{
-			const FString* TagValue = StaticCastSharedPtr<FAssetViewAsset>(AssetItem)->Data.TagsAndValues.Find(AssetRegistryTag);
-			if ( TagValue != NULL )
-			{
-				return FText::FromString(*TagValue);
-			}
+			return StaticCastSharedPtr<FAssetViewAsset>(AssetItem)->Data.GetTagValueRef<FText>(AssetRegistryTag);
 		}
 	}
 	

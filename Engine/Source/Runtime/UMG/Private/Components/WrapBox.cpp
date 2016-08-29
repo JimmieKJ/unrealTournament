@@ -28,21 +28,21 @@ UClass* UWrapBox::GetSlotClass() const
 	return UWrapBoxSlot::StaticClass();
 }
 
-void UWrapBox::OnSlotAdded(UPanelSlot* Slot)
+void UWrapBox::OnSlotAdded(UPanelSlot* InSlot)
 {
 	// Add the child to the live canvas if it already exists
 	if ( MyWrapBox.IsValid() )
 	{
-		Cast<UWrapBoxSlot>(Slot)->BuildSlot(MyWrapBox.ToSharedRef());
+		CastChecked<UWrapBoxSlot>(InSlot)->BuildSlot(MyWrapBox.ToSharedRef());
 	}
 }
 
-void UWrapBox::OnSlotRemoved(UPanelSlot* Slot)
+void UWrapBox::OnSlotRemoved(UPanelSlot* InSlot)
 {
 	// Remove the widget from the live slot if it exists.
 	if ( MyWrapBox.IsValid() )
 	{
-		TSharedPtr<SWidget> Widget = Slot->Content->GetCachedWidget();
+		TSharedPtr<SWidget> Widget = InSlot->Content->GetCachedWidget();
 		if ( Widget.IsValid() )
 		{
 			MyWrapBox->RemoveSlot(Widget.ToSharedRef());
@@ -60,9 +60,9 @@ TSharedRef<SWidget> UWrapBox::RebuildWidget()
 	MyWrapBox = SNew(SWrapBox)
 		.UseAllottedWidth(true);
 
-	for ( UPanelSlot* Slot : Slots )
+	for ( UPanelSlot* PanelSlot : Slots )
 	{
-		if ( UWrapBoxSlot* TypedSlot = Cast<UWrapBoxSlot>(Slot) )
+		if ( UWrapBoxSlot* TypedSlot = Cast<UWrapBoxSlot>(PanelSlot) )
 		{
 			TypedSlot->Parent = this;
 			TypedSlot->BuildSlot(MyWrapBox.ToSharedRef());

@@ -152,7 +152,7 @@ FSamplerStateRHIRef FD3D12Device::CreateSamplerState(const FSamplerStateInitiali
 		}
 		else
 		{
-			// D3D11 doesn't allow using point filtering for mip filter when using anisotropic filtering
+			// D3D12  doesn't allow using point filtering for mip filter when using anisotropic filtering
 			SamplerDesc.Filter = bComparisonEnabled ? D3D12_FILTER_COMPARISON_ANISOTROPIC : D3D12_FILTER_ANISOTROPIC;
 		}
 

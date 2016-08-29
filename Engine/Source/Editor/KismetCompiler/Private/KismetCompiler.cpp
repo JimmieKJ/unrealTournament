@@ -4,6 +4,7 @@
 	KismetCompiler.cpp
 =============================================================================*/
 
+
 #include "KismetCompilerPrivatePCH.h"
 #include "Engine/LevelScriptBlueprint.h"
 #include "KismetCompilerBackend.h"
@@ -28,7 +29,6 @@
 #include "Components/TimelineComponent.h"
 
 static bool bDebugPropertyPropagation = false;
-
 
 #define LOCTEXT_NAMESPACE "KismetCompiler"
 
@@ -512,9 +512,6 @@ void FKismetCompilerContext::CreateClassVariablesFromBlueprint()
 {
 	BP_SCOPED_COMPILER_EVENT_STAT(EKismetCompilerStats_CreateClassVariables);
 
-	// Ensure that member variable names are valid and that there are no collisions with a parent class
-	ValidateVariableNames();
-
 	// Grab the blueprint variables
 	NewClass->NumReplicatedProperties = 0;	// Keep track of how many replicated variables this blueprint adds
 	// Clear out any existing property guids
@@ -744,8 +741,16 @@ void FKismetCompilerContext::CreatePropertiesFromList(UStruct* Scope, UField**& 
 			// Record in the debugging information
 			//@TODO: Rename RegisterClassPropertyAssociation, etc..., to better match that indicate it works with locals
 			{
-				UObject* TrueSourceObject = MessageLog.FindSourceObject(Term.Source);
-				NewClass->GetDebugData().RegisterClassPropertyAssociation(TrueSourceObject, NewProperty);
+				if (Term.SourcePin)
+				{
+					UEdGraphPin* TrueSourcePin = MessageLog.FindSourcePin(Term.SourcePin);
+					NewClass->GetDebugData().RegisterClassPropertyAssociation(TrueSourcePin, NewProperty);
+				}
+				else
+				{
+					UObject* TrueSourceObject = MessageLog.FindSourceObject(Term.Source);
+					NewClass->GetDebugData().RegisterClassPropertyAssociation(TrueSourceObject, NewProperty);
+				}
 			}
 
 			// Record the desired default value for this, if specified by the term
@@ -780,7 +785,27 @@ void FKismetCompilerContext::CreatePropertiesFromList(UStruct* Scope, UField**& 
 	}
 }
 
-void FKismetCompilerContext::CreateLocalVariablesForFunction(FKismetFunctionContext& Context)
+static void SwapElementsInSingleLinkedList(UField* & PtrToFirstElement, UField* & PtrToSecondElement)
+{
+	check(PtrToFirstElement && PtrToSecondElement);
+	UField* TempSecond = PtrToSecondElement;
+	UField* TempSecondNext = PtrToSecondElement->Next;
+
+	if (PtrToFirstElement->Next == PtrToSecondElement)
+	{
+		PtrToSecondElement->Next = PtrToFirstElement;
+	}
+	else
+	{
+		PtrToSecondElement->Next = PtrToFirstElement->Next;
+		PtrToSecondElement = PtrToFirstElement;
+	}
+
+	PtrToFirstElement->Next = TempSecondNext;
+	PtrToFirstElement = TempSecond;
+}
+
+void FKismetCompilerContext::CreateLocalVariablesForFunction(FKismetFunctionContext& Context, UFunction* ParameterSignature)
 {
 	ensure(Context.IsEventGraph() || !Context.EventGraphLocals.Num());
 	ensure(!Context.IsEventGraph() || !Context.Locals.Num() || !UsePersistentUberGraphFrame());
@@ -792,10 +817,49 @@ void FKismetCompilerContext::CreateLocalVariablesForFunction(FKismetFunctionCont
 
 		// Pull the local properties generated out of the function, they will be put at the end of the list
 		UField* LocalProperties = Context.Function->Children;
+		Context.Function->Children = nullptr;
 
 		UField** PropertyStorageLocation = &Context.Function->Children;
 		CreatePropertiesFromList(Context.Function, PropertyStorageLocation, Context.Parameters, CPF_Parm, bArePropertiesLocal, /*bPropertiesAreParameters=*/ true);
 		CreatePropertiesFromList(Context.Function, PropertyStorageLocation, Context.Results, CPF_Parm | CPF_OutParm, bArePropertiesLocal, /*bPropertiesAreParameters=*/ true);
+
+		//MAKE SURE THE PARAMETERS ORDER MATCHES THE OVERRIDEN FUNCTION
+		if (ParameterSignature)
+		{
+			UField** CurrentFieldStorageLocation = &Context.Function->Children;
+			for (TFieldIterator<UProperty> SignatureIt(ParameterSignature); SignatureIt && ((SignatureIt->PropertyFlags & CPF_Parm) != 0); ++SignatureIt)
+			{
+				const FName WantedName = SignatureIt->GetFName();
+				if (!*CurrentFieldStorageLocation || (WantedName != (*CurrentFieldStorageLocation)->GetFName()))
+				{
+					//Find Field with the proper name
+					UField** FoundFieldStorageLocation = *CurrentFieldStorageLocation ? &((*CurrentFieldStorageLocation)->Next) : nullptr;
+					while (FoundFieldStorageLocation && *FoundFieldStorageLocation && (WantedName != (*FoundFieldStorageLocation)->GetFName()))
+					{
+						FoundFieldStorageLocation = &((*FoundFieldStorageLocation)->Next);
+					}
+
+					if (FoundFieldStorageLocation && *FoundFieldStorageLocation)
+					{
+						// swap the found field and OverridenIt
+						SwapElementsInSingleLinkedList(*CurrentFieldStorageLocation, *FoundFieldStorageLocation); //FoundFieldStorageLocation points now a random element 
+					}
+					else
+					{
+						MessageLog.Error(*FString::Printf(*LOCTEXT("WrongParameterOrder_Error", "Cannot order parameters %s in function %s.").ToString(), *WantedName.ToString(), *Context.Function->GetName()));
+						break;
+					}
+				}
+				CurrentFieldStorageLocation = &((*CurrentFieldStorageLocation)->Next);
+			}
+			PropertyStorageLocation = CurrentFieldStorageLocation;
+			// There is no guarantee that CurrentFieldStorageLocation points the last parameter's next. We need to ensure that.
+			while (*PropertyStorageLocation)
+			{
+				PropertyStorageLocation = &((*PropertyStorageLocation)->Next);
+			}
+		}
+
 		CreatePropertiesFromList(Context.Function, PropertyStorageLocation, Context.Locals, 0, bArePropertiesLocal, /*bPropertiesAreParameters=*/ true);
 
 		if (bPersistentUberGraphFrame)
@@ -818,8 +882,16 @@ void FKismetCompilerContext::CreateLocalVariablesForFunction(FKismetFunctionCont
 
 				if (Term.AssociatedVarProperty != NULL)
 				{
-					UObject* TrueSourceObject = MessageLog.FindSourceObject(Term.Source);
-					NewClass->GetDebugData().RegisterClassPropertyAssociation(TrueSourceObject, Term.AssociatedVarProperty);
+					if (Term.SourcePin)
+					{
+						UEdGraphPin* TrueSourcePin = MessageLog.FindSourcePin(Term.SourcePin);
+						NewClass->GetDebugData().RegisterClassPropertyAssociation(TrueSourcePin, Term.AssociatedVarProperty);
+					}
+					else
+					{
+						UObject* TrueSourceObject = MessageLog.FindSourceObject(Term.Source);
+						NewClass->GetDebugData().RegisterClassPropertyAssociation(TrueSourceObject, Term.AssociatedVarProperty);
+					}
 				}
 			}
 		}
@@ -922,7 +994,15 @@ void FKismetCompilerContext::CopyTermDefaultsToDefaultObject(UObject* DefaultObj
 				{
 					const FString ErrorMessage = *FString::Printf(*LOCTEXT("ParseDefaultValueError", "Can't parse default value '%s' for @@. Property: %s.").ToString(), *Value, *Property->GetName());
 					UObject* InstigatorObject = NewClass->GetDebugData().FindObjectThatCreatedProperty(Property);
-					MessageLog.Warning(*ErrorMessage, InstigatorObject);
+					if(InstigatorObject)
+					{
+						MessageLog.Warning(*ErrorMessage, InstigatorObject);
+					}
+					else
+					{
+						UEdGraphPin* InstigatorPin = NewClass->GetDebugData().FindPinThatCreatedProperty(Property);
+						MessageLog.Warning(*ErrorMessage, InstigatorPin);
+					}
 				}
 
 				break;
@@ -1189,12 +1269,9 @@ void FKismetCompilerContext::PrecompileFunction(FKismetFunctionContext& Context)
 
 			for (int32 ChildIndex = 0; ChildIndex < Context.SourceGraph->Nodes.Num(); ++ChildIndex)
 			{
-				const UEdGraphNode* Node = Context.SourceGraph->Nodes[ChildIndex];
-				const int32 SavedErrorCount = MessageLog.NumErrors;
-				UK2Node_Event* SrcEventNode = Cast<UK2Node_Event>(Context.SourceGraph->Nodes[ChildIndex]);
-				if (bIsFullCompile || SrcEventNode)
+				if (const UK2Node* K2Node = Cast<const UK2Node>(Context.SourceGraph->Nodes[ChildIndex]))
 				{
-					ValidateNode(Node);
+					K2Node->ValidateNodeAfterPrune(Context.MessageLog);
 				}
 			}
 
@@ -1392,7 +1469,7 @@ void FKismetCompilerContext::PrecompileFunction(FKismetFunctionContext& Context)
 		}
 	
 		// Create variable declarations
-		CreateLocalVariablesForFunction(Context);
+		CreateLocalVariablesForFunction(Context, ParentFunction ? ParentFunction : OverridenFunction);
 
 		//Validate AccessSpecifier
 		const uint32 AccessSpecifierFlag = FUNC_AccessSpecifiers & Context.EntryPoint->GetExtraFlags();
@@ -1824,6 +1901,20 @@ void FKismetCompilerContext::FinishCompilingClass(UClass* Class)
 
 		// If the flag is inherited, this will keep the bool up-to-date
 		Blueprint->bDeprecate = (Class->ClassFlags & CLASS_Deprecated) == CLASS_Deprecated;
+		
+		// If the Blueprint was marked as abstract, then flag the class as abstract.
+		if (Blueprint->bGenerateAbstractClass)
+		{
+			NewClass->ClassFlags |= CLASS_Abstract;
+		}
+		Blueprint->bGenerateAbstractClass = (Class->ClassFlags & CLASS_Abstract) == CLASS_Abstract;	
+
+		// Add the description to the tooltip
+		if (!Blueprint->BlueprintDescription.IsEmpty())
+		{
+			static const FName NAME_Tooltip(TEXT("Tooltip"));
+			Class->SetMetaData(NAME_Tooltip, *Blueprint->BlueprintDescription);
+		}
 
 		// Copy the category info from the parent class
 #if WITH_EDITORONLY_DATA
@@ -1953,7 +2044,12 @@ void FKismetCompilerContext::BuildDynamicBindingObjects(UBlueprintGeneratedClass
  */ 
 void FKismetCompilerContext::CreatePinEventNodeForTimelineFunction(UK2Node_Timeline* TimelineNode, UEdGraph* SourceGraph, FName FunctionName, const FString& PinName, FName ExecFuncName)
 {
-	UK2Node_Event* TimelineEventNode = SpawnIntermediateNode<UK2Node_Event>(TimelineNode, SourceGraph);
+	UEdGraphPin* SourcePin = nullptr;
+	if (UK2Node_Timeline* SourceNode = Cast<UK2Node_Timeline>(MessageLog.FindSourceObject(TimelineNode)))
+	{
+		SourcePin = SourceNode->FindPin(PinName);
+	}
+	UK2Node_Event* TimelineEventNode = SpawnIntermediateEventNode<UK2Node_Event>(TimelineNode, SourcePin, SourceGraph);
 	TimelineEventNode->EventReference.SetExternalMember(FunctionName, UTimelineComponent::StaticClass());
 	TimelineEventNode->CustomFunctionName = FunctionName; // Make sure we name this function the thing we are expecting
 	TimelineEventNode->bInternalEvent = true;
@@ -2175,7 +2271,7 @@ FPinConnectionResponse FKismetCompilerContext::MovePinLinksToIntermediate(UEdGra
 	 FPinConnectionResponse ConnectionResult = K2Schema->MovePinLinks(SourcePin, IntermediatePin, true);
 
 	 CheckConnectionResponse(ConnectionResult, SourcePin.GetOwningNode());
-	 MessageLog.NotifyIntermediateObjectCreation(&IntermediatePin, &SourcePin);
+	 MessageLog.NotifyIntermediatePinCreation(&IntermediatePin, &SourcePin);
 
 	 return ConnectionResult;
 }
@@ -2186,7 +2282,7 @@ FPinConnectionResponse FKismetCompilerContext::CopyPinLinksToIntermediate(UEdGra
 	FPinConnectionResponse ConnectionResult = K2Schema->CopyPinLinks(SourcePin, IntermediatePin, true);
 
 	CheckConnectionResponse(ConnectionResult, SourcePin.GetOwningNode());
-	MessageLog.NotifyIntermediateObjectCreation(&IntermediatePin, &SourcePin);
+	MessageLog.NotifyIntermediatePinCreation(&IntermediatePin, &SourcePin);
 
 	return ConnectionResult;
 }
@@ -2196,11 +2292,7 @@ UK2Node_TemporaryVariable* FKismetCompilerContext::SpawnInternalVariable(UEdGrap
 	UK2Node_TemporaryVariable* Result = SpawnIntermediateNode<UK2Node_TemporaryVariable>(SourceNode);
 
 	Result->VariableType = FEdGraphPinType(Category, SubCategory, SubcategoryObject, bIsArray, false);
-
 	Result->AllocateDefaultPins();
-
-	// Assign the variable source information to the source object as well
-	MessageLog.NotifyIntermediateObjectCreation(Result->GetVariablePin(), SourceNode);
 
 	return Result;
 }
@@ -2340,7 +2432,7 @@ void FKismetCompilerContext::CreateFunctionStubForEvent(UK2Node_Event* SrcEventN
 			const FString MemberVariableName = ClassScopeNetNameMap.MakeValidName(UGSourcePin);
 
 			UEdGraphPin* DestPin = AssignmentNode->CreatePin(EGPD_Input, SourcePin->PinType, MemberVariableName);
-			MessageLog.NotifyIntermediateObjectCreation(DestPin, SourcePin);
+			MessageLog.NotifyIntermediatePinCreation(DestPin, SourcePin);
 			DestPin->MakeLinkTo(SourcePin);
 		}
 	}
@@ -2397,11 +2489,12 @@ void FKismetCompilerContext::MergeUbergraphPagesIn(UEdGraph* Ubergraph)
 	for (TArray<UEdGraph*>::TIterator It(Blueprint->UbergraphPages); It; ++It)
 	{
 		UEdGraph* SourceGraph = *It;
+		const bool bCreateTunnelBoundries = CompileOptions.IsInstrumentationActive();
 
 		if (CompileOptions.bSaveIntermediateProducts)
 		{
 			TArray<UEdGraphNode*> ClonedNodeList;
-			FEdGraphUtilities::CloneAndMergeGraphIn(Ubergraph, SourceGraph, MessageLog, /*bRequireSchemaMatch=*/ true, /*bIsCompiling*/ true, &ClonedNodeList);
+			FEdGraphUtilities::CloneAndMergeGraphIn(Ubergraph, SourceGraph, MessageLog, /*bRequireSchemaMatch=*/ true, /*bIsCompiling*/ true, bCreateTunnelBoundries/*bCreateTunnelBoundries*/, &ClonedNodeList);
 
 			// Create a comment block around the ubergrapgh contents before anything else got started
 			int32 OffsetX = 0;
@@ -2419,7 +2512,7 @@ void FKismetCompilerContext::MergeUbergraphPagesIn(UEdGraph* Ubergraph)
 		}
 		else
 		{
-			FEdGraphUtilities::CloneAndMergeGraphIn(Ubergraph, SourceGraph, MessageLog, /*bRequireSchemaMatch=*/ true, /*bIsCompiling*/ true);
+			FEdGraphUtilities::CloneAndMergeGraphIn(Ubergraph, SourceGraph, MessageLog, /*bRequireSchemaMatch=*/ true, /*bIsCompiling*/ true, bCreateTunnelBoundries/*bCreateTunnelBoundries*/);
 		}
 	}
 }
@@ -2591,7 +2684,7 @@ void FKismetCompilerContext::CreateAndProcessUbergraph()
 				if (!bFoundEntry)
 				{
 					// Create an entry node stub, so that we have a entry point for interfaces to call to
-					UK2Node_Event* EventNode = SpawnIntermediateNode<UK2Node_Event>(NULL, ConsolidatedEventGraph);
+					UK2Node_Event* EventNode = SpawnIntermediateEventNode<UK2Node_Event>(nullptr, nullptr, ConsolidatedEventGraph);
 					EventNode->EventReference.SetExternalMember(FunctionName, InterfaceDesc.Interface);
 					EventNode->bOverrideFunction = true;
 					EventNode->AllocateDefaultPins();
@@ -2641,8 +2734,16 @@ void FKismetCompilerContext::CreateAndProcessUbergraph()
 			// Validate all the nodes in the graph
 			for (int32 ChildIndex = 0; ChildIndex < ConsolidatedEventGraph->Nodes.Num(); ++ChildIndex)
 			{
-				UK2Node_Event* SrcEventNode = Cast<UK2Node_Event>(ConsolidatedEventGraph->Nodes[ChildIndex]);	
-				if (SrcEventNode)
+				const UEdGraphNode* Node = ConsolidatedEventGraph->Nodes[ChildIndex];
+				const int32 SavedErrorCount = MessageLog.NumErrors;
+				UK2Node_Event* SrcEventNode = Cast<UK2Node_Event>(ConsolidatedEventGraph->Nodes[ChildIndex]);
+				if (bIsFullCompile || SrcEventNode)
+				{
+					ValidateNode(Node);
+				}
+
+				// If the node didn't generate any errors then generate function stubs for event entry nodes etc.
+				if ((SavedErrorCount == MessageLog.NumErrors) && SrcEventNode)
 				{
 					CreateFunctionStubForEvent(SrcEventNode, Blueprint);
 				}
@@ -2749,6 +2850,12 @@ void FKismetCompilerContext::ExpandTunnelsAndMacros(UEdGraph* SourceGraph)
 
 			// Clone the macro graph, then move all of its children, keeping a list of nodes from the macro
 			UEdGraph* ClonedGraph = FEdGraphUtilities::CloneGraph(MacroGraph, NULL, &MessageLog, true);
+
+			if (CompileOptions.IsInstrumentationActive())
+			{
+				// Create tunnel Boundary signals
+				UK2Node_TunnelBoundary::CreateBoundaryNodesForTunnelInstance(MacroInstanceNode, ClonedGraph, MessageLog);
+			}
 
 			for (int32 I = 0; I < ClonedGraph->Nodes.Num(); ++I)
 			{
@@ -2935,7 +3042,7 @@ void FKismetCompilerContext::ExpandTunnelsAndMacros(UEdGraph* SourceGraph)
 
 				for (UEdGraphPin* TunnelLinkedPin : TunnelPin->LinkedTo)
 				{
-					MessageLog.NotifyIntermediateObjectCreation(TunnelLinkedPin, SinkPin);
+					MessageLog.NotifyIntermediatePinCreation(TunnelLinkedPin, SinkPin);
 				}
 			}
 
@@ -3218,6 +3325,10 @@ void FKismetCompilerContext::Compile()
 		}
 	}
 
+	// Ensure that member variable names are valid and that there are no collisions with a parent class
+	// This validation requires CDO object.
+	ValidateVariableNames();
+
 	UObject* OldCDO = NULL;
 	int32 OldGenLinkerIdx = INDEX_NONE;
 	FLinkerLoad* OldLinker = Blueprint->GetLinker();
@@ -3225,13 +3336,10 @@ void FKismetCompilerContext::Compile()
 	if (OldLinker)
 	{
 		// Cache linker addresses so we can fixup linker for old CDO
-		FName GeneratedName, SkeletonName;
-		Blueprint->GetBlueprintCDONames(GeneratedName, SkeletonName);
-
-		for( int32 i = 0; i < OldLinker->ExportMap.Num(); i++ )
+		for (int32 i = 0; i < OldLinker->ExportMap.Num(); i++)
 		{
 			FObjectExport& ThisExport = OldLinker->ExportMap[i];
-			if( ThisExport.ObjectName == GeneratedName )
+			if (ThisExport.ObjectFlags & RF_ClassDefaultObject)
 			{
 				OldGenLinkerIdx = i;
 				break;
@@ -3248,6 +3356,7 @@ void FKismetCompilerContext::Compile()
 		}
 		++TimelineIndex;
 	}
+
 
 	CleanAndSanitizeClass(TargetClass, OldCDO);
 
@@ -3343,6 +3452,16 @@ void FKismetCompilerContext::Compile()
 			if (FunctionList[i].IsValid())
 			{
 				PostcompileFunction(FunctionList[i]);
+			}
+		}
+
+		// Create a mapping between compile time generated events and what created them.
+		if (TargetClass->bHasInstrumentation)
+		{
+			FBlueprintDebugData& DebugData = TargetClass->GetDebugData();
+			for (auto EventInfo : SourcePinToExpansionEvent)
+			{
+				DebugData.RegisterPinToEventName(EventInfo.Key, EventInfo.Value->GetFunctionName());
 			}
 		}
 

@@ -589,7 +589,9 @@ void SWidgetReflector::Construct( const FArguments& InArgs )
 				[
 					SNew(SCheckBox)
 					.Style( FCoreStyle::Get(), "ToggleButtonCheckbox" )
-					.IsEnabled(SLATE_STATS != 0)
+#if !SLATE_STATS
+					.IsEnabled(false)
+#endif
 					.IsChecked_Static([]
 					{
 #if SLATE_STATS
@@ -1346,7 +1348,11 @@ FText SWidgetReflector::HandlePickButtonText() const
 
 bool SWidgetReflector::IsSnapshotTargetComboEnabled() const
 {
-	return SLATE_REFLECTOR_HAS_SESSION_SERVICES != 0 && !RemoteSnapshotRequestId.IsValid();
+#if SLATE_REFLECTOR_HAS_SESSION_SERVICES
+	return !RemoteSnapshotRequestId.IsValid();
+#else
+	return false;
+#endif
 }
 
 

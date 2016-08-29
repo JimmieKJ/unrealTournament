@@ -29,7 +29,7 @@ public:
 	~SContentBrowser();
 
 	/** Constructs this widget with InArgs */
-	void Construct( const FArguments& InArgs, const FName& InstanceName );
+	void Construct( const FArguments& InArgs, const FName& InstanceName, const FContentBrowserConfig* Config );
 
 	/** Sets up an inline-name for the creation of a new asset using the specified path and the specified class and/or factory */
 	void CreateNewAsset(const FString& DefaultAssetName, const FString& PackagePath, UClass* AssetClass, UFactory* Factory);
@@ -404,6 +404,9 @@ private:
 
 	/** When viewing a dynamic collection, the active search query will be stashed in this variable so that it can be restored again later */
 	TOptional<FText> StashedSearchBoxText;
+
+	/** True if we should always show collections in this Content Browser, ignoring the view settings */
+	bool bAlwaysShowCollections;
 
 public: 
 

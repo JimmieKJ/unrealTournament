@@ -78,7 +78,7 @@ public:
 	TArray<FGitSourceControlState> States;
 };
 
-/** @todo: git fetch remote(s) to be able to show files not up-to-date with the serveur
+/** Git pull --rebase to update branch from its configure remote */
 class FGitSyncWorker : public IGitSourceControlWorker
 {
 public:
@@ -92,7 +92,6 @@ public:
 	/// Map of filenames to Git state
 	TArray<FGitSourceControlState> States;
 };
-*/
 
 /** Get source control status of files on local working copy. */
 class FGitUpdateStatusWorker : public IGitSourceControlWorker

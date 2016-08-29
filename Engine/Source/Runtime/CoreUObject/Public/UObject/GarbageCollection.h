@@ -1,9 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#pragma once
 /*=============================================================================
 	GarbageCollection.h: Unreal realtime garbage collection helpers
 =============================================================================*/
+
+#pragma once
+
+#include "ArchiveUObjectBase.h"
 
 /** Context sensitive keep flags for garbage collection */
 #define GARBAGE_COLLECTION_KEEPFLAGS	(GIsEditor ? RF_Standalone : RF_NoFlags)
@@ -29,6 +32,7 @@ enum EGCReferenceType
 	GCRT_AddStructReferencedObjects,
 	GCRT_AddReferencedObjects,
 	GCRT_AddTMapReferencedObjects,
+	GCRT_AddTSetReferencedObjects,
 	GCRT_EndOfPointer,
 	GCRT_EndOfStream,
 };

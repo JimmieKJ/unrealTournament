@@ -2,17 +2,14 @@
 
 #pragma once
 
-namespace ENodeVisibility
+enum class ENodeVisibility : uint8
 {
-	enum Type
-	{
-		// Hidden but can be visible if parent is visible due to filtering
-		HiddenDueToFiltering,
-		// Never visible no matter what
-		ForcedHidden,
-		// Always visible
-		Visible,
-	};
+	// Hidden but can be visible if parent is visible due to filtering
+	HiddenDueToFiltering,
+	// Never visible no matter what
+	ForcedHidden,
+	// Always visible
+	Visible,
 };
 
 /**
@@ -33,7 +30,7 @@ public:
 	 * @param OwnerTable		The table owner of the widget being generated
 	 * @param PropertyUtilities	Property utilities to help generate widgets
 	 */
-	virtual TSharedRef< ITableRow > GenerateNodeWidget( const TSharedRef<STableViewBase>& OwnerTable, const FDetailColumnSizeData& ColumnSizeData, const TSharedRef<IPropertyUtilities>& PropertyUtilities ) = 0;
+	virtual TSharedRef< ITableRow > GenerateNodeWidget( const TSharedRef<STableViewBase>& OwnerTable, const FDetailColumnSizeData& ColumnSizeData, const TSharedRef<IPropertyUtilities>& PropertyUtilities, bool bAllowFavoriteSystem ) = 0;
 
 	/**
 	 * Filters this nodes visibility based on the provided filter strings                                                              
@@ -60,7 +57,7 @@ public:
 	/**
 	 * @return the visibility of this node in the tree
 	 */
-	virtual ENodeVisibility::Type GetVisibility() const = 0;
+	virtual ENodeVisibility GetVisibility() const = 0;
 
 	/**
 	 * Called each frame if the node requests that it should be ticked                                                              

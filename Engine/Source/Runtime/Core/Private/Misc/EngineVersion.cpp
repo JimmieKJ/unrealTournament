@@ -7,16 +7,17 @@
 #include "ModuleVersion.h"
 #include "UObject/ReleaseObjectVersion.h"
 
-/** Version numbers for networking */
-int32 GEngineNetVersion = BUILT_FROM_CHANGELIST;
+/** Version numbers for networking - DEPRECATED!!!! Use FNetworkVersion::GetNetworkCompatibleChangelist instead!!! */
+int32 GEngineNetVersion = ENGINE_NET_VERSION;
+
 const int32 GEngineMinNetVersion		= 7038;
 const int32 GEngineNegotiationVersion	= 3077;
 
 // Global instance of the current engine version
-FEngineVersion FEngineVersion::CurrentVersion(ENGINE_MAJOR_VERSION, ENGINE_MINOR_VERSION, ENGINE_PATCH_VERSION, (BUILT_FROM_CHANGELIST | (ENGINE_IS_LICENSEE_VERSION << 31)), BRANCH_NAME);
+FEngineVersion FEngineVersion::CurrentVersion(ENGINE_MAJOR_VERSION, ENGINE_MINOR_VERSION, ENGINE_PATCH_VERSION, (ENGINE_CURRENT_CL_VERSION | (ENGINE_IS_LICENSEE_VERSION << 31)), BRANCH_NAME);
 
 // Version which this engine maintains strict API and package compatibility with. By default, we always maintain compatibility with the current major/minor version, unless we're built at a different changelist.
-FEngineVersion FEngineVersion::CompatibleWithVersion(ENGINE_MAJOR_VERSION, ENGINE_MINOR_VERSION, 0, (MODULE_API_VERSION | (ENGINE_IS_LICENSEE_VERSION << 31)), BRANCH_NAME);
+FEngineVersion FEngineVersion::CompatibleWithVersion(ENGINE_MAJOR_VERSION, ENGINE_MINOR_VERSION, 0, (ENGINE_COMPATIBLE_CL_VERSION | (ENGINE_IS_LICENSEE_VERSION << 31)), BRANCH_NAME);
 
 
 FEngineVersionBase::FEngineVersionBase()
@@ -126,11 +127,6 @@ void FEngineVersion::Empty()
 
 bool FEngineVersion::IsCompatibleWith(const FEngineVersionBase &Other) const
 {
-	if (FEngineBuildSettings::IsPerforceBuild())
-	{
-		return true;
-	}
-
 	// If this or the other is not a promoted build, always assume compatibility. 
 	if(!HasChangelist() || !Other.HasChangelist())
 	{
@@ -162,30 +158,6 @@ FString FEngineVersion::ToString(EVersionComponent LastComponent) const
 		}
 	}
 	return Result;
-}
-
-FString FEngineVersion::ToBuildInfoString() const
-{
-	FString PlatformCopy(FPlatformProperties::PlatformName());
-
-	// Strip off the word "server" from server builds
-	const int32 ServerPos = PlatformCopy.Find(TEXT("Server"), ESearchCase::IgnoreCase, ESearchDir::FromEnd);
-	if (ServerPos != INDEX_NONE)
-	{
-		PlatformCopy[ServerPos] = TEXT('\0');
-	}
-	else
-	{
-		// Strip off the word "client" from client builds
-		const int32 ClientPos = PlatformCopy.Find(TEXT("Client"), ESearchCase::IgnoreCase, ESearchDir::FromEnd);
-		if (ClientPos != INDEX_NONE)
-		{
-			PlatformCopy[ClientPos] = TEXT('\0');
-		}
-	}
-
-	// <Branch>-CL-<CL#>-<Platform>
-	return FString::Printf(TEXT("%s-CL-%u-%s"), *Branch, GetChangelist(), *PlatformCopy);
 }
 
 bool FEngineVersion::Parse(const FString &Text, FEngineVersion &OutVersion)
@@ -244,7 +216,6 @@ bool FEngineVersion::OverrideCurrentVersionChangelist(int32 NewChangelist)
 
 	CurrentVersion.Set(CurrentVersion.Major, CurrentVersion.Minor, CurrentVersion.Patch, NewChangelist | (ENGINE_IS_LICENSEE_VERSION << 31), CurrentVersion.Branch);
 	CompatibleWithVersion.Set(CompatibleWithVersion.Major, CompatibleWithVersion.Minor, CompatibleWithVersion.Patch, NewChangelist | (ENGINE_IS_LICENSEE_VERSION << 31), CompatibleWithVersion.Branch);
-	GEngineNetVersion = NewChangelist;
 	return true;
 }
 

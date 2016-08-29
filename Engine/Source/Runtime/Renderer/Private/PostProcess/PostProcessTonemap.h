@@ -41,7 +41,7 @@ class FRCPassPostProcessTonemap : public TRenderingCompositePassBase<4, 1>
 {
 public:
 	// constructor
-	FRCPassPostProcessTonemap(const FViewInfo& InView, bool bInDoGammaOnly, bool bDoEyeAdaptation);
+	FRCPassPostProcessTonemap(const FViewInfo& InView, bool bInDoGammaOnly, bool bDoEyeAdaptation, bool bHDROutput);
 
 	// interface FRenderingCompositePass ---------
 
@@ -53,6 +53,7 @@ public:
 	bool bDoScreenPercentageInTonemapper;
 private:
 	bool bDoEyeAdaptation;
+	bool bHDROutput;
 	uint32 ConfigIndexPC;
 
 	const FViewInfo& View;
@@ -140,7 +141,15 @@ public:
 		PostprocessParameter.SetVS(ShaderRHI, Context, TStaticSamplerState<SF_Bilinear,AM_Clamp,AM_Clamp,AM_Clamp>::GetRHI());
 
 		FVector GrainRandomFullValue;
-		GrainRandomFromFrame(&GrainRandomFullValue, Context.View.Family->FrameNumber);
+		{
+			uint8 FrameIndexMod8 = 0;
+			if (Context.View.State)
+			{
+				FrameIndexMod8 = Context.View.State->GetFrameIndexMod8();
+			}
+			GrainRandomFromFrame(&GrainRandomFullValue, FrameIndexMod8);
+		}
+
 		SetShaderValue(Context.RHICmdList, ShaderRHI, GrainRandomFull, GrainRandomFullValue);
 
 		

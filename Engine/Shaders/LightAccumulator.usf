@@ -12,12 +12,13 @@
 #ifndef VISUALIZE_LIGHT_CULLING
 	#define VISUALIZE_LIGHT_CULLING 0
 #endif
-
+ 
 // for ScreenSpaceSubsurfaceScattering
-// 0 : fastest (speculars leak in SSSSS)
-// 1 : luminance specular works well (needs 64bit SceneColor, stores luminance of specular in alpha, can be optimized further in LightAccumulator_Add() ) 
+// 0 : fastest (speculars leak in SSSSS). Forces checkerboard rendering for subsurface profile
+// 1 : luminance specular - works well (needs 64bit SceneColor, stores luminance of specular in alpha, can be optimized further in LightAccumulator_Add() ) 
+//	   NOTE: Dependent on View.bCheckerboardSubsurfaceProfileRendering - if this is off, we fall back to mode 0
 // 2 : colored specular works well (best, requires another RT for light accumulation)
-#define SUBSURFACE_CHANNEL_MODE 0
+#define SUBSURFACE_CHANNEL_MODE 1
 
 struct FLightAccumulator
 {
@@ -43,20 +44,27 @@ struct FLightAccumulator
 
 //
 // accumulate light, can be called multiple times
-void LightAccumulator_Add(inout FLightAccumulator In, float3 NonSpecularContribution, float3 SpecularContribution, float3 CommonMultiplier)
+void LightAccumulator_Add(inout FLightAccumulator In, float3 NonSpecularContribution, float3 SpecularContribution, float3 CommonMultiplier, const bool bNeedsSeparateSubsurfaceLightAccumulation)
 {
 	// 3 add, 3 mad
 	In.TotalSum += (NonSpecularContribution + SpecularContribution) * CommonMultiplier;
 
-	if (SUBSURFACE_CHANNEL_MODE == 1)
+	// This should ideally be evaluated statically outside of this function to avoid the branch
+	if (bNeedsSeparateSubsurfaceLightAccumulation)
 	{
-		// 3 mad
-		In.ViewIndependentLightingLuminanceSum += Luminance(NonSpecularContribution * CommonMultiplier);
-	}
-	else if (SUBSURFACE_CHANNEL_MODE == 2)
-	{
-		// 3 mad
-		In.ViewIndependentLightingSum += NonSpecularContribution * CommonMultiplier;
+		if (SUBSURFACE_CHANNEL_MODE == 1)
+		{
+			if (View.bCheckerboardSubsurfaceProfileRendering == 0)
+			{
+				// 3 mad
+				In.ViewIndependentLightingLuminanceSum += Luminance(NonSpecularContribution * CommonMultiplier);
+			}
+		}
+		else if (SUBSURFACE_CHANNEL_MODE == 2)
+		{
+			// 3 mad
+			In.ViewIndependentLightingSum += NonSpecularContribution * CommonMultiplier;
+		}
 	}
 }
 
@@ -76,10 +84,13 @@ float4 LightAccumulator_GetResult(FLightAccumulator In)
 	{
 		Ret = float4(In.TotalSum, 0);
 
-		if (SUBSURFACE_CHANNEL_MODE == 1)
+		if (SUBSURFACE_CHANNEL_MODE == 1 )
 		{
-			// RGB accumulated RGB HDR color, A: specular luminance for screenspace subsurface scattering
-			Ret.a = In.ViewIndependentLightingLuminanceSum;
+			if (View.bCheckerboardSubsurfaceProfileRendering == 0)
+			{
+				// RGB accumulated RGB HDR color, A: specular luminance for screenspace subsurface scattering
+				Ret.a = In.ViewIndependentLightingLuminanceSum;
+			}
 		}
 		else if (SUBSURFACE_CHANNEL_MODE == 2)
 		{

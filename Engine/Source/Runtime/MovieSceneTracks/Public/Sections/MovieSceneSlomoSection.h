@@ -7,7 +7,7 @@
 
 
 /**
- * A single floating point section
+ * A single floating point section.
  */
 UCLASS(MinimalAPI)
 class UMovieSceneSlomoSection

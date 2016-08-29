@@ -65,6 +65,7 @@ void SMergeActorsToolbar::Construct(const FArguments& InArgs)
 					SNew(SButton)
 					.Text(LOCTEXT("MergeActors", "Merge Actors"))
 					.OnClicked(this, &SMergeActorsToolbar::OnMergeActorsClicked)
+					.IsEnabled_Lambda([this]() -> bool { return this->RegisteredTools[CurrentlySelectedTool]->CanMerge();})
 				]
 			]
 		]

@@ -25,7 +25,9 @@ public class LevelEditor : ModuleRules
 			new string[] {
 				"Settings",
 				"UserFeedback",
-				"IntroTutorials"
+				"IntroTutorials",
+				"HeadMountedDisplay",
+				"VREditor"
 			}
 		);
 
@@ -42,7 +44,6 @@ public class LevelEditor : ModuleRules
                 "EditorStyle",
 				"Engine",
 				"MessageLog",
-				"NewsFeed",
                 "SourceControl",
                 "SourceControlWindows",
                 "StatsViewer",
@@ -66,6 +67,9 @@ public class LevelEditor : ModuleRules
                 "HierarchicalLODOutliner",
                 "HierarchicalLODUtilities",
 				"MaterialShaderQualitySettings",
+                "PixelInspectorModule",
+                "FbxAutomationBuilderModule",
+                "FunctionalTesting"
 			}
 		);
 
@@ -89,7 +93,9 @@ public class LevelEditor : ModuleRules
 				"UserFeedback",
 				"ReferenceViewer",
 				"SizeMap",
-                "IntroTutorials"
+                "IntroTutorials",
+				"HeadMountedDisplay",
+				"VREditor"
 			}
 		);
 	}

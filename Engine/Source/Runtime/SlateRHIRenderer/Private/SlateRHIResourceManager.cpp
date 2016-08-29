@@ -5,7 +5,9 @@
 #include "SlateNativeTextureResource.h"
 #include "SlateUTextureResource.h"
 #include "SlateMaterialResource.h"
+#include "SlateAtlasedTextureResource.h"
 #include "ImageUtils.h"
+#include "SlateTextureAtlasInterface.h"
 
 DECLARE_DWORD_ACCUMULATOR_STAT(TEXT("Num Texture Atlases"), STAT_SlateNumTextureAtlases, STATGROUP_SlateMemory);
 DECLARE_DWORD_ACCUMULATOR_STAT(TEXT("Num Non-Atlased Textures"), STAT_SlateNumNonAtlasedTextures, STATGROUP_SlateMemory);
@@ -29,6 +31,16 @@ TSharedPtr<FSlateUTextureResource> FDynamicResourceMap::GetUTextureResource( UTe
 	if(TextureObject)
 	{
 		return TextureMap.FindRef(TextureObject);
+	}
+
+	return nullptr;
+}
+
+TSharedPtr<FSlateAtlasedTextureResource> FDynamicResourceMap::GetAtlasedTextureResource(UTexture* InObject) const
+{
+	if ( InObject )
+	{
+		return ObjectMap.FindRef(InObject);
 	}
 
 	return nullptr;
@@ -81,6 +93,19 @@ void FDynamicResourceMap::RemoveMaterialResource( const UMaterialInterface* Mate
 	MaterialMap.Remove(Material);
 }
 
+void FDynamicResourceMap::AddAtlasedTextureResource(UTexture* TextureObject, TSharedRef<FSlateAtlasedTextureResource> InResource)
+{
+	if ( TextureObject )
+	{
+		ObjectMap.Add(TextureObject, InResource);
+	}
+}
+
+void FDynamicResourceMap::RemoveAtlasedTextureResource(UTexture* TextureObject)
+{
+	ObjectMap.Remove(TextureObject);
+}
+
 void FDynamicResourceMap::Empty()
 {
 	EmptyUTextureResources();
@@ -111,7 +136,7 @@ void FDynamicResourceMap::ReleaseResources()
 		BeginReleaseResource(It.Value()->RHIRefTexture);
 	}
 	
-	for ( TextureResourceMap::TIterator It(TextureMap); It; ++It )
+	for ( FTextureResourceMap::TIterator It(TextureMap); It; ++It )
 	{
 		It.Value()->UpdateRenderResource(nullptr);
 	}
@@ -124,7 +149,7 @@ void FDynamicResourceMap::RemoveExpiredTextureResources(TArray< TSharedPtr<FSlat
 
 	if ( TextureMemorySincePurge >= PurgeAfterAddingNewBytes )
 	{
-		for ( TextureResourceMap::TIterator It(TextureMap); It; ++It )
+		for ( FTextureResourceMap::TIterator It(TextureMap); It; ++It )
 		{
 			TWeakObjectPtr<UTexture>& Key = It.Key();
 			if ( !Key.IsValid() )
@@ -145,7 +170,7 @@ void FDynamicResourceMap::RemoveExpiredMaterialResources(TArray< TSharedPtr<FSla
 
 	if ( MaterialMap.Num() > ( LastExpiredMaterialNumMarker + CheckingIncrement ) )
 	{
-		for ( MaterialResourceMap::TIterator It(MaterialMap); It; ++It )
+		for ( FMaterialResourceMap::TIterator It(MaterialMap); It; ++It )
 		{
 			TWeakObjectPtr<UMaterialInterface>& Key = It.Key();
 			if ( !Key.IsValid() )
@@ -630,7 +655,49 @@ FSlateShaderResourceProxy* FSlateRHIResourceManager::FindOrCreateDynamicTextureR
 	{
 		if ( UObject* ResourceObject = InBrush.GetResourceObject() )
 		{
-			if ( !ResourceObject->IsA<UTexture>() )
+			if ( UTexture* TextureObject = Cast<UTexture>(ResourceObject) )
+			{
+				TSharedPtr<FSlateUTextureResource> TextureResource = DynamicResourceMap.GetUTextureResource(TextureObject);
+
+				if ( !TextureResource.IsValid() )
+				{
+					TextureResource = MakeDynamicUTextureResource(TextureObject);
+					if ( TextureResource.IsValid() )
+					{
+						INC_DWORD_STAT_BY(STAT_SlateNumDynamicTextures, 1);
+					}
+				}
+
+				if ( TextureResource.IsValid() && TextureResource->TextureObject && TextureResource->TextureObject->Resource )
+				{
+					TextureResource->UpdateRenderResource(TextureObject->Resource);
+					GetAccessedUObjects().Add(TextureResource->TextureObject);
+					return TextureResource->Proxy;
+				}
+			}
+			else if ( ISlateTextureAtlasInterface* AtlasedTextureObject = Cast<ISlateTextureAtlasInterface>(ResourceObject) )
+			{
+				const FSlateAtlasData& AtlasData = AtlasedTextureObject->GetSlateAtlasData();
+				if ( AtlasData.AtlasTexture )
+				{
+					TSharedPtr<FSlateAtlasedTextureResource> AtlasResource = DynamicResourceMap.GetAtlasedTextureResource(AtlasData.AtlasTexture);
+
+					if ( !AtlasResource.IsValid() )
+					{
+						AtlasResource = MakeShareable(new FSlateAtlasedTextureResource(AtlasData.AtlasTexture));
+						DynamicResourceMap.AddAtlasedTextureResource(AtlasData.AtlasTexture, AtlasResource.ToSharedRef());
+					}
+
+					FSlateShaderResourceProxy* AtlasedProxy = AtlasResource->FindOrCreateAtlasedProxy(ResourceObject, AtlasData);
+
+					GetAccessedUObjects().Add(ResourceObject);
+
+					return AtlasedProxy;
+				}
+
+				return nullptr;
+			}
+			else
 			{
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 				static TSet<UObject*> FailedTextures;
@@ -643,26 +710,6 @@ FSlateShaderResourceProxy* FSlateRHIResourceManager::FindOrCreateDynamicTextureR
 #else
 				return nullptr;
 #endif
-			}
-
-			UTexture* TextureObject = Cast<UTexture>(ResourceObject);
-
-			TSharedPtr<FSlateUTextureResource> TextureResource = DynamicResourceMap.GetUTextureResource(TextureObject);
-
-			if ( !TextureResource.IsValid() )
-			{
-				TextureResource = MakeDynamicUTextureResource(TextureObject);
-				if ( TextureResource.IsValid() )
-				{
-					INC_DWORD_STAT_BY(STAT_SlateNumDynamicTextures, 1);
-				}
-			}
-
-			if ( TextureResource.IsValid() && TextureResource->TextureObject && TextureResource->TextureObject->Resource )
-			{
-				TextureResource->UpdateRenderResource(TextureObject->Resource);
-				GetAccessedUObjects().Add(TextureResource->TextureObject);
-				return TextureResource->Proxy;
 			}
 		}
 		else
@@ -946,6 +993,7 @@ void FSlateRHIResourceManager::BeginReleasingRenderData(const FSlateRenderDataHa
 void FSlateRHIResourceManager::ReleaseCachedRenderData(FRHICommandListImmediate& RHICmdList, const FSlateRenderDataHandle* RenderHandle, const ILayoutCache* LayoutCacher)
 {
 	check(IsInRenderingThread());
+	check(RenderHandle);
 
 	FCachedRenderBuffers* PooledBuffer = CachedBuffers.FindRef(RenderHandle);
 	if ( ensure(PooledBuffer != nullptr) )
@@ -991,10 +1039,10 @@ void FSlateRHIResourceManager::ReleaseCachedBuffer(FRHICommandListImmediate& RHI
 	}
 	else
 	{
-		PooledBuffer->VertexBuffer.Destroy();
-		PooledBuffer->IndexBuffer.Destroy();
-		delete PooledBuffer;
-	}
+			PooledBuffer->VertexBuffer.Destroy();
+			PooledBuffer->IndexBuffer.Destroy();
+			delete PooledBuffer;
+		}
 }
 
 void FSlateRHIResourceManager::ReleaseResources()

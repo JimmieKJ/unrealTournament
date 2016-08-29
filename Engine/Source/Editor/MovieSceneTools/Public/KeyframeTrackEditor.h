@@ -63,7 +63,7 @@ protected:
 		TArray<UObject*> ObjectsToKey, float KeyTime,
 		const TArray<KeyDataType>& NewKeys, const TArray<KeyDataType>& DefaultKeys,
 		FKeyParams KeyParams, TSubclassOf<UMovieSceneTrack> TrackClass, FName PropertyName,
-		TFunction<void(TrackType*)> OnIntializeNewTrack,
+		TFunction<void(TrackType*)> OnInitializeNewTrack,
 		TFunction<void(TrackType*)> OnSetIntermediateValue)
 	{
 		bool bHandleCreated = false;
@@ -77,7 +77,7 @@ protected:
 
 			if ( ObjectHandle.IsValid() )
 			{
-				bTrackCreated |= AddKeysToHandle( ObjectHandle, KeyTime, NewKeys, DefaultKeys, KeyParams, TrackClass, PropertyName, OnIntializeNewTrack, OnSetIntermediateValue );
+				bTrackCreated |= AddKeysToHandle( ObjectHandle, KeyTime, NewKeys, DefaultKeys, KeyParams, TrackClass, PropertyName, OnInitializeNewTrack, OnSetIntermediateValue );
 			}
 		}
 		return bHandleCreated || bTrackCreated;
@@ -107,7 +107,7 @@ private:
 		FGuid ObjectHandle, float KeyTime,
 		const TArray<KeyDataType>& NewKeys, const TArray<KeyDataType>& DefaultKeys,
 		FKeyParams KeyParams, TSubclassOf<UMovieSceneTrack> TrackClass, FName PropertyName,
-		TFunction<void(TrackType*)> OnIntializeNewTrack,
+		TFunction<void(TrackType*)> OnInitializeNewTrack,
 		TFunction<void(TrackType*)> OnSetIntermediateValue)
 	{
 		bool bTrackCreated = false;
@@ -120,9 +120,9 @@ private:
 
 		if ( bTrackCreated )
 		{
-			if (OnIntializeNewTrack)
+			if (OnInitializeNewTrack)
 			{
-				OnIntializeNewTrack(Track);
+				OnInitializeNewTrack(Track);
 			}
 		}
 

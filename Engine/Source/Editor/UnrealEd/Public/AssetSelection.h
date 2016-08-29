@@ -208,7 +208,7 @@ namespace AssetSelectionUtils
 	UNREALED_API bool IsBuilderBrushSelected();
 };
 
-class FActorFactoryAssetProxy
+class UNREALED_API FActorFactoryAssetProxy
 {
 public:
 
@@ -237,7 +237,7 @@ public:
 	 * @param	OutMenuItems				receives the list of menu items to use for populating an actor factory menu.
 	 * @param	ExcludeStandAloneFactories	if true, only factories that can create actors with the currently selected assets will be added
 	 */
-	UNREALED_API static void GenerateActorFactoryMenuItems( const FAssetData& AssetData, TArray<FMenuItem>* OutMenuItems, bool ExcludeStandAloneFactories );
+	static void GenerateActorFactoryMenuItems( const FAssetData& AssetData, TArray<FMenuItem>* OutMenuItems, bool ExcludeStandAloneFactories );
 
 	/**
 	 * Find the appropriate actor factory for an asset by type.
@@ -257,7 +257,7 @@ public:
 	 *
 	 * @return	The factory that is responsible for creating actors for the specified asset
 	 */
-	UNREALED_API static UActorFactory* GetFactoryForAssetObject( UObject* AssetObj );
+	static UActorFactory* GetFactoryForAssetObject( UObject* AssetObj );
 
 	/**
 	 * Places an actor instance using the factory appropriate for the type of asset

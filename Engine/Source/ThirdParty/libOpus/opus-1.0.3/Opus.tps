@@ -1,22 +1,26 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <TpsData xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
   <Name>Opus 1.0.3</Name>
-  <Location>//depot/UE4/Engine/Source/ThirdParty/libOpus/opus-1.0.3/</Location>
-  <Date>2015-09-04T20:06:48.671808-04:00</Date>
+  <Location>/Engine/Source/ThirdParty/libOpus/opus-1.0.3/</Location>
+  <Date>2016-06-13T16:32:17.8064692-04:00</Date>
   <Function>Low latency, cross platform audio codec for VOIP</Function>
   <Justification />
   <Platforms>
     <Platform>PC</Platform>
-    <Platform>Linux</Platform>
     <Platform>Mac</Platform>
+    <Platform>Linux</Platform>
   </Platforms>
   <Products>
     <Product>UDK4</Product>
     <Product>UE4</Product>
   </Products>
-  <TpsType />
+  <TpsType>Source Code</TpsType>
   <Eula>http://www.opus-codec.org/license/</Eula>
-  <RedistributeTo />
+  <RedistributeTo>
+    <EndUserGroup>Licensees</EndUserGroup>
+    <EndUserGroup>Git</EndUserGroup>
+    <EndUserGroup>P4</EndUserGroup>
+  </RedistributeTo>
   <Redistribute>false</Redistribute>
   <IsSourceAvailable>false</IsSourceAvailable>
   <NoticeType>Full EULA Text</NoticeType>
@@ -49,5 +53,5 @@ NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 Tools
 </Notification>
-  <LicenseFolder />
+  <LicenseFolder>/Engine/Source/ThirdParty/Licenses/Opus1.0.3_License.txt</LicenseFolder>
 </TpsData>

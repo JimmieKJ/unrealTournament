@@ -2,9 +2,6 @@
 
 #include "Engine.h"
 
-#include "Analytics.h"
-#include "IAnalyticsProvider.h"
-
 #include "AnalyticsBlueprintLibraryModule.h"
 
 #include "Classes/AnalyticsBlueprintLibrary.h"

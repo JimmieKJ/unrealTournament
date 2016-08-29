@@ -116,7 +116,7 @@ bool FPhysicsManipulationEdMode::StartTracking( FEditorViewportClient* InViewpor
 
 	if (ComponentToGrab != NULL)
 	{
-		HandleComp->GrabComponent(ComponentToGrab, NAME_None, ComponentToGrab->GetOwner()->GetActorLocation(), true);
+		HandleComp->GrabComponentAtLocationWithRotation(ComponentToGrab, NAME_None, ComponentToGrab->GetOwner()->GetActorLocation(), ComponentToGrab->GetOwner()->GetActorRotation());
 	}
 
 	return FEdMode::StartTracking(InViewportClient, InViewport);

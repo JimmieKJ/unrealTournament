@@ -202,19 +202,8 @@ void SMyBlueprint::Construct(const FArguments& InArgs, TWeakPtr<FBlueprintEditor
 		TSharedPtr<FBlueprintEditorToolbar> Toolbar = MakeShareable(new FBlueprintEditorToolbar(InBlueprintEditor.Pin()));
 		TSharedPtr<FExtender> Extender = MakeShareable(new FExtender);
 		Toolbar->AddNewToolbar(Extender);
-
-		if ( GetDefault<UEditorExperimentalSettings>()->bUnifiedBlueprintEditor )
-		{
-			ToolbarBuilderWidget = SNullWidget::NullWidget;
-		}
-		else
-		{
-			FToolBarBuilder ToolbarBuilder(ToolKitCommandList, FMultiBoxCustomization::None, Extender);
-			ToolbarBuilder.BeginSection("MyBlueprint");
-			ToolbarBuilder.EndSection();
-			ToolbarBuilderWidget = ToolbarBuilder.MakeWidget();
-		}
-
+		ToolbarBuilderWidget = SNullWidget::NullWidget;
+	
 		ToolKitCommandList->MapAction(FGenericCommands::Get().Rename,
 			FExecuteAction::CreateSP(this, &SMyBlueprint::OnRequestRenameOnActionNode),
 			FCanExecuteAction::CreateSP(this, &SMyBlueprint::CanRequestRenameOnActionNode));
@@ -228,40 +217,38 @@ void SMyBlueprint::Construct(const FArguments& InArgs, TWeakPtr<FBlueprintEditor
 	}
 
 	TSharedPtr<SWidget> AddNewMenu = SNullWidget::NullWidget;
-	if ( GetDefault<UEditorExperimentalSettings>()->bUnifiedBlueprintEditor )
-	{
-		AddNewMenu = SNew(SComboButton)
-			.ComboButtonStyle(FEditorStyle::Get(), "ToolbarComboButton")
-			.ButtonStyle(FEditorStyle::Get(), "FlatButton.Success")
-			.ForegroundColor(FLinearColor::White)
-			.ToolTipText(LOCTEXT("AddNewToolTip", "Add a new Variable, Graph, Function, Macro, or Event Dispatcher."))
-			.OnGetMenuContent(this, &SMyBlueprint::CreateAddNewMenuWidget)
-			.HasDownArrow(true)
-			.ContentPadding(FMargin(1, 0, 2, 0))
-			.AddMetaData<FTagMetaData>(FTagMetaData(TEXT("MyBlueprintAddNewCombo")))
-			.IsEnabled(this, &SMyBlueprint::IsEditingMode)
-			.ButtonContent()
-			[
-				SNew(SHorizontalBox)
 
-				+ SHorizontalBox::Slot()
-				.AutoWidth()
-				.Padding(FMargin(0, 1))
-				[
-					SNew(SImage)
-					.Image(FEditorStyle::GetBrush("Plus"))
-				]
+	AddNewMenu = SNew(SComboButton)
+		.ComboButtonStyle(FEditorStyle::Get(), "ToolbarComboButton")
+		.ButtonStyle(FEditorStyle::Get(), "FlatButton.Success")
+		.ForegroundColor(FLinearColor::White)
+		.ToolTipText(LOCTEXT("AddNewToolTip", "Add a new Variable, Graph, Function, Macro, or Event Dispatcher."))
+		.OnGetMenuContent(this, &SMyBlueprint::CreateAddNewMenuWidget)
+		.HasDownArrow(true)
+		.ContentPadding(FMargin(1, 0, 2, 0))
+		.AddMetaData<FTagMetaData>(FTagMetaData(TEXT("MyBlueprintAddNewCombo")))
+		.IsEnabled(this, &SMyBlueprint::IsEditingMode)
+		.ButtonContent()
+		[
+			SNew(SHorizontalBox)
 
-				+ SHorizontalBox::Slot()
-				.VAlign(VAlign_Center)
-				.AutoWidth()
-				.Padding(FMargin(2, 0, 2, 0))
-				[
-					SNew(STextBlock)
-					.Text(LOCTEXT("AddNew", "Add New"))
-				]
-			];
-	}
+			+ SHorizontalBox::Slot()
+		.AutoWidth()
+		.Padding(FMargin(0, 1))
+		[
+			SNew(SImage)
+			.Image(FEditorStyle::GetBrush("Plus"))
+		]
+
+	+ SHorizontalBox::Slot()
+		.VAlign(VAlign_Center)
+		.AutoWidth()
+		.Padding(FMargin(2, 0, 2, 0))
+		[
+			SNew(STextBlock)
+			.Text(LOCTEXT("AddNew", "Add New"))
+		]
+		];
 
 	FMenuBuilder ViewOptions(true, nullptr);
 
@@ -1201,7 +1188,7 @@ void SMyBlueprint::CollectAllActions(FGraphActionListBuilderBase& OutAllActions)
 
 		//@TODO: Should be a bit more generic (or the AnimGraph shouldn't be stored as a FunctionGraph...)
 		int32 SectionID = Graph->IsA<UAnimationGraph>() ? NodeSectionID::GRAPH : NodeSectionID::FUNCTION;
-		TSharedPtr<FEdGraphSchemaAction_K2Graph> NewFuncAction = MakeShareable(new FEdGraphSchemaAction_K2Graph(EEdGraphSchemaAction_K2Graph::Function, FunctionCategory, DisplayInfo.DisplayName, DisplayInfo.Tooltip, bIsConstructionScript ? 2 : 1, SectionID));
+		TSharedPtr<FEdGraphSchemaAction_K2Graph> NewFuncAction = MakeShareable(new FEdGraphSchemaAction_K2Graph(EEdGraphSchemaAction_K2Graph::Function, FunctionCategory, DisplayInfo.PlainName, DisplayInfo.Tooltip, bIsConstructionScript ? 2 : 1, SectionID));
 		NewFuncAction->FuncName = Graph->GetFName();
 		NewFuncAction->EdGraph = Graph;
 
@@ -1225,7 +1212,7 @@ void SMyBlueprint::CollectAllActions(FGraphActionListBuilderBase& OutAllActions)
 
 		FText MacroCategory = GetGraphCategory(Graph);
 
-		TSharedPtr<FEdGraphSchemaAction_K2Graph> NewMacroAction = MakeShareable(new FEdGraphSchemaAction_K2Graph(EEdGraphSchemaAction_K2Graph::Macro, MacroCategory, DisplayInfo.DisplayName, DisplayInfo.Tooltip, 1, NodeSectionID::MACRO));
+		TSharedPtr<FEdGraphSchemaAction_K2Graph> NewMacroAction = MakeShareable(new FEdGraphSchemaAction_K2Graph(EEdGraphSchemaAction_K2Graph::Macro, MacroCategory, DisplayInfo.PlainName, DisplayInfo.Tooltip, 1, NodeSectionID::MACRO));
 		NewMacroAction->FuncName = MacroName;
 		NewMacroAction->EdGraph = Graph;
 		OutAllActions.AddAction(NewMacroAction);
@@ -1325,7 +1312,7 @@ void SMyBlueprint::CollectAllActions(FGraphActionListBuilderBase& OutAllActions)
 
 						FText FunctionCategory = Function->GetMetaDataText(FBlueprintMetadata::MD_FunctionCategory, TEXT("UObjectCategory"), Function->GetFullGroupName(false));
 
-						TSharedPtr<FEdGraphSchemaAction_K2Graph> NewFuncAction = MakeShareable(new FEdGraphSchemaAction_K2Graph(EEdGraphSchemaAction_K2Graph::Function, FunctionCategory, FunctionDesc, FunctionTooltip, 1));
+						TSharedPtr<FEdGraphSchemaAction_K2Graph> NewFuncAction = MakeShareable(new FEdGraphSchemaAction_K2Graph(EEdGraphSchemaAction_K2Graph::Function, FunctionCategory, FunctionDesc, FunctionTooltip, 1, NodeSectionID::INTERFACE));
 						NewFuncAction->FuncName = FunctionName;
 						OutAllActions.AddAction(NewFuncAction);
 					}
@@ -1343,7 +1330,7 @@ void SMyBlueprint::CollectAllActions(FGraphActionListBuilderBase& OutAllActions)
 		FGraphDisplayInfo DisplayInfo;
 		Graph->GetSchema()->GetGraphDisplayInformation(*Graph, DisplayInfo);
 
-		TSharedPtr<FEdGraphSchemaAction_K2Graph> NeUbergraphAction = MakeShareable(new FEdGraphSchemaAction_K2Graph(EEdGraphSchemaAction_K2Graph::Graph, FText::GetEmpty(), DisplayInfo.DisplayName, DisplayInfo.Tooltip, 2, NodeSectionID::GRAPH));
+		TSharedPtr<FEdGraphSchemaAction_K2Graph> NeUbergraphAction = MakeShareable(new FEdGraphSchemaAction_K2Graph(EEdGraphSchemaAction_K2Graph::Graph, FText::GetEmpty(), DisplayInfo.PlainName, DisplayInfo.Tooltip, 2, NodeSectionID::GRAPH));
 		NeUbergraphAction->FuncName = Graph->GetFName();
 		NeUbergraphAction->EdGraph = Graph;
 		OutAllActions.AddAction(NeUbergraphAction);
@@ -1604,9 +1591,8 @@ void SMyBlueprint::OnActionSelected( const TArray< TSharedPtr<FEdGraphSchemaActi
 
 		CurrentBlueprint = BlueprintEditor->GetBlueprintObj();
 		CurrentInspector = BlueprintEditor->GetInspector();
-
-		OnActionSelectedHelper(InAction, BlueprintEditorPtr, Blueprint, CurrentInspector.ToSharedRef());
 	}
+	OnActionSelectedHelper(InAction, BlueprintEditorPtr, Blueprint, CurrentInspector.ToSharedRef());
 }
 
 void SMyBlueprint::OnActionSelectedHelper(TSharedPtr<FEdGraphSchemaAction> InAction, TWeakPtr< FBlueprintEditor > InBlueprintEditor, UBlueprint* Blueprint, TSharedRef<SKismetInspector> Inspector)
@@ -1640,7 +1626,10 @@ void SMyBlueprint::OnActionSelectedHelper(TSharedPtr<FEdGraphSchemaAction> InAct
 			Options.bForceRefresh = true;
 
 			Inspector->ShowDetailsForSingleObject(VarAction->GetProperty(), Options);
-			InBlueprintEditor.Pin()->GetReplaceReferencesWidget()->SetSourceVariable(VarAction->GetProperty());
+			if (InBlueprintEditor.IsValid())
+			{
+				InBlueprintEditor.Pin()->GetReplaceReferencesWidget()->SetSourceVariable(VarAction->GetProperty());
+			}
 		}
 		else if (InAction->GetTypeId() == FEdGraphSchemaAction_K2LocalVar::StaticGetTypeId())
 		{
@@ -2290,7 +2279,10 @@ UEdGraph* SMyBlueprint::GetFocusedGraph() const
 
 void SMyBlueprint::OnObjectPropertyChanged(UObject* InObject, FPropertyChangedEvent& InPropertyChangedEvent)
 {
-	bNeedsRefresh = ( InObject == Blueprint );
+	if (InObject == Blueprint && InPropertyChangedEvent.ChangeType != EPropertyChangeType::ValueSet)
+	{
+		bNeedsRefresh = true;
+	}
 }
 
 bool SMyBlueprint::IsEditingMode() const

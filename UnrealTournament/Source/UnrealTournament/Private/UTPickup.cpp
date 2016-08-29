@@ -38,7 +38,7 @@ AUTPickup::AUTPickup(const FObjectInitializer& ObjectInitializer)
 	if (TimerEffect != NULL)
 	{
 		TimerEffect->SetHiddenInGame(true);
-		TimerEffect->AttachParent = RootComponent;
+		TimerEffect->SetupAttachment(RootComponent);
 		TimerEffect->LDMaxDrawDistance = 1024.0f;
 		TimerEffect->RelativeLocation.Z = 40.0f;
 		TimerEffect->Mobility = EComponentMobility::Static;
@@ -47,7 +47,7 @@ AUTPickup::AUTPickup(const FObjectInitializer& ObjectInitializer)
 	BaseEffect = ObjectInitializer.CreateOptionalDefaultSubobject<UParticleSystemComponent>(this, TEXT("BaseEffect"));
 	if (BaseEffect != NULL)
 	{
-		BaseEffect->AttachParent = RootComponent;
+		BaseEffect->SetupAttachment(RootComponent);
 		BaseEffect->LDMaxDrawDistance = 2048.0f;
 		BaseEffect->RelativeLocation.Z = -58.0f;
 		BaseEffect->Mobility = EComponentMobility::Static;
@@ -126,7 +126,7 @@ void AUTPickup::Reset_Implementation()
 	bReplicateReset = !bReplicateReset;
 }
 
-void AUTPickup::OnOverlapBegin(AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepHitResult)
+void AUTPickup::OnOverlapBegin(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepHitResult)
 {
 	APawn* P = Cast<APawn>(OtherActor);
 	if (P != NULL && !P->bTearOff && !GetWorld()->LineTraceTestByChannel(P->GetActorLocation(), GetActorLocation(), ECC_Pawn, FCollisionQueryParams(), WorldResponseParams))

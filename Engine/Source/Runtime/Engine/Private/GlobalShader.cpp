@@ -11,6 +11,23 @@
 #include "DerivedDataCacheInterface.h"
 #include "ShaderDerivedDataVersion.h"
 #include "TargetPlatform.h"
+#include "CookStats.h"
+
+#if ENABLE_COOK_STATS
+namespace GlobalShaderCookStats
+{
+	FCookStats::FDDCResourceUsageStats UsageStats;
+	static int32 ShadersCompiled = 0;
+
+	static FCookStatsManager::FAutoRegisterCallback RegisterCookStats([](FCookStatsManager::AddStatFuncRef AddStat)
+	{
+		UsageStats.LogStats(AddStat, TEXT("GlobalShader.Usage"), TEXT(""));
+		AddStat(TEXT("GlobalShader.Misc"), FCookStatsManager::CreateKeyValueArray(
+			TEXT("ShadersCompiled"), ShadersCompiled
+			));
+	});
+}
+#endif
 
 /** The global shader map. */
 TShaderMap<FGlobalShaderType>* GGlobalShaderMap[SP_NumPlatforms];
@@ -150,6 +167,7 @@ FShaderCompileJob* FGlobalShaderType::BeginCompileShader(EShaderPlatform Platfor
 	FShaderCompilerEnvironment& ShaderEnvironment = NewJob->Input.Environment;
 
 	UE_LOG(LogShaders, Verbose, TEXT("	%s"), GetName());
+	COOK_STAT(GlobalShaderCookStats::ShadersCompiled++);
 
 	// Allow the shader type to modify the compile environment.
 	SetupCompileEnvironment(Platform, ShaderEnvironment);
@@ -246,6 +264,7 @@ void BackupGlobalShaderMap(FGlobalShaderBackupData& OutGlobalShaderBackup)
 			TArray<uint8>* ShaderData = new TArray<uint8>();
 			FMemoryWriter Ar(*ShaderData);
 			GGlobalShaderMap[ShaderPlatform]->SerializeInline(Ar, true, true);
+			GGlobalShaderMap[ShaderPlatform]->RegisterSerializedShaders();
 			GGlobalShaderMap[ShaderPlatform]->Empty();
 			OutGlobalShaderBackup.FeatureLevelShaderData[i] = ShaderData;
 		}
@@ -269,6 +288,7 @@ void RestoreGlobalShaderMap(const FGlobalShaderBackupData& GlobalShaderBackup)
 		{
 			FMemoryReader Ar(*GlobalShaderBackup.FeatureLevelShaderData[i]);
 			GGlobalShaderMap[ShaderPlatform]->SerializeInline(Ar, true, true);
+			GGlobalShaderMap[ShaderPlatform]->RegisterSerializedShaders();
 		}
 	}
 }
@@ -393,7 +413,7 @@ void VerifyGlobalShaders(EShaderPlatform Platform, bool bLoadedFromCacheFile)
 
 	if (GlobalShaderJobs.Num() > 0)
 	{
-		GShaderCompilingManager->AddJobs(GlobalShaderJobs, true, true);
+		GShaderCompilingManager->AddJobs(GlobalShaderJobs, true, true, false);
 
 		const bool bAllowAsynchronousGlobalShaderCompiling =
 			// OpenGL requires that global shader maps are compiled before attaching
@@ -436,6 +456,8 @@ static void SerializeGlobalShaders(FArchive& Ar, TShaderMap<FGlobalShaderType>* 
 
 	// Serialize the global shaders.
 	GlobalShaderMap->SerializeInline(Ar, true, false);
+	// And now register them.
+	GlobalShaderMap->RegisterSerializedShaders();
 }
 
 static FString GetGlobalShaderCacheFilename(EShaderPlatform Platform)
@@ -491,18 +513,21 @@ FString GetGlobalShaderMapKeyString(const FGlobalShaderMapId& ShaderMapId, EShad
 /** Saves the platform's shader map to the DDC. */
 void SaveGlobalShaderMapToDerivedDataCache(EShaderPlatform Platform)
 {
+	// We've finally built the global shader map, so we can count the miss as we put it in the DDC.
+	COOK_STAT(auto Timer = GlobalShaderCookStats::UsageStats.TimeSyncWork());
 	TArray<uint8> SaveData;
 	FMemoryWriter Ar(SaveData, true);
 	SerializeGlobalShaders(Ar, GGlobalShaderMap[Platform]);
 
 	FGlobalShaderMapId ShaderMapId(Platform);
 	GetDerivedDataCacheRef().Put(*GetGlobalShaderMapKeyString(ShaderMapId, Platform), SaveData);
+	COOK_STAT(Timer.AddMiss(SaveData.Num()));
 }
 
 TShaderMap<FGlobalShaderType>* GetGlobalShaderMap(EShaderPlatform Platform, bool bRefreshShaderMap)
 {
-	// No global shaders needed on dedicated server
-	if (FPlatformProperties::IsServerOnly())
+	// No global shaders needed on dedicated server or clients that use NullRHI. Note that cook commandlet needs to have them, even if it is not allowed to render otherwise.
+	if (FPlatformProperties::IsServerOnly() || (!IsRunningCommandlet() && !FApp::CanEverRender()))
 	{
 		if (!GGlobalShaderMap[Platform])
 		{
@@ -583,12 +608,20 @@ TShaderMap<FGlobalShaderType>* GetGlobalShaderMap(EShaderPlatform Platform, bool
 
 			// Find the shader map in the derived data cache
 			SlowTask.EnterProgressFrame(10);
+
+			COOK_STAT(auto Timer = GlobalShaderCookStats::UsageStats.TimeSyncWork());
 			if (GetDerivedDataCacheRef().GetSynchronous(*DataKey, CachedData))
 			{
+				COOK_STAT(Timer.AddHit(CachedData.Num()));
 				FMemoryReader Ar(CachedData, true);
 
 				// Deserialize from the cached data
 				SerializeGlobalShaders(Ar, GGlobalShaderMap[Platform]);
+			}
+			else
+			{
+				// it's a miss, but we haven't built anything yet. Save the counting until we actually have it built.
+				COOK_STAT(Timer.TrackCyclesOnly());
 			}
 		}
 

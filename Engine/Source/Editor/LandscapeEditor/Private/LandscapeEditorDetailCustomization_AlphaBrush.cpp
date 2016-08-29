@@ -64,7 +64,7 @@ public:
 			.OnMouseDoubleClick(this, &STextureMaskThumbnail::OnAssetThumbnailDoubleClick)
 			//.OnClicked_Static(&FLandscapeEditorDetailCustomization_AlphaBrush::OnTextureButtonClicked)
 			[
-				SNew( SBox )
+				SNew(SBox)
 				.ToolTipText(this, &STextureMaskThumbnail::OnGetToolTip)
 				.WidthOverride(64)
 				.HeightOverride(64)
@@ -77,7 +77,7 @@ public:
 					//.ColorAndOpacity(this, &SAssetThumbnail::GetViewportColorAndOpacity)
 					//.Visibility(this, &SAssetThumbnail::GetViewportVisibility)
 					[
-						SAssignNew( ViewportWidget, SViewport )
+						SAssignNew(ViewportWidget, SViewport)
 						.EnableGammaCorrection(false)
 					]
 				]
@@ -94,7 +94,11 @@ public:
 
 	FReply OnAssetThumbnailDoubleClick(const FGeometry& InMyGeometry, const FPointerEvent& InMouseEvent)
 	{
-		GEditor->EditObject(Texture.Get());
+		UTexture2D* Texture2D = Texture.Get();
+		if (Texture2D)
+		{
+			GEditor->EditObject(Texture2D);
+		}
 
 		return FReply::Handled();
 	}
@@ -102,7 +106,8 @@ public:
 	FText OnGetToolTip() const
 	{
 		// Display the package name which is a valid path to the object without redundant information
-		return FText::FromString(Texture.Get()->GetOutermost()->GetName());
+		UTexture2D* Texture2D = Texture.Get();
+		return Texture2D ? FText::FromString(Texture2D->GetOutermost()->GetName()) : FText();
 	}
 
 	virtual int32 OnPaint(const FPaintArgs& Args, const FGeometry& AllottedGeometry, const FSlateRect& MyClippingRect, FSlateWindowElementList& OutDrawElements, int32 LayerId, const FWidgetStyle& InWidgetStyle, bool bParentEnabled) const
@@ -267,7 +272,7 @@ bool FLandscapeEditorDetailCustomization_AlphaBrush::OnAssetDraggedOver(const UO
 
 void FLandscapeEditorDetailCustomization_AlphaBrush::OnAssetDropped(UObject* InObject, TSharedRef<IPropertyHandle> PropertyHandle_AlphaTexture)
 {
-	ensure(PropertyHandle_AlphaTexture->SetValue((const UObject*&)InObject) == FPropertyAccess::Success);
+	ensure(PropertyHandle_AlphaTexture->SetValue(InObject) == FPropertyAccess::Success);
 }
 
 #undef LOCTEXT_NAMESPACE

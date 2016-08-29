@@ -19,6 +19,9 @@ void FMainFrameHandler::ShutDownEditor()
 
 	// Cancel any current Launch On in progress
 	GEditor->CancelPlayingViaLauncher();
+	
+	//Broadcast we are closing the editor
+	GEditor->BroadcastEditorClose();
 
 	TSharedPtr<SWindow> RootWindow = RootWindowPtr.Pin();
 

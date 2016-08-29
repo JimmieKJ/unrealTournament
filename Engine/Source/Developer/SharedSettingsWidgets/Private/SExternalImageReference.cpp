@@ -20,6 +20,14 @@ void SExternalImageReference::Construct(const FArguments& InArgs, const FString&
 	BaseFilename = InBaseFilename;
 	OverrideFilename = InOverrideFilename;
 	bDeleteTargetWhenDefaultChosen = InArgs._DeleteTargetWhenDefaultChosen;
+	bDeletePreviousTargetWhenExtensionChanges = InArgs._DeletePreviousTargetWhenExtensionChanges;
+	Extensions = InArgs._FileExtensions;
+
+	FString BaseFilenameExtension = FPaths::GetExtension(BaseFilename);
+	if (!Extensions.Contains(BaseFilenameExtension))
+	{
+		Extensions.Add(BaseFilenameExtension);
+	}
 
 	FExternalImagePickerConfiguration ImageReferenceConfig;
 	ImageReferenceConfig.TargetImagePath = InOverrideFilename;
@@ -29,6 +37,7 @@ void SExternalImageReference::Construct(const FArguments& InArgs, const FString&
 	ImageReferenceConfig.bRequiresSpecificSize = InArgs._RequiredSize.X >= 0;
 	ImageReferenceConfig.MaxDisplayedImageDimensions = InArgs._MaxDisplaySize;
 	ImageReferenceConfig.OnGetPickerPath = InArgs._OnGetPickerPath;
+	ImageReferenceConfig.FileExtensions = InArgs._FileExtensions;
 
 	ChildSlot
 	[
@@ -39,43 +48,55 @@ void SExternalImageReference::Construct(const FArguments& InArgs, const FString&
 
 bool SExternalImageReference::HandleExternalImagePicked(const FString& InChosenImage, const FString& InTargetImage)
 {
+	const FString TargetImagePathNoExtension = FPaths::GetPath(InTargetImage) / FPaths::GetBaseFilename(InTargetImage) + TEXT(".");
+	
 	if (bDeleteTargetWhenDefaultChosen && InChosenImage == BaseFilename)
 	{
-		// We elect to remove the target image completely if the default image is chosen (thus allowing us to distinguish the default from a non-default image)
-		if (ISourceControlModule::Get().IsEnabled())
+		for (FString& Ex : Extensions)
 		{
-			ISourceControlProvider& SourceControlProvider = ISourceControlModule::Get().GetProvider();
+			const FString TargetImagePath = TargetImagePathNoExtension + Ex;
+			IFileManager& FileManager = IFileManager::Get();
 
-			const FSourceControlStatePtr SourceControlState = SourceControlProvider.GetState(InTargetImage, EStateCacheUsage::ForceUpdate);
-			const bool bIsSourceControlled = SourceControlState.IsValid() && SourceControlState->IsSourceControlled();
-
-			if (bIsSourceControlled)
+			if (!FileManager.FileExists(*TargetImagePath))
 			{
-				// The file is managed by source control. Delete it through there.
-				TArray<FString> DeleteFilenames;
-				DeleteFilenames.Add(InTargetImage);
+				continue;
+			}
 
-				// Revert the file if it is checked out
-				const bool bIsAdded = SourceControlState->IsAdded();
-				if (SourceControlState->IsCheckedOut() || bIsAdded || SourceControlState->IsDeleted())
-				{
-					SourceControlProvider.Execute(ISourceControlOperation::Create<FRevert>(), DeleteFilenames);
-				}
+			// We elect to remove the target image completely if the default image is chosen (thus allowing us to distinguish the default from a non-default image)
+			if (ISourceControlModule::Get().IsEnabled())
+			{
+				ISourceControlProvider& SourceControlProvider = ISourceControlModule::Get().GetProvider();
 
-				// If it wasn't already marked as an add, we can ask the source control provider to delete the file
-				if (!bIsAdded)
+				const FSourceControlStatePtr SourceControlState = SourceControlProvider.GetState(TargetImagePath, EStateCacheUsage::ForceUpdate);
+				const bool bIsSourceControlled = SourceControlState.IsValid() && SourceControlState->IsSourceControlled();
+
+				if (bIsSourceControlled)
 				{
-					// Open the file for delete
-					SourceControlProvider.Execute(ISourceControlOperation::Create<FDelete>(), DeleteFilenames);
+					// The file is managed by source control. Delete it through there.
+					TArray<FString> DeleteFilenames;
+					DeleteFilenames.Add(TargetImagePath);
+
+					// Revert the file if it is checked out
+					const bool bIsAdded = SourceControlState->IsAdded();
+					if (SourceControlState->IsCheckedOut() || bIsAdded || SourceControlState->IsDeleted())
+					{
+						SourceControlProvider.Execute(ISourceControlOperation::Create<FRevert>(), DeleteFilenames);
+					}
+
+					// If it wasn't already marked as an add, we can ask the source control provider to delete the file
+					if (!bIsAdded)
+					{
+						// Open the file for delete
+						SourceControlProvider.Execute(ISourceControlOperation::Create<FDelete>(), DeleteFilenames);
+					}
 				}
 			}
-		}
 
-		IFileManager& FileManager = IFileManager::Get();
-		const bool bRequireExists = false;
-		const bool bEvenIfReadOnly = true;
-		const bool bQuiet = true;
-		FileManager.Delete(*InTargetImage, bRequireExists, bEvenIfReadOnly, bQuiet);
+			const bool bRequireExists = false;
+			const bool bEvenIfReadOnly = true;
+			const bool bQuiet = true;
+			FileManager.Delete(*TargetImagePath, bRequireExists, bEvenIfReadOnly, bQuiet);
+		}
 
 		return true;
 	}
@@ -88,8 +109,29 @@ bool SExternalImageReference::HandleExternalImagePicked(const FString& InChosenI
 		}
 	}
 
+	// New target image file extension from chosen image
+	FString NewTargetImage;
+
+	if (FPaths::GetExtension(InTargetImage) != FPaths::GetExtension(InChosenImage))
+	{
+		if (bDeletePreviousTargetWhenExtensionChanges)
+		{
+			IFileManager& FileManager = IFileManager::Get();
+			const bool bRequireExists = false;
+			const bool bEvenIfReadOnly = true;
+			const bool bQuiet = true;
+			FileManager.Delete(*InTargetImage, bRequireExists, bEvenIfReadOnly, bQuiet);
+		}
+
+		NewTargetImage = TargetImagePathNoExtension + FPaths::GetExtension(InChosenImage);
+	}
+	else
+	{
+		NewTargetImage = InTargetImage;
+	}
+	
 	FText FailReason;
-	if(!SourceControlHelpers::CopyFileUnderSourceControl(InTargetImage, InChosenImage, LOCTEXT("ImageDescription", "image"), FailReason))
+	if(!SourceControlHelpers::CopyFileUnderSourceControl(NewTargetImage, InChosenImage, LOCTEXT("ImageDescription", "image"), FailReason))
 	{
 		FNotificationInfo Info(FailReason);
 		Info.ExpireDuration = 3.0f;

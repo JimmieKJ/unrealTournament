@@ -67,6 +67,7 @@ FPlugin::FPlugin(const FString& InFileName, const FPluginDescriptor& InDescripto
 	, LoadedFrom(InLoadedFrom)
 	, bEnabled(false)
 {
+
 }
 
 FPlugin::~FPlugin()
@@ -150,30 +151,31 @@ FPluginManager::~FPluginManager()
 void FPluginManager::RefreshPluginsList()
 {
 	// Read a new list of all plugins
-	TArray<TSharedRef<FPlugin>> NewPlugins;
+	TMap<FString, TSharedRef<FPlugin>> NewPlugins;
 	ReadAllPlugins(NewPlugins, PluginDiscoveryPaths);
 
 	// Build a list of filenames for plugins which are enabled, and remove the rest
 	TArray<FString> EnabledPluginFileNames;
-	for(int32 Idx = 0; Idx < AllPlugins.Num(); Idx++)
+	for(TMap<FString, TSharedRef<FPlugin>>::TIterator Iter(AllPlugins); Iter; ++Iter)
 	{
-		const TSharedRef<FPlugin>& Plugin = AllPlugins[Idx];
+		const TSharedRef<FPlugin>& Plugin = Iter.Value();
 		if(Plugin->bEnabled)
 		{
 			EnabledPluginFileNames.Add(Plugin->FileName);
 		}
 		else
 		{
-			AllPlugins.RemoveAt(Idx--);
+			Iter.RemoveCurrent();
 		}
 	}
 
 	// Add all the plugins which aren't already enabled
-	for(TSharedRef<FPlugin>& NewPlugin: NewPlugins)
+	for(const TPair<FString, TSharedRef<FPlugin>>& NewPluginPair: NewPlugins)
 	{
+		const TSharedRef<FPlugin>& NewPlugin = NewPluginPair.Value;
 		if(!EnabledPluginFileNames.Contains(NewPlugin->FileName))
 		{
-			AllPlugins.Add(NewPlugin);
+			AllPlugins.Add(NewPlugin->GetName(), NewPlugin);
 		}
 	}
 }
@@ -186,13 +188,14 @@ void FPluginManager::DiscoverAllPlugins()
 	ReadAllPlugins(AllPlugins, PluginDiscoveryPaths);
 }
 
-void FPluginManager::ReadAllPlugins(TArray<TSharedRef<FPlugin>>& Plugins, const TSet<FString>& ExtraSearchPaths)
+void FPluginManager::ReadAllPlugins(TMap<FString, TSharedRef<FPlugin>>& Plugins, const TSet<FString>& ExtraSearchPaths)
 {
 #if (WITH_ENGINE && !IS_PROGRAM) || WITH_PLUGIN_SUPPORT
 	// Find "built-in" plugins.  That is, plugins situated right within the Engine directory.
 	ReadPluginsInDirectory(FPaths::EnginePluginsDir(), EPluginLoadedFrom::Engine, Plugins);
 
-	// Find plugins in the game project directory (<MyGameProject>/Plugins)
+	// Find plugins in the game project directory (<MyGameProject>/Plugins). If there are any engine plugins matching the name of a game plugin,
+	// assume that the game plugin version is preferred.
 	if( FApp::HasGameName() )
 	{
 		ReadPluginsInDirectory(FPaths::GamePluginsDir(), EPluginLoadedFrom::GameProject, Plugins);
@@ -205,7 +208,7 @@ void FPluginManager::ReadAllPlugins(TArray<TSharedRef<FPlugin>>& Plugins, const 
 #endif
 }
 
-void FPluginManager::ReadPluginsInDirectory(const FString& PluginsDirectory, const EPluginLoadedFrom LoadedFrom, TArray<TSharedRef<FPlugin>>& Plugins)
+void FPluginManager::ReadPluginsInDirectory(const FString& PluginsDirectory, const EPluginLoadedFrom LoadedFrom, TMap<FString, TSharedRef<FPlugin>>& Plugins)
 {
 	// Make sure the directory even exists
 	if(FPlatformFileManager::Get().GetPlatformFile().DirectoryExists(*PluginsDirectory))
@@ -217,9 +220,27 @@ void FPluginManager::ReadPluginsInDirectory(const FString& PluginsDirectory, con
 		{
 			FPluginDescriptor Descriptor;
 			FText FailureReason;
-			if(Descriptor.Load(FileName, FailureReason))
+			if ( Descriptor.Load(FileName, FailureReason) )
 			{
-				Plugins.Add(MakeShareable(new FPlugin(FileName, Descriptor, LoadedFrom)));
+				TSharedRef<FPlugin> Plugin = MakeShareable(new FPlugin(FileName, Descriptor, LoadedFrom));
+				
+				FString FullPath = FPaths::ConvertRelativePathToFull(FileName);
+				UE_LOG(LogPluginManager, Log, TEXT("Loaded Plugin %s, From %s"), *Plugin->GetName(), *FullPath);
+
+				const TSharedRef<FPlugin>* ExistingPlugin = Plugins.Find(Plugin->GetName());
+				if (ExistingPlugin == nullptr)
+				{
+					Plugins.Add(Plugin->GetName(), Plugin);
+				}
+				else if ((*ExistingPlugin)->LoadedFrom == EPluginLoadedFrom::Engine && LoadedFrom == EPluginLoadedFrom::GameProject)
+				{
+					Plugins[Plugin->GetName()] = Plugin;
+					UE_LOG(LogPluginManager, Log, TEXT("Replacing engine version of '%s' plugin with game version"), *Plugin->GetName());
+				}
+				else if( (*ExistingPlugin)->LoadedFrom != EPluginLoadedFrom::GameProject || LoadedFrom != EPluginLoadedFrom::Engine)
+				{
+					UE_LOG(LogPluginManager, Warning, TEXT("Plugin '%s' exists at '%s' and '%s' - second location will be ignored"), *Plugin->GetName(), *(*ExistingPlugin)->FileName, *Plugin->FileName);
+				}
 			}
 			else
 			{
@@ -358,15 +379,20 @@ bool FPluginManager::ConfigureEnabledPlugins()
 		AllEnabledPlugins.Append(MoveTemp(EnabledPluginNames));
 
 		// Enable all the plugins by name
-		for (const TSharedRef< FPlugin > Plugin : AllPlugins)
+		for (const TPair<FString, TSharedRef< FPlugin >> PluginPair : AllPlugins)
 		{
+			const TSharedRef<FPlugin>& Plugin = PluginPair.Value;
 			if (AllEnabledPlugins.Contains(Plugin->Name))
 			{
-				Plugin->bEnabled = (!IS_PROGRAM || !bHasProjectFile) || IsPluginSupportedByCurrentTarget(Plugin);
+#if IS_PROGRAM
+				Plugin->bEnabled = !bHasProjectFile || IsPluginSupportedByCurrentTarget(Plugin);
 				if (!Plugin->bEnabled)
 				{
 					AllEnabledPlugins.Remove(Plugin->Name);
 				}
+#else
+				Plugin->bEnabled = true;
+#endif
 			}
 		}
 
@@ -377,9 +403,18 @@ bool FPluginManager::ConfigureEnabledPlugins()
 			for(const FPluginReferenceDescriptor& Plugin: PluginsCopy)
 			{
 				bool bShouldBeEnabled = Plugin.bEnabled && Plugin.IsEnabledForPlatform(FPlatformMisc::GetUBTPlatform()) && Plugin.IsEnabledForTarget(FPlatformMisc::GetUBTTarget());
-				if ((bShouldBeEnabled && !FindPluginInstance(Plugin.Name).IsValid() && !Plugin.bOptional) &&
-					 (!IS_PROGRAM || AllEnabledPlugins.Contains(Plugin.Name))) // skip if this is a program and the plugin is not enabled
+				if (bShouldBeEnabled && !FindPluginInstance(Plugin.Name).IsValid() && !Plugin.bOptional
+#if IS_PROGRAM
+					 && AllEnabledPlugins.Contains(Plugin.Name) // skip if this is a program and the plugin is not enabled
+#endif
+					)
 				{
+					if (FApp::IsUnattended())
+					{
+						UE_LOG(LogPluginManager, Error, TEXT("This project requires the '%s' plugin. Install it and try again, or remove it from the project's required plugin list."), *Plugin.Name);
+						return false;
+					}
+
 					FText Caption(LOCTEXT("PluginMissingCaption", "Plugin missing"));
 					if(Plugin.MarketplaceURL.Len() > 0)
 					{
@@ -414,8 +449,9 @@ bool FPluginManager::ConfigureEnabledPlugins()
 		// If we made it here, we have all the required plugins
 		bHaveAllRequiredPlugins = true;
 
-		for(const TSharedRef<FPlugin>& Plugin: AllPlugins)
+		for(const TPair<FString, TSharedRef<FPlugin>>& PluginPair: AllPlugins)
 		{
+			const TSharedRef<FPlugin>& Plugin = PluginPair.Value;
 			if (Plugin->bEnabled)
 			{
 				// Add the plugin binaries directory
@@ -449,9 +485,9 @@ bool FPluginManager::ConfigureEnabledPlugins()
 			// Build the list of content folders
 				if (Plugin->Descriptor.bCanContainContent)
 				{
-					if (auto EngineConfigFile = GConfig->Find(GEngineIni, false))
+					if (FConfigFile* EngineConfigFile = GConfig->Find(GEngineIni, false))
 					{
-						if (auto CoreSystemSection = EngineConfigFile->Find(TEXT("Core.System")))
+						if (FConfigSection* CoreSystemSection = EngineConfigFile->Find(TEXT("Core.System")))
 						{
 							CoreSystemSection->AddUnique("Paths", Plugin->GetContentDir());
 						}
@@ -489,7 +525,7 @@ bool FPluginManager::ConfigureEnabledPlugins()
 				{
 					FoundPaks.Reset();
 					PlatformFile.IterateDirectoryRecursively(*(ContentDir / TEXT("Paks") / FPlatformProperties::PlatformName()), PakVisitor);
-					for (const auto& PakPath : FoundPaks)
+					for (const FString& PakPath : FoundPaks)
 					{
 						if (FCoreDelegates::OnMountPak.IsBound())
 						{
@@ -505,16 +541,15 @@ bool FPluginManager::ConfigureEnabledPlugins()
 
 TSharedPtr<FPlugin> FPluginManager::FindPluginInstance(const FString& Name)
 {
-	TSharedPtr<FPlugin> Result;
-	for(const TSharedRef<FPlugin>& Instance : AllPlugins)
+	const TSharedRef<FPlugin>* Instance = AllPlugins.Find(Name);
+	if (Instance == nullptr)
 	{
-		if(Instance->Name == Name)
-		{
-			Result = Instance;
-			break;
-		}
+		return TSharedPtr<FPlugin>();
 	}
-	return Result;
+	else
+	{
+		return TSharedPtr<FPlugin>(*Instance);
+	}
 }
 
 bool FPluginManager::LoadModulesForEnabledPlugins( const ELoadingPhase::Type LoadingPhase )
@@ -528,8 +563,9 @@ bool FPluginManager::LoadModulesForEnabledPlugins( const ELoadingPhase::Type Loa
 	FScopedSlowTask SlowTask(AllPlugins.Num());
 
 	// Load plugins!
-	for( const TSharedRef< FPlugin > Plugin : AllPlugins )
+	for( const TPair<FString, TSharedRef< FPlugin >> PluginPair : AllPlugins )
 	{
+		const TSharedRef<FPlugin> &Plugin = PluginPair.Value;
 		SlowTask.EnterProgressFrame(1);
 
 		if ( Plugin->bEnabled )
@@ -540,8 +576,8 @@ bool FPluginManager::LoadModulesForEnabledPlugins( const ELoadingPhase::Type Loa
 			FText FailureMessage;
 			for( auto FailureIt( ModuleLoadFailures.CreateConstIterator() ); FailureIt; ++FailureIt )
 			{
-				const auto ModuleNameThatFailedToLoad = FailureIt.Key();
-				const auto FailureReason = FailureIt.Value();
+				const FName ModuleNameThatFailedToLoad = FailureIt.Key();
+				const EModuleLoadResult FailureReason = FailureIt.Value();
 
 				if( FailureReason != EModuleLoadResult::Success )
 				{
@@ -585,6 +621,34 @@ bool FPluginManager::LoadModulesForEnabledPlugins( const ELoadingPhase::Type Loa
 	return true;
 }
 
+void FPluginManager::GetLocalizationPathsForEnabledPlugins( TArray<FString>& OutLocResPaths )
+{
+	// Figure out which plugins are enabled
+	if (!ConfigureEnabledPlugins())
+	{
+		return;
+	}
+
+	// Gather the paths from all plugins that have localization targets that are loaded based on the current runtime environment
+	for (const TPair<FString, TSharedRef<FPlugin>>& PluginPair : AllPlugins)
+	{
+		const TSharedRef<FPlugin>& Plugin = PluginPair.Value;
+		if (!Plugin->bEnabled || Plugin->GetDescriptor().LocalizationTargets.Num() == 0)
+		{
+			continue;
+		}
+		
+		const FString PluginLocDir = Plugin->GetContentDir() / TEXT("Localization");
+		for (const FLocalizationTargetDescriptor& LocTargetDesc : Plugin->GetDescriptor().LocalizationTargets)
+		{
+			if (LocTargetDesc.ShouldLoadLocalizationTarget())
+			{
+				OutLocResPaths.Add(PluginLocDir / LocTargetDesc.Name);
+			}
+		}
+	}
+}
+
 void FPluginManager::SetRegisterMountPointDelegate( const FRegisterMountPointDelegate& Delegate )
 {
 	RegisterMountPointDelegate = Delegate;
@@ -603,9 +667,9 @@ bool FPluginManager::CheckModuleCompatibility(TArray<FString>& OutIncompatibleMo
 	}
 
 	bool bResult = true;
-	for (TArray< TSharedRef< FPlugin > >::TConstIterator Iter(AllPlugins); Iter; ++Iter)
+	for(const TPair<FString, TSharedRef<FPlugin>>& PluginPair : AllPlugins)
 	{
-		const TSharedRef< FPlugin > &Plugin = *Iter;
+		const TSharedRef< FPlugin > &Plugin = PluginPair.Value;
 		if (Plugin->bEnabled && !FModuleDescriptor::CheckModuleCompatibility(Plugin->Descriptor.Modules, Plugin->LoadedFrom == EPluginLoadedFrom::GameProject, OutIncompatibleModules))
 		{
 			bResult = false;
@@ -627,23 +691,23 @@ IPluginManager& IPluginManager::Get()
 
 TSharedPtr<IPlugin> FPluginManager::FindPlugin(const FString& Name)
 {
-	TSharedPtr<IPlugin> Plugin;
-	for(TSharedRef<FPlugin>& PossiblePlugin : AllPlugins)
+	const TSharedRef<FPlugin>* Instance = AllPlugins.Find(Name);
+	if (Instance == nullptr)
 	{
-		if(PossiblePlugin->Name == Name)
-		{
-			Plugin = PossiblePlugin;
-			break;
-		}
+		return TSharedPtr<IPlugin>();
 	}
-	return Plugin;
+	else
+	{
+		return TSharedPtr<IPlugin>(*Instance);
+	}
 }
 
 TArray<TSharedRef<IPlugin>> FPluginManager::GetEnabledPlugins()
 {
 	TArray<TSharedRef<IPlugin>> Plugins;
-	for(TSharedRef<FPlugin>& PossiblePlugin : AllPlugins)
+	for(TPair<FString, TSharedRef<FPlugin>>& PluginPair : AllPlugins)
 	{
+		TSharedRef<FPlugin>& PossiblePlugin = PluginPair.Value;
 		if(PossiblePlugin->bEnabled)
 		{
 			Plugins.Add(PossiblePlugin);
@@ -655,9 +719,9 @@ TArray<TSharedRef<IPlugin>> FPluginManager::GetEnabledPlugins()
 TArray<TSharedRef<IPlugin>> FPluginManager::GetDiscoveredPlugins()
 {
 	TArray<TSharedRef<IPlugin>> Plugins;
-	for(TSharedRef<FPlugin>& Plugin : AllPlugins)
+	for (TPair<FString, TSharedRef<FPlugin>>& PluginPair : AllPlugins)
 	{
-		Plugins.Add(Plugin);
+		Plugins.Add(PluginPair.Value);
 	}
 	return Plugins;
 }
@@ -666,9 +730,9 @@ TArray< FPluginStatus > FPluginManager::QueryStatusForAllPlugins() const
 {
 	TArray< FPluginStatus > PluginStatuses;
 
-	for( auto PluginIt( AllPlugins.CreateConstIterator() ); PluginIt; ++PluginIt )
+	for( const TPair<FString, TSharedRef<FPlugin>>& PluginPair : AllPlugins )
 	{
-		const TSharedRef< FPlugin >& Plugin = *PluginIt;
+		const TSharedRef< FPlugin >& Plugin = PluginPair.Value;
 		
 		FPluginStatus PluginStatus;
 		PluginStatus.Name = Plugin->Name;

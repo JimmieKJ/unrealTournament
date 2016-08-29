@@ -1,6 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "AIModulePrivate.h"
+#include "BehaviorTree/BlackboardData.h"
 #include "BlueprintNodeHelpers.h"
 
 namespace BlueprintNodeHelpers
@@ -125,6 +126,25 @@ namespace BlueprintNodeHelpers
 			{
 				const FBlackboardKeySelector* PropData = TestProperty->ContainerPtrToValuePtr<FBlackboardKeySelector>(Ob);
 				KeyNames.AddUnique(PropData->SelectedKeyName);
+			}
+		}
+	}
+
+	void ResolveBlackboardSelectors(UObject& Ob, const UClass& StopAtClass, const UBlackboardData& BlackboardAsset)
+	{
+		for (UProperty* TestProperty = Ob.GetClass()->PropertyLink; TestProperty; TestProperty = TestProperty->PropertyLinkNext)
+		{
+			// stop when reaching base class
+			if (TestProperty->GetOuter() == &StopAtClass)
+			{
+				break;
+			}
+
+			UStructProperty* StructProp = Cast<UStructProperty>(TestProperty);
+			if (StructProp && StructProp->GetCPPType(NULL, CPPF_None).Contains(GET_STRUCT_NAME_CHECKED(FBlackboardKeySelector)))
+			{
+				FBlackboardKeySelector* PropData = const_cast<FBlackboardKeySelector*>(TestProperty->ContainerPtrToValuePtr<FBlackboardKeySelector>(&Ob));
+				PropData->ResolveSelectedKey(BlackboardAsset);
 			}
 		}
 	}

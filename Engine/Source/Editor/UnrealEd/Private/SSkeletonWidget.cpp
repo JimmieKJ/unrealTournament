@@ -18,7 +18,7 @@
 
 void SSkeletonListWidget::Construct(const FArguments& InArgs)
 {
-	CurSelectedSkeleton = NULL;
+	CurSelectedSkeleton = nullptr;
 
 	FContentBrowserModule& ContentBrowserModule = FModuleManager::Get().LoadModuleChecked<FContentBrowserModule>(TEXT("ContentBrowser"));
 
@@ -63,7 +63,7 @@ void SSkeletonListWidget::SkeletonSelectionChanged(const FAssetData& AssetData)
 	BoneList.Empty();
 	CurSelectedSkeleton = Cast<USkeleton>(AssetData.GetAsset());
 
-	if (CurSelectedSkeleton != NULL)
+	if (CurSelectedSkeleton != nullptr)
 	{
 		const FReferenceSkeleton& RefSkeleton = CurSelectedSkeleton->GetReferenceSkeleton();
 
@@ -107,7 +107,7 @@ void SSkeletonCompareWidget::Construct(const FArguments& InArgs)
 {
 	const UObject* Object = InArgs._Object;
 
-	CurSelectedSkeleton = NULL;
+	CurSelectedSkeleton = nullptr;
 	BoneNames = *InArgs._BoneNames;
 
 	FContentBrowserModule& ContentBrowserModule = FModuleManager::Get().LoadModuleChecked<FContentBrowserModule>(TEXT("ContentBrowser"));
@@ -119,7 +119,7 @@ void SSkeletonCompareWidget::Construct(const FArguments& InArgs)
 	AssetPickerConfig.bShowPathInColumnView = true;
 	AssetPickerConfig.bShowTypeInColumnView = false;
 
-	TSharedPtr<SToolTip> SkeletonTooltip = IDocumentation::Get()->CreateToolTip(FText::FromString("Pick a skeleton for this mesh"), NULL, FString("Shared/Editors/Persona"), FString("Skeleton"));
+	TSharedPtr<SToolTip> SkeletonTooltip = IDocumentation::Get()->CreateToolTip(FText::FromString("Pick a skeleton for this mesh"), nullptr, FString("Shared/Editors/Persona"), FString("Skeleton"));
 
 	this->ChildSlot
 		[
@@ -205,7 +205,7 @@ void SSkeletonCompareWidget::SkeletonSelectionChanged(const FAssetData& AssetDat
 	BonePairList.Empty();
 	CurSelectedSkeleton = Cast<USkeleton>(AssetData.GetAsset());
 
-	if (CurSelectedSkeleton != NULL)
+	if (CurSelectedSkeleton != nullptr)
 	{
 		for (int32 I=0; I<BoneNames.Num(); ++I)
 		{
@@ -256,8 +256,8 @@ void SSkeletonSelectorWindow::Construct(const FArguments& InArgs)
 {
 	UObject* Object = InArgs._Object;
 	WidgetWindow = InArgs._WidgetWindow;
-	SelectedSkeleton = NULL;
-	if (Object == NULL)
+	SelectedSkeleton = nullptr;
+	if (Object == nullptr)
 	{
 		ConstructWindow();
 	}
@@ -338,7 +338,7 @@ TSharedPtr<SWindow> SAnimationRemapSkeleton::DialogWindow;
 
 bool SAnimationRemapSkeleton::OnShouldFilterAsset(const class FAssetData& AssetData)
 {
-	USkeleton* AssetSkeleton = NULL;
+	USkeleton* AssetSkeleton = nullptr;
 	if (AssetData.IsAssetLoaded())
 	{
 		AssetSkeleton = Cast<USkeleton>(AssetData.GetAsset());
@@ -356,9 +356,9 @@ bool SAnimationRemapSkeleton::OnShouldFilterAsset(const class FAssetData& AssetD
 		{
 			URig * Rig = OldSkeleton->GetRig();
 
-			const FString* Value = AssetData.TagsAndValues.Find(USkeleton::RigTag);
+			const FString Value = AssetData.GetTagValueRef<FString>(USkeleton::RigTag);
 
-			if(Value && Rig->GetFullName() == *Value)
+			if(Rig->GetFullName() == Value)
 			{
 				return false;
 			}
@@ -405,7 +405,7 @@ void SAnimationRemapSkeleton::UpdateAssetPicker()
 void SAnimationRemapSkeleton::Construct( const FArguments& InArgs )
 {
 	OldSkeleton = InArgs._CurrentSkeleton;
-	NewSkeleton = NULL;
+	NewSkeleton = nullptr;
 	WidgetWindow = InArgs._WidgetWindow;
 	bRemapReferencedAssets = true;
 	bConvertSpaces = false;
@@ -459,7 +459,7 @@ void SAnimationRemapSkeleton::Construct( const FArguments& InArgs )
 	if (InArgs._ShowConvertSpacesOption)
 	{
 		TSharedPtr<SToolTip> ConvertSpaceTooltip = IDocumentation::Get()->CreateToolTip(FText::FromString("Check if you'd like to convert animation data to new skeleton space. If this is false, it won't convert any animation data to new space."),
-			NULL, FString("Shared/Editors/Persona"), FString("AnimRemapSkeleton_ConvertSpace"));
+			nullptr, FString("Shared/Editors/Persona"), FString("AnimRemapSkeleton_ConvertSpace"));
 		RetargetWidget->AddSlot()
 			[
 				SNew(SCheckBox)
@@ -477,7 +477,7 @@ void SAnimationRemapSkeleton::Construct( const FArguments& InArgs )
 	if(InArgs._ShowCompatibleDisplayOption)
 	{
 		TSharedPtr<SToolTip> ConvertSpaceTooltip = IDocumentation::Get()->CreateToolTip(FText::FromString("Check if you'd like to show only the skeleton that uses the same rig."),
-			NULL, FString("Shared/Editors/Persona"), FString("AnimRemapSkeleton_ShowCompatbielSkeletons")); // @todo add tooltip
+			nullptr, FString("Shared/Editors/Persona"), FString("AnimRemapSkeleton_ShowCompatbielSkeletons")); // @todo add tooltip
 		RetargetWidget->AddSlot()
 			[
 				SNew(SCheckBox)
@@ -649,7 +649,7 @@ void SAnimationRemapSkeleton::Construct( const FArguments& InArgs )
 		];
 	}
 
-	TSharedPtr<SToolTip> SkeletonTooltip = IDocumentation::Get()->CreateToolTip(FText::FromString("Pick a skeleton for this mesh"), NULL, FString("Shared/Editors/Persona"), FString("Skeleton"));
+	TSharedPtr<SToolTip> SkeletonTooltip = IDocumentation::Get()->CreateToolTip(FText::FromString("Pick a skeleton for this mesh"), nullptr, FString("Shared/Editors/Persona"), FString("Skeleton"));
 
 	this->ChildSlot
 		[
@@ -918,7 +918,7 @@ void SAnimationRemapSkeleton::OnShowOnlyCompatibleSkeletonsCheckChanged(ECheckBo
 
 bool SAnimationRemapSkeleton::CanApply() const
 {
-	return (NewSkeleton!=NULL && NewSkeleton!=OldSkeleton);
+	return (NewSkeleton!=nullptr && NewSkeleton!=OldSkeleton);
 }
 
 void SAnimationRemapSkeleton::OnAssetSelectedFromPicker(const FAssetData& AssetData)
@@ -944,14 +944,14 @@ FReply SAnimationRemapSkeleton::OnApply()
 
 FReply SAnimationRemapSkeleton::OnCancel()
 {
-	NewSkeleton = NULL;
+	NewSkeleton = nullptr;
 	CloseWindow();
 	return FReply::Handled();
 }
 
 void SAnimationRemapSkeleton::OnRemapDialogClosed(const TSharedRef<SWindow>& Window)
 {
-	NewSkeleton = NULL;
+	NewSkeleton = nullptr;
 	DialogWindow = nullptr;
 }
 
@@ -988,8 +988,8 @@ void SAnimationRemapSkeleton::ShowWindow(USkeleton* OldSkeleton, const FText& Wa
 			.WarningMessage(WarningMessage)
 			.ShowRemapOption(true)
 			.ShowExistingRemapOption(true)
-			.ShowConvertSpacesOption(OldSkeleton != NULL)
-			.ShowCompatibleDisplayOption(OldSkeleton != NULL)
+			.ShowConvertSpacesOption(OldSkeleton != nullptr)
+			.ShowCompatibleDisplayOption(OldSkeleton != nullptr)
 			.ShowDuplicateAssetOption(bDuplicateAssets)
 			.OnRetargetDelegate(RetargetDelegate)
 		];
@@ -1031,7 +1031,7 @@ bool FDlgRemapSkeleton::ShowModal()
 
 	NewSkeleton = DialogWidget.Get()->NewSkeleton;
 
-	return (NewSkeleton != NULL && NewSkeleton != DialogWidget.Get()->OldSkeleton);
+	return (NewSkeleton != nullptr && NewSkeleton != DialogWidget.Get()->OldSkeleton);
 }
 
 //////////////////////////////////////////////////////////////
@@ -1350,7 +1350,6 @@ public:
 		const UDestructableMeshEditorSettings* Options = GetDefault<UDestructableMeshEditorSettings>();
 
 		PreviewScene->SetLightDirection(Options->AnimPreviewLightingDirection);
-		PreviewScene->GetScene()->UpdateDynamicSkyLight(Options->AnimPreviewSkyBrightness * FLinearColor(Options->AnimPreviewSkyColor), Options->AnimPreviewSkyBrightness * FLinearColor(Options->AnimPreviewFloorColor));
 		PreviewScene->SetLightColor(Options->AnimPreviewDirectionalColor);
 		PreviewScene->SetLightBrightness(Options->AnimPreviewLightBrightness);
 	}
@@ -1381,28 +1380,28 @@ void SBasePoseViewport::SetSkeleton(USkeleton* Skeleton)
 			if(PreviewSkeletalMesh)
 			{
 				PreviewComponent->SetSkeletalMesh(PreviewSkeletalMesh);
-				PreviewComponent->EnablePreview(true, NULL, NULL);
+				PreviewComponent->EnablePreview(true, nullptr);
 //				PreviewComponent->AnimScriptInstance = PreviewComponent->PreviewInstance;
 				PreviewComponent->PreviewInstance->SetForceRetargetBasePose(true);
-				PreviewComponent->RefreshBoneTransforms(NULL);
+				PreviewComponent->RefreshBoneTransforms(nullptr);
 
 				//Place the camera at a good viewer position
 				FVector NewPosition = Client->GetViewLocation();
 				NewPosition.Normalize();
 				if(PreviewSkeletalMesh)
 				{
-					NewPosition *= (PreviewSkeletalMesh->Bounds.SphereRadius*1.5f);
+					NewPosition *= (PreviewSkeletalMesh->GetImportedBounds().SphereRadius*1.5f);
 				}
 				Client->SetViewLocation(NewPosition);
 			}
 			else
 			{
-				PreviewComponent->SetSkeletalMesh(NULL);
+				PreviewComponent->SetSkeletalMesh(nullptr);
 			}
 		}
 		else
 		{
-			PreviewComponent->SetSkeletalMesh(NULL);
+			PreviewComponent->SetSkeletalMesh(nullptr);
 		}
 
 		Client->Invalidate();
@@ -1732,7 +1731,7 @@ FReply SAnimationRemapAssets::OnBestGuessClicked()
 
 	for(const FAssetData& Data : AssetDataList)
 	{
-		if(Data.TagsAndValues.FindRef("Skeleton") == SkeletonName)
+		if(Data.GetTagValueRef<FString>("Skeleton") == SkeletonName)
 		{
 			CompatibleAssets.Add(Data);
 		}
@@ -1764,7 +1763,7 @@ const FAssetData* SAnimationRemapAssets::FindBestGuessMatch(const FAssetData& As
 
 		if(Data.AssetClass == AssetData.AssetClass)
 		{
-			int32 Distance = GetStringDistance(AssetData.AssetName.ToString(), Data.AssetName.ToString());
+			int32 Distance = FAnimationRuntime::GetStringDistance(AssetData.AssetName.ToString(), Data.AssetName.ToString());
 
 			if(Distance < LowestScore)
 			{
@@ -1780,62 +1779,6 @@ const FAssetData* SAnimationRemapAssets::FindBestGuessMatch(const FAssetData& As
 	}
 
 	return nullptr;
-}
-
-int32 SAnimationRemapAssets::GetStringDistance(const FString& First, const FString& Second) const
-{
-	// Finds the distance between strings, where the distance is the number of operations we would need
-	// to perform on First to match Second.
-	// Operations are: Adding a character, Removing a character, changing a character.
-
-	const int32 FirstLength = First.Len();
-	const int32 SecondLength = Second.Len();
-
-	// Already matching
-	if(First == Second)
-	{
-		return 0;
-	}
-
-	// No first string, so we need to add SecondLength characters to match
-	if(FirstLength == 0)
-	{
-		return SecondLength;
-	}
-
-	// No Second string, so we need to add FirstLength characters to match
-	if(SecondLength == 0)
-	{
-		return FirstLength;
-	}
-
-	TArray<int32> PrevRow;
-	TArray<int32> NextRow;
-	PrevRow.AddZeroed(SecondLength + 1);
-	NextRow.AddZeroed(SecondLength + 1);
-
-	// Initialise prev row to num characters we need to remove from Second
-	for(int32 I = 0 ; I < PrevRow.Num() ; ++I)
-	{
-		PrevRow[I] = I;
-	}
-
-	for(int32 I = 0 ; I < FirstLength ; ++I)
-	{
-		// Calculate current row
-		NextRow[0] = I + 1;
-
-		for(int32 J = 0 ; J < SecondLength ; ++J)
-		{
-			int32 Indicator = (First[I] == Second[J]) ? 0 : 1;
-			NextRow[J + 1] = FMath::Min3(NextRow[J] + 1, PrevRow[J + 1] + 1, PrevRow[J] + Indicator);
-		}
-
-		// Copy back
-		PrevRow = NextRow;
-	}
-
-	return NextRow[SecondLength];
 }
 
 void SAssetEntryRow::Construct(const FArguments& InArgs, const TSharedRef<STableViewBase>& InOwnerTableView)
@@ -1921,7 +1864,7 @@ void SAssetEntryRow::OnAssetSelected(const FAssetData& AssetData)
 
 bool SAssetEntryRow::OnShouldFilterAsset(const FAssetData& AssetData) const
 {
-	if(AssetData.TagsAndValues.FindRef("Skeleton") == SkeletonExportName)
+	if(AssetData.GetTagValueRef<FString>("Skeleton") == SkeletonExportName)
 	{
 		return false;
 	}

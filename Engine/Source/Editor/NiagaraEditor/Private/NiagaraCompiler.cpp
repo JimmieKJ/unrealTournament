@@ -9,6 +9,11 @@
 #include "ComponentReregisterContext.h"
 #include "NiagaraCompiler_VectorVM.h"
 #include "NiagaraEditorCommon.h"
+#include "NiagaraNodeFunctionCall.h"
+#include "NiagaraNodeInput.h"
+#include "NiagaraNodeOutput.h"
+
+#include "EdGraphSchema_Niagara.h"
 
 #define LOCTEXT_NAMESPACE "NiagaraCompiler"
 
@@ -72,11 +77,6 @@ public:
 			SourceExpressions.Add(MakeShareable(new FNiagaraExpression(InCompiler, FNiagaraVariableInfo(ResultName, ENiagaraDataType::Vector))));
 			SourceExpressions.Add(MakeShareable(new FNiagaraExpression(InCompiler, FNiagaraVariableInfo(ResultName, ENiagaraDataType::Vector))));
 		}
-// 		else if (Result.Type == ENiagaraDataType::Curve)
-// 		{
-// 			static const FName ResultName(TEXT("Curve"));
-// 			SourceExpressions.Add(MakeShareable(new FNiagaraExpression(InCompiler, FNiagaraVariableInfo(ResultName, ENiagaraDataType::Curve))));
-// 		}
 	}
 
 	virtual bool Process()override
@@ -100,10 +100,6 @@ public:
 			Src2->ResultIndex = ResultIndex + 2;
 			Src3->ResultLocation = ENiagaraExpressionResultLocation::Constants;
 			Src3->ResultIndex = ResultIndex + 3;
-		}
-		else if (Result.Type == ENiagaraDataType::Curve)
-		{
-			ResultLocation = ENiagaraExpressionResultLocation::BufferConstants;
 		}
 
 		return true;
@@ -176,8 +172,16 @@ bool FNiagaraCompiler::CheckOutputs(FName OpName, TArray<TNiagaraExprPtr>& Outpu
 
 void FNiagaraCompiler::Error(FText ErrorText, UNiagaraNode* Node, UEdGraphPin* Pin)
 {
-	FString ErrorString = FString::Printf(TEXT("Node: @@ - Pin: @@ - %s"), *ErrorText.ToString());
-	MessageLog.Error(*ErrorString, Node, Pin);
+	if (Pin)
+	{
+		FString ErrorString = FString::Printf(TEXT("Node: @@ - Pin: @@ - %s"), *ErrorText.ToString());
+		MessageLog.Error(*ErrorString, Node, Pin);
+	}
+	else
+	{
+		FString ErrorString = FString::Printf(TEXT("Node: @@ - %s"), *ErrorText.ToString());
+		MessageLog.Error(*ErrorString, Node);
+	}
 }
 
 void FNiagaraCompiler::Warning(FText WarningText, UNiagaraNode* Node, UEdGraphPin* Pin)
@@ -296,7 +300,7 @@ TNiagaraExprPtr FNiagaraCompiler::CompilePin(UEdGraphPin* Pin)
 		{
 			//No connections to this input so add the default as a const expression.
 			const UEdGraphSchema_Niagara* Schema = Cast<const UEdGraphSchema_Niagara>(Pin->GetSchema());
-			ENiagaraDataType PinType = Schema->GetPinType(Pin);
+			ENiagaraDataType PinType = Schema->GetPinDataType(Pin);
 
 			FString ConstString = Pin->GetDefaultAsString();
 			FName ConstName(*ConstString);
@@ -323,12 +327,6 @@ TNiagaraExprPtr FNiagaraCompiler::CompilePin(UEdGraphPin* Pin)
 			{
 				FMatrix Default;
 				Schema->GetPinDefaultValue(Pin, Default);
-				ConstantData.SetOrAddInternal(Var, Default);
-			}
-				break;
-			case ENiagaraDataType::Curve:
-			{
-				UNiagaraDataObject *Default = nullptr;
 				ConstantData.SetOrAddInternal(Var, Default);
 			}
 				break;
@@ -398,12 +396,6 @@ TNiagaraExprPtr FNiagaraCompiler::GetExternalConstant(const FNiagaraVariableInfo
 	SetOrAddConstant(false, Constant, Default);
 	return Expression_GetExternalConstant(Constant);
 }
-TNiagaraExprPtr FNiagaraCompiler::GetExternalConstant(const FNiagaraVariableInfo& Constant, const UNiagaraDataObject* Default)
-{
-	UNiagaraDataObject* DefaultDupe = Default ? CastChecked<UNiagaraDataObject>(StaticDuplicateObject(Default, Script, NAME_None, ~RF_Transient)) : nullptr;
-	SetOrAddConstant(false, Constant, DefaultDupe);
-	return Expression_GetExternalConstant(Constant);
-}
 TNiagaraExprPtr FNiagaraCompiler::GetInternalConstant(const FNiagaraVariableInfo& Constant, float Default)
 {
 	SetOrAddConstant(true, Constant, Default);
@@ -417,12 +409,6 @@ TNiagaraExprPtr FNiagaraCompiler::GetInternalConstant(const FNiagaraVariableInfo
 TNiagaraExprPtr FNiagaraCompiler::GetInternalConstant(const FNiagaraVariableInfo& Constant, const FMatrix& Default)
 {
 	SetOrAddConstant(true, Constant, Default);
-	return Expression_GetInternalConstant(Constant);
-}
-TNiagaraExprPtr FNiagaraCompiler::GetInternalConstant(const FNiagaraVariableInfo& Constant, const UNiagaraDataObject* Default)
-{
-	UNiagaraDataObject* DefaultDupe = Default ? CastChecked<UNiagaraDataObject>(StaticDuplicateObject(Default, Script, NAME_None, ~RF_Transient)) : nullptr;
-	SetOrAddConstant(true, Constant, DefaultDupe);
 	return Expression_GetInternalConstant(Constant);
 }
 
@@ -453,7 +439,7 @@ bool FNiagaraCompiler::MergeFunctionIntoMainGraph(UNiagaraNodeFunctionCall* Func
 			{
 				Callstack.Append(StackScript->GetPathName()); Callstack.Append(TEXT("\n"));
 			}
-			MessageLog.Error(TEXT("Reentrant function call!\n%s"), *Callstack);
+			MessageLog.Error(*FString::Printf(TEXT("Reentrant function call!\n%s"), *Callstack));
 			return false;
 		}
 		FunctionStack.Add(FuncScript);

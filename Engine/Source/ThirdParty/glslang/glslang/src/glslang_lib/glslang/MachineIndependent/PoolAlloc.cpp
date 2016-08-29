@@ -32,8 +32,8 @@
 //POSSIBILITY OF SUCH DAMAGE.
 //
 
-#include "../Include/PoolAlloc.h"
 #include "../Include/Common.h"
+#include "../Include/PoolAlloc.h"
 
 #include "../Include/InitializeGlobals.h"
 #include "../OSDependent/osinclude.h"
@@ -190,7 +190,7 @@ void TAllocation::checkGuardBlock(unsigned char*, unsigned char, const char*) co
 #endif
 {
 #ifdef GUARD_BLOCKS
-    for (int x = 0; x < guardBlockSize; x++) {
+    for (size_t x = 0; x < guardBlockSize; x++) {
         if (blockMem[x] != val) {
             const int maxSize = 80;
             char assertMsg[maxSize];

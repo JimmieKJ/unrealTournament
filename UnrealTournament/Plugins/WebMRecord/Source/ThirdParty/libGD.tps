@@ -1,12 +1,13 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <TpsData xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
   <Name>GD Graphics Library</Name>
-  <Location>UE4-UT\UnrealTournament\Plugins\WebMRecord\Source\ThirdParty\libGD</Location>
-  <Date>2016-01-11T11:18:29.5483306-05:00</Date>
+  <Location>/UnrealTournament/Plugins/WebMRecord/Source/ThirdParty/</Location>
+  <Date>2016-06-17T14:20:35.6539998-04:00</Date>
   <Function>Library for the dynamic creation of images by programmers.</Function>
   <Justification>Animated gif library</Justification>
   <Platforms>
     <Platform>PC</Platform>
+    <Platform>Playstation 4</Platform>
   </Platforms>
   <Products>
     <Product>Unreal Tournament</Product>
@@ -15,13 +16,12 @@
   <TpsType>lib</TpsType>
   <Eula>https://raw.githubusercontent.com/libgd/libgd/master/docs/naturaldocs/license.txt</Eula>
   <RedistributeTo>
-    <EndUserGroup>Licensees</EndUserGroup>
     <EndUserGroup>Git</EndUserGroup>
     <EndUserGroup>P4</EndUserGroup>
   </RedistributeTo>
   <Redistribute>false</Redistribute>
   <IsSourceAvailable>true</IsSourceAvailable>
-  <NoticeType>Copyright Notice</NoticeType>
+  <NoticeType>Full EULA Text</NoticeType>
   <Notification>&gt; In order to resolve any possible confusion regarding the authorship of
 &gt; gd, the following copyright statement covers all of the authors who
 &gt; have required such a statement. If you are aware of any oversights in
@@ -92,5 +92,5 @@
 &gt; Although their code does not appear in the current release, the
 &gt; authors also wish to thank Hutchison Avenue Software Corporation
 &gt; for their prior contributions.</Notification>
-  <LicenseFolder />
+  <LicenseFolder>/UnrealTournament/Plugins/WebMRecord/Source/ThirdParty/libgd/LICENSE.txt</LicenseFolder>
 </TpsData>

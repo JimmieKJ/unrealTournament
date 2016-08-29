@@ -61,7 +61,7 @@ class UNREALTOURNAMENT_API AUTTeleporter : public AActor, public IUTPathBuilderI
 	void PostTeleport(AActor* OtherActor);
 
 	UFUNCTION()
-	virtual void OnOverlapBegin(AActor* OtherActor);
+	virtual void OnOverlapBegin(AActor* OverlappingActor, AActor* OtherActor);
 
 #if WITH_EDITOR
 	void UpdateExitArrow();

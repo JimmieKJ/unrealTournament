@@ -6,6 +6,11 @@
 
 #define LOCTEXT_NAMESPACE "LauncherWorker"
 
+/* Static class member instantiations
+*****************************************************************************/
+
+FThreadSafeCounter FLauncherTask::TaskCounter;
+
 /* FLauncherWorker structors
  *****************************************************************************/
 
@@ -105,8 +110,8 @@ uint32 FLauncherWorker::Run( )
 
 	if (Status == ELauncherWorkerStatus::Canceling)
 	{
-		Status = ELauncherWorkerStatus::Canceled;
 		LaunchCanceled.Broadcast(FPlatformTime::Seconds() - LaunchStartTime);
+		Status = ELauncherWorkerStatus::Canceled;
 	}
 	else
 	{
@@ -131,6 +136,19 @@ void FLauncherWorker::Cancel( )
 	if (Status == ELauncherWorkerStatus::Busy)
 	{
 		Status = ELauncherWorkerStatus::Canceling;
+	}
+}
+
+
+void FLauncherWorker::CancelAndWait( )
+{
+	if (Status == ELauncherWorkerStatus::Busy)
+	{
+		Status = ELauncherWorkerStatus::Canceling;
+		while (Status != ELauncherWorkerStatus::Canceled)
+		{
+			FPlatformProcess::Sleep(0);
+		}
 	}
 }
 
@@ -200,6 +218,23 @@ static void AddDeviceToLaunchCommand(const FString& DeviceId, ITargetDeviceProxy
 		// if our editor has nomcp then pass it through the launched game
 		RoleCommands += TEXT(" -nomcp");
 	}
+
+	if (FParse::Param(FCommandLine::Get(), TEXT("opengl")))
+	{
+		RoleCommands += TEXT(" -opengl");
+	}
+}
+
+static FString Join(const TSet<FString>& Tokens, const FString& Delimeter)
+{
+	FString Result;
+	for (const FString& Token : Tokens)
+	{
+		Result+= Delimeter;
+		Result+= Token;
+	}
+
+	return Result.RightChop(Delimeter.Len());
 }
 
 FString FLauncherWorker::CreateUATCommand( const ILauncherProfileRef& InProfile, const TArray<FString>& InPlatforms, TArray<FCommandDesc>& OutCommands, FString& CommandStart )
@@ -227,7 +262,9 @@ FString FLauncherWorker::CreateUATCommand( const ILauncherProfileRef& InProfile,
 	FString Platforms = TEXT("");
 	FString PlatformCommand = TEXT("");
 	FString OptionalParams = TEXT("");
-
+	TSet<FString> OptionalTargetPlatforms;
+	TSet<FString> OptionalCookFlavors;
+	
 	bool bUATClosesAfterLaunch = false;
 	for (int32 PlatformIndex = 0; PlatformIndex < InPlatforms.Num(); ++PlatformIndex)
 	{
@@ -268,8 +305,24 @@ FString FLauncherWorker::CreateUATCommand( const ILauncherProfileRef& InProfile,
 		// Append any extra UAT flags specified for this platform flavor
 		if (!PlatformInfo->UATCommandLine.IsEmpty())
 		{
+			FString OptionalUATCommandLine = PlatformInfo->UATCommandLine;
+			
+			FString OptionalTargetPlatform;
+			if (FParse::Value(*OptionalUATCommandLine, TEXT("-targetplatform="), OptionalTargetPlatform))
+			{
+				OptionalTargetPlatforms.Add(OptionalTargetPlatform);
+				OptionalUATCommandLine.ReplaceInline(*(TEXT("-targetplatform=") + OptionalTargetPlatform), TEXT(""));
+			}
+
+			FString OptionalCookFlavor;
+			if (FParse::Value(*OptionalUATCommandLine, TEXT("-cookflavor="), OptionalCookFlavor))
+			{
+				OptionalCookFlavors.Add(OptionalCookFlavor);
+				OptionalUATCommandLine.ReplaceInline(*(TEXT("-cookflavor=") + OptionalCookFlavor), TEXT(""));
+			}
+			
 			OptionalParams += TEXT(" ");
-			OptionalParams += PlatformInfo->UATCommandLine;
+			OptionalParams += OptionalUATCommandLine;
 		}
 
 		bUATClosesAfterLaunch |= PlatformInfo->bUATClosesAfterLaunch;
@@ -278,15 +331,29 @@ FString FLauncherWorker::CreateUATCommand( const ILauncherProfileRef& InProfile,
 	if (ServerPlatforms.Len() > 0)
 	{
 		ServerCommand = TEXT(" -server -serverplatform=") + ServerPlatforms.RightChop(1);
+		if (Platforms.Len() == 0)
+		{
+			OptionalParams += TEXT(" -noclient");
+		}
 	}
 	if (Platforms.Len() > 0)
 	{
 		PlatformCommand = TEXT(" -platform=") + Platforms.RightChop(1);
 	}
-
+	
 	UATCommand += PlatformCommand;
 	UATCommand += ServerCommand;
 	UATCommand += OptionalParams;
+
+	if (OptionalTargetPlatforms.Num() > 0)
+	{
+		UATCommand += (TEXT(" -targetplatform=") + Join(OptionalTargetPlatforms, TEXT("+")));
+	}
+	
+	if (OptionalCookFlavors.Num() > 0)
+	{
+		UATCommand += (TEXT(" -cookflavor=") + Join(OptionalCookFlavors, TEXT("+")));
+	}
 
 	// device list
 	FString DeviceNames = TEXT("");
@@ -322,10 +389,12 @@ FString FLauncherWorker::CreateUATCommand( const ILauncherProfileRef& InProfile,
 		*InitialMap);
 
 	// additional commands to be sent to the commandline
+	FString SessionName = InProfile->GetName().Replace(TEXT("\'"), TEXT("_")).Replace(TEXT("\'"), TEXT("_"));
+	FString SessionOwner = FString(FPlatformProcess::UserName(false)).Replace(TEXT("\'"), TEXT("_")).Replace(TEXT("\'"), TEXT("_"));;
 	FString AdditionalCommandLine = FString::Printf(TEXT(" -addcmdline=\"-SessionId=%s -SessionOwner='%s' -SessionName='%s'%s\""),
 		*SessionId.ToString(),
-		FPlatformProcess::UserName(false),
-		*InProfile->GetName(),
+		*SessionOwner,
+		*SessionName,
 		*RoleCommands);
 
 	// map list
@@ -375,6 +444,11 @@ FString FLauncherWorker::CreateUATCommand( const ILauncherProfileRef& InProfile,
 			if (InProfile->IsCookingUnversioned())
 			{
 				UATCommand += TEXT(" -unversionedcookedcontent");
+			}
+
+			if (InProfile->IsEncryptingIniFiles())
+			{
+				UATCommand += TEXT(" -encryptinifiles");
 			}
 
 			FString additionalOptions = InProfile->GetCookOptions();
@@ -427,6 +501,12 @@ FString FLauncherWorker::CreateUATCommand( const ILauncherProfileRef& InProfile,
 			{
 				auto Cmd = FString::Printf(TEXT(" -createchunkinstall -chunkinstalldirectory=\"%s\" -chunkinstallversion=\"%s\""), *InProfile->GetHttpChunkDataDirectory(), *InProfile->GetHttpChunkDataReleaseName());
 				UATCommand += Cmd;
+			}
+			
+			// Creating a packed DLC requires staging
+			if (InProfile->GetPackagingMode() == ELauncherProfilePackagingModes::DoNotPackage && InProfile->IsCreatingDLC() && InProfile->IsPackingWithUnrealPak())
+			{
+				UATCommand += TEXT(" -stage");
 			}
 
 			if (InProfile->GetNumCookersToSpawn() > 0)
@@ -482,6 +562,13 @@ FString FLauncherWorker::CreateUATCommand( const ILauncherProfileRef& InProfile,
 	case ELauncherProfileCookModes::DoNotCook:
 		UATCommand += TEXT(" -skipcook");
 		break;
+	}
+
+
+
+	if ( InProfile->IsForDistribution() )
+	{
+		UATCommand += TEXT(" -distribution");
 	}
 
 	if (InProfile->IsCookingIncrementally())
@@ -589,6 +676,24 @@ FString FLauncherWorker::CreateUATCommand( const ILauncherProfileRef& InProfile,
 			if (CommandStart.Len() == 0)
 			{
 				CommandStart = TEXT("********** STAGE COMMAND STARTED **********");
+			}
+		}
+
+		if (InProfile->IsArchiving())
+		{
+			UATCommand += TEXT(" -archive");
+			UATCommand += TEXT(" -archivedirectory=");
+			UATCommand += Profile->GetArchiveDirectory();
+
+			FCommandDesc Desc;
+			FText Command = FText::Format(LOCTEXT("LauncherArchiveDesc", "Archiving content for {0}"), FText::FromString(Platforms.RightChop(1)));
+			Desc.Name = "Archive Task";
+			Desc.Desc = Command.ToString();
+			Desc.EndText = TEXT("********** ARCHIVE COMMAND COMPLETED **********");
+			OutCommands.Add(Desc);
+			if (CommandStart.Len() == 0)
+			{
+				CommandStart = TEXT("********** ARCHIVE COMMAND STARTED **********");
 			}
 		}
 	}

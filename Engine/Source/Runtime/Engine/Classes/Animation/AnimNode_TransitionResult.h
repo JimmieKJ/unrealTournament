@@ -2,6 +2,7 @@
 
 #pragma once
 #include "Animation/AnimNodeBase.h"
+#include "Animation/AnimInstance.h"
 #include "AnimNode_TransitionResult.generated.h"
 
 // Root node of a state machine transition graph

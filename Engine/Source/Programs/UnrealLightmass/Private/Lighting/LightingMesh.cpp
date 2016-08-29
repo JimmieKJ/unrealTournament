@@ -1,6 +1,6 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "stdafx.h"
+#include "LightmassPCH.h"
 #include "Importer.h"
 #include "MonteCarlo.h"
 #include "LightingSystem.h"
@@ -113,7 +113,7 @@ void FStaticLightingMesh::Import( FLightmassImporter& Importer )
 		FMaterialElement& CurrentMaterialElement = MaterialElements[MtrlIdx];
 		FMaterialElementData METempData;
 		Importer.ImportData(&METempData);
-		CurrentMaterialElement.MaterialId = METempData.MaterialId;
+		CurrentMaterialElement.MaterialHash = METempData.MaterialHash;
 		CurrentMaterialElement.bUseTwoSidedLighting = METempData.bUseTwoSidedLighting;
 		CurrentMaterialElement.bShadowIndirectOnly = METempData.bShadowIndirectOnly;
 		CurrentMaterialElement.bUseEmissiveForStaticLighting = METempData.bUseEmissiveForStaticLighting;
@@ -124,8 +124,8 @@ void FStaticLightingMesh::Import( FLightmassImporter& Importer )
 		CurrentMaterialElement.EmissiveBoost = METempData.EmissiveBoost;
 		CurrentMaterialElement.DiffuseBoost = METempData.DiffuseBoost;
 		CurrentMaterialElement.FullyOccludedSamplesFraction = METempData.FullyOccludedSamplesFraction;
-		CurrentMaterialElement.Material = Importer.ConditionalImportObject<FMaterial>(CurrentMaterialElement.MaterialId, LM_MATERIAL_VERSION, LM_MATERIAL_EXTENSION, LM_MATERIAL_CHANNEL_FLAGS, Importer.GetMaterials());
-		checkf(CurrentMaterialElement.Material, TEXT("Failed to import material with GUID %s"), *CurrentMaterialElement.MaterialId.ToString());
+		CurrentMaterialElement.Material = Importer.ConditionalImportObject<FMaterial>(CurrentMaterialElement.MaterialHash, LM_MATERIAL_VERSION, LM_MATERIAL_EXTENSION, LM_MATERIAL_CHANNEL_FLAGS, Importer.GetMaterials());
+		checkf(CurrentMaterialElement.Material, TEXT("Failed to import material with Hash %s"), *CurrentMaterialElement.MaterialHash.ToString());
 
 		const bool bMasked = CurrentMaterialElement.Material->BlendMode == BLEND_Masked;
 

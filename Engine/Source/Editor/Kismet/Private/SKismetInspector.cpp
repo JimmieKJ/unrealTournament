@@ -17,6 +17,7 @@
 #include "BlueprintDetailsCustomization.h"
 #include "UserDefinedEnumEditor.h"
 #include "UserDefinedStructureEditor.h"
+#include "BitmaskLiteralDetails.h"
 #include "FormatTextDetails.h"
 #include "Engine/SCS_Node.h"
 #include "Components/ChildActorComponent.h"
@@ -133,9 +134,6 @@ TSharedRef<SWidget> SKismetInspector::MakeContextualEditingWidget(struct FKismet
 	// Show the property editor
 	PropertyView->HideFilterArea(Options.bHideFilterArea);
 	PropertyView->SetObjects(SelectionInfo.ObjectsForPropertyEditing, Options.bForceRefresh);
-
-	PropertyView->SetIsPropertyEditingEnabledDelegate(FIsPropertyEditingEnabled::CreateSP(this, &SKismetInspector::IsPropertyEditingEnabled));
-
 
 	if (SelectionInfo.ObjectsForPropertyEditing.Num())
 	{
@@ -315,7 +313,9 @@ void SKismetInspector::Construct(const FArguments& InArgs)
 		
 	//@TODO: .IsEnabled( FSlateApplication::Get().GetNormalExecutionAttribute() );
 	PropertyView->SetIsPropertyVisibleDelegate( FIsPropertyVisible::CreateSP(this, &SKismetInspector::IsPropertyVisible) );
-	PropertyView->SetIsPropertyEditingEnabledDelegate(InArgs._IsPropertyEditingEnabledDelegate);
+	PropertyView->SetIsPropertyEditingEnabledDelegate(FIsPropertyEditingEnabled::CreateSP(this, &SKismetInspector::IsPropertyEditingEnabled));
+
+	IsPropertyEditingEnabledDelegate = InArgs._IsPropertyEditingEnabledDelegate;
 	UserOnFinishedChangingProperties = InArgs._OnFinishedChangingProperties;
 
 	TWeakPtr<SMyBlueprint> MyBlueprint = Kismet2.IsValid() ? Kismet2->GetMyBlueprintWidget() : InArgs._MyBlueprintWidget;
@@ -344,6 +344,9 @@ void SKismetInspector::Construct(const FArguments& InArgs)
 
 		FOnGetDetailCustomizationInstance LayoutFormatTextDetails = FOnGetDetailCustomizationInstance::CreateStatic(&FFormatTextDetails::MakeInstance);
 		PropertyView->RegisterInstancedCustomPropertyLayout(UK2Node_FormatText::StaticClass(), LayoutFormatTextDetails);
+
+		FOnGetDetailCustomizationInstance LayoutBitmaskLiteralDetails = FOnGetDetailCustomizationInstance::CreateStatic(&FBitmaskLiteralDetails::MakeInstance);
+		PropertyView->RegisterInstancedCustomPropertyLayout(UK2Node_BitmaskLiteral::StaticClass(), LayoutBitmaskLiteralDetails);
 
 		FOnGetDetailCustomizationInstance LayoutDocumentationDetails = FOnGetDetailCustomizationInstance::CreateStatic(&FBlueprintDocumentationDetails::MakeInstance, BlueprintEditorPtr);
 		PropertyView->RegisterInstancedCustomPropertyLayout(UEdGraphNode_Documentation::StaticClass(), LayoutDocumentationDetails);
@@ -470,32 +473,29 @@ void SKismetInspector::AddPropertiesRecursive(UProperty* Property)
 
 void SKismetInspector::UpdateFromObjects(const TArray<UObject*>& PropertyObjects, struct FKismetSelectionInfo& SelectionInfo, const FShowDetailsOptions& Options)
 {
-	// If we're using the unified blueprint editor, there's not an explicit point where
+	// There's not an explicit point where
 	// we ender a kind of component editing mode, so instead, just look at what we're selecting.
 	// If we select a component, then enable the customization.
-	if ( GetDefault<UEditorExperimentalSettings>()->bUnifiedBlueprintEditor )
-	{
-		bool bEnableComponentCustomization = false;
+	bool bEnableComponentCustomization = false;
 
-		TSharedPtr<FBlueprintEditor> BlueprintEditor = BlueprintEditorPtr.Pin();
-		if ( BlueprintEditor.IsValid() )
+	TSharedPtr<FBlueprintEditor> BlueprintEditor = BlueprintEditorPtr.Pin();
+	if (BlueprintEditor.IsValid())
+	{
+		if (BlueprintEditor->CanAccessComponentsMode())
 		{
-			if ( BlueprintEditor->CanAccessComponentsMode() )
+			for (UObject* PropertyObject : PropertyObjects)
 			{
-				for ( UObject* PropertyObject : PropertyObjects )
+				if (PropertyObject->IsA<UActorComponent>())
 				{
-					if ( PropertyObject->IsA<UActorComponent>() )
-					{
-						bEnableComponentCustomization = true;
-						break;
-					}
+					bEnableComponentCustomization = true;
+					break;
 				}
 			}
 		}
-
-		EnableComponentDetailsCustomization(bEnableComponentCustomization);
 	}
 
+	EnableComponentDetailsCustomization(bEnableComponentCustomization);
+	
 	if (!Options.bForceRefresh)
 	{
 		// Early out if the PropertyObjects and the SelectedObjects are the same
@@ -749,7 +749,18 @@ bool SKismetInspector::IsPropertyEditingEnabled() const
 
 	if (BlueprintEditorPtr.IsValid())
 	{
-		bIsEditable = BlueprintEditorPtr.Pin()->InEditingMode();
+		if (GetDefault<UEditorExperimentalSettings>()->bAllowPotentiallyUnsafePropertyEditing == false)
+		{
+			bIsEditable = BlueprintEditorPtr.Pin()->InEditingMode();
+		}
+		else
+		{
+			// This function is essentially for PIE use so if we are NOT doing PIE use the normal path
+			if (GEditor->GetPIEWorldContext() == nullptr)
+			{
+				bIsEditable = BlueprintEditorPtr.Pin()->InEditingMode();
+			}
+		}
 	}
 
 	for (const TWeakObjectPtr<UObject>& SelectedObject : SelectedObjects)
@@ -761,7 +772,7 @@ bool SKismetInspector::IsPropertyEditingEnabled() const
 			break;
 		}
 	}
-	return bIsEditable;
+	return bIsEditable && (!IsPropertyEditingEnabledDelegate.IsBound() || IsPropertyEditingEnabledDelegate.Execute());
 }
 
 EVisibility SKismetInspector::GetInheritedBlueprintComponentWarningVisibility() const

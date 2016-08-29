@@ -296,7 +296,6 @@ namespace UnrealBuildTool
 				(InPlatform == UnrealTargetPlatform.Win64) ||
 				(InPlatform == UnrealTargetPlatform.Win32) ||
 				(InPlatform == UnrealTargetPlatform.Mac) ||
-				(InPlatform == UnrealTargetPlatform.WinRT) ||
 				(InPlatform == UnrealTargetPlatform.Linux)
 				);
 		}
@@ -310,7 +309,6 @@ namespace UnrealBuildTool
 		static public bool PlatformSupportsCrashReporter(UnrealTargetPlatform InPlatform)
 		{
 			return (
-				(InPlatform == UnrealTargetPlatform.UWP) ||
 				(InPlatform == UnrealTargetPlatform.Win64) ||
 				(InPlatform == UnrealTargetPlatform.Win32) ||
 				(InPlatform == UnrealTargetPlatform.Linux) ||
@@ -448,7 +446,7 @@ namespace UnrealBuildTool
 			return false;
 		}
 
-		public static void RegisterAllUBTClasses(bool bSkipBuildPlatforms = false)
+		public static void RegisterAllUBTClasses(bool bSkipBuildPlatforms = false, bool bValidatingPlatforms = false)
 		{
 			// Find and register all tool chains and build platforms that are present
 			Assembly UBTAssembly = Assembly.GetExecutingAssembly();
@@ -469,7 +467,7 @@ namespace UnrealBuildTool
 							{
 								Log.TraceVerbose("    Registering build platform: {0}", CheckType.ToString());
 								UEBuildPlatformFactory TempInst = (UEBuildPlatformFactory)(UBTAssembly.CreateInstance(CheckType.FullName, true));
-								TempInst.TryRegisterBuildPlatforms();
+								TempInst.TryRegisterBuildPlatforms(bValidatingPlatforms);
 							}
 						}
 					}
@@ -698,9 +696,9 @@ namespace UnrealBuildTool
 				{
 					UEBuildConfiguration.bMergeExternalFileList = true;
 				}
-				else if (LowercaseArg == "-listtps")
+				else if (LowercaseArg == "-listbuildfolders")
 				{
-					UEBuildConfiguration.bListThirdPartySoftware = true;
+					UEBuildConfiguration.bListBuildFolders = true;
 				}
 				else if (LowercaseArg == "-generatemanifest")
 				{
@@ -806,6 +804,7 @@ namespace UnrealBuildTool
 				else if (LowercaseArg == "-nosimplygon")
 				{
 					UEBuildConfiguration.bCompileSimplygon = false;
+                    UEBuildConfiguration.bCompileSimplygonSSF = false;
 				}
 				else if (LowercaseArg == "-nospeedtree")
 				{
@@ -853,9 +852,21 @@ namespace UnrealBuildTool
 				{
 					BuildConfiguration.bUseFastPDBLinking = true;
 				}
-				else if(LowercaseArg == "-mapfile")
+				else if (LowercaseArg == "-mapfile")
 				{
 					BuildConfiguration.bCreateMapFile = true;
+				}
+				else if (LowercaseArg.StartsWith("-architectures="))
+				{
+					UEBuildConfiguration.Architectures = LowercaseArg.Replace("-architectures=", "").Split(new char[] { '+' }, StringSplitOptions.RemoveEmptyEntries);
+				}
+				else if (LowercaseArg.StartsWith("-gpuarchitectures="))
+				{
+					UEBuildConfiguration.GPUArchitectures = LowercaseArg.Replace("-gpuarchitectures=", "").Split(new char[] { '+' }, StringSplitOptions.RemoveEmptyEntries);
+				}
+				else if(LowercaseArg == "-enablecodeanalysis")
+				{
+					BuildConfiguration.bEnableCodeAnalysis = true;
 				}
 			}
 		}
@@ -1246,7 +1257,7 @@ namespace UnrealBuildTool
 					}
 
 					// Find and register all tool chains, build platforms, etc. that are present
-					RegisterAllUBTClasses();
+					RegisterAllUBTClasses(bValidatingPlatforms:bValidatePlatforms);
 					ProjectFileGenerator.bGenerateProjectFiles = false;
 
 					if (BuildConfiguration.bPrintPerformanceInfo)
@@ -1335,8 +1346,8 @@ namespace UnrealBuildTool
 
 							// If we build w/ bXGEExport true, we didn't REALLY build at this point, 
 							// so don't bother with doing the PrepTargetForDeployment call. 
-							if ((Result == ECompilationResult.Succeeded) && (BuildConfiguration.bDeployAfterCompile == true) && (BuildConfiguration.bXGEExport == false) &&
-								(UEBuildConfiguration.bGenerateManifest == false) && (UEBuildConfiguration.bGenerateExternalFileList == false) && (UEBuildConfiguration.bCleanProject == false))
+							if ((Result == ECompilationResult.Succeeded) && (BuildConfiguration.bDeployAfterCompile == true) && (BuildConfiguration.bXGEExport == false) && String.IsNullOrEmpty(BuildConfiguration.SingleFileToCompile) && 
+								(UEBuildConfiguration.bGenerateManifest == false) && (UEBuildConfiguration.bGenerateExternalFileList == false) && (UEBuildConfiguration.bCleanProject == false) && (UEBuildConfiguration.bListBuildFolders == false))
 							{
 								List<TargetDescriptor> TargetDescs = UEBuildTarget.ParseTargetCommandLine(Arguments, ref ProjectFile);
 								if (TargetDescs[0].OnlyModules.Count == 0)
@@ -1379,18 +1390,6 @@ namespace UnrealBuildTool
 
 						Log.TraceInformation("Execution time: {0}s", BuildDuration);
 					}
-
-					//Telemetry.SendEvent("PerformanceInfo.2",
-					//    "TotalExecutionTimeSec", BuildDuration.ToString("0.00"),
-					//    "TotalTimeSpentGettingIncludesSec", CPPEnvironment.TotalTimeSpentGettingIncludes.ToString("0.00"),
-					//    "TotalIncludesRequested", CPPEnvironment.TotalIncludesRequested.ToString(),
-					//    "DirectIncludeCacheMissesTotalTimeSec", CPPEnvironment.DirectIncludeCacheMissesTotalTime.ToString("0.00"),
-					//    "TotalDirectIncludeCacheMisses", CPPEnvironment.TotalDirectIncludeCacheMisses.ToString(),
-					//    "TotalFindIncludedFileCalls", CPPEnvironment.TotalFindIncludedFileCalls.ToString(),
-					//    "IncludePathSearchAttempts", CPPEnvironment.IncludePathSearchAttempts.ToString(),
-					//    "TotalFileItemCount", FileItem.TotalFileItemCount.ToString(),
-					//    "MissingFileItemCount", FileItem.MissingFileItemCount.ToString()
-					//    );
 				}
 				catch (Exception Exception)
 				{
@@ -1422,9 +1421,12 @@ namespace UnrealBuildTool
 		public static int ExtendedErrorCode = 0;
 		private static int Main(string[] Arguments)
 		{
-			// make sure we catch any exceptions and return an appropriate error code.
-			// Some inner code already does this (to ensure the Mutex is released),
-			// but we need something to cover all outer code as well.
+            // make sure we catch any exceptions and return an appropriate error code.
+            // Some inner code already does this (to ensure the Mutex is released),
+            // but we need something to cover all outer code as well.
+
+            // Console.WriteLine("UBT Cmd Line: " + string.Join(" ", Arguments));
+
 			try
 			{
 				// Make it more explicit what startup code should not be accessing config data.
@@ -1582,7 +1584,6 @@ namespace UnrealBuildTool
 
 			UEToolChain ToolChain = BuildPlatformContext.CreateToolChainForDefaultCppPlatform();
 
-			string EULAViolationWarning = null;
 			Thread CPPIncludesThread = null;
 
 			try
@@ -1639,8 +1640,9 @@ namespace UnrealBuildTool
 					return ECompilationResult.Succeeded;
 				}
 
-				UEBuildConfiguration.bHotReloadFromIDE = UEBuildConfiguration.bAllowHotReloadFromIDE && TargetDescs.Count == 1 && !TargetDescs[0].bIsEditorRecompile && ShouldDoHotReloadFromIDE(TargetDescs[0]);
-				bool bIsHotReload = UEBuildConfiguration.bHotReloadFromIDE || (TargetDescs.Count == 1 && TargetDescs[0].OnlyModules.Count > 0 && TargetDescs[0].ForeignPlugins.Count == 0);
+				bool bNoHotReload = UnrealBuildTool.CommandLineContains("-NoHotReload");
+				UEBuildConfiguration.bHotReloadFromIDE = !bNoHotReload && UEBuildConfiguration.bAllowHotReloadFromIDE && TargetDescs.Count == 1 && !TargetDescs[0].bIsEditorRecompile && ShouldDoHotReloadFromIDE(TargetDescs[0]);
+				bool bIsHotReload = !bNoHotReload && (UEBuildConfiguration.bHotReloadFromIDE || (TargetDescs.Count == 1 && TargetDescs[0].OnlyModules.Count > 0 && TargetDescs[0].ForeignPlugins.Count == 0));
 				TargetDescriptor HotReloadTargetDesc = bIsHotReload ? TargetDescs[0] : null;
 
 				if (ProjectFileGenerator.bGenerateProjectFiles)
@@ -1814,8 +1816,6 @@ namespace UnrealBuildTool
 				Dictionary<string, List<UHTModuleInfo>> TargetNameToUObjectModules = new Dictionary<string, List<UHTModuleInfo>>(StringComparer.InvariantCultureIgnoreCase);
 				foreach (UEBuildTarget Target in Targets)
 				{
-					DateTime TargetStartTime = DateTime.UtcNow;
-
 					if (bIsHotReload)
 					{
 						// Don't produce new DLLs if there's been no code changes
@@ -1843,7 +1843,7 @@ namespace UnrealBuildTool
 					{
 						List<FileItem> TargetOutputItems;
 						List<UHTModuleInfo> TargetUObjectModules;
-						BuildResult = Target.Build(ToolChain, out TargetOutputItems, out TargetUObjectModules, out EULAViolationWarning);
+						BuildResult = Target.Build(ToolChain, out TargetOutputItems, out TargetUObjectModules);
 						if (BuildResult != ECompilationResult.Succeeded)
 						{
 							break;
@@ -1873,28 +1873,13 @@ namespace UnrealBuildTool
 								ActionGraph.SaveActionGraphVisualization(Target, Path.Combine(BuildConfiguration.BaseIntermediatePath, Target.GetTargetName() + ".gexf"), Target.GetTargetName(), VisualizationType, ActionsToExecute);
 							}
 						}
-
-						double TargetBuildTime = (DateTime.UtcNow - TargetStartTime).TotalSeconds;
-
-						// Send out telemetry for this target
-						Telemetry.SendEvent("TargetBuildStats.2",
-							"AppName", Target.AppName,
-							"GameName", Target.TargetName,
-							"Platform", Target.Platform.ToString(),
-							"Configuration", Target.Configuration.ToString(),
-							"CleanTarget", UEBuildConfiguration.bCleanProject.ToString(),
-							"Monolithic", Target.ShouldCompileMonolithic().ToString(),
-							"CreateDebugInfo", Target.IsCreatingDebugInfo().ToString(),
-							"TargetType", Target.TargetType.ToString(),
-							"TargetCreateTimeSec", TargetBuildTime.ToString("0.00")
-							);
 					}
 				}
 
 				if (BuildResult == ECompilationResult.Succeeded &&
 					(
 						(BuildConfiguration.bXGEExport && UEBuildConfiguration.bGenerateManifest) ||
-						(!GeneratingActionGraph && !ProjectFileGenerator.bGenerateProjectFiles && !UEBuildConfiguration.bGenerateManifest && !UEBuildConfiguration.bCleanProject && !UEBuildConfiguration.bGenerateExternalFileList && !UEBuildConfiguration.bListThirdPartySoftware)
+						(!GeneratingActionGraph && !ProjectFileGenerator.bGenerateProjectFiles && !UEBuildConfiguration.bGenerateManifest && !UEBuildConfiguration.bCleanProject && !UEBuildConfiguration.bGenerateExternalFileList && !UEBuildConfiguration.bListBuildFolders)
 					))
 				{
 					if (UnrealBuildTool.IsGatheringBuild)
@@ -1993,17 +1978,6 @@ namespace UnrealBuildTool
 							// Make sure any old DLL files from in-engine recompiles aren't lying around.  Must be called after the action graph is finalized.
 							ActionGraph.DeleteStaleHotReloadDLLs();
 
-							// Plan the actions to execute for the build.
-							Dictionary<UEBuildTarget, List<FileItem>> TargetToOutdatedPrerequisitesMap;
-							List<Action> ActionsToExecute = ActionGraph.GetActionsToExecute(UBTMakefile.PrerequisiteActions, Targets, out TargetToOutdatedPrerequisitesMap);
-
-							// Display some stats to the user.
-							Log.TraceVerbose(
-									"{0} actions, {1} outdated and requested actions",
-									ActionGraph.AllActions.Count,
-									ActionsToExecute.Count
-									);
-
 							if (!bIsHotReload && String.IsNullOrEmpty(BuildConfiguration.SingleFileToCompile))
 							{
 								// clean up any stale modules
@@ -2018,6 +1992,16 @@ namespace UnrealBuildTool
 
 							ToolChain.PreBuildSync();
 
+                            // Plan the actions to execute for the build.
+                            Dictionary<UEBuildTarget, List<FileItem>> TargetToOutdatedPrerequisitesMap;
+                            List<Action> ActionsToExecute = ActionGraph.GetActionsToExecute(UBTMakefile.PrerequisiteActions, Targets, out TargetToOutdatedPrerequisitesMap);
+
+                            // Display some stats to the user.
+                            Log.TraceVerbose(
+                                    "{0} actions, {1} outdated and requested actions",
+                                    ActionGraph.AllActions.Count,
+                                    ActionsToExecute.Count
+                                    );
 
 							// Cache indirect includes for all outdated C++ files.  We kick this off as a background thread so that it can
 							// perform the scan while we're compiling.  It usually only takes up to a few seconds, but we don't want to hurt
@@ -2037,7 +2021,7 @@ namespace UnrealBuildTool
 
 							// Execute the actions.
 							string TargetInfoForTelemetry = String.Join("|", Targets.Select(x => String.Format("{0} {1} {2}{3}", x.TargetName, x.Platform, x.Configuration, BuildConfiguration.bUseUnityBuild? "" : " NonUnity")));
-							bSuccess = ActionGraph.ExecuteActions(ActionsToExecute, out ExecutorName, TargetInfoForTelemetry);
+							bSuccess = ActionGraph.ExecuteActions(ActionsToExecute, out ExecutorName, TargetInfoForTelemetry, bIsHotReload);
 
 							// if the build succeeded, write the receipts and do any needed syncing
 							if (bSuccess)
@@ -2111,11 +2095,6 @@ namespace UnrealBuildTool
 				CPPEnvironment.FlatCPPIncludeDependencyCache.Clear();
 			}
 
-			if (EULAViolationWarning != null)
-			{
-				Log.TraceWarning("WARNING: {0}", EULAViolationWarning);
-			}
-
 			// Figure out how long we took to execute.
 			double BuildDuration = (DateTime.UtcNow - StartTime).TotalSeconds;
 			if (ExecutorName == "Local" || ExecutorName == "Distcc" || ExecutorName == "SNDBS")
@@ -2131,16 +2110,6 @@ namespace UnrealBuildTool
 					TotalLinkTime,
 					TotalOtherActionsTime
 				);
-				//Telemetry.SendEvent("BuildStatsTotal.2",
-				//    "ExecutorName", ExecutorName,
-				//    "TotalUBTWallClockTimeSec", BuildDuration.ToString("0.00"),
-				//    "TotalBuildProjectThreadTimeSec", TotalBuildProjectTime.ToString("0.00"),
-				//    "TotalCompileThreadTimeSec", TotalCompileTime.ToString("0.00"),
-				//    "TotalCreateAppBundleThreadTimeSec", TotalCreateAppBundleTime.ToString("0.00"),
-				//    "TotalGenerateDebugInfoThreadTimeSec", TotalGenerateDebugInfoTime.ToString("0.00"),
-				//    "TotalLinkThreadTimeSec", TotalLinkTime.ToString("0.00"),
-				//    "TotalOtherActionsThreadTimeSec", TotalOtherActionsTime.ToString("0.00")
-				//    );
 
 				Log.TraceInformation("Total build time: {0:0.00} seconds", BuildDuration);
 
@@ -2158,10 +2127,6 @@ namespace UnrealBuildTool
 				{
 					Log.TraceInformation("XGE execution time: {0:0.00} seconds", BuildDuration);
 				}
-				//Telemetry.SendEvent("BuildStatsTotal.2",
-				//    "ExecutorName", ExecutorName,
-				//    "TotalUBTWallClockTimeSec", BuildDuration.ToString("0.00")
-				//    );
 			}
 
 			return BuildResult;
@@ -2615,6 +2580,18 @@ namespace UnrealBuildTool
 				// Get all H files in all modules processed in the last makefile build
 				HashSet<string> AllUHTHeaders = new HashSet<string>(Target.FlatModuleCsData.Select(x => x.Value).SelectMany(x => x.UHTHeaderNames));
 
+				// Check whether any headers have been deleted. If they have, we need to regenerate the makefile since the module might now be empty. If we don't,
+				// and the file has been moved to a different module, we may include stale generated headers.
+				foreach (string FileName in AllUHTHeaders)
+				{
+					if (!File.Exists(FileName))
+					{
+						Log.TraceVerbose("File processed by UHT was deleted ({0}); invalidating makefile", FileName);
+						ReasonNotLoaded = string.Format("UHT file was deleted");
+						return null;
+					}
+				}
+
 				// Makefile is invalid if:
 				// * There are any newer files which contain no UHT data, but were previously in the makefile
 				// * There are any newer files contain data which needs processing by UHT, but weren't not previously in the makefile
@@ -2844,21 +2821,28 @@ namespace UnrealBuildTool
 					}
 					else
 					{
+						OriginalFileNameWithoutNumberSuffix = OriginalFileNameWithoutExtension;
+
 						// Remove "-####-Platform-Configuration" suffix in Debug configuration
 						int IndexOfSecondLastHyphen = OriginalFileNameWithoutExtension.LastIndexOf('-', IndexOfLastHyphen - 1, IndexOfLastHyphen);
-						int IndexOfThirdLastHyphen = OriginalFileNameWithoutExtension.LastIndexOf('-', IndexOfSecondLastHyphen - 1, IndexOfSecondLastHyphen);
-
-						if (!int.TryParse(OriginalFileNameWithoutExtension.Substring(IndexOfThirdLastHyphen + 1, IndexOfSecondLastHyphen - IndexOfThirdLastHyphen - 1), out NumberSuffix))
+						if (IndexOfSecondLastHyphen >= 0)
 						{
-							throw new BuildException("Expected produced item file name '{0}' to contain a numbered suffix when hot reloading second time.", OriginalFileNameWithoutExtension);
+							int IndexOfThirdLastHyphen = OriginalFileNameWithoutExtension.LastIndexOf('-', IndexOfSecondLastHyphen - 1, IndexOfSecondLastHyphen);
+							if (IndexOfThirdLastHyphen >= 0)
+							{
+								if (int.TryParse(OriginalFileNameWithoutExtension.Substring(IndexOfThirdLastHyphen + 1, IndexOfSecondLastHyphen - IndexOfThirdLastHyphen - 1), out NumberSuffix))
+								{
+									OriginalFileNameWithoutNumberSuffix = OriginalFileNameWithoutExtension.Substring(0, IndexOfThirdLastHyphen);
+									PlatformConfigSuffix = OriginalFileNameWithoutExtension.Substring(IndexOfSecondLastHyphen);
+									bHasNumberSuffix = true;
+								}
+							}
 						}
-
-						OriginalFileNameWithoutNumberSuffix = OriginalFileNameWithoutExtension.Substring(0, IndexOfThirdLastHyphen);
-						PlatformConfigSuffix = OriginalFileNameWithoutExtension.Substring(IndexOfSecondLastHyphen);
 					}
 
 					// Figure out which suffix to use
 					string UniqueSuffix = null;
+					if (bHasNumberSuffix)
 					{
 						int FirstHyphenIndex = OriginalFileNameWithoutNumberSuffix.IndexOf('-');
 						if (FirstHyphenIndex == -1)
@@ -2888,9 +2872,14 @@ namespace UnrealBuildTool
 							UniqueSuffix = "-" + (new Random((int)(DateTime.Now.Ticks % Int32.MaxValue)).Next(10000)).ToString();
 						}
 					}
+					else
+					{
+						UniqueSuffix = string.Empty;
+					}
 					string NewFileNameWithoutExtension = OriginalFileNameWithoutNumberSuffix + UniqueSuffix + PlatformConfigSuffix;
 
 					// Find the response file in the command line.  We'll need to make a copy of it with our new file name.
+					if (bHasNumberSuffix)
 					{
 						string ResponseFileExtension = ".response";
 						int ResponseExtensionIndex = Action.CommandArguments.IndexOf(ResponseFileExtension, StringComparison.InvariantCultureIgnoreCase);

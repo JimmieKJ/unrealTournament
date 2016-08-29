@@ -190,7 +190,7 @@ void AUTWorldSettings::FadeImpactEffects(float DeltaTime)
 
 		if (TimeLived > DesiredTimeout)
 		{
-			FadingEffects[i].EffectComp->DetachFromParent();
+			FadingEffects[i].EffectComp->DetachFromComponent(FDetachmentTransformRules::KeepWorldTransform);
 			FadingEffects[i].EffectComp->DestroyComponent();
 			FadingEffects.RemoveAt(i--);
 		}
@@ -246,7 +246,7 @@ void AUTWorldSettings::ExpireImpactEffects()
 				float TimeLived = WorldTime - TimedEffects[i].CreationTime;
 				if (TimeLived > DesiredTimeout)
 				{
-					TimedEffects[i].EffectComp->DetachFromParent();
+					TimedEffects[i].EffectComp->DetachFromComponent(FDetachmentTransformRules::KeepWorldTransform);
 					TimedEffects[i].EffectComp->DestroyComponent();
 					TimedEffects.RemoveAt(i--);
 				}
@@ -401,7 +401,7 @@ void AUTWorldSettings::Tick(float DeltaTime)
 					{
 						if (TimedEffects[j].EffectComp == LightParamCurves[i].Light)
 						{
-							TimedEffects[j].EffectComp->DetachFromParent();
+							TimedEffects[j].EffectComp->DetachFromComponent(FDetachmentTransformRules::KeepWorldTransform);
 							TimedEffects[j].EffectComp->DestroyComponent();
 							TimedEffects.RemoveAt(j--);
 							break;

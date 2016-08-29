@@ -5,6 +5,7 @@
 #include "INiagaraEditor.h"
 #include "Toolkits/AssetEditorToolkit.h"
 
+class UNiagaraScriptSource;
 
 /** Viewer/editor for a DataTable */
 class FNiagaraEditor : public INiagaraEditor, public FNotifyHook, public FEditorUndoClient

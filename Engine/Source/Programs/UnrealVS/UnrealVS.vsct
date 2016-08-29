@@ -42,6 +42,22 @@
 				</Strings>
 			</Button>
 
+			
+			<!-- CompileSingleFile -->
+			<Button guid="UnrealVSCmdSetGUID" id="CompileSingleFileButtonID" priority="0" type="Button" >
+
+				<!-- Parent our command to our 'commands menu' group.  This is needed so that the command has a valid path that can be displayed in the keyboard options editor -->
+				<Parent guid="UnrealVSCmdSetGUID" id="CommandsMenuGroupID" />
+
+				<!-- Allow user to customize even though it's not in the menu -->
+				<CommandFlag>CommandWellOnly</CommandFlag>
+
+				<Strings>
+					<ButtonText>Compile Single File</ButtonText>
+					<CommandName>Compile Single File</CommandName>
+				</Strings>
+			</Button>
+
 
 			<!-- GenerateProjectFiles - keyboard-bindable button (not available in UnrealVS tool bar.) -->
 			<Button guid="UnrealVSCmdSetGUID" id="GenerateProjectFilesButtonID" priority="100" type="Button" >
@@ -551,6 +567,7 @@
 			<IDSymbol name="StartupProjectComboListID" value="0x1060" />
 
 			<IDSymbol name="BuildStartupProjectButtonID" value="0x1070" />
+			<IDSymbol name="CompileSingleFileButtonID" value="0x1075" />
 
 			<IDSymbol name="CommandsMenuID" value="0x1080" />
 			<IDSymbol name="CommandsMenuGroupID" value="0x1090" />

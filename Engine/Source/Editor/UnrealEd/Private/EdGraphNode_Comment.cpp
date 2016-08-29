@@ -71,10 +71,12 @@ FString UEdGraphNode_Comment::GetDocumentationExcerptName() const
 	return TEXT("UEdGraphNode_Comment");
 }
 
-FName UEdGraphNode_Comment::GetPaletteIcon(FLinearColor& OutColor) const
+FSlateIcon UEdGraphNode_Comment::GetIconAndTint(FLinearColor& OutColor) const
 {
 	OutColor = FLinearColor::White;
-	return TEXT("GraphEditor.Comment_16x");
+	
+	static FSlateIcon Icon("EditorStyle", "GraphEditor.Comment_16x");
+	return Icon;
 }
 
 FText UEdGraphNode_Comment::GetNodeTitle(ENodeTitleType::Type TitleType) const

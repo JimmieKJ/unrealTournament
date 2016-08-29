@@ -171,7 +171,7 @@ float3 ImageBasedLightingMIS( FGBufferData GBuffer, float3 V, float3 N, uint2 Ra
 				}
 				else
 				{
-					Shading = StandardShading( GBuffer, GBuffer.Roughness, 1, L, V, N, 1 );
+					Shading = StandardShading( GBuffer.DiffuseColor, GBuffer.SpecularColor, GBuffer.Roughness, 1, L, V, N, 1 );
 				}
 			
 				Lighting += SampleColor * Shading * ( NoL * Weight );
@@ -300,7 +300,7 @@ float3 ApproximateSpecularIBL( uint2 Random, float3 SpecularColor, float Roughne
 
 	// Function replaced with 2D texture sample
 	float NoV = saturate( dot( N, V ) );
-	float2 AB = IntegrateBRDF( Random, Roughness, NoV );
+	float2 AB = IntegrateBRDF( Random, Roughness, NoV ).xy;
 
 	return PrefilteredColor * ( SpecularColor * AB.x + AB.y );
 }
@@ -352,18 +352,18 @@ void MainPS(in noperspective float4 UVAndScreenPos : TEXCOORD0, float4 SvPositio
 
 	float3 N = GBuffer.WorldNormal;
 	float3 V = -ScreenVector;
-	float3 R = 2 * dot( V, N ) * N - V;
+	float3 R0 = 2 * dot( V, N ) * N - V;
 
 	//float NoV = max( dot(N, V), 1e-5 );
 	float NoV = saturate( dot(N, V) );
 
 	// Point lobe in off-specular peak direction
 	float a = Square( GBuffer.Roughness );
-	R = lerp( N, R, (1 - a) * ( sqrt(1 - a) + a ) );
+	float3 R = lerp( N, R0, (1 - a) * ( sqrt(1 - a) + a ) );
 	
 	uint2 Random = ScrambleTEA( PixelPos );
-	Random.x ^= Frame.Random;
-	Random.y ^= Frame.Random;
+	Random.x ^= View.Random;
+	Random.y ^= View.Random;
 
 	float3 NonSpecularContribution = 0;
 	float3 SpecularContribution = 0;
@@ -379,17 +379,35 @@ void MainPS(in noperspective float4 UVAndScreenPos : TEXCOORD0, float4 SvPositio
 
 	// Specular
 	{
-		float Mip = ComputeCubemapMipFromRoughness( GBuffer.Roughness, AmbientCubemapMipAdjust.w );
-		float3 SampleColor = TextureCubeSampleLevel( AmbientCubemap, AmbientCubemapSampler, R, Mip ).rgb;
 
 		BRANCH if( GBuffer.ShadingModelID == SHADINGMODELID_CLEAR_COAT )
 		{
-			float ClearCoat = GBuffer.CustomData.x;
-			float2 AB = PreIntegratedGF.SampleLevel( PreIntegratedGFSampler, float2( NoV, GBuffer.Roughness ), 0 ).rg;
-			SpecularContribution += SampleColor * ( GBuffer.SpecularColor * AB.x + AB.y * (1 - ClearCoat) );
+			float ClearCoat			  = GBuffer.CustomData.x;
+
+			#if CLEAR_COAT_BOTTOM_NORMAL
+				//const float3 ClearCoatUnderNormal = OctahedronToUnitVector((float2(GBuffer.CustomData.a, GBuffer.CustomData.z) * 2) - (256.0/255.0));
+				const float2 oct1 = ((float2(GBuffer.CustomData.a, GBuffer.CustomData.z) * 2) - (256.0/255.0)) + UnitVectorToOctahedron(GBuffer.WorldNormal);
+ 				const float3 ClearCoatUnderNormal = OctahedronToUnitVector(oct1);
+				float3 R2 = 2 * dot( V, ClearCoatUnderNormal ) * ClearCoatUnderNormal - V;
+			
+				float Mip = ComputeCubemapMipFromRoughness( GBuffer.Roughness, AmbientCubemapMipAdjust.w );
+				float3 SampleColor = TextureCubeSampleLevel( AmbientCubemap, AmbientCubemapSampler, R2, Mip ).rgb;
+			
+				float2 AB = PreIntegratedGF.SampleLevel( PreIntegratedGFSampler, float2( NoV, GBuffer.Roughness ), 0 ).rg;
+				SpecularContribution += SampleColor * ( GBuffer.SpecularColor * AB.x + AB.y * (1 - ClearCoat) );
+			#else
+				float Mip = ComputeCubemapMipFromRoughness( GBuffer.Roughness, AmbientCubemapMipAdjust.w );
+				float3 SampleColor = TextureCubeSampleLevel( AmbientCubemap, AmbientCubemapSampler, R, Mip ).rgb;
+
+				float2 AB = PreIntegratedGF.SampleLevel( PreIntegratedGFSampler, float2( NoV, GBuffer.Roughness ), 0 ).rg;
+				SpecularContribution += SampleColor * ( GBuffer.SpecularColor * AB.x + AB.y * (1 - ClearCoat) );
+			#endif
 		}
 		else
 		{
+			float Mip = ComputeCubemapMipFromRoughness( GBuffer.Roughness, AmbientCubemapMipAdjust.w );
+			float3 SampleColor = TextureCubeSampleLevel( AmbientCubemap, AmbientCubemapSampler, R, Mip ).rgb;
+
 			SpecularContribution += SampleColor * EnvBRDF( GBuffer.SpecularColor, GBuffer.Roughness, NoV );
 			//SpecularContribution += ApproximateSpecularIBL( Random, GBuffer.SpecularColor, GBuffer.Roughness, GBuffer.WorldNormal, -ScreenVector );
 		}
@@ -401,7 +419,7 @@ void MainPS(in noperspective float4 UVAndScreenPos : TEXCOORD0, float4 SvPositio
 		const float ClearCoatRoughness	= GBuffer.CustomData.y;
 
 		float Mip = ComputeCubemapMipFromRoughness( ClearCoatRoughness, AmbientCubemapMipAdjust.w );
-		float3 SampleColor = TextureCubeSampleLevel( AmbientCubemap, AmbientCubemapSampler, R, Mip ).rgb;
+		float3 SampleColor = TextureCubeSampleLevel( AmbientCubemap, AmbientCubemapSampler, R0, Mip ).rgb;
 
 		// F_Schlick
 		float F0 = 0.04;
@@ -460,7 +478,9 @@ void MainPS(in noperspective float4 UVAndScreenPos : TEXCOORD0, float4 SvPositio
 
 	FLightAccumulator LightAccumulator = (FLightAccumulator)0;
 
-	LightAccumulator_Add(LightAccumulator, NonSpecularContribution, SpecularContribution, AmbientCubemapColor.rgb);
+	const bool bNeedsSeparateSubsurfaceLightAccumulation = GBuffer.ShadingModelID == SHADINGMODELID_SUBSURFACE_PROFILE;
+
+	LightAccumulator_Add(LightAccumulator, NonSpecularContribution, SpecularContribution, AmbientCubemapColor.rgb, bNeedsSeparateSubsurfaceLightAccumulation);
 
 	OutColor = LightAccumulator_GetResult(LightAccumulator);
 

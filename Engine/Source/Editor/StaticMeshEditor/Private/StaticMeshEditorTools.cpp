@@ -386,6 +386,22 @@ void FMeshBuildSettingsLayout::GenerateChildContent( IDetailChildrenBuilder& Chi
 	}
 
 	{
+		ChildrenBuilder.AddChildContent(LOCTEXT("UseHighPrecisionTangentBasis", "Use High Precision Tangent Basis"))
+		.NameContent()
+		[
+			SNew(STextBlock)
+			.Font(IDetailLayoutBuilder::GetDetailFont())
+			.Text(LOCTEXT("UseHighPrecisionTangentBasis", "Use High Precision Tangent Basis"))
+		]
+		.ValueContent()
+		[
+			SNew(SCheckBox)
+			.IsChecked(this, &FMeshBuildSettingsLayout::ShouldUseHighPrecisionTangentBasis)
+			.OnCheckStateChanged(this, &FMeshBuildSettingsLayout::OnUseHighPrecisionTangentBasisChanged)
+		];
+	}
+
+	{
 		ChildrenBuilder.AddChildContent( LOCTEXT("UseFullPrecisionUVs", "Use Full Precision UVs") )
 		.NameContent()
 		[
@@ -617,6 +633,11 @@ ECheckBoxState FMeshBuildSettingsLayout::ShouldBuildReversedIndexBuffer() const
 	return BuildSettings.bBuildReversedIndexBuffer ? ECheckBoxState::Checked : ECheckBoxState::Unchecked;
 }
 
+ECheckBoxState FMeshBuildSettingsLayout::ShouldUseHighPrecisionTangentBasis() const
+{
+	return BuildSettings.bUseHighPrecisionTangentBasis ? ECheckBoxState::Checked : ECheckBoxState::Unchecked;
+}
+
 ECheckBoxState FMeshBuildSettingsLayout::ShouldUseFullPrecisionUVs() const
 {
 	return BuildSettings.bUseFullPrecisionUVs ? ECheckBoxState::Checked : ECheckBoxState::Unchecked;
@@ -738,6 +759,19 @@ void FMeshBuildSettingsLayout::OnBuildReversedIndexBufferChanged(ECheckBoxState 
 			FEngineAnalytics::GetProvider().RecordEvent(TEXT("Editor.Usage.StaticMesh.BuildSettings"), TEXT("bBuildReversedIndexBuffer"), bBuildReversedIndexBuffer ? TEXT("True") : TEXT("False"));
 		}
 		BuildSettings.bBuildReversedIndexBuffer = bBuildReversedIndexBuffer;
+	}
+}
+
+void FMeshBuildSettingsLayout::OnUseHighPrecisionTangentBasisChanged(ECheckBoxState NewState)
+{
+	const bool bUseHighPrecisionTangents = (NewState == ECheckBoxState::Checked) ? true : false;
+	if (BuildSettings.bUseHighPrecisionTangentBasis != bUseHighPrecisionTangents)
+	{
+		if (FEngineAnalytics::IsAvailable())
+		{
+			FEngineAnalytics::GetProvider().RecordEvent(TEXT("Editor.Usage.StaticMesh.BuildSettings"), TEXT("bUseHighPrecisionTangentBasis"), bUseHighPrecisionTangents ? TEXT("True") : TEXT("False"));
+		}
+		BuildSettings.bUseHighPrecisionTangentBasis = bUseHighPrecisionTangents;
 	}
 }
 
@@ -1274,14 +1308,6 @@ void FMeshSectionSettingsLayout::OnMaterialChanged(UMaterialInterface* NewMateri
 {
 	UStaticMesh& StaticMesh = GetStaticMesh();
 
-	if (FPackageName::IsEnginePackageName(StaticMesh.GetPathName()) && !FPackageName::IsEnginePackageName(NewMaterial->GetPathName()))
-	{
-		FMessageDialog::Open(EAppMsgType::Ok, FText::Format(
-			LOCTEXT("ObjectAssignmentToEngineFailed", "Cannot assign a Project object {0} to an Engine property."),
-			FText::FromString(NewMaterial->GetPathName())));
-		return;
-	}
-
 	// flag the property (Materials) we're modifying so that not all of the object is rebuilt.
 	UProperty* ChangedProperty = NULL;
 	ChangedProperty = FindField<UProperty>( UStaticMesh::StaticClass(), "Materials" );
@@ -1392,8 +1418,13 @@ void FMeshSectionSettingsLayout::OnResetMaterialToDefaultClicked(UMaterialInterf
 	}
 	else
 	{
-		// Reset this LOD's section to use the material in the corresponding section of LOD0.
-		StaticMesh.SectionInfoMap.Remove(LODIndex, SlotIndex);
+		//Use the LOD 0 with the pass Slot index to replace the material
+		FMeshSectionInfo Lod0Info = StaticMesh.SectionInfoMap.Get(0, SlotIndex);
+		FMeshSectionInfo Info = StaticMesh.SectionInfoMap.Get(LODIndex, SlotIndex);
+		if (StaticMesh.Materials.IsValidIndex(Info.MaterialIndex) && StaticMesh.Materials.IsValidIndex(Lod0Info.MaterialIndex))
+		{
+			StaticMesh.Materials[Info.MaterialIndex] = StaticMesh.Materials[Lod0Info.MaterialIndex];
+		}
 	}
 	CallPostEditChange();
 }
@@ -1595,7 +1626,7 @@ void FLevelOfDetailSettingsLayout::AddToDetailsPanel( IDetailLayoutBuilder& Deta
 	.ValueContent()
 	[
 		SAssignNew(LODGroupComboBox, STextComboBox)
-		.ContentPadding(0)
+		.Font(IDetailLayoutBuilder::GetDetailFont())
 		.OptionsSource(&LODGroupOptions)
 		.InitiallySelectedItem(LODGroupOptions[(LODGroupIndex == INDEX_NONE) ? 0 : LODGroupIndex])
 		.OnSelectionChanged(this, &FLevelOfDetailSettingsLayout::OnLODGroupChanged)
@@ -1611,7 +1642,7 @@ void FLevelOfDetailSettingsLayout::AddToDetailsPanel( IDetailLayoutBuilder& Deta
 	.ValueContent()
 		[
 			SNew(STextComboBox)
-			.ContentPadding(0)
+			.Font(IDetailLayoutBuilder::GetDetailFont())
 			.OptionsSource(&LODNames)
 			.InitiallySelectedItem(LODNames[0])
 			.OnSelectionChanged(this, &FLevelOfDetailSettingsLayout::OnImportLOD)

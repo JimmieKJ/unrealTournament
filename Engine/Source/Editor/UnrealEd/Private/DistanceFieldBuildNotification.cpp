@@ -89,7 +89,7 @@ void FDistanceFieldBuildNotificationImpl::DistanceFieldBuildFinished()
 
 	if (NotificationItem.IsValid())
 	{
-		NotificationItem->SetText( NSLOCTEXT("DistanceFieldBuild", "DistanceFieldBuildInProgress", "Finished building Distance Fields!") );
+		NotificationItem->SetText( NSLOCTEXT("DistanceFieldBuild", "DistanceFieldBuildFinished", "Finished building Distance Fields!") );
 		NotificationItem->SetCompletionState(SNotificationItem::CS_Success);
 		NotificationItem->ExpireAndFadeout();
 

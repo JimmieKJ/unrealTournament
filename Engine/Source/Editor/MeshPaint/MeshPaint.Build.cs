@@ -6,7 +6,12 @@ public class MeshPaint : ModuleRules
 {
     public MeshPaint(TargetInfo Target)
     {
-		PrivateIncludePathModuleNames.Add("AssetTools");
+		PrivateIncludePathModuleNames.AddRange(
+            new string[] {
+                "AssetRegistry",
+                "AssetTools"
+            }
+        );
 
         PrivateDependencyModuleNames.AddRange(
             new string[] {
@@ -24,10 +29,23 @@ public class MeshPaint : ModuleRules
                 "EditorStyle",
                 "UnrealEd",
                 "RawMesh",
-                "SourceControl"
-            } 
+                "SourceControl",
+                "ViewportInteraction",
+                "VREditor"
+            }
         );
 
-		DynamicallyLoadedModuleNames.Add("AssetTools");
+		PrivateIncludePathModuleNames.AddRange(
+			new string[]
+			{
+				"AssetTools"
+            });
+
+		DynamicallyLoadedModuleNames.AddRange(
+            new string[] {
+                "AssetRegistry",
+                "AssetTools"
+            }
+        );
     }
 }

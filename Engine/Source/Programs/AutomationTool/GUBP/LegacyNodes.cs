@@ -408,11 +408,11 @@ partial class GUBP
             {
                 Agenda.DotNetProjects.AddRange(
                     new string[] 
-			    {
-				    @"Engine\Source\Programs\DotNETCommon\DotNETUtilities\DotNETUtilities.csproj",
-                    @"Engine\Source\Programs\RPCUtility\RPCUtility.csproj",
-			    }
-                    );
+					{
+						CombinePaths(@"Engine\Source\Programs\DotNETCommon\DotNETUtilities\DotNETUtilities.csproj"),
+						CombinePaths(@"Engine\Source\Programs\RPCUtility\RPCUtility.csproj"),
+					}
+				);
             }
             string AddArgs = "-CopyAppBundleBackToDevice";
 
@@ -637,11 +637,17 @@ partial class GUBP
                 {
 					if (!BranchConfig.BranchOptions.ExcludeNodes.Contains(ProgramTarget.TargetName))
                     {
+						// Always compile CRC with VS2013 due to requiring the 2015 redist
+						string AddTargetArgs = AddArgs;
+						if(String.Compare(ProgramTarget.TargetName, "CrashReportClient", true) == 0 || String.Compare(ProgramTarget.TargetName, "UnrealCEFSubProcess", true) == 0)
+						{
+							AddTargetArgs += " -2013";
+						}
 						foreach (var Plat in ProgramTarget.Rules.GUBP_ToolPlatforms(HostPlatform))
 						{
 							foreach (var Config in ProgramTarget.Rules.GUBP_ToolConfigs(HostPlatform))
 							{
-								Agenda.AddTargets(new string[] { ProgramTarget.TargetName }, Plat, Config, InAddArgs: AddArgs);
+								Agenda.AddTargets(new string[] { ProgramTarget.TargetName }, Plat, Config, InAddArgs: AddTargetArgs);
 							}
 						}
 					}
@@ -1087,6 +1093,14 @@ partial class GUBP
 		bool Precompiled; // If true, just builds targets which generate static libraries for the -UsePrecompiled option to UBT. If false, just build those that don't.
 		bool EnhanceAgentRequirements;
 		public List<UnrealTargetConfiguration> ExcludeConfigurations = new List<UnrealTargetConfiguration>();
+		public static readonly Dictionary<UnrealTargetPlatform, string[]> PrecompiledArchitectures = new Dictionary<UnrealTargetPlatform, string[]>
+		{
+			{UnrealTargetPlatform.Android, new string[] {"armv7", "arm64"/*, "x86", "x64"*/ } }
+		};
+		public static readonly Dictionary<UnrealTargetPlatform, string[]> PrecompiledGPUArchitectures = new Dictionary<UnrealTargetPlatform, string[]>
+		{
+			{UnrealTargetPlatform.Android, new string[] {"es2"/*, "es31"*/ } }
+		};
 
         public GamePlatformMonolithicsNode(GUBPBranchConfig InBranchConfig, UnrealTargetPlatform InHostPlatform, List<UnrealTargetPlatform> InActivePlatforms, BranchInfo.BranchUProject InGameProj, UnrealTargetPlatform InTargetPlatform, bool InWithXp = false, bool InPrecompiled = false)
             : base(InBranchConfig, InHostPlatform)
@@ -1136,9 +1150,16 @@ partial class GUBP
 				bBehindTrigger = true;
                 //AgentSharingGroup = "TemplateMonolithics" + StaticGetHostPlatformSuffix(InHostPlatform);
             }
-			if(!InBranchConfig.BranchOptions.bTargetPlatformsInParallel && !bBehindTrigger)
+			if(!InBranchConfig.BranchOptions.bTargetPlatformsInParallel)
 			{
-				AgentSharingGroup = "TargetPlatforms" + StaticGetHostPlatformSuffix(InHostPlatform);
+				if(bBehindTrigger)
+				{
+					AgentSharingGroup = "TargetPlatformsTest" + StaticGetHostPlatformSuffix(InHostPlatform);
+				}
+				else
+				{
+					AgentSharingGroup = "TargetPlatforms" + StaticGetHostPlatformSuffix(InHostPlatform);
+				}
 			}
         }
 
@@ -1320,6 +1341,18 @@ partial class GUBP
 				{
 	                Args += " -nodebuginfo";
 				}
+
+				string[] PlatformArchitectures;
+				if (PrecompiledArchitectures.TryGetValue(TargetPlatform, out PlatformArchitectures)
+					&& PlatformArchitectures.Length > 0)
+				{
+					Args += " -architectures=" + String.Join("+", PlatformArchitectures);
+				}
+				if (PrecompiledGPUArchitectures.TryGetValue(TargetPlatform, out PlatformArchitectures)
+					&& PlatformArchitectures.Length > 0)
+				{
+					Args += " -gpuarchitectures=" + String.Join("+", PlatformArchitectures);
+				}
 			}
 
 			if (WithXp)
@@ -1413,6 +1446,72 @@ partial class GUBP
 			}
 			return false;
 		}	
+	}
+
+    public class SingleTargetNode : CompileNode
+    {
+        BranchInfo.BranchUProject GameProj;
+		string TargetName;
+        UnrealTargetPlatform TargetPlatform;
+		UnrealTargetConfiguration TargetConfiguration;
+
+		public SingleTargetNode(GUBPBranchConfig InBranchConfig, UnrealTargetPlatform InHostPlatform, BranchInfo.BranchUProject InGameProj, string InTargetName, UnrealTargetPlatform InTargetPlatform, UnrealTargetConfiguration InTargetConfiguration)
+            : base(InBranchConfig, InHostPlatform)
+        {
+            GameProj = InGameProj;
+			TargetName = InTargetName;
+            TargetPlatform = InTargetPlatform;
+			TargetConfiguration = InTargetConfiguration;
+
+			AddPseudodependency(RootEditorNode.StaticGetFullName(InHostPlatform));
+
+            if (TargetPlatform == UnrealTargetPlatform.PS4 || TargetPlatform == UnrealTargetPlatform.XboxOne)
+            {
+				// Required for PS4MapFileUtil/XboxOnePDBFileUtil
+				AddDependency(ToolsNode.StaticGetFullName(InHostPlatform));
+			}
+
+			if(!InBranchConfig.BranchOptions.bTargetPlatformsInParallel)
+			{
+				AgentSharingGroup = "TargetPlatforms" + StaticGetHostPlatformSuffix(InHostPlatform);
+			}
+        }
+
+        public static string StaticGetFullName(UnrealTargetPlatform InHostPlatform, BranchInfo.BranchUProject InGameProj, UnrealTargetPlatform InTargetPlatform, UnrealTargetConfiguration InTargetConfiguration)
+        {
+			return InGameProj.GameName + "_" + InTargetPlatform + "_" + InTargetConfiguration.ToString() + StaticGetHostPlatformSuffix(InHostPlatform);
+        }
+
+        public override string GetFullName()
+        {
+            return StaticGetFullName(HostPlatform, GameProj, TargetPlatform, TargetConfiguration);
+        }
+
+        public override bool DeleteBuildProducts()
+        {
+            return true;
+        }
+
+		public override int CISFrequencyQuantumShift(GUBP.GUBPBranchConfig BranchConfig)
+        {
+			return 15;
+        }
+
+        public override UE4Build.BuildAgenda GetAgenda(GUBP bp)
+        {
+           string Args = "-nobuilduht -skipactionhistory -CopyAppBundleBackToDevice";
+
+            UE4Build.BuildAgenda Agenda = new UE4Build.BuildAgenda();
+			if (GameProj.GameName == BranchConfig.Branch.BaseEngineProject.GameName)
+			{
+				Agenda.AddTargets(new string[] { TargetName }, TargetPlatform, TargetConfiguration, InAddArgs: Args);
+			}
+			else
+			{
+				Agenda.AddTargets(new string[] { TargetName }, TargetPlatform, TargetConfiguration, GameProj.FilePath, InAddArgs: Args);
+			}
+            return Agenda;
+        }
 	}
 
     public class SuccessNode : GUBPNode
@@ -1717,7 +1816,7 @@ partial class GUBP
                 }
 
                 // If the base cook platform fails, don't bother trying other ones
-                string BaseCookedPlatform = Platform.Platforms[HostPlatform].GetCookPlatform(false, false, "");
+                string BaseCookedPlatform = Platform.GetPlatform(HostPlatform).GetCookPlatform(false, false);
                 if (InGameProj.GameName == BranchConfig.Branch.BaseEngineProject.GameName && CookPlatform != BaseCookedPlatform &&
                     BranchConfig.HasNode(CookNode.StaticGetFullName(HostPlatform, BranchConfig.Branch.BaseEngineProject, BaseCookedPlatform)))
                 {
@@ -1801,7 +1900,7 @@ partial class GUBP
             }
 			using(TelemetryStopwatch CookStopwatch = new TelemetryStopwatch("Cook.{0}.{1}", GameProj.GameName, CookPlatform))
 			{
-                String CookArgs = String.Format("-Unversioned {0} -newcook -CreateReleaseVersion=UTVersion0", ExtraArgsForCook);
+				String CookArgs = String.Format("-Unversioned {0}", ExtraArgsForCook);
 				CommandUtils.CookCommandlet(GameProj.FilePath, "UE4Editor-Cmd.exe", null, null, null, null, CookPlatform, CookArgs);
 			}
 			var CookedPath = RootForCook();
@@ -1852,7 +1951,7 @@ partial class GUBP
                         if (Platforms.Contains(TargetPlatform) && Target.Rules.SupportsPlatform(TargetPlatform))
                         {
                             //@todo how do we get the client target platform?
-                            string CookedPlatform = Platform.Platforms[TargetPlatform].GetCookPlatform(Kind == TargetRules.TargetType.Server, Kind == TargetRules.TargetType.Client, "");
+                            string CookedPlatform = Platform.GetPlatform(TargetPlatform).GetCookPlatform(Kind == TargetRules.TargetType.Server, Kind == TargetRules.TargetType.Client);
 							if (Target.Rules.GUBP_AlternateCookPlatform(HostPlatform, CookedPlatform) != "")
 							{
 								CookedPlatform = Target.Rules.GUBP_AlternateCookPlatform(HostPlatform, CookedPlatform);
@@ -1877,7 +1976,7 @@ partial class GUBP
                             if (Platforms.Contains(TargetPlatform) && Target.Rules.SupportsPlatform(TargetPlatform))
                             {
                                 //@todo how do we get the client target platform?
-                                string CookedPlatform = Platform.Platforms[TargetPlatform].GetCookPlatform(Kind == TargetRules.TargetType.Server, Kind == TargetRules.TargetType.Client, "");
+                                string CookedPlatform = Platform.GetPlatform(TargetPlatform).GetCookPlatform(Kind == TargetRules.TargetType.Server, Kind == TargetRules.TargetType.Client);
                                 AddDependency(CookNode.StaticGetFullName(HostPlatform, GameProj, CookedPlatform));
                                 AddDependency(GamePlatformMonolithicsNode.StaticGetFullName(HostPlatform, BranchConfig.Branch.BaseEngineProject, TargetPlatform));
                             }
@@ -2511,6 +2610,61 @@ partial class GUBP
             Build.Build(Agenda, InDeleteBuildProducts: true, InUpdateVersionFiles: false, InForceNonUnity: true, InForceNoXGE: true);
 
             UE4Build.CheckBuildProducts(Build.BuildProductFiles);
+            SaveRecordOfSuccessAndAddToBuildProducts();
+        }
+    }
+
+    public class StaticAnalysisTestNode : TestNode
+    {
+        public StaticAnalysisTestNode(GUBP.GUBPBranchConfig InBranchConfig, UnrealTargetPlatform InHostPlatform)
+            : base(InHostPlatform)
+        {
+            AddDependency(ToolsForCompileNode.StaticGetFullName(HostPlatform));
+            AddPseudodependency(RootEditorNode.StaticGetFullName(HostPlatform));
+			AgentSharingGroup = "TargetPlatforms" + StaticGetHostPlatformSuffix(InHostPlatform);
+        }
+		public override string[] GetAgentTypes()
+		{
+			return new string[]{ "CompileWin64", "Win64" };
+		}
+		public override float Priority()
+		{
+			return -100000.0f;
+		}
+		public static string StaticGetFullName(UnrealTargetPlatform InHostPlatform)
+        {
+            return "UE4_Win64_StaticAnalysis" + StaticGetHostPlatformSuffix(InHostPlatform);
+        }
+        public override string GetFullName()
+        {
+            return StaticGetFullName(HostPlatform);
+        }
+		public override int CISFrequencyQuantumShift(GUBP.GUBPBranchConfig BranchConfig)
+        {
+            int Result = base.CISFrequencyQuantumShift(BranchConfig) + 2;
+            if(HostPlatform == UnrealTargetPlatform.Mac)
+            {
+                Result += 1;
+            }
+            return Result;
+        }
+		public override int AgentMemoryRequirement()
+        {
+            int Result = base.AgentMemoryRequirement();
+            if(HostPlatform == UnrealTargetPlatform.Mac)
+            {
+                Result = 32;
+            }
+            return Result;
+        }
+        public override void DoTest(GUBP bp)
+        {
+            UE4Build.BuildAgenda Agenda = new UE4Build.BuildAgenda();
+            Agenda.AddTargets(new string[] { "UE4Game" }, HostPlatform, UnrealTargetConfiguration.Development, InAddArgs: "-enablecodeanalysis");
+
+			UE4Build Build = new UE4Build(bp);
+            Build.Build(Agenda, InDeleteBuildProducts: true, InUpdateVersionFiles: false, InForceNoXGE: true);
+
             SaveRecordOfSuccessAndAddToBuildProducts();
         }
     }

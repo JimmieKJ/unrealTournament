@@ -14,6 +14,12 @@ class FSimpleHMD : public IHeadMountedDisplay, public ISceneViewExtension, publi
 {
 public:
 	/** IHeadMountedDisplay interface */
+	virtual FName GetDeviceName() const override
+	{
+		static FName DefaultName(TEXT("SimpleHMD"));
+		return DefaultName;
+	}
+
 	virtual bool IsHMDConnected() override { return true; }
 	virtual bool IsHMDEnabled() const override;
 	virtual void EnableHMD(bool allow = true) override;
@@ -38,7 +44,6 @@ public:
 	virtual bool IsChromaAbCorrectionEnabled() const override;
 
 	virtual bool Exec(UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Ar) override;
-	virtual void OnScreenModeChange(EWindowMode::Type WindowMode) override;
 
 	virtual bool IsPositionalTrackingEnabled() const override;
 	virtual bool EnablePositionalTracking(bool enable) override;

@@ -97,7 +97,7 @@ public:
 	{
 		if( NumOutputs > 1 )
 		{
-			return IsFeatureLevelSupported( Platform, ERHIFeatureLevel::SM4 );
+			return IsFeatureLevelSupported( Platform, ERHIFeatureLevel::ES3_1);
 		}
 		return true;
 	}

@@ -1314,58 +1314,6 @@ public class UBT : BuildCommand
 		Log("UBT Completed");
 	}
 }
-[Help("Zeroes engine versions in ObjectVersion.cpp and Version.h and checks them in.")]
-[RequireP4]
-public class ZeroEngineVersions : BuildCommand
-{
-	public override void ExecuteBuild()
-	{
-		string VersionFilename = CmdEnv.LocalRoot + @"/Engine/Source/Runtime/Launch/Resources/Version.h";
-		if (P4Env.Changelist > 0)
-		{
-			var Stat = P4.FStat(VersionFilename);
-			if (Stat.IsValid && Stat.Action != P4Action.None)
-			{
-				Log("Reverting {0}", VersionFilename);
-				P4.Revert(VersionFilename);
-			}
-
-			Log("Gettting engine version files @{0}", P4Env.Changelist);
-			P4.Sync(String.Format("-f {0}@{1}", VersionFilename, P4Env.Changelist));
-		}
-
-		Log("Checking if engine version files need to be reset...");
-		List<string> FilesToSubmit = new List<string>();
-		{
-			VersionFileUpdater VersionH = new VersionFileUpdater(VersionFilename);
-			if (VersionH.Contains("#define ENGINE_VERSION 0") == false)
-			{
-				Log("Zeroing out engine versions in {0}", VersionFilename);
-				VersionH.ReplaceLine("#define BUILT_FROM_CHANGELIST ", "0");
-
-				VersionH.Commit();
-				FilesToSubmit.Add(VersionFilename);
-			}
-		}
-
-		if (FilesToSubmit.Count > 0)
-		{
-			int CL = P4.CreateChange(null, "Zero engine versions");
-			foreach (var Filename in FilesToSubmit)
-			{
-				P4.Edit(CL, Filename);
-			}
-			Log("Submitting CL #{0}...", CL);
-			int SubmittedCL;
-			P4.Submit(CL, out SubmittedCL, false, true);
-			Log("CL #{0} submitted as {1}", CL, SubmittedCL);
-		}
-		else
-		{
-			Log("Engine version files are set to 0.");
-		}
-	}
-}
 
 [Help("Helper command to sync only source code + engine files from P4.")]
 [Help("Branch", "Optional branch depot path, default is: -Branch=//depot/UE4")]

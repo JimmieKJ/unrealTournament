@@ -23,6 +23,7 @@ void FSequencerNodeTree::Empty()
 	Sequencer.GetSelection().EmptySelectedOutlinerNodes();
 	EditorMap.Empty();
 	FilteredNodes.Empty();
+	HoveredNode = nullptr;
 }
 
 
@@ -168,17 +169,27 @@ void FSequencerNodeTree::Update()
 	}
 
 	// Add all other nodes after the camera cut track
-	TArray<TSharedRef<FSequencerDisplayNode>> FolderMasterTrackAndObjectNodes;
-	CreateAndPopulateFolderNodes( MasterTrackNodes, ObjectNodes, MovieScene->GetRootFolders(), FolderMasterTrackAndObjectNodes );
+	TArray<TSharedRef<FSequencerDisplayNode>> FolderAndObjectNodes;
+	TArray<TSharedRef<FSequencerDisplayNode>> MasterTrackNodesNotInFolders;
+	CreateAndPopulateFolderNodes( MasterTrackNodes, ObjectNodes, MovieScene->GetRootFolders(), FolderAndObjectNodes, MasterTrackNodesNotInFolders );
 	
-	// Sort the created nodes.
-	FolderMasterTrackAndObjectNodes.Sort(FDisplayNodeSorter());
-	for ( TSharedRef<FSequencerDisplayNode> Node : FolderMasterTrackAndObjectNodes )
+	// Add all other master tracks after the camera cut track
+	MasterTrackNodesNotInFolders.Sort(FDisplayNodeSorter());
+	for ( TSharedRef<FSequencerDisplayNode> Node : MasterTrackNodesNotInFolders)
 	{
 		Node->SortChildNodes(FDisplayNodeSorter());
 	}
 
-	RootNodes.Append( FolderMasterTrackAndObjectNodes );
+	RootNodes.Append( MasterTrackNodesNotInFolders );
+
+	// Sort the created nodes.
+	FolderAndObjectNodes.Sort(FDisplayNodeSorter());
+	for ( TSharedRef<FSequencerDisplayNode> Node : FolderAndObjectNodes )
+	{
+		Node->SortChildNodes(FDisplayNodeSorter());
+	}
+
+	RootNodes.Append( FolderAndObjectNodes );
 
 	RootNodes.Reserve(RootNodes.Num()*2);
 	for (int32 Index = 0; Index < RootNodes.Num(); Index += 2)
@@ -386,7 +397,7 @@ TSharedRef<FSequencerDisplayNode> CreateFolderNode(
 
 void FSequencerNodeTree::CreateAndPopulateFolderNodes( 
 	TArray<TSharedRef<FSequencerTrackNode>>& MasterTrackNodes, TArray<TSharedRef<FSequencerObjectBindingNode>>& ObjectNodes,
-	TArray<UMovieSceneFolder*>& MovieSceneFolders, TArray<TSharedRef<FSequencerDisplayNode>>& GroupedNodes )
+	TArray<UMovieSceneFolder*>& MovieSceneFolders, TArray<TSharedRef<FSequencerDisplayNode>>& FolderAndObjectNodes, TArray<TSharedRef<FSequencerDisplayNode>>&  MasterTrackNodesNotInFolders )
 {
 	TMap<UMovieSceneTrack*, TSharedRef<FSequencerTrackNode>> MasterTrackToDisplayNodeMap;
 	for ( TSharedRef<FSequencerTrackNode> MasterTrackNode : MasterTrackNodes )
@@ -402,21 +413,21 @@ void FSequencerNodeTree::CreateAndPopulateFolderNodes(
 
 	for ( UMovieSceneFolder* MovieSceneFolder : MovieSceneFolders )
 	{
-		GroupedNodes.Add( CreateFolderNode( *MovieSceneFolder, *this, MasterTrackToDisplayNodeMap, ObjectGuidToDisplayNodeMap ) );	
+		FolderAndObjectNodes.Add( CreateFolderNode( *MovieSceneFolder, *this, MasterTrackToDisplayNodeMap, ObjectGuidToDisplayNodeMap ) );	
 	}
 
 	TArray<TSharedRef<FSequencerTrackNode>> NonFolderTrackNodes;
 	MasterTrackToDisplayNodeMap.GenerateValueArray( NonFolderTrackNodes );
 	for ( TSharedRef<FSequencerTrackNode> NonFolderTrackNode : NonFolderTrackNodes )
 	{
-		GroupedNodes.Add( NonFolderTrackNode );
+		MasterTrackNodesNotInFolders.Add( NonFolderTrackNode );
 	}
 
 	TArray<TSharedRef<FSequencerObjectBindingNode>> NonFolderObjectNodes;
 	ObjectGuidToDisplayNodeMap.GenerateValueArray( NonFolderObjectNodes );
 	for ( TSharedRef<FSequencerObjectBindingNode> NonFolderObjectNode : NonFolderObjectNodes )
 	{
-		GroupedNodes.Add( NonFolderObjectNode );
+		FolderAndObjectNodes.Add( NonFolderObjectNode );
 	}
 }
 
@@ -467,47 +478,70 @@ const TSharedPtr<FSequencerDisplayNode>& FSequencerNodeTree::GetHoveredNode() co
 	return HoveredNode;
 }
 
+/*
+ * Add node as filtered and include any parent folders
+ */
+static void AddFilteredNode(const TSharedRef<FSequencerDisplayNode>& StartNode, TSet<TSharedRef<const FSequencerDisplayNode>>& OutFilteredNodes)
+{
+	OutFilteredNodes.Add(StartNode);
+
+	// Gather parent folders up the chain
+	TSharedPtr<FSequencerDisplayNode> ParentNode = StartNode->GetParent();
+	while (ParentNode.IsValid() && ParentNode.Get()->GetType() == ESequencerNode::Folder)
+	{
+		OutFilteredNodes.Add(ParentNode.ToSharedRef());
+		ParentNode = ParentNode->GetParent();
+	}
+}
+
 /**
  * Recursively filters nodes
  *
  * @param StartNode			The node to start from
  * @param FilterStrings		The filter strings which need to be matched
  * @param OutFilteredNodes	The list of all filtered nodes
+ * @return Whether the text filter was passed
  */
 static bool FilterNodesRecursive( FSequencer& Sequencer, const TSharedRef<FSequencerDisplayNode>& StartNode, const TArray<FString>& FilterStrings, TSet<TSharedRef<const FSequencerDisplayNode>>& OutFilteredNodes )
 {
+	// check labels - only one of the labels needs to match
+	bool bMatchedLabel = false;
+	bool bObjectHasLabels = false;
+	for (const FString& String : FilterStrings)
+	{
+		if (String.StartsWith(TEXT("label:")) && String.Len() > 6)
+		{
+			if (StartNode->GetType() == ESequencerNode::Object)
+			{
+				bObjectHasLabels = true;
+				auto ObjectBindingNode = StaticCastSharedRef<FSequencerObjectBindingNode>(StartNode);
+				auto Labels = Sequencer.GetLabelManager().GetObjectLabels(ObjectBindingNode->GetObjectBinding());
+
+				if (Labels != nullptr && Labels->Strings.Contains(String.RightChop(6)))
+				{
+					bMatchedLabel = true;
+					break;
+				}
+			}
+			else if (!StartNode->GetParent().IsValid())
+			{
+				return false;
+			}
+		}
+	}
+
+	if (bObjectHasLabels && !bMatchedLabel)
+	{
+		return false;
+	}
+
 	// assume the filter is acceptable
-	bool PassedTextFilter = true;
+	bool bPassedTextFilter = true;
 
 	// check each string in the filter strings list against 
 	for (const FString& String : FilterStrings)
 	{
-		if (String.StartsWith(TEXT("label:")))
-		{
-			if (!StartNode->GetParent().IsValid() && (String.Len() > 6))
-			{
-				if (StartNode->GetType() == ESequencerNode::Object)
-				{
-					auto ObjectBindingNode = StaticCastSharedRef<FSequencerObjectBindingNode>(StartNode);
-					auto Labels = Sequencer.GetLabelManager().GetObjectLabels(ObjectBindingNode->GetObjectBinding());
-
-					if ((Labels == nullptr) || !Labels->Strings.Contains(String.RightChop(6)))
-					{
-						return false;
-					}
-				}
-				else
-				{
-					return false;
-				}
-			}
-		}
-		else if (!StartNode->GetDisplayName().ToString().Contains(String)) 
-		{
-			PassedTextFilter = false;
-		}
-
-		if (!PassedTextFilter)
+		if (!String.StartsWith(TEXT("label:")) && !StartNode->GetDisplayName().ToString().Contains(String)) 
 		{
 			break;
 		}
@@ -516,29 +550,34 @@ static bool FilterNodesRecursive( FSequencer& Sequencer, const TSharedRef<FSeque
 	// whether or the start node is in the filter
 	bool bInFilter = false;
 
-	if (PassedTextFilter)
+	if (bPassedTextFilter)
 	{
 		// This node is now filtered
-		OutFilteredNodes.Add(StartNode);
+		AddFilteredNode(StartNode, OutFilteredNodes);
+
 		bInFilter = true;
 	}
 
 	// check each child node to determine if it is filtered
-	const TArray<TSharedRef<FSequencerDisplayNode>>& ChildNodes = StartNode->GetChildNodes();
-
-	for (const auto& Node : ChildNodes)
+	if (StartNode->GetType() != ESequencerNode::Folder)
 	{
-		// Mark the parent as filtered if any child node was filtered
-		PassedTextFilter |= FilterNodesRecursive(Sequencer, Node, FilterStrings, OutFilteredNodes);
+		const TArray<TSharedRef<FSequencerDisplayNode>>& ChildNodes = StartNode->GetChildNodes();
 
-		if (PassedTextFilter && !bInFilter)
+		for (const auto& Node : ChildNodes)
 		{
-			OutFilteredNodes.Add(StartNode);
-			bInFilter = true;
+			// Mark the parent as filtered if any child node was filtered
+			bPassedTextFilter |= FilterNodesRecursive(Sequencer, Node, FilterStrings, OutFilteredNodes);
+
+			if (bPassedTextFilter && !bInFilter)
+			{
+				AddFilteredNode(StartNode, OutFilteredNodes);
+
+				bInFilter = true;
+			}
 		}
 	}
 
-	return PassedTextFilter;
+	return bPassedTextFilter;
 }
 
 

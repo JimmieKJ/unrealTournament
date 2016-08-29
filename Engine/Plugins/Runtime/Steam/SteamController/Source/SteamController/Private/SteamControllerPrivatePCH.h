@@ -16,6 +16,9 @@
 #pragma push_macro("ARRAY_COUNT")
 #undef ARRAY_COUNT
 
+#if STEAMSDK_FOUND == 0
+#error Steam SDK not located.  Expected to be found in Engine/Source/ThirdParty/Steamworks/{SteamVersion}
+#endif
 #include <steam/steam_api.h>
 
 #pragma pop_macro("ARRAY_COUNT")

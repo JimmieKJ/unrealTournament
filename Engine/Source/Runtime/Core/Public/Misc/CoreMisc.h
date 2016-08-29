@@ -5,6 +5,7 @@
 #include "IntPoint.h"
 #include "Map.h"
 #include "ThreadingBase.h"
+#include "Containers/ArrayView.h"
 
 /**
  * Exec handler that registers itself and is being routed via StaticExec.
@@ -132,19 +133,19 @@ struct CORE_API FCommandLine
 	 */
 	static void Parse(const TCHAR* CmdLine, TArray<FString>& Tokens, TArray<FString>& Switches);
 private:
+#if WANTS_COMMANDLINE_WHITELIST
 	/** Filters both the original and current command line list for approved only args */
 	static void WhitelistCommandLines();
-
-	/** Filters any command line args that are on the to-strip list */
-	static TArray<FString> FilterCommandLineForLogging(TCHAR* CommandLine);
-	static TArray<FString> FilterArgsForLogging;
-	/** Rebuilds the command line using the filtered args */
-	static void BuildWhitelistCommandLine(TCHAR* CommandLine, uint32 Length, const TArray<FString>& FilteredArgs);
-
-#if WANTS_COMMANDLINE_WHITELIST
 	/** Filters any command line args that aren't on the approved list */
 	static TArray<FString> FilterCommandLine(TCHAR* CommandLine);
+	/** Filters any command line args that are on the to-strip list */
+	static TArray<FString> FilterCommandLineForLogging(TCHAR* CommandLine);
+	/** Rebuilds the command line using the filtered args */
+	static void BuildWhitelistCommandLine(TCHAR* CommandLine, uint32 Length, const TArray<FString>& FilteredArgs);
 	static TArray<FString> ApprovedArgs;
+	static TArray<FString> FilterArgsForLogging;
+#else
+#define WhitelistCommandLines()
 #endif
 
 	/** Flag to check if the commandline has been initialized or not. */
@@ -212,7 +213,7 @@ struct CORE_API FFileHelper
 	/**
 	 * Save a binary array to a file.
 	 */
-	static bool SaveArrayToFile( const TArray<uint8>& Array, const TCHAR* Filename, IFileManager* FileManager=&IFileManager::Get(), uint32 WriteFlags = 0 );
+	static bool SaveArrayToFile(TArrayView<const uint8> Array, const TCHAR* Filename, IFileManager* FileManager=&IFileManager::Get(), uint32 WriteFlags = 0);
 
 	/**
 	 * Write the FString to a file.
@@ -287,18 +288,22 @@ CORE_API class ITargetPlatformManagerModule& GetTargetPlatformManagerRef();
  */
 FORCEINLINE bool IsRunningDedicatedServer()
 {
-	if (FPlatformProperties::IsProgram())
-	{
-		return false;
-	}
-
 	if (FPlatformProperties::IsServerOnly())
 	{
 		return true;
 	}
 
+	if (FPlatformProperties::IsGameOnly())
+	{
+		return false;
+	}
+
+#if UE_EDITOR
 	extern CORE_API int32 StaticDedicatedServerCheck();
 	return (StaticDedicatedServerCheck() == 1);
+#else
+	return false;
+#endif
 }
 
 /**
@@ -432,6 +437,7 @@ struct CORE_API FBlueprintExceptionTracker : TThreadSingleton<FBlueprintExceptio
 
 	void ResetRunaway();
 
+	static FBlueprintExceptionTracker& Get();
 public:
 	// map of currently displayed warnings in exception handler
 	TMap<FName, int32> DisplayedWarningsMap;

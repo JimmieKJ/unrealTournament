@@ -1,0 +1,25 @@
+{
+	"FileVersion" : 3,
+	
+	"FriendlyName" : "Online Subsystem Oculus",
+	"Version" : 1,
+	"VersionName" : "1.0",
+	"EngineVersion" : "4.2.0",
+	"Description" : "Access to Oculus online platform",
+	"Category" : "Online Platform",
+	"CreatedBy" : "Epic Games, Inc.",
+	"CreatedByURL" : "http://epicgames.com",
+	"EnabledByDefault" : false,
+
+    "Modules": [
+        {
+            "Name": "OnlineSubsystemOculus",
+            "Type": "Runtime",
+            "LoadingPhase": "Default",
+            "WhitelistPlatforms" :
+			[
+                "Win64"
+			]
+        }
+    ]
+}

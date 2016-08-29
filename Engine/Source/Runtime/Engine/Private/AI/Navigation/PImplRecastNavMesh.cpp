@@ -1180,6 +1180,7 @@ static void StorePathfindingDebugData(const dtNavMeshQuery& NavQuery, const dtNa
 		NodeInfo.bOffMeshLink = NavPoly ? (NavPoly->getType() != DT_POLYTYPE_GROUND) : false;
 		if (Data.Flags & ERecastDebugPathfindingFlags::Vertices)
 		{
+			check(NavPoly);
 			for (int32 iv = 0; iv < NavPoly->vertCount; iv++)
 			{
 				NodeInfo.Verts.Add(Recast2UnrealPoint(&NavTile->verts[NavPoly->verts[iv] * 3]));
@@ -1393,18 +1394,18 @@ bool FPImplRecastNavMesh::ProjectPointToNavMesh(const FVector& Point, FNavLocati
 		const FVector ModifiedExtent = NavMeshOwner->GetModifiedQueryExtent(Extent);
 		FVector RcExtent = Unreal2RecastPoint(ModifiedExtent).GetAbs();
 	
-		FVector RcPoint = Unreal2RecastPoint( Point );
+		FVector RcPoint = Unreal2RecastPoint(Point);
 		dtPolyRef PolyRef;
-		NavQuery.findNearestPoly( &RcPoint.X, &RcExtent.X, QueryFilter, &PolyRef, ClosestPoint );
+		NavQuery.findNearestPoly2D(&RcPoint.X, &RcExtent.X, QueryFilter, &PolyRef, ClosestPoint);
 
 		if( PolyRef > 0 )
 		{
 			// one last step required due to recast's BVTree imprecision
 			const FVector& UnrealClosestPoint = Recast2UnrVector(ClosestPoint);			
 			const FVector ClosestPointDelta = UnrealClosestPoint - Point;
-			if (FMath::Abs(ClosestPointDelta.X) <= ModifiedExtent.X &&
-				FMath::Abs(ClosestPointDelta.Y) <= ModifiedExtent.Y &&
-				FMath::Abs(ClosestPointDelta.Z) <= ModifiedExtent.Z)
+			if (-ModifiedExtent.X <= ClosestPointDelta.X && ClosestPointDelta.X <= ModifiedExtent.X
+				&& -ModifiedExtent.Y <= ClosestPointDelta.Y && ClosestPointDelta.Y <= ModifiedExtent.Y
+				&& -ModifiedExtent.Z <= ClosestPointDelta.Z && ClosestPointDelta.Z <= ModifiedExtent.Z)
 			{
 				bSuccess = true;
 				Result = FNavLocation(UnrealClosestPoint, PolyRef);
@@ -2543,6 +2544,7 @@ void FPImplRecastNavMesh::GetNavMeshTilesIn(const TArray<FBox>& InclusionBounds,
 		const float* NavMeshOrigin = DetourNavMesh->getParams()->orig;
 		const float TileSize = DetourNavMesh->getParams()->tileWidth;
 
+		// Generate a set of all possible tile coordinates that belong to requested bounds
 		TSet<FIntPoint>	TileCoords;	
 		for (const FBox& Bounds : InclusionBounds)
 		{
@@ -2564,20 +2566,35 @@ void FPImplRecastNavMesh::GetNavMeshTilesIn(const TArray<FBox>& InclusionBounds,
 		// We guess that each tile has 3 layers in average
 		Indices.Reserve(TileCoords.Num()*3);
 
-		for (FIntPoint TileCoord : TileCoords)
+		TArray<const dtMeshTile*> MeshTiles;
+		MeshTiles.Reserve(3);
+
+		for (const FIntPoint& TileCoord : TileCoords)
 		{
 			int32 MaxTiles = DetourNavMesh->getTileCountAt(TileCoord.X, TileCoord.Y);
-			TArray<const dtMeshTile*> Tiles;
-			Tiles.AddZeroed(MaxTiles);
-
-			const int32 NumTiles = DetourNavMesh->getTilesAt(TileCoord.X, TileCoord.Y, Tiles.GetData(), MaxTiles);
-			for (int32 i = 0; i < NumTiles; ++i)
+			if (MaxTiles > 0)
 			{
-				dtTileRef TileRef = DetourNavMesh->getTileRef(Tiles[i]);
-				if (TileRef)
+				MeshTiles.SetNumZeroed(MaxTiles, false);
+				
+				const int32 MeshTilesCount = DetourNavMesh->getTilesAt(TileCoord.X, TileCoord.Y, MeshTiles.GetData(), MaxTiles);
+				for (int32 i = 0; i < MeshTilesCount; ++i)
 				{
-					const int32 TileIndex = (int32)DetourNavMesh->decodePolyIdTile(TileRef);
-					Indices.Add(TileIndex);
+					const dtMeshTile* MeshTile = MeshTiles[i];
+					dtTileRef TileRef = DetourNavMesh->getTileRef(MeshTile);
+					if (TileRef)
+					{
+						// Consider only mesh tiles that actually belong to a requested bounds
+						FBox TileBounds = Recast2UnrealBox(MeshTile->header->bmin, MeshTile->header->bmax);
+						for (const FBox& RequestedBounds : InclusionBounds)
+						{
+							if (TileBounds.Intersect(RequestedBounds))
+							{
+								int32 TileIndex = (int32)DetourNavMesh->decodePolyIdTile(TileRef);
+								Indices.Add(TileIndex);
+								break;
+							}
+						}
+					}
 				}
 			}
 		}
@@ -2678,6 +2695,11 @@ void FPImplRecastNavMesh::RemoveTileCacheLayer(int32 TileX, int32 TileY, int32 L
 		if (ExistingLayersList->IsValidIndex(LayerIdx))
 		{
 			ExistingLayersList->RemoveAt(LayerIdx);
+
+			for (int32 Idx = LayerIdx; Idx < ExistingLayersList->Num(); Idx++)
+			{
+				(*ExistingLayersList)[Idx].LayerIndex = Idx;
+			}
 		}
 		
 		if (ExistingLayersList->Num() == 0)

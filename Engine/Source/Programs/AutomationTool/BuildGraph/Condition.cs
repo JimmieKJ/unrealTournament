@@ -33,7 +33,11 @@ namespace AutomationTool
 	///		                  
 	///		comparison      ::= scalar
 	///		                  | scalar "==" scalar
-	///		                  | scalar "!=" scalar;
+	///		                  | scalar "!=" scalar
+	///		                  | scalar "&lt;" scalar
+	///		                  | scalar "&lt;=" scalar;
+	///		                  | scalar "&gt;" scalar
+	///		                  | scalar "&gt;=" scalar;
 	///		                  
 	///     scalar          ::= "(" or-expression ")"
 	///                       | "!" scalar
@@ -45,7 +49,7 @@ namespace AutomationTool
 	///     string          ::= any sequence of characters terminated by single quotes (') or double quotes ("). Not escaped.
 	///     identifier      ::= any sequence of letters, digits, or underscore characters.
 	///     
-	/// The type of each subexpression is always a scalar, which are converted to expression-specific types (eg. booleans) as required.
+	/// The type of each subexpression is always a scalar, which are converted to expression-specific types (eg. booleans, integers) as required.
 	/// Scalar values are case-insensitive strings. The identifier 'true' and the strings "true" and "True" are all identical scalars.
 	/// </summary>
 	static class Condition
@@ -129,9 +133,13 @@ namespace AutomationTool
 		/// <returns>The result of evaluating the expression</returns>
 		static string EvaluateComparison(List<string> Tokens, ref int Idx)
 		{
-			// Scalar
-			// Scalar == Scalar
-			// Scalar != Scalar
+			// scalar
+			// scalar == scalar
+			// scalar != scalar
+			// scalar < scalar
+			// scalar <= scalar
+			// scalar > scalar
+			// scalar >= scalar
 
 			string Result = EvaluateScalar(Tokens, ref Idx);
 			if(Tokens[Idx] == "==")
@@ -149,6 +157,38 @@ namespace AutomationTool
 				string Lhs = Result;
 				string Rhs = EvaluateScalar(Tokens, ref Idx);
 				Result = (String.Compare(Lhs, Rhs, true) != 0)? "true" : "false";
+			}
+			else if(Tokens[Idx] == "<")
+			{
+				// Compares whether the first integer is less than the second
+				Idx++;
+				int Lhs = CoerceToInteger(Result);
+				int Rhs = CoerceToInteger(EvaluateScalar(Tokens, ref Idx));
+				Result = (Lhs < Rhs)? "true" : "false";
+			}
+			else if(Tokens[Idx] == "<=")
+			{
+				// Compares whether the first integer is less than the second
+				Idx++;
+				int Lhs = CoerceToInteger(Result);
+				int Rhs = CoerceToInteger(EvaluateScalar(Tokens, ref Idx));
+				Result = (Lhs <= Rhs)? "true" : "false";
+			}
+			else if(Tokens[Idx] == ">")
+			{
+				// Compares whether the first integer is less than the second
+				Idx++;
+				int Lhs = CoerceToInteger(Result);
+				int Rhs = CoerceToInteger(EvaluateScalar(Tokens, ref Idx));
+				Result = (Lhs > Rhs)? "true" : "false";
+			}
+			else if(Tokens[Idx] == ">=")
+			{
+				// Compares whether the first integer is less than the second
+				Idx++;
+				int Lhs = CoerceToInteger(Result);
+				int Rhs = CoerceToInteger(EvaluateScalar(Tokens, ref Idx));
+				Result = (Lhs >= Rhs)? "true" : "false";
 			}
 			return Result;
 		}
@@ -185,14 +225,14 @@ namespace AutomationTool
 				// Check whether file or directory exists. Evaluate the argument as a subexpression.
 				Idx++;
 				string Argument = EvaluateScalar(Tokens, ref Idx);
-				Result = File.Exists(Argument)? "true" : "false";
+				Result = (File.Exists(Argument) || Directory.Exists(Argument))? "true" : "false";
 			}
 			else if(String.Compare(Tokens[Idx], "HasTrailingSlash", true) == 0 && Tokens[Idx + 1] == "(")
 			{
 				// Check whether the given string ends with a slash
 				Idx++;
 				string Argument = EvaluateScalar(Tokens, ref Idx);
-				Result = (Argument.Last() == Path.DirectorySeparatorChar || Argument.Last() == Path.AltDirectorySeparatorChar)? "true" : "false";
+				Result = (Argument.Length > 0 && (Argument[Argument.Length - 1] == Path.DirectorySeparatorChar || Argument[Argument.Length - 1] == Path.AltDirectorySeparatorChar))? "true" : "false";
 			}
 			else
 			{
@@ -237,6 +277,21 @@ namespace AutomationTool
 				throw new ConditionException("Token '{0}' cannot be coerced to a bool", Scalar);
 			}
 			return Result;
+		}
+
+		/// <summary>
+		/// Converts a scalar to a boolean value.
+		/// </summary>
+		/// <param name="Scalar">The scalar to convert</param>
+		/// <returns>The scalar converted to an integer value.</returns>
+		static int CoerceToInteger(string Scalar)
+		{
+			int Value;
+			if(!Int32.TryParse(Scalar, out Value))
+			{
+				throw new ConditionException("Token '{0}' cannot be coerced to an integer", Scalar);
+			}
+			return Value;
 		}
 
 		/// <summary>

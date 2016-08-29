@@ -1,8 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
-// 
+// ..
 
-#include "ShaderFormatOpenGL.h"
 #include "Core.h"
+#include "ShaderFormatOpenGL.h"
 
 #if PLATFORM_WINDOWS
 #include "AllowWindowsPlatformTypes.h"
@@ -819,7 +819,8 @@ static void BuildShaderOutput(
 		BuildResourceTableTokenStream(GenericSRT.UnorderedAccessViewMap, GenericSRT.MaxBoundResourceTable, Header.Bindings.ShaderResourceTable.UnorderedAccessViewMap);
 	}
 
-	const int32 MaxSamplers = GetFeatureLevelMaxTextureSamplers(GetMaxSupportedFeatureLevel((EShaderPlatform)ShaderOutput.Target.Platform));
+	// Assume that GL4.3 targets support 32 samplers as we don't currently support separate sampler objects
+	const int32 MaxSamplers = (Version == GLSL_430) ? 32 : GetFeatureLevelMaxTextureSamplers(GetMaxSupportedFeatureLevel((EShaderPlatform)ShaderOutput.Target.Platform));
 
 	if (Header.Bindings.NumSamplers > MaxSamplers)
 	{
@@ -837,7 +838,9 @@ static void BuildShaderOutput(
 		Ar.Serialize((void*)USFSource, SourceLen + 1 - (USFSource - InShaderSource));
 		
 		// store data we can pickup later with ShaderCode.FindOptionalData('n'), could be removed for shipping
-		ShaderOutput.ShaderCode.AddOptionalData('n', TCHAR_TO_UTF8(*ShaderInput.GenerateShaderName()));
+		// Daniel L: This GenerateShaderName does not generate a deterministic output among shaders as the shader code can be shared. 
+		//			uncommenting this will cause the project to have non deterministic materials and will hurt patch sizes
+		//ShaderOutput.ShaderCode.AddOptionalData('n', TCHAR_TO_UTF8(*ShaderInput.GenerateShaderName()));
 
 		ShaderOutput.NumInstructions = 0;
 		ShaderOutput.NumTextureSamplers = Header.Bindings.NumSamplers;
@@ -868,6 +871,7 @@ static void OpenGLVersionFromGLSLVersion(GLSLVersion InVersion, int& OutMajorVer
 		case GLSL_ES2_IOS:
 		case GLSL_ES2_WEBGL: 
 		case GLSL_ES2:
+		case GLSL_ES3_1_ANDROID:
 			OutMajorVersion = 0;
 			OutMinorVersion = 0;
 			break;
@@ -1141,6 +1145,9 @@ static FString CreateCrossCompilerBatchFile( const FString& ShaderFile, const FS
 			VersionSwitch = TEXT(" -gl3 -mac");
 			break;
 
+		case GLSL_ES3_1_ANDROID:
+			VersionSwitch = TEXT(" -es31");
+			break;
 		case GLSL_310_ES_EXT:
 			VersionSwitch = TEXT(" -es31ext");
 			break;
@@ -1183,9 +1190,15 @@ void CompileShader_Windows_OGL(const FShaderCompilerInput& Input,FShaderCompiler
 	AdditionalDefines.SetDefine(TEXT("COMPILER_HLSLCC"), 1);
 	switch (Version)
 	{
+		case GLSL_ES3_1_ANDROID:
+			AdditionalDefines.SetDefine(TEXT("COMPILER_GLSL_ES3_1"), 1);
+			AdditionalDefines.SetDefine(TEXT("ES3_1_PROFILE"), 1);
+			HlslCompilerTarget = HCT_FeatureLevelES3_1;
+			break;
+
 		case GLSL_310_ES_EXT:
 			AdditionalDefines.SetDefine(TEXT("COMPILER_GLSL"), 1);
-			AdditionalDefines.SetDefine(TEXT("ES31_AEP_PROFILE"), 1);
+			AdditionalDefines.SetDefine(TEXT("ESDEFERRED_PROFILE"), 1);
 			AdditionalDefines.SetDefine(TEXT("GL4_PROFILE"), 1);
 			HlslCompilerTarget = HCT_FeatureLevelES3_1Ext;
 			break;
@@ -1264,6 +1277,12 @@ void CompileShader_Windows_OGL(const FShaderCompilerInput& Input,FShaderCompiler
 		AdditionalDefines.SetDefine(TEXT("COMPILER_SUPPORTS_ATTRIBUTES"), (uint32)0);
 	}
 
+	const bool bUseFullPrecisionInPS = Input.Environment.CompilerFlags.Contains(CFLAG_UseFullPrecisionInPS);
+	if (bUseFullPrecisionInPS)
+	{
+		AdditionalDefines.SetDefine(TEXT("FORCE_FLOATS"), (uint32)1);
+	}
+
 	auto DoPreprocess = [&]() -> bool
 	{
 		if (Input.bSkipPreprocessedCache)
@@ -1325,6 +1344,11 @@ void CompileShader_Windows_OGL(const FShaderCompilerInput& Input,FShaderCompiler
 				FileWriter->Close();
 				delete FileWriter;
 			}
+
+			if (Input.bGenerateDirectCompileFile)
+			{
+				FFileHelper::SaveStringToFile(CreateShaderCompilerWorkerDirectCommandLine(Input), *(Input.DumpDebugInfoPath / TEXT("DirectCompile.txt")));
+			}
 		}
 
 		uint32 CCFlags = HLSLCC_NoPreprocess | HLSLCC_PackUniforms | HLSLCC_DX11ClipSpace;
@@ -1334,7 +1358,12 @@ void CompileShader_Windows_OGL(const FShaderCompilerInput& Input,FShaderCompiler
 			// Currently only enabled for ES2, as there are still features to implement for SM4+ (atomics, global store, UAVs, etc)
 			CCFlags |= HLSLCC_ApplyCommonSubexpressionElimination;
 		}
-		
+
+		if (bUseFullPrecisionInPS)
+		{
+			CCFlags |= HLSLCC_UseFullPrecisionInPS;
+		}
+	
 		if (bCompileES2With310)
 		{
 			CCFlags |= HLSLCC_FlattenUniformBuffers | HLSLCC_FlattenUniformBufferStructures;

@@ -177,19 +177,30 @@ public:
 	/**
 	 * Shows the main frame window.  Call this after you've setup initial layouts to reveal the window 
 	 *
-	 * @param bStartImmersivePIE True to force a main frame viewport into immersive mode PIE session before shown
+	 * @param bStartImmersive True to force a main frame viewport into immersive mode
+	 * @param bStartPIE True to start a PIE session right away
 	 */
-	void ShowMainFrameWindow(TSharedRef<SWindow> Window, const bool bStartImmersivePIE) const
+	void ShowMainFrameWindow(TSharedRef<SWindow> Window, const bool bStartImmersive, const bool bStartPIE) const
 	{
 		// Make sure viewport windows are maximized/immersed if they need to be
 		FLevelEditorModule& LevelEditor = FModuleManager::GetModuleChecked< FLevelEditorModule >( TEXT( "LevelEditor" ) );
 
-		if( bStartImmersivePIE )
+		if( bStartPIE )
 		{
 			// Kick off an immersive PIE session immediately!
-			LevelEditor.StartImmersivePlayInEditorSession();
+
+			if( bStartImmersive )
+			{
+				// When in immersive play in editor, toggle game view on the active viewport
+				const bool bForceGameView = true;
+
+				// Start level viewport initially in immersive mode
+				LevelEditor.GoImmersiveWithActiveLevelViewport( bForceGameView );
+			}
+
+			LevelEditor.StartPlayInEditorSession();
 			Window->ShowWindow();
-			// Ensure the window is at the front or else we could end up capturing and locking the mouse to a window that isnt visible
+			// Ensure the window is at the front or else we could end up capturing and locking the mouse to a window that isn't visible
 			bool bForceWindowToFront = true;
 			Window->BringToFront( bForceWindowToFront );
 
@@ -199,14 +210,32 @@ public:
 		}
 		else
 		{
+			if( bStartImmersive )
+			{
+				// When in immersive play in editor, toggle game view on the active viewport
+				const bool bForceGameView = true;
+
+				// Start level viewport initially in immersive mode
+				LevelEditor.GoImmersiveWithActiveLevelViewport( bForceGameView );
+			}
+
 			// Show the window!
 			Window->ShowWindow();
 
-			// Focus the level editor viewport
-			LevelEditor.FocusViewport();
+			if( bStartImmersive )
+			{
+				// Ensure the window is at the front or else we could end up capturing and locking the mouse to a window that isn't visible
+				bool bForceWindowToFront = true;
+				Window->BringToFront( bForceWindowToFront );
+			}
+			else
+			{
+				// Focus the level editor viewport
+				LevelEditor.FocusViewport();
 
-			// Restore any assets we had open. Note we don't do this on immersive PIE as its annoying to the user.
-			FAssetEditorManager::Get().RequestRestorePreviouslyOpenAssets();
+				// Restore any assets we had open. Note we don't do this on immersive PIE as its annoying to the user.
+				FAssetEditorManager::Get().RequestRestorePreviouslyOpenAssets();
+			}
 		}
 	}
 

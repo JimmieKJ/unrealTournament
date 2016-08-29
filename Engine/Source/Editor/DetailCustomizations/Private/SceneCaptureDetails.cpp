@@ -5,9 +5,11 @@
 #include "SceneCaptureDetails.h"
 #include "Engine/SceneCapture2D.h"
 #include "Engine/SceneCaptureCube.h"
+#include "Engine/PlanarReflection.h"
 #include "Components/SceneCaptureComponent.h"
 #include "Components/SceneCaptureComponent2D.h"
 #include "Components/SceneCaptureComponentCube.h"
+#include "Components/PlanarReflectionComponent.h"
 
 #define LOCTEXT_NAMESPACE "SceneCaptureDetails"
 
@@ -58,6 +60,12 @@ void FSceneCaptureDetails::CustomizeDetails( IDetailLayoutBuilder& DetailLayout 
 			if (CurrentCaptureActorCube != nullptr)
 			{
 				SceneCaptureComponent = Cast<USceneCaptureComponent>(CurrentCaptureActorCube->GetCaptureComponentCube());
+				break;
+			}
+			APlanarReflection* CurrentPlanarReflection = Cast<APlanarReflection>(CurrentObject.Get());
+			if (CurrentPlanarReflection != nullptr)
+			{
+				SceneCaptureComponent = Cast<USceneCaptureComponent>(CurrentPlanarReflection->GetPlanarReflectionComponent());
 				break;
 			}
 		}

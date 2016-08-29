@@ -98,12 +98,16 @@ private:
 	// default collision profile object
 	UCollisionProfile * CollisionProfile;
 
-	TArray<FBodyInstance*>		BodyInstances;
+	TArray<FBodyInstance*> BodyInstances;
+	TArray<UPrimitiveComponent*>		PrimComponents;
+	TMap<FBodyInstance*, TWeakObjectPtr<UPrimitiveComponent>> BodyInstanceToPrimComponent;
 
 	TArray<FCollisionChannelInfo>	ValidCollisionChannels;
 
 	void RefreshCollisionProfiles();
 
+	UStaticMeshComponent* GetDefaultCollisionProvider(const FBodyInstance* BI) const;
+	void MarkAllBodiesDefaultCollision(bool bUseDefaultCollision);
 	bool CanUseDefaultCollision() const;
 	bool CanShowDefaultCollision() const;
 	int32 GetNumberOfSpecialProfiles() const;
@@ -145,6 +149,7 @@ private:
 	bool bDisplayConstraints;
 	bool bDisplayEnablePhysics;
 
+	TSharedPtr<IPropertyHandle> MassInKgOverrideHandle;
 	TSharedPtr<IPropertyHandle> DOFModeProperty;
 	TArray<TWeakObjectPtr<UObject>> ObjectsCustomized;
 };

@@ -16,6 +16,8 @@ struct CORE_API FFbxErrors
 
 	static FName Generic_LoadingSceneFailed;
 
+	static FName Generic_InvalidCharacterInName;
+
 	static FName Generic_SameNameAssetExists;
 
 	static FName Generic_SameNameAssetOverriding;
@@ -50,6 +52,8 @@ struct CORE_API FFbxErrors
 
 	static FName Generic_Mesh_LOD_MultipleFilesSelected;
 
+	static FName Generic_Mesh_SkinxxNameError;
+
 	/** Static Mesh **/
 	static FName StaticMesh_TooManyMaterials;
 
@@ -58,6 +62,8 @@ struct CORE_API FFbxErrors
 	static FName StaticMesh_NoTriangles;
 
 	static FName StaticMesh_BuildError;
+
+	static FName StaticMesh_AllTrianglesDegenerate;
 
 	/** SkeletalMesh **/
 	static FName SkeletalMesh_DifferentRoots;
@@ -73,6 +79,8 @@ struct CORE_API FFbxErrors
 	static FName SkeletalMesh_RestoreSortingForSectionNumber;
 
 	static FName SkeletalMesh_NoMeshFoundOnRoot;
+	
+	static FName SkeletalMesh_ImportSubDSurface;
 
 	static FName SkeletalMesh_InvalidRoot;
 
@@ -126,6 +134,8 @@ struct CORE_API FFbxErrors
 
 	static FName SkeletalMesh_FillImportDataFailed;
 
+	static FName SkeletalMesh_InvalidPosition;
+
 	/** Animation **/
 	static FName Animation_CouldNotFindRootTrack;
 
@@ -160,5 +170,5 @@ public:
 
 private:
 	/** Private constructor */
-	FFbxErrorToken( const FName& InErrorName );
+	CORE_API FFbxErrorToken( const FName& InErrorName );
 };

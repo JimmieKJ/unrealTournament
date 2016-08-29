@@ -4,8 +4,7 @@
 	ClassTree.h: Class hierarchy management classes.
 =============================================================================*/
 
-#ifndef __CLASSTREE_H__
-#define __CLASSTREE_H__
+#pragma once
 
 enum EClassFlagMatchType
 {
@@ -601,5 +600,3 @@ public:
 		return Children[Index];
 	}
 };
-
-#endif	// __CLASSTREE_H__

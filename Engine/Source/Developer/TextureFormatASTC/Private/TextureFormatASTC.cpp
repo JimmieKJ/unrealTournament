@@ -11,9 +11,14 @@
 #include "PixelFormat.h"
 #include "GenericPlatformProcess.h"
 
+#if PLATFORM_WINDOWS || PLATFORM_LINUX || PLATFORM_MAC
+	#define SUPPORTS_ISPC_ASTC	1
+#else
+	#define SUPPORTS_ISPC_ASTC	0
+#endif
 
 // increment this if you change anything that will affect compression in this file, including FORCED_NORMAL_MAP_COMPRESSION_SIZE_VALUE
-#define BASE_FORMAT_VERSION 34
+#define BASE_ASTC_FORMAT_VERSION 37
 
 #define MAX_QUALITY_BY_SIZE 4
 #define MAX_QUALITY_BY_SPEED 3
@@ -141,7 +146,6 @@ static uint16 GetQualityVersion()
 	return (GetDefaultCompressionBySizeValue() << 13) | (GetDefaultCompressionBySpeedValue() << 10);
 }
 
-
 static bool CompressSliceToASTC(
 	const void* SourceData,
 	int32 SizeX,
@@ -193,7 +197,7 @@ static bool CompressSliceToASTC(
 		*CompressionParameters
 	);
 
-	UE_LOG(LogTextureFormatASTC, Display, TEXT("Compressing to ASTC (%s)..."), *CompressionParameters);
+	UE_LOG(LogTextureFormatASTC, Display, TEXT("Compressing to ASTC (options = '%s')..."), *CompressionParameters);
 
 	// Start Compressor
 #if PLATFORM_MAC
@@ -273,12 +277,16 @@ static bool CompressSliceToASTC(
 		check(sizeof(FASTCHeader) == 16);
 		check(ASTCData.Num() == (sizeof(FASTCHeader) + MipSize));
 		FMemory::Memcpy(MipData, ASTCData.GetData() + sizeof(FASTCHeader), MipSize);
+
+		// Delete intermediate files
+		IFileManager::Get().Delete(*InputFilePath);
+		IFileManager::Get().Delete(*OutputFilePath);
 	}
 	else
 	{
-		UE_LOG(LogTextureFormatASTC, Error, TEXT("ASTC encoder failed with return code %d, mip size (%d, %d)"), ReturnCode, SizeX, SizeY);
-		IFileManager::Get().Delete(*InputFilePath);
-		IFileManager::Get().Delete(*OutputFilePath);
+		UE_LOG(LogTextureFormatASTC, Error, TEXT("ASTC encoder failed with return code %d, mip size (%d, %d). Leaving '%s' for testing."), ReturnCode, SizeX, SizeY, *InputFilePath);
+// 		IFileManager::Get().Delete(*InputFilePath);
+// 		IFileManager::Get().Delete(*OutputFilePath);
 		return false;
 	}
 		
@@ -293,14 +301,25 @@ static bool CompressSliceToASTC(
  */
 class FTextureFormatASTC : public ITextureFormat
 {
-	virtual bool AllowParallelBuild() const override
+public:
+	FTextureFormatASTC()
+	:	IntelISPCTexCompFormat(*FModuleManager::LoadModuleChecked<ITextureFormatModule>(TEXT("TextureFormatIntelISPCTexComp")).GetTextureFormat())
 	{
-		return true;
 	}
 
+	virtual bool AllowParallelBuild() const override
+	{
+#if SUPPORTS_ISPC_ASTC
+		return IntelISPCTexCompFormat.AllowParallelBuild();
+#else
+		return true;
+#endif
+	}
+
+	// Version for all ASTC textures, whether it's handled by the ARM encoder or the ISPC encoder.
 	virtual uint16 GetVersion(FName Format) const override
 	{
-		return GetQualityVersion() + BASE_FORMAT_VERSION;
+		return GetQualityVersion() + BASE_ASTC_FORMAT_VERSION;
 	}
 
 //	// Since we want to have per texture [group] compression settings, we need to have the key based on the texture
@@ -310,7 +329,7 @@ class FTextureFormatASTC : public ITextureFormat
 //		check(LODBias >= 0);
 //		return FString::Printf(TEXT("%02u%d_"), (uint32)LODBias, CVarVirtualTextureReducedMemoryEnabled->GetValueOnGameThread());
 //	}
-	
+
 	virtual FTextureFormatCompressorCaps GetFormatCapabilities() const override
 	{
 		FTextureFormatCompressorCaps RetCaps;
@@ -333,6 +352,11 @@ class FTextureFormatASTC : public ITextureFormat
 			FCompressedImage2D& OutCompressedImage
 		) const override
 	{
+#if SUPPORTS_ISPC_ASTC
+		// Route ASTC compression work to the ISPC module instead.
+		return IntelISPCTexCompFormat.CompressImage(InImage, BuildSettings, bImageHasAlphaChannel, OutCompressedImage);
+#endif
+
 		// Get Raw Image Data from passed in FImage
 		FImage Image;
 		InImage.CopyTo(Image, ERawImageFormat::BGRA8, BuildSettings.GetGammaSpace());
@@ -341,14 +365,17 @@ class FTextureFormatASTC : public ITextureFormat
 		EPixelFormat CompressedPixelFormat = PF_Unknown;
 		FString CompressionParameters = TEXT("");
 
-		if (BuildSettings.TextureFormatName == GTextureFormatNameASTC_RGB ||
-		  ((BuildSettings.TextureFormatName == GTextureFormatNameASTC_RGBAuto) && !bImageHasAlphaChannel))
+		bool bIsRGBColor = (BuildSettings.TextureFormatName == GTextureFormatNameASTC_RGB ||
+			((BuildSettings.TextureFormatName == GTextureFormatNameASTC_RGBAuto) && !bImageHasAlphaChannel));
+		bool bIsRGBAColor = (BuildSettings.TextureFormatName == GTextureFormatNameASTC_RGBA ||
+			((BuildSettings.TextureFormatName == GTextureFormatNameASTC_RGBAuto) && bImageHasAlphaChannel));
+
+		if (bIsRGBColor)
 		{
 			CompressedPixelFormat = GetQualityFormat();
 			CompressionParameters = FString::Printf(TEXT("%s %s -esw bgra -ch 1 1 1 0"), *GetQualityString(), /*BuildSettings.bSRGB ? TEXT("-srgb") :*/ TEXT("") );
 		}
-		else if (BuildSettings.TextureFormatName == GTextureFormatNameASTC_RGBA ||
-			   ((BuildSettings.TextureFormatName == GTextureFormatNameASTC_RGBAuto) && bImageHasAlphaChannel))
+		else if (bIsRGBAColor)
 		{
 			CompressedPixelFormat = GetQualityFormat();
 			CompressionParameters = FString::Printf(TEXT("%s %s -esw bgra -ch 1 1 1 1"), *GetQualityString(), /*BuildSettings.bSRGB ? TEXT("-srgb") :*/ TEXT("") );
@@ -388,6 +415,9 @@ class FTextureFormatASTC : public ITextureFormat
 		}
 		return bCompressionSucceeded;
 	}
+
+private:
+	const ITextureFormat& IntelISPCTexCompFormat;
 };
 
 /**
@@ -398,6 +428,9 @@ static ITextureFormat* Singleton = NULL;
 class FTextureFormatASTCModule : public ITextureFormatModule
 {
 public:
+	FTextureFormatASTCModule()
+	{
+	}
 	virtual ~FTextureFormatASTCModule()
 	{
 		delete Singleton;

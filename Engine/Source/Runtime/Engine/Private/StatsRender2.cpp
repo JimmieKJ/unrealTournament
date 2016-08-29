@@ -494,10 +494,10 @@ static int32 RenderMemoryHeadings( class FCanvas* Canvas, const int32 X, const  
 
 	// Determine where the first column goes
 	int32 CurrX = X + Globals.AfterNameColumnOffset;
-	RightJustify(Canvas, CurrX, Y, TEXT("MemUsedMax"), Globals.HeadingColor);
+	RightJustify(Canvas, CurrX, Y, TEXT("UsedMax"), Globals.HeadingColor);
 
 	CurrX += Globals.InterColumnOffset;
-	RightJustify(Canvas, CurrX, Y, TEXT("MemUsedMax%"), Globals.HeadingColor);
+	RightJustify(Canvas, CurrX, Y, TEXT("Mem%"), Globals.HeadingColor);
 
 	CurrX += Globals.InterColumnOffset;
 	RightJustify(Canvas, CurrX, Y, TEXT("MemPool"), Globals.HeadingColor);

@@ -120,14 +120,14 @@ namespace Tools.DotNETCommon.LaunchProcess
 		/// <summary>
 		/// Wait for the launched process to exit, and return its exit code.
 		/// </summary>
-		/// <param name="Timeout">Number of milliseconds to wait for the process to exit. Default is forever.</param>
+		/// <param name="TimeoutMilliseconds">Number of milliseconds to wait for the process to exit. Default is forever.</param>
 		/// <returns>The exit code of the launched process.</returns>
 		/// <remarks>false is returned if the process failed to finish before the requested timeout.</remarks>
-		public EWaitResult WaitForExit( int Timeout = Int32.MaxValue )
+		public EWaitResult WaitForExit( int TimeoutMilliseconds = Int32.MaxValue )
 		{
 			if( LaunchedProcess != null )
 			{
-				LaunchedProcess.WaitForExit( Timeout );
+				LaunchedProcess.WaitForExit(TimeoutMilliseconds);
 				if( !bIsFinished )
 				{
 					// Calling Kill() here seems to be a race condition on the process terminating after WaitForExit (TTP#315685). Catch anything it throws, and make sure the Kill() finishes.

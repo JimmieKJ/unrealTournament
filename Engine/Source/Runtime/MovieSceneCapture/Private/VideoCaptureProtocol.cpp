@@ -6,26 +6,43 @@
 
 bool FVideoCaptureProtocol::Initialize(const FCaptureProtocolInitSettings& InSettings, const ICaptureProtocolHost& Host)
 {
+	InitSettings = InSettings;
 	if (!FFrameGrabberProtocol::Initialize(InSettings, Host))
 	{
 		return false;
 	}
 
-	UVideoCaptureSettings* CaptureSettings = CastChecked<UVideoCaptureSettings>(InSettings.ProtocolSettings);
+	ConditionallyCreateWriter(Host);
 
+	return AVIWriters.Num() && AVIWriters.Last()->IsCapturing();
+}
+
+void FVideoCaptureProtocol::ConditionallyCreateWriter(const ICaptureProtocolHost& Host)
+{
 #if PLATFORM_MAC
 	static const TCHAR* Extension = TEXT(".mov");
 #else
 	static const TCHAR* Extension = TEXT(".avi");
 #endif
 
+	FString VideoFilename = Host.GenerateFilename(FFrameMetrics(), Extension);
+
+	if (AVIWriters.Num() && VideoFilename == AVIWriters.Last()->Options.OutputFilename)
+	{
+		return;
+	}
+
+	Host.EnsureFileWritable(VideoFilename);
+
+	UVideoCaptureSettings* CaptureSettings = CastChecked<UVideoCaptureSettings>(InitSettings->ProtocolSettings);
+
 	FAVIWriterOptions Options;
-	Options.OutputFilename = Host.GenerateFilename(FFrameMetrics(), Extension);
+	Options.OutputFilename = MoveTemp(VideoFilename);
 	Options.CaptureFPS = Host.GetCaptureFrequency();
 	Options.CodecName = CaptureSettings->VideoCodec;
 	Options.bSynchronizeFrames = Host.GetCaptureStrategy().ShouldSynchronizeFrames();
-	Options.Width = InSettings.DesiredSize.X;
-	Options.Height = InSettings.DesiredSize.Y;
+	Options.Width = InitSettings->DesiredSize.X;
+	Options.Height = InitSettings->DesiredSize.Y;
 
 	if (CaptureSettings->bUseCompression)
 	{
@@ -40,21 +57,23 @@ bool FVideoCaptureProtocol::Initialize(const FCaptureProtocolInitSettings& InSet
 		Options.CompressionQuality = FMath::Clamp<float>(Options.CompressionQuality.GetValue(), 0.f, 1.f);
 	}
 
-	AVIWriter.Reset(FAVIWriter::CreateInstance(Options));
-	AVIWriter->Initialize();
-
-	return AVIWriter->IsCapturing();
+	AVIWriters.Emplace(FAVIWriter::CreateInstance(Options));
+	AVIWriters.Last()->Initialize();
 }
 
 struct FVideoFrameData : IFramePayload
 {
 	FFrameMetrics Metrics;
+	int32 WriterIndex;
 };
 
-FFramePayloadPtr FVideoCaptureProtocol::GetFramePayload(const FFrameMetrics& FrameMetrics, const ICaptureProtocolHost& Host) const
+FFramePayloadPtr FVideoCaptureProtocol::GetFramePayload(const FFrameMetrics& FrameMetrics, const ICaptureProtocolHost& Host)
 {
+	ConditionallyCreateWriter(Host);
+
 	TSharedRef<FVideoFrameData, ESPMode::ThreadSafe> FrameData = MakeShareable(new FVideoFrameData);
 	FrameData->Metrics = FrameMetrics;
+	FrameData->WriterIndex = AVIWriters.Num() - 1;
 	return FrameData;
 }
 
@@ -62,14 +81,54 @@ void FVideoCaptureProtocol::ProcessFrame(FCapturedFrameData Frame)
 {
 	FVideoFrameData* Payload = Frame.GetPayload<FVideoFrameData>();
 
-	AVIWriter->DropFrames(Payload->Metrics.NumDroppedFrames);
-	AVIWriter->Update(Payload->Metrics.TotalElapsedTime, MoveTemp(Frame.ColorBuffer));
+	const int32 WriterIndex = Payload->WriterIndex;
+
+	AVIWriters[WriterIndex]->DropFrames(Payload->Metrics.NumDroppedFrames);
+	AVIWriters[WriterIndex]->Update(Payload->Metrics.TotalElapsedTime, MoveTemp(Frame.ColorBuffer));
+
+	// Finalize previous writers if necessary
+	for (int32 Index = 0; Index < Payload->WriterIndex; ++Index)
+	{
+		TUniquePtr<FAVIWriter>& Writer = AVIWriters[Index];
+		if (Writer->IsCapturing())
+		{
+			Writer->Finalize();
+		}
+	}
 }
 
 void FVideoCaptureProtocol::Finalize()
 {
-	AVIWriter->Finalize();
-	AVIWriter.Reset();
+	for (TUniquePtr<FAVIWriter>& Writer : AVIWriters)
+	{
+		if (Writer->IsCapturing())
+		{
+			Writer->Finalize();
+		}
+	}
+	
+	AVIWriters.Empty();
 
 	FFrameGrabberProtocol::Finalize();
+}
+
+bool FVideoCaptureProtocol::CanWriteToFile(const TCHAR* InFilename, bool bOverwriteExisting) const
+{
+	// When recording video, if the filename changes (ie due to the shot changing), we create new AVI writers.
+	// If we're not overwriting existing filenames we need to check if we're already recording a video of that name,
+	// before we can deem whether we can write to a new file (we can always write to a filename we're already writing to)
+	if (!bOverwriteExisting)
+	{
+		for (const TUniquePtr<FAVIWriter>& Writer : AVIWriters)
+		{
+			if (Writer->Options.OutputFilename == InFilename)
+			{
+				return true;
+			}
+		}
+
+		return IFileManager::Get().FileSize(InFilename) == -1;
+	}
+
+	return true;
 }

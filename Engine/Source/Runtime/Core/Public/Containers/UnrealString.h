@@ -403,7 +403,8 @@ public:
 	 * @param inChar other Char to be concatenated onto the end of this string
 	 * @return reference to this
 	 */
-	FORCEINLINE FString& operator+=(const TCHAR InChar)
+	template <typename CharType>
+	FORCEINLINE typename TEnableIf<TIsCharType<CharType>::Value, FString&>::Type operator+=(CharType InChar)
 	{
 		CheckInvariants();
 
@@ -527,6 +528,14 @@ public:
 	bool RemoveFromEnd( const FString& InSuffix, ESearchCase::Type SearchCase = ESearchCase::IgnoreCase );
 
 	/**
+	 * Concatenate this path with given path ensuring the / character is used between them
+	 *
+	 * @param Str       Pointer to an array of TCHARs (not necessarily null-terminated) to be concatenated onto the end of this.
+	 * @param StrLength Exact number of characters from Str to append.
+	 */
+	void PathAppend(const TCHAR* Str, int32 StrLength);
+
+	/**
 	 * Concatenate this with given string
 	 * 
 	 * @param Str other string to be concatenated onto the end of this
@@ -550,7 +559,8 @@ public:
 	 *
 	 * @return The concatenated string.
 	 */
-	FORCEINLINE friend FString operator+(const FString& Lhs, TCHAR Rhs)
+	template <typename CharType>
+	FORCEINLINE friend typename TEnableIf<TIsCharType<CharType>::Value, FString>::Type operator+(const FString& Lhs, CharType Rhs)
 	{
 		Lhs.CheckInvariants();
 
@@ -568,7 +578,8 @@ public:
 	 *
 	 * @return The concatenated string.
 	 */
-	FORCEINLINE friend FString operator+(FString&& Lhs, TCHAR Rhs)
+	template <typename CharType>
+	FORCEINLINE friend typename TEnableIf<TIsCharType<CharType>::Value, FString>::Type operator+(FString&& Lhs, CharType Rhs)
 	{
 		Lhs.CheckInvariants();
 
@@ -752,11 +763,10 @@ public:
 	 */
 	FORCEINLINE FString& operator/=( const TCHAR* Str )
 	{
-		if( Data.Num() > 1 && Data[Data.Num()-2] != TEXT('/') && Data[Data.Num()-2] != TEXT('\\') && (!Str || *Str != TEXT('/')) )
-		{
-			*this += TEXT("/");
-		}
-		return *this += Str;
+		checkSlow(Str);
+
+		PathAppend(Str, FCString::Strlen(Str));
+		return *this;
 	}
 
 	/**
@@ -767,7 +777,8 @@ public:
 	 */
 	FORCEINLINE FString& operator/=( const FString& Str )
 	{
-		return operator/=( *Str );
+		PathAppend(Str.Data.GetData(), Str.Len());
+		return *this;
 	}
 
 	/**
@@ -779,7 +790,13 @@ public:
 	 */
 	FORCEINLINE friend FString operator/(const FString& Lhs, const TCHAR* Rhs)
 	{
-		return FString(Lhs) /= Rhs;
+		checkSlow(Rhs);
+
+		int32 StrLength = FCString::Strlen(Rhs);
+
+		FString Result(Lhs, StrLength + 1);
+		Result.PathAppend(Rhs, StrLength);
+		return Result;
 	}
 
 	/**
@@ -791,7 +808,13 @@ public:
 	 */
 	FORCEINLINE friend FString operator/(FString&& Lhs, const TCHAR* Rhs)
 	{
-		return FString(MoveTemp(Lhs)) /= Rhs;
+		checkSlow(Rhs);
+
+		int32 StrLength = FCString::Strlen(Rhs);
+
+		FString Result(MoveTemp(Lhs), StrLength + 1);
+		Result.PathAppend(Rhs, StrLength);
+		return Result;
 	}
 
 	/**
@@ -803,7 +826,11 @@ public:
 	 */
 	FORCEINLINE friend FString operator/(const FString& Lhs, const FString& Rhs)
 	{
-		return FString(Lhs) /= *Rhs;
+		int32 StrLength = Rhs.Len();
+
+		FString Result(Lhs, StrLength + 1);
+		Result.PathAppend(Rhs.Data.GetData(), StrLength);
+		return Result;
 	}
 
 	/**
@@ -815,7 +842,11 @@ public:
 	 */
 	FORCEINLINE friend FString operator/(FString&& Lhs, const FString& Rhs)
 	{
-		return FString(MoveTemp(Lhs)) /= *Rhs;
+		int32 StrLength = Rhs.Len();
+
+		FString Result(MoveTemp(Lhs), StrLength + 1);
+		Result.PathAppend(Rhs.Data.GetData(), StrLength);
+		return Result;
 	}
 
 	/**
@@ -827,7 +858,11 @@ public:
 	 */
 	FORCEINLINE friend FString operator/(const TCHAR* Lhs, const FString& Rhs)
 	{
-		return FString(Lhs) /= *Rhs;
+		int32 StrLength = Rhs.Len();
+
+		FString Result(FString(Lhs), StrLength + 1);
+		Result.PathAppend(Rhs.Data.GetData(), Rhs.Len());
+		return Result;
 	}
 
 	/**
@@ -1361,7 +1396,23 @@ public:
 	 * @param SearchCase		Indicates whether the search is case sensitive or not ( defaults to ESearchCase::IgnoreCase )
 	 * @return true if this string begins with specified text, false otherwise
 	 */
+	bool StartsWith(const TCHAR* InSuffix, ESearchCase::Type SearchCase = ESearchCase::IgnoreCase) const;
+
+	/**
+	 * Test whether this string starts with given string.
+	 *
+	 * @param SearchCase		Indicates whether the search is case sensitive or not ( defaults to ESearchCase::IgnoreCase )
+	 * @return true if this string begins with specified text, false otherwise
+	 */
 	bool StartsWith(const FString& InPrefix, ESearchCase::Type SearchCase = ESearchCase::IgnoreCase) const;
+
+	/**
+	 * Test whether this string ends with given string.
+	 *
+	 * @param SearchCase		Indicates whether the search is case sensitive or not ( defaults to ESearchCase::IgnoreCase )
+	 * @return true if this string ends with specified text, false otherwise
+	 */
+	bool EndsWith(const TCHAR* InSuffix, ESearchCase::Type SearchCase = ESearchCase::IgnoreCase) const;
 
 	/**
 	 * Test whether this string ends with given string.
@@ -1458,7 +1509,7 @@ public:
 	/**
 	 * Returns a copy of this string, with the characters in reverse order
 	 */
-	FORCEINLINE FString Reverse() const;
+	FString Reverse() const;
 
 	/**
 	 * Reverses the order of characters in this string
@@ -1816,10 +1867,22 @@ namespace LexicalConversion
 
 	/** Convert numeric types to a string */
 	template<typename T>
-	typename TEnableIf<TIsArithmeticType<T>::Value, FString>::Type
+	typename TEnableIf<TIsArithmetic<T>::Value, FString>::Type
 		ToString(const T& Value)
 	{
 		return FString::Printf( TFormatSpecifier<T>::GetFormatSpecifier(), Value );
+	}
+
+	template<typename CharType>
+	typename TEnableIf<TIsCharType<CharType>::Value, FString>::Type
+		ToString(const CharType* Ptr)
+	{
+		return FString(Ptr);
+	}
+
+	inline FString ToString(bool Value)
+	{
+		return Value ? TEXT("true") : TEXT("false");
 	}
 
 	/** Helper template to convert to sanitized strings */
@@ -1840,7 +1903,7 @@ namespace LexicalConversion
 	/** Parse a string into this type, returning whether it was successful */
 	/** Specialization for arithmetic types */
 	template<typename T>
-	static typename TEnableIf<TIsArithmeticType<T>::Value, bool>::Type
+	static typename TEnableIf<TIsArithmetic<T>::Value, bool>::Type
 		TryParseString(T& OutValue, const TCHAR* Buffer)
 	{
 		if (FCString::IsNumeric(Buffer))

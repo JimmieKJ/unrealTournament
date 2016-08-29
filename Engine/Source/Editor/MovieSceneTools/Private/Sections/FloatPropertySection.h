@@ -2,11 +2,15 @@
 
 #pragma once
 
-#include "FloatCurveKeyArea.h"
+#include "PropertySection.h"
+
+
+class FFloatCurveKeyArea;
+class UMovieSceneSection;
 
 
 /**
- * An implementation of float property sections
+ * An implementation of float property sections.
  */
 class FFloatPropertySection
 	: public FPropertySection
@@ -19,7 +23,7 @@ public:
 
 public:
 
-	// FPropertySection interface 
+	//~ FPropertySection interface 
 
 	virtual void GenerateSectionLayout(class ISectionLayoutBuilder& LayoutBuilder) const override;
 	virtual void SetIntermediateValue(FPropertyChangedParams PropertyChangedParams) override;

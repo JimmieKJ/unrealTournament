@@ -310,8 +310,6 @@ void UEnvQueryTest::SetWorkOnFloatValues(bool bWorkOnFloats)
 		{
 			FilterType = EEnvTestFilterType::Range;
 		}
-
-		ScoringEquation = EEnvTestScoreEquation::Linear;
 	}
 	else
 	{

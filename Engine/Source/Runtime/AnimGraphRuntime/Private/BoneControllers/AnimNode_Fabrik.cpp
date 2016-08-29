@@ -1,6 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "AnimGraphRuntimePrivatePCH.h"
+#include "Animation/AnimTypes.h"
 #include "BoneControllers/AnimNode_Fabrik.h"
 
 /////////////////////////////////////////////////////
@@ -33,14 +34,8 @@ void FAnimNode_Fabrik::EvaluateBoneTransforms(USkeletalMeshComponent* SkelComp, 
 	
 	FVector const CSEffectorLocation = CSEffectorTransform.GetLocation();
 
-	// @fixme - we need better to draw widgets and debug information in editor.
-#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
-	if (bEnableDebugDraw)
-	{
-		// Show end effector position.
-		DrawDebugBox(SkelComp->GetWorld(), CSEffectorLocation, FVector(Precision), FColor::Green, true, 0.1f);
-		DrawDebugCoordinateSystem(SkelComp->GetWorld(), CSEffectorLocation, CSEffectorTransform.GetRotation().Rotator(), 5.f, true, 0.1f);
-	}
+#if WITH_EDITOR
+	CachedEffectorCSTransform = CSEffectorTransform;
 #endif
 
 	// Gather all bone indices between root and tip.
@@ -208,6 +203,7 @@ void FAnimNode_Fabrik::EvaluateBoneTransforms(USkeletalMeshComponent* SkelComp, 
 			// Calculate absolute rotation and set it
 			FTransform& CurrentBoneTransform = OutBoneTransforms[CurrentLink.TransformIndex].Transform;
 			CurrentBoneTransform.SetRotation(DeltaRotation * CurrentBoneTransform.GetRotation());
+			CurrentBoneTransform.NormalizeRotation();
 
 			// Update zero length children if any
 			int32 const NumChildren = CurrentLink.ChildZeroLengthTransformIndices.Num();
@@ -215,6 +211,7 @@ void FAnimNode_Fabrik::EvaluateBoneTransforms(USkeletalMeshComponent* SkelComp, 
 			{
 				FTransform& ChildBoneTransform = OutBoneTransforms[CurrentLink.ChildZeroLengthTransformIndices[ChildIndex]].Transform;
 				ChildBoneTransform.SetRotation(DeltaRotation * ChildBoneTransform.GetRotation());
+				ChildBoneTransform.NormalizeRotation();
 			}
 		}
 	}
@@ -249,9 +246,32 @@ bool FAnimNode_Fabrik::IsValidToEvaluate(const USkeleton* Skeleton, const FBoneC
 		);
 }
 
-void FAnimNode_Fabrik::InitializeBoneReferences(const FBoneContainer& RequiredBones) 
+void FAnimNode_Fabrik::ConditionalDebugDraw(FPrimitiveDrawInterface* PDI, USkeletalMeshComponent* PreviewSkelMeshComp) const
+{
+#if WITH_EDITOR
+
+	if(bEnableDebugDraw && PreviewSkelMeshComp && PreviewSkelMeshComp->GetWorld())
+	{
+		FVector const CSEffectorLocation = CachedEffectorCSTransform.GetLocation();
+
+		// Show end effector position.
+		DrawDebugBox(PreviewSkelMeshComp->GetWorld(), CSEffectorLocation, FVector(Precision), FColor::Green, true, 0.1f);
+		DrawDebugCoordinateSystem(PreviewSkelMeshComp->GetWorld(), CSEffectorLocation, CachedEffectorCSTransform.GetRotation().Rotator(), 5.f, true, 0.1f);
+	}
+#endif
+}
+
+void FAnimNode_Fabrik::InitializeBoneReferences(const FBoneContainer& RequiredBones)
 {
 	TipBone.Initialize(RequiredBones);
 	RootBone.Initialize(RequiredBones);
 	EffectorTransformBone.Initialize(RequiredBones);
+}
+
+void FAnimNode_Fabrik::GatherDebugData(FNodeDebugData& DebugData)
+{
+	FString DebugLine = DebugData.GetNodeName(this);
+
+	DebugData.AddDebugItem(DebugLine);
+	ComponentPose.GatherDebugData(DebugData);
 }

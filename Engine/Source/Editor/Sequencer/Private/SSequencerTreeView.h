@@ -157,6 +157,9 @@ public:
 	/** Called when a child row widget has been added/removed */
 	void OnChildRowRemoved(const FDisplayNodeRef& InNode);
 
+	/** Ensure that the track area column is either show or hidden, depending on the visibility of the curve editor */
+	void UpdateTrackArea();
+
 protected:
 	
 	/** Linear, sorted array of nodes that we currently have generated widgets for */
@@ -169,9 +172,6 @@ protected:
 
 	/** Populate the map of column definitions, and add relevant columns to the header row */
 	void SetupColumns(const FArguments& InArgs);
-
-	/** Ensure that the track area column is either show or hidden, depending on the visibility of the curve editor */
-	void UpdateTrackArea();
 
 private:
 

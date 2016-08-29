@@ -1,8 +1,8 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <TpsData xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
   <Name>Bolts</Name>
-  <Location>//depot/UE4/Engine/Source/ThirdParty/IOS/Bolts/</Location>
-  <Date>2015-09-04T18:17:16.7551972-04:00</Date>
+  <Location>/Engine/Source/ThirdParty/IOS/Bolts/</Location>
+  <Date>2016-06-07T17:45:52.3134877-04:00</Date>
   <Function> Support library for the facebook SDK</Function>
   <Justification>Facebook SDK upgrade uses this lib</Justification>
   <Platforms>
@@ -14,7 +14,11 @@
   </Products>
   <TpsType>Source Code</TpsType>
   <Eula>https://github.com/BoltsFramework/Bolts-iOS/blob/master/LICENSE</Eula>
-  <RedistributeTo />
+  <RedistributeTo>
+    <EndUserGroup>Licensees</EndUserGroup>
+    <EndUserGroup>Git</EndUserGroup>
+    <EndUserGroup>P4</EndUserGroup>
+  </RedistributeTo>
   <Redistribute>false</Redistribute>
   <IsSourceAvailable>false</IsSourceAvailable>
   <NoticeType>Full EULA Text</NoticeType>
@@ -40,5 +44,5 @@ SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PRO
 SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
 WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
 THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.</Notification>
-  <LicenseFolder />
+  <LicenseFolder>/Engine/Source/ThirdParty/Licenses/Bolts_License.txt</LicenseFolder>
 </TpsData>

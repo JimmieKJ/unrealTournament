@@ -56,13 +56,13 @@ void FAnimNode_CopyPoseFromMesh::Evaluate(FPoseContext& Output)
 				// only apply if I also have parent, otherwise, it should apply the space bases
 				if (ParentIndex != INDEX_NONE && MyParentIndex != INDEX_NONE)
 				{
-					const FTransform& ParentTransform = CurrentlyUsedSourceMeshComponent.Get()->GetSpaceBases()[ParentIndex];
-					const FTransform& ChildTransform = CurrentlyUsedSourceMeshComponent.Get()->GetSpaceBases()[SourceBoneIndex]; 
+					const FTransform& ParentTransform = CurrentlyUsedSourceMeshComponent.Get()->GetComponentSpaceTransforms()[ParentIndex];
+					const FTransform& ChildTransform = CurrentlyUsedSourceMeshComponent.Get()->GetComponentSpaceTransforms()[SourceBoneIndex];
 					OutPose[PoseBoneIndex] = ChildTransform.GetRelativeTransform(ParentTransform);
 				}
 				else
 				{
-					OutPose[PoseBoneIndex] = CurrentlyUsedSourceMeshComponent.Get()->GetSpaceBases()[SourceBoneIndex]; 
+					OutPose[PoseBoneIndex] = CurrentlyUsedSourceMeshComponent.Get()->GetComponentSpaceTransforms()[SourceBoneIndex];
 				}
 			}
 		}

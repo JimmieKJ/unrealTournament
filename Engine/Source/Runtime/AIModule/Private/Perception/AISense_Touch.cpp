@@ -26,8 +26,10 @@ float UAISense_Touch::Update()
 				{
 					// this has to succeed, will assert a failure
 					FPerceptionListener& Listener = ListenersMap[PerceptionComponent->GetListenerId()];
-
-					Listener.RegisterStimulus(Event.OtherActor, FAIStimulus(*this, 1.f, Event.Location, Event.Location));
+					if (Listener.HasSense(GetSenseID()))
+					{
+						Listener.RegisterStimulus(Event.OtherActor, FAIStimulus(*this, 1.f, Event.Location, Event.Location));
+					}
 				}
 			}
 		}

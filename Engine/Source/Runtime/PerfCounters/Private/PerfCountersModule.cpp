@@ -68,3 +68,10 @@ public:
 
 IMPLEMENT_MODULE(FPerfCountersModule, PerfCounters)
 DEFINE_LOG_CATEGORY(LogPerfCounters);
+
+const FName IPerfCounters::Histograms::FrameTime(TEXT("FrameTime"));
+const FName IPerfCounters::Histograms::FrameTimePeriodic(TEXT("FrameTimePeriodic"));
+const FName IPerfCounters::Histograms::FrameTimeWithoutSleep(TEXT("FrameTimeWithoutSleep"));
+const FName IPerfCounters::Histograms::ServerReplicateActorsTime(TEXT("ServerReplicateActorsTime"));
+const FName IPerfCounters::Histograms::SleepTime(TEXT("SleepTime"));
+const FName IPerfCounters::Histograms::ZeroLoadFrameTime(TEXT("ZeroLoadFrameTime"));

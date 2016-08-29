@@ -40,10 +40,10 @@ void UK2Node_EnumLiteral::AllocateDefaultPins()
 	Super::AllocateDefaultPins();
 }
 
-FName UK2Node_EnumLiteral::GetPaletteIcon(FLinearColor& OutColor) const
-{ 
-	static const FName PaletteIconName(TEXT("GraphEditor.Enum_16x"));
-	return PaletteIconName;
+FSlateIcon UK2Node_EnumLiteral::GetIconAndTint(FLinearColor& OutColor) const
+{
+	static FSlateIcon Icon("EditorStyle", "GraphEditor.Enum_16x");
+	return Icon;
 }
 
 FText UK2Node_EnumLiteral::GetTooltipText() const

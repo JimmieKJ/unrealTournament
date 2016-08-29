@@ -52,7 +52,6 @@ public:
 	explicit FScopedDurationTimer(double& AccumulatorIn)
 		: FDurationTimer(AccumulatorIn)
 	{
-		Start();
 	}
 
 	/** Dtor, updating seconds with time delta. */
@@ -68,7 +67,7 @@ public:
  * 
  * ThreadSafeCounterClass is expected to be a thread-safe type with a non-static member Add(uint32) that will work correctly if called from multiple threads simultaneously.
  */
-template <typename ThreadSafeCounterClass = FThreadSafeCounter>
+template <typename ThreadSafeCounterClass>
 class TScopedDurationThreadSafeTimer
 {
 public:
@@ -86,14 +85,7 @@ private:
 	int32 StartCycles;
 };
 
-/** Helper to create a TScopedDurationThreadSafeTimer using an existing FThreadSafeCounter. */
-template <typename ThreadSafeCounterClass>
-TScopedDurationThreadSafeTimer<ThreadSafeCounterClass> MakeScopedDurationThreadSafeTimer(ThreadSafeCounterClass& Counter)
-{
-	return TScopedDurationThreadSafeTimer<ThreadSafeCounterClass>(Counter);
-}
-
-typedef TScopedDurationThreadSafeTimer<> FScopedDurationThreadSafeTimer;
+typedef TScopedDurationThreadSafeTimer<FThreadSafeCounter> FScopedDurationThreadSafeTimer;
 #if PLATFORM_HAS_64BIT_ATOMICS
 typedef TScopedDurationThreadSafeTimer<FThreadSafeCounter64> FScopedDurationThreadSafeTimer64;
 #endif

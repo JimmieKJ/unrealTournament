@@ -85,7 +85,7 @@ float UUTRadialMenu::GetMidSegmentAngle(int32 SegmentIndex)
 }
 
 
-FVector2D UUTRadialMenu::Rotate(FVector2D ScreenPosition, float Angle)
+FVector2D UUTRadialMenu::Rotate(FVector2D InScreenPosition, float Angle)
 {
 	float Sin = 0.f;
 	float Cos = 0.f;
@@ -93,8 +93,8 @@ FVector2D UUTRadialMenu::Rotate(FVector2D ScreenPosition, float Angle)
 	FMath::SinCos(&Sin, &Cos, FMath::DegreesToRadians(Angle));
 	FVector2D NewScreenPosition;
 	
-	NewScreenPosition.X = ScreenPosition.X * Cos - ScreenPosition.Y * Sin;
-	NewScreenPosition.Y = ScreenPosition.Y * Cos + ScreenPosition.X * Sin;
+	NewScreenPosition.X = InScreenPosition.X * Cos - InScreenPosition.Y * Sin;
+	NewScreenPosition.Y = InScreenPosition.Y * Cos + InScreenPosition.X * Sin;
 	return NewScreenPosition;
 }
 
@@ -125,10 +125,10 @@ void UUTRadialMenu::Draw_Implementation(float RenderDelta)
 				float StartAngle = Segments[i].Angles[0].X;
 				float EndAngle = Segments[i].Angles.Num() > 1 ? Segments[i].Angles[1].Y : Segments[i].Angles[0].Y;
 		
-				FVector2D ScreenPosition = Rotate(OriginLine, StartAngle);
-				Canvas->K2_DrawLine(ScreenCenter, ScreenCenter + ScreenPosition, 1.0, FLinearColor::White);
+				FVector2D DrawScreenPosition = Rotate(OriginLine, StartAngle);
+				Canvas->K2_DrawLine(ScreenCenter, ScreenCenter + DrawScreenPosition, 1.0, FLinearColor::White);
 				ScreenPosition = Rotate(OriginLine, EndAngle);
-				Canvas->K2_DrawLine(ScreenCenter, ScreenCenter + ScreenPosition, 1.0, FLinearColor::White);
+				Canvas->K2_DrawLine(ScreenCenter, ScreenCenter + DrawScreenPosition, 1.0, FLinearColor::White);
 			}
 
 			DebugTextTemplate.Text = FText::Format(NSLOCTEXT("UTRadialMenu","TestFormat","Angle = {0} Dist = {1}  Segment= {2}"), FText::AsNumber(CurrentAngle), FText::AsNumber(CurrentDistance), FText::AsNumber(CurrentSegment));

@@ -48,9 +48,12 @@ void FGroupedKeyCollection::InitializeExplicit(const TArray<FSequencerDisplayNod
 		else if (Node->GetType() == ESequencerNode::Track)
 		{
 			KeyAreaNode = static_cast<const FSequencerTrackNode*>(Node)->GetTopLevelKeyNode().Get();
+			if (!KeyAreaNode)
+			{
+				continue;
+			}
 		}
-
-		if (!KeyAreaNode)
+		else
 		{
 			continue;
 		}

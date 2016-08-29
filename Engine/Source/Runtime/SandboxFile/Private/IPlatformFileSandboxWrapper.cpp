@@ -129,6 +129,15 @@ bool FSandboxPlatformFile::Initialize(IPlatformFile* Inner, const TCHAR* CmdLine
 	return !!LowerLevel;
 }
 
+const FString& FSandboxPlatformFile::GetGameSandboxDirectoryName()
+{
+	if (GameSandboxDirectoryName.IsEmpty())
+	{
+		GameSandboxDirectoryName = FString::Printf(TEXT("%s/"), FApp::GetGameName());
+	}
+	return GameSandboxDirectoryName;
+}
+
 FString FSandboxPlatformFile::ConvertToSandboxPath( const TCHAR* Filename ) const
 {
 	// Mostly for the malloc profiler to flush the data.
@@ -317,13 +326,23 @@ FString FSandboxPlatformFile::ConvertToAbsolutePathForExternalAppForWrite( const
 
 const FString& FSandboxPlatformFile::GetAbsolutePathToGameDirectory()
 {
+	if (AbsolutePathToGameDirectory.IsEmpty())
+	{
+		// Strip game directory, keep just to path to the game directory which could simply be the root dir (but not always).
+		AbsolutePathToGameDirectory = FPaths::GetPath(GetAbsoluteGameDirectory());
+	}
+	return AbsolutePathToGameDirectory;
+}
+
+const FString& FSandboxPlatformFile::GetAbsoluteGameDirectory()
+{
 	if (AbsoluteGameDirectory.IsEmpty())
 	{
 		AbsoluteGameDirectory = FPaths::GetProjectFilePath();
 		UE_CLOG(AbsoluteGameDirectory.IsEmpty(), SandboxFile, Fatal, TEXT("SandboxFileWrapper tried to access project path before it was set."));
 		AbsoluteGameDirectory = FPaths::ConvertRelativePathToFull(AbsoluteGameDirectory);
-		// Strip .uproject filename and game directory, keep just to path to the game directory which could simply be the root dir (but not always).
-		AbsoluteGameDirectory = FPaths::GetPath(FPaths::GetPath(AbsoluteGameDirectory));
+		// Strip .uproject filename
+		AbsoluteGameDirectory = FPaths::GetPath(AbsoluteGameDirectory);
 	}
 	return AbsoluteGameDirectory;
 }

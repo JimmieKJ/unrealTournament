@@ -11,6 +11,7 @@
 #pragma push_macro("OVERRIDE")
 #undef OVERRIDE // cef headers provide their own OVERRIDE macro
 #include "include/internal/cef_ptr.h"
+#include "include/cef_request_context.h"
 #pragma pop_macro("OVERRIDE")
 #if PLATFORM_WINDOWS
 	#include "HideWindowsPlatformTypes.h"
@@ -24,6 +25,7 @@ class FWebBrowserApp;
 class FWebBrowserHandler;
 class FWebBrowserWindow;
 
+PRAGMA_DISABLE_DEPRECATION_WARNINGS
 
 /**
  * Implementation of singleton class that takes care of general web browser tasks
@@ -51,6 +53,8 @@ public:
 
 	// IWebBrowserSingleton Interface
 
+	virtual TSharedRef<IWebBrowserWindowFactory> GetWebBrowserWindowFactory() const override;
+
 	TSharedPtr<IWebBrowserWindow> CreateBrowserWindow(
 		TSharedPtr<FWebBrowserWindow>& BrowserWindowParent,
 		TSharedPtr<FWebBrowserWindowInfo>& BrowserWindowInfo) override;
@@ -62,9 +66,23 @@ public:
 		bool bThumbMouseButtonNavigation,
 		TOptional<FString> ContentsToLoad = TOptional<FString>(), 
 		bool ShowErrorMessage = true,
-		FColor BackgroundColor = FColor(255, 255, 255, 255)) override;
+		FColor BackgroundColor = FColor(255, 255, 255, 255),
+		int BrowserFrameRate = 24 ) override;
 
-	virtual void DeleteBrowserCookies(FString URL = TEXT(""), FString CookieName = TEXT(""), TFunction<void (int)> Completed = nullptr) override;
+	TSharedPtr<IWebBrowserWindow> CreateBrowserWindow(const FCreateBrowserWindowSettings& Settings) override;
+
+	virtual void DeleteBrowserCookies(FString URL = TEXT(""), FString CookieName = TEXT(""), TFunction<void(int)> Completed = nullptr) override;
+
+	virtual TSharedPtr<IWebBrowserCookieManager> GetCookieManager() const override
+	{
+		return DefaultCookieManager;
+	}
+
+	virtual TSharedPtr<IWebBrowserCookieManager> GetCookieManager(TOptional<FString> ContextId) const override;
+
+	virtual bool RegisterContext(const FBrowserContextSettings& Settings) override;
+
+	virtual bool UnregisterContext(const FString& ContextId) override;
 
 	virtual bool IsDevToolsShortcutEnabled() override
 	{
@@ -83,6 +101,9 @@ public:
 	virtual bool Tick(float DeltaTime) override;
 
 private:
+
+	TSharedPtr<IWebBrowserCookieManager> DefaultCookieManager;
+
 #if WITH_CEF3
 	/** When new render processes are created, send all permanent variable bindings to them. */
 	void HandleRenderProcessCreated(CefRefPtr<CefListValue> ExtraInfo);
@@ -90,6 +111,27 @@ private:
 	CefRefPtr<FWebBrowserApp>			WebBrowserApp;
 	/** List of currently existing browser windows */
 	TArray<TWeakPtr<FWebBrowserWindow>>	WindowInterfaces;
+
+	TMap<FString, CefRefPtr<CefRequestContext>> RequestContexts;
 #endif
+
+	TSharedRef<IWebBrowserWindowFactory> WebBrowserWindowFactory;
+
 	bool bDevToolsShortcutEnabled;
+
 };
+
+PRAGMA_ENABLE_DEPRECATION_WARNINGS
+
+#if WITH_CEF3
+
+class CefCookieManager;
+
+class FCefWebBrowserCookieManagerFactory
+{
+public:
+	static TSharedRef<IWebBrowserCookieManager> Create(
+		const CefRefPtr<CefCookieManager>& CookieManager);
+};
+
+#endif

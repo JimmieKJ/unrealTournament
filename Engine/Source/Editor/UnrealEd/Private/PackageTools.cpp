@@ -28,7 +28,7 @@ extern CORE_API EditorPostReachabilityAnalysisCallbackType EditorPostReachabilit
 namespace PackageTools
 {
 	/** State passed to RestoreStandaloneOnReachableObjects. */
-	static UPackage* PackageBeingUnloaded = NULL;
+	static UPackage* PackageBeingUnloaded = nullptr;
 	static TMap<UObject*,UObject*> ObjectsThatHadFlagsCleared;
 
 	/**
@@ -37,21 +37,15 @@ namespace PackageTools
 	 */
 	void RestoreStandaloneOnReachableObjects()
 	{
-		TArray<UObject*> ObjectsInPackage;
-		GetObjectsWithOuter(PackageBeingUnloaded, ObjectsInPackage);
-		for ( UObject* Object : ObjectsInPackage )
-		{
-			if ( !Object->IsUnreachable() )
+		ForEachObjectWithOuter(PackageBeingUnloaded, [](UObject* Object)
 			{
 				if ( ObjectsThatHadFlagsCleared.Find(Object) )
 				{
 					Object->SetFlags(RF_Standalone);
 				}
-			}
-		}
+			},
+			true, RF_NoFlags, EInternalObjectFlags::Unreachable);
 	}
-
-
 
 	/**
 	 * Filters the global set of packages.
@@ -59,17 +53,19 @@ namespace PackageTools
 	 * @param	OutGroupPackages			The map that receives the filtered list of group packages.
 	 * @param	OutPackageList				The array that will contain the list of filtered packages.
 	 */
-	void GetFilteredPackageList( TSet<const UPackage*>& OutFilteredPackageMap,
-								 TSet<UPackage*>* OutGroupPackages,
-								 TArray<UPackage*>& OutPackageList )
+	void GetFilteredPackageList(TSet<UPackage*>& OutFilteredPackageMap)
 	{
 		// The UObject list is iterated rather than the UPackage list because we need to be sure we are only adding
 		// group packages that contain things the generic browser cares about.  The packages are derived by walking
 		// the outer chain of each object.
 
 		// Assemble a list of packages.  Only show packages that match the current resource type filter.
-		for (auto* Obj : TObjectRange<UObject>())
+		for (UObject* Obj : TObjectRange<UObject>())
 		{
+			// This is here to hopefully catch a bit more info about a spurious in-the-wild problem which ultimately
+			// crashes inside UObjectBaseUtility::GetOutermost(), which is called inside IsObjectBrowsable().
+			checkf(Obj->IsValidLowLevel(), TEXT("GetFilteredPackageList: bad object found, address: %p, name: %s"), Obj, *Obj->GetName());
+
 			// Make sure that we support displaying this object type
 			bool bIsSupported = ObjectTools::IsObjectBrowsable( Obj );
 			if( bIsSupported )
@@ -79,25 +75,7 @@ namespace PackageTools
 				{
 					OutFilteredPackageMap.Add( ObjectPackage );
 				}
-
-				if( OutGroupPackages != NULL )
-				{
-					for ( UObject* NextOuter = Obj->GetOuter(); NextOuter && NextOuter->GetOuter(); NextOuter = NextOuter->GetOuter() )
-					{
-						UPackage* NextGroup = Cast<UPackage>(NextOuter);
-						if ( NextGroup != NULL && !OutGroupPackages->Contains(NextGroup) )
-						{
-							OutGroupPackages->Add(NextGroup);
-						}
-					}
-				}
 			}
-		}
-
-		// Make a TArray copy of PackageMap.
-		for ( TSet<const UPackage*>::TConstIterator It( OutFilteredPackageMap ) ; It ; ++It )
-		{
-			OutPackageList.Add( const_cast<UPackage*>( *It ) );
 		}
 	}
 
@@ -109,43 +87,32 @@ namespace PackageTools
 	 * @param	OutObjects			[out] Receives the list of objects
 	 * @param	bMustBeBrowsable	If specified, does a check to see if object is browsable. Defaults to true.
 	 */
-	void GetObjectsInPackages( const TArray<UPackage*>* InPackages,
-							   TArray<UObject*>& OutObjects )
+	void GetObjectsInPackages( const TArray<UPackage*>* InPackages, TArray<UObject*>& OutObjects )
 	{
-		// Iterate over all objects.
-		for( TObjectIterator<UObject> It ; It ; ++It )
+		if (InPackages)
 		{
-			UObject* Obj = *It;
-
-			// Filter out invalid objects early.
-			if( !ObjectTools::IsObjectBrowsable( Obj ) )
+			for (UPackage* Package : *InPackages)
 			{
-				continue;
-			}
-
-			// Should we filter based on a list of allowed packages?
-			if( InPackages != NULL )
-			{
-				// Make sure this object resides in one of the specified packages.
-				bool bIsInPackage = false;
-				for ( int32 PackageIndex = 0 ; PackageIndex < InPackages->Num() ; ++PackageIndex )
-				{
-					const UPackage* Package = ( *InPackages )[PackageIndex];
-					if ( Obj->IsIn(Package) )
+				ForEachObjectWithOuter(Package,[&OutObjects](UObject* Obj)
 					{
-						bIsInPackage = true;
-						break;
-					}
-				}
+						if (ObjectTools::IsObjectBrowsable(Obj))
+						{
+							OutObjects.Add(Obj);
+						}
+					});
+			}
+		}
+		else
+		{
+			for (TObjectIterator<UObject> It; It; ++It)
+			{
+				UObject* Obj = *It;
 
-				if( !bIsInPackage )
+				if (ObjectTools::IsObjectBrowsable(Obj))
 				{
-					continue;
+					OutObjects.Add(Obj);
 				}
 			}
-
-			// Add to the list.
-			OutObjects.Add( Obj );
 		}
 	}
 
@@ -567,14 +534,13 @@ namespace PackageTools
 		bool bHasExternalPackageRefs = false;
 
 		// Find all external packages
-		TSet< const UPackage* > FilteredPackageMap;
-		TArray< UPackage* > LoadedPackageList;
-		GetFilteredPackageList( FilteredPackageMap, NULL, LoadedPackageList );
+		TSet<UPackage*> FilteredPackageMap;
+		GetFilteredPackageList(FilteredPackageMap);
 
 		TArray< UPackage* > ExternalPackages;
-		for(int32 pkgIdx = 0; pkgIdx < LoadedPackageList.Num(); ++pkgIdx)
+		ExternalPackages.Reserve(FilteredPackageMap.Num());
+		for (UPackage* Pkg : FilteredPackageMap)
 		{
-			UPackage* Pkg = LoadedPackageList[ pkgIdx ];
 			FString OutFilename;
 			const FString PackageName = Pkg->GetName();
 			const FGuid PackageGuid = Pkg->GetGuid();
@@ -598,38 +564,27 @@ namespace PackageTools
 		}
 		else
 		{
-			for( TObjectIterator<UObject> It ; It ; ++It )
-			{
-				// Gather all the objects in our level
-				UObject* Obj = *It;
-				if ( Obj->IsIn(LevelToCheck) )
-				{
-					ObjectsInPackageToCheck.Add(Obj);
-				}
+			GetObjectsWithOuter(LevelToCheck, ObjectsInPackageToCheck);
 
-				// Gather all objects in any loaded external packages			
-				for ( int32 PackageIndex = 0 ; PackageIndex < ExternalPackages.Num() ; ++PackageIndex )
-				{
-					const UPackage* Package = ExternalPackages[PackageIndex];
-					if ( Obj->IsIn(Package) && ObjectTools::IsObjectBrowsable( Obj ) )
-					{
-						ObjectsInExternalPackages.Add( Obj );
-						break;
-					}
-				}
+			// Gather all objects in any loaded external packages			
+			for (const UPackage* Package : ExternalPackages)
+			{
+				ForEachObjectWithOuter(Package,
+									   [&ObjectsInExternalPackages](UObject* Obj)
+									   {
+										   if (ObjectTools::IsObjectBrowsable(Obj))
+										   {
+											   ObjectsInExternalPackages.Add(Obj);
+										   }
+									   });
 			}
 		}
 
-		// compare
-		for(int32 ExtObjIdx = 0; ExtObjIdx < ObjectsInExternalPackages.Num(); ++ExtObjIdx)
+		// only check objects which are in packages to be saved.  This should greatly reduce the overhead by not searching through objects we don't intend to save
+		for (UObject* CheckObject : ObjectsInPackageToCheck)
 		{
-			UObject* ExternalObject = ObjectsInExternalPackages[ ExtObjIdx ];
-
-			// only check objects which are in packages to be saved.  This should greatly reduce the overhead by not searching through objects we don't intend to save
-			for(int32 CheckObjIdx = 0; CheckObjIdx < ObjectsInPackageToCheck.Num(); ++CheckObjIdx)
+			for (UObject* ExternalObject : ObjectsInExternalPackages)
 			{
-				UObject* CheckObject = ObjectsInPackageToCheck[ CheckObjIdx ];
-
 				FArchiveFindCulprit ArFind( ExternalObject, CheckObject, false );
 				if( ArFind.GetCount() > 0 )
 				{
@@ -642,6 +597,7 @@ namespace PackageTools
 						OutObjectsWithExternalRefs->Add( CheckObject );
 					}
 					bHasExternalPackageRefs = true;
+					break;
 				}
 			}
 		}

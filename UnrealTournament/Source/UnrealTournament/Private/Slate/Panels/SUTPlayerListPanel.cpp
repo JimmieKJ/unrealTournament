@@ -738,7 +738,7 @@ FReply SUTPlayerListPanel::OnListSelect(TSharedPtr<FTrackedPlayer> Selected)
 	return FReply::Handled();
 }
 
-void SUTPlayerListPanel::OnSubMenuSelect(FName Tag, TSharedPtr<FTrackedPlayer> InItem)
+void SUTPlayerListPanel::OnSubMenuSelect(FName InTag, TSharedPtr<FTrackedPlayer> InItem)
 {
 
 	if (PlayerOwner.IsValid() && PlayerOwner->PlayerController && PlayerOwner->PlayerController->PlayerState)
@@ -746,28 +746,28 @@ void SUTPlayerListPanel::OnSubMenuSelect(FName Tag, TSharedPtr<FTrackedPlayer> I
 		AUTLobbyPlayerState* LobbyPlayerState = Cast<AUTLobbyPlayerState>(PlayerOwner->PlayerController->PlayerState);
 		AUTLobbyPlayerState* TargetPlayerState = Cast<AUTLobbyPlayerState>(InItem->PlayerState.Get());
 
-		if (Tag == EPlayerListContentCommand::PlayerCard)
+		if (InTag == EPlayerListContentCommand::PlayerCard)
 		{
 			if (PlayerOwner.IsValid() && InItem->PlayerState.IsValid())
 			{
 				PlayerOwner->ShowPlayerInfo(InItem->PlayerState);
 			}
 		}
-		else if (Tag == EPlayerListContentCommand::Kick)
+		else if (InTag == EPlayerListContentCommand::Kick)
 		{
 			if (LobbyPlayerState && TargetPlayerState && LobbyPlayerState->CurrentMatch)
 			{
 				LobbyPlayerState->CurrentMatch->ServerManageUser(2,TargetPlayerState);
 			}
 		}
-		else if (Tag == EPlayerListContentCommand::Ban)
+		else if (InTag == EPlayerListContentCommand::Ban)
 		{
 			if (LobbyPlayerState && TargetPlayerState && LobbyPlayerState->CurrentMatch)
 			{
 				LobbyPlayerState->CurrentMatch->ServerManageUser(3,TargetPlayerState);
 			}
 		}
-		else if (Tag == EPlayerListContentCommand::Invite)
+		else if (InTag == EPlayerListContentCommand::Invite)
 		{
 			if (LobbyPlayerState && TargetPlayerState && LobbyPlayerState->CurrentMatch)
 			{
@@ -775,7 +775,7 @@ void SUTPlayerListPanel::OnSubMenuSelect(FName Tag, TSharedPtr<FTrackedPlayer> I
 			}
 		
 		}
-		else if (Tag == EPlayerListContentCommand::UnInvite)
+		else if (InTag == EPlayerListContentCommand::UnInvite)
 		{
 			if (LobbyPlayerState && TargetPlayerState && LobbyPlayerState->CurrentMatch)
 			{
@@ -783,7 +783,7 @@ void SUTPlayerListPanel::OnSubMenuSelect(FName Tag, TSharedPtr<FTrackedPlayer> I
 			}
 		
 		}
-		else if ((Tag == EPlayerListContentCommand::ServerKick || Tag == EPlayerListContentCommand::ServerBan) && TargetPlayerState != NULL)
+		else if ((InTag == EPlayerListContentCommand::ServerKick || InTag == EPlayerListContentCommand::ServerBan) && TargetPlayerState != NULL)
 		{
 			AUTBasePlayerController* PC = Cast<AUTBasePlayerController>(PlayerOwner->PlayerController);
 			if (PC)
@@ -791,7 +791,7 @@ void SUTPlayerListPanel::OnSubMenuSelect(FName Tag, TSharedPtr<FTrackedPlayer> I
 				PC->RconKick(TargetPlayerState->UniqueId.ToString(), Tag == EPlayerListContentCommand::ServerBan);
 			}
 		}
-		else if ((Tag == EPlayerListContentCommand::SendMessage))
+		else if ((InTag == EPlayerListContentCommand::SendMessage))
 		{
 			if (ConnectedChatPanel.IsValid())
 			{

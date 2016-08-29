@@ -16,7 +16,7 @@ UMovieSceneSpawnTrack::UMovieSceneSpawnTrack(const FObjectInitializer& Obj)
 	: Super(Obj)
 {
 #if WITH_EDITORONLY_DATA
-	TrackTint = FColor(255, 0, 93, 65);
+	TrackTint = FColor(43, 43, 155, 65);
 #endif
 }
 
@@ -48,7 +48,7 @@ bool UMovieSceneSpawnTrack::Eval(float Position, float LastPostion, bool& bOutSp
 UMovieSceneSection* UMovieSceneSpawnTrack::CreateNewSection()
 {
 	UMovieSceneBoolSection* Section = NewObject<UMovieSceneBoolSection>(this, NAME_None, RF_Transactional);
-	Section->DefaultValue = true;
+	Section->GetCurve().SetDefaultValue(true);
 	return Section;
 }
 
@@ -94,6 +94,35 @@ const TArray<UMovieSceneSection*>& UMovieSceneSpawnTrack::GetAllSections() const
 	return Sections;
 }
 
+#if WITH_EDITORONLY_DATA
+
+ECookOptimizationFlags UMovieSceneSpawnTrack::GetCookOptimizationFlags() const
+{
+	// Since the spawn track denotes the lifetime of a spawnable, if the object is never spawned, we can remove the entire object
+	for (UMovieSceneSection* Section : Sections)
+	{
+		UMovieSceneBoolSection* BoolSection = CastChecked<UMovieSceneBoolSection>(Section);
+		if (!BoolSection->IsActive())
+		{
+			continue;
+		}
+		else if (BoolSection->GetCurve().GetNumKeys() == 0 && BoolSection->GetCurve().GetDefaultValue())
+		{
+			return ECookOptimizationFlags::None;
+		}
+		else for (auto It = BoolSection->GetCurve().GetKeyIterator(); It; ++It)
+		{
+			if (It->Value)
+			{
+				return ECookOptimizationFlags::None;
+			}
+		}
+	}
+
+	return ECookOptimizationFlags::RemoveObject;
+}
+
+#endif
 
 #if WITH_EDITORONLY_DATA
 

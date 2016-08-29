@@ -194,14 +194,14 @@ void FKCHandler_CreateDelegate::RegisterNets(FKismetFunctionContext& Context, UE
 	const FName DelegateFunctionName = DelegateNode->GetFunctionName();
 	if(DelegateFunctionName == NAME_None)
 	{
-		CompilerContext.MessageLog.Error(*LOCTEXT("NoDelegateFunctionName", "No delegate function name @@").ToString(), DelegateNode);
+		CompilerContext.MessageLog.Error(*LOCTEXT("NoDelegateFunctionName", "@@ : missing a function/event name.").ToString(), DelegateNode);
 		return;
 	}
 
 	if(!DelegateNode->GetDelegateSignature())
 	{
 		const FString ErrorStr = FString::Printf(
-			*LOCTEXT("NoDelegateFunction", "No delegate function '%' @@").ToString(),
+			*LOCTEXT("NoDelegateFunction", "@@ : unable to determine expected signature - is the delegate pin connected?").ToString(),
 			*DelegateFunctionName.ToString());
 		CompilerContext.MessageLog.Error(*ErrorStr, DelegateNode);
 		return;

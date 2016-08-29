@@ -1,23 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-/*============================================================================
-	Karma Integration Support
-    
-    - MeMemory/MeMessage glue
-    - Debug line drawing
- ===========================================================================*/
+// Physics engine integration utilities
 
 #include "EnginePrivate.h"
 #include "PhysicsPublic.h"
 #include "Model.h"
 #include "PhysXSupport.h"
-
-/* *********************************************************************** */
-/* *********************************************************************** */
-/* *********************** MODELTOHULLS  ********************************* */
-/* *********************************************************************** */
-/* *********************************************************************** */
-
+#include "PhysicsEngine/BodySetup.h"
 
 /** Returns false if ModelToHulls operation should halt because of vertex count overflow. */
 static bool AddConvexPrim(FKAggregateGeom* OutGeom, TArray<FPlane> &Planes, UModel* InModel)
@@ -347,6 +336,7 @@ static bool ExecPxVis(UWorld* InWorld, uint32 SceneType, const TCHAR* Cmd, FOutp
 /** PxScene visualization for a particular EPhysicsSceneType */
 static bool ExecApexVis(UWorld* InWorld, uint32 SceneType, const TCHAR* Cmd, FOutputDevice* Ar)
 {
+	check(Cmd);
 	check(SceneType < PST_MAX);
 
 #if WITH_PHYSX
@@ -363,7 +353,7 @@ static bool ExecApexVis(UWorld* InWorld, uint32 SceneType, const TCHAR* Cmd, FOu
 	check(DebugRenderParams != NULL);
 
 	// Toggle global flags if there are no further arguments
-	const bool bToggle = Cmd == NULL || *Cmd == TCHAR(0);
+	const bool bToggle = *Cmd == TCHAR(0);
 
 	// Enable or toggle visualization
 	NxParameterized::Handle EnableDebugRenderHandle(*DebugRenderParams, "Enable");

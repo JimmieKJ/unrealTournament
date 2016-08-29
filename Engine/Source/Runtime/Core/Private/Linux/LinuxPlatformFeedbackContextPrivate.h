@@ -28,7 +28,7 @@ public:
 	{
 		// if we set the color for warnings or errors, then reset at the end of the function
 		// note, we have to set the colors directly without using the standard SET_WARN_COLOR macro
-		if (Verbosity==ELogVerbosity::Error || Verbosity==ELogVerbosity::Warning)
+		if (Verbosity == ELogVerbosity::Error || Verbosity == ELogVerbosity::Warning)
 		{
 			if (TreatWarningsAsErrors && Verbosity==ELogVerbosity::Warning)
 			{
@@ -40,28 +40,27 @@ public:
 			{
 				Prefix = Context->GetContext() + TEXT(" : ");
 			}
-			FString Format = Prefix + FOutputDevice::FormatLogLine(Verbosity, Category, V);
+			FString Format = Prefix + FOutputDeviceHelper::FormatLogLine(Verbosity, Category, V);
 
 			if (Verbosity == ELogVerbosity::Error)
 			{
 				// Only store off the message if running a commandlet.
 				if (IsRunningCommandlet())
 				{
-					Errors.Add(Format);
+					AddError(Format);
 				}
+
+				// send errors (warnings are too spammy) to syslog too (for zabbix etc)
+				syslog(LOG_ERR | LOG_USER, "%s", StringCast< char >(*Format).Get());
 			}
 			else
 			{
 				// Only store off the message if running a commandlet.
 				if ( IsRunningCommandlet() )
 				{
-					Warnings.Add(Format);
+					AddWarning(Format);
 				}
 			}
-
-			// send to syslog too (for zabbix etc)
-			int BasePriority = (Verbosity == ELogVerbosity::Error) ? LOG_ERR : LOG_WARNING;
-			syslog(BasePriority | LOG_USER, "%s", StringCast< char >(*Format).Get());
 		}
 
 		if( GLogConsole && IsRunningCommandlet() )

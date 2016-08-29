@@ -1,8 +1,8 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <TpsData xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
   <Name>HarfBuzz</Name>
-  <Location />
-  <Date>2015-08-18T17:12:56.825333-04:00</Date>
+  <Location>/Engine/Source/ThirdParty/HarfBuzz/</Location>
+  <Date>2016-06-10T11:54:48.5866865-04:00</Date>
   <Function>Font shaping support for right-to-left languages (eg, Arabic)</Function>
   <Justification>To enable UE4 to support Arabic font rendering</Justification>
   <Platforms>
@@ -85,5 +85,5 @@ ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
 WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
 ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
 OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.</Notification>
-  <LicenseFolder />
+  <LicenseFolder>/Engine/Source/ThirdParty/Licenses/HarfBuzz*</LicenseFolder>
 </TpsData>

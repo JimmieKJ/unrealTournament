@@ -92,7 +92,7 @@ struct FFilterData
 	}
 };
 
-struct FFIRFilterTimeBased
+struct ENGINE_API FFIRFilterTimeBased
 {
 public:
 	FFIRFilterTimeBased()
@@ -120,6 +120,10 @@ public:
 	bool IsValid() const { return TimeDuration > 0.f; }
 	float				LastOutput;
 
+	void SetWindowDuration(float WindowDuration)
+	{
+		TimeDuration = WindowDuration;
+	}
 private:
 	TArray<FFilterData>			FilterWindow;
 	EFilterInterpolationType	InterpolationType;

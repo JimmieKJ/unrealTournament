@@ -7,18 +7,18 @@
 #include "D3D12RHIPrivate.h"
 #include "RenderCore.h"
 
-#ifndef D3D11_WITH_DWMAPI
+#ifndef D3D12_WITH_DWMAPI
 #if WINVER > 0x502		// Windows XP doesn't support DWM
-#define D3D11_WITH_DWMAPI	0
+#define D3D12_WITH_DWMAPI	0
 #else
-#define D3D11_WITH_DWMAPI	0
+#define D3D12_WITH_DWMAPI	0
 #endif
 #endif
 
-#if D3D11_WITH_DWMAPI
+#if D3D12_WITH_DWMAPI
 #include "AllowWindowsPlatformTypes.h"
 #include <dwmapi.h>
-#endif	//D3D11_WITH_DWMAPI
+#endif	//D3D12_WITH_DWMAPI
 
 namespace D3D12RHI
 {
@@ -102,7 +102,7 @@ namespace D3D12RHI
 #endif
 	};
 
-	extern void D3D11TextureAllocated2D(FD3D12Texture2D& Texture);
+	extern void D3D12TextureAllocated2D(FD3D12Texture2D& Texture);
 }
 using namespace D3D12RHI;
 
@@ -113,10 +113,12 @@ FD3D12Texture2D* GetSwapChainSurface(FD3D12Device* Parent, EPixelFormat PixelFor
 {
 	// Grab the back buffer
 	TRefCountPtr<ID3D12Resource> BackBufferResource;
-	VERIFYD3D11RESULT_EX(SwapChain->GetBuffer(backBufferIndex, __uuidof(ID3D12Resource), (void**)BackBufferResource.GetInitReference()), Parent->GetDevice());
+	VERIFYD3D12RESULT_EX(SwapChain->GetBuffer(backBufferIndex, __uuidof(ID3D12Resource), (void**)BackBufferResource.GetInitReference()), Parent->GetDevice());
 
 	D3D12_RESOURCE_DESC BackBufferDesc = BackBufferResource->GetDesc();
-	TRefCountPtr<FD3D12Resource> BackBufferWrappedResource = new FD3D12Resource(BackBufferResource, BackBufferDesc);
+
+	const D3D12_RESOURCE_STATES State = D3D12_RESOURCE_STATE_COMMON;
+	TRefCountPtr<FD3D12Resource> BackBufferWrappedResource = new FD3D12Resource(Parent, BackBufferResource, State, BackBufferDesc);
 
 	// create the render target view
 	TRefCountPtr<FD3D12RenderTargetView> BackBufferRenderTargetView;
@@ -162,7 +164,7 @@ FD3D12Texture2D* GetSwapChainSurface(FD3D12Device* Parent, EPixelFormat PixelFor
 	FD3D12ShaderResourceView* pWrappedShaderResourceView = new FD3D12ShaderResourceView(Parent, &SRVDesc, NewTexture->ResourceLocation);
 	NewTexture->SetShaderResourceView(pWrappedShaderResourceView);
 
-	D3D11TextureAllocated2D(*NewTexture);
+	D3D12TextureAllocated2D(*NewTexture);
 
 	NewTexture->DoNoDeferDelete();
 	pWrappedShaderResourceView->DoNoDeferDelete();
@@ -275,7 +277,7 @@ void FD3D12Viewport::Resize(uint32 InSizeX, uint32 InSizeY, bool bInIsFullscreen
 		DXGI_SWAP_CHAIN_FLAG swapChainFlags = DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH;
 
 		// Resize the swap chain.
-		VERIFYD3D11RESULT_EX(SwapChain3->ResizeBuffers(NumBackBuffers, SizeX, SizeY, GetRenderTargetFormat(PixelFormat), swapChainFlags), GetParentDevice()->GetDevice());
+		VERIFYD3D12RESULT_EX(SwapChain3->ResizeBuffers(NumBackBuffers, SizeX, SizeY, GetRenderTargetFormat(PixelFormat), swapChainFlags), GetParentDevice()->GetDevice());
 	}
 
 	// Create a RHI surface to represent the viewport's back buffer.
@@ -293,9 +295,9 @@ void FD3D12Viewport::Resize(uint32 InSizeX, uint32 InSizeY, bool bInIsFullscreen
 static bool IsCompositionEnabled()
 {
 	BOOL bDwmEnabled = false;
-#if D3D11_WITH_DWMAPI
+#if D3D12_WITH_DWMAPI
 	DwmIsCompositionEnabled(&bDwmEnabled);
-#endif	//D3D11_WITH_DWMAPI
+#endif	//D3D12_WITH_DWMAPI
 	return !!bDwmEnabled;
 }
 
@@ -313,21 +315,12 @@ bool FD3D12Viewport::PresentChecked(int32 SyncInterval)
 		// Present the back buffer to the viewport window.
 		Result = SwapChain3->Present(SyncInterval, 0);
 
+#if LOG_PRESENT
+		UE_LOG(LogD3D12RHI, Log, TEXT("*** PRESENT: SyncInterval %u ***"), SyncInterval);
+#endif
+
 		// Signal the frame is complete.
 		GetParentDevice()->GetCommandListManager().SignalFrameComplete();
-
-#if 0 //UE_BUILD_DEBUG
-		if (RHIConsoleVariables::DumpStatsEveryNFrames > 0)
-		{
-			GetParentDevice()->GetOwningRHI()->DrawCount = 0;
-			GetParentDevice()->GetOwningRHI()->PresentCount++;
-
-			if (GetParentDevice()->GetOwningRHI()->PresentCount % RHIConsoleVariables::DumpStatsEveryNFrames == 0)
-			{
-				//TODO: Dump allocator stats.
-			}
-		}
-#endif
 	}
 
 	// Detect a lost device.
@@ -338,7 +331,7 @@ bool FD3D12Viewport::PresentChecked(int32 SyncInterval)
 	}
 	else
 	{
-		VERIFYD3D11RESULT(Result);
+		VERIFYD3D12RESULT(Result);
 	}
 
 	return bNeedNativePresent;
@@ -347,7 +340,7 @@ bool FD3D12Viewport::PresentChecked(int32 SyncInterval)
 /** Blocks the CPU to synchronize with vblank by communicating with DWM. */
 void FD3D12Viewport::PresentWithVsyncDWM()
 {
-#if D3D11_WITH_DWMAPI
+#if D3D12_WITH_DWMAPI
 	LARGE_INTEGER Cycles;
 	DWM_TIMING_INFO TimingInfo;
 
@@ -471,7 +464,7 @@ void FD3D12Viewport::PresentWithVsyncDWM()
 	LastFlipTime = Cycles.QuadPart;
 	LastFrameComplete = TimingInfo.cFrameComplete;
 	LastCompleteTime = TimingInfo.qpcFrameComplete;
-#endif	//D3D11_WITH_DWMAPI
+#endif	//D3D12_WITH_DWMAPI
 }
 
 bool FD3D12Viewport::Present(bool bLockToVsync)
@@ -480,6 +473,7 @@ bool FD3D12Viewport::Present(bool bLockToVsync)
 	
 	bool bNativelyPresented = true;
 	FD3D12DynamicRHI::TransitionResource(DefaultContext.CommandListHandle, GetBackBuffer()->GetShaderResourceView(), D3D12_RESOURCE_STATE_PRESENT);
+	DefaultContext.CommandListHandle.FlushResourceBarriers();
 
 	// Return the current command allocator to the pool, execute the current command list, and 
 	// then open a new command list with a new command allocator.
@@ -675,6 +669,49 @@ void FD3D12CommandContext::RHIEndDrawingViewport(FViewportRHIParamRef ViewportRH
 		}
 	}
 
+	Device->GetDeferredDeletionQueue().ReleaseResources();
+
+	const uint32 NumContexts = Device->GetNumContexts();
+	for (uint32 i = 0; i < NumContexts; ++i)
+	{
+		Device->GetCommandContext(i).EndFrame();
+	}
+
+	Device->GetDefaultUploadHeapAllocator().CleanUpAllocations();
+	Device->GetTextureAllocator().CleanUpAllocations();
+	Device->GetDefaultBufferAllocator().CleanupFreeBlocks();
+
+	Device->GetDefaultFastAllocatorPool().CleanUpPages(10);
+	{
+		FScopeLock Lock(Device->GetBufferInitFastAllocator().GetCriticalSection());
+		Device->GetBufferInitFastAllocatorPool().CleanUpPages(10);
+	}
+
+	// The Texture streaming threads share a pool
+	{
+		FD3D12ThreadSafeFastAllocator* pCurrentHelperThreadDynamicHeapAllocator = nullptr;
+		for (uint32 i = 0; i < FD3D12DynamicRHI::GetD3DRHI()->NumThreadDynamicHeapAllocators; ++i)
+		{
+			pCurrentHelperThreadDynamicHeapAllocator = FD3D12DynamicRHI::GetD3DRHI()->ThreadDynamicHeapAllocatorArray[i];
+			if (pCurrentHelperThreadDynamicHeapAllocator)
+			{
+				FScopeLock Lock(pCurrentHelperThreadDynamicHeapAllocator->GetCriticalSection());
+				pCurrentHelperThreadDynamicHeapAllocator->GetPool()->CleanUpPages(10);
+				break;
+			}
+		}
+	}
+
+	DXGI_QUERY_VIDEO_MEMORY_INFO LocalVideoMemoryInfo;
+	FD3D12DynamicRHI::GetD3DRHI()->GetLocalVideoMemoryInfo(&LocalVideoMemoryInfo);
+
+	int64 budget = LocalVideoMemoryInfo.Budget;
+	int64 AvailableSpace = budget - int64(LocalVideoMemoryInfo.CurrentUsage);
+
+	SET_MEMORY_STAT(STAT_D3D12UsedVideoMemory, LocalVideoMemoryInfo.CurrentUsage);
+	SET_MEMORY_STAT(STAT_D3D12AvailableVideoMemory, AvailableSpace);
+	SET_MEMORY_STAT(STAT_D3D12TotalVideoMemory, budget);
+
 #if CHECK_SRV_TRANSITIONS
 	UnresolvedTargets.Reset();
 #endif
@@ -703,6 +740,16 @@ FTexture2DRHIRef FD3D12DynamicRHI::RHIGetViewportBackBuffer(FViewportRHIParamRef
 //	return Viewport->GetBackBuffer(ViewportFrameCounter);
 //}
 
-#if D3D11_WITH_DWMAPI
+#if D3D12_WITH_DWMAPI
 #include "HideWindowsPlatformTypes.h"
-#endif	//D3D11_WITH_DWMAPI
+#endif	//D3D12_WITH_DWMAPI
+
+void* FD3D12Viewport::GetNativeBackBufferTexture() const
+{ 
+	return GetBackBuffer()->GetResource();
+}
+
+void* FD3D12Viewport::GetNativeBackBufferRT() const
+{
+	return GetBackBuffer()->GetRenderTargetView(0, 0);
+}

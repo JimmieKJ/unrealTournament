@@ -9,12 +9,6 @@
  * Slate widgets customizer for the "New Landscape" tool
  */
 
-struct FLandscapeImportResolution
-{
-	int32 Width;
-	int32 Height;
-};
-
 class FLandscapeEditorDetailCustomization_NewLandscape : public FLandscapeEditorDetailCustomization_Base
 {
 public:
@@ -56,9 +50,8 @@ public:
 	void OnNewLandscapeModeChanged(ECheckBoxState NewCheckedState, ENewLandscapePreviewMode::Type value);
 
 	// Import
-	static EVisibility GetHeightmapErrorVisibility(TSharedRef<IPropertyHandle> PropertyHandle_HeightmapError);
-	static FText GetHeightmapErrorText(TSharedRef<IPropertyHandle> PropertyHandle_HeightmapError);
-	static FText GetImportHeightmapFilenameString(TSharedRef<IPropertyHandle> PropertyHandle_HeightmapFilename);
+	static EVisibility GetHeightmapErrorVisibility(TSharedRef<IPropertyHandle> PropertyHandle_HeightmapImportResult);
+	static FSlateColor GetHeightmapErrorColor(TSharedRef<IPropertyHandle> PropertyHandle_HeightmapImportResult);
 	static void SetImportHeightmapFilenameString(const FText& NewValue, ETextCommit::Type CommitInfo, TSharedRef<IPropertyHandle> PropertyHandle_HeightmapFilename);
 	void OnImportHeightmapFilenameChanged();
 	static FReply OnImportHeightmapFilenameButtonClicked(TSharedRef<IPropertyHandle> PropertyHandle_HeightmapFilename);
@@ -80,7 +73,7 @@ protected:
 	static const int32 SectionSizes[];
 	static const int32 NumSections[];
 
-	TArray<FLandscapeImportResolution> ImportResolutions;
+	TArray<FLandscapeFileResolution> ImportResolutions;
 };
 
 class FLandscapeEditorStructCustomization_FLandscapeImportLayer : public FLandscapeEditorStructCustomization_Base
@@ -99,6 +92,7 @@ public:
 	static TSharedRef<SWidget> OnGetImportLayerCreateMenu(TSharedRef<IPropertyHandle> PropertyHandle_LayerInfo, FName LayerName);
 	static void OnImportLayerCreateClicked(TSharedRef<IPropertyHandle> PropertyHandle_LayerInfo, FName LayerName, bool bNoWeightBlend);
 
-	static EVisibility GetErrorVisibility(TSharedRef<IPropertyHandle> PropertyHandle_LayerError);
-	static FText GetErrorText(TSharedRef<IPropertyHandle> PropertyHandle_LayerError);
+	static EVisibility GetErrorVisibility(TSharedRef<IPropertyHandle> PropertyHandle_ImportResult);
+	static FSlateColor GetErrorColor(TSharedRef<IPropertyHandle> PropertyHandle_ImportResult);
+	static FText GetErrorText(TSharedRef<IPropertyHandle> PropertyHandle_ErrorMessage);
 };

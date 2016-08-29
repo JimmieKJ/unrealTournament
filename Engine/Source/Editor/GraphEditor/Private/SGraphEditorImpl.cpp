@@ -695,13 +695,13 @@ void SGraphEditorImpl::FocusLockedEditorHere()
 	}
 }
 
-void SGraphEditorImpl::SetPinVisibility( SGraphEditor::EPinVisibility Visibility ) 
+void SGraphEditorImpl::SetPinVisibility( SGraphEditor::EPinVisibility InVisibility ) 
 {
 	if( GraphPanel.IsValid())
 	{
 		SGraphEditor::EPinVisibility CachedVisibility = GraphPanel->GetPinVisibility();
-		GraphPanel->SetPinVisibility(Visibility);
-		if(CachedVisibility != Visibility)
+		GraphPanel->SetPinVisibility(InVisibility);
+		if(CachedVisibility != InVisibility)
 		{
 			NotifyGraphChanged();
 		}

@@ -1,8 +1,8 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <TpsData xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
   <Name>FakeIt</Name>
-  <Location>UE4\Engine\Source\ThirdParty\FakeIt\2.0.2\</Location>
-  <Date>2015-08-21T11:04:22.5149275-04:00</Date>
+  <Location>/Engine/Source/ThirdParty/FakeIt/</Location>
+  <Date>2016-06-09T17:06:56.3768591-04:00</Date>
   <Function>It allows the programmer to create a light-weight 'mock' implementation of an interface or object which can be used in writing unit tests.</Function>
   <Justification>For robust unit testing.</Justification>
   <Platforms>
@@ -15,7 +15,7 @@
     <Product>UE4</Product>
   </Products>
   <TpsType>Source Code</TpsType>
-  <Eula />
+  <Eula>https://github.com/eranpeer/FakeIt/blob/master/LICENSE</Eula>
   <RedistributeTo>
     <EndUserGroup>Licensees</EndUserGroup>
     <EndUserGroup>Git</EndUserGroup>
@@ -25,5 +25,5 @@
   <IsSourceAvailable>true</IsSourceAvailable>
   <NoticeType>None</NoticeType>
   <Notification />
-  <LicenseFolder />
+  <LicenseFolder>None</LicenseFolder>
 </TpsData>

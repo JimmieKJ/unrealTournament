@@ -4,6 +4,7 @@
 
 #include "LevelViewportLayout.h"
 #include "SCinematicLevelViewport.h"
+#include "UnrealEd.h"
 
 class FCinematicViewportLayoutEntity : public IViewportLayoutEntity
 {
@@ -27,11 +28,17 @@ public:
 	}
 
 	FLevelEditorViewportClient& GetLevelViewportClient() const { return Widget->GetLevelViewport()->GetLevelViewportClient(); }
-	bool IsPlayInEditorViewportActive() const { return false; }
-	void RegisterGameViewportIfPIE(){}
-	void SetKeyboardFocus(){ FSlateApplication::Get().SetKeyboardFocus(Widget); }
-	void OnLayoutDestroyed(){}
-	void SaveConfig(const FString&){}
+	bool IsPlayInEditorViewportActive() const { return Widget->GetLevelViewport()->IsPlayInEditorViewportActive(); }
+	void RegisterGameViewportIfPIE(){ return Widget->GetLevelViewport()->RegisterGameViewportIfPIE(); }
+	void SetKeyboardFocus(){ FSlateApplication::Get().SetKeyboardFocus(Widget->GetLevelViewport()); }
+	void OnLayoutDestroyed()
+	{
+		if (IsPlayInEditorViewportActive() || GetLevelViewportClient().IsSimulateInEditorViewport() )
+		{
+			GUnrealEd->EndPlayMap();
+		}
+	}
+	void SaveConfig(const FString& ConfigString){ return Widget->GetLevelViewport()->SaveConfig(ConfigString); }
 
 protected:
 

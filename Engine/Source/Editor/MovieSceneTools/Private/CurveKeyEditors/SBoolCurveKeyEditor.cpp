@@ -70,7 +70,7 @@ void SBoolCurveKeyEditor::OnCheckStateChanged(ECheckBoxState NewCheckboxState)
 
 		OnValueChangedEvent.ExecuteIfBound(NewCheckboxState == ECheckBoxState::Checked);
 
-		Sequencer->UpdateRuntimeInstances();
+		Sequencer->NotifyMovieSceneDataChanged( EMovieSceneDataChangeType::TrackValueChanged );
 	}
 }
 

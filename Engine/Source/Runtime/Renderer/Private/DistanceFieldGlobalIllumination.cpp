@@ -22,7 +22,7 @@ FAutoConsoleVariableRef CVarDistanceFieldGI(
 	TEXT("r.DistanceFieldGI"),
 	GDistanceFieldGI,
 	TEXT(""),
-	ECVF_Cheat | ECVF_RenderThreadSafe | ECVF_ReadOnly
+	ECVF_RenderThreadSafe | ECVF_ReadOnly
 	);
 
 int32 GVPLMeshGlobalIllumination = 1;
@@ -30,7 +30,7 @@ FAutoConsoleVariableRef CVarVPLMeshGlobalIllumination(
 	TEXT("r.VPLMeshGlobalIllumination"),
 	GVPLMeshGlobalIllumination,
 	TEXT(""),
-	ECVF_Cheat | ECVF_RenderThreadSafe
+	ECVF_RenderThreadSafe
 	);
 
 int32 GVPLSurfelRepresentation = 1;
@@ -38,7 +38,7 @@ FAutoConsoleVariableRef CVarVPLSurfelRepresentation(
 	TEXT("r.VPLSurfelRepresentation"),
 	GVPLSurfelRepresentation,
 	TEXT(""),
-	ECVF_Cheat | ECVF_RenderThreadSafe
+	ECVF_RenderThreadSafe
 	);
 
 int32 GVPLGridDimension = 128;
@@ -46,7 +46,7 @@ FAutoConsoleVariableRef CVarVPLGridDimension(
 	TEXT("r.VPLGridDimension"),
 	GVPLGridDimension,
 	TEXT(""),
-	ECVF_Cheat | ECVF_RenderThreadSafe
+	ECVF_RenderThreadSafe
 	);
 
 float GVPLDirectionalLightTraceDistance = 100000;
@@ -54,7 +54,7 @@ FAutoConsoleVariableRef CVarVPLDirectionalLightTraceDistance(
 	TEXT("r.VPLDirectionalLightTraceDistance"),
 	GVPLDirectionalLightTraceDistance,
 	TEXT(""),
-	ECVF_Cheat | ECVF_RenderThreadSafe
+	ECVF_RenderThreadSafe
 	);
 
 float GVPLPlacementCameraRadius = 4000;
@@ -62,7 +62,7 @@ FAutoConsoleVariableRef CVarVPLPlacementCameraRadius(
 	TEXT("r.VPLPlacementCameraRadius"),
 	GVPLPlacementCameraRadius,
 	TEXT(""),
-	ECVF_Cheat | ECVF_RenderThreadSafe
+	ECVF_RenderThreadSafe
 	);
 
 int32 GVPLViewCulling = 1;
@@ -70,7 +70,7 @@ FAutoConsoleVariableRef CVarVPLViewCulling(
 	TEXT("r.VPLViewCulling"),
 	GVPLViewCulling,
 	TEXT(""),
-	ECVF_Cheat | ECVF_RenderThreadSafe
+	ECVF_RenderThreadSafe
 	);
 
 int32 GAOUseConesForGI = 1;
@@ -78,7 +78,7 @@ FAutoConsoleVariableRef CVarAOUseConesForGI(
 	TEXT("r.AOUseConesForGI"),
 	GAOUseConesForGI,
 	TEXT(""),
-	ECVF_Cheat | ECVF_RenderThreadSafe
+	ECVF_RenderThreadSafe
 	);
 
 int32 GVPLSpreadUpdateOver = 5;
@@ -86,7 +86,7 @@ FAutoConsoleVariableRef CVarVPLSpreadUpdateOver(
 	TEXT("r.VPLSpreadUpdateOver"),
 	GVPLSpreadUpdateOver,
 	TEXT(""),
-	ECVF_Cheat | ECVF_RenderThreadSafe
+	ECVF_RenderThreadSafe
 	);
 
 float GVPLSelfOcclusionReplacement = .3f;
@@ -94,7 +94,7 @@ FAutoConsoleVariableRef CVarVPLSelfOcclusionReplacement(
 	TEXT("r.VPLSelfOcclusionReplacement"),
 	GVPLSelfOcclusionReplacement,
 	TEXT(""),
-	ECVF_Cheat | ECVF_RenderThreadSafe
+	ECVF_RenderThreadSafe
 	);
 
 TGlobalResource<FVPLResources> GVPLResources;
@@ -1102,7 +1102,7 @@ public:
 	static void ModifyCompilationEnvironment(EShaderPlatform Platform, FShaderCompilerEnvironment& OutEnvironment)
 	{
 		FGlobalShader::ModifyCompilationEnvironment(Platform,OutEnvironment);
-		OutEnvironment.SetDefine(TEXT("IRRADIANCE_FROM_SURFELS"), VPLMode == VPLMode_PlaceFromSurfels ? TEXT("1") : TEXT("0"));
+		OutEnvironment.SetDefine(TEXT("IRRADIANCE_FROM_SURFELS"), VPLMode == VPLMode_PlaceFromSurfels);
 
 		// To reduce shader compile time of compute shaders with shared memory, doesn't have an impact on generated code with current compiler (June 2010 DX SDK)
 		OutEnvironment.CompilerFlags.Add(CFLAG_StandardOptimization);

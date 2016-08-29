@@ -13,7 +13,7 @@ AUTSCTFFlagBase::AUTSCTFFlagBase(const FObjectInitializer& ObjectInitializer)
 	GhostMesh = ObjectInitializer.CreateDefaultSubobject<USkeletalMeshComponent>(this, TEXT("GhostMesh"));
 	GhostMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 	GhostMesh->SetSkeletalMesh(GMesh.Object);
-	GhostMesh->AttachParent = RootComponent;
+	GhostMesh->SetupAttachment(RootComponent);
 
 	bGhostMeshVisibile = true;
 	GhostMesh->SetVisibility(bGhostMeshVisibile);
@@ -65,7 +65,7 @@ void AUTSCTFFlagBase::PostRenderFor(APlayerController* PC, UCanvas* Canvas, FVec
 	}
 }
 
-void AUTSCTFFlagBase::OnOverlapBegin(AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
+void AUTSCTFFlagBase::OnOverlapBegin(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
 {
 	if (bScoreBase)
 	{

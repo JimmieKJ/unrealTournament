@@ -9,6 +9,8 @@
 
 #include "BuildPatchServicesPrivatePCH.h"
 #include "HttpServiceTracker.h"
+#include "AnalyticsEventAttribute.h"
+#include "IAnalyticsProvider.h"
 
 TSharedPtr< IAnalyticsProvider > FBuildPatchAnalytics::Analytics;
 

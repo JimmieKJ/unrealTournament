@@ -315,7 +315,7 @@ void FNewAssetOrClassContextMenu::MakeContextMenu(
 	if (InOnNewAssetRequested.IsBound())
 	{
 		// Add Basic Asset
-		MenuBuilder.BeginSection("ContentBrowserNewBasicAsset", LOCTEXT("BasicAssetsMenuHeading", "Create Basic Asset") );
+		MenuBuilder.BeginSection("ContentBrowserNewBasicAsset", LOCTEXT("CreateBasicAssetsMenuHeading", "Create Basic Asset") );
 		{
 			CreateNewAssetMenuCategory(
 				MenuBuilder, 
@@ -328,12 +328,15 @@ void FNewAssetOrClassContextMenu::MakeContextMenu(
 		MenuBuilder.EndSection(); //ContentBrowserNewBasicAsset
 
 		// Add Advanced Asset
-		MenuBuilder.BeginSection("ContentBrowserNewAdvancedAsset", LOCTEXT("AdvancedAssetsMenuHeading", "Create Advanced Asset"));
+		MenuBuilder.BeginSection("ContentBrowserNewAdvancedAsset", LOCTEXT("CreateAdvancedAssetsMenuHeading", "Create Advanced Asset"));
 		{
 			FAssetToolsModule& AssetToolsModule = FAssetToolsModule::GetModule();
 
 			TArray<FAdvancedAssetCategory> AdvancedAssetCategories;
 			AssetToolsModule.Get().GetAllAdvancedAssetCategories(/*out*/ AdvancedAssetCategories);
+			AdvancedAssetCategories.Sort([](const FAdvancedAssetCategory& A, const FAdvancedAssetCategory& B) {
+				return (A.CategoryName.CompareToCaseIgnored(B.CategoryName) < 0);
+			});
 
 			for (const FAdvancedAssetCategory& AdvancedAssetCategory : AdvancedAssetCategories)
 			{
@@ -349,11 +352,11 @@ void FNewAssetOrClassContextMenu::MakeContextMenu(
 							FirstSelectedPath, 
 							InOnNewAssetRequested, 
 							FCanExecuteAction() // We handle this at this level, rather than at the sub-menu item level
-							),
+						),
 						FUIAction(
 							FExecuteAction(),
 							CanExecuteAssetActionsDelegate
-							),
+						),
 						NAME_None,
 						EUserInterfaceActionType::Button
 						);

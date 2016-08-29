@@ -32,7 +32,7 @@ AUTProj_BioShot::AUTProj_BioShot(const class FObjectInitializer& ObjectInitializ
 		BioMesh->CanCharacterStepUpOn = ECB_No;
 		BioMesh->bReceivesDecals = false;
 		BioMesh->CastShadow = false;
-		BioMesh->AttachParent = RootComponent;
+		BioMesh->SetupAttachment(RootComponent);
 		BioMesh->bGenerateOverlapEvents = false;
 	}
 
@@ -480,7 +480,7 @@ void AUTProj_BioShot::ProcessHit_Implementation(AActor* OtherActor, UPrimitiveCo
 		AUTLift* Lift = Cast<AUTLift>(OtherActor);
 		if (Lift && Lift->GetEncroachComponent())
 		{
-			AttachRootComponentTo(Lift->GetEncroachComponent(), NAME_None, EAttachLocation::KeepWorldPosition);
+			AttachToComponent(Lift->GetEncroachComponent(), FAttachmentTransformRules::KeepWorldTransform);
 		}
 	}
 }

@@ -6,9 +6,8 @@ using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.IO;
-using System.Diagnostics;
 
-namespace Tools.CrashReporter.CrashReportWebSite.Models
+namespace Tools.CrashReporter.CrashReportWebSite.DataModels
 {
 	class CustomFuncComparer : IEqualityComparer<string>
 	{
@@ -113,7 +112,7 @@ namespace Tools.CrashReporter.CrashReportWebSite.Models
 	}
 
 	/// <summary>
-	/// A class to represent a parsed call stack, and helper functions to return various visualisations.
+	/// A class to represent a parsed call stack, and helper functions to return various visualizations.
 	/// </summary>
 	public class CallStackContainer
 	{

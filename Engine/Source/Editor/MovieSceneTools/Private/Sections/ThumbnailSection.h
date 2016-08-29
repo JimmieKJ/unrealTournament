@@ -2,17 +2,22 @@
 
 #pragma once
 
+#include "ISequencerSection.h"
 #include "TrackEditorThumbnail.h"
+
 
 class FTrackEditorThumbnailPool;
 class IMenu;
 class ISectionLayoutBuilder;
+class SWidget;
 class UMovieSceneSection;
+
 
 struct FThumbnailCameraSettings
 {
 	float AspectRatio;
 };
+
 
 /**
  * Thumbnail section, which paints and ticks the appropriate section.
@@ -52,7 +57,9 @@ public:
 	/** Set this thumbnail section to draw a single thumbnail at the specified time */
 	virtual void SetSingleTime(float GlobalTime) = 0;
 
-	// ISequencerSection interface
+public:
+
+	//~ ISequencerSection interface
 
 	virtual bool AreSectionsConnected() const override;
 	virtual void GenerateSectionLayout(ISectionLayoutBuilder& LayoutBuilder) const override { }
@@ -65,7 +72,10 @@ public:
 	virtual int32 OnPaintSection( FSequencerSectionPainter& InPainter ) const override;
 	virtual void Tick( const FGeometry& AllottedGeometry, const FGeometry& ParentGeometry, const double InCurrentTime, const float InDeltaTime ) override;
 
-	// IThumbnailClient interface
+public:
+
+	//~ IThumbnailClient interface
+
 	virtual void PreDraw(FTrackEditorThumbnail& Thumbnail, FLevelEditorViewportClient& ViewportClient, FSceneViewport& SceneViewport) override;
 	virtual void PostDraw(FTrackEditorThumbnail& Thumbnail, FLevelEditorViewportClient& ViewportClient, FSceneViewport& SceneViewport) override;
 
@@ -73,6 +83,8 @@ protected:
 
 	/** Called to force a redraw of this section's thumbnails */
 	void RedrawThumbnails();
+
+protected:
 
 	/** The section we are visualizing. */
 	UMovieSceneSection* Section;

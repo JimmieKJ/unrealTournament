@@ -8,24 +8,42 @@ public class IntelISPCTexComp : ModuleRules
 	{
 		Type = ModuleType.External;
 
-		string libraryPath = UEBuildConfiguration.UEThirdPartySourceDirectory + "IntelISPCTexComp/ispc_texcomp/";
-		PublicIncludePaths.Add(libraryPath);
+		string LibraryPath = UEBuildConfiguration.UEThirdPartySourceDirectory + "IntelISPCTexComp/ispc_texcomp/";
+        string BinaryFolder = UEBuildConfiguration.UEThirdPartyBinariesDirectory + "IntelISPCTexComp/";
+		PublicIncludePaths.Add(LibraryPath);
 
-		bool bUseDebugBuild = false;
-		if ( Target.Configuration == UnrealTargetConfiguration.Debug && BuildConfiguration.bDebugBuildsActuallyUseDebugCRT )
-		{
-			bUseDebugBuild = true;
-		}
+        //NOTE: If you change bUseDebugBuild, you must also change FTextureFormatIntelISPCTexCompModule.GetTextureFormat() to load the corresponding DLL
+        bool bUseDebugBuild = false;
 
 		if ( (Target.Platform == UnrealTargetPlatform.Win64) || (Target.Platform == UnrealTargetPlatform.Win32) )
 		{
-			string platformName = (Target.Platform == UnrealTargetPlatform.Win64) ? "Win64" : "Win32";
+            string platformName = (Target.Platform == UnrealTargetPlatform.Win64) ? "Win64" : "Win32";
 			string configName = bUseDebugBuild ? "Debug" : "Release";
-			PublicLibraryPaths.Add(libraryPath + "lib/" + platformName + "-" + configName);
-
-			PublicAdditionalLibraries.Add("ispc_texcomp.lib");
+            string LibFolder = LibraryPath + "lib/" + platformName + "-" + configName;
+            string DLLFolder = BinaryFolder + platformName + "-" + configName;
+            string DLLFilePath = DLLFolder + "/ispc_texcomp.dll";
+            PublicLibraryPaths.Add(LibFolder);
+            PublicLibraryPaths.Add(DLLFolder);
+            PublicAdditionalLibraries.Add("ispc_texcomp.lib");
 			PublicDelayLoadDLLs.Add("ispc_texcomp.dll");
+            RuntimeDependencies.Add(new RuntimeDependency(DLLFilePath));
 		}
-	}
+        else if (Target.Platform == UnrealTargetPlatform.Mac)
+        {
+            string BinaryLibraryFolder = BinaryFolder + "Mac64-Release";
+            string LibraryFilePath = BinaryLibraryFolder + "/libispc_texcomp.dylib";
+            PublicAdditionalLibraries.Add(LibraryFilePath);
+            PublicDelayLoadDLLs.Add(LibraryFilePath);
+            PublicAdditionalShadowFiles.Add(LibraryFilePath);
+            RuntimeDependencies.Add(new RuntimeDependency(LibraryFilePath));
+        }
+        else if (Target.Platform == UnrealTargetPlatform.Linux)
+        {
+            string BinaryLibraryFolder = BinaryFolder + "Linux64-Release";
+            string LibraryFilePath = BinaryLibraryFolder + "/libispc_texcomp.so";
+            PublicAdditionalLibraries.Add(LibraryFilePath);
+            PublicDelayLoadDLLs.Add("libispc_texcomp.so");
+            RuntimeDependencies.Add(new RuntimeDependency(LibraryFilePath));
+        }
+    }
 }
-

@@ -272,7 +272,7 @@ public:
 
 	inline bool ContainsNaN() const
 	{
-		return Origin.ContainsNaN() || BoxExtent.ContainsNaN() || FMath::IsNaN(SphereRadius) || !FMath::IsFinite(SphereRadius);
+		return Origin.ContainsNaN() || BoxExtent.ContainsNaN() || !FMath::IsFinite(SphereRadius);
 	}
 
 public:

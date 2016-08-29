@@ -17,9 +17,25 @@ using UnrealBuildTool;
 /// </remarks>
 public partial class Project : CommandUtils
 {
-	#region Cook Command
+    #region Cook Command
 
-	public static void Cook(ProjectParams Params)
+    static void AddBlueprintPluginPathArgument(ProjectParams Params, bool Client, UnrealTargetPlatform TargetPlatform, string PlatformToCook)
+    {
+        if (Params.RunAssetNativization)
+        {
+            ProjectParams.BlueprintPluginKey PluginKey = new ProjectParams.BlueprintPluginKey();
+            PluginKey.Client = Client;
+            PluginKey.TargetPlatform = TargetPlatform;
+
+            string ProjectDir = Params.RawProjectPath.Directory.ToString();
+            // If you change this target path you must also update logic in CookOnTheFlyServer.cpp. Passing a single directory around is cumbersome for testing, so I have hard coded it.
+            // Similarly if you change the .uplugin name you must update DefaultPluginName in BlueprintNativeCodeGenModule.cpp
+            string GeneratedPluginPath = CombinePaths(ProjectDir, "Intermediate", PlatformToCook, "NativizedAssets/NativizedAssets.uplugin");
+            Params.BlueprintPluginPaths.Add(PluginKey, new FileReference(GeneratedPluginPath));
+        }
+    }
+
+    public static void Cook(ProjectParams Params)
 	{
 		if ((!Params.Cook && !(Params.CookOnTheFly && !Params.SkipServer)) || Params.SkipCook)
 		{
@@ -63,7 +79,7 @@ public partial class Project : CommandUtils
 
 				var ServerLogFile = CombinePaths(LogFolderOutsideOfSandbox, "Server.log");
 				Platform ClientPlatformInst = Params.ClientTargetPlatformInstances[0];
-				string TargetCook = ClientPlatformInst.GetCookPlatform(false, false, Params.CookFlavor); // cook ont he fly doesn't support server cook platform... 
+				string TargetCook = ClientPlatformInst.GetCookPlatform(false, false); // cook on he fly doesn't support server cook platform... 
 				ServerProcess = RunCookOnTheFlyServer(Params.RawProjectPath, Params.NoClient ? "" : ServerLogFile, TargetCook, COTFCommandLine);
 
 				if (ServerProcess != null)
@@ -80,24 +96,27 @@ public partial class Project : CommandUtils
 		else
 		{
 			var PlatformsToCook = new HashSet<string>();
-
-			if (!Params.NoClient)
+            if (!Params.NoClient)
 			{
 				foreach (var ClientPlatform in Params.ClientTargetPlatforms)
 				{
 					// Use the data platform, sometimes we will copy another platform's data
-					var DataPlatform = Params.GetCookedDataPlatformForClientTarget(ClientPlatform);
-					PlatformsToCook.Add(Params.GetTargetPlatformInstance(DataPlatform).GetCookPlatform(false, Params.Client, Params.CookFlavor));
-				}
+					var DataPlatformDesc = Params.GetCookedDataPlatformForClientTarget(ClientPlatform);
+                    string PlatformToCook = Platform.Platforms[DataPlatformDesc].GetCookPlatform(false, Params.Client);
+                    PlatformsToCook.Add(PlatformToCook);
+                    AddBlueprintPluginPathArgument(Params, true, DataPlatformDesc.Type, PlatformToCook);
+                }
 			}
 			if (Params.DedicatedServer)
 			{
 				foreach (var ServerPlatform in Params.ServerTargetPlatforms)
 				{
 					// Use the data platform, sometimes we will copy another platform's data
-					var DataPlatform = Params.GetCookedDataPlatformForServerTarget(ServerPlatform);
-					PlatformsToCook.Add(Params.GetTargetPlatformInstance(DataPlatform).GetCookPlatform(true, false, Params.CookFlavor));
-				}
+					var DataPlatformDesc = Params.GetCookedDataPlatformForServerTarget(ServerPlatform);
+                    string PlatformToCook = Platform.Platforms[DataPlatformDesc].GetCookPlatform(true, false);
+                    PlatformsToCook.Add(PlatformToCook);
+                    AddBlueprintPluginPathArgument(Params, false, DataPlatformDesc.Type, PlatformToCook);
+                }
 			}
 
 			if (Params.Clean.HasValue && Params.Clean.Value && !Params.IterativeCooking)
@@ -216,16 +235,6 @@ public partial class Project : CommandUtils
                 if (Params.RunAssetNativization)
                 {
                     CommandletParams += " -NativizeAssets";
-
-                    // Store plugin paths now, it's easiest to do so while PlatformsToCook is still available:
-                    string ProjectDir = Params.RawProjectPath.Directory.ToString();
-                    foreach (var Platform in PlatformsToCook)
-                    {
-                        // If you change this target path you must also update logic in CookOnTheFlyServer.cpp. Passing a single directory around is cumbersome for testing, so I have hard coded it.
-                        // Similarly if you change the .uplugin name you must update DefaultPluginName in BlueprintNativeCodeGenModule.cpp
-                        string GeneratedPluginPath = CombinePaths(GetDirectoryName(ProjectDir), "Intermediate", Platform, "NativizedAssets/NativizedAssets.uplugin");
-                        Params.BlueprintPluginPaths.Add( new FileReference(GeneratedPluginPath) );
-                    }
                 }
                 if (Params.HasAdditionalCookerOptions)
                 {
@@ -239,9 +248,9 @@ public partial class Project : CommandUtils
                     var MapsList = Maps == null ? new List<string>() :  Maps.ToList(); 
                     foreach (var ClientPlatform in Params.ClientTargetPlatforms)
                     {
-                        var DataPlatform = Params.GetCookedDataPlatformForClientTarget(ClientPlatform);
-                        CommandletParams += (Params.GetTargetPlatformInstance(DataPlatform).GetCookExtraCommandLine(Params));
-                        MapsList.AddRange((Params.GetTargetPlatformInstance(ClientPlatform).GetCookExtraMaps()));
+                        var DataPlatformDesc = Params.GetCookedDataPlatformForClientTarget(ClientPlatform);
+                        CommandletParams += (Platform.Platforms[DataPlatformDesc].GetCookExtraCommandLine(Params));
+                        MapsList.AddRange((Platform.Platforms[ClientPlatform].GetCookExtraMaps()));
                     }
                     Maps = MapsList.ToArray();
                 }
@@ -284,9 +293,34 @@ public partial class Project : CommandUtils
 		Log("********** COOK COMMAND COMPLETED **********");
 	}
 
+    public struct FileInfo
+    {
+        public FileInfo(string InFilename)
+        {
+            Filename = InFilename;
+            FirstByteFailed = -1;
+            BytesMismatch = 0;
+            File1Size = 0;
+            File2Size = 0;
+        }
+        public FileInfo(string InFilename, long InFirstByteFailed, long InBytesMismatch, long InFile1Size, long InFile2Size)
+        {
+            Filename = InFilename;
+            FirstByteFailed = InFirstByteFailed;
+            BytesMismatch = InBytesMismatch;
+            File1Size = InFile1Size;
+            File2Size = InFile2Size;
+        }
+        public string Filename;
+        public long FirstByteFailed;
+        public long BytesMismatch;
+        public long File1Size;
+        public long File2Size;
+    };
+
     private static void DiffCookedContent( ProjectParams Params)
     {
-        List<UnrealTargetPlatform> PlatformsToCook = Params.ClientTargetPlatforms;
+        List<TargetPlatformDescriptor> PlatformsToCook = Params.ClientTargetPlatforms;
         string ProjectPath = Params.RawProjectPath.FullName;
 
         var CookedSandboxesPath = CombinePaths(GetDirectoryName(ProjectPath), "Saved", "Cooked");
@@ -306,7 +340,10 @@ public partial class Project : CommandUtils
             }
             catch(Exception Ex)
             {
-                Log("Failed deleting temporary directories "+TemporaryPakPath+" continuing. "+ Ex.GetType().ToString());
+                if (!(Ex is System.IO.DirectoryNotFoundException))
+                {
+                    Log("Failed deleting temporary directories " + TemporaryPakPath + " continuing. " + Ex.GetType().ToString());
+                }
             }
             try
             {
@@ -314,7 +351,10 @@ public partial class Project : CommandUtils
             }
             catch (Exception Ex)
             {
-                Log("Failed deleting temporary directories " + TemporaryFilesPath + " continuing. " + Ex.GetType().ToString());
+                if (!(Ex is System.IO.DirectoryNotFoundException))
+                {
+                    Log("Failed deleting temporary directories " + TemporaryFilesPath + " continuing. " + Ex.GetType().ToString());
+                }
             }
 
             try
@@ -323,13 +363,13 @@ public partial class Project : CommandUtils
                 Directory.CreateDirectory(TemporaryPakPath);
                 Directory.CreateDirectory(TemporaryFilesPath);
 
-                Platform CurrentPlatform = Params.GetTargetPlatformInstance(PlatformsToCook[CookPlatformIndex]);
+                Platform CurrentPlatform = Platform.Platforms[PlatformsToCook[CookPlatformIndex]];
 
                 string SourceCookedContentPath = Params.DiffCookedContentPath;
 
                 List<string> PakFiles = new List<string>();
 
-                string CookPlatformString = CurrentPlatform.GetCookPlatform(false, Params.HasDedicatedServerAndClient, Params.CookFlavor);
+                string CookPlatformString = CurrentPlatform.GetCookPlatform(false, Params.Client);
 
                 if (Path.HasExtension(SourceCookedContentPath) && (!SourceCookedContentPath.EndsWith(".pak")))
                 {
@@ -399,6 +439,8 @@ public partial class Project : CommandUtils
                 Directory.CreateDirectory(FailedContentDirectory);
 
                 // diff the content
+                List<FileInfo> FileReport = new List<FileInfo>();
+
                 List<string> AllFiles = Directory.EnumerateFiles(FullCookPath, "*.uasset", System.IO.SearchOption.AllDirectories).ToList();
                 AllFiles.AddRange(Directory.EnumerateFiles(FullCookPath, "*.umap", System.IO.SearchOption.AllDirectories).ToList());
                 foreach (string SourceFilename in AllFiles)
@@ -436,51 +478,92 @@ public partial class Project : CommandUtils
                     }
                     else if (SourceFile.LongLength == DestFile.LongLength)
                     {
+                        /*long FirstByteFailed = -1;
+                        long BytesFailed = 0;*/
+
+                        FileInfo DiffFileInfo = new FileInfo(SourceFilename);
+                        DiffFileInfo.File1Size = DiffFileInfo.File2Size = SourceFile.LongLength;
+
                         bool bFailedDiff = false;
                         for (long Index = 0; Index < SourceFile.LongLength; ++Index) 
                         {
                             if (SourceFile[Index] != DestFile[Index])
                             {
-                                bFailedDiff = true;
-                                Log("Diff cooked content failed on file " + SourceFilename + " when comparing against " + DestFilename + " at offset " + Index.ToString());
-                                string SavedSourceFilename = CombinePaths(FailedContentDirectory, Path.GetFileName(SourceFilename) + "Source");
-                                string SavedDestFilename = CombinePaths(FailedContentDirectory, Path.GetFileName(DestFilename) + "Dest");
+                                if ( DiffFileInfo.FirstByteFailed == -1)
+                                {
+                                    DiffFileInfo.FirstByteFailed = Index;
+                                }
+                                DiffFileInfo.BytesMismatch += 1;
 
-                                Log("Creating directory " + Path.GetDirectoryName(SavedSourceFilename));
-                                
-                                try
+                                if (bFailedDiff == false)
                                 {
-                                    Directory.CreateDirectory(Path.GetDirectoryName(SavedSourceFilename));
+                                    bFailedDiff = true;
+
+                                    Log("Diff cooked content failed on file " + SourceFilename + " when comparing against " + DestFilename + " at offset " + Index.ToString());
+                                    string SavedSourceFilename = CombinePaths(FailedContentDirectory, Path.GetFileName(SourceFilename) + "Source");
+                                    string SavedDestFilename = CombinePaths(FailedContentDirectory, Path.GetFileName(DestFilename) + "Dest");
+
+                                    Log("Creating directory " + Path.GetDirectoryName(SavedSourceFilename));
+
+                                    try
+                                    {
+                                        Directory.CreateDirectory(Path.GetDirectoryName(SavedSourceFilename));
+                                    }
+                                    catch (Exception E)
+                                    {
+                                        Log("Failed to create directory " + Path.GetDirectoryName(SavedSourceFilename) + " Exception " + E.ToString());
+                                    }
+                                    Log("Creating directory " + Path.GetDirectoryName(SavedDestFilename));
+                                    try
+                                    {
+                                        Directory.CreateDirectory(Path.GetDirectoryName(SavedDestFilename));
+                                    }
+                                    catch (Exception E)
+                                    {
+                                        Log("Failed to create directory " + Path.GetDirectoryName(SavedDestFilename) + " Exception " + E.ToString());
+                                    }
+                                    File.Copy(SourceFilename, SavedSourceFilename, true);
+                                    File.Copy(DestFilename, SavedDestFilename, true);
+                                    Log("Content temporarily saved to " + SavedSourceFilename + " and " + SavedDestFilename + " at offset " + Index.ToString());
                                 }
-                                catch (Exception E)
-                                {
-                                    Log("Failed to create directory " + Path.GetDirectoryName(SavedSourceFilename) + " Exception " + E.ToString());
-                                }
-                                Log("Creating directory " + Path.GetDirectoryName(SavedDestFilename));
-                                try
-                                {
-                                    Directory.CreateDirectory(Path.GetDirectoryName(SavedDestFilename));
-                                }
-                                catch(Exception E)
-                                {
-                                    Log("Failed to create directory " + Path.GetDirectoryName(SavedDestFilename) + " Exception " + E.ToString());
-                                }
-                                File.Copy(SourceFilename, SavedSourceFilename, true);
-                                File.Copy(DestFilename, SavedDestFilename, true);
-                                Log("Content temporarily saved to " + SavedSourceFilename + " and " + SavedDestFilename + " at offset " + Index.ToString());
-                                break;
+                                // break;
                             }
                         }
                         if (!bFailedDiff)
                         {
                             Log("Content matches for " + SourceFilename + " and " + DestFilename);
                         }
+                        else 
+                        {
+                            FileReport.Add(DiffFileInfo);
+                        }
                     }
                     else
                     {
                         Log("Diff cooked content failed on file " + SourceFilename + " when comparing against " + DestFilename + " files are different sizes " + SourceFile.LongLength.ToString() + " " + DestFile.LongLength.ToString());
+
+                        FileInfo DiffFileInfo = new FileInfo(SourceFilename);
+
+                        DiffFileInfo.File1Size = SourceFile.LongLength;
+                        DiffFileInfo.File2Size = DestFile.LongLength;
+
+                        FileReport.Add(DiffFileInfo);
                     }
                 }
+
+                Log("Mismatching files:");
+                foreach (var Report in FileReport)
+                {
+                    if ( Report.FirstByteFailed == -1)
+                    {
+                        Log("File " + Report.Filename + " size mismatch: " + Report.File1Size + " VS " +Report.File2Size);
+                    }
+                    else
+                    {
+                        Log("File " + Report.Filename + " bytes mismatch: " + Report.BytesMismatch + " first byte failed at: " + Report.FirstByteFailed + " file size: " + Report.File1Size);
+                    }
+                }
+
             }
             catch ( Exception Ex )
             {

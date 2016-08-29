@@ -3,7 +3,6 @@
 #pragma once
 
 #include "LeapEnums.h"
-#include "LeapMotionPublicPCH.h"
 #include "LeapHand.generated.h"
 
 /**

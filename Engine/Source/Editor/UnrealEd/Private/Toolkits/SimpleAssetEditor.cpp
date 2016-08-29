@@ -14,23 +14,23 @@
 const FName FSimpleAssetEditor::ToolkitFName( TEXT( "GenericAssetEditor" ) );
 const FName FSimpleAssetEditor::PropertiesTabId( TEXT( "GenericEditor_Properties" ) );
 
-void FSimpleAssetEditor::RegisterTabSpawners(const TSharedRef<class FTabManager>& TabManager)
+void FSimpleAssetEditor::RegisterTabSpawners(const TSharedRef<class FTabManager>& InTabManager)
 {
-	WorkspaceMenuCategory = TabManager->AddLocalWorkspaceMenuCategory(LOCTEXT("WorkspaceMenu_GenericAssetEditor", "Asset Editor"));
+	WorkspaceMenuCategory = InTabManager->AddLocalWorkspaceMenuCategory(LOCTEXT("WorkspaceMenu_GenericAssetEditor", "Asset Editor"));
 
-	FAssetEditorToolkit::RegisterTabSpawners(TabManager);
+	FAssetEditorToolkit::RegisterTabSpawners(InTabManager);
 
-	TabManager->RegisterTabSpawner( PropertiesTabId, FOnSpawnTab::CreateSP(this, &FSimpleAssetEditor::SpawnPropertiesTab) )
+	InTabManager->RegisterTabSpawner( PropertiesTabId, FOnSpawnTab::CreateSP(this, &FSimpleAssetEditor::SpawnPropertiesTab) )
 		.SetDisplayName( LOCTEXT("PropertiesTab", "Details") )
 		.SetGroup(WorkspaceMenuCategory.ToSharedRef())
 		.SetIcon(FSlateIcon(FEditorStyle::GetStyleSetName(), "LevelEditor.Tabs.Details"));
 }
 
-void FSimpleAssetEditor::UnregisterTabSpawners(const TSharedRef<class FTabManager>& TabManager)
+void FSimpleAssetEditor::UnregisterTabSpawners(const TSharedRef<class FTabManager>& InTabManager)
 {
-	FAssetEditorToolkit::UnregisterTabSpawners(TabManager);
+	FAssetEditorToolkit::UnregisterTabSpawners(InTabManager);
 
-	TabManager->UnregisterTabSpawner( PropertiesTabId );
+	InTabManager->UnregisterTabSpawner( PropertiesTabId );
 }
 
 const FName FSimpleAssetEditor::SimpleEditorAppIdentifier( TEXT( "GenericEditorApp" ) );
@@ -114,16 +114,16 @@ FText FSimpleAssetEditor::GetBaseToolkitName() const
 
 FText FSimpleAssetEditor::GetToolkitName() const
 {
-	const auto EditingObjects = GetEditingObjects();
+	const TArray<UObject*>& EditingObjs = GetEditingObjects();
 
-	check( EditingObjects.Num() > 0 );
+	check( EditingObjs.Num() > 0 );
 
 	FFormatNamedArguments Args;
 	Args.Add( TEXT("ToolkitName"), GetBaseToolkitName() );
 
-	if( EditingObjects.Num() == 1 )
+	if( EditingObjs.Num() == 1 )
 	{
-		const UObject* EditingObject = EditingObjects[ 0 ];
+		const UObject* EditingObject = EditingObjs[ 0 ];
 
 		const bool bDirtyState = EditingObject->GetOutermost()->IsDirty();
 
@@ -134,21 +134,21 @@ FText FSimpleAssetEditor::GetToolkitName() const
 	else
 	{
 		bool bDirtyState = false;
-		UClass* SharedBaseClass = NULL;
-		for( int32 x = 0; x < EditingObjects.Num(); ++x )
+		UClass* SharedBaseClass = nullptr;
+		for( int32 x = 0; x < EditingObjs.Num(); ++x )
 		{
-			UObject* Obj = EditingObjects[ x ];
+			UObject* Obj = EditingObjs[ x ];
 			check( Obj );
 
 			UClass* ObjClass = Cast<UClass>(Obj);
-			if (ObjClass == NULL)
+			if (ObjClass == nullptr)
 			{
 				ObjClass = Obj->GetClass();
 			}
 			check( ObjClass );
 
 			// Initialize with the class of the first object we encounter.
-			if( SharedBaseClass == NULL )
+			if( SharedBaseClass == nullptr )
 			{
 				SharedBaseClass = ObjClass;
 			}
@@ -164,7 +164,7 @@ FText FSimpleAssetEditor::GetToolkitName() const
 			bDirtyState |= Obj->GetOutermost()->IsDirty();
 		}
 
-		Args.Add( TEXT("NumberOfObjects"), EditingObjects.Num() );
+		Args.Add( TEXT("NumberOfObjects"), EditingObjs.Num() );
 		Args.Add( TEXT("ClassName"), FText::FromString( SharedBaseClass->GetName() ) );
 		Args.Add( TEXT("DirtyState"), bDirtyState ? FText::FromString( TEXT( "*" ) ) : FText::GetEmpty() );
 		return FText::Format( LOCTEXT("ToolkitTitle_EditingMultiple", "{NumberOfObjects} {ClassName}{DirtyState} - {ToolkitName}"), Args );
@@ -173,35 +173,35 @@ FText FSimpleAssetEditor::GetToolkitName() const
 
 FText FSimpleAssetEditor::GetToolkitToolTipText() const
 {
-	const auto EditingObjects = GetEditingObjects();
+	const TArray<UObject*>& EditingObjs = GetEditingObjects();
 
-	check( EditingObjects.Num() > 0 );
+	check( EditingObjs.Num() > 0 );
 
 	FFormatNamedArguments Args;
 	Args.Add( TEXT("ToolkitName"), GetBaseToolkitName() );
 
-	if( EditingObjects.Num() == 1 )
+	if( EditingObjs.Num() == 1 )
 	{
-		const UObject* EditingObject = EditingObjects[ 0 ];
+		const UObject* EditingObject = EditingObjs[ 0 ];
 		return FAssetEditorToolkit::GetToolTipTextForObject(EditingObject);
 	}
 	else
 	{
 		UClass* SharedBaseClass = NULL;
-		for( int32 x = 0; x < EditingObjects.Num(); ++x )
+		for( int32 x = 0; x < EditingObjs.Num(); ++x )
 		{
-			UObject* Obj = EditingObjects[ x ];
+			UObject* Obj = EditingObjs[ x ];
 			check( Obj );
 
 			UClass* ObjClass = Cast<UClass>(Obj);
-			if (ObjClass == NULL)
+			if (ObjClass == nullptr)
 			{
 				ObjClass = Obj->GetClass();
 			}
 			check( ObjClass );
 
 			// Initialize with the class of the first object we encounter.
-			if( SharedBaseClass == NULL )
+			if( SharedBaseClass == nullptr )
 			{
 				SharedBaseClass = ObjClass;
 			}
@@ -214,7 +214,7 @@ FText FSimpleAssetEditor::GetToolkitToolTipText() const
 			}
 		}
 
-		Args.Add( TEXT("NumberOfObjects"), EditingObjects.Num() );
+		Args.Add( TEXT("NumberOfObjects"), EditingObjs.Num() );
 		Args.Add( TEXT("ClassName"), FText::FromString( SharedBaseClass->GetName() ) );
 		return FText::Format( LOCTEXT("ToolkitTitle_EditingMultipleToolTip", "{NumberOfObjects} {ClassName} - {ToolkitName}"), Args );
 	}

@@ -40,7 +40,7 @@ void MainPS(noperspective float4 UVAndScreenPos : TEXCOORD0, float4 SvPosition :
 
 		int ShadingModelID = (InsetPx.y * ShadingModelCount) / LegendSize.y;
 
-		if((uint)ShadingModelID < ShadingModelCount)
+		if(ShadingModelID < ShadingModelCount)
 		{
 			bool bValue = ShadingModelMaskInView[ShadingModelID].r == 1.0f;
 

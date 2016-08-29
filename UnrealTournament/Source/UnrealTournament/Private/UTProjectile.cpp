@@ -39,7 +39,7 @@ AUTProjectile::AUTProjectile(const class FObjectInitializer& ObjectInitializer)
 		PawnOverlapSphere->OnComponentBeginOverlap.AddDynamic(this, &AUTProjectile::OnPawnSphereOverlapBegin);
 		PawnOverlapSphere->bTraceComplexOnMove = false; 
 		PawnOverlapSphere->bReceivesDecals = false;
-		PawnOverlapSphere->AttachParent = RootComponent;
+		PawnOverlapSphere->SetupAttachment(RootComponent);
 		PawnOverlapSphere->bShouldUpdatePhysicsVolume = false;
 	}
 
@@ -474,7 +474,9 @@ void AUTProjectile::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& 
 
 	DOREPLIFETIME(AActor, bTearOff);
 	DOREPLIFETIME(AActor, bCanBeDamaged);
-	DOREPLIFETIME(AActor, AttachmentReplication);
+
+	// POLGE TODO: Fix the issues with this being private
+	//DOREPLIFETIME(AActor, AttachmentReplication);
 
 	DOREPLIFETIME(AActor, Instigator);
 
@@ -510,7 +512,7 @@ void AUTProjectile::GatherCurrentMovement()
 	if (RootComponent != NULL)
 	{
 		// If we are attached, don't replicate absolute position
-		if (RootComponent->AttachParent != NULL)
+		if (RootComponent->GetAttachParent() != NULL)
 		{
 			Super::GatherCurrentMovement();
 		}
@@ -617,7 +619,7 @@ void AUTProjectile::EndSlomo()
 	OnRep_Slomo();
 }
 
-void AUTProjectile::OnOverlapBegin(AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
+void AUTProjectile::OnOverlapBegin(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
 {
 	if (!bInOverlap)
 	{
@@ -645,7 +647,7 @@ void AUTProjectile::OnOverlapBegin(AActor* OtherActor, UPrimitiveComponent* Othe
 	}
 }
 
-void AUTProjectile::OnPawnSphereOverlapBegin(AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
+void AUTProjectile::OnPawnSphereOverlapBegin(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
 {
 	if (OtherActor != nullptr)
 	{
@@ -666,7 +668,7 @@ void AUTProjectile::OnPawnSphereOverlapBegin(AActor* OtherActor, UPrimitiveCompo
 		// make sure that the hit is valid before proceeding
 		if (!GetWorld()->LineTraceTestByChannel(OtherLocation, GetActorLocation(), COLLISION_TRACE_WEAPON, Params))
 		{
-			OnOverlapBegin(OtherActor, OtherComp, OtherBodyIndex, bFromSweep, SweepResult);
+			OnOverlapBegin(CollisionComp, OtherActor, OtherComp, OtherBodyIndex, bFromSweep, SweepResult);
 		}
 	}
 }

@@ -7,7 +7,7 @@
 #pragma once
 #include "TextureRenderTargetFactoryNew.generated.h"
 
-UCLASS(hidecategories=(Object, Texture))
+UCLASS(MinimalAPI, hidecategories=(Object, Texture))
 class UTextureRenderTargetFactoryNew : public UFactory
 {
 	GENERATED_UCLASS_BODY()

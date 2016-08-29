@@ -2,31 +2,53 @@
 
 
 #include "VulkanRHIPrivate.h"
+#include "VulkanContext.h"
 
 FVulkanShaderResourceView::~FVulkanShaderResourceView()
 {
+	TextureView.Destroy(*Device);
 	BufferView = nullptr;
 	SourceVertexBuffer = nullptr;
 	SourceTexture = nullptr;
+	Device = nullptr;
 }
 
-void FVulkanShaderResourceView::UpdateView(FVulkanDevice* Device)
+void FVulkanShaderResourceView::UpdateView()
 {
 	// update the buffer view for dynamic VB backed buffers (or if it was never set)
 	if (SourceVertexBuffer != nullptr)
 	{
+		if (SourceVertexBuffer->IsVolatile() && VolatileLockCounter != SourceVertexBuffer->GetVolatileLockCounter())
+		{
+			BufferView = nullptr;
+			VolatileLockCounter = SourceVertexBuffer->GetVolatileLockCounter();
+		}
+
 		if (BufferView == nullptr || SourceVertexBuffer->IsDynamic())
 		{
 			SCOPE_CYCLE_COUNTER(STAT_VulkanSRVUpdateTime);
 			// thanks to ref counting, overwriting the buffer will toss the old view
-			BufferView = new FVulkanBufferView();
-			check(Device);
-			BufferView->Create(*Device, *SourceVertexBuffer->GetBuffer(), BufferViewFormat, SourceVertexBuffer->GetOffset(), SourceVertexBuffer->GetSize());
+			BufferView = new FVulkanBufferView(Device);
+			BufferView->Create(SourceVertexBuffer.GetReference(), BufferViewFormat, SourceVertexBuffer->GetOffset(), SourceVertexBuffer->GetSize());
+		}
+	}
+	else
+	{
+		if (TextureView.View == VK_NULL_HANDLE)
+		{
+			EPixelFormat Format = (BufferViewFormat == PF_Unknown) ? SourceTexture->GetFormat() : BufferViewFormat;
+			if (FRHITexture2D* Tex2D = SourceTexture->GetTexture2D())
+			{
+				FVulkanTexture2D* VTex2D = ResourceCast(Tex2D);
+				TextureView.Create(*Device, VTex2D->Surface.Image, VK_IMAGE_VIEW_TYPE_2D, VTex2D->Surface.GetAspectMask(), Format, UEToVkFormat(Format, false), MipLevel, NumMips);
+			}
+			else
+			{
+				ensure(0);
+			}
 		}
 	}
 }
-
-
 
 
 FUnorderedAccessViewRHIRef FVulkanDynamicRHI::RHICreateUnorderedAccessView(FStructuredBufferRHIParamRef StructuredBufferRHI, bool bUseUAVCounter, bool bAppendBuffer)
@@ -87,7 +109,7 @@ FShaderResourceViewRHIRef FVulkanDynamicRHI::RHICreateShaderResourceView(FStruct
 
 FShaderResourceViewRHIRef FVulkanDynamicRHI::RHICreateShaderResourceView(FVertexBufferRHIParamRef VertexBufferRHI, uint32 Stride, uint8 Format)
 {	
-	FVulkanShaderResourceView* SRV = new FVulkanShaderResourceView;
+	FVulkanShaderResourceView* SRV = new FVulkanShaderResourceView(Device);
 	// delay the shader view create until we use it, so we just track the source info here
 	SRV->SourceVertexBuffer = ResourceCast(VertexBufferRHI);
 	SRV->BufferViewFormat = (EPixelFormat)Format;
@@ -96,24 +118,22 @@ FShaderResourceViewRHIRef FVulkanDynamicRHI::RHICreateShaderResourceView(FVertex
 
 FShaderResourceViewRHIRef FVulkanDynamicRHI::RHICreateShaderResourceView(FTexture2DRHIParamRef Texture2DRHI, uint8 MipLevel)
 {
-#if 0
-	FVulkanShaderResourceView* SRV = new FVulkanShaderResourceView;
-	SRV->SourceTexture = (FRHITexture*)Texture2DRHI;
+	FVulkanShaderResourceView* SRV = new FVulkanShaderResourceView(Device);
+	// delay the shader view create until we use it, so we just track the source info here
+	SRV->SourceTexture = ResourceCast(Texture2DRHI);
+	SRV->MipLevel = MipLevel;
+	SRV->NumMips = 1;
 	return SRV;
-#else
-	VULKAN_SIGNAL_UNIMPLEMENTED();
-	return nullptr;
-#endif
 }
 
 FShaderResourceViewRHIRef FVulkanDynamicRHI::RHICreateShaderResourceView(FTexture2DRHIParamRef Texture2DRHI, uint8 MipLevel, uint8 NumMipLevels, uint8 Format)
 {
-	//#todo-rco
-	check(MipLevel == 0 && NumMipLevels == 1);
-	FVulkanShaderResourceView* SRV = new FVulkanShaderResourceView;
+	FVulkanShaderResourceView* SRV = new FVulkanShaderResourceView(Device);
 	// delay the shader view create until we use it, so we just track the source info here
 	SRV->SourceTexture = ResourceCast(Texture2DRHI);
 	SRV->BufferViewFormat = (EPixelFormat)Format;
+	SRV->MipLevel = MipLevel;
+	SRV->NumMips = NumMipLevels;
 	return SRV;
 }
 

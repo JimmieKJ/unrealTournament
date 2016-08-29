@@ -4,8 +4,7 @@
 	DrawingPolicy.h: Drawing policy definitions.
 =============================================================================*/
 
-#ifndef __DRAWINGPOLICY_H__
-#define __DRAWINGPOLICY_H__
+#pragma once
 
 #include "RHICommandList.h"
 
@@ -49,6 +48,71 @@ struct FMeshDrawingRenderState
 	bool				bAllowStencilDither;
 };
 
+class FDrawingPolicyMatchResult
+{
+public:
+	FDrawingPolicyMatchResult()
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+		: Matches(0)
+#else
+		: bLastResult(false)
+#endif
+	{
+	}
+
+	bool Append(const FDrawingPolicyMatchResult& Result, const TCHAR* condition)
+	{
+		bLastResult = Result.bLastResult;
+
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+		TestResults = Result.TestResults;
+		TestCondition = Result.TestCondition;
+		Matches = Result.Matches;
+#endif
+
+		return bLastResult;
+	}
+
+	bool Append(bool Result, const TCHAR* condition)
+	{
+		bLastResult = Result;
+
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+		TestResults.Add(Result);
+		TestCondition.Add(condition);
+		Matches += Result;
+#endif
+
+		return bLastResult;
+	}
+
+	bool Result() const
+	{
+		return bLastResult;
+	}
+
+	int32 MatchCount() const
+	{
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+		return Matches;
+#else
+		return 0;
+#endif
+	}
+
+	uint32 bLastResult : 1;
+
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+	int32					Matches;
+	TBitArray<>				TestResults;
+	TArray<const TCHAR*>	TestCondition;
+#endif
+};
+
+#define DRAWING_POLICY_MATCH_BEGIN FDrawingPolicyMatchResult Result; {
+#define DRAWING_POLICY_MATCH(MatchExp) Result.Append((MatchExp), TEXT(#MatchExp))
+#define DRAWING_POLICY_MATCH_END } return Result;
+
 /**
  * The base mesh drawing policy.  Subclasses are used to draw meshes with type-specific context variables.
  * May be used either simply as a helper to render a dynamic mesh, or as a static instance shared between
@@ -63,9 +127,9 @@ public:
 	/** Context data required by the drawing policy that is not known when caching policies in static mesh draw lists. */
 	struct ContextDataType
 	{
-		ContextDataType(const bool InbIsInstancedStereo, const bool InbNeedsInstancedStereoBias) : bIsInstancedStereo(InbIsInstancedStereo), bNeedsInstancedStereoBias(InbNeedsInstancedStereoBias){};
-		ContextDataType() : bIsInstancedStereo(false), bNeedsInstancedStereoBias(false){};
-		bool bIsInstancedStereo, bNeedsInstancedStereoBias;
+		ContextDataType(const bool InbIsInstancedStereo) : bIsInstancedStereo(InbIsInstancedStereo) {};
+		ContextDataType() : bIsInstancedStereo(false) {};
+		bool bIsInstancedStereo;
 	};
 
 	FMeshDrawingPolicy(
@@ -97,15 +161,16 @@ public:
 		return PointerHash(VertexFactory,PointerHash(MaterialRenderProxy));
 	}
 
-	bool Matches(const FMeshDrawingPolicy& OtherDrawer) const
+	FDrawingPolicyMatchResult Matches(const FMeshDrawingPolicy& OtherDrawer) const
 	{
-		return
-			VertexFactory == OtherDrawer.VertexFactory &&
-			MaterialRenderProxy == OtherDrawer.MaterialRenderProxy &&
-			bIsTwoSidedMaterial == OtherDrawer.bIsTwoSidedMaterial && 
-			bIsDitheredLODTransitionMaterial == OtherDrawer.bIsDitheredLODTransitionMaterial && 
-			bUsePositionOnlyVS == OtherDrawer.bUsePositionOnlyVS && 
-			bIsWireframeMaterial == OtherDrawer.bIsWireframeMaterial;
+		DRAWING_POLICY_MATCH_BEGIN
+			DRAWING_POLICY_MATCH(VertexFactory == OtherDrawer.VertexFactory) &&
+			DRAWING_POLICY_MATCH(MaterialRenderProxy == OtherDrawer.MaterialRenderProxy) &&
+			DRAWING_POLICY_MATCH(bIsTwoSidedMaterial == OtherDrawer.bIsTwoSidedMaterial) &&
+			DRAWING_POLICY_MATCH(bIsDitheredLODTransitionMaterial == OtherDrawer.bIsDitheredLODTransitionMaterial) &&
+			DRAWING_POLICY_MATCH(bUsePositionOnlyVS == OtherDrawer.bUsePositionOnlyVS) &&
+			DRAWING_POLICY_MATCH(bIsWireframeMaterial == OtherDrawer.bIsWireframeMaterial);
+		DRAWING_POLICY_MATCH_END
 	}
 
 	/**
@@ -124,10 +189,12 @@ public:
 		const ContextDataType PolicyContext
 		) const
 	{
+		const bool bRenderTwoSided = (IsTwoSided() && !NeedsBackfacePass()) || View.bRenderSceneTwoSided || Mesh.bDisableBackfaceCulling;
+
 		// Use bitwise logic ops to avoid branches
 		RHICmdList.SetRasterizerState(GetStaticRasterizerState<true>(
-			(Mesh.bWireframe || IsWireframe()) ? FM_Wireframe : FM_Solid, ((IsTwoSided() && !NeedsBackfacePass()) || Mesh.bDisableBackfaceCulling) ? CM_None :
-			(((View.bReverseCulling ^ bBackFace) ^ Mesh.ReverseCulling) ? CM_CCW : CM_CW)
+			(Mesh.bWireframe || IsWireframe()) ? FM_Wireframe : FM_Solid, 
+			bRenderTwoSided ? CM_None : (((View.bReverseCulling ^ bBackFace) ^ Mesh.ReverseCulling) ? CM_CCW : CM_CW)
 			));
 	}
 
@@ -187,8 +254,10 @@ public:
 
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 	FORCEINLINE EDebugViewShaderMode GetDebugViewShaderMode() const { return (EDebugViewShaderMode)DebugViewShaderMode; }
+	FORCEINLINE bool UseDebugViewPS() const { return DebugViewShaderMode != DVSM_None; }
 #else
 	FORCEINLINE EDebugViewShaderMode GetDebugViewShaderMode() const { return DVSM_None; }
+	FORCEINLINE bool UseDebugViewPS() const { return false; }
 #endif
 
 protected:
@@ -206,4 +275,3 @@ protected:
 
 uint32 GetTypeHash(const FBoundShaderStateRHIRef &Key);
 
-#endif

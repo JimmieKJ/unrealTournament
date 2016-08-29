@@ -1,18 +1,18 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <TpsData xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
   <Name>WebRTC stable and trunk version</Name>
-  <Location>//depot/UE4/Engine/Source/ThirdParty/NotForLicensees/WebRTC</Location>
-  <Date>2015-09-04T20:47:13.5830011-04:00</Date>
+  <Location>/Engine/Source/ThirdParty/WebRTC/</Location>
+  <Date>2016-06-16T14:09:57.3865269-04:00</Date>
   <Function>Real-time communicate with XMPP server Required for social features in all of our games as well the Launcher </Function>
   <Justification>Earliest usage will be for Fortnite OT1 (12/01/2014) Currently NoRedist but will eventually want to include with UE4 distro P4 </Justification>
   <Platforms>
     <Platform>PC</Platform>
+    <Platform>Mac</Platform>
     <Platform>Android</Platform>
     <Platform>iOS</Platform>
     <Platform>HTML 5</Platform>
     <Platform>Windows 8</Platform>
     <Platform>Linux</Platform>
-    <Platform>Mac</Platform>
   </Platforms>
   <Products>
     <Product>UDK4</Product>
@@ -20,7 +20,11 @@
   </Products>
   <TpsType>Source Code</TpsType>
   <Eula>http://www.webrtc.org/license-rights</Eula>
-  <RedistributeTo />
+  <RedistributeTo>
+    <EndUserGroup>Licensees</EndUserGroup>
+    <EndUserGroup>Git</EndUserGroup>
+    <EndUserGroup>P4</EndUserGroup>
+  </RedistributeTo>
   <Redistribute>false</Redistribute>
   <IsSourceAvailable>false</IsSourceAvailable>
   <NoticeType>Full EULA Text</NoticeType>
@@ -60,5 +64,5 @@ THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 </Notification>
-  <LicenseFolder />
+  <LicenseFolder>/Engine/Source/ThirdParty/Licenses/WebRTC_License.txt</LicenseFolder>
 </TpsData>

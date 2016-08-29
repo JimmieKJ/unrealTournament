@@ -9,6 +9,8 @@
 
 #include "CollectionManagerTypes.h"
 
+class UExporter;
+
 namespace ObjectTools
 {
 	/** A simple struct to represent the package group name triplet */

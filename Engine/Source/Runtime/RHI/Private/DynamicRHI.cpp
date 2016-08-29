@@ -4,6 +4,7 @@
 	DynamicRHI.cpp: Dynamically bound Render Hardware Interface implementation.
 =============================================================================*/
 
+#include "RHIPrivatePCH.h"
 #include "RHI.h"
 #include "ModuleManager.h"
 #include "GenericPlatformDriver.h" // FGPUDriverInfo
@@ -49,8 +50,8 @@ void InitNullRHI()
 	GRHISupportsTextureStreaming = false;
 }
 
-
-void RHIDetectAndWarnOfBadDrivers()
+#if PLATFORM_WINDOWS
+static void RHIDetectAndWarnOfBadDrivers()
 {
 	int32 CVarValue = CVarWarnOfBadDrivers.GetValueOnGameThread();
 
@@ -155,6 +156,7 @@ void RHIDetectAndWarnOfBadDrivers()
 		}
 	}
 }
+#endif // PLATFORM_WINDOWS
 
 void RHIInit(bool bHasEditorToken)
 {
@@ -162,7 +164,7 @@ void RHIInit(bool bHasEditorToken)
 	{
 		GRHICommandList.LatchBypass(); // read commandline for bypass flag
 
-		if (FApp::ShouldUseNullRHI())
+		if (!FApp::CanEverRender())
 		{
 			InitNullRHI();
 		}
@@ -187,7 +189,9 @@ void RHIInit(bool bHasEditorToken)
 		check(GDynamicRHI);
 	}
 
+#if PLATFORM_WINDOWS
 	RHIDetectAndWarnOfBadDrivers();
+#endif
 }
 
 void RHIPostInit()
@@ -208,3 +212,65 @@ void RHIExit()
 }
 
 
+static void BaseRHISetGPUCaptureOptions(const TArray<FString>& Args, UWorld* World)
+{
+	if (Args.Num() > 0)
+	{
+		const bool bEnabled = Args[0].ToBool();
+		GDynamicRHI->EnableIdealGPUCaptureOptions(bEnabled);
+	}
+	else
+	{
+		UE_LOG(LogRHI, Display, TEXT("Usage: r.PS4.EnableCaptureMode 0 or r.PS4.EnableCaptureMode 1"));
+	}
+}
+
+static FAutoConsoleCommandWithWorldAndArgs GBaseRHISetGPUCaptureOptions(
+	TEXT("r.RHISetGPUCaptureOptions"),
+	TEXT("Utility function to change multiple CVARs useful when profiling or debugging GPU rendering. Setting to 1 or 0 will guarantee all options are in the appropriate state.\n")
+	TEXT("r.rhithread.enable, r.rhicmdbypass, r.showmaterialdrawevents, toggledrawevents\n")
+	TEXT("Platform RHI's may implement more feature toggles."),
+	FConsoleCommandWithWorldAndArgsDelegate::CreateStatic(&BaseRHISetGPUCaptureOptions)
+	);
+
+void FDynamicRHI::EnableIdealGPUCaptureOptions(bool bEnabled)
+{
+	static IConsoleVariable* RHICmdBypassVar = IConsoleManager::Get().FindConsoleVariable(TEXT("r.rhicmdbypass"));
+	static IConsoleVariable* ShowMaterialDrawEventVar = IConsoleManager::Get().FindConsoleVariable(TEXT("r.ShowMaterialDrawEvents"));	
+	static IConsoleObject* RHIThreadEnableObj = IConsoleManager::Get().FindConsoleObject(TEXT("r.RHIThread.Enable"));
+	static IConsoleCommand* RHIThreadEnableCommand = RHIThreadEnableObj ? RHIThreadEnableObj->AsCommand() : nullptr;
+
+	const bool bShouldEnableDrawEvents = bEnabled;
+	const bool bShouldEnableMaterialDrawEvents = bEnabled;
+	const bool bShouldEnableRHIThread = !bEnabled;
+	const bool bShouldRHICmdBypass = bEnabled;	
+
+	const bool bDrawEvents = GEmitDrawEvents != 0;
+	const bool bMaterialDrawEvents = ShowMaterialDrawEventVar ? ShowMaterialDrawEventVar->GetInt() != 0 : false;
+	const bool bRHIThread = GRHIThread != nullptr;	
+	const bool bRHIBypass = RHICmdBypassVar ? RHICmdBypassVar->GetInt() != 0 : false;
+
+	UE_LOG(LogRHI, Display, TEXT("Setting GPU Capture Options: %i"), bEnabled ? 1 : 0);
+	if (bShouldEnableDrawEvents != bDrawEvents)
+	{
+		UE_LOG(LogRHI, Display, TEXT("Toggling draw events: %i"), bShouldEnableDrawEvents ? 1 : 0);
+		GEmitDrawEvents = bShouldEnableDrawEvents;
+	}
+	if (bShouldEnableMaterialDrawEvents != bMaterialDrawEvents)
+	{
+		UE_LOG(LogRHI, Display, TEXT("Toggling showmaterialdrawevents: %i"), bShouldEnableDrawEvents ? 1 : 0);
+		ShowMaterialDrawEventVar->Set(bShouldEnableDrawEvents ? 1 : 0);		
+	}
+	if (bRHIThread != bShouldEnableRHIThread && RHIThreadEnableCommand)
+	{
+		UE_LOG(LogRHI, Display, TEXT("Toggling rhi thread: %i"), bShouldEnableRHIThread ? 1 : 0);
+		TArray<FString> Args;
+		Args.Add(FString::Printf(TEXT("%i"), bShouldEnableRHIThread ? 1 : 0));
+		RHIThreadEnableCommand->Execute(Args, nullptr, *GLog);
+	}
+	if (bRHIBypass != bShouldRHICmdBypass && RHICmdBypassVar)
+	{
+		UE_LOG(LogRHI, Display, TEXT("Toggling rhi bypass: %i"), bEnabled ? 1 : 0);
+		RHICmdBypassVar->Set(bShouldRHICmdBypass ? 1 : 0, ECVF_SetByConsole);		
+	}	
+}

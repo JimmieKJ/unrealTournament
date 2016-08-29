@@ -26,7 +26,7 @@ FContentComparisonHelper::FContentComparisonHelper()
 	{
 		for( FConfigSectionMap::TIterator It(*RefTypes); It; ++It )
 		{
-			const FString RefType = It.Value();
+			const FString& RefType = It.Value().GetValue();
 			ReferenceClassesOfInterest.Add(RefType, true);
 			UE_LOG(LogEngineUtils, Log, TEXT("Adding class of interest: %s"), *RefType);
 		}
@@ -458,7 +458,7 @@ void FConsoleOutputDevice::Serialize(const TCHAR* Text, ELogVerbosity::Type Verb
 
 		if(CVar)
 		{
-			int MinVerbosity = CVar->GetValueOnGameThread();
+			int MinVerbosity = CVar->GetValueOnAnyThread(true);
 
 			if((int)Verbosity <= MinVerbosity)
 			{

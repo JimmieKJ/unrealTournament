@@ -25,8 +25,6 @@
 #include "UTEpicDefaultRulesets.h"
 #include "UTReplicatedGameRuleset.h"
 #include "UTAnalytics.h"
-#include "Runtime/Analytics/Analytics/Public/Analytics.h"
-#include "Runtime/Analytics/Analytics/Public/Interfaces/IAnalyticsProvider.h"
 #include "SocketSubsystem.h"
 #include "IPAddress.h"
 #include "../Panels/SUTUMGPanel.h"
@@ -34,6 +32,8 @@
 #if !UE_SERVER
 
 #include "UserWidget.h"
+#include "AnalyticsEventAttribute.h"
+#include "IAnalyticsProvider.h"
 
 void SUTMainMenu::CreateDesktop()
 {

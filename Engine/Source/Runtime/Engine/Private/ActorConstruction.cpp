@@ -103,9 +103,9 @@ void AActor::ResetPropertiesForConstruction()
 	{
 		if (USceneComponent* SC = Cast<USceneComponent>(InComp))
 		{
-			if (SC->AttachParent && SC->AttachParent->GetOwner() == InComp->GetOwner())
+			if (SC->GetAttachParent() && SC->GetAttachParent()->GetOwner() == InComp->GetOwner())
 			{
-				ComponentDepth = CalcComponentAttachDepth(SC->AttachParent, ComponentDepthMap) + 1;
+				ComponentDepth = CalcComponentAttachDepth(SC->GetAttachParent(), ComponentDepthMap) + 1;
 			}
 		}
 		ComponentDepthMap.Add(InComp, ComponentDepth);
@@ -207,17 +207,25 @@ void AActor::RerunConstructionScripts()
 #endif
 	if(bAllowReconstruction)
 	{
+		// Child Actors can be customized in many ways by their parents construction scripts and rerunning directly on them would wipe
+		// that out. So instead we redirect up the hierarchy
+		if (IsChildActor())
+		{
+			if (AActor* ParentActor = GetParentComponent()->GetOwner())
+			{
+				ParentActor->RerunConstructionScripts();
+				return;
+			}
+		}
+
 		// Set global flag to let system know we are reconstructing blueprint instances
 		TGuardValue<bool> GuardTemplateNameFlag(GIsReconstructingBlueprintInstances, true);
 
 		// Temporarily suspend the undo buffer; we don't need to record reconstructed component objects into the current transaction
 		ITransaction* CurrentTransaction = GUndo;
-		GUndo = NULL;
+		GUndo = nullptr;
 		
 		// Create cache to store component data across rerunning construction scripts
-#if WITH_EDITOR
-		FActorTransactionAnnotation* ActorTransactionAnnotation = CurrentTransactionAnnotation.Get();
-#endif
 		FComponentInstanceDataCache* InstanceDataCache;
 		
 		FTransform OldTransform = FTransform::Identity;
@@ -240,46 +248,49 @@ void AActor::RerunConstructionScripts()
 		TArray<FAttachedActorInfo> AttachedActorInfos;
 
 #if WITH_EDITOR
-		if (ActorTransactionAnnotation)
+		if (!CurrentTransactionAnnotation.IsValid())
 		{
-			InstanceDataCache = &ActorTransactionAnnotation->ComponentInstanceData;
-
-			if (ActorTransactionAnnotation->bRootComponentDataCached)
-			{
-				OldTransform = ActorTransactionAnnotation->RootComponentData.Transform;
-				Parent = ActorTransactionAnnotation->RootComponentData.AttachedParentInfo.Actor.Get();
-				if (Parent)
-				{
-					USceneComponent* AttachParent = ActorTransactionAnnotation->RootComponentData.AttachedParentInfo.AttachParent.Get();
-					AttachParentComponent = (AttachParent ? AttachParent : FindObjectFast<USceneComponent>(Parent, ActorTransactionAnnotation->RootComponentData.AttachedParentInfo.AttachParentName));
-					SocketName = ActorTransactionAnnotation->RootComponentData.AttachedParentInfo.SocketName;
-					DetachRootComponentFromParent();
-				}
-
-				for (const auto& CachedAttachInfo : ActorTransactionAnnotation->RootComponentData.AttachedToInfo)
-				{
-					AActor* AttachedActor = CachedAttachInfo.Actor.Get();
-					if (AttachedActor)
-					{
-						FAttachedActorInfo Info;
-						Info.AttachedActor = AttachedActor;
-						Info.AttachedToSocket = CachedAttachInfo.SocketName;
-						Info.bSetRelativeTransform = true;
-						Info.RelativeTransform = CachedAttachInfo.RelativeTransform;
-						AttachedActorInfos.Add(Info);
-
-						AttachedActor->DetachRootComponentFromParent();
-					}
-				}
-
-				bUseRootComponentProperties = false;
-			}
+			CurrentTransactionAnnotation = MakeShareable(new FActorTransactionAnnotation(this, false));
 		}
-		else
-#endif
-		{
-			InstanceDataCache = new FComponentInstanceDataCache(this);
+		FActorTransactionAnnotation* ActorTransactionAnnotation = CurrentTransactionAnnotation.Get();
+		InstanceDataCache = &ActorTransactionAnnotation->ComponentInstanceData;
 
+		if (ActorTransactionAnnotation->bRootComponentDataCached)
+		{
+			OldTransform = ActorTransactionAnnotation->RootComponentData.Transform;
+			Parent = ActorTransactionAnnotation->RootComponentData.AttachedParentInfo.Actor.Get();
+			if (Parent)
+			{
+				USceneComponent* AttachParent = ActorTransactionAnnotation->RootComponentData.AttachedParentInfo.AttachParent.Get();
+				AttachParentComponent = (AttachParent ? AttachParent : FindObjectFast<USceneComponent>(Parent, ActorTransactionAnnotation->RootComponentData.AttachedParentInfo.AttachParentName));
+				SocketName = ActorTransactionAnnotation->RootComponentData.AttachedParentInfo.SocketName;
+				DetachRootComponentFromParent();
+			}
+
+			for (const auto& CachedAttachInfo : ActorTransactionAnnotation->RootComponentData.AttachedToInfo)
+			{
+				AActor* AttachedActor = CachedAttachInfo.Actor.Get();
+				if (AttachedActor)
+				{
+					FAttachedActorInfo Info;
+					Info.AttachedActor = AttachedActor;
+					Info.AttachedToSocket = CachedAttachInfo.SocketName;
+					Info.bSetRelativeTransform = true;
+					Info.RelativeTransform = CachedAttachInfo.RelativeTransform;
+					AttachedActorInfos.Add(Info);
+
+					AttachedActor->DetachRootComponentFromParent();
+				}
+			}
+
+			bUseRootComponentProperties = false;
+		}
+#else
+		InstanceDataCache = new FComponentInstanceDataCache(this);
+#endif
+
+		if (bUseRootComponentProperties)
+		{
 			// If there are attached objects detach them and store the socket names
 			TArray<AActor*> AttachedActors;
 			GetAttachedActors(AttachedActors);
@@ -287,7 +298,7 @@ void AActor::RerunConstructionScripts()
 			for (AActor* AttachedActor : AttachedActors)
 			{
 				// We don't need to detach child actors, that will be handled by component tear down
-				if (!AttachedActor->ParentComponent.IsValid())
+				if (!AttachedActor->IsChildActor())
 				{
 					USceneComponent* EachRoot = AttachedActor->GetRootComponent();
 					// If the component we are attached to is about to go away...
@@ -302,7 +313,7 @@ void AActor::RerunConstructionScripts()
 
 						// Now detach it
 						AttachedActor->Modify();
-						EachRoot->DetachFromParent(true);
+						EachRoot->DetachFromComponent(FDetachmentTransformRules::KeepWorldTransform);
 					}
 				}
 				else
@@ -310,59 +321,133 @@ void AActor::RerunConstructionScripts()
 					check(AttachedActor->ParentComponent->GetOwner() == this);
 				}
 			}
-		}
 
-		if (bUseRootComponentProperties && RootComponent != nullptr)
-		{
-			// Do not need to detach if root component is not going away
-			if (RootComponent->GetAttachParent() != NULL && RootComponent->IsCreatedByConstructionScript())
+			if (RootComponent != nullptr)
 			{
-				Parent = RootComponent->GetAttachParent()->GetOwner();
-				// Root component should never be attached to another component in the same actor!
-				if (Parent == this)
+				// Do not need to detach if root component is not going away
+				if (RootComponent->GetAttachParent() != nullptr && RootComponent->IsCreatedByConstructionScript())
 				{
-					UE_LOG(LogActor, Warning, TEXT("RerunConstructionScripts: RootComponent (%s) attached to another component in this Actor (%s)."), *RootComponent->GetPathName(), *Parent->GetPathName());
-					Parent = NULL;
+					Parent = RootComponent->GetAttachParent()->GetOwner();
+					// Root component should never be attached to another component in the same actor!
+					if (Parent == this)
+					{
+						UE_LOG(LogActor, Warning, TEXT("RerunConstructionScripts: RootComponent (%s) attached to another component in this Actor (%s)."), *RootComponent->GetPathName(), *Parent->GetPathName());
+						Parent = nullptr;
+					}
+					AttachParentComponent = RootComponent->GetAttachParent();
+					SocketName = RootComponent->GetAttachSocketName();
+					//detach it to remove any scaling 
+					RootComponent->DetachFromComponent(FDetachmentTransformRules::KeepWorldTransform);
 				}
-				AttachParentComponent = RootComponent->GetAttachParent();
-				SocketName = RootComponent->GetAttachSocketName();
-				//detach it to remove any scaling 
-				RootComponent->DetachFromParent(true);
-			}
 
-			// Update component transform and remember it so it can be reapplied to any new root component which exists after construction.
-			// (Component transform may be stale if we are here following an Undo)
-			RootComponent->UpdateComponentToWorld();
-			OldTransform = RootComponent->ComponentToWorld;
+				// Update component transform and remember it so it can be reapplied to any new root component which exists after construction.
+				// (Component transform may be stale if we are here following an Undo)
+				RootComponent->UpdateComponentToWorld();
+				OldTransform = RootComponent->ComponentToWorld;
+			}
 		}
 
 #if WITH_EDITOR
-		// Save the current construction script-created components by name
-		TMap<const FName, UObject*> DestroyedComponentsByName;
-		TInlineComponentArray<UActorComponent*> PreviouslyAttachedComponents;
-		GetComponents(PreviouslyAttachedComponents);
-		for (auto Component : PreviouslyAttachedComponents)
+
+		// Return the component which was added by the construction script.
+		// It may be the same as the argument, or a parent component if the argument was a native subobject.
+		auto GetComponentAddedByConstructionScript = [](UActorComponent* Component) -> UActorComponent*
 		{
-			if (Component)
+			while (Component)
 			{
 				if (Component->IsCreatedByConstructionScript())
 				{
-
-					DestroyedComponentsByName.Add(Component->GetFName(), Component);
+					return Component;
 				}
-				else
+
+				Component = Component->GetTypedOuter<UActorComponent>();
+			}
+
+			return nullptr;
+		};
+
+		// Build a list of previously attached components which will be matched with their newly instanced counterparts.
+		// Components which will be reinstanced may be created by the SCS or the UCS.
+		// SCS components can only be matched by name, and outermost parent to resolve duplicated names.
+		// UCS components remember a serialized index which is used to identify them in the case that the UCS adds many of the same type.
+
+		TInlineComponentArray<UActorComponent*> PreviouslyAttachedComponents;
+		GetComponents(PreviouslyAttachedComponents);
+
+		struct FComponentData
+		{
+			UActorComponent* OldComponent;
+			UActorComponent* OldOuter;
+			UObject* OldArchetype;
+			FName OldName;
+			int32 UCSComponentIndex;
+		};
+
+		TArray<FComponentData> ComponentMapping;
+		ComponentMapping.Reserve(PreviouslyAttachedComponents.Num());
+		int32 IndexOffset = 0;
+
+		for (UActorComponent* Component : PreviouslyAttachedComponents)
+		{
+			// Look for the outermost component object.
+			// Normally components have their parent actor as their outer, but it's possible that a native component may construct a subobject component.
+			// In this case we need to "tunnel out" to find the parent component which has been created by the construction script.
+			if (UActorComponent* CSAddedComponent = GetComponentAddedByConstructionScript(Component))
+			{
+				// Determine if this component is an inner of a component added by the construction script
+				const bool bIsInnerComponent = (CSAddedComponent != Component);
+
+				// Poor man's topological sort - try to ensure that children are added to the list after the parents
+				// IndexOffset specifies how many items from the end new items are added.
+				const int32 Index = ComponentMapping.Num() - IndexOffset;
+				if (bIsInnerComponent)
 				{
-					UActorComponent* OuterComponent = Component->GetTypedOuter<UActorComponent>();
-					while (OuterComponent)
+					int32 OuterIndex = ComponentMapping.IndexOfByPredicate([CSAddedComponent](const FComponentData& CD) { return CD.OldComponent == CSAddedComponent; });
+					if (OuterIndex == INDEX_NONE)
 					{
-						if (OuterComponent->IsCreatedByConstructionScript())
-						{
-							DestroyedComponentsByName.Add(Component->GetFName(), Component);
-							break;
-						}
-						OuterComponent = OuterComponent->GetTypedOuter<UActorComponent>();
+						// If we find an item whose parent isn't yet in the list, we put it at the end, and then force all subsequent items to be added before.
+						// TODO: improve this, it may fail in certain circumstances, but a full topological ordering is far more complicated a problem.
+						IndexOffset++;
 					}
 				}
+
+				// Add a new item
+				ComponentMapping.Insert(FComponentData(), Index);
+				ComponentMapping[Index].OldComponent = Component;
+				ComponentMapping[Index].OldOuter = bIsInnerComponent ? CSAddedComponent : nullptr;
+				ComponentMapping[Index].OldArchetype = Component->GetArchetype();
+				ComponentMapping[Index].OldName = Component->GetFName();
+
+				// If it's a UCS-created component, store a serialized index which will be used to match it to the reinstanced counterpart later
+				int32 SerializedIndex = -1;
+				if (Component->CreationMethod == EComponentCreationMethod::UserConstructionScript)
+				{
+					bool bFound = false;
+					for (const UActorComponent* BlueprintCreatedComponent : BlueprintCreatedComponents)
+					{
+						if (BlueprintCreatedComponent)
+						{
+							if (BlueprintCreatedComponent == Component)
+							{
+								SerializedIndex++;
+								bFound = true;
+								break;
+							}
+							else if (BlueprintCreatedComponent->CreationMethod == EComponentCreationMethod::UserConstructionScript &&
+									 BlueprintCreatedComponent->GetArchetype() == ComponentMapping[Index].OldArchetype)
+							{
+								SerializedIndex++;
+							}
+						}
+					}
+
+					if (!bFound)
+					{
+						SerializedIndex = -1;
+					}
+				}
+
+				ComponentMapping[Index].UCSComponentIndex = SerializedIndex;
 			}
 		}
 #endif
@@ -381,7 +466,7 @@ void AActor::RerunConstructionScripts()
 		}
 
 		// Run the construction scripts
-		ExecuteConstruction(OldTransform, InstanceDataCache);
+		const bool bErrorFree = ExecuteConstruction(OldTransform, InstanceDataCache);
 
 		if(Parent)
 		{
@@ -392,7 +477,7 @@ void AActor::RerunConstructionScripts()
 			}
 			if (ChildRoot != nullptr && AttachParentComponent != nullptr)
 			{
-				ChildRoot->AttachTo(AttachParentComponent, SocketName, EAttachLocation::KeepWorldPosition);
+				ChildRoot->AttachToComponent(AttachParentComponent, FAttachmentTransformRules::KeepWorldTransform, SocketName);
 			}
 		}
 
@@ -405,7 +490,7 @@ void AActor::RerunConstructionScripts()
 				USceneComponent* ChildRoot = Info.AttachedActor->GetRootComponent();
 				if (ChildRoot && ChildRoot->GetAttachParent() != RootComponent)
 				{
-					ChildRoot->AttachTo(RootComponent, Info.AttachedToSocket, EAttachLocation::KeepWorldPosition);
+					ChildRoot->AttachToComponent(RootComponent, FAttachmentTransformRules::KeepWorldTransform, Info.AttachedToSocket);
 					if (Info.bSetRelativeTransform)
 					{
 						ChildRoot->SetRelativeTransform(Info.RelativeTransform);
@@ -420,16 +505,101 @@ void AActor::RerunConstructionScripts()
 
 #if WITH_EDITOR
 		// Create the mapping of old->new components and notify the editor of the replacements
-		TMap<UObject*, UObject*> OldToNewComponentMapping;
-
 		TInlineComponentArray<UActorComponent*> NewComponents;
 		GetComponents(NewComponents);
-		for (auto NewComp : NewComponents)
+
+		TMap<UObject*, UObject*> OldToNewComponentMapping;
+		OldToNewComponentMapping.Reserve(NewComponents.Num());
+
+		// Build some quick lookup maps for speedy access.
+		// The NameToNewComponent map is a multimap because names are not necessarily unique.
+		// For example, there may be two components, subobjects of components added by the construction script, which have the same name, because they are unique in their scope.
+		TMultiMap<FName, UActorComponent*> NameToNewComponent;
+		TMap<UActorComponent*, UObject*> ComponentToArchetypeMap;
+		NameToNewComponent.Reserve(NewComponents.Num());
+		ComponentToArchetypeMap.Reserve(NewComponents.Num());
+
+		for (UActorComponent* NewComponent : NewComponents)
 		{
-			const FName NewCompName = NewComp->GetFName();
-			if (DestroyedComponentsByName.Contains(NewCompName))
+			if (GetComponentAddedByConstructionScript(NewComponent))
 			{
-				OldToNewComponentMapping.Add(DestroyedComponentsByName[NewCompName], NewComp);
+				NameToNewComponent.Add(NewComponent->GetFName(), NewComponent);
+				ComponentToArchetypeMap.Add(NewComponent, NewComponent->GetArchetype());
+			}
+		}
+
+		// Now iterate through all previous construction script created components, looking for a match with reinstanced components.
+		for (const FComponentData& ComponentData : ComponentMapping)
+		{
+			if (ComponentData.OldComponent->CreationMethod == EComponentCreationMethod::UserConstructionScript)
+			{
+				// If created by the UCS, look for a component whose class, archetype and serialized index matches
+				for (UActorComponent* NewComponent : NewComponents)
+				{
+					if (NewComponent->CreationMethod == EComponentCreationMethod::UserConstructionScript &&
+						ComponentData.OldComponent->GetClass() == NewComponent->GetClass() &&
+						ComponentData.OldArchetype == NewComponent->GetArchetype() &&
+						ComponentData.UCSComponentIndex >= 0)
+					{
+						int32 FoundSerializedIndex = -1;
+						bool bMatches = false;
+						for (UActorComponent* BlueprintCreatedComponent : BlueprintCreatedComponents)
+						{
+							if (BlueprintCreatedComponent && BlueprintCreatedComponent->CreationMethod == EComponentCreationMethod::UserConstructionScript)
+							{
+								UObject* BlueprintComponentTemplate = ComponentToArchetypeMap.FindRef(BlueprintCreatedComponent);
+								if (BlueprintComponentTemplate &&
+									ComponentData.OldArchetype == BlueprintComponentTemplate &&
+									++FoundSerializedIndex == ComponentData.UCSComponentIndex)
+								{
+									bMatches = (BlueprintCreatedComponent == NewComponent);
+									break;
+								}
+							}
+						}
+
+						if (bMatches)
+						{
+							OldToNewComponentMapping.Add(ComponentData.OldComponent, NewComponent);
+							break;
+						}
+					}
+				}
+			}
+			else
+			{
+				// Component added by the SCS. We can't rely on serialization order as this can change.
+				// Instead look for matching names, and, if there's an outer component, look for a match there.
+				TArray<UActorComponent*> MatchedComponents;
+				NameToNewComponent.MultiFind(ComponentData.OldName, MatchedComponents);
+				if (MatchedComponents.Num() > 0)
+				{
+					UActorComponent* OuterToMatch = ComponentData.OldOuter;
+					if (OuterToMatch)
+					{
+						// The saved outer component is the previous component, hence we transform it to the new one through the OldToNewComponentMapping
+						// before comparing with the new outer to match.
+						// We can rely on this because the ComponentMapping list is ordered topologically, such that parents appear before children.
+						if (UObject** NewOuterToMatch = OldToNewComponentMapping.Find(OuterToMatch))
+						{
+							OuterToMatch = Cast<UActorComponent>(*NewOuterToMatch);
+						}
+						else
+						{
+							OuterToMatch = nullptr;
+						}
+					}
+
+					// Now look for a match within the set of possible matches
+					for (UActorComponent* MatchedComponent : MatchedComponents)
+					{
+						if (!OuterToMatch || GetComponentAddedByConstructionScript(MatchedComponent) == OuterToMatch)
+						{
+							OldToNewComponentMapping.Add(ComponentData.OldComponent, MatchedComponent);
+							break;
+						}
+					}
+				}
 			}
 		}
 
@@ -438,20 +608,18 @@ void AActor::RerunConstructionScripts()
 			GEditor->NotifyToolsOfObjectReplacement(OldToNewComponentMapping);
 		}
 
-		if (ActorTransactionAnnotation)
+		if (bErrorFree)
 		{
-			CurrentTransactionAnnotation = NULL;
+			CurrentTransactionAnnotation = nullptr;
 		}
-		else
+#else
+		delete InstanceDataCache;
 #endif
-		{
-			delete InstanceDataCache;
-		}
 
 	}
 }
 
-void AActor::ExecuteConstruction(const FTransform& Transform, const FComponentInstanceDataCache* InstanceDataCache, bool bIsDefaultTransform)
+bool AActor::ExecuteConstruction(const FTransform& Transform, const FComponentInstanceDataCache* InstanceDataCache, bool bIsDefaultTransform)
 {
 	check(!IsPendingKill());
 	check(!HasAnyFlags(RF_BeginDestroyed|RF_FinishDestroyed));
@@ -483,24 +651,26 @@ void AActor::ExecuteConstruction(const FTransform& Transform, const FComponentIn
 	// If this actor has a blueprint lineage, go ahead and run the construction scripts from least derived to most
 	if( (ParentBPClassStack.Num() > 0)  )
 	{
-		if( bErrorFree )
+		if (bErrorFree)
 		{
 			// Prevent user from spawning actors in User Construction Script
 			TGuardValue<bool> AutoRestoreISCS(GetWorld()->bIsRunningConstructionScript, true);
-			for( int32 i = ParentBPClassStack.Num() - 1; i >= 0; i-- )
+			for (int32 i = ParentBPClassStack.Num() - 1; i >= 0; i--)
 			{
 				const UBlueprintGeneratedClass* CurrentBPGClass = ParentBPClassStack[i];
 				check(CurrentBPGClass);
-				if(CurrentBPGClass->SimpleConstructionScript)
+				USimpleConstructionScript* SCS = CurrentBPGClass->SimpleConstructionScript;
+				if (SCS)
 				{
-					CurrentBPGClass->SimpleConstructionScript->ExecuteScriptOnActor(this, Transform, bIsDefaultTransform);
+					SCS->CreateNameToSCSNodeMap();
+					SCS->ExecuteScriptOnActor(this, Transform, bIsDefaultTransform);
 				}
 				// Now that the construction scripts have been run, we can create timelines and hook them up
 				UBlueprintGeneratedClass::CreateComponentsForActor(CurrentBPGClass, this);
 			}
 
 			// If we passed in cached data, we apply it now, so that the UserConstructionScript can use the updated values
-			if(InstanceDataCache)
+			if (InstanceDataCache)
 			{
 				InstanceDataCache->ApplyToActor(this, ECacheApplyPhase::PostSimpleConstructionScript);
 			}
@@ -537,18 +707,29 @@ void AActor::ExecuteConstruction(const FTransform& Transform, const FComponentIn
 			{
 				InstanceDataCache->ApplyToActor(this, ECacheApplyPhase::PostUserConstructionScript);
 			}
+
+			// Remove name to SCS_Node cached map
+			for (const UBlueprintGeneratedClass* CurrentBPGClass : ParentBPClassStack)
+			{
+				check(CurrentBPGClass);
+				USimpleConstructionScript* SCS = CurrentBPGClass->SimpleConstructionScript;
+				if (SCS)
+				{
+					SCS->RemoveNameToSCSNodeMap();
+				}
+			}
 		}
 		else
 		{
 			// Disaster recovery mode; create a dummy billboard component to retain the actor location
 			// until the compile error can be fixed
-			if (RootComponent == NULL)
+			if (RootComponent == nullptr)
 			{
 				UBillboardComponent* BillboardComponent = NewObject<UBillboardComponent>(this);
 				BillboardComponent->SetFlags(RF_Transactional);
 				BillboardComponent->CreationMethod = EComponentCreationMethod::SimpleConstructionScript;
 #if WITH_EDITOR
-				BillboardComponent->Sprite = (UTexture2D*)(StaticLoadObject(UTexture2D::StaticClass(), NULL, TEXT("/Engine/EditorResources/BadBlueprintSprite.BadBlueprintSprite"), NULL, LOAD_None, NULL));
+				BillboardComponent->Sprite = (UTexture2D*)(StaticLoadObject(UTexture2D::StaticClass(), nullptr, TEXT("/Engine/EditorResources/BadBlueprintSprite.BadBlueprintSprite")));
 #endif
 				BillboardComponent->SetRelativeTransform(Transform);
 
@@ -575,6 +756,8 @@ void AActor::ExecuteConstruction(const FTransform& Transform, const FComponentIn
 
 	// Now run virtual notification
 	OnConstruction(Transform);
+
+	return bErrorFree;
 }
 
 void AActor::ProcessUserConstructionScript()
@@ -671,6 +854,9 @@ UActorComponent* AActor::CreateComponentFromTemplateData(const FBlueprintCookedC
 			ArCustomPropertyList = InPropertyList;
 			ArUseCustomPropertyList = true;
 			ArWantBinaryPropertySerialization = true;
+
+			// Set this flag to emulate things that would happen in the SDO case when this flag is set (e.g. - not setting 'bHasBeenCreated').
+			ArPortFlags |= PPF_Duplicate;
 		}
 	};
 
@@ -714,6 +900,12 @@ UActorComponent* AActor::CreateComponentFromTemplateData(const FBlueprintCookedC
 
 UActorComponent* AActor::AddComponent(FName TemplateName, bool bManualAttachment, const FTransform& RelativeTransform, const UObject* ComponentTemplateContext)
 {
+	if (GetWorld()->bIsTearingDown)
+	{
+		UE_LOG(LogActor, Warning, TEXT("AddComponent failed because we are in the process of tearing down the world"));
+		return nullptr;
+	}
+
 	UActorComponent* Template = nullptr;
 	FBlueprintCookedComponentInstancingData* TemplateData = nullptr;
 	for (UClass* TemplateOwnerClass = (ComponentTemplateContext != nullptr) ? ComponentTemplateContext->GetClass() : GetClass()
@@ -763,7 +955,7 @@ UActorComponent* AActor::AddComponent(FName TemplateName, bool bManualAttachment
 				}
 				else
 				{
-					NewSceneComp->AttachTo(RootComponent);
+					NewSceneComp->SetupAttachment(RootComponent);
 				}
 			}
 

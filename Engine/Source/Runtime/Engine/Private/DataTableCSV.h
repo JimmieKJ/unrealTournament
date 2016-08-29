@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "DataTableUtils.h"
+
 class UDataTable;
 
 #if WITH_EDITOR
@@ -9,18 +11,18 @@ class UDataTable;
 class FDataTableExporterCSV
 {
 public:
-	FDataTableExporterCSV(const UDataTable& InDataTable, FString& OutExportText);
+	FDataTableExporterCSV(const EDataTableExportFlags InDTExportFlags, FString& OutExportText);
 
 	~FDataTableExporterCSV();
 
-	bool WriteTable();
+	bool WriteTable(const UDataTable& InDataTable);
 
-	bool WriteRow(const void* InRowData);
+	bool WriteRow(const UScriptStruct* InRowStruct, const void* InRowData);
 
 private:
 	bool WriteStructEntry(const void* InRowData, UProperty* InProperty, const void* InPropertyData);
 
-	const UDataTable* DataTable;
+	EDataTableExportFlags DTExportFlags;
 	FString& ExportedText;
 };
 

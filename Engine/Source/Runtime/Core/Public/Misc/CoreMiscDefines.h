@@ -81,6 +81,7 @@
 	#define CA_NO_RETURN
 	#define CA_SUPPRESS( WarningNumber )
 	#define CA_ASSUME( Expr )
+	#define CA_CONSTANT_IF(Condition) if (Condition)
 #endif
 
 #ifndef USING_SIGNED_CONTENT
@@ -102,12 +103,21 @@ typedef int32 FPlatformUserId;
 const FPlatformUserId PLATFORMUSERID_NONE = INDEX_NONE;
 #endif // RC_INVOKED
 
-// helpers to turn an preprocessor token into a real string (see UBT_COMPILED_PLATFORM)
-#define PREPROCESSOR_TO_STRING_INNER(x) #x
+// Turns an preprocessor token into a real string (see UBT_COMPILED_PLATFORM)
 #define PREPROCESSOR_TO_STRING(x) PREPROCESSOR_TO_STRING_INNER(x)
+#define PREPROCESSOR_TO_STRING_INNER(x) #x
 
-#define PREPROCESSOR_JOIN_INNER(x, y) x##y
+// Concatenates two preprocessor tokens, performing macro expansion on them first
 #define PREPROCESSOR_JOIN(x, y) PREPROCESSOR_JOIN_INNER(x, y)
+#define PREPROCESSOR_JOIN_INNER(x, y) x##y
+
+// Expands to the second argument or the third argument if the first argument is 1 or 0 respectively
+#define PREPROCESSOR_IF(cond, x, y) PREPROCESSOR_JOIN(PREPROCESSOR_IF_INNER_, cond)(x, y)
+#define PREPROCESSOR_IF_INNER_1(x, y) x
+#define PREPROCESSOR_IF_INNER_0(x, y) y
+
+// Expands to nothing - used as a placeholder
+#define PREPROCESSOR_NOTHING
 
 // When passed to pragma message will result in clickable warning in VS
 #define WARNING_LOCATION(Line) __FILE__ "(" PREPROCESSOR_TO_STRING(Line) ")"

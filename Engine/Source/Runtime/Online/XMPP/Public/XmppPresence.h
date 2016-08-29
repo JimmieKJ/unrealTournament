@@ -71,6 +71,21 @@ public:
 	FString StatusStr;
 	/** full jid for user that sent this presence update */
 	FXmppUserJid UserJid;
+
+	inline bool operator==(const FXmppUserPresence& Presence) const
+	{
+		// SentTime is explicitly not checked
+		return Status == Presence.Status &&
+			bIsAvailable == Presence.bIsAvailable &&
+			AppId == Presence.AppId &&
+			Platform == Presence.Platform &&
+			StatusStr == Presence.StatusStr &&
+			UserJid == Presence.UserJid;
+	}
+	inline bool operator!=(const FXmppUserPresence& Presence) const
+	{
+		return !(*this == Presence);
+	}
 };
 
 /**

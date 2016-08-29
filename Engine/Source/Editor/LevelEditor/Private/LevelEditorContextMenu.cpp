@@ -18,7 +18,7 @@
 #include "AssetData.h"
 #include "DebuggerCommands.h"
 #include "AssetThumbnail.h"
-#include "ClassIconFinder.h"
+#include "SlateIconFinder.h"
 #include "IPlacementModeModule.h"
 #include "AssetRegistryModule.h"
 #include "EngineUtils.h"
@@ -166,7 +166,7 @@ void FLevelEditorContextMenu::FillMenu( FMenuBuilder& MenuBuilder, TWeakPtr<SLev
 				NAME_None,
 				FText::Format(LOCTEXT("SelectComponentOwner", "Select Owner [{0}]"), FText::FromString(OwnerActor->GetHumanReadableName())),
 				TAttribute<FText>(),
-				FSlateIcon(FEditorStyle::GetStyleSetName(), FClassIconFinder::FindIconNameForClass(OwnerActor->GetClass()))
+				FSlateIconFinder::FindIconForClass(OwnerActor->GetClass())
 				);
 
 			MenuBuilder.AddMenuEntry(FEditorViewportCommands::Get().FocusViewportToSelection);
@@ -236,7 +236,7 @@ void FLevelEditorContextMenu::FillMenu( FMenuBuilder& MenuBuilder, TWeakPtr<SLev
 						NAME_None,
 						FText::Format(LOCTEXT("EditAssociatedAsset", "Edit {0}"), FText::FromString(Asset->GetName())),
 						TAttribute<FText>(),
-						FSlateIcon(FEditorStyle::GetStyleSetName(), FClassIconFinder::FindIconNameForClass(Asset->GetClass()))
+						FSlateIconFinder::FindIconForClass(Asset->GetClass())
 						);
 				}
 				else if (ReferencedAssets.Num() > 1)
@@ -429,6 +429,106 @@ void FLevelEditorContextMenu::FillMenu( FMenuBuilder& MenuBuilder, TWeakPtr<SLev
 	MenuBuilder.PopCommandList();
 }
 
+namespace EViewOptionType
+{
+	enum Type
+	{
+		Top,
+		Bottom,
+		Left,
+		Right,
+		Front,
+		Back,
+		Perspective
+	};
+}
+
+TSharedPtr<SWidget> MakeViewOptionWidget(const TSharedRef< SLevelEditor >& LevelEditor, bool bShouldCloseWindowAfterMenuSelection, EViewOptionType::Type ViewOptionType)
+{
+	FMenuBuilder MenuBuilder(bShouldCloseWindowAfterMenuSelection, LevelEditor->GetActiveViewport()->GetCommandList());
+
+	if (ViewOptionType == EViewOptionType::Top)
+	{
+		MenuBuilder.AddMenuEntry(FEditorViewportCommands::Get().Top);
+	}
+	else if (ViewOptionType == EViewOptionType::Bottom)
+	{
+		MenuBuilder.AddMenuEntry(FEditorViewportCommands::Get().Bottom);
+	}
+	else if (ViewOptionType == EViewOptionType::Left)
+	{
+		MenuBuilder.AddMenuEntry(FEditorViewportCommands::Get().Left);
+	}
+	else if (ViewOptionType == EViewOptionType::Right)
+	{
+		MenuBuilder.AddMenuEntry(FEditorViewportCommands::Get().Right);
+	}
+	else if (ViewOptionType == EViewOptionType::Front)
+	{
+		MenuBuilder.AddMenuEntry(FEditorViewportCommands::Get().Front);
+	}
+	else if (ViewOptionType == EViewOptionType::Back)
+	{
+		MenuBuilder.AddMenuEntry(FEditorViewportCommands::Get().Back);
+	}
+	else if (ViewOptionType == EViewOptionType::Perspective)
+	{
+		MenuBuilder.AddMenuEntry(FEditorViewportCommands::Get().Perspective);
+	}
+	else
+	{
+		return nullptr;
+	}
+	return MenuBuilder.MakeWidget();
+}
+
+void BuildViewOptionMenu(const TSharedRef< SLevelEditor >& LevelEditor, TSharedPtr<SWidget> InWidget, const FVector2D WidgetPosition)
+{
+	if (InWidget.IsValid())
+	{
+		FSlateApplication::Get().PushMenu(
+			LevelEditor->GetActiveViewport().ToSharedRef(),
+			FWidgetPath(),
+			InWidget.ToSharedRef(),
+			WidgetPosition,
+			FPopupTransitionEffect(FPopupTransitionEffect::ContextMenu));
+	}
+}
+
+void FLevelEditorContextMenu::SummonViewOptionMenu( const TSharedRef< SLevelEditor >& LevelEditor, const ELevelViewportType ViewOption )
+{
+	const FVector2D MouseCursorLocation = FSlateApplication::Get().GetCursorPos();
+
+	bool bShouldCloseWindowAfterMenuSelection = true;
+	EViewOptionType::Type ViewOptionType = EViewOptionType::Perspective;
+
+	switch (ViewOption)
+	{
+		case LVT_OrthoNegativeXY:
+			ViewOptionType = EViewOptionType::Bottom;
+			break;
+		case LVT_OrthoNegativeXZ:
+			ViewOptionType = EViewOptionType::Back;
+			break;
+		case LVT_OrthoNegativeYZ:
+			ViewOptionType = EViewOptionType::Right;
+			break;
+		case LVT_OrthoXY:
+			ViewOptionType = EViewOptionType::Top;
+			break;
+		case LVT_OrthoXZ:
+			ViewOptionType = EViewOptionType::Front;
+			break;
+		case LVT_OrthoYZ:
+			ViewOptionType = EViewOptionType::Left;
+			break;
+		case LVT_Perspective:
+			ViewOptionType = EViewOptionType::Perspective;
+			break;
+	};
+	// Build up menu
+	BuildViewOptionMenu(LevelEditor, MakeViewOptionWidget(LevelEditor, bShouldCloseWindowAfterMenuSelection, ViewOptionType), MouseCursorLocation);
+}
 
 void FLevelEditorContextMenu::SummonMenu( const TSharedRef< SLevelEditor >& LevelEditor, LevelEditorMenuContext ContextType )
 {

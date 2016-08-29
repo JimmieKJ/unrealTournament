@@ -23,7 +23,7 @@ class UNREALTOURNAMENT_API AUTSCTFFlagBase : public AUTCTFFlagBase
 	USkeletalMeshComponent* GhostMesh;
 
 	UFUNCTION()
-	virtual void OnOverlapBegin(AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult);
+	virtual void OnOverlapBegin(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult);
 
 	// Called to create the necessary capture objects.
 	virtual void CreateFlag();

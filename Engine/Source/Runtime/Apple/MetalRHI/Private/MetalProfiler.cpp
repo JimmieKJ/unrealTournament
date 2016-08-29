@@ -15,19 +15,36 @@ DEFINE_STAT(STAT_MetalBoundShaderStateTime);
 DEFINE_STAT(STAT_MetalVertexDeclarationTime);
 DEFINE_STAT(STAT_MetalBufferPageOffTime);
 DEFINE_STAT(STAT_MetalTexturePageOffTime);
-#if PLATFORM_MAC
-DEFINE_STAT(STAT_MetalDeviceUtilisation);
-DEFINE_STAT(STAT_MetalDeviceUtilisationAtPState);
-DEFINE_STAT(STAT_MetalDevice0Utilisation);
-DEFINE_STAT(STAT_MetalDevice1Utilisation);
-DEFINE_STAT(STAT_MetalDevice2Utilisation);
-DEFINE_STAT(STAT_MetalDevice3Utilisation);
-DEFINE_STAT(STAT_MetalVRAMUsedBytes);
-DEFINE_STAT(STAT_MetalVRAMFreeBytes);
-DEFINE_STAT(STAT_MetalVRAMLargestFreeBytes);
-DEFINE_STAT(STAT_MetalInUseVidMemBytes);
-DEFINE_STAT(STAT_MetalInUseSysMemBytes);
-#endif
+DEFINE_STAT(STAT_MetalBufferCount);
+DEFINE_STAT(STAT_MetalTextureCount);
+DEFINE_STAT(STAT_MetalCommandBufferCount);
+DEFINE_STAT(STAT_MetalSamplerStateCount);
+DEFINE_STAT(STAT_MetalDepthStencilStateCount);
+DEFINE_STAT(STAT_MetalRenderPipelineStateCount);
+DEFINE_STAT(STAT_MetalRenderPipelineColorAttachmentDescriptor);
+DEFINE_STAT(STAT_MetalRenderPassDescriptorCount);
+DEFINE_STAT(STAT_MetalRenderPassColorAttachmentDescriptorCount);
+DEFINE_STAT(STAT_MetalRenderPassDepthAttachmentDescriptorCount);
+DEFINE_STAT(STAT_MetalRenderPassStencilAttachmentDescriptorCount);
+DEFINE_STAT(STAT_MetalVertexDescriptorCount);
+DEFINE_STAT(STAT_MetalComputePipelineStateCount);
+DEFINE_STAT(STAT_MetalFunctionCount);
+DEFINE_STAT(STAT_MetalFreePooledBufferCount);
+DEFINE_STAT(STAT_MetalPooledBufferCount);
+
+DEFINE_STAT(STAT_MetalPooledBufferMem);
+DEFINE_STAT(STAT_MetalUsedPooledBufferMem);
+DEFINE_STAT(STAT_MetalFreePooledBufferMem);
+DEFINE_STAT(STAT_MetalWastedPooledBufferMem);
+DEFINE_STAT(STAT_MetalBufferAlloctations);
+DEFINE_STAT(STAT_MetalBufferFreed);
+DEFINE_STAT(STAT_MetalBufferMemAlloc);
+DEFINE_STAT(STAT_MetalBufferMemFreed);
+DEFINE_STAT(STAT_MetalBufferNativeAlloctations);
+DEFINE_STAT(STAT_MetalBufferNativeFreed);
+DEFINE_STAT(STAT_MetalBufferNativeMemAlloc);
+DEFINE_STAT(STAT_MetalBufferNativeMemFreed);
+
 
 #if METAL_STATISTICS
 void FMetalEventNode::GetStats(FMetalPipelineStats& OutStats)
@@ -47,9 +64,6 @@ void FMetalEventNode::GetStats(FMetalPipelineStats& OutStats)
 		OutStats.ClipperPrimitives += DrawStat.ClipperPrimitives;
 		OutStats.FragmentFunctionInvocations += DrawStat.FragmentFunctionInvocations;
 	}
-	
-	OutStats.VertexFunctionCost = NumDraws > 0 ? OutStats.VertexFunctionCost / NumDraws : 0;
-	OutStats.FragmentFunctionCost = NumDraws > 0 ? OutStats.FragmentFunctionCost / NumDraws : 0;
 }
 
 /** Recursively dumps stats for each node with a depth first traversal. */
@@ -70,7 +84,7 @@ static void DumpStatsEventNode(FMetalEventNode* Node, float RootResult, int32 De
 		
 		// Print information about this node, padded to its depth in the tree
 		float DrawCallTime = FPlatformTime::ToMilliseconds(Stats.DrawCallTime);
-		UE_LOG(LogRHI, Warning, TEXT("%s%4.1f%%%5.2fms (%5.2fms)   %s %u draws %u (%u) prims %u (%u) verts %u vert invoke %4.1f%% vert cost %u clip invoke %u clip prims %u pixel invoke %4.1f%% pixel cost"),
+		UE_LOG(LogRHI, Warning, TEXT("%s%4.1f%%%5.2fms (%5.2fms)   %s %u draws %u (%u) prims %u (%u) verts %u vert invoke %u vert cost %u clip invoke %u clip prims %u pixel invoke %u pixel cost"),
 			   *FString(TEXT("")).LeftPad(EffectiveDepth * 3),
 			   Percent,
 			   Node->TimingResult,
@@ -330,85 +344,7 @@ void FMetalGPUProfiler::EndFrame()
 		PopEvent();
 		
 #if PLATFORM_MAC
-		TArray<FMacPlatformMisc::FGPUDescriptor> const& GPUs = FPlatformMisc::GetGPUDescriptors();
-		FMacPlatformMisc::FGPUDescriptor const& GPU = GPUs[GetMetalDeviceContext().GetDeviceIndex()];
-		TMap<FString, float> Stats = GPU.GetPerformanceStatistics();
-		float DeviceUtil = 0.0f;
-		if(Stats.Contains(TEXT("Device Utilization %")))
-		{
-			DeviceUtil = Stats.FindRef(TEXT("Device Utilization %"));
-		}
-		SET_FLOAT_STAT(STAT_MetalDeviceUtilisation, DeviceUtil);
-		
-		DeviceUtil = 0.0f;
-		if(Stats.Contains(TEXT("Device Utilization % at cur p-state")))
-		{
-			DeviceUtil = Stats.FindRef(TEXT("Device Utilization % at cur p-state"));
-		}
-		SET_FLOAT_STAT(STAT_MetalDeviceUtilisationAtPState, DeviceUtil);
-		
-		DeviceUtil = 0.0f;
-		if(Stats.Contains(TEXT("Device Unit 0 Utilization %")))
-		{
-			DeviceUtil = Stats.FindRef(TEXT("Device Unit 0 Utilization %"));
-		}
-		SET_FLOAT_STAT(STAT_MetalDevice0Utilisation, DeviceUtil);
-		
-		DeviceUtil = 0.0f;
-		if(Stats.Contains(TEXT("Device Unit 1 Utilization %")))
-		{
-			DeviceUtil = Stats.FindRef(TEXT("Device Unit 1 Utilization %"));
-		}
-		SET_FLOAT_STAT(STAT_MetalDevice1Utilisation, DeviceUtil);
-		
-		DeviceUtil = 0.0f;
-		if(Stats.Contains(TEXT("Device Unit 2 Utilization %")))
-		{
-			DeviceUtil = Stats.FindRef(TEXT("Device Unit 2 Utilization %"));
-		}
-		SET_FLOAT_STAT(STAT_MetalDevice2Utilisation, DeviceUtil);
-		
-		DeviceUtil = 0.0f;
-		if(Stats.Contains(TEXT("Device Unit 3 Utilization %")))
-		{
-			DeviceUtil = Stats.FindRef(TEXT("Device Unit 3 Utilization %"));
-		}
-		SET_FLOAT_STAT(STAT_MetalDevice3Utilisation, DeviceUtil);
-		
-		int64 Memory = 0;
-		if(Stats.Contains(TEXT("vramUsedBytes")))
-		{
-			Memory = Stats.FindRef(TEXT("vramUsedBytes"));
-		}
-		SET_MEMORY_STAT(STAT_MetalVRAMUsedBytes, Memory);
-		
-		Memory = 0;
-		if(Stats.Contains(TEXT("vramFreeBytes")))
-		{
-			Memory = Stats.FindRef(TEXT("vramFreeBytes"));
-		}
-		SET_MEMORY_STAT(STAT_MetalVRAMFreeBytes, Memory);
-		
-		Memory = 0;
-		if(Stats.Contains(TEXT("vramLargestFreeBytes")))
-		{
-			Memory = Stats.FindRef(TEXT("vramLargestFreeBytes"));
-		}
-		SET_MEMORY_STAT(STAT_MetalVRAMLargestFreeBytes, Memory);
-		
-		Memory = 0;
-		if(Stats.Contains(TEXT("inUseVidMemoryBytes")))
-		{
-			Memory = Stats.FindRef(TEXT("inUseVidMemoryBytes"));
-		}
-		SET_MEMORY_STAT(STAT_MetalInUseVidMemBytes, Memory);
-		
-		Memory = 0;
-		if(Stats.Contains(TEXT("inUseSysMemoryBytes")))
-		{
-			Memory = Stats.FindRef(TEXT("inUseSysMemoryBytes"));
-		}
-		SET_MEMORY_STAT(STAT_MetalInUseSysMemBytes, Memory);
+        FPlatformMisc::UpdateDriverMonitorStatistics(GetMetalDeviceContext().GetDeviceIndex());
 #endif
 		
         if(CurrentEventNodeFrame)

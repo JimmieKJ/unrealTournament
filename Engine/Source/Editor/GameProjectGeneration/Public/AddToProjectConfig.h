@@ -20,17 +20,20 @@ struct FNewClassInfo
 	/** The type of class we want to create */
 	enum class EClassType : uint8
 	{
-		/** The new class is using a UObject as a base, consult BaseClass for the type */
+		/** The new class is using a UObject as a base, consult BaseClass for the type. */
 		UObject,
 
-		/** The new class should be an empty standard C++ class */
+		/** The new class should be an empty standard C++ class. */
 		EmptyCpp,
 
-		/** The new class should be a Slate widget, deriving from SCompoundWidget */
+		/** The new class should be a Slate widget, deriving from SCompoundWidget. */
 		SlateWidget,
 
-		/** The new class should be a Slate widget style, deriving from FSlateWidgetStyle, along with its associated UObject wrapper class */
+		/** The new class should be a Slate widget style, deriving from FSlateWidgetStyle, along with its associated UObject wrapper class. */
 		SlateWidgetStyle,
+
+		/** The new class is a UObject Interface, to be implemented by other UObject-based classes. */
+		UInterface,
 	};
 
 	/** Default constructor; must produce an object which fails the IsSet check */

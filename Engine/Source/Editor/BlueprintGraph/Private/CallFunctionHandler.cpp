@@ -129,13 +129,26 @@ void FKCHandler_CallFunction::CreateFunctionCallStatement(FKismetFunctionContext
 						{
 							check((*Term)->bIsLiteral);
 						
-							const int32 UUID = Context.GetContextUniqueID();
+							int32 LatentUUID = INDEX_NONE;
+							UEdGraphNode* AssociatedNode = LatentInfoPin->GetOwningNode();
+							if (AssociatedNode && AssociatedNode->NodeGuid.IsValid())
+							{
+								LatentUUID = GetTypeHash(AssociatedNode->NodeGuid);
+							}
+							else
+							{
+								static int32 FallbackUUID = 0;
+								LatentUUID = FallbackUUID++;
+
+								CompilerContext.MessageLog.Warning(*LOCTEXT("UUIDDeterministicCookWarn", "Failed to produce a deterministic UUID for a node's latent action: @@. Cooking this Blueprint (@@) asset will non-deterministic.").ToString(), LatentInfoPin, Context.Blueprint);
+							}							
+
 							const FString ExecutionFunctionName = CompilerContext.GetSchema()->FN_ExecuteUbergraphBase.ToString() + TEXT("_") + Context.Blueprint->GetName();
-							(*Term)->Name = FString::Printf(TEXT("(Linkage=%s,UUID=%s,ExecutionFunction=%s,CallbackTarget=None)"), *FString::FromInt(INDEX_NONE), *FString::FromInt(UUID), *ExecutionFunctionName);
+							(*Term)->Name = FString::Printf(TEXT("(Linkage=%s,UUID=%s,ExecutionFunction=%s,CallbackTarget=None)"), *FString::FromInt(INDEX_NONE), *FString::FromInt(LatentUUID), *ExecutionFunctionName);
 
 							// Record the UUID in the debugging information
 							UEdGraphNode* TrueSourceNode = Cast<UEdGraphNode>(Context.MessageLog.FindSourceObject(Node));
-							Context.NewClass->GetDebugData().RegisterUUIDAssociation(TrueSourceNode, UUID);
+							Context.NewClass->GetDebugData().RegisterUUIDAssociation(TrueSourceNode, LatentUUID);
 						}
 					}
 					else
@@ -197,16 +210,19 @@ void FKCHandler_CallFunction::CreateFunctionCallStatement(FKismetFunctionContext
 										}
 
 										int32 StructSize = Struct->GetStructureSize();
-										uint8* StructData = (uint8*)FMemory_Alloca(StructSize);
-										StructProperty->InitializeValue(StructData);
-
-										// Import the literal text to a dummy struct to verify it's well-formed
-										FImportTextErrorContext ErrorPipe(CompilerContext.MessageLog, Node);
-										StructProperty->ImportText(*((*Term)->Name), StructData, 0, NULL, &ErrorPipe);
-										if(ErrorPipe.NumErrors > 0)
+										[this, StructSize, StructProperty, Node, Term, &bMatchedAllParams]()
 										{
-											bMatchedAllParams = false;
-										}
+											uint8* StructData = (uint8*)FMemory_Alloca(StructSize);
+											StructProperty->InitializeValue(StructData);
+
+											// Import the literal text to a dummy struct to verify it's well-formed
+											FImportTextErrorContext ErrorPipe(CompilerContext.MessageLog, Node);
+											StructProperty->ImportText(*((*Term)->Name), StructData, 0, NULL, &ErrorPipe);
+											if(ErrorPipe.NumErrors > 0)
+											{
+												bMatchedAllParams = false;
+											}
+										}();
 									}
 									
 								}
@@ -321,7 +337,7 @@ void FKCHandler_CallFunction::CreateFunctionCallStatement(FKismetFunctionContext
 					bool bIsSelfTerm = true;
 					if(Target != nullptr)
 					{
-						const UEdGraphPin* SourcePin = Cast<UEdGraphPin>(Target->Source);
+						const UEdGraphPin* SourcePin = Target->SourcePin;
 						bIsSelfTerm = (SourcePin == nullptr || CompilerContext.GetSchema()->IsSelfPin(*SourcePin));
 					}
 
@@ -383,11 +399,40 @@ void FKCHandler_CallFunction::CreateFunctionCallStatement(FKismetFunctionContext
 				pSrcEventNode = CompilerContext.CallsIntoUbergraph.Find(Node);
 			}
 
-			const bool bInstrumentFunctionEntry = Context.IsInstrumentationRequired() && (bIsLatent || IsUserFunctionCall(Node));
+			bool bInlineEventCall = false;
+			bool bLocalCall = false;
+			FName EventName = NAME_None;
+			if (Context.IsInstrumentationRequired())
+			{
+				if (UK2Node_CallFunction* CallFunctionNode = Cast<UK2Node_CallFunction>(Node))
+				{
+					if (CallFunctionNode->FunctionReference.IsSelfContext())
+					{
+						bLocalCall = true;
+						const UEdGraphNode* EventNodeOut = nullptr;
+						CallFunctionNode->GetFunctionGraph(EventNodeOut);
+						if (const UK2Node_Event* EventNode = Cast<UK2Node_Event>(EventNodeOut))
+						{
+							bInlineEventCall = true;
+							EventName = EventNode->GetFunctionName();
+						}
+					}
+				}
+			}
+			const bool bInstrumentFunctionEntry = Context.IsInstrumentationRequired() && (bIsLatent || bInlineEventCall || bLocalCall);
 			if (bInstrumentFunctionEntry)
 			{
-				FBlueprintCompiledStatement& PushState = Context.AppendStatementForNode(Node);
-				PushState.Type = pSrcEventNode ? KCST_InstrumentedStateReset : KCST_InstrumentedStatePush;
+				if (bInlineEventCall)
+				{
+					FBlueprintCompiledStatement& EventStatement = Context.AppendStatementForNode(Node);
+					EventStatement.Type = KCST_InstrumentedEvent;
+					EventStatement.Comment = EventName.ToString();
+				}
+				else
+				{
+					FBlueprintCompiledStatement& PushState = Context.AppendStatementForNode(Node);
+					PushState.Type = KCST_InstrumentedStatePush;
+				}
 			}
 
 			// Iterate over all the contexts this functions needs to be called on, and emit a call function statement for each
@@ -450,8 +495,16 @@ void FKCHandler_CallFunction::CreateFunctionCallStatement(FKismetFunctionContext
 				{
 					if (bInstrumentFunctionEntry)
 					{
-						FBlueprintCompiledStatement& PopState = Context.AppendStatementForNode(Node);
-						PopState.Type = KCST_InstrumentedStatePop;
+						if (bInlineEventCall)
+						{
+							FBlueprintCompiledStatement& EventStop = Context.AppendStatementForNode(Node);
+							EventStop.Type = KCST_InstrumentedEventStop;
+						}
+						else
+						{
+							FBlueprintCompiledStatement& PopState = Context.AppendStatementForNode(Node);
+							PopState.Type = KCST_InstrumentedStatePop;
+						}
 					}
 					GenerateSimpleThenGoto(Context, *Node);
 				}
@@ -674,7 +727,7 @@ void FKCHandler_CallFunction::Transform(FKismetFunctionContext& Context, UEdGrap
 
 			if ((NewInPin != NULL) && (NewOutPin != NULL))
 			{
-				CompilerContext.MessageLog.NotifyIntermediateObjectCreation(NewOutPin, OldOutPin);
+				CompilerContext.MessageLog.NotifyIntermediatePinCreation(NewOutPin, OldOutPin);
 
 				while (OldOutPin->LinkedTo.Num() > 0)
 				{
@@ -754,26 +807,6 @@ FString FKCHandler_CallFunction::GetFunctionNameFromNode(UEdGraphNode* Node) con
 		CompilerContext.MessageLog.Error(*NSLOCTEXT("KismetCompiler", "UnableResolveFunctionName_Error", "Unable to resolve function name for @@").ToString(), Node);
 		return TEXT("");
 	}
-}
-
-bool FKCHandler_CallFunction::IsUserFunctionCall(UEdGraphNode* Node) const
-{
-	bool bResult = false;
-	if (UK2Node_CallFunction* CallFunctionNode = Cast<UK2Node_CallFunction>(Node))
-	{
-		TArray<UEdGraph*> Graphs;
-		CompilerContext.Blueprint->GetAllGraphs(Graphs);
-		const FName CalledGraph = CallFunctionNode->FunctionReference.GetMemberName();
-		for (auto Graph : Graphs)
-		{
-			if (CalledGraph == Graph->GetFName())
-			{
-				bResult = true;
-				break;
-			}
-		}
-	}
-	return bResult;
 }
 
 #if _MSC_VER

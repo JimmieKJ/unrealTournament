@@ -169,7 +169,7 @@ namespace ELauncherProfileValidationErrors
 		/** Generating Chunks requires UnrealPak */
 		GeneratingChunksRequiresUnrealPak,
 
-		/** Generating http chunk install data requires generating chunks */
+		/** Generating http chunk install data requires generating chunks or DLC*/
 		GeneratingHttpChunkDataRequiresGeneratingChunks,
 
 		/** Generating http chunk install data requires valid install directorys and release name */
@@ -177,6 +177,12 @@ namespace ELauncherProfileValidationErrors
 
 		/** Shipping doesn't support commandline options can't use cook on the fly */
 		ShippingDoesntSupportCommandlineOptionsCantUseCookOnTheFly,
+
+		/** Cook on the fly doesn't support server target platforms */
+		CookOnTheFlyDoesntSupportServer,
+
+		/** The archive step requires a directory to be specified */
+		NoArchiveDirectorySpecified,
 	};
 }
 
@@ -617,6 +623,21 @@ public:
 	virtual FString GetPackageDirectory( ) const = 0;
 
 	/**
+	 * Whether to archive build
+	 *
+	 * @see SetArchive
+	 */
+	virtual bool IsArchiving( ) const = 0;
+
+	/**
+	 * Gets the archive directory.
+	 *
+	 * @return The archive directory.
+	 * @see SetArchiveDirectory
+	 */
+	virtual FString GetArchiveDirectory( ) const = 0;
+
+	/**
 	 * Checks whether the profile specifies a project.
 	 * Not specifying a project means that it can be used for any project.
 	 *
@@ -687,6 +708,20 @@ public:
 	 * @see SetCompressed
 	 */
 	virtual bool IsCompressed( ) const = 0;
+
+	/**
+	 * Checks if encrypting ini files is enabled
+	 * 
+	 * @return true if encrypting ini files is enabled
+	 */
+	virtual bool IsEncryptingIniFiles() const = 0;
+
+	/**
+	 * Checks if encrypting ini files is enabled
+	 *
+	 * @return true if encrypting ini files is enabled
+	 */
+	virtual bool IsForDistribution() const = 0;
 
 	/**
 	 * Checks whether unversioned cooking is enabled.
@@ -1040,6 +1075,24 @@ public:
 	 */
 	virtual void SetCompressed( bool Enable ) = 0;
 
+
+	/**
+	 * Set encrypt ini files
+	 *
+	 * @param Enable encrypt ini files
+	 * @see IsEncryptIniFiles
+	 */
+	virtual void SetEncryptingIniFiles(bool Enabled) = 0;
+
+	/**
+	* Set this build is for distribution to the public
+	*
+	* @param enable for distribution
+	* @see IsForDistribution
+	*/
+	virtual void SetForDistribution(bool Enabled) = 0;
+	
+
 	/**
 	 * Sets incremental deploying.
 	 *
@@ -1071,6 +1124,21 @@ public:
 	 * @see GetPackageDirectory
 	 */
 	virtual void SetPackageDirectory( const FString& Dir ) = 0;
+
+	/**
+	 * Sets whether to archive build
+	 *
+	 * @see GetArchiveMode
+	 */
+	virtual void SetArchive( bool bArchive ) = 0;
+
+	/**
+	 * Sets the archive directory.
+	 *
+	 * @param Dir The archive directory to set.
+	 * @see GetArchiveDirectory
+	 */
+	virtual void SetArchiveDirectory( const FString& Dir ) = 0;
 
 	/**
 	 * Sets whether this profile specifies the a project.

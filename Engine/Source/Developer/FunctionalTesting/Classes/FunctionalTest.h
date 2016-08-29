@@ -115,6 +115,18 @@ struct FUNCTIONALTESTING_API FPerfStatsRecord
 };
 
 
+UENUM(BlueprintType)
+enum class EComparisonMethod : uint8
+{
+	Equal_To,
+	Not_Equal_To,
+	Greater_Than_Or_Equal_To,
+	Less_Than_Or_Equal_To,
+	Greater_Than,
+	Less_Than
+};
+
+
 /** 
  * Class for use with functional tests which provides various performance measuring features. 
  * Recording of basic, unintrusive performance stats.
@@ -211,50 +223,70 @@ public:
 };
 
 UENUM()
-namespace EFunctionalTestResult
+enum class EFunctionalTestResult : uint8
 {
-	enum Type
-	{
-		Invalid,
-		Error,
-		Running,		
-		Failed,
-		Succeeded,
-	};
-}
+	/**
+	 * When finishing a test if you use Default, you're not explicitly stating if the test passed or failed.
+	 * Instead you're a
+	 */
+	Default,
+	Invalid,
+	Error,
+	Running,
+	Failed,
+	Succeeded
+};
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE(FFunctionalTestEventSignature);
 DECLARE_DELEGATE_OneParam(FFunctionalTestDoneSignature, class AFunctionalTest*);
 
-UCLASS(Blueprintable, MinimalAPI)
-class AFunctionalTest : public AActor
+UCLASS(hidecategories=( Actor, Input, Rendering ), Blueprintable)
+class FUNCTIONALTESTING_API AFunctionalTest : public AActor
 {
-	GENERATED_UCLASS_BODY()
+	GENERATED_BODY()
 
-	static const uint32 DefaultTimeLimit = 60;	// seconds
+public:
+	AFunctionalTest(const FObjectInitializer& ObjectInitializer);
 
 private_subobject:
 	DEPRECATED_FORGAME(4.6, "SpriteComponent should not be accessed directly, please use GetSpriteComponent() function instead. SpriteComponent will soon be private and your code will not compile.")
 	UPROPERTY()
 	UBillboardComponent* SpriteComponent;
+
+protected:
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Functional Testing")
+	uint32 bIsEnabled:1;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Functional Testing", meta=( MultiLine="true" ))
+	FString Description;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Functional Testing")
+	AActor* ObservationPoint;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Functional Testing", AdvancedDisplay)
+	FRandomStream RandomNumbersStream;
+
 public:
 
-	UPROPERTY(BlueprintReadWrite, Category=FunctionalTesting)
-	TEnumAsByte<EFunctionalTestResult::Type> Result;
+	UPROPERTY(BlueprintReadWrite, Category="Functional Testing")
+	EFunctionalTestResult Result;
 
-	/** If test is limited by time this is the result that will be returned when time runs out */
-	UPROPERTY(EditAnywhere, Category=FunctionalTesting)
-	TEnumAsByte<EFunctionalTestResult::Type> TimesUpResult;
+	/** The Test's time limit for preparation, this is the time it has to return true when checking IsReady(). '0' means no limit. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Timeout")
+	float PreparationTimeLimit;
 
 	/** Test's time limit. '0' means no limit */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=FunctionalTesting)
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Timeout")
 	float TimeLimit;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=FunctionalTesting)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Timeout", meta=( MultiLine="true" ))
 	FText TimesUpMessage;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=FunctionalTesting)
-	AActor* ObservationPoint;
+	/** If test is limited by time this is the result that will be returned when time runs out */
+	UPROPERTY(EditAnywhere, Category="Timeout")
+	EFunctionalTestResult TimesUpResult;
+
+public:
 
 	/** Called when the test is started */
 	UPROPERTY(BlueprintAssignable)
@@ -268,63 +300,178 @@ public:
 	TArray<AActor*> AutoDestroyActors;
 	
 	FString FailureMessage;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = FunctionalTesting)
-	FRandomStream RandomNumbersStream;
-
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = FunctionalTesting)
-	FString Description;
 	
 #if WITH_EDITORONLY_DATA
 	UPROPERTY()
 	class UFuncTestRenderingComponent* RenderComp;
-#endif // WITH_EDITORONLY_DATA
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=FunctionalTesting)
-	uint32 bIsEnabled:1;
+	UPROPERTY()
+	class UTextRenderComponent* TestName;
+#endif // WITH_EDITORONLY_DATA
 
 	/** List of causes we need a re-run. */
 	TArray<FName> RerunCauses;
+
 	/** Cause of the current rerun if we're in a named rerun. */
 	FName CurrentRerunCause;
 
 public:
+	/**
+	 * Assert that a boolean value is true.
+	 * @param Message	The message to display if the assert fails ("Assertion Failed: 'Message' for context ''")
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Asserts", meta = ( HidePin = "ContextObject", DefaultToSelf = "ContextObject"))
+	void AssertTrue(bool Condition, FString Message, const UObject* ContextObject = nullptr);
 
-	virtual bool StartTest(const TArray<FString>& Params = TArray<FString>());
+	/**
+	 * Assert that a boolean value is false.
+	 * @param Message	The message to display if the assert fails ("Assertion Failed: 'Message' for context ''")
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Asserts", meta = ( HidePin = "ContextObject", DefaultToSelf = "ContextObject"))
+	void AssertFalse(bool Condition, FString Message, const UObject* ContextObject = nullptr);
 
-	UFUNCTION(BlueprintCallable, Category="Development")
-	virtual void FinishTest(TEnumAsByte<EFunctionalTestResult::Type> TestResult, const FString& Message);
+	/**
+	 * Assert that a UObject is valid
+	 * @param Message	The message to display if the object is invalid ("Invalid object: 'Message' for context ''")
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Asserts", meta = ( HidePin = "ContextObject", DefaultToSelf = "ContextObject"))
+	void AssertIsValid(UObject* Object, FString Message, const UObject* ContextObject = nullptr);
 
-	UFUNCTION(BlueprintCallable, Category="Development")
+	/**
+	 * Assert on a relationship between two integers.
+	 * @param What	A name to use in the message if the assert fails (What: expected {Actual} to be <ShouldBe> {Expected} for context '')
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Asserts", DisplayName = "Assert Value (int)", meta = ( HidePin = "ContextObject", DefaultToSelf = "ContextObject"))
+	void AssertValue_Int(int32 Actual, EComparisonMethod ShouldBe, int32 Expected, const FString& What, const UObject* ContextObject = nullptr);
+
+	/**
+	 * Assert on a relationship between two floats.
+	 * @param What	A name to use in the message if the assert fails (What: expected {Actual} to be <ShouldBe> {Expected} for context '')
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Asserts", DisplayName = "Assert Value (float)", meta = ( HidePin = "ContextObject", DefaultToSelf = "ContextObject"))
+	void AssertValue_Float(float Actual, EComparisonMethod ShouldBe, float Expected, const FString& What, const UObject* ContextObject = nullptr);
+
+	/**
+	 * Assert on a relationship between two DateTimes.
+	 * @param What	A name to use in the message if the assert fails (What: expected {Actual} to be <ShouldBe> {Expected} for context '')
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Asserts", DisplayName = "Assert Value (DateTime)", meta = ( HidePin = "ContextObject", DefaultToSelf = "ContextObject"))
+	void AssertValue_DateTime(FDateTime Actual, EComparisonMethod ShouldBe, FDateTime Expected, const FString& What, const UObject* ContextObject = nullptr);
+
+	/**
+	 * Assert that two transforms are (components memberwise - translation, rotation, scale) equal within a small tolerance.
+	 * @param What	A name to use in the message if the assert fails ("Expected 'What' to be {Expected} but it was {Actual} for context ''")
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Asserts", DisplayName = "Assert Equal (Transform)", meta = ( HidePin = "ContextObject", DefaultToSelf = "ContextObject"))
+	void AssertEqual_Transform(const FTransform Actual, const FTransform Expected, const FString& What, const UObject* ContextObject = nullptr);
+
+	/**
+	 * Assert that two floats are equal within tolerance between two floats.
+	 * @param What	A name to use in the message if the assert fails (What: expected {Actual} to be Equal To {Expected} within Tolerance for context '')
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Asserts", DisplayName = "Assert Equal (Float)", meta = ( HidePin = "ContextObject", DefaultToSelf = "ContextObject"))
+	void AssertEqual_Float(const float Actual, const float Expected, const FString& What, float Tolerance = 1.e-4, const UObject* ContextObject = nullptr);
+
+	/**
+	 * Assert that two transforms are (components memberwise - translation, rotation, scale) not equal within a small tolerance.
+	 * @param What	A name to use in the message if the assert fails ("Expected 'What' not to be {Expected} but it was {Actual} for context ''")
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Asserts", DisplayName = "Assert Not Equal (Transform)", meta = ( HidePin = "ContextObject", DefaultToSelf = "ContextObject"))
+	void AssertNotEqual_Transform(const FTransform Actual, const FTransform NotExpected, const FString& What, const UObject* ContextObject = nullptr);
+
+	/**
+	 * Assert that the component angles of two rotators are all equal within a small tolerance.
+	 * @param What	A name to use in the message if the assert fails ("Expected 'What' to be {Expected} but it was {Actual} for context ''")
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Asserts", DisplayName = "Assert Equal (Rotator)", meta = ( HidePin = "ContextObject", DefaultToSelf = "ContextObject"))
+	void AssertEqual_Rotator(const FRotator Actual, const FRotator Expected, const FString& What, const UObject* ContextObject = nullptr);
+
+	/**
+	 * Assert that the component angles of two rotators are all not equal within a small tolerance.
+	 * @param What	A name to use in the message if the assert fails ("Expected 'What' not to be {Expected} but it was {Actual} for context ''")
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Asserts", DisplayName = "Assert Not Equal (Rotator)", meta = ( HidePin = "ContextObject", DefaultToSelf = "ContextObject"))
+	void AssertNotEqual_Rotator(const FRotator Actual, const FRotator NotExpected, const FString& What, const UObject* ContextObject = nullptr);
+
+	/**
+	 * Assert that two vectors are (memberwise) equal within a small tolerance.
+	 * @param What	A name to use in the message if the assert fails ("Expected 'What' to be {Expected} but it was {Actual} for context ''")
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Asserts", DisplayName = "Assert Equal (Vector)", meta = ( HidePin = "ContextObject", DefaultToSelf = "ContextObject"))
+	void AssertEqual_Vector(const FVector Actual, const FVector Expected, const FString& What, const float Tolerance = 1.e-4f, const UObject* ContextObject = nullptr);
+
+	/**
+	 * Assert that two vectors are (memberwise) not equal within a small tolerance.
+	 * @param What	A name to use in the message if the assert fails ("Expected 'What' not to be {Expected} but it was {Actual} for context ''")
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Asserts", DisplayName = "Assert Not Equal (Vector)", meta = ( HidePin = "ContextObject", DefaultToSelf = "ContextObject"))
+	void AssertNotEqual_Vector(const FVector Actual, const FVector NotExpected, const FString& What, const UObject* ContextObject = nullptr);
+
+	/**
+	 * Assert that two Strings are equal.
+	 * @param What	A name to use in the message if the assert fails ("Expected 'What' to be {Expected} but it was {Actual} for context ''")
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Asserts", DisplayName = "Assert Equal (String)", meta = ( HidePin = "ContextObject", DefaultToSelf = "ContextObject"))
+	void AssertEqual_String(const FString Actual, const FString Expected, const FString& What, const UObject* ContextObject = nullptr);
+
+	/**
+	 * Assert that two Strings are not equal.
+	 * @param What	A name to use in the message if the assert fails ("Expected 'What' not to be {Expected} but it was {Actual} for context ''")
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Asserts", DisplayName = "Assert Not Equal (String)", meta = ( HidePin = "ContextObject", DefaultToSelf = "ContextObject"))
+	void AssertNotEqual_String(const FString Actual, const FString NotExpected, const FString& What, const UObject* ContextObject = nullptr);
+
+protected:
+	void LogAssertFail(const FString& Message);
+	void LogAssertPass(const FString& Message);
+
+public:
+	virtual bool RunTest(const TArray<FString>& Params = TArray<FString>());
+
+public:
+	FString	GetCurrentStepName() { return IsInStep() ? CurrentStepName : FString(); }
+	void 	StartStep(const FString& StepName) { CurrentStepName = StepName; bInStep = true; }
+	void 	FinishStep() { CurrentStepName.Empty(); bInStep = false; }
+	bool	IsInStep() { return bInStep; }
+
+
+	UFUNCTION(BlueprintCallable, Category="Functional Testing")
+	virtual void FinishTest(EFunctionalTestResult TestResult, const FString& Message);
+
+	UFUNCTION(BlueprintCallable, Category="Functional Testing")
 	virtual void LogMessage(const FString& Message);
 
-	UFUNCTION(BlueprintCallable, Category="Development")
-	virtual void SetTimeLimit(float NewTimeLimit, TEnumAsByte<EFunctionalTestResult::Type> ResultWhenTimeRunsOut);
+	UFUNCTION(BlueprintCallable, Category="Functional Testing")
+	virtual void SetTimeLimit(float NewTimeLimit, EFunctionalTestResult ResultWhenTimeRunsOut);
+
+public:
 
 	/** Used by debug drawing to gather actors this test is using and point at them on the level to better understand test's setup */
-	UFUNCTION(BlueprintImplementableEvent, Category = "FunctionalTesting")
+	UFUNCTION(BlueprintImplementableEvent, Category="Functional Testing")
 	TArray<AActor*> DebugGatherRelevantActors() const;
 
 	virtual void GatherRelevantActors(TArray<AActor*>& OutActors) const;
 
 	/** retrieves information whether test wants to have another run just after finishing */
-	UFUNCTION(BlueprintImplementableEvent, Category="FunctionalTesting")
+	UFUNCTION(BlueprintImplementableEvent, Category="Functional Testing")
 	bool OnWantsReRunCheck() const;
 
 	virtual bool WantsToRunAgain() const { return false; }
 
 	/** Causes the test to be rerun for a specific named reason. */
-	UFUNCTION(BlueprintCallable, Category = "FunctionalTesting")
+	UFUNCTION(BlueprintCallable, Category = "Functional Testing")
 	void AddRerun(FName Reason);
 
 	/** Returns the current re-run reason if we're in a named re-run. */
-	UFUNCTION(BlueprintCallable, Category = "FunctionalTesting")
-	FName GetCurrentRerunReason()const;
+	UFUNCTION(BlueprintCallable, Category = "Functional Testing")
+	FName GetCurrentRerunReason() const;
 
-	UFUNCTION(BlueprintImplementableEvent, Category = "FunctionalTesting")
-	FString OnAdditionalTestFinishedMessageRequest(EFunctionalTestResult::Type TestResult) const;
+	UFUNCTION(BlueprintImplementableEvent, Category = "Functional Testing")
+	FString OnAdditionalTestFinishedMessageRequest(EFunctionalTestResult TestResult) const;
 	
-	virtual FString GetAdditionalTestFinishedMessage(EFunctionalTestResult::Type TestResult) const { return FString(); }
+	virtual FString GetAdditionalTestFinishedMessage(EFunctionalTestResult TestResult) const { return FString(); }
+
+public:
 	
 	/** ACtors registered this way will be automatically destroyed (by limiting their lifespan)
 	 *	on test finish */
@@ -345,24 +492,73 @@ public:
 #endif // WITH_EDITOR
 
 	// AActor interface begin
+	virtual void OnConstruction(const FTransform& Transform) override;
 	virtual void Tick(float DeltaSeconds) override;
 	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 	// AActor interface end
 
-	bool IsSuccessful() const { return Result == EFunctionalTestResult::Succeeded; }
-	bool IsRunning() const { return !!bIsRunning; }
+	UFUNCTION(BlueprintCallable, Category = "Functional Testing")
+	bool IsRunning() const;
+
+	UFUNCTION(BlueprintCallable, Category = "Functional Testing")
+	bool IsEnabled() const;
 
 protected:
+	/**
+	 * Prepare Test is fired once the test starts up, before the test IsReady() and thus before Start Test is called.
+	 * So if there's some initial conditions or setup that you might need for your IsReady() check, you might want
+	 * to do that here.
+	 */
+	virtual void PrepareTest();
+
+	/**
+	 * Prepare Test is fired once the test starts up, before the test IsReady() and thus before Start Test is called.
+	 * So if there's some initial conditions or setup that you might need for your IsReady() check, you might want
+	 * to do that here.
+	 */
+	UFUNCTION(BlueprintImplementableEvent, meta=( DisplayName="Prepare Test" ))
+	void ReceivePrepareTest();
+
+	/**
+	 * Called once the IsReady() check for the test returns true.  After that happens the test has Officially started,
+	 * and it will begin receiving Ticks in the blueprint.
+	 */
+	virtual void StartTest();
+	
+	/**
+	 * Called once the IsReady() check for the test returns true.  After that happens the test has Officially started,
+	 * and it will begin receiving Ticks in the blueprint.
+	 */
+	UFUNCTION(BlueprintImplementableEvent, meta=( DisplayName="Start Test" ))
+	void ReceiveStartTest();
+
+	/**
+	 * IsReady() is called once per frame after a test is run, until it returns true.  You should use this function to
+	 * delay Start being called on the test until preconditions are met.
+	 */
+	UFUNCTION(BlueprintNativeEvent, Category="Functional Testing")
+	bool IsReady();
+
+	virtual bool IsReady_Implementation();
+
+	/**
+	 * Goto an observation location.
+	 */
 	void GoToObservationPoint();
 
 public:
 	FFunctionalTestDoneSignature TestFinishedObserver;
 
 protected:
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=FunctionalTesting)
 	bool bIsRunning;
+
+	bool bInStep;
+	FString CurrentStepName;
 	
 	float TotalTime;
+
+private:
+	bool bIsReady;
 
 public:
 	/** Returns SpriteComponent subobject **/

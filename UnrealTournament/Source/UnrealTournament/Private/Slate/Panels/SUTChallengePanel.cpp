@@ -9,14 +9,14 @@
 #include "../Widgets/SUTButton.h"
 #include "UTChallengeManager.h"
 #include "UTAnalytics.h"
-#include "Runtime/Analytics/Analytics/Public/Analytics.h"
-#include "Runtime/Analytics/Analytics/Public/Interfaces/IAnalyticsProvider.h"
 #include "../Menus/SUTMainMenu.h"
 #include "UTLevelSummary.h"
 #include "UTGameEngine.h"
 #include "../Widgets/SUTBorder.h"
 
 #if !UE_SERVER
+#include "AnalyticsEventAttribute.h"
+#include "IAnalyticsProvider.h"
 
 SUTChallengePanel::~SUTChallengePanel()
 {

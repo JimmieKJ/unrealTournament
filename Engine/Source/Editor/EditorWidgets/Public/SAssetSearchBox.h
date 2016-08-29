@@ -44,6 +44,9 @@ public:
 		/** Whether the SearchBox allows entries that don't match the possible suggestions */
 		SLATE_ATTRIBUTE( bool, MustMatchPossibleSuggestions )
 
+		/** Callback delegate to have first chance handling of the OnKeyDown event */
+		SLATE_EVENT( FOnKeyDown, OnKeyDownHandler )
+
 		SLATE_END_ARGS()
 
 		/** Constructs this widget with InArgs */
@@ -58,12 +61,14 @@ public:
 
 	// SWidget implementation
 	virtual FReply OnPreviewKeyDown( const FGeometry& MyGeometry, const FKeyEvent& InKeyEvent ) override;
-	virtual FReply OnKeyDown( const FGeometry& MyGeometry, const FKeyEvent& InKeyEvent ) override;
 	virtual bool SupportsKeyboardFocus() const override;
 	virtual bool HasKeyboardFocus() const override;
 	virtual FReply OnFocusReceived( const FGeometry& MyGeometry, const FFocusEvent& InFocusEvent ) override;
 
 private:
+	/** First chance handler for key down events to the editable text widget */
+	FReply HandleKeyDown(const FGeometry& MyGeometry, const FKeyEvent& InKeyEvent);
+
 	/** Handler for when text in the editable text box changed */
 	void HandleTextChanged(const FText& NewText);
 
@@ -109,6 +114,9 @@ private:
 
 	/** Delegate for when text is changed in the edit box */
 	FOnTextCommitted OnTextCommitted;
+
+	/** Delegate for first chance handling for key down events */
+	FOnKeyDown OnKeyDownHandler;
 
 	/** All possible suggestions for the search text */
 	TAttribute< TArray<FString> > PossibleSuggestions;

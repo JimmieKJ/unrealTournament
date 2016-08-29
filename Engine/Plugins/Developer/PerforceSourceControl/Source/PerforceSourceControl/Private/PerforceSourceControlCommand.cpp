@@ -12,6 +12,8 @@ FPerforceSourceControlCommand::FPerforceSourceControlCommand(const TSharedRef<cl
 	, OperationCompleteDelegate(InOperationCompleteDelegate)
 	, bExecuteProcessed(0)
 	, bCancelled(0)
+	, bConnectionWasSuccessful(0)
+	, bCancelledWhileTryingToConnect(0)
 	, bCommandSuccessful(false)
 	, bConnectionDropped(false)
 	, bAutoDelete(true)
@@ -47,7 +49,27 @@ void FPerforceSourceControlCommand::Cancel()
 	FPlatformAtomics::InterlockedExchange(&bCancelled, 1);
 }
 
+void FPerforceSourceControlCommand::MarkConnectionAsSuccessful()
+{
+	FPlatformAtomics::InterlockedExchange(&bConnectionWasSuccessful, 1);
+}
+
+void FPerforceSourceControlCommand::CancelWhileTryingToConnect()
+{
+	FPlatformAtomics::InterlockedExchange(&bCancelledWhileTryingToConnect, 1);
+}
+
 bool FPerforceSourceControlCommand::IsCanceled() const
 {
 	return bCancelled != 0;
+}
+
+bool FPerforceSourceControlCommand::WasConnectionSuccessful() const
+{
+	return bConnectionWasSuccessful != 0;
+}
+
+bool FPerforceSourceControlCommand::WasCanceledWhileTryingToConnect() const
+{
+	return bCancelledWhileTryingToConnect != 0;
 }

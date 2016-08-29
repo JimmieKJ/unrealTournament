@@ -69,7 +69,7 @@ public:
 					.AutoWidth()
 					[
 						SNew(SImage)
-						.Image( FClassIconFinder::FindIconForClass( ActorStats[ StatsIndex ].Type ) )
+						.Image(FSlateIconFinder::FindIconBrushForClass(ActorStats[StatsIndex].Type))
 						.ColorAndOpacity( this, &SLayerStats::GetForegroundColorForButton, StatsIndex )
 					]
 

@@ -28,6 +28,8 @@ struct FBuildOptions
 	UNREALED_API static const FName BuildAllOnlySelectedPaths;
 	/** Build Hierarchical LOD system - need WorldSetting setup*/
 	UNREALED_API static const FName BuildHierarchicalLOD;
+	/** Build Hierarchical LOD system - need WorldSetting setup*/
+	UNREALED_API static const FName BuildTextureStreaming;
 };
 /**
  * Result of a custom editor build.
@@ -117,6 +119,18 @@ public:
 	 * @return	true if the build completed successfully; false if it did not (or was manually canceled)
 	 */
 	static UNREALED_API bool EditorBuild( UWorld* InWorld, FName Id, const bool bAllowLightingDialog = true );
+
+	/**
+	 * Perform an editor build for texture streaming
+	 *
+	 * @param	InWorld					WorldContext
+	 * @param	bWithTexCoordScales		true if the build should compute material texcoord scales.
+	 * @param	bDebugDataOnly			true if the build should only update data useful for accuracy viewmodes.
+	 *
+	 * @return	true if the build completed successfully; false if it did not (or was manually canceled)
+	 */
+	static UNREALED_API bool EditorBuildTextureStreaming( UWorld* InWorld, bool bWithTexCoordScales = true, bool bDebugDataOnly = false);
+
 
 	/** 
 	* check if navigation build was was triggered from editor as user request

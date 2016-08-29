@@ -400,7 +400,7 @@ void UReporterGraph::DrawData(UCanvas* Canvas)
 
 			if (DataStyle == EGraphDataStyle::Lines)
 			{
-				const FVector2D DrawOffset = FVector2D(UpOffset, UpOffset) * (i % 2 ? 1.0 : -1.0f);
+				const FVector2D DrawOffset = FVector2D(UpOffset, UpOffset) * ((i % 2) ? 1.0 : -1.0f);
 				DrawLine(Canvas, Start + DrawOffset, End + DrawOffset, CurrentData[i].Color);
 
 				if (bDrawCursorOnGraph && CursorLocation >= DataStart.X && CursorLocation < DataEnd.X)

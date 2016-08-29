@@ -17,7 +17,10 @@ public:
 		FFunctionalTestingModule& Module = FModuleManager::Get().LoadModuleChecked<FFunctionalTestingModule>("FunctionalTesting");
 		return Module.GetSingleton();
 	}
+
 private:
+	void OnModulesChanged(FName Module, EModuleChangeReason Reason);
+
 	class IFuncTestManager* GetSingleton() const 
 	{ 
 		return Manager.Get(); 

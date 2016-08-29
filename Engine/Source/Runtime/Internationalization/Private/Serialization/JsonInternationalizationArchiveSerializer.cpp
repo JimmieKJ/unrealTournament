@@ -5,6 +5,7 @@
 #include "Internationalization/InternationalizationMetadata.h"
 #include "JsonInternationalizationArchiveSerializer.h"
 #include "JsonInternationalizationMetadataSerializer.h"
+#include "LocTextHelper.h"
 
 
 DEFINE_LOG_CATEGORY_STATIC(LogInternationalizationArchiveSerializer, Log, All);
@@ -12,6 +13,7 @@ DEFINE_LOG_CATEGORY_STATIC(LogInternationalizationArchiveSerializer, Log, All);
 
 const FString FJsonInternationalizationArchiveSerializer::TAG_FORMATVERSION = TEXT("FormatVersion");
 const FString FJsonInternationalizationArchiveSerializer::TAG_NAMESPACE = TEXT("Namespace");
+const FString FJsonInternationalizationArchiveSerializer::TAG_KEY = TEXT("Key");
 const FString FJsonInternationalizationArchiveSerializer::TAG_CHILDREN = TEXT("Children");
 const FString FJsonInternationalizationArchiveSerializer::TAG_SUBNAMESPACES = TEXT("Subnamespaces");
 const FString FJsonInternationalizationArchiveSerializer::TAG_DEPRECATED_DEFAULTTEXT = TEXT("DefaultText");
@@ -21,6 +23,7 @@ const FString FJsonInternationalizationArchiveSerializer::TAG_SOURCE = TEXT("Sou
 const FString FJsonInternationalizationArchiveSerializer::TAG_SOURCE_TEXT = TEXT("Text");
 const FString FJsonInternationalizationArchiveSerializer::TAG_TRANSLATION = TEXT("Translation");
 const FString FJsonInternationalizationArchiveSerializer::TAG_TRANSLATION_TEXT = FJsonInternationalizationArchiveSerializer::TAG_SOURCE_TEXT;
+const FString FJsonInternationalizationArchiveSerializer::TAG_METADATA = TEXT("MetaData");
 const FString FJsonInternationalizationArchiveSerializer::TAG_METADATA_KEY = TEXT("Key");
 const FString FJsonInternationalizationArchiveSerializer::NAMESPACE_DELIMITER = TEXT(".");
 
@@ -59,65 +62,54 @@ struct FCompareStructuredArchiveEntryByNamespace
 };
 
 
-#if 0 // @todo Json: Serializing from FArchive is currently broken
-bool FJsonInternationalizationArchiveSerializer::DeserializeArchive( FArchive& Archive, TSharedRef< FInternationalizationArchive > InternationalizationArchive )
+bool FJsonInternationalizationArchiveSerializer::DeserializeArchive(const FString& InStr, TSharedRef<FInternationalizationArchive> InArchive, TSharedPtr<const FInternationalizationManifest> InManifest, TSharedPtr<const FInternationalizationArchive> InNativeArchive)
 {
 	TSharedPtr< FJsonObject > JsonArchiveObj;
-	TSharedRef< TJsonReader<> > Reader = TJsonReaderFactory<>::Create( &Archive );
-	bool bExecSuccessful = FJsonSerializer::Deserialize( Reader, JsonArchiveObj );
-
-	if (bExecSuccessful && JsonArchiveObj.IsValid())
+	TSharedRef< TJsonReader<> > Reader = TJsonReaderFactory<>::Create(InStr);
+	
+	if (FJsonSerializer::Deserialize(Reader, JsonArchiveObj) && JsonArchiveObj.IsValid())
 	{
-		bExecSuccessful = DeserializeInternal( JsonArchiveObj.ToSharedRef(), InternationalizationArchive );
-	}		
-
-	return bExecSuccessful;
-}
-#endif
-
-
-bool FJsonInternationalizationArchiveSerializer::DeserializeArchive( const FString& InStr, TSharedRef< FInternationalizationArchive > InternationalizationArchive )
-{
-	TSharedPtr< FJsonObject > JsonArchiveObj;
-	TSharedRef< TJsonReader<> > Reader = TJsonReaderFactory<>::Create( InStr );
-	bool bExecSuccessful = FJsonSerializer::Deserialize( Reader, JsonArchiveObj );
-
-	if ( bExecSuccessful && JsonArchiveObj.IsValid() )
-	{
-		bExecSuccessful = DeserializeInternal( JsonArchiveObj.ToSharedRef(), InternationalizationArchive );
+		return DeserializeInternal(JsonArchiveObj.ToSharedRef(), InArchive, InManifest, InNativeArchive);
 	}
 
-	return bExecSuccessful;
+	return false;
 }
 
 
-bool FJsonInternationalizationArchiveSerializer::DeserializeArchive( TSharedRef< FJsonObject > InJsonObj, TSharedRef< FInternationalizationArchive > InternationalizationArchive )
+bool FJsonInternationalizationArchiveSerializer::DeserializeArchive(TSharedRef<FJsonObject> InJsonObj, TSharedRef<FInternationalizationArchive> InArchive, TSharedPtr<const FInternationalizationManifest> InManifest, TSharedPtr<const FInternationalizationArchive> InNativeArchive)
 {
-	return DeserializeInternal( InJsonObj, InternationalizationArchive );
+	return DeserializeInternal(InJsonObj, InArchive, InManifest, InNativeArchive);
 }
 
 
-#if 0 // @todo Json: Serializing from FArchive is currently broken
-bool FJsonInternationalizationArchiveSerializer::SerializeArchive( TSharedRef< const FInternationalizationArchive > InternationalizationArchive, FArchive& Archive )
+bool FJsonInternationalizationArchiveSerializer::DeserializeArchiveFromFile(const FString& InJsonFile, TSharedRef<FInternationalizationArchive> InArchive, TSharedPtr<const FInternationalizationManifest> InManifest, TSharedPtr<const FInternationalizationArchive> InNativeArchive)
 {
-	TSharedRef< FJsonObject > JsonArchiveObj = MakeShareable( new FJsonObject );
-	bool bExecSuccessful = SerializeInternal( InternationalizationArchive, JsonArchiveObj );
-
-	if( bExecSuccessful )
+	// Read in file as string
+	FString FileContents;
+	if (!FFileHelper::LoadFileToString(FileContents, *InJsonFile))
 	{
-		TSharedRef< TJsonWriter<> > Writer = TJsonWriterFactory<>::Create( &Archive );
-		bExecSuccessful = FJsonSerializer::Serialize( JsonArchiveObj, Writer );
-		Writer->Close();
+		UE_LOG(LogInternationalizationArchiveSerializer, Error, TEXT("Failed to load archive '%s'."), *InJsonFile);
+		return false;
 	}
-	return bExecSuccessful;
+
+	// Parse as JSON
+	TSharedPtr<FJsonObject> JsonObject;
+
+	TSharedRef<TJsonReader<>> JsonReader = TJsonReaderFactory<>::Create(FileContents);
+	if (!FJsonSerializer::Deserialize(JsonReader, JsonObject) || !JsonObject.IsValid())
+	{
+		UE_LOG(LogInternationalizationArchiveSerializer, Error, TEXT("Failed to parse archive '%s'. %s."), *InJsonFile, *JsonReader->GetErrorMessage());
+		return false;
+	}
+
+	return DeserializeInternal(JsonObject.ToSharedRef(), InArchive, InManifest, InNativeArchive);
 }
-#endif
 
 
-bool FJsonInternationalizationArchiveSerializer::SerializeArchive( TSharedRef< const FInternationalizationArchive > InternationalizationArchive, FString& Str )
+bool FJsonInternationalizationArchiveSerializer::SerializeArchive( TSharedRef< const FInternationalizationArchive > InArchive, FString& Str )
 {
 	TSharedRef< FJsonObject > JsonArchiveObj = MakeShareable( new FJsonObject );
-	bool bExecSuccessful = SerializeInternal( InternationalizationArchive, JsonArchiveObj );
+	bool bExecSuccessful = SerializeInternal( InArchive, JsonArchiveObj );
 
 	if( bExecSuccessful )
 	{
@@ -125,103 +117,142 @@ bool FJsonInternationalizationArchiveSerializer::SerializeArchive( TSharedRef< c
 		bExecSuccessful = FJsonSerializer::Serialize( JsonArchiveObj, Writer );
 		Writer->Close();
 	}
+
 	return bExecSuccessful;
 }
 
 
-bool FJsonInternationalizationArchiveSerializer::SerializeArchive( TSharedRef< const FInternationalizationArchive > InternationalizationArchive, TSharedRef< FJsonObject > JsonObj )
+bool FJsonInternationalizationArchiveSerializer::SerializeArchive( TSharedRef< const FInternationalizationArchive > InArchive, TSharedRef< FJsonObject > InJsonObj )
 {
-	return SerializeInternal( InternationalizationArchive, JsonObj );
+	return SerializeInternal( InArchive, InJsonObj );
 }
 
 
-bool FJsonInternationalizationArchiveSerializer::DeserializeInternal( TSharedRef< FJsonObject > InJsonObj, TSharedRef< FInternationalizationArchive > InternationalizationArchive )
+bool FJsonInternationalizationArchiveSerializer::SerializeArchiveToFile(TSharedRef<const FInternationalizationArchive> InArchive, const FString& InJsonFile)
 {
-	if( InJsonObj->HasField( TAG_FORMATVERSION ) )
+	TSharedRef<FJsonObject> JsonObject = MakeShareable(new FJsonObject());
+	if (!SerializeArchive(InArchive, JsonObject))
 	{
-		const int32 FormatVersion = static_cast<int>(InJsonObj->GetNumberField( TAG_FORMATVERSION ));
-		InternationalizationArchive->SetFormatVersion(static_cast<FInternationalizationArchive::EFormatVersion>(FormatVersion));
+		UE_LOG(LogInternationalizationArchiveSerializer, Error, TEXT("Failed to serialize archive '%s'."), *InJsonFile);
+		return false;
+	}
+
+	// Print the JSON data to a string
+	FString OutputJsonString;
+	TSharedRef<TJsonWriter<>> JsonWriter = TJsonWriterFactory<>::Create(&OutputJsonString);
+	FJsonSerializer::Serialize(JsonObject, JsonWriter);
+
+	// Save the JSON string (force Unicode for our manifest and archive files)
+	if (!FFileHelper::SaveStringToFile(OutputJsonString, *InJsonFile, FFileHelper::EEncodingOptions::ForceUnicode))
+	{
+		UE_LOG(LogInternationalizationArchiveSerializer, Error, TEXT("Failed to save archive '%s'."), *InJsonFile);
+		return false;
+	}
+
+	return true;
+}
+
+
+bool FJsonInternationalizationArchiveSerializer::DeserializeInternal(TSharedRef<FJsonObject> InJsonObj, TSharedRef<FInternationalizationArchive> InArchive, TSharedPtr<const FInternationalizationManifest> InManifest, TSharedPtr<const FInternationalizationArchive> InNativeArchive)
+{
+	if (InJsonObj->HasField(TAG_FORMATVERSION))
+	{
+		const int32 FormatVersion = static_cast<int32>(InJsonObj->GetNumberField(TAG_FORMATVERSION));
+		InArchive->SetFormatVersion(static_cast<FInternationalizationArchive::EFormatVersion>(FormatVersion));
 	}
 	else
 	{
-		InternationalizationArchive->SetFormatVersion(FInternationalizationArchive::EFormatVersion::Initial);
+		InArchive->SetFormatVersion(FInternationalizationArchive::EFormatVersion::Initial);
 	}
 
-	return JsonObjToArchive( InJsonObj, TEXT(""), InternationalizationArchive );
+	if (InArchive->GetFormatVersion() < FInternationalizationArchive::EFormatVersion::AddedKeys && !InManifest.IsValid())
+	{
+		// Cannot load these archives without a manifest to key against
+		return false;
+	}
+
+	if (JsonObjToArchive(InJsonObj, FString(), InArchive, InManifest, InNativeArchive))
+	{
+		// We've been upgraded to the latest format now...
+		InArchive->SetFormatVersion(FInternationalizationArchive::EFormatVersion::Latest);
+		return true;
+	}
+
+	return false;
 }
 
 
-bool FJsonInternationalizationArchiveSerializer::SerializeInternal( TSharedRef< const FInternationalizationArchive > InInternationalizationArchive, TSharedRef< FJsonObject > JsonObj )
+bool FJsonInternationalizationArchiveSerializer::SerializeInternal(TSharedRef<const FInternationalizationArchive> InArchive, TSharedRef<FJsonObject> JsonObj)
 {
-	TSharedPtr< FStructuredArchiveEntry > RootElement = MakeShareable( new FStructuredArchiveEntry( TEXT("") ) );
+	TSharedPtr<FStructuredArchiveEntry> RootElement = MakeShareable(new FStructuredArchiveEntry(FString()));
 
 	// Condition the data so that it exists in a structured hierarchy for easy population of the JSON object.
-	GenerateStructuredData( InInternationalizationArchive, RootElement );
+	GenerateStructuredData(InArchive, RootElement);
 
-	SortStructuredData( RootElement );
+	SortStructuredData(RootElement);
 
 	// Clear anything that may be in the JSON object
 	JsonObj->Values.Empty();
 
 	// Set format version.
-	JsonObj->SetNumberField(TAG_FORMATVERSION, static_cast<double>(InInternationalizationArchive->GetFormatVersion()));
+	JsonObj->SetNumberField(TAG_FORMATVERSION, static_cast<double>(InArchive->GetFormatVersion()));
 
 	// Setup the JSON object using the structured data created
-	StructuredDataToJsonObj( RootElement, JsonObj );
+	StructuredDataToJsonObj(RootElement, JsonObj);
 	return true;
 }
 
 
-bool FJsonInternationalizationArchiveSerializer::JsonObjToArchive( TSharedRef< FJsonObject > InJsonObj, FString ParentNamespace, TSharedRef< FInternationalizationArchive > InternationalizationArchive )
+bool FJsonInternationalizationArchiveSerializer::JsonObjToArchive(TSharedRef<FJsonObject> InJsonObj, const FString& ParentNamespace, TSharedRef<FInternationalizationArchive> InArchive, TSharedPtr<const FInternationalizationManifest> InManifest, TSharedPtr<const FInternationalizationArchive> InNativeArchive)
 {
 	bool bConvertSuccess = true;
 	FString AccumulatedNamespace = ParentNamespace;
-	
-	if( InJsonObj->HasField( TAG_NAMESPACE) )
+
+	if (InJsonObj->HasField(TAG_NAMESPACE))
 	{
-		if( !( AccumulatedNamespace.IsEmpty() ) )
+		if (!(AccumulatedNamespace.IsEmpty()))
 		{
 			AccumulatedNamespace += NAMESPACE_DELIMITER;
 		}
-		AccumulatedNamespace += InJsonObj->GetStringField( TAG_NAMESPACE );
+		AccumulatedNamespace += InJsonObj->GetStringField(TAG_NAMESPACE);
 	}
 	else
 	{
-		UE_LOG( LogInternationalizationArchiveSerializer, Warning,TEXT("Encountered an object with a missing namespace while converting to Internationalization archive.") );
+		UE_LOG(LogInternationalizationArchiveSerializer, Warning, TEXT("Encountered an object with a missing namespace while converting to Internationalization archive."));
 		bConvertSuccess = false;
 	}
 
 	// Process all the child objects
-	if( bConvertSuccess && InJsonObj->HasField( TAG_CHILDREN ) )
+	if (bConvertSuccess && InJsonObj->HasField(TAG_CHILDREN))
 	{
-		const TArray< TSharedPtr<FJsonValue> > ChildrenArray = InJsonObj->GetArrayField( TAG_CHILDREN );
+		const TArray< TSharedPtr<FJsonValue> > ChildrenArray = InJsonObj->GetArrayField(TAG_CHILDREN);
 
-		for( TArray< TSharedPtr< FJsonValue > >::TConstIterator ChildIter( ChildrenArray.CreateConstIterator() ); ChildIter; ++ChildIter )
+		for (TArray< TSharedPtr< FJsonValue > >::TConstIterator ChildIter(ChildrenArray.CreateConstIterator()); ChildIter; ++ChildIter)
 		{
 			const TSharedPtr< FJsonValue >  ChildEntry = *ChildIter;
 			const TSharedPtr< FJsonObject > ChildJSONObject = ChildEntry->AsObject();
 
 			FString SourceText;
 			TSharedPtr< FLocMetadataObject > SourceMetadata;
-			if( ChildJSONObject->HasTypedField< EJson::String >( TAG_DEPRECATED_DEFAULTTEXT ) )
+			if (ChildJSONObject->HasTypedField< EJson::String >(TAG_DEPRECATED_DEFAULTTEXT))
 			{
-				SourceText = ChildJSONObject->GetStringField( TAG_DEPRECATED_DEFAULTTEXT );
-			} 
-			else if( ChildJSONObject->HasTypedField< EJson::Object >( TAG_SOURCE ) )
+				SourceText = ChildJSONObject->GetStringField(TAG_DEPRECATED_DEFAULTTEXT);
+			}
+			else if (ChildJSONObject->HasTypedField< EJson::Object >(TAG_SOURCE))
 			{
-				const TSharedPtr< FJsonObject > SourceJSONObject = ChildJSONObject->GetObjectField( TAG_SOURCE );
-				if( SourceJSONObject->HasTypedField< EJson::String >( TAG_SOURCE_TEXT ) )
+				const TSharedPtr< FJsonObject > SourceJSONObject = ChildJSONObject->GetObjectField(TAG_SOURCE);
+				if (SourceJSONObject->HasTypedField< EJson::String >(TAG_SOURCE_TEXT))
 				{
-					SourceText = SourceJSONObject->GetStringField( TAG_SOURCE_TEXT );
+					SourceText = SourceJSONObject->GetStringField(TAG_SOURCE_TEXT);
 
 					// Source meta data is mixed in with the source text, we'll process metadata if the source json object has more than one entry
-					if( SourceJSONObject->Values.Num() > 1 )
+					if (SourceJSONObject->Values.Num() > 1)
 					{
 						// We load in the entire source object as metadata and just remove the source text.
-						FJsonInternationalizationMetaDataSerializer::DeserializeMetadata( SourceJSONObject.ToSharedRef(), SourceMetadata );
-						if( SourceMetadata.IsValid() )
+						FJsonInternationalizationMetaDataSerializer::DeserializeMetadata(SourceJSONObject.ToSharedRef(), SourceMetadata);
+						if (SourceMetadata.IsValid())
 						{
-							SourceMetadata->Values.Remove( TAG_SOURCE_TEXT );
+							SourceMetadata->Values.Remove(TAG_SOURCE_TEXT);
 						}
 					}
 				}
@@ -237,25 +268,25 @@ bool FJsonInternationalizationArchiveSerializer::JsonObjToArchive( TSharedRef< F
 
 			FString TranslationText;
 			TSharedPtr< FLocMetadataObject > TranslationMetadata;
-			if( ChildJSONObject->HasTypedField< EJson::String >( TAG_DEPRECATED_TRANSLATEDTEXT ) )
+			if (ChildJSONObject->HasTypedField< EJson::String >(TAG_DEPRECATED_TRANSLATEDTEXT))
 			{
-				TranslationText = ChildJSONObject->GetStringField( TAG_DEPRECATED_TRANSLATEDTEXT );
-			} 
-			else if( ChildJSONObject->HasTypedField< EJson::Object >( TAG_TRANSLATION ) )
+				TranslationText = ChildJSONObject->GetStringField(TAG_DEPRECATED_TRANSLATEDTEXT);
+			}
+			else if (ChildJSONObject->HasTypedField< EJson::Object >(TAG_TRANSLATION))
 			{
-				const TSharedPtr< FJsonObject > TranslationJSONObject = ChildJSONObject->GetObjectField( TAG_TRANSLATION );
-				if( TranslationJSONObject->HasTypedField< EJson::String >( TAG_TRANSLATION_TEXT ) )
+				const TSharedPtr< FJsonObject > TranslationJSONObject = ChildJSONObject->GetObjectField(TAG_TRANSLATION);
+				if (TranslationJSONObject->HasTypedField< EJson::String >(TAG_TRANSLATION_TEXT))
 				{
-					TranslationText = TranslationJSONObject->GetStringField( TAG_TRANSLATION_TEXT );
+					TranslationText = TranslationJSONObject->GetStringField(TAG_TRANSLATION_TEXT);
 
 					// Source meta data is mixed in with the source text, we'll process metadata if the source json object has more than one entry
-					if( TranslationJSONObject->Values.Num() > 1 )
+					if (TranslationJSONObject->Values.Num() > 1)
 					{
 						// We load in the entire source object as metadata and remove the source text
-						FJsonInternationalizationMetaDataSerializer::DeserializeMetadata( TranslationJSONObject.ToSharedRef(), TranslationMetadata );
-						if( TranslationJSONObject.IsValid() )
+						FJsonInternationalizationMetaDataSerializer::DeserializeMetadata(TranslationJSONObject.ToSharedRef(), TranslationMetadata);
+						if (TranslationJSONObject.IsValid())
 						{
-							TranslationJSONObject->Values.Remove( TAG_TRANSLATION_TEXT );
+							TranslationJSONObject->Values.Remove(TAG_TRANSLATION_TEXT);
 						}
 					}
 				}
@@ -269,46 +300,78 @@ bool FJsonInternationalizationArchiveSerializer::JsonObjToArchive( TSharedRef< F
 				bConvertSuccess = false;
 			}
 
-			if( bConvertSuccess )
+			if (bConvertSuccess)
 			{
-				FLocItem Source( SourceText );
+				FLocItem Source(SourceText);
 				Source.MetadataObj = SourceMetadata;
 
-				FLocItem Translation( TranslationText );
+				FLocItem Translation(TranslationText);
 				Translation.MetadataObj = TranslationMetadata;
 
 				bool bIsOptional = false;
-				if( ChildJSONObject->HasTypedField< EJson::Boolean >( TAG_OPTIONAL ) )
+				if (ChildJSONObject->HasTypedField< EJson::Boolean >(TAG_OPTIONAL))
 				{
-					bIsOptional = ChildJSONObject->GetBoolField( TAG_OPTIONAL );
+					bIsOptional = ChildJSONObject->GetBoolField(TAG_OPTIONAL);
 				}
 
-				TSharedPtr< FLocMetadataObject > MetadataNode;
-				if( ChildJSONObject->HasTypedField< EJson::Object >( TAG_METADATA_KEY ) )
+				TArray<FString> Keys;
+				TSharedPtr< FLocMetadataObject > KeyMetadataNode;
+				if (InArchive->GetFormatVersion() < FInternationalizationArchive::EFormatVersion::AddedKeys)
 				{
-					const TSharedPtr< FJsonObject > MetaDataKeyJSONObject = ChildJSONObject->GetObjectField( TAG_METADATA_KEY );
-					FJsonInternationalizationMetaDataSerializer::DeserializeMetadata( MetaDataKeyJSONObject.ToSharedRef(), MetadataNode );
+					// We used to store the key meta-data as a top-level value, rather than within a "MetaData" object
+					if (ChildJSONObject->HasTypedField< EJson::Object >(TAG_METADATA_KEY))
+					{
+						const TSharedPtr< FJsonObject > MetaDataKeyJSONObject = ChildJSONObject->GetObjectField(TAG_METADATA_KEY);
+						FJsonInternationalizationMetaDataSerializer::DeserializeMetadata(MetaDataKeyJSONObject.ToSharedRef(), KeyMetadataNode);
+					}
+
+					if (InManifest.IsValid())
+					{
+						// We have no key in the archive data, so we must try and infer it from the manifest
+						FLocTextHelper::FindKeysForLegacyTranslation(InManifest.ToSharedRef(), InNativeArchive, AccumulatedNamespace, SourceText, KeyMetadataNode, Keys);
+					}
+				}
+				else
+				{
+					if (ChildJSONObject->HasTypedField< EJson::String >(TAG_KEY))
+					{
+						Keys.Add(ChildJSONObject->GetStringField(TAG_KEY));
+					}
+
+					if (ChildJSONObject->HasTypedField< EJson::Object >(TAG_METADATA))
+					{
+						const TSharedPtr< FJsonObject > MetaDataJSONObject = ChildJSONObject->GetObjectField(TAG_METADATA);
+
+						if (MetaDataJSONObject->HasTypedField< EJson::Object >(TAG_METADATA_KEY))
+						{
+							const TSharedPtr< FJsonObject > MetaDataKeyJSONObject = MetaDataJSONObject->GetObjectField(TAG_METADATA_KEY);
+							FJsonInternationalizationMetaDataSerializer::DeserializeMetadata(MetaDataKeyJSONObject.ToSharedRef(), KeyMetadataNode);
+						}
+					}
 				}
 
-				bool bAddSuccessful = InternationalizationArchive->AddEntry( AccumulatedNamespace, Source, Translation, MetadataNode, bIsOptional );
-				if( !bAddSuccessful )
+				for (const FString& Key : Keys)
 				{
-					UE_LOG( LogInternationalizationArchiveSerializer, Warning,TEXT("Could not add JSON entry to the Internationalization archive: Namespace:%s DefaultText:%s"), *AccumulatedNamespace, *SourceText );
+					const bool bAddSuccessful = InArchive->AddEntry(AccumulatedNamespace, Key, Source, Translation, KeyMetadataNode, bIsOptional);
+					if (!bAddSuccessful)
+					{
+						UE_LOG(LogInternationalizationArchiveSerializer, Warning, TEXT("Could not add JSON entry to the Internationalization archive: Namespace:%s Key:%s DefaultText:%s"), *AccumulatedNamespace, *Key, *SourceText);
+					}
 				}
 			}
 		}
 	}
 
-	if( bConvertSuccess && InJsonObj->HasField( TAG_SUBNAMESPACES ) )
+	if (bConvertSuccess && InJsonObj->HasField(TAG_SUBNAMESPACES))
 	{
-		const TArray< TSharedPtr<FJsonValue> > SubnamespaceArray = InJsonObj->GetArrayField( TAG_SUBNAMESPACES );
+		const TArray< TSharedPtr<FJsonValue> > SubnamespaceArray = InJsonObj->GetArrayField(TAG_SUBNAMESPACES);
 
-		for(TArray< TSharedPtr< FJsonValue > >::TConstIterator SubnamespaceIter( SubnamespaceArray.CreateConstIterator() ); SubnamespaceIter; ++SubnamespaceIter )
+		for (TArray< TSharedPtr< FJsonValue > >::TConstIterator SubnamespaceIter(SubnamespaceArray.CreateConstIterator()); SubnamespaceIter; ++SubnamespaceIter)
 		{
 			const TSharedPtr< FJsonValue >  SubnamespaceEntry = *SubnamespaceIter;
 			const TSharedPtr< FJsonObject > SubnamespaceJSONObject = SubnamespaceEntry->AsObject();
 
-			if( !JsonObjToArchive( SubnamespaceJSONObject.ToSharedRef(), AccumulatedNamespace, InternationalizationArchive ) )
+			if (!JsonObjToArchive(SubnamespaceJSONObject.ToSharedRef(), AccumulatedNamespace, InArchive, InManifest, InNativeArchive))
 			{
 				bConvertSuccess = false;
 				break;
@@ -320,10 +383,10 @@ bool FJsonInternationalizationArchiveSerializer::JsonObjToArchive( TSharedRef< F
 }
 
 
-void FJsonInternationalizationArchiveSerializer::GenerateStructuredData( TSharedRef< const FInternationalizationArchive > InInternationalizationArchive, TSharedPtr<FStructuredArchiveEntry> RootElement )
+void FJsonInternationalizationArchiveSerializer::GenerateStructuredData( TSharedRef< const FInternationalizationArchive > InArchive, TSharedPtr<FStructuredArchiveEntry> RootElement )
 {
 	//Loop through all the unstructured archive entries and build up our structured hierarchy
-	for(TArchiveEntryContainer::TConstIterator It( InInternationalizationArchive->GetEntryIterator() ); It; ++It)
+	for(FArchiveEntryByStringContainer::TConstIterator It( InArchive->GetEntriesBySourceTextIterator() ); It; ++It)
 	{
 		const TSharedRef< FArchiveEntry > UnstructuredArchiveEntry = It.Value();
 
@@ -428,13 +491,18 @@ void FJsonInternationalizationArchiveSerializer::StructuredDataToJsonObj( TShare
 		TranslationNode->SetStringField( TAG_TRANSLATION_TEXT, ProcessedTranslation );
 		EntryNode->SetObjectField( TAG_TRANSLATION, TranslationNode );
 
+		EntryNode->SetStringField( TAG_KEY, Entry->Key );
+
 		if( Entry->KeyMetadataObj.IsValid() )
 		{
-			TSharedPtr< FJsonObject > KeyDataNode;
-			FJsonInternationalizationMetaDataSerializer::SerializeMetadata( Entry->KeyMetadataObj.ToSharedRef(), KeyDataNode );
-			if( KeyDataNode.IsValid() )
+			TSharedRef< FJsonObject > MetaDataNode = MakeShareable(new FJsonObject());
+			EntryNode->SetObjectField( TAG_METADATA, MetaDataNode );
+
+			TSharedPtr< FJsonObject > KeyMetaDataNode;
+			FJsonInternationalizationMetaDataSerializer::SerializeMetadata( Entry->KeyMetadataObj.ToSharedRef(), KeyMetaDataNode );
+			if( KeyMetaDataNode.IsValid() )
 			{
-				EntryNode->SetObjectField( TAG_METADATA_KEY, KeyDataNode );
+				MetaDataNode->SetObjectField( TAG_METADATA_KEY, KeyMetaDataNode );
 			}
 		}
 

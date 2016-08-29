@@ -6,8 +6,8 @@
 =============================================================================*/
 
 #include "Common.usf"
-#include "BasePassCommon.usf"
 #include "Material.usf"
+#include "BasePassCommon.usf"
 #include "VertexFactory.usf"
 
 #if NEEDS_BASEPASS_FOGGING

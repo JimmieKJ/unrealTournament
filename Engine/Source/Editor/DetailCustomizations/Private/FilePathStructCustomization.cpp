@@ -26,6 +26,9 @@ void FFilePathStructCustomization::CustomizeHeader( TSharedRef<IPropertyHandle> 
 	// construct file type filter
 	const FString& MetaData = StructPropertyHandle->GetMetaData(TEXT("FilePathFilter"));
 
+
+	bLongPackageName = StructPropertyHandle->HasMetaData(TEXT("LongPackageName"));
+
 	if (MetaData.IsEmpty())
 	{
 		FileTypeFilter = TEXT("All files (*.*)|*.*");
@@ -72,7 +75,20 @@ FString FFilePathStructCustomization::HandleFilePathPickerFilePath( ) const
 
 void FFilePathStructCustomization::HandleFilePathPickerPathPicked( const FString& PickedPath )
 {
-	PathStringProperty->SetValue(PickedPath);
+	FString FinalPath = PickedPath;
+	if (bLongPackageName)
+	{
+		FString LongPackageName;
+		FString StringFailureReason;
+		if (FPackageName::TryConvertFilenameToLongPackageName(PickedPath, LongPackageName, &StringFailureReason) == false)
+		{
+			FMessageDialog::Open(EAppMsgType::Ok, FText::FromString(StringFailureReason));
+		}
+		FinalPath = LongPackageName;
+	}
+
+
+	PathStringProperty->SetValue(FinalPath);
 	FEditorDirectories::Get().SetLastDirectory(ELastDirectory::GENERIC_OPEN, FPaths::GetPath(PickedPath));
 }
 

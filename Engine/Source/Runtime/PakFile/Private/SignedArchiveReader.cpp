@@ -24,10 +24,26 @@ DECLARE_DWORD_ACCUMULATOR_STAT(TEXT("FChunkCacheWorker.SignaturesDecryptedDuring
 
 DECLARE_FLOAT_ACCUMULATOR_STAT(TEXT("FSignedArchiveReader.Serialize"), STAT_SignedArchiveReader_Serialize, STATGROUP_PakFile);
 
-FChunkCacheWorker::FChunkCacheWorker(FArchive* InReader)
+FChunkCacheWorker::FChunkCacheWorker(FArchive* InReader, const TCHAR* Filename)
 	: Reader(InReader)
 	, QueuedRequestsEvent(NULL)
 {
+	FString SigFileFilename = FPaths::ChangeExtension(Filename, TEXT("sig"));
+	FArchive* SigFileReader = IFileManager::Get().CreateFileReader(*SigFileFilename);
+
+	if (SigFileReader == nullptr)
+	{
+		UE_LOG(LogPakFile, Fatal, TEXT("Couldn't find pak signature file '%s'"), *Filename);
+	}
+
+	*SigFileReader << EncryptedSignatures;
+	delete SigFileReader;
+
+	EncryptedSignaturesCRC = FCrc::MemCrc32(&EncryptedSignatures[0], EncryptedSignatures.Num() * sizeof(FEncryptedSignature));
+	DecryptedSignaturesCRC = 0;
+
+	DecryptedSignatures.AddDefaulted(EncryptedSignatures.Num());
+
 	SetupDecryptionKey();
 
 	QueuedRequestsEvent = FPlatformProcess::GetSynchEventFromPool();
@@ -50,11 +66,11 @@ bool FChunkCacheWorker::Init()
 void FChunkCacheWorker::SetupDecryptionKey()
 {
 	DecryptionKey.Exponent.Parse(DECRYPTION_KEY_EXPONENT);
-	DecryptionKey.Modulus.Parse(DECYRPTION_KEY_MODULUS);
+	DecryptionKey.Modulus.Parse(DECRYPTION_KEY_MODULUS);
 	// Public key should never be zero at this point. Check PublicKey.inl for more details.
 	UE_CLOG(DecryptionKey.Exponent.IsZero() || DecryptionKey.Modulus.IsZero(), LogPakFile, Fatal, TEXT("Invalid decryption key detected"));
 	// Public key should produce decrypted results - check for identity keys
-	static int256 TestValues[] = 
+	static TEncryptionInt TestValues[] = 
 	{
 		11,
 		23,
@@ -66,7 +82,7 @@ void FChunkCacheWorker::SetupDecryptionKey()
 	bool bIdentical = true;
 	for (int32 Index = 0; bIdentical && Index < ARRAY_COUNT(TestValues); ++Index)
 	{
-		int256 DecryptedValue = FEncryption::ModularPow(TestValues[Index], DecryptionKey.Exponent, DecryptionKey.Modulus);
+		TEncryptionInt DecryptedValue = FEncryption::ModularPow(TestValues[Index], DecryptionKey.Exponent, DecryptionKey.Modulus);
 		bIdentical = (DecryptedValue == TestValues[Index]);
 	}	
 	UE_CLOG(bIdentical, LogPakFile, Fatal, TEXT("Decryption key produces identical results to source data."));
@@ -74,21 +90,22 @@ void FChunkCacheWorker::SetupDecryptionKey()
 
 void FChunkCacheWorker::DecryptSignatures(int32 NextIndexToDecrypt)
 {
-	FDecryptedSignature<GPakFileChunkHashSize>& DecryptedSignature = DecryptedSignatures[NextIndexToDecrypt];
+	FDecryptedSignature& DecryptedSignature = DecryptedSignatures[NextIndexToDecrypt];
 
 	// Check to see if this signature was already decrypted.
 	if (!DecryptedSignature.IsValid())
 	{
 		INC_DWORD_STAT(STAT_FChunkCacheWorker_SignaturesDecryptedDuringIdle);
 		SCOPE_SECONDS_ACCUMULATOR(STAT_FChunkCacheWorker_DecryptDuringIdle);
-		FEncryptedSignature<GPakFileChunkHashSize>& EncryptedSignature = EncryptedSignatures[NextIndexToDecrypt];
-		Decrypt(DecryptedSignature.Data, EncryptedSignature.Data, GPakFileChunkHashSize);
+		FEncryptedSignature& EncryptedSignature = EncryptedSignatures[NextIndexToDecrypt];
+		FEncryption::DecryptSignature(EncryptedSignature, DecryptedSignature, DecryptionKey);
 	}
 }
 
 uint32 FChunkCacheWorker::Run()
 {
 	int32 NextIndexToDecrypt = 0;
+	LastDecryptedSignatureIndex = -1;
 	StartTime = FPlatformTime::Seconds();
 	
 	while (StopTaskCounter.GetValue() == 0)
@@ -99,19 +116,19 @@ uint32 FChunkCacheWorker::Run()
 			uint32 WaitTime = 500;
 
 			// Try and decrypt some signatures if there are any left
-			if (EncryptedSignatures.Num() > 0)
+			if (NextIndexToDecrypt < EncryptedSignatures.Num())
 			{
 				check(NextIndexToDecrypt < EncryptedSignatures.Num());
 
 				DecryptSignatures(NextIndexToDecrypt);
+				LastDecryptedSignatureIndex = NextIndexToDecrypt;
 
 				if (++NextIndexToDecrypt == EncryptedSignatures.Num())
 				{
-					// Dump the encrypted signatures as we don't need them anymore
-					EncryptedSignatures.Empty();
-					NextIndexToDecrypt = 0;
 					double Time = FPlatformTime::Seconds() - StartTime;
 					UE_LOG(LogPakFile, Log, TEXT("PakFile signature decryption complete in %.2fs"), Time);
+
+					DecryptedSignaturesCRC = FCrc::MemCrc32(&DecryptedSignatures[0], DecryptedSignatures.Num() * sizeof(FDecryptedSignature));
 				}
 				else
 				{
@@ -239,48 +256,71 @@ int32 FChunkCacheWorker::ProcessQueue()
 	return ProcessedRequests;
 }
 
-void FChunkCacheWorker::Decrypt(uint8* DecryptedData, const int256* Data, const int64 DataLength)
-{
-	for (int64 Index = 0; Index < DataLength; ++Index)
-	{
-		int256 DecryptedByte = FEncryption::ModularPow(Data[Index], DecryptionKey.Exponent, DecryptionKey.Modulus);
-		DecryptedData[Index] = (uint8)DecryptedByte.ToInt();
-	}
-}
-
 bool FChunkCacheWorker::CheckSignature(const FChunkRequest& ChunkInfo)
 {
 	SCOPE_SECONDS_ACCUMULATOR(STAT_FChunkCacheWorker_CheckSignature);
 
-	FDecryptedSignature<GPakFileChunkHashSize> Hash;
+	FDecryptedSignature SourceSignature;
+	const int32 MaxNumRetries = 3;
+	int32 RetriesRemaining = MaxNumRetries;
+	bool bPakChunkSignaturesMatched = false;
 
+	while (!bPakChunkSignaturesMatched && RetriesRemaining >= 0)
 	{
-		SCOPE_SECONDS_ACCUMULATOR(STAT_FChunkCacheWorker_Serialize);
-		Reader->Seek(ChunkInfo.Offset);
-		Reader->Serialize(ChunkInfo.Buffer->Data, ChunkInfo.Size);
-	}
-	{
-		SCOPE_SECONDS_ACCUMULATOR(STAT_FChunkCacheWorker_HashBuffer);
-		ComputePakChunkHash(ChunkInfo.Buffer->Data, ChunkInfo.Size, Hash.Data);
+		{
+			SCOPE_SECONDS_ACCUMULATOR(STAT_FChunkCacheWorker_Serialize);
+			Reader->Seek(ChunkInfo.Offset);
+			Reader->Serialize(ChunkInfo.Buffer->Data, ChunkInfo.Size);
+		}
+		{
+			SCOPE_SECONDS_ACCUMULATOR(STAT_FChunkCacheWorker_HashBuffer);
+			SourceSignature.Data = FCrc::MemCrc32(ChunkInfo.Buffer->Data, ChunkInfo.Size);
+		}
+
+		// Decrypt serialized hash
+		FDecryptedSignature& DecryptedSignature = DecryptedSignatures[ChunkInfo.Index];
+
+		if (RetriesRemaining < MaxNumRetries || !DecryptedSignature.IsValid())
+		{
+			INC_DWORD_STAT(STAT_FChunkCacheWorker_SignaturesDecryptedDuringVerify);
+			SCOPE_SECONDS_ACCUMULATOR(STAT_FChunkCacheWorker_DecryptDuringVerify);
+			FEncryptedSignature EncryptedSignature = EncryptedSignatures[ChunkInfo.Index];
+			check(EncryptedSignature.IsValid());
+			FEncryption::DecryptSignature(EncryptedSignature, DecryptedSignature, DecryptionKey);
+			check(DecryptedSignature.IsValid());
+		}
+
+		// Compare hashes
+		bPakChunkSignaturesMatched = DecryptedSignature == SourceSignature;
+		--RetriesRemaining;
 	}
 
-	// Decrypt serialized hash
-	FDecryptedSignature<GPakFileChunkHashSize>& DecryptedSignature = DecryptedSignatures[ChunkInfo.Index];
-	if (!DecryptedSignature.IsValid())
+	if (!bPakChunkSignaturesMatched)
 	{
-		INC_DWORD_STAT(STAT_FChunkCacheWorker_SignaturesDecryptedDuringVerify);
-		SCOPE_SECONDS_ACCUMULATOR(STAT_FChunkCacheWorker_DecryptDuringVerify);
-		Decrypt(DecryptedSignature.Data, EncryptedSignatures[ChunkInfo.Index].Data, GPakFileChunkHashSize);
-		check(DecryptedSignature.IsValid());
-	}
+		// Check that the encrypted signatures data is the same as it was when we started up
+		int32 CurrentEncryptedSignaturesCRC = FCrc::MemCrc32(&EncryptedSignatures[0], EncryptedSignatures.Num() * sizeof(FEncryptedSignature));
+		ensure(CurrentEncryptedSignaturesCRC == EncryptedSignaturesCRC);
 
-	// Compare hashes
-	if (DecryptedSignature != Hash)
-	{
-		UE_LOG(LogPakFile, Fatal, TEXT("Pak file has been tampered with."));
-	}
+		// If we finished decrypting all the signatures, check that they are still the same as they were when decryption completed
+		if (DecryptedSignaturesCRC != 0)
+		{
+			int32 CurrentDecryptedSignaturesCRC = FCrc::MemCrc32(&DecryptedSignatures[0], DecryptedSignatures.Num() * sizeof(FDecryptedSignature));
+			ensure(CurrentDecryptedSignaturesCRC == DecryptedSignaturesCRC);
+		}
 
-	return true;
+		UE_LOG(LogPakFile, Warning, TEXT("Pak chunk signature verification failed!"));
+		UE_LOG(LogPakFile, Warning, TEXT("  Chunk Index: %d"), ChunkInfo.Index);
+		UE_LOG(LogPakFile, Warning, TEXT("  Chunk Offset: %d"), ChunkInfo.Offset);
+		UE_LOG(LogPakFile, Warning, TEXT("  Chunk Size: %d"), ChunkInfo.Size);
+		UE_LOG(LogPakFile, Warning, TEXT("  Background decrypt: %d\\%d"), LastDecryptedSignatureIndex, DecryptedSignatures.Num());
+
+		ensure(bPakChunkSignaturesMatched);
+
+		//FPlatformMisc::MessageBoxExt(EAppMsgType::Ok, TEXT("Corrupt Installation Detected. Please use \"Verify\" in the Epic Games Launcher"), TEXT("Pakfile Error"));
+		//FPlatformMisc::RequestExit(1);
+	}
+	
+	return bPakChunkSignaturesMatched;
 }
 
 FChunkRequest& FChunkCacheWorker::RequestChunk(int32 ChunkIndex, int64 StartOffset, int64 ChunkSize)
@@ -310,36 +350,6 @@ void FChunkCacheWorker::ReleaseChunk(FChunkRequest& Chunk)
 	Chunk.RefCount.Decrement();
 }
 
-int64 FChunkCacheWorker::AttachToArchive(FArchive& Ar)
-{
-	// Only serialize signature data if this was the first time this worker was attached
-	if (DecryptedSignatures.Num() > 0 || EncryptedSignatures.Num() > 0)
-	{
-		return Ar.TotalSize() - sizeof(int64)-(DecryptedSignatures.Num() * FEncryptedSignature<GPakFileChunkHashSize>::Size());
-	}
-
-	// Read num signatures from the end of the file
-	int64 OriginalPos = Ar.Tell();
-	Ar.Seek(Ar.TotalSize() - sizeof(int64));
-	int64 NumSignatures = 0;
-	Ar << NumSignatures;
-
-	// Read signature data
-	int64 StartOfSignatureData = Ar.TotalSize() - sizeof(int64)-(NumSignatures * FEncryptedSignature<GPakFileChunkHashSize>::Size());
-	DecryptedSignatures.AddDefaulted(NumSignatures);
-	EncryptedSignatures.AddUninitialized(NumSignatures);
-
-	Ar.Seek(StartOfSignatureData);
-	for (int64 SignatureIndex = 0; SignatureIndex < NumSignatures; ++SignatureIndex)
-	{
-		EncryptedSignatures[SignatureIndex].Serialize(Ar);
-	}
-
-	Ar.Seek(OriginalPos);
-
-	return StartOfSignatureData;
-}
-
 FSignedArchiveReader::FSignedArchiveReader(FArchive* InPakReader, FChunkCacheWorker* InSignatureChecker)
 	: ChunkCount(0)
 	, PakReader(InPakReader)
@@ -349,7 +359,8 @@ FSignedArchiveReader::FSignedArchiveReader(FArchive* InPakReader, FChunkCacheWor
 	, SignatureChecker(InSignatureChecker)
 {
 	// Cache global info about the archive
-	SizeOnDisk = InSignatureChecker->AttachToArchive(*PakReader);
+	ArIsLoading = true;
+	SizeOnDisk = PakReader->TotalSize();
 	ChunkCount = SizeOnDisk / FPakInfo::MaxChunkDataSize + ((SizeOnDisk % FPakInfo::MaxChunkDataSize) ? 1 : 0);
 	PakSize = SizeOnDisk;
 }
@@ -490,7 +501,8 @@ void FSignedArchiveReader::Serialize(void* Data, int64 Length)
 		if (ChunksReadThisLoop == 0)
 		{
 			// No chunks read, avoid tight spinning loops and give up some time to the other threads
-			FPlatformProcess::Sleep(0.0f);
+			QUICK_SCOPE_CYCLE_COUNTER(STAT_FSignedArchiveReader_Spin);
+			FPlatformProcess::SleepNoStats(0.001f);
 		}
 	}
 	while (ChunksToRead > 0);

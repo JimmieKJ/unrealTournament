@@ -8,7 +8,9 @@
 #include "SlateCore.h"
 #include "Reply.h"
 #include "Player.h"
+#include "Engine/GameViewportClient.h"
 #include "LocalPlayer.generated.h"
+
 
 #define INVALID_CONTROLLERID 255
 
@@ -44,7 +46,7 @@ struct ENGINE_API FLocalPlayerContext
 
 	/** Templated version of GetPlayerController() */
 	template<class T>
-	FORCEINLINE T* GetPlayerController(bool bCastChecked = true) const
+	FORCEINLINE T* GetPlayerController(bool bCastChecked = false) const
 	{
 		if (bCastChecked)
 		{ 
@@ -61,7 +63,7 @@ struct ENGINE_API FLocalPlayerContext
 
 	/** Templated Getter for the Game State */
 	template<class T>
-	FORCEINLINE T* GetGameState(bool bCastChecked = true) const
+	FORCEINLINE T* GetGameState(bool bCastChecked = false) const
 	{
 		if (bCastChecked)
 		{
@@ -78,7 +80,7 @@ struct ENGINE_API FLocalPlayerContext
 
 	/** Templated Getter for the Player State */
 	template<class T>
-	FORCEINLINE T* GetPlayerState(bool bCastChecked = true) const
+	FORCEINLINE T* GetPlayerState(bool bCastChecked = false) const
 	{
 		if (bCastChecked)
 		{
@@ -95,7 +97,7 @@ struct ENGINE_API FLocalPlayerContext
 
 	/** Templated Getter for the HUD */
 	template<class T>
-	FORCEINLINE T* GetHUD(bool bCastChecked = true) const
+	FORCEINLINE T* GetHUD(bool bCastChecked = false) const
 	{
 		if (bCastChecked)
 		{
@@ -112,7 +114,7 @@ struct ENGINE_API FLocalPlayerContext
 
 	/** Templated getter for the player's pawn */
 	template<class T>
-	FORCEINLINE T* GetPawn(bool bCastChecked = true) const
+	FORCEINLINE T* GetPawn(bool bCastChecked = false) const
 	{
 		if (bCastChecked)
 		{
@@ -204,7 +206,6 @@ public:
 
 	bool HandleDNCommand( const TCHAR* Cmd, FOutputDevice& Ar );
 	bool HandleExitCommand( const TCHAR* Cmd, FOutputDevice& Ar );
-	bool HandlePauseCommand( const TCHAR* Cmd, FOutputDevice& Ar, UWorld* InWorld );
 	bool HandleListMoveBodyCommand( const TCHAR* Cmd, FOutputDevice& Ar );
 	bool HandleListAwakeBodiesCommand( const TCHAR* Cmd, FOutputDevice& Ar );
 	bool HandleListSimBodiesCommand( const TCHAR* Cmd, FOutputDevice& Ar );
@@ -243,7 +244,7 @@ public:
 	 *
 	 * @return  Returns the world of the LocalPlayer's PlayerController. NULL if the LocalPlayer does not have a PlayerController
 	 */
-	UWorld* GetWorld() const override;
+	virtual UWorld* GetWorld() const override;
 
 	/**
 	 * Get the game instance associated with this local player
@@ -278,7 +279,7 @@ public:
 	 * @param	ViewDrawer - optional drawing in the view
 	 * @param	StereoPass - whether we are drawing the full viewport, or a stereo left / right pass
 	 */
-	FSceneView* CalcSceneView(class FSceneViewFamily* ViewFamily,
+	virtual FSceneView* CalcSceneView(class FSceneViewFamily* ViewFamily,
 		FVector& OutViewLocation, 
 		FRotator& OutViewRotation, 
 		FViewport* Viewport,
@@ -404,7 +405,7 @@ public:
 	 * @param	ProjectionData			The structure to be filled with projection data
 	 * @return  False if there is no viewport, or if the Actor is null
 	 */
-	bool GetProjectionData(FViewport* Viewport, EStereoscopicPass StereoPass, FSceneViewProjectionData& ProjectionData) const;
+	virtual bool GetProjectionData(FViewport* Viewport, EStereoscopicPass StereoPass, FSceneViewProjectionData& ProjectionData) const;
 
 	/**
 	 * Determines whether this player is the first and primary player on their machine.

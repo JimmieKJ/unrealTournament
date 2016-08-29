@@ -25,10 +25,10 @@
 
 SDetailsView::~SDetailsView()
 {
-	auto RootNode = GetRootNode();
-	if( RootNode.IsValid() )
+	const FRootPropertyNodeList& RootNodes = GetRootNodes();
+	for(const TSharedPtr<FComplexPropertyNode>& RootNode : RootNodes)
 	{
-		SaveExpandedItems( RootNode.ToSharedRef() );
+		SaveExpandedItems(RootNode.ToSharedRef());
 	}
 };
 
@@ -42,9 +42,6 @@ void SDetailsView::Construct(const FArguments& InArgs)
 	DetailsViewArgs = InArgs._DetailsViewArgs;
 	bViewingClassDefaultObject = false;
 
-	// Create the root property now
-	RootPropertyNode = MakeShareable( new FObjectPropertyNode );
-		
 	PropertyUtilities = MakeShareable( new FPropertyDetailsUtilities( *this ) );
 	
 	ColumnSizeData.LeftColumnWidth = TAttribute<float>( this, &SDetailsView::OnGetLeftColumnWidth );
@@ -58,7 +55,7 @@ void SDetailsView::Construct(const FArguments& InArgs)
 	TSharedRef<SScrollBar> ExternalScrollbar = SNew(SScrollBar);
 	ExternalScrollbar->SetVisibility( TAttribute<EVisibility>( this, &SDetailsView::GetScrollBarVisibility ) );
 
-		FMenuBuilder DetailViewOptions( true, NULL );
+		FMenuBuilder DetailViewOptions( true, nullptr);
 
 		if (DetailsViewArgs.bShowModifiedPropertiesOption)
 		{
@@ -270,7 +267,7 @@ EVisibility SDetailsView::GetActorNameAreaVisibility() const
 
 EVisibility SDetailsView::GetScrollBarVisibility() const
 {
-	const bool bHasObjects = RootPropertyNode.IsValid() && RootPropertyNode->GetObjectBaseClass() && RootPropertyNode->GetNumObjects();
+	const bool bHasObjects = RootPropertyNodes.Num() > 0;
 	return bHasObjects ? EVisibility::Visible : EVisibility::Collapsed; 
 }
 
@@ -278,19 +275,31 @@ void SDetailsView::ForceRefresh()
 {
 	TArray< TWeakObjectPtr< UObject > > NewObjectList;
 
-	// Simply re-add the same existing objects to cause a refresh
-	for ( TPropObjectIterator Itor( RootPropertyNode->ObjectIterator() ); Itor; ++Itor )
+	const FRootPropertyNodeList& RootNodes = GetRootNodes();
+	for(const TSharedPtr<FComplexPropertyNode>& ComplexRootNode : RootNodes)
 	{
-		TWeakObjectPtr<UObject> Object = *Itor;
-		if( Object.IsValid() )
+		FObjectPropertyNode* RootNode = ComplexRootNode->AsObjectNode();
+		if(RootNode)
 		{
-			NewObjectList.Add( Object.Get() );
+			// Simply re-add the same existing objects to cause a refresh
+			for(TPropObjectIterator Itor(RootNode->ObjectIterator()); Itor; ++Itor)
+			{
+				TWeakObjectPtr<UObject> Object = *Itor;
+				if(Object.IsValid())
+				{
+					NewObjectList.Add(Object.Get());
+				}
+			}
 		}
 	}
 
 	SetObjectArrayPrivate( NewObjectList );
 }
 
+void SDetailsView::MoveScrollOffset(int32 DeltaOffset)
+{
+	DetailTree->AddScrollOffset((float)DeltaOffset);
+}
 
 void SDetailsView::SetObjects( const TArray<UObject*>& InObjects, bool bForceRefresh/* = false*/, bool bOverrideLock/* = false*/ )
 {
@@ -334,17 +343,25 @@ void SDetailsView::RemoveInvalidObjects()
 	TArray< TWeakObjectPtr< UObject > > ResetArray;
 
 	bool bAllFound = true;
-	for (TPropObjectIterator Itor(RootPropertyNode->ObjectIterator()); Itor; ++Itor)
+	
+	for(const TSharedPtr<FComplexPropertyNode>& ComplexRootNode : RootPropertyNodes)
 	{
-		TWeakObjectPtr<UObject> Object = *Itor;
+		FObjectPropertyNode* RootPropertyNode = ComplexRootNode->AsObjectNode();
+		if(RootPropertyNode)
+		{
+			for(TPropObjectIterator Itor(RootPropertyNode->ObjectIterator()); Itor; ++Itor)
+			{
+				TWeakObjectPtr<UObject> Object = *Itor;
 
-		if( Object.IsValid() && !Object->IsPendingKill() )
-		{
-			ResetArray.Add(Object);
-		}
-		else
-		{
-			bAllFound = false;
+				if(Object.IsValid() && !Object->IsPendingKill())
+				{
+					ResetArray.Add(Object);
+				}
+				else
+				{
+					bAllFound = false;
+				}
+			}
 		}
 	}
 
@@ -354,7 +371,32 @@ void SDetailsView::RemoveInvalidObjects()
 	}
 }
 
-bool SDetailsView::ShouldSetNewObjects( const TArray< TWeakObjectPtr< UObject > >& InObjects ) const
+void SDetailsView::SetObjectPackageOverrides(const TMap<TWeakObjectPtr<UObject>, TWeakObjectPtr<UPackage>>& InMapping)
+{
+	for(TSharedPtr<FComplexPropertyNode>& ComplexRootNode : RootPropertyNodes)
+	{
+		FObjectPropertyNode* RootNode = ComplexRootNode->AsObjectNode();
+		if(RootNode)
+		{
+			RootNode->SetObjectPackageOverrides(InMapping);
+		}
+	}
+}
+
+void SDetailsView::SetRootObjectCustomizationInstance(TSharedPtr<IDetailRootObjectCustomization> InRootObjectCustomization)
+{
+	RootObjectCustomization = InRootObjectCustomization;
+	RerunCurrentFilter();
+}
+
+void SDetailsView::ClearSearch()
+{
+	CurrentFilter.FilterStrings.Empty();
+	SearchBox->SetText(FText::GetEmpty());
+	RerunCurrentFilter();
+}
+
+bool SDetailsView::ShouldSetNewObjects(const TArray< TWeakObjectPtr< UObject > >& InObjects) const
 {
 	bool bShouldSetObjects = false;
 
@@ -364,30 +406,73 @@ bool SDetailsView::ShouldSetNewObjects( const TArray< TWeakObjectPtr< UObject > 
 		// If a BSP brush was selected we need to refresh because surface could have been selected and the object set not updated
 		bShouldSetObjects = true;
 	}
-	else if( InObjects.Num() != RootPropertyNode->GetNumObjects() )
+	else if( InObjects.Num() != GetNumObjects() )
 	{
-		// If the object arrys differ in size then at least one object is different so we must reset
+		// If the object arrays differ in size then at least one object is different so we must reset
+		bShouldSetObjects = true;
+	}
+	else if(InObjects.Num() == 0)
+	{
+		// User is likely resetting details panel
 		bShouldSetObjects = true;
 	}
 	else
 	{
 		// Check to see if the objects passed in are different. If not we do not need to set anything
 		TSet< TWeakObjectPtr< UObject > > NewObjects;
-		NewObjects.Append( InObjects );
-		for ( TPropObjectIterator Itor( RootPropertyNode->ObjectIterator() ); Itor; ++Itor )
+		NewObjects.Append(InObjects);
+
+		if(DetailsViewArgs.bAllowMultipleTopLevelObjects)
 		{
-			TWeakObjectPtr<UObject> Object = *Itor;
-			if( Object.IsValid() && !NewObjects.Contains( Object ) )
+			
+			// For multiple top level node support, if the single object in each node is not found in the new object set
+			// then we need to refresh
+			for(int32 RootNodeIndex = 0; RootNodeIndex < RootPropertyNodes.Num(); ++RootNodeIndex)
 			{
-				// An existing object is not in the list of new objects to set
-				bShouldSetObjects = true;
-				break;
+				FObjectPropertyNode* RootPropertyNode = RootPropertyNodes[RootNodeIndex]->AsObjectNode();
+				
+				if(RootPropertyNode && RootPropertyNode->GetNumObjects() > 0)
+				{
+					if(!NewObjects.Contains(RootPropertyNode->GetUObject(0)))
+					{
+						bShouldSetObjects = true;
+						break;
+					}
+				}
+				else
+				{
+					bShouldSetObjects = true;
+					break;
+				}
 			}
-			else if( !Object.IsValid() )
+		}
+		else
+		{
+
+			ensure(RootPropertyNodes.Num() == 1);
+			FObjectPropertyNode* RootPropertyNode = RootPropertyNodes[0]->AsObjectNode();
+			if( RootPropertyNode )
 			{
-				// An existing object is invalid
+				for(TPropObjectIterator Itor(RootPropertyNode->ObjectIterator()); Itor; ++Itor)
+				{
+					TWeakObjectPtr<UObject> Object = *Itor;
+					if(Object.IsValid() && !NewObjects.Contains(Object))
+					{
+						// An existing object is not in the list of new objects to set
+						bShouldSetObjects = true;
+						break;
+					}
+					else if(!Object.IsValid())
+					{
+						// An existing object is invalid
+						bShouldSetObjects = true;
+						break;
+					}
+				}
+			}
+			else
+			{
 				bShouldSetObjects = true;
-				break;
 			}
 		}
 	}
@@ -400,13 +485,25 @@ bool SDetailsView::ShouldSetNewObjects( const TArray< TWeakObjectPtr< UObject > 
 	return bShouldSetObjects;
 }
 
-void SDetailsView::SetObjectArrayPrivate( const TArray< TWeakObjectPtr< UObject > >& InObjects )
+int32 SDetailsView::GetNumObjects() const
+{
+	if(DetailsViewArgs.bAllowMultipleTopLevelObjects)
+	{
+		return RootPropertyNodes.Num();
+	}
+	else if( RootPropertyNodes.Num() > 0 && RootPropertyNodes[0]->AsObjectNode())
+	{
+		return RootPropertyNodes[0]->AsObjectNode()->GetNumObjects();
+	}
+
+	return 0;
+}
+
+void SDetailsView::SetObjectArrayPrivate(const TArray< TWeakObjectPtr< UObject > >& InObjects)
 {
 	double StartTime = FPlatformTime::Seconds();
 
-	PreSetObject();
-
-	check( RootPropertyNode.IsValid() );
+	PreSetObject(InObjects.Num());
 
 	// Selected actors for building SelectedActorInfo
 	TArray<AActor*> SelectedRawActors;
@@ -421,7 +518,16 @@ void SDetailsView::SetObjectArrayPrivate( const TArray< TWeakObjectPtr< UObject 
 		{
 			bViewingClassDefaultObject &= Object->HasAnyFlags( RF_ClassDefaultObject );
 
-			RootPropertyNode->AddObject( Object.Get() );
+			if(DetailsViewArgs.bAllowMultipleTopLevelObjects)
+			{
+				check(RootPropertyNodes.Num() == InObjects.Num());
+				RootPropertyNodes[ObjectIndex]->AsObjectNode()->AddObject( Object.Get() );
+			}
+			else
+			{
+				RootPropertyNodes[0]->AsObjectNode()->AddObject( Object.Get() );
+			}
+
 			SelectedObjects.Add( Object );
 			AActor* Actor = Cast<AActor>( Object.Get() );
 			if( Actor )
@@ -461,14 +567,14 @@ void SDetailsView::SetObjectArrayPrivate( const TArray< TWeakObjectPtr< UObject 
 	// Or call the delegate for handling when the title changed
 	FString Title;
 
-	if( !RootPropertyNode->GetObjectBaseClass() )
+	if( GetNumObjects() == 0 )
 	{
 		Title = NSLOCTEXT("PropertyView", "NothingSelectedTitle", "Nothing selected").ToString();
 	}
-	else if( RootPropertyNode->GetNumObjects() == 1 )
+	else if( GetNumObjects() == 1 && RootPropertyNodes[0]->AsObjectNode()->GetNumObjects() > 0)
 	{
 		// if the object is the default metaobject for a UClass, use the UClass's name instead
-		const UObject* Object = RootPropertyNode->ObjectConstIterator()->Get();
+		UObject* Object = RootPropertyNodes[0]->AsObjectNode()->GetUObject(0);
 		FString ObjectName = Object->GetName();
 		if ( Object->GetClass()->GetDefaultObject() == Object )
 		{
@@ -478,7 +584,7 @@ void SDetailsView::SetObjectArrayPrivate( const TArray< TWeakObjectPtr< UObject 
 		{
 			// Is this an actor?  If so, it might have a friendly name to display
 			const AActor* Actor = Cast<const  AActor >( Object );
-			if( Actor != NULL )
+			if( Actor != nullptr)
 			{
 				// Use the friendly label for this actor
 				ObjectName = Actor->GetActorLabel();
@@ -487,8 +593,13 @@ void SDetailsView::SetObjectArrayPrivate( const TArray< TWeakObjectPtr< UObject 
 
 		Title = ObjectName;
 	}
+	else if(DetailsViewArgs.bAllowMultipleTopLevelObjects)
+	{
+		Title = FString::Printf(*NSLOCTEXT("PropertyView", "MultipleToLevelObjectsSelected", "%i selected").ToString(), GetNumObjects());
+	}
 	else
 	{
+		FObjectPropertyNode* RootPropertyNode = RootPropertyNodes[0]->AsObjectNode();
 		Title = FString::Printf( *NSLOCTEXT("PropertyView", "MultipleSelected", "%s (%i selected)").ToString(), *RootPropertyNode->GetObjectBaseClass()->GetName(), RootPropertyNode->GetNumObjects() );
 	}
 
@@ -503,7 +614,10 @@ void SDetailsView::ReplaceObjects( const TMap<UObject*, UObject*>& OldToNewObjec
 	bool bObjectsReplaced = false;
 
 	TArray< FObjectPropertyNode* > ObjectNodes;
-	PropertyEditorHelpers::CollectObjectNodes( RootPropertyNode, ObjectNodes );
+	for(TSharedPtr<FComplexPropertyNode>& RootNode : RootPropertyNodes)
+	{
+		PropertyEditorHelpers::CollectObjectNodes(RootNode, ObjectNodes );
+	}
 
 	for( int32 ObjectNodeIndex = 0; ObjectNodeIndex < ObjectNodes.Num(); ++ObjectNodeIndex )
 	{
@@ -516,13 +630,13 @@ void SDetailsView::ReplaceObjects( const TMap<UObject*, UObject*>& OldToNewObjec
 			if( Replacement && Replacement->GetClass() == Itor->Get()->GetClass() )
 			{
 				bObjectsReplaced = true;
-				if( CurrentNode == RootPropertyNode.Get() )
+				if( CurrentNode->IsRootNode() )
 				{
 					// Note: only root objects count for the new object list. Sub-Objects (i.e components count as needing to be replaced but they don't belong in the top level object list
 					NewObjectList.Add( Replacement );
 				}
 			}
-			else if( CurrentNode == RootPropertyNode.Get() )
+			else if( CurrentNode->IsRootNode() )
 			{
 				// Note: only root objects count for the new object list. Sub-Objects (i.e components count as needing to be replaced but they don't belong in the top level object list
 				NewObjectList.Add( Itor->Get() );
@@ -543,18 +657,22 @@ void SDetailsView::RemoveDeletedObjects( const TArray<UObject*>& DeletedObjects 
 	TArray< TWeakObjectPtr< UObject > > NewObjectList;
 	bool bObjectsRemoved = false;
 
-	// Scan all objects and look for objects which need to be replaced
-	for ( TPropObjectIterator Itor( RootPropertyNode->ObjectIterator() ); Itor; ++Itor )
+	for(const TSharedPtr<FComplexPropertyNode>& ComplexRootNode : RootPropertyNodes)
 	{
-		if( DeletedObjects.Contains( Itor->Get() ) )
+		FObjectPropertyNode* RootPropertyNode = ComplexRootNode->AsObjectNode();
+		// Scan all objects and look for objects which need to be replaced
+		for ( TPropObjectIterator Itor( RootPropertyNode->ObjectIterator() ); Itor; ++Itor )
 		{
-			// An object we had needs to be removed
-			bObjectsRemoved = true;
-		}
-		else
-		{
-			// If the deleted object list does not contain the current object, its ok to keep it in the list
-			NewObjectList.Add( Itor->Get() );
+			if( DeletedObjects.Contains( Itor->Get() ) )
+			{
+				// An object we had needs to be removed
+				bObjectsRemoved = true;
+			}
+			else
+			{
+				// If the deleted object list does not contain the current object, its ok to keep it in the list
+				NewObjectList.Add( Itor->Get() );
+			}
 		}
 	}
 
@@ -566,12 +684,18 @@ void SDetailsView::RemoveDeletedObjects( const TArray<UObject*>& DeletedObjects 
 }
 
 /** Called before during SetObjectArray before we change the objects being observed */
-void SDetailsView::PreSetObject()
+void SDetailsView::PreSetObject(int32 InNewNumObjects)
 {
 	// Save existing expanded items first
-	if( GetRootNode().IsValid() )
+	for(TSharedPtr<FComplexPropertyNode>& RootNode : RootPropertyNodes)
 	{
-		SaveExpandedItems( GetRootNode().ToSharedRef() );
+		SaveExpandedItems(RootNode.ToSharedRef());
+
+		RootNodesPendingKill.Add(RootNode);
+		FObjectPropertyNode* RootObjectNode = RootNode->AsObjectNode();
+		RootObjectNode->RemoveAllObjects();
+		RootObjectNode->ClearCachedReadAddresses(true);
+		RootObjectNode->ClearObjectPackageOverrides();
 	}
 
 	for( auto ExternalRootNode : ExternalRootPropertyNodes )
@@ -579,14 +703,30 @@ void SDetailsView::PreSetObject()
 		if( ExternalRootNode.IsValid() )
 		{
 			SaveExpandedItems( ExternalRootNode.Pin().ToSharedRef() );
+
+			FComplexPropertyNode* ComplexNode = ExternalRootNode.Pin()->AsComplexNode();
+			if(ComplexNode)
+			{
+				ComplexNode->Disconnect();
+			}
 		}
 	}
 
 	ExternalRootPropertyNodes.Empty();
+	RootPropertyNodes.Empty(InNewNumObjects);
 
-	RootNodesPendingKill.Add(RootPropertyNode);
+	if(DetailsViewArgs.bAllowMultipleTopLevelObjects)
+	{
+		for(int32 NewRootIndex = 0; NewRootIndex < InNewNumObjects; ++NewRootIndex)
+		{
+			RootPropertyNodes.Add(MakeShareable(new FObjectPropertyNode));
+		}
+	}
+	else
+	{
+		RootPropertyNodes.Add(MakeShareable(new FObjectPropertyNode));
+	}	
 
-	RootPropertyNode = MakeShareable(new FObjectPropertyNode);
 
 	SelectedActors.Empty();
 	SelectedObjects.Empty();
@@ -597,11 +737,11 @@ void SDetailsView::PreSetObject()
 void SDetailsView::PostSetObject()
 {
 	DestroyColorPicker();
-	ColorPropertyNode = NULL;
+	ColorPropertyNode = nullptr;
 
 	FPropertyNodeInitParams InitParams;
-	InitParams.ParentNode = NULL;
-	InitParams.Property = NULL;
+	InitParams.ParentNode = nullptr;
+	InitParams.Property = nullptr;
 	InitParams.ArrayOffset = 0;
 	InitParams.ArrayIndex = INDEX_NONE;
 	InitParams.bAllowChildren = true;
@@ -622,18 +762,17 @@ void SDetailsView::PostSetObject()
 		check(false);
 	}
 
-	RootPropertyNode->InitNode( InitParams );
-
-	bool bInitiallySeen = true;
-	bool bParentAllowsVisible = true;
-	// Restore existing expanded items
-
-	if( GetRootNode().IsValid() )
+	for( TSharedPtr<FComplexPropertyNode>& ComplexRootNode : RootPropertyNodes )
 	{
-		RestoreExpandedItems( GetRootNode().ToSharedRef() );
+		FObjectPropertyNode* RootPropertyNode = ComplexRootNode->AsObjectNode();
+
+		RootPropertyNode->InitNode( InitParams );
+
+		// Restore existing expanded items
+		RestoreExpandedItems(ComplexRootNode.ToSharedRef());
 	}
 
-	UpdatePropertyMap();
+	UpdatePropertyMaps();
 
 	for( auto ExternalRootNode : ExternalRootPropertyNodes )
 	{
@@ -651,30 +790,35 @@ void SDetailsView::SetOnObjectArrayChanged(FOnObjectArrayChanged OnObjectArrayCh
 	OnObjectArrayChanged = OnObjectArrayChangedDelegate;
 }
 
+PRAGMA_DISABLE_DEPRECATION_WARNINGS
 const UClass* SDetailsView::GetBaseClass() const
 {
-	if( RootPropertyNode.IsValid() )
+	if( RootPropertyNodes.Num() == 1 )
 	{
-		return RootPropertyNode->GetObjectBaseClass();
+		return RootPropertyNodes[0]->AsObjectNode()->GetObjectBaseClass();
+	}
+	else
+	{
+		ensureMsgf(0,TEXT("GetBaseClass is not supported on multi-object details panels"));
 	}
 
-	return NULL;
+	return nullptr;
 }
 
 UClass* SDetailsView::GetBaseClass()
 {
-	if( RootPropertyNode.IsValid() )
+	if(RootPropertyNodes.Num() == 1)
 	{
-		return RootPropertyNode->GetObjectBaseClass();
+		return RootPropertyNodes[0]->AsObjectNode()->GetObjectBaseClass();
+	}
+	else
+	{
+		ensureMsgf(0, TEXT("GetBaseClass is not supported on multi-object details panels"));
 	}
 
-	return NULL;
+	return nullptr;
 }
-
-UStruct* SDetailsView::GetBaseStruct() const
-{
-	return RootPropertyNode.IsValid() ? RootPropertyNode->GetObjectBaseClass() : NULL;
-}
+PRAGMA_ENABLE_DEPRECATION_WARNINGS
 
 void SDetailsView::RegisterInstancedCustomPropertyLayout( UStruct* Class, FOnGetDetailCustomizationInstance DetailLayoutDelegate )
 {
@@ -691,14 +835,14 @@ void SDetailsView::AddExternalRootPropertyNode( TSharedRef<FPropertyNode> Extern
 	ExternalRootPropertyNodes.Add( ExternalRootNode );
 }
 
-bool SDetailsView::IsCategoryHiddenByClass( FName CategoryName ) const
+bool SDetailsView::IsCategoryHiddenByClass( const TSharedPtr<FComplexPropertyNode>& InRootNode, FName CategoryName ) const
 {
-	return RootPropertyNode->GetHiddenCategories().Contains( CategoryName );
+	return InRootNode->AsObjectNode()->GetHiddenCategories().Contains( CategoryName );
 }
 
 bool SDetailsView::IsConnected() const
 {
-	return RootPropertyNode.IsValid() && (RootPropertyNode->GetNumObjects() > 0);
+	return RootPropertyNodes.Num() > 0;
 }
 
 const FSlateBrush* SDetailsView::OnGetLockButtonImageResource() const

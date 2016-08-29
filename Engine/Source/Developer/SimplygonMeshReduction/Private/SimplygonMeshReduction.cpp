@@ -10,6 +10,7 @@
 #include "StaticMeshResources.h"
 #include "Components/SplineMeshComponent.h"
 #include "SimplygonSDK.h"
+#include "ScopedTimers.h"
 
 #include "MeshMergeData.h"
 
@@ -221,7 +222,7 @@ public:
 	bool ReduceLODModel(
 		FStaticLODModel * SrcModel,
 		FStaticLODModel *& OutModel, 
-		FBoxSphereBounds & Bounds, 
+		const FBoxSphereBounds & Bounds, 
 		float &MaxDeviation, 
 		const FReferenceSkeleton& RefSkeleton, 
 		const FSkeletalMeshOptimizationSettings& Settings
@@ -345,9 +346,9 @@ public:
 			//todo: check - memory leak here - SrcModel is not released?
 
 			// fix up chunks to remove the bones that set to be removed
-			for (int32 ChunkIndex = 0; ChunkIndex < NewSrcModel->Chunks.Num(); ++ChunkIndex)
+			for (int32 SectionIndex = 0; SectionIndex < NewSrcModel->Sections.Num(); ++SectionIndex)
 			{
-				MeshBoneReductionInterface->FixUpChunkBoneMaps(NewSrcModel->Chunks[ChunkIndex], BonesToRemove);
+				MeshBoneReductionInterface->FixUpSectionBoneMaps(NewSrcModel->Sections[SectionIndex], BonesToRemove);
 			}
 		}
 
@@ -355,7 +356,7 @@ public:
 		LODModels[LODIndex] = NewModel;
 
 		// Reduce LOD model with SrcMesh
-		if (ReduceLODModel(SrcModel, NewModel, SkeletalMesh->Bounds, MaxDeviation, SkeletalMesh->RefSkeleton, Settings))
+		if (ReduceLODModel(SrcModel, NewModel, SkeletalMesh->GetImportedBounds(), MaxDeviation, SkeletalMesh->RefSkeleton, Settings))
 		{
 			if (bCalcLODDistance)
 			{
@@ -507,14 +508,10 @@ public:
 			UE_LOG(LogSimplygon, Warning, TEXT("Simplygon is disabled with -NoSimplygon flag"));
 			return  NULL;
 		}
-		const ANSICHAR* SIMPLYGON_VERSION_STRING = "7.0";  
+		const ANSICHAR* SIMPLYGON_VERSION_STRING = "7.1";  
 
 		FString DllPath(FPaths::Combine(*FPaths::EngineDir(), TEXT("Binaries/ThirdParty/NotForLicensees/Simplygon")));
-		FString DllFilename(FPaths::Combine(*DllPath, TEXT("SimplygonSDKEpicUE4Releasex64.dll")));
-		if( !FPaths::FileExists(DllFilename) )
-		{
-			DllFilename = FPaths::Combine(*DllPath, TEXT("SimplygonSDKRuntimeReleasex64.dll"));
-		}
+		FString DllFilename(FPaths::Combine(*DllPath, TEXT("SimplygonSDKRuntimeReleasex64.dll")));
 
 		// If the DLL just doesn't exist, fail gracefully. Licensees and Subscribers will not necessarily have Simplygon.
 		if( !FPaths::FileExists(DllFilename) )
@@ -569,24 +566,68 @@ public:
 			return NULL;
 		}
 
-		const char* LicenseData = NULL;
-		TArray<uint8> LicenseFileContents;
-		if (FFileHelper::LoadFileToArray(LicenseFileContents, *FPaths::Combine(*DllPath, TEXT("Simplygon_5_license.dat")), FILEREAD_Silent) && LicenseFileContents.Num() > 0)
+		// Workaround for the fact Simplygon stomps memory
+		class FSimplygonLicenseData
 		{
-			LicenseData = (const char*)LicenseFileContents.GetData();
+			uint8* LicenseDataMem;
+			int32 RealDataOffset;
+		public:
+			FSimplygonLicenseData(const TCHAR* InDllPath)
+				: LicenseDataMem(nullptr)
+				, RealDataOffset(0)
+			{
+				TArray<uint8> LicenseFileContents;
+				if (FFileHelper::LoadFileToArray(LicenseFileContents, *FPaths::Combine(InDllPath, TEXT("Simplygon_5_license.dat")), FILEREAD_Silent))
+				{
+					if (LicenseFileContents.Num() > 0)
+					{
+						// Allocate with a big slack at the beginning and end to workaround the fact Simplygon stomps memory					
+						const int32 LicenseDataSizeWithSlack = LicenseFileContents.Num() * 3 * sizeof(uint8);
+						LicenseDataMem = (uint8*)FMemory::Malloc(LicenseDataSizeWithSlack);
+						FMemory::Memzero(LicenseDataMem, LicenseDataSizeWithSlack);
+						// Copy data to somewhere in the middle of allocated memory
+						RealDataOffset = LicenseFileContents.Num();
+						FMemory::Memcpy(LicenseDataMem + RealDataOffset, LicenseFileContents.GetData(), LicenseFileContents.Num() * sizeof(uint8));
+					}
+				}
+			}
+			~FSimplygonLicenseData()
+			{
+				FMemory::Free(LicenseDataMem);
+			}
+			const char* GetLicenseData() const
+			{
+				return (const char*)(LicenseDataMem + RealDataOffset);
+			}
+			bool IsValid() const
+			{
+				return !!LicenseDataMem;
+			}
+		} LicenseDataContainer(*DllPath);
+
+		FSimplygonMeshReduction* Result = nullptr;
+		if (LicenseDataContainer.IsValid())
+		{
+			SimplygonSDK::ISimplygonSDK* SDK = NULL;
+			int32 InitResult = InitializeSimplygonSDK(LicenseDataContainer.GetLicenseData(), &SDK);
+
+			if (InitResult != SimplygonSDK::SG_ERROR_NOERROR && InitResult != SimplygonSDK::SG_ERROR_ALREADYINITIALIZED)
+			{
+				UE_LOG(LogSimplygon, Warning, TEXT("Failed to initialize Simplygon. Error: %d."), Result);
+				FPlatformProcess::FreeDllHandle(GSimplygonSDKDLLHandle);
+				GSimplygonSDKDLLHandle = nullptr;
+			}
+			else
+			{
+				Result = new FSimplygonMeshReduction(SDK);
+			}
+		}
+		else
+		{
+			UE_LOG(LogSimplygon, Warning, TEXT("Failed to load Simplygon license file."));
 		}
 
-		SimplygonSDK::ISimplygonSDK* SDK = NULL;
-		int32 Result = InitializeSimplygonSDK(LicenseData, &SDK);
-		if (Result != SimplygonSDK::SG_ERROR_NOERROR && Result != SimplygonSDK::SG_ERROR_ALREADYINITIALIZED)
-		{
-			UE_LOG(LogSimplygon,Warning,TEXT("Failed to initialize Simplygon. Error: %d."),Result);
-			FPlatformProcess::FreeDllHandle(GSimplygonSDKDLLHandle);
-			GSimplygonSDKDLLHandle = NULL;
-			return NULL;
-		}
-
-		return new FSimplygonMeshReduction(SDK);
+		return Result;
 	}
 
 	struct FMaterialCastingProperties
@@ -612,7 +653,7 @@ public:
 	void SimplygonProcessLOD(
 		ProcessorClass Processor,
 		const TArray<FMeshMergeData>& DataArray,
-		const TArray<FFlattenMaterial> FlattenedMaterials,
+		const TArray<FFlattenMaterial>& FlattenedMaterials,
 		const FSimplygonMaterialLODSettings& MaterialLODSettings,
 		FFlattenMaterial& OutMaterial)
 	{
@@ -633,12 +674,16 @@ public:
 
 		// Convert FFlattenMaterial array to Simplygon materials
 		SimplygonSDK::spMaterialTable InputMaterialTable = SDK->CreateMaterialTable();
-		CreateSGMaterialFromFlattenMaterial(FlattenedMaterials, MaterialLODSettings, InputMaterialTable, true);
+		CreateSGMaterialFromFlattenMaterial(FlattenedMaterials, MaterialLODSettings, InputMaterialTable, false);
 		
 		// Perform LOD processing
 		UE_LOG(LogSimplygon, Log, TEXT("Processing with %s."), *FString(Processor->GetClass()));
-		Processor->RunProcessing();
-		UE_LOG(LogSimplygon, Log, TEXT("Processing done."));
+		double ProcessingTime = 0.0;
+		{
+			FScopedDurationTimer ProcessingTimer(ProcessingTime);
+			Processor->RunProcessing();
+		}
+		UE_LOG(LogSimplygon, Log, TEXT("Processing done in %.2f s."), ProcessingTime);
 
 		// Cast input materials to output materials and convert to FFlattenMaterial
 		UE_LOG(LogSimplygon, Log, TEXT("Casting materials."));
@@ -708,7 +753,7 @@ public:
 			//For each raw mesh in array create a scene mesh and populate with geometry data
 			for (int32 MeshIndex = 0; MeshIndex < Data.Num(); ++MeshIndex)
 			{
-				SimplygonSDK::spGeometryData GeometryData = Reduction->CreateGeometryFromRawMesh(Data[MeshIndex].RawMesh, Data[MeshIndex].TexCoordBounds, Data[MeshIndex].NewUVs);
+				SimplygonSDK::spGeometryData GeometryData = Reduction->CreateGeometryFromRawMesh(*Data[MeshIndex].RawMesh, Data[MeshIndex].TexCoordBounds, Data[MeshIndex].NewUVs);
 				if (!GeometryData)
 				{
 					UE_LOG(LogSimplygon, Warning, TEXT("Geometry data is NULL"));
@@ -825,7 +870,7 @@ public:
 			OutProxyMesh.Empty();
 			return;
 		}
-
+		
 		//Create a Simplygon Scene
 		SimplygonSDK::spScene Scene = SDK->CreateScene();
 
@@ -837,13 +882,20 @@ public:
 			GlobalTexcoordBounds.Append(InData[MeshIndex].TexCoordBounds);
 		}
 
+		// Create Selection Sets for tagging geometry for processing and clipping geometry
+		SimplygonSDK::spSelectionSet processingSet = SDK->CreateSelectionSet();		
+		processingSet->SetName("RemeshingProcessingSet");
+		SimplygonSDK::spSelectionSet clippingGeometrySet = SDK->CreateSelectionSet();
+		clippingGeometrySet->SetName("ClippingObjectSet");
+
 		//For each raw mesh in array create a scene mesh and populate with geometry data
 		for (int32 MeshIndex = 0; MeshIndex < InData.Num(); ++MeshIndex)
 		{
-			SimplygonSDK::spGeometryData GeometryData = CreateGeometryFromRawMesh(InData[MeshIndex].RawMesh, InData[MeshIndex].TexCoordBounds, InData[MeshIndex].NewUVs);
+			SimplygonSDK::spGeometryData GeometryData = CreateGeometryFromRawMesh(*InData[MeshIndex].RawMesh, InData[MeshIndex].TexCoordBounds, InData[MeshIndex].NewUVs);
 			if (!GeometryData)
 			{
 				UE_LOG(LogSimplygon, Warning, TEXT("Geometry data is NULL"));
+				FailedDelegate.ExecuteIfBound(InJobGUID, TEXT("Simplygon failed to generate Geometry Data"));
 				continue;
 			}
 
@@ -851,31 +903,54 @@ public:
 
 			//Validate the geometry
 			ValidateGeometry(GeometryValidator, GeometryData);
-
-			check(GeometryData)
-
+			
 #ifdef DEBUG_PROXY_MESH
 				SimplygonSDK::spWavefrontExporter objexp = SDK->CreateWavefrontExporter();
 			objexp->SetExportFilePath("d:/BeforeProxyMesh.obj");
 			objexp->SetSingleGeometry(GeometryData);
 			objexp->RunExport();
 #endif
-
 			SimplygonSDK::spSceneMesh Mesh = SDK->CreateSceneMesh();
 			Mesh->SetGeometry(GeometryData);
 			Mesh->SetName(TCHAR_TO_ANSI(*FString::Printf(TEXT("UnrealMesh%d"), MeshIndex)));
 			Scene->GetRootNode()->AddChild(Mesh);
 
+			// if mesh is clipping geometry add to clipping set else processing set
+			if (!InData[MeshIndex].bIsClippingMesh)
+			{
+				processingSet->AddItem(Mesh->GetNodeGUID());
+			}
+			else if (InData[MeshIndex].bIsClippingMesh)
+			{
+				clippingGeometrySet->AddItem(Mesh->GetNodeGUID());
+			}
 		}
+
+		//add the sets to the scene
+		Scene->GetSelectionSetTable()->AddItem(processingSet);
+		Scene->GetSelectionSetTable()->AddItem(clippingGeometrySet);
 
 		//Create a remesher
 		SimplygonSDK::spRemeshingProcessor RemeshingProcessor = SDK->CreateRemeshingProcessor();
+		RemeshingProcessor->Clear();
 
 		//Setup the remesher
 		RemeshingProcessor->AddObserver(&EventHandler, SimplygonSDK::SG_EVENT_PROGRESS);
-		// TODO add more settings back in
 		RemeshingProcessor->GetRemeshingSettings()->SetOnScreenSize(InProxySettings.ScreenSize);
 		RemeshingProcessor->GetRemeshingSettings()->SetMergeDistance(InProxySettings.MergeDistance);
+		
+		// Setup sets for the remeshing processor
+		bool bUseClippingGeometry = clippingGeometrySet->GetItemCount() > 0 ? true : false;
+
+		RemeshingProcessor->GetRemeshingSettings()->SetUseClippingGeometry(bUseClippingGeometry);
+		RemeshingProcessor->GetRemeshingSettings()->SetProcessSelectionSetName("RemeshingProcessingSet");
+
+		if (bUseClippingGeometry)
+		{
+			RemeshingProcessor->GetRemeshingSettings()->SetClippingGeometrySelectionSetName("ClippingObjectSet");
+			RemeshingProcessor->GetRemeshingSettings()->SetUseClippingGeometryEmptySpaceOverride(false);
+		}
+
 		RemeshingProcessor->SetScene(Scene);
 
 		FSimplygonMaterialLODSettings MaterialLODSettings(InProxySettings.MaterialSettings);
@@ -885,27 +960,45 @@ public:
 		SimplygonProcessLOD<SimplygonSDK::spRemeshingProcessor>(RemeshingProcessor, InData, InputMaterials, MaterialLODSettings, OutMaterial);
 
 		//Collect the proxy mesh
-		SimplygonSDK::spSceneMesh ProxyMesh = SimplygonSDK::Cast<SimplygonSDK::ISceneMesh>(Scene->GetRootNode()->GetChild(0));
+		const uint32 ChildNodeCount = Scene->GetRootNode()->GetChildCount();
 
-#ifdef DEBUG_PROXY_MESH
-		SimplygonSDK::spWavefrontExporter objexp = SDK->CreateWavefrontExporter();
-		objexp->SetExportFilePath("d:/AfterProxyMesh.obj");
-		objexp->SetSingleGeometry(ProxyMesh->GetGeometry());
-		objexp->RunExport();
-#endif
-
-		//Convert geometry data to raw mesh data
-		SimplygonSDK::spGeometryData outGeom = ProxyMesh->GetGeometry();
-		CreateRawMeshFromGeometry(OutProxyMesh, ProxyMesh->GetGeometry(), WINDING_Keep);
-		
-		// Default smoothing
-		OutProxyMesh.FaceSmoothingMasks.SetNum(OutProxyMesh.FaceMaterialIndices.Num());
-		for (uint32& SmoothingMask : OutProxyMesh.FaceSmoothingMasks)
+		SimplygonSDK::spSceneMesh ProxyMesh = nullptr;
+		for (uint32 ChildNodeIndex = 0; ChildNodeIndex < ChildNodeCount; ++ChildNodeIndex)
 		{
-			SmoothingMask = 1;
+			auto ChildNode = Scene->GetRootNode()->GetChild(ChildNodeIndex);
+			SimplygonSDK::spSceneMesh Mesh = SimplygonSDK::SafeCast<SimplygonSDK::ISceneMesh>(ChildNode);
+			if (Mesh != NULL)
+			{
+				ProxyMesh = Mesh;
+			}
 		}
 
-		CompleteDelegate.ExecuteIfBound(OutProxyMesh, OutMaterial, InJobGUID);
+		if (ProxyMesh == nullptr)
+		{
+			FailedDelegate.ExecuteIfBound(InJobGUID, TEXT("Simplygon failed to generate a proxy mesh"));
+		}
+		else
+		{
+#ifdef DEBUG_PROXY_MESH
+			SimplygonSDK::spWavefrontExporter objexp = SDK->CreateWavefrontExporter();
+			objexp->SetExportFilePath("d:/AfterProxyMesh.obj");
+			objexp->SetSingleGeometry(ProxyMesh->GetGeometry());
+			objexp->RunExport();
+#endif
+
+			//Convert geometry data to raw mesh data
+			SimplygonSDK::spGeometryData outGeom = ProxyMesh->GetGeometry();
+			CreateRawMeshFromGeometry(OutProxyMesh, ProxyMesh->GetGeometry(), WINDING_Keep);
+		
+			// Default smoothing
+			OutProxyMesh.FaceSmoothingMasks.SetNum(OutProxyMesh.FaceMaterialIndices.Num());
+			for (uint32& SmoothingMask : OutProxyMesh.FaceSmoothingMasks)
+			{
+				SmoothingMask = 1;
+			}
+				
+			CompleteDelegate.ExecuteIfBound(OutProxyMesh, OutMaterial, InJobGUID);
+		}
 	}
 
 private:
@@ -921,8 +1014,7 @@ private:
 		SDK->SetErrorHandler(&ErrorHandler);
 		SDK->SetGlobalSetting("DefaultTBNType", SimplygonSDK::SG_TANGENTSPACEMETHOD_ORTHONORMAL_LEFTHANDED);
 		SDK->SetGlobalSetting("AllowDirectX", true);
-
-		
+				
 		const TCHAR* LibraryVersion = ANSI_TO_TCHAR(InSDK->GetVersion());
 		const TCHAR* UnrealVersionGuid = TEXT("18f808c3cf724e5a994f57de5c83cc4b");
 		VersionString = FString::Printf(TEXT("%s.%s_%s"), LibraryVersion, SG_UE_INTEGRATION_REV,UnrealVersionGuid);
@@ -1361,9 +1453,9 @@ private:
 
 	/**
 	 * Creates a Simplygon scene representation of the skeletal hierarchy.
-	 * @param InScene - The Simplygon scene.
-	 * @param InSkeleton - The skeletal hierarchy from which to create the Simplygon representation.
-	 * @param OutBoneTableIDs - A mapping of Bone IDs from RefSkeleton to Simplygon Bone Table IDs
+	 * @param InScene The Simplygon scene.
+	 * @param InSkeleton The skeletal hierarchy from which to create the Simplygon representation.
+	 * @param OutBoneTableIDs A mapping of Bone IDs from RefSkeleton to Simplygon Bone Table IDs
 	 */
 	void CreateSkeletalHierarchy( SimplygonSDK::spScene& InScene, const FReferenceSkeleton& InSkeleton, TArray<SimplygonSDK::rid>& OutBoneTableIDs ) 
 	{
@@ -1412,9 +1504,9 @@ private:
 
 	/**
 	 * Creates a Simplygon geometry representation from a skeletal mesh LOD model.
-	 * @param Scene - The Simplygon scene.
-	 * @param LODModel - The skeletal mesh LOD model from which to create the geometry data.
-	 * @param BoneIDs - A maps of Bone IDs from RefSkeleton to Simplygon BoneTable IDs
+	 * @param Scene The Simplygon scene.
+	 * @param LODModel The skeletal mesh LOD model from which to create the geometry data.
+	 * @param BoneIDs A maps of Bone IDs from RefSkeleton to Simplygon BoneTable IDs
 	 * @returns a Simplygon geometry data representation of the skeletal mesh LOD.
 	 */
 	SimplygonSDK::spGeometryData CreateGeometryFromSkeletalLODModel( SimplygonSDK::spScene& Scene, const FStaticLODModel& LODModel, const TArray<SimplygonSDK::rid>& BoneIDs )
@@ -1480,17 +1572,12 @@ private:
 		GeometryData->AddMaterialIds();
 		SimplygonSDK::spRidArray MaterialIndices = GeometryData->GetMaterialIds();
 
-		// Add per-vertex data. This data needs to be added per-chunk so that we can properly map bones.
-#if WITH_APEX_CLOTHING
-		const int32 ChunkCount = LODModel.NumNonClothingSections();
-#else
-		const int32 ChunkCount = LODModel.Chunks.Num();
-#endif // #if WITH_APEX_CLOTHING
+		// Add per-vertex data. This data needs to be added per-section so that we can properly map bones.
 		uint32 FirstVertex = 0;
-		for ( int32 ChunkIndex = 0; ChunkIndex < ChunkCount; ++ChunkIndex )
+		for ( uint32 SectionIndex = 0; SectionIndex < SectionCount; ++SectionIndex )
 		{
-			const FSkelMeshChunk& Chunk = LODModel.Chunks[ ChunkIndex ];
-			const uint32 LastVertex = FirstVertex + (uint32)Chunk.RigidVertices.Num() + (uint32)Chunk.SoftVertices.Num();
+			const FSkelMeshSection& Section = LODModel.Sections[SectionIndex];
+			const uint32 LastVertex = FirstVertex + (uint32)Section.SoftVertices.Num();
 			for ( uint32 VertexIndex = FirstVertex; VertexIndex < LastVertex; ++VertexIndex )
 			{
 				FSoftSkinVertex& Vertex = Vertices[ VertexIndex ];
@@ -1506,8 +1593,8 @@ private:
 
 					if ( BoneInfluence > 0 )
 					{
-						check( BoneIndex < Chunk.BoneMap.Num() );
-						uint32 BoneID = BoneIDs[ Chunk.BoneMap[ BoneIndex ] ];
+						check( BoneIndex < Section.BoneMap.Num() );
+						uint32 BoneID = BoneIDs[Section.BoneMap[ BoneIndex ] ];
 						VertexBoneIds[InfluenceIndex] = BoneID;
 						VertexBoneWeights[InfluenceIndex] = BoneInfluence / 255.0f;
 					}
@@ -1611,8 +1698,8 @@ private:
 
 	/**
 	 * Extracts mesh data from the Simplygon geometry representation in to a set of data usable by skeletal meshes.
-	 * @param GeometryData - the Simplygon geometry.
-	 * @param MeshData - the skeletal mesh output data.
+	 * @param GeometryData the Simplygon geometry.
+	 * @param MeshData the skeletal mesh output data.
 	 */
 	void ExtractSkeletalDataFromGeometry( const SimplygonSDK::spGeometryData& GeometryData, FSkeletalMeshData& MeshData )
 	{
@@ -1842,9 +1929,9 @@ private:
 
 	/**
 	 * Creates a skeletal mesh LOD model from the Simplygon geometry representation.
-	 * @param GeometryData - the Simplygon geometry representation from which to create a skeletal mesh LOD.
-	 * @param SkeletalMesh - the skeletal mesh in to which the LOD model will be added.
-	 * @param NewModel - the LOD model in to which the geometry will be stored.
+	 * @param GeometryData the Simplygon geometry representation from which to create a skeletal mesh LOD.
+	 * @param SkeletalMesh the skeletal mesh in to which the LOD model will be added.
+	 * @param NewModel the LOD model in to which the geometry will be stored.
 	 */
 	void CreateSkeletalLODModelFromGeometry( const SimplygonSDK::spGeometryData& GeometryData, const FReferenceSkeleton& RefSkeleton, FStaticLODModel* NewModel )
 	{
@@ -1901,8 +1988,8 @@ private:
 
 	/**
 	 * Sets reduction settings for Simplygon.
-	 * @param Settings - The skeletal mesh optimization settings.
-	 * @param ReductionSettings - The reduction settings to set for Simplygon.
+	 * @param Settings The skeletal mesh optimization settings.
+	 * @param ReductionSettings The reduction settings to set for Simplygon.
 	 */
 	void SetReductionSettings( const FSkeletalMeshOptimizationSettings& Settings, float BoundsRadius, int32 SourceTriCount, SimplygonSDK::spReductionSettings ReductionSettings )
 	{
@@ -1945,8 +2032,8 @@ private:
 	
 	/**
 	 * Sets vertex normal settings for Simplygon.
-	 * @param Settings - The skeletal mesh optimization settings.
-	 * @param NormalSettings - The normal settings to set for Simplygon.
+	 * @param Settings The skeletal mesh optimization settings.
+	 * @param NormalSettings The normal settings to set for Simplygon.
 	 */
 	void SetNormalSettings( const FSkeletalMeshOptimizationSettings& Settings, SimplygonSDK::spNormalCalculationSettings NormalSettings )
 	{
@@ -1958,8 +2045,8 @@ private:
 
 	/**
 	 * Sets Bone Lod settings for Simplygon.
-	 * @param Settings - The skeletal mesh optimization settings.
-	 * @param NormalSettings - The Bone LOD to set for Simplygon.
+	 * @param Settings The skeletal mesh optimization settings.
+	 * @param NormalSettings The Bone LOD to set for Simplygon.
 	 */
 	void SetBoneSettings( const FSkeletalMeshOptimizationSettings& Settings, SimplygonSDK::spBoneSettings BoneSettings)
 	{
@@ -1970,7 +2057,7 @@ private:
 
 	/**
 	 * Calculates the view distance that a mesh should be displayed at.
-	 * @param MaxDeviation - The maximum surface-deviation between the reduced geometry and the original. This value should be acquired from Simplygon
+	 * @param MaxDeviation The maximum surface-deviation between the reduced geometry and the original. This value should be acquired from Simplygon
 	 * @returns The calculated view distance	 
 	 */
 	float CalculateViewDistance( float MaxDeviation )
@@ -2256,9 +2343,9 @@ private:
 
 	/**
 	 * The method converts ESimplygonTextureSamplingQuality
-	 * @param InSamplingQuality - The Caster Settings used to setup the Simplygon Caster.
-	 * @param InMappingImage - Simplygon MappingImage.
-	 * @result 
+	 * @param InSamplingQuality The Caster Settings used to setup the Simplygon Caster.
+	 * @param InMappingImage Simplygon MappingImage.
+	 * @return 
 	 */
 	uint8 GetSamples(ESimplygonTextureSamplingQuality::Type InSamplingQuality)
 	{
@@ -2293,11 +2380,11 @@ private:
 
 	/**
 	 * Use Simplygon Color Caster to Cast a Color Channel
-	 * @param InCasterSettings - The Caster Settings used to setup the Simplygon Caster.
-	 * @param InMappingImage - Simplygon MappingImage.
-	 * @param InMaterialTable - Input MaterialTable used by the Simplygon Caster.
-	 * @param InTextureTable - Simplygon TextureTable used by the Simplyogn Caster.
-	 * @param OutColorData - The Simplygon Output ImageData.
+	 * @param InCasterSettings The Caster Settings used to setup the Simplygon Caster.
+	 * @param InMappingImage Simplygon MappingImage.
+	 * @param InMaterialTable Input MaterialTable used by the Simplygon Caster.
+	 * @param InTextureTable Simplygon TextureTable used by the Simplyogn Caster.
+	 * @param OutColorData The Simplygon Output ImageData.
 	 */
 	void CastColorChannel(const FSimplygonChannelCastingSettings& InCasterSettings, 
 		SimplygonSDK::spMappingImage& InMappingImage,
@@ -2323,11 +2410,11 @@ private:
 
 	/**
 	 * Use Simplygon Normal Caster to Cast a Normals Channel
-	 * @param InCasterSettings - The Caster Settings used to setup the Simplygon Caster.
-	 * @param InMappingImage - Simplygon MappingImage.
-	 * @param InMaterialTable - Input MaterialTable used by the Simplygon Caster.
-	 * @param InTextureTable - Simplygon TextureTable used by the Simplyogn Caster.
-	 * @param OutColorData - The Simplygon Output ImageData.
+	 * @param InCasterSettings The Caster Settings used to setup the Simplygon Caster.
+	 * @param InMappingImage Simplygon MappingImage.
+	 * @param InMaterialTable Input MaterialTable used by the Simplygon Caster.
+	 * @param InTextureTable Simplygon TextureTable used by the Simplyogn Caster.
+	 * @param OutColorData The Simplygon Output ImageData.
 	 */
 	void CastNormalsChannel(FSimplygonChannelCastingSettings InCasterSettings, 
 		SimplygonSDK::spMappingImage& InMappingImage,
@@ -2354,11 +2441,11 @@ private:
 
 	/**
 	 * Use Simplygon Opacity Caster to Cast an Opacity Channel
-	 * @param InCasterSettings - The Caster Settings used to setup the Simplygon Caster.
-	 * @param InMappingImage - Simplygon MappingImage.
-	 * @param InMaterialTable - Input MaterialTable used by the Simplygon Caster.
-	 * @param InTextureTable - Simplygon TextureTable used by the Simplyogn Caster.
-	 * @param OutColorData - The Simplygon Output ImageData.
+	 * @param InCasterSettings The Caster Settings used to setup the Simplygon Caster.
+	 * @param InMappingImage Simplygon MappingImage.
+	 * @param InMaterialTable Input MaterialTable used by the Simplygon Caster.
+	 * @param InTextureTable Simplygon TextureTable used by the Simplyogn Caster.
+	 * @param OutColorData The Simplygon Output ImageData.
 	 */
 	void CastOpacityChannel(FSimplygonChannelCastingSettings InCasterSettings, 
 		SimplygonSDK::spMappingImage& InMappingImage,
@@ -2379,8 +2466,8 @@ private:
 
 	/**
 	* Sets Mapping Image Setting for Simplygon.
-	* @param InMaterialLODSettings - The MaterialLOD Settings used for setting up Simplygon MappingImageSetting.
-	* @param InMappingImageSettings - The Simplygon MappingImage Settings that is being setup.
+	* @param InMaterialLODSettings The MaterialLOD Settings used for setting up Simplygon MappingImageSetting.
+	* @param InMappingImageSettings The Simplygon MappingImage Settings that is being setup.
 	*/
 	void SetupMappingImage(const FSimplygonMaterialLODSettings& InMaterialLODSettings,
 		SimplygonSDK::spMappingImageSettings InMappingImageSettings,

@@ -83,6 +83,14 @@ extern CORE_API bool			GIntraFrameDebuggingGameThread;
 /** True if this is the first time through the UI message pumping loop. */
 extern CORE_API bool			GFirstFrameIntraFrameDebugging;
 
+#elif USING_CODE_ANALYSIS
+
+// Defined as variables during code analysis to prevent lots of '<constant> && <expr>' warnings
+extern CORE_API bool GIsEditor;
+extern CORE_API bool GIsUCCMakeStandaloneHeaderGenerator;
+extern CORE_API bool GIntraFrameDebuggingGameThread;
+extern CORE_API bool GFirstFrameIntraFrameDebugging;
+
 #else
 
 #define GIsEditor								false
@@ -213,9 +221,6 @@ extern CORE_API int32 GPlayInEditorID;
 /** Whether or not PIE was attempting to play from PlayerStart */
 extern CORE_API bool GIsPIEUsingPlayerStart;
 
-/** Proxy class that allows verification on FApp::IsGame() accesses. */
-extern CORE_API bool IsInGameThread();
-
 /** true if the runtime needs textures to be powers of two */
 extern CORE_API bool GPlatformNeedsPowerOfTwoTextures;
 
@@ -274,6 +279,9 @@ extern CORE_API uint32 GRenderThreadId;
 /** Thread ID of the slate thread, if any */
 extern CORE_API uint32 GSlateLoadingThreadId;
 
+/** Thread ID of the audio thread, if any */
+extern CORE_API uint32 GAudioThreadId;
+
 /** Has GGameThreadId been set yet? */
 extern CORE_API bool GIsGameThreadIdInitialized;
 
@@ -316,8 +324,8 @@ extern CORE_API float GAsyncIOBandwidthLimit;
 /** Whether or not messages are being pumped outside of main loop */
 extern CORE_API bool GPumpingMessagesOutsideOfMainLoop;
 
-/** Total blueprint compile time. */
-extern CORE_API double GBlueprintCompileTime;
+/** Enables various editor and HMD hacks that allow the experimental VR editor feature to work, perhaps at the expense of other systems */
+extern CORE_API bool GEnableVREditorHacks;
 
 #if WITH_HOT_RELOAD_CTORS
 /**

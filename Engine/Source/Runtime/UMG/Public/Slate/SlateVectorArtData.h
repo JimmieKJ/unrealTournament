@@ -96,7 +96,7 @@ public:
 
 private:
 	// ~ UObject Interface
-	virtual void PreSave() override;
+	virtual void PreSave(const class ITargetPlatform* TargetPlatform) override;
 	// ~ UObject Interface
 
 #if WITH_EDITORONLY_DATA

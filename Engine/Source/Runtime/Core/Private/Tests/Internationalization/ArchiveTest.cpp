@@ -45,6 +45,7 @@ bool FArchiveTest::RunTest( const FString& Parameters )
 	Translation.Text = TEXT("TranslatedTextA");
 
 	FString TestNamespace = TEXT("TestNamespace");
+	FString SourceAKey = TEXT("TextA");
 
 	// Test entry add
 	{
@@ -53,22 +54,22 @@ bool FArchiveTest::RunTest( const FString& Parameters )
 
 		// bIsOptional is not used as a key.  We ensure adding entries where the bIsOptional member is the only difference works as expected.
 		FInternationalizationArchive TestArchive;
-		TestArchive.AddEntry( TestNamespace, SourceA, Translation, NULL, TestOptionalTrue );
+		TestArchive.AddEntry( TestNamespace, SourceAKey, SourceA, Translation, NULL, TestOptionalTrue );
 		// Add duplicate entry that differs in bIsOptional flag.  This add should report success because we already have an entry with matching 
 		//  namespace/source/keymetadata.  Differences in bIsOptional are not taken into consideration. 
-		bool bResult = TestArchive.AddEntry( TestNamespace, SourceA, Translation, NULL, TestOptionalFalse );
+		bool bResult = TestArchive.AddEntry( TestNamespace, SourceAKey, SourceA, Translation, NULL, TestOptionalFalse );
 		TestTrue( TEXT("AddEntry result = true"), bResult);
 
 		// We should only have one entry in the archive
 		int32 EntryCount = 0;
-		for(auto Iter = TestArchive.GetEntryIterator(); Iter; ++Iter, ++EntryCount);
+		for(auto Iter = TestArchive.GetEntriesBySourceTextIterator(); Iter; ++Iter, ++EntryCount);
 		TestEqual( TEXT("EntryCount == 1"), EntryCount, 1 );
 
 		// Make sure the original bIsOptional value is not overwritten by our second add.
-		TSharedPtr< FArchiveEntry > FoundEntry = TestArchive.FindEntryBySource( TestNamespace, SourceA, NULL );
+		TSharedPtr< FArchiveEntry > FoundEntry = TestArchive.FindEntryByKey( TestNamespace, SourceAKey, NULL );
 		if( !FoundEntry.IsValid() )
 		{
-			AddError(TEXT("FArchiveEntry could not find entry using FindEntryBySource."));
+			AddError(TEXT("FArchiveEntry could not find entry using FindEntryByKey."));
 		}
 		else
 		{
@@ -80,12 +81,12 @@ bool FArchiveTest::RunTest( const FString& Parameters )
 	{
 		{
 			FInternationalizationArchive TestArchive;
-			TestArchive.AddEntry( TestNamespace, SourceA, Translation, KeyMetadataA, false );
+			TestArchive.AddEntry( TestNamespace, SourceAKey, SourceA, Translation, KeyMetadataA, false );
 
-			TSharedPtr< FArchiveEntry > FoundEntry = TestArchive.FindEntryBySource( TestNamespace, SourceA, KeyMetadataA );
+			TSharedPtr< FArchiveEntry > FoundEntry = TestArchive.FindEntryByKey( TestNamespace, SourceAKey, KeyMetadataA );
 			if( !FoundEntry.IsValid() )
 			{
-				AddError(TEXT("FArchiveEntry could not find entry using FindEntryBySource."));
+				AddError(TEXT("FArchiveEntry could not find entry using FindEntryByKey."));
 			}
 			else
 			{
@@ -100,25 +101,25 @@ bool FArchiveTest::RunTest( const FString& Parameters )
 			}
 
 			// Passing in a mismatched key metadata will fail to find the entry.  Any fallback logic is intended to happen at runtime
-			FoundEntry = TestArchive.FindEntryBySource( TestNamespace, SourceA, NULL );
+			FoundEntry = TestArchive.FindEntryByKey( TestNamespace, SourceAKey, NULL );
 			TestInvalid( TEXT("!FoundEntry.IsValid()"), FoundEntry);
 
-			FoundEntry = TestArchive.FindEntryBySource( TestNamespace, SourceA, MakeShareable( new FLocMetadataObject() ) );
+			FoundEntry = TestArchive.FindEntryByKey( TestNamespace, SourceAKey, MakeShareable( new FLocMetadataObject() ) );
 			TestInvalid( TEXT("!FoundEntry.IsValid()"), FoundEntry);
 
-			FoundEntry = TestArchive.FindEntryBySource( TestNamespace, SourceA, KeyMetadataB );
+			FoundEntry = TestArchive.FindEntryByKey( TestNamespace, SourceAKey, KeyMetadataB );
 			TestInvalid( TEXT("!FoundEntry.IsValid()"), FoundEntry);
 		}
 
 		// Ensure we can properly lookup entries with non-null but empty key metadata
 		{
 			FInternationalizationArchive TestArchive;
-			TestArchive.AddEntry( TestNamespace, SourceA, Translation, MakeShareable( new FLocMetadataObject() ), false );
+			TestArchive.AddEntry( TestNamespace, SourceAKey, SourceA, Translation, MakeShareable( new FLocMetadataObject() ), false );
 
-			TSharedPtr< FArchiveEntry > FoundEntry = TestArchive.FindEntryBySource( TestNamespace, SourceA, NULL );
+			TSharedPtr< FArchiveEntry > FoundEntry = TestArchive.FindEntryByKey( TestNamespace, SourceAKey, NULL );
 			if( !FoundEntry.IsValid() )
 			{
-				AddError(TEXT("FArchiveEntry could not find entry using FindEntryBySource."));
+				AddError(TEXT("FArchiveEntry could not find entry using FindEntryByKey."));
 			}
 			else
 			{
@@ -130,12 +131,12 @@ bool FArchiveTest::RunTest( const FString& Parameters )
 		// Ensure we can properly lookup entries with null key metadata
 		{
 			FInternationalizationArchive TestArchive;
-			TestArchive.AddEntry( TestNamespace, SourceA, Translation, NULL, false );
+			TestArchive.AddEntry( TestNamespace, SourceAKey, SourceA, Translation, NULL, false );
 
-			TSharedPtr< FArchiveEntry > FoundEntry = TestArchive.FindEntryBySource( TestNamespace, SourceA, NULL );
+			TSharedPtr< FArchiveEntry > FoundEntry = TestArchive.FindEntryByKey( TestNamespace, SourceAKey, NULL );
 			if( !FoundEntry.IsValid() )
 			{
-				AddError(TEXT("FArchiveEntry could not find entry using FindEntryBySource."));
+				AddError(TEXT("FArchiveEntry could not find entry using FindEntryByKey."));
 			}
 			else
 			{
@@ -144,10 +145,10 @@ bool FArchiveTest::RunTest( const FString& Parameters )
 			}
 
 			// Test lookup with non-null but empty key metadata
-			FoundEntry = TestArchive.FindEntryBySource( TestNamespace, SourceA, MakeShareable( new FLocMetadataObject() ) );
+			FoundEntry = TestArchive.FindEntryByKey( TestNamespace, SourceAKey, MakeShareable( new FLocMetadataObject() ) );
 			if( !FoundEntry.IsValid() )
 			{
-				AddError(TEXT("FArchiveEntry could not find entry using FindEntryBySource."));
+				AddError(TEXT("FArchiveEntry could not find entry using FindEntryByKey."));
 			}
 			else
 			{
@@ -165,13 +166,13 @@ bool FArchiveTest::RunTest( const FString& Parameters )
 
 			FInternationalizationArchive TestArchive;
 			// Added entry with String *IsMature entry
-			TestArchive.AddEntry( TestNamespace, SourceCompare, Translation, KeyMetadataA, false );
+			TestArchive.AddEntry( TestNamespace, SourceAKey, SourceCompare, Translation, KeyMetadataA, false );
 
 			// Finding entry using a source that has Boolean *IsMature
-			TSharedPtr< FArchiveEntry > FoundEntry = TestArchive.FindEntryBySource( TestNamespace, SourceA, KeyMetadataA );
+			TSharedPtr< FArchiveEntry > FoundEntry = TestArchive.FindEntryByKey( TestNamespace, SourceAKey, KeyMetadataA );
 			if( !FoundEntry.IsValid() )
 			{
-				AddError(TEXT("FArchiveEntry could not find entry using FindEntryBySource."));
+				AddError(TEXT("FArchiveEntry could not find entry using FindEntryByKey."));
 			}
 			else
 			{
@@ -181,20 +182,20 @@ bool FArchiveTest::RunTest( const FString& Parameters )
 
 			// Attempting to add an entry that only differs by a * prefexed source metadata entry value or type will result in success since
 			//  a 'matching' entry already exists in the archive.  We should, however, only have one entry in the archive
-			bool bResult = TestArchive.AddEntry( TestNamespace, SourceA, Translation, KeyMetadataA, false );
+			bool bResult = TestArchive.AddEntry( TestNamespace, SourceAKey, SourceA, Translation, KeyMetadataA, false );
 
 			TestTrue( TEXT("AddEntry result = true"), bResult);
 
 			// We should only have one entry in the archive
 			int32 EntryCount = 0;
-			for(auto Iter = TestArchive.GetEntryIterator(); Iter; ++Iter, ++EntryCount);
+			for(auto Iter = TestArchive.GetEntriesBySourceTextIterator(); Iter; ++Iter, ++EntryCount);
 			TestEqual( TEXT("EntryCount == 1"), EntryCount, 1 );
 
 			// Check to see that the original type/value of the * prefixed entry did not get modified
-			FoundEntry = TestArchive.FindEntryBySource( TestNamespace, SourceA, KeyMetadataA );
+			FoundEntry = TestArchive.FindEntryByKey( TestNamespace, SourceAKey, KeyMetadataA );
 			if( !FoundEntry.IsValid() )
 			{
-				AddError(TEXT("FArchiveEntry could not find entry using FindEntryBySource."));
+				AddError(TEXT("FArchiveEntry could not find entry using FindEntryByKey."));
 			}
 			else
 			{

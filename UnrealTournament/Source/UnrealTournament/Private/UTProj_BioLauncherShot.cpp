@@ -137,7 +137,7 @@ void AUTProj_BioLauncherShot::SpawnWeb(FVector HitNormal)
 			const FVector Dir = HitLoc - MyLoc;
 			WebCapsule->OnComponentBeginOverlap.AddDynamic(this, &AUTProj_BioLauncherShot::OnWebOverlapBegin);
 			WebCapsule->SetCollisionProfileName(TEXT("ProjectileShootable"));
-			WebCapsule->AttachParent = RootComponent;
+			WebCapsule->SetupAttachment(RootComponent);
 			WebCapsule->InitCapsuleSize(30.0f, Dir.Size() * 0.5f);
 			WebCapsule->RegisterComponent();
 			WebCapsule->SetWorldLocation(GetActorLocation() + Dir * 0.5f);
@@ -170,7 +170,7 @@ void AUTProj_BioLauncherShot::SpawnWebEffects()
 			WebMesh->bAbsoluteRotation = true;
 			WebMesh->RelativeScale3D.X = Dir.Size() / 190.0f; // TODO: probably should use content bounds
 			WebMesh->bAbsoluteScale = true;
-			WebMesh->AttachParent = RootComponent;
+			WebMesh->SetupAttachment(RootComponent);
 			WebMesh->RegisterComponent();
 			WebMIDs.Add(WebMesh->CreateAndSetMaterialInstanceDynamic(0));
 		}
@@ -224,7 +224,7 @@ void AUTProj_BioLauncherShot::PlayWebHitFlash()
 	HitFlashStartTime = GetWorld()->TimeSeconds;
 }
 
-void AUTProj_BioLauncherShot::OnWebOverlapBegin(AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
+void AUTProj_BioLauncherShot::OnWebOverlapBegin(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
 {
 	if (Cast<APawn>(OtherActor) != NULL)
 	{

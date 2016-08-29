@@ -18,10 +18,14 @@ struct FGameplayTagReponsePair
 	/** Tag that triggers this response */
 	UPROPERTY(EditAnywhere, Category="Response")
 	FGameplayTag	Tag;
-
-	/** The GameplayEffect to apply in reponse to the tag */
-	UPROPERTY(EditAnywhere, Category="Response")
+	
+	/** Deprecated. Replaced with ResponseGameplayEffects */
+	UPROPERTY()
 	TSubclassOf<UGameplayEffect> ResponseGameplayEffect;
+
+	/** The GameplayEffects to apply in reponse to the tag */
+	UPROPERTY(EditAnywhere, Category="Response")
+	TArray<TSubclassOf<UGameplayEffect> > ResponseGameplayEffects;
 
 	/** The max "count" this response can achieve. This will not prevent counts from being applied, but will be used when calculating the net count of a tag. 0=no cap. */
 	UPROPERTY(EditAnywhere, Category="Response", meta=(ClampMin = "0"))
@@ -62,6 +66,8 @@ class GAMEPLAYABILITIES_API UGameplayTagReponseTable : public UDataAsset
 	 */
 	void RegisterResponseForEvents(UAbilitySystemComponent* ASC);
 
+	virtual void PostLoad() override;
+
 protected:
 
 	UFUNCTION()
@@ -80,15 +86,15 @@ protected:
 
 	struct FGameplayTagResponseAppliedInfo
 	{
-		FActiveGameplayEffectHandle PositiveHandle;
-		FActiveGameplayEffectHandle NegativeHandle;
+		TArray<FActiveGameplayEffectHandle> PositiveHandles;
+		TArray<FActiveGameplayEffectHandle> NegativeHandles;
 	};
 
 	TMap< TWeakObjectPtr<UAbilitySystemComponent>, TArray< FGameplayTagResponseAppliedInfo> > RegisteredASCs;
 
-	void Remove(UAbilitySystemComponent* ASC, FActiveGameplayEffectHandle& Handle);
+	void Remove(UAbilitySystemComponent* ASC, TArray<FActiveGameplayEffectHandle>& Handles);
 
-	void AddOrUpdate(UAbilitySystemComponent* ASC, const TSubclassOf<UGameplayEffect>& ResponseGameplayEffect, int32 TotalCount, FActiveGameplayEffectHandle& Handle);
+	void AddOrUpdate(UAbilitySystemComponent* ASC, const TArray<TSubclassOf<UGameplayEffect> >& ResponseGameplayEffects, int32 TotalCount, TArray<FActiveGameplayEffectHandle>& Handles);
 
 	int32 GetCount(const FGameplayTagReponsePair& Pair, UAbilitySystemComponent* ASC) const;
 };

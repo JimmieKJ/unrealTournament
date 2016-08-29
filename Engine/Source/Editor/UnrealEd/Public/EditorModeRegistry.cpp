@@ -9,6 +9,7 @@
 #include "Editor/MeshPaint/Public/MeshPaintModule.h"
 #include "Editor/GeometryMode/Public/GeometryEdMode.h"
 #include "Editor/ActorPickerMode/Public/ActorPickerMode.h"
+#include "Editor/SceneDepthPickerMode/Public/SceneDepthPickerMode.h"
 #include "Editor/TextureAlignMode/Public/TextureAlignEdMode.h"
 #include "Editor/FoliageEdit/Public/FoliageEditModule.h"
 
@@ -55,6 +56,7 @@ void FEditorModeRegistry::Initialize()
 	FModuleManager::LoadModuleChecked<FTextureAlignModeModule>(TEXT("TextureAlignMode"));
 	FModuleManager::LoadModuleChecked<FGeometryModeModule>(TEXT("GeometryMode"));
 	FModuleManager::LoadModuleChecked<FActorPickerModeModule>(TEXT("ActorPickerMode"));
+	FModuleManager::LoadModuleChecked<FSceneDepthPickerModeModule>(TEXT("SceneDepthPickerMode"));
 	FModuleManager::LoadModuleChecked<IMeshPaintModule>(TEXT("MeshPaint"));
 	FModuleManager::LoadModuleChecked<ILandscapeEditorModule>(TEXT("LandscapeEditor"));
 	FModuleManager::LoadModuleChecked<IFoliageEditModule>(TEXT("FoliageEdit"));

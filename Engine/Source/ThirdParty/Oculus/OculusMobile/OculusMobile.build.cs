@@ -7,7 +7,7 @@ public class OculusMobile : ModuleRules
 	// Version of VrApi
 	public const int SDK_Product= 1;
 	public const int SDK_Major 	= 0;
-	public const int SDK_Minor 	= 0;
+	public const int SDK_Minor 	= 3;
 
 	public OculusMobile(TargetInfo Target)
 	{

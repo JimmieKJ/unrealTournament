@@ -4,8 +4,17 @@
 
 #if UE_ENABLE_ICU
 
-#include <unicode/uchriter.h>
-#include <unicode/schriter.h>
+#if defined(_MSC_VER) && USING_CODE_ANALYSIS
+	#pragma warning(push)
+	#pragma warning(disable:28251)
+	#pragma warning(disable:28252)
+	#pragma warning(disable:28253)
+#endif
+	#include <unicode/uchriter.h>
+	#include <unicode/schriter.h>
+#if defined(_MSC_VER) && USING_CODE_ANALYSIS
+	#pragma warning(pop)
+#endif
 
 /**
  * Implementation of an ICU CharacterIterator that is able to iterate over an FText/FString directly since the native string format for this platform is already UTF-16 (as used by ICU)

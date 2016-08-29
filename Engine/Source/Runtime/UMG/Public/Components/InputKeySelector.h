@@ -17,7 +17,7 @@ public:
 
 public:
 	/** The currently selected key chord. */
-	UPROPERTY( EditAnywhere, BlueprintReadOnly, Category = "Key Selection" )
+	UPROPERTY( BlueprintReadOnly, Category = "Key Selection" )
 	FInputChord SelectedKey;
 
 	/** The font used to display the currently selected key. */

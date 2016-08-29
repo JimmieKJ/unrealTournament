@@ -51,6 +51,9 @@ public:
 
 public:
 
+	/** Empty the track area */
+	void Empty();
+
 	/** Add a new track slot to this area for the given node. The slot will be automatically cleaned up when all external references to the supplied slot are removed. */
 	void AddTrackSlot(const TSharedRef<FSequencerDisplayNode>& InNode, const TSharedPtr<SSequencerTrackLane>& InSlot);
 

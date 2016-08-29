@@ -8,6 +8,8 @@
 
 #include "PhysXPublic.h"
 
+#include "../Collision/PhysicsFiltering.h"
+
 #if WITH_PHYSX
 
 // Whether to track PhysX memory allocations
@@ -226,7 +228,7 @@ public:
 	TArray<PxConvexMesh*> ConvexMeshesNegX;
 	TArray<PxTriangleMesh*> TriMeshes;
 
-	FPhysXFormatDataReader( FByteBulkData& InBulkData );
+	FPhysXFormatDataReader( FByteBulkData& InBulkData, struct FBodySetupUVInfo* UVInfo );
 
 private:
 
@@ -433,44 +435,7 @@ class FPhysXBroadcastingAllocator : public PxBroadcastingAllocator
 class FPhysXErrorCallback : public PxErrorCallback
 {
 public:
-	virtual void reportError(PxErrorCode::Enum e, const char* message, const char* file, int line) override
-	{
-		// if not in game, ignore Perf warnings - i.e. Moving Static actor in editor will produce this warning
-		if (GIsEditor && e == PxErrorCode::ePERF_WARNING)
-		{
-			return;
-		}
-
-		// @MASSIVE HACK - muting 'triangle too big' warning :(
-		if(line == 223)
-		{
-			return;
-		}
-
-		// Make string to print out, include physx file/line
-		FString ErrorString = FString::Printf( TEXT("PHYSX: %s (%d) %d : %s"), ANSI_TO_TCHAR(file), line, (int32)e, ANSI_TO_TCHAR(message) );
-
-		if(e == PxErrorCode::eOUT_OF_MEMORY ||  e == PxErrorCode::eINTERNAL_ERROR || e == PxErrorCode::eABORT)
-		{
-			//UE_LOG(LogPhysics, Error, *ErrorString);
-			UE_LOG(LogPhysics, Warning, TEXT("%s"), *ErrorString);
-		}
-		else if(e == PxErrorCode::eINVALID_PARAMETER || e == PxErrorCode::eINVALID_OPERATION || e == PxErrorCode::ePERF_WARNING)
-		{
-			UE_LOG(LogPhysics, Warning, TEXT("%s"), *ErrorString);
-		}
-#if UE_BUILD_DEBUG
-		else if (e == PxErrorCode::eDEBUG_WARNING)
-		{
-			UE_LOG(LogPhysics, Warning, TEXT("%s"), *ErrorString);
-		}
-#endif
-		else
-		{
-			UE_LOG(LogPhysics, Log, TEXT("%s"), *ErrorString);
-		}
-
-	}
+	virtual void reportError(PxErrorCode::Enum e, const char* message, const char* file, int line) override;
 };
 
 /** 'Shader' used to filter simulation collisions. Could be called on any thread. */
@@ -481,7 +446,7 @@ PxFilterFlags PhysXSimFilterShader(	PxFilterObjectAttributes attributes0, PxFilt
 class FPhysScene;
 
 /** Event callback used to notify engine about various collision events */
-class FPhysXSimEventCallback : public PxSimulationEventCallback
+class ENGINE_API FPhysXSimEventCallback : public PxSimulationEventCallback
 {
 public:
 	FPhysXSimEventCallback(FPhysScene* InOwningScene, int32 InSceneType) : OwningScene(InOwningScene), SceneType(InSceneType){}
@@ -654,9 +619,6 @@ public:
  **/
 ENGINE_API SIZE_T GetPhysxObjectSize(PxBase* Obj, const PxCollection* SharedCollection);
 #endif // WITH_PHYSX
-
-
-#include "../Collision/PhysicsFiltering.h"
 
 /** Helper struct holding physics body filter data during initialisation */
 struct FShapeFilterData

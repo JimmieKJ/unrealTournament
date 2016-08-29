@@ -163,13 +163,13 @@ FText STranslationPickerFloatingWindow::GetTextFromWidget(TSharedRef<SWidget> Wi
 	}
 	else if (Widget->GetTypeAsString() == "SToolTip")
 	{
-		SToolTip* ToolTip = ((SToolTip*)&Widget.Get());
-		if (ToolTip != nullptr)
+		SToolTip* ToolTipWidget = ((SToolTip*)&Widget.Get());
+		if (ToolTipWidget != nullptr)
 		{
-			OriginalText = GetTextFromWidget(ToolTip->GetContentWidget());
+			OriginalText = GetTextFromWidget(ToolTipWidget->GetContentWidget());
 			if (OriginalText.IsEmpty())
 			{
-				OriginalText = ToolTip->GetTextTooltip();
+				OriginalText = ToolTipWidget->GetTextTooltip();
 			}
 		}
 	}

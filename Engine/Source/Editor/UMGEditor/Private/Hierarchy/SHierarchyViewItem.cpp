@@ -542,7 +542,11 @@ void FHierarchyRoot::OnSelection()
 	if ( UWidget* Default = BPEd->GetWidgetBlueprintObj()->GeneratedClass->GetDefaultObject<UWidget>() )
 	{
 		TSet<UObject*> SelectedObjects;
-		SelectedObjects.Add(Default);
+
+		//Switched from adding CDO to adding the preview, so that the root (owner) widget can be properly animate
+		UUserWidget* PreviewWidget = BPEd->GetPreview();
+		SelectedObjects.Add(PreviewWidget);
+
 		BPEd->SelectObjects(SelectedObjects);
 	}
 }
@@ -553,7 +557,10 @@ void FHierarchyRoot::UpdateSelection()
 	if ( UWidget* Default = BPEd->GetWidgetBlueprintObj()->GeneratedClass->GetDefaultObject<UWidget>() )
 	{
 		const TSet< TWeakObjectPtr<UObject> >& SelectedObjects = BlueprintEditor.Pin()->GetSelectedObjects();
-		bIsSelected = SelectedObjects.Contains(Default);
+
+		TWeakObjectPtr<UObject> PreviewWidget = BPEd->GetPreview();
+
+		bIsSelected = SelectedObjects.Contains(PreviewWidget);
 	}
 	else
 	{
@@ -635,17 +642,12 @@ void FNamedSlotModel::GetChildren(TArray< TSharedPtr<FHierarchyModel> >& Childre
 
 void FNamedSlotModel::OnSelection()
 {
-	TSharedPtr<FWidgetBlueprintEditor> BPEd = BlueprintEditor.Pin();
-	if ( INamedSlotInterface* NamedSlotHost = Cast<INamedSlotInterface>(Item.GetTemplate()) )
-	{
-		TSet<FWidgetReference> SelectedWidgets;
-		if ( UWidget* TemplateSlotContent = NamedSlotHost->GetContentForSlot(SlotName) )
-		{
-			SelectedWidgets.Add(BPEd->GetReferenceFromTemplate(TemplateSlotContent));
-		}
+	TSharedPtr<FWidgetBlueprintEditor> Editor = BlueprintEditor.Pin();
 
-		BPEd->SelectWidgets(SelectedWidgets, true);
-	}
+	FNamedSlotSelection Selection;
+	Selection.NamedSlotHostWidget = Item;
+	Selection.SlotName = SlotName;
+	Editor->SetSelectedNamedSlot(Selection);
 }
 
 void FNamedSlotModel::UpdateSelection()

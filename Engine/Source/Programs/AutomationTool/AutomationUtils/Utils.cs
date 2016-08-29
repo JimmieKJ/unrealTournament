@@ -820,21 +820,45 @@ namespace AutomationTool
 	        }
 	        return bFound;
 	    }
+
+		/// <summary>
+		/// Efficient iterator for walking over a string line by line.
+		/// </summary>
+		/// <param name="Str">string to walk over</param>
+		/// <returns>enumerable of each line in the string.</returns>
+		public static IEnumerable<string> EnumerateLines(this string Str)
+		{
+			if (Str == null)
+			{
+				yield break;
+			}
+
+			using (var Reader = new StringReader(Str))
+			{
+				string line = Reader.ReadLine();
+				while (line != null)
+				{
+					yield return line;
+					line = Reader.ReadLine();
+				}
+			}
+		}
+
 	}
 
 	#endregion
 
 
-    #region VersionFileReader
+	#region VersionFileReader
 
 
-    /// <summary>
-    /// This is to ensure that UAT can produce version strings precisely compatible
-    /// with FEngineVersion.
-    /// 
-    /// WARNING: If FEngineVersion compatibility changes, this code needs to be updated.
-    /// </summary>
-    public class FEngineVersionSupport
+	/// <summary>
+	/// This is to ensure that UAT can produce version strings precisely compatible
+	/// with FEngineVersion.
+	/// 
+	/// WARNING: If FEngineVersion compatibility changes, this code needs to be updated.
+	/// </summary>
+	public class FEngineVersionSupport
     {
         /// <summary>
         /// The version info read from the Version header. The populated fields will be Major, Minor, and Build from the MAJOR, MINOR, and PATCH lines, respectively.
@@ -1023,44 +1047,95 @@ namespace AutomationTool
 		}
 
 		/// <summary>
-		/// Doc
+		/// Finds the line containing the same tokens as the given prefix, and change the suffix to be the given string
 		/// </summary>
-		public void ReplaceLine(string StartOfLine, string ReplacementRHS)
+		/// <param name="Prefix">Prefix to search for</param>
+		/// <param name="Suffix">Suffix to replace the rest of the line with</param>
+		/// <param name="OccurenceIdx">Index of the matching occurrence to replace</param>
+		public void ReplaceLine(string Prefix, string Suffix, int OccurenceIdx = 0)
 		{
-			for (int Index = 0; Index < Lines.Count; ++Index)
+			int MatchIdx = 0;
+			for(int LineIdx = 0; LineIdx < Lines.Count; LineIdx++)
 			{
-				if (Lines[Index].StartsWith(StartOfLine))
+				int LineOffset = 0;
+				if(MatchCppTokens(Lines[LineIdx], ref LineOffset, Prefix))
 				{
-					Lines[Index] = StartOfLine + ReplacementRHS;
-					return;
+					if(OccurenceIdx == MatchIdx)
+					{
+						while(LineOffset < Lines[LineIdx].Length && Char.IsWhiteSpace(Lines[LineIdx][LineOffset]))
+						{
+							LineOffset++;
+						}
+						Lines[LineIdx] = Lines[LineIdx].Substring(0, LineOffset) + Suffix;
+						return;
+					}
+					MatchIdx++;
 				}
 			}
-            throw new AutomationException("Unable to find line {0} in {1}", StartOfLine, MyFile.FullName);
+            throw new AutomationException("Unable to find line {0} in {1}", Prefix, MyFile.FullName);
 		}
 
 		/// <summary>
-		/// Doc
+		/// Tries to read a sequence of tokens from the given line of text, updating a position within it.
 		/// </summary>
-		public void ReplaceOrAddLine(string StartOfLine, string ReplacementRHS)
+		/// <param name="Line">Line to read tokens from</param>
+		/// <param name="LineOffset">Position within </param>
+		/// <param name="Other">The tokens to attempt to match</param>
+		/// <returns>True if the tokens are matched</returns>
+		static bool MatchCppTokens(string Line, ref int LineOffset, string Other)
 		{
-			if (Contains(StartOfLine))
+			int OtherOffset = 0;
+			for(;;)
 			{
-				ReplaceLine(StartOfLine, ReplacementRHS);
-			}
-			else
-			{
-				AddLine("");
-				AddLine(StartOfLine + ReplacementRHS);
+				// Read the next token from the prefix text. If we've reached the end, return that we've found a match.
+				string OtherToken = ReadCppToken(Other, ref OtherOffset);
+				if(OtherToken == null)
+				{
+					return true;
+				}
+
+				// Otherwise read the next token from the line and check it matches
+				string LineToken = ReadCppToken(Line, ref LineOffset);
+				if(LineToken != OtherToken)
+				{
+					return false;
+				}
 			}
 		}
 
 		/// <summary>
-		/// Adds a new line to the version file
+		/// Reads a single token (using a very rough approximation of a C++ token) from the given line
 		/// </summary>
-		/// <param name="Line"></param>
-		public void AddLine(string Line)
+		/// <param name="Line">The line to read from</param>
+		/// <param name="Offset">Position within the line to start reading. Initial whitespace will be skipped.</param>
+		/// <returns>The token that was read, or null if the end of the string</returns>
+		static string ReadCppToken(string Line, ref int Offset)
 		{
-			Lines.Add(Line);
+			// Skip any leading whitespace
+			while(Offset < Line.Length && Char.IsWhiteSpace(Line[Offset]))
+			{
+				Offset++;
+			}
+			if(Offset == Line.Length)
+			{
+				return null;
+			}
+
+			// Find the length of the token
+			int StartOffset = Offset++;
+			if(Char.IsLetterOrDigit(Line[StartOffset]))
+			{
+				while(Offset < Line.Length)
+				{
+					char Character = Line[Offset];
+					if(!Char.IsLetterOrDigit(Character) && Character != '_')
+					{
+						break;
+					}
+					Offset++;
+				}
+			}
+			return Line.Substring(StartOffset, Offset - StartOffset);
 		}
 
 		/// <summary>
@@ -1109,29 +1184,33 @@ namespace AutomationTool
 
 			if (bDifferent)
 			{
-				MyFile.IsReadOnly = false;
+				MakeFileWriteable(MyFile.FullName);
 				if (!InternalUtils.SafeWriteAllLines(MyFile.FullName, Lines.ToArray()))
 				{
 					throw new AutomationException("Unable to update version info in {0}", MyFile.FullName);
 				}
+				OriginalLines = Lines;
 			}
 		}
 
 		/// <summary>
-		/// Checks if the version file contains the specified string.
+		/// Makes a version file writeable. If P4 is enabled, syncs it to revision 0 to prevent conflicts with the P4 have table rather than checking it out, since we never intend to 
+		/// submit it to Perforce. For existing writeable files, P4V prompts the user to overwrite the next time they sync.
 		/// </summary>
-		/// <param name="Text">String to look for.</param>
-		/// <returns></returns>
-		public bool Contains(string Text, bool CaseSensitive = true)
+		/// <param name="FileName">The file to make writeable</param>
+		public static void MakeFileWriteable(string FileName)
 		{
-			foreach (var Line in Lines)
+			if(CommandUtils.IsReadOnly(FileName))
 			{
-				if (Line.IndexOf(Text, CaseSensitive ? StringComparison.InvariantCulture : StringComparison.InvariantCultureIgnoreCase) >= 0)
+				if(CommandUtils.P4Enabled)
 				{
-					return true;
+					CommandUtils.P4.Sync(String.Format("\"{0}#0\"", FileName), false, false);
+				}
+				if(CommandUtils.FileExists_NoExceptions(FileName) && CommandUtils.IsReadOnly(FileName))
+				{
+					throw new AutomationException("Cannot write to {0}; file is read-only", FileName);
 				}
 			}
-			return false;
 		}
 
 		/// <summary>

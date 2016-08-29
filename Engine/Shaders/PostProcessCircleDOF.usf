@@ -13,6 +13,19 @@
 // 0:off / 1:on (use with "vis CircleDOF0")
 #define DEBUG_SAMPLE_PATTERN 0
 
+// 0:old, 1:new(fixed high res screenshots), does not make a difference
+#define DILATION_RESOLUTION_INDEPENDENT 0
+
+// Note: View.CircleDOFParams.w = View.ViewSizeAndInvSize.x / 1920
+
+// is wrapping the DepthToCoc() function in this file for faster iteration
+// @return half res pixel radius
+float DepthToCoc2(float SceneDepth)
+{
+//	return ((SceneDepth > 8000) ? 5.0f : 2.6f) * 0.5f * View.CircleDOFParams.w;
+	return DepthToCoc(SceneDepth);
+}
+
 // pixel shader entry point
 void CircleSetupPS(noperspective float4 UVAndScreenPos : TEXCOORD0, out float4 OutColor0 : SV_Target0)
 {
@@ -33,7 +46,7 @@ void CircleSetupPS(noperspective float4 UVAndScreenPos : TEXCOORD0, out float4 O
 	CX = min(256 * 256, CX);
 	CY = min(256 * 256, CY);
 
-	float4 CocQuad = float4(DepthToCoc(DepthQuad.x), DepthToCoc(DepthQuad.y), DepthToCoc(DepthQuad.z), DepthToCoc(DepthQuad.w));
+	float4 CocQuad = float4(DepthToCoc2(DepthQuad.x), DepthToCoc2(DepthQuad.y), DepthToCoc2(DepthQuad.z), DepthToCoc2(DepthQuad.w));
 
 #if ENABLE_FAR_BLUR == 0
 	CocQuad = min(CocQuad, 0);
@@ -173,7 +186,7 @@ void CircleDilatePS(float4 UVAndScreenPos : TEXCOORD0, out float OutColor : SV_T
     //   d g
 	//   j M  (M={0,0} point)
 
-	#if COMPILER_GLSL || COMPILER_GLSL_ES2 || FEATURE_LEVEL < FEATURE_LEVEL_SM5
+	#if COMPILER_GLSL || COMPILER_GLSL_ES2 || COMPILER_GLSL_ES3_1 || FEATURE_LEVEL < FEATURE_LEVEL_SM5
 		float2 UV = UVAndScreenPos.xy + 0.5*PostprocessInput0Size.zw;
 		// This leverages nearest sampling (bilinear won't work).
 		// Probably not the best way to do this.
@@ -195,11 +208,25 @@ void CircleDilatePS(float4 UVAndScreenPos : TEXCOORD0, out float OutColor : SV_T
 		Sm.z = PostprocessInput0.SampleLevel(PostprocessInput0Sampler, UV.xy, 0, int2(0,1)).a;
 		Sm.w = PostprocessInput0.SampleLevel(PostprocessInput0Sampler, UV.xy, 0, int2(1,1)).a;
 	#else
-		float2 UV = UVAndScreenPos.xy + 1.0*PostprocessInput0Size.zw;
-		float4 Sd = PostprocessInput0.GatherAlpha(PostprocessInput0Sampler, UV, int2(-2,-2));
-		float4 Sg = PostprocessInput0.GatherAlpha(PostprocessInput0Sampler, UV, int2(0,-2));
-		float4 Sj = PostprocessInput0.GatherAlpha(PostprocessInput0Sampler, UV, int2(-2,0));
-		float4 Sm = PostprocessInput0.GatherAlpha(PostprocessInput0Sampler, UV, int2(0,0));
+		#if DILATION_RESOLUTION_INDEPENDENT
+			float factor = View.ViewSizeAndInvSize.x / 1980.0f;
+
+			float2 A = 1 + float2(-2,-2);
+			float2 B = 1 + float2(0,-2);
+			float2 C = 1 + float2(-2,0);
+			float2 D = 1 + float2(0,0);
+
+			float4 Sd = PostprocessInput0.GatherAlpha(PostprocessInput0Sampler, UVAndScreenPos.xy + A * factor * PostprocessInput0Size.zw);
+			float4 Sg = PostprocessInput0.GatherAlpha(PostprocessInput0Sampler, UVAndScreenPos.xy + B * factor * PostprocessInput0Size.zw);
+			float4 Sj = PostprocessInput0.GatherAlpha(PostprocessInput0Sampler, UVAndScreenPos.xy + C * factor * PostprocessInput0Size.zw);
+			float4 Sm = PostprocessInput0.GatherAlpha(PostprocessInput0Sampler, UVAndScreenPos.xy + D * factor * PostprocessInput0Size.zw);
+		#else 
+			float2 UV = UVAndScreenPos.xy + 1.0*PostprocessInput0Size.zw;
+			float4 Sd = PostprocessInput0.GatherAlpha(PostprocessInput0Sampler, UV, int2(-2,-2));
+			float4 Sg = PostprocessInput0.GatherAlpha(PostprocessInput0Sampler, UV, int2(0,-2));
+			float4 Sj = PostprocessInput0.GatherAlpha(PostprocessInput0Sampler, UV, int2(-2,0));
+			float4 Sm = PostprocessInput0.GatherAlpha(PostprocessInput0Sampler, UV, int2(0,0));
+		#endif
 	#endif
 	
 	// Make sure near is only near blur.
@@ -221,8 +248,8 @@ void Circle4Samples(float4 UVAndScreenPos : TEXCOORD0, out float4 OutColor0 : SV
 	//
 
 	// Fixed maximum search size (in terms of Circle of Confusion radius).
-	// Higher than 8 is too noizy for 4 samples.
-	float Coc = 8.0 * Frame.CircleDOFParams.w;
+	// Higher than 8 is too noizy for 4 samples. (actual radius is scaled by width/1920)
+	float Coc = 8.0 * View.CircleDOFParams.w;
 
 	float LocalRand = RandomOffset.x + InRand;
 
@@ -233,7 +260,7 @@ void Circle4Samples(float4 UVAndScreenPos : TEXCOORD0, out float4 OutColor0 : SV
 	float RadiusBase = NoizNorm(UVAndScreenPos.xy, 0.013 * LocalRand);
 
 #if DEBUG_SAMPLE_PATTERN
-	Coc = 100;
+	Coc = 100 * View.CircleDOFParams.w;
 #endif
 
 	// Radius 
@@ -269,7 +296,8 @@ void Circle4Samples(float4 UVAndScreenPos : TEXCOORD0, out float4 OutColor0 : SV
 	float D4 = PostprocessInput1.SampleLevel(PostprocessInput1Sampler, UV4, 0).x;
 
 	float NearCoc = 65536.0;
-	float Feather = 2.0;
+	// >0 causes DepthBlur to disappear in low resolutions, unclear why it was 2
+	float Feather = 0.0f;
 	if(abs(D1)+Feather > R1) NearCoc = min(NearCoc, D1);
 	if(abs(D2)+Feather > R2) NearCoc = min(NearCoc, D2);
 	if(abs(D3)+Feather > R3) NearCoc = min(NearCoc, D3);
@@ -575,8 +603,8 @@ float4 Recombine2Samples(float4 UVAndScreenPos, float PixCoc, float InRand)
 
 #if QUALITY
 		// we don't have depth in the alpha channel
-		CA.a = DepthToCoc(CalcSceneDepth(UVAndScreenPos.xy + VP));
-		CB.a = DepthToCoc(CalcSceneDepth(UVAndScreenPos.xy - VP));
+		CA.a = DepthToCoc2(CalcSceneDepth(UVAndScreenPos.xy + VP));
+		CB.a = DepthToCoc2(CalcSceneDepth(UVAndScreenPos.xy - VP));
 
 		// Weight the two samples to avoid forground into background bleed.
 		float IFeather0 = 1.0/4.0;
@@ -666,7 +694,7 @@ void MainCircleRecombinePS(in float4 UVAndScreenPos : TEXCOORD0, out float4 OutC
 {
 	// Circle of confusion size for the pixel.
 	float PixDepth = CalcSceneDepth(UVAndScreenPos.xy);
-	float PixCoc = DepthToCoc(PixDepth);
+	float PixCoc = DepthToCoc2(PixDepth);
 
 	float4 HalfRes = PostprocessInput1.SampleLevel(PostprocessInput1Sampler, UVAndScreenPos.xy, 0);
 	

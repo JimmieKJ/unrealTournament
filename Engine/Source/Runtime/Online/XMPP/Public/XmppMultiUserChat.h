@@ -8,18 +8,123 @@
 typedef FString FXmppRoomId;
 
 /**
+ * Affiliation of a chat room member
+ * (long term associations with a room, persists across visits)
+ * http://xmpp.org/extensions/xep-0045.html#affil
+ */
+namespace EXmppChatMemberAffiliation
+{
+	enum Type
+	{	
+		/** Owner of the room */
+		Owner,
+		/* An admin or owner enters a room as a moderator */
+		Admin, 
+		/* A member enters a room as a participant. */
+		/* As a default, an unaffiliated user enters a moderated room as a visitor, and enters an open room as a participant. */
+		Member,
+		/** Banned from the room */
+		Outcast,
+		/** Absence of an affiliation */
+		None
+	};
+
+	inline const TCHAR* ToString(Type Affiliation)
+	{
+		switch (Affiliation)
+		{
+			case Owner:
+				return TEXT("Owner");
+			case Admin:
+				return TEXT("Admin");
+			case Member:
+				return TEXT("Member");
+			case Outcast:
+				return TEXT("Outcast");
+			case None:
+			default:
+				return TEXT("None");
+		}
+	}
+
+	inline Type ToType(const FString& Affiliation)
+	{
+		if (Affiliation == TEXT("Owner"))
+		{
+			return Owner;
+		}
+		else if (Affiliation == TEXT("Admin"))
+		{
+			return Admin;
+		}
+		else if (Affiliation == TEXT("Member"))
+		{
+			return Member;
+		}
+		else if (Affiliation == TEXT("Outcast"))
+		{
+			return Outcast;
+		}
+		else
+		{
+			return None;
+		}
+	}
+}
+
+/**
  * Role of a chat room member
+ * (temporary role while in the room)
+ * http://xmpp.org/extensions/xep-0045.html#roles
  */
 namespace EXmppChatMemberRole
 {
 	enum Type
 	{
-		Owner,
+		/* A moderator is the most powerful role within the context of the room, and can to some extent manage other occupants' roles in the room. */
 		Moderator,
-		Member,
-		None,
-		Outcast
+	    /* A participant has fewer privileges than a moderator, although he or she always has the right to speak. */
+		Participant,
+		/* A visitor is a more restricted role within the context of a moderated room */
+		Visitor,
+		None
 	};
+
+	inline const TCHAR* ToString(Type Role)
+	{
+		switch (Role)
+		{
+			case Moderator:
+				return TEXT("Moderator");
+			case Participant:
+				return TEXT("Participant");
+			case Visitor:
+				return TEXT("Visitor");
+			case None:
+			default:
+				return TEXT("None");
+		}
+	}
+
+	inline Type ToType(const FString& Role)
+	{
+		if (Role == TEXT("Moderator"))
+		{
+			return Moderator;
+		}
+		else if (Role == TEXT("Participant"))
+		{
+			return Participant;
+		}
+		else if (Role == TEXT("Visitor"))
+		{
+			return Visitor;
+		}
+		else
+		{
+			return None;
+		}
+	}
 }
 
 /**
@@ -29,13 +134,15 @@ class FXmppChatMember
 {
 public:
 	FXmppChatMember()
-		: Affiliation(EXmppChatMemberRole::Member)
+		: Affiliation(EXmppChatMemberAffiliation::None)
+		, Role(EXmppChatMemberRole::None)
 	{}
 
 	FString Nickname;
 	FXmppUserJid MemberJid;
 	FXmppUserPresence UserPresence;
-	EXmppChatMemberRole::Type Affiliation;
+	EXmppChatMemberAffiliation::Type Affiliation;
+	EXmppChatMemberRole::Type Role;
 
 	FString ToDebugString() const
 	{

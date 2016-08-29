@@ -5,6 +5,9 @@
 
 UMovieSceneFolder::UMovieSceneFolder( const FObjectInitializer& ObjectInitializer )
 	: Super( ObjectInitializer )
+#if WITH_EDITORONLY_DATA
+	, FolderColor(FColor::White)
+#endif
 {
 }
 
@@ -74,25 +77,26 @@ void UMovieSceneFolder::RemoveChildObjectBinding( const FGuid& InObjectBinding )
 }
 
 
-void UMovieSceneFolder::PreSave()
+void UMovieSceneFolder::Serialize( FArchive& Archive )
 {
-	ChildObjectBindingStrings.Empty();
-	for ( const FGuid& ChildObjectBinding : ChildObjectBindings )
+	if ( Archive.IsLoading() )
 	{
-		ChildObjectBindingStrings.Add( ChildObjectBinding.ToString() );
+		Super::Serialize( Archive );
+		ChildObjectBindings.Empty();
+		for ( const FString& ChildObjectBindingString : ChildObjectBindingStrings )
+		{
+			FGuid ChildObjectBinding;
+			FGuid::Parse( ChildObjectBindingString, ChildObjectBinding );
+			ChildObjectBindings.Add( ChildObjectBinding );
+		}
 	}
-	Super::PreSave();
-}
-
-
-void UMovieSceneFolder::PostLoad()
-{
-	Super::PostLoad();
-	ChildObjectBindings.Empty();
-	for ( const FString& ChildObjectBindingString : ChildObjectBindingStrings )
+	else
 	{
-		FGuid ChildObjectBinding;
-		FGuid::Parse( ChildObjectBindingString, ChildObjectBinding );
-		ChildObjectBindings.Add( ChildObjectBinding );
+		ChildObjectBindingStrings.Empty();
+		for ( const FGuid& ChildObjectBinding : ChildObjectBindings )
+		{
+			ChildObjectBindingStrings.Add( ChildObjectBinding.ToString() );
+		}
+		Super::Serialize( Archive );
 	}
 }

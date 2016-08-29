@@ -90,30 +90,20 @@ IMPLEMENT_MODULE( FHeadMountedDisplayModule, HeadMountedDisplay );
 
 IHeadMountedDisplay::IHeadMountedDisplay()
 {
-	PreFullScreenRect = FSlateRect(-1.f, -1.f, -1.f, -1.f);
-}
-
-void IHeadMountedDisplay::PushPreFullScreenRect(const FSlateRect& InPreFullScreenRect)
-{
-	PreFullScreenRect = InPreFullScreenRect;
-}
-
-void IHeadMountedDisplay::PopPreFullScreenRect(FSlateRect& OutPreFullScreenRect)
-{
-	OutPreFullScreenRect = PreFullScreenRect;
-	PreFullScreenRect = FSlateRect(-1.f, -1.f, -1.f, -1.f);
+	LateUpdateGameWriteIndex = LateUpdateRenderReadIndex = 0;
 }
 
 void IHeadMountedDisplay::SetupLateUpdate(const FTransform& ParentToWorld, USceneComponent* Component)
 {
 	LateUpdateParentToWorld = ParentToWorld;
-	LateUpdatePrimitives.Reset();
-	GatherLateUpdatePrimitives(Component, LateUpdatePrimitives);
+	LateUpdatePrimitives[LateUpdateGameWriteIndex].Reset();
+	GatherLateUpdatePrimitives(Component, LateUpdatePrimitives[LateUpdateGameWriteIndex]);
+	LateUpdateGameWriteIndex = (LateUpdateGameWriteIndex + 1) % 2;
 }
 
 void IHeadMountedDisplay::ApplyLateUpdate(FSceneInterface* Scene, const FTransform& OldRelativeTransform, const FTransform& NewRelativeTransform)
 {
-	if (!LateUpdatePrimitives.Num())
+	if (!LateUpdatePrimitives[LateUpdateRenderReadIndex].Num())
 	{
 		return;
 	}
@@ -123,7 +113,7 @@ void IHeadMountedDisplay::ApplyLateUpdate(FSceneInterface* Scene, const FTransfo
 	const FMatrix LateUpdateTransform = (OldCameraTransform.Inverse() * NewCameraTransform).ToMatrixWithScale();
 
 	// Apply delta to the affected scene proxies
-	for (auto PrimitiveInfo : LateUpdatePrimitives)
+	for (auto PrimitiveInfo : LateUpdatePrimitives[LateUpdateRenderReadIndex])
 	{
 		FPrimitiveSceneInfo* RetrievedSceneInfo = Scene->GetPrimitiveSceneInfo(*PrimitiveInfo.IndexAddress);
 		FPrimitiveSceneInfo* CachedSceneInfo = PrimitiveInfo.SceneInfo;
@@ -133,7 +123,8 @@ void IHeadMountedDisplay::ApplyLateUpdate(FSceneInterface* Scene, const FTransfo
 			CachedSceneInfo->Proxy->ApplyLateUpdateTransform(LateUpdateTransform);
 		}
 	}
-	LateUpdatePrimitives.Reset();
+	LateUpdatePrimitives[LateUpdateRenderReadIndex].Reset();
+	LateUpdateRenderReadIndex = (LateUpdateRenderReadIndex + 1) % 2;
 }
 
 bool IHeadMountedDisplay::DoesAppUseVRFocus() const

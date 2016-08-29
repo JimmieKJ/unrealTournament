@@ -88,7 +88,14 @@ int32 UTextureLODSettings::CalculateLODBias(int32 Width, int32 Height, int32 LOD
 	int32 TextureMaxLOD	= FMath::CeilLogTwo( FMath::TruncToInt( FMath::Max( Width, Height ) ) );
 
 	// Calculate LOD bias.
-	int32 UsedLODBias	= LODGroupInfo.LODBias + LODBias + NumCinematicMipLevels;
+	int32 UsedLODBias	= NumCinematicMipLevels;
+	if (!FPlatformProperties::RequiresCookedData())
+	{
+		// When cooking, LODBias and LODGroupInfo.LODBias are taken into account to strip the top mips.
+		// Considering them again here would apply them twice.
+		UsedLODBias	+= LODBias + LODGroupInfo.LODBias;
+	}
+
 	int32 MinLOD		= LODGroupInfo.MinLODMipCount;
 	int32 MaxLOD		= LODGroupInfo.MaxLODMipCount;
 	int32 WantedMaxLOD	= FMath::Clamp( TextureMaxLOD - UsedLODBias, MinLOD, MaxLOD );

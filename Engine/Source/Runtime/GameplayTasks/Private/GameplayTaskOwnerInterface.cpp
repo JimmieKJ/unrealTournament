@@ -2,13 +2,3 @@
 
 #include "GameplayTasksPrivatePCH.h"
 #include "GameplayTaskOwnerInterface.h"
-
-void IGameplayTaskOwnerInterface::OnTaskInitialized(UGameplayTask& Task)
-{
-
-}
-
-AActor* IGameplayTaskOwnerInterface::GetAvatarActor(const UGameplayTask* Task) const
-{ 
-	return GetOwnerActor(Task);
-}

@@ -5,6 +5,7 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using System.Xml;
 using UnrealBuildTool;
 
 namespace BuildGraph.Tasks
@@ -17,25 +18,31 @@ namespace BuildGraph.Tasks
 		/// <summary>
 		/// List of files, wildcards and tag sets to add to the pak file, separated by ';' characters.
 		/// </summary>
-		[TaskParameter]
+		[TaskParameter(ValidationType = TaskParameterValidationType.FileSpec)]
 		public string Files;
 
 		/// <summary>
 		/// PAK file to output
 		/// </summary>
-		[TaskParameter]
+		[TaskParameter(ValidationType = TaskParameterValidationType.FileName)]
 		public string Output;
+
+		/// <summary>
+		/// Path to a Response File that contains a list of files to add to the pak file, instead of specifying them individually
+		/// </summary>
+		[TaskParameter(Optional = true, ValidationType = TaskParameterValidationType.FileName)]
+		public string ResponseFile;
 
 		/// <summary>
 		/// Directories to rebase the files relative to. If specified, the shortest path under a listed directory will be used for each file.
 		/// </summary>
-		[TaskParameter(Optional = true)]
+		[TaskParameter(Optional = true, ValidationType = TaskParameterValidationType.DirectoryName)]
 		public string RebaseDir;
 
 		/// <summary>
 		/// Script which gives the order of files
 		/// </summary>
-		[TaskParameter(Optional = true)]
+		[TaskParameter(Optional = true, ValidationType = TaskParameterValidationType.FileName)]
 		public string Order;
 
 		/// <summary>
@@ -55,10 +62,16 @@ namespace BuildGraph.Tasks
 		/// </summary>
 		[TaskParameter(Optional = true)]
 		public string Arguments = "";
+
+		/// <summary>
+		/// Tag to be applied to build products of this task
+		/// </summary>
+		[TaskParameter(Optional = true, ValidationType = TaskParameterValidationType.TagList)]
+		public string Tag;
 	}
 
 	/// <summary>
-	/// Cook a selection of maps for a certain platform
+	/// Creates a PAK file from a given set of files.
 	/// </summary>
 	[TaskElement("PakFile", typeof(PakFileTaskParameters))]
 	public class PakFileTask : CustomTask
@@ -96,26 +109,36 @@ namespace BuildGraph.Tasks
 			// Get the output parameter
 			FileReference OutputFile = ResolveFile(Parameters.Output);
 
-			// Get a unique filename for the response file
-			FileReference ResponseFile = FileReference.Combine(new DirectoryReference(CommandUtils.CmdEnv.LogFolder), String.Format("PakList_{0}.txt", OutputFile.GetFileNameWithoutExtension()));
-			for(int Idx = 2; ResponseFile.Exists(); Idx++)
+			// Check for a ResponseFile parameter
+			FileReference ResponseFile = null;
+			if (!String.IsNullOrEmpty(Parameters.ResponseFile))
 			{
-				ResponseFile = FileReference.Combine(ResponseFile.Directory, String.Format("PakList_{0}_{1}.txt", OutputFile.GetFileNameWithoutExtension(), Idx));
+				ResponseFile = ResolveFile(Parameters.ResponseFile);
 			}
 
-			// Write out the response file
-			HashSet<FileReference> Files = ResolveFilespec(CommandUtils.RootDirectory, Parameters.Files, TagNameToFileSet);
-			using(StreamWriter Writer = new StreamWriter(ResponseFile.FullName, false, new System.Text.UTF8Encoding(true)))
+			if (ResponseFile == null)
 			{
-				foreach(FileReference File in Files)
+				// Get a unique filename for the response file
+				ResponseFile = FileReference.Combine(new DirectoryReference(CommandUtils.CmdEnv.LogFolder), String.Format("PakList_{0}.txt", OutputFile.GetFileNameWithoutExtension()));
+				for (int Idx = 2; ResponseFile.Exists(); Idx++)
 				{
-					string RelativePath = FindShortestRelativePath(File, RebaseDirs);
-					if(RelativePath == null)
+					ResponseFile = FileReference.Combine(ResponseFile.Directory, String.Format("PakList_{0}_{1}.txt", OutputFile.GetFileNameWithoutExtension(), Idx));
+				}
+
+				// Write out the response file
+				HashSet<FileReference> Files = ResolveFilespec(CommandUtils.RootDirectory, Parameters.Files, TagNameToFileSet);
+				using (StreamWriter Writer = new StreamWriter(ResponseFile.FullName, false, new System.Text.UTF8Encoding(true)))
+				{
+					foreach (FileReference File in Files)
 					{
-						CommandUtils.LogError("Couldn't find relative path for '{0}' - not under any rebase directories", File.FullName);
-						return false;
+						string RelativePath = FindShortestRelativePath(File, RebaseDirs);
+						if (RelativePath == null)
+						{
+							CommandUtils.LogError("Couldn't find relative path for '{0}' - not under any rebase directories", File.FullName);
+							return false;
+						}
+						Writer.WriteLine("\"{0}\" \"{1}\"{2}", File.FullName, RelativePath, Parameters.Compress ? " -compress" : "");
 					}
-					Writer.WriteLine("\"{0}\" \"{1}\"{2}", File.FullName, RelativePath, Parameters.Compress? " -compress" : "");
 				}
 			}
 
@@ -154,6 +177,12 @@ namespace BuildGraph.Tasks
 			CommandUtils.Log("Running '{0} {1}'", CommandUtils.MakePathSafeToUseWithCommandLine(UnrealPakExe.FullName), CommandLine.ToString());
 			CommandUtils.RunAndLog(CommandUtils.CmdEnv, UnrealPakExe.FullName, CommandLine.ToString(), Options: CommandUtils.ERunOptions.Default | CommandUtils.ERunOptions.UTF8Output);
 			BuildProducts.Add(OutputFile);
+
+			// Apply the optional tag to the output file
+			foreach(string TagName in FindTagNamesFromList(Parameters.Tag))
+			{
+				FindOrAddTagSet(TagNameToFileSet, TagName).Add(OutputFile);
+			}
 			return true;
 		}
 
@@ -178,6 +207,32 @@ namespace BuildGraph.Tasks
 				}
 			}
 			return RelativePath;
+		}
+
+		/// <summary>
+		/// Output this task out to an XML writer.
+		/// </summary>
+		public override void Write(XmlWriter Writer)
+		{
+			Write(Writer, Parameters);
+		}
+
+		/// <summary>
+		/// Find all the tags which are used as inputs to this task
+		/// </summary>
+		/// <returns>The tag names which are read by this task</returns>
+		public override IEnumerable<string> FindConsumedTagNames()
+		{
+			return FindTagNamesFromFilespec(Parameters.Files);
+		}
+
+		/// <summary>
+		/// Find all the tags which are modified by this task
+		/// </summary>
+		/// <returns>The tag names which are modified by this task</returns>
+		public override IEnumerable<string> FindProducedTagNames()
+		{
+			return FindTagNamesFromList(Parameters.Tag);
 		}
 	}
 }

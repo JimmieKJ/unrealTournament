@@ -1,0 +1,29 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <ClCompile Include="..\..\..\..\hdf5-1.8.9\hl\src\H5DS.c" />
+    <ClCompile Include="..\..\..\..\hdf5-1.8.9\hl\src\H5IM.c" />
+    <ClCompile Include="..\..\..\..\hdf5-1.8.9\hl\src\H5LT.c" />
+    <ClCompile Include="..\..\..\..\hdf5-1.8.9\hl\src\H5LTanalyze.c" />
+    <ClCompile Include="..\..\..\..\hdf5-1.8.9\hl\src\H5LTparse.c" />
+    <ClCompile Include="..\..\..\..\hdf5-1.8.9\hl\src\H5PT.c" />
+    <ClCompile Include="..\..\..\..\hdf5-1.8.9\hl\src\H5TB.c" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\..\..\..\hdf5-1.8.9\hl\src\H5DSpublic.h" />
+    <ClInclude Include="..\..\..\..\hdf5-1.8.9\hl\src\H5IMpublic.h" />
+    <ClInclude Include="..\..\..\..\hdf5-1.8.9\hl\src\H5LTparse.h" />
+    <ClInclude Include="..\..\..\..\hdf5-1.8.9\hl\src\H5LTpublic.h" />
+    <ClInclude Include="..\..\..\..\hdf5-1.8.9\hl\src\H5PTpublic.h" />
+    <ClInclude Include="..\..\..\..\hdf5-1.8.9\hl\src\H5TBpublic.h" />
+    <ClInclude Include="..\..\..\..\hdf5-1.8.9\hl\src\hdf5_hl.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="Source Files">
+      <UniqueIdentifier>{89392D1A-7575-4D02-955C-57341018A270}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files">
+      <UniqueIdentifier>{1833F73C-2966-4E61-8211-B6B7A2BB807B}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+</Project>

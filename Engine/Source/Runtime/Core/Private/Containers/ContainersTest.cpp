@@ -318,3 +318,68 @@ bool FContainersTest::RunTest( const FString& Parameters )
 
 	return true;
 }
+
+//Array view tests
+#include "Containers/ArrayView.h"
+
+namespace ArrayViewTests
+{
+	// commented out lines shouldn't compile
+
+	struct Base
+	{
+		int32 b;
+	};
+
+	struct Derived : public Base
+	{
+		int32 d;
+	};
+
+	template<typename T>
+	void TestFunction(TArrayView<T>)
+	{
+	}
+
+	bool RunTest()
+	{
+		// C array + derived-to-base conversions
+		Derived test1[13];
+		TestFunction<Derived>(test1);
+		//TestFunction<Base>(test1);
+		//TestFunction<const Base>(test1);
+
+		// C array of pointers + derived-to-base conversions
+		Derived* test2[13];
+		TestFunction<const Derived* const>(test2);
+		//TestFunction<const Derived*>(test2);
+		TestFunction<Derived* const>(test2);
+		//TestFunction<const Base* const>(test2);
+
+		// TArray + derived-to-base conversions
+		TArray<Derived> test3;
+		TestFunction<Derived>(test3);
+		//TestFunction<Base>(test3);
+		//TestFunction<const Base>(test3);
+
+		// const TArray
+		const TArray<Base> test4;
+		TestFunction<const Base>(test4);
+		//TestFunction<Base>(test4);
+
+		// TArray of const
+		TArray<const Base> test5;
+		TestFunction<const Base>(test5);
+		//TestFunction<Base>(test5);
+
+		// temporary C array
+		struct Test6
+		{
+			Base test[13];
+		};
+		TestFunction<const Base>(Test6().test);
+		//TestFunction<Base>(Test6().test); // shouldn't compile but VS allows it :(
+
+		return true;
+	}
+};

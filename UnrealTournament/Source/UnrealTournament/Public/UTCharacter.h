@@ -1679,12 +1679,12 @@ public:
 
 	virtual bool TeleportTo(const FVector& DestLocation, const FRotator& DestRotation, bool bIsATest = false, bool bNoCheck = false) override;
 	UFUNCTION()
-	virtual void OnOverlapBegin(AActor* OtherActor);
+	virtual void OnOverlapBegin(AActor* OverlappedActor, AActor* OtherActor);
 	
 	virtual void CheckRagdollFallingDamage(const FHitResult& Hit);
 
 	UFUNCTION()
-	virtual void OnRagdollCollision(AActor* OtherActor, UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit);
+	virtual void OnRagdollCollision(UPrimitiveComponent* HitComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit);
 
 	virtual bool CanPickupObject(AUTCarriedObject* PendingObject);
 	/** @return the current object carried by this pawn */

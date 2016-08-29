@@ -36,7 +36,7 @@ void FScriptBlueprintCompiler::CreateClassVariablesFromBlueprint()
 {
 	Super::CreateClassVariablesFromBlueprint();
 
-	UScriptBlueprint* Blueprint = ScriptBlueprint();
+	UScriptBlueprint* ScriptBP = ScriptBlueprint();
 	UScriptBlueprintGeneratedClass* NewScripClass = CastChecked<UScriptBlueprintGeneratedClass>(NewClass);
 	NewScripClass->ScriptProperties.Empty();
 
@@ -74,7 +74,7 @@ void FScriptBlueprintCompiler::CreateClassVariablesFromBlueprint()
 				UProperty* ScriptProperty = CreateVariable(Field.Name, ScriptPinType);
 				if (ScriptProperty != NULL)
 				{
-					ScriptProperty->SetMetaData(TEXT("Category"), *Blueprint->GetName());
+					ScriptProperty->SetMetaData(TEXT("Category"), *ScriptBP->GetName());
 					ScriptProperty->SetPropertyFlags(CPF_BlueprintVisible | CPF_Edit);
 					NewScripClass->ScriptProperties.Add(ScriptProperty);
 				}
@@ -126,13 +126,13 @@ void FScriptBlueprintCompiler::CreateScriptDefinedFunction(FScriptField& Field)
 {
 	check(ContextProperty);
 	
-	UScriptBlueprint* Blueprint = ScriptBlueprint();
+	UScriptBlueprint* ScriptBP = ScriptBlueprint();
 	const FString FunctionName = Field.Name.ToString();
 
 	// Create Blueprint Graph which consists of 3 nodes: 'Entry', 'Get Script Context' and 'Call Function'
 	// @todo: once we figure out how to get parameter lists for functions we can add suport for that here
 
-	UEdGraph* ScriptFunctionGraph = NewObject<UEdGraph>(Blueprint, *FString::Printf(TEXT("%s_Graph"), *FunctionName));
+	UEdGraph* ScriptFunctionGraph = NewObject<UEdGraph>(ScriptBP, *FString::Printf(TEXT("%s_Graph"), *FunctionName));
 	ScriptFunctionGraph->Schema = UEdGraphSchema_K2::StaticClass();
 	ScriptFunctionGraph->SetFlags(RF_Transient);
 	
@@ -166,14 +166,14 @@ void FScriptBlueprintCompiler::CreateScriptDefinedFunction(FScriptField& Field)
 
 void FScriptBlueprintCompiler::FinishCompilingClass(UClass* Class)
 {
-	UScriptBlueprint* Blueprint = ScriptBlueprint();
+	UScriptBlueprint* ScriptBP = ScriptBlueprint();
 
 	UScriptBlueprintGeneratedClass* ScriptClass = CastChecked<UScriptBlueprintGeneratedClass>(Class);
-	ScriptClass->SourceCode = Blueprint->SourceCode;
-	ScriptClass->ByteCode = Blueprint->ByteCode;
+	ScriptClass->SourceCode = ScriptBP->SourceCode;
+	ScriptClass->ByteCode = ScriptBP->ByteCode;
 
 	// Allow Blueprint Components to be used in Blueprints
-	if (Blueprint->ParentClass->IsChildOf(UScriptPluginComponent::StaticClass()) && Class != Blueprint->SkeletonGeneratedClass)
+	if (ScriptBP->ParentClass->IsChildOf(UScriptPluginComponent::StaticClass()) && Class != ScriptBP->SkeletonGeneratedClass)
 	{
 		Class->SetMetaData(TEXT("BlueprintSpawnableComponent"), TEXT("true"));
 	}

@@ -14,6 +14,7 @@
 #include "AnimGraphNodeDetails.h"
 #include "AnimInstanceDetails.h"
 #include "Editor/UnrealEd/Public/Kismet2/KismetEditorUtilities.h"
+#include "Animation/AnimInstance.h"
 
 IMPLEMENT_MODULE( FPersonaModule, Persona );
 
@@ -24,6 +25,9 @@ void FPersonaModule::StartupModule()
 {
 	MenuExtensibilityManager = MakeShareable(new FExtensibilityManager);
 	ToolBarExtensibilityManager = MakeShareable(new FExtensibilityManager);
+
+	//Call this to make sure AnimGraph module is setup
+	FModuleManager::Get().LoadModuleChecked(TEXT("AnimGraph"));
 
 	// Load all blueprint animnotifies from asset registry so they are available from drop downs in anim segment detail views
 	{
@@ -38,7 +42,7 @@ void FPersonaModule::StartupModule()
 
 		for (int32 AssetIndex = 0; AssetIndex < AssetData.Num(); ++AssetIndex)
 		{
-			FString TagValue = AssetData[ AssetIndex ].TagsAndValues.FindRef(BPParentClassName);
+			FString TagValue = AssetData[ AssetIndex ].GetTagValueRef<FString>(BPParentClassName);
 			if (TagValue == BPAnimNotify)
 			{
 				FString BlueprintPath = AssetData[AssetIndex].ObjectPath.ToString();

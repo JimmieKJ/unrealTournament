@@ -6,6 +6,7 @@
 
 #pragma once
 
+#include "GenericPlatformCompression.h"
 
 
 /**
@@ -112,72 +113,11 @@ class FAutoDeleteAsyncTask
 	}
 
 public:
-#if PLATFORM_COMPILER_HAS_VARIADIC_TEMPLATES
 	/** Forwarding constructor. */
 	template<typename...T>
 	explicit FAutoDeleteAsyncTask(T&&... Args) : Task(Forward<T>(Args)...)
 	{
 	}
-#else
-	/** Default constructor. */
-	FAutoDeleteAsyncTask( )
-	{
-	}
-	/** Forwarding constructor. */
-	template<typename T>
-	FAutoDeleteAsyncTask( T&& Arg )
-		: Task(Forward<T>(Arg))
-	{
-	}
-	/** Forwarding constructor. */
-	template<typename T1,typename T2>
-	FAutoDeleteAsyncTask( T1&& Arg1, T2&& Arg2 )
-		: Task(Forward<T1>(Arg1), Forward<T2>(Arg2))
-	{
-	}
-	/** Forwarding constructor. */
-	template<typename T1,typename T2, typename T3>
-	FAutoDeleteAsyncTask( T1&& Arg1, T2&& Arg2, T3&& Arg3 )
-		: Task(Forward<T1>(Arg1), Forward<T2>(Arg2), Forward<T3>(Arg3))
-	{
-	}
-	/** Forwarding constructor. */
-	template<typename T1,typename T2, typename T3, typename T4>
-	FAutoDeleteAsyncTask( T1&& Arg1, T2&& Arg2, T3&& Arg3, T4&& Arg4 )
-		: Task(Forward<T1>(Arg1), Forward<T2>(Arg2), Forward<T3>(Arg3), Forward<T4>(Arg4))
-	{
-	}
-	/** Forwarding constructor. */
-	template<typename T1,typename T2, typename T3, typename T4, typename T5>
-	FAutoDeleteAsyncTask( T1&& Arg1, T2&& Arg2, T3&& Arg3, T4&& Arg4, T5&& Arg5 )
-		: Task(Forward<T1>(Arg1), Forward<T2>(Arg2), Forward<T3>(Arg3), Forward<T4>(Arg4), Forward<T5>(Arg5))
-	{
-	}
-	/** Forwarding constructor. */
-	template<typename T1,typename T2, typename T3, typename T4, typename T5, typename T6>
-	FAutoDeleteAsyncTask( T1&& Arg1, T2&& Arg2, T3&& Arg3, T4&& Arg4, T5&& Arg5, T6&& Arg6 )
-		: Task(Forward<T1>(Arg1), Forward<T2>(Arg2), Forward<T3>(Arg3), Forward<T4>(Arg4), Forward<T5>(Arg5), Forward<T6>(Arg6))
-	{
-	}
-	/** Forwarding constructor. */
-	template<typename T1,typename T2, typename T3, typename T4, typename T5, typename T6, typename T7>
-	FAutoDeleteAsyncTask( T1&& Arg1, T2&& Arg2, T3&& Arg3, T4&& Arg4, T5&& Arg5, T6&& Arg6, T7&& Arg7 )
-		: Task(Forward<T1>(Arg1), Forward<T2>(Arg2), Forward<T3>(Arg3), Forward<T4>(Arg4), Forward<T5>(Arg5), Forward<T6>(Arg6), Forward<T7>(Arg7))
-	{
-	}
-	/** Forwarding constructor. */
-	template<typename T1,typename T2, typename T3, typename T4, typename T5, typename T6, typename T7, typename T8>
-	FAutoDeleteAsyncTask( T1&& Arg1, T2&& Arg2, T3&& Arg3, T4&& Arg4, T5&& Arg5, T6&& Arg6, T7&& Arg7, T8&& Arg8 )
-		: Task(Forward<T1>(Arg1), Forward<T2>(Arg2), Forward<T3>(Arg3), Forward<T4>(Arg4), Forward<T5>(Arg5), Forward<T6>(Arg6), Forward<T7>(Arg7), Forward<T8>(Arg8))
-	{
-	}
-	/** Forwarding constructor. */
-	template<typename T1,typename T2, typename T3, typename T4, typename T5, typename T6, typename T7, typename T8, typename T9>
-	FAutoDeleteAsyncTask( T1&& Arg1, T2&& Arg2, T3&& Arg3, T4&& Arg4, T5&& Arg5, T6&& Arg6, T7&& Arg7, T8&& Arg8, T9&& Arg9 )
-		: Task(Forward<T1>(Arg1), Forward<T2>(Arg2), Forward<T3>(Arg3), Forward<T4>(Arg4), Forward<T5>(Arg5), Forward<T6>(Arg6), Forward<T7>(Arg7), Forward<T8>(Arg8), Forward<T9>(Arg9))
-	{
-	}
-#endif
 
 	/** 
 	* Run this task on this thread, now. Will end up destroying myself, so it is not safe to use this object after this call.
@@ -396,71 +336,19 @@ class FAsyncTask
 	}
 
 public:
-	/** Default constructor. */
-	FAsyncTask( )
+	FAsyncTask()
+		: Task()
 	{
+		// This constructor shouldn't be necessary as the forwarding constructor should handle it, but
+		// we are getting VC internal compiler errors on CIS when creating arrays of FAsyncTask.
+
 		Init();
 	}
-	/** Passthrough constructor. Generally speaking references will not pass through; use pointers */
-	template<typename T>
-	FAsyncTask( T Arg )
-		: Task(Arg)
-	{
-		Init();
-	}
-	/** Passthrough constructor. Generally speaking references will not pass through; use pointers */
-	template<typename T1,typename T2>
-	FAsyncTask( T1 Arg1, T2 Arg2 )
-		: Task(Arg1,Arg2)
-	{
-		Init();
-	}
-	/** Passthrough constructor. Generally speaking references will not pass through; use pointers */
-	template<typename T1,typename T2, typename T3>
-	FAsyncTask( T1 Arg1, T2 Arg2, T3 Arg3 )
-		: Task(Arg1,Arg2,Arg3)
-	{
-		Init();
-	}
-	/** Passthrough constructor. Generally speaking references will not pass through; use pointers */
-	template<typename T1,typename T2, typename T3, typename T4>
-	FAsyncTask( T1 Arg1, T2 Arg2, T3 Arg3, T4 Arg4 )
-		: Task(Arg1,Arg2,Arg3,Arg4)
-	{
-		Init();
-	}
-	/** Passthrough constructor. Generally speaking references will not pass through; use pointers */
-	template<typename T1,typename T2, typename T3, typename T4, typename T5>
-	FAsyncTask( T1 Arg1, T2 Arg2, T3 Arg3, T4 Arg4, T5 Arg5 )
-		: Task(Arg1,Arg2,Arg3,Arg4,Arg5)
-	{
-		Init();
-	}
-	/** Passthrough constructor. Generally speaking references will not pass through; use pointers */
-	template<typename T1,typename T2, typename T3, typename T4, typename T5, typename T6>
-	FAsyncTask( T1 Arg1, T2 Arg2, T3 Arg3, T4 Arg4, T5 Arg5, T6 Arg6 )
-		: Task(Arg1,Arg2,Arg3,Arg4,Arg5,Arg6)
-	{
-		Init();
-	}
-	/** Passthrough constructor. Generally speaking references will not pass through; use pointers */
-	template<typename T1,typename T2, typename T3, typename T4, typename T5, typename T6, typename T7>
-	FAsyncTask( T1 Arg1, T2 Arg2, T3 Arg3, T4 Arg4, T5 Arg5, T6 Arg6, T7 Arg7 )
-		: Task(Arg1,Arg2,Arg3,Arg4,Arg5,Arg6,Arg7)
-	{
-		Init();
-	}
-	/** Passthrough constructor. Generally speaking references will not pass through; use pointers */
-	template<typename T1,typename T2, typename T3, typename T4, typename T5, typename T6, typename T7, typename T8>
-	FAsyncTask( T1 Arg1, T2 Arg2, T3 Arg3, T4 Arg4, T5 Arg5, T6 Arg6, T7 Arg7, T8 Arg8 )
-		: Task(Arg1,Arg2,Arg3,Arg4,Arg5,Arg6,Arg7,Arg8)
-	{
-		Init();
-	}
-	/** Passthrough constructor. Generally speaking references will not pass through; use pointers */
-	template<typename T1,typename T2, typename T3, typename T4, typename T5, typename T6, typename T7, typename T8, typename T9>
-	FAsyncTask( T1 Arg1, T2 Arg2, T3 Arg3, T4 Arg4, T5 Arg5, T6 Arg6, T7 Arg7, T8 Arg8, T9 Arg9 )
-		: Task(Arg1,Arg2,Arg3,Arg4,Arg5,Arg6,Arg7,Arg8,Arg9)
+
+	/** Forwarding constructor. */
+	template <typename Arg0Type, typename... ArgTypes>
+	FAsyncTask(Arg0Type&& Arg0, ArgTypes&&... Args)
+		: Task(Forward<Arg0Type>(Arg0), Forward<ArgTypes>(Args)...)
 	{
 		Init();
 	}
@@ -538,6 +426,57 @@ public:
 			SyncCompletion();
 		}
 		CheckIdle(); // Must have had bDoWorkOnThisThreadIfNotStarted == false and needed it to be true for a synchronous job
+	}
+
+	/**
+	* Cancel the task, if possible.
+	* Note that this is different than abandoning (which is called by the thread pool at shutdown). 
+	* @return true if the task was canceled and is safe to delete. If it wasn't canceled, it may be done, but that isn't checked here.
+	**/
+	bool Cancel()
+	{
+		if (QueuedPool)
+		{
+			if (QueuedPool->RetractQueuedWork(this))
+			{
+				check(WorkNotFinishedCounter.GetValue() == 1);
+				WorkNotFinishedCounter.Decrement();
+				FinishThreadedWork();
+				QueuedPool = 0;
+				return true;
+			}
+		}
+		return false;
+	}
+
+	/**
+	* Wait until the job is complete, up to a time limit
+	* @param TimeLimitSeconds Must be positive, if you want to wait forever or poll, use a different call.
+	* @return true if the task is completed
+	**/
+	bool WaitCompletionWithTimeout(float TimeLimitSeconds)
+	{
+		check(TimeLimitSeconds > 0.0f)
+		FPlatformMisc::MemoryBarrier();
+		if (QueuedPool)
+		{
+			FScopeCycleCounter Scope(Task.GetStatId());
+			DECLARE_SCOPE_CYCLE_COUNTER(TEXT("FAsyncTask::SyncCompletion"), STAT_FAsyncTask_SyncCompletion, STATGROUP_ThreadPoolAsyncTasks);
+
+			uint32 Ms = uint32(TimeLimitSeconds * 1000.0f) + 1;
+			check(Ms);
+
+			check(DoneEvent); // if it is not done yet, we must have an event
+			if (DoneEvent->Wait(Ms))
+			{
+				QueuedPool = 0;
+				CheckIdle();
+				return true;
+			}
+			return false;
+		}
+		CheckIdle();
+		return true;
 	}
 
 	/** Returns true if the work and TASK has completed, false while it's still in progress. 
@@ -640,7 +579,7 @@ public:
 	void DoWork()
 	{
 		// Uncompress from memory to memory.
-		verify( FCompression::UncompressMemory( Flags, UncompressedBuffer, UncompressedSize, CompressedBuffer, CompressedSize, bIsSourceMemoryPadded ) );
+		verify( FCompression::UncompressMemory( Flags, UncompressedBuffer, UncompressedSize, CompressedBuffer, CompressedSize, bIsSourceMemoryPadded, FPlatformMisc::GetPlatformCompression()->GetCompressionBitWindow()) );
 	}
 
 	FORCEINLINE TStatId GetStatId() const

@@ -16,6 +16,10 @@ typedef TCHAR* PTCHAR;
 #pragma warning(push)
 #pragma warning(disable : 4263) // 'function' : member function does not override any base class virtual member function
 #pragma warning(disable : 4264) // 'virtual_function' : no override available for virtual member function from base 'cla
+#if USING_CODE_ANALYSIS
+	#pragma warning(disable:6509) // Invalid annotation: 'return' cannot be referenced in some contexts
+	#pragma warning(disable:6101) // Returning uninitialized memory '*lpdwExitCode'.  A successful path through the function does not set the named _Out_ parameter.
+#endif
 #include <streams.h>
 #pragma warning(pop)
 
@@ -127,6 +131,7 @@ IBaseFilter* FindEncodingFilter(const FString& Name)
 	while (EnumIterator->Next(1, &Moniker, nullptr) == S_OK)
 	{
 		IPropertyBag* Properties = nullptr;
+		CA_SUPPRESS(6387);
 		if (FAILED(Moniker->BindToStorage(0, 0, IID_IPropertyBag, (void**)&Properties)))
 		{
 			Moniker->Release();
@@ -146,6 +151,7 @@ IBaseFilter* FindEncodingFilter(const FString& Name)
 		Properties->Release();
 
 		IBaseFilter* Filter = nullptr;
+		CA_SUPPRESS(6387);
 		if (bUseThisEncoder && Moniker->BindToObject(nullptr, nullptr, IID_IBaseFilter, (void**)&Filter) == S_OK)
 		{
 			Filter->AddRef();
@@ -236,10 +242,14 @@ public:
 		if (!Options.CodecName.IsEmpty())
 		{
 			EncodingFilter = FindEncodingFilter(Options.CodecName);
-			EncodingFilter->AddRef();
 			if (EncodingFilter)
 			{
+				EncodingFilter->AddRef();
 				Graph->AddFilter( EncodingFilter, TEXT("Encoder") );
+			}
+			else
+			{
+				UE_LOG(LogAVIWriter, Warning, TEXT( "WARNING - Codec %s not found"), *Options.CodecName);
 			}
 		}
 
@@ -248,6 +258,7 @@ public:
 			if (!EncodingFilter)
 			{
 				// Attempt to use a default encoder
+				CA_SUPPRESS(6031);
 				CoCreateInstance(CLSID_MJPGEnc, NULL, CLSCTX_INPROC, IID_IBaseFilter, (void**)&EncodingFilter);
 				Graph->AddFilter( EncodingFilter, TEXT("Encoder") );
 			}
@@ -261,6 +272,7 @@ public:
 		}
 		
 		IBaseFilter *pMux;
+		CA_SUPPRESS(6031);
 		CoCreateInstance(CLSID_AviDest, NULL, CLSCTX_INPROC, IID_IBaseFilter, (void**)&pMux);
 		hr = Graph->AddFilter(pMux, TEXT("AVI Mux"));
 		if (FAILED(hr)) 
@@ -272,6 +284,7 @@ public:
 		}
 
 		IBaseFilter *FileWriter;
+		CA_SUPPRESS(6031);
 		CoCreateInstance(CLSID_FileWriter, NULL, CLSCTX_INPROC, IID_IBaseFilter, (void**)&FileWriter);
 		hr = Graph->AddFilter(FileWriter, TEXT("File Writer"));
 		if (FAILED(hr)) 

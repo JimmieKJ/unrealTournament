@@ -22,12 +22,106 @@
 #include "Net/DataBunch.h"
 #include "PackageMapClient.generated.h"
 
+class FRepLayout;
+class FOutBunch;
+
+class ENGINE_API FNetFieldExport
+{
+public:
+	FNetFieldExport() : bExported( false ), Handle( 0 ), CompatibleChecksum( 0 ), bIncompatible( false )
+	{
+	}
+
+	FNetFieldExport( const uint32 InHandle, const uint32 InCompatibleChecksum, const FString InName, FString InType ) :
+		bExported( false ),
+		Handle( InHandle ),
+		CompatibleChecksum( InCompatibleChecksum ),
+		Name( InName ),
+		Type( InType ),
+		bIncompatible( false )
+	{
+	}
+
+	friend FArchive& operator<<( FArchive& Ar, FNetFieldExport& C )
+	{
+		uint8 Flags = C.bExported ? 1 : 0;
+
+		Ar << Flags;
+
+		if ( Ar.IsLoading() )
+		{
+			C.bExported = Flags == 1 ? true : false;
+		}
+
+		if ( C.bExported )
+		{
+			Ar.SerializeIntPacked( C.Handle );
+			Ar << C.CompatibleChecksum << C.Name << C.Type;
+		}
+
+		return Ar;
+	}
+
+	bool			bExported;
+	uint32			Handle;
+	uint32			CompatibleChecksum;
+	FString			Name;
+	FString			Type;
+
+	// Transient properties
+	mutable bool	bIncompatible;		// If true, we've already determined that this property isn't compatible. We use this to curb warning spam.
+};
+
+class ENGINE_API FNetFieldExportGroup
+{
+public:
+	FNetFieldExportGroup() : PathNameIndex( 0 ) { }
+
+	FString						PathName;
+	uint32						PathNameIndex;
+	TArray< FNetFieldExport >	NetFieldExports;
+
+	friend FArchive& operator<<( FArchive& Ar, FNetFieldExportGroup& C )
+	{
+		Ar << C.PathName;
+
+		Ar.SerializeIntPacked( C.PathNameIndex );
+
+		uint32 NumNetFieldExports = C.NetFieldExports.Num();
+		Ar.SerializeIntPacked( NumNetFieldExports );
+
+		if ( Ar.IsLoading() )
+		{
+			C.NetFieldExports.AddDefaulted( ( int32 )NumNetFieldExports );
+		}
+
+		for ( int32 i = 0; i < C.NetFieldExports.Num(); i++ )
+		{
+			Ar << C.NetFieldExports[i];
+		}
+
+		return Ar;
+	}
+
+	int32 FindNetFieldExportHandleByChecksum( const uint32 Checksum )
+	{
+		for ( int32 i = 0; i < NetFieldExports.Num(); i++ )
+		{
+			if ( NetFieldExports[i].CompatibleChecksum == Checksum )
+			{
+				return i;
+			}
+		}
+
+		return -1;
+	}
+};
 
 /** Stores an object with path associated with FNetworkGUID */
 class FNetGuidCacheObject
 {
 public:
-	FNetGuidCacheObject() : NetworkChecksum( 0 ), PackageChecksum( 0 ), ReadOnlyTimestamp( 0 ), bNoLoad( 0 ), bIgnoreWhenMissing( 0 ), bIsPending( 0 ), bIsBroken( 0 )
+	FNetGuidCacheObject() : NetworkChecksum( 0 ), ReadOnlyTimestamp( 0 ), bNoLoad( 0 ), bIgnoreWhenMissing( 0 ), bIsPending( 0 ), bIsBroken( 0 )
 	{
 	}
 
@@ -37,7 +131,6 @@ public:
 	FNetworkGUID				OuterGUID;
 	FName						PathName;
 	uint32						NetworkChecksum;			// Network checksum saved, used to determine backwards compatible
-	uint32						PackageChecksum;			// If this is a package, this is the guid to expect
 
 	double						ReadOnlyTimestamp;			// Time in second when we should start timing out after going read only
 
@@ -52,6 +145,13 @@ class ENGINE_API FNetGUIDCache
 public:
 	FNetGUIDCache( UNetDriver * InDriver );
 
+	enum ENetworkChecksumMode
+	{
+		NETCHECKSUM_None			= 0,
+		NETCHECKSUM_SaveAndUse		= 1,
+		NETCHECKSUM_SaveButIgnore	= 2,
+	};
+
 	void			CleanReferences();
 	bool			SupportsObject( const UObject* Object ) const;
 	bool			IsDynamicObject( const UObject* Object );
@@ -62,7 +162,7 @@ public:
 	void			RegisterNetGUID_Internal( const FNetworkGUID& NetGUID, const FNetGuidCacheObject& CacheObject );
 	void			RegisterNetGUID_Server( const FNetworkGUID& NetGUID, const UObject* Object );
 	void			RegisterNetGUID_Client( const FNetworkGUID& NetGUID, const UObject* Object );
-	void			RegisterNetGUIDFromPath_Client( const FNetworkGUID& NetGUID, const FString& PathName, const FNetworkGUID& OuterGUID, const uint32 NetworkChecksum, const uint32 PackageChecksum, const bool bNoLoad, const bool bIgnoreWhenMissing );
+	void			RegisterNetGUIDFromPath_Client( const FNetworkGUID& NetGUID, const FString& PathName, const FNetworkGUID& OuterGUID, const uint32 NetworkChecksum, const bool bNoLoad, const bool bIgnoreWhenMissing );
 	UObject *		GetObjectFromNetGUID( const FNetworkGUID& NetGUID, const bool bIgnoreMustBeMapped );
 	bool			ShouldIgnoreWhenMissing( const FNetworkGUID& NetGUID ) const;
 	bool			IsGUIDRegistered( const FNetworkGUID& NetGUID ) const;
@@ -70,12 +170,10 @@ public:
 	bool			IsGUIDBroken( const FNetworkGUID& NetGUID, const bool bMustBeRegistered ) const;
 	FString			FullNetGUIDPath( const FNetworkGUID& NetGUID ) const;
 	void			GenerateFullNetGUIDPath_r( const FNetworkGUID& NetGUID, FString& FullPath ) const;
-	void			SetIgnorePackageMismatchOverride( const bool bInIgnorePackageMismatchOverride ) { bIgnorePackageMismatchOverride = bInIgnorePackageMismatchOverride; }
 	bool			ShouldIgnorePackageMismatch() const;
 	uint32			GetClassNetworkChecksum( const UClass* Class );
 	uint32			GetNetworkChecksum( const UObject* Obj );
-	void			SetShouldUseNetworkChecksum( const bool bInUseNetworkChecksum );
-	bool			ShouldUseNetworkChecksum() const;
+	void			SetNetworkChecksumMode( const ENetworkChecksumMode NewMode );
 
 	void			AsyncPackageCallback(const FName& PackageName, UPackage * Package, EAsyncLoadingResult::Type Result);
 	
@@ -83,19 +181,47 @@ public:
 	TMap< TWeakObjectPtr< UObject >, FNetworkGUID >	NetGUIDLookup;
 	int32											UniqueNetIDs[2];
 
+	TSet< FNetworkGUID >							ImportedNetGuids;
+
 	bool											IsExportingNetGUIDBunch;
 
 	UNetDriver *									Driver;
 
 	TMap< FName, FNetworkGUID >						PendingAsyncPackages;
 
-	bool											bUseNetworkChecksum;
-	bool											bIgnorePackageMismatchOverride;
+	ENetworkChecksumMode							NetworkChecksumMode;
+
+	/** Maps net field export group name to the respective FNetFieldExportGroup */
+	TMap < FString, TSharedPtr< FNetFieldExportGroup > >	NetFieldExportGroupMap;
+
+	/** Maps field export group path to assigned index */
+	TMap < FString, uint32 >								NetFieldExportGroupPathToIndex;
+
+	/** Maps assigned net field export group index to assigned path */
+	TMap < uint32, FString >								NetFieldExportGroupIndexToPath;
+
+	/** Current index used when filling in NetFieldExportGroupPathToIndex/NetFieldExportGroupIndexToPath */
+	int32													UniqueNetFieldExportGroupPathIndex;
 
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 	// History for debugging entries in the guid cache
 	TMap<FNetworkGUID, FString>						History;
 #endif
+};
+
+class ENGINE_API FPackageMapAckState
+{
+public:
+	TMap< FNetworkGUID, int32 >	NetGUIDAckStatus;				// Map that represents the ack state of each net guid for this connection
+	TMap< uint32, bool >		NetFieldExportGroupPathAcked;	// Map that represents whether or not a net field export group has been ack'd by the client
+	TMap< uint64, bool >		NetFieldExportAcked;			// Map that represents whether or not a net field export has been ack'd by the client
+
+	void Reset()
+	{
+		NetGUIDAckStatus.Empty();
+		NetFieldExportGroupPathAcked.Empty();
+		NetFieldExportAcked.Empty();
+	}
 };
 
 UCLASS(transient)
@@ -111,6 +237,7 @@ public:
 		Connection = InConnection;
 		GuidCache = InNetGUIDCache;
 		ExportNetGUIDCount = 0;
+		OverrideAckState = &AckState;
 	}
 
 	virtual ~UPackageMapClient()
@@ -135,11 +262,11 @@ public:
 
 	virtual void ReceivedNak( const int32 NakPacketId ) override;
 	virtual void ReceivedAck( const int32 AckPacketId ) override;
-	virtual void NotifyBunchCommit( const int32 OutPacketId, const TArray< FNetworkGUID > & ExportNetGUIDs ) override;
+	virtual void NotifyBunchCommit( const int32 OutPacketId, const FOutBunch* OutBunch ) override;
 	virtual void GetNetGUIDStats(int32 &AckCount, int32 &UnAckCount, int32 &PendingCount) override;
 
 	void ReceiveNetGUIDBunch( FInBunch &InBunch );
-	bool AppendExportBunches(TArray<FOutBunch *>& OutgoingBunches);
+	void AppendExportBunches(TArray<FOutBunch *>& OutgoingBunches);
 
 	TMap<FNetworkGUID, int32>	NetGUIDExportCountMap;	// How many times we've exported each NetGUID on this connection. Public for ListNetGUIDExports 
 
@@ -160,7 +287,24 @@ public:
 
 	class UNetConnection* GetConnection() { return Connection; }
 
+	void SyncPackageMapExportAckStatus( const UPackageMapClient* Source );
+
+	void SavePackageMapExportAckStatus( FPackageMapAckState& OutState );
+	void RestorePackageMapExportAckStatus( const FPackageMapAckState& InState );
+	void OverridePackageMapExportAckStatus( FPackageMapAckState* NewState );
+
+	/** Functions to help with exporting/importing net field info */
+	TSharedPtr< FNetFieldExportGroup >	GetNetFieldExportGroup( const FString& PathName );
+	void								AddNetFieldExportGroup( const FString& PathName, TSharedPtr< FNetFieldExportGroup > NewNetFieldExportGroup );
+	void								TrackNetFieldExport( FNetFieldExportGroup* NetFieldExportGroup, const int32 NetFieldExportHandle );
+	TSharedPtr< FNetFieldExportGroup >	GetNetFieldExportGroupChecked( const FString& PathName ) const;
+	void								SerializeNetFieldExportGroupMap( FArchive& Ar );
+
 protected:
+
+	/** Functions to help with exporting/importing net field export info */
+	void								AppendNetFieldExports( TArray<FOutBunch *>& OutgoingBunches );
+	void								ReceiveNetFieldExports( FInBunch &InBunch );
 
 	bool	ExportNetGUID( FNetworkGUID NetGUID, const UObject* Object, FString PathName, UObject* ObjOuter );
 	void	ExportNetGUIDHeader();
@@ -180,8 +324,10 @@ protected:
 
 	TSet< FNetworkGUID >				CurrentExportNetGUIDs;				// Current list of NetGUIDs being written to the Export Bunch.
 
-	TMap< FNetworkGUID, int32 >			NetGUIDAckStatus;
 	TArray< FNetworkGUID >				PendingAckGUIDs;					// Quick access to all GUID's that haven't been acked
+
+	FPackageMapAckState					AckState;							// Current ack state of exported data
+	FPackageMapAckState*				OverrideAckState;					// This is a pointer that allows us to override the current ack state, it's never NULL (it will point to AckState by default)
 
 	// Bunches of NetGUID/path tables to send with the current content bunch
 	TArray<FOutBunch* >					ExportBunches;
@@ -192,4 +338,7 @@ protected:
 	TSharedPtr< FNetGUIDCache >			GuidCache;
 
 	TArray< FNetworkGUID >				MustBeMappedGuidsInLastBunch;
+
+	/** List of net field exports that need to go out on next bunch */
+	TSet< uint64 >						NetFieldExports;
 };

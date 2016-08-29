@@ -1,6 +1,6 @@
 //
 //Copyright (C) 2002-2005  3Dlabs Inc. Ltd.
-//Copyright (C) 2012-2013 LunarG, Inc.
+//Copyright (C) 2012-2016 LunarG, Inc.
 //
 //All rights reserved.
 //
@@ -81,22 +81,44 @@ enum TOperator {
     EOpConvUintToBool,
     EOpConvFloatToBool,
     EOpConvDoubleToBool,
+    EOpConvInt64ToBool,
+    EOpConvUint64ToBool,
     EOpConvBoolToFloat,
     EOpConvIntToFloat,
     EOpConvUintToFloat,
     EOpConvDoubleToFloat,
+    EOpConvInt64ToFloat,
+    EOpConvUint64ToFloat,
     EOpConvUintToInt,
     EOpConvFloatToInt,
     EOpConvBoolToInt,
     EOpConvDoubleToInt,
+    EOpConvInt64ToInt,
+    EOpConvUint64ToInt,
     EOpConvIntToUint,
     EOpConvFloatToUint,
     EOpConvBoolToUint,
     EOpConvDoubleToUint,
+    EOpConvInt64ToUint,
+    EOpConvUint64ToUint,
     EOpConvIntToDouble,
     EOpConvUintToDouble,
     EOpConvFloatToDouble,
     EOpConvBoolToDouble,
+    EOpConvInt64ToDouble,
+    EOpConvUint64ToDouble,
+    EOpConvBoolToInt64,
+    EOpConvIntToInt64,
+    EOpConvUintToInt64,
+    EOpConvFloatToInt64,
+    EOpConvDoubleToInt64,
+    EOpConvUint64ToInt64,
+    EOpConvBoolToUint64,
+    EOpConvIntToUint64,
+    EOpConvUintToUint64,
+    EOpConvFloatToUint64,
+    EOpConvDoubleToUint64,
+    EOpConvInt64ToUint64,
 
     //
     // binary operations
@@ -194,6 +216,10 @@ enum TOperator {
     EOpFloatBitsToUint,
     EOpIntBitsToFloat,
     EOpUintBitsToFloat,
+    EOpDoubleBitsToInt64,
+    EOpDoubleBitsToUint64,
+    EOpInt64BitsToDouble,
+    EOpUint64BitsToDouble,
     EOpPackSnorm2x16,
     EOpUnpackSnorm2x16,
     EOpPackUnorm2x16,
@@ -206,6 +232,10 @@ enum TOperator {
     EOpUnpackHalf2x16,
     EOpPackDouble2x32,
     EOpUnpackDouble2x32,
+    EOpPackInt2x32,
+    EOpUnpackInt2x32,
+    EOpPackUint2x32,
+    EOpUnpackUint2x32,
 
     EOpLength,
     EOpDistance,
@@ -238,6 +268,8 @@ enum TOperator {
 
     EOpFtransform,
 
+    EOpNoise,
+
     EOpEmitVertex,           // geometry only
     EOpEndPrimitive,         // geometry only
     EOpEmitStreamVertex,     // geometry only
@@ -250,6 +282,14 @@ enum TOperator {
     EOpMemoryBarrierImage,
     EOpMemoryBarrierShared,  // compute only
     EOpGroupMemoryBarrier,   // compute only
+
+    EOpBallot,
+    EOpReadInvocation,
+    EOpReadFirstInvocation,
+
+    EOpAnyInvocation,
+    EOpAllInvocations,
+    EOpAllInvocationsEqual,
 
     EOpAtomicAdd,
     EOpAtomicMin,
@@ -285,6 +325,8 @@ enum TOperator {
     EOpConstructGuardStart,
     EOpConstructInt,          // these first scalar forms also identify what implicit conversion is needed
     EOpConstructUint,
+    EOpConstructInt64,
+    EOpConstructUint64,
     EOpConstructBool,
     EOpConstructFloat,
     EOpConstructDouble,
@@ -303,6 +345,12 @@ enum TOperator {
     EOpConstructUVec2,
     EOpConstructUVec3,
     EOpConstructUVec4,
+    EOpConstructI64Vec2,
+    EOpConstructI64Vec3,
+    EOpConstructI64Vec4,
+    EOpConstructU64Vec2,
+    EOpConstructU64Vec3,
+    EOpConstructU64Vec4,
     EOpConstructMat2x2,
     EOpConstructMat2x3,
     EOpConstructMat2x4,
@@ -445,6 +493,51 @@ enum TOperator {
     EOpBitCount,
     EOpFindLSB,
     EOpFindMSB,
+
+    //
+    // HLSL operations
+    //
+
+    EOpClip,                // discard if input value < 0
+    EOpIsFinite,
+    EOpLog10,               // base 10 log
+    EOpRcp,                 // 1/x
+    EOpSaturate,            // clamp from 0 to 1
+    EOpSinCos,              // sin and cos in out parameters
+    EOpGenMul,              // mul(x,y) on any of mat/vec/scalars
+    EOpDst,                 // x = 1, y=src0.y * src1.y, z=src0.z, w=src1.w
+    EOpInterlockedAdd,      // atomic ops, but uses [optional] out arg instead of return
+    EOpInterlockedAnd,      // ...
+    EOpInterlockedCompareExchange, // ...
+    EOpInterlockedCompareStore,    // ...
+    EOpInterlockedExchange, // ...
+    EOpInterlockedMax,      // ...
+    EOpInterlockedMin,      // ...
+    EOpInterlockedOr,       // ...
+    EOpInterlockedXor,      // ...
+    EOpAllMemoryBarrierWithGroupSync,    // memory barriers without non-hlsl AST equivalents
+    EOpGroupMemoryBarrierWithGroupSync,  // ...
+    EOpWorkgroupMemoryBarrier,           // ...
+    EOpWorkgroupMemoryBarrierWithGroupSync, // ...
+    EOpEvaluateAttributeSnapped,         // InterpolateAtOffset with int position on 16x16 grid
+    EOpF32tof16,                         // HLSL conversion: half of a PackHalf2x16
+    EOpF16tof32,                         // HLSL conversion: half of an UnpackHalf2x16
+    EOpLit,                              // HLSL lighting coefficient vector
+    EOpTextureBias,                      // HLSL texture bias: will be lowered to EOpTexture
+    EOpAsDouble,                         // slightly different from EOpUint64BitsToDouble
+
+    EOpMethodSample,                     // Texture object methods.  These are translated to existing
+    EOpMethodSampleBias,                 // AST methods, and exist to represent HLSL semantics until that
+    EOpMethodSampleCmp,                  // translation is performed.  See HlslParseContext::decomposeSampleMethods().
+    EOpMethodSampleCmpLevelZero,         // ...
+    EOpMethodSampleGrad,                 // ...
+    EOpMethodSampleLevel,                // ...
+    EOpMethodLoad,                       // ...
+    EOpMethodGetDimensions,              // ...
+    EOpMethodGetSamplePosition,          // ...
+    EOpMethodGather,                     // ...
+    EOpMethodCalculateLevelOfDetail,     // ...
+    EOpMethodCalculateLevelOfDetailUnclamped,     // ...
 };
 
 class TIntermTraverser;
@@ -499,7 +592,10 @@ public:
     virtual const glslang::TIntermSymbol*        getAsSymbolNode()    const { return 0; }
     virtual const glslang::TIntermBranch*        getAsBranchNode()    const { return 0; }
     virtual ~TIntermNode() { }
+
 protected:
+    TIntermNode(const TIntermNode&);
+    TIntermNode& operator=(const TIntermNode&);
     glslang::TSourceLoc loc;
 };
 
@@ -541,6 +637,7 @@ public:
     TString getCompleteString() const { return type.getCompleteString(); }
 
 protected:
+    TIntermTyped& operator=(const TIntermTyped&);
     TType type;
 };
 
@@ -610,25 +707,30 @@ public:
     // if symbol is initialized as symbol(sym), the memory comes from the pool allocator of sym. If sym comes from
     // per process threadPoolAllocator, then it causes increased memory usage per compile
     // it is essential to use "symbol = sym" to assign to symbol
-    TIntermSymbol(int i, const TString& n, const TType& t) : 
-        TIntermTyped(t), id(i) { name = n;} 
+    TIntermSymbol(int i, const TString& n, const TType& t)
+        : TIntermTyped(t), id(i), constSubtree(nullptr)
+          { name = n; }
     virtual int getId() const { return id; }
     virtual const TString& getName() const { return name; }
     virtual void traverse(TIntermTraverser*);
     virtual       TIntermSymbol* getAsSymbolNode()       { return this; }
     virtual const TIntermSymbol* getAsSymbolNode() const { return this; }
-    void setConstArray(const TConstUnionArray& c) { unionArray = c; }
-    const TConstUnionArray& getConstArray() const { return unionArray; }
+    void setConstArray(const TConstUnionArray& c) { constArray = c; }
+    const TConstUnionArray& getConstArray() const { return constArray; }
+    void setConstSubtree(TIntermTyped* subtree) { constSubtree = subtree; }
+    TIntermTyped* getConstSubtree() const { return constSubtree; }
+
 protected:
-    int id;
-    TString name;
-    TConstUnionArray unionArray;
+    int id;                      // the unique id of the symbol this node represents
+    TString name;                // the name of the symbol this node represents
+    TConstUnionArray constArray; // if the symbol is a front-end compile-time constant, this is its value
+    TIntermTyped* constSubtree;
 };
 
 class TIntermConstantUnion : public TIntermTyped {
 public:
-    TIntermConstantUnion(const TConstUnionArray& ua, const TType& t) : TIntermTyped(t), unionArray(ua), literal(false) { }
-    const TConstUnionArray& getConstArray() const { return unionArray; }
+    TIntermConstantUnion(const TConstUnionArray& ua, const TType& t) : TIntermTyped(t), constArray(ua), literal(false) { }
+    const TConstUnionArray& getConstArray() const { return constArray; }
     virtual       TIntermConstantUnion* getAsConstantUnion()       { return this; }
     virtual const TIntermConstantUnion* getAsConstantUnion() const { return this; }
     virtual void traverse(TIntermTraverser*);
@@ -637,8 +739,11 @@ public:
     void setLiteral() { literal = true; }
     void setExpression() { literal = false; }
     bool isLiteral() const { return literal; }
+
 protected:
-    const TConstUnionArray unionArray;
+    TIntermConstantUnion& operator=(const TIntermConstantUnion&);
+
+    const TConstUnionArray constArray;
     bool literal;  // true if node represents a literal in the source code
 };
 
@@ -944,11 +1049,16 @@ enum TVisit
 //
 // Explicitly set postVisit to true if you want post visiting, otherwise,
 // filled in methods will only be called at pre-visit time (before processing
-// the subtree).  Similary for inVisit for in-order visiting of nodes with
+// the subtree).  Similarly for inVisit for in-order visiting of nodes with
 // multiple children.
 //
 // If you only want post-visits, explicitly turn off preVisit (and inVisit) 
 // and turn on postVisit.
+//
+// In general, for the visit*() methods, return true from interior nodes 
+// to have the traversal continue on to children.
+//
+// If you process children yourself, or don't want them processed, return false.
 //
 class TIntermTraverser {
 public:
@@ -1006,6 +1116,14 @@ protected:
     // All the nodes from root to the current node's parent during traversing.
     TVector<TIntermNode *> path;
 };
+
+// KHR_vulkan_glsl says "Two arrays sized with specialization constants are the same type only if
+// sized with the same symbol, involving no operations"
+inline bool SameSpecializationConstants(TIntermTyped* node1, TIntermTyped* node2)
+{
+    return node1->getAsSymbolNode() && node2->getAsSymbolNode() &&
+           node1->getAsSymbolNode()->getId() == node2->getAsSymbolNode()->getId();
+}
 
 } // end namespace glslang
 

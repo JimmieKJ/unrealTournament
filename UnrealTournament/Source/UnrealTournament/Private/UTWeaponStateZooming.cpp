@@ -171,7 +171,7 @@ void UUTWeaponStateZooming::ToggleZoomInSound(bool bNowOn)
 			else if (ZoomLoopComp->IsRegistered())
 			{
 				ZoomLoopComp->Stop();
-				ZoomLoopComp->DetachFromParent();
+				ZoomLoopComp->DetachFromComponent(FDetachmentTransformRules::KeepWorldTransform);
 				ZoomLoopComp->UnregisterComponent();
 			}
 		}

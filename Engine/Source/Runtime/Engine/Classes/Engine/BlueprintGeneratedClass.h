@@ -53,10 +53,10 @@ public:
 	TMultiMap< int32, TWeakObjectPtr<UEdGraphNode> > LineNumberToMacroInstanceNodeMap;
 
 	// Reverse map from code offset to source pin
-	TMap< int32, TWeakObjectPtr<UEdGraphPin> > LineNumberToSourcePinMap;
+	TMap< int32, FEdGraphPinReference > LineNumberToSourcePinMap;
 
 	// Reverse map from source pin to mapped code offset(s)
-	TMultiMap< TWeakObjectPtr<UEdGraphPin>, int32 > SourcePinToLineNumbersMap;
+	TMultiMap< FEdGraphPinReference, int32 > SourcePinToLineNumbersMap;
 
 	// Map from source node (impure) to pure node script code range
 	TMap< TWeakObjectPtr<UEdGraphNode>, FInt32Range > PureNodeScriptCodeRangeMap;
@@ -197,11 +197,17 @@ protected:
 	//   It does *not* contain the wire tracepoint placed after the impure function call
 	TArray<struct FNodeToCodeAssociation> DebugNodeLineNumbers;
 
+	// List of entry points that contributed to the ubergraph
+	TMap<FName, FEdGraphPinReference> DelegatePins;
+
 	// Acceleration structure for execution wire highlighting at runtime
 	TMap<TWeakObjectPtr<UFunction>, FDebuggingInfoForSingleFunction> PerFunctionLineNumbers;
 
+	// Map from objects to class properties they created
+	TMap<TWeakObjectPtr<UObject>, UProperty*> DebugObjectToPropertyMap;
+
 	// Map from pins or nodes to class properties they created
-	TMap<TWeakObjectPtr<UObject>, UProperty*> DebugPinToPropertyMap;
+	TMap<FEdGraphPinReference, UProperty*> DebugPinToPropertyMap;
 
 public:
 
@@ -345,6 +351,11 @@ public:
 	// Looks thru the debugging data for any class variables associated with the node
 	UProperty* FindClassPropertyForPin(const UEdGraphPin* Pin) const
 	{
+		if (!Pin)
+		{
+			return nullptr;
+		}
+
 		UProperty* PropertyPtr = DebugPinToPropertyMap.FindRef(Pin);
 		if ((PropertyPtr == nullptr) && (Pin->LinkedTo.Num() > 0))
 		{
@@ -358,7 +369,7 @@ public:
 	// Looks thru the debugging data for any class variables associated with the node (e.g., temporary variables or timelines)
 	UProperty* FindClassPropertyForNode(const UEdGraphNode* Node) const
 	{
-		return DebugPinToPropertyMap.FindRef(Node);
+		return DebugObjectToPropertyMap.FindRef(Node);
 	}
 
 	// Adds a debug record for a source node and destination in the bytecode of a specified function
@@ -398,10 +409,25 @@ public:
 		PerFuncInfo.SourcePinToLineNumbersMap.Add(SourcePin, CodeOffset);
 	}
 
+	const TMap<FName, FEdGraphPinReference>& GetCompilerGeneratedEvents() const { return DelegatePins; }
+
+	void RegisterPinToEventName(UEdGraphPin const* SourcePin, const FName FunctionName)
+	{
+		DelegatePins.Add(FunctionName) = SourcePin;
+	}
+
 	// Registers an association between an object (pin or node typically) and an associated class member property
 	void RegisterClassPropertyAssociation(class UObject* TrueSourceObject, class UProperty* AssociatedProperty)
 	{
-		DebugPinToPropertyMap.Add(TrueSourceObject, AssociatedProperty);
+		DebugObjectToPropertyMap.Add(TrueSourceObject, AssociatedProperty);
+	}
+
+	void RegisterClassPropertyAssociation(const UEdGraphPin* TrueSourcePin, class UProperty* AssociatedProperty)
+	{
+		if (TrueSourcePin)
+		{
+			DebugPinToPropertyMap.Add(TrueSourcePin, AssociatedProperty);
+		}
 	}
 
 	// Registers an association between a UUID and a node
@@ -413,7 +439,20 @@ public:
 	// Returns the object that caused the specified property to be created (can return nullptr if the association is unknown)
 	UObject* FindObjectThatCreatedProperty(class UProperty* AssociatedProperty) const
 	{
-		if (const TWeakObjectPtr<UObject>* pValue = DebugPinToPropertyMap.FindKey(AssociatedProperty))
+		if (const TWeakObjectPtr<UObject>* pValue = DebugObjectToPropertyMap.FindKey(AssociatedProperty))
+		{
+			return pValue->Get();
+		}
+		else
+		{
+			return nullptr;
+		}
+	}
+
+	// Returns the pin that caused the specified property to be created (can return nullptr if the association is unknown or the association is from an object instead)
+	UEdGraphPin* FindPinThatCreatedProperty(class UProperty* AssociatedProperty) const
+	{
+		if (const FEdGraphPinReference* pValue = DebugPinToPropertyMap.FindKey(AssociatedProperty))
 		{
 			return pValue->Get();
 		}
@@ -425,7 +464,7 @@ public:
 
 	void GenerateReversePropertyMap(TMap<UProperty*, UObject*>& PropertySourceMap)
 	{
-		for (TMap<TWeakObjectPtr<UObject>, UProperty*>::TIterator MapIt(DebugPinToPropertyMap); MapIt; ++MapIt)
+		for (TMap<TWeakObjectPtr<UObject>, UProperty*>::TIterator MapIt(DebugObjectToPropertyMap); MapIt; ++MapIt)
 		{
 			if (UObject* SourceObj = MapIt.Key().Get())
 			{
@@ -517,6 +556,9 @@ struct ENGINE_API FBlueprintCookedComponentInstancingData
 protected:
 	/** Internal method used to help recursively build the cached property list for serialization. */
 	void BuildCachedPropertyList(FCustomPropertyListNode** CurrentNode, const UStruct* CurrentScope, int32* CurrentSourceIdx = nullptr) const;
+
+	/** Internal method used to help recursively build a cached sub property list from an array property for serialization. */
+	void BuildCachedArrayPropertyList(const UArrayProperty* ArraySubPropertyNode, FCustomPropertyListNode** CurrentNode, int32* CurrentSourceIdx) const;
 
 private:
 	/** Internal property list that's used in binary object serialization at component instancing time. */
@@ -616,9 +658,10 @@ public:
 	virtual UObject* GetArchetypeForCDO() const override;
 #endif //WITH_EDITOR
 	virtual void SerializeDefaultObject(UObject* Object, FArchive& Ar) override;
+	virtual void PostLoadDefaultObject(UObject* Object) override;
 	virtual bool IsFunctionImplementedInBlueprint(FName InFunctionName) const override;
 	virtual uint8* GetPersistentUberGraphFrame(UObject* Obj, UFunction* FuncToCheck) const override;
-	virtual void CreatePersistentUberGraphFrame(UObject* Obj, bool bCreateOnlyIfEmpty = false, bool bSkipSuperClass = false) const override;
+	virtual void CreatePersistentUberGraphFrame(UObject* Obj, bool bCreateOnlyIfEmpty = false, bool bSkipSuperClass = false, UClass* OldClass = nullptr) const override;
 	virtual void DestroyPersistentUberGraphFrame(UObject* Obj, bool bSkipSuperClass = false) const override;
 	virtual void Link(FArchive& Ar, bool bRelinkExistingProperties) override;
 	virtual void PurgeClass(bool bRecompilingOnLoad) override;
@@ -689,7 +732,10 @@ public:
 
 protected:
 	/** Internal helper method used to recursively build the custom property list that's used for post-construct initialization. */
-	void BuildCustomPropertyListForPostConstruction(FCustomPropertyListNode*& InPropertyList, UStruct* InStruct, const uint8* DataPtr, const uint8* DefaultDataPtr);
+	bool BuildCustomPropertyListForPostConstruction(FCustomPropertyListNode*& InPropertyList, UStruct* InStruct, const uint8* DataPtr, const uint8* DefaultDataPtr);
+
+	/** Internal helper method used to recursively build a custom property list from an array property used for post-construct initialization. */
+	bool BuildCustomArrayPropertyListForPostConstruction(UArrayProperty* ArrayProperty, FCustomPropertyListNode*& InPropertyList, const uint8* DataPtr, const uint8* DefaultDataPtr, int32 StartIndex = 0);
 
 private:
 	/** List of native class-owned properties that differ from defaults. This is used to optimize property initialization during post-construction by minimizing the number of native class-owned property values that get copied to the new instance. */

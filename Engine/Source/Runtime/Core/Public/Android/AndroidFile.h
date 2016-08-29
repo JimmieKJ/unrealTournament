@@ -6,6 +6,7 @@
 
 #pragma once
 
+#include "GenericPlatform/GenericPlatformFile.h"
 #include <jni.h>
 
 /**

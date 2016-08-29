@@ -58,11 +58,25 @@ float UNavMovementComponent::GetPathFollowingBrakingDistance(float MaxSpeed) con
 	return bUseFixedBrakingDistanceForPaths ? FixedPathBrakingDistance : MaxSpeed;
 }
 
+void UNavMovementComponent::SetFixedBrakingDistance(float DistanceToEndOfPath)
+{
+	if (DistanceToEndOfPath > KINDA_SMALL_NUMBER)
+	{
+		bUseFixedBrakingDistanceForPaths = true;
+		FixedPathBrakingDistance = DistanceToEndOfPath;
+	}
+}
+
+void UNavMovementComponent::ClearFixedBrakingDistance()
+{
+	bUseFixedBrakingDistanceForPaths = false;
+}
+
 void UNavMovementComponent::StopActiveMovement()
 {
 	if (PathFollowingComp.IsValid() && bStopMovementAbortPaths)
 	{
-		PathFollowingComp->AbortMove("StopActiveMovement");
+		PathFollowingComp->AbortMove(*this, FPathFollowingResultFlags::MovementStop);
 	}
 }
 

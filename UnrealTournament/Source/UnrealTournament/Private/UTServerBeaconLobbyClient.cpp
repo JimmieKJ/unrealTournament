@@ -377,7 +377,7 @@ void AUTServerBeaconLobbyClient::Instance_ReceiveBan_Implementation(FUniqueNetId
 	AUTGameState* GameState = GetWorld()->GetGameState<AUTGameState>();
 	if (GameState)
 	{
-		GameState->TempBans.Add(BanId.GetUniqueNetId());
+		GameState->TempBans.Add(BanId);
 	}
 	if (!bFinished)
 	{

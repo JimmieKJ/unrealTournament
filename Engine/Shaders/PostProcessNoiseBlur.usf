@@ -24,7 +24,7 @@ void MainPS(noperspective float4 UVAndScreenPos : TEXCOORD0, float4 SvPosition :
 {
 	float2 UV = UVAndScreenPos.xy;
 
-	float2 PixelPos = SvPosition;
+	float2 PixelPos = SvPosition.xy;
 	float Rnd = PseudoRandom(PixelPos); 
 
 	float2 Offset = PostprocessInput0Size.zw;

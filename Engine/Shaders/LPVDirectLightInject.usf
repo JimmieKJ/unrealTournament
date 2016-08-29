@@ -28,7 +28,7 @@
 
 float ComputeAttenuation( float3 WorldPosition )
 {
-	float3 ToLight = LpvInject.LightPosition - WorldPosition;		
+	float3 ToLight = LpvInject.LightPosition.xyz - WorldPosition;		
 	float DistanceSqr = dot( ToLight, ToLight );
 	float3 L = ToLight * rsqrt( DistanceSqr );
 	float Attenuation = 1.0f;
@@ -40,7 +40,7 @@ float ComputeAttenuation( float3 WorldPosition )
 		if( LpvInject.LightSourceLength > 0 )
 		{
 			// Line segment irradiance
-			float3 L01 = LpvInject.LightDirection * LpvInject.LightSourceLength;
+			float3 L01 = LpvInject.LightDirection.xyz * LpvInject.LightSourceLength;
 			float3 L0 = ToLight - 0.5 * L01;
 			float3 L1 = ToLight + 0.5 * L01;
 			Attenuation = rcp( ( length( L0 ) * length( L1 ) + dot( L0, L1 ) ) * 0.5 + 1 );
@@ -58,7 +58,7 @@ float ComputeAttenuation( float3 WorldPosition )
 	}
 
 #if SPOT_ATTENUATION
-	Attenuation *= SpotAttenuation(L, -LpvInject.LightDirection, LpvInject.LightSpotAngles);
+	Attenuation *= SpotAttenuation(L, -LpvInject.LightDirection.xyz, LpvInject.LightSpotAngles);
 #endif 
 
 	return Attenuation;
@@ -75,7 +75,7 @@ void CSLightInject_ListGenCS(uint3 DTid : SV_DispatchThreadID, uint3 GTid : SV_G
 
 	float3 GridPosition = float3( DTid );
 
-	float3 LightPos = LpvInject.LightPosition;
+	float3 LightPos = LpvInject.LightPosition.xyz;
 
 	float3 WorldPosition = GridToWorld( GridPosition+0.5  );
 	float3 LightVector = float3( LightPos-WorldPosition );
@@ -131,7 +131,7 @@ void CSLightInject_ListGenCS(uint3 DTid : SV_DispatchThreadID, uint3 GTid : SV_G
 				}
 #endif
 
-				float3 flux = LpvInject.LightColor * gvCell.color * DIRECT_LIGHT_INJECTION_STRENGTH;
+				float3 flux = LpvInject.LightColor.rgb * gvCell.color * DIRECT_LIGHT_INJECTION_STRENGTH;
 
 				float Attenuation = ComputeAttenuation( WorldPosition );
 				Attenuation *= nDotL*shadowValue;

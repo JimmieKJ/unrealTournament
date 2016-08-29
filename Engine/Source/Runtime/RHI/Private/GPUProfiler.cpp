@@ -4,6 +4,7 @@
 	GPUProfiler.h: Hierarchical GPU Profiler Implementation.
 =============================================================================*/
 
+#include "RHIPrivatePCH.h"
 #include "RHI.h"
 #include "GPUProfiler.h"
 
@@ -41,6 +42,21 @@ static TAutoConsoleVariable<int32> GProfileGPUTransitions(
 	TEXT("r.ProfileGPU.ShowTransitions"),
 	0,
 	TEXT("Allows profileGPU to display resource transition events."),
+	ECVF_Default);
+
+// Should we print a summary at the end?
+static TAutoConsoleVariable<int32> GProfilePrintAssetSummary(
+	TEXT("r.ProfileGPU.PrintAssetSummary"),
+	0,
+	TEXT("Should we print a summary split by asset (r.ShowMaterialDrawEvents is strongly recommended as well).\n"),
+	ECVF_Default);
+
+// Should we print a summary at the end?
+static TAutoConsoleVariable<FString> GProfileAssetSummaryCallOuts(
+	TEXT("r.ProfileGPU.AssetSummaryCallOuts"),
+	TEXT(""),
+	TEXT("Comma separated list of substrings that deserve special mention in the final summary (e.g., \"LOD,HeroName\"\n")
+	TEXT("r.ProfileGPU.PrintAssetSummary must be true to enable this feature"),
 	ECVF_Default);
 
 enum class EGPUProfileSortMode
@@ -120,13 +136,137 @@ static void GatherStatsEventNode(FGPUProfilerEventNode* Node, int32 Depth, TMap<
 	}
 }
 
-/** Recursively dumps stats for each node with a depth first traversal. */
-static void DumpStatsEventNode(FGPUProfilerEventNode* Node, float RootResult, int32 Depth, const FWildcardString& WildcardFilter, bool bParentMatchedFilter, int32& NumNodes, int32& NumDraws, bool bDumpEventLeafNodes)
+struct FGPUProfileInfoPair
 {
-	NumNodes++;
-	if (Node->NumDraws > 0 || Node->Children.Num() > 0 || bDumpEventLeafNodes)
+	int64 Triangles;
+	int32 DrawCalls;
+
+	FGPUProfileInfoPair()
+		: Triangles(0)
+		, DrawCalls(0)
 	{
-		NumDraws += Node->NumDraws;
+	}
+
+	void AddDraw(int64 InTriangleCount)
+	{
+		Triangles += InTriangleCount;
+		++DrawCalls;
+	}
+};
+
+struct FGPUProfileStatSummary
+{
+	TMap<FString, FGPUProfileInfoPair> TrianglesPerMaterial;
+	TMap<FString, FGPUProfileInfoPair> TrianglesPerMesh;
+	TMap<FString, FGPUProfileInfoPair> TrianglesPerNonMesh;
+
+	int32 TotalNumNodes;
+	int32 TotalNumDraws;
+
+	bool bGatherSummaryStats;
+	bool bDumpEventLeafNodes;
+
+	FGPUProfileStatSummary()
+		: TotalNumNodes(0)
+		, TotalNumDraws(0)
+		, bGatherSummaryStats(false)
+		, bDumpEventLeafNodes(false)
+	{
+		bDumpEventLeafNodes = GProfileGPUShowEvents.GetValueOnRenderThread() != 0;
+		bGatherSummaryStats = GProfilePrintAssetSummary.GetValueOnRenderThread() != 0;
+	}
+
+	void ProcessMatch(FGPUProfilerEventNode* Node)
+	{
+		if (bGatherSummaryStats && (Node->NumTotalPrimitives > 0) && (Node->NumTotalVertices > 0) && (Node->Children.Num() == 0))
+		{
+			FString MaterialPart;
+			FString AssetPart;
+			if (Node->Name.Split(TEXT(" "), &MaterialPart, &AssetPart, ESearchCase::CaseSensitive))
+			{
+				TrianglesPerMaterial.FindOrAdd(MaterialPart).AddDraw(Node->NumTotalPrimitives);
+				TrianglesPerMesh.FindOrAdd(AssetPart).AddDraw(Node->NumTotalPrimitives);
+			}
+			else
+			{
+				TrianglesPerNonMesh.FindOrAdd(Node->Name).AddDraw(Node->NumTotalPrimitives);
+			}
+		}
+	}
+
+	void PrintSummary()
+	{
+		//@todo - calculate overhead instead of hardcoding
+		// This .012ms of overhead is based on what Nsight shows as the minimum draw call duration on a 580 GTX, 
+		// Which is apparently how long it takes to issue two timing events.
+		UE_LOG(LogRHI, Warning, TEXT("Total Nodes %u Draws %u approx overhead %.2fms"), TotalNumNodes, TotalNumDraws, .012f * TotalNumNodes);
+		UE_LOG(LogRHI, Warning, TEXT(""));
+		UE_LOG(LogRHI, Warning, TEXT(""));
+
+		if (bGatherSummaryStats)
+		{
+			// Sort the lists and print them out
+			TrianglesPerMesh.ValueSort([](const FGPUProfileInfoPair& A, const FGPUProfileInfoPair& B){ return A.Triangles > B.Triangles; });
+			UE_LOG(LogRHI, Log, TEXT(""));
+			UE_LOG(LogRHI, Log, TEXT("MeshList,TriangleCount,DrawCallCount"));
+			for (auto& Pair : TrianglesPerMesh)
+			{
+				UE_LOG(LogRHI, Log, TEXT("%s,%d,%d"), *Pair.Key, Pair.Value.Triangles, Pair.Value.DrawCalls);
+			}
+
+			TrianglesPerMaterial.ValueSort([](const FGPUProfileInfoPair& A, const FGPUProfileInfoPair& B){ return A.Triangles > B.Triangles; });
+			UE_LOG(LogRHI, Log, TEXT(""));
+			UE_LOG(LogRHI, Log, TEXT("MaterialList,TriangleCount,DrawCallCount"));
+			for (auto& Pair : TrianglesPerMaterial)
+			{
+				UE_LOG(LogRHI, Log, TEXT("%s,%d,%d"), *Pair.Key, Pair.Value.Triangles, Pair.Value.DrawCalls);
+			}
+
+			TrianglesPerNonMesh.ValueSort([](const FGPUProfileInfoPair& A, const FGPUProfileInfoPair& B){ return A.Triangles > B.Triangles; });
+			UE_LOG(LogRHI, Log, TEXT(""));
+			UE_LOG(LogRHI, Log, TEXT("MiscList,TriangleCount,DrawCallCount"));
+			for (auto& Pair : TrianglesPerNonMesh)
+			{
+				UE_LOG(LogRHI, Log, TEXT("%s,%d,%d"), *Pair.Key, Pair.Value.Triangles, Pair.Value.DrawCalls);
+			}
+
+			// See if we want to call out any particularly interesting matches
+			TArray<FString> InterestingSubstrings;
+			GProfileAssetSummaryCallOuts.GetValueOnRenderThread().ParseIntoArray(InterestingSubstrings, TEXT(","), true);
+
+			if (InterestingSubstrings.Num() > 0)
+			{
+				UE_LOG(LogRHI, Log, TEXT(""));
+				UE_LOG(LogRHI, Log, TEXT("Information about specified mesh substring matches (r.ProfileGPU.AssetSummaryCallOuts)"));
+				for (const FString& InterestingSubstring : InterestingSubstrings)
+				{
+					int32 InterestingNumDraws = 0;
+					int64 InterestingNumTriangles = 0;
+
+					for (auto& Pair : TrianglesPerMesh)
+					{
+						if (Pair.Key.Contains(InterestingSubstring))
+						{
+							InterestingNumDraws += Pair.Value.DrawCalls;
+							InterestingNumTriangles += Pair.Value.Triangles;
+						}
+					}
+
+					UE_LOG(LogRHI, Log, TEXT("Matching '%s': %d draw calls, with %d tris (%.2f M)"), *InterestingSubstring, InterestingNumDraws, InterestingNumTriangles, InterestingNumTriangles * 1e-6);
+				}
+				UE_LOG(LogRHI, Log, TEXT(""));
+			}
+		}
+	}
+};
+
+/** Recursively dumps stats for each node with a depth first traversal. */
+static void DumpStatsEventNode(FGPUProfilerEventNode* Node, float RootResult, int32 Depth, const FWildcardString& WildcardFilter, bool bParentMatchedFilter, FGPUProfileStatSummary& Summary)
+{
+	Summary.TotalNumNodes++;
+	if (Node->NumDraws > 0 || Node->Children.Num() > 0 || Summary.bDumpEventLeafNodes)
+	{
+		Summary.TotalNumDraws += Node->NumDraws;
 		// Percent that this node was of the total frame time
 		const float Percent = Node->TimingResult * 100.0f / (RootResult * 1000.0f);
 
@@ -156,6 +296,8 @@ static void DumpStatsEventNode(FGPUProfilerEventNode* Node, float RootResult, in
 				Node->NumTotalVertices,
 				*Extra
 				);
+
+			Summary.ProcessMatch(Node);
 		}
 
 		struct FCompareGPUProfileNode
@@ -191,10 +333,10 @@ static void DumpStatsEventNode(FGPUProfilerEventNode* Node, float RootResult, in
 		{
 			FGPUProfilerEventNode* ChildNode = Node->Children[ChildIndex];
 
-			int32 NumChildDraws = 0;
 			// Traverse children			
-			DumpStatsEventNode(Node->Children[ChildIndex], RootResult, Depth + 1, WildcardFilter, bMatchesFilter, NumNodes, NumChildDraws, bDumpEventLeafNodes);
-			NumDraws += NumChildDraws;
+			const int32 PrevNumDraws = Summary.TotalNumDraws;
+			DumpStatsEventNode(Node->Children[ChildIndex], RootResult, Depth + 1, WildcardFilter, bMatchesFilter, Summary);
+			const int32 NumChildDraws = Summary.TotalNumDraws - PrevNumDraws;
 
 			TotalChildTime += ChildNode->TimingResult;
 			TotalChildDraws += NumChildDraws;
@@ -294,20 +436,12 @@ void FGPUProfilerEventNodeFrame::DumpEventTree()
 		FString RootWildcardString = CVar2->GetString(); 
 		FWildcardString RootWildcard(RootWildcardString);
 
-		int32 NumNodes = 0;
-		int32 NumDraws = 0;
-		bool bDumpEventLeafNodes = GProfileGPUShowEvents.GetValueOnRenderThread() != 0;
+		FGPUProfileStatSummary Summary;
 		for (int32 BaseNodeIndex = 0; BaseNodeIndex < EventTree.Num(); BaseNodeIndex++)
 		{
-			DumpStatsEventNode(EventTree[BaseNodeIndex], RootResult, 0, RootWildcard, false, NumNodes, NumDraws, bDumpEventLeafNodes);
+			DumpStatsEventNode(EventTree[BaseNodeIndex], RootResult, 0, RootWildcard, false, /*inout*/ Summary);
 		}
-
-		//@todo - calculate overhead instead of hardcoding
-		// This .012ms of overhead is based on what Nsight shows as the minimum draw call duration on a 580 GTX, 
-		// Which is apparently how long it takes to issue two timing events.
-		UE_LOG(LogRHI, Warning, TEXT("Total Nodes %u Draws %u approx overhead %.2fms"), NumNodes, NumDraws, .012f * NumNodes);
-		UE_LOG(LogRHI, Warning, TEXT(""));
-		UE_LOG(LogRHI, Warning, TEXT(""));
+		Summary.PrintSummary();
 
 		if (RootWildcardString == TEXT("*"))
 		{

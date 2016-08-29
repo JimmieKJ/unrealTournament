@@ -9,6 +9,7 @@
 #include "UTBot.h"
 #include "StatNames.h"
 #include "UTCTFFlag.h"
+#include "PhysicsEngine/PhysicsSettings.h"
 
 const float MAX_STEP_SIDE_Z = 0.08f;	// maximum z value for the normal on the vertical side of steps
 

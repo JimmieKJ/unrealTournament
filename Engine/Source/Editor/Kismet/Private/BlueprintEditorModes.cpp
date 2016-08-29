@@ -31,6 +31,7 @@
 #include "Editor/WorkspaceMenuStructure/Public/WorkspaceMenuStructureModule.h"
 #include "BlueprintEditorTabs.h"
 #include "BlueprintEditorTabFactories.h"
+#include "BlueprintEditorSharedTabFactories.h"
 
 #define LOCTEXT_NAMESPACE "BlueprintEditor"
 

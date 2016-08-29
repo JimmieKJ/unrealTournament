@@ -230,7 +230,7 @@ TSharedRef<class SWidget> SUTHUDSettingsDialog::BuildCustomButtonBar()
 }
 
 
-SVerticalBox::FSlot& SUTHUDSettingsDialog::AddFloatOption(FName OptionTag, FText CaptionText, FText ToolTip, FText Prefix, float InitialValue, float Min, float Max)
+SVerticalBox::FSlot& SUTHUDSettingsDialog::AddFloatOption(FName OptionTag, FText CaptionText, FText InToolTip, FText Prefix, float InitialValue, float Min, float Max)
 {
 	// Create the entry..
 
@@ -240,7 +240,7 @@ SVerticalBox::FSlot& SUTHUDSettingsDialog::AddFloatOption(FName OptionTag, FText
 	SAssignNew(Caption, STextBlock)
 		.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Small.Bold")
 		.Text(CaptionText)
-		.ToolTip(SUTUtils::CreateTooltip(ToolTip));
+		.ToolTip(SUTUtils::CreateTooltip(InToolTip));
 
 	TSharedPtr<SEditableTextBox> EditBox;
 	SAssignNew(EditBox, SEditableTextBox)
@@ -290,7 +290,7 @@ SVerticalBox::FSlot& SUTHUDSettingsDialog::AddFloatOption(FName OptionTag, FText
 			]
 		];
 }
-SVerticalBox::FSlot& SUTHUDSettingsDialog::AddIntOption(FName OptionTag, FText CaptionText, FText ToolTip, FText Prefix, int InitialValue, int32 Min, int32 Max)
+SVerticalBox::FSlot& SUTHUDSettingsDialog::AddIntOption(FName OptionTag, FText CaptionText, FText InToolTip, FText Prefix, int InitialValue, int32 Min, int32 Max)
 {
 	// Create the entry..
 
@@ -301,7 +301,7 @@ SVerticalBox::FSlot& SUTHUDSettingsDialog::AddIntOption(FName OptionTag, FText C
 	SAssignNew(Caption, STextBlock)
 		.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Small.Bold")
 		.Text(CaptionText)
-		.ToolTip(SUTUtils::CreateTooltip(ToolTip));
+		.ToolTip(SUTUtils::CreateTooltip(InToolTip));
 
 	TSharedPtr<SEditableTextBox> EditBox;
 	SAssignNew(EditBox, SEditableTextBox)
@@ -353,7 +353,7 @@ SVerticalBox::FSlot& SUTHUDSettingsDialog::AddIntOption(FName OptionTag, FText C
 
 }
 
-SVerticalBox::FSlot& SUTHUDSettingsDialog::AddBoolOption(FName OptionTag, FText CaptionText, FText ToolTip, bool bInitialValue)
+SVerticalBox::FSlot& SUTHUDSettingsDialog::AddBoolOption(FName OptionTag, FText CaptionText, FText InToolTip, bool bInitialValue)
 {
 	// Create the entry..
 
@@ -364,7 +364,7 @@ SVerticalBox::FSlot& SUTHUDSettingsDialog::AddBoolOption(FName OptionTag, FText 
 	SAssignNew(Caption, STextBlock)
 		.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Small.Bold")
 		.Text(CaptionText)
-		.ToolTip(SUTUtils::CreateTooltip(ToolTip));
+		.ToolTip(SUTUtils::CreateTooltip(InToolTip));
 
 	TSharedPtr<SCheckBox> CheckBox;
 	SAssignNew(CheckBox, SCheckBox)

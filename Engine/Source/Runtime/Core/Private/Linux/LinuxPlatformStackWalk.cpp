@@ -18,6 +18,10 @@
 #include <libdwarf.h>
 #include <dwarf.h>
 
+#ifndef DW_AT_MIPS_linkage_name
+	#define DW_AT_MIPS_linkage_name		0x2007			// common extension, used before DW_AT_linkage_name became standard
+#endif // DW_AT_MIPS_linkage_name
+
 namespace LinuxStackWalkHelpers
 {
 	struct LinuxBacktraceSymbols
@@ -53,16 +57,23 @@ namespace LinuxStackWalkHelpers
 		 * Gets information for the crash.
 		 *
 		 * @param Address the address to look up info for
-		 * @param OutFunctionNamePtr pointer to function name (may be NULL). Caller doesn't have to free it, but need to consider it temporary (i.e. next GetInfoForAddress() call on any thread may change it).
-		 * @param OutSourceFilePtr pointer to source filename (may be NULL). Caller doesn't have to free it, but need to consider it temporary (i.e. next GetInfoForAddress() call on any thread may change it).
-		 * @param OutLineNumberPtr pointer to line in a source file (may be NULL). Caller doesn't have to free it, but need to consider it temporary (i.e. next GetInfoForAddress() call on any thread may change it).
+		 * @param OutModuleNamePtr pointer to module name (may be null). Caller doesn't have to free it, but need to consider it temporary (i.e. next GetInfoForAddress() call on any thread may change it).
+		 * @param OutFunctionNamePtr pointer to function name (may be null). Caller doesn't have to free it, but need to consider it temporary (i.e. next GetInfoForAddress() call on any thread may change it).
+		 * @param OutSourceFilePtr pointer to source filename (may be null). Caller doesn't have to free it, but need to consider it temporary (i.e. next GetInfoForAddress() call on any thread may change it).
+		 * @param OutLineNumberPtr pointer to line in a source file (may be null). Caller doesn't have to free it, but need to consider it temporary (i.e. next GetInfoForAddress() call on any thread may change it).
 		 *
 		 * @return true if succeeded in getting the info. If false is returned, none of above parameters should be trusted to contain valid data!
 		 */
-		bool GetInfoForAddress(void * Address, const char **OutFunctionNamePtr, const char **OutSourceFilePtr, int *OutLineNumberPtr);
+		bool GetInfoForAddress(void* Address, const char** OutModuleNamePtr, const char** OutFunctionNamePtr, const char** OutSourceFilePtr, int* OutLineNumberPtr);
 
 		/**
-		 * Check check if address is inside this entry.
+		 * Checks check if address is inside this entry.
+		 *
+		 * @param DebugInfo DWARF debug info point
+		 * @param Die pointer to Debugging Information Entry
+		 * @param Addr address to check
+		 *
+		 * @return true if the address is in range
 		 */
 		static bool CheckAddressInRange(Dwarf_Debug DebugInfo, Dwarf_Die Die, Dwarf_Unsigned Addr);
 
@@ -82,6 +93,15 @@ namespace LinuxStackWalkHelpers
 		 */
 		static bool FindFunctionNameInDIE(Dwarf_Debug DebugInfo, Dwarf_Die Die, Dwarf_Addr Addr, const char **OutFuncName);
 
+		/**
+		 * Tries all usable attributes in DIE to determine function name (i.e. DW_AT_MIPS_linkage_name, DW_AT_linkage_name, DW_AT_name)
+		 *
+		 * @param Die Debugging Infromation Entry
+		 * @param OutFuncName Pointer to function name (volatile, copy it after call). Will not be touched if function returns false
+		 *
+		 * @return true if found
+		 */
+		static bool FindNameAttributeInDIE(Dwarf_Die Die, const char **OutFuncName);
 	};
 
 	enum
@@ -150,7 +170,7 @@ namespace LinuxStackWalkHelpers
 		}
 	}
 
-	bool LinuxBacktraceSymbols::GetInfoForAddress(void * Address, const char **OutFunctionNamePtr, const char **OutSourceFilePtr, int *OutLineNumberPtr)
+	bool LinuxBacktraceSymbols::GetInfoForAddress(void* Address, const char** OutModuleNamePtr, const char** OutFunctionNamePtr, const char** OutSourceFilePtr, int* OutLineNumberPtr)
 	{
 		if (DebugInfo == NULL)
 		{
@@ -217,7 +237,7 @@ namespace LinuxStackWalkHelpers
 			if (dwarf_srclines(Die, &LineBuf, &NumLines, &ErrorInfo) != DW_DLV_OK)
 			{
 				// could not get line info for some reason
-				break;
+				continue;
 			}
 
 			if (NumLines >= kMaxBufferLinesAllowed)
@@ -271,24 +291,60 @@ namespace LinuxStackWalkHelpers
 			}
 		}
 
-		const char * FunctionName = NULL;
-		if (ReturnCode == DW_DLV_OK)
-		{
-			FindFunctionNameInDIEAndChildren(DebugInfo, Die, Addr, &FunctionName);
-		}
+		bool bSuccess = (ReturnCode == DW_DLV_OK);
 
-		if (OutFunctionNamePtr != NULL && FunctionName != NULL)
+		if (LIKELY(bSuccess))
 		{
-			*OutFunctionNamePtr = FunctionName;
-		}
-
-		if (OutSourceFilePtr != NULL && SrcFile != NULL)
-		{
-			*OutSourceFilePtr = SrcFile;
-			
-			if (OutLineNumberPtr != NULL)
+			if (LIKELY(OutFunctionNamePtr != nullptr))
 			{
-				*OutLineNumberPtr = LineNumber;
+				const char * FunctionName = nullptr;
+				FindFunctionNameInDIEAndChildren(DebugInfo, Die, Addr, &FunctionName);
+				if (LIKELY(FunctionName != nullptr))
+				{
+					*OutFunctionNamePtr = FunctionName;
+				}
+				else
+				{
+					// make sure it's not null
+					*OutFunctionNamePtr = "Unknown";
+				}
+			}
+
+			if (LIKELY(OutSourceFilePtr != nullptr && OutLineNumberPtr != nullptr))
+			{
+				if (SrcFile != nullptr)
+				{
+					*OutSourceFilePtr = SrcFile;
+					*OutLineNumberPtr = LineNumber;
+				}
+				else
+				{
+					*OutSourceFilePtr = "Unknown";
+					*OutLineNumberPtr = -1;
+				}
+			}
+
+			if (LIKELY(OutModuleNamePtr != nullptr))
+			{
+				const char* ModuleName = nullptr;
+
+				Dl_info DlInfo;
+				if (dladdr(Address, &DlInfo) != 0)
+				{
+					if (DlInfo.dli_fname != nullptr)
+					{
+						ModuleName = DlInfo.dli_fname;	// this is a pointer we don't own, but assuming it's good until at least the next dladdr call
+					}
+				}
+
+				if (LIKELY(ModuleName != nullptr))
+				{
+					*OutModuleNamePtr = ModuleName;
+				}
+				else
+				{
+					*OutModuleNamePtr = "Unknown";
+				}
 			}
 		}
 
@@ -296,60 +352,91 @@ namespace LinuxStackWalkHelpers
 		while (ReturnCode != DW_DLV_NO_ENTRY) 
 		{
 			if (ReturnCode == DW_DLV_ERROR)
+			{
 				break;
+			}
 			ReturnCode = dwarf_next_cu_header(DebugInfo, NULL, NULL, NULL, NULL, NULL, &ErrorInfo);
 		}
 
-		// if we weren't able to find a function name, don't trust the source file either
-		return FunctionName != NULL;
+		return bSuccess;
 	}
 
-	/**
-	 * Check check if address is inside this entry.
-	 */
 	bool LinuxBacktraceSymbols::CheckAddressInRange(Dwarf_Debug DebugInfo, Dwarf_Die Die, Dwarf_Unsigned Addr)
 	{
 		Dwarf_Attribute *AttrList;
 		Dwarf_Signed AttrCount;
 
-		if (dwarf_attrlist(Die, &AttrList, &AttrCount, NULL) != DW_DLV_OK)
-			return true;
+		if (UNLIKELY(dwarf_attrlist(Die, &AttrList, &AttrCount, NULL) != DW_DLV_OK))
+		{
+			// assume not in range if we couldn't get the information
+			return false;
+		}
+
+		Dwarf_Addr LowAddr = 0, HighAddr = 0, HighOffset = 0;
 
 		for (int i = 0; i < AttrCount; i++)
 		{
 			Dwarf_Half Attr;
-			if (dwarf_whatattr(AttrList[i], &Attr, NULL) != DW_DLV_OK)
+			if (dwarf_whatattr(AttrList[i], &Attr, nullptr) != DW_DLV_OK)
+			{
 				continue;
+			}
+
 			switch (Attr)
 			{
 				case DW_AT_low_pc:
 					{
-						Dwarf_Unsigned LowOffset;
-						if (dwarf_formudata(AttrList[i], &LowOffset, NULL) != DW_DLV_OK)
-							continue;
-						if (LowOffset > Addr)
-							return false;
+						Dwarf_Addr TempLowAddr;
+						if (dwarf_formaddr(AttrList[i], &TempLowAddr, nullptr) == DW_DLV_OK)
+						{
+							if (LIKELY(TempLowAddr > Addr))	// shortcut
+							{
+								return false;
+							}
+
+							LowAddr = TempLowAddr;
+						}
 					}
 					break;
+
 				case DW_AT_high_pc:
 					{
-						Dwarf_Unsigned HighOffset;
-						if (dwarf_formudata(AttrList[i], &HighOffset, NULL) != DW_DLV_OK)
-							continue;
-						if (HighOffset <= Addr)
-							return false;
+						Dwarf_Addr TempHighAddr;
+						if (dwarf_formaddr(AttrList[i], &TempHighAddr, nullptr) == DW_DLV_OK)
+						{
+							if (LIKELY(TempHighAddr <= Addr))	// shortcut
+							{
+								return false;
+							}
+
+							HighAddr = TempHighAddr;
+						}
+
+						// Offset is used since DWARF-4. Store it, but don't compare right now in case
+						// we haven't yet initialized LowAddr
+						Dwarf_Unsigned TempHighOffset;
+						if (dwarf_formudata(AttrList[i], &TempHighOffset, nullptr) == DW_DLV_OK)
+						{
+							HighOffset = TempHighOffset;
+						}
 					}
 					break;
+
 				case DW_AT_ranges:
 					{
 						Dwarf_Unsigned Offset;
 						if (dwarf_formudata(AttrList[i], &Offset, NULL) != DW_DLV_OK)
+						{
 							continue;
+						}
 
 						Dwarf_Ranges *Ranges;
 						Dwarf_Signed Count;
-						if (dwarf_get_ranges(DebugInfo, (Dwarf_Off) Offset, &Ranges, &Count, NULL, NULL) != DW_DLV_OK)
+						if (dwarf_get_ranges(DebugInfo, (Dwarf_Off) Offset, &Ranges, &Count, nullptr, nullptr) != DW_DLV_OK)
+						{
 							continue;
+						}
+
 						for (int j = 0; j < Count; j++)
 						{
 							if (Ranges[j].dwr_type == DW_RANGES_END)
@@ -368,11 +455,73 @@ namespace LinuxStackWalkHelpers
 						return false;
 					}
 					break;
+
 				default:
 					break;
 			}
 		}
-		return true;
+
+		if (UNLIKELY(HighAddr == 0 && HighOffset != 0))
+		{
+			HighAddr = LowAddr + HighOffset;
+		}
+
+		return LowAddr <= Addr && Addr < HighAddr;
+	}
+
+	bool LinuxBacktraceSymbols::FindNameAttributeInDIE(Dwarf_Die Die, const char **OutFuncName)
+	{
+		Dwarf_Error ErrorInfo;
+		int ReturnCode;
+
+		// look first for DW_AT_linkage_name or DW_AT_MIPS_linkage_name, since they hold fully qualified (albeit mangled) name
+		Dwarf_Attribute LinkageNameAt;
+		// DW_AT_MIPS_linkage_name is preferred because we're using DWARF2 by default
+		ReturnCode = dwarf_attr(Die, DW_AT_MIPS_linkage_name, &LinkageNameAt, &ErrorInfo);
+		if (UNLIKELY(ReturnCode == DW_DLV_NO_ENTRY))
+		{
+			// retry with newer DW_AT_linkage_name
+			ReturnCode = dwarf_attr(Die, DW_AT_linkage_name, &LinkageNameAt, &ErrorInfo);
+		}
+
+		if (LIKELY(ReturnCode == DW_DLV_OK))
+		{
+			char *TempFuncName;
+			if (LIKELY(dwarf_formstring(LinkageNameAt, &TempFuncName, &ErrorInfo) == DW_DLV_OK))
+			{
+				// try to demangle
+				int DemangleStatus = 0xBAD;
+				char *Demangled = abi::__cxa_demangle(TempFuncName, nullptr, nullptr, &DemangleStatus);
+				if (DemangleStatus == 0 && Demangled != nullptr)
+				{
+					// cache the demangled name
+					static char CachedDemangledName[1024];
+					FCStringAnsi::Strcpy(CachedDemangledName, sizeof(CachedDemangledName), Demangled);
+
+					*OutFuncName = CachedDemangledName;
+				}
+				else
+				{
+					*OutFuncName = TempFuncName;
+				}
+
+				if (Demangled)
+				{
+					free(Demangled);
+				}
+				return true;
+			}
+		}
+
+		// if everything else fails, just take DW_AT_name, but in case of class methods, it is only a method name, so the information will be incomplete and almost useless
+		const char *TempMethodName;
+		if (LIKELY(dwarf_attrval_string(Die, DW_AT_name, &TempMethodName, &ErrorInfo) == DW_DLV_OK))
+		{
+			*OutFuncName = TempMethodName;
+			return true;
+		}
+
+		return false;
 	}
 
 	/**
@@ -385,9 +534,6 @@ namespace LinuxStackWalkHelpers
 	{
 		Dwarf_Error ErrorInfo;
 		Dwarf_Half Tag;
-		//Dwarf_Unsigned LowerPC, HigherPC;
-		char *TempFuncName;
-		int ReturnCode;
 
 		if (dwarf_tag(Die, &Tag, &ErrorInfo) != DW_DLV_OK || Tag != DW_TAG_subprogram)
 		{
@@ -399,54 +545,34 @@ namespace LinuxStackWalkHelpers
 		{
 			return false;
 		}
-		
-		// found it
-		*OutFuncName = NULL;
-		Dwarf_Attribute SubAt;
-		ReturnCode = dwarf_attr(Die, DW_AT_name, &SubAt, &ErrorInfo);
-		if (ReturnCode == DW_DLV_ERROR)
+
+		// attempt to find the name in DW_TAG_subprogram DIE
+		if (FindNameAttributeInDIE(Die, OutFuncName))
 		{
-			return true;	// error, but stop the search
-		}
-		else if (ReturnCode == DW_DLV_OK) 
-		{
-			if (dwarf_formstring(SubAt, &TempFuncName, &ErrorInfo))
-			{
-				*OutFuncName = NULL;
-			}
-			else
-			{
-				*OutFuncName = TempFuncName;
-			}
 			return true;
 		}
 
-		// DW_AT_Name is not present, look in DW_AT_specification
+		// If not found, navigate to specification DIE and look there
 		Dwarf_Attribute SpecAt;
-		if (dwarf_attr(Die, DW_AT_specification, &SpecAt, &ErrorInfo))
+		if (UNLIKELY(dwarf_attr(Die, DW_AT_specification, &SpecAt, &ErrorInfo) != DW_DLV_OK))
 		{
-			// not found, tough luck
+			// no specificaation die
 			return false;
 		}
 
 		Dwarf_Off Offset;
-		if (dwarf_global_formref(SpecAt, &Offset, &ErrorInfo))
+		if (UNLIKELY(dwarf_global_formref(SpecAt, &Offset, &ErrorInfo) != DW_DLV_OK))
 		{
 			return false;
 		}
 
 		Dwarf_Die SpecDie;
-		if (dwarf_offdie(DebugInfo, Offset, &SpecDie, &ErrorInfo))
+		if (UNLIKELY(dwarf_offdie(DebugInfo, Offset, &SpecDie, &ErrorInfo) != DW_DLV_OK))
 		{
 			return false;
 		}
 
-		if (dwarf_attrval_string(SpecDie, DW_AT_name, OutFuncName, &ErrorInfo))
-		{
-			*OutFuncName = NULL;
-		}
-
-		return true;
+		return FindNameAttributeInDIE(SpecDie, OutFuncName);
 	}
 
 	/**
@@ -646,7 +772,34 @@ void FLinuxPlatformStackWalk::ProgramCounterToSymbolInfo( uint64 ProgramCounter,
 	out_SymbolInfo.ProgramCounter = ProgramCounter;
 
 	// Get function, filename and line number.
-	// @TODO
+	const char* ModuleName = nullptr;
+	const char* FunctionName = nullptr;
+	const char* SourceFilename = nullptr;
+	int LineNumber = 0;
+
+	if (LinuxStackWalkHelpers::GetBacktraceSymbols()->GetInfoForAddress(reinterpret_cast<void*>(ProgramCounter), &ModuleName, &FunctionName, &SourceFilename, &LineNumber))
+	{
+		out_SymbolInfo.LineNumber = LineNumber;
+
+		if (LIKELY(ModuleName != nullptr))
+		{
+			FCStringAnsi::Strcpy(out_SymbolInfo.ModuleName, sizeof(out_SymbolInfo.ModuleName), ModuleName);
+		}
+
+		if (LIKELY(SourceFilename != nullptr))
+		{
+			FCStringAnsi::Strcpy(out_SymbolInfo.Filename, sizeof(out_SymbolInfo.Filename), SourceFilename);
+		}
+
+		if (FunctionName != nullptr)
+		{
+			FCStringAnsi::Strcpy(out_SymbolInfo.FunctionName, sizeof(out_SymbolInfo.Filename), FunctionName);
+		}
+		else
+		{
+			sprintf(out_SymbolInfo.FunctionName, "0x%016llx", ProgramCounter);
+		}
+	}
 }
 
 bool FLinuxPlatformStackWalk::ProgramCounterToHumanReadableString( int32 CurrentCallDepth, uint64 ProgramCounter, ANSICHAR* HumanReadableString, SIZE_T HumanReadableStringSize, FGenericCrashContext* Context )
@@ -680,42 +833,49 @@ bool FLinuxPlatformStackWalk::ProgramCounterToHumanReadableString( int32 Current
 			}
 			LinuxStackWalkHelpers::AppendToString(HumanReadableString, HumanReadableStringSize, Context, TempArray);
 
-			// Get filename.
+			// Get filename, source file and line number
+			FLinuxCrashContext* LinuxContext = static_cast< FLinuxCrashContext* >( Context );
+			if (LinuxContext)
 			{
-				const char * FunctionName = LinuxStackWalkHelpers::GetFunctionName(Context, CurrentCallDepth);
-				if (FunctionName)
+				const char * ModuleName = nullptr;
+				const char * FunctionName = nullptr;
+				const char * SourceFilename = nullptr;
+				int LineNumber;
+
+				// for ensure, use the fast path - do not even attempt to get detailed info as it will result in long hitch
+				bool bAddDetailedInfo = !LinuxContext->GetIsEnsure();
+
+				// attempt to get the said detailed info
+				bAddDetailedInfo = bAddDetailedInfo && LinuxStackWalkHelpers::GetBacktraceSymbols()->GetInfoForAddress(reinterpret_cast<void*>(ProgramCounter), &ModuleName, &FunctionName, &SourceFilename, &LineNumber);
+
+				if (bAddDetailedInfo)
 				{
+					// append FunctionName() [Source.cpp, line X] to HumanReadableString
 					LinuxStackWalkHelpers::AppendToString(HumanReadableString, HumanReadableStringSize, Context, FunctionName);
-				}
+					FCStringAnsi::Sprintf(TempArray, " [%s, line %d]", SourceFilename, LineNumber);
+					LinuxStackWalkHelpers::AppendToString(HumanReadableString, HumanReadableStringSize, Context, TempArray);
 
-				// try to add source file and line number, too
-				FLinuxCrashContext* LinuxContext = static_cast< FLinuxCrashContext* >( Context );
-				if (LinuxContext)
+					// append Module!FunctioName [Source.cpp:X] to MinidumpCallstackInfo
+					FCStringAnsi::Strcat(LinuxContext->MinidumpCallstackInfo, ARRAY_COUNT( LinuxContext->MinidumpCallstackInfo ) - 1, ModuleName);
+					FCStringAnsi::Strcat(LinuxContext->MinidumpCallstackInfo, ARRAY_COUNT( LinuxContext->MinidumpCallstackInfo ) - 1, "!");
+					LinuxStackWalkHelpers::AppendFunctionNameIfAny(*LinuxContext, FunctionName, ProgramCounter);
+					FCStringAnsi::Sprintf(TempArray, " [%s:%d]", SourceFilename, LineNumber);
+					FCStringAnsi::Strcat(LinuxContext->MinidumpCallstackInfo, ARRAY_COUNT( LinuxContext->MinidumpCallstackInfo ) - 1, TempArray);
+				}
+				else
 				{
-					const char * SourceFilename = NULL;
-					int LineNumber;
-					// do not symbolicate if we're handling ensure()
-					if (!LinuxContext->GetIsEnsure() && LinuxStackWalkHelpers::GetBacktraceSymbols()->GetInfoForAddress(reinterpret_cast< void* >( ProgramCounter ), NULL, &SourceFilename, &LineNumber) && FunctionName != nullptr)
+					// get the function name for backtrace, may be incorrect
+					FunctionName = LinuxStackWalkHelpers::GetFunctionName(Context, CurrentCallDepth);
+					if (FunctionName)
 					{
-						FCStringAnsi::Sprintf(TempArray, " [%s, line %d]", SourceFilename, LineNumber);
-						LinuxStackWalkHelpers::AppendToString(HumanReadableString, HumanReadableStringSize, Context, TempArray);
-						FCStringAnsi::Sprintf(TempArray, " [%s:%d]", SourceFilename, LineNumber);
+						LinuxStackWalkHelpers::AppendToString(HumanReadableString, HumanReadableStringSize, Context, FunctionName);
+					}
 
-						// if we were able to find info for this line, it means it's in our code
-						// append program name (strong assumption of monolithic build here!)						
-						FCStringAnsi::Strcat(LinuxContext->MinidumpCallstackInfo, ARRAY_COUNT( LinuxContext->MinidumpCallstackInfo ) - 1, TCHAR_TO_ANSI(*FApp::GetName()));
-						FCStringAnsi::Strcat(LinuxContext->MinidumpCallstackInfo, ARRAY_COUNT( LinuxContext->MinidumpCallstackInfo ) - 1, "!");
-						LinuxStackWalkHelpers::AppendFunctionNameIfAny(*LinuxContext, FunctionName, ProgramCounter);
-						FCStringAnsi::Strcat(LinuxContext->MinidumpCallstackInfo, ARRAY_COUNT( LinuxContext->MinidumpCallstackInfo ) - 1, TempArray);
-					}
-					else
-					{
-						// if we were NOT able to find info for this line, it means it's something else
-						FCStringAnsi::Strcat(LinuxContext->MinidumpCallstackInfo, ARRAY_COUNT( LinuxContext->MinidumpCallstackInfo ) - 1, "Unknown!");
-						LinuxStackWalkHelpers::AppendFunctionNameIfAny(*LinuxContext, FunctionName, ProgramCounter);
-					}
-					FCStringAnsi::Strcat(LinuxContext->MinidumpCallstackInfo, ARRAY_COUNT( LinuxContext->MinidumpCallstackInfo ) - 1, "\r\n");	// this one always uses Windows line terminators
+					FCStringAnsi::Strcat(LinuxContext->MinidumpCallstackInfo, ARRAY_COUNT( LinuxContext->MinidumpCallstackInfo ) - 1, "Unknown!");
+					LinuxStackWalkHelpers::AppendFunctionNameIfAny(*LinuxContext, FunctionName, ProgramCounter);
 				}
+
+				FCStringAnsi::Strcat(LinuxContext->MinidumpCallstackInfo, ARRAY_COUNT( LinuxContext->MinidumpCallstackInfo ) - 1, "\r\n");	// this one always uses Windows line terminators
 			}
 		}
 		return true;
@@ -729,11 +889,11 @@ void FLinuxPlatformStackWalk::StackWalkAndDump( ANSICHAR* HumanReadableString, S
 	{
 		FLinuxCrashContext CrashContext;
 		CrashContext.InitFromSignal(0, nullptr, nullptr);
-		FGenericPlatformStackWalk::StackWalkAndDump(HumanReadableString, HumanReadableStringSize, IgnoreCount + 1, &CrashContext);
+		FGenericPlatformStackWalk::StackWalkAndDump(HumanReadableString, HumanReadableStringSize, IgnoreCount, &CrashContext);
 	}
 	else
 	{
-		FGenericPlatformStackWalk::StackWalkAndDump(HumanReadableString, HumanReadableStringSize, IgnoreCount + 1, Context);
+		FGenericPlatformStackWalk::StackWalkAndDump(HumanReadableString, HumanReadableStringSize, IgnoreCount, Context);
 	}
 }
 
@@ -744,7 +904,7 @@ void FLinuxPlatformStackWalk::StackWalkAndDumpEx(ANSICHAR* HumanReadableString, 
 	{
 		FLinuxCrashContext CrashContext(bHandlingEnsure);
 		CrashContext.InitFromSignal(0, nullptr, nullptr);
-		FPlatformStackWalk::StackWalkAndDump(HumanReadableString, HumanReadableStringSize, IgnoreCount + 1, &CrashContext);
+		FPlatformStackWalk::StackWalkAndDump(HumanReadableString, HumanReadableStringSize, IgnoreCount, &CrashContext);
 	}
 	else
 	{
@@ -767,7 +927,7 @@ void FLinuxPlatformStackWalk::StackWalkAndDumpEx(ANSICHAR* HumanReadableString, 
 		};
 
 		FLocalGuardHelper Guard(reinterpret_cast<FLinuxCrashContext*>(Context), bHandlingEnsure);
-		FPlatformStackWalk::StackWalkAndDump(HumanReadableString, HumanReadableStringSize, IgnoreCount + 1, Context);
+		FPlatformStackWalk::StackWalkAndDump(HumanReadableString, HumanReadableStringSize, IgnoreCount, Context);
 	}
 }
 
@@ -810,14 +970,10 @@ void NewReportEnsure(const TCHAR* ErrorMessage)
 
 	bReentranceGuard = true;
 
-	siginfo_t Signal;
-	Signal.si_signo = SIGTRAP;
-	Signal.si_code = TRAP_TRACE;
-	Signal.si_addr = __builtin_return_address(0);
-
 	const bool bIsEnsure = true;
 	FLinuxCrashContext EnsureContext(bIsEnsure);
-	EnsureContext.InitFromSignal(SIGTRAP, &Signal, nullptr);
+	EnsureContext.InitFromEnsureHandler(ErrorMessage, __builtin_return_address(0));
+
 	EnsureContext.CaptureStackTrace();
 	EnsureContext.GenerateCrashInfoAndLaunchReporter(true);
 

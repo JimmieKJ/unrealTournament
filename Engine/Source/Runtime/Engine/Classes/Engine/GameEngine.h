@@ -99,6 +99,7 @@ public:
 	// UEngine interface
 
 	virtual void Init(class IEngineLoop* InEngineLoop) override;
+	virtual void Start() override;
 	virtual void PreExit() override;
 	virtual void Tick( float DeltaSeconds, bool bIdleMode ) override;
 	virtual float GetMaxTickRate( float DeltaTime, bool bAllowFrameRateSmoothing = true ) const override;
@@ -144,6 +145,8 @@ protected:
 
 	/** Handle to a movie capture implementation to create on startup */
 	FMovieSceneCaptureHandle StartupMovieCaptureHandle;
+
+	virtual void HandleBrowseToDefaultMapFailure(FWorldContext& Context, const FString& TextURL, const FString& Error) override;
 
 private:
 

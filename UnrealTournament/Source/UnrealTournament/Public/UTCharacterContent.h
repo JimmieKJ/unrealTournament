@@ -38,7 +38,7 @@ public:
 	{
 		RootComponent = OI.CreateDefaultSubobject<USceneComponent>(this, FName(TEXT("DummyRoot"))); // needed so Mesh has RelativeLocation/RelativeRotation in the editor
 		Mesh = OI.CreateDefaultSubobject<USkeletalMeshComponent>(this, FName(TEXT("Mesh")));
-		Mesh->AttachParent = RootComponent;
+		Mesh->SetupAttachment(RootComponent);
 		Mesh->AlwaysLoadOnClient = true;
 		Mesh->AlwaysLoadOnServer = true;
 		Mesh->bCastDynamicShadow = true;

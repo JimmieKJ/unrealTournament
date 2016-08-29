@@ -32,6 +32,9 @@ struct FDialogueScriptEntry
 	FString DialogueAsset;
 
 	UPROPERTY()
+	bool IsRecorded;
+
+	UPROPERTY()
 	TArray<FString> LocalizationKeys;
 
 	UPROPERTY()
@@ -61,5 +64,5 @@ private:
 	static FString GenerateCSVHeader();
 	static FString GenerateCSVRow(const FDialogueScriptEntry& InDialogueScriptEntry);
 
-	static void PopulateDialogueScriptEntry(const UDialogueWave* InDialogueWave, const FDialogueContextMapping& InPrimaryContext, const TArray<const FDialogueContextMapping*>& InAdditionalContexts, const FString& InLocalizedDialogue, FDialogueScriptEntry& OutDialogueScriptEntry);
+	static void PopulateDialogueScriptEntry(const UDialogueWave* InDialogueWave, const UDialogueWave* InLocalizedDialogueWave, const FDialogueContextMapping& InPrimaryContext, const TArray<const FDialogueContextMapping*>& InAdditionalContexts, const FString& InLocalizedDialogue, const FString& InLocalizedVoiceActorDirection, FDialogueScriptEntry& OutDialogueScriptEntry);
 };

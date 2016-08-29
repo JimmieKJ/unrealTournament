@@ -2,7 +2,7 @@
 #pragma once
 
 #include "UTHUD_TeamDM.h"
-#include "SUTHudWindow.h"
+#include "SUTHUDWindow.h"
 
 #include "UTHUD_Showdown.generated.h"
 

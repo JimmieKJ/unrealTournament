@@ -28,10 +28,28 @@ struct FAnimNode_AssetPlayerBase;
 struct FAnimNode_Base;
 struct FAnimInstanceProxy;
 
+UENUM()
+enum class EAnimCurveType : uint8 
+{
+	AttributeCurve,
+	MaterialCurve, 
+	MorphTargetCurve, 
+	// make sure to update MaxCurve 
+	MaxAnimCurveType
+};
+
+UENUM()
+enum class EMontagePlayReturnType : uint8
+{
+	//Return value is the length of the montage (in seconds)
+	MontageLength,
+	//Return value is the play duration of the montage (length / play rate, in seconds)
+	Duration,
+};
+
 DECLARE_DELEGATE_OneParam(FOnMontageStarted, UAnimMontage*)
 DECLARE_DELEGATE_TwoParams(FOnMontageEnded, UAnimMontage*, bool /*bInterrupted*/)
 DECLARE_DELEGATE_TwoParams(FOnMontageBlendingOutStarted, UAnimMontage*, bool /*bInterrupted*/)
-
 /**
 * Delegate for when Montage is started
 */
@@ -59,32 +77,10 @@ DECLARE_DELEGATE_RetVal(bool, FCanTakeTransition);
 /** Delegate that native code can hook into to handle state entry/exit */
 DECLARE_DELEGATE_ThreeParams(FOnGraphStateChanged, const struct FAnimNode_StateMachine& /*Machine*/, int32 /*PrevStateIndex*/, int32 /*NextStateIndex*/);
 
-/** Enum for controlling which reference frame a controller is applied in. */
-UENUM()
-enum EBoneControlSpace
-{
-	/** Set absolute position of bone in world space. */
-	BCS_WorldSpace UMETA( DisplayName = "World Space" ),
-	/** Set position of bone in SkeletalMeshComponent's reference frame. */
-	BCS_ComponentSpace UMETA( DisplayName = "Component Space" ),
-	/** Set position of bone relative to parent bone. */
-	BCS_ParentBoneSpace UMETA( DisplayName = "Parent Bone Space" ),
-	/** Set position of bone in its own reference frame. */
-	BCS_BoneSpace UMETA( DisplayName = "Bone Space" ),
-	BCS_MAX,
-};
+/** Delegate that allows users to insert custom animation curve values - for now, it's only single, not sure how to make this to multi delegate and retrieve value sequentially, so */
+DECLARE_DELEGATE_OneParam(FOnAddCustomAnimationCurves, UAnimInstance*)
 
-/** Enum for specifying the source of a bone's rotation. */
-UENUM()
-enum EBoneRotationSource
-{
-	/** Don't change rotation at all. */
-	BRS_KeepComponentSpaceRotation UMETA(DisplayName = "No Change (Preserve Existing Component Space Rotation)"),
-	/** Keep forward direction vector relative to the parent bone. */
-	BRS_KeepLocalSpaceRotation UMETA(DisplayName = "Maintain Local Rotation Relative to Parent"),
-	/** Copy rotation of target to bone. */
-	BRS_CopyFromTarget UMETA(DisplayName = "Copy Target Rotation"),
-};
+
 
 USTRUCT()
 struct FA2Pose
@@ -105,7 +101,7 @@ struct ENGINE_API FA2CSPose : public FA2Pose
 
 private:
 	/** Pointer to current BoneContainer. */
-	const struct FBoneContainer * BoneContainer;
+	const struct FBoneContainer* BoneContainer;
 
 	/** Once evaluated to be mesh space, this flag will be set. */
 	UPROPERTY()
@@ -155,37 +151,8 @@ private:
 	friend class FAnimationRuntime;
 };
 
-USTRUCT(BlueprintType)
-struct FPerBoneBlendWeight
-{
-	GENERATED_USTRUCT_BODY()
-
-	/** Source index of the buffer. */
-	UPROPERTY()
-	int32 SourceIndex;
-
-	UPROPERTY()
-	float BlendWeight;
-
-	FPerBoneBlendWeight()
-		: SourceIndex(0)
-		, BlendWeight(0.0f)
-	{
-	}
-};
-
-USTRUCT(BlueprintType)
-struct FPerBoneBlendWeights
-{
-	GENERATED_USTRUCT_BODY()
-
-	UPROPERTY()
-	TArray<FPerBoneBlendWeight> BoneBlendWeights;
 
 
-	FPerBoneBlendWeights() {}
-
-};
 /** Helper struct for Slot node pose evaluation. */
 USTRUCT()
 struct FSlotEvaluationPose
@@ -317,16 +284,24 @@ struct FNativeStateBinding
 /** Tracks state of active slot nodes in the graph */
 struct FMontageActiveSlotTracker
 {
-	//Weighting of root motion from this montage
-	float RootMotionWeight;
+	/** Local weight of Montages being played (local to the slot node) */
+	float MontageLocalWeight;
+
+	/** Global weight of this slot node */
+	float NodeGlobalWeight;
 
 	//Is the montage slot part of the active graph this tick
 	bool  bIsRelevantThisTick;
 
-	//Was the motnage slot part of the active graph last tick
+	//Was the montage slot part of the active graph last tick
 	bool  bWasRelevantOnPreviousTick;
 
-	FMontageActiveSlotTracker() : RootMotionWeight(0.f), bIsRelevantThisTick(false), bWasRelevantOnPreviousTick(false) {}
+	FMontageActiveSlotTracker()
+		: MontageLocalWeight(0.f)
+		, NodeGlobalWeight(0.f)
+		, bIsRelevantThisTick(false)
+		, bWasRelevantOnPreviousTick(false) 
+	{}
 };
 
 struct FMontageEvaluationState
@@ -359,63 +334,6 @@ struct FMontageEvaluationState
 	bool bIsActive;
 };
 
-struct FGraphTraversalCounter
-{
-private:
-	int16 InternalCounter;
-
-public:
-	FGraphTraversalCounter()
-		: InternalCounter(INDEX_NONE)
-	{}
-
-	int16 Get() const
-	{
-		return InternalCounter;
-	}
-
-	void Increment()
-	{
-		InternalCounter++;
-
-		// Avoid wrapping over back to INDEX_NONE, as this means 'never been traversed'
-		if (InternalCounter == INDEX_NONE)
-		{
-			InternalCounter++;
-		}
-	}
-
-	void Reset()
-	{
-		InternalCounter = INDEX_NONE;
-	}
-
-	void SynchronizeWith(const FGraphTraversalCounter& InMasterCounter)
-	{
-		InternalCounter = InMasterCounter.Get();
-	}
-
-	bool IsSynchronizedWith(const FGraphTraversalCounter& InMasterCounter) const
-	{
-		return ((InternalCounter != INDEX_NONE) && (InternalCounter == InMasterCounter.Get()));
-	}
-
-	bool WasSynchronizedInTheLastFrame(const FGraphTraversalCounter& InMasterCounter) const
-	{
-		// Test if we're currently in sync with our master counter
-		if (IsSynchronizedWith(InMasterCounter))
-		{
-			return true;
-		}
-
-		// If not, test if the Master Counter is a frame ahead of us
-		FGraphTraversalCounter TestCounter(*this);
-		TestCounter.Increment();
-
-		return TestCounter.IsSynchronizedWith(InMasterCounter);
-	}
-};
-
 UCLASS(transient, Blueprintable, hideCategories=AnimInstance, BlueprintType)
 class ENGINE_API UAnimInstance : public UObject
 {
@@ -444,10 +362,6 @@ class ENGINE_API UAnimInstance : public UObject
 	DEPRECATED(4.11, "This cannot be accessed directly as it is potentially in use on worker threads")
 	TArray<FAnimGroupInstance> SyncGroupArrays[2];
 
-	/** Array indicating active vertex anims (by reference) generated by anim instance. */
-	DEPRECATED(4.11, "This cannot be accessed directly as it is potentially in use on worker threads")
-	TArray<struct FActiveVertexAnim> VertexAnims;
-
 	// Sets where this blueprint pulls Root Motion from
 	UPROPERTY(Category = RootMotion, EditDefaultsOnly)
 	TEnumAsByte<ERootMotionMode::Type> RootMotionMode;
@@ -467,6 +381,13 @@ class ENGINE_API UAnimInstance : public UObject
 	 */
 	UPROPERTY()
 	bool bCanUseParallelUpdateAnimation;
+
+	/**
+	 * Selecting this option will cause the compiler to emit warnings whenever a call into Blueprint
+	 * is made from the animation graph. This can help track down optimizations that need to be made.
+	 */
+	UPROPERTY(Category = Optimization, EditDefaultsOnly)
+	bool bWarnAboutBlueprintUsage;
 
 	/** Flag to check back on the game thread that indicates we need to run PostUpdateAnimation() in the post-eval call */
 	bool bNeedsUpdate;
@@ -512,19 +433,22 @@ public:
 	DEPRECATED(4.11, "This cannot be called directly as it relies on data potentially in use on worker threads")
 	void RegisterSlotNodeWithAnimInstance(FName SlotNodeName);
 	DEPRECATED(4.11, "This cannot be called directly as it relies on data potentially in use on worker threads")
-	void UpdateSlotNodeWeight(FName SlotNodeName, float Weight);
+	void UpdateSlotNodeWeight(FName SlotNodeName, float InLocalMontageWeight, float InGlobalWeight);
 	// if it doesn't tick, it will keep old weight, so we'll have to clear it in the beginning of tick
 	DEPRECATED(4.11, "This cannot be called directly as it relies on data potentially in use on worker threads")
 	void ClearSlotNodeWeights();
 	bool IsSlotNodeRelevantForNotifies(FName SlotNodeName) const;
 
-	// Allow slot nodes to store off their root motion weight during ticking
-	DEPRECATED(4.11, "This cannot be called directly as it relies on data potentially in use on worker threads")
-	void UpdateSlotRootMotionWeight(FName SlotNodeName, float Weight);
-	// Get the root motion weight for the montage slot
-	float GetSlotRootMotionWeight(FName SlotNodeName) const;
+	/** Get global weight in AnimGraph for this slot node.
+	* Note: this is the weight of the node, not the weight of any potential montage it is playing. */
+	float GetSlotNodeGlobalWeight(FName SlotNodeName) const;
+
 	// Should Extract Root Motion or not. Return true if we do. 
 	bool ShouldExtractRootMotion() const { return RootMotionMode == ERootMotionMode::RootMotionFromEverything || RootMotionMode == ERootMotionMode::IgnoreRootMotion; }
+
+	/** Get Global weight of any montages this slot node is playing.
+	* If this slot is not currently playing a montage, it will return 0. */
+	float GetSlotMontageGlobalWeight(FName SlotNodeName) const;
 
 	// kismet event functions
 
@@ -586,8 +510,11 @@ public:
 	void StopSlotAnimation(float InBlendOutTime = 0.25f, FName SlotNodeName = NAME_None);
 
 	/** Return true if it's playing the slot animation */
-	UFUNCTION(BlueprintCallable, Category="Animation")
-	bool IsPlayingSlotAnimation(UAnimSequenceBase* Asset, FName SlotNodeName ); 
+	UFUNCTION(BlueprintPure, Category="Animation")
+	bool IsPlayingSlotAnimation(const UAnimSequenceBase* Asset, FName SlotNodeName) const;
+
+	/** Return true if this instance playing the slot animation, also returning the montage it is playing on */
+	bool IsPlayingSlotAnimation(const UAnimSequenceBase* Asset, FName SlotNodeName, UAnimMontage*& OutMontage) const;
 
 	/*********************************************************************************************
 	 * AnimMontage
@@ -595,27 +522,27 @@ public:
 public:
 	/** Plays an animation montage. Returns the length of the animation montage in seconds. Returns 0.f if failed to play. */
 	UFUNCTION(BlueprintCallable, Category = "Animation")
-	float Montage_Play(UAnimMontage * MontageToPlay, float InPlayRate = 1.f);
+	float Montage_Play(UAnimMontage* MontageToPlay, float InPlayRate = 1.f, EMontagePlayReturnType ReturnValueType = EMontagePlayReturnType::MontageLength);
 
 	/** Stops the animation montage. If reference is NULL, it will stop ALL active montages. */
 	UFUNCTION(BlueprintCallable, Category = "Animation")
-	void Montage_Stop(float InBlendOutTime, UAnimMontage * Montage = NULL);
+	void Montage_Stop(float InBlendOutTime, const UAnimMontage* Montage = NULL);
 
 	/** Pauses the animation montage. If reference is NULL, it will pause ALL active montages. */
 	UFUNCTION(BlueprintCallable, Category = "Animation")
-	void Montage_Pause(UAnimMontage * Montage = NULL);
+	void Montage_Pause(const UAnimMontage* Montage = NULL);
 
 	/** Resumes a paused animation montage. If reference is NULL, it will resume ALL active montages. */
 	UFUNCTION(BlueprintCallable, Category = "Animation")
-	void Montage_Resume(UAnimMontage* Montage);
+	void Montage_Resume(const UAnimMontage* Montage);
 
 	/** Makes a montage jump to a named section. If Montage reference is NULL, it will do that to all active montages. */
 	UFUNCTION(BlueprintCallable, Category="Animation")
-	void Montage_JumpToSection(FName SectionName, UAnimMontage * Montage = NULL);
+	void Montage_JumpToSection(FName SectionName, const UAnimMontage* Montage = NULL);
 
 	/** Makes a montage jump to the end of a named section. If Montage reference is NULL, it will do that to all active montages. */
 	UFUNCTION(BlueprintCallable, Category="Animation")
-	void Montage_JumpToSectionsEnd(FName SectionName, UAnimMontage * Montage = NULL);
+	void Montage_JumpToSectionsEnd(FName SectionName, const UAnimMontage* Montage = NULL);
 
 	/** Relink new next section AFTER SectionNameToChange in run-time
 	 *	You can link section order the way you like in editor, but in run-time if you'd like to change it dynamically, 
@@ -627,24 +554,24 @@ public:
 	 * @param NextSection	: new next section 
 	 */
 	UFUNCTION(BlueprintCallable, Category="Animation")
-	void Montage_SetNextSection(FName SectionNameToChange, FName NextSection, UAnimMontage * Montage = NULL);
+	void Montage_SetNextSection(FName SectionNameToChange, FName NextSection, const UAnimMontage* Montage = NULL);
 
 	/** Change AnimMontage play rate. NewPlayRate = 1.0 is the default playback rate. */
 	UFUNCTION(BlueprintCallable, Category="Animation")
-	void Montage_SetPlayRate(UAnimMontage* Montage, float NewPlayRate = 1.f);
+	void Montage_SetPlayRate(const UAnimMontage* Montage, float NewPlayRate = 1.f);
 
 	/** Returns true if the animation montage is active. If the Montage reference is NULL, it will return true if any Montage is active. */
-	UFUNCTION(BlueprintCallable, Category="Animation")
-	bool Montage_IsActive(UAnimMontage* Montage);  
+	UFUNCTION(BlueprintPure, Category="Animation")
+	bool Montage_IsActive(const UAnimMontage* Montage) const;
 
 	/** Returns true if the animation montage is currently active and playing. 
 	If reference is NULL, it will return true is ANY montage is currently active and playing. */
-	UFUNCTION(BlueprintCallable, Category="Animation")
-	bool Montage_IsPlaying(UAnimMontage* Montage); 
+	UFUNCTION(BlueprintPure, Category="Animation")
+	bool Montage_IsPlaying(const UAnimMontage* Montage) const;
 
 	/** Returns the name of the current animation montage section. */
-	UFUNCTION(BlueprintCallable, Category="Animation")
-	FName Montage_GetCurrentSection(UAnimMontage* Montage = NULL);
+	UFUNCTION(BlueprintPure, Category="Animation")
+	FName Montage_GetCurrentSection(const UAnimMontage* Montage = NULL) const;
 
 	/** Called when a montage starts blending out, whether interrupted or finished */
 	UPROPERTY(BlueprintAssignable)
@@ -662,51 +589,55 @@ public:
 	* AnimMontage native C++ interface
 	********************************************************************************************* */
 public:	
-	void Montage_SetEndDelegate(FOnMontageEnded & InOnMontageEnded, UAnimMontage * Montage = NULL);
+	void Montage_SetEndDelegate(FOnMontageEnded & InOnMontageEnded, UAnimMontage* Montage = NULL);
 	
 	void Montage_SetBlendingOutDelegate(FOnMontageBlendingOutStarted & InOnMontageBlendingOut, UAnimMontage* Montage = NULL);
 	
 	/** Get pointer to BlendingOutStarted delegate for Montage.
 	If Montage reference is NULL, it will pick the first active montage found. */
-	FOnMontageBlendingOutStarted * Montage_GetBlendingOutDelegate(UAnimMontage * Montage = NULL);
+	FOnMontageBlendingOutStarted* Montage_GetBlendingOutDelegate(UAnimMontage* Montage = NULL);
 
 	/** Get Current Montage Position */
-	float Montage_GetPosition(UAnimMontage* Montage);
+	float Montage_GetPosition(const UAnimMontage* Montage);
 	
 	/** Set position. */
-	void Montage_SetPosition(UAnimMontage* Montage, float NewPosition);
+	void Montage_SetPosition(const UAnimMontage* Montage, float NewPosition);
 	
 	/** return true if Montage is not currently active. (not valid or blending out) */
-	bool Montage_GetIsStopped(UAnimMontage* Montage);
+	bool Montage_GetIsStopped(const UAnimMontage* Montage);
 
 	/** Get the current blend time of the Montage.
 	If Montage reference is NULL, it will return the current blend time on the first active Montage found. */
-	float Montage_GetBlendTime(UAnimMontage* Montage);
+	float Montage_GetBlendTime(const UAnimMontage* Montage);
 
 	/** Get PlayRate for Montage.
 	If Montage reference is NULL, PlayRate for any Active Montage will be returned.
 	If Montage is not playing, 0 is returned. */
-	float Montage_GetPlayRate(UAnimMontage* Montage);
+	float Montage_GetPlayRate(const UAnimMontage* Montage);
 
 	/** Get next sectionID for given section ID */
-	int32 Montage_GetNextSectionID(UAnimMontage const * const Montage, int32 const & CurrentSectionID) const;
+	int32 Montage_GetNextSectionID(const UAnimMontage* Montage, int32 const & CurrentSectionID) const;
 
 	/** Returns true if any montage is playing currently. Doesn't mean it's active though, it could be blending out. */
 	bool IsAnyMontagePlaying() const;
 
 	/** Get a current Active Montage in this AnimInstance. 
 		Note that there might be multiple Active at the same time. This will only return the first active one it finds. **/
-	UAnimMontage * GetCurrentActiveMontage();
+	UAnimMontage* GetCurrentActiveMontage();
 
 	/** Get Currently active montage instance.
 		Note that there might be multiple Active at the same time. This will only return the first active one it finds. **/
-	FAnimMontageInstance * GetActiveMontageInstance() const;
+	FAnimMontageInstance* GetActiveMontageInstance() const;
 
 	/** Get Active FAnimMontageInstance for given Montage asset. Will return NULL if Montage is not currently Active. */
-	FAnimMontageInstance * GetActiveInstanceForMontage(UAnimMontage const & Montage) const;
+	DEPRECATED(4.13, "Please use GetActiveInstanceForMontage(const UAnimMontage* Montage)")
+	FAnimMontageInstance* GetActiveInstanceForMontage(UAnimMontage const& Montage) const;
+
+	/** Get Active FAnimMontageInstance for given Montage asset. Will return NULL if Montage is not currently Active. */
+	FAnimMontageInstance* GetActiveInstanceForMontage(const UAnimMontage* Montage) const;
 
 	/** Get the FAnimMontageInstance currently running that matches this ID.  Will return NULL if no instance is found. */
-	FAnimMontageInstance * GetMontageInstanceForID(int32 MontageInstanceID);
+	FAnimMontageInstance* GetMontageInstanceForID(int32 MontageInstanceID);
 
 	/** AnimMontage instances that are running currently
 	* - only one is primarily active per group, and the other ones are blending out
@@ -722,7 +653,7 @@ public:
 
 protected:
 	/** Map between Active Montages and their FAnimMontageInstance */
-	TMap<class UAnimMontage *, struct FAnimMontageInstance*> ActiveMontagesMap;
+	TMap<class UAnimMontage*, struct FAnimMontageInstance*> ActiveMontagesMap;
 
 	/** Stop all montages that are active **/
 	void StopAllMontages(float BlendOut);
@@ -763,7 +694,28 @@ private:
 	/** Trigger a Montage Ended event */
 	void TriggerMontageEndedEvent(const FQueuedMontageEndedEvent& MontageEndedEvent);
 
+	/** Used to guard against recursive calls to UpdateAnimation */
+	bool bUpdatingAnimation;
+
+	/** Used to guard against recursive calls to UpdateAnimation */
+	bool bPostUpdatingAnimation;
+
+#if WITH_EDITOR
+	/** Delegate for custom animation curve addition */
+	TArray<FOnAddCustomAnimationCurves> OnAddAnimationCurves;
 public:
+	/** Add custom curve delegates */
+	void AddDelegate_AddCustomAnimationCurve(FOnAddCustomAnimationCurves& InOnAddCustomAnimationCurves);
+	void RemoveDelegate_AddCustomAnimationCurve(FOnAddCustomAnimationCurves& InOnAddCustomAnimationCurves);
+#endif // editor only for now
+public:
+
+	/** Is this animation currently running post update */
+	bool IsPostUpdatingAnimation() const { return bPostUpdatingAnimation; }
+
+	/** Set RootMotionMode */
+	UFUNCTION(BlueprintCallable, Category = "Animation")
+	void SetRootMotionMode(TEnumAsByte<ERootMotionMode::Type> Value);
 
 	/** 
 	 * NOTE: Derived anim getters
@@ -806,6 +758,10 @@ public:
 	/** Get the time as a fraction of the asset length of an animation in an asset player node */
 	UFUNCTION(BlueprintPure, Category="Asset Player", meta=(DisplayName="Time Remaining (ratio)", BlueprintInternalUseOnly="true", AnimGetter="true"))
 	float GetInstanceAssetPlayerTimeFromEndFraction(int32 AssetPlayerIndex);
+
+	/** Get the blend weight of a specified state machine */
+	UFUNCTION(BlueprintPure, Category = "States", meta = (DisplayName = "Machine Weight", BlueprintInternalUseOnly = "true", AnimGetter = "true"))
+	float GetInstanceMachineWeight(int32 MachineIndex);
 
 	/** Get the blend weight of a specified state */
 	UFUNCTION(BlueprintPure, Category="States", meta = (DisplayName="State Weight", BlueprintInternalUseOnly = "true", AnimGetter="true"))
@@ -878,6 +834,8 @@ public:
 
 	/** Get the machine description for the specified instance. Does not rely on PRIVATE_MachineDescription being initialized */
 	const FBakedAnimationStateMachine* GetMachineDescription(IAnimClassInterface* AnimBlueprintClass, FAnimNode_StateMachine* MachineInstance);
+
+	void GetStateMachineIndexAndDescription(FName InMachineName, int32& OutMachineIndex, const FBakedAnimationStateMachine** OutMachineDescription);
 
 	/** Returns the baked sync group index from the compile step */
 	int32 GetSyncGroupIndexFromName(FName SyncGroupName) const;
@@ -1012,6 +970,9 @@ public:
 	/** Called after updates are completed, dispatches notifies etc. */
 	void PostUpdateAnimation();
 
+	/** Called on the game thread pre-evaluation. */
+	void PreEvaluateAnimation();
+
 	DEPRECATED(4.11, "This function should no longer be used. Use ParallelEvaluateAnimation")
 	void EvaluateAnimation(struct FPoseContext& Output);
 
@@ -1019,7 +980,7 @@ public:
 	bool ParallelCanEvaluate(const USkeletalMesh* InSkeletalMesh) const;
 
 	/** Perform evaluation. Can be called from worker threads. */
-	void ParallelEvaluateAnimation(bool bForceRefPose, const USkeletalMesh* InSkeletalMesh, TArray<FTransform>& OutLocalAtoms, FBlendedHeapCurve& OutCurve);
+	void ParallelEvaluateAnimation(bool bForceRefPose, const USkeletalMesh* InSkeletalMesh, TArray<FTransform>& OutBoneSpaceTransforms, FBlendedHeapCurve& OutCurve);
 
 	void PostEvaluateAnimation();
 	void UninitializeAnimation();
@@ -1065,6 +1026,10 @@ public:
 
 	// Debug output for this anim instance 
 	void DisplayDebug(UCanvas* Canvas, const FDebugDisplayInfo& DebugDisplay, float& YL, float& YPos);
+
+	/** Reset any dynamics running simulation-style updates (e.g. on teleport, time skip etc.) */
+	void ResetDynamics();
+
 public:
 
 	/** Access the required bones array */
@@ -1096,8 +1061,12 @@ protected:
 	void TickSyncGroupWriteIndex();
 
 private:
-	/** Curve Values that are added to trigger in event**/
-	TMap<FName, float>	EventCurves;
+	/** This is if you want to separate to another array**/
+	TMap<FName, float>	AnimationCurves[(uint8)EAnimCurveType::MaxAnimCurveType];
+
+	/** Reset Animation Curves */
+	void ResetAnimationCurves();
+
 	/** Material parameters that we had been changing and now need to clear */
 	TArray<FName> MaterialParamatersToClear;
 
@@ -1114,16 +1083,11 @@ public:
 	/** Check whether we have active morph target curves */
 	bool HasMorphTargetCurves() const;
 
-	/** Access active morph target curves */
-	TMap<FName, float>& GetMorphTargetCurves();
-
-	/** Morph Target Curves that will be used for SkeletalMeshComponent **/
-	DEPRECATED(4.11, "This cannot be accessed directly, use UAnimInstance::GetMorphTargetCurves")
-	TMap<FName, float>	MorphTargetCurves;
-
-	/** Material Curves that will be used for SkeletalMeshComponent **/
-	DEPRECATED(4.11, "This cannot be accessed directly, use FAnimInstanceProxy::GetMaterialParameterCurves")
-	TMap<FName, float>	MaterialParameterCurves;
+	/** 
+	 * Retrieve animation curve list by Curve Flags, it will return list of {UID, value} 
+	 * It will clear the OutCurveList before adding
+	 */
+	void GetAnimationCurveList(int32 CurveFlags, TMap<FName, float>& OutCurveList) const;
 
 #if WITH_EDITORONLY_DATA
 	// Maximum playback position ever reached (only used when debugging in Persona)
@@ -1188,16 +1152,18 @@ public:
 	/** Add curve float data using a curve Uid, the name of the curve will be resolved from the skeleton **/
 	void AddCurveValue(const USkeleton::AnimCurveUID Uid, float Value, int32 CurveTypeFlags);
 
-	/** Given a machine and state index, record a state weight for this frame */
-	void RecordStateWeight(const int32& InMachineClassIndex, const int32& InStateIndex, const float& InStateWeight);
-
-protected:
+	/** Given a machine index, record a state machine weight for this frame */
+	void RecordMachineWeight(const int32& InMachineClassIndex, const float& InMachineWeight);
 	/** 
 	 * Add curve float data, using a curve name. External values should all be added using
 	 * The curve UID to the public version of this method
 	 */
 	void AddCurveValue(const FName& CurveName, float Value, int32 CurveTypeFlags);
 
+	/** Given a machine and state index, record a state weight for this frame */
+	void RecordStateWeight(const int32& InMachineClassIndex, const int32& InStateIndex, const float& InStateWeight);
+
+protected:
 #if WITH_EDITORONLY_DATA
 	// Returns true if a snapshot is being played back and the remainder of Update should be skipped.
 	bool UpdateSnapshotAndSkipRemainingUpdate();
@@ -1219,7 +1185,7 @@ public:
 
 private:
 	/** Active Root Motion Montage Instance, if any. */
-	struct FAnimMontageInstance * RootMotionMontageInstance;
+	struct FAnimMontageInstance* RootMotionMontageInstance;
 
 	/** Temporarily queued root motion blend */
 	struct FQueuedRootMotionBlend
@@ -1258,6 +1224,9 @@ protected:
 
 	/** Actually does the update work, can be called from a worker thread  */
 	void UpdateAnimationInternal_Concurrent(float DeltaSeconds, FAnimInstanceProxy& Proxy);
+
+	/** update animation curves to component */
+	void UpdateCurvesToComponents(USkeletalMeshComponent* Component);
 
 	/** Override point for derived classes to create their own proxy objects (allows custom allocation) */
 	virtual FAnimInstanceProxy* CreateAnimInstanceProxy();
@@ -1344,6 +1313,8 @@ protected:
 	// TODO: Remove after deprecation (4.11)
 	friend struct FAnimationBaseContext;
 	
+	friend struct FAnimNode_SubInstance;
+
 protected:
 	/** Proxy object, nothing should access this from an externally-callable API as it is used as a scratch area on worker threads */
 	mutable FAnimInstanceProxy* AnimInstanceProxy;

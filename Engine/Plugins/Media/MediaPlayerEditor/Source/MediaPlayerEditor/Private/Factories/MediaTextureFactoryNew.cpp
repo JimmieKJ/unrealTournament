@@ -1,12 +1,13 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "MediaPlayerEditorPrivatePCH.h"
+#include "MediaPlayerEditorPCH.h"
+#include "MediaTextureFactoryNew.h"
 
 
 /* UMediaTextureFactoryNew structors
  *****************************************************************************/
 
-UMediaTextureFactoryNew::UMediaTextureFactoryNew( const FObjectInitializer& ObjectInitializer )
+UMediaTextureFactoryNew::UMediaTextureFactoryNew(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
 	SupportedClass = UMediaTexture::StaticClass();
@@ -18,16 +19,22 @@ UMediaTextureFactoryNew::UMediaTextureFactoryNew( const FObjectInitializer& Obje
 /* UFactory overrides
  *****************************************************************************/
 
-UObject* UMediaTextureFactoryNew::FactoryCreateNew( UClass* InClass, UObject* InParent, FName InName, EObjectFlags Flags, UObject* Context, FFeedbackContext* Warn )
+UObject* UMediaTextureFactoryNew::FactoryCreateNew(UClass* InClass, UObject* InParent, FName InName, EObjectFlags Flags, UObject* Context, FFeedbackContext* Warn)
 {
-	UMediaTexture* MediaTexture = NewObject<UMediaTexture>(InParent, InClass, InName, Flags);
+	auto MediaTexture = NewObject<UMediaTexture>(InParent, InClass, InName, Flags);
 
-	if ((MediaTexture != nullptr) && (InitialMediaPlayer != nullptr))
+	if (MediaTexture != nullptr)
 	{
-		MediaTexture->SetMediaPlayer(InitialMediaPlayer);
+		MediaTexture->UpdateResource();
 	}
 
 	return MediaTexture;
+}
+
+
+uint32 UMediaTextureFactoryNew::GetMenuCategories() const
+{
+	return EAssetTypeCategories::Media | EAssetTypeCategories::MaterialsAndTextures;
 }
 
 

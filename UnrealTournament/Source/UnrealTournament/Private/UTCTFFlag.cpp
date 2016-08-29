@@ -18,7 +18,7 @@ AUTCTFFlag::AUTCTFFlag(const FObjectInitializer& ObjectInitializer)
 	Mesh = ObjectInitializer.CreateDefaultSubobject<USkeletalMeshComponent>(this, TEXT("CTFFlag"));
 	GetMesh()->AlwaysLoadOnClient = true;
 	GetMesh()->AlwaysLoadOnServer = true;
-	GetMesh()->AttachParent = RootComponent;
+	GetMesh()->SetupAttachment(RootComponent);
 	GetMesh()->SetAbsolute(false, false, true);
 
 	MeshOffset = FVector(0, 0.f, -48.f);
@@ -45,7 +45,7 @@ AUTCTFFlag::AUTCTFFlag(const FObjectInitializer& ObjectInitializer)
 	bShouldPingFlag = false;
 
 	AuraSphere = ObjectInitializer.CreateOptionalDefaultSubobject<UStaticMeshComponent>(this, TEXT("AuraSphere"));
-	AuraSphere->AttachParent = RootComponent;
+	AuraSphere->SetupAttachment(RootComponent);
 	AuraSphere->SetCollisionProfileName(TEXT("NoCollision"));
 }
 
@@ -250,7 +250,7 @@ void AUTCTFFlag::SetHolder(AUTCharacter* NewHolder)
 			AUTCTFFlagBase* FlagBase = Cast<AUTCTFFlagBase>(OtherComp->GetOwner());
 			if (FlagBase != nullptr)
 			{
-				FlagBase->OnOverlapBegin(HoldingPawn, HoldingPawn->GetCapsuleComponent(), 0, false, FHitResult());
+				FlagBase->OnOverlapBegin(FlagBase->Capsule, HoldingPawn, HoldingPawn->GetCapsuleComponent(), 0, false, FHitResult());
 			}
 		}
 	}
@@ -278,10 +278,7 @@ void AUTCTFFlag::PlayReturnedEffects()
 			{
 				GetMesh()->bDisableClothSimulation = false;
 			}
-			ReturningMesh->AttachParent = NULL;
-			ReturningMesh->RelativeLocation = Mesh->GetComponentLocation();
-			ReturningMesh->RelativeRotation = Mesh->GetComponentRotation();
-			ReturningMesh->RelativeScale3D = Mesh->GetComponentScale();
+			ReturningMesh->DetachFromComponent(FDetachmentTransformRules::KeepWorldTransform);
 			ReturningMeshMID = ReturningMesh->CreateAndSetMaterialInstanceDynamicFromMaterial(1, GetClass()->GetDefaultObject<AUTCTFFlag>()->Mesh->GetMaterial(1));
 			ReturningMeshMID->SetScalarParameterValue(NAME_Wipe, ReturnParamCurve->GetFloatValue(0.0f));
 			ReturningMesh->RegisterComponent();

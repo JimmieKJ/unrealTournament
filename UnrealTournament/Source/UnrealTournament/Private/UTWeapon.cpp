@@ -66,7 +66,7 @@ AUTWeapon::AUTWeapon(const FObjectInitializer& ObjectInitializer)
 
 	Mesh = ObjectInitializer.CreateDefaultSubobject<USkeletalMeshComponent>(this, TEXT("Mesh1P"));
 	Mesh->SetOnlyOwnerSee(true);
-	Mesh->AttachParent = RootComponent;
+	Mesh->SetupAttachment(RootComponent);
 	Mesh->bSelfShadowOnly = true;
 	Mesh->bReceivesDecals = false;
 	Mesh->MeshComponentUpdateFlag = EMeshComponentUpdateFlag::OnlyTickPoseWhenRendered;
@@ -646,7 +646,7 @@ void AUTWeapon::AttachToOwner_Implementation()
 	if (Mesh != NULL && Mesh->SkeletalMesh != NULL)
 	{
 		UpdateWeaponHand();
-		Mesh->AttachTo(UTOwner->FirstPersonMesh, (GetWeaponHand() != EWeaponHand::HAND_Hidden) ? HandsAttachSocket : NAME_None);
+		Mesh->AttachToComponent(UTOwner->FirstPersonMesh, FAttachmentTransformRules::KeepRelativeTransform, (GetWeaponHand() != EWeaponHand::HAND_Hidden) ? HandsAttachSocket : NAME_None);
 		if (ShouldPlay1PVisuals())
 		{
 			Mesh->MeshComponentUpdateFlag = EMeshComponentUpdateFlag::AlwaysTickPose; // needed for anims to be ticked even if weapon is not currently displayed, e.g. sniper zoom
@@ -683,7 +683,7 @@ void AUTWeapon::UpdateWeaponHand()
 			for (UParticleSystemComponent* PSC : MuzzleFlash)
 			{
 				MuzzleFlashDefaultTransforms.Add((PSC == NULL) ? FTransform::Identity : PSC->GetRelativeTransform());
-				MuzzleFlashSocketNames.Add((PSC == NULL) ? NAME_None : PSC->AttachSocketName);
+				MuzzleFlashSocketNames.Add((PSC == NULL) ? NAME_None : PSC->GetAttachSocketName());
 			}
 		}
 		else
@@ -692,14 +692,19 @@ void AUTWeapon::UpdateWeaponHand()
 			{
 				if (MuzzleFlash[i] != NULL)
 				{
-					MuzzleFlash[i]->AttachSocketName = MuzzleFlashSocketNames[i];
+					MuzzleFlash[i]->AttachToComponent(MuzzleFlash[i]->GetAttachParent(), FAttachmentTransformRules::SnapToTargetIncludingScale, MuzzleFlashSocketNames[i]);
 					MuzzleFlash[i]->bUseAttachParentBound = true;
 					MuzzleFlash[i]->SetRelativeTransform(MuzzleFlashDefaultTransforms[i]);
 				}
 			}
 		}
 
-		Mesh->AttachSocketName = HandsAttachSocket;
+		// If we're attached, make sure that we update to the right hands socket
+		if (Mesh->GetAttachParent() && Mesh->GetAttachSocketName() != HandsAttachSocket)
+		{
+			Mesh->AttachToComponent(Mesh->GetAttachParent(), FAttachmentTransformRules::KeepRelativeTransform, HandsAttachSocket);
+		}
+
 		if (HandsAttachSocket == NAME_None)
 		{
 			UTOwner->FirstPersonMesh->SetRelativeTransform(FTransform::Identity);
@@ -737,14 +742,14 @@ void AUTWeapon::UpdateWeaponHand()
 				AdjustMesh->SetRelativeLocationAndRotation(FVector(-50.0f, 0.0f, -50.0f), FRotator::ZeroRotator);
 				if (AdjustMesh != Mesh)
 				{
-					Mesh->AttachSocketName = NAME_None;
+					Mesh->AttachToComponent(Mesh->GetAttachParent(), FAttachmentTransformRules::KeepRelativeTransform, NAME_None);
 					Mesh->SetRelativeLocationAndRotation(FVector::ZeroVector, FRotator::ZeroRotator);
 				}
 				for (int32 i = 0; i < MuzzleFlash.Num() && i < MuzzleFlashDefaultTransforms.Num(); i++)
 				{
 					if (MuzzleFlash[i] != NULL)
 					{
-						MuzzleFlash[i]->AttachSocketName = NAME_None;
+						MuzzleFlash[i]->AttachToComponent(MuzzleFlash[i]->GetAttachParent(), FAttachmentTransformRules::KeepRelativeTransform, NAME_None);
 						MuzzleFlash[i]->SetRelativeLocationAndRotation(FVector::ZeroVector, FRotator::ZeroRotator);
 						MuzzleFlash[i]->bUseAttachParentBound = false;
 					}
@@ -803,7 +808,7 @@ void AUTWeapon::DetachFromOwner_Implementation()
 	if (Mesh != NULL && Mesh->SkeletalMesh != NULL)
 	{
 		Mesh->MeshComponentUpdateFlag = EMeshComponentUpdateFlag::OnlyTickPoseWhenRendered;
-		Mesh->DetachFromParent();
+		Mesh->DetachFromComponent(FDetachmentTransformRules::KeepRelativeTransform);
 		if (OverlayMesh != NULL)
 		{
 			OverlayMesh->MeshComponentUpdateFlag = EMeshComponentUpdateFlag::OnlyTickPoseWhenRendered;
@@ -2115,7 +2120,7 @@ void AUTWeapon::UpdateOverlaysShared(AActor* WeaponActor, AUTCharacter* InOwner,
 			if (InOverlayMesh == NULL)
 			{
 				InOverlayMesh = DuplicateObject<USkeletalMeshComponent>(InMesh, WeaponActor);
-				InOverlayMesh->AttachParent = NULL; // this gets copied but we don't want it to be
+				InOverlayMesh->DetachFromComponent(FDetachmentTransformRules::KeepWorldTransform);
 				{
 					// TODO: scary that these get copied, need an engine solution and/or safe way to duplicate objects during gameplay
 					InOverlayMesh->PrimaryComponentTick = InOverlayMesh->GetClass()->GetDefaultObject<USkeletalMeshComponent>()->PrimaryComponentTick;
@@ -2126,7 +2131,7 @@ void AUTWeapon::UpdateOverlaysShared(AActor* WeaponActor, AUTCharacter* InOwner,
 			if (!InOverlayMesh->IsRegistered())
 			{
 				InOverlayMesh->RegisterComponent();
-				InOverlayMesh->AttachTo(InMesh, NAME_None, EAttachLocation::SnapToTarget);
+				InOverlayMesh->AttachToComponent(InMesh, FAttachmentTransformRules::SnapToTargetIncludingScale);
 				InOverlayMesh->SetWorldScale3D(InMesh->GetComponentScale());
 			}
 			// if it's just particles and no material, hide the overlay mesh so it doesn't render, but we'll still use it as the attach point for the particles
@@ -2145,7 +2150,7 @@ void AUTWeapon::UpdateOverlaysShared(AActor* WeaponActor, AUTCharacter* InOwner,
 			if (TopOverlay.Particles != NULL)
 			{
 				UParticleSystemComponent* PSC = NULL;
-				for (USceneComponent* Child : InOverlayMesh->AttachChildren) 
+				for (USceneComponent* Child : InOverlayMesh->GetAttachChildren()) 
 				{
 					PSC = Cast<UParticleSystemComponent>(Child);
 					if (PSC != NULL)
@@ -2159,7 +2164,7 @@ void AUTWeapon::UpdateOverlaysShared(AActor* WeaponActor, AUTCharacter* InOwner,
 					PSC->SetAbsolute(false, false, true);
 					PSC->RegisterComponent();
 				}
-				PSC->AttachTo(InOverlayMesh, TopOverlay.ParticleAttachPoint);
+				PSC->AttachToComponent(InOverlayMesh, FAttachmentTransformRules::KeepRelativeTransform, TopOverlay.ParticleAttachPoint);
 				PSC->SetTemplate(TopOverlay.Particles);
 				PSC->InstanceParameters = InOverlayEffectParams;
 				static FName NAME_Weapon(TEXT("Weapon"));
@@ -2169,7 +2174,7 @@ void AUTWeapon::UpdateOverlaysShared(AActor* WeaponActor, AUTCharacter* InOwner,
 			}
 			else
 			{
-				for (USceneComponent* Child : InOverlayMesh->AttachChildren)
+				for (USceneComponent* Child : InOverlayMesh->GetAttachChildren())
 				{
 					UParticleSystemComponent* PSC = Cast<UParticleSystemComponent>(Child);
 					if (PSC != NULL)
@@ -2178,7 +2183,7 @@ void AUTWeapon::UpdateOverlaysShared(AActor* WeaponActor, AUTCharacter* InOwner,
 						{
 							PSC->bAutoDestroy = true;
 							PSC->DeactivateSystem();
-							PSC->DetachFromParent(true);
+							PSC->DetachFromComponent(FDetachmentTransformRules::KeepWorldTransform);
 						}
 						else
 						{
@@ -2191,7 +2196,7 @@ void AUTWeapon::UpdateOverlaysShared(AActor* WeaponActor, AUTCharacter* InOwner,
 		}
 		else if (InOverlayMesh != NULL && InOverlayMesh->IsRegistered())
 		{
-			TArray<USceneComponent*> ChildrenCopy = InOverlayMesh->AttachChildren;
+			TArray<USceneComponent*> ChildrenCopy = InOverlayMesh->GetAttachChildren();
 			for (USceneComponent* Child : ChildrenCopy)
 			{
 				UParticleSystemComponent* PSC = Cast<UParticleSystemComponent>(Child);
@@ -2199,7 +2204,7 @@ void AUTWeapon::UpdateOverlaysShared(AActor* WeaponActor, AUTCharacter* InOwner,
 				{
 					PSC->bAutoDestroy = true;
 					PSC->DeactivateSystem();
-					PSC->DetachFromParent(true);
+					PSC->DetachFromComponent(FDetachmentTransformRules::KeepWorldTransform);
 				}
 				else
 				{

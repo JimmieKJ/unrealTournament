@@ -27,7 +27,7 @@ public:
 	virtual void AllocateDefaultPins() override;
 	virtual void PostReconstructNode() override;
 	virtual FText GetTooltipText() const override;
-	virtual FName GetPaletteIcon(FLinearColor& OutColor) const override{ return TEXT("GraphEditor.MakeArray_16x"); }
+	virtual FSlateIcon GetIconAndTint(FLinearColor& OutColor) const override;
 	virtual void ValidateNodeDuringCompilation(class FCompilerResultsLog& MessageLog) const override;
 	// End of UEdGraphNode interface
 
@@ -40,6 +40,7 @@ public:
 	virtual void GetMenuActions(FBlueprintActionDatabaseRegistrar& ActionRegistrar) const override;
 	virtual FText GetMenuCategory() const override;
 	virtual int32 GetNodeRefreshPriority() const override { return EBaseNodeRefreshPriority::Low_UsesDependentWildcard; }
+	virtual void ReallocatePinsDuringReconstruction(TArray<UEdGraphPin*>& OldPins);
 	// End of UK2Node interface
 
 
@@ -60,4 +61,6 @@ protected:
 
 	/** Returns the function to be used to add a function to the array */
 	BLUEPRINTGRAPH_API UFunction* GetArrayAddFunction() const;
+
+	void SyncPinNames();
 };

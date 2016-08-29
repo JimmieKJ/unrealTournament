@@ -10,7 +10,7 @@ DECLARE_LOG_CATEGORY_EXTERN(LogProperty, Log, All);
  */
 static void SkipWhitespace(const TCHAR*& Str)
 {
-	while(Str && FChar::IsWhitespace(*Str))
+	while(FChar::IsWhitespace(*Str))
 	{
 		Str++;
 	}

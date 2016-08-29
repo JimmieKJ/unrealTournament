@@ -15,6 +15,8 @@
 #include "Editor/UnrealEd/Public/Kismet2/KismetDebugUtilities.h"
 #include "Engine/UserDefinedStruct.h"
 
+#include "TextPackageNamespaceUtil.h"
+
 #define LOCTEXT_NAMESPACE "KismetCompilerVMBackend"
 //////////////////////////////////////////////////////////////////////////
 // FScriptBytecodeWriter
@@ -37,6 +39,8 @@ public:
 		int32 iStart = ScriptBuffer.AddUninitialized( Length );
 		FMemory::Memcpy( &(ScriptBuffer[iStart]), V, Length );
 	}
+
+	using FArchiveUObject::operator<<; // For visibility of the overloads we don't override
 
 	FArchive& operator<<(FName& Name) override
 	{
@@ -383,18 +387,146 @@ public:
 		}
 	}
 
+	struct FLiteralTypeHelper
+	{
+		static bool IsBoolean(const FEdGraphPinType* Type, const UProperty* Property)
+		{
+			if (Property)
+			{
+				return Property->IsA<UBoolProperty>();
+			}
+			return Type && (Type->PinCategory == UEdGraphSchema_K2::PC_Boolean);
+		}
+
+		static bool IsString(const FEdGraphPinType* Type, const UProperty* Property)
+		{
+			if (Property)
+			{
+				return Property->IsA<UStrProperty>();
+			}
+			return Type && (Type->PinCategory == UEdGraphSchema_K2::PC_String);
+		}
+
+		static bool IsText(const FEdGraphPinType* Type, const UProperty* Property)
+		{
+			if (Property)
+			{
+				return Property->IsA<UTextProperty>();
+			}
+			return Type && (Type->PinCategory == UEdGraphSchema_K2::PC_Text);
+		}
+
+		static bool IsFloat(const FEdGraphPinType* Type, const UProperty* Property)
+		{
+			if (Property)
+			{
+				return Property->IsA<UFloatProperty>();
+			}
+			return Type && (Type->PinCategory == UEdGraphSchema_K2::PC_Float);
+		}
+
+		static bool IsInt(const FEdGraphPinType* Type, const UProperty* Property)
+		{
+			if (Property)
+			{
+				return Property->IsA<UIntProperty>();
+			}
+			return Type && (Type->PinCategory == UEdGraphSchema_K2::PC_Int);
+		}
+
+		static bool IsInt64(const FEdGraphPinType* Type, const UProperty* Property)
+		{
+			if (Property)
+			{
+				return Property->IsA<UInt64Property>();
+			}
+			return false;
+		}
+
+		static bool IsUInt64(const FEdGraphPinType* Type, const UProperty* Property)
+		{
+			if (Property)
+			{
+				return Property->IsA<UUInt64Property>();
+			}
+			return false;
+		}
+
+		static bool IsByte(const FEdGraphPinType* Type, const UProperty* Property)
+		{
+			if (Property)
+			{
+				return Property->IsA<UByteProperty>();
+			}
+			return Type && ((Type->PinCategory == UEdGraphSchema_K2::PC_Byte) || (Type->PinCategory == UEdGraphSchema_K2::PC_Enum));
+		}
+
+		static bool IsName(const FEdGraphPinType* Type, const UProperty* Property)
+		{
+			if (Property)
+			{
+				return Property->IsA<UNameProperty>();
+			}
+			return Type && (Type->PinCategory == UEdGraphSchema_K2::PC_Name);
+		}
+
+		static bool IsStruct(const FEdGraphPinType* Type, const UProperty* Property)
+		{
+			if (Property)
+			{
+				return Property->IsA<UStructProperty>();
+			}
+			return Type && (Type->PinCategory == UEdGraphSchema_K2::PC_Struct);
+		}
+
+		static bool IsDelegate(const FEdGraphPinType* Type, const UProperty* Property)
+		{
+			if (Property)
+			{
+				return Property->IsA<UDelegateProperty>();
+			}
+			return Type && (Type->PinCategory == UEdGraphSchema_K2::PC_Delegate);
+		}
+
+		static bool IsAsset(const FEdGraphPinType* Type, const UProperty* Property)
+		{
+			if (Property)
+			{
+				return Property->IsA<UAssetObjectProperty>();
+			}
+			return Type && (Type->PinCategory == UEdGraphSchema_K2::PC_Asset);
+		}
+
+		static bool IsObject(const FEdGraphPinType* Type, const UProperty* Property)
+		{
+			if (Property)
+			{
+				return Property->IsA<UObjectPropertyBase>();
+			}
+			return Type && (Type->PinCategory == UEdGraphSchema_K2::PC_Object);
+		}
+
+		static bool IsInterface(const FEdGraphPinType* Type, const UProperty* Property)
+		{
+			if (Property)
+			{
+				return Property->IsA<UInterfaceProperty>();
+			}
+			return Type && (Type->PinCategory == UEdGraphSchema_K2::PC_Interface);
+		}
+	};
+
 	virtual void EmitTermExpr(FBPTerminal* Term, UProperty* CoerceProperty = NULL, bool bAllowStaticArray = false)
 	{
-		//@TODO: Must have a coercion type if it's a literal, because the symbol table isn't plumbed in here and the literals don't carry type information either, yay!
-		check((!Term->bIsLiteral) || (CoerceProperty != NULL));
-
 		if (Term->bIsLiteral)
 		{
-			if (CoerceProperty->IsA(UStrProperty::StaticClass()))
+			check(!Term->Type.bIsArray || CoerceProperty);
+
+			if (FLiteralTypeHelper::IsString(&Term->Type, CoerceProperty))
 			{
 				EmitStringLiteral(Term->Name);
 			}
-			else if (CoerceProperty->IsA(UTextProperty::StaticClass()))
+			else if (FLiteralTypeHelper::IsText(&Term->Type, CoerceProperty))
 			{
 				Writer << EX_TextConst;
 				
@@ -424,6 +556,15 @@ public:
 
 					if (bIsLocalized)
 					{
+#if USE_STABLE_LOCALIZATION_KEYS
+						// We need to make sure the package namespace is correct at this point
+						// Note: We don't test GIsEditor here as we need to mimic using compile-on-load what the compile during cook would have done when running with -game
+						{
+							const FString PackageNamespace = TextNamespaceUtil::GetPackageNamespace(Term->Source);
+							Namespace = TextNamespaceUtil::BuildFullNamespace(Namespace, PackageNamespace);
+						}
+#endif // USE_STABLE_LOCALIZATION_KEYS
+
 						Writer << EBlueprintTextLiteralType::LocalizedText;
 						EmitStringLiteral(*SourceString);
 						EmitStringLiteral(Key);
@@ -436,13 +577,13 @@ public:
 					}
 				}
 			}
-			else if (CoerceProperty->IsA(UFloatProperty::StaticClass()))
+			else if (FLiteralTypeHelper::IsFloat(&Term->Type, CoerceProperty))
 			{
 				float Value = FCString::Atof(*(Term->Name));
 				Writer << EX_FloatConst;
 				Writer << Value;
 			}
-			else if (CoerceProperty->IsA(UIntProperty::StaticClass()))
+			else if (FLiteralTypeHelper::IsInt(&Term->Type, CoerceProperty))
 			{
 				// In certain cases (like UKismetArrayLibrary functions), we have
 				// polymorphic functions that provide their own "custom thunk" 
@@ -457,7 +598,7 @@ public:
 				// circumvented with AutoCreateRefTerm, but when it is a self 
 				// (literal) node we still end up here. So, we try to detect and 
 				// handle that case here.
-				if ((Term->Type.PinSubCategory == Schema->PN_Self) && CoerceProperty->HasAnyPropertyFlags(CPF_ReferenceParm))
+				if ((Term->Type.PinSubCategory == Schema->PN_Self) && CoerceProperty && CoerceProperty->HasAnyPropertyFlags(CPF_ReferenceParm))
 				{
 					Writer << EX_Self;
 				}
@@ -469,21 +610,32 @@ public:
 					Writer << Value;
 				}
 			}
-			else if (CoerceProperty->IsA(UByteProperty::StaticClass()))
+			else if (FLiteralTypeHelper::IsInt64(&Term->Type, CoerceProperty))
 			{
-				UByteProperty* ByteProp = CastChecked< UByteProperty >( CoerceProperty );
+				int64 Value = 0;
+				LexicalConversion::FromString(Value, *(Term->Name));
+				Writer << EX_Int64Const;
+				Writer << Value;
+			}
+			else if (FLiteralTypeHelper::IsUInt64(&Term->Type, CoerceProperty))
+			{
+				uint64 Value = 0;
+				LexicalConversion::FromString(Value, *(Term->Name));
+				Writer << EX_UInt64Const;
+				Writer << Value;
+			}
+			else if (FLiteralTypeHelper::IsByte(&Term->Type, CoerceProperty))
+			{
 				uint8 Value = 0;
 
+				UByteProperty* ByteProp = Cast< UByteProperty >(CoerceProperty);
+				//Parameter property can represent a generic byte. we need the actual type to parse the value.
+				UEnum* EnumPtr = (ByteProp && ByteProp->Enum) ? ByteProp->Enum : Cast<UEnum>(Term->Type.PinSubCategoryObject.Get()); 
 				//Check for valid enum object reference
-				if (ByteProp->Enum)
+				if (EnumPtr)
 				{
 					//Get value from enum string
-					Value = ByteProp->Enum->GetValueByName(*(Term->Name));
-				}
-				// Allow enum literals to communicate with byte properties as literals
-				else if (UEnum* EnumPtr = Cast<UEnum>(Term->Type.PinSubCategoryObject.Get()))
-				{
-					Value = EnumPtr->GetValueByName( *(Term->Name) );
+					Value = EnumPtr->GetValueByName(*(Term->Name));
 				}
 				else
 				{
@@ -493,12 +645,12 @@ public:
 				Writer << EX_ByteConst;
 				Writer << Value;
 			}
-			else if (UBoolProperty* BoolProperty = Cast<UBoolProperty>(CoerceProperty))
+			else if (FLiteralTypeHelper::IsBoolean(&Term->Type, CoerceProperty))
 			{
 				bool bValue = Term->Name.ToBool();
 				Writer << (bValue ? EX_True : EX_False);
 			}
-			else if (UNameProperty* NameProperty = Cast<UNameProperty>(CoerceProperty))
+			else if (FLiteralTypeHelper::IsName(&Term->Type, CoerceProperty))
 			{
 				FName LiteralName(*(Term->Name));
 				Writer << EX_NameConst;
@@ -508,58 +660,62 @@ public:
 			//{
 			//	ensureMsgf(false, TEXT("Class property literals are not supported yet!"));
 			//}
-			else if (UStructProperty* StructProperty = Cast<UStructProperty>(CoerceProperty))
+			else if (FLiteralTypeHelper::IsStruct(&Term->Type, CoerceProperty))
 			{
-				if (StructProperty->Struct == VectorStruct)
+				UStructProperty* StructProperty = Cast<UStructProperty>(CoerceProperty);
+				UScriptStruct* Struct = StructProperty ? StructProperty->Struct : Cast<UScriptStruct>(Term->Type.PinSubCategoryObject.Get());
+				check(Struct);
+
+				if (Struct == VectorStruct)
 				{
 					FVector V = FVector::ZeroVector;
 					const bool bParsedUsingCustomFormat = FDefaultValueHelper::ParseVector(Term->Name, /*out*/ V);
 					if (!bParsedUsingCustomFormat)
 					{
-						StructProperty->ImportText(*Term->Name, &V, PPF_None, nullptr);
+						UStructProperty::ImportText_Static(Struct, GetPathNameSafe(StructProperty), *Term->Name, &V, PPF_None, nullptr, (FOutputDevice*)GWarn);
 					}
 					Writer << EX_VectorConst;
 					Writer << V;
 				}
-				else if (StructProperty->Struct == RotatorStruct)
+				else if (Struct == RotatorStruct)
 				{
 					FRotator R = FRotator::ZeroRotator;
 					const bool bParsedUsingCustomFormat = FDefaultValueHelper::ParseRotator(Term->Name, /*out*/ R);
 					if (!bParsedUsingCustomFormat)
 					{
-						StructProperty->ImportText(*Term->Name, &R, PPF_None, nullptr);
+						UStructProperty::ImportText_Static(Struct, GetPathNameSafe(StructProperty), *Term->Name, &R, PPF_None, nullptr, (FOutputDevice*)GWarn);
 					}
 					Writer << EX_RotationConst;
 					Writer << R;
 				}
-				else if (StructProperty->Struct == TransformStruct)
+				else if (Struct == TransformStruct)
 				{
 					FTransform T = FTransform::Identity;
 					const bool bParsedUsingCustomFormat = T.InitFromString(Term->Name);
 					if (!bParsedUsingCustomFormat)
 					{
-						StructProperty->ImportText(*Term->Name, &T, PPF_None, nullptr);
+						UStructProperty::ImportText_Static(Struct, GetPathNameSafe(StructProperty), *Term->Name, &T, PPF_None, nullptr, (FOutputDevice*)GWarn);
 					}
 					Writer << EX_TransformConst;
 					Writer << T;
 				}
 				else
 				{
-					UScriptStruct* Struct = StructProperty->Struct;
-					int32 StructSize = Struct->GetStructureSize() * StructProperty->ArrayDim;
+					const int32 ArrayDim = StructProperty ? StructProperty->ArrayDim : 1; //@TODO: is it safe when StructProperty == nullptr?
+					int32 StructSize = Struct->GetStructureSize() * ArrayDim;
 					uint8* StructData = (uint8*)FMemory_Alloca(StructSize);
-					StructProperty->InitializeValue(StructData);
-					if (!ensure(bAllowStaticArray || 1 == StructProperty->ArrayDim))
+					Struct->InitializeStruct(StructData, ArrayDim);
+					if (!ensure(bAllowStaticArray || 1 == ArrayDim))
 					{
-						UE_LOG(LogK2Compiler, Error, TEXT("Unsupported static array. Property: %s, Struct: %s"), *StructProperty->GetName(), *Struct->GetName());
+						UE_LOG(LogK2Compiler, Error, TEXT("Unsupported static array. Property: %s, Struct: %s"), *GetPathNameSafe(StructProperty), *Struct->GetName());
 					}
 					if(!FStructureEditorUtils::Fill_MakeStructureDefaultValue(Cast<UUserDefinedStruct>(Struct), StructData))
 					{
-						UE_LOG(LogK2Compiler, Warning, TEXT("MakeStructureDefaultValue parsing error. Property: %s, Struct: %s"), *StructProperty->GetName(), *Struct->GetName());
+						UE_LOG(LogK2Compiler, Warning, TEXT("MakeStructureDefaultValue parsing error. Property: %s, Struct: %s"), *GetPathNameSafe(StructProperty), *Struct->GetName());
 					}
 
 					// Assume that any errors on the import of the name string have been caught in the function call generation
-					StructProperty->ImportText(Term->Name.IsEmpty() ? TEXT("()") : *Term->Name, StructData, 0, NULL, GLog);
+					UStructProperty::ImportText_Static(Struct, GetPathNameSafe(StructProperty), Term->Name.IsEmpty() ? TEXT("()") : *Term->Name, StructData, 0, nullptr, GLog);
 
  					Writer << EX_StructConst;
 					Writer << Struct;
@@ -587,7 +743,7 @@ public:
 							EmitTermExpr(&NewTerm, Prop, true);
 						}
 					}
-
+					Struct->DestroyStruct(StructData, ArrayDim);
 					Writer << EX_EndStructConst;
 				}
 			}
@@ -624,7 +780,7 @@ public:
 				}
 				Writer << EX_EndArrayConst;
 			}
-			else if (CoerceProperty->IsA(UDelegateProperty::StaticClass()))
+			else if (FLiteralTypeHelper::IsDelegate(&Term->Type, CoerceProperty))
 			{
 				if (Term->Name == TEXT(""))
 				{
@@ -638,13 +794,13 @@ public:
 					Writer << FunctionName;
 				}
 			}
-			else if (CoerceProperty->IsA(UAssetObjectProperty::StaticClass()))
+			else if (FLiteralTypeHelper::IsAsset(&Term->Type, CoerceProperty))
 			{
 				Writer << EX_AssetConst;
 				FAssetPtr AssetPtr(Term->ObjectLiteral);
 				EmitStringLiteral(AssetPtr.GetUniqueID().ToString());
 			}
-			else if (CoerceProperty->IsA(UObjectPropertyBase::StaticClass()))
+			else if (FLiteralTypeHelper::IsObject(&Term->Type, CoerceProperty))
 			{
 				// Note: This case handles both UObjectProperty and UClassProperty
 				if (Term->Type.PinSubCategory == Schema->PN_Self)
@@ -661,7 +817,7 @@ public:
 					Writer << Term->ObjectLiteral;
 				}
 			}
-			else if (CoerceProperty->IsA(UInterfaceProperty::StaticClass()))
+			else if (FLiteralTypeHelper::IsInterface(&Term->Type, CoerceProperty))
 			{
 				if (Term->Type.PinSubCategory == Schema->PN_Self)
 				{
@@ -683,9 +839,9 @@ public:
 				if (ensure(CurrentCompilerContext))
 				{
 					FFormatNamedArguments Args;
-					Args.Add(TEXT("PropertyType"), CoerceProperty->GetClass()->GetDisplayNameText());
-					Args.Add(TEXT("PropertyName"), CoerceProperty->GetDisplayNameText());
-					CurrentCompilerContext->MessageLog.Error(*FText::Format(LOCTEXT("InvalidProperty", "It is not possible to express this type ({PropertyType}) as a literal value for the property {PropertyName} on pin @@! If it is inside a struct, you can add a Make struct node to resolve this issue!"), Args).ToString(), Term->Source);
+					Args.Add(TEXT("PropertyType"), CoerceProperty ? CoerceProperty->GetClass()->GetDisplayNameText() : FText());
+					Args.Add(TEXT("PropertyName"), CoerceProperty ? CoerceProperty->GetDisplayNameText() : FText());
+					CurrentCompilerContext->MessageLog.Error(*FText::Format(LOCTEXT("InvalidProperty", "It is not possible to express this type ({PropertyType}) as a literal value for the property {PropertyName} on pin @@! If it is inside a struct, you can add a Make struct node to resolve this issue!"), Args).ToString(), Term->SourcePin);
 				}
 			}
 		}
@@ -873,6 +1029,25 @@ public:
 			Writer << EX_VirtualFunction;
 			Writer << FunctionName;
 		}
+		
+		TArray<FName> WildcardParams;
+		const bool bIsCustomThunk = FunctionToCall->HasMetaData(TEXT("CustomThunk"));
+		if (bIsCustomThunk)
+		{
+			// collect all parameters that (should) have wildcard type.
+			auto CollectWildcards = [&](FName MetaDataName)
+			{
+				const FString DependentPinMetaData = FunctionToCall->GetMetaData(MetaDataName);
+				TArray<FString> TypeDependentPinNames;
+				DependentPinMetaData.ParseIntoArray(TypeDependentPinNames, TEXT(","), true);
+				for (FString& Iter : TypeDependentPinNames)
+				{
+					WildcardParams.Add(FName(*Iter));
+				}
+			};
+			CollectWildcards(FBlueprintMetadata::MD_ArrayDependentParam);
+			CollectWildcards(FName(TEXT("CustomStructureParam")));
+		}
 
 		// Emit function parameters
 		int32 NumParams = 0;
@@ -886,18 +1061,17 @@ public:
 				check(Term != NULL);
 
 				// Latent function handling:  Need to emit a fixup request into the FLatentInfo struct
-				static const FName NAME_LatentInfo = TEXT("LatentInfo");
  				if (bIsUbergraph && FuncParamProperty->GetName() == FunctionToCall->GetMetaData("LatentInfo"))
  				{
 					EmitLatentInfoTerm(Term, FuncParamProperty, Statement.TargetLabel);
  				}
 				else
 				{
-					// Emit parameter term normally
-					EmitTerm(Term, FuncParamProperty);
+					const bool bWildcard = WildcardParams.Contains(FuncParamProperty->GetFName());
+					// Native type of a wildcard parameter should be ignored.
+					// When no coerce property is passed, a type of literal will be retrieved from the term.
+					EmitTerm(Term, bWildcard ? nullptr : FuncParamProperty);
 				}
-
-
 				NumParams++;
 			}
 		}
@@ -943,7 +1117,7 @@ public:
 		{
 			ensure(!Term->InlineGeneratedParameter->bIsJumpTarget);
 			auto TermSourceAsNode = Cast<UEdGraphNode>(Term->Source);
-			auto TermSourceAsPin = Cast<UEdGraphPin>(Term->Source);
+			auto TermSourceAsPin = Term->SourcePin;
 			UEdGraphNode* SourceNode = TermSourceAsNode ? TermSourceAsNode
 				: (TermSourceAsPin ? TermSourceAsPin->GetOwningNodeUnchecked() : nullptr);
 			if (ensure(CurrentCompilerContext && CurrentFunctionContext))
@@ -1389,9 +1563,11 @@ public:
 		}
 		else
 		{
-			int32 EventType = 0;
+			uint8 EventType = 0;
 			switch (Statement.Type)
 			{
+			case KCST_InstrumentedEvent:			EventType = EScriptInstrumentation::InlineEvent; break;
+			case KCST_InstrumentedEventStop:		EventType = EScriptInstrumentation::Stop; break;
 			case KCST_InstrumentedWireExit:			EventType = EScriptInstrumentation::NodeExit; break;
 			case KCST_InstrumentedWireEntry:		EventType = EScriptInstrumentation::NodeEntry; break;
 			case KCST_InstrumentedPureNodeEntry:	EventType = EScriptInstrumentation::PureNodeEntry; break;
@@ -1403,84 +1579,113 @@ public:
 			}
 			Writer << EX_InstrumentationEvent;
 			Writer << EventType;
-
-			Offset += sizeof(int32);
+			if (EventType == EScriptInstrumentation::InlineEvent)
+			{
+				FName EventName(*Statement.Comment);
+				Writer << EventName;
+			}
 		}
 
-		if (Statement.Type != KCST_InstrumentedStateRestore)
+		TArray<UEdGraphPin*> PinContextArray(Statement.PureOutputContextArray);
+		if (Statement.ExecContext != nullptr)
 		{
-			TArray<UEdGraphPin*> PinContextArray(Statement.PureOutputContextArray);
-			if (Statement.ExecContext != nullptr)
-			{
-				PinContextArray.Add(Statement.ExecContext);
-			}
+			PinContextArray.Add(Statement.ExecContext);
+		}
 
-			for (auto PinContext : PinContextArray)
+		for (auto PinContext : PinContextArray)
+		{
+			UEdGraphPin const* TrueSourcePin = FunctionContext.MessageLog.FindSourcePin(PinContext);
+			// Source pin can be marked as pending kill if it was a generated pin that node logic decided to disown, e.g.
+			// logic in UK2Node_CallFunction to handle bWantsEnumToExecExpansion:
+			if (TrueSourcePin && !TrueSourcePin->IsPendingKill())
 			{
-				UEdGraphPin const* TrueSourcePin = Cast<UEdGraphPin const>(FunctionContext.MessageLog.FindSourceObject(PinContext));
-				if (TrueSourcePin)
+				ClassBeingBuilt->GetDebugData().RegisterPinToCodeAssociation(TrueSourcePin, FunctionContext.Function, Offset);
+			}
+		}
+
+		if (SourceNode != NULL)
+		{
+			// Record where this NOP is
+			UEdGraphNode* TrueSourceNode = Cast<UEdGraphNode>(FunctionContext.MessageLog.FindSourceObject(SourceNode));
+			if (TrueSourceNode)
+			{
+				// If this is a debug site for an expanded macro instruction, there should also be a macro source node associated with it
+				UEdGraphNode* MacroSourceNode = Cast<UEdGraphNode>(CompilerContext.MessageLog.FinalNodeBackToMacroSourceMap.FindSourceObject(SourceNode));
+				if (MacroSourceNode == SourceNode)
 				{
-					ClassBeingBuilt->GetDebugData().RegisterPinToCodeAssociation(TrueSourcePin, FunctionContext.Function, Offset);
+					// The function above will return the given node if not found in the map. In that case there is no associated source macro node, so we clear it.
+					MacroSourceNode = NULL;
 				}
-			}
 
-			if (SourceNode != NULL)
-			{
-				// Record where this NOP is
-				UEdGraphNode* TrueSourceNode = Cast<UEdGraphNode>(FunctionContext.MessageLog.FindSourceObject(SourceNode));
-				if (TrueSourceNode)
+				TArray<TWeakObjectPtr<UEdGraphNode>> MacroInstanceNodes;
+				const bool bInstrumentedBreakpoint = Statement.Type == KCST_InstrumentedWireEntry;
+				bool bBreakpointSite = Statement.Type == KCST_DebugSite || bInstrumentedBreakpoint;
+
+				if (MacroSourceNode)
 				{
-					// If this is a debug site for an expanded macro instruction, there should also be a macro source node associated with it
-					UEdGraphNode* MacroSourceNode = Cast<UEdGraphNode>(CompilerContext.MessageLog.FinalNodeBackToMacroSourceMap.FindSourceObject(SourceNode));
-					if (MacroSourceNode == SourceNode)
+					// Only associate macro instance node breakpoints with source nodes that are linked to the entry node in an impure macro graph
+					if (bBreakpointSite)
 					{
-						// The function above will return the given node if not found in the map. In that case there is no associated source macro node, so we clear it.
-						MacroSourceNode = NULL;
-					}
-
-					TArray<TWeakObjectPtr<UEdGraphNode>> MacroInstanceNodes;
-					bool bBreakpointSite = Statement.Type == KCST_DebugSite;
-
-					if (MacroSourceNode)
-					{
-						// Only associate macro instance node breakpoints with source nodes that are linked to the entry node in an impure macro graph
-						if (bBreakpointSite)
+						const UK2Node_MacroInstance* MacroInstanceNode = Cast<const UK2Node_MacroInstance>(TrueSourceNode);
+						if (MacroInstanceNode)
 						{
-							const UK2Node_MacroInstance* MacroInstanceNode = Cast<const UK2Node_MacroInstance>(TrueSourceNode);
-							if (MacroInstanceNode)
-							{
-								TArray<const UEdGraphNode*> ValidBreakpointLocations;
-								FKismetDebugUtilities::GetValidBreakpointLocations(MacroInstanceNode, ValidBreakpointLocations);
-								bBreakpointSite = ValidBreakpointLocations.Contains(MacroSourceNode);
-							}
+							TArray<const UEdGraphNode*> ValidBreakpointLocations;
+							FKismetDebugUtilities::GetValidBreakpointLocations(MacroInstanceNode, ValidBreakpointLocations);
+							bBreakpointSite = ValidBreakpointLocations.Contains(MacroSourceNode);
 						}
-
-						// Gather up all the macro instance nodes that lead to this macro source node
-						CompilerContext.MessageLog.MacroSourceToMacroInstanceNodeMap.MultiFind(MacroSourceNode, MacroInstanceNodes);
 					}
 
+					// Gather up all the macro instance nodes that lead to this macro source node
+					CompilerContext.MessageLog.MacroSourceToMacroInstanceNodeMap.MultiFind(MacroSourceNode, MacroInstanceNodes);
+				}
+
+				// Register source tunnels for instrumentation.
+				if (FunctionContext.IsInstrumentationRequired())
+				{
+					// After blueprint profiler MVP these changes will be refactored and rolled back into normal compilation.
+
+					// Locate the source tunnel instance
+					if (TWeakObjectPtr<UEdGraphNode>* SourceTunnelInstance = CompilerContext.MessageLog.SourceNodeToTunnelInstanceNodeMap.Find(SourceNode))
+					{
+						if (SourceTunnelInstance->IsValid())
+						{
+							TrueSourceNode = SourceTunnelInstance->Get();
+						}
+					}
+					// Locate the real source node, as the code above fails with nested tunnels
+					if (TWeakObjectPtr<UEdGraphNode>* NewSourceNode = CompilerContext.MessageLog.IntermediateTunnelNodeToSourceNodeMap.Find(SourceNode))
+					{
+						if (NewSourceNode->IsValid())
+						{
+							MacroSourceNode = NewSourceNode->Get();
+						}
+					}
 					ClassBeingBuilt->GetDebugData().RegisterNodeToCodeAssociation(TrueSourceNode, MacroSourceNode, MacroInstanceNodes, FunctionContext.Function, Offset, bBreakpointSite);
+				}
+				else
+				{
+					ClassBeingBuilt->GetDebugData().RegisterNodeToCodeAssociation(TrueSourceNode, MacroSourceNode, MacroInstanceNodes, FunctionContext.Function, Offset, bBreakpointSite);
+				}
 
-					// Track pure node script code range for the current impure (exec) node
-					if (Statement.Type == KCST_InstrumentedPureNodeEntry)
+				// Track pure node script code range for the current impure (exec) node
+				if (Statement.Type == KCST_InstrumentedPureNodeEntry)
+				{
+					if (PureNodeEntryCount == 0)
 					{
-						if (PureNodeEntryCount == 0)
-						{
-							// Indicates the starting offset for this pure node call chain.
-							PureNodeEntryStart = Offset;
-						}
-
-						++PureNodeEntryCount;
+						// Indicates the starting offset for this pure node call chain.
+						PureNodeEntryStart = Offset;
 					}
-					else if (Statement.Type == KCST_InstrumentedWireEntry && PureNodeEntryCount > 0)
-					{
-						// Map script code range for the full set of pure node inputs feeding in to the current impure (exec) node at the current offset
-						ClassBeingBuilt->GetDebugData().RegisterPureNodeScriptCodeRange(TrueSourceNode, FunctionContext.Function, FInt32Range(PureNodeEntryStart, Offset));
 
-						// Reset pure node code range tracking.
-						PureNodeEntryCount = 0;
-						PureNodeEntryStart = 0;
-					}
+					++PureNodeEntryCount;
+				}
+				else if (Statement.Type == KCST_InstrumentedWireEntry && PureNodeEntryCount > 0)
+				{
+					// Map script code range for the full set of pure node inputs feeding in to the current impure (exec) node at the current offset
+					ClassBeingBuilt->GetDebugData().RegisterPureNodeScriptCodeRange(MacroSourceNode ? MacroSourceNode : TrueSourceNode, FunctionContext.Function, FInt32Range(PureNodeEntryStart, Offset));
+
+					// Reset pure node code range tracking.
+					PureNodeEntryCount = 0;
+					PureNodeEntryStart = 0;
 				}
 			}
 		}
@@ -1599,6 +1804,8 @@ public:
 			break;
 		case KCST_DebugSite:
 		case KCST_WireTraceSite:
+		case KCST_InstrumentedEvent:
+		case KCST_InstrumentedEventStop:
 		case KCST_InstrumentedWireEntry:
 		case KCST_InstrumentedWireExit:
 		case KCST_InstrumentedStatePush:

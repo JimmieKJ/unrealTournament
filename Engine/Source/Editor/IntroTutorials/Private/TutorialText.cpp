@@ -326,45 +326,47 @@ void FTutorialText::Initialize()
 {
 	if(HyperlinkDescs.Num() == 0)
 	{
-		HyperlinkDescs.Add(MakeShareable(new FHyperlinkTypeDesc(
-			EHyperlinkType::Browser, 
-			LOCTEXT("BrowserLinkTypeLabel", "URL"), 
-			LOCTEXT("BrowserLinkTypeTooltip", "A link that opens a browser window (e.g. http://www.unrealengine.com)"),
-			TEXT("browser"),
-			FSlateHyperlinkRun::FOnClick::CreateStatic(&OnBrowserLinkClicked))));
+		HyperlinkDescs = {
+			MakeShareable(new FHyperlinkTypeDesc(
+				EHyperlinkType::Browser, 
+				LOCTEXT("BrowserLinkTypeLabel", "URL"), 
+				LOCTEXT("BrowserLinkTypeTooltip", "A link that opens a browser window (e.g. http://www.unrealengine.com)"),
+				TEXT("browser"),
+				FSlateHyperlinkRun::FOnClick::CreateStatic(&OnBrowserLinkClicked))),
 
-		HyperlinkDescs.Add(MakeShareable(new FHyperlinkTypeDesc(
-			EHyperlinkType::UDN, 
-			LOCTEXT("UDNLinkTypeLabel", "UDN"), 
-			LOCTEXT("UDNLinkTypeTooltip", "A link that opens some UDN documentation (e.g. /Engine/Blueprints/UserGuide/Types/ClassBlueprint)"),
-			TEXT("udn"),
-			FSlateHyperlinkRun::FOnClick::CreateStatic(&OnDocLinkClicked), 
-			FSlateHyperlinkRun::FOnGetTooltipText(),
-			FSlateHyperlinkRun::FOnGenerateTooltip::CreateStatic(&OnGenerateDocTooltip))));
+			MakeShareable(new FHyperlinkTypeDesc(
+				EHyperlinkType::UDN, 
+				LOCTEXT("UDNLinkTypeLabel", "UDN"), 
+				LOCTEXT("UDNLinkTypeTooltip", "A link that opens some UDN documentation (e.g. /Engine/Blueprints/UserGuide/Types/ClassBlueprint)"),
+				TEXT("udn"),
+				FSlateHyperlinkRun::FOnClick::CreateStatic(&OnDocLinkClicked), 
+				FSlateHyperlinkRun::FOnGetTooltipText(),
+				FSlateHyperlinkRun::FOnGenerateTooltip::CreateStatic(&OnGenerateDocTooltip))),
 
-		HyperlinkDescs.Add(MakeShareable(new FHyperlinkTypeDesc(
-			EHyperlinkType::Asset, 
-			LOCTEXT("AssetLinkTypeLabel", "Asset"), 
-			LOCTEXT("AssetLinkTypeTooltip", "A link that opens an asset (e.g. /Game/StaticMeshes/SphereMesh.SphereMesh)"),
-			TEXT("asset"),
-			FSlateHyperlinkRun::FOnClick::CreateStatic(&OnAssetLinkClicked),
-			FSlateHyperlinkRun::FOnGetTooltipText::CreateStatic(&OnGetAssetTooltipText))));
+			MakeShareable(new FHyperlinkTypeDesc(
+				EHyperlinkType::Asset, 
+				LOCTEXT("AssetLinkTypeLabel", "Asset"), 
+				LOCTEXT("AssetLinkTypeTooltip", "A link that opens an asset (e.g. /Game/StaticMeshes/SphereMesh.SphereMesh)"),
+				TEXT("asset"),
+				FSlateHyperlinkRun::FOnClick::CreateStatic(&OnAssetLinkClicked),
+				FSlateHyperlinkRun::FOnGetTooltipText::CreateStatic(&OnGetAssetTooltipText))),
 
-		HyperlinkDescs.Add(MakeShareable(new FHyperlinkTypeDesc(
-			EHyperlinkType::Code, 
-			LOCTEXT("CodeLinkTypeLabel", "Code"), 
-			LOCTEXT("CodeLinkTypeTooltip", "A link that opens code in your selected IDE.\nFor example: [PROJECTPATH]/Private/SourceFile.cpp,1,1.\nThe numbers correspond to line number and column number.\nYou can use [PROJECT], [PROJECTPATH] and [ENGINEPATH] tags to make paths."),
-			TEXT("code"),
-			FSlateHyperlinkRun::FOnClick::CreateStatic(&OnCodeLinkClicked),
-			FSlateHyperlinkRun::FOnGetTooltipText::CreateStatic(&OnGetCodeTooltipText))));
+			MakeShareable(new FHyperlinkTypeDesc(
+				EHyperlinkType::Code, 
+				LOCTEXT("CodeLinkTypeLabel", "Code"), 
+				LOCTEXT("CodeLinkTypeTooltip", "A link that opens code in your selected IDE.\nFor example: [PROJECTPATH]/Private/SourceFile.cpp,1,1.\nThe numbers correspond to line number and column number.\nYou can use [PROJECT], [PROJECTPATH] and [ENGINEPATH] tags to make paths."),
+				TEXT("code"),
+				FSlateHyperlinkRun::FOnClick::CreateStatic(&OnCodeLinkClicked),
+				FSlateHyperlinkRun::FOnGetTooltipText::CreateStatic(&OnGetCodeTooltipText))),
 
-		HyperlinkDescs.Add(MakeShareable(new FHyperlinkTypeDesc(
-			EHyperlinkType::Tutorial, 
-			LOCTEXT("TutorialLinkTypeLabel", "Tutorial"), 
-			LOCTEXT("TutorialLinkTypeTooltip", "A type of asset link that opens another tutorial, e.g. /Game/Tutorials/StaticMeshTutorial.StaticMeshTutorial"),
-			TEXT("tutorial"),
-			FSlateHyperlinkRun::FOnClick::CreateStatic(&OnTutorialLinkClicked),
-			FSlateHyperlinkRun::FOnGetTooltipText::CreateStatic(&OnGetTutorialTooltipText))));
+			MakeShareable(new FHyperlinkTypeDesc(
+				EHyperlinkType::Tutorial, 
+				LOCTEXT("TutorialLinkTypeLabel", "Tutorial"), 
+				LOCTEXT("TutorialLinkTypeTooltip", "A type of asset link that opens another tutorial, e.g. /Game/Tutorials/StaticMeshTutorial.StaticMeshTutorial"),
+				TEXT("tutorial"),
+				FSlateHyperlinkRun::FOnClick::CreateStatic(&OnTutorialLinkClicked),
+				FSlateHyperlinkRun::FOnGetTooltipText::CreateStatic(&OnGetTutorialTooltipText)))
+		};
 	}
 }
 

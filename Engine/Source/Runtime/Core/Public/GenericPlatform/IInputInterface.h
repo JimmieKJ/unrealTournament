@@ -33,14 +33,42 @@ struct FForceFeedbackValues
 	{ }
 };
 
+struct FHapticFeedbackBuffer
+{
+	TArray<uint8> RawData;
+	uint32 CurrentPtr;
+	int BufferLength;
+	int SamplesSent;
+	bool bFinishedPlaying;
+	int SamplingRate;
+	float ScaleFactor;
+
+	FHapticFeedbackBuffer()
+		: CurrentPtr(0)
+		, BufferLength(0)
+		, SamplesSent(0)
+		, bFinishedPlaying(false)
+		, SamplingRate(0)
+	{
+	}
+
+	bool NeedsUpdate() const
+	{
+		return !bFinishedPlaying;
+	}
+};
+
 struct FHapticFeedbackValues
 {
 	float Frequency;
 	float Amplitude;
 
+	FHapticFeedbackBuffer* HapticBuffer;
+
 	FHapticFeedbackValues()
 		: Frequency(0.f)
 		, Amplitude(0.f)
+		, HapticBuffer(NULL)
 	{
 	}
 
@@ -49,8 +77,10 @@ struct FHapticFeedbackValues
 		// can't use FMath::Clamp here due to header files dependencies
 		Frequency = (InFrequency < 0.f) ? 0.f : ((InFrequency > 1.f) ? 1.f : InFrequency);
 		Amplitude = (InAmplitude < 0.f) ? 0.f : ((InAmplitude > 1.f) ? 1.f : InAmplitude);
+		HapticBuffer = NULL;
 	}
 };
+
 
 /**
  * Interface for the input interface.

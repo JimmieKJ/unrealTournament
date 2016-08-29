@@ -35,6 +35,14 @@ struct PAPER2D_API FPaperSpriteVertex
 		, TexCoords(InTextureCoordinate)
 	{}
 
+	FPaperSpriteVertex(const FVector& InPosition, const FVector2D& InTextureCoordinate, const FColor& InColor, const FPackedNormal& InTangentX, const FPackedNormal& InTangentZ)
+		: Position(InPosition)
+		, TangentX(InTangentX)
+		, TangentZ(InTangentZ)
+		, Color(InColor)
+		, TexCoords(InTextureCoordinate)
+	{}
+
 	static void SetTangentsFromPaperAxes();
 
 	static FPackedNormal PackedNormalX;
@@ -130,6 +138,15 @@ struct PAPER2D_API FSpriteRenderSection
 		const FVector Pos((PaperAxisX * X) + (PaperAxisY * Y) + Origin);
 
 		new (Vertices) FPaperSpriteVertex(Pos, FVector2D(U, V), Color);
+		++NumVertices;
+	}
+
+	template <typename SourceArrayType>
+	inline void AddVertex(float X, float Y, float U, float V, const FVector& Origin, const FColor& Color, const FPackedNormal& TangentX, const FPackedNormal& TangentZ, SourceArrayType& Vertices)
+	{
+		const FVector Pos((PaperAxisX * X) + (PaperAxisY * Y) + Origin);
+
+		new (Vertices) FPaperSpriteVertex(Pos, FVector2D(U, V), Color, TangentX, TangentZ);
 		++NumVertices;
 	}
 };

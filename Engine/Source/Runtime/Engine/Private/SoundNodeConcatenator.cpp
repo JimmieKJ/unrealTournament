@@ -42,9 +42,6 @@ bool USoundNodeConcatenator::NotifyWaveInstanceFinished( FWaveInstance* WaveInst
 	ConcatenatorPayload.CurrentChildNodeSoundIndex++;
 	if (ConcatenatorPayload.NodeIndex < ChildNodes.Num())
 	{
-		USoundNode* CurrentChildNode = ChildNodes[ConcatenatorPayload.NodeIndex];
-		check(CurrentChildNode);
-
 		if (ConcatenatorPayload.CurrentChildNodeSoundIndex == ConcatenatorPayload.CurrentChildNodeNumSound)
 		{
 			// Find the next non-null index
@@ -145,23 +142,28 @@ void USoundNodeConcatenator::ParseNodes( FAudioDevice* AudioDevice, const UPTRIN
 			UpdatedParams.NotifyBufferFinishedHooks.AddNotify(this, NodeWaveInstanceHash);
 			UpdatedParams.VolumeMultiplier *= InputVolume[LocalPayload.NodeIndex];
 
+			const int32 NumWaveInstancesBeforeParse = WaveInstances.Num();
+
 			const UPTRINT ChildNodeWaveInstanceHash = GetNodeWaveInstanceHash(NodeWaveInstanceHash, ChildNode, LocalPayload.NodeIndex);
 			ChildNode->ParseNodes(AudioDevice, ChildNodeWaveInstanceHash, ActiveSound, UpdatedParams, WaveInstances);
 
-			// Update the payload with the number of sounds played and update our local copy
-			RETRIEVE_SOUNDNODE_PAYLOAD(sizeof(FSoundNodeConcatenatorPayload));
-			DECLARE_SOUNDNODE_ELEMENT(FSoundNodeConcatenatorPayload, ConcatenatorPayload);
+			// Check to see if we actually added any wave instances when parsing the concat node.
+			if (WaveInstances.Num() > NumWaveInstancesBeforeParse)
+			{
+				// Update the payload with the number of sounds played and update our local copy
+				RETRIEVE_SOUNDNODE_PAYLOAD(sizeof(FSoundNodeConcatenatorPayload));
+				DECLARE_SOUNDNODE_ELEMENT(FSoundNodeConcatenatorPayload, ConcatenatorPayload);
 
-			ConcatenatorPayload = LocalPayload;
-			ConcatenatorPayload.CurrentChildNodeNumSound = ChildNode->GetNumSounds(ChildNodeWaveInstanceHash, ActiveSound);
+				ConcatenatorPayload = LocalPayload;
+				ConcatenatorPayload.CurrentChildNodeNumSound = ChildNode->GetNumSounds(ChildNodeWaveInstanceHash, ActiveSound);
 
-			break;
+				break;
+			}
 		}
-		else
-		{
-			LocalPayload.CurrentChildNodeSoundIndex = 0;
-			++LocalPayload.NodeIndex;
-		}
+
+		// If no child node, or if no wave instances played for this node index
+		LocalPayload.CurrentChildNodeSoundIndex = 0;
+		++LocalPayload.NodeIndex;
 	}
 }
 

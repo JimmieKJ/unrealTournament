@@ -34,8 +34,8 @@ FDetailPropertyRow::FDetailPropertyRow(TSharedPtr<FPropertyNode> InPropertyNode,
 		// Check if the property is valid for type customization.  Note: Static arrays of types will be a UProperty with array elements as children
 		if (!PropertyEditorHelpers::IsStaticArray(*PropertyNodeRef))
 		{
-			static FName PropertyEditor("PropertyEditor");
-			FPropertyEditorModule& PropertyEditorModule = FModuleManager::GetModuleChecked<FPropertyEditorModule>(PropertyEditor);
+			static FName NAME_PropertyEditor("PropertyEditor");
+			FPropertyEditorModule& PropertyEditorModule = FModuleManager::GetModuleChecked<FPropertyEditorModule>(NAME_PropertyEditor);
 			
 			IDetailsViewPrivate& DetailsView = InParentCategory->GetDetailsView();
 			

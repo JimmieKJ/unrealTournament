@@ -118,9 +118,9 @@ void FVisualLoggerFilters::Shutdown()
 void FVisualLoggerFilters::OnNewItemHandler(const FVisualLoggerDBRow& DBRow, int32 ItemIndex)
 {
 	const FVisualLogDevice::FVisualLogEntryItem& Item = DBRow.GetItems()[ItemIndex];
-	TArray<FVisualLoggerCategoryVerbosityPair> Categories;
-	FVisualLoggerHelpers::GetCategories(Item.Entry, Categories);
-	for (auto& CategoryAndVerbosity : Categories)
+	TArray<FVisualLoggerCategoryVerbosityPair> VisualLoggerCategories;
+	FVisualLoggerHelpers::GetCategories(Item.Entry, VisualLoggerCategories);
+	for (auto& CategoryAndVerbosity : VisualLoggerCategories)
 	{
 		AddCategory(CategoryAndVerbosity.CategoryName.ToString(), ELogVerbosity::All);
 	}

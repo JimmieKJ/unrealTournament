@@ -9,7 +9,7 @@
 
 #include <sys/utsname.h>	// for uname()
 #include <signal.h>
-
+#include "HAL/ThreadHeartBeat.h"
 
 FString DescribeSignal(int32 Signal, siginfo_t* Info)
 {
@@ -51,6 +51,8 @@ FString DescribeSignal(int32 Signal, siginfo_t* Info)
 #undef HANDLE_CASE
 }
 
+__thread siginfo_t FLinuxCrashContext::FakeSiginfoForEnsures;
+
 FLinuxCrashContext::~FLinuxCrashContext()
 {
 	if (BacktraceSymbols)
@@ -68,6 +70,31 @@ void FLinuxCrashContext::InitFromSignal(int32 InSignal, siginfo_t* InInfo, void*
 	Context = reinterpret_cast< ucontext_t* >( InContext );
 
 	FCString::Strcat(SignalDescription, ARRAY_COUNT( SignalDescription ) - 1, *DescribeSignal(Signal, Info));
+}
+
+void FLinuxCrashContext::InitFromEnsureHandler(const TCHAR* EnsureMessage, const void* CrashAddress)
+{
+	Signal = SIGTRAP;
+
+	FakeSiginfoForEnsures.si_signo = SIGTRAP;
+	FakeSiginfoForEnsures.si_code = TRAP_TRACE;
+	FakeSiginfoForEnsures.si_addr = const_cast<void *>(CrashAddress);
+	Info = &FakeSiginfoForEnsures;
+
+	Context = nullptr;
+
+	// set signal description to a more human-readable one for ensures
+	FCString::Strcpy(SignalDescription, ARRAY_COUNT(SignalDescription) - 1, EnsureMessage);
+
+	// only need the first string
+	for (int Idx = 0; Idx < ARRAY_COUNT(SignalDescription); ++Idx)
+	{
+		if (SignalDescription[Idx] == TEXT('\n'))
+		{
+			SignalDescription[Idx] = 0;
+			break;
+		}
+	}
 }
 
 /**
@@ -165,14 +192,14 @@ void FLinuxCrashContext::GenerateReport(const FString & DiagnosticsPath) const
 		utsname UnixName;
 		if (uname(&UnixName) == 0)
 		{
-			Line = FString::Printf(TEXT( "OS version %s %s (network name: %s)" ), ANSI_TO_TCHAR(UnixName.sysname), ANSI_TO_TCHAR(UnixName.release), ANSI_TO_TCHAR(UnixName.nodename));
+			Line = FString::Printf(TEXT( "OS version %s %s (network name: %s)" ), UTF8_TO_TCHAR(UnixName.sysname), UTF8_TO_TCHAR(UnixName.release), UTF8_TO_TCHAR(UnixName.nodename));
 			WriteLine(ReportFile, TCHAR_TO_UTF8(*Line));	
-			Line = FString::Printf( TEXT( "Running %d %s processors (%d logical cores)" ), FPlatformMisc::NumberOfCores(), ANSI_TO_TCHAR(UnixName.machine), FPlatformMisc::NumberOfCoresIncludingHyperthreads());
+			Line = FString::Printf( TEXT( "Running %d %s processors (%d logical cores)" ), FPlatformMisc::NumberOfCores(), UTF8_TO_TCHAR(UnixName.machine), FPlatformMisc::NumberOfCoresIncludingHyperthreads());
 			WriteLine(ReportFile, TCHAR_TO_UTF8(*Line));
 		}
 		else
 		{
-			Line = FString::Printf(TEXT("OS version could not be determined (%d, %s)"), errno, ANSI_TO_TCHAR(strerror(errno)));
+			Line = FString::Printf(TEXT("OS version could not be determined (%d, %s)"), errno, UTF8_TO_TCHAR(strerror(errno)));
 			WriteLine(ReportFile, TCHAR_TO_UTF8(*Line));	
 			Line = FString::Printf( TEXT( "Running %d unknown processors" ), FPlatformMisc::NumberOfCores());
 			WriteLine(ReportFile, TCHAR_TO_UTF8(*Line));
@@ -254,6 +281,8 @@ void GenerateWindowsErrorReport(const FString & WERPath, bool bReportingNonCrash
 		WriteLine(ReportFile, TEXT("\t\t<Parameter2>1033</Parameter2>"));
 		WriteLine(ReportFile, *FString::Printf(TEXT("\t\t<DeploymentName>%s</DeploymentName>"), FApp::GetDeploymentName()));
 		WriteLine(ReportFile, *FString::Printf(TEXT("\t\t<IsEnsure>%s</IsEnsure>"), bReportingNonCrash ? TEXT("1") : TEXT("0")));
+		WriteLine(ReportFile, *FString::Printf(TEXT("\t\t<IsAssert>%s</IsAssert>"), FDebug::bHasAsserted ? TEXT("1") : TEXT("0")));
+		WriteLine(ReportFile, *FString::Printf(TEXT("\t\t<CrashType>%s</CrashType>"), FGenericCrashContext::GetCrashTypeString(bReportingNonCrash, FDebug::bHasAsserted)));
 		WriteLine(ReportFile, TEXT("\t</DynamicSignatures>"));
 
 		WriteLine(ReportFile, TEXT("\t<SystemInformation>"));
@@ -297,10 +326,10 @@ void FLinuxCrashContext::CaptureStackTrace()
 		const SIZE_T StackTraceSize = 65535;
 		ANSICHAR* StackTrace = (ANSICHAR*) FMemory::Malloc( StackTraceSize );
 		StackTrace[0] = 0;
-		// Walk the stack and dump it to the allocated memory (ignore first 2 callstack lines as those are in stack walking code)
-		FPlatformStackWalk::StackWalkAndDump( StackTrace, StackTraceSize, 2, this);
+		// Walk the stack and dump it to the allocated memory (do not ignore any stack frames to be consistent with check()/ensure() handling)
+		FPlatformStackWalk::StackWalkAndDump( StackTrace, StackTraceSize, 0, this);
 
-		FCString::Strncat( GErrorHist, ANSI_TO_TCHAR(StackTrace), ARRAY_COUNT(GErrorHist) - 1 );
+		FCString::Strncat( GErrorHist, UTF8_TO_TCHAR(StackTrace), ARRAY_COUNT(GErrorHist) - 1 );
 		CreateExceptionInfoString(Signal, Info);
 
 		FMemory::Free( StackTrace );
@@ -375,18 +404,18 @@ void FLinuxCrashContext::GenerateCrashInfoAndLaunchReporter(bool bReportingNonCr
 		CrashGuid = FGuid::NewGuid().ToString();
 	}
 
-	FString CrashInfoFolder = FString::Printf(TEXT("%sinfo-%s-pid-%d-%s"), bReportingNonCrash ? TEXT("ensure") : TEXT("crash"), FApp::GetGameName(), getpid(), *CrashGuid);
+	FString CrashInfoFolder = FPaths::Combine(*FPaths::GameSavedDir(), TEXT("Crashes"), *FString::Printf(TEXT("%sinfo-%s-pid-%d-%s"), bReportingNonCrash ? TEXT("ensure") : TEXT("crash"), FApp::GetGameName(), getpid(), *CrashGuid));
 	FString CrashInfoAbsolute = FPaths::ConvertRelativePathToFull(CrashInfoFolder);
-	if (IFileManager::Get().MakeDirectory(*CrashInfoFolder))
+	if (IFileManager::Get().MakeDirectory(*CrashInfoAbsolute, true))
 	{
 		// generate "minidump"
-		GenerateReport(FPaths::Combine(*CrashInfoFolder, TEXT("Diagnostics.txt")));
+		GenerateReport(FPaths::Combine(*CrashInfoAbsolute, TEXT("Diagnostics.txt")));
 
 		// generate "WER"
-		GenerateWindowsErrorReport(FPaths::Combine(*CrashInfoFolder, TEXT("wermeta.xml")), bReportingNonCrash);
+		GenerateWindowsErrorReport(FPaths::Combine(*CrashInfoAbsolute, TEXT("wermeta.xml")), bReportingNonCrash);
 
 		// generate "minidump" (just >1 byte)
-		GenerateMinidump(FPaths::Combine(*CrashInfoFolder, TEXT("minidump.dmp")));
+		GenerateMinidump(FPaths::Combine(*CrashInfoAbsolute, TEXT("minidump.dmp")));
 
 		// Introduces a new runtime crash context. Will replace all Windows related crash reporting.
 		//FCStringAnsi::Strncpy(FilePath, CrashInfoFolder, PATH_MAX);
@@ -396,9 +425,22 @@ void FLinuxCrashContext::GenerateCrashInfoAndLaunchReporter(bool bReportingNonCr
 
 		// copy log
 		FString LogSrcAbsolute = FPlatformOutputDevices::GetAbsoluteLogFilename();
-		FString LogDstAbsolute = FPaths::Combine(*CrashInfoAbsolute, *FPaths::GetCleanFilename(LogSrcAbsolute));
+		FString LogFolder = FPaths::GetPath(LogSrcAbsolute);
+		FString LogFilename = FPaths::GetCleanFilename(LogSrcAbsolute);
+		FString LogBaseFilename = FPaths::GetBaseFilename(LogSrcAbsolute);
+		FString LogExtension = FPaths::GetExtension(LogSrcAbsolute, true);
+		FString LogDstAbsolute = FPaths::Combine(*CrashInfoAbsolute, *LogFilename);
 		FPaths::NormalizeDirectoryName(LogDstAbsolute);
 		static_cast<void>(IFileManager::Get().Copy(*LogDstAbsolute, *LogSrcAbsolute));	// best effort, so don't care about result: couldn't copy -> tough, no log
+
+		// If present, include the crash report config file to pass config values to the CRC
+		const TCHAR* CrashConfigFilePath = GetCrashConfigFilePath();
+		if (IFileManager::Get().FileExists(CrashConfigFilePath))
+		{
+			FString CrashConfigFilename = FPaths::GetCleanFilename(CrashConfigFilePath);
+			FString CrashConfigDstAbsolute = FPaths::Combine(*CrashInfoAbsolute, *CrashConfigFilename);
+			static_cast<void>(IFileManager::Get().Copy(*CrashConfigDstAbsolute, CrashConfigFilePath));	// best effort, so don't care about result
+		}
 
 		// try launching the tool and wait for its exit, if at all
 		const TCHAR * RelativePathToCrashReporter = TEXT("../../../Engine/Binaries/Linux/CrashReportClient");	// FIXME: painfully hard-coded
@@ -407,7 +449,11 @@ void FLinuxCrashContext::GenerateCrashInfoAndLaunchReporter(bool bReportingNonCr
 			RelativePathToCrashReporter = TEXT("../../../engine/binaries/linux/crashreportclient");	// FIXME: even more painfully hard-coded
 		}
 
-		FString CrashReportClientArguments;
+		FString CrashReportLogFilename = LogBaseFilename + TEXT("-CRC") + LogExtension;
+		FString CrashReportLogFilepath = FPaths::Combine(*LogFolder, *CrashReportLogFilename);
+		FString CrashReportClientArguments = TEXT(" -Abslog=");
+		CrashReportClientArguments += *CrashReportLogFilepath;
+		CrashReportClientArguments += TEXT(" ");
 
 		// Suppress the user input dialog if we're running in unattended mode
 		bool bNoDialog = FApp::IsUnattended() || IsRunningDedicatedServer();
@@ -479,6 +525,9 @@ void FLinuxCrashContext::GenerateCrashInfoAndLaunchReporter(bool bReportingNonCr
 void DefaultCrashHandler(const FLinuxCrashContext & Context)
 {
 	printf("DefaultCrashHandler: Signal=%d\n", Context.Signal);
+
+	// Stop the heartbeat thread so that it doesn't interfere with crashreporting
+	FThreadHeartBeat::Get().Stop();
 
 	// at this point we should already be using malloc crash handler (see PlatformCrashHandler)
 

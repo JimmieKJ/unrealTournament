@@ -755,10 +755,10 @@ FText LevelEditorActionHelpers::GetOpenGameModeBlueprintLabel(TWeakPtr< SLevelEd
 	{
 		if(GameModeClass->ClassGeneratedBy)
 		{
-			return FText::Format( LOCTEXT("GameModeEditBlueprint", "GameMode: Edit {GameModeName}"), FText::FromString(GameModeClass->ClassGeneratedBy->GetName()));
+			return FText::Format( LOCTEXT("GameModeEditBlueprint", "GameMode: Edit {0}"), FText::FromString(GameModeClass->ClassGeneratedBy->GetName()));
 		}
 
-		return FText::Format( LOCTEXT("GameModeBlueprint", "GameMode: {GameModeName}"), FText::FromString(GameModeClass->GetName()));
+		return FText::Format( LOCTEXT("GameModeBlueprint", "GameMode: {0}"), FText::FromString(GameModeClass->GetName()));
 	}
 
 	if(bInIsProjectSettings)
@@ -1236,6 +1236,8 @@ TSharedRef< SWidget > FLevelEditorToolBar::MakeLevelEditorToolBar( const TShared
 			LOCTEXT( "EditCinematics_Tooltip", "Displays a list of Matinee and Level Sequence objects to open in their respective editors"),
 			FSlateIcon(FEditorStyle::GetStyleSetName(), "LevelEditor.EditMatinee") 
 			);
+
+		ToolbarBuilder.AddToolBarButton( FLevelEditorCommands::Get().ToggleVR, NAME_None, LOCTEXT("ToggleVR", "VR") );
 	}
 	ToolbarBuilder.EndSection();
 	
@@ -1570,6 +1572,7 @@ TSharedRef< SWidget > FLevelEditorToolBar::GenerateBuildMenuContent( TSharedRef<
 	MenuBuilder.EndSection();
 
 	MenuBuilder.BeginSection("LevelEditorTextureStreaming", LOCTEXT("TextureStreamingHeading", "Texture Streaming"));
+	if (CVarStreamingUseNewMetrics.GetValueOnAnyThread() != 0) // There is not point of in building texture streaming data with the old system.
 	{
 		MenuBuilder.AddMenuEntry(FLevelEditorCommands::Get().BuildTextureStreamingOnly);
 	}
@@ -2107,12 +2110,12 @@ TSharedRef< SWidget > FLevelEditorToolBar::GenerateCinematicsMenuContent( TShare
 	MenuBuilder.EndSection();
 
 	UWorld* World = LevelEditorWeakPtr.Pin()->GetWorld();
-	const bool bHasAnyMatineeActors = !!TActorIterator<AMatineeActor>(World) || !!TActorIterator<ALevelSequenceActor>(World);
+	const bool bHasAnyCinematicsActors = !!TActorIterator<AMatineeActor>(World) || !!TActorIterator<ALevelSequenceActor>(World);
 
-	//Add a heading to separate the existing matinees from the 'Add New Matinee Actor' button
-	MenuBuilder.BeginSection("LevelEditorExistingMatinee", LOCTEXT( "MatineeMenuCombo_ExistingHeading", "Edit Existing Matinee" ) );
+	//Add a heading to separate the existing cinematics from the 'Add New Cinematic Actor' button
+	MenuBuilder.BeginSection("LevelEditorExistingCinematic", LOCTEXT( "CinematicMenuCombo_ExistingHeading", "Edit Existing Cinematic" ) );
 	{
-		if( bHasAnyMatineeActors )
+		if( bHasAnyCinematicsActors )
 		{
 			MenuBuilder.AddWidget(MiniSceneOutliner, FText::GetEmpty(), true);
 		}

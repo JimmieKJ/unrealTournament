@@ -30,6 +30,7 @@ class UK2Node_ActorBoundEvent : public UK2Node_Event
 	//~ Begin UEdGraphNode Interface
 	virtual void ReconstructNode() override;
 	virtual void DestroyNode() override;
+	virtual bool CanPasteHere(const UEdGraph* TargetGraph) const override;
 	virtual FText GetNodeTitle(ENodeTitleType::Type TitleType) const override;
 	virtual FText GetTooltipText() const override;
 	virtual FString GetDocumentationLink() const override;

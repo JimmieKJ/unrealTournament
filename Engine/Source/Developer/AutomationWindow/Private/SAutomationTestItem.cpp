@@ -1,10 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "AutomationWindowPrivatePCH.h"
-
+#include "SHyperlink.h"
 
 #define LOCTEXT_NAMESPACE "AutomationTestItem"
-
 
 /**
 * Implements a Cell widget for the history objects of an automation report.
@@ -139,6 +138,58 @@ TSharedRef<SWidget> SAutomationTestItem::GenerateWidgetForColumn( const FName& C
 
 	if( ColumnName == AutomationTestWindowConstants::Title)
 	{
+		TSharedRef<SWidget> TestNameWidget = SNullWidget::NullWidget;
+
+		// Would be nice to warp to text location...more difficult when distributed.
+		if ( !TestStatus->GetOpenCommand().IsEmpty() && WITH_EDITOR )
+		{
+#if WITH_EDITOR
+			TestNameWidget = SNew(SHyperlink)
+				.Style(FEditorStyle::Get(), "Common.GotoNativeCodeHyperlink")
+				.OnNavigate_Lambda([=] {
+					GEngine->Exec(nullptr, *TestStatus->GetOpenCommand());
+				})
+				.Text(FText::FromString(TestStatus->GetDisplayNameWithDecoration()));
+#endif
+		}
+		else if ( !TestStatus->GetAssetPath().IsEmpty() && WITH_EDITOR )
+		{
+#if WITH_EDITOR
+			TestNameWidget = SNew(SHyperlink)
+				.Style(FEditorStyle::Get(), "Common.GotoNativeCodeHyperlink")
+				.OnNavigate_Lambda([=] {
+					FString AssetPath = TestStatus->GetAssetPath();
+					FAssetRegistryModule& AssetRegistryModule = FModuleManager::LoadModuleChecked<FAssetRegistryModule>(TEXT("AssetRegistry"));
+
+					TArray<FAssetData> AllAssets;
+					AssetRegistryModule.Get().GetAssetsByPackageName(*AssetPath, AllAssets);
+
+					if ( AllAssets.Num() > 0 )
+					{
+						UObject* ObjectToEdit = AllAssets[0].GetAsset();
+						if ( ObjectToEdit )
+						{
+							GEditor->EditObject(ObjectToEdit);
+						}
+					}
+				})
+				.Text(FText::FromString(TestStatus->GetDisplayNameWithDecoration()));
+#endif
+		}
+		else if ( !TestStatus->GetSourceFile().IsEmpty() )
+		{
+			TestNameWidget = SNew(SHyperlink)
+				.Style(FEditorStyle::Get(), "Common.GotoNativeCodeHyperlink")
+				.OnNavigate_Lambda([=] { FSlateApplication::Get().GotoLineInSource(TestStatus->GetSourceFile(), TestStatus->GetSourceFileLine()); })
+				.Text(FText::FromString(TestStatus->GetDisplayNameWithDecoration()));
+		}
+		else
+		{
+			TestNameWidget = SNew(STextBlock)
+				.HighlightText(HighlightText)
+				.Text(FText::FromString(TestStatus->GetDisplayNameWithDecoration()));
+		}
+
 		return SNew(SHorizontalBox)
 			+SHorizontalBox::Slot()
 			.AutoWidth()
@@ -162,9 +213,7 @@ TSharedRef<SWidget> SAutomationTestItem::GenerateWidgetForColumn( const FName& C
 			.HAlign(HAlign_Center)
 			[
 				//name of the test
-				SNew( STextBlock )
-				.HighlightText( HighlightText )
-				.Text( FText::FromString(TestStatus->GetDisplayNameWithDecoration()) )
+				TestNameWidget
 			];
 	}
 	else if( ColumnName == AutomationTestWindowConstants::SmokeTest )
@@ -326,16 +375,16 @@ const FSlateBrush* SAutomationTestItem::GetSmokeTestImage() const
 
 FText SAutomationTestItem::GetTestToolTip( int32 ClusterIndex ) const
 {
-	FText ToolTip;
+	FText TestToolTip;
 	const int32 PassIndex = TestStatus->GetCurrentPassIndex(ClusterIndex);
 	EAutomationState::Type TestState = TestStatus->GetState( ClusterIndex, PassIndex );
 	if ( TestState == EAutomationState::NotRun )
 	{
-		ToolTip = LOCTEXT("TestToolTipNotRun", "Not Run");
+		TestToolTip = LOCTEXT("TestToolTipNotRun", "Not Run");
 	}
 	else if( TestState == EAutomationState::NotEnoughParticipants )
 	{
-		ToolTip = LOCTEXT("ToolTipNotEnoughParticipants", "This test could not be completed as there were not enough participants.");
+		TestToolTip = LOCTEXT("ToolTipNotEnoughParticipants", "This test could not be completed as there were not enough participants.");
 	}
 	else
 	{
@@ -344,18 +393,18 @@ FText SAutomationTestItem::GetTestToolTip( int32 ClusterIndex ) const
 
 		if (TestState == EAutomationState::InProcess)
 		{
-			ToolTip = FText::Format(LOCTEXT("TestToolTipInProgress", "In progress on: {GameName}"), Args);
+			TestToolTip = FText::Format(LOCTEXT("TestToolTipInProgress", "In progress on: {GameName}"), Args);
 		}
 		else if (TestState == EAutomationState::Success)
 		{
-			ToolTip = FText::Format(LOCTEXT("TestToolTipComplete", "Completed on: {GameName}"), Args);
+			TestToolTip = FText::Format(LOCTEXT("TestToolTipComplete", "Completed on: {GameName}"), Args);
 		}
 		else
 		{
-			ToolTip = FText::Format(LOCTEXT("TestToolTipFailed", "Failed on: {GameName}"), Args);
+			TestToolTip = FText::Format(LOCTEXT("TestToolTipFailed", "Failed on: {GameName}"), Args);
 		}
 	}
-	return ToolTip;
+	return TestToolTip;
 }
 
 
@@ -423,6 +472,7 @@ FText SAutomationTestItem::ItemStatus_DurationText() const
 			DurationText = FText::Format(LOCTEXT("ItemStatusDuration", "{MinDuration}s"), Args);
 		}
 	}
+
 	return DurationText;
 }
 
@@ -484,7 +534,7 @@ TOptional<float> SAutomationTestItem::ItemStatus_ProgressFraction(const int32 Cl
 {
 	FAutomationCompleteState CompleteState;
 	const int32 PassIndex = TestStatus->GetCurrentPassIndex(ClusterIndex);
-	TestStatus->GetCompletionStatus(ClusterIndex,PassIndex, CompleteState);
+	TestStatus->GetCompletionStatus(ClusterIndex, PassIndex, CompleteState);
 
 	uint32 TotalComplete = CompleteState.NumEnabledTestsPassed + CompleteState.NumEnabledTestsFailed + CompleteState.NumEnabledTestsCouldntBeRun;
 	// Only show a percentage if there is something interesting to report

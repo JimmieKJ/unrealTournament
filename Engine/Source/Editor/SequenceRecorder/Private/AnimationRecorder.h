@@ -6,7 +6,7 @@
 // FAnimationRecorder
 
 // records the mesh pose to animation input
-struct FAnimationRecorder
+struct FAnimationRecorder : public FGCObject
 {
 private:
 	/** Frame count used to signal an unbounded animation */
@@ -21,6 +21,8 @@ private:
 	TArray<FTransform> PreviousSpacesBases;
 	FBlendedHeapCurve PreviousAnimCurves;
 	FTransform PreviousComponentToWorld;
+	FTransform InvInitialRootTransform;
+	int32 SkeletonRootIndex;
 
 	/** Array of currently active notifies that have duration */
 	TArray<TPair<const FAnimNotifyEvent*, bool>> ActiveNotifies;
@@ -36,6 +38,10 @@ private:
 public:
 	FAnimationRecorder();
 	~FAnimationRecorder();
+
+	// FGCObject interface start
+	virtual void AddReferencedObjects(FReferenceCollector& Collector) override;
+	// FGCObject interface end
 
 	/** Starts recording an animation. Prompts for asset path and name via dialog if none provided */
 	bool TriggerRecordAnimation(USkeletalMeshComponent* Component);
@@ -57,6 +63,8 @@ public:
 	uint8 bRecordLocalToWorld :1;
 	/** If true, asset will be saved to disk after recording. If false, asset will remain in mem and can be manually saved. */
 	uint8 bAutoSaveAsset : 1;
+	/** If true, the root bone transform will be removed from all bone transforms */
+	uint8 bRemoveRootTransform : 1;
 
 private:
 	void Record(USkeletalMeshComponent* Component, FTransform const& ComponentToWorld, const TArray<FTransform>& SpacesBases, const FBlendedHeapCurve& AnimationCurves, int32 FrameToAdd);
@@ -64,6 +72,10 @@ private:
 	void RecordNotifies(USkeletalMeshComponent* Component, const TArray<const struct FAnimNotifyEvent*>& AnimNotifies, float DeltaTime, float RecordTime);
 
 	void FixupNotifies();
+
+	// recording curve data 
+	TArray< TArray<FCurveElement> >  RecordedCurves;
+	TArray<FSmartNameMapping::UID> const * UIDList;
 };
 
 //////////////////////////////////////////////////////////////////////////
@@ -75,14 +87,18 @@ public:
 	FAnimRecorderInstance();
 	~FAnimRecorderInstance();
 
-	void Init(USkeletalMeshComponent* InComponent, const FString& InAssetPath, const FString& InAssetName, float SampleRateHz, float MaxLength, bool bRecordInWorldSpace, bool bAutoSaveAsset);
+	void Init(USkeletalMeshComponent* InComponent, const FString& InAssetPath, const FString& InAssetName, const FAnimationRecordingSettings& InSettings);
 
-	void Init(USkeletalMeshComponent* InComponent, UAnimSequence* InSequence, float SampleRateHz, float MaxLength, bool bRecordInWorldSpace, bool bAutoSaveAsset);
+	void Init(USkeletalMeshComponent* InComponent, UAnimSequence* InSequence, const FAnimationRecordingSettings& InSettings);
 
 	bool BeginRecording();
 	void Update(float DeltaTime);
 	void FinishRecording(bool bShowMessage = true);
 
+private:
+	void InitInternal(USkeletalMeshComponent* InComponent, const FAnimationRecordingSettings& Settings);
+
+public:
 	TWeakObjectPtr<USkeletalMeshComponent> SkelComp;
 	TWeakObjectPtr<UAnimSequence> Sequence;
 	FString AssetPath;
@@ -92,6 +108,12 @@ public:
 	int CachedSkelCompForcedLodModel;
 
 	TSharedPtr<FAnimationRecorder> Recorder;
+
+	/** Used to store/restore update flag when recording */
+	EMeshComponentUpdateFlag::Type CachedMeshComponentUpdateFlag;
+
+	/** Used to store/restore URO when recording */
+	bool bCachedEnableUpdateRateOptimizations;
 };
 
 

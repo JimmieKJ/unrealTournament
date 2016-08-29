@@ -29,7 +29,7 @@ void FMovieSceneSpawnTrackInstance::Update(EMovieSceneUpdateData& UpdateData, co
 #if WITH_EDITORONLY_DATA
 		bDestroy = !Spawnable->ShouldIgnoreOwnershipInEditor();
 		// Don't destroy cameras while previewing
-		if (bIsPreview && MovieSceneHelpers::CameraComponentFromActor(GetDefault<AActor>(Spawnable->GetClass())))
+		if (bIsPreview && MovieSceneHelpers::CameraComponentFromActor(Cast<AActor>(Spawnable->GetObjectTemplate())))
 		{
 			bDestroy = false;
 		}

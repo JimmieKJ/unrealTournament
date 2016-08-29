@@ -19,8 +19,6 @@ namespace EWindowMode
 		WindowedFullscreen,
 		/** The window has a border and may not take up the entire screen area */
 		Windowed,
-		/** Pseudo-fullscreen mode for devices like HMDs */
-		WindowedMirror
 	};
 }
 
@@ -76,6 +74,10 @@ public:
 	UFUNCTION(BlueprintCallable, Category=Settings)
 	void SetFullscreenMode(EWindowMode::Type InFullscreenMode);
 
+	/** Returns the user setting for game window fullscreen mode. */
+	UFUNCTION(BlueprintPure, Category = Settings)
+	EWindowMode::Type GetPreferredFullscreenMode() const;
+
 	/** Sets the user setting for vsync. See UGameUserSettings::bUseVSync. */
 	UFUNCTION(BlueprintCallable, Category=Settings)
 	void SetVSyncEnabled(bool bEnable);
@@ -127,7 +129,7 @@ public:
 	// Changes all scalability settings at once based on a single overall quality level
 	// @param Value 0:low, 1:medium, 2:high, 3:epic
 	UFUNCTION(BlueprintCallable, Category=Settings)
-	void SetOverallScalabilityLevel(int32 Value);
+	virtual void SetOverallScalabilityLevel(int32 Value);
 
 	// Returns the overall scalability level (can return -1 if the settings are custom)
 	UFUNCTION(BlueprintCallable, Category=Settings)
@@ -202,6 +204,14 @@ public:
 	// Returns the post-processing quality (0..3, higher is better)
 	UFUNCTION(BlueprintCallable, Category=Settings)
 	int32 GetPostProcessingQuality() const;
+	
+	// Sets the post-processing quality (0..3, higher is better)
+	UFUNCTION(BlueprintCallable, Category=Settings)
+	void SetFoliageQuality(int32 Value);
+
+	// Returns the post-processing quality (0..3, higher is better)
+	UFUNCTION(BlueprintCallable, Category=Settings)
+	int32 GetFoliageQuality() const;
 
 	/** Checks if any user settings is different from current */
 	UFUNCTION(BlueprintPure, Category=Settings)
@@ -259,6 +269,14 @@ public:
 	UFUNCTION(BlueprintCallable, Category=Settings)
 	static UGameUserSettings* GetGameUserSettings();
 
+	/** Runs the hardware benchmark and populates ScalabilityQuality as well as the last benchmark results config members, but does not apply the settings it determines. Designed to be called in conjunction with ApplyHardwareBenchmarkResults */
+	UFUNCTION(BlueprintCallable, Category=Settings)
+	virtual void RunHardwareBenchmark(int32 WorkScale = 10, float CPUMultiplier = 1.0f, float GPUMultiplier = 1.0f);
+
+	/** Applies the settings stored in ScalabilityQuality and saves settings */
+	UFUNCTION(BlueprintCallable, Category=Settings)
+	virtual void ApplyHardwareBenchmarkResults();
+
 	/** Whether to use VSync or not. (public to allow UI to connect to it) */
 	UPROPERTY(config)
 	bool bUseVSync;
@@ -303,7 +321,6 @@ protected:
 	 *	0 = Fullscreen
 	 *	1 = Windowed fullscreen
 	 *	2 = Windowed
-	 *	3 = WindowedMirror
 	 */
 	UPROPERTY(config)
 	int32 FullscreenMode;
@@ -334,6 +351,10 @@ protected:
 	UPROPERTY(config)
 	int32 DesiredScreenWidth;
 
+	/** If true, the desired screen height will be used to scale the render resolution automatically. */
+	UPROPERTY(globalconfig)
+	bool bUseDesiredScreenHeight;
+
 	/** Desired screen height used to calculate the resolution scale when user changes display mode */
 	UPROPERTY(config)
 	int32 DesiredScreenHeight;
@@ -346,6 +367,54 @@ protected:
 	UPROPERTY(config)
 	float LastRecommendedScreenHeight;
 
+	/** Result of the last benchmark (CPU); -1 if there has not been a benchmark run */
+	UPROPERTY(config)
+	float LastCPUBenchmarkResult;
+
+	/** Result of the last benchmark (GPU); -1 if there has not been a benchmark run */
+	UPROPERTY(config)
+	float LastGPUBenchmarkResult;
+
+	/** Result of each individual sub-section of the last CPU benchmark; empty if there has not been a benchmark run */
+	UPROPERTY(config)
+	TArray<float> LastCPUBenchmarkSteps;
+
+	/** Result of each individual sub-section of the last GPU benchmark; empty if there has not been a benchmark run */
+	UPROPERTY(config)
+	TArray<float> LastGPUBenchmarkSteps;
+
+	/**
+	 * Multiplier used against the last GPU benchmark
+	 */
+	UPROPERTY(config)
+	float LastGPUBenchmarkMultiplier;
+
+public:
+	/** Returns the last CPU benchmark result (set by RunHardwareBenchmark) */
+	float GetLastCPUBenchmarkResult() const
+	{
+		return LastCPUBenchmarkResult;
+	}
+
+	/** Returns the last GPU benchmark result (set by RunHardwareBenchmark) */
+	float GetLastGPUBenchmarkResult() const
+	{
+		return LastGPUBenchmarkResult;
+	}
+
+	/** Returns each individual step of the last CPU benchmark result (set by RunHardwareBenchmark) */
+	TArray<float> GetLastCPUBenchmarkSteps() const
+	{
+		return LastCPUBenchmarkSteps;
+	}
+
+	/** Returns each individual step of the last GPU benchmark result (set by RunHardwareBenchmark) */
+	TArray<float> GetLastGPUBenchmarkSteps() const
+	{
+		return LastGPUBenchmarkSteps;
+	}
+
+protected:
 	/**
 	 * Check if the current version of the game user settings is valid. Sub-classes can override this to provide game-specific versioning as necessary.
 	 * @return True if the current version is valid, false if it is not
@@ -356,8 +425,13 @@ protected:
 	virtual void UpdateVersion();
 
 	/** Picks the best resolution quality for a given screen size */
-	float FindResolutionQualityForScreenSize(int32 Width, int32 Height);
+	float FindResolutionQualityForScreenSize(float Width, float Height);
 
+	/** Sets the frame rate limit CVar to the passed in value, 0.0 indicates no limit */
+	static void SetFrameRateLimitCVar(float InLimit);
+
+	/** Returns the effective frame rate limit (by default it returns the FrameRateLimit member) */
+	virtual float GetEffectiveFrameRateLimit();
 private:
 
 	UPROPERTY(BlueprintAssignable, meta = (AllowPrivateAccess = "true"))

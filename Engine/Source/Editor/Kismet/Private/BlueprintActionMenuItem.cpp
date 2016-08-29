@@ -203,7 +203,7 @@ FBlueprintActionMenuItem::FBlueprintActionMenuItem(UBlueprintNodeSpawner const* 
 	: FEdGraphSchemaAction(InNodeCategory, UiSpec.MenuName, UiSpec.Tooltip.ToString(), InGrouping, UiSpec.Keywords)
 	, Action(NodeSpawner)
 	, IconTint(UiSpec.IconTint)
-	, IconBrush(FEditorStyle::GetBrush(UiSpec.IconName))
+	, IconBrush(UiSpec.Icon.GetOptionalIcon())
 	, Bindings(InBindings)
 {
 	check(Action != nullptr);
@@ -344,7 +344,7 @@ void FBlueprintActionMenuItem::AppendBindings(const FBlueprintActionContext& Con
 	
 	UpdateSearchData(UiSpec.MenuName, UiSpec.Tooltip.ToString(), FText(), UiSpec.Keywords);
 
-	IconBrush = FEditorStyle::GetBrush(UiSpec.IconName);
+	IconBrush = UiSpec.Icon.GetOptionalIcon();
 	IconTint  = UiSpec.IconTint;
 	DocExcerptRef.DocLink = UiSpec.DocLink;
 	DocExcerptRef.DocExcerptName = UiSpec.DocExcerptTag;

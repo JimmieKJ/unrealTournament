@@ -252,7 +252,7 @@ UBlueprintFunctionNodeSpawner* UBlueprintFunctionNodeSpawner::Create(TSubclassOf
 		MenuSignature.Keywords = FText::FromString(TEXT(" "));
 	}
 
-	MenuSignature.IconName = UK2Node_CallFunction::GetPaletteIconForFunction(Function, MenuSignature.IconTint);
+	MenuSignature.Icon = UK2Node_CallFunction::GetPaletteIconForFunction(Function, MenuSignature.IconTint);
 
 	if (MenuSignature.Category.IsEmpty())
 	{
@@ -268,13 +268,13 @@ UBlueprintFunctionNodeSpawner* UBlueprintFunctionNodeSpawner::Create(TSubclassOf
 	// Post-Spawn Setup
 	//--------------------------------------
 
-	auto SetNodeFunctionLambda = [](UEdGraphNode* NewNode, UField const* Field)
+	auto SetNodeFunctionLambda = [](UEdGraphNode* NewNode, UField const* InField)
 	{
 		// user could have changed the node class (to something like
 		// UK2Node_BaseAsyncTask, which also wraps a function)
 		if (UK2Node_CallFunction* FuncNode = Cast<UK2Node_CallFunction>(NewNode))
 		{
-			FuncNode->SetFromFunction(Cast<UFunction>(Field));
+			FuncNode->SetFromFunction(Cast<UFunction>(InField));
 		}
 	};
 	NodeSpawner->SetNodeFieldDelegate = FSetNodeFieldDelegate::CreateStatic(SetNodeFunctionLambda);

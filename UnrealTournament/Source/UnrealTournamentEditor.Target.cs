@@ -2,13 +2,18 @@
 
 using UnrealBuildTool;
 using System.Collections.Generic;
+using System.IO;
 
 public class UnrealTournamentEditorTarget : TargetRules
 {
+    bool IsLicenseeBuild()
+    {
+        return !Directory.Exists("Runtime/NotForLicensees");
+    }
+
 	public UnrealTournamentEditorTarget(TargetInfo Target)
 	{
         Type = TargetType.Editor;
-        UEBuildConfiguration.bCompileBox2D = false;
 	}
 
     //
@@ -23,7 +28,7 @@ public class UnrealTournamentEditorTarget : TargetRules
 		OutExtraModuleNames.Add("UnrealTournament");
         OutExtraModuleNames.Add("UnrealTournamentEditor");
 
-        if (UEBuildConfiguration.bCompileMcpOSS == true)
+        if (!IsLicenseeBuild())
         {
             OutExtraModuleNames.Add("OnlineSubsystemMcp");
         }

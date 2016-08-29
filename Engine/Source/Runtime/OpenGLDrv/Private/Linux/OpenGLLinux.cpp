@@ -165,7 +165,7 @@ static bool _PlatformOpenGLDebugCtx()
 /**
  * Create a core profile OpenGL context.
  */
-static void _PlatformCreateOpenGLContextCore( FPlatformOpenGLContext* OutContext)
+static void _PlatformCreateOpenGLContextCore(FPlatformOpenGLContext* OutContext)
 {
 	check( OutContext );
 
@@ -186,7 +186,7 @@ static void _PlatformCreateOpenGLContextCore( FPlatformOpenGLContext* OutContext
 		SDL_GL_GetAttribute( SDL_GL_CONTEXT_MAJOR_VERSION, &OpenGLMajorVersion );
 		SDL_GL_GetAttribute( SDL_GL_CONTEXT_MINOR_VERSION, &OpenGLMinorVersion );
 		
-		UE_LOG(LogInit, Fatal, TEXT("_PlatformCreateOpenGLContextCore - Could not create OpenGL %d.%d context, SDL error: '%s'"), 
+		UE_LOG(LogInit, Error, TEXT("_PlatformCreateOpenGLContextCore - Could not create OpenGL %d.%d context, SDL error: '%s'"),
 				OpenGLMajorVersion, OpenGLMinorVersion,
 				*SdlError
 			);
@@ -799,7 +799,7 @@ bool PlatformInitOpenGL()
 
 	if (!FPlatformMisc::PlatformInitMultimedia()) //	will not initialize more than once
 	{
-		UE_LOG(LogInit, Fatal, TEXT("PlatformInitOpenGL() : PlatformInitMultimedia() failed, cannot initialize OpenGL."));
+		UE_LOG(LogInit, Error, TEXT("PlatformInitOpenGL() : PlatformInitMultimedia() failed, cannot initialize OpenGL."));
 		// unreachable
 		return false;
 	}

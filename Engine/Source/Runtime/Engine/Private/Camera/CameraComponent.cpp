@@ -78,7 +78,7 @@ void UCameraComponent::OnRegister()
 		if (ProxyMeshComponent == nullptr)
 		{
 			ProxyMeshComponent = NewObject<UStaticMeshComponent>(MyOwner, NAME_None, RF_Transactional | RF_TextExportTransient);
-			ProxyMeshComponent->AttachTo(this);
+			ProxyMeshComponent->SetupAttachment(this);
 			ProxyMeshComponent->AlwaysLoadOnClient = false;
 			ProxyMeshComponent->AlwaysLoadOnServer = false;
 			ProxyMeshComponent->StaticMesh = CameraMesh;
@@ -93,7 +93,7 @@ void UCameraComponent::OnRegister()
 		if (DrawFrustum == nullptr)
 		{
 			DrawFrustum = NewObject<UDrawFrustumComponent>(MyOwner, NAME_None, RF_Transactional | RF_TextExportTransient);
-			DrawFrustum->AttachTo(this);
+			DrawFrustum->SetupAttachment(this);
 			DrawFrustum->AlwaysLoadOnClient = false;
 			DrawFrustum->AlwaysLoadOnServer = false;
 			DrawFrustum->CreationMethod = CreationMethod;
@@ -325,6 +325,41 @@ void UCameraComponent::NotifyCameraCut()
 		OwningCamera->NotifyCameraCut();
 	}
 };
+
+void UCameraComponent::AddAdditiveOffset(FTransform const& Transform, float FOV)
+{
+	bUseAdditiveOffset = true;
+	AdditiveOffset = AdditiveOffset * Transform;
+	AdditiveFOVOffset += FOV;
+}
+
+/** Removes any additive offset. */
+void UCameraComponent::ClearAdditiveOffset()
+{
+	bUseAdditiveOffset = false;
+	AdditiveOffset = FTransform::Identity;
+	AdditiveFOVOffset = 0.f;
+}
+
+
+void UCameraComponent::AddExtraPostProcessBlend(FPostProcessSettings const& PPSettings, float PPBlendWeight)
+{
+	checkSlow(ExtraPostProcessBlends.Num() == ExtraPostProcessBlendWeights.Num());
+	ExtraPostProcessBlends.Add(PPSettings);
+	ExtraPostProcessBlendWeights.Add(PPBlendWeight);
+}
+
+void UCameraComponent::ClearExtraPostProcessBlends()
+{
+	ExtraPostProcessBlends.Empty();
+	ExtraPostProcessBlendWeights.Empty();
+}
+
+void UCameraComponent::GetExtraPostProcessBlends(TArray<FPostProcessSettings>& OutSettings, TArray<float>& OutWeights) const
+{
+	OutSettings = ExtraPostProcessBlends;
+	OutWeights = ExtraPostProcessBlendWeights;
+}
 
 
 #undef LOCTEXT_NAMESPACE

@@ -169,7 +169,20 @@ void FLatentActionManager::TickLatentActionForObject(float DeltaTime, FActionLis
 
 				if (UFunction* ExecutionFunction = CallbackTarget->FindFunction(LinkInfo.ExecutionFunction))
 				{
-					CallbackTarget->ProcessEvent(ExecutionFunction, &(LinkInfo.LinkID));
+					const bool bInstrumentLatentCall = CallbackTarget->GetClass()->HasInstrumentation();
+					if (CallbackTarget->GetClass()->HasInstrumentation())
+					{
+						// Place event markers around the latent blueprint call so we can match up the entry points.
+						FScriptInstrumentationSignal LatentEventStartInfo(EScriptInstrumentation::ResumeEvent, CallbackTarget, ExecutionFunction, LinkInfo.LinkID);
+						FBlueprintCoreDelegates::InstrumentScriptEvent(LatentEventStartInfo);
+						CallbackTarget->ProcessEvent(ExecutionFunction, &(LinkInfo.LinkID));
+						FScriptInstrumentationSignal LatentEventStopInfo(EScriptInstrumentation::Stop, CallbackTarget, ExecutionFunction);
+						FBlueprintCoreDelegates::InstrumentScriptEvent(LatentEventStopInfo);
+					}
+					else
+					{
+						CallbackTarget->ProcessEvent(ExecutionFunction, &(LinkInfo.LinkID));
+					}
 				}
 				else
 				{

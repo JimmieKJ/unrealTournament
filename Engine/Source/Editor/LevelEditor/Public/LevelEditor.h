@@ -12,6 +12,8 @@
 
 extern const FName LevelEditorApp;
 
+DECLARE_DELEGATE_RetVal_OneParam(bool, FAreObjectsEditable, const TArray<TWeakObjectPtr<UObject>>&);
+
 /**
  * Level editor module
  */
@@ -75,7 +77,12 @@ public:
 	/**
 	 * Starts a play in editor session using the active viewport
 	 */
-	virtual void StartImmersivePlayInEditorSession();
+	virtual void StartPlayInEditorSession();
+
+	/**
+	 * Takes the first active viewport and switches it to immersive mode.  Designed to be called at editor startup.  Optionally forces the viewport into game view mode too.
+	 */
+	virtual void GoImmersiveWithActiveLevelViewport( const bool bForceGameView );
 
 	/**
 	 * Toggles immersive mode on the currently active level viewport
@@ -146,6 +153,7 @@ public:
 	/** Called when the tab manager is changed */
 	DECLARE_EVENT(FLevelEditorModule, FTabManagerChangedEvent);
 	virtual FTabManagerChangedEvent& OnTabManagerChanged() { return TabManagerChangedEvent; }
+
 
 	/**
 	 * Called when actor selection changes
@@ -227,6 +235,34 @@ public:
 	/** Delegate used to capture skeltal meshes to single-frame animations when 'keeping simulation changes' */
 	DECLARE_DELEGATE_RetVal_OneParam(UAnimSequence*, FCaptureSingleFrameAnimSequence, USkeletalMeshComponent* /*Component*/);
 	virtual FCaptureSingleFrameAnimSequence& OnCaptureSingleFrameAnimSequence() { return CaptureSingleFrameAnimSequenceDelegate; }
+
+public:
+
+	/** Add a delegate that will get called to check whether the specified objects should be editable on the details panel or not */
+	void AddEditableObjectPredicate(const FAreObjectsEditable& InPredicate)
+	{
+		check(InPredicate.IsBound());
+		AreObjectsEditableDelegates.Add(InPredicate);
+	}
+
+	/** Remove a delegate that was added via AddEditableObjectPredicate */
+	void RemoveEditableObjectPredicate(FDelegateHandle InPredicateHandle)
+	{
+		AreObjectsEditableDelegates.RemoveAll([=](const FAreObjectsEditable& P){ return P.GetHandle() == InPredicateHandle; });
+	}
+
+	/** Check whether the specified objects are editable */
+	bool AreObjectsEditable(const TArray<TWeakObjectPtr<UObject>>& InObjects) const
+	{
+		for (const FAreObjectsEditable& Predicate : AreObjectsEditableDelegates)
+		{
+			if (!Predicate.Execute(InObjects))
+			{
+				return false;
+			}
+		}
+		return true;
+	}
 
 public:
 	
@@ -329,6 +365,9 @@ private:
 
 	/** Map of named viewport types to factory functions */
 	TMap<FName, FViewportTypeDefinition> CustomViewports;
+
+	/** Array of delegates that are used to check if the specified objects should be editable on the details panel */
+	TArray<FAreObjectsEditable> AreObjectsEditableDelegates;
 };
 
 #endif // __LevelEditor_h__

@@ -8,6 +8,7 @@
 #include "Particles/ParticleSystemComponent.h"
 #include "UnrealNetwork.h"
 #include "StatNames.h"
+#include "Animation/AnimMontage.h"
 
 AUTWeap_RocketLauncher::AUTWeap_RocketLauncher(const class FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer.SetDefaultSubobjectClass<UUTWeaponStateFiringChargedRocket>(TEXT("FiringState1")))

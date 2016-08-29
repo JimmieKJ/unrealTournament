@@ -3,20 +3,26 @@
 
 #if !UE_ENABLE_ICU
 #include "Internationalization/Text.h"
+#include "FastDecimalFormat.h"
 
 class FCulture::FLegacyCultureImplementation
 {
 	friend FCulture;
 
-	FLegacyCultureImplementation(	const FText& InDisplayName, 
-									const FString& InEnglishName, 
-									const int InKeyboardLayoutId, 
-									const int InLCID, 
-									const FString& InName, 
-									const FString& InNativeName, 
-									const FString& InUnrealLegacyThreeLetterISOLanguageName, 
-									const FString& InThreeLetterISOLanguageName, 
-									const FString& InTwoLetterISOLanguageName);
+	FLegacyCultureImplementation(
+		const FText& InDisplayName, 
+		const FString& InEnglishName, 
+		const int InKeyboardLayoutId, 
+		const int InLCID, 
+		const FString& InName, 
+		const FString& InNativeName, 
+		const FString& InUnrealLegacyThreeLetterISOLanguageName, 
+		const FString& InThreeLetterISOLanguageName, 
+		const FString& InTwoLetterISOLanguageName,
+		const FDecimalNumberFormattingRules& InDecimalNumberFormattingRules,
+		const FDecimalNumberFormattingRules& InPercentFormattingRules,
+		const FDecimalNumberFormattingRules& InBaseCurrencyFormattingRules
+		);
 
 	FString GetDisplayName() const;
 
@@ -41,6 +47,16 @@ class FCulture::FLegacyCultureImplementation
 	FString GetNativeLanguage() const;
 
 	FString GetNativeRegion() const;
+
+	const FDecimalNumberFormattingRules& GetDecimalNumberFormattingRules();
+
+	const FDecimalNumberFormattingRules& GetPercentFormattingRules();
+
+	const FDecimalNumberFormattingRules& GetCurrencyFormattingRules(const FString& InCurrencyCode);
+
+	ETextPluralForm GetPluralForm(int32 Val, const ETextPluralType PluralType);
+
+	ETextPluralForm GetPluralForm(double Val, const ETextPluralType PluralType);
 
 	// Full localized culture name
 	const FText DisplayName;
@@ -68,5 +84,18 @@ class FCulture::FLegacyCultureImplementation
 
 	// ISO 639-1 two letter code of the language
 	const FString TwoLetterISOLanguageName;
+
+	// Rules for formatting decimal numbers in this culture
+	const FDecimalNumberFormattingRules DecimalNumberFormattingRules;
+
+	// Rules for formatting percentile numbers in this culture
+	const FDecimalNumberFormattingRules PercentFormattingRules;
+
+	// Rules for formatting currency numbers in this culture
+	const FDecimalNumberFormattingRules BaseCurrencyFormattingRules;
+
+	// Rules for formatting alternate currencies in this culture
+	TMap<FString, TSharedPtr<const FDecimalNumberFormattingRules>> UEAlternateCurrencyFormattingRules;
+	FCriticalSection UEAlternateCurrencyFormattingRulesCS;
 };
 #endif

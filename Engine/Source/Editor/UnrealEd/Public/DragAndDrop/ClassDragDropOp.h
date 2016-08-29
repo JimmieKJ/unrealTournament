@@ -1,7 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
-#include "ClassIconFinder.h"
+#include "SlateIconFinder.h"
 
 class FClassDragDropOp : public FDragDropOperation
 {
@@ -15,7 +15,7 @@ public:
 	virtual TSharedPtr<SWidget> GetDefaultDecorator() const override
 	{
 		// Just use the first class for the cursor decorator.
-		const FSlateBrush* ClassIcon = FClassIconFinder::FindIconForClass( ClassesToDrop[0].Get() );
+		const FSlateBrush* ClassIcon = FSlateIconFinder::FindIconBrushForClass( ClassesToDrop[0].Get() );
 
 		// If the class icon is the default brush, do not put it in the cursor decoration window.
 		if(ClassIcon)

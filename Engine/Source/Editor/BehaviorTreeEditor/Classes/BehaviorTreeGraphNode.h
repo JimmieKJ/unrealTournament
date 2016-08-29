@@ -27,6 +27,10 @@ class UBehaviorTreeGraphNode : public UAIGraphNode
 	virtual void FindDiffs(class UEdGraphNode* OtherNode, struct FDiffResults& Results) override;
 	//~ End UEdGraphNode Interface
 
+#if WITH_EDITOR
+	virtual void PostEditUndo() override;
+#endif
+
 	virtual FText GetDescription() const override;
 	virtual bool HasErrors() const override;
 	virtual void InitializeInstance() override;

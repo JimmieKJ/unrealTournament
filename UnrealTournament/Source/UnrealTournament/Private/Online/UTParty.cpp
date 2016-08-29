@@ -173,12 +173,12 @@ void UUTParty::ProcessInviteFromSearchResult(TSharedPtr< const FUniqueNetId > Us
 
 void UUTParty::OnJoinPersistentPartyFromInviteComplete(const FUniqueNetId& LocalUserId, const EJoinPartyCompletionResult Result, const int32 NotApprovedReason)
 {
-	FString PersistentPartyId = "Invalid";
+	FString PersistentPartyIdString = "Invalid";
 	if (GetPersistentPartyId().IsValid())
 	{
-		PersistentPartyId = GetPersistentPartyId()->ToString();
+		PersistentPartyIdString = GetPersistentPartyId()->ToString();
 	}
-	UE_LOG(LogOnlineGame, Verbose, TEXT("OnJoinPersistentPartyFromInviteComplete result %d for user %s with party ID %s"), (int32)Result, *LocalUserId.ToString(), *PersistentPartyId);
+	UE_LOG(LogOnlineGame, Verbose, TEXT("OnJoinPersistentPartyFromInviteComplete result %d for user %s with party ID %s"), (int32)Result, *LocalUserId.ToString(), *PersistentPartyIdString);
 
 	OnPartyJoinComplete().Broadcast(LocalUserId, Result, NotApprovedReason);
 }

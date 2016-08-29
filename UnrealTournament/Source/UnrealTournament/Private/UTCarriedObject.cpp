@@ -115,7 +115,7 @@ void AUTCarriedObject::OnStop(const FHitResult& Hit)
 {
 	if (Hit.Actor.IsValid() && Hit.Component.IsValid() && Cast<AUTLift>(Hit.Actor.Get()))
 	{
-		AttachRootComponentTo(Hit.Component.Get(), NAME_None, EAttachLocation::KeepWorldPosition);
+		AttachToComponent(Hit.Component.Get(), FAttachmentTransformRules::KeepWorldTransform);
 	}
 }
 
@@ -150,7 +150,8 @@ void AUTCarriedObject::AttachTo(USkeletalMeshComponent* AttachToMesh)
 	{
 		Collision->SetRelativeLocation(Holder3PTransform);
 		Collision->SetRelativeRotation(Holder3PRotation);
-		AttachRootComponentTo(AttachToMesh, Holder3PSocketName);
+
+		AttachToComponent(AttachToMesh, FAttachmentTransformRules::KeepRelativeTransform, Holder3PSocketName);
 		ClientUpdateAttachment(true);
 	}
 }
@@ -177,7 +178,7 @@ void AUTCarriedObject::ClientUpdateAttachment(bool bNowAttached)
 	}
 	if (bNowAttached)
 	{
-		if (bDisplayHolderTrail && (GetNetMode() != NM_DedicatedServer) && RootComponent && RootComponent->AttachParent)
+		if (bDisplayHolderTrail && (GetNetMode() != NM_DedicatedServer) && RootComponent && RootComponent->GetAttachParent())
 		{
 			HolderTrail = NewObject<UParticleSystemComponent>(this);
 			if (HolderTrail)
@@ -187,7 +188,8 @@ void AUTCarriedObject::ClientUpdateAttachment(bool bNowAttached)
 				HolderTrail->SecondsBeforeInactive = 0.0f;
 				HolderTrail->SetTemplate(HolderTrailEffect);
 				HolderTrail->RegisterComponent();
-				HolderTrail->AttachTo(RootComponent->AttachParent, Holder3PSocketName, EAttachLocation::SnapToTarget);
+
+				HolderTrail->AttachToComponent(RootComponent->GetAttachParent(), FAttachmentTransformRules::SnapToTargetNotIncludingScale, Holder3PSocketName);
 				float TrailLength = 0.f;
 				if (Team)
 				{
@@ -209,7 +211,7 @@ void AUTCarriedObject::ClientUpdateAttachment(bool bNowAttached)
 	}
 }
 
-void AUTCarriedObject::OnOverlapBegin(AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
+void AUTCarriedObject::OnOverlapBegin(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
 {
 	if (bInitialized && !bIsDropping && Role == ROLE_Authority)
 	{
@@ -603,7 +605,7 @@ void AUTCarriedObject::CheckTouching()
 		{
 			if (Touched != LastHoldingPawn)
 			{
-				OnOverlapBegin(Touched, Cast<UPrimitiveComponent>(Touched->GetRootComponent()), INDEX_NONE, false, FHitResult(this, Collision, GetActorLocation(), FVector(0.0f, 0.0f, 1.0f)));
+				OnOverlapBegin(Collision, Touched, Cast<UPrimitiveComponent>(Touched->GetRootComponent()), INDEX_NONE, false, FHitResult(this, Collision, GetActorLocation(), FVector(0.0f, 0.0f, 1.0f)));
 				if (ObjectState != PrevState)
 				{
 					break;
@@ -874,25 +876,25 @@ void AUTCarriedObject::OnRep_AttachmentReplication()
 	{
 		if (RootComponent)
 		{
-			USceneComponent* ParentComponent = GetAttachmentReplication().AttachParent->GetRootComponent();
+			USceneComponent* NewParentComponent = GetAttachmentReplication().AttachParent->GetRootComponent();
 
 			if (GetAttachmentReplication().AttachComponent != NULL)
 			{
-				ParentComponent = GetAttachmentReplication().AttachComponent;
+				NewParentComponent = GetAttachmentReplication().AttachComponent;
 			}
 
-			if (ParentComponent)
+			if (NewParentComponent)
 			{
 				// Calculate scale before attachment as ComponentToWorld will be modified after AttachTo()
 				FVector NewRelativeScale3D = RootComponent->RelativeScale3D;
 				if (!RootComponent->bAbsoluteScale)
 				{
-					FTransform ParentToWorld = ParentComponent->GetSocketTransform(GetAttachmentReplication().AttachSocket);
+					FTransform ParentToWorld = NewParentComponent->GetSocketTransform(GetAttachmentReplication().AttachSocket);
 					FTransform RelativeTM = RootComponent->ComponentToWorld.GetRelativeTransform(ParentToWorld);
 					NewRelativeScale3D = RelativeTM.GetScale3D();
 				}
 
-				RootComponent->AttachTo(ParentComponent, GetAttachmentReplication().AttachSocket);
+				RootComponent->AttachToComponent(NewParentComponent,  FAttachmentTransformRules::KeepRelativeTransform, GetAttachmentReplication().AttachSocket);
 				RootComponent->RelativeLocation = GetAttachmentReplication().LocationOffset;
 				RootComponent->RelativeRotation = GetAttachmentReplication().RotationOffset;
 				RootComponent->RelativeScale3D = NewRelativeScale3D;
@@ -934,7 +936,7 @@ void AUTCarriedObject::GatherCurrentMovement()
 	// force ReplicatedMovement to be replicated even when attached, which is a hack to force the last replicated data to be different when the flag is eventually returned
 	// otherwise an untouched flag capture results in replication fail because this value has never changed in between times it was replicated (only attachment was)
 	// leaving the flag floating at the enemy flag base on clients
-	if (RootComponent != NULL && RootComponent->AttachParent != NULL)
+	if (RootComponent != NULL && RootComponent->GetAttachParent() != NULL)
 	{
 		ReplicatedMovement.Location = RootComponent->GetComponentLocation();
 		ReplicatedMovement.Rotation = RootComponent->GetComponentRotation();

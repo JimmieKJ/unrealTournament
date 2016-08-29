@@ -32,6 +32,10 @@ public:
 
 	TWeakObjectPtr<const UNiagaraEmitterProperties> GetEmitterProps() const	{ return EmitterProps; }
 
+	// UMovieSceneSection interface
+	virtual TOptional<float> GetKeyTime( FKeyHandle KeyHandle ) const override { return TOptional<float>(); }
+	virtual void SetKeyTime( FKeyHandle KeyHandle, float Time ) override { }
+
 private:
 	FText EmitterName;
 	TWeakObjectPtr<const UNiagaraEmitterProperties> EmitterProps;
@@ -210,6 +214,8 @@ public:
 private:
 
 	TSharedPtr<FNiagaraSimulation> Emitter;
+
+	UPROPERTY()
 	TArray<UMovieSceneSection*> Sections;
 };
 

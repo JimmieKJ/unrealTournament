@@ -31,6 +31,12 @@ public:
 	static void SummonMenu( const TSharedRef< class SLevelEditor >& LevelEditor, LevelEditorMenuContext ContextType );
 
 	/**
+	 * Summons the viewport view option menu
+	 * @param LevelEditor		The level editor using this menu.
+	 */
+	static void SummonViewOptionMenu( const TSharedRef< class SLevelEditor >& LevelEditor, const ELevelViewportType ViewOption );
+
+	/**
 	 * Creates a widget for the context menu that can be inserted into a pop-up window
 	 *
 	 * @param	LevelEditor		The level editor using this menu.

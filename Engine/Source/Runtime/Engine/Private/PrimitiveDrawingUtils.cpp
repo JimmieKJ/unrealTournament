@@ -27,13 +27,17 @@ void BeginMeshDrawEvent_Inner(FRHICommandList& RHICmdList, const FPrimitiveScene
 			*Mesh.MaterialRenderProxy->GetMaterial(PrimitiveSceneProxy ? PrimitiveSceneProxy->GetScene().GetFeatureLevel() : GMaxRHIFeatureLevel)->GetFriendlyName(),
 			PrimitiveSceneProxy->GetResourceName().IsValid() ? *PrimitiveSceneProxy->GetResourceName().ToString() : TEXT(""));
 
+		bool bIssueAdditionalDrawEvents = false;
+		if (bIssueAdditionalDrawEvents)
+		{
 			// Show Actor, level and resource name inside the material name
 			// These are separate draw events since some platforms have a limit on draw event length
 			// Note: empty leaf events are culled from profilegpu by default so these won't show up
 			{
-				//SCOPED_CONDITIONAL_DRAW_EVENTF(RHICmdList, LevelEvent, PrimitiveSceneProxy->GetLevelName() != NAME_None, PrimitiveSceneProxy->GetLevelName().IsValid() ? *PrimitiveSceneProxy->GetLevelName().ToString() : TEXT(""));
+				SCOPED_CONDITIONAL_DRAW_EVENTF(RHICmdList, LevelEvent, PrimitiveSceneProxy->GetLevelName() != NAME_None, PrimitiveSceneProxy->GetLevelName().IsValid() ? *PrimitiveSceneProxy->GetLevelName().ToString() : TEXT(""));
 			}
-			//SCOPED_CONDITIONAL_DRAW_EVENTF(RHICmdList, OwnerEvent,PrimitiveSceneProxy->GetOwnerName() != NAME_None, *PrimitiveSceneProxy->GetOwnerName().ToString());
+			SCOPED_CONDITIONAL_DRAW_EVENTF(RHICmdList, OwnerEvent,PrimitiveSceneProxy->GetOwnerName() != NAME_None, *PrimitiveSceneProxy->GetOwnerName().ToString());
+		}
 	}
 	else
 	{
@@ -605,6 +609,21 @@ void BuildCylinderVerts(const FVector& Base, const FVector& XAxis, const FVector
 
 }
 
+void GetCylinderMesh(const FVector& Start, const FVector& End, float Radius, int32 Sides, const FMaterialRenderProxy* MaterialInstance, uint8 DepthPriority, int32 ViewIndex, FMeshElementCollector& Collector)
+{
+	FVector Dir = End - Start;
+	float Length = Dir.Size();
+
+	if (Length > SMALL_NUMBER)
+	{
+		FVector Z = Dir.GetUnsafeNormal();
+		FVector X, Y;
+		Z.GetUnsafeNormal().FindBestAxisVectors(X, Y);
+
+		GetCylinderMesh(FMatrix::Identity, Z * Length*0.5 + Start, X, Y, Z, Radius, Length * 0.5f, Sides, MaterialInstance, DepthPriority, ViewIndex, Collector);
+	}
+
+}
 
 void GetCylinderMesh(const FVector& Base, const FVector& XAxis, const FVector& YAxis, const FVector& ZAxis,
 				  float Radius, float HalfHeight, int32 Sides, const FMaterialRenderProxy* MaterialRenderProxy, uint8 DepthPriority, int32 ViewIndex, FMeshElementCollector& Collector)
@@ -669,6 +688,22 @@ void DrawCylinder(FPrimitiveDrawInterface* PDI, const FMatrix& CylToWorld, const
 	MeshBuilder.AddTriangles(MeshIndices);
 
 	MeshBuilder.Draw(PDI, CylToWorld, MaterialRenderProxy, DepthPriority,0.f);
+}
+
+void DrawCylinder(class FPrimitiveDrawInterface* PDI, const FVector& Start, const FVector& End, float Radius, int32 Sides, const FMaterialRenderProxy* MaterialInstance, uint8 DepthPriority)
+{
+	FVector Dir = End - Start;
+	float Length = Dir.Size();
+
+	if (Length > SMALL_NUMBER)
+	{
+		FVector Z = Dir.GetUnsafeNormal();
+		FVector X, Y;
+		Z.GetUnsafeNormal().FindBestAxisVectors(X, Y);
+
+		DrawCylinder(PDI, FMatrix::Identity, Z * Length*0.5 + Start, X, Y, Z, Radius, Length * 0.5f, Sides, MaterialInstance, DepthPriority);
+	}
+
 }
 
 void DrawDisc(class FPrimitiveDrawInterface* PDI,const FVector& Base,const FVector& XAxis,const FVector& YAxis,FColor Color,float Radius,int32 NumSides,const FMaterialRenderProxy* MaterialRenderProxy, uint8 DepthPriority)
@@ -1276,12 +1311,11 @@ bool IsRichView(const FSceneViewFamily& ViewFamily)
 	}
 
 	// Flags which make the view rich when present.
-	if( ViewFamily.EngineShowFlags.LightComplexity ||
-		ViewFamily.EngineShowFlags.ShaderComplexity ||
+	if( ViewFamily.UseDebugViewPS()	||
+		ViewFamily.EngineShowFlags.LightComplexity ||
 		ViewFamily.EngineShowFlags.StationaryLightOverlap ||
 		ViewFamily.EngineShowFlags.BSPSplit ||
 		ViewFamily.EngineShowFlags.LightMapDensity ||
-		ViewFamily.EngineShowFlags.VertexDensities ||
 		ViewFamily.EngineShowFlags.PropertyColoration ||
 		ViewFamily.EngineShowFlags.MeshEdges ||
 		ViewFamily.EngineShowFlags.LightInfluences ||

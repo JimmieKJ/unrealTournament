@@ -10,6 +10,7 @@
 #include "TargetPlatform.h"
 #include "ImageWrapper.h"
 #include "ContentStreaming.h"
+#include "Streaming/TextureStreamingHelpers.h"
 
 #if WITH_EDITORONLY_DATA
 #include "DDSLoader.h"
@@ -57,7 +58,7 @@ UTexture::UTexture(const FObjectInitializer& ObjectInitializer)
 	CompositeTextureMode = CTM_NormalRoughnessToAlpha;
 	CompositePower = 1.0f;
 	bUseLegacyGamma = false;
-
+	AlphaCoverageThresholds = FVector4(0, 0, 0, 0);
 	PaddingColor = FColor::Black;
 	ChromaKeyColor = FColorList::Magenta;
 	ChromaKeyThreshold = 1.0f / 255.0f;
@@ -258,7 +259,7 @@ void UTexture::Serialize(FArchive& Ar)
 void UTexture::PostInitProperties()
 {
 #if WITH_EDITORONLY_DATA
-	if (!HasAnyFlags(RF_ClassDefaultObject))
+	if (!HasAnyFlags(RF_ClassDefaultObject | RF_NeedLoad))
 	{
 		AssetImportData = NewObject<UAssetImportData>(this, TEXT("AssetImportData"));
 	}
@@ -271,7 +272,12 @@ void UTexture::PostLoad()
 	Super::PostLoad();
 
 #if WITH_EDITORONLY_DATA
-	if (!SourceFilePath_DEPRECATED.IsEmpty() && AssetImportData)
+	if (AssetImportData == nullptr)
+	{
+		AssetImportData = NewObject<UAssetImportData>(this, TEXT("AssetImportData"));
+	}
+
+	if (!SourceFilePath_DEPRECATED.IsEmpty())
 	{
 		FAssetImportInfo Info;
 		Info.Insert(FAssetImportInfo::FSourceFile(SourceFilePath_DEPRECATED));
@@ -366,11 +372,11 @@ void UTexture::FinishDestroy()
 #endif
 }
 
-void UTexture::PreSave()
+void UTexture::PreSave(const class ITargetPlatform* TargetPlatform)
 {
 	PreSaveEvent.Broadcast(this);
 
-	Super::PreSave();
+	Super::PreSave(TargetPlatform);
 
 #if WITH_EDITOR
 	if (DeferCompression)
@@ -380,7 +386,8 @@ void UTexture::PreSave()
 		UpdateResource();
 	}
 
-	if( !GEngine->IsAutosaving() )
+	bool bIsCooking = TargetPlatform != nullptr;
+	if (!GEngine->IsAutosaving() && (!bIsCooking))
 	{
 		GWarn->StatusUpdate(0, 0, FText::Format(NSLOCTEXT("UnrealEd", "SavingPackage_CompressingSourceArt", "Compressing source art for texture:  {0}"), FText::FromString(GetName())));
 		Source.Compress();
@@ -463,11 +470,6 @@ bool UTexture::ForceUpdateTextureStreaming()
 {
 	if (!IStreamingManager::HasShutdown())
 	{
-		// Make sure textures can be streamed out so that we can unload current mips.
-		static auto CVarOnlyStreamInTextures = IConsoleManager::Get().FindConsoleVariable(TEXT("r.OnlyStreamInTextures"));
-		const bool bOldOnlyStreamInTextures = CVarOnlyStreamInTextures->GetInt() != 0;
-		CVarOnlyStreamInTextures->Set(false, ECVF_SetByCode);
-
 #if WITH_EDITOR
 		for( TObjectIterator<UTexture2D> It; It; ++It )
 		{
@@ -484,9 +486,6 @@ bool UTexture::ForceUpdateTextureStreaming()
 		IStreamingManager::Get().UpdateResourceStreaming( 0 );
 		// Block till requests are finished.
 		IStreamingManager::Get().BlockTillAllRequestsFinished();
-
-		// Restore streaming out of textures.
-		CVarOnlyStreamInTextures->Set(bOldOnlyStreamInTextures, ECVF_SetByCode);
 	}
 
 	return true;

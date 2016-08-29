@@ -81,6 +81,9 @@ public:
 	UPROPERTY(EditAnywhere, Category=Pathfinding)
 	uint32 bGatherDetailedInfo : 1;
 
+	UPROPERTY(EditAnywhere, Category=Query)
+	uint32 bDrawDistanceToWall : 1;
+
 	/** show polys from open (orange) and closed (yellow) sets */
 	UPROPERTY(EditAnywhere, Category=Debug)
 	uint32 bShowNodePool : 1;
@@ -136,6 +139,8 @@ public:
 	UPROPERTY(EditAnywhere, Category=Pathfinding)
 	float OffsetFromCornersDistance;
 
+	FVector ClosestWallLocation;
+
 #if WITH_RECAST && WITH_EDITORONLY_DATA
 	/** detail data gathered from each step of regular A* algorithm */
 	TArray<struct FRecastDebugPathfindingData> DebugSteps;
@@ -163,7 +168,7 @@ public:
 	//~ Begin INavAgentInterface Interface
 	virtual const FNavAgentProperties& GetNavAgentPropertiesRef() const override { return NavAgentProps; }
 	virtual FVector GetNavAgentLocation() const override;
-	virtual void GetMoveGoalReachTest(class AActor* MovingActor, const FVector& MoveOffset, FVector& GoalOffset, float& GoalRadius, float& GoalHalfHeight) const override {}
+	virtual void GetMoveGoalReachTest(const AActor* MovingActor, const FVector& MoveOffset, FVector& GoalOffset, float& GoalRadius, float& GoalHalfHeight) const override {}
 	//~ End INavAgentInterface Interface
 
 	//~ Begin INavPathObserverInterface Interface
@@ -185,11 +190,13 @@ public:
 	// constraints/goal evaluators).
 	virtual FPathFindingQuery BuildPathFindingQuery(const ANavigationTestingActor* Goal) const;
 
-public:
 	/** Returns CapsuleComponent subobject **/
 	class UCapsuleComponent* GetCapsuleComponent() const;
 #if WITH_EDITORONLY_DATA
 	/** Returns EdRenderComp subobject **/
 	class UNavTestRenderingComponent* GetEdRenderComp() const;
 #endif
+
+protected:
+	FVector FindClosestWallLocation() const;
 };

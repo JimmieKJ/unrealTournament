@@ -150,7 +150,7 @@ void SInvalidationPanel::Tick( const FGeometry& AllottedGeometry, const double I
 		if ( bWasCachingNeeded )
 		{
 			SlatePrepass(AllottedGeometry.Scale);
-			CachePrepass(this);
+			CachePrepass(SharedThis(this));
 		}
 	}
 
@@ -254,7 +254,7 @@ int32 SInvalidationPanel::OnPaint( const FPaintArgs& Args, const FGeometry& Allo
 
 			//TODO: When SWidget::Paint is called don't drag self if volatile, and we're doing a cache pass.
 			CachedMaxChildLayer = SCompoundWidget::OnPaint(
-				Args.EnableCaching(MutableThis, RootCacheNode, true, false),
+				Args.EnableCaching(SharedMutableThis, RootCacheNode, true, false),
 				AllottedGeometry,
 				MyClippingRect,
 				*CachedWindowElements.Get(),
@@ -303,7 +303,7 @@ int32 SInvalidationPanel::OnPaint( const FPaintArgs& Args, const FGeometry& Allo
 		{
 			INC_DWORD_STAT_BY(STAT_SlateNumCachedElements, CachedWindowElements->GetDrawElements().Num());
 
-			RootCacheNode->RecordHittestGeometry(Args.GetGrid(), Args.GetLastHitTestIndex());
+			RootCacheNode->RecordHittestGeometry(Args.GetGrid(), Args.GetLastHitTestIndex(), LayerId);
 		}
 		else
 		{

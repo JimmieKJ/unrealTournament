@@ -7,6 +7,7 @@
 #include "EngineVersion.h"
 
 struct FPrimaryCrashProperties;
+struct FAnalyticsEventAttribute;
 
 /** PrimaryCrashProperties. Extracted from: FGenericCrashContext::SerializeContentToBuffer */
 /*
@@ -41,6 +42,7 @@ struct FPrimaryCrashProperties;
 	"UserActivityHint"
 	"ErrorMessage"
 	"CrashDumpMode"
+	"CrashReporterMessage"
 	"Misc.NumberOfCores"
 	"Misc.NumberOfCoresIncludingHyperthreads"
 	"Misc.Is64bitOperatingSystem"
@@ -324,6 +326,22 @@ struct FPrimaryCrashProperties
 	FCrashProperty bAllowToBeContacted;
 
 	/**
+	 *	Rich text string (should be localized by the crashing application) that will be displayed in the main CRC dialog
+	 *  Can be empty and the CRC's default text will be shown.
+	 */
+	FCrashProperty CrashReporterMessage;
+
+	/**
+	 *	Windows only. Non-zero integrity values are to be discounted as "genuine" crashes.
+	 */
+	FCrashProperty PlatformCallbackResult;
+
+	/**
+	 *	CRC sets this to the current version of the software.
+	 */
+	FCrashProperty CrashReportClientVersion;
+
+	/**
 	 * Whether this crash has a minidump file.
 	 * @HasMiniDumpFile bit 
 	 */
@@ -450,6 +468,8 @@ protected:
 
 	/** Encodes multi line property to be saved as single line. */
 	FString EncodeArrayStringAsXMLString( const TArray<FString>& ArrayString ) const;
+
+	void MakeCrashEventAttributes(TArray<FAnalyticsEventAttribute>& OutCrashAttributes);
 
 	/** Reader for the xml file. */
 	FXmlFile* XmlFile;

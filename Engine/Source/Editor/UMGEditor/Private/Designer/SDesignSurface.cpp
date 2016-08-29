@@ -422,7 +422,7 @@ bool SDesignSurface::ScrollToLocation(const FGeometry& MyGeometry, FVector2D Des
 	return ( ( NewPosition - DesiredCenterPosition ).SizeSquared() < 1.f );
 }
 
-bool SDesignSurface::ZoomToLocation(const FVector2D& CurrentSizeWithoutZoom, const FVector2D& DesiredSize, bool bDoneScrolling)
+bool SDesignSurface::ZoomToLocation(const FVector2D& CurrentSizeWithoutZoom, const FVector2D& InDesiredSize, bool bDoneScrolling)
 {
 	if ( bAllowContinousZoomInterpolation && ZoomLevelGraphFade.IsPlaying() )
 	{
@@ -437,9 +437,9 @@ bool SDesignSurface::ZoomToLocation(const FVector2D& CurrentSizeWithoutZoom, con
 	for ( int32 Zoom = 0; Zoom < DefaultZoomLevel; ++Zoom )
 	{
 		const FVector2D SizeWithZoom = (CurrentSizeWithoutZoom - ZoomToFitPadding) / ZoomLevels->GetZoomAmount(Zoom);
-		const FVector2D LeftOverSize = SizeWithZoom - DesiredSize;
+		const FVector2D LeftOverSize = SizeWithZoom - InDesiredSize;
 
-		if ( ( DesiredSize.X > SizeWithZoom.X ) || ( DesiredSize.Y > SizeWithZoom.Y ) )
+		if ( ( InDesiredSize.X > SizeWithZoom.X ) || ( InDesiredSize.Y > SizeWithZoom.Y ) )
 		{
 			// Use the previous zoom level, this one is too tight
 			DesiredZoom = FMath::Max<int32>(0, Zoom - 1);

@@ -5,15 +5,18 @@
 #include "OculusInputPrivatePCH.h"
 #include "OculusInputState.h"
 
-#if USE_OVR_MOTION_SDK
+#if OCULUS_INPUT_SUPPORTED_PLATFORMS
 
 #if PLATFORM_SUPPORTS_PRAGMA_PACK
 	#pragma pack (push,8)
 #endif
 
+#define OVR_PARTNER_CODE //? @TEMP
+
 #include <OVR_Version.h>
-#include <OVR_CAPI_0_8_0.h>
+#include <OVR_CAPI.h>
 #include <OVR_CAPI_Keys.h>
+#include <Extras/OVR_CAPI_Util.h>
 #include <Extras/OVR_Math.h>
 #include <OVR_ErrorCode.h>
 
@@ -44,8 +47,6 @@ struct FOculusTouchControllerPair
 	}
 };
 
-
-
 /**
  * Unreal Engine support for Oculus motion controller devices
  */
@@ -60,8 +61,10 @@ public:
 	/** Clean everything up */
 	virtual ~FOculusInput();
 
+	static void PreInit();
+
 	/** Loads any settings from the config folder that we need */
-	void LoadConfig();
+	static void LoadConfig();
 
 	// IInputDevice overrides
 	virtual void Tick( float DeltaTime ) override;
@@ -78,6 +81,7 @@ public:
 	// IHapticDevice overrides
 	IHapticDevice* GetHapticDevice() override { return (IHapticDevice*)this; }
 	virtual void SetHapticFeedbackValues(int32 ControllerId, int32 Hand, const FHapticFeedbackValues& Values) override;
+
 	virtual void GetHapticFrequencyRange(float& MinFrequency, float& MaxFrequency) const override;
 	virtual float GetHapticAmplitudeScale() const override;
 
@@ -94,10 +98,17 @@ private:
 	/** List of the connected pairs of controllers, with state for each controller device */
 	TArray< FOculusTouchControllerPair > ControllerPairs;
 
+	FOculusRemoteControllerState Remote;
+
 	/** Threshold for treating trigger pulls as button presses, from 0.0 to 1.0 */
-	float TriggerThreshold;
+	static float TriggerThreshold;
+
+	/** Are Remote keys mapped to gamepad or not. */
+	static bool bRemoteKeysMappedToGamepad;
+
+	ovrTouchHapticsDesc HapticsDesc;
 };
 
 DEFINE_LOG_CATEGORY_STATIC(LogOcInput, Log, All);
 
-#endif	// USE_OVR_MOTION_SDK
+#endif //OCULUS_INPUT_SUPPORTED_PLATFORMS

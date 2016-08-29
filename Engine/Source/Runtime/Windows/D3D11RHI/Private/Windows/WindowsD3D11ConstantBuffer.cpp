@@ -25,7 +25,7 @@ void FWinD3D11ConstantBuffer::InitDynamicRHI()
 	CurrentSubBuffer = 0;
 	for(uint32 s = 0;s < NumSubBuffers;s++)
 	{
-		VERIFYD3D11RESULT(D3DRHI->GetDevice()->CreateBuffer(&BufferDesc, NULL, Buffers[s].GetInitReference()));
+		VERIFYD3D11RESULT_EX(D3DRHI->GetDevice()->CreateBuffer(&BufferDesc, NULL, Buffers[s].GetInitReference()), D3DRHI->GetDevice());
 		UpdateBufferStats(Buffers[s],true);
 		BufferDesc.ByteWidth = Align(BufferDesc.ByteWidth / 2, 16);
 	}

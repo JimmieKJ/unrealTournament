@@ -43,13 +43,12 @@ BOOL CALLBACK CaptureDeviceCallback(
 	UE_LOG(LogVoiceCapture, Display, TEXT("Device: %s Desc: %s GUID: %s Context:0x%08x"), lpcstrDescription, lpcstrModule, *PrintMSGUID(lpGuid), lpContext);
 
 	// Allow HMD to override the voice capture device
-	if(VCPtr->VoiceCaptureDeviceCount == VCPtr->HmdVoiceCaptureDeviceIndex)
+	if(!VCPtr->HMDAudioInputDevice.IsEmpty() && !VCPtr->HMDAudioInputDevice.Compare((LPCWSTR) lpcstrModule))
 	{
 		UE_LOG(LogVoice, Display, TEXT("VoiceCapture device overridden by HMD to use '%s' %s"), lpcstrDescription, *PrintMSGUID(lpGuid));
 		VCPtr->VoiceCaptureDeviceGuid = *lpGuid;
 	}
 
-	VCPtr->VoiceCaptureDeviceCount++;
 	return true;
 }
 
@@ -262,9 +261,11 @@ bool FVoiceCaptureDeviceWindows::Init()
 		return false;
 	}
 
-	bool bHmdAvailable = IModularFeatures::Get().IsModularFeatureAvailable(IHeadMountedDisplayModule::GetModularFeatureName());
-	HmdVoiceCaptureDeviceIndex = bHmdAvailable ? CVarHmdDirectSoundVoiceCaptureDeviceIndex.GetValueOnGameThread() : -1;
-	VoiceCaptureDeviceCount = 0;
+	if(IHeadMountedDisplayModule::IsAvailable())
+	{
+		HMDAudioInputDevice = IHeadMountedDisplayModule::Get().GetAudioInputDevice();
+	}
+
 	VoiceCaptureDeviceGuid = DSDEVID_DefaultVoiceCapture;
 
 	hr = DirectSoundCaptureEnumerate((LPDSENUMCALLBACK)CaptureDeviceCallback, this);

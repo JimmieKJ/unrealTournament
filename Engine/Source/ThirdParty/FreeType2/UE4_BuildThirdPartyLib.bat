@@ -37,5 +37,5 @@ pushd FreeType2-2.4.12\Builds
 	msbuild freetype.sln /target:Clean,freetype /p:Platform=Durango;Configuration="Release"
 	popd
 
-	REM Missing Android, HTML5, WinRT
+	REM Missing Android, HTML5
 popd

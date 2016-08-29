@@ -34,11 +34,20 @@ public:
 		/** Does the image need to be a specific size? */
 		SLATE_ARGUMENT(bool, RequiresSpecificSize)
 
+		/** Extensions that the image is allowed to have */
+		SLATE_ARGUMENT(TArray<FString>, Extensions)
+
 	SLATE_END_ARGS()
 
 	void Construct(const FArguments& InArgs);
 
 private:
+	/** Applies the target image with the given extension to the preview, or the default if the target is missing */
+	void ApplyImageWithExtenstion(const FString& Extension);
+
+	/** Applies the first valid image that matches one of the supported extensions */
+	void ApplyFirstValidImage();
+
 	/** Applies the target image to the preview, or the default if the target is missing */
 	void ApplyImage();
 
@@ -91,8 +100,8 @@ private:
 	/** The path to the image we will be editing */
 	FString TargetImagePath;
 
-	/** The extension of the file type we want to use */
-	FString Extension;
+	/** The extensions of the file types we want to use */
+	TArray<FString> Extensions;
 
 	/** Delegate fired when an image is picked */
 	FOnExternalImagePicked OnExternalImagePicked;

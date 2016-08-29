@@ -8,5 +8,8 @@ public:
 	static const FName PropertyFontStyle;
 	static const FName CategoryFontStyle;
 
+	static const FName MD_Bitmask;
+	static const FName MD_BitmaskEnum;
+
 	static const FSlateBrush* GetOverlayBrush( const TSharedRef< class FPropertyEditor > PropertyEditor );
 };

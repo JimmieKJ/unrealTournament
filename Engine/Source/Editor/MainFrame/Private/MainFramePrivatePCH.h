@@ -38,8 +38,6 @@
 #include "../../LevelEditor/Public/LevelEditor.h"
 #include "../../LevelEditor/Public/SLevelViewport.h"
 
-#include "Runtime/Analytics/Analytics/Public/Interfaces/IAnalyticsProvider.h"
-#include "Runtime/Engine/Public/EngineAnalytics.h"
 #include "Kismet2/KismetEditorUtilities.h"
 #include "Kismet2/KismetDebugUtilities.h"
 
@@ -59,7 +57,7 @@ const FText StaticGetApplicationTitle( const bool bIncludeGameName );
 #include "PackageProjectMenu.h"
 #include "RecentProjectsMenu.h"
 #include "SettingsMenu.h"
-#include "TranslationEditorMenu.h"
+#include "MainFrameTranslationEditorMenu.h"
 
 #include "MainMenu.h"
 #include "RootWindowLocation.h"

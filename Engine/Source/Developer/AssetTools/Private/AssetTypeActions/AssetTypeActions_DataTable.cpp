@@ -95,7 +95,7 @@ void FAssetTypeActions_DataTable::ExecuteExportAsCSV(TArray< TWeakObjectPtr<UObj
 
 			if (OutFilenames.Num() > 0)
 			{
-				FFileHelper::SaveStringToFile(DataTable->GetTableAsCSV(), *OutFilenames[0]);
+				FFileHelper::SaveStringToFile(DataTable->GetTableAsCSV(EDataTableExportFlags::UsePrettyPropertyNames | EDataTableExportFlags::UsePrettyEnumNames), *OutFilenames[0]);
 			}
 		}
 	}
@@ -136,7 +136,7 @@ void FAssetTypeActions_DataTable::ExecuteExportAsJSON(TArray< TWeakObjectPtr<UOb
 
 			if (OutFilenames.Num() > 0)
 			{
-				FFileHelper::SaveStringToFile(DataTable->GetTableAsJSON(), *OutFilenames[0]);
+				FFileHelper::SaveStringToFile(DataTable->GetTableAsJSON(EDataTableExportFlags::UsePrettyPropertyNames | EDataTableExportFlags::UsePrettyEnumNames | EDataTableExportFlags::UseJsonObjectsForStructs), *OutFilenames[0]);
 			}
 		}
 	}

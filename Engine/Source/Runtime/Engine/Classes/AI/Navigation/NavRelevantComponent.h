@@ -45,7 +45,7 @@ protected:
 	UPROPERTY()
 	uint32 bAttachToOwnersRoot : 1;
 
-	uint32 bBoundsInitialized : 1;
+	mutable uint32 bBoundsInitialized : 1;
 
 	UPROPERTY(transient)
 	UObject* CachedNavParent;

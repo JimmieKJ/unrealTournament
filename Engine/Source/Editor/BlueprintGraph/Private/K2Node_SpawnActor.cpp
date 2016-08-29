@@ -110,6 +110,8 @@ void UK2Node_SpawnActor::ReallocatePinsDuringReconstruction(TArray<UEdGraphPin*>
 	{
 		CreatePinsForClass(UseSpawnClass);
 	}
+
+	RestoreSplitPins(OldPins);
 }
 
 bool UK2Node_SpawnActor::IsSpawnVarPin(UEdGraphPin* Pin)
@@ -143,7 +145,7 @@ void UK2Node_SpawnActor::PinDefaultValueChanged(UEdGraphPin* ChangedPin)
 			UEdGraphPin* OldPin = OldPins[i];
 			if (IsSpawnVarPin(OldPin))
 			{
-				OldPin->BreakAllPinLinks();
+				OldPin->MarkPendingKill();
 				Pins.Remove(OldPin);
 			}
 		}
@@ -488,6 +490,12 @@ bool UK2Node_SpawnActor::ShouldWarnOnDeprecation() const
 FString UK2Node_SpawnActor::GetDeprecationMessage() const
 {
 	return LOCTEXT("SpawnActorNodeOnlyDefaultBlueprint_Deprecatio", "Spawn Actor @@ is DEPRECATED and should be replaced by SpawnActorFromClass").ToString();
+}
+
+FSlateIcon UK2Node_SpawnActor::GetIconAndTint(FLinearColor& OutColor) const
+{
+	static FSlateIcon Icon("EditorStyle", "GraphEditor.SpawnActor_16x");
+	return Icon;
 }
 
 #undef LOCTEXT_NAMESPACE

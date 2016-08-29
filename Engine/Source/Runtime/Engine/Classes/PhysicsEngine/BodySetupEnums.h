@@ -7,12 +7,14 @@
 UENUM()
 enum ECollisionTraceFlag
 {
-	/** Keep simple/complex separate for each test. This is the default. */
-	CTF_UseDefault UMETA(DisplayName="Default"),
-	/** Use simple collision for all collision tests. */
-	CTF_UseSimpleAsComplex UMETA(DisplayName="Use Simple Collision As Complex"),
-	/** Use complex collision (per poly) for all collision tests. */
-	CTF_UseComplexAsSimple UMETA(DisplayName="Use Complex Collision As Simple"),
+	/** Use project physics settings (DefaultShapeComplexity) */
+	CTF_UseDefault UMETA(DisplayName="Project Default"),
+	/** Create both simple and complex shapes. Simple shapes are used for regular scene queries and collision tests. Complex shape (per poly) is used for complex scene queries.*/
+	CTF_UseSimpleAndComplex UMETA(DisplayName = "Simple And Complex"),
+	/** Create only simple shapes. Use simple shapes for all scene queries and collision tests.*/
+	CTF_UseSimpleAsComplex UMETA(DisplayName = "Use Simple Collision As Complex"),
+	/** Create only complex shapes (per poly). Use complex shapes for all scene queries and collision tests. Can be used in simulation for static shapes only (i.e can be collided against but not moved through forces or velocity.) */
+	CTF_UseComplexAsSimple UMETA(DisplayName = "Use Complex Collision As Simple"),
 	CTF_MAX,
 };
 

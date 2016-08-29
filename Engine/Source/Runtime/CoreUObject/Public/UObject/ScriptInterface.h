@@ -4,8 +4,7 @@
 	ScriptInterface.h: Script interface definitions.
 =============================================================================*/
 
-#ifndef __SCRIPTINTERFACE_H__
-#define __SCRIPTINTERFACE_H__
+#pragma once
 
 /**
  * FScriptInterface
@@ -220,5 +219,3 @@ public:
 		return Interface.Serialize(Ar, InterfaceType::UClassType::StaticClass());
 	}
 };
-
-#endif

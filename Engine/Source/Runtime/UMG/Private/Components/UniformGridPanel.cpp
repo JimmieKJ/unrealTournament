@@ -28,21 +28,21 @@ UClass* UUniformGridPanel::GetSlotClass() const
 	return UUniformGridSlot::StaticClass();
 }
 
-void UUniformGridPanel::OnSlotAdded(UPanelSlot* Slot)
+void UUniformGridPanel::OnSlotAdded(UPanelSlot* InSlot)
 {
 	// Add the child to the live canvas if it already exists
 	if ( MyUniformGridPanel.IsValid() )
 	{
-		Cast<UUniformGridSlot>(Slot)->BuildSlot(MyUniformGridPanel.ToSharedRef());
+		CastChecked<UUniformGridSlot>(InSlot)->BuildSlot(MyUniformGridPanel.ToSharedRef());
 	}
 }
 
-void UUniformGridPanel::OnSlotRemoved(UPanelSlot* Slot)
+void UUniformGridPanel::OnSlotRemoved(UPanelSlot* InSlot)
 {
 	// Remove the widget from the live slot if it exists.
 	if ( MyUniformGridPanel.IsValid() )
 	{
-		TSharedPtr<SWidget> Widget = Slot->Content->GetCachedWidget();
+		TSharedPtr<SWidget> Widget = InSlot->Content->GetCachedWidget();
 		if ( Widget.IsValid() )
 		{
 			MyUniformGridPanel->RemoveSlot(Widget.ToSharedRef());
@@ -54,9 +54,9 @@ TSharedRef<SWidget> UUniformGridPanel::RebuildWidget()
 {
 	MyUniformGridPanel = SNew(SUniformGridPanel);
 
-	for ( UPanelSlot* Slot : Slots )
+	for ( UPanelSlot* PanelSlot : Slots )
 	{
-		if ( UUniformGridSlot* TypedSlot = Cast<UUniformGridSlot>(Slot) )
+		if ( UUniformGridSlot* TypedSlot = Cast<UUniformGridSlot>(PanelSlot) )
 		{
 			TypedSlot->Parent = this;
 			TypedSlot->BuildSlot(MyUniformGridPanel.ToSharedRef());

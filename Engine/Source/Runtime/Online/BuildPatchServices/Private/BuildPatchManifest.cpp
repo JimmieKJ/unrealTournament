@@ -190,7 +190,7 @@ int64 FFileManifestData::GetFileSize() const
 	return FileSize;
 }
 
-FORCEINLINE bool FFileManifestData::operator<(const FFileManifestData& Other) const
+bool FFileManifestData::operator<(const FFileManifestData& Other) const
 {
 	return Filename < Other.Filename;
 }
@@ -495,7 +495,8 @@ int64 FBuildPatchCustomField::AsInteger() const
 *****************************************************************************/
 
 FBuildPatchAppManifest::FBuildPatchAppManifest()
-	: TotalBuildSize(INDEX_NONE)
+	: Data(nullptr) // This MUST be in the initializer list, due to FGCObject inheritance.
+	, TotalBuildSize(INDEX_NONE)
 	, TotalDownloadSize(INDEX_NONE)
 	, bNeedsResaving(false)
 {
@@ -503,7 +504,8 @@ FBuildPatchAppManifest::FBuildPatchAppManifest()
 }
 
 FBuildPatchAppManifest::FBuildPatchAppManifest(const uint32& InAppID, const FString& AppName)
-	: TotalBuildSize(INDEX_NONE)
+	: Data(nullptr) // This MUST be in the initializer list, due to FGCObject inheritance.
+	, TotalBuildSize(INDEX_NONE)
 	, TotalDownloadSize(INDEX_NONE)
 	, bNeedsResaving(false)
 {
@@ -513,6 +515,7 @@ FBuildPatchAppManifest::FBuildPatchAppManifest(const uint32& InAppID, const FStr
 }
 
 FBuildPatchAppManifest::FBuildPatchAppManifest(const FBuildPatchAppManifest& Other)
+	: Data(nullptr) // This MUST be in the initializer list, due to FGCObject inheritance.
 {
 	Data = NewObject<UBuildPatchManifest>();
 	Data->ManifestFileVersion = Other.Data->ManifestFileVersion;
@@ -576,7 +579,6 @@ bool FBuildPatchAppManifest::SaveToFile(const FString& Filename, bool bUseBinary
 				FileOut->Seek(0);
 				*FileOut << Header;
 				FileOut->Serialize(FileData.GetData(), FileData.Num());
-				bSuccess = !FileOut->IsError();
 			}
 		}
 		else
@@ -586,7 +588,7 @@ bool FBuildPatchAppManifest::SaveToFile(const FString& Filename, bool bUseBinary
 			FTCHARToUTF8 JsonUTF8(*JSONOutput);
 			FileOut->Serialize((UTF8CHAR*)JsonUTF8.Get(), JsonUTF8.Length() * sizeof(UTF8CHAR));
 		}
-		FileOut->Close();
+		bSuccess = FileOut->Close();
 		delete FileOut;
 		FileOut = nullptr;
 	}
@@ -594,7 +596,7 @@ bool FBuildPatchAppManifest::SaveToFile(const FString& Filename, bool bUseBinary
 	return bSuccess;
 }
 
-bool FBuildPatchAppManifest::LoadFromFile(FString Filename)
+bool FBuildPatchAppManifest::LoadFromFile(const FString& Filename)
 {
 	TArray<uint8> FileData;
 	if (FFileHelper::LoadFileToArray(FileData, *Filename))
@@ -1579,9 +1581,9 @@ void FBuildPatchAppManifest::EnumerateProducibleChunks( const FString& InstallDi
 	// A struct that will store byte ranges
 	struct FChunkRange
 	{
-		// The inclusive min byte
+		// The inclusive min byte (i.e. the first byte of the byte range)
 		uint32 Min;
-		// The inclusive max byte
+		// The exclusive max byte (i.e. points to one byte beyond the end of the byte range)
 		uint32 Max;
 	};
 	// A struct that will sort an FChunkRange array by Min
@@ -1615,8 +1617,8 @@ void FBuildPatchAppManifest::EnumerateProducibleChunks( const FString& InstallDi
 			if( SourceFilesize == GetFileSize( FileChunkPart.Filename ) && SourceFilesize >= LastRequiredByte )
 			{
 				const uint32 Min = FileChunkPart.ChunkPart.Offset;
-				const uint32 Max = Min + FileChunkPart.ChunkPart.Size - 1;
-				// We will store our ranges using inclusive values
+				const uint32 Max = Min + FileChunkPart.ChunkPart.Size;
+				// Our ranges include the min byte, and exclude the max byte
 				FChunkRange NextRange;
 				NextRange.Min = Min;
 				NextRange.Max = Max;
@@ -1640,7 +1642,7 @@ void FBuildPatchAppManifest::EnumerateProducibleChunks( const FString& InstallDi
 			}
 		}
 		// If we can make the chunk, add it to the list
-		const bool bCanMakeChunk = ByteCount == ( FBuildPatchData::ChunkDataSize - 1 );
+		const bool bCanMakeChunk = ByteCount == FBuildPatchData::ChunkDataSize;
 		if( bCanMakeChunk )
 		{
 			ChunksAvailable.AddUnique( ChunkGuid );

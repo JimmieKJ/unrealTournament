@@ -66,7 +66,7 @@ private:
 	 *
 	 * @param HandshakePacket	The handshake packet to be aligned.
 	 */
-	void AlignHandshakePacket(FBitWriter& HandshakePacket);
+	void CapHandshakePacket(FBitWriter& HandshakePacket);
 
 public:
 	/**
@@ -106,11 +106,7 @@ protected:
 		return true;
 	}
 
-	virtual int32 GetPacketOverheadBits() override;
-
-	virtual uint8 GetBitAlignment() override;
-
-	virtual bool DoesResetBitAlignment() override;
+	virtual int32 GetReservedPacketBits() override;
 
 	virtual void Tick(float DeltaTime) override;
 

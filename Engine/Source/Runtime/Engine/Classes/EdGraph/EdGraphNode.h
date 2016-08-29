@@ -11,6 +11,8 @@ class UEdGraphSchema;
 class UEdGraphPin;
 class SGraphNode;
 struct FEdGraphPinType;
+struct FSlateIcon;
+
 
 /** Enum used to define which way data flows into or out of this pin. */
 UENUM()
@@ -100,9 +102,11 @@ class ENGINE_API UEdGraphNode : public UObject
 {
 	GENERATED_UCLASS_BODY()
 
+	TArray<UEdGraphPin*> Pins;
+
 	/** List of connector pins */
 	UPROPERTY()
-	TArray<class UEdGraphPin*> Pins;
+	TArray<class UEdGraphPin_Deprecated*> DeprecatedPins;
 
 	/** X position of node in the editor */
 	UPROPERTY()
@@ -160,7 +164,7 @@ class ENGINE_API UEdGraphNode : public UObject
 	UPROPERTY()
 	FString ErrorMsg;
 	
-	/** GUID to uniquely identify this node, to facilitate diff'ing versions of this graph */
+	/** GUID to uniquely identify this node, to facilitate diffing versions of this graph */
 	UPROPERTY()
 	FGuid NodeGuid;
 
@@ -214,13 +218,20 @@ public:
 	// UObject interface
 	static void AddReferencedObjects(UObject* InThis, FReferenceCollector& Collector);
 	virtual void Serialize(FArchive& Ar) override;
-	virtual void PreSave() override;
+	virtual void PreSave(const class ITargetPlatform* TargetPlatform) override;
 	virtual void PostLoad() override;
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
+	virtual void PostEditUndo() override;
+	virtual void ExportCustomProperties(FOutputDevice& Out, uint32 Indent) override;
+	virtual void ImportCustomProperties(const TCHAR* SourceText, FFeedbackContext* Warn) override;
+	virtual void BeginDestroy() override;
 	// End of UObject interface
 
 	/** widget representing this node if it exists; Note: This is not safe to use in general and will be removed in the future, as there is no guarantee that only one graph editor/panel is viewing a given graph */
 	TWeakPtr<SGraphNode> DEPRECATED_NodeWidget;
+
+	/** Get all pins this node owns */
+	TArray<UEdGraphPin*> GetAllPins() { return Pins; }
 
 	/** Create a new pin on this node using the supplied info, and return the new pin */
 	UEdGraphPin* CreatePin(EEdGraphPinDirection Dir, const FString& PinCategory, const FString& PinSubCategory, UObject* PinSubCategoryObject, bool bIsArray, bool bIsReference, const FString& PinName, bool bIsConst = false, int32 Index = INDEX_NONE);
@@ -228,18 +239,21 @@ public:
 	/** Create a new pin on this node using the supplied pin type, and return the new pin */
 	UEdGraphPin* CreatePin(EEdGraphPinDirection Dir, const FEdGraphPinType& InPinType, const FString& PinName, int32 Index = INDEX_NONE);
 
-	// Allocates a pin from the pool
-	static UEdGraphPin* AllocatePinFromPool(UEdGraphNode* OuterNode);
+	/** Destroys the specified pin, does not modify its owning pin's Pins list */
+	static void DestroyPin(UEdGraphPin* Pin);
 
-	// Returns the specified pin to the pool
-	static void ReturnPinToPool(UEdGraphPin* OldPin);
+	/** Find a pin on this node with the supplied name and optional direction */
+	UEdGraphPin* FindPin(const FString& PinName, const EEdGraphPinDirection Direction = EGPD_MAX) const;
 
-	/** Find a pin on this node with the supplied name */
-	UEdGraphPin* FindPin(const FString& PinName) const;
-
-	/** Find a pin on this node with the supplied name and assert if it is not present */
-	UEdGraphPin* FindPinChecked(const FString& PinName) const;
+	/** Find a pin on this node with the supplied name and optional direction and assert if it is not present */
+	UEdGraphPin* FindPinChecked(const FString& PinName, const EEdGraphPinDirection Direction = EGPD_MAX) const;
 	
+	/** Find the pin on this node with the supplied guid */
+	UEdGraphPin* FindPinById(const FGuid PinId) const;
+
+	/** Find the pin on this node with the supplied guid and assert if it is not present */
+	UEdGraphPin* FindPinByIdChecked(const FGuid PinId) const;
+
 	/** Find a pin on this node with the supplied name and remove it, returns TRUE if successful */
 	bool RemovePin(UEdGraphPin* Pin);
 
@@ -381,8 +395,12 @@ public:
 	 */
 	virtual FString GetDocumentationExcerptName() const;
 
-	/** @return name or brush to use in menu or on node */
-	virtual FName GetPaletteIcon(FLinearColor& OutColor) const { return TEXT("GraphEditor.Default_16x"); }
+	/** @return Icon to use in menu or on node */
+	DEPRECATED(4.13, "Please override 'virtual FSlateIcon GetIconAndTint(FLinearColor& OutColor) const;' instead.")
+	virtual FName GetPaletteIcon(FLinearColor& OutColor) const { return NAME_None; }
+
+	/** @return Icon to use in menu or on node */
+	virtual FSlateIcon GetIconAndTint(FLinearColor& OutColor) const;
 
 	/** Should we show the Palette Icon for this node on the node title */
 	virtual bool ShowPaletteIconOnNode() const { return false; }

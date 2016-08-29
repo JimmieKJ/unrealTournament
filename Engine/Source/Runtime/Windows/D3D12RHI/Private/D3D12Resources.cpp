@@ -15,7 +15,7 @@ FD3D12CommandAllocator::FD3D12CommandAllocator(ID3D12Device* InDevice, const D3D
 void FD3D12CommandAllocator::Init(ID3D12Device* InDevice, const D3D12_COMMAND_LIST_TYPE& InType)
 {
 	check(CommandAllocator.GetReference() == nullptr);
-	VERIFYD3D11RESULT(InDevice->CreateCommandAllocator(InType, IID_PPV_ARGS(CommandAllocator.GetInitReference())));
+	VERIFYD3D12RESULT(InDevice->CreateCommandAllocator(InType, IID_PPV_ARGS(CommandAllocator.GetInitReference())));
 }
 
 FD3D12DeferredDeletionQueue::FD3D12DeferredDeletionQueue(FD3D12Device* InParent) :
@@ -34,6 +34,7 @@ FD3D12DeferredDeletionQueue::~FD3D12DeferredDeletionQueue()
 
 bool FD3D12DeferredDeletionQueue::ReleaseResources(bool DeleteImmediately)
 {
+#if ASYNC_DEFERRED_DELETION
 	if (DeleteImmediately)
 	{
 		FAsyncTask<FD3D12AsyncDeletionWorker>* DeleteTask = nullptr;
@@ -44,6 +45,7 @@ bool FD3D12DeferredDeletionQueue::ReleaseResources(bool DeleteImmediately)
 			DeleteTask->EnsureCompletion(true);
 			delete(DeleteTask);
 		}
+#endif
 
 		struct FDequeueFenceObject
 		{
@@ -65,13 +67,14 @@ bool FD3D12DeferredDeletionQueue::ReleaseResources(bool DeleteImmediately)
 		FencedObjectType FenceObject;
 		FDequeueFenceObject DequeueFenceObject(&CommandListManager);
 
-		const uint64 LastCompletedFrameFence = CommandListManager.GetFence(EFenceType::FT_Frame).GetLastCompletedFence();
 		while (DeferredReleaseQueue.Dequeue(FenceObject, DequeueFenceObject))
 		{
 			FenceObject.Key->Release();
 		}
 
 		return DeferredReleaseQueue.IsEmpty();
+
+#if ASYNC_DEFERRED_DELETION
 	}
 	else
 	{
@@ -89,6 +92,7 @@ bool FD3D12DeferredDeletionQueue::ReleaseResources(bool DeleteImmediately)
 
 		return false;
 	}
+#endif
 }
 
 FD3D12DeferredDeletionQueue::FD3D12AsyncDeletionWorker::FD3D12AsyncDeletionWorker(FD3D12Device* Device, FThreadsafeQueue<FencedObjectType>* DeletionQueue) :
@@ -111,7 +115,6 @@ FD3D12DeferredDeletionQueue::FD3D12AsyncDeletionWorker::FD3D12AsyncDeletionWorke
 
 	FD3D12CommandListManager& CommandListManager = GetParentDevice()->GetCommandListManager();
 
-	FencedObjectType FenceObject;
 	FDequeueFenceObject DequeueFenceObject(&CommandListManager);
 
 	DeletionQueue->BatchDequeue(&Queue, DequeueFenceObject, 4096);
@@ -136,37 +139,23 @@ int64 FD3D12Resource::NoStateTrackingResourceCount = 0;
 
 FD3D12Resource::~FD3D12Resource()
 {
-#if SUPPORTS_MEMORY_RESIDENCY
-	if (HeapType == D3D12_HEAP_TYPE_DEFAULT)
-	{
-		FD3D12DynamicRHI::GetD3DRHI()->GetResourceResidencyManager().ResourceFreed(this);
-	}
-#endif
-
 	if (pResourceState)
 	{
 		delete pResourceState;
 		pResourceState = nullptr;
 	}
-}
 
-#if SUPPORTS_MEMORY_RESIDENCY
-void FD3D12Resource::UpdateResourceSize()
-{
-	if (HeapType == D3D12_HEAP_TYPE_DEFAULT)
+	if (D3DX12Residency::IsInitialized(ResidencyHandle))
 	{
-		ResourceSize = (uint32)GetRequiredIntermediateSize(GetResource(), 0, Desc.MipLevels);
+		D3DX12Residency::EndTrackingObject(GetParentDevice()->GetResidencyManager(), ResidencyHandle);
 	}
 }
 
-void FD3D12Resource::UpdateResidency()
+void FD3D12ResourceBlockInfo::Destroy()
 {
-	if (HeapType == D3D12_HEAP_TYPE_DEFAULT)
-	{
-		FD3D12DynamicRHI::GetD3DRHI()->GetResourceResidencyManager().UpdateResidency(this);
-	}
+	ResourceHeap->Release();
+	ResourceHeap = nullptr;
 }
-#endif
 
 void inline FD3D12CommandListHandle::FD3D12CommandListData::FCommandListResourceState::ConditionalInitalize(FD3D12Resource* pResource, CResourceState& ResourceState)
 {
@@ -217,10 +206,10 @@ void FD3D12RootSignature::Init(const D3D12_ROOT_SIGNATURE_DESC& InDesc)
 	{
 		UE_LOG(LogD3D12RHI, Fatal, TEXT("D3D12SerializeRootSignature failed with error %s"), ANSI_TO_TCHAR(Error->GetBufferPointer()));
 	}
-	VERIFYD3D11RESULT(SerializeHR);
+	VERIFYD3D12RESULT(SerializeHR);
 
 	// Create and analyze the root signature.
-	VERIFYD3D11RESULT(GetParentDevice()->GetDevice()->CreateRootSignature(0, RootSignatureBlob->GetBufferPointer(), RootSignatureBlob->GetBufferSize(), IID_PPV_ARGS(RootSignature.GetInitReference())));
+	VERIFYD3D12RESULT(GetParentDevice()->GetDevice()->CreateRootSignature(0, RootSignatureBlob->GetBufferPointer(), RootSignatureBlob->GetBufferSize(), IID_PPV_ARGS(RootSignature.GetInitReference())));
 	AnalyzeSignature(InDesc);
 }
 
@@ -231,10 +220,10 @@ void FD3D12RootSignature::Init(ID3DBlob* const InBlob)
 
 	// Deserialize to get the desc.
 	TRefCountPtr<ID3D12RootSignatureDeserializer> Deserializer;
-	VERIFYD3D11RESULT(D3D12CreateRootSignatureDeserializer(RootSignatureBlob->GetBufferPointer(), RootSignatureBlob->GetBufferSize(), IID_PPV_ARGS(Deserializer.GetInitReference())));
+	VERIFYD3D12RESULT(D3D12CreateRootSignatureDeserializer(RootSignatureBlob->GetBufferPointer(), RootSignatureBlob->GetBufferSize(), IID_PPV_ARGS(Deserializer.GetInitReference())));
 
 	// Create and analyze the root signature.
-	VERIFYD3D11RESULT(GetParentDevice()->GetDevice()->CreateRootSignature(0, RootSignatureBlob->GetBufferPointer(), RootSignatureBlob->GetBufferSize(), IID_PPV_ARGS(RootSignature.GetInitReference())));
+	VERIFYD3D12RESULT(GetParentDevice()->GetDevice()->CreateRootSignature(0, RootSignatureBlob->GetBufferPointer(), RootSignatureBlob->GetBufferSize(), IID_PPV_ARGS(RootSignature.GetInitReference())));
 	AnalyzeSignature(*Deserializer->GetRootSignatureDesc());
 }
 
@@ -378,3 +367,169 @@ FD3D12RootSignature* FD3D12RootSignatureManager::CreateRootSignature(const FD3D1
 
 	return pNewRootSignature;
 }
+
+void FD3D12Resource::StartTrackingForResidency()
+{
+#if ENABLE_RESIDENCY_MANAGEMENT
+	// No need to track CPU resources
+	if (IsCPUWritable(HeapType) == false)
+	{
+		check(D3DX12Residency::IsInitialized(ResidencyHandle) == false);
+		const D3D12_RESOURCE_DESC LocalDesc = Resource->GetDesc();
+		const D3D12_RESOURCE_ALLOCATION_INFO Info = GetParentDevice()->GetDevice()->GetResourceAllocationInfo(0, 1, &LocalDesc);
+
+		D3DX12Residency::Initialize(ResidencyHandle, Resource.GetReference(), Info.SizeInBytes);
+		D3DX12Residency::BeginTrackingObject(GetParentDevice()->GetResidencyManager(), ResidencyHandle);
+	}
+#endif
+}
+
+void FD3D12Resource::UpdateResidency(FD3D12CommandListHandle& CommandList)
+{
+#if ENABLE_RESIDENCY_MANAGEMENT
+	if (IsPlacedResource())
+	{
+		Heap->UpdateResidency(CommandList);
+	}
+	else if (D3DX12Residency::IsInitialized(ResidencyHandle))
+	{
+		check(Heap == nullptr);
+		D3DX12Residency::Insert(CommandList.GetResidencySet(), ResidencyHandle);
+	}
+#endif
+}
+
+FD3D12Heap::FD3D12Heap(FD3D12Device* Parent) :
+	ResidencyHandle(),
+	FD3D12DeviceChild(Parent)
+{
+}
+
+FD3D12Heap::~FD3D12Heap()
+{
+	Destroy();
+}
+
+void FD3D12Heap::UpdateResidency(FD3D12CommandListHandle& CommandList)
+{
+#if ENABLE_RESIDENCY_MANAGEMENT
+	if (D3DX12Residency::IsInitialized(ResidencyHandle))
+	{
+		D3DX12Residency::Insert(CommandList.GetResidencySet(), ResidencyHandle);
+	}
+#endif
+}
+
+void FD3D12Heap::Destroy()
+{
+	//TODO: Check ref counts?
+	if (D3DX12Residency::IsInitialized(ResidencyHandle))
+	{
+		D3DX12Residency::EndTrackingObject(GetParentDevice()->GetResidencyManager(), ResidencyHandle);
+		ResidencyHandle = {};
+	}
+}
+
+void FD3D12Heap::BeginTrackingResidency(uint64 Size)
+{
+#if ENABLE_RESIDENCY_MANAGEMENT
+	D3DX12Residency::Initialize(ResidencyHandle, Heap.GetReference(), Size);
+	D3DX12Residency::BeginTrackingObject(GetParentDevice()->GetResidencyManager(), ResidencyHandle);
+#endif
+}
+
+HRESULT FD3D12ResourceHelper::CreateCommittedResource(const D3D12_RESOURCE_DESC& InDesc, const D3D12_HEAP_PROPERTIES& HeapProps, const D3D12_RESOURCE_STATES& InitialUsage, const D3D12_CLEAR_VALUE* ClearValue, FD3D12Resource** ppResource)
+{
+	HRESULT hr = S_OK;
+
+	if (!ppResource)
+	{
+		return E_POINTER;
+	}
+
+	FD3D12Device* ParentDevice = GetParentDevice();
+	ID3D12Device* D3DDevice = ParentDevice->GetDevice();
+
+	const D3D12_RESOURCE_HEAP_TIER ResourceHeapTier = ParentDevice->GetResourceHeapTier();
+
+	TRefCountPtr<ID3D12Resource> pResource;
+	hr = D3DDevice->CreateCommittedResource(&HeapProps, D3D12_HEAP_FLAG_NONE, &InDesc, InitialUsage, ClearValue, IID_PPV_ARGS(pResource.GetInitReference()));
+	check(SUCCEEDED(hr));
+
+	if (SUCCEEDED(hr))
+	{
+		// Set the output pointer
+		*ppResource = new FD3D12Resource(ParentDevice, pResource, InitialUsage, InDesc, nullptr, HeapProps.Type);
+		(*ppResource)->AddRef();
+
+		// Only track resources in local VRam
+		if (IsCPUWritable(HeapProps.Type) == false)
+		{
+			(*ppResource)->StartTrackingForResidency();
+		}
+	}
+
+	return hr;
+}
+
+HRESULT FD3D12ResourceHelper::CreatePlacedResource(const D3D12_RESOURCE_DESC& InDesc, FD3D12Heap* BackingHeap, uint64 HeapOffset, const D3D12_RESOURCE_STATES& InitialUsage, const D3D12_CLEAR_VALUE* ClearValue, FD3D12Resource** ppResource)
+{
+	HRESULT hr = S_OK;
+
+	if (!ppResource)
+	{
+		return E_POINTER;
+	}
+
+	FD3D12Device* ParentDevice = GetParentDevice();
+	ID3D12Device* D3DDevice = ParentDevice->GetDevice();
+
+	const D3D12_RESOURCE_HEAP_TIER ResourceHeapTier = ParentDevice->GetResourceHeapTier();
+
+	ID3D12Heap* Heap = BackingHeap->GetHeap();
+
+	const D3D12_HEAP_DESC heapDesc = Heap->GetDesc();
+
+	TRefCountPtr<ID3D12Resource> pResource;
+	hr = D3DDevice->CreatePlacedResource(Heap, HeapOffset, &InDesc, InitialUsage, nullptr, IID_PPV_ARGS(pResource.GetInitReference()));
+	check(SUCCEEDED(hr));
+
+	if (SUCCEEDED(hr))
+	{
+		// Set the output pointer
+		*ppResource = new FD3D12Resource(ParentDevice, pResource, InitialUsage, InDesc, BackingHeap, heapDesc.Properties.Type);
+		(*ppResource)->AddRef();
+	}
+
+	return hr;
+}
+
+HRESULT FD3D12ResourceHelper::CreateDefaultResource(const D3D12_RESOURCE_DESC& Desc, const D3D12_CLEAR_VALUE* ClearValue, FD3D12Resource** ppResource, D3D12_RESOURCE_STATES InitialState)
+{
+	CD3DX12_HEAP_PROPERTIES heapProperties(D3D12_HEAP_TYPE_DEFAULT);
+	return CreateCommittedResource(Desc, heapProperties, InitialState, ClearValue, ppResource);
+}
+
+HRESULT FD3D12ResourceHelper::CreateBuffer(D3D12_HEAP_TYPE heapType, uint64 initHeapSize, FD3D12Resource** ppResource, D3D12_RESOURCE_FLAGS flags, const D3D12_HEAP_PROPERTIES *pCustomHeapProperties)
+{
+	if (!ppResource)
+	{
+		return E_POINTER;
+	}
+
+	const D3D12_RESOURCE_DESC BufDesc = CD3DX12_RESOURCE_DESC::Buffer(initHeapSize, flags);
+	const D3D12_RESOURCE_STATES InitialState = DetermineInitialResourceState(heapType, pCustomHeapProperties);
+	check(pCustomHeapProperties != nullptr ? pCustomHeapProperties->Type == heapType : true);
+
+	TRefCountPtr<ID3D12Resource> pResource;
+	return CreateCommittedResource(
+		BufDesc,
+		(pCustomHeapProperties != nullptr) ? *pCustomHeapProperties : CD3DX12_HEAP_PROPERTIES(heapType),
+		InitialState,
+		nullptr,
+		ppResource);
+}
+
+FD3D12ResourceHelper::FD3D12ResourceHelper(FD3D12Device* InParent) :
+	FD3D12DeviceChild(InParent)
+{}

@@ -4,6 +4,8 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Web.Caching;
+using Tools.CrashReporter.CrashReportWebSite.DataModels;
+using Tools.CrashReporter.CrashReportWebSite.DataModels.Repositories;
 
 namespace Tools.CrashReporter.CrashReportWebSite.Models
 {
@@ -25,23 +27,23 @@ namespace Tools.CrashReporter.CrashReportWebSite.Models
 		/// <summary>
 		/// Link the Http context cache to a crash repository.
 		/// </summary>
-		/// <param name="InCache">The current Http context cache.</param>
-		/// <param name="InCrashRepository">The repository to associate the cache with.</param>
-		public CachedDataService( Cache InCache, CrashRepository InCrashRepository )
+		/// <param name="inCache">The current Http context cache.</param>
+		/// <param name="inCrashRepository">The repository to associate the cache with.</param>
+		public CachedDataService( Cache inCache, CrashRepository inCrashRepository )
 		{
-			CacheInstance = InCache;
-			Crashes = InCrashRepository;
+			CacheInstance = inCache;
+			Crashes = inCrashRepository;
 		}
 
 		/// <summary>
 		/// Link the Http context cache to a Bugg repository.
 		/// </summary>
-		/// <param name="InCache">The current Http context cache.</param>
-		/// <param name="InBuggRepository">The repository to associate the cache with.</param>
-		public CachedDataService( Cache InCache, BuggRepository InBuggRepository )
+		/// <param name="inCache">The current Http context cache.</param>
+		/// <param name="inBuggRepository">The repository to associate the cache with.</param>
+		public CachedDataService( Cache inCache, BuggRepository inBuggRepository )
 		{
-			CacheInstance = InCache;
-			Buggs = InBuggRepository;
+			CacheInstance = inCache;
+			Buggs = inBuggRepository;
 		}
 
 		/// <summary>
@@ -59,8 +61,8 @@ namespace Tools.CrashReporter.CrashReportWebSite.Models
 		/// <param name="Disposing">true if the Dispose call is from user code, and not system code.</param>
 		protected virtual void Dispose( bool Disposing )
 		{
-			Crashes.Dispose();
-			Buggs.Dispose();
+			//Crashes.Dispose();
+			//Buggs.Dispose();
 		}
 
 		/// <summary>
@@ -68,20 +70,18 @@ namespace Tools.CrashReporter.CrashReportWebSite.Models
 		/// </summary>
 		/// <param name="CurrentCrash">The crash to retrieve the parsed callstack for.</param>
 		/// <returns>A parsed callstack.</returns>
-		public CallStackContainer GetCallStackFast( Crash CurrentCrash )
+		public DataModels.CallStackContainer GetCallStackFast( DataModels.Crash CurrentCrash )
 		{
-			using( FAutoScopedLogTimer LogTimer = new FAutoScopedLogTimer( this.GetType().ToString() + "(CrashId=" + CurrentCrash.Id + ")" ) )
+			using( var logTimer = new FAutoScopedLogTimer( this.GetType().ToString() + "(CrashId=" + CurrentCrash.Id + ")" ) )
 			{
-				string Key = CacheKeyPrefix + CallstackKeyPrefix + CurrentCrash.Id;
-				CallStackContainer CallStack = (CallStackContainer)CacheInstance[Key];
-				if( CallStack == null )
-				{
-					CallStack = new CallStackContainer( CurrentCrash );
-					CallStack.bDisplayFunctionNames = true;
-					CacheInstance.Insert( Key, CallStack );
-				}
+				var key = CacheKeyPrefix + CallstackKeyPrefix + CurrentCrash.Id;
+				var callStack = (CallStackContainer)CacheInstance[key];
+			    if (callStack != null) return callStack;
+			    callStack = new CallStackContainer( CurrentCrash );
+			    callStack.bDisplayFunctionNames = true;
+			    CacheInstance.Insert( key, callStack );
 
-				return CallStack;
+			    return callStack;
 			}
 		}
 	}

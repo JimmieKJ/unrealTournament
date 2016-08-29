@@ -56,7 +56,7 @@ void UUTRadialMenu_Coms::InitializeWidget(AUTHUD* Hud)
 	NoZone = FRadialSegment(45,135);
 }
 
-void UUTRadialMenu_Coms::GetComData(FName CommandTag, AActor* ContextActor, AUTPlayerController* Instigator)
+void UUTRadialMenu_Coms::GetComData(FName CommandTag, AActor* InContextActor, AUTPlayerController* Instigator)
 {
 	if (GetWorld() && GetWorld()->GetGameState())
 	{
@@ -66,7 +66,7 @@ void UUTRadialMenu_Coms::GetComData(FName CommandTag, AActor* ContextActor, AUTP
 			AUTPlayerState* UTPlayerState = UTHUDOwner->UTPlayerOwner->UTPlayerState;
 			if (UTPlayerState)
 			{
-				int32 Switch = DefaultGameMode->GetComSwitch(CommandTag, ContextActor, Instigator, GetWorld());
+				int32 Switch = DefaultGameMode->GetComSwitch(CommandTag, InContextActor, Instigator, GetWorld());
 				if (Switch != INDEX_NONE)
 				{
 					UUTCharacterVoice* DefaultCharacterVoice = Cast<UUTCharacterVoice>(UTPlayerState->GetCharacterVoiceClass().GetDefaultObject());
@@ -127,13 +127,13 @@ void UUTRadialMenu_Coms::DrawMenu(FVector2D ScreenCenter, float RenderDelta)
 			bool bCurrent = CurrentSegment == i && !ShouldCancel() && !IsNoSelected() && !IsYesSelected();
 
 			float Angle = GetMidSegmentAngle(i);
-			FVector2D ScreenPosition = Rotate(CenterPoint, Angle);
+			FVector2D DrawScreenPosition = Rotate(CenterPoint, Angle);
 			SegmentTemplate.RenderScale = CalcSegmentScale(i);
-			RenderObj_TextureAtWithRotation(SegmentTemplate, ScreenPosition, Angle);	
+			RenderObj_TextureAtWithRotation(SegmentTemplate, DrawScreenPosition, Angle);
 			if (bCurrent)
 			{
 				HighlightedSegmentTemplate.RenderScale = CalcSegmentScale(i);
-				RenderObj_TextureAtWithRotation(HighlightedSegmentTemplate, ScreenPosition, Angle);	
+				RenderObj_TextureAtWithRotation(HighlightedSegmentTemplate, DrawScreenPosition, Angle);
 			}
 
 			// Draw the icon..

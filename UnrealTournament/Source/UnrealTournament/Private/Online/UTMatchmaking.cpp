@@ -11,7 +11,7 @@
 #include "UTPlaylistManager.h"
 #include "UTMcpUtils.h"
 #include "QosInterface.h"
-#include "QosEvaluator.h"
+#include "QosRegionManager.h"
 
 #define LOCTEXT_NAMESPACE "UTMatchmaking"
 #define JOIN_ACK_FAILSAFE_TIMER 30.0f
@@ -57,7 +57,7 @@ UUTMatchmaking::UUTMatchmaking(const FObjectInitializer& ObjectInitializer) :
 
 	if (!HasAnyFlags(RF_ClassDefaultObject))
 	{
-		TSharedRef<FQosInterface> QosInterface = FQosInterface::Get();
+		//FQosInterface* QosInterface = FQosInterface::Get();
 		//QosEvaluator = ensure(QosInterface) ? QosInterface->CreateQosEvaluator() : nullptr;
 	}
 }

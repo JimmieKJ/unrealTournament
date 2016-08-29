@@ -5,6 +5,8 @@
 #include "SlateBasics.h"
 #include "IWebBrowserDialog.h"
 #include "SWebBrowserView.h"
+
+
 class WEBBROWSER_API SWebBrowser
 	: public SCompoundWidget
 {
@@ -88,7 +90,7 @@ public:
 
 		/** Called before browser navigation. */
 		SLATE_EVENT(FOnBeforeBrowse, OnBeforeNavigation)
-		
+	
 		/** Called to allow bypassing page content on load. */
 		SLATE_EVENT(FOnLoadUrl, OnLoadUrl)
 

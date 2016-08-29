@@ -10,8 +10,6 @@
 #include "UTGameMessage.h"
 #include "UTAnalytics.h"
 #include "UTGameSessionNonRanked.h"
-#include "Runtime/Analytics/Analytics/Public/Analytics.h"
-#include "Runtime/Analytics/Analytics/Public/Interfaces/IAnalyticsProvider.h"
 
 
 
@@ -156,7 +154,7 @@ void AUTLobbyGameMode::OverridePlayerState(APlayerController* PC, APlayerState* 
 	}
 }
 
-FString AUTLobbyGameMode::InitNewPlayer(class APlayerController* NewPlayerController, const TSharedPtr<const FUniqueNetId>& UniqueId, const FString& Options, const FString& Portal)
+FString AUTLobbyGameMode::InitNewPlayer(class APlayerController* NewPlayerController, const FUniqueNetIdRepl& UniqueId, const FString& Options, const FString& Portal)
 {
 	FString Result = Super::InitNewPlayer(NewPlayerController, UniqueId, Options, Portal);
 	AUTLobbyPlayerState* PS = Cast<AUTLobbyPlayerState>(NewPlayerController->PlayerState);
@@ -248,7 +246,7 @@ FName AUTLobbyGameMode::GetNextChatDestination(AUTPlayerState* PlayerState, FNam
 	return ChatDestinations::Global;
 }
 
-void AUTLobbyGameMode::PreLogin(const FString& Options, const FString& Address, const TSharedPtr<const FUniqueNetId>& UniqueId, FString& ErrorMessage)
+void AUTLobbyGameMode::PreLogin(const FString& Options, const FString& Address, const FUniqueNetIdRepl& UniqueId, FString& ErrorMessage)
 {
 	if (MinAllowedRank > 0 || MaxAllowedRank > 0)
 	{
@@ -281,7 +279,7 @@ void AUTLobbyGameMode::GetInstanceData(TArray<TSharedPtr<FServerInstanceData>>& 
 			{
 				FString GameModeClassname = MatchInfo->CurrentRuleset.IsValid() ? MatchInfo->CurrentRuleset->GameMode : TEXT("");
 
-				int32 NumPlayers = MatchInfo->NumPlayersInMatch();
+				int32 CurrentNumPlayers = MatchInfo->NumPlayersInMatch();
 				TSharedPtr<FServerInstanceData> Data;
 				if (MatchInfo->bDedicatedMatch)
 				{

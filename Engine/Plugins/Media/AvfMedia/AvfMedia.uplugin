@@ -1,13 +1,14 @@
 {
 	"FileVersion" : 3,
-	"Version" : 1,
-	"VersionName" : "1.0",
+	"Version" : 2,
+	"VersionName" : "2.0",
 	"FriendlyName" : "AVF Media Player",
-	"Description" : "Implements a media player using the AV Foundation framework.",
+	"Description" : "Implements a media player using Apple AV Foundation.",
 	"Category" : "Media Players",
 	"CreatedBy" : "Epic Games, Inc.",
 	"CreatedByURL" : "http://epicgames.com",
 	"DocsURL" : "https://forums.unrealengine.com/showthread.php?46879-Media-Framework-Documentation-for-4-5-Preview",
+	"EngineVersion" : "4.13.0",
 	"MarketplaceURL" : "",
 	"SupportURL" : "",
 	"EnabledByDefault" : true,
@@ -20,11 +21,18 @@
 			"Name" : "AvfMedia",
 			"Type" : "Runtime",
 			"LoadingPhase" : "PreLoadingScreen",
-			"WhitelistPlatforms" :
-			[
-				"IOS",
-				"Mac"
-			]
+			"WhitelistPlatforms" : [ "IOS", "Mac" ]
+		},
+		{
+			"Name" : "AvfMediaEditor",
+			"Type" : "Editor",
+			"LoadingPhase" : "PostEngineInit"
+		},
+		{
+			"Name" : "AvfMediaFactory",
+			"Type" : "Runtime",
+			"LoadingPhase" : "PostEngineInit",
+			"WhitelistPlatforms" : [ "IOS", "Mac", "Linux", "Win32", "Win64" ]
 		}
 	]
 }

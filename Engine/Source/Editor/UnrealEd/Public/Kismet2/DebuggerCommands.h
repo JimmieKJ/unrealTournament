@@ -3,6 +3,24 @@
 #ifndef __DebuggerCommands_h__
 #define __DebuggerCommands_h__
 
+#include "SCompoundWidget.h"
+
+/** This class acts as a generic widget that listens to and process global play world actions */
+class UNREALED_API SGlobalPlayWorldActions : public SCompoundWidget
+{
+public:
+
+	SLATE_BEGIN_ARGS(SGlobalPlayWorldActions) {}
+		SLATE_DEFAULT_SLOT(FArguments, Content)
+
+	SLATE_END_ARGS()
+
+	void Construct(const FArguments& InArgs);
+
+	virtual FReply OnKeyDown(const FGeometry& MyGeometry, const FKeyEvent& InKeyEvent) override;
+
+	virtual bool SupportsKeyboardFocus() const override;
+};
 
 //////////////////////////////////////////////////////////////////////////
 // FPlayWorldCommands
@@ -28,6 +46,18 @@ public:
 
 	/** Populates a toolbar with the menu commands for play-world control (pause/resume/stop/possess/eject/step/show current loc) */
 	UNREALED_API static void BuildToolbar( FToolBarBuilder& ToolBarBuilder, bool bIncludeLaunchButtonAndOptions = false );
+
+	/**
+	* Return the active widget that processes play world actions for PIE
+	*
+	*/
+	static TWeakPtr<SGlobalPlayWorldActions> GetActiveGlobalPlayWorldActionsWidget();
+
+	/**
+	* Set the active widget that processes play world actions for PIE
+	*
+	*/
+	static void SetActiveGlobalPlayWorldActionsWidget(TWeakPtr<SGlobalPlayWorldActions> ActiveWidget);
 
 public:
 
@@ -67,6 +97,7 @@ public:
 	TSharedPtr<FUICommandInfo> StepInto;
 	TSharedPtr<FUICommandInfo> StepOver;
 	TSharedPtr<FUICommandInfo> StepOut;
+	TSharedPtr<FUICommandInfo> GetMouseControl;
 
 	/** Launch on device */
 	TSharedPtr<FUICommandInfo> RepeatLastLaunch;
@@ -74,6 +105,9 @@ public:
 	TSharedPtr<FUICommandInfo> OpenDeviceManager;
 
 protected:
+
+	/** A weak pointer to the current active widget that processes PIE actions */
+	static TWeakPtr<SGlobalPlayWorldActions> ActiveGlobalPlayWorldActionsWidget;
 
 	/**
 	 * Generates menu content for the PIE combo button drop down menu

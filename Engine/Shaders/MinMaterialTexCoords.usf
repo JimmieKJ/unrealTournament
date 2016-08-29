@@ -1,0 +1,18 @@
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+
+/*=============================================================================
+	MinMaterialTexCoords.usf: Definition allowing implementing MinMaterialTexCoords.
+=============================================================================*/
+
+// Allow some shader types to change the number of coords used. 
+
+#if MIN_MATERIAL_TEXCOORDS > NUM_MATERIAL_TEXCOORDS_VERTEX
+	#undef NUM_MATERIAL_TEXCOORDS_VERTEX
+	#define NUM_MATERIAL_TEXCOORDS_VERTEX MIN_MATERIAL_TEXCOORDS
+#endif
+
+#if MIN_MATERIAL_TEXCOORDS > NUM_MATERIAL_TEXCOORDS
+	#undef NUM_MATERIAL_TEXCOORDS
+	#define NUM_MATERIAL_TEXCOORDS MIN_MATERIAL_TEXCOORDS
+#endif
+

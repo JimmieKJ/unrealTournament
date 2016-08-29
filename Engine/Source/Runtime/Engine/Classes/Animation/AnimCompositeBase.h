@@ -24,7 +24,7 @@ struct FRootMotionExtractionStep
 
 	/** AnimSequence ref */
 	UPROPERTY()
-	UAnimSequence * AnimSequence;
+	UAnimSequence* AnimSequence;
 
 	/** Start position to extract root motion from. */
 	UPROPERTY()
@@ -85,6 +85,7 @@ struct FAnimSegment
 		, AnimEndTime(0.f)
 		, AnimPlayRate(1.f)
 		, LoopingCount(1)
+		, bValid(true)
 	{
 	}
 
@@ -153,6 +154,24 @@ struct FAnimSegment
 	 * Supports animation playing forward and backward. Track segment should be a contiguous range, not wrapping over due to looping.
 	 */
 	void GetRootMotionExtractionStepsForTrackRange(TArray<FRootMotionExtractionStep> & RootMotionExtractionSteps, const float StartPosition, const float EndPosition) const;
+
+	/**
+	 * return true if valid, false otherwise, only invalid if we contains recursive reference
+	 **/
+	bool IsValid() const { return bValid;  }
+
+	/** 
+	 * return true if anim notify is available 
+	 */
+	bool IsNotifyAvailable() const { return IsValid() && AnimReference && AnimReference->IsNotifyAvailable(); }
+private:
+
+	/**
+	 * This gets invalidated if this section started recursive
+	**/
+	bool bValid;
+
+	friend struct FAnimTrack;
 };
 
 /** This is list of anim segments for this track 
@@ -187,6 +206,9 @@ struct FAnimTrack
 	/** Ensure segment times are correctly formed (no gaps and no extra time at the end of the anim reference) */
 	void ValidateSegmentTimes();
 
+	/** return true if valid to add */
+	ENGINE_API bool IsValidToAdd(const UAnimSequenceBase* SequenceBase) const;
+
 	/** Gets the index of the segment at the given absolute montage time. */	
 	int32 GetSegmentIndexAtTime(float InTime);
 
@@ -196,9 +218,12 @@ struct FAnimTrack
 	/** Get animation pose function */
 	void GetAnimationPose(/*out*/ FCompactPose& OutPose,/*out*/ FBlendedCurve& OutCurve, const FAnimExtractContext& ExtractionContext) const;
 
+	/** Enable Root motion setting from montage */
+	void EnableRootMotionSettingFromMontage(bool bInEnableRootMotion, const ERootMotionRootLock::Type InRootMotionRootLock);
+
 #if WITH_EDITOR
-	bool GetAllAnimationSequencesReferred(TArray<UAnimSequence*>& AnimationSequences) const;
-	void ReplaceReferredAnimations(const TMap<UAnimSequence*, UAnimSequence*>& ReplacementMap);
+	bool GetAllAnimationSequencesReferred(TArray<UAnimationAsset*>& AnimationAssets) const;
+	void ReplaceReferredAnimations(const TMap<UAnimationAsset*, UAnimationAsset*>& ReplacementMap);
 
 	/** Moves anim segments so that there are no gaps between one finishing
 	 *  and the next starting, preserving the order of AnimSegments
@@ -207,7 +232,30 @@ struct FAnimTrack
 
 	/** Sorts AnimSegments based on the start time of each segment */
 	ENGINE_API void SortAnimSegments();
+
+	/** Get Addiitve Base Pose if additive */
+	class UAnimSequence* GetAdditiveBasePose() const;
 #endif
+
+	// this is to prevent anybody adding recursive asset to anim composite
+	// as a result of anim composite being a part of anim sequence base
+	void InvalidateRecursiveAsset(class UAnimCompositeBase* CheckAsset);
+
+	// this is recursive function that look thorough internal assets 
+	// and clear the reference if recursive is found. 
+	// We're going to remove the top reference if found
+	bool ContainRecursive(const TArray<UAnimCompositeBase*>& CurrentAccumulatedList);
+
+	/**
+	* Retrieves AnimNotifies between two Track time positions. ]PreviousTrackPosition, CurrentTrackPosition]
+	* Between PreviousTrackPosition (exclusive) and CurrentTrackPosition (inclusive).
+	* Supports playing backwards (CurrentTrackPosition<PreviousTrackPosition).
+	* Only supports contiguous range, does NOT support looping and wrapping over.
+	*/
+	void GetAnimNotifiesFromTrackPositions(const float& PreviousTrackPosition, const float& CurrentTrackPosition, TArray<const FAnimNotifyEvent *> & OutActiveNotifies) const;
+
+	/** return true if anim notify is available */
+	bool IsNotifyAvailable() const;
 };
 
 UCLASS(abstract, MinimalAPI)
@@ -220,7 +268,20 @@ class UAnimCompositeBase : public UAnimSequenceBase
 	ENGINE_API void SetSequenceLength(float InSequenceLength);
 #endif
 
+	//~ Begin UObject Interface
+	virtual void PostLoad() override;
+	//~ End UObject Interface
+
 	// Extracts root motion from the supplied FAnimTrack between the Start End range specified
 	ENGINE_API void ExtractRootMotionFromTrack(const FAnimTrack &SlotAnimTrack, float StartTrackPosition, float EndTrackPosition, FRootMotionMovementParams &RootMotion) const;
+
+	// this is to prevent anybody adding recursive asset to anim composite
+	// as a result of anim composite being a part of anim sequence base
+	virtual void InvalidateRecursiveAsset() PURE_VIRTUAL(UAnimCompositeBase::InvalidateRecursiveAsset, );
+
+	// this is recursive function that look thorough internal assets 
+	// and clear the reference if recursive is found. 
+	// We're going to remove the top reference if found
+	virtual bool ContainRecursive(TArray<UAnimCompositeBase*>& CurrentAccumulatedList) PURE_VIRTUAL(UAnimCompositeBase::ContainRecursive, return false; );
 };
 

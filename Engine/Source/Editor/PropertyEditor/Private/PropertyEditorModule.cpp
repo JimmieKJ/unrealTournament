@@ -99,14 +99,17 @@ void FPropertyEditorModule::ShutdownModule()
 
 void FPropertyEditorModule::NotifyCustomizationModuleChanged()
 {
-	// The module was changed (loaded or unloaded), force a refresh.  Note it is assumed the module unregisters all customization delegates before this
-	for( int32 ViewIndex = 0; ViewIndex < AllDetailViews.Num(); ++ViewIndex )
+	if (FSlateApplication::IsInitialized())
 	{
-		if( AllDetailViews[ ViewIndex ].IsValid() )
+		// The module was changed (loaded or unloaded), force a refresh.  Note it is assumed the module unregisters all customization delegates before this
+		for (int32 ViewIndex = 0; ViewIndex < AllDetailViews.Num(); ++ViewIndex)
 		{
-			TSharedPtr<SDetailsView> DetailViewPin = AllDetailViews[ ViewIndex ].Pin();
+			if (AllDetailViews[ViewIndex].IsValid())
+			{
+				TSharedPtr<SDetailsView> DetailViewPin = AllDetailViews[ViewIndex].Pin();
 
-			DetailViewPin->ForceRefresh();
+				DetailViewPin->ForceRefresh();
+			}
 		}
 	}
 }

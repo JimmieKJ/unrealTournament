@@ -20,12 +20,13 @@ class FHTML5PlatformEditorModule
 
 	virtual void StartupModule() override
 	{
+		FString SDKPath = FPaths::EngineDir() / TEXT("Extras/ThirdPartyNotUE/emsdk") /
 #if PLATFORM_WINDOWS
-		FString SDKPath = FPaths::EngineDir() / TEXT("Source") / TEXT("ThirdParty") / TEXT("HTML5") / TEXT("emsdk") / TEXT("Win64");
+		TEXT("Win64");
 #elif PLATFORM_MAC
-		FString SDKPath = FPaths::EngineDir() / TEXT("Source") / TEXT("ThirdParty") / TEXT("HTML5") / TEXT("emsdk") / TEXT("Mac");
+		TEXT("Mac");
 #elif PLATFORM_LINUX
-		FString SDKPath = FPaths::EngineDir() / TEXT("Source") / TEXT("ThirdParty") / TEXT("HTML5") / TEXT("emsdk") / TEXT("Linux");
+		TEXT("Linux");
 #else 
 		return; 
 #endif 

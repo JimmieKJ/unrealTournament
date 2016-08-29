@@ -547,9 +547,9 @@ void UUTHUDWidget_SpectatorSlideOut::DrawSelector(FString Command, bool bPointRi
 		FVector4 Bounds = FVector4(RenderPosition.X + (XOffset * RenderScale), RenderPosition.Y + (YOffset * RenderScale),
 			RenderPosition.X + ((XOffset + CamTypeButtonStart*Size.X) * RenderScale), RenderPosition.Y + ((YOffset + ArrowSize*Size.X) * RenderScale));
 		ClickElementStack.Add(FClickElement(Command, Bounds));
-		float Opacity = (MousePosition.X >= Bounds.X && MousePosition.X <= Bounds.Z && MousePosition.Y >= Bounds.Y && MousePosition.Y <= Bounds.W)
+		float DrawOpacity = (MousePosition.X >= Bounds.X && MousePosition.X <= Bounds.Z && MousePosition.Y >= Bounds.Y && MousePosition.Y <= Bounds.W)
 				? 1.f : 0.5f;
-		DrawTexture(UTHUDOwner->ScoreboardAtlas, XOffset, YOffset + 0.5f*CellHeight - 9.f, 18.f, 18.f, U, 188.f, UL, 65.f, Opacity, DrawColor);
+		DrawTexture(UTHUDOwner->ScoreboardAtlas, XOffset, YOffset + 0.5f*CellHeight - 9.f, 18.f, 18.f, U, 188.f, UL, 65.f, DrawOpacity, DrawColor);
 	}
 }
 
@@ -661,14 +661,14 @@ void UUTHUDWidget_SpectatorSlideOut::DrawPlayer(int32 Index, AUTPlayerState* Pla
 	}
 }
 
-int32 UUTHUDWidget_SpectatorSlideOut::MouseHitTest(FVector2D Position)
+int32 UUTHUDWidget_SpectatorSlideOut::MouseHitTest(FVector2D InPosition)
 {
 	if (bIsInteractive && UTHUDOwner->UTPlayerOwner && UTHUDOwner->UTPlayerOwner->bShowMouseCursor)
 	{
 		for (int32 i = 0; i < ClickElementStack.Num(); i++)
 		{
-			if (Position.X >= ClickElementStack[i].Bounds.X && Position.X <= ClickElementStack[i].Bounds.Z &&
-				Position.Y >= ClickElementStack[i].Bounds.Y && Position.Y <= ClickElementStack[i].Bounds.W)
+			if (InPosition.X >= ClickElementStack[i].Bounds.X && InPosition.X <= ClickElementStack[i].Bounds.Z &&
+				InPosition.Y >= ClickElementStack[i].Bounds.Y && InPosition.Y <= ClickElementStack[i].Bounds.W)
 			{
 				return i;
 			}

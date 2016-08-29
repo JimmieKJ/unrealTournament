@@ -2,32 +2,6 @@
 
 #pragma once
 
-#if 0 // this doesn't compile in 2013 express
-/**
-* An utility function for allocation chunk of zero initialized memory
-*
-* @param NumElems number of elements to allocate (may be 0, then NULL should be returned)
-* @param ElemSize size of each element in bytes (may be 0)
-* @return Pointer to memory chunk, filled with zeros or NULL if failed
-*/
-void * CallocZero(size_t NumElems, size_t ElemSize)
-{
-	void * Return = NULL;
-	const size_t Size = NumElems * ElemSize;
-	if (Size)
-	{
-		Return = FMemory::Malloc(Size);
-
-		if (Return)
-		{
-			FMemory::Memzero(Return, Size);
-		}
-	}
-
-	return Return;
-}
-#endif
-
 /**
 * HTML5 implementation of an Http request
 */
@@ -104,13 +78,12 @@ private:
 	*/
 	void CleanupRequest();
 
-	static void StaticReceiveCallback(void *arg, void *buffer, uint32 size);
-	void ReceiveCallback(void *arg, void *buffer, uint32 size);
+	static void StaticReceiveCallback(void *arg, void *buffer, uint32 size, void* httpHeaders);
+	void ReceiveCallback(void *arg, void *buffer, uint32 size, void* httpHeaders);
 	static void StaticErrorCallback(void* arg, int httpStatusCode, const char* httpStatusText);
 	void ErrorCallback(void* arg, int httpStatusCode, const char* httpStatusText);
 	static void StaticProgressCallback(void* arg, int Loaded, int Total);
 	void ProgressCallback(void* arg, int Loaded, int Total);
-
 
 private:
 	/** The response object which we will use to pair with this request */
@@ -143,6 +116,12 @@ private:
 	/** Total elapsed time in seconds since the start of the request */
 	float ElapsedTime;
 };
+
+// expose HTML5JavaScriptFx.js functions
+extern "C" {
+	void Register_OnBeforeUnload(void *arg, void(*callback)(void*));
+	void UnRegister_OnBeforeUnload(void *arg, void(*callback)(void*));
+}
 
 
 /**

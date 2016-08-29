@@ -261,7 +261,7 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(FBuildPromotionNewProjectMapTest, "System.Promo
 bool FBuildPromotionNewProjectMapTest::RunTest(const FString& Parameters)
 {
 	//New level
-	UWorld* CurrentWorld = AutomationEditorCommonUtils::CreateNewMap();
+	UWorld* CurrentWorld = FAutomationEditorCommonUtils::CreateNewMap();
 	if (CurrentWorld)
 	{
 		UE_LOG(LogGameProjectGenerationTests, Display, TEXT("Adding Level Geometry"));

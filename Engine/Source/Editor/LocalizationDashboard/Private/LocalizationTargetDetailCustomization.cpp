@@ -22,23 +22,37 @@
 
 namespace
 {
-	struct FConfigValueIdentity
+	struct FLocalizationTargetLoadingPolicyConfig
 	{
+		FLocalizationTargetLoadingPolicyConfig(ELocalizationTargetLoadingPolicy InLoadingPolicy, FString InSectionName, FString InKeyName, FString InConfigName, FString InConfigPath)
+			: LoadingPolicy(InLoadingPolicy)
+			, SectionName(MoveTemp(InSectionName))
+			, KeyName(MoveTemp(InKeyName))
+			, BaseConfigName(MoveTemp(InConfigName))
+			, ConfigPath(MoveTemp(InConfigPath))
+		{
+			DefaultConfigName = FString::Printf(TEXT("Default%s"), *BaseConfigName);
+			DefaultConfigFilePath = FString::Printf(TEXT("%s%s.ini"), *FPaths::SourceConfigDir(), *DefaultConfigName);
+		}
+
+		ELocalizationTargetLoadingPolicy LoadingPolicy;
 		FString SectionName;
 		FString KeyName;
-		FString ConfigFilePath;
+		FString BaseConfigName;
+		FString DefaultConfigName;
+		FString DefaultConfigFilePath;
+		FString ConfigPath;
 	};
 
-	TMap<ELocalizationTargetLoadingPolicy, FConfigValueIdentity> LoadingPolicyToConfigSettingMap = []()
+	static const TArray<FLocalizationTargetLoadingPolicyConfig> LoadingPolicyConfigs = []()
 	{
-		TMap<ELocalizationTargetLoadingPolicy, FConfigValueIdentity> Map;
-		Map.Add(ELocalizationTargetLoadingPolicy::Always,			FConfigValueIdentity {TEXT("Internationalization"),	TEXT("LocalizationPaths"),				GEngineIni });
-		Map.Add(ELocalizationTargetLoadingPolicy::Editor,			FConfigValueIdentity {TEXT("Internationalization"),	TEXT("LocalizationPaths"),				GEditorIni });
-		Map.Add(ELocalizationTargetLoadingPolicy::Editor,			FConfigValueIdentity {TEXT("Internationalization"),	TEXT("LocalizationPaths"),				GEditorIni });
-		Map.Add(ELocalizationTargetLoadingPolicy::PropertyNames,	FConfigValueIdentity {TEXT("Internationalization"),	TEXT("PropertyNameLocalizationPaths"),	GEditorIni });
-		Map.Add(ELocalizationTargetLoadingPolicy::ToolTips,			FConfigValueIdentity {TEXT("Internationalization"),	TEXT("ToolTipLocalizationPaths"),		GEditorIni });
-		Map.Add(ELocalizationTargetLoadingPolicy::Game,				FConfigValueIdentity {TEXT("Internationalization"),	TEXT("LocalizationPaths"),				GGameIni });
-		return Map;
+		TArray<FLocalizationTargetLoadingPolicyConfig> Array;
+		Array.Emplace(ELocalizationTargetLoadingPolicy::Always,			TEXT("Internationalization"),	TEXT("LocalizationPaths"),				TEXT("Engine"),		GEngineIni);
+		Array.Emplace(ELocalizationTargetLoadingPolicy::Editor,			TEXT("Internationalization"),	TEXT("LocalizationPaths"),				TEXT("Editor"),		GEditorIni);
+		Array.Emplace(ELocalizationTargetLoadingPolicy::Game,			TEXT("Internationalization"),	TEXT("LocalizationPaths"),				TEXT("Game"),		GGameIni);
+		Array.Emplace(ELocalizationTargetLoadingPolicy::PropertyNames,	TEXT("Internationalization"),	TEXT("PropertyNameLocalizationPaths"),	TEXT("Editor"),		GEditorIni);
+		Array.Emplace(ELocalizationTargetLoadingPolicy::ToolTips,		TEXT("Internationalization"),	TEXT("ToolTipLocalizationPaths"),		TEXT("Editor"),		GEditorIni);
+		return Array;
 	}();
 }
 
@@ -512,14 +526,14 @@ ELocalizationTargetLoadingPolicy FLocalizationTargetDetailCustomization::GetLoad
 {
 	const FString DataDirectory = LocalizationConfigurationScript::GetDataDirectory(LocalizationTarget.Get());
 
-	for (const TPair<ELocalizationTargetLoadingPolicy, FConfigValueIdentity>& Pair : LoadingPolicyToConfigSettingMap)
+	for (const FLocalizationTargetLoadingPolicyConfig& LoadingPolicyConfig : LoadingPolicyConfigs)
 	{
 		TArray<FString> LocalizationPaths;
-		GConfig->GetArray( *Pair.Value.SectionName, *Pair.Value.KeyName, LocalizationPaths, Pair.Value.ConfigFilePath );
+		GConfig->GetArray(*LoadingPolicyConfig.SectionName, *LoadingPolicyConfig.KeyName, LocalizationPaths, LoadingPolicyConfig.ConfigPath);
 
 		if (LocalizationPaths.Contains(DataDirectory))
 		{
-			return Pair.Key;
+			return LoadingPolicyConfig.LoadingPolicy;
 		}
 	}
 
@@ -529,22 +543,127 @@ ELocalizationTargetLoadingPolicy FLocalizationTargetDetailCustomization::GetLoad
 void FLocalizationTargetDetailCustomization::SetLoadingPolicy(const ELocalizationTargetLoadingPolicy LoadingPolicy)
 {
 	const FString DataDirectory = LocalizationConfigurationScript::GetDataDirectory(LocalizationTarget.Get());
+	const FString CollapsedDataDirectory = FConfigValue::CollapseValue(DataDirectory);
 
-	for (const TPair<ELocalizationTargetLoadingPolicy, FConfigValueIdentity>& Pair : LoadingPolicyToConfigSettingMap)
+	enum class EDefaultConfigOperation : uint8
 	{
+		AddExclusion,
+		RemoveExclusion,
+		AddAddition,
+		RemoveAddition,
+	};
+
+	ISourceControlProvider& SourceControlProvider = ISourceControlModule::Get().GetProvider();
+
+	auto ProcessDefaultConfigOperation = [&](const FLocalizationTargetLoadingPolicyConfig& LoadingPolicyConfig, const EDefaultConfigOperation OperationToPerform)
+	{
+		// We test the coalesced config data first, as we may be inheriting this target path from a base config.
 		TArray<FString> LocalizationPaths;
-		GConfig->GetArray( *Pair.Value.SectionName, *Pair.Value.KeyName, LocalizationPaths, Pair.Value.ConfigFilePath );
-		// Add this localization target's data directory to the appropriate localization path setting.
-		if (Pair.Key == LoadingPolicy && !LocalizationPaths.Contains(DataDirectory))
+		GConfig->GetArray(*LoadingPolicyConfig.SectionName, *LoadingPolicyConfig.KeyName, LocalizationPaths, LoadingPolicyConfig.ConfigPath);
+		const bool bHasTargetPath = LocalizationPaths.Contains(DataDirectory);
+
+		// Work out whether we need to do work with the default config...
+		switch (OperationToPerform)
 		{
-			LocalizationPaths.Add(DataDirectory);
-			GConfig->SetArray( *Pair.Value.SectionName, *Pair.Value.KeyName, LocalizationPaths, Pair.Value.ConfigFilePath );
+		case EDefaultConfigOperation::AddExclusion:
+		case EDefaultConfigOperation::RemoveAddition:
+			if (!bHasTargetPath)
+			{
+				return; // No point removing a target that doesn't exist
+			}
+			break;
+		case EDefaultConfigOperation::AddAddition:
+		case EDefaultConfigOperation::RemoveExclusion:
+			if (bHasTargetPath)
+			{
+				return; // No point adding a target that already exists
+			}
+			break;
+		default:
+			break;
 		}
-		// Remove this localization target's data directory from any inappropriate localization path setting.
-		else if (LocalizationPaths.Contains(DataDirectory))
+
+		FConfigFile IniFile;
+		FConfigCacheIni::LoadLocalIniFile(IniFile, *LoadingPolicyConfig.DefaultConfigName, /*bIsBaseIniName*/false);
+
+		FConfigSection* IniSection = IniFile.Find(*LoadingPolicyConfig.SectionName);
+		if (!IniSection)
 		{
-			LocalizationPaths.Remove(DataDirectory);
-			GConfig->SetArray( *Pair.Value.SectionName, *Pair.Value.KeyName, LocalizationPaths, Pair.Value.ConfigFilePath );
+			IniSection = &IniFile.Add(*LoadingPolicyConfig.SectionName);
+		}
+
+		switch (OperationToPerform)
+		{
+		case EDefaultConfigOperation::AddExclusion:
+			IniSection->Add(*FString::Printf(TEXT("-%s"), *LoadingPolicyConfig.KeyName), FConfigValue(*CollapsedDataDirectory));
+			break;
+		case EDefaultConfigOperation::RemoveExclusion:
+			IniSection->RemoveSingle(*FString::Printf(TEXT("-%s"), *LoadingPolicyConfig.KeyName), FConfigValue(*CollapsedDataDirectory));
+			break;
+		case EDefaultConfigOperation::AddAddition:
+			IniSection->Add(*FString::Printf(TEXT("+%s"), *LoadingPolicyConfig.KeyName), FConfigValue(*CollapsedDataDirectory));
+			break;
+		case EDefaultConfigOperation::RemoveAddition:
+			IniSection->RemoveSingle(*FString::Printf(TEXT("+%s"), *LoadingPolicyConfig.KeyName), FConfigValue(*CollapsedDataDirectory));
+			break;
+		default:
+			break;
+		}
+
+		// Make sure the file is checked out (if needed).
+		if (SourceControlProvider.IsEnabled())
+		{
+			FSourceControlStatePtr ConfigFileState = SourceControlProvider.GetState(LoadingPolicyConfig.DefaultConfigFilePath, EStateCacheUsage::Use);
+			if (!ConfigFileState.IsValid() || ConfigFileState->IsUnknown())
+			{
+				ConfigFileState = SourceControlProvider.GetState(LoadingPolicyConfig.DefaultConfigFilePath, EStateCacheUsage::ForceUpdate);
+			}
+			if (ConfigFileState.IsValid() && ConfigFileState->IsSourceControlled() && !(ConfigFileState->IsCheckedOut() || ConfigFileState->IsAdded()) && ConfigFileState->CanCheckout())
+			{
+				SourceControlProvider.Execute(ISourceControlOperation::Create<FCheckOut>(), LoadingPolicyConfig.DefaultConfigFilePath);
+			}
+		}
+		else
+		{
+			IPlatformFile& PlatformFile = FPlatformFileManager::Get().GetPlatformFile();
+			if (PlatformFile.FileExists(*LoadingPolicyConfig.DefaultConfigFilePath) && PlatformFile.IsReadOnly(*LoadingPolicyConfig.DefaultConfigFilePath))
+			{
+				PlatformFile.SetReadOnly(*LoadingPolicyConfig.DefaultConfigFilePath, false);
+			}
+		}
+
+		// Write out the new config.
+		IniFile.Dirty = true;
+		IniFile.UpdateSections(*LoadingPolicyConfig.DefaultConfigFilePath);
+
+		// Make sure to add the file now (if needed).
+		if (SourceControlProvider.IsEnabled())
+		{
+			FSourceControlStatePtr ConfigFileState = SourceControlProvider.GetState(LoadingPolicyConfig.DefaultConfigFilePath, EStateCacheUsage::Use);
+			if (ConfigFileState.IsValid() && !ConfigFileState->IsSourceControlled() && ConfigFileState->CanAdd())
+			{
+				SourceControlProvider.Execute(ISourceControlOperation::Create<FMarkForAdd>(), LoadingPolicyConfig.DefaultConfigFilePath);
+			}
+		}
+
+		// Reload the updated file into the config system.
+		FString FinalIniFileName;
+		GConfig->LoadGlobalIniFile(FinalIniFileName, *LoadingPolicyConfig.BaseConfigName, nullptr, /*bForceReload*/true);
+	};
+
+	for (const FLocalizationTargetLoadingPolicyConfig& LoadingPolicyConfig : LoadingPolicyConfigs)
+	{
+		if (LoadingPolicyConfig.LoadingPolicy == LoadingPolicy)
+		{
+			// We need to remove any exclusions for this path, and add the path if needed.
+			ProcessDefaultConfigOperation(LoadingPolicyConfig, EDefaultConfigOperation::RemoveExclusion);
+			ProcessDefaultConfigOperation(LoadingPolicyConfig, EDefaultConfigOperation::AddAddition);
+		}
+		else
+		{
+			// We need to remove any additions for this path, and exclude the path is needed.
+			ProcessDefaultConfigOperation(LoadingPolicyConfig, EDefaultConfigOperation::RemoveAddition);
+			ProcessDefaultConfigOperation(LoadingPolicyConfig, EDefaultConfigOperation::AddExclusion);
 		}
 	}
 }

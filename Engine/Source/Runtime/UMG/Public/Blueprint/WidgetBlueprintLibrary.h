@@ -29,12 +29,22 @@ public:
 	static UDragDropOperation* CreateDragDropOperation(TSubclassOf<UDragDropOperation> OperationClass);
 	
 	/** Setup an input mode that allows only the UI to respond to user input. */
-	UFUNCTION(BlueprintCallable, BlueprintCosmetic, Category="Input")
+	DEPRECATED(4.13, "Locking the mouse to the viewport is now controlled by an enum. Call SetInputMode_UIOnlyEx instead")
+	UFUNCTION(BlueprintCallable, BlueprintCosmetic, Category = "Input", meta = (DeprecatedFunction, DeprecationMessage = "Use the new version of Set Input Mode UI Only instead"), DisplayName = "Set Input Mode UI Only (Deprecated)")
 	static void SetInputMode_UIOnly(APlayerController* Target, UWidget* InWidgetToFocus = nullptr, bool bLockMouseToViewport = false);
 
+	/** Setup an input mode that allows only the UI to respond to user input. */
+	UFUNCTION(BlueprintCallable, BlueprintCosmetic, Category="Input", meta=(DisplayName="Set Input Mode UI Only"))
+	static void SetInputMode_UIOnlyEx(APlayerController* Target, UWidget* InWidgetToFocus = nullptr, EMouseLockMode InMouseLockMode = EMouseLockMode::DoNotLock);
+
 	/** Setup an input mode that allows only the UI to respond to user input, and if the UI doesn't handle it player input / player controller gets a chance. */
-	UFUNCTION(BlueprintCallable, BlueprintCosmetic, Category="Input")
+	DEPRECATED(4.13, "Locking the mouse to the viewport is now controlled by an enum. Call SetInputMode_GameAndUIEx instead")
+	UFUNCTION(BlueprintCallable, BlueprintCosmetic, Category = "Input", meta = (DeprecatedFunction, DeprecationMessage = "Use the new version of Set Input Mode Game And UI instead"), DisplayName = "Set Input Mode Game And UI (Deprecated)")
 	static void SetInputMode_GameAndUI(APlayerController* Target, UWidget* InWidgetToFocus = nullptr, bool bLockMouseToViewport = false, bool bHideCursorDuringCapture = true);
+
+	/** Setup an input mode that allows only the UI to respond to user input, and if the UI doesn't handle it player input / player controller gets a chance. */
+	UFUNCTION(BlueprintCallable, BlueprintCosmetic, Category="Input", meta = (DisplayName = "Set Input Mode Game And UI"))
+	static void SetInputMode_GameAndUIEx(APlayerController* Target, UWidget* InWidgetToFocus = nullptr, EMouseLockMode InMouseLockMode = EMouseLockMode::DoNotLock, bool bHideCursorDuringCapture = true);
 
 	/** Setup an input mode that allows only player input / player controller to respond to user input. */
 	UFUNCTION(BlueprintCallable, BlueprintCosmetic, Category="Input")
@@ -101,7 +111,7 @@ public:
 	static FEventReply Unhandled();
 
 	/**  */
-	UFUNCTION(BlueprintPure, meta=( HidePin="CapturingWidget", DefaultToSelf="CapturingWidget" ), Category="Widget|Event Reply")
+	UFUNCTION(BlueprintPure, meta=( DefaultToSelf="CapturingWidget" ), Category="Widget|Event Reply")
 	static FEventReply CaptureMouse(UPARAM(ref) FEventReply& Reply, UWidget* CapturingWidget);
 
 	/**  */
@@ -261,7 +271,7 @@ public:
 	 * @param WidgetClass The widget class to filter by.
 	 * @param TopLevelOnly Only the widgets that are direct children of the viewport will be returned.
 	 */
-	UFUNCTION(BlueprintCallable, BlueprintCosmetic, Category="Widget", meta=( WorldContext="WorldContextObject" ))
+	UFUNCTION(BlueprintCallable, BlueprintCosmetic, Category="Widget", meta=( WorldContext="WorldContextObject", DeterminesOutputType = "WidgetClass", DynamicOutputParam = "FoundWidgets" ))
 	static void GetAllWidgetsOfClass(UObject* WorldContextObject, TArray<UUserWidget*>& FoundWidgets, TSubclassOf<UUserWidget> WidgetClass, bool TopLevelOnly = true);
 
 	/**
@@ -271,7 +281,7 @@ public:
 	* @param FoundWidgets Output array of widgets that implement the specified interface.
 	* @param TopLevelOnly Only the widgets that are direct children of the viewport will be returned.
 	*/
-	UFUNCTION(BlueprintCallable, BlueprintCosmetic, Category="Widget", meta = (WorldContext = "WorldContextObject"))
+	UFUNCTION(BlueprintCallable, BlueprintCosmetic, Category="Widget", meta = (WorldContext = "WorldContextObject", DeterminesOutputType = "WidgetClass", DynamicOutputParam = "FoundWidgets"))
 	static void GetAllWidgetsWithInterface(UObject* WorldContextObject, TSubclassOf<UInterface> Interface, TArray<UUserWidget*>& FoundWidgets, bool TopLevelOnly);
 
 	UFUNCTION(BlueprintPure, Category="Widget", meta = (CompactNodeTitle = "->", BlueprintAutocast))
@@ -291,4 +301,10 @@ public:
 
 	UFUNCTION(BlueprintPure, Category="Widget", meta = ( CompactNodeTitle = "->", BlueprintAutocast ))
 	static FInputEvent GetInputEventFromNavigationEvent(const FNavigationEvent& Event);
+
+	/**
+	 * Gets the amount of padding that needs to be added when accounting for the safe zone on TVs.
+	 */
+	UFUNCTION(BlueprintCallable, Category="Widget|Safe Zone", meta=( WorldContext="WorldContextObject" ))
+	static void GetSafeZonePadding(UObject* WorldContextObject, FVector2D& SafePadding, FVector2D& SafePaddingScale, FVector2D& SpillOverPadding);
 };

@@ -2,7 +2,6 @@
 
 #include "PersonaPrivatePCH.h"
 
-#include "AnimationEditorPreviewScene.h"
 #include "SAnimationEditorViewport.h"
 #include "Runtime/Engine/Public/Slate/SceneViewport.h"
 #include "SAnimViewportToolBar.h"
@@ -29,6 +28,8 @@
 #include "Components/WindDirectionalSourceComponent.h"
 #include "Engine/StaticMesh.h"
 #include "SAnimationEditorViewport.h"
+
+#include "AssetViewerSettings.h"
 
 namespace {
 	// Value from UE3
@@ -79,7 +80,7 @@ IMPLEMENT_HIT_PROXY( HPersonaBoneProxy, HHitProxy );
 /////////////////////////////////////////////////////////////////////////
 // FAnimationViewportClient
 
-FAnimationViewportClient::FAnimationViewportClient(FAnimationEditorPreviewScene& InPreviewScene, TWeakPtr<FPersona> InPersonaPtr, const TSharedRef<SAnimationEditorViewport>& InAnimationEditorViewport)
+FAnimationViewportClient::FAnimationViewportClient(FAdvancedPreviewScene& InPreviewScene, TWeakPtr<FPersona> InPersonaPtr, const TSharedRef<SAnimationEditorViewport>& InAnimationEditorViewport)
 	: FEditorViewportClient(nullptr, &InPreviewScene, StaticCastSharedRef<SEditorViewport>(InAnimationEditorViewport))
 	, PersonaPtr( InPersonaPtr )
 	, bManipulating(false)
@@ -101,6 +102,7 @@ FAnimationViewportClient::FAnimationViewportClient(FAnimationEditorPreviewScene&
 	DrawHelper.bDrawGrid = ConfigOption->bShowGrid;
 
 	LocalAxesMode = static_cast<ELocalAxesMode::Type>(ConfigOption->DefaultLocalAxesSelection);
+	BoneDrawMode = static_cast<EBoneDrawMode::Type>(ConfigOption->DefaultBoneDrawSelection);
 
 	WidgetMode = FWidget::WM_Rotate;
 
@@ -116,15 +118,9 @@ FAnimationViewportClient::FAnimationViewportClient(FAnimationEditorPreviewScene&
 	{
 		SetRealtime(false,true); // We are PIE, don't start in realtime mode
 	}
-
-	// set visibility
-	GetAnimPreviewScene()->EditorSkyComp->SetVisibility(ConfigOption->bShowSky);
-	GetAnimPreviewScene()->EditorHeightFogComponent->SetVisibility(ConfigOption->bShowSky);
-	GetAnimPreviewScene()->EditorFloorComp->SetVisibility(ConfigOption->bShowFloor);
-
+	
 	ViewFOV = FMath::Clamp<float>(ConfigOption->ViewFOV, FOVMin, FOVMax);
 
-	EngineShowFlags.DisableAdvancedFeatures();
 	EngineShowFlags.SetSeparateTranslucency(true);
 	EngineShowFlags.SetCompositeEditorPrimitives(true);
 
@@ -134,7 +130,7 @@ FAnimationViewportClient::FAnimationViewportClient(FAnimationEditorPreviewScene&
 	bDrawUVs = false;
 	UVChannelToDraw = 0;
 
-	bAutoAlignFloor = true;
+	bAutoAlignFloor = ConfigOption->bAutoAlignFloorToMesh;
 
 	// Set audio mute option
 	UWorld* World = PreviewScene->GetWorld();
@@ -161,26 +157,23 @@ FAnimationViewportClient::FAnimationViewportClient(FAnimationEditorPreviewScene&
 		PrevWindRotation = FRotator(0, 0, 0); // roll, yaw, pitch
 		PrevWindStrength = 0.2f;
 	}
+
+	// Store direct pointer to advanced preview scene
+	AdvancedPreviewScene = static_cast<FAdvancedPreviewScene*>(PreviewScene);
+	// Register delegate to update the show flags when the post processing is turned on or off
+	UAssetViewerSettings::Get()->OnAssetViewerSettingsChanged().AddRaw(this, &FAnimationViewportClient::OnAssetViewerSettingsChanged);
+	// Set correct flags according to current profile settings
+	SetAdvancedShowFlagsForScene();
 }
 
 FAnimationViewportClient::~FAnimationViewportClient()
 {
+	UAssetViewerSettings::Get()->OnAssetViewerSettingsChanged().RemoveAll(this);
 }
 
 FLinearColor FAnimationViewportClient::GetBackgroundColor() const
 {
 	return SelectedHSVColor.HSVToLinearRGB();
-}
-
-FSceneView* FAnimationViewportClient::CalcSceneView(FSceneViewFamily* ViewFamily)
-{
-	float AmbientCubemapIntensity = 0.4f;
-
-	FSceneView* SceneView = FEditorViewportClient::CalcSceneView(ViewFamily);
-	FFinalPostProcessSettings::FCubemapEntry& CubemapEntry = *new(SceneView->FinalPostProcessSettings.ContributingCubemaps) FFinalPostProcessSettings::FCubemapEntry;
-	CubemapEntry.AmbientCubemap = GUnrealEd->GetThumbnailManager()->AmbientCubemap;
-	CubemapEntry.AmbientCubemapTintMulScaleValue = FLinearColor::White * AmbientCubemapIntensity;
-	return SceneView;
 }
 
 void FAnimationViewportClient::SetSelectedBackgroundColor(const FLinearColor& RGBColor, bool bSave/*=true*/)
@@ -240,49 +233,17 @@ bool FAnimationViewportClient::IsShowingGrid() const
 	return FEditorViewportClient::IsSetShowGridChecked();
 }
 
-void FAnimationViewportClient::OnToggleShowFloor()
-{
-	if (GetAnimPreviewScene()->EditorFloorComp)
-	{
-		GetAnimPreviewScene()->EditorFloorComp->SetVisibility(!GetAnimPreviewScene()->EditorFloorComp->bVisible);
-		Invalidate();
-	}
-
-	ConfigOption->SetShowFloor(GetAnimPreviewScene()->EditorFloorComp->bVisible);
-}
-
-bool FAnimationViewportClient::IsShowingFloor() const
-{
-	return (GetAnimPreviewScene()->EditorFloorComp) ? GetAnimPreviewScene()->EditorFloorComp->bVisible : false;
-}
-
 void FAnimationViewportClient::OnToggleAutoAlignFloor()
 {
 	bAutoAlignFloor = !bAutoAlignFloor;
 	UpdateCameraSetup();
+
+	ConfigOption->SetAutoAlignFloorToMesh(bAutoAlignFloor);
 }
 
 bool FAnimationViewportClient::IsAutoAlignFloor() const
 {
 	return bAutoAlignFloor;
-}
-
-void FAnimationViewportClient::OnToggleShowSky()
-{
-	if (GetAnimPreviewScene()->EditorSkyComp)
-	{
-		bool bNewVisibility = !GetAnimPreviewScene()->EditorSkyComp->bVisible;
-		GetAnimPreviewScene()->EditorSkyComp->SetVisibility(bNewVisibility);
-		GetAnimPreviewScene()->EditorHeightFogComponent->SetVisibility(bNewVisibility);
-		Invalidate();
-	}
-
-	ConfigOption->SetShowSky(GetAnimPreviewScene()->EditorSkyComp->bVisible);
-}
-
-bool FAnimationViewportClient::IsShowingSky() const
-{
-	return (GetAnimPreviewScene()->EditorSkyComp) ? GetAnimPreviewScene()->EditorSkyComp->bVisible : false;
 }
 
 void FAnimationViewportClient::OnToggleMuteAudio()
@@ -368,7 +329,7 @@ void FAnimationViewportClient::Draw(const FSceneView* View, FPrimitiveDrawInterf
 			DrawMeshSubsetBones(PreviewSkelMeshComp.Get(), PreviewSkelMeshComp->BonesOfInterest, PDI);
 		}
 		// otherwise, if we display bones, display
-		if ( PreviewSkelMeshComp->bDisplayBones )
+		if ( BoneDrawMode != EBoneDrawMode::None )
 		{
 			DrawMeshBones(PreviewSkelMeshComp.Get(), PDI);
 		}
@@ -392,6 +353,9 @@ void FAnimationViewportClient::Draw(const FSceneView* View, FPrimitiveDrawInterf
 		{
 			DrawMeshBonesSourceRawAnimation(PreviewSkelMeshComp.Get(), PDI);
 		}
+		
+		DrawWatchedPoses(PreviewSkelMeshComp.Get(), PDI);
+
 		// Display normal vectors of each simulation vertex
 		if ( PreviewSkelMeshComp->bDisplayClothingNormals )
 		{
@@ -590,29 +554,9 @@ FAnimNode_SkeletalControlBase* FAnimationViewportClient::FindSkeletalControlAnim
 {
 	FAnimNode_SkeletalControlBase* AnimNode = NULL;
 
-	if (!PreviewSkelMeshComp.IsValid() || !PreviewSkelMeshComp->GetAnimInstance())
+	if (PreviewSkelMeshComp.IsValid() && PreviewSkelMeshComp->GetAnimInstance() && AnimGraphNode.IsValid())
 	{
-		return NULL;
-	}
-
-	if (AnimGraphNode.IsValid())
-	{
-		// find an anim node index from debug data
-		UAnimBlueprintGeneratedClass* AnimBlueprintClass = Cast<UAnimBlueprintGeneratedClass>(PreviewSkelMeshComp->GetAnimInstance()->GetClass());
-		if (AnimBlueprintClass)
-		{
-			FAnimBlueprintDebugData& DebugData = AnimBlueprintClass->GetAnimBlueprintDebugData();
-			int32* IndexPtr = DebugData.NodePropertyToIndexMap.Find(AnimGraphNode);
-
-			if (IndexPtr)
-			{
-				int32 AnimNodeIndex = *IndexPtr;
-				// reverse node index temporarily because of a bug in NodeGuidToIndexMap
-				AnimNodeIndex = AnimBlueprintClass->AnimNodeProperties.Num() - AnimNodeIndex - 1;
-
-				AnimNode = AnimBlueprintClass->AnimNodeProperties[AnimNodeIndex]->ContainerPtrToValuePtr<FAnimNode_SkeletalControlBase>(PreviewSkelMeshComp->GetAnimInstance());
-			}
-		}
+		AnimNode = AnimGraphNode.Get()->FindDebugAnimNode(PreviewSkelMeshComp.Get());
 	}
 
 	return AnimNode;
@@ -774,8 +718,9 @@ void FAnimationViewportClient::Tick(float DeltaSeconds)
 	UDebugSkelMeshComponent* PreviewComp = PreviewSkelMeshComp.Get();
 	if (PreviewComp)
 	{
-		// Handle updating the preview component to represent the effects of root motion	
-		FBoxSphereBounds Bounds = GetAnimPreviewScene()->EditorFloorComp->CalcBounds(GetAnimPreviewScene()->EditorFloorComp->GetRelativeTransform());
+		// Handle updating the preview component to represent the effects of root motion
+		const UStaticMeshComponent* FloorMeshComponent = AdvancedPreviewScene->GetFloorMeshComponent();
+		FBoxSphereBounds Bounds = FloorMeshComponent->CalcBounds(FloorMeshComponent->GetRelativeTransform());
 		PreviewComp->ConsumeRootMotion(Bounds.GetBox().Min, Bounds.GetBox().Max);
 	}	
 
@@ -819,8 +764,8 @@ void FAnimationViewportClient::ShowBoneNames( FCanvas* Canvas, FSceneView* View 
 	{
 		const int32 BoneIndex = LODModel.RequiredBones[i];
 
-		// If previewing a specific chunk, only show the bone names that belong to it
-		if ((PreviewSkelMeshComp->ChunkIndexPreview >= 0) && !LODModel.Chunks[PreviewSkelMeshComp->ChunkIndexPreview].BoneMap.Contains(BoneIndex))
+		// If previewing a specific section, only show the bone names that belong to it
+		if ((PreviewSkelMeshComp->SectionIndexPreview >= 0) && !LODModel.Sections[PreviewSkelMeshComp->SectionIndexPreview].BoneMap.Contains(BoneIndex))
 		{
 			continue;
 		}
@@ -828,7 +773,7 @@ void FAnimationViewportClient::ShowBoneNames( FCanvas* Canvas, FSceneView* View 
 		const FColor BoneColor = FColor::White;
 		if (BoneColor.A != 0)
 		{
-			const FVector BonePos = PreviewSkelMeshComp->ComponentToWorld.TransformPosition(PreviewSkelMeshComp->GetSpaceBases()[BoneIndex].GetLocation());
+			const FVector BonePos = PreviewSkelMeshComp->ComponentToWorld.TransformPosition(PreviewSkelMeshComp->GetComponentSpaceTransforms()[BoneIndex].GetLocation());
 
 			const FPlane proj = View->Project(BonePos);
 			if (proj.W > 0.f)
@@ -855,8 +800,12 @@ void FAnimationViewportClient::DisplayInfo(FCanvas* Canvas, FSceneView* View, bo
 	StringSize( GEngine->GetSmallFont(),  XL, YL, TEXT("L") );
 	FString InfoString;
 
+	const UAssetViewerSettings* Settings = UAssetViewerSettings::Get();	
+	const UEditorPerProjectUserSettings* PerProjectUserSettings = GetDefault<UEditorPerProjectUserSettings>();
+	const int32 ProfileIndex = Settings->Profiles.IsValidIndex(PerProjectUserSettings->AssetViewerProfileIndex) ? PerProjectUserSettings->AssetViewerProfileIndex : 0;
+
 	// it is weird, but unless it's completely black, it's too bright, so just making it white if only black
-	const FLinearColor TextColor = (SelectedHSVColor.B < 0.3f) ? FLinearColor::White : FLinearColor::Black;
+	const FLinearColor TextColor = ((SelectedHSVColor.B < 0.3f) || (Settings->Profiles[ProfileIndex].bShowEnvironment)) ? FLinearColor::White : FLinearColor::Black;
 	const FColor HeadlineColour(255, 83, 0);
 	const FColor SubHeadlineColour(202, 66, 0);
 
@@ -864,6 +813,15 @@ void FAnimationViewportClient::DisplayInfo(FCanvas* Canvas, FSceneView* View, bo
 	if (!PreviewSkelMeshComp.IsValid() || !PreviewSkelMeshComp->SkeletalMesh)
 	{
 		return;
+	}
+
+	TSharedPtr<FPersona> SharedPersona = PersonaPtr.Pin();
+
+	if (SharedPersona.IsValid() && SharedPersona->ShouldDisplayAdditiveScaleErrorMessage())
+	{
+		InfoString = TEXT("Additve ref pose contains scales of 0.0, this can cause additive animations to not give the desired results");
+		Canvas->DrawShadowedString(CurXOffset, CurYOffset, *InfoString, GEngine->GetSmallFont(), SubHeadlineColour);
+		CurYOffset += YL + 2;
 	}
 
 	if (PreviewSkelMeshComp->SkeletalMesh->MorphTargets.Num() > 0)
@@ -934,11 +892,21 @@ void FAnimationViewportClient::DisplayInfo(FCanvas* Canvas, FSceneView* View, bo
 	{
 		// see if you have anim sequence that has transform curves
 		UAnimSequence* Sequence = Cast<UAnimSequence>(PreviewInstance->GetCurrentAsset());
-		if ( Sequence && Sequence->DoesNeedRebake() )
+		if (Sequence)
 		{
-			InfoString = TEXT("Animation is being edited. To apply to raw animation data, click \"Apply\"");
-			Canvas->DrawShadowedString(CurXOffset, CurYOffset, *InfoString, GEngine->GetSmallFont(), SubHeadlineColour);
-			CurYOffset += YL + 2;
+			if (Sequence->DoesNeedRebake())
+			{
+				InfoString = TEXT("Animation is being edited. To apply to raw animation data, click \"Apply\"");
+				Canvas->DrawShadowedString(CurXOffset, CurYOffset, *InfoString, GEngine->GetSmallFont(), SubHeadlineColour);
+				CurYOffset += YL + 2;
+			}
+
+			if (Sequence->DoesNeedRecompress())
+			{
+				InfoString = TEXT("Animation is being edited. To apply to compressed data (and recalculate baked additives), click \"Apply\"");
+				Canvas->DrawShadowedString(CurXOffset, CurYOffset, *InfoString, GEngine->GetSmallFont(), SubHeadlineColour);
+				CurYOffset += YL + 2;
+			}
 		}
 	}
 
@@ -978,7 +946,6 @@ void FAnimationViewportClient::DisplayInfo(FCanvas* Canvas, FSceneView* View, bo
 
 			int32 NumBonesInUse;
 			int32 NumBonesMappedToVerts;
-			int32 NumChunksInUse;
 			int32 NumSectionsInUse;
 			FString WeightUsage;
 
@@ -987,7 +954,6 @@ void FAnimationViewportClient::DisplayInfo(FCanvas* Canvas, FSceneView* View, bo
 
 			NumBonesInUse = LODModel.RequiredBones.Num();
 			NumBonesMappedToVerts = LODModel.ActiveBoneIndices.Num();
-			NumChunksInUse = LODModel.Chunks.Num();
 			NumSectionsInUse = LODModel.Sections.Num();
 
 			// Calculate polys based on non clothing sections so we don't duplicate the counts.
@@ -1012,32 +978,22 @@ void FAnimationViewportClient::DisplayInfo(FCanvas* Canvas, FSceneView* View, bo
 
 			CurYOffset += 1; // --
 
-			uint32 TotalRigidVertices = 0;
-			uint32 TotalSoftVertices = 0;
-			for (int32 ChunkIndex = 0; ChunkIndex < LODModel.Chunks.Num(); ChunkIndex++)
+			for (int32 SectionIndex = 0; SectionIndex < LODModel.Sections.Num(); SectionIndex++)
 			{
-				int32 ChunkRigidVerts = LODModel.Chunks[ChunkIndex].GetNumRigidVertices();
-				int32 ChunkSoftVerts = LODModel.Chunks[ChunkIndex].GetNumSoftVertices();
+				int32 SectionVerts = LODModel.Sections[SectionIndex].GetNumVertices();
 
-				InfoString = FString::Printf(TEXT(" [Chunk %d] Verts:%d (Rigid:%d Soft:%d), Bones:%d"),
-					ChunkIndex,
-					ChunkRigidVerts + ChunkSoftVerts,
-					ChunkRigidVerts,
-					ChunkSoftVerts,
-					LODModel.Chunks[ChunkIndex].BoneMap.Num()
+				InfoString = FString::Printf(TEXT(" [Section %d] Verts:%d, Bones:%d"),
+					SectionIndex,
+					SectionVerts,
+					LODModel.Sections[SectionIndex].BoneMap.Num()
 					);
 
 				CurYOffset += YL + 2;
 				Canvas->DrawShadowedString(CurXOffset, CurYOffset, *InfoString, GEngine->GetSmallFont(), TextColor*0.8f);
-
-				TotalRigidVertices += ChunkRigidVerts;
-				TotalSoftVertices += ChunkSoftVerts;
 			}
 
-			InfoString = FString::Printf(TEXT("TOTAL Verts:%d (Rigid:%d Soft:%d)"),
-				LODModel.NumVertices,
-				TotalRigidVertices,
-				TotalSoftVertices);
+			InfoString = FString::Printf(TEXT("TOTAL Verts:%d"),
+				LODModel.NumVertices);
 
 			CurYOffset += 1; // --
 
@@ -1045,8 +1001,7 @@ void FAnimationViewportClient::DisplayInfo(FCanvas* Canvas, FSceneView* View, bo
 			CurYOffset += YL + 2;
 			Canvas->DrawShadowedString(CurXOffset, CurYOffset, *InfoString, GEngine->GetSmallFont(), TextColor);
 
-			InfoString = FString::Printf(TEXT("Chunks:%d, Sections:%d %s"),
-				NumChunksInUse,
+			InfoString = FString::Printf(TEXT("Sections:%d %s"),
 				NumSectionsInUse,
 				*WeightUsage
 				);
@@ -1058,8 +1013,8 @@ void FAnimationViewportClient::DisplayInfo(FCanvas* Canvas, FSceneView* View, bo
 			{
 				int32 BoneIndex = PreviewSkelMeshComp->BonesOfInterest[0];
 				FTransform ReferenceTransform = PreviewSkelMeshComp->SkeletalMesh->RefSkeleton.GetRefBonePose()[BoneIndex];
-				FTransform LocalTransform = PreviewSkelMeshComp->LocalAtoms[BoneIndex];
-				FTransform ComponentTransform = PreviewSkelMeshComp->GetSpaceBases()[BoneIndex];
+				FTransform LocalTransform = PreviewSkelMeshComp->BoneSpaceTransforms[BoneIndex];
+				FTransform ComponentTransform = PreviewSkelMeshComp->GetComponentSpaceTransforms()[BoneIndex];
 
 				CurYOffset += YL + 2;
 				InfoString = FString::Printf(TEXT("Local :%s"), *LocalTransform.ToString());
@@ -1280,12 +1235,12 @@ void FAnimationViewportClient::ProcessClick(class FSceneView& View, class HHitPr
 }
 }
 
-bool FAnimationViewportClient::InputWidgetDelta( FViewport* Viewport, EAxisList::Type CurrentAxis, FVector& Drag, FRotator& Rot, FVector& Scale )
+bool FAnimationViewportClient::InputWidgetDelta( FViewport* InViewport, EAxisList::Type CurrentAxis, FVector& Drag, FRotator& Rot, FVector& Scale )
 {
 	// Get some useful info about buttons being held down
-	const bool bCtrlDown = Viewport->KeyState(EKeys::LeftControl) || Viewport->KeyState(EKeys::RightControl);
-	const bool bShiftDown = Viewport->KeyState(EKeys::LeftShift) || Viewport->KeyState(EKeys::RightShift);
-	const bool bMouseButtonDown = Viewport->KeyState( EKeys::LeftMouseButton ) || Viewport->KeyState( EKeys::MiddleMouseButton ) || Viewport->KeyState( EKeys::RightMouseButton );
+	const bool bCtrlDown = InViewport->KeyState(EKeys::LeftControl) || InViewport->KeyState(EKeys::RightControl);
+	const bool bShiftDown = InViewport->KeyState(EKeys::LeftShift) || InViewport->KeyState(EKeys::RightShift);
+	const bool bMouseButtonDown = InViewport->KeyState( EKeys::LeftMouseButton ) || InViewport->KeyState( EKeys::MiddleMouseButton ) || InViewport->KeyState( EKeys::RightMouseButton );
 
 	bool bHandled = false;
 
@@ -1436,7 +1391,7 @@ bool FAnimationViewportClient::InputWidgetDelta( FViewport* Viewport, EAxisList:
 			}
 		}
 
-		Viewport->Invalidate();
+		InViewport->Invalidate();
 	}
 
 	return bHandled;
@@ -1618,10 +1573,9 @@ FMatrix FAnimationViewportClient::GetWidgetCoordSystem() const
 		{
 			USkeletalMeshSocket* Socket = PreviewSkelMeshComp->SocketsOfInterest.Last().Socket;
 
-			FMatrix SocketMatrix;
-			Socket->GetSocketMatrix( SocketMatrix, PreviewSkelMeshComp.Get() );
-
-			return SocketMatrix.RemoveTranslation();
+			FTransform SocketMatrix = Socket->GetSocketTransform( PreviewSkelMeshComp.Get() );
+			
+			return SocketMatrix.ToMatrixNoScale().RemoveTranslation();
 		}
 		else if ( SelectedWindActor.IsValid() )
 		{
@@ -1656,10 +1610,16 @@ void FAnimationViewportClient::SetViewportType(ELevelViewportType InViewportType
 	FocusViewportOnPreviewMesh();
 }
 
-bool FAnimationViewportClient::InputKey( FViewport* Viewport, int32 ControllerId, FKey Key, EInputEvent Event, float AmountDepressed, bool bGamepad )
+void FAnimationViewportClient::RotateViewportType()
 {
-	const int32 HitX = Viewport->GetMouseX();
-	const int32 HitY = Viewport->GetMouseY();
+	FEditorViewportClient::RotateViewportType();
+	FocusViewportOnPreviewMesh();
+}
+
+bool FAnimationViewportClient::InputKey( FViewport* InViewport, int32 ControllerId, FKey Key, EInputEvent Event, float AmountDepressed, bool bGamepad )
+{
+	const int32 HitX = InViewport->GetMouseX();
+	const int32 HitY = InViewport->GetMouseY();
 
 	bool bHandled = false;
 
@@ -1711,10 +1671,34 @@ bool FAnimationViewportClient::InputKey( FViewport* Viewport, int32 ControllerId
 		FocusViewportOnPreviewMesh();
 	}
 
+	FAdvancedPreviewScene* AdvancedScene = static_cast<FAdvancedPreviewScene*>(PreviewScene);
+	bHandled |= AdvancedScene->HandleInputKey(InViewport, ControllerId, Key, Event, AmountDepressed, bGamepad);
+
 	// Pass keys to standard controls, if we didn't consume input
 	return (bHandled)
 		? true
-		: FEditorViewportClient::InputKey(Viewport,  ControllerId,  Key,  Event,  AmountDepressed,  bGamepad);
+		: FEditorViewportClient::InputKey(InViewport,  ControllerId,  Key,  Event,  AmountDepressed,  bGamepad);
+}
+
+bool FAnimationViewportClient::InputAxis(FViewport* InViewport, int32 ControllerId, FKey Key, float Delta, float DeltaTime, int32 NumSamples /*= 1*/, bool bGamepad /*= false*/)
+{
+	bool bResult = true;
+
+	if (!bDisableInput)
+	{
+		FAdvancedPreviewScene* AdvancedScene = (FAdvancedPreviewScene*)PreviewScene;
+		bResult = AdvancedScene->HandleViewportInput(InViewport, ControllerId, Key, Delta, DeltaTime, NumSamples, bGamepad);
+		if (bResult)
+		{
+			Invalidate();
+		}
+		else
+		{
+			bResult = FEditorViewportClient::InputAxis(InViewport, ControllerId, Key, Delta, DeltaTime, NumSamples, bGamepad);
+		}
+	}
+
+	return bResult;
 }
 
 void FAnimationViewportClient::SetWidgetMode(FWidget::EWidgetMode InMode)
@@ -1761,6 +1745,17 @@ bool FAnimationViewportClient::IsLocalAxesModeSet( ELocalAxesMode::Type AxesMode
 	return LocalAxesMode == AxesMode;
 }
 
+void FAnimationViewportClient::SetBoneDrawMode(EBoneDrawMode::Type AxesMode)
+{
+	BoneDrawMode = AxesMode;
+	ConfigOption->SetDefaultBoneDrawSelection(AxesMode);
+}
+
+bool FAnimationViewportClient::IsBoneDrawModeSet(EBoneDrawMode::Type AxesMode) const
+{
+	return BoneDrawMode == AxesMode;
+}
+
 void FAnimationViewportClient::DrawBonesFromTransforms(TArray<FTransform>& Transforms, UDebugSkelMeshComponent * MeshComponent, FPrimitiveDrawInterface* PDI, FLinearColor BoneColour, FLinearColor RootBoneColour) const
 {
 	if ( Transforms.Num() > 0 )
@@ -1782,6 +1777,38 @@ void FAnimationViewportClient::DrawBonesFromTransforms(TArray<FTransform>& Trans
 		}
 
 		DrawBones(MeshComponent, MeshComponent->RequiredBones, WorldTransforms, PDI, BoneColours);
+	}
+}
+
+void FAnimationViewportClient::DrawBonesFromCompactPose(const FCompactHeapPose& Pose, UDebugSkelMeshComponent * MeshComponent, FPrimitiveDrawInterface* PDI, const FLinearColor& DrawColour) const
+{
+	if (Pose.GetNumBones() > 0)
+	{
+		TArray<FTransform> WorldTransforms;
+		WorldTransforms.AddUninitialized(Pose.GetBoneContainer().GetNumBones());
+
+		TArray<FLinearColor> BoneColours;
+		BoneColours.AddUninitialized(Pose.GetBoneContainer().GetNumBones());
+
+		// we could cache parent bones as we calculate, but right now I'm not worried about perf issue of this
+		for (FCompactPoseBoneIndex BoneIndex : Pose.ForEachBoneIndex())
+		{
+			FMeshPoseBoneIndex MeshBoneIndex = Pose.GetBoneContainer().MakeMeshPoseIndex(BoneIndex);
+
+			int32 ParentIndex = Pose.GetBoneContainer().GetParentBoneIndex(MeshBoneIndex.GetInt());
+
+			if (ParentIndex == INDEX_NONE)
+			{
+				WorldTransforms[MeshBoneIndex.GetInt()] = Pose[BoneIndex] * MeshComponent->ComponentToWorld;
+			}
+			else
+			{
+				WorldTransforms[MeshBoneIndex.GetInt()] = Pose[BoneIndex] * WorldTransforms[ParentIndex];
+			}
+			BoneColours[MeshBoneIndex.GetInt()] = DrawColour;
+		}
+
+		DrawBones(MeshComponent, MeshComponent->RequiredBones, WorldTransforms, PDI, BoneColours, 1.0f, true);
 	}
 }
 
@@ -1817,6 +1844,26 @@ void FAnimationViewportClient::DrawMeshBonesSourceRawAnimation(UDebugSkelMeshCom
 	}
 }
 
+void FAnimationViewportClient::DrawWatchedPoses(UDebugSkelMeshComponent * MeshComponent, FPrimitiveDrawInterface* PDI)
+{
+	if (UAnimInstance* AnimInstance = MeshComponent->GetAnimInstance())
+	{
+		if (UAnimBlueprintGeneratedClass* AnimBlueprintGeneratedClass = Cast<UAnimBlueprintGeneratedClass>(AnimInstance->GetClass()))
+		{
+			if (UAnimBlueprint* Blueprint = Cast<UAnimBlueprint>(AnimBlueprintGeneratedClass->ClassGeneratedBy))
+			{
+				if (Blueprint->GetObjectBeingDebugged() == AnimInstance)
+				{
+					for (const FAnimNodePoseWatch& AnimNodePoseWatch : AnimBlueprintGeneratedClass->GetAnimBlueprintDebugData().AnimNodePoseWatch)
+					{
+						DrawBonesFromCompactPose(*AnimNodePoseWatch.PoseInfo.Get(), MeshComponent, PDI, AnimNodePoseWatch.PoseDrawColour);
+					}
+				}
+			}
+		}
+	}
+}
+
 void FAnimationViewportClient::DrawMeshBonesBakedAnimation(UDebugSkelMeshComponent * MeshComponent, FPrimitiveDrawInterface* PDI) const
 {
 	if(MeshComponent && MeshComponent->SkeletalMesh)
@@ -1830,10 +1877,10 @@ void FAnimationViewportClient::DrawMeshBones(USkeletalMeshComponent * MeshCompon
 	if ( MeshComponent && MeshComponent->SkeletalMesh )
 	{
 		TArray<FTransform> WorldTransforms;
-		WorldTransforms.AddUninitialized(MeshComponent->GetNumSpaceBases());
+		WorldTransforms.AddUninitialized(MeshComponent->GetNumComponentSpaceTransforms());
 
 		TArray<FLinearColor> BoneColours;
-		BoneColours.AddUninitialized(MeshComponent->GetNumSpaceBases());
+		BoneColours.AddUninitialized(MeshComponent->GetNumComponentSpaceTransforms());
 
 		TArray<int32> SelectedBones;
 		if(UDebugSkelMeshComponent* DebugMeshComponent = Cast<UDebugSkelMeshComponent>(MeshComponent))
@@ -1847,7 +1894,7 @@ void FAnimationViewportClient::DrawMeshBones(USkeletalMeshComponent * MeshCompon
 			const int32 BoneIndex = MeshComponent->RequiredBones[Index];
 			const int32 ParentIndex = MeshComponent->SkeletalMesh->RefSkeleton.GetParentIndex(BoneIndex);
 
-			WorldTransforms[BoneIndex] = MeshComponent->GetSpaceBases()[BoneIndex]*MeshComponent->ComponentToWorld;
+			WorldTransforms[BoneIndex] = MeshComponent->GetComponentSpaceTransforms()[BoneIndex] * MeshComponent->ComponentToWorld;
 			
 			if(SelectedBones.Contains(BoneIndex))
 			{
@@ -1863,7 +1910,7 @@ void FAnimationViewportClient::DrawMeshBones(USkeletalMeshComponent * MeshCompon
 	}
 }
 
-void FAnimationViewportClient::DrawBones(const USkeletalMeshComponent* MeshComponent, const TArray<FBoneIndexType> & RequiredBones, const TArray<FTransform> & WorldTransforms, FPrimitiveDrawInterface* PDI, const TArray<FLinearColor>& BoneColours, float LineThickness/*=0.f*/) const
+void FAnimationViewportClient::DrawBones(const USkeletalMeshComponent* MeshComponent, const TArray<FBoneIndexType> & RequiredBones, const TArray<FTransform> & WorldTransforms, FPrimitiveDrawInterface* PDI, const TArray<FLinearColor>& BoneColours, float LineThickness/*=0.f*/, bool bForceDraw/*=false*/) const
 {
 	check ( MeshComponent && MeshComponent->SkeletalMesh );
 
@@ -1876,41 +1923,48 @@ void FAnimationViewportClient::DrawBones(const USkeletalMeshComponent* MeshCompo
 		for ( int32 Index=0; Index<RequiredBones.Num(); ++Index )
 		{
 			const int32 BoneIndex = RequiredBones[Index];
-			const int32 ParentIndex = MeshComponent->SkeletalMesh->RefSkeleton.GetParentIndex(BoneIndex);
-			FVector Start, End;
-			FLinearColor LineColor = BoneColours[BoneIndex];
 
-			if (ParentIndex >=0)
+			if (bForceDraw ||
+				(BoneDrawMode == EBoneDrawMode::All) ||
+				((BoneDrawMode == EBoneDrawMode::Selected) && SelectedBones.Contains(BoneIndex) )
+				)
 			{
-				Start = WorldTransforms[ParentIndex].GetLocation();
-				End = WorldTransforms[BoneIndex].GetLocation();
-			}
-			else
-			{
-				Start = FVector::ZeroVector;
-				End = WorldTransforms[BoneIndex].GetLocation();
-			}
+				const int32 ParentIndex = MeshComponent->SkeletalMesh->RefSkeleton.GetParentIndex(BoneIndex);
+				FVector Start, End;
+				FLinearColor LineColor = BoneColours[BoneIndex];
 
-			static const float SphereRadius = 1.0f;
-			TArray<FVector> Verts;
+				if (ParentIndex >= 0)
+				{
+					Start = WorldTransforms[ParentIndex].GetLocation();
+					End = WorldTransforms[BoneIndex].GetLocation();
+				}
+				else
+				{
+					Start = FVector::ZeroVector;
+					End = WorldTransforms[BoneIndex].GetLocation();
+				}
 
-			//Calc cone size 
-			FVector EndToStart = (Start-End);
-			float ConeLength = EndToStart.Size();
-			float Angle = FMath::RadiansToDegrees(FMath::Atan(SphereRadius / ConeLength));
+				static const float SphereRadius = 1.0f;
+				TArray<FVector> Verts;
 
-			//Render Sphere for bone end point and a cone between it and its parent.
-			PDI->SetHitProxy( new HPersonaBoneProxy( MeshComponent->SkeletalMesh->RefSkeleton.GetBoneName(BoneIndex)) );
-			DrawWireSphere(PDI, End, LineColor, SphereRadius, 10, SDPG_Foreground);
-			DrawWireCone(PDI, Verts, FRotationMatrix::MakeFromX(EndToStart)*FTranslationMatrix(End), ConeLength, Angle, 4, LineColor, SDPG_Foreground);
-			PDI->SetHitProxy( NULL );
-		
-			// draw gizmo
-			if( (LocalAxesMode == ELocalAxesMode::All) || 
-				((LocalAxesMode == ELocalAxesMode::Selected) && SelectedBones.Contains(BoneIndex)) 
-			  )
-			{
-				RenderGizmo(WorldTransforms[BoneIndex], PDI);
+				//Calc cone size 
+				FVector EndToStart = (Start - End);
+				float ConeLength = EndToStart.Size();
+				float Angle = FMath::RadiansToDegrees(FMath::Atan(SphereRadius / ConeLength));
+
+				//Render Sphere for bone end point and a cone between it and its parent.
+				PDI->SetHitProxy(new HPersonaBoneProxy(MeshComponent->SkeletalMesh->RefSkeleton.GetBoneName(BoneIndex)));
+				DrawWireSphere(PDI, End, LineColor, SphereRadius, 10, SDPG_Foreground);
+				DrawWireCone(PDI, Verts, FRotationMatrix::MakeFromX(EndToStart)*FTranslationMatrix(End), ConeLength, Angle, 4, LineColor, SDPG_Foreground);
+				PDI->SetHitProxy(NULL);
+
+				// draw gizmo
+				if ((LocalAxesMode == ELocalAxesMode::All) ||
+					((LocalAxesMode == ELocalAxesMode::Selected) && SelectedBones.Contains(BoneIndex))
+					)
+				{
+					RenderGizmo(WorldTransforms[BoneIndex], PDI);
+				}
 			}
 		}
 	}
@@ -1945,10 +1999,10 @@ void FAnimationViewportClient::DrawMeshSubsetBones(const USkeletalMeshComponent*
 	if ( MeshComponent && MeshComponent->SkeletalMesh && BonesOfInterest.Num() > 0 )
 	{
 		TArray<FTransform> WorldTransforms;
-		WorldTransforms.AddUninitialized(MeshComponent->GetNumSpaceBases());
+		WorldTransforms.AddUninitialized(MeshComponent->GetNumComponentSpaceTransforms());
 
 		TArray<FLinearColor> BoneColours;
-		BoneColours.AddUninitialized(MeshComponent->GetNumSpaceBases());
+		BoneColours.AddUninitialized(MeshComponent->GetNumComponentSpaceTransforms());
 
 		TArray<FBoneIndexType> RequiredBones;
 
@@ -1977,7 +2031,7 @@ void FAnimationViewportClient::DrawMeshSubsetBones(const USkeletalMeshComponent*
 					//found a bone we are interested in
 					if(ParentIndex >= 0)
 					{
-						WorldTransforms[ParentIndex] = MeshComponent->GetSpaceBases()[ParentIndex]*MeshComponent->ComponentToWorld;
+						WorldTransforms[ParentIndex] = MeshComponent->GetComponentSpaceTransforms()[ParentIndex]*MeshComponent->ComponentToWorld;
 					}
 					BoneColours[BoneIndex] = LinearSelectionColor;
 					bDrawBone = true;
@@ -1995,7 +2049,7 @@ void FAnimationViewportClient::DrawMeshSubsetBones(const USkeletalMeshComponent*
 			{
 				//add to the list
 				RequiredBones.AddUnique(BoneIndex);
-				WorldTransforms[BoneIndex] = MeshComponent->GetSpaceBases()[BoneIndex]*MeshComponent->ComponentToWorld;
+				WorldTransforms[BoneIndex] = MeshComponent->GetComponentSpaceTransforms()[BoneIndex] * MeshComponent->ComponentToWorld;
 			}
 		}
 
@@ -2023,7 +2077,7 @@ void FAnimationViewportClient::DrawSockets( TArray<USkeletalMeshSocket*>& Socket
 			FVector Start, End;
 			if (ParentIndex >=0)
 			{
-				FTransform WorldTransformParent = DebugMeshComponent->GetSpaceBases()[ParentIndex]*DebugMeshComponent->ComponentToWorld;
+				FTransform WorldTransformParent = DebugMeshComponent->GetComponentSpaceTransforms()[ParentIndex]*DebugMeshComponent->ComponentToWorld;
 				Start = WorldTransformParent.GetLocation();
 				End = WorldTransformSocket.GetLocation();
 			}
@@ -2125,19 +2179,11 @@ void FAnimationViewportClient::UpdateCameraSetup()
 		FVector CustomOrbitLookAt = BoundSphere.Center;
 
 		SetCameraSetup(CustomOrbitLookAt, CustomOrbitRotation, CustomOrbitZoom, CustomOrbitLookAt, GetViewLocation(), GetViewRotation() );
-
+		
 		// Move the floor to the bottom of the bounding box of the mesh, rather than on the origin
 		FVector Bottom = PreviewSkelMeshComp->Bounds.GetBoxExtrema(0);
-
-		if (GetAnimPreviewScene()->EditorFloorComp)
-		{
-			FVector FloorPos(0.f, 0.f, 0.f);
-			if (bAutoAlignFloor)
-			{
-				FloorPos.Z = GetFloorOffset() + Bottom.Z;
-			}
-			GetAnimPreviewScene()->EditorFloorComp->SetWorldTransform(FTransform(FQuat::Identity, FloorPos, FVector(3.0f, 3.0f, 1.0f)));
-		}
+		const float FloorOffset = GetFloorOffset() + (bAutoAlignFloor ? -Bottom.Z : 0.0f);
+		AdvancedPreviewScene->SetFloorOffset(FloorOffset);
 	}
 }
 
@@ -2296,6 +2342,25 @@ FText FAnimationViewportClient::GetGravityScaleLabel() const
 	return FText::AsNumber(SliderValue, &FormatOptions);
 }
 
+void FAnimationViewportClient::ToggleCPUSkinning()
+{
+	if (PreviewSkelMeshComp.IsValid())
+	{
+		PreviewSkelMeshComp->bCPUSkinning = !PreviewSkelMeshComp->bCPUSkinning;
+		PreviewSkelMeshComp->MarkRenderStateDirty();
+		Invalidate();
+	}
+}
+
+bool FAnimationViewportClient::IsSetCPUSkinningChecked() const
+{
+	if (PreviewSkelMeshComp.IsValid())
+	{
+		return PreviewSkelMeshComp->bCPUSkinning;
+	}
+	return false;
+}
+
 void FAnimationViewportClient::ToggleShowNormals()
 {
 	if(PreviewSkelMeshComp.IsValid())
@@ -2392,9 +2457,25 @@ int32 FAnimationViewportClient::GetShowMeshStats() const
 	return ConfigOption->ShowMeshStats;
 }
 
-FAnimationEditorPreviewScene* FAnimationViewportClient::GetAnimPreviewScene() const
+void FAnimationViewportClient::OnAssetViewerSettingsChanged(const FName& InPropertyName)
 {
-	return static_cast<FAnimationEditorPreviewScene*>(PreviewScene);
+	if (InPropertyName == GET_MEMBER_NAME_CHECKED(FPreviewSceneProfile, bPostProcessingEnabled))
+	{
+		SetAdvancedShowFlagsForScene();
+	}
+}
+
+void FAnimationViewportClient::SetAdvancedShowFlagsForScene()
+{
+	const bool bAdvancedShowFlags = UAssetViewerSettings::Get()->Profiles[AdvancedPreviewScene->GetCurrentProfileIndex()].bPostProcessingEnabled;
+	if (bAdvancedShowFlags)
+	{
+		EngineShowFlags.EnableAdvancedFeatures();
+	}
+	else
+	{
+		EngineShowFlags.DisableAdvancedFeatures();
+	}
 }
 
 #undef LOCTEXT_NAMESPACE

@@ -55,7 +55,8 @@ public:
 		SpotAngles = FVector2D( -2.0f, 1.0f );
 		LightSourceRadius = SourceRadius;
 		LightSourceLength = SourceLength;
-		LightMinRoughness = MinRoughness;
+		// Prevent 0 Roughness which causes NaNs in Vis_SmithJointApprox
+		LightMinRoughness = FMath::Max(MinRoughness, .04f);
 	}
 
 	virtual FSphere GetBoundingSphere() const
@@ -81,8 +82,8 @@ public:
 			OutInitializer.WAxis = FVector4(0,0,1,0);
 			OutInitializer.MinLightW = 0.1f;
 			OutInitializer.MaxDistanceToCastInLightW = Radius;
-			OutInitializer.CascadeSettings.bOnePassPointLightShadow = true;
-			OutInitializer.CascadeSettings.bRayTracedDistanceField = UseRayTracedDistanceFieldShadows() && DoesPlatformSupportDistanceFieldShadowing(ViewFamily.GetShaderPlatform());
+			OutInitializer.bOnePassPointLightShadow = true;
+			OutInitializer.bRayTracedDistanceField = UseRayTracedDistanceFieldShadows() && DoesPlatformSupportDistanceFieldShadowing(ViewFamily.GetShaderPlatform());
 			return true;
 		}
 		
@@ -165,14 +166,14 @@ void UPointLightComponent::SetSourceLength(float NewValue)
 	}
 }
 
-bool UPointLightComponent::AffectsBounds(const FBoxSphereBounds& Bounds) const
+bool UPointLightComponent::AffectsBounds(const FBoxSphereBounds& InBounds) const
 {
-	if((Bounds.Origin - ComponentToWorld.GetLocation()).SizeSquared() > FMath::Square(AttenuationRadius + Bounds.SphereRadius))
+	if((InBounds.Origin - ComponentToWorld.GetLocation()).SizeSquared() > FMath::Square(AttenuationRadius + InBounds.SphereRadius))
 	{
 		return false;
 	}
 
-	if(!Super::AffectsBounds(Bounds))
+	if(!Super::AffectsBounds(InBounds))
 	{
 		return false;
 	}

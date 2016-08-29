@@ -222,6 +222,7 @@ inline void LowPassFilter(int32 X1, int32 Y1, int32 X2, int32 Y2, FLandscapeBrus
 			float Ratio = 1.0f - DetailScale;
 			float Dist = FMath::Min<float>((Dims[0] * Ratio)*(Dims[0] * Ratio), (Dims[1] * Ratio)*(Dims[1] * Ratio));
 			float Filter = 1.0 / (1.0 + DistFromCenter / Dist);
+			CA_SUPPRESS(6385);
 			out[X + Y*Dims[1]].r *= Filter;
 			out[X + Y*Dims[1]].i *= Filter;
 		}
@@ -1332,12 +1333,14 @@ public:
 			if (MousePositions.Num() > 0)
 			{
 				ToolStroke->Apply(ViewportClient, EdMode->CurrentBrush, EdMode->UISettings, MousePositions);
+				ViewportClient->Invalidate(false, false);
 				MousePositions.Empty(1);
 			}
 			else if (TStrokeClass::UseContinuousApply && TimeSinceLastMouseMove >= 0.25f)
 			{
 				MousePositions.Emplace(LastMousePosition, IsShiftDown(ViewportClient->Viewport));
 				ToolStroke->Apply(ViewportClient, EdMode->CurrentBrush, EdMode->UISettings, MousePositions);
+				ViewportClient->Invalidate(false, false);
 				MousePositions.Empty(1);
 			}
 			TimeSinceLastMouseMove += DeltaTime;

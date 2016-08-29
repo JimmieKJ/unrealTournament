@@ -14,12 +14,11 @@ TSharedRef<SWidget>	SGraphPinIndex::GetDefaultValueWidget()
 {
 	const UEdGraphSchema_K2* Schema = GetDefault<UEdGraphSchema_K2>();
 
-	return SNew(SPinTypeSelector, FGetPinTypeTree::CreateUObject(Schema, &UEdGraphSchema_K2::GetVariableIndexTypeTree))
+	return SNew(SPinTypeSelector, FGetPinTypeTree::CreateUObject(Schema, &UEdGraphSchema_K2::GetVariableTypeTree))
 		.TargetPinType(this, &SGraphPinIndex::OnGetPinType)
 		.OnPinTypeChanged(this, &SGraphPinIndex::OnTypeChanged)
 		.Schema(Schema)
-		.bAllowExec(false)
-		.bAllowWildcard(false)
+		.TypeTreeFilter(ETypeTreeFilter::IndexTypesOnly)
 		.IsEnabled(true)
 		.bAllowArrays(false);
 }

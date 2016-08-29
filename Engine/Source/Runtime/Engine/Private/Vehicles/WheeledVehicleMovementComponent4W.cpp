@@ -198,8 +198,8 @@ static void GetVehicleAutoBoxSetup(const FVehicleTransmissionData& Setup, PxVehi
 	for (int32 i = 0; i < Setup.ForwardGears.Num(); i++)
 	{
 		const FVehicleGearData& GearData = Setup.ForwardGears[i];
-		PxSetup.mUpRatios[i] = GearData.UpRatio;
-		PxSetup.mDownRatios[i] = GearData.DownRatio;
+		PxSetup.mUpRatios[i + PxVehicleGearsData::eFIRST] = GearData.UpRatio;
+		PxSetup.mDownRatios[i + PxVehicleGearsData::eFIRST] = GearData.DownRatio;
 	}
 	PxSetup.mUpRatios[PxVehicleGearsData::eNEUTRAL] = Setup.NeutralGearUpRatio;
 	PxSetup.setLatency(Setup.GearAutoBoxLatency);

@@ -4,9 +4,6 @@
 
 #include "Interfaces/Interface_CollisionDataProvider.h"
 #include "Components/SkinnedMeshComponent.h"
-#include "PhysicsEngine/PhysicsConstraintComponent.h"
-#include "SkeletalMeshTypes.h"
-#include "Animation/AnimationAsset.h"
 #include "AnimCurveTypes.h"
 #include "ClothSimData.h"
 #include "SingleAnimationPlayData.h"
@@ -17,6 +14,9 @@
 class UAnimInstance;
 struct FEngineShowFlags;
 struct FConvexVolume;
+struct FClothingAssetData;
+struct FRootMotionMovementParams;
+struct FApexClothCollisionVolumeData;
 
 DECLARE_MULTICAST_DELEGATE(FOnSkelMeshPhysicsCreatedMultiCast);
 typedef FOnSkelMeshPhysicsCreatedMultiCast::FDelegate FOnSkelMeshPhysicsCreated;
@@ -106,8 +106,8 @@ struct FAnimationEvaluationContext
 	USkeletalMesh* SkeletalMesh;
 
 	// Double buffer evaluation data
-	TArray<FTransform> SpaceBases;
-	TArray<FTransform> LocalAtoms;
+	TArray<FTransform> ComponentSpaceTransforms;
+	TArray<FTransform> BoneSpaceTransforms;
 	FVector RootBoneTranslation;
 
 	// Double buffer curve data
@@ -137,10 +137,10 @@ struct FAnimationEvaluationContext
 	{
 		AnimInstance = Other.AnimInstance;
 		SkeletalMesh = Other.SkeletalMesh;
-		SpaceBases.Reset();
-		SpaceBases.Append(Other.SpaceBases);
-		LocalAtoms.Reset();
-		LocalAtoms.Append(Other.LocalAtoms);
+		ComponentSpaceTransforms.Reset();
+		ComponentSpaceTransforms.Append(Other.ComponentSpaceTransforms);
+		BoneSpaceTransforms.Reset();
+		BoneSpaceTransforms.Append(Other.BoneSpaceTransforms);
 		RootBoneTranslation = Other.RootBoneTranslation;
 		Curve.InitFrom(Other.Curve);
 		bDoInterpolation = Other.bDoInterpolation;
@@ -244,6 +244,17 @@ namespace EAnimationMode
 		AnimationSingleNode UMETA(DisplayName="Use Animation Asset")
 	};
 }
+
+UENUM()
+namespace EPhysicsTransformUpdateMode
+{
+	enum Type
+	{
+		SimulationUpatesComponentTransform,
+		ComponentTransformIsKinematic
+	};
+}
+
 
 /** Enum for indicating whether kinematic updates can be deferred */
 enum class EAllowKinematicDeferral
@@ -364,21 +375,25 @@ public:
 	UPROPERTY(transient)
 	class UAnimInstance* AnimScriptInstance;
 
+	/** Any running sub anim instances that need to be updates on the game thread */
+	UPROPERTY(transient)
+	TArray<UAnimInstance*> SubInstances;
+
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Animation, meta=(ShowOnlyInnerProperties))
 	struct FSingleAnimationPlayData AnimationData;
 
 	/** Temporary array of local-space (relative to parent bone) rotation/translation for each bone. */
-	TArray<FTransform> LocalAtoms;
+	TArray<FTransform> BoneSpaceTransforms;
 	
 	// Update Rate
 
-	/** Cached LocalAtoms for Update Rate optimization. */
+	/** Cached BoneSpaceTransforms for Update Rate optimization. */
 	UPROPERTY(Transient)
-	TArray<FTransform> CachedLocalAtoms;
+	TArray<FTransform> CachedBoneSpaceTransforms;
 
 	/** Cached SpaceBases for Update Rate optimization. */
 	UPROPERTY(Transient)
-	TArray<FTransform> CachedSpaceBases;
+	TArray<FTransform> CachedComponentSpaceTransforms;
 
 	/** Cached Curve result for Update Rate optimization */
 	FBlendedHeapCurve CachedCurve;
@@ -391,18 +406,16 @@ public:
 	UPROPERTY(transient)
 	uint32 bHasValidBodies:1;
 
-	/** Set during InitArticulated, to indicate if there are bodies in the sync scene */
-	uint32 bHasBodiesInSyncScene:1;
-
-	/** Set during InitArticulated, to indicate if there are bodies in the async scene */
-	uint32 bHasBodiesInAsyncScene:1;
-
 	/** Indicates that this SkeletalMeshComponent has deferred kinematic bone updates until next physics sim.  */
 	uint32 bDeferredKinematicUpdate:1;
 
 	/** If we are running physics, should we update non-simulated bones based on the animation bone positions. */
 	UPROPERTY(EditAnywhere, AdvancedDisplay, BlueprintReadWrite, Category=SkeletalMesh)
 	TEnumAsByte<EKinematicBonesUpdateToPhysics::Type> KinematicBonesUpdateType;
+
+	/** Whether physics simulation updates component transform. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Physics)
+	TEnumAsByte<EPhysicsTransformUpdateMode::Type> PhysicsTransformUpdateMode;
 
 	/** Enables blending in of physics bodies whether Simulate or not*/
 	UPROPERTY(transient)
@@ -501,9 +514,6 @@ public:
 	uint32 bPrevDisableClothSimulation:1;
 
 	uint32 bDisplayClothFixedVertices:1;
-	/**
-	 * Vertex Animation
-	 */
 	
 	/** Offset of the root bone from the reference pose. Used to offset bounding box. */
 	UPROPERTY(transient)
@@ -568,6 +578,11 @@ public:
 	UPROPERTY(transient)
 	uint32 bAnimTreeInitialised:1;
 
+	/** If true, the Location of this Component will be included into its bounds calculation
+	* (this can be useful when using SMU_OnlyTickPoseWhenRendered on a character that moves away from the root and no bones are left near the origin of the component) */
+	UPROPERTY(EditAnywhere, AdvancedDisplay, BlueprintReadOnly, Category = SkeletalMesh)
+	uint32 bIncludeComponentLocationIntoBounds : 1;
+
 	/** If true, line checks will test against the bounding box of this skeletal mesh component and return a hit if there is a collision. */
 	UPROPERTY()
 	uint32 bEnableLineCheckWithBounds:1;
@@ -606,10 +621,6 @@ public:
 
 	UFUNCTION(BlueprintCallable, Category = "Components|Animation", meta = (Keywords = "Animation"))
 	void SetAnimation(class UAnimationAsset* NewAnimToPlay);
-
-	// @todo block this until we support vertex animation 
-//	UFUNCTION(BlueprintCallable, Category="Components|SkeletalMesh")
-	void SetVertexAnimation(class UVertexAnimation* NewVertexAnimToPlay);
 
 	UFUNCTION(BlueprintCallable, Category = "Components|Animation", meta = (Keywords = "Animation"))
 	void Play(bool bLooping);
@@ -727,8 +738,8 @@ public:
 	/** Temporary array of bone indices required this frame. Filled in by UpdateSkelPose. */
 	TArray<FBoneIndexType> RequiredBones;
 
-	/** Tempory array of bone indices required to populate space bases */
-	TArray<FBoneIndexType> FillSpaceBasesRequiredBones;
+	/** Temporary array of bone indices required to populate component space transforms */
+	TArray<FBoneIndexType> FillComponentSpaceTransformsRequiredBones;
 
 	/** 
 	 *	Index of the 'Root Body', or top body in the asset hierarchy. 
@@ -743,6 +754,8 @@ public:
 
 	/** Set Root Body Index */
 	void SetRootBodyIndex(int32 InBodyIndex);
+	/** Reset Root Body Index */
+	void ResetRootBodyIndex();
 
 	/** Array of FBodyInstance objects, storing per-instance state about about each body. */
 	TArray<struct FBodyInstance*> Bodies;
@@ -785,6 +798,8 @@ private:
 	/** Copies the data from the external cloth simulation context. We copy instead of flipping because the API has to return the full struct to make backwards compat easy*/
 	void UpdateClothSimulationContext();
 
+
+
    /** 
 	* clothing actors will be created from clothing assets for cloth simulation 
 	* 1 actor should correspond to 1 asset
@@ -817,12 +832,21 @@ public:
 	#endif // WITH_CLOTH_COLLISION_DETECTION
 #endif // WITH_APEX_CLOTHING
 
+private:
+
+	/** Wrapper that calls our constraint broken delegate */
+	void OnConstraintBrokenWrapper(int32 ConstraintIndex);
+
 	/** 
 	 * Morph Target Curves. This will override AnimInstance MorphTargetCurves
 	 * if same curve is found
 	 **/
 	TMap<FName, float>	MorphTargetCurves;
 
+	static uint32 GetPhysicsSceneType(const UPhysicsAsset& PhysAsset, const FPhysScene& PhysScene);
+
+public:
+	const TMap<FName, float>& GetMorphTargetCurves() const { return MorphTargetCurves;  }
 	// 
 	// Animation
 	//
@@ -835,7 +859,7 @@ public:
 	void TickClothing(float DeltaTime, FTickFunction& ThisTickFunction);
 
 	/** Store cloth simulation data into OutClothSimData */
-	void GetUpdateClothSimulationData(TArray<FClothSimulData>& OutClothSimData, USkeletalMeshComponent* OverrideLocalRootComponent = nullptr);
+	void GetUpdateClothSimulationData(TMap<int32, FClothSimulData>& OutClothSimData, USkeletalMeshComponent* OverrideLocalRootComponent = nullptr);
 	void RemoveAllClothingActors();
 	void ReleaseAllClothingResources();
 
@@ -866,6 +890,26 @@ public:
 
 	/** freezing clothing actor now */
 	void FreezeClothSection(bool bFreeze);
+
+	/** Changes the value of bNotifyRigidBodyCollision
+	* @param bNewNotifyRigidBodyCollision - The value to assign to bNotifyRigidBodyCollision
+	*/
+	virtual void SetNotifyRigidBodyCollision(bool bNewNotifyRigidBodyCollision) override;
+
+	/** Changes the value of bNotifyRigidBodyCollision for a given body
+	* @param bNewNotifyRigidBodyCollision	The value to assign to bNotifyRigidBodyCollision
+	* @param BoneName						Name of the body to turn hit notifies on/off. None implies root body
+	*/
+	UFUNCTION(BlueprintCallable, Category = "Physics")
+	virtual void SetBodyNotifyRigidBodyCollision(bool bNewNotifyRigidBodyCollision, FName BoneName = NAME_None);
+
+	/** Changes the value of bNotifyRigidBodyCollision on all bodies below a given bone
+	* @param bNewNotifyRigidBodyCollision	The value to assign to bNotifyRigidBodyCollision
+	* @param BoneName						Name of the body to turn hit notifies on (and below)
+	* @param bIncludeSelf					Whether to modify the given body (useful for roots with multiple children)
+	*/
+	UFUNCTION(BlueprintCallable, Category = "Physics")
+	virtual void SetNotifyRigidBodyCollisionBelow(bool bNewNotifyRigidBodyCollision, FName BoneName = NAME_None, bool bIncludeSelf = true);
 
 	/** 
 	 * Recalculates the RequiredBones array in this SkeletalMeshComponent based on current SkeletalMesh, LOD and PhysicsAsset.
@@ -899,15 +943,17 @@ public:
 	//~ End UObject Interface.
 
 	//~ Begin UActorComponent Interface.
+protected:
 	virtual void OnRegister() override;
 	virtual void OnUnregister() override;
 	virtual void CreateRenderState_Concurrent() override;
 	virtual bool ShouldCreatePhysicsState() const override;
-	virtual void CreatePhysicsState() override;
-	virtual void DestroyPhysicsState() override;
+	virtual void OnCreatePhysicsState() override;
+	virtual void OnDestroyPhysicsState() override;
+	virtual void RegisterComponentTickFunctions(bool bRegister) override;
+public:
 	virtual void InitializeComponent() override;
 	virtual void TickComponent(float DeltaTime, enum ELevelTick TickType, FActorComponentTickFunction *ThisTickFunction) override;
-	virtual void RegisterComponentTickFunctions(bool bRegister) override;
 
 	//Handle registering our pre cloth tick function
 	void RegisterPostPhysicsTick(bool bRegister);
@@ -918,7 +964,7 @@ public:
 	//~ Begin USceneComponent Interface.
 	virtual FBoxSphereBounds CalcBounds(const FTransform& LocalToWorld) const override;
 	virtual bool IsAnySimulatingPhysics() const override;
-	virtual void OnUpdateTransform(bool bSkipPhysicsMove, ETeleportType Teleport = ETeleportType::None) override;
+	virtual void OnUpdateTransform(EUpdateTransformFlags UpdateTransformFlags, ETeleportType Teleport = ETeleportType::None) override;
 	virtual void UpdateOverlaps(TArray<FOverlapInfo> const* PendingOverlaps=NULL, bool bDoNotifies=true, const TArray<FOverlapInfo>* OverlapsAtEndLocation=NULL) override;
 	//~ End USceneComponent Interface.
 
@@ -938,6 +984,8 @@ protected:
 	
 	virtual bool ComponentOverlapComponentImpl(class UPrimitiveComponent* PrimComp, const FVector Pos, const FQuat& Quat, const FCollisionQueryParams& Params) override;
 
+	virtual bool MoveComponentImpl(const FVector& Delta, const FQuat& NewRotation, bool bSweep, FHitResult* OutHit = NULL, EMoveComponentFlags MoveFlags = MOVECOMP_NoFlags, ETeleportType Teleport = ETeleportType::None) override;
+
 public:
 
 	virtual class UBodySetup* GetBodySetup() override;
@@ -954,8 +1002,41 @@ public:
 	virtual bool IsGravityEnabled() const override;
 	virtual void OnComponentCollisionSettingsChanged() override;
 	virtual void SetPhysMaterialOverride(UPhysicalMaterial* NewPhysMaterial) override;
-	virtual float GetDistanceToCollision(const FVector& Point, FVector& ClosestPointOnCollision) const override;
+	virtual bool GetSquaredDistanceToCollision(const FVector& Point, float& OutSquaredDistance, FVector& OutClosestPointOnCollision) const override;
 
+	/**
+	 *	Enables or disables gravity for the given bone.
+	 *	NAME_None indicates the root body will be edited.
+	 *	If the bone name given is otherwise invalid, nothing happens.
+	 *
+	 *	@param bEnableGravity	Whether gravity should be enabled or disabled.
+	 *	@param BoneName			The name of the bone to modify.
+	 */
+	UFUNCTION(BlueprintCallable, Category="Physics|Components")
+	void SetEnableBodyGravity(bool bEnableGravity, FName BoneName);
+
+	/**
+	 *	Checks whether or not gravity is enabled on the given bone.
+	 *	NAME_None indicates the root body should be queried.
+	 *	If the bone name given is otherwise invalid, false is returned.
+	 *
+	 *	@param BoneName	The name of the bone to check.
+	 *	@return True if gravity is enabled on the bone.
+	 */
+	UFUNCTION(BlueprintCallable, Category="Physics|Components")
+	bool IsBodyGravityEnabled(FName BoneName);
+
+	/**
+	*	Enables or disables gravity to all bodies below the given bone.
+	*   NAME_None indicates all bodies will be edited.
+	*	In that case, consider using UPrimitiveComponent::EnableGravity.
+	*
+	*	@param bEnableGravity	Whether gravity should be enabled or disabled.
+	*	@param BoneName			The name of the top most bone.
+	*	@param bIncludeSelf		Whether the bone specified should be edited.
+	*/
+	UFUNCTION(BlueprintCallable, Category = "Physics|Components")
+	void SetEnableGravityOnAllBodiesBelow(bool bEnableGravity, FName BoneName, bool bIncludeSelf=true);
 
 	/** 
 	 *	Given a world position, find the closest point on the physics asset. Note that this is independent of collision and welding. This is based purely on animation position
@@ -986,6 +1067,30 @@ public:
 	virtual float GetMass() const override;
 	virtual float CalculateMass(FName BoneName = NAME_None) override;
 	virtual bool DoCustomNavigableGeometryExport(FNavigableGeometryExport& GeomExport) const override;
+
+	/**
+	*	Add a force to all rigid bodies below.
+	*   This is like a 'thruster'. Good for adding a burst over some (non zero) time. Should be called every frame for the duration of the force.
+	*
+	*	@param	Force		 Force vector to apply. Magnitude indicates strength of force.
+	*	@param	BoneName	 If a SkeletalMeshComponent, name of body to apply force to. 'None' indicates root body.
+	*   @param  bAccelChange If true, Force is taken as a change in acceleration instead of a physical force (i.e. mass will have no affect).
+	*   @param  bIncludeSelf If false, Force is only applied to bodies below but not given bone name.
+	*/
+	UFUNCTION(BlueprintCallable, Category = "Physics")
+	virtual void AddForceToAllBodiesBelow(FVector Force, FName BoneName = NAME_None, bool bAccelChange = false, bool bIncludeSelf = true);
+
+	/**
+	*	Add impulse to all single rigid bodies below. Good for one time instant burst.
+	*
+	*	@param	Impulse		Magnitude and direction of impulse to apply.
+	*	@param	BoneName	If a SkeletalMeshComponent, name of body to apply impulse to. 'None' indicates root body.
+	*	@param	bVelChange	If true, the Strength is taken as a change in velocity instead of an impulse (ie. mass will have no affect).
+	*	@param bIncludeSelf If false, Force is only applied to bodies below but not given bone name.
+	*/
+	UFUNCTION(BlueprintCallable, Category = "Physics")
+	virtual void AddImpulseToAllBodiesBelow(FVector Impulse, FName BoneName = NAME_None, bool bVelChange = false, bool bIncludeSelf = true);
+
 #if WITH_EDITOR
 	virtual bool ComponentIsTouchingSelectionBox(const FBox& InSelBBox, const FEngineShowFlags& ShowFlags, const bool bConsiderOnlyBSP, const bool bMustEncompassEntireComponent) const override;
 	virtual bool ComponentIsTouchingSelectionFrustum(const FConvexVolume& InFrustum, const FEngineShowFlags& ShowFlags, const bool bConsiderOnlyBSP, const bool bMustEncompassEntireComponent) const override;
@@ -1028,11 +1133,11 @@ public:
 	* @param	InSkeletalMesh			The skeletal mesh we are animating
 	* @param	InAnimInstance			The anim instance we are evaluating
 	* @param	OutSpaceBases			Component space bone transforms
-	* @param	OutLocalAtoms			Local space bone transforms
-	* @param	OutVertexAnims			Active vertex animations
+	* @param	OutBoneSpaceTransforms	Local space bone transforms
 	* @param	OutRootBoneTranslation	Calculated root bone translation
+	* @param	OutCurves				Blended Curve
 	*/
-	void PerformAnimationEvaluation(const USkeletalMesh* InSkeletalMesh, UAnimInstance* InAnimInstance, TArray<FTransform>& OutSpaceBases, TArray<FTransform>& OutLocalAtoms, FVector& OutRootBoneTranslation, FBlendedHeapCurve& OutCurve) const;
+	void PerformAnimationEvaluation(const USkeletalMesh* InSkeletalMesh, UAnimInstance* InAnimInstance, TArray<FTransform>& OutSpaceBases, TArray<FTransform>& OutBoneSpaceTransforms, FVector& OutRootBoneTranslation, FBlendedHeapCurve& OutCurve) const;
 	void PostAnimEvaluation( FAnimationEvaluationContext& EvaluationContext );
 
 	/**
@@ -1042,7 +1147,7 @@ public:
 	 */
 	void BlendPhysicsBones( TArray<FBoneIndexType>& Bones )
 	{
-		PerformBlendPhysicsBones(Bones, AnimEvaluationContext.LocalAtoms);
+		PerformBlendPhysicsBones(Bones, AnimEvaluationContext.BoneSpaceTransforms);
 	}
 
 
@@ -1050,7 +1155,7 @@ public:
 	void BlendInPhysics(FTickFunction& ThisTickFunction);	
 
 	/** 
-	 * Intialize PhysicsAssetInstance for the physicsAsset 
+	 * Initialize PhysicsAssetInstance for the physicsAsset 
 	 * 
 	 * @param	PhysScene	Physics Scene
 	 */
@@ -1058,6 +1163,9 @@ public:
 
 	/** Turn off all physics and remove the instance. */
 	void TermArticulated();
+
+	/** Find the root body index*/
+	int32 FindRootBodyIndex() const;
 
 
 	/** Terminate physics on all bodies below the named bone */
@@ -1094,7 +1202,7 @@ public:
 
 	/** Set all of the bones below passed in bone to be simulated */
 	UFUNCTION(BlueprintCallable, Category="Components|SkeletalMesh")
-	void SetAllBodiesBelowSimulatePhysics(const FName& InBoneName, bool bNewSimulate );
+	void SetAllBodiesBelowSimulatePhysics(const FName& InBoneName, bool bNewSimulate, bool bIncludeSelf = true );
 
 	/** Allows you to reset bodies Simulate state based on where bUsePhysics is set to true in the BodySetup. */
 	UFUNCTION(BlueprintCallable, Category="Components|SkeletalMesh")
@@ -1105,7 +1213,7 @@ public:
 
 	/** Set all of the bones below passed in bone to be simulated */
 	UFUNCTION(BlueprintCallable, Category="Components|SkeletalMesh")
-	void SetAllBodiesBelowPhysicsBlendWeight(const FName& InBoneName, float PhysicsBlendWeight, bool bSkipCustomPhysicsType = false );
+	void SetAllBodiesBelowPhysicsBlendWeight(const FName& InBoneName, float PhysicsBlendWeight, bool bSkipCustomPhysicsType = false, bool bIncludeSelf = true );
 
 	/** Accumulate AddPhysicsBlendWeight to physics blendweight for all of the bones below passed in bone to be simulated */
 	UFUNCTION(BlueprintCallable, Category="Components|SkeletalMesh")
@@ -1123,13 +1231,24 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Components|SkeletalMesh")
 	void SetAllMotorsAngularDriveParams(float InSpring, float InDamping, float InForceLimit, bool bSkipCustomPhysicsType = false);
 
+	/** Sets the constraint profile properties (limits, motors, etc...) to match the constraint profile as defined in the physics asset. If profile name is not found the joint is set to use the default constraint profile.*/
+	UFUNCTION(BlueprintCallable, Category = "Physics|Components|PhysicsConstraint")
+	void SetConstraintProfile(FName JointName, FName ProfileName, bool bDefaultIfNotFound = false);
+
+	/** Sets the constraint profile properties (limits, motors, etc...) to match the constraint profile as defined in the physics asset for all constraints. If profile name is not found the joint is set to use the default constraint profile.*/
+	UFUNCTION(BlueprintCallable, Category = "Physics|Components|PhysicsConstraint")
+	void SetConstraintProfileForAll(FName ProfileName, bool bDefaultIfNotFound = false);
+
 	/** Enable or Disable AngularPositionDrive based on a list of bone names */
 	void SetNamedMotorsAngularPositionDrive(bool bEnableSwingDrive, bool bEnableTwistDrive, const TArray<FName>& BoneNames, bool bSetOtherBodiesToComplement = false);
 
 	/** Enable or Disable AngularVelocityDrive based on a list of bone names */
 	void SetNamedMotorsAngularVelocityDrive(bool bEnableSwingDrive, bool bEnableTwistDrive, const TArray<FName>& BoneNames, bool bSetOtherBodiesToComplement = false);
 
-	void GetWeldedBodies(TArray<FBodyInstance*> & OutWeldedBodies, TArray<FName> & OutChildrenLabels) override;
+	void GetWeldedBodies(TArray<FBodyInstance*> & OutWeldedBodies, TArray<FName> & OutChildrenLabels, bool bIncludingAutoWeld = false) override;
+
+	/** Iterates over all bodies below and executes Func. Returns number of bodies found */
+	int32 ForEachBodyBelow(FName BoneName, bool bIncludeSelf, bool bSkipCustomType, TFunctionRef<void(FBodyInstance*)> Func);
 
 	/** 
 	 * Change whether to force mesh into ref pose (and use cheaper vertex shader) 
@@ -1140,6 +1259,9 @@ public:
 	
 	/** Update bHasValidBodies flag */
 	void UpdateHasValidBodies();
+
+	/** Update the bone mapping on each body instance. This is useful when changing skeletal mesh without recreating bodies */
+	void UpdateBoneBodyMapping();
 	
 	/** 
 	 * Initialize SkelControls
@@ -1160,23 +1282,19 @@ public:
 	 * @param	ConstraintIndex	Index of constraint to look for
 	 * @return	Constraint Joint Name
 	 */
+	UFUNCTION(BlueprintCallable, Category = "Physics|Components|PhysicsConstraint")
 	FName	FindConstraintBoneName(int32 ConstraintIndex);
 
 	/** 
 	 *	Iterate over each physics body in the physics for this mesh, and for each 'kinematic' (ie fixed or default if owner isn't simulating) one, update its
 	 *	transform based on the animated transform.
-	 *	@param	Teleport		Whether movement is a 'teleport' (ie infers no physics velocity, but moves simulating bodies) or not
-	 *	@param	bNeedsSkinning	Whether we may need  to send new triangle data for per-poly skeletal mesh collision
-	 *	@perem	AllowDeferral	Whether we can defer actual update of bodies (if 'physics only' collision)
+	 *	@param	InComponentSpaceTransforms	Array of bone transforms in component space
+	 *	@param	Teleport					Whether movement is a 'teleport' (ie infers no physics velocity, but moves simulating bodies) or not
+	 *	@param	bNeedsSkinning				Whether we may need  to send new triangle data for per-poly skeletal mesh collision
+	 *	@perem	AllowDeferral				Whether we can defer actual update of bodies (if 'physics only' collision)
 	 */
-	void UpdateKinematicBonesToAnim(const TArray<FTransform>& InSpaceBases, ETeleportType Teleport, bool bNeedsSkinning, EAllowKinematicDeferral DeferralAllowed = EAllowKinematicDeferral::AllowDeferral);
+	void UpdateKinematicBonesToAnim(const TArray<FTransform>& InComponentSpaceTransforms, ETeleportType Teleport, bool bNeedsSkinning, EAllowKinematicDeferral DeferralAllowed = EAllowKinematicDeferral::AllowDeferral);
 
-	DEPRECATED(4.9, "bForceUpdate is no longer used. Please use Teleport")
-	void UpdateKinematicBonesToAnim(const TArray<FTransform>& InSpaceBases, bool bTeleport, bool bNeedsSkinning, bool bForceUpdate)
-	{
-		UpdateKinematicBonesToAnim(InSpaceBases, TeleportFlagToEnum(bTeleport || bForceUpdate), bNeedsSkinning);
-	}
-	
 	/**
 	 * Look up all bodies for broken constraints.
 	 * Makes sure child bodies of a broken constraints are not fixed and using bone springs, and child joints not motorized.
@@ -1325,14 +1443,14 @@ private:
 	void PostPhysicsTickComponent(FSkeletalMeshComponentPostPhysicsTickFunction& ThisTickFunction);
 
 	/** Evaluate Anim System **/
-	void EvaluateAnimation(const USkeletalMesh* InSkeletalMesh, UAnimInstance* InAnimInstance, TArray<FTransform>& OutLocalAtoms, FVector& OutRootBoneTranslation, FBlendedHeapCurve& OutCurve) const;
+	void EvaluateAnimation(const USkeletalMesh* InSkeletalMesh, UAnimInstance* InAnimInstance, TArray<FTransform>& OutBoneSpaceTransforms, FVector& OutRootBoneTranslation, FBlendedHeapCurve& OutCurve) const;
 
 	/**
-	* Take the SourceAtoms array (translation vector, rotation quaternion and scale vector) and update the array of component-space bone transformation matrices (DestSpaceBases).
+	* Take the BoneSpaceTransforms array (translation vector, rotation quaternion and scale vector) and update the array of component-space bone transformation matrices (ComponentSpaceTransforms).
 	* It will work down hierarchy multiplying the component-space transform of the parent by the relative transform of the child.
 	* This code also applies any per-bone rotators etc. as part of the composition process
 	*/
-	void FillSpaceBases(const USkeletalMesh* InSkeletalMesh, const TArray<FTransform>& SourceAtoms, TArray<FTransform>& DestSpaceBases) const;
+	void FillComponentSpaceTransforms(const USkeletalMesh* InSkeletalMesh, const TArray<FTransform>& InBoneSpaceTransforms, TArray<FTransform>& OutComponentSpaceTransforms) const;
 
 	void RenderAxisGizmo(const FTransform& Transform, class UCanvas* Canvas) const;
 
@@ -1340,7 +1458,7 @@ private:
 	bool DoAnyPhysicsBodiesHaveWeight() const;
 
 	void ClearAnimScriptInstance();
-	virtual void RefreshActiveVertexAnims() override;
+	virtual void RefreshMorphTargets() override;
 
 #if WITH_APEX_CLOTHING
 	void GetWindForCloth_GameThread(FVector& WindVector, float& WindAdaption) const;
@@ -1398,9 +1516,9 @@ private:
 	friend class FParallelBlendPhysicsTask;
 	
 	//wrapper for parallel blend physics
-	void ParallelBlendPhysics() { PerformBlendPhysicsBones(RequiredBones, AnimEvaluationContext.LocalAtoms); }
+	void ParallelBlendPhysics() { PerformBlendPhysicsBones(RequiredBones, AnimEvaluationContext.BoneSpaceTransforms); }
 
-	void PerformBlendPhysicsBones(const TArray<FBoneIndexType>& InRequiredBones, TArray<FTransform>& InLocalAtoms);
+	void PerformBlendPhysicsBones(const TArray<FBoneIndexType>& InRequiredBones, TArray<FTransform>& InBoneSpaceTransforms);
 
 	friend class FParallelClothTask;
 	// This is the parallel function that updates the cloth data and runs the simulation. This is safe to call from worker threads.
@@ -1448,13 +1566,19 @@ private:
 
 	/** Cached animation curves smart name mapping UIDs, only at runtime, not serialized. (used for FBlendedCurve::InitFrom) */
 	TArray<FSmartNameMapping::UID> CachedAnimCurveMappingNameUids;
+
+	/*
+	 * Update MorphTargetCurves - these are not animation curves, but SetMorphTarget and similar functions that can set to this mesh component
+	 */
+	void UpdateMorphTargetCurves();
+
 public:
 	/** Keep track of when animation has been ticked to ensure it is ticked only once per frame. */
 	UPROPERTY(Transient)
 	float LastPoseTickTime;
 
 	/** Checked whether we have already ticked the pose this frame */
-	bool PoseTickedThisFrame() const { return LastPoseTickTime == GetWorld()->TimeSeconds; }
+	bool PoseTickedThisFrame() const;
 
 	/** Take extracted RootMotion and convert it from local space to world space. */
 	FTransform ConvertLocalRootMotionToWorld(const FTransform& InTransform);
@@ -1469,12 +1593,16 @@ private:
 	FBlendedHeapCurve	CurvesArray[2];
 public: 
 	/** Access Curve Array for reading */
-	const FBlendedHeapCurve& GetAnimationCurves() const { return CurvesArray[CurrentReadSpaceBases]; }
+	const FBlendedHeapCurve& GetAnimationCurves() const { return CurvesArray[CurrentReadComponentTransforms]; }
 
 	/** Get Access to the current editable Curve Array - uses same buffer as space bases*/
-	FBlendedHeapCurve& GetEditableAnimationCurves() { return CurvesArray[CurrentEditableSpaceBases]; }
-	const FBlendedHeapCurve& GetEditableAnimationCurves() const { return CurvesArray[CurrentEditableSpaceBases]; }
+	FBlendedHeapCurve& GetEditableAnimationCurves() { return CurvesArray[CurrentEditableComponentTransforms]; }
+	const FBlendedHeapCurve& GetEditableAnimationCurves() const { return CurvesArray[CurrentEditableComponentTransforms]; }
 #endif 
+
+public:
+	/** Skeletal mesh component should not be able to have its mobility set to static */
+	virtual const bool CanHaveStaticMobility() const override { return false; }
 
 public:
 	/** Register/Unregister for physics state creation callback */

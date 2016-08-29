@@ -69,8 +69,5 @@ public:
 	UGameplayTasksComponent* GTComponent;
 
 	virtual UGameplayTasksComponent* GetGameplayTasksComponent(const UGameplayTask& Task) const override { return GTComponent; }	
-	virtual void OnTaskActivated(UGameplayTask& Task) override {}
-	virtual void OnTaskDeactivated(UGameplayTask& Task) override {}
-	virtual AActor* GetOwnerActor(const UGameplayTask* Task) const { return nullptr; }
-
+	virtual AActor* GetGameplayTaskOwner(const UGameplayTask* Task) const { return nullptr; }
 };

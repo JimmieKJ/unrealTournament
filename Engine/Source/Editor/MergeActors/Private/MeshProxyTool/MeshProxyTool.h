@@ -18,7 +18,7 @@ public:
 	virtual FText GetTooltipText() const override;
 	virtual FString GetDefaultPackageName() const override;
 	virtual bool RunMerge(const FString& PackageName) override;
-
+	virtual bool CanMerge() const override;
 private:
 
 	FMeshProxySettings ProxySettings;

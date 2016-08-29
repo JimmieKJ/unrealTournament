@@ -427,7 +427,36 @@ namespace PropertyEditorHelpers
 		return TEXT("");
 	}
 
-	FString GetDocumentationExcerptName( const UProperty* const Property )
+	FString GetEnumDocumentationLink(const UProperty* const Property)
+	{
+		if(Property != NULL)
+		{
+			const UByteProperty* ByteProperty = Cast<UByteProperty>(Property);
+			if(ByteProperty || (Property->IsA(UStrProperty::StaticClass()) && Property->HasMetaData(TEXT("Enum"))))
+			{
+				UEnum* Enum = nullptr;
+				if(ByteProperty)
+				{
+					Enum = ByteProperty->Enum;
+				}
+				else
+				{
+
+					FString EnumName = Property->GetMetaData(TEXT("Enum"));
+					Enum = FindObject<UEnum>(ANY_PACKAGE, *EnumName, true);
+				}
+
+				if(Enum)
+				{
+					return FString::Printf(TEXT("Shared/Enums/%s"), *Enum->GetName());
+				}
+			}
+		}
+
+		return TEXT("");
+	}
+
+	FString GetDocumentationExcerptName(const UProperty* const Property)
 	{
 		if ( Property != NULL )
 		{
@@ -469,6 +498,10 @@ namespace PropertyEditorHelpers
 		else if( FPropertyHandleString::Supports( PropertyNode ) ) 
 		{
 			PropertyHandle = MakeShareable( new FPropertyHandleString( PropertyNode, NotifyHook, PropertyUtilities ) );
+		}
+		else if (FPropertyHandleText::Supports(PropertyNode))
+		{
+			PropertyHandle = MakeShareable(new FPropertyHandleText(PropertyNode, NotifyHook, PropertyUtilities));
 		}
 		else if( FPropertyHandleVector::Supports( PropertyNode ) )
 		{

@@ -25,6 +25,19 @@ public class SSF : ModuleRules
                 PublicAdditionalLibraries.Add("SSF.lib");
             }
         }
+        else if (Target.Platform == UnrealTargetPlatform.Mac)
+        {
+            string LibPath = SSFDirectory + "lib/Mac/";
+            if (Target.Configuration == UnrealTargetConfiguration.Debug && BuildConfiguration.bDebugBuildsActuallyUseDebugCRT)
+            {
+                PublicAdditionalLibraries.Add(LibPath + "libssf_debug.a");
+            }
+            else
+            {
+                PublicAdditionalLibraries.Add(LibPath + "libssf.a");
+            }
+ 
+        }
     }
 }
 

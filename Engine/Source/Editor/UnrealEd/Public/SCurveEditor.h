@@ -151,7 +151,8 @@ public:
 		, _ViewMaxOutput(1.0f)
 		, _InputSnap(0.1f)
 		, _OutputSnap(0.05f)
-		, _SnappingEnabled(false)
+		, _InputSnappingEnabled(false)
+		, _OutputSnappingEnabled(false)
 		, _TimelineLength(5.0f)
 		, _DesiredSize(FVector2D::ZeroVector)
 		, _DrawCurve(true)
@@ -177,7 +178,8 @@ public:
 		SLATE_ATTRIBUTE( float, ViewMaxOutput )
 		SLATE_ATTRIBUTE( float, InputSnap )
 		SLATE_ATTRIBUTE( float, OutputSnap )
-		SLATE_ATTRIBUTE( bool, SnappingEnabled )
+		SLATE_ATTRIBUTE( bool, InputSnappingEnabled )
+		SLATE_ATTRIBUTE( bool, OutputSnappingEnabled )
 		SLATE_ATTRIBUTE( float, TimelineLength )
 		SLATE_ATTRIBUTE( FVector2D, DesiredSize )
 		SLATE_ARGUMENT( bool, DrawCurve )
@@ -383,8 +385,10 @@ private:
 	FReply ZoomToFitHorizontalClicked();
 	FReply ZoomToFitVerticalClicked();
 
-	void ToggleSnapping();
-	bool IsSnappingEnabled();
+	void ToggleInputSnapping();
+	void ToggleOutputSnapping();
+	bool IsInputSnappingEnabled();
+	bool IsOutputSnappingEnabled();
 
 	TOptional<float> OnGetTime() const;
 	void OnTimeComitted(float NewValue, ETextCommit::Type CommitType);
@@ -689,8 +693,11 @@ protected:
 	/** The snapping value for the output domain. */
 	TAttribute<float> OutputSnap;
 
-	/** Whether or not snapping is enabled. */
-	TAttribute<bool> bSnappingEnabled;
+	/** Whether or not input snapping is enabled. */
+	TAttribute<bool> bInputSnappingEnabled;
+
+	/** Whether or not output snapping is enabled. */
+	TAttribute<bool> bOutputSnappingEnabled;
 
 	/** True if you want the curve editor to fit to zoom **/
 	bool bZoomToFitVertical;

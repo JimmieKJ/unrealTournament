@@ -441,6 +441,7 @@ protected:
 	void ProfilerClient_OnClientDisconnected( const FGuid& SessionID, const FGuid& InstanceID );
 	void ProfilerClient_OnMetaDataUpdated( const FGuid& InstanceID, const FStatMetaData& MetaData );
 	void ProfilerClient_OnLoadCompleted( const FGuid& InstanceID );
+	void ProfilerClient_OnLoadCancelled( const FGuid& InstanceID );
 	void ProfilerClient_OnLoadStarted( const FGuid& InstanceID );
 
 	void ProfilerClient_OnProfilerFileTransfer( const FString& Filename, int64 FileProgress, int64 FileSize );

@@ -12,6 +12,42 @@ enum class ENativeClassHierarchyNodeType : uint8
 };
 
 /**
+ * Type used as a key in a map to resolve name conflicts between folders and classes
+ */
+struct FNativeClassHierarchyNodeKey
+{
+	FNativeClassHierarchyNodeKey(const FName InName, const ENativeClassHierarchyNodeType InType)
+		: Name(InName)
+		, Type(InType)
+	{
+	}
+
+	FORCEINLINE bool operator==(const FNativeClassHierarchyNodeKey& Other) const
+	{
+		return Name == Other.Name && Type == Other.Type;
+	}
+
+	FORCEINLINE bool operator!=(const FNativeClassHierarchyNodeKey& Other) const
+	{
+		return Name != Other.Name || Type != Other.Type;
+	}
+
+	friend FORCEINLINE uint32 GetTypeHash(const FNativeClassHierarchyNodeKey& InKey)
+	{
+		uint32 KeyHash = 0;
+		KeyHash = HashCombine(KeyHash, GetTypeHash(InKey.Name));
+		KeyHash = HashCombine(KeyHash, GetTypeHash(InKey.Type));
+		return KeyHash;
+	}
+
+	/** Name of this entry */
+	FName Name;
+
+	/** Type of this entry */
+	ENativeClassHierarchyNodeType Type;
+};
+
+/**
  * Single node in the class hierarchy
  */
 struct FNativeClassHierarchyNode
@@ -43,7 +79,7 @@ struct FNativeClassHierarchyNode
 	FString EntryPath;
 
 	/** Child entries (Type == Folder) */
-	TMap<FName, TSharedPtr<FNativeClassHierarchyNode>> Children;
+	TMap<FNativeClassHierarchyNodeKey, TSharedPtr<FNativeClassHierarchyNode>> Children;
 };
 
 /**

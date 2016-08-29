@@ -12,9 +12,6 @@
 
 DEFINE_LOG_CATEGORY_STATIC(LogGatherTextCommandletBase, Log, All);
 
-TSharedPtr<FConflictReportInfo> FConflictReportInfo::StaticConflictInstance;
-
-
 //////////////////////////////////////////////////////////////////////////
 //UGatherTextCommandletBase
 
@@ -23,9 +20,9 @@ UGatherTextCommandletBase::UGatherTextCommandletBase(const FObjectInitializer& O
 {
 }
 
-void UGatherTextCommandletBase::Initialize( const TSharedRef< FManifestInfo >& InManifestInfo, const TSharedPtr< FGatherTextSCC >& InSourceControlInfo )
+void UGatherTextCommandletBase::Initialize( const TSharedPtr< FLocTextHelper >& InGatherManifestHelper, const TSharedPtr< FGatherTextSCC >& InSourceControlInfo )
 {
-	ManifestInfo = InManifestInfo;
+	GatherManifestHelper = InGatherManifestHelper;
 	SourceControlInfo = InSourceControlInfo;
 }
 
@@ -33,147 +30,6 @@ void UGatherTextCommandletBase::CreateCustomEngine(const FString& Params)
 {
 	GEngine = GEditor = NULL;//Force a basic default engine. 
 }
-
-TSharedPtr<FJsonObject> UGatherTextCommandletBase::ReadJSONTextFile(const FString& InFilePath)
-{
-	//read in file as string
-	FString FileContents;
-	if ( !FFileHelper::LoadFileToString(FileContents, *InFilePath) )
-	{
-		UE_LOG(LogGatherTextCommandletBase, Error,TEXT("Failed to load file %s."), *InFilePath);
-		return NULL;
-	}
-
-	//parse as JSON
-	TSharedPtr<FJsonObject> JSONObject;
-
-	TSharedRef< TJsonReader<> > Reader = TJsonReaderFactory<>::Create( FileContents );
-
-	if( !FJsonSerializer::Deserialize( Reader, JSONObject ) || !JSONObject.IsValid())
-	{
-		UE_LOG(LogGatherTextCommandletBase, Error,TEXT("Invalid JSON in file %s."), *InFilePath);
-		UE_LOG(LogGatherTextCommandletBase, Error, TEXT("JSON Error: %s."), *Reader->GetErrorMessage());
-		return NULL;
-	}
-
-	return JSONObject;
-}
-
-bool UGatherTextCommandletBase::WriteJSONToTextFile(TSharedPtr<FJsonObject> Output, const FString& Filename, TSharedPtr<FGatherTextSCC> SourceControl)
-{
-	bool WasSuccessful = true;
-
-	// If the user specified a reference file - write the entries read from code to a ref file
-	if ( !Filename.IsEmpty() && Output.IsValid() )
-	{
-		const bool DidFileExist = FPaths::FileExists(Filename);
-		if (DidFileExist)
-		{
-			if( SourceControl.IsValid() )
-			{
-				FText SCCErrorText;
-				if (!SourceControl->CheckOutFile(Filename, SCCErrorText))
-				{
-					UE_LOG(LogGatherTextCommandletBase, Error, TEXT("Check out of file %s failed: %s"), *Filename, *SCCErrorText.ToString());
-				}
-			}
-		}
-
-		if( WasSuccessful )
-		{
-			//Print the JSON data out to the ref file.
-			FString OutputString;
-			TSharedRef< TJsonWriter<> > Writer = TJsonWriterFactory<>::Create( &OutputString );
-			FJsonSerializer::Serialize( Output.ToSharedRef(), Writer );
-
-			if (!FFileHelper::SaveStringToFile(OutputString, *Filename, FFileHelper::EEncodingOptions::ForceUnicode))
-			{
-				UE_LOG(LogGatherTextCommandletBase, Error, TEXT("Failed to write localization entries to file %s"), *Filename);
-				WasSuccessful = false;
-			}
-		}
-
-		if (!DidFileExist)
-		{
-			// Checkout on a new file will cause it to be added
-			if( SourceControl.IsValid() )
-			{
-				FText SCCErrorText;
-				if (!SourceControl->CheckOutFile(Filename, SCCErrorText))
-				{
-					UE_LOG(LogGatherTextCommandletBase, Error, TEXT("Check out of file %s failed: %s"), *Filename, *SCCErrorText.ToString());
-				}
-			}
-		}
-	}
-	else
-	{
-		WasSuccessful = false;
-	}
-
-	return WasSuccessful;
-}
-
-FString UGatherTextCommandletBase::MungeLogOutput( const FString& InString )
-{
-	if(InString.IsEmpty())
-	{
-		return InString;
-	}
-
-	FString ResultStr = InString.ReplaceCharWithEscapedChar();
-	if(!GIsBuildMachine)
-	{
-		return ResultStr;
-	}
-
-	static TArray<FString> ErrorStrs;
-	if(ErrorStrs.Num() == 0)
-	{
-		ErrorStrs.Add(FString(TEXT("Error")));
-		ErrorStrs.Add(FString(TEXT("Failed")));
-		ErrorStrs.Add(FString(TEXT("[BEROR]"))); 
-		ErrorStrs.Add(FString(TEXT("Utility finished with exit code: -1"))); 
-		ErrorStrs.Add(FString(TEXT("is not recognized as an internal or external command"))); 
-		ErrorStrs.Add(FString(TEXT("Could not open solution: "))); 
-		ErrorStrs.Add(FString(TEXT("Parameter format not correct"))); 
-		ErrorStrs.Add(FString(TEXT("Another build is already started on this computer."))); 
-		ErrorStrs.Add(FString(TEXT("Sorry but the link was not completed because memory was exhausted."))); 
-		ErrorStrs.Add(FString(TEXT("simply rerunning the compiler might fix this problem"))); 
-		ErrorStrs.Add(FString(TEXT("No connection could be made because the target machine actively refused"))); 
-		ErrorStrs.Add(FString(TEXT("Internal Linker Exception:"))); 
-		ErrorStrs.Add(FString(TEXT(": warning LNK4019: corrupt string table"))); 
-		ErrorStrs.Add(FString(TEXT("Proxy could not update its cache"))); 
-		ErrorStrs.Add(FString(TEXT("You have not agreed to the Xcode license agreements"))); 
-		ErrorStrs.Add(FString(TEXT("Connection to build service terminated"))); 
-		ErrorStrs.Add(FString(TEXT("cannot execute binary file"))); 
-		ErrorStrs.Add(FString(TEXT("Invalid solution configuration"))); 
-		ErrorStrs.Add(FString(TEXT("is from a previous version of this application and must be converted in order to build"))); 
-		ErrorStrs.Add(FString(TEXT("This computer has not been authenticated for your account using Steam Guard"))); 
-		ErrorStrs.Add(FString(TEXT("invalid name for SPA section"))); 
-		ErrorStrs.Add(FString(TEXT(": Invalid file name, "))); 
-		ErrorStrs.Add(FString(TEXT("The specified PFX file do not exist. Aborting"))); 
-		ErrorStrs.Add(FString(TEXT("binary is not found. Aborting"))); 
-		ErrorStrs.Add(FString(TEXT("Input file not found: "))); 
-		ErrorStrs.Add(FString(TEXT("An exception occurred during merging:"))); 
-		ErrorStrs.Add(FString(TEXT("Install the 'Microsoft Windows SDK for Windows 7 and .NET Framework 3.5 SP1'"))); 
-		ErrorStrs.Add(FString(TEXT("is less than package's new version 0x"))); 
-		ErrorStrs.Add(FString(TEXT("current engine version is older than version the package was originally saved with")));
-		ErrorStrs.Add(FString(TEXT("exceeds maximum length")));
-		ErrorStrs.Add(FString(TEXT("can't edit exclusive file already opened")));
-	}
-
-	for( int32 ErrStrIdx = 0; ErrStrIdx < ErrorStrs.Num(); ErrStrIdx++ )
-	{
-		FString& FindStr = ErrorStrs[ErrStrIdx];
-		FString ReplaceStr = FString::Printf(TEXT("%s %s"), *FindStr.Left(1), *FindStr.RightChop(1));
-
-		ResultStr.ReplaceInline(*FindStr, *ReplaceStr);
-	}
-
-	return ResultStr;
-}
-
 
 bool UGatherTextCommandletBase::GetBoolFromConfig( const TCHAR* Section, const TCHAR* Key, bool& OutValue, const FString& Filename )
 {
@@ -244,205 +100,6 @@ int32 UGatherTextCommandletBase::GetPathArrayFromConfig( const TCHAR* Section, c
 		FPaths::CollapseRelativeDirectories(OutArr[i]);
 	}
 	return count;
-}
-
-bool FManifestInfo::AddManifestDependency( const FString& InManifestFilePath )
-{
-	if( ManifestDependenciesFilePaths.Contains( InManifestFilePath ) )
-	{
-		return true;
-	}
-
-	bool bSuccess = false;
-
-	if( FPaths::FileExists( InManifestFilePath ) )
-	{
-		FJsonInternationalizationManifestSerializer ManifestSerializer;
-		TSharedPtr< FJsonObject > LoadedManifestDependencyJsonObject = UGatherTextCommandletBase::ReadJSONTextFile( InManifestFilePath );
-
-		TSharedRef< FInternationalizationManifest > LoadedManifestDependency = MakeShareable( new FInternationalizationManifest );
-		bSuccess = ManifestSerializer.DeserializeManifest( LoadedManifestDependencyJsonObject.ToSharedRef(), LoadedManifestDependency );
-		
-		if( bSuccess )
-		{
-			ManifestDependencies.Add( LoadedManifestDependency );
-			ManifestDependenciesFilePaths.Add( InManifestFilePath );
-		}
-		else
-		{
-			UE_LOG(LogGatherTextCommandletBase, Warning, TEXT("Could not load manifest dependency file %s"), *InManifestFilePath);
-		}
-	}
-	else
-	{
-		bSuccess = false;
-		UE_LOG(LogGatherTextCommandletBase, Warning, TEXT("Could not find manifest dependency file %s"), *InManifestFilePath);
-	}
-
-	return bSuccess;
-}
-
-bool FManifestInfo::AddManifestDependencies( const TArray< FString >& InManifestFilePaths )
-{
-	bool bSuccess = true;
-	for( int32 i = 0; i < InManifestFilePaths.Num(); i++ )
-	{
-		FString FilePath = InManifestFilePaths[i];
-		bSuccess &= AddManifestDependency( FilePath );
-	}
-	return bSuccess;
-}
-
-
-TSharedPtr< FManifestEntry > FManifestInfo::FindDependencyEntryByContext( const FString& Namespace, const FContext& Context, FString& OutFileName )
-{
-	TSharedPtr<FManifestEntry> DependencyEntry = NULL;
-	OutFileName = TEXT("");
-
-	for( int32 Idx = 0; Idx < ManifestDependencies.Num(); Idx++ )
-	{
-		DependencyEntry = ManifestDependencies[Idx]->FindEntryByContext( Namespace, Context );
-		if( DependencyEntry.IsValid() )
-		{
-			OutFileName = ManifestDependenciesFilePaths[Idx];
-			break;
-		}
-	}
-	return DependencyEntry;
-}
-
-TSharedPtr< FManifestEntry > FManifestInfo::FindDependencyEntryBySource( const FString& Namespace, const FLocItem& Source, FString& OutFileName )
-{
-	TSharedPtr<FManifestEntry> DependencyEntry = NULL;
-	OutFileName = TEXT("");
-
-	for( int32 Idx = 0; Idx < ManifestDependencies.Num(); Idx++ )
-	{
-		DependencyEntry = ManifestDependencies[Idx]->FindEntryBySource( Namespace, Source );
-		if( DependencyEntry.IsValid() )
-		{
-			OutFileName = ManifestDependenciesFilePaths[Idx];
-			break;
-		}
-	}
-	return DependencyEntry;
-}
-
-void FManifestInfo::ApplyManifestDependencies()
-{
-	if( ManifestDependencies.Num() > 0 )
-	{
-		TSharedRef< FInternationalizationManifest > NewManifest =  MakeShareable( new FInternationalizationManifest );
-		// We'll generate a new manifest by only including items that are not in the dependencies
-		for( TManifestEntryByContextIdContainer::TConstIterator It( Manifest->GetEntriesByContextIdIterator() ); It; ++It )
-		{
-			const TSharedRef<FManifestEntry> ManifestEntry = It.Value();
-
-			for(  auto ContextIt = ManifestEntry->Contexts.CreateConstIterator(); ContextIt; ++ContextIt )
-			{
-				FString DependencyFileName;
-
-				const TSharedPtr<FManifestEntry> DependencyEntry = FindDependencyEntryByContext( ManifestEntry->Namespace, *ContextIt, DependencyFileName );
-				
-				if( DependencyEntry.IsValid() )
-				{
-					if( !(DependencyEntry->Source.IsExactMatch( ManifestEntry->Source )) )
-					{
-						// There is a dependency manifest entry that has the same namespace and keys as our main manifest entry but the source text differs.
-						FString Message = UGatherTextCommandletBase::MungeLogOutput( FString::Printf(TEXT("Found previously entered localized string [%s] %s %s=\"%s\" %s. It was previously \"%s\" %s in dependency manifest %s."),
-							*ManifestEntry->Namespace,
-							*ContextIt->Key,
-							*FJsonInternationalizationMetaDataSerializer::MetadataToString( ContextIt->KeyMetadataObj ),
-							*ManifestEntry->Source.Text,
-							*FJsonInternationalizationMetaDataSerializer::MetadataToString(ManifestEntry->Source.MetadataObj),
-							*DependencyEntry->Source.Text,
-							*FJsonInternationalizationMetaDataSerializer::MetadataToString(DependencyEntry->Source.MetadataObj),
-							*DependencyFileName));
-						UE_LOG(LogGatherTextCommandletBase, Warning, TEXT("%s"), *Message);
-
-						FConflictReportInfo::GetInstance().AddConflict( ManifestEntry->Namespace, ContextIt->Key, ContextIt->KeyMetadataObj, ManifestEntry->Source, *ContextIt->SourceLocation );
-
-						FContext* ConflictingContext = DependencyEntry->FindContext( ContextIt->Key, ContextIt->KeyMetadataObj );
-						FString DependencyEntryFullSrcLoc = ( !DependencyFileName.IsEmpty() ) ? DependencyFileName : ConflictingContext->SourceLocation;
-						
-						FConflictReportInfo::GetInstance().AddConflict( ManifestEntry->Namespace, ContextIt->Key, ContextIt->KeyMetadataObj, DependencyEntry->Source, DependencyEntryFullSrcLoc );
-
-					}
-				}
-				else
-				{
-					// Since we did not find any entries in the dependencies list that match, we'll add to the new manifest
-					bool bAddSuccessful = NewManifest->AddSource( ManifestEntry->Namespace, ManifestEntry->Source, *ContextIt );
-					if(!bAddSuccessful)
-					{
-						UE_LOG(LogGatherTextCommandletBase, Error, TEXT("Could not process localized string: %s [%s] %s=\"%s\" %s."),
-							*ManifestEntry->Namespace,
-							*ContextIt->Key,
-							*ManifestEntry->Source.Text,
-							*FJsonInternationalizationMetaDataSerializer::MetadataToString( ManifestEntry->Source.MetadataObj ));
-					}
-				}
-			}
-		}
-
-		Manifest = NewManifest;
-	}
-}
-
-bool FManifestInfo::AddEntry( const FString& EntryDescription, const FString& Namespace, const FLocItem& Source, const FContext& Context )
-{
-	bool bAddSuccessful = false;
-	// Check if the entry already exists in the manifest or one of the manifest dependencies
-	FString ExistingEntryFileName;
-	TSharedPtr< FManifestEntry > ExistingEntry = Manifest->FindEntryByContext( Namespace, Context );
-	if( !ExistingEntry.IsValid() )
-	{
-		ExistingEntry = FindDependencyEntryByContext( Namespace, Context, ExistingEntryFileName );
-	}
-
-	if( ExistingEntry.IsValid() )
-	{
-		if( Source.IsExactMatch( ExistingEntry->Source ) )
-		{
-			bAddSuccessful = true;
-		}
-		else
-		{
-			// Grab the source location of the conflicting context
-			FContext* ConflictingContext = ExistingEntry->FindContext( Context.Key, Context.KeyMetadataObj );
-			FString ExistingEntrySourceLocation = ( !ExistingEntryFileName.IsEmpty() ) ?  ExistingEntryFileName : ConflictingContext->SourceLocation;
-
-			FString Message = UGatherTextCommandletBase::MungeLogOutput( FString::Printf(TEXT("Previously entered localized string: %s [%s] %s %s=\"%s\" %s. It was previously \"%s\" %s in %s." ),
-				*EntryDescription,
-				*Namespace,
-				*Context.Key,
-				*FJsonInternationalizationMetaDataSerializer::MetadataToString( Context.KeyMetadataObj ),
-				*Source.Text,
-				*FJsonInternationalizationMetaDataSerializer::MetadataToString( Source.MetadataObj ),
-				*ExistingEntry->Source.Text,
-				*FJsonInternationalizationMetaDataSerializer::MetadataToString( ExistingEntry->Source.MetadataObj ),
-				*ExistingEntrySourceLocation));
-
-			UE_LOG(LogGatherTextCommandletBase, Warning, TEXT("%s"), *Message);
-
-			FConflictReportInfo::GetInstance().AddConflict(Namespace, Context.Key, Context.KeyMetadataObj, Source, Context.SourceLocation );
-			FConflictReportInfo::GetInstance().AddConflict(Namespace, Context.Key, Context.KeyMetadataObj, ExistingEntry->Source, ExistingEntrySourceLocation);
-		}
-	}
-	else
-	{
-		bAddSuccessful = Manifest->AddSource( Namespace, Source, Context );
-		if( !bAddSuccessful )
-		{
-			UE_LOG(LogGatherTextCommandletBase, Error, TEXT("Could not process localized string: %s [%s] %s=\"%s\" %s."),
-				*EntryDescription,
-				*Namespace,
-				*Context.Key,
-				*Source.Text,
-				*FJsonInternationalizationMetaDataSerializer::MetadataToString( Source.MetadataObj ));
-		}
-	}
-	return bAddSuccessful;
 }
 
 
@@ -625,109 +282,6 @@ int32 FWordCountReportData::AddColumn(const FString* ColumnHeading )
 	return GetColumnCount() - 1;
 }
 
-void FLocConflict::Add( const FLocItem& Source, const FString& SourceLocation )
-{
-	EntriesBySourceLocation.AddUnique( SourceLocation, Source );
-}
-
-FConflictReportInfo& FConflictReportInfo::GetInstance()
-{
-	if( !StaticConflictInstance.IsValid() )
-	{
-		StaticConflictInstance = MakeShareable( new FConflictReportInfo() );
-	}
-	return *StaticConflictInstance;
-}
-
-void FConflictReportInfo::DeleteInstance()
-{
-	StaticConflictInstance.Reset();
-}
-
-TSharedPtr< FLocConflict > FConflictReportInfo::FindEntryByKey( const FString& Namespace, const FString& Key, const TSharedPtr<FLocMetadataObject> KeyMetadata )
-{
-	TArray< TSharedRef< FLocConflict > > MatchingEntries;
-	EntriesByKey.MultiFind( Key, MatchingEntries );
-
-	for( int Idx = 0; Idx < MatchingEntries.Num(); Idx++ )
-	{
-		if( MatchingEntries[Idx]->Namespace == Namespace )
-		{
-			if( KeyMetadata.IsValid() != MatchingEntries[Idx]->KeyMetadataObj.IsValid() )
-			{
-				continue;
-			}
-			else if ( (!KeyMetadata.IsValid() && !MatchingEntries[Idx]->KeyMetadataObj.IsValid()) ||
-				*(KeyMetadata) == *(MatchingEntries[Idx]->KeyMetadataObj) )
-			{
-				return MatchingEntries[Idx];
-			}
-		}
-	}
-
-	return NULL;
-}
-
-void FConflictReportInfo::AddConflict(const FString& Namespace, const FString& Key, const TSharedPtr<FLocMetadataObject> KeyMetadata, const FLocItem& Source, const FString& SourceLocation )
-{
-	TSharedPtr< FLocConflict > ExistingEntry = FindEntryByKey( Namespace, Key, KeyMetadata );
-	if( !ExistingEntry.IsValid() )
-	{
-		TSharedRef< FLocConflict > NewEntry = MakeShareable( new FLocConflict( Namespace, Key, KeyMetadata ) );
-		EntriesByKey.Add( Key, NewEntry );
-		ExistingEntry = NewEntry;
-	}
-	ExistingEntry->Add( Source, SourceLocation.ReplaceCharWithEscapedChar() );
-}
-
-FString FConflictReportInfo::ToString()
-{
-	FString Report;
-	for( auto ConflictIter = GetEntryConstIterator(); ConflictIter; ++ConflictIter )
-	{
-		const TSharedRef<FLocConflict>& Conflict = ConflictIter.Value();
-		const FString& Namespace = Conflict->Namespace;
-		const FString& Key = Conflict->Key;
-
-		bool bAddToReport = false;
-		TArray<FLocItem> SourceList; 
-		Conflict->EntriesBySourceLocation.GenerateValueArray(SourceList);
-		if(SourceList.Num() >= 2)
-		{
-			for(int32 i = 0; i < SourceList.Num() - 1 && !bAddToReport; ++i)
-			{
-				for(int32 j = i+1; j < SourceList.Num() && !bAddToReport; ++j)
-				{
-					if( !(SourceList[i] == SourceList[j]) )
-					{
-						bAddToReport = true;
-					}
-				}
-			}
-		}
-		
-		if(bAddToReport)
-		{
-			FString KeyMetadataString = FJsonInternationalizationMetaDataSerializer::MetadataToString( Conflict->KeyMetadataObj );
-			Report += FString::Printf(TEXT("%s - %s %s\n"), *Namespace, *Key, *KeyMetadataString );
-						
-			for(auto EntryIter = Conflict->EntriesBySourceLocation.CreateConstIterator(); EntryIter; ++EntryIter)
-			{
-				const FString& SourceLocation = EntryIter.Key();
-				FString ProcessedSourceLocation = FPaths::ConvertRelativePathToFull(SourceLocation);
-				ProcessedSourceLocation.ReplaceInline( TEXT("\\"), TEXT("/"));
-				ProcessedSourceLocation.ReplaceInline( *FPaths::RootDir(), TEXT("/"));
-
-				const FString& SourceText = EntryIter.Value().Text.ReplaceCharWithEscapedChar();
-
-				FString SourceMetadataString =  FJsonInternationalizationMetaDataSerializer::MetadataToString( EntryIter.Value().MetadataObj );
-				Report += FString::Printf(TEXT("\t%s - \"%s\" %s\n"), *ProcessedSourceLocation, *SourceText, *SourceMetadataString);
-			}
-			Report += TEXT("\n");
-		}
-	}
-	return Report;
-}
 
 FGatherTextSCC::FGatherTextSCC()
 {
@@ -746,10 +300,16 @@ FGatherTextSCC::~FGatherTextSCC()
 
 bool FGatherTextSCC::CheckOutFile(const FString& InFile, FText& OutError)
 {
-	if ( InFile.IsEmpty() || InFile.StartsWith(TEXT("\\\\")) )
+	if ( InFile.IsEmpty() )
 	{
 		OutError = NSLOCTEXT("GatherTextCmdlet", "InvalidFileSpecified", "Could not checkout file at invalid path.");
 		return false;
+	}
+
+	if ( InFile.StartsWith(TEXT("\\\\")) )
+	{
+		// We can't check out a UNC path, but don't say we failed
+		return true;
 	}
 
 	FText SCCError;
@@ -974,6 +534,32 @@ bool FGatherTextSCC::RevertFile( const FString& InFile, FText& OutError )
 	return bSuccessfullyReverted;
 }
 
+void FLocFileSCCNotifies::PreFileWrite(const FString& InFilename)
+{
+	if (SourceControlInfo.IsValid() && FPaths::FileExists(InFilename))
+	{
+		// File already exists, so check it out before writing to it
+		FText ErrorMsg;
+		if (!SourceControlInfo->CheckOutFile(InFilename, ErrorMsg))
+		{
+			UE_LOG(LogGatherTextCommandletBase, Error, TEXT("Failed to check out file '%s'. %s"), *InFilename, *ErrorMsg.ToString());
+		}
+	}
+}
+
+void FLocFileSCCNotifies::PostFileWrite(const FString& InFilename)
+{
+	if (SourceControlInfo.IsValid())
+	{
+		// If the file didn't exist before then this will add it, otherwise it will do nothing
+		FText ErrorMsg;
+		if (!SourceControlInfo->CheckOutFile(InFilename, ErrorMsg))
+		{
+			UE_LOG(LogGatherTextCommandletBase, Error, TEXT("Failed to check out file '%s'. %s"), *InFilename, *ErrorMsg.ToString());
+		}
+	}
+}
+
 bool FLocalizedAssetSCCUtil::SaveAssetWithSCC(const TSharedPtr<FGatherTextSCC>& InSourceControlInfo, UObject* InAsset)
 {
 	UPackage* const AssetPackage = InAsset->GetOutermost();
@@ -1002,7 +588,7 @@ bool FLocalizedAssetSCCUtil::SaveAssetWithSCC(const TSharedPtr<FGatherTextSCC>& 
 
 bool FLocalizedAssetSCCUtil::SavePackageWithSCC(const TSharedPtr<FGatherTextSCC>& InSourceControlInfo, UPackage* InPackage)
 {
-	const FString PackageFileName = FPackageName::LongPackageNameToFilename(InPackage->GetPathName(), FPackageName::GetAssetPackageExtension(), false);
+	const FString PackageFileName = FPackageName::LongPackageNameToFilename(InPackage->GetPathName(), FPackageName::GetAssetPackageExtension());
 	return SavePackageWithSCC(InSourceControlInfo, InPackage, PackageFileName);
 }
 
@@ -1130,4 +716,60 @@ bool FLocalizedAssetUtil::GetAssetsByPathAndClass(IAssetRegistry& InAssetRegistr
 	}
 
 	return true;
+}
+
+
+FFuzzyPathMatcher::FFuzzyPathMatcher(const TArray<FString>& InIncludePathFilters, const TArray<FString>& InExcludePathFilters)
+{
+	FuzzyPaths.Reserve(InIncludePathFilters.Num() + InExcludePathFilters.Num());
+
+	for (const FString& IncludePath : InIncludePathFilters)
+	{
+		FuzzyPaths.Add(FFuzzyPath(IncludePath, EPathType::Include));
+	}
+
+	for (const FString& ExcludePath : InExcludePathFilters)
+	{
+		FuzzyPaths.Add(FFuzzyPath(ExcludePath, EPathType::Exclude));
+	}
+
+	// Sort the paths so that deeper paths with fewer wildcards appear first in the list
+	FuzzyPaths.Sort([](const FFuzzyPath& PathOne, const FFuzzyPath& PathTwo) -> bool
+	{
+		auto GetFuzzRating = [](const FFuzzyPath& InFuzzyPath) -> int32
+		{
+			int32 PathDepth = 0;
+			int32 PathFuzz = 0;
+			for (const TCHAR Char : InFuzzyPath.PathFilter)
+			{
+				if (Char == TEXT('/') || Char == TEXT('\\'))
+				{
+					++PathDepth;
+				}
+				else if (Char == TEXT('*') || Char == TEXT('?'))
+				{
+					++PathFuzz;
+				}
+			}
+
+			return (100 - PathDepth) + (PathFuzz * 1000);
+		};
+
+		const int32 PathOneFuzzRating = GetFuzzRating(PathOne);
+		const int32 PathTwoFuzzRating = GetFuzzRating(PathTwo);
+		return PathOneFuzzRating < PathTwoFuzzRating;
+	});
+}
+
+FFuzzyPathMatcher::EPathMatch FFuzzyPathMatcher::TestPath(const FString& InPathToTest) const
+{
+	for (const FFuzzyPath& FuzzyPath : FuzzyPaths)
+	{
+		if (InPathToTest.MatchesWildcard(FuzzyPath.PathFilter))
+		{
+			return (FuzzyPath.PathType == EPathType::Include) ? EPathMatch::Included : EPathMatch::Excluded;
+		}
+	}
+
+	return EPathMatch::NoMatch;
 }

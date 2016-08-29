@@ -25,10 +25,13 @@ struct CORE_API FLinuxCrashContext : public FGenericCrashContext
 	char ** BacktraceSymbols;
 
 	/** Memory reserved for "exception" (signal) info */
-	TCHAR SignalDescription[128];
+	TCHAR SignalDescription[256];
 
 	/** Memory reserved for minidump-style callstack info */
 	char MinidumpCallstackInfo[16384];
+
+	/** Fake siginfo used when handling ensure()s */
+	static __thread siginfo_t	FakeSiginfoForEnsures;
 
 	FLinuxCrashContext()
 		:	Signal(0)
@@ -63,6 +66,14 @@ struct CORE_API FLinuxCrashContext : public FGenericCrashContext
 	 * @param InContext thread context
 	 */
 	void InitFromSignal(int32 InSignal, siginfo_t* InInfo, void* InContext);
+
+	/**
+	 * Inits the crash context from ensure handler
+	 *
+	 * @param EnsureMessage Message about the ensure that failed
+	 * @param CrashAddress address where "crash" happened
+	 */
+	void InitFromEnsureHandler(const TCHAR* EnsureMessage, const void* CrashAddress);
 
 	/**
 	 * Populates crash context stack trace and a few related fields

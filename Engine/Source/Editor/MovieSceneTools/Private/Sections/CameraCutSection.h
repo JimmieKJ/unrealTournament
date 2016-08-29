@@ -2,6 +2,9 @@
 
 #pragma once
 
+#include "ThumbnailSection.h"
+
+
 class FTrackEditorThumbnail;
 class FTrackEditorThumbnailPool;
 class IMenu;

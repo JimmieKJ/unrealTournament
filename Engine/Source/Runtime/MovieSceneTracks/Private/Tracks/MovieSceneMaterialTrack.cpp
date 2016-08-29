@@ -110,8 +110,11 @@ void UMovieSceneMaterialTrack::Eval(float Position, TArray<FScalarParameterNameA
 	TArray<FVectorParameterNameAndValue> OutVectorValues;
 	for (UMovieSceneSection* Section : Sections)
 	{
-		UMovieSceneParameterSection* ParameterSection = Cast<UMovieSceneParameterSection>(Section);
-		ParameterSection->Eval(Position, OutScalarValues, OutVectorValues, OutColorValues);
+		if ( Section->IsActive() )
+		{
+			UMovieSceneParameterSection* ParameterSection = Cast<UMovieSceneParameterSection>( Section );
+			ParameterSection->Eval( Position, OutScalarValues, OutVectorValues, OutColorValues );
+		}
 	}
 }
 

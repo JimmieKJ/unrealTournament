@@ -22,7 +22,7 @@ FSwarmDebugOptions GSwarmDebugOptions;
 #include "ShadowMap.h"
 #include "RendererInterface.h"
 #include "EditorBuildUtils.h"
-
+#include "ComponentRecreateRenderStateContext.h"
 #include "Engine/LODActor.h"
 
 DEFINE_LOG_CATEGORY(LogStaticLightingSystem);
@@ -144,6 +144,7 @@ void FStaticLightingManager::CancelLightingBuild()
 	{
 		GEditor->SetMapBuildCancelled( true );
 		FStaticLightingManager::Get()->ClearCurrentNotification();
+		FEditorDelegates::OnLightingBuildFailed.Broadcast();
 	}
 	else
 	{
@@ -206,6 +207,8 @@ void FStaticLightingManager::SendBuildDoneNotification( bool AutoApplyFailed )
 
 	Info.ButtonDetails.Add( ApplyNow );
 	Info.ButtonDetails.Add( Discard );
+
+	FEditorDelegates::OnLightingBuildSucceeded.Broadcast();
 
 	LightBuildNotification = FSlateNotificationManager::Get().AddNotification( Info );
 	if ( LightBuildNotification.IsValid() )
@@ -272,11 +275,15 @@ void FStaticLightingManager::FailLightingBuild( FText ErrorText)
 	FNotificationInfo Info( ErrorText );
 	Info.ExpireDuration = 4.f;
 	
+	FEditorDelegates::OnLightingBuildFailed.Broadcast();
+
 	LightBuildNotification = FSlateNotificationManager::Get().AddNotification(Info);
 	if (LightBuildNotification.IsValid())
 	{
 		LightBuildNotification.Pin()->SetCompletionState(SNotificationItem::CS_Fail);
 	}
+
+	UE_LOG(LogStaticLightingSystem, Warning, TEXT("Failed to build lighting!!! %s"),*ErrorText.ToString());
 
 	FMessageLog("LightingResults").Open();
 
@@ -1234,8 +1241,9 @@ void FStaticLightingSystem::ApplyNewLightingData(bool bLightingSuccessful)
 		// by scene proxies will be fully released before any components are reregistered.
 		// We do not rerun construction scripts - nothing should have changed that requires that, and 
 		// want to know which components were not moved during lighting rebuild
-		World->ClearWorldComponents();
-		World->UpdateWorldComponents(false, false);
+		{
+			FGlobalComponentRecreateRenderStateContext RecreateRenderState;
+		}
 
 		// Clean up old shadow-map and light-map data.
 		CollectGarbage( GARBAGE_COLLECTION_KEEPFLAGS );
@@ -2213,16 +2221,16 @@ void FStaticLightingSystem::UpdateLightingBuild()
 	{
 		if ( CanAutoApplyLighting() || IsRunningCommandlet() )
 		{
-			bool bAutpApplyFailed = false;
-			FStaticLightingManager::Get()->SendBuildDoneNotification( bAutpApplyFailed );
+			bool bAutoApplyFailed = false;
+			FStaticLightingManager::Get()->SendBuildDoneNotification(bAutoApplyFailed);
 
 			FStaticLightingManager::ProcessLightingData( false );
 			CurrentBuildStage = FStaticLightingSystem::NotRunning;
 		}
 		else
 		{
-			bool bAutpApplyFailed = true;
-			FStaticLightingManager::Get()->SendBuildDoneNotification( bAutpApplyFailed );
+			bool bAutoApplyFailed = true;
+			FStaticLightingManager::Get()->SendBuildDoneNotification(bAutoApplyFailed);
 
 			CurrentBuildStage = FStaticLightingSystem::WaitingForImport;
 		}

@@ -8,7 +8,19 @@ public class SequencerWidgets : ModuleRules
 	{
 		PrivateIncludePaths.Add("Editor/SequencerWidgets/Private");
 
-		PrivateDependencyModuleNames.AddRange(
+        PrivateIncludePathModuleNames.AddRange(
+            new string[] {
+                "MovieScene",
+            }
+           );
+
+        PublicDependencyModuleNames.AddRange(
+            new string[] {
+                "MovieScene",
+            }
+        );
+        
+        PrivateDependencyModuleNames.AddRange(
 			new string[] {
 				"Core",
 				"CoreUObject",
@@ -18,7 +30,8 @@ public class SequencerWidgets : ModuleRules
                 "MovieScene",
 				"Slate",
 				"SlateCore",
-				"UnrealEd"
+                "MovieScene",
+                "UnrealEd"
 			}
 		);
 	}

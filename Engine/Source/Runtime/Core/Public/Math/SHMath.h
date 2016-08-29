@@ -25,8 +25,8 @@ public:
 	enum { MaxSHBasis = MaxSHOrder * MaxSHOrder };
 	enum { NumComponentsPerSIMDVector = 4 };
 	enum { NumSIMDVectors = (MaxSHBasis + NumComponentsPerSIMDVector - 1) / NumComponentsPerSIMDVector };
-
-	float V[NumSIMDVectors * NumComponentsPerSIMDVector];
+	enum { NumTotalFloats = NumSIMDVectors * NumComponentsPerSIMDVector };
+	float V[NumTotalFloats];
 
 	/** The integral of the constant SH basis. */
 	CORE_API static const float ConstantBasisIntegral;
@@ -56,6 +56,21 @@ public:
 		V[2] = Vector.Z;
 		V[3] = Vector.W;
 	}
+
+
+	template<int32 OtherOrder>
+	explicit TSHVector(const TSHVector<OtherOrder>& Other)
+	{
+		if (Order <= OtherOrder)
+		{
+			FMemory::Memcpy(V, Other.V, sizeof(V));
+		}
+		else
+		{
+			FMemory::Memzero(V);
+			FMemory::Memcpy(V, Other.V, sizeof(V));
+		}
+	}	
 
 	/** Scalar multiplication operator. */
 	/** Changed to float& from float to avoid LHS **/
@@ -341,6 +356,7 @@ public:
 	}
 } GCC_ALIGN(16);
 
+
 /** Specialization for 2nd order to avoid expensive trig functions. */
 template<> 
 inline TSHVector<2> TSHVector<2>::SHBasisFunction(const FVector& Vector) 
@@ -383,6 +399,14 @@ public:
 	TSHVector<MaxSHOrder> B;
 
 	TSHVectorRGB() {}
+
+	template<int32 OtherOrder>
+	explicit TSHVectorRGB(const TSHVectorRGB<OtherOrder>& Other)
+	{
+		R = (TSHVector<MaxSHOrder>)Other.R;
+		G = (TSHVector<MaxSHOrder>)Other.G;
+		B = (TSHVector<MaxSHOrder>)Other.B;
+	}
 
 	/** Calculates greyscale spherical harmonic coefficients. */
 	TSHVector<MaxSHOrder> GetLuminance() const

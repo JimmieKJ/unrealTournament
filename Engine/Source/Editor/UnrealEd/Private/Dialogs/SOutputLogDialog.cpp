@@ -164,9 +164,9 @@ bool SOutputLogDialog::SupportsKeyboardFocus() const
 
 FVector2D SOutputLogDialog::ComputeDesiredSize(float LayoutScaleMultiplier) const
 {
-	FVector2D DesiredSize = SCompoundWidget::ComputeDesiredSize(LayoutScaleMultiplier);
-	DesiredSize.X = FMath::Min(DesiredSize.X, MaxWidth);
-	return DesiredSize;
+	FVector2D OutputLogDesiredSize = SCompoundWidget::ComputeDesiredSize(LayoutScaleMultiplier);
+	OutputLogDesiredSize.X = FMath::Min(OutputLogDesiredSize.X, MaxWidth);
+	return OutputLogDesiredSize;
 }
 
 void SOutputLogDialog::CopyMessageToClipboard( )

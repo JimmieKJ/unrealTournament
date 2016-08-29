@@ -65,7 +65,7 @@ void TransmittancePS(FAtmosphereVSOutput Input, out float4 OutColor : SV_Target0
 	// RETURN_COLOR not needed unless writing to SceneColor
     float Radius, MuS;
     GetTransmittanceRMuS(Input.OutTexCoord, Radius, MuS);
-    float3 Depth = BetaRayleighScattering * OpticalDepth(Frame.AtmosphericFogHeightScaleRayleigh, Radius, MuS) + BetaMieExtinction * OpticalDepth(HeightScaleMie, Radius, MuS);
+    float3 Depth = BetaRayleighScattering * OpticalDepth(View.AtmosphericFogHeightScaleRayleigh, Radius, MuS) + BetaMieExtinction * OpticalDepth(HeightScaleMie, Radius, MuS);
 	OutColor = float4(exp(-Depth), 0.f); // Eq (5)
 }
 

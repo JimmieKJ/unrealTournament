@@ -429,6 +429,11 @@ public:
 		return EDropEffect::None;
 	}
 
+	virtual EDropEffect::Type OnDragEnterExternal( const TSharedRef< FGenericWindow >& Window, const FString& Text, const TArray< FString >& Files )
+	{
+		return EDropEffect::None;
+	}
+
 	virtual EDropEffect::Type OnDragOver( const TSharedPtr< FGenericWindow >& Window )
 	{
 		return EDropEffect::None;

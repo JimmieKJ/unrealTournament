@@ -567,7 +567,7 @@ public:
 	FORCEINLINE FVector		GetScaledAxis(EAxis::Type InAxis) const;
 	FORCEINLINE FVector		GetUnitAxis(EAxis::Type InAxis) const;
 	FORCEINLINE void		Mirror(EAxis::Type MirrorAxis, EAxis::Type FlipAxis);
-	FORCEINLINE FVector		GetSafeScaleReciprocal(const FVector& InScale, float Tolerance=0.0f) const;
+	FORCEINLINE static FVector	GetSafeScaleReciprocal(const FVector& InScale, float Tolerance=SMALL_NUMBER);
 
 
 	FORCEINLINE FVector GetLocation() const
@@ -743,7 +743,6 @@ public:
 	}
 
 	FORCEINLINE static void Multiply(FTransform* OutTransform, const FTransform* A, const FTransform* B);
-
 	/**
 	 * Sets the components
 	 * @param InRotation The new value for the Rotation component
@@ -888,8 +887,80 @@ public:
 		DiagnosticCheckNaN_Translate();
 		DiagnosticCheckNaN_Scale3D();
 	}
+	
+	/** @note : Added template type function for Accumulate
+	  * The template type isn't much useful yet, but it is with the plan to move forward
+	  * to unify blending features with just type of additive or full pose
+	  * Eventually it would be nice to just call blend and it all works depending on full pose
+	  * or additive, but right now that is a lot more refactoring
+	  * For now this types only defines the different functionality of accumulate
+	  */
 
+	/**
+	* Accumulates another transform with this one
+	*
+	* Rotation is accumulated multiplicatively (Rotation = SourceAtom.Rotation * Rotation)
+	* Translation is accumulated additively (Translation += SourceAtom.Translation)
+	* Scale3D is accumulated multiplicatively (Scale3D *= SourceAtom.Scale3D)
+	*
+	* @param SourceAtom The other transform to accumulate into this one
+	*/
+	FORCEINLINE void Accumulate(const FTransform& SourceAtom)
+	{
+		const VectorRegister BlendedRotation = SourceAtom.Rotation;
+		const VectorRegister RotationW = VectorReplicate(BlendedRotation, 3);
 
+		// if( Square(SourceAtom.Rotation.W) < 1.f - DELTA * DELTA )
+		if (VectorAnyGreaterThan(GlobalVectorConstants::RotationSignificantThreshold, VectorMultiply(RotationW, RotationW)))
+		{
+			// Rotation = SourceAtom.Rotation * Rotation;
+			Rotation = VectorQuaternionMultiply2(BlendedRotation, Rotation);
+		}
+
+		// Translation += SourceAtom.Translation;
+		// Scale *= SourceAtom.Scale;
+		Translation = VectorAdd(Translation, SourceAtom.Translation);
+		Scale3D = VectorMultiply(Scale3D, SourceAtom.Scale3D);
+
+		DiagnosticCheckNaN_All();
+
+		checkSlow(IsRotationNormalized());
+	}
+
+	/**
+	* Accumulates another transform with this one, with a blending weight
+	*
+	* Let SourceAtom = Atom * BlendWeight
+	* Rotation is accumulated multiplicatively (Rotation = Atom.Rotation * Rotation).
+	* Translation is accumulated additively (Translation += Atom.Translation)
+	* Scale3D is accumulated multiplicatively (Scale3D *= Atom.Scale3D)
+	*
+	* Note: Rotation will not be normalized! Will have to be done manually.
+	*
+	* @param Atom The other transform to accumulate into this one
+	* @param BlendWeight The weight to multiply Atom by before it is accumulated.
+	*/
+	FORCEINLINE void Accumulate(const FTransform& Atom, const ScalarRegister& BlendWeight)
+	{
+		// SourceAtom = Atom * BlendWeight;
+		const VectorRegister BlendedRotation = VectorMultiply(Atom.Rotation, BlendWeight.Value);
+		const VectorRegister RotationW = VectorReplicate(BlendedRotation, 3);
+
+		// Add ref pose relative animation to base animation, only if rotation is significant.
+		// if( Square(SourceAtom.Rotation.W) < 1.f - DELTA * DELTA )
+		if (VectorAnyGreaterThan(GlobalVectorConstants::RotationSignificantThreshold, VectorMultiply(RotationW, RotationW)))
+		{
+			// Rotation = SourceAtom.Rotation * Rotation;
+			Rotation = VectorQuaternionMultiply2(BlendedRotation, Rotation);
+		}
+
+		// Translation += SourceAtom.Translation;
+		// Scale *= SourceAtom.Scale;
+		Translation = VectorAdd(Translation, Atom.Translation);
+		Scale3D = VectorMultiply(Scale3D, Atom.Scale3D);
+
+		DiagnosticCheckNaN_All();
+	}
 	/**
 	 * Accumulates another transform with this one, with an optional blending weight
 	 *
@@ -912,52 +983,27 @@ public:
 		DiagnosticCheckNaN_All();
 	}
 
-	/**
-	 * Accumulates another transform with this one
-	 *
-	 * Rotation is accumulated multiplicatively (Rotation = SourceAtom.Rotation * Rotation)
-	 * Translation is accumulated additively (Translation += SourceAtom.Translation)
-	 * Scale3D is accumulated multiplicatively (Scale3D *= SourceAtom.Scale3D)
-	 *
-	 * @param SourceAtom The other transform to accumulate into this one
-	 */
-	FORCEINLINE void Accumulate(const FTransform& SourceAtom)
+	/** Accumulates another transform with this one, with a blending weight
+	*
+	* Let SourceAtom = Atom * BlendWeight
+	* Rotation is accumulated multiplicatively (Rotation = SourceAtom.Rotation * Rotation).
+	* Translation is accumulated additively (Translation += SourceAtom.Translation)
+	* Scale3D is accumulated assuming incoming scale is additive scale (Scale3D *= (1 + SourceAtom.Scale3D))
+	*
+	* When we create additive, we create additive scale based on [TargetScale/SourceScale -1]
+	* because that way when you apply weight of 0.3, you don't shrink. We only saves the % of grow/shrink
+	* when we apply that back to it, we add back the 1, so that it goes back to it.
+	* This solves issue where you blend two additives with 0.3, you don't come back to 0.6 scale, but 1 scale at the end
+	* because [1 + [1-1]*0.3 + [1-1]*0.3] becomes 1, so you don't shrink by applying additive scale
+	*
+	* Note: Rotation will not be normalized! Will have to be done manually.
+	*
+	* @param Atom The other transform to accumulate into this one
+	* @param BlendWeight The weight to multiply Atom by before it is accumulated.
+	*/
+	FORCEINLINE void AccumulateWithAdditiveScale(const FTransform& Atom, const ScalarRegister& BlendWeight)
 	{
-		const VectorRegister BlendedRotation = SourceAtom.Rotation;
-		const VectorRegister RotationW = VectorReplicate(BlendedRotation, 3);
-
-		// if( Square(SourceAtom.Rotation.W) < 1.f - DELTA * DELTA )
-		if (VectorAnyGreaterThan(GlobalVectorConstants::RotationSignificantThreshold, VectorMultiply(RotationW, RotationW)))
-		{
-			// Rotation = SourceAtom.Rotation * Rotation;
-			Rotation = VectorQuaternionMultiply2(BlendedRotation, Rotation);
-		}
-
-		// Translation += SourceAtom.Translation;
-		// Scale *= SourceAtom.Scale;
-		Translation = VectorAdd( Translation, SourceAtom.Translation );
-		Scale3D = VectorMultiply( Scale3D, SourceAtom.Scale3D );
-
-		DiagnosticCheckNaN_All();
-
-		checkSlow( IsRotationNormalized() );
-	}
-
-	/**
-	 * Accumulates another transform with this one, with a blending weight
-	 *
-	 * Let SourceAtom = Atom * BlendWeight
-	 * Rotation is accumulated multiplicatively (Rotation = Atom.Rotation * Rotation).
-	 * Translation is accumulated additively (Translation += Atom.Translation)
-	 * Scale3D is accumulated multiplicatively (Scale3D *= Atom.Scale3D)
-	 *
-	 * Note: Rotation will not be normalized! Will have to be done manually.
-	 *
-	 * @param Atom The other transform to accumulate into this one
-	 * @param BlendWeight The weight to multiply Atom by before it is accumulated.
-	 */
-	FORCEINLINE void Accumulate(const FTransform& Atom, const ScalarRegister& BlendWeight)
-	{
+		const VectorRegister DefaultScale = MakeVectorRegister(1.f, 1.f, 1.f, 0.f);
 		// SourceAtom = Atom * BlendWeight;
 		const VectorRegister BlendedRotation = VectorMultiply(Atom.Rotation, BlendWeight.Value);
 		const VectorRegister RotationW = VectorReplicate(BlendedRotation, 3);
@@ -972,13 +1018,11 @@ public:
 
 		// Translation += SourceAtom.Translation;
 		// Scale *= SourceAtom.Scale;
-		Translation = VectorAdd( Translation, Atom.Translation );
-		Scale3D = VectorMultiply( Scale3D, Atom.Scale3D );
+		Translation = VectorAdd(Translation, Atom.Translation);
+		Scale3D = VectorMultiply(Scale3D, VectorAdd(DefaultScale, Atom.Scale3D));
 
 		DiagnosticCheckNaN_All();
 	}
-
-
 
 	/**
 	 * Set the translation and Scale3D components of this transform to a linearly interpolated combination of two other transforms
@@ -997,33 +1041,6 @@ public:
 
 		DiagnosticCheckNaN_Translate();
 		DiagnosticCheckNaN_Scale3D();
-	}
-
-/**
-	 * Accumulates another transform with this one
-	 *
-	 * Rotation is accumulated multiplicatively (Rotation = SourceAtom.Rotation * Rotation)
-	 * Translation is accumulated additively (Translation += SourceAtom.Translation)
-	 * Scale is accumulated additively (Scale3D += SourceAtom.Scale3D)
-	 *
-	 * @param SourceAtom The other transform to accumulate into this one
-	 */
-	FORCEINLINE void AccumulateWithAdditiveScale3D(const FTransform& SourceAtom)
-	{
-		// Add ref pose relative animation to base animation, only if rotation is significant.
-		const VectorRegister RotationW = VectorReplicate(SourceAtom.Rotation, 3);
-
-		// if( Square(SourceAtom.Rotation.W) < 1.f - DELTA * DELTA )
-		if (VectorAnyGreaterThan(GlobalVectorConstants::RotationSignificantThreshold, VectorMultiply(RotationW, RotationW)))
-		{
-			// Rotation = SourceAtom.Rotation * Rotation;
-			Rotation = VectorQuaternionMultiply2(SourceAtom.Rotation, Rotation);
-		}
-
-		Translation = VectorAdd( Translation, SourceAtom.Translation );
-		Scale3D = VectorAdd( Scale3D, SourceAtom.Scale3D );
-
-		DiagnosticCheckNaN_All();
 	}
 
 	/**
@@ -1063,6 +1080,7 @@ public:
 		const VectorRegister Const0001 = GlobalVectorConstants::Float0001;
 		const VectorRegister ConstNegative0001 = VectorSubtract(VectorZero(), Const0001);
 		const VectorRegister VOneMinusAlpha = VectorSubtract(VectorOne(), BlendWeight.Value);
+		const VectorRegister DefaultScale = MakeVectorRegister(1.f, 1.f, 1.f, 0.f);
 
 		// Blend rotation
 		//     To ensure the 'shortest route', we make sure the dot product between the both rotations is positive.
@@ -1085,16 +1103,15 @@ public:
 
 		// Blend translation and scale
 		//    BlendedAtom.Translation = Lerp(Zero, SourceAtom.Translation, Alpha);
-		//    BlendedAtom.Scale = Lerp(1, SourceAtom.Scale, Alpha);
+		//    BlendedAtom.Scale = Lerp(0, SourceAtom.Scale, Alpha);
 		const VectorRegister BlendedTranslation	= FMath::Lerp(VectorZero(), SourceAtom.Translation, BlendWeight.Value);
-		const VectorRegister BlendedScale3D	= FMath::Lerp(VectorOne(), SourceAtom.Scale3D, BlendWeight.Value);
+		const VectorRegister BlendedScale3D	= FMath::Lerp(VectorZero(), SourceAtom.Scale3D, BlendWeight.Value);
 
 		// Apply translation and scale to final atom
 		//     FinalAtom.Translation += BlendedAtom.Translation
 		//     FinalAtom.Scale *= BlendedAtom.Scale
 		FinalAtom.Translation = VectorAdd( FinalAtom.Translation, BlendedTranslation );
-		FinalAtom.Scale3D = VectorMultiply( FinalAtom.Scale3D, BlendedScale3D );
-		
+		FinalAtom.Scale3D = VectorMultiply( FinalAtom.Scale3D, VectorAdd(DefaultScale, BlendedScale3D));
 		checkSlow( FinalAtom.IsRotationNormalized() );
 	}
 
@@ -1330,7 +1347,7 @@ private:
 	 * also returning BIG_NUMBER causes sequential NaN issues by multiplying 
 	 * so we hardcode as 0
 	 */
-	static FORCEINLINE VectorRegister		GetSafeScaleReciprocal(const VectorRegister& InScale, const ScalarRegister& Tolerance = ScalarRegister(VectorZero()))
+	static FORCEINLINE VectorRegister		GetSafeScaleReciprocal(const VectorRegister& InScale, const ScalarRegister& Tolerance = ScalarRegister(GlobalVectorConstants::SmallNumber))
 	{		
 		// SafeReciprocalScale.X = (InScale.X == 0) ? 0.f : 1/InScale.X; // same for YZW
 		VectorRegister SafeReciprocalScale;
@@ -1383,6 +1400,37 @@ private:
 		return FTransform(InvRotation, InvTranslation, InvScale);
 	}
 
+	/**
+	* Create a new transform: OutTransform = A * B using the matrix while keeping the scale that's given by A and B
+	* Please note that this operation is a lot more expensive than normal Multiply
+	*
+	* Order matters when composing transforms : A * B will yield a transform that logically first applies A then B to any subsequent transformation.
+	*
+	* @param  OutTransform pointer to transform that will store the result of A * B.
+	* @param  A Transform A.
+	* @param  B Transform B.
+	*/
+	FORCEINLINE static void MultiplyUsingMatrixWithScale(FTransform* OutTransform, const FTransform* A, const FTransform* B);
+	/**
+	* Create a new transform from multiplications of given to matrices (AMatrix*BMatrix) using desired scale
+	* This is used by MultiplyUsingMatrixWithScale and GetRelativeTransformUsingMatrixWithScale
+	* This is only used to handle negative scale
+	*
+	* @param	AMatrix first Matrix of operation
+	* @param	BMatrix second Matrix of operation
+	* @param	DesiredScale - there is no check on if the magnitude is correct here. It assumes that is correct. 
+	* @param	OutTransform the constructed transform 
+	*/
+	FORCEINLINE static void ConstructTransformFromMatrixWithDesiredScale(const FMatrix& AMatrix, const FMatrix& BMatrix, const VectorRegister& DesiredScale, FTransform& OutTransform);
+	/**
+	* Create a new transform: OutTransform = Base * Relative(-1) using the matrix while keeping the scale that's given by Base and Relative
+	* Please note that this operation is a lot more expensive than normal GetRelativeTrnasform
+	*
+	* @param  OutTransform pointer to transform that will store the result of Base * Relative(-1).
+	* @param  BAse Transform Base.
+	* @param  Relative Transform Relative.
+	*/
+	static void GetRelativeTransformUsingMatrixWithScale(FTransform* OutTransform, const FTransform* Base, const FTransform* Relative);
 }  GCC_ALIGN(16);
 
 template <> struct TIsPODType<FTransform> { enum { Value = true }; };
@@ -1411,14 +1459,50 @@ FORCEINLINE void FTransform::RemoveScaling(float Tolerance/*=SMALL_NUMBER*/)
 	DiagnosticCheckNaN_Scale3D();
 }
 
+FORCEINLINE void FTransform::MultiplyUsingMatrixWithScale(FTransform* OutTransform, const FTransform* A, const FTransform* B)
+{
+	ConstructTransformFromMatrixWithDesiredScale(A->ToMatrixWithScale(), B->ToMatrixWithScale(), VectorMultiply(A->Scale3D, B->Scale3D), *OutTransform);
+}
+
+FORCEINLINE void FTransform::ConstructTransformFromMatrixWithDesiredScale(const FMatrix& AMatrix, const FMatrix& BMatrix, const VectorRegister& DesiredScale, FTransform& OutTransform)
+{
+	// the goal of using M is to get the correct orientation
+	// but for translation, we still need scale
+	FMatrix M = AMatrix * BMatrix;
+	M.RemoveScaling();
+
+	// apply negative scale back to axes
+	FVector SignedScale;
+	VectorStoreFloat3(VectorSign(DesiredScale), &SignedScale);
+
+	M.SetAxis(0, SignedScale.X * M.GetScaledAxis(EAxis::X));
+	M.SetAxis(1, SignedScale.Y * M.GetScaledAxis(EAxis::Y));
+	M.SetAxis(2, SignedScale.Z * M.GetScaledAxis(EAxis::Z));
+
+	// @note: if you have negative with 0 scale, this will return rotation that is identity
+	// since matrix loses that axes
+	FQuat Rotation = FQuat(M);
+	Rotation.Normalize();
+
+	// set values back to output
+	OutTransform.Scale3D = DesiredScale;
+	OutTransform.Rotation = VectorLoadAligned(&Rotation);
+
+	// technically I could calculate this using FTransform but then it does more quat multiplication 
+	// instead of using Scale in matrix multiplication
+	// it's a question of between RemoveScaling vs using FTransform to move translation
+	FVector Translation = M.GetOrigin();
+	OutTransform.Translation = VectorLoadFloat3_W0(&Translation);
+}
+
 /** Returns Multiplied Transform of 2 FTransforms **/
 FORCEINLINE void FTransform::Multiply(FTransform* OutTransform, const FTransform* A, const FTransform* B)
 {
 	A->DiagnosticCheckNaN_All();
 	B->DiagnosticCheckNaN_All();
 
-	checkSlow( A->IsRotationNormalized() );
-	checkSlow( B->IsRotationNormalized() );
+	checkSlow(A->IsRotationNormalized());
+	checkSlow(B->IsRotationNormalized());
 
 	//	When Q = quaternion, S = single scalar scale, and T = translation
 	//	QST(A) = Q(A), S(A), T(A), and QST(B) = Q(B), S(B), T(B)
@@ -1434,27 +1518,35 @@ FORCEINLINE void FTransform::Multiply(FTransform* OutTransform, const FTransform
 	//	Q(AxB) = Q(B)*Q(A)
 	//	S(AxB) = S(A)*S(B)
 	//	T(AxB) = Q(B)*S(B)*T(A)*-Q(B) + T(B)
+	checkSlow(VectorGetComponent(A->Scale3D, 3) == 0.f);
+	checkSlow(VectorGetComponent(B->Scale3D, 3) == 0.f);
 
-	const VectorRegister QuatA = A->Rotation;
-	const VectorRegister QuatB = B->Rotation;
-	const VectorRegister TranslateA = A->Translation;
-	const VectorRegister TranslateB = B->Translation;
-	const VectorRegister ScaleA = A->Scale3D;
-	const VectorRegister ScaleB = B->Scale3D;
+	if (VectorAnyLesserThan(VectorMin(A->Scale3D, B->Scale3D), GlobalVectorConstants::FloatZero))
+	{
+		// @note, if you have 0 scale with negative, you're going to lose rotation as it can't convert back to quat
+		MultiplyUsingMatrixWithScale(OutTransform, A, B);
+	}
+	else
+	{
+		const VectorRegister QuatA = A->Rotation;
+		const VectorRegister QuatB = B->Rotation;
+		const VectorRegister TranslateA = A->Translation;
+		const VectorRegister TranslateB = B->Translation;
+		const VectorRegister ScaleA = A->Scale3D;
+		const VectorRegister ScaleB = B->Scale3D;
 
-	// RotationResult = B.Rotation * A.Rotation
-	OutTransform->Rotation = VectorQuaternionMultiply2(QuatB, QuatA);
+		// RotationResult = B.Rotation * A.Rotation
+		OutTransform->Rotation = VectorQuaternionMultiply2(QuatB, QuatA);
 
-	// TranslateResult = B.Rotate(B.Scale * A.Translation) + B.Translate
-	const VectorRegister ScaledTransA = VectorMultiply(TranslateA, ScaleB);
-	const VectorRegister RotatedTranslate = VectorQuaternionRotateVector(QuatB, ScaledTransA);
-	OutTransform->Translation = VectorAdd(RotatedTranslate, TranslateB);
+		// TranslateResult = B.Rotate(B.Scale * A.Translation) + B.Translate
+		const VectorRegister ScaledTransA = VectorMultiply(TranslateA, ScaleB);
+		const VectorRegister RotatedTranslate = VectorQuaternionRotateVector(QuatB, ScaledTransA);
+		OutTransform->Translation = VectorAdd(RotatedTranslate, TranslateB);
 
-	// ScaleResult = Scale.B * Scale.A
-	OutTransform->Scale3D = VectorMultiply(ScaleA, ScaleB);;
-
+		// ScaleResult = Scale.B * Scale.A
+		OutTransform->Scale3D = VectorMultiply(ScaleA, ScaleB);;
+	}
 }
-
 /** 
  * Apply Scale to this transform
  */
@@ -1801,7 +1893,7 @@ inline float FTransform::GetMinimumAxisScale() const
  * also returning BIG_NUMBER causes sequential NaN issues by multiplying 
  * so we hardcode as 0
  */
-FORCEINLINE FVector FTransform::GetSafeScaleReciprocal(const FVector& InScale, float Tolerance) const
+FORCEINLINE FVector FTransform::GetSafeScaleReciprocal(const FVector& InScale, float Tolerance)
 {
 	FVector SafeReciprocalScale;
 	if (FMath::Abs(InScale.X) <= Tolerance)

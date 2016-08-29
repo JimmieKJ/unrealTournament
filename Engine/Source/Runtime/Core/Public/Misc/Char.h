@@ -104,6 +104,10 @@ public:
 
 	static inline bool IsAlnum(CharType Char);
 	static inline bool IsDigit(CharType Char);
+	static inline bool IsOctDigit(CharType Char)
+	{
+		return Char >= '0' && Char <= '7';
+	}
 	static inline bool IsHexDigit(CharType Char);
 	static inline int32 ConvertCharDigitToInt(CharType Char)
 	{
@@ -144,11 +148,11 @@ template <> inline bool TChar<WIDECHAR>::IsWhitespace(CharType Char)					{ retur
 -----------------------------------------------------------------------------*/
 template <> inline TChar<ANSICHAR>::CharType TChar<ANSICHAR>::ToUpper(CharType Char)	{ return ::toupper(Char); }
 template <> inline TChar<ANSICHAR>::CharType TChar<ANSICHAR>::ToLower(CharType Char)	{ return ::tolower(Char); }
-template <> inline bool TChar<ANSICHAR>::IsUpper(CharType Char)							{ return ::isupper(Char) != 0; }
-template <> inline bool TChar<ANSICHAR>::IsLower(CharType Char)							{ return ::islower(Char) != 0; }
-template <> inline bool TChar<ANSICHAR>::IsAlpha(CharType Char)							{ return ::isalpha(Char) != 0; }
-template <> inline bool TChar<ANSICHAR>::IsPunct(CharType Char)							{ return ::ispunct(Char) != 0; }
-template <> inline bool TChar<ANSICHAR>::IsAlnum(CharType Char)							{ return ::isalnum(Char) != 0; }
-template <> inline bool TChar<ANSICHAR>::IsDigit(CharType Char)							{ return ::isdigit(Char) != 0; }
-template <> inline bool TChar<ANSICHAR>::IsHexDigit(CharType Char)						{ return ::isxdigit(Char) != 0; }
-template <> inline bool TChar<ANSICHAR>::IsWhitespace(CharType Char)					{ return ::isspace(Char) != 0; }
+template <> inline bool TChar<ANSICHAR>::IsUpper(CharType Char)							{ return ::isupper((unsigned char)Char) != 0; }
+template <> inline bool TChar<ANSICHAR>::IsLower(CharType Char)							{ return ::islower((unsigned char)Char) != 0; }
+template <> inline bool TChar<ANSICHAR>::IsAlpha(CharType Char)							{ return ::isalpha((unsigned char)Char) != 0; }
+template <> inline bool TChar<ANSICHAR>::IsPunct(CharType Char)							{ return ::ispunct((unsigned char)Char) != 0; }
+template <> inline bool TChar<ANSICHAR>::IsAlnum(CharType Char)							{ return ::isalnum((unsigned char)Char) != 0; }
+template <> inline bool TChar<ANSICHAR>::IsDigit(CharType Char)							{ return ::isdigit((unsigned char)Char) != 0; }
+template <> inline bool TChar<ANSICHAR>::IsHexDigit(CharType Char)						{ return ::isxdigit((unsigned char)Char) != 0; }
+template <> inline bool TChar<ANSICHAR>::IsWhitespace(CharType Char)					{ return ::isspace((unsigned char)Char) != 0; }

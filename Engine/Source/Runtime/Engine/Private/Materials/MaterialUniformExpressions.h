@@ -147,7 +147,7 @@ public:
 	}
 
 	// faster than GetNumberValue(), good for run-time use
-	bool GetGameThreadNumberValue(const UMaterialInterface* SourceMaterialToCopyFrom, FLinearColor& OutValue) const;
+	void GetGameThreadNumberValue(const UMaterialInterface* SourceMaterialToCopyFrom, FLinearColor& OutValue) const;
 
 	virtual bool IsConstant() const
 	{
@@ -225,7 +225,7 @@ public:
 	}
 	
 	// faster than GetNumberValue(), good for run-time use
-	bool GetGameThreadNumberValue(const UMaterialInterface* SourceMaterialToCopyFrom, float& OutValue) const;
+	void GetGameThreadNumberValue(const UMaterialInterface* SourceMaterialToCopyFrom, float& OutValue) const;
 
 	virtual bool IsConstant() const
 	{

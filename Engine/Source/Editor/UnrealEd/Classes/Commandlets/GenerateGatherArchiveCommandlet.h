@@ -20,12 +20,5 @@ public:
 	//~ Begin UCommandlet Interface
 	virtual int32 Main( const FString& Params ) override;
 	//~ End UCommandlet Interface
-	
-	bool WriteArchiveToFile( TSharedRef< FJsonObject> ArchiveJSONObject, const FString& OutputFilePath );
-	void BuildArchiveFromManifest( TSharedRef< const FInternationalizationManifest > InManifest, TSharedRef< FInternationalizationArchive > Archive, const FString& SourceCulture, const FString& TargetCulture  );
-	void AppendArchiveData( TSharedRef< const FInternationalizationArchive > InArchiveToAppend, TSharedRef< FInternationalizationArchive > ArchiveCombined );
-	void ConditionTranslation( FLocItem& LocItem );
-	void ConditionSource( FLocItem& LocItem );
-
 #endif
 };

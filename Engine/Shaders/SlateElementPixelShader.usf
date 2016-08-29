@@ -228,7 +228,8 @@ float4 GetLineSegmentElementColor( VertexToPixelInterpolants InVertex )
 	float3 E1 = K*float3( EndPos.y - StartPos.y, StartPos.x - EndPos.x, (EndPos.x*StartPos.y - StartPos.x*EndPos.y) );
 	E1.z += 1;
 
-	float3 Pos = float3(InVertex.Position.xy,1);
+	// this algorithm requires the original position passed into the VS, not the transformed position output by the VS
+	float3 Pos = float3(InVertex.OriginalPosition.xy,1);
 
 	// Compute the distance this pixel is away from the actual line
 	float2 Distance = float2( dot(E0,Pos), dot(E1,Pos) );

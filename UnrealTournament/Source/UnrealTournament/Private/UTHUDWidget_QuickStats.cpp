@@ -682,10 +682,10 @@ void UUTHUDWidget_QuickStats::DrawIconUnderlay(FVector2D StatOffset)
 	{
 		RallyAnimTimers[i] += RenderDelta;
 		if (RallyAnimTimers[i] > RALLY_ANIMATION_TIME) RallyAnimTimers[i] = 0;
-		float Position = (RallyAnimTimers[i] / RALLY_ANIMATION_TIME);
+		float DrawPosition = (RallyAnimTimers[i] / RALLY_ANIMATION_TIME);
 	
-		float XPos = FMath::InterpEaseOut<float>(64.0f, 0.0f, Position, 2.0f);
-		RallyFlagIcon.RenderOpacity = FMath::InterpEaseOut<float>(1.0f, 0.0f, Position, 2.0f);
+		float XPos = FMath::InterpEaseOut<float>(64.0f, 0.0f, DrawPosition, 2.0f);
+		RallyFlagIcon.RenderOpacity = FMath::InterpEaseOut<float>(1.0f, 0.0f, DrawPosition, 2.0f);
 		RenderObj_Texture(RallyFlagIcon,StatOffset + FVector2D(XPos, 0.0f));
 		RenderObj_Texture(RallyFlagIcon,StatOffset + FVector2D(XPos * -1, 0.0f));
 	}

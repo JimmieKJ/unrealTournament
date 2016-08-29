@@ -155,6 +155,7 @@ public:
 	 * Adds a menu entry
 	 *
 	 * @param	InCommand			The command associated with this menu entry
+	 * @param	InExtensionHook		The section hook. Can be NAME_None
 	 * @param	InLabelOverride		Optional label override.  If omitted, then the action's label will be used instead.
 	 * @param	InToolTipOverride	Optional tool tip override.	 If omitted, then the action's label will be used instead.
 	 * @param	InIconOverride		Optional name of the slate brush to use for the tool bar image.  If omitted, then the action's icon will be used instead.
@@ -169,6 +170,7 @@ public:
 	 * @param	InToolTip	Tool tip used when hovering over the menu entry
 	 * @param	InIcon		The icon to use		
 	 * @param	UIAction	Actions to execute on this menu item.
+	 * @param	InExtensionHook			The section hook. Can be NAME_None
 	 * @param	UserInterfaceActionType	Type of interface action
 	 * @param	InTutorialHighlightName	Optional name to identify this widget and highlight during tutorials
 	 */
@@ -236,7 +238,11 @@ public:
 	 * @param	InMenuLabel			The text that should be shown for the menu
 	 * @param	InToolTip			The tooltip that should be shown when the menu is hovered over
 	 * @param	InSubMenu			Sub-Menu object which creates menu entries for the sub-menu
+	 * @param	InUIAction			Actions to execute on this menu item.
+	 * @param	InExtensionHook		The section hook. Can be NAME_None
+	 * @param	InUserInterfaceActionType	Type of interface action
 	 * @param bInOpenSubMenuOnClick Sub-menu will open only if the sub-menu entry is clicked
+	 * @param	InIcon				The icon to use
 	 */
 	void AddSubMenu( const TAttribute<FText>& InMenuLabel, const TAttribute<FText>& InToolTip, const FNewMenuDelegate& InSubMenu, const FUIAction& InUIAction, FName InExtensionHook, const EUserInterfaceActionType::Type InUserInterfaceActionType, const bool bInOpenSubMenuOnClick = false, const FSlateIcon& InIcon = FSlateIcon() );
 

@@ -8,7 +8,7 @@
 /**
  * Feedback context implementation for windows.
  */
-class FFeedbackContextWindows : public FFeedbackContext
+class CORE_API FFeedbackContextWindows : public FFeedbackContext
 {
 	/** Context information for warning and error messages */
 	FContextSupplier*	Context;
@@ -37,14 +37,14 @@ public:
 			{
 				Prefix = Context->GetContext() + TEXT(" : ");
 			}
-			FString Format = Prefix + FOutputDevice::FormatLogLine(Verbosity, Category, V);
+			FString Format = Prefix + FOutputDeviceHelper::FormatLogLine(Verbosity, Category, V);
 
 			if(Verbosity == ELogVerbosity::Error)
 			{
 				// Only store off the message if running a commandlet.
 				if ( IsRunningCommandlet() )
 				{
-					Errors.Add(Format);
+					AddError(Format);
 				}
 			}
 			else
@@ -52,7 +52,7 @@ public:
 				// Only store off the message if running a commandlet.
 				if ( IsRunningCommandlet() )
 				{
-					Warnings.Add(Format);
+					AddWarning(Format);
 				}
 			}
 		}
@@ -67,17 +67,7 @@ public:
 		}
 	}
 
-	virtual bool YesNof(const FText& Question) override
-	{
-		if( ( GIsClient || GIsEditor ) && ( ( GIsSilent != true ) && ( FApp::IsUnattended() != true ) ) )
-		{
-			return( ::MessageBox( NULL, Question.ToString().GetCharArray().GetData(), *NSLOCTEXT("Core", "Question", "Question").ToString(), MB_YESNO|MB_TASKMODAL ) == IDYES);
-		}
-		else
-		{
-			return false;
-		}
-	}
+	virtual bool YesNof(const FText& Question) override;
 
 	FContextSupplier* GetContext() const
 	{

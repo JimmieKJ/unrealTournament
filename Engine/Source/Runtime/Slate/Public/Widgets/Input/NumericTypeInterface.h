@@ -42,25 +42,13 @@ struct TDefaultNumericTypeInterface : INumericTypeInterface<NumericType>
 	}
 
 	/** Check whether the typed character is valid */
-	virtual bool IsCharacterValid(TCHAR InChar) const override;	
+	virtual bool IsCharacterValid(TCHAR InChar) const override
+	{
+		static FString ValidChars(TEXT("1234567890()-+=\\/.,*^%%"));
+		int32 OutUnused;
+		return ValidChars.FindChar(InChar, OutUnused);
+	}
 };
-
-template<typename T>
-bool TDefaultNumericTypeInterface<T>::IsCharacterValid(TCHAR InChar) const
-{
-	static FString ValidChars(TEXT("1234567890-.")); // for integers and doubles
-	int32 OutUnused;
-	return ValidChars.FindChar( InChar, OutUnused );
-}
-
-/** Specialized for floats */
-template<>
-inline bool TDefaultNumericTypeInterface<float>::IsCharacterValid(TCHAR InChar) const
-{
-	static FString ValidChars(TEXT("1234567890()-+=\\/.,*^%%"));
-	int32 OutUnused;
-	return ValidChars.FindChar( InChar, OutUnused );		
-}
 
 /** Forward declaration of types defined in UnitConversion.h */
 enum class EUnit;

@@ -113,17 +113,31 @@ public:
 	}
 };
 
-class FScreenVSForGS : public FScreenVS
+template<bool bUsingVertexLayers=false>
+class TScreenVSForGS : public FScreenVS
 {
-	DECLARE_EXPORTED_SHADER_TYPE(FScreenVSForGS,Global,ENGINE_API);
+	DECLARE_EXPORTED_SHADER_TYPE(TScreenVSForGS,Global,ENGINE_API);
 public:
 
-	static bool ShouldCache(EShaderPlatform Platform) { return IsFeatureLevelSupported(Platform, ERHIFeatureLevel::SM4); }
+	static bool ShouldCache(EShaderPlatform Platform)
+	{
+		return IsFeatureLevelSupported(Platform, ERHIFeatureLevel::SM4) && (!bUsingVertexLayers || RHISupportsVertexShaderLayer(Platform));
+	}
 
-	FScreenVSForGS(const ShaderMetaType::CompiledShaderInitializerType& Initializer):
+	TScreenVSForGS(const ShaderMetaType::CompiledShaderInitializerType& Initializer):
 	  FScreenVS(Initializer)
 	  {
 	  }
-	FScreenVSForGS() {}
+	TScreenVSForGS() {}
+	
+	static void ModifyCompilationEnvironment(EShaderPlatform Platform, FShaderCompilerEnvironment& OutEnvironment)
+	{
+		FScreenVS::ModifyCompilationEnvironment(Platform, OutEnvironment);
+		OutEnvironment.SetDefine(TEXT("USING_LAYERS"), (uint32)(bUsingVertexLayers ? 1 : 0));
+		if (!bUsingVertexLayers)
+		{
+			OutEnvironment.CompilerFlags.Add( CFLAG_VertexToGeometryShader );
+		}
+	}
 };
 

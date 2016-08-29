@@ -257,7 +257,7 @@ struct FWatchLineItem : public FDebugLineItem
 {
 protected:
 	TWeakObjectPtr< UObject > ParentObjectRef;
-	TWeakObjectPtr< UObject > ObjectRef;
+	FEdGraphPinReference ObjectRef;
 public:
 	FWatchLineItem(UEdGraphPin* PinToWatch, UObject* ParentObject)
 		: FDebugLineItem(DLT_Watch)
@@ -275,12 +275,12 @@ public:
 
 	virtual FDebugLineItem* Duplicate() const override
 	{
-		return new FWatchLineItem(Cast<UEdGraphPin>(ObjectRef.Get()), ParentObjectRef.Get());
+		return new FWatchLineItem(ObjectRef.Get(), ParentObjectRef.Get());
 	}	
 
 	virtual void MakeMenu(class FMenuBuilder& MenuBuilder) override
 	{
-		if (UEdGraphPin* WatchedPin = Cast<UEdGraphPin>(ObjectRef.Get()))
+		if (UEdGraphPin* WatchedPin = ObjectRef.Get())
 		{
 			FUIAction ClearThisWatch(
 				FExecuteAction::CreateStatic( &FDebuggingActionCallbacks::ClearWatch, WatchedPin )
@@ -303,7 +303,7 @@ protected:
 
 FText FWatchLineItem::GetDisplayName() const
 {
-	if (UEdGraphPin* PinToWatch = Cast<UEdGraphPin>(ObjectRef.Get()))
+	if (UEdGraphPin* PinToWatch = ObjectRef.Get())
 	{
 		if (UBlueprint* Blueprint = GetBlueprintForObject(ParentObjectRef.Get()))
 		{
@@ -325,7 +325,7 @@ FText FWatchLineItem::GetDisplayName() const
 
 FText FWatchLineItem::GetDescription() const
 {
-	if (UEdGraphPin* PinToWatch = Cast<UEdGraphPin>(ObjectRef.Get()))
+	if (UEdGraphPin* PinToWatch = ObjectRef.Get())
 	{
 		// Try to determine the blueprint that generated the watch
 		UBlueprint* ParentBlueprint = GetBlueprintForObject(ParentObjectRef.Get());
@@ -382,9 +382,9 @@ TSharedRef<SWidget> FWatchLineItem::GenerateNameWidget()
 
 void FWatchLineItem::OnNavigateToWatchLocation( )
 {
-	if (UObject* ObjectToFocus = ObjectRef.Get())
+	if (UEdGraphPin* ObjectToFocus = ObjectRef.Get())
 	{
-		FKismetEditorUtilities::BringKismetToFocusAttentionOnObject(ObjectToFocus);
+		FKismetEditorUtilities::BringKismetToFocusAttentionOnPin(ObjectToFocus);
 	}
 }
 
@@ -603,9 +603,9 @@ public:
 			if ((ParentBP != NULL) && (ParentBP == ParentObject))
 			{
 				// Create children for each watch
-				for (int32 WatchIndex = 0; WatchIndex < ParentBP->PinWatches.Num(); ++WatchIndex)
+				for (int32 WatchIndex = 0; WatchIndex < ParentBP->WatchedPins.Num(); ++WatchIndex)
 				{
-					UEdGraphPin* WatchedPin = ParentBP->PinWatches[WatchIndex];
+					UEdGraphPin* WatchedPin = ParentBP->WatchedPins[WatchIndex].Get();
 
 					EnsureChildIsAdded(ChildrenMirrors, OutChildren, FWatchLineItem(WatchedPin, ParentObject));
 				}
@@ -629,9 +629,9 @@ public:
 				if (ParentBP != NULL)
 				{
 					// Create children for each watch
-					for (int32 WatchIndex = 0; WatchIndex < ParentBP->PinWatches.Num(); ++WatchIndex)
+					for (int32 WatchIndex = 0; WatchIndex < ParentBP->WatchedPins.Num(); ++WatchIndex)
 					{
-						UEdGraphPin* WatchedPin = ParentBP->PinWatches[WatchIndex];
+						UEdGraphPin* WatchedPin = ParentBP->WatchedPins[WatchIndex].Get();
 
 						EnsureChildIsAdded(ChildrenMirrors, OutChildren, FWatchLineItem(WatchedPin, ParentObject));
 					}
@@ -703,7 +703,7 @@ protected:
 	{
 		if (UBlueprint* BP = Cast<UBlueprint>(ObjectRef.Get()))
 		{
-			if (BP->PinWatches.Num() > 0)
+			if (BP->WatchedPins.Num() > 0)
 			{
 				FUIAction ClearAllWatches(
 					FExecuteAction::CreateStatic( &FDebuggingActionCallbacks::ClearWatches, BP )
@@ -1022,7 +1022,7 @@ FText SKismetDebuggingView::GetTopText() const
 {
 	const bool bIsDebugging = GEditor->PlayWorld != nullptr;
 	UBlueprint* BlueprintObj = BlueprintToWatchPtr.Get();
-	UObject* DebuggedObject = BlueprintObj->GetObjectBeingDebugged();
+	UObject* DebuggedObject = (BlueprintObj != nullptr) ? BlueprintObj->GetObjectBeingDebugged() : nullptr;
 
 	TSet<UObject*> NewRootSet;
 	if (bIsDebugging && (BlueprintObj != nullptr) && (DebuggedObject != nullptr))
@@ -1109,7 +1109,7 @@ void SKismetDebuggingView::Tick( const FGeometry& AllottedGeometry, const double
 	// Gather what we'd like to be the new root set
 	const bool bIsDebugging = GEditor->PlayWorld != nullptr;
 	UBlueprint* BlueprintObj = BlueprintToWatchPtr.Get();
-	UObject* DebuggedObject = BlueprintObj->GetObjectBeingDebugged();
+	UObject* DebuggedObject = (BlueprintObj != nullptr) ? BlueprintObj->GetObjectBeingDebugged() : nullptr;
 
 	TSet<UObject*> NewRootSet;
 	if (bIsDebugging && (BlueprintObj != nullptr) && (DebuggedObject != nullptr))

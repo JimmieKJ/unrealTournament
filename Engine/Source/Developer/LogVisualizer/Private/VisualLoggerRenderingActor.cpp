@@ -340,12 +340,12 @@ namespace
 
 		TArray<FClipSMTriangle> OutTris;
 		
-		const bool bTriangulated = TriangulatePoly(OutTris, InPoly, false);
+		const bool bTriangulated = FGeomTools::TriangulatePoly(OutTris, InPoly, false);
 		if (bTriangulated)
 		{
 			int32 LastIndex = 0;
 
-			RemoveRedundantTriangles(OutTris);
+			FGeomTools::RemoveRedundantTriangles(OutTris);
 			for (const auto& CurrentTri : OutTris)
 			{
 				TestMesh.Vertices.Add(FDynamicMeshVertex(CurrentTri.Vertices[0].Pos + VertexOffset));

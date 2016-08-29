@@ -285,7 +285,7 @@ void FLiveEditorListenServer::OnObjectDeletion( const class UObjectBase *NewObje
 	ObjectCache.OnObjectDeletion( NewObject );
 }
 
-void FLiveEditorListenServer::OnPreLoadMap(const FString& MapName)
+void FLiveEditorListenServer::OnPreLoadMap()
 {
 	ObjectCache.EndCache();
 }

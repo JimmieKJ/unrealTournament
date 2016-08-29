@@ -147,7 +147,7 @@ void FAIMessageObserver::Unregister()
 	UBrainComponent* OwnerComp = Owner.Get();
 	if (OwnerComp)
 	{
-		OwnerComp->MessageObservers.RemoveSingleSwap(this);
+		OwnerComp->MessageObservers.RemoveSingle(this);
 	}
 }
 
@@ -268,11 +268,14 @@ void UBrainComponent::TickComponent(float DeltaTime, enum ELevelTick TickType, F
 	if (MessagesToProcess.Num() > 0)
 	{
 		const int32 NumMessages = MessagesToProcess.Num();
-		for (auto Message : MessagesToProcess)
+		for (int32 Idx = 0; Idx < NumMessages; Idx++)
 		{
+			// create a copy of message in case MessagesToProcess is changed during loop
+			const FAIMessage MessageCopy(MessagesToProcess[Idx]);
+
 			for (int32 ObserverIndex = 0; ObserverIndex < MessageObservers.Num(); ObserverIndex++)
 			{
-				MessageObservers[ObserverIndex]->OnMessage(Message);
+				MessageObservers[ObserverIndex]->OnMessage(MessageCopy);
 			}
 		}
 		MessagesToProcess.RemoveAt(0, NumMessages, false);

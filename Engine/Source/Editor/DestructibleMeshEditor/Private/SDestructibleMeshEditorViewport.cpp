@@ -109,7 +109,6 @@ void FDestructibleMeshEditorViewportClient::UpdateLighting()
 	const UDestructableMeshEditorSettings* Options = GetDefault<UDestructableMeshEditorSettings>();
 
 	PreviewScene->SetLightDirection(Options->AnimPreviewLightingDirection);
-	PreviewScene->GetScene()->UpdateDynamicSkyLight(Options->AnimPreviewSkyBrightness * FLinearColor(Options->AnimPreviewSkyColor), Options->AnimPreviewSkyBrightness * FLinearColor(Options->AnimPreviewFloorColor));
 	PreviewScene->SetLightColor(Options->AnimPreviewDirectionalColor);
 	PreviewScene->SetLightBrightness(Options->AnimPreviewLightBrightness);
 }
@@ -146,8 +145,9 @@ void FDestructibleMeshEditorViewportClient::SetPreviewComponent( UDestructibleCo
 	UDestructibleMesh* DestructibleMesh = DestructibleMeshEditorPtr.Pin()->GetDestructibleMesh();
 	if (DestructibleMesh != NULL)
 	{
-		SetViewLocation( FVector(0,-DestructibleMesh->Bounds.SphereRadius / (75.0f * (float)PI / 360.0f),0.5f*DestructibleMesh->Bounds.BoxExtent.Z) );
-		SetViewRotation( FRotator(0,90.f,0) );
+		FBoxSphereBounds MeshBounds = DestructibleMesh->GetImportedBounds();
+		SetViewLocation(FVector(0.0f, -MeshBounds.SphereRadius / (75.0f * (float)PI / 360.0f), 0.5f * MeshBounds.BoxExtent.Z));
+		SetViewRotation(FRotator(0.0f, 90.0f, 0.0f));
 	}
 }
 

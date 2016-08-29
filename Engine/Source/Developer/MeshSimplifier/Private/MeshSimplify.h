@@ -208,48 +208,52 @@ void TMeshSimplifier<T, NumAttributes>::SetBoundaryLocked()
 
 		LockVertFlags( SIMP_MARK1 );
 
-		TSimpVert<T>** adjVerts = (TSimpVert<T>**)FMemory_Alloca( 2 * v0->NumAdjTrisGroup() * sizeof( TSimpVert<T>* ) );
-		int numAdjVerts;
-		v0->FindAdjacentVertsGroup( adjVerts, numAdjVerts );
-
-		UnlockVertFlags( SIMP_MARK1 );
-
-		for( int a = 0; a < numAdjVerts; a++ )
+		[this, v0]()
 		{
-			TSimpVert<T>* v1 = adjVerts[a];
-			if( v0 < v1 )
+			TSimpVert<T>** adjVerts = (TSimpVert<T>**)FMemory_Alloca( 2 * v0->NumAdjTrisGroup() * sizeof( TSimpVert<T>* ) );
+			check(adjVerts);
+			int numAdjVerts;
+			v0->FindAdjacentVertsGroup( adjVerts, numAdjVerts );
+
+			UnlockVertFlags( SIMP_MARK1 );
+
+			for( int a = 0; a < numAdjVerts; a++ )
 			{
-				LockTriFlags( SIMP_MARK1 );
-
-				// set if this edge is boundary
-				// find faces that share v0 and v1
-				v0->EnableAdjTriFlagsGroup( SIMP_MARK1 );
-				v1->DisableAdjTriFlagsGroup( SIMP_MARK1 );
-
-				int faceCount = 0;
-				TSimpVert<T>* vert = v0;
-				do
+				TSimpVert<T>* v1 = adjVerts[a];
+				if( v0 < v1 )
 				{
-					for( TriIterator j = vert->adjTris.Begin(); j != vert->adjTris.End(); ++j )
+					LockTriFlags( SIMP_MARK1 );
+
+					// set if this edge is boundary
+					// find faces that share v0 and v1
+					v0->EnableAdjTriFlagsGroup( SIMP_MARK1 );
+					v1->DisableAdjTriFlagsGroup( SIMP_MARK1 );
+
+					int faceCount = 0;
+					TSimpVert<T>* vert = v0;
+					do
 					{
-						TSimpTri<T>* tri = *j;
-						faceCount += tri->TestFlags( SIMP_MARK1 ) ? 0 : 1;
+						for( TriIterator j = vert->adjTris.Begin(); j != vert->adjTris.End(); ++j )
+						{
+							TSimpTri<T>* tri = *j;
+							faceCount += tri->TestFlags( SIMP_MARK1 ) ? 0 : 1;
+						}
+						vert = vert->next;
+					} while( vert != v0 );
+
+					v0->DisableAdjTriFlagsGroup( SIMP_MARK1 );
+
+					if( faceCount == 1 )
+					{
+						// only one face on this edge
+						v0->EnableFlagsGroup( SIMP_LOCKED );
+						v1->EnableFlagsGroup( SIMP_LOCKED );
 					}
-					vert = vert->next;
-				} while( vert != v0 );
 
-				v0->DisableAdjTriFlagsGroup( SIMP_MARK1 );
-
-				if( faceCount == 1 )
-				{
-					// only one face on this edge
-					v0->EnableFlagsGroup( SIMP_LOCKED );
-					v1->EnableFlagsGroup( SIMP_LOCKED );
+					UnlockTriFlags( SIMP_MARK1 );
 				}
-
-				UnlockTriFlags( SIMP_MARK1 );
 			}
-		}
+		}();
 	}
 }
 
@@ -331,6 +335,7 @@ void TMeshSimplifier<T, NumAttributes>::InitVert( TSimpVert<T>* v )
 	LockVertFlags( SIMP_MARK1 );
 
 	TSimpVert<T>** adjVerts = (TSimpVert<T>**)FMemory_Alloca( 2 * v->adjTris.Num() * sizeof( TSimpVert<T>* ) );
+	check(adjVerts);
 	int numAdjVerts;
 	v->FindAdjacentVerts( adjVerts, numAdjVerts );
 
@@ -518,6 +523,7 @@ FQuadric TMeshSimplifier<T, NumAttributes>::GetEdgeQuadric( TSimpVert<T>* v )
 	LockVertFlags( SIMP_MARK1 );
 
 	TSimpVert<T>** adjVerts = (TSimpVert<T>**)FMemory_Alloca( 2 * v->adjTris.Num() * sizeof( TSimpVert<T>* ) );
+	check(adjVerts);
 	int numAdjVerts;
 	v->FindAdjacentVerts( adjVerts, numAdjVerts );
 
@@ -755,6 +761,7 @@ void TMeshSimplifier<T, NumAttributes>::GatherUpdates( TSimpVert<T>* v )
 
 	// update the costs of all edges connected to any face adjacent to v
 	TSimpVert<T>** adjVerts = (TSimpVert<T>**)FMemory_Alloca( 2 * v->adjTris.Num() * sizeof( TSimpVert<T>* ) );
+	check(adjVerts);
 	int numAdjVerts;
 	v->FindAdjacentVerts( adjVerts, numAdjVerts );
 
@@ -901,6 +908,7 @@ void TMeshSimplifier<T, NumAttributes>::UpdateEdgeCosts( TSimpVert<T>* vert ) {
 	}
 }
 
+CA_SUPPRESS(6262); // warning C6262: Function uses '121180' bytes of stack:  exceeds /analyze:stacksize '81940'.  Consider moving some data to heap.
 template< typename T, uint32 NumAttributes >
 float TMeshSimplifier<T, NumAttributes>::ComputeNewVerts( TSimpEdge<T>* edge, T* newVerts )
 {
@@ -1399,9 +1407,7 @@ void TMeshSimplifier<T, NumAttributes>::SimplifyMesh( float maxError, int minTri
 			uint32	vertListNum = 0;
 			TSimpVert<T>*	vertList[256];
 			
-			PRAGMA_DISABLE_SHADOW_VARIABLE_WARNINGS
-			TSimpVert<T>* v = top->v1;
-			PRAGMA_ENABLE_SHADOW_VARIABLE_WARNINGS
+			v = top->v1;
 			do {
 				vertList[ vertListNum++ ] = v;
 				v = v->next;
@@ -1410,9 +1416,7 @@ void TMeshSimplifier<T, NumAttributes>::SimplifyMesh( float maxError, int minTri
 			check( vertListNum <= 256 );
 			
 			for( uint32 i = 0; i < vertListNum; i++ ) {
-				PRAGMA_DISABLE_SHADOW_VARIABLE_WARNINGS
-				TSimpVert<T>* v = vertList[i];
-				PRAGMA_ENABLE_SHADOW_VARIABLE_WARNINGS
+				v = vertList[i];
 
 				if( v->TestFlags( SIMP_REMOVED ) ) {
 					// ungroup
@@ -1427,9 +1431,6 @@ void TMeshSimplifier<T, NumAttributes>::SimplifyMesh( float maxError, int minTri
 		{
 			// spread locked flag to vert group
 			uint32 flags = 0;
-			PRAGMA_DISABLE_SHADOW_VARIABLE_WARNINGS
-			TSimpVert<T>* v;
-			PRAGMA_ENABLE_SHADOW_VARIABLE_WARNINGS
 
 			v = top->v1;
 			do {
@@ -1505,9 +1506,7 @@ void TMeshSimplifier<T, NumAttributes>::SimplifyMesh( float maxError, int minTri
 
 		// remove dead edges
 		for( int i = 0; i < edges.Num(); i++ ) {
-			PRAGMA_DISABLE_SHADOW_VARIABLE_WARNINGS
-			TSimpEdge<T>* edge = &edges[i];
-			PRAGMA_ENABLE_SHADOW_VARIABLE_WARNINGS
+			edge = &edges[i];
 
 			if( edge->TestFlags( SIMP_REMOVED ) )
 				continue;
@@ -1523,9 +1522,7 @@ void TMeshSimplifier<T, NumAttributes>::SimplifyMesh( float maxError, int minTri
 			FHashTable HashTable( 4096, edges.Num() );
 
 			for( int i = 0; i < edges.Num(); i++ ) {
-				PRAGMA_DISABLE_SHADOW_VARIABLE_WARNINGS
-				TSimpEdge<T>* edge = &edges[i];
-				PRAGMA_ENABLE_SHADOW_VARIABLE_WARNINGS
+				edge = &edges[i];
 
 				if( edge->TestFlags( SIMP_REMOVED ) )
 					continue;
@@ -1580,9 +1577,7 @@ void TMeshSimplifier<T, NumAttributes>::SimplifyMesh( float maxError, int minTri
 
 		// update edges
 		for( uint32 i = 0; i < updateEdgesNum; i++ ) {
-			PRAGMA_DISABLE_SHADOW_VARIABLE_WARNINGS
-			TSimpEdge<T>* edge = updateEdges[i];
-			PRAGMA_ENABLE_SHADOW_VARIABLE_WARNINGS
+			edge = updateEdges[i];
 
 			edge->DisableFlags( SIMP_UPDATE );
 
@@ -1591,9 +1586,7 @@ void TMeshSimplifier<T, NumAttributes>::SimplifyMesh( float maxError, int minTri
 
 			float cost = ComputeEdgeCollapseCost( edge );
 
-			PRAGMA_DISABLE_SHADOW_VARIABLE_WARNINGS
-			TSimpEdge<T>* e = edge;
-			PRAGMA_ENABLE_SHADOW_VARIABLE_WARNINGS
+			e = edge;
 			do {
 				uint32 EdgeIndex = GetEdgeIndex(e);
 				if( edgeHeap.IsPresent( EdgeIndex ) )

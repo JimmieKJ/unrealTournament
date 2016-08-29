@@ -25,17 +25,17 @@ UArchVisCharMovementComponent* AArchVisCharacter::GetArchVisCharMoveComponent() 
 	return Cast<UArchVisCharMovementComponent>(GetMovementComponent());
 }
 
-void AArchVisCharacter::SetupPlayerInputComponent(UInputComponent* InputComponent)
+void AArchVisCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
 {
-	Super::SetupPlayerInputComponent(InputComponent);
+	Super::SetupPlayerInputComponent(PlayerInputComponent);
 
-	InputComponent->BindAxis(*TurnAxisName, this, &AArchVisCharacter::Turn);
-	InputComponent->BindAxis(*LookUpAxisName, this, &AArchVisCharacter::LookUp);
-	InputComponent->BindAxis(*TurnAtRateAxisName, this, &AArchVisCharacter::TurnAtRate);
-	InputComponent->BindAxis(*LookUpAtRateAxisName, this, &AArchVisCharacter::LookUpAtRate);
+	PlayerInputComponent->BindAxis(*TurnAxisName, this, &AArchVisCharacter::Turn);
+	PlayerInputComponent->BindAxis(*LookUpAxisName, this, &AArchVisCharacter::LookUp);
+	PlayerInputComponent->BindAxis(*TurnAtRateAxisName, this, &AArchVisCharacter::TurnAtRate);
+	PlayerInputComponent->BindAxis(*LookUpAtRateAxisName, this, &AArchVisCharacter::LookUpAtRate);
 
-	InputComponent->BindAxis(*MoveForwardAxisName, this, &AArchVisCharacter::MoveForward);
-	InputComponent->BindAxis(*MoveRightAxisName, this, &AArchVisCharacter::MoveRight);
+	PlayerInputComponent->BindAxis(*MoveForwardAxisName, this, &AArchVisCharacter::MoveForward);
+	PlayerInputComponent->BindAxis(*MoveRightAxisName, this, &AArchVisCharacter::MoveRight);
 }
 
 void AArchVisCharacter::Turn(float Val)

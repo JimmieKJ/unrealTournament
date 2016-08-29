@@ -4,9 +4,7 @@
 	StartupPackages.h: Startup Package Functions
 =============================================================================*/
 
-#ifndef __StartupPackages_H__
-#define __StartupPackages_H__
-
+#pragma once
 
 struct FStartupPackages
 {
@@ -38,7 +36,3 @@ struct FStartupPackages
 	 */
 	COREUOBJECT_API static bool LoadAll();
 };
-
-
-#endif //__StartupPackages_H__
-

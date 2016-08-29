@@ -70,17 +70,17 @@ FName AUTPlayerCameraManager::GetCameraStyleWithOverrides() const
 	static const FName NAME_FirstPerson = FName(TEXT("FirstPerson"));
 	static const FName NAME_Default = FName(TEXT("Default"));
 
-	AActor* ViewTarget = GetViewTarget();
-	ACameraActor* CameraActor = Cast<ACameraActor>(ViewTarget);
+	AActor* CurrentViewTarget = GetViewTarget();
+	ACameraActor* CameraActor = Cast<ACameraActor>(CurrentViewTarget);
 	if (CameraActor)
 	{
 		return NAME_Default;
 	}
 
-	AUTCharacter* UTCharacter = Cast<AUTCharacter>(ViewTarget);
+	AUTCharacter* UTCharacter = Cast<AUTCharacter>(CurrentViewTarget);
 	if (UTCharacter == NULL)
 	{
-		return ((ViewTarget == PCOwner->GetPawn()) || (ViewTarget == PCOwner->GetSpectatorPawn())) ? NAME_FirstPerson : NAME_FreeCam;
+		return ((CurrentViewTarget == PCOwner->GetPawn()) || (CurrentViewTarget == PCOwner->GetSpectatorPawn())) ? NAME_FirstPerson : NAME_FreeCam;
 	}
 	else if (UTCharacter->IsDead() || UTCharacter->IsRagdoll() || UTCharacter->IsThirdPersonTaunting())
 	{

@@ -1,7 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
-#include "Runtime/Online/OnlineSubsystemUtils/Public/OnlineBeaconClient.h"
+#include "OnlineBeaconClient.h"
 #include "UTServerBeaconClient.generated.h"
 
 USTRUCT()

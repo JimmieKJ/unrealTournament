@@ -13,6 +13,7 @@
 #include "Manifest.h"
 #include "UnitConversion.h"
 #include "GeneratedCodeVersion.h"
+#include "FileLineException.h"
 
 #include "Algo/FindSortedStringCaseInsensitive.h"
 
@@ -511,6 +512,7 @@ namespace
 				UByteProperty* Result = new (EC_InternalUseOnlyConstructor, Scope, Name, ObjectFlags) UByteProperty(FObjectInitializer());
 				Result->Enum = VarProperty.Enum;
 				UHTMakefile.AddByteProperty(UnrealSourceFile, Result);
+				check(VarProperty.IntType == EIntType::Sized);
 				return Result;
 			}
 
@@ -518,6 +520,7 @@ namespace
 			{
 				UInt8Property* Result = new (EC_InternalUseOnlyConstructor, Scope, Name, ObjectFlags) UInt8Property(FObjectInitializer());
 				UHTMakefile.AddInt8Property(UnrealSourceFile, Result);
+				check(VarProperty.IntType == EIntType::Sized);
 				return Result;
 			}
 
@@ -525,6 +528,7 @@ namespace
 			{
 				UInt16Property* Result = new (EC_InternalUseOnlyConstructor, Scope, Name, ObjectFlags) UInt16Property(FObjectInitializer());
 				UHTMakefile.AddInt16Property(UnrealSourceFile, Result);
+				check(VarProperty.IntType == EIntType::Sized);
 				return Result;
 			}
 
@@ -532,6 +536,10 @@ namespace
 			{
 				UIntProperty* Result = new (EC_InternalUseOnlyConstructor, Scope, Name, ObjectFlags) UIntProperty(FObjectInitializer());
 				UHTMakefile.AddIntProperty(UnrealSourceFile, Result);
+				if (VarProperty.IntType == EIntType::Unsized)
+				{
+					GUnsizedProperties.Add(Result);
+				}
 				return Result;
 			}
 
@@ -539,6 +547,7 @@ namespace
 			{
 				UInt64Property* Result = new (EC_InternalUseOnlyConstructor, Scope, Name, ObjectFlags) UInt64Property(FObjectInitializer());
 				UHTMakefile.AddInt64Property(UnrealSourceFile, Result);
+				check(VarProperty.IntType == EIntType::Sized);
 				return Result;
 			}
 
@@ -546,6 +555,7 @@ namespace
 			{
 				UUInt16Property* Result = new (EC_InternalUseOnlyConstructor, Scope, Name, ObjectFlags) UUInt16Property(FObjectInitializer());
 				UHTMakefile.AddUInt16Property(UnrealSourceFile, Result);
+				check(VarProperty.IntType == EIntType::Sized);
 				return Result;
 			}
 
@@ -553,6 +563,10 @@ namespace
 			{
 				UUInt32Property* Result = new (EC_InternalUseOnlyConstructor, Scope, Name, ObjectFlags) UUInt32Property(FObjectInitializer());
 				UHTMakefile.AddUInt32Property(UnrealSourceFile, Result);
+				if (VarProperty.IntType == EIntType::Unsized)
+				{
+					GUnsizedProperties.Add(Result);
+				}
 				return Result;
 			}
 
@@ -560,6 +574,7 @@ namespace
 			{
 				UUInt64Property* Result = new (EC_InternalUseOnlyConstructor, Scope, Name, ObjectFlags) UUInt64Property(FObjectInitializer());
 				UHTMakefile.AddUInt64Property(UnrealSourceFile, Result);
+				check(VarProperty.IntType == EIntType::Sized);
 				return Result;
 			}
 
@@ -891,32 +906,6 @@ namespace
 
 		return bSupportedType || (bIsSupportedMemberVariable && bMemberVariable);
 	}
-
-	/**
-	 * Gets property based on compiler/architecture specific int.
-	 * @param bIsSigned Whether the result should be signed or unsigned version of int.
-	 * @return Property corresponding to 'int' type, based on its sign.
-	 */
-	FPropertyBase HandleNativeIntType(bool bIsSigned)
-	{
-		switch (sizeof(int))
-		{
-		case 2:
-			return bIsSigned ? FPropertyBase(CPT_Int16) : FPropertyBase(CPT_UInt16);
-
-		case 4:
-			return bIsSigned ? FPropertyBase(CPT_Int) : FPropertyBase(CPT_UInt32);
-
-		case 8:
-			return bIsSigned ? FPropertyBase(CPT_Int64) : FPropertyBase(CPT_UInt64);
-
-		default:
-			FError::Throwf(TEXT("Found int property of size %d bytes, which is not 2, 4 or 8. Aborting."), sizeof(int));
-		}
-
-		// Should never get here, as we throw in default, but compiler doesn't know it's a throw, so return dummy value.
-		return FPropertyBase(CPT_Int);
-}
 }
 	
 /////////////////////////////////////////////////////
@@ -938,8 +927,10 @@ FScriptLocation::FScriptLocation()
 FString FHeaderParser::GetContext()
 {
 	auto* FileScope = GetCurrentFileScope();
-
-	FString ScopeFilename = IFileManager::Get().ConvertToAbsolutePathForExternalAppForRead(*FileScope->GetSourceFile()->GetFilename());
+	FUnrealSourceFile* SourceFile = FileScope ? FileScope->GetSourceFile() : GetCurrentSourceFile();
+	FString ScopeFilename = SourceFile
+		? IFileManager::Get().ConvertToAbsolutePathForExternalAppForRead(*SourceFile->GetFilename())
+		: TEXT("UNKNOWN");
 
 	return FString::Printf(TEXT("%s(%i)"), *ScopeFilename, InputLine);
 }
@@ -996,7 +987,7 @@ UField* FHeaderParser::FindField
 )
 {
 	check(InIdentifier);
-	FName InName( InIdentifier, FNAME_Find, true );
+	FName InName(InIdentifier, FNAME_Find);
 	if (InName != NAME_None)
 	{
 		for( ; Scope; Scope = Cast<UStruct>(Scope->GetOuter()) )
@@ -1127,9 +1118,9 @@ void AddModuleRelativePathToMetadata(UField* Type, TMap<FName, FString> &MetaDat
 UEnum* FHeaderParser::CompileEnum()
 {
 	FUnrealSourceFile* CurrentSrcFile = GetCurrentSourceFile();
-	auto Scope = CurrentSrcFile->GetScope();
+	TSharedPtr<FFileScope> Scope = CurrentSrcFile->GetScope();
 
-	CheckAllow( TEXT("'Enum'"), ALLOW_TypeDecl );
+	CheckAllow( TEXT("'Enum'"), ENestAllowFlags::TypeDecl );
 
 	// Get the enum specifier list
 	FToken                     EnumToken;
@@ -1293,13 +1284,13 @@ UEnum* FHeaderParser::CompileEnum()
 			case UEnum::ECppForm::Namespaced:
 			case UEnum::ECppForm::EnumClass:
 			{
-				NewTag = FName(*FString::Printf(TEXT("%s::%s"), EnumToken.Identifier, TagToken.Identifier), FNAME_Add, true);
+				NewTag = FName(*FString::Printf(TEXT("%s::%s"), EnumToken.Identifier, TagToken.Identifier), FNAME_Add);
 			}
 			break;
 
 			case UEnum::ECppForm::Regular:
 			{
-				NewTag = FName(TagToken.Identifier, FNAME_Add, true);
+				NewTag = FName(TagToken.Identifier, FNAME_Add);
 			}
 			break;
 		}
@@ -1375,7 +1366,7 @@ UEnum* FHeaderParser::CompileEnum()
 	}
 
 	// Register the list of enum names.
-	if (!Enum->SetEnums(EnumNames, CppForm))
+	if (!Enum->SetEnums(EnumNames, CppForm, !FClass::IsDynamic(Enum)))
 	{
 		const FName MaxEnumItem      = *(Enum->GenerateEnumPrefix() + TEXT("_MAX"));
 		const int32 MaxEnumItemIndex = Enum->FindEnumIndex(MaxEnumItem);
@@ -1711,7 +1702,7 @@ UScriptStruct* FHeaderParser::CompileStructDeclaration(FClasses& AllClasses)
 	auto Scope = CurrentSrcFile->GetScope();
 
 	// Make sure structs can be declared here.
-	CheckAllow( TEXT("'struct'"), ALLOW_TypeDecl );//@TODO: UCREMOVAL: After the switch: Make this require global scope
+	CheckAllow( TEXT("'struct'"), ENestAllowFlags::TypeDecl );
 
 	FScriptLocation StructDeclaration;
 
@@ -2063,12 +2054,10 @@ UScriptStruct* FHeaderParser::CompileStructDeclaration(FClasses& AllClasses)
 				}
 				PushCompilerDirective(ECompilerDirective::WithEditor);
 			}
-			else if (MatchIdentifier(TEXT("CPP")))
+			else if (MatchIdentifier(TEXT("CPP")) || MatchConstInt(TEXT("0")) || MatchConstInt(TEXT("1")) || MatchIdentifier(TEXT("WITH_HOT_RELOAD")) || MatchIdentifier(TEXT("WITH_HOT_RELOAD_CTORS")))
 			{
 				bConsumeAsCppText = !bInvertConditional;
 				PushCompilerDirective(ECompilerDirective::Insignificant);
-				//@todo: UCREMOVAL, !CPP should be interpreted as noexport and you should not need the no export.
-				// this applies to structs, enums, and everything else
 			}
 			else
 			{
@@ -2182,14 +2171,14 @@ const TCHAR *FHeaderParser::NestTypeName( ENestType NestType )
 {
 	switch( NestType )
 	{
-		case NEST_GlobalScope:
+		case ENestType::GlobalScope:
 			return TEXT("Global Scope");
-		case NEST_Class:
+		case ENestType::Class:
 			return TEXT("Class");
-		case NEST_NativeInterface:
-		case NEST_Interface:
+		case ENestType::NativeInterface:
+		case ENestType::Interface:
 			return TEXT("Interface");
-		case NEST_FunctionDeclaration:
+		case ENestType::FunctionDeclaration:
 			return TEXT("Function");
 		default:
 			check(false);
@@ -2198,9 +2187,9 @@ const TCHAR *FHeaderParser::NestTypeName( ENestType NestType )
 }
 
 // Checks to see if a particular kind of command is allowed on this nesting level.
-bool FHeaderParser::IsAllowedInThisNesting(uint32 AllowFlags)
+bool FHeaderParser::IsAllowedInThisNesting(ENestAllowFlags AllowFlags)
 {
-	return ((TopNest->Allow & AllowFlags) != 0);
+	return (TopNest->Allow & AllowFlags) != ENestAllowFlags::None;
 }
 
 //
@@ -2208,11 +2197,11 @@ bool FHeaderParser::IsAllowedInThisNesting(uint32 AllowFlags)
 // If it's not, issues a compiler error referring to the token and the current
 // nesting level.
 //
-void FHeaderParser::CheckAllow( const TCHAR* Thing, uint32 AllowFlags )
+void FHeaderParser::CheckAllow( const TCHAR* Thing, ENestAllowFlags AllowFlags )
 {
 	if (!IsAllowedInThisNesting(AllowFlags))
 	{
-		if (TopNest->NestType == NEST_GlobalScope)
+		if (TopNest->NestType == ENestType::GlobalScope)
 		{
 			FError::Throwf(TEXT("%s is not allowed before the Class definition"), Thing );
 		}
@@ -2240,7 +2229,7 @@ void FHeaderParser::PushNest(ENestType NestType, UStruct* InNode, FUnrealSourceF
 {
 	// Update pointer to top nesting level.
 	TopNest = &Nest[NestLevel++];
-	TopNest->SetScope(NestType == NEST_GlobalScope ? &SourceFile->GetScope().Get() : &FScope::GetTypeScope(InNode).Get());
+	TopNest->SetScope(NestType == ENestType::GlobalScope ? &SourceFile->GetScope().Get() : &FScope::GetTypeScope(InNode).Get());
 	TopNest->NestType = NestType;
 
 	// Prevent overnesting.
@@ -2250,7 +2239,7 @@ void FHeaderParser::PushNest(ENestType NestType, UStruct* InNode, FUnrealSourceF
 	}
 
 	// Inherit info from stack node above us.
-	if (NestLevel > 1 && NestType == NEST_GlobalScope)
+	if (NestLevel > 1 && NestType == ENestType::GlobalScope)
 	{
 		// Use the existing stack node.
 		TopNest->SetScope(TopNest[-1].GetScope());
@@ -2259,21 +2248,21 @@ void FHeaderParser::PushNest(ENestType NestType, UStruct* InNode, FUnrealSourceF
 	// NestType specific logic.
 	switch (NestType)
 	{
-	case NEST_GlobalScope:
-		TopNest->Allow = ALLOW_Class | ALLOW_TypeDecl | ALLOW_Function;
+	case ENestType::GlobalScope:
+		TopNest->Allow = ENestAllowFlags::Class | ENestAllowFlags::TypeDecl | ENestAllowFlags::ImplicitDelegateDecl;
 		break;
 
-	case NEST_Class:
-		TopNest->Allow = ALLOW_VarDecl | ALLOW_Function | ALLOW_TypeDecl;
+	case ENestType::Class:
+		TopNest->Allow = ENestAllowFlags::VarDecl | ENestAllowFlags::Function | ENestAllowFlags::ImplicitDelegateDecl;
 		break;
 
-	case NEST_NativeInterface:
-	case NEST_Interface:
-		TopNest->Allow = ALLOW_Function | ALLOW_TypeDecl;
+	case ENestType::NativeInterface:
+	case ENestType::Interface:
+		TopNest->Allow = ENestAllowFlags::Function;
 		break;
 
-	case NEST_FunctionDeclaration:
-		TopNest->Allow = ALLOW_VarDecl;
+	case ENestType::FunctionDeclaration:
+		TopNest->Allow = ENestAllowFlags::VarDecl;
 
 		break;
 
@@ -2301,19 +2290,19 @@ void FHeaderParser::PopNest(ENestType NestType, const TCHAR* Descr)
 		FError::Throwf(TEXT("Unexpected end of %s in '%s' block"), Descr, NestTypeName(TopNest->NestType));
 	}
 
-	if (NestType != NEST_GlobalScope && NestType != NEST_Class && NestType != NEST_Interface && NestType != NEST_NativeInterface && NestType != NEST_FunctionDeclaration)
+	if (NestType != ENestType::GlobalScope && NestType != ENestType::Class && NestType != ENestType::Interface && NestType != ENestType::NativeInterface && NestType != ENestType::FunctionDeclaration)
 	{
 		FError::Throwf(TEXT("Bad first pass NestType %i"), (uint8)NestType);
 	}
 
 	bool bLinkProps = true;
-	if (NestType == NEST_Class)
+	if (NestType == ENestType::Class)
 	{
 		UClass* TopClass = CastChecked<UClass>(GetCurrentClass());
 		bLinkProps = !TopClass->HasAnyClassFlags(CLASS_Intrinsic);
 	}
 
-	if (NestType != NEST_GlobalScope)
+	if (NestType != ENestType::GlobalScope)
 	{
 		GetCurrentClass()->StaticLink(bLinkProps);
 	}
@@ -2321,7 +2310,16 @@ void FHeaderParser::PopNest(ENestType NestType, const TCHAR* Descr)
 	// Pop the nesting level.
 	NestType = TopNest->NestType;
 	NestLevel--;
-	TopNest--;
+	if (NestLevel == 0)
+	{
+		TopNest = nullptr;
+	}
+	else
+	{
+		TopNest--;
+		check(TopNest >= Nest);
+
+	}
 }
 
 void FHeaderParser::FixupDelegateProperties( FClasses& AllClasses, UStruct* Struct, FScope& Scope, TMap<FName, UFunction*>& DelegateCache )
@@ -2366,7 +2364,10 @@ void FHeaderParser::FixupDelegateProperties( FClasses& AllClasses, UStruct* Stru
 						if (SourceDelegateFunction == nullptr)
 						{
 							// Try to find in other packages.
-							SourceDelegateFunction = Cast<UFunction>(StaticFindObject(UFunction::StaticClass(), ANY_PACKAGE, *NameOfDelegateFunction));
+							UObject* DelegateSignatureOuter = DelegatePropertyToken->Token.DelegateSignatureOwnerClass 
+								? ((UObject*)DelegatePropertyToken->Token.DelegateSignatureOwnerClass) 
+								: ((UObject*)ANY_PACKAGE);
+							SourceDelegateFunction = Cast<UFunction>(StaticFindObject(UFunction::StaticClass(), DelegateSignatureOuter, *NameOfDelegateFunction));
 
 							if (SourceDelegateFunction == nullptr)
 							{
@@ -2627,27 +2628,40 @@ void FHeaderParser::CompileDirective(FClasses& AllClasses)
 		// Eat the ! if present
 		bool bNotDefined = MatchSymbol(TEXT("!"));
 
-		FToken Define;
-		if (!GetIdentifier(Define))
-		{
-			FError::Throwf(TEXT("Missing define name '#if'") );
-		}
-
-		if ( Define.Matches(TEXT("WITH_EDITORONLY_DATA")) )
-		{
-			PushCompilerDirective(ECompilerDirective::WithEditorOnlyData);
-		}
-		else if ( Define.Matches(TEXT("WITH_EDITOR")) )
-		{
-			PushCompilerDirective(ECompilerDirective::WithEditor);
-		}
-		else if (Define.Matches(TEXT("CPP")) && bNotDefined)
+		int32 TempInt;
+		const bool bParsedInt = GetConstInt(TempInt);
+		if (bParsedInt && (TempInt == 0 || TempInt == 1))
 		{
 			PushCompilerDirective(ECompilerDirective::Insignificant);
 		}
 		else
 		{
-			FError::Throwf(TEXT("Unknown define '#if %s' in class or global scope"), Define.Identifier);
+			FToken Define;
+			if (!GetIdentifier(Define))
+			{
+				FError::Throwf(TEXT("Missing define name '#if'") );
+			}
+
+			if ( Define.Matches(TEXT("WITH_EDITORONLY_DATA")) )
+			{
+				PushCompilerDirective(ECompilerDirective::WithEditorOnlyData);
+			}
+			else if ( Define.Matches(TEXT("WITH_EDITOR")) )
+			{
+				PushCompilerDirective(ECompilerDirective::WithEditor);
+			}
+			else if (Define.Matches(TEXT("WITH_HOT_RELOAD")) || Define.Matches(TEXT("WITH_HOT_RELOAD_CTORS")) || Define.Matches(TEXT("1")))
+			{
+				PushCompilerDirective(ECompilerDirective::Insignificant);
+			}
+			else if ( Define.Matches(TEXT("CPP")) && bNotDefined)
+			{
+				PushCompilerDirective(ECompilerDirective::Insignificant);
+			}
+			else
+			{
+				FError::Throwf(TEXT("Unknown define '#if %s' in class or global scope"), Define.Identifier);
+			}
 		}
 	}
 	else if (Directive.Matches(TEXT("endif")))
@@ -3059,6 +3073,12 @@ FIndexRange*                    ParsedVarIndexRange
 				}
 				break;
 
+				case EVariableSpecifier::SkipSerialization:
+				{
+					Flags |= CPF_SkipSerialization;
+				}
+				break;
+
 				default:
 				{
 					FError::Throwf(TEXT("Unknown variable specifier '%s'"), *Specifier.Key);
@@ -3247,17 +3267,17 @@ FIndexRange*                    ParsedVarIndexRange
 	}
 	else if ( VarType.Matches(TEXT("int")) )
 	{
-		VarProperty = HandleNativeIntType(true);
+		VarProperty = FPropertyBase(CPT_Int, EIntType::Unsized);
 	}
 	else if ( VarType.Matches(TEXT("signed")) )
 	{
 		MatchIdentifier(TEXT("int"));
-		VarProperty = HandleNativeIntType(true);
+		VarProperty = FPropertyBase(CPT_Int, EIntType::Unsized);
 	}
 	else if (VarType.Matches(TEXT("unsigned")))
 	{
 		MatchIdentifier(TEXT("int"));
-		VarProperty = HandleNativeIntType(false);
+		VarProperty = FPropertyBase(CPT_UInt32, EIntType::Unsized);
 	}
 	else if ( VarType.Matches(TEXT("bool")) )
 	{
@@ -3310,7 +3330,7 @@ FIndexRange*                    ParsedVarIndexRange
 		VarType.PropertyFlags |= Flags;
 
 		GetVarType(AllClasses, Scope, VarProperty, Disallow, &VarType, EPropertyDeclarationStyle::None, VariableCategory);
-		if (VarProperty.ArrayType != EArrayType::None || VarProperty.MapKeyProp.IsValid())
+		if (VarProperty.IsContainer())
 		{
 			FError::Throwf(TEXT("Nested containers are not supported.") );
 		}
@@ -3359,7 +3379,7 @@ FIndexRange*                    ParsedVarIndexRange
 
 		FToken MapKeyType;
 		GetVarType(AllClasses, Scope, MapKeyType, Disallow, &VarType, EPropertyDeclarationStyle::None, VariableCategory);
-		if (VarProperty.ArrayType != EArrayType::None || VarProperty.MapKeyProp.IsValid())
+		if (MapKeyType.IsContainer())
 		{
 			FError::Throwf(TEXT("Nested containers are not supported.") );
 		}
@@ -3376,13 +3396,13 @@ FIndexRange*                    ParsedVarIndexRange
 		}
 
 		GetVarType(AllClasses, Scope, VarProperty, Disallow, &VarType, EPropertyDeclarationStyle::None, VariableCategory);
-		if (VarProperty.ArrayType != EArrayType::None || VarProperty.MapKeyProp.IsValid())
+		if (VarProperty.IsContainer())
 		{
 			FError::Throwf(TEXT("Nested containers are not supported.") );
 		}
 
-		OriginalVarTypeFlags |= VarProperty.PropertyFlags & (CPF_ContainsInstancedReference | CPF_InstancedReference); // propagate these to the array, we will fix them later
-		OriginalVarTypeFlags |= MapKeyType .PropertyFlags & (CPF_ContainsInstancedReference | CPF_InstancedReference); // propagate these to the array, we will fix them later
+		OriginalVarTypeFlags |= VarProperty.PropertyFlags & (CPF_ContainsInstancedReference | CPF_InstancedReference); // propagate these to the map value, we will fix them later
+		OriginalVarTypeFlags |= MapKeyType .PropertyFlags & (CPF_ContainsInstancedReference | CPF_InstancedReference); // propagate these to the map key, we will fix them later
 		VarType.PropertyFlags = OriginalVarTypeFlags;
 		FToken* MapKeyProp = new FToken(MapKeyType);
 		VarProperty.MapKeyProp = MakeShareable<FToken>(MapKeyProp);
@@ -3411,6 +3431,54 @@ FIndexRange*                    ParsedVarIndexRange
 			}
 
 			FError::Throwf(TEXT("Found '%s' - explicit allocators are not supported in TMap properties."), AllocatorToken.Identifier);
+		}
+	}
+	else if ( VarType.Matches(TEXT("TSet")) )
+	{
+		RequireSymbol( TEXT("<"), TEXT("'tset'") );
+
+		// GetVarType() clears the property flags of the array var, so use dummy 
+		// flags when getting the inner property
+		uint64 OriginalVarTypeFlags = VarType.PropertyFlags;
+		VarType.PropertyFlags |= Flags;
+
+		GetVarType(AllClasses, Scope, VarProperty, Disallow, &VarType, EPropertyDeclarationStyle::None, VariableCategory);
+		if (VarProperty.IsContainer())
+		{
+			FError::Throwf(TEXT("Nested containers are not supported.") );
+		}
+
+		if (VarProperty.Type == CPT_Struct)
+		{
+			FError::Throwf(TEXT("USTRUCTs are not currently supported as element types."));
+		}
+
+		OriginalVarTypeFlags |= VarProperty.PropertyFlags & (CPF_ContainsInstancedReference | CPF_InstancedReference); // propagate these to the set, we will fix them later
+		VarType.PropertyFlags = OriginalVarTypeFlags;
+		VarProperty.ArrayType = EArrayType::Set;
+
+		FToken CloseTemplateToken;
+		if (!GetToken(CloseTemplateToken, /*bNoConsts=*/ true, ESymbolParseOption::CloseTemplateBracket))
+		{
+			FError::Throwf(TEXT("Missing token while parsing TArray."));
+		}
+
+		if (CloseTemplateToken.TokenType != TOKEN_Symbol || FCString::Stricmp(CloseTemplateToken.Identifier, TEXT(">")))
+		{
+			// If we didn't find a comma, report it
+			if (FCString::Stricmp(CloseTemplateToken.Identifier, TEXT(",")))
+			{
+				FError::Throwf(TEXT("Expected '>' but found '%s'"), CloseTemplateToken.Identifier);
+			}
+
+			// If we found a comma, read the next thing, assume it's an allocator, and report that
+			FToken AllocatorToken;
+			if (!GetToken(AllocatorToken, /*bNoConsts=*/ true, ESymbolParseOption::CloseTemplateBracket))
+			{
+				FError::Throwf(TEXT("Expected '>' but found '%s'"), CloseTemplateToken.Identifier);
+			}
+
+			FError::Throwf(TEXT("Found '%s' - explicit allocators are not supported in TSet properties."), AllocatorToken.Identifier);
 		}
 	}
 	else if ( VarType.Matches(TEXT("FString")) )
@@ -3553,6 +3621,7 @@ FIndexRange*                    ParsedVarIndexRange
 					if (UFunction* DelegateFunc = Cast<UFunction>(LocScope->FindTypeByName(*(DelegateIdentifierStripped + HEADER_GENERATED_DELEGATE_SIGNATURE_SUFFIX))))
 					{
 						SetDelegateType(DelegateFunc, DelegateIdentifierStripped);
+						VarProperty.DelegateSignatureOwnerClass = LocalOwnerClass;
 					}
 				}
 				else
@@ -3993,16 +4062,7 @@ EFindName FHeaderParser::GetFindFlagForPropertyName(const TCHAR* PropertyName)
 	}
 	// Add it to the list for future look ups
 	PreviousNames.Add(UpperPropertyStr,1);
-	// Check for a mismatch between the INI file and the config property name
-	FName CurrentText(PropertyName,FNAME_Find);
-	if (CurrentText != NAME_None &&
-		FCString::Strcmp(PropertyName,*CurrentText.ToString()) != 0)
-	{
-		FError::Throwf(
-			TEXT("INI file contains an incorrect case for (%s) should be (%s)"),
-			*CurrentText.ToString(),
-			PropertyName);
-	}
+	FName CurrentText(PropertyName,FNAME_Find); // keep generating this FName in case it has been affecting the case of future FNames.
 	return FNAME_Replace_Not_Safe_For_Threading;
 }
 
@@ -4073,7 +4133,7 @@ UProperty* FHeaderParser::GetVarNameAndDim
 	int32 OuterContextCount = 0;
 	UField* Existing = FindField(Scope, VarProperty.Identifier, true, UField::StaticClass(), NULL);
 
-	if (Existing != NULL)
+	if (Existing != nullptr)
 	{
 		bool bErrorDueToShadowing = true;
 
@@ -4120,7 +4180,7 @@ UProperty* FHeaderParser::GetVarNameAndDim
 			}
 		}
 
-		if (VarProperty.ArrayType == EArrayType::Dynamic || VarProperty.MapKeyProp.IsValid())
+		if (VarProperty.IsContainer())
 		{
 			FError::Throwf(TEXT("Static arrays of containers are not allowed"));
 		}
@@ -4139,7 +4199,7 @@ UProperty* FHeaderParser::GetVarNameAndDim
 		// Only static arrays are declared with [].  Dynamic arrays use TArray<> instead.
 		VarProperty.ArrayType = EArrayType::Static;
 
-		UEnum* Enum = NULL;
+		UEnum* Enum = nullptr;
 
 		if (*Dimensions.String)
 		{
@@ -4227,13 +4287,13 @@ UProperty* FHeaderParser::GetVarNameAndDim
 	// If this is the first time seeing the property name, then flag it for replace instead of add
 	const EFindName FindFlag = VarProperty.PropertyFlags & CPF_Config ? GetFindFlagForPropertyName(VarProperty.Identifier) : FNAME_Add;
 	// create the FName for the property, splitting (ie Unnamed_3 -> Unnamed,3)
-	FName PropertyName(VarProperty.Identifier, FindFlag, true);
+	FName PropertyName(VarProperty.Identifier, FindFlag);
 
 	// Add property.
-	UProperty* NewProperty = NULL;
+	UProperty* NewProperty = nullptr;
 
 	{
-		UProperty* Prev = NULL;
+		UProperty* Prev = nullptr;
 	    for (TFieldIterator<UProperty> It(Scope, EFieldIteratorFlags::ExcludeSuper); It; ++It)
 		{
 			Prev = *It;
@@ -4241,6 +4301,7 @@ UProperty* FHeaderParser::GetVarNameAndDim
 
 		UArrayProperty* Array             = nullptr;
 		UMapProperty*   Map               = nullptr;
+		USetProperty*   Set               = nullptr; // TODO: Set Property
 		UProperty*      NewMapKeyProperty = nullptr;
 		UObject*        NewScope          = Scope;
 		int32           ArrayDim          = 1; // 1 = not a static array, 2 = static array
@@ -4254,6 +4315,13 @@ UProperty* FHeaderParser::GetVarNameAndDim
 		else if (VarProperty.ArrayType == EArrayType::Static)
 		{
 			ArrayDim = 2;
+		}
+		else if (VarProperty.ArrayType == EArrayType::Set)
+		{
+			Set               = new (EC_InternalUseOnlyConstructor, Scope, PropertyName, ObjectFlags) USetProperty(FObjectInitializer());
+			UHTMakefile.AddSetProperty(CurrentSrcFile, Set);
+			NewScope          = Set;
+			ObjectFlags       = RF_Public;
 		}
 		else if (VarProperty.MapKeyProp.IsValid())
 		{
@@ -4305,13 +4373,22 @@ UProperty* FHeaderParser::GetVarNameAndDim
 			NewProperty = Map;
 		}
 
+		if (Set)
+		{
+			Set->ElementProp = NewProperty;
+
+			PropagateFlags(CPF_PropagateToSetElement, VarProperty, NewProperty);
+
+			NewProperty = Set;
+		}
+
 		NewProperty->ArrayDim = ArrayDim;
 		if (ArrayDim == 2)
 		{
 			GArrayDimensions.Add(NewProperty, Dimensions.String);
 		}
 		NewProperty->PropertyFlags = VarProperty.PropertyFlags;
-		if (Prev != NULL)
+		if (Prev != nullptr)
 		{
 			NewProperty->Next = Prev->Next;
 			Prev->Next = NewProperty;
@@ -4340,21 +4417,21 @@ UProperty* FHeaderParser::GetVarNameAndDim
 //
 // Compile a declaration in Token. Returns 1 if compiled, 0 if not.
 //
-bool FHeaderParser::CompileDeclaration(FClasses& AllClasses, FToken& Token)
+bool FHeaderParser::CompileDeclaration(FClasses& AllClasses, TArray<UDelegateFunction*>& DelegatesToFixup, FToken& Token)
 {
 	EAccessSpecifier AccessSpecifier = ParseAccessProtectionSpecifier(Token);
 	if (AccessSpecifier)
 	{
-		if (!IsAllowedInThisNesting(ALLOW_VarDecl) && !IsAllowedInThisNesting(ALLOW_Function))
+		if (!IsAllowedInThisNesting(ENestAllowFlags::VarDecl) && !IsAllowedInThisNesting(ENestAllowFlags::Function))
 		{
 			FError::Throwf(TEXT("Access specifier %s not allowed here."), Token.Identifier);
 		}
-		check(TopNest->NestType == NEST_Class || TopNest->NestType == NEST_Interface || TopNest->NestType == NEST_NativeInterface);
+		check(TopNest->NestType == ENestType::Class || TopNest->NestType == ENestType::Interface || TopNest->NestType == ENestType::NativeInterface);
 		CurrentAccessSpecifier = AccessSpecifier;
 		return true;
 	}
 
-	if (Token.Matches(TEXT("class")) && (TopNest->NestType == NEST_GlobalScope))
+	if (Token.Matches(TEXT("class")) && (TopNest->NestType == ENestType::GlobalScope))
 	{
 		// Make sure the previous class ended with valid nesting.
 		if (bEncounteredNewStyleClass_UnmatchedBrackets)
@@ -4375,9 +4452,9 @@ bool FHeaderParser::CompileDeclaration(FClasses& AllClasses, FToken& Token)
 		return true;
 	}
 
-	if (Token.Matches(TEXT("GENERATED_IINTERFACE_BODY")) || (Token.Matches(TEXT("GENERATED_BODY")) && TopNest->NestType == NEST_NativeInterface))
+	if (Token.Matches(TEXT("GENERATED_IINTERFACE_BODY")) || (Token.Matches(TEXT("GENERATED_BODY")) && TopNest->NestType == ENestType::NativeInterface))
 	{
-		if (TopNest->NestType != NEST_NativeInterface)
+		if (TopNest->NestType != ENestType::NativeInterface)
 		{
 			FError::Throwf(TEXT("%s must occur inside the native interface definition"), Token.Identifier);
 		}
@@ -4404,9 +4481,9 @@ bool FHeaderParser::CompileDeclaration(FClasses& AllClasses, FToken& Token)
 		return true;
 	}
 
-	if (Token.Matches(TEXT("GENERATED_UINTERFACE_BODY")) || (Token.Matches(TEXT("GENERATED_BODY")) && TopNest->NestType == NEST_Interface))
+	if (Token.Matches(TEXT("GENERATED_UINTERFACE_BODY")) || (Token.Matches(TEXT("GENERATED_BODY")) && TopNest->NestType == ENestType::Interface))
 	{
-		if (TopNest->NestType != NEST_Interface)
+		if (TopNest->NestType != ENestType::Interface)
 		{
 			FError::Throwf(TEXT("%s must occur inside the interface definition"), Token.Identifier);
 		}
@@ -4428,9 +4505,9 @@ bool FHeaderParser::CompileDeclaration(FClasses& AllClasses, FToken& Token)
 		return true;
 	}
 
-	if (Token.Matches(TEXT("GENERATED_UCLASS_BODY")) || (Token.Matches(TEXT("GENERATED_BODY")) && TopNest->NestType == NEST_Class))
+	if (Token.Matches(TEXT("GENERATED_UCLASS_BODY")) || (Token.Matches(TEXT("GENERATED_BODY")) && TopNest->NestType == ENestType::Class))
 	{
-		if (TopNest->NestType != NEST_Class)
+		if (TopNest->NestType != ENestType::Class)
 		{
 			FError::Throwf(TEXT("%s must occur inside the class definition"), Token.Identifier);
 		}
@@ -4463,7 +4540,7 @@ bool FHeaderParser::CompileDeclaration(FClasses& AllClasses, FToken& Token)
 		return true;
 	}
 
-	if (Token.Matches(TEXT("UCLASS"), ESearchCase::CaseSensitive) && (TopNest->Allow & ALLOW_Class))
+	if (Token.Matches(TEXT("UCLASS"), ESearchCase::CaseSensitive))
 	{
 		bHaveSeenUClass = true;
 		bEncounteredNewStyleClass_UnmatchedBrackets = true;
@@ -4471,7 +4548,7 @@ bool FHeaderParser::CompileDeclaration(FClasses& AllClasses, FToken& Token)
 		return true;
 	}
 
-	if (Token.Matches(TEXT("UINTERFACE")) && (TopNest->Allow & ALLOW_Class))
+	if (Token.Matches(TEXT("UINTERFACE")))
 	{
 		bHaveSeenUClass = true;
 		bEncounteredNewStyleClass_UnmatchedBrackets = true;
@@ -4487,20 +4564,22 @@ bool FHeaderParser::CompileDeclaration(FClasses& AllClasses, FToken& Token)
 
 	if (Token.Matches(TEXT("UDELEGATE")))
 	{
-		CompileDelegateDeclaration(AllClasses, Token.Identifier, EDelegateSpecifierAction::Parse);
+		UDelegateFunction* Delegate = CompileDelegateDeclaration(AllClasses, Token.Identifier, EDelegateSpecifierAction::Parse);
+		DelegatesToFixup.Add(Delegate);
 		return true;
 	}
 
 	if (IsValidDelegateDeclaration(Token)) // Legacy delegate parsing - it didn't need a UDELEGATE
 	{
-		CompileDelegateDeclaration(AllClasses, Token.Identifier);
+		UDelegateFunction* Delegate = CompileDelegateDeclaration(AllClasses, Token.Identifier);
+		DelegatesToFixup.Add(Delegate);
 		return true;
 	}
 
 	if (Token.Matches(TEXT("UPROPERTY"), ESearchCase::CaseSensitive))
 	{
-		CheckAllow(TEXT("'Member variable declaration'"), ALLOW_VarDecl);
-		check(TopNest->NestType == NEST_Class);
+		CheckAllow(TEXT("'Member variable declaration'"), ENestAllowFlags::VarDecl);
+		check(TopNest->NestType == ENestType::Class);
 
 		CompileVariableDeclaration(AllClasses, GetCurrentClass());
 		return true;
@@ -4545,7 +4624,7 @@ bool FHeaderParser::CompileDeclaration(FClasses& AllClasses, FToken& Token)
 		// Pop nesting here to allow other non UClass declarations in the header file.
 		if (CurrentClass->ClassFlags & CLASS_Interface)
 		{
-			checkf(TopNest->NestType == NEST_Interface || TopNest->NestType == NEST_NativeInterface, TEXT("Unexpected end of interface block."));
+			checkf(TopNest->NestType == ENestType::Interface || TopNest->NestType == ENestType::NativeInterface, TEXT("Unexpected end of interface block."));
 			PopNest(TopNest->NestType, TEXT("'Interface'"));
 			PostPopNestInterface(AllClasses, CurrentClass);
 
@@ -4563,7 +4642,7 @@ bool FHeaderParser::CompileDeclaration(FClasses& AllClasses, FToken& Token)
 		}
 		else
 		{
-			PopNest(NEST_Class, TEXT("'Class'"));
+			PopNest(ENestType::Class, TEXT("'Class'"));
 			PostPopNestClass(CurrentClass);
 
 			// Ensure classes have a GENERATED_BODY declaration
@@ -4780,6 +4859,7 @@ FClass* FHeaderParser::ParseClassNameDeclaration(FClasses& AllClasses, FString& 
 	{
 		// Set the base class.
 		UClass* TempClass = GetQualifiedClass(AllClasses, TEXT("'extends'"));
+		check(TempClass);
 		// a class cannot 'extends' an interface, use 'implements'
 		if (TempClass->ClassFlags & CLASS_Interface)
 		{
@@ -4920,7 +5000,7 @@ void PostParsingClassSetup(UClass* Class)
 void FHeaderParser::CompileClassDeclaration(FClasses& AllClasses)
 {
 	// Start of a class block.
-	CheckAllow(TEXT("'class'"), ALLOW_Class);
+	CheckAllow(TEXT("'class'"), ENestAllowFlags::Class);
 
 	// New-style UCLASS() syntax
 	TMap<FName, FString> MetaData;
@@ -4954,7 +5034,7 @@ void FHeaderParser::CompileClassDeclaration(FClasses& AllClasses)
 
 	Class->ClassFlags |= CLASS_Parsed;
 
-	PushNest(ENestType::NEST_Class, Class);
+	PushNest(ENestType::Class, Class);
 	
 	const uint32 PrevClassFlags = Class->ClassFlags;
 	ResetClassData();
@@ -5025,7 +5105,8 @@ void FHeaderParser::CompileClassDeclaration(FClasses& AllClasses)
 		// if this base class corresponds to an interface class, assign the vtable UProperty in the class's Interfaces map now...
 		if (UClass* InheritedInterface = InheritanceParents[ParentIndex]->InterfaceClass)
 		{
-			if (FImplementedInterface* Found = Class->Interfaces.FindByPredicate([=](const FImplementedInterface& Impl) { return Impl.Class == InheritedInterface; }))
+			FImplementedInterface* Found = Class->Interfaces.FindByPredicate([=](const FImplementedInterface& Impl) { return Impl.Class == InheritedInterface; });
+			if (Found)
 			{
 				Found->PointerOffset = 1;
 			}
@@ -5059,6 +5140,7 @@ FClass* FHeaderParser::ParseInterfaceNameDeclaration(FClasses& AllClasses, FStri
 	// verify if our super class is an interface class
 	// the super class should have been marked as CLASS_Interface at the importing stage, if it were an interface
 	UClass* TempClass = GetQualifiedClass(AllClasses, TEXT("'extends'"));
+	check(TempClass);
 	if( !(TempClass->ClassFlags & CLASS_Interface) )
 	{
 		// UInterface is special and actually extends from UObject, which isn't an interface
@@ -5114,7 +5196,7 @@ bool FHeaderParser::TryParseIInterfaceClass(FClasses& AllClasses)
 	RequireSymbol(TEXT("{"), *ErrorMsg);
 
 	// Push the interface class nesting again.
-	PushNest(NEST_NativeInterface, FoundClass);
+	PushNest(ENestType::NativeInterface, FoundClass);
 
 	return true;
 }
@@ -5127,7 +5209,7 @@ void FHeaderParser::CompileInterfaceDeclaration(FClasses& AllClasses)
 	FUnrealSourceFile* CurrentSrcFile = GetCurrentSourceFile();
 	// Start of an interface block. Since Interfaces and Classes are always at the same nesting level,
 	// whereever a class declaration is allowed, an interface declaration is also allowed.
-	CheckAllow( TEXT("'interface'"), ALLOW_Class );
+	CheckAllow( TEXT("'interface'"), ENestAllowFlags::Class );
 
 	FString DeclaredInterfaceName;
 	FString RequiredAPIMacroIfPresent;
@@ -5226,8 +5308,8 @@ void FHeaderParser::CompileInterfaceDeclaration(FClasses& AllClasses)
 	check(InterfaceClass->HasAnyFlags(RF_Standalone));
 
 	// Push the interface class nesting.
-	// we need a more specific set of allow flags for NEST_Interface, only function declaration is allowed, no other stuff are allowed
-	PushNest(NEST_Interface, InterfaceClass);
+	// we need a more specific set of allow flags for ENestType::Interface, only function declaration is allowed, no other stuff are allowed
+	PushNest(ENestType::Interface, InterfaceClass);
 }
 
 // Returns true if the token is a dynamic delegate declaration
@@ -5362,8 +5444,10 @@ void FHeaderParser::ParseParameterList(FClasses& AllClasses, UFunction* Function
 	} while( MatchSymbol(TEXT(",")) );
 	RequireSymbol( TEXT(")"), TEXT("parameter list") );
 }
-void FHeaderParser::CompileDelegateDeclaration(FClasses& AllClasses, const TCHAR* DelegateIdentifier, EDelegateSpecifierAction::Type SpecifierAction)
+UDelegateFunction* FHeaderParser::CompileDelegateDeclaration(FClasses& AllClasses, const TCHAR* DelegateIdentifier, EDelegateSpecifierAction::Type SpecifierAction)
 {
+	const TCHAR* CurrentScopeName = TEXT("Delegate Declaration");
+
 	FUnrealSourceFile* CurrentSrcFile = GetCurrentSourceFile();
 	TMap<FName, FString> MetaData;
 	AddModuleRelativePathToMetadata(*CurrentSrcFile, MetaData);
@@ -5386,15 +5470,17 @@ void FHeaderParser::CompileDelegateDeclaration(FClasses& AllClasses, const TCHAR
 			FError::Throwf(TEXT("Unexpected token following UDELEGATE(): %s"), Token.Identifier);
 
 		DelegateMacro = Token.Identifier;
+
+		//Workaround for UE-28897
+		const FStructScope* CurrentStructScope = TopNest->GetScope() ? TopNest->GetScope()->AsStructScope() : nullptr;
+		const bool bDynamicClassScope = CurrentStructScope && CurrentStructScope->GetStruct() && FClass::IsDynamic(CurrentStructScope->GetStruct());
+		CheckAllow(CurrentScopeName, bDynamicClassScope ? ENestAllowFlags::ImplicitDelegateDecl : ENestAllowFlags::TypeDecl);
 	}
 	else
 	{
 		DelegateMacro = DelegateIdentifier;
+		CheckAllow(CurrentScopeName, ENestAllowFlags::ImplicitDelegateDecl);
 	}
-
-	// Make sure we can have a delegate declaration here
-	const TCHAR* CurrentScopeName = TEXT("Delegate Declaration");
-	CheckAllow(CurrentScopeName, ALLOW_TypeDecl);//@TODO: UCREMOVAL: After the switch: Make this require global scope
 
 	// Break the delegate declaration macro down into parts
 	const bool bHasReturnValue = DelegateMacro.Contains(TEXT("_RetVal"));
@@ -5476,7 +5562,7 @@ void FHeaderParser::CompileDelegateDeclaration(FClasses& AllClasses, const TCHAR
 	}
 
 	FuncInfo.MacroLine = InputLine;
-	auto* DelegateSignatureFunction = CreateDelegateFunction(FuncInfo);
+	UDelegateFunction* DelegateSignatureFunction = CreateDelegateFunction(FuncInfo);
 	UHTMakefile.AddDelegateFunction(CurrentSrcFile, DelegateSignatureFunction);
 
 	FClassMetaData* ClassMetaData = GScriptHelper.AddClassData(DelegateSignatureFunction, UHTMakefile, CurrentSrcFile);
@@ -5555,6 +5641,8 @@ void FHeaderParser::CompileDelegateDeclaration(FClasses& AllClasses, const TCHAR
 			FError::Throwf(TEXT("Can't override delegate signature function '%s'"), FuncInfo.Function.Identifier);
 		}
 	}
+
+	return DelegateSignatureFunction;
 }
 
 /**
@@ -5562,7 +5650,7 @@ void FHeaderParser::CompileDelegateDeclaration(FClasses& AllClasses, const TCHAR
  */
 void FHeaderParser::CompileFunctionDeclaration(FClasses& AllClasses)
 {
-	CheckAllow(TEXT("'Function'"), ALLOW_Function);
+	CheckAllow(TEXT("'Function'"), ENestAllowFlags::Function);
 
 	FUnrealSourceFile* CurrentSrcFile = GetCurrentSourceFile();
 	TMap<FName, FString> MetaData;
@@ -6285,6 +6373,7 @@ struct FExposeOnSpawnValidator
 		case CPT_Name:
 		case CPT_Vector:
 		case CPT_Rotation:
+		case CPT_Interface:
 			ProperNativeType = true;
 		}
 
@@ -6390,7 +6479,7 @@ void FHeaderParser::CompileVariableDeclaration(FClasses& AllClasses, UStruct* St
 		// Deprecation validation
 		ValidatePropertyIsDeprecatedIfNecessary(Property, NULL);
 
-		if (TopNest->NestType != NEST_FunctionDeclaration)
+		if (TopNest->NestType != ENestType::FunctionDeclaration)
 		{
 			if (NewProperties.Num())
 			{
@@ -6451,7 +6540,7 @@ void FHeaderParser::CompileVariableDeclaration(FClasses& AllClasses, UStruct* St
 // Compile a statement: Either a declaration or a command.
 // Returns 1 if success, 0 if end of file.
 //
-bool FHeaderParser::CompileStatement(FClasses& AllClasses)
+bool FHeaderParser::CompileStatement(FClasses& AllClasses, TArray<UDelegateFunction*>& DelegatesToFixup)
 {
 	// Get a token and compile it.
 	FToken Token;
@@ -6460,7 +6549,7 @@ bool FHeaderParser::CompileStatement(FClasses& AllClasses)
 		// End of file.
 		return false;
 	}
-	else if (!CompileDeclaration(AllClasses, Token))
+	else if (!CompileDeclaration(AllClasses, DelegatesToFixup, Token))
 	{
 		FError::Throwf(TEXT("'%s': Bad command or expression"), Token.Identifier );
 	}
@@ -6640,7 +6729,7 @@ ECompilationResult::Type FHeaderParser::ParseHeader(FClasses& AllClasses, FUnrea
 	// Init nesting.
 	NestLevel = 0;
 	TopNest = NULL;
-	PushNest(NEST_GlobalScope, nullptr, CurrentSrcFile);
+	PushNest(ENestType::GlobalScope, nullptr, CurrentSrcFile);
 
 	// C++ classes default to private access level
 	CurrentAccessSpecifier = ACCESS_Private; 
@@ -6656,7 +6745,8 @@ ECompilationResult::Type FHeaderParser::ParseHeader(FClasses& AllClasses, FUnrea
 #endif
 	{
 		// Parse entire program.
-		while (CompileStatement(AllClasses))
+		TArray<UDelegateFunction*> DelegatesToFixup;
+		while (CompileStatement(AllClasses, DelegatesToFixup))
 		{
 			bEmptyFile = false;
 
@@ -6665,7 +6755,7 @@ ECompilationResult::Type FHeaderParser::ParseHeader(FClasses& AllClasses, FUnrea
 			StatementsParsed++;
 		}
 
-		PopNest(NEST_GlobalScope, TEXT("Global scope"));
+		PopNest(ENestType::GlobalScope, TEXT("Global scope"));
 
 		auto ScopeTypeIterator = CurrentSrcFile->GetScope()->GetTypeIterator();
 		while (ScopeTypeIterator.MoveNext())
@@ -6682,6 +6772,15 @@ ECompilationResult::Type FHeaderParser::ParseHeader(FClasses& AllClasses, FUnrea
 			// now validate all delegate variables declared in the class
 			TMap<FName, UFunction*> DelegateCache;
 			FixupDelegateProperties(AllClasses, Struct, FScope::GetTypeScope(Struct).Get(), DelegateCache);
+		}
+
+		// Fix up any delegates themselves, if they refer to other delegates
+		{
+			TMap<FName, UFunction*> DelegateCache;
+			for (UDelegateFunction* Delegate : DelegatesToFixup)
+			{
+				FixupDelegateProperties(AllClasses, Delegate, CurrentSrcFile->GetScope().Get(), DelegateCache);
+			}
 		}
 
 		// Precompute info for runtime optimization.
@@ -6747,7 +6846,7 @@ ECompilationResult::Type FHeaderParser::ParseHeader(FClasses& AllClasses, FUnrea
 		if (NestLevel == 0)
 		{
 			// Pushing nest so there is a file context for this error.
-			PushNest(NEST_GlobalScope, nullptr, CurrentSrcFile);
+			PushNest(ENestType::GlobalScope, nullptr, CurrentSrcFile);
 		}
 
 		// Handle compiler error.
@@ -6804,7 +6903,7 @@ ECompilationResult::Type FHeaderParser::ParseHeaders(FClasses& AllClasses, FHead
 
 	TArray<FUnrealSourceFile*> SourceFilesRequired;
 
-	static const FString ObjectHeader = FString(TEXT("Object.h"));
+	static const FString ObjectHeader = FString(TEXT("NoExportTypes.h"));
 	for (auto& Include : SourceFile->GetIncludes())
 	{
 		if (Include.GetId() == ObjectHeader)
@@ -7000,7 +7099,8 @@ FHeaderParser::FHeaderParser(FFeedbackContext* InWarn, FUHTMakefile& InUHTMakefi
 , Warn                              (InWarn)
 , UHTMakefile(InUHTMakefile)
 , bSpottedAutogeneratedHeaderInclude(false)
-, TopNest                           (NULL)
+, NestLevel							(0)
+, TopNest                           (nullptr)
 {
 	FScriptLocation::Compiler = this;
 
@@ -7026,6 +7126,7 @@ FHeaderParser::FHeaderParser(FFeedbackContext* InWarn, FUHTMakefile& InUHTMakefi
 	DelegateParameterCountStrings.Add(TEXT("_SixParams"));
 	DelegateParameterCountStrings.Add(TEXT("_SevenParams"));
 	DelegateParameterCountStrings.Add(TEXT("_EightParams"));
+	DelegateParameterCountStrings.Add(TEXT("_NineParams"));
 
 	FString Version;
 	if (GConfig->GetString(TEXT("GeneratedCodeVersion"), TEXT("UnrealHeaderTool"), Version, GEngineIni))
@@ -7274,8 +7375,98 @@ void FHeaderParser::ParseClassName(const TCHAR* Temp, FString& ClassName)
 	}
 }
 
+enum class EBlockDirectiveType
+{
+	// We're in a CPP block
+	CPPBlock,
+
+	// We're in a !CPP block
+	NotCPPBlock,
+
+	// We're in a 0 block
+	ZeroBlock,
+
+	// We're in a 1 block
+	OneBlock,
+
+	// We're in a WITH_HOT_RELOAD block
+	WithHotReload,
+
+	// We're in a WITH_EDITOR block
+	WithEditor,
+
+	// We're in a WITH_EDITORONLY_DATA block
+	WithEditorOnlyData,
+
+	// We're in a block with an unrecognized directive
+	UnrecognizedBlock
+};
+
+bool ShouldKeepBlockContents(EBlockDirectiveType DirectiveType)
+{
+	switch (DirectiveType)
+	{
+		case EBlockDirectiveType::NotCPPBlock:
+		case EBlockDirectiveType::OneBlock:
+		case EBlockDirectiveType::WithHotReload:
+		case EBlockDirectiveType::WithEditor:
+		case EBlockDirectiveType::WithEditorOnlyData:
+			return true;
+
+		case EBlockDirectiveType::CPPBlock:
+		case EBlockDirectiveType::ZeroBlock:
+		case EBlockDirectiveType::UnrecognizedBlock:
+			return false;
+	}
+
+	check(false);
+	ASSUME(false);
+}
+
+EBlockDirectiveType ParseCommandToBlockDirectiveType(const TCHAR** Str)
+{
+	if (FParse::Command(Str, TEXT("0")))
+	{
+		return EBlockDirectiveType::ZeroBlock;
+	}
+
+	if (FParse::Command(Str, TEXT("1")))
+	{
+		return EBlockDirectiveType::OneBlock;
+	}
+
+	if (FParse::Command(Str, TEXT("CPP")))
+	{
+		return EBlockDirectiveType::CPPBlock;
+	}
+
+	if (FParse::Command(Str, TEXT("!CPP")))
+	{
+		return EBlockDirectiveType::NotCPPBlock;
+	}
+
+#if WITH_HOT_RELOAD_CTORS
+	if (FParse::Command(Str, TEXT("WITH_HOT_RELOAD")))
+	{
+		return EBlockDirectiveType::WithHotReload;
+	}
+#endif
+
+	if (FParse::Command(Str, TEXT("WITH_EDITOR")))
+	{
+		return EBlockDirectiveType::WithEditor;
+	}
+
+	if (FParse::Command(Str, TEXT("WITH_EDITORONLY_DATA")))
+	{
+		return EBlockDirectiveType::WithEditorOnlyData;
+	}
+
+	return EBlockDirectiveType::UnrecognizedBlock;
+}
+
 // Performs a preliminary parse of the text in the specified buffer, pulling out useful information for the header generation process
-void FHeaderParser::SimplifiedClassParse(const TCHAR* InBuffer, TArray<FSimplifiedParsingClassInfo>& OutParsedClassArray, TArray<FHeaderProvider>& DependentOn, FStringOutputDevice& ClassHeaderTextStrippedOfCppText)
+void FHeaderParser::SimplifiedClassParse(const TCHAR* Filename, const TCHAR* InBuffer, TArray<FSimplifiedParsingClassInfo>& OutParsedClassArray, TArray<FHeaderProvider>& DependentOn, FStringOutputDevice& ClassHeaderTextStrippedOfCppText)
 {
 	FHeaderPreParser Parser;
 	FString StrLine;
@@ -7306,127 +7497,121 @@ void FHeaderParser::SimplifiedClassParse(const TCHAR* InBuffer, TArray<FSimplifi
 		bool bIf = FParse::Command(&Str,TEXT("#if"));
 		if( bIf || FParse::Command(&Str,TEXT("#ifdef")) || FParse::Command(&Str,TEXT("#ifndef")) )
 		{
-			FStringOutputDevice TextDumpDummy;
-			FStringOutputDevice* Target = NULL;
-			FStringOutputDevice* SpacerTarget = NULL;
-			TArray<bool, TInlineAllocator<8>> KeepPreprocessorDirectiveStack;
-			KeepPreprocessorDirectiveStack.Push(true);
-			bool bNotCPP = false;
-			bool bCPP = false;
-			bool bUnknownDirective = false;
-
-			if( bIf && FParse::Command(&Str,TEXT("CPP")) )
+			EBlockDirectiveType RootDirective;
+			if (bIf)
 			{
-				Target = &TextDumpDummy;
-				SpacerTarget = &ClassHeaderTextStrippedOfCppText;
-				bCPP = true;
-			}
-			else if( bIf && FParse::Command(&Str,TEXT("!CPP")) )
-			{
-				Target = &ClassHeaderTextStrippedOfCppText;
-				KeepPreprocessorDirectiveStack.Top() = false;
-				bNotCPP = true;
-			}
-#if WITH_HOT_RELOAD_CTORS
-			else if (bIf && FParse::Command(&Str, TEXT("WITH_HOT_RELOAD")))
-			{
-				Target = &ClassHeaderTextStrippedOfCppText;
-				KeepPreprocessorDirectiveStack.Top() = false;
-			}
-#endif // WITH_HOT_RELOAD_CTORS
-			else if (bIf && (FParse::Command(&Str,TEXT("WITH_EDITORONLY_DATA")) || FParse::Command(&Str,TEXT("WITH_EDITOR"))))
-			{
-				Target = &ClassHeaderTextStrippedOfCppText;
-				bUnknownDirective = true;
+				RootDirective = ParseCommandToBlockDirectiveType(&Str);
 			}
 			else
 			{
-				// Unknown directives or #ifdef or #ifndef are always treated as CPP
-				bUnknownDirective = true;
-				Target = &TextDumpDummy;
-				SpacerTarget = &ClassHeaderTextStrippedOfCppText;
+				// #ifdef or #ifndef are always treated as CPP
+				RootDirective = EBlockDirectiveType::UnrecognizedBlock;
 			}
 
-			if (KeepPreprocessorDirectiveStack.Top())
-			{
-				Target->Logf( TEXT("%s\r\n"), *StrLine );
-			}
-			else
-			{
-				Target->Logf( TEXT("\r\n") );
-			}
+			TArray<EBlockDirectiveType, TInlineAllocator<8>> DirectiveStack;
+			DirectiveStack.Push(RootDirective);
 
-			if (SpacerTarget != NULL)
-			{
-				// Make sure script line numbers don't get out of whack if there is an inline CPP block in there
-				SpacerTarget->Logf( TEXT("\r\n") );
-			}
+			bool bShouldKeepBlockContents = ShouldKeepBlockContents(RootDirective);
+			bool bIsZeroBlock = RootDirective == EBlockDirectiveType::ZeroBlock;
 
-			while ((KeepPreprocessorDirectiveStack.Num() > 0) && FParse::Line(&Buffer, StrLine, 1))
-			{
-				if (SpacerTarget != NULL)
-				{
-					// Make sure script line numbers don't get out of whack if there is an inline CPP block in there
-					SpacerTarget->Logf( TEXT("\r\n") );
-				}
+			ClassHeaderTextStrippedOfCppText.Logf(TEXT("%s\r\n"), bShouldKeepBlockContents ? *StrLine : TEXT(""));
 
+			while ((DirectiveStack.Num() > 0) && FParse::Line(&Buffer, StrLine, 1))
+			{
 				CurrentLine++;
 				Str = *StrLine;
-				bool bKeepPreprocessorDirective = KeepPreprocessorDirectiveStack.Top();
-				bool bIsPrep = false;
+
+				bool bIsDirective = false;
 				if( FParse::Command(&Str,TEXT("#endif")) )
 				{
-					KeepPreprocessorDirectiveStack.Pop();
-					bIsPrep = true;
+					DirectiveStack.Pop();
+
+					bIsDirective = true;
 				}
 				else if( FParse::Command(&Str,TEXT("#if")) || FParse::Command(&Str,TEXT("#ifdef")) || FParse::Command(&Str,TEXT("#ifndef")) )
 				{
-					bKeepPreprocessorDirective = FParse::Command(&Str, TEXT("WITH_EDITORONLY_DATA")) || FParse::Command(&Str, TEXT("WITH_EDITOR"));
-					KeepPreprocessorDirectiveStack.Push(bKeepPreprocessorDirective);
-					bIsPrep = true;
+					EBlockDirectiveType Directive = ParseCommandToBlockDirectiveType(&Str);
+					DirectiveStack.Push(Directive);
+
+					bIsDirective = true;
 				}
-				else if (FParse::Command(&Str, TEXT("#ifndef")))
+				else if (FParse::Command(&Str,TEXT("#elif")))
 				{
-					KeepPreprocessorDirectiveStack.Push(false);
-					bIsPrep = true;
+					EBlockDirectiveType Directive = ParseCommandToBlockDirectiveType(&Str);
+					DirectiveStack.Top() = Directive;
+
+					bIsDirective = true;
 				}
-				else if( FParse::Command(&Str,TEXT("#elif")) )
+				else if (FParse::Command(&Str, TEXT("#else")))
 				{
-					bIsPrep = true;
-				}
-				else if (KeepPreprocessorDirectiveStack.Num() == 1 && FParse::Command(&Str, TEXT("#else")))
-				{
-					if (!bUnknownDirective)
+					switch (DirectiveStack[0])
 					{
-						if (!bNotCPP && !bCPP)
-						{
-							FError::Throwf(TEXT("Bad preprocessor directive in metadata declaration: %s; Only 'CPP' can have ! or #else directives"),*ClassName);
-						}
-						Swap(bNotCPP,bCPP);
-						if( bCPP)
-						{
-							Target = &TextDumpDummy;
-							SpacerTarget = &ClassHeaderTextStrippedOfCppText;
-							KeepPreprocessorDirectiveStack.Top() = true;
-							StrLine = TEXT("#if CPP\r\n");
-						}
-						else
-						{
-							KeepPreprocessorDirectiveStack.Top() = false;
-							Target = &ClassHeaderTextStrippedOfCppText;
-							SpacerTarget = NULL;
-						}
+						case EBlockDirectiveType::ZeroBlock:
+							DirectiveStack.Top() = EBlockDirectiveType::OneBlock;
+							break;
+
+						case EBlockDirectiveType::OneBlock:
+							DirectiveStack.Top() = EBlockDirectiveType::ZeroBlock;
+							break;
+
+						case EBlockDirectiveType::CPPBlock:
+							DirectiveStack.Top() = EBlockDirectiveType::NotCPPBlock;
+							break;
+
+						case EBlockDirectiveType::NotCPPBlock:
+							DirectiveStack.Top() = EBlockDirectiveType::CPPBlock;
+							break;
+
+						case EBlockDirectiveType::WithHotReload:
+							FFileLineException::Throwf(Filename, CurrentLine, TEXT("Bad preprocessor directive in metadata declaration: %s; Only 'CPP', '1' and '0' can have #else directives"), *ClassName);
+
+						case EBlockDirectiveType::UnrecognizedBlock:
+						case EBlockDirectiveType::WithEditor:
+						case EBlockDirectiveType::WithEditorOnlyData:
+							// We allow unrecognized directives, WITH_EDITOR and WITH_EDITORONLY_DATA to have #else blocks.
+							// However, we don't actually change how UHT processes these #else blocks.
+							break;
 					}
-					bIsPrep = true;
+
+					bIsDirective = true;
 				}
 
-				if (bKeepPreprocessorDirective || !bIsPrep)
+				// Check for UHT identifiers inside skipped blocks, unless it's a zero block, because the compiler is going to skip those anyway.
+				if (!bShouldKeepBlockContents && !bIsZeroBlock)
 				{
-					Target->Logf( TEXT("%s\r\n"), *StrLine );
+					auto FindInitialStr = [](const TCHAR*& FoundSubstr, const FString& StrToSearch, const TCHAR* ConstructName) -> bool
+					{
+						if (StrToSearch.StartsWith(ConstructName, ESearchCase::CaseSensitive))
+						{
+							FoundSubstr = ConstructName;
+							return true;
+						}
+
+						return false;
+					};
+
+					FString TrimmedStrLine = StrLine;
+					TrimmedStrLine.Trim();
+
+					const TCHAR* FoundSubstr = nullptr;
+					if (FindInitialStr(FoundSubstr, TrimmedStrLine, TEXT("UPROPERTY"))
+						|| FindInitialStr(FoundSubstr, TrimmedStrLine, TEXT("UCLASS"))
+						|| FindInitialStr(FoundSubstr, TrimmedStrLine, TEXT("USTRUCT"))
+						|| FindInitialStr(FoundSubstr, TrimmedStrLine, TEXT("UENUM"))
+						|| FindInitialStr(FoundSubstr, TrimmedStrLine, TEXT("UINTERFACE"))
+						|| FindInitialStr(FoundSubstr, TrimmedStrLine, TEXT("UDELEGATE"))
+						|| FindInitialStr(FoundSubstr, TrimmedStrLine, TEXT("UFUNCTION")))
+					{
+						FFileLineException::Throwf(Filename, CurrentLine, TEXT("%s inside this preprocessor block will be skipped"), FoundSubstr);
+					}
 				}
-				else
+
+				ClassHeaderTextStrippedOfCppText.Logf(TEXT("%s\r\n"), bShouldKeepBlockContents ? *StrLine : TEXT(""));
+
+				if (bIsDirective)
 				{
-					Target->Logf( TEXT("\r\n") );
+					bShouldKeepBlockContents = !DirectiveStack.ContainsByPredicate([](EBlockDirectiveType Directive) { return !ShouldKeepBlockContents(Directive); });
+					bIsZeroBlock = DirectiveStack.Contains(EBlockDirectiveType::ZeroBlock);
 				}
 			}
 		}
@@ -7524,57 +7709,71 @@ void FHeaderParser::SimplifiedClassParse(const TCHAR* InBuffer, TArray<FSimplifi
 				}
 			}
 
-			// Stub out the comments, ignoring anything inside literal strings.
-			Pos = StrLine.Find(TEXT("//"));
-
-			// Check if first slash is end of multiline comment and adjust position if necessary.
-			if (Pos > 0 && StrLine[Pos - 1] == TEXT('*'))
+			// Find the first '/' and check for '//' or '/*' or '*/'
+			if (StrLine.FindChar('/', Pos))
 			{
-				++Pos;
-			}
-			if (Pos >= 0)
-			{
-				if (StrBegin == INDEX_NONE || Pos < StrBegin || Pos > StrEnd)
-					StrLine = StrLine.Left( Pos );
-
-				if (StrLine == TEXT(""))
-					continue;
-			}
-
-			// look for a / * ... * / block, ignoring anything inside literal strings
-			Pos = StrLine.Find(TEXT("/*"));
-			EndPos = StrLine.Find(TEXT("*/"));
-			if (Pos >= 0)
-			{
-				if (StrBegin == INDEX_NONE || Pos < StrBegin || Pos > StrEnd)
+				if (Pos >= 0)
 				{
-					if (EndPos != INDEX_NONE && (EndPos < StrBegin || EndPos > StrEnd))
+					// Stub out the comments, ignoring anything inside literal strings.
+					Pos = StrLine.Find(TEXT("//"), ESearchCase::CaseSensitive, ESearchDir::FromStart, Pos);
+
+					// Check if first slash is end of multiline comment and adjust position if necessary.
+					if (Pos > 0 && StrLine[Pos - 1] == TEXT('*'))
 					{
-						StrLine = StrLine.Left(Pos) + StrLine.Mid(EndPos + 2);
-						EndPos = INDEX_NONE;
+						++Pos;
 					}
-					else 
+
+					if (Pos >= 0)
 					{
-						StrLine = StrLine.Left( Pos );
-						CommentDim++;
+						if (StrBegin == INDEX_NONE || Pos < StrBegin || Pos > StrEnd)
+						{
+							StrLine = StrLine.Left(Pos);
+						}
+
+						if (StrLine == TEXT(""))
+						{
+							continue;
+						}
+					}
+
+					// look for a / * ... * / block, ignoring anything inside literal strings
+					Pos = StrLine.Find(TEXT("/*"), ESearchCase::CaseSensitive, ESearchDir::FromStart, Pos);
+					EndPos = StrLine.Find(TEXT("*/"), ESearchCase::CaseSensitive, ESearchDir::FromStart, FMath::Max(0, Pos - 1));
+					if (Pos >= 0)
+					{
+						if (StrBegin == INDEX_NONE || Pos < StrBegin || Pos > StrEnd)
+						{
+							if (EndPos != INDEX_NONE && (EndPos < StrBegin || EndPos > StrEnd))
+							{
+								StrLine = StrLine.Left(Pos) + StrLine.Mid(EndPos + 2);
+								EndPos = INDEX_NONE;
+							}
+							else
+							{
+								StrLine = StrLine.Left(Pos);
+								CommentDim++;
+							}
+						}
+						bProcess = CommentDim <= 1;
+					}
+
+					if (EndPos >= 0)
+					{
+						if (StrBegin == INDEX_NONE || EndPos < StrBegin || EndPos > StrEnd)
+						{
+							StrLine = StrLine.Mid(EndPos + 2);
+							CommentDim--;
+						}
+
+						bProcess = CommentDim <= 0;
 					}
 				}
-				bProcess = CommentDim <= 1;
-			}
-
-			if (EndPos >= 0)
-			{
-				if (StrBegin == INDEX_NONE || EndPos < StrBegin || EndPos > StrEnd)
-				{
-					StrLine = StrLine.Mid( EndPos+2 );
-					CommentDim--;
-				}
-
-				bProcess = CommentDim <= 0;
 			}
 
 			if (!bProcess || StrLine == TEXT(""))
+			{
 				continue;
+			}
 
 			Str = *StrLine;
 
@@ -8318,5 +8517,8 @@ UFunction* FHeaderParser::CreateFunction(const FFuncInfo &FuncInfo) const
 
 UDelegateFunction* FHeaderParser::CreateDelegateFunction(const FFuncInfo &FuncInfo) const
 {
-	return CreateFunctionImpl<UDelegateFunction>(FuncInfo, IsInAClass() ? (UObject*)GetCurrentClass() : (UObject*)GetCurrentFileScope()->GetSourceFile()->GetPackage(), GetCurrentScope());
+	FFileScope* CurrentFileScope = GetCurrentFileScope();
+	FUnrealSourceFile* LocSourceFile = CurrentFileScope ? CurrentFileScope->GetSourceFile() : nullptr;
+	UObject* CurrentPackage = LocSourceFile ? LocSourceFile->GetPackage() : nullptr;
+	return CreateFunctionImpl<UDelegateFunction>(FuncInfo, IsInAClass() ? (UObject*)GetCurrentClass() : CurrentPackage, GetCurrentScope());
 }

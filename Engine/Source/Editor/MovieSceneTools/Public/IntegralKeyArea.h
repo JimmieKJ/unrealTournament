@@ -2,9 +2,14 @@
 
 #pragma once
 
+#include "ClipboardTypes.h"
 #include "NamedKeyArea.h"
 #include "MovieSceneClipboard.h"
 #include "SequencerClipboardReconciler.h"
+
+
+struct FIntegralCurve;
+
 
 /**
  * Abstract base class for integral curve key areas.
@@ -22,7 +27,7 @@ public:
 
 public:
 
-	// IKeyArea interface
+	//~ IKeyArea interface
 
 	virtual TArray<FKeyHandle> AddKeyUnique( float Time, EMovieSceneKeyInterpolation InKeyInterpolation, float TimeToCopyFrom = FLT_MAX ) override;
 	virtual TOptional<FKeyHandle> DuplicateKey(FKeyHandle KeyToDuplicate) override;
@@ -45,6 +50,7 @@ public:
 protected:
 
 	virtual void EvaluateAndAddKey(float Time, float TimeToCopyFrom, FKeyHandle& CurrentKey) = 0;
+	virtual void SetKeyValue(float Time) = 0;
 
 protected:
 
@@ -156,6 +162,16 @@ protected:
 		}
 
 		Curve.AddKey(Time, Value, CurrentKey);
+	}
+
+	virtual void SetKeyValue(float Time) override
+	{
+		if (IntermediateValue.IsSet())
+		{
+			int32 Value = IntermediateValue.GetValue();
+
+			Curve.UpdateOrAddKey(Time, Value);
+		}
 	}
 
 protected:

@@ -6,8 +6,13 @@ ImageUtils.cpp: Image utility functions.
 
 #include "EnginePrivate.h"
 #include "ImageUtils.h"
+#include "Runtime/Engine/Classes/Engine/TextureRenderTarget2D.h"
+#include "CubemapUnwrapUtils.h"
+#include "MessageLog.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogImageUtils, Log, All);
+
+#define LOCTEXT_NAMESPACE "ImageUtils"
 
 /**
  * Resizes the given image using a simple average filter and stores it in the destination array.
@@ -292,3 +297,374 @@ UTexture2D* FImageUtils::CreateCheckerboardTexture(FColor ColorOne, FColor Color
 
 	return CheckerboardTexture;
 }
+
+/*------------------------------------------------------------------------------
+HDR file format helper.
+------------------------------------------------------------------------------*/
+class FHDRExportHelper
+{
+public:
+	/**
+	* Writes HDR format image to an FArchive
+	* @param TexRT - A 2D source render target to read from.
+	* @param Ar - Archive object to write HDR data to.
+	* @return true on successful export.
+	*/
+	bool ExportHDR(UTextureRenderTarget2D* TexRT, FArchive& Ar)
+	{
+		check(TexRT != nullptr);
+		FRenderTarget* RenderTarget = TexRT->GameThread_GetRenderTargetResource();
+		Size = RenderTarget->GetSizeXY();
+		Format = TexRT->GetFormat();
+
+		TArray<uint8> RawData;
+		bool bReadSuccess = GetRawData(TexRT, RawData);
+		if (bReadSuccess)
+		{
+			WriteHDRImage(RawData, Ar);
+			return true;
+		}
+		return false;
+	}
+
+	/**
+	* Writes HDR format image to an FArchive
+	* @param TexRT - A 2D source render target to read from.
+	* @param Ar - Archive object to write HDR data to.
+	* @return true on successful export.
+	*/
+	bool ExportHDR(UTexture2D* Texture, FArchive& Ar)
+	{
+		check(Texture != nullptr);
+		bool bReadSuccess = true;
+		TArray<uint8> RawData;
+
+#if WITH_EDITORONLY_DATA
+		Size = FIntPoint(Texture->Source.GetSizeX(), Texture->Source.GetSizeY());
+		bReadSuccess = Texture->Source.GetMipData(RawData, 0);
+		const ETextureSourceFormat NewFormat = Texture->Source.GetFormat();
+
+		if (NewFormat == TSF_BGRA8)
+		{
+			Format = PF_B8G8R8A8;
+		}
+		else if (NewFormat == TSF_RGBA16F)
+		{
+			Format = PF_FloatRGBA;
+		}
+		else
+		{
+			bReadSuccess = false;			
+			FMessageLog("ImageUtils").Warning(LOCTEXT("ExportHDRUnsupportedSourceTextureFormat", "Unsupported source texture format provided."));
+		}
+#else
+		TArray<uint8*> RawData2;
+		Size = Texture->GetImportedSize();
+		RawData2.AddZeroed(Texture->GetNumMips());
+		Texture->GetMipData(0, (void**)RawData2.GetData());
+		const EPixelFormat NewFormat = Texture->GetPixelFormat();
+
+		if (Texture->PlatformData->Mips.Num() == 0)
+		{
+			bReadSuccess = false;
+			FMessageLog("ImageUtils").Warning(FText::Format(LOCTEXT("ExportHDRFailedToReadMipData", "Failed to read Mip Data in: '{0}'"), FText::FromString(Texture->GetName())));
+		}
+
+		if (NewFormat == PF_B8G8R8A8)
+		{
+			Format = PF_B8G8R8A8;
+		}
+		else if (NewFormat == PF_FloatRGBA)
+		{
+			Format = PF_FloatRGBA;
+		}
+		else
+		{
+			bReadSuccess = false;
+			FMessageLog("ImageUtils").Warning(LOCTEXT("ExportHDRUnsupportedTextureFormat", "Unsupported texture format provided."));
+		}
+
+		//Put first mip data into usable array
+		if (bReadSuccess)
+		{
+			uint32 TotalSize = Texture->PlatformData->Mips[0].BulkData.GetElementCount();
+			RawData.AddZeroed(TotalSize);
+			FMemory::Memcpy(RawData.GetData(), RawData2[0], TotalSize);
+		}
+
+		//Deallocate the mip data
+		for (auto MipData : RawData2)
+		{
+			FMemory::Free(MipData);
+		}
+
+#endif // WITH_EDITORONLY_DATA
+
+		if (bReadSuccess)
+		{
+			WriteHDRImage(RawData, Ar);
+			return true;
+		}
+
+		return false;
+	}
+
+	/**
+	* Writes HDR format image to an FArchive
+	* This function unwraps the cube image on to a 2D surface.
+	* @param TexCube - A cube source cube texture to read from.
+	* @param Ar - Archive object to write HDR data to.
+	* @return true on successful export.
+	*/
+	bool ExportHDR(UTextureCube* TexCube, FArchive& Ar)
+	{
+		check(TexCube != nullptr);
+
+		// Generate 2D image.
+		TArray<uint8> RawData;
+		bool bUnwrapSuccess = CubemapHelpers::GenerateLongLatUnwrap(TexCube, RawData, Size, Format);
+		bool bAcceptableFormat = (Format == PF_B8G8R8A8 || Format == PF_FloatRGBA);
+		if (bUnwrapSuccess == false || bAcceptableFormat == false)
+		{
+			return false;
+		}
+
+		WriteHDRImage(RawData, Ar);
+
+		return true;
+	}
+
+	/**
+	* Writes HDR format image to an FArchive
+	* This function unwraps the cube image on to a 2D surface.
+	* @param TexCube - A cube source render target cube texture to read from.
+	* @param Ar - Archive object to write HDR data to.
+	* @return true on successful export.
+	*/
+	bool ExportHDR(UTextureRenderTargetCube* TexCube, FArchive& Ar)
+	{
+		check(TexCube != nullptr);
+
+		// Generate 2D image.
+		TArray<uint8> RawData;
+		bool bUnwrapSuccess = CubemapHelpers::GenerateLongLatUnwrap(TexCube, RawData, Size, Format);
+		bool bAcceptableFormat = (Format == PF_B8G8R8A8 || Format == PF_FloatRGBA);
+		if (bUnwrapSuccess == false || bAcceptableFormat == false)
+		{
+			return false;
+		}
+
+		WriteHDRImage(RawData, Ar);
+
+		return true;
+	}
+
+private:
+	void WriteScanLine(FArchive& Ar, const TArray<uint8>& ScanLine)
+	{
+		const uint8* LineEnd = ScanLine.GetData() + ScanLine.Num();
+		const uint8* LineSource = ScanLine.GetData();
+		TArray<uint8> Output;
+		Output.Reserve(ScanLine.Num() * 2);
+		while (LineSource < LineEnd)
+		{
+			int32 CurrentPos = 0;
+			int32 NextPos = 0;
+			int32 CurrentRunLength = 0;
+			while (CurrentRunLength <= 4 && NextPos < 128 && LineSource + NextPos < LineEnd)
+			{
+				CurrentPos = NextPos;
+				CurrentRunLength = 0;
+				while (CurrentRunLength < 127 && CurrentPos + CurrentRunLength < 128 && LineSource + NextPos < LineEnd && LineSource[CurrentPos] == LineSource[NextPos])
+				{
+					NextPos++;
+					CurrentRunLength++;
+				}
+			}
+
+			if (CurrentRunLength > 4)
+			{
+				// write a non run: LineSource[0] to LineSource[CurrentPos]
+				if (CurrentPos > 0)
+				{
+					Output.Add(CurrentPos);
+					for (int32 i = 0; i < CurrentPos; i++)
+					{
+						Output.Add(LineSource[i]);
+					}
+				}
+				Output.Add((uint8)(128 + CurrentRunLength));
+				Output.Add(LineSource[CurrentPos]);
+			}
+			else
+			{
+				// write a non run: LineSource[0] to LineSource[NextPos]
+				Output.Add((uint8)(NextPos));
+				for (int32 i = 0; i < NextPos; i++)
+				{
+					Output.Add((uint8)(LineSource[i]));
+				}
+			}
+			LineSource += NextPos;
+		}
+		Ar.Serialize(Output.GetData(), Output.Num());
+	}
+
+	template<typename TSourceColorType>
+	void WriteHDRBits(FArchive& Ar, TSourceColorType* SourceTexels)
+	{
+		const FRandomStream RandomStream(0xA1A1);
+		const int32 NumChannels = 4;
+		const int32 SizeX = Size.X;
+		const int32 SizeY = Size.Y;
+		TArray<uint8> ScanLine[NumChannels];
+		for (int32 Channel = 0; Channel < NumChannels; Channel++)
+		{
+			ScanLine[Channel].Reserve(SizeX);
+		}
+
+		for (int32 y = 0; y < SizeY; y++)
+		{
+			// write RLE header
+			uint8 RLEheader[4];
+			RLEheader[0] = 2;
+			RLEheader[1] = 2;
+			RLEheader[2] = SizeX >> 8;
+			RLEheader[3] = SizeX & 0xFF;
+			Ar.Serialize(&RLEheader[0], sizeof(RLEheader));
+
+			for (int32 Channel = 0; Channel < NumChannels; Channel++)
+			{
+				ScanLine[Channel].Reset();
+			}
+
+			for (int32 x = 0; x < SizeX; x++)
+			{
+				FLinearColor LinearColor(*SourceTexels);
+				FColor RGBEColor = ToRGBEDithered(LinearColor, RandomStream);
+
+				FLinearColor lintest = RGBEColor.FromRGBE();
+				ScanLine[0].Add(RGBEColor.R);
+				ScanLine[1].Add(RGBEColor.G);
+				ScanLine[2].Add(RGBEColor.B);
+				ScanLine[3].Add(RGBEColor.A);
+				SourceTexels++;
+			}
+
+			for (int32 Channel = 0; Channel < NumChannels; Channel++)
+			{
+				WriteScanLine(Ar, ScanLine[Channel]);
+			}
+		}
+	}
+
+	void WriteHDRHeader(FArchive& Ar)
+	{
+		const int32 MaxHeaderSize = 256;
+		char Header[MAX_SPRINTF];
+		FCStringAnsi::Sprintf(Header, "#?RADIANCE\nFORMAT=32-bit_rle_rgbe\n\n-Y %d +X %d\n", Size.Y, Size.X);
+		Header[MaxHeaderSize - 1] = 0;
+		int32 Len = FMath::Min(FCStringAnsi::Strlen(Header), MaxHeaderSize);
+		Ar.Serialize(Header, Len);
+	}
+
+	void WriteHDRImage(const TArray<uint8>& RawData, FArchive& Ar)
+	{
+		WriteHDRHeader(Ar);
+		if (Format == PF_FloatRGBA)
+		{
+			WriteHDRBits(Ar, (FFloat16Color*)RawData.GetData());
+		}
+		else
+		{
+			WriteHDRBits(Ar, (FColor*)RawData.GetData());
+		}
+	}
+
+	/**
+	* Returns data containing the pixmap of the passed in rendertarget.
+	* @param TexRT - The 2D rendertarget from which to read pixmap data.
+	* @param RawData - an array to be filled with pixel data.
+	* @return true if RawData has been successfully filled.
+	*/
+	bool GetRawData(UTextureRenderTarget2D* TexRT, TArray<uint8>& RawData)
+	{
+		FRenderTarget* RenderTarget = TexRT->GameThread_GetRenderTargetResource();
+		int32 ImageBytes = CalculateImageBytes(TexRT->SizeX, TexRT->SizeY, 0, Format);
+		RawData.AddUninitialized(ImageBytes);
+		bool bReadSuccess = false;
+		switch (Format)
+		{
+		case PF_FloatRGBA:
+		{
+			TArray<FFloat16Color> FloatColors;
+			bReadSuccess = RenderTarget->ReadFloat16Pixels(FloatColors);
+			FMemory::Memcpy(RawData.GetData(), FloatColors.GetData(), ImageBytes);
+		}
+		break;
+		case PF_B8G8R8A8:
+			bReadSuccess = RenderTarget->ReadPixelsPtr((FColor*)RawData.GetData());
+			break;
+		}
+		if (bReadSuccess == false)
+		{
+			RawData.Empty();
+		}
+		return bReadSuccess;
+	}
+
+	static FColor ToRGBEDithered(const FLinearColor& ColorIN, const FRandomStream& Rand)
+	{
+		const float R = ColorIN.R;
+		const float G = ColorIN.G;
+		const float B = ColorIN.B;
+		const float Primary = FMath::Max3(R, G, B);
+		FColor	ReturnColor;
+
+		if (Primary < 1E-32)
+		{
+			ReturnColor = FColor(0, 0, 0, 0);
+		}
+		else
+		{
+			int32 Exponent;
+			const float Scale = frexp(Primary, &Exponent) / Primary * 255.f;
+
+			ReturnColor.R = FMath::Clamp(FMath::TruncToInt((R* Scale) + Rand.GetFraction()), 0, 255);
+			ReturnColor.G = FMath::Clamp(FMath::TruncToInt((G* Scale) + Rand.GetFraction()), 0, 255);
+			ReturnColor.B = FMath::Clamp(FMath::TruncToInt((B* Scale) + Rand.GetFraction()), 0, 255);
+			ReturnColor.A = FMath::Clamp(FMath::TruncToInt(Exponent), -128, 127) + 128;
+		}
+
+		return ReturnColor;
+	}
+
+	FIntPoint Size;
+	EPixelFormat Format;
+};
+
+bool FImageUtils::ExportRenderTarget2DAsHDR(UTextureRenderTarget2D* TexRT, FArchive& Ar)
+{
+	FHDRExportHelper Exporter;
+	return Exporter.ExportHDR(TexRT, Ar);
+}
+
+bool FImageUtils::ExportTexture2DAsHDR(UTexture2D* TexRT, FArchive& Ar)
+{
+	FHDRExportHelper Exporter;
+	return Exporter.ExportHDR(TexRT, Ar);
+}
+
+bool FImageUtils::ExportRenderTargetCubeAsHDR(UTextureRenderTargetCube* TexRT, FArchive& Ar)
+{
+	FHDRExportHelper Exporter;
+	return Exporter.ExportHDR(TexRT, Ar);
+}
+
+bool FImageUtils::ExportTextureCubeAsHDR(UTextureCube* TexRT, FArchive& Ar)
+{
+	FHDRExportHelper Exporter;
+	return Exporter.ExportHDR(TexRT, Ar);
+}
+
+#undef LOCTEXT_NAMESPACE

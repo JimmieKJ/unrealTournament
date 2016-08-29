@@ -179,7 +179,7 @@ void UPhyaCollisionHandler::TestImpact()
 
 
 
-void UPhyaCollisionHandler::HandlePhysicsCollisions_AssumesLocked(const TArray<FCollisionNotifyInfo>& PendingCollisionNotifies)
+void UPhyaCollisionHandler::HandlePhysicsCollisions_AssumesLocked(TArray<FCollisionNotifyInfo>& PendingCollisionNotifies)
 {
 	if(GetWorld()->HasBegunPlay())
 	{

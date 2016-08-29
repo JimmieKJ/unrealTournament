@@ -5,7 +5,8 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Web.Mvc;
-
+using Tools.CrashReporter.CrashReportWebSite.DataModels;
+using Tools.CrashReporter.CrashReportWebSite.DataModels.Repositories;
 using Tools.CrashReporter.CrashReportWebSite.Models;
 
 namespace Tools.CrashReporter.CrashReportWebSite.Controllers
@@ -52,8 +53,18 @@ namespace Tools.CrashReporter.CrashReportWebSite.Controllers
 		/// <summary>Fake id for all user groups</summary>
 		public static readonly int AllUserGroupId = -1;
 
-		CrashRepository _Crashes = new CrashRepository();
-		BuggRepository _Buggs = new BuggRepository();
+        //
+        CrashReportEntities _entities = new CrashReportEntities();
+	    private CrashRepository _Crashes;
+	    private BuggRepository _Buggs;
+
+	    public DashboardController()
+	    {
+	        //Hideous temporary code
+            //no! Unity! Dependency injection! Single Context wrapper!
+            _Crashes = new CrashRepository(_entities);
+            _Buggs = new BuggRepository(_entities);
+	    }
 
 		/// <summary>
 		/// Return a dictionary of crashes per group grouped by week.
@@ -67,7 +78,7 @@ namespace Tools.CrashReporter.CrashReportWebSite.Controllers
 			{
 				Dictionary<DateTime, int> Results = new Dictionary<DateTime, int>();
 
-				var UsersIds = FRepository.Get( _Crashes ).GetUserIdsFromUserGroupId( UserGroupId );
+			    var UsersIds = new HashSet<int>(_entities.Users.Distinct().Select(data => data.Id));
 
 				// Trim crashes to user group.
 				if( UserGroupId != DashboardController.AllUserGroupId )
@@ -143,7 +154,7 @@ namespace Tools.CrashReporter.CrashReportWebSite.Controllers
 			{
 				Dictionary<DateTime, int> Results = new Dictionary<DateTime, int>();
 
-				var UsersIds = FRepository.Get( _Crashes ).GetUserIdsFromUserGroupId( UserGroupId );
+				var UsersIds = _entities.UserGroups.First(data => data.Id == UserGroupId ).Users.Select(data => data.Id);
 
 				// Trim crashes to user group.
 				if( UserGroupId != DashboardController.AllUserGroupId )
@@ -221,7 +232,7 @@ namespace Tools.CrashReporter.CrashReportWebSite.Controllers
 				FAutoScopedLogTimer LogTimerSQL = new FAutoScopedLogTimer( "CrashesFilterByDate", "", "" );
 
 				// Get engine versions from the last 6 months.
-				var TempVersions = CrashRepository.GetVersions();
+				var TempVersions = _Crashes.GetVersions();
 				List<string> EngineUE4Versions = new List<string>();
 				foreach (var Version in TempVersions)
 				{
@@ -234,8 +245,10 @@ namespace Tools.CrashReporter.CrashReportWebSite.Controllers
 				// Only 4 latest version.
 				EngineUE4Versions = EngineUE4Versions.OrderByDescending( item => item ).Take( 5 ).ToList();
 
+			    var endDate = Today.AddDays(1);
+
 				IQueryable<Crash> CrashesInTimeFrame = _Crashes.ListAll()
-					.Where( MyCrash => MyCrash.TimeOfCrash >= AfewMonthsAgo && MyCrash.TimeOfCrash <= Today.AddDays( 1 ) );
+                    .Where(MyCrash => MyCrash.TimeOfCrash >= AfewMonthsAgo && MyCrash.TimeOfCrash <= endDate);
 				//IEnumerable<Crash> Crashes = FRepository.Get().Crashes.FilterByDate( FRepository.Get().Crashes.ListAll(), AfewMonthsAgo, Today );
 				var VMinimalCrashes = CrashesInTimeFrame.Select( Crash => new 
 				{ 
@@ -252,13 +265,13 @@ namespace Tools.CrashReporter.CrashReportWebSite.Controllers
 				}
 				LogTimerSQL.Dispose();
 
-				HashSet<int> AnonumousIDs = FRepository.Get( _Crashes ).GetUserIdsFromUserGroup( "Anonymous" );
+			    HashSet<int> AnonumousIDs = new HashSet<int>(_entities.UserGroups.First(data => data.Name == "Anonymous").Users.Select(data => data.Id));
 				int AnonymousID = AnonumousIDs.First();
 
-				int GeneralUserGroupId = FRepository.Get( _Crashes ).FindOrAddGroup( "General" );
-				int CoderUserGroupId = FRepository.Get( _Crashes ).FindOrAddGroup( "Coder" );
-				int EngineQAUserGroupId = FRepository.Get( _Crashes ).FindOrAddGroup( "EngineQA" );
-				int GameQAUserGroupId = FRepository.Get( _Crashes ).FindOrAddGroup( "GameQA" );
+			    int GeneralUserGroupId = 1;//FRepository.Get( _Crashes ).FindOrAddGroup( "General" );
+			    int CoderUserGroupId = 3;//FRepository.Get( _Crashes ).FindOrAddGroup( "Coder" );
+			    int EngineQAUserGroupId = 22;//FRepository.Get( _Crashes ).FindOrAddGroup( "EngineQA" );
+			    int GameQAUserGroupId = 21;//FRepository.Get( _Crashes ).FindOrAddGroup( "GameQA" );
 
 				// Weekly
 				Dictionary<DateTime, int> WeeklyGeneralResults = GetWeeklyCountsByGroup( MinimalCrashes, GeneralUserGroupId );

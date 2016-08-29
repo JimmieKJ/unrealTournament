@@ -2,8 +2,11 @@
 
 // GAMEPLAY DEBUGGER EXTENSION
 // 
-// Extensions allows creating additional key bindings for gameplay debugger for custom functionality.
+// Extensions allows creating additional key bindings for gameplay debugger.
 // For example, you can use them to add another way of selecting actor to Debug.
+//
+// Replication is limited only to handling input events and tool state events,
+// it's not possible to send variables or RPC calls
 //
 // It should be compiled and used only when module is included, so every extension class
 // needs be placed in #if WITH_GAMEPLAY_DEBUGGER block.
@@ -20,15 +23,20 @@ class GAMEPLAYDEBUGGER_API FGameplayDebuggerExtension : public FGameplayDebugger
 public:
 
 	virtual ~FGameplayDebuggerExtension() {}
+	virtual void OnGameplayDebuggerActivated() override;
+	virtual void OnGameplayDebuggerDeactivated() override;
 
-	/** called when extension is added to debugger or debugger is enabled */
+	/** [LOCAL] description for gameplay debugger's header row, newline character is ignored */
+	virtual FString GetDescription() const;
+
+	/** [LOCAL] called when added to debugger tool or tool is activated */
 	virtual void OnActivated();
 
-	/** called when extension is removed from debugger or debugger is disabled */
+	/** [LOCAL] called when removed from debugger tool or tool is deactivated */
 	virtual void OnDeactivated();
 
-	/** description for gameplay debugger's header row, newline character is ignored */
-	virtual FString GetDescription() const;
+	/** check if extension is created for local player */
+	bool IsLocal() const;
 
 protected:
 

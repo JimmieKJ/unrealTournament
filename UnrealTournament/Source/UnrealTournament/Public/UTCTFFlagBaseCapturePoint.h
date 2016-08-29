@@ -17,7 +17,7 @@ class UNREALTOURNAMENT_API AUTCTFFlagBaseCapturePoint : public AUTCTFFlagBase, p
 	AUTCTFCapturePoint* CapturePoint;
 
 	UFUNCTION()
-	virtual void OnOverlapBegin(AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult) override;
+	virtual void OnOverlapBegin(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult) override;
 
 	UFUNCTION()
 	virtual void OnCapturePointFinished();

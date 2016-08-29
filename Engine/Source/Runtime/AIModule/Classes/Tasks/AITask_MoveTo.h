@@ -13,6 +13,25 @@ UCLASS()
 class AIMODULE_API UAITask_MoveTo : public UAITask
 {
 	GENERATED_BODY()
+
+public:
+	UAITask_MoveTo(const FObjectInitializer& ObjectInitializer);
+
+	/** tries to start move request and handles retry timer */
+	void ConditionalPerformMove();
+
+	/** prepare move task for activation */
+	void SetUp(AAIController* Controller, const FAIMoveRequest& InMoveRequest);
+
+	EPathFollowingResult::Type GetMoveResult() const { return MoveResult; }
+	bool WasMoveSuccessful() const { return MoveResult == EPathFollowingResult::Success; }
+
+	UFUNCTION(BlueprintCallable, Category = "AI|Tasks", meta = (AdvancedDisplay = "AcceptanceRadius,StopOnOverlap,AcceptPartialPath,bUsePathfinding", DefaultToSelf = "Controller", BlueprintInternalUseOnly = "TRUE", DisplayName = "Move To Location or Actor"))
+	static UAITask_MoveTo* AIMoveTo(AAIController* Controller, FVector GoalLocation, AActor* GoalActor = nullptr, float AcceptanceRadius = -1.f, EAIOptionFlag::Type StopOnOverlap = EAIOptionFlag::Default, EAIOptionFlag::Type AcceptPartialPath = EAIOptionFlag::Default, bool bUsePathfinding = true, bool bLockAILogic = true);
+
+	DEPRECATED(4.12, "This function is now depreacted, please use version with FAIMoveRequest parameter")
+	void SetUp(AAIController* Controller, FVector GoalLocation, AActor* GoalActor = nullptr, float AcceptanceRadius = -1.f, bool bUsePathfinding = true, EAIOptionFlag::Type StopOnOverlap = EAIOptionFlag::Default, EAIOptionFlag::Type AcceptPartialPath = EAIOptionFlag::Default);
+
 protected:
 	UPROPERTY(BlueprintAssignable)
 	FGenericGameplayTaskDelegate OnRequestFailed;
@@ -20,49 +39,57 @@ protected:
 	UPROPERTY(BlueprintAssignable)
 	FMoveTaskCompletedSignature OnMoveFinished;
 
-	UPROPERTY(BlueprintReadOnly, meta = (ExposeOnSpawn = true, DisplayName="Goal Location"), Category = "AITask")
-	FVector MoveGoalLocation;
+	/** parameters of move request */
+	UPROPERTY()
+	FAIMoveRequest MoveRequest;
 
-	/** gets set to GoalLocation if GoalActor != nullptr, otherwise is FAISystem::InvalidLocation */
-	FVector RealGoalLocation;
-	
-	UPROPERTY(BlueprintReadOnly, meta = (ExposeOnSpawn = true, DisplayName="Goal Actor"), Category = "AITask")
-	AActor* MoveGoalActor;
+	/** handle of path following's OnMoveFinished delegate */
+	FDelegateHandle PathFinishDelegateHandle;
 
-	UPROPERTY(BlueprintReadOnly, meta = (ExposeOnSpawn = true, DisplayName = "Acceptance Radius"), Category = "AITask", AdvancedDisplay)
-	float MoveAcceptanceRadius; 
-	
-	UPROPERTY(BlueprintReadOnly, meta = (ExposeOnSpawn = true), Category = "AITask", AdvancedDisplay)
-	bool bShouldStopOnOverlap;
+	/** handle of path's update event delegate */
+	FDelegateHandle PathUpdateDelegateHandle;
 
-	UPROPERTY(BlueprintReadOnly, meta = (ExposeOnSpawn = true), Category = "AITask", AdvancedDisplay)
-	bool bShouldAcceptPartialPath;
+	/** handle of active ConditionalPerformMove timer  */
+	FTimerHandle MoveRetryTimerHandle;
 
-	UPROPERTY(BlueprintReadOnly, meta = (ExposeOnSpawn = true), Category = "AITask", AdvancedDisplay)
-	bool bShouldUsePathfinding;
+	/** handle of active ConditionalUpdatePath timer */
+	FTimerHandle PathRetryTimerHandle;
 
-	FDelegateHandle PathFollowingDelegateHandle;
+	/** request ID of path following's request */
 	FAIRequestID MoveRequestID;
 
-	virtual void HandleMoveFinished(FAIRequestID RequestID, EPathFollowingResult::Type Result);
+	/** currently followed path */
+	FNavPathSharedPtr Path;
+
+	TEnumAsByte<EPathFollowingResult::Type> MoveResult;
+
 	virtual void Activate() override;
 	virtual void OnDestroy(bool bOwnerFinished) override;
 
 	virtual void Pause() override;
 	virtual void Resume() override;
 
-	virtual void PostInitProperties() override;
-	
-public:
-	UAITask_MoveTo(const FObjectInitializer& ObjectInitializer);
+	/** finish task */
+	void FinishMoveTask(EPathFollowingResult::Type InResult);
 
-	/**
-	 *	@param 
-	 */
-	UFUNCTION(BlueprintCallable, Category = "AI|Tasks", meta = (AdvancedDisplay = "AcceptanceRadius,StopOnOverlap,AcceptPartialPath,bUsePathfinding", DefaultToSelf = "Controller", BlueprintInternalUseOnly = "TRUE", DisplayName = "Move To Location or Actor"))
-	static UAITask_MoveTo* AIMoveTo(AAIController* Controller, FVector GoalLocation, AActor* GoalActor = nullptr, float AcceptanceRadius = -1.f, EAIOptionFlag::Type StopOnOverlap = EAIOptionFlag::Default, EAIOptionFlag::Type AcceptPartialPath = EAIOptionFlag::Default, bool bUsePathfinding = true, bool bLockAILogic = true);
+	/** stores path and starts observing its events */
+	void SetObservedPath(FNavPathSharedPtr InPath);
 
-	void SetUp(AAIController* Controller, FVector GoalLocation, AActor* GoalActor = nullptr, float AcceptanceRadius = -1.f, bool bUsePathfinding = true, EAIOptionFlag::Type StopOnOverlap = EAIOptionFlag::Default, EAIOptionFlag::Type AcceptPartialPath = EAIOptionFlag::Default);
+	/** remove all delegates */
+	virtual void ResetObservers();
 
-	void PerformMove();
+	/** remove all timers */
+	virtual void ResetTimers();
+
+	/** tries to update invalidated path and handles retry timer */
+	void ConditionalUpdatePath();
+
+	/** start move request */
+	virtual void PerformMove();
+
+	/** event from followed path */
+	virtual void OnPathEvent(FNavigationPath* InPath, ENavPathEvent::Type Event);
+
+	/** event from path following */
+	virtual void OnRequestFinished(FAIRequestID RequestID, const FPathFollowingResult& Result);
 };

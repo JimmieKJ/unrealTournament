@@ -1,8 +1,16 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "WmfMediaPrivatePCH.h"
+#include "WmfMediaPCH.h"
+
+#if WMFMEDIA_SUPPORTED_PLATFORM
+
+#include "WmfMediaPlayer.h"
+#include "WmfMediaResolver.h"
+#include "WmfMediaSession.h"
+#include "WmfMediaSampler.h"
+#include "WmfMediaSettings.h"
+#include "WmfMediaUtils.h"
 #include "AllowWindowsPlatformTypes.h"
-#include "Async/Async.h"
 
 
 /* FWmfVideoPlayer structors
@@ -10,9 +18,9 @@
 
 FWmfMediaPlayer::FWmfMediaPlayer()
 	: Duration(0)
-	, MediaSession(nullptr)
 {
-	Resolver = new(std::nothrow) FWmfMediaResolver;
+	MediaSession = new FWmfMediaSession();
+	Resolver = new FWmfMediaResolver;
 }
 
 
@@ -22,51 +30,19 @@ FWmfMediaPlayer::~FWmfMediaPlayer()
 }
 
 
-/* IMediaInfo interface
+/* FTickerObjectBase interface
  *****************************************************************************/
 
-FTimespan FWmfMediaPlayer::GetDuration() const
+bool FWmfMediaPlayer::Tick(float DeltaTime)
 {
-	return Duration;
-}
+	TFunction<void()> Task;
 
-
-TRange<float> FWmfMediaPlayer::GetSupportedRates(EMediaPlaybackDirections Direction, bool Unthinned) const
-{
-	if (MediaSession != NULL)
+	while (GameThreadTasks.Dequeue(Task))
 	{
-		return MediaSession->GetSupportedRates(Direction, Unthinned);
+		Task();
 	}
 
-	return TRange<float>(0.0f);
-}
-
-
-FString FWmfMediaPlayer::GetUrl() const
-{
-	return MediaUrl;
-}
-
-
-bool FWmfMediaPlayer::SupportsRate(float Rate, bool Unthinned) const
-{
-	return (MediaSession != NULL)
-		? MediaSession->IsRateSupported(Rate, Unthinned)
-		: false;
-}
-
-
-bool FWmfMediaPlayer::SupportsScrubbing() const
-{
-	return ((MediaSession != NULL) && MediaSession->SupportsScrubbing());
-}
-
-
-bool FWmfMediaPlayer::SupportsSeeking() const
-{
-	return ((MediaSession != NULL) &&
-			((MediaSession->GetCapabilities() & MFSESSIONCAP_SEEK) != 0) &&
-			(Duration > FTimespan::Zero()));
+	return true;
 }
 
 
@@ -77,129 +53,133 @@ void FWmfMediaPlayer::Close()
 {
 	Resolver->Cancel();
 
-	if (MediaSession == NULL)
+	if ((MediaSession == NULL) || (MediaSession->GetState() == EMediaState::Closed))
 	{
 		return;
 	}
 
-	MediaSession->OnError().RemoveAll(this);
+	// unregister session callbacks
 	MediaSession->OnSessionEvent().RemoveAll(this);
 
-	if (IsPlaying())
+	if (MediaSession->GetState() == EMediaState::Playing)
 	{
 		MediaEvent.Broadcast(EMediaEvent::PlaybackSuspended);
 	}
 
-	MediaSession->SetState(EMediaStates::Closed);
-	MediaSession.Reset();
+	// close and release session
+	MediaSession->SetState(EMediaState::Closed);
+	MediaSession = new FWmfMediaSession();
 
+	// release media source
 	if (MediaSource != NULL)
 	{
 		MediaSource->Shutdown();
 		MediaSource = NULL;
 	}
 
-	AudioTracks.Reset();
-	CaptionTracks.Reset();
-	VideoTracks.Reset();
-
+	// reset player
 	Duration = 0;
+	Info.Empty();
 	MediaUrl = FString();
+	Tracks.Reset();
 
+	// notify listeners
 	MediaEvent.Broadcast(EMediaEvent::TracksChanged);
 	MediaEvent.Broadcast(EMediaEvent::MediaClosed);
 }
 
 
-const TArray<IMediaAudioTrackRef>& FWmfMediaPlayer::GetAudioTracks() const
+IMediaControls& FWmfMediaPlayer::GetControls()
 {
-	return AudioTracks;
+	return *MediaSession;
 }
 
 
-const TArray<IMediaCaptionTrackRef>& FWmfMediaPlayer::GetCaptionTracks() const
+FString FWmfMediaPlayer::GetInfo() const
 {
-	return CaptionTracks;
+	return Info;
 }
 
 
-const IMediaInfo& FWmfMediaPlayer::GetMediaInfo() const 
+IMediaOutput& FWmfMediaPlayer::GetOutput()
 {
-	return *this;
+	return Tracks;
 }
 
 
-float FWmfMediaPlayer::GetRate() const
+FString FWmfMediaPlayer::GetStats() const
 {
-	return (MediaSession != NULL)
-		? MediaSession->GetRate()
-		: 0.0f;
+	FString Result;
+
+	Tracks.AppendStats(Result);
+
+	return Result;
 }
 
 
-FTimespan FWmfMediaPlayer::GetTime() const 
+IMediaTracks& FWmfMediaPlayer::GetTracks()
 {
-	return (MediaSession != NULL)
-		? MediaSession->GetPosition()
-		: FTimespan::Zero();
+	return Tracks;
 }
 
 
-const TArray<IMediaVideoTrackRef>& FWmfMediaPlayer::GetVideoTracks() const
+FString FWmfMediaPlayer::GetUrl() const
 {
-	return VideoTracks;
+	return MediaUrl;
 }
 
 
-bool FWmfMediaPlayer::IsLooping() const 
+bool FWmfMediaPlayer::Open(const FString& Url, const IMediaOptions& Options)
 {
-	return ((MediaSession != NULL) && MediaSession->IsLooping());
-}
+	Close();
 
-
-bool FWmfMediaPlayer::IsPaused() const
-{
-	if (MediaSession == NULL)
-	{
-		return false;
-	}
-
-	if (MediaSession->GetState() == EMediaStates::Playing)
-	{
-		return (MediaSession->GetRate() == 0.0);
-	}
-
-	return (MediaSession->GetState() == EMediaStates::Paused);
-}
-
-
-bool FWmfMediaPlayer::IsPlaying() const
-{
-	return (MediaSession != NULL) && (MediaSession->GetState() == EMediaStates::Playing) && !FMath::IsNearlyZero(MediaSession->GetRate());
-}
-
-
-bool FWmfMediaPlayer::IsReady() const
-{
-	return ((MediaSession != NULL) &&
-			(MediaSession->GetState() != EMediaStates::Closed) &&
-			(MediaSession->GetState() != EMediaStates::Error));
-}
-
-
-bool FWmfMediaPlayer::Open(const FString& Url)
-{
 	if (Url.IsEmpty())
 	{
 		return false;
+	}
+
+	// open local files via platform file system
+	if (Url.StartsWith(TEXT("file://")))
+	{
+		TSharedPtr<FArchive, ESPMode::ThreadSafe> Archive;
+		const TCHAR* FilePath = &Url[7];
+
+		if (Options.GetMediaOption("PrecacheFile", false))
+		{
+			FArrayReader* Reader = new FArrayReader;
+
+			if (FFileHelper::LoadFileToArray(*Reader, FilePath))
+			{
+				Archive = MakeShareable(Reader);
+			}
+			else
+			{
+				delete Reader;
+			}
+		}
+		else
+		{
+			Archive = MakeShareable(IFileManager::Get().CreateFileReader(FilePath));
+		}
+
+		if (!Archive.IsValid())
+		{
+			UE_LOG(LogWmfMedia, Warning, TEXT("Failed to open media file: %s"), FilePath);
+
+			return false;
+		}
+
+		return Resolver->ResolveByteStream(Archive.ToSharedRef(), Url, *this);
 	}
 
 	return Resolver->ResolveUrl(Url, *this);
 }
 
 
-bool FWmfMediaPlayer::Open(const TSharedRef<FArchive, ESPMode::ThreadSafe>& Archive, const FString& OriginalUrl)
+bool FWmfMediaPlayer::Open(const TSharedRef<FArchive, ESPMode::ThreadSafe>& Archive, const FString& OriginalUrl, const IMediaOptions& Options)
 {
+	Close();
+
 	if ((Archive->TotalSize() == 0) || OriginalUrl.IsEmpty())
 	{
 		return false;
@@ -209,43 +189,12 @@ bool FWmfMediaPlayer::Open(const TSharedRef<FArchive, ESPMode::ThreadSafe>& Arch
 }
 
 
-bool FWmfMediaPlayer::Seek(const FTimespan& Time)
-{
-	return ((MediaSession != NULL) && MediaSession->SetPosition(Time));
-}
-
-
-bool FWmfMediaPlayer::SetLooping(bool Looping)
-{
-	if (MediaSession == NULL)
-	{
-		return false;
-	}
-
-	MediaSession->SetLooping(Looping);
-
-	return true;
-}
-
-
-bool FWmfMediaPlayer::SetRate(float Rate)
-{
-	if (MediaSession == NULL)
-	{
-		return false;
-	}
-
-	return MediaSession->SetRate(Rate);
-}
-
-
 /* IWmfMediaResolverCallbacks interface
  *****************************************************************************/
 
 void FWmfMediaPlayer::ProcessResolveComplete(TComPtr<IUnknown> SourceObject, FString ResolvedUrl)
 {
-	// forward event to game thread
-	AsyncTask(ENamedThreads::GameThread, [=]() {
+	GameThreadTasks.Enqueue([=]() {
 		MediaEvent.Broadcast(
 			InitializeMediaSession(SourceObject, ResolvedUrl)
 				? EMediaEvent::MediaOpened
@@ -257,8 +206,7 @@ void FWmfMediaPlayer::ProcessResolveComplete(TComPtr<IUnknown> SourceObject, FSt
 
 void FWmfMediaPlayer::ProcessResolveFailed(FString FailedUrl)
 {
-	// forward event to game thread
-	AsyncTask(ENamedThreads::GameThread, [=]() {
+	GameThreadTasks.Enqueue([=]() {
 		MediaEvent.Broadcast(EMediaEvent::MediaOpenFailed);
 	});
 }
@@ -269,147 +217,372 @@ void FWmfMediaPlayer::ProcessResolveFailed(FString FailedUrl)
 
 void FWmfMediaPlayer::AddStreamToTopology(uint32 StreamIndex, IMFTopology* Topology, IMFPresentationDescriptor* PresentationDescriptor, IMFMediaSource* MediaSourceObject)
 {
-	// get stream descriptor
+	Info += FString::Printf(TEXT("Stream %i\n"), StreamIndex);
+
+	// get stream descriptor & media type handler
 	TComPtr<IMFStreamDescriptor> StreamDescriptor;
-	BOOL Selected = FALSE;
-
-	if (FAILED(PresentationDescriptor->GetStreamDescriptorByIndex(StreamIndex, &Selected, &StreamDescriptor)))
 	{
-		UE_LOG(LogWmfMedia, Warning, TEXT("Skipping missing stream descriptor for stream index %i"), StreamIndex);
+		BOOL Selected = FALSE;
+		HRESULT Result = PresentationDescriptor->GetStreamDescriptorByIndex(StreamIndex, &Selected, &StreamDescriptor);
 
-		return;
+		if (FAILED(Result))
+		{
+			UE_LOG(LogWmfMedia, Warning, TEXT("Skipping missing stream descriptor for stream %i (%s)"), StreamIndex, *WmfMedia::ResultToString(Result));
+			Info += TEXT("    missing stream descriptor\n");
+			
+			return;
+		}
+
+		if (Selected == TRUE)
+		{
+			PresentationDescriptor->DeselectStream(StreamIndex);
+		}
 	}
 
-	// fetch media type
 	TComPtr<IMFMediaTypeHandler> Handler;
-
-	if (FAILED(StreamDescriptor->GetMediaTypeHandler(&Handler)))
 	{
-		return;
+		HRESULT Result = StreamDescriptor->GetMediaTypeHandler(&Handler);
+
+		if (FAILED(Result))
+		{
+			UE_LOG(LogWmfMedia, Warning, TEXT("Failed to get media type handler for stream %i (%s)"), StreamIndex, *WmfMedia::ResultToString(Result));
+			Info += TEXT("    no handler available\n");
+			
+			return;
+		}
 	}
 
+	// skip unsupported handler types
 	GUID MajorType;
+	{
+		HRESULT Result = Handler->GetMajorType(&MajorType);
+
+		if (FAILED(Result))
+		{
+			UE_LOG(LogWmfMedia, Warning, TEXT("Failed to determine major type of stream %i (%s)"), StreamIndex, *WmfMedia::ResultToString(Result));
+			Info += TEXT("    failed to determine MajorType\n");
+			
+			return;
+		}
+
+		UE_LOG(LogWmfMedia, Verbose, TEXT("Major type of stream %i is %s"), StreamIndex, *WmfMedia::MajorTypeToString(MajorType));
+		Info += FString::Printf(TEXT("    Type: %s\n"), *WmfMedia::MajorTypeToString(MajorType));
+
+		if ((MajorType != MFMediaType_Audio) &&
+			(MajorType != MFMediaType_SAMI) &&
+			(MajorType != MFMediaType_Video))
+		{
+			UE_LOG(LogWmfMedia, Warning, TEXT("Unsupported major type %s for stream %i"), *WmfMedia::MajorTypeToString(MajorType), StreamIndex);
+			Info += TEXT("    MajorType is not supported\n");
+			
+			return;
+		}
+	}
+
+	// get media type & make it current
+	TComPtr<IMFMediaType> MediaType;
+	{
+		DWORD NumSupportedTypes = 0;
+		HRESULT Result = Handler->GetMediaTypeCount(&NumSupportedTypes);
+
+		if (FAILED(Result))
+		{
+			UE_LOG(LogWmfMedia, Warning, TEXT("Failed to get number of supported media types in stream %i of type %s"), StreamIndex, *WmfMedia::MajorTypeToString(MajorType));
+			Info += TEXT("    failed to get supported media types\n");
+
+			return;
+		}
+
+		if (NumSupportedTypes > 0)
+		{
+			for (DWORD TypeIndex = 0; TypeIndex < NumSupportedTypes; ++TypeIndex)
+			{
+				if (SUCCEEDED(Handler->GetMediaTypeByIndex(TypeIndex, &MediaType)) &&
+					SUCCEEDED(Handler->SetCurrentMediaType(MediaType)))
+				{
+					break;
+				}
+			}
+		}
+
+		if (MediaType == NULL)
+		{
+			UE_LOG(LogWmfMedia, Warning, TEXT("No supported media type in stream %i of type %s"), StreamIndex, *WmfMedia::MajorTypeToString(MajorType));
+			Info += TEXT("    unsupported media type\n");
+
+			return;
+		}
+	}
+	
+	// get sub-type
+	GUID SubType;
+	{
+		if (MajorType == MFMediaType_SAMI)
+		{
+			FMemory::Memzero(SubType);
+		}
+		else
+		{
+			HRESULT Result = MediaType->GetGUID(MF_MT_SUBTYPE, &SubType);
+
+			if (FAILED(Result))
+			{
+				UE_LOG(LogWmfMedia, Warning, TEXT("Failed to get sub-type of stream %i (%s)"), StreamIndex, *WmfMedia::ResultToString(Result));
+				Info += TEXT("    failed to get sub-type\n");
+
+				return;
+			}
+
+			UE_LOG(LogWmfMedia, Verbose, TEXT("Sub-type of stream %i is %s"), StreamIndex, *WmfMedia::SubTypeToString(SubType));
 		
-	if (FAILED(Handler->GetMajorType(&MajorType)))
-	{
-		return;
+			Info += FString::Printf(TEXT("    Codec: %s\n"), *WmfMedia::SubTypeToString(SubType));
+			Info += FString::Printf(TEXT("    Protected: %s\n"), (::MFGetAttributeUINT32(StreamDescriptor, MF_SD_PROTECTED, FALSE) != 0) ? *GYes.ToString() : *GNo.ToString());
+		}
 	}
 
-	// skip unsupported types
-	if ((MajorType != MFMediaType_Audio) &&
-		(MajorType != MFMediaType_SAMI) &&
-		(MajorType != MFMediaType_Video))
-	{
-		return;
-	}
-
-	// prepare input and output types
+	// configure desired output type
 	TComPtr<IMFMediaType> OutputType;
 	{
-		if (FAILED(Handler->GetCurrentMediaType(&OutputType)))
-		{
-			return;
-		}
-	}
+		HRESULT Result = ::MFCreateMediaType(&OutputType);
 
-	TComPtr<IMFMediaType> InputType;
-	{
-		if (FAILED(::MFCreateMediaType(&InputType)))
+		if (FAILED(Result))
 		{
+			UE_LOG(LogWmfMedia, Warning, TEXT("Failed to create output type for stream %i (%s)"), StreamIndex, *WmfMedia::ResultToString(Result));
+			Info += TEXT("    failed to create output type\n");
+
 			return;
 		}
 
-		if (FAILED(InputType->SetUINT32(MF_MT_ALL_SAMPLES_INDEPENDENT, TRUE)))
+		Result = OutputType->SetUINT32(MF_MT_ALL_SAMPLES_INDEPENDENT, TRUE);
+
+		if (FAILED(Result))
 		{
+			UE_LOG(LogWmfMedia, Warning, TEXT("Failed to initialize output type for stream %i (%s)"), StreamIndex, *WmfMedia::ResultToString(Result));
+			Info += TEXT("    failed to initialize output type\n");
+
 			return;
+		}
+
+		if (MajorType == MFMediaType_Audio)
+		{
+			// get source stream information
+			Info += FString::Printf(TEXT("    Channels: %i\n"), ::MFGetAttributeUINT32(MediaType, MF_MT_AUDIO_NUM_CHANNELS, 0));
+			Info += FString::Printf(TEXT("    Sample Rate: %i Hz\n"), ::MFGetAttributeUINT32(MediaType, MF_MT_AUDIO_SAMPLES_PER_SECOND, 0));
+			Info += FString::Printf(TEXT("    Bits Per Sample: %i\n"), ::MFGetAttributeUINT32(MediaType, MF_MT_AUDIO_BITS_PER_SAMPLE, 0));
+
+			// filter unsupported audio formats
+			if (FMemory::Memcmp(&SubType.Data2, &MFMPEG4Format_Base.Data2, 12) == 0)
+			{
+				if (GetDefault<UWmfMediaSettings>()->AllowNonStandardCodecs)
+				{
+					UE_LOG(LogWmfMedia, Verbose, TEXT("Non-standard MP4 audio type '%s' (%s) for stream %i"), *WmfMedia::FourccToString(SubType.Data1), *WmfMedia::GuidToString(SubType), StreamIndex);
+					Info += TEXT("    non-standard sub-type\n");
+				}
+				else
+				{
+					const bool DocumentedFormat =
+						(SubType.Data1 == WAVE_FORMAT_ADPCM) ||
+						(SubType.Data1 == WAVE_FORMAT_ALAW) ||
+						(SubType.Data1 == WAVE_FORMAT_MULAW) ||
+						(SubType.Data1 == WAVE_FORMAT_IMA_ADPCM) ||
+						(SubType.Data1 == MFAudioFormat_AAC.Data1) ||
+						(SubType.Data1 == MFAudioFormat_MP3.Data1) ||
+						(SubType.Data1 == MFAudioFormat_PCM.Data1);
+
+					const bool UndocumentedFormat =
+						(SubType.Data1 == WAVE_FORMAT_WMAUDIO2) ||
+						(SubType.Data1 == WAVE_FORMAT_WMAUDIO3) ||
+						(SubType.Data1 == WAVE_FORMAT_WMAUDIO_LOSSLESS);
+
+					if (!DocumentedFormat && !UndocumentedFormat)
+					{
+						UE_LOG(LogWmfMedia, Warning, TEXT("Unsupported MP4 audio type '%s' (%s) for stream %i"), *WmfMedia::FourccToString(SubType.Data1), *WmfMedia::GuidToString(SubType), StreamIndex);
+						Info += TEXT("    unsupported sub-type\n");
+
+						return;
+					}
+				}
+			}
+			else if (FMemory::Memcmp(&SubType.Data2, &MFAudioFormat_Base.Data2, 12) != 0)
+			{
+				if (GetDefault<UWmfMediaSettings>()->AllowNonStandardCodecs)
+				{
+					UE_LOG(LogWmfMedia, Verbose, TEXT("Non-standard audio type '%s' (%s) for stream %i"), *WmfMedia::FourccToString(SubType.Data1), *WmfMedia::GuidToString(SubType), StreamIndex);
+					Info += TEXT("    non-standard sub-type\n");
+				}
+				else
+				{
+					UE_LOG(LogWmfMedia, Warning, TEXT("Unsupported audio type '%s' (%s) for stream %i"), *WmfMedia::FourccToString(SubType.Data1), *WmfMedia::GuidToString(SubType), StreamIndex);
+					Info += TEXT("    unsupported sub-type\n");
+
+					return;
+				}
+			}
+
+			// configure audio output (re-sampling fails for many media types, so we don't attempt it)
+			if (FAILED(OutputType->SetGUID(MF_MT_MAJOR_TYPE, MFMediaType_Audio)) ||
+				FAILED(OutputType->SetGUID(MF_MT_SUBTYPE, MFAudioFormat_PCM)) ||
+				FAILED(OutputType->SetUINT32(MF_MT_AUDIO_BITS_PER_SAMPLE, 16u)))
+			{
+				UE_LOG(LogWmfMedia, Warning, TEXT("Failed to initialize audio output type for stream %i"), StreamIndex);
+				Info += TEXT("    failed to initialize output type\n");
+
+				return;
+			}
+
+			if (::MFGetAttributeUINT32(MediaType, MF_MT_AUDIO_SAMPLES_PER_SECOND, 0) != 44100)
+			{
+				UE_LOG(LogWmfMedia, Warning, TEXT("Possible loss of audio quality in stream %i due to sample rate != 44100 Hz"), StreamIndex);
+			}
+		}
+		else if (MajorType == MFMediaType_SAMI)
+		{
+			// configure caption output
+			Result = OutputType->SetGUID(MF_MT_MAJOR_TYPE, MFMediaType_SAMI);
+
+			if (FAILED(Result))
+			{
+				UE_LOG(LogWmfMedia, Warning, TEXT("Failed to initialize caption output type for stream %i (%s)"), StreamIndex, *WmfMedia::ResultToString(Result));
+				Info += TEXT("    failed to set output type\n");
+
+				return;
+			}
+		}
+		else if (MajorType == MFMediaType_Video)
+		{
+			// get source stream information
+			FIntPoint Dimensions;
+
+			if (SUCCEEDED(::MFGetAttributeSize(MediaType, MF_MT_FRAME_SIZE, (UINT32*)&Dimensions.X, (UINT32*)&Dimensions.Y)))
+			{
+				Info += FString::Printf(TEXT("    Dimensions: %i x %i\n"), Dimensions.X, Dimensions.Y);
+			}
+			else
+			{
+				Info += FString::Printf(TEXT("    Dimensions: n/a\n"));
+			}
+
+			UINT32 Numerator = 0;
+			UINT32 Denominator = 1;
+
+			if (SUCCEEDED(::MFGetAttributeRatio(MediaType, MF_MT_FRAME_RATE, &Numerator, &Denominator)))
+			{
+				const float FrameRate = static_cast<float>(Numerator) / Denominator;
+				Info += FString::Printf(TEXT("    Frame Rate: %g fps\n"), FrameRate);
+			}
+			else
+			{
+				Info += FString::Printf(TEXT("    Frame Rate: n/a\n"));
+			}
+
+			// filter unsupported video types
+			if (FMemory::Memcmp(&SubType.Data2, &MFVideoFormat_Base.Data2, 12) != 0)
+			{
+				if (GetDefault<UWmfMediaSettings>()->AllowNonStandardCodecs)
+				{
+					UE_LOG(LogWmfMedia, Verbose, TEXT("Non-standard video type '%s' (%s) for stream %i"), *WmfMedia::FourccToString(SubType.Data1), *WmfMedia::GuidToString(SubType), StreamIndex);
+					Info += TEXT("    non-standard sub-type\n");
+				}
+				else
+				{
+					UE_LOG(LogWmfMedia, Warning, TEXT("Unsupported video type '%s' (%s) for stream %i"), *WmfMedia::FourccToString(SubType.Data1), *WmfMedia::GuidToString(SubType), StreamIndex);
+					Info += TEXT("    unsupported sub-type\n");
+				}
+
+				return;
+			}
+
+			// configure video output
+			Result = OutputType->SetGUID(MF_MT_MAJOR_TYPE, MFMediaType_Video);
+
+			if (FAILED(Result))
+			{
+				UE_LOG(LogWmfMedia, Warning, TEXT("Failed to set video output type for stream %i (%s)"), StreamIndex, *WmfMedia::ResultToString(Result));
+				Info += TEXT("    failed to set output type\n");
+
+				return;
+			}
+
+			GUID OutputSubType = ((SubType == MFVideoFormat_H264) || (SubType == MFVideoFormat_H264_ES))
+				? MFVideoFormat_YUY2
+				: MFVideoFormat_RGB32;
+
+			Result = OutputType->SetGUID(MF_MT_SUBTYPE, OutputSubType);
+
+			if (FAILED(Result))
+			{
+				UE_LOG(LogWmfMedia, Warning, TEXT("Failed to set video output sub-type for stream %i (%s)"), StreamIndex, *WmfMedia::ResultToString(Result));
+				Info += TEXT("    failed to set output sub-type\n");
+
+				return;
+			}
 		}
 	}
 
-	if (MajorType == MFMediaType_Audio)
-	{
-		if (FAILED(InputType->SetGUID(MF_MT_MAJOR_TYPE, MFMediaType_Audio)) ||
-			FAILED(InputType->SetGUID(MF_MT_SUBTYPE, MFAudioFormat_PCM)))/* ||
-			FAILED(InputType->SetUINT32(MF_MT_AUDIO_SAMPLES_PER_BLOCK, 16384u)))*/
-		{
-			return;
-		}
-	}
-	else if (MajorType == MFMediaType_SAMI)
-	{
-		if (FAILED(InputType->SetGUID(MF_MT_MAJOR_TYPE, MFMediaType_SAMI)))
-		{
-			return;
-		}
-	}
-	else if (MajorType == MFMediaType_Video)
-	{
-		if (FAILED(InputType->SetGUID(MF_MT_MAJOR_TYPE, MFMediaType_Video)) ||
-			FAILED(InputType->SetGUID(MF_MT_SUBTYPE, MFVideoFormat_RGB32)))
-		{
-			return;
-		}
-	}
-
-	// create sample grabber callback and add to topology
 	TComPtr<FWmfMediaSampler> Sampler = new FWmfMediaSampler();
+
+	// set up output node
+	TComPtr<IMFActivate> MediaSamplerActivator;
 	{
-		TComPtr<IMFActivate> MediaSamplerActivator;
+		HRESULT Result = ::MFCreateSampleGrabberSinkActivate(OutputType, Sampler, &MediaSamplerActivator);
 
-		if (FAILED(::MFCreateSampleGrabberSinkActivate(InputType, Sampler, &MediaSamplerActivator)))
+		if (FAILED(Result))
 		{
-			return;
-		}
+			UE_LOG(LogWmfMedia, Warning, TEXT("Failed to create sampler grabber sink for stream %i (%s)"), StreamIndex, *WmfMedia::ResultToString(Result));
+			Info += TEXT("    failed to create sample grabber\n");
 
-		TComPtr<IMFTopologyNode> SourceNode;
-		{
-			if (FAILED(::MFCreateTopologyNode(MF_TOPOLOGY_SOURCESTREAM_NODE, &SourceNode)) ||
-				FAILED(SourceNode->SetUnknown(MF_TOPONODE_SOURCE, MediaSourceObject)) ||
-				FAILED(SourceNode->SetUnknown(MF_TOPONODE_PRESENTATION_DESCRIPTOR, PresentationDescriptor)) ||
-				FAILED(SourceNode->SetUnknown(MF_TOPONODE_STREAM_DESCRIPTOR, StreamDescriptor)) ||
-				FAILED(Topology->AddNode(SourceNode)))
-			{
-				return;
-			}
-		}
-
-		TComPtr<IMFTopologyNode> OutputNode;
-		{
-			if (FAILED(::MFCreateTopologyNode(MF_TOPOLOGY_OUTPUT_NODE, &OutputNode)) ||
-				FAILED(OutputNode->SetObject(MediaSamplerActivator)) ||
-				FAILED(OutputNode->SetUINT32(MF_TOPONODE_STREAMID, 0)) ||
-				FAILED(OutputNode->SetUINT32(MF_TOPONODE_NOSHUTDOWN_ON_REMOVE, FALSE)) ||
-				FAILED(Topology->AddNode(OutputNode)))
-			{
-				return;
-			}
-		}
-
-		if (FAILED(SourceNode->ConnectOutput(0, OutputNode, 0)))
-		{
 			return;
 		}
 	}
 
-	// create and add track
-	if (MajorType == MFMediaType_Audio)
+	TComPtr<IMFTopologyNode> OutputNode;
 	{
-		AudioTracks.Add(MakeShareable(new FWmfMediaAudioTrack(OutputType, PresentationDescriptor, Sampler, StreamDescriptor, StreamIndex)));
+		if (FAILED(::MFCreateTopologyNode(MF_TOPOLOGY_OUTPUT_NODE, &OutputNode)) ||
+			FAILED(OutputNode->SetObject(MediaSamplerActivator)) ||
+			FAILED(OutputNode->SetUINT32(MF_TOPONODE_STREAMID, 0)) ||
+			FAILED(OutputNode->SetUINT32(MF_TOPONODE_NOSHUTDOWN_ON_REMOVE, FALSE)) ||
+			FAILED(Topology->AddNode(OutputNode)))
+		{
+			UE_LOG(LogWmfMedia, Warning, TEXT("Failed to configure output node for stream %i"), StreamIndex);
+			Info += TEXT("    failed to configure output node\n");
+
+			return;
+		}
 	}
-	else if (MajorType == MFMediaType_SAMI)
+
+	// set up source node
+	TComPtr<IMFTopologyNode> SourceNode;
 	{
-		CaptionTracks.Add(MakeShareable(new FWmfMediaCaptionTrack(OutputType, PresentationDescriptor, Sampler, StreamDescriptor, StreamIndex)));
+		if (FAILED(::MFCreateTopologyNode(MF_TOPOLOGY_SOURCESTREAM_NODE, &SourceNode)) ||
+			FAILED(SourceNode->SetUnknown(MF_TOPONODE_SOURCE, MediaSourceObject)) ||
+			FAILED(SourceNode->SetUnknown(MF_TOPONODE_PRESENTATION_DESCRIPTOR, PresentationDescriptor)) ||
+			FAILED(SourceNode->SetUnknown(MF_TOPONODE_STREAM_DESCRIPTOR, StreamDescriptor)) ||
+			FAILED(Topology->AddNode(SourceNode)))
+		{
+			UE_LOG(LogWmfMedia, Warning, TEXT("Failed to configure source node for stream %i"), StreamIndex);
+			Info += TEXT("    failed to configure source node\n");
+
+			return;
+		}
 	}
-	else if (MajorType == MFMediaType_Video)
+
+	// connect nodes
+	HRESULT Result = SourceNode->ConnectOutput(0, OutputNode, 0);
+
+	if (FAILED(Result))
 	{
-		VideoTracks.Add(MakeShareable(new FWmfMediaVideoTrack(OutputType, PresentationDescriptor, Sampler, StreamDescriptor, StreamIndex)));
+		UE_LOG(LogWmfMedia, Warning, TEXT("Failed to connect topology nodes for stream %i (%s)"), StreamIndex, *WmfMedia::ResultToString(Result));
+		Info += TEXT("    failed to connect topology nodes\n");
+
+		return;
 	}
+
+	Tracks.AddTrack(MajorType, MediaType, OutputType, Sampler, StreamDescriptor, StreamIndex);
 }
 
 
 bool FWmfMediaPlayer::InitializeMediaSession(IUnknown* SourceObject, const FString& SourceUrl)
 {
-	Close();
-
 	if (SourceObject == nullptr)
 	{
 		return false;
@@ -419,50 +592,64 @@ bool FWmfMediaPlayer::InitializeMediaSession(IUnknown* SourceObject, const FStri
 
 	// create presentation descriptor
 	TComPtr<IMFMediaSource> MediaSourceObject;
-
-	if (FAILED(SourceObject->QueryInterface(IID_PPV_ARGS(&MediaSourceObject))))
 	{
-		UE_LOG(LogWmfMedia, Error, TEXT("Failed to query media source"));
+		HRESULT Result = SourceObject->QueryInterface(IID_PPV_ARGS(&MediaSourceObject));
 
-		return false;
+		if (FAILED(Result))
+		{
+			UE_LOG(LogWmfMedia, Error, TEXT("Failed to query media source: %s"), *WmfMedia::ResultToString(Result));
+			return false;
+		}
 	}
 
 	TComPtr<IMFPresentationDescriptor> PresentationDescriptor;
-	
-	if (FAILED(MediaSourceObject->CreatePresentationDescriptor(&PresentationDescriptor)))
 	{
-		UE_LOG(LogWmfMedia, Error, TEXT("Failed to create presentation descriptor"));
+		HRESULT Result = MediaSourceObject->CreatePresentationDescriptor(&PresentationDescriptor);
 
-		return false;
+		if (FAILED(Result))
+		{
+			UE_LOG(LogWmfMedia, Error, TEXT("Failed to create presentation descriptor: %s"), *WmfMedia::ResultToString(Result));
+			return false;
+		}
 	}
 	
 	// create playback topology
-	DWORD StreamCount = 0;
-
-	if (FAILED(PresentationDescriptor->GetStreamDescriptorCount(&StreamCount)))
-	{
-		UE_LOG(LogWmfMedia, Error, TEXT("Failed to get stream count"));
-
-		return false;
-	}
-
 	TComPtr<IMFTopology> Topology;
-
-	if (FAILED(::MFCreateTopology(&Topology)))
 	{
-		UE_LOG(LogWmfMedia, Error, TEXT("Failed to create playback topology"));
+		HRESULT Result = ::MFCreateTopology(&Topology);
 
-		return false;
+		if (FAILED(Result))
+		{
+			UE_LOG(LogWmfMedia, Error, TEXT("Failed to create playback topology: %s"), *WmfMedia::ResultToString(Result));
+			return false;
+		}
 	}
+
+	// initialize tracks
+	DWORD StreamCount = 0;
+	{
+		HRESULT Result = PresentationDescriptor->GetStreamDescriptorCount(&StreamCount);
+
+		if (FAILED(Result))
+		{
+			UE_LOG(LogWmfMedia, Error, TEXT("Failed to get stream count (%s)"), *WmfMedia::ResultToString(Result));
+			return false;
+		}
+
+		UE_LOG(LogWmfMedia, Verbose, TEXT("Found %i streams"), StreamCount);
+	}
+
+	Tracks.Initialize(*PresentationDescriptor);
 
 	for (uint32 StreamIndex = 0; StreamIndex < StreamCount; ++StreamIndex)
 	{
 		AddStreamToTopology(StreamIndex, Topology, PresentationDescriptor, MediaSourceObject);
+		Info += TEXT("\n");
 	}
 
-	UE_LOG(LogWmfMedia, Verbose, TEXT("Added a total of %i audio tracks, %i caption tracks, %i video tracks"), AudioTracks.Num(), CaptionTracks.Num(), VideoTracks.Num());
 	MediaEvent.Broadcast(EMediaEvent::TracksChanged);
 
+	// get media duration
 	UINT64 PresentationDuration = 0;
 	PresentationDescriptor->GetUINT64(MF_PD_DURATION, &PresentationDuration);
 	Duration = FTimespan(PresentationDuration);
@@ -471,51 +658,68 @@ bool FWmfMediaPlayer::InitializeMediaSession(IUnknown* SourceObject, const FStri
 	MediaUrl = SourceUrl;
 	MediaSource = MediaSourceObject;
 	MediaSession = new FWmfMediaSession(Duration, Topology);
+
+	if (MediaSession->GetState() == EMediaState::Error)
 	{
-		MediaSession->OnError().AddRaw(this, &FWmfMediaPlayer::HandleSessionError);
-		MediaSession->OnSessionEvent().AddRaw(this, &FWmfMediaPlayer::HandleSessionEvent);
+		return false;
 	}
 
-	return (MediaSession->GetState() != EMediaStates::Error);
+	MediaSession->OnSessionEvent().AddRaw(this, &FWmfMediaPlayer::HandleSessionEvent);
+
+	return true;
 }
 
 
 /* FWmfMediaPlayer callbacks
  *****************************************************************************/
 
-void FWmfMediaPlayer::HandleSessionError(HRESULT Error)
-{
-	UE_LOG(LogWmfMedia, Error, TEXT("An error occured in the media session: 0x%X"), Error);
-}
-
-
 void FWmfMediaPlayer::HandleSessionEvent(MediaEventType EventType)
 {
-	EMediaEvent Event = EMediaEvent::Unknown;
+	TOptional<EMediaEvent> Event;
 
+	// process event
 	switch (EventType)
 	{
 	case MEEndOfPresentation:
 		Event = EMediaEvent::PlaybackEndReached;
 		break;
 
+	case MESessionClosed:
+	case MEError:
+		Tracks.SetPaused(true);
+		Tracks.Flush();
+		break;
+
 	case MESessionStarted:
-		Event = EMediaEvent::PlaybackResumed;
+		if (!FMath::IsNearlyZero(MediaSession->GetRate()))
+		{
+			Event = EMediaEvent::PlaybackResumed;
+			Tracks.SetPaused(false);
+		}
+		break;
+
+	case MESessionEnded:
+		Event = EMediaEvent::PlaybackSuspended;
+		Tracks.SetPaused(true);
+		Tracks.Flush();
 		break;
 
 	case MESessionStopped:
 		Event = EMediaEvent::PlaybackSuspended;
+		Tracks.SetPaused(true);
 		break;
 	}
 
-	if (Event != EMediaEvent::Unknown)
+	// forward event to game thread
+	if (Event.IsSet())
 	{
-		// forward event to game thread
-		AsyncTask(ENamedThreads::GameThread, [=]() {
-			MediaEvent.Broadcast(Event);
+		GameThreadTasks.Enqueue([=]() {
+			MediaEvent.Broadcast(Event.GetValue());
 		});
 	}
 }
 
 
 #include "HideWindowsPlatformTypes.h"
+
+#endif //WMFMEDIA_SUPPORTED_PLATFORM

@@ -6,7 +6,6 @@
 #include "UTPartyBeaconClient.h"
 #include "PartyGameState.h"
 #include "UTMatchmakingPolicy.h"
-#include "QosEvaluator.h"
 #include "UTMatchmaking.generated.h"
 
 class AUTBasePlayerController;

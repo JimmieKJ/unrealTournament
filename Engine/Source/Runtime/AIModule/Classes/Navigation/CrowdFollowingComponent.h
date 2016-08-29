@@ -51,13 +51,13 @@ class AIMODULE_API UCrowdFollowingComponent : public UPathFollowingComponent, pu
 	// PathFollowingComponent BEGIN
 	virtual void Initialize() override;
 	virtual void Cleanup() override;
-	virtual void AbortMove(const FString& Reason, FAIRequestID RequestID = FAIRequestID::CurrentRequest, bool bResetVelocity = true, bool bSilent = false, uint8 MessageFlags = 0) override;
-	virtual void PauseMove(FAIRequestID RequestID = FAIRequestID::CurrentRequest, bool bResetVelocity = true) override;
+	virtual void AbortMove(const UObject& Instigator, FPathFollowingResultFlags::Type AbortFlags, FAIRequestID RequestID = FAIRequestID::CurrentRequest, EPathFollowingVelocityMode VelocityMode = EPathFollowingVelocityMode::Reset) override;
+	virtual void PauseMove(FAIRequestID RequestID = FAIRequestID::CurrentRequest, EPathFollowingVelocityMode VelocityMode = EPathFollowingVelocityMode::Reset) override;
 	virtual void ResumeMove(FAIRequestID RequestID = FAIRequestID::CurrentRequest) override;
 	virtual FVector GetMoveFocus(bool bAllowStrafe) const override;
 	virtual void OnLanded() override;
 	virtual void FinishUsingCustomLink(INavLinkCustomInterface* CustomNavLink) override;
-	virtual void OnPathFinished(EPathFollowingResult::Type Result) override;
+	virtual void OnPathFinished(const FPathFollowingResult& Result) override;
 	virtual void OnPathUpdated() override;
 	virtual void OnPathfindingQuery(FPathFindingQuery& Query) override;
 	virtual int32 GetCurrentPathElement() const override { return LastPathPolyIndex; }
@@ -128,9 +128,9 @@ class AIMODULE_API UCrowdFollowingComponent : public UPathFollowingComponent, pu
 	FORCEINLINE float GetCrowdPathOptimizationRange() const { return PathOptimizationRange; }
 	FORCEINLINE ECrowdAvoidanceQuality::Type GetCrowdAvoidanceQuality() const { return AvoidanceQuality; }
 	FORCEINLINE float GetCrowdAvoidanceRangeMultiplier() const { return AvoidanceRangeMultiplier; }
-	FORCEINLINE int32 GetAvoidanceGroup() const { return AvoidanceGroup.Packed; }
-	FORCEINLINE int32 GetGroupsToAvoid() const { return GroupsToAvoid.Packed; }
-	FORCEINLINE int32 GetGroupsToIgnore() const { return GroupsToIgnore.Packed; }
+	int32 GetAvoidanceGroup() const;
+	int32 GetGroupsToAvoid() const;
+	int32 GetGroupsToIgnore() const;
 
 	virtual void GetDebugStringTokens(TArray<FString>& Tokens, TArray<EPathFollowingDebugTokens::Type>& Flags) const override;
 #if ENABLE_VISUAL_LOG
@@ -147,17 +147,17 @@ protected:
 	UPROPERTY(transient)
 	UCharacterMovementComponent* CharacterMovement;
 
-	/** Group mask for this agent */
-	UPROPERTY(Category = "Avoidance", EditAnywhere, BlueprintReadOnly, AdvancedDisplay)
-	FNavAvoidanceMask AvoidanceGroup;
+	/** DEPRECATED: Group mask for this agent - use property from CharacterMovementComponent instead */
+	UPROPERTY()
+	FNavAvoidanceMask AvoidanceGroup_DEPRECATED;
 
-	/** Will avoid other agents if they are in one of specified groups */
-	UPROPERTY(Category = "Avoidance", EditAnywhere, BlueprintReadOnly, AdvancedDisplay)
-	FNavAvoidanceMask GroupsToAvoid;
+	/** DEPRECATED: Will avoid other agents if they are in one of specified groups - use property from CharacterMovementComponent instead */
+	UPROPERTY()
+	FNavAvoidanceMask GroupsToAvoid_DEPRECATED;
 
-	/** Will NOT avoid other agents if they are in one of specified groups, higher priority than GroupsToAvoid */
-	UPROPERTY(Category = "Avoidance", EditAnywhere, BlueprintReadOnly, AdvancedDisplay)
-	FNavAvoidanceMask GroupsToIgnore;
+	/** DEPRECATED: Will NOT avoid other agents if they are in one of specified groups, higher priority than GroupsToAvoid - use property from CharacterMovementComponent instead */
+	UPROPERTY()
+	FNavAvoidanceMask GroupsToIgnore_DEPRECATED;
 
 	/** if set, velocity will be updated even if agent is falling */
 	uint32 bAffectFallingVelocity : 1;

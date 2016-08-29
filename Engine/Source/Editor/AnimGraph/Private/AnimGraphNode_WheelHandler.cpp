@@ -1,6 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "AnimGraphPrivatePCH.h"
+#include "Vehicles/VehicleAnimInstance.h"
 #include "AnimGraphNode_WheelHandler.h"
 #include "CompilerResultsLog.h"
 
