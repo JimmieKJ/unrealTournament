@@ -37,6 +37,7 @@
 #include "UTATypes.h"
 #include "UTGameVolume.h"
 #include "UTTaunt.h"
+#include "Animation/AnimInstance.h"
 
 AUTFlagRunGame::AUTFlagRunGame(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
