@@ -951,7 +951,7 @@ void AUTPlayerController::TeamNotifiyOfPowerupUse()
 
 void AUTPlayerController::ActivateSpecial()
 {
-	if (UTPlayerState->BoostClass != nullptr)
+	if (UTPlayerState && UTPlayerState->BoostClass)
 	{
 		ServerActivatePowerUpPress();
 	}
