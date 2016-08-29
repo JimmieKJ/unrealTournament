@@ -1183,7 +1183,14 @@ public:
 	/** particle component for teleport */
 	UPROPERTY(EditAnywhere, Category = "Effects")
 	TArray< TSubclassOf<class AUTReplicatedEmitter> > TeleportEffect;
-	
+
+	/** particle component for rally */
+	UPROPERTY(EditAnywhere, Category = "Effects")
+		TArray< TSubclassOf<class AUTReplicatedEmitter> > RallyEffect;
+
+	UPROPERTY(EditAnywhere, Category = "Effects")
+		TSubclassOf<AUTTaunt>  RallyAnimation;
+
 	/** particle component for normal ground footstep */
 	UPROPERTY(EditAnywhere, Category = "Effects")
 		UParticleSystem* GroundFootstepEffect;
