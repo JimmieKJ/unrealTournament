@@ -7,7 +7,7 @@
 
 DEFINE_LOG_CATEGORY_STATIC(LogPaths, Log, All);
 
-
+ 
 /*-----------------------------------------------------------------------------
 	Path helpers for retrieving game dir, engine dir, etc.
 -----------------------------------------------------------------------------*/
@@ -153,7 +153,8 @@ FString FPaths::GameUserDir()
 {
 	if (ShouldSaveToUserDir())
 	{
-		return FPaths::Combine(FPlatformProcess::UserSettingsDir(), FApp::GetGameName()) + TEXT("/");
+		// PLK - We're a config heavy game, I'd prefer to be in My Documents than AppData
+		return FPaths::Combine(FPlatformProcess::UserDir(), FApp::GetGameName()) + TEXT("/");
 	}
 	else
 	{
