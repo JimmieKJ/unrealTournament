@@ -87,10 +87,6 @@ FDynamicRHI* PlatformCreateDynamicRHI()
 			FPlatformMisc::RequestExit(1);
 			DynamicRHIModule = NULL;
 		}
-		else if (FPlatformProcess::IsApplicationRunning(TEXT("fraps.exe")))
-		{
-			FMessageDialog::Open(EAppMsgType::Ok, NSLOCTEXT("WindowsDynamicRHI", "UseExpressionEncoder", "Fraps has been known to crash D3D12. Please use Microsoft Expression Encoder instead for capturing."));
-		}
 	}
 	else
 	{
@@ -101,10 +97,6 @@ FDynamicRHI* PlatformCreateDynamicRHI()
 			FMessageDialog::Open(EAppMsgType::Ok, NSLOCTEXT("WindowsDynamicRHI", "RequiredDX11Feature", "DX11 feature level 10.0 is required to run the engine."));
 			FPlatformMisc::RequestExit(1);
 			DynamicRHIModule = NULL;
-		}
-		else if (FPlatformProcess::IsApplicationRunning(TEXT("fraps.exe")))
-		{
-			FMessageDialog::Open(EAppMsgType::Ok, NSLOCTEXT("WindowsDynamicRHI", "UseExpressionEncoderDX11", "Fraps has been known to crash D3D11. Please use Microsoft Expression Encoder instead for capturing."));
 		}
 	}
 
