@@ -43,10 +43,11 @@ void UUTSecurityCameraComponent::TickComponent(float DeltaTime, ELevelTick TickT
 		if (DetectedFlag && (DetectedFlag->GetDetectingCamera() == this))
 		{
 			FHitResult Hit;
+			const bool bTraceHit = GetWorld()->LineTraceSingleByChannel(Hit, CameraLoc, DetectedFlag->GetActorLocation() + FVector(0.f, 0.f, 60.f), COLLISION_TRACE_WEAPONNOCHARACTER, CollisionParams);
 
 			// verify if still visible
 			if (((DetectedFlag->GetActorLocation() - CameraLoc).SizeSquared() > DetectionRadius * DetectionRadius) || 
-				(GetWorld()->LineTraceSingleByChannel(Hit, CameraLoc, DetectedFlag->GetActorLocation() + FVector(0.f, 0.f,60.f), COLLISION_TRACE_WEAPONNOCHARACTER, CollisionParams) && (Hit.Actor.IsValid() && Hit.Actor->GetOwner() != DetectedFlagCarrier)) )
+				(bTraceHit && (Hit.Actor.IsValid() && Hit.Actor->GetOwner() != DetectedFlagCarrier)) )
 			{
 				OnFlagCarrierDetectionLost(DetectedFlagCarrier);
 				if (DetectedFlag)
@@ -66,7 +67,8 @@ void UUTSecurityCameraComponent::TickComponent(float DeltaTime, ELevelTick TickT
 				if (UTChar && UTChar->GetCarriedObject() && ((UTChar->GetCarriedObject()->GetActorLocation() - CameraLoc).SizeSquared() < DetectionRadius * DetectionRadius))
 				{
 					FHitResult Hit;
-					if (((!GetWorld()->LineTraceSingleByChannel(Hit, CameraLoc, UTChar->GetActorLocation(), COLLISION_TRACE_WEAPONNOCHARACTER, CollisionParams)) || (Hit.Actor.IsValid() && Hit.Actor->GetOwner() == UTChar)) &&
+					const bool bTraceHit = GetWorld()->LineTraceSingleByChannel(Hit, CameraLoc, UTChar->GetActorLocation(), COLLISION_TRACE_WEAPONNOCHARACTER, CollisionParams);
+					if ((!bTraceHit || (Hit.Actor.IsValid() && Hit.Actor->GetOwner() == UTChar)) &&
 						(UTChar->GetCarriedObject()->SetDetectingCamera(this)))
 					{
 						DetectedFlag = UTChar->GetCarriedObject();
