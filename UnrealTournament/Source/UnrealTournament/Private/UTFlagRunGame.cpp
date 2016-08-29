@@ -622,17 +622,17 @@ void AUTFlagRunGame::UpdateSkillRating()
 	ReportRankedMatchResults(NAME_FlagRunSkillRating.ToString());
 }
 
-uint8 AUTFlagRunGame::GetNumMatchesFor(AUTPlayerState* PS, bool bRankedSession) const
+uint8 AUTFlagRunGame::GetNumMatchesFor(AUTPlayerState* PS, bool bInRankedSession) const
 {
 	return PS ? PS->FlagRunMatchesPlayed : 0;
 }
 
-int32 AUTFlagRunGame::GetEloFor(AUTPlayerState* PS, bool bRankedSession) const
+int32 AUTFlagRunGame::GetEloFor(AUTPlayerState* PS, bool bInRankedSession) const
 {
-	return PS ? PS->FlagRunRank : Super::GetEloFor(PS, bRankedSession);
+	return PS ? PS->FlagRunRank : Super::GetEloFor(PS, bInRankedSession);
 }
 
-void AUTFlagRunGame::SetEloFor(AUTPlayerState* PS, bool bRankedSession, int32 NewEloValue, bool bIncrementMatchCount)
+void AUTFlagRunGame::SetEloFor(AUTPlayerState* PS, bool bInRankedSession, int32 NewEloValue, bool bIncrementMatchCount)
 {
 	if (PS)
 	{

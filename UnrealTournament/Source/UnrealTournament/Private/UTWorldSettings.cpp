@@ -125,7 +125,7 @@ void AUTWorldSettings::Reset_Implementation()
 	{
 		if (FadingEffects[i].EffectComp != nullptr)
 		{
-			FadingEffects[i].EffectComp->DetachFromParent();
+			FadingEffects[i].EffectComp->DetachFromComponent(FDetachmentTransformRules::KeepRelativeTransform);
 			FadingEffects[i].EffectComp->DestroyComponent();
 		}
 	}

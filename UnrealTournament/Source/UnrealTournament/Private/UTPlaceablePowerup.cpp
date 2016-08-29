@@ -126,7 +126,9 @@ void AUTPlaceablePowerup::SpawnPowerup()
 
 		if (bAttachToOwner)
 		{
-			NewlySpawnedActor->AttachRootComponentToActor(UTOwner, NAME_None, EAttachLocation::SnapToTarget, true);
+			FAttachmentTransformRules AttachmentRules = FAttachmentTransformRules::SnapToTargetNotIncludingScale;
+			AttachmentRules.bWeldSimulatedBodies = true;			
+			NewlySpawnedActor->AttachToActor(UTOwner, AttachmentRules, NAME_None);
 		}
 	}
 
