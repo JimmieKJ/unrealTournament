@@ -141,6 +141,7 @@ class UNREALTOURNAMENT_API AUTCTFRoundGame : public AUTCTFBaseGame
 
 	virtual void RemoveLosers(int32 LoserTeam, int32 FlagTeam);
 
+	virtual void BeginGame() override;
 	virtual void ScoreObject_Implementation(AUTCarriedObject* GameObject, AUTCharacter* HolderPawn, AUTPlayerState* Holder, FName Reason) override;
 	virtual void BroadcastCTFScore(APlayerState* ScoringPlayer, AUTTeamInfo* ScoringTeam, int32 OldScore = 0) override;
 	virtual void RestartPlayer(AController* aPlayer) override;
@@ -152,7 +153,6 @@ class UNREALTOURNAMENT_API AUTCTFRoundGame : public AUTCTFBaseGame
 	virtual void HandleExitingIntermission() override;
 	virtual int32 IntermissionTeamToView(AUTPlayerController* PC) override;
 	virtual void CreateGameURLOptions(TArray<TSharedPtr<TAttributePropertyBase>>& MenuProps);
-	virtual void HandleMatchHasStarted() override;
 	virtual bool AvoidPlayerStart(class AUTPlayerStart* P) override;
 	virtual void DiscardInventory(APawn* Other, AController* Killer) override;
 	virtual bool ChangeTeam(AController* Player, uint8 NewTeam, bool bBroadcast) override;
@@ -163,7 +163,7 @@ class UNREALTOURNAMENT_API AUTCTFRoundGame : public AUTCTFBaseGame
 	virtual int32 PickCheatWinTeam() override;
 	virtual void AdjustLeaderHatFor(AUTCharacter* UTChar) override;
 	virtual bool SkipPlacement(AUTCharacter* UTChar) override;
-	virtual void HandleCountdownToBegin() override;
+	virtual void EndPlayerIntro() override;
 
 	virtual void EndTeamGame(AUTTeamInfo* Winner, FName Reason);
 

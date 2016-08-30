@@ -227,6 +227,12 @@ void UUTFlagRunScoreboard::DrawTeamStats(float DeltaTime, float& YPos, float XOf
 	// @TODO FIXMESTEVE make all the loc text into properties instead of recalc
 }
 
+bool UUTFlagRunScoreboard::ShouldDrawScoringStats()
+{
+	AUTCTFGameState* CTFState = Cast<AUTCTFGameState>(UTGameState);
+	return Super::ShouldDrawScoringStats() && CTFState && (CTFState->GetScoringPlays().Num() > 0);
+}
+
 void UUTFlagRunScoreboard::DrawStatsRight(float DeltaTime, float& YPos, float XOffset, float ScoreWidth, float PageBottom)
 {
 }

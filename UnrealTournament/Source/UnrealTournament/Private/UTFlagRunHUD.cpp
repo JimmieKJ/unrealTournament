@@ -148,7 +148,7 @@ void AUTFlagRunHUD::HandlePowerups()
 	// wait for replication to populate the playerstate and team info
 	if (UTPS && UTPS->Team)
 	{
-		if (GS && ((GS->GetMatchState() == MatchState::WaitingToStart) || (GS->GetMatchState() == MatchState::MatchIntermission)))
+		if (GS && (GS->GetMatchState() == MatchState::MatchIntermission))
 		{
 			const bool bIsOnDefense = GS->IsTeamOnDefenseNextRound(UTPS->Team->TeamIndex);
 			const FString WidgetPath = GS->GetPowerupSelectWidgetPath(UTPS->Team->TeamIndex);
@@ -193,7 +193,9 @@ void AUTFlagRunHUD::HandlePowerups()
 					//Intermission we want a delay before forcing it open to give the scoring info time to display
 					if (GS->GetMatchState() == MatchState::MatchIntermission)
 					{
-						GetWorldTimerManager().SetTimer(MenuOpenDelayTimerHandle, this, &AUTFlagRunHUD::OpenPowerupSelectMenu, TimeToDelayMenuOpenForIntermission, false);
+						AUTCTFRoundGameState* FRGS = Cast<AUTCTFRoundGameState>(GS);
+						float DelayTime = FRGS ? FMath::Min(TimeToDelayMenuOpenForIntermission, FMath::Max(0.2f, FRGS->IntermissionTime - 9.f)) : TimeToDelayMenuOpenForIntermission;
+						GetWorldTimerManager().SetTimer(MenuOpenDelayTimerHandle, this, &AUTFlagRunHUD::OpenPowerupSelectMenu, DelayTime, false);
 							
 						//its possible the menu was already thinking it should be opened. We want to force a delay here, so lets set it to close.
 						UTPS->bIsPowerupSelectWindowOpen = false;

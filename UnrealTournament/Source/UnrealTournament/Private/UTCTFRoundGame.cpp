@@ -252,33 +252,73 @@ void AUTCTFRoundGame::RemoveLosers(int32 LoserTeam, int32 FlagTeam)
 	}
 }
 
-void AUTCTFRoundGame::HandleMatchIntermission()
+void AUTCTFRoundGame::BeginGame()
 {
-	// view defender base, with last team to score around it
-	int32 TeamToWatch = IntermissionTeamToView(nullptr);
+	UE_LOG(UT, Log, TEXT("BEGIN GAME GameType: %s"), *GetNameSafe(this));
+	UE_LOG(UT, Log, TEXT("Difficulty: %f GoalScore: %i TimeLimit (sec): %i"), GameDifficulty, GoalScore, TimeLimit);
 
-	if ((CTFGameState == NULL) || (TeamToWatch >= CTFGameState->FlagBases.Num()) || (CTFGameState->FlagBases[TeamToWatch] == NULL))
+	for (FActorIterator It(GetWorld()); It; ++It)
+	{
+		AActor* TestActor = *It;
+		if (TestActor && !TestActor->IsPendingKill() && TestActor->IsA<AUTPlayerState>())
+		{
+			Cast<AUTPlayerState>(TestActor)->StartTime = 0;
+			Cast<AUTPlayerState>(TestActor)->bSentLogoutAnalytics = false;
+		}
+	}
+	GameState->ElapsedTime = 0;
+
+	//Let the game session override the StartMatch function, in case it wants to wait for arbitration
+	if (GameSession->HandleStartMatchRequest())
 	{
 		return;
 	}
-	for (AUTCTFFlagBase* Base : CTFGameState->FlagBases)
+	if (CTFGameState)
 	{
-		Base->ClearDefenseEffect();
+		CTFGameState->CTFRound = 1;
+		CTFGameState->NumRounds = NumRounds;
+		CTFGameState->bOneFlagGameMode = bOneFlagGameMode;
+		CTFGameState->bAllowRallies = true;
+		CTFGameState->bDefenderLivesLimited = bDefenderLivesLimited;
+		CTFGameState->bAttackerLivesLimited = bAttackerLivesLimited;
+		CTFGameState->HalftimeScoreDelay = 0.5f;
 	}
+	float RealIntermissionDuration = IntermissionDuration;
+	IntermissionDuration = 10.f;
+	SetMatchState(MatchState::MatchIntermission);
+	IntermissionDuration = RealIntermissionDuration;
+}
 
-	RemoveLosers(1 - TeamToWatch, bRedToCap ? 0 : 1);
-
-	// place winners around defender base
-	PlacePlayersAroundFlagBase(TeamToWatch, bRedToCap ? 1 : 0);
-
-	// Tell the controllers to look at defender base
-	for (FConstControllerIterator Iterator = GetWorld()->GetControllerIterator(); Iterator; ++Iterator)
+void AUTCTFRoundGame::HandleMatchIntermission()
+{
+	if (bFirstRoundInitialized)
 	{
-		AUTPlayerController* PC = Cast<AUTPlayerController>(*Iterator);
-		if (PC != NULL)
+		// view defender base, with last team to score around it
+		int32 TeamToWatch = IntermissionTeamToView(nullptr);
+
+		if ((CTFGameState == NULL) || (TeamToWatch >= CTFGameState->FlagBases.Num()) || (CTFGameState->FlagBases[TeamToWatch] == NULL))
 		{
-			PC->ClientHalftime();
-			PC->SetViewTarget(CTFGameState->FlagBases[bRedToCap ? 1 : 0]);
+			return;
+		}
+		for (AUTCTFFlagBase* Base : CTFGameState->FlagBases)
+		{
+			Base->ClearDefenseEffect();
+		}
+
+		RemoveLosers(1 - TeamToWatch, bRedToCap ? 0 : 1);
+
+		// place winners around defender base
+		PlacePlayersAroundFlagBase(TeamToWatch, bRedToCap ? 1 : 0);
+
+		// Tell the controllers to look at defender base
+		for (FConstControllerIterator Iterator = GetWorld()->GetControllerIterator(); Iterator; ++Iterator)
+		{
+			AUTPlayerController* PC = Cast<AUTPlayerController>(*Iterator);
+			if (PC != NULL)
+			{
+				PC->ClientHalftime();
+				PC->SetViewTarget(CTFGameState->FlagBases[bRedToCap ? 1 : 0]);
+			}
 		}
 	}
 
@@ -300,10 +340,13 @@ void AUTCTFRoundGame::HandleMatchIntermission()
 		}
 	}
 
-	CTFGameState->bIsAtIntermission = true;
-	CTFGameState->OnIntermissionChanged();
-	CTFGameState->bStopGameClock = true;
-	Cast<AUTCTFRoundGameState>(CTFGameState)->IntermissionTime  = IntermissionDuration;
+	if (CTFGameState)
+	{
+		CTFGameState->bIsAtIntermission = true;
+		CTFGameState->OnIntermissionChanged();
+		CTFGameState->bStopGameClock = true;
+		Cast<AUTCTFRoundGameState>(CTFGameState)->IntermissionTime = IntermissionDuration;
+	}
 }
 
 float AUTCTFRoundGame::AdjustNearbyPlayerStartScore(const AController* Player, const AController* OtherController, const ACharacter* OtherCharacter, const FVector& StartLoc, const APlayerStart* P)
@@ -664,33 +707,6 @@ void AUTCTFRoundGame::BuildServerResponseRules(FString& OutRules)
 	}
 }
 
-void AUTCTFRoundGame::HandleMatchHasStarted()
-{
-	if (!bFirstRoundInitialized)
-	{
-		InitRound();
-		CTFGameState->CTFRound = 1;
-		CTFGameState->NumRounds = NumRounds;
-		CTFGameState->bOneFlagGameMode = bOneFlagGameMode;
-		CTFGameState->bAllowRallies = true;
-		CTFGameState->bDefenderLivesLimited = bDefenderLivesLimited;
-		CTFGameState->bAttackerLivesLimited = bAttackerLivesLimited;
-		CTFGameState->HalftimeScoreDelay = 6.f;
-		bFirstRoundInitialized = true;
-		AUTCTFRoundGameState* RCTFGameState = Cast<AUTCTFRoundGameState>(CTFGameState);
-		if (RCTFGameState)
-		{
-			RCTFGameState->GoldBonusThreshold = GoldBonusTime;
-			RCTFGameState->SilverBonusThreshold = SilverBonusTime;
-		}
-		if (Super::UTIsHandlingReplays() && GetGameInstance() != nullptr)
-		{
-			GetGameInstance()->StartRecordingReplay(GetWorld()->GetMapName(), GetWorld()->GetMapName());
-		}
-	}
-	Super::HandleMatchHasStarted();
-}
-
 void AUTCTFRoundGame::HandleExitingIntermission()
 {
 	CTFGameState->bStopGameClock = false;
@@ -715,7 +731,32 @@ void AUTCTFRoundGame::HandleExitingIntermission()
 		}
 	}
 
+	if (!bFirstRoundInitialized)
+	{
+		CTFGameState->CTFRound = 0;
+	}
 	InitRound();
+	if (!bFirstRoundInitialized)
+	{
+		CTFGameState->CTFRound = 1;
+		CTFGameState->NumRounds = NumRounds;
+		CTFGameState->bOneFlagGameMode = bOneFlagGameMode;
+		CTFGameState->bAllowRallies = true;
+		CTFGameState->bDefenderLivesLimited = bDefenderLivesLimited;
+		CTFGameState->bAttackerLivesLimited = bAttackerLivesLimited;
+		CTFGameState->HalftimeScoreDelay = 6.f;
+		bFirstRoundInitialized = true;
+		AUTCTFRoundGameState* RCTFGameState = Cast<AUTCTFRoundGameState>(CTFGameState);
+		if (RCTFGameState)
+		{
+			RCTFGameState->GoldBonusThreshold = GoldBonusTime;
+			RCTFGameState->SilverBonusThreshold = SilverBonusTime;
+		}
+		if (Super::UTIsHandlingReplays() && GetGameInstance() != nullptr)
+		{
+			GetGameInstance()->StartRecordingReplay(GetWorld()->GetMapName(), GetWorld()->GetMapName());
+		}
+	}
 
 	//now respawn all the players
 	for (FConstControllerIterator Iterator = GetWorld()->GetControllerIterator(); Iterator; ++Iterator)
@@ -1365,14 +1406,9 @@ void AUTCTFRoundGame::ScoreAlternateWin(int32 WinningTeamIndex, uint8 Reason)
 	}
 }
 
-void AUTCTFRoundGame::HandleCountdownToBegin()
+void AUTCTFRoundGame::EndPlayerIntro()
 {
-	if (CTFGameState)
-	{
-		BroadcastLocalized(this, UUTCountDownMessage::StaticClass(), CTFGameState->CTFRound + 2001, NULL, NULL, NULL);
-	}
-	FTimerHandle TempHandle;
-	GetWorldTimerManager().SetTimer(TempHandle, this, &AUTGameMode::BeginGame, 3.f*GetActorTimeDilation(), false);
+	BeginGame();
 }
 
 void AUTCTFRoundGame::CheckGameTime()
@@ -1382,7 +1418,8 @@ void AUTCTFRoundGame::CheckGameTime()
 	{
 		if (RCTFGameState && (RCTFGameState->IntermissionTime == 3))
 		{
-			BroadcastLocalized(this, UUTCountDownMessage::StaticClass(), RCTFGameState->CTFRound + 2001, NULL, NULL, NULL);
+			int32 MessageIndex = bFirstRoundInitialized ? RCTFGameState->CTFRound + 2001 : 2001;
+			BroadcastLocalized(this, UUTCountDownMessage::StaticClass(), MessageIndex, NULL, NULL, NULL);
 		}
 		if (RCTFGameState && (RCTFGameState->IntermissionTime <= 0))
 		{
