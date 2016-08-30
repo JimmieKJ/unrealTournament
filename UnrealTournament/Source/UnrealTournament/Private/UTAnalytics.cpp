@@ -4,6 +4,7 @@
 #include "UTGameMode.h"
 #include "UTGameState.h"
 #include "UTAnalytics.h"
+#include "AnalyticsET.h"
 #include "Runtime/Launch/Resources/Version.h"
 #include "PerfCountersHelpers.h"
 #include "QosInterface.h"
@@ -20,6 +21,7 @@
 	#include "QoSReporter.h"
 #endif // WITH_QOSREPORTER
 #include "IAnalyticsProvider.h"
+#include "IAnalyticsProviderET.h"
 #include "Analytics.h"
 
 DEFINE_LOG_CATEGORY(LogUTAnalytics);
@@ -27,7 +29,7 @@ DEFINE_LOG_CATEGORY(LogUTAnalytics);
 TArray<FString> FUTAnalytics::GenericParamNames;
 
 bool FUTAnalytics::bIsInitialized = false;
-TSharedPtr<IAnalyticsProvider> FUTAnalytics::Analytics = NULL;
+TSharedPtr<IAnalyticsProviderET> FUTAnalytics::Analytics = NULL;
 // initialize to a dummy value to ensure the first time we set the AccountID it detects it as a change.
 FString FUTAnalytics::CurrentAccountID(TEXT("__UNINITIALIZED__"));
 FUTAnalytics::EAccountSource FUTAnalytics::CurrentAccountSource = FUTAnalytics::EAccountSource::EFromRegistry;
@@ -35,13 +37,13 @@ FUTAnalytics::EAccountSource FUTAnalytics::CurrentAccountSource = FUTAnalytics::
 /**
  * On-demand construction of the singleton. 
  */
-IAnalyticsProvider& FUTAnalytics::GetProvider()
+IAnalyticsProviderET& FUTAnalytics::GetProvider()
 {
 	checkf(bIsInitialized && Analytics.IsValid(), TEXT("FUTAnalytics::GetProvider called outside of Initialize/Shutdown."));
 	return *Analytics.Get();
 }
 
-TSharedPtr<IAnalyticsProvider> FUTAnalytics::GetProviderPtr()
+TSharedPtr<IAnalyticsProviderET> FUTAnalytics::GetProviderPtr()
 {
 	return Analytics;
 }
@@ -57,9 +59,12 @@ void FUTAnalytics::Initialize()
 
 	checkf(!bIsInitialized, TEXT("FUTAnalytics::Initialize called more than once."));
 	
-	// Connect the engine analytics provider (if there is a configuration delegate installed)
-	Analytics = FAnalytics::Get().GetDefaultConfiguredProvider();
-	
+	if (!Analytics.IsValid())
+	{
+		FString GameAppId = FString::Printf(TEXT("UnrealTournament.%s"), *GetBuildType());
+		Analytics = FAnalyticsET::Get().CreateAnalyticsProvider(FAnalyticsET::Config(GameAppId, SecureAnalyticsEndpoint, GetDefault<UGeneralProjectSettings>()->ProjectVersion + TEXT(" - %VERSION%")));
+	}
+
 	// Set the UserID using the AccountID regkey if present.
 	LoginStatusChanged(FString());
 

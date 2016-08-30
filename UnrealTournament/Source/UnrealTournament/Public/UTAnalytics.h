@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "AnalyticsET.h"
+#include "IAnalyticsProviderET.h"
 #include "UnrealTemplate.h"
 #include "UTAnalyticParams.h"
 
@@ -12,9 +14,9 @@ class IAnalyticsProvider;
 class FUTAnalytics : FNoncopyable
 {
 public:
-	static UNREALTOURNAMENT_API IAnalyticsProvider& GetProvider();
+	static UNREALTOURNAMENT_API IAnalyticsProviderET& GetProvider();
 
-	static UNREALTOURNAMENT_API TSharedPtr<IAnalyticsProvider> GetProviderPtr();
+	static UNREALTOURNAMENT_API TSharedPtr<IAnalyticsProviderET> GetProviderPtr();
 	
 	/** Helper function to determine if the provider is valid. */
 	static UNREALTOURNAMENT_API bool IsAvailable() 
@@ -77,7 +79,7 @@ private:
 	static void PrivateSetUserID(const FString& AccountID, EAccountSource AccountSource);
 
 	static bool bIsInitialized;
-	static TSharedPtr<IAnalyticsProvider> Analytics;
+	static TSharedPtr<IAnalyticsProviderET> Analytics;
 	static FString CurrentAccountID;
 	static EAccountSource CurrentAccountSource;
 
