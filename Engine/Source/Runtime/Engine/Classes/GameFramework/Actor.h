@@ -2994,12 +2994,6 @@ FORCEINLINE_DEBUGGABLE ENetRole AActor::GetRemoteRole() const
 
 FORCEINLINE_DEBUGGABLE ENetMode AActor::GetNetMode() const
 {
-	// IsRunningDedicatedServer() is a compile-time check in optimized non-editor builds.
-	if (IsRunningDedicatedServer())
-	{
-		return NM_DedicatedServer;
-	}
-
 	return InternalGetNetMode();
 }
 
