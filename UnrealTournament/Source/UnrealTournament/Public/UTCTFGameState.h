@@ -180,6 +180,9 @@ class UNREALTOURNAMENT_API AUTCTFGameState: public AUTGameState
 	UPROPERTY()
 		bool bAllowRallies;
 
+	UPROPERTY()
+		bool bHaveEstablishedFlagRunner;
+
 	UPROPERTY(Replicated)
 		bool bAttackersCanRally;
 
