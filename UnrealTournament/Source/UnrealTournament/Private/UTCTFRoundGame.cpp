@@ -101,20 +101,6 @@ void AUTCTFRoundGame::PostLogin(APlayerController* NewPlayer)
 	Super::PostLogin(NewPlayer);
 }
 
-int32 AUTCTFRoundGame::GetFlagCapScore()
-{
-	int32 BonusTime = UTGameState->GetRemainingTime();
-	if (BonusTime >= GoldBonusTime)
-	{
-		return GoldScore;
-	}
-	if (BonusTime >= SilverBonusTime)
-	{
-		return SilverScore;
-	}
-	return BronzeScore;
-}
-
 void AUTCTFRoundGame::CreateGameURLOptions(TArray<TSharedPtr<TAttributePropertyBase>>& MenuProps)
 {
 	MenuProps.Empty();
@@ -122,11 +108,6 @@ void AUTCTFRoundGame::CreateGameURLOptions(TArray<TSharedPtr<TAttributePropertyB
 	MenuProps.Add(MakeShareable(new TAttributePropertyBool(this, &bBalanceTeams, TEXT("BalanceTeams"))));
 	MenuProps.Add(MakeShareable(new TAttributeProperty<int32>(this, &OffenseKillsNeededForPowerUp, TEXT("OffKillsForPowerup"))));
 	MenuProps.Add(MakeShareable(new TAttributeProperty<int32>(this, &OffenseKillsNeededForPowerUp, TEXT("DefKillsForPowerup"))));
-}
-
-bool AUTCTFRoundGame::AvoidPlayerStart(AUTPlayerStart* P)
-{
-	return P && (bAsymmetricVictoryConditions && P->bIgnoreInASymCTF);
 }
 
 void AUTCTFRoundGame::InitGame(const FString& MapName, const FString& Options, FString& ErrorMessage)
@@ -191,22 +172,6 @@ void AUTCTFRoundGame::GiveDefaultInventory(APawn* PlayerPawn)
 			UTCharacter->LeaderHatStatusChanged();
 		}
 	}
-}
-
-void AUTCTFRoundGame::BroadcastCTFScore(APlayerState* ScoringPlayer, AUTTeamInfo* ScoringTeam, int32 OldScore)
-{
-	int32 BonusType = 100 + BronzeScore;
-	if (ScoringTeam->RoundBonus > GoldBonusTime)
-	{
-		BonusType = 300 + GoldScore;
-	}
-	else if (ScoringTeam->RoundBonus > SilverBonusTime)
-	{
-		BonusType = 200 + SilverScore;
-	}
-
-	BroadcastLocalized(this, UUTCTFRewardMessage::StaticClass(), BonusType, ScoringPlayer, NULL, ScoringTeam);
-	BroadcastLocalized(this, UUTCTFGameMessage::StaticClass(), 2, ScoringPlayer, NULL, ScoringTeam);
 }
 
 void AUTCTFRoundGame::DiscardInventory(APawn* Other, AController* Killer)
@@ -622,54 +587,43 @@ void AUTCTFRoundGame::BuildServerResponseRules(FString& OutRules)
 	}
 }
 
+void AUTCTFRoundGame::IntermissionSwapSides()
+{
+	// swap sides, if desired
+	AUTWorldSettings* Settings = Cast<AUTWorldSettings>(GetWorld()->GetWorldSettings());
+	if (Settings != NULL && Settings->bAllowSideSwitching)
+	{
+		CTFGameState->ChangeTeamSides(1);
+	}
+}
+
+void AUTCTFRoundGame::InitGameState()
+{
+	Super::InitGameState();
+
+	CTFGameState->CTFRound = 1;
+	CTFGameState->NumRounds = NumRounds;
+	CTFGameState->bOneFlagGameMode = bOneFlagGameMode;
+	CTFGameState->bAllowRallies = true;
+	CTFGameState->bDefenderLivesLimited = bDefenderLivesLimited;
+	CTFGameState->bAttackerLivesLimited = bAttackerLivesLimited;
+	CTFGameState->HalftimeScoreDelay = 6.f;
+}
+
 void AUTCTFRoundGame::HandleExitingIntermission()
 {
 	CTFGameState->bStopGameClock = false;
 	RemoveAllPawns();
 
-	if (!bFirstRoundInitialized)
+	if (bFirstRoundInitialized)
 	{
-		CTFGameState->CTFRound = 0;
-	}
-	else
-	{
-		// swap sides, if desired
-		AUTWorldSettings* Settings = Cast<AUTWorldSettings>(GetWorld()->GetWorldSettings());
-		if (Settings != NULL && Settings->bAllowSideSwitching)
-		{
-			CTFGameState->ChangeTeamSides(1);
-		}
-		else if (bAsymmetricVictoryConditions)
-		{
-			// force update of flags since defender flag gets destroyed
-			for (AUTCTFFlagBase* Base : CTFGameState->FlagBases)
-			{
-				IUTTeamInterface* TeamObj = Cast<IUTTeamInterface>(Base);
-				if (TeamObj != NULL)
-				{
-					TeamObj->Execute_SetTeamForSideSwap(Base, Base->TeamNum);
-				}
-			}
-		}
+		IntermissionSwapSides();
 	}
 
 	InitRound();
 	if (!bFirstRoundInitialized)
 	{
-		CTFGameState->CTFRound = 1;
-		CTFGameState->NumRounds = NumRounds;
-		CTFGameState->bOneFlagGameMode = bOneFlagGameMode;
-		CTFGameState->bAllowRallies = true;
-		CTFGameState->bDefenderLivesLimited = bDefenderLivesLimited;
-		CTFGameState->bAttackerLivesLimited = bAttackerLivesLimited;
-		CTFGameState->HalftimeScoreDelay = 6.f;
 		bFirstRoundInitialized = true;
-		AUTCTFRoundGameState* RCTFGameState = Cast<AUTCTFRoundGameState>(CTFGameState);
-		if (RCTFGameState)
-		{
-			RCTFGameState->GoldBonusThreshold = GoldBonusTime;
-			RCTFGameState->SilverBonusThreshold = SilverBonusTime;
-		}
 		if (Super::UTIsHandlingReplays() && GetGameInstance() != nullptr)
 		{
 			GetGameInstance()->StartRecordingReplay(GetWorld()->GetMapName(), GetWorld()->GetMapName());
@@ -694,55 +648,43 @@ void AUTCTFRoundGame::HandleExitingIntermission()
 	SetMatchState(MatchState::InProgress);
 }
 
+void AUTCTFRoundGame::InitFlagForRound(AUTCarriedObject* Flag)
+{
+	if (Flag != nullptr)
+	{
+		Flag->AutoReturnTime = 8.f;
+		Flag->bGradualAutoReturn = true;
+		Flag->bDisplayHolderTrail = true;
+		Flag->bShouldPingFlag = true;
+		Flag->bSlowsMovement = bSlowFlagCarrier;
+		Flag->ClearGhostFlags();
+		Flag->bSendHomeOnScore = false;
+		Flag->bEnemyCanPickup = !bCarryOwnFlag;
+		Flag->bFriendlyCanPickup = bCarryOwnFlag;
+		Flag->bTeamPickupSendsHome = !Flag->bFriendlyCanPickup && !bNoFlagReturn;
+		Flag->bEnemyPickupSendsHome = !Flag->bEnemyCanPickup && !bNoFlagReturn;
+	}
+}
+
 void AUTCTFRoundGame::InitFlags()
 {
 	for (AUTCTFFlagBase* Base : CTFGameState->FlagBases)
 	{
 		if (Base != NULL && Base->MyFlag)
 		{
-			AUTCarriedObject* Flag = Base->MyFlag;
-			Flag->AutoReturnTime = 8.f; 
-			Flag->bGradualAutoReturn = true;
-			Flag->bDisplayHolderTrail = true;
-			Flag->bShouldPingFlag = true;
-			Flag->bSlowsMovement = bSlowFlagCarrier;
-			Flag->ClearGhostFlags();
-			Flag->bSendHomeOnScore = false;
-			if (bAsymmetricVictoryConditions)
-			{
-				if (IsTeamOnOffense(Flag->GetTeamNum()))
-				{
-					Flag->MessageClass = UUTFlagRunGameMessage::StaticClass();
-					Flag->SetActorHiddenInGame(false);
-					Flag->bEnemyCanPickup = !bCarryOwnFlag;
-					Flag->bFriendlyCanPickup = bCarryOwnFlag;
-					Flag->bTeamPickupSendsHome = !Flag->bFriendlyCanPickup && !bNoFlagReturn;
-					Flag->bEnemyPickupSendsHome = !Flag->bEnemyCanPickup && !bNoFlagReturn;
-				}
-				else
-				{
-					Flag->Destroy();
-				}
-			}
-			else
-			{
-				Flag->bEnemyCanPickup = !bCarryOwnFlag;
-				Flag->bFriendlyCanPickup = bCarryOwnFlag;
-				Flag->bTeamPickupSendsHome = !Flag->bFriendlyCanPickup && !bNoFlagReturn;
-				Flag->bEnemyPickupSendsHome = !Flag->bEnemyCanPickup && !bNoFlagReturn;
-			}
+			InitFlagForRound(Base->MyFlag);
 
 			// check for flag carrier already here waiting
 			TArray<AActor*> Overlapping;
-			Flag->GetOverlappingActors(Overlapping, AUTCharacter::StaticClass());
+			Base->MyFlag->GetOverlappingActors(Overlapping, AUTCharacter::StaticClass());
 			for (AActor* A : Overlapping)
 			{
 				AUTCharacter* Character = Cast<AUTCharacter>(A);
 				if (Character != NULL)
 				{
-					if (!GetWorld()->LineTraceTestByChannel(Character->GetActorLocation(), Flag->GetActorLocation(), ECC_Pawn, FCollisionQueryParams(), WorldResponseParams))
+					if (!GetWorld()->LineTraceTestByChannel(Character->GetActorLocation(), Base->MyFlag->GetActorLocation(), ECC_Pawn, FCollisionQueryParams(), WorldResponseParams))
 					{
-						Flag->TryPickup(Character);
+						Base->MyFlag->TryPickup(Character);
 					}
 				}
 			}
@@ -814,19 +756,7 @@ void AUTCTFRoundGame::InitRound()
 		{
 			if (Base != NULL && Base->MyFlag)
 			{
-				AUTCarriedObject* Flag = Base->MyFlag;
-				Flag->bEnemyCanPickup = false;
-				Flag->bFriendlyCanPickup = false;
-				Flag->bTeamPickupSendsHome = false;
-				Flag->bEnemyPickupSendsHome = false;
-				if (bAsymmetricVictoryConditions && IsTeamOnOffense(Flag->GetTeamNum()))
-				{
-					Flag->SetActorHiddenInGame(true);
-					FFlagTrailPos NewPosition;
-					NewPosition.Location = Flag->GetHomeLocation();
-					NewPosition.MidPoints[0] = FVector(0.f);
-					Flag->PutGhostFlagAt(NewPosition);
-				}
+				InitDelayedFlag(Base->MyFlag);
 			}
 		}
 		FRGS->RemainingPickupDelay = FlagPickupDelay;
@@ -850,6 +780,17 @@ void AUTCTFRoundGame::InitRound()
 	for (AUTTeamInfo* Team : Teams)
 	{
 		Team->ReinitSquads();
+	}
+}
+
+void AUTCTFRoundGame::InitDelayedFlag(AUTCarriedObject* Flag)
+{
+	if (Flag != nullptr)
+	{
+		Flag->bEnemyCanPickup = false;
+		Flag->bFriendlyCanPickup = false;
+		Flag->bTeamPickupSendsHome = false;
+		Flag->bEnemyPickupSendsHome = false;
 	}
 }
 
@@ -929,7 +870,7 @@ void AUTCTFRoundGame::InitPlayerForRound(AUTPlayerState* PS)
 		}
 		else if (PS)
 		{
-			PS->RemainingLives = (!bAsymmetricVictoryConditions || (IsPlayerOnLifeLimitedTeam(PS))) ? RoundLives : 0;
+			PS->RemainingLives = IsPlayerOnLifeLimitedTeam(PS) ? RoundLives : 0;
 			PS->bHasLifeLimit = (PS->RemainingLives > 0);
 			PS->SetOutOfLives(false);
 		}
@@ -1285,13 +1226,24 @@ void AUTCTFRoundGame::ScoreBlueAlternateWin()
 *
 * @Comments
 */
+
+void AUTCTFRoundGame::AnnounceWin(AUTTeamInfo* WinningTeam, uint8 Reason)
+{
+	BroadcastLocalized(NULL, UUTShowdownGameMessage::StaticClass(), 3 + WinningTeam->TeamIndex);
+}
+
+int32 AUTCTFRoundGame::GetDefenseScore()
+{
+	return 1;
+}
+
 void AUTCTFRoundGame::ScoreAlternateWin(int32 WinningTeamIndex, uint8 Reason)
 {
 	FindAndMarkHighScorer();
 	AUTTeamInfo* WinningTeam = (Teams.Num() > WinningTeamIndex) ? Teams[WinningTeamIndex] : NULL;
 	if (WinningTeam)
 	{
-		WinningTeam->Score += IsTeamOnOffense(WinningTeamIndex) ? GetFlagCapScore() : DefenseScore;
+		WinningTeam->Score += IsTeamOnOffense(WinningTeamIndex) ? GetFlagCapScore() : GetDefenseScore();
 		if (CTFGameState)
 		{
 			for (int32 i = 0; i < Teams.Num(); i++)
@@ -1322,24 +1274,7 @@ void AUTCTFRoundGame::ScoreAlternateWin(int32 WinningTeamIndex, uint8 Reason)
 
 		WinningTeam->ForceNetUpdate();
 		LastTeamToScore = WinningTeam;
-		if (Reason == 0)
-		{
-			int32 BonusType = 100 + BronzeScore;
-			if (WinningTeam->RoundBonus > GoldBonusTime)
-			{
-				BonusType = 300 + GoldScore;
-			}
-			else if (WinningTeam->RoundBonus > SilverBonusTime)
-			{
-				BonusType = 200 + SilverScore;
-			}
-			BroadcastLocalized(this, UUTCTFRewardMessage::StaticClass(), BonusType, nullptr, nullptr, WinningTeam);
-		}
-		else
-		{
-			BroadcastLocalized(this, UUTCTFRewardMessage::StaticClass(), 400, nullptr, nullptr, WinningTeam);
-		}
-		BroadcastLocalized(NULL, UUTShowdownGameMessage::StaticClass(), 3 + WinningTeam->TeamIndex);
+		AnnounceWin(WinningTeam, Reason);
 		CheckForWinner(LastTeamToScore);
 		if (UTGameState->IsMatchInProgress())
 		{
@@ -1364,6 +1299,10 @@ void AUTCTFRoundGame::EndPlayerIntro()
 	BeginGame();
 }
 
+void AUTCTFRoundGame::CheckRoundTimeVictory()
+{
+}
+
 void AUTCTFRoundGame::CheckGameTime()
 {
 	AUTCTFRoundGameState* RCTFGameState = Cast<AUTCTFRoundGameState>(CTFGameState);
@@ -1381,30 +1320,7 @@ void AUTCTFRoundGame::CheckGameTime()
 	}
 	else if ((GetMatchState() == MatchState::InProgress) && TimeLimit > 0)
 	{
-		int32 RemainingTime = UTGameState ? UTGameState->GetRemainingTime() : 100;
-		if (RemainingTime <= 0)
-		{
-			// Round is over, defense wins.
-			AUTFlagRunGameState* FRGS = Cast<AUTFlagRunGameState>(CTFGameState);
-			ScoreAlternateWin((FRGS && FRGS->bRedToCap) ? 1 : 0, 1);
-		}
-		else
-		{
-			if (RCTFGameState)
-			{
-				uint8 OldBonusLevel = RCTFGameState->BonusLevel;
-				RCTFGameState->BonusLevel = (RemainingTime > GoldBonusTime) ? 3 : 2;
-				if (RemainingTime <= SilverBonusTime)
-				{
-					RCTFGameState->BonusLevel = 1;
-				}
-				if (OldBonusLevel != RCTFGameState->BonusLevel)
-				{
-					RCTFGameState->OnBonusLevelChanged();
-					RCTFGameState->ForceNetUpdate();
-				}
-			}
-		}
+		CheckRoundTimeVictory();
 	}
 	else
 	{

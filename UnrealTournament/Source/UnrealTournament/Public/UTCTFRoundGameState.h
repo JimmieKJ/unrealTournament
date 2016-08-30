@@ -35,16 +35,7 @@ class UNREALTOURNAMENT_API AUTCTFRoundGameState : public AUTCTFGameState
 		bool bUsePrototypePowerupSelect;
 
 	UPROPERTY(Replicated)
-		int32 GoldBonusThreshold;
-
-	UPROPERTY(Replicated)
-		int32 SilverBonusThreshold;
-
-	UPROPERTY(Replicated)
 		int32 RemainingPickupDelay;
-
-	UPROPERTY(ReplicatedUsing=OnBonusLevelChanged)
-		uint8 BonusLevel;
 
 	UPROPERTY(Replicated)
 		int32 FlagRunMessageSwitch;
@@ -55,28 +46,11 @@ class UNREALTOURNAMENT_API AUTCTFRoundGameState : public AUTCTFGameState
 	UPROPERTY(Replicated)
 		class AUTTeamInfo* FlagRunMessageTeam;
 
-	UPROPERTY()
-		FText GoldBonusText;
-
-	UPROPERTY()
-		FText SilverBonusText;
-
-	UPROPERTY()
-		FText BronzeBonusText;
-
-	UPROPERTY()
-		FText GoldBonusTimedText;
-
-	UPROPERTY()
-		FText SilverBonusTimedText;
-
 	UPROPERTY(Replicated)
 		bool bAllowBoosts;
 
-	UFUNCTION()
-	void OnBonusLevelChanged();
-
 	virtual FText GetGameStatusText(bool bForScoreboard) override;
+	virtual FText GetRoundStatusText(bool bForScoreboard);
 	virtual float GetIntermissionTime() override;
 	virtual void DefaultTimer() override;
 

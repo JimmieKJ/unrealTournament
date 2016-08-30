@@ -38,11 +38,11 @@
 #include "UTGameVolume.h"
 #include "UTTaunt.h"
 #include "Animation/AnimInstance.h"
+#include "UTFlagRunGameMessage.h"
 
 AUTFlagRunGame::AUTFlagRunGame(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
-	bAsymmetricVictoryConditions = true;
 	GoldBonusTime = 120;
 	SilverBonusTime = 60;
 	GoldScore = 3;
@@ -59,6 +59,170 @@ AUTFlagRunGame::AUTFlagRunGame(const FObjectInitializer& ObjectInitializer)
 
 	static ConstructorHelpers::FObjectFinder<UClass> AfterImageFinder(TEXT("Blueprint'/Game/RestrictedAssets/Weapons/Translocator/TransAfterImage.TransAfterImage_C'"));
 	AfterImageType = AfterImageFinder.Object;
+}
+
+int32 AUTFlagRunGame::GetFlagCapScore()
+{
+	int32 BonusTime = UTGameState->GetRemainingTime();
+	if (BonusTime >= GoldBonusTime)
+	{
+		return GoldScore;
+	}
+	if (BonusTime >= SilverBonusTime)
+	{
+		return SilverScore;
+	}
+	return BronzeScore;
+}
+
+void AUTFlagRunGame::AnnounceWin(AUTTeamInfo* WinningTeam, uint8 Reason)
+{
+	if (Reason == 0)
+	{
+		int32 BonusType = 100 + BronzeScore;
+		if (WinningTeam->RoundBonus > GoldBonusTime)
+		{
+			BonusType = 300 + GoldScore;
+		}
+		else if (WinningTeam->RoundBonus > SilverBonusTime)
+		{
+			BonusType = 200 + SilverScore;
+		}
+		BroadcastLocalized(this, UUTCTFRewardMessage::StaticClass(), BonusType, nullptr, nullptr, WinningTeam);
+	}
+	else
+	{
+		BroadcastLocalized(this, UUTCTFRewardMessage::StaticClass(), 400, nullptr, nullptr, WinningTeam);
+	}
+	BroadcastLocalized(NULL, UUTShowdownGameMessage::StaticClass(), 3 + WinningTeam->TeamIndex);
+}
+
+void AUTFlagRunGame::BroadcastCTFScore(APlayerState* ScoringPlayer, AUTTeamInfo* ScoringTeam, int32 OldScore)
+{
+	int32 BonusType = 100 + BronzeScore;
+	if (ScoringTeam->RoundBonus > GoldBonusTime)
+	{
+		BonusType = 300 + GoldScore;
+	}
+	else if (ScoringTeam->RoundBonus > SilverBonusTime)
+	{
+		BonusType = 200 + SilverScore;
+	}
+
+	BroadcastLocalized(this, UUTCTFRewardMessage::StaticClass(), BonusType, ScoringPlayer, NULL, ScoringTeam);
+	BroadcastLocalized(this, UUTCTFGameMessage::StaticClass(), 2, ScoringPlayer, NULL, ScoringTeam);
+}
+
+bool AUTFlagRunGame::AvoidPlayerStart(AUTPlayerStart* P)
+{
+	return P && P->bIgnoreInASymCTF;
+}
+
+int32 AUTFlagRunGame::GetDefenseScore()
+{
+	return DefenseScore;
+}
+
+void AUTFlagRunGame::CheckRoundTimeVictory()
+{
+	AUTFlagRunGameState* FRGS = Cast<AUTFlagRunGameState>(CTFGameState);
+	int32 RemainingTime = UTGameState ? UTGameState->GetRemainingTime() : 100;
+	if (RemainingTime <= 0)
+	{
+		// Round is over, defense wins.
+		ScoreAlternateWin((FRGS && FRGS->bRedToCap) ? 1 : 0, 1);
+	}
+	else
+	{
+		if (FRGS)
+		{
+			uint8 OldBonusLevel = FRGS->BonusLevel;
+			FRGS->BonusLevel = (RemainingTime > GoldBonusTime) ? 3 : 2;
+			if (RemainingTime <= SilverBonusTime)
+			{
+				FRGS->BonusLevel = 1;
+			}
+			if (OldBonusLevel != FRGS->BonusLevel)
+			{
+				FRGS->OnBonusLevelChanged();
+				FRGS->ForceNetUpdate();
+			}
+		}
+	}
+}
+
+void AUTFlagRunGame::InitGameState()
+{
+	Super::InitGameState();
+
+	AUTFlagRunGameState* RCTFGameState = Cast<AUTFlagRunGameState>(CTFGameState);
+	if (RCTFGameState)
+	{
+		RCTFGameState->GoldBonusThreshold = GoldBonusTime;
+		RCTFGameState->SilverBonusThreshold = SilverBonusTime;
+	}
+}
+
+void AUTFlagRunGame::InitDelayedFlag(AUTCarriedObject* Flag)
+{
+	Super::InitDelayedFlag(Flag);
+	if (Flag && IsTeamOnOffense(Flag->GetTeamNum()))
+	{
+		Flag->SetActorHiddenInGame(true);
+		FFlagTrailPos NewPosition;
+		NewPosition.Location = Flag->GetHomeLocation();
+		NewPosition.MidPoints[0] = FVector(0.f);
+		Flag->PutGhostFlagAt(NewPosition);
+	}
+}
+
+void AUTFlagRunGame::InitFlagForRound(AUTCarriedObject* Flag)
+{
+	if (Flag != nullptr)
+	{
+		Flag->AutoReturnTime = 8.f;
+		Flag->bGradualAutoReturn = true;
+		Flag->bDisplayHolderTrail = true;
+		Flag->bShouldPingFlag = true;
+		Flag->bSlowsMovement = bSlowFlagCarrier;
+		Flag->ClearGhostFlags();
+		Flag->bSendHomeOnScore = false;
+		if (IsTeamOnOffense(Flag->GetTeamNum()))
+		{
+			Flag->MessageClass = UUTFlagRunGameMessage::StaticClass();
+			Flag->SetActorHiddenInGame(false);
+			Flag->bEnemyCanPickup = !bCarryOwnFlag;
+			Flag->bFriendlyCanPickup = bCarryOwnFlag;
+			Flag->bTeamPickupSendsHome = !Flag->bFriendlyCanPickup && !bNoFlagReturn;
+			Flag->bEnemyPickupSendsHome = !Flag->bEnemyCanPickup && !bNoFlagReturn;
+		}
+		else
+		{
+			Flag->Destroy();
+		}
+	}
+}
+
+void AUTFlagRunGame::IntermissionSwapSides()
+{
+	// swap sides, if desired
+	AUTWorldSettings* Settings = Cast<AUTWorldSettings>(GetWorld()->GetWorldSettings());
+	if (Settings != NULL && Settings->bAllowSideSwitching)
+	{
+		CTFGameState->ChangeTeamSides(1);
+	}
+	else
+	{
+		// force update of flags since defender flag gets destroyed
+		for (AUTCTFFlagBase* Base : CTFGameState->FlagBases)
+		{
+			IUTTeamInterface* TeamObj = Cast<IUTTeamInterface>(Base);
+			if (TeamObj != NULL)
+			{
+				TeamObj->Execute_SetTeamForSideSwap(Base, Base->TeamNum);
+			}
+		}
+	}
 }
 
 void AUTFlagRunGame::InitFlags()

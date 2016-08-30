@@ -43,7 +43,6 @@ AUTGauntletGame::AUTGauntletGame(const FObjectInitializer& ObjectInitializer)
 	SquadType = AUTCTFSquadAI::StaticClass();
 	RoundLives=0;
 	bPerPlayerLives = false;
-	bAsymmetricVictoryConditions = false;
 	FlagSwapTime=10;
 	FlagPickupDelay=30;
 	MapPrefix = TEXT("CTF");

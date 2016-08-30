@@ -15,6 +15,12 @@ AUTFlagRunGameState::AUTFlagRunGameState(const FObjectInitializer& ObjectInitial
 	: Super(ObjectInitializer)
 {
 	bRedToCap = false;
+	GoldBonusText = NSLOCTEXT("FlagRun", "GoldBonusText", "\u2605 \u2605 \u2605");
+	SilverBonusText = NSLOCTEXT("FlagRun", "SilverBonusText", "\u2605 \u2605");
+	GoldBonusTimedText = NSLOCTEXT("FlagRun", "GoldBonusTimeText", "\u2605 \u2605 \u2605 {BonusTime}");
+	SilverBonusTimedText = NSLOCTEXT("FlagRun", "SilverBonusTimeText", "\u2605 \u2605 {BonusTime}");
+	BronzeBonusText = NSLOCTEXT("FlagRun", "BronzeBonusText", "\u2605");
+	BonusLevel = 3;
 }
 
 void AUTFlagRunGameState::BeginPlay()
@@ -29,6 +35,102 @@ void AUTFlagRunGameState::BeginPlay()
 
 	UpdateSelectablePowerups();
 	AddModeSpecificOverlays();
+}
+
+void AUTFlagRunGameState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & OutLifetimeProps) const
+{
+	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+
+	DOREPLIFETIME(AUTFlagRunGameState, bRedToCap);
+	DOREPLIFETIME(AUTFlagRunGameState, BonusLevel);
+	DOREPLIFETIME(AUTFlagRunGameState, GoldBonusThreshold);
+	DOREPLIFETIME(AUTFlagRunGameState, SilverBonusThreshold);
+}
+
+void AUTFlagRunGameState::OnBonusLevelChanged()
+{
+	if (BonusLevel < 3)
+	{
+		USoundBase* SoundToPlay = UUTCountDownMessage::StaticClass()->GetDefaultObject<UUTCountDownMessage>()->TimeEndingSound;
+		if (SoundToPlay != NULL)
+		{
+			for (FLocalPlayerIterator It(GEngine, GetWorld()); It; ++It)
+			{
+				AUTPlayerController* PC = Cast<AUTPlayerController>(It->PlayerController);
+				if (PC && PC->IsLocalPlayerController())
+				{
+					PC->UTClientPlaySound(SoundToPlay);
+				}
+			}
+		}
+	}
+}
+
+void AUTFlagRunGameState::UpdateTimeMessage()
+{
+	// bonus time countdowns
+	if (RemainingTime <= GoldBonusThreshold + 7)
+	{
+		if (RemainingTime > GoldBonusThreshold)
+		{
+			for (FLocalPlayerIterator It(GEngine, GetWorld()); It; ++It)
+			{
+				AUTPlayerController* PC = Cast<AUTPlayerController>(It->PlayerController);
+				if (PC != NULL)
+				{
+					PC->ClientReceiveLocalizedMessage(UUTCountDownMessage::StaticClass(), 4000 + RemainingTime - GoldBonusThreshold);
+				}
+			}
+		}
+		else if ((RemainingTime <= SilverBonusThreshold + 7) && (RemainingTime > SilverBonusThreshold))
+		{
+			for (FLocalPlayerIterator It(GEngine, GetWorld()); It; ++It)
+			{
+				AUTPlayerController* PC = Cast<AUTPlayerController>(It->PlayerController);
+				if (PC != NULL)
+				{
+					PC->ClientReceiveLocalizedMessage(UUTCountDownMessage::StaticClass(), 3000 + RemainingTime - SilverBonusThreshold);
+				}
+			}
+		}
+	}
+}
+
+FText AUTFlagRunGameState::GetRoundStatusText(bool bForScoreboard)
+{
+	if (bForScoreboard)
+	{
+		FFormatNamedArguments Args;
+		Args.Add("RoundNum", FText::AsNumber(CTFRound));
+		Args.Add("NumRounds", FText::AsNumber(NumRounds));
+		return (NumRounds > 0) ? FText::Format(FullRoundInProgressStatus, Args) : FText::Format(RoundInProgressStatus, Args);
+	}
+	else
+	{
+		if (BonusLevel == 3)
+		{
+			int32 RemainingBonus = FMath::Max(0, RemainingTime - GoldBonusThreshold);
+			if (RemainingBonus < 30)
+			{
+				FFormatNamedArguments Args;
+				Args.Add("BonusTime", FText::AsNumber(RemainingBonus));
+				return FText::Format(GoldBonusTimedText, Args);
+			}
+			return GoldBonusText;
+		}
+		else if (BonusLevel == 2)
+		{
+			int32 RemainingBonus = FMath::Max(0, RemainingTime - SilverBonusThreshold);
+			if (RemainingBonus < 30)
+			{
+				FFormatNamedArguments Args;
+				Args.Add("BonusTime", FText::AsNumber(RemainingBonus));
+				return FText::Format(SilverBonusTimedText, Args);
+			}
+			return SilverBonusText;
+		}
+		return BronzeBonusText;
+	}
 }
 
 void AUTFlagRunGameState::UpdateSelectablePowerups()
@@ -184,13 +286,6 @@ bool AUTFlagRunGameState::IsTeamAbleToEarnPowerup(int32 TeamNumber) const
 int AUTFlagRunGameState::GetKillsNeededForPowerup(int32 TeamNumber) const
 {
 	return IsTeamOnOffense(TeamNumber) ? (OffenseKillsNeededForPowerup - OffenseKills) : (DefenseKillsNeededForPowerup - DefenseKills);
-}
-
-void AUTFlagRunGameState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & OutLifetimeProps) const
-{
-	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
-
-	DOREPLIFETIME(AUTFlagRunGameState, bRedToCap);
 }
 
 void AUTFlagRunGameState::Tick(float DeltaTime)

@@ -13,6 +13,33 @@ class UNREALTOURNAMENT_API AUTFlagRunGameState : public AUTCTFRoundGameState
 	UPROPERTY(Replicated)
 		uint32 bRedToCap : 1;
 
+	UPROPERTY(Replicated)
+		int32 GoldBonusThreshold;
+
+	UPROPERTY(Replicated)
+		int32 SilverBonusThreshold;
+
+	UPROPERTY()
+		FText GoldBonusText;
+
+	UPROPERTY()
+		FText SilverBonusText;
+
+	UPROPERTY()
+		FText BronzeBonusText;
+
+	UPROPERTY()
+		FText GoldBonusTimedText;
+
+	UPROPERTY()
+		FText SilverBonusTimedText;
+
+	UPROPERTY(ReplicatedUsing = OnBonusLevelChanged)
+		uint8 BonusLevel;
+
+	UFUNCTION()
+		void OnBonusLevelChanged();
+
 	virtual void Tick(float DeltaTime) override;
 	virtual void BeginPlay() override;
 
@@ -45,7 +72,10 @@ class UNREALTOURNAMENT_API AUTFlagRunGameState : public AUTCTFRoundGameState
 	//Handles precaching all game announcement sounds for the local player
 	virtual void PrecacheAllPowerupAnnouncements(class UUTAnnouncer* Announcer) const;
 
+	virtual FText GetRoundStatusText(bool bForScoreboard) override;
+
 protected:
+	virtual void UpdateTimeMessage() override;
 
 	virtual void CachePowerupAnnouncement(class UUTAnnouncer* Announcer, TSubclassOf<AUTInventory> PowerupClass) const;
 

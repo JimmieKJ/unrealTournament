@@ -15,10 +15,6 @@ class UNREALTOURNAMENT_API AUTCTFRoundGame : public AUTCTFBaseGame
 	UPROPERTY(BlueprintReadWrite, Category = CTF)
 	int32 RoundLives;
 
-	/*  If true, one team wins round by cap, other team wins by kills */
-	UPROPERTY(BlueprintReadOnly, Category = CTF)
-		bool bAsymmetricVictoryConditions;
-
 	/*  If single flag in game */
 	UPROPERTY(BlueprintReadOnly, Category = CTF)
 		bool bOneFlagGameMode;
@@ -103,32 +99,13 @@ class UNREALTOURNAMENT_API AUTCTFRoundGame : public AUTCTFBaseGame
 		bool bShouldAllowPowerupSelection;
 
 	UPROPERTY()
-		int32 GoldBonusTime;
-
-	UPROPERTY()
-		int32 SilverBonusTime;
-
-	UPROPERTY()
-		int32 GoldScore;
-
-	UPROPERTY()
-		int32 SilverScore;
-
-	UPROPERTY()
-		int32 BronzeScore;
-
-	// Score for a successful defense
-	UPROPERTY()
-		int32 DefenseScore;
-
-	UPROPERTY()
 		AUTPlayerState* FlagScorer;
-
-	virtual int32 GetFlagCapScore() override;
 
 	virtual void InitFlags();
 	virtual void ResetFlags();
-
+	virtual void InitDelayedFlag(class AUTCarriedObject* Flag);
+	virtual void InitFlagForRound(class AUTCarriedObject* Flag);
+	virtual void IntermissionSwapSides();
 	virtual void FlagCountDown();
 	virtual void FlagsAreReady();
 
@@ -137,9 +114,14 @@ class UNREALTOURNAMENT_API AUTCTFRoundGame : public AUTCTFBaseGame
 
 	virtual void RemoveLosers(int32 LoserTeam, int32 FlagTeam);
 
+	virtual void AnnounceWin(AUTTeamInfo* WinningTeam, uint8 Reason);
+
+	virtual void CheckRoundTimeVictory();
+
+	virtual int32 GetDefenseScore();
+
 	virtual void BeginGame() override;
 	virtual void ScoreObject_Implementation(AUTCarriedObject* GameObject, AUTCharacter* HolderPawn, AUTPlayerState* Holder, FName Reason) override;
-	virtual void BroadcastCTFScore(APlayerState* ScoringPlayer, AUTTeamInfo* ScoringTeam, int32 OldScore = 0) override;
 	virtual void RestartPlayer(AController* aPlayer) override;
 	virtual void InitGame(const FString& MapName, const FString& Options, FString& ErrorMessage) override;
 	virtual bool CheckScore_Implementation(AUTPlayerState* Scorer);
@@ -149,7 +131,6 @@ class UNREALTOURNAMENT_API AUTCTFRoundGame : public AUTCTFBaseGame
 	virtual void HandleExitingIntermission() override;
 	virtual int32 IntermissionTeamToView(AUTPlayerController* PC) override;
 	virtual void CreateGameURLOptions(TArray<TSharedPtr<TAttributePropertyBase>>& MenuProps);
-	virtual bool AvoidPlayerStart(class AUTPlayerStart* P) override;
 	virtual void DiscardInventory(APawn* Other, AController* Killer) override;
 	virtual bool ChangeTeam(AController* Player, uint8 NewTeam, bool bBroadcast) override;
 	virtual void CheckGameTime() override;
@@ -159,6 +140,7 @@ class UNREALTOURNAMENT_API AUTCTFRoundGame : public AUTCTFBaseGame
 	virtual void AdjustLeaderHatFor(AUTCharacter* UTChar) override;
 	virtual bool SkipPlacement(AUTCharacter* UTChar) override;
 	virtual void EndPlayerIntro() override;
+	virtual void InitGameState() override;
 
 	virtual void EndTeamGame(AUTTeamInfo* Winner, FName Reason);
 

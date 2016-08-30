@@ -27,15 +27,45 @@ public:
 	UPROPERTY()
 		float LastEnemyRallyWarning;
 
+	UPROPERTY()
+		int32 GoldBonusTime;
+
+	UPROPERTY()
+		int32 SilverBonusTime;
+
+	UPROPERTY()
+		int32 GoldScore;
+
+	UPROPERTY()
+		int32 SilverScore;
+
+	UPROPERTY()
+		int32 BronzeScore;
+
+	// Score for a successful defense
+	UPROPERTY()
+		int32 DefenseScore;
+
 	FTimerHandle EnemyRallyWarningHandle;
 
 	virtual void WarnEnemyRally();
+
+	virtual void AnnounceWin(AUTTeamInfo* WinningTeam, uint8 Reason) override;
 
 	virtual float OverrideRespawnTime(TSubclassOf<AUTInventory> InventoryType) override;
 	virtual void HandleRallyRequest(AUTPlayerController* PC) override;
 	virtual void CompleteRallyRequest(AUTPlayerController* PC) override;
 	virtual bool CheckForWinner(AUTTeamInfo* ScoringTeam) override;
 	virtual int32 PickCheatWinTeam() override;
+	virtual bool AvoidPlayerStart(class AUTPlayerStart* P) override;
+	virtual void InitDelayedFlag(class AUTCarriedObject* Flag) override;
+	virtual void InitFlagForRound(class AUTCarriedObject* Flag) override;
+	virtual void IntermissionSwapSides() override;
+	virtual int32 GetFlagCapScore() override;
+	virtual int32 GetDefenseScore() override;
+	virtual void BroadcastCTFScore(APlayerState* ScoringPlayer, AUTTeamInfo* ScoringTeam, int32 OldScore = 0) override;
+	virtual void InitGameState() override;
+	virtual void CheckRoundTimeVictory() override;
 
 	virtual int32 GetComSwitch(FName CommandTag, AActor* ContextActor, AUTPlayerController* Instigator, UWorld* World);
 	virtual void InitFlags() override;

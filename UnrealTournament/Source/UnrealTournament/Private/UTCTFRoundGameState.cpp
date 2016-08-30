@@ -13,12 +13,6 @@
 AUTCTFRoundGameState::AUTCTFRoundGameState(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
-	GoldBonusText = NSLOCTEXT("FlagRun", "GoldBonusText", "\u2605 \u2605 \u2605");
-	SilverBonusText = NSLOCTEXT("FlagRun", "SilverBonusText", "\u2605 \u2605");
-	GoldBonusTimedText = NSLOCTEXT("FlagRun", "GoldBonusTimeText", "\u2605 \u2605 \u2605 {BonusTime}");
-	SilverBonusTimedText = NSLOCTEXT("FlagRun", "SilverBonusTimeText", "\u2605 \u2605 {BonusTime}");
-	BronzeBonusText = NSLOCTEXT("FlagRun", "BronzeBonusText", "\u2605");
-	BonusLevel = 3;
 	RemainingPickupDelay = 0;
 	FlagRunMessageSwitch = 0;
 	TiebreakValue = 0;
@@ -38,9 +32,6 @@ void AUTCTFRoundGameState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty 
 	DOREPLIFETIME(AUTCTFRoundGameState, bIsOffenseAbleToGainPowerup);
 	DOREPLIFETIME(AUTCTFRoundGameState, bAllowBoosts);
 	DOREPLIFETIME(AUTCTFRoundGameState, bUsePrototypePowerupSelect);
-	DOREPLIFETIME(AUTCTFRoundGameState, BonusLevel);
-	DOREPLIFETIME(AUTCTFRoundGameState, GoldBonusThreshold);
-	DOREPLIFETIME(AUTCTFRoundGameState, SilverBonusThreshold);
 	DOREPLIFETIME(AUTCTFRoundGameState, RemainingPickupDelay);
 	DOREPLIFETIME(AUTCTFRoundGameState, FlagRunMessageSwitch);
 	DOREPLIFETIME(AUTCTFRoundGameState, FlagRunMessageTeam);
@@ -62,32 +53,6 @@ void AUTCTFRoundGameState::DefaultTimer()
 
 void AUTCTFRoundGameState::UpdateTimeMessage()
 {
-	// bonus time countdowns
-	if (RemainingTime <= GoldBonusThreshold + 7)
-	{
-		if (RemainingTime > GoldBonusThreshold)
-		{
-			for (FLocalPlayerIterator It(GEngine, GetWorld()); It; ++It)
-			{
-				AUTPlayerController* PC = Cast<AUTPlayerController>(It->PlayerController);
-				if (PC != NULL)
-				{
-					PC->ClientReceiveLocalizedMessage(UUTCountDownMessage::StaticClass(), 4000 + RemainingTime - GoldBonusThreshold);
-				}
-			}
-		}
-		else if ((RemainingTime <= SilverBonusThreshold + 7) && (RemainingTime > SilverBonusThreshold))
-		{
-			for (FLocalPlayerIterator It(GEngine, GetWorld()); It; ++It)
-			{
-				AUTPlayerController* PC = Cast<AUTPlayerController>(It->PlayerController);
-				if (PC != NULL)
-				{
-					PC->ClientReceiveLocalizedMessage(UUTCountDownMessage::StaticClass(), 3000 + RemainingTime - SilverBonusThreshold);
-				}
-			}
-		}
-	}
 }
 
 float AUTCTFRoundGameState::GetIntermissionTime()
@@ -95,23 +60,12 @@ float AUTCTFRoundGameState::GetIntermissionTime()
 	return IntermissionTime;
 }
 
-void AUTCTFRoundGameState::OnBonusLevelChanged()
+FText AUTCTFRoundGameState::GetRoundStatusText(bool bForScoreboard)
 {
-	if (BonusLevel < 3)
-	{
-		USoundBase* SoundToPlay = UUTCountDownMessage::StaticClass()->GetDefaultObject<UUTCountDownMessage>()->TimeEndingSound;
-		if (SoundToPlay != NULL)
-		{
-			for (FLocalPlayerIterator It(GEngine, GetWorld()); It; ++It)
-			{
-				AUTPlayerController* PC = Cast<AUTPlayerController>(It->PlayerController);
-				if (PC && PC->IsLocalPlayerController())
-				{
-					PC->UTClientPlaySound(SoundToPlay);
-				}
-			}
-		}
-	}
+	FFormatNamedArguments Args;
+	Args.Add("RoundNum", FText::AsNumber(CTFRound));
+	Args.Add("NumRounds", FText::AsNumber(NumRounds));
+	return (NumRounds > 0) ? FText::Format(FullRoundInProgressStatus, Args) : FText::Format(RoundInProgressStatus, Args);
 }
 
 FText AUTCTFRoundGameState::GetGameStatusText(bool bForScoreboard)
@@ -126,39 +80,7 @@ FText AUTCTFRoundGameState::GetGameStatusText(bool bForScoreboard)
 	}
 	else if (CTFRound > 0)
 	{
-		if (bForScoreboard)
-		{
-			FFormatNamedArguments Args;
-			Args.Add("RoundNum", FText::AsNumber(CTFRound));
-			Args.Add("NumRounds", FText::AsNumber(NumRounds));
-			return (NumRounds > 0) ? FText::Format(FullRoundInProgressStatus, Args) : FText::Format(RoundInProgressStatus, Args);
-		}
-		else
-		{
-			if (BonusLevel == 3)
-			{
-				int32 RemainingBonus = FMath::Max(0,RemainingTime - GoldBonusThreshold);
-				if (RemainingBonus < 30)
-				{ 
-					FFormatNamedArguments Args;
-					Args.Add("BonusTime", FText::AsNumber(RemainingBonus));
-					return FText::Format(GoldBonusTimedText, Args);
-				}
-				return GoldBonusText;
-			}
-			else if (BonusLevel == 2)
-			{
-				int32 RemainingBonus = FMath::Max(0, RemainingTime - SilverBonusThreshold);
-				if (RemainingBonus < 30)
-				{
-					FFormatNamedArguments Args;
-					Args.Add("BonusTime", FText::AsNumber(RemainingBonus));
-					return FText::Format(SilverBonusTimedText, Args);
-				}
-				return SilverBonusText;
-			}
-			return BronzeBonusText;
-		}
+		return GetRoundStatusText(bForScoreboard);
 	}
 	else if (IsMatchIntermission())
 	{
