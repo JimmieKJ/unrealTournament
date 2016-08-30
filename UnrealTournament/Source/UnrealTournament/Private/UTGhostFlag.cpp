@@ -27,7 +27,7 @@ AUTGhostFlag::AUTGhostFlag(const FObjectInitializer& ObjectInitializer)
 	{
 		Mesh->AlwaysLoadOnClient = true;
 		Mesh->AlwaysLoadOnServer = true;
-		Mesh->AttachParent = RootComponent;
+		Mesh->SetupAttachment(RootComponent);
 		Mesh->SetHiddenInGame(false);
 	}
 
