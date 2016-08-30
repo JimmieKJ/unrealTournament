@@ -63,14 +63,14 @@ public class UnrealTournament : ModuleRules
 													"UnrealTournamentFullScreenMovie"
                                                     });
 
-        PrivateDependencyModuleNames.AddRange(new string[] { "Slate", "SlateCore", "Matinee", "FriendsAndChat", "Sockets", "Analytics", "AnalyticsET" });
+        PrivateDependencyModuleNames.AddRange(new string[] { "Slate", "SlateCore", "FriendsAndChat", "Sockets", "Analytics", "AnalyticsET" });
         if (Target.Type != TargetRules.TargetType.Server)
         {
             PublicDependencyModuleNames.AddRange(new string[] { "AppFramework", "RHI", "SlateRHIRenderer", "MoviePlayer" });
         }
         if (Target.Type == TargetRules.TargetType.Editor)
         {
-            PublicDependencyModuleNames.AddRange(new string[] { "UnrealEd", "SourceControl", "PropertyEditor", "ShaderCore" });
+            PublicDependencyModuleNames.AddRange(new string[] { "UnrealEd", "SourceControl", "Matinee", "PropertyEditor", "ShaderCore" });
         }
 
         CircularlyReferencedDependentModules.Add("BlueprintContext");
