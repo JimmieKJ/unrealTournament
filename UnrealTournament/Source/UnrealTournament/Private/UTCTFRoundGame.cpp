@@ -712,29 +712,32 @@ void AUTCTFRoundGame::HandleExitingIntermission()
 	CTFGameState->bStopGameClock = false;
 	RemoveAllPawns();
 
-	// swap sides, if desired
-	AUTWorldSettings* Settings = Cast<AUTWorldSettings>(GetWorld()->GetWorldSettings());
-	if (Settings != NULL && Settings->bAllowSideSwitching)
-	{
-		CTFGameState->ChangeTeamSides(1);
-	}
-	else if (bAsymmetricVictoryConditions)
-	{
-		// force update of flags since defender flag gets destroyed
-		for (AUTCTFFlagBase* Base : CTFGameState->FlagBases)
-		{
-			IUTTeamInterface* TeamObj = Cast<IUTTeamInterface>(Base);
-			if (TeamObj != NULL)
-			{
-				TeamObj->Execute_SetTeamForSideSwap(Base, Base->TeamNum);
-			}
-		}
-	}
-
 	if (!bFirstRoundInitialized)
 	{
 		CTFGameState->CTFRound = 0;
 	}
+	else
+	{
+		// swap sides, if desired
+		AUTWorldSettings* Settings = Cast<AUTWorldSettings>(GetWorld()->GetWorldSettings());
+		if (Settings != NULL && Settings->bAllowSideSwitching)
+		{
+			CTFGameState->ChangeTeamSides(1);
+		}
+		else if (bAsymmetricVictoryConditions)
+		{
+			// force update of flags since defender flag gets destroyed
+			for (AUTCTFFlagBase* Base : CTFGameState->FlagBases)
+			{
+				IUTTeamInterface* TeamObj = Cast<IUTTeamInterface>(Base);
+				if (TeamObj != NULL)
+				{
+					TeamObj->Execute_SetTeamForSideSwap(Base, Base->TeamNum);
+				}
+			}
+		}
+	}
+
 	InitRound();
 	if (!bFirstRoundInitialized)
 	{
