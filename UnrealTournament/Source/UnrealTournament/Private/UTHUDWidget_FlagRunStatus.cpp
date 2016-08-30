@@ -244,7 +244,7 @@ void UUTHUDWidget_FlagRunStatus::DrawFlagWorld(AUTCTFGameState* GameState, FVect
 		}
 
 		// draw line from hud to this loc - can't used Canvas line drawing code because it doesn't support translucency
-		FVector LineEndPoint(ScreenPosition.X+RenderPosition.X, ScreenPosition.Y+RenderPosition.Y, 0.f);
+		FVector LineEndPoint(DrawScreenPosition.X+RenderPosition.X, DrawScreenPosition.Y+RenderPosition.Y, 0.f);
 		FVector LineStartPoint(0.5f*Canvas->ClipX, 0.12f*Canvas->ClipY, 0.f);
 		FLinearColor LineColor = FlagIconTemplate.RenderColor;
 		LineColor.A = LineBrightness;
