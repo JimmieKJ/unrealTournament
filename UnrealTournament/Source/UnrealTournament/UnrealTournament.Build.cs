@@ -76,9 +76,7 @@ public class UnrealTournament : ModuleRules
         CircularlyReferencedDependentModules.Add("BlueprintContext");
 
         if (!IsLicenseeBuild())
-        {
-            // bCompileMcpOSS has become a dumping ground for the detection of external builders, this should get formalized into a real concept
-            
+        {            
             Definitions.Add("WITH_PROFILE=1");
             Definitions.Add("WITH_SOCIAL=1");
 
