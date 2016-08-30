@@ -89,12 +89,14 @@ public class FreeType2 : ModuleRules
 		}
         else if (Target.Platform == UnrealTargetPlatform.Linux)
         {
+            /*
             if (Target.Type == TargetRules.TargetType.Server)
             {
                 string Err = string.Format("{0} dedicated server is made to depend on {1}. We want to avoid this, please correct module dependencies.", Target.Platform.ToString(), this.ToString());
                 System.Console.WriteLine(Err);
                 throw new BuildException(Err);
             }
+            */
 
             PublicSystemIncludePaths.Add(FreeType2Path + "Include");
 
