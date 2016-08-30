@@ -169,7 +169,7 @@ public:
 	UPROPERTY(BlueprintReadWrite, Category = Flag)
 	bool bSingleGhostFlag;
 
-	virtual AUTGhostFlag* PutGhostFlagAt(FFlagTrailPos NewPosition, bool bShowTimer = false, bool bSuppressTails = false, uint8 TeamNum = 255);
+	virtual AUTGhostFlag* PutGhostFlagAt(FFlagTrailPos NewPosition, bool bShowTimer = true, bool bSuppressTrails = false, uint8 TeamNum = 255);
 
 	virtual void ClearGhostFlags();
 

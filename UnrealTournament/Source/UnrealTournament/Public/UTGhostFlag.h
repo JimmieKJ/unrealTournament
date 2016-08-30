@@ -14,7 +14,7 @@ struct FGhostMaster
 	AUTCarriedObject* MyCarriedObject;
 
 	UPROPERTY()
-	bool bSuppressTails;
+	bool bSuppressTrails;
 
 	UPROPERTY()
 	bool bShowTimer;
@@ -31,7 +31,7 @@ struct FGhostMaster
 	FGhostMaster()
 	{
 		bShowTimer = true;
-		bSuppressTails = false;
+		bSuppressTrails = false;
 		TeamNum = 255;
 	}
 };

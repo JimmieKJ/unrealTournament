@@ -703,7 +703,7 @@ void AUTCarriedObject::ClearGhostFlags()
 	MyGhostFlags.Empty();
 }
 
-AUTGhostFlag* AUTCarriedObject::PutGhostFlagAt(FFlagTrailPos NewPosition, bool bShowTimer, bool bSuppressTail, uint8 TeamNum)
+AUTGhostFlag* AUTCarriedObject::PutGhostFlagAt(FFlagTrailPos NewPosition, bool bShowTimer, bool bSuppressTrail, uint8 TeamNum)
 {
 	AUTGhostFlag* MyGhostFlag = nullptr;
 	if (GhostFlagClass && !IsPendingKillPending())
@@ -718,7 +718,7 @@ AUTGhostFlag* AUTCarriedObject::PutGhostFlagAt(FFlagTrailPos NewPosition, bool b
 		MyGhostFlag = GetWorld()->SpawnActor<AUTGhostFlag>(GhostFlagClass, NewPosition.Location, GetActorRotation(), Params);
 		if (MyGhostFlag != nullptr)
 		{
-			MyGhostFlag->GhostMaster.bSuppressTails = bSuppressTail;
+			MyGhostFlag->GhostMaster.bSuppressTrails = bSuppressTrail;
 			MyGhostFlag->GhostMaster.TeamNum = TeamNum;
 			MyGhostFlag->GhostMaster.bShowTimer = bShowTimer;
 			MyGhostFlag->SetCarriedObject(this, NewPosition);

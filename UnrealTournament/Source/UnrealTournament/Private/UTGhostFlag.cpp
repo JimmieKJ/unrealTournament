@@ -147,7 +147,7 @@ void AUTGhostFlag::OnSetCarriedObject()
 		}
 
 		// If we do not want tails on this ghost, just return here
-		if (GhostMaster.bSuppressTails) return;
+		if (GhostMaster.bSuppressTrails) return;
 
 		FActorSpawnParameters Params;
 		Params.Owner = this;
