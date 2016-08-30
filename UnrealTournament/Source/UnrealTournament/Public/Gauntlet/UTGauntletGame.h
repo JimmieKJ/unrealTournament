@@ -34,10 +34,6 @@ class UNREALTOURNAMENT_API AUTGauntletGame : public AUTCTFRoundGame
 		return 1;
 	}
 
-	virtual void HandlePowerupUnlocks(APawn* Other, AController* Killer) override {} // Short Circuit
-	virtual void UpdatePowerupUnlockProgress(AUTPlayerState* VictimPS, AUTPlayerState* KillerPS) override {} // Short Circuit
-	virtual void GrantPowerupToTeam(int TeamIndex, AUTPlayerState* PlayerToHighlight) override {} // Short Circuit
-
 	virtual void PreInitializeComponents() override;
 
 	virtual void FlagsAreReady();

@@ -56,9 +56,32 @@ AUTFlagRunGame::AUTFlagRunGame(const FObjectInitializer& ObjectInitializer)
 	LastEntryDefenseWarningTime = 0.f;
 	MapPrefix = TEXT("FR");
 	GameStateClass = AUTFlagRunGameState::StaticClass();
+	bAllowBoosts = false;
 
 	static ConstructorHelpers::FObjectFinder<UClass> AfterImageFinder(TEXT("Blueprint'/Game/RestrictedAssets/Weapons/Translocator/TransAfterImage.TransAfterImage_C'"));
 	AfterImageType = AfterImageFinder.Object;
+}
+
+void AUTFlagRunGame::InitGame(const FString& MapName, const FString& Options, FString& ErrorMessage)
+{
+	Super::InitGame(MapName, Options, ErrorMessage);
+
+	OffenseKillsNeededForPowerUp = FMath::Max(0, UGameplayStatics::GetIntOption(Options, TEXT("OffKillsForPowerup"), OffenseKillsNeededForPowerUp));
+	DefenseKillsNeededForPowerUp = FMath::Max(0, UGameplayStatics::GetIntOption(Options, TEXT("DefKillsForPowerup"), DefenseKillsNeededForPowerUp));
+
+	FString InOpt = UGameplayStatics::ParseOption(Options, TEXT("AllowPrototypePowerups"));
+	bAllowPrototypePowerups = EvalBoolOptions(InOpt, bAllowPrototypePowerups);
+
+	InOpt = UGameplayStatics::ParseOption(Options, TEXT("DelayRally"));
+	bDelayedRally = EvalBoolOptions(InOpt, bDelayedRally);
+
+	InOpt = UGameplayStatics::ParseOption(Options, TEXT("Boost"));
+	bAllowBoosts = EvalBoolOptions(InOpt, bAllowBoosts);
+	if (!bAllowBoosts)
+	{
+		OffenseKillsNeededForPowerUp = 1000;
+		DefenseKillsNeededForPowerUp = 1000;
+	}
 }
 
 int32 AUTFlagRunGame::GetFlagCapScore()
@@ -865,6 +888,116 @@ void AUTFlagRunGame::SetEloFor(AUTPlayerState* PS, bool bInRankedSession, int32 
 		if (bIncrementMatchCount && (PS->FlagRunMatchesPlayed < 255))
 		{
 			PS->FlagRunMatchesPlayed++;
+		}
+	}
+}
+
+void AUTFlagRunGame::GrantPowerupToTeam(int TeamIndex, AUTPlayerState* PlayerToHighlight)
+{
+	if (!bAllowBoosts)
+	{
+		return;
+	}
+	for (int32 i = 0; i < UTGameState->PlayerArray.Num(); i++)
+	{
+		AUTPlayerState* PS = Cast<AUTPlayerState>(UTGameState->PlayerArray[i]);
+		if (PS && PS->Team)
+		{
+			if (PS->Team->TeamIndex == TeamIndex)
+			{
+				if (PS->BoostClass && PS->BoostClass.GetDefaultObject() && PS->BoostClass.GetDefaultObject()->RemainingBoostsGivenOverride > 0)
+				{
+					PS->SetRemainingBoosts(PS->BoostClass.GetDefaultObject()->RemainingBoostsGivenOverride);
+				}
+				else
+				{
+					PS->SetRemainingBoosts(1);
+				}
+			}
+			AUTPlayerController* PC = Cast<AUTPlayerController>(PS->GetOwner());
+			if (PC)
+			{
+				if (PS->Team->TeamIndex == TeamIndex)
+				{
+					PC->ClientReceiveLocalizedMessage(UUTCTFRewardMessage::StaticClass(), 7, PlayerToHighlight);
+				}
+				else
+				{
+					PC->ClientReceiveLocalizedMessage(UUTCTFRoleMessage::StaticClass(), 7, PlayerToHighlight);
+				}
+			}
+		}
+	}
+}
+
+void AUTFlagRunGame::HandleTeamChange(AUTPlayerState* PS, AUTTeamInfo* OldTeam)
+{
+	// If a player doesn't have a valid selected boost powerup, lets go ahead and give them the 1st one available in the Powerup List
+	if (PS && UTGameState && bAllowBoosts)
+	{
+		if (!PS->BoostClass || !UTGameState->IsSelectedBoostValid(PS))
+		{
+			TSubclassOf<class AUTInventory> SelectedBoost = UTGameState->GetSelectableBoostByIndex(PS, 0);
+			PS->BoostClass = SelectedBoost;
+		}
+	}
+	Super::HandleTeamChange(PS, OldTeam);
+}
+
+void AUTFlagRunGame::ScoreKill_Implementation(AController* Killer, AController* Other, APawn* KilledPawn, TSubclassOf<UDamageType> DamageType)
+{
+	Super::ScoreKill_Implementation(Killer, Other, KilledPawn, DamageType);
+	HandlePowerupUnlocks(KilledPawn, Killer);
+}
+
+void AUTFlagRunGame::HandlePowerupUnlocks(APawn* Other, AController* Killer)
+{
+	AUTPlayerState* KillerPS = Killer ? Cast<AUTPlayerState>(Killer->PlayerState) : nullptr;
+	AUTPlayerState* VictimPS = Other ? Cast<AUTPlayerState>(Other->PlayerState) : nullptr;
+
+	UpdatePowerupUnlockProgress(VictimPS, KillerPS);
+
+	const int RedTeamIndex = 0;
+	const int BlueTeamIndex = 1;
+
+	AUTCTFRoundGameState* RCTFGameState = Cast<AUTCTFRoundGameState>(CTFGameState);
+	if (RCTFGameState)
+	{
+		if ((RCTFGameState->OffenseKills >= OffenseKillsNeededForPowerUp) && RCTFGameState->bIsOffenseAbleToGainPowerup)
+		{
+			RCTFGameState->OffenseKills = 0;
+
+			GrantPowerupToTeam(IsTeamOnOffense(RedTeamIndex) ? RedTeamIndex : BlueTeamIndex, KillerPS);
+			RCTFGameState->bIsOffenseAbleToGainPowerup = false;
+		}
+
+		if ((RCTFGameState->DefenseKills >= DefenseKillsNeededForPowerUp) && RCTFGameState->bIsDefenseAbleToGainPowerup)
+		{
+			RCTFGameState->DefenseKills = 0;
+
+			GrantPowerupToTeam(IsTeamOnDefense(RedTeamIndex) ? RedTeamIndex : BlueTeamIndex, KillerPS);
+			RCTFGameState->bIsDefenseAbleToGainPowerup = false;
+		}
+	}
+}
+
+void AUTFlagRunGame::UpdatePowerupUnlockProgress(AUTPlayerState* VictimPS, AUTPlayerState* KillerPS)
+{
+	AUTCTFRoundGameState* RCTFGameState = Cast<AUTCTFRoundGameState>(CTFGameState);
+
+	if (RCTFGameState && VictimPS && VictimPS->Team && KillerPS && KillerPS->Team)
+	{
+		//No credit for suicides
+		if (VictimPS->Team->TeamIndex != KillerPS->Team->TeamIndex)
+		{
+			if (IsTeamOnDefense(VictimPS->Team->TeamIndex))
+			{
+				++(RCTFGameState->OffenseKills);
+			}
+			else
+			{
+				++(RCTFGameState->DefenseKills);
+			}
 		}
 	}
 }

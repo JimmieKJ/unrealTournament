@@ -30,8 +30,6 @@ void AUTCTFRoundGameState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty 
 	DOREPLIFETIME(AUTCTFRoundGameState, DefenseKillsNeededForPowerup);
 	DOREPLIFETIME(AUTCTFRoundGameState, bIsDefenseAbleToGainPowerup);
 	DOREPLIFETIME(AUTCTFRoundGameState, bIsOffenseAbleToGainPowerup);
-	DOREPLIFETIME(AUTCTFRoundGameState, bAllowBoosts);
-	DOREPLIFETIME(AUTCTFRoundGameState, bUsePrototypePowerupSelect);
 	DOREPLIFETIME(AUTCTFRoundGameState, RemainingPickupDelay);
 	DOREPLIFETIME(AUTCTFRoundGameState, FlagRunMessageSwitch);
 	DOREPLIFETIME(AUTCTFRoundGameState, FlagRunMessageTeam);

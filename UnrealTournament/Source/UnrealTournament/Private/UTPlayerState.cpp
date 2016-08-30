@@ -3513,7 +3513,7 @@ void AUTPlayerState::OnUnlockList()
 bool AUTPlayerState::ServerSetBoostItem_Validate(int PowerupIndex) { return true; }
 void AUTPlayerState::ServerSetBoostItem_Implementation(int PowerupIndex)
 {
-	AUTCTFRoundGame* FlagRunGame = GetWorld()->GetAuthGameMode<AUTCTFRoundGame>();
+	AUTFlagRunGame* FlagRunGame = GetWorld()->GetAuthGameMode<AUTFlagRunGame>();
 	if (FlagRunGame && !FlagRunGame->bAllowBoosts)
 	{
 		BoostClass = nullptr;

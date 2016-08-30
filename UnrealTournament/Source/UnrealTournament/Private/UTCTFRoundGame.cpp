@@ -58,15 +58,12 @@ AUTCTFRoundGame::AUTCTFRoundGame(const FObjectInitializer& ObjectInitializer)
 	SquadType = AUTAsymCTFSquadAI::StaticClass();
 	NumRounds = 6;
 	bHideInUI = true;
-	bAllowBoosts = false;
 
 	bAttackerLivesLimited = false;
 	bDefenderLivesLimited = true;
 
 	OffenseKillsNeededForPowerUp = 10;
 	DefenseKillsNeededForPowerUp = 10;
-
-	bAllowPrototypePowerups = false;
 
 	InitialBoostCount = 0;
 	MaxTimeScoreBonus = 180;
@@ -137,25 +134,8 @@ void AUTCTFRoundGame::InitGame(const FString& MapName, const FString& Options, F
 
 	FlagPickupDelay = FMath::Max(1, UGameplayStatics::GetIntOption(Options, TEXT("FlagDelay"), FlagPickupDelay));
 
-	OffenseKillsNeededForPowerUp = FMath::Max(0, UGameplayStatics::GetIntOption(Options, TEXT("OffKillsForPowerup"), OffenseKillsNeededForPowerUp));
-	DefenseKillsNeededForPowerUp = FMath::Max(0, UGameplayStatics::GetIntOption(Options, TEXT("DefKillsForPowerup"), DefenseKillsNeededForPowerUp));
-
-	InOpt = UGameplayStatics::ParseOption(Options, TEXT("AllowPrototypePowerups"));
-	bAllowPrototypePowerups = EvalBoolOptions(InOpt, bAllowPrototypePowerups);
-
 	InOpt = UGameplayStatics::ParseOption(Options, TEXT("SlowFC"));
 	bSlowFlagCarrier = EvalBoolOptions(InOpt, bSlowFlagCarrier);
-
-	InOpt = UGameplayStatics::ParseOption(Options, TEXT("DelayRally"));
-	bDelayedRally = EvalBoolOptions(InOpt, bDelayedRally);
-
-	InOpt = UGameplayStatics::ParseOption(Options, TEXT("Boost"));
-	bAllowBoosts = EvalBoolOptions(InOpt, bAllowBoosts);
-	if (!bAllowBoosts)
-	{
-		OffenseKillsNeededForPowerUp = 1000;
-		DefenseKillsNeededForPowerUp = 1000;
-	}
 }
 
 void AUTCTFRoundGame::GiveDefaultInventory(APawn* PlayerPawn)
@@ -172,12 +152,6 @@ void AUTCTFRoundGame::GiveDefaultInventory(APawn* PlayerPawn)
 			UTCharacter->LeaderHatStatusChanged();
 		}
 	}
-}
-
-void AUTCTFRoundGame::DiscardInventory(APawn* Other, AController* Killer)
-{
-	HandlePowerupUnlocks(Other, Killer);
-	Super::DiscardInventory(Other, Killer);
 }
 
 bool AUTCTFRoundGame::SkipPlacement(AUTCharacter* UTChar)
@@ -877,6 +851,49 @@ void AUTCTFRoundGame::InitPlayerForRound(AUTPlayerState* PS)
 	}
 }
 
+void AUTCTFRoundGame::HandleTeamChange(AUTPlayerState* PS, AUTTeamInfo* OldTeam)
+{
+	if (PS && (bSitOutDuringRound || PS->Team))
+	{
+		PS->RemainingLives = 0;
+	}
+	if (PS->RemainingLives == 0)
+	{
+		PS->SetOutOfLives(true);
+		PS->ForceRespawnTime = 1.f;
+	}
+	if (UTGameState)
+	{
+		// verify that OldTeam and New team still have live players
+		AUTTeamInfo* NewTeam = PS->Team;
+		bool bOldTeamHasPlayers = false;
+		bool bNewTeamHasPlayers = false;
+		for (int32 i = 0; i < UTGameState->PlayerArray.Num(); i++)
+		{
+			AUTPlayerState* OtherPS = Cast<AUTPlayerState>(UTGameState->PlayerArray[i]);
+			if (OtherPS && !OtherPS->bOutOfLives && !OtherPS->bIsInactive)
+			{
+				if (OldTeam && (OtherPS->Team == OldTeam))
+				{
+					bOldTeamHasPlayers = true;
+				}
+				if (NewTeam && (OtherPS->Team == NewTeam))
+				{
+					bNewTeamHasPlayers = true;
+				}
+			}
+		}
+		if (!bOldTeamHasPlayers && OldTeam)
+		{
+			ScoreAlternateWin((OldTeam->TeamIndex == 0) ? 1 : 0);
+		}
+		else if (!bNewTeamHasPlayers && NewTeam)
+		{
+			ScoreAlternateWin((NewTeam->TeamIndex == 0) ? 1 : 0);
+		}
+	}
+}
+
 bool AUTCTFRoundGame::ChangeTeam(AController* Player, uint8 NewTeamIndex, bool bBroadcast)
 {
 	AUTPlayerState* PS = Cast<AUTPlayerState>(Player->PlayerState);
@@ -884,57 +901,7 @@ bool AUTCTFRoundGame::ChangeTeam(AController* Player, uint8 NewTeamIndex, bool b
 	bool bResult = Super::ChangeTeam(Player, NewTeamIndex, bBroadcast);
 	if (bResult && (GetMatchState() == MatchState::InProgress))
 	{
-		// If a player doesn't have a valid selected boost powerup, lets go ahead and give them the 1st one available in the Powerup List
-		if (PS && UTGameState && bAllowBoosts)
-		{
-			if (!PS->BoostClass || !UTGameState->IsSelectedBoostValid(PS))
-			{
-				TSubclassOf<class AUTInventory> SelectedBoost = UTGameState->GetSelectableBoostByIndex(PS, 0);
-				PS->BoostClass = SelectedBoost;
-			}
-		}
-
-		if (PS && (bSitOutDuringRound || PS->Team) )
-		{
-			PS->RemainingLives = 0;
-		}
-		if (PS->RemainingLives == 0)
-		{ 
-			PS->SetOutOfLives(true);
-			PS->ForceRespawnTime = 1.f;
-		}
-		if (UTGameState)
-		{
-			// verify that OldTeam and New team still have live players
-			AUTTeamInfo* NewTeam = PS->Team;
-			bool bOldTeamHasPlayers = false;
-			bool bNewTeamHasPlayers = false;
-			for (int32 i = 0; i < UTGameState->PlayerArray.Num(); i++)
-			{
-				AUTPlayerState* OtherPS = Cast<AUTPlayerState>(UTGameState->PlayerArray[i]);
-				if (OtherPS && !OtherPS->bOutOfLives && !OtherPS->bIsInactive)
-				{
-					if (OldTeam && (OtherPS->Team == OldTeam))
-					{
-						bOldTeamHasPlayers = true;
-					}
-					if (NewTeam && (OtherPS->Team == NewTeam))
-					{
-						bNewTeamHasPlayers = true;
-					}
-				}
-			}
-			if (!bOldTeamHasPlayers && OldTeam)
-			{
-				ScoreAlternateWin((OldTeam->TeamIndex == 0) ? 1 : 0);
-				return bResult;
-			}
-			if (!bNewTeamHasPlayers && NewTeam)
-			{
-				ScoreAlternateWin((NewTeam->TeamIndex == 0) ? 1 : 0);
-				return bResult;
-			}
-		}
+		HandleTeamChange(PS, OldTeam);
 	}
 	return bResult;
 }
@@ -1349,92 +1316,3 @@ bool AUTCTFRoundGame::IsPlayerOnLifeLimitedTeam(AUTPlayerState* PlayerState) con
 	return IsTeamOnOffense(PlayerState->Team->TeamIndex) ? bAttackerLivesLimited : bDefenderLivesLimited;
 }
 
-void AUTCTFRoundGame::HandlePowerupUnlocks(APawn* Other, AController* Killer)
-{
-	AUTPlayerState* KillerPS = Killer ? Cast<AUTPlayerState>(Killer->PlayerState) : nullptr;
-	AUTPlayerState* VictimPS = Other ? Cast<AUTPlayerState>(Other->PlayerState) : nullptr;
-
-	UpdatePowerupUnlockProgress(VictimPS, KillerPS);
-
-	const int RedTeamIndex = 0;
-	const int BlueTeamIndex = 1;
-	
-	AUTCTFRoundGameState* RCTFGameState = Cast<AUTCTFRoundGameState>(CTFGameState);
-	if (RCTFGameState)
-	{
-		if ((RCTFGameState->OffenseKills >= OffenseKillsNeededForPowerUp) && RCTFGameState->bIsOffenseAbleToGainPowerup)
-		{
-			RCTFGameState->OffenseKills = 0;
-
-			GrantPowerupToTeam(IsTeamOnOffense(RedTeamIndex) ? RedTeamIndex : BlueTeamIndex, KillerPS);
-			RCTFGameState->bIsOffenseAbleToGainPowerup = false;
-		}
-
-		if ((RCTFGameState->DefenseKills >= DefenseKillsNeededForPowerUp) && RCTFGameState->bIsDefenseAbleToGainPowerup)
-		{
-			RCTFGameState->DefenseKills = 0;
-
-			GrantPowerupToTeam(IsTeamOnDefense(RedTeamIndex) ? RedTeamIndex : BlueTeamIndex, KillerPS);
-			RCTFGameState->bIsDefenseAbleToGainPowerup = false;
-		}
-	}
-}
-
-void AUTCTFRoundGame::UpdatePowerupUnlockProgress(AUTPlayerState* VictimPS, AUTPlayerState* KillerPS)
-{
-	AUTCTFRoundGameState* RCTFGameState = Cast<AUTCTFRoundGameState>(CTFGameState);
-
-	if (RCTFGameState && VictimPS && VictimPS->Team && KillerPS && KillerPS->Team)
-	{
-		//No credit for suicides
-		if (VictimPS->Team->TeamIndex != KillerPS->Team->TeamIndex)
-		{
-			if (IsTeamOnDefense(VictimPS->Team->TeamIndex))
-			{
-				++(RCTFGameState->OffenseKills);
-			}
-			else
-			{
-				++(RCTFGameState->DefenseKills);
-			}
-		}
-	}
-}
-
-void AUTCTFRoundGame::GrantPowerupToTeam(int TeamIndex, AUTPlayerState* PlayerToHighlight)
-{
-	if (!bAllowBoosts)
-	{
-		return;
-	}
-	for (int32 i = 0; i < UTGameState->PlayerArray.Num(); i++)
-	{
-		AUTPlayerState* PS = Cast<AUTPlayerState>(UTGameState->PlayerArray[i]);
-		if (PS && PS->Team)
-		{
-			if (PS->Team->TeamIndex == TeamIndex)
-			{
-				if (PS->BoostClass && PS->BoostClass.GetDefaultObject() && PS->BoostClass.GetDefaultObject()->RemainingBoostsGivenOverride > 0)
-				{
-					PS->SetRemainingBoosts(PS->BoostClass.GetDefaultObject()->RemainingBoostsGivenOverride);
-				}
-				else
-				{
-					PS->SetRemainingBoosts(1);
-				}
-			}
-			AUTPlayerController* PC = Cast<AUTPlayerController>(PS->GetOwner());
-			if (PC)
-			{
-				if (PS->Team->TeamIndex == TeamIndex)
-				{
-					PC->ClientReceiveLocalizedMessage(UUTCTFRewardMessage::StaticClass(), 7, PlayerToHighlight);
-				}
-				else
-				{
-					PC->ClientReceiveLocalizedMessage(UUTCTFRoleMessage::StaticClass(), 7, PlayerToHighlight);
-				}
-			}
-		}
-	}
-}

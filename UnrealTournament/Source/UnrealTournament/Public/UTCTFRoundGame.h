@@ -120,6 +120,8 @@ class UNREALTOURNAMENT_API AUTCTFRoundGame : public AUTCTFBaseGame
 
 	virtual int32 GetDefenseScore();
 
+	virtual void HandleTeamChange(AUTPlayerState* PS, AUTTeamInfo* OldTeam);
+
 	virtual void BeginGame() override;
 	virtual void ScoreObject_Implementation(AUTCarriedObject* GameObject, AUTCharacter* HolderPawn, AUTPlayerState* Holder, FName Reason) override;
 	virtual void RestartPlayer(AController* aPlayer) override;
@@ -131,7 +133,6 @@ class UNREALTOURNAMENT_API AUTCTFRoundGame : public AUTCTFBaseGame
 	virtual void HandleExitingIntermission() override;
 	virtual int32 IntermissionTeamToView(AUTPlayerController* PC) override;
 	virtual void CreateGameURLOptions(TArray<TSharedPtr<TAttributePropertyBase>>& MenuProps);
-	virtual void DiscardInventory(APawn* Other, AController* Killer) override;
 	virtual bool ChangeTeam(AController* Player, uint8 NewTeam, bool bBroadcast) override;
 	virtual void CheckGameTime() override;
 	virtual void HandleMatchIntermission() override;
@@ -172,22 +173,12 @@ class UNREALTOURNAMENT_API AUTCTFRoundGame : public AUTCTFBaseGame
 
 	virtual void GiveDefaultInventory(APawn* PlayerPawn) override;
 
-	UPROPERTY()
-		bool bAllowPrototypePowerups;
-
-	UPROPERTY()
-		bool bAllowBoosts;
-
 	virtual void PostLogin(APlayerController* NewPlayer) override;
 
 protected:
 	virtual bool IsTeamOnOffense(int32 TeamNumber) const;
 	virtual bool IsTeamOnDefense(int32 TeamNumber) const;
 	virtual bool IsPlayerOnLifeLimitedTeam(AUTPlayerState* PlayerState) const;
-
-	virtual void HandlePowerupUnlocks(APawn* Other, AController* Killer);
-	virtual void UpdatePowerupUnlockProgress(AUTPlayerState* VictimPS, AUTPlayerState* KillerPS);
-	virtual void GrantPowerupToTeam(int TeamIndex, AUTPlayerState* PlayerToHighlight);
 
 	UPROPERTY()
 	int32 InitialBoostCount;

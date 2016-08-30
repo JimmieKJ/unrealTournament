@@ -46,12 +46,19 @@ public:
 	UPROPERTY()
 		int32 DefenseScore;
 
+	UPROPERTY()
+		bool bAllowPrototypePowerups;
+
+	UPROPERTY()
+		bool bAllowBoosts;
+
 	FTimerHandle EnemyRallyWarningHandle;
 
 	virtual void WarnEnemyRally();
 
 	virtual void AnnounceWin(AUTTeamInfo* WinningTeam, uint8 Reason) override;
 
+	virtual void InitGame(const FString& MapName, const FString& Options, FString& ErrorMessage) override;
 	virtual float OverrideRespawnTime(TSubclassOf<AUTInventory> InventoryType) override;
 	virtual void HandleRallyRequest(AUTPlayerController* PC) override;
 	virtual void CompleteRallyRequest(AUTPlayerController* PC) override;
@@ -66,6 +73,8 @@ public:
 	virtual void BroadcastCTFScore(APlayerState* ScoringPlayer, AUTTeamInfo* ScoringTeam, int32 OldScore = 0) override;
 	virtual void InitGameState() override;
 	virtual void CheckRoundTimeVictory() override;
+	virtual void ScoreKill_Implementation(AController* Killer, AController* Other, APawn* KilledPawn, TSubclassOf<UDamageType> DamageType) override;
+	virtual void HandleTeamChange(AUTPlayerState* PS, AUTTeamInfo* OldTeam) override;
 
 	virtual int32 GetComSwitch(FName CommandTag, AActor* ContextActor, AUTPlayerController* Instigator, UWorld* World);
 	virtual void InitFlags() override;
@@ -78,5 +87,11 @@ public:
 	virtual uint8 GetNumMatchesFor(AUTPlayerState* PS, bool bRankedSession) const override;
 	virtual int32 GetEloFor(AUTPlayerState* PS, bool bRankedSession) const override;
 	virtual void SetEloFor(AUTPlayerState* PS, bool bRankedSession, int32 NewELoValue, bool bIncrementMatchCount) override;
+
+protected:
+
+	virtual void HandlePowerupUnlocks(APawn* Other, AController* Killer);
+	virtual void UpdatePowerupUnlockProgress(AUTPlayerState* VictimPS, AUTPlayerState* KillerPS);
+	virtual void GrantPowerupToTeam(int TeamIndex, AUTPlayerState* PlayerToHighlight);
 };
 

@@ -1,6 +1,6 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #include "UnrealTournament.h"
-#include "UTCTFRoundGame.h"
+#include "UTFlagRunGame.h"
 #include "UTFlagRunGameState.h"
 #include "UTCTFGameMode.h"
 #include "UTPowerupSelectorUserWidget.h"
@@ -21,16 +21,17 @@ AUTFlagRunGameState::AUTFlagRunGameState(const FObjectInitializer& ObjectInitial
 	SilverBonusTimedText = NSLOCTEXT("FlagRun", "SilverBonusTimeText", "\u2605 \u2605 {BonusTime}");
 	BronzeBonusText = NSLOCTEXT("FlagRun", "BronzeBonusText", "\u2605");
 	BonusLevel = 3;
+	bUsePrototypePowerupSelect = false;
 }
 
 void AUTFlagRunGameState::BeginPlay()
 {
 	Super::BeginPlay();
 
-	if (GetWorld() && GetWorld()->GetAuthGameMode<AUTCTFRoundGame>())
+	if (GetWorld() && GetWorld()->GetAuthGameMode<AUTFlagRunGame>())
 	{
-		bUsePrototypePowerupSelect = GetWorld()->GetAuthGameMode<AUTCTFRoundGame>()->bAllowPrototypePowerups;
-		bAllowBoosts = GetWorld()->GetAuthGameMode<AUTCTFRoundGame>()->bAllowBoosts;
+		bUsePrototypePowerupSelect = GetWorld()->GetAuthGameMode<AUTFlagRunGame>()->bAllowPrototypePowerups;
+		bAllowBoosts = GetWorld()->GetAuthGameMode<AUTFlagRunGame>()->bAllowBoosts;
 	}
 
 	UpdateSelectablePowerups();
@@ -45,6 +46,8 @@ void AUTFlagRunGameState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty >
 	DOREPLIFETIME(AUTFlagRunGameState, BonusLevel);
 	DOREPLIFETIME(AUTFlagRunGameState, GoldBonusThreshold);
 	DOREPLIFETIME(AUTFlagRunGameState, SilverBonusThreshold);
+	DOREPLIFETIME(AUTFlagRunGameState, bAllowBoosts);
+	DOREPLIFETIME(AUTFlagRunGameState, bUsePrototypePowerupSelect);
 }
 
 void AUTFlagRunGameState::OnBonusLevelChanged()
