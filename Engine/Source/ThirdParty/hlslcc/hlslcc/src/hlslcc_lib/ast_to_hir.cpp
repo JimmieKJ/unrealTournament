@@ -4450,7 +4450,7 @@ ir_rvalue * ast_switch_statement::hir(exec_list *instructions, struct _mesa_glsl
 {
 	void *ctx = state;
 
-	ir_rvalue *const test_expression =
+	ir_rvalue* test_expression =
 		this->test_expression->hir(instructions, state);
 
 	/* From page 66 (page 55 of the PDF) of the GLSL 1.50 spec:
@@ -4461,14 +4461,41 @@ ir_rvalue * ast_switch_statement::hir(exec_list *instructions, struct _mesa_glsl
 	* The checks are separated so that higher quality diagnostics can be
 	* generated for cases where the rule is violated.
 	*/
+    if (!test_expression->type->is_scalar())
+    {
+        YYLTYPE loc = this->test_expression->get_location();
+        
+        _mesa_glsl_error(&loc,
+                         state,
+                         "switch-statement expression must be scalar type");
+    }
+    
 	if (!test_expression->type->is_integer())
 	{
 		YYLTYPE loc = this->test_expression->get_location();
 
-		_mesa_glsl_error(&loc,
+		_mesa_glsl_warning(&loc,
 			state,
-			"switch-statement expression must be scalar "
-			"integer");
+			"switch-statement expression should be scalar "
+			"integer - casts may not function correctly on non-HLSL platforms");
+        
+        switch(test_expression->type->base_type)
+        {
+            case GLSL_TYPE_FLOAT:
+                test_expression = new(ctx)ir_expression(ir_unop_f2i, test_expression);
+                break;
+            case GLSL_TYPE_HALF:
+                test_expression = new(ctx)ir_expression(ir_unop_h2i, test_expression);
+                break;
+            case GLSL_TYPE_BOOL:
+                test_expression = new(ctx)ir_expression(ir_unop_b2i, test_expression);
+                break;
+            default:
+                _mesa_glsl_error(&loc,
+                                   state,
+                                   "switch-statement expression must be numeric type");
+                break;
+        }
 	}
 
 	/* Track the switch-statement nesting in a stack-like manner.
