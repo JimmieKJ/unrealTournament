@@ -940,10 +940,11 @@ void AUTGameState::StopFPSCharts()
 			MapName = GetLevel()->OwningWorld->GetMapName();
 		}
 
+		const bool bIsClient = GetNetMode() == NM_Client;
 		GEngine->StopFPSChart();
-		GEngine->DumpFPSChartAnalytics(MapName, ParamArray, true);
-	
-		if (GetNetMode() == NM_Client)
+		GEngine->DumpFPSChartAnalytics(MapName, ParamArray, bIsClient);
+
+		if (bIsClient)
 		{
 			AUTPlayerController* UTPC = Cast<AUTPlayerController>(GetWorld()->GetFirstPlayerController());
 			if (UTPC)
