@@ -1,7 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #include "UnrealTournament.h"
 #include "UTFlagRunScoreboard.h"
-#include "UTCTFRoundGameState.h"
+#include "UTFlagRunGameState.h"
 #include "UTCTFScoring.h"
 #include "UTFlagRunMessage.h"
 #include "StatNames.h"
@@ -32,7 +32,7 @@ void UUTFlagRunScoreboard::DrawScoreHeaders(float RenderDelta, float& YOffset)
 		{
 			DrawText(CH_Kills, XOffset + (ScaledCellWidth * ColumnHeaderScoreX), YOffset + ColumnHeaderY, UTHUDOwner->TinyFont, RenderScale, 1.0f, FLinearColor::Black, ETextHorzPos::Center, ETextVertPos::Center);
 			DrawText(CH_Powerup, XOffset + (ScaledCellWidth * 0.5f * (ColumnHeaderPowerupX + ColumnHeaderPowerupEndX)), YOffset + ColumnHeaderY, UTHUDOwner->TinyFont, RenderScale, 1.0f, FLinearColor::Black, ETextHorzPos::Center, ETextVertPos::Center);
-			AUTCTFGameState* CTFState = Cast<AUTCTFGameState>(UTGameState);
+			AUTFlagRunGameState* CTFState = Cast<AUTFlagRunGameState>(UTGameState);
 			if (CTFState && ((CTFState->bRedToCap == (i==0)) ? CTFState->bAttackerLivesLimited : CTFState->bDefenderLivesLimited))
 			{
 				DrawText(NSLOCTEXT("UTScoreboard", "LivesRemaining", "Lives"), XOffset + (ScaledCellWidth * 0.5f*(ColumnHeaderPowerupX + ColumnHeaderPingX)), YOffset + ColumnHeaderY, UTHUDOwner->TinyFont, RenderScale, 1.0f, FLinearColor::Black, ETextHorzPos::Center, ETextVertPos::Center);
@@ -70,7 +70,7 @@ void UUTFlagRunScoreboard::DrawPlayerScore(AUTPlayerState* PlayerState, float XO
 			const float TextureSize = (Width * (ColumnHeaderPowerupEndX - ColumnHeaderPowerupX));
 
 			//Draw a Red Dash if they have used their powerup, or an icon if they have not yet used it
-			AUTCTFRoundGameState* RCTFGameState = Cast<AUTCTFRoundGameState>(CTFState);
+			AUTFlagRunGameState* RCTFGameState = Cast<AUTFlagRunGameState>(CTFState);
 			if (RCTFGameState)
 			{
 				const bool bIsAbleToEarnMorePowerups = (RCTFGameState->IsTeamOnOffense(PlayerState->GetTeamNum()) ? RCTFGameState->bIsOffenseAbleToGainPowerup : RCTFGameState->bIsDefenseAbleToGainPowerup);				

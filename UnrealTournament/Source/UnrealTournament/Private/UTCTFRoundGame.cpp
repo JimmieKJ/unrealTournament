@@ -34,6 +34,7 @@
 #include "Runtime/Analytics/Analytics/Public/Analytics.h"
 #include "Runtime/Analytics/Analytics/Public/Interfaces/IAnalyticsProvider.h"
 #include "UTFlagRunGameMessage.h"
+#include "UTFlagRunGameState.h"
 
 AUTCTFRoundGame::AUTCTFRoundGame(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -304,11 +305,12 @@ void AUTCTFRoundGame::HandleMatchIntermission()
 		{
 			Base->ClearDefenseEffect();
 		}
+		AUTFlagRunGameState* FRGS = Cast<AUTFlagRunGameState>(CTFGameState);
 
-		RemoveLosers(1 - TeamToWatch, bRedToCap ? 0 : 1);
+		RemoveLosers(1 - TeamToWatch, (FRGS && FRGS->bRedToCap) ? 0 : 1);
 
 		// place winners around defender base
-		PlacePlayersAroundFlagBase(TeamToWatch, bRedToCap ? 1 : 0);
+		PlacePlayersAroundFlagBase(TeamToWatch, (FRGS && FRGS->bRedToCap) ? 1 : 0);
 
 		// Tell the controllers to look at defender base
 		for (FConstControllerIterator Iterator = GetWorld()->GetControllerIterator(); Iterator; ++Iterator)
@@ -317,7 +319,7 @@ void AUTCTFRoundGame::HandleMatchIntermission()
 			if (PC != NULL)
 			{
 				PC->ClientHalftime();
-				PC->SetViewTarget(CTFGameState->FlagBases[bRedToCap ? 1 : 0]);
+				PC->SetViewTarget(CTFGameState->FlagBases[(FRGS && FRGS->bRedToCap) ? 1 : 0]);
 			}
 		}
 	}
@@ -395,12 +397,6 @@ bool AUTCTFRoundGame::CheckScore_Implementation(AUTPlayerState* Scorer)
 	return true;
 }
 
-int32 AUTCTFRoundGame::PickCheatWinTeam()
-{
-	bool bPickRedTeam = bAsymmetricVictoryConditions ? bRedToCap : (FMath::FRand() < 0.5f);
-	return bPickRedTeam ? 0 : 1;
-}
-
 void AUTCTFRoundGame::PlayEndOfMatchMessage()
 {
 	if (UTGameState && UTGameState->WinningTeam)
@@ -426,88 +422,6 @@ void AUTCTFRoundGame::PlayEndOfMatchMessage()
 			}
 		}
 	}
-}
-
-bool AUTCTFRoundGame::CheckForWinner(AUTTeamInfo* ScoringTeam)
-{
-	if (ScoringTeam && CTFGameState && (CTFGameState->CTFRound >= NumRounds) && (CTFGameState->CTFRound % 2 == 0))
-	{
-		AUTTeamInfo* BestTeam = ScoringTeam;
-		bool bHaveTie = false;
-
-		// Check if team with highest score has reached goal score
-		for (AUTTeamInfo* Team : Teams)
-		{
-			if (Team->Score > BestTeam->Score)
-			{
-				BestTeam = Team;
-				bHaveTie = false;
-				bSecondaryWin = false;
-			}
-			else if ((Team != BestTeam) && (Team->Score == BestTeam->Score))
-			{
-				bHaveTie = true;
-				AUTCTFRoundGameState* GS = Cast<AUTCTFRoundGameState>(UTGameState);
-				if (GS && (GS->TiebreakValue != 0))
-				{
-					BestTeam = (GS->TiebreakValue > 0) ? Teams[0] : Teams[1];
-					bHaveTie = false;
-					bSecondaryWin = true;
-				}
-			}
-		}
-		if (!bHaveTie)
-		{
-			EndTeamGame(BestTeam, FName(TEXT("scorelimit")));
-			return true;
-		}
-	}
-
-	// Check if a team has an insurmountable lead
-	// current implementation assumes 6 rounds and 2 teams
-	if (CTFGameState && (CTFGameState->CTFRound >= NumRounds - 2) && Teams[0] && Teams[1])
-	{
-		AUTCTFRoundGameState* GS = Cast<AUTCTFRoundGameState>(UTGameState);
-		bSecondaryWin = false;
-		if ((CTFGameState->CTFRound == NumRounds - 2) && (FMath::Abs(Teams[0]->Score - Teams[1]->Score) > DefenseScore + GoldScore))
-		{
-			AUTTeamInfo* BestTeam = (Teams[0]->Score > Teams[1]->Score) ? Teams[0] : Teams[1];
-			EndTeamGame(BestTeam, FName(TEXT("scorelimit")));
-			return true;
-		}
-		if (CTFGameState->CTFRound == NumRounds - 1)
-		{
-			if (bRedToCap)
-			{
-				// next round is blue cap
-				if (Teams[0]->Score > Teams[1]->Score + GoldScore)
-				{
-					EndTeamGame(Teams[0], FName(TEXT("scorelimit")));
-					return true;
-				}
-				if ((Teams[1]->Score > Teams[0]->Score + DefenseScore) || ((Teams[1]->Score == Teams[0]->Score + DefenseScore) && (GS->TiebreakValue < 0)))
-				{
-					EndTeamGame(Teams[1], FName(TEXT("scorelimit")));
-					return true;
-				}
-			}
-			else
-			{
-				// next round is red cap
-				if ((Teams[0]->Score > Teams[1]->Score + DefenseScore) || ((Teams[0]->Score == Teams[1]->Score + DefenseScore) && (GS->TiebreakValue > 0)))
-				{
-					EndTeamGame(Teams[0], FName(TEXT("scorelimit")));
-					return true;
-				}
-				if (Teams[1]->Score > Teams[0]->Score + GoldScore)
-				{
-					EndTeamGame(Teams[1], FName(TEXT("scorelimit")));
-					return true;
-				}
-			}
-		}
-	}
-	return false;
 }
 
 void AUTCTFRoundGame::EndTeamGame(AUTTeamInfo* Winner, FName Reason)
@@ -548,9 +462,10 @@ void AUTCTFRoundGame::EndTeamGame(AUTTeamInfo* Winner, FName Reason)
 
 	// SETENDGAMEFOCUS
 	EndMatch();
-	RemoveLosers(1 - Winner->TeamIndex, bRedToCap ? 0 : 1);
-	PlacePlayersAroundFlagBase(Winner->TeamIndex, bRedToCap ? 1 : 0);
-	AUTCTFFlagBase* WinningBase = CTFGameState->FlagBases[bRedToCap ? 1 : 0];
+	AUTFlagRunGameState* FRGS = Cast<AUTFlagRunGameState>(CTFGameState);
+	RemoveLosers(1 - Winner->TeamIndex, (FRGS && FRGS->bRedToCap) ? 0 : 1);
+	PlacePlayersAroundFlagBase(Winner->TeamIndex, (FRGS && FRGS->bRedToCap) ? 1 : 0);
+	AUTCTFFlagBase* WinningBase = CTFGameState->FlagBases[(FRGS && FRGS->bRedToCap) ? 1 : 0];
 	for (FConstControllerIterator Iterator = GetWorld()->GetControllerIterator(); Iterator; ++Iterator)
 	{
 		AUTPlayerController* Controller = Cast<AUTPlayerController>(*Iterator);
@@ -865,7 +780,7 @@ void AUTCTFRoundGame::InitRound()
 	bFirstBloodOccurred = false;
 	bLastManOccurred = false;
 	bNeedFiveKillsMessage = true;
-	AUTCTFRoundGameState* RCTFGameState = Cast<AUTCTFRoundGameState>(CTFGameState);
+	AUTFlagRunGameState* FRGS = Cast<AUTFlagRunGameState>(CTFGameState);
 	if (CTFGameState)
 	{
 		CTFGameState->CTFRound++;
@@ -880,19 +795,17 @@ void AUTCTFRoundGame::InitRound()
 			CTFGameState->BlueLivesRemaining += CTFGameState->FlagBases[1] ? CTFGameState->FlagBases[0]->RoundLivesAdjustment : 0;
 		}
 
-		if (RCTFGameState)
+		if (FRGS)
 		{
-			RCTFGameState->OffenseKills = 0;
-			RCTFGameState->DefenseKills = 0;
-			RCTFGameState->OffenseKillsNeededForPowerup = OffenseKillsNeededForPowerUp;
-			RCTFGameState->DefenseKillsNeededForPowerup = DefenseKillsNeededForPowerUp;
-			RCTFGameState->bIsOffenseAbleToGainPowerup = true;
-			RCTFGameState->bIsDefenseAbleToGainPowerup = true;
+			FRGS->OffenseKills = 0;
+			FRGS->DefenseKills = 0;
+			FRGS->OffenseKillsNeededForPowerup = OffenseKillsNeededForPowerUp;
+			FRGS->DefenseKillsNeededForPowerup = DefenseKillsNeededForPowerUp;
+			FRGS->bIsOffenseAbleToGainPowerup = true;
+			FRGS->bIsDefenseAbleToGainPowerup = true;
+			FRGS->bRedToCap = !FRGS->bRedToCap;
 		}
 	}
-
-	bRedToCap = !bRedToCap;
-	CTFGameState->bRedToCap = bRedToCap;
 
 	ResetFlags();
 	if (FlagPickupDelay > 0)
@@ -916,7 +829,7 @@ void AUTCTFRoundGame::InitRound()
 				}
 			}
 		}
-		RCTFGameState->RemainingPickupDelay = FlagPickupDelay;
+		FRGS->RemainingPickupDelay = FlagPickupDelay;
 		FTimerHandle TempHandle;
 		GetWorldTimerManager().SetTimer(TempHandle, this, &AUTCTFRoundGame::FlagCountDown, 1.f*GetActorTimeDilation(), false);
 	}
@@ -938,6 +851,43 @@ void AUTCTFRoundGame::InitRound()
 	{
 		Team->ReinitSquads();
 	}
+}
+
+bool AUTCTFRoundGame::CheckForWinner(AUTTeamInfo* ScoringTeam)
+{
+	if (ScoringTeam && CTFGameState && (CTFGameState->CTFRound >= NumRounds) && (CTFGameState->CTFRound % 2 == 0))
+	{
+		AUTTeamInfo* BestTeam = ScoringTeam;
+		bool bHaveTie = false;
+
+		// Check if team with highest score has reached goal score
+		for (AUTTeamInfo* Team : Teams)
+		{
+			if (Team->Score > BestTeam->Score)
+			{
+				BestTeam = Team;
+				bHaveTie = false;
+				bSecondaryWin = false;
+			}
+			else if ((Team != BestTeam) && (Team->Score == BestTeam->Score))
+			{
+				bHaveTie = true;
+				AUTCTFRoundGameState* GS = Cast<AUTCTFRoundGameState>(UTGameState);
+				if (GS && (GS->TiebreakValue != 0))
+				{
+					BestTeam = (GS->TiebreakValue > 0) ? Teams[0] : Teams[1];
+					bHaveTie = false;
+					bSecondaryWin = true;
+				}
+			}
+		}
+		if (!bHaveTie)
+		{
+			EndTeamGame(BestTeam, FName(TEXT("scorelimit")));
+			return true;
+		}
+	}
+	return false;
 }
 
 void AUTCTFRoundGame::ResetFlags()
@@ -1435,7 +1385,8 @@ void AUTCTFRoundGame::CheckGameTime()
 		if (RemainingTime <= 0)
 		{
 			// Round is over, defense wins.
-			ScoreAlternateWin(bRedToCap ? 1 : 0, 1);
+			AUTFlagRunGameState* FRGS = Cast<AUTFlagRunGameState>(CTFGameState);
+			ScoreAlternateWin((FRGS && FRGS->bRedToCap) ? 1 : 0, 1);
 		}
 		else
 		{
@@ -1463,7 +1414,8 @@ void AUTCTFRoundGame::CheckGameTime()
 
 bool AUTCTFRoundGame::IsTeamOnOffense(int32 TeamNumber) const
 {
-	return (bRedToCap == (TeamNumber == 0));
+	AUTFlagRunGameState* FRGS = Cast<AUTFlagRunGameState>(CTFGameState);
+	return FRGS && (FRGS->bRedToCap == (TeamNumber == 0));
 }
 
 bool AUTCTFRoundGame::IsTeamOnDefense(int32 TeamNumber) const

@@ -2,6 +2,7 @@
 #include "UnrealTournament.h"
 #include "UTCTFRoundGameState.h"
 #include "UTHUDWidget_FlagRunStatus.h"
+#include "UTFlagRunGameState.h"
 
 UUTHUDWidget_FlagRunStatus::UUTHUDWidget_FlagRunStatus(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -30,8 +31,9 @@ void UUTHUDWidget_FlagRunStatus::DrawIndicators(AUTCTFGameState* GameState, FVec
 	if (GameState)
 	{
 		uint8 OwnerTeam = UTHUDOwner->UTPlayerOwner->GetTeamNum();
-		uint8 OffensiveTeam = GameState->bRedToCap ? 0 : 1;
-		uint8 DefensiveTeam = GameState->bRedToCap ? 1 : 0;
+		AUTFlagRunGameState* FRGS = Cast<AUTFlagRunGameState>(GameState);
+		uint8 OffensiveTeam = (FRGS && FRGS->bRedToCap) ? 0 : 1;
+		uint8 DefensiveTeam = (FRGS && FRGS->bRedToCap) ? 1 : 0;
 
 		if (GameState->FlagBases.IsValidIndex(OffensiveTeam) && GameState->FlagBases[OffensiveTeam] != nullptr)
 		{

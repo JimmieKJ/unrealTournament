@@ -46,6 +46,7 @@
 #include "UTHeartbeatManager.h"
 #include "QoSInterface.h"
 #include "UTGameObjective.h"
+#include "UTFlagRunGameState.h"
 
 static TAutoConsoleVariable<float> CVarUTKillcamStartDelay(
 	TEXT("UT.KillcamStartDelay"),
@@ -5024,7 +5025,7 @@ void AUTPlayerController::DumpMapVote()
 
 bool AUTPlayerController::CanPerformRally()
 {
-	AUTCTFGameState* GameState = GetWorld()->GetGameState<AUTCTFGameState>();
+	AUTFlagRunGameState* GameState = GetWorld()->GetGameState<AUTFlagRunGameState>();
 
 	if (GameState && UTPlayerState)
 	{

@@ -2,7 +2,7 @@
 #include "UnrealTournament.h"
 #include "UTFlagRunHUD.h"
 #include "UTCTFGameState.h"
-#include "UTCTFRoundGameState.h"
+#include "UTFlagRunGameState.h"
 #include "UTCTFGameMode.h"
 #include "UTCTFScoreboard.h"
 #include "Slate/UIWindows/SUTPowerupSelectWindow.h"
@@ -39,7 +39,7 @@ void AUTFlagRunHUD::DrawHUD()
 {
 	Super::DrawHUD();
 
-	AUTCTFGameState* GS = GetWorld()->GetGameState<AUTCTFGameState>();
+	AUTFlagRunGameState* GS = GetWorld()->GetGameState<AUTFlagRunGameState>();
 	bShowScoresWhileDead = bShowScoresWhileDead && GS && GS->IsMatchInProgress() && !GS->IsMatchIntermission() && UTPlayerOwner && !UTPlayerOwner->GetPawn() && !UTPlayerOwner->IsInState(NAME_Spectating);
 	bool bScoreboardIsUp = bShowScores || bForceScores || bShowScoresWhileDead;
 	if (!bScoreboardIsUp && GS && GS->GetMatchState() == MatchState::InProgress && GS->bOneFlagGameMode)
@@ -141,7 +141,7 @@ void AUTFlagRunHUD::DrawHUD()
 void AUTFlagRunHUD::HandlePowerups()
 {
 #if !UE_SERVER
-	AUTCTFRoundGameState* GS = GetWorld()->GetGameState<AUTCTFRoundGameState>();
+	AUTFlagRunGameState* GS = GetWorld()->GetGameState<AUTFlagRunGameState>();
 
 	AUTPlayerState* UTPS = Cast<AUTPlayerState>(UTPlayerOwner->PlayerState);
 
@@ -228,7 +228,7 @@ void AUTFlagRunHUD::OpenPowerupSelectMenu()
 	if (UTPS)
 	{
 		// say offense/defense and select your powerup
-		AUTCTFRoundGameState* GS = GetWorld()->GetGameState<AUTCTFRoundGameState>();
+		AUTFlagRunGameState* GS = GetWorld()->GetGameState<AUTFlagRunGameState>();
 		if (GS && UTPS->Team)
 		{
 			UTPlayerOwner->ClientReceiveLocalizedMessage(UUTCTFRoleMessage::StaticClass(), (GS->bRedToCap == (UTPS->Team->TeamIndex == 0)) ? 2 : 1);

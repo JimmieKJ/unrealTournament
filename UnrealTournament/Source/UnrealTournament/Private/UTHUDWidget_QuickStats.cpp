@@ -6,7 +6,7 @@
 #include "UTPlaceablePowerup.h"
 #include "UTWeapon.h"
 #include "UTTimedPowerup.h"
-#include "UTCTFRoundGameState.h"
+#include "UTFlagRunGameState.h"
 #include "UTCTFMajorMessage.h"
 
 const float BOUNCE_SCALE = 1.6f;			
@@ -317,7 +317,7 @@ void UUTHUDWidget_QuickStats::PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCa
 					BoostProvidedPowerupInfo.Value = 0.0f;
 /*
 					//Show countdown to power up
-					AUTCTFRoundGameState* RoundGameState = GetWorld()->GetGameState<AUTCTFRoundGameState>();
+					AUTFlagRunGameState* RoundGameState = GetWorld()->GetGameState<AUTFlagRunGameState>();
 					if (RoundGameState != NULL && RoundGameState->IsTeamAbleToEarnPowerup(UTPlayerState->GetTeamNum()))
 					{
 						BoostProvidedPowerupInfo.Label = FText::FromString(FString::Printf(TEXT("Kill: %i"), RoundGameState->GetKillsNeededForPowerup(UTPlayerState->GetTeamNum())));
@@ -334,7 +334,7 @@ void UUTHUDWidget_QuickStats::PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCa
 		}
 
 		bool bPlayerCanRally = UTHUDOwner->UTPlayerOwner->CanPerformRally();
-		AUTCTFGameState* GameState = GetWorld()->GetGameState<AUTCTFGameState>();
+		AUTFlagRunGameState* GameState = GetWorld()->GetGameState<AUTFlagRunGameState>();
 		bool bShowTimer = !bPlayerCanRally && !UTPlayerState->CarriedObject && UTPlayerState->Team && GameState && GameState->bAttackersCanRally && ((UTPlayerState->Team->TeamIndex == 0) == GameState->bRedToCap) && (UTPlayerState->CarriedObject == nullptr) && CharOwner && CharOwner->bCanRally && (UTPlayerState->RemainingRallyDelay > 0);
 		bShowTimer = bShowTimer && (GameState->GetRemainingTime() < 270);
 		if (UTPlayerState->CarriedObject != nullptr || bPlayerCanRally || bShowTimer)

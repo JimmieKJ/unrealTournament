@@ -4,7 +4,7 @@
 #include "UTLocalMessage.h"
 #include "UTPowerupUseMessage.h"
 #include "GameFramework/LocalMessage.h"
-#include "UTCTFRoundGameState.h"
+#include "UTFlagRunGameState.h"
 
 UUTPowerupUseMessage::UUTPowerupUseMessage(const class FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -62,7 +62,7 @@ void UUTPowerupUseMessage::PrecacheAnnouncements_Implementation(class UUTAnnounc
 {
 	if (Announcer && Announcer->GetWorld())
 	{
-		AUTCTFRoundGameState* UTGS = Cast<AUTCTFRoundGameState>(Announcer->GetWorld()->GetGameState());
+		AUTFlagRunGameState* UTGS = Cast<AUTFlagRunGameState>(Announcer->GetWorld()->GetGameState());
 		if (UTGS)
 		{
 			UTGS->PrecacheAllPowerupAnnouncements(Announcer);

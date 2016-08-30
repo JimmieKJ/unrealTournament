@@ -34,6 +34,8 @@ public:
 	virtual float OverrideRespawnTime(TSubclassOf<AUTInventory> InventoryType) override;
 	virtual void HandleRallyRequest(AUTPlayerController* PC) override;
 	virtual void CompleteRallyRequest(AUTPlayerController* PC) override;
+	virtual bool CheckForWinner(AUTTeamInfo* ScoringTeam) override;
+	virtual int32 PickCheatWinTeam() override;
 
 	virtual int32 GetComSwitch(FName CommandTag, AActor* ContextActor, AUTPlayerController* Instigator, UWorld* World);
 	virtual void InitFlags() override;

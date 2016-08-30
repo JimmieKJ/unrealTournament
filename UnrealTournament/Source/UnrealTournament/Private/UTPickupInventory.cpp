@@ -5,7 +5,7 @@
 #include "UnrealNetwork.h"
 #include "UTPickupMessage.h"
 #include "UTWorldSettings.h"
-#include "UTCTFGameState.h"
+#include "UTFlagRunGameState.h"
 
 AUTPickupInventory::AUTPickupInventory(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -401,11 +401,11 @@ void AUTPickupInventory::PlaySpawnVoiceLine()
 		bool bHasPlayedForBlue = false;
 
 		// maybe don't announce for one team
-		AUTCTFGameState* CTFGameState = GetWorld()->GetGameState<AUTCTFGameState>();
-		if (CTFGameState)
+		AUTFlagRunGameState* FRGameState = GetWorld()->GetGameState<AUTFlagRunGameState>();
+		if (FRGameState)
 		{
-			bHasPlayedForRed = CTFGameState->bRedToCap ? !bNotifySpawnForOffense : !bNotifySpawnForDefense;
-			bHasPlayedForBlue = CTFGameState->bRedToCap ? !bNotifySpawnForDefense : !bNotifySpawnForOffense;
+			bHasPlayedForRed = FRGameState->bRedToCap ? !bNotifySpawnForOffense : !bNotifySpawnForDefense;
+			bHasPlayedForBlue = FRGameState->bRedToCap ? !bNotifySpawnForDefense : !bNotifySpawnForOffense;
 			if (bHasPlayedForRed && bHasPlayedForBlue)
 			{
 				return;

@@ -16,7 +16,6 @@ AUTCTFGameState::AUTCTFGameState(const FObjectInitializer& ObjectInitializer)
 	HalftimeScoreDelay = 3.5f;
 	GoalScoreText = NSLOCTEXT("UTScoreboard", "CTFGoalScoreFormat", "First to {0} Caps");
 	bOneFlagGameMode = false;
-	bRedToCap = false;
 
 	GameScoreStats.Add(NAME_RegularKillPoints);
 	GameScoreStats.Add(NAME_FCKills);
@@ -110,67 +109,10 @@ void AUTCTFGameState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & O
 	DOREPLIFETIME(AUTCTFGameState, RedLivesRemaining);
 	DOREPLIFETIME(AUTCTFGameState, BlueLivesRemaining);
 	DOREPLIFETIME(AUTCTFGameState, bOneFlagGameMode);
-	DOREPLIFETIME(AUTCTFGameState, bRedToCap);
 	DOREPLIFETIME(AUTCTFGameState, bAttackerLivesLimited);
 	DOREPLIFETIME(AUTCTFGameState, bDefenderLivesLimited);
 	DOREPLIFETIME(AUTCTFGameState, NumRounds);
 	DOREPLIFETIME(AUTCTFGameState, bAttackersCanRally);
-}
-
-void AUTCTFGameState::Tick(float DeltaTime)
-{
-	Super::Tick(DeltaTime);
-	if (bAllowRallies && (Role == ROLE_Authority))
-	{
-		uint8 OffensiveTeam = bRedToCap ? 0 : 1;
-		if (FlagBases.IsValidIndex(OffensiveTeam) && FlagBases[OffensiveTeam] != nullptr)
-		{
-			AUTCTFFlag* Flag = Cast<AUTCTFFlag>(FlagBases[OffensiveTeam]->GetCarriedObject());
-			AUTGameVolume* GV = Flag && Flag->HoldingPawn && Flag->HoldingPawn->UTCharacterMovement ? Cast<AUTGameVolume>(Flag->HoldingPawn->UTCharacterMovement->GetPhysicsVolume()) : nullptr;
-			bool bInFlagRoom = GV && (GV->bIsNoRallyZone || GV->bIsTeamSafeVolume);
-			bHaveEstablishedFlagRunner = (!bInFlagRoom && Flag && Flag->Holder && Flag->HoldingPawn && (GetWorld()->GetTimeSeconds() - Flag->PickedUpTime > 3.f));
-			bool bFlagCarrierPinged = Flag && Flag->Holder && Flag->HoldingPawn && (GetWorld()->GetTimeSeconds() - FMath::Max(Flag->HoldingPawn->LastTargetingTime, Flag->HoldingPawn->LastTargetedTime) < 3.f);
-			bAttackersCanRally = bHaveEstablishedFlagRunner;
-			if (bAttackersCanRally && (!bFlagCarrierPinged || (GetWorld()->GetTimeSeconds() - LastOffenseRallyTime < 0.4f)))
-			{
-				if ((GetWorld()->GetTimeSeconds() - LastRallyCompleteTime > 20.f) && (GetWorld()->GetTimeSeconds() - FMath::Max(Flag->PickedUpTime, LastNoRallyTime) > 12.f) && Cast<AUTPlayerController>(Flag->HoldingPawn->GetController()))
-				{
-					// check for rally complete
-					int32 RemainingToRally = 0;
-					int32 AlreadyRallied = 0;
-					for (int32 i = 0; i < PlayerArray.Num() - 1; i++)
-					{
-						AUTPlayerState* PS = Cast<AUTPlayerState>(PlayerArray[i]);
-						if (PS && (PS != Flag->Holder) && (PS->Team == Flag->Holder->Team))
-						{
-							if (PS->NextRallyTime > GetWorld()->GetTimeSeconds() + 12.f)
-							{
-								AlreadyRallied++;
-							}
-							else if ((PS->NextRallyTime < GetWorld()->GetTimeSeconds() + 4.f) && (!PS->GetUTCharacter() || (PS->GetUTCharacter()->bCanRally && ((PS->GetUTCharacter()->GetActorLocation() - Flag->HoldingPawn->GetActorLocation()).Size() > 3500.f))))
-							{
-								RemainingToRally++;
-							}
-						}
-					}
-					if ((RemainingToRally == 0) && (AlreadyRallied > 0))
-					{
-						LastRallyCompleteTime = GetWorld()->GetTimeSeconds();
-						Cast<AUTPlayerController>(Flag->HoldingPawn->GetController())->ClientReceiveLocalizedMessage(UUTCTFMajorMessage::StaticClass(), 25);
-					}
-				}
-				if (!bFlagCarrierPinged)
-				{
-					LastOffenseRallyTime = GetWorld()->GetTimeSeconds();
-				}
-			}
-			else
-			{
-				bAttackersCanRally = false;
-				LastNoRallyTime = GetWorld()->GetTimeSeconds();
-			}
-		}
-	}
 }
 
 bool AUTCTFGameState::AllowMinimapFor(AUTPlayerState* PS)
@@ -592,43 +534,6 @@ void AUTCTFGameState::AddMinorHighlights_Implementation(AUTPlayerState* PS)
 		if (PS->MatchHighlights[3] != NAME_None)
 		{
 			return;
-		}
-	}
-}
-
-void AUTCTFGameState::GetImportantFlag(int32 TeamNum, TArray<AUTCTFFlag*>& ImportantFlags)
-{
-	if (bOneFlagGameMode)
-	{
-		uint8 DesiredTeamNum = bRedToCap ? 0 : 1;
-		if ( FlagBases.IsValidIndex(DesiredTeamNum))
-		{
-			AUTCTFFlag* Flag = Cast<AUTCTFFlag>(FlagBases[DesiredTeamNum]->GetCarriedObject());
-			if (Flag) ImportantFlags.Add(Flag);
-		}
-	}
-}
-
-void AUTCTFGameState::GetImportantFlagBase(int32 TeamNum, TArray<AUTCTFFlagBase*>& ImportantBases)
-{
-	if (bOneFlagGameMode)
-	{
-		if (FlagBases.Num() == 2 && FlagBases[0] && FlagBases[1])
-		{
-			uint8 OffensiveTeamNum = bRedToCap ? 0 : 1;
-			AUTCTFFlag* OffensiveFlag = Cast<AUTCTFFlag>(FlagBases[OffensiveTeamNum]->GetCarriedObject());
-			if (OffensiveFlag)
-			{
-				if (OffensiveFlag->ObjectState == CarriedObjectState::Home)
-				{
-					ImportantBases.Add(FlagBases[0]);
-					ImportantBases.Add(FlagBases[1]);
-				}
-				else
-				{
-					ImportantBases.Add(GetFlagBase(1-OffensiveTeamNum));
-				}
-			}			
 		}
 	}
 }

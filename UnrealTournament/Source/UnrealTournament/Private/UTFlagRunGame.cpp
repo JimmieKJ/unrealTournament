@@ -27,7 +27,7 @@
 #include "UTPlayerState.h"
 #include "UTFlagRunHUD.h"
 #include "UTGhostFlag.h"
-#include "UTCTFRoundGameState.h"
+#include "UTFlagRunGameState.h"
 #include "UTAsymCTFSquadAI.h"
 #include "UTWeaponRedirector.h"
 #include "UTWeaponLocker.h"
@@ -55,6 +55,7 @@ AUTFlagRunGame::AUTFlagRunGame(const FObjectInitializer& ObjectInitializer)
 	bAllowPickupAnnouncements = true;
 	LastEntryDefenseWarningTime = 0.f;
 	MapPrefix = TEXT("FR");
+	GameStateClass = AUTFlagRunGameState::StaticClass();
 
 	static ConstructorHelpers::FObjectFinder<UClass> AfterImageFinder(TEXT("Blueprint'/Game/RestrictedAssets/Weapons/Translocator/TransAfterImage.TransAfterImage_C'"));
 	AfterImageType = AfterImageFinder.Object;
@@ -70,6 +71,66 @@ void AUTFlagRunGame::InitFlags()
 			Base->Capsule->SetCapsuleSize(160.f, 134.0f);
 		}
 	}
+}
+
+int32 AUTFlagRunGame::PickCheatWinTeam()
+{
+	AUTFlagRunGameState* FRGS = Cast<AUTFlagRunGameState>(CTFGameState);
+	return (FRGS && FRGS->bRedToCap) ? 0 : 1;
+}
+
+bool AUTFlagRunGame::CheckForWinner(AUTTeamInfo* ScoringTeam)
+{
+	if (Super::CheckForWinner(ScoringTeam))
+	{
+		return true;
+	}
+
+	// Check if a team has an insurmountable lead
+	// current implementation assumes 6 rounds and 2 teams
+	if (CTFGameState && (CTFGameState->CTFRound >= NumRounds - 2) && Teams[0] && Teams[1])
+	{
+		AUTFlagRunGameState* GS = Cast<AUTFlagRunGameState>(CTFGameState);
+		bSecondaryWin = false;
+		if ((CTFGameState->CTFRound == NumRounds - 2) && (FMath::Abs(Teams[0]->Score - Teams[1]->Score) > DefenseScore + GoldScore))
+		{
+			AUTTeamInfo* BestTeam = (Teams[0]->Score > Teams[1]->Score) ? Teams[0] : Teams[1];
+			EndTeamGame(BestTeam, FName(TEXT("scorelimit")));
+			return true;
+		}
+		if (CTFGameState->CTFRound == NumRounds - 1)
+		{
+			if (GS && GS->bRedToCap)
+			{
+				// next round is blue cap
+				if (Teams[0]->Score > Teams[1]->Score + GoldScore)
+				{
+					EndTeamGame(Teams[0], FName(TEXT("scorelimit")));
+					return true;
+				}
+				if ((Teams[1]->Score > Teams[0]->Score + DefenseScore) || ((Teams[1]->Score == Teams[0]->Score + DefenseScore) && (GS->TiebreakValue < 0)))
+				{
+					EndTeamGame(Teams[1], FName(TEXT("scorelimit")));
+					return true;
+				}
+			}
+			else
+			{
+				// next round is red cap
+				if ((Teams[0]->Score > Teams[1]->Score + DefenseScore) || ((Teams[0]->Score == Teams[1]->Score + DefenseScore) && (GS->TiebreakValue > 0)))
+				{
+					EndTeamGame(Teams[0], FName(TEXT("scorelimit")));
+					return true;
+				}
+				if (Teams[1]->Score > Teams[0]->Score + GoldScore)
+				{
+					EndTeamGame(Teams[1], FName(TEXT("scorelimit")));
+					return true;
+				}
+			}
+		}
+	}
+	return false;
 }
 
 void AUTFlagRunGame::DefaultTimer()
@@ -164,9 +225,9 @@ int32 AUTFlagRunGame::GetComSwitch(FName CommandTag, AActor* ContextActor, AUTPl
 {
 	if (World == nullptr) return INDEX_NONE;
 
-	AUTCTFGameState* UTCTFGameState = World->GetGameState<AUTCTFGameState>();
+	AUTFlagRunGameState* GS = Cast<AUTFlagRunGameState>(CTFGameState);
 
-	if (Instigator == nullptr || UTCTFGameState == nullptr) 
+	if (Instigator == nullptr || GS == nullptr)
 	{
 		return Super::GetComSwitch(CommandTag, ContextActor, InInstigator, World);
 	}
@@ -175,7 +236,7 @@ int32 AUTFlagRunGame::GetComSwitch(FName CommandTag, AActor* ContextActor, AUTPl
 	AUTCharacter* ContextCharacter = ContextActor != nullptr ? Cast<AUTCharacter>(ContextActor) : nullptr;
 	AUTPlayerState* ContextPlayerState = ContextCharacter != nullptr ? Cast<AUTPlayerState>(ContextCharacter->PlayerState) : nullptr;
 	
-	uint8 OffensiveTeamNum = UTCTFGameState->bRedToCap ? 0 : 1;
+	uint8 OffensiveTeamNum = GS->bRedToCap ? 0 : 1;
 
 	if (ContextCharacter)
 	{
@@ -297,7 +358,7 @@ void AUTFlagRunGame::HandleRallyRequest(AUTPlayerController* RequestingPC)
 	AUTPlayerState* UTPlayerState = RequestingPC->UTPlayerState;
 
 	// if can rally, teleport with transloc effect, set last rally time
-	AUTCTFGameState* GS = GetWorld()->GetGameState<AUTCTFGameState>();
+	AUTFlagRunGameState* GS = GetWorld()->GetGameState<AUTFlagRunGameState>();
 	AUTTeamInfo* Team = UTPlayerState ? UTPlayerState->Team : nullptr;
 	if (Team && UTPlayerState->bCanRally && GS->bAttackersCanRally && UTCharacter && GS && IsMatchInProgress() && !GS->IsMatchIntermission() && ((Team->TeamIndex == 0) == GS->bRedToCap) && GS->FlagBases.IsValidIndex(Team->TeamIndex) && GS->FlagBases[Team->TeamIndex] != nullptr)
 	{
@@ -360,7 +421,7 @@ void AUTFlagRunGame::CompleteRallyRequest(AUTPlayerController* RequestingPC)
 	AUTPlayerState* UTPlayerState = RequestingPC->UTPlayerState;
 
 	// if can rally, teleport with transloc effect, set last rally time
-	AUTCTFGameState* GS = GetWorld()->GetGameState<AUTCTFGameState>();
+	AUTFlagRunGameState* GS = GetWorld()->GetGameState<AUTFlagRunGameState>();
 	AUTTeamInfo* Team = UTPlayerState ? UTPlayerState->Team : nullptr;
 	if (!UTCharacter || !IsMatchInProgress() || !GS || GS->IsMatchIntermission() || UTCharacter->IsPendingKillPending())
 	{
@@ -523,14 +584,14 @@ void AUTFlagRunGame::CompleteRallyRequest(AUTPlayerController* RequestingPC)
 
 void AUTFlagRunGame::WarnEnemyRally()
 {
-	AUTCTFGameState* GS = GetWorld()->GetGameState<AUTCTFGameState>();
+	AUTFlagRunGameState* GS = GetWorld()->GetGameState<AUTFlagRunGameState>();
 	if (GS->bAttackersCanRally)
 	{
 		LastEnemyRallyWarning = GetWorld()->GetTimeSeconds();
 		for (FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator)
 		{
 			AUTPlayerController* PC = Cast<AUTPlayerController>(*Iterator);
-			if (PC && PC->UTPlayerState && PC->UTPlayerState->Team && ((PC->UTPlayerState->Team->TeamIndex == 0) != bRedToCap))
+			if (PC && PC->UTPlayerState && PC->UTPlayerState->Team && ((PC->UTPlayerState->Team->TeamIndex == 0) != GS->bRedToCap))
 			{
 				PC->UTPlayerState->AnnounceStatus(StatusMessage::EnemyRally);
 				break;
@@ -543,7 +604,7 @@ void AUTFlagRunGame::HandleMatchIntermission()
 {
 	Super::HandleMatchIntermission();
 
-	AUTCTFRoundGameState* GS = Cast<AUTCTFRoundGameState>(UTGameState);
+	AUTFlagRunGameState* GS = Cast<AUTFlagRunGameState>(UTGameState);
 	if ((GS == nullptr) || (GS->CTFRound < GS->NumRounds - 2))
 	{
 		return;

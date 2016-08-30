@@ -6,7 +6,7 @@
 #include "UTWeaponLocker.h"
 #include "UTPlayerState.h"
 #include "UTTeleporter.h"
-#include "UTFlagRunGame.h"
+#include "UTFlagRunGameState.h"
 #include "UTCharacterVoice.h"
 
 AUTGameVolume::AUTGameVolume(const FObjectInitializer& ObjectInitializer)
@@ -189,8 +189,8 @@ void AUTGameVolume::ActorEnteredVolume(class AActor* Other)
 			else if (!bHasBeenEntered && bReportDefenseStatus && (VoiceLinesSet != NAME_None))
 			{
 				AUTPlayerState* PS = Cast<AUTPlayerState>(P->PlayerState);
-				AUTFlagRunGame* Game = GetWorld()->GetAuthGameMode<AUTFlagRunGame>();
-				if (PS && PS->Team && Game && (Game->bRedToCap == (PS->Team->TeamIndex == 1)))
+				AUTFlagRunGameState* FRGS = GetWorld()->GetGameState<AUTFlagRunGameState>();
+				if (PS && PS->Team && FRGS && (FRGS->bRedToCap == (PS->Team->TeamIndex == 1)))
 				{
 					PS->AnnounceStatus(VoiceLinesSet, 2);
 				}

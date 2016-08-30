@@ -5,7 +5,7 @@
 #include "UTProfileSettings.h"
 #include "UTHUDWidget_WeaponBar.h"
 #include "UTJumpBoots.h"
-#include "UTCTFGameState.h"
+#include "UTFlagRunGameState.h"
 
 #include "UTArmor.h"
 
@@ -84,7 +84,7 @@ void UUTHUDWidget_Paperdoll::Draw_Implementation(float DeltaTime)
 	AUTPlayerState* PS = UTC ? Cast<AUTPlayerState>(UTC->PlayerState) : NULL;
 	UUTHUDWidget_Paperdoll* DefObj = GetClass()->GetDefaultObject<UUTHUDWidget_Paperdoll>();
 
-	AUTCTFGameState* GameState = UTHUDOwner->GetWorld()->GetGameState<AUTCTFGameState>();
+	AUTFlagRunGameState* GameState = UTHUDOwner->GetWorld()->GetGameState<AUTFlagRunGameState>();
 
 	bool bPlayerCanRally = UTHUDOwner->UTPlayerOwner->CanPerformRally();
 	bool bShowTimer = !bPlayerCanRally && PS && PS->Team && GameState && GameState->bAttackersCanRally && ((PS->Team->TeamIndex == 0) == GameState->bRedToCap) && UTC && UTC->bCanRally && (PS->RemainingRallyDelay > 0);

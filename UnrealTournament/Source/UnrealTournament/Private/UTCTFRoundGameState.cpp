@@ -47,128 +47,6 @@ void AUTCTFRoundGameState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty 
 	DOREPLIFETIME(AUTCTFRoundGameState, TiebreakValue);
 }
 
-void AUTCTFRoundGameState::BeginPlay()
-{
-	Super::BeginPlay();
-
-	if (GetWorld() && GetWorld()->GetAuthGameMode<AUTCTFRoundGame>())
-	{
-		bUsePrototypePowerupSelect = GetWorld()->GetAuthGameMode<AUTCTFRoundGame>()->bAllowPrototypePowerups;
-		bAllowBoosts = GetWorld()->GetAuthGameMode<AUTCTFRoundGame>()->bAllowBoosts;
-	}
-
-	UpdateSelectablePowerups();
-	AddModeSpecificOverlays();
-}
-
-void AUTCTFRoundGameState::UpdateSelectablePowerups()
-{
-	if (!bAllowBoosts)
-	{
-		OffenseSelectablePowerups.Empty();
-		DefenseSelectablePowerups.Empty();
-		return;
-	}
-	const int32 RedTeamIndex = 0;
-	const int32 BlueTeamIndex = 1;
-	const bool bIsRedTeamOffense = IsTeamOnDefenseNextRound(RedTeamIndex);
-
-	TSubclassOf<UUTPowerupSelectorUserWidget> OffensePowerupSelectorWidget;
-	TSubclassOf<UUTPowerupSelectorUserWidget> DefensePowerupSelectorWidget;
-
-	if (bIsRedTeamOffense)
-	{
-		OffensePowerupSelectorWidget = LoadClass<UUTPowerupSelectorUserWidget>(NULL, *GetPowerupSelectWidgetPath(RedTeamIndex), NULL, LOAD_NoWarn | LOAD_Quiet, NULL);
-		DefensePowerupSelectorWidget = LoadClass<UUTPowerupSelectorUserWidget>(NULL, *GetPowerupSelectWidgetPath(BlueTeamIndex), NULL, LOAD_NoWarn | LOAD_Quiet, NULL);
-	}
-	else
-	{
-		OffensePowerupSelectorWidget = LoadClass<UUTPowerupSelectorUserWidget>(NULL, *GetPowerupSelectWidgetPath(BlueTeamIndex), NULL, LOAD_NoWarn | LOAD_Quiet, NULL);
-		DefensePowerupSelectorWidget = LoadClass<UUTPowerupSelectorUserWidget>(NULL, *GetPowerupSelectWidgetPath(RedTeamIndex), NULL, LOAD_NoWarn | LOAD_Quiet, NULL);
-	}
-		
-	if (OffensePowerupSelectorWidget)
-	{
-		for (TSubclassOf<class AUTInventory> BoostItem : OffensePowerupSelectorWidget.GetDefaultObject()->SelectablePowerups)
-		{
-			OffenseSelectablePowerups.Add(BoostItem);
-		}
-	}
-
-	if (DefensePowerupSelectorWidget)
-	{
-		for (TSubclassOf<class AUTInventory> BoostItem : DefensePowerupSelectorWidget.GetDefaultObject()->SelectablePowerups)
-		{
-			DefenseSelectablePowerups.Add(BoostItem);
-		}
-	}
-}
-
-void AUTCTFRoundGameState::AddModeSpecificOverlays()
-{
-	for (TSubclassOf<class AUTInventory> BoostClass : OffenseSelectablePowerups)
-	{
-		BoostClass.GetDefaultObject()->AddOverlayMaterials(this);
-	}
-
-	for (TSubclassOf<class AUTInventory> BoostClass : DefenseSelectablePowerups)
-	{
-		BoostClass.GetDefaultObject()->AddOverlayMaterials(this);
-	}
-}
-
-TSubclassOf<class AUTInventory> AUTCTFRoundGameState::GetSelectableBoostByIndex(AUTPlayerState* PlayerState, int Index) const
-{
-	if (PlayerState && IsTeamOnDefenseNextRound(PlayerState->GetTeamNum()))
-	{
-		if ((DefenseSelectablePowerups.Num() > 0) && (Index < DefenseSelectablePowerups.Num()))
-		{
-			return DefenseSelectablePowerups[Index];
-		}
-	}
-	else
-	{
-		if ((OffenseSelectablePowerups.Num() > 0) && (Index < OffenseSelectablePowerups.Num()))
-		{
-			return OffenseSelectablePowerups[Index];
-		}
-	}
-
-	return nullptr;
-}
-
-bool AUTCTFRoundGameState::IsSelectedBoostValid(AUTPlayerState* PlayerState) const 
-{
-	if (PlayerState == nullptr || PlayerState->BoostClass == nullptr)
-	{
-		return false;
-	}
-
-	return IsTeamOnDefenseNextRound(PlayerState->GetTeamNum()) ? DefenseSelectablePowerups.Contains(PlayerState->BoostClass) : OffenseSelectablePowerups.Contains(PlayerState->BoostClass);
-}
-
-void AUTCTFRoundGameState::PrecacheAllPowerupAnnouncements(class UUTAnnouncer* Announcer) const
-{
-	for (TSubclassOf<class AUTInventory> PowerupClass : DefenseSelectablePowerups)
-	{
-		CachePowerupAnnouncement(Announcer, PowerupClass);
-	}
-
-	for (TSubclassOf<class AUTInventory> PowerupClass : OffenseSelectablePowerups)
-	{
-		CachePowerupAnnouncement(Announcer, PowerupClass);
-	}
-}
-
-void AUTCTFRoundGameState::CachePowerupAnnouncement(class UUTAnnouncer* Announcer, const TSubclassOf<AUTInventory> PowerupClass) const
-{
-	AUTInventory* Powerup = PowerupClass->GetDefaultObject<AUTInventory>();
-	if (Powerup)
-	{
-		Announcer->PrecacheAnnouncement(Powerup->AnnouncementName);
-	}
-}
-
 void AUTCTFRoundGameState::DefaultTimer()
 {
 	Super::DefaultTimer();
@@ -215,33 +93,6 @@ void AUTCTFRoundGameState::UpdateTimeMessage()
 float AUTCTFRoundGameState::GetIntermissionTime()
 {
 	return IntermissionTime;
-}
-
-bool AUTCTFRoundGameState::IsTeamOnOffense(int32 TeamNumber) const
-{
-	const bool bIsOnRedTeam = (TeamNumber == 0);
-	return (bRedToCap == bIsOnRedTeam);
-}
-
-bool AUTCTFRoundGameState::IsTeamOnDefense(int32 TeamNumber) const
-{
-	return !IsTeamOnOffense(TeamNumber);
-}
-
-bool AUTCTFRoundGameState::IsTeamOnDefenseNextRound(int32 TeamNumber) const 
-{
-	//We alternate teams, so if we are on offense now, next round we will be on defense
-	return IsTeamOnOffense(TeamNumber);
-}
-
-bool AUTCTFRoundGameState::IsTeamAbleToEarnPowerup(int32 TeamNumber) const 
-{
-	return IsTeamOnOffense(TeamNumber) ? bIsOffenseAbleToGainPowerup : bIsDefenseAbleToGainPowerup;
-}
-
-int AUTCTFRoundGameState::GetKillsNeededForPowerup(int32 TeamNumber) const
-{
-	return IsTeamOnOffense(TeamNumber) ? (OffenseKillsNeededForPowerup - OffenseKills) : (DefenseKillsNeededForPowerup - DefenseKills);
 }
 
 void AUTCTFRoundGameState::OnBonusLevelChanged()
@@ -315,43 +166,6 @@ FText AUTCTFRoundGameState::GetGameStatusText(bool bForScoreboard)
 	}
 
 	return AUTGameState::GetGameStatusText(bForScoreboard);
-}
-
-FString AUTCTFRoundGameState::GetPowerupSelectWidgetPath(int32 TeamNumber)
-{
-	if (!bAllowBoosts)
-	{
-		if (IsTeamOnDefenseNextRound(TeamNumber))
-		{
-			return TEXT("/Game/RestrictedAssets/Blueprints/BP_PowerupSelector_EmptyDefense.BP_PowerupSelector_EmptyDefense_C");
-		}
-		else
-		{
-			return TEXT("/Game/RestrictedAssets/Blueprints/BP_PowerupSelector_EmptyOffense.BP_PowerupSelector_EmptyOffense_C");
-		}
-	}
-	else if (bUsePrototypePowerupSelect)
-	{
-		if (IsTeamOnDefenseNextRound(TeamNumber))
-		{
-			return TEXT("/Game/RestrictedAssets/Blueprints/BP_PowerupSelector_Defense_Prototype.BP_PowerupSelector_Defense_Prototype_C");
-		}
-		else
-		{
-			return TEXT("/Game/RestrictedAssets/Blueprints/BP_PowerupSelector_Offense_Prototype.BP_PowerupSelector_Offense_Prototype_C");
-		}
-	}
-	else
-	{
-		if (IsTeamOnDefenseNextRound(TeamNumber))
-		{
-			return TEXT("/Game/RestrictedAssets/Blueprints/BP_PowerupSelector_Defense.BP_PowerupSelector_Defense_C");
-		}
-		else
-		{
-			return TEXT("/Game/RestrictedAssets/Blueprints/BP_PowerupSelector_Offense.BP_PowerupSelector_Offense_C");
-		}
-	}
 }
 
 /** Returns true if P1 should be sorted before P2.  */

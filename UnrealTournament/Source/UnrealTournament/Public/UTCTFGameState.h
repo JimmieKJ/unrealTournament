@@ -169,9 +169,6 @@ class UNREALTOURNAMENT_API AUTCTFGameState: public AUTGameState
 		uint32 bOneFlagGameMode : 1;
 
 	UPROPERTY(Replicated)
-		uint32 bRedToCap : 1;
-
-	UPROPERTY(Replicated)
 		bool bAttackerLivesLimited;
 
 	UPROPERTY(Replicated)
@@ -272,7 +269,6 @@ class UNREALTOURNAMENT_API AUTCTFGameState: public AUTGameState
 	virtual bool IsMatchInOvertime() const override;
 	virtual bool IsMatchIntermission() const override;
 	virtual void OnRep_MatchState() override;
-	virtual void Tick(float DeltaTime) override;
 
 	virtual FName OverrideCameraStyle(APlayerController* PCOwner, FName CurrentCameraStyle);
 	
@@ -306,10 +302,4 @@ public:
 	virtual uint8 NearestTeamSide(AActor* InActor) override;
 
 	bool GetImportantPickups_Implementation(TArray<AUTPickup*>& PickupList);
-
-	// Returns a pointer to the most important flag, or nullptr if there isn't one
-	virtual void GetImportantFlag(int32 TeamNum, TArray<AUTCTFFlag*>& ImportantFlags);
-
-	// Returns a pointer to the most important flag base or nullptr if there isn't one
-	virtual void GetImportantFlagBase(int32 TeamNum, TArray<AUTCTFFlagBase*>& ImportantBases);
 };
