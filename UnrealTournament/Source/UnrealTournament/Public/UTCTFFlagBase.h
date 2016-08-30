@@ -6,7 +6,7 @@
 #include "UTCTFFlagBase.generated.h"
 
 UCLASS(HideCategories = GameObject)
-class UNREALTOURNAMENT_API AUTCTFFlagBase : public AUTGameObjective
+class UNREALTOURNAMENT_API AUTCTFFlagBase : public AUTGameObjective, public IUTResetInterface
 {
 	GENERATED_UCLASS_BODY()
 
@@ -84,5 +84,14 @@ class UNREALTOURNAMENT_API AUTCTFFlagBase : public AUTGameObjective
 
 protected:
 	virtual void CreateCarriedObject();
+
+public:
+
+	// If true, this flag base will be considered a scoring point.  
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = GameObject)
+	bool bScoreOnlyBase;
+
+	UFUNCTION(BlueprintCallable, BlueprintNativeEvent, Category = Game)
+	void Reset() override;
 
 };

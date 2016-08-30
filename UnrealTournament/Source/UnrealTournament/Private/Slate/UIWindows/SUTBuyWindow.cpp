@@ -2,7 +2,6 @@
 
 #include "UnrealTournament.h"
 #include "UTLocalPlayer.h"
-#include "UTGauntletGameState.h"
 #include "SlateBasics.h"
 #include "Slate/SlateGameResources.h"
 #include "SUTBuyWindow.h"
@@ -17,6 +16,7 @@
 
 void SUTBuyWindow::CreateDesktop()
 {
+/*
 	CollectItems();
 
 	int32 CurrentCurrency = 0;
@@ -292,10 +292,12 @@ void SUTBuyWindow::CreateDesktop()
 	];
 
 	RefreshAvailableItemsList();
+*/
 }
 
 void SUTBuyWindow::CollectItems()
 {
+/*
 	// Create the loadout information.
 	AUTGameState* GameState = PlayerOwner->GetWorld()->GetGameState<AUTGameState>();
 	if (GameState && GameState->AvailableLoadout.Num() > 0)
@@ -309,37 +311,41 @@ void SUTBuyWindow::CollectItems()
 			}
 		}
 	}
+*/
 }
 
 const FSlateBrush* SUTBuyWindow::GetItemImage() const
 {
+/*
 	if (CurrentItem.IsValid() && CurrentItem->LoadoutInfo.IsValid())
 	{
 		return CurrentItem->LoadoutInfo->GetItemImage();
 	}
-
+*/
 	return SUWindowsStyle::Get().GetBrush("UWindows.Lobby.MatchBadge");
 }
 
 FText SUTBuyWindow::GetItemDescriptionText() const
 {
+/*
 	if (CurrentItem.IsValid() && CurrentItem->DefaultObject.IsValid())
 	{
 		return CurrentItem->DefaultObject->MenuDescription;
 	}
-
+*/
 	return NSLOCTEXT("UTWeapon","DefaultDescription","This space let intentionally blank");
 }
 
 FReply SUTBuyWindow::OnCancelledClicked()
 {
-	PlayerOwner->CloseLoadout();
+//	PlayerOwner->CloseLoadout();
 	return FReply::Handled();
 }
 
 
 void SUTBuyWindow::RefreshAvailableItemsList()
 {
+/*
 	AvailableItems.Sort(FCompareByCost());
 	if (AvailableItemsPanel.IsValid())
 	{
@@ -410,18 +416,22 @@ void SUTBuyWindow::RefreshAvailableItemsList()
 			}
 		}
 	}
+*/
 }
 
 void SUTBuyWindow::AvailableUpdateItemInfo(int32 Index)
 {
+/*
 	if (Index >= 0 && Index <= AvailableItems.Num())
 	{
 		CurrentItem = AvailableItems[Index];
 	}
+*/
 }
 
 FReply SUTBuyWindow::OnAvailableClick(int32 Index)
 {
+/*
 	if (Index >= 0 && Index <= AvailableItems.Num())
 	{
 		if (PlayerOwner.IsValid() && PlayerOwner->PlayerController)
@@ -447,17 +457,18 @@ FReply SUTBuyWindow::OnAvailableClick(int32 Index)
 		}
 	}			
 	
-
+*/
 	return FReply::Handled();
 }
 
 FReply SUTBuyWindow::OnKeyUp(const FGeometry& MyGeometry, const FKeyEvent& InKeyEvent)
 {
+/*
 	if (InKeyEvent.GetKey() == EKeys::Escape)
 	{
 		OnCancelledClicked();
 	}
-
+*/
 	return FReply::Unhandled();
 }
 

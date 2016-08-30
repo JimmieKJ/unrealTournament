@@ -25,6 +25,7 @@ AUTCTFFlagBase::AUTCTFFlagBase(const FObjectInitializer& ObjectInitializer)
 
 	RoundLivesAdjustment = 0;
 	ShowDefenseEffect = 0;
+	bScoreOnlyBase = false;
 }
 
 void AUTCTFFlagBase::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & OutLifetimeProps) const
@@ -89,15 +90,20 @@ void AUTCTFFlagBase::OnOverlapBegin(UPrimitiveComponent* OverlappedComponent, AA
 
 void AUTCTFFlagBase::CreateCarriedObject()
 {
-	if (TeamFlagTypes.IsValidIndex(TeamNum) && TeamFlagTypes[TeamNum] != NULL)
+	if (!bScoreOnlyBase)
 	{
-		CarriedObjectClass = TeamFlagTypes[TeamNum];
-	}
-	Super::CreateCarriedObject();
-	MyFlag = Cast<AUTCTFFlag>(CarriedObject);
-	if (MyFlag && MyFlag->GetMesh())
-	{
-		MyFlag->GetMesh()->ClothBlendWeight = MyFlag->ClothBlendHome;
+		if (TeamFlagTypes.IsValidIndex(TeamNum) && TeamFlagTypes[TeamNum] != NULL)
+		{
+			CarriedObjectClass = TeamFlagTypes[TeamNum];
+		}
+
+		Super::CreateCarriedObject();
+
+		MyFlag = Cast<AUTCTFFlag>(CarriedObject);
+		if (MyFlag && MyFlag->GetMesh())
+		{
+			MyFlag->GetMesh()->ClothBlendWeight = MyFlag->ClothBlendHome;
+		}
 	}
 }
 
@@ -195,3 +201,8 @@ FText AUTCTFFlagBase::GetHUDStatusMessage(AUTHUD* HUD)
 {
 	return FText::GetEmpty();
 }
+
+void AUTCTFFlagBase::Reset_Implementation()
+{
+}
+

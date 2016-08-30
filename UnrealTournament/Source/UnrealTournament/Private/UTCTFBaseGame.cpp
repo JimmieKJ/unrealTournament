@@ -210,10 +210,13 @@ void AUTCTFBaseGame::ScoreKill_Implementation(AController* Killer, AController* 
 void AUTCTFBaseGame::GameObjectiveInitialized(AUTGameObjective* Obj)
 {
 	AUTCTFFlagBase* FlagBase = Cast<AUTCTFFlagBase>(Obj);
-	if (FlagBase != NULL && FlagBase->MyFlag)
+	if (FlagBase != NULL)
 	{
 		CTFGameState->CacheFlagBase(FlagBase);
 	}
+
+	Super::GameObjectiveInitialized(Obj);
+
 }
 
 int32 AUTCTFBaseGame::GetFlagCapScore()

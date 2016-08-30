@@ -84,6 +84,8 @@ void AUTCTFFlagBaseCapturePoint::Reset_Implementation()
 	{
 		CapturePoint->bIsActive = false;
 	}
+
+	Super::Reset_Implementation();
 }
 
 void AUTCTFFlagBaseCapturePoint::OnCapturePointActivated_Implementation()

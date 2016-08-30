@@ -747,7 +747,7 @@ void AUTCTFRoundGame::InitFlags()
 			Flag->bDisplayHolderTrail = true;
 			Flag->bShouldPingFlag = true;
 			Flag->bSlowsMovement = bSlowFlagCarrier;
-			Flag->ClearGhostFlag();
+			Flag->ClearGhostFlags();
 			Flag->bSendHomeOnScore = false;
 			if (bAsymmetricVictoryConditions)
 			{
@@ -804,10 +804,15 @@ void AUTCTFRoundGame::FlagCountDown()
 		}
 		else
 		{
-			BroadcastLocalized(this, UUTCTFMajorMessage::StaticClass(), 21, NULL, NULL, NULL);
-			InitFlags();
+			FlagsAreReady();
 		}
 	}
+}
+
+void AUTCTFRoundGame::FlagsAreReady()
+{
+	BroadcastLocalized(this, UUTCTFMajorMessage::StaticClass(), 21, NULL, NULL, NULL);
+	InitFlags();
 }
 
 void AUTCTFRoundGame::InitRound()
@@ -845,18 +850,7 @@ void AUTCTFRoundGame::InitRound()
 	bRedToCap = !bRedToCap;
 	CTFGameState->bRedToCap = bRedToCap;
 
-	for (AUTCTFFlagBase* Base : CTFGameState->FlagBases)
-	{
-		if (Base != NULL && Base->MyFlag)
-		{
-			Base->MyFlag->SetActorHiddenInGame(true);
-			Base->ClearDefenseEffect();
-			if (IsTeamOnDefense(Base->MyFlag->GetTeamNum()))
-			{
-				Base->SpawnDefenseEffect();
-			}
-		}
-	}
+	ResetFlags();
 	if (FlagPickupDelay > 0)
 	{
 		for (AUTCTFFlagBase* Base : CTFGameState->FlagBases)
@@ -899,6 +893,22 @@ void AUTCTFRoundGame::InitRound()
 	for (AUTTeamInfo* Team : Teams)
 	{
 		Team->ReinitSquads();
+	}
+}
+
+void AUTCTFRoundGame::ResetFlags()
+{
+	for (AUTCTFFlagBase* Base : CTFGameState->FlagBases)
+	{
+		if (Base != NULL && Base->MyFlag)
+		{
+			Base->MyFlag->SetActorHiddenInGame(true);
+			Base->ClearDefenseEffect();
+			if (IsTeamOnDefense(Base->MyFlag->GetTeamNum()))
+			{
+				Base->SpawnDefenseEffect();
+			}
+		}
 	}
 }
 

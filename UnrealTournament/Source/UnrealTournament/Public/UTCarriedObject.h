@@ -11,6 +11,8 @@
 
 class AUTCarriedObject;
 class AUTHUD;
+class AUTGhostFlag;
+
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnCarriedObjectStateChangedDelegate, class AUTCarriedObject*, Sender, FName, NewState);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnCarriedObjectHolderChangedDelegate, class AUTCarriedObject*, Sender);
 const int32 NUM_MIDPOINTS = 3;
@@ -58,6 +60,18 @@ struct FFlagTrailPos
 		bIsInNoRallyZone = false;
 		bEnteringNoRallyZone = false;
 	}
+
+	FFlagTrailPos(FVector inLocation)
+		: Location(inLocation)
+	{
+		for (int32 i = 0; i < 3; i++)
+		{
+			MidPoints[i] = FVector(0.f);
+		}
+		bIsInNoRallyZone = false;
+		bEnteringNoRallyZone = false;
+	}
+
 };
 
 UCLASS()
@@ -148,12 +162,16 @@ protected:
 
 private:
 	UPROPERTY()
-	class AUTGhostFlag* MyGhostFlag;
+	TArray<AUTGhostFlag*> MyGhostFlags;
 
 public:
-	virtual void PutGhostFlagAt(FFlagTrailPos NewPosition);
 
-	virtual void ClearGhostFlag();
+	UPROPERTY(BlueprintReadWrite, Category = Flag)
+	bool bSingleGhostFlag;
+
+	virtual AUTGhostFlag* PutGhostFlagAt(FFlagTrailPos NewPosition, bool bShowTimer = false, bool bSuppressTails = false, uint8 TeamNum = 255);
+
+	virtual void ClearGhostFlags();
 
 	// Allow children to know when the team changes
 	UFUNCTION()
@@ -451,4 +469,7 @@ public:
 	/** return location for object when returning home */
 	virtual FVector GetHomeLocation() const;
 	virtual FRotator GetHomeRotation() const;
+
+	float GetGhostFlagTimerTime(AUTGhostFlag* Ghost);
+
 };

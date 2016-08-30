@@ -131,8 +131,10 @@ class UNREALTOURNAMENT_API AUTCTFRoundGame : public AUTCTFBaseGame
 	virtual int32 GetFlagCapScore() override;
 
 	virtual void InitFlags();
+	virtual void ResetFlags();
 
 	virtual void FlagCountDown();
+	virtual void FlagsAreReady();
 
 	/** Update tiebreaker value based on new round bonus. Tiebreaker is positive if Red is ahead, negative if blue is ahead. */
 	virtual void UpdateTiebreak(int32 Bonus, int32 TeamIndex);

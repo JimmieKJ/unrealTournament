@@ -1,3 +1,5 @@
+
+
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #include "UnrealTournament.h"
 #include "UTCarriedObject.h"
@@ -10,6 +12,7 @@
 #include "UTGhostFlag.h"
 #include "UTSecurityCameraComponent.h"
 #include "UTGameVolume.h"
+#include "UTCTFRoundGameState.h"
 
 AUTCarriedObject::AUTCarriedObject(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -59,11 +62,8 @@ void AUTCarriedObject::Destroyed()
 		Holder->ClearCarriedObject(this);
 		Holder = nullptr;
 	}
-	if (MyGhostFlag)
-	{
-		MyGhostFlag->Destroy();
-		MyGhostFlag = nullptr;
-	}
+
+	ClearGhostFlags();
 }
 
 UUTSecurityCameraComponent* AUTCarriedObject::GetDetectingCamera()
@@ -410,7 +410,7 @@ void AUTCarriedObject::SetHolder(AUTCharacter* NewHolder)
 		return;
 	}
 
-	ClearGhostFlag();
+	ClearGhostFlags();
 	for (int32 i = 0; i < NUM_MIDPOINTS; i++)
 	{
 		MidPoints[i] = FVector::ZeroVector;
@@ -689,28 +689,44 @@ void AUTCarriedObject::SendHomeWithNotify()
 	SendHome();
 }
 
-void AUTCarriedObject::ClearGhostFlag()
+void AUTCarriedObject::ClearGhostFlags()
 {
-	if (MyGhostFlag != nullptr)
+	for (int32 i = 0; i < MyGhostFlags.Num(); i++)
 	{
-		MyGhostFlag->Destroy();
-		MyGhostFlag = nullptr;
+		if (MyGhostFlags[i] != nullptr)
+		{
+			MyGhostFlags[i]->Destroy();
+			MyGhostFlags[i] = nullptr;
+		}
 	}
+
+	MyGhostFlags.Empty();
 }
 
-void AUTCarriedObject::PutGhostFlagAt(FFlagTrailPos NewPosition)
+AUTGhostFlag* AUTCarriedObject::PutGhostFlagAt(FFlagTrailPos NewPosition, bool bShowTimer, bool bSuppressTail, uint8 TeamNum)
 {
+	AUTGhostFlag* MyGhostFlag = nullptr;
 	if (GhostFlagClass && !IsPendingKillPending())
 	{
-		ClearGhostFlag();
+		if (bSingleGhostFlag)
+		{
+			ClearGhostFlags();
+		}
+
 		FActorSpawnParameters Params;
 		Params.Owner = this;
 		MyGhostFlag = GetWorld()->SpawnActor<AUTGhostFlag>(GhostFlagClass, NewPosition.Location, GetActorRotation(), Params);
-		if (MyGhostFlag)
+		if (MyGhostFlag != nullptr)
 		{
+			MyGhostFlag->GhostMaster.bSuppressTails = bSuppressTail;
+			MyGhostFlag->GhostMaster.TeamNum = TeamNum;
+			MyGhostFlag->GhostMaster.bShowTimer = bShowTimer;
 			MyGhostFlag->SetCarriedObject(this, NewPosition);
+			MyGhostFlags.Add(MyGhostFlag);
 		}
 	}
+
+	return MyGhostFlag;
 }
 
 void AUTCarriedObject::SendHome()
@@ -766,12 +782,12 @@ void AUTCarriedObject::SendHome()
 			}
 			if (!bWantsGhostFlag)
 			{
-				ClearGhostFlag();
+				ClearGhostFlags();
 			}
 			return;
 		}
 	}
-	ClearGhostFlag();
+	ClearGhostFlags();
 	ChangeState(CarriedObjectState::Home);
 	HomeBase->ObjectReturnedHome(LastHoldingPawn);
 	MoveToHome();
@@ -969,4 +985,11 @@ FText AUTCarriedObject::GetHUDStatusMessage(AUTHUD* HUD)
 	}
 	LastLocationName = (GV && !GV->VolumeName.IsEmpty()) ? GV->VolumeName : LastLocationName;
 	return LastLocationName;
+}
+
+float AUTCarriedObject::GetGhostFlagTimerTime(AUTGhostFlag* Ghost)
+{
+	AUTCTFRoundGameState* RCTFGameState = GetWorld()->GetGameState<AUTCTFRoundGameState>();
+	float ReturnTime = (RCTFGameState && (RCTFGameState->RemainingPickupDelay > 0.f)) ? RCTFGameState->RemainingPickupDelay : FlagReturnTime;
+	return AutoReturnTime > 0.f ? (1.0f - ReturnTime / 12.f) : 0.f;
 }

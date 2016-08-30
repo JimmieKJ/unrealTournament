@@ -9,7 +9,7 @@
 #include "UTCTFFlagBaseCapturePoint.generated.h"
 
 UCLASS(HideCategories = GameObject)
-class UNREALTOURNAMENT_API AUTCTFFlagBaseCapturePoint : public AUTCTFFlagBase, public IUTResetInterface
+class UNREALTOURNAMENT_API AUTCTFFlagBaseCapturePoint : public AUTCTFFlagBase
 {
 	GENERATED_UCLASS_BODY()
 
@@ -22,8 +22,7 @@ class UNREALTOURNAMENT_API AUTCTFFlagBaseCapturePoint : public AUTCTFFlagBase, p
 	UFUNCTION()
 	virtual void OnCapturePointFinished();
 
-	UFUNCTION(BlueprintCallable, BlueprintNativeEvent, Category = Game)
-	void Reset() override;
+	virtual void Reset_Implementation() override;
 
 	UFUNCTION(BlueprintNativeEvent, Category = CapturePoint)
 	void OnCapturePointActivated();
