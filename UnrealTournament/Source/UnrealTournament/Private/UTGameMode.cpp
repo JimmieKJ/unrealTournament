@@ -637,13 +637,12 @@ void AUTGameMode::PreInitializeComponents()
 	for (TActorIterator<AUTGameObjective> ObjIt(GetWorld()); ObjIt; ++ObjIt)
 	{
 		GameObjectiveInitialized(*ObjIt);
+		ObjIt->InitializeObjective();
 	}
 }
 
 void AUTGameMode::GameObjectiveInitialized(AUTGameObjective* Obj)
 {
-	// Allow subclasses to track game objectives as they are initialized
-	Obj->InitializeObjective();
 }
 
 APlayerController* AUTGameMode::Login(UPlayer* NewPlayer, ENetRole InRemoteRole, const FString& Portal, const FString& Options, const FUniqueNetIdRepl& UniqueId, FString& ErrorMessage)

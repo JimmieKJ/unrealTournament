@@ -214,9 +214,6 @@ void AUTCTFBaseGame::GameObjectiveInitialized(AUTGameObjective* Obj)
 	{
 		CTFGameState->CacheFlagBase(FlagBase);
 	}
-
-	Super::GameObjectiveInitialized(Obj);
-
 }
 
 int32 AUTCTFBaseGame::GetFlagCapScore()
