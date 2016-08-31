@@ -125,17 +125,21 @@ void AUTTimedPowerup::Tick(float DeltaTime)
 
 	if (TimeRemaining > 0.0f && !bTimerPaused)
 	{
-		float TickMultiplier = (GetUTOwner() != NULL) ? 1.f : DroppedTickRate;
-		TimeRemaining -= (DeltaTime * TickMultiplier);
-		if ((TimeRemaining <= 0.0f) || (TimeRemaining <= 2.0f && GetUTOwner() == NULL))
+		AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
+		if (GS && GS->IsMatchInProgress() && !GS->IsMatchIntermission())
 		{
-			TimeExpired();
-		}
-		float ElapsedTime = GetWorld()->GetTimeSeconds() - StatCountTime;
-		if (ElapsedTime > 1.f)
-		{
-			UpdateStatsCounter(1.f);
-			StatCountTime += 1.f;
+			float TickMultiplier = (GetUTOwner() != NULL) ? 1.f : DroppedTickRate;
+			TimeRemaining -= (DeltaTime * TickMultiplier);
+			if ((TimeRemaining <= 0.0f) || (TimeRemaining <= 2.0f && GetUTOwner() == NULL))
+			{
+				TimeExpired();
+			}
+			float ElapsedTime = GetWorld()->GetTimeSeconds() - StatCountTime;
+			if (ElapsedTime > 1.f)
+			{
+				UpdateStatsCounter(1.f);
+				StatCountTime += 1.f;
+			}
 		}
 	}
 }
