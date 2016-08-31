@@ -24,6 +24,8 @@ AUTFlagRunGameState::AUTFlagRunGameState(const FObjectInitializer& ObjectInitial
 	bUsePrototypePowerupSelect = false;
 	bAttackerLivesLimited = false;
 	bDefenderLivesLimited = true;
+	FlagRunMessageSwitch = 0;
+	FlagRunMessageTeam = nullptr;
 }
 
 void AUTFlagRunGameState::BeginPlay()
@@ -46,6 +48,8 @@ void AUTFlagRunGameState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty >
 
 	DOREPLIFETIME(AUTFlagRunGameState, bRedToCap);
 	DOREPLIFETIME(AUTFlagRunGameState, BonusLevel);
+	DOREPLIFETIME(AUTFlagRunGameState, FlagRunMessageSwitch);
+	DOREPLIFETIME(AUTFlagRunGameState, FlagRunMessageTeam);
 	DOREPLIFETIME(AUTFlagRunGameState, bAttackersCanRally);
 	DOREPLIFETIME(AUTFlagRunGameState, GoldBonusThreshold);
 	DOREPLIFETIME(AUTFlagRunGameState, SilverBonusThreshold);

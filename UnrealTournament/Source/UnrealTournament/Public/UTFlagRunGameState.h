@@ -58,6 +58,15 @@ class UNREALTOURNAMENT_API AUTFlagRunGameState : public AUTCTFRoundGameState
 	UPROPERTY(Replicated)
 		bool bUsePrototypePowerupSelect;
 
+	UPROPERTY(Replicated)
+		bool bAllowBoosts;
+
+	UPROPERTY(Replicated)
+		int32 FlagRunMessageSwitch;
+
+	UPROPERTY(Replicated)
+		class AUTTeamInfo* FlagRunMessageTeam;
+
 	UFUNCTION()
 		void OnBonusLevelChanged();
 

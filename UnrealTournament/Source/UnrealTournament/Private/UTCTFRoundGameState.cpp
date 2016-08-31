@@ -14,9 +14,7 @@ AUTCTFRoundGameState::AUTCTFRoundGameState(const FObjectInitializer& ObjectIniti
 	: Super(ObjectInitializer)
 {
 	RemainingPickupDelay = 0;
-	FlagRunMessageSwitch = 0;
 	TiebreakValue = 0;
-	FlagRunMessageTeam = nullptr;
 }
 
 void AUTCTFRoundGameState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & OutLifetimeProps) const
@@ -27,8 +25,6 @@ void AUTCTFRoundGameState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty 
 	DOREPLIFETIME(AUTCTFRoundGameState, OffenseKills);
 	DOREPLIFETIME(AUTCTFRoundGameState, DefenseKills);
 	DOREPLIFETIME(AUTCTFRoundGameState, RemainingPickupDelay);
-	DOREPLIFETIME(AUTCTFRoundGameState, FlagRunMessageSwitch);
-	DOREPLIFETIME(AUTCTFRoundGameState, FlagRunMessageTeam);
 	DOREPLIFETIME(AUTCTFRoundGameState, TiebreakValue);
 	DOREPLIFETIME(AUTCTFRoundGameState, RedLivesRemaining);
 	DOREPLIFETIME(AUTCTFRoundGameState, BlueLivesRemaining);

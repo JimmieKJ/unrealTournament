@@ -23,22 +23,13 @@ class UNREALTOURNAMENT_API AUTCTFRoundGameState : public AUTCTFGameState
 		int32 RemainingPickupDelay;
 
 	UPROPERTY(Replicated)
-		int32 FlagRunMessageSwitch;
-
-	UPROPERTY(Replicated)
 		int32 TiebreakValue;
-
-	UPROPERTY(Replicated)
-		class AUTTeamInfo* FlagRunMessageTeam;
 
 	UPROPERTY()
 		bool bAttackerLivesLimited;
 
 	UPROPERTY()
 		bool bDefenderLivesLimited;
-
-	UPROPERTY(Replicated)
-		bool bAllowBoosts;
 
 	UPROPERTY(Replicated)
 		int32 RedLivesRemaining;
