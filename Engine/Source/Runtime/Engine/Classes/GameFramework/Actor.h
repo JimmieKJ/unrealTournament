@@ -2994,6 +2994,13 @@ FORCEINLINE_DEBUGGABLE ENetRole AActor::GetRemoteRole() const
 
 FORCEINLINE_DEBUGGABLE ENetMode AActor::GetNetMode() const
 {
+	// IsRunningDedicatedServer() is a compile-time check in optimized non-editor builds.
+	if (IsRunningDedicatedServer() && (NetDriverName == NAME_None || NetDriverName == NAME_GameNetDriver))
+	{
+		// Only normal net driver actors can have this optimization
+		return NM_DedicatedServer;
+	}
+
 	return InternalGetNetMode();
 }
 
@@ -3008,13 +3015,17 @@ FORCEINLINE_DEBUGGABLE bool AActor::IsNetMode(ENetMode Mode) const
 	{
 		return IsRunningDedicatedServer();
 	}
+	else if (NetDriverName == NAME_None || NetDriverName == NAME_GameNetDriver)
+	{
+		// Only normal net driver actors can have this optimization
+		return !IsRunningDedicatedServer() && (InternalGetNetMode() == Mode);
+	}
 	else
 	{
-		return !IsRunningDedicatedServer() && (InternalGetNetMode() == Mode);
+		return (InternalGetNetMode() == Mode);
 	}
 #endif
 }
-
 
 FORCEINLINE_DEBUGGABLE void AActor::SetNetUpdateTime(float NewUpdateTime)
 {
