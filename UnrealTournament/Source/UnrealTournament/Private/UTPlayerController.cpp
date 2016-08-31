@@ -47,6 +47,7 @@
 #include "QoSInterface.h"
 #include "UTGameObjective.h"
 #include "UTFlagRunGameState.h"
+#include "UTRemoteRedeemer.h"
 
 static TAutoConsoleVariable<float> CVarUTKillcamStartDelay(
 	TEXT("UT.KillcamStartDelay"),
@@ -3483,6 +3484,7 @@ void AUTPlayerController::Suicide()
 {
 	ServerSuicide();
 }
+
 void AUTPlayerController::ServerSuicide_Implementation()
 {
 	// throttle suicides to avoid spamming to grief own team in TDM
@@ -3493,6 +3495,15 @@ void AUTPlayerController::ServerSuicide_Implementation()
 		if (Char != NULL)
 		{
 			Char->PlayerSuicide();
+		}
+		else
+		{
+			AUTRemoteRedeemer* Deemer = Cast <AUTRemoteRedeemer>(GetPawn());
+			Char = Deemer ? Cast<AUTCharacter>(Deemer->Driver) : nullptr;
+			if (Char != NULL)
+			{
+				Char->PlayerSuicide();
+			}
 		}
 	}
 	else if ((UTCharacter == nullptr) && UTPlayerState && (UTPlayerState->ReadyMode == 4))
