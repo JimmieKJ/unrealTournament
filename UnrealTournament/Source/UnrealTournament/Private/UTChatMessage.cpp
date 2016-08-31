@@ -122,7 +122,7 @@ void UUTChatMessage::ClientReceiveChat(const FClientReceiveData& ClientData, FNa
 
 		if (IsConsoleMessage(ClientData.MessageIndex) && Cast<ULocalPlayer>(ClientData.LocalPC->Player) != NULL && Cast<ULocalPlayer>(ClientData.LocalPC->Player)->ViewportClient != NULL)
 		{
-			Cast<ULocalPlayer>(ClientData.LocalPC->Player)->ViewportClient->ViewportConsole->OutputText(LocalMessageText.ToString());
+			Cast<ULocalPlayer>(ClientData.LocalPC->Player)->ViewportClient->ViewportConsole->OutputText(ChatMessage);
 		}
 
 		AUTBasePlayerController* PlayerController = Cast<AUTBasePlayerController>(ClientData.LocalPC);
