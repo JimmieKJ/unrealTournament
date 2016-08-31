@@ -91,12 +91,12 @@ void FEngineAnalytics::Initialize()
 			const TCHAR* UE4TypeStr = bHasOverride ? *UE4TypeOverride : FEngineBuildSettings::IsPerforceBuild() ? TEXT("Perforce") : TEXT("UnrealEngine");
 			if (bIsEditorRun)
 			{
-				Config.APIKeyET = FString::Printf(TEXT("UEEditor.%s.%s"), UE4TypeStr, BuildTypeStr);
+				Config.APIKeyET = FString::Printf(TEXT("UTEditor.%s.%s"), UE4TypeStr, BuildTypeStr);
 			}
 			else
 			{
 				const UGeneralProjectSettings& ProjectSettings = *GetDefault<UGeneralProjectSettings>();
-				Config.APIKeyET = FString::Printf(TEXT("UEGame.%s.%s|%s|%s"), UE4TypeStr, BuildTypeStr, *ProjectSettings.ProjectID.ToString(), *ProjectSettings.ProjectName);
+				Config.APIKeyET = FString::Printf(TEXT("UTGame.%s.%s|%s|%s"), UE4TypeStr, BuildTypeStr, *ProjectSettings.ProjectID.ToString(), *ProjectSettings.ProjectName);
 			}
 		}
 		if (Config.APIServerET.IsEmpty())
