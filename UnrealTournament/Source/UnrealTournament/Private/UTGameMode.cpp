@@ -1686,7 +1686,7 @@ void AUTGameMode::StartMatch()
 		}
 		else
 		{
-			SetMatchState(MatchState::CountdownToBegin);
+			EndPlayerIntro();
 		}
 	}
 	
