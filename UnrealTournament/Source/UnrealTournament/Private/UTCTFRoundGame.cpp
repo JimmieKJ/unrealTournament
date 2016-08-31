@@ -33,8 +33,6 @@
 #include "UTAnalytics.h"
 #include "Runtime/Analytics/Analytics/Public/Analytics.h"
 #include "Runtime/Analytics/Analytics/Public/Interfaces/IAnalyticsProvider.h"
-#include "UTFlagRunGameMessage.h"
-#include "UTFlagRunGameState.h"
 
 AUTCTFRoundGame::AUTCTFRoundGame(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -48,7 +46,6 @@ AUTCTFRoundGame::AUTCTFRoundGame(const FObjectInitializer& ObjectInitializer)
 	FlagCapScore = 1;
 	UnlimitedRespawnWaitTime = 2.f;
 	bForceRespawn = true;
-	bOneFlagGameMode = true;
 	bCarryOwnFlag = true;
 	bNoFlagReturn = true;
 	bFirstRoundInitialized = false;
@@ -62,16 +59,10 @@ AUTCTFRoundGame::AUTCTFRoundGame(const FObjectInitializer& ObjectInitializer)
 	bAttackerLivesLimited = false;
 	bDefenderLivesLimited = true;
 
-	OffenseKillsNeededForPowerUp = 10;
-	DefenseKillsNeededForPowerUp = 10;
-
 	InitialBoostCount = 0;
 	MaxTimeScoreBonus = 180;
 
 	bGameHasTranslocator = false;
-
-	ActivatedPowerupPlaceholderObject = FStringAssetReference(TEXT("/Game/RestrictedAssets/Pickups/Powerups/BP_ActivatedPowerup_UDamage.BP_ActivatedPowerup_UDamage_C"));
-	RepulsorObject = FStringAssetReference(TEXT("/Game/RestrictedAssets/Pickups/Powerups/BP_Repulsor.BP_Repulsor_C"));
 
 	RollingAttackerRespawnDelay = 5.f;
 	LastAttackerSpawnTime = 0.f;
@@ -103,22 +94,11 @@ void AUTCTFRoundGame::CreateGameURLOptions(TArray<TSharedPtr<TAttributePropertyB
 	MenuProps.Empty();
 	MenuProps.Add(MakeShareable(new TAttributeProperty<int32>(this, &BotFillCount, TEXT("BotFill"))));
 	MenuProps.Add(MakeShareable(new TAttributePropertyBool(this, &bBalanceTeams, TEXT("BalanceTeams"))));
-	MenuProps.Add(MakeShareable(new TAttributeProperty<int32>(this, &OffenseKillsNeededForPowerUp, TEXT("OffKillsForPowerup"))));
-	MenuProps.Add(MakeShareable(new TAttributeProperty<int32>(this, &OffenseKillsNeededForPowerUp, TEXT("DefKillsForPowerup"))));
 }
 
 void AUTCTFRoundGame::InitGame(const FString& MapName, const FString& Options, FString& ErrorMessage)
 {
 	Super::InitGame(MapName, Options, ErrorMessage);
-
-	if (!ActivatedPowerupPlaceholderObject.IsNull())
-	{
-		ActivatedPowerupPlaceholderClass = Cast<UClass>(StaticLoadObject(UClass::StaticClass(), NULL, *ActivatedPowerupPlaceholderObject.ToStringReference().ToString(), NULL, LOAD_NoWarn));
-	}
-	if (!RepulsorObject.IsNull())
-	{
-		RepulsorClass = Cast<UClass>(StaticLoadObject(UClass::StaticClass(), NULL, *RepulsorObject.ToStringReference().ToString(), NULL, LOAD_NoWarn));
-	}
 
 	// key options are ?RoundLives=xx?Dash=xx?Asymm=xx?PerPlayerLives=xx?OffKillsForPowerup=xx?DefKillsForPowerup=xx?AllowPrototypePowerups=xx?DelayRally=xxx?Boost=xx
 	RoundLives = FMath::Max(1, UGameplayStatics::GetIntOption(Options, TEXT("RoundLives"), RoundLives));
@@ -217,7 +197,6 @@ void AUTCTFRoundGame::BeginGame()
 	{
 		CTFGameState->CTFRound = 1;
 		CTFGameState->NumRounds = NumRounds;
-		CTFGameState->bOneFlagGameMode = bOneFlagGameMode;
 		CTFGameState->bAllowRallies = true;
 		CTFGameState->bDefenderLivesLimited = bDefenderLivesLimited;
 		CTFGameState->bAttackerLivesLimited = bAttackerLivesLimited;
@@ -227,6 +206,12 @@ void AUTCTFRoundGame::BeginGame()
 	IntermissionDuration = 10.f;
 	SetMatchState(MatchState::MatchIntermission);
 	IntermissionDuration = RealIntermissionDuration;
+}
+
+AActor* AUTCTFRoundGame::SetIntermissionCameras(uint32 TeamToWatch)
+{
+	PlacePlayersAroundFlagBase(TeamToWatch, TeamToWatch);
+	return CTFGameState->FlagBases[TeamToWatch];
 }
 
 void AUTCTFRoundGame::HandleMatchIntermission()
@@ -244,13 +229,7 @@ void AUTCTFRoundGame::HandleMatchIntermission()
 		{
 			Base->ClearDefenseEffect();
 		}
-		AUTFlagRunGameState* FRGS = Cast<AUTFlagRunGameState>(CTFGameState);
-
-		RemoveLosers(1 - TeamToWatch, (FRGS && FRGS->bRedToCap) ? 0 : 1);
-
-		// place winners around defender base
-		PlacePlayersAroundFlagBase(TeamToWatch, (FRGS && FRGS->bRedToCap) ? 1 : 0);
-
+		AActor* IntermissionFocus = SetIntermissionCameras(TeamToWatch);
 		// Tell the controllers to look at defender base
 		for (FConstControllerIterator Iterator = GetWorld()->GetControllerIterator(); Iterator; ++Iterator)
 		{
@@ -258,7 +237,7 @@ void AUTCTFRoundGame::HandleMatchIntermission()
 			if (PC != NULL)
 			{
 				PC->ClientHalftime();
-				PC->SetViewTarget(CTFGameState->FlagBases[(FRGS && FRGS->bRedToCap) ? 1 : 0]);
+				PC->SetViewTarget(IntermissionFocus);
 			}
 		}
 	}
@@ -401,10 +380,9 @@ void AUTCTFRoundGame::EndTeamGame(AUTTeamInfo* Winner, FName Reason)
 
 	// SETENDGAMEFOCUS
 	EndMatch();
-	AUTFlagRunGameState* FRGS = Cast<AUTFlagRunGameState>(CTFGameState);
-	RemoveLosers(1 - Winner->TeamIndex, (FRGS && FRGS->bRedToCap) ? 0 : 1);
-	PlacePlayersAroundFlagBase(Winner->TeamIndex, (FRGS && FRGS->bRedToCap) ? 1 : 0);
-	AUTCTFFlagBase* WinningBase = CTFGameState->FlagBases[(FRGS && FRGS->bRedToCap) ? 1 : 0];
+	AActor* EndMatchFocus = SetIntermissionCameras(Winner->TeamIndex);
+
+	AUTCTFFlagBase* WinningBase =Cast<AUTCTFFlagBase>(EndMatchFocus);
 	for (FConstControllerIterator Iterator = GetWorld()->GetControllerIterator(); Iterator; ++Iterator)
 	{
 		AUTPlayerController* Controller = Cast<AUTPlayerController>(*Iterator);
@@ -577,7 +555,6 @@ void AUTCTFRoundGame::InitGameState()
 
 	CTFGameState->CTFRound = 1;
 	CTFGameState->NumRounds = NumRounds;
-	CTFGameState->bOneFlagGameMode = bOneFlagGameMode;
 	CTFGameState->bAllowRallies = true;
 	CTFGameState->bDefenderLivesLimited = bDefenderLivesLimited;
 	CTFGameState->bAttackerLivesLimited = bAttackerLivesLimited;
@@ -690,13 +667,8 @@ void AUTCTFRoundGame::FlagsAreReady()
 	InitFlags();
 }
 
-void AUTCTFRoundGame::InitRound()
+void AUTCTFRoundGame::InitGameStateForRound()
 {
-	FlagScorer = nullptr;
-	bFirstBloodOccurred = false;
-	bLastManOccurred = false;
-	bNeedFiveKillsMessage = true;
-	AUTFlagRunGameState* FRGS = Cast<AUTFlagRunGameState>(CTFGameState);
 	if (CTFGameState)
 	{
 		CTFGameState->CTFRound++;
@@ -710,19 +682,16 @@ void AUTCTFRoundGame::InitRound()
 			CTFGameState->RedLivesRemaining += CTFGameState->FlagBases[0] ? CTFGameState->FlagBases[0]->RoundLivesAdjustment : 0;
 			CTFGameState->BlueLivesRemaining += CTFGameState->FlagBases[1] ? CTFGameState->FlagBases[0]->RoundLivesAdjustment : 0;
 		}
-
-		if (FRGS)
-		{
-			FRGS->OffenseKills = 0;
-			FRGS->DefenseKills = 0;
-			FRGS->OffenseKillsNeededForPowerup = OffenseKillsNeededForPowerUp;
-			FRGS->DefenseKillsNeededForPowerup = DefenseKillsNeededForPowerUp;
-			FRGS->bIsOffenseAbleToGainPowerup = true;
-			FRGS->bIsDefenseAbleToGainPowerup = true;
-			FRGS->bRedToCap = !FRGS->bRedToCap;
-		}
 	}
+}
 
+void AUTCTFRoundGame::InitRound()
+{
+	FlagScorer = nullptr;
+	bFirstBloodOccurred = false;
+	bLastManOccurred = false;
+	bNeedFiveKillsMessage = true;
+	InitGameStateForRound();
 	ResetFlags();
 	if (FlagPickupDelay > 0)
 	{
@@ -733,7 +702,6 @@ void AUTCTFRoundGame::InitRound()
 				InitDelayedFlag(Base->MyFlag);
 			}
 		}
-		FRGS->RemainingPickupDelay = FlagPickupDelay;
 		FTimerHandle TempHandle;
 		GetWorldTimerManager().SetTimer(TempHandle, this, &AUTCTFRoundGame::FlagCountDown, 1.f*GetActorTimeDilation(), false);
 	}
@@ -906,6 +874,10 @@ bool AUTCTFRoundGame::ChangeTeam(AController* Player, uint8 NewTeamIndex, bool b
 	return bResult;
 }
 
+void AUTCTFRoundGame::SendRestartNotifications(AUTPlayerState* PS, AUTPlayerController* PC)
+{
+}
+
 void AUTCTFRoundGame::RestartPlayer(AController* aPlayer)
 {
 	if ((!IsMatchInProgress() && bPlacingPlayersAtIntermission) || (GetMatchState() == MatchState::MatchIntermission))
@@ -969,18 +941,7 @@ void AUTCTFRoundGame::RestartPlayer(AController* aPlayer)
 			}
 		}
 	}
-	if (PS->Team && IsTeamOnOffense(PS->Team->TeamIndex))
-	{
-		LastAttackerSpawnTime = GetWorld()->GetTimeSeconds();
-		if ((CTFGameState->GetRemainingTime() < 240) &&  !CTFGameState->bAttackersCanRally && (GetWorld()->GetTimeSeconds() > PS->NextRallyTime) && CTFGameState->bHaveEstablishedFlagRunner)
-		{
-			PS->AnnounceStatus(StatusMessage::NeedRally);
-		}
-	}
-	if (PC && (PS->GetRemainingBoosts() > 0))
-	{
-		PC->ClientReceiveLocalizedMessage(UUTCTFRoleMessage::StaticClass(), 20);
-	}
+	SendRestartNotifications(PS, PC);
 	Super::RestartPlayer(aPlayer);
 
 	if (aPlayer->GetPawn() && !bPerPlayerLives && (RoundLives > 0) && PS && PS->Team && CTFGameState && CTFGameState->IsMatchInProgress())
@@ -1025,7 +986,7 @@ void AUTCTFRoundGame::ScoreKill_Implementation(AController* Killer, AController*
 	AUTPlayerState* OtherPS = Other ? Cast<AUTPlayerState>(Other->PlayerState) : nullptr;
 	if (OtherPS && OtherPS->Team && IsTeamOnOffense(OtherPS->Team->TeamIndex) && bRollingAttackerSpawns)
 	{
-		if (LastAttackerSpawnTime < 1.f)
+		if (GetWorld()->GetTimeSeconds() - LastAttackerSpawnTime < 1.f)
 		{
 			OtherPS->RespawnWaitTime = 1.f;
 		}
@@ -1184,13 +1145,9 @@ void AUTCTFRoundGame::ScoreBlueAlternateWin()
 //Special markup for Analytics event so they show up properly in grafana. Should be eventually moved to UTAnalytics.
 /*
 * @EventName RCTFRoundResult
-*
 * @Trigger Sent when a round ends in an RCTF game through Score Alternate Win
-*
 * @Type Sent by the Server
-*
 * @EventParam FlagCapScore int32 Always 0, just shows that someone caped flag
-*
 * @Comments
 */
 
@@ -1297,8 +1254,7 @@ void AUTCTFRoundGame::CheckGameTime()
 
 bool AUTCTFRoundGame::IsTeamOnOffense(int32 TeamNumber) const
 {
-	AUTFlagRunGameState* FRGS = Cast<AUTFlagRunGameState>(CTFGameState);
-	return FRGS && (FRGS->bRedToCap == (TeamNumber == 0));
+	return true;
 }
 
 bool AUTCTFRoundGame::IsTeamOnDefense(int32 TeamNumber) const
@@ -1308,11 +1264,6 @@ bool AUTCTFRoundGame::IsTeamOnDefense(int32 TeamNumber) const
 
 bool AUTCTFRoundGame::IsPlayerOnLifeLimitedTeam(AUTPlayerState* PlayerState) const
 {
-	if (!PlayerState || !PlayerState->Team)
-	{
-		return false;
-	}
-
-	return IsTeamOnOffense(PlayerState->Team->TeamIndex) ? bAttackerLivesLimited : bDefenderLivesLimited;
+	return PlayerState && PlayerState->Team && IsTeamOnOffense(PlayerState->Team->TeamIndex) ? bAttackerLivesLimited : bDefenderLivesLimited;
 }
 

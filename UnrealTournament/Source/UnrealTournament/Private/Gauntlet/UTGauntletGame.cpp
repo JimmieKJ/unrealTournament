@@ -54,7 +54,6 @@ AUTGauntletGame::AUTGauntletGame(const FObjectInitializer& ObjectInitializer)
 	bCarryOwnFlag = true;
 	bNoFlagReturn = true;
 	UnlimitedRespawnWaitTime = 3.0f;
-	bOneFlagGameMode = true;
 	bGameHasTranslocator = false;
 	bSitOutDuringRound = false;
 
@@ -74,8 +73,6 @@ void AUTGauntletGame::InitGameState()
 	Super::InitGameState();
 	GauntletGameState = Cast<AUTGauntletGameState>(UTGameState);
 	GauntletGameState->FlagSwapTime = FlagSwapTime;
-	GauntletGameState->bIsDefenseAbleToGainPowerup = false;
-	GauntletGameState->bIsOffenseAbleToGainPowerup = false;
 }
 
 void AUTGauntletGame::ResetFlags() 

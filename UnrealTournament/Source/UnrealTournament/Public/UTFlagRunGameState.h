@@ -34,8 +34,29 @@ class UNREALTOURNAMENT_API AUTFlagRunGameState : public AUTCTFRoundGameState
 	UPROPERTY()
 		FText SilverBonusTimedText;
 
+	UPROPERTY(Replicated)
+		bool bAttackersCanRally;
+
+	UPROPERTY()
+		bool bHaveEstablishedFlagRunner;
+
 	UPROPERTY(ReplicatedUsing = OnBonusLevelChanged)
 		uint8 BonusLevel;
+
+	UPROPERTY(Replicated)
+		int32 OffenseKillsNeededForPowerup;
+
+	UPROPERTY(Replicated)
+		int32 DefenseKillsNeededForPowerup;
+
+	UPROPERTY(Replicated)
+		bool bIsDefenseAbleToGainPowerup;
+
+	UPROPERTY(Replicated)
+		bool bIsOffenseAbleToGainPowerup;
+
+	UPROPERTY(Replicated)
+		bool bUsePrototypePowerupSelect;
 
 	UFUNCTION()
 		void OnBonusLevelChanged();

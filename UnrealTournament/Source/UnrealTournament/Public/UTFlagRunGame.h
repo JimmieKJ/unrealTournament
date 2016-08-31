@@ -52,6 +52,24 @@ public:
 	UPROPERTY()
 		bool bAllowBoosts;
 
+	UPROPERTY(BlueprintReadOnly, Category = CTF)
+		int OffenseKillsNeededForPowerUp;
+
+	UPROPERTY(BlueprintReadOnly, Category = CTF)
+		int DefenseKillsNeededForPowerUp;
+
+
+	TAssetSubclassOf<class AUTInventory> ActivatedPowerupPlaceholderObject;
+	TAssetSubclassOf<class AUTInventory> RepulsorObject;
+
+	UPROPERTY()
+		TSubclassOf<class AUTInventory> ActivatedPowerupPlaceholderClass;
+
+	virtual TSubclassOf<class AUTInventory> GetActivatedPowerupPlaceholderClass() { return ActivatedPowerupPlaceholderClass; };
+
+	UPROPERTY()
+		TSubclassOf<class AUTInventory> RepulsorClass;
+
 	FTimerHandle EnemyRallyWarningHandle;
 
 	virtual void WarnEnemyRally();
@@ -75,6 +93,10 @@ public:
 	virtual void CheckRoundTimeVictory() override;
 	virtual void ScoreKill_Implementation(AController* Killer, AController* Other, APawn* KilledPawn, TSubclassOf<UDamageType> DamageType) override;
 	virtual void HandleTeamChange(AUTPlayerState* PS, AUTTeamInfo* OldTeam) override;
+	virtual void InitGameStateForRound() override;
+	virtual bool IsTeamOnOffense(int32 TeamNumber) const override;
+	virtual AActor* SetIntermissionCameras(uint32 TeamToWatch) override;
+	virtual void SendRestartNotifications(AUTPlayerState* PS, AUTPlayerController* PC) override;
 
 	virtual int32 GetComSwitch(FName CommandTag, AActor* ContextActor, AUTPlayerController* Instigator, UWorld* World);
 	virtual void InitFlags() override;

@@ -57,6 +57,11 @@ AUTFlagRunGame::AUTFlagRunGame(const FObjectInitializer& ObjectInitializer)
 	MapPrefix = TEXT("FR");
 	GameStateClass = AUTFlagRunGameState::StaticClass();
 	bAllowBoosts = false;
+	OffenseKillsNeededForPowerUp = 10;
+	DefenseKillsNeededForPowerUp = 10;
+
+	ActivatedPowerupPlaceholderObject = FStringAssetReference(TEXT("/Game/RestrictedAssets/Pickups/Powerups/BP_ActivatedPowerup_UDamage.BP_ActivatedPowerup_UDamage_C"));
+	RepulsorObject = FStringAssetReference(TEXT("/Game/RestrictedAssets/Pickups/Powerups/BP_Repulsor.BP_Repulsor_C"));
 
 	static ConstructorHelpers::FObjectFinder<UClass> AfterImageFinder(TEXT("Blueprint'/Game/RestrictedAssets/Weapons/Translocator/TransAfterImage.TransAfterImage_C'"));
 	AfterImageType = AfterImageFinder.Object;
@@ -65,6 +70,15 @@ AUTFlagRunGame::AUTFlagRunGame(const FObjectInitializer& ObjectInitializer)
 void AUTFlagRunGame::InitGame(const FString& MapName, const FString& Options, FString& ErrorMessage)
 {
 	Super::InitGame(MapName, Options, ErrorMessage);
+
+	if (!ActivatedPowerupPlaceholderObject.IsNull())
+	{
+		ActivatedPowerupPlaceholderClass = Cast<UClass>(StaticLoadObject(UClass::StaticClass(), NULL, *ActivatedPowerupPlaceholderObject.ToStringReference().ToString(), NULL, LOAD_NoWarn));
+	}
+	if (!RepulsorObject.IsNull())
+	{
+		RepulsorClass = Cast<UClass>(StaticLoadObject(UClass::StaticClass(), NULL, *RepulsorObject.ToStringReference().ToString(), NULL, LOAD_NoWarn));
+	}
 
 	OffenseKillsNeededForPowerUp = FMath::Max(0, UGameplayStatics::GetIntOption(Options, TEXT("OffKillsForPowerup"), OffenseKillsNeededForPowerUp));
 	DefenseKillsNeededForPowerUp = FMath::Max(0, UGameplayStatics::GetIntOption(Options, TEXT("DefKillsForPowerup"), DefenseKillsNeededForPowerUp));
@@ -135,6 +149,24 @@ void AUTFlagRunGame::BroadcastCTFScore(APlayerState* ScoringPlayer, AUTTeamInfo*
 	BroadcastLocalized(this, UUTCTFRewardMessage::StaticClass(), BonusType, ScoringPlayer, NULL, ScoringTeam);
 	BroadcastLocalized(this, UUTCTFGameMessage::StaticClass(), 2, ScoringPlayer, NULL, ScoringTeam);
 }
+
+void AUTFlagRunGame::InitGameStateForRound()
+{
+	Super::InitGameStateForRound();
+	AUTFlagRunGameState* FRGS = Cast<AUTFlagRunGameState>(CTFGameState);
+	if (FRGS)
+	{
+		FRGS->OffenseKills = 0;
+		FRGS->DefenseKills = 0;
+		FRGS->OffenseKillsNeededForPowerup = OffenseKillsNeededForPowerUp;
+		FRGS->DefenseKillsNeededForPowerup = DefenseKillsNeededForPowerUp;
+		FRGS->bIsOffenseAbleToGainPowerup = true;
+		FRGS->bIsDefenseAbleToGainPowerup = true;
+		FRGS->bRedToCap = !FRGS->bRedToCap;
+		FRGS->RemainingPickupDelay = FlagPickupDelay;
+	}
+}
+
 
 bool AUTFlagRunGame::AvoidPlayerStart(AUTPlayerStart* P)
 {
@@ -960,7 +992,7 @@ void AUTFlagRunGame::HandlePowerupUnlocks(APawn* Other, AController* Killer)
 	const int RedTeamIndex = 0;
 	const int BlueTeamIndex = 1;
 
-	AUTCTFRoundGameState* RCTFGameState = Cast<AUTCTFRoundGameState>(CTFGameState);
+	AUTFlagRunGameState* RCTFGameState = Cast<AUTFlagRunGameState>(CTFGameState);
 	if (RCTFGameState)
 	{
 		if ((RCTFGameState->OffenseKills >= OffenseKillsNeededForPowerUp) && RCTFGameState->bIsOffenseAbleToGainPowerup)
@@ -999,5 +1031,42 @@ void AUTFlagRunGame::UpdatePowerupUnlockProgress(AUTPlayerState* VictimPS, AUTPl
 				++(RCTFGameState->DefenseKills);
 			}
 		}
+	}
+}
+
+AActor* AUTFlagRunGame::SetIntermissionCameras(uint32 TeamToWatch)
+{
+	AUTFlagRunGameState* FRGS = Cast<AUTFlagRunGameState>(CTFGameState);
+	if (FRGS)
+	{
+		RemoveLosers(1 - TeamToWatch, (FRGS && FRGS->bRedToCap) ? 0 : 1);
+
+		// place winners around defender base
+		PlacePlayersAroundFlagBase(TeamToWatch, (FRGS && FRGS->bRedToCap) ? 1 : 0);
+		return FRGS->FlagBases[(FRGS && FRGS->bRedToCap) ? 1 : 0];
+	}
+	return nullptr;
+}
+
+bool AUTFlagRunGame::IsTeamOnOffense(int32 TeamNumber) const
+{
+	AUTFlagRunGameState* FRGS = Cast<AUTFlagRunGameState>(CTFGameState);
+	return FRGS && (FRGS->bRedToCap == (TeamNumber == 0));
+}
+
+void AUTFlagRunGame::SendRestartNotifications(AUTPlayerState* PS, AUTPlayerController* PC)
+{
+	if (PS->Team && IsTeamOnOffense(PS->Team->TeamIndex))
+	{
+		LastAttackerSpawnTime = GetWorld()->GetTimeSeconds();
+		AUTFlagRunGameState* FRGS = Cast<AUTFlagRunGameState>(CTFGameState);
+		if (FRGS && (FRGS->GetRemainingTime() < 240) && !FRGS->bAttackersCanRally && (GetWorld()->GetTimeSeconds() > PS->NextRallyTime) && FRGS->bHaveEstablishedFlagRunner)
+		{
+			PS->AnnounceStatus(StatusMessage::NeedRally);
+		}
+	}
+	if (PC && (PS->GetRemainingBoosts() > 0))
+	{
+		PC->ClientReceiveLocalizedMessage(UUTCTFRoleMessage::StaticClass(), 20);
 	}
 }

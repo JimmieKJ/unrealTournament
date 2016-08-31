@@ -166,9 +166,6 @@ class UNREALTOURNAMENT_API AUTCTFGameState: public AUTGameState
 		uint32 bPlayingAdvantage : 1;
 
 	UPROPERTY(Replicated)
-		uint32 bOneFlagGameMode : 1;
-
-	UPROPERTY(Replicated)
 		bool bAttackerLivesLimited;
 
 	UPROPERTY(Replicated)
@@ -176,12 +173,6 @@ class UNREALTOURNAMENT_API AUTCTFGameState: public AUTGameState
 
 	UPROPERTY()
 		bool bAllowRallies;
-
-	UPROPERTY()
-		bool bHaveEstablishedFlagRunner;
-
-	UPROPERTY(Replicated)
-		bool bAttackersCanRally;
 
 	UPROPERTY()
 		float LastOffenseRallyTime;

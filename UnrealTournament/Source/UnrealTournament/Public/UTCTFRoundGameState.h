@@ -20,21 +20,6 @@ class UNREALTOURNAMENT_API AUTCTFRoundGameState : public AUTCTFGameState
 		int32 DefenseKills;
 
 	UPROPERTY(Replicated)
-		int32 OffenseKillsNeededForPowerup;
-
-	UPROPERTY(Replicated)
-		int32 DefenseKillsNeededForPowerup;
-
-	UPROPERTY(Replicated)
-		bool bIsDefenseAbleToGainPowerup;
-
-	UPROPERTY(Replicated)
-		bool bIsOffenseAbleToGainPowerup;
-
-	UPROPERTY(Replicated)
-		bool bUsePrototypePowerupSelect;
-
-	UPROPERTY(Replicated)
 		int32 RemainingPickupDelay;
 
 	UPROPERTY(Replicated)

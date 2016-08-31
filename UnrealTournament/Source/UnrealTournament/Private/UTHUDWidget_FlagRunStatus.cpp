@@ -185,7 +185,7 @@ void UUTHUDWidget_FlagRunStatus::DrawFlagWorld(AUTCTFGameState* GameState, FVect
 		CircleTemplate.RenderOpacity = CurrentWorldAlpha;
 		CircleBorderTemplate.RenderOpacity = CurrentWorldAlpha;
 
-		float InWorldFlagScale = GameState->bOneFlagGameMode ? WorldRenderScale*StatusScale : WorldRenderScale;
+		float InWorldFlagScale = WorldRenderScale*StatusScale;
 		RenderObj_TextureAt(CircleTemplate, DrawScreenPosition.X, DrawScreenPosition.Y, CircleTemplate.GetWidth()* InWorldFlagScale, CircleTemplate.GetHeight()* InWorldFlagScale);
 		RenderObj_TextureAt(CircleBorderTemplate, DrawScreenPosition.X, DrawScreenPosition.Y, CircleBorderTemplate.GetWidth()* InWorldFlagScale, CircleBorderTemplate.GetHeight()* InWorldFlagScale);
 

@@ -15,10 +15,6 @@ class UNREALTOURNAMENT_API AUTCTFRoundGame : public AUTCTFBaseGame
 	UPROPERTY(BlueprintReadWrite, Category = CTF)
 	int32 RoundLives;
 
-	/*  If single flag in game */
-	UPROPERTY(BlueprintReadOnly, Category = CTF)
-		bool bOneFlagGameMode;
-
 	/*  If true, trying to deliver own flag to enemy base */ 
 	UPROPERTY(BlueprintReadOnly, Category = CTF)
 		bool bCarryOwnFlag;
@@ -55,12 +51,6 @@ class UNREALTOURNAMENT_API AUTCTFRoundGame : public AUTCTFBaseGame
 
 	UPROPERTY(BlueprintReadOnly, Category = CTF)
 		int32 NumRounds;
-
-	UPROPERTY(BlueprintReadOnly, Category = CTF)
-		int OffenseKillsNeededForPowerUp;
-
-	UPROPERTY(BlueprintReadOnly, Category = CTF)
-		int DefenseKillsNeededForPowerUp;
 
 	UPROPERTY()
 		bool bNeedFiveKillsMessage;
@@ -108,6 +98,7 @@ class UNREALTOURNAMENT_API AUTCTFRoundGame : public AUTCTFBaseGame
 	virtual void IntermissionSwapSides();
 	virtual void FlagCountDown();
 	virtual void FlagsAreReady();
+	virtual void InitGameStateForRound();
 
 	/** Update tiebreaker value based on new round bonus. Tiebreaker is positive if Red is ahead, negative if blue is ahead. */
 	virtual void UpdateTiebreak(int32 Bonus, int32 TeamIndex);
@@ -121,6 +112,10 @@ class UNREALTOURNAMENT_API AUTCTFRoundGame : public AUTCTFBaseGame
 	virtual int32 GetDefenseScore();
 
 	virtual void HandleTeamChange(AUTPlayerState* PS, AUTTeamInfo* OldTeam);
+
+	virtual AActor* SetIntermissionCameras(uint32 TeamToWatch);
+
+	virtual void SendRestartNotifications(AUTPlayerState* PS, AUTPlayerController* PC);
 
 	virtual void BeginGame() override;
 	virtual void ScoreObject_Implementation(AUTCarriedObject* GameObject, AUTCharacter* HolderPawn, AUTPlayerState* Holder, FName Reason) override;
@@ -159,17 +154,6 @@ class UNREALTOURNAMENT_API AUTCTFRoundGame : public AUTCTFBaseGame
 
 	/** Initialize a player for the new round. */
 	virtual void InitPlayerForRound(AUTPlayerState* PS);
-
-	TAssetSubclassOf<class AUTInventory> ActivatedPowerupPlaceholderObject;
-	TAssetSubclassOf<class AUTInventory> RepulsorObject;
-
-	UPROPERTY()
-		TSubclassOf<class AUTInventory> ActivatedPowerupPlaceholderClass;
-
-	virtual TSubclassOf<class AUTInventory> GetActivatedPowerupPlaceholderClass() { return ActivatedPowerupPlaceholderClass; };
-
-	UPROPERTY()
-		TSubclassOf<class AUTInventory> RepulsorClass;
 
 	virtual void GiveDefaultInventory(APawn* PlayerPawn) override;
 

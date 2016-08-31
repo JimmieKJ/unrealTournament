@@ -44,10 +44,15 @@ void AUTFlagRunGameState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty >
 
 	DOREPLIFETIME(AUTFlagRunGameState, bRedToCap);
 	DOREPLIFETIME(AUTFlagRunGameState, BonusLevel);
+	DOREPLIFETIME(AUTFlagRunGameState, bAttackersCanRally);
 	DOREPLIFETIME(AUTFlagRunGameState, GoldBonusThreshold);
 	DOREPLIFETIME(AUTFlagRunGameState, SilverBonusThreshold);
 	DOREPLIFETIME(AUTFlagRunGameState, bAllowBoosts);
 	DOREPLIFETIME(AUTFlagRunGameState, bUsePrototypePowerupSelect);
+	DOREPLIFETIME(AUTFlagRunGameState, OffenseKillsNeededForPowerup);
+	DOREPLIFETIME(AUTFlagRunGameState, DefenseKillsNeededForPowerup);
+	DOREPLIFETIME(AUTFlagRunGameState, bIsDefenseAbleToGainPowerup);
+	DOREPLIFETIME(AUTFlagRunGameState, bIsOffenseAbleToGainPowerup);
 }
 
 void AUTFlagRunGameState::OnBonusLevelChanged()
