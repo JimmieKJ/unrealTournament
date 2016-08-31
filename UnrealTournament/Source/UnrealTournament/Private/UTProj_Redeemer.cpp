@@ -27,20 +27,20 @@ AUTProj_Redeemer::AUTProj_Redeemer(const class FObjectInitializer& ObjectInitial
 	ProjectileMovement->MaxSpeed = 2000.f;
 	ProjectileMovement->ProjectileGravityScale = 0.0f;
 
-	ExplosionTimings[0] = 0.5;
-	ExplosionTimings[1] = 0.2;
-	ExplosionTimings[2] = 0.2;
-	ExplosionTimings[3] = 0.2;
-	ExplosionTimings[4] = 0.2;
+	ExplosionTimings[0] = 0.2f;
+	ExplosionTimings[1] = 0.2f;
+	ExplosionTimings[2] = 0.2f;
+	ExplosionTimings[3] = 0.2f;
+	ExplosionTimings[4] = 0.2f;
 
-	ExplosionRadii[0] = 0.125f;
-	ExplosionRadii[1] = 0.3f;
-	ExplosionRadii[2] = 0.475f;
-	ExplosionRadii[3] = 0.65f;
-	ExplosionRadii[4] = 0.825f;
+	ExplosionRadii[0] = 0.25f;
+	ExplosionRadii[1] = 0.4f;
+	ExplosionRadii[2] = 0.55f;
+	ExplosionRadii[3] = 0.7f;
+	ExplosionRadii[4] = 0.85f;
 	ExplosionRadii[5] = 1.0f;
 
-	CollisionFreeRadius = 1000.f;
+	CollisionFreeRadius = 1200.f;
 
 	InitialLifeSpan = 20.0f;
 	bAlwaysShootable = true;
