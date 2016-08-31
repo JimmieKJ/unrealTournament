@@ -108,6 +108,7 @@ void FUTAnalytics::InitializeAnalyticParameterNames()
 
 	AddGenericParamName(MatchTime);
 	AddGenericParamName(MapName);
+	AddGenericParamName(GameModeName);
 
 	AddGenericParamName(Hostname);
 	AddGenericParamName(SystemId);
@@ -228,10 +229,16 @@ void FUTAnalytics::SetInitialParameters(AUTPlayerController* UTPC, TArray<FAnaly
 
 void FUTAnalytics::SetMatchInitialParameters(AUTGameMode* UTGM, TArray<FAnalyticsEventAttribute>& ParamArray, bool bNeedMatchTime)
 {
-	if (bNeedMatchTime && UTGM)
+	if (bNeedMatchTime)
 	{
 		ParamArray.Add(FAnalyticsEventAttribute(GetGenericParamName(EGenericAnalyticParam::MatchTime), GetMatchTime(UTGM)));
 	}
+
+	if (UTGM)
+	{
+		ParamArray.Add(FAnalyticsEventAttribute(GetGenericParamName(EGenericAnalyticParam::GameModeName), UTGM->DisplayName.ToString()));
+	}
+
 	FString MapName = GetMapName(UTGM);
 	ParamArray.Add(FAnalyticsEventAttribute(GetGenericParamName(EGenericAnalyticParam::MapName), MapName));
 }

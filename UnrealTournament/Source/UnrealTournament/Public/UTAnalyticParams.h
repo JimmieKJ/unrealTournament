@@ -4,6 +4,7 @@ namespace EGenericAnalyticParam
 	{
 		MatchTime,
 		MapName,
+		GameModeName,
 
 		Hostname,
 		SystemId,
