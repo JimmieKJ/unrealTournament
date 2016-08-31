@@ -1805,7 +1805,7 @@ void AUTGameMode::HandleMatchHasStarted()
 
 	if (UTIsHandlingReplays() && GetGameInstance() != nullptr)
 	{
-		GetGameInstance()->StartRecordingReplay(GetWorld()->GetMapName(), GetWorld()->GetMapName());
+		GetGameInstance()->StartRecordingReplay(TEXT(""), GetWorld()->GetMapName());
 	}
 
 	UTGameState->SetTimeLimit(TimeLimit);

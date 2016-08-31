@@ -574,7 +574,7 @@ void AUTCTFRoundGame::HandleExitingIntermission()
 		bFirstRoundInitialized = true;
 		if (Super::UTIsHandlingReplays() && GetGameInstance() != nullptr)
 		{
-			GetGameInstance()->StartRecordingReplay(GetWorld()->GetMapName(), GetWorld()->GetMapName());
+			GetGameInstance()->StartRecordingReplay(TEXT(""), GetWorld()->GetMapName());
 		}
 	}
 

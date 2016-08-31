@@ -217,9 +217,9 @@ void AUTShowdownGame::HandleMatchHasStarted()
 
 	if (UTIsHandlingReplays() && GetGameInstance() != nullptr)
 	{
-		GetGameInstance()->StartRecordingReplay(GetWorld()->GetMapName(), GetWorld()->GetMapName());
+		GetGameInstance()->StartRecordingReplay(TEXT(""), GetWorld()->GetMapName());
 	}
-
+	
 	SetMatchState(MatchState::MatchIntermission);
 	Cast<AUTShowdownGameState>(GameState)->IntermissionStageTime = 1;
 }
