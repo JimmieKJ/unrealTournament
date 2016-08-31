@@ -4264,7 +4264,7 @@ void AUTCharacter::Tick(float DeltaTime)
 
 	if (Role == ROLE_Authority)
 	{
-		bIsInCombat = (GetWorld()->GetTimeSeconds() - FMath::Max(LastTargetingTime, LastTargetedTime) < 2.f);
+		bIsInCombat = (GetWorld()->GetTimeSeconds() - FMath::Max(LastTargetingTime, LastTargetedTime) < 2.5f);
 	}
 	if (HeadScale < 0.1f)
 	{
