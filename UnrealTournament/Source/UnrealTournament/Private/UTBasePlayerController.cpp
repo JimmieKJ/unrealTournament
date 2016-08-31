@@ -348,7 +348,7 @@ void AUTBasePlayerController::ClientSay_Implementation(AUTPlayerState* Speaker, 
 {
 	FClientReceiveData ClientData;
 	ClientData.LocalPC = this;
-	ClientData.MessageIndex = Destination == ChatDestinations::Team;
+	ClientData.MessageIndex = (Destination == ChatDestinations::Team) ? 1 : 0;
 	ClientData.RelatedPlayerState_1 = Speaker;
 	ClientData.MessageString = Message;
 
