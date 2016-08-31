@@ -37,6 +37,12 @@ class UNREALTOURNAMENT_API AUTCTFRoundGameState : public AUTCTFGameState
 	UPROPERTY(Replicated)
 		int32 BlueLivesRemaining;
 
+	UFUNCTION(BlueprintCallable, Category = Team)
+		virtual bool IsTeamOnOffense(int32 TeamNumber) const;
+
+	UFUNCTION(BlueprintCallable, Category = Team)
+		virtual bool IsTeamOnDefense(int32 TeamNumber) const;
+
 	virtual FText GetGameStatusText(bool bForScoreboard) override;
 	virtual FText GetRoundStatusText(bool bForScoreboard);
 	virtual float GetIntermissionTime() override;

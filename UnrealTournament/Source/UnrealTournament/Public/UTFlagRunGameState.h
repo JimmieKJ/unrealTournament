@@ -75,11 +75,8 @@ class UNREALTOURNAMENT_API AUTFlagRunGameState : public AUTCTFRoundGameState
 
 	virtual void UpdateSelectablePowerups();
 
-	UFUNCTION(BlueprintCallable, Category = Team)
-		virtual bool IsTeamOnOffense(int32 TeamNumber) const;
-
-	UFUNCTION(BlueprintCallable, Category = Team)
-		virtual bool IsTeamOnDefense(int32 TeamNumber) const;
+	virtual bool IsTeamOnOffense(int32 TeamNumber) const override;
+	virtual bool IsTeamOnDefense(int32 TeamNumber) const override;
 
 	UFUNCTION(BlueprintCallable, Category = Team)
 		virtual bool IsTeamOnDefenseNextRound(int32 TeamNumber) const;

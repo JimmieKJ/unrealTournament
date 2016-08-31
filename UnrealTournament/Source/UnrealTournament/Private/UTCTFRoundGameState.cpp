@@ -120,4 +120,15 @@ bool AUTCTFRoundGameState::InOrder(AUTPlayerState* P1, AUTPlayerState* P2)
 	}
 	return true;
 }
+
+bool AUTCTFRoundGameState::IsTeamOnOffense(int32 TeamNumber) const
+{
+	return false;
+}
+
+bool AUTCTFRoundGameState::IsTeamOnDefense(int32 TeamNumber) const
+{
+	return false;
+}
+
  
