@@ -30,6 +30,8 @@ void AUTCTFRoundGameState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty 
 	DOREPLIFETIME(AUTCTFRoundGameState, FlagRunMessageSwitch);
 	DOREPLIFETIME(AUTCTFRoundGameState, FlagRunMessageTeam);
 	DOREPLIFETIME(AUTCTFRoundGameState, TiebreakValue);
+	DOREPLIFETIME(AUTCTFRoundGameState, RedLivesRemaining);
+	DOREPLIFETIME(AUTCTFRoundGameState, BlueLivesRemaining);
 }
 
 void AUTCTFRoundGameState::DefaultTimer()

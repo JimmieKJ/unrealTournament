@@ -165,12 +165,6 @@ class UNREALTOURNAMENT_API AUTCTFGameState: public AUTGameState
 	UPROPERTY(Replicated)
 		uint32 bPlayingAdvantage : 1;
 
-	UPROPERTY(Replicated)
-		bool bAttackerLivesLimited;
-
-	UPROPERTY(Replicated)
-		bool bDefenderLivesLimited;
-
 	UPROPERTY()
 		bool bAllowRallies;
 
@@ -200,12 +194,6 @@ class UNREALTOURNAMENT_API AUTCTFGameState: public AUTGameState
 
 	UPROPERTY(Replicated)
 		int32 NumRounds;
-
-	UPROPERTY(Replicated)
-		int32 RedLivesRemaining;
-
-	UPROPERTY(Replicated)
-		int32 BlueLivesRemaining;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = GameState)
 		FText RedAdvantageStatus;

@@ -22,6 +22,8 @@ AUTFlagRunGameState::AUTFlagRunGameState(const FObjectInitializer& ObjectInitial
 	BronzeBonusText = NSLOCTEXT("FlagRun", "BronzeBonusText", "\u2605");
 	BonusLevel = 3;
 	bUsePrototypePowerupSelect = false;
+	bAttackerLivesLimited = false;
+	bDefenderLivesLimited = true;
 }
 
 void AUTFlagRunGameState::BeginPlay()

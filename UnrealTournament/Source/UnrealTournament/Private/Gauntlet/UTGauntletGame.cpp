@@ -47,8 +47,6 @@ AUTGauntletGame::AUTGauntletGame(const FObjectInitializer& ObjectInitializer)
 	FlagPickupDelay=30;
 	MapPrefix = TEXT("CTF");
 	bHideInUI = true;
-	bAttackerLivesLimited = false;
-	bDefenderLivesLimited = false;
 	bRollingAttackerSpawns = false;
 	bWeaponStayActive = false;
 	bCarryOwnFlag = true;

@@ -5,6 +5,7 @@
 #include "UTCTFGameState.h"
 #include "UTCTFScoring.h"
 #include "StatNames.h"
+#include "UTCTFRoundGameState.h"
 
 UUTCTFScoreboard::UUTCTFScoreboard(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -50,8 +51,8 @@ void UUTCTFScoreboard::DrawScoreHeaders(float RenderDelta, float& YOffset)
 		if (UTGameState && UTGameState->HasMatchStarted())
 		{
 			DrawText(CH_Score, XOffset + (ScaledCellWidth * ColumnHeaderScoreX), YOffset + ColumnHeaderY, UTHUDOwner->TinyFont, RenderScale, 1.0f, FLinearColor::Black, ETextHorzPos::Center, ETextVertPos::Center);
-			AUTCTFGameState* CTFState = Cast<AUTCTFGameState>(UTGameState);
-			if (CTFState && (CTFState->bAttackerLivesLimited || CTFState->bDefenderLivesLimited))
+			AUTCTFRoundGameState* RCTFState = Cast<AUTCTFRoundGameState>(UTGameState);
+			if (RCTFState && (RCTFState->bAttackerLivesLimited || RCTFState->bDefenderLivesLimited))
 			{
 				DrawText(CH_Caps, XOffset + (ScaledCellWidth * ColumnHeaderCapsX), YOffset + ColumnHeaderY, UTHUDOwner->TinyFont, RenderScale, 1.0f, FLinearColor::Black, ETextHorzPos::Center, ETextVertPos::Center);
 				DrawText(NSLOCTEXT("UTScoreboard", "LivesRemaining", "Lives"), XOffset + (ScaledCellWidth * 0.5f*(ColumnHeaderAssistsX + ColumnHeaderReturnsX)), YOffset + ColumnHeaderY, UTHUDOwner->TinyFont, RenderScale, 1.0f, FLinearColor::Black, ETextHorzPos::Center, ETextVertPos::Center);

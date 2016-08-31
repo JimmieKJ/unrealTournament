@@ -56,9 +56,6 @@ AUTCTFRoundGame::AUTCTFRoundGame(const FObjectInitializer& ObjectInitializer)
 	NumRounds = 6;
 	bHideInUI = true;
 
-	bAttackerLivesLimited = false;
-	bDefenderLivesLimited = true;
-
 	InitialBoostCount = 0;
 	MaxTimeScoreBonus = 180;
 
@@ -198,8 +195,6 @@ void AUTCTFRoundGame::BeginGame()
 		CTFGameState->CTFRound = 1;
 		CTFGameState->NumRounds = NumRounds;
 		CTFGameState->bAllowRallies = true;
-		CTFGameState->bDefenderLivesLimited = bDefenderLivesLimited;
-		CTFGameState->bAttackerLivesLimited = bAttackerLivesLimited;
 		CTFGameState->HalftimeScoreDelay = 0.5f;
 	}
 	float RealIntermissionDuration = IntermissionDuration;
@@ -556,8 +551,6 @@ void AUTCTFRoundGame::InitGameState()
 	CTFGameState->CTFRound = 1;
 	CTFGameState->NumRounds = NumRounds;
 	CTFGameState->bAllowRallies = true;
-	CTFGameState->bDefenderLivesLimited = bDefenderLivesLimited;
-	CTFGameState->bAttackerLivesLimited = bAttackerLivesLimited;
 	CTFGameState->HalftimeScoreDelay = 6.f;
 }
 
@@ -669,18 +662,19 @@ void AUTCTFRoundGame::FlagsAreReady()
 
 void AUTCTFRoundGame::InitGameStateForRound()
 {
-	if (CTFGameState)
+	AUTCTFRoundGameState* RCTFGameState = Cast<AUTCTFRoundGameState>(CTFGameState);
+	if (RCTFGameState)
 	{
-		CTFGameState->CTFRound++;
+		RCTFGameState->CTFRound++;
 		if (!bPerPlayerLives)
 		{
-			CTFGameState->RedLivesRemaining = RoundLives;
-			CTFGameState->BlueLivesRemaining = RoundLives;
+			RCTFGameState->RedLivesRemaining = RoundLives;
+			RCTFGameState->BlueLivesRemaining = RoundLives;
 		}
 		if (CTFGameState->FlagBases.Num() > 1)
 		{
-			CTFGameState->RedLivesRemaining += CTFGameState->FlagBases[0] ? CTFGameState->FlagBases[0]->RoundLivesAdjustment : 0;
-			CTFGameState->BlueLivesRemaining += CTFGameState->FlagBases[1] ? CTFGameState->FlagBases[0]->RoundLivesAdjustment : 0;
+			RCTFGameState->RedLivesRemaining += CTFGameState->FlagBases[0] ? CTFGameState->FlagBases[0]->RoundLivesAdjustment : 0;
+			RCTFGameState->BlueLivesRemaining += CTFGameState->FlagBases[1] ? CTFGameState->FlagBases[0]->RoundLivesAdjustment : 0;
 		}
 	}
 }
@@ -944,18 +938,19 @@ void AUTCTFRoundGame::RestartPlayer(AController* aPlayer)
 	SendRestartNotifications(PS, PC);
 	Super::RestartPlayer(aPlayer);
 
-	if (aPlayer->GetPawn() && !bPerPlayerLives && (RoundLives > 0) && PS && PS->Team && CTFGameState && CTFGameState->IsMatchInProgress())
+	AUTCTFRoundGameState* RCTFGameState = Cast<AUTCTFRoundGameState>(CTFGameState);
+	if (aPlayer->GetPawn() && !bPerPlayerLives && (RoundLives > 0) && PS && PS->Team && RCTFGameState && RCTFGameState->IsMatchInProgress())
 	{
 		if ((PS->Team->TeamIndex == 0) && IsPlayerOnLifeLimitedTeam(PS))
 		{
-			CTFGameState->RedLivesRemaining--;
-			if (CTFGameState->RedLivesRemaining <= 0)
+			RCTFGameState->RedLivesRemaining--;
+			if (RCTFGameState->RedLivesRemaining <= 0)
 			{
-				CTFGameState->RedLivesRemaining = 0;
+				RCTFGameState->RedLivesRemaining = 0;
 				ScoreAlternateWin(1);
 				return;
 			}
-			else if (bNeedFiveKillsMessage && (CTFGameState->RedLivesRemaining == 5))
+			else if (bNeedFiveKillsMessage && (RCTFGameState->RedLivesRemaining == 5))
 			{
 				bNeedFiveKillsMessage = false;
 				BroadcastLocalized(NULL, UUTShowdownGameMessage::StaticClass(), 7);
@@ -963,14 +958,14 @@ void AUTCTFRoundGame::RestartPlayer(AController* aPlayer)
 		}
 		else if ((PS->Team->TeamIndex == 1) && IsPlayerOnLifeLimitedTeam(PS))
 		{
-			CTFGameState->BlueLivesRemaining--;
-			if (CTFGameState->BlueLivesRemaining <= 0)
+			RCTFGameState->BlueLivesRemaining--;
+			if (RCTFGameState->BlueLivesRemaining <= 0)
 			{
-				CTFGameState->BlueLivesRemaining = 0;
+				RCTFGameState->BlueLivesRemaining = 0;
 				ScoreAlternateWin(0);
 				return;
 			}
-			else if (bNeedFiveKillsMessage && (CTFGameState->BlueLivesRemaining == 5))
+			else if (bNeedFiveKillsMessage && (RCTFGameState->BlueLivesRemaining == 5))
 			{
 				bNeedFiveKillsMessage = false;
 				BroadcastLocalized(NULL, UUTShowdownGameMessage::StaticClass(), 7);
@@ -1264,6 +1259,11 @@ bool AUTCTFRoundGame::IsTeamOnDefense(int32 TeamNumber) const
 
 bool AUTCTFRoundGame::IsPlayerOnLifeLimitedTeam(AUTPlayerState* PlayerState) const
 {
-	return PlayerState && PlayerState->Team && IsTeamOnOffense(PlayerState->Team->TeamIndex) ? bAttackerLivesLimited : bDefenderLivesLimited;
+	AUTCTFRoundGameState* RCTFGameState = Cast<AUTCTFRoundGameState>(CTFGameState);
+	if (RCTFGameState == nullptr)
+	{
+		return false;
+	}
+	return PlayerState && PlayerState->Team && IsTeamOnOffense(PlayerState->Team->TeamIndex) ? RCTFGameState->bAttackerLivesLimited : RCTFGameState->bDefenderLivesLimited;
 }
 

@@ -105,10 +105,6 @@ void AUTCTFGameState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & O
 	DOREPLIFETIME(AUTCTFGameState, AdvantageTeamIndex);
 	DOREPLIFETIME(AUTCTFGameState, ScoringPlays);
 	DOREPLIFETIME(AUTCTFGameState, CTFRound); 
-	DOREPLIFETIME(AUTCTFGameState, RedLivesRemaining);
-	DOREPLIFETIME(AUTCTFGameState, BlueLivesRemaining);
-	DOREPLIFETIME(AUTCTFGameState, bAttackerLivesLimited);
-	DOREPLIFETIME(AUTCTFGameState, bDefenderLivesLimited);
 	DOREPLIFETIME(AUTCTFGameState, NumRounds);
 }
 

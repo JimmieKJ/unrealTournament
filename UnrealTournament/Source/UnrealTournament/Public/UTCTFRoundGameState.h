@@ -31,8 +31,20 @@ class UNREALTOURNAMENT_API AUTCTFRoundGameState : public AUTCTFGameState
 	UPROPERTY(Replicated)
 		class AUTTeamInfo* FlagRunMessageTeam;
 
+	UPROPERTY()
+		bool bAttackerLivesLimited;
+
+	UPROPERTY()
+		bool bDefenderLivesLimited;
+
 	UPROPERTY(Replicated)
 		bool bAllowBoosts;
+
+	UPROPERTY(Replicated)
+		int32 RedLivesRemaining;
+
+	UPROPERTY(Replicated)
+		int32 BlueLivesRemaining;
 
 	virtual FText GetGameStatusText(bool bForScoreboard) override;
 	virtual FText GetRoundStatusText(bool bForScoreboard);
