@@ -307,6 +307,9 @@ protected:
 	FHUDRenderObject_Texture DetectedIcon;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Icons")
+		FHUDRenderObject_Texture CombatIcon;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Icons")
 	FHUDRenderObject_Texture RallyFlagIcon;
 
 	// NOTE: This icon will be generated from the data in the actual powerup

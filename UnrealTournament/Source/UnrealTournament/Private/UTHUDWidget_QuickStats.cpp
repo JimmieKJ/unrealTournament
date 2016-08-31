@@ -394,10 +394,17 @@ void UUTHUDWidget_QuickStats::PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCa
 			if (UTPlayerState->CarriedObject != nullptr)
 			{
 				AUTCTFFlag* CTFFlag = Cast<AUTCTFFlag>(UTPlayerState->CarriedObject);
-				if (CTFFlag != nullptr && CTFFlag->bCurrentlyPinged)
+				if (CTFFlag != nullptr)// && CTFFlag->bCurrentlyPinged)
 				{
 					FlagInfo.bUseOverlayTexture = true;
-					FlagInfo.OverlayTextures.Add(DetectedIcon);
+					if (CTFFlag->HoldingPawn && CTFFlag->HoldingPawn->bIsInCombat)
+					{
+						FlagInfo.OverlayTextures.Add(CombatIcon);
+					}
+					else
+					{
+						FlagInfo.OverlayTextures.Add(DetectedIcon);
+					}
 				}
 			}
 		}

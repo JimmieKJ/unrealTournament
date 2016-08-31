@@ -129,8 +129,16 @@ void UUTHUDWidget_CTFFlagStatus::DrawFlagStatus(AUTCTFGameState* GameState, FVec
 			{
 				if (Flag->bCurrentlyPinged)
 				{
-					DetectedIcon.RenderScale = 1.0f + (0.5f * FMath::Abs<float>(FMath::Sin(UTHUDOwner->GetWorld()->GetTimeSeconds())));
-					RenderObj_Texture(DetectedIcon, FVector2D(XPos, YPos));
+					if (Flag->HoldingPawn &&  Flag->HoldingPawn->bIsInCombat)
+					{
+						CombatIcon.RenderScale = 1.0f + (0.5f * FMath::Abs<float>(FMath::Sin(UTHUDOwner->GetWorld()->GetTimeSeconds())));
+						RenderObj_Texture(CombatIcon, FVector2D(XPos, YPos));
+					}
+					else
+					{
+						DetectedIcon.RenderScale = 1.0f + (0.5f * FMath::Abs<float>(FMath::Sin(UTHUDOwner->GetWorld()->GetTimeSeconds())));
+						RenderObj_Texture(DetectedIcon, FVector2D(XPos, YPos));
+					}
 				}
 			}
 
