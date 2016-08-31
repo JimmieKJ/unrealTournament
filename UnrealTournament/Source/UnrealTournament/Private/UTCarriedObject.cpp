@@ -45,6 +45,7 @@ AUTCarriedObject::AUTCarriedObject(const FObjectInitializer& ObjectInitializer)
 	MinGradualReturnDist = 1400.f;
 	bSendHomeOnScore = true;
 	bSlowsMovement = false;
+	bSingleGhostFlag = true;
 }
 
 void AUTCarriedObject::Destroyed()
