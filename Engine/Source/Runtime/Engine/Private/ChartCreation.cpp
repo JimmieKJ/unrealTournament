@@ -456,7 +456,7 @@ protected:
 		const float MSToSeconds = 1.0f / 1000.0f;
 		const double RegularFramePortionForHitchFrames = AcceptableFramePortionMS * MSToSeconds * TotalHitchCount;
 
-		ensure(RegularFramePortionForHitchFrames < TotalTimeSpentInHitchBuckets);
+		ensure(RegularFramePortionForHitchFrames <= TotalTimeSpentInHitchBuckets);
 		const double TimeSpentHitching = TotalTimeSpentInHitchBuckets - RegularFramePortionForHitchFrames;
 
 		ParamArray.Add(FAnalyticsEventAttribute(TEXT("PercentSpentHitching"), 100.0f * TimeSpentHitching / TotalTime));
