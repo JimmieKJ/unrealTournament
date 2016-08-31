@@ -69,6 +69,12 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
 	FTextureUVs RallyIconUVs;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Icons")
+		FHUDRenderObject_Texture DetectedIcon;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Icons")
+		FHUDRenderObject_Texture CombatIcon;
+
 	int32 PlayerArmor;
 	
 	bool bAnimating;

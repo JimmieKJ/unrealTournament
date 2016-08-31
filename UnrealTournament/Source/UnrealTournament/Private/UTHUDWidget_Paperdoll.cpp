@@ -223,6 +223,18 @@ void UUTHUDWidget_Paperdoll::Draw_Implementation(float DeltaTime)
 			FlagText.Text = FText::AsNumber(int32(PS->RemainingRallyDelay));
 			RenderObj_Text(FlagText);
 		}
+
+		if (PS && PS->CarriedObject && PS->CarriedObject->bCurrentlyPinged)
+		{
+			if (PS->CarriedObject->HoldingPawn && PS->CarriedObject->HoldingPawn->bIsInCombat)
+			{
+				RenderObj_Texture(CombatIcon);
+			}
+			else
+			{
+				RenderObj_Texture(DetectedIcon);
+			}
+		}
 	}
 }
 
