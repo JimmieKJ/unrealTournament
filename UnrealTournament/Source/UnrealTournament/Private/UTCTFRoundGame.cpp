@@ -563,6 +563,10 @@ void AUTCTFRoundGame::HandleExitingIntermission()
 	{
 		IntermissionSwapSides();
 	}
+	else
+	{
+		CTFGameState->CTFRound = 0;
+	}
 
 	InitRound();
 	if (!bFirstRoundInitialized)
