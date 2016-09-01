@@ -135,8 +135,6 @@ void SUTPartyInviteWidget::HandleFriendsActionNotification(TSharedRef<FFriendsAn
 FReply SUTPartyInviteWidget::AcceptInvite()
 {
 #if WITH_SOCIAL
-	// TODO: PLK - Find new friends API to accept game invite
-	/*
 	if (!LastInviteUniqueID.IsEmpty())
 	{
 		TSharedPtr<IGameAndPartyService> GameAndPartyService = ISocialModule::Get().GetFriendsAndChatManager()->GetGameAndPartyService();
@@ -165,7 +163,7 @@ FReply SUTPartyInviteWidget::AcceptInvite()
 				}
 			}
 		}
-	}*/
+	}
 #endif
 	LastInviteTime = 0;
 	LastInviteContent.Empty();
