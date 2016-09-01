@@ -95,6 +95,7 @@ public class UnrealTournament : ModuleRules
         else
         {
             Definitions.Add("WITH_PROFILE=0");
+            Definitions.Add("WITH_SOCIAL=0");
         }
     }
 }
