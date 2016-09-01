@@ -96,6 +96,13 @@ public class UnrealTournament : ModuleRules
         {
             Definitions.Add("WITH_PROFILE=0");
             Definitions.Add("WITH_SOCIAL=0");
+         
+            PublicDependencyModuleNames.AddRange(
+                new string[]
+                {
+                    "GithubStubs",
+                }
+            );
         }
     }
 }

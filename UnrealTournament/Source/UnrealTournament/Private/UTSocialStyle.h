@@ -1,7 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
+#if WITH_PROFILE
 #include "Social.h"
+#else
+//Fake class sitting in GithubStubs
+#include "SocialStyle.h"
+#endif
 
 #include "UTSocialStyle.generated.h"
 
