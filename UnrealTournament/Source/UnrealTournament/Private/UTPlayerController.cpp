@@ -234,8 +234,7 @@ void AUTPlayerController::NetStats()
 	UNetDriver* NetDriver = GetWorld()->GetNetDriver();
 	if (NetDriver)
 	{
-		// POLGE TODO: Work out with the engine team how we should do this
-		//NetDriver->bCollectNetStats = bShowNetInfo;
+		NetDriver->bCollectNetStats = bShowNetInfo;
 	}
 	if (MyUTHUD && !MyUTHUD->HasHudWidget(UUTHUDWidget_NetInfo::StaticClass()))
 	{
