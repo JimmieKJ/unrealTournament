@@ -100,6 +100,9 @@ class UNREALTOURNAMENT_API UUTLocalMessage : public ULocalMessage
 	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = Message)
 	FText ResolveMessage(int32 Switch = 0, bool bTargetsPlayerState1 = false, class APlayerState* RelatedPlayerState_1 = NULL, class APlayerState* RelatedPlayerState_2 = NULL, class UObject* OptionalObject = NULL) const;
 
+	/** Returns string to display on console for this message. */
+	virtual FString GetConsoleString(const FClientReceiveData& ClientData, FText LocalMessageText) const;
+
 	/** return the spacing to wait before playing this announcement if directly following another announcement. */
 	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, BlueprintPure, Category = Message)
 	float GetAnnouncementSpacing(int32 Switch, const UObject* OptionalObject) const;

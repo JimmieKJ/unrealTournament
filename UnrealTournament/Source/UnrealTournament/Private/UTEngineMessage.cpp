@@ -43,4 +43,13 @@ FText UUTEngineMessage::GetText(int32 Switch, bool bTargetsPlayerState1, class A
 	return FText::GetEmpty();
 }
 
+FString UUTEngineMessage::GetConsoleString(const FClientReceiveData& ClientData, FText LocalMessageText) const
+{
+	if ((ClientData.RelatedPlayerState_1 != nullptr) && (ClientData.MessageIndex == 1) || (ClientData.MessageIndex == 4) || (ClientData.MessageIndex == 16))
+	{
+		return ClientData.RelatedPlayerState_1->PlayerName + LocalMessageText.ToString();
+	}
+	return LocalMessageText.ToString();
+}
+
 

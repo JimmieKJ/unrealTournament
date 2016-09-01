@@ -36,6 +36,11 @@ int32 UUTLocalMessage::GetFontSizeIndex(int32 MessageIndex) const
 	return FontSizeIndex;
 }
 
+FString UUTLocalMessage::GetConsoleString(const FClientReceiveData& ClientData, FText LocalMessageText) const
+{
+	return LocalMessageText.ToString();
+}
+
 void UUTLocalMessage::ClientReceive(const FClientReceiveData& ClientData) const
 {
 	// Skip playing local messages if we're fast forwarding from a demo seek
@@ -58,7 +63,7 @@ void UUTLocalMessage::ClientReceive(const FClientReceiveData& ClientData) const
 
 		if(IsConsoleMessage(ClientData.MessageIndex) && Cast<ULocalPlayer>(ClientData.LocalPC->Player) != NULL && Cast<ULocalPlayer>(ClientData.LocalPC->Player)->ViewportClient != NULL)
 		{
-			Cast<ULocalPlayer>(ClientData.LocalPC->Player)->ViewportClient->ViewportConsole->OutputText( LocalMessageText.ToString() );
+			Cast<ULocalPlayer>(ClientData.LocalPC->Player)->ViewportClient->ViewportConsole->OutputText( GetConsoleString(ClientData, LocalMessageText) );
 		}
 	}
 
