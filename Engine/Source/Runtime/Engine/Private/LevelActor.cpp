@@ -444,7 +444,7 @@ AActor* UWorld::SpawnActor( UClass* Class, FTransform const* UserTransformPtr, c
 
 	if (Actor->IsPendingKill() && !SpawnParameters.bNoFail)
 	{
-		UE_LOG(LogSpawn, Log, TEXT("SpawnActor failed because the spawned actor %s IsPendingKill"), *Actor->GetPathName());
+		UE_LOG(LogSpawn, Warning, TEXT("SpawnActor failed because the spawned actor %s IsPendingKill"), *Actor->GetPathName());
 		return NULL;
 	}
 
