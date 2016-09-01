@@ -131,7 +131,7 @@ void UUTCharacterMovement::SmoothClientPosition(float DeltaSeconds)
 	}
 
 	SmoothClientPosition_Interpolate(DeltaSeconds);
-	if (IsMovingOnGround()/* && NetworkSmoothingMode != ENetworkSmoothingMode::Replay*/)
+	if (IsMovingOnGround() && NetworkSmoothingMode != ENetworkSmoothingMode::Replay)
 	{
 		FNetworkPredictionData_Client_Character* ClientData = GetPredictionData_Client_Character();
 		if (ClientData)
