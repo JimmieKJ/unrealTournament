@@ -2931,6 +2931,11 @@ FRotator AUTPlayerController::GetSpectatingRotation(const FVector& ViewLoc, floa
 	return GetControlRotation();
 }
 
+float AUTPlayerController::GetFrozenTime()
+{
+	return GetWorldTimerManager().GetTimerElapsed(TimerHandle_UnFreeze);
+}
+
 void AUTPlayerController::FindGoodView(const FVector& TargetLoc, bool bIsUpdate)
 {
 	AActor* TestViewTarget = GetViewTarget();
@@ -4902,6 +4907,7 @@ void AUTPlayerController::ClientPlayInstantReplay_Implementation(APawn* PawnToFo
 
 void AUTPlayerController::ClientPlayKillcam_Implementation(AController* KillingController, APawn* PawnToFocus)
 {
+//	UE_LOG(UT, Log, TEXT("ClientPlayKillcam %d"), (GetWorld()->DemoNetDriver && IsLocalController()));
 	if (GetWorld()->DemoNetDriver && IsLocalController())
 	{
 		FNetworkGUID FocusPawnGuid = GetWorld()->DemoNetDriver->GetGUIDForActor(PawnToFocus);
@@ -4915,6 +4921,11 @@ void AUTPlayerController::ClientPlayKillcam_Implementation(AController* KillingC
 			FTimerDelegate::CreateUObject(this, &AUTPlayerController::ClientStopKillcam),
 			CVarUTKillcamRewindTime.GetValueOnGameThread() + CVarUTKillcamStartDelay.GetValueOnGameThread() + 0.5f,
 			false);
+	}
+	else
+	{
+		DeathCamFocus = PawnToFocus;
+	//	UE_LOG(UT, Log, TEXT("DeathCamFocus %s"), DeathCamFocus ? *DeathCamFocus->GetName() : TEXT("NONE"));
 	}
 }
 

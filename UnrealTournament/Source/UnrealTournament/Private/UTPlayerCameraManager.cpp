@@ -270,8 +270,35 @@ void AUTPlayerCameraManager::UpdateViewTarget(FTViewTarget& OutVT, float DeltaTi
 		FRotator Rotator = (!UTPC || UTPC->bSpectatorMouseChangesView) ? PCOwner->GetControlRotation() : UTPC->GetSpectatingRotation(Loc, DeltaTime);
 		if (bUseDeathCam)
 		{
-			Rotator.Pitch = FRotator::NormalizeAxis(Rotator.Pitch);
-			Rotator.Pitch = FMath::Clamp(Rotator.Pitch, -85.f, -5.f);
+			if (UTPC && UTPC->IsInState(NAME_Inactive) && UTPC->IsFrozen() && UTPC->DeathCamFocus && !UTPC->DeathCamFocus->IsPendingKillPending()
+				&& (UTPC->GetFrozenTime() > 0.25f))
+			{
+				FVector Pos = Loc + FRotationMatrix(Rotator).TransformVector(CameraOffset) - Rotator.Vector() * CameraDistance;
+				FHitResult Result;
+				CheckCameraSweep(Result, TargetActor, Loc, Pos);
+				OutVT.POV.Location = !Result.bBlockingHit ? Pos : Result.Location;
+
+				// custom camera control for dead players
+				// still for a short while, then look at killer
+				FRotator ViewRotation = UTPC->GetControlRotation();
+				ViewRotation.Yaw = FMath::UnwindDegrees(ViewRotation.Yaw);
+				ViewRotation.Pitch = FMath::UnwindDegrees(ViewRotation.Pitch);
+				ViewRotation.Roll = 0.f;
+				FRotator DesiredViewRotation = (UTPC->DeathCamFocus->GetActorLocation() - OutVT.POV.Location).Rotation();
+				DesiredViewRotation.Yaw = FMath::UnwindDegrees(DesiredViewRotation.Yaw);
+				DesiredViewRotation.Pitch = FMath::Clamp(FMath::UnwindDegrees(DesiredViewRotation.Pitch) - 8.f, -85.f, -5.f);
+				float DeltaYaw = FMath::RadiansToDegrees(FMath::FindDeltaAngleRadians(FMath::DegreesToRadians(ViewRotation.Yaw), FMath::DegreesToRadians(DesiredViewRotation.Yaw)));
+				ViewRotation.Yaw += 15.f*DeltaTime*DeltaYaw;
+				float DeltaPitch = FMath::RadiansToDegrees(FMath::FindDeltaAngleRadians(FMath::DegreesToRadians(ViewRotation.Pitch), FMath::DegreesToRadians(DesiredViewRotation.Pitch)));
+				ViewRotation.Pitch += 15.f*DeltaTime*DeltaPitch;
+				UTPC->SetControlRotation(ViewRotation);
+				Rotator = ViewRotation;
+			}
+			else
+			{
+				Rotator.Pitch = FRotator::NormalizeAxis(Rotator.Pitch);
+				Rotator.Pitch = FMath::Clamp(Rotator.Pitch, -85.f, -5.f);
+			}
 		}
 		if (Cast<AUTProjectile>(TargetActor) && !TargetActor->IsPendingKillPending())
 		{

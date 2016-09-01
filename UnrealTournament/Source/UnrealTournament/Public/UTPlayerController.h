@@ -1200,6 +1200,11 @@ public:
 	UFUNCTION(Client, Reliable)
 	void ClientPlayKillcam(AController* KillingController, APawn* PawnToFocus);
 
+	UPROPERTY()
+		APawn* DeathCamFocus;
+
+	virtual float GetFrozenTime();
+
 	/** Sent by the server when the player is about to respawn */
 	UFUNCTION(Client, Reliable)
 	void ClientStopKillcam();
