@@ -899,6 +899,10 @@ void AUTCarriedObject::OnRep_AttachmentReplication()
 			{
 				NewParentComponent = GetAttachmentReplication().AttachComponent;
 			}
+			else if (GetAttachmentReplication().AttachSocket != NAME_None && Cast<ACharacter>(GetAttachmentReplication().AttachParent) != nullptr)
+			{
+				NewParentComponent = ((ACharacter*)GetAttachmentReplication().AttachParent)->GetMesh();
+			}
 
 			if (NewParentComponent)
 			{
