@@ -36,6 +36,7 @@ FName SUTStyle::GetStyleSetName()
 
 #define IMAGE_BRUSH( RelativePath, ... )	FSlateImageBrush( FPaths::GameContentDir() / "RestrictedAssets/Slate"/ RelativePath + TEXT(".png"), __VA_ARGS__ )
 #define BOX_BRUSH( RelativePath, ... ) 		FSlateBoxBrush( FPaths::GameContentDir() / "RestrictedAssets/Slate"/ RelativePath + TEXT(".png"), __VA_ARGS__ )
+
 #define BORDER_BRUSH( RelativePath, ... ) 	FSlateBorderBrush( FPaths::GameContentDir() / "RestrictedAssets/Slate"/ RelativePath + TEXT(".png"), __VA_ARGS__ )
 #define TTF_FONT( RelativePath, ... ) 		FSlateFontInfo( FPaths::GameContentDir() / "RestrictedAssets/Slate"/ RelativePath + TEXT(".ttf"), __VA_ARGS__ )
 #define OTF_FONT( RelativePath, ... ) 		FSlateFontInfo( FPaths::GameContentDir() / "RestrictedAssets/Slate"/ RelativePath + TEXT(".otf"), __VA_ARGS__ )
@@ -114,6 +115,7 @@ TSharedRef<FSlateStyleSet> SUTStyle::Create()
 	SetChallengeBadges(StyleRef);
 	SetContextMenus(StyleRef);
 	SetServerBrowser(StyleRef);
+	SetLoginStyle(StyleRef);
 
 	#if WITH_SOCIAL
 	USocialStyleAsset* SocialAsset = LoadObject<USocialStyleAsset>(NULL, TEXT("/Game/RestrictedAssets/UI/UTSocialStyle.UTSocialStyle"), NULL, LOAD_None, NULL);
@@ -145,6 +147,9 @@ void SUTStyle::SetFonts(TSharedRef<FSlateStyleSet> StyleRef)
 
 	Style.Set("UT.Font.NormalText.Medium", FTextBlockStyle().SetFont(TTF_FONT("/UTStyle/Fonts/Lato/Lato-Regular", FONT_SIZE_Medium)).SetColorAndOpacity(FLinearColor::White));
 	Style.Set("UT.Font.NormalText.Medium.Bold", FTextBlockStyle().SetFont(TTF_FONT("/UTStyle/Fonts/Lato/Lato-Bold", FONT_SIZE_Medium)).SetColorAndOpacity(FLinearColor::White));
+	Style.Set("UT.Font.NormalText.Medium.Gray", FTextBlockStyle().SetFont(TTF_FONT("/UTStyle/Fonts/Lato/Lato-Bold", FONT_SIZE_Medium)).SetColorAndOpacity(FLinearColor::Gray));
+	Style.Set("UT.Font.NormalText.Medium.Error", FTextBlockStyle().SetFont(TTF_FONT("/UTStyle/Fonts/Lato/Lato-Bold", FONT_SIZE_Medium)).SetColorAndOpacity(FLinearColor::Red));
+	Style.Set("UT.Font.NormalText.Medium.Link", FTextBlockStyle().SetFont(TTF_FONT("/UTStyle/Fonts/Lato/Lato-Bold", FONT_SIZE_Medium)).SetColorAndOpacity(FLinearColor(0.0f,0.0f,0.6f,1.0f)));
 
 	Style.Set("UT.Font.NormalText.Large", FTextBlockStyle().SetFont(TTF_FONT("/UTStyle/Fonts/Lato/Lato-Regular", FONT_SIZE_Large)).SetColorAndOpacity(FLinearColor::White));
 	Style.Set("UT.Font.NormalText.Large.Bold", FTextBlockStyle().SetFont(TTF_FONT("/UTStyle/Fonts/Lato/Lato-Bold", FONT_SIZE_Large)).SetColorAndOpacity(FLinearColor::White));
@@ -775,6 +780,69 @@ void SUTStyle::SetServerBrowser(TSharedRef<FSlateStyleSet> StyleRef)
 }
 
 
+void SUTStyle::SetLoginStyle(TSharedRef<FSlateStyleSet> StyleRef)
+{
+	FSlateStyleSet& Style = StyleRef.Get();
+
+	Style.Set("UT.Login.Dialog.Background", new BOX_BRUSH("Login/UT.Login.Dialog.Background", FMargin(8.0f / 256.0f, 8.0f / 256.0f, 8.0f / 256.0f, 8.0f / 256.0f)));
+	Style.Set("UT.Login.EpicLogo", new IMAGE_BRUSH("Login/UT.Login.EpicLogo", FVector2D(110, 126), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f)));
+	Style.Set("UT.Login.Editbox.Background", new BOX_BRUSH("Login/UT.Login.Editbox.Normal", FMargin(4.0f / 338.0f, 4.0f / 62.0f, 4.0f / 338.0f, 4.0f / 62.0f)));
+
+	Style.Set("UT.Login.Editbox", FEditableTextBoxStyle()
+		.SetFont(TTF_FONT("/UTStyle/Fonts/Lato/Lato-Regular", 20))
+		.SetForegroundColor(FLinearColor::Black)
+		.SetBackgroundImageNormal(FSlateNoResource(FVector2D(128.0f, 128.0f)))
+		.SetBackgroundImageHovered(FSlateNoResource(FVector2D(128.0f, 128.0f)))
+		.SetBackgroundImageFocused(FSlateNoResource(FVector2D(128.0f, 128.0f)))
+		.SetBackgroundImageReadOnly(FSlateNoResource(FVector2D(128.0f, 128.0f)))
+		);
+
+	Style.Set("UT.Login.Error.TextStyle", FTextBlockStyle()
+		.SetFont(TTF_FONT("/UTStyle/Fonts/Lato/Lato-Bold", 16))
+		.SetColorAndOpacity(FLinearColor(FColor(126, 7, 13, 255))));
+
+	Style.Set("UT.Login.TextStyle", FTextBlockStyle()
+		.SetFont(TTF_FONT("/UTStyle/Fonts/Lato/Lato-Bold", 20))
+		.SetColorAndOpacity(FLinearColor(FColor(78, 78, 78, 255))));
+
+	Style.Set("UT.Login.Label.TextStyle", FTextBlockStyle()
+		.SetFont(TTF_FONT("/UTStyle/Fonts/Lato/Lato-Bold", 20))
+		.SetColorAndOpacity(FLinearColor(FColor(148, 148, 148, 255))));
+
+	Style.Set("UT.Login.Button", FButtonStyle()
+		.SetNormal(BOX_BRUSH("Login/UT.Login.Button.Normal", FMargin(4.0f / 298.0f, 4.0f / 44.0f, 4.0f / 298.0f, 4.0f / 44.0f)))
+		.SetHovered(BOX_BRUSH("Login/UT.Login.Button.Hovered", FMargin(4.0f / 298.0f, 4.0f / 44.0f, 4.0f / 298.0f, 4.0f / 44.0f)))
+		.SetPressed(BOX_BRUSH("Login/UT.Login.Button.Pressed", FMargin(4.0f / 298.0f, 4.0f / 44.0f, 4.0f / 298.0f, 4.0f / 44.0f)))
+		.SetDisabled(BOX_BRUSH("Login/UT.Login.Button.Normal", FMargin(4.0f / 298.0f, 4.0f / 44.0f, 4.0f / 298.0f, 4.0f / 44.0f)))
+		.SetHoveredSound(ButtonHoverSound)
+		.SetPressedSound(ButtonPressSound)
+		);
+
+	Style.Set("UT.Login.Button.TextStyle", FTextBlockStyle()
+		.SetFont(TTF_FONT("/UTStyle/Fonts/Lato/Lato-Bold", 32))
+		.SetColorAndOpacity(FLinearColor::White));
+
+	Style.Set("UT.Login.EmptyButton", FButtonStyle()
+		.SetNormal(FSlateNoResource(FVector2D(256.0f, 256.0f)))
+		.SetHovered(BOX_BRUSH("Login/UT.Login.EmptyButton.Hovered", FMargin(4.0f / 298.0f, 4.0f / 44.0f, 4.0f / 298.0f, 4.0f / 44.0f)))
+		.SetPressed(BOX_BRUSH("Login/UT.Login.EmptyButton.Hovered", FMargin(4.0f / 298.0f, 4.0f / 44.0f, 4.0f / 298.0f, 4.0f / 44.0f)))
+		.SetDisabled(FSlateNoResource(FVector2D(256.0f, 256.0f)))
+		.SetHoveredSound(ButtonHoverSound)
+		.SetPressedSound(ButtonPressSound)
+		);
+
+	Style.Set("UT.Login.EmptyButton.TextStyle", FTextBlockStyle()
+		.SetFont(TTF_FONT("/UTStyle/Fonts/Lato/Lato", 20))
+		.SetColorAndOpacity(FLinearColor(FColor(33, 93, 220, 255))));
+
+	Style.Set("UT.Login.Offline.TextStyle", FTextBlockStyle()
+		.SetFont(TTF_FONT("/UTStyle/Fonts/Lato/Lato-Bold", 22))
+		.SetColorAndOpacity(FLinearColor(FColor(220, 93, 33, 255))));
+
+
+}
+
+
 END_SLATE_FUNCTION_BUILD_OPTIMIZATION
 
 #undef IMAGE_BRUSH
@@ -822,6 +890,5 @@ void SUTStyle::SetTextChatStyle(TSharedRef<FSlateStyleSet> StyleRef)
 	Style.Set("UT.Font.Chat.Text.Local",		FTextBlockStyle(NormalChatStyle));
 	Style.Set("UT.Font.Chat.Text.Admin",		FTextBlockStyle(NormalChatStyle).SetColorAndOpacity(FLinearColor::Yellow));
 }
-
 
 #endif

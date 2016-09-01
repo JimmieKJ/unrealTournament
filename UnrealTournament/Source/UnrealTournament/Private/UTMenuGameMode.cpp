@@ -65,6 +65,26 @@ void AUTMenuGameMode::GenericPlayerInitialization(AController* C)
 	AUTBasePlayerController* PC = Cast<AUTBasePlayerController>(C);
 	if (PC != NULL)
 	{
+		PC->ClientReturnedToMenus();
+		UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(PC->Player);
+		if (LP != NULL)
+		{
+			if (LP->IsLoggedIn() || LP->bPlayingOffline)
+			{
+				ShowMenu(PC);
+			}
+			else 
+			{
+				LP->ShowAuth();
+			}
+		}
+	}
+}
+
+void AUTMenuGameMode::ShowMenu(AUTBasePlayerController* PC)
+{
+	if (PC != NULL)
+	{
 		FURL& LastURL = GEngine->GetWorldContextFromWorld(GetWorld())->LastURL;
 
 		PC->ClientReturnedToMenus();
@@ -86,6 +106,8 @@ void AUTMenuGameMode::GenericPlayerInitialization(AController* C)
 	}
 
 }
+
+
 
 void AUTMenuGameMode::RestartPlayer(AController* aPlayer)
 {

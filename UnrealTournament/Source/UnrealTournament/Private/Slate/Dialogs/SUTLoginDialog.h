@@ -14,7 +14,6 @@ class UNREALTOURNAMENT_API SUTLoginDialog : public SCompoundWidget
 	SLATE_ARGUMENT(TWeakObjectPtr<class UUTLocalPlayer>, PlayerOwner)			
 	SLATE_EVENT(FDialogResultDelegate, OnDialogResult)							
 
-	SLATE_ARGUMENT(FText, ErrorText)
 	SLATE_ARGUMENT(FString, UserIDText)
 	SLATE_END_ARGS()
 
@@ -24,6 +23,9 @@ class UNREALTOURNAMENT_API SUTLoginDialog : public SCompoundWidget
 	FString GetEpicID();
 	FString GetPassword();
 	void SetInitialFocus();
+
+	void SetErrorText(FText NewErrorText);
+
 protected:
 
 	// The Dialog Result delegate
@@ -37,6 +39,7 @@ protected:
 
 	TSharedPtr<class SEditableTextBox> UserEditBox;
 	TSharedPtr<class SEditableTextBox> PassEditBox;
+	TSharedPtr<SRichTextBlock> ErrorText;
 
 	FReply OnNewAccountClick();
 	FReply OnForgotPasswordClick();
@@ -46,11 +49,26 @@ protected:
 	void OnTextCommited(const FText& NewText, ETextCommit::Type CommitType);
 
 	FReply OnKeyUp(const FGeometry& MyGeometry, const FKeyEvent& InKeyEvent);
+	virtual void Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime );
+
+public:
+	void BeginLogin();
+	void EndLogin(bool bSuccessful);
 
 private:
 	TWeakObjectPtr<class UUTLocalPlayer> PlayerOwner;
 	virtual FReply OnKeyDown(const FGeometry& MyGeometry, const FKeyEvent& InKeyboardEvent) override;
 
+	TSharedPtr<SVerticalBox> InfoBox;
+	TSharedPtr<SVerticalBox> LoadingBox;
+	EVisibility GetInfoVis() const;
+	EVisibility GetLoadingVis() const;
+
+	float LoginStartTime;
+	float HideDelayTime;
+	bool bRequestingClose;
+
+	bool bIsLoggingIn;
 };
 
 #endif

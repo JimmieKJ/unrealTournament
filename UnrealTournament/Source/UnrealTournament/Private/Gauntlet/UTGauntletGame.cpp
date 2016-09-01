@@ -187,6 +187,7 @@ void AUTGauntletGame::GameObjectiveInitialized(AUTGameObjective* Obj)
 	}
 
 	Super::GameObjectiveInitialized(Obj);
+	Obj->InitializeObjective();
 }
 
 void AUTGauntletGame::PreInitializeComponents()

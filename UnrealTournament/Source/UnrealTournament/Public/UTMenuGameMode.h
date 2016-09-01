@@ -20,6 +20,8 @@ public:
 	
 	virtual void PostInitializeComponents() override;
 
+	virtual void ShowMenu(AUTBasePlayerController* PC);
+
 	UPROPERTY(config)
 	FString MenuMusicAssetName;
 

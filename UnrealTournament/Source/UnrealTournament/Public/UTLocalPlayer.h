@@ -445,6 +445,7 @@ protected:
 public:
 	// Call this function to Attempt to load the Online Profile Settings for this user.
 	virtual void GetAuth(FString ErrorMessage = TEXT(""));
+	virtual void ShowAuth();
 
 	UPROPERTY(config)
 	FString LastRankedMatchUniqueId;
@@ -1080,4 +1081,18 @@ protected:
 #if !UE_SERVER
 	void OnUpgradeResults(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID);
 #endif
+
+public:
+	UPROPERTY(BlueprintReadOnly, Category = Login)
+	bool bLoginAttemptInProgress;
+
+	// Will be true if the user has chosen to play offline.  It get's cleared when a player logs in.
+	UPROPERTY(BlueprintReadOnly, Category = Login)
+	bool bPlayingOffline;
+
+
+	void AttemptLogin();
+
+	void ClearPendingLoginUserName();
+
 };

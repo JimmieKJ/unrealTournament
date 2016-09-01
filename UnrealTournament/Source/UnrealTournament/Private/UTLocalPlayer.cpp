@@ -740,6 +740,7 @@ bool UUTLocalPlayer::AreMenusOpen()
 	}
 	
 	return DesktopSlateWidget.IsValid()
+		|| LoginDialog.IsValid()
 		|| LoadoutMenu.IsValid()
 		|| QuickChatWindow.IsValid()
 		|| OpenDialogs.Num() > 0
@@ -835,12 +836,18 @@ void UUTLocalPlayer::LoginOnline(FString EpicID, FString Auth, bool bIsRememberT
 		GetAuth();
 		return;
 	}
+	else if (!bSilentlyFail)
+	{
+		ShowAuth();
+	}
 
 	FOnlineAccountCredentials AccountCreds(TEXT("epic"), EpicID, Auth);
 	if (bIsRememberToken)
 	{
 		AccountCreds.Type = TEXT("refresh");
 	}
+
+	if (LoginDialog.IsValid()) LoginDialog->BeginLogin();
 
 	// Begin the Login Process...
 	if (!OnlineIdentityInterface->Login(GetControllerId(), AccountCreds))
@@ -857,6 +864,10 @@ void UUTLocalPlayer::LoginOnline(FString EpicID, FString Auth, bool bIsRememberT
 		}
 		return;
 #endif
+	}
+	else
+	{
+		bLoginAttemptInProgress = true;
 	}
 }
 
@@ -905,8 +916,18 @@ FString UUTLocalPlayer::GetOnlinePlayerNickname()
 
 void UUTLocalPlayer::OnLoginComplete(int32 LocalUserNum, bool bWasSuccessful, const FUniqueNetId& UniqueID, const FString& ErrorMessage)
 {
+	bLoginAttemptInProgress = false;
+
+	// Close down the login dialog if it's open.
+	if (LoginDialog.IsValid())
+	{
+		LoginDialog->EndLogin(bWasSuccessful);
+	}
+
 	if (bWasSuccessful)
 	{
+		bPlayingOffline = false;
+
 		// Save the creds for the next auto-login
 
 		TSharedPtr<FUserOnlineAccount> Account = OnlineIdentityInterface->GetUserAccount(UniqueID);
@@ -1071,27 +1092,34 @@ void UUTLocalPlayer::GetAuth(FString ErrorMessage)
 
 	if (LoginDialog.IsValid())
 	{
+		LoginDialog->SetErrorText(FText::FromString(ErrorMessage));
 		return;
 	}
 
-	bool bError = ErrorMessage != TEXT("");
+	ShowAuth();
+#endif
+}
 
-	SAssignNew(LoginDialog, SUTLoginDialog)
+void UUTLocalPlayer::ShowAuth()
+{
+#if !UE_SERVER
+	if (!LoginDialog.IsValid())
+	{
+		SAssignNew(LoginDialog, SUTLoginDialog)
 		.OnDialogResult(FDialogResultDelegate::CreateUObject(this, &UUTLocalPlayer::AuthDialogClosed))
 		.UserIDText(PendingLoginUserName)
-		.ErrorText(bError ? FText::FromString(ErrorMessage) : FText::GetEmpty())
 		.PlayerOwner(this);
 
-	GEngine->GameViewport->AddViewportWidgetContent(LoginDialog.ToSharedRef(), 160);
-	LoginDialog->SetInitialFocus();
-
+		GEngine->GameViewport->AddViewportWidgetContent(LoginDialog.ToSharedRef(), 160);
+		LoginDialog->SetInitialFocus();
+	}
 #endif
 }
 
 void UUTLocalPlayer::OnLoginStatusChanged(int32 LocalUserNum, ELoginStatus::Type PreviousLoginStatus, ELoginStatus::Type LoginStatus, const FUniqueNetId& UniqueID)
 {
 	UE_LOG(UT,Verbose,TEXT("***[LoginStatusChanged]*** - User %i - %i"), LocalUserNum, int32(LoginStatus));
-
+	
 	// If we have logged out, or started using the local profile, then clear the online profile.
 	if (LoginStatus == ELoginStatus::NotLoggedIn || LoginStatus == ELoginStatus::UsingLocalProfile)
 	{
@@ -1238,6 +1266,8 @@ void UUTLocalPlayer::OnLogoutComplete(int32 LocalUserNum, bool bWasSuccessful)
 	UE_LOG(UT,Verbose,TEXT("***[Logout Complete]*** - User %i"), LocalUserNum);
 	// TO-DO: Add a Toast system for displaying stuff like this
 
+	bPlayingOffline = true;
+
 	GetWorld()->GetTimerManager().ClearTimer(ProfileWriteTimerHandle);
 
 #if !UE_SERVER
@@ -1269,56 +1299,58 @@ void UUTLocalPlayer::OnLogoutComplete(int32 LocalUserNum, bool bWasSuccessful)
 
 void UUTLocalPlayer::CloseAuth()
 {
-	GEngine->GameViewport->RemoveViewportWidgetContent(LoginDialog.ToSharedRef());
-	LoginDialog.Reset();
+	if (LoginDialog.IsValid())
+	{
+		GEngine->GameViewport->RemoveViewportWidgetContent(LoginDialog.ToSharedRef());
+		LoginDialog.Reset();
+
+		// Look to see if we are in the menu level.  If we are, then open the main menu if it's not already open.
+		if (GetWorld()->GetNetMode() == NM_Standalone)
+		{
+			AUTMenuGameMode* MenuGame = GetWorld()->GetAuthGameMode<AUTMenuGameMode>();
+			if (MenuGame != nullptr)
+			{
+				AUTBasePlayerController* PC = Cast<AUTBasePlayerController>(PlayerController);
+				MenuGame->ShowMenu(PC);
+			}
+		}
+	}
 }
 
 void UUTLocalPlayer::AuthDialogClosed(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID)
 {
-	
-	if (ButtonID != UTDIALOG_BUTTON_CANCEL)
+}
+
+void UUTLocalPlayer::AttemptLogin()
+{
+	if (LoginDialog.IsValid())
 	{
-		if (LoginDialog.IsValid())
+		// Look to see if we are already logged in.
+		if ( IsLoggedIn() )
 		{
-			// Look to see if we are already logged in.
-			if ( IsLoggedIn() )
+			bPendingLoginCreds = true;
+			PendingLoginName = LoginDialog->GetEpicID();
+			PendingLoginPassword = LoginDialog->GetPassword();
+
+			// If we are in an active session, warn that this will cause you to go back to the main menu.
+			TSharedPtr<const FUniqueNetId> UserId = OnlineIdentityInterface->GetUniquePlayerId(0);
+			if (UserId.IsValid() && OnlineSessionInterface->IsPlayerInSession(GameSessionName, *UserId))
 			{
-				bPendingLoginCreds = true;
-				PendingLoginName = LoginDialog->GetEpicID();
-				PendingLoginPassword = LoginDialog->GetPassword();
-
-				CloseAuth();
-
-
-				// If we are in an active session, warn that this will cause you to go back to the main menu.
-				TSharedPtr<const FUniqueNetId> UserId = OnlineIdentityInterface->GetUniquePlayerId(0);
-				if (UserId.IsValid() && OnlineSessionInterface->IsPlayerInSession(GameSessionName, *UserId))
-				{
-					ShowMessage(NSLOCTEXT("UTLocalPlayer", "SwitchLoginsTitle", "Change Users..."), NSLOCTEXT("UTLocalPlayer", "SwitchLoginsMsg", "Switching users will cause you to return to the main menu and leave any game you are currently in.  Are you sure you wish to do this?"), UTDIALOG_BUTTON_YES + UTDIALOG_BUTTON_NO, FDialogResultDelegate::CreateUObject(this, &UUTLocalPlayer::OnSwitchUserResult),FVector2D(0.25,0.25));					
-				}
-				else
-				{
-					Logout();
-				}
-				return;
+				ShowMessage(NSLOCTEXT("UTLocalPlayer", "SwitchLoginsTitle", "Change Users..."), NSLOCTEXT("UTLocalPlayer", "SwitchLoginsMsg", "Switching users will cause you to return to the main menu and leave any game you are currently in.  Are you sure you wish to do this?"), UTDIALOG_BUTTON_YES + UTDIALOG_BUTTON_NO, FDialogResultDelegate::CreateUObject(this, &UUTLocalPlayer::OnSwitchUserResult),FVector2D(0.25,0.25));					
 			}
-
 			else
 			{
-				FString UserName = LoginDialog->GetEpicID();
-				FString Password = LoginDialog->GetPassword();
-				CloseAuth();
-				LoginOnline(UserName, Password,false);
+				Logout();
 			}
+			return;
 		}
-	}
-	else
-	{
-		if (LoginDialog.IsValid())
+
+		else
 		{
-			CloseAuth();
+			FString UserName = LoginDialog->GetEpicID();
+			FString Password = LoginDialog->GetPassword();
+			LoginOnline(UserName, Password,false);
 		}
-		PendingLoginUserName = TEXT("");
 	}
 }
 
@@ -5736,3 +5768,8 @@ void UUTLocalPlayer::OnUpgradeResults(TSharedPtr<SCompoundWidget> Widget, uint16
 	}
 }
 #endif
+
+void UUTLocalPlayer::ClearPendingLoginUserName()
+{
+	PendingLoginUserName = TEXT("");
+}
