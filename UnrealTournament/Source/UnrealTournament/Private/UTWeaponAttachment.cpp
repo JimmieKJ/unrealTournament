@@ -25,7 +25,7 @@ AUTWeaponAttachment::AUTWeaponAttachment(const FObjectInitializer& ObjectInitial
 
 	bCopyWeaponImpactEffect = true;
 
-	MaxBulletWhipDist = 200.0f;
+	MaxBulletWhipDist = 240.0f;
 }
 
 void AUTWeaponAttachment::BeginPlay()
