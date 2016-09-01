@@ -153,6 +153,7 @@ public:
 
 	virtual void PostLoad() override;
 	virtual void PostInitProperties() override;
+	virtual void PreSave(const class ITargetPlatform* TargetPlatform) override;
 
 	/** overridden to set bBeginPlay to true BEFORE calling BeginPlay() events, which maintains the historical behavior when an Actor spawns another from within BeginPlay(),
 	  * specifically that said second Actor's BeginPlay() is called immediately as part of SpawnActor()

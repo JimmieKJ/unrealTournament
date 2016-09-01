@@ -39,6 +39,15 @@ void AUTWorldSettings::PostInitProperties()
 		CreateLevelSummary();
 	}
 }
+void AUTWorldSettings::PreSave(const class ITargetPlatform* TargetPlatform)
+{
+	Super::PreSave(TargetPlatform);
+	if (LevelSummary == nullptr || !LevelSummary->IsIn(GetOutermost()))
+	{
+		LevelSummary = nullptr;
+		CreateLevelSummary();
+	}
+}
 
 void AUTWorldSettings::CreateLevelSummary()
 {
@@ -48,7 +57,7 @@ void AUTWorldSettings::CreateLevelSummary()
 		static FName NAME_LevelSummary(TEXT("LevelSummary"));
 		if (LevelSummary == NULL)
 		{
-			LevelSummary = FindObject<UUTLevelSummary>(UUTLevelSummary::StaticClass(), *NAME_LevelSummary.ToString());
+			LevelSummary = FindObject<UUTLevelSummary>(GetOutermost(), *NAME_LevelSummary.ToString());
 			if (LevelSummary == NULL)
 			{
 				LevelSummary = NewObject<UUTLevelSummary>(GetOutermost(), NAME_LevelSummary, RF_Standalone);
