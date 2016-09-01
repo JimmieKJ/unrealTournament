@@ -372,6 +372,7 @@ void GetAllAssetData(UClass* BaseClass, TArray<FAssetData>& AssetList, bool bReq
 	RootPaths.Add(TEXT("/Game/EpicInternal/Lea/"));
 	RootPaths.Add(TEXT("/Game/EpicInternal/Pistola/"));
 	RootPaths.Add(TEXT("/Game/EpicInternal/Stu/"));
+	RootPaths.Add(TEXT("/Game/EpicInternal/SR/"));
 	// Cooked data has the asset data already set up
 	AssetRegistry.ScanPathsSynchronous(RootPaths);
 #endif
