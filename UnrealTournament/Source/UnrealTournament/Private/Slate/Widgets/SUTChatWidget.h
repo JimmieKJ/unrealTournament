@@ -2,7 +2,10 @@
 #pragma once
 
 #include "SlateBasics.h"
+
+#if WITH_SOCIAL
 #include "SocialStyle.h"
+#endif
 
 #if !UE_SERVER
 class IChatViewModel;

@@ -8,10 +8,13 @@
 #include "Runtime/Launch/Resources/Version.h"
 #include "PerfCountersHelpers.h"
 #include "QosInterface.h"
-#include "GameServiceMcp.h"
 
+#if WITH_PROFILE
+#include "GameServiceMcp.h"
 #include "OnlineSubsystemMcp.h"
 #include "OnlineHttpRequest.h"
+#endif
+
 #include "OnlineSubsystemUtils.h"
 #include "UTMcpUtils.h"
 
@@ -75,7 +78,8 @@ void FUTAnalytics::Initialize()
 FString FUTAnalytics::GetBuildType()
 {
 	FString BuildType = FString();
-	
+
+#if WITH_PROFILE
 	FOnlineSubsystemMcp* WorldMcp = (FOnlineSubsystemMcp*)Online::GetSubsystem(nullptr, MCP_SUBSYSTEM);
 	if (WorldMcp)
 	{
@@ -85,6 +89,7 @@ FString FUTAnalytics::GetBuildType()
 			BuildType = MCPService->GetGameBackendName();
 		}
 	}
+#endif
 
 	if (BuildType.IsEmpty())
 	{

@@ -3,6 +3,7 @@
 #pragma once 
 
 #include "Runtime/Online/HTTP/Public/Http.h"
+#include "OnlineError.h"
 
 #include "UTMcpUtils.generated.h"
 
