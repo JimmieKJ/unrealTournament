@@ -414,8 +414,7 @@ class UNREALTOURNAMENT_API AUTWeapon : public AUTInventory
 	/** Sound played when lowering the weapon */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon")
 	USoundBase* LowerSound;
-
-
+	
 	/** weapon group - NextWeapon() picks the next highest group, PrevWeapon() the next lowest, etc
 	 * generally, the corresponding number key is bound to access the weapons in that group
 	 */
@@ -771,6 +770,10 @@ class UNREALTOURNAMENT_API AUTWeapon : public AUTInventory
 
 	/** The time this player was last seen under the crosshaiar */
 	float TargetLastSeenTime;
+
+	/** Last result of GuessPlayerTarget(). */
+	UPROPERTY()
+		AUTCharacter* TargetedCharacter;
 
 	/** returns whether we should draw the friendly fire indicator on the crosshair */
 	UFUNCTION(BlueprintCallable, Category = Weapon)

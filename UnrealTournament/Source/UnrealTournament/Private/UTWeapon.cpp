@@ -1308,26 +1308,24 @@ FRotator AUTWeapon::GetAdjustedAim_Implementation(FVector StartFireLoc)
 AUTPlayerController* AUTWeapon::GetCurrentTargetPC()
 {
 	AUTPlayerController* PC = Cast<AUTPlayerController>(UTOwner->Controller);
-	if (PC && PC->LastShotTargetGuess)
+	APawn* CurrentTarget = PC ? PC->LastShotTargetGuess : TargetedCharacter;
+	if (CurrentTarget && !CurrentTarget->GetController())
 	{
-		return Cast<AUTPlayerController>(PC->LastShotTargetGuess->GetController());
-	}
-	else
-	{
-		AUTBot* Bot = Cast<AUTBot>(UTOwner->Controller);
-		if (Bot && Bot->GetEnemy())
+		AUTCharacter* CurrentTargetChar = Cast<AUTCharacter>(CurrentTarget);
+		if (CurrentTargetChar && CurrentTargetChar->OldPlayerState)
 		{
-			return Cast<AUTPlayerController>(Bot->GetEnemy()->GetController());;
+			return Cast<AUTPlayerController>(CurrentTargetChar->OldPlayerState->GetOwner());
 		}
 	}
-	return nullptr;
+
+	return CurrentTarget ? Cast<AUTPlayerController>(CurrentTarget->GetController()) : nullptr;
 }
 
 void AUTWeapon::GuessPlayerTarget(const FVector& StartFireLoc, const FVector& FireDir)
 {
 	if (Role == ROLE_Authority && UTOwner != NULL)
 	{
-		AUTCharacter* TargetedCharacter = nullptr;
+		TargetedCharacter = nullptr;
 		AUTPlayerState* PS = nullptr;
 		AUTPlayerController* PC = Cast<AUTPlayerController>(UTOwner->Controller);
 		if (PC != NULL)
