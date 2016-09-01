@@ -36,10 +36,7 @@ void AUTHUD_CTF::NotifyMatchStateChange()
 		AUTCTFGameState* CTFState = Cast<AUTCTFGameState>(GetWorld()->GetGameState());
 		CTFScoreboard->TimeLineOffset = (CTFState && ((CTFState->IsMatchIntermission() && (CTFState->CTFRound == 0)) || CTFState->HasMatchEnded())) ? -1.5f : 99999.f;
 	}
-	if (GetWorld()->GetGameState()->GetMatchState() != MatchState::MatchIntermission)
-	{
-		Super::NotifyMatchStateChange();
-	}
+	Super::NotifyMatchStateChange();
 }
 
 void AUTHUD_CTF::DrawMinimapSpectatorIcons()
