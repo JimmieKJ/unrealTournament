@@ -162,6 +162,10 @@ UMeshComponent* CreateCustomDepthOutlineMesh(UMeshComponent* Archetype, AActor* 
 	{
 		((USkinnedMeshComponent*)CustomDepthMesh)->SetMasterPoseComponent((USkinnedMeshComponent*)Archetype);
 	}
+	for (int32 i = 0; i < CustomDepthMesh->GetNumMaterials(); i++)
+	{
+		CustomDepthMesh->SetMaterial(i, UMaterial::GetDefaultMaterial(MD_Surface));
+	}
 	CustomDepthMesh->BoundsScale = 15000.f;
 	CustomDepthMesh->bVisible = true;
 	CustomDepthMesh->bHiddenInGame = false;
