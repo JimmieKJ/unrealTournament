@@ -184,7 +184,8 @@ FReply SUTPartyInviteWidget::RejectInvite()
 			TSharedPtr< IFriendItem > User = FriendsService->FindUser(FUniqueNetIdString(LastInviteUniqueID));
 			if (User.IsValid())
 			{
-				GameAndPartyService->RejectGameInvite(User);
+				// Not exposed right now
+//				GameAndPartyService->RejectGameInvite(User);
 			}
 		}
 	}
