@@ -345,7 +345,7 @@ bool USkeletalMeshComponent::DoAnyPhysicsBodiesHaveWeight() const
 	return false;
 }
 
-TAutoConsoleVariable<int32> CVarUseParallelBlendPhysics(TEXT("a.ParallelBlendPhysics"), 1, TEXT("If 1, physics blending will be run across the task graph system. If 0, blending will run purely on the game thread"));
+TAutoConsoleVariable<int32> CVarUseParallelBlendPhysics(TEXT("a.ParallelBlendPhysics"), 0, TEXT("If 1, physics blending will be run across the task graph system. If 0, blending will run purely on the game thread"));
 
 void USkeletalMeshComponent::BlendInPhysics(FTickFunction& ThisTickFunction)
 {

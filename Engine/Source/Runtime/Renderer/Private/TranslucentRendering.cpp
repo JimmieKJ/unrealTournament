@@ -491,7 +491,9 @@ bool FTranslucencyDrawingPolicyFactory::DrawMesh(
 	// Only render translucent materials
 	if (IsTranslucentBlendMode(BlendMode))
 	{
-		const bool bMeshUseSeparateTranslucency = Material->IsSeparateTranslucencyEnabled() && IsSeparateTranslucencyPossible(View);
+		// fix for materials on Canvas
+		// PrimitiveSceneProxy is NULL when rendering Canvas items
+		const bool bMeshUseSeparateTranslucency = Material->IsSeparateTranslucencyEnabled() && IsSeparateTranslucencyPossible(View) && PrimitiveSceneProxy != nullptr;
 
 		// Only draw meshes in the relevant pass
 		if (bMeshUseSeparateTranslucency == (DrawingContext.TranslucenyPassType == ETranslucencyPass::TPT_SeparateTranslucency))

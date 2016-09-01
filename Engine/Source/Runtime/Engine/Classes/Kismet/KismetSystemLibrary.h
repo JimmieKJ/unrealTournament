@@ -1411,13 +1411,6 @@ class ENGINE_API UKismetSystemLibrary : public UBlueprintFunctionLibrary
 	UFUNCTION(BlueprintPure, Category = "Rendering", meta = (UnsafeDuringActorConstruction = "true"))
 	static int32 GetMinYResolutionFor3DView();
 
-	// Opens the specified URL in the platform's web browser of choice
-	UFUNCTION(BlueprintCallable, Category = "Utilities|Platform")
-	static void LaunchURL(const FString& URL);
-
-	UFUNCTION(BlueprintCallable, Category = "Utilities|Platform")
-	static bool CanLaunchURL(const FString& URL);
-
 	// Deletes all unreferenced objects, keeping only referenced objects (this command will be queued and happen at the end of the frame)
 	// Note: This can be a slow operation, and should only be performed where a hitch would be acceptable
 	UFUNCTION(BlueprintCallable, Category = "Utilities|Platform")
