@@ -41,6 +41,24 @@ void AUTProj_RocketGrenade::BeginPlay()
 
 	Super::BeginPlay();
 }
+
+
+void AUTProj_RocketGrenade::OnRep_Instigator()
+{
+	Super::OnRep_Instigator();
+	if (Instigator != nullptr)
+	{
+		TArray<UParticleSystemComponent*> PSCs;
+		GetComponents<UParticleSystemComponent>(PSCs);
+		if (PSCs[0])
+		{
+			static FName NAME_TeamColor(TEXT("TeamColor"));
+			AUTCharacter* UTChar = Cast<AUTCharacter>(Instigator);
+			PSCs[0]->SetColorParameter(NAME_TeamColor, UTChar ? UTChar->GetTeamColor() : FVector(0.7f, 0.4f, 0.f));
+		}
+	}
+}
+
 void AUTProj_RocketGrenade::OnRep_Seed()
 {
 	RNGStream.Initialize(Seed);
