@@ -285,6 +285,8 @@ public:
 	double						StatUpdateTime;
 	/** Interval between gathering stats */
 	float						StatPeriod;
+	/** Collect net stats even if not FThreadStats::IsCollectingData(). */
+	bool bCollectNetStats;
 	/** Time of last netdriver cleanup pass */
 	double						LastCleanupTime;
 	/** Used to determine if checking for standby cheats should occur */
