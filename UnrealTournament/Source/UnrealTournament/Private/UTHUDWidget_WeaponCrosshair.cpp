@@ -16,6 +16,20 @@ UUTHUDWidget_WeaponCrosshair::UUTHUDWidget_WeaponCrosshair(const class FObjectIn
 	ScreenPosition=FVector2D(0.5f, 0.5f);
 }
 
+bool UUTHUDWidget_WeaponCrosshair::ShouldDraw_Implementation(bool bShowScores)
+{
+	if (Super::ShouldDraw_Implementation(bShowScores))
+	{
+		// skip drawing if spectating in third person
+		if (UTHUDOwner && UTPlayerOwner && (UTHUDOwner->UTPlayerOwner->GetViewTarget() != UTHUDOwner->UTPlayerOwner->GetPawn()) && UTHUDOwner->UTPlayerOwner->IsBehindView())
+		{
+			return false;
+		}
+		return true;
+	}
+	return false;
+}
+
 void UUTHUDWidget_WeaponCrosshair::Draw_Implementation(float DeltaTime)
 {
 	if (UTHUDOwner != NULL && UTHUDOwner->UTPlayerOwner != NULL)
