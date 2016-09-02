@@ -31,6 +31,22 @@ void AUTProj_BioGrenade::BeginPlay()
 	SetTimerUFunc(this, FName(TEXT("StartFuseTimed")), TimeBeforeFuseStarts, false);
 }
 
+void AUTProj_BioGrenade::OnRep_Instigator()
+{
+	Super::OnRep_Instigator();
+	if (Instigator != nullptr)
+	{
+		TArray<UParticleSystemComponent*> PSCs;
+		GetComponents<UParticleSystemComponent>(PSCs);
+		if (PSCs[0])
+		{
+			static FName NAME_TeamColor(TEXT("TeamColor"));
+			AUTCharacter* UTChar = Cast<AUTCharacter>(Instigator);
+			PSCs[0]->SetColorParameter(NAME_TeamColor, UTChar ? UTChar->GetTeamColor() : FVector(0.7f, 0.4f, 0.f));
+		}
+	}
+}
+
 void AUTProj_BioGrenade::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
