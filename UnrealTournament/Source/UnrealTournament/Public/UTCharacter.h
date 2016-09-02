@@ -432,6 +432,9 @@ class UNREALTOURNAMENT_API AUTCharacter : public ACharacter, public IUTTeamInter
 	UPROPERTY(BlueprintReadWrite, Replicated, Category = "Pawn")
 		bool bCanRally;
 
+	UPROPERTY(BlueprintReadOnly, Category = "Pawn")
+		bool bWasInWarningZone;
+
 	protected:
 		UPROPERTY(BlueprintReadWrite, Category = Pawn, ReplicatedUsing=UpdateArmorOverlay)
 			int32 ArmorAmount;

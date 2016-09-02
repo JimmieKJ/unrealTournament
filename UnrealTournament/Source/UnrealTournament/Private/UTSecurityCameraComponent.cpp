@@ -28,12 +28,12 @@ void UUTSecurityCameraComponent::TickComponent(float DeltaTime, ELevelTick TickT
 {
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
 
-	if (GetOwner() == nullptr)
+//	if (GetOwner() == nullptr)
 	{
 		PrimaryComponentTick.SetTickFunctionEnable(false);
 		return;
 	}
-
+	UE_LOG(UT, Warning, TEXT("Camera Tick"));
 	AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
 	if (bCameraEnabled && GS && GS->IsMatchInProgress() && !GS->IsMatchIntermission())
 	{
