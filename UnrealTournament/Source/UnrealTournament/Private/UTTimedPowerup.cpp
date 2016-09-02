@@ -126,7 +126,7 @@ void AUTTimedPowerup::Tick(float DeltaTime)
 	if (TimeRemaining > 0.0f && !bTimerPaused)
 	{
 		AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
-		if (GS && GS->IsMatchInProgress() && !GS->IsMatchIntermission())
+		if (GS && (GS->IsMatchInProgress() || (GS->GetMatchState() == MatchState::WaitingToStart)) && !GS->IsMatchIntermission())
 		{
 			float TickMultiplier = (GetUTOwner() != NULL) ? 1.f : DroppedTickRate;
 			TimeRemaining -= (DeltaTime * TickMultiplier);
