@@ -187,15 +187,15 @@ void AUTGameVolume::ActorEnteredVolume(class AActor* Other)
 						}
 					}
 				}
-				else if ((VoiceLinesSet != NAME_None) && (GetWorld()->GetTimeSeconds() - FMath::Max(GS->LastFriendlyLocationReportTime, GS->LastEnemyLocationReportTime) > 3.f))
+				else if ((GetWorld()->GetTimeSeconds() - FMath::Max(GS->LastFriendlyLocationReportTime, GS->LastEnemyLocationReportTime) > 3.f))
 				{
-					if ((GetWorld()->GetTimeSeconds() - GS->LastFriendlyLocationReportTime > 3.f) && Cast<AUTPlayerState>(P->PlayerState) && (GS->LastFriendlyLocationName != VoiceLinesSet))
+					if ((VoiceLinesSet != NAME_None) && (GetWorld()->GetTimeSeconds() - GS->LastFriendlyLocationReportTime > 3.f) && Cast<AUTPlayerState>(P->PlayerState) && (GS->LastFriendlyLocationName != VoiceLinesSet))
 					{
 						((AUTPlayerState *)(P->PlayerState))->AnnounceStatus(VoiceLinesSet, 1);
 						GS->LastFriendlyLocationReportTime = GetWorld()->GetTimeSeconds();
 						GS->LastFriendlyLocationName = VoiceLinesSet;
 					}
-					if (P->GetCarriedObject()->bCurrentlyPinged && P->GetCarriedObject()->LastPinger && (GetWorld()->GetTimeSeconds() - GS->LastEnemyLocationReportTime > 3.f) && (GS->LastEnemyLocationName != VoiceLinesSet))
+					if ((VoiceLinesSet != NAME_None) && P->GetCarriedObject()->bCurrentlyPinged && P->GetCarriedObject()->LastPinger && (GetWorld()->GetTimeSeconds() - GS->LastEnemyLocationReportTime > 3.f) && (GS->LastEnemyLocationName != VoiceLinesSet))
 					{
 						P->GetCarriedObject()->LastPinger->AnnounceStatus(VoiceLinesSet, 0);
 						GS->LastEnemyLocationReportTime = GetWorld()->GetTimeSeconds();
@@ -205,25 +205,28 @@ void AUTGameVolume::ActorEnteredVolume(class AActor* Other)
 					{
 						// force ping if important zone, wasn't already in important zone, report only if 3 seconds since last report
 						// also do if no pinger if important zone
-						P->GetCarriedObject()->LastPingedTime = FMath::Max(P->GetCarriedObject()->LastPingedTime, GetWorld()->GetTimeSeconds() - P->GetCarriedObject()->PingedDuration + 2.f);
-						AUTPlayerState* Warner = P->GetCarriedObject()->LastPinger;
-						if (Warner == nullptr)
+						P->GetCarriedObject()->LastPingedTime = FMath::Max(P->GetCarriedObject()->LastPingedTime, GetWorld()->GetTimeSeconds() - P->GetCarriedObject()->PingedDuration + 1.5f);
+						if (VoiceLinesSet != NAME_None)
 						{
-							for (FConstControllerIterator Iterator = GetWorld()->GetControllerIterator(); Iterator; ++Iterator)
+							AUTPlayerState* Warner = P->GetCarriedObject()->LastPinger;
+							if (Warner == nullptr)
 							{
-								AController* C = *Iterator;
-								if (C && !GS->OnSameTeam(P, C) && Cast<AUTPlayerState>(C->PlayerState))
+								for (FConstControllerIterator Iterator = GetWorld()->GetControllerIterator(); Iterator; ++Iterator)
 								{
-									Warner = ((AUTPlayerState*)(C->PlayerState));
-									break;
+									AController* C = *Iterator;
+									if (C && !GS->OnSameTeam(P, C) && Cast<AUTPlayerState>(C->PlayerState))
+									{
+										Warner = ((AUTPlayerState*)(C->PlayerState));
+										break;
+									}
 								}
 							}
-						}
-						if (Warner && (GetWorld()->GetTimeSeconds() - GS->LastEnemyLocationReportTime > 3.f))
-						{
-							Warner->AnnounceStatus(VoiceLinesSet, 0);
-							GS->LastEnemyLocationReportTime = GetWorld()->GetTimeSeconds();
-							GS->LastEnemyLocationName = VoiceLinesSet;
+							if (Warner && (GetWorld()->GetTimeSeconds() - GS->LastEnemyLocationReportTime > 3.f))
+							{
+								Warner->AnnounceStatus(VoiceLinesSet, 0);
+								GS->LastEnemyLocationReportTime = GetWorld()->GetTimeSeconds();
+								GS->LastEnemyLocationName = VoiceLinesSet;
+							}
 						}
 					}
 				}
