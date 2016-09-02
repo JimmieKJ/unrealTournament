@@ -2535,24 +2535,21 @@ void AUTPlayerController::ServerSwitchTeam_Implementation()
 	if (UTPlayerState != NULL && UTPlayerState->Team != NULL)
 	{
 		uint8 NewTeam = (UTPlayerState->Team->TeamIndex + 1) % GetWorld()->GetGameState<AUTGameState>()->Teams.Num();
-		if (!GetWorld()->GetAuthGameMode()->HasMatchStarted())
+		if (UTPlayerState->bPendingTeamSwitch)
+		{
+			UTPlayerState->bPendingTeamSwitch = false;
+		}
+		else if (!GetWorld()->GetAuthGameMode()->HasMatchStarted())
 		{
 			if (UTPlayerState->bIsWarmingUp)
 			{
 				// no team swaps while warming up
 				return;
 			}
+			ChangeTeam(NewTeam);
 			if (UTPlayerState->bPendingTeamSwitch)
 			{
-				UTPlayerState->bPendingTeamSwitch = false;
-			}
-			else
-			{
-				ChangeTeam(NewTeam);
-				if (UTPlayerState->bPendingTeamSwitch)
-				{
-					UTPlayerState->SetReadyToPlay(false);
-				}
+				UTPlayerState->SetReadyToPlay(false);
 			}
 		}
 		else
