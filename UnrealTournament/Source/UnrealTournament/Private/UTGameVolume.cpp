@@ -24,6 +24,9 @@ AUTGameVolume::AUTGameVolume(const FObjectInitializer& ObjectInitializer)
 
 	static ConstructorHelpers::FObjectFinder<USoundBase> AlarmSoundFinder(TEXT("SoundCue'/Game/RestrictedAssets/Audio/Gameplay/A_FlagRunBaseAlarm.A_FlagRunBaseAlarm'"));
 	AlarmSound = AlarmSoundFinder.Object;
+
+	static ConstructorHelpers::FObjectFinder<USoundBase> EarnedSoundFinder(TEXT("SoundCue'/Game/RestrictedAssets/Pickups/Health/Asset/A_Pickups_Health_Small_Cue_Modulated.A_Pickups_Health_Small_Cue_Modulated'"));
+	HealthSound = EarnedSoundFinder.Object;
 }
 
 void AUTGameVolume::Reset_Implementation()
@@ -35,12 +38,43 @@ void AUTGameVolume::PostInitializeComponents()
 {
 	Super::PostInitializeComponents();
 
-	if ((VoiceLinesSet == NAME_None) && !VolumeName.IsEmpty())
+	if (bIsTeamSafeVolume && (Role == ROLE_Authority))
+	{
+		GetWorldTimerManager().SetTimer(HealthTimerHandle, this, &AUTGameVolume::HealthTimer, 1.f, true);
+	}
+	else if ((VoiceLinesSet == NAME_None) && !VolumeName.IsEmpty() && !bIsTeleportZone)
 	{
 		VoiceLinesSet = UUTCharacterVoice::StaticClass()->GetDefaultObject<UUTCharacterVoice>()->GetFallbackLines(FName(*VolumeName.ToString()));
 		if (VoiceLinesSet == NAME_None)
 		{
 			UE_LOG(UT, Warning, TEXT("No voice lines found for %s"), *VolumeName.ToString());
+		}
+	}
+}
+
+void AUTGameVolume::HealthTimer()
+{
+	TArray<AActor*> TouchingActors;
+	GetOverlappingActors(TouchingActors, AUTCharacter::StaticClass());
+
+	for (int32 iTouching = 0; iTouching < TouchingActors.Num(); ++iTouching)
+	{
+		AUTCharacter* const P = Cast<AUTCharacter>(TouchingActors[iTouching]);
+		if (P && (GetWorld()->GetTimeSeconds() - P->EnteredSafeVolumeTime) > 1.f)
+		{
+			if (P->Health < P->HealthMax)
+			{
+				P->Health = FMath::Max<int32>(P->Health, FMath::Min<int32>(P->Health + 20, P->HealthMax));
+				AUTPlayerController* PC = Cast<AUTPlayerController>(P->GetController());
+				if (PC)
+				{
+					PC->ClientPlaySound(HealthSound);
+				}
+			}
+			if (TeamLocker && P->bHasLeftSafeVolume)
+			{
+				TeamLocker->ProcessTouch(P);
+			}
 		}
 	}
 }
@@ -64,6 +98,7 @@ void AUTGameVolume::ActorEnteredVolume(class AActor* Other)
 				else
 				{
 					P->bDamageHurtsHealth = false;
+					P->EnteredSafeVolumeTime = GetWorld()->GetTimeSeconds();
 					if ((P->Health < 80) && Cast<AUTPlayerState>(P->PlayerState) && (GetWorld()->GetTimeSeconds() - ((AUTPlayerState*)(P->PlayerState))->LastNeedHealthTime > 20.f))
 					{
 						((AUTPlayerState*)(P->PlayerState))->LastNeedHealthTime = GetWorld()->GetTimeSeconds();
@@ -231,6 +266,7 @@ void AUTGameVolume::ActorLeavingVolume(class AActor* Other)
 		if (UTCharacter)
 		{
 			UTCharacter->bDamageHurtsHealth = true;
+			UTCharacter->bHasLeftSafeVolume = true;
 			if ((Role == ROLE_Authority) && UTCharacter->GetController() && TeamLocker)
 			{
 				TeamLocker->ProcessTouch(UTCharacter);

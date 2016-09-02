@@ -47,6 +47,10 @@ class UNREALTOURNAMENT_API AUTGameVolume : public APhysicsVolume, public IUTTeam
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Gameplay")
 		USoundBase* AlarmSound;
 
+	/** Sound played if player is getting health from this volume. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Gameplay")
+		USoundBase* HealthSound;
+
 	UPROPERTY()
 		class AUTTeleporter* AssociatedTeleporter;
 
@@ -79,6 +83,10 @@ class UNREALTOURNAMENT_API AUTGameVolume : public APhysicsVolume, public IUTTeam
 	virtual void SetTeamForSideSwap_Implementation(uint8 NewTeamNum) override;
 	virtual void Reset_Implementation() override;
 	virtual void PostInitializeComponents() override;
+
+	FTimerHandle HealthTimerHandle;
+
+	virtual void HealthTimer();
 };
 
 
