@@ -52,6 +52,7 @@ AUTWeap_RocketLauncher::AUTWeap_RocketLauncher(const class FObjectInitializer& O
 	BurstInterval = 0.07f;
 	GrenadeBurstInterval = 0.1f;
 	FullLoadSpread = 9.f;
+	bAllowGrenades = false;
 
 	BasePickupDesireability = 0.78f;
 	BaseAISelectRating = 0.78f;
@@ -195,7 +196,7 @@ float AUTWeap_RocketLauncher::GetLoadTime(int32 InNumLoadedRockets)
 
 void AUTWeap_RocketLauncher::OnMultiPress_Implementation(uint8 OtherFireMode)
 {
-	if (CurrentFireMode == 1)
+	if (bAllowGrenades && (CurrentFireMode == 1))
 	{
 		UUTWeaponStateFiringChargedRocket* AltState = Cast<UUTWeaponStateFiringChargedRocket>(FiringState[1]);
 		if (AltState != NULL && AltState->bCharging)

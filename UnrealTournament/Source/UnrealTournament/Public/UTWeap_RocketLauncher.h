@@ -90,6 +90,9 @@ class UNREALTOURNAMENT_API AUTWeap_RocketLauncher : public AUTWeapon
 
 	float CurrentRotation;
 
+	/** Whether can switch to grenades. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = RocketLauncher)
+		bool bAllowGrenades;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = RocketLauncher)
 	TArray<FRocketFireMode> RocketFireModes;
