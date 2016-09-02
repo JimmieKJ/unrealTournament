@@ -9,7 +9,7 @@ AUTWeaponLocker::AUTWeaponLocker(const FObjectInitializer& OI)
 	: Super(OI)
 {
 	Collision->InitCapsuleSize(100.0f, 120.0f);
-	PickupMessageString = NSLOCTEXT("UnrealTournament", "WeaponLocker", "Weapon Locker");
+	PickupMessageString = NSLOCTEXT("UnrealTournament", "WeaponLocker", "");
 
 	WeaponPlacements.Add(FTransform(FQuat(FRotator(0.0f, 0.0f, 90.0f)), FVector(60.0f, 0.0f, 0.0f)));
 	WeaponPlacements.Add(FTransform(FQuat(FRotator(0.0f, 0.0f, 90.0f)), FVector(-60.0f, 0.0f, 0.0f)));

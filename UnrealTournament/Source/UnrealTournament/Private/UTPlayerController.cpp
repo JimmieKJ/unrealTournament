@@ -1102,8 +1102,23 @@ void AUTPlayerController::CheckAutoWeaponSwitch(AUTWeapon* TestWeapon)
 		}
 
 		UUTProfileSettings* ProfileSettings = GetProfileSettings();
-
 		bool bAutoWeaponSwitch = ProfileSettings ? ProfileSettings->bAutoWeaponSwitch : true;
+		if (!bAutoWeaponSwitch && CurWeapon)
+		{
+			// if holding default weapon in player start volumes, force weapon switch 
+			AUTGameVolume* GV = UTCharacter->UTCharacterMovement ? Cast<AUTGameVolume>(UTCharacter->UTCharacterMovement->GetPhysicsVolume()) : nullptr;
+			if (GV && GV->bIsTeamSafeVolume)
+			{
+				for (int32 i = 0; i < UTCharacter->DefaultCharacterInventory.Num(); i++)
+				{
+					if (CurWeapon->GetClass() == UTCharacter->DefaultCharacterInventory[i])
+					{
+						bAutoWeaponSwitch = true;
+						break;
+					}
+				}
+			}
+		}
 
 		if (CurWeapon == NULL || (bAutoWeaponSwitch && !UTCharacter->IsPendingFire(CurWeapon->GetCurrentFireMode()) && GetWeaponAutoSwitchPriority(TestWeapon) > GetWeaponAutoSwitchPriority(CurWeapon)) )
 		{
