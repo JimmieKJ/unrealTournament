@@ -65,8 +65,6 @@ public:
 	virtual void InitGameState();
 	virtual void StartMatch();
 	virtual void RestartPlayer(AController* aPlayer);
-	virtual void ChangeName(AController* Other, const FString& S, bool bNameChange);
-
 	
 	virtual void PostLogin( APlayerController* NewPlayer );
 	virtual FString InitNewPlayer(class APlayerController* NewPlayerController, const FUniqueNetIdRepl& UniqueId, const FString& Options, const FString& Portal = TEXT(""));

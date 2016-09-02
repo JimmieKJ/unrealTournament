@@ -2605,48 +2605,6 @@ void AUTGameMode::SetPlayerDefaults(APawn* PlayerPawn)
 	}
 }
 
-void AUTGameMode::ChangeName(AController* Other, const FString& S, bool bNameChange)
-{
-	// Cap player name's at 15 characters...
-	FString SMod = S;
-	if (SMod.Len()>15)
-	{
-		SMod = SMod.Left(15);
-	}
-
-	// Unicode 160 is an empty space, not sure what other characters are broken in our font
-	int32 FindCharIndex;
-	if (SMod.FindChar(160, FindCharIndex))
-	{
-		SMod = TEXT("JCenaHLR");
-	}
-
-    if ( !Other->PlayerState|| FCString::Stricmp(*Other->PlayerState->PlayerName, *SMod) == 0 )
-    {
-		return;
-	}
-
-	// Look to see if someone else is using the the new name
-	for( FConstControllerIterator Iterator = GetWorld()->GetControllerIterator(); Iterator; ++Iterator )
-	{
-		AController* Controller = *Iterator;
-		if (Controller->PlayerState && FCString::Stricmp(*Controller->PlayerState->PlayerName, *SMod) == 0)
-		{
-			if ( Cast<APlayerController>(Other) != NULL )
-			{
-					Cast<APlayerController>(Other)->ClientReceiveLocalizedMessage( GameMessageClass, 5 );
-					if ( FCString::Stricmp(*Other->PlayerState->PlayerName, *(DefaultPlayerName.ToString())) == 0 )
-					{
-						Other->PlayerState->SetPlayerName(FString::Printf(TEXT("%s%i"), *DefaultPlayerName.ToString(), Other->PlayerState->PlayerId));
-					}
-				return;
-			}
-		}
-	}
-
-    Other->PlayerState->SetPlayerName(SMod);
-}
-
 bool AUTGameMode::ShouldSpawnAtStartSpot(AController* Player)
 {
 	if ( Player && Cast<APlayerStartPIE>(Player->StartSpot.Get()) )

@@ -7,6 +7,7 @@
 #include "UTGameInstance.h"
 #include "DataChannel.h"
 #include "UTDemoRecSpectator.h"
+#include "UTGameMessage.h"
 #if WITH_PROFILE
 #include "UtMcpProfileManager.h"
 #endif
@@ -262,6 +263,52 @@ void AUTBaseGameMode::GenericPlayerInitialization(AController* C)
 	{
 		PC->ClientGenericInitialization();
 	}
+}
+
+void AUTBaseGameMode::ChangeName(AController* Other, const FString& S, bool bNameChange)
+{
+	// Cap player name at 15 characters...
+	FString ClampedName = (S.Len() > 15) ? S.Left(15) : S;
+
+	// Unicode 160 is an empty space, not sure what other characters are broken in our font
+	int32 FindCharIndex;
+	if (ClampedName.FindChar(160, FindCharIndex))
+	{
+		ClampedName = TEXT("JCenaHLR");
+	}
+	AUTPlayerState* PS = Cast<AUTPlayerState>(Other->PlayerState);
+	if (!PS || FCString::Stricmp(*PS->PlayerName, *ClampedName) == 0)
+	{
+		return;
+	}
+
+	// Look to see if someone else is using the the new name
+	bool bNameMatchesAccount = false;
+	AUTGameState* UTGameState = Cast<AUTGameState>(GameState);
+	FText EpicAccountName = FText::GetEmpty();
+	if (UTGameState)
+	{
+		TSharedRef<const FUniqueNetId> UserId = MakeShareable(new FUniqueNetIdString(*PS->StatsID));
+		EpicAccountName = UTGameState->GetEpicAccountNameForAccount(UserId);
+		bNameMatchesAccount = (EpicAccountName.ToString() == ClampedName);
+	}
+	for (FConstControllerIterator Iterator = GetWorld()->GetControllerIterator(); Iterator; ++Iterator)
+	{
+		AController* Controller = *Iterator;
+		if (Controller->PlayerState/* && (ControllerPlayerState != PS)*/ && FCString::Stricmp(*Controller->PlayerState->PlayerName, *ClampedName) == 0)
+		{
+			if (bNameMatchesAccount)
+			{
+				Controller->PlayerState->PlayerName = "NOT" + Controller->PlayerState->PlayerName.Left(12);
+			}
+			else if (Cast<APlayerController>(Other) != NULL)
+			{
+				ClampedName = EpicAccountName.IsEmpty() ? FString::Printf(TEXT("%s%i"), *DefaultPlayerName.ToString(), PS->PlayerId) : EpicAccountName.ToString();
+				break;
+			}
+		}
+	}
+	PS->SetPlayerName(ClampedName);
 }
 
 bool AUTBaseGameMode::FindRedirect(const FString& PackageName, FPackageRedirectReference& Redirect)
