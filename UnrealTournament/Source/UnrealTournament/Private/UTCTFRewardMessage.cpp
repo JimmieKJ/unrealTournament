@@ -44,6 +44,10 @@ bool UUTCTFRewardMessage::InterruptAnnouncement_Implementation(int32 Switch, con
 	{
 		return ((Switch == 3) || (Switch == 4) || (Switch >= 100));
 	}
+	if (Switch == 6)
+	{
+		return  (Cast<UUTLocalMessage>(OtherMessageClass->GetDefaultObject())->GetAnnouncementPriority(OtherSwitch) < 0.7f);
+	}
 	return Cast<UUTLocalMessage>(OtherMessageClass->GetDefaultObject())->IsOptionalSpoken(OtherSwitch);
 }
 

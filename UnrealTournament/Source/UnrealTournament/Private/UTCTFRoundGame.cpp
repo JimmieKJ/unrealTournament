@@ -1030,7 +1030,10 @@ void AUTCTFRoundGame::ScoreKill_Implementation(AController* Killer, AController*
 				if (TeamPS && (OtherPS->Team == TeamPS->Team) && !TeamPS->bOutOfLives && !TeamPS->bIsInactive)
 				{
 					// found a live teammate, so round isn't over - notify about termination though
-					BroadcastLocalized(NULL, UUTShowdownRewardMessage::StaticClass(), 3, OtherPS);
+					if (IsMatchInProgress() && (GetMatchState() != MatchState::MatchIntermission))
+					{
+						BroadcastLocalized(NULL, UUTShowdownRewardMessage::StaticClass(), 3, OtherPS);
+					}
 					bFoundTeammate = true;
 					break;
 				}

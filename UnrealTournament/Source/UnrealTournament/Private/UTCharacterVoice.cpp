@@ -11,6 +11,7 @@ UUTCharacterVoice::UUTCharacterVoice(const FObjectInitializer& ObjectInitializer
 	bOptionalSpoken = true;
 	FontSizeIndex = 1;
 	Lifetime = 6.0f;
+	bPlayDuringIntermission = false;
 
 	// < 1000 is reserved for taunts
 	SameTeamBaseIndex = 1000;
