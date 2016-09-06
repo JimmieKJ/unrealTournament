@@ -655,7 +655,7 @@ void FUTAnalytics::FireEvent_PlayerContextLocationPerMinute(AUTPlayerController*
 
 			AnalyticsProvider->RecordEvent(GetGenericParamName(EGenericAnalyticParam::PlayerContextLocationPerMinute), ParamArray);
 		
-			UE_LOG(UT, Log, TEXT("Sending PlayerContext Location Per Minute Event"));
+			//UE_LOG(UT, Log, TEXT("Sending PlayerContext Location Per Minute Event"));
 		}
 	}
 }
