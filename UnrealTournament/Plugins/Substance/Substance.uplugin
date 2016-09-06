@@ -1,0 +1,30 @@
+{
+	"FileVersion" : 3,
+	"Name" : "Substance",
+	"FriendlyName" : "Substance",
+	"Version" : 41,
+	"EngineVersion" : "4.13.0",
+	"VersionName" : "4.13.0.16",
+	"CreatedBy" : "Allegorithmic Inc.",
+	"CreatedByURL" : "http://www.allegorithmic.com/",
+	"MarketplaceURL" : "com.epicgames.launcher://ue/marketplace/content/2f6439c2f9584f49809d9b13b16c2ba4",
+	"Description" : "Adds support for Substance (sbsar) textures",
+	"Category" : "Editor",
+	"EnabledByDefault" : true,
+
+	"Modules" :
+	[
+		{
+			"Name" : "SubstanceCore",
+			"Type" : "Runtime",
+			"WhitelistPlatforms" :  [ "Win64", "Win32", "Mac", "Linux" ],
+			"LoadingPhase" : "PreDefault"
+		},
+		{
+			"Name" : "SubstanceEditor",
+			"Type" : "Editor",
+			"WhitelistPlatforms" :  [ "Win64", "Win32", "Mac", "Linux" ],
+			"LoadingPhase" : "PostDefault"
+		}
+	]
+}
