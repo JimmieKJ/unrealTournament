@@ -100,6 +100,8 @@ namespace UnrealBuildTool.Rules
                 {
                     SubstanceLibPath += "Win64" + GetWindowsLibSuffix() + "/";
                     PublicAdditionalLibraries.Add(SubstanceLibPath + "Substance" + engineSuffix + ".lib");
+                    RuntimeDependencies.Add(new RuntimeDependency("../../UnrealTournament/Plugins/Substance/Binaries/Win64/SubstanceCPU.dll"));
+                    RuntimeDependencies.Add(new RuntimeDependency("../../UnrealTournament/Plugins/Substance/Binaries/Win64/SubstanceGPU.dll"));
                 }
 				else if (Target.Platform == UnrealTargetPlatform.XboxOne)
 				{
