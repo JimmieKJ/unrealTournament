@@ -20,6 +20,11 @@ class UNREALTOURNAMENT_API AUTProj_StingerShard2 : public AUTProjectile
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	float DirectHitMomentum;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = LinkBolt)
+	float OverlapSphereGrowthRate;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = LinkBolt)
+	float MaxOverlapSphereSize;
+
 	UPROPERTY()
 	TArray<APawn*> PotentialTargets;
 

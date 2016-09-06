@@ -28,7 +28,9 @@ AUTProj_StingerShard2::AUTProj_StingerShard2(const class FObjectInitializer& Obj
 	PrimaryActorTick.bStartWithTickEnabled = true;
 	DirectHitDamage = 25;
 	DirectHitMomentum = 75000.0f;
-	OverlapRadius = 200.0f;
+	OverlapRadius = 1.0f;
+	OverlapSphereGrowthRate = 800.0f;
+	MaxOverlapSphereSize = 180.0f;
 }
 
 void AUTProj_StingerShard2::DamageImpactedActor_Implementation(AActor* OtherActor, UPrimitiveComponent* OtherComp, const FVector& HitLocation, const FVector& HitNormal)
@@ -58,6 +60,10 @@ void AUTProj_StingerShard2::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
+	if (PawnOverlapSphere != nullptr && PawnOverlapSphere->GetUnscaledSphereRadius() < MaxOverlapSphereSize)
+	{
+		PawnOverlapSphere->SetSphereRadius(FMath::Min<float>(MaxOverlapSphereSize, PawnOverlapSphere->GetUnscaledSphereRadius() + OverlapSphereGrowthRate * DeltaTime));
+	}
 	if (!ProjectileMovement->Velocity.IsZero())
 	{
 		const FVector MovementDir = ProjectileMovement->Velocity.GetUnsafeNormal();
