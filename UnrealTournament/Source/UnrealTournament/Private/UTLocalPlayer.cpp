@@ -847,7 +847,9 @@ void UUTLocalPlayer::LoginOnline(FString EpicID, FString Auth, bool bIsRememberT
 		AccountCreds.Type = TEXT("refresh");
 	}
 
+#if !UE_SERVER
 	if (LoginDialog.IsValid()) LoginDialog->BeginLogin();
+#endif
 
 	// Begin the Login Process...
 	if (!OnlineIdentityInterface->Login(GetControllerId(), AccountCreds))
@@ -918,11 +920,13 @@ void UUTLocalPlayer::OnLoginComplete(int32 LocalUserNum, bool bWasSuccessful, co
 {
 	bLoginAttemptInProgress = false;
 
+#if !UE_SERVER
 	// Close down the login dialog if it's open.
 	if (LoginDialog.IsValid())
 	{
 		LoginDialog->EndLogin(bWasSuccessful);
 	}
+#endif
 
 	if (bWasSuccessful)
 	{
