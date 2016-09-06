@@ -154,7 +154,7 @@ class UNREALTOURNAMENT_API UUTReachSpec_HighJump : public UUTReachSpec
 		}
 	}
 
-	virtual int32 CostFor(int32 DefaultCost, const FUTPathLink& OwnerLink, APawn* Asker, const FNavAgentProperties& AgentProps, NavNodeRef StartPoly, const class AUTRecastNavMesh* NavMesh) override
+	virtual int32 CostFor(int32 DefaultCost, const FUTPathLink& OwnerLink, APawn* Asker, const FNavAgentProperties& AgentProps, AController* RequestOwner, NavNodeRef StartPoly, const class AUTRecastNavMesh* NavMesh) override
 	{
 		if (Asker == NULL)
 		{
@@ -177,7 +177,7 @@ class UNREALTOURNAMENT_API UUTReachSpec_HighJump : public UUTReachSpec
 			}
 			else
 			{
-				AUTBot* B = Cast<AUTBot>(Asker->Controller);
+				AUTBot* B = Cast<AUTBot>(RequestOwner);
 				if (B == NULL)
 				{
 					return BLOCKED_PATH_COST;
@@ -194,7 +194,8 @@ class UNREALTOURNAMENT_API UUTReachSpec_HighJump : public UUTReachSpec
 					}
 					else if (B->AllowImpactJump())
 					{
-						if (B->GetUTChar() != NULL && B->GetUTChar()->UTCharacterMovement->DodgeImpulseHorizontal > B->GetUTChar()->UTCharacterMovement->MaxWalkSpeed)
+						AUTCharacter* UTChar = Cast<AUTCharacter>(Asker);
+						if (UTChar != NULL && UTChar->UTCharacterMovement->DodgeImpulseHorizontal > UTChar->UTCharacterMovement->MaxWalkSpeed)
 						{
 							AdjustedRequiredJumpZ *= DodgeJumpZMult;
 						}

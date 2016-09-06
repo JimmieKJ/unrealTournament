@@ -61,7 +61,7 @@ struct UNREALTOURNAMENT_API FBestInventoryEval : public FUTNodeEvaluator
 
 	virtual float Eval(APawn* Asker, const FNavAgentProperties& AgentProps, const UUTPathNode* Node, const FVector& EntryLoc, int32 TotalDistance) override;
 	virtual bool GetRouteGoal(AActor*& OutGoal, FVector& OutGoalLoc) const override;
-	virtual uint32 GetTransientCost(const FUTPathLink& Link, APawn* Asker, const FNavAgentProperties& AgentProps, NavNodeRef StartPoly, int32 TotalDistance) override
+	virtual uint32 GetTransientCost(const FUTPathLink& Link, APawn* Asker, const FNavAgentProperties& AgentProps, AController* RequestOwner, NavNodeRef StartPoly, int32 TotalDistance) override
 	{
 		return (MaxDist <= 0 || TotalDistance < MaxDist) ? 0 : BLOCKED_PATH_COST;
 	}

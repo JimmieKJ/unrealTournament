@@ -139,7 +139,7 @@ struct UNREALTOURNAMENT_API FUTNodeEvaluator
 	virtual float Eval(APawn* Asker, const FNavAgentProperties& AgentProps, const UUTPathNode* Node, const FVector& EntryLoc, int32 TotalDistance) = 0;
 
 	/** adds optional evaluator specific cost to the given path link; return BLOCKED_PATH_COST to prevent a path from being used even if it would otherwise be valid */
-	virtual uint32 GetTransientCost(const FUTPathLink& Link, APawn* Asker, const FNavAgentProperties& AgentProps, NavNodeRef StartPoly, int32 TotalDistance)
+	virtual uint32 GetTransientCost(const FUTPathLink& Link, APawn* Asker, const FNavAgentProperties& AgentProps, AController* RequestOwner, NavNodeRef StartPoly, int32 TotalDistance)
 	{
 		return 0;
 	}
@@ -183,7 +183,7 @@ struct UNREALTOURNAMENT_API FSingleEndpointEvalWeighted : public FSingleEndpoint
 	/** map of additional node costs to bias the path taken to the target */
 	TMap< TWeakObjectPtr<const UUTPathNode>, uint32 > ExtraCosts;
 
-	virtual uint32 GetTransientCost(const FUTPathLink& Link, APawn* Asker, const FNavAgentProperties& AgentProps, NavNodeRef StartPoly, int32 TotalDistance)
+	virtual uint32 GetTransientCost(const FUTPathLink& Link, APawn* Asker, const FNavAgentProperties& AgentProps, AController* RequestOwner, NavNodeRef StartPoly, int32 TotalDistance)
 	{
 		return ExtraCosts.FindRef(Link.End);
 	}
@@ -417,12 +417,13 @@ public:
 	virtual FVector GetPOIExtent(AActor* POI) const;
 
 	/** calculate reachability parameters and flags for pathfinding */
-	static void CalcReachParams(APawn* Asker, const FNavAgentProperties& AgentProps, int32& Radius, int32& Height, int32& MaxFallSpeed, uint32& MoveFlags);
+	static void CalcReachParams(APawn* Asker, const FNavAgentProperties& AgentProps, AController* RequestOwner, int32& Radius, int32& Height, int32& MaxFallSpeed, uint32& MoveFlags);
 
 	/** find best path to desired target (or one of many targets) on the node network using NodeEval function to evaluate nodes, then use that to build a poly route over the navmesh
 	 *
 	 * @param Asker - Pawn doing the search. Can be NULL, not used by base functionality. Some NodeEval functions use this to evaluate potential endpoints (e.g. inventory search)
 	 * @param AgentProps - size and capabilities for reachability
+	 * @param RequestOwner - Controller doing the search. Can be NULL, may not be equal to Asker->Controller if this Controller is predicting another pawn's path (e.g. intercept logic)
 	 * @param NodeEval - evaluator for each node traversed. Search is stopped immediately as successful if this object's Eval() returns >= 1.0f, otherwise path to highest rated node is returned
 	 * @param StartLoc - start location for search. Pathing fails if this is not on the navmesh.
 	 * @param Weight (in/out) - input is minimum weight (as returned by NodeEval) for a node to be chosen; output is the weight of the found node (if any)
@@ -431,7 +432,7 @@ public:
 	 * @param NodeCosts - if specified, filled with parallel array to NodeRoute that contains path costs
 	 * @return whether a valid path was found
 	 */
-	virtual bool FindBestPath(APawn* Asker, const FNavAgentProperties& AgentProps, FUTNodeEvaluator& NodeEval, const FVector& StartLoc, float& Weight, bool bAllowDetours, TArray<FRouteCacheItem>& NodeRoute, TArray<int32>* NodeCosts = NULL);
+	virtual bool FindBestPath(APawn* Asker, const FNavAgentProperties& AgentProps, AController* RequestOwner, FUTNodeEvaluator& NodeEval, const FVector& StartLoc, float& Weight, bool bAllowDetours, TArray<FRouteCacheItem>& NodeRoute, TArray<int32>* NodeCosts = NULL);
 
 	/** calculate effective traveling distance between two polys
 	 * returns direct distance if reachable by straight line or no navmesh path exists, otherwise does navmesh pathfinding and returns path distance

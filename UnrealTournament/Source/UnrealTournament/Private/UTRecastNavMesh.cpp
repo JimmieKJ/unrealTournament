@@ -167,8 +167,8 @@ FCapsuleSize AUTRecastNavMesh::GetSteppedEdgeSize(NavNodeRef PolyRef, const stru
 				FVector PolyCenter = (i == 0) ? GetPolySurfaceCenter(PolyRef) : GetPolySurfaceCenter(Link.ref);
 				// find floor
 				FHitResult Hit;
-				FCollisionShape TestCapsule = FCollisionShape::MakeCapsule(AgentRadius, 1.0f);
-				if (GetWorld()->SweepSingleByChannel(Hit, PolyCenter + FVector(0.0f, 0.0f, AgentHalfHeight * 0.75f), PolyCenter - FVector(0.0f, 0.0f, AgentHalfHeight), FQuat::Identity, ECC_Pawn, TestCapsule, FCollisionQueryParams()))
+				FCollisionShape TestCapsule = FCollisionShape::MakeCapsule(TestSize.Radius, 1.0f);
+				if (GetWorld()->SweepSingleByChannel(Hit, PolyCenter + FVector(0.0f, 0.0f, AgentHalfHeight), PolyCenter - FVector(0.0f, 0.0f, AgentHalfHeight), FQuat::Identity, ECC_Pawn, TestCapsule, FCollisionQueryParams()))
 				{
 					TestCapsule.Capsule.HalfHeight = TestSize.Height;
 					// make sure capsule fits here
@@ -841,7 +841,7 @@ void AUTRecastNavMesh::BuildNodeNetwork()
 													{
 														// if there are multiple polys connecting these two nodes, split the destination node so there is only one connection point between any two nodes
 														// this is important for pathfinding as otherwise the correct path to use depends on later points which would make pathing very complex
-														UUTPathNode* NewNode = NewObject<UUTPathNode>(this);
+														/*UUTPathNode* NewNode = NewObject<UUTPathNode>(this);
 														NewNode->MinPolyEdgeSize = DestNode->MinPolyEdgeSize;
 														NewNode->PhysicsVolume = DestNode->PhysicsVolume;
 														DestNode->Polys.Remove(Link.ref);
@@ -914,7 +914,7 @@ void AUTRecastNavMesh::BuildNodeNetwork()
 														}
 
 														DestNode = NewNode;
-														PathNodes.Add(NewNode);
+														PathNodes.Add(NewNode);*/
 													}
 													else
 													{
@@ -2008,7 +2008,7 @@ NavNodeRef AUTRecastNavMesh::FindLiftPoly(APawn* Asker, const FNavAgentPropertie
 	}
 }
 
-void AUTRecastNavMesh::CalcReachParams(APawn* Asker, const FNavAgentProperties& AgentProps, int32& Radius, int32& Height, int32& MaxFallSpeed, uint32& MoveFlags)
+void AUTRecastNavMesh::CalcReachParams(APawn* Asker, const FNavAgentProperties& AgentProps, AController* RequestOwner, int32& Radius, int32& Height, int32& MaxFallSpeed, uint32& MoveFlags)
 {
 	Radius = FMath::TruncToInt(AgentProps.AgentRadius);
 	Height = FMath::TruncToInt(AgentProps.AgentHeight * 0.5f);
@@ -2033,17 +2033,14 @@ void AUTRecastNavMesh::CalcReachParams(APawn* Asker, const FNavAgentProperties& 
 		}
 	}
 
-	if (Asker != NULL)
+	AUTBot* B = Cast<AUTBot>(RequestOwner);
+	if (B != NULL)
 	{
-		AUTBot* B = Cast<AUTBot>(Asker->Controller);
-		if (B != NULL)
-		{
-			B->SetupSpecialPathAbilities();
-		}
+		B->SetupSpecialPathAbilities();
 	}
 }
 
-bool AUTRecastNavMesh::FindBestPath(APawn* Asker, const FNavAgentProperties& AgentProps, FUTNodeEvaluator& NodeEval, const FVector& StartLoc, float& Weight, bool bAllowDetours, TArray<FRouteCacheItem>& NodeRoute, TArray<int32>* NodeCosts)
+bool AUTRecastNavMesh::FindBestPath(APawn* Asker, const FNavAgentProperties& AgentProps, AController* RequestOwner, FUTNodeEvaluator& NodeEval, const FVector& StartLoc, float& Weight, bool bAllowDetours, TArray<FRouteCacheItem>& NodeRoute, TArray<int32>* NodeCosts)
 {
 	DECLARE_CYCLE_STAT(TEXT("UT node pathing time"), STAT_Navigation_UTPathfinding, STATGROUP_Navigation);
 
@@ -2091,7 +2088,7 @@ bool AUTRecastNavMesh::FindBestPath(APawn* Asker, const FNavAgentProperties& Age
 	{
 		int32 Radius, Height, MaxFallSpeed;
 		uint32 MoveFlags;
-		CalcReachParams(Asker, AgentProps, Radius, Height, MaxFallSpeed, MoveFlags);
+		CalcReachParams(Asker, AgentProps, RequestOwner, Radius, Height, MaxFallSpeed, MoveFlags);
 
 		struct FEvaluatedNode
 		{
@@ -2143,10 +2140,10 @@ bool AUTRecastNavMesh::FindBestPath(APawn* Asker, const FNavAgentProperties& Age
 					}
 					if (!NextNode->bAlreadyVisited)
 					{
-						NextDistance = CurrentNode->Node->Paths[i].CostFor(Asker, AgentProps, CurrentNode->Poly, this);
+						NextDistance = CurrentNode->Node->Paths[i].CostFor(Asker, AgentProps, RequestOwner, CurrentNode->Poly, this);
 						if (NextDistance < BLOCKED_PATH_COST)
 						{
-							NextDistance += NodeEval.GetTransientCost(CurrentNode->Node->Paths[i], Asker, AgentProps, CurrentNode->Poly, NextDistance + CurrentNode->TotalDistance);
+							NextDistance += NodeEval.GetTransientCost(CurrentNode->Node->Paths[i], Asker, AgentProps, RequestOwner, CurrentNode->Poly, NextDistance + CurrentNode->TotalDistance);
 						}
 						if (NextDistance < BLOCKED_PATH_COST)
 						{

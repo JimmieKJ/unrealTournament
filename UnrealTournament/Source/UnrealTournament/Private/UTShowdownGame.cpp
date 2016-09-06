@@ -530,7 +530,7 @@ void AUTShowdownGame::HandleMatchIntermission()
 					FRandomDestEval NodeEval;
 					float Weight = 0.0f;
 					TArray<FRouteCacheItem> Route;					
-					if (NavData->FindBestPath(NULL, FNavAgentProperties(Extent.X, Extent.Z * 2.0f), NodeEval, StartSpot->GetActorLocation(), Weight, false, Route) && Route.Num() > 0)
+					if (NavData->FindBestPath(NULL, FNavAgentProperties(Extent.X, Extent.Z * 2.0f), NULL, NodeEval, StartSpot->GetActorLocation(), Weight, false, Route) && Route.Num() > 0)
 					{
 						SpawnLoc = Route.Last().GetLocation(NULL);
 						// try to pick a better poly for spawning (we'd like to stay away from walls)
