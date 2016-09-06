@@ -45,7 +45,8 @@ FText UUTEngineMessage::GetText(int32 Switch, bool bTargetsPlayerState1, class A
 
 FString UUTEngineMessage::GetConsoleString(const FClientReceiveData& ClientData, FText LocalMessageText) const
 {
-	if ((ClientData.RelatedPlayerState_1 != nullptr) && (ClientData.MessageIndex == 1) || (ClientData.MessageIndex == 4) || (ClientData.MessageIndex == 16))
+	bool bMatchesMessageIndex = (ClientData.MessageIndex == 1) || (ClientData.MessageIndex == 4) || (ClientData.MessageIndex == 16);
+	if (ClientData.RelatedPlayerState_1 != nullptr && bMatchesMessageIndex)
 	{
 		return ClientData.RelatedPlayerState_1->PlayerName + LocalMessageText.ToString();
 	}
