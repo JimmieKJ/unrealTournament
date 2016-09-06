@@ -153,7 +153,10 @@ void AUTLobbyPC::MatchChanged(AUTLobbyMatchInfo* CurrentMatch)
 void AUTLobbyPC::HandleNetworkFailureMessage(enum ENetworkFailure::Type FailureType, const FString& ErrorString)
 {
 	// If we are in a match and we get a network failure, leave that match.
-	UTLobbyPlayerState->ServerDestroyOrLeaveMatch();	
+	if (UTLobbyPlayerState)
+	{
+		UTLobbyPlayerState->ServerDestroyOrLeaveMatch();
+	}
 }
 
 void AUTLobbyPC::Say(FString Message)
