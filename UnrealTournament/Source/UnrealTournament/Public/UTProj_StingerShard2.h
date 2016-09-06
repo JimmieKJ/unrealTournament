@@ -27,8 +27,4 @@ class UNREALTOURNAMENT_API AUTProj_StingerShard2 : public AUTProjectile
 
 	UPROPERTY()
 	TArray<APawn*> PotentialTargets;
-
-	/** Visible static mesh - will collide when shard sticks. */
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Effects)
-	UStaticMeshComponent* ShardMesh;
 };
