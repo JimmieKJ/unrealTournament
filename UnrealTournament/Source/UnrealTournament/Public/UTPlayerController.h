@@ -1201,7 +1201,7 @@ public:
 	void ClientPlayKillcam(AController* KillingController, APawn* PawnToFocus);
 
 	UPROPERTY()
-		APawn* DeathCamFocus;
+		AActor* DeathCamFocus;
 
 	virtual float GetFrozenTime();
 

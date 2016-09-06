@@ -48,6 +48,7 @@
 #include "UTGameObjective.h"
 #include "UTFlagRunGameState.h"
 #include "UTRemoteRedeemer.h"
+#include "UTKillerTarget.h"
 
 static TAutoConsoleVariable<float> CVarUTKillcamStartDelay(
 	TEXT("UT.KillcamStartDelay"),
@@ -4933,10 +4934,23 @@ void AUTPlayerController::ClientPlayKillcam_Implementation(AController* KillingC
 			CVarUTKillcamRewindTime.GetValueOnGameThread() + CVarUTKillcamStartDelay.GetValueOnGameThread() + 0.5f,
 			false);
 	}
+/*	else if (Cast<AUTCharacter>(PawnToFocus) != nullptr)
+	{
+		FActorSpawnParameters Params;
+		Params.Instigator = PawnToFocus;
+		Params.Owner = PawnToFocus;
+		Params.bNoFail = true;
+		AUTKillerTarget* KillerTarget = GetWorld()->SpawnActor<AUTKillerTarget>(AUTKillerTarget::StaticClass(), PawnToFocus->GetActorLocation(), PawnToFocus->GetActorRotation(), Params);
+		if (KillerTarget != nullptr)
+		{
+			KillerTarget->InitFor(Cast<AUTCharacter>(PawnToFocus));
+			DrawDebugSphere(GetWorld(), KillerTarget->GetActorLocation(), 40.f, 12, FColor::Yellow, true);
+		}
+		DeathCamFocus = KillerTarget;
+	}*/
 	else
 	{
-		DeathCamFocus = PawnToFocus;
-	//	UE_LOG(UT, Log, TEXT("DeathCamFocus %s"), DeathCamFocus ? *DeathCamFocus->GetName() : TEXT("NONE"));
+		DeathCamFocus = nullptr;
 	}
 }
 
