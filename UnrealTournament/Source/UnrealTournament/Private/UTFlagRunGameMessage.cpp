@@ -12,8 +12,8 @@ FName UUTFlagRunGameMessage::GetTeamAnnouncement(int32 Switch, uint8 TeamNum, co
 {
 	switch (Switch)
 	{
-	case 0: return TEXT("FlagIsDown"); break;
-	case 1: return TEXT("FlagIsDown"); break;
+	case 0: return TEXT("FlagIsReturning"); break;
+	case 1: return TEXT("FlagIsReturning"); break;
 	case 2: return (TeamNum == 0) ? TEXT("RedTeamScores") : TEXT("BlueTeamScores"); break;
 	case 3: return TEXT("FlagDropped"); break;
 	case 4:
