@@ -64,15 +64,19 @@ void AUTTimedPowerup::Removed()
 
 void AUTTimedPowerup::PlayFadingSound()
 {
-	// reset timer if time got added
-	if (TimeRemaining > 3.f)
+	AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
+	if (GS && (GS->IsMatchInProgress() || (GS->GetMatchState() == MatchState::WaitingToStart)) && !GS->IsMatchIntermission())
 	{
-		GetWorld()->GetTimerManager().SetTimer(PlayFadingSoundHandle, this, &AUTTimedPowerup::PlayFadingSound, TimeRemaining - 3.0f, false);
-	}
-	else
-	{
-		UUTGameplayStatics::UTPlaySound(GetWorld(), PowerupFadingSound, GetUTOwner());
-		GetWorld()->GetTimerManager().SetTimer(PlayFadingSoundHandle, this, &AUTTimedPowerup::PlayFadingSound, 0.75f, false);
+		// reset timer if time got added
+		if (TimeRemaining > 3.f)
+		{
+			GetWorld()->GetTimerManager().SetTimer(PlayFadingSoundHandle, this, &AUTTimedPowerup::PlayFadingSound, TimeRemaining - 3.0f, false);
+		}
+		else
+		{
+			UUTGameplayStatics::UTPlaySound(GetWorld(), PowerupFadingSound, GetUTOwner());
+			GetWorld()->GetTimerManager().SetTimer(PlayFadingSoundHandle, this, &AUTTimedPowerup::PlayFadingSound, 0.75f, false);
+		}
 	}
 }
 
@@ -80,7 +84,8 @@ void AUTTimedPowerup::TimeExpired_Implementation()
 {
 	if (Role == ROLE_Authority)
 	{
-		if (GetUTOwner() != NULL)
+		AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
+		if (GetUTOwner() && GS && (GS->IsMatchInProgress() || (GS->GetMatchState() == MatchState::WaitingToStart)) && !GS->IsMatchIntermission())
 		{
 			UUTGameplayStatics::UTPlaySound(GetWorld(), PowerupOverSound, GetUTOwner());
 		}
