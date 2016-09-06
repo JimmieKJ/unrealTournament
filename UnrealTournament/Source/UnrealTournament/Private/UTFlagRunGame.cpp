@@ -59,6 +59,8 @@ AUTFlagRunGame::AUTFlagRunGame(const FObjectInitializer& ObjectInitializer)
 	bAllowBoosts = false;
 	OffenseKillsNeededForPowerUp = 10;
 	DefenseKillsNeededForPowerUp = 10;
+	bCarryOwnFlag = true;
+	bNoFlagReturn = true;
 
 	ActivatedPowerupPlaceholderObject = FStringAssetReference(TEXT("/Game/RestrictedAssets/Pickups/Powerups/BP_ActivatedPowerup_UDamage.BP_ActivatedPowerup_UDamage_C"));
 	RepulsorObject = FStringAssetReference(TEXT("/Game/RestrictedAssets/Pickups/Powerups/BP_Repulsor.BP_Repulsor_C"));
@@ -246,14 +248,26 @@ void AUTFlagRunGame::InitFlagForRound(AUTCarriedObject* Flag)
 		{
 			Flag->MessageClass = UUTFlagRunGameMessage::StaticClass();
 			Flag->SetActorHiddenInGame(false);
-			Flag->bEnemyCanPickup = !bCarryOwnFlag;
-			Flag->bFriendlyCanPickup = bCarryOwnFlag;
-			Flag->bTeamPickupSendsHome = !Flag->bFriendlyCanPickup && !bNoFlagReturn;
-			Flag->bEnemyPickupSendsHome = !Flag->bEnemyCanPickup && !bNoFlagReturn;
+			Flag->bEnemyCanPickup = false;
+			Flag->bFriendlyCanPickup = true;
+			Flag->bTeamPickupSendsHome = false;
+			Flag->bEnemyPickupSendsHome = false;
+			Flag->bWaitingForFirstPickup = true;
 		}
 		else
 		{
 			Flag->Destroy();
+		}
+	}
+}
+
+void AUTFlagRunGame::NotifyFirstPickup(AUTCarriedObject* Flag)
+{
+	if (Flag && Flag->HoldingPawn && StartingArmorClass)
+	{
+		if (!StartingArmorClass.GetDefaultObject()->HandleGivenTo(Flag->HoldingPawn))
+		{
+			Flag->HoldingPawn->AddInventory(GetWorld()->SpawnActor<AUTInventory>(StartingArmorClass, FVector(0.0f), FRotator(0.f, 0.f, 0.f)), true);
 		}
 	}
 }

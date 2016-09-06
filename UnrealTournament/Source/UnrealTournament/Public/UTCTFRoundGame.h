@@ -111,6 +111,8 @@ class UNREALTOURNAMENT_API AUTCTFRoundGame : public AUTCTFBaseGame
 
 	virtual void SendRestartNotifications(AUTPlayerState* PS, AUTPlayerController* PC);
 
+	virtual void NotifyFirstPickup(AUTCarriedObject* Flag) {};
+
 	virtual void BeginGame() override;
 	virtual void ScoreObject_Implementation(AUTCarriedObject* GameObject, AUTCharacter* HolderPawn, AUTPlayerState* Holder, FName Reason) override;
 	virtual void RestartPlayer(AController* aPlayer) override;

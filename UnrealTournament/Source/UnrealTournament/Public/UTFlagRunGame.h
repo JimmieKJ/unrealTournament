@@ -75,6 +75,7 @@ public:
 	virtual void WarnEnemyRally();
 
 	virtual void AnnounceWin(AUTTeamInfo* WinningTeam, uint8 Reason) override;
+	virtual void NotifyFirstPickup(AUTCarriedObject* Flag) override;
 
 	virtual void InitGame(const FString& MapName, const FString& Options, FString& ErrorMessage) override;
 	virtual float OverrideRespawnTime(TSubclassOf<AUTInventory> InventoryType) override;

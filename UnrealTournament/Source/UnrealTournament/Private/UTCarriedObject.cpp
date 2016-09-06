@@ -13,6 +13,7 @@
 #include "UTSecurityCameraComponent.h"
 #include "UTGameVolume.h"
 #include "UTCTFRoundGameState.h"
+#include "UTCTFRoundGame.h"
 
 AUTCarriedObject::AUTCarriedObject(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -46,6 +47,7 @@ AUTCarriedObject::AUTCarriedObject(const FObjectInitializer& ObjectInitializer)
 	bSendHomeOnScore = true;
 	bSlowsMovement = false;
 	bSingleGhostFlag = true;
+	bWaitingForFirstPickup = true;
 }
 
 void AUTCarriedObject::Destroyed()
@@ -438,6 +440,15 @@ void AUTCarriedObject::SetHolder(AUTCharacter* NewHolder)
 			if (Holder->Team)
 			{
 				Holder->Team->ModifyStatsValue(NAME_TeamFlagGrabs, 1);
+			}
+			if (bWaitingForFirstPickup)
+			{
+				bWaitingForFirstPickup = false;
+				AUTCTFRoundGame* RCTFGame = GetWorld()->GetAuthGameMode<AUTCTFRoundGame>();
+				if (RCTFGame)
+				{
+					RCTFGame->NotifyFirstPickup(this);
+				}
 			}
 		}
 	}
