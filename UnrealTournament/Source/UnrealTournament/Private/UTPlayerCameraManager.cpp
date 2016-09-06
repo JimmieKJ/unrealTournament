@@ -270,7 +270,7 @@ void AUTPlayerCameraManager::UpdateViewTarget(FTViewTarget& OutVT, float DeltaTi
 		FRotator Rotator = (!UTPC || UTPC->bSpectatorMouseChangesView) ? PCOwner->GetControlRotation() : UTPC->GetSpectatingRotation(Loc, DeltaTime);
 		if (bUseDeathCam)
 		{
-			if (UTPC && UTPC->IsInState(NAME_Inactive) && UTPC->IsFrozen() && UTPC->DeathCamFocus && !UTPC->DeathCamFocus->IsPendingKillPending()
+			if (UTPC && UTPC->IsInState(NAME_Inactive) && UTPC->IsFrozen() && UTPC->DeathCamFocus && !UTPC->DeathCamFocus->IsPendingKillPending() && (UTPC->DeathCamFocus != TargetActor)
 				&& (UTPC->GetFrozenTime() > 0.25f))
 			{
 				FVector Pos = Loc + FRotationMatrix(Rotator).TransformVector(CameraOffset) - Rotator.Vector() * CameraDistance;
