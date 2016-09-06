@@ -203,7 +203,7 @@ void UEditorEngine::csgRebuild( UWorld* InWorld )
 	// Repartition the structural BSP.
 	{
 		GWarn->StatusUpdate( 0, 4, NSLOCTEXT("UnrealEd", "RebuildBSPBuildingPolygons", "Rebuild BSP: Building polygons") );
-		bspBuildFPolys( InWorld->GetModel(), 1, 0 );
+		bspBuildFPolys( InWorld->GetModel(), 0, 0 );
 
 		GWarn->StatusUpdate( 1, 4, NSLOCTEXT("UnrealEd", "RebuildBSPMergingPlanars", "Rebuild BSP: Merging planars") );
 		bspMergeCoplanars( InWorld->GetModel(), 0, 0 );
