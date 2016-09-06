@@ -1612,7 +1612,12 @@ void AUTWeapon::PlayDelayedImpactEffects()
 float AUTWeapon::GetImpartedMomentumMag(AActor* HitActor)
 {
 	AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
-	if ((FriendlyMomentumScaling != 1.f) && GS != NULL && Cast<AUTCharacter>(HitActor) && GS->OnSameTeam(HitActor, UTOwner))
+	AUTCharacter* HitChar = Cast<AUTCharacter>(HitActor);
+	if (HitChar && HitChar->IsDead())
+	{
+		return 20000.f;
+	}
+	if ((FriendlyMomentumScaling != 1.f) && GS != NULL && HitChar && GS->OnSameTeam(HitActor, UTOwner))
 	{
 		return  InstantHitInfo[CurrentFireMode].Momentum *FriendlyMomentumScaling;
 	}

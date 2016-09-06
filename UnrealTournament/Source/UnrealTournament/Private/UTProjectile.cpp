@@ -839,7 +839,7 @@ void AUTProjectile::DamageImpactedActor_Implementation(AActor* OtherActor, UPrim
 	else
 	{
 		FUTPointDamageEvent Event;
-		float AdjustedMomentum = Momentum;
+		float AdjustedMomentum = ((Momentum == 0.f) && Cast<AUTCharacter>(OtherActor) && ((AUTCharacter*)(OtherActor))->IsDead()) ?  20000.f : Momentum;
 		Event.Damage = GetDamageParams(OtherActor, HitLocation, AdjustedMomentum).BaseDamage;
 		Event.DamageTypeClass = ResolvedDamageType;
 		Event.HitInfo = FHitResult(OtherActor, OtherComp, HitLocation, HitNormal);

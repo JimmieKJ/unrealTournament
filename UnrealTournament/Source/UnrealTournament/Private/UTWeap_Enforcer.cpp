@@ -131,6 +131,10 @@ float AUTWeap_Enforcer::GetBringUpTime()
 float AUTWeap_Enforcer::GetImpartedMomentumMag(AActor* HitActor)
 {
 	AUTCharacter* HitChar = Cast<AUTCharacter>(HitActor);
+	if (HitChar && HitChar->IsDead())
+	{
+		return 20000.f;
+	}
 	return (HitChar && HitChar->GetWeapon() && HitChar->GetWeapon()->bAffectedByStoppingPower)
 		? StoppingPower
 		: InstantHitInfo[CurrentFireMode].Momentum;
