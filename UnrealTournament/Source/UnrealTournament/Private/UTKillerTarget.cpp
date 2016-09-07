@@ -30,15 +30,15 @@ void AUTKillerTarget::Tick(float DeltaTime)
 	if (!bHasTicked)
 	{
 		bHasTicked = true;
-		Mesh->TickAnimation(0.0f, false);
-		Mesh->RefreshBoneTransforms();
-		Mesh->UpdateComponentToWorld();		
+//		Mesh->TickAnimation(0.0f, false);
+//		Mesh->RefreshBoneTransforms();
+//		Mesh->UpdateComponentToWorld();		
 		Mesh->SetMasterPoseComponent(NULL);
 		Mesh->bPauseAnims = true;
 	}
 	if ((Watcher == nullptr) || Watcher->IsPendingKillPending() || Watcher->GetPawn())
 	{
-		//			Destroy();
+		Destroy();
 	}
 }
 
@@ -65,7 +65,6 @@ void AUTKillerTarget::InitFor(AUTCharacter* KillerPawn, AUTPlayerController* InW
 		Mesh->RegisterComponent();
 		Mesh->AttachToComponent(RootComponent, FAttachmentTransformRules::SnapToTargetNotIncludingScale);
 		Mesh->LastRenderTime = KillerPawn->GetMesh()->LastRenderTime;
-		DrawDebugSphere(GetWorld(), Mesh->GetComponentLocation(), 32.f, 12, FColor::Red, true);
 		Mesh->SetRelativeLocation(KillerPawn->GetMesh()->RelativeLocation);
 		Mesh->SetRelativeRotation(KillerPawn->GetMesh()->RelativeRotation);
 		Mesh->SetRelativeScale3D(KillerPawn->GetMesh()->RelativeScale3D);

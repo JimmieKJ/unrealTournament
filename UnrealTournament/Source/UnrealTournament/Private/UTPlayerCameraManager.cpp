@@ -273,7 +273,11 @@ void AUTPlayerCameraManager::UpdateViewTarget(FTViewTarget& OutVT, float DeltaTi
 			if (UTPC && UTPC->IsInState(NAME_Inactive) && UTPC->IsFrozen() && UTPC->DeathCamFocus && !UTPC->DeathCamFocus->IsPendingKillPending() && (UTPC->DeathCamFocus != TargetActor)
 				&& (UTPC->GetFrozenTime() > 0.25f))
 			{
-				FVector Pos = Loc + FRotationMatrix(Rotator).TransformVector(CameraOffset) - Rotator.Vector() * CameraDistance;
+				bool bZoomIn = ((GetWorld()->GetTimeSeconds() - UTPC->DeathCamFocus->GetLastRenderTime() < 0.2f) && (UTPC->GetFrozenTime() > 0.5f));
+				float ZoomFactor = FMath::Min(2.f*UTPC->GetFrozenTime() - 1.f, 1.f);
+				float DistanceScaling = bZoomIn ? 1.f - ZoomFactor : 1.f;
+				FVector Pos = Loc + FRotationMatrix(Rotator).TransformVector(CameraOffset) - Rotator.Vector() * CameraDistance * DistanceScaling;
+
 				FHitResult Result;
 				CheckCameraSweep(Result, TargetActor, Loc, Pos);
 				OutVT.POV.Location = !Result.bBlockingHit ? Pos : Result.Location;
@@ -284,15 +288,27 @@ void AUTPlayerCameraManager::UpdateViewTarget(FTViewTarget& OutVT, float DeltaTi
 				ViewRotation.Yaw = FMath::UnwindDegrees(ViewRotation.Yaw);
 				ViewRotation.Pitch = FMath::UnwindDegrees(ViewRotation.Pitch);
 				ViewRotation.Roll = 0.f;
-				FRotator DesiredViewRotation = (UTPC->DeathCamFocus->GetActorLocation() - OutVT.POV.Location).Rotation();
+				FRotator DesiredViewRotation = (UTPC->DeathCamFocus->GetActorLocation() + FVector(0.f,0.f, 83.f) - OutVT.POV.Location).Rotation();
 				DesiredViewRotation.Yaw = FMath::UnwindDegrees(DesiredViewRotation.Yaw);
-				DesiredViewRotation.Pitch = FMath::Clamp(FMath::UnwindDegrees(DesiredViewRotation.Pitch) - 8.f, -85.f, -5.f);
+				if (bZoomIn)
+				{
+					// zoom in
+					float ViewDist = (UTPC->DeathCamFocus->GetActorLocation() - OutVT.POV.Location).SizeSquared();
+					float ZoomedFOV = DefaultFOV * FMath::Clamp(360000.f/FMath::Max(1.f, ViewDist), 0.2f, 1.f);
+					OutVT.POV.FOV = DefaultFOV * (1.f - ZoomFactor) + ZoomedFOV*ZoomFactor;
+					DesiredViewRotation.Pitch = FMath::UnwindDegrees(DesiredViewRotation.Pitch);
+				}
+				else
+				{
+					DesiredViewRotation.Pitch = FMath::Clamp(FMath::UnwindDegrees(DesiredViewRotation.Pitch), -8.f, -5.f);
+				}
 				float DeltaYaw = FMath::RadiansToDegrees(FMath::FindDeltaAngleRadians(FMath::DegreesToRadians(ViewRotation.Yaw), FMath::DegreesToRadians(DesiredViewRotation.Yaw)));
 				ViewRotation.Yaw += 15.f*DeltaTime*DeltaYaw;
 				float DeltaPitch = FMath::RadiansToDegrees(FMath::FindDeltaAngleRadians(FMath::DegreesToRadians(ViewRotation.Pitch), FMath::DegreesToRadians(DesiredViewRotation.Pitch)));
 				ViewRotation.Pitch += 15.f*DeltaTime*DeltaPitch;
 				UTPC->SetControlRotation(ViewRotation);
 				Rotator = ViewRotation;
+
 			}
 			else
 			{

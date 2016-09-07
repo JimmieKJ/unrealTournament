@@ -1460,7 +1460,7 @@ bool AUTCharacter::Died(AController* EventInstigator, const FDamageEvent& Damage
 				{
 					KillcamFocus = EventInstigator->GetPawn();
 				}
-				DyingGameController->ClientPlayKillcam(EventInstigator, KillcamFocus);
+				DyingGameController->ClientPlayKillcam(EventInstigator, KillcamFocus, KillcamFocus ? KillcamFocus->GetActorLocation() : FVector::ZeroVector);
 			}
 
 

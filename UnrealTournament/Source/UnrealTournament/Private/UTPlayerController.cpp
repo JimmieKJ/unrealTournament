@@ -3973,7 +3973,7 @@ void AUTPlayerController::BeginInactiveState()
 	SetPawn(NULL);
 
 	AUTGameState* GameState = GetWorld()->GetGameState<AUTGameState>();
-	float const MinRespawnDelay = GameState ? GameState->GetRespawnWaitTimeFor(UTPlayerState) : 1.0f;
+	float const MinRespawnDelay = GameState ? GameState->GetRespawnWaitTimeFor(UTPlayerState) : 1.5f;
 	GetWorldTimerManager().SetTimer(TimerHandle_UnFreeze, this, &APlayerController::UnFreeze, MinRespawnDelay);
 
 	if (GameState && MyUTHUD && GameState->IsMatchInProgress() && !GameState->IsMatchIntermission() && (TSubclassOf<AUTGameMode>(*GameState->GameModeClass) == nullptr || !TSubclassOf<AUTGameMode>(*GameState->GameModeClass).GetDefaultObject()->bHasRespawnChoices))
@@ -4917,7 +4917,7 @@ void AUTPlayerController::ClientPlayInstantReplay_Implementation(APawn* PawnToFo
 	}
 }
 
-void AUTPlayerController::ClientPlayKillcam_Implementation(AController* KillingController, APawn* PawnToFocus)
+void AUTPlayerController::ClientPlayKillcam_Implementation(AController* KillingController, APawn* PawnToFocus, FVector_NetQuantize FocusLoc)
 {
 //	UE_LOG(UT, Log, TEXT("ClientPlayKillcam %d"), (GetWorld()->DemoNetDriver && IsLocalController()));
 	if (GetWorld()->DemoNetDriver && IsLocalController())
@@ -4940,11 +4940,10 @@ void AUTPlayerController::ClientPlayKillcam_Implementation(AController* KillingC
 		Params.Instigator = PawnToFocus;
 		Params.Owner = PawnToFocus;
 		Params.bNoFail = true;
-		AUTKillerTarget* KillerTarget = GetWorld()->SpawnActor<AUTKillerTarget>(AUTKillerTarget::StaticClass(), PawnToFocus->GetActorLocation(), PawnToFocus->GetActorRotation(), Params);
+		AUTKillerTarget* KillerTarget = GetWorld()->SpawnActor<AUTKillerTarget>(AUTKillerTarget::StaticClass(), FocusLoc, PawnToFocus->GetActorRotation(), Params);
 		if (KillerTarget != nullptr)
 		{
 			KillerTarget->InitFor(Cast<AUTCharacter>(PawnToFocus), this);
-			DrawDebugSphere(GetWorld(), KillerTarget->GetActorLocation(), 40.f, 12, FColor::Yellow, true);
 		}
 		DeathCamFocus = KillerTarget;
 	}
