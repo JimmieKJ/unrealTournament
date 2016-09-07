@@ -425,7 +425,7 @@ namespace UnrealTournamentGame.Automation
 			}
 			if (!Cmd.ParseParam("nolinux"))
 			{
-				//ClientPlatforms.Add(UnrealTargetPlatform.Linux);
+				ClientPlatforms.Add(UnrealTargetPlatform.Linux);
 			}
 
 			return ClientPlatforms.ConvertAll(x => new TargetPlatformDescriptor(x));
@@ -649,7 +649,7 @@ namespace UnrealTournamentGame.Automation
 				AddDependency(GUBP.GamePlatformCookedAndCompiledNode.StaticGetFullName(HostPlatform, GameProj, UnrealTargetPlatform.Win32));
 				if (!bp.ParseParam("nolinux"))
 				{
-					//AddDependency(GUBP.GamePlatformCookedAndCompiledNode.StaticGetFullName(HostPlatform, GameProj, UnrealTargetPlatform.Linux));
+					AddDependency(GUBP.GamePlatformCookedAndCompiledNode.StaticGetFullName(HostPlatform, GameProj, UnrealTargetPlatform.Linux));
 				}
 
 
