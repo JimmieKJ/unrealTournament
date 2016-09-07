@@ -106,7 +106,7 @@ void AUTGameVolume::ActorEnteredVolume(class AActor* Other)
 					}
 				}
 			}
-			else if (bIsTeleportZone)
+			if (bIsTeleportZone)
 			{
 				if (AssociatedTeleporter == nullptr)
 				{
