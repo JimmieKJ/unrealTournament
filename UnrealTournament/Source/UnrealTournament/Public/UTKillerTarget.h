@@ -12,7 +12,13 @@ class UNREALTOURNAMENT_API AUTKillerTarget : public AActor
 		UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Flag)
 		USkeletalMeshComponent* Mesh;
 
-	virtual void InitFor(class AUTCharacter* KillerPawn);
+	UPROPERTY()
+		bool bHasTicked;
 
+	UPROPERTY()
+		class AUTPlayerController* Watcher;
+
+	virtual void InitFor(class AUTCharacter* KillerPawn, AUTPlayerController* InWatcher);
+	virtual void Tick(float DeltaTime) override;
 };
 

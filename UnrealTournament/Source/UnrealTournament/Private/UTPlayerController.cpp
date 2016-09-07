@@ -4934,7 +4934,7 @@ void AUTPlayerController::ClientPlayKillcam_Implementation(AController* KillingC
 			CVarUTKillcamRewindTime.GetValueOnGameThread() + CVarUTKillcamStartDelay.GetValueOnGameThread() + 0.5f,
 			false);
 	}
-/*	else if (Cast<AUTCharacter>(PawnToFocus) != nullptr)
+	else if (Cast<AUTCharacter>(PawnToFocus) != nullptr)
 	{
 		FActorSpawnParameters Params;
 		Params.Instigator = PawnToFocus;
@@ -4943,11 +4943,11 @@ void AUTPlayerController::ClientPlayKillcam_Implementation(AController* KillingC
 		AUTKillerTarget* KillerTarget = GetWorld()->SpawnActor<AUTKillerTarget>(AUTKillerTarget::StaticClass(), PawnToFocus->GetActorLocation(), PawnToFocus->GetActorRotation(), Params);
 		if (KillerTarget != nullptr)
 		{
-			KillerTarget->InitFor(Cast<AUTCharacter>(PawnToFocus));
+			KillerTarget->InitFor(Cast<AUTCharacter>(PawnToFocus), this);
 			DrawDebugSphere(GetWorld(), KillerTarget->GetActorLocation(), 40.f, 12, FColor::Yellow, true);
 		}
 		DeathCamFocus = KillerTarget;
-	}*/
+	}
 	else
 	{
 		DeathCamFocus = nullptr;
