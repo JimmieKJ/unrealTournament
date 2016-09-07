@@ -1116,7 +1116,7 @@ void AUTCTFRoundGame::ScoreKill_Implementation(AController* Killer, AController*
 		if (OtherPS->RemainingLives > 0)
 		{
 			OtherPS->RespawnWaitTime = FMath::Max(1.f, float(RemainingDefenders));
-			if (UTGameState && UTGameState->GetRemainingTime() > 210)
+			if (UTGameState && UTGameState->GetRemainingTime() > 180)
 			{
 				OtherPS->RespawnWaitTime = FMath::Min(OtherPS->RespawnWaitTime, 2.f);
 			}
