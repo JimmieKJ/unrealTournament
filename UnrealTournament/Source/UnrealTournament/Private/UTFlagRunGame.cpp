@@ -678,11 +678,11 @@ void AUTFlagRunGame::CompleteRallyRequest(AUTPlayerController* RequestingPC)
 		float RallyDelay = 10.f;
 		// rally to flag carrier
 		AUTCTFFlag* Flag = Cast<AUTCTFFlag>(GS->FlagBases[GS->bRedToCap ? 0 : 1]->GetCarriedObject());
-		if (Flag == nullptr)
+		AUTCharacter* FlagCarrier = Flag ? Flag->HoldingPawn : nullptr;
+		if (FlagCarrier == nullptr)
 		{
 			return;
 		}
-		AUTCharacter* FlagCarrier = Flag->HoldingPawn;
 		ECollisionChannel SavedObjectType = UTCharacter->GetCapsuleComponent()->GetCollisionObjectType();
 		UTCharacter->GetCapsuleComponent()->SetCollisionObjectType(COLLISION_TELEPORTING_OBJECT);
 		float Offset = 4.f * Radius;
