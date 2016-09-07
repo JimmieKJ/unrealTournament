@@ -739,7 +739,7 @@ void AUTFlagRunGame::CompleteRallyRequest(AUTPlayerController* RequestingPC)
 		UTCharacter->GetCapsuleComponent()->SetCollisionObjectType(SavedObjectType);
 		FRotator DesiredRotation = FlagCarrier ? (FlagCarrier->GetActorLocation() - WarpLocation).Rotation() : (Flag->GetActorLocation() - WarpLocation).Rotation();
 		WarpRotation.Yaw = DesiredRotation.Yaw;
-		RallyDelay = 20.f;
+		RallyDelay = 15.f;
 
 		// teleport
 		UPrimitiveComponent* SavedPlayerBase = UTCharacter->GetMovementBase();
