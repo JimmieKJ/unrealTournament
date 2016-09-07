@@ -195,6 +195,14 @@ void AUTPlayerController::GetLifetimeReplicatedProps(TArray<class FLifetimePrope
 	DOREPLIFETIME_CONDITION(AUTPlayerController, CastingGuideViewIndex, COND_OwnerOnly);
 	DOREPLIFETIME_CONDITION(AUTPlayerController, HUDClass, COND_OwnerOnly);
 }
+void AUTPlayerController::ClientSetSpectatorLocation_Implementation(FVector NewLocation, FRotator NewRotation)
+{
+	if (GetSpectatorPawn())
+	{
+		GetSpectatorPawn()->TeleportTo(NewLocation, NewRotation, false, true);
+		SetControlRotation(NewRotation);
+	}
+}
 
 void AUTPlayerController::SendPersonalMessage(TSubclassOf<ULocalMessage> Message, int32 Switch, APlayerState* RelatedPlayerState_1, APlayerState* RelatedPlayerState_2, UObject* OptionalObject)
 {

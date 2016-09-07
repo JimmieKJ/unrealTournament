@@ -236,6 +236,20 @@ bool AUTTeamGameMode::ChangeTeam(AController* Player, uint8 NewTeam, bool bBroad
 		
 			if (MovePlayerToTeam(Player, PS, NewTeam))
 			{
+				AUTPlayerController* PC = Cast<AUTPlayerController>(Player);
+				if (PC && !HasMatchStarted())
+				{
+					AActor* const StartSpot = FindPlayerStart(PC);
+					if (StartSpot != NULL)
+					{
+						// Set the player controller / camera in this new location
+						FRotator InitialControllerRot = StartSpot->GetActorRotation();
+						InitialControllerRot.Roll = 0.f;
+						PC->SetInitialLocationAndRotation(StartSpot->GetActorLocation(), InitialControllerRot);
+						PC->StartSpot = StartSpot;
+						PC->ClientSetSpectatorLocation(StartSpot->GetActorLocation(), InitialControllerRot);
+					}
+				}
 				return true;
 			}
 
