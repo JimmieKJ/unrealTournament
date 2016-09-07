@@ -80,11 +80,15 @@ namespace UnrealBuildTool.Rules
                     {
                         PublicAdditionalLibraries.AddRange(new string[] { "X11", "glut", "GLU", "GL" });
                     }
+                    RuntimeDependencies.Add(new RuntimeDependency("../../UnrealTournament/Plugins/Substance/Binaries/Linux/libSubstanceCPU.so"));
+                    RuntimeDependencies.Add(new RuntimeDependency("../../UnrealTournament/Plugins/Substance/Binaries/Linux/libSubstanceGPU.so"));
                 }
                 else if (Target.Platform == UnrealTargetPlatform.Mac)
                 {
                     SubstanceLibPath += "Mac/";
                     PublicAdditionalLibraries.Add(SubstanceLibPath + "libSubstance" + engineSuffix + ".a");
+                    RuntimeDependencies.Add(new RuntimeDependency("../../UnrealTournament/Plugins/Substance/Binaries/Mac/libSubstanceCPU.dylib"));
+                    RuntimeDependencies.Add(new RuntimeDependency("../../UnrealTournament/Plugins/Substance/Binaries/Mac/libSubstanceGPU.dylib"));
                 }
 				else if (Target.Platform == UnrealTargetPlatform.PS4)
 				{
