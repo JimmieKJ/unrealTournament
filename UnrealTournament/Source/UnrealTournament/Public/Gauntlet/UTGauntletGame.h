@@ -39,8 +39,8 @@ class UNREALTOURNAMENT_API AUTGauntletGame : public AUTCTFRoundGame
 	virtual void FlagsAreReady();
 
 	virtual bool CheckScore_Implementation(AUTPlayerState* Scorer) override;
-
-
+	virtual void InitFlagForRound(class AUTCarriedObject* Flag);
+	virtual void HandleExitingIntermission() override;
 protected:
 
 	UPROPERTY()

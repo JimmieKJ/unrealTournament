@@ -20,6 +20,9 @@ public:
 	UPROPERTY(Replicated)
 	AUTGauntletFlag* Flag;
 
+	UPROPERTY(Replicated)
+	bool bFirstRoundInitialized;
+
 	// The the base that dispenses the flag.  
 	UPROPERTY(Replicated)
 	AUTGauntletFlagDispenser* FlagDispenser;

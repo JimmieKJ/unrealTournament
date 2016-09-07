@@ -86,9 +86,22 @@ void AUTGauntletGame::InitRound()
 {
 	Super::InitRound();
 
-	if (GauntletGameState->FlagDispenser)
+	if (FlagPickupDelay > 0)
 	{
-		GauntletGameState->FlagDispenser->CreateFlag();
+		if (GauntletGameState->FlagDispenser)
+		{
+			GauntletGameState->FlagDispenser->CreateFlag();
+			InitDelayedFlag(GauntletGameState->Flag);
+		}
+	}
+}
+
+void AUTGauntletGame::InitFlagForRound(class AUTCarriedObject* Flag)
+{
+	Super::InitFlagForRound(Flag);
+	if (Flag != nullptr)
+	{
+		Flag->bGradualAutoReturn = false;	
 	}
 }
 
@@ -98,7 +111,7 @@ void AUTGauntletGame::InitFlags()
 	{
 		AUTCarriedObject* Flag = GauntletGameState->FlagDispenser->MyFlag;
 		Flag->AutoReturnTime = 8.f;
-		Flag->bGradualAutoReturn = true;
+		Flag->bGradualAutoReturn = false;
 		Flag->bDisplayHolderTrail = true;
 		Flag->bShouldPingFlag = true;
 		Flag->bSlowsMovement = bSlowFlagCarrier;
@@ -271,4 +284,10 @@ bool AUTGauntletGame::CheckScore_Implementation(AUTPlayerState* Scorer)
 {
 	// Skip the round based version as we use goal score
 	return AUTCTFBaseGame::CheckScore_Implementation(Scorer);
+}
+
+void AUTGauntletGame::HandleExitingIntermission()
+{
+	Super::HandleExitingIntermission();
+	GauntletGameState->bFirstRoundInitialized = bFirstRoundInitialized;
 }

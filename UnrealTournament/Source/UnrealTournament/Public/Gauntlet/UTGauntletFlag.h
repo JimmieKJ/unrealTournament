@@ -18,6 +18,9 @@ public:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = GameObject)
 	TArray<UMaterialInterface*> TeamMaterials;
 
+	UPROPERTY(VisibleDefaultsOnly, BlueprintReadOnly, Category = Flag)
+	UParticleSystemComponent* TimerEffect;
+
 	virtual void PostInitializeComponents() override;
 	virtual void SetHolder(AUTCharacter* NewHolder);
 	virtual void OnRep_Team();

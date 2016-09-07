@@ -680,6 +680,8 @@ void AUTCTFRoundGame::InitGameStateForRound()
 			RCTFGameState->RedLivesRemaining += CTFGameState->FlagBases[0] ? CTFGameState->FlagBases[0]->RoundLivesAdjustment : 0;
 			RCTFGameState->BlueLivesRemaining += CTFGameState->FlagBases[1] ? CTFGameState->FlagBases[0]->RoundLivesAdjustment : 0;
 		}
+
+		RCTFGameState->RemainingPickupDelay = FlagPickupDelay;
 	}
 }
 

@@ -14,8 +14,22 @@
 AUTGauntletFlag::AUTGauntletFlag(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
 {
+	
 	static ConstructorHelpers::FObjectFinder<UClass> GFClass(TEXT("Blueprint'/Game/RestrictedAssets/Proto/UT3_Pickups/Flag/GhostFlag.GhostFlag_C'"));
 	GhostFlagClass = GFClass.Object;
+
+	TimerEffect = ObjectInitializer.CreateDefaultSubobject<UParticleSystemComponent>(this, TEXT("TimerEffect"));
+	if (TimerEffect != NULL)
+	{
+		TimerEffect->SetHiddenInGame(false);
+		TimerEffect->SetupAttachment(RootComponent);
+		TimerEffect->LDMaxDrawDistance = 4000.0f;
+		TimerEffect->RelativeLocation.Z = 40.0f;
+		TimerEffect->Mobility = EComponentMobility::Movable;
+		TimerEffect->SetCastShadow(false);
+	}
+
+
 	bSingleGhostFlag = false;
 	bTeamPickupSendsHome = false;
 	bAnyoneCanPickup = true;
@@ -34,6 +48,7 @@ void AUTGauntletFlag::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & O
 void AUTGauntletFlag::PostInitializeComponents()
 {
 	Super::PostInitializeComponents();
+	bGradualAutoReturn = false;
 }
 
 void AUTGauntletFlag::OnRep_Team()
@@ -196,12 +211,12 @@ void AUTGauntletFlag::Tick(float DeltaSeconds)
 {
 	Super::Tick(DeltaSeconds);
 
-	if (Role == ROLE_Authority)
+	AUTGauntletGameState* GauntletGameState = GetWorld()->GetGameState<AUTGauntletGameState>();
+	if (GauntletGameState)
 	{
-		AUTGauntletGameState* SCTFGameState = GetWorld()->GetGameState<AUTGauntletGameState>();
-		if (SCTFGameState)
+		if (Role == ROLE_Authority)
 		{
-			float DefaultSwapTime = float(SCTFGameState->FlagSwapTime);
+			float DefaultSwapTime = float(GauntletGameState->FlagSwapTime);
 
 			if (ObjectState == CarriedObjectState::Dropped)
 			{
@@ -227,6 +242,55 @@ void AUTGauntletFlag::Tick(float DeltaSeconds)
 			}
 
 			SwapTimer = FMath::Clamp<float>(SwapTimer, 0, DefaultSwapTime);
+		}
+
+		static FName NAME_SecondsPerPip(TEXT("SecondsPerPip"));
+
+		if (ObjectState == CarriedObjectState::Home)
+		{
+			if (TimerEffect != nullptr)
+			{
+				if (GauntletGameState->RemainingPickupDelay > 0)
+				{
+					if (TimerEffect->bHiddenInGame)
+					{
+						TimerEffect->SetHiddenInGame(false);
+						TimerEffect->SetFloatParameter(NAME_RespawnTime, 30.0f);
+						TimerEffect->SetFloatParameter(NAME_SecondsPerPip, 3.0f);
+					}
+
+					float Progress = 1.0f - float(GauntletGameState->RemainingPickupDelay) / 30.0f;
+					UE_LOG(UT,Log,TEXT("Progress %f"), Progress);
+					TimerEffect->SetFloatParameter(NAME_Progress, Progress);			
+				}
+				else
+				{
+					TimerEffect->SetHiddenInGame(true);
+				}
+			}
+		}
+		else if (ObjectState == CarriedObjectState::Dropped)
+		{
+			if (TimerEffect != nullptr)
+			{
+				if (SwapTimer > 0)
+				{
+					if (TimerEffect->bHiddenInGame)
+					{
+						TimerEffect->SetHiddenInGame(false);
+						TimerEffect->SetFloatParameter(NAME_RespawnTime, GauntletGameState->FlagSwapTime);
+						TimerEffect->SetFloatParameter(NAME_SecondsPerPip, 1.0f);
+
+					}
+					float Progress = 1.0f - float(SwapTimer) / float(GauntletGameState->FlagSwapTime);
+					UE_LOG(UT,Log,TEXT("Progress %f"), Progress);
+					TimerEffect->SetFloatParameter(NAME_Progress, Progress);			
+				}
+				else
+				{
+					TimerEffect->SetHiddenInGame(true);
+				}
+			}
 		}
 	}
 }
@@ -255,7 +319,7 @@ void AUTGauntletFlag::SetTeam(AUTTeamInfo* NewTeam)
 					AUTCTFFlagBase* DestinationBase = GauntletGameState->GetFlagBase(i);
 					if (DestinationBase)
 					{
-						PutGhostFlagAt(FFlagTrailPos(DestinationBase->GetActorLocation() + FVector(0.0f, 0.0f, 64.0f)), false, true, i);
+						PutGhostFlagAt(FFlagTrailPos(DestinationBase->GetActorLocation() + FVector(0.0f, 0.0f, 64.0f)), false, true, 1 - i);
 					}
 				}
 			}
@@ -318,3 +382,4 @@ void AUTGauntletFlag::ClearGhostFlags()
 {
 	if (!bIgnoreClearGhostCalls) Super::ClearGhostFlags();
 }
+

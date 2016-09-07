@@ -165,7 +165,6 @@ void AUTFlagRunGame::InitGameStateForRound()
 		FRGS->bIsOffenseAbleToGainPowerup = true;
 		FRGS->bIsDefenseAbleToGainPowerup = true;
 		FRGS->bRedToCap = !FRGS->bRedToCap;
-		FRGS->RemainingPickupDelay = FlagPickupDelay;
 	}
 }
 

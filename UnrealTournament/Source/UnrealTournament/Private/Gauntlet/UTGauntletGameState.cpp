@@ -10,6 +10,7 @@
 AUTGauntletGameState::AUTGauntletGameState(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
 {
+	bFirstRoundInitialized = false;
 }
 
 void AUTGauntletGameState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & OutLifetimeProps) const
@@ -19,6 +20,7 @@ void AUTGauntletGameState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty 
 	DOREPLIFETIME(AUTGauntletGameState, FlagSwapTime);
 	DOREPLIFETIME(AUTGauntletGameState, Flag);
 	DOREPLIFETIME(AUTGauntletGameState, FlagDispenser);
+	DOREPLIFETIME(AUTGauntletGameState, bFirstRoundInitialized);
 	
 }
 
