@@ -1038,7 +1038,11 @@ void AUTShowdownGame::SetEloFor(AUTPlayerState* PS, bool InbRankedSession, int32
 #if !UE_SERVER
 void AUTShowdownGame::CreateConfigWidgets(TSharedPtr<class SVerticalBox> MenuSpace, bool bCreateReadOnly, TArray< TSharedPtr<TAttributePropertyBase> >& ConfigProps, int32 MinimumPlayers)
 {
-	CreateGameURLOptions(ConfigProps);
+	// warning: might have been called by subclass!
+	if (ConfigProps.Num() == 0)
+	{
+		CreateGameURLOptions(ConfigProps);
+	}
 
 	TSharedPtr< TAttributeProperty<int32> > TimeLimitAttr = StaticCastSharedPtr<TAttributeProperty<int32>>(FindGameURLOption(ConfigProps, TEXT("TimeLimit")));
 	TSharedPtr< TAttributeProperty<int32> > GoalScoreAttr = StaticCastSharedPtr<TAttributeProperty<int32>>(FindGameURLOption(ConfigProps, TEXT("GoalScore")));
