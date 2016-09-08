@@ -46,12 +46,14 @@ public abstract class BaseLinuxPlatform : Platform
 			++BuildProductIdx;
         }
 
-		SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.ProjectRoot, "Content/Splash"), "Splash.bmp", false, null, null, true);
+        Console.WriteLine("Staging splash screen");
+        SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.ProjectRoot, "Content/Splash"), "Splash.bmp", false, null, null, true);
 
 		// Stage the bootstrap executable
 		if (!Params.NoBootstrapExe)
-		{
-			foreach (StageTarget Target in SC.StageTargets)
+        {
+            Console.WriteLine("Staging bootstrap executable");
+            foreach (StageTarget Target in SC.StageTargets)
 			{
 				BuildProduct Executable = Target.Receipt.BuildProducts.FirstOrDefault(x => x.Type == BuildProductType.Executable);
 				if (Executable != null)
