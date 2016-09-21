@@ -114,6 +114,8 @@
 		<!-- this stage command does asset registry files for the windows server, so we need to include that -->
 		<Node Name="Stage WindowsNoEditor Win32" Requires="Compile UT Client Win32;Cook WindowsNoEditor">
 			<Command Name="UnrealTournamentProto_BasicBuild" Arguments="-SkipBuild -SkipCook -SkipPerforce -Chunk -clientconfig=Shipping -serverconfig=None -TargetPlatform=Win32 -StagingDir=&quot;$(LocalStagingDir)&quot;"/>
+			<Tag Files="$(LocalStagingDir)/Engine/Binaries/Win32/..." Filter="*.exe" With="#ToSign"/>
+			<Sign Files="#ToSign" If="$(IsBuildMachine)"/>
 		</Node>
 		<Node Name="Chunk WindowsNoEditor Win32" Requires="Stage WindowsNoEditor Win32" Token="$(BuildDir)/WindowsNoEditor/WindowsNoEditor-Win32.token">
 			<Property Name="Win32Launch" Value="Engine/Binaries/Win32/UE4-Win32-Shipping.exe"/>
@@ -135,6 +137,8 @@
 		<!-- this stage command does asset registry files for the windows server, so we need to include that -->
 		<Node Name="Stage WindowsNoEditor Win64" Requires="Compile UT Client Win64;Cook WindowsNoEditor">
 			<Command Name="UnrealTournamentProto_BasicBuild" Arguments="-SkipBuild -SkipCook -SkipPerforce -Chunk -clientconfig=Shipping -serverconfig=None -TargetPlatform=Win64 -StagingDir=&quot;$(LocalStagingDir)&quot;"/>
+			<Tag Files="$(LocalStagingDir)/Engine/Binaries/Win64/..." Filter="*.exe" With="#ToSign"/>
+			<Sign Files="#ToSign" If="$(IsBuildMachine)"/>
 		</Node>
 		<Node Name="Chunk WindowsNoEditor Win64" Requires="Stage WindowsNoEditor Win64" Token="$(BuildDir)/WindowsNoEditor/WindowsNoEditor-Win64.token">
 			<Property Name="Win64Launch" Value="Engine/Binaries/Win64/UE4-Win64-Shipping.exe"/>
@@ -198,14 +202,15 @@
 			<Tag Files="#SecondTrim" Except=".../NotForLicensees/...;.../Intermediate/...;.../Linux/...;.../Mac/...;.../PS4/...;.../IOS/...;.../Android/...;.../HTML5/...;.../Binaries/Win32/...;.../Binaries/Mac/...;.../Binaries/Linux/...;" With="#FinalTrim"/>
 
 			<!-- We need the onlinesubsystemmcp dlls out of notforlicensees-->
-			<Tag Files="$(RootDir)/Engine/Plugins/Online/NotForLicensees/OnlineSubsystemMcp/..." Except=".../Intermediate/...;.../Win32/...;.../UE4-*-Win64-Shipping*" With="#FinalTrim"/>
+			<Tag Files="$(RootDir)/UnrealTournament/Plugins/Online/NotForLicensees/OnlineSubsystemMcp/..." Filter="*.dll;*.uplugin" With="#FinalTrim"/>
+			<!--<Tag Files="$(RootDir)/Engine/Plugins/Online/NotForLicensees/OnlineSubsystemMcp/..." Except=".../Intermediate/...;.../Win32/...;.../UE4-*-Win64-Shipping*" With="#FinalTrim"/>-->
 			
 			<Copy Files="#FinalTrim" FromDir="" ToDir="$(LocalStagingDir)/UT-Build/Win64"/>
 		</Node>
 		<Node Name="EditorDDC Win64" Requires="Copy Editor Win64">
-			<Commandlet Name="DerivedDataCache" Project="$(LocalStagingDir)/UT-Build/Win64/UnrealTournament/UnrealTournament.uproject" Arguments="-TargetPlatform=Windows -fill -DDC=CreateInstalledEnginePak -Map=Example_Map" EditorExe="$(LocalStagingDir)/UT-Build/Win64/Engine/Binaries/Win64/UE4Editor-Cmd.exe"/>
+			<Commandlet Name="DerivedDataCache" Project="$(LocalStagingDir)/UT-Build/Win64/UnrealTournament/UnrealTournament.uproject" EditorExe="$(LocalStagingDir)/UT-Build/Win64/Engine/Binaries/Win64/UE4Editor.exe" Arguments="-TargetPlatform=Windows -fill -DDC=CreateInstalledEnginePak -Map=Example_Map"/>
 		</Node>
-		<Node Name="Chunk Editor Win64" Requires="Copy Editor Win64" Token="$(BuildDir)/WindowsEditor/WindowsEditor.token">
+		<Node Name="Chunk Editor Win64" Requires="EditorDDC Win64" Token="$(BuildDir)/WindowsEditor/WindowsEditor.token">
 			<Property Name="Launch" Value="Engine\Binaries\Win64\UE4Editor.exe"/>
 			<Property Name="LaunchArgs" Value="UnrealTournament"/>
 			<Tag Files="$(LocalStagingDir)\UT-Build\Win64\..." With="#EditorFilesToChunk"/>
@@ -286,6 +291,8 @@
 	<Agent Name="Make Mac Build" Type="Mac">
 		<Node Name="Stage Mac" Requires="Compile UT Mac;Cook Mac">
 			<Command Name="UnrealTournamentProto_BasicBuild" Arguments="-SkipBuild -SkipCook -SkipPerforce -Chunk -serverconfig=None -clientconfig=Shipping -TargetPlatform=Mac -StagingDir=&quot;$(LocalStagingDir)&quot;"/>
+			<Tag Files="$(LocalStagingDir)/Engine/Binaries/Mac/..." Filter="*.app;*.dylib" With="#ToSign"/>
+			<Sign Files="#ToSign" If="$(IsBuildMachine)"/>
 		</Node>
 		<Node Name="Chunk Mac" Requires="Stage Mac" Token="$(BuildDir)/MacNoEditor/MacNoEditor.token">
 			<Property Name="Launch" Value="Engine/Binaries/Mac/UE4-Mac-Shipping.app"/>
@@ -333,10 +340,13 @@
 
 			<Tag Files="#SecondTrim" Except=".../NotForLicensees/...;.../Intermediate/...;.../Linux/...;.../Win32/...;.../Win64/...;.../PS4/...;.../IOS/...;.../Android/...;.../HTML5/...;.../Binaries/Win32/...;.../Binaries/Win64/...;.../Binaries/Linux/..." With="#FinalTrim"/>
 
+			<Tag Files="$(RootDir)/UnrealTournament/Plugins/Online/NotForLicensees/OnlineSubsystemMcp/..." Filter="*.dylib;*.uplugin" With="#FinalTrim"/>
+
 			<Copy Files="#FinalTrim" FromDir="" ToDir="$(LocalStagingDir)/UT-Build/Mac"/>
+
 		</Node>
 		<Node Name="EditorDDC Mac" Requires="Copy Editor Mac">
-			<Commandlet Name="DerivedDataCache" Project="$(LocalStagingDir)/UT-Build/Mac/UnrealTournament/UnrealTournament.uproject" Arguments="-TargetPlatform=Mac -fill -DDC=CreateInstalledEnginePak -Map=Example_Map"/>
+			<Commandlet Name="DerivedDataCache" Project="$(LocalStagingDir)/UT-Build/Mac/UnrealTournament/UnrealTournament.uproject" EditorExe="$(LocalStagingDir)/UT-Build/Mac/Engine/Binaries/Mac/UE4Editor.app/Contents/MacOS/UE4Editor" Arguments="-TargetPlatform=Mac -fill -DDC=CreateInstalledEnginePak -Map=Example_Map"/>
 		</Node>
 		<Node Name="Chunk Editor Mac" Requires="EditorDDC Mac" Token="$(BuildDir)/MacEditor/MacEditor.token">
 			<Property Name="Launch" Value="Engine/Binaries/Mac/UE4Editor.app"/>
