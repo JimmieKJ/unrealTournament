@@ -201,11 +201,11 @@ void AUTGameVolume::ActorEnteredVolume(class AActor* Other)
 						GS->LastEnemyLocationReportTime = GetWorld()->GetTimeSeconds();
 						GS->LastEnemyLocationName = VoiceLinesSet;
 					}
-					else if (bIsWarningZone && !P->bWasInWarningZone)
+					else if (bIsWarningZone && !P->bWasInWarningZone && !bIsNoRallyZone)
 					{
 						// force ping if important zone, wasn't already in important zone, report only if 3 seconds since last report
 						// also do if no pinger if important zone
-						P->GetCarriedObject()->LastPingedTime = FMath::Max(P->GetCarriedObject()->LastPingedTime, GetWorld()->GetTimeSeconds() - P->GetCarriedObject()->PingedDuration + 1.5f);
+						P->GetCarriedObject()->LastPingedTime = FMath::Max(P->GetCarriedObject()->LastPingedTime, GetWorld()->GetTimeSeconds() - P->GetCarriedObject()->PingedDuration + 1.f);
 						if (VoiceLinesSet != NAME_None)
 						{
 							AUTPlayerState* Warner = P->GetCarriedObject()->LastPinger;
