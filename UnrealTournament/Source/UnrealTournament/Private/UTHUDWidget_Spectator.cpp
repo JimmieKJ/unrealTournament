@@ -11,7 +11,7 @@ UUTHUDWidget_Spectator::UUTHUDWidget_Spectator(const class FObjectInitializer& O
 	DesignedResolution = 1080;
 	Position=FVector2D(0,0);
 	Size=FVector2D(1920.0f,108.0f);
-	ScreenPosition=FVector2D(0.0f, 0.85f);
+	ScreenPosition=FVector2D(0.0f, 0.9f);
 	Origin=FVector2D(0.0f,0.0f);
 }
 

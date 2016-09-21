@@ -168,6 +168,9 @@ public:
 	virtual FRotator GetControlRotation() const override;
 	virtual void SetPlayer(UPlayer* InPlayer) override;
 
+
+	virtual void ViewStartSpot();
+
 	UFUNCTION(Reliable, Client)
 		void ClientReceivePersonalMessage(TSubclassOf<ULocalMessage> Message, int32 Switch = 0, class APlayerState* RelatedPlayerState_1 = NULL, class APlayerState* RelatedPlayerState_2 = NULL, class UObject* OptionalObject = NULL);
 
@@ -226,6 +229,12 @@ public:
 	/** forces SwitchToBestWeapon() call, should only be used after granting startup inventory */
 	UFUNCTION(Client, Reliable)
 	virtual void ClientSwitchToBestWeapon();
+
+	/** called to trigger pickup effects for the given pickup with weapon stay, which handle pickup status per-player
+	 * used to guarantee synced state for local player
+	 */
+	UFUNCTION(Client, Reliable)
+	virtual void ClientGotWeaponStayPickup(AUTPickupWeapon* Pickup, APawn* TouchedBy);
 
 	UFUNCTION(exec)
 	virtual void NP();
@@ -1106,6 +1115,13 @@ public:
 		ClientShowMapVote();
 	}
 
+	/** Play a tutorial announcement, but make sure to only play it once. */
+	virtual void PlayTutorialAnnouncement(int32 Index, UObject* OptionalObject);
+
+	/** List of names associated with already played tutorial announcements, */
+	UPROPERTY()
+		TArray<FName> PlayedTutAnnouncements;
+
 	/** Make sure no firing and scoreboard hidden before bringing up menu. */
 	virtual void ShowMenu(const FString& Parameters) override;
 
@@ -1247,8 +1263,7 @@ protected:
 
 public:
 	// Will return true if this player can perform a rally
-	bool CanPerformRally();
-
+	bool CanPerformRally() const;
 
 protected:
 	void InitializeHeartbeatManager();

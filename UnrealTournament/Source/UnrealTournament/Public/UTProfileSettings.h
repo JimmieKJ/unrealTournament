@@ -12,7 +12,8 @@
 #include "UTProfileSettings.generated.h"
 
 static const uint32 VALID_PROFILESETTINGS_VERSION = 32;
-static const uint32 CURRENT_PROFILESETTINGS_VERSION = 32;
+static const uint32 CURRENT_PROFILESETTINGS_VERSION = 33;
+static const uint32 WEAPONBAR_FIXUP_VERSION = 33;
 
 class UUTLocalPlayer;
 
@@ -34,7 +35,6 @@ namespace EProfileResetType
 		MAX,
 	};
 }
-
 
 UCLASS()
 class UNREALTOURNAMENT_API UUTProfileSettings : public UObject
@@ -329,7 +329,7 @@ public:
 	UPROPERTY(BlueprintReadOnly, Category = Input)
 	uint32 bEnableMouseSmoothing : 1;
 
-	UPROPERTY(BlueprintReadOnly, Category = Input)
+	UPROPERTY(BlueprintReadWrite, Category = Input)
 	uint32 bInvertMouse : 1;
 
 	UPROPERTY(BlueprintReadOnly, Category = Input)
@@ -350,7 +350,7 @@ public:
 	UPROPERTY(BlueprintReadOnly, Category = Input)
 	float MaxDodgeClickTimeValue;
 
-	UPROPERTY(BlueprintReadOnly, Category = Input)
+	UPROPERTY(BlueprintReadWrite, Category = Input)
 	uint32 bDisableDoubleTapDodge : 1;
 
 	UPROPERTY(BlueprintReadOnly, Category = Input)
@@ -399,5 +399,14 @@ public:
 
 	void ExportKeyBinds();
 	void ImportKeyBinds();
+
+	// I'm putting this in the profile not progression because we don't want to save progression locally.  Progression requires
+	// you to be connectred, but we need this for the intial onboarding process.
+
+	UPROPERTY(BlueprintReadOnly, Category = Onboarding)
+	int32 TutorialMask;
+
+	UPROPERTY(BlueprintReadOnly, Category = Onboarding)
+	uint32 SkipOnboarding : 1;
 
 };

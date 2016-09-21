@@ -619,8 +619,15 @@ void AUTGameSessionRanked::CreateServerGame()
 	{
 		UTGameInstance->GetPlaylistManager()->GetURLForPlaylist(PlaylistId, TravelURL);
 	}
-		
-	World->ServerTravel(TravelURL, true, false);
+	
+	if (!TravelURL.IsEmpty())
+	{
+		World->ServerTravel(TravelURL, true, false);
+	}
+	else
+	{
+		UE_LOG(LogOnlineGame, Verbose, TEXT("Couldn't create server game URL"));
+	}
 }
 
 void AUTGameSessionRanked::ApplyGameSessionSettings(FOnlineSessionSettings* SessionSettings, int32 PlaylistId, int32 TeamElo) const
@@ -781,7 +788,10 @@ void AUTGameSessionRanked::InitHostBeacon(FOnlineSessionSettings* SessionSetting
 
 void AUTGameSessionRanked::OnBeaconReservationsFull()
 {
-
+	if (ReservationBeaconHost)
+	{
+		ReservationBeaconHost->OnBeaconReservationChange();
+	}
 }
 
 void AUTGameSessionRanked::OnBeaconReservationChange()
@@ -791,6 +801,11 @@ void AUTGameSessionRanked::OnBeaconReservationChange()
 	check(World);
 	
 	UpdatePlayerNeedsStatus();
+
+	if (ReservationBeaconHost)
+	{
+		ReservationBeaconHost->OnBeaconReservationChange();
+	}
 }
 
 void AUTGameSessionRanked::UpdatePlayerNeedsStatus()
@@ -813,6 +828,11 @@ void AUTGameSessionRanked::OnDuplicateReservation(const FPartyReservation& Dupli
 	}
 
 	UpdatePlayerNeedsStatus();
+
+	if (ReservationBeaconHost)
+	{
+		ReservationBeaconHost->OnBeaconReservationDuplicate();
+	}
 }
 
 void AUTGameSessionRanked::CheckForDuplicatePlayer(const FUniqueNetIdRepl& PlayerId)

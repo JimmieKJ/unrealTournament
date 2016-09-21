@@ -77,7 +77,6 @@ AUTPlayerState::AUTPlayerState(const class FObjectInitializer& ObjectInitializer
 	ReadyMode = 0;
 	CurrentLoadoutPackTag = NAME_None;
 	RespawnWaitTime = 0.f;
-	bIsPowerupSelectWindowOpen = false;
 
 	CoolFactorCombinationWindow = 5.0f;
 	CoolFactorBleedSpeed = 20.0f;
@@ -3229,7 +3228,10 @@ void AUTPlayerState::OnRepTaunt()
 void AUTPlayerState::PlayTauntByIndex(int32 TauntIndex)
 {
 	// SetEmoteSpeed here to make sure that it gets unfrozen if freezing isn't allowed
-	ServerSetEmoteSpeed(EmoteSpeed);
+	if (Role == ROLE_Authority)
+	{
+		ServerSetEmoteSpeed(EmoteSpeed);
+	}
 
 	if (TauntIndex == 0 && TauntClass != nullptr)
 	{

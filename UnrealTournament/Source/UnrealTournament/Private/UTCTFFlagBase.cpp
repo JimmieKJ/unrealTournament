@@ -206,3 +206,6 @@ void AUTCTFFlagBase::Reset_Implementation()
 {
 }
 
+void AUTCTFFlagBase::OnFlagChanged()
+{
+}

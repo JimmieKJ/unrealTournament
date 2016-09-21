@@ -22,6 +22,7 @@
 #include "UTGameViewportClient.h"
 #include "UTCrosshair.h"
 #include "UTDroppedPickup.h"
+#include "UTAnnouncer.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogUTWeapon, Log, All);
 
@@ -112,7 +113,6 @@ AUTWeapon::AUTWeapon(const FObjectInitializer& ObjectInitializer)
 	FireSoundAmp = SAT_WeaponFire;
 
 	WeaponSkinCustomizationTag = NAME_None;
-
 }
 
 void AUTWeapon::PostInitProperties()
@@ -225,6 +225,12 @@ void AUTWeapon::BeginPlay()
 		GotoState(InactiveState);
 	}
 	checkSlow(CurrentState != NULL);
+
+	AUTWorldSettings* Settings = Cast<AUTWorldSettings>(GetWorldSettings());
+	if (GetMesh() && Settings->bUseCapsuleDirectShadowsForCharacter)
+	{
+		GetMesh()->bCastCapsuleDirectShadow = true;
+	}
 }
 
 void AUTWeapon::GotoState(UUTWeaponState* NewState)
@@ -423,6 +429,14 @@ void AUTWeapon::StartFire(uint8 FireModeNum)
 		if (Role < ROLE_Authority)
 		{
 			UUTWeaponStateFiring* CurrentFiringState = FiringState.IsValidIndex(FireModeNum) ? FiringState[FireModeNum] : nullptr;
+			if (CurrentFiringState)
+			{
+				CurrentFiringState->FireEventIndex++;
+				if (CurrentFiringState->FireEventIndex == 255)
+				{
+					CurrentFiringState->FireEventIndex = 0;
+				}
+			}
 			uint8 FireEventIndex = CurrentFiringState ? CurrentFiringState->FireEventIndex : 0;
 			if (UTOwner)
 			{
@@ -430,25 +444,143 @@ void AUTWeapon::StartFire(uint8 FireModeNum)
 				if (ZOffset != uint8(FMath::Clamp(UTOwner->BaseEyeHeight + 127.5f, 0.f, 255.f)))
 				{
 					ServerStartFireOffset(FireModeNum, FireEventIndex, ZOffset, bClientFired);
-					if (CurrentFiringState)
-					{
-						CurrentFiringState->FireEventIndex++;
-					}
+					QueueResendFire(true, FireModeNum, FireEventIndex, ZOffset, bClientFired);
 					return;
 				}
 			}
 			ServerStartFire(FireModeNum, FireEventIndex, bClientFired);
-			if (CurrentFiringState)
+			QueueResendFire(true, FireModeNum, FireEventIndex, 0, bClientFired);
+		}
+	}
+}
+
+void AUTWeapon::ResendNextFireEvent()
+{
+	if (!UTOwner || UTOwner->IsPendingKillPending() || (UTOwner->GetWeapon() != this))
+	{
+		ResendFireEvents.Empty();
+		GetWorldTimerManager().ClearTimer(ResendFireHandle);
+		return;
+	}
+	if (ResendFireEvents.Num() > 0)
+	{
+		FPendingFireEvent SendEvent = ResendFireEvents[0];
+		if (SendEvent.bIsStartFire)
+		{
+			//UE_LOG(UT, Warning, TEXT("Resend StartFire %d event %d ZOffset %d"), SendEvent.FireModeNum, SendEvent.FireEventIndex, SendEvent.ZOffset);
+			if (SendEvent.ZOffset == 0)
 			{
-				CurrentFiringState->FireEventIndex++;
+				ResendServerStartFire(SendEvent.FireModeNum, SendEvent.FireEventIndex, SendEvent.bClientFired);
+			}
+			else
+			{
+				ResendServerStartFireOffset(SendEvent.FireModeNum, SendEvent.FireEventIndex, SendEvent.ZOffset, SendEvent.bClientFired);
+			}
+		}
+		else
+		{
+			//UE_LOG(UT, Warning, TEXT("Resend StopFire %d event %d"), SendEvent.FireModeNum, SendEvent.FireEventIndex);
+			ServerStopFire(SendEvent.FireModeNum, SendEvent.FireEventIndex);
+		}
+		ResendFireEvents.RemoveAt(0);
+	}
+	else if (UTOwner->GetWeapon() == this)
+	{
+		uint8 FireSettings = (CurrentState && CurrentState->IsFiring()) ? CurrentFireMode + 1 : 0;
+//		UE_LOG(UT, Warning, TEXT("UpdateFiringStates %d"), FireSettings);
+		ServerUpdateFiringStates(FireSettings);
+	}
+	if (ResendFireEvents.Num() == 0)
+	{
+		if (!UTOwner || UTOwner->IsPendingKillPending() || (UTOwner->GetWeapon() != this))
+		{
+			GetWorldTimerManager().ClearTimer(ResendFireHandle);
+		}
+		else
+		{
+			//UE_LOG(UT, Warning, TEXT("SLOW LOOP"));
+			GetWorldTimerManager().SetTimer(ResendFireHandle, this, &AUTWeapon::ResendNextFireEvent, 0.2f, true);
+		}
+	}
+}
+
+bool AUTWeapon::ServerUpdateFiringStates_Validate(uint8 FireSettings)
+{
+	return true;
+}
+
+void AUTWeapon::ClearFireEvents()
+{
+	ResendFireEvents.Empty();
+	GetWorldTimerManager().ClearTimer(ResendFireHandle);
+	if (Role == ROLE_Authority)
+	{
+		for (int32 i = 0; i < FiringState.Num(); i++)
+		{
+			if (FiringState[i] != nullptr)
+			{
+				FiringState[i]->FireEventIndex = 0;
 			}
 		}
 	}
 }
 
+void AUTWeapon::ServerUpdateFiringStates_Implementation(uint8 FireSettings)
+{
+//	UE_LOG(UT, Warning, TEXT("ServerUpdateFiringStates %d"), FireSettings);
+	if (FireSettings != 0)
+	{
+		int32 FireModeNum = FireSettings - 1;
+		if ((FiringState.Num() > FireModeNum) && FiringState[FireModeNum] && ((CurrentState != FiringState[FireModeNum]) || !CurrentState->IsFiring()))
+		{ 
+			//UE_LOG(UT, Warning, TEXT("Update firing %d ON"), FireModeNum);
+			ServerStartFire(FireModeNum, -1, true);
+		}
+	}
+	else if (CurrentState && CurrentState->IsFiring())
+	{
+		//UE_LOG(UT, Warning, TEXT("Update firing %d OFF"), CurrentFireMode);
+		ServerStopFire(CurrentFireMode, -1);
+	}
+}
+
+void AUTWeapon::QueueResendFire(bool bIsStartFire, uint8 FireModeNum, uint8 FireEventIndex, uint8 ZOffset, bool bClientFired)
+{
+	// add a two resend fire events to the queue
+	FPendingFireEvent NewFireEvent(bIsStartFire, FireModeNum, FireEventIndex, ZOffset, bClientFired);
+	ResendFireEvents.Add(NewFireEvent);
+	ResendFireEvents.Add(NewFireEvent);
+	if (!GetWorldTimerManager().IsTimerActive(ResendFireHandle) || (GetWorldTimerManager().GetTimerRemaining(ResendFireHandle) > 0.04f))
+	{
+		GetWorldTimerManager().SetTimer(ResendFireHandle, this, &AUTWeapon::ResendNextFireEvent, 0.04f, true);
+	}
+}
+
+bool AUTWeapon::ValidateFireEventIndex(uint8 FireModeNum, uint8 FireEventIndex)
+{
+	UUTWeaponStateFiring* CurrentFiringState = FiringState.IsValidIndex(FireModeNum) ? FiringState[FireModeNum] : nullptr;
+	if (CurrentFiringState)
+	{
+		if (FireEventIndex == 255)
+		{
+			return true;
+		}
+		if ((CurrentFiringState->FireEventIndex >= FireEventIndex) && (int32(CurrentFiringState->FireEventIndex) < int32(FireEventIndex)+128))
+		{
+			//UE_LOG(UT, Warning, TEXT("Skipping current %d in %d"), CurrentFiringState->FireEventIndex, FireEventIndex);
+			return false;
+		}
+		//UE_LOG(UT, Warning, TEXT("Firing current %d in %d"), CurrentFiringState->FireEventIndex, FireEventIndex);
+		CurrentFiringState->FireEventIndex = FireEventIndex;
+		return true;
+	}
+	//UE_LOG(UT, Warning, TEXT("NO CurrentFiringState %d for %s"), FireModeNum, *GetName());
+	return false;
+}
+
 void AUTWeapon::ServerStartFire_Implementation(uint8 FireModeNum, uint8 FireEventIndex, bool bClientFired)
 {
-	if (UTOwner && !UTOwner->IsFiringDisabled())
+	if (ValidateFireEventIndex(FireModeNum, FireEventIndex) && UTOwner && !UTOwner->IsFiringDisabled())
 	{
 		if (CurrentState == InactiveState && !UTOwner->IsLocallyControlled())
 		{
@@ -456,6 +588,7 @@ void AUTWeapon::ServerStartFire_Implementation(uint8 FireModeNum, uint8 FireEven
 		}
 		FireZOffsetTime = 0.f;
 		BeginFiringSequence(FireModeNum, bClientFired);
+		//UE_LOG(UT, Warning, TEXT("****StartFire %d"), FireEventIndex);
 	}
 }
 
@@ -466,7 +599,7 @@ bool AUTWeapon::ServerStartFire_Validate(uint8 FireModeNum, uint8 FireEventIndex
 
 void AUTWeapon::ServerStartFireOffset_Implementation(uint8 FireModeNum, uint8 FireEventIndex, uint8 ZOffset, bool bClientFired)
 {
-	if (UTOwner && !UTOwner->IsFiringDisabled())
+	if (ValidateFireEventIndex(FireModeNum, FireEventIndex) && UTOwner && !UTOwner->IsFiringDisabled())
 	{
 		if (CurrentState == InactiveState && !UTOwner->IsLocallyControlled())
 		{
@@ -475,10 +608,56 @@ void AUTWeapon::ServerStartFireOffset_Implementation(uint8 FireModeNum, uint8 Fi
 		FireZOffset = ZOffset - 127;
 		FireZOffsetTime = GetWorld()->GetTimeSeconds();
 		BeginFiringSequence(FireModeNum, bClientFired);
+		//UE_LOG(UT, Warning, TEXT("*****StartFireOffset %d"), FireEventIndex);
 	}
 }
 
 bool AUTWeapon::ServerStartFireOffset_Validate(uint8 FireModeNum, uint8 FireEventIndex, uint8 ZOffset, bool bClientFired)
+{
+	return true;
+}
+
+void AUTWeapon::ResendServerStartFire_Implementation(uint8 FireModeNum, uint8 FireEventIndex, bool bClientFired)
+{
+	if (ValidateFireEventIndex(FireModeNum, FireEventIndex) && UTOwner && !UTOwner->IsFiringDisabled())
+	{
+		UE_LOG(UT, Warning, TEXT("****RESENDStartFire mode %d %d"), FireModeNum, FireEventIndex);
+		if (CurrentState == InactiveState && !UTOwner->IsLocallyControlled())
+		{
+			UTOwner->ClientVerifyWeapon();
+		}
+		FireZOffsetTime = 0.f;
+		bNetDelayedShot = true;
+		BeginFiringSequence(FireModeNum, bClientFired);
+		bNetDelayedShot = false;
+		//UE_LOG(UT, Warning, TEXT("****RESENDStartFire %d"), FireEventIndex);
+	}
+}
+
+bool AUTWeapon::ResendServerStartFire_Validate(uint8 FireModeNum, uint8 FireEventIndex, bool bClientFired)
+{
+	return true;
+}
+
+void AUTWeapon::ResendServerStartFireOffset_Implementation(uint8 FireModeNum, uint8 FireEventIndex, uint8 ZOffset, bool bClientFired)
+{
+	if (ValidateFireEventIndex(FireModeNum, FireEventIndex) && UTOwner && !UTOwner->IsFiringDisabled())
+	{
+		UE_LOG(UT, Warning, TEXT("****RESENDStartFireOffset mode %d %d"), FireModeNum, FireEventIndex);
+		if (CurrentState == InactiveState && !UTOwner->IsLocallyControlled())
+		{
+			UTOwner->ClientVerifyWeapon();
+		}
+		FireZOffset = ZOffset - 127;
+		FireZOffsetTime = GetWorld()->GetTimeSeconds();
+		bNetDelayedShot = true;
+		BeginFiringSequence(FireModeNum, bClientFired);
+		bNetDelayedShot = false;
+		//UE_LOG(UT, Warning, TEXT("*****RESENDStartFireOffset %d"), FireEventIndex);
+	}
+}
+
+bool AUTWeapon::ResendServerStartFireOffset_Validate(uint8 FireModeNum, uint8 FireEventIndex, uint8 ZOffset, bool bClientFired)
 {
 	return true;
 }
@@ -513,6 +692,14 @@ void AUTWeapon::StopFire(uint8 FireModeNum)
 	if (Role < ROLE_Authority)
 	{
 		UUTWeaponStateFiring* CurrentFiringState = FiringState.IsValidIndex(FireModeNum) ? FiringState[FireModeNum] : nullptr;
+		if (CurrentFiringState)
+		{
+			CurrentFiringState->FireEventIndex++;
+			if (CurrentFiringState->FireEventIndex == 255)
+			{
+				CurrentFiringState->FireEventIndex = 0;
+			}
+		}
 		uint8 FireEventIndex = CurrentFiringState ? CurrentFiringState->FireEventIndex : 0;
 		if (GetWorld()->GetTimeSeconds() - LastContinuedFiring < 0.1f)
 		{
@@ -522,24 +709,25 @@ void AUTWeapon::StopFire(uint8 FireModeNum)
 		{
 			ServerStopFire(FireModeNum, FireEventIndex);
 		}
-		if (CurrentFiringState)
-		{
-			CurrentFiringState->FireEventIndex++;
-		}
+		QueueResendFire(false, FireModeNum, FireEventIndex, 0, false);
 	}
 }
 
 void AUTWeapon::ServerStopFireRecent_Implementation(uint8 FireModeNum, uint8 FireEventIndex)
 {
-	if (GetWorld()->GetTimeSeconds() - LastContinuedFiring > 0.2f)
+	if (ValidateFireEventIndex(FireModeNum, FireEventIndex))
 	{
-		//UE_LOG(UT, Warning, TEXT("MISSED RECENT"));
-		if (FiringState.IsValidIndex(FireModeNum))
+		//UE_LOG(UT, Warning, TEXT("****StopFireRecent %d"), FireEventIndex);
+		if (GetWorld()->GetTimeSeconds() - LastContinuedFiring > 0.2f)
 		{
-			FiringState[FireModeNum]->PendingFireSequence = FireModeNum;
-		} 
+			//UE_LOG(UT, Warning, TEXT("MISSED RECENT"));
+			if (FiringState.IsValidIndex(FireModeNum))
+			{
+				FiringState[FireModeNum]->PendingFireSequence = FireModeNum;
+			}
+		}
+		EndFiringSequence(FireModeNum);
 	}
-	EndFiringSequence(FireModeNum);
 }
 
 bool AUTWeapon::ServerStopFireRecent_Validate(uint8 FireModeNum, uint8 FireEventIndex)
@@ -549,7 +737,11 @@ bool AUTWeapon::ServerStopFireRecent_Validate(uint8 FireModeNum, uint8 FireEvent
 
 void AUTWeapon::ServerStopFire_Implementation(uint8 FireModeNum, uint8 FireEventIndex)
 {
-	EndFiringSequence(FireModeNum);
+	if (ValidateFireEventIndex(FireModeNum, FireEventIndex))
+	{
+	//	UE_LOG(UT, Warning, TEXT("****StopFire %d"), FireEventIndex);
+		EndFiringSequence(FireModeNum);
+	}
 }
 
 bool AUTWeapon::ServerStopFire_Validate(uint8 FireModeNum, uint8 FireEventIndex)
@@ -575,6 +767,16 @@ void AUTWeapon::BringUp(float OverflowTime)
 	AttachToOwner();
 	OnBringUp();
 	CurrentState->BringUp(OverflowTime);
+
+	AUTGameMode* GameMode = GetWorld()->GetAuthGameMode<AUTGameMode>();
+	AUTPlayerController* TutPlayer = (GameMode && GameMode->bBasicTrainingGame && UTOwner && (GetNetMode() == NM_Standalone)) ? Cast<AUTPlayerController>(UTOwner->GetController()) : nullptr;
+	if (TutPlayer)
+	{
+		for (int32 Index = 0; Index < TutorialAnnouncements.Num(); Index++)
+		{
+			TutPlayer->PlayTutorialAnnouncement(Index, this);
+		}
+	}
 }
 
 float AUTWeapon::GetPutDownTime()
@@ -702,7 +904,7 @@ void AUTWeapon::UpdateWeaponHand()
 		// If we're attached, make sure that we update to the right hands socket
 		if (Mesh->GetAttachParent() && Mesh->GetAttachSocketName() != HandsAttachSocket)
 		{
-			Mesh->AttachToComponent(Mesh->GetAttachParent(), FAttachmentTransformRules::KeepRelativeTransform, HandsAttachSocket);
+			Mesh->AttachToComponent(Mesh->GetAttachParent(), FAttachmentTransformRules(EAttachmentRule::KeepRelative, EAttachmentRule::KeepRelative, EAttachmentRule::KeepRelative, false), HandsAttachSocket);
 		}
 
 		if (HandsAttachSocket == NAME_None)
@@ -1227,22 +1429,9 @@ FVector AUTWeapon::GetFireStartLoc(uint8 FireMode)
 		}
 		else
 		{
-			FVector AdjustedFireOffset;
-			switch (GetWeaponHand())
-			{
-				case EWeaponHand::HAND_Right:
-					AdjustedFireOffset = FireOffset;
-					break;
-				case EWeaponHand::HAND_Left:
-					AdjustedFireOffset = FireOffset;
-					AdjustedFireOffset.Y *= -1.0f;
-					break;
-				case EWeaponHand::HAND_Center:
-				case EWeaponHand::HAND_Hidden:
-					AdjustedFireOffset = FVector::ZeroVector;
-					AdjustedFireOffset.X = FireOffset.X;
-					break;
-			}
+			FVector AdjustedFireOffset = FVector::ZeroVector;
+			AdjustedFireOffset.X = FireOffset.X;
+
 			// MuzzleOffset is in camera space, so transform it to world space before offsetting from the character location to find the final muzzle position
 			FVector FinalLoc = BaseLoc + GetBaseFireRotation().RotateVector(AdjustedFireOffset);
 			// trace back towards Instigator's collision, then trace from there to desired location, checking for intervening world geometry
@@ -1382,9 +1571,9 @@ void AUTWeapon::GuessPlayerTarget(const FVector& StartFireLoc, const FVector& Fi
 void AUTWeapon::NetSynchRandomSeed()
 {
 	AUTPlayerController* OwningPlayer = UTOwner ? Cast<AUTPlayerController>(UTOwner->GetController()) : NULL;
-	if (OwningPlayer && UTOwner && UTOwner->UTCharacterMovement)
+	if (OwningPlayer && UTOwner)
 	{
-		FMath::RandInit(10000.f*UTOwner->UTCharacterMovement->GetCurrentSynchTime());
+		FMath::RandInit(10000.f*UTOwner->GetCurrentSynchTime(bNetDelayedShot));
 	}
 }
 
@@ -1718,6 +1907,7 @@ AUTProjectile* AUTWeapon::SpawnNetPredictedProjectile(TSubclassOf<AUTProjectile>
 		if (UTOwner)
 		{
 			UTOwner->LastFiredProjectile = NewProjectile;
+			NewProjectile->ShooterLocation = UTOwner->GetActorLocation();
 		}
 		if (Role == ROLE_Authority)
 		{
@@ -1734,7 +1924,7 @@ AUTProjectile* AUTWeapon::SpawnNetPredictedProjectile(TSubclassOf<AUTProjectile>
 				NewProjectile->SetForwardTicked(true);
 				if (NewProjectile->GetLifeSpan() > 0.f)
 				{
-					NewProjectile->SetLifeSpan(FMath::Max(0.001f, NewProjectile->GetLifeSpan() - CatchupTickDelta));
+					NewProjectile->SetLifeSpan(0.1f + FMath::Max(0.01f, NewProjectile->GetLifeSpan() - CatchupTickDelta));
 				}
 			}
 			else
@@ -2699,3 +2889,4 @@ void AUTWeapon::OnZoomedOut_Implementation()
 {
 	SetZoomState(EZoomState::EZS_NotZoomed);
 }
+

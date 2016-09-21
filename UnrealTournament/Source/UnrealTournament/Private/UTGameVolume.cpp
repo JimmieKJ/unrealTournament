@@ -40,7 +40,7 @@ void AUTGameVolume::PostInitializeComponents()
 
 	if (bIsTeamSafeVolume && (Role == ROLE_Authority))
 	{
-		GetWorldTimerManager().SetTimer(HealthTimerHandle, this, &AUTGameVolume::HealthTimer, 1.f, true);
+		//GetWorldTimerManager().SetTimer(HealthTimerHandle, this, &AUTGameVolume::HealthTimer, 1.f, true);
 	}
 	else if ((VoiceLinesSet == NAME_None) && !VolumeName.IsEmpty() && !bIsTeleportZone)
 	{
@@ -71,9 +71,9 @@ void AUTGameVolume::HealthTimer()
 					PC->ClientPlaySound(HealthSound);
 				}
 			}
-			if (TeamLocker && P->bHasLeftSafeVolume)
+			if ((TeamLockers.Num() > 0) && TeamLockers[0] && P->bHasLeftSafeVolume)
 			{
-				TeamLocker->ProcessTouch(P);
+				TeamLockers[0]->ProcessTouch(P);
 			}
 		}
 	}
@@ -270,9 +270,9 @@ void AUTGameVolume::ActorLeavingVolume(class AActor* Other)
 		{
 			UTCharacter->bDamageHurtsHealth = true;
 			UTCharacter->bHasLeftSafeVolume = true;
-			if ((Role == ROLE_Authority) && UTCharacter->GetController() && TeamLocker)
+			if ((Role == ROLE_Authority) && UTCharacter->GetController() && (TeamLockers.Num() > 0) && TeamLockers[0])
 			{
-				TeamLocker->ProcessTouch(UTCharacter);
+				TeamLockers[0]->ProcessTouch(UTCharacter);
 			}
 		}
 	}

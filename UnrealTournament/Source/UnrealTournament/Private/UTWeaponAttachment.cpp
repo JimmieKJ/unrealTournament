@@ -49,6 +49,12 @@ void AUTWeaponAttachment::BeginPlay()
 	{
 		UE_LOG(UT, Warning, TEXT("UTWeaponAttachment: Bad Instigator: %s"), *GetNameSafe(Instigator));
 	}
+
+	AUTWorldSettings* Settings = Cast<AUTWorldSettings>(GetWorldSettings());
+	if (Mesh && Settings->bUseCapsuleDirectShadowsForCharacter)
+	{
+		Mesh->bCastCapsuleDirectShadow = true;
+	}
 }
 
 void AUTWeaponAttachment::Destroyed()

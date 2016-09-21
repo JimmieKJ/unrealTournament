@@ -4,6 +4,7 @@
 #include "UTPartyGameState.h"
 #include "UTGameInstance.h"
 #include "UTParty.h"
+#include "OnlineSubsystemUtils.h"
 
 #define LOCTEXT_NAMESPACE "UTParties"
 
@@ -74,7 +75,7 @@ void UUTParty::HandlePendingJoin()
 
 	TSharedPtr<FPendingPartyJoin> PendingPersistentPartyJoin = StaticCastSharedPtr<FPendingPartyJoin>(PendingPartyJoin);
 
-	if (PendingPersistentPartyJoin->PartyDetails.IsValid())
+	if (PendingPersistentPartyJoin->PartyDetails->IsValid())
 	{
 		UUTGameInstance* UTGameInstance = GetUTGameInstance();
 		check(UTGameInstance);
@@ -90,7 +91,7 @@ void UUTParty::HandlePendingJoin()
 			TSharedPtr<const FOnlinePartyId> CurrentPersistentPartyId = GetPersistentPartyId();
 			if (CurrentPersistentPartyId.IsValid())
 			{
-				if (*CurrentPersistentPartyId != *PendingPersistentPartyJoin->PartyDetails.GetPartyId())
+				if (*CurrentPersistentPartyId != *PendingPersistentPartyJoin->PartyDetails->GetPartyId())
 				{
 					UPartyDelegates::FOnLeaveUPartyComplete LeavePartyCompletionDelegate;
 					LeavePartyCompletionDelegate.BindUObject(this, &UUTParty::OnLeavePartyForNewJoin, PendingPartyJoin.ToSharedRef());
@@ -103,7 +104,7 @@ void UUTParty::HandlePendingJoin()
 			}
 			else
 			{
-				JoinPersistentParty(*(PendingPersistentPartyJoin->LocalUserId), PendingPersistentPartyJoin->PartyDetails, PendingPersistentPartyJoin->Delegate);
+				JoinPersistentParty(*(PendingPersistentPartyJoin->LocalUserId), *PendingPersistentPartyJoin->PartyDetails, PendingPersistentPartyJoin->Delegate);
 			}
 
 			PendingPartyJoin.Reset();
@@ -118,9 +119,9 @@ void UUTParty::HandlePendingJoin()
 	}
 	else
 	{
-		if (!PendingPersistentPartyJoin->PartyDetails.PartyJoinInfo->IsAcceptingMembers())
+		if (!PendingPersistentPartyJoin->PartyDetails->PartyJoinInfo->IsAcceptingMembers())
 		{
-			PendingPersistentPartyJoin->Delegate.ExecuteIfBound(*(PendingPersistentPartyJoin->LocalUserId), EJoinPartyCompletionResult::NotApproved, PendingPersistentPartyJoin->PartyDetails.PartyJoinInfo->GetNotAcceptingReason());
+			PendingPersistentPartyJoin->Delegate.ExecuteIfBound(*(PendingPersistentPartyJoin->LocalUserId), EJoinPartyCompletionResult::NotApproved, PendingPersistentPartyJoin->PartyDetails->PartyJoinInfo->GetNotAcceptingReason());
 			PendingPartyJoin.Reset();
 		}
 		else
@@ -132,7 +133,7 @@ void UUTParty::HandlePendingJoin()
 	}
 }
 
-void UUTParty::AddPendingJoin(TSharedRef<const FUniqueNetId> InLocalUserId, const FPartyDetails& InPartyDetails, const UPartyDelegates::FOnJoinUPartyComplete& InDelegate)
+void UUTParty::AddPendingJoin(TSharedRef<const FUniqueNetId> InLocalUserId, TSharedRef<const FPartyDetails> InPartyDetails, const UPartyDelegates::FOnJoinUPartyComplete& InDelegate)
 {
 	PendingPartyJoin = MakeShareable(new FPendingPartyJoin(InLocalUserId, InPartyDetails, InDelegate));
 }
@@ -141,7 +142,7 @@ void UUTParty::OnLeavePartyForNewJoin(const FUniqueNetId& LocalUserId, const ELe
 {
 	if (Result == ELeavePartyCompletionResult::Succeeded)
 	{
-		JoinPersistentParty(LocalUserId, InPendingPartyJoin->PartyDetails, InPendingPartyJoin->Delegate);
+		JoinPersistentParty(LocalUserId, *InPendingPartyJoin->PartyDetails, InPendingPartyJoin->Delegate);
 	}
 	else
 	{
@@ -154,7 +155,10 @@ void UUTParty::ProcessInviteFromSearchResult(TSharedPtr< const FUniqueNetId > Us
 {
 	if (UserId.IsValid())
 	{
-		IOnlinePartyPtr PartyInt = Online::GetPartyInterface(/*GetWorld()*/);
+		UUTGameInstance* UTGameInstance = GetUTGameInstance();
+		check(UTGameInstance);
+
+		IOnlinePartyPtr PartyInt = Online::GetPartyInterface(UTGameInstance->GetWorld());
 		check(PartyInt.IsValid());
 
 		FString JoinInfoJson;
@@ -164,7 +168,7 @@ void UUTParty::ProcessInviteFromSearchResult(TSharedPtr< const FUniqueNetId > Us
 
 		if (JoinInfo.IsValid())
 		{
-			FPartyDetails PartyDetails(JoinInfo.ToSharedRef(), true);
+			TSharedRef<const FPartyDetails> PartyDetails = MakeShareable(new FPartyDetails(JoinInfo.ToSharedRef(), true));
 			PendingPartyJoin = MakeShareable(new FPendingPartyJoin(UserId.ToSharedRef(), PartyDetails, UPartyDelegates::FOnJoinUPartyComplete::CreateUObject(this, &ThisClass::OnJoinPersistentPartyFromInviteComplete)));
 			HandlePendingJoin();
 		}

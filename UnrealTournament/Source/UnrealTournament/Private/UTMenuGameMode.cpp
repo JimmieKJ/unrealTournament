@@ -6,6 +6,7 @@
 #include "UTGameMode.h"
 #include "UTDMGameMode.h"
 #include "UTWorldSettings.h"
+#include "UTProfileSettings.h"
 
 AUTMenuGameMode::AUTMenuGameMode(const class FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -85,14 +86,35 @@ void AUTMenuGameMode::ShowMenu(AUTBasePlayerController* PC)
 {
 	if (PC != NULL)
 	{
+		PC->ClientReturnedToMenus();
 		FURL& LastURL = GEngine->GetWorldContextFromWorld(GetWorld())->LastURL;
 
-		PC->ClientReturnedToMenus();
 		bool bReturnedFromChallenge = LastURL.HasOption(TEXT("showchallenge"));
 		PC->ShowMenu((bReturnedFromChallenge ? TEXT("showchallenge") : TEXT("")));
+
+		UUTProfileSettings* ProfileSettings = PC->GetProfileSettings();
+		bool bForceTutorialMenu = false;
+		if (ProfileSettings != nullptr && !FParse::Param(FCommandLine::Get(), TEXT("skiptutcheck")) )
+		{
+			if (ProfileSettings->TutorialMask == 0 )
+			{
+				if ( !LastURL.HasOption(TEXT("tutorialmenu")) )
+				{
+#if !PLATFORM_LINUX
+					GetWorld()->ServerTravel(TEXT("/Game/RestrictedAssets/Tutorials/TUT-MovementTraining?game=/Game/RestrictedAssets/Tutorials/Blueprints/UTTutorialGameMode.UTTutorialGameMode_C?timelimit=0?TutorialMask=1"), true, true);
+					return;
+#endif
+				}
+			}
+			else if ( ((ProfileSettings->TutorialMask & 0x07) != 0x07)  || (ProfileSettings->TutorialMask < 8) )
+			{
+				bForceTutorialMenu = true;
+			}
+		}
+
 #if !UE_SERVER
 		// start with tutorial menu if requested
-		if (LastURL.HasOption(TEXT("tutorialmenu")))
+		if (bForceTutorialMenu || LastURL.HasOption(TEXT("tutorialmenu")))
 		{
 			UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(PC->Player);
 			if (LP != NULL)

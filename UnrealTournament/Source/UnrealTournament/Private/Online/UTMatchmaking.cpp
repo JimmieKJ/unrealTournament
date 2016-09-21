@@ -804,8 +804,6 @@ void UUTMatchmaking::OnReservationCountUpdate(int32 NumRemaining)
 void UUTMatchmaking::OnReservationFull()
 {
 	UE_LOG(LogOnline, Log, TEXT("OnReservationFull"));
-
-	TravelPartyToServer();
 }
 
 void UUTMatchmaking::TravelPartyToServer()
@@ -855,22 +853,8 @@ void UUTMatchmaking::OnAllowedToProceedFromReservation()
 {
 	UE_LOG(LogOnline, Log, TEXT("OnAllowedToProceedFromReservation"));
 
-	UWorld* World = GetWorld();
-	if (ensure(World))
-	{
-		// Have a valid search result, clean-up the beacon and proceed to the lobby
-		if (CachedSearchResult.IsValid())
-		{
-			CleanupReservationBeacon();
-
-			// Connect to game
-		}
-		else
-		{
-			// This shouldn't be possible (something would have to internally modify the search result), but as a guard, cause a timeout
-			OnAllowedToProceedFromReservationTimeout();
-		}
-	}
+	// Connect to game
+	TravelPartyToServer();
 }
 
 void UUTMatchmaking::OnReconnectResponseReceived(EPartyReservationResult::Type ReservationResponse, FOnlineSessionSearchResult SearchResult)
@@ -886,11 +870,6 @@ void UUTMatchmaking::OnReconnectResponseReceived(EPartyReservationResult::Type R
 
 		// Cache the search result, it will be used when notified that it is alright to proceed to the lobby
 		CachedSearchResult = SearchResult;
-
-		if (!IsRankedMatchmaking())
-		{
-			TravelPartyToServer();
-		}
 	}
 	else if (ReservationResponse == EPartyReservationResult::ReservationRequestCanceled)
 	{

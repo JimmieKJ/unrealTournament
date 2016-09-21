@@ -566,11 +566,23 @@ void AUTPickupInventory::PlayTakenEffects(bool bReplicate)
 void AUTPickupInventory::AnnouncePickup(AUTCharacter* P)
 {
 	GetWorldTimerManager().ClearTimer(SpawnVoiceLineTimer);
-	if (Cast<APlayerController>(P->GetController()))
-	{
-		Cast<APlayerController>(P->GetController())->ClientReceiveLocalizedMessage(UUTPickupMessage::StaticClass(), 0, P->PlayerState, NULL, InventoryType);
-	}
 	AUTGameMode* GM = GetWorld()->GetAuthGameMode<AUTGameMode>();
+	AUTPlayerController* UTPC = (P != nullptr) ? Cast<AUTPlayerController>(P->GetController()) : nullptr;
+	if (UTPC)
+	{
+		UTPC->ClientReceiveLocalizedMessage(UUTPickupMessage::StaticClass(), 0, P->PlayerState, NULL, InventoryType);
+		if (GM && GM->bBasicTrainingGame)
+		{
+			for (int32 Index = 0; Index < TutorialAnnouncements.Num(); Index++)
+			{
+				UTPC->PlayTutorialAnnouncement(Index, this);
+			}
+			for (int32 Index = 0; Index < InventoryType->GetDefaultObject<AUTInventory>()->TutorialAnnouncements.Num(); Index++)
+			{
+				UTPC->PlayTutorialAnnouncement(Index, InventoryType->GetDefaultObject());
+			}
+		}
+	}
 	if (GM && GM->bAllowPickupAnnouncements && InventoryType && (InventoryType.GetDefaultObject()->PickupAnnouncementName != NAME_None))
 	{
 		AUTPlayerState* PS = Cast<AUTPlayerState>(P->PlayerState);

@@ -36,6 +36,11 @@ class UNREALTOURNAMENT_API UUTFirstBloodMessage : public UUTLocalMessage
 		ScaleInSize = 3.f;
 	}
 
+	virtual void PrecacheAnnouncements_Implementation(UUTAnnouncer* Announcer) const override
+	{
+		Announcer->PrecacheAnnouncement(FirstBloodAnnouncement);
+	}
+
 	virtual FLinearColor GetMessageColor_Implementation(int32 MessageIndex) const override
 	{
 		return FLinearColor::Red;

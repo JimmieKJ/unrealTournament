@@ -40,6 +40,9 @@ AUTWeap_BioRifle::AUTWeap_BioRifle(const class FObjectInitializer& ObjectInitial
 
 	WeaponCustomizationTag = EpicWeaponCustomizationTags::BioRifle;
 	WeaponSkinCustomizationTag = EpicWeaponSkinCustomizationTags::BioRifle;
+
+	TutorialAnnouncements.Add(TEXT("PriBioRifle"));
+	TutorialAnnouncements.Add(TEXT("SecBioRifle"));
 }
 
 void AUTWeap_BioRifle::UpdateSqueeze()

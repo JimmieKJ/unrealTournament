@@ -50,10 +50,11 @@ class UNREALTOURNAMENT_API UUTCTFGameMessage : public UUTCarriedObjectMessage
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Message)
 	FText DefaultPowerupMessage;
 
-	virtual bool InterruptAnnouncement_Implementation(int32 Switch, const UObject* OptionalObject, TSubclassOf<UUTLocalMessage> OtherMessageClass, int32 OtherSwitch, const UObject* OtherOptionalObject) const override;
+	virtual bool InterruptAnnouncement(const FAnnouncementInfo AnnouncementInfo, const FAnnouncementInfo OtherAnnouncementInfo) const override;
 	virtual bool CancelByAnnouncement_Implementation(int32 Switch, const UObject* OptionalObject, TSubclassOf<UUTLocalMessage> OtherMessageClass, int32 OtherSwitch, const UObject* OtherOptionalObject) const override;
 
 	virtual FText GetText(int32 Switch = 0, bool bTargetsPlayerState1 = false, class APlayerState* RelatedPlayerState_1 = NULL, class APlayerState* RelatedPlayerState_2 = NULL, class UObject* OptionalObject = NULL) const override;
+	virtual bool ShouldPlayDuringIntermission(int32 MessageIndex) const override;
 
 	virtual FLinearColor GetMessageColor_Implementation(int32 MessageIndex) const override;
 	virtual FName GetTeamAnnouncement(int32 Switch, uint8 TeamIndex, const UObject* OptionalObject = nullptr, const class APlayerState* RelatedPlayerState_1 = nullptr, const class APlayerState* RelatedPlayerState_2 = nullptr) const;
@@ -62,7 +63,7 @@ class UNREALTOURNAMENT_API UUTCTFGameMessage : public UUTCarriedObjectMessage
 	virtual void PrecacheAnnouncements_Implementation(UUTAnnouncer* Announcer) const override;
 	virtual int32 GetFontSizeIndex(int32 MessageIndex) const override;
 	virtual float GetScaleInSize_Implementation(int32 MessageIndex) const override;
-	virtual float GetAnnouncementPriority(int32 Switch) const override;
+	virtual float GetAnnouncementPriority(const FAnnouncementInfo AnnouncementInfo) const override;
 	virtual void GetEmphasisText(FText& PrefixText, FText& EmphasisText, FText& PostfixText, FLinearColor& EmphasisColor, int32 Switch, class APlayerState* RelatedPlayerState_1, class APlayerState* RelatedPlayerState_2, class UObject* OptionalObject) const override;
 
 	virtual FString GetAnnouncementUMGClassname(int32 Switch, const UObject* OptionalObject) const override;

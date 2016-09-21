@@ -43,12 +43,14 @@
 #include "UTKillcamPlayback.h"
 #include "UTWeaponAttachment.h"
 #include "UTGameViewportClient.h"
-#include "UTHeartbeatManager.h"
-#include "QoSInterface.h"
+#include "UTHeartBeatManager.h"
+#include "QosInterface.h"
 #include "UTGameObjective.h"
 #include "UTFlagRunGameState.h"
 #include "UTRemoteRedeemer.h"
 #include "UTKillerTarget.h"
+#include "UTGauntletFlag.h"
+#include "UTTutorialAnnouncement.h"
 
 static TAutoConsoleVariable<float> CVarUTKillcamStartDelay(
 	TEXT("UT.KillcamStartDelay"),
@@ -315,8 +317,15 @@ void AUTPlayerController::ClientStartRally_Implementation(AUTCharacter* RallyTar
 		// client side
 		RallyLocation = NewRallyLocation;
 		EndRallyTime = GetWorld()->GetTimeSeconds() + Delay;
-		SetCameraMode(FName(TEXT("RallyCam")));
+		static FName NAME_RallyCam(TEXT("RallyCam"));
+		SetCameraMode(NAME_RallyCam);
 		SetViewTarget(RallyTarget);
+
+		// effect at rally destination
+		if (UTCharacter)
+		{
+			UTCharacter->SpawnRallyEffectAt(NewRallyLocation);
+		}
 	}
 }
 
@@ -807,6 +816,7 @@ bool AUTPlayerController::InputKey(FKey Key, EInputEvent EventType, float Amount
 		else if (UTGameState && (UTGameState->GetMatchState() == MatchState::WaitingToStart) && UTPlayerState->bReadyToPlay && !UTPlayerState->bOnlySpectator)
 		{
 			ServerToggleWarmup();
+			bPlayerIsWaiting = true;
 			return true;
 		}
 	}
@@ -855,6 +865,14 @@ void AUTPlayerController::PrevWeapon()
 void AUTPlayerController::NextWeapon()
 {
 	SwitchWeaponInSequence(false);
+}
+
+void AUTPlayerController::ClientGotWeaponStayPickup_Implementation(AUTPickupWeapon* Pickup, APawn* TouchedBy)
+{
+	if (Pickup != nullptr && TouchedBy != nullptr && TouchedBy == GetPawn())
+	{
+		Pickup->LocalPickupHandling(TouchedBy);
+	}
 }
 
 bool AUTPlayerController::ServerActivatePowerUpPress_Validate()
@@ -1129,9 +1147,16 @@ void AUTPlayerController::CheckAutoWeaponSwitch(AUTWeapon* TestWeapon)
 			}
 		}
 
-		if (CurWeapon == NULL || (bAutoWeaponSwitch && !UTCharacter->IsPendingFire(CurWeapon->GetCurrentFireMode()) && GetWeaponAutoSwitchPriority(TestWeapon) > GetWeaponAutoSwitchPriority(CurWeapon)) )
+		if (CurWeapon == NULL || (bAutoWeaponSwitch && GetWeaponAutoSwitchPriority(TestWeapon) > GetWeaponAutoSwitchPriority(CurWeapon)) )
 		{
-			UTCharacter->SwitchWeapon(TestWeapon);
+			if (CurWeapon && UTCharacter->IsPendingFire(CurWeapon->GetCurrentFireMode()))
+			{
+				UTCharacter->PendingAutoSwitchWeapon = TestWeapon;
+			}
+			else
+			{
+				UTCharacter->SwitchWeapon(TestWeapon);
+			}
 		}
 	}
 }
@@ -1217,7 +1242,7 @@ void AUTPlayerController::SwitchWeapon(int32 Group)
 void AUTPlayerController::DemoRestart()
 {
 	UDemoNetDriver* DemoDriver = GetWorld()->DemoNetDriver;
-	if (DemoDriver)
+	if (DemoDriver && !DemoDriver->IsFastForwarding())
 	{
 		OnDemoSeeking();
 		DemoDriver->GotoTimeInSeconds(0);
@@ -1227,7 +1252,7 @@ void AUTPlayerController::DemoRestart()
 void AUTPlayerController::DemoSeek(float DeltaSeconds)
 {
 	UDemoNetDriver* DemoDriver = GetWorld()->DemoNetDriver;
-	if (DemoDriver)
+	if (DemoDriver && !DemoDriver->IsFastForwarding())
 	{
 		OnDemoSeeking();
 		DemoDriver->GotoTimeInSeconds(DemoDriver->DemoCurrentTime + DeltaSeconds);
@@ -1237,7 +1262,7 @@ void AUTPlayerController::DemoSeek(float DeltaSeconds)
 void AUTPlayerController::DemoGoTo(float Seconds)
 {
 	UDemoNetDriver* DemoDriver = GetWorld()->DemoNetDriver;
-	if (DemoDriver)
+	if (DemoDriver && !DemoDriver->IsFastForwarding())
 	{
 		OnDemoSeeking();
 		DemoDriver->GotoTimeInSeconds(Seconds);
@@ -1247,7 +1272,7 @@ void AUTPlayerController::DemoGoTo(float Seconds)
 void AUTPlayerController::DemoGoToLive()
 {
 	UDemoNetDriver* DemoDriver = GetWorld()->DemoNetDriver;
-	if (DemoDriver)
+	if (DemoDriver && !DemoDriver->IsFastForwarding())
 	{
 		OnDemoSeeking();
 		DemoDriver->JumpToEndOfLiveReplay();
@@ -1973,8 +1998,11 @@ void AUTPlayerController::ClientHearSound_Implementation(USoundBase* TheSound, A
 			NewActiveSound.bIsUISound = false;
 			NewActiveSound.bHasAttenuationSettings = false;
 			NewActiveSound.bAllowSpatialization = false;
-
-			AudioDevice->AddNewActiveSound(NewActiveSound);
+			
+			if (AudioDevice)
+			{
+				AudioDevice->AddNewActiveSound(NewActiveSound);
+			}
 		}
 		else
 		{
@@ -2486,6 +2514,8 @@ void AUTPlayerController::ServerToggleWarmup_Implementation()
 		{
 			Char->PlayerSuicide();
 		}
+		bPlayerIsWaiting = true;
+		ViewStartSpot();
 	}
 }
 
@@ -3117,7 +3147,7 @@ void AUTPlayerController::ClientViewSpectatorPawn_Implementation(FViewTargetTran
 		FVector CurrentViewLoc;
 		FRotator CurrentViewRot;
 		GetPlayerViewPoint(CurrentViewLoc, CurrentViewRot);
-		AActor* NewViewTarget = (GetSpectatorPawn() != NULL) ? GetSpectatorPawn() : SpawnSpectatorPawn();
+		AActor* NewViewTarget = GetSpectatorPawn() && !GetSpectatorPawn()->IsPendingKillPending() ? GetSpectatorPawn() : SpawnSpectatorPawn();
 		if (NewViewTarget == NULL)
 		{
 			NewViewTarget = this;
@@ -3221,10 +3251,16 @@ bool AUTPlayerController::ServerUpdatePing_Validate(float ExactPing)
 
 void AUTPlayerController::PlayerTick( float DeltaTime )
 {
+	FRotator CurrentRotation = GetControlRotation();
 	Super::PlayerTick(DeltaTime);
 	if (StateName == FName(TEXT("GameOver")))
 	{
 		UpdateRotation(DeltaTime);
+	}
+	else if (IsInState(NAME_Inactive))
+	{
+		// revert any rotation changes
+		SetControlRotation(CurrentRotation);
 	}
 
 	// if we have no UTCharacterMovement, we need to apply firing here since it won't happen from the component
@@ -4224,11 +4260,32 @@ void AUTPlayerController::ClientPumpkinPickedUp_Implementation(float GainedAmoun
 
 void AUTPlayerController::DebugTest(FString TestCommand)
 {
-	for (TInventoryIterator<AUTWeapon> It(UTCharacter); It; ++It)
+	if (UTCharacter != nullptr)
 	{
-		AUTWeapon* Weap = *It;
-		UE_LOG(UT,Log,TEXT("Weapon %s = %i / %i "), *Weap->DisplayName.ToString(), GetWeaponGroup(Weap), Weap->GroupSlot);
+		AUTGauntletFlag* Flag = Cast<AUTGauntletFlag>(UTCharacter->GetCarriedObject());
+		if (Flag != nullptr)
+		{
+			if (TestCommand.Equals(TEXT("debugon"), ESearchCase::IgnoreCase))
+			{
+				Flag->bDebugGPS = true;
+			}
+			else if (TestCommand.Equals(TEXT("debugoff"), ESearchCase::IgnoreCase))
+			{
+				Flag->bDebugGPS = false;
+				FlushPersistentDebugLines(GetWorld());
+				FlushDebugStrings(GetWorld());
+			}
+			else if (TestCommand.Equals(TEXT("gpson"), ESearchCase::IgnoreCase))
+			{
+				Flag->bDisableGPS = false;
+			}
+			else if (TestCommand.Equals(TEXT("gpsoff"), ESearchCase::IgnoreCase))
+			{
+				Flag->bDisableGPS = true;
+			}
+		}
 	}
+
 	Super::DebugTest(TestCommand);
 
 }
@@ -4434,23 +4491,18 @@ void AUTPlayerController::ShowBuyMenu()
 	{
 		LastBuyMenuOpenTime = GetWorld()->GetTimeSeconds();
 
-	// It's silly to send this to the server before handling it here.  I probably should just for safe keepeing but for now
-	// just locally.
+		// It's silly to send this to the server before handling it here.  I probably should just for safe keepeing but for now
+		// just locally.
 
-	AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
-	if (GS && GS->AvailableLoadout.Num() > 0)
-	{
+		AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
+		if (GS && GS->AvailableLoadout.Num() > 0)
+		{
 			if (GetPawn() == nullptr || !GS->HasMatchStarted() || GS->IsMatchIntermission())
 			{
-		ClientOpenLoadout_Implementation(true);
-	}
+				ClientOpenLoadout_Implementation(true);
+			}
 		}
-	// in RCTF we want to tie the BuyMenu button to the power select menu
-	else if (UTPlayerState)
-	{
-		UTPlayerState->bIsPowerupSelectWindowOpen = !UTPlayerState->bIsPowerupSelectWindowOpen;
 	}
-}
 }
 
 void AUTPlayerController::DropCarriedObject()
@@ -4928,7 +4980,7 @@ void AUTPlayerController::ClientPlayInstantReplay_Implementation(APawn* PawnToFo
 void AUTPlayerController::ClientPlayKillcam_Implementation(AController* KillingController, APawn* PawnToFocus, FVector_NetQuantize FocusLoc)
 {
 //	UE_LOG(UT, Log, TEXT("ClientPlayKillcam %d"), (GetWorld()->DemoNetDriver && IsLocalController()));
-	if (GetWorld()->DemoNetDriver && IsLocalController())
+	if (GetWorld()->DemoNetDriver && IsLocalController() && PawnToFocus)
 	{
 		FNetworkGUID FocusPawnGuid = GetWorld()->DemoNetDriver->GetGUIDForActor(PawnToFocus);
 		GetWorld()->GetTimerManager().SetTimer(
@@ -4944,7 +4996,7 @@ void AUTPlayerController::ClientPlayKillcam_Implementation(AController* KillingC
 	}
 	else if (Cast<AUTCharacter>(PawnToFocus) != nullptr)
 	{
-		FActorSpawnParameters Params;
+/*		FActorSpawnParameters Params;
 		Params.Instigator = PawnToFocus;
 		Params.Owner = PawnToFocus;
 		Params.bNoFail = true;
@@ -4953,7 +5005,8 @@ void AUTPlayerController::ClientPlayKillcam_Implementation(AController* KillingC
 		{
 			KillerTarget->InitFor(Cast<AUTCharacter>(PawnToFocus), this);
 		}
-		DeathCamFocus = KillerTarget;
+		DeathCamFocus = KillerTarget;*/
+		DeathCamFocus = PawnToFocus;
 	}
 	else
 	{
@@ -5077,7 +5130,7 @@ void AUTPlayerController::DumpMapVote()
 
 }
 
-bool AUTPlayerController::CanPerformRally()
+bool AUTPlayerController::CanPerformRally() const
 {
 	AUTFlagRunGameState* GameState = GetWorld()->GetGameState<AUTFlagRunGameState>();
 
@@ -5111,6 +5164,32 @@ EWeaponHand AUTPlayerController::GetPreferredWeaponHand()
 	{
 		UUTProfileSettings* ProfileSettings = GetProfileSettings();
 		return ProfileSettings ? ProfileSettings->WeaponHand.GetValue() : ReplicatedWeaponHand;
+	}
+}
+
+void AUTPlayerController::ViewStartSpot()
+{
+	if (StartSpot != nullptr)
+	{
+		ChangeState(NAME_Spectating);
+		ClientReset();
+		// Set the player controller / camera in this new location
+		ClientViewSpectatorPawn(FViewTargetTransitionParams());
+		FRotator InitialControllerRot = StartSpot->GetActorRotation();
+		InitialControllerRot.Roll = 0.f;
+		SetInitialLocationAndRotation(StartSpot->GetActorLocation(), InitialControllerRot);
+		ClientSetSpectatorLocation(StartSpot->GetActorLocation(), InitialControllerRot);
+	}
+}
+
+void AUTPlayerController::PlayTutorialAnnouncement(int32 Index, UObject* OptionalObject) 
+{
+	FName NewAnnName = UUTTutorialAnnouncement::StaticClass()->GetDefaultObject<UUTTutorialAnnouncement>()->GetAnnouncementName(Index, OptionalObject, UTPlayerState, nullptr);
+	int32 TutIndex = 0;
+	if (!PlayedTutAnnouncements.Find(NewAnnName, TutIndex))
+	{
+		PlayedTutAnnouncements.Add(NewAnnName);
+		ClientReceiveLocalizedMessage(UUTTutorialAnnouncement::StaticClass(), Index, UTPlayerState, nullptr, OptionalObject);
 	}
 }
 

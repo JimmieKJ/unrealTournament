@@ -84,8 +84,8 @@ void UUTCTFScoreboard::DrawStatsLeft(float DeltaTime, float& YPos, float XOffset
 	float MaxHeight = PageBottom - YPos;
 	FLinearColor PageColor = FLinearColor::Black;
 	PageColor.A = 0.5f;
-	DrawTexture(UTHUDOwner->ScoreboardAtlas, XOffset - 0.05f*ScoreWidth, YPos, 1.15f*ScoreWidth, MaxHeight, 149, 138, 32, 32, 0.5f, PageColor);
-	DrawScoringPlays(DeltaTime, YPos, XOffset, ScoreWidth, PageBottom);
+	DrawTexture(UTHUDOwner->ScoreboardAtlas, XOffset, YPos, ScoreWidth, MaxHeight, 149, 138, 32, 32, 0.5f, PageColor);
+	DrawScoringPlays(DeltaTime, YPos, XOffset, 0.9f*ScoreWidth, PageBottom);
 }
 
 void UUTCTFScoreboard::DrawStatsRight(float DeltaTime, float& YPos, float XOffset, float ScoreWidth, float PageBottom)
@@ -93,8 +93,8 @@ void UUTCTFScoreboard::DrawStatsRight(float DeltaTime, float& YPos, float XOffse
 	float MaxHeight = PageBottom - YPos;
 	FLinearColor PageColor = FLinearColor::Black;
 	PageColor.A = 0.5f;
-	DrawTexture(UTHUDOwner->ScoreboardAtlas, XOffset - 0.05f*ScoreWidth, YPos, 1.15f*ScoreWidth, MaxHeight, 149, 138, 32, 32, 0.5f, PageColor);
-	DrawTeamScoreBreakdown(DeltaTime, YPos, XOffset, ScoreWidth, PageBottom);
+	DrawTexture(UTHUDOwner->ScoreboardAtlas, XOffset, YPos, ScoreWidth, MaxHeight, 149, 138, 32, 32, 0.5f, PageColor);
+	DrawTeamScoreBreakdown(DeltaTime, YPos, XOffset, 0.9f*ScoreWidth, PageBottom);
 }
 
 int32 UUTCTFScoreboard::GetSmallPlaysCount(int32 NumPlays) const
@@ -105,8 +105,11 @@ int32 UUTCTFScoreboard::GetSmallPlaysCount(int32 NumPlays) const
 void UUTCTFScoreboard::DrawScoringPlays(float DeltaTime, float& YPos, float XOffset, float ScoreWidth, float MaxHeight)
 {
 	AUTCTFGameState* CTFState = Cast<AUTCTFGameState>(UTGameState);
+	if (!CTFState)
+	{
+		return;
+	}
 	int32 CurrentPeriod = -1;
-//	ScoreWidth *= 1.09f;
 	Canvas->SetLinearDrawColor(FLinearColor::White);
 	FFontRenderInfo TextRenderInfo;
 	TextRenderInfo.bEnableShadow = true;
@@ -183,13 +186,13 @@ void UUTCTFScoreboard::DrawScoringPlays(float DeltaTime, float& YPos, float XOff
 				FLinearColor DrawColor = FLinearColor::White;
 				float CurrentScoreHeight = (DrawnPlays == NumPlays) ? (ScoreHeight + 8.f * RenderScale) : (2.f * ScoreHeight + 16.f * RenderScale);
 				float BackAlpha = ((DrawnPlays == NumPlays) && (NumPlays == TimeFloor + 1)) ? FMath::Max(0.5f, PctOffset) : 0.3f;
-				DrawTexture(UTHUDOwner->ScoreboardAtlas, XOffset - 0.0175f*ScoreWidth, YPos - 4.f*RenderScale, 1.06f*ScoreWidth, CurrentScoreHeight, 149, 138, 32, 32, BackAlpha, DrawColor);
+				DrawTexture(UTHUDOwner->ScoreboardAtlas, XOffset, YPos - 4.f*RenderScale, 1.11f*ScoreWidth, CurrentScoreHeight, 149, 138, 32, 32, BackAlpha, DrawColor);
 			}
 			// draw background
 			FLinearColor DrawColor = FLinearColor::White;
 			float CurrentScoreHeight = bIsSmallPlay ? 0.5f*ScoreHeight : ScoreHeight;
 			float BackAlpha = ((DrawnPlays == NumPlays) && (NumPlays == TimeFloor + 1)) ? FMath::Max(0.5f, PctOffset) : 0.5f;
-			DrawTexture(UTHUDOwner->ScoreboardAtlas, XOffset - 0.0075f*ScoreWidth, YPos, 1.04f*ScoreWidth, CurrentScoreHeight, 149, 138, 32, 32, BackAlpha, DrawColor);
+			DrawTexture(UTHUDOwner->ScoreboardAtlas, XOffset + 0.0075f*ScoreWidth, YPos, 1.1f*ScoreWidth, CurrentScoreHeight, 149, 138, 32, 32, BackAlpha, DrawColor);
 
 			float BoxYPos = YPos;
 			DrawScoringPlayInfo(Play, CurrentScoreHeight, SmallYL, MedYL, DeltaTime, YPos, XOffset, ScoreWidth, TextRenderInfo, bIsSmallPlay);

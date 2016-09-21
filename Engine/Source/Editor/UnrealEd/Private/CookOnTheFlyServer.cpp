@@ -542,6 +542,14 @@ FString GetReleaseVersionAssetRegistryPath(const FString& ReleaseVersion, const 
 	return  GameDirectory / ReleaseVersion / PlatformName.ToString();
 }
 
+// When writing out the release version, don't write outside of Saved/Cooked
+FString GetReleaseVersionAssetRegistryTemporaryPath(const FString& ReleaseVersion, const FName& PlatformName)
+{
+	// cache the part of the path which is static because getting the GameSavedDir is really slow and also string manipulation
+	const static FString GameDirectory = FPaths::GameSavedDir() / TEXT("Cooked");
+	return GameDirectory / PlatformName.ToString() / FString(TEXT("Releases")) / ReleaseVersion;
+}
+
 const FString& GetAssetRegistryFilename()
 {
 	static const FString AssetRegistryFilename = FString(TEXT("AssetRegistry.bin"));
@@ -3033,8 +3041,10 @@ FString UCookOnTheFlyServer::GetOutputDirectoryOverride() const
 	{
 		if ( IsCookingDLC() )
 		{
-			check( IsCookByTheBookMode() );
-			OutputDirectory = FPaths::Combine(*FPaths::GamePluginsDir(), *CookByTheBookOptions->DlcName, TEXT("Saved"), TEXT("Cooked"), TEXT("[Platform]"));
+			check(IsCookByTheBookMode());			
+			//OutputDirectory = FPaths::Combine(*FPaths::GamePluginsDir(), *CookByTheBookOptions->DlcName, TEXT("Saved"), TEXT("Cooked"), TEXT("[Platform]"));
+			// plk - hack, still not requiring plugins
+			OutputDirectory = FPaths::Combine(*FPaths::GameDir(), TEXT("Saved"), TEXT("Cooked"), *CookByTheBookOptions->DlcName, TEXT("[Platform]"));
 		}
 		else
 		{
@@ -3813,7 +3823,31 @@ void UCookOnTheFlyServer::AddFileToCook( TArray<FName>& InOutFilesToCook, const 
 }
 
 void UCookOnTheFlyServer::CollectFilesToCook(TArray<FName>& FilesInPath, const TArray<FString>& CookMaps, const TArray<FString>& InCookDirectories, const TArray<FString> &CookCultures, const TArray<FString> &IniMapSections, ECookByTheBookOptions FilesToCookFlags)
-{
+{	
+	//PLK simplification, just try to cook the dlc name package
+	if (IsCookingDLC())
+	{
+		if (FPackageName::IsShortPackageName(CookByTheBookOptions->DlcName))
+		{
+			FString OutFilename;
+			if (FPackageName::SearchForPackageOnDisk(CookByTheBookOptions->DlcName, NULL, &OutFilename) == false)
+			{
+				LogCookerMessage(FString::Printf(TEXT("Unable to find package for map %s."), *CookByTheBookOptions->DlcName), EMessageSeverity::Warning);
+				UE_LOG(LogCook, Warning, TEXT("Unable to find package for map %s."), *CookByTheBookOptions->DlcName);
+			}
+			else
+			{
+				AddFileToCook(FilesInPath, OutFilename);
+			}
+		}
+		else
+		{
+			AddFileToCook(FilesInPath, CookByTheBookOptions->DlcName);
+		}
+
+		return;
+	}
+
 	UProjectPackagingSettings* PackagingSettings = Cast<UProjectPackagingSettings>(UProjectPackagingSettings::StaticClass()->GetDefaultObject());
 
 	bool bCookAll = (!!(FilesToCookFlags & ECookByTheBookOptions::CookAll)) || PackagingSettings->bCookAll;
@@ -3952,6 +3986,8 @@ void UCookOnTheFlyServer::CollectFilesToCook(TArray<FName>& FilesInPath, const T
 		}			
 	}
 
+	/*
+	//PLK simplification, not requiring plugins right now
 	if ( IsCookingDLC() )
 	{
 		// get the dlc and make sure we cook that directory 
@@ -3974,6 +4010,7 @@ void UCookOnTheFlyServer::CollectFilesToCook(TArray<FName>& FilesInPath, const T
 			}
 		}
 	}
+	*/
 
 	if ((FilesInPath.Num() == 0) || bCookAll)
 	{
@@ -4335,7 +4372,8 @@ void UCookOnTheFlyServer::CookByTheBookFinished()
 
 			if ( IsCreatingReleaseVersion() )
 			{
-				const FString VersionedRegistryPath = GetReleaseVersionAssetRegistryPath( CookByTheBookOptions->CreateReleaseVersion, Manifest.Key ); 
+//				const FString VersionedRegistryPath = GetReleaseVersionAssetRegistryPath( CookByTheBookOptions->CreateReleaseVersion, Manifest.Key ); 
+				const FString VersionedRegistryPath = GetReleaseVersionAssetRegistryTemporaryPath(CookByTheBookOptions->CreateReleaseVersion, Manifest.Key);
 
 				IFileManager::Get().MakeDirectory( *VersionedRegistryPath ,true );
 

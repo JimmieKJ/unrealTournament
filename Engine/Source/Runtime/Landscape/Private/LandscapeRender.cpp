@@ -2637,6 +2637,7 @@ public:
 		static const FName TShadowDepthVSVertexShadowDepth_OutputDepthfalse = FName(TEXT("TShadowDepthVSVertexShadowDepth_OutputDepthfalse"));
 		static const FName TDepthOnly_PositionOnlyfalse = FName(TEXT("TDepthOnlyVS<false>"));
 		static const FName TDepthOnly_PositionOnlytrue = FName(TEXT("TDepthOnlyVS<true>"));
+		static const FName FDepthOnlyPS = FName(TEXT("FDepthOnlyPS"));
 
 		if (VertexFactoryType)
 		{
@@ -2651,7 +2652,8 @@ public:
 						ShaderType->GetFName() == TBasePassPSFCachedPointIndirectLightingPolicy ||
 						ShaderType->GetFName() == TShadowDepthVSVertexShadowDepth_OutputDepthfalse ||
 						ShaderType->GetFName() == TDepthOnly_PositionOnlyfalse ||
-						ShaderType->GetFName() == TDepthOnly_PositionOnlytrue)
+						ShaderType->GetFName() == TDepthOnly_PositionOnlytrue ||
+						ShaderType->GetFName() == FDepthOnlyPS)
 					{
 						return true;
 					}

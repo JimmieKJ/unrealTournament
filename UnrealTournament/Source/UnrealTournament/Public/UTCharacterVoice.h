@@ -241,8 +241,9 @@ class UNREALTOURNAMENT_API UUTCharacterVoice : public UUTLocalMessage
 	virtual USoundBase* GetAnnouncementSound_Implementation(int32 Switch, const UObject* OptionalObject) const override;
 	virtual void PrecacheAnnouncements_Implementation(UUTAnnouncer* Announcer) const override;
 	virtual bool ShouldPlayAnnouncement(const FClientReceiveData& ClientData) const override;
-	virtual bool InterruptAnnouncement_Implementation(int32 Switch, const UObject* OptionalObject, TSubclassOf<UUTLocalMessage> OtherMessageClass, int32 OtherSwitch, const UObject* OtherOptionalObject) const override;
+	virtual bool InterruptAnnouncement(const FAnnouncementInfo AnnouncementInfo, const FAnnouncementInfo OtherAnnouncementInfo) const override;
 	virtual bool CancelByAnnouncement_Implementation(int32 Switch, const UObject* OptionalObject, TSubclassOf<UUTLocalMessage> OtherMessageClass, int32 OtherSwitch, const UObject* OtherOptionalObject) const override;
-	virtual float GetAnnouncementPriority(int32 Switch) const override;
+	virtual float GetAnnouncementPriority(const FAnnouncementInfo AnnouncementInfo) const override;
 	virtual bool IsOptionalSpoken(int32 MessageIndex) const override;
+	virtual int32 GetDestinationIndex(int32 MessageIndex) const override;
 };

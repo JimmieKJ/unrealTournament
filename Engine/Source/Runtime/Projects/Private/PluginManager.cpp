@@ -121,7 +121,7 @@ const FPluginDescriptor& FPlugin::GetDescriptor() const
 
 bool FPlugin::UpdateDescriptor(const FPluginDescriptor& NewDescriptor, FText& OutFailReason)
 {
-	if(!NewDescriptor.Save(FileName, OutFailReason))
+	if(!NewDescriptor.Save(FileName, LoadedFrom == EPluginLoadedFrom::GameProject, OutFailReason))
 	{
 		return false;
 	}
@@ -220,7 +220,7 @@ void FPluginManager::ReadPluginsInDirectory(const FString& PluginsDirectory, con
 		{
 			FPluginDescriptor Descriptor;
 			FText FailureReason;
-			if ( Descriptor.Load(FileName, FailureReason) )
+			if ( Descriptor.Load(FileName, LoadedFrom == EPluginLoadedFrom::GameProject, FailureReason) )
 			{
 				TSharedRef<FPlugin> Plugin = MakeShareable(new FPlugin(FileName, Descriptor, LoadedFrom));
 				

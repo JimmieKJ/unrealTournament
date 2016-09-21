@@ -64,6 +64,7 @@ void AUTGauntletGame::InitGame(const FString& MapName, const FString& Options, F
 	bForceRespawn = false;
 	GoalScore = 3;	
 	FlagSwapTime = FMath::Max(0, UGameplayStatics::GetIntOption(Options, TEXT("FlagSwapTime"), FlagSwapTime));
+	FlagPickupDelay = 30.0f;
 }
 
 void AUTGauntletGame::InitGameState()
@@ -90,8 +91,7 @@ void AUTGauntletGame::InitRound()
 	{
 		if (GauntletGameState->FlagDispenser)
 		{
-			GauntletGameState->FlagDispenser->CreateFlag();
-			InitDelayedFlag(GauntletGameState->Flag);
+			GauntletGameState->FlagDispenser->InitRound();
 		}
 	}
 }
@@ -277,6 +277,12 @@ void AUTGauntletGame::PreInitializeComponents()
 void AUTGauntletGame::FlagsAreReady()
 {
 	// Send out own message here.
+
+	if (GauntletGameState->FlagDispenser)
+	{
+		GauntletGameState->FlagDispenser->CreateFlag();
+	}
+
 	InitFlags();
 }
 

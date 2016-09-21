@@ -34,6 +34,7 @@ AUTShowdownGame::AUTShowdownGame(const FObjectInitializer& OI)
 	bHasRespawnChoices = false; // unique system
 	HUDClass = AUTHUD_Showdown::StaticClass();
 	GameStateClass = AUTShowdownGameState::StaticClass();
+	StartingArmorObject.Reset();
 
 	PowerupBreakerPickupClass.SetPath(TEXT("/Game/RestrictedAssets/Pickups/Powerups/SuperchargeBase.SuperchargeBase_C"));
 	PowerupBreakerItemClass.SetPath(TEXT("/Game/RestrictedAssets/Pickups/Powerups/BP_Supercharge.BP_Supercharge_C"));

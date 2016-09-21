@@ -909,6 +909,18 @@ void AUTGameState::HandleMatchHasEnded()
 
 void AUTGameState::StartFPSCharts()
 {
+	for (auto It = GetGameInstance()->GetLocalPlayerIterator(); It; ++It)
+	{
+		UUTLocalPlayer* LocalPlayer = Cast<UUTLocalPlayer>(*It);
+		if (LocalPlayer)
+		{
+			if (LocalPlayer->IsReplay())
+			{
+				return;
+			}
+		}
+	}
+
 	if (bRunFPSChart)
 	{
 		FString FPSChartLabel;
@@ -930,6 +942,18 @@ void AUTGameState::StartFPSCharts()
 
 void AUTGameState::StopFPSCharts()
 {
+	for (auto It = GetGameInstance()->GetLocalPlayerIterator(); It; ++It)
+	{
+		UUTLocalPlayer* LocalPlayer = Cast<UUTLocalPlayer>(*It);
+		if (LocalPlayer)
+		{
+			if (LocalPlayer->IsReplay())
+			{
+				return;
+			}
+		}
+	}
+
 	if (bRunFPSChart)
 	{
 		TArray<FAnalyticsEventAttribute> ParamArray;
@@ -1570,9 +1594,7 @@ AUTReplicatedMapInfo* AUTGameState::CreateMapInfo(const FAssetData& MapAsset)
 		FText LocDesc = FText::GetEmpty();
 		if (Description != nullptr)
 		{
-			// PLK - This class got removed
-			//FTextStringHelper::ReadFromString(**Description, LocDesc);
-			LocDesc = FText::FromString(*Description);
+			FTextStringHelper::ReadFromString(**Description, LocDesc);
 		}
 
 		MapInfo->MapPackageName = MapAsset.PackageName.ToString();

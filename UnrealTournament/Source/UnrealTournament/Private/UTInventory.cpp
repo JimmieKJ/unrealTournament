@@ -355,3 +355,16 @@ FText AUTInventory::GetHUDText() const
 {
 	return HUDText;
 }
+
+void AUTInventory::PrecacheTutorialAnnouncements(UUTAnnouncer* Announcer) const
+{
+	for (int32 i = 0; i < TutorialAnnouncements.Num(); i++)
+	{
+		Announcer->PrecacheAnnouncement(TutorialAnnouncements[i]);
+	}
+}
+
+FName AUTInventory::GetTutorialAnnouncement(int32 Switch) const
+{
+	return (Switch < TutorialAnnouncements.Num()) ? TutorialAnnouncements[Switch] : NAME_None;
+}

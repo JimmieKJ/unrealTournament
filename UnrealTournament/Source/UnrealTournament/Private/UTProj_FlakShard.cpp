@@ -36,7 +36,7 @@ AUTProj_FlakShard::AUTProj_FlakShard(const class FObjectInitializer& ObjectIniti
 	// Damage
 	DamageParams.BaseDamage = 15.0f;
 	DamageParams.MinimumDamage = 5.0f;
-	Momentum = 20000.f;
+	Momentum = 24000.f;
 
 	DamageAttenuation = 15.0f;
 	DamageAttenuationDelay = 0.5f;
@@ -97,7 +97,7 @@ void AUTProj_FlakShard::DamageImpactedActor_Implementation(AActor* OtherActor, U
 	AUTCharacter* UTC = Cast<AUTCharacter>(OtherActor);
 	if (UTC && FleshImpactSound)
 	{
-		UUTGameplayStatics::UTPlaySound(GetWorld(), FleshImpactSound, this, SRT_IfSourceNotReplicated, false, FVector::ZeroVector, NULL, NULL, true, SAT_PainSound);
+		UUTGameplayStatics::UTPlaySound(GetWorld(), FleshImpactSound, UTC, SRT_IfSourceNotReplicated, false, FVector::ZeroVector, NULL, NULL, true, SAT_PainSound);
 	}
 	Super::DamageImpactedActor_Implementation(OtherActor, OtherComp, HitLocation, HitNormal);
 }

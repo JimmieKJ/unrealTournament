@@ -64,6 +64,8 @@ AUTWeap_LinkGun::AUTWeap_LinkGun(const FObjectInitializer& OI)
 	WeaponCustomizationTag = EpicWeaponCustomizationTags::LinkGun;
 	WeaponSkinCustomizationTag = EpicWeaponSkinCustomizationTags::LinkGun;
 
+	TutorialAnnouncements.Add(TEXT("PriLinkGun"));
+	TutorialAnnouncements.Add(TEXT("SecLinkGun"));
 }
 
 void AUTWeap_LinkGun::AttachToOwner_Implementation()
@@ -224,6 +226,18 @@ void AUTWeap_LinkGun::FireInstantHit(bool bDealDamage, FHitResult* OutHit)
 		if (PulseInstigator != NULL)
 		{
 			PulseTarget = (LinkTarget != NULL) ? LinkTarget : OutHit->Actor.Get();
+			// try CSHD result if it's reasonable
+			if (PulseTarget == NULL && ClientPulseTarget != NULL)
+			{
+				const FVector SpawnLocation = GetFireStartLoc();
+				const FRotator SpawnRotation = GetAdjustedAim(SpawnLocation);
+				const FVector FireDir = SpawnRotation.Vector();
+				const FVector EndTrace = SpawnLocation + FireDir * InstantHitInfo[CurrentFireMode].TraceRange;
+				if (FMath::PointDistToSegment(ClientPulseTarget->GetActorLocation(), SpawnLocation, EndTrace) < 100.0f + ClientPulseTarget->GetSimpleCollisionRadius() && !GetWorld()->LineTraceTestByChannel(SpawnLocation, EndTrace, COLLISION_TRACE_WEAPONNOCHARACTER, FCollisionQueryParams(NAME_None, true)))
+				{
+					PulseTarget = ClientPulseTarget;
+				}
+			}
 			if (PulseTarget != NULL)
 			{
 				// use owner to target direction instead of exactly the weapon orientation so that shooting below center doesn't cause the pull to send them over the shooter's head
@@ -454,6 +468,8 @@ bool AUTWeap_LinkGun::LinkedTo(AUTWeap_LinkGun* L)
 
 bool AUTWeap_LinkGun::IsLinkable(AActor* Other)
 {
+	return false;
+
 	APawn* Pawn = Cast<APawn>(Other);
 	if (Pawn != nullptr) // && UTC.bProjTarget ~~~~ && UTC->GetActorEnableCollision()
 	{
@@ -624,8 +640,23 @@ void AUTWeap_LinkGun::OnMultiPress_Implementation(uint8 OtherFireMode)
 	if (CurrentFireMode == 1 && OtherFireMode == 0 && IsFiring() && !IsLinkPulsing())
 	{
 		bPendingBeamPulse = true;
+		if (Role < ROLE_Authority)
+		{
+			FHitResult Hit;
+			Super::FireInstantHit(false, &Hit);
+			ServerSetPulseTarget(Hit.GetActor());
+		}
 	}
 	Super::OnMultiPress_Implementation(OtherFireMode);
+}
+
+bool AUTWeap_LinkGun::ServerSetPulseTarget_Validate(AActor* InTarget)
+{
+	return true;
+}
+void AUTWeap_LinkGun::ServerSetPulseTarget_Implementation(AActor* InTarget)
+{
+	ClientPulseTarget = InTarget;
 }
 
 void AUTWeap_LinkGun::StateChanged()

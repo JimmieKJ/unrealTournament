@@ -281,6 +281,9 @@ class UNREALTOURNAMENT_API AUTCharacter : public ACharacter, public IUTTeamInter
 	UFUNCTION()
 	virtual void OnRep_UTReplicatedMovement();
 
+	/** Return synchronized time stamp for a shot. */
+	virtual float GetCurrentSynchTime(bool bNetDelayedShot);
+
 	virtual void PreReplication(IRepChangedPropertyTracker & ChangedPropertyTracker) override;
 
 	/** UTCharacter version of GatherMovement(), gathers into UTReplicatedMovement.  Return true if using UTReplicatedMovement rather than ReplicatedMovement */
@@ -609,6 +612,10 @@ class UNREALTOURNAMENT_API AUTCharacter : public ACharacter, public IUTTeamInter
 	/** Used for spectating fired projectiles. */
 	UPROPERTY(BlueprintReadOnly, Category = "Weapon")
 	class AUTProjectile* LastFiredProjectile;
+
+	/** USed to store delayed auto switch if run over weapon while firing. */
+	UPROPERTY(BlueprintReadOnly, Category = "Weapon")
+		class AUTWeapon* PendingAutoSwitchWeapon;
 
 	/** called by weapon being put down when it has finished being unequipped. Transition PendingWeapon to Weapon and bring it up 
 	 * @param OverflowTime - amount of time past end of timer that previous weapon PutDown() used (due to frame delta) - pass onto BringUp() to keep things in sync
@@ -997,7 +1004,7 @@ public:
 	 */
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Meta = (DisplayName = "Died"), Category = Pawn)
 	bool K2_Died(AController* EventInstigator, TSubclassOf<UDamageType> DamageType);
-	virtual bool Died(AController* EventInstigator, const FDamageEvent& DamageEvent);
+	virtual bool Died(AController* EventInstigator, const FDamageEvent& DamageEvent, AActor* DamagerCauser=nullptr);
 
 	/** blueprint override for FellOutOfWorld()
 	 * if you return false, make sure to move the Pawn somewhere valid or you are likely to get spammed with this call
@@ -1199,6 +1206,8 @@ public:
 
 	UFUNCTION()
 	virtual void OnTriggerRallyEffect();
+
+	virtual void SpawnRallyEffectAt(FVector EffectLocation);
 
 	/** particle component for normal ground footstep */
 	UPROPERTY(EditAnywhere, Category = "Effects")
@@ -1981,6 +1990,11 @@ public:
 	{
 		return CustomDepthMesh;
 	}
+
+
+	UPROPERTY(BlueprintReadWrite, EditDefaultsOnly, Category = Effects)
+		UMaterialInstance* GhostMaterial;
+
 protected:
 	/** copy of our mesh rendered to CustomDepth for the outline (which is done in postprocess using the resulting data) */
 	UPROPERTY()

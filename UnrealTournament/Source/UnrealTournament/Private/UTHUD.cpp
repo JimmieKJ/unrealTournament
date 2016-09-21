@@ -107,7 +107,7 @@ AUTHUD::AUTHUD(const class FObjectInitializer& ObjectInitializer) : Super(Object
 	SuffixNth = NSLOCTEXT("UTHUD", "NthPlaceSuffix", "th");
 
 	CachedProfileSettings = nullptr;
-	BuildText = NSLOCTEXT("UTHUD", "info", "PRE-ALPHA Build 0.1.4");
+	BuildText = NSLOCTEXT("UTHUD", "info", "PRE-ALPHA Build 0.1.5");
 	bShowVoiceDebug = false;
 
 	static ConstructorHelpers::FObjectFinder<UMaterialInterface> DamageScreenMatObject(TEXT("/Game/RestrictedAssets/Blueprints/WIP/Nick/CameraAnims/HitScreenEffect.HitScreenEffect"));
@@ -640,6 +640,10 @@ void AUTHUD::DrawHUD()
 					Intensity = FMath::Max<float>(Intensity, FMath::Min<float>(1.0f, Indicator.FadeTime / DAMAGE_FADE_DURATION));
 				}
 			}
+			if (Cast<AUTCharacter>(PlayerOwner->GetViewTarget()) != nullptr && PlayerOwner->GetViewTarget()->bTearOff)
+			{
+				Intensity = FMath::Max<float>(Intensity, 0.5f);
+			}
 			if (Intensity > 0.0f)
 			{
 				DamageScreenMID->SetScalarParameterValue(NAME_Intensity, Intensity);
@@ -772,7 +776,7 @@ void AUTHUD::DrawWatermark()
 {
 	float RenderScale = Canvas->ClipX / 1920.0f;
 	FVector2D Size = FVector2D(150.0f * RenderScale, 49.0f * RenderScale);
-	FVector2D Position = FVector2D(Canvas->ClipX - Size.X - 10.0f * RenderScale, Canvas->ClipY - Size.Y - 100.0f * RenderScale);
+	FVector2D Position = FVector2D(Canvas->ClipX - Size.X - 10.0f * RenderScale, Canvas->ClipY - Size.Y - 50.0f * RenderScale);
 	Canvas->DrawColor = FColor(255,255,255,64);
 	Canvas->DrawTile(ScoreboardAtlas, Position.X, Position.Y, Size.X, Size.Y, 162.0f, 14.0f, 301.0f, 98.0f);
 
@@ -1715,6 +1719,19 @@ TWeakObjectPtr<class UUTUMGHudWidget> AUTHUD::ActivateUMGHudWidget(FString UMGHu
 		}
 	}
 	return FinalUMGWidget;
+}
+
+bool AUTHUD::IsUMGWidgetActive(TWeakObjectPtr<UUTUMGHudWidget> TestWidget)
+{
+	for (int i = 0; i < UMGHudWidgetStack.Num(); i++)
+	{
+		if (UMGHudWidgetStack[i].Get() == TestWidget.Get())
+		{
+			return true;
+		}
+	}
+
+	return false;
 }
 
 void AUTHUD::ActivateActualUMGHudWidget(TWeakObjectPtr<UUTUMGHudWidget> WidgetToActivate)

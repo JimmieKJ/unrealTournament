@@ -30,7 +30,7 @@ DEFINE_LOG_CATEGORY(UTLoading);
 
 static uint32 UTGetNetworkVersion()
 {
-	return 3008044;
+	return 3008045;
 }
 
 const FString ITEM_STAT_PREFIX = TEXT("ITEM_");

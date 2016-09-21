@@ -38,7 +38,7 @@ void AUTWeapAttachment_Enforcer::BeginPlay()
 
 void AUTWeapAttachment_Enforcer::AttachToOwnerNative()
 {
-	LeftMesh->AttachToComponent(UTOwner->GetMesh(), FAttachmentTransformRules::SnapToTargetIncludingScale, LeftAttachSocket);
+	LeftMesh->AttachToComponent(UTOwner->GetMesh(), FAttachmentTransformRules::KeepRelativeTransform, LeftAttachSocket);
 
 	LeftMesh->SetRelativeLocation(LeftAttachOffset);
 	LeftMesh->bRecentlyRendered = UTOwner->GetMesh()->bRecentlyRendered;

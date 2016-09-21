@@ -189,7 +189,22 @@ class UNREALTOURNAMENT_API AUTProjectile : public AActor, public IUTResetInterfa
 	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = Projectile)
 	FRadialDamageParams GetDamageParams(AActor* OtherActor, const FVector& HitLocation, float& OutMomentum) const;
 
-	/** this is used with SendInitialReplication() to force projectiles to be initially replicated prior to initial physics,
+	UPROPERTY(BlueprintReadOnly, Category = Projectile)
+		USceneComponent* OffsetVisualComponent;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Projectile)
+		bool bDoVisualOffset;
+
+	UPROPERTY()
+		FVector FinalVisualOffset;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Projectile)
+		FVector InitialVisualOffset;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Projectile)
+		float OffsetTime;
+
+		/** this is used with SendInitialReplication() to force projectiles to be initially replicated prior to initial physics,
 	 * which fixes most cases of projectiles never appearing on clients (because they got blown up before ever being sent)
 	 * we use a special tick function instead of BeginPlay() so that COND_Initial replication conditions continue to work as expected
 	 */
@@ -340,6 +355,10 @@ class UNREALTOURNAMENT_API AUTProjectile : public AActor, public IUTResetInterfa
 
 	UFUNCTION(BlueprintCallable, Category = Projectile)
 	virtual bool InteractsWithProj(AUTProjectile* OtherProj);
+
+	/* Position of shooter when this projectile was shot. */
+	UPROPERTY()
+		FVector ShooterLocation;
 
 	/** Projectile size for hitting pawns
 	 * if set to zero, the extra component used for this feature will not be attached (perf improvement) but means you can't go from 0 at spawn -> 1+ after spawn

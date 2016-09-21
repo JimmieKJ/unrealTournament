@@ -11,8 +11,12 @@ class UNREALTOURNAMENT_API AUTCTFFlagBase : public AUTGameObjective, public IUTR
 	GENERATED_UCLASS_BODY()
 
 	// Holds a reference to the flag
-	UPROPERTY(BlueprintReadOnly, Replicated, Category = Flag)
+	UPROPERTY(BlueprintReadOnly, Replicated, ReplicatedUsing = OnFlagChanged, Category = Flag)
 	AUTCTFFlag* MyFlag;
+
+	/**	Called when CarriedObject's state changes and is replicated to the client*/
+	UFUNCTION()
+	virtual void OnFlagChanged();
 
 	// capsule for collision for detecting flag caps
 	UPROPERTY(VisibleDefaultsOnly, BlueprintReadOnly, Category = Objective)

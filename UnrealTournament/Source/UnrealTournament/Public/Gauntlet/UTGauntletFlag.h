@@ -3,6 +3,7 @@
 #pragma once
 
 #include "UTCTFFlag.h"
+#include "UTFlagReturnTrail.h"
 #include "UTGauntletFlag.generated.h"
 
 UCLASS()
@@ -46,11 +47,42 @@ public:
 	bool bPendingTeamSwitch;
 
 	virtual void ClearGhostFlags();
+	
+	// Rebuild tghe follow path for this holder
+	virtual void OnHolderChanged();
+
+	virtual void Destroyed();
+	virtual void SendHome();
+
+	UPROPERTY()
+	bool bDebugGPS;
+
+	UPROPERTY()
+	bool bDisableGPS;
+
 
 protected:
+
+	void GenerateGPSPath();
+	void ValidateGPSPath();
+
+	TArray<FRouteCacheItem> GPSRoute;					
+
 	virtual void OnObjectStateChanged();
 	bool bIgnoreClearGhostCalls;
 
+	UPROPERTY()
+	AUTRecastNavMesh* NavData;
 
+	UPROPERTY()
+	class AUTFlagReturnTrail* Trail;
+
+	UPROPERTY(EditDefaultsOnly)
+	TSubclassOf<AUTFlagReturnTrail> TrailClass;
+
+	void CleanupTrail();
+
+	bool PlaceExtraPoint(const FVector& A, const FVector& B, FVector& ExtraPoint, int32 Step);
+	void MoveToFloor(FVector& PointLocation);
 
 };

@@ -22,25 +22,4 @@ class UNREALTOURNAMENT_API AUTFlagRunHUD : public AUTHUD_CTF
 	int32 BluePlayerCount;
 	float RedDeathTime;
 	float BlueDeathTime;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	float TimeToDelayMenuOpenForIntermission;
-
-	virtual EInputMode::Type GetInputMode_Implementation() const;
-
-	FTimerHandle MenuOpenDelayTimerHandle;
-
-	void OpenPowerupSelectMenu();
-
-protected:
-	bool bConstructedPowerupWindowForDefense;
-	bool bAlreadyForcedWindowOpening;
-
-#if !UE_SERVER
-	TSharedPtr<SUTHUDWindow> PowerupSelectWindow;
-#endif
-
-	// Manage the powerup select window.
-	virtual void HandlePowerups();
-
 };

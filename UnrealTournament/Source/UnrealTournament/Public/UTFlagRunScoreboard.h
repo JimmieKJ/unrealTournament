@@ -25,6 +25,18 @@ class UNREALTOURNAMENT_API UUTFlagRunScoreboard : public UUTCTFScoreboard
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Scoreboard")
 		FText CH_Powerup;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Scoreboard")
+		FText DefendTitle;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Scoreboard")
+		FText AttackTitle;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Scoreboard")
+		TArray<FText> DefendLines;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Scoreboard")
+		TArray<FText> AttackLines;
+
 protected:
 	virtual void DrawScoreHeaders(float RenderDelta, float& YOffset);
 	virtual void DrawPlayerScore(AUTPlayerState* PlayerState, float XOffset, float YOffset, float Width, FLinearColor DrawColor) override;
@@ -35,6 +47,7 @@ protected:
 	virtual void DrawStatsRight(float DeltaTime, float& YPos, float XOffset, float ScoreWidth, float PageBottom) override;
 	virtual int32 GetSmallPlaysCount(int32 NumPlays) const override;
 	virtual bool ShouldDrawScoringStats() override;
+	virtual void DrawMinimap(float RenderDelta) override;
 
 	virtual bool ShouldShowPowerupForPlayer(AUTPlayerState* PlayerState);
 };

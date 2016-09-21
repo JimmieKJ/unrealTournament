@@ -36,6 +36,10 @@ AUTWeap_Translocator::AUTWeap_Translocator(const class FObjectInitializer& Objec
 
 	WeaponCustomizationTag = EpicWeaponCustomizationTags::Translocator;
 	WeaponSkinCustomizationTag = EpicWeaponSkinCustomizationTags::Translocator;
+	TutorialAnnouncements.Add(TEXT("PriTrans"));
+	TutorialAnnouncements.Add(TEXT("SecTrans"));
+	TutorialAnnouncements.Add(TEXT("TransRapidly"));
+	TutorialAnnouncements.Add(TEXT("TeleFrag"));
 }
 
 void AUTWeap_Translocator::PostInitProperties()

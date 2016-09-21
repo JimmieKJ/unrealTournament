@@ -7,7 +7,7 @@
 UUTHUDWidget_CTFFlagStatus::UUTHUDWidget_CTFFlagStatus(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
 {
-	YouHaveFlagText = NSLOCTEXT("CTFScore","YouHaveFlagText","You have the flag, return to base!");
+	YouHaveFlagText = NSLOCTEXT("CTFScore","YouHaveFlagText","You have the flag!");
 	YouHaveFlagTextAlt = NSLOCTEXT("CTFScore", "YouHaveFlagTextAlt", "You have the flag, take it to the enemy base!");
 	EnemyHasFlagText = NSLOCTEXT("CTFScore", "EnemyHasFlagText", "The enemy has your flag, recover it!");
 	BothFlagsText = NSLOCTEXT("CTFScore","BothFlagsText","You have the enemy flag - hold it until your flag is returned!");
@@ -24,6 +24,7 @@ UUTHUDWidget_CTFFlagStatus::UUTHUDWidget_CTFFlagStatus(const FObjectInitializer&
 	MaxIconScale = 1.f;
 	MinIconScale = 0.75f;
 	bSuppressMessage = false;
+	bAlwaysDrawFlagHolderName = true;
 
 	OldFlagState[0] = CarriedObjectState::Home;
 	OldFlagState[1] = CarriedObjectState::Home;
@@ -116,7 +117,7 @@ void UUTHUDWidget_CTFFlagStatus::DrawFlagStatus(AUTCTFGameState* GameState, FVec
 		
 			if (FlagHolder)
 			{
-				FlagHolderNameTemplate.Text = FText::FromString(FlagHolder->PlayerName);
+				FlagHolderNameTemplate.Text = ((FlagHolder == UTHUDOwner->UTPlayerOwner->UTPlayerState) && !bAlwaysDrawFlagHolderName) ? YouHaveFlagText : FText::FromString(FlagHolder->PlayerName);
 				RenderObj_Text(FlagHolderNameTemplate, IndicatorPosition);
 			}
 
@@ -212,7 +213,7 @@ void UUTHUDWidget_CTFFlagStatus::DrawFlagWorld(AUTCTFGameState* GameState, FVect
 		if (bDrawInWorld)
 		{
 			float PctFromCenter = (DrawScreenPosition - FVector(0.5f*GetCanvas()->ClipX, 0.5f*GetCanvas()->ClipY, 0.f)).Size() / GetCanvas()->ClipX;
-			CurrentWorldAlpha = InWorldAlpha * FMath::Min(0.15f/WorldRenderScale + 12.f*PctFromCenter, 1.f);
+			CurrentWorldAlpha = InWorldAlpha * FMath::Min(5.f*PctFromCenter, 1.f);
 
 			DrawScreenPosition.X -= RenderPosition.X;
 			DrawScreenPosition.Y -= RenderPosition.Y;
@@ -320,7 +321,7 @@ void UUTHUDWidget_CTFFlagStatus::DrawFlagBaseWorld(AUTCTFGameState* GameState, F
 		if (!bDrawEdgeArrow || (Flag && Flag->ObjectState == CarriedObjectState::Home) || !bIsEnemyFlag)
 		{
 			float PctFromCenter = (DrawScreenPosition - FVector(0.5f*GetCanvas()->ClipX, 0.5f*GetCanvas()->ClipY, 0.f)).Size() / GetCanvas()->ClipX;
-			CurrentWorldAlpha = InWorldAlpha * FMath::Min(0.15f/WorldRenderScale + 12.f*PctFromCenter, 1.f);
+			CurrentWorldAlpha = InWorldAlpha * FMath::Min(5.f*PctFromCenter, 1.f);
 	
 			DrawScreenPosition.X -= RenderPosition.X;
 			DrawScreenPosition.Y -= RenderPosition.Y;
@@ -373,28 +374,7 @@ void UUTHUDWidget_CTFFlagStatus::DrawStatusMessage(float DeltaTime)
 		{
 			uint8 MyTeamNum = OwnerPS->GetTeamNum();
 			uint8 OtherTeamNum = MyTeamNum == 0 ? 1 : 0;
-			FText StatusText = FText::GetEmpty();
-
-			FLinearColor DrawColor = FLinearColor::Yellow;
-			if (GS->GetFlagState(MyTeamNum) != CarriedObjectState::Home)	// My flag is out there
-			{
-				DrawColor = FLinearColor::Red;
-				// Look to see if I have the enemy flag
-				if (OwnerPS->CarriedObject != NULL)
-				{
-					StatusText = (MyTeamNum != OwnerPS->CarriedObject->GetTeamNum()) ? BothFlagsText : YouHaveFlagTextAlt;
-				}
-				else
-				{
-					//StatusText = (GS->GetFlagState(MyTeamNum) == CarriedObjectState::Dropped) ? FText::GetEmpty() : EnemyHasFlagText;
-					StatusText = FText::GetEmpty();
-				}
-			}
-			else if (OwnerPS->CarriedObject != NULL && Cast<AUTCTFFlag>(OwnerPS->CarriedObject) != NULL)
-			{
-				StatusText = YouHaveFlagText;
-			}
-
+			FText StatusText = (OwnerPS->CarriedObject != NULL) ? YouHaveFlagText : FText::GetEmpty();
 			if (!StatusText.IsEmpty())
 			{
 				AnimationAlpha += (DeltaTime * 3);
@@ -403,7 +383,7 @@ void UUTHUDWidget_CTFFlagStatus::DrawStatusMessage(float DeltaTime)
 				Alpha = FMath::Abs<float>(Alpha);
 
 				FlagStatusText.RenderOpacity = Alpha;
-				FlagStatusText.RenderColor = DrawColor;
+				FlagStatusText.RenderColor = FLinearColor::Yellow;
 				FlagStatusText.Text = StatusText;
 				FlagStatusText.bDrawShadow = true;
 				FlagStatusText.ShadowDirection = FVector2D(1.f, 2.f);

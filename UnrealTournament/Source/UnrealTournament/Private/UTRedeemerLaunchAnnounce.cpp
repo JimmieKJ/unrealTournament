@@ -53,9 +53,9 @@ void UUTRedeemerLaunchAnnounce::PrecacheAnnouncements_Implementation(class UUTAn
 	}
 }
 
-float UUTRedeemerLaunchAnnounce::GetAnnouncementPriority(int32 Switch) const
+float UUTRedeemerLaunchAnnounce::GetAnnouncementPriority(const FAnnouncementInfo AnnouncementInfo) const
 {
-	return (Switch == 2) ? 0.8f : 0.9f;
+	return (AnnouncementInfo.Switch == 2) ? 0.8f : 0.9f;
 }
 
 bool UUTRedeemerLaunchAnnounce::ShouldPlayAnnouncement(const FClientReceiveData& ClientData) const
@@ -68,12 +68,12 @@ float UUTRedeemerLaunchAnnounce::GetAnnouncementDelay(int32 Switch)
 	return (Switch == 2) ? 0.2f : 0.f;
 }
 
-bool UUTRedeemerLaunchAnnounce::InterruptAnnouncement_Implementation(int32 Switch, const UObject* OptionalObject, TSubclassOf<UUTLocalMessage> OtherMessageClass, int32 OtherSwitch, const UObject* OtherOptionalObject) const
+bool UUTRedeemerLaunchAnnounce::InterruptAnnouncement(const FAnnouncementInfo AnnouncementInfo, const FAnnouncementInfo OtherAnnouncementInfo) const
 {
-	if (Switch == 2)
+	if (AnnouncementInfo.Switch == 2)
 	{
 		// by default interrupt messages of same type, and countdown messages
-		return (GetClass() == OtherMessageClass) || Cast<UUTCharacterVoice>(OtherMessageClass->GetDefaultObject());
+		return (GetClass() == OtherAnnouncementInfo.MessageClass) || Cast<UUTCharacterVoice>(OtherAnnouncementInfo.MessageClass->GetDefaultObject());
 	}
-	return Super::InterruptAnnouncement_Implementation(Switch, OptionalObject, OtherMessageClass, OtherSwitch, OtherOptionalObject);
+	return Super::InterruptAnnouncement(AnnouncementInfo, OtherAnnouncementInfo);
 }

@@ -129,6 +129,7 @@ EPartyReservationResult::Type AUTPartyBeaconHost::AddEmptyServerReservationReque
 							}
 
 							Result = EPartyReservationResult::ReservationAccepted;
+							bRankedServer = ReservationData.bRanked;
 						}
 						else
 						{
@@ -232,4 +233,38 @@ void AUTPartyBeaconHost::ProcessReservationRequest(APartyBeaconClient* Client, c
 		Client ? *Client->GetName() : TEXT("NULL"),
 		Client ? *Client->GetNetConnection()->LowLevelDescribe() : TEXT("NULL"));
 	Client->ClientReservationResponse(EPartyReservationResult::ReservationDenied);
+}
+
+
+void AUTPartyBeaconHost::OnBeaconReservationsFull()
+{
+	EvaluatePermissionToProceedToGame();
+}
+
+void AUTPartyBeaconHost::OnBeaconReservationChange()
+{
+	EvaluatePermissionToProceedToGame();
+}
+
+void AUTPartyBeaconHost::OnBeaconReservationDuplicate()
+{
+	EvaluatePermissionToProceedToGame();
+}
+
+void AUTPartyBeaconHost::EvaluatePermissionToProceedToGame()
+{
+	const int32 NumReservations = GetNumConsumedReservations();
+	const int32 MaxNumReservations = GetMaxReservations();	
+	
+	if (!bRankedServer || NumReservations == MaxNumReservations)
+	{
+		for (AOnlineBeaconClient* ClientActor : ClientActors)
+		{
+			AUTPartyBeaconClient* PartyBeaconClient = Cast<AUTPartyBeaconClient>(ClientActor);
+			if (PartyBeaconClient)
+			{
+				PartyBeaconClient->ClientAllowedToProceedFromReservation();
+			}
+		}
+	}
 }

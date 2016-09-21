@@ -539,7 +539,10 @@ namespace UnrealBuildTool
 			// this breaks the editor on such systems. See https://kenai.com/projects/maxine/lists/users/archive/2011-01/message/12 for details
 			Result += " -Wl,--disable-new-dtags";
 
-			if (CrossCompiling())
+            // Improve dlopen performance
+            Result += " -Wl,--as-needed";
+            
+            if (CrossCompiling())
 			{
 				if (UsingClang())
 				{

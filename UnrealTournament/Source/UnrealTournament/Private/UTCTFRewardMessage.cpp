@@ -38,17 +38,17 @@ UUTCTFRewardMessage::UUTCTFRewardMessage(const class FObjectInitializer& ObjectI
 	EarnedBoostSound = EarnedSoundFinder.Object;
 }
 
-bool UUTCTFRewardMessage::InterruptAnnouncement_Implementation(int32 Switch, const UObject* OptionalObject, TSubclassOf<UUTLocalMessage> OtherMessageClass, int32 OtherSwitch, const UObject* OtherOptionalObject) const
+bool UUTCTFRewardMessage::InterruptAnnouncement(const FAnnouncementInfo AnnouncementInfo, const FAnnouncementInfo OtherAnnouncementInfo) const
 {
-	if (GetClass() == OtherMessageClass)
+	if (AnnouncementInfo.MessageClass == OtherAnnouncementInfo.MessageClass)
 	{
-		return ((Switch == 3) || (Switch == 4) || (Switch >= 100));
+		return ((AnnouncementInfo.Switch == 3) || (AnnouncementInfo.Switch == 4) || (AnnouncementInfo.Switch >= 100));
 	}
-	if (Switch == 6)
+	if (AnnouncementInfo.Switch == 6)
 	{
-		return  (Cast<UUTLocalMessage>(OtherMessageClass->GetDefaultObject())->GetAnnouncementPriority(OtherSwitch) < 0.7f);
+		return  (Cast<UUTLocalMessage>(OtherAnnouncementInfo.MessageClass->GetDefaultObject())->GetAnnouncementPriority(OtherAnnouncementInfo) < 0.7f);
 	}
-	return Cast<UUTLocalMessage>(OtherMessageClass->GetDefaultObject())->IsOptionalSpoken(OtherSwitch);
+	return Cast<UUTLocalMessage>(OtherAnnouncementInfo.MessageClass->GetDefaultObject())->IsOptionalSpoken(OtherAnnouncementInfo.Switch);
 }
 
 void UUTCTFRewardMessage::ClientReceive(const FClientReceiveData& ClientData) const 
@@ -86,7 +86,7 @@ float UUTCTFRewardMessage::GetAnnouncementDelay(int32 Switch)
 	return 0.f;
 }
 
-float UUTCTFRewardMessage::GetAnnouncementPriority(int32 Switch) const
+float UUTCTFRewardMessage::GetAnnouncementPriority(const FAnnouncementInfo AnnouncementInfo) const
 {
 	return 1.f;
 }

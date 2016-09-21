@@ -26,6 +26,7 @@ class UNREALTOURNAMENT_API SUTLoginDialog : public SCompoundWidget
 
 	void SetErrorText(FText NewErrorText);
 
+
 protected:
 
 	// The Dialog Result delegate
@@ -40,6 +41,9 @@ protected:
 	TSharedPtr<class SEditableTextBox> UserEditBox;
 	TSharedPtr<class SEditableTextBox> PassEditBox;
 	TSharedPtr<SRichTextBlock> ErrorText;
+
+
+	FText GetLoginPhaseMessage() const;
 
 	FReply OnNewAccountClick();
 	FReply OnForgotPasswordClick();

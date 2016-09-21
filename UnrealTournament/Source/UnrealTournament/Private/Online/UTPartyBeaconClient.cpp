@@ -130,3 +130,15 @@ void AUTPartyBeaconClient::Reconnect(const FOnlineSessionSearchResult& DesiredHo
 		OnFailure();
 	}
 }
+
+void AUTPartyBeaconClient::ClientAllowedToProceedFromReservation_Implementation()
+{
+	UE_LOG(LogBeacon, Verbose, TEXT("Received allowed to proceed from reservation"));
+	OnAllowedToProceedFromReservation().ExecuteIfBound();
+}
+
+void AUTPartyBeaconClient::ClientAllowedToProceedFromReservationTimeout_Implementation()
+{
+	UE_LOG(LogBeacon, Verbose, TEXT("Received timeout on waiting for allowance to proceed from reservation"));
+	OnAllowedToProceedFromReservationTimeout().ExecuteIfBound();
+}

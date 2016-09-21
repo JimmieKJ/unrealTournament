@@ -272,10 +272,8 @@ void AUTBaseGameMode::ChangeName(AController* Other, const FString& S, bool bNam
 
 	// Unicode 160 is an empty space, not sure what other characters are broken in our font
 	int32 FindCharIndex;
-	if (ClampedName.FindChar(160, FindCharIndex))
-	{
-		ClampedName = TEXT("JCenaHLR");
-	}
+	bool bForceAccountName = (ClampedName.FindChar(160, FindCharIndex) || ClampedName.FindChar(38, FindCharIndex));
+
 	AUTPlayerState* PS = Cast<AUTPlayerState>(Other->PlayerState);
 	if (!PS || FCString::Stricmp(*PS->PlayerName, *ClampedName) == 0)
 	{
@@ -290,7 +288,15 @@ void AUTBaseGameMode::ChangeName(AController* Other, const FString& S, bool bNam
 	{
 		TSharedRef<const FUniqueNetId> UserId = MakeShareable(new FUniqueNetIdString(*PS->StatsID));
 		EpicAccountName = UTGameState->GetEpicAccountNameForAccount(UserId);
+		if (bForceAccountName)
+		{
+			ClampedName = EpicAccountName.ToString();
+		}
 		bNameMatchesAccount = (EpicAccountName.ToString() == ClampedName);
+	}
+	else if (bForceAccountName)
+	{
+		ClampedName = TEXT("JCenaHLR");
 	}
 	for (FConstControllerIterator Iterator = GetWorld()->GetControllerIterator(); Iterator; ++Iterator)
 	{

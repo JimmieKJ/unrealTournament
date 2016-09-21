@@ -25,6 +25,11 @@ FLinearColor UUTChatMessage::GetMessageColor_Implementation(int32 MessageIndex) 
 	return FLinearColor::Green;
 }
 
+int32 UUTChatMessage::GetDestinationIndex(int32 MessageIndex) const
+{
+	return MessageIndex;
+}
+
 void UUTChatMessage::ClientReceiveChat(const FClientReceiveData& ClientData, FName Destination) const
 {
 	if (Cast<AUTHUD>(ClientData.LocalPC->MyHUD) != NULL)

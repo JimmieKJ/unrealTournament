@@ -194,9 +194,18 @@ void AUTPickup::ProcessTouch_Implementation(APawn* TouchedBy)
 
 void AUTPickup::GiveTo_Implementation(APawn* Target)
 {
-	if (Cast<APlayerController>(Target->GetController()))
+	AUTPlayerController* UTPC = (Target != nullptr) ? Cast<AUTPlayerController>(Target->GetController()) : nullptr;
+	if (UTPC)
 	{
-		Cast<APlayerController>(Target->GetController())->ClientReceiveLocalizedMessage(UUTPickupMessage::StaticClass(), 0, NULL, NULL, GetClass());
+		UTPC->ClientReceiveLocalizedMessage(UUTPickupMessage::StaticClass(), 0, NULL, NULL, GetClass());
+		AUTGameMode* GameMode = GetWorld()->GetAuthGameMode<AUTGameMode>();
+		if (GameMode && GameMode->bBasicTrainingGame && (GetNetMode() == NM_Standalone))
+		{
+			for (int32 Index = 0; Index < TutorialAnnouncements.Num(); Index++)
+			{
+				UTPC->PlayTutorialAnnouncement(Index, this);
+			}
+		}
 	}
 }
 
@@ -454,4 +463,17 @@ void AUTPickup::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& OutL
 	DOREPLIFETIME(AUTPickup, bReplicateReset);
 	DOREPLIFETIME(AUTPickup, State);
 	DOREPLIFETIME_CONDITION(AUTPickup, RespawnTimeRemaining, COND_InitialOnly);
+}
+
+void AUTPickup::PrecacheTutorialAnnouncements(UUTAnnouncer* Announcer) const
+{
+	for (int32 i = 0; i < TutorialAnnouncements.Num(); i++)
+	{
+		Announcer->PrecacheAnnouncement(TutorialAnnouncements[i]);
+	}
+}
+
+FName AUTPickup::GetTutorialAnnouncement(int32 Switch) const
+{
+	return (Switch < TutorialAnnouncements.Num()) ? TutorialAnnouncements[Switch] : NAME_None;
 }

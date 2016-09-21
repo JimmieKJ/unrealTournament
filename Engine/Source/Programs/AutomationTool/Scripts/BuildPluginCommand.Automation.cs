@@ -82,7 +82,7 @@ class BuildPlugin : BuildCommand
 
 		// Read the plugin
 		CommandUtils.Log("Reading plugin from {0}...", HostProjectPluginFile);
-		PluginDescriptor Plugin = PluginDescriptor.FromFile(HostProjectPluginFile);
+		PluginDescriptor Plugin = PluginDescriptor.FromFile(HostProjectPluginFile, false);
 
 		// Compile the plugin for all the target platforms
 		List<UnrealTargetPlatform> HostPlatforms = ParseParam("NoHostPlatform")? new List<UnrealTargetPlatform>() : new List<UnrealTargetPlatform> { BuildHostPlatform.Current.Platform };
@@ -219,10 +219,10 @@ class BuildPlugin : BuildCommand
 
 		// Get the output plugin filename
 		FileReference TargetPluginFile = FileReference.Combine(TargetDir, SourcePluginFile.GetFileName());
-		PluginDescriptor NewDescriptor = PluginDescriptor.FromFile(TargetPluginFile);
+		PluginDescriptor NewDescriptor = PluginDescriptor.FromFile(TargetPluginFile, false);
 		NewDescriptor.bEnabledByDefault = true;
 		NewDescriptor.bInstalled = true;
-		NewDescriptor.Save(TargetPluginFile.FullName);
+		NewDescriptor.Save(TargetPluginFile.FullName, false);
 	}
 
 	static IEnumerable<FileReference> FilterPluginFiles(FileReference PluginFile, IEnumerable<FileReference> BuildProducts)

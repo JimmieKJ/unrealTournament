@@ -104,7 +104,7 @@ UUTCharacterMovement::UUTCharacterMovement(const class FObjectInitializer& Objec
 	SlideGravityScaling = 0.15f;
 	MinWallSlideSpeed = 500.f;
 	MaxSlideWallDist = 20.f;
-	FloorSlideJumpZ = 100.f;
+	FloorSlideJumpZ = 50.f;
 
 	NavAgentProps.bCanCrouch = true;
 

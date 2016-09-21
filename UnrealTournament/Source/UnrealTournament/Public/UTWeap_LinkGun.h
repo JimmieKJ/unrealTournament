@@ -59,8 +59,17 @@ class UNREALTOURNAMENT_API AUTWeap_LinkGun : public AUTWeapon
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = LinkGun)
 	int32 LinkPullDamage;
 
+	/** clientside pull target; server has extra leeway for hitting this in remote client scenarios to avoid pull success mismatches
+	 * unused if standalone game or bot weapon
+	 */
+	UPROPERTY()
+	AActor* ClientPulseTarget;
+
+	UFUNCTION(Unreliable, Server, WithValidation)
+	void ServerSetPulseTarget(AActor* InTarget);
+
 	UPROPERTY(BlueprintReadWrite, Category = LinkGun)
-		float OverheatFactor;
+	float OverheatFactor;
 
 	virtual void PlayFiringEffects() override;
 

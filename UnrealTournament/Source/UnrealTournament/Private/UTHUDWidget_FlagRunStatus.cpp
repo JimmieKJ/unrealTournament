@@ -10,6 +10,7 @@ UUTHUDWidget_FlagRunStatus::UUTHUDWidget_FlagRunStatus(const FObjectInitializer&
 	NormalLineBrightness = 0.025f;
 	LineGlow = 0.5f;
 	PulseLength = 3.f;
+	bAlwaysDrawFlagHolderName = false;
 }
 
 bool UUTHUDWidget_FlagRunStatus::ShouldDraw_Implementation(bool bShowScores)
@@ -80,7 +81,7 @@ void UUTHUDWidget_FlagRunStatus::DrawFlagBaseWorld(AUTCTFGameState* GameState, F
 		DrawScreenPosition = GetAdjustedScreenPosition(WorldPosition, PlayerViewPoint, ViewDir, Dist, Edge, bDrawEdgeArrow, TeamNum);
 
 		float PctFromCenter = (DrawScreenPosition - FVector(0.5f*GetCanvas()->ClipX, 0.5f*GetCanvas()->ClipY, 0.f)).Size() / GetCanvas()->ClipX;
-		CurrentWorldAlpha = InWorldAlpha * FMath::Min(0.15f / WorldRenderScale + 12.f*PctFromCenter, 1.f);
+		CurrentWorldAlpha = InWorldAlpha * FMath::Min(5.f*PctFromCenter, 1.f);
 
 		DrawScreenPosition.X -= RenderPosition.X;
 		DrawScreenPosition.Y -= RenderPosition.Y;
@@ -158,8 +159,7 @@ void UUTHUDWidget_FlagRunStatus::DrawFlagWorld(AUTCTFGameState* GameState, FVect
 		}
 
 		float PctFromCenter = (DrawScreenPosition - FVector(0.5f*GetCanvas()->ClipX, 0.5f*GetCanvas()->ClipY, 0.f)).Size() / GetCanvas()->ClipX;
-		CurrentWorldAlpha = InWorldAlpha * FMath::Min(0.15f / WorldRenderScale + 12.f*PctFromCenter, 1.f);
-
+		CurrentWorldAlpha = InWorldAlpha * FMath::Min(5.f*PctFromCenter, 1.f);
 		DrawScreenPosition.X -= RenderPosition.X;
 		DrawScreenPosition.Y -= RenderPosition.Y;
 		float ViewDist = (PlayerViewPoint - WorldPosition).Size();

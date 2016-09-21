@@ -115,7 +115,7 @@ static bool BlueprintNativeCodeGenUtilsImpl::GeneratePluginDescFile(const FStrin
 	PluginDesc.Modules.Add(RuntimeModuleDesc);
 
 	FText ErrorMessage;
-	bool bSuccess = PluginDesc.Save(TargetPaths.PluginFilePath(), ErrorMessage);
+	bool bSuccess = PluginDesc.Save(TargetPaths.PluginFilePath(), false, ErrorMessage);
 
 	if (!bSuccess)
 	{

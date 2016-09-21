@@ -1348,6 +1348,7 @@ void UEditorEngine::mapBrushPut()
 static void SendTo( UWorld* InWorld, int32 bSendToFirst )
 {
 	ULevel*	Level = InWorld->GetCurrentLevel();
+	check(Level);
 	for (AActor* Actor : Level->Actors)
 	{
 		Actor->Modify();

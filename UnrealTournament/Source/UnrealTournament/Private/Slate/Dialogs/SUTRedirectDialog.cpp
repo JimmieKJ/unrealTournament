@@ -193,7 +193,7 @@ void SUTRedirectDialog::HttpRequestProgress(FHttpRequestPtr InHttpRequest, int32
 void SUTRedirectDialog::HttpRequestComplete(FHttpRequestPtr InHttpRequest, FHttpResponsePtr HttpResponse, bool bSucceeded)
 {
 	//If the download was successful save it to disk
-	if (bSucceeded && InHttpRequest.IsValid() && HttpResponse->GetResponseCode() == EHttpResponseCodes::Ok)
+	if (bSucceeded && InHttpRequest.IsValid() && HttpResponse->GetResponseCode() == EHttpResponseCodes::Ok && !RedirectToURL.IsEmpty())
 	{
 		if (HttpResponse->GetContent().Num() > 0)
 		{

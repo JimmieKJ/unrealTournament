@@ -23,6 +23,8 @@ AUTProj_TransDisk::AUTProj_TransDisk(const class FObjectInitializer& ObjectIniti
 	RemainingHealth = 35;
 	bCanShieldBounce = true;
 	bDamageOnBounce = false;
+	bDoVisualOffset = true;
+	InitialVisualOffset = FVector(0.f, 20.f, -20.f);
 	if (CollisionComp != NULL)
 	{
 		CollisionComp->bTraceComplexOnMove = false;

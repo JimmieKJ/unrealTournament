@@ -296,6 +296,13 @@ public:
 	FName StatsNameCount;
 
 	virtual bool AllowPickupBy(AUTCharacter* Other) const;
+
+	virtual void PrecacheTutorialAnnouncements(class UUTAnnouncer* Announcer) const;
+
+	virtual FName GetTutorialAnnouncement(int32 Switch) const;
+
+	UPROPERTY(EditAnyWhere, Category = "Tutorial")
+		TArray<FName> TutorialAnnouncements;
 };
 
 // template to access a character's inventory

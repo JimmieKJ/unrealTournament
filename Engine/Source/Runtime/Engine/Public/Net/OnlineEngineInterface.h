@@ -150,6 +150,8 @@ public:
 	
 	/** @return true if the online subsystem supports online Play In Editor (PIE) */
 	virtual bool SupportsOnlinePIE() { return false; }
+	/** Enable/Disable online PIE at runtime */
+	virtual void SetShouldTryOnlinePIE(bool bShouldTry) {}
 	/** @return number of logins stored with the editor for logging in via Play In Editor (PIE) */
 	virtual int32 GetNumPIELogins() { return 0; }
 	/** Force the online subsystem to treat itself like a dedicated server */

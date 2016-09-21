@@ -55,6 +55,9 @@ AUTWeap_FlakCannon::AUTWeap_FlakCannon(const FObjectInitializer& ObjectInitializ
 
 	WeaponCustomizationTag = EpicWeaponCustomizationTags::FlakCannon;
 	WeaponSkinCustomizationTag = EpicWeaponSkinCustomizationTags::FlakCannon;
+
+	TutorialAnnouncements.Add(TEXT("PriFlak"));
+	TutorialAnnouncements.Add(TEXT("SecFlak"));
 }
 
 FVector AUTWeap_FlakCannon::GetFireLocationForMultiShot_Implementation(int32 MultiShotIndex, const FVector& FireLocation, const FRotator& FireRotation)

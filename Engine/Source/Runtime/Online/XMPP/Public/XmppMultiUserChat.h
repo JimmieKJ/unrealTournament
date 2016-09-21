@@ -278,6 +278,7 @@ public:
 	virtual FXmppChatMemberPtr GetMember(const FXmppRoomId& RoomId, const FXmppUserJid& MemberJid) = 0;
 	virtual bool GetLastMessages(const FXmppRoomId& RoomId, int32 NumMessages, TArray< TSharedRef<FXmppChatMessage> >& OutMessages) = 0;
 	virtual void HandleMucPresence(const FXmppMucPresence& MemberPresence) = 0;
+	virtual void DumpMultiUserChatState() const = 0;
 
 	DECLARE_MULTICAST_DELEGATE_FourParams(FOnXmppRoomCreateComplete, const TSharedRef<IXmppConnection>& /*Connection*/, bool /*bSuccess*/, const FXmppRoomId& /*RoomId*/, const FString& /*Error*/);
 	/** @return room created delegate */

@@ -66,14 +66,14 @@ public:
 		}
 	}
 
-	bool InterruptAnnouncement_Implementation(int32 Switch, const UObject* OptionalObject, TSubclassOf<UUTLocalMessage> OtherMessageClass, int32 OtherSwitch, const UObject* OtherOptionalObject) const override
+	bool InterruptAnnouncement(const FAnnouncementInfo AnnouncementInfo, const FAnnouncementInfo OtherAnnouncementInfo) const override
 	{
-		if (GetClass() == OtherMessageClass)
+		if (GetClass() == OtherAnnouncementInfo.MessageClass)
 		{
-			return (Switch != 3);
+			return (AnnouncementInfo.Switch != 3);
 		}
 
-		return Super::InterruptAnnouncement_Implementation(Switch, OptionalObject, OtherMessageClass, OtherSwitch, OtherOptionalObject);
+		return Super::InterruptAnnouncement(AnnouncementInfo, OtherAnnouncementInfo);
 	}
 
 	bool CancelByAnnouncement_Implementation(int32 Switch, const UObject* OptionalObject, TSubclassOf<UUTLocalMessage> OtherMessageClass, int32 OtherSwitch, const UObject* OtherOptionalObject) const override

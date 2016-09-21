@@ -13,6 +13,7 @@ AUTDMGameMode::AUTDMGameMode(const class FObjectInitializer& ObjectInitializer)
 	HUDClass = AUTHUD_DM::StaticClass();
 	DisplayName = NSLOCTEXT("UTGameMode", "DM", "Deathmatch");
 	XPMultiplier = 3.0f;
+	bGameHasImpactHammer = false;
 }
 
 

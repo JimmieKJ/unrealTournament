@@ -835,91 +835,9 @@ void AUTRecastNavMesh::BuildNodeNetwork()
 											bool bFound = false;
 											for (const FUTPathLink& UTPath : Node->Paths)
 											{
-												if (UTPath.End == DestNode)
+												if (UTPath.End == DestNode && UTPath.EndPoly == Link.ref)
 												{
-													if (UTPath.EndPoly != Link.ref)
-													{
-														// if there are multiple polys connecting these two nodes, split the destination node so there is only one connection point between any two nodes
-														// this is important for pathfinding as otherwise the correct path to use depends on later points which would make pathing very complex
-														/*UUTPathNode* NewNode = NewObject<UUTPathNode>(this);
-														NewNode->MinPolyEdgeSize = DestNode->MinPolyEdgeSize;
-														NewNode->PhysicsVolume = DestNode->PhysicsVolume;
-														DestNode->Polys.Remove(Link.ref);
-														NewNode->Polys.Add(Link.ref);
-														PolyToNode.Add(Link.ref, NewNode);
-														// TODO: should we claim more than one poly from DestNode?
-
-														// move over POIs that are inside the split polygons
-														for (int32 POIIndex = 0; POIIndex < DestNode->POIs.Num(); POIIndex++)
-														{
-															if (NewNode->Polys.Contains(FindNearestPoly(DestNode->POIs[POIIndex]->GetActorLocation(), GetPOIExtent(DestNode->POIs[POIIndex]))))
-															{
-																NewNode->POIs.Add(DestNode->POIs[POIIndex]);
-																DestNode->POIs.RemoveAt(POIIndex--);
-															}
-														}
-														// if there was a path from Dest -> source, redirect it to Dest -> NewNode
-														for (int32 LinkIndex = 0; LinkIndex < DestNode->Paths.Num(); LinkIndex++)
-														{
-															if (DestNode->Paths[LinkIndex].End == Node && DestNode->Paths[LinkIndex].EndPoly == PolyRef)
-															{
-																// find poly in DestNode that links to NewNode
-																NavNodeRef NewSrcPoly = INVALID_NAVNODEREF;
-																for (NavNodeRef DestPolyRef : DestNode->Polys)
-																{
-																	const dtPoly* TestPolyData = NULL;
-																	const dtMeshTile* TestTileData = NULL;
-																	InternalMesh->getTileAndPolyByRef(PolyRef, &TestTileData, &TestPolyData);
-																	if (PolyData != NULL && TileData != NULL)
-																	{
-																		uint32 j = PolyData->firstLink;
-																		while (j != DT_NULL_LINK)
-																		{
-																			const dtLink& TestLink = InternalMesh->getLink(TileData, j);
-																			j = TestLink.next;
-																			if (TestLink.ref == Link.ref)
-																			{
-																				NewSrcPoly = DestPolyRef;
-																				break;
-																			}
-																		}
-																	}
-																	if (NewSrcPoly != INVALID_NAVNODEREF)
-																	{
-																		break;
-																	}
-																}
-																if (NewSrcPoly != INVALID_NAVNODEREF)
-																{
-																	DestNode->Paths[LinkIndex] = FUTPathLink(DestNode, NewSrcPoly, NewNode, Link.ref, NULL, FMath::Min<int32>(NewNode->MinPolyEdgeSize.Radius, DestNode->MinPolyEdgeSize.Radius), FMath::Min<int32>(NewNode->MinPolyEdgeSize.Height, DestNode->MinPolyEdgeSize.Height), 0);
-																}
-																else
-																{
-																	// shouldn't happen
-																	UE_LOG(UT, Warning, TEXT("NODE BUILDER: Link error trying to split PathNodes"));
-																}
-																break;
-															}
-														}
-														// redirect other nodes' paths that point to polys that have been redirected
-														for (UUTPathNode* OtherNode : PathNodes)
-														{
-															for (FUTPathLink& OtherLink : OtherNode->Paths)
-															{
-																if (NewNode->Polys.Contains(OtherLink.EndPoly))
-																{
-																	OtherLink.End = NewNode;
-																}
-															}
-														}
-
-														DestNode = NewNode;
-														PathNodes.Add(NewNode);*/
-													}
-													else
-													{
-														bFound = true;
-													}
+													bFound = true;
 													break;
 												}
 											}

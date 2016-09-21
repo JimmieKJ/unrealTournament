@@ -21,8 +21,6 @@ AUTFlagRunHUD::AUTFlagRunHUD(const FObjectInitializer& ObjectInitializer)
 	PlayerStartIcon.UL = 64;
 	PlayerStartIcon.VL = 64;
 	PlayerStartIcon.Texture = PlayerStartTextureObject.Object;
-
-	TimeToDelayMenuOpenForIntermission = 12.0f;
 }
 
 void AUTFlagRunHUD::NotifyMatchStateChange()
@@ -134,130 +132,6 @@ void AUTFlagRunHUD::DrawHUD()
 			Canvas->DrawTile(PlayerStartIcon.Texture, XOffsetBlue - 0.5f*(ScaledSize - 1.f)*BasePipSize, YOffset - 0.5f*(ScaledSize - 1.f)*BasePipSize, BasePipSize, BasePipSize, PlayerStartIcon.U, PlayerStartIcon.V, PlayerStartIcon.UL, PlayerStartIcon.VL, BLEND_Translucent);
 		}
 	}
-
-	HandlePowerups();
 }
 
-void AUTFlagRunHUD::HandlePowerups()
-{
-#if !UE_SERVER
-	AUTFlagRunGameState* GS = GetWorld()->GetGameState<AUTFlagRunGameState>();
 
-	AUTPlayerState* UTPS = Cast<AUTPlayerState>(UTPlayerOwner->PlayerState);
-
-	// wait for replication to populate the playerstate and team info
-	if (UTPS && UTPS->Team)
-	{
-		if (GS && (GS->GetMatchState() == MatchState::MatchIntermission))
-		{
-			const bool bIsOnDefense = GS->IsTeamOnDefenseNextRound(UTPS->Team->TeamIndex);
-			const FString WidgetPath = GS->GetPowerupSelectWidgetPath(UTPS->Team->TeamIndex);
-
-			//Allows the mouse to rotate the spectator view.
-			UTPlayerOwner->SetSpectatorMouseChangesView(true);
-
-			if (!PowerupSelectWindow.IsValid() && UTPlayerOwner)
-			{
-				//ensure the spectator window is not open under/over the powerup select window.
-				UTPlayerOwner->GetUTLocalPlayer()->CloseSpectatorWindow();
-
-				SAssignNew(PowerupSelectWindow, SUTPowerupSelectWindow, UTPlayerOwner->GetUTLocalPlayer(), WidgetPath);
-				UTPlayerOwner->GetUTLocalPlayer()->OpenWindow(PowerupSelectWindow);
-
-				bConstructedPowerupWindowForDefense = bIsOnDefense;
-				UTPS->bIsPowerupSelectWindowOpen = false;
-				bAlreadyForcedWindowOpening = false;
-			}
-			//if we switch teams nuke the old window and make a new one
-			else if (bIsOnDefense != bConstructedPowerupWindowForDefense)
-			{
-				//ensure the spectator window is not open under/over the powerup select window.
-				UTPlayerOwner->GetUTLocalPlayer()->CloseSpectatorWindow();
-
-				UTPlayerOwner->GetUTLocalPlayer()->CloseWindow(PowerupSelectWindow);
-
-				SAssignNew(PowerupSelectWindow, SUTPowerupSelectWindow, UTPlayerOwner->GetUTLocalPlayer(), WidgetPath);
-				UTPlayerOwner->GetUTLocalPlayer()->OpenWindow(PowerupSelectWindow);
-
-				bConstructedPowerupWindowForDefense = bIsOnDefense;
-				UTPS->bIsPowerupSelectWindowOpen = false;
-				bAlreadyForcedWindowOpening = false;
-			}
-			else
-			{
-				//We need to force the powerup select window open
-				if (!bAlreadyForcedWindowOpening)
-				{
-					bAlreadyForcedWindowOpening = true;
-
-					//Intermission we want a delay before forcing it open to give the scoring info time to display
-					if (GS->GetMatchState() == MatchState::MatchIntermission)
-					{
-						AUTCTFRoundGameState* FRGS = Cast<AUTCTFRoundGameState>(GS);
-						float DelayTime = FRGS ? FMath::Min(TimeToDelayMenuOpenForIntermission, FMath::Max(0.2f, FRGS->IntermissionTime - 9.f)) : TimeToDelayMenuOpenForIntermission;
-						GetWorldTimerManager().SetTimer(MenuOpenDelayTimerHandle, this, &AUTFlagRunHUD::OpenPowerupSelectMenu, DelayTime, false);
-							
-						//its possible the menu was already thinking it should be opened. We want to force a delay here, so lets set it to close.
-						UTPS->bIsPowerupSelectWindowOpen = false;
-					}
-					else
-					{
-						if (GetWorldTimerManager().IsTimerActive(MenuOpenDelayTimerHandle))
-						{
-							GetWorldTimerManager().ClearTimer(MenuOpenDelayTimerHandle);
-						}
-
-						OpenPowerupSelectMenu();
-					}
-				}
-			}
-		}
-		else if ((PowerupSelectWindow.IsValid()) && (PowerupSelectWindow->GetWindowState() == EUIWindowState::Active))
-		{
-			UTPS->bIsPowerupSelectWindowOpen = false;
-			bAlreadyForcedWindowOpening = false;
-			UTPlayerOwner->GetUTLocalPlayer()->CloseWindow(PowerupSelectWindow);
-		}
-	}
-#endif
-}
-
-void AUTFlagRunHUD::OpenPowerupSelectMenu()
-{
-	AUTPlayerState* UTPS = Cast<AUTPlayerState>(UTPlayerOwner->PlayerState);
-	if (UTPS)
-	{
-		// say offense/defense and select your powerup
-		AUTFlagRunGameState* GS = GetWorld()->GetGameState<AUTFlagRunGameState>();
-		if (GS && UTPS->Team)
-		{
-			UTPlayerOwner->ClientReceiveLocalizedMessage(UUTCTFRoleMessage::StaticClass(), (GS->bRedToCap == (UTPS->Team->TeamIndex == 0)) ? 2 : 1);
-		}
-		if (GS && GS->bAllowBoosts)
-		{
-			UTPlayerOwner->ClientReceiveLocalizedMessage(UUTCTFRoleMessage::StaticClass(), 3);
-		}
-		UTPS->bIsPowerupSelectWindowOpen = true;
-		bAlreadyForcedWindowOpening = true;
-	}
-}
-
-EInputMode::Type AUTFlagRunHUD::GetInputMode_Implementation() const
-{
-#if !UE_SERVER
-	AUTPlayerState* UTPS = Cast<AUTPlayerState>(UTPlayerOwner->PlayerState);
-
-	AUTCTFGameState* GS = GetWorld()->GetGameState<AUTCTFGameState>();
-	if (PowerupSelectWindow.IsValid() && UTPS && UTPS->bIsPowerupSelectWindowOpen && GS && ((GS->GetMatchState() == MatchState::WaitingToStart) || (GS->GetMatchState() == MatchState::MatchIntermission)))
-	{
-		return EInputMode::EIM_GameAndUI;
-	}
-	else if (GS && ((GS->GetMatchState() == MatchState::WaitingToStart) || (GS->GetMatchState() == MatchState::MatchIntermission)))
-	{
-		return EInputMode::EIM_GameOnly;
-	}
-
-#endif
-
-	return Super::GetInputMode_Implementation();
-}

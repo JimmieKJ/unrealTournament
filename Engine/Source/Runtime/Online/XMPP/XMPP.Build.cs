@@ -31,6 +31,10 @@ public class XMPP : ModuleRules
 // jira UE-30298: temp undo
 //            AddEngineThirdPartyPrivateStaticDependencies(Target, "zlib");
 //            AddEngineThirdPartyPrivateStaticDependencies(Target, "OpenSSL");
+			if (Target.Platform == UnrealTargetPlatform.Linux)
+			{
+				AddEngineThirdPartyPrivateStaticDependencies(Target, "libcurl");
+			}
             AddEngineThirdPartyPrivateStaticDependencies(Target, "WebRTC");
         }
 		else if (Target.Platform == UnrealTargetPlatform.PS4)

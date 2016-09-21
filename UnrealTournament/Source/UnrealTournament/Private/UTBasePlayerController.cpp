@@ -56,7 +56,7 @@ void AUTBasePlayerController::InitInputSystem()
 	}
 
 #if WITH_PROFILE
-	if (LP != NULL && LP->IsLoggedIn() && LP->GetMcpProfileManager())
+	if (LP != NULL && LP->IsLoggedIn() && LP->GetMcpProfileManager() && LP->GetMcpProfileManager()->GetMcpProfileAs<UUtMcpProfile>(EUtMcpProfile::Profile))
 	{
 		FClientUrlContext QueryContext = FClientUrlContext::Default; // IMPORTANT to make a copy!
 		LP->GetMcpProfileManager()->GetMcpProfileAs<UUtMcpProfile>(EUtMcpProfile::Profile)->ForceQueryProfile(QueryContext);
@@ -1145,3 +1145,30 @@ void AUTBasePlayerController::ImportKeyBinds()
 	}
 }
 
+void AUTBasePlayerController::MarkTutorialAsCompleted(int32 TutorialMask)
+{
+	UUTProfileSettings* ProfileSettings = GetProfileSettings();
+	if (TutorialMask > 0 && ProfileSettings != nullptr)
+	{
+		ProfileSettings->TutorialMask |= TutorialMask;
+		SaveProfileSettings();
+	}
+}
+
+void AUTBasePlayerController::SaveProfileSettings()
+{
+	UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(Player);
+	if (LP)
+	{
+		LP->SaveProfileSettings();
+	}
+}
+
+void AUTBasePlayerController::ApplyProfileSettings()
+{
+	UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(Player);
+	if (LP)
+	{
+		LP->ApplyProfileSettings();
+	}
+}

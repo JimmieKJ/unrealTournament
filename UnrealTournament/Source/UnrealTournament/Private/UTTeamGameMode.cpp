@@ -117,7 +117,7 @@ APlayerController* AUTTeamGameMode::Login(class UPlayer* NewPlayer, ENetRole InR
 
 	if (PC != NULL && !PC->PlayerState->bOnlySpectator)
 	{
-		if (!bRankedSession)
+		if (!bRankedSession && !bIsQuickMatch)
 		{
 			// FIXMESTEVE Does team get overwritten in postlogin if inactive player?
 			uint8 DesiredTeam = (GetNetMode() == NM_Standalone) ? 1 : uint8(FMath::Clamp<int32>(UGameplayStatics::GetIntOption(Options, TEXT("Team"), 255), 0, 255));
@@ -242,12 +242,8 @@ bool AUTTeamGameMode::ChangeTeam(AController* Player, uint8 NewTeam, bool bBroad
 					AActor* const StartSpot = FindPlayerStart(PC);
 					if (StartSpot != NULL)
 					{
-						// Set the player controller / camera in this new location
-						FRotator InitialControllerRot = StartSpot->GetActorRotation();
-						InitialControllerRot.Roll = 0.f;
-						PC->SetInitialLocationAndRotation(StartSpot->GetActorLocation(), InitialControllerRot);
 						PC->StartSpot = StartSpot;
-						PC->ClientSetSpectatorLocation(StartSpot->GetActorLocation(), InitialControllerRot);
+						PC->ViewStartSpot();
 					}
 				}
 				return true;

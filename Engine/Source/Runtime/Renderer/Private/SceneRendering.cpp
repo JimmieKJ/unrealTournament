@@ -676,9 +676,6 @@ void FViewInfo::SetupUniformBufferParameters(
 
 	ViewUniformShaderParameters.ClipToPrevClip = InvViewProj * PrevViewProj;
 
-	// is getting clamped in the shader to a value larger than 0 (we don't want the triangles to disappear)
-	ViewUniformShaderParameters.AdaptiveTessellationFactor = 0.0f;
-
 	FScene* Scene = nullptr;
 
 	if (Family->Scene)
@@ -997,6 +994,9 @@ void FViewInfo::SetupViewRectUniformBufferParameters(
 					FPlane( 0,   0,  1,   0),
 					FPlane(Ax,  Ay,  0,   1)) * ViewMatrices.InvTranslatedViewProjectionMatrix;
 	}
+
+	// is getting clamped in the shader to a value larger than 0 (we don't want the triangles to disappear)
+	ViewUniformShaderParameters.AdaptiveTessellationFactor = 0.0f;
 
 	if(Family->EngineShowFlags.Tessellation)
 	{

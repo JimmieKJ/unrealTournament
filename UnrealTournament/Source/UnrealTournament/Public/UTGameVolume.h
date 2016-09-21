@@ -25,7 +25,7 @@ class UNREALTOURNAMENT_API AUTGameVolume : public APhysicsVolume, public IUTTeam
 		FVector2D MinimapOffset;
 
 	UPROPERTY(BlueprintReadWrite, Category = "Gameplay")
-		class AUTWeaponLocker* TeamLocker;
+		TArray<class AUTWeaponLocker*> TeamLockers;
 
 	/** If team safe volume, associated team members are invulnerable and everyone else is killed entering this volume. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Gameplay")

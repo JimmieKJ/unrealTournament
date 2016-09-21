@@ -448,7 +448,6 @@ void SUTMapVoteDialog::BuildAllVotes()
 				{
 					if ( MapVoteSortCompare(VoteInfo, AlphaSortedList[j]) )
 					{
-						UE_LOG(UT,Log,TEXT("   - Inserting"));
 						AlphaSortedList.Insert(VoteInfo, j);
 						bAdd = false;
 						break;
@@ -457,7 +456,6 @@ void SUTMapVoteDialog::BuildAllVotes()
 
 				if (bAdd)
 				{
-					UE_LOG(UT,Log,TEXT("   - Adding"));
 					AlphaSortedList.Add(VoteInfo);
 				}
 			}

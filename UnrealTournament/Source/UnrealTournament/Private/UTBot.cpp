@@ -1207,7 +1207,7 @@ void AUTBot::DisplayDebug(UCanvas* Canvas, const FDebugDisplayInfo& DebugDisplay
 	YPos += YL;
 	YPos += YL;
 	Canvas->SetDrawColor(255, 0, 0);
-	Canvas->DrawText(GEngine->GetSmallFont(), FString::Printf(TEXT("ENEMIES (current: %s, last rated %f ago)"), (Enemy != NULL && Enemy->PlayerState != NULL) ? *Enemy->PlayerState->PlayerName : *GetNameSafe(Enemy), GetWorld()->TimeSeconds - LastPickEnemyTime), 4.0f, YPos);
+	Canvas->DrawText(GEngine->GetSmallFont(), FString::Printf(TEXT("ENEMIES (current: %s (visible: %s), last rated %f ago)"), (Enemy != NULL && Enemy->PlayerState != NULL) ? *Enemy->PlayerState->PlayerName : *GetNameSafe(Enemy), (Enemy != NULL && IsEnemyVisible(Enemy)) ? TEXT("True") : TEXT("False"), GetWorld()->TimeSeconds - LastPickEnemyTime), 4.0f, YPos);
 	YPos += YL;
 	for (const FBotEnemyRating& RatingInfo : LastPickEnemyRatings)
 	{
@@ -3254,7 +3254,10 @@ void AUTBot::DoHunt(APawn* NewHuntTarget)
 								// (minimize backtracking to get on the intercept path)
 								for (int32 j = i; j < EnemyRouteCache.Num() && (EnemyRouteCache[j].GetLocation(GetPawn()) - PredictedEnemyLoc).SizeSquared() < PredictedEnemyDistSq; j++)
 								{
-									HuntEndpoints.Add(EnemyRouteCache[j]);
+									if (!EnemyRouteCache[j].Node->bDestinationOnly)
+									{
+										HuntEndpoints.Add(EnemyRouteCache[j]);
+									}
 								}
 							}
 							break;

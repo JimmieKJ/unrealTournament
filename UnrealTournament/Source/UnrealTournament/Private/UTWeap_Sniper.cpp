@@ -39,6 +39,8 @@ AUTWeap_Sniper::AUTWeap_Sniper(const FObjectInitializer& ObjectInitializer)
 
 	WeaponCustomizationTag = EpicWeaponCustomizationTags::Sniper;
 	WeaponSkinCustomizationTag = EpicWeaponSkinCustomizationTags::Sniper;
+	TutorialAnnouncements.Add(TEXT("PriSniper"));
+	TutorialAnnouncements.Add(TEXT("SecSniper"));
 }
 
 float AUTWeap_Sniper::GetHeadshotScale() const

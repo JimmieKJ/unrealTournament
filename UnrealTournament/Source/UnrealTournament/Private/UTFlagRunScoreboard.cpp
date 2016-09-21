@@ -10,12 +10,96 @@ UUTFlagRunScoreboard::UUTFlagRunScoreboard(const FObjectInitializer& ObjectIniti
 : Super(ObjectInitializer)
 {
 	CH_Powerup = NSLOCTEXT("UTFlagRunScoreboard", "ColumnHeader_Powerups", "");
-
 	ColumnHeaderPowerupX = 0.715f;
 	ColumnHeaderPowerupEndX = ColumnHeaderPowerupX + 0.0575f;
 	ColumnHeaderPowerupXDuringReadyUp = 0.82f;
 	bGroupRoundPairs = true;
 	bUseRoundKills = true;
+
+	DefendTitle = NSLOCTEXT("UTScoreboard", "Defending", "DEFENDING");
+	AttackTitle = NSLOCTEXT("UTScoreboard", "Attacking", "ATTACKING");
+
+	DefendLines.Add(NSLOCTEXT("UTScoreboard", "DefenseLine1", "* You are defending.  Your goal is to keep the enemy from"));
+	DefendLines.Add(NSLOCTEXT("UTScoreboard", "DefenseLine1b", "  bringing the flag to your base, and not run out of lives."));
+	DefendLines.Add(FText::GetEmpty());
+	DefendLines.Add(NSLOCTEXT("UTScoreboard", "DefenseLine2", "* You have five lives.  The attackers do not have a life limit."));
+	DefendLines.Add(FText::GetEmpty());
+	DefendLines.Add(NSLOCTEXT("UTScoreboard", "DefenseLine3", "* Attackers can earn 1 to 3 stars depending on how quickly they"));
+	DefendLines.Add(NSLOCTEXT("UTScoreboard", "DefenseLine3b", "  score."));
+	DefendLines.Add(FText::GetEmpty());
+	DefendLines.Add(NSLOCTEXT("UTScoreboard", "DefenseLine4", "* Defenders earn 1 star for preventing the attackers from scoring"));
+	DefendLines.Add(NSLOCTEXT("UTScoreboard", "DefenseLine4b", "  in 5 minutes."));
+	DefendLines.Add(FText::GetEmpty());
+	DefendLines.Add(NSLOCTEXT("UTScoreboard", "DefenseLine5", "* When the flag carrier is out of combat, teammates can teleport"));
+	DefendLines.Add(NSLOCTEXT("UTScoreboard", "DefenseLine5b", "  to him by pressing the rally button."));
+
+	AttackLines.Add(NSLOCTEXT("UTScoreboard", "AttackLine1", "* You are attacking.  Your goal is to deliver your flag as fast as"));
+	AttackLines.Add(NSLOCTEXT("UTScoreboard", "AttackLine1b", "possible to the enemy base, or exhaust their lives."));
+	AttackLines.Add(FText::GetEmpty());
+	AttackLines.Add(NSLOCTEXT("UTScoreboard", "AttackLine2", "* Defenders have five lives.  You do not have a life limit."));
+	AttackLines.Add(FText::GetEmpty());
+	AttackLines.Add(NSLOCTEXT("UTScoreboard", "DefenseLine3", "* Attackers can earn 1 to 3 stars depending on how quickly they"));
+	AttackLines.Add(NSLOCTEXT("UTScoreboard", "DefenseLine3b", "  score."));
+	AttackLines.Add(FText::GetEmpty());
+	AttackLines.Add(NSLOCTEXT("UTScoreboard", "DefenseLine4", "* Defenders earn 1 star for preventing the attackers from scoring"));
+	AttackLines.Add(NSLOCTEXT("UTScoreboard", "DefenseLine4b", "  in 5 minutes."));
+	AttackLines.Add(FText::GetEmpty());
+	AttackLines.Add(NSLOCTEXT("UTScoreboard", "DefenseLine5", "* When the flag carrier is out of combat, teammates can teleport"));
+	AttackLines.Add(NSLOCTEXT("UTScoreboard", "DefenseLine5b", "  to him by pressing the rally button."));
+}
+
+void UUTFlagRunScoreboard::DrawMinimap(float RenderDelta)
+{
+	AUTFlagRunGameState* GS = GetWorld()->GetGameState<AUTFlagRunGameState>();
+	AUTPlayerState* UTPS = Cast<AUTPlayerState>(UTPlayerOwner->PlayerState);
+	const float MapSize = (UTGameState && UTGameState->bTeamGame) ? FMath::Min(Canvas->ClipX - 2.f*ScaledEdgeSize - 2.f*ScaledCellWidth, 0.9f*Canvas->ClipY - 120.f * RenderScale)
+		: FMath::Min(0.5f*Canvas->ClipX, 0.9f*Canvas->ClipY - 120.f * RenderScale);
+	float MapYPos = FMath::Max(120.f*RenderScale, MinimapCenter.Y*Canvas->ClipY - 0.5f*MapSize);
+	FVector2D LeftCorner = FVector2D(MinimapCenter.X*Canvas->ClipX - 0.5f*MapSize, MapYPos);
+
+	if (GS && (GS->GetMatchState() == MatchState::MatchIntermission) && UTPS && UTPS->Team && (GS->IntermissionTime < 9.f))
+	{
+		// draw round information
+		const bool bIsOnDefense = GS->IsTeamOnDefenseNextRound(UTPS->Team->TeamIndex);
+		int32 NumLines = bIsOnDefense ? DefendLines.Num() : AttackLines.Num();
+		float Height = RenderScale * (80.f + 32.f*NumLines);
+		DrawTexture(UTHUDOwner->ScoreboardAtlas, LeftCorner.X, LeftCorner.Y, MapSize, Height, 149, 138, 32, 32, 0.75f, FLinearColor::Black);
+
+		FText Title = bIsOnDefense ? DefendTitle : AttackTitle;
+		float TextYPos = MinimapCenter.Y*Canvas->ClipY - 0.48f*MapSize;
+		DrawText(Title, MinimapCenter.X*Canvas->ClipX, TextYPos, UTHUDOwner->MediumFont, RenderScale, 1.0f, FLinearColor::White, ETextHorzPos::Center, ETextVertPos::Center);
+		float TextXPos = MinimapCenter.X*Canvas->ClipX - 0.49f*MapSize;
+		TextYPos += 48.f*RenderScale;
+
+		int32 DisplayedParagraphs = 9 - GS->IntermissionTime;
+		int32 CountedParagraphs = 0;
+		int32 LastParStart = 0;
+		for (int32 LineIndex = 0; LineIndex < NumLines; LineIndex++)
+		{
+			FText NextLine = bIsOnDefense ? DefendLines[LineIndex] : AttackLines[LineIndex];
+			if (NextLine.IsEmpty())
+			{
+				CountedParagraphs++;
+				if (CountedParagraphs >= DisplayedParagraphs)
+				{
+					NumLines = LineIndex;
+					break;
+				}
+				LastParStart = NumLines;
+			}
+		}
+
+		for (int32 LineIndex = 0; LineIndex < NumLines; LineIndex++)
+		{
+			FText NextLine = bIsOnDefense ? DefendLines[LineIndex] : AttackLines[LineIndex];
+			DrawText(NextLine, TextXPos, TextYPos, UTHUDOwner->SmallFont, RenderScale, 1.f, FLinearColor::White, ETextHorzPos::Left, ETextVertPos::Center);
+			TextYPos += 32.f*RenderScale;
+		}
+	}
+	else 
+	{
+		Super::DrawMinimap(RenderDelta);
+	}
 }
 
 void UUTFlagRunScoreboard::DrawScoreHeaders(float RenderDelta, float& YOffset)
@@ -107,17 +191,7 @@ void UUTFlagRunScoreboard::DrawPlayerScore(AUTPlayerState* PlayerState, float XO
 
 bool UUTFlagRunScoreboard::ShouldShowPowerupForPlayer(AUTPlayerState* PlayerState)
 {
-	if (UTGameState->IsMatchInProgress() && !UTGameState->IsMatchIntermission())
-	{
-		return true;
-	}
-
-	else if (UTPlayerOwner->GetTeamNum() == PlayerState->GetTeamNum())
-	{
-		return true;
-	}
-
-	return false;
+	return (UTGameState->IsMatchInProgress() && !UTGameState->IsMatchIntermission()) || (UTPlayerOwner->GetTeamNum() == PlayerState->GetTeamNum());
 }
 
 void UUTFlagRunScoreboard::DrawReadyText(AUTPlayerState* PlayerState, float XOffset, float YOffset, float Width)
@@ -274,7 +348,7 @@ void UUTFlagRunScoreboard::DrawScoringPlays(float DeltaTime, float& YPos, float 
 	FLinearColor DrawColor = FLinearColor::White;
 	float CurrentScoreHeight = (GS->CTFRound >= GS->NumRounds - 2) ? 3.f*ScoringOffsetY : 2.f*ScoringOffsetY;
 	float BackAlpha = 0.3f;
-	DrawTexture(UTHUDOwner->ScoreboardAtlas, XOffset - 0.0175f*ScoreWidth, YPos, 1.06f*ScoreWidth, CurrentScoreHeight, 149, 138, 32, 32, BackAlpha, DrawColor);
+	DrawTexture(UTHUDOwner->ScoreboardAtlas, XOffset, YPos, 1.11f*ScoreWidth, CurrentScoreHeight, 149, 138, 32, 32, BackAlpha, DrawColor);
 
 	float SingleXL, SingleYL;
 	float ScoreX = XOffset + 0.99f*ScoreWidth - ScoringOffsetX;

@@ -592,6 +592,15 @@ private:
 	template <typename SparseArrayType>
 	FORCEINLINE static typename TEnableIf<TContainerTraits<SparseArrayType>::MoveWillEmptyContainer>::Type MoveOrCopy(SparseArrayType& ToArray, SparseArrayType& FromArray)
 	{
+		// Destruct the allocated elements.
+		if (!TIsTriviallyDestructible<ElementType>::Value)
+		{
+			for (ElementType& Element : ToArray)
+			{
+				DestructItem(&Element);
+			}
+		}
+
 		ToArray.Data            = (DataType&&)FromArray.Data;
 		ToArray.AllocationFlags = (AllocationBitArrayType&&)FromArray.AllocationFlags;
 

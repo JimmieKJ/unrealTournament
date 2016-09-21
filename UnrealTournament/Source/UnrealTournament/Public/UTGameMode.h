@@ -7,6 +7,8 @@
 #include "UTAntiCheatModularFeature.h"
 #include "UTGameMode.generated.h"
 
+UNREALTOURNAMENT_API DECLARE_LOG_CATEGORY_EXTERN(LogUTGame, Log, All);
+
 /** Defines the current state of the game. */
 
 namespace MatchState
@@ -417,6 +419,16 @@ public:
 	UPROPERTY()
 		float EndOfMatchMessageDelay;
 
+
+	TAssetSubclassOf<AUTWeapon> ImpactHammerObject;
+
+	UPROPERTY()
+		TSubclassOf<AUTWeapon> ImpactHammerClass;
+
+	/** Set true to make impact hammer part of default inventory. */
+	UPROPERTY(EditDefaultsOnly, Category = Game)
+		bool bGameHasImpactHammer;
+
 	/** workaround for call chain from engine, SetPlayerDefaults() could be called while pawn is alive to reset its values but we don't want it to do new spawn stuff like spawning inventory unless it's called from RestartPlayer() */
 	UPROPERTY(Transient, BlueprintReadOnly)
 	bool bSetPlayerDefaultsNewSpawn;
@@ -643,6 +655,8 @@ public:
 
 	UPROPERTY()
 	bool bRankedSession;
+	UPROPERTY()
+	bool bUseMatchmakingSession;
 
 	virtual TSubclassOf<class AGameSession> GetGameSessionClass() const;
 	
@@ -952,6 +966,10 @@ public:
 	 *  ContextObject is the object that 
 	 **/
 	virtual void SendComsMessage( AUTPlayerController* Sender, AUTPlayerState* Target, int32 Switch = 0);
+
+	/** Holds the tutorial mask to set when this game completes.  */
+	UPROPERTY(BlueprintReadOnly, Category=Onboarding)
+	int32 TutorialMask;
 
 };
 

@@ -83,6 +83,11 @@ class AUTPartyBeaconHost : public APartyBeaconHost
 	 * @param bNewLockState true locks reservations, false unlocks
 	 */
 	void LockReservations(bool bNewLockState);
+
+	virtual void OnBeaconReservationsFull();
+	virtual void OnBeaconReservationChange();
+	virtual void OnBeaconReservationDuplicate();
+	virtual void EvaluatePermissionToProceedToGame();
 protected:
 
 	// Begin APartyBeaconHost Interface 
@@ -91,6 +96,8 @@ protected:
 	
 	/** Cached version of the host state */
 	UUTPartyBeaconState* UTState;
+
+	bool bRankedServer;
 
 	/** Are reservations currently locked and not removed when a user logs out */
 	UPROPERTY()

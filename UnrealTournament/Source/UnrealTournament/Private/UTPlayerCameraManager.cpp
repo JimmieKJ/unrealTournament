@@ -270,12 +270,13 @@ void AUTPlayerCameraManager::UpdateViewTarget(FTViewTarget& OutVT, float DeltaTi
 		FRotator Rotator = (!UTPC || UTPC->bSpectatorMouseChangesView) ? PCOwner->GetControlRotation() : UTPC->GetSpectatingRotation(Loc, DeltaTime);
 		if (bUseDeathCam)
 		{
-			if (UTPC && UTPC->IsInState(NAME_Inactive) && UTPC->IsFrozen() && UTPC->DeathCamFocus && !UTPC->DeathCamFocus->IsPendingKillPending() && (UTPC->DeathCamFocus != TargetActor)
-				&& (UTPC->GetFrozenTime() > 0.25f))
+			if (UTPC && UTPC->IsInState(NAME_Inactive) && UTPC->DeathCamFocus && !UTPC->DeathCamFocus->IsPendingKillPending() && (UTPC->DeathCamFocus != TargetActor)
+				&& (!UTPC->IsFrozen() || (UTPC->GetFrozenTime() > 0.25f)))
 			{
 				bool bZoomIn = ((GetWorld()->GetTimeSeconds() - UTPC->DeathCamFocus->GetLastRenderTime() < 0.2f) && (UTPC->GetFrozenTime() > 0.5f));
-				float ZoomFactor = FMath::Min(2.f*UTPC->GetFrozenTime() - 1.f, 1.f);
+				float ZoomFactor = FMath::Clamp(2.f*UTPC->GetFrozenTime() - 1.f, 0.f, 1.f);
 				float DistanceScaling = bZoomIn ? 1.f - ZoomFactor : 1.f;
+				CameraOffset.Z = CameraOffset.Z * (1.f - ZoomFactor) + 90.f*ZoomFactor;
 				FVector Pos = Loc + FRotationMatrix(Rotator).TransformVector(CameraOffset) - Rotator.Vector() * CameraDistance * DistanceScaling;
 
 				FHitResult Result;
@@ -308,7 +309,6 @@ void AUTPlayerCameraManager::UpdateViewTarget(FTViewTarget& OutVT, float DeltaTi
 				ViewRotation.Pitch += 15.f*DeltaTime*DeltaPitch;
 				UTPC->SetControlRotation(ViewRotation);
 				Rotator = ViewRotation;
-
 			}
 			else
 			{

@@ -248,8 +248,10 @@ public:
 		return DesktopSlateWidget;
 	}
 
-	virtual bool AreMenusOpen();
 #endif
+
+	UFUNCTION(BlueprintCallable, Category = UI)
+	virtual bool AreMenusOpen();
 
 	UFUNCTION()
 	virtual void ChangeStatsViewerTarget(FString InStatsID);
@@ -506,6 +508,7 @@ private:
 public:
 	virtual void LoadProfileSettings();
 	virtual void SaveProfileSettings();
+	virtual void ApplyProfileSettings();
 	virtual void ClearProfileSettings();
 
 	UFUNCTION(BlueprintCallable, Category = Profile)
@@ -1094,5 +1097,19 @@ public:
 	void AttemptLogin();
 
 	void ClearPendingLoginUserName();
+
+	// Defines where we are in the login process.  We stall the game during the whole login process.
+	UPROPERTY()
+	TEnumAsByte<ELoginPhase::Type> LoginPhase;
+
+	// Called when the entire login process is completed.  This includes loading the profile and progression
+	virtual void LoginProcessComplete();
+
+	virtual void SetTutorialFinished(int32 TutorialMask);
+
+	UFUNCTION(BlueprintCallable, Category = UI)
+	bool IsSystemMenuOpen();
+
+	virtual void InitializeSocial();
 
 };

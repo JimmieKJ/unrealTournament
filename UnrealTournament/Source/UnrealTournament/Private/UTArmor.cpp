@@ -10,6 +10,8 @@ AUTArmor::AUTArmor(const FObjectInitializer& ObjectInitializer)
 	ArmorAmount = 50;
 	BasePickupDesireability = 1.5f;
 	bDestroyWhenConsumed = true;
+
+	TutorialAnnouncements.Add(TEXT("ArmorPickups"));
 }
 
 bool AUTArmor::AllowPickupBy(AUTCharacter* Other) const

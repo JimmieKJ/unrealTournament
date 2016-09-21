@@ -499,8 +499,10 @@ FReply SPluginTile::OnEditPluginFinished(UPluginMetadataObject* MetadataObject)
 	PropertiesWindow->RequestDestroyWindow();
 
 	// Write both to strings
-	FString OldText = OldDescriptor.ToString();
-	FString NewText = NewDescriptor.ToString();
+	FString OldText;
+	OldDescriptor.Write(OldText, Plugin->GetLoadedFrom() == EPluginLoadedFrom::GameProject);
+	FString NewText;
+	NewDescriptor.Write(NewText, Plugin->GetLoadedFrom() == EPluginLoadedFrom::GameProject);
 	if(OldText.Compare(NewText, ESearchCase::CaseSensitive) != 0)
 	{
 		FString DescriptorFileName = Plugin->GetDescriptorFileName();

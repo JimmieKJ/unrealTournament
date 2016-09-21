@@ -61,12 +61,17 @@ AUTFlagRunGame::AUTFlagRunGame(const FObjectInitializer& ObjectInitializer)
 	DefenseKillsNeededForPowerUp = 10;
 	bCarryOwnFlag = true;
 	bNoFlagReturn = true;
+	bGameHasImpactHammer = false;
+	FlagPickupDelay = 15;
 
 	ActivatedPowerupPlaceholderObject = FStringAssetReference(TEXT("/Game/RestrictedAssets/Pickups/Powerups/BP_ActivatedPowerup_UDamage.BP_ActivatedPowerup_UDamage_C"));
 	RepulsorObject = FStringAssetReference(TEXT("/Game/RestrictedAssets/Pickups/Powerups/BP_Repulsor.BP_Repulsor_C"));
 
 	static ConstructorHelpers::FObjectFinder<UClass> AfterImageFinder(TEXT("Blueprint'/Game/RestrictedAssets/Weapons/Translocator/TransAfterImage.TransAfterImage_C'"));
 	AfterImageType = AfterImageFinder.Object;
+
+	static ConstructorHelpers::FObjectFinder<USoundBase> RallyFinalSoundFinder(TEXT("SoundWave'/Game/RestrictedAssets/Audio/Stingers/RallyFailed.RallyFailed'"));
+	RallyFailedSound = RallyFinalSoundFinder.Object;
 }
 
 void AUTFlagRunGame::InitGame(const FString& MapName, const FString& Options, FString& ErrorMessage)
@@ -98,6 +103,7 @@ void AUTFlagRunGame::InitGame(const FString& MapName, const FString& Options, FS
 		OffenseKillsNeededForPowerUp = 1000;
 		DefenseKillsNeededForPowerUp = 1000;
 	}
+	GameSession->MaxPlayers = 10;
 }
 
 int32 AUTFlagRunGame::GetFlagCapScore()
@@ -335,7 +341,7 @@ bool AUTFlagRunGame::CheckForWinner(AUTTeamInfo* ScoringTeam)
 			if (GS && GS->bRedToCap)
 			{
 				// next round is blue cap
-				if (Teams[0]->Score > Teams[1]->Score + GoldScore)
+				if ((Teams[0]->Score > Teams[1]->Score + GoldScore) || ((GS->TiebreakValue > 0) && (Teams[0]->Score == Teams[1]->Score + GoldScore)))
 				{
 					EndTeamGame(Teams[0], FName(TEXT("scorelimit")));
 					return true;
@@ -349,14 +355,14 @@ bool AUTFlagRunGame::CheckForWinner(AUTTeamInfo* ScoringTeam)
 			else
 			{
 				// next round is red cap
+				if ((Teams[1]->Score > Teams[0]->Score + GoldScore) || ((GS->TiebreakValue < 0) && (Teams[1]->Score == Teams[0]->Score + GoldScore)))
+				{
+					EndTeamGame(Teams[1], FName(TEXT("scorelimit")));
+					return true;
+				}
 				if ((Teams[0]->Score > Teams[1]->Score + DefenseScore) || ((Teams[0]->Score == Teams[1]->Score + DefenseScore) && (GS->TiebreakValue > 0)))
 				{
 					EndTeamGame(Teams[0], FName(TEXT("scorelimit")));
-					return true;
-				}
-				if (Teams[1]->Score > Teams[0]->Score + GoldScore)
-				{
-					EndTeamGame(Teams[1], FName(TEXT("scorelimit")));
 					return true;
 				}
 			}
@@ -681,6 +687,7 @@ void AUTFlagRunGame::CompleteRallyRequest(AUTPlayerController* RequestingPC)
 		AUTCharacter* FlagCarrier = Flag ? Flag->HoldingPawn : nullptr;
 		if (FlagCarrier == nullptr)
 		{
+			RequestingPC->ClientPlaySound(RallyFailedSound);
 			return;
 		}
 		ECollisionChannel SavedObjectType = UTCharacter->GetCapsuleComponent()->GetCollisionObjectType();
@@ -734,6 +741,7 @@ void AUTFlagRunGame::CompleteRallyRequest(AUTPlayerController* RequestingPC)
 		}
 		if (!bHitFloor)
 		{
+			RequestingPC->ClientPlaySound(RallyFailedSound);
 			return;
 		}
 		UTCharacter->GetCapsuleComponent()->SetCollisionObjectType(SavedObjectType);

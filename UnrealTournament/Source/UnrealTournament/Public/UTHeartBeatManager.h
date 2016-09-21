@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include "UTHeartbeatManager.generated.h"
+#include "UTHeartBeatManager.generated.h"
 
 UCLASS()
 class UUTHeartbeatManager : public UObject

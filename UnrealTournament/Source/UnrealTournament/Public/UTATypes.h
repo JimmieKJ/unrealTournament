@@ -19,6 +19,15 @@ const uint16 UTDIALOG_BUTTON_LAN = 0x0800;
 const uint16 UTDIALOG_BUTTON_CLOSE = 0x1000;
 const uint16 UTDIALOG_BUTTON_APPLY = 0x2000;
 
+const uint16 TUTORIAL_Movement = 0x0001;
+const uint16 TUTOIRAL_Weapon = 0x0002;
+const uint16 TUTORIAL_Pickups = 0x0004;
+const uint16 TUTORIAL_DM = 0x0008;
+const uint16 TUTORIAL_TDM = 0x0010;
+const uint16 TUTORIAL_CTF = 0x0020;
+const uint16 TUTORIAL_Duel = 0x0040;
+const uint16 TUTORIAL_FlagRun = 0x0080;
+
 const int32 DEFAULT_RANK_CHECK = 0;
 const int32 NEW_USER_ELO = 1000;
 const int32 NUMBER_RANK_LEVELS = 9;
@@ -1521,6 +1530,7 @@ const FName Pointer = FName(TEXT("CrossPointer"));
 const FName Triad1 = FName(TEXT("CrossTriad1"));
 const FName Triad2 = FName(TEXT("CrossTriad2"));
 const FName Triad3 = FName(TEXT("CrossTriad3"));
+const FName Sniper = FName(TEXT("Sniper"));
 };
 
 namespace EpicWeaponSkinCustomizationTags
@@ -1822,4 +1832,19 @@ public:
 		GameActions.Empty();
 	}
 };
+
+UENUM()
+namespace ELoginPhase
+{
+	enum Type
+	{
+		Offline,
+		Auth,
+		GettingProfile,
+		GettingProgression,		
+		GettingMMR,
+		LoggedIn,
+		MAX,
+	};
+}
 

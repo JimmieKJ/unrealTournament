@@ -25,6 +25,7 @@ AUTProj_StingerShard2::AUTProj_StingerShard2(const class FObjectInitializer& Obj
 	OverlapRadius = 1.0f;
 	OverlapSphereGrowthRate = 800.0f;
 	MaxOverlapSphereSize = 180.0f;
+	AirExplodeAngle = 0.1f;
 }
 
 void AUTProj_StingerShard2::DamageImpactedActor_Implementation(AActor* OtherActor, UPrimitiveComponent* OtherComp, const FVector& HitLocation, const FVector& HitNormal)
@@ -72,7 +73,7 @@ void AUTProj_StingerShard2::Tick(float DeltaTime)
 		const FVector MyLoc = GetActorLocation();
 		for (APawn* P : PotentialTargets)
 		{
-			if (P != nullptr && !P->bTearOff && ((P->GetActorLocation() - MyLoc).GetSafeNormal() | MovementDir) <= 0.0f && !GetWorld()->LineTraceTestByChannel(MyLoc, P->GetActorLocation(), COLLISION_TRACE_WEAPON, FCollisionQueryParams(NAME_None, true, P)))
+			if (P != nullptr && !P->bTearOff && ((P->GetActorLocation() - MyLoc).GetSafeNormal() | MovementDir) <= AirExplodeAngle && !GetWorld()->LineTraceTestByChannel(MyLoc, P->GetActorLocation(), COLLISION_TRACE_WEAPON, FCollisionQueryParams(NAME_None, true, P)))
 			{
 				Explode(GetActorLocation(), -MovementDir);
 				break;

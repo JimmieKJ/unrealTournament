@@ -1022,12 +1022,18 @@ bool FXmppMultiUserChatJingle::ExitRoom(const FXmppRoomId& RoomId)
 	{
 		ErrorStr = FString::Printf(TEXT("couldnt find room %s"), *RoomId);
 	}
-	else
+	else if(XmppRoom->Status != FXmppRoomJingle::ExitPending)
 	{
 		XmppRoom->Status = FXmppRoomJingle::ExitPending;
 		// queue the exit op
 		UE_LOG(LogXmpp, Verbose, TEXT("ExitRoom queuing FXmppChatRoomExitOp for room %s"), *RoomId);
 		bResult = PendingOpQueue.Enqueue(new FXmppChatRoomExitOp(RoomId));
+	}
+	else
+	{
+		UE_LOG(LogXmpp, Verbose, TEXT("ExitRoom operation pending for room %s"), *RoomId);
+		// Don't trigger the delegates it will ruin the original call that is waiting for the actual success/failure.
+        bResult = true;
 	}
 
 	if (!bResult)
@@ -1955,6 +1961,27 @@ void FXmppMultiUserChatJingle::HandleMucPresence(const FXmppMucPresence& MemberP
 	else
 	{
 		UE_LOG(LogXmpp, VeryVerbose, TEXT("MUC: HandleMucPresence IGNORED: room=%s status=%d connjid=%s"), XmppRoom ? TEXT("found") : TEXT("not found"), XmppRoom ? XmppRoom->Status : -1, *Connection.GetUserJid().Id);
+	}
+}
+
+void FXmppMultiUserChatJingle::DumpMultiUserChatState() const
+{
+	LOG_SCOPE_VERBOSITY_OVERRIDE(LogXmpp, ELogVerbosity::Display);
+	FScopeLock Lock(const_cast<FCriticalSection*>(&ChatroomsLock));
+	for (TMap<FXmppRoomId, FXmppRoomJingle>::TConstIterator RoomIt(Chatrooms); RoomIt; ++RoomIt)
+	{
+		const FXmppRoomId& RoomId = RoomIt.Key();
+		const FXmppRoomJingle& XmppRoom = RoomIt.Value();
+
+		UE_LOG(LogXmpp, Display, TEXT("RoomId: %s"), *RoomId);
+		UE_LOG(LogXmpp, Display, TEXT(" Owner: %s Subj: %s Priv: %d"), *XmppRoom.RoomInfo.OwnerId, *XmppRoom.RoomInfo.Subject, XmppRoom.RoomInfo.bIsPrivate);
+		UE_LOG(LogXmpp, Display, TEXT(" Status: %d"), (int32)XmppRoom.Status);
+
+		UE_LOG(LogXmpp, Display, TEXT(" Members: %d"), XmppRoom.Members.Num());
+		for (const FXmppChatMemberRef& Member : XmppRoom.Members)
+		{
+			UE_LOG(LogXmpp, Display, TEXT("  %s"), *Member->ToDebugString());
+		}
 	}
 }
 

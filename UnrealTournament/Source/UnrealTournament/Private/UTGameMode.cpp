@@ -52,6 +52,8 @@
 #include "UTGameVolume.h"
 #include "UTArmor.h"
 
+DEFINE_LOG_CATEGORY(LogUTGame);
+
 UUTResetInterface::UUTResetInterface(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
 {}
@@ -150,6 +152,9 @@ AUTGameMode::AUTGameMode(const class FObjectInitializer& ObjectInitializer)
 
 	bPlayersStartWithArmor = true;
 	StartingArmorObject = FStringAssetReference(TEXT("/Game/RestrictedAssets/Blueprints/Armor_Starting.Armor_Starting_C"));
+
+	ImpactHammerObject = FStringAssetReference(TEXT("/Game/RestrictedAssets/Weapons/ImpactHammer/BP_ImpactHammer.BP_ImpactHammer_C"));
+	bGameHasImpactHammer = true;
 }
 
 float AUTGameMode::OverrideRespawnTime(TSubclassOf<AUTInventory> InventoryType)
@@ -201,6 +206,12 @@ void AUTGameMode::InitGame( const FString& MapName, const FString& Options, FStr
 	Func->FunctionFlags |= FUNC_Native;
 	Func->SetNativeFunc((Native)&AUTGameMode::BeginPlayMutatorHack);
 
+	if (bGameHasImpactHammer && !ImpactHammerObject.IsNull())
+	{
+		ImpactHammerClass = Cast<UClass>(StaticLoadObject(UClass::StaticClass(), NULL, *ImpactHammerObject.ToStringReference().ToString(), NULL, LOAD_NoWarn));
+		DefaultInventory.Add(ImpactHammerClass);
+	}
+
 	UE_LOG(UT,Log,TEXT("==============="));
 	UE_LOG(UT,Log,TEXT("  Init Game Option: %s"), *Options);
 
@@ -225,6 +236,7 @@ void AUTGameMode::InitGame( const FString& MapName, const FString& Options, FStr
 	{
 		bRankedSession = false;
 	}
+	bUseMatchmakingSession = EvalBoolOptions(UGameplayStatics::ParseOption(Options, TEXT("MatchmakingSession")), false);
 
 	bIsQuickMatch = EvalBoolOptions(UGameplayStatics::ParseOption(Options, TEXT("QuickMatch")), false);
 
@@ -368,7 +380,7 @@ void AUTGameMode::InitGame( const FString& MapName, const FString& Options, FStr
 		AntiCheatEngine = &IModularFeatures::Get().GetModularFeature<UTAntiCheatModularFeature>(AntiCheatFeatureName);
 	}
 
-	if (bRankedSession)
+	if (bUseMatchmakingSession)
 	{
 		AUTGameSession* UTGameSession = Cast<AUTGameSession>(GameSession);
 		GetWorldTimerManager().SetTimer(ServerRestartTimerHandle, UTGameSession, &AUTGameSession::CheckForPossibleRestart, 60.0f, true);
@@ -379,6 +391,11 @@ void AUTGameMode::InitGame( const FString& MapName, const FString& Options, FStr
 	if (!StartingArmorObject.IsNull())
 	{
 		StartingArmorClass = Cast<UClass>(StaticLoadObject(UClass::StaticClass(), NULL, *StartingArmorObject.ToStringReference().ToString(), NULL, LOAD_NoWarn));
+	}
+
+	if (UGameplayStatics::HasOption(Options, TEXT("TutorialMask")))
+	{
+		TutorialMask = UGameplayStatics::GetIntOption(Options, TEXT("TutorialMask"), 0);
 	}
 }
 
@@ -513,7 +530,7 @@ void AUTGameMode::InitGameState()
 		UTGameState->bCasterControl = bCasterControl;
 		UTGameState->bPlayPlayerIntro = bPlayPlayerIntro;
 		UTGameState->bIsInstanceServer = IsGameInstanceServer();
-		if (bOfflineChallenge || bRankedSession)
+		if (bOfflineChallenge || bUseMatchmakingSession)
 		{
 			UTGameState->bAllowTeamSwitches = false;
 		}
@@ -1544,7 +1561,7 @@ void AUTGameMode::DiscardInventory(APawn* Other, AController* Killer)
 			{
 				AUTWeapon* OldWeapon = UTC->GetWeapon();
 				UTC->TossInventory(UTC->GetWeapon());
-				if (OldWeapon && !OldWeapon->IsPendingKillPending() && OldWeapon->bShouldAnnounceDrops && (OldWeapon->PickupAnnouncementName != NAME_None) && bAllowPickupAnnouncements && IsMatchInProgress())
+				if (OldWeapon && !OldWeapon->IsPendingKillPending() && OldWeapon->bShouldAnnounceDrops && (OldWeapon->Ammo > 0) && (OldWeapon->PickupAnnouncementName != NAME_None) && bAllowPickupAnnouncements && IsMatchInProgress())
 				{
 					AUTPlayerState* UTPS = Cast<AUTPlayerState>(Other->PlayerState);
 					if (UTPS)
@@ -1572,7 +1589,8 @@ void AUTGameMode::DiscardInventory(APawn* Other, AController* Killer)
 				if (It->bShouldAnnounceDrops && (It->PickupAnnouncementName != NAME_None) && bAllowPickupAnnouncements && IsMatchInProgress())
 				{
 					AUTPlayerState* UTPS = Cast<AUTPlayerState>(Other->PlayerState);
-					if (UTPS)
+					AUTWeapon* Weap = Cast<AUTWeapon>(*It);
+					if (UTPS && (!Weap || Weap->Ammo > 0))
 					{
 						UTPS->AnnounceStatus(It->PickupAnnouncementName, 2);
 					}
@@ -1854,7 +1872,7 @@ void AUTGameMode::EndMatch()
 
 	for (auto& KillElement : EnemyKillsByDamageType)
 	{
-		UE_LOG(UT, Log, TEXT("%s -> %d"), *KillElement.Key->GetName(), KillElement.Value);
+		UE_LOG(LogUTGame, Log, TEXT("%s -> %d"), *KillElement.Key->GetName(), KillElement.Value);
 	}
 #endif
 	
@@ -2054,17 +2072,24 @@ void AUTGameMode::EndGame(AUTPlayerState* Winner, FName Reason )
 		}
 	}
 
-		APlayerController* LocalPC = GEngine->GetFirstLocalPlayerController(GetWorld());
-		UUTLocalPlayer* LP = LocalPC ? Cast<UUTLocalPlayer>(LocalPC->Player) : NULL;
-		if (LP)
+	APlayerController* LocalPC = GEngine->GetFirstLocalPlayerController(GetWorld());
+	UUTLocalPlayer* LP = LocalPC ? Cast<UUTLocalPlayer>(LocalPC->Player) : NULL;
+	if (LP)
+	{
+		LP->EarnedStars = 0;
+		LP->RosterUpgradeText = FText::GetEmpty();
+		if (bOfflineChallenge && PlayerWonChallenge())
 		{
-			LP->EarnedStars = 0;
-			LP->RosterUpgradeText = FText::GetEmpty();
-			if (bOfflineChallenge && PlayerWonChallenge())
-			{
-				LP->ChallengeCompleted(ChallengeTag, ChallengeDifficulty + 1);
-			}
+			LP->ChallengeCompleted(ChallengeTag, ChallengeDifficulty + 1);
 		}
+
+
+		if (TutorialMask != 0 && GetWorld()->GetNetMode() == NM_Standalone)
+		{
+			LP->SetTutorialFinished(TutorialMask);
+		}
+
+	}
 
 	UTGameState->SetWinner(Winner);
 	EndTime = GetWorld()->TimeSeconds;
@@ -2329,12 +2354,24 @@ void AUTGameMode::TravelToNextMap_Implementation()
 		}
 	}
 
-	if (bRankedSession)
+	if (bUseMatchmakingSession)
 	{
 		GetWorldTimerManager().ClearTimer(ServerRestartTimerHandle);
+	}
 
+	if (bRankedSession)
+	{
 		SendEveryoneBackToLobby();
 
+		AUTGameSessionRanked* RankedGameSession = Cast<AUTGameSessionRanked>(GameSession);
+		if (RankedGameSession)
+		{
+			RankedGameSession->Restart();
+		}
+	}
+	else if (bUseMatchmakingSession && NumPlayers == 0)
+	{
+		// Everyone left this quick match
 		AUTGameSessionRanked* RankedGameSession = Cast<AUTGameSessionRanked>(GameSession);
 		if (RankedGameSession)
 		{
@@ -3173,6 +3210,14 @@ void AUTGameMode::HandlePlayerIntro()
 
 void AUTGameMode::EndPlayerIntro()
 {
+	for (FConstPlayerControllerIterator It = GetWorld()->GetPlayerControllerIterator(); It; ++It)
+	{
+		AUTPlayerController* PC = Cast<AUTPlayerController>(It->Get());
+		if (PC)
+		{
+			PC->ViewStartSpot();
+		}
+	}
 	SetMatchState(MatchState::CountdownToBegin);
 }
 
@@ -3341,6 +3386,11 @@ void AUTGameMode::PostLogin( APlayerController* NewPlayer )
 	FindAndMarkHighScorer();
 
 	HUDClass = SavedHUDClass;
+
+	if (bIsQuickMatch && bUseMatchmakingSession)
+	{
+		GetWorldTimerManager().ClearTimer(ServerRestartTimerHandle);
+	}
 }
 
 void AUTGameMode::SwitchToCastingGuide(AUTPlayerController* NewCaster)
@@ -3446,6 +3496,12 @@ void AUTGameMode::Logout(AController* Exiting)
 			LobbyBeacon->UpdatePlayer(this, PS, true);
 		}
 	}
+
+	if (NumPlayers == 0 && bIsQuickMatch && bUseMatchmakingSession)
+	{
+		AUTGameSession* UTGameSession = Cast<AUTGameSession>(GameSession);
+		GetWorldTimerManager().SetTimer(ServerRestartTimerHandle, UTGameSession, &AUTGameSession::CheckForPossibleRestart, 60.0f, true);
+	}
 }
 
 bool AUTGameMode::ModifyDamage_Implementation(int32& Damage, FVector& Momentum, APawn* Injured, AController* InstigatedBy, const FHitResult& HitInfo, AActor* DamageCauser, TSubclassOf<UDamageType> DamageType)
@@ -3507,11 +3563,7 @@ bool AUTGameMode::ChangeTeam(AController* Player, uint8 NewTeam, bool bBroadcast
 
 TSubclassOf<AGameSession> AUTGameMode::GetGameSessionClass() const
 {
-	if (bRankedSession)
-	{
-		return AUTGameSessionRanked::StaticClass();
-	}
-	if (bIsQuickMatch)
+	if (bUseMatchmakingSession)
 	{
 		return AUTGameSessionRanked::StaticClass();
 	}
@@ -4314,7 +4366,10 @@ void AUTGameMode::BuildWeaponInfo(AUTPlayerState* PlayerState, TSharedPtr<class 
 	TArray<AUTWeapon *> StatsWeapons;
 	{
 		// add default weapons - needs to be automated
-		StatsWeapons.AddUnique(AUTWeap_ImpactHammer::StaticClass()->GetDefaultObject<AUTWeapon>());
+		if (bGameHasImpactHammer)
+		{
+			StatsWeapons.AddUnique(AUTWeap_ImpactHammer::StaticClass()->GetDefaultObject<AUTWeapon>());
+		}
 		StatsWeapons.AddUnique(AUTWeap_Enforcer::StaticClass()->GetDefaultObject<AUTWeapon>());
 
 		//Get the rest of the weapons from the pickups in the map

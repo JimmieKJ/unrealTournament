@@ -2295,15 +2295,22 @@ UObject* FNetGUIDCache::GetObjectFromNetGUID( const FNetworkGUID& NetGUID, const
 			//	2. We aren't already pending
 			//	3. We're actually suppose to load (levels don't load here for example)
 			//		(Refer to CanClientLoadObject, which is where we protect clients from trying to load levels)
-			check( !PendingAsyncPackages.Contains( CacheObjectPtr->PathName ) );
-
+			
 			if ( CVarAllowAsyncLoading.GetValueOnGameThread() > 0 )
 			{
-				PendingAsyncPackages.Add( CacheObjectPtr->PathName, NetGUID );
-				CacheObjectPtr->bIsPending = true;
-				LoadPackageAsync(CacheObjectPtr->PathName.ToString(), FLoadPackageAsyncDelegate::CreateRaw(this, &FNetGUIDCache::AsyncPackageCallback));
+				if (!PendingAsyncPackages.Contains(CacheObjectPtr->PathName))
+				{
+					PendingAsyncPackages.Add(CacheObjectPtr->PathName, NetGUID);
+					CacheObjectPtr->bIsPending = true;
+					LoadPackageAsync(CacheObjectPtr->PathName.ToString(), FLoadPackageAsyncDelegate::CreateRaw(this, &FNetGUIDCache::AsyncPackageCallback));
 
-				UE_LOG( LogNetPackageMap, Log, TEXT( "GetObjectFromNetGUID: Async loading package. Path: %s, NetGUID: %s" ), *CacheObjectPtr->PathName.ToString(), *NetGUID.ToString() );
+					UE_LOG(LogNetPackageMap, Log, TEXT("GetObjectFromNetGUID: Async loading package. Path: %s, NetGUID: %s"), *CacheObjectPtr->PathName.ToString(), *NetGUID.ToString());
+				}
+				else
+				{
+					check(PendingAsyncPackages[CacheObjectPtr->PathName] == NetGUID);
+					UE_LOG(LogNetPackageMap, Log, TEXT("GetObjectFromNetGUID: Already async loading package. Path: %s, NetGUID: %s"), *CacheObjectPtr->PathName.ToString(), *NetGUID.ToString());
+				}
 
 				// There is nothing else to do except wait on the delegate to tell us this package is done loading
 				return NULL;

@@ -42,13 +42,10 @@ AUTCTFBaseGame::AUTCTFBaseGame(const FObjectInitializer& ObjectInitializer)
 
 void AUTCTFBaseGame::InitGame(const FString& MapName, const FString& Options, FString& ErrorMessage)
 {
-	if (!TranslocatorObject.IsNull())
+	if (bGameHasTranslocator && !TranslocatorObject.IsNull())
 	{
 		TranslocatorClass = Cast<UClass>(StaticLoadObject(UClass::StaticClass(), NULL, *TranslocatorObject.ToStringReference().ToString(), NULL, LOAD_NoWarn));
-		if (bGameHasTranslocator)
-		{
-			DefaultInventory.Add(TranslocatorClass);
-		}
+		DefaultInventory.Add(TranslocatorClass);
 	}
 
 	Super::InitGame(MapName, Options, ErrorMessage);
@@ -524,6 +521,10 @@ void AUTCTFBaseGame::PlacePlayersAroundFlagBase(int32 TeamNum, int32 FlagTeamNum
 					C->UnPossess();
 				}
 				RestartPlayer(C);
+				if (C->GetPawn())
+				{
+					C->GetPawn()->TurnOff();
+				}
 			}
 		}
 	}

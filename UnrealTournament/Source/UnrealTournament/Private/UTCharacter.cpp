@@ -161,7 +161,7 @@ AUTCharacter::AUTCharacter(const class FObjectInitializer& ObjectInitializer)
 	PlayerIndicatorMaxDistance = 1200.f;
 	BeaconTextScale = 1.f;
 	MaxSavedPositionAge = 0.3f; // @TODO FIXMESTEVE should use server's MaxPredictionPing to determine this - note also that bots will increase this if needed to satisfy their tracking requirements
-	MaxShotSynchDelay = 0.1f;
+	MaxShotSynchDelay = 0.2f;
 
 	MaxStackedArmor = 150;
 	MaxDeathLifeSpan = 30.0f;
@@ -273,6 +273,12 @@ void AUTCharacter::BeginPlay()
 		OwnFootstepSoundsMap.Add(FootstepSounds[i].SurfaceType, FootstepSounds[i].SoundOwner);
 	}
 
+	AUTWorldSettings* Settings = Cast<AUTWorldSettings>(GetWorldSettings());
+	if (GetMesh() && Settings->bUseCapsuleDirectShadowsForCharacter)
+	{
+		GetMesh()->bCastCapsuleDirectShadow = true;
+	}
+
 	Super::BeginPlay();
 }
 
@@ -324,6 +330,26 @@ bool AUTCharacter::DelayedShotFound()
 		}
 	}
 	return false;
+}
+
+float AUTCharacter::GetCurrentSynchTime(bool bNetDelayedShot)
+{
+	if (bNetDelayedShot)
+	{
+		const float WorldTime = GetWorld()->GetTimeSeconds();
+		for (int32 i = SavedPositions.Num() - 1; i >= 0; i--)
+		{
+			if (SavedPositions[i].bShotSpawned)
+			{
+				return SavedPositions[i].TimeStamp;
+			}
+			if (WorldTime - SavedPositions[i].Time > MaxShotSynchDelay)
+			{
+				break;
+			}
+		}
+	}
+	return UTCharacterMovement ? UTCharacterMovement->GetCurrentSynchTime() : 0.f;
 }
 
 FVector AUTCharacter::GetDelayedShotPosition()
@@ -963,7 +989,7 @@ float AUTCharacter::TakeDamage(float Damage, const FDamageEvent& DamageEvent, AC
 					AUTProjectile* Proj = Cast<AUTProjectile>(DamageCauser);
 					KillerPS->bAnnounceWeaponReward = Proj && Proj->bPendingSpecialReward;
 				}
-				Died(EventInstigator, DamageEvent);
+				Died(EventInstigator, DamageEvent, DamageCauser);
 				if (KillerPS)
 				{
 					KillerPS->bAnnounceWeaponReward = false;
@@ -1360,7 +1386,7 @@ bool AUTCharacter::K2_Died(AController* EventInstigator, TSubclassOf<UDamageType
 	return Died(EventInstigator, FUTPointDamageEvent(Health + 1, FHitResult(), FVector(0.0f, 0.0f, -1.0f), DamageType));
 }
 
-bool AUTCharacter::Died(AController* EventInstigator, const FDamageEvent& DamageEvent)
+bool AUTCharacter::Died(AController* EventInstigator, const FDamageEvent& DamageEvent, AActor* DamageCauser)
 {
 	if (Role < ROLE_Authority || IsDead())
 	{
@@ -1455,15 +1481,10 @@ bool AUTCharacter::Died(AController* EventInstigator, const FDamageEvent& Damage
 			AUTPlayerController* DyingGameController = Cast<AUTPlayerController>(ControllerKilled);
 			if (DyingGameController)
 			{
-				APawn* KillcamFocus = this;
-				if (EventInstigator && EventInstigator->GetPawn())
-				{
-					KillcamFocus = EventInstigator->GetPawn();
-				}
-				DyingGameController->ClientPlayKillcam(EventInstigator, KillcamFocus, KillcamFocus ? KillcamFocus->GetActorLocation() : FVector::ZeroVector);
+				APawn* KillcamFocus = EventInstigator ? EventInstigator->GetPawn() : nullptr;
+				FVector FocusLoc = Cast<AUTProjectile>(DamageCauser) ? ((AUTProjectile *)DamageCauser)->ShooterLocation : (KillcamFocus ? KillcamFocus->GetActorLocation() : FVector::ZeroVector);
+				DyingGameController->ClientPlayKillcam(EventInstigator, KillcamFocus, FocusLoc);
 			}
-
-
 			return true;
 		}
 	}
@@ -1634,7 +1655,7 @@ void AUTCharacter::StopRagdoll()
 
 			const USkeletalMeshComponent* DefaultMesh = GetClass()->GetDefaultObject<AUTCharacter>()->GetMesh();
 			FTransform RelativeTransform(DefaultMesh->RelativeRotation, DefaultMesh->RelativeLocation, DefaultMesh->RelativeScale3D);
-			GetMesh()->SetWorldTransform(RelativeTransform * GetCapsuleComponent()->GetComponentTransform());
+			GetMesh()->SetWorldTransform(RelativeTransform * GetCapsuleComponent()->GetComponentTransform(), false, nullptr, ETeleportType::TeleportPhysics);
 
 			RootBody->SetBodyTransform(GetMesh()->GetComponentTransform(), ETeleportType::TeleportPhysics);
 			RootBody->PutInstanceToSleep();
@@ -2755,7 +2776,7 @@ void AUTCharacter::InventoryEvent(FName EventName)
 
 void AUTCharacter::SwitchWeapon(AUTWeapon* NewWeapon)
 {
-	if (NewWeapon != NULL && !IsDead())
+	if (NewWeapon != NULL && !IsDead() && ((Weapon == nullptr) || !bDisallowWeaponFiring))
 	{
 		if (Role == ROLE_Authority)
 		{
@@ -4473,14 +4494,19 @@ void AUTCharacter::Tick(float DeltaTime)
 	}
 	else if (MyPC && GetCharacterMovement()) 
 	{
-		if ((Health <= LowHealthAmbientThreshold) && (Health > 0))
+		if (MyPC && MyPC->UTPlayerState && MyPC->UTPlayerState->CarriedObject && MyPC->UTPlayerState->CarriedObject->HeldFlagAmbientSound)
+		{
+			SetStatusAmbientSound(MyPC->UTPlayerState->CarriedObject->HeldFlagAmbientSound, 1.f, 1.f, false);
+		}
+		else if ((Health <= LowHealthAmbientThreshold) && (Health > 0))
 		{
 			float UrgencyFactor = (LowHealthAmbientThreshold - Health) / LowHealthAmbientThreshold;
 			SetStatusAmbientSound(LowHealthAmbientSound, 0.5f + FMath::Clamp<float>(UrgencyFactor, 0.f, 1.f), 1.f, false);
 		}
 		else
 		{
-			SetStatusAmbientSound(LowHealthAmbientSound, 0.f, 1.f, true);
+			StatusAmbientSound = NULL;
+			StatusAmbientSoundUpdated();
 		}
 		// @TODO FIXMESTEVE this should all be event driven
 		if (GetCharacterMovement()->IsFalling() && (GetCharacterMovement()->Velocity.Z < FallingAmbientStartSpeed))
@@ -5211,7 +5237,7 @@ void AUTCharacter::PostRenderFor(APlayerController* PC, UCanvas* Canvas, FVector
 	const bool bRecentlyRendered = (GetWorld()->TimeSeconds - GetLastRenderTime() < 0.5f);
 	const bool bIsViewTarget = (PC->GetViewTarget() == this);
 	if (UTPS != NULL && UTPC != NULL && (bSpectating || (UTPC && UTPC->UTPlayerState && UTPC->UTPlayerState->bOutOfLives) || !bIsViewTarget) && (bRecentlyRendered || (bOnSameTeam && !bIsViewTarget)) &&
-		FVector::DotProduct(CameraDir, (GetActorLocation() - CameraPosition)) > 0.0f && GS != NULL)
+		FVector::DotProduct(CameraDir, (GetActorLocation() - CameraPosition)) > 0.0f && GS != NULL && (UTPC->MyUTHUD == nullptr || !UTPC->MyUTHUD->bShowScores))
 	{
 		float Dist = (CameraPosition - GetActorLocation()).Size() * FMath::Tan(FMath::DegreesToRadians(PC->PlayerCameraManager->GetFOVAngle()*0.5f));
 		if ((bOnSameTeam || bSpectating || GS->HasMatchEnded() || GS->IsMatchIntermission()) && (bTacCom || bOnSameTeam || Dist <= (bSpectating ? SpectatorIndicatorMaxDistance : TeamPlayerIndicatorMaxDistance)))
@@ -5607,20 +5633,25 @@ void AUTCharacter::OnTriggerRallyEffect()
 		if (RallyAnimation != nullptr)
 		{
 			PlayTauntByClass(RallyAnimation, 2.f);
+			UTCharacterMovement->bIsTaunting = false;
 		}
-		TSubclassOf<AUTReplicatedEmitter> PickedEffect = RallyEffect[0];
-		int32 TeamNum = GetTeamNum();
-		if (TeamNum <RallyEffect.Num() && RallyEffect[TeamNum] != NULL)
-		{
-			PickedEffect = RallyEffect[TeamNum];
-		}
-
-		FActorSpawnParameters Params;
-		Params.Owner = this;
-		Params.Instigator = this;
-		GetWorld()->SpawnActor<AUTReplicatedEmitter>(PickedEffect, GetActorLocation() - FVector(0.f, 0.f, GetCapsuleComponent()->GetUnscaledCapsuleHalfHeight()), GetActorRotation(), Params);
-
+		SpawnRallyEffectAt(GetActorLocation());
 	}
+}
+
+void AUTCharacter::SpawnRallyEffectAt(FVector EffectLocation)
+{
+	TSubclassOf<AUTReplicatedEmitter> PickedEffect = RallyEffect[0];
+	int32 TeamNum = GetTeamNum();
+	if (TeamNum <RallyEffect.Num() && RallyEffect[TeamNum] != NULL)
+	{
+		PickedEffect = RallyEffect[TeamNum];
+	}
+
+	FActorSpawnParameters Params;
+	Params.Owner = this;
+	Params.Instigator = this;
+	GetWorld()->SpawnActor<AUTReplicatedEmitter>(PickedEffect, EffectLocation - FVector(0.f, 0.f, GetCapsuleComponent()->GetUnscaledCapsuleHalfHeight()), GetActorRotation(), Params);
 }
 
 float AUTCharacter::GetRemoteViewPitch()

@@ -410,44 +410,121 @@ namespace UnrealTournamentGame.Automation
 	[RequireP4]
 	class UnrealTournamentProto_BasicBuild : BuildCommand
 	{
-		static List<TargetPlatformDescriptor> GetClientTargetPlatforms(BuildCommand Cmd)
+		static List<UnrealTargetConfiguration> GetClientConfigsToBuild(BuildCommand Cmd, string TargetPlatformOverride)
+		{
+			List<UnrealTargetConfiguration> ClientConfigs = new List<UnrealTargetConfiguration>();
+
+			string ClientConfigNames = Cmd.ParseParamValue("clientconfig");
+			if (ClientConfigNames != null)
+			{
+				if (ClientConfigNames.Equals("none", StringComparison.InvariantCultureIgnoreCase))
+				{
+					return ClientConfigs;
+				}
+				string[] ClientStrings = ClientConfigNames.Split('+');
+				foreach (string Client in ClientStrings)
+				{
+					UnrealTargetConfiguration Config = (UnrealTargetConfiguration)Enum.Parse(typeof(UnrealTargetConfiguration), Client);
+					ClientConfigs.Add(Config);
+				}
+			}
+			else
+			{
+				string TargetPlatform = TargetPlatformOverride.Length > 0 ? TargetPlatformOverride : Cmd.ParseParamValue("TargetPlatform");
+				if (TargetPlatform == "Mac" || TargetPlatform == "Win32" || TargetPlatform == "Win64" || TargetPlatform == "PS4" || TargetPlatform == "XboxOne")
+				{
+					// The first config in this list is the one used in the launcher manifest.
+					// If building for shipping, use shipping first. Otherwise, use development.
+					if (Cmd.ParseParam("shipping"))
+					{
+						ClientConfigs.Add(UnrealTargetConfiguration.Shipping);
+						ClientConfigs.Add(UnrealTargetConfiguration.Development);
+						ClientConfigs.Add(UnrealTargetConfiguration.Test);
+					}
+					else
+					{
+						// Only producing test and development builds to reduce build machine burden in non-release branches
+						ClientConfigs.Add(UnrealTargetConfiguration.Development);
+						ClientConfigs.Add(UnrealTargetConfiguration.Test);
+					}
+				}
+			}
+
+			return ClientConfigs;
+		}
+		static List<UnrealTargetConfiguration> GetServerConfigsToBuild(BuildCommand Cmd, string TargetPlatformOverride)
+		{
+			List<UnrealTargetConfiguration> ServerConfigs = new List<UnrealTargetConfiguration>();
+
+			string ServerConfigNames = Cmd.ParseParamValue("serverconfig");
+			if (ServerConfigNames != null)
+			{
+				if (ServerConfigNames.Equals("none", StringComparison.InvariantCultureIgnoreCase))
+				{
+					return ServerConfigs;
+				}
+				string[] ServerStrings = ServerConfigNames.Split('+');
+				foreach (string Server in ServerStrings)
+				{
+					UnrealTargetConfiguration Config = (UnrealTargetConfiguration)Enum.Parse(typeof(UnrealTargetConfiguration), Server);
+					ServerConfigs.Add(Config);
+				}
+			}
+			else
+			{
+				string TargetPlatform = TargetPlatformOverride.Length > 0 ? TargetPlatformOverride : Cmd.ParseParamValue("TargetPlatform");
+				if (TargetPlatform == "Linux" || TargetPlatform == "Win32" || TargetPlatform == "Win64")
+				{
+					// The order for servers does not matter as servers are not distributed by the launcher.
+					if (Cmd.ParseParam("shipping"))
+					{
+						ServerConfigs.Add(UnrealTargetConfiguration.Development);
+						ServerConfigs.Add(UnrealTargetConfiguration.Shipping);
+						ServerConfigs.Add(UnrealTargetConfiguration.Test);
+					}
+					else
+					{
+						// Only producing test and development builds to reduce build machine burden in non-release branches
+						ServerConfigs.Add(UnrealTargetConfiguration.Development);
+						ServerConfigs.Add(UnrealTargetConfiguration.Test);
+					}
+				}
+			}
+
+			return ServerConfigs;
+		}
+
+		static List<TargetPlatformDescriptor> GetClientTargetPlatforms(BuildCommand Cmd, string TargetPlatformOverride)
 		{
 			List<UnrealTargetPlatform> ClientPlatforms = new List<UnrealTargetPlatform>();
+			string TargetPlatform = TargetPlatformOverride.Length > 0 ? TargetPlatformOverride : Cmd.ParseParamValue("TargetPlatform");
 
-			if (Cmd.ParseParam("win"))
+			string[] PlatformStrings = TargetPlatform.Split('+');
+			foreach (string PlatformString in PlatformStrings)
 			{
-				ClientPlatforms.Add(UnrealTargetPlatform.Win64);
-				ClientPlatforms.Add(UnrealTargetPlatform.Win32);
-			}
-			if (Cmd.ParseParam("mac"))
-			{
-				ClientPlatforms.Add(UnrealTargetPlatform.Mac);
-			}
-			if (!Cmd.ParseParam("nolinux"))
-			{
-				ClientPlatforms.Add(UnrealTargetPlatform.Linux);
+				UnrealTargetPlatform Platform = (UnrealTargetPlatform)Enum.Parse(typeof(UnrealTargetPlatform), PlatformString);
+				ClientPlatforms.Add(Platform);
 			}
 
 			return ClientPlatforms.ConvertAll(x => new TargetPlatformDescriptor(x));
 		}
 
-		static List<TargetPlatformDescriptor> GetServerTargetPlatforms(BuildCommand Cmd)
+		static List<TargetPlatformDescriptor> GetServerTargetPlatforms(BuildCommand Cmd, string TargetPlatformOverride)
 		{
-			List<UnrealTargetPlatform> ServerPlatforms = new List<UnrealTargetPlatform>();
+			List<UnrealTargetPlatform> ClientPlatforms = new List<UnrealTargetPlatform>();
+			string TargetPlatform = TargetPlatformOverride.Length > 0 ? TargetPlatformOverride : Cmd.ParseParamValue("TargetPlatform");
 
-			if(Cmd.ParseParam("win"))
+			string[] PlatformStrings = TargetPlatform.Split('+');
+			foreach (string PlatformString in PlatformStrings)
 			{
-				ServerPlatforms.Add(UnrealTargetPlatform.Win64);
-			}
-			if (!Cmd.ParseParam("nolinux"))
-			{
-				ServerPlatforms.Add(UnrealTargetPlatform.Linux);
+				UnrealTargetPlatform Platform = (UnrealTargetPlatform)Enum.Parse(typeof(UnrealTargetPlatform), PlatformString);
+				ClientPlatforms.Add(Platform);
 			}
 
-            return ServerPlatforms.ConvertAll(x => new TargetPlatformDescriptor(x));
-        }
+			return ClientPlatforms.ConvertAll(x => new TargetPlatformDescriptor(x));
+		}
 
-		static public ProjectParams GetParams(BuildCommand Cmd)
+		static public ProjectParams GetParams(BuildCommand Cmd, string TargetPlatformOverride="")
 		{
 			string P4Change = "Unknown";
 			string P4Branch = "Unknown";
@@ -459,7 +536,8 @@ namespace UnrealTournamentGame.Automation
 
 			string StageDirectory = Cmd.ParseParamValue("StagingDir", null);
 
-			List<TargetPlatformDescriptor> ServerTargetPlatforms = GetServerTargetPlatforms(Cmd);
+			List<TargetPlatformDescriptor> ClientTargetPlatforms = GetClientTargetPlatforms(Cmd, TargetPlatformOverride);
+			List<TargetPlatformDescriptor> ServerTargetPlatforms = GetServerTargetPlatforms(Cmd, TargetPlatformOverride);
 
 			ProjectParams Params = new ProjectParams
 			(
@@ -471,9 +549,9 @@ namespace UnrealTournamentGame.Automation
 				ClientCookedTargets: new ParamList<string>("UnrealTournament"),
 				ServerCookedTargets: new ParamList<string>("UnrealTournamentServer"),
 
-				ClientConfigsToBuild: new List<UnrealTargetConfiguration>() { UnrealTargetConfiguration.Shipping, UnrealTargetConfiguration.Test },
-				ServerConfigsToBuild: new List<UnrealTargetConfiguration>() { UnrealTargetConfiguration.Shipping, UnrealTargetConfiguration.Test },
-                ClientTargetPlatforms: GetClientTargetPlatforms(Cmd),
+				ClientConfigsToBuild: GetClientConfigsToBuild(Cmd, TargetPlatformOverride),
+				ServerConfigsToBuild: GetServerConfigsToBuild(Cmd, TargetPlatformOverride),
+                ClientTargetPlatforms: ClientTargetPlatforms,
 				ServerTargetPlatforms: ServerTargetPlatforms,
 				Build: !Cmd.ParseParam("skipbuild"),
 				Cook: true,
@@ -605,8 +683,11 @@ namespace UnrealTournamentGame.Automation
 			Project.Build(this, Params, WorkingCL);
 			Project.Cook(Params);
 			Project.CopyBuildToStagingDirectory(Params);
-			CopyAssetRegistryFilesFromSavedCookedToReleases(Params);
-			SubmitAssetRegistryFilesToPerforce(Params);
+			if (!this.ParseParam("SkipPerforce"))
+			{
+				CopyAssetRegistryFilesFromSavedCookedToReleases(Params);
+				SubmitAssetRegistryFilesToPerforce(Params);
+			}
 			PrintRunTime();
 			Project.Deploy(Params);
 			Project.Run(Params);
@@ -1451,11 +1532,6 @@ namespace UnrealTournamentGame.Automation
 					BuildVersion = BuildVersion.Substring(0, BuildVersion.Length - ("-" + platform).Length);
 					Log("Stripped platform off BuildVersion, resulting in {0}", BuildVersion);
 				}
-			}
-			// Add ++depot+ junk if it's missing
-			if (!BuildVersion.StartsWith("++depot+"))
-			{
-				BuildVersion = "++depot+" + BuildVersion;
 			}
 
 			// Enforce some restrictions on destination apps

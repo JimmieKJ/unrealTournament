@@ -14,6 +14,7 @@ UUTHUDWidget_WeaponCrosshair::UUTHUDWidget_WeaponCrosshair(const class FObjectIn
 {
 	Size=FVector2D(0.0f,0.0f);
 	ScreenPosition=FVector2D(0.5f, 0.5f);
+	LastWeapon = nullptr;
 }
 
 bool UUTHUDWidget_WeaponCrosshair::ShouldDraw_Implementation(bool bShowScores)
@@ -38,6 +39,31 @@ void UUTHUDWidget_WeaponCrosshair::Draw_Implementation(float DeltaTime)
 		AUTCharacter* UTCharacter = Cast<AUTCharacter>(UTHUDOwner->UTPlayerOwner->GetViewTarget());
 		if (UTCharacter != nullptr && UTCharacter->GetWeapon() != nullptr)
 		{
+			AUTWeapon* Weapon = UTCharacter->GetWeapon();
+			if (Weapon != LastWeapon)
+			{
+				FWeaponCustomizationInfo CrosshairCustomizationInfo;
+				if (LastWeapon != nullptr)
+				{
+					UUTCrosshair* LastCrosshair = UTHUDOwner->GetCrosshairForWeapon(LastWeapon->WeaponCustomizationTag, CrosshairCustomizationInfo);
+					if (LastCrosshair != nullptr)
+					{
+						LastCrosshair->DeactivateCrosshair(UTHUDOwner);
+					}
+				}
+
+				if (Weapon != nullptr)
+				{
+					UUTCrosshair* NewCrosshair = UTHUDOwner->GetCrosshairForWeapon(Weapon->WeaponCustomizationTag, CrosshairCustomizationInfo);
+					if (NewCrosshair != nullptr)
+					{
+						NewCrosshair->ActivateCrosshair(UTHUDOwner, CrosshairCustomizationInfo, Weapon);
+					}
+				}
+
+				LastWeapon = Weapon;
+			}
+
 			UTCharacter->GetWeapon()->DrawWeaponCrosshair(this, DeltaTime);
 		}
 
@@ -63,7 +89,7 @@ void UUTHUDWidget_WeaponCrosshair::Draw_Implementation(float DeltaTime)
 		}
 
 		const float TimeSinceGrab = GetWorld()->GetTimeSeconds() - UTHUDOwner->LastFlagGrabTime;
-		const float FlagDisplayTime = 2.f;
+		const float FlagDisplayTime = 3.f;
 		if (TimeSinceGrab < FlagDisplayTime)
 		{
 			AUTPlayerState* PS = UTHUDOwner->GetScorerPlayerState();

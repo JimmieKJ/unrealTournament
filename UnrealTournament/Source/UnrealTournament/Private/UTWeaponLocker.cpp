@@ -50,7 +50,7 @@ void AUTWeaponLocker::BeginPlay()
 	// associate as team locker with team volume I am in
 	TArray<UPrimitiveComponent*> OverlappingComponents;
 	Collision->GetOverlappingComponents(OverlappingComponents);
-	AUTGameVolume* BestVolume = nullptr;
+	MyGameVolume = nullptr;
 	int32 BestPriority = -1.f;
 
 	for (auto CompIt = OverlappingComponents.CreateIterator(); CompIt; ++CompIt)
@@ -64,14 +64,18 @@ void AUTWeaponLocker::BeginPlay()
 				if (V->IsOverlapInVolume(*Collision))
 				{
 					BestPriority = V->Priority;
-					BestVolume = V;
+					MyGameVolume = V;
 				}
 			}
 		}
 	}
-	if (BestVolume && BestVolume->bIsTeamSafeVolume && !BestVolume->TeamLocker)
+	if (MyGameVolume && MyGameVolume->bIsTeamSafeVolume)
 	{
-		BestVolume->TeamLocker = this;
+		MyGameVolume->TeamLockers.AddUnique(this);
+	}
+	else
+	{
+		MyGameVolume = nullptr;
 	}
 }
 
@@ -191,36 +195,53 @@ void AUTWeaponLocker::ProcessTouch_Implementation(APawn* TouchedBy)
 		// in part due to client synchronization issues
 		if (!IsTaken(TouchedBy) && Cast<AUTCharacter>(TouchedBy) != NULL && !((AUTCharacter*)TouchedBy)->IsRagdoll() && ((AUTCharacter*)TouchedBy)->bCanPickupItems)
 		{
-			new(Customers) FWeaponPickupCustomer(TouchedBy, GetWorld()->TimeSeconds + RespawnTime);
 			if (Role == ROLE_Authority)
 			{
 				GiveTo(TouchedBy);
 			}
-			if (!GetWorldTimerManager().IsTimerActive(CheckTouchingHandle))
-			{
-				GetWorldTimerManager().SetTimer(CheckTouchingHandle, this, &AUTWeaponLocker::CheckTouching, RespawnTime, false);
-			}
+			DisabledByTouchBy(TouchedBy);
 			PlayTakenEffects(false);
 			UUTGameplayStatics::UTPlaySound(GetWorld(), TakenSound, TouchedBy, SRT_IfSourceNotReplicated, false, FVector::ZeroVector, NULL, NULL, false);
-			if (TouchedBy->IsLocallyControlled())
+			if (MyGameVolume)
 			{
-				AUTPlayerController* PC = Cast<AUTPlayerController>(TouchedBy->Controller);
-				if (PC != NULL)
+				// also notify/disable linked pickups
+				for (int32 i = 0; i < MyGameVolume->TeamLockers.Num(); i++)
 				{
-					// TODO: does not properly support splitscreen
-					if (BaseEffect != NULL && BaseTemplateTaken != NULL)
+					AUTWeaponLocker* Locker = MyGameVolume->TeamLockers[i];
+					if (Locker && !Locker->IsTaken(TouchedBy))
 					{
-						BaseEffect->SetTemplate(BaseTemplateTaken);
+						Locker->DisabledByTouchBy(TouchedBy);
 					}
-					if (TimerEffect != NULL)
-					{
-						TimerEffect->SetFloatParameter(NAME_Progress, 0.0f);
-						TimerEffect->SetFloatParameter(NAME_RespawnTime, RespawnTime);
-						TimerEffect->SetHiddenInGame(false);
-					}
-					PC->AddPerPlayerPickup(this);
 				}
 			}
+		}
+	}
+}
+
+void AUTWeaponLocker::DisabledByTouchBy(APawn* TouchedBy)
+{
+	new(Customers) FWeaponPickupCustomer(TouchedBy, GetWorld()->TimeSeconds + RespawnTime);
+	if (!GetWorldTimerManager().IsTimerActive(CheckTouchingHandle))
+	{
+		GetWorldTimerManager().SetTimer(CheckTouchingHandle, this, &AUTWeaponLocker::CheckTouching, RespawnTime, false);
+	}
+	if (TouchedBy->IsLocallyControlled())
+	{
+		AUTPlayerController* PC = Cast<AUTPlayerController>(TouchedBy->Controller);
+		if (PC != NULL)
+		{
+			// TODO: does not properly support splitscreen
+			if (BaseEffect != NULL && BaseTemplateTaken != NULL)
+			{
+				BaseEffect->SetTemplate(BaseTemplateTaken);
+			}
+			if (TimerEffect != NULL)
+			{
+				TimerEffect->SetFloatParameter(NAME_Progress, 0.0f);
+				TimerEffect->SetFloatParameter(NAME_RespawnTime, RespawnTime);
+				TimerEffect->SetHiddenInGame(false);
+			}
+			PC->AddPerPlayerPickup(this);
 		}
 	}
 }

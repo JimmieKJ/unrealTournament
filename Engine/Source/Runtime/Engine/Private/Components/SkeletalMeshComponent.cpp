@@ -98,6 +98,11 @@ public:
 				FPlatformProcess::Sleep(Stall / 1000.0f);
 			}
 #endif
+			if (CurrentThread != ENamedThreads::GameThread)
+			{
+				GInitRunaway();
+			}
+
 			Comp->ParallelAnimationEvaluation();
 		}
 	}

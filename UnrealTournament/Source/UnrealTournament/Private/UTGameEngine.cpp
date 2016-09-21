@@ -39,9 +39,6 @@ UUTGameEngine::UUTGameEngine(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
 {
 	TAssetSubclassOf<AUTWeapon> WeaponRef;
-	WeaponRef = FStringAssetReference(TEXT("/Game/RestrictedAssets/Weapons/BioRifle/BP_BioRifle.BP_BioRifle_C"));
-	AlwaysLoadedWeaponsStringRefs.Add(WeaponRef);
-
 	WeaponRef = FStringAssetReference(TEXT("/Game/RestrictedAssets/Weapons/Enforcer/Enforcer.Enforcer_C"));
 	AlwaysLoadedWeaponsStringRefs.Add(WeaponRef);
 	WeaponRef = FStringAssetReference(TEXT("/Game/RestrictedAssets/Weapons/Flak/BP_FlakCannon.BP_FlakCannon_C"));
@@ -801,7 +798,7 @@ static FName UT_DEFAULT_LOADING(TEXT("UT.LoadingScreen"));
 void UUTGameEngine::LoadMapRedrawViewports()
 {
 #if !UE_SERVER
-/*
+
 	FName Background = UT_DEFAULT_LOADING;
 
 	UE_LOG(UT,Log,TEXT("Background: %s"),*Background.ToString());
@@ -812,11 +809,11 @@ void UUTGameEngine::LoadMapRedrawViewports()
 		SAssignNew(LoadingScreenImage, SImage).Image(SUTStyle::Get().GetBrush(Background));
 		GameViewport->AddViewportWidgetContent(LoadingScreenImage.ToSharedRef(), MAX_int32);
 	}
-*/
+
 #endif
 	Super::LoadMapRedrawViewports();
 #if !UE_SERVER
-/*
+
 	if (GameViewport != NULL)
 	{
 		// required to force Slate to present the frame
@@ -827,7 +824,7 @@ void UUTGameEngine::LoadMapRedrawViewports()
 			GameViewport->RemoveViewportWidgetContent(LoadingScreenImage.ToSharedRef());
 		}
 	}
-*/
+
 #endif
 }
 

@@ -83,6 +83,11 @@ bool UUTCharacterVoice::IsOptionalSpoken(int32 MessageIndex) const
 	return bOptionalSpoken && (MessageIndex < KEY_CALLOUTS);
 }
 
+int32 UUTCharacterVoice::GetDestinationIndex(int32 MessageIndex) const
+{
+	return (MessageIndex < 1000) ? 4 : 6;
+}
+
 FText UUTCharacterVoice::GetText(int32 Switch, bool bTargetsPlayerState1, class APlayerState* RelatedPlayerState_1, class APlayerState* RelatedPlayerState_2, class UObject* OptionalObject) const
 {
 	FFormatNamedArguments Args;
@@ -407,9 +412,9 @@ bool UUTCharacterVoice::ShouldPlayAnnouncement(const FClientReceiveData& ClientD
 	}
 }
 
-bool UUTCharacterVoice::InterruptAnnouncement_Implementation(int32 Switch, const UObject* OptionalObject, TSubclassOf<UUTLocalMessage> OtherMessageClass, int32 OtherSwitch, const UObject* OtherOptionalObject) const
+bool UUTCharacterVoice::InterruptAnnouncement(const FAnnouncementInfo AnnouncementInfo, const FAnnouncementInfo OtherAnnouncementInfo) const
 {
-	return (GetClass() == OtherMessageClass) && (Switch >= KEY_CALLOUTS) && (OtherSwitch < KEY_CALLOUTS);
+	return (AnnouncementInfo.MessageClass == OtherAnnouncementInfo.MessageClass) && (AnnouncementInfo.Switch >= KEY_CALLOUTS) && (OtherAnnouncementInfo.Switch < KEY_CALLOUTS);
 }
 
 bool UUTCharacterVoice::CancelByAnnouncement_Implementation(int32 Switch, const UObject* OptionalObject, TSubclassOf<UUTLocalMessage> OtherMessageClass, int32 OtherSwitch, const UObject* OtherOptionalObject) const
@@ -424,9 +429,9 @@ bool UUTCharacterVoice::CancelByAnnouncement_Implementation(int32 Switch, const 
 	}
 }
 
-float UUTCharacterVoice::GetAnnouncementPriority(int32 Switch) const
+float UUTCharacterVoice::GetAnnouncementPriority(const FAnnouncementInfo AnnouncementInfo) const
 {
-	return (Switch >= KEY_CALLOUTS) ? 0.5f : 0.1f;
+	return (AnnouncementInfo.Switch >= KEY_CALLOUTS) ? 0.5f : 0.1f;
 }
 
 int32 UUTCharacterVoice::GetStatusIndex(FName NewStatus) const

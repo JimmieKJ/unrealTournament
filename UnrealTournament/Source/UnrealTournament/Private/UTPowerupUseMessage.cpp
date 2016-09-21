@@ -80,12 +80,12 @@ float UUTPowerupUseMessage::GetAnnouncementDelay(int32 Switch)
 	return 0.f;
 }
 
-bool UUTPowerupUseMessage::InterruptAnnouncement_Implementation(int32 Switch, const UObject* OptionalObject, TSubclassOf<UUTLocalMessage> OtherMessageClass, int32 OtherSwitch, const UObject* OtherOptionalObject) const
+bool UUTPowerupUseMessage::InterruptAnnouncement(const FAnnouncementInfo AnnouncementInfo, const FAnnouncementInfo OtherAnnouncementInfo) const
 {
-	return (GetClass() == OtherMessageClass);
+	return (AnnouncementInfo.MessageClass == OtherAnnouncementInfo.MessageClass);
 }
 
-float UUTPowerupUseMessage::GetAnnouncementPriority(int32 Switch) const
+float UUTPowerupUseMessage::GetAnnouncementPriority(const FAnnouncementInfo AnnouncementInfo) const
 {
-	return (0.5f);
+	return 0.5f;
 }

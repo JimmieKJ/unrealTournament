@@ -70,6 +70,9 @@ public:
 	UPROPERTY()
 		TSubclassOf<class AUTInventory> RepulsorClass;
 
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Message)
+		USoundBase* RallyFailedSound;
+
 	FTimerHandle EnemyRallyWarningHandle;
 
 	virtual void WarnEnemyRally();

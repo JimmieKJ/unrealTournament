@@ -143,7 +143,8 @@ void AUTPickupWeapon::ProcessTouch_Implementation(APawn* TouchedBy)
 		}
 		// note that we don't currently call AllowPickupBy() and associated GameMode/Mutator overrides in the weapon stay case
 		// in part due to client synchronization issues
-		else if (!IsTaken(TouchedBy) && Cast<AUTCharacter>(TouchedBy) != NULL && !((AUTCharacter*)TouchedBy)->IsRagdoll() && ((AUTCharacter*)TouchedBy)->bCanPickupItems)
+		else if (!IsTaken(TouchedBy) && Cast<AUTCharacter>(TouchedBy) != NULL && !((AUTCharacter*)TouchedBy)->IsRagdoll() && ((AUTCharacter*)TouchedBy)->bCanPickupItems &&
+				(Role == ROLE_Authority || !TouchedBy->IsLocallyControlled() || Cast<AUTPlayerController>(TouchedBy->Controller) == nullptr))
 		{
 			// make sure all the meshes are visible and let the PC sort out which ones should be displayed based on per-player respawn
 			if (GhostMesh != NULL)
@@ -154,7 +155,6 @@ void AUTPickupWeapon::ProcessTouch_Implementation(APawn* TouchedBy)
 					GhostDepthMesh->SetVisibility(true, true);
 				}
 			}
-			new(Customers) FWeaponPickupCustomer(TouchedBy, GetWorld()->TimeSeconds + RespawnTime);
 			if (Role == ROLE_Authority)
 			{
 				GiveTo(TouchedBy);
@@ -163,27 +163,42 @@ void AUTPickupWeapon::ProcessTouch_Implementation(APawn* TouchedBy)
 			{
 				GetWorldTimerManager().SetTimer(CheckTouchingHandle, this, &AUTPickupWeapon::CheckTouching, RespawnTime, false);
 			}
-			PlayTakenEffects(false);
-			UUTGameplayStatics::UTPlaySound(GetWorld(), TakenSound, TouchedBy, SRT_IfSourceNotReplicated, false, FVector::ZeroVector, NULL, NULL, false);
-			if (TouchedBy->IsLocallyControlled())
+			LocalPickupHandling(TouchedBy);
+			if (Role == ROLE_Authority && !TouchedBy->IsLocallyControlled())
 			{
+				// send RPC to remote player to guarantee matched pickup state
 				AUTPlayerController* PC = Cast<AUTPlayerController>(TouchedBy->Controller);
-				if (PC != NULL)
+				if (PC != nullptr)
 				{
-					// TODO: does not properly support splitscreen
-					if (BaseEffect != NULL && BaseTemplateTaken != NULL)
-					{
-						BaseEffect->SetTemplate(BaseTemplateTaken);
-					}
-					if (TimerEffect != NULL)
-					{
-						TimerEffect->SetFloatParameter(NAME_Progress, 0.0f);
-						TimerEffect->SetFloatParameter(NAME_RespawnTime, RespawnTime);
-						TimerEffect->SetHiddenInGame(false);
-					}
-					PC->AddPerPlayerPickup(this);
+					PC->ClientGotWeaponStayPickup(this, TouchedBy);
 				}
 			}
+		}
+	}
+}
+
+void AUTPickupWeapon::LocalPickupHandling(APawn* TouchedBy)
+{
+	new(Customers) FWeaponPickupCustomer(TouchedBy, GetWorld()->TimeSeconds + RespawnTime);
+	PlayTakenEffects(false);
+	UUTGameplayStatics::UTPlaySound(GetWorld(), TakenSound, TouchedBy, SRT_IfSourceNotReplicated, false, FVector::ZeroVector, NULL, NULL, false);
+	if (TouchedBy->IsLocallyControlled())
+	{
+		AUTPlayerController* PC = Cast<AUTPlayerController>(TouchedBy->Controller);
+		if (PC != NULL)
+		{
+			// TODO: does not properly support splitscreen
+			if (BaseEffect != NULL && BaseTemplateTaken != NULL)
+			{
+				BaseEffect->SetTemplate(BaseTemplateTaken);
+			}
+			if (TimerEffect != NULL)
+			{
+				TimerEffect->SetFloatParameter(NAME_Progress, 0.0f);
+				TimerEffect->SetFloatParameter(NAME_RespawnTime, RespawnTime);
+				TimerEffect->SetHiddenInGame(false);
+			}
+			PC->AddPerPlayerPickup(this);
 		}
 	}
 }

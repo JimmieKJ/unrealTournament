@@ -36,13 +36,22 @@ void AUTProj_BioGrenade::OnRep_Instigator()
 	Super::OnRep_Instigator();
 	if (Instigator != nullptr)
 	{
+		static FName NAME_TeamColor(TEXT("TeamColor"));
 		TArray<UParticleSystemComponent*> PSCs;
 		GetComponents<UParticleSystemComponent>(PSCs);
-		if (PSCs[0])
+		FVector TeamColor = FVector(0.7f, 0.4f, 0.f);
+		AUTCharacter* UTChar = Cast<AUTCharacter>(Instigator);
+		if (UTChar)
 		{
-			static FName NAME_TeamColor(TEXT("TeamColor"));
-			AUTCharacter* UTChar = Cast<AUTCharacter>(Instigator);
-			PSCs[0]->SetColorParameter(NAME_TeamColor, UTChar ? UTChar->GetTeamColor() : FVector(0.7f, 0.4f, 0.f));
+			FLinearColor LinearTeamColor = UTChar->GetTeamColor();
+			TeamColor = FVector(LinearTeamColor.R, LinearTeamColor.G, LinearTeamColor.B);
+		}
+		for (int32 i=0; i<PSCs.Num(); i++)
+		{
+			if (PSCs[i] != nullptr)
+			{
+				PSCs[i]->SetColorParameter(NAME_TeamColor, TeamColor);
+			}
 		}
 	}
 }
@@ -67,16 +76,11 @@ void AUTProj_BioGrenade::StartFuse()
 	
 	ProjectileMovement->bRotationFollowsVelocity = false;
 	ProjectileMovement->ProjectileGravityScale *= 0.5f;
-
-	if (FuseEffect != NULL && GetWorld()->GetNetMode() != NM_DedicatedServer)
-	{
-		UGameplayStatics::SpawnEmitterAttached(FuseEffect, RootComponent);
-	}
 	SetTimerUFunc(this, FName(TEXT("FuseExpired")), FuseTime, false);
 	PlayFuseBeep();
-
 	ClearTimerUFunc(this, FName(TEXT("StartFuseTimed")));
 }
+
 void AUTProj_BioGrenade::FuseExpired()
 {
 	if (!bExploded)
@@ -92,7 +96,19 @@ void AUTProj_BioGrenade::PlayFuseBeep()
 		UUTGameplayStatics::UTPlaySound(GetWorld(), FuseBeepSound, this, SRT_IfSourceNotReplicated, false, FVector::ZeroVector, NULL, NULL, true, SAT_WeaponFoley);
 		if (FuseEffect != NULL && GetWorld()->GetNetMode() != NM_DedicatedServer)
 		{
-			UGameplayStatics::SpawnEmitterAttached(FuseEffect, RootComponent);
+			UParticleSystemComponent* FusePSC = UGameplayStatics::SpawnEmitterAttached(FuseEffect, RootComponent);
+			if (FusePSC != nullptr)
+			{
+				static FName NAME_TeamColor(TEXT("TeamColor"));
+				FVector TeamColor = FVector(0.7f, 0.4f, 0.f);
+				AUTCharacter* UTChar = Cast<AUTCharacter>(Instigator);
+				if (UTChar)
+				{
+					FLinearColor LinearTeamColor = UTChar->GetTeamColor();
+					TeamColor = FVector(LinearTeamColor.R, LinearTeamColor.G, LinearTeamColor.B);
+				}
+				FusePSC->SetColorParameter(NAME_TeamColor, TeamColor);
+			}
 		}
 		// if there's enough fuse time left queue another beep
 		float TotalTime, ElapsedTime;

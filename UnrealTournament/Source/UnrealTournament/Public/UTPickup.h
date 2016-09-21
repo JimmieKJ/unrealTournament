@@ -197,6 +197,7 @@ class UNREALTOURNAMENT_API AUTPickup : public AActor, public IUTResetInterface, 
 	 */
 	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = AI)
 	float BotDesireability(APawn* Asker, float PathDistance);
+
 	/** similar to BotDesireability but this method is queried for items along the bot's path during most pathing queries, even when it isn't explicitly looking for items
 	 * (e.g. checking to pick up health on the way to an enemy or game objective)
 	 * in general this method should be more strict and return 0 in cases where the bot's objective should be higher priority than the item
@@ -216,9 +217,17 @@ class UNREALTOURNAMENT_API AUTPickup : public AActor, public IUTResetInterface, 
 	/**Enables overriding the auto teamside for this pickup*/
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Pickup, meta = (PinHiddenByDefault))
 	bool bOverride_TeamSide;
+
 	/** For spectator slide out - show which side this pickup is on when there are multiple. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Pickup, meta = (editcondition = bOverride_TeamSide))
 	uint8 TeamSide;
+
+	virtual void PrecacheTutorialAnnouncements(class UUTAnnouncer* Announcer) const;
+
+	virtual FName GetTutorialAnnouncement(int32 Switch) const;
+
+	UPROPERTY(EditAnyWhere, Category = "Tutorial")
+		TArray<FName> TutorialAnnouncements;
 
 protected:
 	/** last time pickup respawned, used by GetRespawnTimeOffset() */

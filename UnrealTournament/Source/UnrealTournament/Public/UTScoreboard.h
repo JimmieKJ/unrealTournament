@@ -201,6 +201,7 @@ protected:
 	virtual void DrawGameOptions(float RenderDelta, float& YOffset);
 
 	virtual void DrawTeamPanel(float RenderDelta, float& YOffset);
+	virtual void DrawMinimap(float RenderDelta);
 
 	virtual void DrawScorePanel(float RenderDelta, float& YOffset);
 	virtual void DrawScoreHeaders(float RenderDelta, float& DrawY);

@@ -3,7 +3,7 @@
 #include "UTAnalytics.h"
 #include "UTGameInstance.h"
 #include "UTGameState.h"
-#include "UTHeartbeatManager.h"
+#include "UTHeartBeatManager.h"
 #include "UTParty.h"
 #include "UTPartyGameState.h"
 #include "UTPlayerController.h"

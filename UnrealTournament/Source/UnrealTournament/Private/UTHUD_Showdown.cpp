@@ -394,27 +394,6 @@ void AUTHUD_Showdown::DrawHUD()
 		bNeedOnDeckNotify = false;
 		PlayerOwner->ClientReceiveLocalizedMessage(UUTShowdownGameMessage::StaticClass(), 2, PlayerOwner->PlayerState, NULL, NULL);
 	}
-
-#if !UE_SERVER
-	AUTPlayerState* UTPS = Cast<AUTPlayerState>(UTPlayerOwner->PlayerState);
-	if (UTPS != NULL && UTPS->Team != NULL && GS != NULL && GS->BoostRechargeTime > 0.0f)
-	{
-		if (GS->GetMatchState() == MatchState::WaitingToStart)
-		{
-			if (!PowerupSelectWindow.IsValid())
-			{
-				SAssignNew(PowerupSelectWindow, SUTPowerupSelectWindow, UTPlayerOwner->GetUTLocalPlayer(), TEXT("/Game/RestrictedAssets/Blueprints/BP_PowerupSelector_Showdown.BP_PowerupSelector_Showdown_C"));
-				UTPlayerOwner->GetUTLocalPlayer()->OpenWindow(PowerupSelectWindow);
-				UTPS->bIsPowerupSelectWindowOpen = true;
-			}	
-		}
-		else if ((PowerupSelectWindow.IsValid()) && PowerupSelectWindow->GetWindowState() == EUIWindowState::Active)
-		{
-			UTPS->bIsPowerupSelectWindowOpen = false;
-			UTPlayerOwner->GetUTLocalPlayer()->CloseWindow(PowerupSelectWindow);
-		}
-	}
-#endif
 }
 
 void AUTHUD_Showdown::DrawPlayerList()
@@ -477,6 +456,16 @@ void AUTHUD_Showdown::DrawPlayerList()
 	}
 }
 
+void AUTHUD_Showdown::DrawActorOverlays(FVector Viewpoint, FRotator ViewRotation)
+{
+	// don't draw overlays (character nameplates, etc) when drawing the spawn map
+	AUTShowdownGameState* GS = GetWorld()->GetGameState<AUTShowdownGameState>();
+	if (GS == NULL || GS->GetMatchState() != MatchState::MatchIntermission || !GS->bStartedSpawnSelection)
+	{
+		Super::DrawActorOverlays(Viewpoint, ViewRotation);
+	}
+}
+
 EInputMode::Type AUTHUD_Showdown::GetInputMode_Implementation() const
 {
 	AUTShowdownGameState* GS = GetWorld()->GetGameState<AUTShowdownGameState>();
@@ -486,13 +475,6 @@ EInputMode::Type AUTHUD_Showdown::GetInputMode_Implementation() const
 	}
 	else
 	{
-#if !UE_SERVER
-		AUTPlayerState* PS = Cast<AUTPlayerState>(PlayerOwner->PlayerState);
-		if (PowerupSelectWindow.IsValid() && PS != NULL && PS->bIsPowerupSelectWindowOpen && GS != NULL && GS->GetMatchState() == MatchState::WaitingToStart)
-		{
-			return EInputMode::EIM_GameAndUI;
-		}
-#endif
 		return Super::GetInputMode_Implementation();
 	}
 }

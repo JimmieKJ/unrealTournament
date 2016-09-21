@@ -8,6 +8,9 @@
 AUTGauntletFlagDispenser::AUTGauntletFlagDispenser(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
 {
+	PrimaryActorTick.bCanEverTick = true;
+	PrimaryActorTick.TickGroup = TG_PrePhysics;
+
 	TeamNum = 255;
 	
 	static ConstructorHelpers::FObjectFinder<UClass> DefaultFlag(TEXT("Blueprint'/Game/RestrictedAssets/Proto/UT3_Pickups/Flag/UTGuantletFlag.UTGuantletFlag_C'"));
@@ -23,6 +26,21 @@ AUTGauntletFlagDispenser::AUTGauntletFlagDispenser(const FObjectInitializer& Obj
 	EnemyFlagTakenSound = FlagTakenSnd.Object;
 	FlagReturnedSound = FlagReturnedSnd.Object;
 
+	static ConstructorHelpers::FObjectFinder<UParticleSystem> TimerPS(TEXT("ParticleSystem'/Game/RestrictedAssets/Weapons/Weapon_Base_Effects/Particles/P_Weapon_timer_01b_FlagRun.P_Weapon_timer_01b_FlagRun'"));
+	TimerEffect = ObjectInitializer.CreateDefaultSubobject<UParticleSystemComponent>(this, TEXT("TimerEffect"));
+	if (TimerEffect != NULL)
+	{
+		TimerEffect->SetTemplate(TimerPS.Object);
+		TimerEffect->SetHiddenInGame(false);
+		TimerEffect->SetupAttachment(RootComponent);
+		TimerEffect->LDMaxDrawDistance = 4000.0f;
+		TimerEffect->RelativeLocation.Z = 300.0f;
+		TimerEffect->Mobility = EComponentMobility::Movable;
+		TimerEffect->SetCastShadow(false);
+	}
+
+	static ConstructorHelpers::FObjectFinder<UClass> GFClass(TEXT("Blueprint'/Game/RestrictedAssets/Proto/UT3_Pickups/Flag/GhostFlag.GhostFlag_C'"));
+	GhostFlagClass = GFClass.Object;
 }
 
 void AUTGauntletFlagDispenser::PostRenderFor(APlayerController* PC, UCanvas* Canvas, FVector CameraPosition, FVector CameraDir)
@@ -69,15 +87,23 @@ void AUTGauntletFlagDispenser::Reset()
 	}
 
 	MyFlag = nullptr;
+	OnFlagChanged();
 }
 
 
 void AUTGauntletFlagDispenser::CreateFlag()
 {
+
+	if (MyGhostFlag != nullptr) 
+	{
+		MyGhostFlag->Destroy();
+		MyGhostFlag = nullptr;
+	}
+
 	FActorSpawnParameters Params;
 	Params.Owner = this;
 
-	CarriedObject = GetWorld()->SpawnActor<AUTCarriedObject>(CarriedObjectClass, GetActorLocation() + FVector(0, 0, 96), GetActorRotation(), Params);
+	CarriedObject = GetWorld()->SpawnActor<AUTCarriedObject>(CarriedObjectClass, GetActorLocation() + FVector(0.0f, 0.0f, 96.0f), GetActorRotation(), Params);
 	AUTGauntletGameState* GameState = GetWorld()->GetGameState<AUTGauntletGameState>();
 	if (GameState && Cast<AUTGauntletFlag>(CarriedObject))
 	{
@@ -112,6 +138,7 @@ void AUTGauntletFlagDispenser::CreateFlag()
 		Flag->bTeamPickupSendsHome = false;
 		Flag->bEnemyPickupSendsHome = false;
 		MyFlag = Flag;
+		OnFlagChanged();
 	}
 
 }
@@ -131,4 +158,42 @@ FText AUTGauntletFlagDispenser::GetHUDStatusMessage(AUTHUD* HUD)
 	return FText::GetEmpty();
 }
 
+void AUTGauntletFlagDispenser::InitRound()
+{
+	FActorSpawnParameters Params;
+	Params.Owner = this;
+	MyGhostFlag = GetWorld()->SpawnActor<AUTGhostFlag>(GhostFlagClass, GetActorLocation() + FVector(0.0f,0.0f,96.0f), GetActorRotation(), Params);
+	if (MyGhostFlag != nullptr)
+	{
+		MyGhostFlag->GhostMaster.bSuppressTrails = true;
+		MyGhostFlag->GhostMaster.TeamNum = 255;
+		MyGhostFlag->GhostMaster.bShowTimer = false;
+	}
+}
+
+void AUTGauntletFlagDispenser::OnFlagChanged()
+{
+	if (MyFlag == nullptr)
+	{
+		TimerEffect->SetHiddenInGame(false);
+	}
+	else
+	{
+		TimerEffect->SetHiddenInGame(true);
+	}
+}
+
+void AUTGauntletFlagDispenser::Tick(float DeltaTime)
+{
+	if (!TimerEffect->bHiddenInGame)
+	{
+		AUTGauntletGameState* GauntletGameState = GetWorld()->GetGameState<AUTGauntletGameState>();
+		if (GauntletGameState)
+		{
+			TimerEffect->SetFloatParameter(NAME_RespawnTime, 30.0f);
+			TimerEffect->SetFloatParameter(NAME_SecondsPerPip, 3.0f);
+			TimerEffect->SetFloatParameter(NAME_Progress, 1.0f - (GauntletGameState->RemainingPickupDelay / 30.0f));
+		}
+	}
+}
 

@@ -15,15 +15,20 @@ class UNREALTOURNAMENT_API AUTProj_StingerShard2 : public AUTProjectile
 	virtual void OnPawnSphereOverlapBegin(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult);
 	virtual void Tick(float DeltaTime);
 
+	/** <= 0 disables separate direct hit logic */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	int32 DirectHitDamage;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	float DirectHitMomentum;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = LinkBolt)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	float OverlapSphereGrowthRate;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = LinkBolt)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	float MaxOverlapSphereSize;
+
+	/** projectile explodes when cos angle (dot product result) between velocity direction and target direction is < this value */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	float AirExplodeAngle;
 
 	UPROPERTY()
 	TArray<APawn*> PotentialTargets;

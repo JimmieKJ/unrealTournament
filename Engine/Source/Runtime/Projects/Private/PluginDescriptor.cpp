@@ -18,7 +18,7 @@ FPluginDescriptor::FPluginDescriptor()
 }
 
 
-bool FPluginDescriptor::Load( const FString& FileName, FText& OutFailReason )
+bool FPluginDescriptor::Load(const FString& FileName, bool bPluginTypeEnabledByDefault, FText& OutFailReason)
 {
 	// Read the file to a string
 	FString FileContents;
@@ -30,11 +30,11 @@ bool FPluginDescriptor::Load( const FString& FileName, FText& OutFailReason )
 	}
 
 	// Parse it as a plug-in descriptor
-	return Read(FileContents, OutFailReason);
+	return Read(FileContents, bPluginTypeEnabledByDefault, OutFailReason);
 }
 
 
-bool FPluginDescriptor::Read(const FString& Text, FText& OutFailReason)
+bool FPluginDescriptor::Read(const FString& Text, bool bPluginTypeEnabledByDefault, FText& OutFailReason)
 {
 	// Deserialize a JSON object from the string
 	TSharedPtr< FJsonObject > ObjectPtr;
@@ -103,7 +103,11 @@ bool FPluginDescriptor::Read(const FString& Text, FText& OutFailReason)
 		return false;
 	}
 
-	Object.TryGetBoolField(TEXT("EnabledByDefault"), bEnabledByDefault);
+	if(!Object.TryGetBoolField(TEXT("EnabledByDefault"), bEnabledByDefault))
+	{
+		bEnabledByDefault = bPluginTypeEnabledByDefault;
+	}
+
 	Object.TryGetBoolField(TEXT("CanContainContent"), bCanContainContent);
 	Object.TryGetBoolField(TEXT("IsBetaVersion"), bIsBetaVersion);
 	Object.TryGetBoolField(TEXT("Installed"), bInstalled);
@@ -119,24 +123,25 @@ bool FPluginDescriptor::Read(const FString& Text, FText& OutFailReason)
 	return true;
 }
 
-bool FPluginDescriptor::Save(const FString& FileName, FText& OutFailReason) const
+bool FPluginDescriptor::Save(const FString& FileName, bool bPluginTypeEnabledByDefault, FText& OutFailReason) const
 {
 	// Write the contents of the descriptor to a string. Make sure the writer is destroyed so that the contents are flushed to the string.
-	FString Text = ToString();
-	if ( FFileHelper::SaveStringToFile(Text, *FileName) )
-	{
-		return true;
-	}
-	else
+	FString Text;
+	Write(Text, bPluginTypeEnabledByDefault);
+
+	// Save it to a file
+	if ( !FFileHelper::SaveStringToFile(Text, *FileName) )
 	{
 		OutFailReason = FText::Format( LOCTEXT("FailedToWriteOutputFile", "Failed to write output file '{0}'. Perhaps the file is Read-Only?"), FText::FromString(FileName) );
 		return false;
 	}
+	return true;
 }
 
-FString FPluginDescriptor::ToString() const
+void FPluginDescriptor::Write(FString& Text, bool bPluginTypeEnabledByDefault) const
 {
-	FString Text;
+	Text.Empty();
+
 	TSharedRef< TJsonWriter<> > WriterRef = TJsonWriterFactory<>::Create(&Text);
 	TJsonWriter<>& Writer = WriterRef.Get();
 
@@ -153,7 +158,10 @@ FString FPluginDescriptor::ToString() const
 	Writer.WriteValue(TEXT("DocsURL"), DocsURL);
 	Writer.WriteValue(TEXT("MarketplaceURL"), MarketplaceURL);
 	Writer.WriteValue(TEXT("SupportURL"), SupportURL);
-	Writer.WriteValue(TEXT("EnabledByDefault"), bEnabledByDefault);
+	if(bEnabledByDefault != bPluginTypeEnabledByDefault)
+	{
+		Writer.WriteValue(TEXT("EnabledByDefault"), bEnabledByDefault);
+	}
 	Writer.WriteValue(TEXT("CanContainContent"), bCanContainContent);
 	Writer.WriteValue(TEXT("IsBetaVersion"), bIsBetaVersion);
 	Writer.WriteValue(TEXT("Installed"), bInstalled);
@@ -179,8 +187,6 @@ FString FPluginDescriptor::ToString() const
 
 	Writer.WriteObjectEnd();
 	Writer.Close();
-
-	return Text;
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////

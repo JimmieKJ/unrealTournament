@@ -259,8 +259,7 @@ void UPartyContext::JoinPartyInternal(const FUniqueNetId& LocalPlayerId, bool bI
 		return;
 	}
 
-	FPartyDetails PartyDetails(PartyJoinInfo, true);
-	UTParty->AddPendingJoin(LocalPlayerId.AsShared(), PartyDetails, UPartyDelegates::FOnJoinUPartyComplete::CreateUObject(this, &ThisClass::OnJoinPartyCompleteInternal));
+	UTParty->AddPendingJoin(LocalPlayerId.AsShared(), MakeShareable(new FPartyDetails(PartyJoinInfo, true)), UPartyDelegates::FOnJoinUPartyComplete::CreateUObject(this, &ThisClass::OnJoinPartyCompleteInternal));
 	
 	CurrentTransition = EUTPartyTransition::Joining;
 	OnPartyTransitionStarted.Broadcast(CurrentTransition);

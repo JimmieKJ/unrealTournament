@@ -12,6 +12,7 @@
 #include "UTPartyGameState.h"
 #include "UTPlaylistManager.h"
 #include "UnrealTournamentFullScreenMovie.h"
+#include "OnlineSubsystemUtils.h"
 
 #if !UE_SERVER
 #include "SUTStyle.h"
@@ -68,8 +69,8 @@ void UUTGameInstance::Init()
 
 	if (!FParse::Param(FCommandLine::Get(), TEXT("server")))
 	{
-		FCoreUObjectDelegates::PreLoadMap.AddUObject(this, &UUTGameInstance::BeginLevelLoading);
-		FCoreUObjectDelegates::PostLoadMap.AddUObject(this, &UUTGameInstance::EndLevelLoading);
+		//FCoreUObjectDelegates::PreLoadMap.AddUObject(this, &UUTGameInstance::BeginLevelLoading);
+		//FCoreUObjectDelegates::PostLoadMap.AddUObject(this, &UUTGameInstance::EndLevelLoading);
 	}
 }
 
@@ -561,7 +562,7 @@ void UUTGameInstance::OnDeleteSessionComplete(FName SessionName, bool bWasSucces
 	UE_LOG(LogOnlineGame, Verbose, TEXT("OnDeleteSessionComplete %s bSuccess: %d"), *SessionName.ToString(), bWasSuccessful);
 	SafeSessionDeleteTimerHandle.Invalidate();
 
-	IOnlineSessionPtr SessionInt = Online::GetSessionInterface(/*GetWorld()*/);
+	IOnlineSessionPtr SessionInt = Online::GetSessionInterface(GetWorld());
 	if (SessionInt.IsValid())
 	{
 		SessionInt->ClearOnDestroySessionCompleteDelegate_Handle(DeleteSessionDelegateHandle);

@@ -66,6 +66,9 @@ AUTWeap_RocketLauncher::AUTWeap_RocketLauncher(const class FObjectInitializer& O
 
 	WeaponCustomizationTag = EpicWeaponCustomizationTags::RocketLauncher;
 	WeaponSkinCustomizationTag = EpicWeaponSkinCustomizationTags::RocketLauncher;
+
+	TutorialAnnouncements.Add(TEXT("PriRocketLauncher"));
+	TutorialAnnouncements.Add(TEXT("SecRocketLauncher"));
 }
 
 void AUTWeap_RocketLauncher::Destroyed()
@@ -288,24 +291,27 @@ AUTProjectile* AUTWeap_RocketLauncher::FireProjectile()
 	if (CurrentFireMode == 1)
 	{
 		// Bots choose mode now
-		AUTBot* B = Cast<AUTBot>(UTOwner->Controller);
-		if (B != NULL)
+		if (bAllowGrenades)
 		{
-			if (B->GetTarget() == B->GetEnemy())
+			AUTBot* B = Cast<AUTBot>(UTOwner->Controller);
+			if (B != NULL)
 			{
-				// when retreating, we want grenades
-				if (B->GetEnemy() == NULL || B->LostContact(1.0f) /*|| B.IsRetreating() || B.IsInState('StakeOut')*/)
+				if (B->GetTarget() == B->GetEnemy())
 				{
-					CurrentRocketFireMode = 1;
+					// when retreating, we want grenades
+					if (B->GetEnemy() == NULL || B->LostContact(1.0f) /*|| B.IsRetreating() || B.IsInState('StakeOut')*/)
+					{
+						CurrentRocketFireMode = 1;
+					}
+					else
+					{
+						CurrentRocketFireMode = 0;
+					}
 				}
 				else
 				{
-					CurrentRocketFireMode = 0;
+					CurrentRocketFireMode = 1;
 				}
-			}
-			else
-			{
-				CurrentRocketFireMode = 1;
 			}
 		}
 

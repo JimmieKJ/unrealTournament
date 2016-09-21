@@ -64,6 +64,14 @@ public:
 	 * Mark this client beacon as having successfully reconnected
 	 */
 	void MarkReconnected() { bHasReconnected = true; }
+	
+	/** RPC alerting the client beacon that is allowed to proceed past its reservation; fires a delegate */
+	UFUNCTION(client, reliable)
+	void ClientAllowedToProceedFromReservation();
+
+	/** RPC alerting the client beacon that it has timed out waiting to be allowed to proceed past its reservation; fires a delegate */
+	UFUNCTION(client, reliable)
+	void ClientAllowedToProceedFromReservationTimeout();
 
 protected:
 

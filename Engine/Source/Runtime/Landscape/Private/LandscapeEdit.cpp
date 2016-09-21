@@ -409,6 +409,12 @@ void ULandscapeComponent::FixupWeightmaps()
 			TArray<ULandscapeLayerInfoObject*> LayersToDelete;
 			bool bFixedLayerDeletion = false;
 
+			// make sure the weightmap textures are fully loaded or deleting layers from them will crash! :)
+			for (UTexture* WeightmapTexture : WeightmapTextures)
+			{
+				WeightmapTexture->ConditionalPostLoad();
+			}
+
 			// LayerInfo Validation check...
 			for (const auto& Allocation : WeightmapLayerAllocations)
 			{

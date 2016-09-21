@@ -79,7 +79,7 @@
 #include "UTKillcamPlayback.h"
 #include "UTDemoNetDriver.h"
 #include "UTAnalytics.h"
-#include "QoSInterface.h"
+#include "QosInterface.h"
 
 #if WITH_SOCIAL
 #include "Social.h"
@@ -123,6 +123,8 @@ UUTLocalPlayer::UUTLocalPlayer(const class FObjectInitializer& ObjectInitializer
 
 	bHasShownDLCWarning = false;
 	bDLCWarningIsVisible = false;
+
+	LoginPhase = ELoginPhase::Offline;
 }
 
 UUTLocalPlayer::~UUTLocalPlayer()
@@ -717,9 +719,12 @@ TSharedPtr<class SUTCreditsPanel> UUTLocalPlayer::GetCreditsPanel()
 	return CreditsPanelWidget;
 }
 
+
+#endif
+
 bool UUTLocalPlayer::AreMenusOpen()
 {
-
+#if !UE_SERVER
 	// TODO: Ugly hack.  We don't have a good way right now to notify the player controller that UMG wants input.  So I hack it here for
 	// tutorial menu.  Need to add a better way next build.
 	TArray<UUserWidget*> UMGWidgets;
@@ -745,9 +750,12 @@ bool UUTLocalPlayer::AreMenusOpen()
 		|| QuickChatWindow.IsValid()
 		|| OpenDialogs.Num() > 0
 		|| UMGWidgetsPresent;
+#endif
+
+	return false;
 }
 
-#endif
+
 
 void UUTLocalPlayer::ChangeStatsViewerTarget(FString InStatsID)
 {
@@ -847,10 +855,6 @@ void UUTLocalPlayer::LoginOnline(FString EpicID, FString Auth, bool bIsRememberT
 		AccountCreds.Type = TEXT("refresh");
 	}
 
-#if !UE_SERVER
-	if (LoginDialog.IsValid()) LoginDialog->BeginLogin();
-#endif
-
 	// Begin the Login Process...
 	if (!OnlineIdentityInterface->Login(GetControllerId(), AccountCreds))
 	{
@@ -869,6 +873,11 @@ void UUTLocalPlayer::LoginOnline(FString EpicID, FString Auth, bool bIsRememberT
 	}
 	else
 	{
+		LoginPhase = ELoginPhase::Auth;
+
+#if !UE_SERVER
+		if (LoginDialog.IsValid()) LoginDialog->BeginLogin();
+#endif
 		bLoginAttemptInProgress = true;
 	}
 }
@@ -920,14 +929,6 @@ void UUTLocalPlayer::OnLoginComplete(int32 LocalUserNum, bool bWasSuccessful, co
 {
 	bLoginAttemptInProgress = false;
 
-#if !UE_SERVER
-	// Close down the login dialog if it's open.
-	if (LoginDialog.IsValid())
-	{
-		LoginDialog->EndLogin(bWasSuccessful);
-	}
-#endif
-
 	if (bWasSuccessful)
 	{
 		bPlayingOffline = false;
@@ -961,94 +962,50 @@ void UUTLocalPlayer::OnLoginComplete(int32 LocalUserNum, bool bWasSuccessful, co
 #if WITH_PROFILE
 			GetMcpProfileManager()->Init(UserId, UserId, Account->GetDisplayName(), FUTProfilesLoaded::CreateUObject(this, &UUTLocalPlayer::OnProfileManagerInitComplete));
 #endif
-		}
 
-		PendingLoginUserName = TEXT("");
-
-		FText WelcomeToast = FText::Format(NSLOCTEXT("MCP","MCPWelcomeBack","Welcome back {0}"), FText::FromString(*GetOnlinePlayerNickname()));
-		ShowToast(WelcomeToast);
-		
-#if WITH_SOCIAL
-		// Init the Friends And Chat system
-		FFriendsAndChatLoginOptions LoginOptions(0, true);
-		ISocialModule::Get().GetFriendsAndChatManager()->Login(OnlineSubsystem, LoginOptions);
-		ISocialModule::Get().GetFriendsAndChatManager()->SetAnalyticsProvider(FUTAnalytics::GetProviderPtr());
-
-		// PLK TODO: Find which API replaces this
-		/*
-		if (!ISocialModule::Get().GetFriendsAndChatManager()->GetNotificationService()->OnJoinGame().IsBoundToObject(this))
- 		{
-			ISocialModule::Get().GetFriendsAndChatManager()->GetNotificationService()->OnJoinGame().AddUObject(this, &UUTLocalPlayer::HandleFriendsJoinGame);
- 		}
-		if (!ISocialModule::Get().GetFriendsAndChatManager()->AllowFriendsJoinGame().IsBoundToObject(this))
-		{
-			ISocialModule::Get().GetFriendsAndChatManager()->AllowFriendsJoinGame().BindUObject(this, &UUTLocalPlayer::AllowFriendsJoinGame);
-		}
-		*/
-		if (!ISocialModule::Get().GetFriendsAndChatManager()->GetNotificationService()->OnNotificationsAvailable().IsBoundToObject(this))
- 		{
- 			ISocialModule::Get().GetFriendsAndChatManager()->GetNotificationService()->OnNotificationsAvailable().AddUObject(this, &UUTLocalPlayer::HandleFriendsNotificationAvail);
- 		}
-		if (!ISocialModule::Get().GetFriendsAndChatManager()->GetNotificationService()->OnSendNotification().IsBoundToObject(this))
- 		{
-			ISocialModule::Get().GetFriendsAndChatManager()->GetNotificationService()->OnSendNotification().AddUObject(this, &UUTLocalPlayer::HandleFriendsActionNotification);
- 		}
-				
-#endif
-
-#if !UE_SERVER
-		// Make sure popup is created so we dont lose any messages
-		GetFriendsPopup();
-#endif
-
-		// on successful auto login, attempt to join an accepted friend game invite
-		if (bInitialSignInAttempt)
-		{
-			FString SessionId;
-			FString FriendId;
-			if (FParse::Value(FCommandLine::Get(), TEXT("invitesession="), SessionId) && !SessionId.IsEmpty() &&
-				FParse::Value(FCommandLine::Get(), TEXT("invitefrom="), FriendId) && !FriendId.IsEmpty())
+			AUTPlayerController* UTPC = Cast<AUTPlayerController>(PlayerController);
+			if (UTPC)
 			{
-				JoinFriendSession(FUniqueNetIdString(FriendId), FUniqueNetIdString(SessionId));
-			}
-		}
-
-		AUTPlayerController* UTPC = Cast<AUTPlayerController>(PlayerController);
-		if (UTPC)
-		{
-			if (OnlineIdentityInterface.IsValid() && OnlineIdentityInterface->GetLoginStatus(GetControllerId()))
-			{
-				TSharedPtr<const FUniqueNetId> UserId = OnlineIdentityInterface->GetUniquePlayerId(GetControllerId());
-				if (UserId.IsValid())
+				if (OnlineIdentityInterface.IsValid() && OnlineIdentityInterface->GetLoginStatus(GetControllerId()))
 				{
-					UTPC->ServerReceiveStatsID(UserId->ToString());
-					if (UTPC->PlayerState)
+					if (UserId.IsValid())
 					{
-						UTPC->PlayerState->SetUniqueId(UserId); 
-					}
+						UTPC->ServerReceiveStatsID(UserId->ToString());
+						if (UTPC->PlayerState)
+						{
+							UTPC->PlayerState->SetUniqueId(UserId); 
+						}
 
-					CreatePersistentParty();
+						CreatePersistentParty();
+					}
 				}
 			}
 		}
-	}
 
-	// We have enough credentials to auto-login.  So try it, but silently fail if we cant.
-	else if (bInitialSignInAttempt)
+		PendingLoginUserName = TEXT("");
+		
+	}
+	else
 	{
-		if (LastEpicIDLogin != TEXT("") && LastEpicRememberMeToken != TEXT("") && !FParse::Param(FCommandLine::Get(), TEXT("skiplastid")))
+		LoginPhase = ELoginPhase::Offline;
+
+		// We have enough credentials to auto-login.  So try it, but silently fail if we cant.
+		if (bInitialSignInAttempt)
 		{
-			bInitialSignInAttempt = false;
-			LoginOnline(LastEpicIDLogin, LastEpicRememberMeToken, true, true);
+			if (LastEpicIDLogin != TEXT("") && LastEpicRememberMeToken != TEXT("") && !FParse::Param(FCommandLine::Get(), TEXT("skiplastid")))
+			{
+				bInitialSignInAttempt = false;
+				LoginOnline(LastEpicIDLogin, LastEpicRememberMeToken, true, true);
+			}
 		}
-	}
 
-	// Otherwise if this is the first attempt, then silently fair
-	else if (!bSilentLoginFail)
-	{
-		// Broadcast the failure to the UI.
-		PlayerOnlineStatusChanged.Broadcast(this, ELoginStatus::NotLoggedIn, UniqueID);
-		GetAuth(ErrorMessage);
+		// Otherwise if this is the first attempt, then silently fair
+		else if (!bSilentLoginFail)
+		{
+			// Broadcast the failure to the UI.
+			PlayerOnlineStatusChanged.Broadcast(this, ELoginStatus::NotLoggedIn, UniqueID);
+			GetAuth(ErrorMessage);
+		}
 	}
 }
 
@@ -1154,12 +1111,14 @@ void UUTLocalPlayer::OnLoginStatusChanged(int32 LocalUserNum, ELoginStatus::Type
 	}
 	else if (LoginStatus == ELoginStatus::LoggedIn)
 	{
+
+		LoginPhase = ELoginPhase::GettingProfile;
+
 		EnumerateTitleFiles();
 
 		LeagueRecords.Empty();
 		MMREntries.Empty();
-
-		ReadMMRFromBackend();
+		
 		UpdatePresence(LastPresenceUpdate, bLastAllowInvites,bLastAllowInvites,bLastAllowInvites,false);
 		ReadCloudFileListing();
 		// query entitlements for UI
@@ -1175,11 +1134,6 @@ void UUTLocalPlayer::OnLoginStatusChanged(int32 LocalUserNum, ELoginStatus::Type
 		{
 			PC->ClientGenericInitialization();
 		}
-
-		ShowRankedReconnectDialog(UniqueID.ToString());
-
-		// If we have a pending session, then join it.
-		JoinPendingSession();
 
 		OnPlayerLoggedIn().Broadcast();
 	}
@@ -1270,6 +1224,7 @@ void UUTLocalPlayer::OnLogoutComplete(int32 LocalUserNum, bool bWasSuccessful)
 	UE_LOG(UT,Verbose,TEXT("***[Logout Complete]*** - User %i"), LocalUserNum);
 	// TO-DO: Add a Toast system for displaying stuff like this
 
+	LoginPhase = ELoginPhase::Offline;
 	bPlayingOffline = true;
 
 	GetWorld()->GetTimerManager().ClearTimer(ProfileWriteTimerHandle);
@@ -1500,6 +1455,9 @@ void UUTLocalPlayer::LoadProfileSettings()
 
 	if (IsLoggedIn())
 	{
+
+		LoginPhase = ELoginPhase::GettingProfile;
+
 		TSharedPtr<const FUniqueNetId> UserID = OnlineIdentityInterface->GetUniquePlayerId(GetControllerId());
 		if (UserID.IsValid())
 		{
@@ -1542,6 +1500,8 @@ void UUTLocalPlayer::LoadProgression()
 
 	if (IsLoggedIn())
 	{
+		LoginPhase = ELoginPhase::GettingProgression;
+
 		TSharedPtr<const FUniqueNetId> UserID = OnlineIdentityInterface->GetUniquePlayerId(GetControllerId());
 		if (UserID.IsValid())
 		{
@@ -1611,9 +1571,8 @@ void UUTLocalPlayer::OnReadUserFileComplete(bool bWasSuccessful, const FUniqueNe
 
 		if (bWasSuccessful && OnlineUserCloudInterface.IsValid())	
 		{
-			// After the profile is loaded it's safe to load progression so that we have
-			// the fallback to the old profile based progression info
-			LoadProgression();
+			// Next Step is to read the MMR
+			ReadMMRFromBackend();
 
 			// Create a new Profile object.  We always create a new one and discard the old one.
 			CurrentProfileSettings = NewObject<UUTProfileSettings>(GetTransientPackage(),UUTProfileSettings::StaticClass());
@@ -1706,8 +1665,7 @@ void UUTLocalPlayer::OnReadUserFileComplete(bool bWasSuccessful, const FUniqueNe
 				CurrentProfileSettings->ResetProfile(EProfileResetType::All);
 			}
 
-			// Attempt to load the progression anyway since the user might have reset their profile.
-			LoadProgression();
+			ReadMMRFromBackend();
 		}
 
 		EpicFlagCheck();
@@ -1718,6 +1676,7 @@ void UUTLocalPlayer::OnReadUserFileComplete(bool bWasSuccessful, const FUniqueNe
 	}
 	else if (FileName == GetProgressionFilename())
 	{
+		LoginProcessComplete();
 		bIsPendingProgressionLoadFromMCP = false;
 
 		UE_LOG(UT, Verbose, TEXT("Progression loaded from MCP %d"), bWasSuccessful ? 1 : 0);
@@ -1788,6 +1747,9 @@ void UUTLocalPlayer::OnReadUserFileComplete(bool bWasSuccessful, const FUniqueNe
 
 		bProgressionReadFromCloud = true;
 		ReportStarsToServer();
+
+		InitializeSocial();
+
 	}
 }
 
@@ -1830,6 +1792,14 @@ void UUTLocalPlayer::WelcomeDialogResult(TSharedPtr<SCompoundWidget> Widget, uin
 	}
 }
 #endif
+
+void UUTLocalPlayer::ApplyProfileSettings()
+{
+	if (CurrentProfileSettings != nullptr)
+	{
+		CurrentProfileSettings->ApplyAllSettings(this);
+	}
+}
 
 void UUTLocalPlayer::SaveProfileSettings()
 {
@@ -2289,6 +2259,9 @@ TSharedPtr<class SUTDialogBase> UUTLocalPlayer::ShowLeagueMatchResultDialog(int3
 
 void UUTLocalPlayer::ReadMMRFromBackend()
 {
+
+	LoginPhase = ELoginPhase::GettingMMR;
+
 	// get MCP Utils
 	UUTMcpUtils* McpUtils = UUTMcpUtils::Get(GetWorld(), OnlineIdentityInterface->GetUniquePlayerId(GetControllerId()));
 	if (McpUtils == nullptr)
@@ -2383,6 +2356,13 @@ void UUTLocalPlayer::ReadMMRFromBackend()
 				}
 			}
 		}
+
+		// This will be bad if the local player goes away here.
+		if (WeakLocalPlayer.IsValid()) 
+		{
+			WeakLocalPlayer->LoadProgression();
+		}
+
 	});
 
 	ReadLeagueFromBackend(NAME_RankedShowdownSkillRating.ToString());
@@ -2852,7 +2832,14 @@ void UUTLocalPlayer::ReturnToMainMenu()
 
 	if ( GetWorld() != nullptr )
 	{
-		Exec( GetWorld(), TEXT( "disconnect" ), *GLog );
+		FString URL = TEXT("ut-entry?closed");
+		if ( GetWorld()->URL.HasOption(TEXT("tutorialmask")))
+		{
+			URL += TEXT("?tutorialmenu");
+		}
+
+		GetWorld()->ServerTravel(URL,true, true);
+		//Exec( GetWorld(), TEXT( "disconnect" ), *GLog );
 	}
 	else
 	{
@@ -3342,31 +3329,73 @@ void UUTLocalPlayer::StartQuickMatch(FString QuickMatchType)
 {
 	if (IsLoggedIn() && OnlineSessionInterface.IsValid())
 	{
-		if ( ServerBrowserWidget.IsValid() && ServerBrowserWidget->IsRefreshing())
+		if (QuickMatchType == EEpicDefaultRuleTags::CTF)
 		{
-			MessageBox(NSLOCTEXT("Generic","RequestInProgressTitle","Busy"), NSLOCTEXT("Generic","RequestInProgressText","A server list request is already in progress.  Please wait for it to finish before attempting to quickplay."));
-			return;
-		}
+			// Use matchmaking for quickmatch
+			if (ServerBrowserWidget.IsValid() && ServerBrowserWidget->IsRefreshing())
+			{
+				MessageBox(NSLOCTEXT("Generic", "RequestInProgressTitle", "Busy"), NSLOCTEXT("Generic", "RequestInProgressText", "A server list request is already in progress.  Please wait for it to finish before attempting to quickplay."));
+				return;
+			}
 
-		int32 NewPlaylistId = 0;
-		if (QuickMatchType == EEpicDefaultRuleTags::Deathmatch)
-		{
-			NewPlaylistId = 4;
-		}
-		else if (QuickMatchType == EEpicDefaultRuleTags::CTF)
-		{
-			NewPlaylistId = 3;
-		}
-		else if (QuickMatchType == EEpicDefaultRuleTags::SHOWDOWN)
-		{
-			NewPlaylistId = 5;
+			int32 NewPlaylistId = 0;
+			if (QuickMatchType == EEpicDefaultRuleTags::Deathmatch)
+			{
+				NewPlaylistId = 4;
+			}
+			else if (QuickMatchType == EEpicDefaultRuleTags::CTF)
+			{
+				NewPlaylistId = 3;
+			}
+			else if (QuickMatchType == EEpicDefaultRuleTags::TEAMSHOWDOWN)
+			{
+				NewPlaylistId = 5;
+			}
+			else
+			{
+				UE_LOG(UT, Warning, TEXT("QuickMatch playlist not assigned for %s"), *QuickMatchType);
+				return;
+			}
+
+			UMatchmakingContext* MatchmakingContext = Cast<UMatchmakingContext>(UBlueprintContextLibrary::GetContext(GetWorld(), UMatchmakingContext::StaticClass()));
+			if (MatchmakingContext)
+			{
+				MatchmakingContext->StartMatchmaking(NewPlaylistId);
+			}
 		}
 		else
 		{
-			return;
-		}
+			// Use classic hub
+			if (QuickMatchDialog.IsValid())
+			{
+				return;
+			}
+			if (GetWorld()->GetTimeSeconds() < QuickMatchLimitTime)
+			{
+				MessageBox(NSLOCTEXT("Generic", "CantStartQuickMatchTitle", "Please Wait"), NSLOCTEXT("Generic", "CantStartQuickMatchText", "You need to wait for at least 1 minute before you can attempt to quickplay again."));
+				return;
+			}
+			if (ServerBrowserWidget.IsValid() && ServerBrowserWidget->IsRefreshing())
+			{
+				MessageBox(NSLOCTEXT("Generic", "RequestInProgressTitle", "Busy"), NSLOCTEXT("Generic", "RequestInProgressText", "A server list request is already in progress.  Please wait for it to finish before attempting to quickplay."));
+				return;
+			}
 
-		StartMatchmaking(NewPlaylistId);
+			CurrentQuickMatchType = QuickMatchType;
+
+			if (OnlineSessionInterface.IsValid())
+			{
+				OnlineSessionInterface->CancelFindSessions();
+			}
+
+			SAssignNew(QuickMatchDialog, SUTQuickMatchWindow, this)
+				.QuickMatchType(QuickMatchType);
+			if (QuickMatchDialog.IsValid())
+			{
+				OpenWindow(QuickMatchDialog);
+				QuickMatchDialog->TellSlateIWantKeyboardFocus();
+			}
+		}
 	}
 	else
 	{
@@ -5776,4 +5805,98 @@ void UUTLocalPlayer::OnUpgradeResults(TSharedPtr<SCompoundWidget> Widget, uint16
 void UUTLocalPlayer::ClearPendingLoginUserName()
 {
 	PendingLoginUserName = TEXT("");
+}
+
+void UUTLocalPlayer::LoginProcessComplete()
+{
+#if !UE_SERVER
+	// Close down the login dialog if it's open.
+	if (LoginDialog.IsValid())
+	{
+		LoginDialog->EndLogin(true);
+	}
+#endif
+
+	if (IsLoggedIn())
+	{
+		FText WelcomeToast = FText::Format(NSLOCTEXT("MCP","MCPWelcomeBack","Welcome back {0}"), FText::FromString(*GetOnlinePlayerNickname()));
+		ShowToast(WelcomeToast);
+
+		// on successful auto login, attempt to join an accepted friend game invite
+		if (bInitialSignInAttempt)
+		{
+			FString SessionId;
+			FString FriendId;
+			if (FParse::Value(FCommandLine::Get(), TEXT("invitesession="), SessionId) && !SessionId.IsEmpty() &&
+				FParse::Value(FCommandLine::Get(), TEXT("invitefrom="), FriendId) && !FriendId.IsEmpty())
+			{
+				JoinFriendSession(FUniqueNetIdString(FriendId), FUniqueNetIdString(SessionId));
+				return;
+			}
+		}
+
+		// If we have a pending session, then join it.
+		JoinPendingSession();
+
+		TSharedPtr<const FUniqueNetId> UserId = OnlineIdentityInterface->GetUniquePlayerId(GetControllerId());
+		ShowRankedReconnectDialog(UserId->ToString());
+	}
+}
+
+void UUTLocalPlayer::SetTutorialFinished(int32 TutorialMask)
+{
+	if (CurrentProfileSettings != nullptr)
+	{
+		CurrentProfileSettings->TutorialMask |= TutorialMask;
+		SaveProfileSettings();
+	}
+}
+
+bool UUTLocalPlayer::IsSystemMenuOpen()
+{
+#if !UE_SERVER
+	return DesktopSlateWidget.IsValid();
+#endif
+
+	return false;
+}
+
+void UUTLocalPlayer::InitializeSocial()
+{
+
+#if WITH_SOCIAL
+	// Init the Friends And Chat system
+	FFriendsAndChatLoginOptions LoginOptions(0, true);
+	ISocialModule::Get().GetFriendsAndChatManager()->Login(OnlineSubsystem, LoginOptions);
+	ISocialModule::Get().GetFriendsAndChatManager()->SetAnalyticsProvider(FUTAnalytics::GetProviderPtr());
+
+	// PLK TODO: Find which API replaces this
+	/*
+	if (!ISocialModule::Get().GetFriendsAndChatManager()->GetNotificationService()->OnJoinGame().IsBoundToObject(this))
+ 	{
+		ISocialModule::Get().GetFriendsAndChatManager()->GetNotificationService()->OnJoinGame().AddUObject(this, &UUTLocalPlayer::HandleFriendsJoinGame);
+ 	}
+	if (!ISocialModule::Get().GetFriendsAndChatManager()->AllowFriendsJoinGame().IsBoundToObject(this))
+	{
+		ISocialModule::Get().GetFriendsAndChatManager()->AllowFriendsJoinGame().BindUObject(this, &UUTLocalPlayer::AllowFriendsJoinGame);
+	}
+	*/
+	if (!ISocialModule::Get().GetFriendsAndChatManager()->GetNotificationService()->OnNotificationsAvailable().IsBoundToObject(this))
+ 	{
+ 		ISocialModule::Get().GetFriendsAndChatManager()->GetNotificationService()->OnNotificationsAvailable().AddUObject(this, &UUTLocalPlayer::HandleFriendsNotificationAvail);
+ 	}
+	if (!ISocialModule::Get().GetFriendsAndChatManager()->GetNotificationService()->OnSendNotification().IsBoundToObject(this))
+ 	{
+		ISocialModule::Get().GetFriendsAndChatManager()->GetNotificationService()->OnSendNotification().AddUObject(this, &UUTLocalPlayer::HandleFriendsActionNotification);
+ 	}
+				
+#endif
+
+#if !UE_SERVER
+	// Make sure popup is created so we dont lose any messages
+	GetFriendsPopup();
+#endif
+
+	LoginPhase = ELoginPhase::LoggedIn;
+
 }

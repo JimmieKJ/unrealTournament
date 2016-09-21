@@ -86,6 +86,9 @@ public:
 	 */
 	void CheckTouching();
 
+	/** called to do clientside simulated handling of weapon pickups with weapon stay on */
+	virtual void LocalPickupHandling(APawn* TouchedBy);
+
 	virtual void SetPickupHidden(bool bNowHidden) override;
 	virtual void PlayTakenEffects(bool bReplicate) override;
 

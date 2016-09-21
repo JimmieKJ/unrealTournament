@@ -39,7 +39,7 @@ void UUTAnnouncer::PlayAnnouncement(TSubclassOf<UUTLocalMessage> MessageClass, i
 {
 	if (MessageClass != NULL)
 	{
-		if (!MessageClass.GetDefaultObject()->bPlayDuringIntermission)
+		if (!MessageClass.GetDefaultObject()->ShouldPlayDuringIntermission(Switch))
 		{
 			AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
 			if (GS && (!GS->IsMatchInProgress() || GS->IsMatchIntermission()))
@@ -52,7 +52,7 @@ void UUTAnnouncer::PlayAnnouncement(TSubclassOf<UUTLocalMessage> MessageClass, i
 		{
 			FAnnouncementInfo NewAnnouncement(MessageClass, Switch, PlayerState1, PlayerState2, OptionalObject, GetWorld()->GetTimeSeconds());
 			// if we should cancel the current announcement, then play the new one over top of it
-			if (CurrentAnnouncement.MessageClass != NULL && MessageClass.GetDefaultObject()->InterruptAnnouncement(Switch, OptionalObject, CurrentAnnouncement.MessageClass, CurrentAnnouncement.Switch, CurrentAnnouncement.OptionalObject))
+			if (CurrentAnnouncement.MessageClass != NULL && MessageClass.GetDefaultObject()->InterruptAnnouncement(NewAnnouncement, CurrentAnnouncement))
 			{
 				//UE_LOG(UT, Warning, TEXT("%s %d interrupting %s %d"), *MessageClass->GetName(), Switch, *CurrentAnnouncement.MessageClass->GetName(), CurrentAnnouncement.Switch);
 				QueuedAnnouncements.Insert(NewAnnouncement, 0);
@@ -62,24 +62,32 @@ void UUTAnnouncer::PlayAnnouncement(TSubclassOf<UUTLocalMessage> MessageClass, i
 			{
 				bool bCancelThisAnnouncement = false;
 				int32 InsertIndex = -1;
-				float AnnouncementPriority = MessageClass.GetDefaultObject()->GetAnnouncementPriority(Switch);
+				float AnnouncementPriority = MessageClass.GetDefaultObject()->GetAnnouncementPriority(NewAnnouncement);
 				// see if we should cancel any existing announcements
-				for (int32 i = QueuedAnnouncements.Num() - 1; i >= 0; i--)
+				if ((CurrentAnnouncement.MessageClass != NULL) && MessageClass.GetDefaultObject()->CancelByAnnouncement(Switch, OptionalObject, CurrentAnnouncement.MessageClass, CurrentAnnouncement.Switch, CurrentAnnouncement.OptionalObject))
 				{
-					if (AnnouncementPriority > QueuedAnnouncements[i].MessageClass.GetDefaultObject()->GetAnnouncementPriority(Switch))
+					//UE_LOG(UT, Warning, TEXT("%s %d cancelled by %s %d"), *MessageClass->GetName(), Switch, *QueuedAnnouncements[i].MessageClass->GetName(), QueuedAnnouncements[i].Switch);
+					bCancelThisAnnouncement = true;
+				}
+				else
+				{
+					for (int32 i = QueuedAnnouncements.Num() - 1; i >= 0; i--)
 					{
-						InsertIndex = i;
-					}
-					if (MessageClass.GetDefaultObject()->InterruptAnnouncement(Switch, OptionalObject, QueuedAnnouncements[i].MessageClass, QueuedAnnouncements[i].Switch, QueuedAnnouncements[i].OptionalObject))
-					{
-						//UE_LOG(UT, Warning, TEXT("%s %d interrupting %s %d"), *MessageClass->GetName(), Switch, *QueuedAnnouncements[i].MessageClass->GetName(), QueuedAnnouncements[i].Switch);
-						QueuedAnnouncements.RemoveAt(i);
-						InsertIndex = FMath::Min(InsertIndex, QueuedAnnouncements.Num());
-					}
-					else if (MessageClass.GetDefaultObject()->CancelByAnnouncement(Switch, OptionalObject, QueuedAnnouncements[i].MessageClass, QueuedAnnouncements[i].Switch, QueuedAnnouncements[i].OptionalObject))
-					{
-						//UE_LOG(UT, Warning, TEXT("%s %d cancelled by %s %d"), *MessageClass->GetName(), Switch, *QueuedAnnouncements[i].MessageClass->GetName(), QueuedAnnouncements[i].Switch);
-						bCancelThisAnnouncement = true;
+						if (AnnouncementPriority > QueuedAnnouncements[i].MessageClass.GetDefaultObject()->GetAnnouncementPriority(QueuedAnnouncements[i]))
+						{
+							InsertIndex = i;
+						}
+						if (MessageClass.GetDefaultObject()->InterruptAnnouncement(NewAnnouncement, QueuedAnnouncements[i]))
+						{
+							//UE_LOG(UT, Warning, TEXT("%s %d interrupting %s %d"), *MessageClass->GetName(), Switch, *QueuedAnnouncements[i].MessageClass->GetName(), QueuedAnnouncements[i].Switch);
+							QueuedAnnouncements.RemoveAt(i);
+							InsertIndex = FMath::Min(InsertIndex, QueuedAnnouncements.Num());
+						}
+						else if (MessageClass.GetDefaultObject()->CancelByAnnouncement(Switch, OptionalObject, QueuedAnnouncements[i].MessageClass, QueuedAnnouncements[i].Switch, QueuedAnnouncements[i].OptionalObject))
+						{
+							//UE_LOG(UT, Warning, TEXT("%s %d cancelled by %s %d"), *MessageClass->GetName(), Switch, *QueuedAnnouncements[i].MessageClass->GetName(), QueuedAnnouncements[i].Switch);
+							bCancelThisAnnouncement = true;
+						}
 					}
 				}
 
@@ -147,7 +155,7 @@ void UUTAnnouncer::PlayNextAnnouncement()
 		}
 
 		FAnnouncementInfo Next = QueuedAnnouncements[0];
-		if (!Next.MessageClass.GetDefaultObject()->bPlayDuringIntermission)
+		if (!Next.MessageClass.GetDefaultObject()->ShouldPlayDuringIntermission(Next.Switch))
 		{
 			AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
 			if (GS && (!GS->IsMatchInProgress() || GS->IsMatchIntermission()))

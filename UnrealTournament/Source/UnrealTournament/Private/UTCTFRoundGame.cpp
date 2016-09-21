@@ -201,6 +201,14 @@ void AUTCTFRoundGame::BeginGame()
 	IntermissionDuration = 10.f;
 	SetMatchState(MatchState::MatchIntermission);
 	IntermissionDuration = RealIntermissionDuration;
+	for (FConstPlayerControllerIterator It = GetWorld()->GetPlayerControllerIterator(); It; ++It)
+	{
+		AUTPlayerController* PC = Cast<AUTPlayerController>(It->Get());
+		if (PC)
+		{
+			PC->ViewStartSpot();
+		}
+	}
 }
 
 AActor* AUTCTFRoundGame::SetIntermissionCameras(uint32 TeamToWatch)

@@ -220,6 +220,11 @@ void AUTRemoteRedeemer::BlowUp()
 {
 	if (!bExploded)
 	{
+		AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
+		if (!GS || GS->HasMatchEnded() || GS->IsMatchIntermission())
+		{
+			return;
+		}
 		AUTGameMode* GM = GetWorld()->GetAuthGameMode<AUTGameMode>();
 		if (GM)
 		{

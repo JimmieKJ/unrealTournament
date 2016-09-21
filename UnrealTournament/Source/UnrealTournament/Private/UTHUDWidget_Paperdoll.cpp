@@ -179,15 +179,15 @@ void UUTHUDWidget_Paperdoll::Draw_Implementation(float DeltaTime)
 	RenderObj_Text(HealthText, DrawOffset); 
 
 	// Draw the Armor...
-	RenderObj_Texture(ArmorBackground, DrawOffset * -1); 
-	RenderObj_Texture(ShieldOverlay, DrawOffset * -1); 
-	RenderObj_Texture(ArmorIcon, DrawOffset * -1); 
-	RenderObj_Text(ArmorText, DrawOffset * -1); 
+	RenderObj_Texture(ArmorBackground, DrawOffset * -1.f); 
+	RenderObj_Texture(ShieldOverlay, DrawOffset * -1.f); 
+	RenderObj_Texture(ArmorIcon, DrawOffset * -1.f); 
+	RenderObj_Text(ArmorText, DrawOffset * -1.f); 
 
 	FlagText.Text = FText::GetEmpty();
 	if (UTHUDOwner->GetQuickInfoHidden() && (bPlayerCanRally || bShowFlagInfo || bShowTimer))
 	{
-		FlagIcon.Position.Y = bPlayerCanRally ? -16 : 0;
+		FlagIcon.Position.Y = bPlayerCanRally ? -16.f : 0.f;
 		Opacity = FlagOpacity;		
 		RenderScale *= FlagOpacity;
 
@@ -197,13 +197,13 @@ void UUTHUDWidget_Paperdoll::Draw_Implementation(float DeltaTime)
 			DrawRallyIcon(DeltaTime);		
 		}
 
-		if (bPlayerCanRally)
+		if (bPlayerCanRally || bShowFlagInfo)
 		{
-			FlagIcon.RenderScale = 1.25 + (0.75 * FMath::Abs<float>(FMath::Sin(GetWorld()->GetTimeSeconds() * 3)));
+			FlagIcon.RenderScale = 1.25f + (0.75f * FMath::Abs<float>(FMath::Sin(GetWorld()->GetTimeSeconds() * 3.f)));
 		}
 		else
 		{
-			FlagIcon.RenderScale = 1.25;
+			FlagIcon.RenderScale = 1.25f;
 		}
 
 		FlagIcon.UVs = FlagHolderIconUVs;

@@ -248,9 +248,14 @@ public:
 	/** sound played when the object is picked up */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Sounds)
 	USoundBase* PickupSound;
+
 	/** sound played when the object is dropped */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Sounds)
 	USoundBase* DropSound;
+
+	/** Ambient sound played while holding flag */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Sounds)
+		USoundBase* HeldFlagAmbientSound;
 
 	virtual void GetActorEyesViewPoint(FVector& OutLocation, FRotator& OutRotation) const;
 

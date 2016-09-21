@@ -52,14 +52,14 @@ FVector2D UUTHUDWidgetMessage_ConsoleMessages::DrawMessage(int32 QueueIndex, flo
 	}
 
 	FText DestinationTag = FText::GetEmpty();
-	switch (MessageQueue[QueueIndex].MessageIndex)
+	switch (MessageQueue[QueueIndex].MessageClass->GetDefaultObject<UUTLocalMessage>()->GetDestinationIndex(MessageQueue[QueueIndex].MessageIndex))
 	{
 	case 1: DestinationTag = FText::FromString(TEXT("[Global]")); break;
 	case 2:	DestinationTag = FText::FromString(TEXT("[System]")); break;
 	case 3: DestinationTag = FText::FromString(TEXT("[Lobby]")); break;
-//	case 4: DestinationTag = FText::FromString(TEXT("[Chat]")); break;
-//	case 5: DestinationTag = FText::FromString(TEXT("[Match]")); break;
-//	case 6: DestinationTag = FText::FromString(TEXT("[Team]")); break;
+	case 4: DestinationTag = FText::FromString(TEXT("[Chat]")); break;
+	case 5: DestinationTag = FText::FromString(TEXT("[Match]")); break;
+	case 6: DestinationTag = FText::FromString(TEXT("[Team]")); break;
 	case 7: DestinationTag = FText::FromString(TEXT("[MOTD]")); break;
 	case 8: DestinationTag = FText::FromString(TEXT("[Whisper]")); break;
 	case 9: DestinationTag = FText::FromString(TEXT("[Instance]")); break;

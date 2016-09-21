@@ -25,7 +25,7 @@ public:
 	 *  we create and UMG widget associated with this crosshair and make sure they are in view
 	 **/
 	UFUNCTION(BlueprintNativeEvent, Category = Crosshair)
-	void ActivateCrosshair(AUTHUD* TargetHUD, const FWeaponCustomizationInfo& CustomizationsToApply);
+	void ActivateCrosshair(AUTHUD* TargetHUD, const FWeaponCustomizationInfo& CustomizationsToApply, AUTWeapon* Weapon);
 
 	/** 
 	 * Called from the HUD_Widget when it has detected that the player's weapon has changed.  This is called on the previously active crosshair 

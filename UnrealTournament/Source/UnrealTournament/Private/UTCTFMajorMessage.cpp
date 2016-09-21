@@ -79,6 +79,20 @@ void UUTCTFMajorMessage::ClientReceive(const FClientReceiveData& ClientData) con
 	}
 }
 
+bool UUTCTFMajorMessage::ShouldDrawMessage(int32 MessageIndex, AUTPlayerController* PC, bool bIsAtIntermission, bool bNoLivePawnTarget) const
+{
+	if (MessageIndex == 23)
+	{
+		// only draw if can still rally
+		if (!PC->CanPerformRally())
+		{
+			return false;
+		}
+	}
+	
+	return Super::ShouldDrawMessage(MessageIndex, PC, bIsAtIntermission, bNoLivePawnTarget);
+}
+
 FLinearColor UUTCTFMajorMessage::GetMessageColor_Implementation(int32 MessageIndex) const
 {
 	return FLinearColor::White;
@@ -138,22 +152,22 @@ FText UUTCTFMajorMessage::GetText(int32 Switch, bool bTargetsPlayerState1, APlay
 	return FText::GetEmpty();
 }
 
-float UUTCTFMajorMessage::GetAnnouncementPriority(int32 Switch) const
+float UUTCTFMajorMessage::GetAnnouncementPriority(const FAnnouncementInfo AnnouncementInfo) const
 {
-	return (Switch <13) ? 1.f : 0.f;
+	return (AnnouncementInfo.Switch <13) ? 1.f : 0.f;
 }
 
-bool UUTCTFMajorMessage::InterruptAnnouncement_Implementation(int32 Switch, const UObject* OptionalObject, TSubclassOf<UUTLocalMessage> OtherMessageClass, int32 OtherSwitch, const UObject* OtherOptionalObject) const
+bool UUTCTFMajorMessage::InterruptAnnouncement(const FAnnouncementInfo AnnouncementInfo, const FAnnouncementInfo OtherAnnouncementInfo) const
 {
-	if (OtherMessageClass->GetDefaultObject<UUTLocalMessage>()->IsOptionalSpoken(OtherSwitch))
+	if (OtherAnnouncementInfo.MessageClass->GetDefaultObject<UUTLocalMessage>()->IsOptionalSpoken(OtherAnnouncementInfo.Switch))
 	{
 		return true;
 	}
-	if (GetClass() == OtherMessageClass)
+	if (AnnouncementInfo.MessageClass == OtherAnnouncementInfo.MessageClass)
 	{
 		return false;
 	}
-	if (GetAnnouncementPriority(Switch) > OtherMessageClass->GetDefaultObject<UUTLocalMessage>()->GetAnnouncementPriority(OtherSwitch))
+	if (GetAnnouncementPriority(AnnouncementInfo) > OtherAnnouncementInfo.MessageClass->GetDefaultObject<UUTLocalMessage>()->GetAnnouncementPriority(OtherAnnouncementInfo))
 	{
 		return true;
 	}

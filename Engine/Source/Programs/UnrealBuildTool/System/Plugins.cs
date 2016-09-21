@@ -45,7 +45,7 @@ namespace UnrealBuildTool
 			Name = Path.GetFileNameWithoutExtension(InFile.FullName);
 			File = InFile;
 			Directory = File.Directory;
-			Descriptor = PluginDescriptor.FromFile(File);
+			Descriptor = PluginDescriptor.FromFile(File, InLoadedFrom == PluginLoadedFrom.GameProject);
 			LoadedFrom = InLoadedFrom;
 		}
 	}

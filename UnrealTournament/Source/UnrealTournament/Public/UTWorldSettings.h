@@ -144,6 +144,9 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = LevelSettings)
 	USoundBase* Music;
 
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = LevelSettings)
+	bool bUseCapsuleDirectShadowsForCharacter;
+
 	UPROPERTY()
 	UAudioComponent* MusicComp;
 

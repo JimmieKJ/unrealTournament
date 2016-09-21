@@ -910,10 +910,9 @@ void AUTCarriedObject::OnRep_AttachmentReplication()
 			{
 				NewParentComponent = GetAttachmentReplication().AttachComponent;
 			}
-			else if (GetAttachmentReplication().AttachSocket != NAME_None && Cast<ACharacter>(GetAttachmentReplication().AttachParent) != nullptr)
-			{
-				NewParentComponent = ((ACharacter*)GetAttachmentReplication().AttachParent)->GetMesh();
-			}
+			
+			// FIXME: workaround for engine replication bug
+			FName AttachSocket = (GetAttachmentReplication().AttachSocket != NAME_None) ? GetAttachmentReplication().AttachSocket : Holder3PSocketName;
 
 			if (NewParentComponent)
 			{
@@ -921,12 +920,12 @@ void AUTCarriedObject::OnRep_AttachmentReplication()
 				FVector NewRelativeScale3D = RootComponent->RelativeScale3D;
 				if (!RootComponent->bAbsoluteScale)
 				{
-					FTransform ParentToWorld = NewParentComponent->GetSocketTransform(GetAttachmentReplication().AttachSocket);
+					FTransform ParentToWorld = NewParentComponent->GetSocketTransform(AttachSocket);
 					FTransform RelativeTM = RootComponent->ComponentToWorld.GetRelativeTransform(ParentToWorld);
 					NewRelativeScale3D = RelativeTM.GetScale3D();
 				}
 
-				RootComponent->AttachToComponent(NewParentComponent,  FAttachmentTransformRules::KeepRelativeTransform, GetAttachmentReplication().AttachSocket);
+				RootComponent->AttachToComponent(NewParentComponent,  FAttachmentTransformRules::KeepRelativeTransform, AttachSocket);
 				RootComponent->RelativeLocation = GetAttachmentReplication().LocationOffset;
 				RootComponent->RelativeRotation = GetAttachmentReplication().RotationOffset;
 				RootComponent->RelativeScale3D = NewRelativeScale3D;

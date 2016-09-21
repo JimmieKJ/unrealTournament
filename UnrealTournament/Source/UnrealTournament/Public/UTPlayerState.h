@@ -609,9 +609,6 @@ public:
 	UPROPERTY(Replicated, BlueprintReadWrite, Category = PlayerState)
 		TSubclassOf<class AUTInventory> BoostClass;
 
-	UPROPERTY(BlueprintReadWrite, Category = PlayerState)
-		bool bIsPowerupSelectWindowOpen;
-
 	/** Last scoreboard position, used by minimap. */
 	UPROPERTY()
 		FVector ScoreCorner;

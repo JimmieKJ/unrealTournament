@@ -254,7 +254,15 @@ public:
 	// Will actually query the UParty once persistent parties are enabled
 	bool IsPartyLeader() { return true; }
 
+	UFUNCTION(BlueprintCallable, Category = "Profile")
 	UUTProfileSettings* GetProfileSettings();
+
+	UFUNCTION(BlueprintCallable, Category = "Profile")
+	virtual void SaveProfileSettings();
+
+	UFUNCTION(BlueprintCallable, Category = "Profile")
+	virtual void ApplyProfileSettings();
+
 
 	UFUNCTION(BlueprintCallable, Client, Reliable, Category = "Movies")
 	virtual void ClientPlayMovie(const FString& MovieName);
@@ -282,6 +290,9 @@ public:
 
 	UFUNCTION(exec)
 	void ImportKeyBinds();
+
+	UFUNCTION(BlueprintCallable, Category = OnBoarding)
+	void MarkTutorialAsCompleted(int32 TutorialMask);
 
 protected:
 	// Sends a message directly to a user.  

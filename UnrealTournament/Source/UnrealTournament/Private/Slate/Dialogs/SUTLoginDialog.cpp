@@ -395,7 +395,7 @@ void SUTLoginDialog::Construct(const FArguments& InArgs)
 				.HAlign(HAlign_Center)
 				[
 					SNew(STextBlock)
-					.Text(NSLOCTEXT("Login","Loading",".. Looking up Account .. "))
+					.Text(this, &SUTLoginDialog::GetLoginPhaseMessage)
 					.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Medium.Link")
 				]
 				+ SVerticalBox::Slot()
@@ -520,12 +520,12 @@ FReply SUTLoginDialog::OnKeyDown(const FGeometry& MyGeometry, const FKeyEvent& I
 
 EVisibility SUTLoginDialog::GetInfoVis() const
 {
-	return bIsLoggingIn ? EVisibility::Collapsed : EVisibility::Visible;
+	return (PlayerOwner.IsValid() && PlayerOwner->LoginPhase == ELoginPhase::Offline) ? EVisibility::Visible : EVisibility::Collapsed;
 }
 
 EVisibility SUTLoginDialog::GetLoadingVis() const
 {
-	return bIsLoggingIn ? EVisibility::Visible : EVisibility::Collapsed;
+	return (PlayerOwner.IsValid() && PlayerOwner->LoginPhase == ELoginPhase::Offline) ? EVisibility::Collapsed : EVisibility::Visible;
 }
 
 
@@ -572,6 +572,31 @@ void SUTLoginDialog::EndLogin(bool bClose)
 	{
 		bIsLoggingIn = false;
 	}
+}
+
+FText SUTLoginDialog::GetLoginPhaseMessage() const
+{
+	if (PlayerOwner.IsValid())
+	{
+		if (PlayerOwner->LoginPhase == ELoginPhase::Auth)
+		{
+			return NSLOCTEXT("Login","LoadingAuth",".. Looking up Account .. ");
+		}
+		else if (PlayerOwner->LoginPhase == ELoginPhase::GettingProfile)
+		{
+			return NSLOCTEXT("Login","LoadingProifile",".. Loading Settings .. ");
+		}
+		else if (PlayerOwner->LoginPhase == ELoginPhase::GettingProgression)
+		{
+			return NSLOCTEXT("Login","LoadingProgression",".. Loading Progression .. ");
+		}
+		else if (PlayerOwner->LoginPhase == ELoginPhase::GettingMMR)
+		{
+			return NSLOCTEXT("Login","LoadingMMR",".. Loading MMR .. ");
+		}
+	}
+
+	return NSLOCTEXT("Login","Loading",".. Loading .. ");
 }
 
 

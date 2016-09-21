@@ -12,7 +12,6 @@ UUTProfileSettings::UUTProfileSettings(const FObjectInitializer& ObjectInitializ
 	bNeedProfileWriteOnLevelChange = false;
 }
 
-
 void UUTProfileSettings::ResetProfile(EProfileResetType::Type SectionToReset)
 {
 	AUTPlayerController* DefaultUTPlayerController = AUTPlayerController::StaticClass()->GetDefaultObject<AUTPlayerController>();
@@ -72,7 +71,7 @@ void UUTProfileSettings::ResetProfile(EProfileResetType::Type SectionToReset)
 		HUDWidgetWeaponBarEmptyOpacity = 0.2f;
 		HUDWidgetScaleOverride = 1.f;
 		HUDMessageScaleOverride = 1.0f;
-		bUseWeaponColors = false;
+		bUseWeaponColors = true;
 		bDrawChatKillMsg = false;
 		bDrawCenteredKillMsg = true;
 		bDrawHUDKillIconMsg = true;
@@ -133,7 +132,7 @@ void UUTProfileSettings::ResetProfile(EProfileResetType::Type SectionToReset)
 		WeaponCustomizations.Empty();
 		WeaponCustomizations.Add(EpicWeaponCustomizationTags::Redeemer, FWeaponCustomizationInfo(EpicWeaponCustomizationTags::Redeemer, 10, 10.0f, DefaultWeaponCrosshairs::Circle2, FLinearColor::White, 1.0f));
 		WeaponCustomizations.Add(EpicWeaponCustomizationTags::RocketLauncher, FWeaponCustomizationInfo(EpicWeaponCustomizationTags::RocketLauncher, 8, 8.0f, DefaultWeaponCrosshairs::Triad2, FLinearColor::White, 1.0f));
-		WeaponCustomizations.Add(EpicWeaponCustomizationTags::Sniper, FWeaponCustomizationInfo(EpicWeaponCustomizationTags::Sniper, 9, 9.0f, DefaultWeaponCrosshairs::Dot, FLinearColor::White, 1.0f));
+		WeaponCustomizations.Add(EpicWeaponCustomizationTags::Sniper, FWeaponCustomizationInfo(EpicWeaponCustomizationTags::Sniper, 9, 9.0f, DefaultWeaponCrosshairs::Sniper, FLinearColor::White, 1.0f));
 		WeaponCustomizations.Add(EpicWeaponCustomizationTags::IGShockRifle, FWeaponCustomizationInfo(EpicWeaponCustomizationTags::IGShockRifle, 4, 4.0f, DefaultWeaponCrosshairs::Cross1, FLinearColor::White, 1.0f));
 		WeaponCustomizations.Add(EpicWeaponCustomizationTags::ShockRifle, FWeaponCustomizationInfo(EpicWeaponCustomizationTags::ShockRifle, 4, 4.0f, DefaultWeaponCrosshairs::Cross2, FLinearColor::White, 1.0f));
 		WeaponCustomizations.Add(EpicWeaponCustomizationTags::FlakCannon, FWeaponCustomizationInfo(EpicWeaponCustomizationTags::FlakCannon, 7, 7.0f, DefaultWeaponCrosshairs::Triad3, FLinearColor::White, 1.0f));
@@ -470,7 +469,6 @@ bool UUTProfileSettings::ValidateGameActions()
 		if (InputSettings != nullptr) InputSettings->SaveConfig();
 		if (UTPlayerInput != nullptr) UTPlayerInput->SaveConfig();
 	}
-		
 
 	// Remove any GameActions that no longer exist in the default list.
 	int32 Action = GameActions.Num()-1;
@@ -495,7 +493,6 @@ bool UUTProfileSettings::ValidateGameActions()
 	}
 
 	// Now reverse it, add any are missing
-
 	for (int32 i = 0; i < DefaultGameActions.Num(); i++)
 	{
 		bool bFound = false;
@@ -514,7 +511,6 @@ bool UUTProfileSettings::ValidateGameActions()
 			bNeedsResaving = true;
 		}
 	}
-
 	return bNeedsResaving;
 }
 
@@ -523,6 +519,17 @@ bool UUTProfileSettings::VersionFixup()
 	// HACK - We aren't supporting weapon skins right now since they are disabled in netplay in editor builds.  So force clear them here just in
 	// case there was stale data.
 	WeaponSkins.Empty();
+
+	if (WeaponCustomizations.Contains(EpicWeaponCustomizationTags::Sniper))
+	{
+		WeaponCustomizations[EpicWeaponCustomizationTags::Sniper].DefaultCrosshairTag = DefaultWeaponCrosshairs::Sniper;
+	}
+
+	if (SettingsRevisionNum < WEAPONBAR_FIXUP_VERSION)
+	{
+		bUseWeaponColors = true;
+		HUDWidgetWeaponbarInactiveOpacity = 0.6f;
+	}
 	return ValidateGameActions();
 }
 
@@ -540,7 +547,6 @@ void UUTProfileSettings::ApplyAllSettings(UUTLocalPlayer* ProfilePlayer)
 	ProfilePlayer->SetEyewearVariant(EyewearVariant);
 
 	ApplyInputSettings(ProfilePlayer);
-
 }
 
 void UUTProfileSettings::GetWeaponGroup(AUTWeapon* Weapon, int32& WeaponGroup, int32& GroupPriority)
@@ -556,6 +562,7 @@ void UUTProfileSettings::GetWeaponGroup(AUTWeapon* Weapon, int32& WeaponGroup, i
 		}
 	}
 }
+
 void UUTProfileSettings::GetWeaponCustomization(FName WeaponCustomizationTag, FWeaponCustomizationInfo& outWeaponCustomizationInfo)
 {
 	if (WeaponCustomizations.Contains(WeaponCustomizationTag))
@@ -800,13 +807,13 @@ void UUTProfileSettings::ApplyInputSettings(UUTLocalPlayer* ProfilePlayer)
 		DefaultInputSettingsObject->bEnableMouseSmoothing = bEnableMouseSmoothing;
 		DefaultInputSettingsObject->DoubleClickTime = DoubleClickTime;
 	}
-
 }
 
 const FKeyConfigurationInfo* UUTProfileSettings::FindGameAction(FName SearchTag)
 {
 	return FindGameAction(SearchTag.ToString());
 }
+
 const FKeyConfigurationInfo* UUTProfileSettings::FindGameAction(const FString& SearchTag)
 {
 	for (int32 i = 0 ; i < GameActions.Num(); i++)
@@ -839,7 +846,6 @@ void UUTProfileSettings::ExportKeyBinds()
 	{
 		UE_LOG(UT,Log,TEXT("Could not export binds"));
 	}
-
 }
 
 void UUTProfileSettings::ImportKeyBinds()
@@ -868,9 +874,7 @@ void UUTProfileSettings::ImportKeyBinds()
 						if (ImportData.GameActions[i].PrimaryKey == GameActions[j].PrimaryKey) ImportData.GameActions[i].PrimaryKey = FKey();
 						if (ImportData.GameActions[i].SecondaryKey == GameActions[j].SecondaryKey) ImportData.GameActions[i].SecondaryKey= FKey();
 						if (ImportData.GameActions[i].GamepadKey == GameActions[j].GamepadKey) ImportData.GameActions[i].GamepadKey= FKey();
-					
 					}
-				
 				}
 			}
 		}
@@ -883,6 +887,5 @@ void UUTProfileSettings::ImportKeyBinds()
 	{
 		UE_LOG(UT,Log,TEXT("Could not load %s"), *FilePath);
 	}
-
 }
 
