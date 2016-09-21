@@ -340,8 +340,6 @@ FCharacterSpeech UUTCharacterVoice::GetCharacterSpeech(int32 Switch) const
 			{
 				return GetGVLine(SniperLines, Switch - GetStatusIndex(GameVolumeSpeechType::GV_Sniper));
 			}
-
-
 			else if (Switch / 100 == GetStatusIndex(GameVolumeSpeechType::GV_Arena) / 100)
 			{
 				return GetGVLine(ArenaLines, Switch - GetStatusIndex(GameVolumeSpeechType::GV_Arena));
