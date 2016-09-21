@@ -87,6 +87,10 @@
 			"Enabled": false
 		},
 		{
+			"Name": "OculusInput",
+			"Enabled": false
+		},
+		{
 			"Name": "SteamVR",
 			"Enabled": false
 		},
