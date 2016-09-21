@@ -964,7 +964,7 @@ float AUTCharacter::TakeDamage(float Damage, const FDamageEvent& DamageEvent, AC
 			}
 			else if (UTCharacterMovement != NULL)
 			{
-				if ((UTCharacterMovement->bIsFloorSliding) && !ResultMomentum.IsZero())
+				if ((UTCharacterMovement->bIsFloorSliding) && !ResultMomentum.IsZero()) //xxx
 				{
 					UTCharacterMovement->Velocity.X *= 0.5f;
 					UTCharacterMovement->Velocity.Y *= 0.5f;

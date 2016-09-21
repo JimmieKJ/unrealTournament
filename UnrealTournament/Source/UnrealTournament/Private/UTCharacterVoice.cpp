@@ -46,6 +46,24 @@ UUTCharacterVoice::UUTCharacterVoice(const FObjectInitializer& ObjectInitializer
 	StatusOffsets.Add(GameVolumeSpeechType::GV_Cave, KEY_CALLOUTS + 1400);
 	StatusOffsets.Add(GameVolumeSpeechType::GV_BaseCamp, KEY_CALLOUTS + 1500);
 	StatusOffsets.Add(GameVolumeSpeechType::GV_Sniper, KEY_CALLOUTS + 1600);
+	StatusOffsets.Add(GameVolumeSpeechType::GV_Arena, KEY_CALLOUTS + 1700);
+	StatusOffsets.Add(GameVolumeSpeechType::GV_Bonsaii, KEY_CALLOUTS + 1800);
+	StatusOffsets.Add(GameVolumeSpeechType::GV_Cliffs, KEY_CALLOUTS + 1900);
+	StatusOffsets.Add(GameVolumeSpeechType::GV_Core, KEY_CALLOUTS + 2000);
+	StatusOffsets.Add(GameVolumeSpeechType::GV_Crossroads, KEY_CALLOUTS + 2100);
+	StatusOffsets.Add(GameVolumeSpeechType::GV_Vents, KEY_CALLOUTS + 2200);
+	StatusOffsets.Add(GameVolumeSpeechType::GV_Pipes, KEY_CALLOUTS + 2300);
+	StatusOffsets.Add(GameVolumeSpeechType::GV_Ramp, KEY_CALLOUTS + 2400);
+	StatusOffsets.Add(GameVolumeSpeechType::GV_Hinge, KEY_CALLOUTS + 2500);
+	StatusOffsets.Add(GameVolumeSpeechType::GV_Tree, KEY_CALLOUTS + 2600);
+	StatusOffsets.Add(GameVolumeSpeechType::GV_Tunnel, KEY_CALLOUTS + 2700);
+	StatusOffsets.Add(GameVolumeSpeechType::GV_Falls, KEY_CALLOUTS + 2800);
+	StatusOffsets.Add(GameVolumeSpeechType::GV_Fort, KEY_CALLOUTS + 2900);
+	StatusOffsets.Add(GameVolumeSpeechType::GV_Fountain, KEY_CALLOUTS + 3000);
+	StatusOffsets.Add(GameVolumeSpeechType::GV_GateHouse, KEY_CALLOUTS + 3100);
+	StatusOffsets.Add(GameVolumeSpeechType::GV_Overlook, KEY_CALLOUTS + 3200);
+	StatusOffsets.Add(GameVolumeSpeechType::GV_Ruins, KEY_CALLOUTS + 3300);
+	StatusOffsets.Add(GameVolumeSpeechType::GV_SniperTower, KEY_CALLOUTS + 3400);
 
 	StatusOffsets.Add(StatusMessage::EnemyRally, KEY_CALLOUTS + 5000);
 	StatusOffsets.Add(StatusMessage::FindFC, KEY_CALLOUTS + 5001);
@@ -321,6 +339,80 @@ FCharacterSpeech UUTCharacterVoice::GetCharacterSpeech(int32 Switch) const
 			else if (Switch / 100 == GetStatusIndex(GameVolumeSpeechType::GV_Sniper) / 100)
 			{
 				return GetGVLine(SniperLines, Switch - GetStatusIndex(GameVolumeSpeechType::GV_Sniper));
+			}
+
+
+			else if (Switch / 100 == GetStatusIndex(GameVolumeSpeechType::GV_Arena) / 100)
+			{
+				return GetGVLine(ArenaLines, Switch - GetStatusIndex(GameVolumeSpeechType::GV_Arena));
+			}
+			else if (Switch / 100 == GetStatusIndex(GameVolumeSpeechType::GV_Bonsaii) / 100)
+			{
+				return GetGVLine(BonsaiiLines, Switch - GetStatusIndex(GameVolumeSpeechType::GV_Bonsaii));
+			}
+			else if (Switch / 100 == GetStatusIndex(GameVolumeSpeechType::GV_Cliffs) / 100)
+			{
+				return GetGVLine(CliffsLines, Switch - GetStatusIndex(GameVolumeSpeechType::GV_Cliffs));
+			}
+			else if (Switch / 100 == GetStatusIndex(GameVolumeSpeechType::GV_Core) / 100)
+			{
+				return GetGVLine(CoreLines, Switch - GetStatusIndex(GameVolumeSpeechType::GV_Core));
+			}
+			else if (Switch / 100 == GetStatusIndex(GameVolumeSpeechType::GV_Crossroads) / 100)
+			{
+				return GetGVLine(CrossroadsLines, Switch - GetStatusIndex(GameVolumeSpeechType::GV_Crossroads));
+			}
+			else if (Switch / 100 == GetStatusIndex(GameVolumeSpeechType::GV_Vents) / 100)
+			{
+				return GetGVLine(VentsLines, Switch - GetStatusIndex(GameVolumeSpeechType::GV_Vents));
+			}
+			else if (Switch / 100 == GetStatusIndex(GameVolumeSpeechType::GV_Pipes) / 100)
+			{
+				return GetGVLine(PipesLines, Switch - GetStatusIndex(GameVolumeSpeechType::GV_Pipes));
+			}
+			else if (Switch / 100 == GetStatusIndex(GameVolumeSpeechType::GV_Ramp) / 100)
+			{
+				return GetGVLine(RampLines, Switch - GetStatusIndex(GameVolumeSpeechType::GV_Ramp));
+			}
+			else if (Switch / 100 == GetStatusIndex(GameVolumeSpeechType::GV_Hinge) / 100)
+			{
+				return GetGVLine(HingeLines, Switch - GetStatusIndex(GameVolumeSpeechType::GV_Hinge));
+			}
+			else if (Switch / 100 == GetStatusIndex(GameVolumeSpeechType::GV_Tree) / 100)
+			{
+				return GetGVLine(TreeLines, Switch - GetStatusIndex(GameVolumeSpeechType::GV_Tree));
+			}
+			else if (Switch / 100 == GetStatusIndex(GameVolumeSpeechType::GV_Tunnel) / 100)
+			{
+				return GetGVLine(TunnelLines, Switch - GetStatusIndex(GameVolumeSpeechType::GV_Tunnel));
+			}
+			else if (Switch / 100 == GetStatusIndex(GameVolumeSpeechType::GV_Falls) / 100)
+			{
+				return GetGVLine(WaterfallLines, Switch - GetStatusIndex(GameVolumeSpeechType::GV_Falls));
+			}
+			else if (Switch / 100 == GetStatusIndex(GameVolumeSpeechType::GV_Fort) / 100)
+			{
+				return GetGVLine(FortLines, Switch - GetStatusIndex(GameVolumeSpeechType::GV_Fort));
+			}
+			else if (Switch / 100 == GetStatusIndex(GameVolumeSpeechType::GV_Fountain) / 100)
+			{
+				return GetGVLine(FountainLines, Switch - GetStatusIndex(GameVolumeSpeechType::GV_Fountain));
+			}
+			else if (Switch / 100 == GetStatusIndex(GameVolumeSpeechType::GV_GateHouse) / 100)
+			{
+				return GetGVLine(GateHouseLines, Switch - GetStatusIndex(GameVolumeSpeechType::GV_GateHouse));
+			}
+			else if (Switch / 100 == GetStatusIndex(GameVolumeSpeechType::GV_Overlook) / 100)
+			{
+				return GetGVLine(OverlookLines, Switch - GetStatusIndex(GameVolumeSpeechType::GV_Overlook));
+			}
+			else if (Switch / 100 == GetStatusIndex(GameVolumeSpeechType::GV_Ruins) / 100)
+			{
+				return GetGVLine(RuinsLines, Switch - GetStatusIndex(GameVolumeSpeechType::GV_Ruins));
+			}
+			else if (Switch / 100 == GetStatusIndex(GameVolumeSpeechType::GV_SniperTower) / 100)
+			{
+				return GetGVLine(SniperTowerLines, Switch - GetStatusIndex(GameVolumeSpeechType::GV_SniperTower));
 			}
 			else if (Switch / 100 == GetStatusIndex(PickupSpeechType::UDamagePickup) / 100)
 			{

@@ -93,6 +93,24 @@ namespace GameVolumeSpeechType
 	const FName GV_Cave = FName(TEXT("GV_Cave"));
 	const FName GV_BaseCamp = FName(TEXT("GV_BaseCamp"));
 	const FName GV_Sniper = FName(TEXT("GV_Sniper"));
+	const FName GV_Arena = FName(TEXT("GV_Arena"));
+	const FName GV_Bonsaii = FName(TEXT("GV_Bonsaii"));
+	const FName GV_Cliffs = FName(TEXT("GV_Cliffs"));
+	const FName GV_Core = FName(TEXT("GV_Core"));
+	const FName GV_Crossroads = FName(TEXT("GV_Crossroads"));
+	const FName GV_Vents = FName(TEXT("GV_Vents"));
+	const FName GV_Pipes = FName(TEXT("GV_Pipes"));
+	const FName GV_Ramp = FName(TEXT("GV_Ramp"));
+	const FName GV_Hinge = FName(TEXT("GV_Hinge"));
+	const FName GV_Tree = FName(TEXT("GV_Tree"));
+	const FName GV_Tunnel = FName(TEXT("GV_Tunnel"));
+	const FName GV_Falls = FName(TEXT("GV_Falls"));
+	const FName GV_Fort = FName(TEXT("GV_Fort"));
+	const FName GV_Fountain = FName(TEXT("GV_Fountain"));
+	const FName GV_GateHouse = FName(TEXT("GV_GateHouse"));
+	const FName GV_Overlook = FName(TEXT("GV_Overlook"));
+	const FName GV_Ruins = FName(TEXT("GV_Ruins"));
+	const FName GV_SniperTower = FName(TEXT("GV_SniperTower"));
 }
 
 namespace PickupSpeechType
