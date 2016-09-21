@@ -299,7 +299,7 @@ void UUTProfileSettings::GetDefaultGameActions(TArray<FKeyConfigurationInfo>& ou
 	outGameActions.Add(Key);
 
 	Key = FKeyConfigurationInfo("SwitchWeapon0", EControlCategory::Weapon, EKeys::Zero, EKeys::Invalid, EKeys::Invalid, NSLOCTEXT("Keybinds", "SwitchWeapon0", "Select Weapon Group 0"));
-	Key.AddCustomBinding("SwitchWeapon 0");
+	Key.AddCustomBinding("SwitchWeapon 10");
 	outGameActions.Add(Key);
 
 	// Taunts
@@ -530,6 +530,17 @@ bool UUTProfileSettings::VersionFixup()
 		bUseWeaponColors = true;
 		HUDWidgetWeaponbarInactiveOpacity = 0.6f;
 	}
+
+	// Fix up the bad switchweapon bind that sneaked through.
+	for (auto& Key : GameActions)
+	{
+		if ( Key.GameActionTag == FName(TEXT("SwitchWeapon0")) )
+		{
+			Key.CustomBindings.Empty();
+			Key.AddCustomBinding("SwitchWeapon 10");
+		}
+	}
+
 	return ValidateGameActions();
 }
 
