@@ -120,6 +120,7 @@ public:
 	virtual void GetBuildProjectSettingKeys(FString& OutSection, TArray<FString>& InBoolKeys, TArray<FString>& InIntKeys, TArray<FString>& InStringKeys) const override
 	{
 		OutSection = TEXT("/Script/IOSRuntimeSettings.IOSRuntimeSettings");
+		InBoolKeys.Add(TEXT("EnableRemoteShaderCompile"));
 		InBoolKeys.Add(TEXT("bGeneratedSYMFile"));
 		InBoolKeys.Add(TEXT("bGeneratedSYMBundle"));
 		InBoolKeys.Add(TEXT("bGenerateXCArchive"));

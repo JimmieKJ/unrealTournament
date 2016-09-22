@@ -172,6 +172,10 @@ public:
 	// Whether or not to add support for OpenGL ES2 (if this is false, then your game should specify minimum IOS8 version)
 	UPROPERTY(GlobalConfig, EditAnywhere, Category = Rendering)
 	bool bSupportsOpenGLES2;
+	
+	// Remotely compile shaders offline
+	UPROPERTY(GlobalConfig, EditAnywhere, Category = Build)
+	bool EnableRemoteShaderCompile;
 
 	// Enable generation of dSYM file
 	UPROPERTY(GlobalConfig, EditAnywhere, Category = Build, meta = (DisplayName = "Generate dSYM file for code debugging and profiling"))

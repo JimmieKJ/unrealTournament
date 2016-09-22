@@ -18,6 +18,7 @@ UIOSRuntimeSettings::UIOSRuntimeSettings(const FObjectInitializer& ObjectInitial
 	bSupportsIPad = true;
 	bSupportsIPhone = true;
 	MinimumiOSVersion = EIOSVersion::IOS_7;
+	EnableRemoteShaderCompile = false;
 	bGeneratedSYMFile = false;
 	bGeneratedSYMBundle = false;
 	bGenerateXCArchive = false;
