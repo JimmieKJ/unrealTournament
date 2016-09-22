@@ -252,13 +252,16 @@ void UUTProfileSettings::GetDefaultGameActions(TArray<FKeyConfigurationInfo>& ou
 	Key.AddCustomBinding("ActivateSpecial");
 	outGameActions.Add(Key);
 
+/*
 	Key = FKeyConfigurationInfo("SelectTrans", EControlCategory::Combat, EKeys::Invalid, EKeys::Invalid, EKeys::Invalid, NSLOCTEXT("Keybinds", "SelectTrans", "Select Translocator"));
 	Key.AddCustomBinding("SelectTranslocator");
 	outGameActions.Add(Key);
+*/
 
-	Key = FKeyConfigurationInfo("ToggleWepaonWheel", EControlCategory::Combat, EKeys::Invalid, EKeys::Invalid, EKeys::Gamepad_DPad_Up, NSLOCTEXT("Keybinds", "ToggleWeaponWheel", "Show Weapon Wheel"));
+	Key = FKeyConfigurationInfo("ToggleWepaonWheel", EControlCategory::Combat, EKeys::MiddleMouseButton, EKeys::Invalid, EKeys::Gamepad_DPad_Up, NSLOCTEXT("Keybinds", "ToggleWeaponWheel", "Show Weapon Wheel"));
 	Key.AddActionMapping("ToggleWeaponWheel");
 	outGameActions.Add(Key);
+
 
 	// Weapon
 
@@ -531,14 +534,66 @@ bool UUTProfileSettings::VersionFixup()
 		HUDWidgetWeaponbarInactiveOpacity = 0.6f;
 	}
 
+	int32 WeaponWheelIndex = -1;
+	int32 SelectTransIndex = -1;
+
+	bool bMiddleMouseUsed = false;
+	bool bThumbMouseUsed = false;
+
 	// Fix up the bad switchweapon bind that sneaked through.
-	for (auto& Key : GameActions)
+	for (int32 i = 0; i < GameActions.Num(); i++)
 	{
-		if ( Key.GameActionTag == FName(TEXT("SwitchWeapon0")) )
+		if ( GameActions[i].GameActionTag == FName(TEXT("SwitchWeapon0")) )
 		{
-			Key.CustomBindings.Empty();
-			Key.AddCustomBinding("SwitchWeapon 10");
+			GameActions[i].CustomBindings.Empty();
+			GameActions[i].AddCustomBinding("SwitchWeapon 10");
 		}
+		else if (GameActions[i].GameActionTag == FName(TEXT("SelectTrans")) )
+		{
+			// this action will be deleted, so continue the loop without looking for the keybinds.
+			SelectTransIndex = i;
+			continue;
+		}
+		else if (GameActions[i].GameActionTag == FName(TEXT("ToggleWepaonWheel")) )
+		{
+			WeaponWheelIndex = i;
+		}
+
+		for (int32 j=0; j < GameActions[i].CustomBindings.Num(); j++)
+		{
+			if (GameActions[i].CustomBindings[j].KeyName == EKeys::MiddleMouseButton)
+			{
+				bMiddleMouseUsed = true;
+			}
+			else if (GameActions[i].CustomBindings[j].KeyName == EKeys::ThumbMouseButton)
+			{
+				bThumbMouseUsed =  true;
+			}
+		}
+	}
+
+	// Fix up a default for the Weapon Wheel
+	if (WeaponWheelIndex >=0)
+	{
+		// Look to see if neither key is set
+
+		if (GameActions[WeaponWheelIndex].PrimaryKey == EKeys::Invalid && GameActions[WeaponWheelIndex].SecondaryKey == EKeys::Invalid)
+		{
+			if (!bMiddleMouseUsed)
+			{
+				GameActions[WeaponWheelIndex].PrimaryKey = EKeys::MiddleMouseButton;
+			}
+			else if (!bThumbMouseUsed)
+			{
+				GameActions[WeaponWheelIndex].PrimaryKey = EKeys::ThumbMouseButton;
+			}
+		}
+	
+	}
+
+	if (SelectTransIndex >= 0)
+	{
+		GameActions.RemoveAt(SelectTransIndex);
 	}
 
 	return ValidateGameActions();
