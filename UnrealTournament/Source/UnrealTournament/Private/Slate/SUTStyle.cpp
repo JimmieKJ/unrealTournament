@@ -832,7 +832,7 @@ void SUTStyle::SetLoginStyle(TSharedRef<FSlateStyleSet> StyleRef)
 		);
 
 	Style.Set("UT.Login.EmptyButton.TextStyle", FTextBlockStyle()
-		.SetFont(TTF_FONT("/UTStyle/Fonts/Lato/Lato", 20))
+		.SetFont(TTF_FONT("/UTStyle/Fonts/Lato/Lato-Bold", 20))
 		.SetColorAndOpacity(FLinearColor(FColor(33, 93, 220, 255))));
 
 	Style.Set("UT.Login.Offline.TextStyle", FTextBlockStyle()
