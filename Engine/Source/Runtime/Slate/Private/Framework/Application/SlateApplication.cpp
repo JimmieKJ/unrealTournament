@@ -3141,7 +3141,9 @@ void FSlateApplication::SetLastUserInteractionTime(double InCurrentTime)
 
 void FSlateApplication::QueryCursor()
 {
-	if ( PlatformApplication->Cursor.IsValid() )
+	// The slate loading widget thread is not allowed to execute this code 
+	// as it is unsafe to read the hittest grid in another thread
+	if ( PlatformApplication->Cursor.IsValid() && IsInGameThread() )
 	{
 		// drag-drop overrides cursor
 		FCursorReply CursorReply = FCursorReply::Unhandled();
@@ -3340,6 +3342,7 @@ void FSlateApplication::CloseToolTip()
 void FSlateApplication::UpdateToolTip( bool AllowSpawningOfNewToolTips )
 {
 	const bool bCheckForToolTipChanges =
+		IsInGameThread() &&					// We should never allow the slate loading thread to create new windows or interact with the hittest grid
 		bAllowToolTips &&					// Tool-tips must be enabled
 		!IsUsingHighPrecisionMouseMovment() && // If we are using HighPrecision movement then we can't rely on the OS cursor to be accurate
 		!IsDragDropping();					// We must not currwently be in the middle of a drag-drop action
@@ -3721,7 +3724,9 @@ bool FSlateApplication::IsWindowInDestroyQueue(TSharedRef<SWindow> Window) const
 void FSlateApplication::SynthesizeMouseMove()
 {
 	SLATE_CYCLE_COUNTER_SCOPE(GSlateSynthesizeMouseMove);
-	if (PlatformApplication->Cursor.IsValid())
+	// The slate loading widget thread is not allowed to execute this code 
+	// as it is unsafe to read the hittest grid in another thread
+	if (PlatformApplication->Cursor.IsValid() && IsInGameThread())
 	{
 		// Synthetic mouse events accomplish two goals:
 		// 1) The UI can change even if the mosue doesn't move.
