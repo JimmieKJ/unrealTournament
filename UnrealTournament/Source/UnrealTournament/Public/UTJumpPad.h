@@ -116,6 +116,12 @@ public:
 	UFUNCTION(BlueprintNativeEvent)
 	void Launch(AActor* Actor);
 
+	/** AI flag - set if jump pad is usually inactive but can be temporarily enabled via switch or trigger
+	 * need to rebuild paths after changing
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = AI)
+	bool bTemporaryActivation;
+
 	/** Actors we want to Jump next tick */
 	TArray<AActor*> PendingJumpActors;
 
@@ -127,6 +133,6 @@ public:
 
 	virtual bool IsDestinationOnly() const override
 	{
-		return true;
+		return !bTemporaryActivation;
 	}
 };
