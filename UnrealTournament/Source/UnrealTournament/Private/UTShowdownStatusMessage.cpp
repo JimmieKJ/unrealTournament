@@ -16,6 +16,7 @@ UUTShowdownStatusMessage::UUTShowdownStatusMessage(const class FObjectInitialize
 	LivesRemainingPrefix = NSLOCTEXT("CTFGameMessage", "LivesRemainingPrefix", "");
 	LivesRemainingPostfix = NSLOCTEXT("CTFGameMessage", "LivesRemainingPostfix", " lives remaining.");
 	AnnouncementDelay = 0.5f;
+	bPlayDuringIntermission = false;
 
 	LivesRemaining.Add(NAME_None);
 	LivesRemaining.Add(FName(TEXT("TwoLivesRemain")));
