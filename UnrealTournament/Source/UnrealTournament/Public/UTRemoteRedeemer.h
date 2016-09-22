@@ -167,10 +167,6 @@ public:
 	UPROPERTY()
 	float RollSmoothingMultiplier;
 
-	float ExplosionTimings[5];
-	float ExplosionRadii[6];
-	float CollisionFreeRadius;
-
 	bool bExploded;
 	/** set when we were shot down by an enemy instead of exploding on contact with the big boom */
 	UPROPERTY(Replicated)

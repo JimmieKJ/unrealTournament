@@ -27,11 +27,11 @@ AUTProj_Redeemer::AUTProj_Redeemer(const class FObjectInitializer& ObjectInitial
 	ProjectileMovement->MaxSpeed = 2000.f;
 	ProjectileMovement->ProjectileGravityScale = 0.0f;
 
-	ExplosionTimings[0] = 0.2f;
-	ExplosionTimings[1] = 0.2f;
-	ExplosionTimings[2] = 0.2f;
-	ExplosionTimings[3] = 0.2f;
-	ExplosionTimings[4] = 0.2f;
+	ExplosionTimings[0] = 0.18f;
+	ExplosionTimings[1] = 0.18f;
+	ExplosionTimings[2] = 0.18f;
+	ExplosionTimings[3] = 0.18f;
+	ExplosionTimings[4] = 0.18f;
 
 	ExplosionRadii[0] = 0.25f;
 	ExplosionRadii[1] = 0.4f;
@@ -267,6 +267,8 @@ void AUTProj_Redeemer::ExplodeStage(float RangeMultiplier)
 		}
 
 		StatsHitCredit = 0.f;
+		//DrawDebugSphere(GetWorld(), ExplodeHitLocation, RangeMultiplier*AdjustedDamageParams.OuterRadius, 12, FColor::Green, true, -1.f);
+
 		UUTGameplayStatics::UTHurtRadius(this, AdjustedDamageParams.BaseDamage, AdjustedDamageParams.MinimumDamage, AdjustedMomentum, ExplodeHitLocation, RangeMultiplier * AdjustedDamageParams.InnerRadius, RangeMultiplier * AdjustedDamageParams.OuterRadius, AdjustedDamageParams.DamageFalloff,
 			MyDamageType, IgnoreActors, this, InstigatorController, FFInstigatorController, FFDamageType, CollisionFreeRadius);
 		if ((Role==ROLE_Authority) && (HitsStatsName != NAME_None))
