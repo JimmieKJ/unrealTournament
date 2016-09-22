@@ -1171,6 +1171,14 @@ void AUTPlayerState::BeginPlay()
 		SelectedCharacter = GetDefault<AUTCharacter>()->CharacterData;
 	}
 
+	// test code for editor/PIE where there's no profile
+#if WITH_EDITOR
+	if (GIsEditor)
+	{
+		TauntClass = LoadClass<AUTTaunt>(NULL, TEXT("/Game/RestrictedAssets/Blueprints/Taunts/Taunt_PelvicThrust.Taunt_PelvicThrust_C"), NULL, GetCosmeticLoadFlags(), NULL);
+	}
+#endif
+
 	Super::BeginPlay();
 
 	if (Role == ROLE_Authority && StatManager == nullptr)
@@ -3179,6 +3187,7 @@ bool AUTPlayerState::ServerFasterEmote_Validate()
 void AUTPlayerState::ServerFasterEmote_Implementation()
 {
 	EmoteSpeed = FMath::Min(EmoteSpeed + 0.25f, 3.0f);
+	ForceNetUpdate();
 	OnRepEmoteSpeed();
 }
 
@@ -3190,6 +3199,7 @@ bool AUTPlayerState::ServerSlowerEmote_Validate()
 void AUTPlayerState::ServerSlowerEmote_Implementation()
 {
 	EmoteSpeed = FMath::Max(EmoteSpeed - 0.25f, AllowFreezingTaunts() ? 0.0f : 0.25f);
+	ForceNetUpdate();
 	OnRepEmoteSpeed();
 }
 
@@ -3201,6 +3211,7 @@ bool AUTPlayerState::ServerSetEmoteSpeed_Validate(float NewEmoteSpeed)
 void AUTPlayerState::ServerSetEmoteSpeed_Implementation(float NewEmoteSpeed)
 {
 	EmoteSpeed = FMath::Clamp(NewEmoteSpeed, AllowFreezingTaunts() ? 0.0f : 0.25f, 3.0f);
+	ForceNetUpdate();
 	OnRepEmoteSpeed();
 }
 
