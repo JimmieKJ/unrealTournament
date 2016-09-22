@@ -17,8 +17,6 @@ AUTWeap_Minigun::AUTWeap_Minigun(const FObjectInitializer& ObjectInitializer)
 
 	AmmoWarningAmount = 25;
 	AmmoDangerAmount = 10;
-
-
 	HUDIcon = MakeCanvasIcon(HUDIcon.Texture, 453.0f, 509.0f, 148.0f, 53.0f);
 
 	BaseAISelectRating = 0.71f;
