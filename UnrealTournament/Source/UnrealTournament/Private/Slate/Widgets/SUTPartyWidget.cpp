@@ -524,11 +524,8 @@ void SUTPartyWidget::SetupPartyMemberBox()
 FReply SUTPartyWidget::InviteToParty(FString UserId)
 {
 #if WITH_SOCIAL
-	// TODO: PLK - Find new API to send party invites
-	/*
 	TSharedPtr<IGameAndPartyService> GameAndPartyService = ISocialModule::Get().GetFriendsAndChatManager()->GetGameAndPartyService();
 	GameAndPartyService->SendPartyInvite(FUniqueNetIdString(UserId));
-	*/
 #endif
 
 	return FReply::Handled();
