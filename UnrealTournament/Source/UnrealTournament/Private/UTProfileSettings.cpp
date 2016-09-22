@@ -5,6 +5,10 @@
 #include "GameFramework/InputSettings.h"
 #include "Runtime/JsonUtilities/Public/JsonUtilities.h"
 
+static FName NAME_TapForward(TEXT("TapForward"));
+static FName NAME_TapBack(TEXT("TapBack"));
+static FName NAME_TapLeft(TEXT("TapLeft"));
+static FName NAME_TapRight(TEXT("TapRight"));
 
 UUTProfileSettings::UUTProfileSettings(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -170,11 +174,11 @@ void UUTProfileSettings::GetDefaultGameActions(TArray<FKeyConfigurationInfo>& ou
 
 	// Move
 
-	Key = FKeyConfigurationInfo("MoveForward", EControlCategory::Movement, EKeys::W, EKeys::Up, EKeys::Gamepad_LeftY, NSLOCTEXT("Keybinds","MoveForward","Move Forward"));
+	Key = FKeyConfigurationInfo("MoveForward", EControlCategory::Movement, EKeys::W, EKeys::Up, EKeys::Invalid, NSLOCTEXT("Keybinds","MoveForward","Move Forward"));
 	Key.AddAxisMapping("MoveForward", 1.0f);
 	Key.AddActionMapping("TapForward");
 	outGameActions.Add(Key);
-
+	
 	Key = FKeyConfigurationInfo("MoveBackward", EControlCategory::Movement, EKeys::S, EKeys::Down, EKeys::Invalid, NSLOCTEXT("Keybinds", "MoveBackward", "Move Backwards"));
 	Key.AddAxisMapping("MoveBackward", 1.0f);
 	Key.AddActionMapping("TapBack");
@@ -775,6 +779,16 @@ void UUTProfileSettings::ApplyInputSettings(UUTLocalPlayer* ProfilePlayer)
 				{
 					for (int32 B=0; B < GameActions[i].ActionMappings.Num(); B++)
 					{
+						// Filter Gamepad keys to avoid TapForward, TapBack, TapLeft, TapRight
+						if (K == 2)
+						{
+							if (GameActions[i].ActionMappings[B].ActionName == NAME_TapForward ||
+								GameActions[i].ActionMappings[B].ActionName == NAME_TapBack || 
+								GameActions[i].ActionMappings[B].ActionName == NAME_TapRight ||
+								GameActions[i].ActionMappings[B].ActionName == NAME_TapLeft)
+							continue;
+						}
+
 						PlayerInput->ActionMappings.Add( FInputActionKeyMapping(
 							GameActions[i].ActionMappings[B].ActionName,
 							Key,
