@@ -40,7 +40,7 @@ void FVulkanShaderResourceView::UpdateView()
 			if (FRHITexture2D* Tex2D = SourceTexture->GetTexture2D())
 			{
 				FVulkanTexture2D* VTex2D = ResourceCast(Tex2D);
-				TextureView.Create(*Device, VTex2D->Surface.Image, VK_IMAGE_VIEW_TYPE_2D, VTex2D->Surface.GetAspectMask(), Format, UEToVkFormat(Format, false), MipLevel, NumMips);
+				TextureView.Create(*Device, VTex2D->Surface.Image, VK_IMAGE_VIEW_TYPE_2D, VTex2D->Surface.GetPartialAspectMask(), Format, UEToVkFormat(Format, false), MipLevel, NumMips, 0, 1);
 			}
 			else
 			{
@@ -70,17 +70,28 @@ FUnorderedAccessViewRHIRef FVulkanDynamicRHI::RHICreateUnorderedAccessView(FStru
 FUnorderedAccessViewRHIRef FVulkanDynamicRHI::RHICreateUnorderedAccessView(FTextureRHIParamRef TextureRHI, uint32 MipLevel)
 {
 #if 0
-	FVulkanSurface& Surface = GetVulkanSurfaceFromRHITexture(TextureRHI);
-
-	// create the UAV buffer to point to the structured buffer's memory
-	FVulkanUnorderedAccessView* UAV = new FVulkanUnorderedAccessView;
-	UAV->SourceTexture = (FRHITexture*)TextureRHI;
-
-	return UAV;
-#else
-	VULKAN_SIGNAL_UNIMPLEMENTED();
-	return nullptr;
+	FVulkanTextureBase* Base = nullptr;
+	if (auto* Tex2D = TextureRHI->GetTexture2D())
+	{
+		Base = ResourceCast(Tex2D);
+	}
+	else if (auto* Tex3D = TextureRHI->GetTexture3D())
+	{
+		Base = ResourceCast(Tex3D);
+	}
+	else if (auto* TexCube = TextureRHI->GetTextureCube())
+	{
+		Base = ResourceCast(TexCube);
+	}
+	else
+	{
+		ensure(0);
+	}
 #endif
+	FVulkanUnorderedAccessView* UAV = new FVulkanUnorderedAccessView;
+	UAV->SourceTexture = TextureRHI;
+	UAV->MipIndex = MipLevel;
+	return UAV;
 }
 
 FUnorderedAccessViewRHIRef FVulkanDynamicRHI::RHICreateUnorderedAccessView(FVertexBufferRHIParamRef VertexBufferRHI, uint8 Format)

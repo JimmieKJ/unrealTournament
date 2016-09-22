@@ -40,56 +40,10 @@ void FVulkanShader::Create(EShaderFrequency Frequency, const TArray<uint8>& InSh
 	ModuleCreateInfo.pNext = nullptr;
 	ModuleCreateInfo.flags = 0;
 
-	const EShaderSourceType ShaderType = GetShaderType();
-	switch(ShaderType)
-	{
-	case SHADER_TYPE_GLSL:
-		{
-//#if ANDROID: fall through
-//#else
-#if !PLATFORM_ANDROID
-			// Create fake SPV structure to feed GLSL to the driver "under the covers"
-
-			ModuleCreateInfo.codeSize = 3 * sizeof(uint32) + GlslSource.Num() + 1;
-			Code = (uint32*)FMemory::Malloc(ModuleCreateInfo.codeSize);
-			ModuleCreateInfo.pCode = Code;
-
-			/* try version 0 first: VkShaderStage followed by GLSL */
-			Code[0] = ICD_SPV_MAGIC;
-			Code[1] = 0;
-			FMemory::Memcpy(&Code[3], GlslSource.GetData(), GlslSource.Num() + 1);
-
-			break;
-#endif
-		}
-	case SHADER_TYPE_ESSL:
-		{
-			if (PLATFORM_ANDROID && Frequency == SF_Vertex)
-			{
-				//#todo-rco: Slow! Remove me when not needed on Android...
-				FString NewSource = ANSI_TO_TCHAR(GlslSource.GetData());
-				NewSource.Replace(TEXT("gl_VertexIndex"), TEXT("gl_VertexID"));
-				NewSource.Replace(TEXT("gl_InstanceIndex"), TEXT("gl_InstanceID"));
-				FMemory::Memcpy(GlslSource.GetData(), TCHAR_TO_ANSI(*NewSource), NewSource.Len() + 1);
-			}
-			ModuleCreateInfo.codeSize = FCStringAnsi::Strlen(GlslSource.GetData()) + 1;
-			Code = (uint32*)FMemory::Malloc(ModuleCreateInfo.codeSize);
-			ModuleCreateInfo.pCode = Code;
-			FMemory::Memcpy(Code, GlslSource.GetData(), GlslSource.Num() + 1);
-			break;
-		}
-	case SHADER_TYPE_SPIRV:
-		{
-			check(Code == nullptr)
-			ModuleCreateInfo.codeSize = Spirv.Num();
-			Code = (uint32*)FMemory::Malloc(ModuleCreateInfo.codeSize);
-			FMemory::Memcpy(Code, Spirv.GetData(), ModuleCreateInfo.codeSize);
-			break;
-		}
-	default:
-		checkf(false, TEXT("Unhandled Vulkan ShaderType, see 'r.Vulkan.UseGLSL' console variable."));
-		break;
-	}
+	check(Code == nullptr)
+	ModuleCreateInfo.codeSize = Spirv.Num();
+	Code = (uint32*)FMemory::Malloc(ModuleCreateInfo.codeSize);
+	FMemory::Memcpy(Code, Spirv.GetData(), ModuleCreateInfo.codeSize);
 
 	check(Code != nullptr);
 	CodeSize = ModuleCreateInfo.codeSize;
@@ -121,27 +75,6 @@ FVulkanShader::~FVulkanShader()
 		Device->GetDeferredDeletionQueue().EnqueueResource(VulkanRHI::FDeferredDeletionQueue::EType::ShaderModule, ShaderModule);
 		ShaderModule = VK_NULL_HANDLE;
 	}
-}
-
-FVulkanShader::EShaderSourceType FVulkanShader::GetShaderType()
-{
-	static EShaderSourceType Type = SHADER_TYPE_UNINITIALIZED;
-
-	// Initialize type according to the settings
-	if(Type == SHADER_TYPE_UNINITIALIZED)
-	{
-		static IConsoleVariable* CVar = IConsoleManager::Get().FindConsoleVariable(TEXT("r.Vulkan.UseGLSL"));
-		if(CVar)
-		{
-			Type = (EShaderSourceType)CVar->GetInt();
-		}
-		else
-		{
-			Type = SHADER_TYPE_SPIRV;
-		}
-	}
-
-	return Type;
 }
 
 FVertexShaderRHIRef FVulkanDynamicRHI::RHICreateVertexShader(const TArray<uint8>& Code)
@@ -291,19 +224,20 @@ FVulkanBoundShaderState::FVulkanBoundShaderState(
 	}
 	if (HullShader)
 	{
+		// Can't have Hull w/o Domain
+		check(DomainShader);
 #if VULKAN_ENABLE_PIPELINE_CACHE
 		ShaderHashes[SF_Hull] = HullShader->CodeHeader.SourceHash;
-#endif
-		InitGlobalUniforms(SF_Hull, HullShader->CodeHeader.SerializedBindings);
-	}
-	if (DomainShader)
-	{
-#if VULKAN_ENABLE_PIPELINE_CACHE
 		ShaderHashes[SF_Domain] = DomainShader->CodeHeader.SourceHash;
 #endif
+		InitGlobalUniforms(SF_Hull, HullShader->CodeHeader.SerializedBindings);
 		InitGlobalUniforms(SF_Domain, DomainShader->CodeHeader.SerializedBindings);
 	}
-
+	else
+	{
+		// Can't have Domain w/o Hull
+		check(DomainShader == nullptr);
+	}
 	GenerateLayoutBindings();
 
 	uint32 UniformCombinedSamplerCount = 0;
@@ -920,7 +854,8 @@ void FVulkanBoundShaderState::SetTexture(EShaderFrequency Stage, uint32 BindPoin
 
 	FVulkanShader* StageShader = GetShaderPtr((EShaderFrequency)Stage);
 	uint32 VulkanBindingPoint = StageShader->GetBindingTable().CombinedSamplerBindingIndices[BindPoint];
-	DescriptorSamplerImageInfoForStage[Stage][VulkanBindingPoint].imageView = VulkanTextureBase ? VulkanTextureBase->DefaultView.View : VK_NULL_HANDLE;
+	DescriptorSamplerImageInfoForStage[Stage][VulkanBindingPoint].imageView = VulkanTextureBase->PartialView->View;
+	DescriptorSamplerImageInfoForStage[Stage][VulkanBindingPoint].imageLayout = (VulkanTextureBase->Surface.GetFullAspectMask() & (VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT)) != 0 ? VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL : VK_IMAGE_LAYOUT_GENERAL;
 
 	DirtyTextures[Stage] = true;
 #if VULKAN_ENABLE_RHI_DEBUGGING
@@ -951,6 +886,7 @@ void FVulkanBoundShaderState::SetTextureView(EShaderFrequency Stage, uint32 Bind
 	FVulkanShader* StageShader = GetShaderPtr((EShaderFrequency)Stage);
 	uint32 VulkanBindingPoint = StageShader->GetBindingTable().CombinedSamplerBindingIndices[BindPoint];
 	DescriptorSamplerImageInfoForStage[Stage][VulkanBindingPoint].imageView = TextureView.View;
+	//DescriptorSamplerImageInfoForStage[Stage][VulkanBindingPoint].imageLayout = (TextureView.BaseTexture->Surface.GetFullAspectMask() & (VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT)) != 0 ? VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL : VK_IMAGE_LAYOUT_GENERAL;
 
 	DirtySamplerStates[Stage] = true;
 #if VULKAN_ENABLE_RHI_DEBUGGING
@@ -1081,6 +1017,11 @@ inline FVulkanDescriptorSets* FVulkanBoundShaderState::RequestDescriptorSets(FVu
 
 	if (!FoundEntry)
 	{
+		if (Layout->GetLayouts().Num() == 0)
+		{
+			return nullptr;
+		}
+
 		FoundEntry = new FDescriptorSetsEntry(CmdBuffer);
 		DescriptorSetsEntries.Add(FoundEntry);
 	}
@@ -1103,7 +1044,7 @@ inline FVulkanDescriptorSets* FVulkanBoundShaderState::RequestDescriptorSets(FVu
 }
 
 
-void FVulkanBoundShaderState::UpdateDescriptorSets(FVulkanCommandListContext* CmdListContext, FVulkanCmdBuffer* CmdBuffer, FVulkanGlobalUniformPool* GlobalUniformPool)
+bool FVulkanBoundShaderState::UpdateDescriptorSets(FVulkanCommandListContext* CmdListContext, FVulkanCmdBuffer* CmdBuffer, FVulkanGlobalUniformPool* GlobalUniformPool)
 {
 #if VULKAN_ENABLE_AGGRESSIVE_STATS
 	SCOPE_CYCLE_COUNTER(STAT_VulkanUpdateDescriptorSets);
@@ -1116,6 +1057,10 @@ void FVulkanBoundShaderState::UpdateDescriptorSets(FVulkanCommandListContext* Cm
 	int32 WriteIndex = 0;
 
 	CurrDescriptorSets = RequestDescriptorSets(CmdListContext, CmdBuffer);
+	if (!CurrDescriptorSets)
+	{
+		return false;
+	}
 
 	const TArray<VkDescriptorSet>& DescriptorSetHandles = CurrDescriptorSets->GetHandles();
 	int32 DescriptorSetIndex = 0;
@@ -1139,6 +1084,8 @@ void FVulkanBoundShaderState::UpdateDescriptorSets(FVulkanCommandListContext* Cm
 		const uint32 NumDescriptorsForStage = StageShader->GetNumDescriptors();
 		if (NumDescriptorsForStage == 0)
 		{
+			// Empty set, still has its own index
+			++DescriptorSetIndex;
 			continue;
 		}
 
@@ -1242,6 +1189,8 @@ void FVulkanBoundShaderState::UpdateDescriptorSets(FVulkanCommandListContext* Cm
 		FMemory::Memzero(DirtySRVs);
 		FMemory::Memzero(DirtyPackedUniformBufferStaging);
 	}
+
+	return true;
 }
 
 FBoundShaderStateRHIRef FVulkanDynamicRHI::RHICreateBoundShaderState(

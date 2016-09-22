@@ -60,177 +60,12 @@ SamplerState	PrevSceneColorSampler;
 
 #define FORCE_FULLY_ROUGH (SIMPLE_FORWARD_SHADING || MATERIAL_FULLY_ROUGH)
 #define EDITOR_ALPHA2COVERAGE (USE_EDITOR_COMPOSITING && FEATURE_LEVEL >= FEATURE_LEVEL_SM5 && !COMPILER_GLSL)
-#define LIGHT_GRID_FORWARD_SHADING ((FORWARD_SHADING || TRANSLUCENCY_LIGHTING_SURFACE_PERPIXEL) && FEATURE_LEVEL >= FEATURE_LEVEL_SM5)
 
-#if LIGHT_GRID_FORWARD_SHADING
-#include "ForwardLightingCommon.usf" 
-#endif
+// Optimization: if opacity is 0 then revert to default shading model 
+#define SUBSURFACE_PROFILE_OPACITY_THRESHOLD 1
 
 #if TRANSLUCENCY_LIGHTING_SURFACE || TRANSLUCENCY_LIGHTING_SURFACE_PERPIXEL || FORWARD_SHADING
-
-#if FEATURE_LEVEL >= FEATURE_LEVEL_SM5
-	/** Prenormalized capture of the scene that's closest to the object being rendered, used for reflection environment on translucency. */
-	TextureCubeArray ReflectionCubemap;
-	SamplerState ReflectionCubemapSampler;
-	int CubemapArrayIndex;	
-#else
-	TextureCube ReflectionCubemap;
-	SamplerState ReflectionCubemapSampler;
-#endif
-
-float4 ReflectionPositionAndRadius;
-float ReflectionShape;
-float4x4 BoxTransform;
-float4 BoxScales;
-float4 CaptureOffsetAndAverageBrightness;
-
-uint MortonCode( uint x )
-{
-	//x = (x ^ (x <<  8)) & 0x00ff00ff;
-	//x = (x ^ (x <<  4)) & 0x0f0f0f0f;
-	x = (x ^ (x <<  2)) & 0x33333333;
-	x = (x ^ (x <<  1)) & 0x55555555;
-	return x;
-}
-
-half3 GetImageBasedReflectionLighting(FMaterialPixelParameters MaterialParameters, half Roughness, half3 SpecularColor, half IndirectIrradiance)
-{
-	float3 N = MaterialParameters.WorldNormal;
-	float3 V = MaterialParameters.CameraVector;
-
-	float3 RayDirection = 2 * dot( V, N ) * N - V;
-	half NoV = saturate(dot(N, V));
-
-	float4 SpecularIBL = float4(0, 0, 0, 0);
-	float3 CaptureVector = MaterialParameters.AbsoluteWorldPosition - ReflectionPositionAndRadius.xyz;
-	float CaptureVectorLength = length(CaptureVector);
-
-	float2 CompositedAverageBrightness = float2(0.0f, 1.0f);
-
-	BRANCH
-	if (CaptureVectorLength < ReflectionPositionAndRadius.w)
-	{
-		float NormalizedDistanceToCapture = saturate(CaptureVectorLength / ReflectionPositionAndRadius.w);
-
-		float DistanceAlpha;
-		float3 ProjectedCaptureVector;
-		if (ReflectionShape > 0.0f)
-		{
-			ProjectedCaptureVector = GetLookupVectorForBoxCapture(RayDirection, MaterialParameters.AbsoluteWorldPosition, ReflectionPositionAndRadius, BoxTransform, BoxScales, CaptureOffsetAndAverageBrightness.xyz, DistanceAlpha);
-		}
-		else
-		{
-			ProjectedCaptureVector = GetLookupVectorForSphereCapture(RayDirection, MaterialParameters.AbsoluteWorldPosition, ReflectionPositionAndRadius, NormalizedDistanceToCapture, CaptureOffsetAndAverageBrightness.xyz, DistanceAlpha);
-		}
-			
-		half AbsoluteSpecularMip = ComputeReflectionCaptureMipFromRoughness(Roughness, View.ReflectionCubemapMaxMip);	
-
-#if FEATURE_LEVEL >= FEATURE_LEVEL_SM5
-		float4 Sample = TextureCubeArraySampleLevel(ReflectionCubemap, ReflectionCubemapSampler, ProjectedCaptureVector, CubemapArrayIndex, AbsoluteSpecularMip);
-#else
-		float4 Sample = TextureCubeSampleLevel(ReflectionCubemap, ReflectionCubemapSampler, ProjectedCaptureVector, AbsoluteSpecularMip);
-#endif
-		Sample *= DistanceAlpha;
-		SpecularIBL = Sample;
-
-		float AverageBrightness = CaptureOffsetAndAverageBrightness.w;
-		CompositedAverageBrightness.x += AverageBrightness * DistanceAlpha * CompositedAverageBrightness.y;
-		CompositedAverageBrightness.y *= 1 - DistanceAlpha;
-	}	
-
-	float3 ExtraIndirectSpecular = 0;
-
-#if ENABLE_SKY_LIGHT
-	BRANCH
-	if (SkyLightParameters.y > 0 && SpecularIBL.a < .999f)
-	{
-		float SkyAverageBrightness = 1.0f;
-		float3 SkyLighting = GetSkyLightReflection(RayDirection, Roughness, SkyAverageBrightness);
-
-		// Normalize for static skylight types which mix with lightmaps
-		bool bNormalize = SkyLightParameters.z < 1 && ALLOW_STATIC_LIGHTING;
-
-		FLATTEN
-		if (bNormalize)
-		{
-			// Add in sky wherever reflection captures don't have coverage
-			SpecularIBL.rgb += (1 - SpecularIBL.a) * SkyLighting;
-			CompositedAverageBrightness.x += SkyAverageBrightness * CompositedAverageBrightness.y;
-		}
-		else
-		{
-			ExtraIndirectSpecular += SkyLighting;
-		}
-	}
-#endif
-
-#if ALLOW_STATIC_LIGHTING
-	// Note: make sure this matches the lightmap mixing done on opaque (ReflectionEnvironmentTiledDeferredMain)
-	SpecularIBL.rgb *= ComputeMixingWeight(IndirectIrradiance, CompositedAverageBrightness.x, Roughness);
-#endif
-
-	SpecularIBL.rgb += (1 - SpecularIBL.a) * ExtraIndirectSpecular;
-
-	// Factors derived from EnvBRDFApprox( SpecularColor, 1, 1 ) == SpecularColor * 0.4524 - 0.0024
-	float3 SpecularBounce = 0.45f * SpecularColor * IndirectIrradiance;
-	// Replace reflection captures with indirect diffuse when we're rendering to a reflection capture, to avoid a feedback loop
-	SpecularIBL.rgb = lerp(SpecularIBL.rgb, SpecularBounce, View.RenderingReflectionCaptureMask);
-
-#if MATERIAL_SSR && !FORWARD_SHADING
-	if( View.CameraCut == 0 )
-	{
-		//uint ViewRandom = (uint)(View.TemporalAAParams.r * 1551);
-		uint ViewRandom = View.StateFrameIndexMod8 * 1551;
-
-		uint Morton = MortonCode( (uint)MaterialParameters.SvPosition.x & 3 ) | ( MortonCode( (uint)MaterialParameters.SvPosition.y & 3 ) * 2 );
-		uint PixelIndex = ReverseBits32( Morton ) >> 28;
-		//uint PixelIndex = ( (uint)MaterialParameters.SvPosition.x & 3 ) | ( ( (uint)MaterialParameters.SvPosition.y & 3 ) * 2 );
-		//PixelIndex = ( PixelIndex * 1551 ) & 15;
-
-		uint Offset = ( PixelIndex + ViewRandom ) & 15;
-		float StepOffset = Offset / 15.0;
-		StepOffset -= 0.5;
-		
-		float4 HitUVzTime;
-		float HCBLevel;
-
-		RayCast(
-			HZBTexture, HZBSampler, float2(1, 1),
-			MaterialParameters.WorldPosition_CamRelative, RayDirection, 0, 0, MaterialParameters.ScreenPosition.w,
-			12, StepOffset,
-			HitUVzTime, HCBLevel
-		);
-
-		// if there was a hit
-		BRANCH if( HitUVzTime.w < 1 )
-		{
-			float4 SSR = SampleScreenColor( PrevSceneColor, PrevSceneColorSampler, HitUVzTime.xyz );
-			SSR *= saturate( 2 - 6.6 * Roughness );
-			SpecularIBL.rgb = SpecularIBL.rgb * (1 - SSR.a) + SSR.rgb;
-		}
-	}
-#endif
-
-
-	SpecularColor = EnvBRDFApprox(SpecularColor, Roughness, NoV);
-
-	float3 SpecularLighting = SpecularIBL.rgb;
-
-	// Have to opt-in to receiving planar reflections with forward shading
-#if !FORWARD_SHADING || MATERIAL_PLANAR_FORWARD_REFLECTIONS
-	// Plane normal will be zero if the feature is disabled
-	BRANCH
-	if (abs(dot(ReflectionPlane.xyz, 1)) > .0001f)
-	{
-		// Reuse ReflectionCubemapSampler to avoid reducing the sampler count available to artists
-		float4 PlanarReflection = ComputePlanarReflections(MaterialParameters.AbsoluteWorldPosition, MaterialParameters.WorldNormal, Roughness, ReflectionCubemapSampler);
-		// Planar reflections win over SSR and reflection environment
-		SpecularLighting = PlanarReflection.rgb + (1 - PlanarReflection.a) * SpecularLighting;
-	}
-#endif
-
-	return SpecularLighting * SpecularColor;
-}
+#include "ForwardLightingCommon.usf" 
 #endif
 
 void GetVolumeLightingNonDirectional(float4 AmbientLightingVector, float3 DiffuseColor, inout float3 InterpolatedLighting, out float4 VolumeLighting)
@@ -368,7 +203,7 @@ float3 GetTranslucencyLighting(
 	#endif
 
 	#if TRANSLUCENCY_LIGHTING_SURFACE
-		InterpolatedLighting += GetImageBasedReflectionLighting(MaterialParameters, GBuffer.Roughness, GBuffer.SpecularColor, IndirectIrradiance);
+		InterpolatedLighting += GetImageBasedReflectionLighting(MaterialParameters, GBuffer.Roughness, GBuffer.SpecularColor, IndirectIrradiance, 0);
 	#endif
 
 	return InterpolatedLighting;
@@ -821,16 +656,6 @@ void FPixelShaderInOut_MainPS(
 	float3 LocalBaseColor = BaseColor;
 	float LocalSpecular = Specular;
 
-#if MATERIAL_SHADINGMODEL_SUBSURFACE_PROFILE && USES_GBUFFER
-	// SubsurfaceProfile applies the BaseColor in a later pass. Any lighting output in the base pass needs
-	// to separate specualar and diffuse lighting in a checkerboard pattern
-	{
-		bool bChecker = CheckerFromPixelPos(MaterialParameters.SvPosition.xy);
-
-		AdjustBaseColorAndSpecularForSubsurfaceProfileLighting(LocalBaseColor, LocalSpecular, bChecker);
-	}
-#endif
-
 	half Opacity = GetMaterialOpacity(PixelMaterialInputs);
 
 	FGBufferData GBuffer = (FGBufferData)0;
@@ -859,9 +684,22 @@ void FPixelShaderInOut_MainPS(
 		GBuffer.CustomData.rgb = EncodeSubsurfaceColor(SubsurfaceColor);
 		GBuffer.CustomData.a = Opacity;
 	#elif MATERIAL_SHADINGMODEL_SUBSURFACE_PROFILE
-		GBuffer.ShadingModelID = SHADINGMODELID_SUBSURFACE_PROFILE;
-		GBuffer.CustomData.rgb = EncodeSubsurfaceProfile(SubsurfaceProfile);
-		GBuffer.CustomData.a = Opacity;
+		// Optimization: if opacity is 0 then revert to default shading model 
+      #if SUBSURFACE_PROFILE_OPACITY_THRESHOLD
+		if (Opacity > 0.0)
+      #endif
+		{
+			GBuffer.ShadingModelID = SHADINGMODELID_SUBSURFACE_PROFILE;
+			GBuffer.CustomData.rgb = EncodeSubsurfaceProfile(SubsurfaceProfile);
+			GBuffer.CustomData.a = Opacity;
+		}
+      #if SUBSURFACE_PROFILE_OPACITY_THRESHOLD
+		else
+		{
+			GBuffer.ShadingModelID = SHADINGMODELID_DEFAULT_LIT;
+			GBuffer.CustomData = 0;
+		}
+      #endif
 	#elif MATERIAL_SHADINGMODEL_CLEAR_COAT
 	{
 		GBuffer.ShadingModelID = SHADINGMODELID_CLEAR_COAT;
@@ -953,8 +791,18 @@ void FPixelShaderInOut_MainPS(
 	#endif
 
 	// So that the following code can still use DiffuseColor and SpecularColor.
+	GBuffer.SpecularColor = lerp(0.08 * LocalSpecular.xxx, LocalBaseColor, Metallic.xxx);
+
+#if MATERIAL_SHADINGMODEL_SUBSURFACE_PROFILE && USES_GBUFFER
+	// SubsurfaceProfile applies the BaseColor in a later pass. Any lighting output in the base pass needs
+	// to separate specualar and diffuse lighting in a checkerboard pattern
+	bool bChecker = CheckerFromPixelPos(MaterialParameters.SvPosition.xy);
+	if ( GBuffer.ShadingModelID == SHADINGMODELID_SUBSURFACE_PROFILE ) 
+	{
+		AdjustBaseColorAndSpecularColorForSubsurfaceProfileLighting(LocalBaseColor, GBuffer.SpecularColor, LocalSpecular, bChecker);
+	}
+#endif
 	GBuffer.DiffuseColor = LocalBaseColor - LocalBaseColor * Metallic;
-	GBuffer.SpecularColor = lerp( 0.08 * LocalSpecular.xxx, LocalBaseColor, Metallic.xxx );
 
 #if USE_DEVELOPMENT_SHADERS
 	{
@@ -971,6 +819,7 @@ void FPixelShaderInOut_MainPS(
 		GBuffer.Roughness = 1;
 	#endif
 
+	half3 DiffuseColor = 0;
 	half3 Color = 0;
 	float IndirectIrradiance = 0;
 
@@ -1006,20 +855,23 @@ void FPixelShaderInOut_MainPS(
 		float IndirectOcclusion = 1.0f;
 
 		#if FORWARD_SHADING && (MATERIALBLENDING_SOLID || MATERIALBLENDING_MASKED)
-			IndirectOcclusion = GetIndirectOcclusion(MaterialParameters.ScreenPosition);
+			IndirectOcclusion = GetIndirectOcclusion(MaterialParameters.ScreenPosition, GBuffer);
 			DiffuseIndirectLighting *= IndirectOcclusion;
 			SubsurfaceIndirectLighting *= IndirectOcclusion;
 			IndirectIrradiance *= IndirectOcclusion;
 		#endif
 
-		Color += (DiffuseIndirectLighting * DiffuseColorForIndirect + SubsurfaceIndirectLighting * SubsurfaceColor) * MaterialAO;
+		DiffuseColor += (DiffuseIndirectLighting * DiffuseColorForIndirect + SubsurfaceIndirectLighting * SubsurfaceColor) * MaterialAO;
 
 		#if FORWARD_SHADING || TRANSLUCENCY_LIGHTING_SURFACE_PERPIXEL
-			#if LIGHT_GRID_FORWARD_SHADING
-				Color += GetForwardDirectLighting(MaterialParameters.SvPosition, MaterialParameters.ScreenPosition, MaterialParameters.AbsoluteWorldPosition, MaterialParameters.CameraVector, GBuffer);
+			uint GridIndex = 0;
+
+			#if FEATURE_LEVEL >= FEATURE_LEVEL_SM5
+				GridIndex = ComputeLightGridCellIndex((uint2)(MaterialParameters.SvPosition.xy - View.ViewRectMin.xy), MaterialParameters.SvPosition.w);
+				Color += GetForwardDirectLighting(GridIndex, MaterialParameters.ScreenPosition, MaterialParameters.AbsoluteWorldPosition, MaterialParameters.CameraVector, GBuffer);
 			#endif
 
-			Color += GetImageBasedReflectionLighting(MaterialParameters, GBuffer.Roughness, GBuffer.SpecularColor, IndirectIrradiance) * IndirectOcclusion;
+			Color += GetImageBasedReflectionLighting(MaterialParameters, GBuffer.Roughness, GBuffer.SpecularColor, IndirectIrradiance, GridIndex) * IndirectOcclusion;
 		#endif
 
 		#if SIMPLE_FORWARD_DIRECTIONAL_LIGHT
@@ -1076,6 +928,10 @@ void FPixelShaderInOut_MainPS(
 	#endif
 #endif
 
+#if !(MATERIAL_SHADINGMODEL_SUBSURFACE_PROFILE && USES_GBUFFER) 
+ 	// For non-skin, we just add diffuse and non-diffuse color together, otherwise we need to keep them separate
+	Color += DiffuseColor;
+#endif
 	Color += Emissive;
 
 	#if MATERIALBLENDING_TRANSLUCENT
@@ -1092,19 +948,25 @@ void FPixelShaderInOut_MainPS(
 		{
 			FLightAccumulator LightAccumulator = (FLightAccumulator)0;
 
-			// Only accumulate subsurface if we actually need to
-#if MATERIAL_SHADINGMODEL_SUBSURFACE_PROFILE
-			const bool bNeedsSeparateSubsurfaceLightAccumulation = true;
-#else
-			const bool bNeedsSeparateSubsurfaceLightAccumulation = false;
-#endif
-			LightAccumulator_Add(LightAccumulator, Color * VertexFog.a + VertexFog.rgb, 0, 1.0f, bNeedsSeparateSubsurfaceLightAccumulation);
-			Out.MRT[0] = RETURN_COLOR(LightAccumulator_GetResult(LightAccumulator));
+			// Apply vertex fog
+			Color = Color * VertexFog.a + VertexFog.rgb;
 
-			#if SUBSURFACE_CHANNEL_MODE == 0
-				// Scene captures and planar reflections need opacity in destination alpha.
-				Out.MRT[0].a = 0;
-			#endif
+#if MATERIAL_SHADINGMODEL_SUBSURFACE_PROFILE && USES_GBUFFER
+			// Apply vertex fog to diffuse color
+			DiffuseColor = DiffuseColor * VertexFog.a + VertexFog.rgb;
+
+			if (GBuffer.ShadingModelID == SHADINGMODELID_SUBSURFACE_PROFILE && 
+                View.bSubsurfacePostprocessEnabled > 0 && View.bCheckerboardSubsurfaceProfileRendering > 0 )
+			{
+				// Adjust for checkerboard. only apply non-diffuse lighting (including emissive) 
+				// to the specular component, otherwise lighting is applied twice
+				Color *= !bChecker;
+			}
+			LightAccumulator_Add(LightAccumulator, DiffuseColor, Color, 1.0f, GBuffer.ShadingModelID == SHADINGMODELID_SUBSURFACE_PROFILE);
+#else
+			LightAccumulator_Add(LightAccumulator, Color, 0, 1.0f, false);
+#endif
+			Out.MRT[0] = RETURN_COLOR(LightAccumulator_GetResult(LightAccumulator));
 		}
 	#endif
 

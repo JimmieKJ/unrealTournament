@@ -641,6 +641,7 @@ void StopRenderingThread()
 		GRunRenderingThreadHeartbeat = false;
 		// Wait for the rendering thread heartbeat to return.
 		GRenderingThreadHeartbeat->WaitForCompletion();
+		delete GRenderingThreadHeartbeat;
 		GRenderingThreadHeartbeat = NULL;
 		delete GRenderingThreadRunnableHeartbeat;
 		GRenderingThreadRunnableHeartbeat = NULL;

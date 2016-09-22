@@ -48,6 +48,7 @@ namespace VulkanRHI
 	void DumpGetImageSubresourceLayout(VkDevice Device, VkImage Image, const VkImageSubresource* Subresource, VkSubresourceLayout* Layout);
 	void DumpImageSubresourceLayout(VkSubresourceLayout* Layout);
 	void DumpCmdCopyBufferToImage(VkCommandBuffer CommandBuffer, VkBuffer SrcBuffer, VkImage DstImage, VkImageLayout DstImageLayout, uint32 RegionCount, const VkBufferImageCopy* Regions);
+	void DumpCmdCopyImageToBuffer(VkCommandBuffer CommandBuffer, VkImage SrcImage, VkImageLayout SrcImageLayout, VkBuffer DstBuffer, uint32 RegionCount, const VkBufferImageCopy* Regions);
 	void DumpCmdCopyBuffer(VkCommandBuffer CommandBuffer, VkBuffer SrcBuffer, VkBuffer DstBuffer, uint32 RegionCount, const VkBufferCopy* Regions);
 	void DumpCreatePipelineCache(VkDevice Device, const VkPipelineCacheCreateInfo* CreateInfo, VkPipelineCache* PipelineCache);
 	void DumpCreateCommandPool(VkDevice Device, const VkCommandPoolCreateInfo* CreateInfo, VkCommandPool* CommandPool);
@@ -59,6 +60,9 @@ namespace VulkanRHI
 	void DumpPhysicalDeviceFeatures(VkPhysicalDeviceFeatures* Features);
 	void DumpBindDescriptorSets(VkCommandBuffer CommandBuffer, VkPipelineBindPoint PipelineBindPoint, VkPipelineLayout Layout, uint32 FirstSet, uint32 DescriptorSetCount, const VkDescriptorSet* DescriptorSets, uint32 DynamicOffsetCount, const uint32* DynamicOffsets);
 	void DumpSwapChainImages(VkResult Result, uint32* SwapchainImageCount, VkImage* SwapchainImages);
+	void DumpCmdClearAttachments(VkCommandBuffer CommandBuffer, uint32 AttachmentCount, const VkClearAttachment* Attachments, uint32 RectCount, const VkClearRect* Rects);
+	void DumpCmdClearColorImage(VkCommandBuffer CommandBuffer, VkImage Image, VkImageLayout ImageLayout, const VkClearColorValue* ColorValue, uint32 RangeCount, const VkImageSubresourceRange* Ranges);
+	void DumpCmdClearDepthStencilImage(VkCommandBuffer CommandBuffer, VkImage Image, VkImageLayout ImageLayout, const VkClearDepthStencilValue* DepthStencil, uint32 RangeCount, const VkImageSubresourceRange* Ranges);
 #else
 	#define FlushDebugWrapperLog()
 	#define DevicePrintfBeginResult(d, x)
@@ -100,6 +104,7 @@ namespace VulkanRHI
 	#define DumpGetImageSubresourceLayout(d, i, s, l)
 	#define DumpImageSubresourceLayout(l)
 	#define DumpCmdCopyBufferToImage(cb, sb, di, dil, rc, r)
+	#define DumpCmdCopyImageToBuffer(cb, sb, di, dil, rc, r)
 	#define DumpCmdCopyBuffer(cb, sb, db, rc, r)
 	#define DumpCreatePipelineCache(d, i, pc)
 	#define DumpCreateCommandPool(d, i, c)
@@ -111,6 +116,9 @@ namespace VulkanRHI
 	#define DumpPhysicalDeviceFeatures(f)
 	#define DumpBindDescriptorSets(c, pbp, l, fs, dsc, ds, doc, do)
 	#define DumpSwapChainImages(r, c, i)
+	#define DumpCmdClearAttachments(c, ac, a, rc, r)
+	#define DumpCmdClearColorImage(c, i, il, ds, rc, r)
+	#define DumpCmdClearDepthStencilImage(c, i, il, ds, rc, r)
 #endif
 
 	static FORCEINLINE_DEBUGGABLE VkResult  vkCreateInstance(const VkInstanceCreateInfo* CreateInfo, const VkAllocationCallbacks* Allocator, VkInstance* Instance)
@@ -1062,15 +1070,15 @@ namespace VulkanRHI
 
 		::vkCmdCopyBufferToImage(CommandBuffer, SrcBuffer, DstImage, DstImageLayout, RegionCount, Regions);
 	}
-#if 0
-	static FORCEINLINE_DEBUGGABLE void  vkCmdCopyImageToBuffer(
-		VkCommandBuffer                             commandBuffer,
-		VkImage                                     srcImage,
-		VkImageLayout                               srcImageLayout,
-		VkBuffer                                    dstBuffer,
-		uint32                                    regionCount,
-		const VkBufferImageCopy*                    pRegions);
 
+	static FORCEINLINE_DEBUGGABLE void  vkCmdCopyImageToBuffer(VkCommandBuffer CommandBuffer, VkImage SrcImage, VkImageLayout SrcImageLayout, VkBuffer DstBuffer, uint32 RegionCount, const VkBufferImageCopy* Regions)
+	{
+		DumpCmdCopyImageToBuffer(CommandBuffer, SrcImage, SrcImageLayout, DstBuffer, RegionCount, Regions);
+
+		::vkCmdCopyImageToBuffer(CommandBuffer, SrcImage, SrcImageLayout, DstBuffer, RegionCount, Regions);
+	}
+
+#if 0
 	static FORCEINLINE_DEBUGGABLE void  vkCmdUpdateBuffer(
 		VkCommandBuffer                             commandBuffer,
 		VkBuffer                                    dstBuffer,
@@ -1087,21 +1095,21 @@ namespace VulkanRHI
 #endif
 	static FORCEINLINE_DEBUGGABLE void  vkCmdClearColorImage(VkCommandBuffer CommandBuffer, VkImage Image, VkImageLayout ImageLayout, const VkClearColorValue* Color, uint32 RangeCount, const VkImageSubresourceRange* Ranges)
 	{
-		CmdPrintfBegin(CommandBuffer, FString::Printf(TEXT("vkCmdClearColorImage(Image=%p, ImageLayout=%d, Color=%p, RangeCount=%d, Ranges=%p)[...]"), Image, (int32)ImageLayout, Color, RangeCount, Ranges));
+		DumpCmdClearColorImage(CommandBuffer, Image, ImageLayout, Color, RangeCount, Ranges);
 
 		::vkCmdClearColorImage(CommandBuffer, Image, ImageLayout, Color, RangeCount, Ranges);
 	}
 
 	static FORCEINLINE_DEBUGGABLE void  vkCmdClearDepthStencilImage(VkCommandBuffer CommandBuffer, VkImage Image, VkImageLayout ImageLayout, const VkClearDepthStencilValue* DepthStencil, uint32 RangeCount, const VkImageSubresourceRange* Ranges)
 	{
-		CmdPrintfBegin(CommandBuffer, FString::Printf(TEXT("vkCmdClearDepthStencilImage(Image=%p, ImageLayout=%d, DepthStencil=%p, RangeCount=%d, Ranges=%p)[...]"), Image, (int32)ImageLayout, DepthStencil, RangeCount, Ranges));
+		DumpCmdClearDepthStencilImage(CommandBuffer, Image, ImageLayout, DepthStencil, RangeCount, Ranges);
 
 		::vkCmdClearDepthStencilImage(CommandBuffer, Image, ImageLayout, DepthStencil, RangeCount, Ranges);
 	}
 
 	static FORCEINLINE_DEBUGGABLE void  vkCmdClearAttachments(VkCommandBuffer CommandBuffer, uint32 AttachmentCount, const VkClearAttachment* Attachments, uint32 RectCount, const VkClearRect* Rects)
 	{
-		CmdPrintfBegin(CommandBuffer, FString::Printf(TEXT("vkCmdClearAttachments(AttachmentCount=%d, Attachments=%p, RectCount=%d, Rects=%p)[...]"), AttachmentCount, Attachments, RectCount, Rects));
+		DumpCmdClearAttachments(CommandBuffer, AttachmentCount, Attachments, RectCount, Rects);
 
 		::vkCmdClearAttachments(CommandBuffer, AttachmentCount, Attachments, RectCount, Rects);
 	}

@@ -180,7 +180,7 @@ float Min16(float4 A, float4 B, float4 C, float4 D)
 
 // This does a 2x2:1 reduction with a 4x4:1 dilation.
 // OutColor is float as we output to a single channel format (NVIDIA Windows driver has undefined result in the other channels if the RT has more than one)
-void CircleDilatePS(float4 UVAndScreenPos : TEXCOORD0, out float OutColor : SV_Target0)
+void CircleDilatePS(noperspective float4 UVAndScreenPos : TEXCOORD0, out float OutColor : SV_Target0)
 {
 	// Sampling pattern (each gather4)
     //   d g
@@ -238,7 +238,7 @@ float4 TestFunc(float2 p)
 	return saturate(15 - length((p- 0.5f) * PostprocessInput0Size.xy));
 }
 
-void Circle4Samples(float4 UVAndScreenPos : TEXCOORD0, out float4 OutColor0 : SV_Target0, float InRand)
+void Circle4Samples(noperspective float4 UVAndScreenPos : TEXCOORD0, out float4 OutColor0 : SV_Target0, float InRand)
 {
 	float2 UV = UVAndScreenPos.xy;
 
@@ -549,7 +549,7 @@ void Circle4Samples(float4 UVAndScreenPos : TEXCOORD0, out float4 OutColor0 : SV
 }
 
 // pixel shader entry point
-void CirclePS(float4 UVAndScreenPos : TEXCOORD0, out float4 OutColor0 : SV_Target0)
+void CirclePS(noperspective float4 UVAndScreenPos : TEXCOORD0, out float4 OutColor0 : SV_Target0)
 {
 // Count 2 or higher, gets slower but less noisy
 #if ( QUALITY == 2 )
@@ -690,7 +690,7 @@ float3 RecombineNSamples(float4 UVAndScreenPos, float PixCoc)
 }
 
 // pixel shader to combine the full res scene and the blurred images behind and in front of the the focal plane
-void MainCircleRecombinePS(in float4 UVAndScreenPos : TEXCOORD0, out float4 OutColor : SV_Target0)
+void MainCircleRecombinePS(in noperspective float4 UVAndScreenPos : TEXCOORD0, out float4 OutColor : SV_Target0)
 {
 	// Circle of confusion size for the pixel.
 	float PixDepth = CalcSceneDepth(UVAndScreenPos.xy);

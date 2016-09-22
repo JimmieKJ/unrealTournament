@@ -11,7 +11,8 @@ public class VulkanRHI : ModuleRules
 		PrivateIncludePaths.Add("Runtime/Vulkan/Private");
 
 		PrivateDependencyModuleNames.AddRange(
-			new string[] {
+			new string[]
+            {
 				"Core", 
 				"CoreUObject", 
 				"Engine", 
@@ -84,7 +85,6 @@ public class VulkanRHI : ModuleRules
 				bHaveVulkan = true;
 				PrivateIncludePaths.Add(VulkanSDKPath + "/Include");
 
-				//#todo-rco: Using /Source/lib instead of /bin as we want pdb's for now
 				if (Target.Platform == UnrealTargetPlatform.Win32)
 				{
 					PublicLibraryPaths.Add(VulkanSDKPath + "/Bin32");
@@ -105,7 +105,7 @@ public class VulkanRHI : ModuleRules
 					PrivateIncludePathModuleNames.AddRange(
 						new string[]
 						{
-						"TaskGraph",
+                            "TaskGraph",
 						}
 					);
 				}

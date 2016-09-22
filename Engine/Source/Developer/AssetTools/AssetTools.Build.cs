@@ -29,8 +29,7 @@ public class AssetTools : ModuleRules
 				"PropertyEditor",
 				"Kismet",
 				"Landscape",
-                "Foliage",
-                "Niagara",
+                "Foliage"
 			}
 		);
 

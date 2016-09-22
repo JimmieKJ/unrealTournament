@@ -6,21 +6,14 @@
 #include "Particles/ParticleSystemComponent.h"
 #include "ParticleHelper.h"
 #include "DerivedDataCacheInterface.h"
-#include "CookStats.h"
 
 #if ENABLE_COOK_STATS
-namespace SubUVAnimationCookStats
+FCookStats::FDDCResourceUsageStats SubUVAnimationCookStats::UsageStats;
+FCookStatsManager::FAutoRegisterCallback SubUVAnimationCookStats::RegisterCookStats([](FCookStatsManager::AddStatFuncRef AddStat)
 {
-	static FCookStats::FDDCResourceUsageStats UsageStats;
-	static FCookStatsManager::FAutoRegisterCallback RegisterCookStats([](FCookStatsManager::AddStatFuncRef AddStat)
-	{
-		UsageStats.LogStats(AddStat, TEXT("SubUVAnimation.Usage"), TEXT(""));
-	});
-}
+	UsageStats.LogStats(AddStat, TEXT("SubUVAnimation.Usage"), TEXT(""));
+});
 #endif
-
-// Can change this guid to force SubUV derived data to be regenerated on next load
-#define SUBUV_DERIVEDDATA_VER TEXT("67E9AF86DF8B4D8E97B7A614A73CD4BF")
 
 FString FSubUVDerivedData::GetDDCKeyString(const FGuid& StateId, int32 SizeX, int32 SizeY, int32 Mode, float AlphaThreshold, int32 OpacitySourceMode)
 {
@@ -38,28 +31,6 @@ void FSubUVDerivedData::Serialize(FArchive& Ar)
 {
 	Ar << BoundingGeometry;
 }
-
-/** Resource array to pass  */
-class FSubUVVertexResourceArray : public FResourceArrayInterface
-{
-public:
-	FSubUVVertexResourceArray(void* InData, uint32 InSize)
-		: Data(InData)
-		, Size(InSize)
-	{
-	}
-
-	virtual const void* GetResourceData() const override { return Data; }
-	virtual uint32 GetResourceDataSize() const override { return Size; }
-	virtual void Discard() override { }
-	virtual bool IsStatic() const override { return false; }
-	virtual bool GetAllowCPUAccess() const override { return false; }
-	virtual void SetAllowCPUAccess(bool bInNeedsCPUAccess) override { }
-
-private:
-	void* Data;
-	uint32 Size;
-};
 
 void FSubUVBoundingGeometryBuffer::InitRHI()
 {

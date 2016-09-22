@@ -364,18 +364,25 @@ inline uint16 GetNumSceneColorMSAASamples(ERHIFeatureLevel::Type InFeatureLevel)
 	}
 	else
 	{
-		//@todo-rco: Fix when iOS OpenGL supports MSAA
-		if (GShaderPlatformForFeatureLevel[InFeatureLevel] == SP_OPENGL_ES2_IOS)
-		{
-			return 1;
-		}
-
 		NumSamples = CVarMobileMSAA.GetValueOnRenderThread();
 	}
 
 	if (NumSamples != 1 && NumSamples != 2 && NumSamples != 4)
 	{
 		NumSamples = 1;
+	}
+
+	if (NumSamples > 1 && !RHISupportsMSAA(GShaderPlatformForFeatureLevel[InFeatureLevel]))
+	{
+		NumSamples = 1;
+
+		static bool bWarned = false;
+
+		if (!bWarned)
+		{
+			bWarned = true;
+			UE_LOG(LogRenderer, Log, TEXT("MSAA requested but the platform doesn't support MSAA, falling back to Temporal AA"));
+		}
 	}
 
 	return NumSamples;
@@ -472,7 +479,7 @@ void FSceneRenderTargets::Allocate(FRHICommandList& RHICmdList, const FSceneView
 		// Reinitialize the render targets for the given size.
 		SetBufferSize(DesiredBufferSize.X, DesiredBufferSize.Y);
 
-		UE_LOG(LogRenderer, Log, TEXT("Reallocating scene render targets to support %ux%u (Frame:%u)."), BufferSize.X, BufferSize.Y, ViewFamily.FrameNumber);
+		UE_LOG(LogRenderer, Log, TEXT("Reallocating scene render targets to support %ux%u NumSamples %u (Frame:%u)."), BufferSize.X, BufferSize.Y, CurrentMSAACount, ViewFamily.FrameNumber);
 
 		UpdateRHI();
 	}

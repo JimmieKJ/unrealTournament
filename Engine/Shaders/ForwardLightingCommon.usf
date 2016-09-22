@@ -5,18 +5,7 @@
 =============================================================================*/
 
 #include "DeferredLightingCommon.usf"
-
-Buffer<float4> ForwardLocalLightBuffer;
-Buffer<uint> NumCulledLightsGrid;
-Buffer<uint> CulledLightDataGrid;
-
-uint ComputeLightGridCellIndex(float4 SvPosition)
-{
-	uint ZSlice = (uint)(max(0, log2(SvPosition.w * ForwardGlobalLightData.LightGridZParams.x + ForwardGlobalLightData.LightGridZParams.y) * ForwardGlobalLightData.LightGridZParams.z));
-	uint3 GridCoordinate = uint3(((uint2)SvPosition.xy) >> ForwardGlobalLightData.LightGridPixelSizeShift, ZSlice);
-	uint GridIndex = (GridCoordinate.z * ForwardGlobalLightData.CulledGridSize.y + GridCoordinate.y) * ForwardGlobalLightData.CulledGridSize.x + GridCoordinate.x;
-	return GridIndex;
-}
+#include "LightGridCommon.usf"
 
 float4 UnpackShadowMapChannelMask(uint ShadowMapChannelMaskPacked)
 {
@@ -26,19 +15,25 @@ float4 UnpackShadowMapChannelMask(uint ShadowMapChannelMaskPacked)
 Texture2D IndirectOcclusionTexture;
 SamplerState IndirectOcclusionTextureSampler;
 
-float GetIndirectOcclusion(float4 ScreenPosition)
+float GetIndirectOcclusion(float4 ScreenPosition, FGBufferData GBufferData)
 {
 	float2 NDC = ScreenPosition.xy / ScreenPosition.w;
 	float2 ScreenUV = NDC * View.ScreenPositionScaleBias.xy + View.ScreenPositionScaleBias.wz;
 	
+	float IndirectOcclusion;
 #if SUPPORTS_INDEPENDENT_SAMPLERS
-	return Texture2DSampleLevel(IndirectOcclusionTexture, LightAttenuationTextureSampler, ScreenUV, 0).x;
+	IndirectOcclusion = Texture2DSampleLevel(IndirectOcclusionTexture, LightAttenuationTextureSampler, ScreenUV, 0).x;
 #else
-	return Texture2DSampleLevel(IndirectOcclusionTexture, IndirectOcclusionTextureSampler, ScreenUV, 0).x;
+	IndirectOcclusion = Texture2DSampleLevel(IndirectOcclusionTexture, IndirectOcclusionTextureSampler, ScreenUV, 0).x;
 #endif
+
+	// Reduce self shadowing intensity on characters (reuse distance field bit, really should be HasCapsuleShadowRepresentation)
+	IndirectOcclusion = lerp(1, IndirectOcclusion, HasDistanceFieldRepresentation(GBufferData) ? View.IndirectCapsuleSelfShadowingIntensity : 1);
+
+	return IndirectOcclusion;
 }
 
-float3 GetForwardDirectLighting(float4 SvPosition, float4 ScreenPosition, float3 WorldPosition, float3 CameraVector, FGBufferData GBufferData)
+float3 GetForwardDirectLighting(uint GridIndex, float4 ScreenPosition, float3 WorldPosition, float3 CameraVector, FGBufferData GBufferData)
 {
 	float3 DirectLighting = 0;
 	float4 DynamicShadowFactors = 1;
@@ -81,7 +76,6 @@ float3 GetForwardDirectLighting(float4 SvPosition, float4 ScreenPosition, float3
 #define USE_CULLED_LOCAL_LIGHTS 1
 #if USE_CULLED_LOCAL_LIGHTS
 
-	uint GridIndex = ComputeLightGridCellIndex(SvPosition);
 	NumLocalLights = NumCulledLightsGrid[GridIndex * NUM_CULLED_LIGHTS_GRID_STRIDE + 0];
 	uint DataStartIndex = NumCulledLightsGrid[GridIndex * NUM_CULLED_LIGHTS_GRID_STRIDE + 1];
 #endif
@@ -122,4 +116,102 @@ float3 GetForwardDirectLighting(float4 SvPosition, float4 ScreenPosition, float3
 	// For debugging
 	//DirectLighting = NumLocalLights / (float)ForwardGlobalLightData.MaxCulledLightsPerCell;
 	return DirectLighting;
+}
+
+uint MortonCode( uint x )
+{
+	//x = (x ^ (x <<  8)) & 0x00ff00ff;
+	//x = (x ^ (x <<  4)) & 0x0f0f0f0f;
+	x = (x ^ (x <<  2)) & 0x33333333;
+	x = (x ^ (x <<  1)) & 0x55555555;
+	return x;
+}
+
+// Translucency Surface per-pixel uses blended reflection captures by default in the deferred renderer
+// Have to opt-in to blended reflection captures in the forward renderer
+#define REFLECTION_COMPOSITE_USE_BLENDED_REFLECTION_CAPTURES ((!FORWARD_SHADING && TRANSLUCENCY_LIGHTING_SURFACE_PERPIXEL || FORWARD_SHADING && MATERIAL_HQ_FORWARD_REFLECTIONS) && FEATURE_LEVEL >= FEATURE_LEVEL_SM5)
+#define CompositeTileReflectionCaptureIndices CulledLightDataGrid
+#define REFLECTION_COMPOSITE_SUPPORT_SKYLIGHT_BLEND 0
+#define REFLECTION_COMPOSITE_HAS_BOX_CAPTURES 1
+#define REFLECTION_COMPOSITE_HAS_SPHERE_CAPTURES 1
+#include "ReflectionEnvironmentComposite.usf"
+
+half3 GetImageBasedReflectionLighting(FMaterialPixelParameters MaterialParameters, half Roughness, half3 SpecularColor, half IndirectIrradiance, uint GridIndex)
+{
+	float3 N = MaterialParameters.WorldNormal;
+	float3 V = MaterialParameters.CameraVector;
+
+	float3 RayDirection = 2 * dot( V, N ) * N - V;
+	half NoV = saturate(dot(N, V));
+
+	uint NumLocalReflectionCaptures = 0;
+	uint DataStartIndex = 0;
+
+#if REFLECTION_COMPOSITE_USE_BLENDED_REFLECTION_CAPTURES
+	uint NumCulledEntryIndex = (ForwardGlobalLightData.NumGridCells + GridIndex) * NUM_CULLED_LIGHTS_GRID_STRIDE;
+	NumLocalReflectionCaptures = NumCulledLightsGrid[NumCulledEntryIndex + 0];
+	DataStartIndex = NumCulledLightsGrid[NumCulledEntryIndex + 1];
+#endif
+
+	float3 SpecularIBL = CompositeReflectionCapturesAndSkylight(1.0f, MaterialParameters.AbsoluteWorldPosition, RayDirection, Roughness, IndirectIrradiance, 1.0f, 0.0f, NumLocalReflectionCaptures, DataStartIndex);
+
+	// Factors derived from EnvBRDFApprox( SpecularColor, 1, 1 ) == SpecularColor * 0.4524 - 0.0024
+	float3 SpecularBounce = 0.45f * SpecularColor * IndirectIrradiance;
+	// Replace reflection captures with indirect diffuse when we're rendering to a reflection capture, to avoid a feedback loop
+	SpecularIBL.rgb = lerp(SpecularIBL.rgb, SpecularBounce, View.RenderingReflectionCaptureMask);
+
+#if MATERIAL_SSR && !FORWARD_SHADING
+	if( View.CameraCut == 0 )
+	{
+		//uint ViewRandom = (uint)(View.TemporalAAParams.r * 1551);
+		uint ViewRandom = View.StateFrameIndexMod8 * 1551;
+
+		uint Morton = MortonCode( (uint)MaterialParameters.SvPosition.x & 3 ) | ( MortonCode( (uint)MaterialParameters.SvPosition.y & 3 ) * 2 );
+		uint PixelIndex = ReverseBits32( Morton ) >> 28;
+		//uint PixelIndex = ( (uint)MaterialParameters.SvPosition.x & 3 ) | ( ( (uint)MaterialParameters.SvPosition.y & 3 ) * 2 );
+		//PixelIndex = ( PixelIndex * 1551 ) & 15;
+
+		uint Offset = ( PixelIndex + ViewRandom ) & 15;
+		float StepOffset = Offset / 15.0;
+		StepOffset -= 0.5;
+		
+		float4 HitUVzTime;
+		float HCBLevel;
+
+		RayCast(
+			HZBTexture, HZBSampler, float2(1, 1),
+			MaterialParameters.WorldPosition_CamRelative, RayDirection, 0, 0, MaterialParameters.ScreenPosition.w,
+			12, StepOffset,
+			HitUVzTime, HCBLevel
+		);
+
+		// if there was a hit
+		BRANCH if( HitUVzTime.w < 1 )
+		{
+			float4 SSR = SampleScreenColor( PrevSceneColor, PrevSceneColorSampler, HitUVzTime.xyz );
+			SSR *= saturate( 2 - 6.6 * Roughness );
+			SpecularIBL.rgb = SpecularIBL.rgb * (1 - SSR.a) + SSR.rgb;
+		}
+	}
+#endif
+
+
+	SpecularColor = EnvBRDFApprox(SpecularColor, Roughness, NoV);
+
+	float3 SpecularLighting = SpecularIBL.rgb;
+
+	// Have to opt-in to receiving planar reflections with forward shading
+#if !FORWARD_SHADING || MATERIAL_PLANAR_FORWARD_REFLECTIONS
+	// Plane normal will be zero if the feature is disabled
+	BRANCH
+	if (abs(dot(ReflectionPlane.xyz, 1)) > .0001f)
+	{
+		// Reuse ReflectionCubemapSampler to avoid reducing the sampler count available to artists
+		float4 PlanarReflection = ComputePlanarReflections(MaterialParameters.AbsoluteWorldPosition, MaterialParameters.WorldNormal, Roughness, ReflectionCubemapSampler);
+		// Planar reflections win over SSR and reflection environment
+		SpecularLighting = PlanarReflection.rgb + (1 - PlanarReflection.a) * SpecularLighting;
+	}
+#endif
+
+	return SpecularLighting * SpecularColor;
 }

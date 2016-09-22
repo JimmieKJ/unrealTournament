@@ -117,14 +117,6 @@ FAssetTools::FAssetTools()
 	{
 		RegisterAssetTypeActions( MakeShareable(new FAssetTypeActions_World) );
 	}
-
-	bool bEnableNiagara = false;
-	GConfig->GetBool(TEXT("Niagara"), TEXT("EnableNiagara"), bEnableNiagara, GEngineIni);
-	if ( bEnableNiagara )
-	{
-		RegisterAssetTypeActions( MakeShareable(new FAssetTypeActions_NiagaraScript) );
-		RegisterAssetTypeActions( MakeShareable(new FAssetTypeActions_NiagaraEffect) );
-	}
 }
 
 FAssetTools::~FAssetTools()

@@ -534,7 +534,7 @@ void FVulkanPendingState::PrepareDraw(FVulkanCommandListContext* CmdListContext,
 	UpdateRenderPass(Cmd);
 
 	check(CurrentState.Shader);
-    CurrentState.Shader->UpdateDescriptorSets(CmdListContext, Cmd, GlobalUniformPool);
+    bool bHasDescriptorSets = CurrentState.Shader->UpdateDescriptorSets(CmdListContext, Cmd, GlobalUniformPool);
 
 	// let the BoundShaderState return a pipeline object for the full current state of things
 	CurrentState.InputAssembly.topology = Topology;
@@ -548,8 +548,10 @@ void FVulkanPendingState::PrepareDraw(FVulkanCommandListContext* CmdListContext,
 
 		VkPipeline NewPipeline = Pipeline->GetHandle();
 		CurrentState.Shader->BindPipeline(Cmd->GetHandle(), NewPipeline);
-
-		CurrentState.Shader->BindDescriptorSets(Cmd);
+		if (bHasDescriptorSets)
+		{
+			CurrentState.Shader->BindDescriptorSets(Cmd);
+		}
 		CurrentState.Shader->BindVertexStreams(Cmd, PendingStreams);
 	}
 }

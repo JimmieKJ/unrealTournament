@@ -9,6 +9,7 @@
 #include "ParticleDefinitions.h"
 #include "LevelUtils.h"
 #include "FXSystem.h"
+#include "UObjectBaseUtility.h"
 
 #include "Particles/Collision/ParticleModuleCollisionGPU.h"
 #include "Particles/Event/ParticleModuleEventGenerator.h"
@@ -25,7 +26,6 @@
 #include "Particles/ParticleSpriteEmitter.h"
 #include "Particles/ParticleSystemComponent.h"
 #include "Particles/SubUV/ParticleModuleSubUV.h"
-#include "Particles/SubUVAnimation.h"
 
 #include "Components/PointLightComponent.h"
 
@@ -481,6 +481,30 @@ void FParticleEmitterInstance::Init()
 	}
 
 	ResetBurstList();
+
+#if WITH_EDITORONLY_DATA
+	//Check for SubUV module to see if it has SubUVAnimation to move data to required module
+	for (auto CurrModule : HighLODLevel->Modules)
+	{
+		if (CurrModule->IsA(UParticleModuleSubUV::StaticClass()))
+		{
+			UParticleModuleSubUV* SubUVModule = (UParticleModuleSubUV*)CurrModule;
+
+			if (SubUVModule->Animation)
+			{
+				HighLODLevel->RequiredModule->AlphaThreshold = SubUVModule->Animation->AlphaThreshold;
+				HighLODLevel->RequiredModule->BoundingMode = SubUVModule->Animation->BoundingMode;
+				HighLODLevel->RequiredModule->OpacitySourceMode = SubUVModule->Animation->OpacitySourceMode;
+				HighLODLevel->RequiredModule->CutoutTexture = SubUVModule->Animation->SubUVTexture;
+
+				SubUVModule->Animation = nullptr;
+
+				HighLODLevel->RequiredModule->CacheDerivedData();
+				HighLODLevel->RequiredModule->InitBoundingGeometryBuffer();
+			}
+		}
+	}
+#endif //WITH_EDITORONLY_DATA
 
 	// Tag it as dirty w.r.t. the renderer
 	IsRenderDataDirty	= 1;
@@ -2525,6 +2549,7 @@ bool FParticleEmitterInstance::FillReplayData( FDynamicEmitterReplayDataBase& Ou
 		FDynamicSpriteEmitterReplayDataBase* NewReplayData =
 			static_cast< FDynamicSpriteEmitterReplayDataBase* >( &OutData );
 
+		NewReplayData->RequiredModule = LODLevel->RequiredModule;
 		NewReplayData->MaterialInterface = NULL;	// Must be set by derived implementation
 		NewReplayData->InvDeltaSeconds = (LastDeltaTime > KINDA_SMALL_NUMBER) ? (1.0f / LastDeltaTime) : 0.0f;
 
@@ -2830,14 +2855,6 @@ bool FParticleSpriteEmitterInstance::FillReplayData( FDynamicEmitterReplayDataBa
 
 	// Get the material instance. If there is none, or the material isn't flagged for use with particle systems, use the DefaultMaterial.
 	NewReplayData->MaterialInterface = GetCurrentMaterial();
-	USubUVAnimation* RESTRICT SubUVAnimation = SpriteTemplate->SubUVAnimation;
-	NewReplayData->SubUVAnimation = SubUVAnimation;
-
-	if (SubUVAnimation)
-	{
-		NewReplayData->SubImages_Horizontal = SubUVAnimation->SubImages_Horizontal;
-		NewReplayData->SubImages_Vertical = SubUVAnimation->SubImages_Vertical;
-	}
 
 	return true;
 }
@@ -3665,8 +3682,8 @@ FDynamicEmitterDataBase::FDynamicEmitterDataBase(const UParticleModuleRequired* 
 }
 
 FDynamicSpriteEmitterReplayDataBase::FDynamicSpriteEmitterReplayDataBase()
-	: MaterialInterface(NULL)
-	, SubUVAnimation(NULL)
+	: MaterialInterface(nullptr)
+	, RequiredModule(nullptr)
 	, NormalsSphereCenter(FVector::ZeroVector)
 	, NormalsCylinderDirection(FVector::ZeroVector)
 	, InvDeltaSeconds(0.0f)
@@ -3714,7 +3731,6 @@ void FDynamicSpriteEmitterReplayDataBase::Serialize( FArchive& Ar )
 	Ar << NormalsCylinderDirection;
 
 	Ar << MaterialInterface;
-	Ar << SubUVAnimation;
 
 	Ar << PivotOffset;
 }

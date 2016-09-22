@@ -49,6 +49,7 @@ FForwardGlobalLightData::FForwardGlobalLightData()
 }
 
 int32 NumCulledLightsGridStride = 2;
+int32 NumCulledGridPrimitiveTypes = 2;
 int32 LightLinkStride = 2;
 // 65k indexable light limit
 typedef uint16 FLightIndexType;
@@ -72,7 +73,7 @@ public:
 	}
 
 	template<typename ShaderRHIParamRef>
-	void Set(FRHICommandList& RHICmdList, const ShaderRHIParamRef& ShaderRHI, FShader* Shader, const FViewInfo& View)
+	void Set(FRHICommandList& RHICmdList, const ShaderRHIParamRef& ShaderRHI, const FViewInfo& View)
 	{
 		NextCulledLightLink.SetBuffer(RHICmdList, ShaderRHI, View.ForwardLightingResources->NextCulledLightLink);
 		StartOffsetGrid.SetBuffer(RHICmdList, ShaderRHI, View.ForwardLightingResources->StartOffsetGrid);
@@ -172,8 +173,8 @@ public:
 	{
 		FComputeShaderRHIParamRef ShaderRHI = GetComputeShader();
 		FGlobalShader::SetParameters(RHICmdList, ShaderRHI, View);
-		ForwardLightingParameters.Set(RHICmdList, ShaderRHI, this, View);
-		ForwardCullingParameters.Set(RHICmdList, ShaderRHI, this, View);
+		ForwardLightingParameters.Set(RHICmdList, ShaderRHI, View);
+		ForwardCullingParameters.Set(RHICmdList, ShaderRHI, View);
 	}
 
 	void UnsetParameters(FRHICommandList& RHICmdList, const FViewInfo& View)
@@ -215,6 +216,7 @@ public:
 		OutEnvironment.SetDefine(TEXT("THREADGROUP_SIZE"), LightGridInjectionGroupSize);
 		FForwardLightingParameters::ModifyCompilationEnvironment(Platform, OutEnvironment);
 		FForwardCullingParameters::ModifyCompilationEnvironment(Platform, OutEnvironment);
+		OutEnvironment.SetDefine(TEXT("MAX_CAPTURES"), GMaxNumReflectionCaptures);
 	}
 
 	FLightGridCompactCS(const ShaderMetaType::CompiledShaderInitializerType& Initializer)
@@ -232,8 +234,8 @@ public:
 	{
 		FComputeShaderRHIParamRef ShaderRHI = GetComputeShader();
 		FGlobalShader::SetParameters(RHICmdList, ShaderRHI, View);
-		ForwardLightingParameters.Set(RHICmdList, ShaderRHI, this, View);
-		ForwardCullingParameters.Set(RHICmdList, ShaderRHI, this, View);
+		ForwardLightingParameters.Set(RHICmdList, ShaderRHI, View);
+		ForwardCullingParameters.Set(RHICmdList, ShaderRHI, View);
 	}
 
 	void UnsetParameters(FRHICommandList& RHICmdList, const FViewInfo& View)
@@ -265,7 +267,7 @@ FVector GetLightGridZParams(float NearPlane, float FarPlane)
 	//
 	// slice = log2(z*B + O) * S
 
-	// Don't spent lots of resolution right in front of the near plane
+	// Don't spend lots of resolution right in front of the near plane
 	double NearOffset = .095 * 100;
 	// Space out the slices so they aren't all clustered at the near plane
 	double S = 4.05;
@@ -281,15 +283,7 @@ FVector GetLightGridZParams(float NearPlane, float FarPlane)
 
 void FDeferredShadingSceneRenderer::ComputeLightGrid(FRHICommandListImmediate& RHICmdList)
 {
-	bool bAnyViewUsesTranslucentSurfaceLighting = false;
-
-	for (int32 ViewIndex = 0; ViewIndex < Views.Num(); ViewIndex++)
-	{
-		const FViewInfo& View = Views[ViewIndex];
-		bAnyViewUsesTranslucentSurfaceLighting |= View.bTranslucentSurfaceLighting;
-	}
-
-	if (IsForwardShadingEnabled(FeatureLevel) || (bAnyViewUsesTranslucentSurfaceLighting && FeatureLevel >= ERHIFeatureLevel::SM5))
+	if (FeatureLevel >= ERHIFeatureLevel::SM5)
 	{
 		QUICK_SCOPE_CYCLE_COUNTER(STAT_ComputeLightGrid);
 		SCOPED_DRAW_EVENT(RHICmdList, ComputeLightGrid);
@@ -297,8 +291,22 @@ void FDeferredShadingSceneRenderer::ComputeLightGrid(FRHICommandListImmediate& R
 		static const auto AllowStaticLightingVar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.AllowStaticLighting"));
 		const bool bAllowStaticLighting = (!AllowStaticLightingVar || AllowStaticLightingVar->GetValueOnRenderThread() != 0);
 
+		bool bAnyViewUsesTranslucentSurfaceLighting = false;
+
+		for (int32 ViewIndex = 0; ViewIndex < Views.Num(); ViewIndex++)
+		{
+			const FViewInfo& View = Views[ViewIndex];
+			bAnyViewUsesTranslucentSurfaceLighting |= View.bTranslucentSurfaceLighting;
+		}
+
+		const bool bCullLightsToGrid = IsForwardShadingEnabled(FeatureLevel) || bAnyViewUsesTranslucentSurfaceLighting;
+
 		FSimpleLightArray SimpleLights;
-		GatherSimpleLights(ViewFamily, Views, SimpleLights);
+
+		if (bCullLightsToGrid)
+		{
+			GatherSimpleLights(ViewFamily, Views, SimpleLights);
+		}
 
 		for (int32 ViewIndex = 0; ViewIndex < Views.Num(); ViewIndex++)
 		{
@@ -306,125 +314,141 @@ void FDeferredShadingSceneRenderer::ComputeLightGrid(FRHICommandListImmediate& R
 
 			FForwardGlobalLightData GlobalLightData;
 			TArray<FForwardLocalLightData, SceneRenderingAllocator> ForwardLocalLightData;
-			ForwardLocalLightData.Empty(Scene->Lights.Num());
-
 			float FurthestLight = 1000;
 
-			for (TSparseArray<FLightSceneInfoCompact>::TConstIterator LightIt(Scene->Lights); LightIt; ++LightIt)
+			if (bCullLightsToGrid)
 			{
-				const FLightSceneInfoCompact& LightSceneInfoCompact = *LightIt;
-				const FLightSceneInfo* const LightSceneInfo = LightSceneInfoCompact.LightSceneInfo;
+				ForwardLocalLightData.Empty(Scene->Lights.Num());
 
-				if (LightSceneInfo->ShouldRenderLightViewIndependent()
-					&& LightSceneInfo->ShouldRenderLight(View)
-					// Reflection override skips direct specular because it tends to be blindingly bright with a perfectly smooth surface
-					&& !ViewFamily.EngineShowFlags.ReflectionOverride)
+				for (TSparseArray<FLightSceneInfoCompact>::TConstIterator LightIt(Scene->Lights); LightIt; ++LightIt)
 				{
-					FVector4 LightPositionAndInvRadius;
-					FVector4 LightColorAndFalloffExponent;
-					FVector NormalizedLightDirection;
-					FVector2D SpotAngles;
-					float SourceRadius;
-					float SourceLength;
-					float MinRoughness;
+					const FLightSceneInfoCompact& LightSceneInfoCompact = *LightIt;
+					const FLightSceneInfo* const LightSceneInfo = LightSceneInfoCompact.LightSceneInfo;
 
-					// Get the light parameters
-					LightSceneInfo->Proxy->GetParameters(
-						LightPositionAndInvRadius,
-						LightColorAndFalloffExponent,
-						NormalizedLightDirection,
-						SpotAngles,
-						SourceRadius,
-						SourceLength,
-						MinRoughness);
+					if (LightSceneInfo->ShouldRenderLightViewIndependent()
+						&& LightSceneInfo->ShouldRenderLight(View)
+						// Reflection override skips direct specular because it tends to be blindingly bright with a perfectly smooth surface
+						&& !ViewFamily.EngineShowFlags.ReflectionOverride)
+					{
+						FVector4 LightPositionAndInvRadius;
+						FVector4 LightColorAndFalloffExponent;
+						FVector NormalizedLightDirection;
+						FVector2D SpotAngles;
+						float SourceRadius;
+						float SourceLength;
+						float MinRoughness;
 
-					if (LightSceneInfo->Proxy->IsInverseSquared())
+						// Get the light parameters
+						LightSceneInfo->Proxy->GetParameters(
+							LightPositionAndInvRadius,
+							LightColorAndFalloffExponent,
+							NormalizedLightDirection,
+							SpotAngles,
+							SourceRadius,
+							SourceLength,
+							MinRoughness);
+
+						if (LightSceneInfo->Proxy->IsInverseSquared())
+						{
+							// Correction for lumen units
+							LightColorAndFalloffExponent.X *= 16.0f;
+							LightColorAndFalloffExponent.Y *= 16.0f;
+							LightColorAndFalloffExponent.Z *= 16.0f;
+							LightColorAndFalloffExponent.W = 0;
+						}
+
+						// When rendering reflection captures, the direct lighting of the light is actually the indirect specular from the main view
+						if (View.bIsReflectionCapture)
+						{
+							LightColorAndFalloffExponent.X *= LightSceneInfo->Proxy->GetIndirectLightingScale();
+							LightColorAndFalloffExponent.Y *= LightSceneInfo->Proxy->GetIndirectLightingScale();
+							LightColorAndFalloffExponent.Z *= LightSceneInfo->Proxy->GetIndirectLightingScale();
+						}
+
+						int32 ShadowMapChannel = LightSceneInfo->Proxy->GetShadowMapChannel();
+						int32 PreviewShadowMapChannel = LightSceneInfo->Proxy->GetPreviewShadowMapChannel();
+
+						if (!bAllowStaticLighting)
+						{
+							ShadowMapChannel = INDEX_NONE;
+							PreviewShadowMapChannel = INDEX_NONE;
+						}
+
+						// Static shadowing uses ShadowMapChannel, dynamic shadows are packed into light attenuation using PreviewShadowMapChannel
+						const uint32 ShadowMapChannelMaskPacked =
+							(ShadowMapChannel == 0 ? 1 : 0) |
+							(ShadowMapChannel == 1 ? 2 : 0) |
+							(ShadowMapChannel == 2 ? 4 : 0) |
+							(ShadowMapChannel == 3 ? 8 : 0) |
+							(PreviewShadowMapChannel == 0 ? 16 : 0) |
+							(PreviewShadowMapChannel == 1 ? 32 : 0) |
+							(PreviewShadowMapChannel == 2 ? 64 : 0) |
+							(PreviewShadowMapChannel == 3 ? 128 : 0);
+
+						if (LightSceneInfoCompact.LightType == LightType_Point || LightSceneInfoCompact.LightType == LightType_Spot)
+						{
+							ForwardLocalLightData.AddUninitialized(1);
+							FForwardLocalLightData& LightData = ForwardLocalLightData.Last();
+
+							const float LightFade = GetLightFadeFactor(View, LightSceneInfo->Proxy);
+							LightColorAndFalloffExponent.X *= LightFade;
+							LightColorAndFalloffExponent.Y *= LightFade;
+							LightColorAndFalloffExponent.Z *= LightFade;
+
+							LightData.LightPositionAndInvRadius = LightPositionAndInvRadius;
+							LightData.LightColorAndFalloffExponent = LightColorAndFalloffExponent;
+							LightData.LightDirectionAndShadowMapChannelMask = FVector4(NormalizedLightDirection, *((float*)&ShadowMapChannelMaskPacked));
+							LightData.SpotAnglesAndSourceRadius = FVector4(SpotAngles.X, SpotAngles.Y, SourceRadius, SourceLength);
+
+							const FSphere BoundingSphere = LightSceneInfo->Proxy->GetBoundingSphere();
+							const float Distance = View.ViewMatrices.ViewMatrix.TransformPosition(BoundingSphere.Center).Z + BoundingSphere.W;
+							FurthestLight = FMath::Max(FurthestLight, Distance);
+						}
+						else if (LightSceneInfoCompact.LightType == LightType_Directional)
+						{
+							GlobalLightData.HasDirectionalLight = 1;
+							GlobalLightData.DirectionalLightColor = LightColorAndFalloffExponent;
+							GlobalLightData.DirectionalLightDirection = NormalizedLightDirection;
+							GlobalLightData.DirectionalLightShadowMapChannelMask = ShadowMapChannelMaskPacked;
+
+							const FVector2D FadeParams = LightSceneInfo->Proxy->GetDirectionalLightDistanceFadeParameters(View.GetFeatureLevel(), LightSceneInfo->IsPrecomputedLightingValid());
+
+							GlobalLightData.DirectionalLightDistanceFadeMAD = FVector2D(FadeParams.Y, -FadeParams.X * FadeParams.Y);
+						}
+					}
+				}
+
+				for (int32 SimpleLightIndex = 0; SimpleLightIndex < SimpleLights.InstanceData.Num(); SimpleLightIndex++)
+				{	
+					ForwardLocalLightData.AddUninitialized(1);
+					FForwardLocalLightData& LightData = ForwardLocalLightData.Last();
+
+					const FSimpleLightEntry& SimpleLight = SimpleLights.InstanceData[SimpleLightIndex];
+					const FSimpleLightPerViewEntry& SimpleLightPerViewData = SimpleLights.GetViewDependentData(SimpleLightIndex, ViewIndex, Views.Num());
+					LightData.LightPositionAndInvRadius = FVector4(SimpleLightPerViewData.Position, 1.0f / FMath::Max(SimpleLight.Radius, KINDA_SMALL_NUMBER));
+					LightData.LightColorAndFalloffExponent = FVector4(SimpleLight.Color, SimpleLight.Exponent);
+
+					uint32 ShadowMapChannelMask = 0;
+					LightData.LightDirectionAndShadowMapChannelMask = FVector4(FVector(1, 0, 0), *((float*)&ShadowMapChannelMask));
+					LightData.SpotAnglesAndSourceRadius = FVector4(-2, 1, 0, 0);
+
+					if( SimpleLight.Exponent == 0.0f )
 					{
 						// Correction for lumen units
-						LightColorAndFalloffExponent.X *= 16.0f;
-						LightColorAndFalloffExponent.Y *= 16.0f;
-						LightColorAndFalloffExponent.Z *= 16.0f;
-						LightColorAndFalloffExponent.W = 0;
-					}
-
-					// When rendering reflection captures, the direct lighting of the light is actually the indirect specular from the main view
-					if (View.bIsReflectionCapture)
-					{
-						LightColorAndFalloffExponent.X *= LightSceneInfo->Proxy->GetIndirectLightingScale();
-						LightColorAndFalloffExponent.Y *= LightSceneInfo->Proxy->GetIndirectLightingScale();
-						LightColorAndFalloffExponent.Z *= LightSceneInfo->Proxy->GetIndirectLightingScale();
-					}
-
-					int32 ShadowMapChannel = LightSceneInfo->Proxy->GetShadowMapChannel();
-					int32 PreviewShadowMapChannel = LightSceneInfo->Proxy->GetPreviewShadowMapChannel();
-
-					if (!bAllowStaticLighting)
-					{
-						ShadowMapChannel = INDEX_NONE;
-						PreviewShadowMapChannel = INDEX_NONE;
-					}
-
-					// Static shadowing uses ShadowMapChannel, dynamic shadows are packed into light attenuation using PreviewShadowMapChannel
-					const uint32 ShadowMapChannelMaskPacked =
-						(ShadowMapChannel == 0 ? 1 : 0) |
-						(ShadowMapChannel == 1 ? 2 : 0) |
-						(ShadowMapChannel == 2 ? 4 : 0) |
-						(ShadowMapChannel == 3 ? 8 : 0) |
-						(PreviewShadowMapChannel == 0 ? 16 : 0) |
-						(PreviewShadowMapChannel == 1 ? 32 : 0) |
-						(PreviewShadowMapChannel == 2 ? 64 : 0) |
-						(PreviewShadowMapChannel == 3 ? 128 : 0);
-
-					if (LightSceneInfoCompact.LightType == LightType_Point || LightSceneInfoCompact.LightType == LightType_Spot)
-					{
-						ForwardLocalLightData.AddUninitialized(1);
-						FForwardLocalLightData& LightData = ForwardLocalLightData.Last();
-
-						LightData.LightPositionAndInvRadius = LightPositionAndInvRadius;
-						LightData.LightColorAndFalloffExponent = LightColorAndFalloffExponent;
-						LightData.LightDirectionAndShadowMapChannelMask = FVector4(NormalizedLightDirection, *((float*)&ShadowMapChannelMaskPacked));
-						LightData.SpotAnglesAndSourceRadius = FVector4(SpotAngles.X, SpotAngles.Y, SourceRadius, SourceLength);
-
-						const FSphere BoundingSphere = LightSceneInfo->Proxy->GetBoundingSphere();
-						const float Distance = View.ViewMatrices.ViewMatrix.TransformPosition(BoundingSphere.Center).Z + BoundingSphere.W;
-						FurthestLight = FMath::Max(FurthestLight, Distance);
-					}
-					else if (LightSceneInfoCompact.LightType == LightType_Directional)
-					{
-						GlobalLightData.HasDirectionalLight = 1;
-						GlobalLightData.DirectionalLightColor = LightColorAndFalloffExponent;
-						GlobalLightData.DirectionalLightDirection = NormalizedLightDirection;
-						GlobalLightData.DirectionalLightShadowMapChannelMask = ShadowMapChannelMaskPacked;
-
-						const FVector2D FadeParams = LightSceneInfo->Proxy->GetDirectionalLightDistanceFadeParameters(View.GetFeatureLevel(), LightSceneInfo->IsPrecomputedLightingValid());
-
-						GlobalLightData.DirectionalLightDistanceFadeMAD = FVector2D(FadeParams.Y, -FadeParams.X * FadeParams.Y);
+						LightData.LightColorAndFalloffExponent *= 16.0f;
 					}
 				}
 			}
 
-			for (int32 SimpleLightIndex = 0; SimpleLightIndex < SimpleLights.InstanceData.Num(); SimpleLightIndex++)
-			{	
-				ForwardLocalLightData.AddUninitialized(1);
-				FForwardLocalLightData& LightData = ForwardLocalLightData.Last();
+			// Store off the number of lights before we add a fake entry
+			const int32 NumLocalLightsFinal = ForwardLocalLightData.Num();
 
-				const FSimpleLightEntry& SimpleLight = SimpleLights.InstanceData[SimpleLightIndex];
-				const FSimpleLightPerViewEntry& SimpleLightPerViewData = SimpleLights.GetViewDependentData(SimpleLightIndex, ViewIndex, Views.Num());
-				LightData.LightPositionAndInvRadius = FVector4(SimpleLightPerViewData.Position, 1.0f / FMath::Max(SimpleLight.Radius, KINDA_SMALL_NUMBER));
-				LightData.LightColorAndFalloffExponent = FVector4(SimpleLight.Color, SimpleLight.Exponent);
-
-				uint32 ShadowMapChannelMask = 0;
-				LightData.LightDirectionAndShadowMapChannelMask = FVector4(FVector(1, 0, 0), *((float*)&ShadowMapChannelMask));
-				LightData.SpotAnglesAndSourceRadius = FVector4(-2, 1, 0, 0);
-
-				if( SimpleLight.Exponent == 0.0f )
-				{
-					// Correction for lumen units
-					LightData.LightColorAndFalloffExponent *= 16.0f;
-				}
+			if (ForwardLocalLightData.Num() == 0)
+			{
+				// Make sure the buffer gets created even though we're not going to read from it in the shader, for platforms like PS4 that assert on null resources being bound
+				ForwardLocalLightData.AddZeroed();
 			}
 
-			if (ForwardLocalLightData.Num() > 0)
 			{
 				const uint32 NumBytesRequired = ForwardLocalLightData.Num() * ForwardLocalLightData.GetTypeSize();
 
@@ -440,12 +464,15 @@ void FDeferredShadingSceneRenderer::ComputeLightGrid(FRHICommandListImmediate& R
 			}
 
 			const FIntPoint LightGridSizeXY = FIntPoint::DivideAndRoundUp(View.ViewRect.Size(), GLightGridPixelSize);
-			GlobalLightData.NumLocalLights = ForwardLocalLightData.Num();
+			GlobalLightData.NumLocalLights = NumLocalLightsFinal;
+			GlobalLightData.NumReflectionCaptures = View.NumBoxReflectionCaptures + View.NumSphereReflectionCaptures;
+			GlobalLightData.NumGridCells = LightGridSizeXY.X * LightGridSizeXY.Y * GLightGridSizeZ;
 			GlobalLightData.CulledGridSize = FIntVector(LightGridSizeXY.X, LightGridSizeXY.Y, GLightGridSizeZ);
 			GlobalLightData.MaxCulledLightsPerCell = GMaxCulledLightsPerCell;
 			GlobalLightData.LightGridPixelSizeShift = FMath::FloorLog2(GLightGridPixelSize);
 
-			float FarPlane = FurthestLight;
+			// Clamp far plane to something reasonable
+			float FarPlane = FMath::Min(FMath::Max(FurthestLight, View.FurthestReflectionCaptureDistance), (float)HALF_WORLD_MAX / 5.0f);
 			FVector ZParams = GetLightGridZParams(View.NearClippingDistance, FarPlane + 10.f);
 			GlobalLightData.LightGridZParams = ZParams;
 
@@ -470,7 +497,7 @@ void FDeferredShadingSceneRenderer::ComputeLightGrid(FRHICommandListImmediate& R
 			FViewInfo& View = Views[ViewIndex];
 
 			const FIntPoint LightGridSizeXY = FIntPoint::DivideAndRoundUp(View.ViewRect.Size(), GLightGridPixelSize);
-			const int32 NumCells = LightGridSizeXY.X * LightGridSizeXY.Y * GLightGridSizeZ;
+			const int32 NumCells = LightGridSizeXY.X * LightGridSizeXY.Y * GLightGridSizeZ * NumCulledGridPrimitiveTypes;
 
 			if (View.ForwardLightingResources->NumCulledLightsGrid.NumBytes != NumCells * NumCulledLightsGridStride * sizeof(uint32))
 			{
@@ -490,6 +517,15 @@ void FDeferredShadingSceneRenderer::ComputeLightGrid(FRHICommandListImmediate& R
 
 			{
 				SCOPED_DRAW_EVENT(RHICmdList, CullLights);
+
+				TArray<FUnorderedAccessViewRHIParamRef, TInlineAllocator<6>> OutUAVs;
+				OutUAVs.Add(View.ForwardLightingResources->NumCulledLightsGrid.UAV);
+				OutUAVs.Add(View.ForwardLightingResources->CulledLightDataGrid.UAV);
+				OutUAVs.Add(View.ForwardLightingResources->NextCulledLightLink.UAV);
+				OutUAVs.Add(View.ForwardLightingResources->StartOffsetGrid.UAV);
+				OutUAVs.Add(View.ForwardLightingResources->CulledLightLinks.UAV);
+				OutUAVs.Add(View.ForwardLightingResources->NextCulledLightData.UAV);
+				RHICmdList.TransitionResources(EResourceTransitionAccess::EWritable, EResourceTransitionPipeline::EGfxToCompute, OutUAVs.GetData(), OutUAVs.Num());
 
 				if (GLightLinkedListCulling)
 				{

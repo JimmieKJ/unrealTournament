@@ -30,5 +30,11 @@ public class MovieSceneCaptureDialog : ModuleRules
 				"UnrealEd",
 			}
 		);
+
+		PrivateIncludePathModuleNames.AddRange(
+			new string[] {
+				"LevelEditor"
+			}
+		);
 	}
 }

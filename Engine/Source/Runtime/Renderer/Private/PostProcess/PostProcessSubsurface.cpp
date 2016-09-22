@@ -43,7 +43,7 @@ static TAutoConsoleVariable<int32> CVarSSSSampleSet(
 
 static TAutoConsoleVariable<int32> CVarCheckerboardSubsurfaceProfileRendering(
 	TEXT("r.SSS.Checkerboard"),
-	1,
+	2,
 	TEXT("Enables or disables checkerboard rendering for subsurface profile rendering.\n")
 	TEXT("This is necessary if SceneColor does not include a floating point alpha channel (e.g 32-bit formats)\n")
 	TEXT(" 0: Disabled (high quality) \n")

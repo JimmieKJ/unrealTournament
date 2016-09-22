@@ -154,43 +154,62 @@ static void UpdatePlanarReflectionContents_RenderThread(
 	const FPlanarReflectionSceneProxy* SceneProxy,
 	FRenderTarget* RenderTarget, 
 	FTexture* RenderTargetTexture, 
+	const FPlane& MirrorPlane,
 	const FName OwnerName, 
 	const FResolveParams& ResolveParams, 
 	bool bUseSceneColorTexture)
 {
 	QUICK_SCOPE_CYCLE_COUNTER(STAT_RenderPlanarReflection);
 
-	FViewInfo& MainView = MainSceneRenderer->Views[0];
 	FBox PlanarReflectionBounds = SceneProxy->WorldBounds;
 
-	if (MainView.ViewFrustum.IntersectBox(PlanarReflectionBounds.GetCenter(), PlanarReflectionBounds.GetExtent()))
+	bool bIsInAnyFrustum = false;
+	for (int32 ViewIndex = 0; ViewIndex < SceneRenderer->Views.Num(); ++ViewIndex)
 	{
-		FSceneViewState* MainViewState = MainView.ViewState;
-		bool bIsVisible = true;
-
-		if (MainViewState)
+		FViewInfo& View = SceneRenderer->Views[ViewIndex];
+		if (View.ViewFrustum.IntersectBox(PlanarReflectionBounds.GetCenter(), PlanarReflectionBounds.GetExtent()))
 		{
-			FIndividualOcclusionHistory& OcclusionHistory = MainViewState->PlanarReflectionOcclusionHistories.FindOrAdd(SceneProxy->PlanarReflectionId);
+			bIsInAnyFrustum = true;
+			break;
+		}
+	}
 
-			// +1 to buffered frames because the query is submitted late into the main frame, but read at the beginning of a reflection capture frame
-			const int32 NumBufferedFrames = FOcclusionQueryHelpers::GetNumBufferedFrames() + 1;
-			// +1 to frame counter because we are operating before the main view's InitViews, which is where OcclusionFrameCounter is incremented
-			uint32 OcclusionFrameCounter = MainViewState->OcclusionFrameCounter + 1;
-			FRenderQueryRHIRef& PastQuery = OcclusionHistory.GetPastQuery(OcclusionFrameCounter, NumBufferedFrames);
+	if (bIsInAnyFrustum)
+	{
+		bool bIsVisibleInAnyView = true;
+		for (int32 ViewIndex = 0; ViewIndex < SceneRenderer->Views.Num(); ++ViewIndex)
+		{
+			FViewInfo& View = SceneRenderer->Views[ViewIndex];
+			FSceneViewState* ViewState = View.ViewState;
 
-			if (IsValidRef(PastQuery))
+			if (ViewState)
 			{
-				uint64 NumSamples = 0;
-				QUICK_SCOPE_CYCLE_COUNTER(STAT_PlanarReflectionOcclusionQueryResults);
+				FIndividualOcclusionHistory& OcclusionHistory = ViewState->PlanarReflectionOcclusionHistories.FindOrAdd(SceneProxy->PlanarReflectionId);
 
-				if (RHIGetRenderQueryResult(PastQuery.GetReference(), NumSamples, true))
+				// +1 to buffered frames because the query is submitted late into the main frame, but read at the beginning of a reflection capture frame
+				const int32 NumBufferedFrames = FOcclusionQueryHelpers::GetNumBufferedFrames() + 1;
+				// +1 to frame counter because we are operating before the main view's InitViews, which is where OcclusionFrameCounter is incremented
+				uint32 OcclusionFrameCounter = ViewState->OcclusionFrameCounter + 1;
+				FRenderQueryRHIRef& PastQuery = OcclusionHistory.GetPastQuery(OcclusionFrameCounter, NumBufferedFrames);
+
+				if (IsValidRef(PastQuery))
 				{
-					bIsVisible = NumSamples > 0;
+					uint64 NumSamples = 0;
+					QUICK_SCOPE_CYCLE_COUNTER(STAT_PlanarReflectionOcclusionQueryResults);
+
+					if (RHIGetRenderQueryResult(PastQuery.GetReference(), NumSamples, true))
+					{
+						bIsVisibleInAnyView = NumSamples > 0;
+						if (bIsVisibleInAnyView)
+						{
+							break;
+						}
+					}
 				}
 			}
 		}
-		
-		if (bIsVisible)
+
+		if (bIsVisibleInAnyView)
 		{
 			FMemMark MemStackMark(FMemStack::Get());
 
@@ -206,8 +225,6 @@ static void UpdatePlanarReflectionContents_RenderThread(
 				SCOPED_DRAW_EVENT(RHICmdList, UpdatePlanarReflectionContent_RenderThread);
 #endif
 
-				FViewInfo& View = SceneRenderer->Views[0];
-
 				const FRenderTarget* Target = SceneRenderer->ViewFamily.RenderTarget;
 				SetRenderTarget(RHICmdList, Target->GetRenderTargetTexture(), NULL, true);
 
@@ -215,22 +232,38 @@ static void UpdatePlanarReflectionContents_RenderThread(
 				check(GetSceneColorClearAlpha() == 1.0f);
 				RHICmdList.Clear(true, FLinearColor(0, 0, 0, 1), false, (float)ERHIZBuffer::FarPlane, false, 0, FIntRect());
 
+				// Reflection view late update
+				if (SceneRenderer->Views.Num() > 1)
+				{
+					const FMirrorMatrix MirrorMatrix(MirrorPlane);
+					for (int32 ViewIndex = 0; ViewIndex < SceneRenderer->Views.Num(); ++ViewIndex)
+					{
+						FViewInfo& ReflectionViewToUpdate = SceneRenderer->Views[ViewIndex];
+						const FViewInfo& UpdatedParentView = MainSceneRenderer->Views[ViewIndex];
+
+						ReflectionViewToUpdate.UpdatePlanarReflectionViewMatrix(UpdatedParentView, MirrorMatrix);
+					}
+				}
+
 				// Render the scene normally
 				{
 					SCOPED_DRAW_EVENT(RHICmdList, RenderScene);
 					SceneRenderer->Render(RHICmdList);
 				}
 
-				if (MainSceneRenderer->Scene->GetShadingPath() == EShadingPath::Deferred)
+				for (int32 ViewIndex = 0; ViewIndex < SceneRenderer->Views.Num(); ++ViewIndex)
 				{
-					PrefilterPlanarReflection<true>(RHICmdList, View, SceneProxy, Target);
-					RHICmdList.CopyToResolveTarget(RenderTarget->GetRenderTargetTexture(), RenderTargetTexture->TextureRHI, false, ResolveParams);
+					FViewInfo& View = SceneRenderer->Views[ViewIndex];
+					if (MainSceneRenderer->Scene->GetShadingPath() == EShadingPath::Deferred)
+					{
+						PrefilterPlanarReflection<true>(RHICmdList, View, SceneProxy, Target);
+					}
+					else
+					{
+						PrefilterPlanarReflection<false>(RHICmdList, View, SceneProxy, Target);
+					}
 				}
-				else
-				{
-					PrefilterPlanarReflection<false>(RHICmdList, View, SceneProxy, Target);
-					RHICmdList.CopyToResolveTarget(RenderTarget->GetRenderTargetTexture(), RenderTargetTexture->TextureRHI, false, ResolveParams);
-				}
+				RHICmdList.CopyToResolveTarget(RenderTarget->GetRenderTargetTexture(), RenderTargetTexture->TextureRHI, false, ResolveParams);
 			}
 			FSceneRenderer::WaitForTasksClearSnapshotsAndDeleteSceneRenderer(RHICmdList, SceneRenderer);
 		}
@@ -244,11 +277,9 @@ extern FSceneRenderer* CreateSceneRendererForSceneCapture(
 	USceneCaptureComponent* SceneCaptureComponent,
 	FRenderTarget* RenderTarget,
 	FIntPoint RenderTargetSize,
-	const FMatrix& ViewRotationMatrix,
-	const FVector& ViewLocation,
-	const FMatrix& ProjectionMatrix,
+	const TArrayView<const FSceneCaptureViewInfo> Views,
 	float MaxViewDistance,
-	bool bCaptureSceneColour,
+	bool bCaptureSceneColor,
 	bool bIsPlanarReflection,
 	FPostProcessSettings* PostProcessSettings,
 	float PostProcessBlendWeight);
@@ -258,12 +289,10 @@ void FScene::UpdatePlanarReflectionContents(UPlanarReflectionComponent* CaptureC
 	check(CaptureComponent);
 
 	{
-		//@todo - splitscreen / VR
-		const FSceneView& ParentView = *MainSceneRenderer.ViewFamily.Views[0];
-		FVector2D DesiredPlanarReflectionTextureSizeFloat = FVector2D(ParentView.ViewRect.Size().X, ParentView.ViewRect.Size().Y) * .01f * FMath::Clamp(CaptureComponent->ScreenPercentage, 25, 100);
+		FVector2D DesiredPlanarReflectionTextureSizeFloat = FVector2D(MainSceneRenderer.ViewFamily.FamilySizeX, MainSceneRenderer.ViewFamily.FamilySizeY) * .01f * FMath::Clamp(CaptureComponent->ScreenPercentage, 25, 100);
 		FIntPoint DesiredPlanarReflectionTextureSize;
-		DesiredPlanarReflectionTextureSize.X = FMath::Clamp(FMath::TruncToInt(DesiredPlanarReflectionTextureSizeFloat.X), 1, ParentView.ViewRect.Size().X);
-		DesiredPlanarReflectionTextureSize.Y = FMath::Clamp(FMath::TruncToInt(DesiredPlanarReflectionTextureSizeFloat.Y), 1, ParentView.ViewRect.Size().Y);
+		DesiredPlanarReflectionTextureSize.X = FMath::Clamp(FMath::TruncToInt(DesiredPlanarReflectionTextureSizeFloat.X), 1, static_cast<int32>(MainSceneRenderer.ViewFamily.FamilySizeX));
+		DesiredPlanarReflectionTextureSize.Y = FMath::Clamp(FMath::TruncToInt(DesiredPlanarReflectionTextureSizeFloat.Y), 1, static_cast<int32>(MainSceneRenderer.ViewFamily.FamilySizeY));
 
 		if (CaptureComponent->RenderTarget != NULL && CaptureComponent->RenderTarget->GetSizeXY() != DesiredPlanarReflectionTextureSize)
 		{
@@ -292,49 +321,84 @@ void FScene::UpdatePlanarReflectionContents(UPlanarReflectionComponent* CaptureC
 			});
 		}
 
-		FMatrix ComponentTransform = CaptureComponent->ComponentToWorld.ToMatrixWithScale();
-		FPlane MirrorPlane = FPlane(ComponentTransform.TransformPosition(FVector::ZeroVector), ComponentTransform.TransformVector(FVector(0, 0, 1)));
+		const FMatrix ComponentTransform = CaptureComponent->ComponentToWorld.ToMatrixWithScale();
+		const FPlane MirrorPlane = FPlane(ComponentTransform.TransformPosition(FVector::ZeroVector), ComponentTransform.TransformVector(FVector(0, 0, 1)));
 
-		// Create a mirror matrix and premultiply the view transform by it
-		FMirrorMatrix MirrorMatrix(MirrorPlane);
-		FMatrix ViewMatrix(MirrorMatrix * ParentView.ViewMatrices.ViewMatrix);
-		FVector ViewLocation = ViewMatrix.InverseTransformPosition(FVector::ZeroVector);
-		FMatrix ViewRotationMatrix = ViewMatrix.RemoveTranslation();
-		float FOV = FMath::Atan(1.0f / ParentView.ViewMatrices.ProjMatrix.M[0][0]);
+		TArray<FSceneCaptureViewInfo> ViewState;
 
-		FMatrix ProjectionMatrix;
-		BuildProjectionMatrix(DesiredPlanarReflectionTextureSize, ECameraProjectionMode::Perspective, FOV + CaptureComponent->ExtraFOV * (float)PI / 180.0f, 1.0f, ProjectionMatrix);
+		for (int32 ViewIndex = 0; ViewIndex < MainSceneRenderer.Views.Num(); ++ViewIndex)
+		{
+			const FViewInfo& View = MainSceneRenderer.Views[ViewIndex];
+			FSceneCaptureViewInfo NewView;
+
+			FVector2D ViewRectMin = FVector2D(View.ViewRect.Min.X, View.ViewRect.Min.Y);
+			FVector2D ViewRectMax = FVector2D(View.ViewRect.Max.X, View.ViewRect.Max.Y);
+			ViewRectMin *= 0.01f * FMath::Clamp(CaptureComponent->ScreenPercentage, 25, 100);
+			ViewRectMax *= 0.01f * FMath::Clamp(CaptureComponent->ScreenPercentage, 25, 100);
+
+			NewView.ViewRect.Min.X = FMath::TruncToInt(ViewRectMin.X);
+			NewView.ViewRect.Min.Y = FMath::TruncToInt(ViewRectMin.Y);
+			NewView.ViewRect.Max.X = FMath::TruncToInt(ViewRectMax.X);
+			NewView.ViewRect.Max.Y = FMath::TruncToInt(ViewRectMax.Y);
+
+			// Create a mirror matrix and premultiply the view transform by it
+			const FMirrorMatrix MirrorMatrix(MirrorPlane);
+			const FMatrix ViewMatrix(MirrorMatrix * View.ViewMatrices.ViewMatrix);
+			const FVector ViewLocation = ViewMatrix.InverseTransformPosition(FVector::ZeroVector);
+			const FMatrix ViewRotationMatrix = ViewMatrix.RemoveTranslation();
+			const float FOV = FMath::Atan(1.0f / View.ViewMatrices.ProjMatrix.M[0][0]);
+
+			FMatrix ProjectionMatrix;
+			BuildProjectionMatrix(View.ViewRect.Size(), ECameraProjectionMode::Perspective, FOV + CaptureComponent->ExtraFOV * (float)PI / 180.0f, 1.0f, ProjectionMatrix);
+
+			NewView.ViewLocation = ViewLocation;
+			NewView.ViewRotationMatrix = ViewRotationMatrix;
+			NewView.ProjectionMatrix = ProjectionMatrix;
+			NewView.StereoPass = View.StereoPass;
+
+			ViewState.Add(NewView);
+		}
+		
 		FPostProcessSettings PostProcessSettings;
 
-		FSceneRenderer* SceneRenderer = CreateSceneRendererForSceneCapture(this, CaptureComponent, CaptureComponent->RenderTarget, DesiredPlanarReflectionTextureSize, ViewRotationMatrix, ViewLocation, ProjectionMatrix, CaptureComponent->MaxViewDistanceOverride, true, true, &PostProcessSettings, 1.0f);
+		FSceneRenderer* SceneRenderer = CreateSceneRendererForSceneCapture(this, CaptureComponent, CaptureComponent->RenderTarget, DesiredPlanarReflectionTextureSize, ViewState, CaptureComponent->MaxViewDistanceOverride, true, true, &PostProcessSettings, 1.0f);
 
-		CaptureComponent->ProjectionWithExtraFOV = ProjectionMatrix;
-
-		ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER(
-			UpdateProxyCommand,
-			FMatrix, ProjectionMatrix, ProjectionMatrix,
-			FPlanarReflectionSceneProxy*, SceneProxy, CaptureComponent->SceneProxy,
+		for (int32 ViewIndex = 0; ViewIndex < ViewState.Num(); ++ViewIndex)
 		{
-			SceneProxy->ProjectionWithExtraFOV = ProjectionMatrix;
-		});
-		
-		SceneRenderer->Views[0].GlobalClippingPlane = MirrorPlane;
-		// Jitter can't be removed completely due to the clipping plane
-		// Also, this prevents the prefilter pass, which reads from jittered depth, from having to do special handling of it's depth-dependent input
-		SceneRenderer->Views[0].bAllowTemporalJitter = false;
-		SceneRenderer->Views[0].bRenderSceneTwoSided = CaptureComponent->bRenderSceneTwoSided;
+			SceneRenderer->Views[ViewIndex].GlobalClippingPlane = MirrorPlane;
+			// Jitter can't be removed completely due to the clipping plane
+			// Also, this prevents the prefilter pass, which reads from jittered depth, from having to do special handling of it's depth-dependent input
+			SceneRenderer->Views[ViewIndex].bAllowTemporalJitter = false;
+			SceneRenderer->Views[ViewIndex].bRenderSceneTwoSided = CaptureComponent->bRenderSceneTwoSided;
+
+			CaptureComponent->ProjectionWithExtraFOV[ViewIndex] = ViewState[ViewIndex].ProjectionMatrix;
+
+			const bool bIsStereo = MainSceneRenderer.Views[0].StereoPass != EStereoscopicPass::eSSP_FULL;
+
+			ENQUEUE_UNIQUE_RENDER_COMMAND_FOURPARAMETER(
+				UpdateProxyCommand,
+				FMatrix, ProjectionMatrix, ViewState[ViewIndex].ProjectionMatrix,
+				int32, ViewIndex, ViewIndex,
+				bool, bIsStereo, bIsStereo,
+				FPlanarReflectionSceneProxy*, SceneProxy, CaptureComponent->SceneProxy,
+				{
+					SceneProxy->ProjectionWithExtraFOV[ViewIndex] = ProjectionMatrix;
+					SceneProxy->bIsStereo = bIsStereo;
+				});
+		}
 
 		const FName OwnerName = CaptureComponent->GetOwner() ? CaptureComponent->GetOwner()->GetFName() : NAME_None;
 
-		ENQUEUE_UNIQUE_RENDER_COMMAND_FIVEPARAMETER( 
+		ENQUEUE_UNIQUE_RENDER_COMMAND_SIXPARAMETER( 
 			CaptureCommand,
 			FSceneRenderer*, MainSceneRenderer, &MainSceneRenderer,
 			FSceneRenderer*, SceneRenderer, SceneRenderer,
 			FPlanarReflectionSceneProxy*, SceneProxy, CaptureComponent->SceneProxy,
 			FPlanarReflectionRenderTarget*, RenderTarget, CaptureComponent->RenderTarget,
+			FPlane, MirrorPlane, MirrorPlane,
 			FName, OwnerName, OwnerName,
 		{
-			UpdatePlanarReflectionContents_RenderThread(RHICmdList, MainSceneRenderer, SceneRenderer, SceneProxy, RenderTarget, RenderTarget, OwnerName, FResolveParams(), true);
+			UpdatePlanarReflectionContents_RenderThread(RHICmdList, MainSceneRenderer, SceneRenderer, SceneProxy, RenderTarget, RenderTarget, MirrorPlane, OwnerName, FResolveParams(), true);
 		});
 	}
 }
@@ -556,7 +620,8 @@ void FPlanarReflectionParameters::SetParameters(FRHICommandList& RHICmdList, FPi
 		SetShaderValue(RHICmdList, ShaderRHI, InverseTransposeMirrorMatrix, ReflectionSceneProxy->InverseTransposeMirrorMatrix);
 		SetShaderValue(RHICmdList, ShaderRHI, PlanarReflectionParameters, ReflectionSceneProxy->PlanarReflectionParameters);
 		SetShaderValue(RHICmdList, ShaderRHI, PlanarReflectionParameters2, ReflectionSceneProxy->PlanarReflectionParameters2);
-		SetShaderValue(RHICmdList, ShaderRHI, ProjectionWithExtraFOV, ReflectionSceneProxy->ProjectionWithExtraFOV);
+		SetShaderValue(RHICmdList, ShaderRHI, IsStereoParameter, ReflectionSceneProxy->bIsStereo);
+		SetShaderValueArray(RHICmdList, ShaderRHI, ProjectionWithExtraFOV, ReflectionSceneProxy->ProjectionWithExtraFOV, 2);
 	}
 
 	SetShaderValue(RHICmdList, ShaderRHI, ReflectionPlane, ReflectionPlaneValue);

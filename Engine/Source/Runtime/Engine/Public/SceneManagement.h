@@ -988,6 +988,7 @@ public:
 	inline FGuid GetLightGuid() const { return LightGuid; }
 	inline float GetShadowSharpen() const { return ShadowSharpen; }
 	inline float GetContactShadowLength() const { return ContactShadowLength; }
+	inline float GetMinRoughness() const { return MinRoughness; }
 	inline FVector GetLightFunctionScale() const { return LightFunctionScale; }
 	inline float GetLightFunctionFadeDistance() const { return LightFunctionFadeDistance; }
 	inline float GetLightFunctionDisabledBrightness() const { return LightFunctionDisabledBrightness; }

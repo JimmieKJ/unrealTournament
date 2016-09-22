@@ -42,10 +42,11 @@ public:
 		LightAttenuationTextureSampler.Bind(ParameterMap, TEXT("LightAttenuationTextureSampler"));
 		IndirectOcclusionTexture.Bind(ParameterMap, TEXT("IndirectOcclusionTexture"));
 		IndirectOcclusionTextureSampler.Bind(ParameterMap, TEXT("IndirectOcclusionTextureSampler"));
+		ReflectionCaptureBuffer.Bind(ParameterMap, TEXT("ReflectionCapture"));
 	}
 
-	template<typename ShaderRHIParamRef>
-	void Set(FRHICommandList& RHICmdList, const ShaderRHIParamRef& ShaderRHI, FShader* Shader, const FViewInfo& View)
+	template<typename RHICommandListType, typename ShaderRHIParamRef>
+	void Set(RHICommandListType& RHICmdList, const ShaderRHIParamRef& ShaderRHI, const FViewInfo& View)
 	{
 		//@todo - put all of these in a shader resource table
 		SetUniformBufferParameter(RHICmdList, ShaderRHI, ForwardGlobalLightData, View.ForwardLightingResources->ForwardGlobalLightData);
@@ -82,6 +83,8 @@ public:
 				IndirectOcclusion->GetRenderTargetItem().ShaderResourceTexture
 				);
 		}
+
+		SetUniformBufferParameter(RHICmdList, ShaderRHI, ReflectionCaptureBuffer, View.ReflectionCaptureUniformBuffer);
 	}
 
 	template<typename ShaderRHIParamRef>
@@ -113,6 +116,8 @@ public:
 		OutEnvironment.SetDefine(TEXT("LOCAL_LIGHT_DATA_STRIDE"), FMath::DivideAndRoundUp<int32>(sizeof(FForwardLocalLightData), sizeof(FVector4)));
 		extern int32 NumCulledLightsGridStride;
 		OutEnvironment.SetDefine(TEXT("NUM_CULLED_LIGHTS_GRID_STRIDE"), NumCulledLightsGridStride);
+		extern int32 NumCulledGridPrimitiveTypes;
+		OutEnvironment.SetDefine(TEXT("NUM_CULLED_GRID_PRIMITIVE_TYPES"), NumCulledGridPrimitiveTypes);
 	}
 
 	/** Serializer. */
@@ -126,6 +131,7 @@ public:
 		Ar << P.LightAttenuationTextureSampler;
 		Ar << P.IndirectOcclusionTexture;
 		Ar << P.IndirectOcclusionTextureSampler;
+		Ar << P.ReflectionCaptureBuffer;
 		return Ar;
 	}
 
@@ -139,6 +145,7 @@ private:
 	FShaderResourceParameter LightAttenuationTextureSampler;
 	FShaderResourceParameter IndirectOcclusionTexture;
 	FShaderResourceParameter IndirectOcclusionTextureSampler;
+	FShaderUniformBufferParameter ReflectionCaptureBuffer;
 };
 
 /** Parameters needed for looking up into translucency lighting volumes. */
@@ -541,12 +548,9 @@ public:
 		PlanarReflectionParameters.Bind(ParameterMap);
 		ReflectionCubemap.Bind(ParameterMap, TEXT("ReflectionCubemap"));
 		ReflectionCubemapSampler.Bind(ParameterMap, TEXT("ReflectionCubemapSampler"));
-		CubemapArrayIndex.Bind(ParameterMap, TEXT("CubemapArrayIndex"));
-		ReflectionPositionAndRadius.Bind(ParameterMap, TEXT("ReflectionPositionAndRadius"));
-		ReflectionShape.Bind(ParameterMap, TEXT("ReflectionShape"));
-		BoxTransform.Bind(ParameterMap, TEXT("BoxTransform"));
-		BoxScales.Bind(ParameterMap, TEXT("BoxScales"));		
-		CaptureOffsetAndAverageBrightness.Bind(ParameterMap, TEXT("CaptureOffsetAndAverageBrightness"));
+		SingleCubemapArrayIndex.Bind(ParameterMap, TEXT("SingleCubemapArrayIndex"));	
+		SingleCaptureOffsetAndAverageBrightness.Bind(ParameterMap, TEXT("SingleCaptureOffsetAndAverageBrightness"));
+		SingleCapturePositionAndRadius.Bind(ParameterMap, TEXT("SingleCapturePositionAndRadius"));
 		SkyLightReflectionParameters.Bind(ParameterMap);
 	}
 
@@ -560,12 +564,9 @@ public:
 		Ar << P.PlanarReflectionParameters;
 		Ar << P.ReflectionCubemap;
 		Ar << P.ReflectionCubemapSampler;
-		Ar << P.CubemapArrayIndex;
-		Ar << P.ReflectionPositionAndRadius;
-		Ar << P.ReflectionShape;
-		Ar << P.BoxTransform;
-		Ar << P.BoxScales;
-		Ar << P.CaptureOffsetAndAverageBrightness;
+		Ar << P.SingleCubemapArrayIndex;
+		Ar << P.SingleCaptureOffsetAndAverageBrightness;
+		Ar << P.SingleCapturePositionAndRadius;
 		Ar << P.SkyLightReflectionParameters;
 		return Ar;
 	}
@@ -576,12 +577,9 @@ private:
 	FShaderResourceParameter ReflectionCubemap;
 	FShaderResourceParameter ReflectionCubemapSampler;
 
-	FShaderParameter CubemapArrayIndex;
-	FShaderParameter ReflectionPositionAndRadius;	
-	FShaderParameter ReflectionShape;
-	FShaderParameter BoxTransform;
-	FShaderParameter BoxScales;
-	FShaderParameter CaptureOffsetAndAverageBrightness;
+	FShaderParameter SingleCubemapArrayIndex;
+	FShaderParameter SingleCaptureOffsetAndAverageBrightness;
+	FShaderParameter SingleCapturePositionAndRadius;
 
 	FSkyLightReflectionParameters SkyLightReflectionParameters;
 };
@@ -687,7 +685,7 @@ public:
 		
 		EditorCompositeParams.SetParameters(RHICmdList, MaterialResource, View, bEnableEditorPrimitveDepthTest, GetPixelShader());
 
-		ForwardLightingParameters.Set(RHICmdList, ShaderRHI, this, *View);
+		ForwardLightingParameters.Set(RHICmdList, ShaderRHI, *View);
 	}
 
 	void SetMesh(FRHICommandList& RHICmdList, const FVertexFactory* VertexFactory,const FSceneView& View,const FPrimitiveSceneProxy* Proxy,const FMeshBatchElement& BatchElement, const FMeshDrawingRenderState& DrawRenderState, EBlendMode BlendMode);

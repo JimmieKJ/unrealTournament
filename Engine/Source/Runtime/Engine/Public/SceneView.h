@@ -467,6 +467,7 @@ enum ETranslucencyVolumeCascade
 	VIEW_UNIFORM_BUFFER_MEMBER_EX(float, ReflectionCubemapMaxMip, EShaderPrecisionModifier::Half) \
 	VIEW_UNIFORM_BUFFER_MEMBER(float, ShowDecalsMask) \
 	VIEW_UNIFORM_BUFFER_MEMBER(uint32, DistanceFieldAOSpecularOcclusionMode) \
+	VIEW_UNIFORM_BUFFER_MEMBER(float, IndirectCapsuleSelfShadowingIntensity) \
 	VIEW_UNIFORM_BUFFER_MEMBER(FVector2D, ReflectionEnvironmentRoughnessMixingScaleBias) \
 	VIEW_UNIFORM_BUFFER_MEMBER(uint32, StereoPassIndex) \
 	VIEW_UNIFORM_BUFFER_MEMBER_ARRAY(FVector4, GlobalVolumeCenterAndExtent_UB, [GMaxGlobalDistanceFieldClipmaps]) \
@@ -882,6 +883,9 @@ public:
 	/** Allow things like HMD displays to update the view matrix at the last minute, to minimize perceived latency */
 	void UpdateViewMatrix();
 
+	/** If we late update a view, we need to also late update any planar reflection views derived from it */
+	void UpdatePlanarReflectionViewMatrix(const FSceneView& SourceView, const FMirrorMatrix& MirrorMatrix);
+
 	/** Setup defaults and depending on view position (postprocess volumes) */
 	void StartFinalPostprocessSettings(FVector InViewLocation);
 
@@ -907,6 +911,24 @@ public:
 
 	/** True if the view should render as an instanced stereo pass */
 	bool IsInstancedStereoPass() const { return bIsInstancedStereoEnabled && StereoPass == eSSP_LEFT_EYE; }
+
+	/** Sets up the view rect parameters in the view's uniform shader parameters */
+	void SetupViewRectUniformBufferParameters(const FIntPoint& BufferSize, const FIntRect& EffectiveViewRect, FViewUniformShaderParameters& ViewUniformShaderParameters) const;
+
+	/** 
+	 * Populates the uniform buffer prameters common to all scene view use cases
+	 * View parameters should be set up in this method if they are required for the view to render properly.
+	 * This is to avoid code duplication and uninitialized parameters in other places that create view uniform parameters (e.g Slate) 
+	 */
+	void SetupCommonViewUniformBufferParameters(
+		FViewUniformShaderParameters& ViewUniformShaderParameters,
+		const FIntPoint& BufferSize,
+		const FIntRect& EffectiveViewRect,
+		const FMatrix& EffectiveTranslatedViewMatrix,
+		const FMatrix& EffectiveViewToTranslatedWorld,
+		const FViewMatrices& PrevViewMatrices,
+		const FMatrix& PrevViewProjMatrix,
+		const FMatrix& PrevViewRotationProjMatrix) const;
 };
 
 //////////////////////////////////////////////////////////////////////////

@@ -828,7 +828,7 @@ void FProjectedShadowInfo::AddSubjectPrimitive(FPrimitiveSceneInfo* PrimitiveSce
 
 					if (bWholeSceneShadow)
 					{
-						const bool bDrawShadowDepth = FMath::Square( Bounds.SphereRadius ) > FMath::Square( GMinScreenRadiusForShadowCaster ) * DistanceSquared;
+						const bool bDrawShadowDepth = FMath::Square( Bounds.SphereRadius ) > FMath::Square( GMinScreenRadiusForShadowCaster ) * DistanceSquared * CurrentView.LODDistanceFactorSquared;
 						if( !bDrawShadowDepth )
 						{
 							// cull object if it's too small to be considered as shadow caster
@@ -2373,7 +2373,7 @@ inline void FSceneRenderer::GatherShadowsForPrimitiveInner(
 						if ( ProjectedShadowInfo->DependentView ) 
 						{
 							const float DistanceSquared = ( PrimitiveBounds.Origin - ProjectedShadowInfo->DependentView->ShadowViewMatrices.ViewOrigin ).SizeSquared();
-							bScreenSpaceSizeCulled = FMath::Square( PrimitiveBounds.SphereRadius ) < FMath::Square( MinScreenRadiusForShadowCaster ) * DistanceSquared;
+							bScreenSpaceSizeCulled = FMath::Square( PrimitiveBounds.SphereRadius ) < FMath::Square( MinScreenRadiusForShadowCaster ) * DistanceSquared * ProjectedShadowInfo->DependentView->LODDistanceFactorSquared;
 						}
 
 						if (ProjectedShadowInfo->GetLightSceneInfoCompact().AffectsPrimitive(PrimitiveSceneInfoCompact)

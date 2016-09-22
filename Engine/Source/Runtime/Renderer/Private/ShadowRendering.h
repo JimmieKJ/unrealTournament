@@ -28,8 +28,9 @@ BEGIN_UNIFORM_BUFFER_STRUCT(FDeferredLightUniformStruct,)
 	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(uint32,LightingChannelMask)
 END_UNIFORM_BUFFER_STRUCT(FDeferredLightUniformStruct)
 
-extern float GMinScreenRadiusForLights;
 extern uint32 GetShadowQuality();
+
+extern float GetLightFadeFactor(const FSceneView& View, const FLightSceneProxy* Proxy);
 
 template<typename ShaderRHIParamRef>
 void SetDeferredLightParameters(
@@ -110,19 +111,7 @@ void SetDeferredLightParameters(
 
 	if (LightType == LightType_Point || LightType == LightType_Spot)
 	{
-		// Distance fade
-		FSphere Bounds = LightSceneInfo->Proxy->GetBoundingSphere();
-
-		const float DistanceSquared = (Bounds.Center - View.ViewMatrices.ViewOrigin).SizeSquared();
-		float SizeFade = FMath::Square(FMath::Min(0.0002f, GMinScreenRadiusForLights / Bounds.W) * View.LODDistanceFactor) * DistanceSquared;
-		SizeFade = FMath::Clamp(6.0f - 6.0f * SizeFade, 0.0f, 1.0f);
-
-		float MaxDist = LightSceneInfo->Proxy->GetMaxDrawDistance();
-		float Range = LightSceneInfo->Proxy->GetFadeRange();
-		float DistanceFade = MaxDist ? (MaxDist - FMath::Sqrt(DistanceSquared)) / Range : 1.0f;
-		DistanceFade = FMath::Clamp(DistanceFade, 0.0f, 1.0f);
-
-		DeferredLightUniformsValue.LightColor *= SizeFade * DistanceFade;
+		DeferredLightUniformsValue.LightColor *= GetLightFadeFactor(View, LightSceneInfo->Proxy);
 	}
 
 	DeferredLightUniformsValue.LightingChannelMask = LightSceneInfo->Proxy->GetLightingChannelMask();

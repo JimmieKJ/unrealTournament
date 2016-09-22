@@ -24,7 +24,7 @@ protected:
 	 * @return The object that was loaded or found, or NULL if the Guid failed
 	 */
 	template <class ObjType, class LookupMapType, class KeyType>
-	ObjType* ConditionalImportObjectWithKey(const KeyType& Key, const FGuid& Version, const TCHAR* Extension, int32 ChannelFlags, LookupMapType& LookupMap);
+	ObjType* ConditionalImportObjectWithKey(const KeyType& Key, const int32 Version, const TCHAR* Extension, int32 ChannelFlags, LookupMapType& LookupMap);
 
 public:
 
@@ -67,7 +67,7 @@ public:
 	 * @return The object that was loaded or found, or NULL if the Guid failed
 	 */
 	template <class ObjType, class LookupMapType>
-	ObjType* ConditionalImportObject(const FGuid& Guid, const FGuid& Version, const TCHAR* Extension, int32 ChannelFlags, LookupMapType& LookupMap)
+	ObjType* ConditionalImportObject(const FGuid& Guid, const int32 Version, const TCHAR* Extension, int32 ChannelFlags, LookupMapType& LookupMap)
 	{
 		return ConditionalImportObjectWithKey<ObjType, LookupMapType, FGuid>(Guid, Version, Extension, ChannelFlags, LookupMap);
 	}
@@ -81,7 +81,7 @@ public:
 	 * @return The object that was loaded or found, or NULL if the Guid failed
 	 */
 	template <class ObjType, class LookupMapType>
-	ObjType* ConditionalImportObject(const FSHAHash& Hash, const FGuid& Version, const TCHAR* Extension, int32 ChannelFlags, LookupMapType& LookupMap)
+	ObjType* ConditionalImportObject(const FSHAHash& Hash, const int32 Version, const TCHAR* Extension, int32 ChannelFlags, LookupMapType& LookupMap)
 	{
 		return ConditionalImportObjectWithKey<ObjType, LookupMapType, FSHAHash>(Hash, Version, Extension, ChannelFlags, LookupMap);
 	}
@@ -180,7 +180,7 @@ bool FLightmassImporter::ImportGuidArray( ArrayType& Array, int32 Count, const L
  * @return The object that was loaded or found, or NULL if the Guid failed
  */
 template <class ObjType, class LookupMapType, class KeyType>
-ObjType* FLightmassImporter::ConditionalImportObjectWithKey(const KeyType& Key, const FGuid& Version, const TCHAR* Extension, int32 ChannelFlags, LookupMapType& LookupMap)
+ObjType* FLightmassImporter::ConditionalImportObjectWithKey(const KeyType& Key, const int32 Version, const TCHAR* Extension, int32 ChannelFlags, LookupMapType& LookupMap)
 {
 	// look to see if it exists already
 	ObjType* Obj = LookupMap.FindRef(Key);

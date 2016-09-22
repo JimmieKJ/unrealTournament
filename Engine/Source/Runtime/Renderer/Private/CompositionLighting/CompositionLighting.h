@@ -37,3 +37,5 @@ private:
 
 /** The global used for deferred lighting. */
 extern FCompositionLighting GCompositionLighting;
+
+extern bool ShouldRenderScreenSpaceAmbientOcclusion(const FViewInfo& View);

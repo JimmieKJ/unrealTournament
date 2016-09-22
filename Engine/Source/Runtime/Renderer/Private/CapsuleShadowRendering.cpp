@@ -90,6 +90,14 @@ FAutoConsoleVariableRef CVarCapsuleIndirectShadowMinVisibility(
 	ECVF_Scalability | ECVF_RenderThreadSafe
 	);
 
+float GCapsuleIndirectShadowSelfShadowIntensity = .2f;
+FAutoConsoleVariableRef CVarCapsuleIndirectShadowSelfShadowIntensity(
+	TEXT("r.CapsuleIndirectShadowSelfShadowIntensity"),
+	GCapsuleIndirectShadowSelfShadowIntensity,
+	TEXT("Strength of self-shadowing caused by capsule indirect shadows.  Self-shadowing from capsules is very approximate."),
+	ECVF_Scalability | ECVF_RenderThreadSafe
+	);
+
 int32 GShadowShapeTileSize = 8;
 
 int32 GetCapsuleShadowDownsampleFactor()
@@ -178,7 +186,7 @@ public:
 		MaxOcclusionDistance.Bind(Initializer.ParameterMap, TEXT("MaxOcclusionDistance"));
 		LightDirectionData.Bind(Initializer.ParameterMap, TEXT("LightDirectionData"));
 		MinVisibility.Bind(Initializer.ParameterMap, TEXT("MinVisibility"));
-		ReduceSelfShadowingIntensity.Bind(Initializer.ParameterMap, TEXT("ReduceSelfShadowingIntensity"));
+		IndirectCapsuleSelfShadowingIntensity.Bind(Initializer.ParameterMap, TEXT("IndirectCapsuleSelfShadowingIntensity"));
 	}
 
 	void SetParameters(
@@ -291,9 +299,9 @@ public:
 		SetShaderValue(RHICmdList, ShaderRHI, MinVisibility, GCapsuleIndirectShadowMinVisibility);
 
 		static const auto CVar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.GenerateMeshDistanceFields"));
-		// Self shadowing detection reuses the distance field GBuffer bit, so disable when distance field features are in use
-		float ReduceSelfShadowingIntensityValue = CVar->GetValueOnRenderThread() == 0 ? 1.0f : 0.0f;
-		SetShaderValue(RHICmdList, ShaderRHI, ReduceSelfShadowingIntensity, ReduceSelfShadowingIntensityValue);
+		// Self shadowing detection reuses the distance field GBuffer bit, so disable self-shadowing reduction when distance field features are in use
+		float IndirectCapsuleSelfShadowingIntensityValue = CVar->GetValueOnRenderThread() == 0 ? GCapsuleIndirectShadowSelfShadowIntensity : 1.0f;
+		SetShaderValue(RHICmdList, ShaderRHI, IndirectCapsuleSelfShadowingIntensity, IndirectCapsuleSelfShadowingIntensityValue);
 	}
 
 	void UnsetParameters(FRHICommandList& RHICmdList, FSceneRenderTargetItem& OutputTexture, const FRWBuffer* TileIntersectionCountsBuffer)
@@ -336,7 +344,7 @@ public:
 		Ar << MaxOcclusionDistance;
 		Ar << LightDirectionData;
 		Ar << MinVisibility;
-		Ar << ReduceSelfShadowingIntensity;
+		Ar << IndirectCapsuleSelfShadowingIntensity;
 		return bShaderHasOutdatedParameters;
 	}
 
@@ -361,7 +369,7 @@ private:
 	FShaderParameter MaxOcclusionDistance;
 	FShaderResourceParameter LightDirectionData;
 	FShaderParameter MinVisibility;
-	FShaderParameter ReduceSelfShadowingIntensity;
+	FShaderParameter IndirectCapsuleSelfShadowingIntensity;
 };
 
 IMPLEMENT_SHADER_TYPE(template<>,TCapsuleShadowingCS<ShapeShadow_DirectionalLightTiledCulling>,TEXT("CapsuleShadowShaders"),TEXT("CapsuleShadowingCS"),SF_Compute);

@@ -194,91 +194,23 @@ static FSceneView& CreateSceneView( FSceneViewFamilyContext& ViewFamilyContext, 
 	FMatrix EffectiveTranslatedViewMatrix = FTranslationMatrix(-View->ViewMatrices.PreViewTranslation) * View->ViewMatrices.ViewMatrix;
 
 	const FIntPoint BufferSize = BackBuffer.GetSizeXY();
-	const float InvBufferSizeX = 1.0f / BufferSize.X;
-	const float InvBufferSizeY = 1.0f / BufferSize.Y;
-
-		// to bring NDC (-1..1, 1..-1) into 0..1 UV for BufferSize textures
-	const FVector4 ScreenPositionScaleBias(
-		ViewRect.Width() * InvBufferSizeX / +2.0f,
-		ViewRect.Height() * InvBufferSizeY / (-2.0f * GProjectionSignY),
-		(ViewRect.Height() / 2.0f + ViewRect.Min.Y) * InvBufferSizeY,
-		(ViewRect.Width() / 2.0f + ViewRect.Min.X) * InvBufferSizeX
-		);
-	
 
 	// Create the view's uniform buffer.
 	FViewUniformShaderParameters ViewUniformShaderParameters;
 
-	ViewUniformShaderParameters.TranslatedWorldToClip = View->ViewMatrices.TranslatedViewProjectionMatrix;
-	ViewUniformShaderParameters.WorldToClip = ViewProjectionMatrix;
-	ViewUniformShaderParameters.TranslatedWorldToView = EffectiveTranslatedViewMatrix;
-	ViewUniformShaderParameters.ViewToTranslatedWorld = View->InvViewMatrix * FTranslationMatrix(View->ViewMatrices.PreViewTranslation);
-	ViewUniformShaderParameters.ViewToClip = View->ViewMatrices.ProjMatrix;
-	ViewUniformShaderParameters.ClipToTranslatedWorld = View->ViewMatrices.InvTranslatedViewProjectionMatrix;
-	ViewUniformShaderParameters.ViewForward = EffectiveTranslatedViewMatrix.GetColumn(2);
-	ViewUniformShaderParameters.ViewUp = EffectiveTranslatedViewMatrix.GetColumn(1);
-	ViewUniformShaderParameters.ViewRight = EffectiveTranslatedViewMatrix.GetColumn(0);
-	ViewUniformShaderParameters.InvDeviceZToWorldZTransform = View->InvDeviceZToWorldZTransform;
+	View->SetupCommonViewUniformBufferParameters(
+		ViewUniformShaderParameters, 
+		BufferSize,
+		ViewRect,
+		EffectiveTranslatedViewMatrix, 
+		View->InvViewMatrix * FTranslationMatrix(View->ViewMatrices.PreViewTranslation),
+		FViewMatrices(), 
+		FMatrix::Identity,
+		FMatrix::Identity);
+
 	ViewUniformShaderParameters.WorldViewOrigin = View->ViewMatrices.ViewOrigin;
-	ViewUniformShaderParameters.WorldCameraOrigin = View->ViewMatrices.ViewOrigin;
-	ViewUniformShaderParameters.TranslatedWorldCameraOrigin = ViewUniformShaderParameters.WorldCameraOrigin + View->ViewMatrices.PreViewTranslation;
-	ViewUniformShaderParameters.PreViewTranslation = View->ViewMatrices.PreViewTranslation;
-	ViewUniformShaderParameters.ScreenPositionScaleBias = ScreenPositionScaleBias;
-	
-	ViewUniformShaderParameters.ViewRectMin = FVector4(ViewRect.Min.X, ViewRect.Min.Y, 0.0f, 0.0f);
-	ViewUniformShaderParameters.ViewSizeAndInvSize = FVector4(ViewRect.Width(), ViewRect.Height(), 1.0f / ViewRect.Width(), 1.0f / ViewRect.Height());
-	ViewUniformShaderParameters.BufferSizeAndInvSize = ViewUniformShaderParameters.ViewSizeAndInvSize;
-	ViewUniformShaderParameters.DiffuseOverrideParameter = View->DiffuseOverrideParameter;
-	ViewUniformShaderParameters.SpecularOverrideParameter = View->SpecularOverrideParameter;
-	ViewUniformShaderParameters.NormalOverrideParameter = View->NormalOverrideParameter;
-	ViewUniformShaderParameters.RoughnessOverrideParameter = View->RoughnessOverrideParameter;
-	ViewUniformShaderParameters.PrevFrameGameTime = View->Family->CurrentWorldTime - View->Family->DeltaWorldTime;
-	ViewUniformShaderParameters.PrevFrameRealTime = View->Family->CurrentRealTime - View->Family->DeltaWorldTime;
-	ViewUniformShaderParameters.CullingSign = View->bReverseCulling ? -1.0f : 1.0f;
-	ViewUniformShaderParameters.NearPlane = GNearClippingPlane;
-	ViewUniformShaderParameters.GameTime = View->Family->CurrentWorldTime;
-	ViewUniformShaderParameters.RealTime = View->Family->CurrentRealTime;
-	ViewUniformShaderParameters.Random = FMath::Rand();
-	ViewUniformShaderParameters.FrameNumber = View->Family->FrameNumber;
-	ViewUniformShaderParameters.bCheckerboardSubsurfaceProfileRendering = 0;
 
-	// Update noise buffers
 	UpdateNoiseTextureParameters(ViewUniformShaderParameters);
-
-	{
-		// setup a matrix to transform float4(SvPosition.xyz,1) directly to TranslatedWorld (quality, performance as we don't need to convert or use interpolator)
-
-		//	new_xy = (xy - ViewRectMin.xy) * ViewSizeAndInvSize.zw * float2(2,-2) + float2(-1, 1);
-
-		//  transformed into one MAD:  new_xy = xy * ViewSizeAndInvSize.zw * float2(2,-2)      +       (-ViewRectMin.xy) * ViewSizeAndInvSize.zw * float2(2,-2) + float2(-1, 1);
-
-		float Mx = 2.0f * ViewUniformShaderParameters.ViewSizeAndInvSize.Z;
-		float My = -2.0f * ViewUniformShaderParameters.ViewSizeAndInvSize.W;
-		float Ax = -1.0f - 2.0f * ViewRect.Min.X * ViewUniformShaderParameters.ViewSizeAndInvSize.Z;
-		float Ay = 1.0f + 2.0f * ViewRect.Min.Y * ViewUniformShaderParameters.ViewSizeAndInvSize.W;
-
-		// http://stackoverflow.com/questions/9010546/java-transformation-matrix-operations
-
-		ViewUniformShaderParameters.SVPositionToTranslatedWorld =
-			FMatrix(FPlane(Mx, 0, 0, 0),
-			FPlane(0, My, 0, 0),
-			FPlane(0, 0, 1, 0),
-			FPlane(Ax, Ay, 0, 1)) * View->ViewMatrices.InvTranslatedViewProjectionMatrix;
-	}
-
-	ViewUniformShaderParameters.ScreenToWorld = FMatrix(
-		FPlane(1, 0, 0, 0),
-		FPlane(0, 1, 0, 0),
-		FPlane(0, 0, View->ProjectionMatrixUnadjustedForRHI.M[2][2], 1),
-		FPlane(0, 0, View->ProjectionMatrixUnadjustedForRHI.M[3][2], 0))
-		* View->InvViewProjectionMatrix;
-
-	ViewUniformShaderParameters.ScreenToTranslatedWorld = FMatrix(
-		FPlane(1, 0, 0, 0),
-		FPlane(0, 1, 0, 0),
-		FPlane(0, 0, View->ProjectionMatrixUnadjustedForRHI.M[2][2], 1),
-		FPlane(0, 0, View->ProjectionMatrixUnadjustedForRHI.M[3][2], 0))
-		* View->ViewMatrices.InvTranslatedViewProjectionMatrix;
 
 	View->ViewUniformBuffer = TUniformBufferRef<FViewUniformShaderParameters>::CreateUniformBufferImmediate(ViewUniformShaderParameters, UniformBuffer_SingleFrame);
 

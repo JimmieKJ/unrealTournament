@@ -141,6 +141,7 @@ struct FMaterialPixelParameters
 	/**
 	 * Like SV_Position (.xy is pixel position at pixel center, z:DeviceZ, .w:SceneDepth)
 	 * using shader generated value SV_POSITION
+	 * Warning: unlike SV_Position, this is not relative to the current viewport.  SV_Position = MaterialParameters.SvPosition.xy - View.ViewRectMin.xy;
 	 */
 	float4 SvPosition;
 		

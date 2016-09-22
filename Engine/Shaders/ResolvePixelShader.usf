@@ -18,17 +18,17 @@ void MainDepth(
 {
 	float2 SurfaceDimensions;
 	int NumSurfaceSamples;
-	UnresolvedSurface.GetDimensions(SurfaceDimensions.x,SurfaceDimensions.y,NumSurfaceSamples);
+	UnresolvedSurface.GetDimensions(SurfaceDimensions.x, SurfaceDimensions.y, NumSurfaceSamples);
 
 	int2 IntUV = trunc(InUV);
 
-	// Compute the minimum depth of all samples.
-	// Note that minimum depth actually means farthest depth, since 1/depth is stored.
-	float MinDepth = 1000000;
-	for(int SampleIndex = 0;SampleIndex < NumSurfaceSamples;++SampleIndex)
+	// Compute the max depth of all samples.
+	// Note that max depth actually means closest depth, since 1/depth is stored.
+	float MinDepth = 0;
+	for (int SampleIndex = 0; SampleIndex < NumSurfaceSamples; ++SampleIndex)
 	{
-		float Sample = UnresolvedSurface.Load(IntUV,SampleIndex).r;
-		MinDepth = min(MinDepth,Sample);
+		float Sample = UnresolvedSurface.Load(IntUV, SampleIndex).r;
+		MinDepth = max(MinDepth, Sample);
 	}
 
 	OutDepth = MinDepth;

@@ -38,7 +38,8 @@ public class MeshPaint : ModuleRules
 		PrivateIncludePathModuleNames.AddRange(
 			new string[]
 			{
-				"AssetTools"
+				"AssetTools",
+				"LevelEditor"
             });
 
 		DynamicallyLoadedModuleNames.AddRange(

@@ -380,7 +380,7 @@ bool FHitProxyDrawingPolicyFactory::DrawDynamicMesh(
 
 #if WITH_EDITOR
 
-TRefCountPtr<IPooledRenderTarget> InitHitProxyRender(FRHICommandListImmediate& RHICmdList, const FSceneRenderer* SceneRenderer)
+void InitHitProxyRender(FRHICommandListImmediate& RHICmdList, const FSceneRenderer* SceneRenderer, TRefCountPtr<IPooledRenderTarget>& OutHitProxyRT, TRefCountPtr<IPooledRenderTarget>& OutHitProxyDepthRT)
 {
 	auto& ViewFamily = SceneRenderer->ViewFamily;
 	auto FeatureLevel = ViewFamily.Scene->GetFeatureLevel();
@@ -392,14 +392,11 @@ TRefCountPtr<IPooledRenderTarget> InitHitProxyRender(FRHICommandListImmediate& R
 	// Allocate the maximum scene render target space for the current view family.
 	SceneContext.Allocate(RHICmdList, ViewFamily);
 
-	TRefCountPtr<IPooledRenderTarget> HitProxyRT;
-	TRefCountPtr<IPooledRenderTarget> HitProxyDepthRT;
-
 	// Create a texture to store the resolved light attenuation values, and a render-targetable surface to hold the unresolved light attenuation values.
 	{
 		FPooledRenderTargetDesc Desc(FPooledRenderTargetDesc::Create2DDesc(SceneContext.GetBufferSizeXY(), PF_B8G8R8A8, FClearValueBinding::None, TexCreate_None, TexCreate_RenderTargetable, false));
 		Desc.Flags |= TexCreate_FastVRAM;
-		GRenderTargetPool.FindFreeElement(RHICmdList, Desc, HitProxyRT, TEXT("HitProxy"));
+		GRenderTargetPool.FindFreeElement(RHICmdList, Desc, OutHitProxyRT, TEXT("HitProxy"));
 
 		// create non-MSAA version for hit proxies on PC if needed
 		const EShaderPlatform CurrentShaderPlatform = GShaderPlatformForFeatureLevel[FeatureLevel];
@@ -408,21 +405,15 @@ TRefCountPtr<IPooledRenderTarget> InitHitProxyRender(FRHICommandListImmediate& R
 		if (DepthDesc.NumSamples > 1 && RHISupportsSeparateMSAAAndResolveTextures(CurrentShaderPlatform))
 		{
 			DepthDesc.NumSamples = 1;
-			GRenderTargetPool.FindFreeElement(RHICmdList, DepthDesc, HitProxyDepthRT, TEXT("NoMSAASceneDepthZ"));
+			GRenderTargetPool.FindFreeElement(RHICmdList, DepthDesc, OutHitProxyDepthRT, TEXT("NoMSAASceneDepthZ"));
 		}
 		else
 		{
-			HitProxyDepthRT = SceneContext.SceneDepthZ;
+			OutHitProxyDepthRT = SceneContext.SceneDepthZ;
 		}
 	}
 
-	if (!HitProxyRT)
-	{
-		// HitProxyRT==0 should never happen but better we don't crash
-		return HitProxyRT;
-	}
-
-	SetRenderTarget(RHICmdList, HitProxyRT->GetRenderTargetItem().TargetableTexture, HitProxyDepthRT->GetRenderTargetItem().TargetableTexture, ESimpleRenderTargetMode::EExistingColorAndDepth, FExclusiveDepthStencil::DepthWrite_StencilWrite, true);
+	SetRenderTarget(RHICmdList, OutHitProxyRT->GetRenderTargetItem().TargetableTexture, OutHitProxyDepthRT->GetRenderTargetItem().TargetableTexture, ESimpleRenderTargetMode::EExistingColorAndDepth, FExclusiveDepthStencil::DepthWrite_StencilWrite, true);
 
 	// Clear color for each view.
 	auto& Views = SceneRenderer->Views;
@@ -432,7 +423,6 @@ TRefCountPtr<IPooledRenderTarget> InitHitProxyRender(FRHICommandListImmediate& R
 		RHICmdList.SetViewport(View.ViewRect.Min.X, View.ViewRect.Min.Y, 0.0f, View.ViewRect.Max.X, View.ViewRect.Max.Y, 1.0f);
 		RHICmdList.Clear(true, FLinearColor::White, false, (float)ERHIZBuffer::FarPlane, false, 0, FIntRect());
 	}
-	return HitProxyRT;
 }
 
 void RenderHitProxies(FRHICommandListImmediate& RHICmdList, const FSceneRenderer* SceneRenderer, TRefCountPtr<IPooledRenderTarget> HitProxyRT)
@@ -605,7 +595,9 @@ void RenderHitProxies(FRHICommandListImmediate& RHICmdList, const FSceneRenderer
 void FMobileSceneRenderer::RenderHitProxies(FRHICommandListImmediate& RHICmdList)
 {
 #if WITH_EDITOR
-	TRefCountPtr<IPooledRenderTarget> HitProxyRT = ::InitHitProxyRender(RHICmdList, this);
+	TRefCountPtr<IPooledRenderTarget> HitProxyRT;
+	TRefCountPtr<IPooledRenderTarget> HitProxyDepthRT;
+	InitHitProxyRender(RHICmdList, this, HitProxyRT, HitProxyDepthRT);
 	// HitProxyRT==0 should never happen but better we don't crash
 	if (HitProxyRT)
 	{
@@ -619,7 +611,10 @@ void FMobileSceneRenderer::RenderHitProxies(FRHICommandListImmediate& RHICmdList
 void FDeferredShadingSceneRenderer::RenderHitProxies(FRHICommandListImmediate& RHICmdList)
 {
 #if WITH_EDITOR
-	TRefCountPtr<IPooledRenderTarget> HitProxyRT = ::InitHitProxyRender(RHICmdList, this);
+	TRefCountPtr<IPooledRenderTarget> HitProxyRT;
+	TRefCountPtr<IPooledRenderTarget> HitProxyDepthRT;
+	InitHitProxyRender(RHICmdList, this, HitProxyRT, HitProxyDepthRT);
+
 	// HitProxyRT==0 should never happen but better we don't crash
 	if (HitProxyRT)
 	{

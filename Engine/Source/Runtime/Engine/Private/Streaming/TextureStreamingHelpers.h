@@ -50,6 +50,7 @@ extern TAutoConsoleVariable<int32> CVarSetTextureStreaming;
 extern TAutoConsoleVariable<float> CVarStreamingBoost;
 extern TAutoConsoleVariable<int32> CVarStreamingUseFixedPoolSize;
 extern TAutoConsoleVariable<int32> CVarStreamingPoolSize;
+extern TAutoConsoleVariable<int32> CVarStreamingCheckBuildStatus;
 
 struct FTextureStreamingSettings
 {

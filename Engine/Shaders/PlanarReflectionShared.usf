@@ -21,7 +21,10 @@ float3 PlanarReflectionParameters;
 float2 PlanarReflectionParameters2;
 
 // Projection matrix that was used to capture PlanarReflectionTexture
-float4x4 ProjectionWithExtraFOV;
+float4x4 ProjectionWithExtraFOV[2];
+
+// True if we're rendering a stereo planar reflection
+bool bIsStereo;
 
 Texture2D PlanarReflectionTexture;
 SamplerState PlanarReflectionSampler;
@@ -44,7 +47,7 @@ float4 ComputePlanarReflections(float3 WorldPosition, float3 WorldNormal, float 
 	if (DistanceFade > 0)
 	{
 		// CameraToPixel in the main view is what we used as ReflectionVector when rendering the reflection pass to PlanarReflectionTexture
-		float3 CameraToPixel = normalize(WorldPosition - View.WorldCameraOrigin);
+		float3 CameraToPixel = normalize(WorldPosition - ResolvedView.WorldCameraOrigin);
 		// Reflect the effective ReflectionVector in mirrored space to get the original camera vector
 		float3 MirroredCameraVector = reflect(CameraToPixel, -ReflectionPlane.xyz);
 		// Transform the GBuffer normal into mirrored space
@@ -56,12 +59,25 @@ float4 ComputePlanarReflections(float3 WorldPosition, float3 WorldNormal, float 
 		// As an approximation we are just intersecting with a user defined sphere
 		float3 VirtualReflectionSpherePosition = WorldPosition + MirroredReflectionVectorOffNormal * PlanarReflectionParameters.z;
 		// Transform the intersection position into view space
-		float3 ViewVirtualReflectionSpherePosition = mul(float4(VirtualReflectionSpherePosition + View.PreViewTranslation.xyz, 1), View.TranslatedWorldToView).xyz;
+		float3 ViewVirtualReflectionSpherePosition = mul(float4(VirtualReflectionSpherePosition + ResolvedView.PreViewTranslation.xyz, 1), ResolvedView.TranslatedWorldToView).xyz;
 		// Transform the intersection position into clip space using the same projection matrix used to render PlanarReflectionTexture
-		float4 ClipVirtualReflectionSpherePosition = mul(float4(ViewVirtualReflectionSpherePosition, 1), ProjectionWithExtraFOV);
+		float4 ClipVirtualReflectionSpherePosition = mul(float4(ViewVirtualReflectionSpherePosition, 1), ProjectionWithExtraFOV[ResolvedView.StereoPassIndex]);
 		// Compute viewport UVs from clip space position.  
 		// Note not using View.ScreenPositionScaleBias because PlanarReflectionTexture is exactly sized with the viewport, unlike the scene render targets
 		float2 ViewportUV = ClipVirtualReflectionSpherePosition.xy / ClipVirtualReflectionSpherePosition.w * float2(.5f, -.5f) + .5f;
+
+		// When rendering in stereo, we need to scale, shift and clamp the viewport uvs to match the correct area in screen space for the view
+		#if !MULTI_VIEW
+		BRANCH
+		if (bIsStereo)
+		{
+			const float StereoShift[2] = { 0.0f, 1.0f };
+			const float2 ViewClamp[2]  = { float2(0.0f, 0.5f), float2(0.5f, 1.0f) };
+			ViewportUV.x *= 0.5f * ResolvedView.HMDEyePaddingOffset;
+			ViewportUV.x += StereoShift[ResolvedView.StereoPassIndex] * (1.0f - 0.5 * ResolvedView.HMDEyePaddingOffset);
+			ViewportUV.x = clamp(ViewportUV.x, ViewClamp[ResolvedView.StereoPassIndex].x, ViewClamp[ResolvedView.StereoPassIndex].y);
+		}
+		#endif
 
 		float AngleFade = saturate(dot(ReflectionPlane.xyz, WorldNormal) * PlanarReflectionParameters2.x + PlanarReflectionParameters2.y);
 		float RoughnessFade = 1 - saturate((Roughness - .2f) * 10.0f);

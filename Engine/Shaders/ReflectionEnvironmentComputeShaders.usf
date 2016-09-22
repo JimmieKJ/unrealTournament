@@ -10,12 +10,7 @@
 #include "ReflectionEnvironmentShared.usf"
 #include "SkyLightingShared.usf"
 #include "ShadingModels.usf"
-
-#if TILED_DEFERRED_CULL_SHADER
-
-/** Cube map array of reflection captures. */
-TextureCubeArray ReflectionEnvironmentColorTexture;
-SamplerState ReflectionEnvironmentColorSampler;
+#include "LightGridCommon.usf"
 
 #define THREADGROUP_TOTALSIZE (THREADGROUP_SIZEX * THREADGROUP_SIZEY)
   
@@ -46,6 +41,25 @@ groupshared uint TileNumReflectionCaptures;
 groupshared uint TileReflectionCaptureIndices[MAX_CAPTURES];
 /** Capture indices after sorting. */
 groupshared uint SortedTileReflectionCaptureIndices[MAX_CAPTURES];
+
+// Whether to use reflection captures culled to the light grid, or tiled culling
+// .93ms -> .70ms when enabled on 970 GTX. PS4 cost is about the same.
+#define USE_LIGHT_GRID_REFLECTION_CAPTURE_CULLING 1
+#define SORT_CAPTURES 1
+
+#if USE_LIGHT_GRID_REFLECTION_CAPTURE_CULLING
+	#define CompositeTileReflectionCaptureIndices CulledLightDataGrid
+#else
+	#if SORT_CAPTURES
+		#define CompositeTileReflectionCaptureIndices SortedTileReflectionCaptureIndices
+	#else
+		#define CompositeTileReflectionCaptureIndices TileReflectionCaptureIndices
+	#endif
+#endif
+
+#define REFLECTION_COMPOSITE_USE_BLENDED_REFLECTION_CAPTURES 1
+#define REFLECTION_COMPOSITE_SUPPORT_SKYLIGHT_BLEND 1
+#include "ReflectionEnvironmentComposite.usf"
 
 #if !ATOMIC_REDUCTION
 	#if THREADGROUP_TOTALSIZE < 107
@@ -340,7 +354,6 @@ void DoTileCulling(uint3 GroupId, uint ThreadIndex, float MinTileZ, float MaxTil
 	// This is necessary because the culling used InterlockedAdd to generate compacted array indices, 
 	// Which rearranged the original capture order, in which the captures were sorted smallest to largest on the CPU.
 	//@todo - parallel stream compaction could be faster than this
-	#define SORT_CAPTURES 1
 	#if SORT_CAPTURES
 
 		// O(N^2) simple parallel sort
@@ -388,11 +401,7 @@ float CountOverlap( float3 WorldPosition )
 			break;
 		}
 
-		#if SORT_CAPTURES
-			uint CaptureIndex = SortedTileReflectionCaptureIndices[TileCaptureIndex];
-		#else
-			uint CaptureIndex = TileReflectionCaptureIndices[TileCaptureIndex];
-		#endif
+		uint CaptureIndex = CompositeTileReflectionCaptureIndices[TileCaptureIndex];
 			
 		float4 CapturePositionAndRadius = ReflectionCapture.PositionAndRadius[CaptureIndex];
 		float3 CaptureVector = WorldPosition - CapturePositionAndRadius.xyz;
@@ -415,7 +424,7 @@ float CountOverlap( float3 WorldPosition )
 	return Overlap;
 }
 
-float3 GatherRadiance(float CompositeAlpha, float3 WorldPosition, float3 RayDirection, float Roughness, float2 ScreenPosition, float IndirectIrradiance, float NoV, uint ShadingModelID)
+float3 GatherRadiance(float CompositeAlpha, float3 WorldPosition, float3 RayDirection, float Roughness, float2 ScreenPosition, float IndirectIrradiance, uint ShadingModelID, uint NumCulledReflectionCaptures, uint CaptureDataStartIndex)
 {
 	// Indirect occlusion from DFAO, which should be applied to reflection captures and skylight specular, but not SSR
 	float IndirectSpecularOcclusion = 1.0f;
@@ -429,119 +438,7 @@ float3 GatherRadiance(float CompositeAlpha, float3 WorldPosition, float3 RayDire
 	IndirectIrradiance *= IndirectDiffuseOcclusion;
 #endif
 
-	float Mip = ComputeReflectionCaptureMipFromRoughness(Roughness, View.ReflectionCubemapMaxMip);
-	uint NumCapturesAffectingTile = TileNumReflectionCaptures;
-	float4 ImageBasedReflections = float4(0, 0, 0, CompositeAlpha);
-	float2 CompositedAverageBrightness = float2(0.0f, 1.0f);
-
-	// Accumulate reflections from captures affecting this tile, applying largest captures first so that the smallest ones display on top
-	LOOP
-	for (uint TileCaptureIndex = 0; TileCaptureIndex < NumCapturesAffectingTile; TileCaptureIndex++) 
-	{
-		BRANCH
-		if (ImageBasedReflections.a < 0.001)
-		{
-			break;
-		}
-
-		#if SORT_CAPTURES
-			uint CaptureIndex = SortedTileReflectionCaptureIndices[TileCaptureIndex];
-		#else
-			uint CaptureIndex = TileReflectionCaptureIndices[TileCaptureIndex];
-		#endif
-			
-		float4 CapturePositionAndRadius = ReflectionCapture.PositionAndRadius[CaptureIndex];
-		float4 CaptureProperties = ReflectionCapture.CaptureProperties[CaptureIndex];
-
-		float3 CaptureVector = WorldPosition - CapturePositionAndRadius.xyz;
-		float CaptureVectorLength = sqrt(dot(CaptureVector, CaptureVector));		
-		float NormalizedDistanceToCapture = saturate(CaptureVectorLength / CapturePositionAndRadius.w);
-
-		BRANCH
-		if (CaptureVectorLength < CapturePositionAndRadius.w)
-		{
-			float3 ProjectedCaptureVector = RayDirection;
-			float4 CaptureOffsetAndAverageBrightness = ReflectionCapture.CaptureOffsetAndAverageBrightness[CaptureIndex];
-
-			// Fade out based on distance to capture
-			float DistanceAlpha = 0;
-			
-			#define PROJECT_ONTO_SHAPE 1
-			#if PROJECT_ONTO_SHAPE
-				#if HAS_BOX_CAPTURES
-					#if HAS_SPHERE_CAPTURES
-					// Box
-					BRANCH if (CaptureProperties.b > 0)
-					#endif
-					{
-						ProjectedCaptureVector = GetLookupVectorForBoxCapture(RayDirection, WorldPosition, CapturePositionAndRadius, ReflectionCapture.BoxTransform[CaptureIndex], ReflectionCapture.BoxScales[CaptureIndex], CaptureOffsetAndAverageBrightness.xyz, DistanceAlpha);
-					}
-				#endif
-
-				#if HAS_SPHERE_CAPTURES
-					// Sphere
-					#if HAS_BOX_CAPTURES
-					else
-					#endif
-					{
-						ProjectedCaptureVector = GetLookupVectorForSphereCapture(RayDirection, WorldPosition, CapturePositionAndRadius, NormalizedDistanceToCapture, CaptureOffsetAndAverageBrightness.xyz, DistanceAlpha);
-					}
-				#endif
-			#else 
-				DistanceAlpha = 1.0;
-			#endif //PROJECT_ONTO_SHAPE
-
-			float CaptureArrayIndex = CaptureProperties.g;
-
-			{
-				float4 Sample = ReflectionEnvironmentColorTexture.SampleLevel(ReflectionEnvironmentColorSampler, float4(ProjectedCaptureVector, CaptureArrayIndex), Mip);
-
-				Sample.rgb *= CaptureProperties.r;
-				Sample *= DistanceAlpha;
-
-				// Under operator (back to front)
-				ImageBasedReflections.rgb += Sample.rgb * ImageBasedReflections.a * IndirectSpecularOcclusion;
-				ImageBasedReflections.a *= 1 - Sample.a;
-
-				float AverageBrightness = CaptureOffsetAndAverageBrightness.w;
-				CompositedAverageBrightness.x += AverageBrightness * DistanceAlpha * CompositedAverageBrightness.y;
-				CompositedAverageBrightness.y *= 1 - DistanceAlpha;
-			}
-		}
-	}
-
-#if HAS_SKYLIGHT
-
-	BRANCH  
-	if (SkyLightParameters.y > 0)
-	{
-		float SkyAverageBrightness = 1.0f;
-		float3 SkyLighting = GetSkyLightReflectionSupportingBlend(RayDirection, Roughness, SkyAverageBrightness);
-
-		// Normalize for static skylight types which mix with lightmaps
-		bool bNormalize = SkyLightParameters.z < 1 && USE_LIGHTMAPS;
-
-		FLATTEN
-		if (bNormalize)
-		{
-			ImageBasedReflections.rgb += ImageBasedReflections.a * SkyLighting * IndirectSpecularOcclusion;
-			CompositedAverageBrightness.x += SkyAverageBrightness * CompositedAverageBrightness.y;
-		}
-		else
-		{
-			ExtraIndirectSpecular += SkyLighting * IndirectSpecularOcclusion;
-		}
-	}
-#endif
-
-#if USE_LIGHTMAPS
-	// Note: make sure this matches the lightmap mixing done for translucency (BasePassPixelShader.usf)
-	ImageBasedReflections.rgb *= ComputeMixingWeight(IndirectIrradiance, CompositedAverageBrightness.x, Roughness);
-#endif
-
-	ImageBasedReflections.rgb += ImageBasedReflections.a * ExtraIndirectSpecular;
-
-	return ImageBasedReflections.rgb;
+	return CompositeReflectionCapturesAndSkylight(CompositeAlpha, WorldPosition, RayDirection, Roughness, IndirectIrradiance, IndirectSpecularOcclusion, ExtraIndirectSpecular, NumCulledReflectionCaptures, CaptureDataStartIndex);
 }
 
 
@@ -564,6 +461,7 @@ void ReflectionEnvironmentTiledDeferredMain(
 	float2 ScreenPosition = float2(2.0f, -2.0f) * ViewportUV + float2(-1.0f, 1.0f);
 	float SceneDepth = CalcSceneDepth(PixelPos);
 
+#if !USE_LIGHT_GRID_REFLECTION_CAPTURE_CULLING
 	float MinTileZ;
 	float MaxTileZ;
 	float MinTileZ2;
@@ -571,7 +469,7 @@ void ReflectionEnvironmentTiledDeferredMain(
 	ComputeTileMinMax(ThreadIndex, SceneDepth, MinTileZ, MaxTileZ, MinTileZ2, MaxTileZ2);
 
 	DoTileCulling(GroupId, ThreadIndex, MinTileZ, MaxTileZ, MinTileZ2, MaxTileZ2);
-
+#endif
 	// Lookup GBuffer properties once per pixel
 	FScreenSpaceData ScreenSpaceData = GetScreenSpaceDataUint(PixelPos);
 	FGBufferData GBuffer = ScreenSpaceData.GBuffer;
@@ -584,7 +482,7 @@ void ReflectionEnvironmentTiledDeferredMain(
 	float3 ReflectionVector = reflect(CameraToPixel, GBuffer.WorldNormal);
 	float IndirectIrradiance = GBuffer.IndirectIrradiance;
 	
-#if HAS_SKYLIGHT && USE_LIGHTMAPS
+#if ENABLE_SKY_LIGHT && ALLOW_STATIC_LIGHTING
 	BRANCH
 	// Add in diffuse contribution from dynamic skylights so reflection captures will have something to mix with
 	if (SkyLightParameters.y > 0 && SkyLightParameters.z > 0)
@@ -635,8 +533,20 @@ void ReflectionEnvironmentTiledDeferredMain(
 		float SpecularOcclusion = GetSpecularOcclusion(NoV, RoughnessSq, AO);
 		Color.a *= SpecularOcclusion;
 
+		uint NumCulledReflectionCaptures = TileNumReflectionCaptures;
+		uint DataStartIndex = 0;
+
+		#if USE_LIGHT_GRID_REFLECTION_CAPTURE_CULLING
+		{
+			uint GridIndex = ComputeLightGridCellIndex(DispatchThreadId.xy, SceneDepth);
+			uint NumCulledEntryIndex = (ForwardGlobalLightData.NumGridCells + GridIndex) * NUM_CULLED_LIGHTS_GRID_STRIDE;
+			NumCulledReflectionCaptures = NumCulledLightsGrid[NumCulledEntryIndex + 0];
+			DataStartIndex = NumCulledLightsGrid[NumCulledEntryIndex + 1];
+		}
+		#endif
+
 		//bottom for clearcoat or the only reflection.
-		Color.rgb += GatherRadiance(Color.a, WorldPosition, R, GBuffer.Roughness, ScreenPosition, IndirectIrradiance, NoV, GBuffer.ShadingModelID);
+		Color.rgb += GatherRadiance(Color.a, WorldPosition, R, GBuffer.Roughness, ScreenPosition, IndirectIrradiance, GBuffer.ShadingModelID, NumCulledReflectionCaptures, DataStartIndex);
 
 		BRANCH
 		if( GBuffer.ShadingModelID == SHADINGMODELID_CLEAR_COAT )
@@ -665,7 +575,7 @@ void ReflectionEnvironmentTiledDeferredMain(
 			Color.a *= SpecularOcclusion;
 
 			float3 TopLayerR = 2 * dot( V, N ) * N - V;
-			Color.rgb += GatherRadiance(Color.a, WorldPosition, TopLayerR, ClearCoatRoughness, ScreenPosition, IndirectIrradiance, NoV, GBuffer.ShadingModelID);
+			Color.rgb += GatherRadiance(Color.a, WorldPosition, TopLayerR, ClearCoatRoughness, ScreenPosition, IndirectIrradiance, GBuffer.ShadingModelID, NumCulledReflectionCaptures, DataStartIndex);
 		}
 		else
 		{
@@ -696,4 +606,3 @@ void ReflectionEnvironmentTiledDeferredMain(
 	}
 }
 
-#endif

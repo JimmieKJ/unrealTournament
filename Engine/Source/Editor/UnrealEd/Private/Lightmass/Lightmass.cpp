@@ -2388,18 +2388,18 @@ FString FLightmassProcessor::GetMappingFileExtension(const FStaticLightingMappin
 	return FileExtension;
 }
 
-FGuid FLightmassProcessor_GetMappingFileVersion(const FStaticLightingMapping* InMapping)
+int32 FLightmassProcessor_GetMappingFileVersion(const FStaticLightingMapping* InMapping)
 {
 	// Determine the input file name
-	FGuid ReturnGuid = FGuid(0,0,0,0);
+	int32 ReturnVersion = 0;
 	if (InMapping)
 	{
 		if (InMapping->IsTextureMapping() == true)
 		{
-			ReturnGuid = Lightmass::LM_TEXTUREMAPPING_VERSION;
+			ReturnVersion = Lightmass::LM_TEXTUREMAPPING_VERSION;
 		}
 	}
-	return ReturnGuid;
+	return ReturnVersion;
 }
 
 bool FLightmassProcessor::OpenJob()

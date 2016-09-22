@@ -75,6 +75,11 @@ bool ShouldRenderScreenSpaceReflections(const FViewInfo& View)
 		return false;
 	}
 
+	if (IsAnyForwardShadingEnabled(View.GetShaderPlatform()))
+	{
+		return false;
+	}
+
 	return true;
 }
 
