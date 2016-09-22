@@ -5870,17 +5870,18 @@ void UUTLocalPlayer::InitializeSocial()
 	ISocialModule::Get().GetFriendsAndChatManager()->Login(OnlineSubsystem, LoginOptions);
 	ISocialModule::Get().GetFriendsAndChatManager()->SetAnalyticsProvider(FUTAnalytics::GetProviderPtr());
 
-	// PLK TODO: Find which API replaces this
-	/*
 	if (!ISocialModule::Get().GetFriendsAndChatManager()->GetNotificationService()->OnJoinGame().IsBoundToObject(this))
  	{
 		ISocialModule::Get().GetFriendsAndChatManager()->GetNotificationService()->OnJoinGame().AddUObject(this, &UUTLocalPlayer::HandleFriendsJoinGame);
  	}
+
+	// PLK - find replacement for this API
+	/*
 	if (!ISocialModule::Get().GetFriendsAndChatManager()->AllowFriendsJoinGame().IsBoundToObject(this))
 	{
 		ISocialModule::Get().GetFriendsAndChatManager()->AllowFriendsJoinGame().BindUObject(this, &UUTLocalPlayer::AllowFriendsJoinGame);
-	}
-	*/
+	}*/
+
 	if (!ISocialModule::Get().GetFriendsAndChatManager()->GetNotificationService()->OnNotificationsAvailable().IsBoundToObject(this))
  	{
  		ISocialModule::Get().GetFriendsAndChatManager()->GetNotificationService()->OnNotificationsAvailable().AddUObject(this, &UUTLocalPlayer::HandleFriendsNotificationAvail);
