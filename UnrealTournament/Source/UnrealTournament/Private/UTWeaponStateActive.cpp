@@ -9,17 +9,19 @@ void UUTWeaponStateActive::BeginState(const UUTWeaponState* PrevState)
 {
 	// see if we need to process a pending putdown
 	AUTCharacter* UTOwner = GetOuterAUTWeapon()->GetUTOwner();
-	if (UTOwner->GetPendingWeapon() == NULL || !GetOuterAUTWeapon()->PutDown())
+	if ((UTOwner->GetPendingWeapon() == NULL || !GetOuterAUTWeapon()->PutDown()) && UTOwner->IsLocallyControlled())
 	{
 		// check for any firemode already pending
 		for (uint8 i = 0; i < GetOuterAUTWeapon()->GetNumFireModes(); i++)
 		{
-			if (UTOwner->IsPendingFire(i) && GetOuterAUTWeapon()->HasAmmo(i))
+			if (UTOwner->IsPendingFire(i))
 			{
-				GetOuterAUTWeapon()->CurrentFireMode = i;
-				GetOuterAUTWeapon()->GotoState(GetOuterAUTWeapon()->FiringState[i]);
-				return;
+				GetOuterAUTWeapon()->StartFire(i);
 			}
+		}
+		if (GetOuterAUTWeapon()->CurrentState != this)
+		{ 
+			return;
 		}
 	}
 	if (UTOwner->PendingAutoSwitchWeapon && !UTOwner->PendingAutoSwitchWeapon->IsPendingKillPending() && UTOwner->IsInInventory(UTOwner->PendingAutoSwitchWeapon) && (UTOwner->PendingAutoSwitchWeapon != GetOuterAUTWeapon()) && UTOwner->PendingAutoSwitchWeapon->HasAnyAmmo())
