@@ -14,6 +14,7 @@ UUTCTFGameMessage::UUTCTFGameMessage(const FObjectInitializer& ObjectInitializer
 	ReturnedMessage = NSLOCTEXT("CTFGameMessage","ReturnedMessage","The {OptionalTeam} Flag was returned!");
 	DroppedMessage = NSLOCTEXT("CTFGameMessage","DroppedMessage","{Player1Name} dropped the {OptionalTeam} Flag!");
 	HasMessage = NSLOCTEXT("CTFGameMessage","HasMessage","{Player1Name} took the {OptionalTeam} Flag!");
+	YouHaveMessage = NSLOCTEXT("CTFGameMessage", "YouHaveMessage", "YOU HAVE THE FLAG!");
 	KilledMessage = NSLOCTEXT("CTFGameMessage","KilledMessage","{Player1Name} killed the {OptionalTeam} flag carrier!");
 	HasAdvantageMessage = NSLOCTEXT("CTFGameMessage", "HasAdvantage", "{OptionalTeam} Team has Advantage");
 	LosingAdvantageMessage = NSLOCTEXT("CTFGameMessage", "LostAdvantage", "{OptionalTeam} Team is losing advantage");
@@ -69,7 +70,12 @@ FText UUTCTFGameMessage::GetText(int32 Switch, bool bTargetsPlayerState1, APlaye
 		case 1 : return ReturnedMessage; break;
 		case 2: return BuildEmphasisText(Switch, RelatedPlayerState_1, RelatedPlayerState_2, OptionalObject); break;
 		case 3 : return RelatedPlayerState_1 ? DroppedMessage : FText::GetEmpty(); break;
-		case 4 : return HasMessage; break;
+		case 4 : 
+			if (RelatedPlayerState_1 && Cast<AUTPlayerController>(RelatedPlayerState_1->GetOwner()))
+			{
+				return YouHaveMessage; break;
+			}
+			return HasMessage; break;
 		case 5 : return KilledMessage; break;
 		case 6 : return HasAdvantageMessage; break;
 		case 7 : return LosingAdvantageMessage; break;

@@ -27,6 +27,9 @@ class UNREALTOURNAMENT_API UUTCTFGameMessage : public UUTCarriedObjectMessage
 	FText HasMessage;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Message)
+		FText YouHaveMessage;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Message)
 	FText KilledMessage;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Message)
