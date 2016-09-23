@@ -275,7 +275,7 @@ void AUTBaseGameMode::ChangeName(AController* Other, const FString& S, bool bNam
 	bool bForceAccountName = (ClampedName.FindChar(160, FindCharIndex) || ClampedName.FindChar(38, FindCharIndex));
 
 	AUTPlayerState* PS = Cast<AUTPlayerState>(Other->PlayerState);
-	if (!PS || FCString::Stricmp(*PS->PlayerName, *ClampedName) == 0)
+	if (!PS || (FCString::Stricmp(*PS->PlayerName, *ClampedName) == 0) || ((FCString::Stricmp(TEXT("Player"), *ClampedName) == 0) && !PS->PlayerName.IsEmpty()))
 	{
 		return;
 	}
