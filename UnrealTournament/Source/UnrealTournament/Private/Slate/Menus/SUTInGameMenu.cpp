@@ -361,6 +361,27 @@ void SUTInGameMenu::ShowExitDestinationMenu()
 
 	QP->AddOption(
 		SNew(SVerticalBox)
+		+ SVerticalBox::Slot()
+		.AutoHeight()
+		.HAlign(HAlign_Center)
+		[
+			SNew(STextBlock)
+			.Text(NSLOCTEXT("ExitMenu", "MainMenuTitle", "MAIN MENU"))
+		.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Large")
+		]
+	+ SVerticalBox::Slot()
+		.AutoHeight()
+		.HAlign(HAlign_Center)
+		[
+			SNew(STextBlock)
+			.Text(NSLOCTEXT("ExitMenu", "MainMenuMessage", "Leave the current online game and return to the main menu."))
+		.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Medium")
+		.AutoWrapText(true)
+		]
+	);
+
+	QP->AddOption(
+		SNew(SVerticalBox)
 		+SVerticalBox::Slot()
 		.AutoHeight()
 		.HAlign(HAlign_Center)
@@ -375,28 +396,6 @@ void SUTInGameMenu::ShowExitDestinationMenu()
 		[
 			SNew(STextBlock)
 			.Text(NSLOCTEXT("ExitMenu", "ExitGameMessage", "Exit the game and return to the desktop."))
-			.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Medium")
-			.AutoWrapText(true)
-		]
-	);		
-
-
-	QP->AddOption(
-		SNew(SVerticalBox)
-		+SVerticalBox::Slot()
-		.AutoHeight()
-		.HAlign(HAlign_Center)
-		[
-			SNew(STextBlock)
-			.Text(NSLOCTEXT("ExitMenu", "MainMenuTitle", "MAIN MENU"))
-			.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Large")
-		]
-		+SVerticalBox::Slot()
-		.AutoHeight()
-		.HAlign(HAlign_Center)
-		[
-			SNew(STextBlock)
-			.Text(NSLOCTEXT("ExitMenu", "MainMenuMessage", "Leave the current online game and return to the main menu."))
 			.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Medium")
 			.AutoWrapText(true)
 		]
