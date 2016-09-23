@@ -813,15 +813,15 @@ void AUTCTFRoundGame::InitPlayerForRound(AUTPlayerState* PS)
 			PS->OnRepSpecialPlayer();
 			PS->OnRepSpecialTeamPlayer();
 		}
-		if (PS && (PS->bIsInactive || !PS->Team || PS->bOnlySpectator))
+		if (PS && (!PS->Team || PS->bOnlySpectator))
 		{
 			PS->RemainingLives = 0;
 			PS->SetOutOfLives(true);
 		}
 		else if (PS)
 		{
-			PS->RemainingLives = IsPlayerOnLifeLimitedTeam(PS) ? RoundLives : 0;
-			PS->bHasLifeLimit = (PS->RemainingLives > 0);
+			PS->RemainingLives = RoundLives;
+			PS->bHasLifeLimit = IsPlayerOnLifeLimitedTeam(PS);
 			PS->SetOutOfLives(false);
 		}
 	}
@@ -833,7 +833,7 @@ void AUTCTFRoundGame::HandleTeamChange(AUTPlayerState* PS, AUTTeamInfo* OldTeam)
 	{
 		return;
 	}
-	if (PS && (bSitOutDuringRound || PS->Team))
+	if (PS && bSitOutDuringRound)
 	{
 		PS->RemainingLives = 0;
 	}
