@@ -194,6 +194,9 @@ public:
 	UPROPERTY()
 		float LastRallyRequestTime;
 
+	UPROPERTY()
+		AUTCharacter* RallyFlagCarrier;
+
 	UFUNCTION(reliable, client, BlueprintCallable, Category = PlayerController)
 	void UTClientSetRotation(FRotator NewRotation);
 

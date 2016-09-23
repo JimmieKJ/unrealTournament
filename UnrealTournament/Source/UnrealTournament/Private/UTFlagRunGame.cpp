@@ -632,6 +632,7 @@ void AUTFlagRunGame::HandleRallyRequest(AUTPlayerController* RequestingPC)
 					BestRecentPosition = (OneDist > ZeroDist) ? Flag->RecentPosition[1] : Flag->RecentPosition[0];
 				}
 				RequestingPC->RallyLocation = BestRecentPosition;
+				RequestingPC->RallyFlagCarrier = FlagCarrier;
 				if (bDelayedRally)
 				{
 					UTCharacter->bTriggerRallyEffect = true;
@@ -690,7 +691,7 @@ void AUTFlagRunGame::CompleteRallyRequest(AUTPlayerController* RequestingPC)
 		// rally to flag carrier
 		AUTCTFFlag* Flag = Cast<AUTCTFFlag>(GS->FlagBases[GS->bRedToCap ? 0 : 1]->GetCarriedObject());
 		AUTCharacter* FlagCarrier = Flag ? Flag->HoldingPawn : nullptr;
-		if (FlagCarrier == nullptr)
+		if ((FlagCarrier == nullptr) || (FlagCarrier != RequestingPC->RallyFlagCarrier))
 		{
 			RequestingPC->ClientPlaySound(RallyFailedSound);
 			return;
