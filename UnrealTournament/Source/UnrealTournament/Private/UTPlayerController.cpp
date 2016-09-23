@@ -2510,6 +2510,11 @@ void AUTPlayerController::ServerToggleWarmup_Implementation()
 	else
 	{
 		AUTCharacter* Char = Cast<AUTCharacter>(GetPawn());
+		if (GetPawn() && (Char == nullptr))
+		{
+			GetPawn()->Destroy();
+			Char = Cast<AUTCharacter>(GetPawn());
+		}
 		if (Char != NULL)
 		{
 			Char->PlayerSuicide();
