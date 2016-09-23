@@ -983,7 +983,7 @@ FReply SUTPlayerSettingsDialog::OKClick()
 	AUTPlayerController* UTPlayerController = Cast<AUTPlayerController>(GetPlayerOwner()->PlayerController);
 	if (UTPlayerController != NULL)
 	{
-		if (!PlayerName->GetText().IsEmpty())
+		if (!PlayerName->GetText().ToString().IsEmpty())
 		{
 			UTPlayerController->ServerChangeName(PlayerName->GetText().ToString());
 		}

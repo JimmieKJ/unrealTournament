@@ -1924,11 +1924,14 @@ void UUTLocalPlayer::OnWriteUserFileComplete(bool bWasSuccessful, const FUniqueN
 
 void UUTLocalPlayer::SetNickname(FString NewName)
 {
-	PlayerNickname = NewName;
-	SaveConfig();
-	if (PlayerController) 
+	if (!NewName.IsEmpty())
 	{
-		PlayerController->ServerChangeName(NewName);
+		PlayerNickname = NewName;
+		SaveConfig();
+		if (PlayerController)
+		{
+			PlayerController->ServerChangeName(NewName);
+		}
 	}
 }
 
