@@ -165,6 +165,7 @@ void SUTInGameMenu::BuildLeftMenuBar()
 
 void SUTInGameMenu::BuildExitMenu(TSharedPtr<SUTComboButton> ExitButton)
 {
+	ExitButton->AddSubMenuItem(NSLOCTEXT("SUTInGameMenu", "MenuBar_ReturnToMainMenu", "Return to Main Menu"), FOnClicked::CreateSP(this, &SUTInGameMenu::OnReturnToMainMenu));
 	ExitButton->AddSubMenuItem(NSLOCTEXT("SUTMenuBase", "MenuBar_Exit_ReturnToGame", "Close Menu"), FOnClicked::CreateSP(this, &SUTInGameMenu::OnCloseMenu));
 	ExitButton->AddSpacer();
 	AUTGameState* GameState = PlayerOwner->GetWorld()->GetGameState<AUTGameState>();
@@ -172,8 +173,6 @@ void SUTInGameMenu::BuildExitMenu(TSharedPtr<SUTComboButton> ExitButton)
 	{
 		ExitButton->AddSubMenuItem(NSLOCTEXT("SUTInGameMenu", "MenuBar_ReturnToLobby", "Return to Hub"), FOnClicked::CreateSP(this, &SUTInGameMenu::OnReturnToLobby));
 	}
-
-	ExitButton->AddSubMenuItem(NSLOCTEXT("SUTInGameMenu","MenuBar_ReturnToMainMenu","Return to Main Menu"), FOnClicked::CreateSP(this, &SUTInGameMenu::OnReturnToMainMenu));
 }
 
 FReply SUTInGameMenu::OnCloseMenu()
@@ -440,8 +439,8 @@ void SUTInGameMenu::OnDestinationResult(int32 PickedIndex)
 {
 	switch(PickedIndex)
 	{
-		case 0 : PlayerOwner->ConsoleCommand(TEXT("quit")); break;
-		case 1 : OnReturnToMainMenu(); break;
+		case 0: OnReturnToMainMenu(); break;
+		case 1 : PlayerOwner->ConsoleCommand(TEXT("quit")); break;
 		case 2 : OnReturnToLobby(); break;
 	}
 }
