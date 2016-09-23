@@ -671,6 +671,11 @@ void AUTFlagRunGame::CompleteRallyRequest(AUTPlayerController* RequestingPC)
 		UTCharacter->UTCharacterMovement->SetDefaultMovementMode();
 	}
 	UTCharacter->DisallowWeaponFiring(false);
+	if (!UTCharacter->bCanRally)
+	{
+		RequestingPC->ClientPlaySound(RallyFailedSound);
+		return;
+	}
 
 	if (Team && ((Team->TeamIndex == 0) == GS->bRedToCap) && GS->FlagBases.IsValidIndex(Team->TeamIndex) && GS->FlagBases[Team->TeamIndex] != nullptr)
 	{
