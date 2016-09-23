@@ -241,7 +241,7 @@ void AUTRemoteRedeemer::BlowUp(FVector HitNormal)
 
 		PlayExplosionEffects();
 
-		FVector ExplosionCenter = GetActorLocation();
+		ExplosionCenter = GetActorLocation();
 		if (!HitNormal.IsZero())
 		{
 			ECollisionChannel TraceChannel = COLLISION_TRACE_WEAPONNOCHARACTER;
