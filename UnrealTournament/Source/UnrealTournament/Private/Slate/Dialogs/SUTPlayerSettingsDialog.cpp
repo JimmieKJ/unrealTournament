@@ -983,7 +983,10 @@ FReply SUTPlayerSettingsDialog::OKClick()
 	AUTPlayerController* UTPlayerController = Cast<AUTPlayerController>(GetPlayerOwner()->PlayerController);
 	if (UTPlayerController != NULL)
 	{
-		UTPlayerController->ServerChangeName(PlayerName->GetText().ToString());
+		if (!PlayerName->GetText().IsEmpty())
+		{
+			UTPlayerController->ServerChangeName(PlayerName->GetText().ToString());
+		}
 		UTPlayerController->WeaponBobGlobalScaling = WeaponBobScaling->GetValue() * BOB_SCALING_FACTOR;
 		UTPlayerController->EyeOffsetGlobalScaling = ViewBobScaling->GetValue() * BOB_SCALING_FACTOR;
 		UTPlayerController->FFAPlayerColor = SelectedPlayerColor;
