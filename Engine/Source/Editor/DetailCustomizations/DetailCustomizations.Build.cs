@@ -59,7 +59,8 @@ public class DetailCustomizations : ModuleRules
 				"LandscapeEditor",
 				"PropertyEditor",
 				"GameProjectGeneration",
-                "ComponentVisualizers"
+                "ComponentVisualizers",
+				"GraphEditor"
 			}
 		);
 

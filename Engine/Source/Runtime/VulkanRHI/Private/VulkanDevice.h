@@ -65,6 +65,11 @@ public:
 		return Features;
 	}
 
+	inline bool HasUnifiedMemory() const
+	{
+		return MemoryManager.HasUnifiedMemory();
+	}
+
 	bool IsFormatSupported(VkFormat Format) const;
 
 	const VkComponentMapping& GetFormatComponentMapping(EPixelFormat UEFormat) const;

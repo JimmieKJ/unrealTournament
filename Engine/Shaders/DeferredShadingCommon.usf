@@ -484,7 +484,7 @@ bool CheckerFromSceneColorUV(float2 UVSceneColor)
 // SubsurfaceProfile does deferred lighting with a checker board pixel pattern
 // we separate the view from the non view dependent lighting and later recombine the two color constributions in a postprocess
 // We have the option to apply the BaseColor/Specular in the base pass or do it later in the postprocess (has implications to texture detail, fresnel and performance)
-void AdjustBaseColorAndSpecularForSubsurfaceProfileLighting(inout float3 BaseColor, inout float Specular, bool bChecker)
+void AdjustBaseColorAndSpecularColorForSubsurfaceProfileLighting(inout float3 BaseColor, inout float3 SpecularColor, inout float Specular, bool bChecker)
 {
 #if SUBSURFACE_CHANNEL_MODE == 0
 	// If SUBSURFACE_CHANNEL_MODE is 0, we can't support full-resolution lighting, so we 
@@ -501,6 +501,7 @@ void AdjustBaseColorAndSpecularForSubsurfaceProfileLighting(inout float3 BaseCol
 		// we apply the base color later in SubsurfaceRecombinePS()
 		BaseColor = bChecker;
 		// in SubsurfaceRecombinePS() does not multiply with Specular so we do it here
+		SpecularColor *= !bChecker;
 		Specular *= !bChecker;
 	}
 }
@@ -558,15 +559,16 @@ FGBufferData DecodeGBufferData(
 	GBuffer.StoredBaseColor = GBuffer.BaseColor;
 	GBuffer.StoredSpecular = GBuffer.Specular;
 
-	if(GBuffer.ShadingModelID == SHADINGMODELID_SUBSURFACE_PROFILE)
-	{
-		AdjustBaseColorAndSpecularForSubsurfaceProfileLighting(GBuffer.BaseColor, GBuffer.Specular, bChecker);
-	}
-
 	// derived from BaseColor, Metalness, Specular
 	{
-		GBuffer.DiffuseColor = GBuffer.BaseColor - GBuffer.BaseColor * GBuffer.Metallic;
 		GBuffer.SpecularColor = lerp( 0.08 * GBuffer.Specular.xxx, GBuffer.BaseColor, GBuffer.Metallic );
+
+		if (GBuffer.ShadingModelID == SHADINGMODELID_SUBSURFACE_PROFILE)
+		{
+			AdjustBaseColorAndSpecularColorForSubsurfaceProfileLighting(GBuffer.BaseColor, GBuffer.SpecularColor, GBuffer.Specular, bChecker);
+		}
+
+		GBuffer.DiffuseColor = GBuffer.BaseColor - GBuffer.BaseColor * GBuffer.Metallic;
 
 		#if USE_DEVELOPMENT_SHADERS
 		{

@@ -39,20 +39,21 @@ void FRendererModule::InitializeSystemTextures(FRHICommandListImmediate& RHICmdL
 
 void FRendererModule::DrawTileMesh(FRHICommandListImmediate& RHICmdList, const FSceneView& SceneView, const FMeshBatch& Mesh, bool bIsHitTesting, const FHitProxyId& HitProxyId)
 {
-	// Create an FViewInfo so we can initialize its RHI resources
-	//@todo - reuse this view for multiple tiles, this is going to be slow for each tile
-	FViewInfo View(&SceneView);
-	View.InitRHIResources();
-
-	const auto FeatureLevel = View.GetFeatureLevel();
-	
-	const FMaterial* Material = Mesh.MaterialRenderProxy->GetMaterial(FeatureLevel);
-
-	//get the blend mode of the material
-	const EBlendMode MaterialBlendMode = Material->GetBlendMode();
-
 	if (!GUsingNullRHI)
 	{
+		// Create an FViewInfo so we can initialize its RHI resources
+		//@todo - reuse this view for multiple tiles, this is going to be slow for each tile
+		FViewInfo View(&SceneView);
+		View.InitRHIResources();
+
+		const auto FeatureLevel = View.GetFeatureLevel();
+	
+		const FMaterial* Material = Mesh.MaterialRenderProxy->GetMaterial(FeatureLevel);
+
+		//get the blend mode of the material
+		const EBlendMode MaterialBlendMode = Material->GetBlendMode();
+
+		FSceneRenderTargets::Get(RHICmdList).SetLightAttenuationMode(false);
 		GSystemTextures.InitializeTextures(RHICmdList, FeatureLevel);
 
 		// handle translucent material blend modes, not relevant in MaterialTexCoordScalesAnalysis since it outputs the scales.
@@ -60,7 +61,7 @@ void FRendererModule::DrawTileMesh(FRHICommandListImmediate& RHICmdList, const F
 		{
 			if (FeatureLevel >= ERHIFeatureLevel::SM4)
 			{
-				FTranslucencyDrawingPolicyFactory::DrawDynamicMesh(RHICmdList, View, FTranslucencyDrawingPolicyFactory::ContextType(nullptr, ETranslucencyPass::TPT_StandardTranslucency, true), Mesh, false, false, NULL, HitProxyId);
+				FTranslucencyDrawingPolicyFactory::DrawDynamicMesh(RHICmdList, View, FTranslucencyDrawingPolicyFactory::ContextType(nullptr, ETranslucencyPass::TPT_AllTranslucency, true), Mesh, false, false, NULL, HitProxyId);
 			}
 			else
 			{

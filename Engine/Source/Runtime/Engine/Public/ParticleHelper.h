@@ -1456,11 +1456,11 @@ private:
 struct FDynamicSpriteEmitterReplayDataBase
 	: public FDynamicEmitterReplayDataBase
 {
-	UMaterialInterface*			MaterialInterface;
-	class USubUVAnimation*		SubUVAnimation;
-	FVector						NormalsSphereCenter;
-	FVector						NormalsCylinderDirection;
-	float						InvDeltaSeconds;
+	UMaterialInterface*				MaterialInterface;
+	class UParticleModuleRequired*	RequiredModule;
+	FVector							NormalsSphereCenter;
+	FVector							NormalsCylinderDirection;
+	float							InvDeltaSeconds;
 	int32							MaxDrawCount;
 	int32							OrbitModuleOffset;
 	int32							DynamicParameterDataOffset;
@@ -1469,13 +1469,13 @@ struct FDynamicSpriteEmitterReplayDataBase
 	int32							SubUVDataOffset;
 	int32							SubImages_Horizontal;
 	int32							SubImages_Vertical;
-	bool						bUseLocalSpace;
-	bool						bLockAxis;
-	uint8						ScreenAlignment;
-	uint8						LockAxisFlag;
-	uint8						EmitterRenderMode;
-	uint8						EmitterNormalsMode;
-	FVector2D					PivotOffset;
+	bool							bUseLocalSpace;
+	bool							bLockAxis;
+	uint8							ScreenAlignment;
+	uint8							LockAxisFlag;
+	uint8							EmitterRenderMode;
+	uint8							EmitterNormalsMode;
+	FVector2D						PivotOffset;
 	
 	/** Constructor */
 	FDynamicSpriteEmitterReplayDataBase();

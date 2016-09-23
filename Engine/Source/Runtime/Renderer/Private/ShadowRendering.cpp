@@ -98,6 +98,23 @@ static TAutoConsoleVariable<int32> CVarSupportPointLightWholeSceneShadows(
 	TEXT("Enables shadowcasting point lights."),
 	ECVF_ReadOnly | ECVF_RenderThreadSafe);
 
+float GetLightFadeFactor(const FSceneView& View, const FLightSceneProxy* Proxy)
+{
+	// Distance fade
+	FSphere Bounds = Proxy->GetBoundingSphere();
+
+	const float DistanceSquared = (Bounds.Center - View.ViewMatrices.ViewOrigin).SizeSquared();
+	extern float GMinScreenRadiusForLights;
+	float SizeFade = FMath::Square(FMath::Min(0.0002f, GMinScreenRadiusForLights / Bounds.W) * View.LODDistanceFactor) * DistanceSquared;
+	SizeFade = FMath::Clamp(6.0f - 6.0f * SizeFade, 0.0f, 1.0f);
+
+	float MaxDist = Proxy->GetMaxDrawDistance();
+	float Range = Proxy->GetFadeRange();
+	float DistanceFade = MaxDist ? (MaxDist - FMath::Sqrt(DistanceSquared)) / Range : 1.0f;
+	DistanceFade = FMath::Clamp(DistanceFade, 0.0f, 1.0f);
+	return SizeFade * DistanceFade;
+}
+
 /** The stencil sphere vertex buffer. */
 TGlobalResource<StencilingGeometry::TStencilSphereVertexBuffer<18, 12, FVector4> > StencilingGeometry::GStencilSphereVertexBuffer;
 TGlobalResource<StencilingGeometry::TStencilSphereVertexBuffer<18, 12, FVector> > StencilingGeometry::GStencilSphereVectorBuffer;

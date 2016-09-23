@@ -90,6 +90,10 @@ struct FOpenGL4 : public FOpenGL3
 	{
 		glTextureView(ViewName, ViewTarget, SrcName, InternalFormat, MinLevel, NumLevels, MinLayer, NumLayers);
 	}
+	static FORCEINLINE void ClearBufferData(GLenum Target, GLenum InternalFormat, GLenum Format, GLenum Type, const uint32* Data)
+	{
+		glClearBufferData(Target, InternalFormat, Format, Type, Data);
+	}
 
 	static void ProcessQueryGLInt();
 	static void ProcessExtensions( const FString& ExtensionsString );

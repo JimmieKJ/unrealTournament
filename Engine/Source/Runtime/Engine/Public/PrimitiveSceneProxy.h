@@ -395,6 +395,7 @@ public:
 		// Flip the default channel bit so that the default value is 0, to align with the default stencil clear value and GBlackTexture value
 		return (LightingChannelMask & 0x6) | (~LightingChannelMask & 0x1); 
 	}
+	inline bool IsVisibleInReflectionCaptures() const { return bVisibleInReflectionCaptures; }
 	inline bool ShouldRenderInMainPass() const { return bRenderInMainPass; }
 	inline bool IsCollisionEnabled() const { return bCollisionEnabled; }
 	inline bool IsHovered() const { return bHovered; }
@@ -585,6 +586,9 @@ private:
 
 	/** True if the primitive will cache static lighting. */
 	uint32 bStaticLighting : 1;
+
+	/** True if the primitive should be visible in reflection captures. */
+	uint32 bVisibleInReflectionCaptures : 1;
 
 	/** If true this primitive Renders in the mainPass */
 	uint32 bRenderInMainPass : 1;

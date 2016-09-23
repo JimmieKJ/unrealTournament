@@ -671,5 +671,10 @@ public:
 	virtual void RenderPostOpaqueExtensions(const FSceneView& View, FRHICommandListImmediate& RHICmdList, class FSceneRenderTargets& SceneContext) = 0;
 	virtual void RenderOverlayExtensions(const FSceneView& View, FRHICommandListImmediate& RHICmdList, FSceneRenderTargets& SceneContext) = 0;
 	virtual bool HasPostOpaqueExtentions() const = 0;
+
+	typedef void(*TPostResolvedSceneColorCallback)(FRHICommandListImmediate& RHICmdList, class FSceneRenderTargets& SceneContext);
+	virtual bool HasPostResolvedSceneColorExtension() const = 0;
+	virtual void RegisterPostResolvedSceneColorExtension(TPostResolvedSceneColorCallback Callback) = 0;
+	virtual void RenderPostResolvedSceneColorExtension(FRHICommandListImmediate& RHICmdList, class FSceneRenderTargets& SceneContext) = 0;
 };
 

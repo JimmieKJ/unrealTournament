@@ -114,12 +114,8 @@ static bool IsSkylightActive(const FViewInfo& View)
 		&& View.Family->EngineShowFlags.SkyLighting;
 }
 
-// @return 0:off, 0..3
-uint32 ComputeAmbientOcclusionPassCount(const FViewInfo& View)
+bool ShouldRenderScreenSpaceAmbientOcclusion(const FViewInfo& View)
 {
-	// 0:off / 1 / 2 / 3
-	uint32 Ret = 0;
-
 	bool bEnabled = true;
 
 	if (!IsLpvIndirectPassRequired(View))
@@ -131,6 +127,17 @@ uint32 ComputeAmbientOcclusionPassCount(const FViewInfo& View)
 			&& (FSSAOHelper::IsBasePassAmbientOcclusionRequired(View) || IsAmbientCubemapPassRequired(View) || IsReflectionEnvironmentActive(View) || IsSkylightActive(View) || View.Family->EngineShowFlags.VisualizeBuffer)
 			&& !IsAnyForwardShadingEnabled(View.GetShaderPlatform());
 	}
+
+	return bEnabled;
+}
+
+// @return 0:off, 0..3
+uint32 ComputeAmbientOcclusionPassCount(const FViewInfo& View)
+{
+	// 0:off / 1 / 2 / 3
+	uint32 Ret = 0;
+
+	const bool bEnabled = ShouldRenderScreenSpaceAmbientOcclusion(View);
 
 	if (bEnabled)
 	{

@@ -25,16 +25,6 @@ void FAssetTypeActions_Texture::GetActions( const TArray<UObject*>& InObjects, F
 			)
 		);
 
-	MenuBuilder.AddMenuEntry(
-		LOCTEXT("Texture_CreateSubUV", "Create SubUV Animation"),
-		LOCTEXT("Texture_CreateSubUVAnimationTooltip", "Creates a new SubUV Animation using this texture."),
-		FSlateIcon(FEditorStyle::GetStyleSetName(), "ClassIcon.Material"),
-		FUIAction(
-			FExecuteAction::CreateSP( this, &FAssetTypeActions_Texture::ExecuteCreateSubUVAnimation, Textures ),
-			FCanExecuteAction()
-			)
-		);
-
 	// @todo AssetTypeActions Implement FindMaterials using the asset registry.
 	/*
 	if ( InObjects.Num() == 1 )

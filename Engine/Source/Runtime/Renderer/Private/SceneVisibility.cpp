@@ -1459,6 +1459,12 @@ struct FRelevancePacket
 			const bool bEditorSelectionRelevance = ViewRelevance.bEditorStaticSelectionRelevance;
 			const bool bTranslucentRelevance = ViewRelevance.HasTranslucency();
 
+			if (View.bIsReflectionCapture && !PrimitiveSceneInfo->Proxy->IsVisibleInReflectionCaptures())
+			{
+				NotDrawRelevant.AddPrim(BitIndex);
+				continue;
+			}
+
 			if (bStaticRelevance && (bDrawRelevance || bShadowRelevance))
 			{
 				RelevantStaticPrimitives.AddPrim(BitIndex);
@@ -2007,7 +2013,7 @@ void FSceneRenderer::PreVisibilityFrameSetup(FRHICommandListImmediate& RHICmdLis
 	RHICmdList.BeginScene();
 
 	// Notify the FX system that the scene is about to perform visibility checks.
-	if (Scene->FXSystem)
+	if (Scene->FXSystem && !Views[0].bIsPlanarReflection)
 	{
 		Scene->FXSystem->PreInitViews();
 	}
@@ -2720,7 +2726,12 @@ void FSceneRenderer::PostVisibilityFrameSetup(FILCUpdatePrimTaskData& OutILCTask
 			}
 
 			// Draw shapes for reflection captures
-			if( View.bIsReflectionCapture && VisibleLightViewInfo.bInViewFrustum && Proxy->HasStaticLighting() && Proxy->GetLightType() != LightType_Directional )
+			if( View.bIsReflectionCapture 
+				&& VisibleLightViewInfo.bInViewFrustum
+				&& Proxy->HasStaticLighting() 
+				&& Proxy->GetLightType() != LightType_Directional 
+				// Min roughness is used to hide the specular response of virtual area lights, so skip drawing the source shape when Min Roughness is 1
+				&& Proxy->GetMinRoughness() < 1.0f)
 			{
 				FVector Origin = Proxy->GetOrigin();
 				FVector ToLight = Origin - View.ViewMatrices.ViewOrigin;
@@ -2908,6 +2919,12 @@ void FDeferredShadingSceneRenderer::InitViewsPossiblyAfterPrepass(FRHICommandLis
 	}
 
 	UpdateTranslucencyTimersAndSeparateTranslucencyBufferSize(RHICmdList);
+
+	for (int32 ViewIndex = 0; ViewIndex < Views.Num(); ViewIndex++)
+	{
+		FViewInfo& View = Views[ViewIndex];
+		SetupReflectionCaptureBuffers(View, RHICmdList);
+	}
 }
 
 /*------------------------------------------------------------------------------

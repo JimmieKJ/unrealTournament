@@ -37,12 +37,6 @@ ENUM_VK_ENTRYPOINTS_ALL(DEFINE_VK_ENTRYPOINTS)
 
 ///////////////////////////////////////////////////////////////////////////////
 
-static TAutoConsoleVariable<int32> GLSLCvar(
-	TEXT("r.Vulkan.UseGLSL"),
-	PLATFORM_ANDROID ? 2 : 0,
-	TEXT("2 to use ES GLSL\n1 to use GLSL\n0 to use SPIRV")
-	);
-
 static TAutoConsoleVariable<int32> GRHIThreadCvar(
 	TEXT("r.Vulkan.RHIThread"),
 	1,
@@ -573,7 +567,14 @@ void FVulkanDynamicRHI::InitInstance()
 		GSupportsRenderTargetFormat_PF_G8 = false;	// #todo-rco
 		GSupportsQuads = false;	// Not supported in Vulkan
 		GRHISupportsTextureStreaming = false;	// #todo-rco
+		GSupportsTimestampRenderQueries = false;	// #todo-rco
+		GRHIRequiresEarlyBackBufferRenderTarget = false;
+#if VULKAN_ENABLE_DUMP_LAYER
+		// Disable RHI thread by default if the dump layer is enabled
+		GRHISupportsRHIThread = false;
+#else
 		GRHISupportsRHIThread = GRHIThreadCvar->GetInt() != 0;
+#endif
 
 		// Indicate that the RHI needs to use the engine's deferred deletion queue.
 		GRHINeedsExtraDeletionLatency = true;
@@ -644,7 +645,7 @@ void FVulkanDynamicRHI::InitInstance()
 
 void FVulkanCommandListContext::RHIBeginFrame()
 {
-	//FRCLog::Printf(FString::Printf(TEXT("FVulkanCommandListContext::RHIBeginFrame()\n")));
+	//FRCLog::Printf(FString::Printf(TEXT("FVulkanCommandListContext::RHIBeginFrame()")));
 	PendingState->GetGlobalUniformPool().BeginFrame();
 
 	VulkanRHI::GManager.GPUProfilingData.BeginFrame(this, Device->GetTimestampQueryPool(RHI->GetPresentCount() % FVulkanDevice::NumTimestampPools));
@@ -653,12 +654,12 @@ void FVulkanCommandListContext::RHIBeginFrame()
 
 void FVulkanCommandListContext::RHIBeginScene()
 {
-	//FRCLog::Printf(FString::Printf(TEXT("FVulkanCommandListContext::RHIBeginScene\n")));
+	//FRCLog::Printf(FString::Printf(TEXT("FVulkanCommandListContext::RHIBeginScene()")));
 }
 
 void FVulkanCommandListContext::RHIEndScene()
 {
-	//FRCLog::Printf(FString::Printf(TEXT("FVulkanCommandListContext::RHIEndScene()\n")));
+	//FRCLog::Printf(FString::Printf(TEXT("FVulkanCommandListContext::RHIEndScene()")));
 	FVulkanCmdBuffer* CmdBuffer = CommandBufferManager->GetActiveCmdBuffer();
 	if (PendingState->IsRenderPassActive())
 	{
@@ -676,7 +677,8 @@ void FVulkanCommandListContext::RHIBeginDrawingViewport(FViewportRHIParamRef Vie
 
 void FVulkanCommandListContext::RHIEndDrawingViewport(FViewportRHIParamRef ViewportRHI, bool bPresent, bool bLockToVsync)
 {
-	//FRCLog::Printf(FString::Printf(TEXT("FVulkanCommandListContext::RHIEndDrawingViewport\n")));
+	//FRCLog::Printf(FString::Printf(TEXT("FVulkanCommandListContext::RHIEndDrawingViewport()")));
+	check(IsImmediate());
 	FVulkanViewport* Viewport = ResourceCast(ViewportRHI);
 	check(Viewport == RHI->DrawingViewport);
 	RHI->DrawingViewport = nullptr;
@@ -705,7 +707,7 @@ void FVulkanCommandListContext::RHIEndDrawingViewport(FViewportRHIParamRef Viewp
 
 void FVulkanCommandListContext::RHIEndFrame()
 {
-	//FRCLog::Printf(FString::Printf(TEXT("FVulkanCommandListContext::RHIEndFrame\n")));
+	//FRCLog::Printf(FString::Printf(TEXT("FVulkanCommandListContext::RHIEndFrame()")));
 	Device->GetDeferredDeletionQueue().ReleaseResources();
 
 	Device->GetStagingManager().ProcessPendingFree();
@@ -722,6 +724,7 @@ void FVulkanCommandListContext::RHIPushEvent(const TCHAR* Name, FColor Color)
 	//only valid on immediate context currently.  needs to be fixed for parallel rhi execute
 	if (IsImmediate())
 	{
+		//FRCLog::Printf(FString::Printf(TEXT("RHIPushEvent(%s)"), Name));
 #if VULKAN_ENABLE_DRAW_MARKERS
 #if VULKAN_ENABLE_DUMP_LAYER
 		VulkanRHI::PrintfBegin(FString::Printf(TEXT("vkCmdDbgMarkerBeginEXT(%s)"), Name));
@@ -749,6 +752,7 @@ void FVulkanCommandListContext::RHIPopEvent()
 	//only valid on immediate context currently.  needs to be fixed for parallel rhi execute
 	if (IsImmediate())
 	{
+		//FRCLog::Printf(TEXT("RHIPopEvent"));
 #if VULKAN_ENABLE_DRAW_MARKERS
 #if VULKAN_ENABLE_DUMP_LAYER
 		VulkanRHI::PrintfBegin(TEXT("vkCmdDbgMarkerEndEXT()"));
@@ -910,23 +914,14 @@ void FVulkanDescriptorSetsLayout::AddDescriptor(int32 DescriptorSetIndex, const 
 	// Increment type usage
 	LayoutTypes[Descriptor.descriptorType]++;
 
-	FSetLayout* DescSetLayout = nullptr;
-	for (int32 Index = 0; Index < Layouts.Num(); ++Index)
-	{
-		if (Layouts[Index].DescriptorSetIndex == DescriptorSetIndex)
+	if (DescriptorSetIndex >= SetLayouts.Num())
 		{
-			DescSetLayout = &Layouts[Index];
-			break;
-		}
+		SetLayouts.SetNum(DescriptorSetIndex + 1, false);
 	}
 
-	if (!DescSetLayout)
-	{
-		DescSetLayout = new(Layouts) FSetLayout;
-		DescSetLayout->DescriptorSetIndex = DescriptorSetIndex;
-	}
+	FSetLayout& DescSetLayout = SetLayouts[DescriptorSetIndex];
 
-	VkDescriptorSetLayoutBinding* Binding = new(DescSetLayout->LayoutBindings) VkDescriptorSetLayoutBinding;
+	VkDescriptorSetLayoutBinding* Binding = new(DescSetLayout.LayoutBindings) VkDescriptorSetLayoutBinding;
 	FMemory::Memzero(*Binding);
 	*Binding = Descriptor;
 }
@@ -973,9 +968,9 @@ void FVulkanDescriptorSetsLayout::Compile()
 			+	LayoutTypes[VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER]
 			<	Limits.maxDescriptorSetStorageImages);
 
-	LayoutHandles.Empty(Layouts.Num());
+	LayoutHandles.Empty(SetLayouts.Num());
 
-	for (FSetLayout& Layout : Layouts)
+	for (FSetLayout& Layout : SetLayouts)
 	{
 		VkDescriptorSetLayoutCreateInfo DescriptorLayoutInfo;
 		FMemory::Memzero(DescriptorLayoutInfo);
@@ -996,7 +991,8 @@ FVulkanDescriptorSets::FVulkanDescriptorSets(FVulkanDevice* InDevice, const FVul
 	, Layout(InState->GetDescriptorSetsLayout())
 {
 	const TArray<VkDescriptorSetLayout>& LayoutHandles = Layout.GetHandles();
-
+	if (LayoutHandles.Num() > 0)
+	{
 	VkDescriptorSetAllocateInfo DescriptorSetAllocateInfo;
 	FMemory::Memzero(DescriptorSetAllocateInfo);
 	DescriptorSetAllocateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
@@ -1009,6 +1005,7 @@ FVulkanDescriptorSets::FVulkanDescriptorSets(FVulkanDevice* InDevice, const FVul
 
 	Pool = InContext->AllocateDescriptorSets(DescriptorSetAllocateInfo, Sets.GetData());
 	Pool->TrackAddUsage(Layout);
+}
 }
 
 FVulkanDescriptorSets::~FVulkanDescriptorSets()
@@ -1198,8 +1195,8 @@ void VulkanResolveImage(VkCommandBuffer Cmd, FTextureRHIParamRef SourceTextureRH
 	FVulkanTextureBase* Src = FVulkanTextureBase::Cast(SourceTextureRHI);
 	FVulkanTextureBase* Dst = FVulkanTextureBase::Cast(DestTextureRHI);
 
-	check(Src->Surface.GetAspectMask() == Dst->Surface.GetAspectMask());
-	const VkImageAspectFlags AspectMask = Src->Surface.GetAspectMask();
+	const VkImageAspectFlags AspectMask = Src->Surface.GetPartialAspectMask();
+	check(AspectMask == Dst->Surface.GetPartialAspectMask());
 
 	VkImageResolve ResolveDesc;
 	FMemory::Memzero(ResolveDesc);

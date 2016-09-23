@@ -269,9 +269,9 @@ float3 MinimalReprojectionForDebugging(float2 UV, float4 SvPosition)
 void SSRTemporalAAPS( 
 	noperspective 	float2 UV 						: TEXCOORD0, 
 	noperspective	float3 InExposureScaleVignette 	: TEXCOORD1, 
-					float4 Unused2 					: TEXCOORD2,
-					float4 Unused3 					: TEXCOORD3,
-					float4 Unused4 					: TEXCOORD4,
+	noperspective	float4 Unused2 					: TEXCOORD2,
+	noperspective	float4 Unused3 					: TEXCOORD3,
+	noperspective	float4 Unused4 					: TEXCOORD4,
 					float4 SvPosition 				: SV_POSITION,		// after all interpolators
 	out 			float4 OutColor 				: SV_Target0 
 	)

@@ -5,7 +5,20 @@
  */
 
 #pragma once
+#include "CookStats.h"
 #include "SubUVAnimation.generated.h"
+
+#if ENABLE_COOK_STATS
+class SubUVAnimationCookStats
+{
+public:
+	static FCookStats::FDDCResourceUsageStats UsageStats;
+	static FCookStatsManager::FAutoRegisterCallback RegisterCookStats;
+};
+#endif
+
+// Can change this guid to force SubUV derived data to be regenerated on next load
+#define SUBUV_DERIVEDDATA_VER TEXT("67E9AF86DF8B4D8E97B7A614A73CD4BF")
 
 /** 
  * More bounding vertices results in reduced overdraw, but adds more triangle overhead.
@@ -57,6 +70,28 @@ public:
 		FVertexBuffer::ReleaseRHI();
 		ShaderResourceView.SafeRelease();
 	}
+};
+
+/** Resource array to pass  */
+class FSubUVVertexResourceArray : public FResourceArrayInterface
+{
+public:
+	FSubUVVertexResourceArray(void* InData, uint32 InSize)
+		: Data(InData)
+		, Size(InSize)
+	{
+	}
+
+	virtual const void* GetResourceData() const override { return Data; }
+	virtual uint32 GetResourceDataSize() const override { return Size; }
+	virtual void Discard() override { }
+	virtual bool IsStatic() const override { return false; }
+	virtual bool GetAllowCPUAccess() const override { return false; }
+	virtual void SetAllowCPUAccess(bool bInNeedsCPUAccess) override { }
+
+private:
+	void* Data;
+	uint32 Size;
 };
 
 /**

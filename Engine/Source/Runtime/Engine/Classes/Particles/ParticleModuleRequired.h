@@ -5,6 +5,7 @@
 #include "Particles/ParticleModule.h"
 #include "Particles/ParticleEmitter.h"
 #include "Particles/ParticleSpriteEmitter.h"
+#include "SubUVAnimation.h"
 #include "ParticleModuleRequired.generated.h"
 
 class UInterpCurveEdSetup;
@@ -292,6 +293,36 @@ class UParticleModuleRequired : public UParticleModule
 	UPROPERTY(EditAnywhere, Category=Rendering)
 	int32 MaxDrawCount;
 
+	/**
+	* Controls UV Flipping for this emitter.
+	*/
+	UPROPERTY(EditAnywhere, Category=Rendering)
+	EParticleUVFlipMode UVFlippingMode;
+
+	/**
+	* Texture to generate bounding geometry from.
+	*/
+	UPROPERTY(EditAnywhere, Category=Rendering)
+	UTexture2D* CutoutTexture;
+
+	/**
+	* More bounding vertices results in reduced overdraw, but adds more triangle overhead.
+	* The eight vertex mode is best used when the SubUV texture has a lot of space to cut out that is not captured by the four vertex version,
+	* and when the particles using the texture will be few and large.
+	*/
+	UPROPERTY(EditAnywhere, Category=Rendering)
+	TEnumAsByte<enum ESubUVBoundingVertexCount> BoundingMode;
+
+	UPROPERTY(EditAnywhere, Category=Rendering)
+	TEnumAsByte<enum EOpacitySourceMode> OpacitySourceMode;
+
+	/**
+	* Alpha channel values larger than the threshold are considered occupied and will be contained in the bounding geometry.
+	* Raising this threshold slightly can reduce overdraw in particles using this animation asset.
+	*/
+	UPROPERTY(EditAnywhere, Category=Rendering, meta=(UIMin = "0", UIMax = "1"))
+	float AlphaThreshold;
+
 	/** Normal generation mode for this emitter LOD. */
 	UPROPERTY(EditAnywhere, Category=Normals)
 	TEnumAsByte<enum EEmitterNormalsMode> EmitterNormalsMode;
@@ -317,12 +348,6 @@ class UParticleModuleRequired : public UParticleModule
 	UPROPERTY(EditAnywhere, Category=Emitter)
 	uint32 bOrbitModuleAffectsVelocityAlignment:1;
 
-	/**
-	* Controls UV Flipping for this emitter.
-	*/
-	UPROPERTY(EditAnywhere, Category = Rendering)
-	EParticleUVFlipMode UVFlippingMode;
-
 	/** 
 	*	Named material overrides for this emitter. 
 	*	Overrides this emitter's material(s) with those in the correspondingly named slot(s) of the owning system.
@@ -334,12 +359,17 @@ class UParticleModuleRequired : public UParticleModule
 	void InitializeDefaults();
 
 	//~ Begin UObject Interface
+	virtual void PostLoad() override;
+	virtual void PostInitProperties() override;
+	virtual void Serialize(FArchive& Ar) override;
 #if WITH_EDITOR
-	virtual void	PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
+	virtual void PreEditChange(UProperty* PropertyAboutToChange) override;
+	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
 	virtual bool IsValidForLODLevel(UParticleLODLevel* LODLevel, FString& OutErrorString) override;
 #endif // WITH_EDITOR
-	virtual void	PostLoad() override;
-	virtual void	PostInitProperties() override;
+	virtual void BeginDestroy() override;
+	virtual bool IsReadyForFinishDestroy() override;
+	virtual void FinishDestroy() override;
 	//~ End UObject Interface
 
 	//~ Begin UParticleModule Interface
@@ -350,11 +380,56 @@ class UParticleModuleRequired : public UParticleModule
 		return true;
 	}
 	virtual EModuleType	GetModuleType() const override {	return EPMT_Required;	}
-	virtual bool	GenerateLODModuleValues(UParticleModule* SourceModule, float Percentage, UParticleLODLevel* LODLevel) override;
+	virtual bool GenerateLODModuleValues(UParticleModule* SourceModule, float Percentage, UParticleLODLevel* LODLevel) override;
 	//~ End UParticleModule Interface
+
+	inline int32 GetNumFrames() const
+	{
+		return SubImages_Vertical * SubImages_Horizontal;
+	}
+
+	inline bool IsBoundingGeometryValid() const
+	{
+		return CutoutTexture != nullptr;
+	}
+
+	inline FShaderResourceViewRHIParamRef GetBoundingGeometrySRV() const
+	{
+		return BoundingGeometryBuffer->ShaderResourceView;
+	}
+
+	inline int32 GetNumBoundingVertices() const
+	{
+		return BoundingMode == BVC_FourVertices ? 4 : 8;
+	}
+
+	inline int32 GetNumBoundingTriangles() const
+	{
+		return BoundingMode == BVC_FourVertices ? 2 : 6;
+	}
+
+	inline const FVector2D* GetFrameData(int32 FrameIndex) const
+	{
+		return &DerivedData.BoundingGeometry[FrameIndex * GetNumFrames()];
+	}
 
 protected:
 	friend class FParticleModuleRequiredDetails;
+	friend struct FParticleEmitterInstance;
+
+private:
+	/** Derived data for this asset, generated off of SubUVTexture. */
+	FSubUVDerivedData DerivedData;
+
+	/** Tracks progress of BoundingGeometryBuffer release during destruction. */
+	FRenderCommandFence ReleaseFence;
+
+	/** Used on platforms that support instancing, the bounding geometry is fetched from a vertex shader instead of on the CPU. */
+	FSubUVBoundingGeometryBuffer* BoundingGeometryBuffer;
+
+	void CacheDerivedData();
+	void InitBoundingGeometryBuffer();
+	void GetDefaultCutout();
 };
 
 

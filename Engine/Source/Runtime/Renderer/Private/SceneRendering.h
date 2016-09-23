@@ -129,6 +129,8 @@ namespace ETranslucencyPass
 		TPT_StandardTranslucency,
 		TPT_SeparateTranslucency,
 
+		/** Drawing all translucency, regardless of separate or standard.  Used when drawing translucency outside of the main renderer, eg FRendererModule::DrawTile. */
+		TPT_AllTranslucency,
 		TPT_MAX
 	};
 };
@@ -578,7 +580,9 @@ public:
 
 BEGIN_UNIFORM_BUFFER_STRUCT_WITH_CONSTRUCTOR(FForwardGlobalLightData,)
 	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(uint32,NumLocalLights)
+	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(uint32,NumReflectionCaptures)
 	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(uint32,HasDirectionalLight)
+	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(uint32,NumGridCells)
 	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(FIntVector,CulledGridSize)
 	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(uint32,MaxCulledLightsPerCell)
 	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(uint32,LightGridPixelSizeShift)
@@ -613,6 +617,24 @@ public:
 		NextCulledLightData.Release();
 	}
 };
+
+/** 
+ * Number of reflection captures to allocate uniform buffer space for. 
+ * This is currently limited by the array texture max size of 2048 for d3d11 (each cubemap is 6 slices).
+ * Must touch the reflection shaders to propagate changes.
+ */
+static const int32 GMaxNumReflectionCaptures = 341;
+
+/** Per-reflection capture data needed by the shader. */
+BEGIN_UNIFORM_BUFFER_STRUCT(FReflectionCaptureData,)
+	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER_ARRAY(FVector4,PositionAndRadius,[GMaxNumReflectionCaptures])
+	// R is brightness, G is array index, B is shape
+	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER_ARRAY(FVector4,CaptureProperties,[GMaxNumReflectionCaptures])
+	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER_ARRAY(FVector4,CaptureOffsetAndAverageBrightness,[GMaxNumReflectionCaptures])
+	// Stores the box transform for a box shape, other data is packed for other shapes
+	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER_ARRAY(FMatrix,BoxTransform,[GMaxNumReflectionCaptures])
+	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER_ARRAY(FVector4,BoxScales,[GMaxNumReflectionCaptures])
+END_UNIFORM_BUFFER_STRUCT(FReflectionCaptureData)
 
 /** A FSceneView with additional state used by the scene renderer. */
 class FViewInfo : public FSceneView
@@ -787,6 +809,11 @@ public:
 	// Hierarchical Z Buffer
 	TRefCountPtr<IPooledRenderTarget> HZB;
 
+	int32 NumBoxReflectionCaptures;
+	int32 NumSphereReflectionCaptures;
+	float FurthestReflectionCaptureDistance;
+	TUniformBufferRef<FReflectionCaptureData> ReflectionCaptureUniformBuffer;
+
 	/** Points to the view state's resources if a view state exists. */
 	FForwardLightingViewResources* ForwardLightingResources;
 
@@ -845,10 +872,6 @@ public:
 		int32 NumTranslucentCascades,
 		FViewUniformShaderParameters& ViewUniformShaderParameters) const;
 
-	void SetupViewRectUniformBufferParameters(
-		FIntPoint BufferSize,
-		FIntRect EffectiveViewRect,
-		FViewUniformShaderParameters& ViewUniformShaderParameters) const;
 
 	void SetupDefaultGlobalDistanceFieldUniformBufferParameters(FViewUniformShaderParameters& ViewUniformShaderParameters) const;
 	void SetupGlobalDistanceFieldUniformBufferParameters(FViewUniformShaderParameters& ViewUniformShaderParameters) const;

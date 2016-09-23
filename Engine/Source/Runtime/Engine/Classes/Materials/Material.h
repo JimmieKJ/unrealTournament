@@ -643,8 +643,11 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Mobile)
 	uint32 bUseLightmapDirectionality:1;
 
-	/* Enables high quality reflections in the forward renderer. Enabling this setting reduces the number of samplers available to the material as two more samplers will be used for reflection cubemaps. */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Mobile, meta = (DisplayName = "High Quality Reflections"))
+	/* 
+	 * Forward renderer: enables multiple parallax-corrected reflection captures that blend together.
+	 * Mobile renderer: blend between nearest 3 reflection captures, but reduces the number of samplers available to the material as two more samplers will be used for reflection cubemaps.
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = ForwardShading, meta = (DisplayName = "High Quality Reflections"))
 	uint32 bUseHQForwardReflections : 1;
 
 	/* Enables planar reflection when using the forward renderer or mobile. Enabling this setting reduces the number of samplers available to the material as one more sampler will be used for the planar reflection. */

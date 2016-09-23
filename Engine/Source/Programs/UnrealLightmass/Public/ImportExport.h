@@ -42,16 +42,16 @@ namespace Lightmass
 	 * This must be done whenever modifying code that changes how each data type is exported!
 	 */
 
-	static const FGuid LM_TEXTUREMAPPING_VERSION		= FGuid(0x055500b3, 0x2cb94f56, 0x94779078, 0x019f81c8);
-	static const FGuid LM_VOLUMESAMPLES_VERSION			= FGuid(0x7dd6859c, 0xfcd74197, 0x9a8213bb, 0x81e918af);
-	static const FGuid LM_PRECOMPUTEDVISIBILITY_VERSION	= FGuid(0x4d5b34b7, 0x78e249b3, 0xa52e17be, 0x972ccefa);
-	static const FGuid LM_VOLUMEDEBUGOUTPUT_VERSION		= FGuid(0xc1eec501, 0xaef04f1a, 0xbf4ffd06, 0x0e7ace87);
-	static const FGuid LM_DOMINANTSHADOW_VERSION		= FGuid(0x4bfb3770, 0x679b4986, 0x9bcce987, 0x9022f7fd);
-	static const FGuid LM_MESHAREALIGHTDATA_VERSION		= FGuid(0x7b05d71b, 0x81484a07, 0xa15e44ba, 0x76f4634f);
-	static const FGuid LM_DEBUGOUTPUT_VERSION			= FGuid(0xfa520216, 0xd5aa49eb, 0xa9bbc1f5, 0x8ab715fc);
-	static const FGuid LM_SCENE_VERSION					= FGuid(0x8ad6acb1, 0xe15e4fec, 0x93c72936, 0xf2b67090);
-	static const FGuid LM_STATICMESH_VERSION			= FGuid(0x3af088ee, 0xf8ee4f6e, 0x920369cc, 0x8a00d4c6);
-	static const FGuid LM_MATERIAL_VERSION				= FGuid(0x8487ad2e, 0x5dba413c, 0x81373d29, 0xb2915895);
+	static const int32 LM_TEXTUREMAPPING_VERSION		= 1;
+	static const int32 LM_VOLUMESAMPLES_VERSION			= 1;
+	static const int32 LM_PRECOMPUTEDVISIBILITY_VERSION	= 1;
+	static const int32 LM_VOLUMEDEBUGOUTPUT_VERSION		= 1;
+	static const int32 LM_DOMINANTSHADOW_VERSION		= 1;
+	static const int32 LM_MESHAREALIGHTDATA_VERSION		= 1;
+	static const int32 LM_DEBUGOUTPUT_VERSION			= 1;
+	static const int32 LM_SCENE_VERSION					= 1;
+	static const int32 LM_STATICMESH_VERSION			= 1;
+	static const int32 LM_MATERIAL_VERSION				= 1;
 
 
 	/** Alert source object type identifiers... */
@@ -454,9 +454,9 @@ namespace Lightmass
 	 *
 	 * @return Standard channel name
 	 */
-	FORCEINLINE FString CreateChannelName(const FGuid& Guid, const FGuid& Version, const FString& Extension)
+	FORCEINLINE FString CreateChannelName(const FGuid& Guid, const int32 Version, const FString& Extension)
 	{
-		return FString::Printf(TEXT("%08X%08X%08X%08X.%08X%08X%08X%08X.%s"), Version.A, Version.B, Version.C, Version.D, Guid.A, Guid.B, Guid.C, Guid.D, *Extension);
+		return FString::Printf(TEXT("v%d.%08X%08X%08X%08X.%s"), Version, Guid.A, Guid.B, Guid.C, Guid.D, *Extension);
 	}
 
 	/**
@@ -468,8 +468,8 @@ namespace Lightmass
 	 *
 	 * @return Standard channel name
 	 */
-	FORCEINLINE FString CreateChannelName(const FSHAHash& Hash, const FGuid& Version, const FString& Extension)
+	FORCEINLINE FString CreateChannelName(const FSHAHash& Hash, const int32 Version, const FString& Extension)
 	{
-		return FString::Printf(TEXT("%08X%08X%08X%08X.%s.%s"), Version.A, Version.B, Version.C, Version.D, *Hash.ToString(), *Extension);
+		return FString::Printf(TEXT("v%d.%s.%s"), Version, *Hash.ToString(), *Extension);
 	}
 } // namespace Lightmass

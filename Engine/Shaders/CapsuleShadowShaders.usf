@@ -566,7 +566,7 @@ Texture2D ReceiverBentNormalTexture;
 RWTexture2D<float4> RWBentNormalTexture;
 #endif
 
-float ReduceSelfShadowingIntensity;
+float IndirectCapsuleSelfShadowingIntensity;
 uint DownsampleFactor;
 RWTexture2D<float2> RWShadowFactors;
 float MaxOcclusionDistance;
@@ -686,11 +686,11 @@ void CapsuleShadowingCS(
 
 #if LIGHT_SOURCE_MODE == LIGHT_SOURCE_FROM_CAPSULE && !FORWARD_SHADING
 	BRANCH
-	if (ReduceSelfShadowingIntensity > 0)
+	if (IndirectCapsuleSelfShadowingIntensity < 1)
 	{
 		FGBufferData GBufferData = GetGBufferData(ScreenUV);
 		// Reduce self shadowing intensity
-		Visibility = lerp(Visibility, 1, HasDistanceFieldRepresentation(GBufferData) ? .8f : 0);
+		Visibility = lerp(1, Visibility, HasDistanceFieldRepresentation(GBufferData) ? IndirectCapsuleSelfShadowingIntensity : 1);
 	}
 #endif
 

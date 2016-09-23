@@ -159,6 +159,12 @@ TAutoConsoleVariable<int32> CVarStreamingLimitPoolSizeToVRAM(
 	TEXT("If non-zero, texture pool size with be limited to how much GPU mem is available."),
 	ECVF_Scalability);
 
+TAutoConsoleVariable<int32> CVarStreamingCheckBuildStatus(
+	TEXT("r.Streaming.CheckBuildStatus"),
+	0,
+	TEXT("If non-zero, the engine will check whether texture streaming needs rebuild."),
+	ECVF_Scalability);
+
 
 void FTextureStreamingSettings::Update()
 {

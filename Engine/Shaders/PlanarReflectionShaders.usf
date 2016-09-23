@@ -118,6 +118,7 @@ void PlanarReflectionPS(
 	out float4 OutColor : SV_Target0
 	)
 {
+	ResolvedView = ResolveView();
 	OutColor = 0;
 
 	float SceneDepth = CalcSceneDepth(InUV);

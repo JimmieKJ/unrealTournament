@@ -30,7 +30,13 @@ public class HierarchicalLODOutliner : ModuleRules
 				}
          );
 
-        if (UEBuildConfiguration.bBuildEditor == true)
+		PrivateIncludePathModuleNames.AddRange(
+			new string[] {
+				"LevelEditor"
+				}
+		);
+
+		if (UEBuildConfiguration.bBuildEditor == true)
         {
             PrivateDependencyModuleNames.AddRange(
                 new string[] {

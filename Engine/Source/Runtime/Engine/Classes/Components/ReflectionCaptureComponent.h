@@ -93,15 +93,15 @@ class UReflectionCaptureComponent : public USceneComponent
 	UBillboardComponent* CaptureOffsetComponent;
 
 	/** Indicates where to get the reflection source from. */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = ReflectionCapture)
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=ReflectionCapture)
 	TEnumAsByte<EReflectionSourceType> ReflectionSourceType;
 
 	/** Cubemap to use for reflection if ReflectionSourceType is set to RS_SpecifiedCubemap. */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = ReflectionCapture)
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=ReflectionCapture)
 	class UTextureCube* Cubemap;
 
 	/** Angle to rotate the source cubemap when SourceType is set to SLS_SpecifiedCubemap. */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = ReflectionCapture, meta = (UIMin = "0", UIMax = "360"))
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=ReflectionCapture, meta = (UIMin = "0", UIMax = "360"))
 	float SourceCubemapAngle;
 
 	/** A brightness control to scale the captured scene's reflection intensity. */

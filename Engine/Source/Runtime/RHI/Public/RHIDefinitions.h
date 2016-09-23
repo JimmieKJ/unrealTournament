@@ -595,6 +595,7 @@ enum class ESimpleRenderTargetMode
 	EClearColorExistingDepth,						// Clear Color = whatever was bound to the rendertarget at creation time. Depth = Existing
 	EClearColorAndDepth,							// Clear color and depth to bound clear values.
 	EExistingContents_NoDepthStore,					// Load existing contents, but don't store depth out.  depth can be written.
+	EExistingColorAndClearDepth,					// Color = Existing, Depth = clear value
 
 	// If you add an item here, make sure to add it to DecodeRenderTargetMode() as well!
 };
@@ -796,6 +797,13 @@ inline bool RHISupportsSeparateMSAAAndResolveTextures(const EShaderPlatform Plat
 {
 	// Metal and Vulkan needs to handle MSAA and resolve textures internally (unless RHICreateTexture2D was changed to take an optional resolve target)
 	return !IsMetalPlatform(Platform) && !IsVulkanPlatform(Platform);
+}
+
+inline bool RHISupportsMSAA(EShaderPlatform Platform)
+{
+	return Platform != SP_PS4
+		//@todo-rco: Fix when iOS OpenGL supports MSAA
+		&& Platform != SP_OPENGL_ES2_IOS;
 }
 
 inline bool RHISupportsComputeShaders(const EShaderPlatform Platform)

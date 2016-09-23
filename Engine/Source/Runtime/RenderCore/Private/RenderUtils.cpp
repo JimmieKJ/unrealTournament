@@ -69,7 +69,7 @@ FPixelFormatInfo	GPixelFormats[PF_MAX] =
 	{ TEXT("DXT3"),				4,			4,			1,			16,			4,				0,				1,				PF_DXT3				},
 	{ TEXT("DXT5"),				4,			4,			1,			16,			4,				0,				1,				PF_DXT5				},
 	{ TEXT("UYVY"),				2,			1,			1,			4,			4,				0,				0,				PF_UYVY				},
-	{ TEXT("FloatRGB"),			1,			1,			1,			0,			3,				0,				0,				PF_FloatRGB			},
+	{ TEXT("FloatRGB"),			1,			1,			1,			0,			3,				0,				1,				PF_FloatRGB			},
 	{ TEXT("FloatRGBA"),		1,			1,			1,			8,			4,				0,				1,				PF_FloatRGBA		},
 	{ TEXT("DepthStencil"),		1,			1,			1,			0,			1,				0,				0,				PF_DepthStencil		},
 	{ TEXT("ShadowDepth"),		1,			1,			1,			4,			1,				0,				0,				PF_ShadowDepth		},

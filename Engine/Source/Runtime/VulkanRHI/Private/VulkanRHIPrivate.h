@@ -178,7 +178,7 @@ private:
 class FVulkanFramebuffer
 {
 public:
-	FVulkanFramebuffer(FVulkanDevice& Device, const FRHISetRenderTargetsInfo& RTInfo, const FVulkanRenderTargetLayout& RTLayout, const FVulkanRenderPass& RenderPass);
+	FVulkanFramebuffer(FVulkanDevice& Device, const FRHISetRenderTargetsInfo& InRTInfo, const FVulkanRenderTargetLayout& RTLayout, const FVulkanRenderPass& RenderPass);
 
 	bool Matches(const FRHISetRenderTargetsInfo& RTInfo) const;
 
@@ -203,9 +203,24 @@ public:
 		return BackBuffer;
 	}
 
-	inline bool ContainsRenderTarget(const FVulkanTextureBase* Texture) const
+	inline bool ContainsRenderTarget(const FRHITexture* Texture) const
 	{
 		for (int32 Index = 0; Index < RTInfo.NumColorRenderTargets; ++Index)
+		{
+			FRHITexture* RHITexture = RTInfo.ColorRenderTarget[Index].Texture;
+			if (Texture == RHITexture)
+			{
+				return true;
+			}
+		}
+
+		return Texture == (FVulkanTexture2D*)RTInfo.DepthStencilRenderTarget.Texture;
+	}
+
+	inline bool ContainsRenderTarget(const FVulkanTextureBase* Texture) const
+	{
+		check(Texture);
+		for (int32 Index = 0; Index < FMath::Min((int32)NumColorAttachments, RTInfo.NumColorRenderTargets); ++Index)
 		{
 			FRHITexture* RHITexture = RTInfo.ColorRenderTarget[Index].Texture;
 			if (RHITexture->GetTexture2D() && Texture == (FVulkanTextureBase*)(FVulkanTexture2D*)RHITexture)
@@ -241,7 +256,7 @@ private:
 
 	// We do not adjust RTInfo, since it used for hashing and is what the UE provides,
 	// it's up to VulkanRHI to handle this correctly.
-	FRHISetRenderTargetsInfo RTInfo;
+	const FRHISetRenderTargetsInfo RTInfo;
 	uint32 NumColorAttachments;
 
 	FVulkanBackBuffer* BackBuffer;
@@ -258,6 +273,7 @@ public:
 
 private:
 	friend class FVulkanPendingState;
+	friend class FVulkanCommandListContext;
 
 #if VULKAN_ENABLE_PIPELINE_CACHE
 	friend class FVulkanPipelineStateCache;
@@ -295,15 +311,12 @@ public:
 
 	struct FSetLayout
 	{
-		FSetLayout() : DescriptorSetIndex(-1) {}
-
 		TArray<VkDescriptorSetLayoutBinding> LayoutBindings;
-		int32 DescriptorSetIndex;
 	};
 
 	const TArray<FSetLayout>& GetLayouts() const
 	{
-		return Layouts;
+		return SetLayouts;
 	}
 
 private:
@@ -311,7 +324,7 @@ private:
 
 	uint32 LayoutTypes[VK_DESCRIPTOR_TYPE_RANGE_SIZE];
 
-	TArray<FSetLayout> Layouts;
+	TArray<FSetLayout> SetLayouts;
 	TArray<VkDescriptorSetLayout> LayoutHandles;
 };
 
@@ -374,6 +387,33 @@ private:
 	friend class FVulkanBoundShaderState;
 	friend class FVulkanCommandListContext;
 };
+
+
+namespace VulkanRHI
+{
+	inline void SetupBarrier(VkImageMemoryBarrier& Barrier, const FVulkanSurface& Surface, VkAccessFlags SrcMask, VkImageLayout SrcLayout, VkAccessFlags DstMask, VkImageLayout DstLayout)
+	{
+		Barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+		Barrier.srcAccessMask = SrcMask;
+		Barrier.dstAccessMask = DstMask;
+		Barrier.oldLayout = SrcLayout;
+		Barrier.newLayout = DstLayout;
+		Barrier.image = Surface.Image;
+		Barrier.subresourceRange.aspectMask = Surface.GetFullAspectMask();
+		Barrier.subresourceRange.levelCount = Surface.GetNumMips();
+		//#todo-rco: Cubemaps?
+		//Barriers[Index].subresourceRange.baseArrayLayer = 0;
+		Barrier.subresourceRange.layerCount = 1;
+		Barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+		Barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+	}
+
+	inline void SetupAndZeroBarrier(VkImageMemoryBarrier& Barrier, const FVulkanSurface& Surface, VkAccessFlags SrcMask, VkImageLayout SrcLayout, VkAccessFlags DstMask, VkImageLayout DstLayout)
+	{
+		FMemory::Memzero(Barrier);
+		SetupBarrier(Barrier, Surface, SrcMask, SrcLayout, DstMask, DstLayout);
+	}
+}
 
 void VulkanSetImageLayout(VkCommandBuffer CmdBuffer, VkImage Image, VkImageLayout OldLayout, VkImageLayout NewLayout, const VkImageSubresourceRange& SubresourceRange);
 
@@ -455,6 +495,42 @@ namespace VulkanRHI
 			return VK_IMAGE_ASPECT_COLOR_BIT;
 		}
 	}
+
+	inline VkAccessFlags GetAccessMask(VkImageLayout Layout)
+	{
+		VkAccessFlags Flags = 0;
+		switch (Layout)
+		{
+		case VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL:
+			Flags = VK_ACCESS_TRANSFER_READ_BIT;
+			break;
+		case VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL:
+			Flags = VK_ACCESS_TRANSFER_WRITE_BIT;
+			break;
+		case VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL:
+			Flags = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+			break;
+		case VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL:
+			Flags = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+			break;
+		case VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL:
+			Flags = VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_INPUT_ATTACHMENT_READ_BIT;
+			break;
+		case VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL:
+			Flags = VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT;
+			break;
+		case VK_IMAGE_LAYOUT_PRESENT_SRC_KHR:
+		case VK_IMAGE_LAYOUT_GENERAL:
+		case VK_IMAGE_LAYOUT_UNDEFINED:
+			Flags = 0;
+			break;
+			break;
+		default:
+			check(0);
+			break;
+		}
+		return Flags;
+	};
 }
 
 #if VULKAN_HAS_DEBUGGING_ENABLED

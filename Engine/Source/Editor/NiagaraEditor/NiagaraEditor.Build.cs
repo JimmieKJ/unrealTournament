@@ -6,6 +6,10 @@ public class NiagaraEditor : ModuleRules
 {
 	public NiagaraEditor(TargetInfo Target)
 	{
+		PrivateIncludePaths.AddRange(new string[] {
+			"Editor/NiagaraEditor/Private",
+		});
+
 		PrivateDependencyModuleNames.AddRange(
 			new string[] {
 				"Engine",
@@ -19,31 +23,38 @@ public class NiagaraEditor : ModuleRules
 				"Kismet",
                 "EditorStyle",
 				"UnrealEd", 
-				"GraphEditor", 
 				"VectorVM",
                 "Niagara",
                 "MovieScene",
 				"Sequencer",
 				"PropertyEditor",
+				"GraphEditor"
 			}
 		);
 
-        PublicDependencyModuleNames.AddRange(
+		PrivateIncludePathModuleNames.AddRange(
+			new string[] {
+				"Engine",
+				"Messaging",
+				"LevelEditor",
+				"AssetTools"
+			}
+		);
+
+		PublicDependencyModuleNames.AddRange(
             new string[] {
 				"Engine",
                 "Niagara",
                 "UnrealEd",
-                "PropertyEditor",
             }
         );
 
         PublicIncludePathModuleNames.AddRange(
             new string[] {
-				"Engine", 
-				"Messaging", 
-				"GraphEditor", 
-				"LevelEditor"}
-                );
+				"Engine",
+				"Niagara"
+			}
+		);
 
 		DynamicallyLoadedModuleNames.AddRange(
             new string[] {

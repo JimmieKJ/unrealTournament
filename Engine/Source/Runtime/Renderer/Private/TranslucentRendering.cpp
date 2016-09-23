@@ -496,7 +496,8 @@ bool FTranslucencyDrawingPolicyFactory::DrawMesh(
 		const bool bMeshUseSeparateTranslucency = Material->IsSeparateTranslucencyEnabled() && IsSeparateTranslucencyPossible(View) && PrimitiveSceneProxy != nullptr;
 
 		// Only draw meshes in the relevant pass
-		if (bMeshUseSeparateTranslucency == (DrawingContext.TranslucenyPassType == ETranslucencyPass::TPT_SeparateTranslucency))
+		if (bMeshUseSeparateTranslucency == (DrawingContext.TranslucenyPassType == ETranslucencyPass::TPT_SeparateTranslucency)
+			|| DrawingContext.TranslucenyPassType == ETranslucencyPass::TPT_AllTranslucency)
 		{
 			if (Material->RequiresSceneColorCopy_RenderThread())
 			{
@@ -809,7 +810,8 @@ void FTranslucentPrimSet::RenderPrimitive(
 				{
 					const bool bMeshUseSeparateTranslucency = StaticMesh.MaterialRenderProxy->GetMaterial(FeatureLevel)->IsSeparateTranslucencyEnabled() && bSeparateTranslucencyPossible;
 
-					if (bMeshUseSeparateTranslucency == (TranslucenyPassType == ETranslucencyPass::TPT_SeparateTranslucency))
+					if (bMeshUseSeparateTranslucency == (TranslucenyPassType == ETranslucencyPass::TPT_SeparateTranslucency)
+						|| TranslucenyPassType == ETranslucencyPass::TPT_AllTranslucency)
 					{
 						FTranslucencyDrawingPolicyFactory::DrawStaticMesh(
 							RHICmdList,

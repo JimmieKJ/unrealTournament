@@ -16,7 +16,18 @@ RWBuffer<uint> RWCulledLightLinks;
 
 float ComputeDepthFromZSlice(uint ZSlice)
 {
-	return (exp2(ZSlice / ForwardGlobalLightData.LightGridZParams.z) - ForwardGlobalLightData.LightGridZParams.y) / ForwardGlobalLightData.LightGridZParams.x;
+	float SliceDepth = (exp2(ZSlice / ForwardGlobalLightData.LightGridZParams.z) - ForwardGlobalLightData.LightGridZParams.y) / ForwardGlobalLightData.LightGridZParams.x;
+
+	if (ZSlice == ForwardGlobalLightData.CulledGridSize.z)
+	{
+		// Extend the last slice depth max out to world max
+		// This allows clamping the depth range to reasonable values, 
+		// But has the downside that any lights falling into the last depth slice will have very poor culling,
+		// Since the view space AABB will be bloated in x and y
+		SliceDepth = 2000000.0f;
+	}
+
+	return SliceDepth;
 }
 
 void ComputeCellViewAABB(uint3 GridCoordinate, out float3 ViewTileMin, out float3 ViewTileMax)
@@ -75,6 +86,7 @@ void LightGridInjectionCS(
 	{
 		uint GridIndex = (GridCoordinate.z * ForwardGlobalLightData.CulledGridSize.y + GridCoordinate.y) * ForwardGlobalLightData.CulledGridSize.x + GridCoordinate.x;
 
+// Disable to pass all lights through for debugging, will hit limits quickly though
 #define CULL_LIGHTS 1
 	#if CULL_LIGHTS
 		float3 ViewTileMin;
@@ -83,7 +95,8 @@ void LightGridInjectionCS(
 
 		float3 ViewTileCenter = .5f * (ViewTileMin + ViewTileMax);
 		float3 ViewTileExtent = ViewTileMax - ViewTileCenter;
-		uint NumAvailableLinks = ForwardGlobalLightData.CulledGridSize.x * ForwardGlobalLightData.CulledGridSize.y * ForwardGlobalLightData.CulledGridSize.z * ForwardGlobalLightData.MaxCulledLightsPerCell;
+
+		uint NumAvailableLinks = ForwardGlobalLightData.NumGridCells * ForwardGlobalLightData.MaxCulledLightsPerCell * NUM_CULLED_GRID_PRIMITIVE_TYPES;
 
 		LOOP
 		for (uint LocalLightIndex = 0; LocalLightIndex < ForwardGlobalLightData.NumLocalLights; LocalLightIndex++)
@@ -135,7 +148,41 @@ void LightGridInjectionCS(
 				#endif
 			}
 		}
+		
+		LOOP
+		for (uint ReflectionCaptureIndex = 0; ReflectionCaptureIndex < ForwardGlobalLightData.NumReflectionCaptures; ReflectionCaptureIndex++)
+		{
+			float4 CapturePositionAndRadius = ReflectionCapture.PositionAndRadius[ReflectionCaptureIndex];
+			float3 ViewSpaceCapturePosition = mul(float4(CapturePositionAndRadius.xyz + View.PreViewTranslation.xyz, 1), View.TranslatedWorldToView).xyz;
 
+			float BoxDistanceSq = ComputeSquaredDistanceFromBoxToPoint(ViewTileCenter, ViewTileExtent, ViewSpaceCapturePosition);
+
+			if (BoxDistanceSq < CapturePositionAndRadius.w * CapturePositionAndRadius.w)
+			{
+				#if USE_LINKED_CULL_LIST
+					uint NextLink;
+					InterlockedAdd(RWNextCulledLightLink[0], 1U, NextLink);
+
+					if (NextLink < NumAvailableLinks)
+					{
+						uint PreviousLink;
+						InterlockedExchange(RWStartOffsetGrid[ForwardGlobalLightData.NumGridCells + GridIndex], NextLink, PreviousLink);
+						RWCulledLightLinks[NextLink * LIGHT_LINK_STRIDE + 0] = ReflectionCaptureIndex;
+						RWCulledLightLinks[NextLink * LIGHT_LINK_STRIDE + 1] = PreviousLink;
+					}
+
+				#else
+					uint CulledCaptureIndex;
+					InterlockedAdd(RWNumCulledLightsGrid[(ForwardGlobalLightData.NumGridCells + GridIndex) * NUM_CULLED_LIGHTS_GRID_STRIDE + 0], 1U, CulledCaptureIndex);
+					RWNumCulledLightsGrid[(ForwardGlobalLightData.NumGridCells + GridIndex) * NUM_CULLED_LIGHTS_GRID_STRIDE + 1] = (ForwardGlobalLightData.NumGridCells + GridIndex) * ForwardGlobalLightData.MaxCulledLightsPerCell;
+
+					if (CulledCaptureIndex < ForwardGlobalLightData.MaxCulledLightsPerCell)
+					{
+						RWCulledLightDataGrid[(ForwardGlobalLightData.NumGridCells + GridIndex) * ForwardGlobalLightData.MaxCulledLightsPerCell + CulledCaptureIndex] = ReflectionCaptureIndex;
+					}
+				#endif
+			}
+		}
 #else
 
 		LOOP
@@ -148,7 +195,19 @@ void LightGridInjectionCS(
 		}
 
 		RWNumCulledLightsGrid[GridIndex * NUM_CULLED_LIGHTS_GRID_STRIDE + 0] = ForwardGlobalLightData.NumLocalLights;
-		RWNumCulledLightsGrid[GridIndex * NUM_CULLED_LIGHTS_GRID_STRIDE + 1] = GridIndex;
+		RWNumCulledLightsGrid[GridIndex * NUM_CULLED_LIGHTS_GRID_STRIDE + 1] = GridIndex * ForwardGlobalLightData.MaxCulledLightsPerCell;
+		
+		LOOP
+		for (uint ReflectionCaptureIndex = 0; ReflectionCaptureIndex < ForwardGlobalLightData.NumReflectionCaptures; ReflectionCaptureIndex++)
+		{
+			if (ReflectionCaptureIndex < ForwardGlobalLightData.MaxCulledLightsPerCell)
+			{
+				RWCulledLightDataGrid[(ForwardGlobalLightData.NumGridCells + GridIndex) * ForwardGlobalLightData.MaxCulledLightsPerCell + ReflectionCaptureIndex] = ReflectionCaptureIndex;
+			}
+		}
+
+		RWNumCulledLightsGrid[(ForwardGlobalLightData.NumGridCells + GridIndex) * NUM_CULLED_LIGHTS_GRID_STRIDE + 0] = ForwardGlobalLightData.NumLocalLights;
+		RWNumCulledLightsGrid[(ForwardGlobalLightData.NumGridCells + GridIndex) * NUM_CULLED_LIGHTS_GRID_STRIDE + 1] = (ForwardGlobalLightData.NumGridCells + GridIndex) * ForwardGlobalLightData.MaxCulledLightsPerCell;
 #endif
 	}
 }
@@ -156,6 +215,37 @@ void LightGridInjectionCS(
 RWBuffer<uint> RWNextCulledLightData;
 Buffer<uint> StartOffsetGrid;
 Buffer<uint> CulledLightLinks;
+
+void CompactReverseLinkedList(uint GridIndex)
+{
+	uint NumCulledLights = 0;
+	uint StartLinkOffset = StartOffsetGrid[GridIndex];
+	uint LinkOffset = StartLinkOffset;
+
+	// Traverse the linked list to count how many culled indices we have
+	while (LinkOffset != 0xFFFFFFFF)
+	{
+		NumCulledLights++;
+		LinkOffset = CulledLightLinks[LinkOffset * LIGHT_LINK_STRIDE + 1];
+	}
+
+	uint CulledLightDataStart;
+	InterlockedAdd(RWNextCulledLightData[0], NumCulledLights, CulledLightDataStart);
+	RWNumCulledLightsGrid[GridIndex * NUM_CULLED_LIGHTS_GRID_STRIDE + 0] = NumCulledLights;
+	RWNumCulledLightsGrid[GridIndex * NUM_CULLED_LIGHTS_GRID_STRIDE + 1] = CulledLightDataStart;
+
+	LinkOffset = StartLinkOffset;
+	uint CulledLightIndex = 0;
+
+	while (LinkOffset != 0xFFFFFFFF)
+	{
+		// Reverse the order as we write them out, which restores the original order before the reverse linked list was built
+		// Reflection captures are order dependent
+		RWCulledLightDataGrid[CulledLightDataStart + NumCulledLights - CulledLightIndex - 1] = CulledLightLinks[LinkOffset * LIGHT_LINK_STRIDE + 0];
+		CulledLightIndex++;
+		LinkOffset = CulledLightLinks[LinkOffset * LIGHT_LINK_STRIDE + 1];
+	}
+}
 
 [numthreads(THREADGROUP_SIZE, THREADGROUP_SIZE, THREADGROUP_SIZE)]
 void LightGridCompactCS(
@@ -169,29 +259,10 @@ void LightGridCompactCS(
 	{
 		uint GridIndex = (GridCoordinate.z * ForwardGlobalLightData.CulledGridSize.y + GridCoordinate.y) * ForwardGlobalLightData.CulledGridSize.x + GridCoordinate.x;
 
-		uint NumCulledLights = 0;
-		uint StartLinkOffset = StartOffsetGrid[GridIndex];
-		uint LinkOffset = StartLinkOffset;
+		// Compact lights
+		CompactReverseLinkedList(GridIndex);
 
-		while (LinkOffset != 0xFFFFFFFF)
-		{
-			NumCulledLights++;
-			LinkOffset = CulledLightLinks[LinkOffset * LIGHT_LINK_STRIDE + 1];
-		}
-
-		uint CulledLightDataStart;
-		InterlockedAdd(RWNextCulledLightData[0], NumCulledLights, CulledLightDataStart);
-		RWNumCulledLightsGrid[GridIndex * NUM_CULLED_LIGHTS_GRID_STRIDE + 0] = NumCulledLights;
-		RWNumCulledLightsGrid[GridIndex * NUM_CULLED_LIGHTS_GRID_STRIDE + 1] = CulledLightDataStart;
-
-		LinkOffset = StartLinkOffset;
-		uint CulledLightIndex = 0;
-
-		while (LinkOffset != 0xFFFFFFFF)
-		{
-			RWCulledLightDataGrid[CulledLightDataStart + CulledLightIndex] = CulledLightLinks[LinkOffset * LIGHT_LINK_STRIDE + 0];
-			CulledLightIndex++;
-			LinkOffset = CulledLightLinks[LinkOffset * LIGHT_LINK_STRIDE + 1];
-		}
+		// Compact reflection captures
+		CompactReverseLinkedList(ForwardGlobalLightData.NumGridCells + GridIndex);
 	}
 }

@@ -307,6 +307,11 @@ class ENGINE_API URendererSettings : public UDeveloperSettings
 		ConfigRestartRequired=true))
 	uint32 bSelectiveBasePassOutputs:1;
 
+	UPROPERTY(config, EditAnywhere, Category = Optimizations, meta = (
+		DisplayName = "Enable Particle Cutouts by default",
+		ToolTip = "When enabled, after changing the material on a Required particle module a Particle Cutout texture will be chosen automatically from the Opacity Mask texture if it exists, if not the Opacity Texture will be used if it exists."))
+	uint32 bDefaultParticleCutouts : 1;
+
 	UPROPERTY(config, EditAnywhere, Category = Lighting, meta = (
 		ConsoleVariable = "r.AllowGlobalClipPlane", DisplayName = "Support global clip plane for Planar Reflections",
 		ToolTip = "Whether to support the global clip plane needed for planar reflections.  Enabling this increases BasePass triangle cost by ~15% regardless of whether planar reflections are active. Changing this setting requires restarting the editor.",

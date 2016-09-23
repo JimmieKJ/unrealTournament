@@ -27,6 +27,9 @@ struct CORE_API FRenderingObjectVersion
 
 		RemovedRenderTargetSize,
 
+		// Particle Cutout (SubUVAnimation) data is now stored in the ParticleRequired Module
+		MovedParticleCutoutsToRequiredModule,
+
 		// -----<new versions can be added above this line>-------------------------------------------------
 		VersionPlusOne,
 		LatestVersion = VersionPlusOne - 1

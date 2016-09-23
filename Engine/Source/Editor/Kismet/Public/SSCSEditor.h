@@ -755,10 +755,11 @@ public:
 	bool IsEditingAllowed() const;
 
 	/** Adds a component to the SCS Table
-	   @param NewComponentClass	(In) The class to add
-	   @param Asset				(In) Optional asset to assign to the component
+	   @param NewComponentClass				(In) The class to add
+	   @param Asset       					(In) Optional asset to assign to the component
+	   @param bSkipMarkBlueprintModified 	(In) Optionally skip marking this blueprint as modified (e.g. if we're handling that externally)
 	   @return The reference of the newly created ActorComponent */
-	UActorComponent* AddNewComponent(UClass* NewComponentClass, UObject* Asset);
+	UActorComponent* AddNewComponent(UClass* NewComponentClass, UObject* Asset, const bool bSkipMarkBlueprintModified = false );
 
 	/** Adds a new SCS Node to the component Table
 	   @param NewNode	(In) The SCS node to add

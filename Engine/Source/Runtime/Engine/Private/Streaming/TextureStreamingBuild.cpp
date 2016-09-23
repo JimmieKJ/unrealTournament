@@ -586,7 +586,9 @@ void CheckTextureStreamingBuild(ULevel* InLevel)
 	{
 		InLevel->NumTextureStreamingUnbuiltComponents = NumTextureStreamingUnbuiltComponents;
 		InLevel->NumTextureStreamingDirtyResources = BuildGuilds.Num();
-		InLevel->MarkPackageDirty();
+
+		// Don't mark package dirty as we avoid marking package dirty unless user changes something.
+		// InLevel->MarkPackageDirty();
 	}
 
 #endif
@@ -600,15 +602,19 @@ void CheckTextureStreamingBuild(UWorld* InWorld)
 	InWorld->NumTextureStreamingUnbuiltComponents = 0;
 	InWorld->NumTextureStreamingDirtyResources = 0;
 
-	for (int32 LevelIndex = 0; LevelIndex < InWorld->GetNumLevels(); LevelIndex++)
+	if (CVarStreamingCheckBuildStatus.GetValueOnAnyThread() > 0)
 	{
-		ULevel* Level = InWorld->GetLevel(LevelIndex);
-		if (!Level) continue;
+		for (int32 LevelIndex = 0; LevelIndex < InWorld->GetNumLevels(); LevelIndex++)
+		{
+			ULevel* Level = InWorld->GetLevel(LevelIndex);
+			if (!Level) continue;
 
-		CheckTextureStreamingBuild(Level);
+			CheckTextureStreamingBuild(Level);
 
-		InWorld->NumTextureStreamingUnbuiltComponents += Level->NumTextureStreamingUnbuiltComponents;
-		InWorld->NumTextureStreamingDirtyResources += Level->NumTextureStreamingDirtyResources;
+			InWorld->NumTextureStreamingUnbuiltComponents += Level->NumTextureStreamingUnbuiltComponents;
+			InWorld->NumTextureStreamingDirtyResources += Level->NumTextureStreamingDirtyResources;
+		}
 	}
+
 #endif
 }

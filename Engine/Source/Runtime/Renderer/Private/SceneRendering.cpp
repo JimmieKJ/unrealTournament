@@ -81,35 +81,7 @@ static TAutoConsoleVariable<float> CVarGeneralPurposeTweak(
 	TEXT("DON'T USE THIS FOR ANYTHING THAT IS CHECKED IN. Compiled out in SHIPPING to make cheating a bit harder."),
 	ECVF_RenderThreadSafe);
 
-// should be changed to BaseColor and Metallic, since some time now UE4 is not using DiffuseColor and SpecularColor any more
-static TAutoConsoleVariable<float> CVarDiffuseColorMin(
-	TEXT("r.DiffuseColor.Min"),
-	0.0f,
-	TEXT("Allows quick material test by remapping the diffuse color at 1 to a new value (0..1), Only for non shipping built!\n")
-	TEXT("1: (default)"),
-	ECVF_Cheat | ECVF_RenderThreadSafe
-	);
-static TAutoConsoleVariable<float> CVarDiffuseColorMax(
-	TEXT("r.DiffuseColor.Max"),
-	1.0f,
-	TEXT("Allows quick material test by remapping the diffuse color at 1 to a new value (0..1), Only for non shipping built!\n")
-	TEXT("1: (default)"),
-	ECVF_Cheat | ECVF_RenderThreadSafe
-	);
-static TAutoConsoleVariable<float> CVarRoughnessMin(
-	TEXT("r.Roughness.Min"),
-	0.0f,
-	TEXT("Allows quick material test by remapping the roughness at 0 to a new value (0..1), Only for non shipping built!\n")
-	TEXT("0: (default)"),
-	ECVF_Cheat | ECVF_RenderThreadSafe
-	);
-static TAutoConsoleVariable<float> CVarRoughnessMax(
-	TEXT("r.Roughness.Max"),
-	1.0f,
-	TEXT("Allows quick material test by remapping the roughness at 1 to a new value (0..1), Only for non shipping built!\n")
-	TEXT("1: (default)"),
-	ECVF_Cheat | ECVF_RenderThreadSafe
-	);
+
 static TAutoConsoleVariable<int32> CVarDisplayInternals(
 	TEXT("r.DisplayInternals"),
 	0,
@@ -131,11 +103,6 @@ static TAutoConsoleVariable<int32> CVarMaxShadowCascades(
 	ECVF_Scalability | ECVF_RenderThreadSafe
 	);
 
-static TAutoConsoleVariable<float> CVarTessellationAdaptivePixelsPerTriangle(
-	TEXT("r.TessellationAdaptivePixelsPerTriangle"),
-	48.0f,
-	TEXT("Global tessellation factor multiplier"),
-	ECVF_RenderThreadSafe);
 
 static TAutoConsoleVariable<int32> CVarForwardShading(
 	TEXT("r.ForwardShading"),
@@ -444,6 +411,10 @@ void FViewInfo::Init()
 	bAllowStencilDither = false;
 
 	ForwardLightingResources = &ForwardLightingResourcesStorage;
+
+	NumBoxReflectionCaptures = 0;
+	NumSphereReflectionCaptures = 0;
+	FurthestReflectionCaptureDistance = 0;
 }
 
 FViewInfo::~FViewInfo()
@@ -556,125 +527,22 @@ void FViewInfo::SetupUniformBufferParameters(
 {
 	check(Family);
 
-	SetupViewRectUniformBufferParameters(
-		SceneContext.GetBufferSizeXY(),
-		ViewRect,
-		ViewUniformShaderParameters);
-
-	FVector4 LocalDiffuseOverrideParameter = DiffuseOverrideParameter;
-	FVector2D LocalRoughnessOverrideParameter = RoughnessOverrideParameter;
-
-#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
-	{
-		// assuming we have no color in the multipliers
-		float MinValue = LocalDiffuseOverrideParameter.X;
-		float MaxValue = MinValue + LocalDiffuseOverrideParameter.W;
-
-		float NewMinValue = FMath::Max(MinValue, CVarDiffuseColorMin.GetValueOnRenderThread());
-		float NewMaxValue = FMath::Min(MaxValue, CVarDiffuseColorMax.GetValueOnRenderThread());
-
-		LocalDiffuseOverrideParameter.X = LocalDiffuseOverrideParameter.Y = LocalDiffuseOverrideParameter.Z = NewMinValue;
-		LocalDiffuseOverrideParameter.W = NewMaxValue - NewMinValue;
-	}
-	{
-		float MinValue = LocalRoughnessOverrideParameter.X;
-		float MaxValue = MinValue + LocalRoughnessOverrideParameter.Y;
-
-		float NewMinValue = FMath::Max(MinValue, CVarRoughnessMin.GetValueOnRenderThread());
-		float NewMaxValue = FMath::Min(MaxValue, CVarRoughnessMax.GetValueOnRenderThread());
-
-		LocalRoughnessOverrideParameter.X = NewMinValue;
-		LocalRoughnessOverrideParameter.Y = NewMaxValue - NewMinValue;
-	}
-
-#endif
-
-	const bool bIsUnlitView = !Family->EngineShowFlags.Lighting;
-
 	// Create the view's uniform buffer.
+
 	// TODO: We should use a view and previous view uniform buffer to avoid code duplication and keep consistency
+	SetupCommonViewUniformBufferParameters(
+		ViewUniformShaderParameters, 
+		SceneContext.GetBufferSizeXY(),
+		ViewRect, 
+		EffectiveTranslatedViewMatrix, 
+		EffectiveViewToTranslatedWorld, 
+		PrevViewMatrices, 
+		PrevViewProjMatrix, 
+		PrevViewRotationProjMatrix);
 
-	ViewUniformShaderParameters.TranslatedWorldToClip = ViewMatrices.TranslatedViewProjectionMatrix;
-	ViewUniformShaderParameters.WorldToClip = ViewProjectionMatrix;
-	ViewUniformShaderParameters.TranslatedWorldToView = EffectiveTranslatedViewMatrix;
-	ViewUniformShaderParameters.ViewToTranslatedWorld = EffectiveViewToTranslatedWorld;
-	ViewUniformShaderParameters.TranslatedWorldToCameraView = ViewMatrices.TranslatedViewMatrix;
-	ViewUniformShaderParameters.CameraViewToTranslatedWorld = ViewUniformShaderParameters.TranslatedWorldToCameraView.Inverse();
-	ViewUniformShaderParameters.ViewToClip = ViewMatrices.ProjMatrix;
-	ViewUniformShaderParameters.ClipToView = ViewMatrices.GetInvProjMatrix();
-	ViewUniformShaderParameters.ClipToTranslatedWorld = ViewMatrices.InvTranslatedViewProjectionMatrix;
-	ViewUniformShaderParameters.ViewForward = EffectiveTranslatedViewMatrix.GetColumn(2);
-	ViewUniformShaderParameters.ViewUp = EffectiveTranslatedViewMatrix.GetColumn(1);
-	ViewUniformShaderParameters.ViewRight = EffectiveTranslatedViewMatrix.GetColumn(0);
-	ViewUniformShaderParameters.InvDeviceZToWorldZTransform = InvDeviceZToWorldZTransform;
-	ViewUniformShaderParameters.WorldViewOrigin = EffectiveViewToTranslatedWorld.TransformPosition(FVector(0)) - ViewMatrices.PreViewTranslation;
-	ViewUniformShaderParameters.WorldCameraOrigin = ViewMatrices.ViewOrigin;
-	ViewUniformShaderParameters.TranslatedWorldCameraOrigin = ViewMatrices.ViewOrigin + ViewMatrices.PreViewTranslation;
-	ViewUniformShaderParameters.PreViewTranslation = ViewMatrices.PreViewTranslation;
-	ViewUniformShaderParameters.PrevProjection = PrevViewMatrices.ProjMatrix;
-	ViewUniformShaderParameters.PrevViewProj = PrevViewProjMatrix;
-	ViewUniformShaderParameters.PrevViewRotationProj = PrevViewRotationProjMatrix;
-	ViewUniformShaderParameters.PrevViewToClip = PrevViewMatrices.ProjMatrix;
-	ViewUniformShaderParameters.PrevClipToView = PrevViewMatrices.GetInvProjMatrix();
-	ViewUniformShaderParameters.PrevTranslatedWorldToClip = PrevViewMatrices.TranslatedViewProjectionMatrix;
-	// EffectiveTranslatedViewMatrix != ViewMatrices.TranslatedViewMatrix in the shadow pass
-	// and we don't have EffectiveTranslatedViewMatrix for the previous frame to set up PrevTranslatedWorldToView
-	// but that is fine to set up PrevTranslatedWorldToView as same as PrevTranslatedWorldToCameraView
-	// since the shadow pass doesn't require previous frame computation.
-	ViewUniformShaderParameters.PrevTranslatedWorldToView = PrevViewMatrices.TranslatedViewMatrix;
-	ViewUniformShaderParameters.PrevViewToTranslatedWorld = ViewUniformShaderParameters.PrevTranslatedWorldToView.Inverse();
-	ViewUniformShaderParameters.PrevTranslatedWorldToCameraView = PrevViewMatrices.TranslatedViewMatrix;
-	ViewUniformShaderParameters.PrevCameraViewToTranslatedWorld = ViewUniformShaderParameters.PrevTranslatedWorldToCameraView.Inverse();
-	ViewUniformShaderParameters.PrevWorldCameraOrigin = PrevViewMatrices.ViewOrigin;
-	// previous view world origin is going to be needed only in the base pass or shadow pass
-	// therefore is same as previous camera world origin.
-	ViewUniformShaderParameters.PrevWorldViewOrigin = ViewUniformShaderParameters.PrevWorldCameraOrigin;
-	ViewUniformShaderParameters.PrevPreViewTranslation = PrevViewMatrices.PreViewTranslation;
-	// can be optimized
-	ViewUniformShaderParameters.PrevInvViewProj = PrevViewProjMatrix.Inverse();
-	ViewUniformShaderParameters.GlobalClippingPlane = FVector4(GlobalClippingPlane.X, GlobalClippingPlane.Y, GlobalClippingPlane.Z, -GlobalClippingPlane.W);
-
-	ViewUniformShaderParameters.FieldOfViewWideAngles = 2.f * ViewMatrices.GetHalfFieldOfViewPerAxis();
-	ViewUniformShaderParameters.PrevFieldOfViewWideAngles = 2.f * PrevViewMatrices.GetHalfFieldOfViewPerAxis();
-	ViewUniformShaderParameters.DiffuseOverrideParameter = LocalDiffuseOverrideParameter;
-	ViewUniformShaderParameters.SpecularOverrideParameter = SpecularOverrideParameter;
-	ViewUniformShaderParameters.NormalOverrideParameter = NormalOverrideParameter;
-	ViewUniformShaderParameters.RoughnessOverrideParameter = LocalRoughnessOverrideParameter;
-	ViewUniformShaderParameters.PrevFrameGameTime = Family->CurrentWorldTime - Family->DeltaWorldTime;
-	ViewUniformShaderParameters.PrevFrameRealTime = Family->CurrentRealTime - Family->DeltaWorldTime;
-	ViewUniformShaderParameters.WorldCameraMovementSinceLastFrame = ViewMatrices.ViewOrigin - PrevViewMatrices.ViewOrigin;
-	ViewUniformShaderParameters.CullingSign = bReverseCulling ? -1.0f : 1.0f;
-	ViewUniformShaderParameters.NearPlane = GNearClippingPlane;
 
 	const bool bCheckerboardSubsurfaceRendering = FRCPassPostProcessSubsurface::RequiresCheckerboardSubsurfaceRendering( SceneContext.GetSceneColorFormat() );
 	ViewUniformShaderParameters.bCheckerboardSubsurfaceProfileRendering = bCheckerboardSubsurfaceRendering ? 1.0f : 0.0f;
-
-	ViewUniformShaderParameters.ScreenToWorld = FMatrix(
-		FPlane(1,0,0,0),
-		FPlane(0,1,0,0),
-		FPlane(0,0,ProjectionMatrixUnadjustedForRHI.M[2][2],1),
-		FPlane(0,0,ProjectionMatrixUnadjustedForRHI.M[3][2],0))
-		* InvViewProjectionMatrix;
-
-	ViewUniformShaderParameters.ScreenToTranslatedWorld = FMatrix(
-		FPlane(1,0,0,0),
-		FPlane(0,1,0,0),
-		FPlane(0,0,ProjectionMatrixUnadjustedForRHI.M[2][2],1),
-		FPlane(0,0,ProjectionMatrixUnadjustedForRHI.M[3][2],0))
-		* ViewMatrices.InvTranslatedViewProjectionMatrix;
-
-	ViewUniformShaderParameters.PrevScreenToTranslatedWorld = FMatrix(
-		FPlane(1,0,0,0),
-		FPlane(0,1,0,0),
-		FPlane(0,0,ProjectionMatrixUnadjustedForRHI.M[2][2],1),
-		FPlane(0,0,ProjectionMatrixUnadjustedForRHI.M[3][2],0))
-		* PrevViewMatrices.InvTranslatedViewProjectionMatrix;
-
-	FVector DeltaTranslation = PrevViewMatrices.PreViewTranslation - ViewMatrices.PreViewTranslation;
-	FMatrix InvViewProj = ViewMatrices.GetInvProjNoAAMatrix() * ViewMatrices.TranslatedViewMatrix.GetTransposed();
-	FMatrix PrevViewProj = FTranslationMatrix( DeltaTranslation ) * PrevViewMatrices.TranslatedViewMatrix * PrevViewMatrices.GetProjNoAAMatrix();
-
-	ViewUniformShaderParameters.ClipToPrevClip = InvViewProj * PrevViewProj;
 
 	FScene* Scene = nullptr;
 
@@ -763,20 +631,12 @@ void FViewInfo::SetupUniformBufferParameters(
 	ViewUniformShaderParameters.AtmosphereIrradianceTextureSampler_UB = TStaticSamplerState<SF_Bilinear>::GetRHI();
 	ViewUniformShaderParameters.AtmosphereInscatterTextureSampler_UB = TStaticSamplerState<SF_Bilinear>::GetRHI();
 
-	// Update the Texture Parameters used for noise
+	// This should probably be in SetupCommonViewUniformBufferParameters, but drags in too many dependancies
 	UpdateNoiseTextureParameters(ViewUniformShaderParameters);
 
 	SetupDefaultGlobalDistanceFieldUniformBufferParameters(ViewUniformShaderParameters);
 
-	ViewUniformShaderParameters.UnlitViewmodeMask = bIsUnlitView ? 1 : 0;
-	ViewUniformShaderParameters.OutOfBoundsMask = Family->EngineShowFlags.VisualizeOutOfBoundsPixels ? 1 : 0;
 
-	ViewUniformShaderParameters.GameTime = Family->CurrentWorldTime;
-	ViewUniformShaderParameters.RealTime = Family->CurrentRealTime;
-	ViewUniformShaderParameters.Random = FMath::Rand();
-	ViewUniformShaderParameters.FrameNumber = Family->FrameNumber;
-
-	ViewUniformShaderParameters.CameraCut = bCameraCut ? 1 : 0;
 
 	uint32 StateFrameIndexMod8 = 0;
 
@@ -934,77 +794,13 @@ void FViewInfo::SetupUniformBufferParameters(
 	extern int32 GDistanceFieldAOSpecularOcclusionMode;
 	ViewUniformShaderParameters.DistanceFieldAOSpecularOcclusionMode = GDistanceFieldAOSpecularOcclusionMode;
 
+	extern float GCapsuleIndirectShadowSelfShadowIntensity;
+	ViewUniformShaderParameters.IndirectCapsuleSelfShadowingIntensity = GCapsuleIndirectShadowSelfShadowIntensity;
+
 	extern FVector2D GetReflectionEnvironmentRoughnessMixingScaleBias();
 	ViewUniformShaderParameters.ReflectionEnvironmentRoughnessMixingScaleBias = GetReflectionEnvironmentRoughnessMixingScaleBias();
 
 	ViewUniformShaderParameters.StereoPassIndex = (StereoPass != eSSP_RIGHT_EYE) ? 0 : 1;
-}
-
-void FViewInfo::SetupViewRectUniformBufferParameters(
-	FIntPoint BufferSize,
-	FIntRect EffectiveViewRect,
-	FViewUniformShaderParameters& ViewUniformShaderParameters) const
-{
-	checkfSlow(EffectiveViewRect.Area() > 0, TEXT("Invalid-size EffectiveViewRect passed to CreateUniformBufferParameters [%d * %d]."), EffectiveViewRect.Width(), EffectiveViewRect.Height());
-
-	// Calculate the vector used by shaders to convert clip space coordinates to texture space.
-	const float InvBufferSizeX = 1.0f / BufferSize.X;
-	const float InvBufferSizeY = 1.0f / BufferSize.Y;
-	// to bring NDC (-1..1, 1..-1) into 0..1 UV for BufferSize textures
-	const FVector4 ScreenPositionScaleBias(
-		EffectiveViewRect.Width() * InvBufferSizeX / +2.0f,
-		EffectiveViewRect.Height() * InvBufferSizeY / (-2.0f * GProjectionSignY),
-		(EffectiveViewRect.Height() / 2.0f + EffectiveViewRect.Min.Y) * InvBufferSizeY,
-		(EffectiveViewRect.Width() / 2.0f + EffectiveViewRect.Min.X) * InvBufferSizeX
-		);
-	
-	ViewUniformShaderParameters.ScreenPositionScaleBias = ScreenPositionScaleBias;
-
-	ViewUniformShaderParameters.ViewRectMin = FVector4(EffectiveViewRect.Min.X, EffectiveViewRect.Min.Y, 0.0f, 0.0f);
-	ViewUniformShaderParameters.ViewSizeAndInvSize = FVector4(EffectiveViewRect.Width(), EffectiveViewRect.Height(), 1.0f / float(EffectiveViewRect.Width()), 1.0f / float(EffectiveViewRect.Height()));
-	ViewUniformShaderParameters.BufferSizeAndInvSize = FVector4(BufferSize.X, BufferSize.Y, InvBufferSizeX, InvBufferSizeY);
-
-	FVector2D OneScenePixelUVSize = FVector2D(1.0f / BufferSize.X, 1.0f / BufferSize.Y);
-	FVector4 SceneTexMinMax(	((float)EffectiveViewRect.Min.X / BufferSize.X), 
-								((float)EffectiveViewRect.Min.Y / BufferSize.Y), 
-								(((float)EffectiveViewRect.Max.X / BufferSize.X) - OneScenePixelUVSize.X) , 
-								(((float)EffectiveViewRect.Max.Y / BufferSize.Y) - OneScenePixelUVSize.Y) );
-
-	ViewUniformShaderParameters.SceneTextureMinMax = SceneTexMinMax;
-
-	ViewUniformShaderParameters.MotionBlurNormalizedToPixel = FinalPostProcessSettings.MotionBlurMax * EffectiveViewRect.Width() / 100.0f;
-
-	{
-		// setup a matrix to transform float4(SvPosition.xyz,1) directly to TranslatedWorld (quality, performance as we don't need to convert or use interpolator)
-
-		//	new_xy = (xy - ViewRectMin.xy) * ViewSizeAndInvSize.zw * float2(2,-2) + float2(-1, 1);
-
-		//  transformed into one MAD:  new_xy = xy * ViewSizeAndInvSize.zw * float2(2,-2)      +       (-ViewRectMin.xy) * ViewSizeAndInvSize.zw * float2(2,-2) + float2(-1, 1);
-
-		float Mx = 2.0f * ViewUniformShaderParameters.ViewSizeAndInvSize.Z;
-		float My = -2.0f * ViewUniformShaderParameters.ViewSizeAndInvSize.W;
-		float Ax = -1.0f - 2.0f * EffectiveViewRect.Min.X * ViewUniformShaderParameters.ViewSizeAndInvSize.Z;
-		float Ay = 1.0f + 2.0f * EffectiveViewRect.Min.Y * ViewUniformShaderParameters.ViewSizeAndInvSize.W;
-
-		// http://stackoverflow.com/questions/9010546/java-transformation-matrix-operations
-
-		ViewUniformShaderParameters.SVPositionToTranslatedWorld = 
-			FMatrix(FPlane(Mx,   0,  0,   0),
-					FPlane( 0,  My,  0,   0),
-					FPlane( 0,   0,  1,   0),
-					FPlane(Ax,  Ay,  0,   1)) * ViewMatrices.InvTranslatedViewProjectionMatrix;
-	}
-
-	// is getting clamped in the shader to a value larger than 0 (we don't want the triangles to disappear)
-	ViewUniformShaderParameters.AdaptiveTessellationFactor = 0.0f;
-
-	if(Family->EngineShowFlags.Tessellation)
-	{
-		// CVar setting is pixels/tri which is nice and intuitive.  But we want pixels/tessellated edge.  So use a heuristic.
-		float TessellationAdaptivePixelsPerEdge = FMath::Sqrt(2.f * CVarTessellationAdaptivePixelsPerTriangle.GetValueOnRenderThread());
-
-		ViewUniformShaderParameters.AdaptiveTessellationFactor = 0.5f * ViewMatrices.ProjMatrix.M[1][1] * float(EffectiveViewRect.Height()) / TessellationAdaptivePixelsPerEdge;
-	}
 }
 
 void FViewInfo::InitRHIResources()
@@ -1780,6 +1576,23 @@ void FSceneRenderer::ClearPrimitiveSingleFramePrecomputedLightingBuffers()
 -----------------------------------------------------------------------------*/
 
 /**
+* Helper function performing actual work in render thread.
+*
+* @param SceneRenderer	Scene renderer to use for rendering.
+*/
+static void ViewExtensionPreRender_RenderThread(FRHICommandListImmediate& RHICmdList, FSceneRenderer* SceneRenderer)
+{
+	for (int ViewExt = 0; ViewExt < SceneRenderer->ViewFamily.ViewExtensions.Num(); ViewExt++)
+	{
+		SceneRenderer->ViewFamily.ViewExtensions[ViewExt]->PreRenderViewFamily_RenderThread(RHICmdList, SceneRenderer->ViewFamily);
+		for (int ViewIndex = 0; ViewIndex < SceneRenderer->ViewFamily.Views.Num(); ViewIndex++)
+		{
+			SceneRenderer->ViewFamily.ViewExtensions[ViewExt]->PreRenderView_RenderThread(RHICmdList, SceneRenderer->Views[ViewIndex]);
+		}
+	}
+}
+
+/**
  * Helper function performing actual work in render thread.
  *
  * @param SceneRenderer	Scene renderer to use for rendering.
@@ -1790,15 +1603,6 @@ static void RenderViewFamily_RenderThread(FRHICommandListImmediate& RHICmdList, 
 
 	// update any resources that needed a deferred update
 	FDeferredUpdateResource::UpdateResources(RHICmdList);
-
-	for( int ViewExt = 0; ViewExt < SceneRenderer->ViewFamily.ViewExtensions.Num(); ViewExt++ )
-	{
-		SceneRenderer->ViewFamily.ViewExtensions[ViewExt]->PreRenderViewFamily_RenderThread(RHICmdList, SceneRenderer->ViewFamily);
-		for( int ViewIndex = 0; ViewIndex < SceneRenderer->ViewFamily.Views.Num(); ViewIndex++ )
-		{
-			SceneRenderer->ViewFamily.ViewExtensions[ViewExt]->PreRenderView_RenderThread(RHICmdList, SceneRenderer->Views[ViewIndex]);
-		}
-	}
 
 	if(SceneRenderer->ViewFamily.EngineShowFlags.OnScreenDebug)
 	{
@@ -1890,6 +1694,8 @@ void OnChangeCVarRequiringRecreateRenderState(IConsoleVariable* Var)
 }
 
 FRendererModule::FRendererModule()
+	: CustomCullingImpl(nullptr)
+	, PostResolvedSceneColorCallback(nullptr)
 {
 	CVarSimpleForwardShading.AsVariable()->SetOnChangedCallback(FConsoleVariableDelegate::CreateStatic(&OnChangeSimpleForwardShading));
 
@@ -1967,7 +1773,19 @@ void FRendererModule::BeginRenderingViewFamily(FCanvas* Canvas, FSceneViewFamily
 		{
 			USceneCaptureComponent2D::UpdateDeferredCaptures(Scene);
 			USceneCaptureComponentCube::UpdateDeferredCaptures(Scene);
+		}
 
+		// We need to execute the pre-render view extensions before we do any view dependent work.
+		// Anything between here and FDrawSceneCommand will add to HMD view latency
+		ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(
+			FViewExtensionPreDrawCommand,
+			FSceneRenderer*, SceneRenderer, SceneRenderer,
+			{
+				ViewExtensionPreRender_RenderThread(RHICmdList, SceneRenderer);
+			});
+
+		if (!SceneRenderer->ViewFamily.EngineShowFlags.HitProxies)
+		{
 			for (int32 ReflectionIndex = 0; ReflectionIndex < SceneRenderer->Scene->PlanarReflections_GameThread.Num(); ReflectionIndex++)
 			{
 				UPlanarReflectionComponent* ReflectionComponent = SceneRenderer->Scene->PlanarReflections_GameThread[ReflectionIndex];
@@ -2057,6 +1875,18 @@ void FRendererModule::RenderOverlayExtensions(const FSceneView& View, FRHIComman
 
 	RenderParameters.Uid=(void*)(&View);
 	OverlayRenderDelegate.ExecuteIfBound(RenderParameters);
+}
+
+void FRendererModule::RegisterPostResolvedSceneColorExtension(TPostResolvedSceneColorCallback InCallback)
+{
+	check(PostResolvedSceneColorCallback == nullptr);
+	PostResolvedSceneColorCallback = InCallback;
+}
+
+void FRendererModule::RenderPostResolvedSceneColorExtension(FRHICommandListImmediate& RHICmdList, class FSceneRenderTargets& SceneContext)
+{
+	check(PostResolvedSceneColorCallback);
+	PostResolvedSceneColorCallback(RHICmdList, SceneContext);
 }
 
 

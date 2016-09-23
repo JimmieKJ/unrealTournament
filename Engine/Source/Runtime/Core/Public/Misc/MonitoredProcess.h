@@ -65,7 +65,7 @@ public:
 	 */
 	bool IsRunning() const
 	{
-		return (Thread != nullptr);
+		return bIsRunning;
 	}
 
 	/** Launches the process. */
@@ -181,6 +181,9 @@ private:
 
 	// Holds the monitoring thread object. */
 	FRunnableThread* Thread;
+
+	// Is the thread running? 
+	bool bIsRunning;
 
 	// Holds the URL of the executable to launch. */
 	FString URL;

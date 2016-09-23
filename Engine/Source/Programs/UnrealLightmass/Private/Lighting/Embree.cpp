@@ -131,9 +131,25 @@ struct FEmbreeFilterProcessor
 	}
 
 	/**
-	 * Test if the ray comes from an HLOD (massive LOD) ignore intersection from other LODs of this HLOD.
+	 * Determine ray interaction with HLODs (hierarchical LODs):
 	 *
-	 * @return		true if the ray is rejected.
+	 *				A
+	 *		 /			   \
+	 *		B				E
+	 *	 /	   \		 /	   \
+	 *	C		D		F		G
+	 *
+	 * Above is a HLOD tree where A is tier 2 HLOD, B and E are tier 1 HLODs. C,D,F and G are LOD0 nodes.
+	 * Node range indices are assigned by a depth-first traversal beginning at the largest HLOD, i.e. node A,
+	 * as this allows each HLOD to know the contained children for later rejection. Leaf nodes are always LOD0s.
+	 *
+	 * Stored HLOD data per node:
+	 * HLODTreeIndex:	Unique index assigned to this tree of nodes.
+	 * HLODRange:		Range of nodes that make up this HLOD node (self-inclusive).
+	 * HLODRangeStart:	The index within the tree of this node.
+	 * HLODRangeEnd:	The index within the tree of this node's final child.
+	 *
+	 * @return	true if the ray is rejected.
      */
 	EMBREE_INLINE bool HitRejectedByHLODTest() const
 	{
@@ -141,7 +157,9 @@ struct FEmbreeFilterProcessor
 		uint32 GeoHLODTreeIndex = (Geo.Mesh->GetLODIndices() & 0xFFFF0000) >> 16;
 		uint32 RayHLODTreeIndex = Ray.MappingMesh ? (Ray.MappingMesh->GetLODIndices() & 0xFFFF0000) >> 16 : InvalidIndex;
 
-		// If either Geo or Ray is a HLOD (0xFFFF being invalid HLOD).
+		bool bRejectHit = false;
+
+		// If either Geo or Ray is a HLOD (0xFFFF being invalid HLOD)
 		if (GeoHLODTreeIndex != InvalidIndex || RayHLODTreeIndex != InvalidIndex)
 		{
 			uint32 GeoHLODRange = Geo.Mesh->GetHLODRange();
@@ -152,28 +170,32 @@ struct FEmbreeFilterProcessor
 			uint32 RayHLODRangeStart = RayHLODRange & 0xFFFF;
 			uint32 RayHLODRangeEnd = (RayHLODRange & 0xFFFF0000) >> 16;
 
-			// Different rules apply if we're dealing with the same cluster.
+			// Different rules if nodes are within the same HLOD tree
 			if (GeoHLODTreeIndex != RayHLODTreeIndex)
 			{
-				// Allow LOD0 nodes to interact with other meshes, else reject.
-				// Note: If the Start == End, it's an HLOD leaf which means LOD0 (inverted tree)
+				// Allow other meshes to interact with this tree's LOD0 nodes, else reject
 				if (GeoHLODRangeStart != GeoHLODRangeEnd)
 				{
-					return true;
+					bRejectHit = true;
 				}
 			}
 			else
 			{
-				// Allow HLOD nodes to self-shadow (identical ranges), else reject where range intersects.
-				if (GeoHLODRange != RayHLODRange && 
-					GeoHLODRangeStart <= RayHLODRangeEnd && RayHLODRangeStart <= GeoHLODRangeEnd)
+				// Allow shadowing within HLOD tree if:
+				// * Ray and geo are same node, i.e. self-shadowing
+				// * Geo is LOD0 and not a child of Ray node
+				bool bIsRaySameNodeAsGeo = GeoHLODRange == RayHLODRange;
+				bool bIsGeoLOD0 = GeoHLODRangeStart == GeoHLODRangeEnd;
+				bool bIsGeoOutsideRayRange = GeoHLODRangeStart < RayHLODRangeStart || GeoHLODRangeStart > RayHLODRangeEnd;
+
+				if (!(bIsRaySameNodeAsGeo || (bIsGeoLOD0 && bIsGeoOutsideRayRange)))
 				{
-					return true;
+					bRejectHit = true;
 				}
 			}
 		}
 
-		return false;
+		return bRejectHit;
 	}
 
 	EMBREE_INLINE bool HitRejectedByLODIndexTest() const

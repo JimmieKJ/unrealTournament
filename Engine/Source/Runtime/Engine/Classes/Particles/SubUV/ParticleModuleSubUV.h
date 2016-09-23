@@ -19,7 +19,7 @@ class UParticleModuleSubUV : public UParticleModuleSubUVBase
 	 * The bounding geometry is generated off of the texture alpha setup in the SubUV Animation asset, so that has to match what the material is using for opacity, or clipping will occur.
 	 * When specified, SubImages_Horizontal and SubImages_Vertical will come from the asset instead of the Required Module.
 	 */
-	UPROPERTY(EditAnywhere, Category=SubUV)
+	UPROPERTY()
 	USubUVAnimation* Animation;
 
 	/**
