@@ -91,6 +91,15 @@ FName UUTTutorialAnnouncement::GetAnnouncementName_Implementation(int32 Switch, 
 
 bool UUTTutorialAnnouncement::InterruptAnnouncement(const FAnnouncementInfo AnnouncementInfo, const FAnnouncementInfo OtherAnnouncementInfo) const
 {
+	if ((AnnouncementInfo.MessageClass == OtherAnnouncementInfo.MessageClass) && (AnnouncementInfo.OptionalObject == nullptr) && (OtherAnnouncementInfo.OptionalObject == nullptr) && (OtherAnnouncementInfo.Switch != 0) && (OtherAnnouncementInfo.Switch != 13))
+	{
+		if (((AnnouncementInfo.Switch == 7) || (AnnouncementInfo.Switch == 8)) && ((OtherAnnouncementInfo.Switch == 7) || (OtherAnnouncementInfo.Switch == 8)))
+		{
+			return false;
+		}
+		return true;
+	}
+		
 	return false;
 }
 
