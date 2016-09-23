@@ -87,10 +87,6 @@ class UNREALTOURNAMENT_API UUTAnnouncer : public UObject
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Announcer)
 	TArray<FAnnouncerSound> StatusAudioList;
 
-	/** amount of time between the end of one announcement and the start of the next when there is a queue */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Announcer)
-	float Spacing;
-
 	FTimerHandle PlayNextAnnouncementHandle;
 
 	/** fast lookup to audio we've used previously */

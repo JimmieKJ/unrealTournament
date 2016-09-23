@@ -99,13 +99,22 @@ bool UUTTutorialAnnouncement::InterruptAnnouncement(const FAnnouncementInfo Anno
 		}
 		return true;
 	}
+	if ((AnnouncementInfo.MessageClass == OtherAnnouncementInfo.MessageClass) && (AnnouncementInfo.OptionalObject != OtherAnnouncementInfo.OptionalObject) && (OtherAnnouncementInfo.OptionalObject != nullptr))
+	{
+		//UE_LOG(UT, Warning, TEXT("Interrupt %s %d because of %s %d"), *OtherAnnouncementInfo.OptionalObject->GetName(), OtherAnnouncementInfo.Switch, *AnnouncementInfo.OptionalObject->GetName(), AnnouncementInfo.Switch);
+		return true;
+	}
 		
 	return false;
 }
 
 bool UUTTutorialAnnouncement::CancelByAnnouncement_Implementation(int32 Switch, const UObject* OptionalObject, TSubclassOf<UUTLocalMessage> OtherMessageClass, int32 OtherSwitch, const UObject* OtherOptionalObject) const
 {
-	return (OtherMessageClass == GetClass()) && (Switch == OtherSwitch);
+	if ((OtherMessageClass == GetClass()) && (Switch == OtherSwitch) && (OptionalObject == OtherOptionalObject))
+	{
+		//UE_LOG(UT, Warning, TEXT("Cancel %s %d because of %s %d"), *OptionalObject->GetName(), Switch, *OtherOptionalObject->GetName(), OtherSwitch);
+	}
+	return (OtherMessageClass == GetClass()) && (Switch == OtherSwitch) && (OptionalObject == OtherOptionalObject);
 }
 
 

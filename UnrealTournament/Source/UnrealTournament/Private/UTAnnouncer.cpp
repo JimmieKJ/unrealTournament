@@ -13,8 +13,6 @@ UUTAnnouncer::UUTAnnouncer(const FObjectInitializer& ObjectInitializer)
 	AnnouncementComp->bOverridePriority = true;
 	static ConstructorHelpers::FObjectFinder<USoundClass> SoundClassFinder(TEXT("SoundClass'/Game/RestrictedAssets/Audio/SoundClassesAndMixes/Announcer.Announcer'"));
 	AnnouncementComp->SoundClassOverride = SoundClassFinder.Object;
-
-	Spacing = 0.15f;
 }
 
 void UUTAnnouncer::PostInitProperties()
@@ -54,7 +52,16 @@ void UUTAnnouncer::PlayAnnouncement(TSubclassOf<UUTLocalMessage> MessageClass, i
 			// if we should cancel the current announcement, then play the new one over top of it
 			if (CurrentAnnouncement.MessageClass != NULL && MessageClass.GetDefaultObject()->InterruptAnnouncement(NewAnnouncement, CurrentAnnouncement))
 			{
-				//UE_LOG(UT, Warning, TEXT("%s %d interrupting %s %d"), *MessageClass->GetName(), Switch, *CurrentAnnouncement.MessageClass->GetName(), CurrentAnnouncement.Switch);
+				//UE_LOG(UT, Warning, TEXT("%s %d immediate interrupting %s %d"), *MessageClass->GetName(), Switch, *CurrentAnnouncement.MessageClass->GetName(), CurrentAnnouncement.Switch);
+
+				for (int32 i = QueuedAnnouncements.Num() - 1; i >= 0; i--)
+				{
+					if (MessageClass.GetDefaultObject()->InterruptAnnouncement(NewAnnouncement, QueuedAnnouncements[i]))
+					{
+						//UE_LOG(UT, Warning, TEXT("%s %d also interrupting %s %d"), *MessageClass->GetName(), Switch, *QueuedAnnouncements[i].MessageClass->GetName(), QueuedAnnouncements[i].Switch);
+						QueuedAnnouncements.RemoveAt(i);
+					}
+				}
 				QueuedAnnouncements.Insert(NewAnnouncement, 0);
 				StartNextAnnouncement(false);
 			}
@@ -66,7 +73,7 @@ void UUTAnnouncer::PlayAnnouncement(TSubclassOf<UUTLocalMessage> MessageClass, i
 				// see if we should cancel any existing announcements
 				if ((CurrentAnnouncement.MessageClass != NULL) && MessageClass.GetDefaultObject()->CancelByAnnouncement(Switch, OptionalObject, CurrentAnnouncement.MessageClass, CurrentAnnouncement.Switch, CurrentAnnouncement.OptionalObject))
 				{
-					//UE_LOG(UT, Warning, TEXT("%s %d cancelled by %s %d"), *MessageClass->GetName(), Switch, *QueuedAnnouncements[i].MessageClass->GetName(), QueuedAnnouncements[i].Switch);
+					//UE_LOG(UT, Warning, TEXT("%s %d cancelled by %s %d"), *MessageClass->GetName(), Switch, *CurrentAnnouncement.MessageClass->GetName(), CurrentAnnouncement.Switch);
 					bCancelThisAnnouncement = true;
 				}
 				else
@@ -123,8 +130,8 @@ void UUTAnnouncer::AnnouncementFinished()
 
 void UUTAnnouncer::StartNextAnnouncement(bool bUseSpacing)
 {
-	float AnnouncementDelay = bUseSpacing ? Spacing : 0.f;
-	if (QueuedAnnouncements.Num() > 0)
+	float AnnouncementDelay = 0.f;
+	if (bUseSpacing && (QueuedAnnouncements.Num() > 0))
 	{
 		FAnnouncementInfo Next = QueuedAnnouncements[0];
 		AnnouncementDelay = Next.MessageClass.GetDefaultObject()->GetAnnouncementSpacing(Next.Switch, Next.OptionalObject) - (GetWorld()->GetTimeSeconds() - Next.QueueTime);
