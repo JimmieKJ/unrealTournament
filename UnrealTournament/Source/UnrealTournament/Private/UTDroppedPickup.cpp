@@ -299,7 +299,7 @@ void AUTDroppedPickup::OnRepWeaponSkin()
 	}
 }
 
-float AUTDroppedPickup::BotDesireability_Implementation(APawn* Asker, float PathDistance)
+float AUTDroppedPickup::BotDesireability_Implementation(APawn* Asker, AController* RequestOwner, float PathDistance)
 {
 	if (InventoryType == NULL)
 	{
@@ -312,11 +312,11 @@ float AUTDroppedPickup::BotDesireability_Implementation(APawn* Asker, float Path
 		if (LifeSpan > 0.0)
 		{
 			ACharacter* C = Cast<ACharacter>(Asker);
-			return (C == NULL || PathDistance / C->GetCharacterMovement()->MaxWalkSpeed > LifeSpan) ? 0.0f : InventoryType.GetDefaultObject()->BotDesireability(Asker, this, PathDistance);
+			return (C == NULL || PathDistance / C->GetCharacterMovement()->MaxWalkSpeed > LifeSpan) ? 0.0f : InventoryType.GetDefaultObject()->BotDesireability(Asker, RequestOwner, this, PathDistance);
 		}
 		else
 		{
-			return InventoryType.GetDefaultObject()->BotDesireability(Asker, this, PathDistance);
+			return InventoryType.GetDefaultObject()->BotDesireability(Asker, RequestOwner, this, PathDistance);
 		}
 	}
 }

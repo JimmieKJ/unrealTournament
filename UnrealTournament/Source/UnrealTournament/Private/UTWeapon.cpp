@@ -2451,7 +2451,7 @@ float AUTWeapon::GetDamageRadius_Implementation(uint8 TestMode) const
 	}
 }
 
-float AUTWeapon::BotDesireability_Implementation(APawn* Asker, AActor* Pickup, float PathDistance) const
+float AUTWeapon::BotDesireability_Implementation(APawn* Asker, AController* RequestOwner, AActor* Pickup, float PathDistance) const
 {
 	AUTCharacter* P = Cast<AUTCharacter>(Asker);
 	if (P == NULL)
@@ -2462,8 +2462,8 @@ float AUTWeapon::BotDesireability_Implementation(APawn* Asker, AActor* Pickup, f
 	{
 		float Desire = BasePickupDesireability;
 
-		AUTBot* B = Cast<AUTBot>(P->Controller);
-		if (B != NULL && B->IsFavoriteWeapon(GetClass()))
+		AUTBot* B = Cast<AUTBot>(RequestOwner);
+		if (B != NULL && B == P->Controller && B->IsFavoriteWeapon(GetClass()))
 		{
 			Desire *= 1.5f;
 		}
@@ -2509,7 +2509,7 @@ float AUTWeapon::DetourWeight_Implementation(APawn* Asker, AActor* Pickup, float
 	// detour if currently equipped weapon
 	else if (P->GetWeaponClass() == GetClass())
 	{
-		return BotDesireability(Asker, Pickup, PathDistance);
+		return BotDesireability(Asker, Asker->Controller, Pickup, PathDistance);
 	}
 	else
 	{
@@ -2517,7 +2517,7 @@ float AUTWeapon::DetourWeight_Implementation(APawn* Asker, AActor* Pickup, float
 		AUTBot* B = Cast<AUTBot>(P->Controller);
 		if (B != NULL && B->IsFavoriteWeapon(GetClass()))
 		{
-			return BotDesireability(Asker, Pickup, PathDistance);
+			return BotDesireability(Asker, Asker->Controller, Pickup, PathDistance);
 		}
 		else
 		{
@@ -2525,7 +2525,7 @@ float AUTWeapon::DetourWeight_Implementation(APawn* Asker, AActor* Pickup, float
 			AUTWeapon* AlreadyHas = P->FindInventoryType<AUTWeapon>(GetClass());
 			if (AlreadyHas == NULL || AlreadyHas->Ammo == 0)
 			{
-				return BotDesireability(Asker, Pickup, PathDistance);
+				return BotDesireability(Asker, Asker->Controller, Pickup, PathDistance);
 			}
 			else
 			{

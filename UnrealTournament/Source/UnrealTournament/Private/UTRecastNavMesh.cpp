@@ -1627,7 +1627,7 @@ bool FSingleEndpointEval::InitForPathfinding(APawn* Asker, const FNavAgentProper
 	}
 	return GoalNode != NULL;
 }
-float FSingleEndpointEval::Eval(APawn* Asker, const FNavAgentProperties& AgentProps, const UUTPathNode* Node, const FVector& EntryLoc, int32 TotalDistance)
+float FSingleEndpointEval::Eval(APawn* Asker, const FNavAgentProperties& AgentProps, AController* RequestOwner, const UUTPathNode* Node, const FVector& EntryLoc, int32 TotalDistance)
 {
 	return (Node == GoalNode) ? 10.0f : 0.0f;
 }
@@ -2035,7 +2035,7 @@ bool AUTRecastNavMesh::FindBestPath(APawn* Asker, const FNavAgentProperties& Age
 		FEvaluatedNode* BestDest = NULL;
 		while (CurrentNode != NULL)
 		{
-			float ThisWeight = NodeEval.Eval(Asker, AgentProps, CurrentNode->Node, (CurrentNode->TotalDistance == 0) ? StartLoc : GetPolyCenter(CurrentNode->Poly), CurrentNode->TotalDistance);
+			float ThisWeight = NodeEval.Eval(Asker, AgentProps, RequestOwner, CurrentNode->Node, (CurrentNode->TotalDistance == 0) ? StartLoc : GetPolyCenter(CurrentNode->Poly), CurrentNode->TotalDistance);
 			if (ThisWeight > Weight)
 			{
 				Weight = ThisWeight;
@@ -2191,7 +2191,7 @@ bool AUTRecastNavMesh::FindBestPath(APawn* Asker, const FNavAgentProperties& Age
 				}
 			}
 
-			if (bAllowDetours && !bNeedMoveToStartNode && Asker != NULL && NodeRoute.Num() > ((RouteGoal != NULL) ? 2 : 1))
+			if (bAllowDetours && !bNeedMoveToStartNode && Asker != NULL && (RequestOwner == NULL || RequestOwner == Asker->Controller) && NodeRoute.Num() > ((RouteGoal != NULL) ? 2 : 1))
 			{
 				FVector NextLoc = NodeRoute[0].GetLocation(Asker);
 				FVector NextDir = (NextLoc - StartLoc).GetSafeNormal();

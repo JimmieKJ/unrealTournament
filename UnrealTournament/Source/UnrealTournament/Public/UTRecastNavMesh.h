@@ -131,12 +131,13 @@ struct UNREALTOURNAMENT_API FUTNodeEvaluator
 	/** evaluates each node traversed
 	 * @param Asker - Pawn doing the search. May be NULL
 	 * @param AgentProps - size and capabilities for reachability
+	 * @param RequestOwner - Controller doing the search. Can be NULL, may not be equal to Asker->Controller if this Controller is predicting another pawn's path (e.g. intercept logic)
 	 * @param Node - node being evaluated
 	 * @param EntryLoc - path entry point into Node; i.e. where the agent would be when it entered Node's area if it traversed the current path
 	 * @param TotalDistance - total path distance so far
 	 * @return weighting as a path endpoint
 	 */
-	virtual float Eval(APawn* Asker, const FNavAgentProperties& AgentProps, const UUTPathNode* Node, const FVector& EntryLoc, int32 TotalDistance) = 0;
+	virtual float Eval(APawn* Asker, const FNavAgentProperties& AgentProps, AController* RequestOwner, const UUTPathNode* Node, const FVector& EntryLoc, int32 TotalDistance) = 0;
 
 	/** adds optional evaluator specific cost to the given path link; return BLOCKED_PATH_COST to prevent a path from being used even if it would otherwise be valid */
 	virtual uint32 GetTransientCost(const FUTPathLink& Link, APawn* Asker, const FNavAgentProperties& AgentProps, AController* RequestOwner, NavNodeRef StartPoly, int32 TotalDistance)
@@ -162,7 +163,7 @@ struct UNREALTOURNAMENT_API FSingleEndpointEval : public FUTNodeEvaluator
 	UUTPathNode* GoalNode;
 
 	virtual bool InitForPathfinding(APawn* Asker, const FNavAgentProperties& AgentProps, AUTRecastNavMesh* NavData);
-	virtual float Eval(APawn* Asker, const FNavAgentProperties& AgentProps, const UUTPathNode* Node, const FVector& EntryLoc, int32 TotalDistance);
+	virtual float Eval(APawn* Asker, const FNavAgentProperties& AgentProps, AController* RequestOwner, const UUTPathNode* Node, const FVector& EntryLoc, int32 TotalDistance);
 	virtual bool GetRouteGoal(AActor*& OutGoal, FVector& OutGoalLoc) const override
 	{
 		OutGoal = GoalActor;
@@ -230,7 +231,7 @@ struct UNREALTOURNAMENT_API FMultiPathNodeEval : public FUTNodeEvaluator
 	{
 		return Goals.Num() > 0;
 	}
-	virtual float Eval(APawn* Asker, const FNavAgentProperties& AgentProps, const UUTPathNode* Node, const FVector& EntryLoc, int32 TotalDistance) override
+	virtual float Eval(APawn* Asker, const FNavAgentProperties& AgentProps, AController* RequestOwner, const UUTPathNode* Node, const FVector& EntryLoc, int32 TotalDistance) override
 	{
 		if (Goals.Contains(FRouteCacheItem(Node, EntryLoc, INVALID_NAVNODEREF)))
 		{

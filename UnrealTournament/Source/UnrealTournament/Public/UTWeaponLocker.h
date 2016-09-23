@@ -88,6 +88,10 @@ public:
 		}
 	}
 
-	virtual float BotDesireability_Implementation(APawn* Asker, float TotalDistance) override;
+	virtual float BotDesireability_Implementation(APawn* Asker, AController* RequestOwner, float TotalDistance) override;
 	virtual float DetourWeight_Implementation(APawn* Asker, float TotalDistance) override;
+	virtual bool IsSuperDesireable_Implementation(AController* RequestOwner, float CalculatedDesire) override
+	{
+		return false;
+	}
 };

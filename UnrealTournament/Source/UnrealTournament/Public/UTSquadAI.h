@@ -16,7 +16,7 @@ struct UNREALTOURNAMENT_API FSuperPickupEval : public FBestInventoryEval
 	/** list of pickups to ignore because a teammate has a claim on them */
 	TArray<AActor*> ClaimedPickups;
 
-	virtual bool AllowPickup(APawn* Asker, AActor* Pickup, float Desireability, float PickupDist);
+	virtual bool AllowPickup(APawn* Asker, AController* RequestOwner, AActor* Pickup, float Desireability, float PickupDist) override;
 
 	FSuperPickupEval(float InPredictionTime, float InMoveSpeed, int32 InMaxDist = 0, float InMinDesireability = 1.0f, const TArray<AActor*>& InClaimedPickups = TArray<AActor*>(), AActor* InPrevGoal = NULL)
 		: FBestInventoryEval(InPredictionTime, InMoveSpeed, InMaxDist), MinDesireability(InMinDesireability), ClaimedPickups(InClaimedPickups)

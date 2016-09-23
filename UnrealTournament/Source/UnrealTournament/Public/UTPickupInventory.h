@@ -123,9 +123,9 @@ public:
 	/** Announce pickup to recipient */
 	virtual void AnnouncePickup(AUTCharacter* P);
 
-	virtual float BotDesireability_Implementation(APawn* Asker, float TotalDistance) override
+	virtual float BotDesireability_Implementation(APawn* Asker, AController* RequestOwner, float TotalDistance) override
 	{
-		return (InventoryType == NULL) ? 0.0f : InventoryType.GetDefaultObject()->BotDesireability(Asker, this, TotalDistance);
+		return (InventoryType == NULL) ? 0.0f : InventoryType.GetDefaultObject()->BotDesireability(Asker, RequestOwner, this, TotalDistance);
 	}
 	virtual float DetourWeight_Implementation(APawn* Asker, float TotalDistance) override
 	{

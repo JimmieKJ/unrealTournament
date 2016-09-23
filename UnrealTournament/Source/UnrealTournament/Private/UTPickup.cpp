@@ -391,13 +391,17 @@ void AUTPickup::Tick(float DeltaTime)
 	}
 }
 
-float AUTPickup::BotDesireability_Implementation(APawn* Asker, float PathDistance)
+float AUTPickup::BotDesireability_Implementation(APawn* Asker, AController* RequestOwner, float PathDistance)
 {
 	return BaseDesireability;
 }
 float AUTPickup::DetourWeight_Implementation(APawn* Asker, float PathDistance)
 {
 	return 0.0f;
+}
+bool AUTPickup::IsSuperDesireable_Implementation(AController* RequestOwner, float CalculatedDesire)
+{
+	return FMath::Max<float>(BaseDesireability, CalculatedDesire) >= 1.0f;
 }
 
 static FPickupReplicatedState PreRepState;

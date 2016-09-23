@@ -15,6 +15,6 @@ class UNREALTOURNAMENT_API AUTPickupAmmo : public AUTPickup
 	virtual bool AllowPickupBy_Implementation(APawn* Other, bool bDefaultAllowPickup) override;
 	virtual void GiveTo_Implementation(APawn* Target) override;
 
-	virtual float BotDesireability_Implementation(APawn* Asker, float TotalDistance) override;
+	virtual float BotDesireability_Implementation(APawn* Asker, AController* RequestOwner, float TotalDistance) override;
 	virtual float DetourWeight_Implementation(APawn* Asker, float TotalDistance) override;
 };

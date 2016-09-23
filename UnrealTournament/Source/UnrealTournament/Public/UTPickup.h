@@ -196,15 +196,27 @@ class UNREALTOURNAMENT_API AUTPickup : public AActor, public IUTResetInterface, 
 	 * the distance is supplied so that the code can make timing decisions and cost/benefit analysis
 	 */
 	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = AI)
-	float BotDesireability(APawn* Asker, float PathDistance);
+	float BotDesireability(APawn* Asker, AController* RequestOwner, float PathDistance);
 
 	/** similar to BotDesireability but this method is queried for items along the bot's path during most pathing queries, even when it isn't explicitly looking for items
 	 * (e.g. checking to pick up health on the way to an enemy or game objective)
 	 * in general this method should be more strict and return 0 in cases where the bot's objective should be higher priority than the item
 	 * as with BotDesireability(), the PathDistance is weighted internally already and should primarily be used to reject things that are too far out of the bot's way
+	 * note: this function is only called when Asker->Controller is the requestor, so it is OK to use that for querying bot skill/personality
 	 */
 	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = AI)
 	float DetourWeight(APawn* Asker, float PathDistance);
+
+	/** return whether the AI should consider this pickup 'super', which enables special timing, tracking, and pursuit logic
+	 * the default is to consider any pickup with base or current desireability >= 1.0 to be super, but there are some cases
+	 * where normal desireability and 'super' status don't intersect - for example, small health items will rate extremely highly
+	 * when the AI is near death, but that doesn't mean AI should track and pursue one like it's a shield belt
+	 * @param RequestOwner - Controller doing the inventory search; note that RequestOwner->Pawn is not necessarily the Pawn that is searching;
+	 *						the Controller is provided in case it is relevant to check preferences
+	 * @param CalculatedDesire - precalculated desire for the bot to get this item generally
+	 */
+	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = AI)
+	bool IsSuperDesireable(AController* RequestOwner, float CalculatedDesire);
 
 	/** if pickup is available, returns a negative value indicating the time since the pickup last respawned
 	 * if not available, returns a positive value indicating the time until the pickup respawns (FLT_MAX if it will never respawn)

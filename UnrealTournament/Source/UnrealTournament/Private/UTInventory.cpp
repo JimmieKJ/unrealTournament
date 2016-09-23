@@ -334,7 +334,7 @@ void AUTInventory::DrawInventoryHUD_Implementation(UUTHUDWidget* Widget, FVector
 {
 }
 
-float AUTInventory::BotDesireability_Implementation(APawn* Asker, AActor* Pickup, float PathDistance) const
+float AUTInventory::BotDesireability_Implementation(APawn* Asker, AController* RequestOwner, AActor* Pickup, float PathDistance) const
 {
 	return BasePickupDesireability;
 }

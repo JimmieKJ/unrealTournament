@@ -52,7 +52,7 @@ void AUTArmor::GivenTo(AUTCharacter* NewOwner, bool bAutoActivate)
 	Super::GivenTo(NewOwner, bAutoActivate);
 }
 
-float AUTArmor::BotDesireability_Implementation(APawn* Asker, AActor* Pickup, float PathDistance) const
+float AUTArmor::BotDesireability_Implementation(APawn* Asker, AController* RequestOwner, AActor* Pickup, float PathDistance) const
 {
 	AUTCharacter* P = Cast<AUTCharacter>(Asker);
 	if (P == NULL)

@@ -72,10 +72,10 @@ class UNREALTOURNAMENT_API AUTArmor : public AUTInventory
 
 	virtual bool HandleGivenTo_Implementation(AUTCharacter* Character) override;
 
-	virtual float BotDesireability_Implementation(APawn* Asker, AActor* Pickup, float PathDistance) const override;
+	virtual float BotDesireability_Implementation(APawn* Asker, AController* RequestOwner, AActor* Pickup, float PathDistance) const override;
 	virtual float DetourWeight_Implementation(APawn* Asker, AActor* Pickup, float PathDistance) const override
 	{
 		// don't detour too far out of way for low impact armor
-		return (BasePickupDesireability >= 1.0f || PathDistance < 2000.0f) ? BotDesireability(Asker, Pickup, PathDistance) : 0.0f;
+		return (BasePickupDesireability >= 1.0f || PathDistance < 2000.0f) ? BotDesireability(Asker, Asker->Controller, Pickup, PathDistance) : 0.0f;
 	}
 };

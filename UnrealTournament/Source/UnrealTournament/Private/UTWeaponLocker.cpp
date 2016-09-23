@@ -370,7 +370,7 @@ void AUTWeaponLocker::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutL
 	DOREPLIFETIME(AUTWeaponLocker, WeaponList);
 }
 
-float AUTWeaponLocker::BotDesireability_Implementation(APawn* Asker, float TotalDistance)
+float AUTWeaponLocker::BotDesireability_Implementation(APawn* Asker, AController* RequestOwner, float TotalDistance)
 {
 	return IsTaken(Asker) ? 0.0f : 1.0f; // FIXME: real rating
 }

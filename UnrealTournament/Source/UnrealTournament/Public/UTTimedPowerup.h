@@ -95,7 +95,7 @@ class UNREALTOURNAMENT_API AUTTimedPowerup : public AUTInventory
 
 	virtual float DetourWeight_Implementation(APawn* Asker, AActor* Pickup, float PathDistance) const
 	{
-		return BotDesireability(Asker, Pickup, PathDistance);
+		return BotDesireability(Asker, Asker->Controller, Pickup, PathDistance);
 	}
 
 public:

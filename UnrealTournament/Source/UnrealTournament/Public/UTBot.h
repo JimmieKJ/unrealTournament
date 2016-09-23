@@ -59,14 +59,14 @@ struct UNREALTOURNAMENT_API FBestInventoryEval : public FUTNodeEvaluator
 	 */
 	AActor* PrevGoal;
 
-	virtual float Eval(APawn* Asker, const FNavAgentProperties& AgentProps, const UUTPathNode* Node, const FVector& EntryLoc, int32 TotalDistance) override;
+	virtual float Eval(APawn* Asker, const FNavAgentProperties& AgentProps, AController* RequestOwner, const UUTPathNode* Node, const FVector& EntryLoc, int32 TotalDistance) override;
 	virtual bool GetRouteGoal(AActor*& OutGoal, FVector& OutGoalLoc) const override;
 	virtual uint32 GetTransientCost(const FUTPathLink& Link, APawn* Asker, const FNavAgentProperties& AgentProps, AController* RequestOwner, NavNodeRef StartPoly, int32 TotalDistance) override
 	{
 		return (MaxDist <= 0 || TotalDistance < MaxDist) ? 0 : BLOCKED_PATH_COST;
 	}
 	/** return false to ignore this pickup even if it is desirable and available */
-	virtual bool AllowPickup(APawn* Asker, AActor* Pickup, float Desireability, float PickupDist)
+	virtual bool AllowPickup(APawn* Asker, AController* RequestOwner, AActor* Pickup, float Desireability, float PickupDist)
 	{
 		return true;
 	}
@@ -77,7 +77,7 @@ struct UNREALTOURNAMENT_API FBestInventoryEval : public FUTNodeEvaluator
 };
 struct UNREALTOURNAMENT_API FRandomDestEval : public FUTNodeEvaluator
 {
-	virtual float Eval(APawn* Asker, const FNavAgentProperties& AgentProps, const UUTPathNode* Node, const FVector& EntryLoc, int32 TotalDistance) override
+	virtual float Eval(APawn* Asker, const FNavAgentProperties& AgentProps, AController* RequestOwner, const UUTPathNode* Node, const FVector& EntryLoc, int32 TotalDistance) override
 	{
 		return (TotalDistance > 0) ? FMath::FRand() * 1.5f : 0.1f;
 	}
@@ -93,7 +93,7 @@ struct UNREALTOURNAMENT_API FHideLocEval : public FUTNodeEvaluator
 	/** whether to use saved learning data to evaluate previously-used hide points */
 	bool bUseLearningData;
 
-	virtual float Eval(APawn* Asker, const FNavAgentProperties& AgentProps, const UUTPathNode* Node, const FVector& EntryLoc, int32 TotalDistance) override;
+	virtual float Eval(APawn* Asker, const FNavAgentProperties& AgentProps, AController* RequestOwner, const UUTPathNode* Node, const FVector& EntryLoc, int32 TotalDistance) override;
 
 	FHideLocEval()
 	{}

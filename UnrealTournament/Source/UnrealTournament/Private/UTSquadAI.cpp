@@ -3,42 +3,47 @@
 #include "UTSquadAI.h"
 #include "UTPickupWeapon.h"
 #include "UTDefensePoint.h"
+#include "UTWeaponLocker.h"
 
 FName NAME_Attack(TEXT("Attack"));
 FName NAME_Defend(TEXT("Defend"));
 
-bool FSuperPickupEval::AllowPickup(APawn* Asker, AActor* Pickup, float Desireability, float PickupDist)
+bool FSuperPickupEval::AllowPickup(APawn* Asker, AController* RequestOwner, AActor* Pickup, float Desireability, float PickupDist)
 {
 	if (ClaimedPickups.Contains(Pickup))
 	{
 		return false;
 	}
-	else if (Desireability >= MinDesireability)
-	{
-		return true;
-	}
 	else
 	{
-		bool bResult = false;
-		// ignore desireability constraint for bot's favorite weapon if it doesn't have or it's out of ammo
-		if (Asker != NULL)
+		AUTPickup* LevelPickup = Cast<AUTPickup>(Pickup);
+		if ((LevelPickup != NULL) ? LevelPickup->IsSuperDesireable(RequestOwner, Desireability) : (Desireability >= MinDesireability))
 		{
-			AUTBot* B = Cast<AUTBot>(Asker->Controller);
-			if (B != NULL && B->Personality.FavoriteWeapon != NAME_None)
+			return true;
+		}
+		else
+		{
+			bool bResult = false;
+			// ignore desireability constraint for bot's favorite weapon if it doesn't have or it's out of ammo
+			if (Asker != NULL)
 			{
-				AUTPickupWeapon* WeaponPickup = Cast<AUTPickupWeapon>(Pickup);
-				if (WeaponPickup != NULL && B->IsFavoriteWeapon(WeaponPickup->WeaponType))
+				AUTBot* B = Cast<AUTBot>(Asker->Controller);
+				if (B != NULL && B->Personality.FavoriteWeapon != NAME_None)
 				{
-					AUTWeapon* Existing = NULL;
-					if (Cast<AUTCharacter>(Asker) != NULL)
+					AUTPickupWeapon* WeaponPickup = Cast<AUTPickupWeapon>(Pickup);
+					if (WeaponPickup != NULL && B->IsFavoriteWeapon(WeaponPickup->WeaponType))
 					{
-						Existing = ((AUTCharacter*)Asker)->FindInventoryType<AUTWeapon>(WeaponPickup->WeaponType, true);
+						AUTWeapon* Existing = NULL;
+						if (Cast<AUTCharacter>(Asker) != NULL)
+						{
+							Existing = ((AUTCharacter*)Asker)->FindInventoryType<AUTWeapon>(WeaponPickup->WeaponType, true);
+						}
+						bResult = (Existing == NULL || !Existing->HasAnyAmmo());
 					}
-					bResult = (Existing == NULL || !Existing->HasAnyAmmo());
 				}
 			}
+			return bResult;
 		}
-		return bResult;
 	}
 }
 
@@ -161,6 +166,36 @@ void AUTSquadAI::SetDefensePointFor(AUTBot* B)
 	}
 }
 
+static bool NeedsPickupClaim(AActor* Pickup)
+{
+	// weapon lockers are always weapon stay so everyone can have one
+	if (Cast<AUTWeaponLocker>(Pickup) != nullptr)
+	{
+		return false;
+	}
+	else
+	{
+		AUTGameState* GS = Pickup->GetWorld()->GetGameState<AUTGameState>();
+		if (GS == nullptr || !GS->bWeaponStay)
+		{
+			return true;
+		}
+		else
+		{
+			AUTPickupInventory* IP = Cast<AUTPickupInventory>(Pickup);
+			if (IP == nullptr)
+			{
+				return true;
+			}
+			else
+			{
+				TSubclassOf<AUTWeapon> WeaponType(*IP->GetInventoryType());
+				return (WeaponType == nullptr || !WeaponType.GetDefaultObject()->bWeaponStay);
+			}
+		}
+	}
+}
+
 bool AUTSquadAI::HasBetterPickupClaim(AUTBot* B, const FPickupClaim& Claim)
 {
 	if (Claim.bHardClaim)
@@ -222,7 +257,7 @@ bool AUTSquadAI::CheckSuperPickups(AUTBot* B, int32 MaxDist)
 					for (TWeakObjectPtr<AActor> POI : Node->POIs)
 					{
 						AUTPickup* Item = Cast<AUTPickup>(POI.Get());
-						if (Item != NULL && (Item->GetActorLocation() - PC->GetPawn()->GetActorLocation()).Size() < 512.0f && !HasBetterPickupClaim(B, FPickupClaim(PC->GetPawn(), POI.Get(), false)))
+						if (Item != NULL && NeedsPickupClaim(Item) && (Item->GetActorLocation() - PC->GetPawn()->GetActorLocation()).Size() < 512.0f && !HasBetterPickupClaim(B, FPickupClaim(PC->GetPawn(), POI.Get(), false)))
 						{
 							ClaimedPickups.Add(POI.Get());
 						}
@@ -239,7 +274,7 @@ bool AUTSquadAI::CheckSuperPickups(AUTBot* B, int32 MaxDist)
 	if (NavData->FindBestPath(B->GetPawn(), B->GetPawn()->GetNavAgentPropertiesRef(), B, NodeEval, B->GetPawn()->GetNavAgentLocation(), Weight, true, PotentialRoute))
 	{
 		AActor* NewGoal = PotentialRoute.Last().Actor.Get();
-		if (Team != NULL && NewGoal != NULL)
+		if (Team != NULL && NewGoal != NULL && NeedsPickupClaim(NewGoal))
 		{
 			Team->SetPickupClaim(B->GetPawn(), NewGoal);
 		}

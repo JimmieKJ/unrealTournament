@@ -180,7 +180,7 @@ void AUTBot::InitializeCharacter(UUTBotCharacter* NewCharacterData)
 	InitializeSkill(CharacterData->Skill);
 }
 
-float FBestInventoryEval::Eval(APawn* Asker, const FNavAgentProperties& AgentProps, const UUTPathNode* Node, const FVector& EntryLoc, int32 TotalDistance)
+float FBestInventoryEval::Eval(APawn* Asker, const FNavAgentProperties& AgentProps, AController* RequestOwner, const UUTPathNode* Node, const FVector& EntryLoc, int32 TotalDistance)
 {
 	float BestNodeWeight = 0.0f;
 	for (TWeakObjectPtr<AActor> TestActor : Node->POIs)
@@ -215,8 +215,8 @@ float FBestInventoryEval::Eval(APawn* Asker, const FNavAgentProperties& AgentPro
 				}
 				if (bConsiderActive)
 				{
-					float NewWeight = TestPickup->BotDesireability(Asker, PickupDist);
-					if (AllowPickup(Asker, TestPickup, NewWeight, PickupDist))
+					float NewWeight = TestPickup->BotDesireability(Asker, RequestOwner, PickupDist);
+					if (AllowPickup(Asker, RequestOwner, TestPickup, NewWeight, PickupDist))
 					{
 						NewWeight /= PickupDist;
 						if (NewWeight > BestNodeWeight)
@@ -237,8 +237,8 @@ float FBestInventoryEval::Eval(APawn* Asker, const FNavAgentProperties& AgentPro
 				if (TestDrop != NULL)
 				{
 					const float PickupDist = FMath::Max<float>(1.0f, float(TotalDistance) + (TestDrop->GetActorLocation() - EntryLoc).Size());
-					float NewWeight = TestDrop->BotDesireability(Asker, TotalDistance);
-					if (AllowPickup(Asker, TestDrop, NewWeight, PickupDist))
+					float NewWeight = TestDrop->BotDesireability(Asker, RequestOwner, TotalDistance);
+					if (AllowPickup(Asker, RequestOwner, TestDrop, NewWeight, PickupDist))
 					{
 						NewWeight /= PickupDist;
 						if (NewWeight > BestNodeWeight)
@@ -270,7 +270,7 @@ bool FBestInventoryEval::GetRouteGoal(AActor*& OutGoal, FVector& OutGoalLoc) con
 		return false;
 	}
 }
-float FHideLocEval::Eval(APawn* Asker, const FNavAgentProperties& AgentProps, const UUTPathNode* Node, const FVector& EntryLoc, int32 TotalDistance)
+float FHideLocEval::Eval(APawn* Asker, const FNavAgentProperties& AgentProps, AController* RequestOwner, const UUTPathNode* Node, const FVector& EntryLoc, int32 TotalDistance)
 {
 	if (Node->bDestinationOnly || RejectNodes.Contains(Node))
 	{
@@ -3611,7 +3611,7 @@ protected:
 	TSet<NavNodeRef> TestedPolys;
 
 public:
-	virtual float Eval(APawn* Asker, const FNavAgentProperties& AgentProps, const UUTPathNode* Node, const FVector& EntryLoc, int32 TotalDistance) override
+	virtual float Eval(APawn* Asker, const FNavAgentProperties& AgentProps, AController* RequestOwner, const UUTPathNode* Node, const FVector& EntryLoc, int32 TotalDistance) override
 	{
 		// if the early out at Asker's node was requested, end when we reach it
 		return (bStopAtAsker && Node == AskerAnchor) ? 10.0f : 0.0f;

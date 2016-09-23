@@ -925,7 +925,7 @@ class UNREALTOURNAMENT_API AUTWeapon : public AUTInventory
 	UFUNCTION(BlueprintNativeEvent, Category = AI)
 	float GetDamageRadius(uint8 TestMode) const;
 
-	virtual float BotDesireability_Implementation(APawn* Asker, AActor* Pickup, float PathDistance) const;
+	virtual float BotDesireability_Implementation(APawn* Asker, AController* RequestOwner, AActor* Pickup, float PathDistance) const;
 	virtual float DetourWeight_Implementation(APawn* Asker, AActor* Pickup, float PathDistance) const;
 	/** base weapon selection rating for AI
 	 * this is often used to determine if the AI has a good enough weapon to not pursue further pickups,

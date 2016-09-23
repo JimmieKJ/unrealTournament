@@ -65,7 +65,7 @@ void AUTPickupHealth::GiveTo_Implementation(APawn* Target)
 	}
 }
 
-float AUTPickupHealth::BotDesireability_Implementation(APawn* Asker, float PathDistance)
+float AUTPickupHealth::BotDesireability_Implementation(APawn* Asker, AController* RequestOwner, float PathDistance)
 {
 	AUTCharacter* P = Cast<AUTCharacter>(Asker);
 	if (P == NULL)
@@ -74,7 +74,7 @@ float AUTPickupHealth::BotDesireability_Implementation(APawn* Asker, float PathD
 	}
 	else
 	{
-		AUTBot* B = Cast<AUTBot>(P->Controller);
+		AUTBot* B = Cast<AUTBot>(RequestOwner);
 
 		float Desire = FMath::Min<int32>(P->Health + HealAmount, GetHealMax(P)) - P->Health;
 

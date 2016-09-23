@@ -27,7 +27,7 @@ void AUTPickupAmmo::GiveTo_Implementation(APawn* Target)
 	}
 }
 
-float AUTPickupAmmo::BotDesireability_Implementation(APawn* Asker, float TotalDistance)
+float AUTPickupAmmo::BotDesireability_Implementation(APawn* Asker, AController* RequestOwner, float TotalDistance)
 {
 	//Bot = UTBot(C);
 	//if (Bot != None && !Bot.bHuntPlayer)
@@ -70,7 +70,7 @@ float AUTPickupAmmo::DetourWeight_Implementation(APawn* Asker, float TotalDistan
 	// if short distance always grab in case we find the weapon
 	else if (TotalDistance < 1200.0f)
 	{
-		return BotDesireability(Asker, TotalDistance);
+		return BotDesireability(Asker, Asker->Controller, TotalDistance);
 	}
 	else
 	{
@@ -78,7 +78,7 @@ float AUTPickupAmmo::DetourWeight_Implementation(APawn* Asker, float TotalDistan
 		AUTBot* B = Cast<AUTBot>(P->Controller);
 		if (B != NULL && B->IsFavoriteWeapon(Ammo.Type))
 		{
-			return BotDesireability(Asker, TotalDistance);
+			return BotDesireability(Asker, Asker->Controller, TotalDistance);
 		}
 		else
 		{
@@ -86,7 +86,7 @@ float AUTPickupAmmo::DetourWeight_Implementation(APawn* Asker, float TotalDistan
 			AUTWeapon* W = P->FindInventoryType<AUTWeapon>(Ammo.Type, true);
 			if (W != NULL && W->Ammo <= W->MaxAmmo / 2)
 			{
-				return BotDesireability(Asker, TotalDistance);
+				return BotDesireability(Asker, Asker->Controller, TotalDistance);
 			}
 			else
 			{
