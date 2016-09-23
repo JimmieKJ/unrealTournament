@@ -2,6 +2,8 @@
 <BuildGraph xmlns="http://www.epicgames.com/BuildGraph" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.epicgames.com/BuildGraph ../../Engine/Build/Graph/Schema.xsd" >
 	<EnvVar Name="COMMANDER_JOBID"/>
 	<Option Name="HostPlatform" DefaultValue="Win64" Description="The type of machine we're building on. Mac or Win64"/>
+	<Option Name="ToAppName" DefaultValue="" Description="AppName for promotions"/>
+	<Option Name="AllowLivePromotion" DefaultValue="false" Description="Whether to allow live promotion.  Only true or false"/>
 	<Option Name="IsReleaseBranch" DefaultValue="false" Description="True if release branch, false otherwise"/>
 	<Option Name="PreflightChange" DefaultValue="" Description="Preflight CL number if preflight, empty otherwise"/>
 	<Option Name="BuildVersion" DefaultValue="$(EscapedBranch)-CL-$(Change)" Restrict="\+\+.+|Unknown-CL-0" Description="Build Version to Promote.  Should be a fully qualified build name (ex ++Fortnite+Main-CL-123456)"/>
@@ -47,7 +49,24 @@
 
 	<Property Name="DaysToKeepOldTempStorage" Value="3"/>
 
-	<Property Name="LabelName" Value="BuildGraph-Live"/>
+	<Property Name="LabelName" Value="Live"/>
+	
+	<Option Name="PromoteWindows" DefaultValue="false" Description="Whether or not to promote for Windows. Only true or false."/>
+	<Option Name="PromoteMac" DefaultValue="false" Description="Whether or not to promote for Mac. Only true or false."/>
+	<Option Name="PromoteWin32" DefaultValue="false" Description="Whether or not to promote for Win32. Only true or false."/>
+	<Property Name="Platforms" Value=""/>
+	<Property Name="Platforms" Value="Windows" If="'$(PromoteMac)' == false And '$(PromoteWindows)' == true And '$(PromoteWin32)' == false"/>
+	<Property Name="Platforms" Value="Mac" If="'$(PromoteMac)' == true And '$(PromoteWindows)' == false And '$(PromoteWin32)' == false"/>
+	<Property Name="Platforms" Value="Win32" If="'$(PromoteMac)' == false And '$(PromoteWindows)' == false And '$(PromoteWin32)' == true"/>
+	<Property Name="Platforms" Value="Windows,Mac" If="'$(PromoteMac)' == true And '$(PromoteWindows)' == true And '$(PromoteWin32)' == false"/>
+	<Property Name="Platforms" Value="Win32,Mac" If="'$(PromoteMac)' == true And '$(PromoteWindows)' == false And '$(PromoteWin32)' == true"/>
+	<Property Name="Platforms" Value="Windows,Win32,Mac" If="'$(PromoteMac)' == true And '$(PromoteWindows)' == true And '$(PromoteWin32)' == true"/>
+	<Option Name="Product_GameClient" DefaultValue="true" Description="Whether to promote the game client"/>
+	<Option Name="Product_Editor" DefaultValue="true" Description="Whether to promote the editor"/>
+	<Property Name="Products" Value=""/>
+	<Property Name="Products" Value="GameClient" If="$(Product_GameClient) And !$(Product_Editor)"/>
+	<Property Name="Products" Value="Editor" If="!$(Product_GameClient) And $(Product_Editor)"/>
+	<Property Name="Products" Value="GameClient,Editor" If="$(Product_GameClient) And $(Product_Editor)"/>
 
 	<Agent Name="Build UnrealTournament Editor Win64" Type="CompileWin64">
 		<Node Name="Update Version Files">
@@ -445,7 +464,16 @@
 			<Stage Project="$(ProjectFile)" Target="UnrealTournamentServer" Platform="Linux" Configuration="Test" ToDir="$(BuildDir)/LinuxServer" If="$(WithLinuxServer)"/>
 		</Node>
 	</Agent>
-
+	
+	<Agent Name="Promotion Agent Group" Type="CompileWin64">
+		<Node Name="Promote Build">
+			<Error Message="Missing property 'ToAppName'" If="'$(ToAppName)' == ''"/>
+			<Error Message="No platforms configured to promote - Pick Windows, Win32, Mac, or All Three" If="'$(PromoteMac)' == false And '$(PromoteWindows)' == false And '$(PromoteWin32)' == false"/>
+			<Property Name="PromotionArguments" Value="-TestLivePromotion"/>
+			<Property Name="PromotionArguments" Value="-AllowLivePromotion" If="'$(AllowLivePromotion)' == true"/>
+			<Command Name="UnrealTournament_PromoteBuild" Arguments="-BuildVersion=$(BuildVersion) -ToAppName=$(ToAppName) -Platforms=$(Platforms) -Products=$(Products) $(PromotionArguments)"/>
+		</Node>
+	</Agent>
 
 	<Property Name="Windows Build Targets" Value=""/>
 	<Property Name="Windows Build Targets" Value="$(Windows Build Targets)Publish WindowsNoEditor Win32;" If="$(WithWin32Client)"/>
@@ -474,14 +502,6 @@
 	<Property Name="Standard Build Targets" Value="Make Windows Game;Make Mac Game;Make Linux Game;"/>
 	<Aggregate Name="Standard Build" Requires="$(Standard Build Targets)"/>
 
-	<!--
-	<Agent Name="Trigger Distribute Editor Win64" Type="Win64">
-		
-	</Agent>
-		
-	
--->
-
 	<!-- Other tasks -->
 	<Agent Name="Nightly Cleanup" Type="Win64">
 		<Node Name="Purge Old Symbols">
@@ -491,9 +511,5 @@
 			<Command Name="CleanTempStorage" Arguments="-Days=$(DaysToKeepOldTempStorage) -TempStoragedir=&quot;$(OutputDir)\TempStorage&quot;"/>
 		</Node>
 	</Agent>
-	
-	<!---->
-	<!-- Still needs a promote job -->
-	<!---->
 
 	</BuildGraph>
