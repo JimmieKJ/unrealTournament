@@ -56,7 +56,9 @@ class UUTPartyBeaconState : public UPartyBeaconState
 	 * @return the index of the game mode in use
 	 */
 	const int32 GetPlaylistId() const { return ReservationData.PlaylistId; }
-	
+
+	const int32 GetTeamElo() const { return ReservationData.TeamElo; }
+
 	/**
 	 * @return the unique id for the player who configured the beacon
 	 */

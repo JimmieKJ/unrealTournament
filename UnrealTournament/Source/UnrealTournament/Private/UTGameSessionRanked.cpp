@@ -602,6 +602,16 @@ const int32 AUTGameSessionRanked::GetPlaylistId() const
 	return INDEX_NONE;
 }
 
+const int32 AUTGameSessionRanked::GetTeamElo() const
+{
+	if (ReservationBeaconHost)
+	{
+		return ReservationBeaconHost->GetTeamElo();
+	}
+
+	return INDEX_NONE;
+}
+
 void AUTGameSessionRanked::CreateServerGame()
 {
 	UWorld* World = GetWorld();
@@ -618,6 +628,12 @@ void AUTGameSessionRanked::CreateServerGame()
 	if (UTGameInstance && UTGameInstance->GetPlaylistManager())
 	{
 		UTGameInstance->GetPlaylistManager()->GetURLForPlaylist(PlaylistId, TravelURL);
+
+		if (!TravelURL.IsEmpty())
+		{
+			int32 BotSkill = UTGameInstance->GetBotSkillForTeamElo(GetTeamElo());
+			TravelURL += FString::Printf(TEXT("?Difficulty=%d"), BotSkill);
+		}
 	}
 	
 	if (!TravelURL.IsEmpty())

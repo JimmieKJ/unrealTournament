@@ -188,6 +188,8 @@ public:
 	virtual void WaitForMovieToFinish(bool bEnsureDefaultSlateOverlay);
 	virtual void WaitForMovieToFinish(TSharedPtr<SWidget> SlateOverlayWidget);
 
+	virtual int32 GetBotSkillForTeamElo(int32 TeamElo);
+
 protected:
 
 	TSharedPtr<SWidget> MovieOverlay;

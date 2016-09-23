@@ -75,6 +75,8 @@ class AUTPartyBeaconHost : public APartyBeaconHost
 	 * @return the index of the game mode in use
 	 */
 	const int32 GetPlaylistId() const { return UTState ? UTState->GetPlaylistId() : INDEX_NONE; }
+
+	const int32 GetTeamElo() const { return UTState ? UTState->GetTeamElo() : INDEX_NONE; }
 	
 	/**
 	 * Lock down existing reservations.  Only prevents existing reservations from being removed.

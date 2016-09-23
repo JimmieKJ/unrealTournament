@@ -808,4 +808,17 @@ bool UUTGameInstance::IsMoviePlaying()
 
 #endif
 
+int32 UUTGameInstance::GetBotSkillForTeamElo(int32 TeamElo)
+{
+	if (TeamElo > 1900)
+	{
+		return 3;
+	}
+	else if (TeamElo > 1700)
+	{
+		return 2;
+	}
+
+	return 1;
+}
 
