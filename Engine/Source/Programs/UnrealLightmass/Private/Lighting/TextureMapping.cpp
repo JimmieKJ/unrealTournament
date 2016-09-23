@@ -1504,21 +1504,20 @@ void FStaticLightingSystem::CalculateDirectAreaLightingTextureMapping(
 				bDebugThisTexel = true;
 			}
 #endif
-			FGatheredLightMapSample& CurrentLightSample = LightMapData(X, Y);
-			const FTexelToVertex& TexelToVertex = TexelToVertexMap(X,Y);
+			FGatheredLightMapSample& CurrentLightSample = LightMapData(X,Y);
+			if ( ShadowMapData )
+			{
+				FShadowSample& CurrentShadowSample = (*ShadowMapData)(X,Y);
+				CurrentShadowSample.bIsMapped = CurrentLightSample.bIsMapped;
+			}
 
-			if (CurrentLightSample.bIsMapped
-				&& Light->AffectsBounds(FBoxSphereBounds(FSphere(TexelToVertex.WorldPosition, TexelToVertex.TexelRadius * 2))))
+			if ( CurrentLightSample.bIsMapped )
 			{
 				UnfilteredShadowFactorData(X, Y).bIsMapped = true;
 
-				if (ShadowMapData)
-				{
-					FShadowSample& CurrentShadowSample = (*ShadowMapData)(X,Y);
-					CurrentShadowSample.bIsMapped = true;
-				}
-
 				// Only continue if some part of the light is in front of the surface
+				const FTexelToVertex& TexelToVertex = TexelToVertexMap(X,Y);
+
 				const FStaticLightingVertex Vertex = TexelToVertex.GetVertex();
 
 				// @todo: Because we test for rays backfacing the smoothed triangle normal, this code

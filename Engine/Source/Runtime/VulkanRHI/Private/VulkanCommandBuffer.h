@@ -41,11 +41,6 @@ public:
 		return State == EState::IsInsideBegin;
 	}
 
-	inline bool HasBegun() const
-	{
-		return State == EState::IsInsideBegin || State == EState::IsInsideRenderPass;
-	}
-
 	inline bool HasEnded() const
 	{
 		return State == EState::HasEnded;
@@ -115,19 +110,9 @@ public:
 
 	~FVulkanCommandBufferManager();
 
-	inline FVulkanCmdBuffer* GetActiveCmdBuffer()
-	{
-		if (UploadCmdBuffer)
-		{
-			SubmitUploadCmdBuffer(false);
-		}
-
-		return ActiveCmdBuffer;
-	}
+	FVulkanCmdBuffer* GetActiveCmdBuffer();
 
 	FVulkanCmdBuffer* GetUploadCmdBuffer();
-
-	void SubmitUploadCmdBuffer(bool bWaitForFence);
 
 	void RefreshFenceStatus();
 	void PrepareForNewActiveCommandBuffer();

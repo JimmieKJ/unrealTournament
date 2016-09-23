@@ -27,13 +27,7 @@ public class FbxAutomationBuilderModule : ModuleRules
 				}
          );
 
-		PrivateIncludePathModuleNames.AddRange(
-			new string[] {
-				"LevelEditor"
-			}
-		);
-
-		if (UEBuildConfiguration.bBuildEditor == true)
+        if (UEBuildConfiguration.bBuildEditor == true)
         {
             PrivateDependencyModuleNames.AddRange(
                 new string[] {

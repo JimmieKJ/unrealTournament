@@ -20,6 +20,7 @@
 #include "Particles/ParticleSystemComponent.h"
 #include "ParticleBeamTrailVertexFactory.h"
 #include "MeshBatch.h"
+#include "Particles/SubUVAnimation.h"
 #include "../../Renderer/Private/ScenePrivate.h"
 
 DECLARE_CYCLE_STAT(TEXT("ParticleSystemSceneProxy GetMeshElements"), STAT_FParticleSystemSceneProxy_GetMeshElements, STATGROUP_Particles);
@@ -762,47 +763,45 @@ bool FDynamicSpriteEmitterData::GetVertexAndIndexDataNonInstanced(void* VertexDa
 
 		FillVertex = (FParticleSpriteVertexNonInstanced*)TempVert;
 
-		const FVector2D* SubUVVertexData = nullptr;
+		const FVector2D* SubUVVertexData = NULL;
 
-		if (Source.RequiredModule->IsBoundingGeometryValid())
+		if (Source.SubUVAnimation)
 		{
 			const int32 SubImageIndexInt = FMath::TruncToInt(SubImageIndex);
-			int32 FrameIndex = SubImageIndexInt % Source.RequiredModule->GetNumFrames();
+			int32 FrameIndex = SubImageIndexInt % Source.SubUVAnimation->GetNumFrames();
 
 			if (SubImageIndexInt < 0)
 			{
 				// Mod operator returns remainder toward zero, not toward negative which is what we want
-				FrameIndex = Source.RequiredModule->GetNumFrames() - SubImageIndexInt;
+				FrameIndex = Source.SubUVAnimation->GetNumFrames() - SubImageIndexInt;
 			}
 
-			SubUVVertexData = Source.RequiredModule->GetFrameData(FrameIndex);
+			SubUVVertexData = Source.SubUVAnimation->GetFrameData(FrameIndex);
 		}
-
-		const bool bHasUVVertexData = SubUVVertexData && Source.RequiredModule->IsBoundingGeometryValid();
 
 		for (int32 VertexIndex = 0; VertexIndex < NumVerticesPerParticle; ++VertexIndex)
 		{
-			if (bHasUVVertexData)
+			if (Source.SubUVAnimation)
 			{
 				// Warning: not supporting UV flipping with cutout geometry in the non-instanced path
 				FillVertex[VertexIndex].UV = SubUVVertexData[VertexIndex];
 			}
 			else
-			{
+		{
 				if(VertexIndex == 0)
-				{
+			{
 					FillVertex[VertexIndex].UV = FVector2D(0.0f, 0.0f);
-				}
+			}
 				if(VertexIndex == 1)
-				{
+			{
 					FillVertex[VertexIndex].UV = FVector2D(0.0f, 1.0f);
-				}
+			}
 				if(VertexIndex == 2)
-				{
+			{
 					FillVertex[VertexIndex].UV = FVector2D(1.0f, 1.0f);
-				}
+			}
 				if(VertexIndex == 3)
-				{
+			{
 					FillVertex[VertexIndex].UV = FVector2D(1.0f, 0.0f);
 				}
 			}
@@ -989,10 +988,10 @@ public:
 FParticleVertexFactoryBase *FDynamicSpriteEmitterData::CreateVertexFactory()
 {
 	FParticleSpriteVertexFactory *VertexFactory = new FParticleSpriteVertexFactory();
-	VertexFactory->SetParticleFactoryType(PVFT_Sprite);
-	const UParticleModuleRequired* RequiredModule = GetSourceData()->RequiredModule;
-	VertexFactory->SetNumVertsInInstanceBuffer(RequiredModule->IsBoundingGeometryValid() && RequiredModule->AlphaThreshold ? RequiredModule->GetNumBoundingVertices() : 4);
-	VertexFactory->InitResource();
+		VertexFactory->SetParticleFactoryType(PVFT_Sprite);
+		const USubUVAnimation* SubUVAnimation = GetSourceData()->SubUVAnimation;
+		VertexFactory->SetNumVertsInInstanceBuffer(SubUVAnimation ? SubUVAnimation->GetNumBoundingVertices() : 4);
+		VertexFactory->InitResource();
 	return VertexFactory;
 }
 
@@ -1019,10 +1018,10 @@ void FDynamicSpriteEmitterData::GetDynamicMeshElementsEmitter(const FParticleSys
 			int32 NumTrianglesPerParticle = 2;
 			const FVertexBuffer* TexCoordBuffer = &GParticleTexCoordVertexBuffer;
 
-			if (SourceData->RequiredModule->IsBoundingGeometryValid())
+			if (SourceData->SubUVAnimation)
 			{
-				NumVerticesPerParticle = SourceData->RequiredModule->GetNumBoundingVertices();
-				NumTrianglesPerParticle = SourceData->RequiredModule->GetNumBoundingTriangles();
+				NumVerticesPerParticle = SourceData->SubUVAnimation->GetNumBoundingVertices();
+				NumTrianglesPerParticle = SourceData->SubUVAnimation->GetNumBoundingTriangles();
 				check(NumVerticesPerParticle == 4 || NumVerticesPerParticle == 8);
 				TexCoordBuffer = (NumVerticesPerParticle == 4) ? (const FVertexBuffer*)&GParticleTexCoordVertexBuffer : (const FVertexBuffer*)&GParticleEightTexCoordVertexBuffer;
 			}
@@ -1146,9 +1145,9 @@ void FDynamicSpriteEmitterData::GetDynamicMeshElementsEmitter(const FParticleSys
 				SpriteVertexFactory->SetInstanceBuffer( Allocation.VertexBuffer, Allocation.VertexOffset, VertexSize, bInstanced );
 				SpriteVertexFactory->SetDynamicParameterBuffer( DynamicParameterAllocation.VertexBuffer, DynamicParameterAllocation.VertexOffset, GetDynamicParameterVertexStride(), bInstanced );
 
-				if (SourceData->RequiredModule->IsBoundingGeometryValid() && SourceData->RequiredModule->AlphaThreshold)
+				if (SourceData->SubUVAnimation)
 				{
-					SpriteVertexFactory->SetCutoutParameters( SourceData->RequiredModule->GetNumBoundingVertices(), SourceData->RequiredModule->GetBoundingGeometrySRV() );
+					SpriteVertexFactory->SetCutoutParameters( SourceData->SubUVAnimation->GetNumBoundingVertices(), SourceData->SubUVAnimation->GetBoundingGeometrySRV() );
 				}
 
 				if (bInstanced)
@@ -1370,11 +1369,14 @@ void FDynamicMeshEmitterData::Init( bool bInSelected,
 	if (InEmitterInstance->MeshTypeData != NULL)
 	{
 #if WITH_EDITOR
-		// there are some cases in the editor that invalidate the vertex factories, so
-		// in-editor, we simply go back to the old way of allocating them freshly every frame
+		// if the mesh package is dirty, then the mesh has been re-imported and we need to clear the vertex factories
 		if (GIsEditor && InEmitterInstance->Component->SceneProxy)
 		{
-			static_cast<FParticleSystemSceneProxy*>(InEmitterInstance->Component->SceneProxy)->MarkVertexFactoriesDirty();
+			UPackage* Package = InEmitterInstance->MeshTypeData->Mesh->GetOutermost();
+			if (Package && Package->IsDirty())
+			{
+				static_cast<FParticleSystemSceneProxy*>(InEmitterInstance->Component->SceneProxy)->MarkVertexFactoriesDirty();
+			}
 		}
 #endif
 

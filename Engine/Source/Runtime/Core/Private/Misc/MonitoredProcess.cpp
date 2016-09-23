@@ -16,7 +16,6 @@ FMonitoredProcess::FMonitoredProcess( const FString& InURL, const FString& InPar
 	, ReturnCode(0)
 	, StartTime(0)
 	, Thread(nullptr)
-	, bIsRunning(false)
 	, URL(InURL)
 	, WritePipe(nullptr)
 	, bCreatePipes(InCreatePipes)
@@ -29,10 +28,6 @@ FMonitoredProcess::~FMonitoredProcess()
 	if (IsRunning())
 	{
 		Cancel(true);
-	}
-
-	if (Thread != nullptr) 
-	{
 		Thread->WaitForCompletion();
 		delete Thread;
 	}
@@ -60,8 +55,6 @@ bool FMonitoredProcess::Launch()
 		return false;
 	}
 
-	check (Thread == nullptr); // We shouldn't be calling this twice
-
 	if (bCreatePipes && !FPlatformProcess::CreatePipe(ReadPipe, WritePipe))
 	{
 		return false;
@@ -78,7 +71,6 @@ bool FMonitoredProcess::Launch()
 	const FString MonitoredProcessName = FString::Printf( TEXT( "FMonitoredProcess %d" ), MonitoredProcessIndex );
 	MonitoredProcessIndex++;
 
-	bIsRunning = true;
 	Thread = FRunnableThread::Create(this, *MonitoredProcessName, 128 * 1024, TPri_AboveNormal);
 
 	return true;
@@ -119,7 +111,7 @@ uint32 FMonitoredProcess::Run()
 			{
 				FPlatformProcess::TerminateProc(ProcessHandle, KillTree);
 				CanceledDelegate.ExecuteIfBound();
-				bIsRunning = false;
+				Thread = nullptr;
 
 				return 0;
 			}
@@ -139,7 +131,7 @@ uint32 FMonitoredProcess::Run()
 	}
 
 	CompletedDelegate.ExecuteIfBound(ReturnCode);
-	bIsRunning = false;
+	Thread = nullptr;
 
 	return 0;
 }

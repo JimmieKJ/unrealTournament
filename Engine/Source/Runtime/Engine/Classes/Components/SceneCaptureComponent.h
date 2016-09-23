@@ -5,16 +5,6 @@
 #include "Runtime/Engine/Public/ShowFlags.h"
 #include "SceneCaptureComponent.generated.h"
 
-/** View state needed to create a scene capture renderer */
-struct FSceneCaptureViewInfo
-{
-	FVector ViewLocation;
-	FMatrix ViewRotationMatrix;
-	FMatrix ProjectionMatrix;
-	FIntRect ViewRect;
-	EStereoscopicPass StereoPass;
-};
-
 USTRUCT()
 struct FEngineShowFlagsSetting
 {
@@ -91,7 +81,6 @@ public:
 
 	/** Returns the view state, if any, and allocates one if needed. This function can return NULL, e.g. when bCaptureEveryFrame is false. */
 	ENGINE_API FSceneViewStateInterface* GetViewState();
-	ENGINE_API FSceneViewStateInterface* GetStereoViewState();
 
 	/** Return a boolean for whether this flag exists in the ShowFlagSettings array, and a pointer to the flag if it does exist  */
 	ENGINE_API bool GetSettingForShowFlag(FString FlagName, FEngineShowFlagsSetting** ShowFlagSettingOut);
@@ -119,6 +108,5 @@ protected:
 	 * NOTE: This object is used by the rendering thread. The smart pointer's destructor will destroy it and that
 	 */
 	FSceneViewStateReference ViewState;
-	FSceneViewStateReference StereoViewState;
 };
 

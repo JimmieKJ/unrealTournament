@@ -11,6 +11,7 @@
 struct FMeshDecalVSToPS
 {
 	FVertexFactoryInterpolantsVSToPS FactoryInterpolants;
+	float4	PixelPosition	: TEXCOORD6;
 	float4	Position		: SV_POSITION;
 };
 
@@ -52,6 +53,8 @@ struct FMeshDecalVSToPS
 		// Finally, transform position to clip-space
 		O.Position = mul(WorldPosition, View.TranslatedWorldToClip);
 			
+		O.PixelPosition = WorldPosition;
+		
 		return O;
 	}
 	
@@ -97,6 +100,8 @@ void MainVS(
 #if USE_GLOBAL_CLIP_PLANE
 	OutGlobalClipPlaneDistance = dot(ResolvedView.GlobalClippingPlane, float4(WorldPosition.xyz - ResolvedView.PreViewTranslation.xyz, 1));
 #endif
+
+	Output.PixelPosition = WorldPosition;
 
 #endif // USING_TESSELLATION
 

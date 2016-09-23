@@ -82,7 +82,7 @@ void FVulkanViewport::AcquireBackBuffer(FRHICommandListBase& CmdList, FVulkanBac
 	int32 PrevImageIndex = AcquiredImageIndex;
 	AcquiredImageIndex = SwapChain->AcquireImageIndex(&AcquiredSemaphore);
 	check(AcquiredImageIndex != -1);
-	//FRCLog::Printf(FString::Printf(TEXT("FVulkanViewport::AcquireBackBuffer(), Prev=%d, AcquiredImageIndex => %d"), PrevImageIndex, AcquiredImageIndex));
+	//FRCLog::Printf(FString::Printf(TEXT("FVulkanViewport::AcquireBackBuffer(), Prev=%d, AcquiredImageIndex => %d\n"), PrevImageIndex, AcquiredImageIndex));
 	RHIBackBuffer->Surface.Image = BackBufferImages[AcquiredImageIndex];
 	RHIBackBuffer->DefaultView.View = TextureViews[AcquiredImageIndex].View;
 	FVulkanCommandListContext& Context = (FVulkanCommandListContext&)CmdList.GetContext();
@@ -101,7 +101,7 @@ void FVulkanViewport::AcquireBackBuffer(FRHICommandListBase& CmdList, FVulkanBac
 FVulkanTexture2D* FVulkanViewport::GetBackBuffer(FRHICommandList& RHICmdList)
 {
 	check(IsInRenderingThread());
-	//FRCLog::Printf(FString::Printf(TEXT("FVulkanViewport::GetBackBuffer(), AcquiredImageIndex=%d %s"), AcquiredImageIndex, RenderingBackBuffer ? TEXT("BB") : TEXT("NullBB")));
+	//FRCLog::Printf(FString::Printf(TEXT("FVulkanViewport::GetBackBuffer(), AcquiredImageIndex=%d %s\n"), AcquiredImageIndex, RenderingBackBuffer ? TEXT("BB") : TEXT("NullBB")));
 
 	if (!RenderingBackBuffer)
 	{
@@ -126,7 +126,7 @@ void FVulkanViewport::AdvanceBackBufferFrame()
 {
 	check(IsInRenderingThread());
 
-	//FRCLog::Printf(FString::Printf(TEXT("FVulkanViewport::AdvanceBackBufferFrame(), AcquiredImageIndex = %d"), AcquiredImageIndex));
+	//FRCLog::Printf(FString::Printf(TEXT("FVulkanViewport::AdvanceBackBufferFrame(), AcquiredImageIndex = %d\n"), AcquiredImageIndex));
 	RenderingBackBuffer = nullptr;
 }
 
@@ -137,7 +137,6 @@ void FVulkanViewport::WaitForFrameEventCompletion()
 
 FVulkanFramebuffer::FVulkanFramebuffer(FVulkanDevice& Device, const FRHISetRenderTargetsInfo& InRTInfo, const FVulkanRenderTargetLayout& RTLayout, const FVulkanRenderPass& RenderPass)
 	: Framebuffer(VK_NULL_HANDLE)
-	, RTInfo(InRTInfo)
 	, NumColorAttachments(0)
 	, BackBuffer(0)
 {
@@ -194,7 +193,7 @@ FVulkanFramebuffer::FVulkanFramebuffer(FVulkanDevice& Device, const FRHISetRende
 		Barrier.oldLayout = VK_IMAGE_LAYOUT_GENERAL;
 		Barrier.newLayout = VK_IMAGE_LAYOUT_GENERAL;
 		Barrier.image = Texture->Surface.Image;
-		Barrier.subresourceRange.aspectMask = Texture->Surface.GetFullAspectMask();
+		Barrier.subresourceRange.aspectMask = Texture->Surface.GetAspectMask();
 		//Barrier.subresourceRange.baseMipLevel = 0;
 		Barrier.subresourceRange.levelCount = 1;
 		//Barrier.subresourceRange.baseArrayLayer = 0;
@@ -222,14 +221,13 @@ FVulkanFramebuffer::FVulkanFramebuffer(FVulkanDevice& Device, const FRHISetRende
 		//Barrier.pNext = NULL;
 		Barrier.srcAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
 		Barrier.dstAccessMask = VK_ACCESS_MEMORY_READ_BIT;
-		Barrier.oldLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+		Barrier.oldLayout = VK_IMAGE_LAYOUT_GENERAL;
 		Barrier.newLayout = VK_IMAGE_LAYOUT_GENERAL;
 		Barrier.image = Texture->Surface.Image;
 
-		Barrier.subresourceRange.aspectMask = Texture->Surface.GetFullAspectMask();
+		Barrier.subresourceRange.aspectMask = Texture->Surface.GetAspectMask();
 		//Barrier.subresourceRange.baseMipLevel = 0;
 		Barrier.subresourceRange.levelCount = 1;
-		//#todo-rco: Cube depth face?
 		//Barrier.subresourceRange.baseArrayLayer = 0;
 		Barrier.subresourceRange.layerCount = 1;
 
@@ -249,6 +247,7 @@ FVulkanFramebuffer::FVulkanFramebuffer(FVulkanDevice& Device, const FRHISetRende
 	Info.layers = 1;
 	VERIFYVULKANRESULT_EXPANDED(VulkanRHI::vkCreateFramebuffer(Device.GetInstanceHandle(), &Info, nullptr, &Framebuffer));
 
+	RTInfo = InRTInfo;
 	Extents.width = Info.width;
 	Extents.height = Info.height;
 }
@@ -333,7 +332,7 @@ void FVulkanViewport::CreateSwapchain()
 		FName Name = FName(*FString::Printf(TEXT("BackBuffer%d"), Index));
 		//BackBuffers[Index]->SetName(Name);
 
-		TextureViews[Index].Create(*Device, Images[Index], VK_IMAGE_VIEW_TYPE_2D, VK_IMAGE_ASPECT_COLOR_BIT, PixelFormat, UEToVkFormat(PixelFormat, false), 0, 1, 0, 1);
+		TextureViews[Index].Create(*Device, Images[Index], VK_IMAGE_VIEW_TYPE_2D, VK_IMAGE_ASPECT_COLOR_BIT, PixelFormat, UEToVkFormat(PixelFormat, false), 1, 1);
 
 		// Clear the swapchain to avoid a validation warning, and transition to ColorAttachment
 		{
@@ -356,7 +355,7 @@ void FVulkanViewport::CreateSwapchain()
 
 bool FVulkanViewport::Present(FVulkanCmdBuffer* CmdBuffer, FVulkanQueue* Queue, bool bLockToVsync)
 {
-	//FRCLog::Printf(FString::Printf(TEXT("FVulkanViewport::Present(), AcquiredImageIndex=%d"), AcquiredImageIndex));
+	//FRCLog::Printf(FString::Printf(TEXT("FVulkanViewport::Present(), AcquiredImageIndex=%d\n"), AcquiredImageIndex));
 	check(AcquiredImageIndex != -1);
 
 	//Transition back buffer to presentable and submit that command
@@ -477,7 +476,7 @@ void FVulkanFramebuffer::InsertWriteBarriers(FVulkanCmdBuffer* CmdBuffer)
 	}
 
 	const VkPipelineStageFlags SrcStages = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-	const VkPipelineStageFlags DestStages = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+	const VkPipelineStageFlags DestStages = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
 
 	check(CmdBuffer->IsOutsideRenderPass());
 	VulkanRHI::vkCmdPipelineBarrier(CmdBuffer->GetHandle(), SrcStages, DestStages, 0, 0, nullptr, 0, nullptr, WriteBarriers.Num(), WriteBarriers.GetData());

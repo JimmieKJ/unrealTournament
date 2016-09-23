@@ -32,7 +32,6 @@ public class LandscapeEditor : ModuleRules
 				"DesktopPlatform",
 				"ContentBrowser",
                 "AssetTools",
-				"LevelEditor"
 			}
 			);
 

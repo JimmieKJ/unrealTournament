@@ -21,7 +21,6 @@ public:
 		PlanarReflectionParameters.Bind(ParameterMap, TEXT("PlanarReflectionParameters"));
 		PlanarReflectionParameters2.Bind(ParameterMap, TEXT("PlanarReflectionParameters2"));
 		ProjectionWithExtraFOV.Bind(ParameterMap, TEXT("ProjectionWithExtraFOV"));
-		IsStereoParameter.Bind(ParameterMap, TEXT("bIsStereo"));
 		PlanarReflectionTexture.Bind(ParameterMap, TEXT("PlanarReflectionTexture"));
 		PlanarReflectionSampler.Bind(ParameterMap, TEXT("PlanarReflectionSampler"));
 	}
@@ -39,7 +38,6 @@ public:
 		Ar << P.PlanarReflectionParameters;
 		Ar << P.PlanarReflectionParameters2;
 		Ar << P.ProjectionWithExtraFOV;
-		Ar << P.IsStereoParameter;
 		Ar << P.PlanarReflectionTexture;
 		Ar << P.PlanarReflectionSampler;
 		return Ar;
@@ -55,7 +53,6 @@ private:
 	FShaderParameter PlanarReflectionParameters;
 	FShaderParameter PlanarReflectionParameters2;
 	FShaderParameter ProjectionWithExtraFOV;
-	FShaderParameter IsStereoParameter;
 	FShaderResourceParameter PlanarReflectionTexture;
 	FShaderResourceParameter PlanarReflectionSampler;
 };

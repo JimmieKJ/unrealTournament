@@ -49,13 +49,6 @@ public class GraphEditor : ModuleRules
 			}
 		);
 
-		// TODO: Move niagara code to niagara modules.  This is temporarily necessary to fix the public include issues.
-		PrivateIncludePathModuleNames.AddRange(
-			new string[] {
-				"NiagaraEditor"
-			}
-		);
-
 		DynamicallyLoadedModuleNames.AddRange(
 			new string[] {
 				"ContentBrowser",

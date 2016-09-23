@@ -396,19 +396,19 @@ void BuildProjectionMatrix(FIntPoint RenderTargetSize, ECameraProjectionMode::Ty
 }
 
 FSceneRenderer* CreateSceneRendererForSceneCapture(
-	FScene* Scene,
-	USceneCaptureComponent* SceneCaptureComponent,
-	FRenderTarget* RenderTarget,
-	FIntPoint RenderTargetSize,
-	const TArrayView<const FSceneCaptureViewInfo> Views,
-	float MaxViewDistance,
-	bool bCaptureSceneColor,
+	FScene* Scene, 
+	USceneCaptureComponent* SceneCaptureComponent, 
+	FRenderTarget* RenderTarget, 
+	FIntPoint RenderTargetSize, 
+	const FMatrix& ViewRotationMatrix, 
+	const FVector& ViewLocation, 
+	const FMatrix& ProjectionMatrix, 
+	float MaxViewDistance, 
+	bool bCaptureSceneColor, 
 	bool bIsPlanarReflection,
-	FPostProcessSettings* PostProcessSettings,
+	FPostProcessSettings* PostProcessSettings, 
 	float PostProcessBlendWeight)
 {
-	check(Views.Num() <= 2);
-
 	FSceneViewFamilyContext ViewFamily(FSceneViewFamily::ConstructionValues(
 		RenderTarget,
 		Scene,
@@ -416,126 +416,87 @@ FSceneRenderer* CreateSceneRendererForSceneCapture(
 		.SetResolveScene(!bCaptureSceneColor)
 		.SetRealtimeUpdate(bIsPlanarReflection));
 
-	for (int32 ViewIndex = 0; ViewIndex < Views.Num(); ++ViewIndex)
+	FSceneViewInitOptions ViewInitOptions;
+	ViewInitOptions.SetViewRectangle(FIntRect(0, 0, RenderTargetSize.X, RenderTargetSize.Y));
+	ViewInitOptions.ViewFamily = &ViewFamily;
+	ViewInitOptions.ViewOrigin = ViewLocation;
+	ViewInitOptions.ViewRotationMatrix = ViewRotationMatrix;
+	ViewInitOptions.BackgroundColor = FLinearColor::Black;
+	ViewInitOptions.OverrideFarClippingPlaneDistance = MaxViewDistance;
+	ViewInitOptions.SceneViewStateInterface = SceneCaptureComponent->GetViewState();
+    ViewInitOptions.StereoPass = SceneCaptureComponent->CaptureStereoPass;
+	ViewInitOptions.ProjectionMatrix = ProjectionMatrix;
+
+	if (bCaptureSceneColor)
 	{
-		const FSceneCaptureViewInfo& ViewState = Views[ViewIndex];
-
-		FSceneViewInitOptions ViewInitOptions;
-		ViewInitOptions.SetViewRectangle(ViewState.ViewRect);
-		ViewInitOptions.ViewFamily = &ViewFamily;
-		ViewInitOptions.ViewOrigin = ViewState.ViewLocation;
-		ViewInitOptions.ViewRotationMatrix = ViewState.ViewRotationMatrix;
-		ViewInitOptions.BackgroundColor = FLinearColor::Black;
-		ViewInitOptions.OverrideFarClippingPlaneDistance = MaxViewDistance;
-		ViewInitOptions.StereoPass = ViewState.StereoPass;
-		ViewInitOptions.SceneViewStateInterface = (ViewInitOptions.StereoPass != EStereoscopicPass::eSSP_RIGHT_EYE) ? SceneCaptureComponent->GetViewState() : SceneCaptureComponent->GetStereoViewState();
-		ViewInitOptions.ProjectionMatrix = ViewState.ProjectionMatrix;
-
-		if (bCaptureSceneColor)
-		{
-			ViewFamily.EngineShowFlags.PostProcessing = 0;
-			ViewInitOptions.OverlayColor = FLinearColor::Black;
-		}
-
-		FSceneView* View = new FSceneView(ViewInitOptions);
-
-		View->bIsSceneCapture = true;
-		// Note: this has to be set before EndFinalPostprocessSettings
-		View->bIsPlanarReflection = bIsPlanarReflection;
-
-		check(SceneCaptureComponent);
-		for (auto It = SceneCaptureComponent->HiddenComponents.CreateConstIterator(); It; ++It)
-		{
-			// If the primitive component was destroyed, the weak pointer will return NULL.
-			UPrimitiveComponent* PrimitiveComponent = It->Get();
-			if (PrimitiveComponent)
-			{
-				View->HiddenPrimitives.Add(PrimitiveComponent->ComponentId);
-			}
-		}
-
-		for (auto It = SceneCaptureComponent->HiddenActors.CreateConstIterator(); It; ++It)
-		{
-			AActor* Actor = *It;
-
-			if (Actor)
-			{
-				TInlineComponentArray<UPrimitiveComponent*> PrimitiveComponents;
-				Actor->GetComponents(PrimitiveComponents);
-				for (int32 ComponentIndex = 0; ComponentIndex < PrimitiveComponents.Num(); ++ComponentIndex)
-				{
-					View->HiddenPrimitives.Add(PrimitiveComponents[ComponentIndex]->ComponentId);
-				}
-			}
-		}
-
-		for (auto It = SceneCaptureComponent->ShowOnlyComponents.CreateConstIterator(); It; ++It)
-		{
-			// If the primitive component was destroyed, the weak pointer will return NULL.
-			UPrimitiveComponent* PrimitiveComponent = It->Get();
-			if (PrimitiveComponent)
-			{
-				View->ShowOnlyPrimitives.Add(PrimitiveComponent->ComponentId);
-			}
-		}
-
-		for (auto It = SceneCaptureComponent->ShowOnlyActors.CreateConstIterator(); It; ++It)
-		{
-			AActor* Actor = *It;
-
-			if (Actor)
-			{
-				TInlineComponentArray<UPrimitiveComponent*> PrimitiveComponents;
-				Actor->GetComponents(PrimitiveComponents);
-				for (int32 ComponentIndex = 0; ComponentIndex < PrimitiveComponents.Num(); ++ComponentIndex)
-				{
-					View->ShowOnlyPrimitives.Add(PrimitiveComponents[ComponentIndex]->ComponentId);
-				}
-			}
-		}
-
-		ViewFamily.Views.Add(View);
-
-		View->StartFinalPostprocessSettings(ViewState.ViewLocation);
-		View->OverridePostProcessSettings(*PostProcessSettings, PostProcessBlendWeight);
-		View->EndFinalPostprocessSettings(ViewInitOptions);
+		ViewFamily.EngineShowFlags.PostProcessing = 0;
+		ViewInitOptions.OverlayColor = FLinearColor::Black;
 	}
 
-	return FSceneRenderer::CreateSceneRenderer(&ViewFamily, NULL);
-}
+	FSceneView* View = new FSceneView(ViewInitOptions);
 
-FSceneRenderer* CreateSceneRendererForSceneCapture(
-	FScene* Scene,
-	USceneCaptureComponent* SceneCaptureComponent,
-	FRenderTarget* RenderTarget,
-	FIntPoint RenderTargetSize,
-	const FMatrix& ViewRotationMatrix,
-	const FVector& ViewLocation,
-	const FMatrix& ProjectionMatrix,
-	float MaxViewDistance,
-	bool bCaptureSceneColor,
-	bool bIsPlanarReflection,
-	FPostProcessSettings* PostProcessSettings,
-	float PostProcessBlendWeight)
-{
-	FSceneCaptureViewInfo ViewState;
-	ViewState.ViewRotationMatrix = ViewRotationMatrix;
-	ViewState.ViewLocation = ViewLocation;
-	ViewState.ProjectionMatrix = ProjectionMatrix;
-	ViewState.StereoPass = EStereoscopicPass::eSSP_FULL;
-	ViewState.ViewRect = FIntRect(0, 0, RenderTargetSize.X, RenderTargetSize.Y);
-	
-	return CreateSceneRendererForSceneCapture(
-		Scene, 
-		SceneCaptureComponent, 
-		RenderTarget, 
-		RenderTargetSize, 
-		{ ViewState },
-		MaxViewDistance, 
-		bCaptureSceneColor, 
-		bIsPlanarReflection, 
-		PostProcessSettings, 
-		PostProcessBlendWeight);
+	View->bIsSceneCapture = true;
+	// Note: this has to be set before EndFinalPostprocessSettings
+	View->bIsPlanarReflection = bIsPlanarReflection;
+
+	check(SceneCaptureComponent);
+	for (auto It = SceneCaptureComponent->HiddenComponents.CreateConstIterator(); It; ++It)
+	{
+		// If the primitive component was destroyed, the weak pointer will return NULL.
+		UPrimitiveComponent* PrimitiveComponent = It->Get();
+		if (PrimitiveComponent)
+		{
+			View->HiddenPrimitives.Add(PrimitiveComponent->ComponentId);
+		}
+	}
+
+	for (auto It = SceneCaptureComponent->HiddenActors.CreateConstIterator(); It; ++It)
+	{
+		AActor* Actor = *It;
+
+		if (Actor)
+		{
+			TInlineComponentArray<UPrimitiveComponent*> PrimitiveComponents;
+			Actor->GetComponents(PrimitiveComponents);
+			for (int32 ComponentIndex = 0; ComponentIndex < PrimitiveComponents.Num(); ++ComponentIndex)
+			{
+				View->HiddenPrimitives.Add(PrimitiveComponents[ComponentIndex]->ComponentId);
+			}
+		}
+	}
+
+	for (auto It = SceneCaptureComponent->ShowOnlyComponents.CreateConstIterator(); It; ++It)
+	{
+		// If the primitive component was destroyed, the weak pointer will return NULL.
+		UPrimitiveComponent* PrimitiveComponent = It->Get();
+		if (PrimitiveComponent)
+		{
+			View->ShowOnlyPrimitives.Add(PrimitiveComponent->ComponentId);
+		}
+	}
+
+	for (auto It = SceneCaptureComponent->ShowOnlyActors.CreateConstIterator(); It; ++It)
+	{
+		AActor* Actor = *It;
+
+		if (Actor)
+		{
+			TInlineComponentArray<UPrimitiveComponent*> PrimitiveComponents;
+			Actor->GetComponents(PrimitiveComponents);
+			for (int32 ComponentIndex = 0; ComponentIndex < PrimitiveComponents.Num(); ++ComponentIndex)
+			{
+				View->ShowOnlyPrimitives.Add(PrimitiveComponents[ComponentIndex]->ComponentId);
+			}
+		}
+	}
+
+	ViewFamily.Views.Add(View);
+
+	View->StartFinalPostprocessSettings(ViewLocation);
+	View->OverridePostProcessSettings(*PostProcessSettings, PostProcessBlendWeight);
+	View->EndFinalPostprocessSettings(ViewInitOptions);
+
+	return FSceneRenderer::CreateSceneRenderer(&ViewFamily, NULL);
 }
 
 void FScene::UpdateSceneCaptureContents(USceneCaptureComponent2D* CaptureComponent)

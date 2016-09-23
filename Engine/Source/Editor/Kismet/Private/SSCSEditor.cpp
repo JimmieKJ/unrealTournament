@@ -133,7 +133,6 @@ FReply SSCSEditor::TryHandleAssetDragDropOperation(const FDragDropEvent& DragDro
 		if (NumAssets > 0)
 		{
 			GWarn->BeginSlowTask(LOCTEXT("LoadingAssets", "Loading Asset(s)"), true);
-			bool bMarkBlueprintAsModified = false;
 
 			for (int32 DroppedAssetIdx = 0; DroppedAssetIdx < NumAssets; ++DroppedAssetIdx)
 			{
@@ -178,35 +177,19 @@ FReply SSCSEditor::TryHandleAssetDragDropOperation(const FDragDropEvent& DragDro
 				TSubclassOf<UActorComponent> MatchingComponentClassForAsset = FComponentAssetBrokerage::GetPrimaryComponentForAsset(AssetClass);
 				if (MatchingComponentClassForAsset != nullptr)
 				{
-					AddNewComponent(MatchingComponentClassForAsset, Asset, true );
-					bMarkBlueprintAsModified = true;
+					AddNewComponent(MatchingComponentClassForAsset, Asset);
 				}
 				else if ((PotentialComponentClass != nullptr) && !PotentialComponentClass->HasAnyClassFlags(CLASS_Deprecated | CLASS_Abstract | CLASS_NewerVersionExists))
 				{
 					if (PotentialComponentClass->HasMetaData(FBlueprintMetadata::MD_BlueprintSpawnableComponent))
 					{
-						AddNewComponent(PotentialComponentClass, nullptr, true );
-						bMarkBlueprintAsModified = true;
+						AddNewComponent(PotentialComponentClass, nullptr);
 					}
 				}
 				else if ((PotentialActorClass != nullptr) && !PotentialActorClass->HasAnyClassFlags(CLASS_Deprecated | CLASS_Abstract | CLASS_NewerVersionExists))
 				{
-					AddNewComponent(UChildActorComponent::StaticClass(), PotentialActorClass, true );
-					bMarkBlueprintAsModified = true;
+					AddNewComponent(UChildActorComponent::StaticClass(), PotentialActorClass);
 				}
-			}
-
-			// Optimization: Only mark the blueprint as modified at the end
-			if (bMarkBlueprintAsModified && EditorMode == EComponentEditorMode::BlueprintSCS)
-			{
-				UBlueprint* Blueprint = GetBlueprint();
-				check(Blueprint != nullptr && Blueprint->SimpleConstructionScript != nullptr);
-
-				Blueprint->Modify();
-				SaveSCSCurrentState(Blueprint->SimpleConstructionScript);
-
-				bAllowTreeUpdates = true;
-				FBlueprintEditorUtils::MarkBlueprintAsStructurallyModified(Blueprint);
 			}
 
 			GWarn->EndSlowTask();
@@ -4592,7 +4575,7 @@ bool SSCSEditor::IsEditingAllowed() const
 	return AllowEditing.Get() && nullptr == GEditor->PlayWorld;
 }
 
-UActorComponent* SSCSEditor::AddNewComponent( UClass* NewComponentClass, UObject* Asset, const bool bSkipMarkBlueprintModified )
+UActorComponent* SSCSEditor::AddNewComponent( UClass* NewComponentClass, UObject* Asset  )
 {
 	if (NewComponentClass->ClassWithin && NewComponentClass->ClassWithin != UObject::StaticClass())
 	{
@@ -4625,7 +4608,7 @@ UActorComponent* SSCSEditor::AddNewComponent( UClass* NewComponentClass, UObject
 		SaveSCSCurrentState(Blueprint->SimpleConstructionScript);
 
 		// Defer Blueprint class regeneration and tree updates if we need to copy object properties from a source template.
-		const bool bMarkBlueprintModified = !ComponentTemplate && !bSkipMarkBlueprintModified;
+		const bool bMarkBlueprintModified = !ComponentTemplate;
 		if(!bMarkBlueprintModified)
 		{
 			bAllowTreeUpdates = false;
@@ -4643,11 +4626,8 @@ UActorComponent* SSCSEditor::AddNewComponent( UClass* NewComponentClass, UObject
 			NewComponent->UpdateComponentToWorld();
 
 			// Wait until here to mark as structurally modified because we don't want any RerunConstructionScript() calls to happen until AFTER we've serialized properties from the source object.
-			if (!bSkipMarkBlueprintModified)
-			{
-				bAllowTreeUpdates = true;
-				FBlueprintEditorUtils::MarkBlueprintAsStructurallyModified(Blueprint);
-			}
+			bAllowTreeUpdates = true;
+			FBlueprintEditorUtils::MarkBlueprintAsStructurallyModified(Blueprint);
 		}
 	}
 	else    // EComponentEditorMode::ActorInstance

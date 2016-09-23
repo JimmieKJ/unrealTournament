@@ -12,8 +12,5 @@ public class ShaderCompilerCommon : ModuleRules
 				"ShaderCore",
 			}
 			);
-
-		// We only need a header containing definitions
-		PublicSystemIncludePaths.Add("ThirdParty/hlslcc/hlslcc/src/hlslcc_lib");
-    }
+	}
 }

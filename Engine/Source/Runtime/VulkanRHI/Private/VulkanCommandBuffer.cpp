@@ -137,19 +137,17 @@ FVulkanCommandBufferManager::~FVulkanCommandBufferManager()
 	VulkanRHI::vkDestroyCommandPool(Device->GetInstanceHandle(), Handle, nullptr);
 }
 
-void FVulkanCommandBufferManager::SubmitUploadCmdBuffer(bool bWaitForFence)
+FVulkanCmdBuffer* FVulkanCommandBufferManager::GetActiveCmdBuffer()
 {
-	check(UploadCmdBuffer);
-	check(UploadCmdBuffer->IsOutsideRenderPass());
-	UploadCmdBuffer->End();
-	Device->GetQueue()->Submit(UploadCmdBuffer, nullptr, 0, nullptr);
-	UploadCmdBuffer = nullptr;
-
-	if (bWaitForFence)
+	if (UploadCmdBuffer)
 	{
-		Device->WaitUntilIdle();
-		RefreshFenceStatus();
+		check(UploadCmdBuffer->IsOutsideRenderPass());
+		UploadCmdBuffer->End();
+		Device->GetQueue()->Submit(UploadCmdBuffer, nullptr, 0, nullptr);
+		UploadCmdBuffer = nullptr;
 	}
+
+	return ActiveCmdBuffer;
 }
 
 FVulkanCmdBuffer* FVulkanCommandBufferManager::Create()

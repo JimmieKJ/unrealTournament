@@ -31,20 +31,17 @@
 
 enum class EDescriptorSetStage
 {
-	// Adjusting these requires a full shader rebuild (ie modify the guid on VulkanCommon.usf)
+	// Adjusting these requires a full shader rebuild
 	Vertex		= 0,
 	Pixel		= 1,
-	Geometry	= 2,
-	Hull		= 3,
+	Compute		= 2,
+	Geometry	= 3,
 
-	// Some devices only have 4 descriptor sets max
 	MaxMobileSets	= 4,
 
-	// This will make Tessellation not available on mobile
-	Domain		= 4,
-
-	// Compute is its own pipeline, so it can all live as set 0
-	Compute		= 0,
+	//#todo-rco: Some devices only have 4 descriptor sets max...
+	Hull		= 4,
+	Domain		= 5,
 
 	Invalid		= -1,
 };

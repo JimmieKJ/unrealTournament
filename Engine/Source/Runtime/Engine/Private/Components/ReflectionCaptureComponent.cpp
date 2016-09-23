@@ -1606,7 +1606,7 @@ void UBoxReflectionCaptureComponent::UpdatePreviewShape()
 {
 	if (PreviewCaptureBox)
 	{
-		PreviewCaptureBox->InitBoxExtent(((ComponentToWorld.GetScale3D() - FVector(BoxTransitionDistance)) / ComponentToWorld.GetScale3D()).ComponentMax(FVector::ZeroVector));
+		PreviewCaptureBox->InitBoxExtent((ComponentToWorld.GetScale3D() - FVector(BoxTransitionDistance)) / ComponentToWorld.GetScale3D());
 	}
 
 	Super::UpdatePreviewShape();

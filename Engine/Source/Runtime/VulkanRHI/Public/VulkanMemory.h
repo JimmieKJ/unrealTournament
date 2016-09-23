@@ -18,9 +18,6 @@ namespace VulkanRHI
 	enum
 	{
 		NUM_FRAMES_TO_WAIT_BEFORE_RELEASING_TO_OS = 20,
-
-		GPU_ONLY_HEAP_PAGE_SIZE = 256 * 1024 * 1024,
-		STAGING_HEAP_PAGE_SIZE = 64 * 1024 * 1024,
 	};
 
 	// Custom ref counting
@@ -183,11 +180,6 @@ namespace VulkanRHI
 
 		void Deinit();
 
-		inline bool HasUnifiedMemory() const
-		{
-			return bHasUnifiedMemory;
-		}
-
 		inline uint32 GetNumMemoryTypes() const
 		{
 			return MemoryProperties.memoryTypeCount;
@@ -203,27 +195,6 @@ namespace VulkanRHI
 				{
 					// Type is available, does it match user properties?
 					if ((MemoryProperties.memoryTypes[i].propertyFlags & Properties) == Properties)
-					{
-						*OutTypeIndex = i;
-						return VK_SUCCESS;
-					}
-				}
-				TypeBits >>= 1;
-			}
-
-			// No memory types matched, return failure
-			return VK_ERROR_FEATURE_NOT_PRESENT;
-		}
-
-		inline VkResult GetMemoryTypeFromPropertiesExcluding(uint32 TypeBits, VkMemoryPropertyFlags Properties, uint32 ExcludeTypeIndex, uint32* OutTypeIndex)
-		{
-			// Search memtypes to find first index with those properties
-			for (uint32 i = 0; i < MemoryProperties.memoryTypeCount && TypeBits; i++)
-			{
-				if ((TypeBits & 1) == 1)
-				{
-					// Type is available, does it match user properties?
-					if ((MemoryProperties.memoryTypes[i].propertyFlags & Properties) == Properties && ExcludeTypeIndex != i)
 					{
 						*OutTypeIndex = i;
 						return VK_SUCCESS;
@@ -260,7 +231,6 @@ namespace VulkanRHI
 	protected:
 		VkPhysicalDeviceMemoryProperties MemoryProperties;
 		VkDevice DeviceHandle;
-		bool bHasUnifiedMemory;
 		FVulkanDevice* Device;
 		uint32 NumAllocations;
 		uint32 PeakNumAllocations;
@@ -279,7 +249,6 @@ namespace VulkanRHI
 		};
 
 		TArray<FHeapInfo> HeapInfos;
-		void PrintMemInfo();
 	};
 
 	class FOldResourceHeap;
@@ -631,7 +600,7 @@ namespace VulkanRHI
 	class FOldResourceHeap
 	{
 	public:
-		FOldResourceHeap(FResourceHeapManager* InOwner, uint32 InMemoryTypeIndex, uint32 InPageSize);
+		FOldResourceHeap(FResourceHeapManager* InOwner, uint32 InMemoryTypeIndex, uint32 InPageSize, uint64 InTotalMemory);
 		~FOldResourceHeap();
 
 		void FreePage(FOldResourceHeapPage* InPage);
@@ -653,6 +622,7 @@ namespace VulkanRHI
 
 		uint32 DefaultPageSize;
 		uint32 PeakPageSize;
+		uint64 TotalMemory;
 		uint64 UsedMemory;
 
 		TArray<FOldResourceHeapPage*> UsedBufferPages;
@@ -687,14 +657,7 @@ namespace VulkanRHI
 			uint32 TypeIndex = 0;
 			VERIFYVULKANRESULT(DeviceMemoryManager->GetMemoryTypeFromProperties(MemoryReqs.memoryTypeBits, MemoryPropertyFlags, &TypeIndex));
 			bool bMapped = (MemoryPropertyFlags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) == VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT;
-			FOldResourceAllocation* Allocation = ResourceTypeHeaps[TypeIndex]->AllocateResource(MemoryReqs.size, MemoryReqs.alignment, true, bMapped, File, Line);
-			if (!Allocation)
-			{
-				VERIFYVULKANRESULT(DeviceMemoryManager->GetMemoryTypeFromPropertiesExcluding(MemoryReqs.memoryTypeBits, MemoryPropertyFlags, TypeIndex, &TypeIndex));
-				bMapped = (MemoryPropertyFlags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) == VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT;
-				Allocation = ResourceTypeHeaps[TypeIndex]->AllocateResource(MemoryReqs.size, MemoryReqs.alignment, true, bMapped, File, Line);
-			}
-			return Allocation;
+			return ResourceHeaps[TypeIndex]->AllocateResource(MemoryReqs.size, MemoryReqs.alignment, true, bMapped, File, Line);
 		}
 
 		inline FOldResourceAllocation* AllocateBufferMemory(const VkMemoryRequirements& MemoryReqs, VkMemoryPropertyFlags MemoryPropertyFlags, const char* File, uint32 Line)
@@ -702,23 +665,11 @@ namespace VulkanRHI
 			uint32 TypeIndex = 0;
 			VERIFYVULKANRESULT(DeviceMemoryManager->GetMemoryTypeFromProperties(MemoryReqs.memoryTypeBits, MemoryPropertyFlags, &TypeIndex));
 			bool bMapped = (MemoryPropertyFlags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) == VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT;
-			if (!ResourceTypeHeaps[TypeIndex])
+			if (!ResourceHeaps[TypeIndex])
 			{
 				UE_LOG(LogVulkanRHI, Fatal, TEXT("Missing memory type index %d, MemSize %d, MemPropTypeBits %u, MemPropertyFlags %u, %s(%d)"), TypeIndex, (uint32)MemoryReqs.size, (uint32)MemoryReqs.memoryTypeBits, (uint32)MemoryPropertyFlags, ANSI_TO_TCHAR(File), Line);
 			}
-			FOldResourceAllocation* Allocation = ResourceTypeHeaps[TypeIndex]->AllocateResource(MemoryReqs.size, MemoryReqs.alignment, false, bMapped, File, Line);
-			if (!Allocation)
-			{
-				// Try another memory type if the allocation failed
-				VERIFYVULKANRESULT(DeviceMemoryManager->GetMemoryTypeFromPropertiesExcluding(MemoryReqs.memoryTypeBits, MemoryPropertyFlags, TypeIndex, &TypeIndex));
-				bMapped = (MemoryPropertyFlags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) == VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT;
-				if (!ResourceTypeHeaps[TypeIndex])
-				{
-					UE_LOG(LogVulkanRHI, Fatal, TEXT("Missing memory type index %d, MemSize %d, MemPropTypeBits %u, MemPropertyFlags %u, %s(%d)"), TypeIndex, (uint32)MemoryReqs.size, (uint32)MemoryReqs.memoryTypeBits, (uint32)MemoryPropertyFlags, ANSI_TO_TCHAR(File), Line);
-				}
-				Allocation = ResourceTypeHeaps[TypeIndex]->AllocateResource(MemoryReqs.size, MemoryReqs.alignment, false, bMapped, File, Line);
-			}
-			return Allocation;
+			return ResourceHeaps[TypeIndex]->AllocateResource(MemoryReqs.size, MemoryReqs.alignment, false, bMapped, File, Line);
 		}
 
 		void ReleaseFreedPages();
@@ -730,11 +681,11 @@ namespace VulkanRHI
 	protected:
 		static FCriticalSection CS;
 		FDeviceMemoryManager* DeviceMemoryManager;
-		TArray<FOldResourceHeap*> ResourceTypeHeaps;
+		TArray<FOldResourceHeap*> ResourceHeaps;
+		TArray<uint32> PageSizes;
 
-		FOldResourceHeap* GPUHeap;
-		FOldResourceHeap* UploadToGPUHeap;
-		FOldResourceHeap* DownloadToCPUHeap;
+		FOldResourceHeap* GPUOnlyHeap;
+		FOldResourceHeap* CPUStagingHeap;
 
 		enum
 		{
@@ -758,7 +709,6 @@ namespace VulkanRHI
 		FStagingBuffer()
 			: ResourceAllocation(nullptr)
 			, Buffer(VK_NULL_HANDLE)
-			, bCPURead(false)
 		{
 		}
 
@@ -775,7 +725,6 @@ namespace VulkanRHI
 	protected:
 		TRefCountPtr<FOldResourceAllocation> ResourceAllocation;
 		VkBuffer Buffer;
-		bool bCPURead;
 
 		// Owner maintains lifetime
 		virtual ~FStagingBuffer();
@@ -798,7 +747,7 @@ namespace VulkanRHI
 		void Init(FVulkanDevice* InDevice, FVulkanQueue* InQueue);
 		void Deinit();
 
-		FStagingBuffer* AcquireBuffer(uint32 Size, VkBufferUsageFlags InUsageFlags = VK_BUFFER_USAGE_TRANSFER_SRC_BIT, bool bCPURead = false);
+		FStagingBuffer* AcquireBuffer(uint32 Size, VkBufferUsageFlags InUsageFlags = VK_BUFFER_USAGE_TRANSFER_SRC_BIT);
 
 		// Sets pointer to nullptr
 		void ReleaseBuffer(FVulkanCmdBuffer* CmdBuffer, FStagingBuffer*& StagingBuffer);

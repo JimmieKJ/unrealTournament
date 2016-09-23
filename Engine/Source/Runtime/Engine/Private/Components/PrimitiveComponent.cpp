@@ -174,7 +174,6 @@ UPrimitiveComponent::UPrimitiveComponent(const FObjectInitializer& ObjectInitial
 	AlwaysLoadOnServer = true;
 	SetCollisionProfileName(UCollisionProfile::BlockAll_ProfileName);
 	bAlwaysCreatePhysicsState = false;
-	bVisibleInReflectionCaptures = true;
 	bRenderInMainPass = true;
 	VisibilityId = -1;
 	CanBeCharacterBase_DEPRECATED = ECB_Yes;

@@ -91,10 +91,9 @@ public:
 
 	void UpdatePreviewShape();
 
-	void GetProjectionWithExtraFOV(FMatrix& OutMatrix, const uint32 StereoIndex) const
+	void GetProjectionWithExtraFOV(FMatrix& OutMatrix) const
 	{
-		check(StereoIndex < 2);
-		OutMatrix = ProjectionWithExtraFOV[StereoIndex];
+		OutMatrix = ProjectionWithExtraFOV;
 	}
 
 	int32 GetPlanarReflectionId() const
@@ -111,7 +110,7 @@ private:
 
 	class FPlanarReflectionRenderTarget* RenderTarget;
 
-	FMatrix ProjectionWithExtraFOV[2];
+	FMatrix ProjectionWithExtraFOV;
 
 	int32 PlanarReflectionId;
 

@@ -23,11 +23,5 @@ public class SceneOutliner : ModuleRules
 				"UnrealEd",
 			}
 		);
-
-		PrivateIncludePathModuleNames.AddRange(
-			new string[] {
-				"LevelEditor"
-			}
-		);
 	}
 }

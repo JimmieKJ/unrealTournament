@@ -84,6 +84,8 @@ public:
 		SHADER_TYPE_ESSL			= 2,
 	};
 
+	static EShaderSourceType GetShaderType();
+
 	inline const FVulkanShaderBindingTable& GetBindingTable() const
 	{
 		return BindingTable;
@@ -214,22 +216,17 @@ public:
 
 	inline uint32 GetNumMips() const { return NumMips; }
 
-	// Full includes Depth+Stencil
-	inline VkImageAspectFlags GetFullAspectMask() const
+	inline VkImageAspectFlags GetAspectMask() const
 	{
-		return FullAspectMask;
-	}
-
-	// Only Depth or Stencil
-	inline VkImageAspectFlags GetPartialAspectMask() const
-	{
-		return PartialAspectMask;
+		check(AspectMask != 0);
+		return AspectMask;
 	}
 
 	FVulkanDevice* Device;
 
 	VkImage Image;
 	
+	VkImageLayout ImageLayout;
 	VkFormat InternalFormat;
 	uint32 Width, Height, Depth;
 	TMap<uint32, void*>	MipMapMapping;
@@ -242,24 +239,37 @@ public:
 private:
 
 	// Used to clear render-target objects on creation
-	void InitialClear(const FClearValueBinding& ClearValueBinding, bool bTransitionToPresentable);
+	void Clear(const FClearValueBinding& ClearValueBinding, bool bTransitionToPresentable);
 
 private:
+	// Linear or Optimal. Based on tiling, map/unmap is handled differently.
+	// Optimal	Image memory cannot be directly mapped to a pointer (opposite to linear tiling).
+	//			Therefore an intermediate buffer is used to execute buffet to image copy command.
+	//			Keep in mind, current implementation is write-only. Reading data from the mapped buffer does not
+	//			represent the data inside the image.
+	//
+	// Linear	Allows direct buffer mapping to a pointer, without needing to create an intermediate buffer.
+	//			NOTE (NVIDIA and ??): linear-cubemaps are not supported.
+	//
+	// Note:	We should try keep all tilings on all platform the same and try to have as least exceptions as possible
+	//			Perhaps some sort of setup-map should be used to create desired configuration.
 	VkImageTiling Tiling;
-	VkImageViewType	ViewType;
+
+	VkImageViewType	ViewType;	// 2D, CUBE, 2DArray and etc..
 
 	bool bIsImageOwner;
 	VulkanRHI::FDeviceMemoryAllocation* Allocation;
 	TRefCountPtr<VulkanRHI::FOldResourceAllocation> ResourceAllocation;
 
+	// Used for optimal tiling mode
+	// Intermediate buffer, used to copy image data into the optimal image-buffer.
+	TMap<uint32, TRefCountPtr<FVulkanBuffer>> MipMapBuffer;
+
 	uint32 NumMips;
 
 	uint32 NumSamples;
 
-	VkImageAspectFlags FullAspectMask;
-	VkImageAspectFlags PartialAspectMask;
-
-	friend struct FVulkanTextureBase;
+	VkImageAspectFlags AspectMask;
 };
 
 
@@ -270,9 +280,9 @@ struct FVulkanTextureView
 	{
 	}
 
-	static VkImageView StaticCreate(FVulkanDevice& Device, VkImage Image, VkImageViewType ViewType, VkImageAspectFlags AspectFlags, EPixelFormat UEFormat, VkFormat Format, uint32 FirstMip, uint32 NumMips, uint32 ArraySliceIndex, uint32 NumArraySlices, bool bUseIdentitySwizzle = false);
+	static VkImageView StaticCreate(FVulkanDevice& Device, VkImage Image, VkImageViewType ViewType, VkImageAspectFlags AspectFlags, EPixelFormat UEFormat, VkFormat Format, uint32 FirstMip, uint32 NumMips, uint32 ArraySliceIndex, uint32 NumArraySlices);
 
-	void Create(FVulkanDevice& Device, VkImage Image, VkImageViewType ViewType, VkImageAspectFlags AspectFlags, EPixelFormat UEFormat, VkFormat Format, uint32 FirstMip, uint32 NumMips, uint32 ArraySliceIndex, uint32 NumArraySlices);
+	void Create(FVulkanDevice& Device, VkImage Image, VkImageViewType ViewType, VkImageAspectFlags AspectFlags, EPixelFormat UEFormat, VkFormat Format, uint32 NumMips, uint32 NumArraySlices);
 	void Destroy(FVulkanDevice& Device);
 
 	VkImageView View;
@@ -297,8 +307,6 @@ struct FVulkanTextureBase : public FVulkanBaseShaderResource
 
 	// View with all mips/layers
 	FVulkanTextureView DefaultView;
-	// View with all mips/layers, but if it's a Depth/Stencil, only the Depth view
-	FVulkanTextureView* PartialView;
 
 #if VULKAN_USE_MSAA_RESOLVE_ATTACHMENTS
 	// Surface and view for MSAA render target, valid only when created with NumSamples > 1
@@ -768,17 +776,11 @@ public:
 class FVulkanUnorderedAccessView : public FRHIUnorderedAccessView
 {
 public:
+
 	// the potential resources to refer to with the UAV object
 	TRefCountPtr<FVulkanStructuredBuffer> SourceStructuredBuffer;
 	TRefCountPtr<FVulkanVertexBuffer> SourceVertexBuffer;
 	TRefCountPtr<FRHITexture> SourceTexture;
-
-	FVulkanUnorderedAccessView()
-		: MipIndex(0)
-	{
-	}
-
-	uint32 MipIndex;
 };
 
 
@@ -887,7 +889,7 @@ public:
 
 	class FVulkanPipeline* PrepareForDraw(const struct FVulkanPipelineGraphicsKey& PipelineKey, uint32 VertexInputKey, const struct FVulkanPipelineState& State);
 
-	bool UpdateDescriptorSets(FVulkanCommandListContext* CmdListContext, FVulkanCmdBuffer* CmdBuffer, FVulkanGlobalUniformPool* GlobalUniformPool);
+	void UpdateDescriptorSets(FVulkanCommandListContext* CmdListContext, FVulkanCmdBuffer* CmdBuffer, FVulkanGlobalUniformPool* GlobalUniformPool);
 
 	void BindDescriptorSets(FVulkanCmdBuffer* Cmd);
 

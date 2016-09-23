@@ -11,7 +11,6 @@ public class LogVisualizer : ModuleRules
 				"DesktopPlatform",
 				"MainFrame",
                 "SequencerWidgets",
-				"LevelEditor"
 			}
 		);
 

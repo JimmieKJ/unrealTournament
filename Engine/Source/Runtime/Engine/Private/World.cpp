@@ -3215,13 +3215,19 @@ void UWorld::InitializeActorsForPlay(const FURL& InURL, bool bResetTime)
 		AISystem->InitializeActorsForPlay(bResetTime);
 	}
 
+	NumTextureStreamingUnbuiltComponents = 0;
+	NumTextureStreamingDirtyResources = 0;
+
 	for (int32 LevelIndex = 0; LevelIndex < Levels.Num(); LevelIndex++)
 	{
 		ULevel*	Level = Levels[LevelIndex];
 		IStreamingManager::Get().AddLevel(Level);
-	}
 
-	CheckTextureStreamingBuild(this);
+		// Update TextureStreaming rebuild warning message.
+		CheckTextureStreamingBuild(Level);
+		NumTextureStreamingUnbuiltComponents += Level->NumTextureStreamingUnbuiltComponents;
+		NumTextureStreamingDirtyResources += Level->NumTextureStreamingDirtyResources;
+	}
 
 	if(WorldType == EWorldType::Preview)
 	{

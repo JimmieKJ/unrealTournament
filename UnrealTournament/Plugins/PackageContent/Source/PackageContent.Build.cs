@@ -34,13 +34,7 @@ namespace UnrealBuildTool.Rules
 				}
 			);
 
-			PrivateIncludePathModuleNames.AddRange(
-				new string[] {
-					"LevelEditor"
-				}
-			);
-
-			DynamicallyLoadedModuleNames.AddRange(
+            DynamicallyLoadedModuleNames.AddRange(
 				new string[]
 				{
 					"ImageWrapper",

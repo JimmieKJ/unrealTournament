@@ -251,22 +251,6 @@ FSceneViewStateInterface* USceneCaptureComponent::GetViewState()
 	return ViewStateInterface;
 }
 
-FSceneViewStateInterface* USceneCaptureComponent::GetStereoViewState()
-{
-	FSceneViewStateInterface* ViewStateInterface = StereoViewState.GetReference();
-	if (bCaptureEveryFrame && ViewStateInterface == NULL)
-	{
-		StereoViewState.Allocate();
-		ViewStateInterface = StereoViewState.GetReference();
-	}
-	else if (!bCaptureEveryFrame && ViewStateInterface)
-	{
-		StereoViewState.Destroy();
-		ViewStateInterface = NULL;
-	}
-	return ViewStateInterface;
-}
-
 void USceneCaptureComponent::UpdateShowFlags()
 {
 	for (FEngineShowFlagsSetting ShowFlagSetting : ShowFlagSettings)
@@ -583,8 +567,7 @@ UPlanarReflectionComponent::UPlanarReflectionComponent(const FObjectInitializer&
 	DistanceFromPlaneFadeoutEnd = 100;
 	AngleFromPlaneFadeStart = 20;
 	AngleFromPlaneFadeEnd = 30;
-	ProjectionWithExtraFOV[0] = FMatrix::Identity;
-	ProjectionWithExtraFOV[1] = FMatrix::Identity;
+	ProjectionWithExtraFOV = FMatrix::Identity;
 
 	ShowFlags.SetLightShafts(0);
 

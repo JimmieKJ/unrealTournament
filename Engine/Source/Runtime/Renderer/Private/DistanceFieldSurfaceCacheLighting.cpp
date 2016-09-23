@@ -22,7 +22,6 @@
 #include "HeightfieldLighting.h"
 #include "GlobalDistanceField.h"
 #include "FXSystem.h"
-#include "PostProcessSubsurface.h"
 
 int32 GDistanceFieldAO = 1;
 FAutoConsoleVariableRef CVarDistanceFieldAO(
@@ -3370,15 +3369,7 @@ void FDeferredShadingSceneRenderer::RenderDynamicSkyLighting(FRHICommandListImme
 			}
 			else
 			{
-				const bool bCheckerboardSubsurfaceRendering = FRCPassPostProcessSubsurface::RequiresCheckerboardSubsurfaceRendering(SceneContext.GetSceneColorFormat());
-				if (bCheckerboardSubsurfaceRendering)
-				{
-					RHICmdList.SetBlendState(TStaticBlendState<CW_RGB, BO_Add, BF_One, BF_One>::GetRHI());
-				}
-				else
-				{
-					RHICmdList.SetBlendState(TStaticBlendState<CW_RGBA, BO_Add, BF_One, BF_One, BO_Add, BF_One, BF_One>::GetRHI());
-				}
+				RHICmdList.SetBlendState(TStaticBlendState<CW_RGB, BO_Add, BF_One, BF_One>::GetRHI());
 			}
 
 			const bool bUseDistanceFieldGI = IsDistanceFieldGIAllowed(View) && IsValidRef(DynamicIrradiance);

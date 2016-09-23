@@ -8,8 +8,7 @@
 #include "Components/PlanarReflectionComponent.h"
 #include "PlanarReflectionSceneProxy.h"
 
-FPlanarReflectionSceneProxy::FPlanarReflectionSceneProxy(UPlanarReflectionComponent* Component, FPlanarReflectionRenderTarget* InRenderTarget) :
-	bIsStereo(false)
+FPlanarReflectionSceneProxy::FPlanarReflectionSceneProxy(UPlanarReflectionComponent* Component, FPlanarReflectionRenderTarget* InRenderTarget)
 {
 	RenderTarget = InRenderTarget;
 
@@ -33,8 +32,7 @@ FPlanarReflectionSceneProxy::FPlanarReflectionSceneProxy(UPlanarReflectionCompon
 		Range,
 		-CosFadeEnd * Range);
 
-	Component->GetProjectionWithExtraFOV(ProjectionWithExtraFOV[0], 0);
-	Component->GetProjectionWithExtraFOV(ProjectionWithExtraFOV[1], 1);
+	Component->GetProjectionWithExtraFOV(ProjectionWithExtraFOV);
 
 	OwnerName = Component->GetOwner() ? Component->GetOwner()->GetFName() : NAME_None;
 

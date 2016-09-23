@@ -452,7 +452,9 @@ void FDeferredShadingSceneRenderer::RenderOcclusion(FRHICommandListImmediate& RH
 		{
 			RHICmdList.TransitionResource( EResourceTransitionAccess::EReadable, SceneContext.GetSceneDepthSurface() );
 
+			static const auto ICVarAO		= IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.AmbientOcclusionLevels"));
 			static const auto ICVarHZBOcc	= IConsoleManager::Get().FindConsoleVariable(TEXT("r.HZBOcclusion"));
+			bool bSSAO						= ICVarAO->GetValueOnRenderThread() != 0;
 			bool bHZBOcclusion				= ICVarHZBOcc->GetInt() != 0;
 
 			for (int32 ViewIndex = 0; ViewIndex < Views.Num(); ViewIndex++)
@@ -460,9 +462,8 @@ void FDeferredShadingSceneRenderer::RenderOcclusion(FRHICommandListImmediate& RH
 				FViewInfo& View = Views[ViewIndex];
 				FSceneViewState* ViewState = (FSceneViewState*)View.State;
 				
-				const uint32 bSSR = ShouldRenderScreenSpaceReflections(View);
-				const bool bSSAO = ShouldRenderScreenSpaceAmbientOcclusion(View);
-
+				const uint32 bSSR = ShouldRenderScreenSpaceReflections( View );
+				
 				if (bSSAO || bHZBOcclusion || bSSR)
 				{
 					BuildHZB(RHICmdList, Views[ViewIndex]);
@@ -622,15 +623,15 @@ void FDeferredShadingSceneRenderer::Render(FRHICommandListImmediate& RHICmdList)
 
 	if (ClearMethodCVar)
 	{
-		int32 ClearMethod = ClearMethodCVar->GetValueOnRenderThread();
+		int32 clearMethod = ClearMethodCVar->GetValueOnRenderThread();
 
-		if (ClearMethod == 0 && !ViewFamily.EngineShowFlags.Game)
+		if (clearMethod == 0 && !ViewFamily.EngineShowFlags.Game)
 		{
 			// Do not clear the scene only if the view family is in game mode.
-			ClearMethod = 1;
+			clearMethod = 1;
 		}
 
-		switch (ClearMethod)
+		switch (clearMethod)
 		{
 		case 0: // No clear
 			{
@@ -690,7 +691,7 @@ void FDeferredShadingSceneRenderer::Render(FRHICommandListImmediate& RHICmdList)
 
 	// Notify the FX system that the scene is about to be rendered.
 	bool bLateFXPrerender = CVarFXSystemPreRenderAfterPrepass.GetValueOnRenderThread() > 0;
-	bool bDoFXPrerender = Scene->FXSystem && Views.IsValidIndex(0) && !Views[0].bIsPlanarReflection;
+	bool bDoFXPrerender = Scene->FXSystem && Views.IsValidIndex(0);
 	if (!bLateFXPrerender && bDoFXPrerender)
 	{
 		SCOPE_CYCLE_COUNTER(STAT_FDeferredShadingSceneRenderer_FXSystem_PreRender);
@@ -933,7 +934,7 @@ void FDeferredShadingSceneRenderer::Render(FRHICommandListImmediate& RHICmdList)
 	ServiceLocalQueue();
 
 	// Notify the FX system that opaque primitives have been rendered and we now have a valid depth buffer.
-	if (Scene->FXSystem && Views.IsValidIndex(0) && !Views[0].bIsPlanarReflection)
+	if (Scene->FXSystem && Views.IsValidIndex(0))
 	{
 		SCOPE_CYCLE_COUNTER(STAT_FDeferredShadingSceneRenderer_FXSystem_PostRenderOpaque);
 		Scene->FXSystem->PostRenderOpaque(
@@ -1124,15 +1125,14 @@ void FDeferredShadingSceneRenderer::Render(FRHICommandListImmediate& RHICmdList)
 		ServiceLocalQueue();
 	}
 
-	IRendererModule& RendererModule = GetRendererModule();
-	if (RendererModule.HasPostOpaqueExtentions())
+	if (GetRendererModule().HasPostOpaqueExtentions())
 	{
 		SceneContext.BeginRenderingSceneColor(RHICmdList);
 		for (int32 ViewIndex = 0; ViewIndex < Views.Num(); ++ViewIndex)
 		{
 			const FViewInfo& View = Views[ViewIndex];
 			RHICmdList.SetViewport(View.ViewRect.Min.X, View.ViewRect.Min.Y, 0.0f, View.ViewRect.Max.X, View.ViewRect.Max.Y, 1.0f);
-			RendererModule.RenderPostOpaqueExtensions(View, RHICmdList, SceneContext);
+			GetRendererModule().RenderPostOpaqueExtensions(View, RHICmdList, SceneContext);
 		}
 
 		SceneContext.FinishRenderingSceneColor(RHICmdList);
@@ -1176,7 +1176,7 @@ void FDeferredShadingSceneRenderer::Render(FRHICommandListImmediate& RHICmdList)
 	{
 		const FViewInfo& View = Views[ViewIndex];
 		RHICmdList.SetViewport(View.ViewRect.Min.X, View.ViewRect.Min.Y, 0.0f, View.ViewRect.Max.X, View.ViewRect.Max.Y, 1.0f);
-		RendererModule.RenderOverlayExtensions(View, RHICmdList, SceneContext);
+		GetRendererModule().RenderOverlayExtensions(View, RHICmdList, SceneContext);
 	}
 
 	if (ViewFamily.EngineShowFlags.VisualizeDistanceFieldAO || ViewFamily.EngineShowFlags.VisualizeDistanceFieldGI)
@@ -1205,11 +1205,6 @@ void FDeferredShadingSceneRenderer::Render(FRHICommandListImmediate& RHICmdList)
 
 	// Resolve the scene color for post processing.
 	SceneContext.ResolveSceneColor(RHICmdList, FResolveRect(0, 0, ViewFamily.FamilySizeX, ViewFamily.FamilySizeY));
-
-	if (RendererModule.HasPostResolvedSceneColorExtension())
-	{
-		RendererModule.RenderPostResolvedSceneColorExtension(RHICmdList, SceneContext);
-	}
 
 	CopySceneCaptureComponentToTarget(RHICmdList);
 

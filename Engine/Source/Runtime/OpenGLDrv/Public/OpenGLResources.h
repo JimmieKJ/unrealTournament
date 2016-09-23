@@ -1271,15 +1271,13 @@ class FOpenGLUnorderedAccessView : public FRHIUnorderedAccessView
 
 public:
 	FOpenGLUnorderedAccessView():
-		Resource(0),
-		BufferResource(0),
+	  Resource(0),
 		Format(0)
 	{
 
 	}
 	  
 	GLuint	Resource;
-	GLuint  BufferResource;
 	GLenum	Format;
 };
 

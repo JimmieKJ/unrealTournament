@@ -36,8 +36,7 @@ public class Paper2DEditor : ModuleRules
 			new string[] {
 				"Settings",
 				"IntroTutorials",
-                "AssetTools",
-				"LevelEditor"
+                "AssetTools"
 			}
 		);
 

@@ -75,11 +75,8 @@
 #include "Particles/ParticleSystemComponent.h"
 #include "Distributions/DistributionFloatUniformCurve.h"
 #include "Engine/InterpCurveEdSetup.h"
-#include "Engine/RendererSettings.h"
 #include "Distributions/DistributionFloatConstantCurve.h"
 #include "Components/PointLightComponent.h"
-#include "DerivedDataCacheInterface.h"
-#include "RenderingObjectVersion.h"
 
 /*-----------------------------------------------------------------------------
 	Abstract base modules used for categorization.
@@ -1052,8 +1049,6 @@ UParticleModuleRequired::UParticleModuleRequired(const FObjectInitializer& Objec
 	NormalsCylinderDirection = FVector(0.0f, 0.0f, 1.0f);
 	bUseLegacyEmitterTime = true;
 	UVFlippingMode = EParticleUVFlipMode::None;
-	BoundingMode = BVC_EightVertices;
-	AlphaThreshold = 0.1f;
 }
 
 void UParticleModuleRequired::InitializeDefaults()
@@ -1067,63 +1062,25 @@ void UParticleModuleRequired::InitializeDefaults()
 void UParticleModuleRequired::PostInitProperties()
 {
 	Super::PostInitProperties();
-
-	if (!HasAnyFlags(RF_ClassDefaultObject))
-	{
-		BoundingGeometryBuffer = new FSubUVBoundingGeometryBuffer(&DerivedData.BoundingGeometry);
-	}
-
 	if (!HasAnyFlags(RF_ClassDefaultObject | RF_NeedLoad))
 	{
-		InitializeDefaults();		
-	}
-}
-
-void UParticleModuleRequired::Serialize(FArchive& Ar)
-{
-	Super::Serialize(Ar);
-
-	Ar.UsingCustomVersion(FRenderingObjectVersion::GUID);
-	if (Ar.CustomVer(FRenderingObjectVersion::GUID) >= FRenderingObjectVersion::MovedParticleCutoutsToRequiredModule)
-	{
-		bool bCooked = Ar.IsCooking();
-
-		// Save a bool indicating whether this is cooked data
-		// This is needed when loading cooked data, to know to serialize differently
-		Ar << bCooked;
-
-		if (FPlatformProperties::RequiresCookedData() && !bCooked && Ar.IsLoading())
-		{
-			UE_LOG(LogParticles, Fatal, TEXT("This platform requires cooked packages, and this SubUV animation does not contain cooked data %s."), *GetName());
-		}
-
-		if (bCooked)
-		{
-			DerivedData.Serialize(Ar);
-		}
+		InitializeDefaults();
 	}
 }
 
 #if WITH_EDITOR
-void UParticleModuleRequired::PreEditChange(UProperty* PropertyThatChanged)
-{
-	Super::PreEditChange(PropertyThatChanged);
-
-	// Particle rendering is reading from this UObject's properties directly, wait until all queued commands are done
-	FlushRenderingCommands();
-}
-
 void UParticleModuleRequired::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
 {
 	InitializeDefaults();
 
-	SubImages_Horizontal = FMath::Max(SubImages_Horizontal, 1);
-	SubImages_Vertical = FMath::Max(SubImages_Vertical, 1);
-
-	BeginReleaseResource(BoundingGeometryBuffer);
-
-	// Wait until unregister commands are processed on the RT
-	FlushRenderingCommands();
+	if (SubImages_Horizontal < 1)
+	{
+		SubImages_Horizontal = 1;
+	}
+	if (SubImages_Vertical < 1)
+	{
+		SubImages_Vertical = 1;
+	}
 
 	UProperty* PropertyThatChanged = PropertyChangedEvent.Property;
 	if (PropertyThatChanged)
@@ -1139,16 +1096,6 @@ void UParticleModuleRequired::PostEditChangeProperty(FPropertyChangedEvent& Prop
 				bUseMaxDrawCount = false;
 			}
 		}
-		else if (AlphaThreshold > 0 && PropertyThatChanged->GetFName() == FName(TEXT("Material")))
-		{
-			GetDefaultCutout();
-		}
-	}
-
-	if (CutoutTexture)
-	{
-		CacheDerivedData();
-		InitBoundingGeometryBuffer();
 	}
 
 	Super::PostEditChangeProperty(PropertyChangedEvent);
@@ -1185,44 +1132,14 @@ void UParticleModuleRequired::PostLoad()
 {
 	Super::PostLoad();
 
-	SubImages_Horizontal = FMath::Max(SubImages_Horizontal, 1);
-	SubImages_Vertical = FMath::Max(SubImages_Vertical, 1);
-
-	if (!FPlatformProperties::RequiresCookedData())
+	if (SubImages_Horizontal < 1)
 	{
-		if (CutoutTexture)
-		{
-			CutoutTexture->ConditionalPostLoad();
-			CacheDerivedData();
-		}	
+		SubImages_Horizontal = 1;
 	}
-
-	InitBoundingGeometryBuffer();
-}
-
-void UParticleModuleRequired::BeginDestroy()
-{
-	Super::BeginDestroy();
-
-	if (BoundingGeometryBuffer)
+	if (SubImages_Vertical < 1)
 	{
-		BeginReleaseResource(BoundingGeometryBuffer);
-		ReleaseFence.BeginFence();
+		SubImages_Vertical = 1;
 	}
-}
-
-bool UParticleModuleRequired::IsReadyForFinishDestroy()
-{
-	bool bReady = Super::IsReadyForFinishDestroy();
-
-	return bReady && ReleaseFence.IsFenceComplete();
-}
-
-void UParticleModuleRequired::FinishDestroy()
-{
-	delete BoundingGeometryBuffer;
-
-	Super::FinishDestroy();
 }
 
 void UParticleModuleRequired::SetToSensibleDefaults(UParticleEmitter* Owner)
@@ -1262,69 +1179,6 @@ bool UParticleModuleRequired::GenerateLODModuleValues(UParticleModule* SourceMod
 	//EmitterEditorColor
 
 	return bResult;
-}
-
-void UParticleModuleRequired::CacheDerivedData()
-{
-#if WITH_EDITORONLY_DATA
-	const FString KeyString = FSubUVDerivedData::GetDDCKeyString(CutoutTexture->Source.GetId(), SubImages_Horizontal, SubImages_Vertical, (int32)BoundingMode, AlphaThreshold, (int32)OpacitySourceMode);
-	TArray<uint8> Data;
-
-	COOK_STAT(auto Timer = SubUVAnimationCookStats::UsageStats.TimeSyncWork());
-	if (GetDerivedDataCacheRef().GetSynchronous(*KeyString, Data))
-	{
-		COOK_STAT(Timer.AddHit(Data.Num()));
-		DerivedData.BoundingGeometry.Empty(Data.Num() / sizeof(FVector2D));
-		DerivedData.BoundingGeometry.AddUninitialized(Data.Num() / sizeof(FVector2D));
-		FPlatformMemory::Memcpy(DerivedData.BoundingGeometry.GetData(), Data.GetData(), Data.Num() * Data.GetTypeSize());
-	}
-	else
-	{
-		DerivedData.Build(CutoutTexture, SubImages_Horizontal, SubImages_Vertical, BoundingMode, AlphaThreshold, OpacitySourceMode);
-
-		Data.Empty(DerivedData.BoundingGeometry.Num() * sizeof(FVector2D));
-		Data.AddUninitialized(DerivedData.BoundingGeometry.Num() * sizeof(FVector2D));
-		FPlatformMemory::Memcpy(Data.GetData(), DerivedData.BoundingGeometry.GetData(), DerivedData.BoundingGeometry.Num() * DerivedData.BoundingGeometry.GetTypeSize());
-		GetDerivedDataCacheRef().Put(*KeyString, Data);
-		COOK_STAT(Timer.AddMiss(Data.Num()));
-	}
-#endif
-}
-
-void UParticleModuleRequired::InitBoundingGeometryBuffer()
-{
-	// The SRV is only needed for platforms that can render particles with instancing
-	if (GRHISupportsInstancing && BoundingGeometryBuffer->Vertices->Num())
-	{
-		BeginInitResource(BoundingGeometryBuffer);
-	}
-}
-
-void UParticleModuleRequired::GetDefaultCutout()
-{
-#if WITH_EDITOR
-	if (Material && GetDefault<URendererSettings>()->bDefaultParticleCutouts)
-	{
-		// Try to find an opacity mask texture to default to, if not try to find an opacity texture
-		TArray<UTexture*> OpacityMaskTextures;
-		Material->GetTexturesInPropertyChain(EMaterialProperty::MP_OpacityMask, OpacityMaskTextures, nullptr, nullptr);
-
-		if (OpacityMaskTextures.Num())
-		{
-			CutoutTexture = (UTexture2D*)OpacityMaskTextures[0];
-		}
-		else
-		{
-			TArray<UTexture*> OpacityTextures;
-			Material->GetTexturesInPropertyChain(EMaterialProperty::MP_Opacity, OpacityTextures, nullptr, nullptr);
-
-			if (OpacityTextures.Num())
-			{
-				CutoutTexture = (UTexture2D*)OpacityTextures[0];
-			}
-		}
-	}
-#endif
 }
 
 /*-----------------------------------------------------------------------------

@@ -27,7 +27,7 @@ static TAutoConsoleVariable<int32> CVarGlobalClipPlane(
 // Changing this causes a full shader recompile
 static TAutoConsoleVariable<int32> CVarVertexFoggingForOpaque(
 	TEXT("r.VertexFoggingForOpaque"),
-	1,
+	0,
 	TEXT("Causes opaque materials to use per-vertex fogging, which costs less and integrates properly with MSAA.  Only supported with forward shading."),
 	ECVF_ReadOnly | ECVF_RenderThreadSafe);
 
@@ -209,14 +209,21 @@ void FBasePassReflectionParameters::SetMesh(FRHICommandList& RHICmdList, FPixelS
 	FTextureRHIParamRef CubeArrayTexture = FeatureLevel >= ERHIFeatureLevel::SM5 ? GBlackCubeArrayTexture->TextureRHI : GBlackTextureCube->TextureRHI;
 	int32 ArrayIndex = 0;
 	const FReflectionCaptureProxy* ReflectionProxy = PrimitiveSceneInfo ? PrimitiveSceneInfo->CachedReflectionCaptureProxy : nullptr;
-	FVector4 CaptureOffsetAndAverageBrightnessValue(0, 0, 0, 1);
-	FVector4 PositionAndRadius = FVector4(0, 0, 0, 1);
 
+	FMatrix BoxTransformVal = FMatrix::Identity;
+	FVector4 PositionAndRadius = FVector::ZeroVector;
+	FVector4 BoxScalesVal(0, 0, 0, 0);
+	FVector4 CaptureOffsetAndAverageBrightnessValue(0, 0, 0, 1);
+	EReflectionCaptureShape::Type CaptureShape = EReflectionCaptureShape::Box;
+	
 	if (PrimitiveSceneInfo && ReflectionProxy)
 	{
 		PrimitiveSceneInfo->Scene->GetCaptureParameters(ReflectionProxy, CubeArrayTexture, ArrayIndex);
-		CaptureOffsetAndAverageBrightnessValue = FVector4(ReflectionProxy->CaptureOffset, ReflectionProxy->AverageBrightness);
 		PositionAndRadius = FVector4(ReflectionProxy->Position, ReflectionProxy->InfluenceRadius);
+		CaptureShape = ReflectionProxy->Shape;
+		BoxTransformVal = ReflectionProxy->BoxTransform;
+		BoxScalesVal = FVector4(ReflectionProxy->BoxScales, ReflectionProxy->BoxTransitionDistance);
+		CaptureOffsetAndAverageBrightnessValue = FVector4(ReflectionProxy->CaptureOffset, ReflectionProxy->AverageBrightness);
 	}
 
 	SetTextureParameter(
@@ -227,9 +234,12 @@ void FBasePassReflectionParameters::SetMesh(FRHICommandList& RHICmdList, FPixelS
 		TStaticSamplerState<SF_Trilinear, AM_Clamp, AM_Clamp, AM_Clamp>::GetRHI(), 
 		CubeArrayTexture);
 
-	SetShaderValue(RHICmdList, PixelShaderRHI, SingleCubemapArrayIndex, ArrayIndex);
-	SetShaderValue(RHICmdList, PixelShaderRHI, SingleCaptureOffsetAndAverageBrightness, CaptureOffsetAndAverageBrightnessValue);
-	SetShaderValue(RHICmdList, PixelShaderRHI, SingleCapturePositionAndRadius, PositionAndRadius);
+	SetShaderValue(RHICmdList, PixelShaderRHI, CubemapArrayIndex, ArrayIndex);
+	SetShaderValue(RHICmdList, PixelShaderRHI, ReflectionPositionAndRadius, PositionAndRadius);
+	SetShaderValue(RHICmdList, PixelShaderRHI, ReflectionShape, (float)CaptureShape);
+	SetShaderValue(RHICmdList, PixelShaderRHI, BoxTransform, BoxTransformVal);
+	SetShaderValue(RHICmdList, PixelShaderRHI, BoxScales, BoxScalesVal);
+	SetShaderValue(RHICmdList, PixelShaderRHI, CaptureOffsetAndAverageBrightness, CaptureOffsetAndAverageBrightnessValue);
 }
 
 void FTranslucentLightingParameters::Set(FRHICommandList& RHICmdList, FPixelShaderRHIParamRef PixelShaderRHI, const FViewInfo* View)

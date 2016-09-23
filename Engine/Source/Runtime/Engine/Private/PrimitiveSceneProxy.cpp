@@ -47,7 +47,6 @@ FPrimitiveSceneProxy::FPrimitiveSceneProxy(const UPrimitiveComponent* InComponen
 ,	StaticDepthPriorityGroup(InComponent->GetStaticDepthPriorityGroup())
 ,	ViewOwnerDepthPriorityGroup(InComponent->ViewOwnerDepthPriorityGroup)
 ,	bStaticLighting(InComponent->HasStaticLighting())
-,	bVisibleInReflectionCaptures(InComponent->bVisibleInReflectionCaptures)
 ,	bRenderInMainPass(InComponent->bRenderInMainPass)
 ,	bRequiresVisibleLevelToRender(false)
 ,	bIsComponentLevelVisible(false)

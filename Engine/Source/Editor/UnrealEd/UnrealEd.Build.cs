@@ -243,6 +243,9 @@ public class UnrealEd : ModuleRules
 				"UserFeedback",
              	"CollectionManager",
 				"BlueprintGraph",
+				"NiagaraEditor",
+                "Niagara",
+                "VectorVM",
 				"AddContentDialog",                
                 "MeshUtilities"
 			}
