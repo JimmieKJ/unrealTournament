@@ -162,7 +162,7 @@ void AUTRemoteRedeemer::OnStop(const FHitResult& Hit)
 {
 	if (Role == ROLE_Authority)
 	{
-		BlowUp();
+		BlowUp(Hit.ImpactNormal);
 	}
 }
 
@@ -202,7 +202,7 @@ void AUTRemoteRedeemer::Destroyed()
 	}
 }
 
-void AUTRemoteRedeemer::BlowUp()
+void AUTRemoteRedeemer::BlowUp(FVector HitNormal)
 {
 	if (!bExploded)
 	{
@@ -241,6 +241,16 @@ void AUTRemoteRedeemer::BlowUp()
 
 		PlayExplosionEffects();
 
+		FVector ExplosionCenter = GetActorLocation();
+		if (!HitNormal.IsZero())
+		{
+			ECollisionChannel TraceChannel = COLLISION_TRACE_WEAPONNOCHARACTER;
+			FCollisionQueryParams QueryParams(GetClass()->GetFName(), true, Instigator);
+			FHitResult Hit;
+			FVector EndTrace = ExplosionCenter + 100.f * HitNormal; // move up by maxstepheight
+			bool bHitGeometry = GetWorld()->LineTraceSingleByChannel(Hit, ExplosionCenter, EndTrace, TraceChannel, QueryParams);
+			ExplosionCenter = bHitGeometry ? 0.5f*(ExplosionCenter + Hit.Location) : EndTrace;
+		}
 		ExplodeStage1();
 	}
 }
@@ -458,9 +468,9 @@ void AUTRemoteRedeemer::ExplodeStage(float RangeMultiplier)
 		if (AdjustedDamageParams.OuterRadius > 0.0f)
 		{
 			TArray<AActor*> IgnoreActors;
-			FVector ExplosionCenter = GetActorLocation();
-
 			StatsHitCredit = 0.f;
+
+			DrawDebugSphere(GetWorld(), ExplosionCenter, RangeMultiplier*AdjustedDamageParams.OuterRadius, 12, FColor::Green, true, -1.f);
 			UUTGameplayStatics::UTHurtRadius(this, AdjustedDamageParams.BaseDamage, AdjustedDamageParams.MinimumDamage, DefaultRedeemer->Momentum, ExplosionCenter, RangeMultiplier * AdjustedDamageParams.InnerRadius, RangeMultiplier * AdjustedDamageParams.OuterRadius, AdjustedDamageParams.DamageFalloff,
 				DefaultRedeemer->MyDamageType, IgnoreActors, this, DamageInstigator, nullptr, nullptr, DefaultRedeemer->CollisionFreeRadius);
 			if ((Role == ROLE_Authority) && (HitsStatsName != NAME_None))

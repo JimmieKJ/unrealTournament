@@ -247,7 +247,13 @@ void AUTProj_Redeemer::Explode_Implementation(const FVector& HitLocation, const 
 		
 		if (Role == ROLE_Authority)
 		{
-			ExplodeHitLocation = HitLocation + HitNormal;
+			ECollisionChannel TraceChannel = COLLISION_TRACE_WEAPONNOCHARACTER;
+			FCollisionQueryParams QueryParams(GetClass()->GetFName(), true, Instigator);
+			FHitResult Hit;
+			FVector EndTrace = HitLocation + 100.f * HitNormal; // move up by maxstepheight
+			bool bHitGeometry = GetWorld()->LineTraceSingleByChannel(Hit, HitLocation, EndTrace, TraceChannel, QueryParams);
+			ExplodeHitLocation = bHitGeometry ? 0.5f*(HitLocation + Hit.Location) : EndTrace;
+
 			ExplodeMomentum = Momentum;
 			ExplodeStage1();
 		}
@@ -267,7 +273,7 @@ void AUTProj_Redeemer::ExplodeStage(float RangeMultiplier)
 		}
 
 		StatsHitCredit = 0.f;
-		//DrawDebugSphere(GetWorld(), ExplodeHitLocation, RangeMultiplier*AdjustedDamageParams.OuterRadius, 12, FColor::Green, true, -1.f);
+		DrawDebugSphere(GetWorld(), ExplodeHitLocation, RangeMultiplier*AdjustedDamageParams.OuterRadius, 12, FColor::Green, true, -1.f);
 
 		UUTGameplayStatics::UTHurtRadius(this, AdjustedDamageParams.BaseDamage, AdjustedDamageParams.MinimumDamage, AdjustedMomentum, ExplodeHitLocation, RangeMultiplier * AdjustedDamageParams.InnerRadius, RangeMultiplier * AdjustedDamageParams.OuterRadius, AdjustedDamageParams.DamageFalloff,
 			MyDamageType, IgnoreActors, this, InstigatorController, FFInstigatorController, FFDamageType, CollisionFreeRadius);

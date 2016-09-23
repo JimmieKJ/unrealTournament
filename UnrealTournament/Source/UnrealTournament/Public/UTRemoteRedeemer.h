@@ -76,7 +76,7 @@ public:
 	virtual bool DriverLeave(bool bForceLeave);
 	
 	UFUNCTION()
-	void BlowUp();
+	void BlowUp(FVector HitNormal=FVector::ZeroVector);
 
 	UFUNCTION(BlueprintCallable, Category = Team)
 	virtual uint8 GetTeamNum() const;
@@ -166,6 +166,9 @@ public:
 
 	UPROPERTY()
 	float RollSmoothingMultiplier;
+
+	UPROPERTY()
+		FVector ExplosionCenter;
 
 	bool bExploded;
 	/** set when we were shot down by an enemy instead of exploding on contact with the big boom */
