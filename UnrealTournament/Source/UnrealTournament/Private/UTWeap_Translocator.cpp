@@ -270,12 +270,13 @@ void AUTWeap_Translocator::FireShot()
 					FHitResult Hit;
 					FVector EndTrace = WarpLocation - FVector(0.0f, 0.0f, PlayerCapsule.GetCapsuleHalfHeight());
 					float SweepRadius = TransDisk->CollisionComp->GetCollisionShape().GetSphereRadius();
-					bool bHitFloor = GetWorld()->SweepSingleByChannel(Hit, WarpLocation, EndTrace, FQuat::Identity, UTOwner->GetCapsuleComponent()->GetCollisionObjectType(), FCollisionShape::MakeSphere(SweepRadius), FCollisionQueryParams(FName(TEXT("Translocation")), false, UTOwner), UTOwner->GetCapsuleComponent()->GetCollisionResponseToChannels());
+					ECollisionChannel TraceChannel = COLLISION_TRACE_WEAPONNOCHARACTER;
+					bool bHitFloor = GetWorld()->SweepSingleByChannel(Hit, WarpLocation, EndTrace, FQuat::Identity, TraceChannel, FCollisionShape::MakeSphere(SweepRadius), FCollisionQueryParams(FName(TEXT("Translocation")), false, UTOwner), UTOwner->GetCapsuleComponent()->GetCollisionResponseToChannels());
 					if (bHitFloor)
 					{
 						// need to more teleport destination up, unless close to ceiling
 						FVector NewLocation = Hit.Location + FVector(0.0f, 0.0f, PlayerCapsule.GetCapsuleHalfHeight());
-						bool bHitCeiling = GetWorld()->SweepSingleByChannel(Hit, WarpLocation, NewLocation, FQuat::Identity, UTOwner->GetCapsuleComponent()->GetCollisionObjectType(), FCollisionShape::MakeSphere(SweepRadius), FCollisionQueryParams(FName(TEXT("Translocation")), false, UTOwner), UTOwner->GetCapsuleComponent()->GetCollisionResponseToChannels());
+						bool bHitCeiling = GetWorld()->SweepSingleByChannel(Hit, WarpLocation, NewLocation, FQuat::Identity, TraceChannel, FCollisionShape::MakeSphere(SweepRadius), FCollisionQueryParams(FName(TEXT("Translocation")), false, UTOwner), UTOwner->GetCapsuleComponent()->GetCollisionResponseToChannels());
 						if (!bHitCeiling)
 						{
 							WarpLocation = NewLocation;
