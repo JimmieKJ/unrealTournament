@@ -341,12 +341,12 @@ bool AUTFlagRunGame::CheckForWinner(AUTTeamInfo* ScoringTeam)
 			if (GS && GS->bRedToCap)
 			{
 				// next round is blue cap
-				if ((Teams[0]->Score > Teams[1]->Score + GoldScore) || ((GS->TiebreakValue > 0) && (Teams[0]->Score == Teams[1]->Score + GoldScore)))
+				if ((Teams[0]->Score > Teams[1]->Score + GoldScore) || ((GS->TiebreakValue > 60) && (Teams[0]->Score == Teams[1]->Score + GoldScore)))
 				{
 					EndTeamGame(Teams[0], FName(TEXT("scorelimit")));
 					return true;
 				}
-				if ((Teams[1]->Score > Teams[0]->Score + DefenseScore) || ((Teams[1]->Score == Teams[0]->Score + DefenseScore) && (GS->TiebreakValue < 0)))
+				if ((Teams[1]->Score > Teams[0]->Score + DefenseScore) || ((Teams[1]->Score == Teams[0]->Score + DefenseScore) && (GS->TiebreakValue < -60)))
 				{
 					EndTeamGame(Teams[1], FName(TEXT("scorelimit")));
 					return true;
@@ -355,12 +355,12 @@ bool AUTFlagRunGame::CheckForWinner(AUTTeamInfo* ScoringTeam)
 			else
 			{
 				// next round is red cap
-				if ((Teams[1]->Score > Teams[0]->Score + GoldScore) || ((GS->TiebreakValue < 0) && (Teams[1]->Score == Teams[0]->Score + GoldScore)))
+				if ((Teams[1]->Score > Teams[0]->Score + GoldScore) || ((GS->TiebreakValue < -60) && (Teams[1]->Score == Teams[0]->Score + GoldScore)))
 				{
 					EndTeamGame(Teams[1], FName(TEXT("scorelimit")));
 					return true;
 				}
-				if ((Teams[0]->Score > Teams[1]->Score + DefenseScore) || ((Teams[0]->Score == Teams[1]->Score + DefenseScore) && (GS->TiebreakValue > 0)))
+				if ((Teams[0]->Score > Teams[1]->Score + DefenseScore) || ((Teams[0]->Score == Teams[1]->Score + DefenseScore) && (GS->TiebreakValue > 60)))
 				{
 					EndTeamGame(Teams[0], FName(TEXT("scorelimit")));
 					return true;
