@@ -571,7 +571,7 @@ void AUTPickupInventory::AnnouncePickup(AUTCharacter* P)
 	if (UTPC)
 	{
 		UTPC->ClientReceiveLocalizedMessage(UUTPickupMessage::StaticClass(), 0, P->PlayerState, NULL, InventoryType);
-		if (GM && GM->bBasicTrainingGame && GM->bDamageHurtsHealth)
+		if (GM && GM->bBasicTrainingGame && !GM->bDamageHurtsHealth)
 		{
 			for (int32 Index = 0; Index < TutorialAnnouncements.Num(); Index++)
 			{
