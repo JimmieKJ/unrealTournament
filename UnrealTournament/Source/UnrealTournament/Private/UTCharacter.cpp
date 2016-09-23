@@ -280,6 +280,11 @@ void AUTCharacter::BeginPlay()
 	}
 
 	Super::BeginPlay();
+
+	if (!IsPendingKillPending() && (SpawnSound != nullptr))
+	{
+		UUTGameplayStatics::UTPlaySound(GetWorld(), SpawnSound, this, SRT_None);
+	}
 }
 
 void AUTCharacter::PostInitializeComponents()

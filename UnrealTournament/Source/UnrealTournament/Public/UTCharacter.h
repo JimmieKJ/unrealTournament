@@ -1370,6 +1370,9 @@ public:
 	UPROPERTY(BlueprintReadWrite, Category = Sounds)
 	float LastWallHitNotifyTime;
 
+	UPROPERTY(EditAnywhere, Category = Sounds)
+		USoundBase* SpawnSound;
+
 	/** sets character overlay effect; effect must be added to the UTGameState's OverlayEffects at level startup to work correctly (for replication reasons)
 	 * multiple overlays can be active at once, but only one will be displayed at a time
 	 */
