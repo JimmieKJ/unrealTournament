@@ -920,7 +920,7 @@ void AUTProjectile::Explode_Implementation(const FVector& HitLocation, const FVe
 				FVector EndTrace = HitLocation + 50.f * HitNormal; // move up by maxstepheight
 				bool bHitGeometry = GetWorld()->LineTraceSingleByChannel(Hit, HitLocation, EndTrace, TraceChannel, QueryParams);
 				FVector ExplosionCenter = bHitGeometry ? 0.5f*(HitLocation + Hit.Location) : EndTrace;
-				DrawDebugSphere(GetWorld(), ExplosionCenter, AdjustedDamageParams.OuterRadius, 12, FColor::Green, true, -1.f);
+				//DrawDebugSphere(GetWorld(), ExplosionCenter, AdjustedDamageParams.OuterRadius, 12, FColor::Green, true, -1.f);
 
 				UUTGameplayStatics::UTHurtRadius(this, AdjustedDamageParams.BaseDamage, AdjustedDamageParams.MinimumDamage, AdjustedMomentum, ExplosionCenter, AdjustedDamageParams.InnerRadius, AdjustedDamageParams.OuterRadius, AdjustedDamageParams.DamageFalloff,
 					MyDamageType, IgnoreActors, this, InstigatorController, FFInstigatorController, FFDamageType, 0.0f, &AltOrigins);

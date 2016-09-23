@@ -273,7 +273,7 @@ void AUTProj_Redeemer::ExplodeStage(float RangeMultiplier)
 		}
 
 		StatsHitCredit = 0.f;
-		DrawDebugSphere(GetWorld(), ExplodeHitLocation, RangeMultiplier*AdjustedDamageParams.OuterRadius, 12, FColor::Green, true, -1.f);
+		//DrawDebugSphere(GetWorld(), ExplodeHitLocation, RangeMultiplier*AdjustedDamageParams.OuterRadius, 12, FColor::Green, true, -1.f);
 
 		UUTGameplayStatics::UTHurtRadius(this, AdjustedDamageParams.BaseDamage, AdjustedDamageParams.MinimumDamage, AdjustedMomentum, ExplodeHitLocation, RangeMultiplier * AdjustedDamageParams.InnerRadius, RangeMultiplier * AdjustedDamageParams.OuterRadius, AdjustedDamageParams.DamageFalloff,
 			MyDamageType, IgnoreActors, this, InstigatorController, FFInstigatorController, FFDamageType, CollisionFreeRadius);
