@@ -456,11 +456,11 @@ void AUTWeapon::StartFire(uint8 FireModeNum)
 
 void AUTWeapon::ResendNextFireEvent()
 {
-	if (Role == ROLE_Authority)
+/*	if ((Role == ROLE_Authority) && (GetNetmode() != NM_Standalone))
 	{
 		UE_LOG(UT, Warning, TEXT("*********************************Server side weapon timer BAD!"));
 		return;
-	}
+	}*/
 	if (!UTOwner || UTOwner->IsPendingKillPending() || (UTOwner->GetWeapon() != this))
 	{
 		ResendFireEvents.Empty();
