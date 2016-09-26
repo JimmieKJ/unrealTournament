@@ -691,7 +691,7 @@ void AUTRecastNavMesh::BuildNodeNetwork()
 					// we need to make sure to grab all encompassing polys into the new PathNode as it will have special properties
 					// and Recast may have split the polys inside the extent of the POI
 					const FVector UnrealCenter = It->GetActorLocation();
-					const FVector RecastCenter = Unreal2RecastPoint(UnrealCenter);
+					FVector RecastCenter = Unreal2RecastPoint(UnrealCenter);
 					FVector RecastExtent = GetPOIExtent(*It) * FVector(0.9f, 0.9f, 1.0f); // hack: trying to minimize grabbing a small portion of adjacent large polys
 					RecastExtent = FVector(RecastExtent[0], RecastExtent[2], RecastExtent[1]);
 					TArray<NavNodeRef> FinalPolys;
@@ -699,6 +699,12 @@ void AUTRecastNavMesh::BuildNodeNetwork()
 						NavNodeRef ResultPolys[10];
 						int32 NumPolys = 0;
 						InternalQuery.queryPolygons((float*)&RecastCenter, (float*)&RecastExtent, GetDefaultDetourFilter(), ResultPolys, &NumPolys, ARRAY_COUNT(ResultPolys));
+						if (NumPolys == 0)
+						{
+							// hack: try lower
+							RecastCenter.Y -= RecastExtent.Y; // note: Recast Y is our Z
+							InternalQuery.queryPolygons((float*)&RecastCenter, (float*)&RecastExtent, GetDefaultDetourFilter(), ResultPolys, &NumPolys, ARRAY_COUNT(ResultPolys));
+						}
 						FinalPolys.Reserve(NumPolys);
 						// remove polygons that do not truly intersect the bounding cylinder, since queryPolygons() is an AABB test
 						for (int32 i = 0; i < NumPolys; i++)
