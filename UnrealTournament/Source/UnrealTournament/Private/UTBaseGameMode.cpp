@@ -272,10 +272,10 @@ void AUTBaseGameMode::ChangeName(AController* Other, const FString& S, bool bNam
 
 	// Unicode 160 is an empty space, not sure what other characters are broken in our font
 	int32 FindCharIndex;
-	bool bForceAccountName = (ClampedName.FindChar(160, FindCharIndex) || ClampedName.FindChar(38, FindCharIndex));
+	bool bForceAccountName = (ClampedName.FindChar(160, FindCharIndex) || ClampedName.FindChar(38, FindCharIndex)) || (FCString::Stricmp(TEXT("Player"), *ClampedName) == 0);
 
 	AUTPlayerState* PS = Cast<AUTPlayerState>(Other->PlayerState);
-	if (!PS || (FCString::Stricmp(*PS->PlayerName, *ClampedName) == 0) || ((FCString::Stricmp(TEXT("Player"), *ClampedName) == 0) && !PS->PlayerName.IsEmpty()))
+	if (!PS || ((FCString::Stricmp(*PS->PlayerName, *ClampedName) == 0) && !bForceAccountName))
 	{
 		return;
 	}
@@ -290,7 +290,7 @@ void AUTBaseGameMode::ChangeName(AController* Other, const FString& S, bool bNam
 		EpicAccountName = UTGameState->GetEpicAccountNameForAccount(UserId);
 		if (bForceAccountName)
 		{
-			ClampedName = EpicAccountName.ToString();
+			ClampedName = EpicAccountName.IsEmpty() ? FString::Printf(TEXT("%s%i"), *DefaultPlayerName.ToString(), PS->PlayerId) : EpicAccountName.ToString();
 		}
 		bNameMatchesAccount = (EpicAccountName.ToString() == ClampedName);
 	}
