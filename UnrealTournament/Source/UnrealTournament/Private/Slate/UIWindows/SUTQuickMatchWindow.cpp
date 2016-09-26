@@ -222,14 +222,18 @@ void SUTQuickMatchWindow::BuildWindow()
 				}
 
 				bStartQuickMatch = false;
-				McpUtils->GetTeamHighestMmr(GetNameSafe(DefaultGameModeObject->GetClass()), AccountIds, [this](const FOnlineError& TeamMmrResult, const FHighestMmr& Response)
+				TSharedPtr<SUTQuickMatchWindow> Myself = SharedThis(this);
+				McpUtils->GetTeamHighestMmr(GetNameSafe(DefaultGameModeObject->GetClass()), AccountIds, [Myself](const FOnlineError& TeamMmrResult, const FHighestMmr& Response)
 				{
-					if (!TeamMmrResult.bSucceeded)
+					if (Myself.IsValid() && Myself->GetPlayerOwner().IsValid() && Myself->GetPlayerOwner()->bIsQuickmatchDialogOpen())
 					{
-						UE_LOG(UT,Log,TEXT("Best MMR: %i"),Response.Mmr);
-						MatchTargetRank = Response.Mmr;
+						if (!TeamMmrResult.bSucceeded)
+						{
+							UE_LOG(UT,Log,TEXT("Best MMR: %i"),Response.Mmr);
+							Myself->MatchTargetRank = Response.Mmr;
+						}
+						Myself->BeginQuickmatch();
 					}
-					BeginQuickmatch();
 				});
 			}
 		}

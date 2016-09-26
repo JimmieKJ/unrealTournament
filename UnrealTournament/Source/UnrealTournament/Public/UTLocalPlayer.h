@@ -310,6 +310,12 @@ protected:
 public:
 	FProcHandle DedicatedServerProcessHandle;
 
+	UFUNCTION(BlueprintCallable, Category = Game)
+	bool bIsQuickmatchDialogOpen()
+	{
+		return QuickMatchDialog.IsValid();
+	}
+
 	// Last text entered in Connect To IP
 	UPROPERTY(config)
 		FString LastConnectToIP;
