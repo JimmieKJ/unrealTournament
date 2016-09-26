@@ -561,6 +561,7 @@ void AUTCTFBaseGame::PlacePlayersAroundFlagBase(int32 TeamNum, int32 FlagTeamNum
 					break;
 				}
 				UTChar->bIsTranslocating = false;
+				UTChar->TurnOff();
 			}
 			if (PlacementCounter == 8)
 			{

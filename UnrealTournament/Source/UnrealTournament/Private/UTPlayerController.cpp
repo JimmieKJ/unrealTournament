@@ -1020,7 +1020,7 @@ void AUTPlayerController::SelectTranslocator()
 
 void AUTPlayerController::ThrowWeapon()
 {
-	if (UTCharacter != NULL && IsLocalPlayerController() && !UTCharacter->IsRagdoll())
+	if (UTCharacter != NULL && IsLocalPlayerController() && !UTCharacter->IsFiringDisabled())
 	{
 		if (UTCharacter->GetWeapon() != nullptr && UTCharacter->GetWeapon()->DroppedPickupClass != nullptr && UTCharacter->GetWeapon()->bCanThrowWeapon)
 		{
@@ -1040,7 +1040,7 @@ bool AUTPlayerController::ServerThrowWeapon_Validate()
 
 void AUTPlayerController::ServerThrowWeapon_Implementation()
 {
-	if (UTCharacter != nullptr && !UTCharacter->IsRagdoll())
+	if (UTCharacter != nullptr && !UTCharacter->IsFiringDisabled())
 	{
 		AUTGameMode* UTGM = GetWorld()->GetAuthGameMode<AUTGameMode>();
 		if (UTGM && !UTGM->bBasicTrainingGame && UTCharacter->GetWeapon() != nullptr && UTCharacter->GetWeapon()->DroppedPickupClass != nullptr && UTCharacter->GetWeapon()->bCanThrowWeapon && !UTCharacter->GetWeapon()->IsFiring())
@@ -1056,7 +1056,7 @@ void AUTPlayerController::ServerThrowWeapon_Implementation()
 
 void AUTPlayerController::SwitchWeaponInSequence(bool bPrev)
 {
-	if (UTCharacter != NULL && IsLocalPlayerController() && UTCharacter->TauntCount == 0 && !UTCharacter->IsRagdoll())
+	if (UTCharacter != NULL && IsLocalPlayerController() && UTCharacter->TauntCount == 0 && !UTCharacter->IsFiringDisabled())
 	{
 		LastWeaponPrevNextTime = GetWorld()->GetTimeSeconds();
 		if (UTCharacter->GetWeapon() == NULL)
@@ -4512,7 +4512,7 @@ void AUTPlayerController::ShowBuyMenu()
 
 void AUTPlayerController::DropCarriedObject()
 {
-	if (UTCharacter)
+	if (UTCharacter && !UTCharacter->IsFiringDisabled())
 	{
 		UTCharacter->DropCarriedObject();
 	}

@@ -2787,7 +2787,7 @@ void AUTCharacter::InventoryEvent(FName EventName)
 
 void AUTCharacter::SwitchWeapon(AUTWeapon* NewWeapon)
 {
-	if (NewWeapon != NULL && !IsDead() && ((Weapon == nullptr) || !bDisallowWeaponFiring))
+	if (NewWeapon != NULL && !IsDead() && ((Weapon == nullptr) || !IsFiringDisabled()))
 	{
 		if (Role == ROLE_Authority)
 		{
@@ -4414,7 +4414,11 @@ void AUTCharacter::Tick(float DeltaTime)
 			GetMesh()->SetRelativeRotation(GetClass()->GetDefaultObject<AUTCharacter>()->GetMesh()->RelativeRotation);
 			GetMesh()->SetRelativeScale3D(GetClass()->GetDefaultObject<AUTCharacter>()->GetMesh()->RelativeScale3D);
 
-			DisallowWeaponFiring(GetClass()->GetDefaultObject<AUTCharacter>()->bDisallowWeaponFiring);
+			AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
+			if (!GS || !GS->IsMatchIntermission() || !GS->HasMatchEnded())
+			{
+				DisallowWeaponFiring(GetClass()->GetDefaultObject<AUTCharacter>()->bDisallowWeaponFiring);
+			}
 		}
 	}
 
