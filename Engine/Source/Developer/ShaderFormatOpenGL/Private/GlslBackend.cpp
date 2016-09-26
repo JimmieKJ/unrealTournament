@@ -903,7 +903,7 @@ class ir_gen_glsl_visitor : public ir_visitor
 		}
 
 		if (bBuiltinVariable &&
-			var->centroid == 0 && var->interpolation == 0 &&
+			var->centroid == 0 && (var->interpolation == 0 || strncmp(var->name, "gl_Layer", 3) == 0) &&
 			var->invariant == 0 && var->origin_upper_left == 0 &&
 			var->pixel_center_integer == 0)
 		{
@@ -1088,11 +1088,11 @@ class ir_gen_glsl_visitor : public ir_visitor
 					buffer,
 					"%s%s%s%s%s%s",
 					layout ? layout : layout_str[layout_bits],
+					var->mode != ir_var_temporary && var->mode != ir_var_auto ? interp_str[var->interpolation] : "",
 					var->mode != ir_var_temporary && var->mode != ir_var_auto ? centroid_str[var->centroid] : "",
 					var->mode != ir_var_temporary && var->mode != ir_var_auto ? invariant_str[var->invariant] : "",
 					patch_constant_str[var->is_patch_constant],
-					mode_str[var->mode],
-					var->mode != ir_var_temporary && var->mode != ir_var_auto ? interp_str[var->interpolation] : ""
+					mode_str[var->mode]
 					);
 				if (bEmitPrecision)
 				{
