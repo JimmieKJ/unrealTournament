@@ -146,6 +146,9 @@ class UNREALTOURNAMENT_API AUTWeapon : public AUTInventory
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Replicated, ReplicatedUsing = OnRep_Ammo, Category = "Weapon")
 	int32 Ammo;
 
+	UPROPERTY(BlueprintReadOnly)
+		uint8 FireEventIndex;
+
 	UFUNCTION()
 	virtual void OnRep_AttachmentType();
 
@@ -540,26 +543,26 @@ class UNREALTOURNAMENT_API AUTWeapon : public AUTInventory
 	virtual void ClearFireEvents();
 
 	/** Make sure that passed in FireEventIndex has not yet been processed (called on server). */
-	virtual bool ValidateFireEventIndex(uint8 FireModeNum, uint8 FireEventIndex);
+	virtual bool ValidateFireEventIndex(uint8 FireModeNum, uint8 InFireEventIndex);
 
 	/** Queue up repeat RPCs to make sure FireEvent gets through. (called on client) */
-	virtual void QueueResendFire(bool bIsStartFire, uint8 FireModeNum, uint8 FireEventIndex, uint8 ZOffset, bool bClientFired);
+	virtual void QueueResendFire(bool bIsStartFire, uint8 FireModeNum, uint8 InFireEventIndex, uint8 ZOffset, bool bClientFired);
 
 	/** Tell server fire button was pressed.  bClientFired is true if client actually fired weapon. */
 	UFUNCTION(Server, unreliable, WithValidation)
-		virtual void ResendServerStartFire(uint8 FireModeNum, uint8 FireEventIndex, bool bClientFired);
+		virtual void ResendServerStartFire(uint8 FireModeNum, uint8 InFireEventIndex, bool bClientFired);
 
 	/** ServerStartFire, also pass Z offset since it is interpolating. */
 	UFUNCTION(Server, unreliable, WithValidation)
-		virtual void ResendServerStartFireOffset(uint8 FireModeNum, uint8 FireEventIndex, uint8 ZOffset, bool bClientFired);
+		virtual void ResendServerStartFireOffset(uint8 FireModeNum, uint8 InFireEventIndex, uint8 ZOffset, bool bClientFired);
 
 	/** Tell server fire button was pressed.  bClientFired is true if client actually fired weapon. */
 	UFUNCTION(Server, unreliable, WithValidation)
-		virtual void ServerStartFire(uint8 FireModeNum, uint8 FireEventIndex, bool bClientFired);
+		virtual void ServerStartFire(uint8 FireModeNum, uint8 InFireEventIndex, bool bClientFired);
 
 	/** ServerStartFire, also pass Z offset since it is interpolating. */
 	UFUNCTION(Server, unreliable, WithValidation)
-	virtual void ServerStartFireOffset(uint8 FireModeNum, uint8 FireEventIndex, uint8 ZOffset, bool bClientFired);
+	virtual void ServerStartFireOffset(uint8 FireModeNum, uint8 InFireEventIndex, uint8 ZOffset, bool bClientFired);
 
 	/** Send current fire settings to server. */
 	UFUNCTION(Server, unreliable, WithValidation)
@@ -574,11 +577,11 @@ class UNREALTOURNAMENT_API AUTWeapon : public AUTInventory
 		float FireZOffsetTime;
 
 	UFUNCTION(Server, unreliable, WithValidation)
-	virtual void ServerStopFire(uint8 FireModeNum, uint8 FireEventIndex);
+	virtual void ServerStopFire(uint8 FireModeNum, uint8 InFireEventIndex);
 
 	/** Used when client just triggered a fire on a held trigger right before releasing.*/
 	UFUNCTION(Server, unreliable, WithValidation)
-		virtual void ServerStopFireRecent(uint8 FireModeNum, uint8 FireEventIndex);
+		virtual void ServerStopFireRecent(uint8 FireModeNum, uint8 InFireEventIndex);
 
 	virtual bool BeginFiringSequence(uint8 FireModeNum, bool bClientFired);
 	virtual void EndFiringSequence(uint8 FireModeNum);
@@ -768,7 +771,7 @@ class UNREALTOURNAMENT_API AUTWeapon : public AUTInventory
 	inline void GotoActiveState()
 	{
 		GotoState(ActiveState);
-		if (!GetWorldTimerManager().IsTimerActive(ResendFireHandle))
+		if (!GetWorldTimerManager().IsTimerActive(ResendFireHandle) && UTOwner && UTOwner->IsLocallyControlled())
 		{
 			GetWorldTimerManager().SetTimer(ResendFireHandle, this, &AUTWeapon::ResendNextFireEvent, 0.2f, true);
 		}

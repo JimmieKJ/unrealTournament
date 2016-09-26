@@ -111,6 +111,7 @@ AUTWeapon::AUTWeapon(const FObjectInitializer& ObjectInitializer)
 	LowAmmoSoundDelay = 0.2f;
 	LowAmmoThreshold = 3;
 	FireSoundAmp = SAT_WeaponFire;
+	FireEventIndex = 0;
 
 	WeaponSkinCustomizationTag = NAME_None;
 }
@@ -431,13 +432,12 @@ void AUTWeapon::StartFire(uint8 FireModeNum)
 			UUTWeaponStateFiring* CurrentFiringState = FiringState.IsValidIndex(FireModeNum) ? FiringState[FireModeNum] : nullptr;
 			if (CurrentFiringState)
 			{
-				CurrentFiringState->FireEventIndex++;
-				if (CurrentFiringState->FireEventIndex == 255)
+				FireEventIndex++;
+				if (FireEventIndex == 255)
 				{
-					CurrentFiringState->FireEventIndex = 0;
+					FireEventIndex = 0;
 				}
 			}
-			uint8 FireEventIndex = CurrentFiringState ? CurrentFiringState->FireEventIndex : 0;
 			if (UTOwner)
 			{
 				float ZOffset = uint8(FMath::Clamp(UTOwner->GetPawnViewLocation().Z - UTOwner->GetActorLocation().Z + 127.5f, 0.f, 255.f));
@@ -456,6 +456,12 @@ void AUTWeapon::StartFire(uint8 FireModeNum)
 
 void AUTWeapon::ResendNextFireEvent()
 {
+	return; // should never be a problem with no PL!
+	if (Role == ROLE_Authority)
+	{
+		UE_LOG(UT, Warning, TEXT("*********************************Server side weapon timer BAD!"));
+		return;
+	}
 	if (!UTOwner || UTOwner->IsPendingKillPending() || (UTOwner->GetWeapon() != this))
 	{
 		ResendFireEvents.Empty();
@@ -467,7 +473,7 @@ void AUTWeapon::ResendNextFireEvent()
 		FPendingFireEvent SendEvent = ResendFireEvents[0];
 		if (SendEvent.bIsStartFire)
 		{
-			//UE_LOG(UT, Warning, TEXT("Resend StartFire %d event %d ZOffset %d"), SendEvent.FireModeNum, SendEvent.FireEventIndex, SendEvent.ZOffset);
+		//	UE_LOG(UT, Warning, TEXT("Resend StartFire %d event %d ZOffset %d"), SendEvent.FireModeNum, SendEvent.FireEventIndex, SendEvent.ZOffset);
 			if (SendEvent.ZOffset == 0)
 			{
 				ResendServerStartFire(SendEvent.FireModeNum, SendEvent.FireEventIndex, SendEvent.bClientFired);
@@ -479,15 +485,23 @@ void AUTWeapon::ResendNextFireEvent()
 		}
 		else
 		{
-			//UE_LOG(UT, Warning, TEXT("Resend StopFire %d event %d"), SendEvent.FireModeNum, SendEvent.FireEventIndex);
+		//	UE_LOG(UT, Warning, TEXT("Resend StopFire %d event %d"), SendEvent.FireModeNum, SendEvent.FireEventIndex);
 			ServerStopFire(SendEvent.FireModeNum, SendEvent.FireEventIndex);
 		}
 		ResendFireEvents.RemoveAt(0);
 	}
 	else if (UTOwner->GetWeapon() == this)
 	{
-		uint8 FireSettings = (CurrentState && CurrentState->IsFiring()) ? CurrentFireMode + 1 : 0;
-//		UE_LOG(UT, Warning, TEXT("UpdateFiringStates %d"), FireSettings);
+		uint8 FireSettings = 0;
+		int32 NumModes = FMath::Min(8, int32(GetNumFireModes()));
+		for (int32 i = 0; i < NumModes; i++)
+		{
+			if (UTOwner->IsPendingFire(i))
+			{
+				FireSettings += 1 << i;
+			}
+		}
+		//UE_LOG(UT, Warning, TEXT("UpdateFiringStates %d"), FireSettings);
 		ServerUpdateFiringStates(FireSettings);
 	}
 	if (ResendFireEvents.Num() == 0)
@@ -515,13 +529,7 @@ void AUTWeapon::ClearFireEvents()
 	GetWorldTimerManager().ClearTimer(ResendFireHandle);
 	if (Role == ROLE_Authority)
 	{
-		for (int32 i = 0; i < FiringState.Num(); i++)
-		{
-			if (FiringState[i] != nullptr)
-			{
-				FiringState[i]->FireEventIndex = 0;
-			}
-		}
+		FireEventIndex = 0;
 	}
 }
 
@@ -530,24 +538,31 @@ void AUTWeapon::ServerUpdateFiringStates_Implementation(uint8 FireSettings)
 //	UE_LOG(UT, Warning, TEXT("ServerUpdateFiringStates %d"), FireSettings);
 	if (FireSettings != 0)
 	{
-		int32 FireModeNum = FireSettings - 1;
-		if ((FiringState.Num() > FireModeNum) && FiringState[FireModeNum] && ((CurrentState != FiringState[FireModeNum]) || !CurrentState->IsFiring()))
-		{ 
-			//UE_LOG(UT, Warning, TEXT("Update firing %d ON"), FireModeNum);
-			ServerStartFire(FireModeNum, -1, true);
+		if (!CurrentState->IsFiring())
+		{
+			int32 NumModes = FMath::Min(8, int32(GetNumFireModes()));
+			for (int32 i = 0; i < NumModes; i++)
+			{
+				if ((FireSettings & (1 << i)) && FiringState[i])
+				{
+					//UE_LOG(UT, Warning, TEXT("IN %s Update firing %d ON"), *CurrentState->GetName(), i);
+					ServerStartFire(i, -1, true);
+					break;
+				}
+			}
 		}
 	}
 	else if (CurrentState && CurrentState->IsFiring())
 	{
-		//UE_LOG(UT, Warning, TEXT("Update firing %d OFF"), CurrentFireMode);
+	//	UE_LOG(UT, Warning, TEXT("Update firing %d OFF"), CurrentFireMode);
 		ServerStopFire(CurrentFireMode, -1);
 	}
 }
 
-void AUTWeapon::QueueResendFire(bool bIsStartFire, uint8 FireModeNum, uint8 FireEventIndex, uint8 ZOffset, bool bClientFired)
+void AUTWeapon::QueueResendFire(bool bIsStartFire, uint8 FireModeNum, uint8 InFireEventIndex, uint8 ZOffset, bool bClientFired)
 {
 	// add a two resend fire events to the queue
-	FPendingFireEvent NewFireEvent(bIsStartFire, FireModeNum, FireEventIndex, ZOffset, bClientFired);
+	FPendingFireEvent NewFireEvent(bIsStartFire, FireModeNum, InFireEventIndex, ZOffset, bClientFired);
 	ResendFireEvents.Add(NewFireEvent);
 	ResendFireEvents.Add(NewFireEvent);
 	if (!GetWorldTimerManager().IsTimerActive(ResendFireHandle) || (GetWorldTimerManager().GetTimerRemaining(ResendFireHandle) > 0.04f))
@@ -556,31 +571,31 @@ void AUTWeapon::QueueResendFire(bool bIsStartFire, uint8 FireModeNum, uint8 Fire
 	}
 }
 
-bool AUTWeapon::ValidateFireEventIndex(uint8 FireModeNum, uint8 FireEventIndex)
+bool AUTWeapon::ValidateFireEventIndex(uint8 FireModeNum, uint8 InFireEventIndex)
 {
 	UUTWeaponStateFiring* CurrentFiringState = FiringState.IsValidIndex(FireModeNum) ? FiringState[FireModeNum] : nullptr;
 	if (CurrentFiringState)
 	{
-		if (FireEventIndex == 255)
+		if (InFireEventIndex == 255)
 		{
 			return true;
 		}
-		if ((CurrentFiringState->FireEventIndex >= FireEventIndex) && (int32(CurrentFiringState->FireEventIndex) < int32(FireEventIndex)+128))
+		if ((FireEventIndex >= InFireEventIndex) && (int32(FireEventIndex) < int32(InFireEventIndex)+128))
 		{
-			//UE_LOG(UT, Warning, TEXT("Skipping current %d in %d"), CurrentFiringState->FireEventIndex, FireEventIndex);
+			//UE_LOG(UT, Warning, TEXT("Skipping current %d in %d"), FireEventIndex, InFireEventIndex);
 			return false;
 		}
-		//UE_LOG(UT, Warning, TEXT("Firing current %d in %d"), CurrentFiringState->FireEventIndex, FireEventIndex);
-		CurrentFiringState->FireEventIndex = FireEventIndex;
+		//UE_LOG(UT, Warning, TEXT("Firing current %d in %d"), FireEventIndex, InFireEventIndex);
+		FireEventIndex = InFireEventIndex;
 		return true;
 	}
 	//UE_LOG(UT, Warning, TEXT("NO CurrentFiringState %d for %s"), FireModeNum, *GetName());
 	return false;
 }
 
-void AUTWeapon::ServerStartFire_Implementation(uint8 FireModeNum, uint8 FireEventIndex, bool bClientFired)
+void AUTWeapon::ServerStartFire_Implementation(uint8 FireModeNum, uint8 InFireEventIndex, bool bClientFired)
 {
-	if (ValidateFireEventIndex(FireModeNum, FireEventIndex) && UTOwner && !UTOwner->IsFiringDisabled())
+	if (ValidateFireEventIndex(FireModeNum, InFireEventIndex) && UTOwner && !UTOwner->IsFiringDisabled())
 	{
 		if (CurrentState == InactiveState && !UTOwner->IsLocallyControlled())
 		{
@@ -592,14 +607,14 @@ void AUTWeapon::ServerStartFire_Implementation(uint8 FireModeNum, uint8 FireEven
 	}
 }
 
-bool AUTWeapon::ServerStartFire_Validate(uint8 FireModeNum, uint8 FireEventIndex, bool bClientFired)
+bool AUTWeapon::ServerStartFire_Validate(uint8 FireModeNum, uint8 InFireEventIndex, bool bClientFired)
 {
 	return true;
 }
 
-void AUTWeapon::ServerStartFireOffset_Implementation(uint8 FireModeNum, uint8 FireEventIndex, uint8 ZOffset, bool bClientFired)
+void AUTWeapon::ServerStartFireOffset_Implementation(uint8 FireModeNum, uint8 InFireEventIndex, uint8 ZOffset, bool bClientFired)
 {
-	if (ValidateFireEventIndex(FireModeNum, FireEventIndex) && UTOwner && !UTOwner->IsFiringDisabled())
+	if (ValidateFireEventIndex(FireModeNum, InFireEventIndex) && UTOwner && !UTOwner->IsFiringDisabled())
 	{
 		if (CurrentState == InactiveState && !UTOwner->IsLocallyControlled())
 		{
@@ -612,14 +627,14 @@ void AUTWeapon::ServerStartFireOffset_Implementation(uint8 FireModeNum, uint8 Fi
 	}
 }
 
-bool AUTWeapon::ServerStartFireOffset_Validate(uint8 FireModeNum, uint8 FireEventIndex, uint8 ZOffset, bool bClientFired)
+bool AUTWeapon::ServerStartFireOffset_Validate(uint8 FireModeNum, uint8 InFireEventIndex, uint8 ZOffset, bool bClientFired)
 {
 	return true;
 }
 
-void AUTWeapon::ResendServerStartFire_Implementation(uint8 FireModeNum, uint8 FireEventIndex, bool bClientFired)
+void AUTWeapon::ResendServerStartFire_Implementation(uint8 FireModeNum, uint8 InFireEventIndex, bool bClientFired)
 {
-	if (ValidateFireEventIndex(FireModeNum, FireEventIndex) && UTOwner && !UTOwner->IsFiringDisabled())
+	if (ValidateFireEventIndex(FireModeNum, InFireEventIndex) && UTOwner && !UTOwner->IsFiringDisabled())
 	{
 		UE_LOG(UT, Warning, TEXT("****RESENDStartFire mode %d %d"), FireModeNum, FireEventIndex);
 		if (CurrentState == InactiveState && !UTOwner->IsLocallyControlled())
@@ -634,16 +649,16 @@ void AUTWeapon::ResendServerStartFire_Implementation(uint8 FireModeNum, uint8 Fi
 	}
 }
 
-bool AUTWeapon::ResendServerStartFire_Validate(uint8 FireModeNum, uint8 FireEventIndex, bool bClientFired)
+bool AUTWeapon::ResendServerStartFire_Validate(uint8 FireModeNum, uint8 InFireEventIndex, bool bClientFired)
 {
 	return true;
 }
 
-void AUTWeapon::ResendServerStartFireOffset_Implementation(uint8 FireModeNum, uint8 FireEventIndex, uint8 ZOffset, bool bClientFired)
+void AUTWeapon::ResendServerStartFireOffset_Implementation(uint8 FireModeNum, uint8 InFireEventIndex, uint8 ZOffset, bool bClientFired)
 {
-	if (ValidateFireEventIndex(FireModeNum, FireEventIndex) && UTOwner && !UTOwner->IsFiringDisabled())
+	if (ValidateFireEventIndex(FireModeNum, InFireEventIndex) && UTOwner && !UTOwner->IsFiringDisabled())
 	{
-		UE_LOG(UT, Warning, TEXT("****RESENDStartFireOffset mode %d %d"), FireModeNum, FireEventIndex);
+		UE_LOG(UT, Warning, TEXT("****RESENDStartFireOffset mode %d %d"), FireModeNum, InFireEventIndex);
 		if (CurrentState == InactiveState && !UTOwner->IsLocallyControlled())
 		{
 			UTOwner->ClientVerifyWeapon();
@@ -653,11 +668,11 @@ void AUTWeapon::ResendServerStartFireOffset_Implementation(uint8 FireModeNum, ui
 		bNetDelayedShot = true;
 		BeginFiringSequence(FireModeNum, bClientFired);
 		bNetDelayedShot = false;
-		//UE_LOG(UT, Warning, TEXT("*****RESENDStartFireOffset %d"), FireEventIndex);
+		//UE_LOG(UT, Warning, TEXT("*****RESENDStartFireOffset %d"), InFireEventIndex);
 	}
 }
 
-bool AUTWeapon::ResendServerStartFireOffset_Validate(uint8 FireModeNum, uint8 FireEventIndex, uint8 ZOffset, bool bClientFired)
+bool AUTWeapon::ResendServerStartFireOffset_Validate(uint8 FireModeNum, uint8 InFireEventIndex, uint8 ZOffset, bool bClientFired)
 {
 	return true;
 }
@@ -694,13 +709,12 @@ void AUTWeapon::StopFire(uint8 FireModeNum)
 		UUTWeaponStateFiring* CurrentFiringState = FiringState.IsValidIndex(FireModeNum) ? FiringState[FireModeNum] : nullptr;
 		if (CurrentFiringState)
 		{
-			CurrentFiringState->FireEventIndex++;
-			if (CurrentFiringState->FireEventIndex == 255)
+			FireEventIndex++;
+			if (FireEventIndex == 255)
 			{
-				CurrentFiringState->FireEventIndex = 0;
+				FireEventIndex = 0;
 			}
 		}
-		uint8 FireEventIndex = CurrentFiringState ? CurrentFiringState->FireEventIndex : 0;
 		if (GetWorld()->GetTimeSeconds() - LastContinuedFiring < 0.1f)
 		{
 			ServerStopFireRecent(FireModeNum, FireEventIndex);
@@ -713,9 +727,9 @@ void AUTWeapon::StopFire(uint8 FireModeNum)
 	}
 }
 
-void AUTWeapon::ServerStopFireRecent_Implementation(uint8 FireModeNum, uint8 FireEventIndex)
+void AUTWeapon::ServerStopFireRecent_Implementation(uint8 FireModeNum, uint8 InFireEventIndex)
 {
-	if (ValidateFireEventIndex(FireModeNum, FireEventIndex))
+	if (ValidateFireEventIndex(FireModeNum, InFireEventIndex))
 	{
 		//UE_LOG(UT, Warning, TEXT("****StopFireRecent %d"), FireEventIndex);
 		if (GetWorld()->GetTimeSeconds() - LastContinuedFiring > 0.2f)
@@ -730,21 +744,21 @@ void AUTWeapon::ServerStopFireRecent_Implementation(uint8 FireModeNum, uint8 Fir
 	}
 }
 
-bool AUTWeapon::ServerStopFireRecent_Validate(uint8 FireModeNum, uint8 FireEventIndex)
+bool AUTWeapon::ServerStopFireRecent_Validate(uint8 FireModeNum, uint8 InFireEventIndex)
 {
 	return true;
 }
 
-void AUTWeapon::ServerStopFire_Implementation(uint8 FireModeNum, uint8 FireEventIndex)
+void AUTWeapon::ServerStopFire_Implementation(uint8 FireModeNum, uint8 InFireEventIndex)
 {
-	if (ValidateFireEventIndex(FireModeNum, FireEventIndex))
+	if (ValidateFireEventIndex(FireModeNum, InFireEventIndex))
 	{
-	//	UE_LOG(UT, Warning, TEXT("****StopFire %d"), FireEventIndex);
+	//	UE_LOG(UT, Warning, TEXT("****StopFire %d"), InFireEventIndex);
 		EndFiringSequence(FireModeNum);
 	}
 }
 
-bool AUTWeapon::ServerStopFire_Validate(uint8 FireModeNum, uint8 FireEventIndex)
+bool AUTWeapon::ServerStopFire_Validate(uint8 FireModeNum, uint8 InFireEventIndex)
 {
 	return true;
 }
@@ -1080,6 +1094,7 @@ void AUTWeapon::PlayFiringEffects()
 {
 	if (UTOwner != NULL)
 	{
+		//UE_LOG(UT, Warning, TEXT("PlayFiringEffects at %f"), GetWorld()->GetTimeSeconds());
 		uint8 EffectFiringMode = (Role == ROLE_Authority || UTOwner->Controller != NULL) ? CurrentFireMode : UTOwner->FireMode;
 
 		// try and play the sound if specified
@@ -1262,6 +1277,7 @@ void AUTWeapon::FireShot()
 		{
 			FireInstantHit();
 		}
+		//UE_LOG(UT, Warning, TEXT("FireShot"));
 		PlayFiringEffects();
 	}
 	if (GetUTOwner() != NULL)
@@ -1286,6 +1302,7 @@ bool AUTWeapon::IsFiring() const
 
 void AUTWeapon::AddAmmo(int32 Amount)
 {
+	Amount = FMath::Max(0, Amount);
 	if (Role == ROLE_Authority)
 	{
 		Ammo = FMath::Clamp<int32>(Ammo + Amount, 0, MaxAmmo);
@@ -2685,6 +2702,7 @@ void AUTWeapon::FiringInfoUpdated_Implementation(uint8 InFireMode, uint8 FlashCo
 	if (FlashCount > 0 || !InFlashLocation.IsZero())
 	{
 		CurrentFireMode = InFireMode;
+		UE_LOG(UT, Warning, TEXT("FiringInfoUpdated_Implementation"));
 		PlayFiringEffects();
 	}
 	else
