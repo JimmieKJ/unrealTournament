@@ -188,7 +188,6 @@ public:
 	virtual void WaitForMovieToFinish(bool bEnsureDefaultSlateOverlay);
 	virtual void WaitForMovieToFinish(TSharedPtr<SWidget> SlateOverlayWidget);
 
-	virtual int32 GetBotSkillForTeamElo(int32 TeamElo);
 
 protected:
 
@@ -205,6 +204,8 @@ protected:
 	bool bDisablePerformanceCounters;
 
 public:
+	virtual int32 GetBotSkillForTeamElo(int32 TeamElo);
+
 	virtual void CloseAllRedirectDownloadDialogs();
 
 
