@@ -456,7 +456,6 @@ void AUTWeapon::StartFire(uint8 FireModeNum)
 
 void AUTWeapon::ResendNextFireEvent()
 {
-	return; // should never be a problem with no PL!
 	if (Role == ROLE_Authority)
 	{
 		UE_LOG(UT, Warning, TEXT("*********************************Server side weapon timer BAD!"));
