@@ -15,6 +15,10 @@
 #include "Animation/AnimStats.h"
 #include "Animation/AnimMontage.h"
 
+// Max number of times we are allowed to iterate in montage advance per tick.
+// 30 should be well outside of any valid montages actual iteration count (which should be in the 1-3 range)
+const int32 MAX_MONTAGE_ADVANCE_ITERATION = 30;
+
 DEFINE_LOG_CATEGORY(LogAnimMontage);
 ///////////////////////////////////////////////////////////////////////////
 //
@@ -1757,8 +1761,10 @@ void FAnimMontageInstance::Advance(float DeltaTime, struct FRootMotionMovementPa
 				MarkersPassedThisTick.Reset();
 			}
 
+			int32 AdvanceIterationCount = 0;
 			while( bPlaying && (FMath::Abs(DesiredDeltaMove) > KINDA_SMALL_NUMBER) && ((OriginalMoveDelta * DesiredDeltaMove) > 0.f) )
 			{
+				++AdvanceIterationCount;
 				SCOPE_CYCLE_COUNTER(STAT_AnimMontageInstance_Advance_Iteration);
 
 				// Get position relative to current montage section.
@@ -1886,9 +1892,16 @@ void FAnimMontageInstance::Advance(float DeltaTime, struct FRootMotionMovementPa
 						}
 					}
 
-					if (!bHaveMoved)
+					const bool bHitMaxIterations = (AdvanceIterationCount >= MAX_MONTAGE_ADVANCE_ITERATION);
+
+					if (!bHaveMoved || bHitMaxIterations)
 					{
-						// If it hasn't moved, there is nothing much to do but weight update
+						// If it hasn't moved there is nothing much to do but weight update
+						// If we have iterated too much then end the loop
+						if (bHitMaxIterations)
+						{
+							UE_LOG(LogAnimMontage, Warning, TEXT("Hit max iteration on montage: %s "), *Montage->GetName());
+						}
 						break;
 					}
 				}
