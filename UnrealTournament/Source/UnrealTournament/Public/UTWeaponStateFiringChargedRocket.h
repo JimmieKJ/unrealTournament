@@ -26,6 +26,7 @@ class UNREALTOURNAMENT_API UUTWeaponStateFiringChargedRocket : public UUTWeaponS
 
 	virtual void BeginState(const UUTWeaponState* PrevState) override
 	{
+		GetOuterAUTWeapon()->OnStartedFiring();
 		RocketLauncher = Cast<AUTWeap_RocketLauncher>(GetOuterAUTWeapon());
 		bCharging = true;
 
