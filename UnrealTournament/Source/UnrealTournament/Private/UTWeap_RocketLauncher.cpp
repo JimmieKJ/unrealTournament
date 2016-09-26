@@ -101,7 +101,7 @@ void AUTWeap_RocketLauncher::BeginLoadRocket()
 	//Replicate the loading sound to other players 
 	//Local players will use the sounds synced to the animation
 	AUTPlayerController* PC = Cast<AUTPlayerController>(UTOwner->Controller);
-	if (PC != NULL && !PC->IsLocalPlayerController() && (NumLoadedRockets == NumLoadedBarrels))
+	if (PC != NULL && !PC->IsLocalPlayerController() && (NumLoadedRockets == NumLoadedBarrels) && LoadingSounds.IsValidIndex(NumLoadedRockets))
 	{
 		UUTGameplayStatics::UTPlaySound(GetWorld(), LoadingSounds[NumLoadedRockets], UTOwner, SRT_AllButOwner, false, FVector::ZeroVector, NULL, NULL, true, SAT_WeaponFoley);
 	}
@@ -432,8 +432,21 @@ AUTProjectile* AUTWeap_RocketLauncher::FireRocketProjectile()
 {
 	checkSlow(RocketFireModes.IsValidIndex(CurrentRocketFireMode) && RocketFireModes[CurrentRocketFireMode].ProjClass != NULL);
 
-	TSubclassOf<AUTProjectile> RocketProjClass = bAllowGrenades ? RocketFireModes[CurrentRocketFireMode].ProjClass : ProjClass[CurrentRocketFireMode];
+	TSubclassOf<AUTProjectile> RocketProjClass = nullptr;
+	if (bAllowGrenades)
+	{
+		RocketProjClass = RocketFireModes.IsValidIndex(CurrentRocketFireMode) ? RocketFireModes[CurrentRocketFireMode].ProjClass : nullptr;
+	}
+	else
+	{
+		RocketProjClass = ProjClass.IsValidIndex(CurrentRocketFireMode) ? ProjClass[CurrentRocketFireMode] : nullptr;
+	}
 
+	if (RocketProjClass == nullptr)
+	{
+		UE_LOG(UT, Warning, TEXT("Rocket fire mode %d No valid projectile class found"), CurrentRocketFireMode);
+		return nullptr;
+	}
 	const FVector SpawnLocation = GetFireStartLoc();
 	FRotator SpawnRotation = GetAdjustedAim(SpawnLocation);
 	FRotationMatrix SpawnRotMat(SpawnRotation);
