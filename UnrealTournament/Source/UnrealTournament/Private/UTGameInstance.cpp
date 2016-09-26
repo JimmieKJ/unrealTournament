@@ -810,15 +810,16 @@ bool UUTGameInstance::IsMoviePlaying()
 
 int32 UUTGameInstance::GetBotSkillForTeamElo(int32 TeamElo)
 {
-	if (TeamElo > 1900)
+	if (TeamElo > 1500)
 	{
-		return 3;
+		return 3 + FMath::Clamp((float(TeamElo) - 1500.f)/60.f , 0.f, 4.f);
 	}
-	else if (TeamElo > 1700)
+	else if (TeamElo > 1400)
 	{
 		return 2;
 	}
 
 	return 1;
 }
+
 
