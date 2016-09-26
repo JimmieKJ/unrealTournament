@@ -517,7 +517,7 @@ void SUTCreateGamePanel::OnStoreDialogResult(TSharedPtr<SCompoundWidget> Widget,
 {
 	if (ButtonID == UTDIALOG_BUTTON_YES)
 	{
-		FString URL = TEXT("com.epicgames.launcher://ut");
+		FString URL = TEXT("com.epicgames.launcher://ut/marketplace");
 		FString Command = TEXT("");
 		FString Error = TEXT("");
 		FPlatformProcess::LaunchURL(*URL, *Command, &Error);
