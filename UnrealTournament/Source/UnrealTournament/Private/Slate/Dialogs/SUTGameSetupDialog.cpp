@@ -511,7 +511,7 @@ void SUTGameSetupDialog::BuildMapPanel()
 				MapPanel->AddSlot(Col, Row).Padding(5.0,5.0,5.0,5.0)
 				[
 					SNew(SBox)
-					.WidthOverride(256)
+					.WidthOverride(268)
 					.HeightOverride(158)							
 					[
 						SAssignNew(Button, SUTComboButton)
@@ -532,39 +532,46 @@ void SUTGameSetupDialog::BuildMapPanel()
 							+SVerticalBox::Slot()
 							.AutoHeight()
 							[
-								SNew(SBox)
-								.WidthOverride(256)
-								.HeightOverride(128)							
+								SNew(SHorizontalBox)
+								+SHorizontalBox::Slot().AutoWidth()
 								[
-									SNew(SOverlay)
-									+SOverlay::Slot()
+									SNew(SBox)
+									.WidthOverride(256)
+									.HeightOverride(128)							
 									[
-										SAssignNew(ImageWidget,SImage)
-										.Image(MapPlayList[i].MapImage)
-									]
-									+SOverlay::Slot()
-									[
-										SNew(SVerticalBox)
-										+SVerticalBox::Slot()
-										.AutoHeight()
+										SNew(SOverlay)
+										+SOverlay::Slot()
 										[
-											SNew(SHorizontalBox)
-											+SHorizontalBox::Slot()
-											.AutoWidth()
+											SAssignNew(ImageWidget,SImage)
+											.Image(MapPlayList[i].MapImage)
+										]
+										+SOverlay::Slot()
+										[
+											SNew(SVerticalBox)
+											+SVerticalBox::Slot()
+											.AutoHeight()
 											[
-												SNew(SBox)
-												.WidthOverride(32)
-												.HeightOverride(32)							
+												SNew(SHorizontalBox)
+												+SHorizontalBox::Slot()
+												.AutoWidth()
 												[
-													SAssignNew(CheckMark, SImage)
-													.Image(SUWindowsStyle::Get().GetBrush("UT.CheckMark"))
-													.Visibility(EVisibility::Hidden)
+													SNew(SBox)
+													.WidthOverride(32)
+													.HeightOverride(32)							
+													[
+														SAssignNew(CheckMark, SImage)
+														.Image(SUWindowsStyle::Get().GetBrush("UT.CheckMark"))
+														.Visibility(EVisibility::Hidden)
+													]
 												]
 											]
 										]
+										+SOverlay::Slot()
+										[
+											MapPlayList[i].MapInfo->BuildMapOverlay(FVector2D(256.0f, 128.0f))
+										]
 									]
 								]
-
 							]
 							+SVerticalBox::Slot()
 							.HAlign(HAlign_Center)
@@ -584,6 +591,7 @@ void SUTGameSetupDialog::BuildMapPanel()
 		}
 	}
 }
+
 
 void SUTGameSetupDialog::OnBotMenuSelect(int32 MenuCmdId, TSharedPtr<SUTComboButton> Sender)
 {
@@ -630,8 +638,7 @@ void SUTGameSetupDialog::OnSubMenuSelect(int32 MenuCmdId, TSharedPtr<SUTComboBut
 	}
 }
 
-
-FReply SUTGameSetupDialog::OnMapClick(int32 MapIndex)
+void SUTGameSetupDialog::SelectMap(int32 MapIndex)
 {
 	int32 Cnt = 0;
 	if (MapIndex >= 0 && MapIndex <= MapPlayList.Num())
@@ -654,9 +661,54 @@ FReply SUTGameSetupDialog::OnMapClick(int32 MapIndex)
 	}
 
 
+}
+
+FReply SUTGameSetupDialog::OnMapClick(int32 MapIndex)
+{
+	if (!MapPlayList[MapIndex].MapInfo->bHasRights)
+	{
+		DesiredMapIndex = MapIndex;
+		MapPlayList[MapIndex].Button->UnPressed();
+
+		PlayerOwner->ShowMessage(
+			NSLOCTEXT("SUTGameSetupDialog", "RightsTitle", "Epic Store"), 
+			NSLOCTEXT("SUTGameSetupDialog", "RightText", "The map you have selected is available in the Epic Store.  Do you wish to load the store to accquire the map?"), 
+			UTDIALOG_BUTTON_YES + UTDIALOG_BUTTON_NO, 
+			FDialogResultDelegate::CreateRaw(this, &SUTGameSetupDialog::OnStoreDialogResult));								
+	}
+
+	else
+	{
+		SelectMap(MapIndex);
+	}
+
 	return FReply::Handled();
 }
 
+void SUTGameSetupDialog::OnStoreDialogResult(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID)
+{
+	if (ButtonID == UTDIALOG_BUTTON_YES)
+	{
+		FString URL = TEXT("com.epicgames.launcher://ut");
+		FString Command = TEXT("");
+		FString Error = TEXT("");
+		FPlatformProcess::LaunchURL(*URL, *Command, &Error);
+		FPlatformMisc::RequestMinimize();
+
+		PlayerOwner->ShowMessage(
+			NSLOCTEXT("SUTGameSetupDialog", "ReturnFromStore", "Returned from store..."), 
+			NSLOCTEXT("SUT6GameSetupDialog", "StoreWait", "Click OK when ready."), 
+			UTDIALOG_BUTTON_OK, 
+			FDialogResultDelegate::CreateRaw(this, &SUTGameSetupDialog::OnStoreReturnResult), FVector2D(0.25f, 0.25f));								
+	}
+}
+
+void SUTGameSetupDialog::OnStoreReturnResult(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID)
+{
+	// TODO: Refresh entitlements and rebuild rights flags
+	MapPlayList[DesiredMapIndex].MapInfo->bHasRights = true;
+	BuildMapPanel();
+}
 
 FText SUTGameSetupDialog::GetMatchRulesTitle() const
 {

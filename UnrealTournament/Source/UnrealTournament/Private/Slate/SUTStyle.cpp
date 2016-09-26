@@ -242,6 +242,9 @@ void SUTStyle::SetIcons(TSharedRef<FSlateStyleSet> StyleRef)
 	Style.Set("UT.Icon.PartyMember", new IMAGE_BRUSH("UTStyle/Icons/UT.Icon.PartyMember", FVector2D(48, 48)));
 	Style.Set("UT.Icon.PartyMember.Empty", new IMAGE_BRUSH("UTStyle/Icons/UT.Icon.PartyMember.Empty", FVector2D(48, 48)));
 	Style.Set("UT.Icon.PartyLeader", new IMAGE_BRUSH("UTStyle/Icons/UT.Icon.PartyLeader", FVector2D(48, 48)));
+
+	Style.Set("UT.Icon.LockedContent", new IMAGE_BRUSH( "UTStyle/Icons/UT.Icon.LockedContent", FVector2D(128.0f, 128.0f)));
+
 }
 
 
@@ -631,6 +634,10 @@ void SUTStyle::SetCommonStyle(TSharedRef<FSlateStyleSet> StyleRef)
 		.SetDisabledThumbImage(IMAGE_BRUSH("UTCommon/UT.SliderHandle.Disabled", FVector2D(32,32)))
 		);
 
+	// Map Overlays
+	Style.Set("UT.MapOverlay.Epic.WIP", new IMAGE_BRUSH( "UTStyle/MapOverlays/UT.MapOverlay.Epic.WIP", FVector2D(1024.0f, 512.0f)));
+	Style.Set("UT.MapOverlay.Community", new IMAGE_BRUSH( "UTStyle/MapOverlays/UT.MapOverlay.Community", FVector2D(1024.0f, 512.0f)));
+	Style.Set("UT.MapOverlay.Community.WIP", new IMAGE_BRUSH( "UTStyle/MapOverlays/UT.MapOverlay.Community.WIP", FVector2D(1024.0f, 512.0f)));
 
 }
 

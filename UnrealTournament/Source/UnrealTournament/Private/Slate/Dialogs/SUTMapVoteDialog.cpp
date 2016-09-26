@@ -527,6 +527,10 @@ void SUTMapVoteDialog::BuildAllVotes()
 										]
 										+SOverlay::Slot()
 										[
+											MapVoteInfo->BuildMapOverlay(FVector2D(256.0f, 128.0f), true)
+										]
+										+SOverlay::Slot()
+										[
 											SNew(SVerticalBox)
 											+SVerticalBox::Slot().FillHeight(1.0)
 											.Padding(5.0,5.0,0.0,0.0)

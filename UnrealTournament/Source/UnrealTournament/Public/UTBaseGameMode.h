@@ -239,7 +239,7 @@ public:
 	/** Build a JSON object that contains information about this game mode. */
 	virtual void MakeJsonReport(TSharedPtr<FJsonObject> JsonObject);
 
-	virtual void CheckMapStatus(FString MapPackageName, bool& bIsEpicMap, bool& bIsMeshedMap);
+	virtual void CheckMapStatus(FString MapPackageName, bool& bIsEpicMap, bool& bIsMeshedMap, bool& bHasRights);
 
 	virtual FString GetRankedLeagueName() { return TEXT(""); }
 

@@ -240,8 +240,39 @@ TSharedRef<SWidget> SUTCreateGamePanel::BuildGamePanel(TSubclassOf<AUTGameMode> 
 					.WidthOverride(512)
 					.HeightOverride(256)
 					[
-						SNew(SImage)
-						.Image(LevelScreenshot)
+						SNew(SOverlay)
+						+SOverlay::Slot()
+						[
+							SNew(SImage)
+							.Image(LevelScreenshot)
+						]
+						+SOverlay::Slot()
+						[
+							SNew(SImage)
+							.Image(this, &SUTCreateGamePanel::GetMapBorder)
+							.Visibility(this, &SUTCreateGamePanel::GetMapBorderVis)
+						]
+						+SOverlay::Slot()
+						[
+							SNew(SVerticalBox)
+							+SVerticalBox::Slot().FillHeight(1.0).VAlign(VAlign_Center)
+							[
+								SNew(SVerticalBox)
+								+SVerticalBox::Slot().AutoHeight().HAlign(HAlign_Center)
+								[
+									SNew(SHorizontalBox)
+									+SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center)
+									[
+										SNew(SBox).WidthOverride(80.0f).HeightOverride(80.0f)
+										[
+											SNew(SImage)
+											.Image(SUTStyle::Get().GetBrush("UT.Icon.LockedContent"))
+											.Visibility(this, &SUTCreateGamePanel::GetLockImageVis)
+										]
+									]
+								]
+							]
+						]
 					]
 				]
 			]
@@ -442,6 +473,8 @@ void SUTCreateGamePanel::OnMapSelected(TWeakObjectPtr<AUTReplicatedMapInfo> NewS
 {
 	if (NewSelection.IsValid())
 	{
+		SelectedMapInfo = NewSelection;
+
 		SelectedMap->SetText(NewSelection.IsValid() ? FText::FromString(NewSelection->Title) : NSLOCTEXT("SUTCreateGamePanel", "NoMaps", "No Maps Available"));
 
 		int32 OptimalPlayerCount = SelectedGameClass.GetDefaultObject()->bTeamGame ? NewSelection->OptimalTeamPlayerCount : NewSelection->OptimalPlayerCount;
@@ -467,8 +500,46 @@ void SUTCreateGamePanel::OnMapSelected(TWeakObjectPtr<AUTReplicatedMapInfo> NewS
 			}
 			
 		}
+
+		if (!SelectedMapInfo->bHasRights)
+		{
+			PlayerOwner->ShowMessage(
+				NSLOCTEXT("SUTGameSetupDialog", "RightsTitle", "Epic Store"), 
+				NSLOCTEXT("SUTGameSetupDialog", "RightText", "The map you have selected is available in the Epic Store.  Do you wish to load the store to accquire the map?"), 
+				UTDIALOG_BUTTON_YES + UTDIALOG_BUTTON_NO, 
+				FDialogResultDelegate::CreateRaw(this, &SUTCreateGamePanel::OnStoreDialogResult));								
+		}
 	}
 }
+
+
+void SUTCreateGamePanel::OnStoreDialogResult(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID)
+{
+	if (ButtonID == UTDIALOG_BUTTON_YES)
+	{
+		FString URL = TEXT("com.epicgames.launcher://ut");
+		FString Command = TEXT("");
+		FString Error = TEXT("");
+		FPlatformProcess::LaunchURL(*URL, *Command, &Error);
+		FPlatformMisc::RequestMinimize();
+
+		PlayerOwner->ShowMessage(
+			NSLOCTEXT("SUTGameSetupDialog", "ReturnFromStore", "Returned from store..."), 
+			NSLOCTEXT("SUT6GameSetupDialog", "StoreWait", "Click OK when ready."), 
+			UTDIALOG_BUTTON_OK, 
+			FDialogResultDelegate::CreateRaw(this, &SUTCreateGamePanel::OnStoreReturnResult), FVector2D(0.25f, 0.25f));								
+	}
+	else
+	{
+		MapList->SetSelectedItem(AllMaps[0]);
+	}
+}
+
+void SUTCreateGamePanel::OnStoreReturnResult(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID)
+{
+	SelectedMapInfo->bHasRights = true;
+}
+
 
 TSharedRef<SWidget> SUTCreateGamePanel::GenerateGameNameWidget(UClass* InItem)
 {
@@ -778,6 +849,46 @@ bool SUTCreateGamePanel::IsReadyToPlay()
 {
 	return (MutatorConfigMenu == nullptr || !MutatorConfigMenu->IsInViewport()) && SelectedGameClass != nullptr && MapList->GetSelectedItem().IsValid();
 }
+
+const FSlateBrush* SUTCreateGamePanel::GetMapBorder() const
+{
+	if ( SelectedMapInfo.IsValid() )
+	{
+		if (SelectedMapInfo->bIsEpicMap && !SelectedMapInfo->bIsMeshedMap)
+		{
+			return SUTStyle::Get().GetBrush("UT.MapOverlay.Epic.WIP");
+		}
+		else
+		{
+			return !SelectedMapInfo->bIsMeshedMap ? 
+				SUTStyle::Get().GetBrush("UT.MapOverlay.Community.WIP") :
+				SUTStyle::Get().GetBrush("UT.MapOverlay.Community");
+		}
+
+	}
+
+	return LevelScreenshot;
+}
+
+EVisibility SUTCreateGamePanel::GetMapBorderVis() const
+{
+	if (SelectedMapInfo.IsValid() && (!SelectedMapInfo->bIsEpicMap || !SelectedMapInfo->bIsMeshedMap))
+	{
+		return EVisibility::Visible;
+	}
+	return EVisibility::Collapsed;
+}
+
+EVisibility SUTCreateGamePanel::GetLockImageVis() const
+{
+	if (SelectedMapInfo.IsValid() && !SelectedMapInfo->bHasRights)
+	{
+		return EVisibility::Visible;
+	}
+
+	return EVisibility::Collapsed;
+}
+
 
 #endif
 

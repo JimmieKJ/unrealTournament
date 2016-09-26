@@ -86,6 +86,14 @@ void SUTLobbyMatchSetupPanel::Construct(const FArguments& InArgs)
 					SNew(SImage)
 					.Image(this, &SUTLobbyMatchSetupPanel::GetMapImage)
 				]
+
+				+SOverlay::Slot()
+				[
+					SNew(SImage)
+					.Image(this, &SUTLobbyMatchSetupPanel::GetMapBorder)
+					.Visibility(this, &SUTLobbyMatchSetupPanel::GetMapBorderVis)
+				]
+
 				+SOverlay::Slot()
 				[
 					SNew(SVerticalBox)
@@ -842,6 +850,36 @@ const FSlateBrush* SUTLobbyMatchSetupPanel::GetMapImage() const
 
 	return DefaultLevelScreenshot;
 }
+
+const FSlateBrush* SUTLobbyMatchSetupPanel::GetMapBorder() const
+{
+	if ( MatchInfo.IsValid() && MatchInfo->InitialMapInfo.IsValid() )
+	{
+		if (MatchInfo->InitialMapInfo->bIsEpicMap && !MatchInfo->InitialMapInfo->bIsMeshedMap)
+		{
+			return SUTStyle::Get().GetBrush("UT.MapOverlay.Epic.WIP");
+		}
+		else
+		{
+			return !MatchInfo->InitialMapInfo->bIsMeshedMap ? 
+				SUTStyle::Get().GetBrush("UT.MapOverlay.Community.WIP") :
+				SUTStyle::Get().GetBrush("UT.MapOverlay.Community");
+		}
+
+	}
+
+	return DefaultLevelScreenshot;
+}
+
+EVisibility SUTLobbyMatchSetupPanel::GetMapBorderVis() const
+{
+	if (MatchInfo.IsValid() && MatchInfo->InitialMapInfo.IsValid() && (!MatchInfo->InitialMapInfo->bIsEpicMap || !MatchInfo->InitialMapInfo->bIsMeshedMap))
+	{
+		return EVisibility::Visible;
+	}
+	return EVisibility::Collapsed;
+}
+
 
 FText SUTLobbyMatchSetupPanel::GetMapName() const
 {

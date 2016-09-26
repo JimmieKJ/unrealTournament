@@ -407,17 +407,9 @@ EBrowseReturnVal::Type UUTGameEngine::Browse( FWorldContext& WorldContext, FURL 
 
 		return (LoadSuccess ? EBrowseReturnVal::Success : EBrowseReturnVal::Failure);
 	}
-	else
 #endif
-	if (URL.IsLocalInternal() && !IsRunningDedicatedServer() && !LocallyHasEntitlement(GetRequiredEntitlementFromPackageName(FName(*FPaths::GetBaseFilename(URL.Map)))))
-	{
-		Error = NSLOCTEXT("UT", "NotEntitledMap", "You do not have the rights to start this community created map. Visit the UT Marketplace in the Launcher to gain access (it's free!).").ToString();
-		return EBrowseReturnVal::Failure;
-	}
-	else
-	{
-		return Super::Browse(WorldContext, URL, Error);
-	}
+
+	return Super::Browse(WorldContext, URL, Error);
 }
 
 static TAutoConsoleVariable<int32> CVarUnsteadyFPS(

@@ -4,6 +4,7 @@
 #include "UTReplicatedMapInfo.h"
 #include "Net/UnrealNetwork.h"
 #include "UTBaseGameMode.h"
+#include "SUTStyle.h"
 
 AUTReplicatedMapInfo::AUTReplicatedMapInfo(const class FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -13,6 +14,8 @@ AUTReplicatedMapInfo::AUTReplicatedMapInfo(const class FObjectInitializer& Objec
 	bAlwaysRelevant = true;
 	bReplicateMovement = false;
 	bNetLoadOnClient = false;
+
+	bHasRights = false;
 
 #if !UE_SERVER
 	MapBrush = nullptr;
@@ -133,6 +136,82 @@ void AUTReplicatedMapInfo::OnRep_MapPackageName()
 	AUTBaseGameMode* BaseGameModeDO = AUTBaseGameMode::StaticClass()->GetDefaultObject<AUTBaseGameMode>();
 	if (BaseGameModeDO)
 	{
-		BaseGameModeDO->CheckMapStatus(MapPackageName, bIsEpicMap, bIsMeshedMap);
+		BaseGameModeDO->CheckMapStatus(MapPackageName, bIsEpicMap, bIsMeshedMap, bHasRights);
 	}
 }
+
+TSharedRef<SWidget> AUTReplicatedMapInfo::BuildMapOverlay(FVector2D Size, bool bIgnoreLock)
+{
+	TSharedPtr<SOverlay> Overlay;
+	SAssignNew(Overlay,SOverlay);
+
+	float Scale = Size.Y / 512.0f;
+	FVector2D IconTransform(512.0f - 128.0f, 256.0f - 128.0f);
+	IconTransform *= Scale;
+
+	if (bIsEpicMap)
+	{
+		if (!bIsMeshedMap)
+		{
+			Overlay->AddSlot()
+			[
+				SNew(SVerticalBox)
+				+SVerticalBox::Slot().AutoHeight()
+				[
+					SNew(SHorizontalBox)
+					+SHorizontalBox::Slot().AutoWidth()
+					[
+						SNew(SBox).WidthOverride(Size.X).HeightOverride(Size.Y)
+						[
+							SNew(SImage)
+							.Image(SUTStyle::Get().GetBrush("UT.MapOverlay.Epic.WIP"))
+						]
+					]	
+				]
+			];
+		}
+	}
+	else
+	{
+		Overlay->AddSlot()
+		[
+			SNew(SVerticalBox)
+			+SVerticalBox::Slot().AutoHeight()
+			[
+				SNew(SHorizontalBox)
+				+SHorizontalBox::Slot().AutoWidth()
+				[
+					SNew(SBox).WidthOverride(Size.X).HeightOverride(Size.Y)
+					[
+						SNew(SImage)
+						.Image(SUTStyle::Get().GetBrush(bIsMeshedMap ? "UT.MapOverlay.Community" : "UT.MapOverlay.Community.WIP"))
+					]
+				]	
+			]
+		];
+	
+	}
+
+	if (!bIgnoreLock && !bHasRights)
+	{
+		Overlay->AddSlot()
+		[
+			SNew(SVerticalBox)
+			+SVerticalBox::Slot().AutoHeight()
+			[
+				SNew(SHorizontalBox)
+				+SHorizontalBox::Slot().AutoWidth()
+				[
+					SNew(SBox).WidthOverride(256.0f * Scale).HeightOverride(256.0f * Scale).RenderTransform(IconTransform)
+					[
+						SNew(SImage)
+						.Image(SUTStyle::Get().GetBrush("UT.Icon.LockedContent"))
+					]
+				]	
+			]
+		];
+	}
+
+	return Overlay.ToSharedRef();
+}
+

@@ -319,7 +319,7 @@ void SUTMainMenu::OpenDelayedMenu()
 
 		// Grab all of the available map assets.
 		TArray<FAssetData> MapAssets;
-		GetAllAssetData(UWorld::StaticClass(), MapAssets);
+		GetAllAssetData(UWorld::StaticClass(), MapAssets, false);
 
 		UE_LOG(UT,Verbose,TEXT("Loading Settings for %i Rules"), AllowedGameRulesets.Num())
 		for (int32 i=0; i < AllowedGameRulesets.Num(); i++)

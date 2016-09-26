@@ -655,10 +655,11 @@ void AUTBaseGameMode::MakeJsonReport(TSharedPtr<FJsonObject> JsonObject)
 	}
 }
 
-void AUTBaseGameMode::CheckMapStatus(FString MapPackageName, bool& bIsEpicMap, bool& bIsMeshedMap)
+void AUTBaseGameMode::CheckMapStatus(FString MapPackageName, bool& bIsEpicMap, bool& bIsMeshedMap, bool& bHasRights)
 {
 	bIsEpicMap = false;
 	bIsMeshedMap = false;
+	bHasRights = false;
 	
 	for (int32 i=0; i < EpicMapList.Num(); i++)
 	{
@@ -667,6 +668,25 @@ void AUTBaseGameMode::CheckMapStatus(FString MapPackageName, bool& bIsEpicMap, b
 			bIsEpicMap = EpicMapList[i].bIsEpicMap;
 			bIsMeshedMap = EpicMapList[i].bIsMeshedMap;
 			break;
+		}
+	}
+
+	int32 Pos = INDEX_NONE;
+	MapPackageName.FindLastChar('/', Pos);
+	FString AssetName = (Pos == INDEX_NONE) ? MapPackageName : MapPackageName.Right(MapPackageName.Len() - Pos -1);
+	FString EntitlementId = GetRequiredEntitlementFromPackageName(FName(*AssetName)); //GetRequiredEntitlementFromAsset(MapAsset);
+	if ( !EntitlementId.IsEmpty() )
+	{
+		// This is a store map.  Look to see if the user has entitlements
+		bHasRights = LocallyHasEntitlement(EntitlementId);
+		if (!bIsEpicMap) bIsMeshedMap = true;
+	}
+	else
+	{
+		bHasRights = true;
+		if (bIsEpicMap) 
+		{
+			bIsMeshedMap = false;
 		}
 	}
 }

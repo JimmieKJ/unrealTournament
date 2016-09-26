@@ -1535,7 +1535,7 @@ void AUTGameState::GetAvailableGameData(TArray<UClass*>& GameModes, TArray<UClas
 void AUTGameState::ScanForMaps(const TArray<FString>& AllowedMapPrefixes, TArray<FAssetData>& MapList)
 {
 	TArray<FAssetData> MapAssets;
-	GetAllAssetData(UWorld::StaticClass(), MapAssets);
+	GetAllAssetData(UWorld::StaticClass(), MapAssets, false);
 	for (const FAssetData& Asset : MapAssets)
 	{
 		FString MapPackageName = Asset.PackageName.ToString();
@@ -1612,7 +1612,7 @@ AUTReplicatedMapInfo* AUTGameState::CreateMapInfo(const FAssetData& MapAsset)
 			AUTBaseGameMode* BaseGameMode = Cast<AUTBaseGameMode>(GetWorld()->GetAuthGameMode());
 			if (BaseGameMode)
 			{
-				BaseGameMode->CheckMapStatus(MapInfo->MapPackageName, MapInfo->bIsEpicMap, MapInfo->bIsMeshedMap);
+				BaseGameMode->CheckMapStatus(MapInfo->MapPackageName, MapInfo->bIsEpicMap, MapInfo->bIsMeshedMap, MapInfo->bHasRights);
 				BaseGameMode->FindRedirect(MapInfo->MapPackageName, MapInfo->Redirect);
 			}
 		}
@@ -1640,7 +1640,7 @@ void AUTGameState::CreateMapVoteInfo(const FString& MapPackage,const FString& Ma
 			AUTBaseGameMode* BaseGameMode = Cast<AUTBaseGameMode>(GetWorld()->GetAuthGameMode());
 			if (BaseGameMode)
 			{
-				BaseGameMode->CheckMapStatus(MapVoteInfo->MapPackageName, MapVoteInfo->bIsEpicMap, MapVoteInfo->bIsMeshedMap);
+				BaseGameMode->CheckMapStatus(MapVoteInfo->MapPackageName, MapVoteInfo->bIsEpicMap, MapVoteInfo->bIsMeshedMap, MapVoteInfo->bHasRights);
 			}
 		}
 
