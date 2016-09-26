@@ -435,7 +435,7 @@ AUTProjectile* AUTWeap_RocketLauncher::FireRocketProjectile()
 	//List of the rockets fired. If they are seeking rockets, set the target at the end
 	TArray< AUTProjectile*, TInlineAllocator<3> > SeekerList;
 
-	TSubclassOf<AUTProjectile> RocketProjClass = RocketFireModes[CurrentRocketFireMode].ProjClass;
+	TSubclassOf<AUTProjectile> RocketProjClass = bAllowGrenades ? RocketFireModes[CurrentRocketFireMode].ProjClass : ProjClass[CurrentRocketFireMode];
 
 	const FVector SpawnLocation = GetFireStartLoc();
 	FRotator SpawnRotation = GetAdjustedAim(SpawnLocation);
@@ -478,7 +478,7 @@ AUTProjectile* AUTWeap_RocketLauncher::FireRocketProjectile()
 			FRotator SpreadRot = SpawnRotation;
 			SpreadRot.Yaw += GrenadeSpread*float(MaxLoadedRockets) - GrenadeSpread;
 				
-			AUTProjectile* SpawnedProjectile = SpawnNetPredictedProjectile(RocketFireModes[CurrentRocketFireMode].ProjClass, SpawnLocation, SpreadRot);
+			AUTProjectile* SpawnedProjectile = SpawnNetPredictedProjectile(RocketProjClass, SpawnLocation, SpreadRot);
 				
 			if (SpawnedProjectile != nullptr)
 			{
