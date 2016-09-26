@@ -31,6 +31,10 @@ class UNREALTOURNAMENT_API UUTWeaponStateFiringCharged : public UUTWeaponStateFi
 	{
 		ToggleLoopingEffects(true);
 		GetOuterAUTWeapon()->OnStartedFiring();
+		if (GetUTOwner() == NULL || GetOuterAUTWeapon()->GetCurrentState() != this)
+		{
+			return;
+		}
 		GetOuterAUTWeapon()->DeactivateSpawnProtection();
 		bCharging = true;
 		if (bChargeFlashCount)
