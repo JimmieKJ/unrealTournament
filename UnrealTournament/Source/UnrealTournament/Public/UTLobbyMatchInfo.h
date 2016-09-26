@@ -369,6 +369,9 @@ public:
 	// Used internally, this is the stat's port that this instance will listen to.
 	int32 StatsPort;
 
+	// The time when we last received a beacon communication from this instance
+	float LastInstanceCommunicationTime;
+
 };
 
 

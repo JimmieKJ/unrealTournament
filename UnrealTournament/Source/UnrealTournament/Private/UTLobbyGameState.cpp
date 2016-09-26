@@ -128,11 +128,12 @@ void AUTLobbyGameState::CheckInstanceHealth()
 		{
 			if (MatchInfo->GameInstanceProcessHandle.IsValid())
 			{
-				if ( MatchInfo->CurrentState == ELobbyMatchState::InProgress && !FPlatformProcess::IsProcRunning(MatchInfo->GameInstanceProcessHandle) )
+				if ( (MatchInfo->CurrentState == ELobbyMatchState::InProgress || MatchInfo->CurrentState == ELobbyMatchState::Recycling) && !FPlatformProcess::IsProcRunning(MatchInfo->GameInstanceProcessHandle) )
 				{
 					UE_LOG(UT, Log, TEXT("Recycling game instance that no longer has a process"));
 					MatchInfo->SetLobbyMatchState(ELobbyMatchState::Recycling);
 					ProcessesToGetReturnCode.Add(MatchInfo->GameInstanceProcessHandle);
+					MatchInfo->SetLobbyMatchState(ELobbyMatchState::Recycling);
 					MatchInfo->GameInstanceProcessHandle.Reset();
 				}
 			}

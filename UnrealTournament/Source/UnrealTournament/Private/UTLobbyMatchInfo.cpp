@@ -798,6 +798,7 @@ void AUTLobbyMatchInfo::ServerSetRules_Implementation(const FString&RulesetTag, 
 
 void AUTLobbyMatchInfo::ProcessMatchUpdate(const FMatchUpdate& NewMatchUpdate)
 {
+	LastInstanceCommunicationTime = GetWorld()->GetRealTimeSeconds();
 	MatchUpdate = NewMatchUpdate;
 	OnRep_MatchUpdate();
 }
@@ -1270,6 +1271,11 @@ void AUTLobbyMatchInfo::MakeJsonReport(TSharedPtr<FJsonObject> JsonObject)
 
 	JsonObject->SetNumberField(TEXT("GameInstanceID"), GameInstanceID);
 	JsonObject->SetStringField(TEXT("GameInstanceGUID"), GameInstanceGUID);
+
+#if PLATFORM_LINUX 
+	JsonObject->SetNumberField(TEXT("ProcessId"), GameInstanceProcessHandle.IsValid() ? (int32) GameInstanceProcessHandle->GetProcessInfo()->GetProcessId() : -1;
+#endif
+	JsonObject->SetNumberField(TEXT("TimeSinceLastBeaconUpdate"), GetWorld()->GetRealTimeSeconds() - LastInstanceCommunicationTime);
 
 	if (CurrentRuleset.IsValid())
 	{
