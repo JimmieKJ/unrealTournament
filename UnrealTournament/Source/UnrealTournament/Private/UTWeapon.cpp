@@ -1301,7 +1301,6 @@ bool AUTWeapon::IsFiring() const
 
 void AUTWeapon::AddAmmo(int32 Amount)
 {
-	Amount = FMath::Max(0, Amount);
 	if (Role == ROLE_Authority)
 	{
 		Ammo = FMath::Clamp<int32>(Ammo + Amount, 0, MaxAmmo);
