@@ -675,22 +675,32 @@ void SUTCreateGamePanel::OnGameSelected(UClass* NewSelection, ESelectInfo::Type 
 		MapList->RefreshOptions();
 		if (AllMaps.Num() > 0)
 		{
-			MapList->SetSelectedItem(AllMaps[0]);
+			TWeakObjectPtr<AUTReplicatedMapInfo> DesiredFirstMap;
+			DesiredFirstMap.Reset();
 			// remember last selection
 			for (TWeakObjectPtr<AUTReplicatedMapInfo> TestMap : AllMaps)
 			{
 				if (TestMap->MapPackageName == SelectedGameClass.GetDefaultObject()->UILastStartingMap)
 				{
-					MapList->SetSelectedItem(TestMap);
+					DesiredFirstMap = TestMap;
 					break;
 				}
+				else if (!DesiredFirstMap.IsValid() && TestMap->bHasRights)
+				{
+					DesiredFirstMap = TestMap;
+				}
+			}
+
+			if (DesiredFirstMap.IsValid())
+			{
+				MapList->SetSelectedItem(DesiredFirstMap);
 			}
 		}
 		else
 		{
 			MapList->SetSelectedItem(NULL);
 		}
-		OnMapSelected(MapList->GetSelectedItem(), ESelectInfo::Direct);
+		//OnMapSelected(MapList->GetSelectedItem(), ESelectInfo::Direct);
 	}
 }
 void SUTCreateGamePanel::Cancel()
