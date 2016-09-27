@@ -117,12 +117,6 @@
 		</Node>
 	</Agent>
 
-	<Agent Name="Cook Windows-Server" Type="Win64">
-		<Node Name="Cook WindowsServer" Requires="Compile UnrealTournamentEditor Win64;Compile Tools Windows">
-			<Cook Project="$(ProjectFile)" Platform="WindowsServer"/>
-		</Node>
-	</Agent>
-
 	<Agent Name="Cook Windows" Type="Win64">
 		<Node Name="Cook WindowsNoEditor" Requires="Compile UnrealTournamentEditor Win64;Compile Tools Windows">
 			<Cook Project="$(ProjectFile)" Platform="WindowsNoEditor"/>
@@ -130,7 +124,6 @@
 	</Agent>
 
 	<Agent Name="Make Win32 Build" Type="Win64">
-		<!-- this stage command does asset registry files for the windows server, so we need to include that -->
 		<Node Name="Stage WindowsNoEditor Win32" Requires="Compile UT Client Win32;Cook WindowsNoEditor">
 			<Command Name="UnrealTournamentProto_BasicBuild" Arguments="-SkipBuild -SkipCook -SkipPerforce -Chunk -clientconfig=Shipping -serverconfig=None -TargetPlatform=Win32 -StagingDir=&quot;$(LocalStagingDir)&quot;"/>
 			<Tag Files="$(LocalStagingDir)/Engine/Binaries/Win32/..." Filter="*.exe" With="#ToSign"/>
@@ -153,7 +146,6 @@
 	</Agent>
 
 	<Agent Name="Make Win64 Build" Type="Win64">
-		<!-- this stage command does asset registry files for the windows server, so we need to include that -->
 		<Node Name="Stage WindowsNoEditor Win64" Requires="Compile UT Client Win64;Cook WindowsNoEditor">
 			<Command Name="UnrealTournamentProto_BasicBuild" Arguments="-SkipBuild -SkipCook -SkipPerforce -Chunk -clientconfig=Shipping -serverconfig=None -TargetPlatform=Win64 -StagingDir=&quot;$(LocalStagingDir)&quot;"/>
 			<Tag Files="$(LocalStagingDir)/Engine/Binaries/Win64/..." Filter="*.exe" With="#ToSign"/>
@@ -176,6 +168,9 @@
 	</Agent>
 
 	<Agent Name="Make Windows Server Build" Type="Win64">
+		<Node Name="Cook WindowsServer" Requires="Compile UnrealTournamentEditor Win64;Compile Tools Windows">
+			<Cook Project="$(ProjectFile)" Platform="WindowsServer"/>
+		</Node>
 		<!-- this stage command does asset registry files for the windows server, so we need to include that -->
 		<Node Name="Stage Windows Server Win64" Requires="Compile UT Server Win64;Cook WindowsServer">
 			<Command Name="UnrealTournamentProto_BasicBuild" Arguments="-SkipBuild -SkipCook -SkipPerforce -Chunk -clientconfig=None -serverconfig=Shipping -TargetPlatform=Win64 -StagingDir=&quot;$(LocalStagingDir)&quot;"/>
@@ -223,7 +218,6 @@
 			<!-- We need the onlinesubsystemmcp and social dlls out of notforlicensees-->
 			<Tag Files="$(RootDir)/UnrealTournament/Plugins/Online/NotForLicensees/OnlineSubsystemMcp/..." Filter="*.dll;*.uplugin" With="#FinalTrim"/>
 			<Tag Files="$(RootDir)/UnrealTournament/Plugins/NotForLicensees/Social/..." Filter="*.dll;*.uplugin" With="#FinalTrim"/>
-			<!--<Tag Files="$(RootDir)/Engine/Plugins/Online/NotForLicensees/OnlineSubsystemMcp/..." Except=".../Intermediate/...;.../Win32/...;.../UE4-*-Win64-Shipping*" With="#FinalTrim"/>-->
 			
 			<Copy Files="#FinalTrim" FromDir="" ToDir="$(LocalStagingDir)/UT-Build/Win64"/>
 		</Node>
@@ -302,13 +296,10 @@
 		</Node>
 	</Agent>
 
-	<Agent Name="Cook MacClient" Type="Mac">
+	<Agent Name="Make Mac Build" Type="Mac">
 		<Node Name="Cook Mac" Requires="Compile UnrealTournamentEditor Mac;Compile Tools Mac">
 			<Cook Project="$(ProjectFile)" Platform="MacNoEditor"/>
 		</Node>
-	</Agent>
-	
-	<Agent Name="Make Mac Build" Type="Mac">
 		<Node Name="Stage Mac" Requires="Compile UT Mac;Cook Mac">
 			<Command Name="UnrealTournamentProto_BasicBuild" Arguments="-SkipBuild -SkipCook -SkipPerforce -Chunk -serverconfig=None -clientconfig=Shipping -TargetPlatform=Mac -StagingDir=&quot;$(LocalStagingDir)&quot;"/>
 			<Tag Files="$(LocalStagingDir)/Engine/Binaries/Mac/..." Filter="*.app;*.dylib" With="#ToSign"/>
@@ -419,24 +410,11 @@
 			<Compile Target="UnrealTournamentServer" Platform="Linux" Configuration="Shipping"/>
 		</Node>
 	</Agent>
-
-	<Agent Name="Cook Linux-Server" Type="Win64">
-		<Node Name="Cook LinuxServer" Requires="Compile UnrealTournamentEditor Win64;Compile Tools Windows;Compile Tools Linux">
-			<Cook Project="$(ProjectFile)" Platform="LinuxServer"/>
-		</Node>
-	</Agent>
-
-	<Agent Name="Cook Linux" Type="Win64">
+	
+	<Agent Name="Make Linux Client Build" Type="Win64">
 		<Node Name="Cook LinuxNoEditor" Requires="Compile UnrealTournamentEditor Win64;Compile Tools Windows;Compile Tools Linux">
 			<Cook Project="$(ProjectFile)" Platform="LinuxNoEditor"/>
 		</Node>
-	</Agent>
-
-	<Property Name="PreStageLinuxSteps" Value=""/>
-	<Property Name="PreStageLinuxSteps" Value="$(PreStageLinuxSteps)Compile UT Linux;Cook LinuxNoEditor;" If="$(WithLinuxClient)"/>
-	<Property Name="PreStageLinuxSteps" Value="$(PreStageLinuxSteps)Compile UT Linux Server;Cook LinuxServer;" If="$(WithLinuxServer)"/>
-
-	<Agent Name="Make Linux Client Build" Type="Win64">
 		<Node Name="Stage LinuxNoEditor" Requires="Compile UT Linux;Cook LinuxNoEditor">
 			<Command Name="UnrealTournamentProto_BasicBuild" Arguments="-SkipBuild -SkipCook -SkipPerforce -Chunk -clientconfig=Shipping -serverconfig=None -TargetPlatform=Linux -StagingDir=&quot;$(LocalStagingDir)&quot;"/>
 		</Node>
@@ -446,6 +424,9 @@
 	</Agent>
 
 	<Agent Name="Make Linux Server Build" Type="Win64">
+		<Node Name="Cook LinuxServer" Requires="Compile UnrealTournamentEditor Win64;Compile Tools Windows;Compile Tools Linux">
+			<Cook Project="$(ProjectFile)" Platform="LinuxServer"/>
+		</Node>
 		<Node Name="Stage LinuxServer" Requires="Compile UT Linux Server;Cook LinuxServer">
 			<Property Name="ClientConfig" Value="Shipping"/>
 			<Property Name="ClientConfig" Value="None" If="!$(WithLinuxClient)"/>
