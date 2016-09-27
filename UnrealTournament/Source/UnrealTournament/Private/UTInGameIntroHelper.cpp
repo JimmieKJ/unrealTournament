@@ -405,7 +405,7 @@ void UUTInGameIntroHelper::SpawnClone(UWorld* World, AUTPlayerState* PS, const F
 			{
 				FActorSpawnParameters WeaponSpawnParams;
 				WeaponSpawnParams.Instigator = PlayerPreviewMesh;
-				WeaponSpawnParams.bNoCollisionFail = true;
+				WeaponSpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
 				WeaponSpawnParams.bNoFail = true;
 			
 				PreviewWeapon = World->SpawnActor<AUTWeaponAttachment>(PreviewAttachmentType, FVector(0, 0, 0), FRotator(0, 0, 0), WeaponSpawnParams);
