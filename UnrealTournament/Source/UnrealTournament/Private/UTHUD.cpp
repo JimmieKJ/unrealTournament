@@ -30,6 +30,8 @@
 #include "OnlineSubsystemUtils.h"
 #include "UTUMGHudWidget.h"
 #include "UTGameMessage.h"
+#include "UTInGameIntroZone.h"
+#include "UTInGameIntroHelper.h"
 
 static FName NAME_Intensity(TEXT("Intensity"));
 
@@ -495,6 +497,34 @@ void AUTHUD::NotifyMatchStateChange()
 				}
 			}
 
+			/* 
+			Removed for now. Pending changes to End Game flow
+			
+			const int RedTeam = 0;
+			const int BlueTeam = 1;
+			if (GS->WinningTeam && (GS->WinningTeam->GetTeamNum() == RedTeam))
+			{
+				if (GS->ShouldUseInGameSummary(InGameIntroZoneTypes::Team_PostMatch_RedWin))
+				{
+					GS->InGameIntroHelper->HandleEndMatchSummary(GetWorld(), InGameIntroZoneTypes::Team_PostMatch_RedWin);
+				}
+				else if (GS->ShouldUseInGameSummary(InGameIntroZoneTypes::Team_PostMatch))
+				{
+					GS->InGameIntroHelper->HandleEndMatchSummary(GetWorld(), InGameIntroZoneTypes::Team_PostMatch);
+				}
+			}
+			else if (GS->WinningTeam && (GS->WinningTeam->GetTeamNum() == BlueTeam))
+			{
+				if (GS->ShouldUseInGameSummary(InGameIntroZoneTypes::Team_PostMatch_BlueWin))
+				{
+					GS->InGameIntroHelper->HandleEndMatchSummary(GetWorld(), InGameIntroZoneTypes::Team_PostMatch_BlueWin);
+				}
+				else if (GS->ShouldUseInGameSummary(InGameIntroZoneTypes::Team_PostMatch))
+				{
+					GS->InGameIntroHelper->HandleEndMatchSummary(GetWorld(), InGameIntroZoneTypes::Team_PostMatch);
+				}
+			}*/
+			
 			AUTGameMode* DefaultGame = Cast<AUTGameMode>(GS->GetDefaultGameMode());
 			float MatchSummaryDelay = DefaultGame ? DefaultGame->EndScoreboardDelay + DefaultGame->MainScoreboardDisplayTime + DefaultGame->ScoringPlaysDisplayTime : 10.f;
 			GetWorldTimerManager().SetTimer(MatchSummaryHandle, this, &AUTHUD::OpenMatchSummary, MatchSummaryDelay*GetActorTimeDilation(), false);
@@ -505,12 +535,29 @@ void AUTHUD::NotifyMatchStateChange()
 		}
 		else if (GS->GetMatchState() == MatchState::PlayerIntro)
 		{
-			if (UTPlayerOwner->UTPlayerState && UTPlayerOwner->UTPlayerState->bIsWarmingUp)
+			if (GS->InGameIntroHelper)
 			{
-				UTPlayerOwner->ClientReceiveLocalizedMessage(UUTGameMessage::StaticClass(), 16, nullptr, nullptr, nullptr);
+				UUTInGameIntroHelper* HelperCapture = GS->InGameIntroHelper;
+				InGameIntroZoneTypes TypeToPlay = HelperCapture->GetIntroTypeToPlay(GetWorld());
+				if (TypeToPlay != InGameIntroZoneTypes::Invalid)
+				{
+					UWorld* World = GetWorld();
+					FTimerDelegate TimerCallback;
+					TimerCallback.BindLambda([HelperCapture, World, TypeToPlay] {HelperCapture->HandleIntro(World, TypeToPlay); });
+
+					GetWorldTimerManager().SetTimer(MatchSummaryHandle, TimerCallback, 1.7f, false);
+				}
+			}	
+			else
+			{
+				if (UTPlayerOwner->UTPlayerState && UTPlayerOwner->UTPlayerState->bIsWarmingUp)
+				{
+					UTPlayerOwner->ClientReceiveLocalizedMessage(UUTGameMessage::StaticClass(), 16, nullptr, nullptr, nullptr);
+				}
+				GetWorldTimerManager().SetTimer(MatchSummaryHandle, this, &AUTHUD::OpenMatchSummary, 1.7f, false);
 			}
-			GetWorldTimerManager().SetTimer(MatchSummaryHandle, this, &AUTHUD::OpenMatchSummary, 1.7f, false);
 		}
+
 		else if (GS->GetMatchState() != MatchState::MapVoteHappening)
 		{
 			ToggleScoreboard(false);
@@ -521,6 +568,10 @@ void AUTHUD::NotifyMatchStateChange()
 				UTLP->ShowQuickChat(UTPlayerOwner->UTPlayerState->ChatDestination);
 			}
 
+			if (GS->InGameIntroHelper)
+			{
+				GS->InGameIntroHelper->CleanUp();
+			}
 		}
 	}
 }

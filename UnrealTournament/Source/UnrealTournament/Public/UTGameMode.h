@@ -471,7 +471,7 @@ public:
 	virtual bool IsEnemy(class AController* First, class AController* Second);
 	virtual void Killed(class AController* Killer, class AController* KilledPlayer, class APawn* KilledPawn, TSubclassOf<UDamageType> DamageType);
 	virtual void NotifyKilled(AController* Killer, AController* Killed, APawn* KilledPawn, TSubclassOf<UDamageType> DamageType);
-	
+
 	UFUNCTION(BlueprintNativeEvent, BlueprintAuthorityOnly)
 	void ScorePickup(AUTPickup* Pickup, AUTPlayerState* PickedUpBy, AUTPlayerState* LastPickedUpBy);
 

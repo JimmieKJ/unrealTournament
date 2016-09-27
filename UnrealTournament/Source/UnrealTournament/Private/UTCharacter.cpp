@@ -39,6 +39,7 @@
 #include "UTDemoRecSpectator.h"
 #include "UTGameVolume.h"
 #include "UTGameMode.h"
+#include "UTInGameIntroHelper.h"
 
 #include "PhysicsEngine/ConstraintInstance.h"
 
@@ -5251,6 +5252,13 @@ void AUTCharacter::PostRenderFor(APlayerController* PC, UCanvas* Canvas, FVector
 	const bool bOnSameTeam = GS != NULL && GS->OnSameTeam(PC, this);
 	const bool bRecentlyRendered = (GetWorld()->TimeSeconds - GetLastRenderTime() < 0.5f);
 	const bool bIsViewTarget = (PC->GetViewTarget() == this);
+
+	if (GS && GS->InGameIntroHelper && GS->InGameIntroHelper->bIsActive)
+	{
+ 		PostRenderForInGameIntro(PC, Canvas, CameraPosition, CameraDir);
+		return;
+	}
+
 	if (UTPS != NULL && UTPC != NULL && (bSpectating || (UTPC && UTPC->UTPlayerState && UTPC->UTPlayerState->bOutOfLives) || !bIsViewTarget) && (bRecentlyRendered || (bOnSameTeam && !bIsViewTarget)) &&
 		FVector::DotProduct(CameraDir, (GetActorLocation() - CameraPosition)) > 0.0f && GS != NULL && (UTPC->MyUTHUD == nullptr || !UTPC->MyUTHUD->bShowScores))
 	{
@@ -5355,6 +5363,45 @@ void AUTCharacter::PostRenderFor(APlayerController* PC, UCanvas* Canvas, FVector
 				}
 			}
 		}
+	}
+}
+
+void AUTCharacter::PostRenderForInGameIntro(APlayerController* PC, UCanvas *Canvas, FVector CameraPosition, FVector CameraDir)
+{
+	AUTPlayerState* UTPS = Cast<AUTPlayerState>(PlayerState);
+	if (UTPS)
+	{
+		float TextXL, TextYL, MinTextXL;
+		UFont* TinyFont = AUTHUD::StaticClass()->GetDefaultObject<AUTHUD>()->TinyFont;
+		FLinearColor TeamColor = UTPS->Team ? UTPS->Team->TeamColor : FLinearColor::White;
+		float Border = 2.f;
+		float BarWidth, BarHeight;
+
+		Canvas->TextSize(TinyFont, PlayerState->PlayerName, TextXL, TextYL, 1.0f, 1.0f);
+		Canvas->TextSize(TinyFont, PlayerState->PlayerName, MinTextXL, TextYL, 1.0f, 1.0f);
+
+		BarWidth = Border + (TextXL > MinTextXL) ? TextXL : MinTextXL;
+		BarHeight = Border + (.5*TextYL);
+		
+		FVector WorldPosition = GetMesh()->GetComponentLocation();
+		FVector ScreenPosition = Canvas->Project(WorldPosition + FVector(0.f, 0.f, GetCapsuleComponent()->GetUnscaledCapsuleHalfHeight() * 2.25f));
+		float XPos = ScreenPosition.X - 0.5f*BarWidth;
+		float YPos = ScreenPosition.Y - BarHeight;
+
+		Canvas->SetLinearDrawColor(TeamColor);
+
+		Canvas->DrawTile(Canvas->DefaultTexture, XPos - Border, YPos - .25*(TextYL), BarWidth + 2.f*Border, BarHeight + 2.f*Border, 0, 0, 1, 1);
+
+		FLinearColor BeaconTextColor = FLinearColor::White;
+		BeaconTextColor.A = 0.6f;
+		FUTCanvasTextItem TextItem(FVector2D(FMath::TruncToFloat(Canvas->OrgX + XPos), FMath::TruncToFloat(Canvas->OrgY + YPos - (.75*BarHeight))), FText::FromString(PlayerState->PlayerName), TinyFont, BeaconTextColor, NULL);
+		TextItem.Scale = FVector2D(1.0f, 1.0f);
+		TextItem.BlendMode = SE_BLEND_Translucent;
+		FLinearColor ShadowColor = FLinearColor::Black;
+		ShadowColor.A = BeaconTextColor.A;
+		TextItem.EnableShadow(ShadowColor);
+		TextItem.FontRenderInfo = Canvas->CreateFontRenderInfo(true, false);
+		Canvas->DrawItem(TextItem);
 	}
 }
 

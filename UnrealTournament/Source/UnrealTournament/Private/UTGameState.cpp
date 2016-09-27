@@ -25,6 +25,8 @@
 #include "UTKillcamPlayback.h"
 #include "UTAnalytics.h"
 #include "ContentStreaming.h"
+#include "UTInGameIntroZone.h"
+#include "UTInGameIntroHelper.h"
 #include "Runtime/Analytics/Analytics/Public/AnalyticsEventAttribute.h"
 
 AUTGameState::AUTGameState(const class FObjectInitializer& ObjectInitializer)
@@ -1182,6 +1184,11 @@ void AUTGameState::OnRep_MatchState()
 {
 	Super::OnRep_MatchState();
 
+	if (!InGameIntroHelper)
+	{
+		InGameIntroHelper = NewObject <UUTInGameIntroHelper>();
+	}
+
 	for (FLocalPlayerIterator It(GEngine, GetWorld()); It; ++It)
 	{
 		if (It->PlayerController != NULL)
@@ -2195,4 +2202,69 @@ void AUTGameState::MakeJsonReport(TSharedPtr<FJsonObject> JsonObject)
 bool AUTGameState::CanShowBoostMenu(AUTPlayerController* Target)
 {
 	return IsMatchIntermission() || !HasMatchStarted();
+}
+
+bool AUTGameState::ShouldUseInGameSummary(InGameIntroZoneTypes SummaryType)
+{
+	if ((GetWorld() == nullptr) || (SummaryType == InGameIntroZoneTypes::Invalid))
+	{
+		return false;
+	}
+
+	for (TActorIterator<AUTInGameIntroZone> It(GetWorld()); It; ++It)
+	{
+		if (It->ZoneType == SummaryType)
+		{
+			int RedTeamPlayerCount = 0;
+			int BlueTeamPlayerCount = 0;
+			int OtherTeamPlayerCount = 0;
+
+			const int RedTeam = 0;
+			const int BlueTeam = 1;
+
+			for (int index = 0; index < PlayerArray.Num(); ++index)
+			{
+				AUTPlayerState* UTPS = Cast<AUTPlayerState>(PlayerArray[index]);
+				if (UTPS)
+				{
+					if (UTPS->GetTeamNum() == RedTeam)
+					{
+						++RedTeamPlayerCount;
+					}
+					else if (UTPS->GetTeamNum() == BlueTeam)
+					{
+						++BlueTeamPlayerCount;
+					}
+					else
+					{
+						++OtherTeamPlayerCount;
+					}
+				}
+			}
+
+			bool bIsRedTeamSizeLimitMet = (RedTeamPlayerCount == 0) ? true : false;
+			bool bIsBlueTeamSizeLimitMet = (BlueTeamPlayerCount == 0) ? true : false;
+			bool bIsOtherTeamPlayerCountMet = (OtherTeamPlayerCount == 0) ? true : false;
+
+			for (AUTInGameIntroZoneTeamSpawnPointList* Spawn : It->TeamSpawns)
+			{
+				if (Spawn->TeamNum == RedTeam)
+				{
+					bIsRedTeamSizeLimitMet = bIsRedTeamSizeLimitMet || (Spawn->PlayerSpawnLocations.Num() >= RedTeamPlayerCount);
+				}
+				else if (Spawn->TeamNum == BlueTeam)
+				{
+					bIsBlueTeamSizeLimitMet = bIsBlueTeamSizeLimitMet || (Spawn->PlayerSpawnLocations.Num() >= BlueTeamPlayerCount);
+				}
+				else
+				{
+					bIsOtherTeamPlayerCountMet = bIsOtherTeamPlayerCountMet || (Spawn->PlayerSpawnLocations.Num() >= OtherTeamPlayerCount);
+				}
+			}
+
+			return bIsRedTeamSizeLimitMet && bIsBlueTeamSizeLimitMet && bIsOtherTeamPlayerCountMet;
+		}
+	}
+
+	return false;
 }

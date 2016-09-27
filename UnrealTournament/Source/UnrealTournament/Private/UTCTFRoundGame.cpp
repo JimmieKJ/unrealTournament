@@ -33,6 +33,8 @@
 #include "UTAnalytics.h"
 #include "Runtime/Analytics/Analytics/Public/Analytics.h"
 #include "Runtime/Analytics/Analytics/Public/Interfaces/IAnalyticsProvider.h"
+#include "UTInGameIntroHelper.h"
+#include "UTInGameIntroZone.h"
 
 AUTCTFRoundGame::AUTCTFRoundGame(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -201,12 +203,16 @@ void AUTCTFRoundGame::BeginGame()
 	IntermissionDuration = 10.f;
 	SetMatchState(MatchState::MatchIntermission);
 	IntermissionDuration = RealIntermissionDuration;
-	for (FConstPlayerControllerIterator It = GetWorld()->GetPlayerControllerIterator(); It; ++It)
+	
+	if ((!GetWorld() || !GetWorld()->GetGameState<AUTGameState>() || !GetWorld()->GetGameState<AUTGameState>()->InGameIntroHelper || !GetWorld()->GetGameState<AUTGameState>()->InGameIntroHelper->bIsActive))
 	{
-		AUTPlayerController* PC = Cast<AUTPlayerController>(It->Get());
-		if (PC)
+		for (FConstPlayerControllerIterator It = GetWorld()->GetPlayerControllerIterator(); It; ++It)
 		{
-			PC->ViewStartSpot();
+			AUTPlayerController* PC = Cast<AUTPlayerController>(It->Get());
+			if (PC)
+			{
+				PC->ViewStartSpot();
+			}
 		}
 	}
 }
@@ -222,6 +228,7 @@ void AUTCTFRoundGame::HandleMatchIntermission()
 	if (bFirstRoundInitialized)
 	{
 		// view defender base, with last team to score around it
+
 		int32 TeamToWatch = IntermissionTeamToView(nullptr);
 
 		if ((CTFGameState == NULL) || (TeamToWatch >= CTFGameState->FlagBases.Num()) || (CTFGameState->FlagBases[TeamToWatch] == NULL))
@@ -231,16 +238,29 @@ void AUTCTFRoundGame::HandleMatchIntermission()
 		for (AUTCTFFlagBase* Base : CTFGameState->FlagBases)
 		{
 			Base->ClearDefenseEffect();
-		}
-		AActor* IntermissionFocus = SetIntermissionCameras(TeamToWatch);
-		// Tell the controllers to look at defender base
-		for (FConstControllerIterator Iterator = GetWorld()->GetControllerIterator(); Iterator; ++Iterator)
+		}	
+
+		if (UTGameState->InGameIntroHelper)
 		{
-			AUTPlayerController* PC = Cast<AUTPlayerController>(*Iterator);
-			if (PC != NULL)
+			InGameIntroZoneTypes TypeToPlay = UTGameState->InGameIntroHelper->GetIntroTypeToPlay(GetWorld());
+			if (TypeToPlay != InGameIntroZoneTypes::Invalid)
 			{
-				PC->ClientHalftime();
-				PC->SetViewTarget(IntermissionFocus);
+				UTGameState->InGameIntroHelper->HandleIntermission(GetWorld(), TypeToPlay);
+			}
+		}
+
+		if ((!UTGameState->InGameIntroHelper) || (!UTGameState->InGameIntroHelper->bIsActive))
+		{
+			AActor* IntermissionFocus = SetIntermissionCameras(TeamToWatch);
+			// Tell the controllers to look at defender base
+			for (FConstControllerIterator Iterator = GetWorld()->GetControllerIterator(); Iterator; ++Iterator)
+			{
+				AUTPlayerController* PC = Cast<AUTPlayerController>(*Iterator);
+				if (PC != NULL)
+				{
+					PC->ClientHalftime();
+					PC->SetViewTarget(IntermissionFocus);
+				}
 			}
 		}
 	}
@@ -429,6 +449,16 @@ void AUTCTFRoundGame::EndTeamGame(AUTTeamInfo* Winner, FName Reason)
 	GetWorldTimerManager().SetTimer(TempHandle4, this, &AUTCTFRoundGame::StopRCTFReplayRecording, EndReplayDelay);
 
 	SendEndOfGameStats(Reason);
+
+	//Show end game summary through in game system if possible
+	if ((UTGameState) && (UTGameState->InGameIntroHelper))
+	{
+		InGameIntroZoneTypes PlayType = UTGameState->InGameIntroHelper->GetIntroTypeToPlay(GetWorld());
+		if (PlayType != InGameIntroZoneTypes::Invalid)
+		{
+			UTGameState->InGameIntroHelper->HandleEndMatchSummary(GetWorld(), PlayType);
+		}
+	}
 }
 
 void AUTCTFRoundGame::StopRCTFReplayRecording()

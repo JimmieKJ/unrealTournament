@@ -10,6 +10,9 @@ DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FTeamSideSwapDelegate, uint8, Offset
 
 class AUTGameMode;
 class AUTReplicatedMapInfo;
+class UUTInGameIntroHelper;
+
+enum class InGameIntroZoneTypes : uint8;
 
 struct FLoadoutInfo;
 
@@ -592,7 +595,9 @@ public:
 	bool bRestrictPartyJoin;
 
 	virtual bool CanShowBoostMenu(AUTPlayerController* Target);
- 
+	
+	virtual bool ShouldUseInGameSummary(InGameIntroZoneTypes SummaryType);
+
 	UPROPERTY(Replicated, GlobalConfig, EditAnywhere, BlueprintReadWrite, Category = GameState)
 	bool bOnlyTeamCanVoteKick;
 	
@@ -668,6 +673,8 @@ public:
 	UPROPERTY(Replicated)
 	FGuid ServerInstanceGUID;
 
+	UPROPERTY()
+	UUTInGameIntroHelper* InGameIntroHelper;
 };
 
 

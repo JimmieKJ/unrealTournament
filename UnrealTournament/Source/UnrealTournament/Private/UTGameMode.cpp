@@ -51,6 +51,8 @@
 #include "UTCTFRoundGameState.h"
 #include "UTGameVolume.h"
 #include "UTArmor.h"
+#include "UTInGameIntroZone.h"
+#include "UTInGameIntroHelper.h"
 
 DEFINE_LOG_CATEGORY(LogUTGame);
 
@@ -3129,6 +3131,15 @@ void AUTGameMode::SetMatchState(FName NewState)
 	{
 		BaseMutator->NotifyMatchStateChange(MatchState);
 	}
+
+	if ((NewState == MatchState::WaitingPostMatch) && (UTGameState) && (UTGameState->InGameIntroHelper))
+	{
+		InGameIntroZoneTypes PlayType = UTGameState->InGameIntroHelper->GetIntroTypeToPlay(GetWorld());
+		if (PlayType != InGameIntroZoneTypes::Invalid)
+		{
+			UTGameState->InGameIntroHelper->HandleEndMatchSummary(GetWorld(), PlayType);
+		}
+	}
 }
 
 void AUTGameMode::CallMatchStateChangeNotify()
@@ -3210,14 +3221,18 @@ void AUTGameMode::HandlePlayerIntro()
 
 void AUTGameMode::EndPlayerIntro()
 {
-	for (FConstPlayerControllerIterator It = GetWorld()->GetPlayerControllerIterator(); It; ++It)
+	if (!UTGameState || !UTGameState->InGameIntroHelper || !UTGameState->InGameIntroHelper->bIsActive)
 	{
-		AUTPlayerController* PC = Cast<AUTPlayerController>(It->Get());
-		if (PC)
+		for (FConstPlayerControllerIterator It = GetWorld()->GetPlayerControllerIterator(); It; ++It)
 		{
-			PC->ViewStartSpot();
+			AUTPlayerController* PC = Cast<AUTPlayerController>(It->Get());
+			if (PC)
+			{
+				PC->ViewStartSpot();
+			}
 		}
 	}
+
 	SetMatchState(MatchState::CountdownToBegin);
 }
 

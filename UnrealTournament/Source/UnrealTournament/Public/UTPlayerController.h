@@ -4,6 +4,7 @@
 #include "UTBasePlayerController.h"
 #include "UTPickupWeapon.h"
 #include "UTGameplayStatics.h"
+#include "UTInGameIntroZone.h"
 
 #if WITH_PROFILE
 #include "UTMcpProfile.h"
@@ -285,6 +286,9 @@ public:
 
 	UFUNCTION(exec)
 	virtual void ToggleScoreboard(bool bShow);
+
+	UFUNCTION(client,reliable)
+	virtual void ClientSetIntroCamera(UWorld* World, InGameIntroZoneTypes IntroType);
 
 	virtual void BeginRallyTo(AUTCharacter* RallyTarget, const FVector& NewRallyLocation, float Delay);
 

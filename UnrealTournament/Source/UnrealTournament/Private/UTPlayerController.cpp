@@ -51,6 +51,7 @@
 #include "UTKillerTarget.h"
 #include "UTGauntletFlag.h"
 #include "UTTutorialAnnouncement.h"
+#include "UTInGameIntroHelper.h"
 
 static TAutoConsoleVariable<float> CVarUTKillcamStartDelay(
 	TEXT("UT.KillcamStartDelay"),
@@ -5198,3 +5199,18 @@ void AUTPlayerController::PlayTutorialAnnouncement(int32 Index, UObject* Optiona
 	}
 }
 
+void AUTPlayerController::ClientSetIntroCamera_Implementation(UWorld* World, InGameIntroZoneTypes IntroType)
+{
+	AUTInGameIntroZoneTeamSpawnPointList* SpawnPointList = UUTInGameIntroHelper::GetAppropriateSpawnList(World, GetTeamNum(), IntroType);
+	if (SpawnPointList)
+	{
+		FViewTargetTransitionParams TransitionParams;
+		TransitionParams.BlendFunction = EViewTargetBlendFunction::VTBlend_Linear;
+
+		if (World->GetGameState<AUTGameState>() && World->GetGameState<AUTGameState>()->GetMatchState() == MatchState::WaitingPostMatch)
+		{
+			FinalViewTarget = SpawnPointList->TeamCamera;
+		}
+		SetViewTarget(SpawnPointList->TeamCamera, TransitionParams);
+	}
+}

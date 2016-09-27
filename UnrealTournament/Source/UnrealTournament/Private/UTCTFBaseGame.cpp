@@ -18,6 +18,8 @@
 #include "Engine/DemoNetDriver.h"
 #include "UTCTFScoreboard.h"
 #include "UTAssistMessage.h"
+#include "UTInGameIntroHelper.h"
+#include "UTInGameIntroZone.h"
 
 AUTCTFBaseGame::AUTCTFBaseGame(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -332,21 +334,35 @@ void AUTCTFBaseGame::HandleMatchIntermission()
 	//UTGameState->UpdateMatchHighlights();
 	CTFGameState->ResetFlags();
 
-	// Init targets
-	for (int32 i = 0; i<Teams.Num(); i++)
+	bool bWasInGameSucessful = false;
+	if (CTFGameState->InGameIntroHelper)
 	{
-		PlacePlayersAroundFlagBase(i, i);
+		InGameIntroZoneTypes ZoneType = CTFGameState->InGameIntroHelper->GetIntroTypeToPlay(GetWorld());
+		if (ZoneType != InGameIntroZoneTypes::Invalid)
+		{
+			CTFGameState->InGameIntroHelper->HandleIntermission(GetWorld(), ZoneType);
+			bWasInGameSucessful = true;
+		}
 	}
 
-	// Tell the controllers to look at own team flag
-	for (FConstControllerIterator Iterator = GetWorld()->GetControllerIterator(); Iterator; ++Iterator)
+	if (!bWasInGameSucessful)
 	{
-		AUTPlayerController* PC = Cast<AUTPlayerController>(*Iterator);
-		if (PC != NULL)
+		// Init targets
+		for (int32 i = 0; i < Teams.Num(); i++)
 		{
-			PC->ClientHalftime();
-			int32 TeamToWatch = IntermissionTeamToView(PC);
-			PC->SetViewTarget(CTFGameState->FlagBases[TeamToWatch]);
+			PlacePlayersAroundFlagBase(i, i);
+		}
+
+		// Tell the controllers to look at own team flag
+		for (FConstControllerIterator Iterator = GetWorld()->GetControllerIterator(); Iterator; ++Iterator)
+		{
+			AUTPlayerController* PC = Cast<AUTPlayerController>(*Iterator);
+			if (PC != NULL)
+			{
+				PC->ClientHalftime();
+				int32 TeamToWatch = IntermissionTeamToView(PC);
+				PC->SetViewTarget(CTFGameState->FlagBases[TeamToWatch]);
+			}
 		}
 	}
 
@@ -358,6 +374,7 @@ void AUTCTFBaseGame::HandleMatchIntermission()
 			(*It)->TurnOff();
 		}
 	}
+	
 
 	CTFGameState->bIsAtIntermission = true;
 	CTFGameState->OnIntermissionChanged();
