@@ -45,6 +45,7 @@ AUTProj_Redeemer::AUTProj_Redeemer(const class FObjectInitializer& ObjectInitial
 	InitialLifeSpan = 20.0f;
 	bAlwaysShootable = true;
 	ProjHealth = 50;
+	KillCount = 0;
 
 	PrimaryActorTick.bCanEverTick = true;
 	PrimaryActorTick.bStartWithTickEnabled = true;
@@ -274,9 +275,38 @@ void AUTProj_Redeemer::ExplodeStage(float RangeMultiplier)
 
 		StatsHitCredit = 0.f;
 		//DrawDebugSphere(GetWorld(), ExplodeHitLocation, RangeMultiplier*AdjustedDamageParams.OuterRadius, 12, FColor::Green, true, -1.f);
+		AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
+		if ((Role == ROLE_Authority) && InstigatorController)
+		{
+			int32 LiveEnemyCount = 0;
+			for (FConstControllerIterator Iterator = GetWorld()->GetControllerIterator(); Iterator; ++Iterator)
+			{
+				AController* C = *Iterator;
+				AUTPlayerState* TeamPS = C ? Cast<AUTPlayerState>(C->PlayerState) : nullptr;
+				if (TeamPS && C->GetPawn() && !GS->OnSameTeam(InstigatorController, C))
+				{
+					LiveEnemyCount++;
+				}
+			}
+			KillCount += LiveEnemyCount;
+		}
 
 		UUTGameplayStatics::UTHurtRadius(this, AdjustedDamageParams.BaseDamage, AdjustedDamageParams.MinimumDamage, AdjustedMomentum, ExplodeHitLocation, RangeMultiplier * AdjustedDamageParams.InnerRadius, RangeMultiplier * AdjustedDamageParams.OuterRadius, AdjustedDamageParams.DamageFalloff,
 			MyDamageType, IgnoreActors, this, InstigatorController, FFInstigatorController, FFDamageType, CollisionFreeRadius);
+		if ((Role == ROLE_Authority) && InstigatorController)
+		{
+			int32 LiveEnemyCount = 0;
+			for (FConstControllerIterator Iterator = GetWorld()->GetControllerIterator(); Iterator; ++Iterator)
+			{
+				AController* C = *Iterator;
+				AUTPlayerState* TeamPS = C ? Cast<AUTPlayerState>(C->PlayerState) : nullptr;
+				if (TeamPS && C->GetPawn() && !GS->OnSameTeam(InstigatorController, C))
+				{
+					LiveEnemyCount++;
+				}
+			}
+			KillCount -= LiveEnemyCount;
+		}
 		if ((Role==ROLE_Authority) && (HitsStatsName != NAME_None))
 		{
 			AUTPlayerState* PS = InstigatorController ? Cast<AUTPlayerState>(InstigatorController->PlayerState) : NULL;

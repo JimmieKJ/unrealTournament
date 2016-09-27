@@ -149,6 +149,12 @@ class UNREALTOURNAMENT_API UUTCharacterVoice : public UUTLocalMessage
 		TArray<FCharacterSpeech> BehindYouMessages;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Voice)
+		TArray<FCharacterSpeech> RedeemerKillMessages;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Voice)
+		TArray<FCharacterSpeech> RedeemerSpottedMessages;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Voice)
 		FGameVolumeSpeech BridgeLines;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Voice)

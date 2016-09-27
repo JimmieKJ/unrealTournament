@@ -74,10 +74,12 @@ UUTCharacterVoice::UUTCharacterVoice(const FObjectInitializer& ObjectInitializer
 	StatusOffsets.Add(StatusMessage::NeedRally, KEY_CALLOUTS + 5006);
 	StatusOffsets.Add(StatusMessage::NeedHealth, KEY_CALLOUTS + 5007);
 	StatusOffsets.Add(StatusMessage::BehindYou, KEY_CALLOUTS + 5008);
+	StatusOffsets.Add(StatusMessage::RedeemerSpotted, KEY_CALLOUTS + 5009);
 
 	StatusOffsets.Add(PickupSpeechType::RedeemerPickup, KEY_CALLOUTS + 5100);
 	StatusOffsets.Add(PickupSpeechType::UDamagePickup, KEY_CALLOUTS + 5200);
 	StatusOffsets.Add(PickupSpeechType::ShieldbeltPickup, KEY_CALLOUTS + 5300);
+	StatusOffsets.Add(StatusMessage::RedeemerKills, KEY_CALLOUTS + 5400);	
 
 	TauntText = NSLOCTEXT("UTCharacterVoice", "Taunt", ": {TauntMessage}");
 	StatusTextFormat = NSLOCTEXT("UTCharacterVoice", "StatusFormat", " at {LastKnownLocation}: {TauntMessage}");
@@ -470,6 +472,19 @@ FCharacterSpeech UUTCharacterVoice::GetCharacterSpeech(int32 Switch) const
 			else if (Switch == GetStatusIndex(StatusMessage::BehindYou))
 			{
 				return (BehindYouMessages.Num() == 0) ? EmptySpeech : BehindYouMessages[FMath::RandRange(0, BehindYouMessages.Num() - 1)];
+			}
+			else if (Switch == GetStatusIndex(StatusMessage::BehindYou))
+			{
+				return (BehindYouMessages.Num() == 0) ? EmptySpeech : BehindYouMessages[FMath::RandRange(0, BehindYouMessages.Num() - 1)];
+			}
+			else if (Switch/100 == GetStatusIndex(StatusMessage::RedeemerKills)/100)
+			{
+				int32 Index = Switch - GetStatusIndex(StatusMessage::RedeemerKills);
+				return (RedeemerKillMessages.Num() > Index) ? EmptySpeech : RedeemerKillMessages[Index];
+			}
+			else if (Switch == GetStatusIndex(StatusMessage::RedeemerSpotted))
+			{
+				return (RedeemerSpottedMessages.Num() == 0) ? EmptySpeech : RedeemerSpottedMessages[FMath::RandRange(0, RedeemerSpottedMessages.Num() - 1)];
 			}
 		}
 	}
