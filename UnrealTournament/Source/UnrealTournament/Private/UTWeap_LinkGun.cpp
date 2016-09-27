@@ -105,7 +105,7 @@ void AUTWeap_LinkGun::UpdateScreenTexture(UCanvas* C, int32 Width, int32 Height)
 		RenderInfo.GlowInfo.GlowInnerRadius.X = 0.475f;
 		RenderInfo.GlowInfo.GlowInnerRadius.Y = 0.5f;
 
-		FString OverheatText = FString::FromInt(int32(100.f*OverheatFactor));
+		FString OverheatText = FString::FromInt(int32(100.f*FMath::Clamp(OverheatFactor, 0.1f, 1.f)));
 		float XL, YL;
 		C->TextSize(ScreenFont, OverheatText, XL, YL);
 		if (!WordWrapper.IsValid())
@@ -113,7 +113,7 @@ void AUTWeap_LinkGun::UpdateScreenTexture(UCanvas* C, int32 Width, int32 Height)
 			WordWrapper = MakeShareable(new FCanvasWordWrapper());
 		}
 		FLinearColor ScreenColor = (OverheatFactor <= (IsFiring() ? 0.5f : 0.f)) ? FLinearColor::Green : FLinearColor::Yellow;
-		if (OverheatFactor > 1.f)
+		if (OverheatFactor >= 1.f)
 		{
 			ScreenColor = FLinearColor::Red;
 		}
@@ -759,9 +759,10 @@ void AUTWeap_LinkGun::DrawWeaponCrosshair_Implementation(UUTHUDWidget* WeaponHud
 
 	if (WeaponHudWidget && WeaponHudWidget->UTHUDOwner)
 	{
-		float CircleSize = 76.f;
-		float ScaledCircleSize = CircleSize * GetCrosshairScale(WeaponHudWidget->UTHUDOwner);
-		WeaponHudWidget->DrawTexture(WeaponHudWidget->UTHUDOwner->HUDAtlas, 0, 0, ScaledCircleSize, ScaledCircleSize, 98, 936, CircleSize, CircleSize, 0.2f, FLinearColor::White, FVector2D(0.5f, 0.5f));
+		float Width = 150.f;
+		float Height = 21.f;
+		float Scale = GetCrosshairScale(WeaponHudWidget->UTHUDOwner);
+	//	WeaponHudWidget->DrawTexture(WeaponHudWidget->UTHUDOwner->HUDAtlas, 0.f, 96.f, Scale*Width, Scale*Height, 127, 671, Width, Height, 0.7f, FLinearColor::White, FVector2D(0.5f, 0.5f));
 		if (OverheatFactor > 0.f)
 		{
 			FLinearColor ChargeColor = FLinearColor::Red;
@@ -769,8 +770,13 @@ void AUTWeap_LinkGun::DrawWeaponCrosshair_Implementation(UUTHUDWidget* WeaponHud
 			{
 				ChargeColor = (OverheatFactor > 0.8f) ? FLinearColor::Yellow : FLinearColor::White;
 			}
-			float ChargePct = FMath::Clamp(OverheatFactor, 0.f, 1.5f)/1.5F;
-			WeaponHudWidget->DrawTexture(WeaponHudWidget->UTHUDOwner->HUDAtlas, 0, 0.5f * ScaledCircleSize*(1.f - ChargePct), ScaledCircleSize, ScaledCircleSize*ChargePct, 98, 936 + CircleSize*(1.f - ChargePct), CircleSize, CircleSize*ChargePct, 0.7f, ChargeColor, FVector2D(0.5f, 0.5f));
+			float ChargePct = FMath::Clamp(OverheatFactor, 0.f, 1.f);
+			WeaponHudWidget->DrawTexture(WeaponHudWidget->UTHUDOwner->HUDAtlas, 0.f, 32.f, Scale*Width*ChargePct, Scale*Height, 127, 641, Width, Height, 0.7f, FLinearColor::White, FVector2D(0.5f, 0.5f));
+			if (ChargePct >= 1.f)
+			{
+				WeaponHudWidget->DrawText(NSLOCTEXT("LinkGun", "Overheat", "OVERHEAT"), 0.f, 29.f, WeaponHudWidget->UTHUDOwner->TinyFont, Scale, 1.f, FLinearColor::Yellow, ETextHorzPos::Center, ETextVertPos::Center);
+			}
 		}
+		WeaponHudWidget->DrawTexture(WeaponHudWidget->UTHUDOwner->HUDAtlas, 0.f, 32.f, Scale*Width, Scale*Height, 127, 612, Width, Height, 0.7f, FLinearColor::White, FVector2D(0.5f, 0.5f));
 	}
 }
