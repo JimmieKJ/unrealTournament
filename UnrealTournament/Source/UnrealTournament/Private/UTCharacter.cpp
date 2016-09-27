@@ -1316,7 +1316,7 @@ void AUTCharacter::TargetedBy(AUTCharacter* Targeter, AUTPlayerState* PS)
 			{
 				// announce behind you if attacker is behind this player && teammate can see it
 				FVector ViewDir = GetActorRotation().Vector();
-				FVector EnemyDir = (Targeter->GetActorLocation() - GetActorLocation()).SafeNormal();
+				FVector EnemyDir = (Targeter->GetActorLocation() - GetActorLocation()).GetSafeNormal();
 				if ((ViewDir | EnemyDir) < 0.5f)
 				{
 					// if teammate nearby, have them announce - send replicated function so client can verify last rendered time
