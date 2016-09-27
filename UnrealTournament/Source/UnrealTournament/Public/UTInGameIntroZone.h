@@ -49,6 +49,7 @@ class AUTInGameIntroZoneTeamSpawnPointList : public AActor
 #if WITH_EDITORONLY_DATA
 	UPROPERTY(VisibleAnywhere, meta = (MakeEditWidget = ""))
 	TArray<AUTInGameIntroZoneVisualizationCharacter*> MeshVisualizations;
+#endif
 
 	UFUNCTION()
 	void UpdateSpawnLocationsWithVisualizationMove();
@@ -65,11 +66,12 @@ class AUTInGameIntroZoneTeamSpawnPointList : public AActor
 	UFUNCTION()
 	void DeleteAllMeshVisualizations();
 
+#if WITH_EDITOR
 	virtual void OnConstruction(const FTransform& Transform) override;
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
 	virtual void PostEditMove(bool bFinished) override;
+#endif // WITH_EDITOR
 
-#endif // WITH_EDITORONLY_DATA
 };
 
 UCLASS()
