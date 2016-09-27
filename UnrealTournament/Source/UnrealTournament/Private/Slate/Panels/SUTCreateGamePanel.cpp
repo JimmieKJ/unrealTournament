@@ -529,9 +529,16 @@ void SUTCreateGamePanel::OnStoreDialogResult(TSharedPtr<SCompoundWidget> Widget,
 			UTDIALOG_BUTTON_OK, 
 			FDialogResultDelegate::CreateRaw(this, &SUTCreateGamePanel::OnStoreReturnResult), FVector2D(0.25f, 0.25f));								
 	}
-	else
+	else if (MapList.IsValid() && AllMaps.Num() > 0)
 	{
-		MapList->SetSelectedItem(AllMaps[0]);
+		for (int32 i=0; i < AllMaps.Num(); i++)
+		{
+			if (AllMaps[i].IsValid() && AllMaps[i]->bHasRights)
+			{
+				MapList->SetSelectedItem(AllMaps[i]);
+				break;
+			}
+		}
 	}
 }
 
