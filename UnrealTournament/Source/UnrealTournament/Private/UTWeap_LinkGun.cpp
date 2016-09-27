@@ -294,11 +294,14 @@ void AUTWeap_LinkGun::Tick(float DeltaTime)
 		{
 			OverheatFactor = 0.f;
 			bIsInCoolDown = false;
-			UTOwner->SetAmbientSound(OverheatSound, true);
-			UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
-			if ((AnimInstance != NULL) && (EndOverheatAnimSection != NAME_None))
+			if (UTOwner)
 			{
-				AnimInstance->Montage_JumpToSection(EndOverheatAnimSection, OverheatAnim);
+				UTOwner->SetAmbientSound(OverheatSound, true);
+				UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
+				if ((AnimInstance != NULL) && (EndOverheatAnimSection != NAME_None))
+				{
+					AnimInstance->Montage_JumpToSection(EndOverheatAnimSection, OverheatAnim);
+				}
 			}
 		}
 		else if (UTOwner && OverheatSound)
@@ -309,7 +312,7 @@ void AUTWeap_LinkGun::Tick(float DeltaTime)
 	}
 	else
 	{
-		OverheatFactor = (IsFiring() && (UTOwner->GetFireRateMultiplier() <= 1.f)) ? OverheatFactor + 0.5f*DeltaTime : FMath::Max(0.f, OverheatFactor - 2.f * DeltaTime);
+		OverheatFactor = (UTOwner && IsFiring() && (UTOwner->GetFireRateMultiplier() <= 1.f)) ? OverheatFactor + 0.5f*DeltaTime : FMath::Max(0.f, OverheatFactor - 2.f * DeltaTime);
 		bIsInCoolDown = (OverheatFactor > 1.f);
 
 	}
