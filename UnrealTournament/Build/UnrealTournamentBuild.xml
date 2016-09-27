@@ -168,7 +168,7 @@
 	</Agent>
 
 	<Agent Name="Make Windows Server Build" Type="Win64">
-		<Node Name="Cook WindowsServer" Requires="Compile UnrealTournamentEditor Win64;Compile Tools Windows">
+		<Node Name="Cook WindowsServer" Requires="Compile UnrealTournamentEditor Win64;Compile Tools Windows" After="Publish WindowsNoEditor Win32;Publish WindowsNoEditor Win64">
 			<Cook Project="$(ProjectFile)" Platform="WindowsServer"/>
 		</Node>
 		<!-- this stage command does asset registry files for the windows server, so we need to include that -->
@@ -182,7 +182,7 @@
 	</Agent>
 
 	<Agent Name="Make Windows Editor Build" Type="Win64">
-		<Node Name="Copy Editor Win64" Requires="Compile Tools Windows">
+		<Node Name="Copy Editor Win64" Requires="Compile Tools Windows" After="Publish WindowsServer Win64">
 			<Property Name="EngineReceiptsDir" Value="$(RootDir)/Engine/Binaries/Win64"/>
 			<Property Name="UTReceiptsDir" Value="$(RootDir)/UnrealTournament/Binaries/Win64"/>
 			
@@ -321,7 +321,7 @@
 	</Agent>
 
 	<Agent Name="Make Mac Editor Build" Type="Mac">
-		<Node Name="Copy Editor Mac" Requires="Compile Tools Mac">
+		<Node Name="Copy Editor Mac" Requires="Compile Tools Mac" After="Publish Mac">
 			<Property Name="EngineReceiptsDir" Value="$(RootDir)/Engine/Binaries/Mac"/>
 			<Property Name="UTReceiptsDir" Value="$(RootDir)/UnrealTournament/Binaries/Mac"/>
 
@@ -424,7 +424,7 @@
 	</Agent>
 
 	<Agent Name="Make Linux Server Build" Type="Win64">
-		<Node Name="Cook LinuxServer" Requires="Compile UnrealTournamentEditor Win64;Compile Tools Windows;Compile Tools Linux">
+		<Node Name="Cook LinuxServer" Requires="Compile UnrealTournamentEditor Win64;Compile Tools Windows;Compile Tools Linux" After="Publish LinuxNoEditor">
 			<Cook Project="$(ProjectFile)" Platform="LinuxServer"/>
 		</Node>
 		<Node Name="Stage LinuxServer" Requires="Compile UT Linux Server;Cook LinuxServer">
