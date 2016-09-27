@@ -312,7 +312,7 @@ void AUTWeap_LinkGun::Tick(float DeltaTime)
 	}
 	else
 	{
-		OverheatFactor = (UTOwner && IsFiring() && (UTOwner->GetFireRateMultiplier() <= 1.f)) ? OverheatFactor + 0.5f*DeltaTime : FMath::Max(0.f, OverheatFactor - 2.f * DeltaTime);
+		OverheatFactor = (UTOwner && IsFiring() && (CurrentFireMode == 0) && (UTOwner->GetFireRateMultiplier() <= 1.f)) ? OverheatFactor + 0.5f*DeltaTime : FMath::Max(0.f, OverheatFactor - 2.f * DeltaTime);
 		bIsInCoolDown = (OverheatFactor > 1.f);
 
 	}
@@ -722,22 +722,19 @@ void AUTWeap_LinkGun::DrawWeaponCrosshair_Implementation(UUTHUDWidget* WeaponHud
 {
 	Super::DrawWeaponCrosshair_Implementation(WeaponHudWidget, RenderDelta);
 
-	if (WeaponHudWidget && WeaponHudWidget->UTHUDOwner)
+	if ((OverheatFactor > 0.f) && WeaponHudWidget && WeaponHudWidget->UTHUDOwner)
 	{
 		float Width = 150.f;
 		float Height = 21.f;
-		float Scale = GetCrosshairScale(WeaponHudWidget->UTHUDOwner) * (bIsInCoolDown ? 1.2f : 1.f);
+		float Scale = (bIsInCoolDown ? 1.2f : 1.f) * WeaponHudWidget->GetRenderScale();
 
 	//	WeaponHudWidget->DrawTexture(WeaponHudWidget->UTHUDOwner->HUDAtlas, 0.f, 96.f, Scale*Width, Scale*Height, 127, 671, Width, Height, 0.7f, FLinearColor::White, FVector2D(0.5f, 0.5f));
-		if (OverheatFactor > 0.f)
+		FLinearColor ChargeColor = FLinearColor::White;
+		float ChargePct = FMath::Clamp(OverheatFactor, 0.f, 1.f);
+		WeaponHudWidget->DrawTexture(WeaponHudWidget->UTHUDOwner->HUDAtlas, 0.f, 32.f, Scale*Width*ChargePct, Scale*Height, 127, 641, Width, Height, bIsInCoolDown ? OverheatFactor : 0.7f, FLinearColor::White, FVector2D(0.5f, 0.5f));
+		if (bIsInCoolDown)
 		{
-			FLinearColor ChargeColor = FLinearColor::White;
-			float ChargePct = FMath::Clamp(OverheatFactor, 0.f, 1.f);
-			WeaponHudWidget->DrawTexture(WeaponHudWidget->UTHUDOwner->HUDAtlas, 0.f, 32.f, Scale*Width*ChargePct, Scale*Height, 127, 641, Width, Height, bIsInCoolDown ? OverheatFactor : 0.7f, FLinearColor::White, FVector2D(0.5f, 0.5f));
-			if (bIsInCoolDown)
-			{
-				WeaponHudWidget->DrawText(NSLOCTEXT("LinkGun", "Overheat", "OVERHEAT"), 0.f, 29.f, WeaponHudWidget->UTHUDOwner->TinyFont, Scale, FMath::Min(3.f*OverheatFactor, 1.f), FLinearColor::Yellow, ETextHorzPos::Center, ETextVertPos::Center);
-			}
+			WeaponHudWidget->DrawText(NSLOCTEXT("LinkGun", "Overheat", "OVERHEAT"), 0.f, 28.f, WeaponHudWidget->UTHUDOwner->TinyFont, Scale, FMath::Min(3.f*OverheatFactor, 1.f), FLinearColor::Yellow, ETextHorzPos::Center, ETextVertPos::Center);
 		}
 		WeaponHudWidget->DrawTexture(WeaponHudWidget->UTHUDOwner->HUDAtlas, 0.f, 32.f, Scale*Width, Scale*Height, 127, 612, Width, Height, 1.f, FLinearColor::White, FVector2D(0.5f, 0.5f));
 	}
