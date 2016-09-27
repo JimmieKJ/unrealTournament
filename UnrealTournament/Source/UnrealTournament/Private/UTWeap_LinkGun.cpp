@@ -105,7 +105,7 @@ void AUTWeap_LinkGun::UpdateScreenTexture(UCanvas* C, int32 Width, int32 Height)
 		RenderInfo.GlowInfo.GlowInnerRadius.X = 0.475f;
 		RenderInfo.GlowInfo.GlowInnerRadius.Y = 0.5f;
 
-		FString OverheatText = FString::FromInt(int32(100.f*FMath::Clamp(OverheatFactor, 0.1f, 1.f)));
+		FString OverheatText = bIsInCoolDown ? TEXT("***") : FString::FromInt(int32(100.f*FMath::Clamp(OverheatFactor, 0.1f, 1.f)));
 		float XL, YL;
 		C->TextSize(ScreenFont, OverheatText, XL, YL);
 		if (!WordWrapper.IsValid())
@@ -113,7 +113,7 @@ void AUTWeap_LinkGun::UpdateScreenTexture(UCanvas* C, int32 Width, int32 Height)
 			WordWrapper = MakeShareable(new FCanvasWordWrapper());
 		}
 		FLinearColor ScreenColor = (OverheatFactor <= (IsFiring() ? 0.5f : 0.f)) ? FLinearColor::Green : FLinearColor::Yellow;
-		if (OverheatFactor >= 1.f)
+		if (bIsInCoolDown)
 		{
 			ScreenColor = FLinearColor::Red;
 		}
@@ -134,44 +134,12 @@ void AUTWeap_LinkGun::UpdateScreenTexture(UCanvas* C, int32 Width, int32 Height)
 	}
 }
 
-float AUTWeap_LinkGun::GetRefireTime(uint8 FireModeNum)
+void AUTWeap_LinkGun::FireShot()
 {
-	if ((FireModeNum == 0) && (OverheatFactor > 1.f) && FireInterval.IsValidIndex(FireModeNum) && (UTOwner->GetFireRateMultiplier() <= 1.f))
+	if (!bIsInCoolDown)
 	{
-		float Result = FireInterval[FireModeNum] * 5.f * (OverheatFactor - 0.8f);
-		if (UTOwner != NULL)
-		{
-			Result /= UTOwner->GetFireRateMultiplier();
-		}
-		return FMath::Max<float>(0.01f, Result);
-
+		Super::FireShot();
 	}
-	else
-	{
-		return Super::GetRefireTime(FireModeNum);
-	}
-}
-
-bool AUTWeap_LinkGun::HandleContinuedFiring()
-{
-	if (!CanFireAgain() || !GetUTOwner()->IsPendingFire(GetCurrentFireMode()))
-	{
-		GotoActiveState();
-		return false;
-	}
-	if (GetCurrentFireMode() == 0)
-	{
-		if (OverheatFactor > 1.f)
-		{
-			UpdateTiming();
-		}
-		OverheatFactor = (UTOwner->GetFireRateMultiplier() <= 1.f) ? FMath::Min(OverheatFactor + 0.07f, 2.f) : 0.f;
-	}
-
-	LastContinuedFiring = GetWorld()->GetTimeSeconds();
-
-	OnContinuedFiring();
-	return true;
 }
 
 AUTProjectile* AUTWeap_LinkGun::FireProjectile()
@@ -289,18 +257,9 @@ void AUTWeap_LinkGun::FireInstantHit(bool bDealDamage, FHitResult* OutHit)
 	}
 }
 
-void AUTWeap_LinkGun::PlayFiringEffects()
-{
-	if (UTOwner && (CurrentFireMode == 0) && Cast<AUTPlayerController>(UTOwner->GetController()) && UTOwner->IsLocallyControlled() && FPFireSound.IsValidIndex(0))
-	{
-		FPFireSound[0] = (OverheatFactor > 0.9f) ? OverheatFPFireSound : NormalFPFireSound;
-	}
-	Super::PlayFiringEffects();
-}
-
 UAnimMontage* AUTWeap_LinkGun::GetFiringAnim(uint8 FireMode, bool bOnHands) const
 {
-	if (FireMode == 0 && (OverheatFactor > 1.f) && OverheatAnim && !bOnHands)
+	if (FireMode == 0 && bIsInCoolDown && OverheatAnim && !bOnHands)
 	{
 		return OverheatAnim;
 	}
@@ -328,6 +287,32 @@ void AUTWeap_LinkGun::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
+	if (bIsInCoolDown)
+	{
+		OverheatFactor -= 2.f * DeltaTime;
+		if (OverheatFactor <= 0.f)
+		{
+			OverheatFactor = 0.f;
+			bIsInCoolDown = false;
+			UTOwner->SetAmbientSound(OverheatSound, true);
+			UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
+			if ((AnimInstance != NULL) && (EndOverheatAnimSection != NAME_None))
+			{
+				AnimInstance->Montage_JumpToSection(EndOverheatAnimSection, OverheatAnim);
+			}
+		}
+		else if (UTOwner && OverheatSound)
+		{
+			UTOwner->SetAmbientSound(OverheatSound, false);
+			UTOwner->ChangeAmbientSoundPitch(OverheatSound, 0.5f + OverheatFactor);
+		}
+	}
+	else
+	{
+		OverheatFactor = (IsFiring() && (UTOwner->GetFireRateMultiplier() <= 1.f)) ? OverheatFactor + 0.5f*DeltaTime : FMath::Max(0.f, OverheatFactor - 2.f * DeltaTime);
+		bIsInCoolDown = (OverheatFactor > 1.f);
+
+	}
 	if (ScreenTexture != NULL && Mesh->IsRegistered() && GetWorld()->TimeSeconds - Mesh->LastRenderTime < 0.1f)
 	{
 		ScreenTexture->FastUpdateResource();
@@ -378,29 +363,6 @@ void AUTWeap_LinkGun::Tick(float DeltaTime)
 			if (Hit.Time < 1.f)
 			{
 				PulseLoc = Hit.Location;
-			}
-		}
-	}
-	else
-	{
-		float OldOverheatFactor = OverheatFactor;
-		OverheatFactor = FMath::Clamp(OverheatFactor - 2.f*DeltaTime, 0.f, 2.f);
-		if ((OverheatFactor > 0.f) && UTOwner)
-		{
-			// @TOOD FIXMESTEVE - set this sound when stop firing
-			if (OverheatSound)
-			{
-				UTOwner->SetAmbientSound(OverheatSound, false);
-				UTOwner->ChangeAmbientSoundPitch(OverheatSound, OverheatFactor);
-			}
-		}
-		if ((OldOverheatFactor > 0.f) && (OverheatFactor == 0.f) && UTOwner)
-		{
-			UTOwner->SetAmbientSound(OverheatSound, true);
-			UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
-			if ((AnimInstance != NULL) && (EndOverheatAnimSection != NAME_None))
-			{
-				AnimInstance->Montage_JumpToSection(EndOverheatAnimSection, OverheatAnim);
 			}
 		}
 	}
@@ -761,22 +723,19 @@ void AUTWeap_LinkGun::DrawWeaponCrosshair_Implementation(UUTHUDWidget* WeaponHud
 	{
 		float Width = 150.f;
 		float Height = 21.f;
-		float Scale = GetCrosshairScale(WeaponHudWidget->UTHUDOwner);
+		float Scale = GetCrosshairScale(WeaponHudWidget->UTHUDOwner) * (bIsInCoolDown ? 1.2f : 1.f);
+
 	//	WeaponHudWidget->DrawTexture(WeaponHudWidget->UTHUDOwner->HUDAtlas, 0.f, 96.f, Scale*Width, Scale*Height, 127, 671, Width, Height, 0.7f, FLinearColor::White, FVector2D(0.5f, 0.5f));
 		if (OverheatFactor > 0.f)
 		{
-			FLinearColor ChargeColor = FLinearColor::Red;
-			if (OverheatFactor < 1.f)
-			{
-				ChargeColor = (OverheatFactor > 0.8f) ? FLinearColor::Yellow : FLinearColor::White;
-			}
+			FLinearColor ChargeColor = FLinearColor::White;
 			float ChargePct = FMath::Clamp(OverheatFactor, 0.f, 1.f);
-			WeaponHudWidget->DrawTexture(WeaponHudWidget->UTHUDOwner->HUDAtlas, 0.f, 32.f, Scale*Width*ChargePct, Scale*Height, 127, 641, Width, Height, 0.7f, FLinearColor::White, FVector2D(0.5f, 0.5f));
-			if (ChargePct >= 1.f)
+			WeaponHudWidget->DrawTexture(WeaponHudWidget->UTHUDOwner->HUDAtlas, 0.f, 32.f, Scale*Width*ChargePct, Scale*Height, 127, 641, Width, Height, bIsInCoolDown ? OverheatFactor : 0.7f, FLinearColor::White, FVector2D(0.5f, 0.5f));
+			if (bIsInCoolDown)
 			{
-				WeaponHudWidget->DrawText(NSLOCTEXT("LinkGun", "Overheat", "OVERHEAT"), 0.f, 29.f, WeaponHudWidget->UTHUDOwner->TinyFont, Scale, 1.f, FLinearColor::Yellow, ETextHorzPos::Center, ETextVertPos::Center);
+				WeaponHudWidget->DrawText(NSLOCTEXT("LinkGun", "Overheat", "OVERHEAT"), 0.f, 29.f, WeaponHudWidget->UTHUDOwner->TinyFont, Scale, FMath::Min(3.f*OverheatFactor, 1.f), FLinearColor::Yellow, ETextHorzPos::Center, ETextVertPos::Center);
 			}
 		}
-		WeaponHudWidget->DrawTexture(WeaponHudWidget->UTHUDOwner->HUDAtlas, 0.f, 32.f, Scale*Width, Scale*Height, 127, 612, Width, Height, 0.7f, FLinearColor::White, FVector2D(0.5f, 0.5f));
+		WeaponHudWidget->DrawTexture(WeaponHudWidget->UTHUDOwner->HUDAtlas, 0.f, 32.f, Scale*Width, Scale*Height, 127, 612, Width, Height, 1.f, FLinearColor::White, FVector2D(0.5f, 0.5f));
 	}
 }

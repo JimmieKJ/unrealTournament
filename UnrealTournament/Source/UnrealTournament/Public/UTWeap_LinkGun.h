@@ -71,7 +71,8 @@ class UNREALTOURNAMENT_API AUTWeap_LinkGun : public AUTWeapon
 	UPROPERTY(BlueprintReadWrite, Category = LinkGun)
 	float OverheatFactor;
 
-	virtual void PlayFiringEffects() override;
+	UPROPERTY(BlueprintReadWrite, Category = LinkGun)
+		bool bIsInCoolDown;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = LinkGun)
 		USoundBase* OverheatFPFireSound;
@@ -109,14 +110,13 @@ class UNREALTOURNAMENT_API AUTWeap_LinkGun : public AUTWeapon
 	/** Return true if currently in Link Pulse. */
 	virtual bool IsLinkPulsing();
 
+	virtual void FireShot() override;
+
 	// override to handle setting Link Bolt properties by Links.
 	virtual AUTProjectile* FireProjectile() override;
 
 	// override to handle link beam distance scaling by Links
 	virtual void FireInstantHit(bool bDealDamage = true, FHitResult* OutHit = NULL) override;
-
-	virtual bool HandleContinuedFiring() override;
-	virtual float GetRefireTime(uint8 FireModeNum) override;
 
 	// Overridden to call linkedConsumeAmmo on gun that's linked to us
 	virtual void ConsumeAmmo(uint8 FireModeNum);
