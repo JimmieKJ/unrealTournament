@@ -441,6 +441,8 @@ void UUTLocalPlayer::ShowMenu(const FString& Parameters)
 {
 #if !UE_SERVER
 
+	if (PlayerController) PlayerController->FlushPressedKeys();
+
 	if (QuickChatWindow.IsValid())
 	{
 		CloseQuickChat();
