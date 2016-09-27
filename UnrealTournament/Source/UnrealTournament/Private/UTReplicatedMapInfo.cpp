@@ -140,6 +140,7 @@ void AUTReplicatedMapInfo::OnRep_MapPackageName()
 	}
 }
 
+#if !UE_SERVER
 TSharedRef<SWidget> AUTReplicatedMapInfo::BuildMapOverlay(FVector2D Size, bool bIgnoreLock)
 {
 	TSharedPtr<SOverlay> Overlay;
@@ -215,3 +216,4 @@ TSharedRef<SWidget> AUTReplicatedMapInfo::BuildMapOverlay(FVector2D Size, bool b
 	return Overlay.ToSharedRef();
 }
 
+#endif

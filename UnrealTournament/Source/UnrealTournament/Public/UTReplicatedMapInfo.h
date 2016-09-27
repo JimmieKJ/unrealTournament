@@ -70,8 +70,9 @@ public:
 
 	virtual bool IsNetRelevantFor(const AActor* RealViewer, const AActor* ViewTarget, const FVector& SrcLocation) const override;
 
+#if !UE_SERVER
 	virtual TSharedRef<SWidget> BuildMapOverlay(FVector2D Size, bool bIgnoreLock = false);
-
+#endif
 
 protected:
 	TArray<AUTPlayerState*> VoterRegistry;

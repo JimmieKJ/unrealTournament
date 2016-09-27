@@ -313,7 +313,11 @@ public:
 	UFUNCTION(BlueprintCallable, Category = Game)
 	bool bIsQuickmatchDialogOpen()
 	{
+#if UE_SERVER
+		return false;
+#else
 		return QuickMatchDialog.IsValid();
+#endif
 	}
 
 	// Last text entered in Connect To IP
