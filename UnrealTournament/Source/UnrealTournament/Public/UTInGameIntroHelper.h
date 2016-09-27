@@ -39,7 +39,7 @@ protected:
 	void MovePlayers(UWorld* World, InGameIntroZoneTypes ZoneType);
 
 	UFUNCTION()
-	void SpawnClone(UWorld* World, AUTPlayerState* PS, FTransform Location);
+	void SpawnClone(UWorld* World, AUTPlayerState* PS, const FTransform& Location);
 	
 	UFUNCTION()
 	void DestroySpawnedClones();

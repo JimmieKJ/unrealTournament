@@ -357,7 +357,7 @@ AUTInGameIntroZoneTeamSpawnPointList* UUTInGameIntroHelper::GetAppropriateSpawnL
 
 static int32 WeaponIndex = 0;
 
-void UUTInGameIntroHelper::SpawnClone(UWorld* World, AUTPlayerState* PS, FTransform Location)
+void UUTInGameIntroHelper::SpawnClone(UWorld* World, AUTPlayerState* PS, const FTransform& Location)
 {
 	AUTWeaponAttachment* PreviewWeapon = nullptr;
 	UAnimationAsset* PlayerPreviewAnim = nullptr;
