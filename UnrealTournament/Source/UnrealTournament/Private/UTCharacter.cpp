@@ -4415,7 +4415,6 @@ void AUTCharacter::Tick(float DeltaTime)
 			GetMesh()->SetRelativeRotation(GetClass()->GetDefaultObject<AUTCharacter>()->GetMesh()->RelativeRotation);
 			GetMesh()->SetRelativeScale3D(GetClass()->GetDefaultObject<AUTCharacter>()->GetMesh()->RelativeScale3D);
 
-			AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
 			if (!GS || !GS->IsMatchIntermission() || !GS->HasMatchEnded())
 			{
 				DisallowWeaponFiring(GetClass()->GetDefaultObject<AUTCharacter>()->bDisallowWeaponFiring);
@@ -5380,7 +5379,7 @@ void AUTCharacter::PostRenderForInGameIntro(APlayerController* PC, UCanvas *Canv
 		Canvas->TextSize(TinyFont, PlayerState->PlayerName, TextXL, TextYL, 1.0f, 1.0f);
 		Canvas->TextSize(TinyFont, PlayerState->PlayerName, MinTextXL, TextYL, 1.0f, 1.0f);
 
-		BarWidth = Border + (TextXL > MinTextXL) ? TextXL : MinTextXL;
+		BarWidth = Border + ((TextXL > MinTextXL) ? TextXL : MinTextXL);
 		BarHeight = Border + (.5*TextYL);
 		
 		FVector WorldPosition = GetMesh()->GetComponentLocation();
