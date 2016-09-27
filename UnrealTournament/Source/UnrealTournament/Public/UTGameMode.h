@@ -352,6 +352,10 @@ public:
 	UPROPERTY(Config)
 	TArray<FString> MapRotation;
 
+	// These maps will be added to the map rotation list.  This is to get around ini parser limitations
+	UPROPERTY(Config)
+	TArray<FString> UserMapRotation;
+
 	UPROPERTY()
 	FString RconNextMapName;
 

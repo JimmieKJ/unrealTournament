@@ -2323,6 +2323,12 @@ void AUTGameMode::TravelToNextMap_Implementation()
 		MapPrefixList.Add(MapPrefix);
 		UTGameState->ScanForMaps(MapPrefixList, MapList);
 
+		// Add the user maps in to the map rotation list
+		for (FString& UserMap : UserMapRotation)
+		{
+			MapRotation.Add(UserMap);
+		}
+
 		// First, fixup the MapRotation array so it only has long names...
 		for (FString& Map : MapRotation)
 		{
