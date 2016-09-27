@@ -617,6 +617,7 @@ void AUTGameSessionRanked::CreateServerGame()
 	UWorld* World = GetWorld();
 	check(World);
 	int32 PlaylistId = GetPlaylistId();
+	int32 TeamElo = GetTeamElo();
 	
 	PauseBeaconRequests(true);
 	// Let the beacon get destroyed on actor cleanup.  Allows RPCs to finish during the server travel countdown
@@ -631,7 +632,7 @@ void AUTGameSessionRanked::CreateServerGame()
 
 		if (!TravelURL.IsEmpty())
 		{
-			int32 BotSkill = UTGameInstance->GetBotSkillForTeamElo(GetTeamElo());
+			int32 BotSkill = UTGameInstance->GetBotSkillForTeamElo(TeamElo);
 			TravelURL += FString::Printf(TEXT("?Difficulty=%d"), BotSkill);
 		}
 	}
