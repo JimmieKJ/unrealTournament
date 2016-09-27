@@ -548,7 +548,9 @@ void AUTHUD::NotifyMatchStateChange()
 					GetWorldTimerManager().SetTimer(MatchSummaryHandle, TimerCallback, 1.7f, false);
 				}
 			}	
-			else
+			
+			//if InGameIntro didn't start, use old method
+			if (!GS->InGameIntroHelper || !GS->InGameIntroHelper->bIsActive)
 			{
 				if (UTPlayerOwner->UTPlayerState && UTPlayerOwner->UTPlayerState->bIsWarmingUp)
 				{
